@@ -1,0 +1,28 @@
+id: hook-harness-skip-interrupt-keys
+version: 0.10.2
+title: "끊김을 hook으로 알리는 harness는 Esc·Ctrl-C로 탭 점을 내리지 않는다"
+modules: [packages/protocol, packages/shell/main]
+checked: []
+change: |
+  전:
+  - 도는 turn 중에 Esc나 Ctrl-C를 한 번 치면 tracker가 상태를 unknown으로 내렸다. omp·pi 등은 입력을 지우거나 팝업을 닫는 데도 이 key를 써서, turn이 도는데 점만 사라졌다.
+  - unknown은 다음 TurnStarted까지 안 풀린다. wait·subagent로 이어지는 turn은 몇 시간이고 점이 없었다.
+  후:
+  - 끊김을 hook으로 알리는 harness(opencode·kilo·mimocode, pi, omp, amp, grok, droid, cline, cursor, kimi, codex)는 interrupt_keys가 비어 있고, 끊김은 TurnEnded(interrupted)로만 안다. cursor는 stop의 status: aborted, kimi와 codex는 Interrupt hook, 나머지는 plugin 본문이 알린다.
+  - 그 밖의 harness(claude, copilot, kiro, antigravity, devin, qwen, qoder, muse, codebuddy, command-code, letta, hermes)는 전처럼 key로 내린다. hermes는 on_session_end의 extra.interrupted를 읽는 코드는 있지만 실제로 오는지 확인하지 못해 남겼다.
+  - 키 판정이 남은 harness는 키로 내린 것을 짐작으로 기억한다. 그 뒤 PermissionResolved(PostToolUse 계열)가 오면 turn이 안 끊긴 것이라 running으로 되돌린다.
+  계약:
+  - 바뀐 것: HARNESS_ADAPTERS[id].interrupt_keys가 위 harness에서 [].
+why: |
+  점은 도는 turn 동안 보여야 한다. 끊김을 hook이 알려 주는데 key로도 내리면 오판만 늘고 되돌릴 길이 없다.
+decisions:
+  - text: "key 판정은 끊김 신호가 없는 harness에만 남긴다. 버린 길: 모든 harness에서 key 판정 삭제. Claude Code는 Esc로 끊어도 Stop을 안 보낸다."
+    by: agent
+  - text: "키 판정이 남은 harness의 같은 증상(입력 지우기로 점이 사라짐)은 tool이 끝나는 hook으로 되돌린다. tool이 없는 turn(긴 생성)에서는 되돌리지 못한다. 진짜 끊긴 turn에 동시에 끝난 tool의 늦은 hook이 오면 running에 남을 수 있어 감수한다."
+    by: agent
+  - text: "각 harness가 실제로 끊김 hook을 내는지는 표와 payload를 읽는 코드, 공식 문서(cursor stop.status)로 가렸다. 실행해서 확인한 것은 omp뿐이다."
+    by: agent
+  - text: "Codex 0.150 미만은 Interrupt hook이 없어 끊어도 running에 남는다. 설치본이 0.165이고 표가 판을 가르지 못해 감수한다."
+    by: agent
+follow_up: |
+  이미 떠 있는 탭의 unknown은 다음 turn이 시작해야 풀린다. 앱을 다시 켜면 이 변경이 적용된다.

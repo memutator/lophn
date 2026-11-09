@@ -1,0 +1,12 @@
+id: layout-save-rejection-is-silent
+title: layout 저장이 거절돼도 화면은 그대로이고 사람은 모른다
+kind: bug
+status: open
+topic: workspace-layout
+modules: [packages/shell/renderer]
+now: |
+  `workspace-window.tsx`의 `persist`는 `void source.layout.saveWorkspaceLayout(...)`로 결과를 버린다. `saveWorkspaceLayout`(`packages/shell/renderer/shell/layout-source.ts`)은 main의 거절(`invalid_input`, `unwritable`)과 bridge 없음을 모두 `{ ok: false }`로 돌려주지만 부르는 쪽 중 `persist`는 보지 않고, 재시도도 없다. 전역 float의 `flush`(`renderer/shell/global-floats/store.ts`)도 `save(...).catch(() => {})`이고 `{ ok: false }` 응답은 그냥 지나간다(`dirty`가 이미 false라 다음 변화가 있어야 다시 쓴다).
+impact: |
+  디스크가 가득 차거나 파일을 못 쓰면, 사람이 밤새 늘어놓은 탭 배치가 화면에서는 멀쩡해 보이다가 재시작하면 옛 배치로 돌아간다. 알림이 없다.
+fix: |
+  첫 실패에서 toast 하나를 띄우고 `dirty`를 유지해 다음 변화나 기한에 다시 쓴다(작음). 추천: 이것.

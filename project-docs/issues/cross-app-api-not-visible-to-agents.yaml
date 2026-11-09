@@ -1,0 +1,24 @@
+id: cross-app-api-not-visible-to-agents
+title: 다른 앱의 app-api를 agent가 볼 tool이 없다
+kind: bug
+status: fixed
+topic: reuse
+modules: [packages/core/apps, packages/core/agent-workspaces]
+now: |
+  - `app.list`와 `app.get` tool(`packages/core/apps/agent-tools/app.ts`)은 `App`만 돌려준다. 칸은 `packages/protocol/apps/apps.ts`의 `appFields`(id, slug, name, description, source_path, active_release 등)이고, `app.get`은 열린 problem 수를 더한다.
+  - active release의 app-api 목록(key, label, description, effect, input)은 route `app.app_api`(`packages/protocol/apps/blueprint/read.ts`의 `appAppApi`)가 준다. actors에 agent도 있다.
+  - 그런데 이 목록을 model에게 보여 주는 tool이 없다. 같은 route를 쓰는 `visual.show`(`packages/core/apps/agent-tools/visual.ts`)는 대화에 앱 카드만 올린다.
+  - lophn은 project 폴더만, App Engineer는 자기 앱 source만 읽는다(`placeScope`). 그래서 다른 앱의 `blueprint.ts`도 보지 못한다.
+  - App Engineer의 자격은 자기 앱 하나로 묶여 있다(credential의 `conditions.app`). 그래서 `app.list`에는 자기 앱만 나오고, 다른 앱의 `app.get`과 `app.app_api`는 `not_found`다. 다른 앱의 id도 알 길이 없다.
+  - 다른 앱의 app-api가 tool로 생기는 것은 사람이 그 앱을 agent에게 할당했을 때뿐이다(`packages/core/lophn-agent/tools/app-tools.ts`).
+impact: |
+  - 사람이 새 앱을 청할 때, 다른 앱이 이미 가진 기능(예: 알림 앱의 일정 알림)을 lophn과 App Engineer가 찾지 못한다.
+  - lophn 지침의 "change an existing app" 견주기가 앱 이름과 한 줄 설명으로만 된다.
+  - App Engineer는 blueprint `app_connections`에 정확한 app-api key를 적어야 한다(`packages/protocol/apps/blueprint/uses.ts`). 그런데 그 key를 읽을 길이 없다. 사람이 key를 말해 주지 않으면 같은 기능을 새 앱 안에 다시 만든다.
+fix: |
+  `app.app_api`를 감싼 read tool을 새로 두고, lophn과 App Engineer의 tool 목록(`packages/core/agent-roles/tool-lists.ts`)에만 넣는다(작음). App Engineer가 쓰려면 다른 앱의 목록과 app-api를 읽도록 자격을 넓혀야 한다(읽기만). 돌려주는 것은 active release의 app-api 목록(key, label, description, effect)이다. 모든 role이 가진 `app.get`에 싣지 않는 것은 아래 정한 것 때문이다. 같은 tool이 role마다 다른 것을 돌려주지 않게 한다.
+decided: |
+  다른 앱의 app-api 목록은 lophn과 App Engineer만 본다(사람).
+closed: |
+  read tool `app.app_api`가 route `app.app_api_index`(`packages/core/apps/blueprint/reads.ts`의 `appApiIndex`)로 모든 active 앱의 이름·설명과 app-api 목록(key, label, description, effect)을 돌려주고, `app`을 주면 그 앱의 입력 모양도 싣는다. `tool-lists.ts`의 `APP_API_TOOLS`가 이 tool을 lophn과 App Engineer 목록에만 넣는다. 이 read는 앱 범위 판정을 하지 않는 대신 돌려주는 칸이 이것뿐이라 다른 앱의 source, problem, ticket은 열리지 않는다. 기존 `app.get`·`app.app_api` route의 자격 검사는 그대로다. lophn과 App Engineer 지침이 이 tool을 읽으라고 한다.
+guard: packages/core/agent-roles/tool-lists_test.ts "app.app_api is only in the lophn and App Engineer lists", packages/core/apps/blueprint/reads_test.ts

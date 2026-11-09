@@ -1,0 +1,23 @@
+id: chatgpt-account-model-list-live-check
+version: 0.3.0
+title: 'ChatGPT 계정이 쓸 수 있는 model만 고르게 하고, 구독 OAuth를 진짜로 확인하는 live 길을 둠'
+modules: [packages/core/lophn-agent, packages/core/main, packages/protocol, packages/shell/renderer, tests]
+checked: [agents-md, tool-dev]
+change: |
+  전: ChatGPT로 연결한 provider에서 catalog의 `openai` model이 모두 보였다. 계정이 못 쓰는 model을 고르면 turn이 provider 거절로 실패했다. 구독 OAuth는 fake 발급자로만 확인했다.
+  후:
+  - core가 연결 직후와 token을 건넨 뒤(갱신 직후, 목록이 아직 없을 때)에 같은 Bearer로 `GET /v1/models`를 읽어 `credential.account_models`에 둔다. 읽기는 token 넘기기를 기다리게 하지 않고, 실패하면 앞서 저장한 목록을 남긴다.
+  - resolver는 목록 밖 model을 `not_found`로 거절하고, 대화의 model picker와 agent 편집의 Model 칸은 같은 거름(`accountAllows`)을 쓴다. 목록이 `null`이면(API key provider, 못 읽음) 전과 같이 모두 보인다.
+  - `deno task test:live:login`: live 전용 root(`.dev-data/live/home`)에 사람이 진짜 ChatGPT 로그인을 한 번 저장하고 계정 model 목록 응답 모양을 찍는다. `deno task test:live`는 그 root가 있으면 구독 token으로 turn을 돌려 계정 목록·`subscription` 과금 경로·(만료 5분 전이면) refresh token 회전을 단정한다.
+  계약: `ProviderCredential.account_models: string[] | null`, command `RecordProviderAccountModels`가 생겼다. 발급자 요청 header 값 상한이 512에서 4096으로 올랐다(Bearer + JWT). `provider_credentials` 표 step에 열이 늘어 옛 개발 data는 새로 만든다.
+why: |
+  계정마다 쓸 수 있는 model이 다른데 화면이 몰라서 사람은 고른 뒤 실패해서야 알았다.
+decisions:
+  - text: '목록을 읽지 못하거나 모양이 틀리면 `null`(거르지 않음)로 둔다. 잘못 읽어서 model을 전부 숨기는 쪽이 못 읽는 쪽보다 나쁘다.'
+    by: agent
+  - text: 'live root에 쓸 수 없는 credential이 있으면 `test:live`는 이유를 찍고 실패한다. 조용히 넘기면 만료를 숨긴다.'
+    by: agent
+  - text: '이미 목록 밖 model이 기본값으로 저장돼 있으면 picker는 그 이름을 보이되 고를 목록에는 없고, turn은 `not_found`로 실패한다. 저장 검사(`checkChoice`)는 목록을 보지 않는다.'
+    by: person
+follow_up: |
+  첫 진짜 로그인에서 `data[].id`·`visibility` 칸 이름이 맞는지 확인한다(틀리면 `providers/account-models.ts`의 상수 한 곳).

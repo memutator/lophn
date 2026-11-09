@@ -1,0 +1,44 @@
+id: bare-runtime-agent
+version: 0.18.0
+title: "bare runtime: 정의가 고른 것만 싣는 agent"
+modules: [packages/protocol, packages/cli, packages/core/agent-workspaces, packages/core/lophn-agent, packages/core/main, packages/core/router, packages/shell/renderer, packages/design]
+checked: [architecture-approval, architecture-workflow, architecture-event]
+change: |
+  전: 같은 place 종류의 session은 agent가 누구든 같은 tool 목록, 제품 고정 규칙과 place 종류 지침, 지침 층, 내장 skill, place 정보를 받았다. result call은 받은 agent가 `lophn call reply`로 답해야만 done이었다. 정의에 한 줄 목적 칸이 없었다.
+  후:
+  - 정의에 `runtime`(`lophn | bare`, 없으면 lophn), `description`(한 줄, 200자 이하), `tools`(bare일 때만, 고른 이름)가 생겼다. 내장 lophn은 `bare`를 거절하고, lophn에서 `tools`를 쓰면 `invalid_input`이다. agent도 `agent.create`·`agent.update`로 세 칸을 쓴다. 옛 정의 파일은 옮기지 않는다(없으면 lophn).
+  - bare session의 system은 정의 본문 하나다(web tool을 골랐으면 `<lophn-untrusted>` 한 줄을 붙인다). 제품 고정 규칙, place 종류 지침, 전역·project 지침, skill 목록, place 정보 글은 없다. tools는 고른 내장 tool ∩ place 종류 목록, 고른 명령·할당 앱 command만 실은 `lophn` tool, 고른 MCP tool이다. 실행 목록도 같게 좁고, 목록 밖을 고르면 보이지도 돌지도 않는다. credential 상한(`placeOperations`)과 file 범위는 place 종류 그대로다. notice는 tool이 바뀐 것만 간다.
+  - bare가 받은 result call 글은 "마지막 응답이 답"이라고 알린다(받은 turn과 이력 재생이 같은 bytes). 그 turn이 `answer_completed`로 끝나고 마지막 응답 글이 있으면 core wiring(`wiring/bare-reply.ts`)이 `TurnEnded`를 보고 새 machine 명령 `AutoReplyCall`로 답한다. 멈춤, 실패, 빈 글이면 답하지 않아 call은 accepted로 남는다. lophn runtime은 지금처럼 reply 명령이다.
+  - place 종류 tool 이름 목록(`placeToolNames`)이 `packages/protocol/lophn-agent/tool-lists.ts`로 옮겼다. 순서(`TOOL_ORDER`)는 core에 남았다. Agents 편집 화면에 Description, Runtime, bare의 Tools 고르기(모든 place 종류의 내장 tool 체크와 이름 적기)가 생겼고, bare면 Skills 칸을 숨긴다. 카드에 description이 보인다.
+  - 마지막 응답 읽기는 run의 답과 bare 자동 답이 같은 함수(`wiring/turn-answer.ts`의 `turnAnswer`)다.
+
+  검증 (첫 요청 bytes, fake 조립, provider 호출 없음. place 정보는 앱 하나·project 하나·다른 agent 하나, 지침은 전역 "Be brief."와 project "Use pnpm.", skill은 그 place의 내장 skill. 대화는 "hello" 하나. bare는 `file.read, file.glob, file.grep, file.write, shell.run, web.fetch, call.reply`를 고르고 본문 95 bytes): 요청 합은 home lophn 16,443 → bare 2,972(system 223, tools 2,524), project lophn 18,175 → bare 4,422, app lophn 22,405 → bare 4,422다. home에서는 `file.write`, `shell.run`이 place 종류 목록 밖이라 빠진다. 이 변경 앞뒤로 lophn session의 요청 전체 sha256이 세 place 모두 같았다.
+why: |
+  앱 안 코치나 짧은 일 agent는 lophn 제품 규칙과 내장 tool 전부가 필요 없고 그 bytes가 매 turn 든다. reply 명령을 모르는 runtime이 result call에 답하지 않아 부른 쪽이 멈추는 일을 막는다(`project-docs/products/roadmap/agent-platform.md` 단계 3).
+decisions:
+  - text: |
+      고르는 칸은 `tools: string[]` 하나이고 bare에서만 쓴다. lophn runtime에는 항목별 끄기를 두지 않는다.
+    by: agent
+  - text: |
+      고른 것은 place 종류 목록, 할당, 설정한 MCP 안에서만 보이고 돈다. credential 상한은 고른 것과 상관없이 place 종류로 정한다.
+    by: agent
+  - text: |
+      bare의 system cache 표시는 본문 block 하나에 단다(tools까지 덮는다).
+    by: agent
+  - text: |
+      정의에서 뺀 이름은 바로 못 부르고, 더한 이름은 새 session부터다. tool 목록을 session 시작에 고정하는 규칙과 같은 때다.
+    by: agent
+  - text: |
+      자동 답은 runtime 쪽이나 tx 안이 아니라 core wiring이 `TurnEnded`를 보고 한다. 멈춘 turn에 답이 나가지 않고, 본문 blob은 tx 밖에서 만든다. 답하지 못한 call에 새 실패 길을 더하지 않았다.
+    by: agent
+  - text: |
+      bare가 받은 call의 경계는 tag 이름과 메시지마다 붙는 고정 글이 알린다. 인터넷에서 온 것만 `<lophn-untrusted>` 한 줄로 알린다.
+    by: agent
+  - text: |
+      편집 화면의 내장 tool 목록은 core와 같은 protocol 목록을 쓰고, 정의가 전역이라 모든 place 종류의 tool을 보인다.
+    by: agent
+follow_up: |
+  - bare agent가 `workflow.report`를 고르지 않으면 workflow step을 끝내지 못한다(`project-docs/issues/workflow.md`).
+  - 고른 이름이 틀리거나 상한 밖이면 말없이 빠진다(`project-docs/issues/agent-definition.md`).
+  - Compact 요약 재료는 bare의 result call도 lophn 글("`lophn call reply`로 답하라")로 싼다(`packages/core/session/compactor.ts`가 runtime을 넘기지 않는다).
+  - 자동 답은 글만 싣는다. 실제 core에서 bare session을 끝까지 돌리는 test는 아직 없다(module test만 있다).

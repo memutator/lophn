@@ -1,0 +1,13 @@
+id: new-app-can-go-to-coding-agent
+version: 0.3.0
+title: 'lophn이 새로 만든 앱도 coding agent에 맡길 수 있음'
+modules: [packages/core/apps]
+checked: [architecture-coding-agent]
+change: |
+  전: lophn이 `app.create`로 등록한 앱에는 source 폴더가 없었다. 만드는 길도 없어, App Engineer가 coding agent에게 맡기면 `no_source_folder`로 떨어졌다.
+  후: 그 call을 받을 때 core가 template을 `<data root>/apps/<id>/source`에 깔고 commit한 뒤 앱에 잇는다. 그 뒤는 지금 길 그대로다.
+why: |
+  새로 만든 앱은 맡길 source 폴더가 없어, coding agent에게 맡기는 길이 처음부터 막혀 있었다.
+decisions:
+  - text: '맡길 때 core가 만들고, 자리는 `<data root>/apps/<id>/source`다.'
+    by: person

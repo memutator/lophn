@@ -1,0 +1,15 @@
+id: harness-seven-adapter-table
+title: harness 7종의 감지·설치 표
+kind: defect
+status: fixed
+topic: coding-agent
+modules: [packages/protocol, packages/coding-agent]
+now: '`HARNESS_ADAPTERS`(`protocol/coding-agent/harness-adapter.ts`)에 claude, codex, opencode, gemini, pi, hermes, openclaw 7개가 있다. hermes와 openclaw는 `prompt`, `skill_dir`, `hook`이 모두 null이라 감지만 되고 맡길 수 없다. 설치 코드(`harnesses/install.ts`)는 json hook과 pi extension 둘을 다룬다. `format`의 `"toml"`은 어느 adapter도 쓰지 않는다.'
+impact: 제품마다 조사 근거 없는 칸(pi extension 원문의 확인 못한 API, OpenCode hook 위치)과 감지·Settings 행이 따라온다. MVP에 비해 종류가 많다.
+fix: |
+  - claude 하나만 두고 나머지 adapter, pi extension, hook event 표, Settings 행을 지운다(중간, 지우는 일이 대부분).
+  - hermes, openclaw 둘과 쓰지 않는 `toml` 형식만 지운다(작다).
+  - 추천: MVP는 claude 하나. 나머지는 쓰겠다는 요구가 생길 때 다시 조사해 붙인다.
+decided: 7종을 유지한다. 전역 설치로 바꾸면 Hermes와 OpenClaw도 hook을 놓을 수 있다. 쓰지 않는 `toml` 형식만 지운다.
+closed: 7종을 유지하고 `hook.format`의 `"toml"`을 지웠다. hermes와 openclaw의 전역 위치는 확인하지 못해 null 그대로다(아래 열린 bug).
+guard: 없음

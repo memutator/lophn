@@ -1,0 +1,30 @@
+id: call-handoff-display-and-done
+version: 0.9.0
+title: '답 없이 맡긴 call을 화면에서 handoff로 보이고, 받은 turn이 가져가면 done으로 닫는다'
+modules: [packages/core/router, packages/core/lophn-agent, packages/core/workflows, packages/core/agent-workspaces, packages/shell/renderer, packages/design]
+checked: [architecture-workflow, skill-ui-design]
+change: |
+  전:
+  - call 블록 머리 줄은 늘 "Handed to {to}"이고 옆에 답 방식 글("No answer expected", "Answer expected", "Back and forth")이 붙었다. 누르면 펼쳐져 상태 이름, 설명 한 줄, "Read when you opened this. Later changes are not announced."를 보였다. [Open conversation]은 회색 ghost 단추였다.
+  - 접힌 블록은 실패를 보이지 않았다. 보낼 때 바로 실패한 call도 [Open conversation]이 없는 것 말고는 성공한 call과 같아 보였다.
+  - 답 없는 call(`reply: none`)은 받는 session이 그때 turn을 돌지 않을 때만 배달하면서 `done`이 됐다. 돌고 있으면 `accepted`로 남았고 `done`으로 옮기는 곳이 없었다. 그 session을 archive하면 이미 넘어간 일에 `receiver_ended`가 보낸 쪽에 갔다. 블록은 그동안 "In progress · Waiting for the answer"였다.
+  후:
+  - 머리 줄이 답 방식에 맞는 말이다: none은 "Handoff to {to}", result는 "Asked {to}", conversation은 "Working with {to}". 답 방식 글과 펼치기를 지웠다. 실패한 call은 머리 줄에 "Failed" 표시, 맡긴 글 아래 이유 한 줄이고 [Open conversation]이 없다.
+  - [Open conversation]은 테두리 있는 secondary 단추이고 글 뒤에 여는 아이콘(`SquareArrowOutUpRight`)이 붙는다. 줄 오른쪽 끝에 있고 끝나지 않은 call의 [Cancel]은 그 앞이다.
+  - design `Button`에 `trailingIcon`이 생겼다(글 뒤 아이콘). renderer `conversationIcons.openSession`.
+  - 답 없는 call은 받는 turn이 입력을 가져갈 때(`markConsumed`) `done`이 된다. Router는 배달한 call을 늘 `accepted`로 만든다. `InputTransport.deliver`는 `delivered | queued` 대신 `void`를 돌려준다.
+  - wording: `conversation.title.call-handoff`·`call-asked`·`call-working-with`가 생겼고, `call-handed`, 답 방식 label 셋, 상태 label·notice(`call-answered`, `call-delivered`, `call-in-progress`, `call-working-together`, `call-waiting`, `call-as-of`, `call-unreadable`)를 지웠다. `handoff`는 화면 말로 쓰므로 wording의 안쪽 낱말 목록에서 뺐다.
+  - gallery `new-agent-call-open`에 handoff 블록이 생겼고 펼치는 step을 지웠다.
+  - 저장 모양은 그대로다.
+why: |
+  사람이 "No answer expected"와 펼친 상태 칸을 사람이 알 필요가 없는 것으로 봤고, handoff라는 바깥 말과 받은 session으로 가는 잘 보이는 단추를 원했다. 답 없는 call의 상태는 받는 쪽이 바빴는지에 따라 `done`과 늦은 실패 알림으로 갈려, 단추 자리의 [Cancel]이 넘어간 일에 남을 뻔했다.
+decisions:
+  - text: |
+      handoff는 화면 말이다. protocol·tool·prompt는 그대로 `call`과 `reply: none`이다. 버린 길: 화면 말을 바꾸면서 tool 이름까지 바꾸기(agent eval과 prompt가 다 바뀐다).
+    by: person
+  - text: |
+      받은 session으로 저절로 옮겨 가지 않는다. 사람이 단추를 누를 때만 간다. agent가 turn 도중 보낸 handoff로 화면이 바뀌면 사람이 읽던 자리를 잃는다.
+    by: agent
+  - text: |
+      답 없는 call은 배달할 때가 아니라 받는 turn이 가져갈 때 `done`이다. 배달할 때 끝내면 켤 때 입력함과 함께 잃은 call을 `lophn_restarted`로 가리지 못한다.
+    by: agent

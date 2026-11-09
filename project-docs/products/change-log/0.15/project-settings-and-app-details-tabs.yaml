@@ -1,0 +1,17 @@
+id: project-settings-and-app-details-tabs
+version: 0.15.0
+title: Project settings와 App details를 탭으로 연다
+modules: [packages/shell/main, packages/shell/renderer]
+checked: []
+change: |
+  전: Project settings는 modal dialog였다(왼쪽 sidebar 지금 project 줄의 톱니, 팔레트). 앱 place의 앱 상세(Icon, Folders, Version·Access·Activity)는 오른쪽 sidebar의 App panel이었고, Annotate 단추는 그 panel 머리 줄에 있었다. 앱 줄에는 톱니가 없었다. 옛 layout 파일의 `project_settings` 탭은 읽을 때 건너뛰었다.
+  후: 둘 다 desk의 탭이다. `project_settings`(key `project-settings`, project 창에 하나)와 `app_detail`(key `app-detail`, 앱 place에 하나) kind가 main·renderer registry에 있고 layout 파일에는 kind와 key만 남는다(schema_version 8 그대로, 이미 있는 파일은 그대로 읽힌다). 왼쪽 sidebar의 지금 place 줄 오른쪽 끝 톱니가 project에서는 Project settings 탭, 앱에서는 App details 탭을 연다. 앱 place의 오른쪽 sidebar는 Domain·Logs 둘이고 처음 고른 panel은 Domain이다. Annotate는 앱 화면 탭 머리 줄(⋯ 앞)의 단추이고 floated 앱 화면에는 없다.
+why: |
+  사람이 설정과 앱 상세를 탭으로 열어 다른 탭과 나란히 두기를 원했다(사람 2026-11-02).
+decisions:
+  - text: |
+      Annotate는 artifact 탭처럼 앱 화면 탭의 머리 줄로 옮겼다. 앱 화면을 보면서 켜는 단추라 그 탭에 붙였다. 버린 길: Domain panel 머리 줄(뜻이 맞지 않음), App details 탭 안(앱 화면이 가려짐).
+    by: agent
+  - text: |
+      App details 탭 아이콘은 Project settings와 같은 톱니다. 여는 단추와 같은 모양이다.
+    by: agent

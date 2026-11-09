@@ -1,0 +1,16 @@
+id: app-dispatch-returns-wrong-tool-name
+title: "app command dispatch가 wire 이름이 아닌 이름을 돌려 모든 앱 command 호출이 실패"
+kind: mistake
+status: open
+topic: mistakes
+modules: [packages/core/lophn-agent]
+now: |
+  command-surface의 app-commands task가 `prepare.ts`의 `dispatch`에서 풀린 앱 command를 `<domain>.<command>` 이름으로 돌려줬다. 실행기는 wire 이름(`<domain>_<command>`)으로 찾아 `lophn <domain> <command>`가 모두 "tool is not available"이었다. worker는 실제 turn으로 돌려 보지 않았다고 보고했고 unit test는 풀기까지만 봤다. 같은 계획의 e2e-rewrite가 e2e로 찾았고 merge 전에 고쳤다(`resolveAppCall`이 wire 이름을 낸다).
+impact: |
+  계획의 핵심 기능이 plan branch에서 한동안 동작하지 않았다. main에는 가지 않았다.
+fix: |
+  `packages/core/lophn-agent/tools/app-public_test.ts`에 풀린 앱 command를 `toolForWireName`으로 찾는 test를 더했다. 실행 경로를 바꾸는 brief의 위험 test는 "입력부터 실행기까지 한 번 이어 본다"로 쓴다.
+cause: |
+  dispatch를 바꾸는 task의 끝남에 "풀린 호출이 실행기의 찾기까지 이어진다"는 기준이 없었다. 내장 명령의 길(`resolveLophnCall`)은 wire 이름을 냈는데 새 길이 그것을 따르지 않았다.
+prevent: |
+  `packages/core/lophn-agent/tools/app-public_test.ts`에 풀린 앱 command를 `toolForWireName`으로 찾는 test를 더했다. 실행 경로를 바꾸는 brief의 위험 test는 "입력부터 실행기까지 한 번 이어 본다"로 쓴다.

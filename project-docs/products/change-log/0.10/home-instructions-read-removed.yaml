@@ -1,0 +1,20 @@
+id: home-instructions-read-removed
+version: 0.10.0
+title: "home의 instructions.read를 지운다. 지침은 prompt 조립만 싣는다"
+modules: [packages/core/agent-workspaces, packages/core/lophn-agent, packages/core/main, packages/protocol, packages/design]
+checked: [architecture-agent-definition]
+change: |
+  전:
+  - home session은 project 지침을 prompt로 받지 않고 instructions.read {project} tool로 그 project의 LOPHN.md를 읽었다. home 지침이 "project 일을 할 때 이 tool로 읽으라"고 시켰다. GetInstructions는 home session에만 다른 project를 고르는 project 칸을 열었다.
+  후:
+  - instructions.read tool과 home 지침의 그 줄이 없다. home은 project 지침이 없고, project의 일은 지금처럼 call로 그 project의 lophn에 넘긴다. 거기서 조립이 LOPHN.md를 싣는다.
+  - GetInstructions는 언제나 session의 place가 가리키는 project의 LOPHN.md를 읽는다.
+  계약:
+  - 지운 것: tool instructions.read(agent-places/tools/instructions.ts), GetInstructions 입력 project, mayReadOtherProject, InstructionReadDeps.projectExists·mayReadOtherProject, 예약 domain 이름 instructions, wording agents.notice.lophn-no-project(쓰는 곳이 없었다).
+why: |
+  지침은 harness의 prompt 조립이 싣는 것이다. agent가 tool을 부를지에 지침 적용을 맡기면 안 부르면 지침이 빠진다.
+decisions:
+  - text: "지침 적용을 agent의 tool 사용에 맡기지 않는다."
+    by: person
+  - text: "home에 project 지침을 싣지 않는다. home은 project를 고르지 않고 일을 그 project의 session에 넘긴다. 버린 길: home prompt에 모든 project의 LOPHN.md를 싣기(project마다 규칙이 섞인다)."
+    by: agent

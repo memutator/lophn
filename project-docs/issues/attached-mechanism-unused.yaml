@@ -1,0 +1,17 @@
+id: attached-mechanism-unused
+title: '붙인 것(`attached`) 기구가 file 종류만 남았고 아무도 만들지 않는다'
+kind: defect
+status: fixed
+topic: agent-definition
+modules: [packages/protocol, packages/core/lophn-agent, packages/core/agent-workspaces, packages/shell/renderer]
+now: |
+  `SendMessage.attached`(`packages/protocol/lophn-agent/inputs.ts`의 `attachedChipSchema`), 본문 part `attached`(`message-content.ts`), 입력 태그 `<lophn-attached>`(`input-tags.ts`의 `ATTACHED_KINDS = ["file"]`, `packages/core/lophn-agent/run-loop/input-text.ts`의 `attachedText`)가 남아 있다. context·위반 chip을 지운 뒤 shell은 늘 `attached: []`를 보낸다(`packages/shell/renderer/conversation/agent-tab-core-source-commands.ts`). 그런데도 role 공통 지침(`packages/core/agent-roles/roles/prompts.ts`)은 turn마다 `<lophn-attached>`를 설명한다.
+impact: |
+  모든 turn의 prompt에 오지 않는 태그의 설명 한 줄이 실린다. 쓰는 곳 없는 입력 칸과 본문 part를 shell 대화 표시, router, e2e가 계속 받아 넘긴다.
+fix: |
+  `SendMessage.attached`, 본문 part `attached`, `<lophn-attached>` 태그와 그 지침 줄, shell의 `attached` part 그리기를 지운다(중간: 입력 schema가 바뀌어 router와 e2e 호출(`attached: []`)을 같이 고친다). 남기면 잃는 것은 없다.
+decided: |
+  지운다. 파일을 붙이는 기능이 다시 필요해지면 그때 만든다(AGENTS.md "속도").
+closed: |
+  `SendMessage.attached`, 본문 part `attached`, 입력 태그 `<lophn-attached>`와 role 공통 지침의 설명 줄, shell의 그리기와 부르는 쪽의 `attached: []`를 지웠다. 입력창의 붙이기 단추가 남은 것은 `project-docs/issues/shell.md`가 안다.
+guard: 없음

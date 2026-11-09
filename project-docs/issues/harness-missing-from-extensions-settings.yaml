@@ -1,0 +1,11 @@
+id: harness-missing-from-extensions-settings
+title: harness agent를 켜는 화면에 harness가 아직 없다
+kind: bug
+status: fixed
+topic: coding-agent
+modules: [packages/shell/main, packages/core/config]
+now: harness agent의 켜기는 extension `harness`의 설정 `extensions.harness.enabled`(`packages/core/config/shell-settings.ts` `harnessExtensionSetting`, 기본 꺼짐)다. Settings › System › Extensions는 roots(개발은 shell main 안 `extensions/bundled/`)에서 manifest를 찾은 extension만 보이는데, harness의 manifest가 아직 없어 그 줄이 없다.
+impact: harness agent를 쓰려는 사람이 data root의 `settings.json`을 직접 고쳐야 한다.
+fix: harness host를 extension `harness`(manifest와 entry)로 둔다(계획 harness-agent의 headless host, 작음).
+closed: extension `harness`의 manifest(`packages/shell/main/extensions/bundled/harness/manifest.json`)가 있어 Settings › System › Extensions에 harness 줄이 보이고 켠다.
+guard: 없음

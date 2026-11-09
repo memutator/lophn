@@ -1,0 +1,30 @@
+id: full-review-p0-fixes
+version: 0.18.0
+title: "전수 리뷰의 P0 bug와 성능 고침"
+modules: [packages/core/storage, packages/core/config, packages/core/lophn-agent, packages/core/main, packages/core/apps, packages/core/events, packages/protocol, packages/shell/main, packages/shell/renderer]
+checked: [architecture-event, architecture-agent-definition, architecture-acp]
+change: |
+  전: 2026-11-06 전수 리뷰가 사람의 data와 기동에 바로 닿는 bug와 성능 문제를 찾았다.
+  후:
+  - ledger: 낸 schema step의 SQL은 protocol 상수를 끼우지 않는 literal이다(hash는 그대로). `packages/core/storage/migration/schema-steps.lock.json`이 등록된 step의 id·순서·sha256을 얼리고 `packages/core/main/daemon/schema-steps_test.ts`가 정확히 같기를 본다. 새 step은 같은 변경에서 lock 끝에 덧붙인다. 이름으로 trigger를 짐작하던 기동 검사(`guardedTablesOf`)는 지웠다.
+  - settings: `settings.json`의 모르는 key나 틀린 값은 그 key만 무시하고 나머지를 적용한다. 쓰기는 파일의 원래 내용에서 바꾼 key만 덮어, 무시한 key가 남는다. JSON이 깨진 파일은 쓰기가 덮지 않고 `unavailable`이다.
+  - run loop: runtime이 다시 떠도 secret 요청에 답한다. turn이 던져도 runtime이 죽지 않고 그 turn을 실패로 닫는다. `began`이 StartTurn이 기록한 그 message를 집어(supervision `turn_source_request.message`), 그 사이 queue가 바뀌어도 다른 입력을 돌리거나 사람 메시지를 버리지 않는다. StartModelCall이 실패하면 steer를 비우지 않고 model을 부르지 않는다. StartTurn 전 실패가 pump를 쉬지 않고 돌리지 않는다. model call 행은 output 저장이 실패해도 끝난다. harness wiring도 기록한 message를 집는다.
+  - compaction: 자동 Compact는 그 turn이 끝난 뒤 session을 풀기 전에 돈다. 다른 session의 turn 시작을 막지 않는다. 사람이 부른 Compact와 "Summarize from here"도 turn pump 밖에서 하나씩 돈다. turn 안에서 첫 입력 image는 한 번만 읽는다.
+  - 앱 data: restore가 두 rename 사이에서 끊겨도 다음 data job이 DB를 열기 전에 원래 DB를 되돌린다. migrate 뒤 검사가 실패해도 backup으로 되돌린다.
+  - session 목록: `workspaceSessionList`가 session마다 `last_active_at`을 내고 화면은 session마다 turn을 읽지 않는다. 동시 요청 gate는 주입한다. Agent tab은 그 agent·workspace 종류의 session이 바뀔 때만 목록을 다시 읽는다.
+  - event: 한 창이 건 `watch`의 `ready`는 그 창에만 간다. `AcpUpdated` envelope에 `session`이 있어 Gateway가 거른다. 화면의 ACP 갱신 log는 ready 때 비운다.
+  - shell: terminal supervisor request id가 겹치지 않는다. prod renderer bundle은 dev mock을 싣지 않는다(`npm run dev`는 `LOPHN_RENDERER_DEV=1`로 build한다).
+
+  옮기기: 없음. 낸 schema step의 SQL byte는 바뀌지 않았다(51 step의 hash를 앞뒤로 대조).
+why: |
+  전수 리뷰가 찾은 사람의 data와 기동에 바로 닿는 bug와 성능 문제를 한꺼번에 고치려고 했다(2026-11-06).
+decisions:
+  - text: |
+      자동 Compact를 다음 turn 시작 전에서 turn이 끝난 뒤로 옮겼다. 다음 입력이 오지 않는 session도 요약해 model call이 한 번 더 들 수 있지만, 사람이 다시 쓸 때 요약을 기다리지 않는다.
+    by: agent
+  - text: |
+      plan branch를 `win/verify` 위에 두었다. main에는 아직 Windows 고침이 없어 Windows에서 `check:full`이 돌지 않는다.
+    by: agent
+follow_up: |
+  - 던진 turn의 실패 이유가 `configuration_unavailable`이다(`project-docs/issues/agent-definition.md`).
+  - `settings.json`을 못 읽은 뒤의 update가 디스크의 새 내용을 덮을 수 있다(`project-docs/issues/code-health.md`).

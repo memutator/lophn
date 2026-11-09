@@ -1,0 +1,28 @@
+id: extension-toggle-bundles
+version: 0.18.0
+title: "extension: 본체와 따로 켜는 기능 묶음"
+modules: [packages/protocol, packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/shell/renderer, packages/core/config, packages/design, tools]
+checked: [tool-check, architecture-layers, tool-dev, tool-worktree-prep, architecture-workspace-layout, architecture-ui-kit, architecture-appearance, skill-ui-design, tool-wireframes]
+change: |
+  전: 대다수에게 필요 없는 기능(third-party CLI GUI, harness host)을 따로 두고 켜는 구조가 없었다.
+  후: extension 하나는 폴더와 `manifest.json`(`id`, `name`, `description`, `version`, `entry`, `provides`)이다. shell main의 registry가 manifest만 읽고, 설정 `extensions.<id>.enabled`가 켜졌고 판이 제품 판과 같은 것만 `entry`를 load해 `activate(ctx)`한다. 끄면 `deactivate()`한다. extension code는 `ctx`(`core`, `settings`, `spawn`, `clock`, `ids`, `files`)로만 lophn에 닿고 shell main 내부를 import하면 `tools/check-deps.ts`가 막는다. Settings › System › Extensions에서 사람이 설치(표시 file)·켜기·끄기·지우기를 한다. 지우기는 extension이 `ctx.files`로 쓴 file만 지운다. 설정 `extensions.harness.enabled`(기본 false)를 선언했다. 본체 안 extension은 아직 없다(`project-docs/architecture/extension.md`).
+why: |
+  사람이 "별도로 설치하게끔, 근데 지금 그런 구조가 없거든", "구조도 만들어놓자"라고 했다(`project-docs/products/roadmap/agent-platform.md` 단계 6).
+decisions:
+  - text: |
+      받는 길은 먼저 본체 .deb 안에 넣어 두고 설정에서 켠다. 뒤에 따로 받는 package로 옮긴다. 그 전환이 구조를 고치지 않게 따로 빌드한 file을 경로로 load하고, registry는 폴더 목록만 읽고, `ctx`로만 닿는다.
+    by: person
+  - text: |
+      설정 선언은 id마다 `packages/core/config/shell-settings.ts`에 정적으로 한 줄이다. 선언이 없는 id는 켜지 않는다. Settings › General은 `extensions.*`를 보이지 않는다.
+    by: agent
+  - text: |
+      `ctx`에 `files.write`를 더했다. 무엇을 썼는지 registry가 알아야 그것만 지운다.
+    by: agent
+  - text: |
+      판은 글자가 같아야 켠다.
+    by: agent
+  - text: |
+      새 pane id는 `extension-packages`다. Settings › Agents의 `tools` pane(lophn agent의 skill·MCP, 문구 "Extensions")과 다르다.
+    by: agent
+follow_up: |
+  - 설치본에 본체 안 extension 넣기와 계획 harness-agent의 켜기를 `extensions.harness.enabled`로 바꾸기는 계획 harness-agent가 했다(harness agent 항목).

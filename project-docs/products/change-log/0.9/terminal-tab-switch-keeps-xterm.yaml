@@ -1,0 +1,13 @@
+id: terminal-tab-switch-keeps-xterm
+version: 0.9.0
+title: 'Terminal tab 전환에서 xterm을 유지하고 출력 일부 없음 배너를 없앤다'
+modules: [packages/shell/renderer, packages/shell/main, packages/shell/preload, packages/shell/ipc, packages/shell/terminal-host, packages/design, tools]
+checked: []
+change: |
+  전: tab을 떠나면 xterm을 dispose하고 돌아올 때 raw snapshot 전체를 두 번 요청할 수 있었다. 보이는 동안은 40ms polling을 돌렸고 main은 큰 JSON 줄의 누적 prefix를 반복 처리했다.
+  후: 같은 project 창의 tab·pane·desk·float 이동에서도 xterm·DOM·seq를 유지한다. 처음 한 번 snapshot으로 구독한 뒤 출력은 16ms 또는 64Ki 문자 batch로 해당 창에만 push한다. 숨은 화면은 drawing을 쉬며, 탭을 닫거나 project를 떠나거나 다른 창으로 옮기면 view와 구독을 놓는다. 새 renderer·다른 창에 붙을 때는 raw buffer를 한 번 재생한다.
+  - pipe reader는 UTF-8 상태를 유지하고 완성된 줄을 한 번 join한다. 빈 delta는 보관 chunk 전체를 복사하지 않는다. raw buffer는 LF와 chunk 수를 따로 세고 bytes·chunk 상한을 유지한다.
+  - "Some earlier output isn't shown." 문구·배너·관련 상태를 제거했다. scrollback과 raw 출력의 메모리 보관 상한은 유지한다.
+  - snapshot과 push의 겹침, restart 전의 늦은 출력, 창별 출력 구독 경계, UTF-8 조각 경계, raw buffer 보관 규칙을 subprocess 없는 테스트로 확인한다.
+why: |
+  탭을 떠날 때마다 xterm을 버리고 돌아올 때 raw snapshot을 두 번까지 다시 받아 느렸고, 보이는 동안의 40ms polling과 큰 JSON 줄의 반복 처리가 main의 부담이었기 때문이다.

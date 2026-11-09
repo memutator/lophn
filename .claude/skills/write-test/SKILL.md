@@ -65,7 +65,7 @@ prototype이다. test는 적게 쓴다. 지금 test가 거의 없는 것은 일�
 - subprocess, Worker, 서버, 브라우저를 띄우는 test
 - E2E
 
-새 E2E flow도 사람에게 묻는다(지금 file은 testing·e2e-coverage 계획이 사람의 허락으로 만들었다). 허락받으면 한 번 띄워 여러 경우를 표로 보는 모양으로 한다. E2E는 flow 하나에 핵심 경로 하나다. file 수 상한은 없고 전체 10분 예산이 있다. 앱 길, fake 대답 세기, run 폴더는 `project-docs/architecture/testing.md`.
+새 E2E flow도 사람에게 묻는다(지금 file은 testing·e2e-coverage 계획이 사람의 허락으로 만들었다). 허락받으면 한 번 띄워 여러 경우를 표로 보는 모양으로 한다. E2E는 flow 하나에 핵심 경로 하나다. file 수 상한은 없고 전체 10분 예산이 있다. 앱 길, fake 대답 세기, run 폴더는 `.claude/skills/write-test/reference.md`(helper, 명령, 실행 폴더, case 규칙)이고 층과 가짜의 설계는 `project-docs/architecture/testing.md`.
 
 ## 돌리기
 

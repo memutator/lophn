@@ -1,0 +1,12 @@
+id: me-dependency-permission-not-followed
+title: "`@me` package가 다른 `@me`에 기대면 그 권한을 따라가지 않는다"
+kind: bug
+status: open
+topic: app-call
+modules: [packages/core/apps]
+now: |
+  `package.publish`는 폴더 `package.json`의 `dependencies` 중 `@lophn/cap-*`만 보고 요구 권한을 검사한다(`packages/core/apps/packages/publish.ts`의 `dependencyNames`, `packages/core/apps/releases/sdk-permissions.ts`의 `missingCapPermission`). release 준비도 소비 앱이 직접 적은 `@me` 의존의 catalog `permissions`만 본다(`missingSdkPermission`).
+impact: |
+  `@me/a`가 `net.fetch`를 적은 `@me/b`에 기대면서 자기 `permissions`에 `net.fetch`를 빼고 낼 수 있다. `@me/a`만 쓰는 소비 앱은 `net.fetch` 없이 release가 뜨고 실행 중 broker에서 거절된다.
+fix: |
+  - 작음(추천): publish 때 `@me/*` 의존의 정확한 판을 catalog에서 찾아 그 `permissions`도 입력이 덮는지 본다. 한 단계만 보면 된다(그 판도 publish 때 같은 검사를 지났으므로).

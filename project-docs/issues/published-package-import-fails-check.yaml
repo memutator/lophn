@@ -1,0 +1,14 @@
+id: published-package-import-fails-check
+title: 앱이 낸 package를 import한 앱은 app test에서 "선언하지 않은 의존"으로 떨어진다
+kind: bug
+status: fixed
+topic: coding-agent
+modules: [packages/core/apps]
+now: |
+  - 앱이 낸 package는 `sdk/@me/<part>/<version>`에 깔린다(`packages/core/apps/packages/install.ts`의 `packageInstallPath`). 내장 SDK는 `sdk/<part>/<version>`이다.
+  - app test의 의존 확인(`packages/core/problems/tests/app-test/generate.ts`의 `checkDependencies`)은 import 값을 `SDK_COPY = /^\.\/sdk\/([^/]+)\/([^/]+)\//`로 읽는다. `./sdk/@me/date-range/1.0.0/...`은 이름 `@me`, version `date-range`로 읽혀 blueprint에 선언한 의존과 맞지 않는다.
+  - 그래서 `@me/*`를 의존에 적고 import한 앱은 그 import가 늘 "선언하지 않은 의존"이 된다.
+impact: 앱이 낸 package를 다른 앱이 쓰는 길이 막혀 있다. App Engineer가 `package.publish`로 낸 logic을 다른 앱이 쓰면 그 release는 app test를 넘지 못해 켜지지 않는다. eval의 재사용 확인(계획 `eval-coding`의 calendar-mvp)도 이 때문에 떨어진다.
+fix: '`SDK_COPY`가 `@me/`를 건너뛰고 읽게 한다(`/^\.\/sdk\/(?:@me\/)?([^/]+)\/([^/]+)\//`, 작음). 이름 비교는 `item.name.split("/").pop()`이라 그대로 맞는다. `@me` package를 import하는 app test 입력 하나로 test를 둔다. 추천.'
+closed: '`SDK_COPY`가 `./sdk/@me/<part>/<version>/`의 `@me/`를 건너뛰고 읽는다. 선언한 `@me` package의 import는 통과하고, 선언하지 않은 `@me` import는 여전히 "선언하지 않은 의존"으로 걸린다.'
+guard: packages/core/problems/tests/app-test/generate_test.ts "선언한 @me package와 내장 SDK의 import는 의존 확인을 통과하고 선언하지 않은 @me import는 걸린다"

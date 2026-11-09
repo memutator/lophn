@@ -1,0 +1,10 @@
+id: working-line-shows-current-task
+version: 0.12.0
+title: "일하는 중 줄이 지금 하는 일을 말한다"
+modules: [packages/shell/renderer]
+checked: [architecture-agent-chat]
+change: |
+  전: Messages 보기는 tool 줄과 reasoning뿐인 message를 숨겨, tool call과 reasoning만 이어지는 긴 turn이 멈춘 것처럼 보였다.
+  후: 일하는 중 줄이 모든 보기에서 `Working 18m · <도는 tool의 제목>`을 보이고, 글 없이 reasoning만 흐르면 `· Thinking`을 보인다. 글이 흐를 때와 사람 답을 기다릴 때는 붙이지 않는다.
+why: |
+  Messages 보기가 tool 줄과 reasoning만 있는 message를 숨겨서, 일이 진행 중인 긴 turn이 멈춘 것처럼 보였기 때문이다.

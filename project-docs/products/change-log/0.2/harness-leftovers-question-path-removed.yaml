@@ -1,0 +1,17 @@
+id: harness-leftovers-question-path-removed
+version: 0.2.0
+title: "harness 분리 뒤 남은 harness 섞임과 죽은 질문 길을 정함"
+modules: []
+checked: []
+change: |
+  전: `tools/questions/`와 `extensions/`가 harness 안의 domain 섞임으로 남았고, `issues/layers.md`에 lead의 추천만 있었다.
+  후: `tools/questions/`의 ledger 질문 길(선택지 고정 action, 보호 설정, 질문 표, 자유 답 검사)은 부르는 곳이 없는 죽은 길로 확인해 `issues/code-health.md`에 올렸다. `extensions/`의 층 규칙·project path·PM 내장 skill을 `issues/layers.md`에 더했다.
+why: |
+  harness 분리 계획을 닫으며 남은 섞임을 다시 보다가 `ask`가 그 길을 쓰지 않는 것을 찾았다.
+decisions:
+  - text: |-
+      ledger 질문 길은 지운다. 선택지에 tool 허락이나 동작을 묶는 기능은 살리지 않는다.
+    by: person
+  - text: |-
+      `instructions/files.ts`의 숨은 SQL은 고친다. `agents/`의 role 표와 `extensions/`의 role 층 몫은 한 묶음으로, 사람이 잃는 bug 다음 "role 층 마무리" 계획으로 연다. 동적 app-api tool과 call·file tool의 domain 읽기는 하지 않는다.
+    by: agent

@@ -1,0 +1,10 @@
+id: app-name-in-notices
+version: 0.13.0
+title: 앱 알림에 앱 id 대신 앱 이름을 보인다
+modules: [packages/core/apps, packages/protocol, packages/shell/renderer]
+checked: []
+change: |
+  전: activation 동의 toast, 대기 panel 카드, 대화의 동의 카드, 앱 재시작 멈춤 toast가 짧은 앱 id를 보였다.
+  후: `activations.consents` read와 `ActivationConsentRequested`·`AppRestartHalted` event가 `app_name`을 싣고, 화면은 그 이름을 보인다.
+why: |
+  사람이 id로는 어느 앱인지 알 수 없다.

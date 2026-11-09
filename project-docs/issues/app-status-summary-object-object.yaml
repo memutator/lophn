@@ -1,0 +1,17 @@
+id: app-status-summary-object-object
+title: app.status 요약이 `[object Object]`를 돌려준다
+kind: bug
+status: fixed
+topic: app-call
+modules: [packages/core/apps]
+now: |
+  `packages/core/apps/agent-tools/runtime.ts`의 `app.status` handler가 `fitted(\`app ${input.app} is ${body.state}\`, body)`를 부른다. `body.state`는 문자열이 아니라 `{ state, termination_pending, reason? }` 객체다(`packages/protocol/apps/runtime.ts`의 `runtimeStateSchema`). 그래서 요약이 `app app_01m661c1… is [object Object]`가 된다. 실제 session에서 네 번 모두 그 문장이었다.
+impact: |
+  model이 결과를 읽을 때 요약 줄에서는 앱 상태를 알 수 없고 뒤 `content`를 따로 읽어야 한다. 요약은 tool 결과 목록과 turn 기록에 그대로 남는 줄이라, 나중에 기록만 보고 진단할 때 상태가 보이지 않는다. `app.status`는 앱이 뜨지 않을 때 agent가 가장 먼저 부르는 tool이다.
+fix: |
+  - 작음(추천): `${body.state.state}`로 고치고, `reason`이 있으면 덧붙인다(`app X is unavailable (reason)`). handler 한 줄이다.
+  - 작음: 요약 함수를 protocol에 두고 output schema에서 만든다. 한 곳에서만 쓰는 요약에 공용 장치를 두는 것은 과하다.
+  - 추천: 앞의 것.
+closed: |
+  `runtime.ts`의 `app.status` 요약이 `body.state.state`를 쓰고, `reason`이 있으면 ` (<code>: <summary>)`를 덧붙인다. 예: `app app_x is unavailable (crash_loop: unexpected exits exceeded five within ten minutes)`.
+guard: packages/core/apps/agent-tools/runtime_test.ts "app.status 요약이 상태 이름과 이유를 보이고 [object Object]를 싣지 않는다"

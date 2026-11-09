@@ -1,0 +1,14 @@
+id: app-view-release-required
+version: 0.21.0
+title: "앱 view 열기에서 live의 release가 type으로 필수가 된다"
+modules: [packages/shell/ipc, packages/shell/renderer]
+checked: []
+change: |
+  - 전: `AppViewOpen`의 `release`가 mode와 상관없이 optional이라 판 없이 live view를 여는 호출이 compile을 통과했고 main의 `checkOpen`이 실행 때 `invalid_input`으로 거절했다(sidebar·tray가 그렇게 깨졌다).
+  - 후: `appViewOpenSchema`가 `mode`로 가르는 union이다. live는 `release` string이 필수이고 preview만 null일 수 있다. `EmbeddedView` props도 같은 union이라 판 없는 live 열기는 compile error다. main의 규칙은 그대로다. 판을 싣지 않은 세션 앱 카드는 앱의 지금 판을 읽어 그 판으로 연다(채택된 판이 아직 없으면 "unavailable" 안내). 전에는 이 카드가 판 없이 열려 거절됐다.
+why: |
+  같은 실수가 두 자리에서 나와 사람이 "Couldn't load"를 봤다(사람, 2026-11-07).
+decisions:
+  - text: |
+      런타임 규칙을 바꾸지 않고 type으로 막는다.
+    by: person

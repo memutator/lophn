@@ -1,0 +1,20 @@
+id: model-catalog-not-refreshed
+title: 'model catalog가 models.dev에서 갱신되지 않고 자동 갱신 설정은 아무것도 바꾸지 않는다'
+kind: bug
+status: fixed
+topic: agent-definition
+modules: [packages/core/lophn-agent, packages/core/main]
+now: |
+  `models/work.ts`의 `createCatalogRefresher`가 `runRefresh`에서 `fetch`가 없으면 network 없이 정상본을 그대로 돌려준다(`if (!input.fetch)`). agent runtime(`main/agent-runtime/main.ts`)은 `import.meta.main`에서 `productDriver()`로 시작하며 `fetch`를 넘기지 않아, 제품에서는 갱신이 한 번도 일어나지 않는다. `refreshNow()`를 부르는 route도 없다. 설정 `lophn-agent.model.catalog_auto_update`(`lophn-agent/register.ts`)는 선언만 있고 읽는 곳이 없다. 실제 on/off는 `<dataRoot>/derived/lophn-agent/catalog-state.json`의 `auto_update`이고 file이 없으면 늘 true다.
+impact: |
+  사람이 고를 수 있는 model이 동봉 `models/snapshot.json`의 4개(openai `gpt-5`, anthropic `claude-sonnet-4-5`, openrouter `anthropic/claude-sonnet-4-5`, ollama `qwen3:8b`)에 묶인다. 새 model이 나와도 lophn을 새 판으로 올리기 전에는 쓸 수 없다. 설정 화면의 자동 갱신 켜기·끄기는 아무 일도 하지 않는다.
+fix: |
+  - 살린다(작음): agent runtime이 제품에서도 `fetch`를 넘기고, `catalog_auto_update` 설정 값을 `catalog-state.json`의 `auto_update`로 옮긴다. 기동 때마다 models.dev에 공개 GET이 나간다(24시간에 한 번).
+  - 지운다(작음): refresher, models.dev adapter, `catalog-state.json`, 설정을 지우고 catalog는 동봉 snapshot과 사람이 더한 model만 쓴다. 새 model은 lophn 판 올리기로만 들어온다.
+
+  fetch를 넘겨도 갱신은 실패한다: `adapters/models-dev.ts`의 `parseCatalogBody`가 응답을 lophn 항목 배열로 읽는데 실제 `api.json`은 `{<provider>: {models: {…}}}` object다(2026-10-17 판: provider 232개). 동봉 `snapshot.json`도 models.dev에서 뽑은 것이 아니라 손으로 쓴 4개다.
+decided: |
+  OpenCode 꼴로 한다(사람). models.dev `api.json` → lophn 항목 변환 함수 하나를 두고, build 때 script가 lophn 내장 provider 정의 몫만 뽑아 `snapshot.json`을 만들고, 실행 때 갱신이 같은 함수로 그 위에 덮는다. catalog 밖 model은 지금처럼 거절한다(agent). 계획 `agent-io`의 `model-catalog-source`, `model-catalog`.
+closed: |
+  OpenCode 꼴로 고쳤다. `models/adapters/models-dev.ts`의 `modelsDevEntries`가 models.dev `api.json`(provider object)을 lophn 항목으로 바꾼다. 내장 정의 7개 몫만 뽑고(`google` → `google-gemini`), 한도나 text 입출력이 없는 model과 schema를 못 넘는 항목은 버리며, `limit.input`이 없으면 `input_limit`은 context 한도다(출력 예약은 `inputBudget`이 뺀다). reasoning effort는 effort 축 하나로, anthropic의 `budget_tokens`는 예산 축으로 옮기고 모르는 형(toggle 등)은 `options: null`이다. 실행 때 갱신(`parseCatalogBody`)과 `tools/models-snapshot.ts`(판을 낼 때 돌린다)가 같은 함수를 쓰고, 동봉 `snapshot.json`은 그 결과다(510개, models.dev에 없는 ollama 항목은 옮겼다). agent runtime은 `import.meta.main`에서만 `catalogFetch: fetch`를 받고, 기동 때 설정 `lophn-agent.model.catalog_auto_update`를 core에서 읽어 `catalog-state.json`의 `auto_update`로 쓴다(다음 기동부터 적용). 새 data root는 복구 직후 바로 갱신하고, 복구한 catalog·state를 `derived/lophn-agent`에 쓴다. `refreshNow()`를 부르는 route는 여전히 없다(즉시 새로 받기 화면도 없다).
+guard: packages/core/lophn-agent/models/adapters/models-dev_test.ts "models.dev 응답이 lophn 항목으로 바뀐다", packages/core/lophn-agent/models/catalog-refresh_test.ts "새 data root에서 autoUpdate=false이면 catalog 요청이 안 나간다"

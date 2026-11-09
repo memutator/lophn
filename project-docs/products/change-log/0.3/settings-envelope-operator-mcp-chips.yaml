@@ -1,0 +1,28 @@
+id: settings-envelope-operator-mcp-chips
+version: 0.3.0
+title: '설정 화면의 command 봉투를 하나로 모으고, Operator의 MCP server를 runtime이 쓰고, 보낸 chip을 대화에 남긴다'
+modules: [packages/shell/renderer, packages/core/lophn-agent, packages/core/main, packages/protocol]
+change: |
+  전: 설정 화면이 command 봉투에서 `compare`를 빼서 provider 연결과 기본 model 바꾸기가 core에 닿기 전에 `invalid_input`으로 거절됐다. Operator 편집 화면이 저장한 `mcp_servers`는 runtime이 읽지 않아 조용히 안 쓰였다. 보낸 context·위반 chip이 대화 본문에 없었고, 실패한 turn을 다시 보내면 chip이 빠졌다.
+  후:
+  - 봉투: renderer 전체가 `command-call.ts`의 helper 하나로 봉투를 만든다. 설정에서 provider 연결과 기본 model 바꾸기가 다시 된다.
+  - 설정의 일반 통로(`SettingsSource`)에서 화면이 부르지 않던 MCP·skill 폴더 함수를 지웠다.
+  - Operator MCP: turn 준비, runtime child의 `--allow-run`·`--allow-net`, `mcp.` secret 목적지, Grants 목록(`agent-mcp-tools/list`가 Operator id를 받음)이 Operator 정의 층의 server를 안다. 정의가 바뀌면 child가 다시 뜬다.
+  - 정의 층 server의 credential 이름은 `mcp.<agt id>.<server>`다. 새 Operator는 저장 전에 id를 받고, 저장 뒤 보호 입력 창이 값을 받는다. 내장 role 편집 화면에서 Add server 단추를 뺐다.
+  - chip: 본문에 chip마다 `attached` part가 남고(`context` id 포함) 다시 보내기가 그 part로 `SendMessage.attached`를 되살린다.
+  계약: `agent-mcp-tools/list` 입력과 `request-take` 출력에 `agent`(Operator id 또는 null)가 생겼다. 본문 `attached` part에 optional `context`가 생겼다. 옛 모양은 남기지 않았다.
+why: |
+  사람이 설정에서 provider를 하나도 붙이지 못했고, 화면이 보이는 Operator MCP는 실제로는 안 쓰였고, 같은 project의 server와 secret 이름이 겹치면 한 server의 secret이 다른 server의 origin으로 갈 수 있었다. 봉투는 화면마다 손으로 짜서 한 곳의 실수가 연결 기능 전체를 막았다.
+decisions:
+  - text: '봉투 helper는 `compare`를 기본값으로 채우지 않는다. 필요한 route에서 빠뜨리면 type이 잡는다.'
+    by: person
+  - text: 'Operator에게도 자기 MCP server가 필요하다. 권한과 승인은 project 층 server와 같은 규칙을 쓰고 새 규칙은 만들지 않았다. server를 넣는 길은 사람의 Operator 편집 화면뿐이고 agent tool은 `mcp_servers`를 받지 않는다.'
+    by: person
+  - text: 'Operator의 `mcp_off`는 Grants 목록에 적용하지 않는다. 끈 server의 tool도 사람이 미리 assign할 수 있다.'
+    by: person
+  - text: '이름 접두(`mcp.<agt id>.`)는 core가 강제하지 않고 편집 화면이 만든다. 정의를 쓰는 것은 사람뿐이고 project 층도 같은 신뢰다.'
+    by: person
+  - text: '정의 층 server의 OAuth 로그인은 만들지 않았다(편집 화면은 none·bearer·api_key만 받는다).'
+    by: person
+  - text: '개발 data: 정의 file에 `mcp.<project id>.<server>` 이름을 쓴 server는 그대로 동작한다(이름을 다시 쓰지 않는다).'
+    by: person

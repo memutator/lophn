@@ -1,94 +1,173 @@
 # platform
 
-lophn이 Linux x64, macOS arm64, Windows x64에서 무엇을 다르게 하는가. OS마다 다른 규칙이 어디 있고, 어느 기능이 어느 OS에서 꺼져 있고, 다른 OS를 어떻게 확인하는가.
+lophn이 Linux x64, macOS arm64, Windows x64에서 무엇을 다르게 하는가, 그리고 core가 shell과 따로 어떻게 살고 죽는가. OS마다 다른 규칙이 어디에 모이는지, 어느 기능이 어느 OS에서 꺼져 있는지, 다른 OS를 어떻게 확인하는지, core의 수명(띄우기, 붙기, 끄기, idle-exit, autostart)을 정한다.
 
-## OS마다 다른 규칙의 자리
+## 문제
 
-- **순수 규칙은 `packages/base/os/`다.** `homeOf(env, platform)`(POSIX `HOME`, win32 `USERPROFILE`, 없으면 `HOMEDRIVE`+`HOMEPATH`), `ipcPath(dir, name, platform)`·`ipcPathLimit(platform)`(POSIX는 `<dir>/<name>.sock`과 sun_path 107·103 byte, win32는 `\\.\pipe\lophn-<dir의 FNV-1a 64>-<name>`과 256), `signalTree`·`treeGone`·`nodeTreeDeps(spawn)`(process tree 신호), `prependPath(env, folder, platform)`(Windows는 `Path` 이름을 대소문자 없이 찾고 `;`로 잇는다). base는 node 내장을 import하지 않아 spawn은 인자로 받는다.
-- **socket 자리 규칙은 `socketDirectoryPath(deps)` 하나다**(`packages/base/os/socket-dir.ts`). POSIX는 `<XDG_RUNTIME_DIR>/lophn/<key>` 또는 `<tempParent>/lophn-<uid>/<key>`이고 key는 주입한 SHA-256 hex 앞 12자다. base는 Node·FS·process를 읽지 않는다. core wrapper(`packages/core/apps/runtime/processes/socket-dir.ts`)가 SHA-256과 0700 폴더 준비를 잇는다. 기존 앱 socket 경로와 slot 수는 그대로다. win32는 폴더를 만들지 않고 data root를 `ipcPath`의 pipe namespace 입력으로 쓴다.
-- **OS로 가르는 함수는 platform을 인자로 받는다.** 기본값이 `process.platform`이고 test는 다른 값을 넘긴다. protocol은 runtime 전역을 읽지 않는다. 앱 socket 경로 schema(`packages/protocol/apps/app-start.ts`)는 가장 큰 한도(256)만 보고, OS별 길이는 core가 경로를 만드는 곳(`packages/core/apps/runtime/processes/socket-dir.ts`, `entrypoint/wire-check.ts`)에서 본다.
-- **path는 `node:path`와 `node:url`로 다룬다.** module 자리는 `fileURLToPath(new URL(…, import.meta.url))`이고 `import.meta.url).pathname` 꼴은 `packages/` 안에서 `tools/check-source.ts`(`meta-url-pathname`)가 막는다(Windows는 `/C:/…`, 공백·한글 path는 `%20`으로 깨진다). 절대 경로 판정은 `isAbsolute`, PATH는 `delimiter`로 잇고 나눈다. 앱 안의 상대 path(bundle 목록, data area)만 `/` 꼴이다.
+- 처음에는 Linux에서만 짜고 돌렸다. 그대로 두면 다른 OS의 사람은 core가 child를 하나도 못 띄우거나(process group 강제 종료를 Linux에서만 보장했다), data root 검사(uid·0700)에 기동을 거절당하거나, 봉인 판정(폴더의 쓰기 bit)이 틀어지거나, 앱 IPC(unix socket)가 열리지 않았다.
+- OS를 가르는 코드가 여러 곳에 흩어지면 한 OS를 고칠 때 다른 OS가 조용히 깨진다. 그리고 기능이 반쯤 도는 채로 남으면 사람이 무엇이 안 되는지 알 수 없다.
+- core가 shell(Electron)의 child이던 때는 앱을 끄면 켜진 job도 멈췄고, 화면 없는 머신에서 CLI만으로 core를 켤 길이 없었다. 새 판으로 바꿀 때 앱과 core의 수명이 엉키면 "끄고 바로 켜면 lophn이 안 뜬다"는 경쟁이 생긴다.
 
-## process와 IPC
+## 목표와 비목표
 
-- **child tree 끄기.** POSIX(linux, darwin)는 child를 `detached`로 띄워 group leader로 두고 `process.kill(-pid, sig)`로 group째 끈다. `ESRCH`가 "없다"다. Windows는 `detached`가 새 console을 열어 쓰지 않고(`windowsHide`), `taskkill /PID <pid> /T /F`로 tree를 끈다. 없어졌는지는 POSIX는 `kill(-pid, 0)`, Windows는 root pid만 `kill(pid, 0)`으로 본다. supervisor(`packages/core/supervision/responsiveness/`)는 group이 없어졌음을 확인한 뒤에 자원을 푼다. core 쪽 helper는 `packages/core/supervision/security/tree-kill.ts`(`killTree`, `treeSpawnOptions`)다.
-- **앱 IPC.** POSIX는 unix socket(`$XDG_RUNTIME_DIR/lophn/<hash>`나 `$TMPDIR/lophn-<uid>/<hash>`, 0700), Windows는 named pipe다. Node `net`·`http`가 같은 API로 받아 transport 코드는 경로 문자열만 다르다. Windows는 socket directory가 없고 낡은 pipe를 지울 일도 없다.
-- **child env.** OS가 넘겨야 하는 이름은 `packages/core/supervision/security/child-env.ts`(`WINDOWS_ENV_NAMES`: `SystemRoot`, `ComSpec`, `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, `TEMP`, `TMP`, 그리고 agent shell tool이 Git Bash를 찾는 `ProgramFiles`, `ProgramFiles(x86)`, `LOPHN_GIT_BASH`)가 갖고, Windows env 이름은 대소문자를 가리지 않고 읽는다. 임시 폴더는 `os.tmpdir()`다.
-- **node shim.** 앱과 agent shell이 부르는 `node`·`npm`은 `run/bin/`의 shim이 Electron의 Node(`ELECTRON_RUN_AS_NODE=1`)로 돌린다. POSIX는 sh script, Windows는 `node.cmd`·`npm.cmd`(cmd·CreateProcess용)와 확장자 없는 sh script(Git Bash용)를 같이 쓴다.
-- **agent shell tool.** POSIX는 `/bin/sh -c`, Windows는 Git for Windows의 `bash.exe`다(`LOPHN_GIT_BASH`, `%ProgramFiles%\Git\bin\bash.exe`, `%ProgramFiles(x86)%\…`, `%LOCALAPPDATA%\Programs\Git\bin\bash.exe` 차례). 못 찾으면 tool이 `unavailable`과 설치 안내를 내고 아무것도 띄우지 않는다. shell 규칙(`packages/protocol/approvals/shell-rules.ts`)은 bash라 OS와 상관없이 그대로다.
-- **SIGUSR2 snapshot**은 Windows에서 걸지 않는다. core는 control `stop`으로, apps supervisor·agent runtime은 stdin EOF와 stop 메시지로 끝나서 Windows에 SIGTERM이 안 와도 끝난다.
+- 목표: OS마다 다른 규칙을 순수 규칙 한 곳에 모으고, 그 밖 module은 OS 전역을 읽지 않는다. 세 OS에서 core를 띄우고 child tree를 끄고 data root를 열 수 있다. Windows에서 꺼진 기능은 꺼진 것이 드러난다. core는 shell과 수명이 따로이고 shell·CLI 어느 쪽에서나 띄우고 붙고 끌 수 있다.
+- 비목표: 서명한 설치 묶음, 자동 업데이트 channel. 앱 실행 sandbox의 OS별 대체(sandbox는 `architecture/layers.md`와 앱 문서가 맡는다). OS service(systemd, launchd agent, Windows service·scheduled task) 등록. Windows keychain·DPAPI 같은 OS 비밀 저장소. core가 crash했을 때 core 쪽에서 다시 띄우는 감독. 원격 머신이나 다른 OS 사용자가 core에 붙는 길(identify의 모양은 나중에 쓸 수 있게 두되 만들지 않는다).
 
-## core 수명
+## 모델
+
+### OS로 가르는 규칙의 자리
+
+OS마다 다른 순수 규칙은 base의 OS 층 한 곳에 있다. base는 node 내장을 읽지 않으므로 필요한 것(hash, spawn)은 인자로 받는다.
+
+- **home.** POSIX는 `HOME`, win32는 `USERPROFILE`, 없으면 `HOMEDRIVE`+`HOMEPATH`.
+- **socket 자리.** 한 규칙이 정한다. POSIX는 `<XDG_RUNTIME_DIR>/lophn/<key>` 또는 `<tempParent>/lophn-<uid>/<key>`이고 key는 data root의 SHA-256 hex 앞 12자다(hash는 호출자가 넣는다). 폴더는 0700이다. win32는 폴더를 만들지 않고 data root를 pipe 이름 공간의 입력으로 쓴다.
+- **IPC endpoint.** 폴더와 이름에서 endpoint를 만든다. POSIX는 `<dir>/<name>.sock`이고 길이 한도는 sun_path에서 Linux 107·macOS 103 byte, win32는 `\\.\pipe\lophn-<dir의 FNV-1a 64>-<name>`이고 한도 256이다. pipe 이름 공간은 하나뿐이라 data root마다 hash로 가른다.
+- **process tree 신호.** 보내기와 없어졌는지 보기. spawn은 인자로 받는다.
+- **PATH 앞에 폴더 더하기.** Windows는 `Path` 이름을 대소문자 없이 찾고 `;`로 잇는다.
+- OS로 가르는 함수는 platform을 인자로 받는다. 기본값이 실제 platform이고 test는 다른 값을 넘긴다. protocol은 runtime 전역을 읽지 않는다. 앱 socket 경로 schema는 가장 큰 한도(256)만 보고 OS별 길이는 core가 경로를 만드는 곳에서 본다.
+- path는 `node:path`·`node:url`로 다룬다. module 위치는 URL을 `fileURLToPath`로 바꿔 얻는다(`URL.pathname`은 Windows에서 `/C:/…`가 되고 공백·한글 path는 `%20`으로 깨져서 source check가 막는다). 절대 경로 판정과 PATH 잇기·나누기도 platform 규칙을 쓴다. 앱 안의 상대 path(bundle 목록, data area)만 `/` 꼴이다.
+
+### process와 IPC
+
+- **child tree 끄기.** POSIX(linux, darwin)는 child를 `detached`로 띄워 group leader로 두고 group 전체에 신호를 보낸다(`ESRCH`가 "없다"). Windows는 `detached`가 새 console을 열어 쓰지 않고(`windowsHide`) `taskkill /PID <pid> /T /F`로 tree를 끈다. 없어졌는지는 POSIX는 group 대상 `kill(-pid, 0)`, Windows는 root pid만 `kill(pid, 0)`으로 본다. supervisor는 group이 없어졌음을 확인한 뒤에 자원을 푼다.
+- **앱 IPC.** POSIX는 unix socket, Windows는 named pipe다. Node `net`·`http`가 같은 API로 받아 transport는 경로 문자열만 다르다. Windows는 socket 폴더가 없고 낡은 pipe를 지울 일도 없다.
+- **child env.** child에는 필요한 이름만 넘긴다. Windows는 OS가 요구하는 이름(`SystemRoot`, `ComSpec`, `USERPROFILE`, `APPDATA`, `LOCALAPPDATA`, `TEMP`, `TMP`)과 agent shell tool이 Git Bash를 찾는 이름(`ProgramFiles`, `ProgramFiles(x86)`, `LOPHN_GIT_BASH`)을 더 넘기고, env 이름은 대소문자를 가리지 않고 읽는다. 임시 폴더는 `os.tmpdir()`다.
+- **node shim.** 앱과 agent shell이 부르는 `node`·`npm`은 per-run `bin/`의 shim이 Electron의 Node(`ELECTRON_RUN_AS_NODE=1`)로 돌린다. POSIX는 sh script, Windows는 `node.cmd`·`npm.cmd`(cmd·CreateProcess용)와 확장자 없는 sh script(Git Bash용)를 같이 쓴다. shim은 기동마다 설치본과 byte를 맞춰 다시 쓴다.
+- **agent shell tool.** POSIX는 `/bin/sh -c`, Windows는 Git for Windows의 `bash.exe`다(`LOPHN_GIT_BASH`, `%ProgramFiles%\Git\bin\bash.exe`, `%ProgramFiles(x86)%\…`, `%LOCALAPPDATA%\Programs\Git\bin\bash.exe` 차례). 못 찾으면 tool이 `unavailable`과 설치 안내를 내고 아무것도 띄우지 않는다. shell 규칙(`architecture/approval.md`)은 bash 기준이라 OS와 상관없이 같다.
+- **SIGUSR2 snapshot**은 Windows에서 걸지 않는다. core는 control `stop`으로, apps supervisor와 agent runtime은 stdin EOF와 stop 메시지로 끝나서 Windows에 SIGTERM이 안 와도 끝난다.
+
+### core 수명
 
 ```
  shell(앱 실행·--core) ─┐                    identify 답 있음 ─▶ 판 대조 ─▶ connect {client}
  CLI 사람 명령 ─────────┼─▶ ensureCore ─ control socket ─┤                     판 다름 ─▶ stop → identify 사라짐 → 새로 띄우기(한 번)
-                        ┘   (packages/protocol/client)   └ 답 없음 ─▶ detached spawn ─▶ stdout 첫 줄 ready | start_failed
+                        ┘                                └ 답 없음 ─▶ detached spawn ─▶ stdout 첫 줄 ready | start_failed
  core: instance lock ─▶ control listen(starting) ─▶ migration·API·wiring·afterReady ─▶ ready ─▶ … ─▶ stop | idle-exit | signal ─▶ 같은 shutdown barrier
 ```
 
-- **core는 shell의 child가 아니다.** shell과 CLI는 같은 `ensureCore`(`packages/protocol/client/ensure.ts`)로 붙거나 띄우는 client다. IO(dial, detached spawn, Clock, timer)는 인자로 받는다. 띄운 core는 POSIX 새 session, win32 detached+`windowsHide`이고 launcher는 stdout 첫 JSON 줄(`ready` 또는 `start_failed {reason}`)만 읽고 놓는다. 그 줄에 token은 없다.
-- **control socket**(`packages/core/server/control/`, 계약 `packages/protocol/supervision/core-control.ts`)은 공통 socket 자리(`socketDirectoryPath`) 아래 `ipcPath(dir, "core")`다. POSIX는 0700 폴더의 unix socket, win32는 data root namespace의 named pipe다. 한 연결에 JSON 한 줄 요청 하나와 Result 답 하나다. verb는 `identify`(제품 판, protocol 판, `core_epoch`, `api_url`, `starting|ready|stopping`, credential 없음), `connect {client: cli|shell}`(user token, shell이면 shell capability도), `stop`, `diagnostic`, 사람 결정 handle 등록·창 닫기(shell capability만, `architecture/approval.md`)다. 경계는 socket 자리이고 OS peer 신원은 보지 않는다. API는 그대로 loopback HTTP·WebSocket이다.
-- **동시 시작은 `run/instance.lock`이 가른다.** lock을 잡은 core만 socket 잔여물을 치우고 listen한다. 진 core는 살아 있는 core의 socket과 runtime file을 건드리지 않고 끝나며, ensure는 identify를 다시 물어 이긴 core에 붙는다. liveness는 "identify가 답한다"이고 pid file이나 HTTP health probe를 쓰지 않는다.
-- **끝나는 길은 셋이고 barrier는 하나다.** control `stop`(`lophn core stop`, tray의 `Stop lophn`, 판 교체), idle-exit, SIGINT·SIGTERM. 앱의 Quit(Cmd+Q, `--quit`, will-quit, tray의 `Quit lophn`)는 shell 자원과 연결만 정리하고 core는 남긴다. 명시 stop 뒤에는 shell이 core를 저절로 다시 띄우지 않는다(`closed(shutdown)`이나 identify `stopping`을 본 shell은 이미 도는 같은 판 core에만 다시 붙는다). core가 crash하면 다시 띄우는 감독은 없고 다음 ensure가 띄운다.
-- **idle-exit**(`packages/core/main/daemon/idle.ts`, `wiring/idle.ts`). ready 뒤부터 30초마다 일과 client를 다시 본다. 일은 module마다의 machine 전용 read(`job.activity`: 켜진 job·열린 job run, `run.activity`: running run, `WorkflowInstanceActivity`: 모든 project의 running instance)이고, client는 진행 중 HTTP 요청과 Gateway 구독이다(`ApiServer.activity`). 앱 process와 control 요청은 세지 않는다. 일도 client도 없는 상태가 10분 이어져야 끝난다. 읽기가 실패하면 일이 있는 것으로 보고, 읽는 동안 새 요청이 들어왔으면 그 판정을 버린다.
-- **autostart는 core만 띄운다.** packaged일 때만 로그인 항목이 `--core`(macOS는 `wasOpenedAtLogin`)로 lophn을 연다. 그 Electron은 창·tray·terminal-host·extension을 조립하지 않고 ensure만 한 뒤 끝난다. 업데이트 전의 `--tray` 등록은 다음 일반 실행에서 한 번 `--core`로 다시 쓴다(`packages/shell/main/desktop/autostart.ts`). OS service(systemd, launchd agent, Windows service)는 등록하지 않는다. shell single-instance lock은 창 하나를 지키는 것이라 core lock과 따로이고, core-only 실행은 그 lock을 잡지 않는다.
+- **core는 shell의 child가 아니다.** shell과 CLI는 같은 `ensureCore`로 붙거나 띄우는 client다. IO(dial, detached spawn, Clock, timer)는 인자로 받는다. 띄운 core는 POSIX 새 session, win32 detached+`windowsHide`이고 launcher는 stdout 첫 JSON 줄(`ready` 또는 `start_failed {reason}`)만 읽고 놓는다. 그 줄에 token은 없다.
+- **control socket.** data root마다 공통 socket 자리 아래 이름 `core`로 연다. POSIX는 0700 폴더의 unix socket, win32는 data root 이름 공간의 named pipe다. 한 연결에 JSON 한 줄 요청 하나와 Result 답 하나다(계약 `core-control-protocol`). verb는 `identify`(제품 판, protocol 판, `core_epoch`, `api_url`, `starting|ready|stopping`, credential 없음), `connect {client: cli|shell}`(user token을 주고, shell이면 shell capability도), `stop`, `diagnostic`, 사람 결정 handle 등록과 창 닫기(shell capability만, `architecture/approval.md`)다. 경계는 socket 자리의 권한이고 OS peer 신원은 보지 않는다. 데이터(API)는 그대로 loopback HTTP·WebSocket이다. core의 user token은 file로 쓰지 않고 `connect`로만 준다. 같은 core에 shell과 CLI가 각자 connect하므로 core마다 user credential이 하나라는 제한은 없다.
+- **동시 시작은 data root의 `run/instance.lock`이 가른다.** lock을 잡은 core만 socket 잔여물을 치우고 listen한다. 진 core는 살아 있는 core의 socket과 runtime file을 건드리지 않고 끝나며, ensure는 identify를 다시 물어 이긴 core에 붙는다. liveness는 "identify가 답한다"이고 pid file이나 HTTP health probe를 쓰지 않는다. 끝나는 중(`stopping`)인 core를 만나면 ready나 사라짐을 기다린다.
+- **판 대조.** identify의 제품 판이나 protocol 판이 ensure 쪽과 다르면 ensure가 `stop`을 보내 끝나기를 기다린 뒤 새로 띄운다(한 번). 돌던 run·job 차례는 종료와 같이 `interrupted`가 된다.
+- **끝나는 길은 셋이고 barrier는 하나다.** control `stop`(`lophn core stop`, tray의 `Stop lophn`, 판 교체), idle-exit, SIGINT·SIGTERM. 앱의 Quit(Cmd+Q, `--quit`, will-quit, tray의 `Quit lophn`)는 shell 자원과 연결만 정리하고 core는 남긴다. 명시 stop 뒤에는 shell이 core를 저절로 다시 띄우지 않는다(`closed(shutdown)`이나 identify `stopping`을 본 shell은 이미 도는 같은 판 core에만 다시 붙는다). core가 crash하면 다시 띄우는 감독은 없고 다음 ensure(shell 재연결, CLI 호출, autostart)가 띄운다. core가 SIGKILL돼도 child는 stdin EOF로 스스로 끝난다. `lophn core stop`은 core를 띄우지 않는다.
+- **idle-exit.** ready 뒤부터 30초마다 일과 client를 다시 본다. 일은 module마다의 machine 전용 read로 센다: 켜진 job(승인 대기 중인 켜진 job도 일), 열린 job run, running run, 모든 project의 running workflow instance. client는 진행 중 HTTP 요청과 Gateway 구독이다. 앱 process와 control 요청은 세지 않는다. 일도 client도 없는 상태가 10분 이어져야 끝난다. 읽기가 실패하면 일이 있는 것으로 보고, 읽는 동안 새 요청이 들어왔으면 그 판정을 버린다.
+- **autostart는 core만 띄운다.** packaged일 때만 로그인 항목이 `--core`(macOS는 `wasOpenedAtLogin`)로 lophn을 연다. 그 Electron은 창·tray·terminal-host·extension을 조립하지 않고 ensure만 한 뒤 끝난다. 업데이트 전의 `--tray` 등록은 다음 일반 실행에서 한 번 `--core`로 다시 쓴다. shell single-instance lock은 창 하나를 지키는 것이라 core의 instance lock과 따로이고, core-only 실행은 그 lock을 잡지 않는다.
 
-## file
+### file
 
-- **data root.** 기본은 `homeOf` 아래 `.lophn`(Windows `%USERPROFILE%\.lophn`)이다. POSIX는 소유 uid와 mode(group·other 권한 없음)를 보고 아니면 기동을 거절한다. Windows는 mode·uid가 없어 보지 않고 user profile ACL을 믿는다. `secrets.json`도 같은 file 그대로이고 Windows는 0600 검사를 하지 않는다. core의 user token은 file로 쓰지 않는다(control `connect`).
-- **봉인.** 앱 bundle 사본(`apps/<app>/bundles/<hash>/`)은 file 0444·폴더 0555로 좁힌 뒤 옆에 빈 표지 `<사본>.sealed`를 쓴다. 봉인 판정은 표지가 있는가 하나다(Windows 폴더에는 쓰기 bit가 없다). 표지 없는 사본은 끊긴 준비가 남긴 것이라 쓰기 권한을 돌려준 뒤 지우고 다시 쓰고, 못 지우면 준비가 실패한다. 옛 data root는 data step `apps.sealed-marker`(`packages/core/main/daemon/wiring/sealed-marker.ts`)가 쓰기 bit 없는 사본에 표지를 써서 옮긴다.
+- **data root.** 기본은 home 아래 `.lophn`(Windows `%USERPROFILE%\.lophn`)이다. POSIX는 소유 uid와 mode(group·other 권한 없음)를 보고 아니면 기동을 거절한다. Windows는 mode·uid가 없어 보지 않고 user profile ACL을 믿는다. `secrets.json`도 같은 file이고 Windows는 0600 검사를 하지 않는다.
+- **봉인.** 앱 bundle 사본(`apps/<app>/bundles/<hash>/`)은 file 0444·폴더 0555로 좁힌 뒤 옆에 빈 표지 `<사본>.sealed`를 쓴다. 봉인 판정은 표지가 있는가 하나다(Windows 폴더에는 쓰기 bit가 없다). 표지 없는 사본은 끊긴 준비가 남긴 것이라 쓰기 권한을 돌려준 뒤 지우고 다시 쓰고, 못 지우면 준비가 실패한다. 옛 data root는 data step `apps.sealed-marker`가 쓰기 bit 없는 사본에 표지를 써서 옮긴다.
 - **연결.** bundle과 flow host의 directory 연결은 Windows에서 junction(권한이 필요 없다), 그 밖은 symlink다. file 연결은 모든 OS에서 symlink다.
-- **권한 path 비교**(`packages/core/apps/permissions/model.ts` `isSameOrInside`)는 `relative`로 보고, Windows와 macOS는 대소문자를 가리지 않는다.
+- **권한 path 비교.** `relative`로 보고, Windows와 macOS는 대소문자를 가리지 않는다(file system 기본이 그렇다).
 
-## shell과 터미널
+### shell과 터미널
 
-- **macOS PATH.** Finder·Dock으로 켠 앱은 PATH가 짧아서 shell main이 시작할 때 login shell(`$SHELL -ilc`)의 PATH를 한 번 읽어 둔다(`packages/shell/main/desktop/core/login-path.ts`, 5초). core·terminal-host·extension이 그 env를 물려받는다. harness 찾기 fallback에 `/opt/homebrew/bin`, `/usr/local/bin`이 있다.
+- **macOS PATH.** Finder·Dock으로 켠 앱은 PATH가 짧아서 shell main이 시작할 때 login shell(`$SHELL -ilc`)의 PATH를 한 번(5초 한도) 읽어 둔다. core·terminal-host·extension이 그 env를 물려받는다. harness 찾기 fallback에 `/opt/homebrew/bin`, `/usr/local/bin`이 있다.
 - **macOS Dock.** 창이 없을 때 Dock을 누르면(`activate`) 창을 다시 연다.
-- **harness 찾기**(`packages/coding-agent/harnesses/detect.ts`). Windows는 이름마다 `PATHEXT` 확장자로 찾고 실행 bit 대신 확장자로 판정한다. `.cmd`·`.bat`은 shell로 띄운다.
-- **터미널 끄기.** POSIX는 `SIGHUP` 뒤 process group, Windows는 `pty.kill()` 뒤 `taskkill /T`다.
-- **hook·browser bridge도 공통 socket 자리를 쓴다.** POSIX file은 공통 directory의 `shell-<pid>/`(0700), endpoint는 `ipcPath(dir, "b" | "h", platform)`(0600)다. Windows file은 `<data root>/run/shell-<pid>/`, endpoint는 data root namespace의 `shell-<pid>-b`·`shell-<pid>-h` named pipe다. 두 endpoint가 `ipcPathLimit`을 넘으면 file 정리 전에 기능을 끄고 로그 한 줄만 남긴다. file 폴더 준비는 hook·browser 각자의 listen과 분리돼, shim 쓰기나 bridge listen이 실패해도 hook은 준비된다. 공통 directory는 core·앱 socket과 `shell-<pid>/`가 같이 쓰므로 app supervisor는 정지할 때 아무것도 지우지 않는다(낡은 앱 socket은 그 자리에 새 자식을 띄우기 전에 지운다). 판이 바뀌어 shell이 옛 core를 멈추면 옛 supervisor가 새 shell보다 늦게 끝나기 때문이다. 터미널 host는 `shell-init/`의 bash·zsh init file이 없으면 시작 층 없이 원래 login shell로 띄운다. win32 전체 off gate는 없다.
-- **PowerShell 시작 층.** PowerShell 7·5.1은 기존 profile 뒤 `-NoExit -Command ". '<init.ps1>'"`로 per-run 함수를 읽는다. 5.1용 file은 UTF-8 BOM을 포함한다. 사용자 alias·function·profile·execution policy는 고치지 않는다. 정책이 `.ps1` 읽기를 막으면 시작 층은 켜지지 않으며 우회하지 않는다. Windows 실기 확인은 별도다.
+- **harness 찾기.** Windows는 이름마다 `PATHEXT` 확장자로 찾고 실행 bit 대신 확장자로 판정한다. `.cmd`·`.bat`은 Node가 shell 없이 못 띄우므로 shell로 띄운다.
+- **터미널 끄기.** POSIX는 `SIGHUP` 뒤 process group, Windows는 pty를 죽인 뒤 `taskkill /T`다.
+- **hook·browser bridge도 공통 socket 자리를 쓴다.** POSIX file은 공통 폴더의 `shell-<pid>/`(0700), endpoint는 `b`(browser)·`h`(hook) 이름의 IPC endpoint(0600)다. Windows file은 `<data root>/run/shell-<pid>/`, endpoint는 data root 이름 공간의 `shell-<pid>-b`·`shell-<pid>-h` named pipe다. 두 endpoint가 OS별 길이 한도를 넘으면 file 정리 전에 기능을 끄고 로그 한 줄만 남긴다(pointer file이나 TCP로 우회하지 않는다). file 폴더 준비는 hook·browser 각자의 listen과 분리돼, shim 쓰기나 bridge listen이 실패해도 hook은 준비된다. 공통 폴더는 core·앱 socket과 `shell-<pid>/`가 같이 쓰므로 app supervisor는 정지할 때 아무것도 지우지 않는다(낡은 앱 socket은 그 자리에 새 자식을 띄우기 전에 지운다). 판이 바뀌어 shell이 옛 core를 멈추면 옛 supervisor가 새 shell보다 늦게 끝나기 때문이다. 터미널 host는 bash·zsh init file이 없으면 시작 층 없이 원래 login shell로 띄운다. win32 전체를 끄는 gate는 없다.
+- **browser shim.** POSIX sh와 Windows `.cmd` shim이 공통 `browser.js`를 Electron Node로 돌려 bridge에 URL을 넘긴다. 실패·declined·timeout이면 OS opener로 넘기고(Windows는 `cmd.exe start`) bridge env와 `ELECTRON_RUN_AS_NODE`를 지운다.
+- **PowerShell 시작 층.** PowerShell 7·5.1은 기존 profile 뒤 `-NoExit -Command ". '<init.ps1>'"`로 per-run 함수를 읽는다. 5.1용 file은 UTF-8 BOM을 포함한다. 사용자 alias·function·profile·execution policy는 고치지 않는다. 정책이 `.ps1` 읽기를 막으면 시작 층은 켜지지 않으며 우회하지 않는다.
 
-## Windows에서 꺼진 기능
+### Windows에서 꺼진 기능
 
 그 기능이 기대는 OS 장치가 없어서 끈 채다. 코드가 win32에서 일부러 건너뛴다.
 
 | 기능 | 왜 | 그 대신 |
 |---|---|---|
-| 터미널 foreground 판정 | `/proc`가 없다 | harness TUI를 process로 알아보지 못한다 |
+| 터미널 foreground 판정 | `/proc`가 없다 | harness TUI를 process로 알아보지 못한다(hook이 알리는 상태만 있다) |
 | 터미널 `signal` 요청(harness GUI toggle의 TUI 끄기) | foreground process group이 없다 | toggle이 없다 |
-| 앱 RSS 감시(85%) | RSS를 읽는 길이 없다(macOS는 `ps`) | 감시가 꺼져 있다 |
+| 앱 RSS 감시(설정한 한도의 85%) | RSS를 읽는 길이 없다(macOS는 `ps`) | 감시가 꺼져 있다 |
 
-macOS는 foreground 판정이 `pty.process` 이름뿐이고(`/proc`가 없다) 터미널 `signal` 요청이 Linux만이다.
+macOS는 foreground 판정이 pty의 process 이름뿐이고(`/proc`가 없다) 터미널 `signal` 요청이 Linux만이다.
 
-## 설치 묶음
+### 설치 묶음
 
-`npm run package`(`tools/package/main.ts [--target linux|mac|win] [--dir] [--out <dir>]`). 공통 단계는 shell·renderer build → 따로 둔 app 폴더에서 electron-builder `dir` → `platform/`(core·cli와 그 의존의 production `node_modules`), `extensions/`, `desktop/`, `skills/`를 넣기 → OS 묶음이다. `--dir`은 풀린 앱까지만 한다. 서명하지 않는다.
+공통 단계는 shell·renderer build → 따로 둔 app 폴더에서 electron-builder `dir` → `platform/`(core·cli와 그 의존의 production `node_modules`), `extensions/`, `desktop/`, `skills/`를 넣기 → OS 묶음이다. `--dir`은 풀린 앱까지만 한다. 서명하지 않는다.
 
 | | Linux | macOS | Windows |
 |---|---|---|---|
 | 묶음 | `.deb`(`/opt/lophn`) | dmg(`lophn-desktop.app`) | NSIS |
-| 설치 root(`packagedInstall`) | `dirname(resourcesPath)` | `Contents/Resources`(`resourcesPath`) | `dirname(resourcesPath)` |
+| 설치 root | 설치 폴더(resources의 부모) | `Contents/Resources` | 설치 폴더(resources의 부모) |
 | CLI | `/usr/bin/lophn`(sh) | `<root>/bin/lophn`(sh) | `<root>\bin\lophn.cmd` |
 | node-pty | source compile | N-API prebuild | N-API prebuild |
 
-macOS·Windows는 CLI를 시스템 PATH에 깔지 않는다. shell이 앱 안 launcher의 절대 경로(`packages/shell/main/desktop/paths.ts` `lophnCliPath`, 설치본이 먼저이고 개발은 `LOPHN_CLI`)를 쓰고, lophn 터미널(`terminal/ipc.ts`)과 harness agent(`extensions/bundled/harness/host.ts`)의 env에 그 폴더를 PATH 앞에 둔다(`packages/base/os/` `prependPath`). Windows의 `platform/node_modules/@lophn/*`는 npm이 만드는 절대 경로 junction 대신 copy다. node-pty는 Linux만 rebuild한다(`packages/shell/main/build.ts` `rebuildNodePty`).
+macOS·Windows는 CLI를 시스템 PATH에 깔지 않는다. shell이 앱 안 launcher의 절대 경로(설치본이 먼저이고 개발은 `LOPHN_CLI`)를 쓰고, lophn 터미널과 harness agent의 env에 그 폴더를 PATH 앞에 둔다. Windows의 `platform/node_modules/@lophn/*`는 npm이 만드는 절대 경로 junction 대신 copy다. node-pty는 Linux만 rebuild한다.
 
-## 다른 OS 확인
+### 다른 OS 확인
 
-`.github/workflows/os.yml`이 ubuntu·macos·windows에서 `npm ci` → `npm run check:full` → `node tools/ci/boot-core.ts`(새 data root로 core를 두 번 띄운다) → `node tools/package/main.ts --dir`을 돈다. `workflow_dispatch`와 `ci/**` branch push로만 돈다(private repo에서 macOS minute은 10배). 돌리기: `git push origin <branch>:ci/<이름>`. push와 실행은 사람에게 묻는다.
+GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `check:full` → core를 새 data root로 두 번 띄우기(두 번째는 재시작) → `--dir` 묶음을 돈다. 손으로 실행하거나 `ci/**` branch push에서만 돈다(private repo에서 macOS minute은 10배). push와 실행은 사람에게 묻는다.
 
-workflow는 아직 어느 OS에서도 CI로 돌려 보지 않았다. Windows는 실제 PC(Windows 11 x64, 개발자 모드 꺼짐)에서 같은 네 단계를 손으로 돌려 통과했다(`HANDOFF-windows.md`의 결과). macOS는 코드와 platform 인자를 넘긴 test로만 확인했다.
+- **symlink 권한.** Windows는 개발자 모드나 관리자 권한이 없으면 symlink를 만들지 못한다(junction은 된다). test의 폴더 연결은 `"junction"` type으로 만들고(POSIX는 type을 무시한다), file symlink가 꼭 필요한 test는 이유를 달고 건너뛴다. electron-builder가 받는 `winCodeSign` 묶음에 macOS symlink가 있어 그런 PC에서는 `package`가 풀기에서 실패한다. cache에 `darwin`만 빼고 미리 풀면 지나간다. GitHub runner는 관리자라 상관없다.
+- **npm script.** `e2e`·`e2e:deps`는 Electron의 Node로 띄우는 wrapper를 거친다. env 앞붙임 꼴(`ELECTRON_RUN_AS_NODE=1 …`)은 npm이 Windows에서 쓰는 cmd.exe에서 돌지 않는다.
+- **e2e 지원 코드.** Windows에는 `/proc`이 없어 띄운 core의 pid에서 `ParentProcessId`를 따라가 같은 home의 process를 찾는다. e2e core의 `USERPROFILE`은 `HOME`과 같은 빈 폴더다.
+- **개발 실행의 `lophn`.** Windows의 개발 실행은 sh launcher와 `lophn.cmd`를 같이 쓰고 shell main에 `.cmd` 경로를 준다. harness 감지 child는 `.cmd`·`.bat`을 shell로 띄운다.
 
-- **symlink 권한.** Windows는 개발자 모드나 관리자 권한이 없으면 symlink를 만들지 못한다(junction은 된다). test의 폴더 연결은 `"junction"` type으로 만들고(POSIX는 type을 무시한다), file symlink가 꼭 필요한 test는 그때 이유를 달고 건너뛴다. electron-builder가 받는 `winCodeSign` 묶음에 macOS symlink가 있어 그런 PC에서는 `package`가 풀기에서 실패한다. cache(`%LOCALAPPDATA%/electron-builder/Cache/winCodeSign/winCodeSign-2.6.0`)에 `darwin`만 빼고 미리 풀면 지나간다. GitHub runner는 관리자라 상관없다.
-- **npm script.** `e2e`·`e2e:deps`는 `tools/electron-node.ts`가 Electron의 Node로 띄운다. env 앞붙임 꼴(`ELECTRON_RUN_AS_NODE=1 …`)은 npm이 Windows에서 쓰는 cmd.exe에서 돌지 않는다.
-- **e2e 지원 코드.** Windows에는 `/proc`이 없어 `tests/support/core/process.ts`가 띄운 core pid에서 `ParentProcessId`를 따라가 같은 home의 process를 찾는다. e2e core의 `USERPROFILE`은 `HOME`과 같은 빈 폴더다.
-- **개발 실행의 `lophn`.** Windows의 `npm run dev`는 `.cache/dev-cli/`에 sh launcher와 `lophn.cmd`를 같이 쓰고 shell main에 `.cmd` 경로를 준다. `.cmd`·`.bat`은 Node가 shell 없이 못 띄우므로 harness 감지 child(`packages/shell/main/desktop/coding-connection.ts`)는 shell로 띄운다.
+## 지키는 것
 
-## 불변 조건
+1. POSIX data root 검사는 Windows를 위해 느슨해지지 않는다. platform이 win32일 때만 건너뛴다.
+2. 봉인된 사본은 표지가 있는 한 다시 쓰지 않는다. 표지 없는 사본은 지우지 못하면 준비가 실패한다(조용히 넘어가지 않는다).
+3. base와 protocol은 OS를 runtime 전역으로 읽지 않는다. OS로 가르는 함수는 platform을 인자로 받는다.
+4. Windows에서 꺼진 기능은 조용히 다른 길로 가거나 꺼진 것을 보인다. 반쯤 도는 채로 두지 않는다.
+5. supervisor는 child group이 없어졌음을 확인한 뒤에 자원을 푼다. 세 OS가 같다.
+6. 한 data root에 core는 하나다. 동시 시작은 instance lock이 가르고, 진 core는 이긴 core의 socket과 runtime file을 건드리지 않는다.
+7. core의 liveness는 identify가 답하는가 하나다. 판이 다르면 stop → 사라짐 확인 → 새로 띄우기를 한 번만 한다.
+8. 앱을 끄는 것(Quit)은 core를 끄지 않는다. core는 stop, idle-exit, 신호로만 끝난다. 명시 stop 뒤 shell이 core를 저절로 다시 띄우지 않는다.
+9. idle-exit는 일도 client도 없는 10분이 이어져야 하고, 읽기 실패는 일로 친다. 켜진 job이 있는 core는 끝나지 않는다.
+10. core 기동 launcher는 stdout 첫 줄만 읽고 놓으며 그 줄에 credential이 없다. user token은 file에도 stdout에도 쓰지 않는다.
+11. hook 준비는 browser shim·bridge listen의 성공과 분리한다. endpoint가 길이 한도를 넘으면 그 기능만 끄고 우회 길을 만들지 않는다.
+12. app supervisor는 정지할 때 공통 socket 폴더에서 아무것도 지우지 않는다.
+13. 사용자의 PowerShell profile·alias·function·execution policy를 고치거나 우회하지 않는다.
+14. OS service는 등록하지 않는다. 로그인 때 켜는 것은 core만 띄우는 autostart다.
 
-- POSIX data root 검사는 Windows를 위해 느슨해지지 않는다. platform이 win32일 때만 건너뛴다.
-- 봉인된 사본은 표지가 있는 한 다시 쓰지 않는다. 표지 없는 사본은 지우지 못하면 준비가 실패한다(조용히 넘어가지 않는다).
-- base와 protocol은 OS를 runtime 전역으로 읽지 않는다.
-- Windows에서 꺼진 기능은 조용히 다른 길로 가거나 꺼진 것을 보인다. 반쯤 도는 채로 두지 않는다.
+## 경계와 계약
+
+- **core-control-protocol** (control socket). `identify`, `connect {client: cli|shell}`, `stop`, `diagnostic`, 사람 결정 handle 등록·창 닫기(shell capability만). 한 연결에 JSON 한 줄 요청과 Result 답 하나. 공통 오류 코드 일곱만 쓴다. 클라이언트 쪽은 `ensureCore` 하나(shell과 CLI 공유)다.
+- **core 기동 알림.** 띄운 core의 stdout 첫 줄: `ready` 또는 `start_failed {reason}`.
+- **runtime file.** `run/instance.lock`(동시 시작을 가른다), 공통 socket 자리의 `core` endpoint, `shell-<pid>/`와 `shell-<pid>-b`·`shell-<pid>-h`. 이전에 있던 `run/user-token`·`run/location.json`은 없고 lock을 잡은 core가 남은 것을 지운다.
+- **CLI.** 사람 명령은 core를 띄워서라도 붙는다. 주소는 `LOPHN_DAEMON_URL` 또는 identify다. agent 자격(`LOPHN_AGENT_CREDENTIAL`)이 있으면 그것만 쓰고 user 자격으로 바꾸지 않는다. `lophn core stop`은 core를 띄우지 않는다.
+- **launch intent.** `--core`(core만 띄우고 Electron은 끝난다), macOS는 `wasOpenedAtLogin`. `--quit`은 Quit와 같다.
+- **환경 이름.** `LOPHN_GIT_BASH`(Windows Git Bash 경로), `LOPHN_CLI`(개발 실행의 CLI launcher), `LOPHN_DAEMON_URL`.
+- **install 계약.** 설치 root 아래 `platform/`, `extensions/`, `desktop/`, `skills/`, 그리고 `bin/`의 CLI launcher.
+- **data step** `apps.sealed-marker`: 옛 data root의 봉인 사본에 표지를 쓴다. 두 번 돌아도 같고 새 data root는 처음부터 적용한 것으로 친다.
+
+## 결정
+
+- 대상은 Linux x64, macOS arm64, Windows x64이고 서명하지 않는다. 이유: 사람이 Linux에서만 개발해 다른 OS 지원이 없었고, 다른 OS에서 build하고 기동하는 체계가 필요했다. (agent)
+- 다른 OS 확인은 GitHub Actions matrix 하나이고 손으로 실행하거나 `ci/**`에 push할 때만 돈다. 이유: private repo에서 macOS minute이 10배다. (agent)
+- process group은 POSIX `kill(-pid)`, Windows `taskkill /T`다. 버린 안: Job Object. native addon이라서. (agent)
+- Windows data root는 user profile ACL을 믿는다. keychain·DPAPI는 하지 않는다. 이유: Claude Code·Codex가 같은 식이다. (agent)
+- 봉인은 mode bit 대신 표지 file로 판정한다. 이유: Windows 폴더에 쓰기 bit가 없다. (agent)
+- Windows agent shell tool은 Git Bash이고 shell 규칙은 POSIX 그대로다. 이유: Claude Code가 Windows에서 Git Bash를 요구한다. (agent)
+- Windows 첫 land는 CI를 돌리지 않고 했다(Windows·macOS 처음 실행은 깨질 것으로 보았다). (사람, 2026-11-06)
+- 공통 socket 자리 규칙은 base의 순수 함수 한 곳이다. hash는 호출자가 넣고 POSIX key(SHA-256 앞 12자)는 바꾸지 않는다. 이유: base는 Node를 import하지 않고, 기존 앱 socket 경로와 slot 수를 지켜야 migration이 없다. (agent)
+- Windows 인증은 기존 64 hex key만 쓰고 SID·DACL 검사는 더하지 않는다. 경로가 한도를 넘으면 기능을 끄고 로그 한 줄만 남기며 pointer file·TCP로 우회하지 않는다. (agent)
+- hook 준비는 browser shim·listen과 분리한다. PowerShell은 사람의 실행 정책을 우회하지 않는다. (agent)
+- Windows foreground·signal·TUI toggle·GUI adapter 전체 대응은 platform-ipc 범위에 넣지 않았다. (agent)
+- Windows 실기 미확인을 기록한 채 land하고 계획을 닫았다. full check·기존 E2E·core 기동은 유지하고 Windows 통과로 적지 않는다. (사람)
+- core는 shell의 child가 아니다. shell과 CLI는 ensure로 붙거나 띄우는 client다. 이유: job을 shell(Electron) 수명에서 떼는 것이 첫째 이유고, 화면 없는 머신에서 CLI만으로 core를 켤 수 있어야 한다. (사람, 2026-11-08)
+- 앱의 Quit는 shell만 끄고 core는 idle-exit로 끝난다. 모두 끄는 `Stop lophn`을 따로 둔다. (사람이 추천을 받음, 2026-11-08)
+- CLI도 ensure로 core를 띄운다. 끄는 것은 idle-exit와 `lophn core stop`이다. (사람이 추천을 받음, 2026-11-08)
+- idle-exit는 일도 client도 없이 10분이다. 앱 process와 control 요청은 세지 않는다(앱은 쓰일 때 core가 띄우고, client도 job도 없으면 쓰는 쪽이 없다). 승인 대기 중인 켜진 job도 일로 치고, 30초마다 다시 보며 읽기 실패는 일로 친다. (agent)
+- OS service로 등록하지 않는다. 이유: 로그인 autostart가 core만 띄우는 것으로 충분하다. (agent)
+- control socket은 TCP가 아니다. 이유: socket 폴더 권한(POSIX 0700)과 Windows named pipe가 경계다. 버린 안: API를 unix socket으로도 여는 것(Codex sandbox에 core socket 하나만 여는 길)은 이 설계에 넣지 않았다. (agent)
+- 1회용 ticket을 만들지 않고 `connect`가 user credential을 준다. 이유: 예전에 `run/user-token`(0600 file)이 같은 경계에서 같은 것을 주던 것이라 더 약해지지 않는다. (agent)
+- 사람 결정 handle은 control `connect {client: shell}`의 shell capability로만 등록한다. HTTP token, agent·worker credential, route, CLI에는 길이 없다. OS peer 신원 검증은 하지 않는다. (planner)
+- 동시 시작은 instance lock이 가르고 liveness는 identify다. 버린 안: pid file, HTTP health probe. 판이 다르면 stop → 종료 확인 → 새로 띄우기를 한 번 한다. (agent)
+- shell의 single-instance lock은 남긴다. 이유: 창 하나·탭 하나를 지키는 것이라 core lock과 따로다. (agent)
+- core가 crash해도 core 쪽에서 다시 띄우는 감독은 두지 않는다. 다음 ensure가 띄운다. 놓친 job 차례는 놓친 차례 정책(`run`, `hold`)이 받는다. (agent)
+- 명시 stop 뒤 shell은 core를 저절로 다시 띄우지 않는다. (agent)
+- core를 shell과 떼어 "끄고 바로 켜면 lophn이 안 뜬다"는 경쟁(shell이 먼저 끝나고 옛 core가 lock을 쥔 채 조금 더 살아 새 core가 `start_failed`로 멈춤)이 사라졌다. 새 shell은 identify에 답하는 core에 붙거나, 끝나는 중이면 기다린다. (해결된 이슈)
+
+## 열린 것
+
+- Windows hook 명령이 cmd에서 돌지 않는다. 따옴표 없는 `C:/…` 경로는 cmd가 명령으로 읽지 못하고, 설치본의 맨 `lophn`은 lophn 터미널 밖의 PATH와 Git Bash에서 못 찾는다. 다시 깔기·지우기·dry_run이 `C:/…` 경로 hook을 우리 것으로 알아보지 못한다. 추천은 hook 명령을 cmd와 Git Bash 양쪽에서 도는 꼴로 쓰는 것이다. (이슈 "Windows에서 깔린 hook 명령이 cmd에서 돌지 않고 GUI↔TUI toggle이 없다")
+- Windows에서 foreground 판정과 TUI 끄기가 없다. 후보는 ConPTY에 Ctrl+C를 쓰거나 process tree를 끄는 것, foreground는 PTY shell pid 아래 process tree 근사다. 그 전까지는 toggle이 없음이 드러나야 한다(지키는 것 4). (같은 이슈)
+- Quit나 `Stop lophn`이 ensure가 도는 중에 오면 ensure는 취소되지 않아 core가 새로 뜰 수 있다. 시작 중에 `Stop lophn`을 누르면 control stop이 `unavailable`로 돌아와 성공으로 치여 막 뜬 core가 남는다. 켜진 job이 없으면 10분 뒤 idle-exit로 끝난다. (이슈 "Quit 중에 돌던 ensure가 끝난 뒤 core를 새로 띄울 수 있다")
+- 다른 client(CLI)가 stop한 뒤 shell은 주기적으로 identify를 묻지 않아 새 core에 스스로 붙지 못한다. Reconnect를 눌러야 한다. (이슈 "shell이 다른 client의 stop 뒤에는 새 core를 스스로 알아채지 못한다")
+- 업데이트 뒤 첫 로그인 실행이 옛 `--tray` 등록이면 창이 한 번 뜬다. macOS `wasOpenedAtLogin`과 core-only 실행의 userData 폴더는 실기로 확인하지 않았다. (이슈 "업데이트 뒤 첫 로그인 실행은 창을 한 번 연다")
+- 이 workflow는 어느 OS에서도 CI로 돌려 보지 않았다. Windows는 실제 PC(Windows 11 x64, 개발자 모드 꺼짐)에서 같은 네 단계를 손으로 돌려 통과했다. macOS는 코드와 platform 인자를 넘긴 unit test로만 확인했다. PowerShell 7·5.1, named pipe, `.cmd`, 실제 browser·알림, Dock 다시 열기, login PATH, NSIS 설치 뒤 `lophn.cmd`, 터미널을 닫을 때 Windows에서 shell 아래 process가 남지 않는지는 미확인이다(수동 확인 목록은 저장소 root의 Windows checklist).
+- 앱 Quit 뒤 켜진 job이 돌고 10분 뒤 core가 끝나는 것, 다시 켜면 돌던 core에 붙는 것, macOS(`wasOpenedAtLogin`)와 Windows(named pipe)에서 core를 찾는 것은 사람 확인이 남았다.
+- 연결마다 user credential을 새로 발급하고 끝내는 길이 없다(폐기는 core epoch이 바뀔 때뿐). 의도인지 확인이 필요하다. 같은 사용자의 아무 process나 control socket으로 진단 한 줄을 보낼 수 있는 것도 마찬가지다(쓰기 자리는 core가 고정한다).
+- 알려진 한계: macOS는 node로 도는 CLI를 hook이 올 때까지 foreground로 알아보지 못한다.

@@ -1,0 +1,11 @@
+id: check-reads-recorded-verification
+title: check는 test를 다시 돌리지 않고 기록된 Verification만 읽는다
+kind: defect
+status: kept
+topic: coding-agent
+modules: [packages/core/apps]
+now: "`core/apps/tickets/checks.ts`의 `loadCheckWork`가 `verifications` 표에서 release의 bundle hash(`app_test`) 또는 이 ticket·completion의 `test_command` 기록만 읽어 `check_work`로 모은다. check 때 test를 다시 돌리지 않는다."
+impact: 결함이라기보다 결정 기록이다. test는 앞 단계(app test, test command)가 이미 기록한다. 다시 돌리는 비용과 sandbox를 피한다.
+fix: "다시 돌리면 sandbox·시간·부작용이 늘어 크다. 추천: 남긴다. 이유는 `loadCheckWork` 주석에 둔다."
+closed: 다시 돌리면 sandbox·시간·부작용이 늘어 크다. test는 앞 단계(app test, test command)가 이미 기록한다.
+guard: 없음

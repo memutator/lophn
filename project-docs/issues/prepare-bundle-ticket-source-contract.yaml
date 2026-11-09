@@ -1,0 +1,15 @@
+id: prepare-bundle-ticket-source-contract
+title: '`release.prepare_bundle`의 `ticket_source` 계약과 core가 다르다'
+kind: defect
+status: fixed
+topic: activation
+modules: [packages/core/apps, packages/protocol]
+now: |
+  계약은 optional인데 core가 필수로 막는다.
+impact: |
+  계약과 구현이 어긋난다.
+fix: |
+  계약을 필수로 맞춘다.
+closed: |
+  `protocol/apps/releases.ts`의 `releasePrepareBundleInputSchema`가 `ticket_source: ticketSourceSchema`(필수, strictObject)다. `core/apps/control.ts`의 핸들러에 남은 `body.ticket_source === undefined` 검사는 타입만 optional인 중복 방어다.
+guard: 없음

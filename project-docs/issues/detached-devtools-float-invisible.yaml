@@ -1,0 +1,15 @@
+id: detached-devtools-float-invisible
+title: detached 창에서 DevTools를 floated로 옮기면 DevTools가 보이지 않는다
+kind: bug
+status: fixed
+topic: workspace-layout
+modules: [packages/shell/renderer]
+now: |
+  DevTools 자리 menu(`renderer/browser/browser-toolbar.tsx`의 `float`)를 고르면 `setDevtools`(`renderer/workspace/kinds/browser-devtools.tsx`)가 탭의 `fields.devtools.place`를 `float`로 바꾸고 `host.openFloat`로 `browser_devtools` 패널을 연다. detached 창의 `host.openFloat`는 `fields.adopt`가 있는 popup만 열고 나머지는 아무것도 하지 않는다(`renderer/workspace/detached/detached-space.tsx`). 그 창에는 floats 층이 없다. 그래서 탭은 DevTools를 탭 안(`right`·`bottom`)에도 따로 뜬 창(`window`)에도 그리지 않는다.
+impact: |
+  detached browser 탭에서 DevTools를 floated로 옮긴 사람은 DevTools를 잃는다. 다시 보려면 자리를 다시 골라야 한다.
+fix: |
+  (1) detached 창에서는 자리 menu에 `float`를 두지 않는다(작음, 추천). (2) detached 창의 `openFloat`가 DevTools 패널을 받으면 `window`로 바꾼다(작음).
+closed: |
+  detached 창 안의 browser toolbar는 DevTools 자리 menu에서 `float`를 뺀다. `DetachedTab`이 `DetachedWindowProvider`(`renderer/browser/detached-window.ts`)로 알리고 `BrowserToolbar`가 읽는다.
+guard: 없음

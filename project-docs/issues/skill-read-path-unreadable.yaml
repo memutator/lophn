@@ -1,0 +1,19 @@
+id: skill-read-path-unreadable
+title: 'skill.read에 path를 주면 본문도 딸린 파일도 못 읽는다'
+kind: bug
+status: fixed
+topic: agent-definition
+modules: [packages/core/lophn-agent]
+now: |
+  `skill.read`는 `path`가 없을 때만 본문을 준다. `packages/core/lophn-agent/extensions/skill-read.ts`의 reader에서 `path === undefined`면 `ok(one.body)`이고, 그 밖에는 `one.files.get(path)`만 본다. `one.files`를 채우는 `readFixed`(같은 file)는 `name === SKILL_MANIFEST`(`SKILL.md`)를 건너뛰고 형제 `.md`만 담는다. 그러니 `path: "SKILL.md"`는 어떤 skill에서도 성공할 수 없다. 내장 skill 여덟(`packages/core/agent-places/skills/*/SKILL.md`)은 전부 `SKILL.md` 한 file뿐이라 딸린 file이 없다.
+
+  tool 정의(`packages/core/lophn-agent/tools/bundles/skill.ts`)의 설명은 "Read an enabled skill's body, or its bundled file at path"이고 prompt의 skill 목록(`packages/core/lophn-agent/prompt-assembly/skill-list.ts`)도 "Read a skill's full text with skill_read"뿐이다. 본문은 `path`를 빼야 온다는 말이 어디에도 없어서 model은 `path: "SKILL.md"`를 고른다. 실제 session에서 9번 모두 그렇게 불렀고 9번 모두 `not_found`였다(`path` 값: `SKILL.md`, `/`, `.`, `design-app.md`).
+impact: |
+  agent가 skill 본문을 한 번도 못 읽는다. skill 목록에 붙는 frontmatter description만 보고 일한다. 한 session은 `DESIGN.md`의 절 이름을 description에서 외워 문서는 채웠지만 본문이 정한 규칙(앱 이름을 다시 쓰지 않는다, 화면을 설명하는 글을 두지 않는다, `@lophn/ui` guide를 먼저 읽는다)은 하나도 지키지 않았고, 그 session의 `DESIGN.md` `Reuse` 절에는 skill을 못 읽었다는 사실이 적혀 있다. 본문을 읽으려는 시도가 실패하면 agent는 재시도에 turn을 쓰고, 다음 turn에서 같은 값을 다시 보내 같은 실패를 되풀이한다.
+fix: |
+  - 작음(추천): `readFixed`가 `SKILL.md`도 `files`에 담고, reader가 `path`가 `SKILL.md`(과 `./SKILL.md`)면 본문을 준다. `has no file` 결과에는 그 skill의 딸린 file 이름 목록(없으면 빈 배열)을 함께 싣는다. tool 설명에 "path를 빼면 본문, path는 skill에 딸린 .md file"을 쓴다.
+  - 작음: `path`를 없애고 `file?: string`으로 바꿔 이름만으로 본문/file을 가른다. contract가 바뀌므로 `skill.read`를 부르는 곳과 guide를 같이 고친다.
+  - 추천: 앞의 것. 기존 입력이 그대로 살고, `SKILL.md`가 실제로 있는 file이라 실패할 이유가 없다.
+closed: |
+  `skill-read.ts`의 reader가 `path`를 정규화(`^(?:\./|/)+` 제거)해 `SKILL.md`, `./SKILL.md`, `.`, `/`이면 본문을 준다. `readFixed`는 `SKILL.md`를 `files`에 담지 않고, 모르는 `path`의 `not_found` message는 `skill <name> has no file <path> (files: a.md, b.md)` 아니면 `(no bundled files)`다. tool 설명은 "Omit path to get the skill body. path reads a bundled .md file that ships beside SKILL.md."로 바뀌었다.
+guard: packages/core/lophn-agent/extensions/skills_test.ts "skill.read는 path가 없거나 SKILL.md면 본문을 주고, 모르는 path의 실패에 딸린 file 이름을 싣는다"

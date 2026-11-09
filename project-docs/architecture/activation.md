@@ -1,25 +1,42 @@
 # activation
 
-앱 workspace의 session이 준비한 release가 운영 앱이 되는 순간이다. 도는 앱 process, 앱 DB, 앱 grant, 들어오는 호출을 한꺼번에 바꾸는 일이라 여러 module(app-releases, app-runtime, app-data)이 순서를 지켜야 한다. 도중에 core가 꺼지거나 새 release가 뜨지 못해도 앱이 반쯤 바뀐 채 남으면 안 된다. 이 문서는 activation을 여는 계기, 사람에게 묻는 조건, 바꾸는 순서와 실패 때 되돌리는 약속을 다룬다.
+앱 workspace의 session이 준비한 release가 운영 앱이 되는 순간이다. 도는 앱 process, 앱 DB, 앱 grant, 들어오는 호출을 한꺼번에 바꾸는 일이라 앱의 release·runtime·data 세 영역(`app-releases`, `app-runtime`, `app-data`)이 순서를 지켜야 한다. 도중에 core가 꺼지거나 새 release가 뜨지 못해도 앱이 반쯤 바뀐 채 남으면 안 된다. 이 문서는 activation을 여는 계기, 사람에게 묻는 조건, 바꾸는 순서와 실패 때 되돌리는 약속을 다룬다.
 
-## 흐름
+## 문제
+
+release를 운영에 올리면 일이 한꺼번에 바뀐다. 이전 process를 끄고, DB를 새 schema로 옮기고, 새 process를 띄우고, 앱이 받을 권한을 새 선언에 맞추고, 그 사이 들어온 호출을 어디로 보낼지 정해야 한다. 이 중 하나만 되고 멈추면 두 process가 한 DB를 열거나, 옛 code가 새 schema 위에서 돌거나, 사람이 허락하지 않은 권한이 켜지거나, 사람이 쌓은 data가 옛 복구본으로 덮인다. 복구 못 하는 쪽은 앱의 data와 사람의 신뢰다.
+
+또 사람이 모르는 사이 앱이 더 넓은 권한을 얻거나 data를 잃으면 안 된다. 그렇다고 사람 물음을 매번 끼우면 agent가 앱을 고치는 흐름이 막힌다. 늘어난 것만 묻고 나머지는 묻지 않아야 한다.
+
+## 목표와 비목표
+
+- 목표: release 하나가 운영 앱이 되거나, 실패하면 이전 release와 data가 그대로인 상태로 돌아간다. 중간 상태가 남지 않는다.
+- 목표: 권한·data 손실이 늘어나는 activation만 사람에게 묻고, 묻는 판정은 program이 선언 사실로 결정적으로 한다.
+- 목표: core가 꺼지거나 응답이 끊겨도 ledger를 근거로 이어받는다.
+- 비목표: activation을 줄 세우지 않는다. 겹치면 거절하고 다시 시작은 사람이나 agent가 한다(아래 결정).
+- 비목표: 저절로 동의하는 장치. unattended에서도 동의는 사람이 한다.
+- 비목표: data를 거꾸로 돌리는 migration. 이전 release로 돌아가도 DB는 되돌리지 않는다.
+- 비목표: release 준비. 준비는 이 문서의 앞 단계이고 activation은 `prepared`인 release만 받는다.
+
+## 모델
+
+release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`다. 앱의 한 시점 운영 release는 하나이고 그것을 가리키는 참조(active 참조)를 바꾸는 순간이 activation의 commit이다.
 
 ```
- 앱 workspace session: release.activate {release} (core memory route. 그 앱 workspace의 session만)
-   activation driver (app-releases)
-     prepared release가 아니거나 그 앱의 시도가 돌고 있으면 conflict
-     선언 사실(facts) 비교: 새 선언 사실 중 지금 active 앱 grant가 안 덮는 것 / 첫 activation / migration의 loss 선언
-       ├ 늘지 않음 ──────────────────────────────────────────────────────────────┐
-       └ 늘었음 ─▶ 동의 대기(activation_consents 표), waiting_consent를 바로 돌려준다      │
-                  ─▶ 사람이 동의(activation.consent) ─▶ driver sweep ─────────────────────┤
-                                                                                     ▼
-                                                       앱마다 하나만 돈다 (메모리. 돌고 있으면 conflict로 거절)
-                                                       release.activate는 시도의 끝을 120초까지 기다려
-                                                       active·failed를, 넘으면 running을 돌려준다
+ 앱 workspace session: release.activate {release}
+   prepared release가 아니거나 그 앱의 시도가 돌고 있으면 conflict
+   선언 사실(facts) 비교: 새 선언 사실 중 지금 active 앱 grant가 안 덮는 것 / 첫 activation / migration의 loss 선언
+     ├ 늘지 않음 ──────────────────────────────────────────────────────────────┐
+     └ 늘었음 ─▶ 동의 대기(activation_consents), waiting_consent를 바로 돌려준다   │
+                ─▶ 사람이 동의(activation.consent) ─▶ 시작 sweep ───────────────┤
+                                                                                 ▼
+                                                  앱마다 하나만 돈다 (겹치면 conflict로 거절)
+                                                  release.activate는 시도의 끝을 120초까지 기다려
+                                                  active·failed를, 넘으면 running을 돌려준다
  시도 하나:
-   1 접수를 닫고 도는 호출이 끝나길 기다린다 (app-runtime). 그 사이 온 호출은 붙잡아 둔다
-   2 이전 process의 종료를 확인한다 (supervision)
-   3 종료된 실제 DB의 schema와 무결성을 읽는다 (app-data worker)
+   1 호출 접수를 닫고 도는 호출이 끝나길 기다린다. 그 사이 온 호출은 붙잡아 둔다
+   2 이전 process의 종료를 확인한다
+   3 종료된 실제 DB의 schema와 무결성을 읽는다
    4 migration이 있으면 복구본을 만들어 ledger에 확정한 뒤 단계를 순서대로 적용한다
    5 새 process를 준비 모드로 띄워 hash, handler, schema, 연결을 확인한다. 업무 통로는 닫혀 있다
    6 complete, 한 tx: active 참조, 이전 superseded, 앱 grant를 새 선언 사실에 맞춤, 복구본 정리
@@ -27,56 +44,111 @@
  6 전에 실패 ─▶ 종료 확인 ─▶ 복구본 복원과 확인 ─▶ fail, 한 tx: 실패 기록 ─▶ 이전 release를 다시 띄움
 ```
 
-- 이전 release로 돌아가기도 같은 순서다. 사람만 시작하고, 지금 활성 release와 data schema가 같은 release만 고른다. migration이 없어서 앱 code만 바뀌고 DB는 그대로다.
-- 앱 process는 권한 flag 없이 뜬다(사람이 정했다). 선언 사실은 release 선언에서 권한 요구, 다른 앱 tool 쓰기, tool 이름만 뽑아 준비 때 한 번 계산해 release 행의 `facts` 열에 둔 값이다(`AppFacts`, `packages/core/apps/permissions/facts.ts`).
+- 선언 사실은 release 선언에서 권한 요구, 다른 앱 tool 쓰기, tool 이름만 뽑아 준비 때 한 번 계산해 release 행의 `facts` 열에 둔 값이다. 동의를 묻는 판정과 complete의 grant 맞춤이 이 값만 본다.
+- 이전 release로 돌아가기도 같은 순서다. 사람만 시작하고(요청 행 `activation_requests`), 지금 활성 release와 data schema가 같은 `superseded` release만 고른다. migration이 없어서 앱 code만 바뀌고 DB는 그대로다.
+- 시도가 멈출 수 있는 곳은 둘이다. 닫혀 끝난 시도(`active` 또는 `failed`)와 앱을 붙든 채 멈춘 시도(`held`)다. held는 복원이나 종료를 확인하지 못해 앱을 사용 불가로 두고 이전 release도 띄우지 않은 상태이고, 매 sweep이 이어받는다.
+- 앱 process는 권한 flag 없이 뜬다(사람이 정했다).
 
 ## 지키는 것
 
 계기와 묻는 조건
-- 계기는 앱 workspace session의 `release.activate`이고 release 준비만으로는 시작하지 않는다. 앱의 주인이 준비한 release를 preview에서 확인한 뒤 올리게 하려는 것이다.
-- `release.activate`는 시작한 시도의 끝을 120초까지 기다린다(`ACTIVATE_WAIT_MS`, `packages/core/apps/releases/activation/assembly.ts`). 넘으면 `running`을 돌려주고 시도는 core 안에서 이어 가며, session은 `app.status`와 `release.get`으로 본다. 120초는 `shell.run`의 기본 timeout과 앱 tool 호출 상한과 같아 tool 하나가 turn을 이보다 오래 붙들지 않는다.
-- 동의를 기다리면 `release.activate`는 기다리지 않고 `waiting_consent`를 돌려준다. 동의 뒤의 시작은 driver sweep이 한다. 결과는 아래 실패와 복구의 `activation.report`로 release를 만든 session에 notice로 간다.
-- 묻는지는 program이 선언 사실로 결정적으로 판정한다. 늘어난 바깥 자원, 늘어난 다른 앱 tool 쓰기, migration이 선언한 loss, 이전 활성 release가 없는 첫 activation이다. 아무것도 늘지 않으면 묻지 않는다. secret의 OAuth 칸(끝점, scope, 추가 parameter)이 바뀐 것도 늘어난 바깥 자원이다. 선언 사실 비교가 정규화한 scope 전체를 맞추므로 순서만 바뀐 것은 묻지 않는다. 동의 화면은 authorize host, refresh token이 갈 token host, scope를 보인다. 앱 자신의 tool이 더해지는 것은 묻지 않는다. 그 앱을 할당받은 agent는 새 tool도 묻지 않고 쓴다(할당이 허락이다, `architecture/approval.md`).
-- data 손실은 migration 파일 머리의 `-- loss:` 줄이 유일한 출처다. 줄이 틀리면 release 준비가 거절된다. 선언을 믿으니 사본에서 돌려 재지 않는다.
-- 사람이 동의한 비교와 시작할 때의 비교가 다르면 다시 판정해 다시 묻는다. 기다리는 사이 앱 grant가 바뀔 수 있다.
-- 새 release가 다른 workspace가 쓰는 공개 command를 지워도 activation은 막지 않는다. `release.prepare`가 결과의 `removed_public_tools`에 그 command를 싣고, 그 앱 workspace의 session이 정한다. 규칙은 `architecture/app-call.md`다.
-- 동의는 activation의 상태다. approvals를 거치지 않는다. 묻기는 driver가 machine 자격으로 `activation.ask_consent`를 불러 `activation_consents` 표에 줄을 쓰고, 사람이 `activation.consent`(사람 자격만, compare `{requested_at}`)로 동의하거나 거절한다. 대기 목록은 `activations.consents`를 읽고 남지 않는 event `ActivationConsentRequested`·`ActivationConsentClosed`로 고친다.
-  - `activations.consents`와 `ActivationConsentRequested`(그리고 `AppRestartHalted`)는 앱 id와 함께 앱 이름(`app_name`)을 싣는다. 알림과 대기 목록은 id 대신 이름을 보인다. renderer가 이름을 따로 찾지 않게 하려는 것이다.
-  - `release.activate`가 `waiting_consent`를 돌려주면 대화에 그 결과로 만든 카드가 선다. 카드는 대기 목록에 그 release 줄이 있는 동안 기다림으로 보이고 [Review]가 대기 panel을 연다.
-  - 동의 대기는 표에 남아 재시작을 넘는다. 메모리에 두면 재시작 때 사라지는데, `release.activate`를 부른 turn은 이미 `waiting_consent`를 받고 끝나 다시 묻는 쪽이 없다.
-  - 허락도 표에 남긴다(`allowed_at`). 허락만 메모리로 넘기면 commit 뒤 시작 전에 꺼질 때 허락을 잃는다. 허락한 줄은 driver의 sweep이 시작한다.
-  - 같은 release는 한 줄이다. 같은 release를 다시 `release.activate`해도 같은 비교면 줄과 카드가 늘지 않는다. 비교가 달라졌으면 줄을 덮어 다시 기다린다(`requested_at`이 바뀌어 옛 카드의 동의는 `conflict`다).
-  - 거절은 줄을 지우고 release는 `prepared`로 남는다. 이유를 받지 않는다(읽는 곳이 없다).
-  - 같은 앱에 열린 앱 공유 요청(`architecture/approval.md`의 앱 공유 요청)이 있으면 동의 카드가 그 요청(받을 agent, coding agent, 이유, 받게 되는 공개 skill·command 수)을 같이 보이고, 허락하면 같은 tx에서 그 요청도 승인한다. `activation.consent`의 선택 입력 `share_requested_at`이 카드가 본 요청의 `requested_at`이고, 지금 열린 요청과 다르거나 없으면 동의째 `conflict`다(사람이 보지 못한 요청을 승인하지 않는다). 공유가 먼저 적용되고 실패하면 tx가 되돌아가 동의는 대기로 남는다. approvals를 import하지 않으려고 core/apps는 port(`bundledShare`)만 부르고 구현은 조립(`wiring/share-requests.ts`)이 꽂는다. 거절은 공유 요청을 건드리지 않아 공유 요청이 제 줄로 다시 보인다.
-  - unattended에서도 동의는 사람이 한다. 저절로 동의하는 장치를 두지 않는다.
-- 앱마다 한 번에 하나만 돌고, 겹치면 줄에 세우지 않고 `conflict`로 거절한다(이전 release로 돌아가기 요청도 같다). 거절된 `prepared` release는 저절로 다시 시작하지 않는다. 앱 workspace의 session이 다시 부르거나 새 release를 준비한다. 실패는 다시 시도하지 않고 실패로 끝낸다.
-- 끝내지 못한 시도(종료 확인이나 복원이 unavailable)는 앱을 붙든 채로 두고, 매 sweep이 ledger의 진행 중 시도를 보고 이어받는다. 이미 켜진 새 판의 data를 복구본으로 덮지 않게 하는 장치라 남긴다. 돌고 있는 메모리 상태는 꺼지면 사라지고 ledger의 진행 중 시도로 잇는다.
+1. 계기는 앱 workspace session의 `release.activate`다. release 준비만으로는 시작하지 않는다.
+2. `release.activate`는 시작한 시도의 끝을 120초까지 기다린다. 넘으면 `running`을 돌려주고 시도는 core 안에서 이어 가며, session은 `app.status`와 `release.get`으로 본다. 120초는 `shell.run`의 기본 timeout과 앱 tool 호출 상한과 같아 tool 하나가 turn을 이보다 오래 붙들지 않는다.
+3. 동의를 기다리면 `release.activate`는 기다리지 않고 `waiting_consent`를 돌려준다. 동의 뒤의 시작은 sweep이 한다. 결과는 `activation.report`로 release를 만든 session에 notice로 간다(아래 실패와 복구의 `activation.report`).
+4. 묻는지는 program이 선언 사실로 결정적으로 판정한다. 늘어난 바깥 자원, 늘어난 다른 앱 tool 쓰기, migration이 선언한 loss, 이전 활성 release가 없는 첫 activation이다. 아무것도 늘지 않으면 묻지 않는다.
+   - secret의 OAuth 칸(끝점, scope, 추가 parameter)이 바뀐 것도 늘어난 바깥 자원이다. 비교가 정규화한 scope 전체를 맞추므로 순서만 바뀐 것은 묻지 않는다. 동의 화면은 authorize host, refresh token이 갈 token host, scope를 보인다.
+   - 앱 자신의 tool이 더해지는 것은 묻지 않는다. 그 앱을 할당받은 agent는 새 tool도 묻지 않고 쓴다(할당이 허락이다, `architecture/approval.md`).
+5. data 손실은 migration 파일 머리의 `-- loss:` 줄이 유일한 출처이고, 줄이 틀리면 release 준비가 거절된다. 선언을 믿으니 사본에서 돌려 재지 않는다.
+6. 사람이 동의한 비교와 시작할 때의 비교가 다르면 다시 판정해 다시 묻는다. 기다리는 사이 앱 grant가 바뀔 수 있다.
+7. 새 release가 다른 workspace가 쓰는 공개 command를 지워도 activation은 막지 않는다. `release.prepare`가 결과의 `removed_public_tools`에 그 command를 싣고, 그 앱 workspace의 session이 정한다(`architecture/app-call.md`).
+8. 앱마다 한 번에 하나만 돌고, 겹치면 줄에 세우지 않고 `conflict`로 거절한다(이전 release로 돌아가기 요청도 같다). 거절된 `prepared` release는 저절로 다시 시작하지 않는다. 앱 workspace의 session이 다시 부르거나 새 release를 준비한다. 실패는 다시 시도하지 않고 실패로 끝낸다.
+9. 끝내지 못한 시도(종료 확인이나 복원이 `unavailable`)는 앱을 붙든 채로 두고, 매 sweep이 ledger의 진행 중 시도를 보고 이어받는다. 이미 켜진 새 판의 data를 복구본으로 덮지 않게 하는 장치다. 돌고 있는 메모리 상태는 꺼지면 사라지고 ledger의 진행 중 시도로 잇는다.
+
+동의
+10. 동의는 activation의 상태이고 approvals를 거치지 않는다. 묻기는 machine 자격의 `activation.ask_consent`가 `activation_consents` 표에 줄을 쓰고, 사람이 `activation.consent`(사람 자격만, compare `{requested_at}`)로 허락하거나 거절한다.
+11. 동의 대기와 허락은 표에 남아 재시작을 넘는다. 허락은 `allowed_at`으로 남긴다. 대기를 메모리에 두면 재시작 때 사라지는데 `release.activate`를 부른 turn은 이미 `waiting_consent`를 받고 끝나 다시 묻는 쪽이 없고, 허락만 메모리로 넘기면 commit 뒤 시작 전에 꺼질 때 허락을 잃는다. 허락한 줄은 sweep이 시작한다.
+12. 같은 release는 한 줄이다. 같은 release를 다시 `release.activate`해도 같은 비교면 줄과 카드가 늘지 않는다. 비교가 달라졌으면 줄을 덮어 다시 기다린다(`requested_at`이 바뀌어 옛 카드의 동의는 `conflict`다).
+13. 거절은 줄을 지우고 release는 `prepared`로 남는다. 이유를 받지 않는다(읽는 곳이 없다).
+14. 더 새 release의 activation이 시작되면 그 앱의 동의 줄을 모두 닫는다(기다리던 것은 `cancelled`). 낡은 동의가 새 release에 쓰이면 안 된다. 시작과 같은 tx다.
+15. 같은 앱에 열린 앱 공유 요청(`architecture/approval.md`)이 있으면 동의 카드가 그 요청(받을 agent, coding agent, 이유, 받게 되는 공개 skill·command 수)을 같이 보이고, 허락하면 같은 tx에서 그 요청도 승인한다.
+    - `activation.consent`의 선택 입력 `share_requested_at`이 카드가 본 요청의 `requested_at`이고, 지금 열린 요청과 다르거나 없으면 동의째 `conflict`다(사람이 보지 못한 요청을 승인하지 않는다).
+    - 공유가 먼저 적용되고 실패하면 tx가 되돌아가 동의는 대기로 남는다. 거절은 공유 요청을 건드리지 않아 공유 요청이 제 줄로 다시 보인다.
+    - approvals를 import하지 않으려고 activation은 port만 부르고 구현은 조립이 꽂는다.
+16. unattended에서도 동의는 사람이 한다. 저절로 동의하는 장치를 두지 않는다.
 
 순서
-- 앞 단계가 확인되지 않으면 뒤 단계를 시작하지 않는다. 특히 이전 process의 종료를 확인하기 전에는 DB 작업도 새 process도 없다. 두 process가 한 DB를 열면 안 된다. 종료가 확인되지 않으면 진행하지 않는다.
-- migration의 출발 schema는 ledger 값이 아니라 종료 뒤 읽은 실제 DB의 값이다. 기록과 실제가 어긋날 수 있다.
-- 복구본이 ledger에 확정된 뒤에만 migration을 시작한다. 확정 전에 꺼지면 복원할 근거가 없다.
-- 새 process는 준비 모드로 확인까지만 하고 업무 통로는 complete가 commit된 뒤에 연다. 그 전에 업무가 들어오면 실패해도 되돌릴 수 없는 쓰기가 생긴다.
-- complete 뒤에는 그 후보 process가 그대로 운영 process가 된다. 다시 띄우지 않는다. 앱 process를 바꿀 때 끝내는 credential은 그 앱의 app credential이다. 같은 앱 조건의 agent credential은 남는다.
-- complete는 한 tx다. active 참조, grant 맞춤, 복구본 정리가 따로 있으면 어디서 끊겨도 중간 상태가 남는다. complete는 같은 시도인지와 실제 데이터 결과, 준비 확인을 core가 다시 검사한다.
-- 도는 호출이 유예 안에 끝나지 않으면 결과 모름으로 닫고 강제로 멈춘다. 호출 접수는 성공이든 실패든 끝에 다시 연다. 닫힌 채 두면 앱이 영영 안 받는다.
+17. 앞 단계가 확인되지 않으면 뒤 단계를 시작하지 않는다. 특히 이전 process의 종료를 확인하기 전에는 DB 작업도 새 process도 없다. 두 process가 한 DB를 열면 안 된다. 종료가 확인되지 않으면 진행하지 않는다.
+18. migration의 출발 schema는 ledger 값이 아니라 종료 뒤 읽은 실제 DB의 값이다. 기록과 실제가 어긋날 수 있다.
+19. 복구본이 ledger에 확정된 뒤에만 migration을 시작한다. 확정 전에 꺼지면 복원할 근거가 없다.
+20. 새 process는 준비 모드로 확인까지만 하고 업무 통로는 complete가 commit된 뒤에 연다. 그 전에 업무가 들어오면 실패해도 되돌릴 수 없는 쓰기가 생긴다.
+21. complete 뒤에는 그 후보 process가 그대로 운영 process가 된다. 다시 띄우지 않는다. 앱 process를 바꿀 때 끝내는 credential은 그 앱의 app credential이다. 같은 앱 조건의 agent credential(coding session의 CLI 등)은 남는다.
+22. complete는 한 tx다. active 참조, grant 맞춤, 복구본 정리가 따로 있으면 어디서 끊겨도 중간 상태가 남는다. complete는 같은 시도인지와 실제 데이터 결과, 준비 확인을 core가 다시 검사한다.
+23. 도는 호출이 유예(30초) 안에 끝나지 않으면 결과 모름으로 닫고 강제로 멈춘다. 호출 접수는 성공이든 실패든 끝에 다시 연다. 닫힌 채 두면 앱이 영영 안 받는다.
 
 실패와 복구
-- commit 뒤의 실패(업무 통로를 못 엶)는 복원하지 않고 같은 release를 다시 띄운다. ledger가 이미 새 release를 채택했고, 옛 복구본으로 덮으면 새 release가 받은 데이터를 잃는다.
-- 복구본 복원이나 확인이 실패하면 이전 code도 띄우지 않고 앱을 사용 불가로 둔다. data와 code의 schema가 맞지 않는 앱을 띄우면 더 망가진다.
-- 끊긴 시도(core 재시작, 응답 유실)는 ledger가 말하는 대로 잇는다. 채택됐으면 그 release를 다시 띄우고, 진행 중이면 알려진 복구본으로만 복원한다. 모르는 migration script를 다시 적용하지 않는다.
-- 앱 진입점의 handler 확인(`/probe`)이 거절하면 그 이유가 고칠 tool을 가리킨다. 진입점(`packages/core/apps/runtime/entrypoint/control.ts`)이 선언과 등록된 handler를 비교해 409 본문 message에 빠진 tool(`declared without a handler: …`)과 더해진 tool(`handler not declared: …`)을 각 5개와 `and N more`로 싣고, supervisor의 `probeChild`(`packages/core/main/app-supervisor/assembly.ts`)가 그 message를 500자까지 reason에 붙인다. release 준비의 `handlers` 실패 reason이 이 글이다. probe가 통과한 뒤 preview launcher가 하는 비교와 같은 꼴이다.
-- 실패 기록(release의 `failure`: code, summary, 복원했는지)은 fail 한 tx에 남는다. `release.activate`는 끝난 시도의 이 기록을 읽어 돌려준다. complete가 거절되면(`commit_rejected`) 그 거절 message를 summary에 붙인다. 버리면 무엇을 고칠지 아무도 모른다.
-- `release.activate`가 기다리지 않은 시도(동의 뒤, 2분 기다림 상한 뒤, 재시작 뒤 이어받음)가 active나 failed로 끝나면 driver가 `activation.report`(machine)를 부른다. 이 command는 release를 만든 agent session(`created_by`)에 `activation_finished` notice로 결과(실패면 code, summary, 이전 release가 다시 도는지)를 넣는다. 그 session이 닫혔으면 넣지 않는다. 동의 뒤의 시작은 부른 turn이 이미 끝난 뒤라, 알리지 않으면 agent는 실패를 모르고 사람은 화면 어디에서도 이유를 듣지 못한다.
-- 사람에게 남는 기록(`architecture/app-notice.md`의 program 줄)은 결과를 확정하는 command와 같은 tx에서 쓴다. `activation.complete`는 `release_activated {release}`(이미 켜졌던 release를 다시 켠 이전으로 돌아가기면 `release_rolled_back {release: 지금까지 켜 있던 것, to: 돌아간 것}`)를, `activation.fail`은 `release_failed {release, reason}`을 남긴다. reason은 실패 summary이고 복원했으면 "The app is back on release rN"을 덧붙인다. 한 시도에 한 줄이라 재전송은 줄을 늘리지 않는다(이미 끝난 시도의 재전송은 기록 앞에서 돌아간다). release 이름은 Version 탭과 같은 `r<number>`다. 데이터 변경·복원 기록(`activation.record_data_change`·`record_data_restore`)은 `app_data_migrated`·`app_data_restored`를, 앱을 사용 불가로 둔 `app.record_unavailable`(복원 실패·종료 확인 불가 포함)은 `app_unavailable`을 같은 tx에서 남긴다. 기록은 `activation.report`(agent session notice)와 다른 길이다: report는 만든 agent가 turn 안에서 알게 하는 것이고 기록은 사람이 나중에 찾는 것이다.
-- 더 새 release의 activation이 시작되면 그 앱의 동의 줄을 모두 닫는다(기다리던 것은 cancelled). 낡은 동의가 새 release에 쓰이면 안 된다. 시작과 같은 tx다.
+24. commit 뒤의 실패(업무 통로를 못 엶)는 복원하지 않고 같은 release를 다시 띄운다. ledger가 이미 새 release를 채택했고, 옛 복구본으로 덮으면 새 release가 받은 데이터를 잃는다.
+25. 복구본 복원이나 확인이 실패하면 이전 code도 띄우지 않고 앱을 사용 불가로 둔다. data와 code의 schema가 맞지 않는 앱을 띄우면 더 망가진다.
+26. 끊긴 시도(core 재시작, 응답 유실)는 ledger가 말하는 대로 잇는다. 채택됐으면 그 release를 다시 띄우고, 진행 중이면 알려진 복구본으로만 복원한다. 모르는 migration script를 다시 적용하지 않는다.
+27. 앱의 handler 확인(probe)이 선언과 등록된 handler가 안 맞아 거절하면 그 이유가 고칠 tool을 가리킨다. 거절 본문이 빠진 tool(`declared without a handler: …`)과 더해진 tool(`handler not declared: …`)을 각 5개와 `and N more`로 싣고, 그 글이 500자까지 reason에 붙는다. release 준비의 `handlers` 실패 reason이 이 글이다. probe가 통과한 뒤 preview가 하는 비교와 같은 꼴이다.
+28. 실패 기록(release의 `failure`: code, summary, 복원했는지)은 fail 한 tx에 남는다. `release.activate`는 끝난 시도의 이 기록을 읽어 돌려준다. complete가 거절되면(`commit_rejected`) 그 거절 message를 summary에 붙인다. 버리면 무엇을 고칠지 아무도 모른다.
+29. `release.activate`가 기다리지 않은 시도(동의 뒤, 2분 기다림 상한 뒤, 재시작 뒤 이어받음)가 active나 failed로 끝나면 `activation.report`(machine)가 release를 만든 agent session(`created_by`)에 `activation_finished` notice로 결과(실패면 code, summary, 이전 release가 다시 도는지)를 넣는다. 그 session이 닫혔으면 넣지 않는다. 동의 뒤의 시작은 부른 turn이 이미 끝난 뒤라, 알리지 않으면 agent는 실패를 모르고 사람은 화면 어디에서도 이유를 듣지 못한다.
+30. 사람에게 남는 기록(`architecture/app-notice.md`의 program 줄)은 결과를 확정하는 command와 같은 tx에서 쓴다. 한 시도에 한 줄이라 재전송은 줄을 늘리지 않는다(이미 끝난 시도의 재전송은 기록 앞에서 돌아간다).
+    - `activation.complete`는 `release_activated {release}`를 남기고, 이미 켜졌던 release를 다시 켠 이전으로 돌아가기면 `release_rolled_back {release: 지금까지 켜 있던 것, to: 돌아간 것}`을 남긴다.
+    - `activation.fail`은 `release_failed {release, reason}`을 남긴다. reason은 실패 summary이고 복원했으면 "The app is back on release rN"을 덧붙인다. release 이름은 Version 탭과 같은 `r<number>`다.
+    - 데이터 변경·복원 기록(`activation.record_data_change`·`activation.record_data_restore`)은 `app_data_migrated`·`app_data_restored`를, 앱을 사용 불가로 둔 `app.record_unavailable`(복원 실패·종료 확인 불가 포함)은 `app_unavailable`을 같은 tx에서 남긴다.
+    - 기록은 `activation.report`와 다른 길이다. report는 만든 agent가 turn 안에서 알게 하는 것이고 기록은 사람이 나중에 찾는 것이다.
 
-## 왜 이 모양인가
+## 경계와 계약
 
-- 계기를 release 준비 끝남으로 하지 않았다. 준비와 올리기 사이에 앱 workspace의 session이 preview에서 확인한다. 옛 계기(ticket 확인됨의 domain event와 Reactor handler)는 ticket과 함께 지웠다. 앱 일은 그 앱 workspace의 session이 하니 올리는 것도 그 command다.
-- 동의를 generic approval(보류 request와 applier)에서 activation의 상태로 옮겼다. 보류 request 길을 쓰던 것은 activation과 reaction의 물음 둘뿐이었고, reaction의 물음을 지우자 activation 하나를 위해 표, applier, 결정 event를 둘 이유가 없어졌다.
-- 묻는 판단에서 DB 사본에 migration을 돌려 손실을 재는 안을 버렸다. 선언을 믿는 철학과 어긋나고 data가 크면 비싸다. 대신 migration이 있으면 늘 복구본을 먼저 확정해 둔다.
-- 새 process를 commit 전에 준비 모드로 먼저 띄우는 이유는, commit 뒤에 띄우다 실패하면 이미 바뀐 active 참조를 되돌려야 하기 때문이다. 확인이 끝난 것만 commit한다.
-- 이전 release로 돌아가기를 사람에게만 열었다. 앱을 쓰는 모두에게 영향이 가는 일이고, 앱 rewind와 같은 이유다. 돌아가도 DB는 되돌리지 않는다. data를 거꾸로 돌리는 것은 별개의 위험이라 schema가 같을 때만 허락한다.
-- core는 앱 DB를 열지 않는다. DB 작업은 supervisor가 띄우는 data worker가 하고 core는 복구본 byte를 흘려 보내기만 한다. 앱 DB는 그 앱의 process만 여는 규칙을 지키려는 것이다.
-- 시작 요청의 줄과 30초 재시도를 두지 않는다. 앱마다 줄을 세우면 기다리는 release와 다시 묻는 시점이 메모리에 쌓이고, 재시도는 같은 실패를 되풀이한다. 겹치는 일은 드물어 거절하고 계기를 기다리는 쪽이 단순하다.
+경계는 앱 release(`app-releases`)가 activation을 주관하고, 앱 process 감독·호출 접수(`app-runtime`)와 앱 DB 작업(`app-data`)을 부른다. 앱 process와의 통신은 `child-supervision-protocol`을 지난다.
+
+| 이름 | 누가 | 무엇 |
+| --- | --- | --- |
+| `release.activate {release}` | 그 앱 workspace의 agent session | 시도를 열거나 동의를 요청한다. 결과 `active`·`failed`·`waiting_consent`·`running`. 오류 `invalid_input`·`forbidden`·`not_found`·`conflict`·`unavailable` |
+| `activation.ask_consent` | machine | `activation_consents`에 줄을 쓴다. 같은 비교면 줄을 늘리지 않는다 |
+| `activation.consent` | 사람만 | `allow`·`reject`, compare `{requested_at}`, 선택 입력 `share_requested_at` |
+| `activations.consents` | 읽기 | 대기 목록. 앱 id와 함께 앱 이름(`app_name`)을 싣는다 |
+| `activation.start` | machine | 시도를 연다(같은 tx에서 그 앱의 동의 줄을 닫는다) |
+| `activation.record_backup` | machine | 복구본을 ledger에 확정한다 |
+| `activation.record_data_change`·`activation.record_data_restore` | machine | data 변경·복원을 남기고 notice를 쓴다 |
+| `activation.complete`·`activation.fail` | machine | 결과를 한 tx로 확정한다. complete가 grant 맞춤까지 한다 |
+| `activation.report` | machine | 기다리지 않은 시도의 결과를 만든 session에 알린다 |
+| `activation.activate_previous` | 사람만 | 이전 release로 돌아가기 요청 행을 넣는다. 시작은 sweep이 한다 |
+| `app.record_unavailable` | machine | 앱을 사용 불가로 두고 `app_unavailable`을 남긴다 |
+
+- event(남지 않는다): `ActivationConsentRequested`, `ActivationConsentClosed`, `AppRestartHalted`. 앞 둘과 `AppRestartHalted`, `activations.consents`는 앱 id와 함께 `app_name`을 싣는다. 알림과 대기 목록이 id 대신 이름을 보이게 하고 renderer가 이름을 따로 찾지 않게 하려는 것이다.
+- 저장: 표 `activation_consents`(`requested_at`, `allowed_at`)와 `activation_requests`(이전으로 돌아가기), release 행의 `failure`·`facts`, 복구본은 앱마다 최근 하나만 영구 blob으로 둔다.
+- 화면: `release.activate`가 `waiting_consent`를 돌려주면 대화에 그 결과로 만든 카드가 선다. 카드는 대기 목록에 그 release 줄이 있는 동안 기다림으로 보이고 [Review]가 대기 panel을 연다.
+- 실패 code: `drain_failed`, `schema_changed`, `backup_failed`, `migration_failed`, `start_failed`, `commit_rejected`.
+
+## 결정
+
+- 계기를 release 준비 끝남으로 하지 않고 `release.activate`로 한다. 이유: 준비와 올리기 사이에 앱 workspace의 session이 preview에서 확인한다. 앱 일은 그 앱 workspace의 session이 하니 올리는 것도 그 command다. 버린 안: ticket 확인됨의 domain event와 Reactor handler로 올리기(ticket과 함께 지웠다). (agent)
+- `release.activate`는 동의를 기다리지 않고 `waiting_consent`를 돌려주며, 시도는 120초까지 기다린다. program이 App Engineer를 다시 부르지 않는다. (agent, 0.6.0)
+- 동의를 generic approval(보류 request와 applier)에서 activation의 상태로 옮겼다. 이유: 보류 request 길을 쓰던 것은 activation과 reaction의 물음 둘뿐이었고, reaction의 물음을 지우자 activation 하나를 위해 표, applier, 결정 event를 둘 이유가 없어졌다. (agent, 0.6.0)
+- 동의 대기와 허락은 ledger 표에 둔다. 이유: 메모리에 두면 재시작과 commit 뒤 꺼짐에서 잃는다. (agent, 0.6.0)
+- unattended에서 activation을 저절로 동의하는 장치를 두지 않는다. (사람, 2026-10-20)
+- 묻는 판단에서 DB 사본에 migration을 돌려 손실을 재는 안을 버렸다. 이유: 선언을 믿는 철학과 어긋나고 data가 크면 비싸다. 대신 migration이 있으면 늘 복구본을 먼저 확정해 둔다. 이 때문에 `-- loss:` 줄이 사람에게 묻는 유일한 근거이고, 단계마다 PRIMARY KEY 검사를 남긴다(없으면 SQLite session이 그 표를 기록하지 않아 rewind가 조용히 틀린다). 닫은 이슈 "migration 단계마다 PRIMARY KEY 검사와 `-- loss:` 줄 파싱"(kept).
+- 새 process를 commit 전에 준비 모드로 먼저 띄운다. 이유: commit 뒤에 띄우다 실패하면 이미 바뀐 active 참조를 되돌려야 한다. 확인이 끝난 것만 commit한다.
+- 이전 release로 돌아가기를 사람에게만 열고 schema가 같을 때만 허락한다. 이유: 앱을 쓰는 모두에게 영향이 가는 일이고 앱 rewind와 같은 이유다. data를 거꾸로 돌리는 것은 별개의 위험이다.
+- core는 앱 DB를 열지 않는다. 이유: 앱 DB는 그 앱의 process만 여는 규칙이다. DB 작업은 supervisor가 띄우는 data worker가 하고 core는 복구본 byte를 흘려 보내기만 한다.
+- 시작 요청의 줄과 30초 재시도를 두지 않는다. 이유: 앱마다 줄을 세우면 기다리는 release와 다시 묻는 시점이 메모리에 쌓이고, 재시도는 같은 실패를 되풀이한다. 겹치는 일은 드물어 거절하고 계기를 기다리는 쪽이 단순하다. 허락과 시작 사이에 비교가 달라지면 다시 묻는 검사는 남긴다. 닫은 이슈 "앱별 activation 줄(메모리)과 30초 재시도"(fixed). (agent)
+- 끊긴 시도 이어받기는 남긴다. 이유: 기동 때 `activating`을 모두 실패로 닫고 복구본으로 되돌리는 안은 응답 유실 때 이미 채택된 release를 복구본으로 덮는 사고를 낸다. 닫은 이슈 "끊긴 activation 시도를 이어받는다"(kept).
+- complete의 일(active 참조, superseded, grant 맞춤, 복구본 정리, 돌아가기 요청 삭제)을 함수로 나누거나 tx를 쪼개지 않는다. 이유: 한 tx여야 하는 이유가 중간 상태 금지이고, 나눠 얻는 것은 읽기 쉬움뿐이다. 닫은 이슈 "복구본 보존과 complete 한 tx에 몰린 일"(kept).
+- 앱 source와 겹치는 경로 규칙(grant가 앱 source를 감싸거나 그 안이면 거절)을 지웠다. 이유: 이 검사는 complete의 마지막 commit에서만 돌아 사람의 동의를 다 지난 뒤에 떨어졌고, 막아야 하는 것(앱 code 쓰기와 `secrets.json`·다른 앱 data 같은 data root)을 정확히 막지 못했다. `~/.lophn`을 지키는 장치는 사람의 동의 화면뿐이다. (사람, 0.13.0)
+- 기다리지 않은 시도의 결과는 release를 만든 session에 알린다. 이유: 동의 표에는 부른 session이 없고, release를 만든 session과 activate를 부른 session은 보통 같다. 버린 안: 동의 표에 session을 더하기(schema migration이 필요하다). (agent, 0.13.0)
+- 앱 공유 요청을 activation 동의와 한 번에 승인한다. 이유: 사람이 command를 만들고 grant하는 것까지 agent가 알아서 하기를 바랐고, 사람의 승인은 남기되 한 번으로 줄였다. (사람, 2026-11-07) 카드가 본 공유 요청이 바뀌었으면 동의째 `conflict`, 공유 적용이 실패하면 동의는 대기로 남음, 거절은 공유 요청을 건드리지 않음은 agent가 정했다.
+- 앱 알림과 toast가 앱 id가 아니라 앱 이름을 보이도록 event와 읽기에 `app_name`을 싣는다. 이유: renderer가 이름을 따로 찾지 않게 한다. (agent, 0.13.0)
+- 대화의 동의 카드 종류는 tool 이름이 아니라 결과를 보고 정하며, `release.activate`가 성공해 끝난 뒤에만 선다. 이유: 이름만으로 정해지는 종류는 시작 때부터 줄이 서야 하는데, `consent`는 결과(동의 대기)를 봐야 안다. (agent, 0.18.0)
+- 사람에게 남는 기록(program 줄)은 상태를 바꾸는 command와 같은 tx에서 쓴다. 이유: 재전송과 끊김에서 빠지거나 늘지 않는다. (agent, 0.20.0)
+- 앱 process를 권한 flag 없이 띄운다. (사람)
+- 앱이 쓰는 npm·jsr 의존은 release 준비 때 받아 bundle에 통째로 담는다. 이유: 운영 앱이 network 없이 뜨고 앱이 자기 의존성(예: 공휴일 data 라이브러리)을 쓸 수 있어야 한다. 닫은 이슈 "npm·jsr 의존을 준비 때 받아 bundle에 통째로 담는다"(kept). 설계는 release 준비의 몫이고 activation이 받는 입력은 봉인된 bundle이다.
+
+## 열린 것
+
+- 사람이 허락한 줄이나 돌아가기 요청 행을 시작하려다 `conflict`·`invalid_input`으로 거절되면 같은 줄을 매 sweep(1초)마다 다시 시작하려 하는지 확인하지 못했다. 거절은 조용히 돌려준다.
+- `held`의 이유(`restore_failed` 등)는 release 실패 기록에 남지 않고 `app_unavailable` 기록의 reason에만 남는다.
+- 실패 reason에는 앱의 migration script가 낸 글이 앞 200자까지 실릴 수 있다. 복원된 실패는 toast가 둘(실패, data 복원) 뜰 수 있다.
+- 카드가 열린 동안 새로 열린 공유 요청은 그 동의에 묶이지 않고 따로 선다.
+- data root(`secrets.json`, 다른 앱 data)를 지키는 규칙은 아직 없다. 앱 grant가 그 경로를 덮는 선언은 사람의 동의 화면이 유일한 장치다.
+- 열린 이슈는 없다(`project-docs/issues/activation.md`는 비어 있다).

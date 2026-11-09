@@ -1,0 +1,15 @@
+id: cli-question-request-fails-turn
+title: CLI가 사람에게 묻는 요청이 질문 카드로 오지 않고 turn이 실패한다
+kind: bug
+status: fixed
+topic: harness-gui
+modules: [packages/shell/main]
+now: |
+  `codex.ts`는 승인 두 꼴(`item/commandExecution/requestApproval`, `item/fileChange/requestApproval`) 밖의 서버 요청에 `-32601` 오류로 답한다. 그중 `item/tool/requestUserInput`이 Codex가 사람에게 묻는 요청이다. `opencode.ts`도 모르는 요청에 같은 오류로 답하고 OpenCode의 질문(elicitation) extension을 옮기지 않는다. 두 adapter 모두 `answer` 입력을 버린다. Claude만 AskUserQuestion을 질문 카드로 옮긴다.
+impact: |
+  Codex나 OpenCode가 진행 중에 사람에게 물으면 창에 질문 카드가 뜨지 않고 그 tool이 오류로 끝나 turn이 실패하거나 엉뚱하게 이어진다.
+fix: |
+  - 그 요청을 ACP `question_asked`로 내고 `answer` 입력을 요청의 응답으로 돌려준다. 중간(harness마다 요청 꼴이 다르다). 추천.
+closed: |
+  계획 harness-gui-tab. Codex `item/tool/requestUserInput`은 질문 카드이고 답을 질문 id로 돌려준다. OpenCode는 server API로 다시 짜며 `form.created`가 카드를 열고 `form.reply`·`form.cancel`로 답한다. omp `ask`도 질문 카드다.
+guard: '`codex_test.ts`(requestUserInput)'

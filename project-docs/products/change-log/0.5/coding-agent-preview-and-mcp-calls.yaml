@@ -1,0 +1,16 @@
+id: coding-agent-preview-and-mcp-calls
+version: 0.5.0
+title: coding agent가 preview를 띄우고 MCP로 인자 없는 tool을 부를 수 있다
+modules: [packages/core/apps, packages/coding-agent]
+checked: [architecture-app-call, architecture-coding-agent]
+change: |
+  전:
+  - CLI `lophn app preview start`가 늘 `invalid_input`이었다. route 입력의 칸 `input`을 CLI가 자기 공통 key로 보고 지웠다.
+  - 실제 bundle의 preview는 supervisor가 늘 거절했다. preview flags 검사가 쓰기 path를 일회용 폴더와 "같다"로 보았는데 앱 flags는 그 안의 DB file과 socket을 쓴다. 거절 이유는 core 오류에서 "app supervisor rejected the request"로 지워졌다.
+  - coding agent MCP는 `inputSchema: null`인 tool을 늘 `invalid_input`으로 불렀다.
+  후:
+  - CLI는 자기 flag가 만든 칸(`json`, `idempotency_key`)만 빼고 route 입력은 그대로 보낸다.
+  - preview flags는 일회용 폴더 안의 쓰기만 받는다(`..`로 나가는 path는 거절). 읽기와 net 검사는 그대로다. supervisor의 거절 message가 core 오류에 실린다.
+  - MCP는 인자 없는 tool을 `input` 없이 부르고, 그런 tool에 인자를 주면 앱에 보내지 않고 `isError`로 돌려준다.
+why: |
+  계획 `domain-tools`의 손 확인에서 coding agent가 preview를 띄워 MCP로 앱 tool을 부르는 길이 이 셋에서 막혔다. 앞의 둘은 그 전부터 있었다(skill의 preview 확인 단계도 돌지 않았다).

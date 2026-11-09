@@ -1,0 +1,23 @@
+id: core-layer-import-check
+version: 0.2.0
+title: "core layer 규칙을 check로 강제"
+modules: [tools]
+checked: []
+change: |
+  전: core module 사이의 import 방향을 보는 check가 없음. 바닥이 domain을, module이 `core/main`을 import하는 곳이 있음.
+  후: `tools/check-deps.ts`가 막음: module → `core/main`, 바닥 → lophn-agent·domain, lophn-agent → domain, domain끼리는 problems → apps만. 어긴 import는 type이나 함수를 쓰는 쪽으로 옮겨 고침. 동작은 같음.
+why: |
+  Deno는 실행 때 tree shaking을 하지 않아 import가 process와 Worker에 무엇이 실리는지를 정한다. 거꾸로 가는 import는 권한을 좁힌 process를 시작부터 죽이거나 순환 import를 만든다. 자세한 것은 `architecture/layers.md`.
+decisions:
+  - text: |-
+      "domain끼리 import 금지"를 방향 규칙으로 완화한다. problems → apps는 자연스러운 한 방향 의존이다.
+    by: person
+  - text: |-
+      못 끊은 두 곳(projects → apps, lophn-agent → projects)은 check-deps에 이름으로 예외를 둔다. 버린 길: 다른 module의 표를 SQL로 직접 읽기. 의존이 check가 못 보는 곳으로 숨는다.
+    by: person
+  - text: |-
+      "다른 module은 mod.ts로만 import"는 두지 않는다. barrel이 module 전체를 실어 오고, 막아 주는 깨짐은 type check가 잡는다.
+    by: person
+  - text: |-
+      lophn-agent를 harness와 lophn domain으로 나누는 리팩터링을 다음 계획으로 한다. 예외 둘은 그때 다시 본다.
+    by: person

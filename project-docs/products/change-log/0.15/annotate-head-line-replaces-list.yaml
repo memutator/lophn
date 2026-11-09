@@ -1,0 +1,20 @@
+id: annotate-head-line-replaces-list
+version: 0.15.0
+title: Annotate 중에는 머리 줄이 Annotate 줄로 바뀌고 모은 목록 panel이 없어진다
+modules: [packages/shell/renderer, packages/shell/preload]
+checked: []
+change: |
+  전: Annotate를 켜면 화면 위쪽 가운데에 "Annotate is on" toast가 뜨고, 고른 것이 생기면 앱 화면·artifact page 왼쪽 아래에 모은 목록 panel(번호, 대상, 메모, 하나씩 ×, Clear all, Send)이 떠서 그 밑의 요소를 가렸다.
+  후: 켜진 동안 card 머리 줄 전체가 Annotate 줄이다(`app-frame/annotate/annotate-head.tsx`). 가운데에 Annotate · 앱 이름(artifact는 page 제목)과, 고른 것이 없을 때 고르는 법 한 줄이 있다. 오른쪽 끝에 모두 지우기(휴지통), Done(끄기), 보내기(모은 수)가 있다. 앱이 올린 머리 줄은 그동안 그리지 않는다. 화면 위를 덮는 목록과 toast는 없다. 메모 하나는 화면 안 메모 칸(preload overlay) 아래 줄의 ×로 지운다. 보내기 실패는 view 위쪽 toast로 알린다. 앱 화면 탭과 artifact 탭이 같다.
+why: |
+  떠 있는 목록과 toast가 annotate할 요소를 가렸다(사람 2026-11-02). 사람이 가져온 브라우저 annotate 화면처럼 옆 목록 없이 위쪽 줄에 모았다.
+decisions:
+  - text: |
+      오른쪽 열로 목록을 옮기는 안을 gallery로 그려 봤다가 버렸다. 화면이 좁아지고 목록이 여전히 자리를 먹는다.
+    by: person
+  - text: |
+      단추는 reference처럼 왼쪽에 두지 않고 줄 오른쪽 끝에 모았고, 끄기는 × 대신 Done 글자 단추다. 줄 바탕은 칠하지 않았다. 행동 단추 자리, 닫기 단추 모양, 탭 안 바탕색 규칙을 따랐다.
+    by: agent
+  - text: |
+      보내는 동안 메모 칸의 ×는 화면에서만 지운다. main은 보내는 동안 page의 목록 알림을 받지 않는다. 성공하면 어차피 비워진다.
+    by: agent

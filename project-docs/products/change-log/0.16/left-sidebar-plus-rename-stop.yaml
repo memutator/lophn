@@ -1,0 +1,27 @@
+id: left-sidebar-plus-rename-stop
+version: 0.16.0
+title: "왼쪽 sidebar: New session은 place 줄의 +, current 줄에 Rename·Stop, 설정 톱니는 hover 때만"
+modules: [packages/shell/renderer]
+checked: []
+change: |
+  전: 맨 위에 New session 줄(▾ menu)이 있었다. 이 창 place 줄의 톱니(Project settings·App details)가 늘 보였다. current session 줄은 누르기 말고 할 수 있는 것이 없었다.
+  후:
+  - New session 줄을 없애고 place 줄 오른쪽 끝에 +를 둔다. 이 place의 +는 늘 보이고 이 창에서 열며 오른쪽 클릭 menu로 lophn agent·coding agent를 고른다. 다른 place의 +는 hover·focus 때 보이고 route `startSession`으로 그 place에 가서 lophn 새 session을 연다.
+  - 톱니는 + 왼쪽에 있고 place 줄에 hover나 focus가 있을 때만 보인다. 자리는 남아 이름 폭이 흔들리지 않는다.
+  - 이 창 place의 current 줄(lophn session, 터미널. workflow는 빼고)은 오른쪽 끝 자리가 평소 상태 점이고 hover·focus 때 x(Stop)가 된다. 연필(Rename)은 그 왼쪽에 hover·focus 때 뜬다. 연필은 줄을 이름 칸으로 바꾼다(Enter·blur 확정, Escape 취소). 탭이 열려 있으면 탭 이름 바꾸기와 같은 길이고, 없으면 session 제목을 바꾸고 sidebar가 제목을 다시 읽는다. Stop은 그 session의 도는 turn을 멈추고 탭을 닫아 Recent로 보낸다. 터미널은 탭 닫기와 같다.
+  - `AgentTabSource.stopSession(session)`: session의 running turn을 읽어 멈춘다.
+why: |
+  사람이 요청했다(2026-11-03).
+decisions:
+  - text: >-
+      x는 "멈추고 닫기"다. turn만 멈추면 탭이 열린 줄은 current에 남아 x를 눌러도 줄이 그대로이기 때문이다.
+    by: agent
+  - text: >-
+      x는 줄 전체 hover로 점에서 바뀐다(점 자리만 hover로 바꾸지 않는다). 탭의 저장 안 된 ●와 같은 방식이다.
+    by: person
+  - text: >-
+      Rename·Stop 단추는 이 창이 보이는 place의 줄에만 둔다. 다른 place의 탭은 그 place layout에 있어 이 창에서 닫지 않는다.
+    by: agent
+  - text: >-
+      다른 place의 +는 기본 lophn만 연다. agent 고르기 menu는 이 place의 +에만 있다.
+    by: agent

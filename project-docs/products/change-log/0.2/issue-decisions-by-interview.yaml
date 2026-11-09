@@ -1,0 +1,41 @@
+id: issue-decisions-by-interview
+version: 0.2.0
+title: "이슈의 큰 결정을 인터뷰로 정함"
+modules: []
+checked: []
+change: |
+  전: 열린 이슈 84개 중 56개에 "정할 것"이 있음.
+  후: 원칙과 제품 결정으로 정리. 열림 76, archived 12. 정할 것이 남은 것 11. 이슈마다 "정한 것"을 적고, 남기기로 한 경계 장치 7개는 archived에 kept로 닫음. AGENTS.md "속도"에 위협 원칙 한 줄을 더함.
+why: |
+  이슈 하나씩이 아니라 원칙을 먼저 정해 나머지가 따라오게 하려고.
+decisions:
+  - text: |-
+      사용자 앱과 사람이 쓴 글은 공격자로 보지 않는다. 막는 것은 AI가 만든 코드와 agent의 실수, 인터넷에서 온 것이다. 그래서 CLI data fence, domain event의 "data, not instructions" 문구, 앱 화면 오류 보고 서명을 지운다. 실수와 인터넷을 막는 장치(file tool realpath, rewind pre-image, migration 검사, 허락 뒤 다시 확인, 끊긴 activation 이어받기, web.fetch 내부 주소 검사)는 남긴다.
+    by: person
+  - text: |-
+      반쯤 만들고 안 쓰는 길은 지운다(unarchive route, md 아닌 목차와 저장 목차, 제보 창 기존 문제 고르기, deferred tool, App Engineer active context 읽기, ledger `domainOnly`, direct-socket 흔적).
+    by: person
+  - text: |-
+      경계도 아니고 동작도 맞는 무거운 내부 구현은 다이어트 계획 하나로 모아 정한다.
+    by: person
+  - text: |-
+      activation이 겹치거나 `unavailable`이면 거절하고 사람이 다시 누른다. 줄과 30초 재시도를 없앤다.
+    by: person
+  - text: |-
+      annotation은 source 위치(jsx 바꿔치기, source map)를 지운다. 화면 요소가 겹쳐 있어 줄 번호가 사람의 의도를 가리키지 않는다. 대신 찍은 곳의 component 겹(`List > Card > Button`)을 보낸다. ChatGPT 데스크톱 앱의 browser comment도 source 위치를 쓰지 않는다. 계산된 style과 text 선택은 넣지 않는다.
+    by: person
+  - text: |-
+      App Engineer는 screenshot을 공통 이미지 읽기 tool로 본다.
+    by: person
+  - text: |-
+      harness는 7종을 유지한다. 설치는 열 때마다 앱 폴더에 하지 않고 orca처럼 사용자 전역 설정에 한 번 하고 lophn 환경 변수로 켠다. 처음 한 번 사람에게 묻는다. 설치 hash와 설치 명령의 권한 계산을 지운다. "hook은 앱 source 폴더 안에만" 원칙을 버린다.
+    by: person
+  - text: |-
+      coding agent 완료 보고 뒤 터미널을 따로 끄지 않는다.
+    by: person
+  - text: |-
+      앱 place의 Operator에게 앱 source 폴더 읽기를 준다.
+    by: person
+  - text: |-
+      400줄 넘는 파일을 check로 막지 않는다.
+    by: person

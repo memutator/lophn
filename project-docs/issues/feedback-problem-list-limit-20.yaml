@@ -1,0 +1,16 @@
+id: feedback-problem-list-limit-20
+title: 제보 dialog의 기존 문제 목록이 열린 것 20개뿐이고 열린 뒤 갱신되지 않는다
+kind: bug
+status: kept
+topic: shell
+modules: [packages/shell/main]
+now: |
+  `shell/main/desktop/wiring/feedback.ts`의 `problems(app)`가 `state: "open"`, `limit: 20`으로 한 번 읽고 페이지를 넘기지 않는다. 해결됨·무시됨 문제는 목록에 없다. dialog가 열린 뒤 생긴 문제는 보이지 않는다. 읽기가 느리면 `begin()` 응답과 dialog 표시가 그만큼 늦는다(timeout 없음).
+impact: |
+  문제가 많은 앱에서 사람이 덧붙이려는 문제가 목록에 없을 수 있다. 해결됨 문제가 다시 생겼다고 알릴 길이 없다.
+fix: |
+  - 그대로 둔다(작은 앱이면 20개로 충분하다).
+  - 해결됨도 같이 읽고, 많으면 dialog에서 검색한다(중간).
+closed: |
+  문제가 20개를 넘는 앱은 드물고 지금 규모에서는 20개로 충분하다. 문제가 많은 앱에서 덧붙이려는 문제가 안 보이는 일이 실제로 생기면 해결됨도 같이 읽고 검색을 붙인다.
+guard: 없음

@@ -1,0 +1,44 @@
+id: inbox-notices-table-history
+version: 0.20.0
+title: "Inbox에 영구 기록이 남는다: 알림 표 하나, program 기록, Now·History"
+modules: [packages/protocol, packages/sdk, packages/core/apps, packages/core/main, packages/core/storage, packages/core/agent-workspaces, packages/design, packages/shell/main, packages/shell/renderer, tools]
+checked: []
+change: |-
+  전: 사람에게 오는 알림은 앱 알림(`app_notices`)뿐이었고 모두 휘발이었다. 지우면 행이 지워졌고 종류·출처·읽음이 없었다. core는 사람에게 알릴 길이 없어 release 결과, 앱 멈춤, data migration, lophn 업데이트가 Inbox에 남지 않았다. 지난 release를 Inbox에서 찾을 수 없었다.
+  후:
+  - ledger 표 `notices` 하나가 앱 알림과 program 기록을 담는다. 줄마다 출처(`app`·`program`), 종류, 앱, project, 영구 여부, `action`, 읽은 시각이 있다. 휘발 줄은 지우면 사라지고 영구 줄은 읽음으로만 바뀌어 남는다. program 줄은 늘 영구이고 지우지 못한다(DB trigger). 앱의 영구 줄은 앱마다 최근 200개, 휘발 줄은 50개다.
+  - route는 `notices.post`(앱만, 자기 앱), `notices.record`·`notices.observe_version`(core만), `notices.dismiss`·`notices.mark_read`(사람), `notices.list`·`notices.open`이다. event는 `NoticePosted`·`NoticeClosed`·`NoticeRead`다. program 글은 고정 template과 매개변수로만 만든다.
+  - `@lophn/cap-notify` 1.2.0: `notify({ ..., persistent? })`. 기본은 지금과 같은 휘발이다.
+  - program 기록: release 켜짐(`release_activated`)·실패(`release_failed`, 이전 release로 돌아갔으면 그 말을 싣는다)·사람이 이전 release로 돌아감(`release_rolled_back`), 앱 멈춤(`app_unavailable`, 앱마다 한 줄), 앱 data migration 적용·복원, lophn 업데이트(`lophn_updated`). 상태를 바꾸는 command와 같은 tx에서 쓴다. toast·OS 알림은 실패·되돌림·멈춤·복원·SDK 업데이트 필요만 띄운다.
+  - ledger 표 `core_meta`가 data root가 마지막으로 돈 제품 판을 적는다. 판이 바뀐 기동에서 `lophn_updated`를 한 번 남기고 `productStartListeners`를 부른다. 새 data root는 판만 적는다.
+  - Inbox가 두 탭이다. Now는 답할 것(승인·질문·동의·공유·job)과 그 아래 Notifications(끝난 탭, 휘발 알림)다. History는 영구 기록을 최근 것부터 보이고 앱·project·종류로 거르고 글로 찾는다. sidebar 배지는 Now만 세고 안 읽은 기록 수는 History 탭 머리에만 보인다.
+  - 기록에 `action`(`open_home_skill`)이 있으면 Ask lophn 단추가 선다. 누르면 home lophn 새 대화가 열리고 `/<skill> <args>`가 사람의 첫 말로 간다.
+  - 앱 상세 Activity 탭 위쪽에 그 앱의 영구 기록이 보인다.
+  옮기기:
+  - ledger step `apps.notices.unified`: `app_notices` 줄을 앱이 쓴 휘발·안 읽은 줄로 `notices`에 옮기고 옛 표를 지운다.
+  - ledger step `apps.notices.product-version`: 표 `core_meta`. 판을 적지 않던 data root는 처음 켜질 때 `from`을 모르는 `lophn_updated` 한 줄을 남긴다.
+why: |-
+  사람이 지난 release 같은 일을 찾을 수 있어야 하고, 영구와 휘발을 가르고 싶어 했다. 앱 알림도 영구/휘발을 고르게 했다(사람, 2026-11-07, `project-docs/products/roadmap/inbox-history-sdk-migration.md`).
+decisions:
+  - text: |-
+      Inbox는 답할 것·알림(휘발)·기록(영구) 셋이다.
+    by: person
+  - text: |-
+      앱 알림도 영구/휘발을 고른다. 기본은 휘발이다.
+    by: person
+  - text: |-
+      program 기록은 지우지 않고 앱 영구 알림은 앱마다 200개다. (사람이 추천을 받음)
+    by: person
+  - text: |-
+      기록은 표 하나다. 같은 key는 영구 줄이어도 덮어쓰고 안 읽음으로 되돌리므로, key는 앱 멈춤처럼 상태를 나타내는 기록에만 쓴다.
+    by: agent
+  - text: |-
+      program 기록은 상태를 바꾸는 command의 tx 안에서 쓴다. 재전송과 끊김에서 빠지거나 늘지 않는다.
+    by: agent
+  - text: |-
+      안 읽은 기록은 배지에 세지 않는다. 기록은 나중에 찾는 것이고 급한 것은 toast가 맡는다.
+    by: agent
+follow_up: |-
+  - 실패 이유에는 앱의 migration script가 낸 글이 실릴 수 있다(앞 200자).
+  - 복원된 실패는 toast가 둘(실패, data 복원) 뜰 수 있다.
+  - program 기록에 project가 비어 있다.

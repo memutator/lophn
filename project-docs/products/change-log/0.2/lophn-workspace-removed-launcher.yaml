@@ -1,0 +1,32 @@
+id: lophn-workspace-removed-launcher
+version: 0.2.0
+title: "Lophn Workspace를 걷어내고 project와 앱을 launcher 한 곳에서 다룸"
+modules: [packages/shell/renderer, packages/shell/main, packages/design, tools]
+checked: [boundary-catalog, tool-check, tool-worktree-prep]
+change: |
+  전: 창의 공간이 launcher 말고 Lophn Workspace가 따로 있었다(sidebar의 Projects, Apps, Settings). project 보관·복원, 못 찾은 폴더 다시 잡기, project detail은 Projects 화면에, 앱 보관·복원은 Apps 화면에 있었다. launcher도 같은 project와 앱을 카드로 보였다.
+  후:
+  - route `space: "lophn"`이 `space: "settings"`(`settingsPane?`)가 됐다. 화면은 Settings 항목 묶음만 둔 sidebar와 top bar(launcher 단추, breadcrumbs `Settings / <항목>`, 대기 목록, 팔레트 단추)다. 돌아가면 launcher다. Settings 코드는 `desktop/settings/`로 자리만 옮겼다.
+  - launcher가 project와 앱을 다루는 유일한 화면이다. 카드의 ⋯ 메뉴에 보관(project는 Details도), 보관한 것은 맨 아래 접힌 Archived 묶음에서 복원한다. 못 찾은 폴더는 카드에 표시하고 [Choose new location]으로 다시 잡는다. project detail(이름·목적·폴더·하위 폴더)은 dialog다. Projects·Apps 화면은 없다.
+  - 진입점: launcher 오른쪽 위 단추와 작업대 top bar 단추가 Settings(톱니)다. 작업대·앱 공간 agent 칸의 settings, connections, 확장 추가는 settings 공간의 맞는 항목(`agents`, `providers`, `tools`)을 골라 연다. 전역 Instructions 편집기의 뒤로는 Settings, 연 project가 없을 때 session을 여는 fallback은 launcher다.
+  - 팔레트: "Open Lophn Workspace"는 "Open Settings"가 됐고 `screen` target은 `settings` 하나다. tray의 "Open Lophn Workspace" 항목은 지웠다(`launcher` 항목이 있다).
+  - 개발용 시작 자리: hash `#lophn`·`#projects`·`#apps`와 `LOPHN_SHELL_START=lophn|projects|apps`를 지웠다. `#settings`·`settings`는 남는다.
+  - 이름: `lophn-space/` 폴더와 `lophnSpaceIcons`(→ `commonIcons`)를 없앴다. `newId`는 `renderer/prefixed-id.ts`, 앱 model·source는 `renderer/apps/`, project source·detail은 `desktop/launcher/projects/`, 팔레트 catalog와 scope는 `desktop/palette/`로 옮겼다. `LauncherSource`는 `ProjectsSource`로 합쳤다.
+why: |
+  launcher가 이미 project와 앱 카드를 보여 hub가 둘이면 어디서 무엇을 하는지 애매했다.
+decisions:
+  - text: |-
+      launcher 카드의 펼침 상세(폴더 경로 목록)는 없앴다. 경로는 Details dialog에 있다.
+    by: agent
+  - text: |-
+      앱이 없을 때 launcher 앱 묶음은 행동 단추 없이 한 줄 안내만 둔다(앱은 lophn이나 agent가 등록한다).
+    by: agent
+  - text: |-
+      보관·복원의 성공 안내(notice)는 두지 않는다. 카드가 옮겨 가는 것이 결과다. 실패하면 최신을 다시 읽는다.
+    by: agent
+  - text: |-
+      보관한 project의 영향 안내(`archive-keeps`)는 Archived 묶음 머리글 아래 한 줄로 옮겼다.
+    by: agent
+  - text: |-
+      agent 정의·지침 문구의 "Workspace" 층 이름(전역 층)은 그대로 둔다.
+    by: agent

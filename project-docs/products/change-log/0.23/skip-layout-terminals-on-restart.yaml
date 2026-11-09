@@ -1,0 +1,9 @@
+id: skip-layout-terminals-on-restart
+version: 0.23.0
+title: "lophn을 다시 켜도 layout의 터미널을 다시 띄우지 않는다"
+modules: [packages/shell/renderer]
+checked: []
+change: |
+  전: 저장된 layout의 터미널 탭이 되살아나 처음 보일 때마다 새 shell을 띄웠다. 전역 float 터미널도 같았다.
+  후: layout을 읽을 때 창의 terminal store가 모르는 터미널 탭(PTY가 없다)은 layout에서 뺀다. 같은 실행에서 workspace를 오가는 동안은 그대로 남는다. detached 터미널은 그대로다. coding agent session은 sidebar Recent에서 다시 연다.
+why: lophn을 다시 켤 때 layout의 터미널마다 새 shell이 뜨면 사용자가 원하지 않은 프로세스가 생기니, 되살릴 수 없는 터미널은 layout에서 뺀다.

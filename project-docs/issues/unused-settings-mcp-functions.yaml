@@ -1,0 +1,18 @@
+id: unused-settings-mcp-functions
+title: 일반 설정 통로의 MCP 함수를 화면이 부르지 않는다
+kind: defect
+status: fixed
+topic: shell
+modules: [packages/shell/renderer]
+now: |
+  `packages/shell/renderer/desktop/settings/source.ts`의 `SettingsSource`에 `settings()`(skill 폴더와 MCP server 목록), `addSkillFolder`, `addServer`, `enterServerCredential`, `beginSignIn`, `cancelSignIn`, `finishSignIn`이 있고 `settings/core-source.ts`의 `coreSettingsSource`와 `settings/testdata/fake-settings.ts`가 구현한다. 화면에서 부르는 곳이 없다(`packages/shell`과 `tools`에서 `.addServer(`, `.enterServerCredential(`, `.beginSignIn(`, `.settings()` grep 0건). General 탭은 `declared`·`update`만 쓰고, Tools and skills 탭은 `AgentsSettingsSource`(`settings/agents/core-source.ts`의 `readExtensions`, `createServer`)를 쓴다.
+impact: |
+  MCP server를 더하는 길이 둘이라 설정 꼴이나 secret 이름 규칙이 바뀔 때 두 곳을 고쳐야 한다(MCP credential을 `secrets.json`으로 옮길 때 쓰이지 않는 쪽도 새 꼴로 고쳤다). 개발 비용이다.
+fix: |
+  - 지운다(작음): `SettingsSource`의 위 함수와 그것만 쓰는 type(`SettingsView`, `ServerRow`, `NewServer`, `ServerSignIn` 등), `coreSettingsSource`와 fake의 구현을 지운다. 잃는 기능은 없다. 추천.
+  - 둔다: 전역 MCP 화면을 일반 설정 통로로 되돌릴 계획이 있을 때.
+decided: |
+  지운다. 잃는 기능이 없는 죽은 코드다(issue skill "정하기"). (agent)
+closed: |
+  `SettingsSource`는 `watch`, `declared`, `update` 셋만 남았다. MCP·skill 폴더 함수와 그것만 쓰던 type, `coreSettingsSource`의 구현, `fakeSettings`의 가짜를 지웠다. server를 더하는 길은 Tools and skills 탭(`AgentsSettingsSource`) 하나다.
+guard: 없음

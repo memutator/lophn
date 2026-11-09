@@ -1,0 +1,26 @@
+id: use-tab-head-all-frames
+version: 0.21.0
+title: "앱의 useTabHead 머리 줄이 lophn이 감싸는 모든 프레임에 그려진다"
+modules: [packages/shell/renderer, packages/sdk, packages/core/agent-workspaces, packages/core/apps, tools]
+checked: []
+change: |
+  - 전: 앱 화면이 `useTabHead`로 올린 머리 줄(경로, 탭, 상태 글, 단추, ⋯ 메뉴)은 앱 화면 탭과 dock한 앱 panel 탭에서만 그려졌다. tray popup, 앱 sidebar panel, float, 세션 카드에서는 `useTabHead`가 false를 돌려줘 앱마다 자기 머리 줄을 따로 그렸다.
+  - 후:
+    - tray popup(제목과 pin 사이), 앱 sidebar panel(머리 줄의 단추 자리), 앱 panel float(desk float과 전역 float의 bar, 제목과 pin·minimize·dock·close 사이), 세션 앱 카드(크롬 줄 끝)도 같은 `CardHeadSpec`을 `HeadControls`로 그리고 단추·메뉴 누름을 같은 event로 앱에 돌려준다. 이 자리들에서 `useTabHead`는 true다. ← →(`nav`)는 탭에만 있다. 앱 전용 창과 detached 창만 머리 줄이 없다.
+    - `@lophn/app-ui` 2.6.0(minor, API 변화 없음). `useTabHead` guide, `design-app` skill, 앱 template `AGENTS.md`가 "자기 머리 줄을 그리지 않는다. 상태 글과 주 행동은 `useTabHead`로"로 바뀌었다. `migrate-sdk/app-ui-2.6.0.md`가 지침 diff(`## Instruction diff`)와 옮기는 법을 싣는다. 이 diff를 싣는 것이 이제 지침이 바뀌는 판의 메모 규칙이다(AGENTS.md).
+    - gallery의 `shell-tray`와 `shell-sidebar-app-panel`이 상태 글 하나와 단추 하나를 올린 머리 줄을 보인다.
+    - 옮기기: 없음(앱 data 변화 없음). 앱은 migrate-sdk 메모를 따라 자기 머리 줄을 지운다. 안 옮겨도 깨지지 않고 머리 줄이 겹쳐 보일 뿐이다.
+why: |
+  앱이 자기 머리 줄을 그리면 자리마다 모양이 다르고 lophn의 머리와 겹친다. lophn이 그리면 앱은 글과 id만 올린다(사람, 2026-11-07).
+decisions:
+  - text: |
+      머리는 앱이 아니라 lophn이 모든 프레임에서 그린다.
+    by: person
+  - text: |
+      새 그리는 곳을 만들지 않고 탭의 `CardHeadSpec` 길을 그대로 쓴다. 프레임마다 `CardHeadContext`를 달고 spec을 자기 줄에 `HeadControls`로 그린다. 좁은 자리도 접거나 줄이지 않고 가운데가 먼저 줄어든다.
+    by: agent
+  - text: |
+      `@lophn/app-ui`를 2.6.0으로 올린다(guide가 패키지에 들어 있고, 지침이 바뀌어 앱 agent에게 알려야 한다). `supported_from`은 그대로다.
+    by: person
+follow_up: |
+  앱 전용 창의 머리 줄은 없다. 좁은 자리에서 ⋯ 앞 단추를 메뉴로 접는 것은 하지 않았다.

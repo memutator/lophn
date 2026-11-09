@@ -1,0 +1,19 @@
+id: unhandled-routes-and-commands
+title: handler가 없거나 부르는 곳이 없는 route·command가 등록돼 있다
+kind: defect
+status: open
+topic: code-health
+modules: [packages/protocol, packages/core/lophn-agent, packages/core/main]
+now: |
+  두 가지다.
+  - handler가 없는 route. 아래는 `ROUTES`나 runtime의 열린 목록(`RUNTIME_MACHINE_ROUTES`, `packages/core/lophn-agent/run-loop/runtime-access.ts`)에 있지만 core에 handler가 없어 dispatcher(`packages/core/server/dispatch.ts`)가 늘 `unavailable`을 낸다. `grep`으로 `route: <이름>` 정의가 없음을 확인했다.
+    - `events/list`(`eventsList`, `packages/protocol/events/events.ts`). `architecture/event.md`는 기록 event를 읽는 곳으로 이 route를 적는다.
+    - `identity/current`(`identityCurrent`, `packages/protocol/server/routes.ts`).
+    - `messages/list`(`messagesList`)는 protocol registry에서 빼 두었지만 runtime 목록에는 남아 있다. `messages/receive`(`receiveMessage`)는 protocol에 등록돼 있고 입력 모양에 옛 assignment 칸이 남아 있다.
+  - handler는 있지만 부르는 곳이 없는 command(test 밖). `RecordReadToolCall`, `SupplementToolCall`(`packages/core/lophn-agent/tools/commands.ts`)과 `SupplementModelCall`(`packages/core/lophn-agent/usage/commands.ts`), `RecordProviderAvailability`(`packages/core/lophn-agent/providers/commands.ts`). 이 중 supplement 둘은 `tool_call_supplements`·`model_call_supplements` 표와 `ToolCallSupplemented` event까지 달고 있다.
+impact: |
+  어느 쪽도 사람이 보는 동작은 없다. 대신 새 route를 더하거나 고칠 때마다 protocol, 등록, 권한 목록, 문서, test를 따라가야 하고, 읽는 사람은 "core가 이 route를 제공한다"고 오해한다(예: runtime이 `events/list`를 부를 수 있다고 믿고 쓰면 늘 실패한다). supplement는 표와 event가 ledger schema에 영구히 남는다.
+fix: |
+  - handler 없는 route는 protocol 정의, `ROUTES`·runtime 목록, 문서 줄을 지운다. 작음. 부르는 곳이 없어 잃는 기능이 없다. 추천.
+  - 부르는 곳이 없는 command는 command와 route를 지운다. 표·event는 이미 낸 schema step을 고치지 않고 두거나, 비우는 새 step으로 지운다. 작음~중간. 다시 필요해지면 그때 만든다. 추천.
+  - 필요한 것이 있으면 handler를 만든다. 지금 쓰려는 곳이 없으므로 권하지 않는다.

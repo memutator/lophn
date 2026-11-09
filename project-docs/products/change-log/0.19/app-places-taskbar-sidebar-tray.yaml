@@ -1,0 +1,44 @@
+id: app-places-taskbar-sidebar-tray
+version: 0.19.0
+title: "앱 화면 자리, 전역 float, 작업 표시줄, sidebar panel, tray"
+modules: [packages/core/agent-workspaces, packages/core/apps, packages/core/config, packages/core/main, packages/core/storage, packages/design, packages/protocol, packages/sdk, packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer, tests, tools]
+checked: []
+change: |
+  - 앱 선언의 화면 칸 `sizes: (full|panel|card)[]`가 `places: (tab|panel|card|sidebar|tray)[]`가 됐고(`full`→`tab`), 화면이 받는 인자 schema `params?`가 생겼다. `@lophn/declaration` 4.0.0, `@lophn/app-ui` 2.4.0(`usePlace()`), `@lophn/agent` 1.2.0(`AcpCard.params?`), `@lophn/cap-notify` 1.1.0(`setTray`, `clearTray`).
+  - 앱 화면은 열릴 때 자리·인자·workspace(`{kind, id, folders}`)를 URL query로 받고 `lophnApp.place`로 읽는다. main이 인자를 그 화면의 `params` schema로 검사한다. agent의 `visual.show`도 `params`를 넘긴다.
+  - 앱 panel float를 전역 float로 옮길 수 있다. 전역 float는 desk와 workspace를 바꿔도 다시 load되지 않고 남으며, 접힘·rect·pin이 `<data>/shell/global-floats.json`에 남는다.
+  - workspace 창 맨 아래에 작업 표시줄이 있다(설정 `shell.taskbar`, 기본 켬, Settings › Appearance). 왼쪽은 전역 float와 지금 desk의 float chip, 오른쪽은 tray다. 끄면 chip은 tab 줄 끝, tray는 title bar 오른쪽 아이콘이다.
+  - 오른쪽 sidebar의 panel이 목록 하나(`sidebar-panels.tsx`)에 등록된다. 사람이 켠 앱의 `sidebar` 화면(설정 `shell.sidebar_panels`)이 모든 workspace의 sidebar에 panel로 더해진다.
+  - 앱 process가 `setTray`로 짧은 글과 tone을 내면, 사람이 켠 앱의 `tray` 화면(설정 `shell.tray`)이 tray 항목으로 그 값을 보이고 누르면 popup으로 뜬다. 값은 core memory에만 있다(route `app_tray/set`, `app_tray/list`, event `AppTrayChanged`).
+  - 오른쪽 sidebar 열림을 workspace마다 따로 기억한다(localStorage `lophn.shell.sidebar-open.right.<workspace key>`). 왼쪽 열림과 폭은 그대로 쪽마다 하나다.
+  옮기기:
+  - ledger step `apps.releases.declaration-places`가 저장된 release 선언의 화면마다 `sizes`를 `places`로 옮긴다(`full`→`tab`). `declaration_hash`는 그대로다.
+  - `sizes`로 봉인한 bundle은 manifest hash가 묶여 옮길 수 없어 새 판에서 뜨지 않는다. 앱 source `lophn.ts`를 `places`로 고쳐 다시 release해야 한다.
+  - 옛 오른쪽 sidebar 열림 key `lophn.shell.sidebar-open.right`는 읽지 않는다(배치 값이다).
+why: |
+  사람이 오른쪽 sidebar에 직접 만든 panel(git worktree 같은 것)을 꽂고, 여러 project를 오가며 늘 볼 작은 앱(구독 사용량)을 workspace마다 다시 켜지 않고 쓰려고 했다. 따로 extension 개념을 두지 않고 앱에 자리와 hook을 더해 풀었다(`project-docs/products/roadmap/app-place.md`).
+decisions:
+  - text: "extension이라는 사용자 개념을 두지 않는다. sidebar panel, tray, 전역 float는 앱이 채우고 lophn은 자리와 hook만 더한다."
+    by: person
+  - text: "앱 화면 체계를 먼저 고친다: 화면은 인자를 받는 앱의 부분, 자리는 lophn이 정함, 크기는 앱 CSS."
+    by: person
+  - text: "float에도 전역 범위가 있고, 전역 float의 접힘도 전역으로 남는다. tray는 OS tray가 아니라 lophn 창 안의 것이다."
+    by: person
+  - text: "오른쪽 sidebar 열림은 workspace마다 기억한다."
+    by: person
+  - text: "`sizes`→`places` 이름 바꾸기로 사람의 앱도 다시 release해야 한다(0.14.0·0.18.0 선례)."
+    by: agent
+  - text: "자리는 열린 view에 고정이라 자리 바뀜 event를 두지 않는다. 크기 bucket을 두지 않는다."
+    by: agent
+  - text: "전역 float는 `panel` 자리 앱 화면만, workspace 창에 산다(detached·앱 전용 창 제외). 전역 float에는 workspace를 주지 않는다."
+    by: agent
+  - text: "앱 sidebar panel은 모든 workspace 종류에 나온다. 선언에 workspace 종류 칸을 두지 않는다."
+    by: agent
+  - text: "tray 값은 새 SDK package·permission 없이 `@lophn/cap-notify`와 `notify.send`로 내고, core는 memory에만 둔다."
+    by: agent
+  - text: "workflow engine은 core에 둔다. 표·router `step`·job `workflow_start`·flow credential이 core와 한 transaction으로 엮여 있다."
+    by: agent
+follow_up: |
+  desk float와 전역 float를 오갈 때 앱 화면이 한 번 다시 load된다(`<webview>` 그릇이 다르다).
+  desk float를 누르면 pin 안 한 전역 float가 접히고 반대도 같다(바깥 누름 규칙).
+  tray popup은 열 때마다 화면을 새로 load한다.

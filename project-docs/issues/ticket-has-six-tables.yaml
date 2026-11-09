@@ -1,0 +1,11 @@
+id: ticket-has-six-tables
+title: ticket 표가 6개다
+kind: defect
+status: kept
+topic: coding-agent
+modules: [packages/core/apps]
+now: "`tickets`, `ticket_references`, `ticket_claims`, `ticket_completions`, `ticket_check_results`, `ticket_verdicts`(`core/apps/tickets/schema.ts`). 보고마다 completion 한 줄(불변, trigger), check 결과 한 줄(Reactor가 나중에 한 번 기록), verdict 한 줄(불변)."
+impact: ticket 하나의 한 번 보고를 읽으려면 표 셋을 join한다. 표를 더하거나 바꿀 때 trigger와 외래 키까지 같이 본다.
+fix: "completion·check·verdict를 한 표의 열로 합친다. 그러면 completion 불변 trigger가 나중에 채워지는 열과 부딪쳐 열마다 트리거를 따로 걸어야 한다(중간). 추천: 남긴다. 세 줄은 쓰는 때와 쓰는 주체가 달라 따로 불변으로 두는 편이 단순하다."
+closed: completion·check·verdict는 쓰는 때와 주체가 달라 따로 불변으로 두는 편이 단순하다. 한 표로 합치면 불변 trigger가 나중에 채워지는 열과 부딪친다.
+guard: 없음

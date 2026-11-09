@@ -1,0 +1,9 @@
+id: sidebar-sessions-grouped-by-desk
+version: 0.23.0
+title: "왼쪽 sidebar의 열린 session을 desk별로 나눈다"
+modules: [packages/shell/renderer]
+checked: []
+change: |
+  전: workspace마다 열린 session·터미널·workflow 줄이 desk와 상관없이 한 줄로 늘어섰다.
+  후: 줄을 그 탭이 있는 desk로 나눠 layout의 desk 순서로 두고, 탭 없이 도는 줄은 "No tab" 묶음으로 끝에 둔다. 묶음이 둘 이상이면 묶음 앞에 desk 이름 줄이 서고, 하나면 전과 같다. 다른 workspace는 저장된 layout으로 나눈다.
+why: 줄이 어느 desk의 탭인지 한 줄 목록에서는 알아볼 수 없어서, desk별로 나눠 보려고.

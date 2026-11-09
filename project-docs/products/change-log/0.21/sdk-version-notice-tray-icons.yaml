@@ -1,0 +1,25 @@
+id: sdk-version-notice-tray-icons
+version: 0.21.0
+title: "SDK 판이 바뀌어도 SDK 업데이트 감지, tray popup 머리는 icon 단추만"
+modules: [packages/core/apps, packages/core/main, packages/protocol, packages/shell/renderer, packages/sdk, tools]
+checked: []
+change: |
+  - 전: 앱 없는 `sdk_update_needed` 줄(감지)은 제품 판이 바뀐 기동에서만 돌았다. 제품 판이 같은 채로 설치 SDK 판만 바뀌면(개발에서 SDK를 올린 경우) 감지가 돌지 않았다. tray popup 머리는 앱의 `useTabHead` status·경로·탭·단추·⋯ 메뉴를 다 그려 좁은 popup에 글이 많았다.
+  - 후:
+    - `core_meta`의 `sdk_versions`(설치 SDK part → 가장 높은 판)를 `product_version` 옆에 적고 기동마다 견준다. `notices.observe_version`이 `sdks`를 받아 `sdks_changed`를 돌려주고, 제품 판이나 SDK 판 중 하나가 바뀌면 같은 감지(같은 줄, 같은 key, 같은 params)가 돈다. 키 값 표라 migration은 없다. 기동 중에 쓴 줄은 toast가 없는 것은 그대로다(`issues/shell.md`).
+    - `useTabHead` 단추에 `icon`(refresh, add, open, edit, delete, copy, run, stop, download)이 생겼다. 모르는 이름은 버리고 글 단추다. tray popup 머리는 단추만 icon 단추(label은 tooltip)로 그리고 status·경로·탭·⋯ 메뉴는 그리지 않는다. `icon`이 없는 단추는 작은 글 단추다. 다른 프레임은 머리를 그대로 두고 icon을 label 앞에 붙인다.
+    - `@lophn/app-ui` 2.7.0(minor). `useTabHead` guide, `design-app` skill, 앱 template `AGENTS.md`에 "tray 머리는 단추만 icon으로, 한눈에 필요한 한두 개에 `icon`을 주고 앞에 둔다"가 더해졌다. `migrate-sdk/app-ui-2.7.0.md`가 지침 diff를 싣는다.
+    - gallery `shell-tray`가 새로 고침 icon 단추 하나만 보인다.
+    - 옮기기: 없음(표 모양 그대로, 앱 data 변화 없음). 앱은 안 옮겨도 깨지지 않는다. tray 화면의 status는 popup에서 보이지 않게 된다.
+why: |
+  SDK 판만 바뀐 기동에서도 앱이 옮길 것이 생기는데 알림이 안 떴다. tray popup은 한눈에 보는 곳이라 머리에 단추만 있으면 된다(사람, 2026-11-07).
+decisions:
+  - text: |
+      감지 신호는 제품 판 marker 옆 같은 표에 둔다. 새 표나 data root 파일을 만들지 않는다.
+    by: agent
+  - text: |
+      `icon`은 이름 목록이고 lophn이 자기 icon으로 그린다. 앱이 그림을 싣지 못한다. 목록은 `renderer/icons/action.ts`에 있는 동사만 쓴다.
+    by: agent
+  - text: |
+      `@lophn/app-ui`를 2.7.0으로 올린다(지침이 바뀌어 앱 agent에게 알려야 한다). `supported_from`은 그대로다.
+    by: person

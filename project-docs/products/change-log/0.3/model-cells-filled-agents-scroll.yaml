@@ -1,0 +1,22 @@
+id: model-cells-filled-agents-scroll
+version: 0.3.0
+title: 'model 선택 칸이 채워지고, Agents 탭이 scroll하고, custom provider의 model을 이름으로 고름'
+modules: [packages/core/lophn-agent, packages/protocol, packages/shell/renderer, packages/design, tools]
+change: |
+  전: Settings → Agents의 기본 model, Operator 편집의 Model, 대화의 model picker가 모두 비어 있었다(catalog 읽기가 늘 `unavailable`). Agents 탭은 잘리고 scroll이 안 됐다. 고르지 않았는데도 "No options for this model"이 떴다. custom provider를 붙여도 그 model을 고를 수 없었다.
+  후:
+  - catalog 읽기(`agent-model-catalog/read`)가 derived 파일을 읽고, 없거나 깨졌으면 동봉 snapshot과 처음 state로 답한다. 전체 catalog가 응답 한도(500 row)를 넘어 `cursor`로 이어 읽는다(page당 row 예산 400). renderer의 두 호출 자리가 cursor를 따른다.
+  - Agents 탭 본문이 칸 안에서 scroll한다(`PaddedTab`의 `bare`). wireframe도 같은 틀로 그린다.
+  - option 축은 model을 골랐고 목록을 읽었을 때만 보인다.
+  - catalog에 model이 하나도 없는 provider(custom provider)에는 기본 model 칸, Operator 편집, 대화 picker에 model 이름 입력이 생긴다. 그 이름의 model은 기본 한계(context 131072, output 4096, tool 지원)로 돌고 option은 고를 수 없다.
+  - custom provider 창은 https 주소일 때만 key 안내를 보인다(local http 주소는 key 없이 붙는다).
+  계약: `ReadModelCatalog` 입력에 optional `cursor`가 생겼다.
+why: |
+  사람이 `deno task dev`로 설정과 Agents 화면을 쓰다 막혔다. catalog 읽기에 reader가 끼워진 적이 없었다.
+decisions:
+  - text: '동기 file reader는 `createNodeAgentFiles`(adapter)로 끼운다. core graph에 동기 file API를 새로 두지 않는다.'
+    by: agent
+  - text: '목록이 있는 provider(예: anthropic)가 모르는 model 이름은 계속 거절한다. 기본 한계는 목록이 하나도 없는 provider에만 쓴다.'
+    by: agent
+  - text: '기본 context 한계를 131072로 잡았다. 32768에서는 Project Manager의 기본 prompt와 tool 정의만으로 입력 예산을 넘어 turn이 `context_limit`로 실패했다.'
+    by: agent

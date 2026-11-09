@@ -1,0 +1,11 @@
+id: session-list-hides-open-coding-sessions
+title: App Engineer의 `session.list`는 열린 coding session을 보여 주지 않는다
+kind: bug
+status: fixed
+topic: coding-agent
+modules: [packages/core/router, packages/core/main]
+now: "`session.list`(`packages/core/lophn-agent/tools/call/sessions.ts` `listSendable`)는 router read(`packages/core/router/reads.ts` `sendableRead`)의 `directory.listOpen()`과 `queued_coding`을 돌려준다. coding session은 `withCodingSessions`(`packages/core/main/daemon/wiring/router-registration.ts`)가 `find`에만 더해 `listOpen`에 없다. 그래서 App Engineer가 열린 coding session id를 아는 길은 coding agent가 보낸 call의 봉투뿐이다."
+impact: 봉투가 없는 turn(같은 앱의 새 App Engineer session, 사람이 "그 coding agent에게 이렇게 전해"라고 할 때)에서 App Engineer가 도는 coding session에 말을 걸 id를 찾지 못한다. `to:{role:"coding_agent", place}`는 새 맡기기라 줄에 선다.
+fix: "`withCodingSessions`가 `listOpen`에도 ended 아닌 coding session을 더한다(작음). 추천."
+closed: '`withCodingSessions`(`packages/core/main/daemon/wiring/router-registration.ts`)의 `listOpen`이 `liveSessions`의 각 행을 `find`와 같은 `transport: "harness"` 대상(`role: "coding_agent"`, 이름은 harness label)으로 더한다. Router `describe`가 coding session의 place(그 앱)와 `stateOf`를 내서 목록 상태에 `waiting`이 생겼다(`packages/core/router/reads.ts` `STATES`). App Engineer 지침에 봉투가 없을 때 `session.list`의 id로 `to:{session}`, `reply:"conversation"`을 보내고 목록에 없으면 새 ticket으로 맡긴다는 줄을 더했다.'
+guard: 없음

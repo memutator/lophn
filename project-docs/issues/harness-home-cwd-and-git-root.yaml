@@ -1,0 +1,11 @@
+id: harness-home-cwd-and-git-root
+title: harness agent는 home에서 돌지 않고, opencode는 git root에 쓴다
+kind: bug
+status: fixed
+topic: coding-agent
+modules: [packages/shell/main]
+now: harness host(`packages/shell/main/extensions/bundled/harness/host.ts`)는 session workspace의 폴더를 cwd로 띄운다. workspace가 home이거나 폴더 없는 project·app이면 띄우지 않고 그 turn을 `configuration_unavailable`로 끝낸다(대화에 이유 한 줄). opencode(`opencode run --standalone`, v2.1.4)는 spawn cwd가 아니라 그 위 git root를 작업 폴더로 써서, git 저장소 안 하위 폴더를 project 폴더로 둔 곳에서는 저장소 맨 위에 쓴다(lead가 실제 실행으로 봤다).
+impact: home의 전역 agent(Image Generator 같은 것)를 harness로 두면 부를 때마다 실패한다. 하위 폴더 project의 opencode agent는 폴더 밖 파일을 고친다. 앱 source 폴더는 늘 git root라 앱에서는 생기지 않는다.
+fix: "home은 data root 안 session마다 빈 작업 폴더를 cwd로 준다(작음). opencode는 project 폴더가 git root가 아니면 띄우지 않거나, opencode의 directory 지정 수단을 찾아 넘긴다(작음). 추천: 둘 다."
+closed: home session은 `<data root>/harness-home/<session>/`을 turn 시작 때 만들어 cwd로 준다(지우지 않는다). 폴더 없는 project·app은 그대로 띄우지 않는다. opencode(2.1.4 `run`에는 directory option이 없다)는 폴더가 git 저장소 안이지만 그 root가 아니면(`git rev-parse --show-prefix`가 비지 않으면) 띄우지 않고 이유 한 줄로 turn을 끝낸다. data root가 git 저장소 안이면 home의 opencode도 거절된다.
+guard: 없음

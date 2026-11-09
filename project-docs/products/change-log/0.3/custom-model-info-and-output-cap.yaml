@@ -1,0 +1,33 @@
+id: custom-model-info-and-output-cap
+version: 0.3.0
+title: 'custom provider model 정보를 catalog 모양으로 적고, output 상한을 32000으로 올린다'
+modules: [packages/core/lophn-agent, packages/protocol, packages/shell/renderer, packages/design, tools, tests]
+checked: [architecture-layers, architecture-approval, architecture-testing, architecture-eval, architecture-agent-call, architecture-agent-definition, architecture-appearance, architecture-workspace-layout, architecture-ui-kit, context-component-registry, tests-support, tool-e2e, tool-test-live, tool-eval, tool-check-deps, tool-models-snapshot, tool-check, tool-wireframes, tool-worktree-prep, tool-dev, skill-ui-design]
+change: |
+  전: custom provider model은 이름뿐이라 effort를 고를 수 없었다. context는 131072, 입력은 text, 가격은 모름으로 돌았다. OpenAI 계열 호출은 catalog model도 output 4096에 묶였다.
+  후:
+  - Manage models의 custom provider 묶음에 [Add model], 행마다 [Edit]이 있다. 둘 다 model 정보 form을 연다. form 칸은 한도 셋, tool 지원, 입력·출력 형식(text, image, audio, video, pdf), reasoning effort 단계와 기본값, 가격 넷(input, output, cache read, cache write, USD per 1M)이다.
+  - 적은 정보는 catalog의 user 층이 된다. picker의 effort 줄, turn의 한도와 image 허용, 호출 기록의 추정 비용이 그 정보를 쓴다. Refresh가 목록을 바꿔도 남는다.
+  - Manage models의 모든 model 행에 입력 형식 icon과 context가 보인다.
+  - 한 호출의 output은 min(32000, output 한도, context의 4분의 1)이다. Chat Completions effort의 최고 단계는 `max`로 보낸다.
+  - custom provider 연결 form에서 API(Chat Completions, Responses, Anthropic Messages)를 고른다. 연결 직후 목록을 한 번 읽어, 찾았으면 찾은 수를 보이고, 없으면 Manage models의 그 provider와 model 정보 form을 바로 연다. Settings → Providers에서 연결하면 그 provider 줄 아래에도 결과 한 줄과 [Manage models] 또는 [Add model]이 화면을 떠날 때까지 남는다(이미 기본 model이 있으면 뜨는 창이 없어 결과가 안 보였다). key 안내는 header를 말하지 않고 제목에서 "optional"을 뺐다(https 주소는 key가 있어야 한다).
+  계약:
+  - 생긴 것: custom provider 입력의 `protocol`(`CUSTOM_PROTOCOLS`), Manage models 열기의 `first`·`notice`·`addModel`·`onClosed`, 명령 `SaveUserModelInfo`·`RemoveUserModelInfo`(사람, compare `seq`, 내장·OAuth 정의 key는 `invalid_input`), 읽기 `ReadUserModelInfo`(resource `user-model-info`), `MODEL_MEDIA`의 `pdf`, `OUTPUT_CAP`·`cappedOutput`, workspace agents source의 `userModels`·`saveModelInfo`·`removeModelInfo`.
+  - 바뀐 것: `selectableModels`가 그 정의의 user 항목을 더한다. 저장 검사(`checkChoice`, session model)가 user 항목을 본다.
+  - 지운 것: workspace agents source의 `addModelName`, `ProviderChoice.revision`, Manage models의 `canAddName`, `catalog.json`에서 user 항목을 읽던 길, prepare의 `reservedOutput` dep, compactor의 `RESERVED_OUTPUT`.
+  - 저장 모양이 바뀌었다(표 `model_user_info`, `model_user_info_seq`). schema step을 그 자리에서 고쳤고 migration은 없다. 개발 data(`.dev-data/`)는 지우고 새로 만든다.
+why: |
+  사람이 hive와 b.ai 같은 custom provider를 붙여도 effort를 고를 수 없었고, 한도와 가격을 넣을 길이 없었다. opencode와 omp는 이 정보를 설정 파일로만 받고, hermes는 가격을 받지 않는다. 화면에서 받는 곳은 없었다.
+decisions:
+  - text: '사람이 적는 칸은 catalog 항목 모양이고, 적은 effort는 고를 수 있다. modality는 icon으로 보이고 고칠 수 있다. runtime이 아직 못 쓰는 형식도 자리를 만든다. 가격을 받아 비용 추적에 쓴다. output 상한은 32000이다.'
+    by: person
+  - text: '저장은 ledger에 한다. derived `catalog.json`은 깨지면 다시 만들어 사람이 적은 것을 잃는다. custom 정의에만 받는다. 이름 더하기는 user 정보를 만들고 `reported_models`에 붙이지 않는다. Chat Completions effort의 `maximum`은 `"max"`로 보낸다. `pdf`를 더한다. 가격 빈칸은 모름, 0은 무료다. 안 적은 한도는 null로 두고 칸마다 기본값으로 돈다. output 상한은 context의 4분의 1로도 묶는다. 32000만 걸면 context 32768인 catalog model의 입력 예산이 768이 된다.'
+    by: agent
+  - text: 'custom provider 연결은 쓸 수 있는 model로 끝난다. 연결 form에 API 고르기를 둔다.'
+    by: person
+  - text: 'custom header와 key를 env var·command로 받기는 하지 않는다(hive와 b.ai 모두 쓰지 않는다). provider의 API가 못 보내는 effort 값(Responses의 Max 등)은 form에서 막지 않고 turn이 `invalid_input`으로 실패한다.'
+    by: agent
+  - text: '앞 항목들의 "custom model은 option 축 없이 기본 한계로 돈다"와 "이름 더하기는 `reported_models`에 붙인다"를 이 항목이 바꾼다.'
+    by: person
+follow_up: |
+  비용 계산의 cache 요율과 대화 화면의 비용 합은 다음 계획 `model-cost`다(roadmap `model-cost.md`). model 정보 읽기는 page를 따라가지 않는다(model 몇 개를 기준으로 했다).

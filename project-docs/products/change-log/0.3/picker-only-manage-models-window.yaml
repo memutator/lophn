@@ -1,0 +1,26 @@
+id: picker-only-manage-models-window
+version: 0.3.0
+title: 'model picker는 고르기만 하고, 보일 model과 provider 연결은 Manage models 창에서 한다. Settings에서 돌아가는 단추'
+modules: [packages/core/lophn-agent, packages/protocol, packages/shell/renderer, packages/design, tools]
+change: |
+  전: picker에 고르기 말고도 즐겨찾기 별표, 이름 직접 적는 줄, "Connect provider" 줄, "Change defaults…" 줄이 있었다. 사람이 "picker에서 왜 provider와 model을 등록하냐"고 물었다. Settings는 화면 전체를 바꾸는데 돌아가는 단추가 없었다.
+  후:
+  - picker는 검색, 지금 model이 온 층 한 줄, 켠 model의 provider별 묶음, option 축만 있고 맨 아래 "Manage models" 한 줄이다. 지금 고른 model은 꺼져 있어도 보인다.
+  - Manage models 창: provider마다, model마다 켜고 끈다. "+ Connect provider"가 연결 창을 열고 붙이면 그 provider 묶음이 맨 위에 온다. custom provider 묶음에는 "Refresh models"와 이름 더하기 칸이 있다.
+  - 즐겨찾기가 없어지고 끈 model 목록이 생겼다. 새 provider와 새 model은 켜져 나온다.
+  - Settings 머리에 "Back"이 있다. Settings를 열기 전 화면(같은 project, 앱, session)으로 돌아가고, 없으면 launcher다.
+  계약:
+  - 지운 것: `ChangeModelFavorites`, `ReadModelFavorites`(resource `model-favorites`), `typedNameAllowed`, `toggleFavorite`, 대화 source의 `toggleFavorite`·`refreshModels`, Agents 설정 열기의 `defaults` 대상.
+  - 생긴 것: `ChangeHiddenModels`(사람, compare `settings_seq`), `ReadHiddenModels`(resource `hidden-models`, 칸 `provider`·`model_name`), `setHidden`, workspace agents source의 `setHidden`·`addModelName`.
+  - 저장 모양이 바뀌었다(`model_favorites` 표 대신 `model_hidden`). schema step을 그 자리에서 고쳤고 migration은 없다. 저장된 즐겨찾기는 버린다. 개발 data(`.dev-data/`)는 지우고 새로 만든다.
+why: |
+  고르는 곳과 등록하는 곳이 섞여 picker가 무엇을 하는 곳인지 흐려졌다. opencode처럼 picker는 고르고, 무엇을 보일지와 provider 연결은 한 창에서 한다.
+decisions:
+  - text: 'picker는 고르기만 한다. 즐겨찾기를 없애고 켜기·끄기 하나로 둔다. 새로 붙인 provider는 모두 켠다. Settings에 앞 화면으로 돌아가는 단추를 둔다.'
+    by: person
+  - text: '끈 것만 적는다(기본이 켬). provider toggle은 그 provider의 지금 model을 하나씩 적는다. 지금 고른 model은 꺼져 있어도 picker에 보인다. "Change defaults…"를 빼고 기본 model은 Settings → Agents에서 정한다. 이름 더하기는 custom provider 묶음에 늘 두고 `reported_models`에 붙인다(새 칸 없음).'
+    by: agent
+  - text: '내장 provider의 catalog 밖 새 model은 화면에서 고를 길이 없다. catalog 갱신(24시간)을 기다린다.'
+    by: agent
+follow_up: |
+  Back은 Settings를 열 때의 route로 돌아간다. workspace 안에서 session을 옮긴 뒤면 화면의 session이 아니라 route의 session으로 돌아갈 수 있다(workspace와 앱 공간이 보이는 session을 위로 알리지 않는다).

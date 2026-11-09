@@ -1,0 +1,22 @@
+id: share-request-with-consent
+version: 0.20.0
+title: "앱 공유 요청을 activation 동의와 한 번에 승인"
+modules: [packages/protocol, packages/core/approvals, packages/core/apps, packages/core/main, packages/core/agent-workspaces, packages/cli, packages/shell/renderer, packages/design]
+checked: []
+change: |-
+  전: builder가 `lophn app share`로 공유를 청하면 사람이 activation 동의와 공유 요청을 대기 목록에서 따로 두 번 승인했다.
+  후: 그 앱의 activation 동의가 대기 중이면 동의 카드가 공유 요청(받을 agent, coding agent, 이유, 받는 공개 skill·command 수)을 같이 보이고, 동의를 허락하면 같은 tx에서 공유 요청도 승인한다. 공유 요청은 따로 줄을 서지 않는다. 동의 대기가 없으면 지금처럼 제 줄로 선다. `activation.consent` 입력에 선택 칸 `share_requested_at`이 있다.
+why: |-
+  사람이 command를 만들고 grant하는 것까지 agent가 알아서 하기를 바랐다. 사람의 승인은 남기되 한 번으로 줄였다(사람, 2026-11-07).
+decisions:
+  - text: |-
+      동의 카드가 본 공유 요청의 `requested_at`을 싣고, 그 사이 요청이 바뀌었으면 동의째 `conflict`다. 보지 않은 요청을 승인하지 않는다.
+    by: agent
+  - text: |-
+      공유를 먼저 적용하고 실패하면 tx가 되돌아가 동의는 대기로 남는다.
+    by: agent
+  - text: |-
+      동의를 거절하면 공유 요청은 남아 제 줄로 다시 보인다.
+    by: agent
+follow_up: |-
+  카드가 열린 동안 새로 열린 공유 요청은 그 동의에 묶이지 않고 따로 선다.

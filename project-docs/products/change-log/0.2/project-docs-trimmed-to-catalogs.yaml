@@ -1,0 +1,29 @@
+id: project-docs-trimmed-to-catalogs
+version: 0.2.0
+title: "project-docs를 catalog, architecture, skill, check로 줄임"
+modules: [tools]
+checked: []
+change: |
+  전: requirements, specs, dev 문서, task 기록이 약 4만 줄. 요구 ID 천 몇백 개를 사람이 검수하기 어렵고 코드와 30곳 넘게 어긋남.
+  후: `PRODUCT.md`, `boundary-catalog.yaml`, `module-catalog.yaml`, `architecture/<topic>.md`, `plan/`(skeleton, `weight.md`, `gaps.md`), `.claude/skills/` 넷. 약 2.2천 줄. architecture 문서는 지금 코드를 보고 다시 씀. `tools/check-source.ts`가 주석과 test 이름의 요구 ID, task 번호, 옛 말을 잡음.
+why: |
+  MVP 때 쌓인 명세가 코드보다 늦고 원자적이라 유지보수가 안 됨. 코드가 먼저이고 문서는 코드로 알 수 없는 것만 둔다.
+decisions:
+  - text: |-
+      requirements, dev, tmp, 끝난 plan 내용을 지운다. 옛 내용은 tag `docs-before-trim`에 남긴다.
+    by: person
+  - text: |-
+      requirements를 추상화한 `features.yaml`은 두지 않는다. 버린 이유: 또 하나의 동기화 비용.
+    by: person
+  - text: |-
+      무게 추적은 `plan/weight.md` 하나만. futures, metric, yaml 체계는 너무 무거워 버린다.
+    by: person
+  - text: |-
+      수평 관심사는 skill 넷(wording, write-test, orchestrate, ui-design)으로. module마다 AGENTS.md를 두지 않고 필요한 곳만.
+    by: person
+  - text: |-
+      architecture 문서는 pull로 둔다. 사람이 필요할 때 넣어 준다.
+    by: person
+  - text: |-
+      전역 AGENTS.md에는 실천적이고 검증할 수 있는 지침만 둔다. 철학은 넣지 않는다. "스타트업처럼", "가장 단순한 구현", "방어 코드를 미리 만들지 않는다"는 효과가 있어 남긴다.
+    by: person

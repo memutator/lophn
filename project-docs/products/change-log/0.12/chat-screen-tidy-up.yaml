@@ -1,0 +1,31 @@
+id: chat-screen-tidy-up
+version: 0.12.0
+title: "대화 화면 다듬기: 편집 카드 한 줄, composer 아래 줄 정리, `/status` 위로 띄우기, 머리 시각·Retry·사람 글 Fork 제거"
+modules: [packages/shell/renderer, packages/design, tools]
+checked: [architecture-agent-chat]
+change: |
+  전:
+  - 편집 카드는 글 한 줄 아래에 chevron과 `[Open]`이 따로 한 줄 더 있었다.
+  - composer 오른쪽 끝에 `[Stop]`과 보내기 단추가 따로 있었다.
+  - composer에 model 단추와 별도로 `Effort: Default` 같은 축 단추가 있었다. 사용량(창·token·금액)은 place·권한 아래 별도 줄이었고 금액은 `About 2.064708 USD`였다.
+  - `/status` panel이 대화 위쪽을 덮어 대화가 가렸다.
+  - agent 답 머리에 이름 옆 시각이 있었고, 마지막 끝난 turn에 `[Retry]`(`AgentTabSource.repeatTurn`)가 있었다. 쓰는 중인 글 끝에 caret이 깜빡였다. 내 메시지에도 `[Fork]`가 있었다.
+  후:
+  - 편집 카드가 한 줄이다: 앞에 chevron, `Edited <path> +n −m`, 오른쪽 끝 `[Open]`.
+  - 쓰는 중인 글 끝의 caret을 없앴다(코드 block 아래 막대로 보였다).
+  - composer의 축 단추를 지웠다. effort·speed는 model menu 안에서만 고른다(좁은 폭에서만 모으던 규칙이 항상이 됐다). 사용량은 place·권한과 같은 줄의 오른쪽 끝이다.
+  - composer의 동작 단추가 하나다(둥근 단추). 글이 없고 쉬는 중이면 옅은 보내기, 글이 있으면 채워진 보내기, 도는 중이고 글이 없으면 채워진 네모 `Stop`, 도는 중에 글이 있으면 보내기(다음 turn 줄)다. Esc의 멈추기는 그대로다.
+  - 금액은 `$2.06`처럼 통화 기호와 소수 둘이다(`status-summary.ts`의 `costText` 하나, footer와 `/status`가 같이 쓴다). 추정과 보고는 가르지 않는다. 값을 모르는 묶음(`Unknown`)은 `/status`에만 보이고 footer는 아는 금액만 둔다.
+  - `/status`의 Tokens 줄은 입력(cache 뺀 것)·cache에서 읽은 입력·출력의 비율 띠와 개수 legend다. 전에는 `7,473,839 in (7,473,679 cached) · 182,676 out` 한 줄이었다.
+  - `/status`는 composer 윗변에 붙어 위로 뜨는 overlay라 대화가 보인다.
+  - agent 답 머리의 시각을 없앴다(아래 줄의 시각은 그대로). `[Retry]`와 `repeatTurn`을 지웠다. 오류 줄의 `[Retry]`(`retryTurn`)는 그대로다. `[Fork from here]`는 agent 답에만 있다.
+  계약:
+  - 지운 것: `AgentTabSource.repeatTurn`, `ModelAxisMenus`, i18n `conversation.label.model-axis*`·`status-cost-estimated`·`status-cost-reported`. `AgentComposer`에 `usage` slot이 생겼다.
+  - Fork 명령(`forkSession`, `through_seq`)은 그대로다. 고른 메시지의 `created_seq`까지 복사하므로 agent 답에서 갈라도 그 답까지 들어간다. 저장 모양은 바뀌지 않아 migration이 없다.
+why: |
+  사람이 쓰면서 고른 화면 정리다. 중복(effort 단추, 시각, 별도 사용량 줄)과 가리는 것(`/status`), 쓰이지 않는 것(Retry, 사람 글 Fork)을 줄였다.
+decisions:
+  - text: 금액에서 `About`(추정)을 뺐다. 사람이 구별을 원하지 않았다.
+    by: person
+  - text: 통화는 `Intl.NumberFormat("en-US", currency)`로 그려 USD는 `$`, 그 밖은 그 통화 기호다. 통화 코드를 몰라 던지면 `2.06 XXX`로 둔다.
+    by: agent

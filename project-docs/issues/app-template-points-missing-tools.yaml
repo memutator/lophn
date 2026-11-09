@@ -1,0 +1,28 @@
+id: app-template-points-missing-tools
+title: 앱 template의 AGENTS.md가 없는 skill과 tool을 가리킨다
+kind: bug
+status: fixed
+topic: coding-agent
+modules: [packages/core/apps]
+now: |
+  - core가 새 앱 source에 까는 `packages/core/apps/packages/template/app/AGENTS.md.tmpl`은 coding agent가 앱 root에서 먼저 읽는 file이다. `CLAUDE.md`도 이 file을 가리킨다.
+  - 이 file의 managed 절이 없는 것을 가리킨다.
+    - 배포 skill `lophn-navigate`와 `lophn-save`.
+    - 세션 시작 summary(`lophn_session` op `summary`).
+    - 설치 catalog `lophn_sdk`.
+    - "작업 저장소의 context glossary".
+  - 배포 skill은 `lophn-build-app`과 `lophn-repair` 둘뿐이다(`packages/protocol/coding-agent/harness-adapter.ts`의 `CODING_SKILL_NAMES`). 나머지 이름은 저장소에서 이 file에만 있다.
+  - "새 SDK Package는 설치 catalog(`lophn_sdk`)에서 찾고 exact version만 쓴다"는 `lophn-build-app` 5단계와도 어긋난다. 5단계는 blueprint나 의존을 직접 바꾸지 말고 App Engineer에게 `message send`로 청하라고 한다.
+impact: |
+  - 모든 앱의 coding agent가 없는 skill과 tool을 찾느라 turn과 token을 쓴다.
+  - coding agent가 의존을 import map에만 더하면 blueprint와 어긋난다. 그러면 template의 `tests/blueprint_test.ts`와 release 준비(`packages/core/apps/releases/commands.ts`의 "manifest dependencies differ from the blueprint")가 거절한다.
+fix: |
+  managed 절이 지금 있는 것만 가리키게 고친다(작음). 가리킬 것은 다음과 같다.
+  - skill 둘.
+  - 일의 시작은 `lophn ticket show`.
+  - 내장 SDK guide는 `.lophn/import-map.json`이 가리키는 설치 사본의 `guide.md`.
+  - 의존 변경은 App Engineer에게 청하기.
+
+  추천: 이대로.
+closed: "`AGENTS.md.tmpl`의 managed 절이 skill 둘(`lophn-build-app`, `lophn-repair`), `lophn ticket show`, 설치 사본의 `guide.md`, 의존 변경은 App Engineer에게 청하기만 가리킨다. 없는 skill·tool 줄은 지웠다."
+guard: 없음

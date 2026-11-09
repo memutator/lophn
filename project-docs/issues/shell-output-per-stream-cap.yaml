@@ -1,0 +1,15 @@
+id: shell-output-per-stream-cap
+title: 'shell 출력이 stream마다 1 MiB라 model에 2 MiB까지 간다'
+kind: bug
+status: fixed
+topic: agent-definition
+modules: [packages/core/lophn-agent]
+now: |
+  `tools/shell/run.ts`의 `collect`가 stdout과 stderr를 각각 `OUTPUT_MAX_BYTES`(1 MiB)까지 모아 `content`에 그대로 싣는다. `bundles/shell.ts` 핸들러는 `limitText`/`fitJson` 같은 다른 tool의 24 KiB 상한(`tools/result.ts`)을 거치지 않는다. 시간은 기본 120초, 최대 600초.
+impact: |
+  출력 많은 명령 한 번에 context가 2 MiB 가까이 차서 turn이 `context_limit`으로 실패하거나 비용이 커진다. 다른 tool과 상한이 달라 model이 이어 읽기 안내를 받지 못한다.
+fix: |
+  출력 상한을 24 KiB 근처로 낮추고 앞/뒤를 남긴다(`limitText` 재사용, `shell.run` description의 "1 MiB per stream"도 맞춘다). 비용 작다. 추천: 이 안. process group(`setsid`) 방식은 시간 초과 때 자식까지 죽이는 데 필요해서 남긴다.
+closed: |
+  `tools/shell/run.ts`의 `collect`가 stream마다 앞 12 KiB와 굴러가는 뒤 12 KiB, 전체 byte 수만 쥐고, 넘으면 가운데를 `[… N bytes omitted; redirect output to a file and read it with file.read …]`로 표시한다. 앞뒤 조각은 `limitText`(head·tail)를 거쳐 300줄 상한도 지키고, 자른 자리의 멀티바이트 조각은 byte 단계에서 버린다. `shell.run` description도 맞췄다. process group(`setsid`)은 그대로다.
+guard: packages/core/lophn-agent/tools/shell/run_test.ts "shell 출력은 stream마다 상한을 넘지 않고 앞뒤가 남으며 가운데 생략이 표시된다"

@@ -1,0 +1,17 @@
+id: terminal-trace-env-log
+version: 0.22.0
+title: "터미널 진단 기록(LOPHN_TERMINAL_TRACE)"
+modules: [packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer]
+checked: []
+change: |
+  전: 터미널의 mouse·화면 문제는 흔적이 남지 않았다. shell main log는 stdout뿐이고 renderer·terminal-host는 아무것도 남기지 않았다.
+  후: 앱을 `LOPHN_TERMINAL_TRACE=1`로 띄우면 `<data root>/logs/terminal-trace.jsonl`에 터미널마다 DEC mode 바뀜, pointer 누름·뗌(xterm이 mouse를 TUI에 넘기는 중이었는지, 누른 자리 맨 위 요소, 밖에서 뗐는지), 선택, focus, fit·snapshot 치수, 거절된 입력, OSC 52를 남긴다. 새 IPC `shell:terminal-trace`.
+why: |
+  터미널 mouse와 화면 문제가 생겨도 남은 흔적이 없어 원인을 좁힐 수 없었다.
+decisions:
+  - text: |
+      친 글과 출력 내용은 남기지 않는다. 이벤트 이름·mode·개수만이다.
+    by: agent
+  - text: |
+      켜는 것은 env 하나다. 설정 화면에 두지 않는다. 재현이 어려운 문제를 볼 때만 켠다.
+    by: agent

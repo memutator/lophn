@@ -1,0 +1,65 @@
+id: approval-assignment-and-shell-rules
+version: 0.6.0
+title: "approval을 할당, 기다리는 turn 하나, turn mode, shell 규칙으로 줄인다"
+modules: [packages/core/agent-workspaces, packages/core/approvals, packages/core/apps, packages/core/events, packages/core/lophn-agent, packages/core/main, packages/core/router, packages/core/server, packages/core/storage, packages/design, packages/protocol, packages/shell/main, packages/shell/renderer, tests, tools]
+checked: [tool-check, context-component-registry, architecture-testing, architecture-eval, architecture-coding-agent, architecture-browser-tab, architecture-artifact, architecture-workspace-layout, architecture-ui-kit, architecture-appearance, tool-worktree-prep, tool-test-live, tool-check-deps, tool-dev, tool-models-snapshot, skill-ui-design]
+change: |
+  전:
+  - 판정은 intent 7종과 grant(앱, agent, reaction)를 보는 Gate였다. 효과별 기본 묻기(external은 물음)가 있었고, 할당한 앱 tool도 실행 때 다시 묻거나 "이 session 동안" 허락을 받았다.
+  - 묻는 길이 둘이었다. turn 안 request(메모리, 선택지 once·session·always·allow·reject, fingerprint와 한 번 쓰기)와 보류 request(`approval_requests` 표, applier, `ApprovalRequested`·`ApprovalDecided`)다. 보류 길은 activation 허락과 reaction의 물음이 썼다.
+  - agent call은 call tool의 Gate와 Router의 `callGate`가 두 번 판정했다(`gate_allowed`). `LOPHN.md` 쓰기와 `operator.create`·`operator.update`는 "설정 고치기"로 물었다. 앱 호출 경로가 따로 사람에게 물었다(`askGate`).
+  - `shell.run`은 효과 `read`이고 묻지도 막지도 않았다. 사람이 없는 실행이라는 구별이 없어 물음이 기한 없이 기다렸다.
+  후:
+  - 할당: agent마다 `{app, removed_tools}` 줄의 목록(`agent_assignments`, `GetAgentAssignment`·`SetAgentAssignment`, revision compare). 사람만 쓰고 agent 자격은 읽지도 못한다. 할당한 앱의 tool은 효과와 상관없이 묻지 않는다. MCP server는 설정한 층(전역, project, Operator 정의)이 할당이고 끄기는 `mcp_off`다. agent 정의 화면의 Grants 탭은 앱 줄과 뺀 tool만 고른다.
+  - 판정: 순수 함수 `judge(GateCall, 할당, shell 규칙 층, mode)`가 `run | ask | deny`를 낸다. 할당 안 된 앱 tool과 뺀 tool은 어느 mode에서도 막는다. 앱 호출 경로는 묻지 않고 막기만 한다(agent는 할당, 앱은 active grant `app.call`).
+  - 묻는 길은 turn 안 request 하나다. 선택지는 `once | always | reject`이고 물은 입력을 그대로 실행한다(fingerprint 없음). memory route `turn_requests/decide`(`DecideTurnRequest`), agent event `TurnRequestOpened`·`TurnRequestClosed`, snapshot `turn_requests`. coding harness의 물음도 같은 event로 비춘다(`subject.kind: "harness"`). 대기 목록에는 turn request와 activation 동의만 있다.
+  - shell 규칙: `{pattern, action}`(`*`는 아무 글자, `\*`는 글자 그대로), 명령 전체와 조각마다 가장 엄한 것, 층은 제품 기본(floor deny와 ask), 전역, project. 전역과 project 규칙은 Settings 값 `approvals.shell_rules`이고 Settings › Shell rules에서 고친다. `always`는 ask였던 조각마다 `<앞 두 낱말> *` allow 줄을 place로 고른 층에 더한다. floor는 `rm -rf /`·`~`·`~/`·`/*`·`~/*`를 flag 순서 넷과 `sudo` 앞붙임까지 넓게 막고, `mkfs*`, `dd * of=/dev/*`, fork bomb을 막으며 어느 층·skip·`always`도 덮지 못한다. `shell.run`은 효과 `external`이고 shell 규칙으로 Gate를 거친다.
+  - turn mode: attended, unattended, skip을 turn 시작 때 정해 `turns.mode`에 남긴다(바뀌지 않는다). 순서는 unattended 입력, session skip, attended다. `ask`는 attended에서만 묻고, `deny`는 어느 mode에서나 막는다. unattended turn의 `ask` tool은 `unattended`를 바로 돌려준다.
+  - unattended는 call을 따라 간다: `SendCall`·`ReplyCall`의 `unattended?: true`가 봉투, `RoutedInput`, `agent_calls.unattended`에 실리고, 늦은 실패와 취소 알림은 call 행의 표시를 따른다. 받은 메시지 기록에는 싣지 않는다. 이 판에는 unattended를 여는 입구가 아직 없다(`headless-run`).
+  - skip: session 표시 `sessions.skip`(사람만 `ChangeSessionSkip`, 대화 composer 아래 줄의 Skip permissions)과 Operator 정의의 `skip` 기본값(사람만 쓴다. Operator tool 입력에 없다). fork는 skip을 가져가지 않는다. skip은 call을 따라 가지 않는다.
+  - activation 동의는 activation module의 상태다: 표 `activation_consents`(재시작을 넘고 허락도 남긴다), `activation.ask_consent`(machine), `activation.consent`(사람, `allow | reject`, compare `requested_at`), `activations.consents`, 남지 않는 event `ActivationConsentRequested`·`ActivationConsentClosed`, 줄 phase `waiting_consent`. 더 새 release가 시작되면 그 앱의 동의 줄을 닫는다.
+  - reaction 설정은 `off | on`(기본 켬)이고 새 일 handler는 approvals를 거치지 않는다. reaction이 연 turn은 attended다.
+  - agent call은 묻지도 막지도 않는다. `LOPHN.md` 쓰기와 Operator 고치기도 묻지 않는다.
+  - 없어진 것: 표 `approval_requests`·`agent_grants`, applier와 resume, `ApprovalRequested`·`ApprovalDecided`·`PermissionRequested`·`PermissionResolved`, snapshot `permission_requests`, route `approvals/pending`·`approvals/decide`·`approvals/decide_turn`·`agent_grants/get|set`과 handler 없던 옛 route 아홉·core machine route 다섯, protocol `intent.ts`·`requests.ts`·agent grant, intent `settings_edit`·`app_resource`, "이 session 동안" 허락, fingerprint와 consume, `gate_allowed`·`CallGate`, call 실패 이유 `not_allowed`, 앱 호출의 `askGate`와 denial code `rejected`·`cancelled`, tool 결정 기록의 `session_grant`·`approval`·옛 `effect`·`comparison_basis`·`contract_revision`, rewind 사실 `approval_decision`, reaction의 `ask`.
+  - schema step을 그 자리에서 고쳤다. 옛 개발 data root는 `history_mismatch`로 뜨지 않으니 지우고 새로 만든다.
+  닫은 이슈: approval "shell floor deny가 `rm -rf /`의 그 글자 모양만 막는다"(고침).
+why: |
+  approval은 개념이 많고(intent, grant 저장소, 묻는 길, 선택지, fingerprint) 같은 판정을 여러 번 했다. 할당했는데 또 묻고, 사람 없는 실행은 멈췄고, 주 위험인 shell은 묻지 않았다. 조사한 다섯 harness는 모두 묻는 길이 기다리는 turn 하나이고 shell 명령이 주 gate다(`project-docs/products/roadmap/approval.md`, `project-docs/architecture/approval.md`).
+decisions:
+  - by: person
+    text: |-
+      시킨 것이 승낙이고 할당이 허락이다. 할당한 tool은 실행 때 다시 묻지 않는다. (2026-10-20)
+  - by: person
+    text: |-
+      할당한 domain tool의 바깥 효과(external)도 attended에서 묻지 않는다. `judge`의 `ASK_EXTERNAL_WHEN_ATTENDED`는 꺼 둔다. (2026-10-21)
+  - by: person
+    text: |-
+      shell 규칙은 제품 기본, 전역, project 세 층이다. dangerously-skip-permissions 같은 skip을 session 표시와 Operator 정의 기본값 둘 다 둔다. (2026-10-20)
+  - by: person
+    text: |-
+      shell floor를 `rm`의 flag 순서와 `sudo` 앞붙임까지 넓힌다. ask에 `rm -f -r*`를 더한다. (2026-10-21)
+  - by: person
+    text: |-
+      unattended에서 activation을 저절로 동의하는 장치를 두지 않는다. (2026-10-20)
+  - by: agent
+    text: |-
+      묻는 길은 기다리는 turn 하나, 선택지는 `once | always | reject`, fingerprint 없음, agent call은 묻지도 막지도 않음, `LOPHN.md` 쓰기는 묻지 않음, reaction은 `off | on`.
+  - by: agent
+    text: |-
+      turn mode의 순서는 unattended 입력, session skip, attended다. unattended는 답과 늦은 실패, 취소 알림에도 실린다. fork는 skip을 가져가지 않는다.
+  - by: agent
+    text: |-
+      MCP server는 설정한 층이 곧 할당이라 할당 줄은 앱만 둔다.
+  - by: agent
+    text: |-
+      `always`는 ask였던 조각마다 `<앞 두 낱말> *`를 더하고 층은 place로 고른다. `shell.run`의 효과는 `external`이다.
+  - by: agent
+    text: |-
+      activation 동의 대기와 허락은 ledger 표에 둔다.
+  - by: agent
+    text: |-
+      CLI `--dangerously-skip-permissions`는 두지 않는다. CLI가 여는 run은 처음부터 unattended다.
+follow_up: |
+  - approval "session 도중 끈 MCP server의 tool이 그 session 끝까지 돈다".
+  - e2e와 eval이 옛 approval route·event를 쓴다(`tests/support/app/activate.ts`와 그것을 쓰는 e2e 아홉, `tests/e2e/call-gate_test.ts`, `tests/e2e/agent-call_test.ts`, `tests/e2e/app-call_test.ts`, `tests/e2e/reaction_test.ts`, `tests/eval/human/*`, `tests/eval/runner/idle.ts`, `tests/eval/restore/active-app.ts`). check 밖이고 사람이 다시 쓴다.
+  - unattended coding agent의 물음에 shell 규칙으로 답하기(`project-docs/products/roadmap/approval.md`).

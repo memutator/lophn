@@ -1,0 +1,41 @@
+id: claude-gui-opens-lophn-window
+version: 0.18.0
+title: "`claude gui`가 CLI 화면 대신 lophn 창을 연다(harness-gui 첫 판)"
+modules: [packages/cli, packages/coding-agent, packages/core/config, packages/protocol, packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer, packages/shell/terminal-host, packages/design, packages/base, tools]
+checked: [architecture-extension, architecture-acp, architecture-harness-gui, architecture-terminal-agent, architecture-agent-chat, context-component-registry, tool-check, tool-check-deps]
+change: |
+  전: Claude Code, Codex, OpenCode는 터미널 TUI로만 썼다. lophn이 이 CLI의 session을 채팅 화면으로 그리는 길은 없었다(harness agent는 headless 명령으로만 돈다).
+  후:
+  - extension `harness-gui`(설정 `extensions.harness-gui.enabled`, 기본 꺼짐). 켜면 lophn 터미널 탭의 `claude gui`·`codex gui`·`opencode gui`(`--resume <id>`)와 `lophn gui <harness>`가 그 폴더에서 사람의 CLI를 돌리고 lophn 창 하나에 채팅 화면으로 그린다. 꺼져 있으면 Settings › System › Extensions가 열린다. 그 session은 CLI 자신의 것이고 ledger에 남지 않는다.
+  - adapter 셋이 CLI의 공식 GUI 경계를 ACP로 옮긴다. Claude Code는 Agent SDK(`@anthropic-ai/claude-agent-sdk` 0.3.318, 사람 PATH의 `claude`), Codex는 `codex app-server`(늘 `on-request`와 `workspace-write`), OpenCode는 `opencode acp`. 흘러나오는 글과 reasoning, 도는 중부터 보이는 tool 줄, 승인 카드(한 번, 이 session 동안, 거절), Claude의 AskUserQuestion, 멈추기, 실행 중 보내기, resume(앞 대화를 다시 그린다). CLI는 사람의 login shell PATH로 찾는다.
+  - 창은 lophn 채팅 화면을 source만 바꿔 쓰고(`AgentTabSource.external`) lophn 전용 기능(session 바꾸기, model 고르기, 권한 요약, slash 메뉴, rewind·fork)을 숨긴다. gallery에 harness-gui 화면이 있다.
+  - 계약: `ExtensionContext.acp`(`open`, `onOpenIntent`, `AcpSessionHandle`), open intent `--harness-gui=<harness> --cwd=<dir> [--resume=<id>]`(second-instance argv를 Chromium이 다시 늘어놓아 값을 `=`로 붙인다), DesktopIntent `extension-settings`, `LocalContext.cwd`.
+  - root `package.json`의 `overrides`가 SDK의 OS별 claude 사본(linux-x64 약 323MB)을 빈 package(`tools/empty-package`)로 바꾼다. extension build는 `import.meta.url`을 bundle file의 URL로 채운다.
+
+  검증: 사람의 허락(2026-11-04)으로 세 CLI를 실제로 돌려 녹화했다(claude 10, codex 7, opencode 6 scenario). adapter test는 그 녹화를 scrub한 fixture로 돈다. SDK가 claude 사본 없이 사람의 `claude`로 도는 것과 "이 session 동안" 허락이 사람 설정 file에 쓰이지 않는 것은 실제 claude로 확인했다. 사람이 개발 앱에서 `claude gui`를 띄웠고, 그때 개발 Electron의 `--no-sandbox`, 터미널 탭의 data root, second-instance argv 정렬 bug 셋을 찾아 고쳤다(argv 정렬은 창 없는 Electron으로 재현했다). 사람은 고친 뒤 창이 뜨는 것까지 봤고, 대화가 흐르는지는 확인하지 않았다.
+why: |
+  roadmap agent-platform 단계 8. 사람이 "CLI 화면을 대체하는 GUI"라고 했다(2026-11-04).
+decisions:
+  - text: |
+      각 CLI의 공식 GUI 경계로 붙는다(Agent SDK, app-server, ACP). TUI 화면을 긁지 않는다.
+    by: agent
+  - text: |
+      GUI session은 그 CLI 자신의 session이고 lophn ledger에 기록하지 않으며 친 폴더에서 돈다.
+    by: person
+  - text: |
+      기능 묶음은 본체와 따로 켜는 extension이다.
+    by: person
+  - text: |
+      Claude는 stream-json을 직접 말하지 않고 SDK를 쓰고, 쓰지 않는 claude 사본은 `overrides`로 받지 않는다.
+    by: person
+  - text: |
+      "이 session 동안"은 그 CLI session 안에서만이다. Claude는 SDK 제안의 저장 위치를 `session`으로 바꾸고(그대로면 그 폴더의 local 설정 file에 영구히 적힌다), Codex는 `acceptForSession`, OpenCode는 always가 영구 규칙이라 내놓지 않는다.
+    by: agent
+  - text: |
+      창은 session 하나에 lophn 창 하나다.
+    by: agent
+  - text: |
+      다음 판에서 터미널 탭 안 GUI와 TUI toggle로 바꾼다. roadmap 단계 8이 정한 것 8~10이다.
+    by: person
+follow_up: |
+  extension을 켜야 쓴다(Settings › System › Extensions). 다음 판(탭 안 GUI, TUI toggle, CLI 기능 전부)은 계획이 아직 없다. 열린 이슈는 `project-docs/issues/harness-gui.md`에 다섯이다.

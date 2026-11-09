@@ -1,0 +1,15 @@
+id: inbox-finished-tab-name
+version: 0.17.0
+title: Inbox Finished 줄은 늘 탭 이름을 쓴다
+modules: [packages/shell/ipc, packages/shell/main, packages/shell/renderer]
+checked: []
+change: |
+  전: Finished의 터미널 줄은 이 창이 보이는 place의 탭에서만 이름을 찾았다. 다른 place나 다른 창의 터미널은 시작 폴더 이름이 나왔다. 이름을 알면 탭 이름 / Claude Code, 모르면 Claude Code / 폴더 이름으로 순서가 뒤집혔고, lophn 줄은 agent 이름 / session 이름이었다.
+  후: `TerminalRuntime`에 `tab_name`이 생겼다. 창이 `shell:terminal-tab-name`으로 알린 이름을 main의 tracker `decorate`가 runtime에 실어 모든 창에 보내고, 이름이 바뀌면 runtime을 다시 보낸다. Finished 줄은 굵은 윗줄이 탭·session 이름, 작고 흐린 아랫줄이 coding agent 제품 이름·lophn agent 이름이다. 폴더 이름은 창이 이름을 알리기 전의 잠깐만 쓴다. `InboxNames.terminals`는 없어졌다.
+why: |
+  사람이 coding agent 줄을 탭 이름과 agent로 보이게 하고 탭 이름을 모르는 경우가 없게 하라고 했다(사람 2026-11-04).
+decisions:
+  - text: '한 줄(`Claude Code / 탭 이름`)이 아니라 두 줄이고 탭 이름이 굵은 윗줄이다. lophn 줄도 같은 순서로 바꿨다.'
+    by: person
+  - text: '탭 이름의 정본은 이미 OS 알림 제목에 쓰던 main의 메모리다. renderer끼리 이름을 나누는 새 길을 만들지 않았다.'
+    by: agent

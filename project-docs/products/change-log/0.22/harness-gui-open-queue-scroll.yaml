@@ -1,0 +1,29 @@
+id: harness-gui-open-queue-scroll
+version: 0.22.0
+title: "harness GUI: 파일 열기, 줄 선 메시지, background subagent, 대화 scroll을 고친다"
+modules: [packages/shell/main, packages/shell/renderer, packages/shell/ipc, packages/design]
+checked: []
+change: |
+  전:
+    - GUI의 edit 카드 Open이 cwd 상대 경로로 열어 "못 연다"가 떴다.
+    - 도는 중에 보낸 말이 대화에 보낸 말로 잠깐 그려졌다가 Queue로 옮겨 갔다.
+    - Claude GUI에서 줄의 첫 메시지가 나가면 남은 줄 메시지가 모두 steer로 나갔고, 줄을 고치거나 옮기면 steer 메시지가 다음 turn으로 바뀌었다.
+    - Claude가 `run_in_background` 없이 비동기로 띄운 subagent가 tool 결과가 오자마자 done이 되어 Running 카드에서 빠졌다.
+    - 대화를 key로 scroll할 수 없었고, 올려 읽던 중에 보내면 화면이 그대로였다.
+  후:
+    - Open은 ACP edit detail의 절대 경로 `document`로 연다.
+    - 도는 중에 다음 turn으로 보낸 말은 대화에 그리지 않고 Queue 카드 끝의 "보내는 중" 줄로 보인다.
+    - Claude adapter는 steer 여부를 보낼 때의 priority로 가른다(`next`만 steer). 줄 항목은 priority를 들고 있어 다시 세워도 그대로다.
+    - Claude adapter는 Agent tool 결과의 `tool_use_result.status === "async_launched"`로 background를 알아, task 알림이 끝낼 때까지 running으로 둔다.
+    - 새 command `agent.scroll-page-up`·`scroll-page-down`·`scroll-top`·`scroll-bottom`(PageUp·PageDown·Ctrl+Home·Ctrl+End). lophn agent 탭과 harness GUI 모두 보내면 맨 아래로 간다.
+why: |
+  harness GUI에서 파일 열기, 줄 선 메시지, background subagent 상태, 대화 scroll이 CLI와 다르게 동작해 고쳤다.
+decisions:
+  - text: |
+      scroll key는 입력칸에 focus가 있어도 대화를 움직인다. 여러 줄 draft에서 PageUp·PageDown·Ctrl+Home·Ctrl+End로 caret을 옮기던 것은 잃는다. 입력칸이 짧고 CLI TUI도 그렇다.
+    by: agent
+  - text: |
+      CLI가 줄 선 later 여럿을 잇따라 `started`하는지와 async Agent 결과의 실제 순서는 녹화 없이 SDK type과 문서로 정했다.
+    by: agent
+follow_up: |
+  Claude GUI 녹화로 줄 여럿의 지금 보내기와 비동기 Agent를 확인한다.

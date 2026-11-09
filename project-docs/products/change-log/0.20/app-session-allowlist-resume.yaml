@@ -1,0 +1,28 @@
+id: app-session-allowlist-resume
+version: 0.20.0
+title: "앱 화면이 연 session: 허용 입력, 제목·다시 붙기·새로 시작, 알림"
+modules: [packages/protocol, packages/sdk, packages/core/apps, packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/shell/renderer]
+checked: []
+change: |-
+  전: 앱 bridge `agent.send`는 `run_shell`만 막고 나머지 ACP 입력을 사람 자격으로 core에 넘겼다. 앱 code가 자기 agent의 승인(`decide`)이나 `rewind`·`fork`도 보낼 수 있었다. `useAgentSession`은 화면이 load될 때마다 첫 `send`에서 새 session을 열어 제목이 첫 prompt 글이 됐고, workspace를 떠났다 오면 새 session이라 도는 turn의 답을 잃었다. 설치된 SDK 사본은 type shim이 `reduce.ts`가 import하는 type을 다 내지 않아 `@lophn/agent`를 쓰는 앱마다 `tsc`가 19건 오류였다. 앱이 연 session도 turn이 끝날 때마다 Finished 알림과 점이 떴다(오목은 수마다).
+  후:
+  - bridge `agent.send`는 `send`, `stop`, `answer`, `rename`만 받고 나머지는 core에 닿기 전에 `forbidden`이다. 승인은 채팅 탭에서만 한다.
+  - `open({agent, title?})`가 연 직후 제목을 붙인다. `@lophn/agent` 1.3.0: `useAgentSession({agent, title?, session?})`, `rename(title)`, `reset()`. `session`은 그 앱 workspace의 기존 session에 다시 붙어 바로 snapshot을 읽고 거기로 보낸다. `reset()`은 다음 `send`가 새 session을 열게 한다.
+  - 설치 사본의 ACP shim은 `export type *`로 `acp-types.ts`를 통째로 다시 낸다.
+  - 앱 화면이 연(또는 다시 붙은) session은 turn 끝(완료·실패)을 알리지 않고 Finished 점도 찍지 않는다. 승인·질문은 그 session을 쥔 앱 화면이 focus 창에 보이지 않을 때만 알린다. 앱 view는 `EmbeddedView`가 보임을 `{view_session, visible}`로 main에 알린다.
+  옮기기: 없음. 앱 template의 `@lophn/agent`가 1.3.0이다. 기존 앱은 `package.json`과 `lophn.ts`의 판을 올려야 새 API를 쓴다.
+why: |-
+  오목 앱 점검에서 앱 code가 승인을 풀 수 있는 길, 화면 load마다 쌓이는 session, 수마다 뜨는 알림, 설치 사본의 type 오류가 드러났다(사람, 2026-11-07).
+decisions:
+  - text: |-
+      허용 목록으로 막는다. 새 ACP 입력이 늘어도 앱은 닿지 못한다.
+    by: person
+  - text: |-
+      제목은 `rename` 입력으로 붙이고, 못 붙여도 열기는 성공한다.
+    by: agent
+  - text: |-
+      앱 session 표시는 view가 사라져도 shell main 수명 동안 남긴다. 떠난 사이 끝난 turn도 알리지 않는다. 재시작하면 다시 붙을 때 되살아난다.
+    by: agent
+  - text: |-
+      `@lophn/agent` 1.2.0은 0.19.0이 낸 판이라 다시 쓰지 않고 1.3.0으로 올렸다.
+    by: agent

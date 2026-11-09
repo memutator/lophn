@@ -1,0 +1,44 @@
+id: pm-code-flow-workflow
+version: 0.8.0
+title: 'PM이 쓴 code가 이끄는 flow workflow'
+modules: [packages/protocol, packages/core/workflows, packages/core/runs, packages/core/apps, packages/core/main, packages/core/agent-workspaces, packages/core/jobs, packages/sdk, packages/coding-agent, packages/design, packages/shell/renderer, tools]
+checked: [tool-check, architecture-testing, architecture-eval, architecture-activation, architecture-agent-call, architecture-coding-agent, architecture-annotation, architecture-browser-tab, architecture-artifact, architecture-workspace-layout, architecture-ui-kit, architecture-appearance, tool-context-review, tool-worktree-prep, tool-e2e, tool-test-live, tool-check-deps, tool-dev, tests-support, tool-models-snapshot, skill-ui-design]
+change: |
+  전:
+  - `kind: flow` 선언은 읽혔지만 시작하지 못했다(`problem` `not_agent`, sidebar "Flow · can't be started here").
+  - 앱 tool을 부르는 쪽은 사람, agent, 앱, program(job) 넷이었다. run의 출처는 job 하나였다.
+  후:
+  - 사람(화면, CLI)과 job이 `kind: flow` workflow를 시작한다. code는 workflow 폴더의 `flow.ts`이고 PM이 쓴다. 선언에서 lophn이 읽는 것은 `kind`와 `steps`의 key뿐이다. `flow.ts`가 없으면 `problem` `no_flow_file`로 시작하지 못한다. 동작은 `project-docs/architecture/workflow.md` "flow"다.
+    - instance마다 `deno run` process 하나를 sandbox 안에 띄운다. 읽기는 그 workflow 폴더와 `<data>/sdk`뿐이고 쓰기, 네트워크, 다른 program 실행, 환경 변수가 없다. 끝나면 다시 띄우지 않는다.
+    - process와 core는 stdin·stdout JSON 줄로 말한다(`packages/protocol/workflows/flow-wire.ts`). 새 SDK `@lophn/flow`(`packages/sdk/flow`)가 `input`, `instance`, `agent(...)`, `tool(...)`, `report(...)`를 내고 실패도 값으로 준다. `console.log`는 stderr로 간다.
+    - stderr는 redaction을 거쳐 `<data>/flows/<instance>.log`에 남는다. process가 끝나면 새 줄 `program_exited`(끝 code, stderr 끝 10줄)를 남기고 `running`이면 `ended`로 닫는다. lophn은 성공을 판정하지 않는다.
+    - flow의 report는 줄의 `by`가 `program`이고 넘기지 않는다. 멈추기는 process를 죽이고 그 instance가 연 run을 취소한다. 켤 때 `running`인 flow instance는 `lophn_restarted` 줄(step·receiver null)과 함께 `ended`가 된다.
+  - 앱 호출의 부르는 쪽에 `flow`(`{kind: "flow", instance}`)가 생겼다. 판정은 그 project PM의 지금 할당(unattended)과 PM이 맡은 domain이다. 앱 process의 caller parser, `@lophn/cap-tool`의 `AppToolCaller`, invocation `caller_kind`도 받는다. `caller_kind` CHECK는 protocol schema에서 만든다.
+  - run의 origin이 job과 workflow instance 둘이 됐다. run 기록에 `instance` 칸이 생겼다. `RunService.cancelOfInstance`가 그 instance가 연 run을 취소한다.
+  - protocol: `WORKFLOW_LINE_KINDS`에 `program_exited`, `LineBy`에 `program`, `started` 줄 step nullable, `CreateWorkflowInstance.handoff`와 `StartWorkflow.handed` nullable, change `program_exited`·`flow_restarted`, route `CheckWorkflow`.
+  - PM tool `workflow.check`: `flow.ts`를 실행하지 않고 설치된 SDK에 대고 type check만 한다. PM의 내장 skill `guide-workflows`에 "Flow workflows" 절이 생겼다. job tool 설명의 `workflow_start`가 flow를 말한다.
+  - 화면: workflow 탭이 flow도 시작한다(첫 step을 고르지 않는다). flow report는 "Program", `program_exited` 줄은 끝 code와 stderr 끝 줄을 보인다. sidebar는 `problem`이 있으면 "Has errors"다. 앱 활동과 session rewind 목록은 flow 호출을 "Workflow"로 보인다. gallery에 flow page 넷(`workflow-tab-flow-exited`, `workflow-tab-flow-restarted`, `workflow-tab-flow-missing`, `workflow-start-dialog-flow`)이 생겼다.
+why: |
+  결정적 처리와 검증이 필요한 workflow는 agent에게 step을 넘기는 것만으로 짜기 어렵다. program이 앱 tool과 agent 호출을 섞어 부르고 agent처럼 report를 내게 한다(`project-docs/products/roadmap/workflow.md` 원칙, `headless-schedule.md`).
+decisions:
+  - text: 'flow의 code는 workflow 폴더에 `workflow.yaml` 옆 file로 둔다. 앱으로 두지 않고 사람의 저장소에도 두지 않는다.'
+    by: person
+  - text: 'code 이름은 `flow.ts` 하나로 고정하고 선언에 적지 않는다. lophn이 flow 선언에서 읽는 것은 `kind`와 `steps`의 key뿐이다.'
+    by: agent
+  - text: 'instance 하나에 process 하나, 다시 띄우지 않는다. 켤 때 도는 flow는 닫는다. 바깥 효과가 두 번 나지 않게 한다.'
+    by: agent
+  - text: 'sandbox는 앱 process와 같은 꼴이다. AI가 짠 code라 바깥 효과를 앱 tool과 agent로만 내게 해 invocation 기록과 rewind를 세운다.'
+    by: agent
+  - text: 'flow의 앱 tool 호출은 PM의 지금 할당과 맡은 domain 안에서만 된다. code를 쓴 것이 PM이라 code로 할당을 넓히지 못한다. flow가 부르는 agent는 누구든 되고 자기 할당으로만 일한다.'
+    by: agent
+  - text: 'flow process에는 credential을 주지 않는다. origin과 flow 자격은 route 입력이 아니고 core가 그 instance의 이름으로 한다.'
+    by: agent
+  - text: '통로가 깨진 줄(JSON 아님, id 없음, 1 MiB 넘음)은 process를 끝내고, 읽히지만 칸이 틀린 요청은 `invalid_input` 값으로 답한다. 오타 하나로 flow 전체가 죽지 않게 한다.'
+    by: agent
+  - text: '시간 한도를 두지 않는다. 오래 도는 flow가 정상이고 멈추는 길은 `StopWorkflow`다.'
+    by: agent
+  - text: '진짜 flow process를 띄우는 test는 두지 않았다. lead가 throwaway core에서 손으로 확인했다: agent 답과 report, 틀린 step 이름의 `invalid_input` 값, `console.log`의 stderr 행, throw의 끝 code 1과 stack, sandbox 밖 읽기·쓰기·네트워크 거절, 멈추기의 `program_exited`(code null).'
+    by: agent
+follow_up: |
+  - 개발 data를 지우고 새로 만든다. `workflow_lines`의 CHECK, `runs` 표의 `instance` 열, `invocations.caller_kind` CHECK를 제자리에서 바꿨고 migration이 없다.
+  - `project-docs/issues/workflow.md`의 열린 이슈: workflow 폴더 안 symlink를 따라 밖을 읽음, CPU·memory·시간 한도 없음, `Deno.stdout`에 바로 쓰면 process가 죽음.

@@ -1,0 +1,10 @@
+id: boundary-catalog-add-router
+version: 0.2.0
+title: "boundary-catalog에 router를 더하고 app-direct-protocol을 지움"
+modules: []
+checked: []
+change: |
+  전: Router가 catalog에 없고, 지운 앱 직접 protocol이 남아 있음.
+  후: core 아래 `router` component. `app-direct-protocol` 없음. module-catalog의 Router path가 `router`를 가리킴.
+why: |
+  catalog가 코드와 어긋남.

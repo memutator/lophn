@@ -1,0 +1,18 @@
+id: template-withstore-masks-work-errors
+title: 앱 template의 `withStore`가 업무 code의 예외까지 `store_unavailable`로 바꿔 원인을 지운다
+kind: bug
+status: fixed
+topic: problems
+modules: [packages/core/apps]
+now: |
+  - 앱 template `packages/core/apps/packages/template/app/src/app-api.ts.tmpl`의 `withStore`는 `openStore()`, `ensureSchema`, 업무 일 `work(store)`를 한 `try` 안에서 부른다.
+  - `AppApiRejection`이 아닌 예외는 무엇이든 `reportProblem("store_unavailable", "the item store could not be opened")`로 보고하고, `AppApiRejection("unavailable")`로 바꿔 던진다.
+  - 진입점(`packages/core/apps/runtime/entrypoint/invoke.ts`)은 거절을 보고 없이 돌려준다. stack과 함께 보고하는 것은 `Error`일 때뿐이다(`reportCaught`).
+  - 새 앱은 이 template에서 시작하므로, 이 꼴이 그대로 복사된다.
+impact: |
+  업무 code의 bug(SQL 오류, 잘못된 값 처리)가 모두 "저장소를 못 열었다"는 `store_unavailable` problem 하나로 묶이고, stack도 남지 않는다. App Engineer와 coding agent는 원인을 저장소로 잘못 읽고, 서로 다른 bug를 가르지 못한다.
+fix: |
+  `try`를 `openStore()`와 `ensureSchema`에만 건다. `work(store)`의 예외는 그대로 던져, 진입점이 stack과 함께 보고하게 한다(작음). 추천: 이대로.
+closed: |
+  `app-api.ts.tmpl`의 `withStore`는 `try`를 `openStore()`와 `ensureSchema`에만 건다. 업무 일의 예외는 그대로 던져 진입점이 stack과 함께 보고한다.
+guard: 없음

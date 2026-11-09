@@ -1,0 +1,15 @@
+id: cache-markers-on-three-layers
+title: 'cache marker를 role·instructions·place 셋에 단다'
+kind: defect
+status: kept
+topic: agent-definition
+modules: [packages/core/lophn-agent]
+now: |
+  `prompt-assembly/turn-prompt.ts`의 `CACHED = ["role", "instructions", "place"]`가 system block 셋에 `cache`를 달고 `prompt-assembly/layers.ts`의 `anthropicSystem`이 각각 `cache_control`로 옮긴다. tools는 role marker가 함께 덮는다(Anthropic 요청 순서가 tools → system).
+impact: |
+  marker가 셋이라 층 하나가 바뀌면 그 뒤 prefix만 miss다. 하나로 줄이면 지침 수정이 role 뒤 전체 miss가 된다.
+fix: |
+  남길지 정한다. 층마다 바뀌는 빈도가 달라(role 고정, 지침은 사람이 가끔, place는 자주) 나눈 것이다. 추천: 남긴다.
+closed: |
+  층마다 바뀌는 빈도가 달라(role 고정, 지침은 가끔, place는 자주) 나눈 것이고, 하나로 줄이면 지침 수정이 role 뒤 전체 miss가 된다.
+guard: 없음

@@ -1,0 +1,20 @@
+id: agent-layer-oauth-mcp-sign-in
+version: 0.10.1
+title: "agent 정의 층에 둔 OAuth MCP server도 sign-in한다"
+modules: [packages/core/lophn-agent, packages/core/apps, packages/core/main, packages/protocol, packages/shell/renderer, tools]
+checked: []
+change: |
+  전: agent 편집 화면의 server form은 OAuth 2.1을 고르지 못했다. 정의 파일에 손으로 oauth2를 써도 core의 sign-in이 그 server를 찾지 못했고(registeredMcpServers에 없었다), token 이름이 place에서만 정해져 같은 이름의 전역 server와 겹쳤다.
+  후:
+  - agent 편집 화면에서 OAuth 2.1 server를 더하고, 정의를 저장한 뒤 그 줄의 [Sign in]으로 로그인한다. 그 agent의 turn만 그 token을 붙인다.
+  - agent 층 server의 token은 mcp-oauth.<agent id>.<server>.*에 둔다. 사람이 넣는 credential 이름 mcp.<agent id>.<server>와 같은 규칙이다.
+  계약:
+  - 바뀐 것: BeginMcpAuth·CompleteMcpAuth·CancelMcpAuth 입력과 ReadMcpAuthState의 servers[] 입력·출력에 agent(agent id 또는 null, 필수)가 생겼다. place와 agent가 둘 다 있으면 invalid_input이다. McpAuthKey는 {place, agent, name}, runtimeServerOfLayer는 셋째 인자 agent, RegisteredMcpServer는 agent, McpSourceOptions.agent는 id를 받는다. renderer McpLogin에 agent, AgentDetail에 agentMcpLogins가 생겼다.
+  - 이 판 첫 항목의 결정 "agent 정의 층 server는 OAuth를 고르지 않게 둔다"를 바로잡는다.
+why: |
+  OAuth MCP server를 한 agent에만 붙일 길이 없었다. 전역이나 project 층에 두면 그 범위의 모든 agent가 그 tool을 받는다.
+decisions:
+  - text: "자리(placeSchema)에 agent를 넣지 않고 agent 칸을 따로 둔다. 자리는 session·skill·권한이 같이 쓰는 값이라 MCP 소유자 때문에 넓히지 않는다."
+    by: agent
+  - text: "agent 층 server의 로그인은 저장된 정의의 server에만 연다. core가 읽는 것은 정의 파일이다."
+    by: agent

@@ -1,0 +1,29 @@
+id: eval-experiment-judged-by-program
+version: 0.3.0
+title: 'eval experiment: harness 고침을 program이 판정한다'
+modules: [tests]
+checked: [architecture-eval, architecture-testing, tool-eval, skill-orchestrate, context-component-registry]
+change: |
+  전:
+  - harness를 고친 것을 재려면 planner가 run 기록을 보고 다시 돌릴 case를 손으로 고르고, `--trials N`으로 하나씩 돌린 뒤 scorecard를 눈으로 비교했다.
+  - judge와 사람 역할은 runner가 `.env`의 key로 Haiku를 따로 불렀다.
+  후:
+  - `deno task eval:experiment <id>`가 commit된 `tests/eval/experiments/<id>/spec.json`(가설, X@a → X@b, target, 미리 쓴 같은 규칙의 case, trial 정책, 예산)으로 돈다. 바뀐 component를 본 run만 target·guard로 고르고, gate(check → 바뀐 module의 e2e → dry run)를 지난 뒤 trial을 pool로 동시에 돌리고(판단 case 4, coding 2, 예산 하나), 판정 `default@1`을 `result.json`에 쓴다. `--checkout`이면 core는 그 checkout에서 뜨고 grader는 지금 checkout 것이다.
+  - 경고와 진단(시나리오 고유 단어, assembly prefix 유지율, 같은 tool·인자 되풀이의 `repeat-kind@1`)은 `result.json`에 남고 판정에 들지 않는다.
+  - judge item과 사람 역할의 질문은 대기 file로 남는다. eval을 돌리는 agent가 item마다 새 subagent(`haiku-xhigh`)에게 `show`의 글만 주고 `deno task eval:judge`, `deno task eval:answer`로 넣는다. `judge@2`(prompt를 바꿨다)라 commit된 run은 모두 낡음이다. `.env`의 key는 core의 role agent만 쓴다.
+  - runner와 experimenter가 일하는 법은 skill `eval-run`, `eval-experiment`다.
+  - calendar-mvp의 check `ae-calls-coding-only`가 열린 coding session에 `to:{session}`으로 보낸 답을 맞게 세고 보낼 때 실패한 call은 세지 않는다.
+  - `land.sh`가 lock으로 하나씩 돈다. land 도중 main에 `project-docs/`만 늘면 다시 rebase하고 빠른 check 뒤 올린다.
+why: |
+  harness 고침이 우연이나 시나리오 맞춤으로 채택되지 않게, 규칙을 돌리기 전에 적고 판정은 program이 한다.
+decisions:
+  - text: '판정은 program이 한다. experimenter는 해석만 하고, 뒤집으려면 이유를 적어 사람이 정한다.'
+    by: person
+  - text: 'trial은 기본 1번이다. target이 통과하거나 guard가 기준과 갈리면 그 시나리오만 늘린다. 늘 3번씩 돌리지 않는다.'
+    by: person
+  - text: '채점과 답은 eval을 돌리는 agent의 subagent가 한다. type을 하나로 고정하고 model을 item마다 남긴다. 옛 key 길은 지웠다.'
+    by: person
+  - text: '기준 구성은 main checkout에서 잰 버전이다. 따로 기준 file을 두지 않는다.'
+    by: agent
+  - text: 'hook 처리 코드나 coding skill 설명을 고친 experiment는 coding 시나리오로 재지 않는다. hook과 설명은 사람이 main checkout에서 한 번 설치한 것이다.'
+    by: agent

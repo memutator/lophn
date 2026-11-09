@@ -1,0 +1,15 @@
+id: terminal-request-app-check-in-host
+title: 터미널 요청은 `request.coding.app === app`일 때만 pane에서 받는다
+kind: defect
+status: kept
+topic: shell
+modules: [packages/shell/renderer]
+now: |
+  `app-frame/app-space.tsx`의 `useTerminalOpenRequests` 콜백이 `request.coding.app !== app`이면 버린다. 훅(`terminal/use-terminal-open-requests.ts`)은 앱·project 구분 없이 모든 coding runtime을 알리고 호스트가 자기 것을 고른다고 주석에 적혀 있다. project 창은 `workspace/kinds/terminal.tsx`가 따로 받는다.
+impact: |
+  호스트마다 같은 검사를 각자 해야 하고 빼먹으면 다른 앱의 터미널이 열린다.
+fix: |
+  추천: 남긴다. 훅이 호스트 둘이 공유하는 것이라 검사는 호스트에 두는 게 단순하다. 바꾼다면 훅이 `filter` 인자를 받는다(작음).
+closed: |
+  훅이 앱 창과 project 창 둘이 공유하는 것이라 검사는 호스트에 두는 편이 단순하다. 바꾼다면 훅이 `filter` 인자를 받는다.
+guard: 없음

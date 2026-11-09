@@ -1,0 +1,14 @@
+id: ticket-cancel-stops-transport-calls
+title: "`ticket.cancel`이 transport의 active·waiting call을 찾아 멈춘다"
+kind: defect
+status: kept
+topic: coding-agent
+modules: [packages/core/apps]
+now: '`core/apps/tickets/commands.ts`의 `cancel`이 `stopCodingCalls`에서 `CodingTransport.lines()`를 돌며 이 ticket의 active·waiting call을 찾아 `stop(reason: "ticket_cancelled")`을 부른다. transport의 `stop`은 이 이유일 때 Router를 거치지 않으므로 call 상태도 직접 `cancelled`로 옮긴다(`transport.ts`).'
+impact: ticket 모듈이 coding session의 줄 구조를 알고, call 취소 책임이 Router와 transport로 갈라진다. transport 모양을 바꾸면 ticket 취소도 같이 고친다.
+fix: |
+  - ticket 취소는 domain event만 내고 transport 쪽 handler가 줄을 정리한다(Reactor handler 하나 더, 중간). 같은 tx 안 일관성이 약해진다.
+  - 남긴다. 지금 방식은 취소·claim 삭제·call 취소가 한 tx다.
+  - 추천: 남긴다.
+closed: 지금 방식은 취소·claim 삭제·call 취소가 한 tx이고, domain event로 나누면 같은 tx 안 일관성이 약해진다.
+guard: 없음

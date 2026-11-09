@@ -1,0 +1,15 @@
+id: one-plus-menu-no-focus-ring
+version: 0.19.0
+title: "+ menu 하나, sidebar 줄 끝 단추 한 칸, 마우스로 연 면에 focus ring 없음"
+modules: [packages/design, packages/shell/renderer, tools]
+checked: []
+change: |
+  - sidebar workspace 줄의 + hover 목록과 탭 줄 + menu의 Agent ▸ 단계가 같은 목록(lophn agent와 새 agent 키, 즐겨찾기 coding agent)을 같은 아이콘으로 보이고, 고르는 일도 같다(coding agent는 그 명령어의 새 터미널). 탭 줄 menu에도 coding agent가 생겼다.
+  - 다른 workspace 줄에도 톱니와 + hover 목록이 뜬다. 고르면 그 workspace로 가서 그 agent(`startSession`)나 설정(`startSettings`)을 연다. 다른 workspace의 목록은 기본 lophn agent와 즐겨찾기 coding agent(project만)다.
+  - Workspaces 머리의 +, 톱니, 줄 +, 연필, x가 폭·오른쪽 끝·세로 가운데가 같은 한 칸이다.
+  - Menu·Popover·Dialog 계열이 마우스로 열고 닫을 때 trigger나 첫 단추에 focus ring이 남지 않는다. Chromium이 script `focus()`를 `:focus-visible`로 보는 탓이라 focus를 옮길 때 입력이 키보드였는지 보고 `focus({ focusVisible })`로 정한다. 키보드로 쓰면 ring이 그대로 선다.
+why: |
+  두 곳에 따로 있던 agent 목록을 하나로 합치고, 줄 끝 단추 자리를 맞추고, 마우스로 연 뒤 남던 focus ring을 없애려고 했다.
+decisions:
+  - text: "다른 workspace의 agent 목록은 읽지 않고(agent는 project마다라 그 창만 안다) 기본 lophn agent만 보인다."
+    by: agent

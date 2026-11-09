@@ -1,0 +1,16 @@
+id: dismiss-finished-notice
+version: 0.13.0
+title: 알림 panel의 Finished 줄을 열지 않고 지운다
+modules: [packages/shell/ipc, packages/shell/preload, packages/shell/main, packages/shell/renderer, tools]
+checked: []
+change: |
+  전: turn이 끝난 탭(Finished) 줄은 그 탭을 열어야만 사라졌다.
+  후: 줄 오른쪽 끝의 `[x]`(Dismiss)가 탭을 열지 않고 줄과 배지 수를 지운다. main이 그 탭의 못 본 표시를 끈다. lophn Agent session은 `SessionNotices.dismiss`, 터미널 coding agent는 탭을 본 것과 같게 tracker의 unseen을 끈다.
+  계약: IPC `shell:notice-dismiss`(`NoticeTarget`)와 `LophnNoticeApi.dismiss`가 생겼다.
+why: |
+  사람이 알림을 읽지 않고도 치우고 싶어 했다.
+decisions:
+  - text: "권한·질문 같은 결정 요청은 지우기를 두지 않는다. 결정해야 닫히는 일이다."
+    by: agent
+  - text: "wireframe의 fake `ActivationConsentRequested`·`AppRestartHalted`에 `app_name`이 빠져 gallery 전체가 `ZodError`로 그려지지 않던 것을 같이 고쳤다."
+    by: agent

@@ -1,0 +1,18 @@
+id: lophn-entry-and-agent-tab-title
+version: 0.8.0
+title: 'project 창과 앱 공간에서 lophn을 부른다, agent 탭 이름이 비지 않는다'
+modules: [packages/shell/renderer]
+checked: [architecture-browser-tab, architecture-artifact, architecture-workspace-layout, architecture-appearance, tool-worktree-prep, tool-dev, skill-ui-design, tool-wireframes]
+change: |
+  전:
+  - Agent 탭 source(`conversation/agent-tab-core-source-env.ts`의 `agentRefOf`)가 agent를 자리 종류로만 정했다. lophn 탭은 그 창의 project나 앱을 자리로 받으므로 project 창에서는 Project Manager, 앱 공간에서는 App Engineer와 말했다. sidebar의 lophn 줄과 activity bar의 Agent 단추가 lophn을 열지 못했다.
+  - 저장된 agent 탭은 제목 없이 되살아나고 본문을 그린 탭만 이름을 채웠다. Settings나 런처에 다녀오거나 core 연결이 잠깐 끊기면 작업대가 layout을 다시 읽어 고르지 않은 agent 탭의 이름이 비었다.
+  후:
+  - key가 `lophn`이면 자리와 상관없이 lophn이다.
+  - 작업대가 이름이 빈 agent 탭을 agent 목록의 이름으로 채운다. 모든 desk의 탭이다. 제목은 여전히 layout에 저장하지 않는다.
+  확인: `deno task dev`와 같은 core, fake provider, headless 창. project 창에서 lophn에게 보낸 말이 `role: lophn` session을 만들었다. lophn과 Project Manager 탭을 열고 lophn을 고른 채 Settings에 다녀오면 고치기 전에는 Project Manager 탭 이름이 빈 글이었고 고친 뒤에는 남았다.
+why: |
+  lophn 탭이 자리에 따라 Project Manager나 App Engineer와 말하게 되어 있었고, 되살린 agent 탭의 이름이 layout에 저장되지 않아 비었기 때문이다.
+decisions:
+  - text: '제목을 layout에 저장하지 않고 agent 목록에서 채운다. 버린 길: layout schema에 제목 칸 두기. agent 이름을 바꾸면 저장된 제목이 낡는다.'
+    by: agent

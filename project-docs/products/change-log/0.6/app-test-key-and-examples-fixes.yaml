@@ -1,0 +1,41 @@
+id: app-test-key-and-examples-fixes
+version: 0.6.0
+title: "진짜 model eval이 찾은 것과 작은 열린 이슈를 고침"
+modules: [packages/core/approvals, packages/core/lophn-agent, packages/core/main, packages/core/diagnostics, packages/core/agent-workspaces, packages/protocol, packages/shell/renderer, tools, tests]
+checked: [tool-e2e, tool-eval]
+change: |
+  전:
+  - test runner가 app test 요청의 ledger key와 작업 폴더를 `request_key`만으로 만들었다. 두 coding session이 같은 key(`t-1`)를 보내면 둘째가 `conflict`를 받았고, test control은 그 요청을 log 없이 5초마다 영영 다시 시도했다. coding agent는 시작하지 않는 test를 기다리다 보고 없이 끝났다.
+  - examples run이 fail이어도 모든 write tool을 앱 problem `rewind_unproven`으로 알렸다. 그 problem이 같은 앱에 App Engineer session을 하나 더 열어, 두 App Engineer가 같은 ticket의 examples를 서로 반대로 고쳤다.
+  - App Engineer 지침에 read tool 결과 모양이 없어, App Engineer가 examples `expect`를 맨 배열로 써서 examples가 떨어졌다.
+  - agent runtime은 turn 준비가 던진 예외를 아무 기록 없이 삼켰다. grant read는 lophn-agent의 `sessions` 표를 SQL로 읽었다. 아무도 만들지 않는 붙인 것(`attached`) 입력 칸과 `<lophn-attached>` 지침 줄이 모든 turn에 실렸다.
+  후:
+  - test runner의 key와 작업 폴더는 `request_principal`과 `request_key`를 함께 hash한다. 시작하지 못한 요청은 core stderr에 `app test:` 줄을 남긴다.
+  - examples가 fail이거나 판정할 수 없으면 `rewind_unproven`을 알리지 않는다. pass한 run만 남은 증명 못 함을 알린다.
+  - App Engineer 지침은 read tool이 `{rows, coverage, freshness, continuation}`을 돌려준다고 말하고 `expect`를 그 모양으로 쓰게 한다.
+  - turn 시작이 던지면 agent runtime이 diagnostic log에 `internal_exception`을 location `agent-runtime-turn-start`로 한 번 남긴다(같은 오류가 이어지면 처음 한 번).
+  - grant read는 port `AgentOfSession`으로 자기 ref를 푼다. 구현은 lophn-agent가 reader registration으로 낸다.
+  - `SendMessage.attached`, 본문 part `attached`, `<lophn-attached>`와 그 지침 줄을 지웠다.
+  - check `source`에 규칙 `EXTERNAL_FETCH`가 생겼다. core daemon graph에서 bare `fetch(`와 `globalThis.fetch` 값 쓰기를 막는다.
+  - eval: calendar-api의 `list-after-add`를 지웠다. calendar-mvp의 `asked-again`은 deliver한 call 본문을 요청으로 받는다. `observe-names-in-ticket`은 앱이 보고한 problem 이름만 센다. C9-other는 "다른 project의 Operator를 만들거나 고치지 않는다"만 잰다. 저장하는 자식 재료는 부모의 needs를 잇는다. `operators-home@5`는 월말정리를 가계부 앱 place에 둔다. O4는 bug가 심긴 `calendar-app-bug@2`와 그 앱 place의 Operator로 다시 지었다.
+  닫은 이슈: mistakes "core main에서 전역 fetch로 자기 HTTP를 불러 problem을 보고했다", agent-definition "turn 준비가 예외로 끝나면 아무 기록 없이 매 주기 다시 시도한다"와 "붙인 것(`attached`) 기구가 file 종류만 남았고 아무도 만들지 않는다", approval "grant read가 `sessions` 표를 SQL로 직접 읽는다", eval "월말정리 Operator가 앱이 아니라 앱 옆 project에 놓인다".
+why: |
+  test-restore 뒤 진짜 model eval에서 떨어진 여섯 가운데 calendar-mvp는 제품의 두 bug(같은 key의 test 요청, 실패한 examples가 연 둘째 App Engineer)와 지침의 빈 곳이 겹친 결과였다. 나머지는 check가 지침에 없는 것을 요구하거나 world가 재려는 상황을 만들지 못한 것이었다.
+decisions:
+  - by: person
+    text: |-
+      examples가 fail이면 `rewind_unproven`을 알리지 않는다. 그 ticket의 App Engineer가 이미 실패를 받고, fail run은 증명한 것이 없어 경보가 새 정보를 주지 않는다. 같은 ticket을 맡는 session이 둘이 되는 것을 problem과 ticket을 잇거나 열린 session으로 보내는 길로 막지 않았다(B, C). pass 뒤의 경보로 같은 일이 다시 생기면 그때 한다. (2026-10-20)
+  - by: agent
+    text: |-
+      calendar-api의 `list-after-add`, C9-other의 PM 넘기기, `observe-names-in-ticket`의 platform problem은 지침에 없는 것을 재서 지웠다. 넘기기를 바라게 되면 지침 줄과 check를 같이 더한다.
+  - by: agent
+    text: |-
+      run이 저장한 후보 재료(`calendar-call@4`, `calendar-app@3`)는 쓰지 않는다. 앞 run의 질에 난이도가 흔들린다.
+  - by: agent
+    text: |-
+      `EXTERNAL_FETCH`의 예외 둘(app broker의 기본 transport, 연결 전 runtime tool port)은 child process 쪽 인터넷 fetch 기본값이 barrel import로 daemon graph에 든 것이라 예외 표로 둔다.
+  - by: agent
+    text: |-
+      `restoreAppProject`는 지금 이름으로 가리키는 시나리오가 없어도 남긴다. 지우면 lophn이 보는 world의 project 목록이 바뀌어 옛 run과 비교가 판 변경 없이 어긋난다.
+follow_up: |
+  platform "agent runtime child가 stderr에 쓴 진단을 core가 버린다", shell "대화 입력창의 붙이기 단추가 아무 일도 하지 않는다". 진짜 model로 calendar-mvp를 다시 잰다.

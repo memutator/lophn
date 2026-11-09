@@ -1,0 +1,29 @@
+id: sdk-update-line-and-home-triage
+version: 0.20.0
+title: "정정: SDK 업데이트 줄은 하나, home이 숲을 보고 정한다, 배지는 History도 센다, History 기간 거르기"
+modules: [packages/protocol, packages/core/apps, packages/core/main, packages/core/agent-workspaces, packages/shell/main, packages/shell/renderer, packages/shell/preload, tools]
+checked: []
+change: |-
+  전: 0.20.0을 설치하면 History에 `lophn_updated` 한 줄과 앱마다 "The app needs an SDK update"(mahas, masup, calendar) 줄이 있고 줄마다 [Ask lophn]이 `/update-apps <앱>`을 열었다. 가능(`available`) 갱신은 `lophn_updated` 본문에 "N apps have optional SDK updates."로만 있었다. `update-apps`는 SDK 상태를 사람 말로 옮겨 설명하고 고른 앱을 넘기는 일만 했다. 안 읽은 History 줄은 sidebar 배지에 세지 않아 사람이 아무것도 보지 못했다. History에 기간 거르기가 없었다.
+  후:
+  - 제품 판이 바뀐 기동에서 필수나 가능 SDK가 있는 앱이 하나라도 있으면 앱 없는 `sdk_update_needed` 줄 하나를 쓴다. params `{required, available}`, 글 "SDK updates for your apps" / "3 apps must update, 2 can use new SDK features.", key `sdk_update_needed`(다음 기동이 개수를 새로 쓰고 안 읽음으로 되돌린다), action `/update-apps`(전체). `lophn_updated`의 `optional_sdk_apps`와 `notices.observe_version`의 같은 입력을 지웠고 `ctx.sdkStatus` 제공도 지웠다. 이 줄은 앱이 없어도 toast·OS 알림으로 뜨고(`NoticeTarget` `inbox`) 누르면 Inbox를 연다.
+  - `update-apps`는 숲을 보는 skill이다. 앱마다 SDK 상태(필수와 가능), 목적·공개 command, 지나는 판의 메모를 읽고 (a) 필수 migration, (b) 새 SDK 기능 중 이 앱에 쓸 만한 것(예: 한도가 지나면 휘발 알림), (c) 그대로 두기를 정해 추천한다. 사람에게 내부 용어 없이 앱별 짧은 계획을 보이고 `ask`로 고르게 한 뒤, 고른 앱의 lophn에게 필수 migration, 고른 기능(앱 대화에서 사람과 확인하고 `design-app`으로 설계할 제안), 목표 판, 메모 file을 `reply: none`으로 넘긴다. home은 앱 source를 못 읽어 목적·command·메모로 판단하고 자세한 것은 앱 lophn에게 맡긴다. `migrate-sdk`는 migration을 release한 뒤 고른 기능을 넣는 단계(11)를 더했다.
+  - sidebar Inbox 배지가 안 읽은 영구 기록(History)도 센다. History 탭 머리의 숫자는 그대로다.
+  - `notices.list`에 `since`·`until`(`created_at`, since 포함·until 미포함)을 더했다. History 필터 바의 `DateRangeFilter`(kit)가 고른 달력 날짜를 지역 자정으로 풀어 보낸다. [Reset filters]로 돌아가고 [Load more]·[Mark all read]는 거른 줄에 쓴다. 안 고른 상태는 필터 버튼에 "Custom range"로 보인다.
+  옮기기: 없음. 이미 낸 앱마다의 옛 `sdk_update_needed` 줄은 program 줄이라 지울 수 없어 남고 단추도 동작한다. 새 줄은 같은 kind를 앱 없이 쓴다(표 모양은 그대로).
+why: |-
+  줄마다 [Ask lophn]이 있으면 home을 거칠 이유가 없다. home은 각 앱을 두고 갈지 올릴지 숲을 먼저 보고 자세한 migration을 넘기는 곳이다. 사람은 SDK 변화가 무엇을 깨고 무엇을 가능하게 했는지 판단하지 못하니 lophn이 판단해야 한다. 알림 목적은 사람이 알게 하는 것이라 History도 배지에 센다(사람, 2026-11-07).
+decisions:
+  - text: |-
+      kind는 `sdk_update_needed`를 앱 없이 다시 쓴다(새 kind를 만들지 않았다). 필수와 가능을 한 줄에 센다.
+    by: agent
+  - text: |-
+      앱 없는 program 줄 중 이 줄만 toast로 띄운다.
+    by: agent
+  - text: |-
+      가능만 있어도 줄을 쓴다(앱 상세 Version 탭과 별개로, 새 기능을 채택할지 판단하게 하려는 것).
+    by: person
+follow_up: |-
+  - 기동 중에 쓴 줄은 toast가 뜨지 않는다. `afterReady`가 core의 hello 전에 돌아 shell main이 `NoticePosted`를 받지 못한다. 배지와 History로만 보인다(`project-docs/issues/shell.md`).
+  - 기간을 안 고른 상태가 "Custom range"로 보인다(kit의 `DateRangeFilter`가 "전체" 상태를 모른다).
+  - 앱에 맞는 새 기능을 model이 실제로 잘 제안하는지는 eval이 없다.

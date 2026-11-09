@@ -1,0 +1,14 @@
+id: annotate-in-more-menu
+version: 0.15.0
+title: Annotate를 ⋯ 메뉴 항목으로 옮긴다
+modules: [packages/shell/renderer]
+checked: []
+change: |
+  전: 앱 화면 탭과 artifact 탭의 card 머리 줄 ⋯ 앞에 [Annotate] 단추가 있었다.
+  후: Annotate는 ⋯ 메뉴 맨 위 묶음의 항목이다(앱 화면 탭은 앱이 올린 메뉴 항목 앞). 고르면 머리 줄이 Annotate 줄로 바뀌는 것은 그대로다. artifact 탭이 card 밖(floated)에 있을 때는 ⋯ 메뉴가 없어 자기 toolbar의 단추로 남는다.
+why: |
+  머리 줄에 늘 서 있을 만큼 자주 쓰는 행동이 아니다(사람 2026-11-02).
+decisions:
+  - text: |
+      artifact 탭도 같이 옮겼다. 같은 Annotate 줄을 쓰는 같은 기능이다.
+    by: agent

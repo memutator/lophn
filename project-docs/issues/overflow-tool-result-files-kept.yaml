@@ -1,0 +1,15 @@
+id: overflow-tool-result-files-kept
+title: '넘친 tool 결과 파일을 지우지 않는다'
+kind: defect
+status: fixed
+topic: agent-definition
+modules: [packages/core/lophn-agent]
+now: |
+  `spillLarge`(`packages/core/lophn-agent/tools/spill.ts`)가 쓴 `<data root>/tool-results/<session>/<tool call>.json`은 session을 보관하거나 지워도 남는다.
+impact: |
+  큰 결과를 자주 받는 사람의 data root가 계속 커진다.
+fix: |
+  session 보관·삭제 때 그 폴더를 지운다(작음). 추천.
+closed: |
+  session을 지우면 rewind 기록을 지우는 자리(`session/rewind/files.ts`의 `erasedAfter`)에서 `eraseToolResults`가 `<data root>/tool-results/<session>/`도 지운다. 보관(archive)은 지우지 않는다. 지우기가 도중에 실패한 폴더를 거두는 sweep은 없다.
+guard: '`packages/core/lophn-agent/session/rewind/rewind_test.ts` "session을 지우면 그 session의 tool-results 폴더만 지우고 다른 session과 archive는 남긴다"'

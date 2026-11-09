@@ -1,0 +1,12 @@
+id: electron-default-menu-ctrl-r-reload
+title: Electron 기본 menu의 Ctrl+R(Reload)이 shell 창을 다시 부른다
+kind: bug
+status: open
+topic: keybindings
+modules: [packages/shell/main]
+now: |
+  shell main은 `Menu.setApplicationMenu`를 부르지 않아 Electron 기본 menu가 남는다(`packages/shell/main/desktop/window.ts`는 `autoHideMenuBar`로 숨기기만 한다). Linux·Windows에서 page가 막지 않은 Ctrl+R·Ctrl+Shift+R은 View › Reload로 창 renderer를 다시 부른다. harness GUI(Claude·Codex·omp)는 view에 focus가 있으면 Ctrl+R을 history 검색으로 삼키지만, 터미널 밖의 다른 곳이나 OpenCode GUI, 아무 요소에도 focus가 없을 때는 창이 다시 load된다.
+impact: |
+  사람이 습관으로 Ctrl+R을 누르면 창의 열린 popover, 입력칸 상태, 스크롤 위치를 잃는다(탭과 draft는 저장본에서 되살아난다).
+fix: |
+  창에 쓰는 menu를 직접 만들어 Reload를 빼거나(작음, Close Window·편집 role처럼 지금 기대는 accelerator는 남긴다) `setApplicationMenu(null)`로 지운다(작음, macOS의 편집 key equivalent가 사라질 수 있다). 추천: 직접 만든 menu.

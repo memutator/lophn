@@ -1,0 +1,17 @@
+id: l7-read-all-app-get-only
+title: "L7의 `read-all`은 `app.get` 이름만 받는다"
+kind: bug
+status: fixed
+topic: eval
+modules: [tests]
+now: |2
+  `tests/eval/scenarios/lophn/L7.scenario.ts`의 `toolsCalled("read-all", ["app.get", "problem.list", "ticket.list"])`. 두 baseline 모두 lophn은 `app.list`, `problem.list`, `ticket.list`, `problem.get`으로 앱 상태를 읽고 쓰기 tool을 부르지 않았는데 `app.get`이 없어 떨어졌다. `app.list`도 status와 active release를 돌려주는 읽기 tool이다.
+impact: |2
+  case가 재려는 것(읽는 tool로만 답한다)과 다른 것(정해진 tool 이름)을 잰다. 지침을 고쳐 이 case를 통과시키면 시나리오 맞춤이 된다.
+fix: |2
+  check를 "앱 상태 읽기 하나(`app.get` 또는 `app.list`)와 problem·ticket 읽기"로 넓히고 시나리오 n을 올린다(작음). 추천.
+decided: |2
+  추천안(agent).
+closed: |2
+  `toolsCalled`가 배열 항목을 "그 가운데 하나"로 받고, L7의 `read-all`은 `[["app.get", "app.list"], "problem.list", "ticket.list"]`다.
+guard: "`L7.scenario.ts`의 right fixture 둘(`app.get` 판, `app.list` 판)과 `validateFixtures`"

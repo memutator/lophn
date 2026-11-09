@@ -1,0 +1,12 @@
+id: harness-keymap-skips-conflict-check
+title: harness keymap의 키는 Settings 겹침 검사에 잡히지 않는다
+kind: bug
+status: open
+topic: keybindings
+modules: [packages/shell/renderer]
+now: |
+  harness-gui manifest의 keymap(`WindowCommands.keymap()`)은 Settings › Keyboard의 `agent.*` 줄에 글로만 보이고 `findConflicts`·`checkChord`에 들지 않는다(같은 command의 Ctrl+C 두 줄이 겹침으로 잡히지 않게).
+impact: |
+  사람이 `agent.find` 같은 command에 Ctrl+R을 달면 겹침 표시가 없는데, Claude·Codex·omp GUI 안에서는 harness의 Ctrl+R(history 검색)이 안쪽 context라 먼저 받아 사람이 단 키가 돌지 않는다.
+fix: |
+  겹침 검사에 keymap을 넣되 같은 context·같은 chord의 서로 다른 command 둘(Ctrl+C clear-input·interrupt)만 예외로 둔다(작음).

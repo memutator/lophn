@@ -1,0 +1,15 @@
+id: api-server-worker-route-leftover
+title: API server의 worker route 통로가 남았다
+kind: defect
+status: fixed
+topic: code-health
+modules: [packages/core/server, packages/core/supervision, packages/core/main, packages/core/storage, packages/core/apps, packages/protocol]
+now: |
+  core가 worker 대상을 넘기는 곳이 없다(`packages/core/main/daemon/core.ts`의 `startApiServer` 부르기에 `workers`가 없다). 그래도 worker route 통로가 남아 있다: `packages/core/server/server.ts`의 `ApiServerOptions.workers`와 `adaptedWorkers`, `packages/core/server/dispatch.ts`의 worker 갈래(`deps.workers`를 찾는 곳 셋)와 `isWorkerRoute`(`packages/core/server/routes.ts`), `packages/core/supervision/responsiveness/forward.ts`의 `forwardToWorker`, 등록의 `workerRoutes`(`packages/core/storage/ledger/team-module.ts`, `packages/core/main/daemon/registration.ts`, `packages/core/apps/register.ts`), protocol의 `defineWorker`와 `WorkerRoute`. 쓰는 route는 `packages.guide`(`packages/protocol/apps/package-routes.ts`) 하나이고 늘 `unavailable`("worker unavailable")이다. 안내 원문은 `packages.guide_body`가 읽는다.
+impact: |
+  부르면 늘 실패하는 route가 열려 있고, 검토와 고칠 일(dispatch, 등록, 감독)에 죽은 갈래가 낀다.
+decided: |
+  지운다(잃는 기능이 없는 죽은 코드다. AGENTS.md "속도"). `packages.guide` route와 worker route 종류 전체, `forwardToWorker`를 같이 지운다(중간. 여러 module의 등록 file을 건드린다).
+closed: |
+  route 종류 `worker`, `defineWorker`, `WorkerRoute`, `packages.guide`, dispatch의 worker 갈래, `ApiServerOptions.workers`, `isWorkerRoute`, `forwardToWorker`, 등록의 `workerRoutes`, shell main client의 `workerBytes`를 지웠다. file route에 handler가 없으면 dispatch가 바로 `unavailable`이다. renderer 쪽 `Link.worker`는 남았다(`issues/agent-definition.md` 새 이슈).
+guard: 없음

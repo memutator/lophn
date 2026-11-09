@@ -1,0 +1,15 @@
+id: chatgpt-sse-without-content-type
+version: 0.9.0
+title: 'ChatGPT 로그인으로 부른 model이 "model error"로 끝나지 않는다'
+modules: [packages/core/lophn-agent]
+change: |
+  전: transport는 content-type이 `text/event-stream`인 성공 응답만 stream으로 읽었다. ChatGPT 구독 token으로 부른 `api.openai.com/v1/responses`는 SSE 본문을 content-type 없이 보내서, lophn은 그것을 JSON으로 읽다 실패했고 모든 turn이 `unknown` → "model error"로 끝났다.
+  후: content-type이 없는 성공 응답도 SSE로 읽는다. content-type이 있고 SSE가 아니면 그대로 batch(JSON)다.
+why: |
+  사람이 설치본에서 ChatGPT 로그인 후 `gpt-6.1-sol`로 보낸 첫 메시지가 실패했다. 실제 응답 한 번(2026-10-26, `x-oai-request-id: req_603ded9197b74c808d9b1f55bff7a526`)으로 header에 content-type이 없음을 확인했다.
+decisions:
+  - text: |
+      content-type이 없으면 SSE로 본다. 요청이 늘 `stream: true`이고 `accept: text/event-stream`이라서다. 버린 길: batch JSON parse가 실패하면 SSE로 다시 읽기(본문을 64 KiB 상한 안에서 한 번에 읽어 긴 답이 잘리고 글이 흐르지 않는다).
+    by: agent
+follow_up: |
+  설치본은 다시 build해야 고쳐진다.

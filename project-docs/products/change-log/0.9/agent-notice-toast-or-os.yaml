@@ -1,0 +1,29 @@
+id: agent-notice-toast-or-os
+version: 0.9.0
+title: 'agent 알림이 보고 있으면 없고, 창에 focus가 있으면 toast, 없으면 OS 알림이다'
+modules: [packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/shell/renderer, tools]
+checked: [architecture-terminal-agent, architecture-event, architecture-approval]
+change: |
+  전: 터미널 안 coding agent는 lophn 창이 하나도 focus가 아닐 때만 OS 알림을 냈고, focus일 때는 탭 점만 바뀌었다. lophn agent는 권한 물음·질문만 창마다 toast로 떴고(창 focus와 상관없이, 창이 여럿이면 여러 번) turn 끝은 아무것도 없었다. Agent 탭에는 안 본 turn 끝(finished) 점이 없었다.
+  후:
+  - 두 종류가 같은 규칙을 쓰고 shell main 한 곳이 정한다(`packages/shell/main/notice/rule.ts` `routeNotice`). 그 탭이 focus를 가진 창에 보이면 알리지 않고, focus를 가진 lophn 창이 있으면 그 창 하나에 toast, 없으면 OS 알림이다. detached 창에 focus가 있으면 OS 알림이다. toast와 알림을 누르면 그 탭을 고른다.
+  - 알리는 것은 completed·failed turn 끝과 권한 물음·질문이다. 사람이 끊은 turn, /clear, compact는 알리지 않는다.
+  - Agent 탭도 못 본 turn 끝이면 finished 점이다. main이 못 본 session 목록을 갖고 창에 보낸다. 탭이 보이거나, 다음 turn이 시작하거나, session이 끝나면 지운다. Agent 탭은 mount된 동안 보인다고 main에 알린다.
+  - renderer의 권한 물음·질문 toast(`waiting.toast-permission.*`, `waiting.toast-question.*`)를 지웠다. 앱 활성화 동의, 재시작 멈춤, kind 위반 toast는 그대로다.
+  - 창 안 toast가 하나도 뜨지 않던 것을 고쳤다. toast(반응 층, hook 설치 성공, 앱 view 알림)는 anchor로 창 전체(y=0부터)를 줬는데 main은 anchor 전체가 본문(상단 bar 36px 아래) 안이어야 열어서 `invalid_input: anchor is outside window body`로 조용히 거절했다(개발 앱에서 같은 요청으로 확인). 같은 이유로 상단 bar의 최소화 칩에서 누른 터미널 닫기 확인 dialog도 열리지 않아 닫히지 않았다. 자리를 main이 정하는 표면은 모두 창 가운데 1px(`overlay/consumer.ts` `centerAnchor`)를 쓴다. 복사본 다섯이 하나가 됐다.
+  - 창 단위 toast는 상단 가운데(상단 bar 바로 아래)에서 내려온다(reduced-motion이면 움직이지 않는다). 테두리(`--color-border-strong`)와 `--shadow-dialog`로 바탕과 갈리고, 행동 단추는 닫기 X와 같은 오른쪽 끝선의 따로 한 줄이다(design `Toast`, 탭 안 toast도 같다).
+  - agent 알림은 앞에 아이콘(터미널 agent는 harness icon, lophn agent는 그 agent의 profile avatar)이 있고, 제목이 누가 어디서인지 말한다("Claude Code finished · 다운로드", "{agent}'s turn failed · {place}", "{agent} needs permission · {place}"; 어디인지 모르면 뒤를 뺀다). 본문은 마지막 응답의 앞부분(공백을 접고 160자), 권한 물음은 그 명령·도구·질문, 실패는 까닭이다. 줄 것이 없으면 본문이 없다(폴더 이름으로 채우지 않는다). OS 알림도 같은 글이다.
+  - 마지막 응답은 harness가 turn 끝 hook payload에 주는 글이다: Claude 꼴(claude, qwen, qoder, codebuddy, kimi, muse, devin)·codex·droid·command-code·antigravity·grok·copilot은 `last_assistant_message`, kiro는 `assistant_response`. lophn이 쓰는 plugin·extension(opencode·kilo·mimocode, pi, omp, amp)은 마지막 응답을 `lophn_message`로 싣는다. transcript 파일은 읽지 않는다. cursor, hermes, cline, letta는 그런 칸이 없어 본문이 없다.
+  - lophn agent의 이름·profile·대화 이름·마지막 응답은 main이 알릴 때 core에서 읽는다(`agent-definitions/read`, `sessions/read`, `messages/body`, 질문은 `ask/read`). 올린 그림 profile은 첫 글자 avatar로 보인다.
+  - hook CLI는 stdin을 1 MiB까지 읽고 위쪽 글 칸을 4,096자로 자른 뒤 64 KiB를 잰다. 긴 마지막 응답 때문에 turn 끝 신호 전체가 버려지지 않는다.
+  - plugin 본문이 바뀌어 이미 놓인 OpenCode·omp 등의 plugin은 다시 설치가 필요하다고 나온다.
+  - 알림 단추 panel에 Finished 묶음이 있다. 안 본 사이 끝난 turn(터미널 agent와 lophn agent)이 쌓이고, 누르면 그 탭으로 가며, 그 탭을 보면 빠진다. 탭의 finished 점과 같은 값에서 계산하고 따로 기록을 두지 않는다. 개수 badge가 finished도 센다.
+why: |
+  사람이 창을 보고 있을 때도 다른 탭의 agent가 끝난 것을 알고 싶다고 했다. 창이 여럿일 때 한 번만 알리려면 결정이 한 곳에 있어야 한다.
+decisions:
+  - text: |
+      focus면 toast, 아니면 OS 알림이다. 보고 있는 탭은 알리지 않는다.
+    by: person
+  - text: |
+      터미널 쪽에서 이미 알리는 coding session은 lophn agent 쪽에서 다시 알리지 않는다.
+    by: agent

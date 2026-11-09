@@ -1,0 +1,11 @@
+id: opencode-turn-end-twice
+title: OpenCode가 turn 끝을 event 둘로 내서 TurnEnded가 두 번 간다
+kind: bug
+status: fixed
+topic: coding-agent
+modules: [packages/coding-agent, packages/protocol, packages/core/apps]
+now: 설치된 OpenCode(1.18.35)는 idle이 되면 canonical `session.status`(idle)를 낸 뒤 deprecated `session.idle`을 이어서 낸다(같은 판에서 도는 다른 도구의 plugin이 이 순서를 전제로 둘째를 거른다). `protocol/coding-agent/hook-signal.ts`의 `HOOK_EVENT_TABLE.opencode`는 둘 다 `TurnEnded`로 바꾸고, plugin(`harnesses/install.ts`의 `opencodePlugin`)도 둘 다 넘긴다. `core/apps/tickets/coding/hook.ts`의 `TurnEnded` 처리는 중복을 가리지 않는다. 첫 신호가 `drain`으로 대기열의 다음 메시지를 넣어 `inflight`를 켜면, 둘째 신호가 `running`·`inflight`를 다시 끄고 `TurnEnded` event를 한 번 더 낸다.
+impact: OpenCode로 맡기면 turn마다 `TurnEnded`가 두 번 기록되고, 대기열에 메시지가 둘 이상일 때 앞 메시지가 아직 turn으로 이어지기 전에 다음 메시지가 들어가 순서가 겹친다.
+fix: "`HOOK_EVENT_TABLE.opencode`에서 `session.idle`을 빼고 `session.status`(idle)만 쓴다(작음). 실제 OpenCode에 맡겨 보지는 못했다. `.ts` plugin이 로드되는지와 plugin 실행기에서 `node:child_process`의 spawn이 되는지는 아직 모른다."
+closed: "`HOOK_EVENT_TABLE.opencode`에서 `session.idle`을 지웠다. plugin이 듣는 event도 이 표에서 만들어 함께 줄었고, 이미 놓인 옛 plugin이 `session.idle`을 넘겨도 `hookSignalOf`가 null이라 신호가 아니다. 실제 OpenCode에 맡겨 `.ts` plugin 로드와 `node:child_process` spawn을 확인하지는 못했다."
+guard: packages/protocol/coding-agent/hook-signal_test.ts "OpenCode의 turn 끝 신호는 session.status의 idle 하나다"

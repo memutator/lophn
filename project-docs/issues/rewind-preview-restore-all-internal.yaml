@@ -1,0 +1,14 @@
+id: rewind-preview-restore-all-internal
+title: daemon에서 `rewind/preview`의 `restore_all`이 늘 `internal`로 실패한다
+kind: bug
+status: fixed
+topic: workspace-session
+modules: [packages/core/lophn-agent, packages/core/main, packages/core/storage]
+now: 'preview read(`packages/core/lophn-agent/session/rewind/reads.ts`)는 `restore_all`일 때 `snapshot.port(appWritesPort)`를 부른다. reader Worker는 등록 하나의 `ports`를 그 등록의 `reads`에만 붙인다(`packages/core/storage/ledger/reader-worker.ts`). `appWritesPort`는 `packages/core/main/daemon/wiring/rewind-registration.ts`의 `reads: []`인 등록에 있고, preview read가 든 `session/rewind/reader.ts`의 `createReaderRegistration`은 `ports: new Map()`이다. 그래서 reader Worker 안에서 `unregistered read port`가 나고 route는 `PreviewRewind: internal`을 낸다. `tests/e2e/rewind_test.ts`가 재현한다. port를 preview 등록에 붙이면 그 test가 10번 연속 통과한다(worker가 임시 변경으로 확인).'
+impact: 사람이 session을 앞 시점으로 되돌리며 file을 복원하는 길(`restore_all`)이 화면에서 늘 실패한다. agent가 망친 file을 되돌릴 수 없다.
+fix: |
+  - port를 preview 등록으로 옮긴다(작음): `appWritesOf`가 `main/daemon/rewind-glue.ts`에 있으므로 `rewind-registration.ts`가 `createReaderRegistration()`의 reads와 `appWritesPort`를 한 등록으로 내놓거나, `createReaderRegistration`이 port를 인자로 받는다.
+  - reader Worker가 모든 등록의 port를 모든 read에 붙인다(작음): port 이름이 겹치면 조용히 덮인다.
+  - 추천: port를 preview 등록으로 옮긴다.
+closed: preview read를 `appWritesPort`와 같은 reader 등록(`main/daemon/wiring/rewind-registration.ts`)에 둔다. `session/rewind/reader.ts`는 `createRewindReads()`로 정의를 내놓고 자기 등록에는 checkpoints·list만 둔다.
+guard: tests/e2e/rewind_test.ts

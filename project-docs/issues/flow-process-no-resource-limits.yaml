@@ -1,0 +1,18 @@
+id: flow-process-no-resource-limits
+title: 'flow process에 CPU·memory·시간 한도가 없다'
+kind: bug
+status: fixed
+topic: workflow
+modules: [packages/core/main]
+now: |
+  `packages/core/main/flow-host/host.ts`의 `launch`는 `spawnProcess`로 `deno run`을 띄울 뿐 `--v8-flags=--max-old-space-size`나 시간 한도를 두지 않는다. 시간 한도는 brief가 일부러 두지 않았다(오래 도는 flow가 정상이다). 멈추는 길은 사람의 `StopWorkflow`뿐이다. 앱 process도 CPU·RSS 한도가 없고 화면에 그 한계를 알린다(`packages/core/apps/permissions/flags.ts`의 `permissions.limit.cpu`, `permissions.limit.rss`). flow에는 그런 안내도 없다.
+impact: |
+  AI가 짠 `flow.ts`가 끝없는 loop에 빠지거나 memory를 계속 늘리면, 사람이 화면에서 멈출 때까지 사람의 기계에서 CPU 하나와 memory를 잡는다. job이 밤에 시작한 flow면 아무도 보지 않는 동안 그렇다.
+fix: |
+  - `flowFlags`에 `--v8-flags=--max-old-space-size=<MiB>`를 더한다. 넘으면 process가 죽고 `program_exited` 줄에 끝 code와 stderr가 남는다. 작음.
+  - CPU 시간은 OS 한도(`prlimit`)가 필요하고 core는 그 실행 허락이 없다. 큼. 앱과 같이 다룬다.
+
+  추천: memory 한도만 먼저 둔다. CPU와 시간은 앱의 한도를 정할 때 같이 정한다.
+closed: |
+  `flowFlags`가 `--v8-flags=--max-old-space-size=512`를 늘 더한다. 넘으면 process가 죽고 `program_exited` 줄에 끝 code와 stderr 끝이 남는다. 시간 한도는 두지 않는다(오래 도는 flow가 정상이고 멈추는 길은 `StopWorkflow`다). CPU 한도는 남은 문제라 열린 이슈 "flow process에 CPU 한도가 없다"로 옮겼다.
+guard: 'packages/core/main/flow-host/flags_test.ts의 test "flow flags deny reading outside symlinks and always cap memory"'

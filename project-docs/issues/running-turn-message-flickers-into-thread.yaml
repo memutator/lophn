@@ -1,0 +1,15 @@
+id: running-turn-message-flickers-into-thread
+title: 도는 중에 보낸 메시지가 대화에 잠깐 보낸 메시지로 그려졌다가 줄로 간다
+kind: bug
+status: fixed
+topic: harness-gui
+modules: [packages/shell/renderer]
+now: |
+  보내기(`packages/shell/renderer/conversation/agent-view.tsx` `dispatch`)는 곧바로 draft에 `outgoing`을 두고, `agent-thread.tsx`는 `hasEntry`가 대화 entry에서 그 id를 찾지 못하면 `outgoing`을 사람 메시지로 그린다. `hasEntry`는 줄(`queued`)을 보지 않는다. turn이 도는 중이면 adapter가 `message_queued`를 낸 뒤에야 `agent-view.tsx`의 `arrived`가 `outgoing`을 지운다. 그 사이(IPC 왕복, adapter, `packages/shell/main/terminal/gui.ts`의 20ms 묶음)에 메시지가 대화에 보인다. adapter 넷이 다 그렇고, OpenCode는 server의 `inbox.enqueued`를 기다려 가장 길다. lophn agent 탭에서도 보이는지는 확인하지 못했다.
+impact: |
+  사람이 도는 중에 보낸 메시지가 대화에 들어간 것처럼 보였다가 아래 줄로 옮겨져, 보냈는지 줄에 섰는지 헷갈린다.
+fix: |
+  turn이 돌고 delivery가 다음 turn이면 `outgoing`을 대화에 그리지 않고 줄 끝에 "보내는 중" 항목으로 보인다. 작음. 추천.
+closed: |
+  보낼 때 turn이 돌고 다음 turn으로 가는 말은 `Outgoing.queued`로 표시하고(`delivery-state.ts` `waitsInQueue`), 대화에 그리지 않고 Queue 카드 끝에 흐린 "보내는 중" 줄로 보인다. 못 보냄·접수 확인 안 됨은 다시 보내기 단추가 있는 대화 줄에 그대로 남는다.
+guard: '`packages/shell/renderer/conversation/delivery-state_test.ts` "대화에서 빠지는 것은 줄에 설 말이 보내는 중이거나 접수된 동안뿐이다"'

@@ -1,0 +1,17 @@
+id: unused-stored-outline
+title: 저장 목차와 outline kind가 쓰이지 않는다
+kind: defect
+status: fixed
+topic: contexts
+modules: [packages/core/projects, packages/protocol]
+now: |
+  `contexts/outlines.ts`가 `outlines/<sha256(path)>.json`에 목차를 revision으로 낙관적 잠금해 저장하고 `outline.get`·`set`·`delete` route와 agent tool이 있다. 읽는 쪽인 `extractAll`은 이 목차를 받지 못한다(위 "md가 아닌 context 문서" 이슈).
+impact: |
+  쓰는 길은 있고 읽는 길이 없어 죽은 장치다. route 셋, 폴더 port(`outlineFolder`), 테스트 대상이 늘어 있다.
+fix: |
+  저장 목차 전체를 빼고 md 목차만 둔다(`outlines.ts`, protocol `context-outlines.ts`, agent tool, `outlineFolder` port 삭제, 작음~중간).
+decided: |
+  지운다. 반쯤 만들고 안 쓰는 길은 지우고 필요해지면 그때 다시 만든다.
+closed: |
+  저장 목차(`context-outlines.ts`, `contexts/outlines.ts`, `outlineFolder`, `storedOutline`), outline tool 셋(`outline.get/set/delete`), `CONTEXT_OUTLINE_SOURCE_FORMATS`를 지웠다. outline kind는 md 제목에서만 목차를 만든다. 값이 `"markdown"` 하나뿐인 `outlineSourceSchema.format`은 남아 있고 마지막 cleanup이 지운다.
+guard: 없음

@@ -1,0 +1,27 @@
+id: eval-real-coding-agent-and-human-role
+version: 0.3.0
+title: 'eval에 진짜 coding agent, 사람 역할, 캘린더 단위'
+modules: [tests]
+checked: [architecture-eval, architecture-coding-agent]
+change: |
+  전: eval은 판단 case만 돌렸다. App Engineer가 coding session을 맡겨도 띄울 터미널이 없었고, 사람에게 묻는 `ask`와 허락에 답할 사람도 없었다. 재료는 앱 source, project, context, Operator뿐이었다.
+  후:
+  - App Engineer가 맡기면 eval driver(`tests/eval/coding/driver/`)가 desktop shell의 터미널 몫을 한다. core의 launch plan 그대로 사람 환경의 진짜 Claude Code(`claude-sonnet-5-5`, 사람의 로그인)를 PTY로 띄운다. `deno task eval:attach [session] [--write]`로 그 화면을 내 터미널에서 볼 수 있다. `--write`로 키를 넣은 trial에는 사람 개입이 남는다.
+  - coding agent의 token·tool 오류·`lophn` 명령은 Claude Code session JSONL과 wrapper 기록에서 읽어 `TrialRecord.coding`에 둔다. role agent 수치와 섞지 않는다.
+  - 사람 역할(`tests/eval/human/`)은 Haiku가 요구 카드로 `ask`에 답하고, 허락은 시나리오 규칙대로 program이 낸다. 규칙에 없는 허락은 거절이다.
+  - 재료 종류에 켜진 앱, 앱 data, package, call이 더해졌다. 시나리오의 `save`는 통과한 첫 trial의 산출물을 후보 재료로 쓴다.
+  - 캘린더 단위 넷(calendar-mvp, calendar-api, calendar-maintain, calendar-diagnose)과 L4-new@2가 있다. 재료는 `notify-app@1`, `date-range@1`, `calendar-call@1`, `calendar-app@1`, `calendar-app-bug@1`, `calendar-data@1`이다. 끝난 world를 보는 check(앱이 켜졌나, app-api가 답하나, 재사용, observation, 진단)와 criterion `card-covered@1`, `asked-again@1`, `root-cause@1`이 더해졌다.
+  - trial마다 role agent·judge·사람 역할 비용 상한(`--trial-budget`, 기본 $50)이 있다. coding agent는 시간 상한 90분만 있다.
+why: |
+  앱 만들기가 lophn의 가장 중요한 일이라, App Engineer가 진짜 coding agent에 맡긴 결과를 재려고 한다.
+decisions:
+  - text: 'Claude Code는 사람 환경(HOME, 설치, 로그인)에서 띄우고 eval은 token만 센다. 비용과 격리는 다루지 않는다.'
+    by: person
+  - text: 'folder trust는 driver가 그 화면에서 "Yes"를 대신 고르고 기록에 남긴다. 상위 폴더를 한 번 믿는 길은 앱 source마다 `.git`이 있어 통하지 않았다. hook·skill은 사람이 main checkout의 wrapper로 한 번 설치한다. permission 물음은 사람 설정 그대로다.'
+    by: person
+  - text: 'driver는 Claude Code에 넘기는 env에서 `ANTHROPIC_API_KEY`를 지운다. eval의 `.env` key로 Claude Code가 과금하지 않게 한다.'
+    by: agent
+  - text: '뒤 단위는 손으로 쓴 `calendar-app@1`에서 시작한다. 재사용·observation 확인은 calendar-mvp의 check다.'
+    by: agent
+follow_up: |
+  사람은 eval을 agent session이 돌리고 judge도 그 agent가 기록을 읽어 하기를 원한다. API key로 부르는 judge와 사람 역할은 planner가 `eval-experiment`에서 다시 정한다.

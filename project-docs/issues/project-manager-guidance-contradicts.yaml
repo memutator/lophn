@@ -1,0 +1,25 @@
+id: project-manager-guidance-contradicts
+title: 'Project Manager 지침이 경계와 계약 위반 판단을 정하라고도 하고 물으라고도 한다'
+kind: bug
+status: fixed
+topic: agent-definition
+modules: [packages/core/agent-workspaces]
+now: |
+  - `packages/core/agent-roles/roles/project-manager/prompt.md`의 "What you do"는 두 가지를 PM의 일로 쓴다.
+    - "When a person or an agent asks for a context, draw the boundary first."
+    - 계약 위반 때 "decide whether the contract should change or the document is wrong."
+  - 같은 file의 "What you do not do"는 반대로 말한다: "Do not decide what only the person can decide: a boundary, what a term means, whether the contract or the document should change. Ask with `ask`…"
+  - `project-docs/products/AGENT-ROLE.md`의 C2는 PM이 경계를 긋는다고 하고, C6은 PM이 정한다고 한다(정하는 내용은 제안).
+impact: |
+  - context 요청이나 계약 위반 reaction(AGENT-ROLE E5)을 받은 PM은 같은 지침에서 "정하라"와 "정하지 말고 물어라"를 같이 받는다.
+  - 어느 쪽을 따르느냐에 따라, 사람에게 묻지 않고 계약을 바꾸거나, 위반마다 사람의 답을 기다리며 아무것도 submit하지 않는다.
+  - 사람은 PM이 어떻게 굴지 알 수 없다.
+fix: |
+  - PM이 정한다(작음): "What you do not do"에서 경계와 계약·문서 판단을 빼고, 용어의 뜻만 남긴다. 무엇을 왜 정했는지는 대답에 남긴다. AGENT-ROLE C2·C6과 맞는다.
+  - 사람에게 묻는다(작음): "What you do"를 "안을 만들고 `ask`로 묻는다"로 바꾸고, AGENT-ROLE C2·C6을 고친다. 위반과 경계마다 사람의 답을 기다린다.
+  - 추천: PM이 정한다. 통과한 초안은 사람 승인 없이 적용한다는 C3과 같은 쪽이다.
+decided: |
+  PM이 정한다(사람). "What you do not do"에는 용어의 뜻만 남기고, 경계와 계약·문서 판단은 PM이 정해 이유를 대답에 남긴다.
+closed: |
+  PM 지침의 "What you do not do"는 용어의 뜻만 사람에게 묻게 하고, 경계와 계약 위반 판단은 PM이 정해 이유를 대답에 남기게 한다. AGENT-ROLE C6의 "(정하는 내용은 제안)"을 뗐다.
+guard: 없음

@@ -1,0 +1,15 @@
+id: browser-google-sign-in
+version: 0.17.0
+title: browser 탭의 Google 로그인
+modules: [packages/shell/main]
+checked: []
+change: |
+  전: browser 탭에서 Google 계정 로그인이 "This browser or app may not be secure"로 막혔다. UA에서 `Electron/x`와 앱 이름 token을 모두 빼고 `sec-ch-ua`에 `Google Chrome` brand를 지어 넣어 Chrome인 척했다.
+  후: UA에서 `Electron/x`만 빼고 `lophn/x` token을 남긴다. client hints와 page JS의 `navigator.userAgentData`는 Chromium 값 그대로다.
+why: |
+  사람이 browser 탭에서 Google 로그인이 안 된다고 했다(사람 2026-11-03). 실험에서 UA가 순수 Chrome일 때만 Google이 막았고, Electron이나 앱 이름 token이 남으면 통과했다.
+decisions:
+  - text: 'Chrome인 척하지 않고 자기 이름을 단 Chromium 브라우저로 보인다.'
+    by: agent
+  - text: '`Electron/x`는 계속 뺀다. Electron을 보고 막는 사이트가 있다.'
+    by: agent

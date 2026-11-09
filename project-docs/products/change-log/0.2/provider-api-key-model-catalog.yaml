@@ -1,0 +1,39 @@
+id: provider-api-key-model-catalog
+version: 0.2.0
+title: "provider를 API key로 연결하고, model catalog를 models.dev에서 받고, tool 결과 크기와 chip·coding agent 신호를 바로잡음"
+modules: [packages/core/lophn-agent, packages/core/main, packages/core/secrets, packages/protocol, packages/shell/renderer, packages/shell/main, packages/coding-agent, tools]
+checked: [tool-check, boundary-catalog, architecture-layers, architecture-approval, architecture-activation, architecture-agent-call, architecture-app-call, architecture-annotation, architecture-ui-kit, tool-worktree-prep, tool-check-deps, tool-dev, skill-ui-design]
+change: |
+  전: 설정 화면에서 API key로 cloud provider를 연결해도 provider가 생기지 않았다(보호 입력 창이 열리지 않았고 core에 `ConnectProvider` handler가 없었고, agent runtime은 옛 keychain에서 key를 찾았다). model catalog는 손으로 쓴 4개였고 갱신은 제품에서 한 번도 돌지 않았으며 자동 갱신 설정은 아무것도 바꾸지 않았다. `shell.run`은 stream마다 1 MiB를 model에 실었다. 이미지를 여러 번 읽은 turn은 model 요청 blob이 16 MiB를 넘어 멈췄고, 입력 예산이 base64를 byte로 세어 screenshot 하나로 `context_limit`이 났다. composer의 context chip은 agent에게 chip으로 가지 않았다. OpenCode는 turn마다 `TurnEnded`를 두 번 보냈고, 개발 실행의 전역 hook은 PATH의 `lophn`을 불렀다.
+  후:
+  - provider: 보호 입력 창이 값을 `secrets.json`에 `provider.<id>`로 올린 뒤 renderer가 `providers/connect`(`credential: {secret}`)를 부른다. `ProviderCredential.secret_ref`는 `{name}`이고 `provider_credentials`의 `secret_sealed_ref`·`secret_revision` 열은 없다. 감독 pipe의 `secret_send_request.use`는 provider면 `{name, destination}`이고 core의 `createFileSecretAttach`가 그 이름의 provider endpoint origin과 목적지가 같을 때만 값을 준다. `RegisterProvider`, `RefreshProviderCredential`의 `preparation`, provider keychain 참조 통로와 회수는 없다. 끊기는 `secrets.json`의 값도 지운다.
+  - catalog: `modelsDevEntries`가 models.dev `api.json`을 lophn 항목으로 바꾼다. 동봉 `snapshot.json`은 `tools/models-snapshot.ts`의 결과다(510개). agent runtime이 제품에서 models.dev를 24시간에 한 번 받고, 설정 `lophn-agent.model.catalog_auto_update`가 다음 기동부터 `catalog-state.json`의 `auto_update`를 정한다. 새 data root는 바로 받는다. openrouter의 `anthropic/claude-sonnet-4-5`는 models.dev 이름 `anthropic/claude-sonnet-4.5`가 되었다.
+  - tool 결과: `shell.run`은 stream마다 앞뒤 12 KiB를 남기고 가운데를 생략 표시로 바꾼다(description도). model 요청에는 그 turn의 최신 이미지 둘만 싣고 오래된 것은 `[image omitted]`다. `measureWire(pack, request)`가 이미지를 이미지당 4096 token으로 센다. `wrapUntrusted`는 `prompt-assembly`의 것 하나다.
+  - chip: `SendMessage.attached`에 context·위반 chip이 실린다. 열린 session(PM 포함)의 composer도 chip을 그리고 보낸다. `ContextChipView`에 `context`(ctx id)가 있다.
+  - coding agent: OpenCode는 `session.status` idle만 turn 끝이다. `harness install`이 `command`(절대 경로)를 받고, 개발 실행의 shell main이 `LOPHN_CLI` 경로를 hook command로 놓는다.
+why: |
+  사람이 key로 provider를 연결해 agent가 model을 부를 수 있어야 하고, 새 model이 판 올리기 없이 들어와야 하고, 출력과 이미지가 context와 기록을 터뜨리지 않아야 한다.
+decisions:
+  - text: |-
+      provider 연결은 `secrets.json` 길로 끝내고 옛 keychain 길은 지운다. MCP credential은 옛 길에 남는다(`issues/platform.md`의 보호 입력 창 이슈가 옮긴다).
+    by: agent
+  - text: |-
+      secret 이름은 `provider.<id>`만 받는다. 다른 이름을 가리키면 앱·MCP secret이 provider endpoint로 갈 수 있다. 같은 연결인지는 `logged_in_at`으로 본다.
+    by: agent
+  - text: |-
+      model catalog는 OpenCode 꼴이다: build 때 snapshot, 실행 때 같은 변환으로 덮기.
+    by: person
+  - text: |-
+      catalog 밖 model은 지금처럼 거절한다. models.dev에 `limit.input`이 없으면 context 한도를 입력 한계로 둔다(brief의 null을 lead가 바꿨다. null이면 대부분 model을 고를 수 없다). effort의 기본값은 medium이 있으면 medium이고, toggle 같은 모르는 형은 option이 없다.
+    by: agent
+  - text: |-
+      이미지는 history에서 빼는 길을 먼저 하고 최신 2개를 남긴다(최대 크기 둘이 blob 상한 안). tool 호출 기록의 base64는 실제로 막히면 뺀다. 예산의 이미지 값은 provider 공식 대신 4096 고정이다.
+    by: agent
+  - text: |-
+      보낸 chip은 message 본문에 남기지 않는다. 대화에 chip이 안 보이고 다시 보내기는 chip을 빼고 보낸다(`issues/shell.md`).
+    by: agent
+  - text: |-
+      개발 hook command는 CLI 입력 칸으로 넘긴다. CLI의 허용 env에 `LOPHN_CLI`가 없다. 공백·따옴표·`..`가 든 경로는 거절한다.
+    by: agent
+follow_up: |-
+  `issues/shell.md`의 chip 다시 보내기, `issues/platform.md`의 OAuth·MCP 보호 입력 창. 개발 실행은 새 data root의 첫 기동에 models.dev로 GET을 보낸다(끄려면 `.dev-data/settings.json`에 `"lophn-agent.model.catalog_auto_update": false`).

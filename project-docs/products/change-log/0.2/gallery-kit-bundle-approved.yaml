@@ -1,0 +1,14 @@
+id: gallery-kit-bundle-approved
+version: 0.2.0
+title: "gallery Kit 묶음 승인"
+modules: []
+checked: []
+change: |
+  전: UI kit 항목을 쓸 때 사람이 gallery `pages/kit`을 아직 보지 않았다.
+  후: 사람이 Kit 묶음(분류 8개, tokens, app-ui)을 보고 승인했다. component의 분류와 범용·전용을 지금 위치대로 둔다.
+why: |
+  gallery가 component의 정본이고, 사람이 거기서 승인한다.
+decisions:
+  - text: |-
+      `ui-kit-one-package` 항목의 분류·범용·전용 결정을 사람이 그대로 받았다. 그 결정은 agent가 추천안으로 정했다.
+    by: person

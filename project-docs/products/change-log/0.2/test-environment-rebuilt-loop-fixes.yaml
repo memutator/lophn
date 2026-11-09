@@ -1,0 +1,59 @@
+id: test-environment-rebuilt-loop-fixes
+version: 0.2.0
+title: "test 환경을 처음부터 다시 세우고, core E2E가 찾은 bug 넷과 loop·provider 오류 처리 넷을 고침"
+modules: [packages/core/lophn-agent, packages/core/main, packages/core/apps, packages/protocol, tools, tests]
+checked: [architecture-event, architecture-approval, architecture-agent-definition, architecture-layers, boundary-catalog, architecture-agent-call, architecture-app-call, tool-models-snapshot, tool-check-deps, tool-context-review, skill-issue, skill-planner-persona]
+change: |
+  전: unit test만 있었다. loop의 안전 규칙, provider 응답 판정과 오류 분류, process를 건너는 flow를 보는 test가 없었다. `tools/fake-provider/`는 쓰는 곳이 없었고, `deno task dev`가 넘기던 `LOPHN_FAKE_PROVIDER_URL`을 읽는 코드가 없어 dev의 agent가 fake에 닿지 않았다.
+  후(test 층): `tests/`에 harness loop(scripted model), harness wire(녹화·손 fixture 재생), core E2E 7 file(boot, file-write, approval, rewind, stop, restart, secret. `deno task e2e`), provider live(`deno task test:live`, key가 있을 때만)가 있다. `tools/check.ts`는 `tests`를 package로 보고 harness와 support의 test를 fast·full에서 돌린다. e2e·live는 `--ignore`로 뺀다. `land.sh`는 main에 올리기 전에 `deno task e2e`를 돈다. `deno task dev`는 고정 port(7499, `LOPHN_DEV_FAKE_PORT`)의 fake server를 앱 전에 `providers/connect`로 심는다. `tools/fake-provider/`와 `LOPHN_FAKE_PROVIDER_URL`은 없다. 흐름은 `architecture/testing.md`.
+  후(loop와 provider, 고치기 전 그 table 행이 실패한 것을 확인했다):
+  - A. Anthropic stream의 `rate_limit_error` frame(reset을 모름)이 `credential_unavailable`(1시간 대기)에서 `temporary`(2초·4초 retry)가 되었다. message의 `retry after N`이 30초를 넘으면 그대로 `credential_unavailable`이다.
+  - B. `server_is_overloaded`·`rate_limit_exceeded`·`slow_down` code가 status 429가 아니면 `unknown`(retry 안 함)에서 `temporary`가 되었다(OpenAI Responses의 `response.failed`).
+  - C. model 호출 하나가 120초(`MODEL_IDLE_MS`) 동안 byte를 하나도 받지 못하면 끊고 `temporary`로 retry한다. 첫 byte 전과 stream 중간 모두 같고, 받은 글이 있어도 partial이 아니다. ping이 오는 동안은 끊지 않는다. 전에는 turn의 `stall_ms`(300초)까지 기다렸다. 늘 null이던 호출 전체 기한 `timeoutMs`는 지웠다.
+  - D. 연속 partial이 3번(`PARTIAL_RUN_MAX`)이면 turn이 `model_error`로 끝난다. complete가 오면 다시 센다. 전에는 `model_attempts` 30번까지 같은 잘림을 되풀이했다.
+  후(core E2E가 찾은 bug, 각 flow가 고친 뒤 10번 연속 통과):
+  - 성공한 tool call이 ledger에 `requested`로 남았다. 이제 decide·start를 거쳐 finish된다.
+  - core에 `session_snapshots/list` read가 없어 renderer의 session 목록과 `waitPermission`이 실패했다. 이제 상태·대기 중인 권한 요청·질문을 낸다.
+  - `rewind/preview`의 `restore_all`이 daemon에서 늘 `internal`이었다(reader Worker가 `appWritesPort`를 어떤 read에도 붙이지 않음). 이제 file 복원 rewind가 된다.
+  - 사람이 turn을 멈춰도 runtime child의 진행 중인 model 요청이 열려 있었다. supervision parent message `turn_stop`이 생겼고 child가 `driver.stop`을 부른다.
+why: |
+  옛 test는 요구 하나에 test 하나로 쌓여 check가 40~60분 걸려 지웠고, 그 뒤 process를 건너는 동작은 손으로만 확인했다. 처음 만든 core E2E 여섯 가운데 다섯이 그렇게 놓친 bug를 찾았다.
+decisions:
+  - text: |-
+      가짜는 셋(scripted model, 녹화 재생 `fetch`, fake server)이다. loop test가 provider wire에 묶이지 않고, core E2E의 model 호출은 child 안이라 `fetch`를 바꿀 수 없다.
+    by: agent
+  - text: |-
+      case 고르는 규칙은 `architecture/testing.md`의 9개다. 새 case는 세 질문을 test 머리 주석에 남긴다.
+    by: agent
+  - text: |-
+      core E2E 첫 묶음은 1~6이다.
+    by: person
+  - text: |-
+      A·B는 `temporary`로 retry한다.
+    by: agent
+  - text: |-
+      C의 120초, D의 3번, live의 model(Anthropic `claude-haiku-5-5`, OpenAI `gpt-4.1-nano`, 잘림 행만 `gpt-5-nano`)과 한 file 10번·호출당 90초는 추천값으로 갔다. 사람이 바꿀 수 있다.
+    by: agent
+  - text: |-
+      `tools/fake-provider/`는 옮기지 않고 지운 뒤 새로 만들었다. live 대상은 Anthropic과 OpenAI다.
+    by: person
+  - text: |-
+      E2E는 실행마다 `.dev-data/e2e/<run>/{home,work}`를 쓴다. 제품에 test 전용 flag나 지름길을 두지 않는다. fake로 가는 길은 `providers/connect`와 기동 전 `settings.json`뿐이다.
+    by: agent
+  - text: |-
+      `deno.json`의 `test.exclude` 대신 check의 `--ignore`를 쓴다. `--ignore`가 `deno.json`의 exclude를 대체하므로 그 목록을 같이 준다.
+    by: agent
+  - text: |-
+      dev의 user token 문제는 dev.ts가 앱 전에 core를 pipe로 한 번 띄워 연결을 심는 것으로 푼다. dev fake server만 고정 port다.
+    by: agent
+  - text: |-
+      E2E가 찾은 bug는 이 계획 안에서 fix task로 고친다.
+    by: person
+  - text: |-
+      `turn_stop`의 이유는 `user_stopped` 하나다. session archive·delete로 닫는 turn을 child에 알리는 일은 다음 계획이다.
+    by: agent
+follow_up: |-
+  - 사람이 key를 주고 `LOPHN_LIVE_RECORD=1 deno task test:live`를 한 번 돌려 응답을 녹화하고 diff를 보고 commit한다. 녹화본은 `live-<행>` 이름이라 손 fixture를 대신하지 않는다. fake server의 모양 test(`shape_test.ts`)를 녹화본과 견주려면 그 test가 `live-*`를 읽게 바꾼다. snapshot에서 `gpt-4.1-nano`는 `deprecated: true`라 첫 실행에서 거절되면 model 상수를 바꾼다.
+  - 실제 `deno task dev`(Electron)의 첫 turn이 fake 대답을 받는지 사람이 한 번 본다(worker는 core만 띄워 확인했다).
+  - core E2E 7~9(agent call, 앱 호출, 앱 data rewind)와 session archive·delete의 멈춤은 다음 계획 `e2e-coverage`다. Electron E2E는 범위 밖이다.
+  - 사람이 허락한 tool call도 ledger에 `approval: null`로 남는다. `ToolGateResult.run`이 approval id를 싣지 않는다. `startToolCall` compare의 `assignment_revision`은 command가 읽지 않는 칸이다.

@@ -1,0 +1,31 @@
+id: installed-app-core-logs-and-trace
+version: 0.23.0
+title: "설치한 앱에서도 log가 남고, trace 토글과 agent loop span이 생겼다"
+modules: [packages/base, packages/core/diagnostics, packages/core/config, packages/core/main, packages/core/lophn-agent, packages/protocol, packages/shell/main, packages/shell/ipc, packages/shell/renderer, packages/design, tools]
+checked: []
+change: |
+  전: core의 구조화 log는 stderr로만 나갔다. 설치한 앱은 core를 띄울 때 stderr를 버려서(`stdio: ignore`) 모든 core log(`api handler_threw`, `config_ignored`, agent runtime의 `child_stderr` …)가 사라졌고 `npm run dev`에서만 보였다. agent loop(turn, model call, tool call)에는 span이 없었다. 터미널 trace는 `LOPHN_TERMINAL_TRACE=1`로 띄워야 했고 file 크기에 한도가 없었다. `LOPHN_TELEMETRY`는 `off|console|otlp`였다.
+  후:
+  - core log가 늘 `<data root>/logs/core-{0..4}.jsonl`(10 MiB x 5, 0600)에 JSON 한 줄씩 남는다. info부터이고 stderr 출력은 그대로다. 쓰기는 비동기 queue(1 MiB)이고 넘치면 버리고 `log records_dropped` 한 줄로 개수를 남긴다. 알려진 secret 원문도 이제 log에서 지운다(전에는 `useRedactor`를 아무도 부르지 않아 pattern·key 이름 규칙만 적용됐다).
+  - agent runtime child는 JSON log를 stderr로 내고(debug와 span 줄까지 늘), core가 줄마다 받아 record 모양이면 시각·service·trace id를 두고 글과 fields만 redaction해 같은 file에 싣는다. 모양이 아닌 줄은 `agent-runtime child_stderr`로 싣는다.
+  - 새 설정 `diagnostics.trace`(boolean, 기본 `false`)와 Settings › Diagnostics의 Trace 토글. 켜면 core와 child의 debug log와 span 줄(span 하나가 한 줄, `component=trace`)이 core log file에 남고, shell main이 터미널 trace(`logs/terminal-trace.jsonl`)를 쓴다. 앱을 다시 띄우지 않고 바로 적용된다. 이벤트 이름·id·시간·크기만 싣고 친 글, 터미널 출력, prompt, model 답은 싣지 않는다.
+  - agent loop span: `agent.turn`(turn마다 새 trace) 아래에 `agent.model_call`(시도마다, provider로 나가는 HTTP span이 그 아래)과 `agent.tool_call`(tool 호출마다). attribute는 `lophn.session`·`lophn.turn`·`lophn.model_call`·`lophn.tool_call` id, provider·model 이름, 종류, outcome, token 수, tool 이름뿐이라 log 한 줄을 ledger의 `model_calls`·tool call 행과 이어 읽을 수 있다. 자세한 것은 `architecture/observability.md`.
+  - `LOPHN_TELEMETRY`는 `off|otlp`다. `console`을 없앴다(trace 토글이 대신한다). `otlp`인데 endpoint가 틀리면 `console`이 아니라 `off`로 내린다(warn 한 줄 그대로). `LOPHN_TERMINAL_TRACE`는 없어졌다.
+  - 터미널 trace file은 10 MiB를 넘기 전에 `terminal-trace.1.jsonl`로 넘겨 둘만 남긴다.
+  저장 모양: 새 설정 key `diagnostics.trace`(기본값이 있어 옮길 것 없음). 새 file `logs/core-N.jsonl`. IPC `shell:terminal-trace`의 응답 false의 뜻은 같고 renderer가 5초 뒤 다시 묻는다.
+why: 설치한 앱에서 사람이 쓰다 겪는 문제를 나중에 볼 수 있어야 한다. 서버도 실사용자도 없는 프로토타입이라 내보내기·업로드 없이 file에 남기는 데까지만 한다.
+decisions:
+  - text: |
+      늘 기록(info부터)과 trace(debug·span)를 나눈다. info 이상은 양이 적어 늘 남기고, 양이 많은 debug·span은 사람이 켠 동안만 남긴다. 버린 길: 시작 env로 켜기(설치한 앱은 env를 줄 수 없고 껐다 켜야 한다).
+    by: agent
+  - text: |
+      child는 늘 debug·span을 stderr로 내고 core가 trace 설정으로 거른다. child에 설정을 따로 알리는 길이 없어도 바로 적용된다. 버린 길: child에 설정 변경을 보내기.
+    by: agent
+  - text: |
+      shell main은 trace 설정을 SettingsChanged로 미리 읽지 않고 처음 쓸 때 읽고 알림이 오면 다시 읽는다. core가 아직 안 떠도 시작 순서를 따지지 않는다.
+    by: agent
+  - text: |
+      내보내기, 폴더 열기 단추, OTLP 변경(`console` 제거만)은 하지 않았다.
+    by: person
+follow_up: |
+  설치한 앱에서 log file이 실제로 생기는지는 packaged 앱으로 아직 보지 않았다.

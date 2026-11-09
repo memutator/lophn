@@ -1,0 +1,17 @@
+id: tax-kinds-material-kind-in-project
+title: "tax-kinds material이 kind 파일을 project에 둔다"
+kind: bug
+status: fixed
+topic: eval
+modules: [tests]
+now: |2
+  `tests/eval/materials/tax-kinds/1/files/spec.json`은 `{"project": "tax"}`로 kind 파일을 놓을 자리를 가리킨다. 계획 `domain-entity`부터 kind 파일은 domain마다 하나이고(`<data>/domains/<dom>/kinds.yaml`), `restoreKinds`(`tests/eval/restore/kinds.ts`)는 `{"domain": "dom_…"}`를 받으며 그 밖은 `invalid_input`이다.
+impact: |2
+  이 material을 쓰는 kind scenario가 복원 단계에서 멈춘다.
+fix: |2
+  위 "eval materials의 앱 source가 옛 app-api 선언과 SDK 이름을 쓴다"와 같이 새 판(`2/`)을 만들 때 project 안에 domain을 하나 만들고 그 domain을 가리키게 한다(작음). 추천.
+decided: |2
+  추천안. eval 자료를 다시 만드는 계획에서 같이 한다(agent).
+closed: |2
+  `tax-kinds@2`의 `spec.json`이 project `tax`와 domain(`dom_0000000000000000000000tx01`, `receipts`)을 적고, `restoreKinds`가 kind 파일을 쓴 뒤 그 project 안에 domain을 만든다. `operators-home@4`가 그 판을 needs로 갖는다.
+guard: "`tests/eval/restore/materials_test.ts`"

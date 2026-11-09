@@ -1,0 +1,48 @@
+id: chat-progress-queue-find-math
+version: 0.11.0
+title: '대화 화면: 진행·접근성·답 액션, 큐 고치기·순서, 승인 단축키, 단계 보기·찾기, 수식·mermaid·diff'
+modules: [packages/shell/renderer, packages/design, packages/protocol, packages/core/lophn-agent, packages/core/main, tools]
+checked: []
+change: |
+  전:
+  - 일하는 중 줄은 300ms 뒤 `Working`이고 걸린 시간은 10초가 지나야 붙었다. 사람을 기다리는 때도 `Working`이었다.
+  - 대화 log는 `aria-live="off"`이고 새 답 도착을 알리는 영역이 없었다.
+  - agent 답 아래에는 `[Copy]` 하나뿐이었다. reasoning 줄은 `Thought for 12s`뿐이었다. 쓰는 중인 글에 caret이 없었다.
+  - 큐의 메시지는 지우거나 바로 보내기만 했다. 승인 카드와 질문 카드는 단추만 눌렀다.
+  - 단계 묶음은 `compact`로 고정이었다. 대화 안 찾기가 없고 session 검색은 제목만 찾았다.
+  - 수식과 mermaid는 원문 글이었다. 편집 카드는 `Edited path +n −m`만 보였다. 본문 로딩은 기울인 글이었다.
+  후:
+  - 걸린 시간은 3초부터 붙고, 30초에 `Still working`, 90초에 `Taking longer than usual` 안내가 붙는다. 승인이나 질문을 기다리면 그 사실을 말한다. composer에서 Esc가 도는 turn을 멈춘다.
+  - 숨긴 `role="status"` 영역이 답 시작과 끝난 답을 한 번씩 알린다. log 자체는 그대로 off다.
+  - agent 답 줄에 시각, `[Fork from here]`, 마지막 끝난 turn에 `[Retry]`가 붙는다. Retry는 그 turn의 사람 글을 새 메시지로 다시 보낸다(`AgentTabSource.repeatTurn`). reasoning 줄은 `Thought for 12s · 54 words`다. 쓰는 중인 글 끝에 caret이 깜빡인다(reduced motion이면 멈춘다).
+  - 큐의 사람 메시지는 글을 눌러 고치고 위·아래로 옮긴다. route `session_inputs/edit`·`session_inputs/move`(사람)와 core 안 command `EditQueuedMessage`·`MoveQueuedMessage`(machine)가 표와 입력함을 같이 바꾼다. 가져간 메시지는 `conflict`다.
+  - 승인 카드: card 안 focus에서 Enter=Allow once, Ctrl/Cmd+Shift+Enter=Always allow, Esc=Deny 이유 열기·닫기. composer가 비어 있을 때만 카드가 뜨면 focus를 가져간다. 질문 카드는 Enter가 Next·Submit이다.
+  - 머리 줄 menu로 단계 보기(Messages·Compact·Everything)를 고르고 session마다 기억한다. 대화 안에서 Ctrl/Cmd+F가 찾기 줄을 연다(CSS Custom Highlight). session 검색이 메시지 글도 찾는다(read `session_messages/search`, 최근 200개 메시지에서 20개까지).
+  - 수식(`$…$`, `$$…$$`, `\(…\)`, `\[…\]`)을 KaTeX로 그린다. 모든 Markdown variant가 쓴다. 대화의 ```mermaid는 그림으로 그리고 원문 보기로 바꿀 수 있다. 편집 카드를 펼치면 tool 입력에서 만든 unified diff가 보인다. 본문 로딩은 300ms 뒤 skeleton이다.
+  계약:
+  - 생긴 것: read `SearchSessionMessages`, memory route `EditQueued`·`MoveQueued`, command `EditQueuedMessage`·`MoveQueuedMessage`, `AgentTabSource.repeatTurn`·`editQueued`·`moveQueued`·`searchMessages`, design `DiffView`·`VisuallyHidden`.
+  - ledger: schema step `lophn-agent.messages.queued-edit`. 아직 가져가지 않은 사람 `next_turn` 메시지만 `body`와 `created_seq`를 고칠 수 있게 trigger를 나눴다. 가져간 메시지는 전과 같이 고정이다.
+  - 의존: `katex` 0.19.1(design), `mermaid` 12.2.0(shell renderer). renderer 화면 bundle은 splitting을 켜 mermaid를 `chunks/`로 늦게 읽는다.
+why: |
+  ChatGPT·Claude·omp 대화 화면과 대조한 정적 분석(`rea/project/agent-chat-uiux-reversing`)이 lophn의 진행 침묵, 접근성, 답 액션, 큐, 찾기, 읽기 표현이 뒤진다고 보고했다. 사람이 그 목록을 모두 고치라고 했다.
+decisions:
+  - text: |
+      메시지 검색은 FTS index 없이 blob을 읽어 찾는다. 글은 blob에만 있어 index를 만들어도 같은 blob을 다 읽어 채워야 한다. 오래된 기록은 찾지 않는다.
+    by: agent
+  - text: |
+      큐 고치기는 행을 지우고 다시 넣지 않고 trigger를 좁혀 그 행을 고친다. id와 순서 번호, 참조가 그대로 남는다.
+    by: agent
+  - text: |
+      Retry는 rewind가 아니라 같은 글을 다시 보낸다. 첨부와 refs는 다시 싣지 않는다.
+    by: agent
+  - text: |
+      KaTeX는 정적으로, mermaid는 늦게 읽는다. KaTeX는 문서 화면도 같은 component로 그려서 늦게 읽으면 수식이 나중에 바뀐다.
+    by: agent
+  - text: |
+      mermaid가 SVG 안에 넣는 `<style>`은 CSP가 막아서 constructable stylesheet로 옮긴다(`editor/adopt-styles.ts`와 같은 길).
+    by: agent
+  - text: |
+      찾기 단축키는 keybindings 표에 올리지 않고 Agent 화면 안에서만 받는다. 편집기·browser 탭의 Ctrl+F를 빼앗지 않는다.
+    by: agent
+follow_up: |
+  mermaid의 `<style>` 옮기기는 gallery에서만 보았고 Electron 창에서는 보지 않았다.

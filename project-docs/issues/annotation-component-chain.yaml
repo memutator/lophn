@@ -1,0 +1,17 @@
+id: annotation-component-chain
+title: 겹친 화면 요소에서 가장 안쪽 component 하나만 간다
+kind: bug
+status: fixed
+topic: annotation
+modules: [packages/shell/preload, packages/protocol, packages/core/apps]
+now: |
+  `shell/preload/annotate/pick.ts`의 `targetAt`이 찍힌 곳에서 `closest("[data-lophn-component]")`로 가장 가까운 SDK component 하나를 고르고, `component`에 그 이름 하나만 싣는다. 화면의 한 점에는 `List > Card > Button`처럼 여러 겹이 있는데 사람이 어느 겹을 뜻했는지는 코드로 알 수 없다.
+impact: |
+  "카드 간격이 이상해"를 찍어도 `Button`이 가서 App Engineer를 엉뚱한 component로 이끈다.
+fix: |
+  찍은 곳에서 위로 올라가며 `data-lophn-component`가 붙은 component를 모두 모아 `List > Card > Button "저장"` 꼴로 보낸다. 어느 겹인지는 App Engineer가 메모와 screenshot으로 고른다. preload의 pick과 protocol의 annotation 칸 하나, 메시지 문구(`core/apps/annotations/message.ts`)를 고친다(작음).
+decided: |
+  component 겹을 보낸다. 계산된 style(색, font)과 text 선택 annotation은 넣지 않는다.
+closed: |
+  shell `pick.ts`의 `componentChainOf`가 고른 요소에서 위로 만나는 SDK component 이름을 바깥 → 안쪽으로 ` > `로 이어(안쪽 8개, 이름 60자) `component`에 싣는다. 칸 이름과 type은 그대로다.
+guard: 없음

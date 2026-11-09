@@ -1,0 +1,33 @@
+id: keep-alive-signal-on-leave
+version: 0.20.0
+title: "떠난 workspace의 page를 필요할 때만 살린다"
+modules: [packages/protocol, packages/sdk, packages/core/apps, packages/design, packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer, tools]
+checked: []
+change: |-
+  전: workspace를 바꾸면 그 workspace의 `<webview>` page(browser 탭, 앱 화면, artifact)가 모두 놓이고 돌아오면 다시 load됐다. `<webview>` 그릇이 `WorkspaceWindow` 안에 있었기 때문이다.
+  후:
+  - 그릇이 창 단위(`app-frame/workspace-views.tsx`)로 올라갔고 `WorkspaceWindow` 본문은 그 그릇과 같은 stacking context에 portal로 그린다.
+  - 떠날 때 기본은 지금처럼 놓는다. page가 "살려 둬" 신호를 켠 동안은 숨겨 두고 돌아오면 다시 load하지 않는다(그 탭이 layout에 있을 때).
+  - 앱 화면: `@lophn/app-ui` 2.5.0 `useKeepAlive(active)`, bridge `lophnApp.setKeepAlive(active, key?)`. key마다 켜고 끄며 하나라도 켜져 있으면 산다. `@lophn/agent`는 보내는 중이거나 turn이 도는 동안(승인·질문 대기 포함) 스스로 켠다.
+  - browser 탭: 소리가 나는 중, 다운로드 중, 사람이 탭 ⋯ menu의 Keep alive를 켰을 때 살린다(layout의 선택 칸 `keep_alive`).
+  - artifact 탭은 page와 host 사이 통로가 없어 기본대로 놓는다.
+  - 살려 두는 page는 창마다 6개까지이고 넘치면 가장 오래 안 본 것부터 놓는다. 전역 float는 그대로다.
+  옮기기: 없음. browser 탭 layout의 `keep_alive`는 선택 칸이다.
+why: |-
+  오목 앱 화면이 agent 답을 기다리는 중에 다른 project에 다녀오면 답을 잃고 새 session이 열렸다. 모두 살리면 자원을 쓰고 program은 page 안의 뜻을 모르므로, page를 짓는 builder가 신호로 정한다(사람, 2026-11-07).
+decisions:
+  - text: |-
+      기본은 놓고 신호를 켠 page만 살린다. 고정 설정이 아니라 page가 필요할 때 켜는 신호다. (사람이 추천을 받음)
+    by: person
+  - text: |-
+      browser 탭은 builder가 없어 program이 알 수 있는 신호(소리, 다운로드)와 사람의 탭별 toggle로 정한다. (사람이 추천을 받음)
+    by: person
+  - text: |-
+      상한은 창마다 6개, 오래 안 본 것부터 놓는다. (사람이 추천을 받음)
+    by: person
+  - text: |-
+      살려 둘지는 떠날 때 한 번 정한다.
+    by: agent
+follow_up: |-
+  - 실제 Electron에서 portal 뒤 z-order와 workspace 오가기를 눌러 보지 못했다(dev 앱을 sandbox 없이 띄우는 것을 사람이 확인해야 한다).
+  - 소리가 멈춘 뒤에도 page는 상한에 밀리거나 돌아올 때까지 남는다.

@@ -1,0 +1,35 @@
+id: prove-rewind-with-successful-calls
+version: 0.5.0
+title: write tool의 되돌리기를 실제로 성공한 호출로 증명함
+modules: []
+change: |
+  전: release 준비의 app test가 모든 앱에서 `rewind`·`examples` 검사로 떨어졌다. harness가 process wire에서 지운 `context.project`를 실어 앱이 모든 호출을 `invalid_input`으로 거절했다. 고쳐도 `rewind`는 만든 입력의 호출이 실패하면(앞선 상태가 있어야 하는 tool) fail이었다. 검사 결과는 user token이 읽지 못했다(`forbidden`).
+  후:
+  - harness가 지금 process wire로 앱을 부른다.
+  - app test `rewind`는 호출이 성공한 write만 되돌려 본다. 호출이 실패한 tool은 "증명 못 함"이라 떨어뜨리지 않고 증거 `unproven`과 pass 이유 한 줄에 남는다.
+  - ticket `examples`는 예시가 모두 맞으면 예시 write의 changeset을 뒤집어 첫 호출 전 상태로 돌아오는지 본다. 돌아오지 않으면 fail이다. 되돌아온 tool이 증거 `proven`이다.
+  - examples run이 끝나면 같은 (app, bundle_hash)로 통과한 app test의 증명 못 함에서 그 examples가 증명한 tool을 뺀 것을 앱 problem `rewind_unproven`으로 알린다. examples가 fail이면 빼지 않고, 판정할 수 없었으면 알리지 않는다. activation은 막지 않는다.
+  - user token이 앱의 verification을 읽는다.
+  계약:
+  - 새 problem 이름 `rewind_unproven`(같은 앱은 한 problem으로 묶인다). runner 요청 본문에 examples 요청일 때만 `app_test_unproven`과 `unproven_credential`(live app credential)이 실린다. route·event·schema는 그대로다.
+  닫은 이슈: "write app-api의 rewind 검사가 fail로 나온다"(`project-docs/issues/archived/activation.md`).
+why: |
+  만든 입력으로는 앞선 상태가 있어야 하는 write tool의 되돌리기를 증명할 수 없다. 사람이 쓴 ticket 예시의 실제로 성공한 write가 증명 재료다(`project-docs/architecture/coding-agent.md`).
+decisions:
+  - text: |
+      tool 선언에 test용 fixture 입력 칸을 두지 않는다. 운영과 무관한 data가 선언에 들어가고 앞 호출이 만든 id를 고정 값으로 맞출 수 없다.
+    by: person
+  - text: |
+      증명 못 함은 examples ticket일 때만 problem으로 알린다. examples가 아닌 ticket은 app test 증거와 pass 이유 한 줄로만 남는다.
+    by: agent
+  - text: |
+      examples run과 app test run의 판정을 합치지 않는다. examples의 되돌리기는 examples 검사 안에서 판정한다.
+    by: agent
+  - text: |
+      판정할 수 없었던(inconclusive) examples run은 알리지 않는다.
+    by: agent
+  - text: |
+      보고는 core main이 아니라 runner child가 주입받은 fetch로 한다. core는 app test pass 이유에서 증명 못 함을 읽어 live app credential과 함께 넘긴다. 검사별 증거는 observations blob에 hash만 있어 core가 읽지 못한다.
+    by: agent
+follow_up: |
+  열린 이슈 `project-docs/issues/activation.md`("examples가 아닌 ticket의 release에서 "증명 못 함" write tool을 알리지 않는다", "app test 검사별 detail을 아무도 읽지 못한다"), `project-docs/issues/mistakes.md`("core main에서 전역 fetch로 자기 HTTP를 불러 problem을 보고했다").

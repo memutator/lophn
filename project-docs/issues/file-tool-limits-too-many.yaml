@@ -1,0 +1,15 @@
+id: file-tool-limits-too-many
+title: 'file tool 상한이 많다'
+kind: defect
+status: kept
+topic: agent-definition
+modules: [packages/core/lophn-agent]
+now: |
+  `file.read`는 300줄·24 KiB(`tools/result.ts`의 `TEXT_MAX_*`)와 파일 10 MiB(`read.ts`), `pdf.read`는 20쪽·쪽당 6000자와 파일 50 MiB(`pdf.ts`), 이미지 5 MiB(`image.ts`), `file.glob` 200개, `file.grep`은 100줄·줄당 300자·파일당 2 MiB(`search.ts`). 상한마다 이어 읽기 안내 문구가 따로 있다. 이유: model 문맥을 지키고 spec이 상한을 요구한다.
+impact: |
+  상한과 안내 문구가 여러 곳이라 한 곳을 바꾸면 나머지와 어긋난다.
+fix: |
+  바이트 상한 하나와 안내 문구 하나로 줄인다(`limitText`가 이미 모양을 잡는다). 비용은 중간이고 pdf 쪽·grep 줄 상한이 사라지는 동작 변경이 따른다. 추천: 지금은 두고 상한을 더 늘릴 때 합친다.
+closed: |
+  상한마다 이어 읽기 안내가 달라 합치면 pdf 쪽·grep 줄 상한이 사라지는 동작 변경이 따른다. 상한을 더 늘릴 때 합친다.
+guard: 없음

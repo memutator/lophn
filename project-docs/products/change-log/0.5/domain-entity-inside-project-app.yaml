@@ -1,0 +1,59 @@
+id: domain-entity-inside-project-app
+version: 0.5.0
+title: domain을 project와 app 안의 entity로 두고, App Engineer와 앱 place를 되살림
+modules: [packages/protocol, packages/core/projects, packages/core/apps, packages/core/events, packages/core/approvals, packages/core/lophn-agent, packages/core/router, packages/core/main, packages/coding-agent, packages/sdk, packages/shell/renderer, packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/design, tools, tests]
+checked: [architecture-artifact, architecture-agent-definition, architecture-app-call, architecture-coding-agent, architecture-annotation, architecture-activation, architecture-layers, architecture-event, tool-check, tool-context-review, tool-worktree-prep, tool-test-live, tool-dev, tool-models-snapshot, skill-ui-design]
+change: |
+  전:
+  - 앱은 project 하나에 묶이고(`App.project`) 저장 자리는 `<data>/projects/<prj>/app/`였다. place는 project 하나, role은 lophn, Project Manager, Operator 셋이었고 PM이 앱 일(ticket, blueprint, release, problem, package, source 연결, coding agent)을 맡았다.
+  - kind 파일, skill 폴더, artifact는 project마다 하나였다(`<data>/projects/<prj>/{kinds.yaml,skills,artifacts}`). 공개 tool 거르기, release 막기, `PublicToolsChanged`, lophn 지도, package 주인의 단위가 project였다.
+  - 앱 tool 선언에 domain이 없었고, agent tool 이름은 `app__<app>__<tool>`이었다. `app_api` 계열 이름(route `app.app_api`, SDK `@lophn/cap-app-api`, approval kind `app_api` 등)이 남아 있었다.
+  후:
+  - domain entity(`dom_`, `packages/core/domains/`): 이름(모든 domain에서 하나인 slug), 제목, 목적, owner(`{kind: project | app, id}`) 하나. route `domain.create`·`domain.list`·`domain.get`·`domain.archive`·`domain.unarchive`(뒤의 둘은 사람만). 자리는 `<data>/domains/<dom>/`(`kinds.yaml`, `DOMAIN.md`, `skills/`, `artifacts/`)다. `domain.create`는 Gate에 묻지 않고, agent는 자기 그릇에만 만든다. `app.create`가 같은 tx에서 앱 slug 이름의 domain을 만든다. 앱의 마지막 active domain은 보관하지 못한다(`architecture/domain.md`).
+  - role과 place를 되돌렸다: role은 lophn, Project Manager, App Engineer, Operator 넷이고 place는 project 또는 app이다. App Engineer(정의, 지침, tool 목록, 자격 `conditions.app`)가 앱 일을 도로 맡고 PM은 project와 그 domain만 맡는다. 앱 place의 Operator와 앱 화면 agent select가 돌아왔다. 문제 열림·다시 열림, 재시작 멈춤, activation 실패, coding 완료·claim 만료·session 끝, coding agent 메시지, 앱 화면 annotation은 그 앱의 App Engineer가 받는다. coding session의 place는 앱이다.
+  - 앱과 project의 1:1을 풀었다: `App.project`와 project unique 규칙이 없다. 앱 저장 자리는 다시 `<data>/apps/<app>/`이다. preview 고침(폴더 안 쓰기만, `..` 거절)은 그대로다.
+  - domain 단위의 context: `ResolvedAgent.domains`(PM·App Engineer는 그릇의 active domain 전부, Operator는 정의의 `domains`와 그릇의 교집합, 비면 전부)가 turn의 단위다. 지침 층이 전역 → `LOPHN.md`(project 그릇만) → `DOMAIN.md`(맡은 domain, 24000자 넘으면 목적 한 줄로) → agent 본문이 되었다. place 정보에 Domains 절과 domain별 kind 글·artifact 목록이 실린다. skill 층은 내장 < 전역 < domain이다. file 범위: PM은 project 폴더와 domain 폴더, App Engineer는 앱 source와 domain 폴더, Operator는 그릇 폴더와 고른 domain의 `artifacts/`만 쓴다.
+  - 앱 tool의 domain: tool 선언에 `domain`(그 앱의 domain 이름)이 필수다. release 준비, `blueprint.check`, activation 직전 재검사가 앱의 active domain 이름으로 검사한다. agent tool 이름은 `domain__<domain>__<tool>`이다.
+  - domain 사이 장치: 다른 domain의 비공개 tool은 tool 목록과 `app.tools`에 없다(같은 앱의 다른 domain도). `app.usage`의 쓰는 쪽은 부른 agent가 맡은 domain이다. 다른 domain이 쓰는 공개 tool을 지운 release는 막히고, `PublicToolsChanged{release, domain, change, tools}`와 `KindViolationFound{domain, count}`는 그 domain 그릇의 PM이나 App Engineer가 받는다. lophn 지도는 domain 단위다. package 주인은 publish한 앱이다(`owner_app`).
+  - kind와 problem: kind 파일은 domain마다 하나이고 glob은 그 domain 그릇의 폴더 기준이다(앱이면 그 앱 source). `kind.*` route와 tool, `problem.list`가 `domain`을 받는다. 위반 problem 표는 `domain_problems`, route는 `problem.sync_domain`·`problem.list_domain`이다.
+  - annotation과 artifact: target이 `app | artifact{domain, name} | file{project}`(사람 폴더의 `.html`)이다. artifact 신원은 `{domain, name}`이다.
+  - 화면: project 창 sidebar에 Domains 탭(탭은 아이콘과 tooltip), App details에 Domains 절, 만들기 dialog, 보관과 되돌리기(Undo toast), Open DOMAIN.md가 생겼다. Operator 편집에 Domains checkbox와 domain별 skill 묶음이 생겼고, grant 화면은 맡은 domain의 tool과 다른 domain의 public tool만 보인다. Artifacts 목록은 domain마다 접는 묶음이다(domain이 하나면 묶음 제목이 없다). Agents 화면에 App Engineer와 앱 place Operator가 돌아왔다.
+  - 이름 정리: `app_api` 계열을 tool로 바꿨다. route `app.tools`·`app.tool_index`, agent tool `app.tools`, approval kind `app_tool`, grant 칸 `tools`, SDK `@lophn/cap-tool`, file `blueprint/tools.ts` 등이다. `context_binding`과 issue skill의 `contexts` 주제를 지웠다. core 층 이름 "domain module"은 "feature module"이 되었다.
+  계약:
+  - 새 protocol `packages/protocol/domains/`(값, route, event `DomainCreated`·`DomainArchived`·`DomainUnarchived`, port `domainLookupPort`·`domainProvisioningPort`, 자리 `paths.ts`, artifact 값). 새 module `packages/core/domains/`.
+  - 바뀐 것: `Role`·`Place`·`AgentRef`(app_engineer, app), sessions 표 `app` 열, agent 정의 `domains`, `ToolDeclaration.domain`, `AppTool.domain`, `ReadSkills`의 `domain` 칸과 `app` 입력, `GetInstructions`의 `domain` 층, `kindTextSchema`, kinds route 입력 `domain`, `KindViolationFound`·`PublicToolsChanged` payload, `app.usage` 행, `annotationTargetSchema`, `Package.owner_app`, `app.create` 입력(project 없음), shell IPC artifact source·list와 instructions target(`domain`).
+  - 지운 것: `App.project`, `appProjectOf`·`appOfProject`·`appProjectLookupPort`, `project_problems`, `<data>/projects/<prj>/{app,kinds.yaml,skills,artifacts}`, `app__` 접두, `app_api` 이름 전부.
+  - 개발 data는 지우고 새로 만든다(앱 저장 자리, sessions·apps·packages·annotation 표, kinds index, 정의 file).
+  닫은 이슈: agent-definition "같은 이름 skill은 agent의 domain을 거르기 전에 하나로 합쳐져 사라진다"(이 계획 안에서 생겨 이 계획이 고쳤다).
+why: |
+  project와 app은 작업 공간(그릇)이고 경계는 그 안의 domain이다. 저장소 하나에도, 앱 하나에도 업무가 여럿이라 그릇을 경계로 두면 agent가 모든 지침과 tool을 받는다. role 배분은 예전 그대로가 맞았다(`project-docs/products/roadmap/domain.md`). 앞 계획 `domain-place`가 App Engineer를 PM에 합치고 앱을 project에 1:1로 묶은 것을 되돌렸다.
+decisions:
+  - text: |
+      domain 이름은 slug이고 보관한 것까지 모든 domain에서 하나다. 이름 바꾸기와 그릇 옮기기는 없다.
+    by: agent
+  - text: |
+      `domain.create`는 Gate에 묻지 않는다. 그릇 안에 만드는 것이라 권한이 넓어지지 않는다.
+    by: agent
+  - text: |
+      Operator는 `DOMAIN.md`·kind 파일·skill을 쓰지 않고 고른 domain의 artifact만 쓴다. 바꿀 일은 그릇의 PM이나 App Engineer에게 call한다.
+    by: agent
+  - text: |
+      package 주인은 domain이 아니라 앱이다(`owner_app`).
+    by: agent
+  - text: |
+      화면 모양: project는 sidebar Domains 탭, 앱은 App details의 Domains 절, Operator는 checkbox와 domain별 skill 묶음, Artifacts는 domain 묶음. (2026-10-19)
+    by: person
+  - text: |
+      wave 2~4는 묶어서 land했다. wave 2만 올리면 앱의 첫 domain이 생기기 전에 release 준비가 모든 tool을 거절했고, 지침이 아직 없는 이름(`app.tools`)을 썼다.
+    by: agent
+  - text: |
+      core 층 이름 "domain module"을 "feature module"로 바꿨다. "domain event"는 그대로다.
+    by: agent
+  - text: |
+      앱 place의 Operator도 자격 조건 `app`(그 앱)을 받는다. kind 읽기, annotation 읽기, domain 읽기의 그릇 범위가 이 조건을 본다. role의 operation 상한이 App Engineer의 쓰기 route를 막는다.
+    by: agent
+  - text: |
+      skill은 agent가 맡은 domain으로 거른 뒤에 이름마다 하나를 고른다(`pickSkills`). domain skill이 같은 이름의 전역 skill을 이긴다.
+    by: agent
+follow_up: |
+  개발 data(`.dev-data/`)를 지우고 새로 만든다. e2e 다시 쓰기 계획을 연다(이 계획은 e2e를 돌리지 않고 type만 맞췄다). eval 자료(`calendar-app`, `calendar-app-bug`, `notify-app`, `tax-kinds`)를 새 판으로 다시 만든다(`project-docs/issues/eval.md`).

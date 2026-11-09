@@ -1,0 +1,15 @@
+id: new-session-draft-key-format
+title: 새 session 입력 메모리 key `new:role:name:place`
+kind: defect
+status: kept
+topic: shell
+modules: [packages/shell/renderer]
+now: |
+  `conversation/agent-view-model.ts`의 `newSessionKey`가 `new:${role}:${name}:${place.kind}:${place.name}`로 key를 만든다. 함수 주석에 "같은 창의 다른 agent와 섞이지 않는다"는 이유가 이미 있다. 이름에 `:`가 들어가면 서로 다른 agent의 key가 겹칠 수 있다.
+impact: |
+  거의 없다. key 규칙이 함수 한 곳에 있다.
+fix: |
+  추천: 남긴다. 겹침이 걱정되면 이름 부분을 `encodeURIComponent`로 감싼다(한 줄).
+closed: |
+  key 규칙이 `newSessionKey` 한 곳에 있고 영향이 거의 없다. 이름에 `:`가 들어가 겹칠 일이 생기면 이름 부분을 `encodeURIComponent`로 감싼다(한 줄).
+guard: 없음

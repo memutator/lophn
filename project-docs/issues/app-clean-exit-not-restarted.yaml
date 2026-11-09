@@ -1,0 +1,13 @@
+id: app-clean-exit-not-restarted
+title: 앱 child가 exit 0으로 끝나면 다시 뜨지 않고 core도 모른다
+kind: bug
+status: open
+topic: app-call
+modules: [packages/core/apps]
+now: |
+  `packages/core/apps/runtime/processes/terminate.ts` `unexpected`는 의도하지 않은 종료 중 exit code가 0이 아닌 것만 예상 밖으로 본다. `packages/core/apps/runtime/supervisor/supervisor.ts` `onChildExit`는 `runtime.tracked = undefined`와 `exit` 관측을 낸 뒤 `unexpected`가 false면 바로 돌아온다. 그래서 `record_unavailable`도, backoff도, 재시작(`apply`)도 없다. app supervisor에는 주기적으로 다시 맞추는 sweep이 없다(다음 `reconcile`이 와야 다시 뜬다).
+impact: |
+  AI가 쓴 앱 code가 `process.exit(0)`로 끝나거나 server가 정상 종료로 닫히면, 앱은 desired가 켜져 있는데 죽은 채로 남는다. core 원장의 마지막 사실은 `AppStarted`라 앱 상태는 "실행 중"으로 보이고, 이 앱의 tool 호출·화면은 실패한다. 사람은 실행을 껐다 켜기 전까지 원인을 볼 단서가 없다.
+fix: |
+  - 의도하지 않은 종료는 exit code와 상관없이 예상 밖으로 센다(`unexpected`에서 `exitCode !== 0` 조건을 뺀다). 작음. 추천. 앱 server가 0으로 끝나는 것도 정상이 아니다. backoff와 crash loop 한도가 이미 있어 무한히 다시 뜨지 않는다.
+  - 0이면 `record_unavailable`만 남기고 다시 띄우지 않는다. 작음. 사람이 이유를 보지만 앱은 여전히 죽어 있다.

@@ -1,0 +1,11 @@
+id: harness-install-step-per-stage
+title: harness 전역 install 코드가 단계마다 Step을 돌려준다
+kind: defect
+status: kept
+topic: coding-agent
+modules: [packages/coding-agent]
+now: "`coding-agent/harnesses/install.ts`(315줄)가 dry_run, json hook, plugin file, skill마다 `Step`을 따로 만들어 합친다. `thinSkill`은 원본 SKILL.md의 frontmatter를 정규식으로 뽑고, 깨졌으면 name만 있는 frontmatter로 대신한다."
+impact: 놓을 것이 셋뿐인데 길다. frontmatter 대체는 우리 원본이 깨질 때만 쓰이는 방어 코드다.
+fix: dry_run을 "쓰기 port를 바꿔 끼우기"로 바꿔 Step을 없앤다(작음). frontmatter 대체는 지운다(작음).
+closed: 놓을 것이 셋(skill, json hook, plugin file)이고 `Step`으로 나뉜 지금 모양이 읽기 쉽다. frontmatter 대체는 한 식이라 지워도 얻는 것이 없다.
+guard: 없음

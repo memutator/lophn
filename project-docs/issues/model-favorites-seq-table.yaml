@@ -1,0 +1,15 @@
+id: model-favorites-seq-table
+title: '즐겨찾기 compare 기준용 표 `model_favorites_seq(one, seq)`'
+kind: defect
+status: kept
+topic: agent-definition
+modules: [packages/core/lophn-agent]
+now: |
+  `models/schema.ts`의 `model_favorites_seq` 한 줄(`one = 1`)이 즐겨찾기 목록의 `settings_seq`다. `models/commands.ts`의 즐겨찾기 변경이 compare 후 올리고, `models/store.ts`의 `loadFavorites`가 읽는다. `model_favorites`는 통째로 지우고 다시 넣는다(event 없음).
+impact: |
+  한 줄짜리 표가 하나 늘었다. 목록이 비어도 seq를 이어 가야 해서 따로 필요하다.
+fix: |
+  남길지 정한다. 즐겨찾기는 비었을 때도 compare 기준이 있어야 하고, 목록 표에서 max를 구하면 다 지울 때 기준이 사라진다. 추천: 남긴다.
+closed: |
+  즐겨찾기는 비었을 때도 compare 기준이 있어야 하고 목록 표에서 max를 구하면 다 지울 때 기준이 사라진다. 주석이 이유를 적었다.
+guard: 없음

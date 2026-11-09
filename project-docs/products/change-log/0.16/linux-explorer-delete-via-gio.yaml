@@ -1,0 +1,14 @@
+id: linux-explorer-delete-via-gio
+version: 0.16.0
+title: Linux에서 Explorer의 Delete가 5초 걸리던 것
+modules: [packages/shell/main]
+checked: []
+change: |
+  전: Electron `shell.trashItem`이 KDE에서 `kioclient move <path> trash:/`를 띄웠고, 파일 하나에 5.2초 걸렸다.
+  후: Linux는 `gio trash`를 먼저 쓴다(같은 파일에 10ms). gio가 없거나 실패하면 `shell.trashItem`으로 넘긴다. 둘 다 못 버리면 전처럼 아무것도 지우지 않고 `unavailable`이다.
+why: |
+  사람이 보고했다(2026-11-03).
+decisions:
+  - text: >-
+      Reveal in File Manager가 느린 것은 고치지 않는다. lophn의 요청은 1ms에 끝나고, 그 뒤 xdg-desktop-portal이 이 기계의 `FileManager1` 이름을 가진 Nautilus를 깨우는 데서 걸린다. 앱이 아니라 기계 설정의 일이다.
+    by: agent

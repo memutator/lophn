@@ -1,0 +1,11 @@
+id: harness-detection-kept-in-memory
+title: harness 감지 결과를 shell main 메모리에 쥔다
+kind: defect
+status: kept
+topic: coding-agent
+modules: [packages/shell/main]
+now: "`shell/main/desktop/coding-connection.ts`가 마지막 성공 감지 결과(`last`)를 메모리에 쥐고, 실패한 결과는 쥐지 않아 다음 `read`가 다시 감지한다. core로 알리기(`report`)가 실패하면 다음 `read`에서 다시 알린다. 새로 감지는 `refresh`일 때만 한다."
+impact: 결함이라기보다 결정 기록이다. 메모리에만 있어 shell을 다시 켜면 처음 읽을 때 감지를 한 번 더 한다.
+fix: "저장하면 표와 무효화 규칙이 늘고 PATH가 바뀌면 낡는다. 추천: 남긴다. 이유는 `last` 위 주석에 있다."
+closed: 저장하면 표와 무효화 규칙이 늘고 PATH가 바뀌면 낡는다. 이유를 `last` 위 주석에 적었다.
+guard: 없음

@@ -1,0 +1,15 @@
+id: claude-queue-edit-turns-steer-to-later
+title: Claude GUI에서 줄 고치기·옮기기가 steer 메시지를 다음 turn으로 바꾼다
+kind: bug
+status: fixed
+topic: harness-gui
+modules: [packages/shell/main]
+now: |
+  `claude.ts` `requeue`(`edit_queued`·`move_queued`가 부른다)는 줄의 메시지를 모두 `cancelAsyncMessage`로 빼고 `priority: "later"`로 다시 넣는다. `Queued`에 보낼 때의 priority가 없어 steer(`next`)로 세운 메시지도 later가 된다.
+impact: |
+  사람이 steer로 보낸 메시지를 고치거나 옮기면 turn이 끝날 때까지 기다린다. 화면에는 바뀐 표시가 없다.
+fix: |
+  `Queued`에 priority를 두고 `requeue`가 그대로 쓴다. 작음. 추천. 줄 code를 adapter 넷이 같이 쓰게 하는 위 defect와 같이 하면 한 번에 고친다.
+closed: |
+  `requeue`가 각 메시지의 priority를 그대로 다시 넣는다.
+guard: '`packages/shell/main/extensions/bundled/harness-gui/claude_test.ts` "steer 메시지를 고치거나 옮겨 다시 세워도 priority가 later로 내려가지 않는다"'

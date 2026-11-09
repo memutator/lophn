@@ -1,0 +1,23 @@
+id: any-floated-tab-becomes-global
+version: 0.23.0
+title: "떠 있는 탭이면 무엇이든 모든 workspace의 전역 float이 된다"
+modules: [packages/core/main, packages/shell/main, packages/shell/renderer]
+checked: []
+change: |
+  전: 전역 float(workspace를 바꿔도 남는 떠 있는 패널)은 앱 panel 화면만 됐다. float bar의 globe 단추도 앱 panel float에만 있었다. 저장 파일 `shell/global-floats.json`은 `{ schema_version: 1, floats: [{ app, screen, rect, minimized, pinned? }] }`였다.
+  후: noDetach가 아니고 layout에 저장할 수 있는 탭(터미널, browser, Agent, 파일, artifact, 앱 panel 등)의 desk float은 모두 globe 단추로 전역 float이 되고, 전역 float은 "이 desk로"로 돌아온다. 전역 float은 탭이 나온 workspace를 지니고 그 workspace의 통로로 그려진다(터미널은 cwd와 PTY, Agent는 그 workspace의 agent). workspace를 바꿔도 다시 mount되지 않는다. 옮기는 순간 webview는 한 번 다시 load된다. 이동은 kind의 `transfer`/`receive`를 같은 창 안에서 직접 부른다. 저장은 `{ schema_version: 2, floats: [{ workspace, tab(kind의 toStored 값), rect, minimized, pinned? }] }`이고 재시작 때 `fromStored`로 되살린다(터미널은 layout 복원과 같다). 모르는 kind·틀린 탭은 그 float만 빠진다. 앱이 지워지면 그 앱의 화면 float과 그 앱 workspace에서 온 float이 닫힌다.
+  돌아오는 자리: `anyWorkspace`인 kind(앱 panel, browser, 파일)는 어느 workspace의 desk로도 돌아온다. 터미널·Agent·artifact·search·workflow는 나온 workspace의 desk로만 돌아온다(그 단추는 다른 workspace에서는 없다). browser의 native popup은 전역 float이 되지 않는다(`noGlobal`). 앱 panel은 전과 같다(workspace를 주지 않고, 같은 앱·화면은 float 하나).
+  마이그레이션: core의 data step `shell.global-floats-tabs`가 판 1 파일을 앱 panel 탭(workspace Home)의 판 2로 옮긴다.
+why: 터미널이나 browser 같은 탭도 workspace를 오가며 계속 보고 싶다.
+decisions:
+  - text: |
+      전역 float은 탭이 나온 workspace의 host로 그린다. 버린 길: workspace 없이 그린다. 터미널의 cwd, Agent의 workspace, 파일의 folder가 그 workspace의 것이라 뜻이 없다.
+    by: agent
+  - text: |
+      전역 float 본문이 여는 탭(파일 링크, popup)은 같은 workspace의 새 전역 float이 된다. 버린 길: 지금 창의 desk에 연다. 다른 workspace의 창이면 탭이 그 창에서 렌더되지 않을 수 있다.
+    by: agent
+  - text: |
+      전역 float의 제목 줄은 본문의 slice 없이 아이콘과 점을 읽는다. 그래서 Agent의 profile 아이콘과 상태 점은 없다.
+    by: agent
+follow_up: |
+  개발 data(`.dev-data`)의 `shell/global-floats.json`은 다음 기동에 data step이 옮긴다. 터미널을 전역 float으로 올리면 그 project layout에서 빠져, 다른 workspace sidebar가 layout만 보고 아는 coding agent 터미널 표시(`harness`)는 그 동안 보이지 않는다.

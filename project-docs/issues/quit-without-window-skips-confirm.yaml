@@ -1,0 +1,12 @@
+id: quit-without-window-skips-confirm
+title: "`--quit`이 창이 없으면 도는 터미널을 확인 없이 끈다"
+kind: bug
+status: open
+topic: shell
+modules: [packages/shell/main]
+now: |
+  second-instance의 `--quit`는 `requestQuit`(`packages/shell/main/desktop/quit.ts`)로 간다. 창이 하나라도 있으면 `quitFlow.request`가 도는 터미널·저장 중인 문서를 묻지만, 창이 없으면(tray에 남아 창만 다 닫은 상태. `window-all-closed`는 아무것도 안 한다) 확인 없이 `stop`을 부른다. 그런데 `QuitWork.runningTerminals`는 창과 무관하게 PTY 수를 센다(`wiring/desktop.ts`의 `createQuitFlow`). 같은 상황에서 tray의 Quit은 `quitFlow.request`라 창 없이도 묻는다(`dialog.showMessageBox`는 parent 없이 뜬다). 저장 중인 문서는 창과 함께 사라지므로 창이 없으면 없다.
+impact: |
+  창을 닫아 둔 채 tray로 돌고 있는 터미널(agent TUI 포함)이 `lophn --quit` 한 번에 확인 없이 끝난다. 같은 일을 tray Quit으로 하면 묻는다.
+fix: |
+  창이 없을 때도 `quitFlow.request`를 쓴다. headless처럼 dialog를 띄울 수 없는 실행만 `stopNow`로 간다(작음, `requestQuit`의 `confirmWithWindows`를 창 유무와 상관없이 부른다). 추천: 이것.

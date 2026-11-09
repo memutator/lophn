@@ -1,0 +1,15 @@
+id: run-changed-eval-scenarios-real-model
+version: 0.5.0
+title: 바꾼 eval 시나리오를 진짜 model로 한 번씩 돌림
+modules: [tests]
+change: |
+  전: test-restore가 바꾼 시나리오 스물은 진짜 model로 돈 적이 없었다.
+  후: 스물을 trial 한 번씩 돌렸다(agent `claude-sonnet-5-5`, judge와 사람 역할 `claude-haiku-5-5`, 약 $1.5). 14개가 통과하고 6개(L6, C9-other, A12, O4, calendar-api, calendar-mvp)가 떨어졌다. eval의 tool 목록(`tests/eval/versions/files.ts`의 `TOOL_FILES`)에 `packages/core/domains/agent-tools.ts`가 빠져 trial마다 model 호출 뒤 멈추던 것을 고치고, 같은 빠짐을 잡는 행을 `versions_test.ts`에 더했다.
+why: |
+  eval이 새 설계로 되살아났는지 보려고.
+decisions:
+  - text: |
+      lead session에서 사람이 직접 "돌려"라고 허락했다(2026-10-20).
+    by: person
+follow_up: |
+  떨어진 여섯을 eval 쪽 탓과 model 쪽 탓으로 가른다. run이 저장한 `calendar-call@4`, `calendar-app@3`은 아직 commit하지 않았다.

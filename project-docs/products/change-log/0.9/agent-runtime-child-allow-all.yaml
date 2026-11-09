@@ -1,0 +1,16 @@
+id: agent-runtime-child-allow-all
+version: 0.9.0
+title: 'agent runtime child가 `--allow-all`로 떠서, 폴더를 더해도 child가 거절하거나 다시 뜨지 않는다'
+modules: [packages/core/lophn-agent, packages/core/agent-workspaces, packages/core/main, packages/core/supervision, packages/protocol]
+change: |
+  전: agent runtime child의 Deno 권한을 열린 project·앱 source·domain·workflows 폴더, provider host, skill 폴더, MCP net·run 목록으로 좁혔다. 그 목록이 바뀌면 core가 1초 poll로 child를 다시 띄웠고, 도는 turn이 있으면 끝날 때까지 미뤄 그동안 새 폴더는 `NotCapable`로 막혔다. 폴더 종류를 더할 때마다 `placeScope`와 `runtimeFolders` 두 곳을 같이 고쳐야 했다.
+  후: child는 `--allow-all`(`--cached-only --frozen --no-prompt`는 그대로)로 뜨고 목록이 바뀌어도 다시 뜨지 않는다. 앱 process와 flow process의 sandbox는 그대로다(다른 lophn 자식 process는 다음 항목). file tool의 폴더 범위는 `placeScope`와 `resolveInPlace`가 코드로 지킨다.
+why: |
+  좁힌 권한은 경계가 아니었다. `shell.run`은 `/bin/sh`를 사람 uid로 띄워 Deno flag를 우회하고, net은 이미 host 없이 열려 있었다. 막는 것 없이 깨지기만 했다(`issues/archived/place-session.md`).
+decisions:
+  - text: |
+      agent runtime child는 `--allow-all`로 돌리고 file tool의 폴더 범위는 코드에 둔다.
+    by: person
+  - text: |
+      e2e `turn-fate_test`의 "도는 turn 중 폴더가 더해지면 끝난 뒤 child가 다시 뜬다" 행은 지킬 계약이 사라져 지웠다. 연속 crash 행은 앞 행의 crash가 재기동 횟수에 남지 않게 core를 다시 띄운 뒤 돈다.
+    by: agent

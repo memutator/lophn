@@ -1,0 +1,36 @@
+id: keybinding-contexts-and-extension-keys
+version: 0.22.0
+title: "단축키: key context, 연속 key, extension·앱 key, harness GUI의 CLI key"
+modules: [packages/shell/ipc, packages/shell/renderer, packages/shell/main, packages/shell/preload, packages/protocol, packages/core/apps, packages/core/main, packages/sdk]
+checked: [architecture-keybindings, architecture-extension, architecture-harness-gui, architecture-acp, architecture-app-call]
+change: |
+  전: 단축키는 한 번 누름 하나였고 context가 없었다(터미널 예외는 DOM 짐작). command id는 닫힌 내장 목록이라 extension·앱은 key를 낼 수 없었다. composer Enter·Esc, 찾기, thread index, palette·Home, 북마크, 터미널 복사는 표 밖이라 바꿀 수 없었다. harness GUI의 key는 lophn 것뿐이었다.
+  후:
+    - key context(`data-key-context`)와 `defineContext({owns})`, 두 타 연속 key(1.5초), 사람 > 등록 > 기본 층. 사람이 바꾼 키는 그 command의 기본·등록 키를 모든 context에서 대신한다.
+    - extension manifest `contributes`(commands, keybindings)와 `ctx.commands.register`. command id `ext.<extension id>.<name>`.
+    - 앱 선언 `keys`와 `@lophn/app-ui` `useCommand`. 앱 view 안의 key는 guest preload가 먼저 맞추고, 아니면 shell key를 shell로 넘긴다. id `app.<app id>.<name>`. browser 탭에는 넣지 않았다.
+    - 표 밖 key가 표의 줄이 되었다: palette·Home(이제 바꿀 수 있음), `browser.bookmark`, `terminal.copy`·`terminal.paste`, `agent.*` 열일곱.
+    - harness GUI: manifest keymap이 각 CLI 기본 key를 낸다(mode 돌리기, 지금 보내기, 줄 세우기, 되돌리기, 입력 history ↑↓, Ctrl+R 검색, background, details 펼치기, Ctrl+C, Ctrl+J). 새 ACP 입력 `background_tool`과 capability `background`(Claude·OpenCode만).
+    - SDK: `@lophn/declaration` 4.3.0(`keys`), `@lophn/app-ui` 2.10.0(`useCommand`), `@lophn/agent` 1.4.0(capability `background`). 지원 하한은 그대로다.
+  옮기기: `shell.keybindings` 저장 모양은 같아 migration이 없다. 지금 없는 `ext.*`·`app.*` id의 사람 키도 남긴다.
+  검증: task마다 full check·core 두 번 기동·renderer build. gallery `harness-gui-perf`의 key→paint(보통 속도)는 전 p50 12ms·p95 18ms, `key-agent` 뒤 12·18ms, `key-parity` 뒤 15~16·18ms였다(p50은 frame 하나 안의 흔들림). 실제 앱에서 CLI마다 눌러 보는 것은 사람이 한다.
+why: |
+  단축키는 한 번 누름과 닫힌 command 목록으로만 돌아 바꿀 수 없는 key가 많았고, extension·앱·harness GUI가 자기 key를 낼 길이 없었다.
+decisions:
+  - text: |
+      context는 등록 저장소가 아니라 DOM 속성이고, `when`은 함수로 둔다(식 언어 없음).
+    by: person
+  - text: |
+      GUI 안에서는 CLI key가 lophn 탭·창 key보다 이긴다. Ctrl+C는 글을 골랐으면 복사, 아니면 CLI 동작이다. CLI key 설정 file은 읽지 않는다.
+    by: person
+  - text: |
+      Settings에서 바꾼 `agent.*` 키는 네 harness keymap을 함께 대신한다. harness마다 따로 바꾸기는 하지 않는다.
+    by: agent
+  - text: |
+      앱 key는 홑 타이고 modifier나 F1~F12가 있어야 한다.
+    by: agent
+  - text: |
+      입력 history는 그 GUI session에서 보낸 사람 메시지다. CLI history file은 읽지 않는다.
+    by: agent
+follow_up: |
+  북마크 머리 줄·desktop palette의 Home hint, main이 먼저 받는 chord의 앱 key, harness keymap의 겹침 검사, Electron 기본 menu의 Ctrl+R Reload는 `project-docs/issues/keybindings.md`.

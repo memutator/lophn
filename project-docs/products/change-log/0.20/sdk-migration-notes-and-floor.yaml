@@ -1,0 +1,26 @@
+id: sdk-migration-notes-and-floor
+version: 0.20.0
+title: "SDK 판별 migration 메모와 지원 하한"
+modules: [packages/core/agent-workspaces, packages/protocol, packages/sdk, packages/design, tools]
+checked: []
+change: |-
+  전: 판마다 무엇이 바뀌었고 앱 code를 어떻게 고치나 하는 메모가 제품 changelog에만 있어 agent가 못 읽었다. lophn이 아직 돌리는 가장 옛 SDK 판이 어디에도 적혀 있지 않았다.
+  후:
+  - 내장 skill `migrate-sdk`(home·app, `/` 메뉴 아님)가 절차 하나를 갖고, SDK 판 하나가 메모 file 하나(`<sdk 이름에서 @lophn/를 뺀 것>-<판>.md`)로 SKILL.md 옆에 쌓인다. 메모는 바뀐 것, `Breaking:`, 앞 판에서 옮기는 code, `Previous:`를 적는다. 앱 lophn은 고정 판 뒤부터 지금 판까지의 메모만 읽는다.
+  - 지금 판 전부와 0.13.0 뒤 앱이 옮겨야 했던 판의 메모 31개가 있다.
+  - SDK와 지원 소스의 `package.json`에 `lophn.supported_from`(지원 하한)이 있다: `@lophn/declaration` 4.0.0, `@lophn/cap-tool` 2.0.0, `@lophn/app-ui` 2.3.0, `@lophn/agent` 1.1.0, `@lophn/ui` 1.1.0, 나머지 1.0.0. 설치 사본에도 남는다.
+  - `npm run check`의 `sdk notes` 단계가 지금 판과 하한의 메모, 메모 이름, `Previous:` 사슬을 본다. AGENTS.md "코드"에 같은 규칙이 있다.
+why: |-
+  SDK 판이 바뀐 앱을 옮기는 일은 결정적으로 할 수 없어 agent가 한다. agent가 읽을 판별 메모가 필요했다. skill은 하나로 두고 내용만 md file로 더한다(사람, 2026-11-07).
+decisions:
+  - text: |-
+      migration skill은 하나이고 판별 메모를 file로 더한다. 메모는 지우지 않는다. agent는 범위만 읽어 context는 그 앱이 뒤처진 만큼만 커진다.
+    by: person
+  - text: |-
+      `@lophn/agent` 하한은 1.1.0이다. `agt_` id를 넘긴 1.2.0 앱만 깨지는데 판으로 알 수 없어 1.3.0 메모에 적었다.
+    by: agent
+  - text: |-
+      data root에 옛 SDK 사본을 따로 싣지 않는다. 하한 아래 앱은 처음 다시 release할 때 옮긴다.
+    by: agent
+follow_up: |-
+  오래된 major 구간이 길어지면 제품을 낼 때 메모를 합친다.

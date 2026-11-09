@@ -6,6 +6,10 @@ files:
       - tool-agent-memory:over-limit
     note: "agent.memory는 부른 agent의 파일만 쓴다: 사람이 만든 agent는 agent memory, lophn은 자기 workspace memory만. 자리를 고르는 입력은 받지 않고 8 KiB를 넘는 쓰기는 거절하며 파일은 그대로다"
 
+  - path: packages/core/diagnostics/record_test.ts
+    covers: [log-line-write:written, log-line-write:filtered]
+    note: "agent runtime child가 stderr로 낸 줄(JSON record와 crash 글)은 secret 패턴을 가린 뒤에만 core log file에 가고 시각·service·trace id는 그대로다. debug는 trace가 켜진 동안만 file에 간다"
+
   - path: packages/core/agent-workspaces/tool-lists_test.ts
     covers: [tool-list-assembly:fixed]
     note: workspace 종류별 model tool 목록의 wire 이름 충돌과 종류별 포함 규칙

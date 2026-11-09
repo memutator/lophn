@@ -1,5 +1,6 @@
 import {
   callPolicySetting,
+  diagnosticsTraceSetting,
   teamSetting,
 } from "../../../config/setting-declarations.ts";
 import { shellRulesSetting } from "../../../approvals/shell-rules/mod.ts";
@@ -20,6 +21,7 @@ export const settingDeclarationsWiring: WiringFactory = () => ({
       sharedAppsSetting,
       callPolicySetting,
       teamSetting,
+      diagnosticsTraceSetting,
     ]);
   },
 });

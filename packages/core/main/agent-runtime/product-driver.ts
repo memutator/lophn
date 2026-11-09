@@ -9,6 +9,7 @@ import {
   type Result,
   systemClock,
 } from "../../../base/mod.ts";
+import type { Tracer } from "../../../base/telemetry/mod.ts";
 import {
   assignmentGet,
   toolGateCheck,
@@ -156,7 +157,9 @@ function workspaceFiles(): WorkspaceFiles {
 // 제품 runtime의 driver 재료. core 연결을 받아 turn 시작 재료와 기본 harness 묶음(내장 tool, workspace 종류 prompt, model
 // 선택 검증, 등록 skill 폴더)을 만든다. 아래는 조립이 채울 자리다: ToolContext의 바깥 연결(`toolPorts`). 지금은
 // 닫힌 연결이 들어 있다. agent event는 감독 pipe로 core Bus에 간다(`calls.events`).
-export function productDriver(options: { fetch?: typeof fetch } = {}) {
+export function productDriver(
+  options: { fetch?: typeof fetch; tracer?: Tracer } = {},
+) {
   return (
     calls: CoreCalls,
   ): {
@@ -200,6 +203,7 @@ export function productDriver(options: { fetch?: typeof fetch } = {}) {
     const preparer = createTurnPreparer({
       clock: systemClock,
       ids,
+      ...(options.tracer === undefined ? {} : { tracer: options.tracer }),
       machine: calls.machine,
       agentCall: calls.agentCall,
       blobs: calls.blobs,

@@ -856,23 +856,28 @@ flows:
       - "docs/architecture/observability.md는 실패 뒤 buffer를 말하지만 코드는 exportNow에서 buffer를 먼저 비운다. 실패한 batch는 다시 보내지 않는다. 문서나 코드 가운데 하나를 고칠 것"
 
   - id: log-line-write
-    title: "logger 호출 한 줄을 level과 redaction을 거쳐 stderr에 쓴다"
+    title: "logger 호출 한 줄을 level과 redaction을 거쳐 stderr와 log file(logs/core-N.jsonl)에 쓴다"
     actor: system
     entries: [system:log-line]
     boundary: [diagnostics]
-    code: [packages/base/telemetry/log.ts, packages/core/diagnostics/telemetry.ts]
+    code: [packages/base/telemetry/log.ts, packages/core/diagnostics/telemetry.ts, packages/core/diagnostics/record.ts, packages/core/diagnostics/relay.ts]
     steps:
-      - "logger 호출(debug, info, warn, error)이 LOPHN_LOG_LEVEL보다 낮으면 버린다"
+      - "logger 호출(debug, info, warn, error)이 stderr level(LOPHN_LOG_LEVEL)과 기록기 level(diagnostics.trace가 켜지면 debug, 아니면 stderr와 같다)을 모두 못 넘으면 버린다"
       - "그 밖이면 message와 fields의 문자열을 credential 패턴으로 가린다. password, token, api_key 같은 key 이름도 가린다"
-      - "core가 알려진 secret redactor를 등록했으면 그 값도 가린다. 등록 전이면 패턴만 쓴다"
-      - "record(timestamp, level, service_name, component, event, trace id)를 format(json 또는 pretty)대로 stderr에 한 줄 쓴다"
+      - "알려진 secret redactor는 secret store가 열린 뒤 등록된다. 등록 전이면 패턴만 쓴다"
+      - "record(timestamp, level, service_name, component, event, trace id)를 stderr level을 넘으면 format(json 또는 pretty)대로 stderr에 한 줄 쓴다"
+      - "기록기 level을 넘으면 같은 record를 JSON 한 줄로 비동기 queue를 거쳐 logs/core-N.jsonl(10 MiB x 5)에 쓴다. queue가 가득 차면 버리고 센다"
+      - "agent runtime child가 stderr로 낸 JSON log record는 시각·service·trace id를 두고 글과 fields만 같은 redaction을 거쳐 같은 길로 간다. JSON이 아닌 줄은 child_stderr info 글로 싣는다"
       - "otlp 모드면 같은 record를 export 버퍼에 넣는다(system:telemetry-export)"
     outcomes:
       - id: written
-        observe: ["log:stderr 한 줄"]
+        observe: ["log:stderr 한 줄", "disk:<data root>/logs/core-0.jsonl"]
       - id: filtered
         observe: ["log:stderr 변화 없음"]
-        when: "level이 LOPHN_LOG_LEVEL보다 낮다"
+        when: "level이 LOPHN_LOG_LEVEL보다 낮고 trace 설정도 꺼져 있다"
+      - id: recorder-dropped
+        observe: ["log:log records_dropped"]
+        when: "file 쓰기가 밀려 queue(1 MiB)가 가득 찼거나 쓰기가 실패했다. 버린 수를 다음 record 앞에 한 줄로 남긴다"
     crosses_process: false
     risk: [secret]
     docs: [architecture/observability.md]

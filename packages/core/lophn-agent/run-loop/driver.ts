@@ -1,4 +1,5 @@
 import { ok } from "../../../base/mod.ts";
+import type { Tracer } from "../../../base/telemetry/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import {
   type AgentTurnCredential,
@@ -14,6 +15,7 @@ import type {
   TurnSource,
 } from "./ports.ts";
 import type { TurnPreparer } from "./prepare.ts";
+import { turnEndAttributes, turnSpanAttributes } from "./spans.ts";
 
 // queue가 고른 turn을 시작하고 loop를 돌리는 연결. source가 맨 앞 입력을 고르면 preparer가 재료를 모아
 // StartTurn으로 확정하고, `agent:<ses>` credential을 받아 loop에 넘긴다. turn이 끝나거나 멈추거나 감독이
@@ -31,6 +33,8 @@ type DriveDeps = {
   report?(text: string): void;
   // 시험이 loop 대신 끼운다.
   startLoop?: typeof startTurnLoop;
+  // turn마다 `agent.turn` span을 낸다. loop가 이 span 안에서 시작해 model call·tool call·HTTP span이 그 아래에 달린다.
+  tracer?: Tracer;
 };
 
 type DriveResult =
@@ -177,7 +181,41 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
         deps: loopDeps,
         input,
       } = turn.loop(credential, inputsOf(start.session, first));
-      const handle = (deps.startLoop ?? startTurnLoop)(loopDeps, input);
+      const startLoop = deps.startLoop ?? startTurnLoop;
+      const tracer = deps.tracer;
+      const turnSpan = tracer?.startSpan("agent.turn", {
+        attributes: turnSpanAttributes({
+          session: start.session,
+          turn: turn.turn,
+          provider,
+        }),
+      });
+      const handle =
+        tracer === undefined || turnSpan === undefined
+          ? startLoop(loopDeps, input)
+          : tracer.context.run(turnSpan.context, () =>
+              startLoop(loopDeps, input),
+            );
+      if (turnSpan !== undefined) {
+        void handle.done.then(
+          (end) => {
+            for (const [key, value] of Object.entries(turnEndAttributes(end))) {
+              turnSpan.setAttribute(key, value);
+            }
+            if (
+              end.kind === "finish_failed" ||
+              (end.kind === "finished" && end.outcome.kind === "failed")
+            ) {
+              turnSpan.setStatus("error");
+            }
+            turnSpan.end();
+          },
+          () => {
+            turnSpan.setStatus("error");
+            turnSpan.end();
+          },
+        );
+      }
       active.set(turn.turn, {
         session: start.session,
         provider,

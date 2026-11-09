@@ -21,7 +21,7 @@ import {
 } from "../../../secrets/mod.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
 import { readAgentMcp } from "./agent-mcp.ts";
-import type { WiringFactory } from "./context.ts";
+import { createProductRedactor, type WiringFactory } from "./context.ts";
 
 const key = (route: { resource: string; method: string }) =>
   `${route.resource}/${route.method}`;
@@ -52,6 +52,16 @@ export const secretsWiring: WiringFactory = () => {
       ctx.provide("secretStore", store);
       // 값을 다 알기 전(open 전, 못 읽는 동안)에는 ready가 false라서 redactor가 막는다.
       ctx.provide("knownSecrets", store.known);
+      // log가 file에 남으므로 알려진 secret 원문도 지운다. 아직 다 모르면(ready 전) pattern 규칙만 적용된다.
+      const redactKnown = createProductRedactor(store.known);
+      const logSource = {
+        concern: "diagnostics/log",
+        revision: "1",
+        scope: "log",
+      };
+      ctx.telemetry.useRedactor(
+        (text) => redactKnown(logSource, "text/plain", text) ?? text,
+      );
       // provider·MCP credential은 목적지를 이름 공간(destinations)이 정한다. 앱 secret은 현재 선언 ∩ active grant가
       // 정하고, 앱 호출마다 읽기 연결을 열어 판정한다(apps build보다 먼저 만들어지므로 API port는 늦게 읽는다).
       // process는 관측한 감독 상태(io 또는 apps supervisor)로 보고, 같은 generation인지는 부르는 쪽(runtime-secret)이 따로 본다.

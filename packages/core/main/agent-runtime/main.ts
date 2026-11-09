@@ -12,6 +12,7 @@ import {
   readTelemetryConfig,
 } from "../../diagnostics/telemetry.ts";
 import { tracedFetch } from "../../diagnostics/spans.ts";
+import type { Tracer } from "../../../base/telemetry/mod.ts";
 import { type ReadRoute, routePath } from "../../../protocol/base/mod.ts";
 import { createRpcClient } from "../../../protocol/client/mod.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
@@ -115,6 +116,8 @@ async function startAgentRuntime(input: {
   // 테스트가 core 대신 응답을 끼운다. 없으면 hello의 loopback port로 붙는다.
   read?: CoreRead;
   fetch?: typeof fetch;
+  // agent loop의 span(`agent.turn`)을 낸다. 없으면 span 없이 돈다.
+  tracer?: Tracer;
   // models.dev 공개 GET용. core loopback용 `fetch`와 나눠야 loopback 가짜가 공개 GET을 받지 않는다.
   // 없으면 catalog 갱신은 network 없이 끝난다.
   catalogFetch?: typeof fetch;
@@ -311,6 +314,7 @@ async function startAgentRuntime(input: {
       source,
       credentials,
       preparer,
+      ...(input.tracer === undefined ? {} : { tracer: input.tracer }),
       report: (text) => void diagnostics.write(text),
       // 이전 대화가 커진 session은 다음 turn을 시작하기 전에 Compact한다.
       ...(compactor === undefined
@@ -489,19 +493,21 @@ function streamWriter(stream: WritableStream<Uint8Array>) {
 }
 
 if (import.meta.main) {
-  // provider·MCP·models.dev 호출이 이 process에서 나간다. 호출마다 client span이고, core와 같은 수집기로 간다.
-  // log는 stderr로 가고 core가 child_stderr로 다시 싣는다.
+  // provider·MCP·models.dev 호출과 agent loop(turn·model call·tool call)가 이 process에서 돈다. 호출마다 span이고, core와 같은 수집기로 간다.
+  // log는 JSON 한 줄로 stderr에 간다. debug와 span 줄까지 늘 내보내고, core가 받아 redaction하고 trace 설정에 따라 거른다.
   const { config } = readTelemetryConfig(process.env);
   const telemetry = createTelemetry({
     service: "lophn-agent-runtime",
     clock: systemClock,
     random: cryptoRandom,
-    config,
+    config: { ...config, format: "json" },
+    writeLevel: "debug",
     write: (line) => void process.stderr.write(`${line}\n`),
   });
   const traced = tracedFetch(fetch, telemetry.tracer);
   const started = await startAgentRuntime({
-    driver: productDriver({ fetch: traced }),
+    tracer: telemetry.tracer,
+    driver: productDriver({ fetch: traced, tracer: telemetry.tracer }),
     catalogFetch: traced,
     pump: true,
   });

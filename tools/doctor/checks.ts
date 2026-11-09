@@ -441,11 +441,7 @@ export const checks: Check[] = [
         shownValues.push(`${key}=${value}`);
         return value;
       };
-      const telemetry = enumValue("LOPHN_TELEMETRY", [
-        "off",
-        "console",
-        "otlp",
-      ]);
+      const telemetry = enumValue("LOPHN_TELEMETRY", ["off", "otlp"]);
       enumValue("LOPHN_LOG_LEVEL", ["debug", "info", "warn", "error"]);
       enumValue("LOPHN_LOG_FORMAT", ["json", "pretty"]);
       const endpointText = ctx.env["OTEL_EXPORTER_OTLP_ENDPOINT"];

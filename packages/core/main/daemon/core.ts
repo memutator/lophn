@@ -26,9 +26,12 @@ import {
 } from "../../install-and-update/mod.ts";
 import {
   createHealth,
+  createLogFiles,
+  createLogRecorder,
   createTelemetry,
   type Health,
   installSnapshotSignal,
+  type LogRecorder,
   readTelemetryConfig,
   type Telemetry,
   tracedCall,
@@ -83,7 +86,9 @@ type Core = {
 export async function startCore(options: CoreOptions): Promise<Result<Core>> {
   const clock = options.clock ?? systemClock;
   const random = options.random ?? cryptoRandom;
-  const telemetry = options.telemetry ?? telemetryFromEnv(clock, random);
+  const recorder = createLogRecorder();
+  const telemetry =
+    options.telemetry ?? telemetryFromEnv(clock, random, recorder);
   const root = await resolveDataRoot({
     lophnHome: options.lophnHome ?? process.env.LOPHN_HOME ?? undefined,
     home: options.home ?? homeOf(process.env, process.platform),
@@ -91,6 +96,20 @@ export async function startCore(options: CoreOptions): Promise<Result<Core>> {
   if (!root.ok) return root;
   const locked = await acquireInstanceLock(root.value.run);
   if (!locked.ok) return locked;
+  // log file은 lock을 잡은 core만 쓴다. 열지 못해도 core는 stderr log만으로 돈다. 넣어 준 telemetry(시험)는 기록기가 없다.
+  if (options.telemetry === undefined) {
+    try {
+      recorder.attach(
+        await createLogFiles(root.value.path, process.platform, "core"),
+      );
+    } catch (thrown) {
+      telemetry.logger.warn({
+        component: "telemetry",
+        event: "log_files_unavailable",
+        fields: describeThrown(thrown),
+      });
+    }
+  }
   // 앞 판의 runtime file은 lock을 잡은 뒤에만 지운다. 이미 도는 core의 file을 지우지 않기 위해서다.
   for (const name of ["user-token", "location.json"]) {
     try {
@@ -487,7 +506,11 @@ async function open(
 
 const SERVICE_NAME = "lophn-core";
 
-function telemetryFromEnv(clock: Clock, random: RandomSource): Telemetry {
+function telemetryFromEnv(
+  clock: Clock,
+  random: RandomSource,
+  recorder: LogRecorder,
+): Telemetry {
   const { config, problems } = readTelemetryConfig(process.env);
   const telemetry = createTelemetry({
     service: SERVICE_NAME,
@@ -495,6 +518,7 @@ function telemetryFromEnv(clock: Clock, random: RandomSource): Telemetry {
     random,
     config,
     write: (line) => void process.stderr.write(`${line}\n`),
+    recorder,
   });
   for (const problem of problems) {
     telemetry.logger.warn({

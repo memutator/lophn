@@ -128,6 +128,10 @@ files:
     covers: [tool-call-batch:uncertain, tool-call-batch:success, tool-call-finish:finished, model-call-run:start-rejected]
     note: "StartModelCall 실패 때 model을 부르지 않고 steer를 queue에 둔다(model-call-run:start-rejected). tool 결과 blob 저장이 실패해도 행은 uncertain으로 finished가 되고, finish가 거절한 결과는 압축해 다시 기록한다"
 
+  - path: packages/core/lophn-agent/run-loop/spans_test.ts
+    covers: []
+    note: "agent span(agent.turn, agent.model_call, agent.tool_call)의 attribute에는 id, 이름, 숫자만 간다. 대화·tool 입출력·provider 오류 글·model이 지어낸 tool 이름은 가려진다(flow outcome이 아니라 trace 설정이 켜진 log file에 남는 값의 모양)"
+
   - path: packages/core/lophn-agent/run-loop/driver_test.ts
     covers: [turn-pump-start:started, turn-pump-start:compacting, turn-loop:failed-internal]
     note: "loop가 던진 turn은 driver가 failed로 닫고 다음 turn은 시작한다. Compact 중인 session은 turn을 시작하지 않고 다른 session은 시작한다"

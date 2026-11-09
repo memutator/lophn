@@ -5,6 +5,7 @@ import {
   ok,
   type Result,
 } from "../../../base/mod.ts";
+import type { Span, Tracer } from "../../../base/telemetry/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import {
   type AgentRuntime,
@@ -59,6 +60,14 @@ import type {
   TurnInputs,
   TurnPorts,
 } from "./ports.ts";
+import {
+  inAgentSpan,
+  modelCallEndAttributes,
+  modelCallStartAttributes,
+  setAttributes,
+  toolCallEndAttributes,
+  toolCallStartAttributes,
+} from "./spans.ts";
 
 // agent loop의 port를 실제 core 호출로 잇는다. 읽기와 기록은 machine 자격의 loopback이고 tool 실행은 이
 // turn의 agent 자격(`ToolContext.core`)이다. turn 행이 정본이다: 이 모듈은 상태를 따로 들고 있지 않고
@@ -96,6 +105,8 @@ type CorePortsDeps = {
   seat: TurnSeat;
   clock: Clock;
   ids: IdSource;
+  // model call·tool call span을 낸다. 없으면 span 없이 돈다.
+  tracer?: Tracer;
   machine: CoreCall;
   // 받은 image part의 bytes를 읽는다. 이 session의 메시지가 참조하는 blob만 읽힌다.
   images: ImageReader;
@@ -240,9 +251,43 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
 
   // ---- model call ----
 
+  // span 안에서 돌려 provider로 나가는 HTTP client span이 이 시도 아래에 달리게 한다.
+  function tracedModelAttempt(
+    request: Parameters<TurnPorts["model"]["call"]>[0],
+    signal: AbortSignal,
+  ): Promise<Result<ModelAttempt>> {
+    return inAgentSpan(
+      deps.tracer,
+      "agent.model_call",
+      modelCallStartAttributes({
+        session: seat.session,
+        turn: seat.turn,
+        provider: deps.model.call.provider,
+        model: deps.model.call.name,
+        purpose: "judgment",
+        kind: request.kind,
+        order: attempts + 1,
+      }),
+      async (span) => {
+        const result = await modelAttempt(request, signal, span);
+        if (!result.ok) {
+          span?.setStatus("error");
+          span?.setAttribute("lophn.code", result.error.code);
+        } else if (
+          result.value.outcome.kind !== "complete" &&
+          result.value.outcome.kind !== "cancelled"
+        ) {
+          span?.setStatus("error");
+        }
+        return result;
+      },
+    );
+  }
+
   async function modelAttempt(
     request: Parameters<TurnPorts["model"]["call"]>[0],
     signal: AbortSignal,
+    span: Span | undefined,
   ): Promise<Result<ModelAttempt>> {
     attempts += 1;
     lastReasoning = null;
@@ -265,6 +310,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     });
     if (!basisBlob.ok) return basisBlob;
     const id = ids.newId("mcl");
+    span?.setAttribute("lophn.model_call", id);
     const startedAt = clock.now();
     const model = deps.model;
     const call = {
@@ -369,6 +415,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       provider_code: null,
     };
     const usage = output?.usage ?? EMPTY_USAGE(model.usageRevision);
+    setAttributes(span, modelCallEndAttributes(outcome, usage));
     const price = model.call.price_basis;
     const charged = price === null ? undefined : estimatedCost(usage, price);
     const cost: CallCost =
@@ -572,6 +619,30 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       }
     }
     return "error";
+  }
+
+  function tracedAttemptTool(
+    call: ToolCallRequest,
+    signal: AbortSignal,
+    pause: Pause,
+  ): Promise<ToolDone> {
+    return inAgentSpan(
+      deps.tracer,
+      "agent.tool_call",
+      toolCallStartAttributes({
+        session: seat.session,
+        turn: seat.turn,
+        modelCall: call.model_call,
+        tool: definitionOf(call.name)?.name,
+        attempt: call.attempt,
+      }),
+      async (span) => {
+        const done = await attemptTool(call, signal, pause);
+        setAttributes(span, toolCallEndAttributes(done));
+        if (done.status !== "success") span?.setStatus("error");
+        return done;
+      },
+    );
   }
 
   async function attemptTool(
@@ -866,11 +937,11 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     model: {
       pack: deps.model.pack,
       available: () => deps.model.available(),
-      call: modelAttempt,
+      call: tracedModelAttempt,
     },
     tools: {
       info,
-      attempt: attemptTool,
+      attempt: tracedAttemptTool,
       close,
       ...(deps.tools.dispatch === undefined
         ? {}

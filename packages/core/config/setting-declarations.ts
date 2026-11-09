@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { declareSetting } from "../../protocol/config/mod.ts";
 import {
   CALL_POLICY_SETTING_KEY,
@@ -11,6 +12,7 @@ import {
   type TeamLimits,
   teamLimitsSchema,
 } from "../../protocol/lophn-agent/team.ts";
+import { DIAGNOSTICS_TRACE_SETTING_KEY } from "../../protocol/diagnostics/mod.ts";
 import { createFileSettingsReader } from "./reader.ts";
 
 // agent가 보내는 call의 workspace 쌍·agent 쌍 정책. 판정은 protocol의 mayCall이 한다.
@@ -37,3 +39,10 @@ export const teamSetting = declareSetting({
 export function teamLimitsAt(root: string): TeamLimits {
   return createFileSettingsReader(root).get(teamSetting) ?? DEFAULT_TEAM_LIMITS;
 }
+
+// 켜면 core·agent runtime의 debug log와 span 줄, shell main의 터미널 trace를 data root의 logs에 남긴다. 값은 도는 중에도 바로 적용된다.
+export const diagnosticsTraceSetting = declareSetting({
+  key: DIAGNOSTICS_TRACE_SETTING_KEY,
+  type: z.boolean(),
+  default: false,
+});

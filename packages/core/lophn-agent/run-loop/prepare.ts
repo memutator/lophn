@@ -8,6 +8,7 @@ import {
   ok,
   type Result,
 } from "../../../base/mod.ts";
+import type { Tracer } from "../../../base/telemetry/mod.ts";
 import {
   type CommandDoc,
   commandsForWorkspace,
@@ -163,6 +164,8 @@ export type ToolPorts = Pick<
 type PreparerDeps = {
   clock: Clock;
   ids: IdSource;
+  // model call·tool call span을 낸다. 없으면 span 없이 돈다.
+  tracer?: Tracer;
   // machine 자격의 loopback.
   machine: CoreCall;
   // turn의 agent credential token으로 부르는 loopback.
@@ -813,6 +816,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       seat,
       clock,
       ids,
+      ...(deps.tracer === undefined ? {} : { tracer: deps.tracer }),
       machine,
       images,
       blobs: deps.blobs,

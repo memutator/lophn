@@ -1,4 +1,5 @@
 import { err, ok } from "../../../../base/mod.ts";
+import { DIAGNOSTICS_TRACE_SETTING_KEY } from "../../../../protocol/diagnostics/trace.ts";
 import {
   settingsList,
   settingsUpdate,
@@ -25,6 +26,10 @@ export const configWiring: WiringFactory = () => {
   return {
     name: "config",
     build(ctx) {
+      const applyTrace = () =>
+        ctx.telemetry.setTrace(
+          store?.chosen()[DIAGNOSTICS_TRACE_SETTING_KEY] === true,
+        );
       let registry;
       try {
         registry = createSettingsRegistry([
@@ -42,13 +47,16 @@ export const configWiring: WiringFactory = () => {
         root: ctx.root.path,
         registry,
         // Bus는 events가 prepare에서 낸다.
-        publish: (keys) =>
+        publish: (keys) => {
+          // trace 설정은 log 기록기가 바로 따라야 해서 Bus 구독이 아니라 바뀐 자리에서 적용한다.
+          if (keys.includes(DIAGNOSTICS_TRACE_SETTING_KEY)) applyTrace();
           ctx.bus.publish({
             type: "SettingsChanged",
             subject: null,
             at: ctx.clock.now(),
             payload: { keys },
-          }),
+          });
+        },
         log: (message) =>
           ctx.telemetry.logger.warn({
             component: "settings",
@@ -56,6 +64,7 @@ export const configWiring: WiringFactory = () => {
             message,
           }),
       });
+      applyTrace();
       ctx.provide("settings", createSettingsReader(store));
       const settingsStore = store;
       ctx.provide("settingsUpdate", (changes) => settingsStore.update(changes));

@@ -218,7 +218,7 @@ export function createTabHandlers(deps: TabDeps) {
         owner: caller.value,
         workspace: here,
         target: { coding: { harness } },
-        place: input.place ?? null,
+        relation: input.relation ?? null,
         source: caller.value as Id<"ses">,
         handoff: { harness, file },
         tab,

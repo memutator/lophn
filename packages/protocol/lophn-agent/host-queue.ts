@@ -3,6 +3,7 @@ import { ERROR_CODES } from "../../base/mod.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory } from "../base/route.ts";
 import { extensionToolContentSchema } from "../extensions/manifest.ts";
+import { artifactNameSchema } from "../projects/values.ts";
 import { workspaceSchema } from "./workspaces.ts";
 
 // core 메모리의 host queue다. core가 shell에 시킬 일(탭 열기·닫기, extension tool 호출, browser 호출)을 담고, shell main이
@@ -38,6 +39,7 @@ export type TabPlace = z.infer<typeof tabPlaceSchema>;
 // `tui`는 harness agent session을 터미널 탭에서 그 CLI의 resume으로 연다(project workspace의 session만).
 // `preview`는 그 앱에서 지금 돌고 있는 preview를 앱 view 탭으로 연다(요청의 workspace는 그 앱이다).
 // device는 설정 `shell.devices`의 이름이다. 없으면 null이고 desktop 크기다. core가 이름을 확인해 보낸다.
+// `artifact`는 요청 workspace(project나 앱)의 artifact `artifacts/<name>/`을 artifact 탭으로 연다.
 export const hostTabTargetSchema = z.union([
   z.strictObject({ session: idSchema("ses") }),
   z.strictObject({ tui: idSchema("ses") }),
@@ -50,6 +52,7 @@ export const hostTabTargetSchema = z.union([
       device: z.string().min(1).max(40).nullable().default(null),
     }),
   }),
+  z.strictObject({ artifact: z.strictObject({ name: artifactNameSchema }) }),
 ]);
 export type HostTabTarget = z.infer<typeof hostTabTargetSchema>;
 
@@ -151,7 +154,7 @@ export type BrowserAction = z.infer<typeof browserActionSchema>;
 // browser 탭을 CDP로 다루는 호출이다. `tool_call`처럼 workspace 칸이 없고 아무 shell main이 가져간다. 결과는 `host/done`의 output이다.
 const browserCallPayloadSchema = z.strictObject({
   tab: idSchema("tab"),
-  view: z.enum(["browser", "preview"]),
+  view: z.enum(["browser", "preview", "artifact"]),
   action: browserActionSchema,
 });
 
@@ -260,7 +263,9 @@ const acceptedSchema = z.strictObject({
 // session이 아니면 `not_found`, url이 http·https가 아니면 `invalid_input`이다.
 // `preview`는 그 앱 workspace의 session과 사람 token만 연다(agent가 다른 앱이면 `not_found`). 돌고 있는 preview가 없으면 `conflict`다.
 // `preview`의 device 이름이 `shell.devices`에 없으면 `not_found`다.
-// 사람 token은 `browser`와 `preview`만 연다(session·tui는 `invalid_input`). 앱마다 preview 탭은 하나라 이미 있으면 그 탭을 돌려주고 주인이 새로 연 쪽이 된다.
+// 사람 token은 `browser`·`preview`·`artifact`만 연다(session·tui는 `invalid_input`). 앱마다 preview 탭은 하나라 이미 있으면 그 탭을 돌려주고 주인이 새로 연 쪽이 된다.
+// `artifact`는 agent면 자기 session의 workspace, 사람 token이면 입력의 workspace의 것이다. home이면 `invalid_input`, 입구 `index.html`이
+// 없으면 `not_found`다. artifact마다 host 탭은 하나라 preview처럼 이미 있으면 그 탭을 돌려주고 주인이 바뀐다.
 // `tui`는 harness agent session을 터미널 탭에서 CLI의 resume으로 연다. harness가 아니거나 project workspace의 session이 아니면
 // `invalid_input`, 첫 turn 전이거나 turn이 돌거나 이미 TUI로 열려 있으면 `conflict`다. 열리면 그 session의 headless turn은
 // TUI가 끝날 때까지 시작하지 않고 입력은 queue에 남는다(`harness-host.ts`의 Take).
@@ -301,9 +306,9 @@ export const browserRead = defineMemory({
   errors,
 });
 
-// 아래 browser/* 호출은 자기가 연 browser·preview 탭만 다룬다(남의 탭, 사람이 손으로 연 탭, session·agent 탭은 `not_found`).
+// 아래 browser/* 호출은 자기가 연 browser·preview·artifact 탭만 다룬다(남의 탭, 사람이 손으로 연 탭, session·agent 탭은 `not_found`).
 // 낡은 ref, DevTools가 열려 있음, 사람이 take control 중인 쓰기는 `conflict`, shell이 없거나 탭이 창에 열려 있지 않거나 기한이 지나면
-// `unavailable`, 틀린 url(http(s)·about:blank 밖)·preview 탭의 navigate·틀린 act는 `invalid_input`이다.
+// `unavailable`, 틀린 url(http(s)·about:blank 밖)·preview·artifact 탭의 navigate·틀린 act는 `invalid_input`이다.
 const browserTabInput = { tab: idSchema("tab") };
 
 // 접근성 tree다. 줄마다 `- <role> "<name>" [ref=e12]`고 들여쓰기가 깊이다.

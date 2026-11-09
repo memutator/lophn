@@ -71,7 +71,7 @@ secret
 4. 알려진 값을 아직 다 모르면 내지 않는다. 앞서 낸 자리를 redaction이 바꾸면 그 attempt의 그 kind는 더 내지 않는다(화면이 본 글을 되돌리지 않는다).
 5. attempt가 끝나면 붙잡은 꼬리는 나가지 않는다. 저장된 message 본문(저장 준비 단계에서 redaction한다)이 live 글을 대신한다.
 6. reasoning 글과 tool 제목은 지금의 redaction을 거친다. tool 제목은 자르기 전에 redaction한다(120자 경계에 걸친 secret의 앞부분이 남지 않게). redaction을 끝내지 못하면 제목은 tool 이름이다.
-7. 승인 카드에는 agent가 쓴 설명(`shell.run`의 `description`)을 싣지 않는다. `description`은 tool 줄 제목에만 쓴다([approval.md](approval.md) "카드 내용은 program이 GateCall에서 만든다").
+7. 승인 카드에는 agent가 쓴 설명(`shell.run`의 `description`)을 싣지 않는다. `description`은 tool 줄 제목에만 쓴다([approval.md](approval.md)의 지키는 것: 카드 내용은 program이 GateCall에서 만든다).
 
 데이터
 8. 한 model 호출의 message는 하나다. message id는 `model_call`에서 정해(`msg_` + 그 ULID) 멈춤 길과 child가 같은 응답을 둘 다 저장하려 해도 둘째는 같은 id 규칙에 걸린다.
@@ -127,19 +127,19 @@ secret
 - 글은 token streaming으로 보인다. 이유: 정석(Claude, ChatGPT, Codex, Hermes)이 답이고 지금 구현에서 옮기는 비용은 근거가 아니다. (사람, 2026-10-25)
 - 고르는 기준은 정석과 맞는 의미다. 지금 구현에 맞추느라 고르지 않는다. (사람, 2026-10-25)
 - tool call은 무엇을 했는지 semantic하게 보이고(Claude Code의 Bash `description`처럼) 펼치면 내용이 보인다. (사람, 2026-10-25)
-- live 글의 redaction은 core가 하고 붙잡는 자리는 child에 알리지 않는다. 이유: child가 물을 수 있으면 secret 값을 한 자씩 알아낼 수 있다. 값을 아는 곳(core)이 가리고 붙잡는다. child는 이미 `redact_request`로 날 글을 core에 보내므로 날 글을 보내는 것은 새 노출이 아니다. 버린 안: child에서 가리기(붙잡을 자리를 core에 물어야 한다), 상수 길이로 붙잡기(긴 token의 앞부분이 나간다). (agent, planner)
+- live 글의 redaction은 core가 하고 붙잡는 자리는 child에 알리지 않는다. 이유: child가 물을 수 있으면 secret 값을 한 자씩 알아낼 수 있다. 값을 아는 곳(core)이 가리고 붙잡는다. child는 이미 `redact_request`로 날 글을 core에 보내므로 날 글을 보내는 것은 새 노출이 아니다. 버린 안: child에서 가리기(붙잡을 자리를 core에 물어야 한다), 상수 길이로 붙잡기(긴 token의 앞부분이 나간다). (agent)
 - 쓰는 중인 글을 core 한 곳에 둔다. 이유: 날 글을 받는 곳과 snapshot을 싣는 곳이 다르지만 한 곳에 있어야 retry·저장·멈춤에서 같이 비워진다. wiring끼리 import하지 않으므로 늦은 칸으로 넘긴다. (agent)
 - model 응답 하나가 agent message 하나이고 한 model 호출의 message id는 `model_call`에서 정한다(`msg_` + ULID). (agent, planner·lead)
 - 마지막 응답은 글이 비어도 저장하고 run은 빈 답을 `no_answer`로 본다. 이유: 중간 응답의 글이 run의 답이 되지 않게 한다. (agent, lead)
-- 멈춘 답은 사람이 본 데까지 turn이 끝나기 전에 core가 저장한다. provider가 끊어 retry하는 attempt의 글은 버린다. 이유: child가 멈춤을 알 때는 core가 turn을 이미 닫아 `RecordMessage`가 거절하고, 멈춤 handler는 writer Worker에서 돌아 core 메모리를 읽지 못한다. (agent, planner)
-- `TurnResumed`는 core가 낸다. 이유: child는 Gate 판정마다 기다림 표시를 돌려 진짜 사람 기다림을 가르지 못하고, 사람 기다림 event(turn request, 질문)는 core Bus에 있다. 멈춤·실패·끊김으로 끝나는 turn도 active를 끝난 순간까지 마감한다. (agent, planner)
-- "Worked for"는 active다. 이유: 이름과 달리 wall clock이라 승인을 기다린 시간이 들어가고 기다림 뒤 일하는 중 줄이 기다린 만큼 건너뛰었다. (agent, planner)
+- 멈춘 답은 사람이 본 데까지 turn이 끝나기 전에 core가 저장한다. provider가 끊어 retry하는 attempt의 글은 버린다. 이유: child가 멈춤을 알 때는 core가 turn을 이미 닫아 `RecordMessage`가 거절하고, 멈춤 handler는 writer Worker에서 돌아 core 메모리를 읽지 못한다. (agent)
+- `TurnResumed`는 core가 낸다. 이유: child는 Gate 판정마다 기다림 표시를 돌려 진짜 사람 기다림을 가르지 못하고, 사람 기다림 event(turn request, 질문)는 core Bus에 있다. 멈춤·실패·끊김으로 끝나는 turn도 active를 끝난 순간까지 마감한다. (agent)
+- "Worked for"는 active다. 이유: 이름과 달리 wall clock이라 승인을 기다린 시간이 들어가고 기다림 뒤 일하는 중 줄이 기다린 만큼 건너뛰었다. (agent)
 - 기록한 tool call은 항상 닫고, 줄인 기록은 finish가 거절된 뒤에 낸다. 이유: core의 한도를 복제하지 않는다. `result` 열은 context 추정만 읽어 이미지는 개수만 남긴다. 끝난 turn의 열린 행은 결과를 모르므로 `uncertain`으로 닫는다. 큰 이미지·긴 page·깊은 schema의 결과가 이 한도에 걸려 retry까지 같은 이유로 실패하던 것을 고친 것이다. 원인으로 처음 짚은 blob 동시 준비 한도는 ledger와 맞지 않아(call 하나짜리 응답에서도 생겼다) 장치를 넣지 않았다. (agent)
-- tool 제목은 저장하지 않고 읽을 때 지금의 redaction으로 만든다. 이유: redaction 규칙이 바뀌어도 옛 제목에 secret이 남지 않고 화면 셋이 같은 제목을 쓴다. 그래서 `ListToolCalls`는 blob을 기다릴 수 있고 redaction이 있는 core API read다. 앱 tool 제목은 저장된 wire 이름이다. (agent, planner)
-- model이 쓰는 설명은 `shell.run`에만 두고 승인 카드에는 싣지 않는다. 나머지 tool은 인자 template이다. 이유: 비교한 harness들이 모인 대로다. file·web tool은 인자 template으로 읽히고 shell 명령만 읽기 어렵다. 칸은 선택이라 비면 명령 첫 줄을 쓴다. (agent, planner)
-- markdown은 이미 있는 Lezer 기반 `Markdown`, highlight는 Shiki(JS engine, Worker, lazy grammar)다. 사람 글은 plain, chat image는 불러오지 않는다. 이유: URL 정책과 raw HTML 규칙이 이미 있는 markdown 안에 있고, Shiki는 비교한 세 앱이 모두 쓴다. grammar는 언어를 미리 고르지 않고 lazy chunk로 둔다(설치본 약 9 MB). (agent, planner)
-- link는 renderer와 shell 창 navigation guard 둘 다로 막는다. (agent, planner)
-- reasoning을 보이고 시간은 provider가 알린 reasoning block의 시작과 끝으로 잰다. 이유: 버리던 이유는 opaque 상태의 규칙이었지 보이지 않기로 한 제품 결정이 아니었다. (agent, planner)
+- tool 제목은 저장하지 않고 읽을 때 지금의 redaction으로 만든다. 이유: redaction 규칙이 바뀌어도 옛 제목에 secret이 남지 않고 화면 셋이 같은 제목을 쓴다. 그래서 `ListToolCalls`는 blob을 기다릴 수 있고 redaction이 있는 core API read다. 앱 tool 제목은 저장된 wire 이름이다. (agent)
+- model이 쓰는 설명은 `shell.run`에만 두고 승인 카드에는 싣지 않는다. 나머지 tool은 인자 template이다. 이유: 비교한 harness들이 모인 대로다. file·web tool은 인자 template으로 읽히고 shell 명령만 읽기 어렵다. 칸은 선택이라 비면 명령 첫 줄을 쓴다. (agent)
+- markdown은 이미 있는 Lezer 기반 `Markdown`, highlight는 Shiki(JS engine, Worker, lazy grammar)다. 사람 글은 plain, chat image는 불러오지 않는다. 이유: URL 정책과 raw HTML 규칙이 이미 있는 markdown 안에 있고, Shiki는 비교한 세 앱이 모두 쓴다. grammar는 언어를 미리 고르지 않고 lazy chunk로 둔다(설치본 약 9 MB). (agent)
+- link는 renderer와 shell 창 navigation guard 둘 다로 막는다. (agent)
+- reasoning을 보이고 시간은 provider가 알린 reasoning block의 시작과 끝으로 잰다. 이유: 버리던 이유는 opaque 상태의 규칙이었지 보이지 않기로 한 제품 결정이 아니었다. (agent)
 - thread index는 사람 메시지 4개부터 보이고 bookmark는 shell data file 하나에 둔다. 이유: harness 대화는 ledger에 없다. (사람, 2026-11-05)
 - fast·thinking·Speed는 composer chip이 아니라 model picker의 축이다. picker는 Roles를 맨 위에 두고 provider 묶음을 접는다. lophn agent도 같다. (사람, 2026-11-05)
 - subagent 보기는 따로 둔 Back 줄 없이 탭 머리 ←/→로 오간다. (사람, 2026-11-05)

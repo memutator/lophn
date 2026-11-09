@@ -9,6 +9,8 @@ runner는 eval CLI를 돌리고, 진행을 보고, judge 채점을 **새 subagen
 
 진짜 provider를 부르는 명령이라 돈이 든다. 시킨 experiment 하나만 돌린다.
 
+명령의 인자와 종료 코드, 흐름, 수치와 한도, 실행 폴더는 `.claude/skills/eval-run/reference.md`다. 설계는 `project-docs/architecture/eval.md`.
+
 ## 순서
 
 1. `tests/eval/experiments/<id>/spec.json`을 읽고 시나리오, `budget_usd`, `trials`(base, max)를 확인한다. 바꾸지 않는다. 이유: spec은 돌리기 전에 정한 규칙이다.

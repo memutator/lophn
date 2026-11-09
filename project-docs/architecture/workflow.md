@@ -188,7 +188,7 @@ artifact
 - job은 instance의 끝을 판정하지 않고 상태만 읽는다. 끝나지 않은 instance가 이어지면 건너뛴 기록이 쌓이고 사람이 화면에서 본다. (사람, 2026-10-22) agent가 만든 job은 `workflow_start`도 승인 대기다. 사람 없이 되풀이되는 것은 종류와 같다. (agent)
 - `ended`를 굳히지 않는다. 끝을 lophn이 굳히면 다시 열어야 할 예외를 agent가 다루지 못한다. 사람이 멈춘 것만 굳힌다. (agent)
 - 본문과 받는 곳을 command 앞에서 정한다. 이유: 본문은 blob이라 transaction 안에서 만들 수 없고, 앞에서 정해 넘기면 command는 받은 대로 넣기만 한다. 줄과 입력이 반쪽만 남지 않게 한 transaction이다. (agent)
-- 켤 때 step 메시지를 다시 넣지 않는다. 이유: 다시 넣으면 바깥 효과가 두 번 날 수 있다. 그래도 말없이 잃지 않게 줄로 남긴다(`architecture/run.md` "켤 때와 session 끝"). (agent)
+- 켤 때 step 메시지를 다시 넣지 않는다. 이유: 다시 넣으면 바깥 효과가 두 번 날 수 있다. 그래도 말없이 잃지 않게 줄로 남긴다(`architecture/run.md`의 지키는 것, 켤 때 복구). (agent)
 - workflow engine은 core에 둔다. 이유: 표, router의 `step`, job의 `workflow_start`, flow credential이 core와 한 transaction으로 엮여 있다. module은 lophn-agent와 다른 feature module을 import하지 않고 port로만 닿는다. (agent)
 - 사람 화면의 Stop은 되돌릴 수 없어 danger다. (agent)
 

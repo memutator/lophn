@@ -42,15 +42,18 @@ export interface PageLookup {
   app(
     view_session: string,
   ): { mode: "live" | "preview"; page: Page } | undefined;
+  /** artifact view(봉한 `lophn-artifact:` guest). 없으면 undefined다. */
+  artifact(view_session: string): Page | undefined;
 }
 
 /** 앱 live 화면은 어떤 경우에도 고르지 않는다. */
 export function pageOf(
   lookup: PageLookup,
-  view: "browser" | "preview",
+  view: "browser" | "preview" | "artifact",
   view_session: string,
 ): Page | undefined {
   if (view === "browser") return lookup.guest(view_session);
+  if (view === "artifact") return lookup.artifact(view_session);
   const found = lookup.app(view_session);
   return found?.mode === "preview" ? found.page : undefined;
 }

@@ -1,6 +1,6 @@
 # 계획
 
-계획 하나가 폴더 하나다: `project-docs/plan/<계획>/`. 여러 계획이 같이 열려 있을 수 있고, 끝난 계획은 폴더째 지운다(기록은 git과 changelog에 남는다). 돌리는 절차는 `.claude/skills/orchestrate/SKILL.md`, task brief 꼴은 `.claude/skills/orchestrate/brief-template.md`가 정한다.
+계획 하나가 폴더 하나다: `project-docs/plan/<계획>/`. 여러 계획이 같이 열려 있을 수 있고, 끝난 계획은 폴더째 지운다(기록은 git과 change-log에 남는다). 돌리는 절차는 `.claude/skills/orchestrate/SKILL.md`, task brief 꼴은 `.claude/skills/orchestrate/brief-template.md`가 정한다.
 
 ## 계획 폴더
 
@@ -18,7 +18,7 @@ lead는 main checkout에서 일하지 않는다. 계획마다 branch `plan/<계�
 ## 새 계획의 README
 
 - 목표: <무엇을 어떻게 바꾸는가. 한두 문장>
-- 재료: `project-docs/products/roadmap/<주제>.md`, `project-docs/issues/<주제>.md`의 정한 것, `project-docs/architecture/<topic>.md`, `project-docs/boundary-catalog.yaml`, `project-docs/module-catalog.yaml`
+- 재료: `project-docs/products/roadmap/<주제>.md`, `project-docs/issues/<id>.yaml`의 `decided`, `project-docs/architecture/<topic>.md`, `project-docs/boundary-catalog.yaml`, `project-docs/module-catalog.yaml`
 - 범위 밖: <하지 않는 것>
 - 단위: <단위 이름과 범위. 단위마다 소유 path는 brief의 "소유"가 정한다>
 - 순서: <wave마다 하는 일과 열리는 조건>
@@ -32,4 +32,4 @@ lead는 main checkout에서 일하지 않는다. 계획마다 branch `plan/<계�
 - 계획 둘이 같이 돌면 `status.py ready`가 다른 계획의 running task와 소유가 겹치는 task를 내지 않는다.
 - 끝남 기준은 task마다 brief의 "끝남"이 정한다. 기본은 `deno task check` 통과, 위험 test(`write-test`), 죽은 코드·TODO·옛 이름이 없음이다.
 - worker 보고의 "무겁게 짠 것"과 "알려진 미완 동작"은 `issue` skill대로 `project-docs/issues/`의 이슈가 된다.
-- 계획이 끝나면 changelog 열린 판에 항목을 덧붙이고 계획 폴더를 지운다. 남은 이슈는 다음 계획의 재료다.
+- 계획이 끝나면 PATCH를 올리고 change-log 항목(`products/change-log/<x.y>/<id>.yaml`)을 쓰고 계획 폴더를 지운다. 남은 이슈는 다음 계획의 재료다.

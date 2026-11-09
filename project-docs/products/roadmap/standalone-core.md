@@ -1,6 +1,6 @@
 # standalone core: core가 shell 밖에서 스스로 선다
 
-상태: **끝남.** 계획 `standalone-core`의 여섯 task(control, idle, shell, cli, launchers, cleanup)를 main에 land했다. full check·E2E·core 두 번 기동이 통과했고, Linux에서 CLI가 core를 띄우고 launcher가 끝난 뒤에도 core가 남으며 `lophn core stop`으로 끝나는 것을 손으로 확인했다. core SIGKILL 뒤 child가 스스로 끝나는 것은 Linux에서 `tests/e2e/boot_test.ts`가 본다. 사람 확인이 남은 것: 앱 Quit 뒤 켜진 job이 돌고 켜진 job이 없으면 10분 뒤 core가 끝나는지, 다시 켜면 돌던 core에 붙는지, macOS(`wasOpenedAtLogin`)와 Windows(named pipe)에서 core를 찾는지. 남은 결함은 `project-docs/issues/platform.md`. 2026-11-08 사람이 방향을 냈고 planner가 정리했다.
+상태: **끝남.** 계획 `standalone-core`의 여섯 task(control, idle, shell, cli, launchers, cleanup)를 main에 land했다. full check·E2E·core 두 번 기동이 통과했고, Linux에서 CLI가 core를 띄우고 launcher가 끝난 뒤에도 core가 남으며 `lophn core stop`으로 끝나는 것을 손으로 확인했다. core SIGKILL 뒤 child가 스스로 끝나는 것은 Linux에서 `tests/e2e/boot_test.ts`가 본다. 사람 확인이 남은 것: 앱 Quit 뒤 켜진 job이 돌고 켜진 job이 없으면 10분 뒤 core가 끝나는지, 다시 켜면 돌던 core에 붙는지, macOS(`wasOpenedAtLogin`)와 Windows(named pipe)에서 core를 찾는지. 남은 결함은 `node tools/records.ts issues --topic platform --status open`. 2026-11-08 사람이 방향을 냈고 planner가 정리했다.
 배경 문서: `project-docs/architecture/job.md`, `coding-agent.md`, `platform.md`, `event.md`, `app-notice.md`. 비교 대상: `../harness-lab/hermes/hermes-desktopapp`(공식 Hermes Desktop), `../harness-lab/hermes/hermes-cli`(`hermes_cli/gateway_runtime.py`, `gateway/control_socket.py`), `../harness-lab/hermes/hermes-desktopapp-fathah`.
 
 ## 사람의 말 (원문)
@@ -15,7 +15,7 @@
 
 ## 왜
 
-- core는 shell main(Electron)의 child이고 pipe EOF로 죽는다. 그래서 job은 Electron이 떠 있을 때만 돈다(`job.md:66`). tray로 남겨도 Electron 전체가 떠 있다. shell이 crash하거나 업데이트로 꺼지면 돌던 run과 job 차례가 `interrupted`로 끊긴다.
+- core는 shell main(Electron)의 child이고 pipe EOF로 죽는다. 그래서 job은 Electron이 떠 있을 때만 돈다(`architecture/job.md`의 지키는 것, core가 도는 동안만 돈다). tray로 남겨도 Electron 전체가 떠 있다. shell이 crash하거나 업데이트로 꺼지면 돌던 run과 job 차례가 `interrupted`로 끊긴다.
 - 화면 없는 머신(서버)에서 CLI만으로 core를 켜고 job을 돌릴 길이 없다.
 - CLI는 core를 켜지 못한다. core가 꺼져 있으면 `unavailable`(exit 5)로 끝난다.
 - `npm run dev:core`처럼 parent pipe 없이 띄운 core는 `run/user-token`을 쓰지 않아 CLI가 붙지 못한다(`tools/doctor/checks.ts:169`).
@@ -68,13 +68,13 @@ core가 소유한 child
 4. **idle-exit.** 할 일도 붙은 client도 없이 10분이 지나면 core가 스스로 끝난다. 할 일은 켜진 job, 열린 job run, running run, running workflow instance다. client는 Gateway WebSocket 구독과 진행 중 request다.
 5. **판 대조.** `identify`의 제품 판(root `package.json` `version`)이나 protocol 판이 ensure 쪽과 다르면 ensure가 `stop`을 보내고 끝나기를 기다린 뒤 새로 띄운다. 돌던 run·job 차례는 지금 종료와 같이 `interrupted`가 된다.
 6. **autostart가 core만 띄운다.** login item은 lophn 실행 파일을 `--core` intent로 연다. Electron은 ensure만 하고 창 없이 바로 끝난다. `--tray`는 지운다(tray는 Electron이 떠 있을 때의 것이다).
-7. **shell 쪽 정리.** shell의 core 감독(`supervise.ts`)이 ensure와 control socket client가 된다. core가 사라지면(identify 실패) Gateway 재연결 대신 ensure를 다시 한다. `job.md:66`, `coding-agent.md:23`, `headless-schedule.md` "하지 않는 것"을 고친다.
+7. **shell 쪽 정리.** shell의 core 감독(`supervise.ts`)이 ensure와 control socket client가 된다. core가 사라지면(identify 실패) Gateway 재연결 대신 ensure를 다시 한다. `architecture/job.md`, `architecture/coding-agent.md`의 core 수명 문장, `headless-schedule.md` "하지 않는 것"을 고친다.
 
 ## 정한 것
 
 1. core는 shell의 child가 아니다. shell과 CLI는 ensure로 붙거나 띄우는 client다. job을 shell 수명에서 떼는 것이 첫째 이유다. (사람, 2026-11-08)
 2. OS service(systemd, launchd agent, Windows service·scheduled task)로 등록하지 않는다. 로그인 때 켜는 것은 지금 autostart 설정이 core만 띄우는 것으로 충분하다. Hermes도 이미 있는 service를 켜기만 하고 설치하지 않는다. (agent)
-3. control socket은 TCP가 아니다. socket file 권한(POSIX 0700 폴더)과 Windows named pipe가 경계다. 데이터(API)는 지금처럼 loopback HTTP·WebSocket이다. API를 unix socket에도 여는 것(Codex `workspace-write` sandbox에 core socket 하나만 여는 길, `coding-agent.md:65`)은 이 roadmap에 넣지 않는다. (agent)
+3. control socket은 TCP가 아니다. socket file 권한(POSIX 0700 폴더)과 Windows named pipe가 경계다. 데이터(API)는 지금처럼 loopback HTTP·WebSocket이다. API를 unix socket에도 여는 것(Codex `workspace-write` sandbox에 core socket 하나만 여는 길, `architecture/coding-agent.md`)은 이 roadmap에 넣지 않는다. (agent)
 4. 1회용 ticket을 만들지 않는다. `connect`가 지금 hello가 주는 것과 같은 user credential을 준다. 지금 `run/user-token`(0600 file)과 같은 경계에서 같은 것을 주는 것이라 더 약해지지 않는다. (agent)
 5. 동시 시작은 이미 있는 `run/instance.lock`이 가른다. pid file을 만들지 않는다. liveness는 "`identify`가 답한다"다. (agent)
 6. shell의 single-instance lock은 남긴다. 그것은 창 하나·탭 하나를 지키는 것이고 core와 따로다. (agent)

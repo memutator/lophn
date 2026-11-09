@@ -36,7 +36,7 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 - **DevTools.** 자리 셋: 탭 안 오른쪽·아래(경계 막대로 크기), floated 패널(transient kind `browser_devtools`, detached 창의 자리 menu에는 없다), 따로 뜬 OS 창. 자리를 바꿀 때 다시 열지 않고 view를 옮긴다.
 - **bookmark.** `<dataRoot>/shell/bookmarks.json` 하나. main만 쓴다.
 - **terminal bridge(shell 탭만).** 앱이 켜질 때마다 per-run 폴더에 shim과 bridge socket(Windows는 named pipe)을 준비한다. shell 탭을 열 때 main이 탭마다 key(64 hex)를 발급하고 env `BROWSER`(shim 경로)와 `LPN_BROWSER_BRIDGE`(`{"socket","key"}`)를 terminal host의 open 요청에 실어, host가 terminal env 뒤에 덮는다(restart도 같은 env). 요청 한 줄 `{v:1,key,url}`을 받은 main은 key 표와 설정으로 판정해 모든 shell 창에 `shell:terminal-bridge-open`을 push하고, 그 terminal 탭을 가진 창이 탭을 열고 ack하면 `{"result":"pane"}`, 1500ms 안에 ack가 없으면 `{"result":"declined"}`를 shim에 돌려준다. shim은 pane이면 끝나고, 그 밖(declined, 접속 실패, 3000ms)은 bridge env를 지운 채 OS opener(`xdg-open`·`open`·Windows `cmd.exe start`)로 연다. Ctrl/Cmd-click은 `shell:terminal-link`로 main에 오고 같은 판정·같은 push를 쓰며 탭이 안 열리면 main이 OS browser로 연다.
-- **agent가 다루는 탭.** 주인(연 session, 사람 token이면 "person")이 host queue의 `browser_call`로 shell main에 요청하고, shell main이 CDP로 그 탭의 guest를 조작한다. 상태(Agent가 다루는 중인가, 사람이 가져갔나)는 shell main 메모리에 탭마다 있고 core는 모른다. 대상은 `tab open`으로 연 browser 탭(host 탭, key가 `host:`로 시작)과 preview 탭뿐이다.
+- **agent가 다루는 탭.** 주인(연 session, 사람 token이면 "person")이 host queue의 `browser_call`로 shell main에 요청하고, shell main이 CDP로 그 탭의 guest를 조작한다. 상태(Agent가 다루는 중인가, 사람이 가져갔나)는 shell main 메모리에 탭마다 있고 core는 모른다. 대상은 `tab open`으로 연 browser 탭(host 탭, key가 `host:`로 시작), preview 탭, artifact 탭뿐이다.
 - **Keep alive.** workspace를 떠날 때 guest를 지울지 숨겨 둘지: 소리가 나는 중, download를 받는 중, 사람이 탭 menu에서 Keep alive를 켠 탭은 창의 그릇에 숨겨 둔다. 창마다 6개이고 넘치면 오래 안 본 것부터 놓는다.
 
 ## 지키는 것
@@ -94,14 +94,14 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 
 ### agent가 다루는 탭
 
-34. **`lophn browser snapshot|act|navigate|screenshot|evaluate|logs|wait`는 `tab open`으로 연 browser 탭과 preview 탭만 다룬다.** 주인(연 session, 사람 token이면 "person")만 부른다. 사람이 손으로 연 탭과 앱 live 화면은 다룰 수 없다(앱 live 화면은 sender view 신원으로 operation 막기를 건너므로 어떤 bind로도 고르지 않는다). 길은 host queue의 `browser_call`이다(`workspace-layout.md` "agent가 연 탭").
+34. **`lophn browser snapshot|act|navigate|screenshot|evaluate|logs|wait`는 `tab open`으로 연 browser 탭, preview 탭, artifact 탭만 다룬다.** 주인(연 session, 사람 token이면 "person")만 부른다. 사람이 손으로 연 탭(사람이 연 artifact 탭 포함)과 앱 live 화면은 다룰 수 없다(앱 live 화면은 sender view 신원으로 operation 막기를 건너므로 어떤 bind로도 고르지 않는다). 길은 host queue의 `browser_call`이다(`workspace-layout.md` "agent가 연 탭").
 35. **상태는 agent가 연 탭만 core에 알린다.** key가 `host:`로 시작하는 탭의 url·title·loading을 renderer가 `shell:surface-report`로 보내고 main이 `host/report`로 core 표에 둔다. agent와 사람 token은 `lophn browser read <tab>`으로 자기가 연 탭의 마지막 상태를 읽는다. 남의 탭, 사람이 손으로 연 탭, 상태가 아직 없는 탭은 `not_found`다.
 36. **page에서 온 글은 `<lophn-untrusted source="browser.<명령>">`로 감싼다.** page는 인터넷이다. lophn agent는 tool 이름 규칙으로, binary는 찍는 글에 같은 tag를 둔다. 본문의 `<lophn-`는 escape되어 tag를 닫지 못한다. tag를 만들고 escape하는 곳은 core 밖 공유 protocol 코드 하나다(binary가 core를 import하지 못해서).
-37. **shell main이 CDP로 실행한다.** renderer가 host 탭의 view session을 `shell:surface-report {bind}`로 알리면 main이 browser 탭은 `wv-<id>`의 guest(`persist:lophn-browser` partition인 것만), preview 탭은 앱 view registry에서 `mode: "preview"`인 view만 고른다. 그 탭의 첫 호출에서 debugger를 붙여 탭이 닫힐 때까지 둔다. 입력은 CDP `Input.*`이다(`sendInputEvent`는 `<webview>` guest에 닿지 않는다). DevTools가 열려 있으면 붙지 못해 `conflict`다.
+37. **shell main이 CDP로 실행한다.** renderer가 host 탭의 view session을 `shell:surface-report {bind}`로 알리면 main이 browser 탭은 `wv-<id>`의 guest(`persist:lophn-browser` partition인 것만), preview 탭은 앱 view registry에서 `mode: "preview"`인 view만, artifact 탭은 artifact view registry에 붙은 guest만 고른다. 그 탭의 첫 호출에서 debugger를 붙여 탭이 닫힐 때까지 둔다. 입력은 CDP `Input.*`이다(`sendInputEvent`는 `<webview>` guest에 닿지 않는다). DevTools가 열려 있으면 붙지 못해 `conflict`다.
 38. **snapshot과 ref.** accessibility tree를 `- <role> "<name>" [ref=eN]` 줄로 쓴다(입력 칸은 `value=`). ref 번호는 탭마다 하나의 counter에서 이어지고(다음 snapshot은 앞 번호 다음부터) 탭은 마지막 snapshot의 ref만 든다. main frame이 이동하면 비운다. 그래서 옛 ref는 새 node를 가리키지 않고 `conflict`다.
 39. **dialog는 자동으로 닫는다.** alert·beforeunload는 accept, confirm·prompt는 dismiss이고 그 호출(다루지 않는 사이에 뜬 것은 다음 act·navigate·wait)의 결과에 `dialog`로 적는다.
 40. **take control.** agent가 다루기 시작한 탭은 탭 머리(preview는 안내 줄)에 "Agent is controlling this tab"과 [Take control]을 둔다. 사람이 가져오면 agent의 act·navigate·evaluate는 `conflict`이고 snapshot·screenshot·logs·wait·read는 된다. [Hand back]으로 푼다. 상태는 shell main 메모리에 탭마다 있고 core는 모른다.
-41. **뒤에 연 탭도 바로 다룬다.** `tab open`은 늘 뒤에 열리므로 host 탭의 browser·preview 본문은 고르지 않아도 숨은 그릇에 mount된다. agent가 다루는 동안 숨은 guest는 그리기를 이어 가야 screenshot과 입력이 되므로, 다른 내용 뒤가 아니라 창 오른쪽 아래 1px만 걸쳐 둔다(뒤에 두면 Chromium이 그리기를 멈춘다).
+41. **뒤에 연 탭도 바로 다룬다.** `tab open`은 늘 뒤에 열리므로 host 탭의 browser·preview·artifact 본문은 고르지 않아도 숨은 그릇에 mount된다. agent가 다루는 동안 숨은 guest는 그리기를 이어 가야 screenshot과 입력이 되므로, 다른 내용 뒤가 아니라 창 오른쪽 아래 1px만 걸쳐 둔다(뒤에 두면 Chromium이 그리기를 멈춘다).
 42. **screenshot.** lophn agent는 image content로 받는다. binary는 PNG를 `--out <path>`나 `<os tmpdir>/lophn-screenshots/<tab>-<unix ms>.png`에 쓰고 그 path를 찍는다(harness는 자기 Read tool로 본다). emulation된 page의 screenshot은 CSS px 크기다.
 43. **기기 emulation은 preview 탭에만 있고, 고른 기기는 탭 상태에만 있다.** emulation은 driver와 같은 debugger를 owner를 나눠 같이 쓴다(webContents 하나에 debugger 하나). DevTools가 열려 있으면 걸지 못해 Desktop으로 돌아가고 안내를 보인다.
 
@@ -124,7 +124,7 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 
 **host queue의 browser 호출.** memory route `tabs/open`, `tabs/close`, `browser/read|snapshot|act|navigate|screenshot|evaluate|logs|wait`(boundary-catalog의 host queue 계약). 호출 기한 30초. act는 `click|type|fill|press|hover|select|scroll` 하나이고 대상은 snapshot의 ref(`e12`). wait는 `--text`나 `--url` 하나와 `timeout_ms`(기본 10초, 최대 25초). `lophn tab open --preview <app> --device <name>`은 emulation 기기를 고른다(없는 이름은 `not_found`).
 
-**오류 code(agent 호출).** 남의 탭·없는 탭은 `not_found`, 낡은 ref·DevTools 열림·사람이 가져간 탭의 쓰기는 `conflict`, shell 없음·탭이 창에 없음·기한·wait 시간 끝은 `unavailable`, 틀린 url·preview 탭의 navigate는 `invalid_input`이다.
+**오류 code(agent 호출).** 남의 탭·없는 탭은 `not_found`, 낡은 ref·DevTools 열림·사람이 가져간 탭의 쓰기는 `conflict`, shell 없음·탭이 창에 없음·기한·wait 시간 끝은 `unavailable`, 틀린 url·preview·artifact 탭의 navigate는 `invalid_input`이다.
 
 **기기 emulation.** 사람이 Settings > Browser에 기기를 등록하고 preview 탭 안내 줄의 기기 고르기(Desktop과 등록한 기기)나 `--device`로 고르면 main이 그 guest에 크기·DPR(`mobile`), touch, OS별 고정 user agent를 걸고 page를 다시 load한다.
 

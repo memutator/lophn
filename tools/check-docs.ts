@@ -11,9 +11,11 @@ const REGISTRY = "project-docs/context-component-registry.yaml";
 const BOUNDARY = "project-docs/boundary-catalog.yaml";
 const SOURCES = ["AGENTS.md", ".claude/skills", "project-docs"];
 // 앞으로 생길 path와 옛 path를 적는 곳이라 지금 있는 path와 맞지 않는다.
+// issue·change-log·release-notes는 닫은 뒤에도 그때의 path가 남는 기록이다.
 const EXCLUDED = [
   "project-docs/products/change-log/",
-  "project-docs/issues/archived/",
+  "project-docs/products/release-notes/",
+  "project-docs/issues/",
   "project-docs/plan/",
   "project-docs/products/roadmap/",
 ];

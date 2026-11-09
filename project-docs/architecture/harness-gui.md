@@ -73,6 +73,7 @@ adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있�
   - sandbox와 승인 정책은 사람 설정이 `never`이거나 `danger-full-access`일 때만 `on-request`·`workspace-write`로 덮는다.
   - 다른 client(TUI)가 보낸 사람 메시지도 그린다(자기가 보낸 것은 `clientUserMessageId`로 가른다).
   - 승인은 요청이 허락한 결정만 내놓는다(이 session 동안은 `acceptForSession`이 있을 때만). 거절해도 turn은 이어 간다. 다른 client가 먼저 답하면 카드를 답 없이 닫는다. turn이 끝날 때 `cancel`을 보내지 않는다(남의 turn까지 멈춘다). 사람이 멈출 때만 아직 열린 승인에 `cancel`이다. 영구 결정(execpolicy·network amendment)은 영구라고 표시한다.
+  - 질문(`item/tool/requestUserInput`)은 질문 카드이고 답은 질문 id로 돌려준다. 이 tool은 plan mode에서만 켜진다. async 질문(`request_user_input_async`)은 server 요청 없이 `questions`를 단 `agentMessage` 하나로 온다: 글은 보통 메시지로 그리고 같은 질문을 카드로도 낸다. 기다리는 요청이 없으니 답은 새 사람 메시지(`> 질문\n\n답`)로 보내고(도는 turn이면 steer), 사람이 카드 대신 메시지를 보내도 카드는 닫힌다. 카드는 turn이 끝나도 남는다(`turn_ended`가 지우므로 그 뒤에 다시 낸다). 옛 turn을 다시 그릴 때는 카드를 만들지 않는다. MCP elicitation은 거절하고 notice를 낸다.
   - rewind는 마지막 메시지만(파일은 그대로), 이미지는 아직 끈다. turn이 없는 thread는 resume할 수 없어 첫 메시지 전에는 TUI로 넘어가지 못한다(notice). 첫 메시지 전의 TUI thread는 GUI로 열 때 새 thread로 시작한다.
   - plan mode의 "Implement" 카드는 실제 `plan` item으로는 아직 확인하지 않았다.
 - **OpenCode**
@@ -99,7 +100,7 @@ adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있�
 2. **handle 하나는 터미널 탭 하나다.** `id`(`win_…`)는 lophn session id가 아니다. `close()`는 탭과 extension이 같이 쓰는 한 길이고 두 번 불러도 `onClose`는 한 번이다.
 3. **handle은 접은 ACP 상태 하나만 쥔다.** 갱신과 글 조각은 쌓지 않는다. adapter는 GUI view가 붙기를 기다리지 않고 바로 publish한다. view가 붙으면 snapshot을 따로 한 message로 먼저 보내고 이어서 갱신을 보낸다(늦게 붙어도 같은 상태). 갱신은 handle마다 20ms 동안 모아 배열 하나로 보낸다.
 4. **탭의 view는 저장하지 않는다.** 앱을 다시 켜면 PTY도 CLI process도 남지 않는다. 저장본에서 다시 만들어진 탭(다른 workspace에 갔다 옴, 창 다시 load)은 IPC `harness-gui:tab-current`로 그 터미널에 살아 있는 handle과 main이 마지막으로 알린 view를 물어 되찾는다. 탭을 다른 창으로 옮기면 view와 handle이 따라간다.
-5. **TUI 끄기와 쳐 넣기는 main이 한다.** main은 PTY에 글을 쳐 넣고 이미 도는 shell이라 첫 출력을 기다리지 않는다. terminal-host의 `signal` 요청은 foreground process group에 SIGINT·SIGTERM을 보낸다(Linux만, foreground가 shell이면 아무것도 안 한다). foreground가 끝난 것은 1초마다 보는 foreground 변화로 안다. foreground 끝나기를 기다리는 한도는 5초이고 SIGKILL은 없다.
+5. **TUI 끄기와 쳐 넣기는 main이 한다.** main은 PTY에 글을 쳐 넣고 이미 도는 shell이라 첫 출력을 기다리지 않는다. terminal-host의 `signal` 요청은 foreground process group에 SIGINT·SIGTERM을 보낸다(Linux만, foreground가 shell이면 아무것도 안 한다). foreground가 끝난 것은 250ms마다 보는 foreground 변화로 안다(toggle이 이 간격만큼 기다린다). foreground 끝나기를 기다리는 한도는 5초이고 SIGKILL은 없다.
 6. **한 CLI session을 두 process가 동시에 쓰지 않는다.** restart handoff는 앞 process가 끝난 뒤에만 다음을 띄운다. 탭에 TUI가 보이면 adapter의 `start`는 `conflict`다.
 7. **adapter는 harness마다 하나이고 `Result`로 시작한다.** `start`가 실패하면 GUI view는 그대로 두고 오류를 실패한 turn으로 보인다. 사람이 TUI로 넘기거나 탭을 닫는다.
 8. **extension은 `ctx`로만 닿는다**([extension.md](extension.md)). CLI는 `ctx.spawn`으로 띄우고 사람의 설정과 login을 그대로 쓴다. 꺼진 extension은 code를 load하지 않으므로 탭 요청 handler(`onTab`)가 없는 것이 곧 "꺼짐"이다.
@@ -166,7 +167,7 @@ adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있�
 
 ## 열린 것
 
-열린 이슈는 `project-docs/issues/harness-gui.md`다.
+열린 이슈는 topic이 `harness-gui`인 이슈다.
 - adapter 넷이 줄 세우기 code(도는 중 보낸 메시지의 queue, 고치기, 옮기기, turn 뒤 보내기)를 각자 가진다. 하나를 고치면 넷을 같이 고쳐야 한다(defect).
 - Claude GUI의 `!` 출력은 끝날 때 한 번에 보인다. ACP에 도는 tool의 본문 갱신이 없다. shell은 `/bin/sh`로 박혀 Windows에서 돌지 않는다(defect).
 - OpenCode GUI에서 다른 client(TUI, lophn)가 live로 보낸 lophn call이 사람 메시지로 그려진다. 다시 열면 받은 메시지로 바뀐다(bug).

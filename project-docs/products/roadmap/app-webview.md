@@ -1,13 +1,13 @@
 # app webview: 앱 화면을 native view에서 `<webview>`로 옮긴다
 
-상태: 구현했다(2026-10-31, `project-docs/products/change-log/0.11.0.md`의 "앱 화면과 artifact 화면을 `<webview>` guest로 옮기고, desk를 오가도 page를 지킨다"). 앱 화면(app panel 탭, 앱 workspace 본문, 앱 card, 앱 전용 창)과 artifact 탭이 browser 탭과 같은 창의 `<webview>` 그릇에 산다. 흐름과 지키는 것은 `project-docs/architecture/workspace-layout.md`(그릇·z-index·desk 규칙·Detach), `browser-tab.md`(붙이기 규칙), `annotation.md`, `appearance.md`, `keybindings.md`, `artifact.md`다. 아래 "무엇을 만드나"·"열기 전에 확인할 것"·"단계"는 착수 전 계획 기록이다. 남은 것은 "하지 않는 것"뿐이다.
+상태: 구현했다(2026-10-31, `project-docs/products/change-log/0.11/app-artifact-webview-guest.yaml`). 앱 화면(app panel 탭, 앱 workspace 본문, 앱 card, 앱 전용 창)과 artifact 탭이 browser 탭과 같은 창의 `<webview>` 그릇에 산다. 흐름과 지키는 것은 `project-docs/architecture/workspace-layout.md`(그릇·z-index·desk 규칙·Detach), `browser-tab.md`(붙이기 규칙), `annotation.md`, `appearance.md`, `keybindings.md`, `artifact.md`다. 아래 "무엇을 만드나"·"열기 전에 확인할 것"·"단계"는 착수 전 계획 기록이다. 남은 것은 "하지 않는 것"뿐이다.
 배경 문서: `project-docs/architecture/browser-tab.md`(`<webview>` 그릇과 붙이기 규칙), `project-docs/architecture/workspace-layout.md`(그릇·z-index·Detach), `project-docs/architecture/annotation.md`(앱 view 신원), `project-docs/architecture/appearance.md`, `project-docs/architecture/keybindings.md`, AGENTS.md "속도"·"호환성".
 
 ## 왜
 
 - 앱 화면(project 창의 app panel 탭, 앱 workspace 본문, 앱 card, 앱 전용 창)과 artifact 탭은 native `WebContentsView`다. native view는 shell HTML 위에 그려져 shell의 menu, popover, floated 패널, toast가 그 밑에 깔린다.
 - 그래서 우회 장치가 쌓였다: 층 순서(`appViewOrder`), cover(`useViewCover`, `createViewCovers`)로 view 줄이기, 위치를 IPC로 보내 main이 맞추기(`VIEW_BOUNDS_CHANNEL`, DIP 변환), 앱 workspace menu가 열린 동안 view 숨기기(`workspace-layout.md`), DOM 대신 overlay view에 그리는 toast(`use-view-toast.ts`).
-- browser 탭은 같은 문제로 이미 native view에서 `<webview>`로 옮겼고(`browser-tab.md` "보통 탭을 `<webview>`로 바꿨다(사람)"), 그 뒤로 겹침 문제가 없다. 앱 화면도 같은 그릇으로 모은다(사람, 2026-10-31).
+- browser 탭은 같은 문제로 이미 native view에서 `<webview>`로 옮겼고(`browser-tab.md`의 모델, 그릇은 `<webview>`), 그 뒤로 겹침 문제가 없다. 앱 화면도 같은 그릇으로 모은다(사람, 2026-10-31).
 
 ## 착수 전 코드(기록)
 
@@ -21,7 +21,7 @@
   - `useViewCover` 3곳: `workspace/floats/floats.tsx`, `app-frame/side-panel.tsx`, `artifact/artifact-tab.tsx`.
   - `useViewBounds` 4곳: `embedded-view.tsx` 안, `artifact/artifact-tab.tsx`, `browser/browser-tab.tsx`(native popup), `browser/devtools-pane.tsx`.
 - browser `<webview>` 그릇 `renderer/browser/webview-host.tsx`(`createWebviewHost`)는 창마다 하나, 탭 key당 `<webview>` 하나이고 옮기지 않고 위치·z-index·보임만 바꾼다. 붙이기 규칙 `main/browser/webview-guest.ts`의 `hardenWebviewAttach`는 `persist:lophn-browser`만 받는다.
-- 떠난 desk의 `<webview>`는 놓아 다시 load된다(`issues/workspace-layout.md` "desk를 떠났다 돌아오면 일반 browser 탭의 page가 다시 load된다"). app panel native view는 `allDeskTabs`로 판정해 산다(`workspace/workspace.tsx` view 해제 effect).
+- 떠난 desk의 `<webview>`는 놓아 다시 load된다(이슈 `desk-switch-reloads-browser-page`). app panel native view는 `allDeskTabs`로 판정해 산다(`workspace/workspace.tsx` view 해제 effect).
 - appearance CSS와 `data-lophn-locale`은 `wiring/appearance.ts`가 `web-contents-created`의 `dom-ready`에서 URL(`lophn-app://` 등)로 골라 넣는다. guest도 같은 길로 받는다[INFERENCE].
 - 단축키는 `wiring/desktop.ts`가 guest를 `hostWebContents`로 창에 잇는다. browser guest에서 이미 쓴다.
 - native view 장치(`placement.ts`, `view-order.ts`, `visibility.ts`, `bounds.ts`, `embedded-view.tsx`, `moveViews`)를 보는 test는 없다.

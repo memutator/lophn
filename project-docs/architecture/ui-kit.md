@@ -172,7 +172,7 @@ check `sdk notes` step은 지금 판과 하한의 메모, 하한이 판보다 �
 - guide 예산은 tool 한 창보다 작은 20 KiB다. props는 분류마다 돌아가며 배분한다. 옛 길은 알파벳 앞 분류가 예산을 다 써서 앱에서 가장 많이 쓰는 `primitives`와 `overlay`가 먼저 사라졌다. 버린 안: props를 guide에서 빼기(13 KiB로 돌아가지만 agent가 props를 모른다). (agent)
 - 창 크기는 tool 결과 상한에서 JSON overhead를 빼서 재고, 넘치면 줄여 다시 재서 escape가 늘어나는 본문도 상한을 넘지 않게 한다. (agent)
 - 화면 지침은 slop을 없애는 원칙만 둔다. 어떤 component를 쓰라고 지시하지 않고 무엇을 쓸지는 앱 agent가 guide에서 찾는다. 설계 절차, kit 찾기, 화면 원칙은 role prompt가 아니라 skill(`design-app`)에 둔다. (사람)
-- kit은 artifact view에 판 고정 IIFE로 준다. kit 쓰는 법은 `write-artifact` 한 곳에 둔다. domain artifact를 쓰는 role이 모두 받고, 같은 API 설명이 두 곳에 있으면 갈라진다. 자기 kind를 가리키는 `ref`는 kind 지도에 edge로 그리지 않고 node의 note에 쓴다(kit은 self-edge 하나로 그림 전체를 오류로 그린다). (agent, planner)
+- kit은 artifact view에 판 고정 IIFE로 준다. kit 쓰는 법은 `write-artifact` 한 곳에 둔다. domain artifact를 쓰는 role이 모두 받고, 같은 API 설명이 두 곳에 있으면 갈라진다. 자기 kind를 가리키는 `ref`는 kind 지도에 edge로 그리지 않고 node의 note에 쓴다(kit은 self-edge 하나로 그림 전체를 오류로 그린다). (agent)
 - GraphDiagram의 되돌아가는 edge는 node 줄 위 여백으로 돌린다(작은 변경). 버린 안: 되돌아가는 edge가 지나는 층에 빈 자리를 두어 그 높이로 지나게 하기(layout 규칙이 늘고 node 위치가 바뀐다). (agent)
 - SDK 판 메모는 skill 하나에 file로 더하고 지우지 않는다. agent는 범위만 읽어 context는 그 앱이 뒤처진 만큼만 커진다. 버린 안: 판마다 skill. (사람)
 - `@lophn/agent` 하한은 1.1.0이다. `agt_` id를 넘긴 1.2.0 앱만 깨지는데 판으로 알 수 없어 1.3.0 메모에 적었다. (agent)
@@ -184,7 +184,7 @@ check `sdk notes` step은 지금 판과 하한의 메모, 하한이 판보다 �
 
 ## 열린 것
 
-- 감지로 쓴 `sdk_update_needed` 줄은 기동 중에 쓰므로 toast가 뜨지 않고 배지와 History로만 보인다(`issues/shell.md`).
+- 감지로 쓴 `sdk_update_needed` 줄은 기동 중에 쓰므로 toast가 뜨지 않고 배지와 History로만 보인다(이슈 `startup-program-notice-no-toast`).
 - 감지는 제품 판이나 설치된 SDK 판 묶음이 바뀔 때만 돈다. 감지 뒤 지금 상태를 앱 단위로 닫는 길은 없다(위 "SDK 업데이트 감지와 맡기기").
 - `update-apps` skill을 실제 model이 그대로 따르는지는 eval이 없다.
 - 오래된 major 구간이 길어지면 제품을 낼 때 메모를 합친다.

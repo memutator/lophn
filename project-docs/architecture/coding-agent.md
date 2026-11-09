@@ -175,7 +175,7 @@ harness session은 `lophn tab open --session <ses> --tui`로 터미널 탭에서
 
 ## 열린 것
 
-이슈는 `project-docs/issues/coding-agent.md`.
+열린 이슈는 topic이 `coding-agent`인 이슈다.
 
 - binary `lophn`의 help에 사람 token으로는 거절되는 명령이 보인다(`job.create`, `call.*`, `session.list`, `package.publish`는 actor가 agent만이라 `forbidden`). 사람 터미널의 coding agent에는 아직 신원이 없다. coding agent 신원과 같이 열거나 그때까지 help에서 빼거나 표시한다.
 - fork한 harness session이 외부 session id를 물려받지 않아 harness 쪽 앞 대화를 잃는다. headless resume이 fork를 지원하는 harness(`claude --resume --fork-session` 등)만 id를 물려주는 방안이 있다.

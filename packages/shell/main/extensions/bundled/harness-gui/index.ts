@@ -196,6 +196,8 @@ export function activate(ctx: ExtensionContext): void {
   async function gui(request: AcpTabRequest): Promise<void> {
     const { terminal, harness } = request;
     const adapter = HARNESS_GUI_ADAPTERS[harness];
+    // login shell은 처음 한 번 느리다(rc file). TUI가 끝나길 기다리는 동안 읽어 두어 start가 기다리지 않게 한다.
+    login ??= loginEnv(ctx.spawn);
     const session = ctx.acp.open({
       terminal,
       harness,

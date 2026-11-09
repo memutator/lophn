@@ -5,7 +5,7 @@ description: lophn SDK 판(`packages/sdk/*`, 지원 소스 `packages/design` 등
 
 # SDK 판 메모 쓰기
 
-앱은 lophn SDK를 정확한 판으로 고정한다. lophn이 판을 올리면 앱의 lophn agent가 내장 skill `migrate-sdk`(`packages/core/agent-workspaces/skills/migrate-sdk/`)의 메모를 고정 판 다음부터 지금 판까지 `Previous:`를 따라 읽고 코드와 자기 지침을 고친다. 그래서 메모는 앱 agent가 이 저장소를 모른 채 읽고 따라 할 수 있어야 한다. 읽는 쪽 절차는 그 skill의 `SKILL.md`이고, 메모 저장과 지원 하한의 규칙은 `project-docs/architecture/ui-kit.md`의 판 절이다.
+앱은 lophn SDK를 정확한 판으로 고정한다. lophn이 판을 올리면 앱의 lophn agent가 내장 skill `migrate-sdk`(`packages/core/agent-workspaces/skills/migrate-sdk/`)의 메모를 고정 판 다음부터 지금 판까지 `Previous:`를 따라 읽고 코드와 자기 지침을 고친다. 그래서 메모는 앱 agent가 이 저장소를 모른 채 읽고 따라 할 수 있어야 한다. 읽는 쪽 절차는 그 skill의 `SKILL.md`이고, 메모 저장과 지원 하한의 규칙은 `project-docs/architecture/ui-kit.md`의 모델 "앱 SDK 판과 지원 하한"이다.
 
 ## 언제
 
@@ -23,7 +23,7 @@ description: lophn SDK 판(`packages/sdk/*`, 지원 소스 `packages/design` 등
 
 ## 2. pin을 고친다
 
-판을 올린 SDK마다 정확한 판이 적힌 곳을 모두 바꾼다. 하나라도 빠지면 `npm ci`가 깨진다(`project-docs/issues/mistakes.md`에 빠뜨린 일이 있다).
+판을 올린 SDK마다 정확한 판이 적힌 곳을 모두 바꾼다. 하나라도 빠지면 `npm ci`가 깨진다(이슈 `sdk-bump-leaves-workspace-pin`에 빠뜨린 일이 있다).
 
 ```
 grep -rn '"@lophn/<part>"\|@lophn/<part>@\|sdk/<part>/' \
@@ -94,4 +94,4 @@ SDK와 지원 소스의 `package.json`에는 `"lophn": {"supported_from": "x.y.z
 
 - `node tools/check-sdk-notes.ts`: 지금 판과 하한의 메모, `Previous:`·`Breaking:` 줄, 메모 사슬, 하한 ≤ 판.
 - `npm run check`. pin을 고쳤으면 `npm ci`가 깨끗한 worktree에서 되는지도 본다.
-- changelog 열린 판 항목에 바뀐 SDK 판을 적는다(`@lophn/<part>` 판, 무엇이 바뀌었나).
+- change-log 항목(`products/change-log/<x.y>/<id>.yaml`)의 `change`에 바뀐 SDK 판을 적는다(`@lophn/<part>` 판, 무엇이 바뀌었나).

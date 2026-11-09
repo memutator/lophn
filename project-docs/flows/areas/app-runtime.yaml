@@ -959,7 +959,7 @@ flows:
     refs: [P12]
     docs: [architecture/app-call.md]
     unclear:
-      - "preview 화면의 operation 호출은 shell main의 declaration-source가 live 선언만 읽어 unavailable이다(issues/app-call.md 'preview 화면은 operation을 부르지 못한다'). 이 flow는 live만 다룬다."
+      - "preview 화면의 operation 호출은 shell main의 declaration-source가 live 선언만 읽어 unavailable이다(이슈 preview-screen-cannot-call-operation). 이 flow는 live만 다룬다."
       - "앱이 낸 failed의 code는 앱이 정한 문자열이 그대로 페이지에 간다(process-wire의 error code는 z.string). 일곱 code 밖일 수 있다."
       - "shell의 coreFailure가 conflict를 'app view가 바뀜'으로 옮기지만 call_tool은 conflict를 내지 않는다. 그래서 이 flow에 conflict 갈래는 없다."
 
@@ -1445,7 +1445,7 @@ flows:
     refs: [H10]
     docs: [architecture/app-call.md]
     unclear:
-      - "OAuth 실패 이유(callback_timeout, refresh_rejected 등)는 메모리 map에만 있어 core가 다시 켜지면 사라진다(issues/app-call.md 첫 항목). sign-in-required의 이유 글도 같다."
+      - "OAuth 실패 이유(callback_timeout, refresh_rejected 등)는 메모리 map에만 있어 core가 다시 켜지면 사라진다(이슈 oauth-failure-reason-lost-on-restart). sign-in-required의 이유 글도 같다."
       - "invalid_input이 refresh 경로에서 바깥으로 나오는지는 코드상 없어 보인다(unavailable이나 ok로 바뀐다). 확인이 필요하다."
 
   - id: app-broker-secret-use
@@ -1638,7 +1638,7 @@ flows:
     refs: [H10]
     docs: [architecture/app-call.md]
     unclear:
-      - "실패 이유는 메모리 failures map에만 있어 core가 다시 켜지면 사라진다(issues/app-call.md 첫 항목)."
+      - "실패 이유는 메모리 failures map에만 있어 core가 다시 켜지면 사라진다(이슈 oauth-failure-reason-lost-on-restart)."
       - "실패와 취소의 결과는 push 화면이 없고 oauth_state read로 보인다. observe를 response:apps/oauth_state로 적었다. 화면 frame을 쓸지는 정하지 않았다."
 
   - id: app-oauth-sign-out
@@ -1678,7 +1678,7 @@ flows:
     steps:
       - "지금 release 선언에서 oauth 블록이 있는 secret마다 한 줄을 만든다."
       - "상태는 none, in_progress, signed_in, failed 가운데 하나다. failed면 이유가 있다. 값은 없다. expired는 읽을 때 계산한다."
-      - "report는 실패하지 않는다. 저장소 읽기가 실패하면 그 secret은 none으로 보인다. 상태는 메모리 report라 core가 다시 켜지면 failed 이유가 사라진다(issues/app-call.md)."
+      - "report는 실패하지 않는다. 저장소 읽기가 실패하면 그 secret은 none으로 보인다. 상태는 메모리 report라 core가 다시 켜지면 failed 이유가 사라진다(이슈 oauth-failure-reason-lost-on-restart)."
     outcomes:
       - id: listed
         observe: [response]

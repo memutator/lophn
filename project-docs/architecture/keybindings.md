@@ -150,7 +150,7 @@ OS마다 따로 저장하고(macOS의 Cmd 조합을 Linux에 옮기면 뜻이 �
 
 ## 열린 것
 
-이슈 모음은 `project-docs/issues/keybindings.md`다(아직 개별 id가 없다).
+이슈는 topic이 `keybindings`인 이슈다.
 
 - **browser 머리 줄의 북마크 키와 desktop 팔레트의 Home hint가 사람이 바꾼 키를 따르지 않는다.** browser 탭 본문과 page는 `browser.bookmark` 줄(사람이 바꾼 키 포함)을 따르지만, card mode 머리 줄의 주소 칸은 아직 Ctrl/Cmd+D를 직접 듣는다. desktop 팔레트의 Home 줄 hint는 기본 표만 읽는다. 추천: 머리 줄을 `browser` context 안에 두어 command가 받게 하고 desktop 팔레트가 override를 읽게 한다.
 - **main이 먼저 받는 키를 단 앱 key는 앱 안에서 돌지 않는다.** 앱이 `Ctrl+W`나 `Ctrl+Tab`을 선언하면 Settings에는 줄이 보이지만 눌러도 앱 handler가 돌지 않는다. 선언 검사가 이 chord를 거절하지 않는다. 추천: 겹침 검사에 앱 key와 `main` 줄의 겹침을 보인다.

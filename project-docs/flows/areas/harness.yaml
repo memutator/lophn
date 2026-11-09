@@ -331,7 +331,7 @@ flows:
     title: agent나 사람 token이 session이나 browser 탭을 열어 달라고 요청한다
     actor: agent
     entries: [route:tabs/open]
-    when: "target이 session이거나 browser일 때. tui는 harness-tui-open, preview는 host-preview-tab-open이 맡는다"
+    when: "target이 session이거나 browser일 때. tui는 harness-tui-open, preview는 host-preview-tab-open, artifact는 host-artifact-tab-open이 맡는다"
     boundary: [host-queue-interface, host-queue-core]
     code:
       - packages/core/main/daemon/wiring/host-queue.ts
@@ -339,7 +339,7 @@ flows:
       - packages/protocol/lophn-agent/host-queue.ts
     steps:
       - "lophn tool이나 lophn tab open 명령이 agent 자격이나 사람 token으로 부른다. 탭의 주인은 agent면 그 session, 사람 token이면 모두 같은 주인 person이다"
-      - "사람 token은 browser(--url) 탭만 연다. session 대상이면 invalid_input"
+      - "사람 token은 이 flow에서 browser(--url) 탭만 연다. session 대상이면 invalid_input"
       - "agent면 자격의 session 행을 읽는다. 없으면 not_found, session 자격이 없으면 forbidden"
       - "session 대상이면 같은 workspace의 열린 session인지 본다. 아니면 not_found"
       - "browser 대상이면 url이 http나 https인지 본다. 아니면 invalid_input"
@@ -358,7 +358,7 @@ flows:
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "browser url이 http나 https가 아니다. 또는 사람 token이 browser나 preview가 아닌 대상(session, tui)을 열려 한다"
+        when: "browser url이 http나 https가 아니다. 또는 사람 token이 browser·preview·artifact가 아닌 대상(session, tui)을 열려 한다"
         observe: [response]
     crosses_process: false
     risk: [sandbox]
@@ -409,6 +409,45 @@ flows:
     unclear:
       - "preview 탭 접수 뒤 preview가 멈추거나 바뀌면 shell이 어떻게 그 탭을 다루는지는 shell-workspace 쪽이 본다"
 
+  - id: host-artifact-tab-open
+    title: agent나 사람 token이 그 workspace의 artifact를 artifact마다 하나인 host 탭으로 열어 달라고 요청한다
+    actor: agent
+    uses: [route:tabs/open]
+    when: "target이 artifact일 때"
+    boundary: [host-queue-interface, host-queue-core]
+    code:
+      - packages/core/main/daemon/wiring/host-queue.ts
+      - packages/core/host-queue/queue.ts
+      - packages/shell/renderer/workspace/use-surface-requests.ts
+    steps:
+      - "workspace는 agent면 자기 session의 것, 사람 token이면 입력의 workspace(없으면 home)다. 남의 workspace를 고를 길이 없다"
+      - "home이면 artifact가 없어 invalid_input이다"
+      - "그 workspace의 artifacts/<name>/이 폴더이고 입구 index.html이 일반 file인지 lstat으로 본다(symlink는 아니다). 아니면 not_found"
+      - "artifact마다 host 탭은 하나다. 이미 있으면 그 탭 id를 돌려주고 주인이 새로 연 쪽이 된다"
+      - "없으면 새 탭을 표에 올리고 그 workspace로 tab_open을 넣은 뒤 accepted를 돌려준다. 창은 사람이 연 같은 artifact 탭이 있으면 그 자리에 host 탭을 열고 그것을 닫는다"
+    outcomes:
+      - id: accepted
+        when: "새 artifact 탭을 접수했다"
+        observe: [response]
+      - id: reused
+        when: "그 artifact의 host 탭이 이미 있다. 같은 tab id를 돌려주고 주인이 바뀐다"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "agent의 session이 없다, 그 workspace에 그 이름의 artifact(입구 index.html)가 없다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "workspace가 home이다(agent의 session이 home이거나 사람 token이 workspace를 주지 않았다)"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        observe: [response]
+    crosses_process: false
+    risk: [sandbox]
+    docs: [architecture/artifact.md, architecture/browser-tab.md, architecture/workspace-layout.md]
+
   - id: harness-tui-open
     title: harness agent session을 TUI 탭으로 연다(CLI session을 hold한다)
     actor: agent
@@ -435,7 +474,7 @@ flows:
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "대상이 harness session이 아니거나 project workspace가 아니다. 또는 사람 token이 불렀다(사람 token은 browser와 preview 탭만 연다)"
+        when: "대상이 harness session이 아니거나 project workspace가 아니다. 또는 사람 token이 불렀다(사람 token은 browser·preview·artifact 탭만 연다)"
         observe: [response]
       - id: conflict
         code: conflict
@@ -492,13 +531,13 @@ flows:
     steps:
       - "agent 자격의 session이나 사람 token이 부른다"
       - "남이 연 탭이거나 탭이 없으면 not_found"
-      - "browser 탭이고 상태가 있으면 url, title, loading을 돌려준다. 상태가 아직 없거나 agent 탭이나 preview 탭이면 not_found"
+      - "browser 탭이고 상태가 있으면 url, title, loading을 돌려준다. 상태가 아직 없거나 agent·preview·artifact 탭이면 not_found"
     outcomes:
       - id: state
         observe: [response]
       - id: not_found
         code: not_found
-        when: "남의 탭이거나 없거나, browser 상태가 아직 없거나, agent 탭이나 preview 탭이다"
+        when: "남의 탭이거나 없거나, browser 상태가 아직 없거나, agent·preview·artifact 탭이다"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -507,9 +546,9 @@ flows:
     crosses_process: false
     docs: [architecture/browser-tab.md]
 
-  # ---- agent가 연 browser·preview 탭을 CDP로 다루는 호출 ----
+  # ---- agent가 연 browser·preview·artifact 탭을 CDP로 다루는 호출 ----
   - id: host-browser-inspect
-    title: agent나 사람 token이 자기가 연 browser·preview 탭의 접근성 tree, screenshot, console 줄을 읽는다
+    title: agent나 사람 token이 자기가 연 browser·preview·artifact 탭의 접근성 tree, screenshot, console 줄을 읽는다
     actor: agent
     entries: [route:browser/snapshot, route:browser/screenshot, route:browser/logs]
     uses: [host-request-take:request, host-request-done:done, system:browser-call-run]
@@ -613,7 +652,7 @@ flows:
       - packages/shell/main/browser/agent/driver.ts
       - packages/shell/main/browser/agent/keys.ts
     steps:
-      - "host-browser-inspect와 같이 주인을 대조한다. act는 type별 칸을 다시 검사하고, navigate는 preview 탭이면 거절하고 url이 http·https·about:blank인지 본다"
+      - "host-browser-inspect와 같이 주인을 대조한다. act는 type별 칸을 다시 검사하고, navigate는 preview·artifact 탭이면 거절하고 url이 http·https·about:blank인지 본다"
       - "shell이 붙어 있으면 browser_call을 넣고 결과를 기다린다. 사람이 그 탭을 가져가(take control) 있으면 shell이 conflict로 거절한다"
       - "act는 ref가 가리키는 node에 click, type, fill, press, hover, select, scroll을 하고 page가 가라앉기를 기다린 뒤 url, title을 돌려준다. 낡은 ref는 conflict다"
       - "navigate는 이동하고 가라앉기를 기다린다. evaluate는 page에서 식을 돌려 JSON 값을 돌려준다. page 안의 예외는 오류가 아니라 exception 글이다"
@@ -634,7 +673,7 @@ flows:
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "act의 type에 맞지 않는 칸, preview 탭의 navigate, http·https·about:blank 밖의 url, 모르는 key 이름, ref의 node가 그 조작을 받지 못한다"
+        when: "act의 type에 맞지 않는 칸, preview·artifact 탭의 navigate, http·https·about:blank 밖의 url, 모르는 key 이름, ref의 node가 그 조작을 받지 못한다"
         observe: [response]
       - id: conflict
         code: conflict
@@ -667,7 +706,7 @@ flows:
       - packages/shell/main/desktop/wiring/surface.ts
     steps:
       - "take가 browser_call을 주면 창에 보내지 않고 shell main이 따로 돌린다. 끝나면 결과나 오류를 done에 싣는다"
-      - "창이 bind로 알린 view session에서 page를 찾는다. browser 탭은 webview guest, preview 탭은 mode가 preview인 앱 view다. 앱 live view는 어떤 경우에도 고르지 않는다. 없으면 unavailable"
+      - "창이 bind로 알린 view session에서 page를 찾는다. browser 탭은 browser partition의 webview guest, preview 탭은 mode가 preview인 앱 view, artifact 탭은 artifact view registry에 붙은 guest다. 앱 live view는 어떤 경우에도 고르지 않는다. 없으면 unavailable"
       - "그 탭을 agent가 다루는 중으로 적는다. 사람이 take control 중이면 act, navigate, evaluate는 conflict이고 읽기(snapshot, screenshot, logs, wait)는 된다"
       - "DevTools가 열려 있거나 다른 debugger가 붙어 있으면 붙지 않고 conflict다. 붙으면 DOM, Accessibility 등 domain을 켠다"
       - "snapshot마다 ref를 새로 매긴다. 새 snapshot이나 main frame 이동 뒤 옛 ref는 conflict다"
@@ -694,7 +733,7 @@ flows:
         observe: [response]
       - id: rejected
         code: invalid_input
-        when: "preview 탭의 navigate, 허용하지 않는 url, 모르는 key, ref의 node가 그 조작을 받지 못해 page 함수가 던짐, wait에 text와 url이 둘 다/둘 다 없음"
+        when: "preview·artifact 탭의 navigate, 허용하지 않는 url, 모르는 key, ref의 node가 그 조작을 받지 못해 page 함수가 던짐, wait에 text와 url이 둘 다/둘 다 없음"
         observe: [response]
       - id: timeout
         code: unavailable
@@ -1400,7 +1439,7 @@ flows:
         observe: [process:pty-shell]
     crosses_process: true
     risk: [secret, twice-fixed]
-    docs: [architecture/terminal-agent.md, products/change-log/0.9.0.md]
+    docs: [architecture/terminal-agent.md, products/change-log/0.9/terminal-env-colorterm-truecolor.yaml]
     unclear:
       - "env_test는 COLORTERM만 단정한다. secret 이름을 빼는 것은 테스트가 없다"
 

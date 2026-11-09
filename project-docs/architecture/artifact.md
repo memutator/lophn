@@ -80,8 +80,9 @@ agent의 결과가 사람에게 가는 길이 대화 글, 파일, 앱 화면뿐�
 18. **파일이 바뀌면 열린 탭이 다시 load한다.** artifact와 workflow artifact는 폴더 전체, 사람의 `.html`은 그 폴더 바로 아래만 지켜본다(사람의 폴더는 클 수 있다). 150ms 동안 모아 cache 없이 한 번 다시 load한다. view가 깨진 상태(crashed)면 하지 않는다. 폴더가 사라지거나 watch가 깨지면 조용히 멈춘다.
 19. **같은 창에서 같은 source는 view 하나다.** 탭이 Float·Dock으로 다시 mount되어도 창의 `<webview>` 그릇이 element를 들고 있고 view_session도 그대로다. 같은 source를 동시에 연 요청은 먼저 만든 view로 모인다. main이 새 화면을 열 때(열기, crash 뒤 다시 열기)는 `mount`가 바뀐 새 src를 내고 renderer가 element를 새로 만든다. 건강한 view의 reload는 cache 없이 다시 load하고 깨진 view의 reload는 새 화면 세대를 연다.
 20. **폴더가 없으면 view를 만들지 않는다.** open은 not_found로 답하고 탭이 안내와 다시 시도 단추를 그린다. 봉한 session을 못 세웠으면 unavailable이다.
-21. **workspace를 바꾸면 artifact 탭의 page는 놓고 돌아오면 다시 load한다.** artifact page의 preload에는 bridge가 없어 "살려 둬" 신호를 보낼 길이 없다(`architecture/workspace-layout.md`의 "workspace를 떠나도 살려 두는 page"). Detach하면 page가 다시 load된다.
-22. **artifact IPC는 desktop 창의 shell renderer에서 온 요청만 받는다.** 요청마다 sender가 살아 있는 desktop 창의 main frame인지, 입력이 schema에 맞는지 본다. 창은 sender에서 main이 정한다. view를 열 수 있는 것은 이 길뿐이고 page(guest)는 부르지 못한다.
+21. **workspace를 바꾸면 artifact 탭의 page는 놓고 돌아오면 다시 load한다.** artifact page의 preload에는 bridge가 없어 "살려 둬" 신호를 보낼 길이 없다(`architecture/workspace-layout.md`의 `<webview>` 그릇 절, workspace를 떠나도 살려 두는 page). Detach하면 page가 다시 load된다.
+22. **쓴 agent가 화면을 보고 다룰 수 있다.** `lophn tab open --artifact <name>`이 그 그릇 workspace의 artifact를 host 탭(key `host:<tab>`)으로 열고, `lophn browser snapshot|screenshot|act|evaluate|logs|wait`가 앱의 preview 탭처럼 그 page를 CDP로 다룬다(`architecture/browser-tab.md` "agent가 다루는 탭", 여는 규칙은 `architecture/workspace-layout.md` "agent가 연 탭"). main은 artifact view registry에 붙은 guest만 고르고 navigate는 `invalid_input`이다: page 안의 상대 link는 page가 따라가고 다른 artifact는 다른 탭이다. CDP는 page를 바깥에서 다루는 것이라 봉한 규칙(network, scheme, CSP)은 그대로다. 사람이 연 artifact 탭은 core의 표에 없어 다루지 못한다.
+23. **artifact IPC는 desktop 창의 shell renderer에서 온 요청만 받는다.** 요청마다 sender가 살아 있는 desktop 창의 main frame인지, 입력이 schema에 맞는지 본다. 창은 sender에서 main이 정한다. view를 열 수 있는 것은 이 길뿐이고 page(guest)는 부르지 못한다.
 
 ## 경계와 계약
 
@@ -97,7 +98,7 @@ agent의 결과가 사람에게 가는 길이 대화 글, 파일, 앱 화면뿐�
 
 ## 결정
 
-- **artifact 전용 tool을 두지 않는다.** 이유: 만들기는 file tool, 찾기는 관례 자리, 알리기는 agent의 말과 link, annotation 받는 쪽은 rewind 기록으로 이미 된다. (사람, roadmap)
+- **artifact 전용 tool을 두지 않는다.** 이유: 만들기는 file tool, 찾기는 관례 자리, 알리기는 agent의 말과 link, annotation 받는 쪽은 rewind 기록으로 이미 된다. 화면 확인도 새 명령 없이 앱 preview가 쓰는 `tab open`과 `browser *`에 대상 하나(`artifact`)를 더했다. (사람, roadmap; 화면 확인은 agent, 2026-11-09)
 - **화면에서 artifact를 지우는 단추를 두지 않는다.** 이유: 지운 폴더는 rewind로 되살릴 수 없어 확인 대화상자와 data 손실 test가 필요하다. 지금은 agent에게 시키거나 파일 관리자로 지운다(roadmap `artifact.md`). (사람, 2026-10-19)
 - **agent는 artifact를 절대 path로 쓴다.** 이유: 상대 path의 기준이 사람의 project 폴더라서 상대 `artifacts/…`는 사람의 폴더에 써진다. (agent)
 - **제목과 설명을 HTML에서 읽는다.** 이유: metadata 파일을 따로 두면 둘이 어긋난다.

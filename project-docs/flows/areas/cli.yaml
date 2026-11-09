@@ -161,7 +161,7 @@ flows:
       - id: run-args-invalid
         code: invalid_input
         observe: [response]
-        when: "명령 run이 실행 전에 인자 조합을 거른다. agent run의 --session과 --agent·--project·--app, --project와 --app, --schema가 JSON object가 아님. tab open의 --session과 --url이 둘 다 있거나 둘 다 없음, --tui에 --session이 없음. call reply의 --allow와 --reject 동시, 결정 없이 body도 없음. package read에서 name 없이 version이나 offset_bytes"
+        when: "명령 run이 실행 전에 인자 조합을 거른다. agent run의 --session과 --agent·--project·--app, --project와 --app, --schema가 JSON object가 아님. tab open의 --session·--url·--preview·--artifact 가운데 정확히 하나가 아님, --device에 --preview가 없음, --tui에 --session이 없음. call reply의 --allow와 --reject 동시, 결정 없이 body도 없음. package read에서 name 없이 version이나 offset_bytes"
       - id: app-lookup-unavailable
         code: unavailable
         observe: [response]

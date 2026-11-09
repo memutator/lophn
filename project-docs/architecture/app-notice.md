@@ -53,7 +53,7 @@
 | `app_unavailable` | 앱이 사용 불가가 됨(시작 실패, crash loop, 예기치 않은 종료, activation의 복원 실패·종료 확인 불가). 같은 사실의 재전송은 쓰지 않는다 | `app_unavailable`(앱마다 한 줄. 되풀이되면 그 줄을 안 읽음으로 되돌린다) |
 | `app_data_migrated`, `app_data_restored` | 앱 data migration이 적용됨, 백업에서 복원됨. 복원은 새로 기록할 때만 | 없음 |
 | `lophn_updated` | 제품 판이 바뀐 기동(아래 "제품 판 marker") | 없음 |
-| `sdk_update_needed` | 제품 판이나 설치된 SDK 판이 바뀐 기동의 SDK 감지(`architecture/ui-kit.md`의 "SDK 상태와 감지"). 필수나 가능 SDK가 있는 앱이 하나라도 있을 때 앱 없는 줄 하나 | `sdk_update_needed`(다음 기동이 개수를 새로 쓰고 안 읽음으로 되돌린다) |
+| `sdk_update_needed` | 제품 판이나 설치된 SDK 판이 바뀐 기동의 SDK 감지(`architecture/ui-kit.md`의 "SDK 상태 read"와 "SDK 업데이트 감지와 맡기기"). 필수나 가능 SDK가 있는 앱이 하나라도 있을 때 앱 없는 줄 하나 | `sdk_update_needed`(다음 기동이 개수를 새로 쓰고 안 읽음으로 되돌린다) |
 
 `sdk_update_needed`의 params는 `{required, available}`(옮겨야 하는 앱 수, 필수는 아니지만 새 판이 있는 앱 수)이고 글은 "SDK updates for your apps" / "3 apps must update, 2 can use new SDK features."이다. action은 `open_home_skill` `update-apps` + 빈 args(전체)다. 앱마다 줄을 만들지 않는 것은 각 앱을 두고 갈지 올릴지(그리고 새 SDK 기능을 쓸지) 숲으로 보는 일이 사람이 아니라 home lophn의 몫이기 때문이다. 앱마다 있던 옛 `sdk_update_needed` 줄(앱 있음)은 program 줄이라 지울 수 없어 남고 단추도 그대로 동작한다.
 
@@ -174,7 +174,7 @@ Inbox는 탭 둘이다.
 
 ## 열린 것
 
-- 기동 중에 쓴 program 줄(`sdk_update_needed`)은 toast가 없다. 기동 뒤 Gateway가 붙으면 안 읽은 급한 줄을 `notices.open`으로 읽어 한 번 띄우는 안이 있다(작음, 급하지 않음). `project-docs/issues/shell.md`의 "기동 때 쓴 program 기록의 toast가 뜨지 않는다".
+- 기동 중에 쓴 program 줄(`sdk_update_needed`)은 toast가 없다. 기동 뒤 Gateway가 붙으면 안 읽은 급한 줄을 `notices.open`으로 읽어 한 번 띄우는 안이 있다(작음, 급하지 않음). 이슈 `startup-program-notice-no-toast`.
 - 실패 이유에는 앱의 migration script가 낸 글이 실릴 수 있다(앞 200자로 자른다).
 - 복원된 실패는 toast가 둘(실패, data 복원) 뜰 수 있다.
 - program 기록에 project가 비어 있다.

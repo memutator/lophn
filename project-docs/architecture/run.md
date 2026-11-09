@@ -50,7 +50,7 @@ run 기록 한 행(`runs` 표)이 정본이다. 화면과 CLI는 읽고, 쓰는 
 - `invocation`: tool run만 갖는다. 기록이 남지 않은 읽기면 null이다.
 - `schema`: agent run의 출력 JSON Schema다.
 - `result`: done의 값이다. agent는 답 글(schema가 있으면 읽은 JSON 값), tool은 tool 결과다.
-- `job`, `instance`: job이 연 run만 `job`에 그 job의 id를, flow instance가 연 run만 `instance`에 그 instance의 id를 갖는다. 둘이 함께 값이 되지 않는다. FK가 없어 job이나 instance가 지워져도 run은 남는다. job이 run을 여는 것은 `architecture/job.md`, flow가 여는 것은 `architecture/workflow.md` "flow"다.
+- `job`, `instance`: job이 연 run만 `job`에 그 job의 id를, flow instance가 연 run만 `instance`에 그 instance의 id를 갖는다. 둘이 함께 값이 되지 않는다. FK가 없어 job이나 instance가 지워져도 run은 남는다. job이 run을 여는 것은 `architecture/job.md`, flow가 여는 것은 `architecture/workflow.md`(flow)다.
 - 거르기용 key: workspace와 agent는 만들 때 정해 바뀌지 않는다. agent key는 `<agent id>`(home) 또는 `<agent id>@<workspace id>`다. workspace는 agent run이면 그 session의 workspace(home은 없음), tool run이면 그 앱이다.
 
 **실패 이유.** `error.reason`은 경계의 오류 코드 일곱이 아니라 기록의 칸이다.
@@ -105,7 +105,7 @@ unattended
 20. 켤 때 queue는 비고, run 입력은 다시 줄 세우지 않는다(`architecture/workspace-session.md`). 먼저 `TurnEnded`와 `SessionEnded`를 구독하고 reconcile한다. router가 돌던 turn을 닫은 뒤여야 해서 기동 순서에서 runs는 router 뒤다.
 21. reconcile에서 running인 tool run은 `lophn_restarted`다. 호출의 결과를 알 길이 없다.
 22. reconcile에서 agent run은 turn을 다시 본다. 끝난 turn이면 그 결과로 닫고, 아직 turn이 가져가지 않았으면 `lophn_restarted`다. 도는 turn은 그 turn의 `TurnEnded`가 끝낸다.
-23. job이 연 run도 같다. 끊긴 run은 `lophn_restarted`로 닫히고, 그 job의 job run은 `interrupted`이며 놓친 차례로 친다(`architecture/job.md` "켤 때").
+23. job이 연 run도 같다. 끊긴 run은 `lophn_restarted`로 닫히고, 그 job의 job run은 `interrupted`이며 놓친 차례로 친다(`architecture/job.md`의 지키는 것, 켤 때 복구).
 24. session이 archive되거나 지워지면 그 session에서 running인 run을 `turn_interrupted`(session_ended)로 닫는다. 입력이 줄에 있는 채로 session이 끝나면 turn이 열리지 않아 `TurnEnded`가 오지 않고, run이 영영 running으로 남기 때문이다. 먼저 turn을 한 번 보고 이미 끝난 결과가 있으면 그것을 쓴다.
 
 tool run
@@ -168,7 +168,7 @@ tool run
 - run 입력을 켤 때 다시 줄 세우지 않는다. 이유: 다시 돌면 이미 `lophn_restarted`로 닫힌 run 뒤에 attended turn이 생기고 바깥 효과가 두 번 난다. (agent)
 - tool 이름이 없는 것을 `StartRun`에서 막지 않고 run이 `tool_denied`로 실패하게 둔다. 이유: 선언을 미리 볼 port를 두지 않는 쪽이 단순하다. (agent)
 - run이 연 session은 열린 채 남고 화면은 그 run 아래로 묶는다. `--session`으로 이어 쓴 session은 원래 자리다. run이 연 session도 Agent 탭의 session 목록에는 보인다. (agent)
-- `origin`과 `agent_resolved`는 route 입력에 없고 core 안 시작만 받는다. 이유: `origin`이 program·flow 자격으로 앱 tool을 부르게 하므로, route 입력으로 열려 있으면 누구든 job이나 flow의 이름으로 앱을 부르는 길이 된다. flow process에는 credential을 주지 않고 origin과 flow 자격은 core가 그 instance의 이름으로 만든다. (agent, planner)
+- `origin`과 `agent_resolved`는 route 입력에 없고 core 안 시작만 받는다. 이유: `origin`이 program·flow 자격으로 앱 tool을 부르게 하므로, route 입력으로 열려 있으면 누구든 job이나 flow의 이름으로 앱을 부르는 길이 된다. flow process에는 credential을 주지 않고 origin과 flow 자격은 core가 그 instance의 이름으로 만든다. (agent)
 - 새 session을 열기 전에 이름을 먼저 푼다. 이유: 안 풀린 채 session부터 열면 CLI의 project 먼저, app 나중 재시도가 session을 남긴다.
 - 취소할 때 run을 먼저 닫는다. 이유: 뒷일(입력 빼기, turn 멈추기)이 실패해도 run의 상태는 사람이 요청한 대로 남는다.
 - tool run은 사람이 부르는 길이다. 이유: 사람이 시킨 일이 승낙이고(`architecture/approval.md`), CLI는 사람의 입구다.

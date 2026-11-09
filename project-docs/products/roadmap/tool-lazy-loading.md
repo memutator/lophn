@@ -1,8 +1,8 @@
 # Tool lazy loading 공통화
 
-상태: 구현했다(2026-10-29, `change-log/0.9.0.md`의 "tool 정의를 모든 provider에서 늦게 싣는다"). 공통 경로는 `tool.load` + `tool.call`, native는 Anthropic `defer_loading`이다. 정책은 `agent-workspaces/tool-lists.ts`의 `exposedToolNames`, 동작은 `architecture/agent-definition.md`다. 남은 native 연결(OpenAI Responses `tool_search`)은 `plan/context-cache`의 `defer-responses`다. 아래는 착수 전 계획 기록이다.
+상태: 구현했다(2026-10-29, `change-log/0.9/deferred-tool-exposure-by-place.yaml`). 공통 경로는 `tool.load` + `tool.call`, native는 Anthropic `defer_loading`이다. 정책은 `agent-workspaces/tool-lists.ts`의 `exposedToolNames`, 동작은 `architecture/agent-definition.md`다. 남은 native 연결(OpenAI Responses `tool_search`)은 `plan/context-cache`의 `defer-responses`다. 아래는 착수 전 계획 기록이다.
 
-선행 계약 정리(조회 세 쌍을 `app.read`·`domain.read`·`package.read`로 합치기)는 0.9.0에서 끝났다(`change-log/0.9.0.md`). loader는 그 결과 registry를 입력으로 받는다.
+선행 계약 정리(조회 세 쌍을 `app.read`·`domain.read`·`package.read`로 합치기)는 0.9.0에서 끝났다(`change-log/0.9/`). loader는 그 결과 registry를 입력으로 받는다.
 
 목표는 tool 정의를 필요할 때 model context에 넣는 동작을 provider와 무관하게 제공하는 것이다. 현재 tool 이름·개수·분류나 토큰 수를 구현 계약으로 고정하지 않는다.
 

@@ -43,7 +43,7 @@
  app    ── sdk ─ broker (command) ─────┤              1 부른 쪽 확인        (credential, 도는 turn·부모 invocation·job run·instance)
  program ── job run의 tool run ─────────┤   (core 안 run 연산만. route로는 못 연다)
  flow  ── instance의 tool run ──────────┘   (같다)
-                                             2 막기               agent는 할당(judge), program은 통과(사람이 등록을 승인한 job), flow는 PM의 할당(unattended)과 비공개 거르기,
+                                             2 막기               agent는 할당(judge), program은 통과(사람이 등록을 승인한 job), flow는 project workspace의 agent의 할당(unattended)과 비공개 거르기,
                                                                   앱은 active 앱 grant의 app.call. 묻지 않는다
                                              3 write·external이면 앱별 줄을 얻는다. read는 바로
                                              4 invocation 시작을 남긴다        ─▶ storage (ledger + changeset blob)
@@ -94,9 +94,9 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
    - agent의 호출은 그 agent의 지금 할당을 `judge`로 본다(할당 안 된 앱, 뺀 tool이면 막는다). 사람에게 묻는 자리는 run-loop tool gate 하나다(`architecture/approval.md`). agent의 호출이 여기 닿았으면 물을 것은 이미 물었다.
    - 앱의 호출은 부른 앱의 active grant 가운데 `app.call`이 그 대상 앱의 그 tool을 덮는지 본다. 앱이 앱을 부르는 것은 activation 때 사람이 grant로 허락한 것이라 묻지 않는다.
 6. program은 job이 연 tool run의 호출이다(`architecture/job.md`). 부른 쪽 사람이 없고 부른 turn도 없다. 자격(job, job run)은 route가 만들지 못하고 core 안 run 연산이 만든다. caller 본문은 `{kind: program, job, job_run}`뿐이고 자격과 같아야 한다.
-   - 판정은 하지 않고 통과한다. 허락은 사람이 그 job의 등록을 승인한 것이다(`architecture/job.md` "승인"). scheduler는 승인한 job만 돌리고, 할 일(앱, tool, 입력)은 승인 뒤 바뀌지 않고, program 자격은 core 안 run 연산만 만든다. 만든 agent의 할당과 비공개 규칙은 보지 않는다.
+   - 판정은 하지 않고 통과한다. 허락은 사람이 그 job의 등록을 승인한 것이다(`architecture/job.md`의 지키는 것, 등록 승인). scheduler는 승인한 job만 돌리고, 할 일(앱, tool, 입력)은 승인 뒤 바뀌지 않고, program 자격은 core 안 run 연산만 만든다. 만든 agent의 할당과 비공개 규칙은 보지 않는다.
    - 그 밖의 줄, 기록, 직렬화는 다른 호출과 같다.
-7. flow는 workflow instance가 연 tool run의 호출이다(`architecture/workflow.md` "flow"). program과 같은 길이지만 판정이 있다. 자격(instance, 그 project의 PM과 project workspace)은 core 안 run 연산만 만들고, caller 본문 `{kind: flow, instance}`의 instance가 자격과 같아야 한다. 판정은 PM의 지금 할당과 비공개 규칙(PM이 놓인 workspace)이다. code를 쓴 것이 PM이라 code로 PM의 할당을 넓히지 못한다. 사람이 PM에게 그 앱을 할당해야 flow가 그 tool을 쓴다.
+7. flow는 workflow instance가 연 tool run의 호출이다(`architecture/workflow.md`). program과 같은 길이지만 판정이 있다. 자격(instance, 그 project workspace와 그 agent)은 core 안 run 연산만 만들고, caller 본문 `{kind: flow, instance}`의 instance가 자격과 같아야 한다. 판정은 그 project workspace의 agent의 지금 할당과 비공개 규칙(그 agent가 놓인 workspace)이다. code를 쓴 것이 그 agent라 code로 그 할당을 넓히지 못한다. 사람이 그 agent에게 그 앱을 할당해야 flow가 그 tool을 쓴다.
 8. 앱 process의 caller parser, SDK의 호출 context, invocation의 caller 모양은 protocol schema의 손 사본이라(앱 process는 schema 검증 library를 싣지 않는다) caller 다섯 종류를 protocol과 같이 받아야 한다. 하나라도 빠지면 그 caller의 호출이 앱에서 말없이 거절된다. invocation 표의 `caller_kind` CHECK는 protocol의 caller schema에서 만든다.
 9. 앱 호출 사슬은 같은 앱이 다시 나오면(`call_loop`) 또는 깊이 한도를 넘으면 handler에 가기 전에 막는다. 앱끼리 서로 부르다 줄이 영영 풀리지 않는 것을 막는다.
 

@@ -15,4 +15,4 @@ impact: |
   Windows 사람이 hook을 cmd로 돌리는 harness를 쓰면 매 실행마다 hook 오류가 나고 탭이 turn 끝·권한 물음을 모른다. hook을 다시 깔면 dev 경로 줄이 겹쳐 쌓일 수 있다. GUI↔TUI toggle에서 TUI가 꺼지지 않는다.
 fix: |
   - hook 명령을 cmd와 Git Bash 양쪽에서 도는 꼴로 쓰고(경로 따옴표, 설치본은 절대 경로), `ownedCommand`가 Windows 경로도 받게 한다. 작음. 추천, 먼저 한다.
-  - TUI 끄기는 signal 대신 ConPTY에 Ctrl+C를 쓰거나 그 process tree를 끈다. foreground 판정은 PTY shell pid 아래 process tree에서 harness를 찾는 근사로 한다. 중간. 그 전까지는 `architecture/platform.md` 불변 조건("반쯤 도는 채로 두지 않는다")대로 Windows에서 toggle이 없음을 보인다.
+  - TUI 끄기는 signal 대신 ConPTY에 Ctrl+C를 쓰거나 그 process tree를 끈다. foreground 판정은 PTY shell pid 아래 process tree에서 harness를 찾는 근사로 한다. 중간. 그 전까지는 `architecture/platform.md` 지키는 것 4("반쯤 도는 채로 두지 않는다")대로 Windows에서 toggle이 없음을 보인다.

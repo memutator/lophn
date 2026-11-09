@@ -21,6 +21,8 @@ export interface SidebarValues {
   readonly projects: readonly ProjectItem[];
   readonly apps: readonly AppRow[];
   readonly agents: readonly SidebarAgent[];
+  /** lophn agent id → 이름. 다른 workspace의 이름 없는 session 줄이 쓴다. */
+  readonly lophnNames: Readonly<Record<string, string>>;
   readonly known: KnownSessions;
   /** workspace key → session id → Agent 탭 제목(다른 workspace의 저장된 layout). */
   readonly elsewhereTitles: ReadonlyMap<string, ReadonlyMap<string, string>>;
@@ -38,6 +40,7 @@ const EMPTY: SidebarValues = {
   projects: [],
   apps: [],
   agents: [],
+  lophnNames: {},
   known: new Map(),
   elsewhereTitles: new Map(),
   elsewhereTerminals: new Map(),

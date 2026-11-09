@@ -1,3 +1,4 @@
+import { lstat } from "node:fs/promises";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import { devicesSetting } from "../../../config/shell-settings.ts";
@@ -21,6 +22,10 @@ import {
   tabsClose,
   tabsOpen,
 } from "../../../../protocol/lophn-agent/mod.ts";
+import {
+  ARTIFACT_ENTRY,
+  artifactsFolder,
+} from "../../../../protocol/projects/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
   createHostQueue,
@@ -56,6 +61,11 @@ type TabDeps = {
   app(app: string): Promise<Result<unknown | null>>;
   // 그 앱에서 지금 돌고 있는 preview. 없으면 null.
   preview(app: string): Promise<Result<unknown | null>>;
+  // 그 workspace에 입구 `index.html`이 일반 file인 artifact가 있는가.
+  artifactExists(
+    workspace: { kind: "project" | "app"; id: string },
+    name: string,
+  ): Promise<boolean>;
   // 사람이 등록한 기기 이름들(설정 `shell.devices`).
   deviceNames(): readonly string[];
   harnessHold: Pick<HarnessHold, "open">;
@@ -115,11 +125,45 @@ export function createTabHandlers(deps: TabDeps) {
       });
       return ok({ tab, status: "accepted" as const });
     }
+    if ("artifact" in input.target) {
+      // agent는 자기 session의 workspace, 사람 token은 입력의 workspace의 artifact만 연다.
+      let where: HostWorkspace;
+      if (caller.value === "person")
+        where = input.workspace ?? { kind: "home" };
+      else {
+        const row = sessionRow(caller.value);
+        if (row === undefined) {
+          return err({ code: "not_found", message: "session not found" });
+        }
+        where = hostWorkspaceOf(workspaceOf(row));
+      }
+      if (where.kind === "home") {
+        return err({
+          code: "invalid_input",
+          message: "artifacts belong to a project or an app; home has none",
+        });
+      }
+      const { name } = input.target.artifact;
+      if (!(await deps.artifactExists(where, name))) {
+        return err({
+          code: "not_found",
+          message: `no artifact named ${name}; write <artifacts folder>/${name}/index.html first`,
+        });
+      }
+      const tab = queue.openTab({
+        owner: caller.value,
+        workspace: where,
+        target: input.target,
+        place: input.place ?? null,
+        source: caller.value === "person" ? null : caller.value,
+      });
+      return ok({ tab, status: "accepted" as const });
+    }
     const person = caller.value === "person";
     if (person && !("browser" in input.target)) {
       return err({
         code: "invalid_input",
-        message: "a person token opens --url and --preview tabs",
+        message: "a person token opens --url, --preview and --artifact tabs",
       });
     }
     const from = person ? undefined : sessionRow(caller.value);
@@ -194,7 +238,7 @@ export function createTabHandlers(deps: TabDeps) {
     (
       build: (
         input: never,
-        view: "browser" | "preview",
+        view: "browser" | "preview" | "artifact",
       ) => Result<BrowserAction>,
       shape: (content: ExtensionToolContent[]) => Result<unknown>,
       route: { input: { parse(body: unknown): { tab: string } } },
@@ -275,9 +319,9 @@ export function createTabHandlers(deps: TabDeps) {
   );
   const navigate = call(
     (input: { url: string }, view) => {
-      if (view === "preview") {
+      if (view !== "browser") {
         return invalid(
-          "a preview tab follows the app; navigate is for browser tabs",
+          `a ${view} tab shows one page; navigate is for browser tabs`,
         );
       }
       const protocol = URL.canParse(input.url)
@@ -376,6 +420,18 @@ export const hostQueueWiring: WiringFactory = () => {
         sessionRow,
         app: (app) => ctx.appsControl.facts.app(app),
         preview: (app) => ctx.appsControl.previews.current(app),
+        artifactExists: async (workspace, name) => {
+          const dir = `${artifactsFolder(ctx.root.path, workspace)}/${name}`;
+          try {
+            // lstat이라 symlink 폴더와 symlink 입구는 artifact가 아니다(목록과 같은 규칙).
+            return (
+              (await lstat(dir)).isDirectory() &&
+              (await lstat(`${dir}/${ARTIFACT_ENTRY}`)).isFile()
+            );
+          } catch {
+            return false;
+          }
+        },
         deviceNames: () =>
           (ctx.settings.get(devicesSetting) ?? []).map((d) => d.name),
         harnessHold: ctx.harnessHold,

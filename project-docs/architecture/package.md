@@ -129,7 +129,7 @@ publish는 같은 규칙을 폴더 `@lophn/cap-*` 의존에 적용해 낸 `permi
 - 안내 본문 예산은 tool 결과 한 창보다 작은 20 KiB다. 이유: 색인과 예산 안의 props가 `package.read` 한 번에 오고, 넘는 부분은 앱 폴더의 사본에서 읽게 한다. (agent)
 - 옛 SDK 사본은 data root에 따로 싣지 않는다. 지원 하한 아래 앱은 처음 다시 release할 때 옮긴다. (agent)
 - `package.publish`의 HEAD는 core가 읽고 agent runtime에 git 실행 권한을 주지 않는다. 이유: agent runtime child는 git을 띄울 수 없어 늘 "commit이 없다"고 답해 어떤 앱도 package를 내지 못했다. (사람)
-- package 주인은 domain이 아니라 앱이다(`owner_app`). (planner)
+- package 주인은 domain이 아니라 앱이다(`owner_app`). (agent)
 - 공개 판의 byte는 ledger blob이 지키고 설치 사본은 그 파생이다. 이유: 설치 사본을 잃으면 공개 판을 되살릴 길이 없었고 이것은 사용자 data다. 버린 안: "같은 내용으로 다시 publish"로 복구(앱 HEAD가 바뀌면 hash가 달라 불가). (사람이 추천을 받음, 2026-11-08)
 - `@me` permission은 publish와 release 준비에서 강제한다. 이유: 권한 누락이 실행 중 broker 거절로만 드러났다. 버린 안: 칸 지우기(schema step이 들어 일이 비슷한데 얻는 것이 없다), 정보로 두기. (사람이 추천을 받음, 2026-11-08)
 - description은 최신 판을 따른다. 버린 안: 다르면 `conflict`(설명 하나로 publish가 막힌다). (사람이 추천을 받음, 2026-11-08)
@@ -138,7 +138,7 @@ publish는 같은 규칙을 폴더 `@lophn/cap-*` 의존에 적용해 낸 `permi
 
 ## 열린 것
 
-- `@me` package가 다른 `@me`에 기대면 그 권한을 따라가지 않는다. `@me/a`가 `net.fetch`를 적은 `@me/b`에 기대면서 자기 `permissions`에서 빼고 낼 수 있고, `@me/a`만 쓰는 소비 앱은 release가 뜨고 실행 중 broker에서 거절된다. 추천은 publish 때 `@me` 의존의 정확한 판의 `permissions`도 입력이 덮는지 한 단계만 보는 것이다(`project-docs/issues/app-call.md`).
-- 기동 옮기기가 옛 `@me` 판에 bundle blob을 못 붙일 수 있다. 사본의 `package.json`이 원래 JSON 2칸 들여쓰기가 아니면 hash가 `bundle_hash`와 달라 붙이지 못하고 기동마다 `me_copy_skipped`만 남는다. 그런 판은 설치 사본이 유일한 byte다(`project-docs/issues/app-call.md`).
+- `@me` package가 다른 `@me`에 기대면 그 권한을 따라가지 않는다. `@me/a`가 `net.fetch`를 적은 `@me/b`에 기대면서 자기 `permissions`에서 빼고 낼 수 있고, `@me/a`만 쓰는 소비 앱은 release가 뜨고 실행 중 broker에서 거절된다. 추천은 publish 때 `@me` 의존의 정확한 판의 `permissions`도 입력이 덮는지 한 단계만 보는 것이다(이슈 `me-dependency-permission-not-followed`).
+- 기동 옮기기가 옛 `@me` 판에 bundle blob을 못 붙일 수 있다. 사본의 `package.json`이 원래 JSON 2칸 들여쓰기가 아니면 hash가 `bundle_hash`와 달라 붙이지 못하고 기동마다 `me_copy_skipped`만 남는다. 그런 판은 설치 사본이 유일한 byte다(이슈 `old-me-version-blob-not-reattached`).
 - cap-fs는 실행 때 broker가 막지 않는다. "실행 때 막는 것은 broker"와 cap-fs의 동작이 어긋나 정본을 정해야 한다. `app-call.md`는 cap-fs가 OS가 허락하는 파일을 어디든 읽고 쓴다고 적는다.
 - `@me` 판의 안내는 형식(세 절이 비지 않음)만 검사한다. 안내가 맞는지는 낸 agent의 몫이다.

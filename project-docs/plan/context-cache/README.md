@@ -3,7 +3,7 @@
 - 목표: provider prompt cache가 실제로 hit하게 요청 모양을 고치고, OpenAI Responses에서도 tool 정의를 늦게 싣는다. 입력 예산 세기와 자동 줄이기·Compact는 `feat/auto-compact`에서 끝냈다.
 - 재료:
   - `research_notes/omp-cache-compaction-tool-loading/README.md`, `prompt-cache.md`, `compaction.md`, `tool-loading.md` (OMP 분석 명세. lophn 대조는 같은 폴더 `analysis-evidence.md`의 "lophn 적용 범위")
-  - `project-docs/architecture/agent-definition.md` (prompt 층, cache 표시, deferral, compact, 입력 예산, output 상한)
+  - `project-docs/architecture/agent-definition.md` (prompt 조립과 cache, compact, 입력 예산)
   - `project-docs/architecture/agent-call.md` (받은 입력은 뒤 turn에서도 같은 bytes)
   - `research_notes/omp-subscription-oauth/claude-code.md`, `google-antigravity.md` (구독 wire)
 - 범위 밖: 아래 "범위 밖" 절.
@@ -60,7 +60,7 @@
 ## 사람이 정한 것
 
 1. **context가 넘칠 때 lophn이 사람 없이 줄인다(A).** turn 안은 오래된 tool 결과 본문을 바꾸고, turn 사이는 다음 turn 전에 자동 Compact한다. (사람, 2026-10-29)
-   - `budget-anchor`, `context-shrink`, `context-autocompact`는 branch `feat/auto-compact`에서 했다. 동작은 `project-docs/architecture/agent-definition.md`의 입력 예산, turn 안 이력 줄이기, compact 절이고 결정은 `project-docs/products/change-log/0.9.0.md`의 마지막 항목이다.
+   - `budget-anchor`, `context-shrink`, `context-autocompact`는 branch `feat/auto-compact`에서 했다. 동작과 설계는 `project-docs/architecture/agent-definition.md`의 입력 예산, turn 안 이력 줄이기, compact 규칙이고 결정은 `project-docs/products/change-log/0.9/token-budget-and-auto-compact.yaml`이다.
    - 계획과 달리 한 것: 자동 Compact는 끝난 turn 뒤가 아니라 pump가 그 session의 다음 turn을 시작하기 직전에 한다(끝난 turn 뒤에 요청을 열면 같은 순간 새 입력이 turn을 시작해 요청이 실패한다). 판단 기준은 "첫 call이 예산의 절반보다 크고 이전 대화가 예산의 5분의 1 이상, 또는 turn이 `context_limit`으로 끝남"이다. 이전 대화가 작은 session을 매 turn 요약하지 않으려고 둘째 조건을 더했다. (agent)
 2. **실제 provider 호출 확인은 보류한다.** (사람, 2026-10-29) 아래 확인이 필요한 task는 보류가 풀릴 때까지 `blocked`다.
    - L1 `cache-tail`: tool 목록이 바뀐 Anthropic session에서 연속 call의 `cache_read_input_tokens`가 앞 call prompt의 대부분이다(지금은 system 층만큼).
@@ -113,4 +113,4 @@ brief는 쓰지 않는다(task가 적고 결정이 위에 있다). lead가 worke
   - `cache-tail`: "cache 표시는 system 층 셋과 대화 끝 하나다" 절에 "notice 같은 그 call에만 붙는 글에는 달지 않는다"와 다는 곳(packer).
   - `cache-ttl`·`cache-openai`: credential별 cache 표 한 줄씩.
   - `defer-responses`: "tool 정의는 늦게 싣는다"의 켜는 곳과 "OpenAI responses의 `tool_search` … 아직 켜지 않는다" 문장.
-- 다 끝나면: changelog 열린 판(`project-docs/products/change-log/0.9.0.md`)에 항목. 결정은 위 "정한 것"의 `(agent)`와 사람 결정. 공통 dispatcher(`tool_call`)는 0.9.0 "tool 정의를 모든 provider에서 늦게 싣는다"로 끝났다. `defer-responses`는 Responses packer에 native 갈래를 더하는 일이 된다(지금 Responses는 공통 경로다). 계획 폴더를 지운다.
+- 다 끝나면: change-log 항목(`project-docs/products/change-log/0.9/`)을 쓴다. 결정은 위 "정한 것"의 `(agent)`와 사람 결정. 공통 dispatcher(`tool_call`)는 `change-log/0.9/deferred-tool-exposure-by-place.yaml`로 끝났다. `defer-responses`는 Responses packer에 native 갈래를 더하는 일이 된다(지금 Responses는 공통 경로다). 계획 폴더를 지운다.

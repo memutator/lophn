@@ -1,6 +1,6 @@
 # keybindings: extension과 앱이 key를 등록하고 shell이 key context를 다룬다
 
-상태: 끝남(계획 `keybindings-ext`, changelog `0.22.0`의 "단축키: key context, 연속 key, extension·앱 key, harness GUI의 CLI key"). 흐름과 지키는 것은 `project-docs/architecture/keybindings.md`, `extension.md`, `harness-gui.md`다. 아래 "지금 코드"는 계획을 열기 전의 코드다. 남은 것은 `project-docs/issues/keybindings.md`.
+상태: 끝남(계획 `keybindings-ext`, changelog `0.22.0`의 "단축키: key context, 연속 key, extension·앱 key, harness GUI의 CLI key"). 흐름과 지키는 것은 `project-docs/architecture/keybindings.md`, `extension.md`, `harness-gui.md`다. 아래 "지금 코드"는 계획을 열기 전의 코드다. 남은 것은 `node tools/records.ts issues --topic keybindings`.
 배경 문서: `project-docs/architecture/keybindings.md`, `project-docs/architecture/extension.md`, `project-docs/architecture/harness-gui.md`, `project-docs/products/roadmap/app-webview.md`.
 
 ## 왜

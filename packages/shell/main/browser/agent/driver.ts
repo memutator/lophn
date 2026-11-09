@@ -517,8 +517,8 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
       return reply(where(session));
     }
     if (action.kind === "navigate") {
-      if (view === "preview") {
-        throw fail("invalid_input", "a preview tab can't navigate");
+      if (view !== "browser") {
+        throw fail("invalid_input", `a ${view} tab can't navigate`);
       }
       const decision = decideNavigation({ url: action.url, isMainFrame: true });
       if (!decision.allow) {

@@ -1,6 +1,6 @@
 # problem과 ticket 덜어내기: 남은 것은 coding agent 연결의 크기
 
-상태: 로드맵, 정할 것 없음. 2026-10-20 사람이 problem과 ticket 모델이 너무 빡빡하다며 방향을 냈고, 2026-10-21 "최대한 덜어낸다"로 정하고 App Engineer가 앱을 직접 짓기로 했다. 계획 넷(`problem-remove`, `approval-simplify`, `ae-builds`, `reactor-remove`)이 land했고 변경과 결정은 `project-docs/products/change-log/0.6.0.md`에 있다. 마지막으로 남았던 coding agent 연결의 크기는 2026-10-26에 정했다(hook·감지·설치를 남긴다).
+상태: 로드맵, 정할 것 없음. 2026-10-20 사람이 problem과 ticket 모델이 너무 빡빡하다며 방향을 냈고, 2026-10-21 "최대한 덜어낸다"로 정하고 App Engineer가 앱을 직접 짓기로 했다. 계획 넷(`problem-remove`, `approval-simplify`, `ae-builds`, `reactor-remove`)이 land했고 변경과 결정은 `project-docs/products/change-log/0.6/`에 있다. 마지막으로 남았던 coding agent 연결의 크기는 2026-10-26에 정했다(hook·감지·설치를 남긴다).
 2026-10-28: 계획 `remove-role`이 role을 없앴다. agent는 lophn과 사람이 만든 agent이고 session이 workspace(home, project, app)를 갖는다(`products/AGENT.md`, changelog `0.9.0`). 아래에서 Project Manager는 그 project workspace의 session, App Engineer는 그 앱 workspace의 session, Operator는 사람이 만든 agent로 읽는다.
 배경 문서: `project-docs/architecture/coding-agent.md`, `project-docs/products/roadmap/approval.md`, `project-docs/products/roadmap/workflow.md`.
 
@@ -11,7 +11,7 @@
   - 개인 앱은 규모가 작아 코딩용 최적화의 부담도 적다.
   - workflow에서도 lophn agent가 직접 코딩한다.
 - (2026-10-21) 지금은 App Engineer가 coding agent에게 외주를 주는 흐름을 막는다. coding agent 연결을 얼마나 남길지(B-lite, B)는 보류한다. 뒤에 workflow에서 coding agent 같은 다른 harness를 불러와야 할 수 있기 때문이다. Router는 받는 곳이 `coding_agent`로 풀리는 call을 거절한다.
-- (2026-10-26) coding agent 연결의 hook, 감지, 설치는 남긴다. B와 B-lite는 하지 않는다. 사람이 연 터미널의 coding agent도 같은 hook으로 탭 icon, 상태 점, 알림을 얻는다(`project-docs/architecture/terminal-agent.md`, `project-docs/products/change-log/0.9.0.md`). App Engineer가 맡기는 흐름은 그대로 막혀 있다.
+- (2026-10-26) coding agent 연결의 hook, 감지, 설치는 남긴다. B와 B-lite는 하지 않는다. 사람이 연 터미널의 coding agent도 같은 hook으로 탭 icon, 상태 점, 알림을 얻는다(`project-docs/architecture/terminal-agent.md`, `project-docs/products/change-log/0.9/terminal-agent-icon-status-alerts.yaml`). App Engineer가 맡기는 흐름은 그대로 막혀 있다.
 
 ## 정한 뒤 남은 기록
 

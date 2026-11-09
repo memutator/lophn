@@ -62,7 +62,7 @@ modules:
 
   - path: packages/core/main
     boundary: core
-    notes: process entry(daemon, agent-runtime, worker, app-supervisor)와 조립만 한다. 업무 규칙을 두지 않고 module이 main을 import하지 않는다. daemon은 module마다 wiring/<module>.ts가 끼우고 assembly.ts의 목록이 순서를 정한다. wiring file끼리 import하지 않고 둘 이상이 쓰는 값은 wiring/context.ts로 나눈다. flow-host/는 flow process를 띄우는 host와 workflow.check다(runs와 apps를 같이 알아야 해서 module이 아니라 여기 있다).
+    notes: process entry(daemon, agent-runtime, worker, app-supervisor)와 조립만 한다. 업무 규칙을 두지 않고 module이 main을 import하지 않는다. daemon은 module마다 wiring/<module>.ts가 끼우고 assembly.ts의 목록이 순서를 정한다. wiring file은 필요하면 서로 import하고, 둘 이상이 쓰는 값은 wiring/context.ts로 나눈다. flow-host/는 flow process를 띄우는 host와 workflow.check다(runs와 apps를 같이 알아야 해서 module이 아니라 여기 있다).
 
   - path: packages/core/host-queue
     boundary: core

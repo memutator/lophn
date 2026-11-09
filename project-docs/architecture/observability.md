@@ -192,4 +192,4 @@ core process env:
 - `agent-usage/read`의 `missing_records`와 `complete`는 고정값이라 기록이 빠진 호출을 알리지 못한다. 설계와 맞는지 확인이 필요하다(flow catalog의 unclear).
 - `model-calls/read` 핸들러가 자격을 보지 않아 agent 자격이 다른 session의 model 호출을 읽을 수 있는지는 credential의 operation 목록에 달렸다. 확인이 필요하다.
 - ledger의 model 호출 기록을 시작 상태로 쓰는 route 하나는 호출하는 곳이 코드에 없다. 죽은 route로 보이고 지울지 정할 일이다.
-- 오류 본문과 읽지 못한 성공 본문을 한 글자도 남기지 않는 규칙은 코드 주석에만 있다(`project-docs/issues/agent-definition.md`).
+- 오류 본문과 읽지 못한 성공 본문을 한 글자도 남기지 않는 규칙은 코드 주석에만 있다(이슈 `provider-failure-body-not-kept`).

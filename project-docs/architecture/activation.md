@@ -151,4 +151,4 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 - 실패 reason에는 앱의 migration script가 낸 글이 앞 200자까지 실릴 수 있다. 복원된 실패는 toast가 둘(실패, data 복원) 뜰 수 있다.
 - 카드가 열린 동안 새로 열린 공유 요청은 그 동의에 묶이지 않고 따로 선다.
 - data root(`secrets.json`, 다른 앱 data)를 지키는 규칙은 아직 없다. 앱 grant가 그 경로를 덮는 선언은 사람의 동의 화면이 유일한 장치다.
-- 열린 이슈는 없다(`project-docs/issues/activation.md`는 비어 있다).
+- 열린 이슈는 없다(topic이 `activation`인 이슈는 모두 닫혔다).

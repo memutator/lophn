@@ -32,9 +32,9 @@ export type TabOwner = Id<"ses"> | "person";
 type TabEntry = {
   owner: TabOwner;
   workspace: HostWorkspace;
-  kind: "agent" | "browser" | "preview";
-  // preview 탭이 따르는 앱. 앱마다 탭 하나라 이걸로 찾는다.
-  app: string | null;
+  kind: "agent" | "browser" | "preview" | "artifact";
+  // preview 탭은 앱마다, artifact 탭은 artifact마다 하나라 이 key로 찾는다. 다른 탭은 null이다.
+  single: string | null;
   state: BrowserTabState | null;
 };
 
@@ -60,7 +60,8 @@ export type HostQueue = {
   };
   abandon(id: Id<"hrq">, message?: string): void;
 
-  // 탭 표에 올리고 tab_open 요청을 넣는다. 그 앱의 preview 탭이 이미 있으면 새로 만들지 않고 그 탭의 주인만 바꿔 돌려준다(기기가 있으면 같은 탭 id로 tab_open을 다시 넣는다).
+  // 탭 표에 올리고 tab_open 요청을 넣는다. 그 앱의 preview 탭이나 그 artifact의 탭이 이미 있으면 새로 만들지 않고 그 탭의 주인만 바꿔
+  // 돌려준다(preview에 기기가 있으면 같은 탭 id로 tab_open을 다시 넣는다).
   openTab(input: {
     owner: TabOwner;
     workspace: HostWorkspace;
@@ -203,13 +204,14 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
         }
       }
     },
-    // 자기가 연 browser·preview 탭이다. 없는 탭, 남의 탭, session·agent 탭은 `not_found`다.
+    // 자기가 연 browser·preview·artifact 탭이다. 없는 탭, 남의 탭, session·agent 탭은 `not_found`다.
     browserTab(tab: Id<"tab">, caller: TabOwner) {
       const found = owned(tab, caller, "read");
       if (!found.ok) return found;
-      return found.value.kind === "browser" || found.value.kind === "preview"
-        ? ok({ view: found.value.kind })
-        : err({ code: "not_found" as const, message: "tab not found" });
+      const { kind } = found.value;
+      return kind === "agent"
+        ? err({ code: "not_found" as const, message: "tab not found" })
+        : ok({ view: kind });
     },
     attached: () =>
       takers.size > 0 ||
@@ -237,7 +239,13 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       for (const taker of [...takers]) taker.finish(null);
     },
     openTab(input: Parameters<HostQueue["openTab"]>[0]) {
-      const app = "preview" in input.target ? input.target.preview.app : null;
+      const { target, workspace } = input;
+      const single =
+        "preview" in target
+          ? `preview:${target.preview.app}`
+          : "artifact" in target && workspace.kind !== "home"
+            ? `artifact:${workspace.kind}:${workspace.id}:${target.artifact.name}`
+            : null;
       const open = (tab: Id<"tab">) =>
         enqueue({
           id: deps.ids.newId("hrq") as Id<"hrq">,
@@ -251,9 +259,9 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
             resume: input.resume ?? null,
           },
         });
-      if (app !== null) {
+      if (single !== null) {
         for (const [id, entry] of tabs) {
-          if (entry.app === app) {
+          if (entry.single === single) {
             entry.owner = input.owner;
             // 이미 열린 탭에 기기를 주면 같은 탭에 기기를 다시 알린다(창이 그 탭의 기기만 바꾼다).
             if (
@@ -271,12 +279,14 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
         owner: input.owner,
         workspace: input.workspace,
         kind:
-          app !== null
+          "preview" in target
             ? "preview"
-            : "browser" in input.target
-              ? "browser"
-              : "agent",
-        app,
+            : "artifact" in target
+              ? "artifact"
+              : "browser" in target
+                ? "browser"
+                : "agent",
+        single,
         state: null,
       });
       open(tab);

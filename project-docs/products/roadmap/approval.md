@@ -1,6 +1,6 @@
 # approval: 남은 것
 
-상태: 로드맵. 2026-10-20 사람이 approval을 다시 설계하라고 했고, 계획 `approval-simplify`가 그 대부분을 만들었다(changelog `project-docs/products/change-log/0.6.0.md`). 지금 모양은 `project-docs/architecture/approval.md`다: 할당이 허락이고, 묻는 길은 기다리는 turn 하나이고, 실행 때 묻는 것은 shell 규칙의 `ask`뿐이며, turn mode(attended, unattended, skip)가 물을지를 정한다. 이 문서에는 아직 만들지 않은 것만 남긴다.
+상태: 로드맵. 2026-10-20 사람이 approval을 다시 설계하라고 했고, 계획 `approval-simplify`가 그 대부분을 만들었다(change-log `project-docs/products/change-log/0.6/approval-assignment-and-shell-rules.yaml`). 지금 모양은 `project-docs/architecture/approval.md`다: 할당이 허락이고, 묻는 길은 기다리는 turn 하나이고, 실행 때 묻는 것은 shell 규칙의 `ask`뿐이며, turn mode(attended, unattended, skip)가 물을지를 정한다. 이 문서에는 아직 만들지 않은 것만 남긴다.
 2026-10-28: 계획 `remove-role`이 role을 없앴다. agent는 lophn과 사람이 만든 agent이고 session이 workspace(home, project, app)를 갖는다(`products/AGENT.md`, changelog `0.9.0`). 아래에서 Project Manager는 그 project workspace의 session, App Engineer는 그 앱 workspace의 session, Operator는 사람이 만든 agent로 읽는다.
 배경 문서: `project-docs/architecture/approval.md`, `project-docs/architecture/coding-agent.md`, `project-docs/products/roadmap/problem-ticket.md`, `project-docs/products/roadmap/headless-schedule.md`, `project-docs/products/roadmap/workflow.md`.
 

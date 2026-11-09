@@ -5,7 +5,7 @@ status: fixed
 topic: workflow
 modules: [packages/core/main]
 now: |
-  `packages/core/main/flow-host/flags.ts`의 `flowFlags`는 `--allow-read=<workflow 폴더>,<data>/sdk` 하나만 준다. 앱의 `appFlags`(`packages/core/apps/permissions/flags.ts`)처럼 폴더 안 symlink마다 `--deny-read=<그 lexical 경로>`를 더하지 않는다. Deno는 허락한 폴더 안의 symlink를 따라가므로 폴더 밖을 가리키는 link가 있으면 flow가 그 대상을 읽는다. link를 만드는 길은 PM의 `shell.run`이다(`packages/core/agent-roles/tool-lists.ts`의 `WORK_TOOLS`, OS sandbox 없음, `project-docs/issues/place-session.md`). flow process 자신은 쓰기 허락이 없어 link를 만들지 못한다.
+  `packages/core/main/flow-host/flags.ts`의 `flowFlags`는 `--allow-read=<workflow 폴더>,<data>/sdk` 하나만 준다. 앱의 `appFlags`(`packages/core/apps/permissions/flags.ts`)처럼 폴더 안 symlink마다 `--deny-read=<그 lexical 경로>`를 더하지 않는다. Deno는 허락한 폴더 안의 symlink를 따라가므로 폴더 밖을 가리키는 link가 있으면 flow가 그 대상을 읽는다. link를 만드는 길은 PM의 `shell.run`이다(`packages/core/agent-roles/tool-lists.ts`의 `WORK_TOOLS`, OS sandbox 없음, 이슈 `shell-run-bypasses-file-scope`). flow process 자신은 쓰기 허락이 없어 link를 만들지 못한다.
 impact: |
   PM이 workflow 폴더에 밖을 가리키는 link를 두면, AI가 짠 `flow.ts`가 그 대상(사람의 파일, data root의 다른 project)을 읽어 `agent`·`tool` 입력이나 report 글로 내보낼 수 있다. 쓰기와 네트워크는 여전히 막혀 있다. PM이 `shell.run`으로 직접 읽는 것과 범위는 같다.
 fix: |

@@ -5,7 +5,7 @@ status: kept
 topic: activation
 modules: [packages/core/apps]
 now: |
-  app test `rewind` 검사가 만든 입력의 호출이 실패한 write tool을 "증명 못 함"으로 두고(증거 `unproven`, pass 이유 한 줄), problem은 examples ticket의 examples run이 끝날 때만 낸다(`project-docs/issues/archived/activation.md`의 "write app-api의 rewind 검사가 fail로 나온다"의 다시 정한 것). check가 `app_test`·`text`인 ticket의 release는 증명 못 한 write tool이 있어도 problem이 없다.
+  app test `rewind` 검사가 만든 입력의 호출이 실패한 write tool을 "증명 못 함"으로 두고(증거 `unproven`, pass 이유 한 줄), problem은 examples ticket의 examples run이 끝날 때만 낸다(이슈 `write-app-api-rewind-check-fails`의 다시 정한 것). check가 `app_test`·`text`인 ticket의 release는 증명 못 한 write tool이 있어도 problem이 없다.
 
   지금 이미 하는 것: App Engineer 지침이 write tool을 바꾸는 ticket에 examples check를 쓰게 하고 `rewind_unproven` problem을 받으면 그 tool의 examples ticket을 만들게 한다(`packages/core/agent-roles/roles/app-engineer/prompt.md`). 지침이라 program이 막지는 않는다.
 impact: |

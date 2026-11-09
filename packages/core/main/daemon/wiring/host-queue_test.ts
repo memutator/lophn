@@ -44,6 +44,9 @@ function setup(running: boolean) {
     sessionRow: (session) => rows[session] as AgentSessionRow | undefined,
     app: (app) => Promise.resolve(ok(app === APP ? {} : null)),
     preview: () => Promise.resolve(ok(running ? {} : null)),
+    // project 1에만 `report`가 있다.
+    artifactExists: (workspace, name) =>
+      Promise.resolve(workspace.id === id("prj", 1) && name === "report"),
     deviceNames: () => [],
     harnessHold: { open: () => ok({ harness: "x", external_session: "y" }) },
   });
@@ -111,4 +114,28 @@ test("browser 호출은 연 쪽만 하고, 남이나 사람이 연 탭은 not_fo
     "unavailable",
   );
   assert.equal(code(await snapshot(person, { tab: personTab })), "unavailable");
+});
+
+// artifact는 그 그릇 workspace의 것만 연다. 깨지면 다른 project·앱의 agent가 남의 artifact를 사람 화면에 띄우고 읽는다.
+test("artifact 탭은 자기 workspace의 있는 artifact만 열고, artifact마다 하나다", async () => {
+  const { queue, open } = setup(true);
+  const report = { target: { artifact: { name: "report" } } };
+  // 앱 workspace의 session에게는 그 이름의 artifact가 없다. home은 artifact가 없다.
+  assert.equal(code(await open(agent(1), report)), "not_found");
+  assert.equal(code(await open(agent(4), report)), "invalid_input");
+  assert.equal(code(await open(person, report)), "invalid_input");
+  const missing = { target: { artifact: { name: "nope" } } };
+  assert.equal(code(await open(agent(3), missing)), "not_found");
+
+  const first = await open(agent(3), report);
+  assert.ok(first.ok);
+  const tab = (first.value as { tab: string }).tab;
+  const request = queue.take([{ kind: "project", id: id("prj", 1) as never }]);
+  assert.equal(request?.kind, "tab_open");
+  const again = await open(person, {
+    ...report,
+    workspace: { kind: "project", id: id("prj", 1) },
+  });
+  assert.ok(again.ok);
+  assert.equal((again.value as { tab: string }).tab, tab);
 });

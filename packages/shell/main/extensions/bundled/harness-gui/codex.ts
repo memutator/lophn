@@ -166,6 +166,8 @@ type Item = {
   model?: string | null;
   revisedPrompt?: string | null;
   savedPath?: string;
+  /** agentMessage: `request_user_input_async` tool이 붙인 질문. */
+  questions?: { title: string; options: string[] | null }[] | null;
 };
 type WireTurn = {
   id: string;
@@ -619,10 +621,13 @@ type ApprovalWait = {
   requested: J | null;
 };
 type AskWait = {
-  rpc: number | string;
+  /** null이면 async 질문이다: 대기 중인 요청이 없고, 답은 사람 메시지로 보낸다. */
+  rpc: number | string | null;
   group: string;
   call: Call;
   ids: string[];
+  /** async 질문은 turn이 끝나도 남는다. turn_ended가 카드를 지우므로 그 뒤에 다시 낸다. */
+  asked: AcpUpdate;
 };
 
 // tool 본문 한 쪽의 글자 수 상한. 이를 넘으면 자르고 truncated를 세운다(ACP_TOOL_BODY_LIMIT과 같은 값.
@@ -1764,7 +1769,16 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
       }
 
       // --- 질문
-      function openQuestion(lane: Lane, rpc: number | string, params: Json) {
+      function openQuestion(
+        lane: Lane,
+        rpc: number | string | null,
+        asked: {
+          id: string;
+          header: string;
+          question: string;
+          options: { label: string; description: string }[];
+        }[],
+      ) {
         const group = ids.newId("grp");
         const call: Call = {
           id: ids.newId("tcl"),
@@ -1772,45 +1786,38 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           changes: [],
           lane,
         };
-        const asked: J[] = (params.questions ?? []).slice(0, 4);
-        emit(lane, {
-          type: "tool_started",
-          item: {
-            kind: "tool",
-            id: call.id,
-            seq: ++lane.seq,
-            at: now(),
-            by: "agent",
-            turn: ensureTurn(lane),
-            tool: "request_user_input",
-            category: "other",
-            title: "Question",
-            state: "running",
-            duration_ms: null,
-            detail: { kind: "question", group: null, outcome: null, lines: [] },
-            body: null,
-          },
-        });
-        asks.set(call.id, {
-          rpc,
-          group,
-          call,
-          ids: asked.map((one) => one.id),
-        });
-        publish({
+        // async 질문의 글은 그 agentMessage가 이미 대화에 그린다.
+        if (rpc !== null)
+          emit(lane, {
+            type: "tool_started",
+            item: {
+              kind: "tool",
+              id: call.id,
+              seq: ++lane.seq,
+              at: now(),
+              by: "agent",
+              turn: ensureTurn(lane),
+              tool: "request_user_input",
+              category: "other",
+              title: "Question",
+              state: "running",
+              duration_ms: null,
+              detail: {
+                kind: "question",
+                group: null,
+                outcome: null,
+                lines: [],
+              },
+              body: null,
+            },
+          });
+        const update: AcpUpdate = {
           type: "question_asked",
           group,
           tool_call: call.id,
           // ACP 질문은 선택지 2~4개가 필요하다. 글로만 답하는 질문에는 안내 선택지를 채운다.
           questions: asked.map((one) => {
-            const options: { label: string; description: string }[] = (
-              one.options ?? []
-            )
-              .slice(0, 4)
-              .map((option: J) => ({
-                label: option.label,
-                description: option.description || option.label,
-              }));
+            const options = one.options.slice(0, 4);
             while (options.length < 2)
               options.push(
                 options.length === 0
@@ -1827,7 +1834,57 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
               multiSelect: false,
             };
           }),
+        };
+        asks.set(call.id, {
+          rpc,
+          group,
+          call,
+          ids: asked.map((one) => one.id),
+          asked: update,
         });
+        publish(update);
+      }
+
+      // turn 안에서 server가 답을 기다리는 질문(request_user_input).
+      function openBlockingQuestion(
+        lane: Lane,
+        rpc: number | string,
+        params: Json,
+      ) {
+        const asked: J[] = (params.questions ?? []).slice(0, 4);
+        openQuestion(
+          lane,
+          rpc,
+          asked.map((one) => ({
+            id: one.id,
+            header: one.header,
+            question: one.question,
+            options: (one.options ?? []).map((option: J) => ({
+              label: option.label,
+              description: option.description || option.label,
+            })),
+          })),
+        );
+      }
+
+      // 기다리는 요청이 없는 질문(request_user_input_async): model은 질문을 낸 채 일을 이어 가고 답은 새 사람 메시지로 온다.
+      function openAsyncQuestion(
+        lane: Lane,
+        questions: NonNullable<Item["questions"]>,
+      ) {
+        openQuestion(
+          lane,
+          null,
+          questions.slice(0, 4).map((one, index) => ({
+            id: String(index),
+            header: one.title,
+            question: one.title,
+            options: (one.options ?? []).map((label) => ({
+              label,
+              description: label,
+            })),
+          })),
+        );
       }
 
       function closeQuestion(
@@ -1838,9 +1895,11 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         const wait = asks.get(callId);
         if (wait === undefined) return;
         asks.delete(callId);
-        if (answers !== undefined) write({ id: wait.rpc, result: { answers } });
+        if (wait.rpc !== null && answers !== undefined)
+          write({ id: wait.rpc, result: { answers } });
         publish({ type: "question_resolved", group: wait.group, outcome });
-        toolEnd(wait.call, outcome === "submitted" ? "ok" : "cancelled");
+        if (wait.rpc !== null)
+          toolEnd(wait.call, outcome === "submitted" ? "ok" : "cancelled");
       }
 
       // --- turns
@@ -1871,7 +1930,8 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           if (wait.lane === lane && wait.kind !== "plan")
             closeApproval(request, "cancelled", undefined, false);
         for (const [call, wait] of [...asks])
-          if (wait.call.lane === lane) closeQuestion(call, "cancelled");
+          if (wait.call.lane === lane && wait.rpc !== null)
+            closeQuestion(call, "cancelled");
         for (const [itemId, call] of lane.calls)
           if (!call.done) {
             toolEnd(call, "cancelled");
@@ -1897,6 +1957,8 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         lane.turn = null;
         lane.codexTurn = null;
         if (lane !== root) return;
+        for (const wait of asks.values())
+          if (wait.rpc === null) publish(wait.asked);
         stopPending = false;
         if (dead === null) startNext();
       }
@@ -2181,8 +2243,15 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             else if (TOOL_ITEMS.has(item.type)) toolStart(lane, item);
             return;
           case "item/completed":
-            if (item !== undefined && item.type !== "userMessage")
-              itemDone(lane, item);
+            if (item === undefined || item.type === "userMessage") return;
+            itemDone(lane, item);
+            // 옛 turn을 다시 그릴 때(replay)는 itemDone만 쓰니 질문이 다시 뜨지 않는다.
+            if (
+              lane === root &&
+              item.type === "agentMessage" &&
+              (item.questions?.length ?? 0) > 0
+            )
+              openAsyncQuestion(lane, item.questions ?? []);
             return;
           case "item/agentMessage/delta":
             stream(lane, "text", String(params.delta ?? ""));
@@ -2292,7 +2361,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             openPermissions(lane, rpc, params);
             return;
           case "item/tool/requestUserInput":
-            openQuestion(lane, rpc, params);
+            openBlockingQuestion(lane, rpc, params);
             return;
           case "mcpServer/elicitation/request":
             write({
@@ -2535,20 +2604,27 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           await replayChildren();
           await resumeChildren();
         }
-        models = (
-          (await request("model/list", {}).catch(() => ({ data: [] }))).data ??
-          []
-        ).filter((one: J) => !one.hidden);
-        canPlan = (
-          (
-            await request("collaborationMode/list", {}).catch(() => ({
-              data: [],
-            }))
-          ).data ?? []
-        ).some((one: J) => one.mode === "plan");
-        const listed = await request("skills/list", { cwds: [cwd] }).catch(
-          () => ({ data: [] }),
+        // 서로 기다릴 이유가 없는 읽기다. 사용 한도는 server가 원격에서 가져와 1초 가까이 걸려(측정), 기다리지 않고 도착하면 낸다.
+        const reads = Promise.all([
+          request("model/list", {}).catch(() => ({ data: [] })),
+          request("collaborationMode/list", {}).catch(() => ({ data: [] })),
+          request("skills/list", { cwds: [cwd] }).catch(() => ({ data: [] })),
+          readGoal(),
+        ]);
+        void request("account/rateLimits/read", {}).then(
+          (rates) => {
+            for (const [limitId, snapshot] of Object.entries(
+              rates?.rateLimitsByLimitId ??
+                (rates?.rateLimits ? { codex: rates.rateLimits } : {}),
+            ))
+              snapshots.set(limitId, snapshot);
+            applyLimits();
+          },
+          () => {},
         );
+        const [modelList, modeList, listed] = await reads;
+        models = (modelList.data ?? []).filter((one: J) => !one.hidden);
+        canPlan = (modeList.data ?? []).some((one: J) => one.mode === "plan");
         skills = new Map(
           (listed.data ?? []).flatMap((entry: J) =>
             (entry.skills ?? [])
@@ -2556,16 +2632,6 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
               .map((one: J) => [one.name, one.path] as const),
           ),
         );
-        await readGoal();
-        const rates = await request("account/rateLimits/read", {}).catch(
-          () => null,
-        );
-        for (const [limitId, snapshot] of Object.entries(
-          rates?.rateLimitsByLimitId ??
-            (rates?.rateLimits ? { codex: rates.rateLimits } : {}),
-        ))
-          snapshots.set(limitId, snapshot);
-        applyLimits();
         change({
           ...modelMeta(),
           ...modesMeta(),
@@ -2903,6 +2969,9 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
       function handle(message: AcpInput) {
         switch (message.type) {
           case "send": {
+            // 보낸 말이 async 질문의 답을 대신한다(Claude의 human_message와 같다).
+            for (const [call, wait] of [...asks])
+              if (wait.rpc === null) closeQuestion(call, "cancelled");
             const first = message.content[0];
             // TUI처럼 친 글이 `!`로 시작해 와도 model로 보내지 않는다.
             if (
@@ -2992,6 +3061,25 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           case "answer": {
             const wait = asks.get(message.tool_call);
             if (wait === undefined) return;
+            if (wait.rpc === null) {
+              // 질문 자체는 turn이 끝났을 수 있어, 답은 TUI처럼 새 사람 메시지로 보낸다.
+              closeQuestion(message.tool_call, "submitted");
+              const text = message.answers
+                .map(
+                  (one) =>
+                    `> ${one.question.replace(/\s*\n\s*/g, " ")}\n\n${one.answer.join(", ")}`,
+                )
+                .join("\n\n");
+              handle({
+                type: "send",
+                session: message.session,
+                id: ids.newId("msg"),
+                key: ids.newId("msg"),
+                content: [{ type: "text", text }],
+                delivery: "steer",
+              });
+              return;
+            }
             closeQuestion(
               message.tool_call,
               "submitted",

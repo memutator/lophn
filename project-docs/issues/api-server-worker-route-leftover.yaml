@@ -11,5 +11,5 @@ impact: |
 decided: |
   지운다(잃는 기능이 없는 죽은 코드다. AGENTS.md "속도"). `packages.guide` route와 worker route 종류 전체, `forwardToWorker`를 같이 지운다(중간. 여러 module의 등록 file을 건드린다).
 closed: |
-  route 종류 `worker`, `defineWorker`, `WorkerRoute`, `packages.guide`, dispatch의 worker 갈래, `ApiServerOptions.workers`, `isWorkerRoute`, `forwardToWorker`, 등록의 `workerRoutes`, shell main client의 `workerBytes`를 지웠다. file route에 handler가 없으면 dispatch가 바로 `unavailable`이다. renderer 쪽 `Link.worker`는 남았다(`issues/agent-definition.md` 새 이슈).
+  route 종류 `worker`, `defineWorker`, `WorkerRoute`, `packages.guide`, dispatch의 worker 갈래, `ApiServerOptions.workers`, `isWorkerRoute`, `forwardToWorker`, 등록의 `workerRoutes`, shell main client의 `workerBytes`를 지웠다. file route에 handler가 없으면 dispatch가 바로 `unavailable`이다. renderer 쪽 `Link.worker`는 남았다(코드에서 `Link.worker`를 찾는다).
 guard: 없음

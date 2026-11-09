@@ -14,7 +14,7 @@ now: |
 
   `instructions/files.ts`는 숨은 SQL도 있다: `projectFolder`(`project_folders`), `projectOfApp`(`apps.source_path`, `project_folders` join `projects`), project 존재 확인(`projects`). import가 아니라 `tools/check-deps.ts`가 못 본다. `register.ts`와 `models/`의 같은 SQL은 `projects/lookups.ts`·`apps/lookups.ts`를 port로 받게 바꿨는데 이 file은 따로 싣는 reader 팀 module이라 남았다.
 impact: |
-  role이나 domain을 더하고 바꿀 때 harness의 이 file들도 고쳐야 한다. 면제된 file 안에서는 새 domain 지식이 늘어도 check가 막지 못한다. `instructions/files.ts`는 projects·apps가 표 모양을 바꾸면 type check 없이 실행 때 깨진다(`issues/mistakes.md`의 숨은 SQL과 같은 종류).
+  role이나 domain을 더하고 바꿀 때 harness의 이 file들도 고쳐야 한다. 면제된 file 안에서는 새 domain 지식이 늘어도 check가 막지 못한다. `instructions/files.ts`는 projects·apps가 표 모양을 바꾸면 type check 없이 실행 때 깨진다(이슈 `import-cut-by-reading-other-table`의 숨은 SQL과 같은 종류).
 fix: |
   - `instructions/files.ts`의 SQL을 `projects/lookups.ts`·`apps/lookups.ts` 읽기 함수로 바꾸고 조립이 꽂는다. `role-ports`와 같은 방법이다(작음).
   - `agents/`의 role 표(`BUILTIN_NAMES`, `DEFAULT_PROFILES`, role별 폴더·검증)를 `agent-roles`로 옮기고 harness는 인자로 받는다(중간).

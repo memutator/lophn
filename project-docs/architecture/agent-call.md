@@ -187,7 +187,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - **팀 상한은 root session 아래 열린 자손 수로 센다(사람이 확인).** core는 desk를 모른다. 기본은 처음 `max_depth: 3`, `max_members: 16`이었다가 `max_depth: 2`, `max_members: 8`로 줄였다.
 - **`team_changed`는 turn 준비 때 비교해 붙이고 입력함에 넣지 않는다(사람이 확인).** 쉬던 session을 깨우지 않는다.
 - **host queue로 탭을 여는 요청은 harness queue를 일반화하지 않고 같은 꼴로 따로 둔다(사람이 확인).** harness queue는 session마다 turn 입력을 담아 요청 종류를 실을 자리가 없다.
-- **팀 자식의 물음은 부모에게 가는 call이다(사람, 2026-11-08: "coordinator든 leader든 걔가 먼저 답하고 걔 판단으로 안 되겠음 걔가 사용자한테 올리고").** 자식의 물음이 모두 사람에게 오면 coordinator가 할 일을 사람이 한다. 올리는 장치를 따로 두지 않는다(agent): 부모가 자기 `ask`를 쓰면 같은 규칙이 사슬을 만들어 root에서 사람에게 닿는다. 부모의 승인 답은 글이 아니라 `call reply`의 구조 칸이다(agent): 새 명령을 두지 않았다. call과 request의 짝은 main thread 메모리에 두고 행에는 `ask` 표시만 둔다(agent). skip session의 shell ask는 부모에게 가지 않는다(planner). 팀 자식의 물음 event는 그대로 내고 표시로 거른다(planner).
+- **팀 자식의 물음은 부모에게 가는 call이다(사람, 2026-11-08: "coordinator든 leader든 걔가 먼저 답하고 걔 판단으로 안 되겠음 걔가 사용자한테 올리고").** 자식의 물음이 모두 사람에게 오면 coordinator가 할 일을 사람이 한다. 올리는 장치를 따로 두지 않는다(agent): 부모가 자기 `ask`를 쓰면 같은 규칙이 사슬을 만들어 root에서 사람에게 닿는다. 부모의 승인 답은 글이 아니라 `call reply`의 구조 칸이다(agent): 새 명령을 두지 않았다. call과 request의 짝은 main thread 메모리에 두고 행에는 `ask` 표시만 둔다(agent). skip session의 shell ask는 부모에게 가지 않는다(agent). 팀 자식의 물음 event는 그대로 내고 표시로 거른다(agent).
 - **팀 지시문은 system prompt에 넣지 않는다(agent).** prompt cache가 깨지지 않게 첫 call 본문 앞에 붙인다.
 
 ## 열린 것

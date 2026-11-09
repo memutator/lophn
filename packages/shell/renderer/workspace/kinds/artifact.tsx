@@ -5,6 +5,7 @@ import { ArtifactTab } from "../../artifact/artifact-tab.tsx";
 import { fileNameOf } from "../../editor/model.ts";
 import { artifactIcons } from "../../icons/mod.ts";
 import type { ArtifactSource } from "../../../ipc/artifact.ts";
+import { artifactWorkspaceOf } from "../../../../protocol/projects/artifact.ts";
 import { openBrowserTab } from "./browser.tsx";
 import { openFile } from "./document-editor.tsx";
 import type { TabHost } from "./host.ts";
@@ -12,16 +13,40 @@ import type { TabKindDef } from "./kind.ts";
 import type { TabItem } from "../model.ts";
 import { showAfter } from "../open-policy.ts";
 
-/** 이 창 workspace(project나 앱)의 artifact를 탭으로 연다. 이미 열려 있으면 고르기만 한다. */
-export function openArtifact(host: TabHost, name: string): void {
+const artifactKey = (workspace: { kind: string; id: string }, name: string) =>
+  `artifact:${workspace.kind}:${workspace.id}:${name}`;
+
+/**
+ * 이 창 workspace(project나 앱)의 artifact 탭. 사람이 연 탭의 key는 `artifact:<kind>:<id>:<name>`이고, agent가
+ * `lophn tab open --artifact`로 연 탭은 `host:<tab id>`다. home이면 null이다.
+ */
+export function artifactTab(
+  host: TabHost,
+  name: string,
+  key?: string,
+): TabItem | null {
   const { workspace } = host;
-  if (workspace.kind === "home") return;
-  host.openTab({
-    key: `artifact:${workspace.kind}:${workspace.id}:${name}`,
+  if (workspace.kind === "home") return null;
+  return {
+    key: key ?? artifactKey(workspace, name),
     kind: "artifact",
     title: name,
     fields: { [workspace.kind]: workspace.id, name },
-  });
+  };
+}
+
+/** 이 창 workspace(project나 앱)의 artifact를 탭으로 연다. 이미 열려 있으면 고르기만 한다. */
+export function openArtifact(host: TabHost, name: string): void {
+  const open = host
+    .windowTabs()
+    .find(
+      (tab) =>
+        tab.kind === "artifact" &&
+        tab.key.startsWith("host:") &&
+        tab.fields?.name === name,
+    );
+  const tab = open ?? artifactTab(host, name);
+  if (tab !== null) host.openTab(tab);
 }
 
 /** 사람의 폴더에 있는 .html을 탭으로 연다(절대 path). `from`은 연 탭의 key다(`showAfter`). */
@@ -120,7 +145,12 @@ export const artifactKind: TabKindDef = {
     const source = sourceOf(tab);
     if (source === null) return null;
     const { kind: _kind, ...fields } = source;
-    return { kind: "artifact", key: tab.key, ...fields };
+    // agent가 연 탭(`host:`)은 core의 탭 표가 core와 같이 사라지므로 사람이 연 탭의 key로 남긴다.
+    const key =
+      source.kind === "artifact" && tab.key.startsWith("host:")
+        ? artifactKey(artifactWorkspaceOf(source), source.name)
+        : tab.key;
+    return { kind: "artifact", key, ...fields };
   },
   // 옮길 상태가 없다. 받는 창이 다시 연다.
   transfer: () => Promise.resolve({ value: null, views: [] }),

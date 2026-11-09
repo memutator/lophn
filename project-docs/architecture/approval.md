@@ -10,7 +10,7 @@ agent는 사람이 없을 때도 shell을 돌리고 앱 tool을 부르고 서로
 
 - 목표: 사람이 한 번 정한 것(할당, 시킨 일, shell 규칙)이 곧 허락이다. 묻는 자리는 사람이 있을 때의 shell 규칙 `ask` 하나다. 판정은 결정적이고 사람의 결정은 사람 자격만 낸다. agent는 자기 할당을 넓히지 못한다.
 - 비목표:
-  - 규칙은 실수를 줄일 뿐 경계가 아니다. 따옴표와 escape를 풀지 않고, `shell.run`은 file 범위와 rewind 밖이다(`project-docs/issues/workspace-session.md`).
+  - 규칙은 실수를 줄일 뿐 경계가 아니다. 따옴표와 escape를 풀지 않고, `shell.run`은 file 범위와 rewind 밖이다(이슈 `shell-run-bypasses-file-scope`).
   - 사용자 앱과 사람이 쓴 글은 공격자로 보지 않는다. 막는 것은 agent의 실수와 인터넷에서 온 것이다.
   - LLM 판정(guardian, smart)은 두지 않는다. 판정은 program이 결정적으로 하고 결정은 사람이 한다.
   - OS sandbox는 두지 않는다. 조사한 harness 가운데 기본으로 켜는 것은 Codex 하나다.
@@ -39,7 +39,7 @@ agent는 사람이 없을 때도 shell을 돌리고 앱 tool을 부르고 서로
  앱 호출 경로 (agent·앱·job·flow가 앱 tool을 부름): 묻지 않고 막기만 한다
    agent ─▶ 판정으로 할당을 본다     앱 ─▶ active 앱 grant의 app.call
    program(job의 tool run) ─▶ 막지 않는다. 사람이 그 job의 등록을 승인했다
-   flow(instance의 tool run) ─▶ 그 project PM의 할당을 unattended로 판정 + 비공개 거르기
+   flow(instance의 tool run) ─▶ 그 project workspace의 agent의 할당을 unattended로 판정 + 비공개 거르기
  앱 공유 요청 (turn 안 request와 달리 turn이 끝나도 남는다. activation 동의, job 승인과 같은 꼴)
    앱 workspace의 agent ─ lophn app share ─▶ share_request.open ─▶ share_requests 표 + ShareRequestOpened ─▶ 대기 목록
    사람: approve | reject (share_request.decide, 사람 자격만)
@@ -68,7 +68,7 @@ turn은 시작할 때 mode(attended, unattended, skip)를 정해 turn 행(`turns
 - unattended는 call 봉투에 실려 따라간다. unattended turn이 보낸 call과 답에 표시가 실리고, 그 call의 늦은 실패와 취소 알림도 call 행의 표시를 따른다(`architecture/agent-call.md`). 답의 표시는 답한 turn에서 온다. 사람이 끼어든 attended turn의 답은 attended다.
 - reaction과 화면에서 사람이 보낸 메시지가 연 turn은 attended다. `SendMessage`에 `unattended: true`를 실은 사람 메시지(run 입력, `architecture/run.md`)가 연 turn은 unattended다. 사람 메시지의 이 표시는 run만 싣는다. workflow가 넣은 step 입력(`architecture/workflow.md`)도 unattended 표시를 싣는다. 사람이 instance를 시작한 것이 그 사슬을 맡긴 것이다. 표시는 할당을 넓히지 않는다.
 - job도 사람이 없는 일이다(`architecture/job.md`). job이 연 agent run의 turn은 run 입력이라 unattended이고 그 turn이 보낸 call 사슬도 따라간다. job이 시작한 instance의 step 입력도 같다. job의 tool 호출은 사람이 한 등록 승인이 허락이라 할당을 보지 않는다(`architecture/app-call.md`). agent run과 instance는 받은 agent의 할당으로 일한다.
-- flow도 사람이 없는 일이다(`architecture/workflow.md` "flow"). flow가 연 agent run의 turn은 run 입력이라 unattended다. flow의 tool 호출은 그 project PM의 지금 할당을 unattended로 판정해 막기만 한다. code를 쓴 것이 PM이라 code로 PM의 할당을 넓히지 못한다. flow가 부르는 agent는 누구든 되지만 받은 agent는 자기 할당으로만 일한다.
+- flow도 사람이 없는 일이다(`architecture/workflow.md`). flow가 연 agent run의 turn은 run 입력이라 unattended다. flow의 tool 호출은 그 project workspace의 agent의 지금 할당을 unattended로 판정해 막기만 한다. code를 쓴 것이 그 agent라 code로 그 할당을 넓히지 못한다. flow가 부르는 agent는 누구든 되지만 받은 agent는 자기 할당으로만 일한다.
 - unattended turn의 `ask` tool은 기다리지 않고 `unattended`를 바로 돌려준다. skip turn의 `ask`는 사람이 있으니 기다린다. 팀 자식의 `ask`는 mode와 상관없이 부모에게 간다("팀 자식의 물음").
 - skip은 session 표시다. 사람만 켜고 끈다. agent 정의의 `skip`이 그 agent 새 session의 기본값이고, 이 칸도 사람만 쓴다. skip은 call을 따라 가지 않는다. fork는 skip을 가져가지 않고 정의의 기본값으로 시작한다.
 
@@ -76,7 +76,7 @@ turn은 시작할 때 mode(attended, unattended, skip)를 정해 turn 행(`turns
 
 규칙은 `{pattern, action}`이고 action은 `allow | ask | deny`다. `*`는 아무 글자, `\*`는 글자 그대로의 `*`다. `*`가 없는 pattern은 그 명령과 똑같을 때만 맞고, 끝의 ` *`는 그 앞까지만 있어도 맞는다. 공백은 줄여 맞춘다.
 
-- 층은 셋이다: 제품 기본(floor deny와 ask), 전역, project. 전역과 project 규칙은 설정 `approvals.shell_rules`(`{global, projects}`)에 있고 사람이 Settings › Shell rules에서 옮기고 고친다. 사람의 project 폴더에 두지 않는다. PM이 그 폴더를 file tool로 쓰기 때문이다.
+- 층은 셋이다: 제품 기본(floor deny와 ask), 전역, project. 전역과 project 규칙은 설정 `approvals.shell_rules`(`{global, projects}`)에 있고 사람이 Settings › Shell rules에서 옮기고 고친다. 사람의 project 폴더에 두지 않는다. project workspace의 agent가 그 폴더를 file tool로 쓰기 때문이다.
 - 명령 전체와 `&&`·`||`·`;`·`|`·줄바꿈으로 나눈 조각마다 floor, 그다음 층을 이어 본 가운데 마지막에 맞은 규칙, 없으면 allow다. 그 가운데 가장 엄한 것(deny > ask > allow)이 명령의 결과다. 조각을 이어야 보이는 위험(`curl * | sh *`, fork bomb)도 전체에서 잡힌다.
 - floor deny는 어느 층도, `always`도, skip도 덮지 못한다. 글자 그대로 맞추므로 floor는 `rm`의 flag 순서(`-rf`, `-fr`, `-r -f`, `-f -r`)와 대상(`/`, `~`, `~/`, 글자 그대로의 `/*`·`~/*`)의 곱, `mkfs*`, `dd * of=/dev/*`를 `sudo` 앞붙임 있이와 없이 따로 적고, fork bomb을 더한다. 제품 기본 ask는 `rm -r*`·`rm -fr*`·`rm -f -r*`, force push와 `-f`, `git reset --hard*`, `curl`·`wget`을 shell에 파이프하는 꼴이다. `--no-preserve-root`, `$HOME`, `/home/<사람>`은 floor 밖이다.
 - `always`는 ask였던 조각마다 `<앞 두 낱말> *`(한 낱말이면 그 조각, 조각을 이어야 ask인 명령은 명령 전체)를 allow로 더한다. 층은 turn의 workspace로 정한다: project workspace면 그 project 층, 앱 workspace와 Home이면 전역 층이다.
@@ -84,7 +84,7 @@ turn은 시작할 때 mode(attended, unattended, skip)를 정해 turn 행(`turns
 
 ### 팀 자식의 물음
 
-spawn된 session(`spawned_by` 있음)의 `ask` tool(질문)과 shell 규칙 `ask`(승인)는 사람이 아니라 부모에게 가는 result call이다(`architecture/agent-call.md` "팀의 ask call"). 자식 turn은 turn 안 request(질문은 질문 대기)로 기다리고 부모의 답이 그것을 푼다. 부모가 판단할 수 없으면 자기 `ask`를 쓴다. 부모도 자식이면 그 위로 가고 root에서 사람에게 닿는다. 올리는 장치는 따로 없다.
+spawn된 session(`spawned_by` 있음)의 `ask` tool(질문)과 shell 규칙 `ask`(승인)는 사람이 아니라 부모에게 가는 result call이다(`architecture/agent-call.md`의 지키는 것, 팀의 ask call). 자식 turn은 turn 안 request(질문은 질문 대기)로 기다리고 부모의 답이 그것을 푼다. 부모가 판단할 수 없으면 자기 `ask`를 쓴다. 부모도 자식이면 그 위로 가고 root에서 사람에게 닿는다. 올리는 장치는 따로 없다.
 
 - 질문은 mode와 skip에 상관없이 부모에게 간다. shell 승인은 skip이 켜진 session이면 `run`이다. skip은 사람이 그 session에 정한 "묻지 마"라서 부모가 뒤집지 않는다. 팀 밖 session은 그대로다(unattended 질문은 `unattended`, skip 아닌 attended shell ask는 사람에게).
 - unattended 여부는 core가 질문 입구에서 가른다. 자식이 아니고 turn이 unattended면 `unattended`를 바로 돌려준다. ask call은 자식 turn의 unattended 표시를 싣고 가므로, unattended 사슬의 root가 받은 물음에서는 root의 `ask`가 `unattended`를 돌려주고 root가 스스로 정한다.
@@ -155,7 +155,7 @@ route와 command
 - 설정 `approvals.shell_rules`(`{global, projects}`), `coding-agent.shared_apps`.
 
 event (남지 않는다. commit 뒤 Bus)
-- `TurnRequestOpened`(`to_parent` 표시), `TurnRequestClosed {allow | reject | cancelled}`, `ShareRequestOpened`(새 요청이 대신해도 낸다), `ShareRequestClosed {outcome}`. 대기 목록은 snapshot의 `turn_requests`, `share_requests.list`를 읽고 이 event로 고친다. 대기 목록은 Inbox의 Now 탭 위쪽("답할 것")이다. 그 아래 휘발 알림과 따로 있는 History 탭(영구 기록)은 답할 것이 아니라 sidebar 배지에 세지 않는다(`architecture/app-notice.md`).
+- `TurnRequestOpened`(`to_parent` 표시), `TurnRequestClosed {allow | reject | cancelled}`, `ShareRequestOpened`(새 요청이 대신해도 낸다), `ShareRequestClosed {outcome}`. 대기 목록은 snapshot의 `turn_requests`, `share_requests.list`를 읽고 이 event로 고친다. 대기 목록은 Inbox의 Now 탭 위쪽("답할 것")이다. 그 아래 휘발 알림과 따로 있는 History 탭(영구 기록)은 답할 것이 아니지만 안 읽은 영구 줄은 sidebar 배지에 센다(`architecture/app-notice.md`).
 
 저장
 - 할당의 정본은 agent 정의 파일의 `apps`와 `permissions.deny`다. approvals는 정의 파일도 앱 표도 모르므로 읽고 쓰는 길은 조립이 꽂는 port다. 쓰기는 앱 id를 slug로, 뺀 command를 deny 규칙으로 바꾼다.
@@ -185,7 +185,7 @@ event (남지 않는다. commit 뒤 Bus)
   - 팀 자식의 event는 그대로 내고 `to_parent` 표시로 거른다. `TurnResumed`, snapshot의 `waiting`, acp가 그 event에 기댄다. (agent)
   - skip은 지킨다: skip session의 shell ask는 부모에게 가지 않는다. (agent)
 - job은 사람이 등록을 한 번 승인해야 돈다. job의 허락은 만든 agent의 할당이 아니라 그 등록 승인이다. 이유: job은 agent가 만들고 정해진 때 사람 없이 돈다. agent가 혼자 정한 일이 사람 없이 되풀이되지 않게 하고 허락의 범위를 그 job의 할 일 하나로 맞춘다. 할당으로 허락하면 job 하나를 위해 그 agent에게 앱 전체를 열어 줘야 한다. 승인 뒤 할 일은 바뀌지 않는다. job이 부르는 agent run과 instance는 unattended이고 받은 agent의 할당으로 일한다. 앱 tool 호출은 승인이 허락이다. 버린 안: 앱 place에서 만든 job만 할당 검사를 건너뛰기, 만들 때 할당을 검사해 거절하기. (사람)
-- flow는 PM이 쓴 code라 PM의 할당이 허락이다. code에 credential을 주지 않으므로 다른 자격을 빌릴 길도 없다. (agent)
+- flow는 project workspace의 agent가 쓴 code라 그 agent의 할당이 허락이다. code에 credential을 주지 않으므로 다른 자격을 빌릴 길도 없다. (agent)
 - workflow를 쓴다는 것은 바깥 효과까지 책임지겠다는 뜻이고 사람이 loop에서 자주 빠진다. 그래서 unattended는 묻지 않고, 시작한 사람이 그 사슬 전체를 시켰으니 call을 따라 간다. skip은 사람이 그 대화에 정한 것이라 따라 가지 않는다. (agent)
 - 묻는 길은 기다리는 turn 하나, 선택지는 `once | always | reject`, fingerprint 없음, agent call은 묻지도 막지도 않음, `LOPHN.md` 쓰기는 묻지 않음, reaction은 `off | on`이고 새 일 handler는 approvals를 거치지 않는다. 이유: 개념이 많고 같은 판정을 여러 번 했다. agent call은 받은 agent가 자기 할당으로만 일하므로 부르는 쪽에서 판정할 이유가 없다(`products/AGENT.md` T5, T6). 누구를 부르는지는 지침과 workflow의 일이다. (agent)
 - 보류 request 길(저장 표와 applier)을 지웠다. 쓰던 둘 가운데 reaction의 `ask`는 지웠고(그 reaction 설정이 없어졌다), activation 동의는 activation module이 자기 상태로 갖는다. (agent)
@@ -195,17 +195,17 @@ event (남지 않는다. commit 뒤 Bus)
 - shell 규칙은 prefix와 `*`, 마지막 일치다(OpenCode, Codex를 따른다). regex 사전(Hermes)과 명령 parser(OpenCode의 tree-sitter)는 쓰지 않는다.
 - LLM 판정을 넣지 않았고 OS sandbox와 timeout도 두지 않았다(비목표).
 - CLI의 `--dangerously-skip-permissions`는 두지 않는다. CLI가 여는 run은 처음부터 unattended라 묻지 않는다. (agent)
-- 사람 결정 handle은 shell capability로만 등록한다. 이유: HTTP token은 renderer와 앱 view, CLI를 쓰는 terminal agent까지 같은 값이 퍼지고 agent·worker credential은 agent의 것이라 그 자격으로 등록하면 agent가 사람의 결정을 흉내 낼 수 있다. 그래서 사람만 쓰는 창을 가진 shell main에만 주는 다른 자격을 둔다. 경계는 control socket 자리(같은 사용자, 0700 폴더, named pipe)이고 OS peer 신원은 보지 않는다. 같은 사용자의 process는 이미 `secrets.json`을 읽을 수 있어(`architecture/layers.md`) peer 검증이 더 막는 것이 없고 세 OS native addon이 든다. (agent)
+- 사람 결정 handle은 shell capability로만 등록한다. 이유: HTTP token은 renderer와 앱 view, CLI를 쓰는 terminal agent까지 같은 값이 퍼지고 agent·worker credential은 agent의 것이라 그 자격으로 등록하면 agent가 사람의 결정을 흉내 낼 수 있다. 그래서 사람만 쓰는 창을 가진 shell main에만 주는 다른 자격을 둔다. 경계는 control socket 자리(같은 사용자, 0700 폴더, named pipe)이고 OS peer 신원은 보지 않는다. 같은 사용자의 process는 이미 `secrets.json`을 읽을 수 있어(`architecture/agent-definition.md`의 secret 저장소, `architecture/platform.md`의 data root) peer 검증이 더 막는 것이 없고 세 OS native addon이 든다. (agent)
 - 판정이 읽는 할당을 call 때마다 읽는 것과 MCP 연결 call이 server 설정을 다시 읽는 것은 사람이 거둔 권한이 바로 거둬지게 하려는 것이다. 버린 안: server를 끄는 바뀜마다 연결을 끊기(바뀜을 알리는 길을 새로 둬야 한다). (agent)
 - turn request와 질문 대기를 메모리 route로 두는 것은 의도다. ledger 표로 옮기면 durable queue가 되고, 재시작이 기다리던 turn을 끊는 것은 의도다. (agent)
 
 ## 열린 것
 
-- 공유 요청 승인이 받을 agent의 정의 파일을 하나씩 쓰다 둘째가 실패하면 첫 agent에 앱이 남는다. 파일 쓰기가 ledger tx 밖이라 요청은 열린 채로 첫 agent가 그 앱의 tool을 쓸 수 있다. 다시 승인하면 마무리되지만 사람이 거절하면 할당이 남는다. 동의와 같이 승인하는 길도 같다. 추천 고침: 쓰기 전에 받을 agent 모두의 정의 파일을 읽고 검사해 통과하면 쓴다(`project-docs/issues/approval.md`).
+- 공유 요청 승인이 받을 agent의 정의 파일을 하나씩 쓰다 둘째가 실패하면 첫 agent에 앱이 남는다. 파일 쓰기가 ledger tx 밖이라 요청은 열린 채로 첫 agent가 그 앱의 tool을 쓸 수 있다. 다시 승인하면 마무리되지만 사람이 거절하면 할당이 남는다. 동의와 같이 승인하는 길도 같다. 추천 고침: 쓰기 전에 받을 agent 모두의 정의 파일을 읽고 검사해 통과하면 쓴다(이슈 `share-approval-partial-assignments`).
 - 외부 효과를 다시 묻기로 정하는 일은 사람이 정한다("결정"의 external).
 - unattended coding agent의 물음에 lophn이 hook으로 받아 shell 규칙으로 답하기(deny와 floor면 거절, 나머지는 허락)는 아직 만들지 않았다. 앱 문제를 coding agent에게 맡기는 흐름이 다시 열릴 때 만든다(`project-docs/products/roadmap/approval.md`).
 - reaction이 연 turn의 mode는 지금 attended다. 지금 session을 여는 reaction이 coding session 끝 알림 하나뿐이고 그 흐름이 막혀 있어 열 일이 없다.
-- shell 규칙은 경계가 아니다. `shell.run`은 file 범위와 rewind 밖이다(`project-docs/issues/workspace-session.md`).
+- shell 규칙은 경계가 아니다. `shell.run`은 file 범위와 rewind 밖이다(이슈 `shell-run-bypasses-file-scope`).
 - `--no-preserve-root`, `$HOME`, `/home/<사람>`을 향한 `rm`은 floor 밖이다.
 - 한 session에 turn 하나가 도는 전제에 기대어, turn이 끝나면 그 session의 request를 모두 닫는다.
 - 사람이 `always`를 저장하는 사이 turn이 끝나 request가 cancelled로 먼저 닫히면 규칙은 이미 저장되고 응답은 `conflict`다. 이 규칙을 남길지는 정하지 못했다.

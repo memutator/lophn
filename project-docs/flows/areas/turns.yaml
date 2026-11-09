@@ -823,6 +823,7 @@ flows:
       - "agent의 ask tool이 질문 1~4개(선택지 2~4개)를 runtime을 거쳐 core에 올린다. 자격의 session과 turn이 입력과 같아야 한다(아니면 forbidden)"
       - "session과 turn 기록을 읽는다(읽기 오류는 그대로 간다). turn이 unattended면 묻지 않고 바로 unattended를 돌려준다. 팀 자식의 질문은 이 규칙에서 빠진다"
       - "그 밖이면 메모리 대기 목록에 올리고 QuestionAsked를 낸다. 팀 자식의 질문은 사람 대신 부모에게 간다"
+      - "한 session에서 사람에게 가는 질문은 하나만 열린다. 병렬 ask 호출의 나머지는 줄을 서고(QuestionAsked 없음, 읽거나 답할 수 없다) 앞 질문이 풀리면 차례로 열린다"
       - "답(ask/answer), 그 session의 사람 메시지(MessageReceived from human), turn 끝(TurnEnded), session 닫힘(SessionEnded) 가운데 먼저 오는 것으로 기다리던 tool에 결과를 준다"
       - "기다리는 동안 turn의 active 시간은 세지 않는다"
     outcomes:

@@ -259,6 +259,11 @@ async function buildSteps(
     name: "flows",
     commands: [["node", "tools/flows.ts", "check"]],
   });
+  // issue·change-log yaml과 architecture 문서의 꼴은 문서만 바뀌어도 틀어지므로 조건 없이 돈다.
+  checks.push({
+    name: "records",
+    commands: [["node", "tools/records.ts", "check"]],
+  });
   // SDK 판을 올리고 메모를 빼먹는 변경은 sdk 폴더만 바뀌므로 조건 없이 돈다.
   checks.push({
     name: "sdk notes",

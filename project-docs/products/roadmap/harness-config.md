@@ -1,10 +1,10 @@
 # harness-config: MCP, skill, 권한, 지침 설정을 일반 harness 꼴로
 
-상태: 단계 1, 2, 6, 8은 계획 `skill-share`로 구현했다(2026-11-02, 변경 기록 `project-docs/products/change-log/0.15.0.md`). 남은 단계는 3(MCP 칸 꼴), 4(project 층을 repo `.lophn/settings.json`으로), 5(권한 규칙 일반화), 7(가져오기)이고, 아직 계획으로 열지 않았다. 아래 "지금"과 단계 본문은 이 roadmap을 연 때 코드를 적은 것이라 구현한 단계의 현재 모습은 `project-docs/architecture/{agent-definition,approval,app-call,coding-agent}.md`다.
+상태: 단계 1, 2, 6, 8은 계획 `skill-share`로 구현했다(2026-11-02, 변경 기록 `project-docs/products/change-log/0.15/app-skills-shared-by-assignment.yaml`). 남은 단계는 3(MCP 칸 꼴), 4(project 층을 repo `.lophn/settings.json`으로), 5(권한 규칙 일반화), 7(가져오기)이고, 아직 계획으로 열지 않았다. 아래 "지금"과 단계 본문은 이 roadmap을 연 때 코드를 적은 것이라 구현한 단계의 현재 모습은 `project-docs/architecture/{agent-definition,approval,app-call,coding-agent}.md`다.
 2026-11-01 사람이 "MCP, skill, permissions 설정이 일반 coding agent harness와 너무 다른 규격 같다. 최대한 비슷한 방향으로 고치는 roadmap을 열라"고 했다.
 2026-11-02 command-surface 뒤에 앱 skill 공유(단계 8)를 여기에 합쳤다. 앱이 내놓은 command를 다른 agent가 알 길이 없었다: lophn agent의 workspace 정보에는 자기 앱의 command만 실리고, coding agent에게는 아무 길이 없다. 사람: "다른 agent가 쓸 수 있어야 한다고 사람이 판단하면 skill로 만들고, 필요한 agent에게 주고, CLI가 바뀌면 갱신한다. 앱을 짓는 agent는 그것을 제안할 수 있어야 한다".
 조사: `research_notes/harness-config-comparison/README.md`. Claude Code, Codex, OpenCode, Hermes, omp를 같은 틀로 비교했고, harness마다 note가 따로 있다.
-배경 문서: `project-docs/architecture/agent-definition.md`, `project-docs/architecture/approval.md`, `project-docs/architecture/workspace-session.md`, `project-docs/issues/agent-definition.md`, `project-docs/issues/workspace-session.md`.
+배경 문서: `project-docs/architecture/agent-definition.md`, `project-docs/architecture/approval.md`, `project-docs/architecture/workspace-session.md`, 열린 이슈(`node tools/records.ts issues --topic agent-definition`, `node tools/records.ts issues --topic workspace-session`).
 
 ## 왜
 
@@ -27,7 +27,7 @@
 | project shell 규칙 | `settings.json` `approvals.shell_rules.projects.<prj_id>` | `{pattern, action}` 배열(`packages/protocol/approvals/shell-rules.ts`) |
 | agent 정의 | `~/.lophn/agents/<agt_id>.md` | YAML frontmatter `name, profile, model, skills_off, mcp_off, mcp_servers, apps, permissions, skip`와 본문 |
 | 할당 | ledger `agent_assignments` | `[{app, removed_tools[]}]`(`packages/core/approvals/assignment/schema.ts`) |
-| 지침 | `~/.lophn/LOPHN.md`, 첫 project 폴더의 `LOPHN.md`, agent 본문 | 이어 붙인다. `AGENTS.md`는 안 읽는다(`architecture/agent-definition.md:45`) |
+| 지침 | `~/.lophn/LOPHN.md`, 첫 project 폴더의 `LOPHN.md`, agent 본문 | 이어 붙인다. `AGENTS.md`는 안 읽는다(`architecture/agent-definition.md`의 지침 파일 규칙) |
 | skill | 내장 8개, 등록 폴더, `~/.lophn/skills`, workspace 폴더의 `.lophn/skills`, 그릇 자리의 `skills/`(workspace-data) | `SKILL.md`, 줄 단위 parser(`packages/core/lophn-agent/extensions/skills.ts:66-135`) |
 | credential | `~/.lophn/secrets.json`(0600) | 이름 → 값. MCP 설정은 `{secret: "mcp.…"}`로 가리킨다 |
 
@@ -80,7 +80,7 @@ MCP 한 칸은 Claude `.mcp.json`과 같은 꼴이다. Claude, Codex, Hermes, om
 2. **skill(작음~중간).**
    - frontmatter를 진짜 YAML로 읽는다. agent 정의가 이미 쓰는 YAML parser를 쓴다.
    - project 폴더와 앱 source의 `.lophn/skills`를 발견 자리에 더한다. 내장, 등록 폴더, `~/.lophn/skills`, 그릇 자리의 `workspace-data`는 그대로다. `.agents/skills`, `~/.agents/skills`는 읽지 않는다.
-   - agent 정의의 `skills`(받을 이름 목록)를 `skills_off`(끈 이름)로 바꾼다. 이것으로 `issues/agent-definition.md`의 "한 workspace에서 skill 하나를 끄면 다른 workspace에서도 빠진다"가 닫힌다.
+   - agent 정의의 `skills`(받을 이름 목록)를 `skills_off`(끈 이름)로 바꾼다. 이것으로 이슈 `disabling-skill-drops-other-place`가 닫힌다.
 3. **MCP 칸 꼴(중간~큼).**
    - `mcpServers.<name>` map으로 바꾼다. stdio는 `command`(PATH에서 찾는다)·`args`·`env`·`cwd`이고, remote는 `type: "http"`·`url`·`headers`다. 그 밖에 `enabled`와 timeout을 둔다.
    - 값 안의 `${NAME}`은 `secrets.json`의 `NAME`으로 푼다. stdio `env`에도 쓸 수 있다. process env는 읽지 않는다.
@@ -138,7 +138,7 @@ MCP 한 칸은 Claude `.mcp.json`과 같은 꼴이다. Claude, Codex, Hermes, om
 
 ## 정할 것과 추천
 
-1~3은 2026-11-02 사람이 정했다(위 "정한 것"). 2는 `architecture/approval.md:65` "사람의 project 폴더에 두지 않는다. PM이 그 폴더를 file tool로 쓰기 때문이다"를 뒤집는다. 그 걱정은 보호 path로 막는다(단계 4). 남는 구멍은 `shell.run`이다. shell은 file 범위 밖이라 `.lophn/settings.json`을 쓸 수 있다. 이것은 이미 열린 `issues/workspace-session.md` "shell.run은 file 범위 밖"과 같은 구멍이고, 그 이슈의 결정을 따른다. 4~8은 추천대로 간다.
+1~3은 2026-11-02 사람이 정했다(위 "정한 것"). 2는 `architecture/approval.md`의 shell 규칙 층 문장(사람의 project 폴더에 두지 않는다, project workspace의 agent가 그 폴더를 file tool로 쓰기 때문이다)을 뒤집는다. 그 걱정은 보호 path로 막는다(단계 4). 남는 구멍은 `shell.run`이다. shell은 file 범위 밖이라 `.lophn/settings.json`을 쓸 수 있다. 이것은 이미 열린 이슈(`node tools/records.ts issues --topic workspace-session`)의 shell.run은 file 범위 밖과 같은 구멍이고, 그 이슈의 결정을 따른다. 4~8은 추천대로 간다.
 
 4. **repo에서 온 MCP server 승인 단위.**
    - 추천: server 이름과 정의 hash로 한 번 승인하고, `~/.lophn/settings.json`에 둔다. 정의가 바뀌면 다시 묻는다. git pull로 승인한 이름의 command만 바뀌는 경우가 실제로 위험한 길이다.

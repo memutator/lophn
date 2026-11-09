@@ -1,0 +1,32 @@
+id: docs-records-refactor
+version: 0.23.0
+title: "architecture는 설계만, 이슈와 change-log는 항목마다 yaml, release notes는 영어로 나눈다"
+modules: [tools]
+checked: []
+change: |
+  전: architecture 문서는 file·함수·줄을 적은 구현 지도였고, 이슈는 주제별 md 한 파일에 절로 쌓여 닫으면 `archived/`로 옮겼고, change-log는 판마다 md 한 파일에 일들이 절로 쌓였다. 판은 사람이 정하는 것으로만 쓰였다.
+  후: architecture 문서는 설계(문제, 모델, 지키는 것, 결정, 열린 것)만 적고 code path·함수 이름은 적지 않는다(구현 쪽 참고는 skill의 `reference.md`로 옮겼다). 이슈는 `project-docs/issues/<id>.yaml` 하나가 이슈 하나이고 닫으면 `status`(fixed, kept)만 바꾼다. change-log는 `products/change-log/<x.y>/<id>.yaml` 항목 하나가 일 하나이고 결정에 `by: person | agent`를 단다. 사람이 읽는 외부 요약은 영어 `products/release-notes/<x.y.z>.md`다. 옛 기록은 모두 새 꼴로 옮겼다. `node tools/records.ts`(check, issues, changes)가 꼴을 보고 목록을 낸다. check에 records 단계를 더했고 docs 단계는 issues, change-log, release-notes의 path를 보지 않는다(닫은 기록이라 그때의 path가 남는다).
+  판 규칙: PATCH는 `packages/`를 바꾼 일 하나를 main에 올리는 agent가 같은 변경에서 올리고 항목을 쓴다. MINOR·MAJOR는 사람이 정한다.
+why: architecture 문서가 code와 같이 낡아 믿을 수 없었고, 이슈와 change-log는 한 파일이 커져 찾고 닫기 어려웠다. 설계는 문서에, 구현은 code와 flow catalog에, 기록은 항목 하나씩 나눠 각각 믿을 수 있게 하려고.
+decisions:
+  - text: |
+      architecture 문서는 설계만 적는다. 버린 길: 구현 지도를 문서에 두고 같이 고치기(code와 매번 어긋났다).
+    by: person
+  - text: |
+      change-log(내부, 일마다)와 release notes(외부, 판마다)를 나눈다. 버린 길: 한 문서로 둘을 겸하기.
+    by: person
+  - text: |
+      release notes는 영어로 쓴다.
+    by: person
+  - text: |
+      PATCH 판은 `packages/`를 바꾼 일 하나를 올리는 agent가 올린다.
+    by: person
+  - text: |
+      MINOR·MAJOR 판은 사람이 정한다.
+    by: person
+  - text: |
+      이슈 하나와 change-log 항목 하나를 각각 yaml file 하나로 둔다. 버린 길: 주제별·판별 md 한 파일(커지고 닫을 때 옮겨야 한다).
+    by: person
+  - text: |
+      옛 기록은 모두 새 꼴로 옮긴다.
+    by: person

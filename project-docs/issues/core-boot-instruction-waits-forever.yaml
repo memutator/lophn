@@ -9,7 +9,7 @@ now: |
 impact: |
   worker마다 기동 확인에서 시간을 잃고, 멈춘 호출을 빠져나오려 지시문 밖 방법(`kill -9`, TaskStop)을 쓴다. 다음 worker가 ps로 남은 process를 찾다가 남의 process를 끌 위험이 다시 생긴다.
 cause: |
-  앞서 닫은 "core를 subshell로 띄워 `$!`가 deno를 가리키지 않음"(`archived/mistakes.md`)의 막기가 지시문 한 줄이었고, 그 줄 자체가 끝나지 않는다.
+  앞서 닫은 "core를 subshell로 띄워 `$!`가 deno를 가리키지 않음"(이슈 `core-subshell-hides-deno-pid`)의 막기가 지시문 한 줄이었고, 그 줄 자체가 끝나지 않는다.
 prevent: |
   `prompt.py`와 orchestrate skill의 기동 줄을 "`cd <worktree>; project-docs/plan/tools/lead/boot.sh`"로 바꾼다(작음). `boot.sh`는 `(sleep 12) | timeout 40 deno ...`로 stdin을 닫아 core가 스스로 끝나고, 새 data root로 두 번 띄워 `boot N exit 0`을 찍는다. browser-bridge wave 2부터 lead 메모로 이 길을 주었고 worker 넷이 멈추지 않았다.
 closed: |

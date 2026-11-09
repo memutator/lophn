@@ -105,6 +105,8 @@ export interface WorkspaceLeftSidebarProps {
   agents: readonly SidebarAgent[];
   /** 모든 workspace의 lophn 이름(agent id → 이름). 다른 workspace의 새 session 줄이 쓴다. */
   lophnNames: Readonly<Record<string, string>>;
+  /** 이 창의 layout을 읽었다. 읽기 전의 `openTitles`·`desks`는 기본 layout의 값이라 sidebar가 쓰지 않는다. */
+  layoutReady: boolean;
   /** 이 창에 탭이 열린 session id → 그 탭의 제목. */
   openTitles: ReadonlyMap<string, string>;
   /** 이 창 layout의 desk. current 줄을 desk로 나눈다. */
@@ -197,7 +199,9 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
       new Map(
         // 창의 마지막 값이라 지금 workspace가 들 수 있다. 지금 workspace의 터미널은 props.terminals가 준다.
         [...elsewhere.terminals]
-          .filter(([key]) => key !== workspaceKey(current))
+          .filter(
+            ([key]) => !props.layoutReady || key !== workspaceKey(current),
+          )
           .map(([key, tabs]) => [
             key,
             tabs.flatMap((tab): PanelTerminal[] => {
@@ -220,16 +224,28 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
             }),
           ]),
       ),
-    [elsewhere.terminals, store, storeVersion, workspaceKey(current)],
+    [
+      elsewhere.terminals,
+      store,
+      storeVersion,
+      workspaceKey(current),
+      props.layoutReady,
+    ],
   );
+  // layout을 읽기 전의 이 창은 기본 layout(탭 없음)이다. 그 값으로 덮으면 workspace를 옮길 때마다 줄이 비었다 차오르므로 저장된 값을 그대로 쓴다.
   const openTitles = useMemo(
     () =>
-      new Map(elsewhere.titles).set(workspaceKey(current), props.openTitles),
-    [elsewhere.titles, current, props.openTitles],
+      props.layoutReady
+        ? new Map(elsewhere.titles).set(workspaceKey(current), props.openTitles)
+        : elsewhere.titles,
+    [elsewhere.titles, current, props.openTitles, props.layoutReady],
   );
   const desks = useMemo(
-    () => new Map(elsewhere.desks).set(workspaceKey(current), props.desks),
-    [elsewhere.desks, current, props.desks],
+    () =>
+      props.layoutReady
+        ? new Map(elsewhere.desks).set(workspaceKey(current), props.desks)
+        : elsewhere.desks,
+    [elsewhere.desks, current, props.desks, props.layoutReady],
   );
   const drafts = useMemo(
     () =>
@@ -251,6 +267,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         apps: list.apps,
         entries: sessions,
         agents: props.agents,
+        lophnNames: props.lophnNames,
         known,
         openTitles,
         desks,
@@ -266,6 +283,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
       list.apps,
       sessions,
       props.agents,
+      props.lophnNames,
       known,
       openTitles,
       desks,

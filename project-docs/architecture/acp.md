@@ -195,6 +195,7 @@ projection은 event만으로 알 수 없는 것을 core가 context로 받는다.
 - 줄에 선 메시지는 도는 turn이 있을 때 사람이 다음 turn으로 보낸 것이다. 순번을 받지 않았으면(`acp_items`에 없으면) 줄에 선다.
 - snapshot의 `writing`은 core가 낸 글 그대로이고 `at`은 그 turn의 시작이다. `pending`은 approvals와 질문 기다림에서, `turn.elapsed`는 도는 turn에서 읽는다. harness가 주체인 승인 물음은 대화에 오지 않는다.
 - 대기 중인 질문의 묶음 id는 메모리에만 있어 풀린 질문의 `group`은 null이다.
+- 사람에게 가는 질문은 session당 하나만 열린다(`pending.question`이 한 칸이라서다). 한 응답의 `ask` 호출 여럿은 병렬로 오지만 core의 질문 기다림이 나머지를 줄 세우고, 앞 질문이 풀린 때 다음 질문의 `QuestionAsked`를 낸다. 열리지 않은 질문은 `ask/read`·`ask/answer`가 `not_found`이고 snapshot의 질문 목록에도 없으며 닫혀도 `QuestionResolved`가 나가지 않는다.
 - 팀 자식의 요청과 질문(`to_parent`)은 부모가 푸는 것이라 `approval_*`·`question_*` 갱신으로 나가지 않는다. core가 열 때 기억해 두었다가 닫힘 event도 거른다. 그 자식의 `ask` tool 항목은 부모가 `call reply`로 답한 질문의 outcome을 `parent_reply`로 내고 부모의 답 글을 `reply`에 싣는다(답 글은 tool 결과에서 읽으므로 저장 data는 바뀌지 않는다).
 
 ### 화면
@@ -234,7 +235,7 @@ third-party CLI GUI(extension `harness-gui`, [harness-gui.md](harness-gui.md))�
 - fast·thinking·Speed는 composer chip이 아니라 model 축이고 picker가 그린다. lophn agent도 같다. (사람, 2026-11-05)
 - `!` shell mode는 harness와 lophn agent 모두에 둔다. lophn은 사람이 친 것이라 승인 없이 agent shell runner로 돌리고 앱 bridge는 막는다. (agent가 추천, 사람이 반대하지 않음)
 - 받은 메시지는 있는 ACP 칸(`received`, sender agent | program)으로만 가른다. sender 확장과 A2A 화면은 사람이 모양을 정한 뒤에 한다. (agent)
-- 팀 자식의 event는 그대로 내고 표시로 거른다. `TurnResumed`, snapshot의 `waiting`, acp가 그 event에 기댄다. (planner)
+- 팀 자식의 event는 그대로 내고 표시로 거른다. `TurnResumed`, snapshot의 `waiting`, acp가 그 event에 기댄다. (agent)
 - 질문의 부모 답 글은 질문 줄(`lines`)이 아니라 항목의 `reply` 한 칸에 둔다. 이유: 부모의 답은 질문마다가 아니라 한 글이다. (agent)
 - model 출처 값 `project`는 이제 workspace 층(Home·project·앱)을 뜻하지만 이름은 그대로 둔다. 이유: 공개 SDK type의 session meta `layer`에 실려 있어 바꾸면 SDK가 깨지는 변경이 된다. 화면 글만 "workspace default"다. (agent)
 - 앱 화면에서 보낸 것은 그 앱을 쓰는 사람의 메시지이고 따로 허락 단계를 두지 않는다. (사람, 2026-11-04)

@@ -15,5 +15,5 @@ fix: |
   - 같은 메시지로 준비가 거듭 실패하면 그 요청을 실패한 turn으로 닫아, 사람이 대화에서 실패를 보게 한다(중간).
   - 추천: 첫째를 바로 하고, 둘째는 같은 일이 다시 생길 때 한다.
 closed: |
-  `startTurnPump`(`packages/core/main/agent-runtime/product-driver.ts`)가 `driver.startNext()`의 예외를 `report`로 넘긴다. 같은 오류가 이어지면 처음 한 번만이다. agent runtime이 diagnostic log에 `internal_exception`을 location `agent-runtime-turn-start`로 남기고, 원문(오류 이름과 message)은 runtime stderr에 쓴다. core가 그 stderr를 읽지 않는 것은 `project-docs/issues/platform.md`가 안다. 둘째 안(실패한 turn으로 닫기)은 같은 일이 다시 생길 때 한다.
+  `startTurnPump`(`packages/core/main/agent-runtime/product-driver.ts`)가 `driver.startNext()`의 예외를 `report`로 넘긴다. 같은 오류가 이어지면 처음 한 번만이다. agent runtime이 diagnostic log에 `internal_exception`을 location `agent-runtime-turn-start`로 남기고, 원문(오류 이름과 message)은 runtime stderr에 쓴다. core가 그 stderr를 읽지 않는 것은 이슈 `agent-runtime-stderr-dropped`가 안다. 둘째 안(실패한 turn으로 닫기)은 같은 일이 다시 생길 때 한다.
 guard: 없음

@@ -1,0 +1,9 @@
+id: agent-opens-artifact-tab
+version: 0.23.0
+title: "agent가 artifact를 탭으로 열어 보고 다룬다"
+modules: [packages/protocol, packages/core/host-queue, packages/core/main, packages/core/agent-workspaces, packages/cli, packages/shell/main, packages/shell/renderer]
+checked: []
+change: |
+  전: agent는 artifact를 file로 쓰고 path를 말할 뿐 화면을 볼 길이 없었다. 앱은 `lophn preview start` 뒤 `lophn browser snapshot|screenshot|act`로 preview 탭을 보고 다뤘지만 artifact 탭은 core의 탭 표에 없어 `browser *`가 닿지 않았다.
+  후: `lophn tab open --artifact <name>`이 자기 workspace(project·앱, 사람 token은 `--workspace`나 `LOPHN_WORKSPACE`)의 artifact를 host 탭으로 연다. home이면 `invalid_input`, 입구 `index.html`이 없으면 `not_found`이고 artifact마다 탭은 하나다. 그 탭에 `lophn browser snapshot|screenshot|act|evaluate|logs|wait`가 preview 탭처럼 닿고(navigate는 `invalid_input`) 탭 머리에 [Take control]이 선다. 내장 skill `write-artifact`에 "Check it on screen" 절을 더했다.
+why: agent가 쓴 artifact를 직접 화면으로 보고 고칠 수 있게 하려고.

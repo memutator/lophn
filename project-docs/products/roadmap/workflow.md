@@ -1,6 +1,6 @@
 # workflow: 남은 것
 
-상태: 로드맵. 2026-10-20 사람이 방향을 내고 2026-10-22 모양을 다시 정했다. `kind: agent` workflow(정의, instance와 줄, report와 고치기, 넘기기, 사람 step, 켤 때와 멈춤, 기본 view, workflow artifact, kit의 node 그림)는 계획 `workflow`로, workflow별 layout(desk와 상단 bar의 `project ▾ / desk ▾`)은 계획 `workflow-shell`로 land했다. job이 instance를 시작하는 길은 계획 `schedule-job`으로, `kind: flow`(workflow 폴더의 `flow.ts`를 sandbox process로 띄우는 길, SDK `@lophn/flow`, flow caller, `workflow.check`)는 계획 `flow`로 land했다(`project-docs/architecture/job.md`, `project-docs/architecture/workflow.md` "flow"). 메커니즘은 `project-docs/architecture/workflow.md`다. 여기에는 아직 하지 않은 일과 그 일을 정하는 사람의 결정만 남긴다.
+상태: 로드맵. 2026-10-20 사람이 방향을 내고 2026-10-22 모양을 다시 정했다. `kind: agent` workflow(정의, instance와 줄, report와 고치기, 넘기기, 사람 step, 켤 때와 멈춤, 기본 view, workflow artifact, kit의 node 그림)는 계획 `workflow`로, workflow별 layout(desk와 상단 bar의 `project ▾ / desk ▾`)은 계획 `workflow-shell`로 land했다. job이 instance를 시작하는 길은 계획 `schedule-job`으로, `kind: flow`(workflow 폴더의 `flow.ts`를 sandbox process로 띄우는 길, SDK `@lophn/flow`, flow caller, `workflow.check`)는 계획 `flow`로 land했다(`project-docs/architecture/job.md`, `project-docs/architecture/workflow.md`). 메커니즘은 `project-docs/architecture/workflow.md`다. 여기에는 아직 하지 않은 일과 그 일을 정하는 사람의 결정만 남긴다.
 
 ## 원칙: lophn program은 최대한 약하다
 

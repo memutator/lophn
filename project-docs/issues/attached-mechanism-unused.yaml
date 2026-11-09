@@ -13,5 +13,5 @@ fix: |
 decided: |
   지운다. 파일을 붙이는 기능이 다시 필요해지면 그때 만든다(AGENTS.md "속도").
 closed: |
-  `SendMessage.attached`, 본문 part `attached`, 입력 태그 `<lophn-attached>`와 role 공통 지침의 설명 줄, shell의 그리기와 부르는 쪽의 `attached: []`를 지웠다. 입력창의 붙이기 단추가 남은 것은 `project-docs/issues/shell.md`가 안다.
+  `SendMessage.attached`, 본문 part `attached`, 입력 태그 `<lophn-attached>`와 role 공통 지침의 설명 줄, shell의 그리기와 부르는 쪽의 `attached: []`를 지웠다. 입력창의 붙이기 단추가 남은 것은 이슈 `composer-attach-button-noop`이 안다.
 guard: 없음

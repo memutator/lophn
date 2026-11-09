@@ -1157,7 +1157,7 @@ flows:
         when: "settings.json을 읽거나 쓰지 못했다"
     crosses_process: false
     risk: [data-loss]
-    docs: [products/change-log/0.21.0.md]
+    docs: [products/change-log/0.21/sidebar-tray-default-on.yaml]
 
   - id: apps-sealed-marker
     title: "옛 core가 봉인한 bundle 사본에 표지 file을 써 준다(data step)"

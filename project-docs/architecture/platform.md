@@ -153,7 +153,7 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 - OS service로 등록하지 않는다. 이유: 로그인 autostart가 core만 띄우는 것으로 충분하다. (agent)
 - control socket은 TCP가 아니다. 이유: socket 폴더 권한(POSIX 0700)과 Windows named pipe가 경계다. 버린 안: API를 unix socket으로도 여는 것(Codex sandbox에 core socket 하나만 여는 길)은 이 설계에 넣지 않았다. (agent)
 - 1회용 ticket을 만들지 않고 `connect`가 user credential을 준다. 이유: 예전에 `run/user-token`(0600 file)이 같은 경계에서 같은 것을 주던 것이라 더 약해지지 않는다. (agent)
-- 사람 결정 handle은 control `connect {client: shell}`의 shell capability로만 등록한다. HTTP token, agent·worker credential, route, CLI에는 길이 없다. OS peer 신원 검증은 하지 않는다. (planner)
+- 사람 결정 handle은 control `connect {client: shell}`의 shell capability로만 등록한다. HTTP token, agent·worker credential, route, CLI에는 길이 없다. OS peer 신원 검증은 하지 않는다. (agent)
 - 동시 시작은 instance lock이 가르고 liveness는 identify다. 버린 안: pid file, HTTP health probe. 판이 다르면 stop → 종료 확인 → 새로 띄우기를 한 번 한다. (agent)
 - shell의 single-instance lock은 남긴다. 이유: 창 하나·탭 하나를 지키는 것이라 core lock과 따로다. (agent)
 - core가 crash해도 core 쪽에서 다시 띄우는 감독은 두지 않는다. 다음 ensure가 띄운다. 놓친 job 차례는 놓친 차례 정책(`run`, `hold`)이 받는다. (agent)

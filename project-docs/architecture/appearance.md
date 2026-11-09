@@ -107,7 +107,7 @@ html[data-theme="dark"] { dark 값 }
 
 ## 결정
 
-- 사람이 고르는 shell theme과 token override를 한다. 그동안 `ui-kit.md`가 "하지 않는 것"으로 두었던 것을 이번에 하기로 정했다. 단 고르는 것은 preset과 설치된 글꼴 이름뿐이고 임의 token이나 CSS를 넣는 길은 없다. (사람, 0.2.0)
+- 사람이 고르는 shell theme과 token override를 한다. 그동안 `ui-kit.md`가 비목표로 두었던 것을 이번에 하기로 정했다. 단 고르는 것은 preset과 설치된 글꼴 이름뿐이고 임의 token이나 CSS를 넣는 길은 없다. (사람, 0.2.0)
 - 기본 Ink에서는 focus도 무채색이다. 이유: primary 단추는 검정·흰색인데 focus·selection·고른 표시가 파랑이라 화면에 accent가 둘로 보였고 사람이 accent가 blue인 줄 알았다. 버린 안: focus만 파랑으로 남기기. (사람, 0.13.0)
 - link(`color.link`)는 accent에 묶지 않는다. 이유: link는 누르는 것을 알리는 뜻이라 Ink(검정) accent에서도 파랑이어야 한다. 버린 안: accent를 따라 link 색을 바꾸기(Ink에서 구별이 사라지고 값이 늘어난다). (agent, 0.2.0)
 - preset은 기본 token 정의 밖에 따로 둔다. 이유: token 정의 안에 두면 CSS 변수 생성기가 preset까지 변수로 만들어 버린다. (agent, 0.2.0)

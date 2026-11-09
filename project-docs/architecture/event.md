@@ -113,7 +113,7 @@ boundary: `events`(commit 뒤 agent event와 남지 않는 event를 화면에 �
 - 맡긴 coding session의 끝은 새 event 없이 그 끝을 아는 command가 같은 tx에서 call을 닫는다. 줄에서 띄우지 못한 call은 `failed`고, 켤 때는 Router의 복구가 닫는다. (agent)
 - program이 agent를 부르는 reaction을 모두 지웠다. 앱 오류가 나면 앱 workspace의 session을 자동으로 여는 흐름은 problem 상태 machine과 보고 길이 계약에 비해 무거웠고 진단은 agent가 앱 log를 직접 읽으면 된다. 마지막 것(activation 실패)은 `release.activate`의 결과가 대신하고 사람에게는 toast가 남는다. 정기적으로 앱을 살피게 하려면 사람이 시킨다(job이나 workflow). (사람, 2026-10-20: 앱 문제로 agent를 자동으로 열지 않는다. 나머지 reaction 정리는 agent)
 - 앱이 자기 업무 사실을 lophn에 밀어 넣는 길(push)은 없다. agent가 읽기 앱 tool로 읽는다. 앱 event의 발행·구독과 event로 시작하는 job은 반응을 믿게 할 장치(저장, cursor, 재시도)가 다시 필요해 열지 않았다. 하나 연 길은 사람에게 알리기(cap-notify)다. 캘린더의 일정 알림이나 사용량 앱의 한도 경고처럼 사람이 알아야 하는 일을 앱이 알릴 길이 없었고, 받는 쪽이 사람의 Inbox와 toast뿐이라 agent나 program의 반응을 일으키지 않는다. (사람, 2026-11-05. 받는 쪽은 사람뿐이라는 모양은 agent의 추천을 사람이 받음)
-- "일하는 시간"(active)은 사람 기다림을 뺀다. 이를 아는 core가 `TurnResumed`를 내고 turn이 끝난 순간까지 active를 마감해 `TurnEnded`에 싣는다. 멈춤·실패·끊김으로 끝나는 turn도 같다. (agent, planner)
+- "일하는 시간"(active)은 사람 기다림을 뺀다. 이를 아는 core가 `TurnResumed`를 내고 turn이 끝난 순간까지 active를 마감해 `TurnEnded`에 싣는다. 멈춤·실패·끊김으로 끝나는 turn도 같다. (agent)
 - 쓰는 중인 model 글은 core가 쌓인 글 전체를 redaction하고 secret이 시작됐을 수 있는 끝을 붙잡은 뒤 낸다. 조각 단위로 거르면 조각 경계에 걸친 secret이 샌다. 붙잡는 자리는 child에 알리지 않는다.
 - 한 창이 건 `watch`의 `ready`는 그 창에만 보낸다. 창 하나가 조건을 바꿀 때마다 모든 창이 snapshot을 다시 읽던 낭비와, `ready`를 기다리는 동안 쌓인 event를 읽기가 끝나지 않았다고 버리던 문제를 막는다. (agent)
 - core 안에서 command를 내는 곳은 접힌 writer를 쓴다. 날 writer를 쓰던 때 event가 Bus에 닿지 않고 call 본문 준비와 queue 적용이 빠져 reaction이 session을 열지 못하고 annotation 전달이 turn을 열지 못했다. (agent)

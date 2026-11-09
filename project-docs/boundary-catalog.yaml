@@ -144,7 +144,7 @@ elements:
 
       - id: secrets
         kind: component
-        description: secret 보관(`<data root>/secrets.json`)과 이름 공간별 전송 부착.
+        description: secret 보관(`<data root>/secrets.json`)과 이름 공간별 전송 부착, site login metadata(`<data root>/logins.json`)와 shell main에만 값을 내주는 route.
 
       - id: diagnostics
         kind: component

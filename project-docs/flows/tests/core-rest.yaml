@@ -385,6 +385,14 @@ files:
       - secret-attach:forbidden
     note: 허락된 이름과 목적지만 요청에 붙고, OAuth 내부 이름은 누구에게도 가지 않는다
 
+  - path: packages/core/secrets/login-routes_test.ts
+    covers:
+      - login-release:released
+      - login-release:forbidden
+      - login-list:ok
+      - login-delete:deleted
+    note: origin이 다르거나 shell capability가 아니면 값을 내주지 않고, list는 값을 싣지 않으며, 지우면 두 secret 이름도 지워진다
+
   - path: packages/core/secrets/file-store_test.ts
     covers:
       - secret-store-open:mode-fixed

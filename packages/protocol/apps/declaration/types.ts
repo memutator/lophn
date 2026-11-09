@@ -267,6 +267,7 @@ export const RESERVED_APP_SLUGS: readonly string[] = [
   "tab",
   "browser",
   "team",
+  "login",
 ];
 export const SECRET_NAME = /^[A-Za-z0-9_.:-]+$/;
 export const PACKAGE_NAME = /^@(?:me|lophn)\/[a-z0-9]+(?:-[a-z0-9]+)*$/;

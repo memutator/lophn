@@ -289,6 +289,7 @@ async function open(
       void runtime.confirmation({ action: "clear" });
     },
   });
+  ctx.provide("shellCapabilities", capabilities);
   // API 직전에 만들고 ready 뒤에 신호를 건다. 그 앞에서 기동이 실패해도 남는 timer·listener가 없다.
   let health: Health | undefined;
   let uninstallSnapshot = () => {};

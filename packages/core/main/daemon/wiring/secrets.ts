@@ -1,5 +1,9 @@
-import { err, ok } from "../../../../base/mod.ts";
+import { createIdSource, err, ok } from "../../../../base/mod.ts";
 import {
+  loginsDelete,
+  loginsList,
+  loginsRelease,
+  loginsSave,
   secretDelete,
   secretPut,
   secretStatus,
@@ -12,7 +16,12 @@ import { providerSecretDestinations } from "../../../lophn-agent/providers/mod.t
 import { createSecretDestinations } from "../../../lophn-agent/secret-destinations.ts";
 import {
   createFileSecretAttach,
+  createLoginStore,
   createSecretFileStore,
+  loginsDeleteHandler,
+  loginsListHandler,
+  loginsReleaseHandler,
+  loginsSaveHandler,
   openSecretStore,
   type SecretStore,
   secretDeleteHandler,
@@ -139,8 +148,31 @@ export const secretsWiring: WiringFactory = () => {
       }
       // 다시 뜬 reader는 알려진 값을 모른다. 현재 값을 다시 올린다.
       ctx.runtime.onReaderRespawn(() => secrets.sync());
+      const logins = createLoginStore({ root: ctx.root.path });
       return ok({
         memory: [
+          [key(loginsList), loginsListHandler({ logins, secrets })],
+          [
+            key(loginsSave),
+            loginsSaveHandler({
+              logins,
+              ids: createIdSource({ clock: ctx.clock, random: ctx.random }),
+            }),
+          ],
+          [key(loginsDelete), loginsDeleteHandler({ logins, secrets })],
+          [
+            key(loginsRelease),
+            loginsReleaseHandler({
+              logins,
+              secrets,
+              // 늦게 읽는다. 아직 없으면 아무도 통과하지 못한다.
+              capabilities: {
+                has: (capability) =>
+                  ctx.peek.shellCapabilities?.has(capability) ?? false,
+              },
+              clock: ctx.clock,
+            }),
+          ],
           [key(secretStatus), secretStatusHandler(secrets)],
           [key(secretDelete), secretDeleteHandler(secrets)],
         ],

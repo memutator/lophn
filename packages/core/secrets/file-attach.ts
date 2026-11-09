@@ -7,7 +7,7 @@
 // 호출(context의 `conditions.app`)만 보낸다. 앱 호출이 앞의 셋을 가리키거나 앱 호출이 아닌 쪽이 앱 secret을
 // 가리키면 거절한다. 이름 공간이 갈라져 있어야 설정이 다른 이름 공간의 이름을 가리켜도 그 값이 엉뚱한
 // 목적지로 가지 않는다.
-// `app-oauth.`(앱 OAuth의 refresh·meta·client)와 `provider-oauth.`(provider 로그인 token·host id)는 core 밖으로
+// `app-oauth.`(앱 OAuth의 refresh·meta·client)와 `provider-oauth.`(provider 로그인 token·host id), `login.`(site login 값, `logins/release`로만 나간다)은 전송 부착으로
 // 나가지 않는 이름이라 누가 불러도 막는다. 앞머리 없음으로 떨어뜨리면 앱 호출이 allowance만 맞아 보낼 수 있다.
 import { err, type Result } from "../../base/mod.ts";
 import { APP_OAUTH_PREFIX } from "../../protocol/apps/mod.ts";
@@ -15,6 +15,7 @@ import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
   type ProcessLivenessCheck,
   SECRET_SEND_OP,
+  LOGIN_SECRET_PREFIX,
   type SecretAllowanceCheck,
   type SecretAttachPort,
   type SecretDestination,
@@ -41,6 +42,8 @@ function purposeOf(name: string): SecretPurpose | undefined {
     name.startsWith(PROVIDER_OAUTH_PREFIX)
   )
     return undefined;
+  // site login 값(`login.<id>.password|totp`)은 shell main이 탭에 칠 때만 core를 나간다. 전송 부착은 절대 하지 않는다.
+  if (name.startsWith(LOGIN_SECRET_PREFIX)) return undefined;
   if (name.startsWith("provider.")) return "provider_credential";
   if (name.startsWith("mcp.") || name.startsWith("mcp-oauth.")) {
     return "external_mcp_credential";

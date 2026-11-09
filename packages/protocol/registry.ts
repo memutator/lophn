@@ -11,6 +11,7 @@ import { BLOB_ROUTES } from "./storage/blob.ts";
 import { DIAGNOSTIC_ROUTES } from "./diagnostics/diagnostics.ts";
 import { SETTINGS_FILE_ROUTES } from "./config/file.ts";
 import { SECRET_FILE_ROUTES } from "./secrets/secret-file.ts";
+import { LOGIN_ROUTES } from "./secrets/logins.ts";
 import { DIAGNOSTIC_STATUS_ROUTES } from "./diagnostics/diagnostics.ts";
 
 // 지금 있는 route. 다른 파일의 route 배열(BLOB_ROUTES 등)도 여기로 모은다.
@@ -29,6 +30,7 @@ export const ROUTES = [
   ...DIAGNOSTIC_ROUTES,
   ...SETTINGS_FILE_ROUTES,
   ...SECRET_FILE_ROUTES,
+  ...LOGIN_ROUTES,
   ...DIAGNOSTIC_STATUS_ROUTES,
 ] as const;
 

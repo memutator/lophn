@@ -22,6 +22,7 @@ import type {
   ReadHandler,
   UploadHandler,
 } from "../../../server/mod.ts";
+import type { ShellCapabilities } from "../../../server/control/capability.ts";
 import type {
   CredentialRegistry,
   OperationPolicy,
@@ -209,6 +210,8 @@ type Late = {
   io: Supervisor;
   appsSupervision: Supervisor;
   runtime: CoreRuntime;
+  // control `connect {client: shell}`이 발급한 capability. shell main만 받는 값 route(logins/release)가 확인한다.
+  shellCapabilities: ShellCapabilities;
   knownSecrets: KnownSecretMatch;
   blobRelay: BlobRelay;
   blobBuffer: BufferGauge;
@@ -287,6 +290,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   io: true,
   appsSupervision: true,
   runtime: true,
+  shellCapabilities: true,
   knownSecrets: true,
   blobRelay: true,
   blobBuffer: true,

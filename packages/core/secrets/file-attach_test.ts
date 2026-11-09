@@ -98,7 +98,7 @@ test("app secret leaves only when the grant allows the name and destination", as
   }
 });
 
-test("OAuth refresh, meta, client and host id never leave, whatever the allowance says", async () => {
+test("OAuth refresh, meta, client, host id and site login values never leave, whatever the allowance says", async () => {
   const open = createFileSecretAttach({
     file: { get: () => ok(VALUE) },
     allowance: () => ok(undefined),
@@ -111,6 +111,8 @@ test("OAuth refresh, meta, client and host id never leave, whatever the allowanc
     "app-oauth.stripe_key.client",
     "app-oauth.stripe_key.client_id",
     "provider-oauth.host-id",
+    "login.lgn_01hz.password",
+    "login.lgn_01hz.totp",
   ];
   for (const name of names) {
     for (const app of [true, false]) {

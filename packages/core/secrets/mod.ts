@@ -10,3 +10,10 @@ export {
   secretPutHandler,
   secretStatusHandler,
 } from "./routes.ts";
+export { createLoginStore, type LoginStore } from "./logins.ts";
+export {
+  loginsDeleteHandler,
+  loginsListHandler,
+  loginsReleaseHandler,
+  loginsSaveHandler,
+} from "./login-routes.ts";

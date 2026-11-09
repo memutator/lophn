@@ -41,6 +41,8 @@ interface GuiSourceDeps {
   ) => Promise<HarnessGuiRewindPreview | null>;
   /** 이미지를 탭의 임시 폴더에 쓰고 절대 경로를 받는다. 없으면 이미지를 붙일 수 없다. */
   readonly writeImage?: (image: Blob) => Promise<string | null>;
+  /** `writeImage`로 쓴 이미지를 다시 읽는다. 그 탭의 임시 폴더 밖이거나 못 읽으면 null이다. */
+  readonly readImage?: (path: string) => Promise<Blob | null>;
 }
 
 /** 숨긴 구간 안까지 찾는다. */
@@ -92,6 +94,24 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
     },
     permissionSummary: "",
   };
+  // 같은 그림을 여러 번 그려도 한 번만 읽는다. 못 읽은 것은 기억하지 않는다.
+  const images = new Map<string, Promise<string | null>>();
+  const imageUrl = (id: string): Promise<string | null> => {
+    if (!id.startsWith("file://") || deps.readImage === undefined) {
+      return Promise.resolve(null);
+    }
+    let url = images.get(id);
+    if (url === undefined) {
+      url = deps
+        .readImage(id.slice("file://".length))
+        .then((blob) => (blob === null ? null : URL.createObjectURL(blob)));
+      images.set(id, url);
+      void url.then((value) => {
+        if (value === null) images.delete(id);
+      });
+    }
+    return url;
+  };
   const send = async (input: AcpInput) =>
     (await deps.input(input))
       ? ({ ok: true, value: undefined } as const)
@@ -126,7 +146,7 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
           : { ok: true, value: { value, truncated: body.truncated } },
       );
     },
-    imageUrl: () => Promise.resolve(null),
+    imageUrl: (_session, id) => imageUrl(id),
     // 화면이 붙은 뒤에 snapshot이 오면(창을 다시 load) 화면이 이 feed를 다시 읽는다.
     changed: feed.changed,
 

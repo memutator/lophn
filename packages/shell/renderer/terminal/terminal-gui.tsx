@@ -63,6 +63,14 @@ export interface GuiField {
   readonly handoff: HarnessGuiHandoff;
 }
 
+// 대화는 확장자로 그림 file 링크를 알아본다(message-attachments). 붙여 넣은 그림은 이름이 없으니 MIME으로 붙인다.
+function imageName(image: Blob): string {
+  const name = image instanceof File ? image.name : "";
+  if (/\.(png|jpe?g|gif|webp)$/i.test(name)) return name;
+  const ext = image.type.slice("image/".length).replace("jpeg", "jpg");
+  return `${name || "image"}.${ext || "png"}`;
+}
+
 export function guiOf(tab: TabItem): GuiField | null {
   const gui = tab.fields?.gui as Partial<GuiField> | undefined;
   return typeof gui?.handle === "string" &&
@@ -385,10 +393,16 @@ export function TerminalGui({
             rewindPreview: (message) => api.rewindPreview(gui.handle, message),
             writeImage: async (image) =>
               await api.uploadImage(gui.handle, {
-                name: image instanceof File ? image.name : "image",
+                name: imageName(image),
                 mime: image.type,
                 data: new Uint8Array(await image.arrayBuffer()),
               }),
+            readImage: async (path) => {
+              const image = await api.readImage(gui.handle, path);
+              return image === null
+                ? null
+                : new Blob([new Uint8Array(image.data)], { type: image.mime });
+            },
           }),
     [api, gui.handle, feed, info],
   );

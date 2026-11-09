@@ -44,6 +44,8 @@ export const HARNESS_GUI_TAB_REWIND_PREVIEW_CHANNEL =
   "harness-gui:tab-rewind-preview";
 /** renderer → main invoke. 사람이 붙인 이미지를 탭의 임시 폴더에 쓰고 경로를 받는다. */
 export const HARNESS_GUI_TAB_IMAGE_CHANNEL = "harness-gui:tab-image";
+/** renderer → main invoke. 그 탭의 임시 폴더에 쓴 이미지를 다시 읽는다. 대화의 그림을 그리는 데 쓴다. */
+export const HARNESS_GUI_TAB_IMAGE_READ_CHANNEL = "harness-gui:tab-image-read";
 
 /** restart는 한쪽 process를 끄고 같은 session으로 다른 쪽을 띄우고, shared는 TUI와 GUI가 한 server에 같이 붙는다. */
 export type HarnessGuiHandoff = "restart" | "shared";
@@ -129,4 +131,9 @@ export interface HarnessGuiTabApi {
     handle: string,
     image: { name: string; mime: string; data: Uint8Array },
   ): Promise<string | null>;
+  /** 그 탭의 임시 폴더에 쓴 이미지의 bytes와 MIME. 그 폴더 밖이거나 이미지가 아니거나 못 읽으면 null. */
+  readImage(
+    handle: string,
+    path: string,
+  ): Promise<{ mime: string; data: Uint8Array } | null>;
 }

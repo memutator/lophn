@@ -1,5 +1,5 @@
 id: windows-terminal-verify-fixes
-version: 0.23.9
+version: 0.23.10
 title: Windows 실기 확인에서 나온 터미널·browser·dev 결함을 고친다
 modules: [packages/base, packages/shell/main, packages/shell/terminal-host, packages/coding-agent, tools]
 change: |

@@ -29,6 +29,8 @@ import {
   SettingsBrowserLinks,
   SettingsBrowserLinksSystem,
   SettingsCoding,
+  SettingsExtensionRemove,
+  SettingsExtensions,
   SettingsDiagnostics,
   SettingsGeneral,
   SettingsKeyboard,
@@ -301,6 +303,20 @@ export const settingsArea: Area = {
       description:
         "bookmarks.json이 깨져 목록 자리에 오류 문장만 있다. 덮어쓰지 않으려고 고치거나 지우는 단추를 두지 않는다.",
       render: () => <SettingsBrowserBookmarksCorrupt />,
+    },
+    {
+      id: "new-settings-extensions",
+      title: "Settings · Extensions",
+      description:
+        "Settings › System › Extensions. 본체와 따로 켜는 기능이 줄마다 이름, 설명, 판, 상태로 보인다. 켜진 줄은 [Turn off]와 [Remove], 설치했지만 꺼진 줄은 [Turn on]과 [Remove], 설치 안 된 줄은 [Install]이다. 상태 표시와 단추는 줄 오른쪽 끝 고정 열에 있다.",
+      render: () => <SettingsExtensions />,
+    },
+    {
+      id: "new-settings-extension-remove",
+      title: "Settings · Remove extension",
+      description:
+        "꺼진 extension의 [Remove]를 눌러 연 확인 dialog. extension이 쓴 file만 지우고 사람이 그 폴더에 둔 file은 남는다는 한 줄을 보이고 빨간 Remove(danger)가 오른쪽 끝이다. 켜진 extension은 dialog 없이 먼저 끄라는 글만 보인다.",
+      render: () => <SettingsExtensionRemove />,
     },
     {
       id: "new-settings-diagnostics",

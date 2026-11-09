@@ -5,13 +5,16 @@ import { useMemo, useState } from "react";
 import { OPENAI } from "../../../../../packages/shell/renderer/desktop/settings/providers/testdata/fake-providers.ts";
 import {
   ANTHROPIC,
+  BROKEN_AGENT_ID,
   BUDGET_REVIEWER_ID,
+  CODEX_RUNNER_ID,
   EVAL_ANALYST_ID,
   EXPERIMENT_PLANNER_ID,
   createFakeAgentsSource,
   type FakeAgentsOptions,
   HOME_LOPHN_ID,
   PROJECT_LOPHN_ID,
+  QUEUE_WATCHER_ID,
 } from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 import { AgentsPage } from "../../../../../packages/shell/renderer/workspace/agents/agents-page.tsx";
 import {
@@ -67,11 +70,16 @@ const GRANTS_TAB: Step = () =>
 export const ProjectAgentsPage = () => alone(AGENTS_TAB_SPEC);
 
 // Home이나 앱의 Agents 탭. 같은 화면이 그 workspace의 층을 읽는다.
-const agentsAt = (at: AgentsAt, title: string, source?: FakeAgentsOptions) =>
+const agentsAt = (
+  at: AgentsAt,
+  title: string,
+  source?: FakeAgentsOptions,
+  steps: readonly Step[] = [],
+) =>
   alone({
     ...AGENTS_TAB_SPEC,
     title,
-    body: <AgentsBody open={() => {}} at={at} source={source} />,
+    body: <AgentsBody open={() => {}} at={at} source={source} steps={steps} />,
   });
 
 /** Home의 Agents 탭. 목록은 모든 agent(전역과 project·앱 범위)이고 카드마다 범위가 보인다. Home lophn 카드의 범위는 Home이고, Home의 지침(LOPHN.md)·memory·model·skill·MCP 층이 있다. */
@@ -107,6 +115,105 @@ export const AppAgentsNoSourcePage = () =>
 
 /** 사람이 만든 agent의 설정. */
 export const AgentEditorPage = () => editor(EVAL_ANALYST_ID);
+
+// 칸을 창 위로 올려 보인다. editor가 길어서 아래 칸은 열자마자 잘린다.
+const scrollTo =
+  (selector: string, block: ScrollLogicalPosition = "start"): Step =>
+  async () =>
+    (await find(selector)).scrollIntoView({ block });
+
+/** bare agent의 설정. runtime이 bare라 Tools 칸에서 tool을 체크로 고르고 skill도 고른 것만 받는다. skill 하나를 더 골랐다. */
+export const AgentEditorBarePage = () =>
+  editor(QUEUE_WATCHER_ID, [
+    () => click(`[data-skill="plain-writing"] [role=switch]`),
+    scrollTo("[data-field=skills]", "end"),
+  ]);
+
+/** harness runtime(Codex) agent의 설정. 지침은 있고 model·tool·skill·MCP 칸이 없다. */
+export const AgentEditorHarnessPage = () =>
+  editor(CODEX_RUNNER_ID, [scrollTo("[data-field=runtime]")]);
+
+/** Delete agent를 눌러 확인 창이 뜬 상태. 확인을 한 번 받은 뒤에만 지운다. */
+export const AgentDeleteConfirmPage = () =>
+  editor(EVAL_ANALYST_ID, [
+    () => press("button", t("project-workspace.button.agent-editor-delete")),
+  ]);
+
+/** Delete를 확인했는데 그 사이 정의가 바뀌어(hash가 달라) 지워지지 않고 toast가 뜬 상태. */
+export const AgentDeleteFailedPage = () =>
+  editor(
+    EVAL_ANALYST_ID,
+    [
+      () => press("button", t("project-workspace.button.agent-editor-delete")),
+      () =>
+        click(
+          "[role=dialog] button",
+          t("project-workspace.button.agent-editor-delete-confirm"),
+        ),
+    ],
+    { deleteFails: "conflict" },
+  );
+
+/** 저장이 거절되어 항목별 이유가 그 칸 안에 붙은 상태. 이 form에서 저장한 것은 바뀌지 않았다. */
+export const AgentSaveIssuesPage = () =>
+  editor(
+    EVAL_ANALYST_ID,
+    [() => click("button", /^Save$/), scrollTo("[data-field=mcp]", "end")],
+    {
+      saveFails: {
+        issues: [
+          { field: "skills.0", code: "unknown" },
+          { field: "mcp_servers.1.name", code: "reserved_name" },
+        ],
+      },
+    },
+  );
+
+/** 다른 창이 먼저 저장해 hash가 달라서 저장이 conflict로 거절되고 toast가 뜬 상태. */
+export const AgentSaveConflictPage = () =>
+  editor(EVAL_ANALYST_ID, [() => click("button", /^Save$/)], {
+    saveFails: { issues: [], code: "conflict" },
+  });
+
+// 숨은 file input에 이미지 파일 하나를 골라 준다.
+const pickImage: Step = async () => {
+  const input = await find<HTMLInputElement>("input[type=file]");
+  const transfer = new DataTransfer();
+  transfer.items.add(new File(["png"], "avatar.png", { type: "image/png" }));
+  input.files = transfer.files;
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+};
+
+/** 사람이 만든 agent의 profile 이미지를 올려 character 대신 그 이미지가 profile로 보이는 상태(저장 전). */
+export const AgentImageUploadedPage = () =>
+  editor(QUEUE_WATCHER_ID, [pickImage]);
+
+/** 이미지 올리기가 거절되어 toast가 뜬 상태. profile은 그대로다. */
+export const AgentImageUploadFailedPage = () =>
+  editor(QUEUE_WATCHER_ID, [pickImage], { uploadFails: true });
+
+/** 정의 file이 틀린 agent가 있는 Agents 탭. 그 줄은 개수 대신 "can't be counted"를 보이고 명함이 없다. */
+export const AgentsBrokenPage = () =>
+  agentsAt("project", "phroner · Agents", { brokenAgent: true }, [
+    scrollTo(`[data-assignment="${BROKEN_AGENT_ID}"]`, "end"),
+  ]);
+
+/** 틀린 정의 file의 agent를 연 설정. 틀린 칸(frontmatter)의 이유가 form 밑에 붙는다. */
+export const AgentEditorBrokenPage = () =>
+  alone({
+    key: `agent-edit:${BROKEN_AGENT_ID}`,
+    kind: "agent-settings",
+    title: "Broken notes",
+    sub: BROKEN_AGENT_ID,
+    body: (
+      <AgentSettingsEditor
+        id={BROKEN_AGENT_ID}
+        onDone={() => {}}
+        steps={[scrollTo("[data-field=skip]", "end")]}
+        source={{ brokenAgent: true }}
+      />
+    ),
+  });
 
 /** agent의 Model 칸 picker를 연 상태. project 층에 고른 model이 있어 맨 위 줄이 "Use workspace default — Haiku 5.5"다. */
 export const AgentModelPickerPage = () =>

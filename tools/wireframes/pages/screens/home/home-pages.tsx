@@ -46,6 +46,11 @@ export const HomeNoWorkspaces = () => <MockDesktop emptyHome />;
 /** Home lophn session을 탭으로 연 상태. Home workspace의 session은 다른 workspace와 같이 tab이다. */
 export const HomeSession = () => <MockDesktop homeTabs={[SESSION_TAB]} />;
 
+/** 탭 줄 끝의 + 메뉴를 연 Home. Agent 하위 메뉴 아래 Agents 항목이 Home의 Agents(관리) 탭을 연다. */
+export const HomeNewTabMenu = () => (
+  <Driven withSession steps={[() => press("[data-new-tab]")]} />
+);
+
 /** 오른쪽 Jobs panel. project와 상관없이 모든 job이 보인다. */
 export const HomeJobs = () => (
   <Driven withSession steps={[() => click('[role="tab"]', /Scheduled jobs/)]} />

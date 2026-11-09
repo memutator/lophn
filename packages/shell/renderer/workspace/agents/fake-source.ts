@@ -33,6 +33,7 @@ import {
   APP_NAME,
   APP_SKILLS,
   AVATAR_SRC,
+  BROKEN_AGENT_ID,
   BUILT_IN_SKILLS,
   CATALOG,
   EVAL_ANALYST_ID,
@@ -82,7 +83,10 @@ export {
   APP_ID,
   APP_NAME,
   BUDGET_REVIEWER_ID,
+  BROKEN_AGENT_ID,
+  CODEX_RUNNER_ID,
   EVAL_ANALYST_ID,
+  QUEUE_WATCHER_ID,
   EXPERIMENT_PLANNER_ID,
   FAKE_AGENTS,
   FAKE_GRANTS,
@@ -196,6 +200,10 @@ const BUILT_IN_PROFILE = {
   lophn: { kind: "character", shape: "square", color: "coral" },
 } as const;
 
+const BROKEN_ISSUES: readonly AgentDefinitionIssue[] = [
+  { field: "frontmatter", code: "malformed" },
+];
+
 const ok = <T>(value: T): ReadResult<T> => ({ ok: true, value });
 
 /** gallery가 provider와 workspace 층 model의 상태를 정하는 설정. 기본은 내장 provider 하나와 workspace 층 model 없음이다. */
@@ -212,6 +220,17 @@ export interface FakeAgentsOptions {
   readonly shown?: readonly ShownModel[];
   /** [Refresh models]가 늘 실패한다(앞 목록은 그대로다). */
   readonly refreshFails?: boolean;
+  /** 첫 저장을 이 이유로 거절한다. issues가 비면 code(기본 invalid_input)만 있는 실패다. */
+  readonly saveFails?: {
+    readonly issues: readonly AgentDefinitionIssue[];
+    readonly code?: string;
+  };
+  /** 첫 지우기를 이 code로 거절한다. */
+  readonly deleteFails?: string;
+  /** 이미지 올리기가 늘 거절된다. */
+  readonly uploadFails?: boolean;
+  /** 정의 file이 틀린 agent(Broken notes)가 목록에 하나 더 있다. */
+  readonly brokenAgent?: boolean;
   /** 사람이 정보를 읽은 뒤 다른 창이 판을 바꾼 상태다. 읽은 판으로 보내는 첫 저장·지우기는 conflict가 된다. */
   readonly infoGoesStale?: boolean;
 }
@@ -308,6 +327,14 @@ export function createFakeAgentsSource(
       },
     ]),
   );
+  if (options.brokenAgent) {
+    stored.set(BROKEN_AGENT_ID, {
+      name: "Broken notes",
+      summary: "",
+      definition: { name: "Broken notes", body: "" },
+      hash: nextHash(),
+    });
+  }
   const grants = new Map<string, readonly AssignmentEntry[]>(
     Object.entries(FAKE_GRANTS),
   );
@@ -397,7 +424,13 @@ export function createFakeAgentsSource(
   let saveFailure: {
     issues: readonly AgentDefinitionIssue[];
     code: string;
-  } | null = null;
+  } | null = options.saveFails
+    ? {
+        issues: options.saveFails.issues,
+        code: options.saveFails.code ?? "invalid_input",
+      }
+    : null;
+  let deleteFailure: string | null = options.deleteFails ?? null;
   let changeFailure: string | null = null;
   let overviewFailure: string | null = null;
 
@@ -550,6 +583,18 @@ export function createFakeAgentsSource(
     item: Stored,
     workspace: string | null,
   ): AgentListRow => {
+    if (key === BROKEN_AGENT_ID) {
+      return {
+        assignment: key,
+        handle: "broken-notes",
+        workspace: null,
+        name: item.name,
+        profile: DEFAULT_PROFILE,
+        model: null,
+        issues: BROKEN_ISSUES,
+        counts: { skills: null, mcp: null },
+      };
+    }
     const definition = item.definition;
     const off = definition.skills_off ?? [];
     const mcpOff = (definition.mcp_off ?? []).map((entry) => entry.server_name);
@@ -606,8 +651,8 @@ export function createFakeAgentsSource(
         profile: { value: row.profile, source: "agent" },
       },
       inheritedModel: inheritedModel(workspace),
-      issues: [],
-      card: cardOf(key, item),
+      issues: key === BROKEN_AGENT_ID ? BROKEN_ISSUES : [],
+      ...(key === BROKEN_AGENT_ID ? {} : { card: cardOf(key, item) }),
       skills: skillsFor(workspace),
       mcpServers: mcpFor(workspace),
       // 저장된 정의의 OAuth server는 로그인 전이다. 화면은 그 줄에 [Sign in]을 그린다.
@@ -888,6 +933,11 @@ export function createFakeAgentsSource(
 
     deleteAgent(_project, key, hash) {
       calls.push({ method: "deleteAgent", assignment: key, hash });
+      if (deleteFailure !== null) {
+        const message = deleteFailure;
+        deleteFailure = null;
+        return Promise.resolve({ ok: false, message });
+      }
       const existing = stored.get(key);
       if (existing === undefined) {
         return Promise.resolve({ ok: false, message: "not_found" });
@@ -902,6 +952,9 @@ export function createFakeAgentsSource(
 
     uploadImage(_project, key, file) {
       calls.push({ method: "uploadImage", assignment: key, name: file.name });
+      if (options.uploadFails) {
+        return Promise.resolve({ ok: false, message: "invalid_input" });
+      }
       return Promise.resolve(ok({ image: "avatar.png" }));
     },
 

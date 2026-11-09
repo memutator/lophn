@@ -136,7 +136,7 @@ flows:
     outcomes:
       - id: ok
         when: "필터된 한 page와 next_cursor"
-        observe: [response]
+        observe: [response, screen:inbox-history, screen:inbox-history-search, screen:inbox-history-period]
       - id: invalid-cursor
         code: invalid_input
         when: "cursor를 해석하지 못한다"
@@ -723,7 +723,7 @@ flows:
       - "Esc는 page가 annotate:exit로 알려 main이 mode만 끈다(ui:annotate-exit). page가 살아 있는 앱·artifact view의 main frame이 아니면 버린다"
     outcomes:
       - id: "on"
-        observe: [response, screen:new-app-annotate]
+        observe: [response, screen:new-app-annotate, screen:artifact-annotate]
       - id: "off"
         observe: [response, screen:new-app-annotate]
       - id: exited

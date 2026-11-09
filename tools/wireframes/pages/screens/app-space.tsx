@@ -12,6 +12,7 @@ import {
   AnnotateList,
   AnnotatePicking,
   AppWorkspaceMenu,
+  AppWorkspaceNewTabMenu,
   AppWorkspaceScreen,
   AppWorkspaceSession,
   AppWorkspaceSplit,
@@ -56,6 +57,13 @@ export const appSpaceArea: Area = {
       description:
         "앱 화면 탭 머리 줄의 ⋯ 메뉴를 열었다. 맨 위 묶음에 Annotate가 있고(앱이 올린 메뉴 항목이 있으면 그 앞), 구분선 아래가 탭 기본 항목이다.",
       render: () => <AppWorkspaceMenu />,
+    },
+    {
+      id: "new-app-tab-menu",
+      title: "App workspace · new tab menu",
+      description:
+        "탭 줄 끝의 + 메뉴를 펼친 상태다. Browser, Agent 하위 메뉴, 그 아래 Agents 항목, App screen, App panel이 있다. Agents는 이 앱 workspace의 Agents(관리) 탭을 연다.",
+      render: () => <AppWorkspaceNewTabMenu />,
     },
     {
       id: "app-preview-button",

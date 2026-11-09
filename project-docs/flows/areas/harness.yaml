@@ -1215,7 +1215,7 @@ flows:
       - "CLI가 실패하거나 출력이 배열이 아니면 shell main은 모든 harness를 unknown으로 채우고 쥐지 않는다"
     outcomes:
       - id: ok
-        observe: [response]
+        observe: [response, screen:new-settings-coding]
       - id: invalid_input
         code: invalid_input
         when: "시각 값(ctx.now)이 날짜로 읽히지 않는다. 실제로는 나지 않는다"
@@ -1974,7 +1974,7 @@ flows:
     outcomes:
       - id: listed
         when: "run이 목록을 돌려줬다"
-        observe: [response]
+        observe: [response, screen:harness-gui-resume]
       - id: empty
         when: "handle이 없다, run이 없다, 또는 adapter가 목록을 주지 못했다"
         observe: [response]
@@ -2019,7 +2019,7 @@ flows:
     outcomes:
       - id: files
         when: "claude에서 dry-run이 되돌릴 수 있다고 답했다. file 목록을 준다"
-        observe: [response]
+        observe: [response, screen:harness-gui-rewind]
       - id: not-found
         when: "claude에서 메시지를 transcript 대응에서 못 찾았거나 dry-run이 되돌릴 수 없다고 답했다. 빈 목록이고 실패 안내 글을 낸다"
         observe: [response, screen:harness-gui-terminal-tab]
@@ -2067,7 +2067,7 @@ flows:
         observe: [process:cli-gui, screen:harness-gui-terminal-tab]
       - id: mode-picked
         when: "claude의 plan 카드(ExitPlanMode)에서 mode를 골랐다. 허락은 그 mode로 session에만 걸어 setMode를 보낸다. codex는 plan turn이 끝나고 adapter가 만든 plan 카드의 Implement를 골랐다. omp와 opencode에는 plan 카드가 없어 mode 선택을 무시한다"
-        observe: [process:cli-gui, screen:harness-gui-terminal-tab]
+        observe: [process:cli-gui, screen:harness-gui-terminal-tab, screen:harness-gui-plan-card]
       - id: auto-accepted
         when: "opencode에서 auto_accept 토글이 켜져 있다. 카드를 열지 않고 once 답만 보낸다(always와 PATCH는 보내지 않는다). 켜는 순간 열린 카드도 once로 닫는다"
         observe: [process:cli-gui]
@@ -2214,7 +2214,7 @@ flows:
     outcomes:
       - id: stopped
         when: "멈춤 요청이 CLI의 멈춤으로 옮겨졌다. 자식은 cancelled로, task 줄은 stopped로 그려진다"
-        observe: [process:cli-gui, screen:harness-gui-terminal-tab]
+        observe: [process:cli-gui, screen:harness-gui-terminal-tab, screen:harness-gui-dock-running]
       - id: steered
         when: "codex와 omp가 자식에게 말을 더했다(codex는 도는 turn이면 steer, 아니면 새 turn)"
         observe: [process:cli-gui, screen:harness-gui-terminal-tab]
@@ -2245,7 +2245,7 @@ flows:
     outcomes:
       - id: lane-opened
         when: "자식이 도구 줄 아래에 연결됐다. 자식의 대화와 상태(running, done, failed, cancelled)가 그 lane에 쌓인다"
-        observe: [screen:harness-gui-terminal-tab]
+        observe: [screen:harness-gui-terminal-tab, screen:harness-gui-subagent, screen:harness-gui-subagent-forward]
       - id: background-task
         when: "백그라운드 자식이다. claude는 async_launched 결과 뒤에도 task 알림이 끝낼 때까지 running이다. opencode는 background true 인자일 때만 task 줄이 된다. omp는 detached true 자식이 task가 된다. codex에는 이 갈래가 없다"
         observe: [screen:harness-gui-terminal-tab]
@@ -2273,7 +2273,7 @@ flows:
     outcomes:
       - id: shown
         when: "plan_changed가 목록을 실었다. 항목을 거르는 정도는 어댑터마다 다르다(claude와 codex는 거르지 않고, opencode는 빈 내용을 뺀다)"
-        observe: [screen:harness-gui-terminal-tab]
+        observe: [screen:harness-gui-terminal-tab, screen:harness-gui-dock]
       - id: unchanged
         when: "omp에서 todo 상태 JSON이 바뀌지 않았다. 아무것도 내지 않는다"
         observe: []
@@ -2296,7 +2296,7 @@ flows:
     outcomes:
       - id: switched
         when: "chat role을 골랐고 턴이 돌지 않는다. /switch 명령을 보내고 상태를 다시 읽는다"
-        observe: [process:cli-gui, screen:harness-gui-terminal-tab]
+        observe: [process:cli-gui, screen:harness-gui-terminal-tab, screen:harness-gui-roles, screen:harness-gui-picker, screen:harness-gui-picker-search]
       - id: refused
         when: "턴이 도는 중이다(Stop the running turn before switching roles 경고)"
         observe: [screen:harness-gui-terminal-tab]
@@ -2349,7 +2349,7 @@ flows:
     outcomes:
       - id: output-shown
         when: "명령 출력 줄이 나왔다. claude는 색 code를 떼고 64,000자에서 자른다. omp는 turn 밖 줄로 낸다(도는 turn 중에도 버리지 않는다). opencode는 status, stats, mcps, skills, export를 markdown으로 낸다. codex는 /goal(인자 없음), /mcp, /diff, /ps, /stop만 줄을 만들며 색 code를 떼지 않는다"
-        observe: [screen:harness-gui-terminal-tab]
+        observe: [screen:harness-gui-terminal-tab, screen:harness-gui-command-output]
       - id: compact-summarized
         when: "claude에서 /compact 출력은 그리지 않는다. 대신 압축 전후 토큰을 info 글로 낸다"
         observe: [screen:harness-gui-terminal-tab]
@@ -2391,7 +2391,7 @@ flows:
         observe: [request:opencode-server]
       - id: restored
         when: "redo가 stage를 지웠다(session.revert.cleared). 숨긴 메시지가 같은 자리로 돌아온다"
-        observe: [request:opencode-server, screen:harness-gui-terminal-tab]
+        observe: [request:opencode-server, screen:harness-gui-terminal-tab, screen:harness-gui-hidden-restored]
       - id: committed
         when: "stage된 되돌리기 뒤 보내기가 POST revert/commit을 불렀다. file 되돌리기가 굳어 redo로 되살릴 수 없다"
         observe: [request:opencode-server]

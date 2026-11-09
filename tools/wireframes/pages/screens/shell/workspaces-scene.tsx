@@ -26,7 +26,14 @@ const PANELS = [
 
 const noop = () => {};
 
-export function WorkspacesScene({ steps = [] }: { steps?: readonly Step[] }) {
+export function WorkspacesScene({
+  steps = [],
+  deleteCode,
+}: {
+  steps?: readonly Step[];
+  /** 지우기가 돌려줄 오류 code. 앱 process가 아직 멈추는 중이면 unavailable이다. */
+  deleteCode?: string;
+}) {
   const [panel, setPanel] = useState("workspaces");
   const [left, setLeft] = useState(true);
   const [right, setRight] = useState(true);
@@ -38,7 +45,7 @@ export function WorkspacesScene({ steps = [] }: { steps?: readonly Step[] }) {
       }).source,
     [],
   );
-  const apps = useMemo(() => galleryApps().source, []);
+  const apps = useMemo(() => galleryApps({ deleteCode }).source, [deleteCode]);
   useDrive(() => runSteps(steps));
   return (
     <ShellFrame
@@ -78,12 +85,18 @@ export function WorkspacesScene({ steps = [] }: { steps?: readonly Step[] }) {
 
 export const workspacesSteps = {
   menu: [() => press("[data-project] [data-card-menu]")] as readonly Step[],
+  appMenu: [() => press("[data-app] [data-card-menu]")] as readonly Step[],
   archived: [
     () => click('[data-section="archived"] [data-toggle]'),
   ] as readonly Step[],
   deleteApp: [
     () => click('[data-section="archived"] [data-toggle]'),
     () => click('[data-archived="app"] [data-action="delete"]'),
+  ] as readonly Step[],
+  deleteAppStopping: [
+    () => click('[data-section="archived"] [data-toggle]'),
+    () => click('[data-archived="app"] [data-action="delete"]'),
+    () => click('[data-action="confirm-delete-app"]'),
   ] as readonly Step[],
   register: [() => click("[data-register-project]")] as readonly Step[],
 };

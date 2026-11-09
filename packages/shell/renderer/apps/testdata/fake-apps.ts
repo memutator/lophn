@@ -114,9 +114,10 @@ const GALLERY_IDS = [
 ] as const;
 
 /** 런처 gallery가 그리는 앱: 실행 중·멈춤·응답 없음과 보관 하나. */
-export function galleryApps() {
+export function galleryApps(options: Pick<FakeAppsOptions, "deleteCode"> = {}) {
   const [grocery, planner, reading, report, habit] = GALLERY_IDS;
   return fakeApps({
+    ...options,
     rows: [
       appRow(grocery, "Grocery budget", { release: "7" }),
       appRow(planner, "Quarter planner", { release: "4" }),

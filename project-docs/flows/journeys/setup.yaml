@@ -28,8 +28,7 @@ journeys:
       - {do: "보호 입력 창에 key를 넣고 Save한다. 값은 일반 renderer 통로를 지나지 않고 shell main을 거쳐 secrets.json에 간다", screen: new-secret-input, flow: secret-input:stored}
       - {do: "provider가 연결되어 목록에 줄이 생긴다", screen: new-settings-providers, flow: provider-connect:connected}
       - {do: "전역 기본 model이 없으면 Choose a default model 창에서 model을 고른다", screen: new-settings-default-model-prompt, flow: model-default-change:ok}
-    gaps:
-      - "[Skip]으로 기본 model 없이 닫는 것은 상태를 바꾸지 않아 flow가 없다. 기본이 비었을 때의 안내(new-settings-required-empty)도 flow가 없다"
+      - {do: "[Skip]으로 기본 model 없이 닫으면 아무것도 저장되지 않는다. 기본이 비어 있어 탭 위쪽 toast가 lophn과 project agent가 시작하지 않는다고 알리고 고르러 가는 길을 준다", screen: new-settings-required-empty, flow: settings-read:ok}
 
   - id: relaunch-attach
     title: shell만 끄고 다시 켜면 떠 있는 core에 붙는다
@@ -152,8 +151,7 @@ journeys:
       - {do: "보호 입력 창에 key를 넣고 Save한다. 값은 일반 renderer 통로를 지나지 않고 shell main을 거쳐 secrets.json에 간다", screen: new-secret-input, flow: secret-input:stored}
       - {do: "lophn이 그 secret 이름으로 provider를 연결한다", screen: new-settings-providers, flow: provider-connect:connected}
       - {do: "전역 기본 model이 없으면 Choose a default model 창에서 model을 고른다", screen: new-settings-default-model-prompt, flow: model-default-change:ok}
-    gaps:
-      - "[Skip]으로 기본 model 없이 닫는 것은 상태를 바꾸지 않아 flow가 없다. 기본이 비었을 때의 안내(new-settings-required-empty)도 flow가 없다"
+      - {do: "[Skip]으로 기본 model 없이 닫으면 아무것도 저장되지 않는다. 기본이 비어 있어 탭 위쪽 toast가 lophn과 project agent가 시작하지 않는다고 알리고 고르러 가는 길을 준다", screen: new-settings-required-empty, flow: settings-read:ok}
 
   - id: provider-apikey-cancel
     title: API key 입력을 취소하면 아무것도 저장되지 않는다
@@ -330,8 +328,9 @@ journeys:
     steps:
       - {do: "project Agents 탭에서 project 층 MCP 서버와 끈 항목을 읽는다", screen: new-project-agents, flow: workspace-extension-read:ok}
       - {do: "project 층 MCP 서버를 더하거나 끈 뒤 저장한다", screen: new-project-agents, flow: workspace-extension-change:ok}
-    gaps:
-      - "Home과 앱 창의 Agents 탭도 같은 두 route를 workspace 열쇠(home, 앱 id)로 부르지만 이 journey는 project 화면만 가리킨다"
+      - {do: "Home의 Agents 탭도 같은 route를 workspace 열쇠 home으로 불러 Home 층 MCP 서버를 읽는다", screen: agents-tab-home, flow: workspace-extension-read:ok}
+      - {do: "앱의 Agents 탭은 앱 id로 앱 층 MCP 서버를 읽고 끈다", screen: agents-tab-app, flow: workspace-extension-change:ok}
+      - {do: "source 폴더를 잇지 않은 앱도 MCP와 skill 층은 같다. AGENTS.md 칸만 비어 있다", screen: agents-tab-app-no-source, flow: workspace-extension-read:ok}
 
   - id: settings-general-change
     title: Settings › General의 값을 바꾼다
@@ -372,11 +371,12 @@ journeys:
     steps:
       - {do: "Settings › Keyboard를 열어 묶음별 줄 목록을 본다", screen: settings-keyboard, flow: settings-read:ok}
       - {do: "줄 오른쪽 키 칸을 누르고 새 키를 누르면 바로 저장된다", screen: settings-keyboard-changed, flow: key-record:saved}
+      - {do: "Apps 묶음에는 앱 panel 화면마다 줄이 있어 키를 달면 어디서든 그 화면을 연다", screen: settings-keyboard-apps, flow: key-record:saved}
       - {do: "main이 먼저 받는 키(전역 팔레트 등)도 같은 키로 바꾼다", flow: key-overrides-main:applied}
       - {do: "다음에 창을 열 때도 저장된 키가 표 위에 덮여 적용된다", flow: key-overrides-restore:restored}
       - {do: "새 키를 누르면 그 command가 돈다", flow: key-press:command-run}
-    gaps:
-      - "[Reset to default]와 [Reset all shortcuts]로 기본 키에 되돌리는 것은 keys 영역 flow가 없다"
+      - {do: "바꾼 줄의 [Reset to default]를 누르면 그 줄만 기본 키로 돌아간다", screen: settings-keyboard-changed, flow: key-reset:reset}
+      - {do: "[Reset all shortcuts]를 누르면 이 OS의 사람이 단 키가 모두 사라진다", screen: settings-keyboard-changed, flow: key-reset-all:reset-all}
 
   - id: keyboard-key-rejected
     title: 모양이 맞지 않는 키는 저장되지 않는다
@@ -427,9 +427,8 @@ journeys:
     goal: preset을 고르면 모든 lophn 화면과 다음에 여는 문서에 같은 모양이 입혀진다
     steps:
       - {do: "Settings › Appearance에서 preset을 고른다. 화면이 바로 바뀐다", screen: new-settings-appearance-presets, flow: appearance-set:applied}
+      - {do: "저장된 코드 글꼴이 이 컴퓨터에 설치돼 있지 않으면 목록에 Not installed로 보이고 화면은 기본 코드 글꼴로 그린다", screen: new-settings-appearance-font-missing, flow: settings-read:ok}
       - {do: "다음에 읽히는 lophn 문서와 앱 화면에도 지금 CSS와 locale이 들어간다", flow: appearance-on-load:inserted}
-    gaps:
-      - "설치되지 않은 코드 글꼴을 기본 글꼴로 그리고 Not installed로 보이는 일은 flow가 없다(new-settings-appearance-font-missing)"
 
   - id: appearance-save-failed
     title: 모양 저장이 실패하면 칸이 저장된 값으로 돌아간다
@@ -439,25 +438,43 @@ journeys:
       - {do: "preset을 고른다. 화면은 먼저 바뀐다", screen: new-settings-appearance, flow: appearance-set:save-failed}
       - {do: "저장된 값을 다시 읽어 칸과 화면이 옛 값으로 돌아간다", screen: new-settings-appearance, flow: settings-read:ok}
 
+  - id: settings-browser-links-devices
+    title: Settings › Browser에서 link를 열 곳과 preview 기기를 정한다
+    actor: person
+    goal: terminal에서 연 web link와 local link를 열 곳을 고르고, preview 탭이 흉내 낼 기기를 더한다
+    steps:
+      - {do: "Settings › Browser를 열어 Bookmarks, Links, Devices, Browsing data를 본다", screen: settings-browser, flow: settings-read:ok}
+      - {do: "Links의 두 줄은 기본이 둘 다 Browser tab이다", screen: settings-browser-links, flow: settings-read:ok}
+      - {do: "web link를 System browser로 고르면 그 값만 저장한다. local link는 Browser tab으로 남는다", screen: settings-browser-links-system, flow: settings-update:changed}
+      - {do: "Devices에서 등록한 기기를 본다. 줄마다 [Edit]·[Remove]가 있다", screen: settings-browser-devices, flow: settings-read:ok}
+      - {do: "[Add device]로 이름, 크기, Pixel ratio, OS를 적어 더한다. 범위 밖이거나 이름이 겹치면 저장되지 않고 한 줄 오류가 난다", screen: settings-browser-device-add, flow: settings-update:rejected}
+
+  - id: settings-global-instructions-edit
+    title: Settings › Agents에서 모든 project의 지침(LOPHN.md)을 고친다
+    actor: person
+    goal: 모든 project에 걸리는 전역 지침을 설정 화면에서 편집기로 고쳐 저장한다. 밖에서 바뀐 파일은 덮지 않는다
+    steps:
+      - {do: "지침 상자의 [Edit]을 누르면 같은 자리가 live preview 편집기가 된다", screen: settings-agents-instructions, flow: editor-open:ready}
+      - {do: "[Save]를 누르면 디스크에 쓴다", screen: settings-agents-instructions, flow: editor-save:saved}
+      - {do: "다른 곳에서 파일이 바뀌었으면 쓰지 않고 [Reload]를 보인다", screen: settings-agents-instructions, flow: editor-save:conflict}
+
   - id: extension-install-on
     title: extension을 설치하고 켠다
     actor: person
     goal: Settings › System › Extensions에서 extension을 설치해 켜고, 그 command를 단축키에서 부른다
     refs: [P6]
     steps:
-      - {do: "Settings › System › Extensions에서 [Install]을 누른다. 표시 file만 두고 켜지는 않는다", flow: extension-install:installed}
-      - {do: "[Turn on]을 누른다. 설정 extensions.<id>.enabled가 바뀐다", flow: settings-update:changed}
+      - {do: "Settings › System › Extensions에서 [Install]을 누른다. 표시 file만 두고 켜지는 않는다", screen: new-settings-extensions, flow: extension-install:installed}
+      - {do: "[Turn on]을 누른다. 설정 extensions.<id>.enabled가 바뀐다", screen: new-settings-extensions, flow: settings-update:changed}
       - {do: "registry가 manifest의 판을 확인하고 entry를 activate한다", flow: extension-sync:loaded}
       - {do: "켜진 extension이 건 command를 단축키나 팔레트에서 부른다", flow: extension-command-run:ok}
-    gaps:
-      - "Settings › System › Extensions 화면의 wireframe frame이 없다. 설치와 켜기 칸을 그림으로 확인할 수 없다"
 
   - id: extension-off
     title: 켜진 extension을 끈다
     actor: person
     goal: 끄면 그 extension의 command와 tool handler가 버려지고 code는 다시 require되지 않는다
     steps:
-      - {do: "[Turn off]를 누른다", flow: settings-update:changed}
+      - {do: "[Turn off]를 누른다", screen: new-settings-extensions, flow: settings-update:changed}
       - {do: "켜져 있던 extension만 deactivate해 handler를 모두 버린다", flow: extension-sync:off}
 
   - id: extension-remove-blocked
@@ -465,10 +482,10 @@ journeys:
     actor: person
     goal: 켜진 채 지우려 하면 막히고, 끈 뒤에 extension이 쓴 file만 지운다
     steps:
-      - {do: "켜진 채 [Remove]를 누르면 먼저 끄라는 말을 듣는다", flow: extension-remove:conflict}
+      - {do: "켜진 채 [Remove]를 누르면 먼저 끄라는 말을 듣는다", screen: new-settings-extensions, flow: extension-remove:conflict}
       - {do: "[Turn off]를 누른다", flow: settings-update:changed}
       - {do: "끈 상태가 되어 handler가 버려진다", flow: extension-sync:off}
-      - {do: "[Remove]를 다시 누른다. 표시 file에 적힌 file과 표시 file만 지우고 비게 된 폴더를 치운다", flow: extension-remove:removed}
+      - {do: "[Remove]를 다시 누르면 확인 dialog가 뜨고 승인한다. 표시 file에 적힌 file과 표시 file만 지우고 비게 된 폴더를 치운다", screen: new-settings-extension-remove, flow: extension-remove:removed}
 
   - id: extension-start-failed
     title: extension을 켰는데 시작하지 못한다

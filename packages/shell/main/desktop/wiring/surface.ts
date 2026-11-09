@@ -47,7 +47,11 @@ const ACK_TIMEOUT_MS = 1500;
 type Workspace = NonNullable<SurfaceWorkspace["workspace"]>;
 // tab 요청은 workspace가 있고, extension tool 호출(`tool_call`)과 browser 호출(`browser_call`)은 workspace를 가리지 않아 payload만 있다.
 type Request =
-  | { id: string; kind: "tab_open" | "tab_close"; workspace: Workspace }
+  | {
+      id: string;
+      kind: "tab_open" | "tab_close" | "tab_show";
+      workspace: Workspace;
+    }
   | {
       id: string;
       kind: "tool_call";

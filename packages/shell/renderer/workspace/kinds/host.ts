@@ -4,6 +4,7 @@
 import type { FloatRect, TabItem } from "../model.ts";
 import type {
   Desk,
+  OpenRelation,
   QuickCommand,
   WorkspaceQuick,
   WorkspaceRef,
@@ -111,9 +112,9 @@ export interface TabHost {
    * 탭을 연다. 이미 어느 desk의 tabs에 있으면 새로 붙이지 않고 그 desk로 건너가 고른다. 없으면 보이는 desk
    * 끝에 붙이고 고른다. `preview` 탭은 그 desk의 preview 자리를 바꿔 쓴다(저장 안 된 변경이 있는 탭은
    * 남긴다). `select: false`면 붙이기만 하고 보고 있는 탭을 바꾸지 않는다(agent가 core 요청으로 여는 탭). 이때도
-   * `after`·`beside`·`grow`의 자리는 지키고, `after`가 다른 desk에 있으면 보는 desk를 바꾸지 않고 그 desk에 붙인다.
+   * `after`·`beside`·`relation`의 자리는 지키고, `after`가 다른 desk에 있으면 보는 desk를 바꾸지 않고 그 desk에 붙인다.
    * `after`는 그 key의 탭 바로 뒤에 넣는다(그 탭이 없으면 없는 것과 같다). 그 탭이 다른 desk에 있으면 그 desk로
-   * 건너가 연다. `beside`는 `after`의 옆 칸에 연다(`openBeside`). `grow`는 `after`의 group에 칸을 더한다.
+   * 건너가 연다. `beside`는 `after`의 옆 칸에 연다(`openBeside`). `relation`은 agent가 연 탭이 `after`에게 무엇인가에 따른 자리다(`OpenRelation`).
    */
   openTab(
     tab: TabItem,
@@ -121,7 +122,7 @@ export interface TabHost {
       readonly select?: boolean;
       readonly after?: string;
       readonly beside?: boolean;
-      readonly grow?: boolean;
+      readonly relation?: OpenRelation;
     },
   ): void;
   /**
@@ -131,8 +132,8 @@ export interface TabHost {
   openFloat(
     tab: TabItem,
     at?: { readonly width: number; readonly height: number } | FloatRect,
-    /** stage를 못 쟈서 tabs에 붙여 열 때 `openTab`에 넘기는 옵션. */
-    options?: { readonly select?: boolean },
+    /** minimized는 접힌 chip으로 연다. select는 stage를 못 재서 tabs에 붙여 열 때 `openTab`에 넘기는 옵션이다. */
+    options?: { readonly select?: boolean; readonly minimized?: boolean },
   ): void;
   /**
    * key의 탭 필드를 바꾸고 저장한다. 함수를 주면 그 사이 바뀐 탭에서 계산한다. 타이핑처럼 잦은

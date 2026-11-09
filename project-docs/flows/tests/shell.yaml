@@ -499,6 +499,7 @@ files:
       - desk-workflow-merge:merged
       - pane-resize:resized
       - pane-resize:unchanged
+      - agent-tab-request:opened
     note: "workspace model 순수 상태 전이 모음. 여는·쪼개기·바꾸기·띄우기·닫기 순서를 섞어도 tab을 잃거나 둘로 만들지 않는다는 불변 조건을 본다. 칸 비율 조절(setRatio)은 pane-resize:resized·unchanged"
 
   - path: packages/shell/renderer/shell/group-geometry_test.ts
@@ -531,7 +532,7 @@ files:
   - path: packages/shell/renderer/workspace/open-policy_test.ts
     covers:
       - agent-tab-request:opened
-    note: "agent가 요청한 탭을 source 탭 옆(beside, grow)이나 float으로 열지, source가 없으면 자리 없이 열지 정하는 판정"
+    note: "agent가 요청한 탭의 relation(말하지 않으면 target별 기본)과 source 탭의 자리로 접힌·펴진 float이나 source 옆(aside, peer, stage)을 정하는 판정. source가 float이거나 없으면 자리 없이 연다. 칸 규칙(peer 나눔, 가득 찬 group 쌓기)은 desk-model_test가 본다"
 
   - path: packages/shell/terminal-host/env_test.ts
     covers: [terminal-shell-env:env-built]

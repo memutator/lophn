@@ -15,7 +15,7 @@ import type { TabHost } from "./kinds/host.ts";
 import { openTerminal } from "./kinds/terminal.tsx";
 import { closeTerminalTab } from "../terminal/deps.ts";
 import type { TerminalStore } from "../terminal/store.ts";
-import { openAt } from "./open-policy.ts";
+import { type AgentOpen, openAt } from "./open-policy.ts";
 
 const HOST_KEY = "host:";
 
@@ -93,6 +93,8 @@ type Args = {
   host: () => TabHost;
   /** 그 session의 agent 탭을 연다. session이나 agent 목록을 아직 모르면 열지 않고 false다. */
   openSession: (session: string, open: SessionTabOpen) => boolean;
+  /** 이 창 어느 desk에든 그 key의 float이 있으면 그 자리에서 편다. */
+  showFloat: (key: string) => void;
   browserApi: LophnBrowserApi | null;
   /** browser view의 session으로 그 화면의 탭 key를 찾는다. */
   keyOf: (session: string) => string | undefined;
@@ -114,7 +116,7 @@ export function useSurfaceRequests(args: Args): void {
   useEffect(() => {
     if (surface === null || !ready) return;
     return surface.on(({ request }) => {
-      const { host, openSession } = latest.current;
+      const { host, openSession, showFloat } = latest.current;
       if (workspaceKey(request.workspace) !== workspaceKey(host().workspace)) {
         return;
       }
@@ -136,7 +138,13 @@ export function useSurfaceRequests(args: Args): void {
         done();
         return;
       }
-      const { target, place, source } = request.payload;
+      if (request.kind === "tab_show") {
+        // 접힌 float이 아니면 할 일이 없다. 열려 있지 않은 탭도 같다.
+        showFloat(key);
+        done();
+        return;
+      }
+      const { target, relation, source } = request.payload;
       // source는 연 agent의 session을 이 창에서 보이는 agent 탭이다. 없으면 desk 끝이다.
       const sourceTab =
         source === null
@@ -144,15 +152,18 @@ export function useSurfaceRequests(args: Args): void {
           : host()
               .windowTabs()
               .find((tab) => tab.kind === "agent" && sessionOf(tab) === source);
-      const at = openAt(host().desk, sourceTab?.key, "show", place);
+      const at = openAt(host().desk, sourceTab?.key, "show", {
+        relation,
+        target: Object.keys(target)[0] as AgentOpen["target"],
+      });
       const open: SessionTabOpen = {
         key,
         float: at.kind === "float",
         options: {
           select: false,
           ...(at.kind === "tab"
-            ? { after: at.after, beside: at.beside, grow: at.grow }
-            : {}),
+            ? { after: at.after, beside: at.beside, relation: at.relation }
+            : { minimized: at.minimized === true }),
         },
       };
       if ("preview" in target) {

@@ -29,10 +29,12 @@ import type { TabKindDef } from "./kind.ts";
 // 탭 fields.workspace와 layout의 Home 표식. project id와 겹치지 않는다.
 const HOME = workspaceKey({ kind: "home" });
 
-/** agent가 연 탭의 key·자리. 고르지 않고 열며 float이면 떠 있는 패널로 연다. */
+/** agent가 연 탭의 key·자리. 고르지 않고 열며 float이면 떠 있는 패널로 연다(options.minimized면 접어서). */
 export interface SessionTabOpen {
   readonly key?: string;
-  readonly options?: Parameters<TabHost["openTab"]>[1];
+  readonly options?: Parameters<TabHost["openTab"]>[1] & {
+    readonly minimized?: boolean;
+  };
   readonly float?: boolean;
 }
 

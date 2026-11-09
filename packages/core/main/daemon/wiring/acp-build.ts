@@ -592,14 +592,29 @@ function hiddenFacts(
 
 // ---------------------------------------------------------------- snapshot
 
-function latestTurn(turns: readonly TurnRecord[]): TurnRecord | null {
-  let latest: TurnRecord | null = null;
+// 도는 turn이 있으면 그것이고, 없으면 가장 늦게 시작한 turn이다. state_seq로 고르면 안 된다: 새 turn은 ledger head를
+// state_seq로 받는데 turn 시작·끝은 ledger event가 아니라서, 앞 turn이 끝난 뒤 event가 없었으면 끝난 앞 turn과 값이 같다.
+// 그러면 끝난 turn이 뽑혀 도는 동안 화면이 멈춤 단추와 Esc를 잃었다.
+export function currentTurn(turns: readonly TurnRecord[]): TurnRecord | null {
+  let current: TurnRecord | null = null;
   for (const turn of turns) {
-    if (latest === null || BigInt(turn.state_seq) > BigInt(latest.state_seq)) {
-      latest = turn;
+    if (current === null) {
+      current = turn;
+      continue;
+    }
+    const running = turn.state === "running";
+    if (running !== (current.state === "running")) {
+      if (running) current = turn;
+      continue;
+    }
+    if (
+      turn.started_at > current.started_at ||
+      (turn.started_at === current.started_at && turn.id > current.id)
+    ) {
+      current = turn;
     }
   }
-  return latest;
+  return current;
 }
 
 type ErrorEvidence = NonNullable<
@@ -707,7 +722,7 @@ export async function buildAcpState(
 
   const stored = new Map(live.stored.map((row) => [row.id, row]));
   const turnById = new Map(turns.value.map((turn) => [turn.id, turn]));
-  const current = latestTurn(turns.value);
+  const current = currentTurn(turns.value);
   const running = current !== null && current.state === "running";
 
   // 보낸 session의 agent는 한 번씩만 읽는다.

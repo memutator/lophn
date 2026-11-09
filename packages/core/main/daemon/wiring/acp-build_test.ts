@@ -39,6 +39,7 @@ import {
   type AcpStoredItem,
   acpUpdatesFor,
   buildAcpState,
+  currentTurn,
   readDraftMeta,
   readSessionMeta,
   sessionChangeOf,
@@ -535,4 +536,18 @@ test("draft meta는 같은 agent와 workspace로 연 session의 meta에서 title
     session.commands.map((one) => one.source),
     ["app", "app", "skill"],
   );
+});
+
+// 새 turn은 ledger head를 state_seq로 받아, 앞 turn이 끝난 뒤 event가 없었으면 끝난 앞 turn과 state_seq가 같다.
+test("state_seq가 같아도 도는 turn이 지금 turn이다", () => {
+  const turn = (id: string, state: "running" | "finished", n: number) =>
+    ({ id, state, started_at: at(n), state_seq: "12867" }) as Parameters<
+      typeof currentTurn
+    >[0][number];
+  const old = turn(TURN, "finished", 0);
+  const next = turn("trn_01h455vb4pex5v6nkc6gd5f002", "running", 5);
+  assert.equal(currentTurn([old, next])?.id, next.id);
+  assert.equal(currentTurn([next, old])?.id, next.id);
+  const ended = { ...next, state: "finished" as const };
+  assert.equal(currentTurn([old, ended])?.id, next.id);
 });

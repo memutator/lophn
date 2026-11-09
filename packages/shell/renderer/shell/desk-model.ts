@@ -450,6 +450,8 @@ export function pinTab(desk: Desk, key: string): Desk {
   };
 }
 
+export type OpenRelation = "aside" | "peer" | "stage";
+
 export interface OpenOptions {
   /** false면 붙이기만 하고 보던 tab을 그대로 둔다. */
   readonly select?: boolean;
@@ -457,14 +459,15 @@ export interface OpenOptions {
   readonly after?: string;
   /**
    * `after` tab의 옆 칸에 연다. 새 tab일 때만이고, `after`가 tabs에 없으면 `after` 뒤에 넣기만 한다.
-   * `select: false`여도 칸을 만들고, 보던 tab은 그대로 둔다. 자세한 칸 규칙은 `openBeside`다.
+   * `select: false`여도 칸을 만들고, 보던 tab은 그대로 둔다. 자세한 칸 규칙은 `openBeside`다. 터미널 옆에 여는 사람 쪽 길이 쓴다.
    */
   readonly beside?: boolean;
   /**
-   * `beside`일 때 `after`가 group에 있으면 칸을 하나 더한다(4칸이 차 있으면 group 바로 뒤 tab). group이
-   * 아니면 `beside`와 같다.
+   * agent가 연 탭이 `after`(연 session의 탭)에게 무엇인가(`open-policy.ts`의 `openAt`이 정한다). `after`가 tabs에 없으면
+   * 없는 것과 같다(끝에 붙는다). aside·peer는 칸을 만들거나 쌓는다. peer는 고르지 않고, 둘 다 `select: false`면 보던 tab과 group의 focus를 바꾸지 않는다. stage는 칸
+   * 규칙이 없고 `after` 뒤(group이면 group 뒤)다.
    */
-  readonly grow?: boolean;
+  readonly relation?: OpenRelation;
   /** 저장 안 된 변경이 있는 tab. preview 자리를 바꿔 쓸 때 이 tab은 사라지지 않고 고정 tab으로 남는다. */
   readonly unsaved?: (key: string) => boolean;
 }
@@ -490,17 +493,12 @@ export function openTab(
       return desk;
   }
   let base = desk;
-  const sourceGroup =
-    options.after === undefined ? null : groupOf(desk, options.after);
-  const beside =
-    options.beside === true &&
+  const afterIn =
     options.after !== undefined &&
-    desk.tabs.some((item) => item.key === options.after) &&
-    !(
-      options.grow === true &&
-      sourceGroup !== null &&
-      leavesOf(sourceGroup.layout).length >= GROUP_MAX
-    );
+    desk.tabs.some((item) => item.key === options.after);
+  const relation =
+    afterIn && options.relation !== "stage" ? options.relation : undefined;
+  const beside = afterIn && (options.beside === true || relation !== undefined);
   const old =
     tab.preview === true ? desk.tabs.find((item) => item.preview) : undefined;
   if (old !== undefined) {
@@ -510,9 +508,8 @@ export function openTab(
       base = dropTab(desk, old.key);
     } else base = pinTab(desk, old.key);
   }
-  if (beside) {
-    return openBeside(base, tab, options.after!, select, options.grow === true);
-  }
+  if (relation === "peer") return openPeer(base, tab, options.after!);
+  if (beside) return openBeside(base, tab, options.after!, select, relation);
   const afterAt =
     options.after === undefined
       ? -1
@@ -536,46 +533,137 @@ export function openTab(
   };
 }
 
-// 새 tab을 source 옆 칸에 열고 select면 고른다. source가 group에 없으면 [source | tab]을 row 0.5로 새로 묶고,
-// group에 있으면 grow일 때 칸을 하나 더하고(`splitTab`), 아니면 source 다음 leaf(돌아서)의 칸 stack 끝에 쌓인다. 쌓인
-// tab은 select일 때 그 칸에 보이고, 아니면 숨어서 사람이 보던 칸을 바꾸지 않는다. group은 grow가 아니면 자라지 않는다.
+// 새 tab을 source 옆 칸에 열고 select면 고른다. source가 group에 없으면 [source | tab]을 row 0.5로 새로 묶는다.
+// group에 있으면 relation이 aside이고 칸이 남을 때 source의 칸을 나눠 옆에 놓고, 아니면 source 다음 leaf(돌아서)의 칸 stack
+// 끝에 쌓인다. 쌓인 tab은 select일 때 그 칸에 보이고, 아니면 숨어서 사람이 보던 칸을 바꾸지 않는다. aside는 가득 찼을 때
+// 사람이 보던 칸(selected와 group의 focus가 든 칸)이 아니면 그 칸에 보인다.
 function openBeside(
   desk: Desk,
   tab: TabItem,
   source: string,
   select: boolean,
-  grow: boolean,
+  relation?: "aside",
 ): Desk {
-  const at = desk.tabs.findIndex((item) => item.key === source) + 1;
-  const added: Desk = {
+  const added = withTabAfter(desk, tab, source);
+  const group = groupOf(desk, source);
+  if (
+    group === null ||
+    (relation === "aside" && leavesOf(group.layout).length < GROUP_MAX)
+  ) {
+    return splitOpen(desk, added, source, tab.key, select, "right");
+  }
+  const leaves = leavesOf(group.layout);
+  const own = leaves.indexOf(holderOf(group.layout, source));
+  const next = leaves[(own + 1) % leaves.length]!;
+  return stackInto(added, group, next, tab.key, {
+    select,
+    visible:
+      select ||
+      (relation === "aside" &&
+        !stackOfLeaf(group.layout, next).some(
+          (item) => item === desk.selected || item === group.focus,
+        )),
+  });
+}
+
+// peer: source가 group에 없으면 [source | tab]을 묶는다. group에 칸이 남으면 가장 넓은 칸(몫을 곱한 넓이, 같으면 뒤쪽)을
+// 그 부모 나눔과 수직으로 나눠 뒤(오른쪽·아래)에 놓아 가는 띠가 생기지 않고 사람이 정리한 배치를 지킨다. 가득 차면 마지막
+// 칸에 숨어 쌓인다. 고르거나 focus를 옮기지 않는다.
+function openPeer(desk: Desk, tab: TabItem, source: string): Desk {
+  const added = withTabAfter(desk, tab, source);
+  const group = groupOf(desk, source);
+  if (group === null) {
+    return splitOpen(desk, added, source, tab.key, false, "right");
+  }
+  if (leavesOf(group.layout).length >= GROUP_MAX) {
+    const last = leavesOf(group.layout).at(-1)!;
+    return stackInto(added, group, last, tab.key, {
+      select: false,
+      visible: false,
+    });
+  }
+  const widest = widestLeaf(group.layout);
+  return splitOpen(
+    desk,
+    added,
+    widest.tab,
+    tab.key,
+    false,
+    widest.parent === "row" ? "bottom" : "right",
+  );
+}
+
+function withTabAfter(desk: Desk, tab: TabItem, after: string): Desk {
+  const at = desk.tabs.findIndex((item) => item.key === after) + 1;
+  return {
     ...desk,
     tabs: [...desk.tabs.slice(0, at), settled(tab), ...desk.tabs.slice(at)],
   };
-  const group = groupOf(desk, source);
-  if (group === null || grow) {
-    const split = splitTab(added, source, tab.key, "right", {
-      select: select ? "new" : "target",
-    });
-    // 고르지 않는 열기는 보던 tab으로 되돌린다.
-    return select || desk.selected === null || desk.selected === source
-      ? split
-      : selectTab(split, desk.selected);
-  }
-  const leaves = leavesOf(group.layout);
-  const next = leaves[(leaves.indexOf(source) + 1) % leaves.length]!;
+}
+
+// key를 든 칸의 보이는 tab. 칸에 숨어 있어도 칸은 그 tab이 보이는 쪽이다.
+function holderOf(node: GroupNode, key: string): string {
+  return leafNodes(node).find((leaf) => stackOf(leaf).includes(key))!.tab;
+}
+
+function widestLeaf(node: GroupNode): { tab: string; parent: SplitDir } {
+  let best = { tab: "", parent: "row" as SplitDir, area: -1 };
+  const walk = (item: GroupNode, area: number, parent: SplitDir) => {
+    if (isLeaf(item)) {
+      if (area >= best.area - 1e-9) best = { tab: item.tab, parent, area };
+      return;
+    }
+    walk(item.a, area * item.ratio, item.dir);
+    walk(item.b, area * (1 - item.ratio), item.dir);
+  };
+  walk(node, 1, "row");
+  return best;
+}
+
+// source의 칸(숨어 있으면 그 칸의 보이는 tab)을 나눠 새 tab을 side에 놓는다. select가 아니면 보던 tab과 기존 group의 focus를 지킨다.
+function splitOpen(
+  before: Desk,
+  added: Desk,
+  source: string,
+  key: string,
+  select: boolean,
+  side: DropSide,
+): Desk {
+  const group = groupOf(before, source);
+  const target = group === null ? source : holderOf(group.layout, source);
+  const split = splitTab(added, target, key, side, {
+    select: select ? "new" : "target",
+  });
+  if (select) return split;
+  return settle({
+    ...split,
+    selected: before.selected ?? split.selected,
+    groups: split.groups.map((item) =>
+      group !== null && membersOf(item.layout).includes(key)
+        ? { ...item, focus: group.focus }
+        : item,
+    ),
+  });
+}
+
+// leafKey 칸의 stack 끝에 key를 쌓는다. visible이면 그 칸에 보이고, select면 고르고 focus도 옮긴다.
+function stackInto(
+  added: Desk,
+  group: Group,
+  leafKey: string,
+  key: string,
+  show: { readonly select: boolean; readonly visible: boolean },
+): Desk {
   return settle({
     ...added,
-    selected: select ? tab.key : added.selected,
+    selected: show.select ? key : added.selected,
     groups: added.groups.map((item) =>
       item === group
         ? {
-            layout: replaceLeaf(group.layout, next, (leaf) =>
-              paneLeaf(select ? tab.key : leaf.tab, [
-                ...stackOf(leaf),
-                tab.key,
-              ]),
+            layout: replaceLeaf(group.layout, leafKey, (leaf) =>
+              paneLeaf(show.visible ? key : leaf.tab, [...stackOf(leaf), key]),
             ),
-            focus: select ? tab.key : group.focus,
+            focus: show.select ? key : group.focus,
           }
         : item,
     ),
@@ -1112,17 +1200,19 @@ export function floatTab(desk: Desk, key: string, rect: FloatRect): Desk {
   };
 }
 
-/** 새 tab을 곧바로 떠 있는 패널로 연다(popup). 어디에든 이미 있거나 상한이면 그대로다. */
-export function openFloatTab(desk: Desk, tab: TabItem, rect: FloatRect): Desk {
+/** 새 tab을 곧바로 떠 있는 패널로 연다(popup). minimized면 접힌 채로 연다. 어디에든 이미 있거나 상한이면 그대로다. */
+export function openFloatTab(
+  desk: Desk,
+  tab: TabItem,
+  rect: FloatRect,
+  minimized = false,
+): Desk {
   if (whereInDesk(desk, tab.key) !== null || desk.floats.length >= FLOATS_MAX) {
     return desk;
   }
   return {
     ...desk,
-    floats: stacked([
-      ...desk.floats,
-      { tab, rect, minimized: false, pinned: false },
-    ]),
+    floats: stacked([...desk.floats, { tab, rect, minimized, pinned: false }]),
   };
 }
 

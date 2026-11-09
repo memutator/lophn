@@ -894,7 +894,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
           select: false,
           after: options?.after,
           beside: options?.beside,
-          grow: options?.grow,
+          relation: options?.relation,
           unsaved: isUnsaved,
         });
       // source가 다른 desk에 있어도 보는 desk를 바꾸지 않고 그 desk에 붙인다.
@@ -930,7 +930,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
         openTabInDesk(item, tab, {
           after: options?.after,
           beside: options?.beside,
-          grow: options?.grow,
+          relation: options?.relation,
           unsaved: isUnsaved,
         }),
       ),
@@ -947,7 +947,9 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       at !== undefined && "x" in at
         ? clampFloatRect(at, stageSize)
         : newFloatRect(stageSize, at);
-    update((item) => openFloatTab(item, tab, rect));
+    update((item) =>
+      openFloatTab(item, tab, rect, options?.minimized === true),
+    );
   };
 
   // 그 사이 바뀐 배치의 탭 필드를 바꾼다.
@@ -1199,6 +1201,13 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     ready: readyWorkspace === workspaceId,
     host: () => hostRef.current,
     openSession: openSessionTab,
+    // agent가 접힌 탭을 펴 달라는 요청. 어느 desk의 float이든 그 자리에서 펴고 desk·선택·focus는 바꾸지 않는다.
+    showFloat: (key) => {
+      const found = findTab(latestLayout.current, key);
+      if (found?.where === "float") {
+        updateAt(found.desk, (item) => restoreFloat(item, key));
+      }
+    },
     browserApi,
     keyOf: (session) => webviews.keyOf(session),
   });
@@ -2176,15 +2185,25 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   ).flatMap((key) => deskTab(key) ?? []);
   // agent가 연 browser·preview·artifact 탭(key `host:`)은 사람이 고르기 전에도 본문을 mount한다. 그래야 page가 붙어 agent가 바로 다룬다.
   // 자리가 없어(display: none) 사람 화면에는 나오지 않고, 고르면 이 자리에서 pane 안으로 옮겨 mount된다(webview는 key로 이어진다).
-  const hiddenHostTabs = desk.tabs.filter(
-    (tab) =>
-      tab.key.startsWith("host:") &&
-      (tab.kind === "browser" ||
-        tab.kind === "app_preview" ||
-        tab.kind === "artifact") &&
-      tab.fields?.native !== true &&
-      !shown.some((item) => item.key === tab.key),
-  );
+  // 고르지 않은 tab, 접힌 float, 다른 desk의 tab·float이 모두 대상이다. 보이는 것(card의 칸, 펴진 float)은 제 자리에서 mount한다.
+  // detached는 그 창이 mount한다.
+  const hiddenHostTabs = Object.values(layout.desks)
+    .flatMap((one) => [
+      ...one.tabs.filter(
+        (tab) => one !== desk || !shown.some((item) => item.key === tab.key),
+      ),
+      ...one.floats
+        .filter((item) => one !== desk || item.minimized)
+        .map((item) => item.tab),
+    ])
+    .filter(
+      (tab) =>
+        tab.key.startsWith("host:") &&
+        (tab.kind === "browser" ||
+          tab.kind === "app_preview" ||
+          tab.kind === "artifact") &&
+        tab.fields?.native !== true,
+    );
   // key의 칸 옆에 다음 plain tab을 붙인다. group은 그 leaf 옆에 끼고 가득 차면 아무 일도 없다.
   const splitNext = (key: string, side: "right" | "bottom") => {
     const partner = splitPartner(latestDesk(), key);

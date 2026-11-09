@@ -21,6 +21,7 @@ import {
   floatTab,
   focusLeaf,
   groupOf,
+  type GroupNode,
   leavesOf,
   MAIN_DESK,
   membersOf,
@@ -389,19 +390,111 @@ test("고르지 않고 열어도 옆 칸과 group 칸 자리를 지키고 보던
   assert.deepEqual(leavesOf(groupOf(desk, "t")!.layout), ["t", "n1"]);
   assert.equal(desk.selected, "b");
 
-  // group이 있으면 grow는 칸을 더하고 beside는 다음 칸 stack에 숨어 쌓인다. 어느 쪽도 선택은 그대로다.
-  desk = openTab(desk, tab("n2"), {
-    after: "t",
-    beside: true,
-    grow: true,
+  // group이 있으면 beside는 다음 칸 stack에 숨어 쌓인다. 선택은 그대로다.
+  desk = openTab(desk, tab("n2"), { after: "t", beside: true, select: false });
+  assertValid(desk, ["a", "t", "b", "n1", "n2"]);
+  assert.equal(leavesOf(groupOf(desk, "t")!.layout).length, 2);
+  assert.equal(desk.selected, "b");
+});
+
+// agent가 연 탭의 뜻(relation)이 칸으로 풀리는 규칙. 어느 쪽도 보던 tab을 바꾸지 않는다.
+const area = (node: GroupNode, key: string, share = 1): number | null => {
+  if ("tab" in node) return node.tab === key ? share : null;
+  return (
+    area(node.a, key, share * node.ratio) ??
+    area(node.b, key, share * (1 - node.ratio))
+  );
+};
+
+test("peer를 계속 열어도 칸은 한 group에 모이고 띠가 생기지 않으며 보던 tab은 그대로다", () => {
+  let desk = deskOf("a", "src", "b");
+  desk = selectTab(desk, "b");
+  const all = ["a", "src", "b"];
+  for (const key of ["c1", "c2", "c3"]) {
+    desk = openTab(desk, tab(key), {
+      after: "src",
+      relation: "peer",
+      select: false,
+    });
+    all.push(key);
+    assertValid(desk, all);
+    assert.equal(desk.selected, "b");
+  }
+  const group = groupOf(desk, "src")!;
+  assert.deepEqual(
+    new Set(leavesOf(group.layout)),
+    new Set(["src", "c1", "c2", "c3"]),
+  );
+  for (const key of leavesOf(group.layout)) {
+    assert.ok(Math.abs(area(group.layout, key)! - 0.25) < 1e-9, key);
+  }
+
+  // 가득 차면 마지막 칸에 숨어 쌓이고 칸의 보이는 tab은 그대로다.
+  const before = leavesOf(group.layout);
+  desk = openTab(desk, tab("c4"), {
+    after: "src",
+    relation: "peer",
     select: false,
   });
-  assertValid(desk, ["a", "t", "b", "n1", "n2"]);
-  assert.equal(leavesOf(groupOf(desk, "t")!.layout).length, 3);
-  desk = openTab(desk, tab("n3"), { after: "t", beside: true, select: false });
-  assertValid(desk, ["a", "t", "b", "n1", "n2", "n3"]);
-  assert.equal(leavesOf(groupOf(desk, "t")!.layout).length, 3);
+  assertValid(desk, [...all, "c4"]);
+  assert.deepEqual(leavesOf(groupOf(desk, "src")!.layout), before);
+  assert.deepEqual(paneStackOf(desk, "c4").at(-1), "c4");
   assert.equal(desk.selected, "b");
+});
+
+test("aside는 source의 칸을 나누고 가득 차면 다음 칸에 보이게 쌓되 보던 칸은 가리지 않으며, stage는 group 바깥 뒤에 선다", () => {
+  let desk = deskOf("a", "src", "b");
+  desk = openTab(desk, tab("n1"), {
+    after: "src",
+    relation: "aside",
+    select: false,
+  });
+  desk = openTab(desk, tab("n2"), {
+    after: "src",
+    relation: "aside",
+    select: false,
+  });
+  desk = openTab(desk, tab("n3"), {
+    after: "src",
+    relation: "aside",
+    select: false,
+  });
+  assertValid(desk, ["a", "src", "b", "n1", "n2", "n3"]);
+  assert.equal(leavesOf(groupOf(desk, "src")!.layout).length, 4);
+  assert.equal(desk.selected, "b");
+
+  // 가득 찬 group: 사람이 그 group을 보고 있지 않으면 다음 칸에 보인다.
+  const next = leavesOf(groupOf(desk, "src")!.layout)[1]!;
+  desk = openTab(desk, tab("n4"), {
+    after: "src",
+    relation: "aside",
+    select: false,
+  });
+  assertValid(desk, ["a", "src", "b", "n1", "n2", "n3", "n4"]);
+  assert.equal(leavesOf(groupOf(desk, "src")!.layout)[1], "n4");
+  assert.deepEqual(paneStackOf(desk, "n4"), [next, "n4"]);
+  assert.equal(desk.selected, "b");
+
+  // 사람이 그 칸을 보고 있으면 숨어 쌓인다.
+  desk = selectTab(desk, "n4");
+  desk = openTab(desk, tab("n5"), {
+    after: "src",
+    relation: "aside",
+    select: false,
+  });
+  assert.equal(desk.selected, "n4");
+  assert.ok(!leavesOf(groupOf(desk, "src")!.layout).includes("n5"));
+
+  // stage는 group 안이 아니라 group 바로 뒤다.
+  desk = openTab(desk, tab("s"), {
+    after: "src",
+    relation: "stage",
+    select: false,
+  });
+  assert.equal(groupOf(desk, "s"), null);
+  const keys = desk.tabs.map((item) => item.key);
+  assert.equal(keys.indexOf("s"), keys.length - 2);
+  assert.equal(keys.at(-1), "b");
 });
 
 test("tab 메뉴의 여러 개 닫기는 의도한 tab만 닫고 group을 유효하게 둔다", () => {

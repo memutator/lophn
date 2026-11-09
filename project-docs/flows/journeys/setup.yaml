@@ -330,8 +330,9 @@ journeys:
     steps:
       - {do: "project Agents 탭에서 project 층 MCP 서버와 끈 항목을 읽는다", screen: new-project-agents, flow: workspace-extension-read:ok}
       - {do: "project 층 MCP 서버를 더하거나 끈 뒤 저장한다", screen: new-project-agents, flow: workspace-extension-change:ok}
-    gaps:
-      - "Home과 앱 창의 Agents 탭도 같은 두 route를 workspace 열쇠(home, 앱 id)로 부르지만 이 journey는 project 화면만 가리킨다"
+      - {do: "Home의 Agents 탭도 같은 route를 workspace 열쇠 home으로 불러 Home 층 MCP 서버를 읽는다", screen: agents-tab-home, flow: workspace-extension-read:ok}
+      - {do: "앱의 Agents 탭은 앱 id로 앱 층 MCP 서버를 읽고 끈다", screen: agents-tab-app, flow: workspace-extension-change:ok}
+      - {do: "source 폴더를 잇지 않은 앱도 MCP와 skill 층은 같다. AGENTS.md 칸만 비어 있다", screen: agents-tab-app-no-source, flow: workspace-extension-read:ok}
 
   - id: settings-general-change
     title: Settings › General의 값을 바꾼다

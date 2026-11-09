@@ -86,8 +86,8 @@ journeys:
     goal: "사람이 이미지를 올리고 저장해 agent 프로필로 잇고, 화면이 그 이미지를 받아 보인다"
     refs: [H11]
     steps:
-      - {do: "agent 설정에서 이미지를 고른다", screen: agent-settings-agent, flow: agent-profile-image-upload:stored}
-      - {do: "저장해서 정의의 profile로 잇는다", screen: agent-settings-agent, flow: agent-change:saved}
+      - {do: "agent 설정에서 이미지를 고른다. 올린 이미지가 profile로 보인다", screen: agent-settings-image-uploaded, flow: agent-profile-image-upload:stored}
+      - {do: "저장해서 정의의 profile로 잇는다", screen: agent-settings-image-uploaded, flow: agent-change:saved}
       - {do: "화면이 이미지를 받아 보인다", flow: agent-profile-image-read:ok}
 
   - id: agent-delete-by-person
@@ -97,7 +97,124 @@ journeys:
     refs: [H11]
     steps:
       - {do: "agent 설정을 연다", screen: agent-settings-agent, flow: agent-definition-read:ok}
-      - {do: "Delete로 지운다", screen: agent-settings-agent, flow: agent-delete:deleted}
+      - {do: "Delete를 누르면 확인 창이 뜬다", screen: agent-settings-delete-confirm, flow: agent-definition-read:ok}
+      - {do: "확인하면 지운다", screen: agent-settings-delete-confirm, flow: agent-delete:deleted}
+
+  - id: agent-delete-stale-retry
+    title: "낡은 화면으로 지우면 충돌하고 다시 읽어 지운다"
+    actor: person
+    goal: "다른 곳에서 정의가 바뀐 뒤 낡은 화면이 지우면 hash 충돌로 막히고 toast가 뜨며, 다시 읽은 뒤 지운다"
+    refs: [H11]
+    steps:
+      - {do: "확인 창에서 Delete를 누르지만 정의가 그 사이 바뀌었다", screen: agent-settings-delete-failed, flow: agent-delete:hash-changed}
+      - {do: "화면이 정의를 다시 읽는다", screen: agent-settings-agent, flow: agent-definition-read:ok}
+      - {do: "다시 Delete로 지운다", screen: agent-settings-delete-confirm, flow: agent-delete:deleted}
+
+  - id: agent-lophn-edit
+    title: "사람이 lophn의 이름을 고치고 지울 수 없음을 본다"
+    actor: person
+    goal: "lophn은 handle과 profile이 잠기고 Delete가 없다. 이름과 나머지 칸만 고쳐 저장한다"
+    refs: [H11]
+    steps:
+      - {do: "project의 lophn 설정을 연다. handle과 profile이 잠기고 Delete가 없다", screen: new-agent-editor-lophn, flow: agent-definition-read:ok}
+      - {do: "이름을 고쳐 저장한다", screen: new-agent-editor-lophn, flow: agent-change:saved}
+      - {do: "Home의 lophn도 같다. 범위 칸이 Home이고 Memory 칸이 없다", screen: agent-settings-home-lophn, flow: agent-definition-read:ok}
+
+  - id: agent-edit-in-app
+    title: "사람이 앱의 Agents 탭에서 agent를 연다"
+    actor: person
+    goal: "앱 자리의 Agents 탭에서 앱 source의 AGENTS.md가 workspace 지침으로 보이는 agent 설정을 연다"
+    refs: [H11]
+    steps:
+      - {do: "앱의 Agents 탭을 연다. 지침은 앱 source의 AGENTS.md다", screen: agents-tab-app, flow: agent-definition-read:ok}
+      - {do: "agent를 열면 같은 editor가 앱 자리로 열린다", screen: agent-settings-app-workspace, flow: agent-definition-read:ok}
+
+  - id: agent-add-mcp-server
+    title: "사람이 agent 층에서 MCP server를 더한다"
+    actor: person
+    goal: "agent 설정의 MCP 칸에서 web 주소와 OAuth 2.1 로그인으로 server를 더해 정의에 저장한다"
+    refs: [H11]
+    steps:
+      - {do: "agent 설정을 연다", screen: agent-settings-agent, flow: agent-definition-read:ok}
+      - {do: "Add server로 web 주소와 OAuth 2.1을 고른다", screen: new-agent-mcp-server-form, flow: agent-definition-read:ok}
+      - {do: "저장하면 정의의 mcp_servers로 적힌다", screen: new-agent-mcp-server-form, flow: agent-change:saved}
+
+  - id: agent-create-bare-or-harness
+    title: "사람이 runtime을 bare나 harness로 정해 agent를 만든다"
+    actor: person
+    goal: "Runtime을 Bare로 하면 tool과 skill을 고르고, harness(Codex)로 하면 지침만 적어 저장한다"
+    refs: [H11]
+    steps:
+      - {do: "Runtime을 Bare로 하고 tool과 skill을 고른다", screen: agent-settings-bare, flow: skills-list-read:ok}
+      - {do: "저장한다", screen: agent-settings-bare, flow: agent-create:created}
+      - {do: "Runtime을 Codex로 하면 model·tool·skill·MCP 칸이 없다", screen: agent-settings-harness, flow: skills-list-read:ok}
+      - {do: "저장한다", screen: agent-settings-harness, flow: agent-create:created}
+
+  - id: agent-save-rejected
+    title: "저장이 틀린 항목 때문에 거절되고 고쳐 다시 저장한다"
+    actor: person
+    goal: "저장이 항목별 이유로 거절되면 그 칸 안에서 이유를 보고 고쳐 다시 저장한다"
+    refs: [H11]
+    steps:
+      - {do: "새 agent를 저장하려는데 틀린 칸이 있다. 이유가 칸 안에 붙는다", screen: agent-settings-save-issues, flow: agent-create:invalid-definition}
+      - {do: "고친 뒤 저장한다", screen: agent-settings-create, flow: agent-create:created}
+      - {do: "있는 agent를 고쳐 저장해도 틀린 칸의 이유가 같은 모양으로 붙는다", screen: agent-settings-save-issues, flow: agent-change:invalid-definition}
+
+  - id: agent-fix-broken-definition
+    title: "정의 file이 틀린 agent를 열어 고친다"
+    actor: person
+    goal: "목록에서 개수를 셀 수 없는 틀린 정의를 열어 이유를 보고 고쳐 저장한다"
+    refs: [H11]
+    steps:
+      - {do: "Agents 목록의 틀린 정의 줄은 개수와 명함이 없다", screen: agents-tab-broken, flow: agent-definition-read:ok}
+      - {do: "그 줄을 열면 틀린 칸의 이유가 보인다", screen: agent-settings-broken, flow: agent-definition-read:ok}
+      - {do: "고쳐 저장한다", screen: agent-settings-broken, flow: agent-change:saved}
+
+  - id: agent-profile-image-rejected
+    title: "틀린 이미지는 올려지지 않고 toast가 뜬다"
+    actor: person
+    goal: "형식이나 크기가 틀린 이미지를 올리면 거절되고 profile은 그대로다"
+    refs: [H11]
+    steps:
+      - {do: "틀린 이미지를 고른다", screen: agent-settings-image-upload-failed, flow: agent-profile-image-upload:invalid-image}
+
+  # ---- 대화 화면의 조작 (명령, model, 상태, 읽기) ----
+
+  - id: conversation-commands-and-shell
+    title: "사람이 대화에서 /명령을 고르고 !명령으로 shell을 돌린다"
+    actor: person
+    goal: "입력칸에 /를 쳐 명령 메뉴를 걸러 고르고, !로 시작하는 입력으로 shell 명령을 직접 돌린다"
+    steps:
+      - {do: "/con을 치면 순위대로 한 목록이 뜬다", screen: new-agent-commands-ranked, flow: command-list-read:ok}
+      - {do: "일하는 중 /re로 거르면 맞는 것만 남고 고른 명령은 다음 turn에 들어간다", screen: new-agent-commands-filtered, flow: command-list-read:ok}
+      - {do: "!sleep 30을 보내면 명령이 끝날 때까지 Running 줄이 선다", screen: new-agent-shell-pending, flow: shell-run:ok}
+      - {do: "harness session은 mode 단추로 CLI가 정한 mode를 고른다", screen: new-agent-harness-mode, flow: acp-send:ok}
+
+  - id: conversation-model-choice
+    title: "사람이 대화의 model을 고른다"
+    actor: person
+    goal: "composer의 단축키나 단추로 model picker를 열어 model을 고르고, 보일 model이 없으면 Manage models에서 provider를 붙인다"
+    steps:
+      - {do: "composer에서 Ctrl+Shift+M으로 model picker를 연다", screen: new-agent-model-shortcut, flow: session-change-model:ok}
+      - {do: "고르지 않은 대화는 workspace default를 따른다고 층 한 줄이 말한다", screen: new-model-picker-inherited, flow: shown-models-read:ok}
+      - {do: "보일 model이 없으면 안내와 Manage models 줄만 있다", screen: new-model-picker-empty, flow: shown-models-read:ok}
+      - {do: "Manage models에서 Connect provider로 provider를 붙인다", screen: new-manage-models-connect, flow: provider-connect:connected}
+      - {do: "Custom provider는 붙은 직후 model 목록을 한 번 읽는다", screen: new-model-info-connect-found, flow: provider-models-refresh:refreshed}
+      - {do: "정보를 적은 custom model의 effort를 option 축으로 고른다", screen: new-model-info-picker, flow: user-model-info-read:ok}
+      - {do: "provider가 요청을 거절하면 오류와 Retry가 대화에 남는다", screen: new-agent-request-error, flow: model-call-run:failed}
+
+  - id: conversation-status-and-reading
+    title: "사람이 대화에서 상태와 사용량을 보고 일한 내용을 읽는다"
+    actor: person
+    goal: "/status와 푸터로 token·cost·창 사용량을 보고, 편집 diff와 단계 상세와 권한 요약을 읽는다"
+    steps:
+      - {do: "구독이 아닌 연결의 /status에서 token 비율과 Cost를 본다", screen: new-agent-status-cost, flow: session-status-read:ok}
+      - {do: "푸터를 눌러 같은 /status 보기를 연다. 창을 많이 쓰면 위험색이다", screen: new-agent-status-full, flow: session-status-read:ok}
+      - {do: "창이 가득 찬 session은 푸터의 %와 금액이 위험색이다", screen: new-agent-context-full, flow: agent-usage-read:ok}
+      - {do: "편집 카드를 펼쳐 unified diff를 본다", screen: new-agent-edit-diff, flow: tool-file-edit:edited}
+      - {do: "머리의 단계 상세 menu에서 Everything을 고른다", screen: new-agent-detail, flow: session-snapshot-read:ok}
+      - {do: "Messages 보기는 tool 줄을 숨기고 일하는 중 줄이 지금 하는 일을 붙인다", screen: new-agent-working-messages, flow: turn-pump-start:started}
+      - {do: "/permissions로 할당한 앱과 뺀 tool을 읽는다", screen: new-agent-permissions, flow: assignment-read:ok}
 
   # ---- 앱 할당과 앱 tool 호출 ----
 
@@ -136,7 +253,7 @@ journeys:
     refs: [H3]
     steps:
       - {do: "agent가 할당 밖의 앱 tool을 부른다", flow: tool-gate-check:denied-not-assigned}
-      - {do: "agent가 막힌 결과를 tool 결과로 받는다", flow: tool-call-execute:gate-denied}
+      - {do: "agent가 막힌 결과를 tool 결과로 받는다. 대화에 Denied 표시가 붙는다", screen: new-agent-tool-failed, flow: tool-call-execute:gate-denied}
 
   # ---- 앱 공유 요청 ----
 
@@ -194,6 +311,7 @@ journeys:
       - {do: "lophn call send를 reply none으로 보낸다", screen: new-agent-call-open, flow: call-send:accepted}
       - {do: "받은 session이 입력을 turn으로 연다", flow: turn-pump-start:started}
       - {do: "받은 session이 일을 끝낸다", flow: turn-loop:completed}
+      - {do: "받은 session의 메시지에 보낸 쪽 chip이 붙는다", screen: new-agent-sender-chips, flow: session-message-read:ok}
       - {do: "사람이 Open conversation으로 받은 session에 이어 말한다", screen: new-agent-call-open, flow: session-send:ok}
 
   - id: call-conversation
@@ -286,8 +404,6 @@ journeys:
       - {do: "허락이 팀원의 request를 once로 푼다", flow: team-child-approval-to-parent:parent-allowed}
       - {do: "gate가 허락을 받아 팀원의 명령을 실행한다", flow: tool-gate-check:run-after-allow}
       - {do: "명령이 끝나 결과가 돌아온다", flow: tool-shell-run:finished}
-    gaps:
-      - "부모 화면에서 자식의 승인 call에 답하는 카드를 그린 wireframe frame이 없다(new-agent-call-open은 맡긴 일 블록만 보인다)"
 
   - id: team-child-shell-rejected
     title: "부모가 팀원의 shell 명령을 거절한다"

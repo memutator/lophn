@@ -3,7 +3,7 @@
 // shell extension tool(`ext__<id>__<tool>`)은 할당한 extension의 것을 체크로 고른다.
 // 상한 안인지(workspace 종류 목록, 할당한 앱, 설정한 MCP)는 turn 조립이 본다.
 import { useState } from "react";
-import { Checkbox, Input } from "@lophn/ui/input";
+import { Checkbox, Field, Input } from "@lophn/ui/input";
 import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 
@@ -74,18 +74,21 @@ export function ToolPicks({
         </div>
       ))}
       <div className={styles.pickRow}>
-        <Input
-          size="sm"
-          value={draft}
-          placeholder={t("agents.label.tools-add-placeholder")}
-          aria-label={t("agents.label.tools-add")}
-          onChange={(event) => setDraft(event.currentTarget.value)}
-          onKeyDown={(event) => {
-            if (event.key !== "Enter") return;
-            event.preventDefault();
-            add();
-          }}
-        />
+        <div className={styles.pickField}>
+          <Field label={t("agents.label.tools-add")}>
+            <Input
+              size="sm"
+              value={draft}
+              placeholder={t("agents.label.tools-add-placeholder")}
+              onChange={(event) => setDraft(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                event.preventDefault();
+                add();
+              }}
+            />
+          </Field>
+        </div>
         <Button size="sm" icon={actionIcons.add} onClick={add}>
           {t("agents.button.add-tool")}
         </Button>

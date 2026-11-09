@@ -600,6 +600,15 @@ components:
       paths: [tools/check-sdk-notes.ts, packages/core/agent-workspaces/skills/migrate-sdk/SKILL.md, packages/core/apps/packages/template/app/]
       note: 메모 꼴, 읽는 쪽 절차, pin이 있는 곳이 바뀔 때.
 
+  - id: skill-flows
+    kind: skill
+    roles: [worker, lead, planner]
+    description: flow catalog를 고치는 절차. 무엇을 바꾸면 무엇을 고치나, check 실패 고치기, flow·outcome의 흔한 실수, test 고르기, 계획이 끝날 때, 다시 조사하는 절차(survey.md).
+    path: .claude/skills/flows/
+    change_reasons:
+      paths: [tools/flows.ts, project-docs/flows/README.md, project-docs/flows/areas.yaml]
+      note: catalog 꼴이나 check 항목이 바뀔 때.
+
   - id: skill-write-test
     kind: skill
     roles: [worker]

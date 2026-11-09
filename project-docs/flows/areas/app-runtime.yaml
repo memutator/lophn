@@ -41,6 +41,9 @@ flows:
         when: "authorizeApp의 권한 port가 없거나 답이 맞지 않음(app dependency unavailable), 저장된 앱 행이 깨짐(internal)"
         observe: [response]
     crosses_process: false
+    declared_only: [not_found]
+    unclear:
+      - "route가 not_found를 선언하지만 handler는 내지 않는다. 새 앱 id라 보관한 앱(archivedToAgent)이나 범위 불일치로 가려질 앱이 없고, 이미 있는 앱은 conflict다. 선언을 고칠 곳이다."
     refs: [P5, L4]
     docs: [architecture/app-call.md]
 
@@ -510,6 +513,9 @@ flows:
         when: "앱 행 읽기가 실패함(invalid stored app)"
         observe: [response]
     crosses_process: false
+    declared_only: [conflict]
+    unclear:
+      - "route가 conflict를 선언하지만 handler는 내지 않는다(없는 앱은 invalid_input, 재전송은 replayed). 선언을 고칠 곳이다."
 
   - id: app-record-stopped
     title: "자식이 종료됐음을 기록한다(AppStopped)"
@@ -540,6 +546,9 @@ flows:
         when: "앱 행 읽기가 실패함(invalid stored app)"
         observe: [response]
     crosses_process: false
+    declared_only: [conflict]
+    unclear:
+      - "route가 conflict를 선언하지만 handler는 내지 않는다(없는 앱은 invalid_input, 재전송은 replayed). 선언을 고칠 곳이다."
 
   - id: app-record-unavailable
     title: "앱이 쓸 수 없게 됐음을 기록한다(AppUnavailable)"
@@ -574,6 +583,9 @@ flows:
         when: "앱 행 읽기가 실패함(invalid stored app), 앱 한 줄 notice 쓰기가 실패함"
         observe: [response]
     crosses_process: false
+    declared_only: [conflict]
+    unclear:
+      - "route가 conflict를 선언하지만 handler는 내지 않는다(없는 앱은 invalid_input, 같은 근거는 same-reason). 선언을 고칠 곳이다."
 
   - id: app-child-exit
     title: "앱 자식이 예상 밖으로 끝나면 다시 띄우거나 자동 재시작을 멈춘다"
@@ -730,8 +742,10 @@ flows:
         when: "supervisor가 appendLog를 거절함(그 오류 그대로, 입력 검사 포함)"
         observe: [response]
     crosses_process: true
+    declared_only: [not_found]
     refs: [A15]
     unclear:
+      - "route가 not_found를 선언하지만 handler는 내지 않는다. 앱이 없으면 supervisor의 appendLog가 written:false를 ok로 돌려준다. 선언을 고칠 곳이다."
       - "supervisor에 dataRoot가 없으면 written:false가 ok로 돌아오고 log 줄이 없다(assembly.ts). 실제 production 상태인지 확인이 필요하다."
 
   # ---------- 호출 ----------
@@ -810,6 +824,10 @@ flows:
         observe: [response]
       - id: dependency-failed
         when: "호출자 확인의 port(agentToolCall, activeRelease), 보관 여부나 선언 읽기, Gate의 할당·grant 읽기, 기록 쓰기(begin·finish)가 낸 오류 그대로"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "ledger writer를 쓸 수 없어 기록 begin·finish가 실패함(dispatch 뒤 service), 또는 호출자 확인·보관 여부·선언 읽기가 unavailable로 실패함"
         observe: [response]
     crosses_process: true
     risk: [permission, data-loss]
@@ -1058,7 +1076,11 @@ flows:
         when: "고른 invocation이 없거나 다른 앱의 것, 또는 앱이 범위 밖(없는 앱과 같음)"
         observe: [response]
       - id: read-failed
-        when: "기록 읽기나 활성 release 조회가 실패함, 시작 시각이 없는 호출(internal), 범위 판정 port가 없거나 답이 맞지 않음(app dependency unavailable)"
+        when: "기록 읽기나 활성 release 조회가 실패함, 시작 시각이 없는 호출(internal)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "범위 판정 port가 없거나 답이 맞지 않음(app dependency unavailable)"
         observe: [response]
     crosses_process: false
     unclear:
@@ -1157,7 +1179,11 @@ flows:
         when: "app credential(route actors는 user, agent, machine)"
         observe: [response]
       - id: read-failed
-        when: "범위 판정 port가 없거나 답이 맞지 않음(app dependency unavailable), 저장된 rewind 행이 깨짐(internal)"
+        when: "저장된 rewind 행이 깨짐(internal)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "범위 판정 port가 없거나 답이 맞지 않음(app dependency unavailable)"
         observe: [response]
     crosses_process: false
     refs: [A2]
@@ -1216,7 +1242,9 @@ flows:
         when: "앱 목록이나 선언 읽기가 실패함(invalid stored app 등)"
         observe: [response]
     crosses_process: false
+    declared_only: [unavailable]
     unclear:
+      - "route가 unavailable을 선언하지만 handler는 내지 않는다. 메인 스레드 sql read라 reader unavailable이 없고, 범위 판정 실패는 목록에서 빠지거나 not_found로 가려진다. 선언을 고칠 곳이다."
       - "bundle 파일 읽기의 예외(readdir·readFile, status.ts)는 Result가 아니라 throw로 올라간다. 어떤 code로 보이는지 확인이 필요하다."
 
   - id: app-screen-file-read
@@ -1250,6 +1278,9 @@ flows:
         when: "bundle 사본 조회(loadRelease)가 낸 오류 그대로(invalid stored app 등)"
         observe: [response]
     crosses_process: false
+    declared_only: [unavailable]
+    unclear:
+      - "route가 unavailable을 선언하지만 handler는 내지 않는다. file stream handler는 apps wiring이 늘 등록하고, bundle 조회 실패는 not_found나 internal이다. 선언을 고칠 곳이다."
     risk: [sandbox]
 
   # ---------- 파일 접근: broker를 거치지 않는다 ----------
@@ -1504,10 +1535,14 @@ flows:
         when: "현재 선언에 이 이름의 oauth 블록이 없음, 또는 앱에 활성 release가 없음"
         observe: [response]
       - id: declared-read-failed
-        when: "선언이나 grant 읽기가 실패함(unavailable 또는 internal)"
+        when: "선언이나 grant 읽기가 internal로 실패함"
         observe: [response]
       - id: store-failed
         when: "secrets 저장소에 쓰지 못함(그 오류 그대로)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "선언 읽기의 ledger 연결을 열 수 없음(declared). 선언이나 grant 읽기가 internal로 실패한 것은 declared-read-failed"
         observe: [response]
     crosses_process: false
 
@@ -1655,9 +1690,16 @@ flows:
         code: invalid_input
         observe: [response]
       - id: read-failed
-        when: "선언이나 grant 읽기가 실패함(unavailable 또는 internal)"
+        when: "선언이나 grant 읽기가 internal로 실패함"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "선언 읽기의 ledger 연결을 열 수 없음(declared). 선언이나 grant 읽기가 internal로 실패한 것은 read-failed"
         observe: [response]
     crosses_process: false
+    declared_only: [not_found]
+    unclear:
+      - "route가 not_found를 선언하지만 handler는 내지 않는다. release가 없으면 빈 목록을 ok로 준다. 선언을 고칠 곳이다."
 
   # ---------- broker: net, notify, problem ----------
 

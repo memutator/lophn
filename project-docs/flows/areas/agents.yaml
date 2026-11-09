@@ -623,6 +623,10 @@ flows:
         code: unavailable
         when: workspace 설정 file(extensions.json)을 읽지 못했거나 skill 목록을 만들지 못했거나 data root(ledger 위치)를 정하지 못했다
         observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor 종류가 아니거나 credential scope에 이 operation이 없다(dispatch)"
+        observe: [response]
     crosses_process: false
     docs: [architecture/agent-definition.md]
 

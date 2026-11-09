@@ -33,6 +33,10 @@ flows:
         code: forbidden
         when: "app 자격이 아니다(route actors가 먼저 막는 것과 별도로 handler가 한 번 더 본다)"
         observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "writer나 ledger를 쓸 수 없다(dispatch)"
+        observe: [response]
     crosses_process: false
     refs: [A3]
     docs: [architecture/app-notice.md]
@@ -70,6 +74,10 @@ flows:
         code: forbidden
         when: "machine 자격이 아니다"
         observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "writer나 ledger를 쓸 수 없다(dispatch)"
+        observe: [response]
     crosses_process: false
     docs: [architecture/app-notice.md]
     unclear:
@@ -104,6 +112,10 @@ flows:
       - id: listener-failed
         when: "productStartListener가 던졌다. 다음 listener를 부르고 기동은 이어진다"
         observe: [log:notices]
+      - id: unavailable
+        code: unavailable
+        when: "writer나 ledger를 쓸 수 없다(dispatch)"
+        observe: [response]
     crosses_process: false
     docs: [architecture/app-notice.md]
     unclear:
@@ -129,6 +141,14 @@ flows:
         code: invalid_input
         when: "cursor를 해석하지 못한다"
         observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "reader를 쓸 수 없다(dispatch)"
+        observe: [response]
     crosses_process: false
     docs: [architecture/app-notice.md]
 
@@ -144,6 +164,14 @@ flows:
       - "app_name은 읽을 때 apps 표에서 푼다"
     outcomes:
       - id: ok
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "reader를 쓸 수 없다(dispatch)"
         observe: [response]
     crosses_process: false
     docs: [architecture/app-notice.md]
@@ -179,6 +207,10 @@ flows:
         code: forbidden
         when: "user 자격이 아니다"
         observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "writer나 ledger를 쓸 수 없다(dispatch)"
+        observe: [response]
     crosses_process: false
     docs: [architecture/app-notice.md]
 
@@ -200,6 +232,10 @@ flows:
       - id: forbidden
         code: forbidden
         when: "user 자격이 아니다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "writer나 ledger를 쓸 수 없다(dispatch)"
         observe: [response]
     crosses_process: false
     docs: [architecture/app-notice.md]
@@ -252,9 +288,15 @@ flows:
     outcomes:
       - id: ok
         observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch)"
+        observe: [response]
     crosses_process: false
+    declared_only: [unavailable]
     docs: [architecture/app-notice.md]
     unclear:
+      - "app_tray/list가 선언한 unavailable은 handler가 내지 않는다. 메모리 Map을 읽을 뿐 ledger·reader를 거치지 않는다(선언을 고칠 곳)"
       - "shell.tray_off와 shell.tray_order를 쓰는 설정 route는 models(config) area의 entry다. 이 flow는 읽기만 본다"
       - "renderer가 AppTrayChanged와 ready에서 스스로 읽으므로 사람 click이 아니라 actor를 shell로 두었다. pre는 AND라 값이 있어야 하는 게 아니어서 뺐다"
 
@@ -368,6 +410,10 @@ flows:
       - id: relay-rejected
         when: "준비 중계가 거절했다(hash가 맞지 않는 것 등. 그 code를 그대로 돌려준다)"
         observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch)"
+        observe: [response]
     crosses_process: true
     docs: [architecture/annotation.md]
     unclear:
@@ -456,6 +502,10 @@ flows:
       - id: forbidden
         code: forbidden
         when: "agent 자격에 앱도 project도 없다(home session)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "reader를 쓸 수 없다(dispatch)"
         observe: [response]
     crosses_process: false
     refs: [A3]

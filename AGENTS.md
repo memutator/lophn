@@ -42,7 +42,7 @@
 * 시각, id, 무작위 값, 파일 시스템, 네트워크는 인자로 받는다(`packages/base`의 Clock, IdSource). 전역 mutable 상태를 두지 않는다.
 * protocol을 바꾸면 쓰는 쪽을 같은 변경에서 고친다. `v2` 경로나 `FooV2` type을 만들지 않는다.
 * SDK 판(`packages/sdk/*`, `packages/design`)을 올리거나 앱 agent가 읽는 지침(guide.md·skill·template)을 바꾸면 `sdk-note` skill대로 `migrate-sdk` 메모(지침이 바뀌었으면 `## Instruction diff`)를 쓰고, 지원 하한이 바뀌면 `lophn.supported_from`을 고친다. check의 sdk notes가 잡는다.
-* route, CLI 명령, agent tool, 단축키 command, IPC channel, SDK export, 내장 skill, control 요청이나 test file을 더하거나 지우면 같은 변경에서 `project-docs/flows/`를 고친다(`project-docs/flows/README.md` "고칠 때"). check의 flows가 잡는다.
+* route, CLI 명령, agent tool, 단축키 command, IPC channel, SDK export, 내장 skill, control 요청이나 test file을 더하거나 지우면 같은 변경에서 `project-docs/flows/`를 고친다(`flows` skill). check의 flows가 잡는다.
 * 주석은 "왜"만 쓴다. 죽은 코드는 지운다.
 * 의존성은 판을 정확히 고정한다.
 * 끝내기 전에 `npm run check`를 돌린다.

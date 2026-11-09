@@ -356,10 +356,12 @@ flows:
         code: internal
         when: "저장된 project를 읽는 중 깨진 저장을 만났다"
         observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor 종류가 아니거나 credential scope에 이 operation이 없다(dispatch)"
+        observe: ["response"]
     crosses_process: false
     risk: [sandbox]
-    unclear:
-      - "actors가 user뿐이라 agent·app 호출은 dispatch의 공통 gate가 거절한다. handler에는 검사가 없어 forbidden outcome을 두지 않았다"
 
   # ---- blob (storage) ----
 
@@ -405,7 +407,9 @@ flows:
         when: "blob 읽기 통로가 붙지 않았거나 ledger를 열지 못했거나 blob_refs 행을 읽지 못했다"
         observe: ["response"]
     crosses_process: true
+    declared_only: [internal]
     unclear:
+      - "protocol이 internal을 선언하지만 handler(blobReadHandler, planBlobRead, finishBlobRead)는 internal을 돌려주지 않는다. 읽기 실패는 status(missing, corrupt)나 unavailable로 답한다. 던진 예외를 dispatch가 internal로 바꾸는 것은 모든 route에 같다"
       - "호출자는 app 자격의 HTTP route와 core 안의 apps 능력 broker다. 이 저장소에서 route를 부르는 SDK 경로는 확인하지 않았다"
       - "protocol의 unavailable status reason에 pruned가 있으나 이 read 경로는 missing·corrupt만 만든다(pruned를 만드는 곳을 찾지 못했다)"
       - "app 범위가 다른 앱의 target이면 not_found로 답한다는 경로는 찾지 못했다. blobs/read 기본 authorizer는 target.app을 넘기지 않아 forbidden으로 답한다"

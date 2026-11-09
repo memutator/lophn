@@ -392,6 +392,10 @@ flows:
         code: internal
         when: "release 행을 읽지 못함이나 app_data_migrated 알림 기록이 실패함(store·notice가 낸 오류 그대로)"
         observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "writer나 ledger를 쓸 수 없다(dispatch)"
+        observe: [response]
     crosses_process: false
     risk: [data-loss]
     refs: []
@@ -427,6 +431,10 @@ flows:
       - id: internal
         code: internal
         when: "release 행을 읽지 못함이나 app_data_restored 알림 기록이 실패함(store·notice가 낸 오류 그대로)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "writer나 ledger를 쓸 수 없다(dispatch)"
         observe: [response]
     crosses_process: false
     risk: [data-loss]
@@ -638,6 +646,10 @@ flows:
         code: internal
         when: "compare·consents가 읽는 저장 행이 맞지 않음(store가 낸 internal 그대로)"
         observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor 종류가 아니거나 credential scope에 이 operation이 없다(dispatch)"
+        observe: [response]
     crosses_process: false
     risk: []
     refs: [A11, E6]
@@ -710,6 +722,10 @@ flows:
         code: unavailable
         when: "평가 자식이 끝나지 않음(spawn 오류 또는 10초 상한), 앱 사실이나 slug를 ledger에서 못 읽음"
         observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor 종류가 아니거나 credential scope에 이 operation이 없다(dispatch)"
+        observe: [response]
     crosses_process: true
     risk: [sandbox]
     refs: [A7]
@@ -748,6 +764,10 @@ flows:
         code: internal
         when: "앱이나 active 선언 행을 읽지 못함(store가 낸 internal 그대로)"
         observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor 종류가 아니거나 credential scope에 이 operation이 없다(dispatch)"
+        observe: [response]
     crosses_process: false
     risk: []
     refs: [A21]
@@ -779,8 +799,15 @@ flows:
         code: internal
         when: "업로드 icon이나 active 선언을 읽지 못함(store가 낸 internal 그대로)"
         observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor 종류가 아니거나 credential scope에 이 operation이 없다(dispatch)"
+        observe: [response]
     crosses_process: false
     risk: [sandbox]
+    unclear:
+      - "protocol이 unavailable을 선언하지만 handler(appIconRead)는 main sql link와 bundle 파일만 읽고 store 오류를 internal로 돌려준다. unavailable을 내는 곳이 없어 선언이 틀렸다"
+    declared_only: [unavailable]
 
   - id: app-skills-read
     title: 앱이 공개한 skill 본문을 읽는다
@@ -803,11 +830,17 @@ flows:
         code: internal
         when: "앱 목록이나 active 선언을 읽지 못함(store가 낸 internal 그대로)"
         observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor 종류가 아니거나 credential scope에 이 operation이 없다(dispatch)"
+        observe: [response]
     crosses_process: false
     risk: [sandbox]
     refs: [A21]
     docs: [architecture/app-call.md]
+    declared_only: [unavailable]
     unclear:
+      - "protocol이 unavailable을 선언하지만 handler(appSkillsRead)는 main sql link와 bundle 파일만 읽고 store 오류를 internal로 돌려준다. unavailable을 내는 곳이 없어 선언이 틀렸다"
       - "actor를 system으로 적었다. agent runtime의 skill folder 읽기는 machine 자격으로 core가 부른다(skill-folders.ts). coding agent harness 사본도 같은 route를 읽는데 그쪽 호출 자격은 확인하지 못했다"
 
   # ---------- 사용자 package ----------

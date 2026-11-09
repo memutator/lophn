@@ -111,8 +111,10 @@ flows:
     crosses_process: true
     risk: [permission]
     refs: ["H4", "R4"]
+    declared_only: [unavailable]
     docs: [architecture/approval.md]
     unclear:
+      - "turn_requests/decide가 선언한 unavailable은 handler가 내지 않는다. 메모리의 request를 닫고 설정을 쓸 뿐이고, always 저장 실패는 internal이다(선언을 고칠 곳)"
       - "always 저장 중에 turn이 끝나면 request는 cancelled로 닫히는데 규칙은 이미 저장되고 응답은 conflict다(turn-requests.ts decide의 await 뒤 확인). 이 규칙을 남길지는 정하지 못했다."
 
   - id: turn-request-cancel
@@ -484,6 +486,14 @@ flows:
     outcomes:
       - id: ok
         observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch)"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "reader를 쓸 수 없다(dispatch)"
+        observe: ["response"]
     crosses_process: false
     risk: []
     docs: [architecture/approval.md]
@@ -782,9 +792,16 @@ flows:
       - id: none
         when: "가져갈 대기 요청이 없음"
         observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch)"
+        observe: ["response"]
     crosses_process: false
     risk: []
+    declared_only: [unavailable]
     docs: [architecture/workspace-session.md]
+    unclear:
+      - "rewind/summary-take가 선언한 unavailable은 handler가 내지 않는다. 메모리의 요약 요청 목록만 다루고 ledger를 거치지 않는다(선언을 고칠 곳)"
 
   - id: rewind-summary-done
     title: runtime이 요약 call의 결과를 요청에 돌려준다
@@ -804,9 +821,16 @@ flows:
       - id: not-accepted
         when: "요청을 모르거나 기한이 지났거나 이미 끝남"
         observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch)"
+        observe: ["response"]
     crosses_process: false
     risk: []
+    declared_only: [unavailable]
     docs: [architecture/workspace-session.md]
+    unclear:
+      - "rewind/summary-done가 선언한 unavailable은 handler가 내지 않는다. 메모리의 요약 요청 목록만 다루고 ledger를 거치지 않는다(선언을 고칠 곳)"
 
   - id: file-write-stage
     title: file tool이 파일을 쓰기 직전에 그 내용을 되돌리기 저장소에 둔다
@@ -876,6 +900,10 @@ flows:
         code: invalid_input
         when: "pre-image blob이 session 저장소에 없음, tool call이나 turn이나 checkpoint가 없거나 다른 turn의 것"
         observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "`record-file` command를 보내는 writer나 ledger를 쓸 수 없다(handler가 그 실패를 그대로 돌려준다)"
+        observe: ["response"]
     crosses_process: false
     risk: [data-loss]
     docs: [architecture/workspace-session.md]
@@ -912,6 +940,10 @@ flows:
       - id: forbidden
         code: forbidden
         when: "machine 자격이 아님"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "writer나 ledger를 쓸 수 없다(dispatch)"
         observe: ["response"]
     crosses_process: false
     risk: [data-loss]

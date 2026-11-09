@@ -13,6 +13,8 @@ type Entry = {
   id: string;
   kind: string;
   defined_in: string;
+  // route가 protocol에 선언한 오류 code. 선언이 없으면 undefined다.
+  errors?: string[];
   area: string;
   accounted_by: string;
 };
@@ -61,6 +63,7 @@ const FLOW_KEYS = [
   "refs",
   "docs",
   "unclear",
+  "declared_only",
 ];
 const OUTCOME_KEYS = ["id", "code", "when", "observe"];
 const LAYERS = ["core-e2e", "harness-loop", "harness-wire", "live", "unit"];
@@ -123,7 +126,12 @@ function stripComments(source: string): string {
 
 // ---- code에서 entry 뽑기 ----
 
-type Raw = { id: string; kind: string; defined_in: string };
+type Raw = {
+  id: string;
+  kind: string;
+  defined_in: string;
+  errors?: string[];
+};
 
 const ROUTE_CALL =
   /\b(?:defineRead|defineCommand|defineMemory|defineFile|defineUpload)\s*(?:<[^()]*>)?\s*\(\s*\{/g;
@@ -153,7 +161,12 @@ function routeEntries(files: string[], dupes: Duplicate[]): Raw[] {
         continue;
       }
       seen.set(id, file);
-      found.push({ id, kind: "route", defined_in: file });
+      const declared = /\berrors:\s*\[([^\]]*)\]/.exec(window)?.[1];
+      const errors =
+        declared === undefined
+          ? undefined
+          : [...declared.matchAll(/"([a-z_]+)"/g)].map((m) => m[1] ?? "");
+      found.push({ id, kind: "route", defined_in: file, errors });
     }
   }
   return found;
@@ -550,6 +563,46 @@ function check(c: Catalog, only: string | undefined, partial: boolean) {
   const tracked = new Set(c.testsTracked);
 
   const isEntryRef = (id: string) => generated.has(id) || manualOwned.has(id);
+  // route가 선언한 오류는 그 route를 소유한 flow의 갈래여야 한다. schema 검사(invalid_input)와 자격
+  // 검사(unauthorized)는 dispatch가 모든 route에 같게 하므로 flow마다 적지 않는다.
+  const generic = new Set(["invalid_input", "unauthorized"]);
+  const checkDeclared = (
+    file: string,
+    f: (field: string) => string,
+    flow: Obj,
+  ) => {
+    const outcomeCodes = new Set(
+      asArray(flow.outcomes).flatMap((raw) => {
+        const o = asObj(raw);
+        return [o.code, o.id].filter((v): v is string => typeof v === "string");
+      }),
+    );
+    checkStrings(file, f("declared_only"), flow.declared_only);
+    const only = new Set(strings(flow.declared_only));
+    const declared = new Set<string>();
+    for (const ref of strings(flow.entries)) {
+      for (const code of generated.get(ref)?.errors ?? []) {
+        declared.add(code);
+        if (generic.has(code) || outcomeCodes.has(code) || only.has(code))
+          continue;
+        add(
+          file,
+          f("outcomes"),
+          `${ref}가 선언한 ${code}가 outcome code에 없음. handler가 내면 outcome으로, 내지 않으면 declared_only에 둔다`,
+        );
+      }
+    }
+    for (const code of only) {
+      if (!declared.has(code))
+        add(
+          file,
+          f("declared_only"),
+          `소유한 route가 선언하지 않은 code: ${code}`,
+        );
+      else if (outcomeCodes.has(code))
+        add(file, f("declared_only"), `outcome에도 있는 code: ${code}`);
+    }
+  };
   const checkRefList = (file: string, field: string, list: unknown) => {
     for (const [i, ref] of asArray(list).entries()) {
       const where = `${field}[${i}]`;
@@ -743,6 +796,7 @@ function check(c: Catalog, only: string | undefined, partial: boolean) {
         }
       }
       checkStrings(file, f("unclear"), flow.unclear);
+      checkDeclared(file, f, flow);
       if (flow.when !== undefined && typeof flow.when !== "string") {
         add(file, f("when"), "문자열이어야 함");
       }

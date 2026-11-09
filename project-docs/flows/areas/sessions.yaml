@@ -435,6 +435,14 @@ flows:
         code: not_found
         when: "session이 없거나 보이지 않는다"
         observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "reader를 쓸 수 없다(dispatch)"
+        observe: [response]
     crosses_process: false
     unclear: []
 
@@ -483,9 +491,15 @@ flows:
       - id: ok
         observe: [response]
         when: "session별 상태 목록을 돌려줬다"
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch)"
+        observe: [response]
     crosses_process: false
     docs: [architecture/event.md]
-    unclear: []
+    declared_only: [unavailable]
+    unclear:
+      - "route가 unavailable을 선언하지만 handler는 reader pool을 거치지 않고 core 안에서 ledger를 직접 읽어 unavailable을 만들지 않는다(선언을 고칠 곳)"
 
   # ---- 메시지 넣기와 queue ----
   - id: session-send
@@ -804,6 +818,10 @@ flows:
         code: conflict
         when: "turn이 이미 가져갔거나 steer·명령 기록이다"
         observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "writer나 ledger를 쓸 수 없다(dispatch)"
+        observe: [response]
     crosses_process: false
     risk: [data-loss]
     unclear: []
@@ -982,6 +1000,10 @@ flows:
         code: invalid_input
         when: "입력 schema가 맞지 않는다"
         observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch)"
+        observe: [response]
     crosses_process: true
     risk: [secret]
     docs: [architecture/acp.md]
@@ -1113,9 +1135,14 @@ flows:
       - id: ok
         observe: [ledger:acp_items, response]
         when: "순번을 주었다(같은 id는 같은 순번)"
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch)"
+        observe: [response]
     crosses_process: false
+    declared_only: [not_found]
     unclear:
-      - "machine 전용 검사는 handler에 없고 route actors(dispatch 공통 검사)가 한다. 그 forbidden을 이 flow에 outcome으로 둘지 정할 것"
+      - "route가 not_found를 선언하지만 handler는 session 존재를 검사하지 않는다. 없는 session은 acp_items의 외래 키 위반이라 not_found가 아니라 internal로 끝난다(선언을 고칠 곳)"
 
   # ---- 이미지 첨부 ----
   - id: message-image-upload
@@ -1262,6 +1289,10 @@ flows:
         code: not_found
         when: "session을 주었는데 없다"
         observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "reader를 쓸 수 없다(dispatch)"
+        observe: [response]
     crosses_process: false
     docs: [architecture/acp.md]
     unclear: []
@@ -1296,7 +1327,9 @@ flows:
     crosses_process: false
     refs: [T9]
     docs: [architecture/agent-call.md, architecture/workspace-session.md]
+    declared_only: [internal]
     unclear:
+      - "route가 internal을 선언하지만 handler는 internal을 만들지 않는다. 못 읽는 call 행은 건너뛰고 router가 internal을 내는 경로가 없다(선언을 고칠 곳)"
       - "failLostOnStart의 store.move와 알림 쓰기(transport.deliver)가 돌려주는 오류는 route 선언 errors(forbidden·unavailable·internal) 밖이고, 목록에서 나온 call에는 거의 나지 않아 outcome으로 쓰지 않았다"
 
   - id: queue-restore-on-start
@@ -1363,7 +1396,9 @@ flows:
     crosses_process: true
     refs: [R2]
     docs: [architecture/agent-call.md]
-    unclear: []
+    declared_only: [internal]
+    unclear:
+      - "route가 internal을 선언하지만 handler는 internal을 만들지 않는다. 못 읽는 call 행은 not_found로 끝난다(선언을 고칠 곳)"
 
   - id: team-ask-open
     title: "팀 자식의 질문이나 shell 승인을 부모에게 result call로 연다"
@@ -1406,8 +1441,9 @@ flows:
     risk: [permission]
     refs: [R4, T1, T9]
     docs: [architecture/approval.md, architecture/agent-call.md]
+    declared_only: [conflict, internal]
     unclear:
-      - "router의 internal(call id가 없다)은 from이 agent인 한 도달하지 않아 outcome으로 쓰지 않았다"
+      - "route가 conflict와 internal을 선언하지만 handler는 둘 다 만들지 않는다. 받는 곳이 session 지정이라 call 상태를 옮기거나 팀 상한을 세지 않고, router의 internal(call id가 없다)은 from이 agent인 한 도달하지 않는다(선언을 고칠 곳)"
 
   - id: team-ask-withdraw
     title: "기다리던 팀 질문이나 승인 call을 보낸 쪽이 취소한다"
@@ -1440,7 +1476,9 @@ flows:
     crosses_process: true
     refs: [T18]
     docs: [architecture/agent-call.md]
-    unclear: []
+    declared_only: [internal]
+    unclear:
+      - "route가 internal을 선언하지만 handler는 internal을 만들지 않는다. 못 읽는 call 행은 not_found로 끝난다(선언을 고칠 곳)"
 
   # ---- ACP 갱신과 Gateway (남지 않는 event) ----
   - id: acp-projection

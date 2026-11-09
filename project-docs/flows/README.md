@@ -71,6 +71,7 @@ flows:
     refs: [A9, A11]          # project-docs/products/AGENT.md의 줄 ID
     docs: [architecture/activation.md]     # project-docs 기준 path
     unclear: []              # 읽고도 정하지 못한 것. 한 줄씩
+    declared_only: []        # 소유한 route가 errors에 선언했지만 handler가 내지 않는 code(선택)
 links:                       # 이 area가 정의한 entry인데 다른 area의 flow가 시작하는 것
   - {entry: "cli:release.activate", flow: release-activate}
 ignore:                      # flow의 입구가 아닌 entry. 이유를 쓴다
@@ -84,6 +85,7 @@ ignore:                      # flow의 입구가 아닌 entry. 이유를 쓴다
 - `pre`는 모두 성립해야 하는 앞 상태다(AND). 둘 중 하나면 흔한 쪽 하나만 쓴다.
 - `pre`, `uses`가 다른 area를 가리킬 때 그 area의 flow가 아직 없으면 entry ID로 쓴다. entry는 code에서 뽑으므로 늘 있다.
 - `crosses_process`는 부른 쪽의 요청을 받은 process가 일을 끝내려고 다른 lophn process(core daemon, platform/io child, agent runtime, 앱 child, preview·prepare child, flow host, shell main, renderer)를 하나 더 거쳐야 하는지다. core 안의 Worker thread(ledger writer, reader)는 core와 같은 process다. blob 준비는 platform/io child를 거친다. 부르는 쪽에서 받는 쪽으로 한 번 건너는 것(renderer가 core route를 부름, agent가 tool로 core를 부름)만으로는 false다. git, npm 같은 바깥 CLI는 세지 않는다. core E2E 후보를 고를 때 쓴다.
+- 소유한 route가 protocol에 선언한 `errors`의 code는 그 flow의 outcome `code`(또는 id)에 있어야 한다. schema 검사의 `invalid_input`과 자격 검사의 `unauthorized`는 모든 route에 같아서 빼도 된다. handler가 실제로 내지 않는 code는 `declared_only`에 두고 이유를 `unclear`에 쓴다. 선언을 고칠 곳이라는 신호다. check가 본다.
 - `risk`는 아래 다섯 가운데서만 고른다. 없으면 칸을 두지 않는다.
 
 | risk | 언제 |
@@ -162,4 +164,5 @@ files:
 
 - route, CLI 명령, tool, 단축키 command, IPC channel, SDK export, 내장 skill, control 요청을 더하거나 지우면 같은 변경에서 그것을 소유하는 flow(또는 `links`, `ignore`)를 고친다. 어느 area인지는 `areas.yaml`의 `entries` path가 정한다.
 - test file을 더하거나 지우면 `tests/<group>.yaml`을 고친다.
-- `npm run check`가 `node tools/flows.ts check`를 돌린다. 소유되지 않거나 두 번 소유된 entry, 없는 ID를 가리키는 참조, 오르지 않은 test file이 있으면 실패한다.
+- `npm run check`가 `node tools/flows.ts check`를 돌린다. 소유되지 않거나 두 번 소유된 entry, 없는 ID를 가리키는 참조, 오르지 않은 test file, route가 선언했는데 소유 flow의 outcome에 없는 오류 code가 있으면 실패한다.
+- 기존 입구 안의 순서·조건 변화와 `ui:`·`system:` 동작은 check가 못 잡는다. 절차는 `.claude/skills/flows/SKILL.md`.

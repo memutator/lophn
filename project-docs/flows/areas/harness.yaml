@@ -221,6 +221,9 @@ flows:
         when: "machine 자격이 아니거나(requireMachine), session의 runtime이 harness가 아니다"
         observe: [response]
     crosses_process: false
+    declared_only: [conflict]
+    unclear:
+      - "route가 conflict를 선언하지만 handler는 내지 않는다. session이 없으면 not_found, harness가 아니면 forbidden, 같은 값이면 unchanged다. 선언을 고칠 곳이다."
     refs: [P6]
     docs: [architecture/coding-agent.md]
 

@@ -25,6 +25,7 @@ planner의 본업은 plan → implement → changelog → **context 유지보수
    - 새로 생긴 boundary, module, 문서가 catalog와 registry에 올라갔나(`tools/check-modules.ts`가 module 폴더는 잡는다. registry는 잡지 않는다).
    - 지운 file을 가리키는 문장이 남았나: `grep -rn "<지운 path나 이름>" AGENTS.md .claude project-docs`.
    - PRODUCT.md와 products/AGENT.md처럼 코드로 걸지 않은 제품 문서가 계획의 결정과 어긋나지 않나.
+   - flow catalog가 계획이 바꾼 동작과 맞나: `flows` skill "계획이 끝났을 때". check는 입구와 선언된 오류만 잡고 갈래·순서 변화와 `ui:`·`system:` 동작은 못 잡는다.
 4. registry 자체를 맞춘다: 새 조각 더하기, 지운 조각 빼기, path와 `change_reasons` 고치기.
 
 ## 3. 이슈와 배운 것

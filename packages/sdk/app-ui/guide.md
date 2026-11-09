@@ -63,7 +63,8 @@ import {
     `status`와 `actions` 몇 개를 올린다.
   - `actions` 항목의 `icon`은 lophn이 자기 아이콘으로 그리는 이름이다:
     `refresh`, `add`, `open`, `edit`, `delete`, `copy`, `run`, `stop`,
-    `download`. 모르는 이름은 무시하고 글 단추로 그린다. **tray popup의 머리
+    `download`. 모르는 이름은 무시하고 글 단추로 그리고, release 준비는 목록에 없는
+    이름의 `icon`을 거절한다. **tray popup의 머리
     줄은 `actions`만 아이콘 단추로 그린다**(label은 tooltip). `status`·`crumbs`·
     `tabs`·`menu`는 tray에서 그리지 않는다. 그러니 한눈에 필요한 한두 개
     (예: 새로 고침)를 `actions` 맨 앞에 `icon`과 함께 준다. `icon`이 없는
@@ -198,6 +199,9 @@ return (
   </AppShell>
 );
 ```
+
+hover 설명은 `@lophn/ui/overlay`의 `Tooltip`으로 만든다. HTML `title` 속성은 쓰지
+않는다(브라우저 기본 tooltip이 뜬다. release 준비가 거절한다. `<iframe title>`만 예외다).
 
 자리마다 다른 꼴로 그리고, 크기는 자리가 아니라 CSS container query로 맞춘다.
 같은 자리도 칸의 크기가 다르다(sidebar 폭, float 크기). 그래서 `place`는 어떤

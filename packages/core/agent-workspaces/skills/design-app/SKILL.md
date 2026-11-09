@@ -109,6 +109,9 @@ kit does the job, and style it with the token variables.
 - Show what the journeys need. No heading that restates another, no text that
   explains the screen, no decoration.
 - The same thing sits in the same place on every screen.
+- A hover hint is `Tooltip` from `@lophn/ui/overlay`. Never the HTML `title`
+  attribute: the browser draws its own tooltip, and release prepare rejects it
+  (`<iframe title>` is the one exception).
 - Spacing, type size and color come from the token variables. Do not invent
   values.
 - A panel or a card shows less, not the same screen squeezed.

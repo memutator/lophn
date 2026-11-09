@@ -47,7 +47,7 @@ export const agents = {
   "agents.label.memory-size-over": "{size} of {max} \u2014 too long",
   "agents.empty.memory": "Nothing remembered yet.",
   "agents.notice.memory-workspace":
-    "lophn writes this with its memory tool. Every agent in {workspace} reads it. Your edits show from the next session on.",
+    "lophn writes this with its memory tool. Every agent in {workspace} reads it. Home's memory is the global memory: every agent in every workspace reads it along with its own workspace's. Your edits show from the next session on.",
   "agents.notice.memory-agent":
     "This agent writes this with its memory tool and reads it at the start of a session. Your edits show from the next session on.",
   "agents.notice.memory-agent-after-create":

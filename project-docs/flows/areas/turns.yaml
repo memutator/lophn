@@ -106,7 +106,7 @@ flows:
         when: "지난 model 요청 때 본 지침 층 글과 지금 글이 달라 instructions_changed notice가 붙었다. 바뀐 층의 새 글 전체가 실리고, 비운 층은 (empty now)로 적힌다. 지난 판이 없는 첫 요청에는 붙지 않는다"
       - id: memory-fixed
         observe: ["request:model"]
-        when: "workspace memory나 agent memory가 비어 있지 않아 system에 Memory block(자료 경계 안, 출처별)이 실렸다. session 첫 turn에 읽은 글이 그 session의 뒤 turn에도 같은 bytes로 간다. Compact로 경계가 바뀌면 다시 읽는다. custom은 workspace memory를 받지 않고 자기 agent memory만 받는다"
+        when: "global memory(Home memory, 모든 workspace가 받는다. Home session은 한 번만), workspace memory, agent memory 가운데 비어 있지 않은 것이 system에 Memory block(자료 경계 안, 출처별, 이 순서)으로 실렸다. session 첫 turn에 읽은 글이 그 session의 뒤 turn에도 같은 bytes로 간다. Compact로 경계가 바뀌면 다시 읽는다. custom은 global·workspace memory를 받지 않고 자기 agent memory만 받는다"
       - id: memory-names
         observe: ["request:model"]
         when: "memory 글에 앱·project·agent id가 있어 Memory block 끝에 id마다 지금 이름과 slug(또는 deleted) 줄이 붙었다. not_found만 deleted이고 읽지 못한 id는 줄이 없다"

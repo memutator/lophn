@@ -206,7 +206,7 @@ type PreparerDeps = {
   // workspace 종류가 고정한 tool 이름 목록. 어느 종류가 어느 tool을 보는지는 workspace 층이 정한다.
   workspaceTools(kind: WorkspaceKind): readonly string[];
   instructions: InstructionDeps;
-  // session 첫 turn에 prompt로 싣는 memory 글을 읽는다(workspace memory, agent memory). 없으면 memory block이 없다.
+  // session 첫 turn에 prompt로 싣는 memory 글을 읽는다(global memory, workspace memory, agent memory). 없으면 memory block이 없다.
   memory?(
     agent: AgentId,
     workspace: AgentWorkspace | null,
@@ -672,17 +672,17 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         images,
         runtime: resolved.runtime,
       });
-    // custom은 workspace memory를 받지 않는다(지침 층을 받지 않는 것과 같다). 자기 agent memory는 받는다.
+    // custom은 global·workspace memory를 받지 않는다(지침 층을 받지 않는 것과 같다). 자기 agent memory는 받는다.
     const memoryOf = async (compaction: string | null) => {
       const texts = await fixedMemory.get(
         seat.session,
         compaction,
         () =>
           deps.memory?.(session.agent, session.workspace) ??
-          Promise.resolve({ workspace: "", agent: "" }),
+          Promise.resolve({ global: "", workspace: "", agent: "" }),
       );
       return resolved.runtime === "custom"
-        ? { ...texts, workspace: "" }
+        ? { ...texts, global: "", workspace: "" }
         : texts;
     };
     let built: Promise<Result<Built>> | undefined;

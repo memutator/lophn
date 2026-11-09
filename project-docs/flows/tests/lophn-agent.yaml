@@ -166,7 +166,7 @@ files:
 
   - path: packages/core/lophn-agent/run-loop/prepare_test.ts
     covers: [turn-loop:memory-fixed]
-    note: "session 중에 쓴 memory가 뒤 turn의 system bytes를 바꾸지 않고(prefix cache) Compact 뒤에는 새로 읽는다"
+    note: "session 중에 쓴 memory(global 포함)가 뒤 turn의 system bytes를 바꾸지 않고(prefix cache) Compact 뒤에는 새로 읽는다"
 
   - path: packages/core/lophn-agent/run-loop/queue_test.ts
     covers: [session-send:ok, session-steer:ok, queued-edit:ok, queued-edit:conflict, queued-move:ok, queued-steer-now:ok, queued-steer-now:conflict, queued-remove:ok, queued-remove:conflict]

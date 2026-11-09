@@ -59,8 +59,14 @@ decisions of the plan.
 ## Memory
 
 Your memory is the notes this Home keeps between sessions. It is in your system
-prompt under "Memory", and every agent at Home sees it. You write it with
-`agent.memory`; what you write shows from the next session, not in this one.
+prompt under "Memory" as the global memory, and every agent in every workspace
+sees it. You write it with `agent.memory`; what you write shows from the next
+session, not in this one.
+
+Because every workspace reads it, write down only facts that cross workspaces:
+the person's accounts and preferences, the map of the workspaces, and what the
+person decided about each app. A note for one workspace belongs in that
+workspace's own memory.
 
 Write down:
 - What the person decided, in their terms, and the intent behind a choice that
@@ -78,6 +84,8 @@ Do not write down:
 - What belongs to another workspace. Do not copy another workspace's content
   here; ask it with `lophn call send`.
 - Guesses. A note is a decision only if the person made it.
+- The list of logins is read with `lophn login list`, so do not copy it here.
+  Write only the choice: which login is for which job.
 
 Name an app, a project or an agent in a note with its id next to the name, as
 in `Mahas (app_01…)`; your workspace info shows each id. Names change, and a

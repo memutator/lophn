@@ -50,17 +50,23 @@ async function readOrEmpty(path: string): Promise<string> {
   }
 }
 
-// session 첫 turn에 prompt로 싣는 memory 글이다. workspace memory는 그 workspace의 모든 agent가 받고, agent memory는
-// 사람이 만든 agent만 갖는다. 파일이 없으면 빈 글이다. 읽지 못한 파일은 빈 글로 본다: memory가 없다고 turn을 막지 않는다.
+// session 첫 turn에 prompt로 싣는 memory 글이다. global memory(Home memory 파일)는 모든 workspace의 모든 agent가 받고,
+// workspace memory는 그 workspace의 모든 agent가, agent memory는 사람이 만든 agent만 갖는다. Home session은 workspace가
+// global과 같은 파일이라 빈 글로 둔다(한 번만 싣는다). 파일이 없으면 빈 글이다. 읽지 못한 파일은 빈 글로 본다: memory가
+// 없다고 turn을 막지 않는다.
 export async function readMemoryTexts(
   agent: AgentId,
   workspace: Workspace | null,
-): Promise<{ workspace: string; agent: string }> {
+): Promise<{ global: string; workspace: string; agent: string }> {
   const root = dataRoot();
-  if (root === null) return { workspace: "", agent: "" };
+  if (root === null) return { global: "", workspace: "", agent: "" };
   const safe = (path: string) => readOrEmpty(path).catch(() => "");
   return {
-    workspace: await safe(workspaceMemoryFile(root, workspace)),
+    global: await safe(workspaceMemoryFile(root, null)),
+    workspace:
+      workspace === null
+        ? ""
+        : await safe(workspaceMemoryFile(root, workspace)),
     agent: isLophn(agent) ? "" : await safe(agentMemoryFile(root, agent)),
   };
 }

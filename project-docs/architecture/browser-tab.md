@@ -105,6 +105,16 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 42. **screenshot.** lophn agent는 image content로 받는다. binary는 PNG를 `--out <path>`나 `<os tmpdir>/lophn-screenshots/<tab>-<unix ms>.png`에 쓰고 그 path를 찍는다(harness는 자기 Read tool로 본다). emulation된 page의 screenshot은 CSS px 크기다.
 43. **기기 emulation은 preview 탭에만 있고, 고른 기기는 탭 상태에만 있다.** emulation은 driver와 같은 debugger를 owner를 나눠 같이 쓴다(webContents 하나에 debugger 하나). DevTools가 열려 있으면 걸지 못해 Desktop으로 돌아가고 안내를 보인다.
 
+### site login
+
+44. **login은 전역 하나이고 값과 metadata를 나눠 둔다.** metadata `{id: "lgn_…", label, origin, username, note}`는 `<data>/logins.json`(0600, atomic write, 없으면 빈 목록), 값은 `secrets.json`의 `login.<id>.password`와 `login.<id>.totp`(TOTP seed)다(`architecture/agent-definition.md` secret 저장소). 소유자(workspace, agent)는 없다. cookie partition이 이미 전역이라 나눠도 막는 것이 없다. 저장된 값은 모두 known-value redaction에 오른다.
+45. **사람만 넣는다.** Settings › Browser › Logins에서 줄을 더하고 고치고 지운다(`logins/save|delete`, 지우면 두 secret 이름도 지운다). password와 TOTP seed는 보호 입력 창(purpose `login`)이 받고, 창은 그 login의 origin을 크게 보인다.
+46. **model은 handle만 본다.** `lophn login list [--origin]`은 id, label, origin, username, note, TOTP 유무를 낸다. agent는 `lophn browser act <tab> fill-login --ref eN --login <id> --field username|password|totp`로 친다. host queue의 `browser_call`과 ledger에는 login id만 있다. username은 비밀이 아니라 core가 metadata의 글로 `fill`을 만든다.
+47. **origin은 그 ref 요소가 든 frame의 것이고 정확히 일치해야 값이 나온다.** shell main이 CDP로 ref node가 든 frame을 찾아 `Page.getFrameTree`의 `securityOrigin`을 잰다(최상위 URL도, page가 위조할 수 있는 `location.origin`도 아니다). core의 `logins/release`가 저장된 origin과 글자 그대로(scheme·host·port) 비교한다. 와일드카드·상위 도메인은 없다. 다르면 `forbidden`이다. TOTP는 core가 지금 6자리 code(RFC 6238, SHA1, 30초)를 만들어 내준다.
+48. **값은 shell main만 받는다.** `logins/release`는 입력에 shell capability(`connect {client: shell}`이 준 값)를 실어야 하고, 그 값은 shell main 메모리에만 있다. renderer allowlist에 release는 없다. HTTP user token, agent·worker credential, CLI는 부르지 못한다. 받은 값은 driver의 지역 변수에만 있고, 오류 글은 고정 문구이며, 결과는 `filled: true`뿐이다.
+49. **치는 동안 frame이 이동하면 멈춘다.** 값은 한 글자씩 치고 글자마다 그 frame이나 최상위가 이동했는지, frame이 떨어졌는지 본다. 그랬으면 더 치지 않고 `conflict`다. 사람이 탭을 가져간 동안은 다른 act처럼 `conflict`다.
+50. **browser 결과는 caller에 가기 전에 known-value redaction을 거친다.** snapshot, act, navigate, evaluate, logs, wait의 text와 read의 url·title이다. 알려진 값을 아직 다 모르면 `unavailable`이다. snapshot은 `type=password` 칸의 value를 찍지 않는다(값이 있으면 `••••`). Chromium AX가 가리는지에 기대지 않는다. `evaluate`와 screenshot은 막지 않는다(탭 주인 제한, untrusted 감싸기, take control이 그대로 있다).
+
 ## 경계와 계약
 
 **shell IPC(renderer ↔ main).** preload `window.lophnBrowser`는 shell 창(project 창과 detached 창)에만 있다.
@@ -122,13 +132,15 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 
 **terminal bridge protocol.** 요청 `{v:1,key,url}` 한 줄 → 답 `{"result":"pane"|"declined"}` 한 줄. env `BROWSER`, `LPN_BROWSER_BRIDGE={"socket","key"}`. ack 대기 1500ms, shim 접속 한도 3000ms.
 
-**host queue의 browser 호출.** memory route `tabs/open`, `tabs/close`, `tabs/show`, `browser/read|snapshot|act|navigate|screenshot|evaluate|logs|wait`(boundary-catalog의 host queue 계약). 호출 기한 30초. act는 `click|type|fill|press|hover|select|scroll` 하나이고 대상은 snapshot의 ref(`e12`). wait는 `--text`나 `--url` 하나와 `timeout_ms`(기본 10초, 최대 25초). `lophn tab open --preview <app> --device <name>`은 emulation 기기를 고른다(없는 이름은 `not_found`). `tabs/open --url`은 page가 붙은 뒤에 답하고 실패는 `unavailable`이다. `tabs/open`의 `relation`(`--as peer|stage|aside|work|glance`)은 연 탭이 연 session에게 무엇인지이고 자리는 core가 고르지 않는다. 작업용 browser 탭(`work`)은 접힌 float이라, 사람 손이 필요하면(로그인, captcha) agent가 `lophn tab show <tab>`(`tabs/show`, 연 쪽만)으로 펴고 `ask`로 알린다.
+**host queue의 browser 호출.** memory route `tabs/open`, `tabs/close`, `tabs/show`, `browser/read|snapshot|act|navigate|screenshot|evaluate|logs|wait`(boundary-catalog의 host queue 계약). 호출 기한 30초. act는 `click|type|fill|fill_login|press|hover|select|scroll` 하나이고 대상은 snapshot의 ref(`e12`). wait는 `--text`나 `--url` 하나와 `timeout_ms`(기본 10초, 최대 25초). `lophn tab open --preview <app> --device <name>`은 emulation 기기를 고른다(없는 이름은 `not_found`). `tabs/open --url`은 page가 붙은 뒤에 답하고 실패는 `unavailable`이다. `tabs/open`의 `relation`(`--as peer|stage|aside|work|glance`)은 연 탭이 연 session에게 무엇인지이고 자리는 core가 고르지 않는다. 작업용 browser 탭(`work`)은 접힌 float이라, 사람 손이 필요하면(로그인, captcha) agent가 `lophn tab show <tab>`(`tabs/show`, 연 쪽만)으로 펴고 `ask`로 알린다.
 
 **오류 code(agent 호출).** 남의 탭·없는 탭은 `not_found`(page가 없어져 core 표에서 빠진 host browser 탭, shell이 없을 때의 host browser 탭도 같다), 낡은 ref·DevTools 열림·사람이 가져간 탭의 쓰기는 `conflict`, shell 없음(preview·artifact 탭)·탭이 창에 없음(preview·artifact 탭)·기한·wait 시간 끝은 `unavailable`, 틀린 url·preview·artifact 탭의 navigate는 `invalid_input`이다.
 
 **기기 emulation.** 사람이 Settings > Browser에 기기를 등록하고 preview 탭 안내 줄의 기기 고르기(Desktop과 등록한 기기)나 `--device`로 고르면 main이 그 guest에 크기·DPR(`mobile`), touch, OS별 고정 user agent를 걸고 page를 다시 load한다.
 
-**shell 설정 UI.** Settings > Browser pane: Links(두 설정), 기기 등록, 데이터 지우기.
+**site login.** memory route `logins/list`(user·agent, 값 없음), `logins/save`·`logins/delete`(user), `logins/release`(shell capability, `{id, field, origin, shell_capability}` → `{value}`). 저장 file `<dataRoot>/logins.json`.
+
+**shell 설정 UI.** Settings > Browser pane: Links(두 설정), Logins, 기기 등록, 데이터 지우기.
 
 ## 결정
 
@@ -158,6 +170,9 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 - **기기 emulation은 preview 탭에만 있고 기기 목록은 사람이 등록한 것뿐이다(사람, 2026-11-08).** 일반 기기 표는 두지 않는다. emulation은 shell 본체의 preview 탭에 둔다.
 - **Keep alive: 기본은 놓고 신호를 켠 page만 살린다(사람이 추천을 받음, 2026-11-07).** 모두 살리면 자원을 쓰고 program은 page 안의 뜻을 모른다. browser 탭은 builder가 없어 program이 알 수 있는 신호(소리, download)와 사람의 탭별 toggle로 정한다. 상한은 창마다 6개이고 오래 안 본 것부터 놓는다(사람이 추천을 받음). 살려 둘지는 떠날 때 한 번 정한다(agent).
 - **agent가 연 browser 탭의 page는 그 탭을 든 창이 사는 동안 산다(사람, 2026-11-10: `<webview>` 유지).** 사람이 보는 workspace에 묶이면 job과 workflow가 사람 없이 browser를 못 쓴다. native view를 숨은 창에 두는 안은 shell DOM 위에 그려져 menu·패널이 page 밑에 깔리고 browser 탭의 그릇이 둘이 되어 버렸다. 대신 창이 하나도 없을 때는 lophn이 창을 연다. 마지막 url 다시 load와 idle 기한은 두지 않는다. 사라진 page는 사라진 탭이고 agent가 다시 연다(agent). 열리는 창은 자동으로 닫지 않는다(agent).
+- **site login은 model에 값을 주지 않고 handle로 채운다(agent, 2026-11-09, 계획 browser-vault).** 평문을 `type`으로 치면 tool 인자로 transcript와 ledger에 남는다. Hermes·Skyvern처럼 handle만 주고 origin을 확인한 뒤 shell main이 친다. origin 비교는 ref가 든 frame의 실제 origin이다. 최상위 URL로 비교하면 다른 origin의 iframe 칸에 값이 들어간다.
+- **`secrets.json`은 암호화하지 않는다(agent, 2026-11-09).** 같은 사용자의 process에는 파일 키도 막지 못한다(Hermes·Skyvern 기본값과 같다).
+- **login은 전역 하나다(agent, 2026-11-09).** cookie partition이 이미 전역이라 workspace·agent로 나눠도 막는 것이 없다.
 
 ## 열린 것
 

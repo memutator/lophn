@@ -26,6 +26,7 @@ import {
   createTrayMemory,
   TrayMemoryProvider,
 } from "../shell/tray/tray-memory.tsx";
+import { TrayPopupLayer } from "../shell/tray/tray.tsx";
 import {
   HOME,
   openApp,
@@ -519,6 +520,7 @@ export function Desktop({
                 {globalFloats ? (
                   <GlobalFloatLayer onOpenApp={apps ? appSpace : undefined} />
                 ) : null}
+                <TrayPopupLayer memory={trayMemory} />
               </WorkspaceViewsProvider>
             </GlobalFloatsProvider>
             {overlay &&

@@ -1,7 +1,8 @@
 // tray. 작업 표시줄 오른쪽(꺼져 있으면 title bar의 panel 탭 옆)에 설치된 앱의 `tray` 화면마다(사람이 끈 것은 빼고) 항목 하나가 선다: 앱 아이콘과 앱이 낸
 // 짧은 글(tone 색). 누르면 그 앱의 `tray` 화면이 항목 위(title bar면 아래)에 popup으로 뜬다. 바깥을 누르거나 창이 focus를 잃거나 Esc를 누르면 닫힌다.
-// popup 머리의 pin을 켜면 바깥 누르기·창 blur·다른 항목 누르기로 닫히지 않는다(Esc와 자기 항목 다시 누르기는 닫는다). pin은 메모리에만 있고,
-// workspace를 옮겨 Tray가 새로 서도 창의 TrayMemory가 pin한 항목을 다시 pin해서 연다(앱 화면은 새로 load된다).
+// popup 머리의 pin을 켜면 바깥 누르기·창 blur·다른 항목 누르기로 닫히지 않는다(Esc와 자기 항목 다시 누르기는 닫는다). pin은 메모리에만 있다.
+// 열린 popup은 창의 TrayMemory에 있고 Desktop이 workspace 밖에 놓은 TrayPopupLayer가 그린다. workspace를 옮겨 Tray 단추 줄이 새로 서도
+// pin한 popup은 다시 mount되지 않는다(앱 화면도 다시 load되지 않는다). pin하지 않은 popup은 단추 줄이 내려갈 때 닫힌다.
 // popup은 자기 <webview> 그릇을 가진다: 닫으면 화면도 닫히고 다시 열면 새로 load된다.
 import {
   type ReactNode,
@@ -47,7 +48,14 @@ import {
   placePopup,
 } from "./popup-place.ts";
 import styles from "./tray.module.css";
-import { useTrayMemory } from "./tray-memory.tsx";
+import {
+  createTrayMemory,
+  type TrayMemory,
+  type TrayOpen,
+  type TrayPopupItem,
+  useTrayMemory,
+  useTrayOpen,
+} from "./tray-memory.tsx";
 import { useTrayValues } from "./use-tray-values.ts";
 
 export interface TrayItem {
@@ -103,9 +111,14 @@ export function trayItems(
   return byTrayOrder(items, order);
 }
 
-function PopupBody({ item }: { item: TrayItem }) {
+function PopupBody({
+  item,
+  workspace,
+}: {
+  item: TrayPopupItem;
+  workspace: TrayOpen["workspace"];
+}) {
   const deps = useAppViews();
-  const workspace = useAppWorkspace();
   if (deps === null) return null;
   return (
     <EmbeddedView
@@ -123,26 +136,20 @@ function PopupBody({ item }: { item: TrayItem }) {
 }
 
 function Popup({
-  item,
+  open,
   place,
-  side,
-  pinned,
   onPin,
   onClose,
   onContent,
-  anchor,
 }: {
-  item: TrayItem;
+  open: TrayOpen;
   place: PopupPlace;
-  /** 앱 page가 알린 내용 크기에 머리 줄을 더한 popup 전체의 내용 크기. 범위로 선언한 쪽이 이것을 따른다. */
-  onContent: (content: PopupContent) => void;
-  side: "above" | "below";
-  pinned: boolean;
   onPin: (pinned: boolean) => void;
   onClose: () => void;
-  /** 항목 단추들의 묶음. 여기를 누르는 것은 바깥이 아니다(단추가 열고 닫는다). */
-  anchor: HTMLElement | null;
+  /** 앱 page가 알린 내용 크기에 머리 줄을 더한 popup 전체의 내용 크기. 범위로 선언한 쪽이 이것을 따른다. */
+  onContent: (content: PopupContent) => void;
 }) {
+  const { item, side, pinned, anchor } = open;
   const box = useRef<HTMLDivElement>(null);
   // popup마다 자기 그릇을 가진다. 닫으면 그릇과 안의 화면이 함께 사라진다.
   const host = useMemo(() => createWebviewHost(), []);
@@ -213,13 +220,64 @@ function Popup({
       <WebviewHostProvider value={host}>
         <div className={styles.body}>
           <HeadSlotScope set={setHead} actionsOnly>
-            <PopupBody item={item} />
+            <PopupBody item={item} workspace={open.workspace} />
           </HeadSlotScope>
         </div>
         <WebviewLayer host={host} />
       </WebviewHostProvider>
     </div>,
     document.body,
+  );
+}
+
+/** 창의 열린 tray popup. Desktop이 workspace 밖에 한 번 놓아 workspace를 옮겨도 다시 mount되지 않는다. */
+export function TrayPopupLayer({ memory }: { memory: TrayMemory }) {
+  const open = useTrayOpen(memory);
+  const key = open?.item.key ?? null;
+  // 열린 항목의 앱 page가 알린 내용 크기. 다른 항목을 열면 버린다.
+  const [content, setContent] = useState<{
+    key: string;
+    size: PopupContent;
+  } | null>(null);
+  const [width, setWidth] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const resize = () => setWidth(window.innerWidth);
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
+  const onContent = useCallback(
+    (size: PopupContent) => {
+      if (key === null) return;
+      setContent((was) =>
+        was?.key === key &&
+        was.size.width === size.width &&
+        was.size.height === size.height
+          ? was
+          : { key, size },
+      );
+    },
+    [key],
+  );
+  const close = useCallback(() => memory.set(null), [memory]);
+  if (open === null) return null;
+  const place = placePopup(
+    { right: open.right },
+    { width },
+    open.item.size,
+    content?.key === open.item.key ? content.size : undefined,
+  );
+  return (
+    <Popup
+      key={open.item.key}
+      open={open}
+      place={place}
+      onPin={(pinned) => {
+        const now = memory.get();
+        if (now !== null) memory.set({ ...now, pinned });
+      }}
+      onClose={close}
+      onContent={onContent}
+    />
   );
 }
 
@@ -237,74 +295,57 @@ export function Tray({
   /** 처음부터 열려 있는 항목의 key(gallery). */
   open?: string | null;
 }) {
-  const memory = useTrayMemory();
-  const [open, setOpen] = useState<string | null>(initialOpen);
-  const [place, setPlace] = useState<PopupPlace | null>(null);
-  // 열린 항목의 앱 page가 알린 내용 크기. 다른 항목을 열면 버린다.
-  const [content, setContent] = useState<{
-    key: string;
-    size: PopupContent;
-  } | null>(null);
-  const [pinned, setPinned] = useState(false);
+  const shared = useTrayMemory();
+  const [own] = useState(createTrayMemory);
+  const memory = shared ?? own;
+  const open = useTrayOpen(memory);
+  const workspace = useAppWorkspace();
   const row = useRef<HTMLDivElement>(null);
   const buttons = useRef(new Map<string, HTMLButtonElement>());
-  const close = () => {
-    setOpen(null);
-    setPinned(false);
-    if (memory !== null) memory.pinned = null;
+  const opened = (item: TrayItem, pinned: boolean): TrayOpen | null => {
+    const button = buttons.current.get(item.key);
+    if (button === undefined) return null;
+    return {
+      item,
+      side,
+      right: button.getBoundingClientRect().right,
+      pinned,
+      workspace,
+      anchor: row.current,
+    };
   };
-  const pin = (next: boolean) => {
-    setPinned(next);
-    if (memory !== null) memory.pinned = next ? open : null;
-  };
-  // 화면 목록은 비동기로 읽히므로 기억한 항목이 목록에 나타날 때까지 기다렸다가 pin해서 연다. 끝내 안 나타나면 아무것도 열지 않는다.
-  const remembered = memory?.pinned ?? null;
-  const restorable =
-    open === null &&
-    remembered !== null &&
-    items.some((item) => item.key === remembered);
+  const openRef = useRef(opened);
+  openRef.current = opened;
+  // 처음부터 열린 항목(gallery).
   useEffect(() => {
-    if (!restorable) return;
-    setOpen(remembered);
-    setPinned(true);
-  }, [restorable, remembered]);
-  const current = items.find((item) => item.key === open) ?? null;
-  const fitted =
-    content !== null && content.key === current?.key ? content.size : undefined;
-  const onContent = useCallback(
-    (size: PopupContent) => {
-      if (open === null) return;
-      setContent((was) =>
-        was?.key === open &&
-        was.size.width === size.width &&
-        was.size.height === size.height
-          ? was
-          : { key: open, size },
-      );
+    if (initialOpen === null || memory.get() !== null) return;
+    const item = items.find((one) => one.key === initialOpen);
+    if (item !== undefined) memory.set(openRef.current(item, false));
+  }, []);
+  // 단추 줄이 새로 서거나 항목·창 크기가 바뀌면 열린 popup의 자리와 항목을 이 줄에 맞춘다. workspace는 연 때 것을 둔다.
+  // 항목이 목록에서 빠졌으면(앱을 지웠거나 tray에서 껐다) 닫는다.
+  useEffect(() => {
+    const sync = () => {
+      const now = memory.get();
+      if (now === null) return;
+      const item = items.find((one) => one.key === now.item.key);
+      if (item === undefined) return memory.set(null);
+      const next = openRef.current(item, now.pinned);
+      if (next !== null) memory.set({ ...next, workspace: now.workspace });
+    };
+    sync();
+    window.addEventListener("resize", sync);
+    return () => window.removeEventListener("resize", sync);
+  }, [items, memory]);
+  // 단추 줄이 내려가면(workspace를 옮긴다) pin하지 않은 popup은 닫고, pin한 popup은 그대로 둔다.
+  useEffect(
+    () => () => {
+      const now = memory.get();
+      if (now === null) return;
+      memory.set(now.pinned ? { ...now, anchor: null } : null);
     },
-    [open],
+    [memory],
   );
-  // 열 때와 창 크기가 바뀔 때 항목의 가로 자리를 다시 잰다.
-  useEffect(() => {
-    const button =
-      current === null ? undefined : buttons.current.get(current.key);
-    if (button === undefined) {
-      setPlace(null);
-      return;
-    }
-    const measure = () =>
-      setPlace(
-        placePopup(
-          button.getBoundingClientRect(),
-          { width: window.innerWidth },
-          current?.size,
-          fitted,
-        ),
-      );
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [current, fitted]);
   if (items.length === 0) return null;
   return (
     <div
@@ -331,12 +372,12 @@ export function Tray({
                     text: item.text,
                   })
             }
-            aria-expanded={open === item.key}
+            aria-expanded={open?.item.key === item.key}
             data-tray-item={item.app}
             onClick={() => {
               // pin한 popup은 자기 항목으로만 닫는다. 다른 항목은 눌러도 바꾸지 않는다.
-              if (open === item.key) close();
-              else if (!pinned) setOpen(item.key);
+              if (open?.item.key === item.key) memory.set(null);
+              else if (open?.pinned !== true) memory.set(opened(item, false));
             }}
           >
             <AppTabIcon app={item.app} />
@@ -348,19 +389,7 @@ export function Tray({
           </button>
         </Tooltip>
       ))}
-      {current === null || place === null ? null : (
-        <Popup
-          key={current.key}
-          item={current}
-          place={place}
-          side={side}
-          anchor={row.current}
-          pinned={pinned}
-          onPin={pin}
-          onClose={close}
-          onContent={onContent}
-        />
-      )}
+      {shared === null ? <TrayPopupLayer memory={own} /> : null}
     </div>
   );
 }

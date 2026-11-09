@@ -1,0 +1,37 @@
+group: app
+scenarios:
+  - id: bakery-reservations
+    who: 개발을 모르는 동네 빵집 사장
+    situation: 전화와 카톡으로 받던 예약을 한곳에 모으고 싶다
+    says: ["예약 받는 앱 만들어줘", "토요일 예약만 보여줘"]
+    has: 단골 손님 40명, 한 주 예약 30건(수령일, 메뉴, 수량), 같은 이름 손님 둘
+    expects: 앱 화면에서 날짜별 예약을 보고 고친다. 처음 한 번 허락하면 그 뒤로는 묻지 않는다
+    journeys: [app-plan-from-home, app-first-build-and-activate, app-use-screen]
+    edges: [예약 0건인 날, 같은 이름 손님, 첫 activation 동의를 거절]
+
+  - id: orders-shop
+    who: 온라인으로 소품을 파는 1인 가게 주인
+    situation: Orders 앱으로 주문을 보고, 예산 확인은 Budget reviewer agent에게 맡기고, 주문 내보내기는 매일 밤 돌게 해 두었다
+    says: ["어제 밤 export 왜 실패했어?", "Shipped 아닌 것만 보여줘"]
+    has: 주문 4건(Open 2, Shipped 2), Budget reviewer agent 하나, 밤마다 도는 export job, 재고 sync 도구, 같은 화면에서 보이는 다른 앱(Budget)과 lophn의 run
+    expects: 앱 화면에서 주문을 보고, run 목록에서 실패한 run을 찾아 원인을 묻고, 이 앱 것만 목록에 남는다
+    journeys: [app-use-screen, app-screen-broken, app-data-rewind-from-activity, job-create-approve, run-agent-person]
+    edges: [실행 중인 run과 실패한 run이 같이 있음, session 없이 도는 tool run, 다른 앱의 run이 섞임]
+
+  - id: calendar-sync-login
+    who: 일정 관리를 자기 방식으로 하고 싶은 프리랜서 디자이너
+    situation: 구글 캘린더 일정을 가져와 마감일별로 묶어 보는 앱을 쓰고 싶다
+    says: ["내 구글 캘린더 일정을 마감 기준으로 보여줘"]
+    has: 구글 계정 하나, 일정 약 200건, 앱이 쓸 API key 하나
+    expects: 사람이 한 번 로그인하면 앱이 그 계정으로 일정을 읽는다. 로그인 값과 key는 앱 코드에 보이지 않고, 나중에 권한을 거둘 수 있다
+    journeys: [app-oauth-sign-in, app-secret-set-plain, app-grant-review-and-revoke]
+    edges: [로그인 창을 닫음, 로그인 실패 뒤 다시 시도, 일정 0건]
+
+  - id: attendance-wiped-rewind
+    who: 학원 원장
+    situation: 출석 앱에 agent가 잘못 고친 내용이 들어가 학생 출석 기록 일부가 지워졌다
+    says: ["어제 출석 기록이 사라졌어", "되돌려줘"]
+    has: 학생 25명, 출석 기록 3주 치, 어제 오후에 바뀐 앱 data
+    expects: 활동 기록에서 지워지기 전 시점을 골라 앱 data를 되돌린다. 되돌리기 전에 무엇이 바뀌는지 확인한다
+    journeys: [app-data-rewind-from-activity, app-data-rewind-cancelled, app-rewind-with-session]
+    edges: [되돌리기를 취소, 되돌린 뒤에 새로 쌓인 기록과 충돌]

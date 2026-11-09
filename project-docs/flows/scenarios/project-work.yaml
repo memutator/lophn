@@ -1,0 +1,10 @@
+group: project-work
+scenarios:
+  - id: dev-project-handoff
+    who: 평소 Claude Code를 쓰는 개발자
+    situation: 실험 기록과 메모가 쌓인 폴더를 project로 올려 agent에게 정리와 수정을 맡기고, 열어 둔 문서를 같이 고친다
+    says: ["F-009 finding 정리해줘", "이 실험 문서 결론 칸 채워줘"]
+    has: markdown 문서 수십 개(findings, experiments), 터미널에서 쓰던 coding agent, 폴더 밖 참고 파일 하나
+    expects: project에 session을 열어 agent가 문서를 읽고 고친다. 내가 열어 둔 문서와 agent가 쓴 것이 어긋나면 알려 준다. 터미널의 coding agent도 같은 project에서 계속 쓴다
+    journeys: [project-register-first, project-agent-session-first-message, agent-edits-open-document, document-conflict-keep-mine, terminal-coding-agent-first-run]
+    edges: [폴더 밖 파일 열기, 열린 문서를 agent가 먼저 저장, 문서가 디스크에서 바뀜]

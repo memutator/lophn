@@ -1,0 +1,10 @@
+group: setup
+scenarios:
+  - id: first-time-setup
+    who: lophn을 처음 설치한 사람
+    situation: 이미 가진 model 계정을 붙이고 첫 대화를 하고 싶다
+    says: ["안녕, 뭘 할 수 있어?"]
+    has: API key 하나(구독 계정은 없음), 기본 설정 그대로인 빈 Home, 쓸 model을 아직 정하지 않음
+    expects: 빈 Home에서 provider를 붙이고 기본 model을 고르면 바로 첫 session을 열 수 있다
+    journeys: [first-launch, first-use, provider-apikey-connect, choose-default-model]
+    edges: [잘못된 key, 연결을 중간에 취소, model 목록이 비어 있음]

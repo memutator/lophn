@@ -17,6 +17,7 @@ catalog의 꼴과 쪼개는 규칙의 원본은 `project-docs/flows/README.md`�
 | `node tools/flows.ts index [--area <a>]` | flow id·outcome 한 줄씩. 참조할 ID 찾기 |
 | `node tools/flows.ts report` | coverage, 덮이지 않은 risk outcome, core E2E 후보 |
 | `node tools/flows.ts events` · `frames` | `event:`와 journey `screen`에 쓸 수 있는 이름 |
+| `node tools/flows.ts frames --unused` | catalog가 가리키지 않는 wireframe frame을 정의한 file별로. 화면을 더하거나 journey에 `screen`을 달 때 |
 | `node tools/flows.ts sample --area <a> --n 5 --seed <s>` | review 표본 |
 
 ## 무엇을 바꾸면 무엇을 고치나
@@ -30,6 +31,7 @@ catalog의 꼴과 쪼개는 규칙의 원본은 `project-docs/flows/README.md`�
 | route의 `errors` 선언을 바꿈, handler에 실패 갈래가 생기거나 없어짐 | 소유 flow의 outcome. 선언만 있고 내지 않는 code는 `declared_only` |
 | 동작 순서·조건이 바뀜 | `steps`, `when`, `observe` |
 | test file을 더하거나 지움 | `tests/<group>.yaml` 한 줄과 `covers`. group은 `areas.yaml`의 `test_groups` path로 정한다 |
+| 새 journey가 가는 길이 새 종류의 사용자 이야기 | `scenarios/<group>.yaml`의 scenario(없던 사용자면 새로, 있으면 `journeys`에 id 추가). 구현이 아니라 사람의 상황으로 쓴다 |
 | 사람이 화면에서 하는 새 동작(입구 없음) | 그 mechanism을 `owns`에 가진 area에 `ui:`·`system:` flow |
 
 입구가 없는 동작(`ui:`·`system:`)과 기존 입구 안의 순서·조건 변화는 check가 못 잡는다. 바꾼 사람이 직접 고친다.
@@ -58,6 +60,10 @@ README "outcome"과 "쪼개는 기준"을 따른다. 조사 review에서 반복�
 - 창으로 밀어 보내는 상태를 `response`로 쓴다. 그것은 `screen:`이나 `event:`다.
 - step에 쓴 port가 production wiring에서 no-op인지 보지 않는다(wiring site를 연다).
 - `crosses_process`: 받은 process가 다른 lophn process를 하나 더 거쳐야 할 때만 true. core 안 ledger writer·reader는 Worker thread라 같은 process, blob 준비는 platform/io child라 다른 process.
+
+## scenario를 쓸 때
+
+README "scenario"를 따른다. 구현(route, 화면 이름)이 아니라 사람의 상황을 쓴다. `has`는 mock data의 근거라 숫자와 이름을 구체적으로 적는다. 그 data를 wireframe에서 쓰게 되면 `tools/wireframes/mock/scenarios/<id>.ts`로 두고(file 이름이 id), scenario의 `has`와 맞춘다. 순수 component 견본의 data는 scenario가 아니다. eval과 잇지 않는다.
 
 ## test를 고를 때
 

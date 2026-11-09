@@ -32,7 +32,7 @@ wireframe gallery(`tools/wireframes`)는 화면 모양의 기준이고 UI 피드
 | 화면 모양 | `packages/shell/renderer/...` 해당 component와 `.module.css` |
 | 여러 화면이 쓰는 조각 | 사용자 앱도 쓸 범용이면 `packages/design/components/<분류>/<이름>/` (tsx, module.css), 그 분류의 `mod.ts`에 export. 분류는 primitives, input, layout, navigation, data, feedback, overlay, reading이고 지원 export는 `_shared`다. import는 `@lophn/ui/<분류>`(`_shared`는 `@lophn/ui/shared`, token은 `@lophn/ui`). lophn만의 뜻(session, agent, harness)이 박힌 것이면 `packages/shell/renderer/parts/<이름>/` (Avatar, VendorIcon, TabStrip) |
 | token(색, 간격, 글자) | `packages/design/tokens.ts`. 값을 CSS에 직접 쓰지 않고 token(var)을 쓴다 |
-| fake data | renderer 영역마다 `fake-source.ts`와 `testdata/`(예: `workspace/fake-source.ts`, `desktop/settings/providers/testdata/`), `desktop/dev-mock/`. gallery의 예시 data는 `tools/wireframes/mock/`(예: `mock/phroner-data.ts`) |
+| fake data | renderer 영역마다 `fake-source.ts`와 `testdata/`(예: `workspace/fake-source.ts`, `desktop/settings/providers/testdata/`), `desktop/dev-mock/`. gallery의 예시 data는 `tools/wireframes/mock/`(예: `mock/phroner-data.ts`). 어떤 사용자의 상황을 나타내는 data(여러 page가 같이 쓰는 것)는 `mock/scenarios/<scenario id>.ts`에 두고 `project-docs/flows/scenarios/<group>.yaml`에 그 scenario를 쓴다(file 이름이 id, `check`가 본다). component 견본용 순수 data는 그대로 `mock/`이나 kit page에 둔다 |
 | kit page | `tools/wireframes/pages/kit/<분류>/` (분류마다 `page.tsx` 하나가 그 분류 `mod.ts`의 component를 실제 component로 상태별로 그린다), token은 `pages/kit/tokens/`, `@lophn/app-ui`는 `pages/kit/app-ui/` |
 | page 목록과 화면 연결 | 영역 file 하나가 자기 page를 낸다: `pages/kit/<분류>/index.tsx`, `pages/screens/<영역>.tsx`, `drafts/index.tsx`. `pages/index.ts`의 `GROUPS`(Kit · Screens · Drafts > 영역 > page)가 모은다 |
 
@@ -44,7 +44,8 @@ wireframe gallery(`tools/wireframes`)는 화면 모양의 기준이고 UI 피드
 4. 알맞은 영역 file의 `pages`에 `{ id, title, description, render }`를 더한다. renderer를 import한 진짜 화면이면 Screens의 `pages/screens/<영역>.tsx`, 아직 renderer에 없는 실험이면 `drafts/index.tsx`다. 영역이 새로 필요하면 영역 file 하나를 만들고 `pages/index.ts`의 `GROUPS`에 더한다. 구현 여부는 묶음 위치가 말하고 badge는 없다. title은 영어, description은 한국어 한두 문장이다.
 5. id는 주소(`#/<id>`)라 한 번 정하면 바꾸지 않는다.
 6. 화면 component는 `pages/screens/<영역>/`에 둔다(가짜 data와 고정 도구는 `mock/`, 승인 전 실험은 `drafts/`). 인자 없이 한 상태를 그리게 하고, 상태는 fake source 설정과 drive로 건다.
-7. 버린 화면은 영역 file에 올리지 않는다(버린 목록은 `pages/index.ts` 머리 주석).
+7. 화면은 journey의 `screen`이나 outcome의 `observe: [screen:<id>]`로 catalog가 가리킨다. `node tools/flows.ts frames --unused`가 가리키는 곳이 없는 page를 보인다(막지는 않는다).
+8. 버린 화면은 영역 file에 올리지 않는다(버린 목록은 `pages/index.ts` 머리 주석).
 
 ## 확인
 

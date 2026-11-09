@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { StatRow, StatTile } from "@lophn/ui/data";
 import { Button } from "@lophn/ui/primitives";
 
-import { ORDER_ROWS } from "./data.ts";
+import { ORDER_ROWS } from "../scenarios/orders-shop.ts";
 import styles from "../../drafts/app-space/orders-view.module.css";
 
 type TargetId = "ship" | "total";

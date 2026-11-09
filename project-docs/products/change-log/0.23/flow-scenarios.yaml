@@ -1,0 +1,22 @@
+id: flow-scenarios
+version: 0.23.0
+title: "flow catalog에 구체적인 사용자 예(scenario)를 더하고, wireframe의 안 쓰는 frame을 보이게 한다"
+modules: [tools]
+checked: []
+change: |
+  전: journey는 추상적인 길이라 어떤 사람이 어떤 data로 가는지가 없었고, wireframe mock data는 화면마다 지어낸 것이었다. catalog에서 page로 가는 연결은 한쪽뿐이라 356개 frame 가운데 어느 것이 안 쓰이는지 볼 수 없었다.
+  후: `project-docs/flows/scenarios/<group>.yaml`에 scenario(id, who, situation, says, has, expects, journeys, edges)를 자연어로 쓴다. `tools/flows.ts check`가 알려진 칸, 필수 칸, kebab id와 중복, 있는 journey id를 본다. 그 scenario의 고정 mock data는 file 이름으로 잇는다(`tools/wireframes/mock/scenarios/<id>.ts`). 이름이 가리키는 scenario가 없으면 check가 거절한다. `frames --unused`는 journey step이나 outcome observe가 가리키지 않는 frame을 정의한 file별로 보이고(check는 막지 않는다), `report`는 kit page를 따로 세고 scenario와 mock 수를 보인다. 시험 삼아 scenario 7개를 쓰고 앱 공간 gallery의 Orders data(`mock/app-space/data.ts`)를 `mock/scenarios/orders-shop.ts`로 옮겼다(화면은 그대로).
+why: wireframe mock data와 이후 위험한 규칙의 test edge case가 실제 사용자의 상황에서 나오게 하려고. 안 쓰는 화면을 보이게 해 화면을 다듬을 때 근거로 삼으려고.
+decisions:
+  - text: |
+      scenario는 journey와 따로, 자연어로 쓴다. 버린 길: journey에 data 칸을 더하기(길과 사람이 섞여 journey가 구현에 묶인다).
+    by: person
+  - text: |
+      mock과의 연결은 file 이름(`mock/scenarios/<id>.ts`)이다. 버린 길: text를 훑어 id를 찾기(깨지기 쉽다).
+    by: agent
+  - text: |
+      안 쓰는 frame은 보이게만 하고 check는 막지 않는다. 버린 길: 모든 frame에 참조를 강제하기(component 견본과 실험 page까지 억지 참조가 생긴다).
+    by: agent
+  - text: |
+      scenario를 eval과 잇지 않는다. eval을 지울 것이라서.
+    by: person

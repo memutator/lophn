@@ -39,9 +39,7 @@ export function matchesCondition(
 
 const DISCONNECTED: ReadonlySet<ConnectionState["state"]> = new Set([
   "stale",
-  "failed",
   "failed-start",
-  "failed-sandbox",
   "failed-schema",
 ]);
 

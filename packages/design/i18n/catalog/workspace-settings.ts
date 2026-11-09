@@ -137,7 +137,7 @@ export const workspaceSettings = {
     "The check couldn't start right now. Try again.",
   "settings.diagnostics.last-run": "Last run at {time}.",
   "settings.diagnostics.trace-help":
-    "Records event names, ids, timings and sizes to the logs folder of your lophn data folder (<data root>/logs). Typed text, terminal output, prompts and model replies are never recorded. Takes effect right away.",
+    "Records event names, ids, timings and sizes to the logs folder of your lophn data folder ('<'data root>/logs). Typed text, terminal output, prompts and model replies are never recorded. Takes effect right away.",
   "settings.diagnostics.not-run":
     "No check has run yet. Checks run only when you press the button.",
   "settings.empty.coding-search": "No product matches your search.",

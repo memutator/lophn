@@ -1,5 +1,5 @@
 // `lophn browser read|snapshot|act|navigate|screenshot|evaluate|logs|wait`: lophn agent, harness agent, 사람 token이 자기가 연 browser 탭과
-// preview 탭을 보고 다룬다. 탭은 `tab open --url|--preview`로 연 것만 된다(주인만).
+// preview·artifact 탭을 보고 다룬다. 탭은 `tab open --url|--preview|--artifact`로 연 것만 된다(주인만).
 // page에서 온 글은 바깥 글이다. binary가 찍는 글(`text`)은 `<lophn-untrusted>`로 감싸고, lophn agent는 tool 이름
 // (`browser.snapshot` 등)으로 history가 감싼다(`UNTRUSTED_SOURCES`).
 import { z } from "zod";
@@ -59,7 +59,7 @@ const read = defineCommand({
 
 const snapshot = defineCommand({
   name: "browser.snapshot",
-  summary: "Read the accessibility tree of a browser or preview tab",
+  summary: "Read the accessibility tree of a browser, preview or artifact tab",
   description:
     'Read the page of a tab you opened as an accessibility tree: one line per element, `- <role> "<name>" [ref=e12]`, indented by depth. ' +
     "Use the ref in browser act. Refs are new at every snapshot: after the page changes, run snapshot again (an old ref is conflict). " +
@@ -126,7 +126,7 @@ const navigate = defineCommand({
   name: "browser.navigate",
   summary: "Open a url in a browser tab",
   description:
-    "Navigate a browser tab you opened to an http or https url (or about:blank). Preview tabs follow the app and cannot navigate (invalid_input). " +
+    "Navigate a browser tab you opened to an http or https url (or about:blank). Preview and artifact tabs show one page and cannot navigate (invalid_input). " +
     "Returns the page url and title.",
   input: z.strictObject({ tab, url: z.string().min(1).max(8192) }),
   positional: ["tab", "url"],

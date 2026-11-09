@@ -1,7 +1,7 @@
 // core의 host queue를 가져와 그 workspace를 보이는 창에 push한다(agent가 연 탭). core가 시킬 일을 담는 queue는
 // 메모리에 있고(`protocol/lophn-agent/host-queue.ts`), 여기가 `host/take`를 쉬지 않고 이어 불러(long-poll) 가져간다. 창을 앞으로 가져오거나
 // focus하지 않는다(알림의 `reveal()`과 다르다): agent가 연 탭은 사람이 하던 일을 끊지 않는다.
-// `browser_call`은 browser·preview 탭의 page에 CDP로 돌린다(browser/agent/). 창이 탭의 view session을 bind로 알리고,
+// `browser_call`은 browser·preview·artifact 탭의 page에 CDP로 돌린다(browser/agent/). 창이 탭의 view session을 bind로 알리고,
 // agent가 다루는 탭의 take control 상태(사람이 가져왔는가)를 이 메모리가 든다. core는 모른다.
 // preview 탭이 기기를 고르면 창이 emulate로 알리고, 같은 debugger를 driver와 나눠 그 view에 건다(browser/agent/emulation.ts).
 // extension `harness`의 tick과 한 loop로 합치지 못한다. 그 tick은 extension 안에서 설정 `extensions.harness.enabled`가 꺼지면
@@ -33,6 +33,7 @@ import {
 import { createEmulation } from "../../browser/agent/emulation.ts";
 import { electronLookup } from "../../browser/agent/electron-page.ts";
 import type { AppFrameService } from "../../app-frame/registry.ts";
+import type { ArtifactViews } from "../../artifact/registry.ts";
 import type { HarnessTui } from "../../terminal/harness-tui.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import type { Registered, ShellContext } from "./context.ts";
@@ -66,12 +67,13 @@ export function register(
   tui: HarnessTui,
   tools: ExtensionTools,
   appFrame: Pick<AppFrameService, "senderView">,
+  artifacts: Pick<ArtifactViews, "guestId">,
 ): Registered {
   const registry = ctx.overlays.overlayRegistry();
   // 창(webContents id)이 보이는 workspace.
   const shown = new Map<number, Workspace>();
   const pending = new Map<string, (opened: boolean) => void>();
-  // browser·preview host 탭이 어느 창(webContents id)의 어느 view인지. 창이 bind로 알린다.
+  // browser·preview·artifact host 탭이 어느 창(webContents id)의 어느 view인지. 창이 bind로 알린다.
   const bound = new Map<string, { window: number; view_session: string }>();
 
   // 그 탭을 가진 창의 renderer에 take control 상태를 민다.
@@ -84,7 +86,7 @@ export function register(
     }
   };
   const control = createTabControl(pushControl);
-  const lookup = electronLookup(appFrame);
+  const lookup = electronLookup(appFrame, artifacts);
   const emulation = createEmulation(lookup);
   const driver = createBrowserDriver({
     viewSession: (tab) => bound.get(tab)?.view_session,

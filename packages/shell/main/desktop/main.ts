@@ -113,7 +113,15 @@ function startDesktop(): void {
   add(editor.register(ctx));
   const detachedWindows = add(detached.register(ctx, views));
   add(layout.register(ctx, detachedWindows));
-  add(surface.register(ctx, terminals.tui, extensionHost, views.appFrame));
+  add(
+    surface.register(
+      ctx,
+      terminals.tui,
+      extensionHost,
+      views.appFrame,
+      artifacts.views,
+    ),
+  );
   add(desktop.register(ctx, views, terminals));
 
   // shell 자원과 core 연결을 정리하는 한 번의 순서. Quit·`--quit`·OS 종료가 같이 쓴다.

@@ -146,6 +146,8 @@ export interface ArtifactViews {
   annotateView(view_session: string): AnnotateViewPort | undefined;
   senderAnnotateView(contentsId: number): AnnotateViewPort | undefined;
   owner(view_session: string): string | undefined;
+  /** 그 view에 지금 붙은 guest의 webContents id. agent가 다루는 artifact 탭의 page를 찾는다. */
+  guestId(view_session: string): number | undefined;
   close(view_session: string): void;
   closeWindow(window: string): void;
   dispose(): void;
@@ -417,6 +419,10 @@ export function createArtifactViews(deps: ArtifactViewsDeps): ArtifactViews {
 
     owner(view_session: string): string | undefined {
       return entries.get(view_session)?.window;
+    },
+
+    guestId(view_session: string): number | undefined {
+      return entries.get(view_session)?.contents?.id;
     },
 
     close(view_session: string): void {

@@ -26,6 +26,8 @@ import {
 } from "../app-frame/webview-host.tsx";
 import type { ViewKeeps } from "../app-frame/view-keeps.ts";
 import { useBrowserOverlay } from "../browser/browser-api.tsx";
+import { AgentControlBar } from "../browser/browser-chrome.tsx";
+import { useAgentControl } from "../workspace/use-surface-requests.ts";
 import { useCardHead } from "../shell/card-head.tsx";
 import { fileNameOf } from "../editor/model.ts";
 import { artifactIcons, editorIcons } from "../icons/mod.ts";
@@ -202,6 +204,16 @@ function OpenTab(
     layer,
   });
 
+  // agent가 `lophn tab open --artifact`로 연 탭(key `host:`)이면 view session을 main에 알리고 take control 상태를 받는다.
+  // agent가 다루는 동안은 가려져도 그리기를 이어 간다(screenshot과 입력이 되려면 guest가 그려져야 한다).
+  const agent = useAgentControl(keepKey, viewSession);
+  const driven = agent !== null;
+  useEffect(() => {
+    webviews.setDriven(keepKey, driven);
+    return () => webviews.setDriven(keepKey, false);
+  }, [webviews, keepKey, driven]);
+  const agentBar = agent === null ? null : <AgentControlBar control={agent} />;
+
   // ---- annotate ----
 
   const annotating = useAnnotate(useAnnotateApi(), viewSession);
@@ -305,6 +317,7 @@ function OpenTab(
       actions: (
         <>
           {rootNote}
+          {agentBar}
           <span className={styles.actions} data-artifact-toolbar="">
             {editSource}
           </span>
@@ -322,7 +335,7 @@ function OpenTab(
         onSelect: () => latest.current.annotating.setMode(true),
       },
     },
-    [ready, annotateOn, folder, count, sending, title],
+    [ready, annotateOn, folder, count, sending, title, agent?.held, driven],
   );
 
   return (
@@ -341,6 +354,7 @@ function OpenTab(
             </span>
             {rootNote}
           </span>
+          {agentBar}
           {buttons}
         </div>
       )}

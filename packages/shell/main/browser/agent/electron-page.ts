@@ -2,6 +2,7 @@
 import { session, type WebContents, webContents } from "electron";
 
 import type { AppFrameService } from "../../app-frame/registry.ts";
+import type { ArtifactViews } from "../../artifact/registry.ts";
 import { BROWSER_PARTITION } from "../session.ts";
 import type { DebuggerOwner, Page, PageLookup } from "./page.ts";
 
@@ -61,6 +62,7 @@ const alive = (contents: WebContents | undefined): contents is WebContents =>
 
 export function electronLookup(
   appFrame: Pick<AppFrameService, "senderView">,
+  artifacts: Pick<ArtifactViews, "guestId">,
 ): PageLookup {
   const pageOf = createPages();
   return {
@@ -86,6 +88,11 @@ export function electronLookup(
         }
       }
       return undefined;
+    },
+    artifact(view_session) {
+      const id = artifacts.guestId(view_session);
+      const contents = id === undefined ? undefined : webContents.fromId(id);
+      return alive(contents) ? pageOf(contents) : undefined;
     },
   };
 }

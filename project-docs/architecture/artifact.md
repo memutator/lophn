@@ -57,6 +57,7 @@ agent가 쓴 정적 HTML 결과(artifact)를 사람이 탭으로 보는 메커�
 - **navigation은 `will-frame-navigate`와 `will-redirect`에서 정한다.** Electron 44에서 main frame은 `will-frame-navigate`가 먼저 오고, 거기서 막으면 `will-navigate`는 오지 않는다. 알리는 일을 `will-navigate`에 두면 link가 아무 일도 하지 않는다.
 - **main frame은 같은 host의 `lophn-artifact:`로만 간다.** 같은 폴더 안의 다른 HTML로 가는 상대 link는 된다. http·https는 막고, 사용자 입력 5000ms 안이면 renderer에 알려 browser 탭으로 연다. `window.open`은 늘 거절한다. permission은 거절하고 download는 취소한다. subframe도 같은 host만이다.
 - **preload에는 annotate layer만 있다.** tool을 부르는 bridge는 없다. 이것이 앱 화면과 갈리는 곳이다.
+- **쓴 agent가 화면을 보고 다룬다.** `lophn tab open --artifact <name>`이 그 그릇 workspace의 artifact를 host 탭(key `host:<tab>`)으로 열고, `lophn browser snapshot|screenshot|act|evaluate|logs|wait`가 앱의 preview 탭처럼 그 page를 CDP로 다룬다(`browser-tab.md` "agent가 다루는 browser 탭"). 여는 규칙은 `workspace-layout.md` "agent가 연 탭"이다. main은 artifact view registry에 붙은 guest만 고르고(`guestId`), navigate는 `invalid_input`이다: page 안의 상대 link는 page가 따라가고, 다른 artifact는 다른 탭이다. CDP는 page를 바깥에서 다루는 것이라 봉한 규칙(network, scheme, CSP)은 그대로다. 사람이 연 artifact 탭은 core의 표에 없어 다루지 못한다.
 - **annotation의 신원은 shell main이 view의 source로 정한다.** page가 보낸 값은 쓰지 않는다. artifact annotation에는 release와 screen이 없다(null). 사람의 `.html`이면 target이 `file`(`{project}`)이다.
 - **annotation을 받는 쪽은 그 폴더에 마지막으로 쓴 session이다.** rewind 기록(`rewind_files`의 root가 그 그릇의 artifacts 폴더의 realpath, path가 `<name>/`로 시작, 되돌려지지 않은 쓰기)에서 그 그릇 workspace의 열린 session 가운데 마지막 것을 고른다. root가 그릇마다 달라 같은 이름의 artifact가 다른 그릇에 있어도 섞이지 않는다. 없으면 pane에 열린 그 그릇 workspace의 lophn session이고, 그 session이 그 그릇 workspace의 열린 lophn session이 아니면 conflict로 거절한다. pane에 그런 session이 없으면 그 그릇 workspace의 lophn 새 session이다. 사람의 `.html`은 늘 그 project workspace의 lophn이 받는다.
 - **artifact annotation을 읽는 것은 그 그릇의 agent다.** 자격 조건 `project`(project workspace의 session)는 그 project의 artifact target과 사람의 `.html`(file) target을, 조건 `app`(앱 workspace의 session)은 그 앱의 artifact target을 읽는다. 다른 그릇 것은 not_found이고, 그릇 조건이 없는 home의 session은 forbidden이다(`architecture/annotation.md`).
@@ -65,7 +66,7 @@ agent가 쓴 정적 HTML 결과(artifact)를 사람이 탭으로 보는 메커�
 
 ## 왜 이 모양인가
 
-- **artifact 전용 tool이 없다.** 만들기는 `file.write`, 찾기는 관례 자리, 알리기는 agent의 말과 renderer link, annotation 받는 쪽은 rewind 기록으로 된다. tool이 하려던 일이 이미 있는 장치로 다 된다.
+- **artifact 전용 tool이 없다.** 만들기는 `file.write`, 찾기는 관례 자리, 알리기는 agent의 말과 renderer link, annotation 받는 쪽은 rewind 기록으로 된다. tool이 하려던 일이 이미 있는 장치로 다 된다. 화면 확인도 새 명령 없이 앱 preview가 쓰는 `tab open`과 `browser *`에 대상 하나(`artifact`)를 더했다(agent, 2026-11-09).
 - **제목과 설명을 HTML에서 읽는다.** metadata 파일을 따로 두면 둘이 어긋난다.
 - **봉한 guest는 browser 탭과 다른 kind다.** browser 탭의 navigation 규칙과 로그인 cookie partition을 섞지 않는다. 같은 창의 `<webview>` 그릇을 쓰지만 partition·preload·navigation 규칙은 kind별로 main이 강제한다.
 - **network와 외부 library가 없다.** 사람의 data가 담긴 page가 바깥 server를 부르지 않게 한다. kit은 바깥 library가 아니라 repo가 판을 잠근 lophn build를 같은 origin의 가상 path로 주는 것이다(`architecture/ui-kit.md`).

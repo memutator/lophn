@@ -15,7 +15,7 @@ import type { AppRow } from "../apps/source.ts";
 import type { ProjectItem } from "../desktop/workspaces/projects/source.ts";
 import type { SidebarAgent } from "../workspace/sidebar/sidebar-agent.ts";
 import type { TabItem } from "./desk-model.ts";
-import type { KnownSessions } from "./left-sidebar-workspaces.ts";
+import type { KnownSessions, LayoutDesks } from "./left-sidebar-workspaces.ts";
 
 export interface SidebarValues {
   readonly projects: readonly ProjectItem[];
@@ -26,6 +26,8 @@ export interface SidebarValues {
   readonly elsewhereTitles: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** workspace key → coding agent가 돈 적이 있는 터미널 탭(다른 workspace의 저장된 layout). */
   readonly elsewhereTerminals: ReadonlyMap<string, readonly TabItem[]>;
+  /** workspace key → 그 workspace의 desk(다른 workspace의 저장된 layout). */
+  readonly elsewhereDesks: ReadonlyMap<string, LayoutDesks>;
   /** project id → main이 저장한 coding agent session. */
   readonly savedTerminals: ReadonlyMap<string, readonly TerminalAgentSession[]>;
   /** project id → 사람 차례를 기다리는 workflow 이름. */
@@ -39,6 +41,7 @@ const EMPTY: SidebarValues = {
   known: new Map(),
   elsewhereTitles: new Map(),
   elsewhereTerminals: new Map(),
+  elsewhereDesks: new Map(),
   savedTerminals: new Map(),
   workflows: new Map(),
 };

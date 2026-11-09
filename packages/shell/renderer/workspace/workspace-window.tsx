@@ -199,6 +199,7 @@ import {
   type SidebarSession,
   sessionKey,
 } from "../shell/left-sidebar-model.ts";
+import { layoutDesks } from "../shell/left-sidebar-workspaces.ts";
 import { WorkspaceLeftSidebar } from "./sidebar/workspace-left-sidebar.tsx";
 import {
   type QuickHoverItem,
@@ -2061,6 +2062,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       return session === null ? [] : [[session, tab.title] as const];
     }),
   );
+  const sidebarDesks = layoutDesks(layout);
   // 첫 메시지 전이라 session이 없는 Agent 탭. sidebar의 draft 줄이다.
   const agentDrafts = windowTabs.filter(
     (tab) => tab.kind === "agent" && sessionOf(tab) === null,
@@ -2883,6 +2885,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                   agents={sidebarAgents.agents}
                   lophnNames={sidebarAgents.lophnNames}
                   openTitles={agentTabTitles}
+                  desks={sidebarDesks}
                   agentDrafts={agentDrafts}
                   terminals={panelTerminals}
                   {...(windowTerminal === undefined

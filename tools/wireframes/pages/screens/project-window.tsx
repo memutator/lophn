@@ -296,44 +296,58 @@ const SIDEBAR_WORKSPACES: readonly SidebarWorkspace[] = [
     ref: { kind: "home" },
     name: "Home",
     current: [
-      ...lophnLine({
-        ...byId("release-check"),
-        id: "home-plan",
-        title: "Plan the week",
-        state: "working",
-      }),
+      {
+        desk: null,
+        items: lophnLine({
+          ...byId("release-check"),
+          id: "home-plan",
+          title: "Plan the week",
+          state: "working",
+        }),
+      },
     ],
     recent: [],
   },
   {
     ref: { kind: "project", id: PROJECT_ID },
     name: "phroner",
+    // desk 둘에 열린 줄과 탭을 닫았지만 아직 도는 줄이 있어 desk 이름으로 나뉜다.
     current: [
       {
-        kind: "workflow",
-        ref: "weekly-review",
-        title: "weekly-review",
-        agent: { kind: "workflow" },
-        dot: "waiting",
-        actions: false,
-        at: 0,
+        desk: { key: "_default", label: "Main" },
+        items: [
+          ...lophnLine(byId("weekly")),
+          codingLine(
+            "terminal-claude",
+            "claude",
+            "Fix flaky retry in the scenario runner",
+            "1 min ago",
+            "working",
+          ),
+        ],
       },
-      ...lophnLine(byId("weekly")),
-      ...lophnLine(byId("harness")),
-      codingLine(
-        "terminal-claude",
-        "claude",
-        "Fix flaky retry in the scenario runner",
-        "1 min ago",
-        "working",
-      ),
-      codingLine(
-        "terminal-codex",
-        "openai",
-        "Split the eval board loader",
-        "8 min ago",
-        "finished",
-      ),
+      {
+        desk: { key: "weekly-review", label: "weekly-review" },
+        items: [
+          {
+            kind: "workflow",
+            ref: "weekly-review",
+            title: "weekly-review",
+            agent: { kind: "workflow" },
+            dot: "waiting",
+            actions: false,
+            at: 0,
+          },
+          codingLine(
+            "terminal-codex",
+            "openai",
+            "Split the eval board loader",
+            "8 min ago",
+            "finished",
+          ),
+        ],
+      },
+      { desk: null, items: lophnLine(byId("harness")) },
     ],
     recent: [
       ...lophnLine(byId("release-check")),
@@ -363,14 +377,17 @@ const SIDEBAR_WORKSPACES: readonly SidebarWorkspace[] = [
     ref: { kind: "project", id: GROCERY_ID },
     name: "Grocery",
     current: [
-      ...lophnLine(
-        {
-          ...byId("c049"),
-          id: "grocery-prices",
-          title: "Compare this week's prices",
-        },
-        "finished",
-      ),
+      {
+        desk: null,
+        items: lophnLine(
+          {
+            ...byId("c049"),
+            id: "grocery-prices",
+            title: "Compare this week's prices",
+          },
+          "finished",
+        ),
+      },
     ],
     recent: [],
   },
@@ -378,12 +395,15 @@ const SIDEBAR_WORKSPACES: readonly SidebarWorkspace[] = [
     ref: { kind: "app", id: "app_orders" },
     name: "Orders",
     current: [
-      ...lophnLine({
-        ...byId("harness"),
-        id: "orders-export",
-        title: "Add a CSV export",
-        state: "waiting",
-      }),
+      {
+        desk: null,
+        items: lophnLine({
+          ...byId("harness"),
+          id: "orders-export",
+          title: "Add a CSV export",
+          state: "waiting",
+        }),
+      },
     ],
     recent: [],
   },

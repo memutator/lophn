@@ -19,7 +19,11 @@ import {
   type TabItem,
 } from "./desk-model.ts";
 import type { LayoutSource } from "./layout-source.ts";
-import type { KnownSessions } from "./left-sidebar-workspaces.ts";
+import {
+  type KnownSessions,
+  type LayoutDesks,
+  layoutDesks,
+} from "./left-sidebar-workspaces.ts";
 import { useRemembered } from "./sidebar-memory.tsx";
 
 /** 보관하지 않은 project와 앱. 순서는 런처와 같다. 등록·생성 뒤에는 reload로 다시 읽는다. */
@@ -122,6 +126,8 @@ export interface TabsElsewhere {
   readonly titles: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** workspace key → coding agent가 돈 적이 있는 터미널 탭(harness가 저장된 것). 지금 도는지는 창의 terminal store가 안다. */
   readonly terminals: ReadonlyMap<string, readonly TabItem[]>;
+  /** workspace key → 그 workspace layout의 desk. sidebar가 current 줄을 desk로 나눈다. */
+  readonly desks: ReadonlyMap<string, LayoutDesks>;
   /** 이 창이 다른 workspace의 layout을 고친 뒤 다시 읽는다. */
   readonly reload: () => void;
 }
@@ -138,6 +144,7 @@ export function useTabsElsewhere(
 ): TabsElsewhere {
   const [titles, setTitles] = useRemembered("elsewhereTitles");
   const [terminals, setTerminals] = useRemembered("elsewhereTerminals");
+  const [desks, setDesks] = useRemembered("elsewhereDesks");
   const [focuses, setFocuses] = useState(0);
   useEffect(() => {
     const onFocus = () => setFocuses((count) => count + 1);
@@ -155,6 +162,8 @@ export function useTabsElsewhere(
           const read = await layout.readWorkspaceLayout(ref);
           const titles = new Map<string, string>();
           const terminals: TabItem[] = [];
+          const desks =
+            read.ok && read.layout !== null ? layoutDesks(read.layout) : null;
           if (read.ok && read.layout !== null) {
             for (const tab of allTabs(read.layout)) {
               const session = tab.kind === "agent" ? sessionOf(tab) : null;
@@ -164,20 +173,37 @@ export function useTabsElsewhere(
               }
             }
           }
-          return { key: workspaceKey(ref), titles, terminals };
+          return { key: workspaceKey(ref), titles, terminals, desks };
         }),
     ).then((rows) => {
       if (!live) return;
       setTitles(() => new Map(rows.map((row) => [row.key, row.titles])));
       setTerminals(() => new Map(rows.map((row) => [row.key, row.terminals])));
+      setDesks(
+        () =>
+          new Map(
+            rows.flatMap((row) =>
+              row.desks === null ? [] : [[row.key, row.desks] as const],
+            ),
+          ),
+      );
     });
     return () => {
       live = false;
     };
-  }, [layout, workspaces, hereKey, ids, focuses, setTitles, setTerminals]);
+  }, [
+    layout,
+    workspaces,
+    hereKey,
+    ids,
+    focuses,
+    setTitles,
+    setTerminals,
+    setDesks,
+  ]);
   const reload = useCallback(() => setFocuses((count) => count + 1), []);
   return useMemo(
-    () => ({ titles, terminals, reload }),
-    [titles, terminals, reload],
+    () => ({ titles, terminals, desks, reload }),
+    [titles, terminals, desks, reload],
   );
 }

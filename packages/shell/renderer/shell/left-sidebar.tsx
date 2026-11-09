@@ -490,82 +490,98 @@ export function LeftSidebar({
                   />
                 </span>
               </div>
-              {workspace.current.map((item) => {
-                const itemKey = sessionKey(item);
-                const actions =
-                  item.actions &&
-                  (onRenameSession !== undefined ||
-                    onStopSession !== undefined);
-                // Stop 단추가 있는 줄은 점을 그 단추 안에 둔다(평소 점, hover하면 x).
-                const row = (
-                  <SessionRow
-                    item={item}
-                    selected={here && itemKey === selected}
-                    recent={false}
-                    dot={!actions || onStopSession === undefined}
-                    onClick={() => onSession(workspace, item)}
-                  />
-                );
-                if (!actions) return <Fragment key={itemKey}>{row}</Fragment>;
-                if (renaming === itemKey) {
-                  return (
-                    <SessionRename
-                      key={itemKey}
-                      title={item.title}
-                      onDone={(name) => {
-                        setRenaming(null);
-                        if (name !== null)
-                          onRenameSession?.(workspace, item, name);
-                      }}
-                    />
-                  );
-                }
-                return (
-                  <div
-                    key={itemKey}
-                    className={styles.sessionLine}
-                    data-session-line={itemKey}
-                  >
-                    {row}
-                    <span className={styles.rowActions}>
-                      {onRenameSession === undefined ||
-                      item.kind === "draft" ? null : (
-                        <button
-                          type="button"
-                          className={styles.rowAction}
-                          aria-label={t("left-sidebar.button.rename-session")}
-                          data-session-rename=""
-                          onClick={() => setRenaming(itemKey)}
-                        >
-                          <Icon icon={actionIcons.edit} pixels={14} />
-                        </button>
-                      )}
-                      {onStopSession === undefined ? null : (
-                        <button
-                          type="button"
-                          className={styles.rowAction}
-                          aria-label={t("left-sidebar.button.stop-session")}
-                          data-session-stop=""
-                          data-dot={item.dot === null ? undefined : ""}
-                          onClick={() => onStopSession(workspace, item)}
-                        >
-                          {item.dot === null ? null : (
-                            <TabStateDot
-                              dot={item.dot}
-                              className={styles.stopDot}
-                            />
+              {workspace.current.map((group) => (
+                <Fragment key={group.desk?.key ?? ""}>
+                  {/* desk를 하나만 쓰면 지금처럼 줄만 둔다. */}
+                  {workspace.current.length < 2 ? null : (
+                    <div
+                      className={styles.deskHead}
+                      data-sidebar-desk={group.desk?.key ?? ""}
+                    >
+                      {group.desk?.label ?? t("left-sidebar.label.desk-none")}
+                    </div>
+                  )}
+                  {group.items.map((item) => {
+                    const itemKey = sessionKey(item);
+                    const actions =
+                      item.actions &&
+                      (onRenameSession !== undefined ||
+                        onStopSession !== undefined);
+                    // Stop 단추가 있는 줄은 점을 그 단추 안에 둔다(평소 점, hover하면 x).
+                    const row = (
+                      <SessionRow
+                        item={item}
+                        selected={here && itemKey === selected}
+                        recent={false}
+                        dot={!actions || onStopSession === undefined}
+                        onClick={() => onSession(workspace, item)}
+                      />
+                    );
+                    if (!actions)
+                      return <Fragment key={itemKey}>{row}</Fragment>;
+                    if (renaming === itemKey) {
+                      return (
+                        <SessionRename
+                          key={itemKey}
+                          title={item.title}
+                          onDone={(name) => {
+                            setRenaming(null);
+                            if (name !== null)
+                              onRenameSession?.(workspace, item, name);
+                          }}
+                        />
+                      );
+                    }
+                    return (
+                      <div
+                        key={itemKey}
+                        className={styles.sessionLine}
+                        data-session-line={itemKey}
+                      >
+                        {row}
+                        <span className={styles.rowActions}>
+                          {onRenameSession === undefined ||
+                          item.kind === "draft" ? null : (
+                            <button
+                              type="button"
+                              className={styles.rowAction}
+                              aria-label={t(
+                                "left-sidebar.button.rename-session",
+                              )}
+                              data-session-rename=""
+                              onClick={() => setRenaming(itemKey)}
+                            >
+                              <Icon icon={actionIcons.edit} pixels={14} />
+                            </button>
                           )}
-                          <Icon
-                            icon={shellIcons.close}
-                            pixels={14}
-                            className={styles.stopCross}
-                          />
-                        </button>
-                      )}
-                    </span>
-                  </div>
-                );
-              })}
+                          {onStopSession === undefined ? null : (
+                            <button
+                              type="button"
+                              className={styles.rowAction}
+                              aria-label={t("left-sidebar.button.stop-session")}
+                              data-session-stop=""
+                              data-dot={item.dot === null ? undefined : ""}
+                              onClick={() => onStopSession(workspace, item)}
+                            >
+                              {item.dot === null ? null : (
+                                <TabStateDot
+                                  dot={item.dot}
+                                  className={styles.stopDot}
+                                />
+                              )}
+                              <Icon
+                                icon={shellIcons.close}
+                                pixels={14}
+                                className={styles.stopCross}
+                              />
+                            </button>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </Fragment>
+              ))}
               {workspace.recent.length === 0 ? null : (
                 <button
                   type="button"

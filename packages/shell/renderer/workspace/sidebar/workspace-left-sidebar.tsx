@@ -38,7 +38,10 @@ import {
   type SidebarWorkspace,
   type SidebarSession,
 } from "../../shell/left-sidebar-model.ts";
-import { sidebarWorkspaces } from "../../shell/left-sidebar-workspaces.ts";
+import {
+  type LayoutDesks,
+  sidebarWorkspaces,
+} from "../../shell/left-sidebar-workspaces.ts";
 import {
   useKnownSessions,
   useTabsElsewhere,
@@ -104,6 +107,8 @@ export interface WorkspaceLeftSidebarProps {
   lophnNames: Readonly<Record<string, string>>;
   /** 이 창에 탭이 열린 session id → 그 탭의 제목. */
   openTitles: ReadonlyMap<string, string>;
+  /** 이 창 layout의 desk. current 줄을 desk로 나눈다. */
+  desks: LayoutDesks;
   /** 이 창의 아직 session이 없는 Agent 탭. */
   agentDrafts: readonly TabItem[];
   terminals: readonly PanelTerminal[];
@@ -222,6 +227,10 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
       new Map(elsewhere.titles).set(workspaceKey(current), props.openTitles),
     [elsewhere.titles, current, props.openTitles],
   );
+  const desks = useMemo(
+    () => new Map(elsewhere.desks).set(workspaceKey(current), props.desks),
+    [elsewhere.desks, current, props.desks],
+  );
   const drafts = useMemo(
     () =>
       props.agentDrafts.flatMap((tab) => {
@@ -244,6 +253,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         agents: props.agents,
         known,
         openTitles,
+        desks,
         drafts,
         terminals: props.terminals,
         otherTerminals,
@@ -258,6 +268,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
       props.agents,
       known,
       openTitles,
+      desks,
       drafts,
       props.terminals,
       otherTerminals,

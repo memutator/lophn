@@ -11,6 +11,7 @@
 // - 줄의 연필·x(actions)는 lophn session과 터미널은 어느 workspace든 있다. draft는 x만, workflow desk는 없다.
 // - current 줄의 순서는 고정이다: lophn session은 id 순(만든 순), draft, 그 뒤에 터미널은 key 순. 상태가 바뀌어도 자리를 지킨다.
 //   draft는 첫 메시지 뒤 session 줄의 끝(가장 새 id)이 되어 자리가 거의 그대로다.
+// - current는 그 탭이 있는 desk로 나눈다(layout의 desk 순서). 탭 없이 도는 줄은 desk 없는 묶음으로 끝에 둔다.
 import { t } from "@lophn/i18n";
 
 import { isLophn } from "../../../protocol/lophn-agent/workspaces.ts";
@@ -19,8 +20,18 @@ import { codingFace } from "../parts/agent-session/coding.ts";
 import { lophnSessionDot } from "../parts/agent-session/lophn.ts";
 import type { SidebarAgent } from "../workspace/sidebar/sidebar-agent.ts";
 import type { PanelTerminal } from "../workspace/sidebar/panel-types.ts";
-import { workspaceKey, type WorkspaceRef } from "./desk-model.ts";
-import type { SidebarWorkspace, SidebarSession } from "./left-sidebar-model.ts";
+import { sessionOf } from "../workspace/agent/tab-fields.ts";
+import {
+  deskTabs,
+  type WorkspaceLayout,
+  workspaceKey,
+  type WorkspaceRef,
+} from "./desk-model.ts";
+import type {
+  SidebarDeskGroup,
+  SidebarWorkspace,
+  SidebarSession,
+} from "./left-sidebar-model.ts";
 
 const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -29,6 +40,28 @@ export type KnownSessions = ReadonlyMap<
   string,
   { readonly title: string | null; readonly at: number }
 >;
+
+/** workspace layout의 desk와, 줄이 가리키는 것(탭 key, Agent 탭의 session id, `workflow:<이름>`)이 있는 desk의 key. */
+export interface LayoutDesks {
+  readonly list: readonly { readonly key: string; readonly label: string }[];
+  readonly at: ReadonlyMap<string, string>;
+}
+
+export function layoutDesks(layout: WorkspaceLayout): LayoutDesks {
+  const list: { key: string; label: string }[] = [];
+  const at = new Map<string, string>();
+  for (const desk of Object.values(layout.desks)) {
+    list.push({ key: desk.key, label: desk.label });
+    if (desk.workflow !== undefined)
+      at.set(`workflow:${desk.workflow}`, desk.key);
+    for (const tab of deskTabs(desk)) {
+      at.set(tab.key, desk.key);
+      const session = tab.kind === "agent" ? sessionOf(tab) : null;
+      if (session !== null) at.set(session, desk.key);
+    }
+  }
+  return { list, at };
+}
 
 /** 사람이 Recent에서 지운 줄의 key → 지운 때(epoch ms). */
 export type HiddenRecent = ReadonlyMap<string, number>;
@@ -44,6 +77,8 @@ export interface WorkspacesInput {
   readonly known: KnownSessions;
   /** workspace key → 그 workspace의 layout에 탭이 열린 session id → 그 탭의 제목. */
   readonly openTitles: ReadonlyMap<string, ReadonlyMap<string, string>>;
+  /** workspace key → 그 workspace layout의 desk. 없으면 그 workspace의 줄은 desk 없는 묶음 하나다. */
+  readonly desks: ReadonlyMap<string, LayoutDesks>;
   /** 이 창의 아직 session이 없는 Agent 탭. */
   readonly drafts: readonly { readonly key: string; readonly agent: string }[];
   /** 이 창이 보이는 workspace의 터미널 coding agent session. */
@@ -179,10 +214,23 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
             at: 0,
           }))
         : [];
+    const items = [...waiting, ...(current.get(key) ?? []).sort(stable)];
+    const desks = input.desks.get(key);
+    const deskOf = (item: SidebarSession) =>
+      desks?.at.get(
+        item.kind === "workflow" ? `workflow:${item.ref}` : item.ref,
+      ) ?? null;
+    const groups: SidebarDeskGroup[] = [
+      ...(desks?.list ?? []).map((desk) => ({
+        desk,
+        items: items.filter((item) => deskOf(item) === desk.key),
+      })),
+      { desk: null, items: items.filter((item) => deskOf(item) === null) },
+    ];
     return {
       ref,
       name,
-      current: [...waiting, ...(current.get(key) ?? []).sort(stable)],
+      current: groups.filter((group) => group.items.length > 0),
       recent: key === here ? (recent.get(key) ?? []).sort(byNewest) : [],
     };
   };

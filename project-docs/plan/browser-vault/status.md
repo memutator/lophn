@@ -4,8 +4,8 @@ lead만 고친다. `tools/status.py browser-vault build`가 `tasks/*.md`에서 i
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `gmem` | gmem | 1 | 없음 | todo |  |  |  |
-| `vault-core` | vault | 1 | 없음 | todo |  |  |  |
+| `gmem` | gmem | 1 | 없음 | running | gmem/gmem |  |  |
+| `vault-core` | vault | 1 | 없음 | running | vault/vault-core |  |  |
 | `vault-fill` | vault | 2 | vault-core | todo |  |  |  |
 | `vault-ui` | vault | 2 | vault-core | todo |  |  |  |
 | `vault-request` | vault | 3 | vault-fill, vault-ui | todo |  |  |  |

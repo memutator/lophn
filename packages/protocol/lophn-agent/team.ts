@@ -61,6 +61,8 @@ export const teamSpawn = defineCommand({
     workspace: workspaceNameSchema.optional(),
     reply: callReplySchema,
     body: contentBlocksSchema,
+    // 이 팀원이 부모에게 무엇인지(`TabRelation`의 peer·stage). 같은 workspace면 그 뜻대로 부모 탭 곁에 열린다. 없으면 peer다.
+    relation: z.enum(["peer", "stage"]).optional(),
     // 보낸 쪽 tool call ID. 같은 호출을 다시 보내도 session이 하나만 생긴다.
     dedup: z.string().min(1),
   }),

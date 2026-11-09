@@ -1,13 +1,14 @@
-// `lophn tab open|close`: lophn agent session이나 사람 token이 shell에 탭을 열고 자기가 연 탭을 닫는다. 사람 token은
+// `lophn tab open|close|show`: lophn agent session이나 사람 token이 shell에 탭을 열고 자기가 연 탭을 닫는다. 사람 token은
 // --url, --preview, --artifact 탭만 연다(core가 거절). core는 접수만 답한다(탭은 shell이 그 workspace를 보이는 창에서 연다).
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
 import { artifactNameSchema } from "../../protocol/projects/values.ts";
 import {
-  tabPlaceSchema,
+  tabRelationSchema,
   tabsClose,
   tabsOpen,
+  tabsShow,
 } from "../../protocol/lophn-agent/host-queue.ts";
 import {
   type Workspace,
@@ -46,7 +47,13 @@ const open = defineCommand({
     "--session <ses> --tui opens a harness agent session (claude-code, codex, opencode) of a project workspace in a terminal tab through the CLI's own resume; " +
     "while it is open that session starts no turn and its inputs and calls wait in its queue, and they run after the TUI ends. " +
     "A tui is invalid_input for a session that is not a harness agent of a project workspace, and conflict if the session has not run yet, a turn is running, or it is already open in a tui. " +
-    "--place beside|group|float hints where it goes (next to your own tab, into your tab's group, or floating); without it the tab goes right after your tab. " +
+    "--as peer|stage|aside|work|glance says what the tab is to you; you never choose where it goes, the shell does. " +
+    "work: your own working tab, e.g. browsing for your task (folded; the person can expand it to watch or take control). " +
+    "aside: something to show the person, e.g. a result page, artifact, preview or tui. " +
+    "glance: a brief look you want the person to see now (expanded; it folds when the person clicks away). " +
+    "peer: a colleague session splitting the same work as you. stage: a session that takes the next step or other work (peer and stage are for --session). " +
+    "Without --as the shell picks a default per target: a --url page is work, everything else is aside; use --as aside when you open a page to show the person. " +
+    "When the person must use your work tab (login, captcha, payment confirmation), run tab show <tab> together with ask. " +
     "Returns the tab ID with status accepted: the shell opens it when it shows this workspace, and an opened tab never takes focus from what the person is looking at. " +
     "Close only tabs you opened (tab close). Look at and drive a browser, preview or artifact tab you opened with browser snapshot, browser screenshot and browser act.",
   input: z.strictObject({
@@ -56,7 +63,7 @@ const open = defineCommand({
     preview: idSchema("app").optional(),
     artifact: artifactNameSchema.optional(),
     device: z.string().min(1).max(40).optional(),
-    place: tabPlaceSchema.optional(),
+    as: tabRelationSchema.optional(),
     workspace: z.string().min(1).max(200).optional(),
   }),
   effect: "write",
@@ -110,7 +117,7 @@ const open = defineCommand({
               : input.tui === true
                 ? { tui: input.session }
                 : { session: input.session },
-      ...(input.place === undefined ? {} : { place: input.place }),
+      ...(input.as === undefined ? {} : { relation: input.as }),
       ...(workspace === undefined ? {} : { workspace }),
     });
     if (!opened.ok) return opened;
@@ -141,4 +148,26 @@ const close = defineCommand({
   },
 });
 
-export const TAB_COMMANDS = [open, close];
+const show = defineCommand({
+  name: "tab.show",
+  summary: "Show a tab you opened to the person",
+  description:
+    "Expand a folded tab you opened (a --as work tab) in place so the person sees it, without moving their focus or layout. " +
+    "Use it when you need the person's hands on your work tab (login, captcha, payment confirmation) and send `ask` with it saying what to do. " +
+    "A tab that is not folded needs nothing. You cannot show tabs other sessions or the person opened (forbidden); an unknown tab is not_found. Returns accepted: the shell shows it when it shows this workspace.",
+  input: z.strictObject({ tab: idSchema("tab") }),
+  positional: ["tab"],
+  effect: "write",
+  routes: [tabsShow],
+  workspaces: WORKSPACE_KINDS,
+  run: async (input, ctx) => {
+    const shown = await ctx.core.read(tabsShow, input);
+    if (!shown.ok) return shown;
+    return ok({
+      summary: `tab ${shown.value.tab} accepted`,
+      content: shown.value,
+    });
+  },
+});
+
+export const TAB_COMMANDS = [open, close, show];

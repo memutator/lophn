@@ -14,13 +14,13 @@ function setup() {
   return { clock, queue: createHostQueue({ clock, ids }) };
 }
 
-test("다른 session이 연 탭은 닫지도 읽지도 못한다", () => {
+test("다른 session이 연 탭은 닫지도 펴지도 읽지도 못한다", () => {
   const { queue } = setup();
   const tab = queue.openTab({
     owner: OWNER,
     workspace: HOME,
     target: { browser: { url: "https://example.com" } },
-    place: null,
+    relation: null,
     source: OWNER,
   });
   queue.report(tab, {
@@ -34,6 +34,20 @@ test("다른 session이 연 탭은 닫지도 읽지도 못한다", () => {
   const close = queue.close(tab, OTHER);
   assert.equal(!close.ok && close.error.code, "forbidden");
   assert.equal(queue.close("tab_missing" as Id<"tab">, OWNER).ok, false);
+  const show = queue.show(tab, OTHER);
+  assert.equal(!show.ok && show.error.code, "forbidden");
+  const missing = queue.show("tab_missing" as Id<"tab">, OWNER);
+  assert.equal(!missing.ok && missing.error.code, "not_found");
+
+  // 연 session이 펴면 그 tab의 workspace로 tab_show가 나간다.
+  assert.equal(queue.show(tab, OWNER).ok, true);
+  const lent = queue.take([HOME]);
+  assert.equal(lent?.kind, "tab_open");
+  queue.done(lent!.id as Id<"hrq">, "done");
+  const shown = queue.take([HOME]);
+  assert.deepStrictEqual(shown?.kind === "tab_show" ? shown.payload : null, {
+    tab,
+  });
 
   // 연 session은 읽고 닫는다. 닫으면 표에서 빠져 다시 닫지 못한다.
   assert.equal(queue.read(tab, OWNER).ok, true);
@@ -50,7 +64,7 @@ test("이미 열린 preview 탭에 기기를 주면 같은 탭 id로 tab_open이
       owner: OWNER,
       workspace: { kind: "app", id: APP },
       target: { preview: { app: APP, device } },
-      place: null,
+      relation: null,
       source: OWNER,
     });
   const tab = open(null);
@@ -69,7 +83,7 @@ test("retry한 요청은 뒤로 가서 다음 요청을 막지 않는다", () =>
       owner: OWNER,
       workspace: HOME,
       target: { browser: { url } },
-      place: null,
+      relation: null,
       source: OWNER,
     });
   open("https://a.example");
@@ -146,7 +160,7 @@ test("take가 기다리는 동안은 attached이고 기다림이 끝난 뒤 3초
     owner: OWNER,
     workspace: HOME,
     target: { browser: { url: "https://example.com" } },
-    place: null,
+    relation: null,
     source: OWNER,
   });
   assert.equal((await waited)?.kind, "tab_open");

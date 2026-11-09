@@ -21,6 +21,7 @@ import {
   type HostWorkspace,
   tabsClose,
   tabsOpen,
+  tabsShow,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import {
   ARTIFACT_ENTRY,
@@ -120,7 +121,7 @@ export function createTabHandlers(deps: TabDeps) {
         owner: caller.value,
         workspace: { kind: "app", id: app as Id<"app"> },
         target: input.target,
-        place: input.place ?? null,
+        relation: input.relation ?? null,
         source: caller.value === "person" ? null : caller.value,
       });
       return ok({ tab, status: "accepted" as const });
@@ -154,7 +155,7 @@ export function createTabHandlers(deps: TabDeps) {
         owner: caller.value,
         workspace: where,
         target: input.target,
-        place: input.place ?? null,
+        relation: input.relation ?? null,
         source: caller.value === "person" ? null : caller.value,
       });
       return ok({ tab, status: "accepted" as const });
@@ -209,7 +210,7 @@ export function createTabHandlers(deps: TabDeps) {
         ? (input.workspace ?? { kind: "home" })
         : hostWorkspaceOf(workspaceOf(from!)),
       target: input.target,
-      place: input.place ?? null,
+      relation: input.relation ?? null,
       source: caller.value === "person" ? null : caller.value,
       ...(resume === undefined ? {} : { resume }),
     });
@@ -223,6 +224,15 @@ export function createTabHandlers(deps: TabDeps) {
     return closed.ok
       ? ok({ tab: closed.value, status: "accepted" as const })
       : closed;
+  };
+  const show: MemoryHandler = (who, body) => {
+    const caller = owner(who);
+    if (!caller.ok) return caller;
+    const input = tabsShow.input.parse(body);
+    const shown = queue.show(input.tab as Id<"tab">, caller.value);
+    return shown.ok
+      ? ok({ tab: shown.value, status: "accepted" as const })
+      : shown;
   };
   const read: MemoryHandler = (who, body) => {
     const caller = owner(who);
@@ -377,6 +387,7 @@ export function createTabHandlers(deps: TabDeps) {
   return {
     open,
     close,
+    show,
     read,
     snapshot,
     act,
@@ -467,6 +478,7 @@ export const hostQueueWiring: WiringFactory = () => {
           [key(hostReport), report],
           [key(tabsOpen), handlers.open],
           [key(tabsClose), handlers.close],
+          [key(tabsShow), handlers.show],
           [key(browserRead), handlers.read],
           [key(browserSnapshot), handlers.snapshot],
           [key(browserAct), handlers.act],

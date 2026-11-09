@@ -22,7 +22,7 @@ export const surfaceWorkspaceSchema = z
   })
   .strict();
 
-/** 요청대로 탭을 열었거나 닫았으면 opened다. 못 했으면 ack하지 않는다(main이 retry로 되돌린다). */
+/** 요청대로 탭을 열었거나 닫았거나 폈으면 opened다. 못 했으면 ack하지 않는다(main이 retry로 되돌린다). */
 export const surfaceAckSchema = z
   .object({ request: id("hrq"), opened: z.boolean() })
   .strict();

@@ -15,7 +15,7 @@ import {
   type HostTabTarget,
   type HostToolOutput,
   type HostWorkspace,
-  type TabPlace,
+  type TabRelation,
 } from "../../protocol/lophn-agent/host-queue.ts";
 
 // core 메모리의 host queue와 agent가 연 탭의 표다. 꺼지면 사라진다.
@@ -66,7 +66,7 @@ export type HostQueue = {
     owner: TabOwner;
     workspace: HostWorkspace;
     target: HostTabTarget;
-    place: TabPlace | null;
+    relation: TabRelation | null;
     source: Id<"ses"> | null;
     // target이 tui일 때 CLI를 다시 여는 값.
     resume?: { harness: string; external_session: string };
@@ -164,17 +164,21 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     }
   }
 
-  // 자기가 연 탭만 다룬다. 없는 탭과 남의 탭은 다르게 답한다(close: forbidden, read: not_found).
-  function owned(tab: Id<"tab">, caller: TabOwner, missing: "close" | "read") {
+  // 자기가 연 탭만 다룬다. 없는 탭과 남의 탭은 다르게 답한다(close·show: forbidden, read: not_found).
+  function owned(
+    tab: Id<"tab">,
+    caller: TabOwner,
+    missing: "close" | "show" | "read",
+  ) {
     const entry = tabs.get(tab);
     if (entry === undefined) {
       return err({ code: "not_found" as const, message: "tab not found" });
     }
     if (entry.owner !== caller) {
-      return missing === "close"
+      return missing !== "read"
         ? err({
             code: "forbidden" as const,
-            message: "only the caller that opened the tab can close it",
+            message: `only the caller that opened the tab can ${missing} it`,
           })
         : err({ code: "not_found" as const, message: "tab not found" });
     }
@@ -254,7 +258,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
           payload: {
             tab,
             target: input.target,
-            place: input.place,
+            relation: input.relation,
             source: input.source,
             resume: input.resume ?? null,
           },
@@ -333,6 +337,17 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       enqueue({
         id: deps.ids.newId("hrq") as Id<"hrq">,
         kind: "tab_close",
+        workspace: found.value.workspace,
+        payload: { tab },
+      });
+      return ok(tab);
+    },
+    show(tab: Id<"tab">, caller: TabOwner): Result<Id<"tab">> {
+      const found = owned(tab, caller, "show");
+      if (!found.ok) return found;
+      enqueue({
+        id: deps.ids.newId("hrq") as Id<"hrq">,
+        kind: "tab_show",
         workspace: found.value.workspace,
         payload: { tab },
       });

@@ -239,9 +239,13 @@ export const routerWiring: WiringFactory = () => {
         queue: ctx.queue,
         publish: (event) => ctx.bus.publish(event),
       });
-      // 같은 workspace의 자식은 부모 옆 group에 연다. 다른 workspace의 자식은 tree에만 있고 그 desk에는 그리지 않는다
-      // (agent 탭은 자기 workspace 창에만 그려진다). host queue는 늦게 채워지므로 부를 때 읽는다.
-      const openChildTab = (data: { parent: Id<"ses">; child: Id<"ses"> }) => {
+      // 같은 workspace의 자식은 부모에게 무엇인지(peer·stage)만 말해 연다. 자리는 renderer가 정한다. 다른 workspace의 자식은
+      // tree에만 있고 그 desk에는 그리지 않는다(agent 탭은 자기 workspace 창에만 그려진다). host queue는 늦게 채워지므로 부를 때 읽는다.
+      const openChildTab = (data: {
+        parent: Id<"ses">;
+        child: Id<"ses">;
+        relation: "peer" | "stage";
+      }) => {
         const rows = ledgerSnapshot(ctx.ledgerPath, (lookup) => ({
           parent: loadSession(lookup, data.parent),
           child: loadSession(lookup, data.child),
@@ -256,7 +260,7 @@ export const routerWiring: WiringFactory = () => {
           owner: data.parent,
           workspace: workspace ?? { kind: "home" },
           target: { session: data.child },
-          place: "group",
+          relation: data.relation,
           source: data.parent,
         });
       };

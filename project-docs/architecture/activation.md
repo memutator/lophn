@@ -48,6 +48,7 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 - 이전 release로 돌아가기도 같은 순서다. 사람만 시작하고(요청 행 `activation_requests`), 지금 활성 release와 data schema가 같은 `superseded` release만 고른다. migration이 없어서 앱 code만 바뀌고 DB는 그대로다.
 - 시도가 멈출 수 있는 곳은 둘이다. 닫혀 끝난 시도(`active` 또는 `failed`)와 앱을 붙든 채 멈춘 시도(`held`)다. held는 복원이나 종료를 확인하지 못해 앱을 사용 불가로 두고 이전 release도 띄우지 않은 상태이고, 매 sweep이 이어받는다.
 - 앱 process는 권한 flag 없이 뜬다(사람이 정했다).
+- 실행 허용(`run_enabled`)은 activation과 별개의 사람의 스위치다. 사람이 끄거나 보관하면 꺼지고, 보관을 되살려도 꺼진 채라 사람이 켜야 한다. activation이 대신 켜지 않는다. 사람의 입구는 App details 탭의 Run 절이다. 켜는 것은 active 보관 상태와 채택한 release가 있을 때만 받는다. 이미 켜진 채 crash loop로 멈춘 앱은 `AppRestartHalted`가 알리고, 종료 기록(10분 창, 다섯 번 초과)이 창에서 빠져야 다시 뜬다. 끄고 켜기나 새 activation은 창을 비우지 않는다.
 
 ## 지키는 것
 
@@ -146,6 +147,7 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 
 ## 열린 것
 
+- crash loop로 멈춘 앱은 창이 지나도 스스로 뜨지 않는다. 다음 reconcile(Run을 껐다 켜기, 새 activation, core 재시작)이 와야 한다. 사람 화면은 `Stopped after repeated crashes`로 알리고 안내만 한다.
 - 사람이 허락한 줄이나 돌아가기 요청 행을 시작하려다 `conflict`·`invalid_input`으로 거절되면 같은 줄을 매 sweep(1초)마다 다시 시작하려 하는지 확인하지 못했다. 거절은 조용히 돌려준다.
 - `held`의 이유(`restore_failed` 등)는 release 실패 기록에 남지 않고 `app_unavailable` 기록의 reason에만 남는다.
 - 실패 reason에는 앱의 migration script가 낸 글이 앞 200자까지 실릴 수 있다. 복원된 실패는 toast가 둘(실패, data 복원) 뜰 수 있다.

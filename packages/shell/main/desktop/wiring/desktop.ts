@@ -51,6 +51,7 @@ import {
   installGlobalPalette,
 } from "../global-shortcut.ts";
 import { guardShortcuts } from "../headless.ts";
+import { word } from "../i18n.ts";
 import { readOpenIntent } from "../open-intent.ts";
 import { createOpenExternal } from "../open-external.ts";
 import { browserDataPath } from "../paths.ts";
@@ -212,7 +213,19 @@ export function register(
   // `Stop lophn`은 core stop을 기다린 뒤 shell을 끝낸다. 응답을 잃지 않게 마지막에 끈다.
   const stopLophn = async () => {
     const stopped = await ctx.core.stopCore();
-    if (!stopped) log("core stop이 답하지 않았다. shell만 끝낸다");
+    if (!stopped) {
+      log("core stop이 답하지 않았다. shell만 끝낸다");
+      // 사람이 core가 남아 있을 수 있음을 모른 채 끝내지 않게 한다. 창이 없으면 로그만 남긴다.
+      const parent = BrowserWindow.getFocusedWindow();
+      const options = {
+        type: "warning" as const,
+        message: word("common.title.core-may-run"),
+        detail: word("common.stop.no-answer"),
+      };
+      await (parent
+        ? dialog.showMessageBox(parent, options)
+        : dialog.showMessageBox(options));
+    }
     ctx.stopAll();
   };
   // 앱 끄기가 창 닫기를 부르면 편집기 guard가 먼저 묻는다. 막으면 Electron이 끄기를 멈추므로

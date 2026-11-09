@@ -1,15 +1,19 @@
 // agent 설정 묶음의 page들. 동작하는 ProjectApp(과 Settings) 위에 상태 하나를 고정해 놓는다.
 import { t } from "@lophn/i18n";
+import { useMemo, useState } from "react";
 
 import { OPENAI } from "../../../../../packages/shell/renderer/desktop/settings/providers/testdata/fake-providers.ts";
 import {
   ANTHROPIC,
   BUDGET_REVIEWER_ID,
   EVAL_ANALYST_ID,
+  EXPERIMENT_PLANNER_ID,
+  createFakeAgentsSource,
   type FakeAgentsOptions,
   HOME_LOPHN_ID,
   PROJECT_LOPHN_ID,
 } from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
+import { AgentsPage } from "../../../../../packages/shell/renderer/workspace/agents/agents-page.tsx";
 import {
   AGENTS_TAB_SPEC,
   AgentSettingsEditor,
@@ -59,7 +63,7 @@ function editor(
 const GRANTS_TAB: Step = () =>
   press("[role=tab]", t("agents.label.tab-grants"));
 
-/** project의 Agents 탭. Settings에서 연다. */
+/** project의 Agents 탭. 탭 줄의 + menu에서 연다. */
 export const ProjectAgentsPage = () => alone(AGENTS_TAB_SPEC);
 
 // Home이나 앱의 Agents 탭. 같은 화면이 그 workspace의 층을 읽는다.
@@ -70,8 +74,29 @@ const agentsAt = (at: AgentsAt, title: string, source?: FakeAgentsOptions) =>
     body: <AgentsBody open={() => {}} at={at} source={source} />,
   });
 
-/** Home의 Agents 탭. Home lophn 카드의 범위는 Home이고, Home의 지침(LOPHN.md)·memory·model·skill·MCP 층이 있다. */
+/** Home의 Agents 탭. 목록은 모든 agent(전역과 project·앱 범위)이고 카드마다 범위가 보인다. Home lophn 카드의 범위는 Home이고, Home의 지침(LOPHN.md)·memory·model·skill·MCP 층이 있다. */
 export const HomeAgentsPage = () => agentsAt("home", "Home · Agents");
+
+/** Home 목록에서 project 범위 agent를 열었다. editor는 그 agent의 workspace(phroner)로 열린다. */
+export const HomeAgentsOpenScopedPage = () => {
+  const [agent, setAgent] = useState<string | null>(EXPERIMENT_PLANNER_ID);
+  const source = useMemo(() => createFakeAgentsSource(), []);
+  return alone({
+    ...AGENTS_TAB_SPEC,
+    title: "Home · Agents",
+    body: (
+      <AgentsPage
+        workspace="home"
+        workspaceName="Home"
+        source={source}
+        agent={agent}
+        onAgent={setAgent}
+        onAddExtension={() => {}}
+        onChanged={() => {}}
+      />
+    ),
+  });
+};
 
 /** 앱의 Agents 탭. 지침은 앱 source의 AGENTS.md다. */
 export const AppAgentsPage = () => agentsAt("app", "Budget tracker · Agents");

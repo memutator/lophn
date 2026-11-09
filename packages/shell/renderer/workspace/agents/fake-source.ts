@@ -83,6 +83,7 @@ export {
   APP_NAME,
   BUDGET_REVIEWER_ID,
   EVAL_ANALYST_ID,
+  EXPERIMENT_PLANNER_ID,
   FAKE_AGENTS,
   FAKE_GRANTS,
   GLOBAL_LOPHN_MD,
@@ -494,6 +495,15 @@ export function createFakeAgentsSource(
     ];
   };
 
+  // Home의 Agents 탭: Home lophn, 전역, 모든 workspace의 범위 agent.
+  const visibleEverything = () => {
+    ensureLophn(lophnIdOf(null));
+    return [
+      ...[...stored].filter(([key]) => key === lophnIdOf(null)),
+      ...[...stored].filter(([key]) => !isLophn(key)),
+    ];
+  };
+
   const ALL_MODALITIES = ["text", "image", "file"] as const;
 
   // lophn의 범위는 정의 file이 아니라 id가 말한다.
@@ -672,9 +682,18 @@ export function createFakeAgentsSource(
       }
       return Promise.resolve(
         ok({
-          agents: visible(workspace).map(([key, item]) =>
-            rowOf(key, item, workspace),
-          ),
+          agents: (workspace === "home"
+            ? visibleEverything()
+            : visible(workspace)
+          ).map(([key, item]) => {
+            const row = rowOf(key, item, workspace);
+            return row.workspace === null
+              ? row
+              : {
+                  ...row,
+                  workspaceName: nameOfWorkspace(row.workspace.id),
+                };
+          }),
           instructions: instructionsOf(workspace),
           workspaceModel: {
             chosen: layerOf(workspace).model,

@@ -93,6 +93,8 @@ export const common = {
   "common.quit.terminals-and-saves":
     "Running terminals will stop and changes that are still being saved may be lost. Apps and scheduled work stop until you open lophn again.",
   "common.stale.label": "Last updated {age}",
+  "common.stop.no-answer":
+    "lophn closes now, but the background core didn't confirm that it stopped and may still be running. Apps and scheduled work may keep running until you stop it yourself.",
   "common.title.agent-failed": "{agent}'s turn failed",
   "common.title.agent-failed-in": "{agent}'s turn failed · {workspace}",
   "common.title.agent-finished": "{agent} finished",
@@ -103,6 +105,7 @@ export const common = {
   "common.title.coding-agent-register-failed":
     "Couldn't set up lophn for {harness}",
   "common.title.coding-agent-registered": "lophn is set up for {harness}",
+  "common.title.core-may-run": "Core may still be running",
   "common.title.pick-file": "Choose a file",
   "common.title.pick-folder-register": "Choose a project folder",
   "common.title.pick-folder-relocate": "Choose the folder's new location",

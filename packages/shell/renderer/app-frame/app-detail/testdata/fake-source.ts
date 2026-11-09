@@ -14,6 +14,7 @@ import type {
   RewindItem,
   RewindPlanView,
   RewindResult,
+  RunView,
   SecretInfo,
   SourceResult,
   VersionView,
@@ -68,6 +69,8 @@ interface FakeOptions {
   failing?: readonly string[];
   /** Access 탭의 secret 줄들. */
   secrets?: SecretsFake;
+  /** 실행 상태. 기본은 running. halted는 켜진 채 crash loop로 멈춘 것이다. */
+  run?: "running" | "stopped" | "halted";
   /** 다른 앱 이름. */
   names?: Readonly<Record<string, string>>;
 }
@@ -530,7 +533,22 @@ export function fakeDetail(options: FakeOptions = {}) {
     };
   };
 
+  // 끄면 stopped, 켜면 running으로 바로 간다. halted에서 껐다 켜도 같다(실제는 10분 창이 지나야 다시 돈다).
+  let run: RunView = {
+    enabled: (options.run ?? "running") !== "stopped",
+    state: options.run ?? "running",
+  };
+
   const source: AppDetailSource = {
+    run: () => reply("run", run),
+    setRun: (_app, enabled) => {
+      calls.push(["setRun", enabled]);
+      if (failing.has("setRun")) {
+        return Promise.resolve({ ok: false, code: "conflict" });
+      }
+      run = { enabled, state: enabled ? "running" : "stopped" };
+      return Promise.resolve({ ok: true, value: true });
+    },
     icon: () =>
       reply("icon", { src: uploadedIcon, uploaded: uploadedIcon !== null }),
     setIcon: (_app, icon) => {

@@ -21,6 +21,7 @@ interface NewTabMenuProps {
   browserItems?: readonly QuickHoverItem[];
   choices?: readonly AgentChoice[];
   onChoice?: (choice: AgentChoice) => void;
+  onAgents?: () => void;
   onSearch?: () => void;
   onAppPanel?: () => void;
   appItems?: readonly QuickHoverItem[];
@@ -98,6 +99,12 @@ export function NewTabMenu(props: NewTabMenuProps) {
       items: sectionMenuItems(sections),
     });
   }
+  if (props.onAgents)
+    root.push({
+      id: "agents",
+      label: t("project-workspace.label.kind-agents"),
+      leading: lead(commonIcons.agents),
+    });
   if (props.onSearch)
     root.push({
       id: "search",
@@ -138,6 +145,7 @@ export function NewTabMenu(props: NewTabMenuProps) {
         if (id === "document") props.onDocument?.();
         else if (id === "terminal") props.onTerminal?.();
         else if (id === "browser") props.onBrowser?.();
+        else if (id === "agents") props.onAgents?.();
         else if (id === "search") props.onSearch?.();
         else if (id === "app-screen") props.onAppScreen?.();
         else if (id === "app-panel") props.onAppPanel?.();

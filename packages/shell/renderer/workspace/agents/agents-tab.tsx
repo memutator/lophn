@@ -68,7 +68,7 @@ function countsText(row: AgentListRow): string {
 
 function AgentCardView({
   row,
-  workspaceName,
+  workspaceName: tabWorkspaceName,
   imageSrc,
   onOpen,
 }: {
@@ -77,6 +77,8 @@ function AgentCardView({
   imageSrc: ImageSrc;
   onOpen: () => void;
 }): ReactElement {
+  // Home 목록에는 다른 workspace의 범위 agent가 섞여 있어 줄이 자기 범위의 이름을 가진다.
+  const workspaceName = row.workspaceName ?? tabWorkspaceName;
   return (
     <li
       className={styles.card}
@@ -184,7 +186,13 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
   return (
     <div className={styles.page} data-agents-tab="">
       <h1 className={styles.title}>{t("project-workspace.heading.agents")}</h1>
-      <p className={styles.lead}>{t("agents.notice.tab-lead")}</p>
+      <p className={styles.lead}>
+        {t(
+          kind === "home"
+            ? "agents.notice.tab-lead-home"
+            : "agents.notice.tab-lead",
+        )}
+      </p>
 
       <Section
         name="agents"

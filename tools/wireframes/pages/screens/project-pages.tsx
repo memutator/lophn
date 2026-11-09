@@ -56,7 +56,7 @@ export function EditorTabs() {
   );
 }
 
-/** + 메뉴를 펼친 상태. New tab → Document, Terminal, Agent ▸, Search, App panel. Agent ▸는 같은 menu가 agent 목록으로 바뀐다. Agents(관리 탭)는 없다. */
+/** + 메뉴를 펼친 상태. New tab → Document, Terminal, Agent ▸, Agents, Search, App panel. Agent ▸는 같은 menu가 agent 목록으로 바뀐다. Agents는 이 workspace의 Agents(관리) 탭을 연다. */
 export function NewTabMenu() {
   return (
     <ProjectApp

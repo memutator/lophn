@@ -46,6 +46,8 @@ export interface AgentListRow {
   readonly handle: string;
   /** 범위 workspace. null이면 전역이다. */
   readonly workspace: AgentWorkspace | null;
+  /** 범위 workspace의 이름. Home의 목록(모든 agent)에서 범위 agent의 줄에만 있다. */
+  readonly workspaceName?: string;
   /** 보이는 이름이다. 겹쳐도 되고 바꿀 수 있다. */
   readonly name: string;
   readonly profile: Profile;
@@ -63,7 +65,7 @@ export interface AgentListRow {
 
 /** Agents 탭 본문 한 번에 필요한 값. */
 export interface AgentsOverview {
-  /** 전역 agent와 이 workspace 범위 agent(lophn이 첫 줄). */
+  /** 전역 agent와 이 workspace 범위 agent(lophn이 첫 줄). Home은 모든 workspace의 범위 agent도 싣는다. */
   readonly agents: readonly AgentListRow[];
   /** 같이 쓰는 지침. 파일이 없거나 읽을 수 없으면 빈 글이다. source를 잇지 않은 앱은 고치지 못하는 빈 글이다. */
   readonly instructions: WorkspaceInstructionsView;

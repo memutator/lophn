@@ -54,6 +54,8 @@ export const agents = {
     "This agent can remember things once it is saved.",
   "agents.notice.tab-lead":
     "Global agents work in every project and app. An agent scoped to this workspace shows only here. A session works in the workspace where you open it.",
+  "agents.notice.tab-lead-home":
+    "Home lists every agent: global ones and those scoped to a project or app. A scoped agent works only in its own workspace, and a session works in the workspace where you open it.",
   "agents.button.assign-app": "Assign app",
   "agents.button.choose-character": "Choose character",
   "agents.button.create-agent": "Create agent",

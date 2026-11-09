@@ -10,10 +10,11 @@ flows:
       - Agents 화면이 agents/list(workspace를 주면 그 범위)나 agents/read(agent 하나)를 부른다
       - core가 정의 file을 읽고 틀린 칸을 항목별 issues로 싣는다. 틀린 file도 목록에 남고 오류로 끊지 않는다
       - 목록은 전역 agent와 그 workspace의 범위 agent를 보이고, lophn은 자기 workspace의 것만 보인다
+      - Home의 Agents 탭은 workspace 없이 불러 전역과 모든 workspace의 범위 agent를 한 목록으로 보이고(다른 workspace의 lophn은 화면이 뺀다), 범위 agent는 그 agent 자신의 workspace로 read한다
       - file이 없는 lophn의 read는 기본 정의(definition null, hash null)를 준다
     outcomes:
       - id: ok
-        observe: [response]
+        observe: [response, "screen:agents-tab-home"]
       - id: agent-not-found
         code: not_found
         when: read에서 agent나 workspace가 없다. agent 자격에게는 보관된 앱 workspace의 agent도 없다

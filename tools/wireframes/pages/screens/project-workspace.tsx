@@ -430,7 +430,7 @@ export const projectWorkspaceArea: Area = {
       id: "new-project-tab-menu",
       title: "Project · new tab menu",
       description:
-        "탭 줄 끝의 + 메뉴를 펼친 상태다. Terminal 바로 뒤에 Browser가 있고, Agent 하위 메뉴에 lophn과 사람이 만든 agent 셋이 있다. Agents(관리 탭) 항목은 없다.",
+        "탭 줄 끝의 + 메뉴를 펼친 상태다. Terminal 바로 뒤에 Browser가 있고, Agent 하위 메뉴에 lophn과 사람이 만든 agent 셋이 있고, 그 아래 Agents 항목이 이 workspace의 Agents(관리) 탭을 연다.",
       render: () => <NewTabMenu />,
     },
     {

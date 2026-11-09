@@ -51,6 +51,8 @@ interface AppWorkspaceProps {
   /** 주면 App details 탭을 고른 채 그 안의 이 탭을 연다. */
   readonly ops?: OpsTab;
   readonly version?: ActivationState;
+  /** App details 위쪽 Run 절의 상태. 없으면 running이다. */
+  readonly run?: "running" | "stopped" | "halted";
   /** Access 탭에서 이미 거두기를 요청한 항목. */
   readonly revoking?: readonly string[];
   /** Access 탭의 secret 줄들. 없으면 plain secret 하나다. */
@@ -222,6 +224,7 @@ export function AppSpace(props: AppWorkspaceProps = {}) {
       }),
       detail: fakeDetail({
         ...(props.version === undefined ? {} : { activation: props.version }),
+        ...(props.run === undefined ? {} : { run: props.run }),
         ...(props.secrets === undefined ? {} : { secrets: props.secrets }),
         ...(props.revoking === undefined
           ? {}

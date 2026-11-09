@@ -158,6 +158,7 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 - shell의 single-instance lock은 남긴다. 이유: 창 하나·탭 하나를 지키는 것이라 core lock과 따로다. (agent)
 - core가 crash해도 core 쪽에서 다시 띄우는 감독은 두지 않는다. 다음 ensure가 띄운다. 놓친 job 차례는 놓친 차례 정책(`run`, `hold`)이 받는다. (agent)
 - 명시 stop 뒤 shell은 core를 저절로 다시 띄우지 않는다. (agent)
+- `Stop lophn`에서 control stop이 답하지 않으면 shell은 그래도 끝나되 먼저 native message box로 core가 남아 있을 수 있다고 알린다. 이유: 끝난 뒤에는 알릴 화면이 없어 사람이 앱과 job이 계속 돈다는 것을 모른다. 버린 안: 끝내지 않고 재시도(답이 없는 core를 두고 shell만 붙들게 된다). (agent)
 - core를 shell과 떼어 "끄고 바로 켜면 lophn이 안 뜬다"는 경쟁(shell이 먼저 끝나고 옛 core가 lock을 쥔 채 조금 더 살아 새 core가 `start_failed`로 멈춤)이 사라졌다. 새 shell은 identify에 답하는 core에 붙거나, 끝나는 중이면 기다린다. (해결된 이슈)
 
 ## 열린 것

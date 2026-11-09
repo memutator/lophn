@@ -276,7 +276,25 @@ interface StartedPreview {
   readonly nonce: string;
 }
 
+/** 실행 상태. halted는 crash loop로 자동 재시작이 멈춘 것이다. preparing은 채택한 release가 아직 없다. */
+export type RunState =
+  | "running"
+  | "unavailable"
+  | "stopped"
+  | "halted"
+  | "preparing";
+
+export interface RunView {
+  /** 사람이 켠 실행 허용(run_enabled). halted여도 true다. */
+  readonly enabled: boolean;
+  readonly state: RunState;
+}
+
 export interface AppDetailSource {
+  /** 실행 허용과 지금 실행 상태. */
+  run(app: string): Promise<SourceResult<RunView>>;
+  /** 실행 허용을 켜거나 끈다. 끄면 앱 process가 멈추고, 보관된 앱은 켤 수 없다(conflict). */
+  setRun(app: string, enabled: boolean): Promise<SourceResult<true>>;
   /** 앱 icon. 사람이 올린 것이 선언한 것보다 앞선다. 읽을 때마다 core에서 새로 읽는다. */
   icon(app: string): Promise<SourceResult<IconView>>;
   /** 올린 icon을 정한다. null이면 올린 것을 지워 선언한 icon(없으면 첫 글자 표식)으로 돌아간다. */

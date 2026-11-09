@@ -10,6 +10,7 @@ import {
   emptyDesk,
   type FloatRect,
   type WorkspaceRef,
+  type TabItem,
 } from "../desk-model.ts";
 import { tabFromStored, tabToStored } from "../layout-source.ts";
 
@@ -60,10 +61,11 @@ const HOME: WorkspaceRef = { kind: "home" };
 /** 저장한 float을 읽는다. 이 kind를 모르거나 값이 맞지 않는 탭은 그 float만 빠진다. */
 function loadedOf(
   records: readonly GlobalFloatRecord[],
+  keep: (tab: TabItem) => boolean,
 ): Pick<GlobalFloatsState, "desk" | "workspaces"> {
   const items = records.flatMap((item) => {
     const tab = tabFromStored(item.tab);
-    return tab === null ? [] : [{ item, tab }];
+    return tab === null || !keep(tab) ? [] : [{ item, tab }];
   });
   return {
     desk: {
@@ -121,6 +123,8 @@ const SAVE_DELAY = 200;
 
 export function createGlobalFloatsStore(
   bridge: () => GlobalFloatsBridge | undefined,
+  // 읽은 float 가운데 둘 것. 살아 있는 PTY가 없는 터미널을 뺀다(파일에서는 다음 저장 때 지워진다).
+  keep: (tab: TabItem) => boolean = () => true,
 ) {
   let state = EMPTY;
   // 처음 읽기가 끝나기 전의 바뀜은 읽은 목록 위에 얹는다. 먼저 쓰면 저장된 float을 덮어 잃는다.
@@ -187,7 +191,7 @@ export function createGlobalFloatsStore(
       const reply = await (api?.read() ?? Promise.resolve(null)).catch(
         () => null,
       );
-      const loaded = loadedOf(reply?.ok ? reply.floats : []);
+      const loaded = loadedOf(reply?.ok ? reply.floats : [], keep);
       if (!ready) {
         ready = true;
         let next = loaded;

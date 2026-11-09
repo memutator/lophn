@@ -177,15 +177,18 @@ export function useGlobalFloatsHost(): GlobalFloatsHost | null {
 export function GlobalFloatsProvider({
   enabled = true,
   bridge = globalBridge,
+  keep,
   children,
 }: {
   /** false면 읽지도 쓰지도 않는다(detached 창, 앱 전용 창). */
   enabled?: boolean;
   bridge?: () => GlobalFloatsBridge | undefined;
+  /** 파일에서 읽은 float 가운데 둘 것. 창의 터미널 store가 모르는 터미널(PTY가 없다)을 뺀다. */
+  keep?: (tab: TabItem) => boolean;
   children: ReactNode;
 }) {
   const appViews = useAppViews();
-  const [store] = useState(() => createGlobalFloatsStore(bridge));
+  const [store] = useState(() => createGlobalFloatsStore(bridge, keep));
   const state = useSyncExternalStore(store.subscribe, store.get);
   const targetRef = useRef<DeskTarget | null>(null);
   // 받는 창이 있는지와 그 창의 workspace. 바뀌면 "이 desk로" 단추가 따라 바뀐다.

@@ -514,6 +514,10 @@ export function Desktop({
               enabled={
                 route.space !== "detached" && route.space !== "app-window"
               }
+              keep={(tab) =>
+                tab.kind !== "terminal" ||
+                terminal?.store.get(tab.key) !== undefined
+              }
             >
               <WorkspaceViewsProvider>
                 {space}

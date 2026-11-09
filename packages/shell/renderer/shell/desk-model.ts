@@ -1479,6 +1479,27 @@ export function allTabs(layout: WorkspaceLayout): TabItem[] {
   return Object.values(layout.desks).flatMap(deskTabs);
 }
 
+/** 모든 desk의 docked·floated tab 가운데 drop이 고른 것을 닫는다. detached는 다른 창의 것이라 둔다. 없으면 layout 그대로다. */
+export function dropLayoutTabs(
+  layout: WorkspaceLayout,
+  drop: (tab: TabItem) => boolean,
+): WorkspaceLayout {
+  let changed = false;
+  const desks = Object.fromEntries(
+    Object.entries(layout.desks).map(([key, desk]) => {
+      let next = desk;
+      for (const tab of desk.tabs)
+        if (drop(tab)) next = closeTab(next, tab.key);
+      for (const item of desk.floats) {
+        if (drop(item.tab)) next = closeFloat(next, item.tab.key);
+      }
+      if (next !== desk) changed = true;
+      return [key, next];
+    }),
+  );
+  return changed ? { ...layout, desks } : layout;
+}
+
 /** 모든 desk의 모든 tab에 change를 적용한다. 바뀐 것이 없으면 layout 그대로다. */
 export function mapLayoutTabs(
   layout: WorkspaceLayout,

@@ -71,6 +71,7 @@ import {
   detachTab,
   dirsOf,
   dockFloat,
+  dropLayoutTabs,
   entryKey,
   findTab,
   floatTab,
@@ -548,8 +549,14 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     const load = async () => {
       const read = await source.layout.readWorkspaceLayout(workspace);
       if (!live) return;
-      const restored =
-        read.ok && read.layout !== null ? read.layout : freshLayout();
+      // 이 창의 터미널 store가 모르는 터미널 탭은 살아 있는 PTY가 없다(lophn을 다시 켰다). 되살리면 새 shell을 띄우므로 뺀다.
+      // workspace를 오가는 동안은 store가 PTY를 들고 있어 남는다.
+      const terminals = props.terminal?.store;
+      const restored = dropLayoutTabs(
+        read.ok && read.layout !== null ? read.layout : freshLayout(),
+        (tab) =>
+          tab.kind === "terminal" && terminals?.get(tab.key) === undefined,
+      );
       latestLayout.current = restored;
       setLayout(restored);
       // 보이는 desk의 detached 창만 연다. 다른 desk의 것은 그 desk로 갈 때 syncDetached가 연다.

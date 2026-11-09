@@ -14,6 +14,7 @@ import {
   deskEntries,
   detachTab,
   dockFloat,
+  dropLayoutTabs,
   emptyDesk,
   entryKey,
   findTab,
@@ -608,4 +609,25 @@ test("끌어 놓기는 어떤 조합에서도 tab을 잃거나 둘로 만들지 
     { kind: "pane", target: "y", zone: "center" },
   );
   assert.equal(swapped.selected, "x");
+});
+
+// 다시 켠 뒤 PTY 없는 터미널 탭을 layout에서 뺀다. 고른 것만 빠지고 다른 창의 detached는 남는다.
+test("dropLayoutTabs는 docked·floated에서 고른 탭만 빼고 detached는 둔다", () => {
+  let desk = emptyDesk(MAIN_DESK, "Main");
+  desk = openTab(desk, tab("dead"));
+  desk = openTab(desk, tab("live"));
+  desk = openTab(desk, tab("float"));
+  desk = floatTab(desk, "float", RECT);
+  desk = openTab(desk, tab("away"));
+  desk = detachTab(desk, "away", BOUNDS);
+  const layout: WorkspaceLayout = {
+    active: MAIN_DESK,
+    desks: { [MAIN_DESK]: desk },
+  };
+  const dropped = dropLayoutTabs(layout, (item) => item.key !== "live");
+  assert.deepStrictEqual(keysOf(dropped.desks[MAIN_DESK]!), ["live", "away"]);
+  assert.equal(
+    dropLayoutTabs(layout, () => false),
+    layout,
+  );
 });

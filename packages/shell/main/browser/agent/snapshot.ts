@@ -22,8 +22,8 @@ export function createRefs() {
   let counter = 0;
   let table = new Map<string, number>();
   return {
-    /** 표를 이 snapshot의 것으로 갈고 줄을 낸다. */
-    render(nodes: AxNode[]): string {
+    /** 표를 이 snapshot의 것으로 갈고 줄을 낸다. hidden은 value를 찍지 않는 칸(`type=password`)의 backend node id다. */
+    render(nodes: AxNode[], hidden: ReadonlySet<number> = new Set()): string {
       const byId = new Map(nodes.map((node) => [node.nodeId, node]));
       const root = nodes[0];
       const next = new Map<string, number>();
@@ -46,7 +46,12 @@ export function createRefs() {
           (name !== "" || !PLAIN.has(role));
         let inner = above;
         if (shown) {
-          const value = text(node.value?.value).slice(0, NAME_MAX);
+          // Chromium AX가 password 값을 가리는지에 기대지 않는다. 비었는지만 알린다.
+          const raw = text(node.value?.value).slice(0, NAME_MAX);
+          const value =
+            raw !== "" && hidden.has(node.backendDOMNodeId as number)
+              ? "••••"
+              : raw;
           const line = `${"  ".repeat(depth)}- ${role}${name === "" ? "" : ` ${JSON.stringify(name)}`}${value === "" ? "" : ` value=${JSON.stringify(value)}`}`;
           // 자른 줄은 ref를 받지 않는다.
           if (size + line.length + 16 > SNAPSHOT_MAX) {

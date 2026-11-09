@@ -4,6 +4,7 @@ import { idSchema } from "../base/ids.ts";
 import { defineMemory } from "../base/route.ts";
 import { extensionToolContentSchema } from "../extensions/manifest.ts";
 import { artifactNameSchema } from "../projects/values.ts";
+import { loginIdSchema } from "../secrets/logins.ts";
 import { workspaceSchema } from "./workspaces.ts";
 
 // core 메모리의 host queue다. core가 shell에 시킬 일(탭 열기·닫기, extension tool 호출, browser 호출)을 담고, shell main이
@@ -158,6 +159,14 @@ export const browserActSchema = z.discriminatedUnion("type", [
     type: z.literal("scroll"),
     ref: browserRefSchema.optional(),
     dy: z.number().int().min(-100_000).max(100_000).optional(),
+  }),
+  // 저장된 login의 값을 친다. id만 싣고 값은 싣지 않는다. core는 `username`이면 metadata의 글을 `fill`로 바꿔 보내고, shell main은
+  // `password`·`totp`를 ref 요소가 든 frame의 origin으로 `logins/release`에서 받아 친다.
+  z.strictObject({
+    type: z.literal("fill_login"),
+    ref: browserRefSchema,
+    login: loginIdSchema,
+    field: z.enum(["username", "password", "totp"]),
   }),
 ]);
 export type BrowserAct = z.infer<typeof browserActSchema>;
@@ -382,6 +391,8 @@ const browserPageSchema = z.strictObject({
   title: z.string(),
   // 조작 중 열린 dialog를 닫았으면 그 내용이다.
   dialog: z.strictObject({ type: z.string(), message: z.string() }).optional(),
+  // fill_login이 쳤다. 값은 어디에도 없다.
+  filled: z.literal(true).optional(),
 });
 export type BrowserPage = z.infer<typeof browserPageSchema>;
 
@@ -400,12 +411,15 @@ export const browserAct = defineMemory({
       "hover",
       "select",
       "scroll",
+      "fill_login",
     ]),
     ref: z.string().optional(),
     text: z.string().optional(),
     key: z.string().optional(),
     values: z.array(z.string()).optional(),
     dy: z.number().optional(),
+    login: z.string().optional(),
+    field: z.string().optional(),
   }),
   output: browserPageSchema,
   actors: ["agent", "user"],

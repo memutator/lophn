@@ -30,6 +30,7 @@ const pageText = (page: BrowserPage) =>
     ...(page.dialog === undefined
       ? []
       : [`dialog: ${page.dialog.type}: ${page.dialog.message}`]),
+    ...(page.filled === true ? ["filled: true"] : []),
   ].join("\n");
 
 const read = defineCommand({
@@ -85,6 +86,7 @@ const ACT_TYPES = [
   "click",
   "type",
   "fill",
+  "fill-login",
   "press",
   "hover",
   "select",
@@ -92,9 +94,11 @@ const ACT_TYPES = [
 ] as const;
 const act = defineCommand({
   name: "browser.act",
-  summary: "Click, type, fill, press a key, hover, select or scroll in a tab",
+  summary:
+    "Click, type, fill, fill a saved login, press a key, hover, select or scroll in a tab",
   description:
     "Do one action in a tab you opened: click|hover --ref e12; type --ref e12 --text … (appends to the value); fill --ref e12 --text … (replaces the value); " +
+    "fill-login --ref e7 --login lgn_… --field username|password|totp (types a saved login's value: the value never passes through you, and a password or TOTP code is typed only if the page's origin is exactly the login's origin; pick the id with `lophn login list --origin <origin>`; if several match, use the one your memory names for this job, else ask the person; never type a password with type or fill); " +
     "press --key Enter|Control+a [--ref e12]; select --ref e12 --values <value or label> (repeat --values for several); scroll [--ref e12 | --dy <px>] (ref scrolls it into view). " +
     "Returns the page url and title afterwards (and the dialog if one was closed). An old ref is conflict: run browser snapshot again. " +
     "conflict also means a person is controlling the tab or DevTools is open (the message says what to do).",
@@ -106,13 +110,18 @@ const act = defineCommand({
     key: z.string().optional(),
     values: z.array(z.string()).optional(),
     dy: z.number().int().optional(),
+    login: z.string().optional(),
+    field: z.enum(["username", "password", "totp"]).optional(),
   }),
   positional: ["tab", "type"],
   effect: "external",
   routes: [browserAct],
   workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
-    const page = await ctx.core.read(browserAct, input);
+    const page = await ctx.core.read(browserAct, {
+      ...input,
+      type: input.type === "fill-login" ? "fill_login" : input.type,
+    });
     if (!page.ok) return page;
     return ok({
       summary: `${input.type}: ${page.value.url}`,

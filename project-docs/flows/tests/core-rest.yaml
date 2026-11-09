@@ -262,7 +262,7 @@ files:
       - host-browser-tab-open:page-timeout
       - host-shell-launch:shared
       - host-shell-launch:backoff
-    note: "createTabHandlers 직접 호출. preview 탭은 그 앱 workspace의 session과 사람 token만 열고(다른 앱·project·home session은 not_found), 사람 token은 session 탭을 열지 못하며(invalid_input), 돌고 있는 preview가 없으면 conflict. 같은 앱의 preview 탭은 하나고 주인은 나중에 연 쪽이라 이전 주인의 close는 forbidden. browser 호출은 주인만 하고 남이나 사람이 연 탭은 not_found, 주인은 shell이 붙지 않아 unavailable. device 이름 not_found와 shell 쪽 판정(낡은 ref 등)은 covers 밖. browser 탭 열기는 workspace를 띄운 창 없이도 shell에 가고 page가 붙어야 성공하며 기한이 지나면 unavailable에 탭이 남지 않는다. shell이 없으면 한 번만 띄우고 붙어서 bind되면 성공하고, 30초 안에 붙지 않거나 spawn이 실패하면 같은 시도가 함께 unavailable이며 5분은 다시 띄우지 않고 바로 실패한다. 앱이 끝나 shell이 없으면 browser 탭은 표에서 빠지고 없는 탭과 같은 not_found 문장이다. preview·artifact 탭은 shell이 없어도 띄우지 않는다"
+    note: "createTabHandlers 직접 호출. fill_login은 없는 login id가 not_found이고 queue 항목에 login id만 있으며 username은 metadata의 글로 fill이 되고 결과에 filled가 붙는다. browser 결과의 알려진 secret 값은 지워진다. preview 탭은 그 앱 workspace의 session과 사람 token만 열고(다른 앱·project·home session은 not_found), 사람 token은 session 탭을 열지 못하며(invalid_input), 돌고 있는 preview가 없으면 conflict. 같은 앱의 preview 탭은 하나고 주인은 나중에 연 쪽이라 이전 주인의 close는 forbidden. browser 호출은 주인만 하고 남이나 사람이 연 탭은 not_found, 주인은 shell이 붙지 않아 unavailable. device 이름 not_found와 shell 쪽 판정(낡은 ref 등)은 covers 밖. browser 탭 열기는 workspace를 띄운 창 없이도 shell에 가고 page가 붙어야 성공하며 기한이 지나면 unavailable에 탭이 남지 않는다. shell이 없으면 한 번만 띄우고 붙어서 bind되면 성공하고, 30초 안에 붙지 않거나 spawn이 실패하면 같은 시도가 함께 unavailable이며 5분은 다시 띄우지 않고 바로 실패한다. 앱이 끝나 shell이 없으면 browser 탭은 표에서 빠지고 없는 탭과 같은 not_found 문장이다. preview·artifact 탭은 shell이 없어도 띄우지 않는다"
 
   - path: packages/core/main/daemon/wiring/lophn-agent-registration_test.ts
     covers: [call-send:ambiguous-app]

@@ -105,6 +105,18 @@ export interface CoreConnection {
     | { ok: true; confirmation: string; expiresAt: string }
     | { ok: false; error: { code: string; message: string } }
   >;
+  /**
+   * `logins/release`를 부른다. shell capability를 입력에 싣는 곳은 여기뿐이고 값은 호출한 쪽(browser driver)에만 돌아간다.
+   * origin은 부르는 쪽이 ref 요소가 든 frame에서 잰 값이다.
+   */
+  releaseLogin(request: {
+    id: string;
+    field: "password" | "totp";
+    origin: string;
+  }): Promise<
+    | { ok: true; value: { value: string } }
+    | { ok: false; error: { code: string; message: string } }
+  >;
 }
 
 /** Gateway가 끊긴 뒤 다시 붙기까지의 대기. 곧바로 실패하는 연결이 core를 두드리지 않게 한다. */
@@ -392,6 +404,21 @@ export function startCoreConnection(
       if (!controlDiagnosticSchema.safeParse(message).success) return false;
       void control.diagnostic(message as Diagnostic);
       return true;
+    },
+    async releaseLogin(request) {
+      if (attached === undefined) {
+        return {
+          ok: false,
+          error: { code: "unavailable", message: "core is not ready" },
+        };
+      }
+      const released = await attached.session.internal(
+        "memory",
+        "logins",
+        "release",
+        { ...request, shell_capability: attached.capability },
+      );
+      return released as Awaited<ReturnType<CoreConnection["releaseLogin"]>>;
     },
     registerConfirmation(request) {
       const run = () => registerOnce(control, attached, request);

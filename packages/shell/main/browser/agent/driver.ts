@@ -1,6 +1,8 @@
 // core의 `browser_call` 요청을 실제 탭에 돌리는 port다. surface가 요청을 가져와 여기에 넘기고 결과를 `host/done`에 싣는다.
 // 탭의 page에는 `webContents.debugger`(CDP)로 붙는다. 마우스·키는 CDP `Input.*`만 쓴다: webContents의 입력 주입 API는 webview guest에 닿지 않는다.
+import { ERROR_CODES } from "../../../../base/mod.ts";
 import type {
+  BrowserAct,
   HostRequest,
   HostToolOutput,
 } from "../../../../protocol/lophn-agent/host-queue.ts";
@@ -18,7 +20,18 @@ export type BrowserDriver = {
   run(payload: BrowserCallPayload): Promise<HostToolOutput>;
 };
 
+/** shell main이 core `logins/release`를 shell capability로 부른 결과. 값은 이 결과에만 있다. */
+export type LoginRelease =
+  | { ok: true; value: { value: string } }
+  | { ok: false; error: { code: string; message: string } };
+
 export interface BrowserDriverDeps {
+  /** frame의 origin(CDP가 잰 값)으로 login 값을 받는다. capability는 부르는 쪽이 들고 driver는 모른다. */
+  releaseLogin(request: {
+    id: string;
+    field: "password" | "totp";
+    origin: string;
+  }): Promise<LoginRelease>;
   /** renderer가 그 탭의 view로 알린 session. 창이 모르면 undefined다. */
   viewSession(tab: string): string | undefined;
   lookup: PageLookup;
@@ -52,6 +65,20 @@ const SHOT_MS = 8_000;
 const LOAD_MS = 15_000;
 const VALUE_MAX = 20_000;
 const DOMAINS = ["Page", "Runtime", "Log", "DOM", "Accessibility"];
+interface FrameNode {
+  frame: { id: string; securityOrigin?: string };
+  childFrames?: FrameNode[];
+}
+interface DomNode {
+  backendNodeId: number;
+  nodeName?: string;
+  /** [이름, 값, 이름, 값, ...] */
+  attributes?: string[];
+  frameId?: string;
+  children?: DomNode[];
+  shadowRoots?: DomNode[];
+  contentDocument?: DomNode;
+}
 
 interface Session {
   page: Page;
@@ -63,6 +90,8 @@ interface Session {
   logs: string[];
   /** 아직 결과에 싣지 않은, 자동으로 닫은 dialog. */
   dialogs: { type: string; message: string }[];
+  /** fill_login이 값을 치는 frame. 그 frame이나 최상위가 이동하거나 frame이 떨어지면 moved가 선다. */
+  typing: { frame: string; moved: boolean } | undefined;
 }
 
 type RemoteArg = {
@@ -110,6 +139,7 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
       grabbed: false,
       logs: [],
       dialogs: [],
+      typing: undefined,
     };
     sessions.set(tab, session);
     page.subscribe({
@@ -137,8 +167,20 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
     params: Record<string, unknown>,
   ): void {
     if (method === "Page.frameNavigated") {
-      const frame = params.frame as { parentId?: string };
+      const frame = params.frame as { id: string; parentId?: string };
       if (frame.parentId === undefined) session.refs.clear();
+      const { typing } = session;
+      if (
+        typing !== undefined &&
+        (frame.parentId === undefined || frame.id === typing.frame)
+      ) {
+        typing.moved = true;
+      }
+    } else if (method === "Page.frameDetached") {
+      const { typing } = session;
+      if (typing?.frame === (params as { frameId: string }).frameId) {
+        typing.moved = true;
+      }
     } else if (method === "Page.javascriptDialogOpening") {
       const { type, message } = params as { type: string; message: string };
       session.dialogs.push({ type, message });
@@ -349,22 +391,170 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
   }
 
   // 글자마다 text를 단 key event를 보낸다.
+  const charEvents = (session: Session, char: string) => {
+    const enter = char === "\n" || char === "\r";
+    const key = enter ? "Enter" : char;
+    const typed = enter ? "\r" : char;
+    return [
+      send(session, "Input.dispatchKeyEvent", {
+        type: "keyDown",
+        key,
+        text: typed,
+        unmodifiedText: typed,
+      }),
+      send(session, "Input.dispatchKeyEvent", { type: "keyUp", key }),
+    ];
+  };
   async function typeText(session: Session, text: string): Promise<void> {
-    const events = [...text].flatMap((char) => {
-      const enter = char === "\n" || char === "\r";
-      const key = enter ? "Enter" : char;
-      const typed = enter ? "\r" : char;
-      return [
-        send(session, "Input.dispatchKeyEvent", {
-          type: "keyDown",
-          key,
-          text: typed,
-          unmodifiedText: typed,
-        }),
-        send(session, "Input.dispatchKeyEvent", { type: "keyUp", key }),
-      ];
+    await Promise.all([...text].flatMap((char) => charEvents(session, char)));
+  }
+
+  // 전체를 고르고 지운다. 빈 글이면 지우기만 한다.
+  async function clearValue(session: Session, ref: string): Promise<void> {
+    await focus(session, ref);
+    await grab(session, ref);
+    await callOn(
+      session,
+      ref,
+      `function(){ if (this.select) this.select(); else document.execCommand("selectAll"); }`,
+    );
+    await key(session, "Backspace");
+  }
+
+  // value를 찍으면 안 되는 `type=password` 칸의 backend node id들이다. 값이 있는 칸이 없으면 DOM을 읽지 않는다.
+  async function passwordNodes(
+    session: Session,
+    nodes: AxNode[],
+  ): Promise<Set<number>> {
+    const found = new Set<number>();
+    if (
+      !nodes.some((n) => n.value?.value !== undefined && n.value.value !== "")
+    ) {
+      return found;
+    }
+    const { root } = await send<{ root: DomNode }>(session, "DOM.getDocument", {
+      depth: -1,
+      pierce: true,
     });
-    await Promise.all(events);
+    const stack = [root];
+    for (let dom = stack.pop(); dom !== undefined; dom = stack.pop()) {
+      const attrs = dom.attributes ?? [];
+      const type = attrs.findIndex((a, i) => i % 2 === 0 && a === "type");
+      if (
+        dom.nodeName === "INPUT" &&
+        type >= 0 &&
+        attrs[type + 1]?.trim().toLowerCase() === "password"
+      ) {
+        found.add(dom.backendNodeId);
+      }
+      stack.push(
+        ...(dom.children ?? []),
+        ...(dom.shadowRoots ?? []),
+        ...(dom.contentDocument === undefined ? [] : [dom.contentDocument]),
+      );
+    }
+    return found;
+  }
+
+  // ref 요소가 든 frame의 id다. DOM 전체(iframe 안, shadow 안 포함)에서 그 node를 찾아 가장 가까운 frame owner의 frameId를 읽는다.
+  // 페이지 JS가 위조할 수 있는 값(location.origin 등)을 쓰지 않는다. 못 찾으면 undefined다(frame 밖이거나 낡은 ref).
+  async function frameOfNode(
+    session: Session,
+    backendNodeId: number,
+    mainFrame: string,
+  ): Promise<string | undefined> {
+    const { root } = await send<{ root: DomNode }>(session, "DOM.getDocument", {
+      depth: -1,
+      pierce: true,
+    });
+    const stack: [DomNode, string][] = [[root, mainFrame]];
+    while (stack.length > 0) {
+      const [dom, frame] = stack.pop() as [DomNode, string];
+      if (dom.backendNodeId === backendNodeId) return frame;
+      for (const child of [
+        ...(dom.children ?? []),
+        ...(dom.shadowRoots ?? []),
+      ]) {
+        stack.push([child, frame]);
+      }
+      if (dom.contentDocument !== undefined) {
+        stack.push([dom.contentDocument, dom.frameId ?? frame]);
+      }
+    }
+    return undefined;
+  }
+
+  // login 값을 ref 칸에 친다. origin은 그 칸이 든 frame의 것을 CDP로 재고(최상위 URL이 아니다), 값은 core가 저장된 origin과
+  // 글자 그대로 같을 때만 준다. 치는 동안 그 frame이 이동하면 멈춘다. 값은 이 함수 밖으로 나가지 않는다: 오류 글도 고정 문구다.
+  async function fillLogin(
+    session: Session,
+    act: Extract<BrowserAct, { type: "fill_login" }>,
+  ): Promise<void> {
+    if (act.field === "username") {
+      throw fail("invalid_input", "username is filled as text by core");
+    }
+    const { frameTree } = await send<{ frameTree: FrameNode }>(
+      session,
+      "Page.getFrameTree",
+    );
+    const frameId = await frameOfNode(
+      session,
+      node(session, act.ref),
+      frameTree.frame.id,
+    );
+    if (frameId === undefined) throw stale(act.ref);
+    // 이동을 보기 시작한 뒤에 origin을 잰다.
+    const typing = { frame: frameId, moved: false };
+    session.typing = typing;
+    try {
+      const { frameTree: now } = await send<{ frameTree: FrameNode }>(
+        session,
+        "Page.getFrameTree",
+      );
+      const stack = [now];
+      let origin: string | undefined;
+      for (let one = stack.pop(); one !== undefined; one = stack.pop()) {
+        if (one.frame.id === frameId) origin = one.frame.securityOrigin;
+        stack.push(...(one.childFrames ?? []));
+      }
+      if (origin === undefined || !URL.canParse(origin)) {
+        throw fail("forbidden", "this frame has no origin a login can match");
+      }
+      const released = await deps.releaseLogin({
+        id: act.login,
+        field: act.field,
+        origin: new URL(origin).origin,
+      });
+      if (!released.ok) {
+        throw fail(
+          (ERROR_CODES as readonly string[]).includes(released.error.code)
+            ? (released.error.code as ErrorCode)
+            : "internal",
+          released.error.message,
+        );
+      }
+      const stop = () => {
+        if (typing.moved) {
+          throw fail(
+            "conflict",
+            "the frame navigated while typing; nothing more was typed",
+          );
+        }
+      };
+      try {
+        stop();
+        await clearValue(session, act.ref);
+        for (const char of released.value.value) {
+          stop();
+          await Promise.all(charEvents(session, char));
+        }
+      } catch (error) {
+        if (error instanceof CallError) throw error;
+        throw fail("unavailable", "typing the login value failed");
+      }
+    } finally {
+      session.typing = undefined;
+    }
   }
 
   async function act(
@@ -397,16 +587,10 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
       );
       await typeText(session, action.text);
     } else if (action.type === "fill") {
-      await focus(session, action.ref);
-      await grab(session, action.ref);
-      // 전체를 고르고 지운 뒤 넣는다. 빈 글이면 지우기만 한다.
-      await callOn(
-        session,
-        action.ref,
-        `function(){ if (this.select) this.select(); else document.execCommand("selectAll"); }`,
-      );
-      await key(session, "Backspace");
+      await clearValue(session, action.ref);
       await typeText(session, action.text);
+    } else if (action.type === "fill_login") {
+      await fillLogin(session, action);
     } else if (action.type === "press") {
       // 누르면 버튼이 눌리므로 ref는 focus만 옮긴다. 키가 들어가려면 앞서 한 번 눌러 focus를 얻은 뒤여야 한다(grab).
       if (action.ref !== undefined) await focus(session, action.ref);
@@ -537,7 +721,10 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
         session,
         "Accessibility.getFullAXTree",
       );
-      return { content: [{ type: "text", text: session.refs.render(nodes) }] };
+      const hidden = await passwordNodes(session, nodes);
+      return {
+        content: [{ type: "text", text: session.refs.render(nodes, hidden) }],
+      };
     }
     if (action.kind === "act") {
       await act(session, action.act);

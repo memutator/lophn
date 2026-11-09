@@ -7,6 +7,7 @@ import {
   devicesSetting,
 } from "../../../config/shell-settings.ts";
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
+import type { Login } from "../../../../protocol/secrets/mod.ts";
 import type { ExtensionToolContent } from "../../../../protocol/extensions/manifest.ts";
 import {
   BROWSER_WAIT_DEFAULT_MS,
@@ -51,12 +52,19 @@ import {
 } from "../../../lophn-agent/session/model.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
-import type { WiringFactory } from "./context.ts";
+import { createLoginStore } from "../../../secrets/mod.ts";
+import { createProductRedactor, type WiringFactory } from "./context.ts";
 
 // core 메모리의 host queue를 shell main(host/*)과 agent·사람(tabs/*, browser/*)에 연다. 흐름은
 // `protocol/lophn-agent/host-queue.ts`. 뒤 task가 쓰는 port는 `ctx.hostQueue`다.
 const key = (route: { resource: string; method: string }) =>
   `${route.resource}/${route.method}`;
+
+const BROWSER_RESULT = {
+  concern: "browser/result",
+  revision: "1",
+  scope: "browser",
+};
 
 // 부른 쪽이 shell이 떨어졌는지 보고 기한이 지났는지 보는 간격이다.
 const WATCH_MS = 1000;
@@ -86,6 +94,10 @@ type TabDeps = {
   // shell(앱)을 띄운다. 시작이 실패하면 받은 `failed`를 부른다. 없으면 shell이 없을 때 browser 탭 열기는 SHELL_NOT_ATTACHED로
   // 끝난다(시험, 사람이 띄우지 않은 core, 띄울 길을 모르는 core).
   launchShell?: (failed: () => void) => void;
+  // fill_login이 가리키는 login의 metadata(값은 없다). 없으면 undefined, 못 읽으면 오류.
+  login(id: string): Promise<Result<Login | undefined>>;
+  // browser 결과가 caller에 가기 전에 거치는 redaction. 알려진 값을 아직 다 모르면 null이다.
+  redact(text: string): string | null;
 };
 
 // agent는 자격의 session으로, 사람은 사람 token으로 부른다. 탭의 주인은 session, 사람 token은 모두 "person"이다.
@@ -321,7 +333,17 @@ export function createTabHandlers(deps: TabDeps) {
     const caller = owner(who);
     if (!caller.ok) return caller;
     const input = browserRead.input.parse(body);
-    return queue.read(input.tab as Id<"tab">, caller.value);
+    const state = queue.read(input.tab as Id<"tab">, caller.value);
+    if (!state.ok) return state;
+    // page가 정한 url·title도 caller에 가기 전에 secret을 지운다.
+    const url = deps.redact(state.value.url);
+    const title = deps.redact(state.value.title);
+    return url === null || title === null
+      ? err({
+          code: "unavailable",
+          message: "the browser result could not be checked for secrets",
+        })
+      : ok({ ...state.value, url, title });
   };
 
   // 기다리는 browser 호출과 browser 탭 열기. core가 멈추기 전에 끝낸다.
@@ -352,8 +374,8 @@ export function createTabHandlers(deps: TabDeps) {
       build: (
         input: never,
         view: "browser" | "preview" | "artifact",
-      ) => Result<BrowserAction>,
-      shape: (content: ExtensionToolContent[]) => Result<unknown>,
+      ) => Result<BrowserAction> | Promise<Result<BrowserAction>>,
+      shape: (content: ExtensionToolContent[], input: never) => Result<unknown>,
       route: { input: { parse(body: unknown): { tab: string } } },
     ): MemoryHandler =>
     async (who, body) => {
@@ -362,7 +384,7 @@ export function createTabHandlers(deps: TabDeps) {
       const input = route.input.parse(body);
       const found = queue.browserTab(input.tab as Id<"tab">, caller.value);
       if (!found.ok) return found;
-      const action = build(input as never, found.value.view);
+      const action = await build(input as never, found.value.view);
       if (!action.ok) return action;
       if (!queue.attached()) {
         return err({ code: "unavailable", message: SHELL_LOST });
@@ -373,7 +395,24 @@ export function createTabHandlers(deps: TabDeps) {
         action: action.value,
       });
       const result = await settled(sent.id, sent.result);
-      return result.ok ? shape(result.value) : result;
+      if (!result.ok) return result;
+      // page와 agent가 쓴 글이 caller에 가기 전에 알려진 secret을 지운다. 못 끝내면 내보내지 않는다.
+      const safe: ExtensionToolContent[] = [];
+      for (const block of result.value) {
+        if (block.type !== "text") {
+          safe.push(block);
+          continue;
+        }
+        const text = deps.redact(block.text);
+        if (text === null) {
+          return err({
+            code: "unavailable",
+            message: "the browser result could not be checked for secrets",
+          });
+        }
+        safe.push({ ...block, text });
+      }
+      return shape(safe, input as never);
     };
 
   const textOf = (content: ExtensionToolContent[]): Result<string> => {
@@ -406,14 +445,34 @@ export function createTabHandlers(deps: TabDeps) {
     browserSnapshot,
   );
   const act = call(
-    (input: Record<string, unknown>) => {
+    async (input: Record<string, unknown>) => {
       const { tab: _tab, ...fields } = input;
       const parsed = browserActSchema.safeParse(fields);
-      return parsed.success
-        ? ok({ kind: "act", act: parsed.data })
-        : invalid(`invalid act: ${parsed.error.issues[0]?.message ?? ""}`);
+      if (!parsed.success) {
+        return invalid(`invalid act: ${parsed.error.issues[0]?.message ?? ""}`);
+      }
+      const act = parsed.data;
+      if (act.type !== "fill_login") return ok({ kind: "act", act });
+      const login = await deps.login(act.login);
+      if (!login.ok) return login;
+      if (login.value === undefined) {
+        return err({ code: "not_found", message: "no login with that id" });
+      }
+      // username은 비밀이 아니라 metadata의 글을 지금 `fill`과 같이 친다. 값(password·TOTP)은 shell main이 받는다.
+      return ok({
+        kind: "act",
+        act:
+          act.field === "username"
+            ? { type: "fill", ref: act.ref, text: login.value.username }
+            : act,
+      });
     },
-    jsonOf,
+    (content, input: { type: string }) => {
+      const page = jsonOf(content);
+      return page.ok && input.type === "fill_login"
+        ? ok({ ...(page.value as object), filled: true })
+        : page;
+    },
     browserAct,
   );
   const navigate = call(
@@ -516,6 +575,8 @@ export const hostQueueWiring: WiringFactory = () => {
         );
         return found.ok ? found.value : undefined;
       };
+      const loginStore = createLoginStore({ root: ctx.root.path });
+      const redactor = createProductRedactor(ctx.knownSecrets);
       const handlers = createTabHandlers({
         queue: made,
         sessionRow,
@@ -552,6 +613,12 @@ export const hostQueueWiring: WiringFactory = () => {
                   failed();
                 }),
             }),
+        // 같은 파일을 읽기만 하는 store다. 쓰기는 secrets wiring의 store가 한다.
+        login: async (id) => {
+          const logins = await loginStore.list();
+          return logins.ok ? ok(logins.value.find((l) => l.id === id)) : logins;
+        },
+        redact: (text) => redactor(BROWSER_RESULT, "text/plain", text),
       });
       tabs = handlers;
 

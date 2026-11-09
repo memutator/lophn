@@ -114,6 +114,7 @@ export function register(
   const emulation = createEmulation(lookup);
   const driver = createBrowserDriver({
     viewSession: (tab) => bound.get(tab)?.view_session,
+    releaseLogin: (request) => ctx.core.releaseLogin(request),
     lookup,
     control,
     nowMs: () => Date.now(),

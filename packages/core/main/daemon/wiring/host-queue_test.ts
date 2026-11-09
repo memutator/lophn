@@ -9,6 +9,7 @@ import {
   ok,
   seededRandom,
 } from "../../../../base/mod.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { createHostQueue, fileHandoffs } from "../../../host-queue/mod.ts";
 import type { AgentSessionRow } from "../../../lophn-agent/session/model.ts";
@@ -36,6 +37,16 @@ const person = {
   conditions: {},
 } as unknown as AuthenticatedContext;
 
+const LOGIN = `lgn_${"0".repeat(26)}`;
+const LOGIN_ENTRY = {
+  id: LOGIN,
+  label: "x",
+  origin: "https://example.com",
+  username: "alice@example.com",
+  note: "",
+};
+const KNOWN = "hunter2";
+
 function setup(
   running: boolean,
   root = "/nonexistent",
@@ -60,6 +71,9 @@ function setup(
     codingFavorites: () => ["claude", "pi"],
     handoffs: fileHandoffs(root),
     ...(launchShell === undefined ? {} : { launchShell }),
+    login: (login) =>
+      Promise.resolve(ok(login === LOGIN ? LOGIN_ENTRY : undefined)),
+    redact: (text) => text.replaceAll(KNOWN, "[REDACTED]"),
   });
   return { clock, queue, ...handlers };
 }
@@ -317,4 +331,70 @@ test("받은 handoff는 data root handoffs/에 0600으로 쓰이고 tab_open pay
   } finally {
     await rm(root, { recursive: true });
   }
+});
+
+// 값이 queue 항목이나 결과에 실리면 ledger·log·agent에 비밀번호가 남는다. username만 metadata의 글로 `fill`이 된다.
+test("fill_login의 queue 항목에는 login id만 있고, 결과와 page 글에서 알려진 값은 지워진다", async () => {
+  const { queue, open, act, snapshot } = setup(true);
+  const opened = await open(agent(1), {
+    target: { browser: { url: "https://example.com" } },
+  });
+  assert.ok(opened.ok);
+  const tab = (opened.value as { tab: string }).tab;
+  const fill = { tab, type: "fill_login", ref: "e2", login: LOGIN };
+
+  assert.equal(
+    code(
+      await act(agent(1), {
+        ...fill,
+        login: `lgn_${"1".repeat(26)}`,
+        field: "password",
+      }),
+    ),
+    "not_found",
+  );
+
+  const calls: unknown[] = [];
+  const answer = async (reply: ReturnType<typeof act>, text: string) => {
+    const request = await queue.wait([{ kind: "home" }]);
+    assert.equal(request?.kind, "browser_call");
+    calls.push(request!.payload);
+    queue.done(request!.id as Id<"hrq">, "done", {
+      content: [{ type: "text", text }],
+    });
+    return (await reply) as { ok: boolean; value: unknown };
+  };
+  const password = await answer(
+    act(agent(1), { ...fill, field: "password" }),
+    JSON.stringify({ url: "https://example.com/", title: `hi ${KNOWN}` }),
+  );
+  const username = await answer(
+    act(agent(1), { ...fill, field: "username" }),
+    JSON.stringify({ url: "https://example.com/", title: "t" }),
+  );
+  assert.deepEqual(
+    calls.map((c) => (c as { action: unknown }).action),
+    [
+      {
+        kind: "act",
+        act: { type: "fill_login", ref: "e2", login: LOGIN, field: "password" },
+      },
+      {
+        kind: "act",
+        act: { type: "fill", ref: "e2", text: "alice@example.com" },
+      },
+    ],
+  );
+  assert.deepEqual(password.value, {
+    url: "https://example.com/",
+    title: "hi [REDACTED]",
+    filled: true,
+  });
+  assert.equal((username.value as { filled?: boolean }).filled, true);
+
+  const shot = await answer(
+    snapshot(agent(1), { tab }),
+    `- textbox "x" value="${KNOWN}" [ref=e1]`,
+  );
+  assert.ok(!JSON.stringify(shot.value).includes(KNOWN));
 });

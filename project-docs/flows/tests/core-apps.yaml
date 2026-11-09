@@ -166,7 +166,7 @@ files:
 
   - path: packages/core/apps/screens/icon_test.ts
     covers: [app-icon-read:uploaded, app-icon-read:declared, app-icon-read:none]
-    note: "bundle 안 이미지만 선언 icon으로 줌(밖을 가리키는 symlink, .., 64 KiB 넘는 파일, 없는 파일, 이미지가 아닌 확장자는 none). 사람이 올린 icon이 있으면 선언 icon보다 우선. Windows에서 symlink 권한이 없으면 건너뜀"
+    note: "선언한 lucide 이름은 파일을 읽지 않고 그대로 줌. bundle 안 이미지만 선언 icon으로 줌(밖을 가리키는 symlink, .., 64 KiB 넘는 파일, 없는 파일, 이미지가 아닌 확장자는 none). 사람이 올린 icon이 있으면 선언 icon보다 우선. Windows에서 symlink 권한이 없으면 건너뜀"
 
   - path: packages/core/apps/screens/serve_test.ts
     covers: [app-screen-file-read:served, app-screen-file-read:invalid-path, app-screen-file-read:not-found]

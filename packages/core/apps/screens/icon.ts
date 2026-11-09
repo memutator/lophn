@@ -1,7 +1,9 @@
 import { Buffer } from "node:buffer";
 import { sep } from "node:path";
 import { ok, type Result } from "../../../base/mod.ts";
+import type { IconImage } from "../../../protocol/base/icon.ts";
 import type { AppIcon } from "../../../protocol/apps/declaration/read.ts";
+import { LUCIDE_ICON_PREFIX } from "../../../protocol/apps/declaration/scope.ts";
 import type { BundleLocator } from "../ports.ts";
 import { screenContentType } from "./content-type.ts";
 
@@ -10,14 +12,14 @@ const ICON_TYPES = ["image/svg+xml", "image/png", "image/webp"];
 
 export type AppIconDeps = {
   bundles: BundleLocator;
-  /** active release 선언의 icon 경로(`/assets/icon.svg`). 선언에 없으면 null. */
+  /** active release 선언의 icon(`/assets/icon.svg` 같은 경로나 `lucide:<이름>`). 선언에 없으면 null. */
   iconPath(app: string): Result<string | null>;
   readFile(path: string, maxBytes: number): Promise<Uint8Array | null>;
   /** symlink를 푼 실제 경로. 없으면 null이다. */
   realPath(path: string): Promise<string | null>;
 };
 
-// bundle 사본의 icon 파일 하나를 base64로 준다. 앱 모양일 뿐이라 못 읽는 이유(선언 없음, 파일 없음, 큼,
+// 선언이 lucide 이름이면 그 이름을 그대로 준다(파일을 읽지 않는다). 아니면 bundle 사본의 icon 파일 하나를 base64로 준다. 앱 모양일 뿐이라 못 읽는 이유(선언 없음, 파일 없음, 큼,
 // bundle 밖을 가리키는 symlink)는 모두 null이고 오류로 올리지 않는다.
 export async function readAppIcon(
   deps: AppIconDeps,
@@ -26,6 +28,9 @@ export async function readAppIcon(
   const declared = deps.iconPath(app);
   if (!declared.ok) return declared;
   if (declared.value === null) return ok(null);
+  if (declared.value.startsWith(LUCIDE_ICON_PREFIX)) {
+    return ok({ lucide: declared.value.slice(LUCIDE_ICON_PREFIX.length) });
+  }
   const contentType = screenContentType(declared.value);
   if (!ICON_TYPES.includes(contentType)) return ok(null);
 
@@ -43,7 +48,7 @@ export async function readAppIcon(
   const bytes = await deps.readFile(file, MAX_ICON_BYTES);
   if (bytes === null || bytes.byteLength === 0) return ok(null);
   return ok({
-    content_type: contentType as AppIcon["content_type"],
+    content_type: contentType as IconImage["content_type"],
     data: Buffer.from(bytes).toString("base64"),
   });
 }

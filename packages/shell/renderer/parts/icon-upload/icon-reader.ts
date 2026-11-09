@@ -2,7 +2,7 @@
 // 캐시를 버리고 떠 있는 표식을 다시 읽게 한다.
 import { useEffect, useState } from "react";
 
-/** 화면이 보는 icon. src는 data URL, uploaded는 사람이 올린 것이 보이는 중인지다. */
+/** 화면이 보는 icon. src는 data URL이나 `lucide:<이름>`(IconImage가 그린다), uploaded는 사람이 올린 것이 보이는 중인지다. */
 export interface IconView {
   readonly src: string | null;
   readonly uploaded: boolean;
@@ -15,19 +15,23 @@ export interface IconFile {
 }
 
 interface IconReply {
-  icon: { content_type: string; data: string } | null;
+  // lucide는 앱이 선언한 lucide icon 이름이다(`app.icon`만 준다). src에는 `lucide:<이름>`으로 싣는다.
+  icon: { content_type: string; data: string } | { lucide: string } | null;
   uploaded: boolean;
 }
 
 /** core `apps.icon`·`projects.icon`의 값을 화면 값으로 옮긴다. */
 export function iconViewOf(reply: IconReply): IconView {
-  return {
-    src:
-      reply.icon === null
-        ? null
-        : `data:${reply.icon.content_type};base64,${reply.icon.data}`,
-    uploaded: reply.uploaded,
-  };
+  const { icon } = reply;
+  // lucide 이름이 이 shell에 있는지는 그릴 때 본다(useDrawableIcon). 없으면 기본 모양이다.
+  let src: string | null = null;
+  if (icon !== null) {
+    src =
+      "lucide" in icon
+        ? `lucide:${icon.lucide}`
+        : `data:${icon.content_type};base64,${icon.data}`;
+  }
+  return { src, uploaded: reply.uploaded };
 }
 
 /** core `set_icon`의 icon 입력. null이면 올린 것을 지운다. */
@@ -46,7 +50,7 @@ export function iconInputOf(
 // 여러 자리가 한꺼번에 읽는 것만 하나로 합칠 만큼만 쥔다.
 const CACHE_MS = 10_000;
 
-/** icon 이미지의 data URL을 주는 통로. 없거나 읽지 못하면 undefined다. */
+/** icon 이미지의 data URL(앱이 lucide를 선언했으면 `lucide:<이름>`)을 주는 통로. 없거나 읽지 못하면 undefined다. */
 export interface IconReader {
   (id: string): Promise<string | undefined>;
   /** 캐시를 버리고 그 id를 보는 표식에 다시 읽게 알린다. */

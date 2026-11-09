@@ -110,7 +110,7 @@ files:
 
   - path: packages/protocol/apps/declaration/validate_test.ts
     covers: [declaration-check:passed, declaration-check:errors]
-    note: 앱 선언 검증기. 이름 규칙, 중복, icon 경로 거절과 정규형. 검사 결과 passed와 errors를 정한다
+    note: 앱 선언 검증기. 이름 규칙, 중복, icon 경로·lucide 이름 거절과 정규형. 검사 결과 passed와 errors를 정한다
 
   - path: packages/protocol/coding-agent/headless/headless_test.ts
     covers: [harness-turn-run:configuration-unavailable]
@@ -255,6 +255,10 @@ files:
   - path: tools/check-deps_test.ts
     covers: []
     note: check 도구가 extension의 금지 import를 막는지 보는 검사 도구
+
+  - path: tools/lucide-names_test.ts
+    covers: []
+    note: 앱 icon 선언 `lucide:<이름>`을 거르는 이름 목록이 shell의 lucide-react 이름과 같은지 보는 도구 test
 
   - path: tools/check-source_test.ts
     covers: []

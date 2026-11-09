@@ -115,7 +115,8 @@ export const extensionToolsWiring: WiringFactory = () => {
         const session = who.conditions.session;
         const turn = who.conditions.turn;
         if (
-          who.actor !== "agent" ||
+          // agent 자격의 actor는 `agent:<session>`이다.
+          !who.actor.startsWith("agent:") ||
           session === undefined ||
           turn === undefined
         ) {

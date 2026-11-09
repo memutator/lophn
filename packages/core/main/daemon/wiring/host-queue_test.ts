@@ -24,7 +24,10 @@ const rows: Record<string, Partial<AgentSessionRow>> = {
   [id("ses", 4)]: { workspace_kind: null, workspace_id: null },
 };
 const agent = (n: number) =>
-  ({ actor: "agent", conditions: { session: id("ses", n) } }) as never;
+  ({
+    actor: `agent:${id("ses", n)}`,
+    conditions: { session: id("ses", n) },
+  }) as never;
 const person = {
   actor: "user",
   conditions: {},

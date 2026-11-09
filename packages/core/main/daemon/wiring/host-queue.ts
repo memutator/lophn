@@ -65,7 +65,8 @@ type TabDeps = {
 export function createTabHandlers(deps: TabDeps) {
   const { queue, sessionRow } = deps;
   const agentSession = (who: AuthenticatedContext): Result<Id<"ses">> =>
-    who.actor === "agent" && who.conditions.session !== undefined
+    // agent 자격의 actor는 `agent:<session>`이다(lophn agent·harness 모두).
+    who.actor.startsWith("agent:") && who.conditions.session !== undefined
       ? ok(who.conditions.session as Id<"ses">)
       : err({ code: "forbidden", message: "only an agent session" });
   const owner = (who: AuthenticatedContext): Result<TabOwner> =>

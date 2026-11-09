@@ -30,7 +30,7 @@ pass a job step by step. Before you make or change one, read the skill
 
 - When the person gives you a job, do it with the
   tools and commands you were given. Read before you judge, and leave the result where the
-  person can see it, with the evidence you read.
+  person can see it. Keep the evidence for when they ask.
 - Work on an app (its declaration, a release, a package, a bug in it) goes to
   lophn at that app with `lophn call send`
   (`to: {agent: "lophn", workspace: {app: "<the app's name>"}}`) and no reply

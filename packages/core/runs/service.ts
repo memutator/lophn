@@ -48,6 +48,12 @@ type Settlement =
 type TurnState = "ended" | "running" | "none";
 
 // job이 연 run과 flow instance가 연 run을 가르는 칸이다.
+// `<lophn-run from>`. origin이 없는 run은 `agent.run` 명령으로 연 것이다.
+function runFrom(origin: RunOrigin | undefined): string {
+  if (origin === undefined) return "command";
+  return "job" in origin ? `job:${origin.job}` : `flow:${origin.instance}`;
+}
+
 function originColumns(origin: RunOrigin | undefined): {
   job: Id<"job"> | null;
   instance: Id<"wfi"> | null;
@@ -172,7 +178,7 @@ export function createRunService(deps: {
         return invalid("schema is not a readable JSON Schema");
       }
     }
-    const text = runMessageText(input);
+    const text = runMessageText({ ...input, from: runFrom(origin) });
     const size = serializeMessageContent({
       schema_version: 1,
       parts: [{ kind: "text", text }],

@@ -9,6 +9,19 @@ An artifact is a static page you write so the person can see a result on screen
 instead of reading it in the chat. It is a folder with an `index.html`. There is
 no artifact tool: you make one by writing files.
 
+## What a page shows
+
+Write it for the person as a report to a manager, not as a dump of what you
+read. You decide what it shows and how; do not ask them to choose a layout.
+
+- Lead with what they need to judge or act on: the outcome, what changed, what
+  needs their decision. Put it in their domain's words.
+- Sum up. Show the few numbers and items that matter, not every row you
+  fetched. Detail goes below or behind a click, and only when someone would
+  look at it.
+- Leave out the machinery: logs, IDs, command names, file paths, versions,
+  JSON. They belong in your answers when the person asks.
+
 ## Where it goes
 
 An artifact belongs to the project or app you work in. Its place is the

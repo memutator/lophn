@@ -75,7 +75,7 @@ run 기록 한 행(`runs` 표)이 정본이다. 화면과 CLI는 읽고, 쓰는 
 2. 순서는 run 행(running) → session 열기 → 메시지 넣기다. 열기나 넣기가 실패하면 그 run을 `start_failed`로 닫는다.
 3. agent run은 `agent`(agent 이름과 workspace, workspace가 없으면 home)와 `session`(이어 쓸 열린 session) 가운데 정확히 하나를 받는다. 둘 다이거나 둘 다 아니거나, 읽을 수 없는 schema, 너무 긴 prompt는 `invalid_input`이다. `session`이 열린 session이 아니면 `conflict`다.
 4. 호출마다 새 session이다. `session`을 주면 그 session에 이어 넣고, 그 run은 session을 열지 않는다. run이 연 session은 열린 채 남는다.
-5. agent에게 보내는 글은 prompt에, 입력 JSON과 "이 JSON Schema에 맞는 JSON 하나만 답하라"는 고정 영어 문장을 붙인 것이다.
+5. agent에게 보내는 글은 prompt에, 입력 JSON과 "이 JSON Schema에 맞는 JSON 하나만 답하라"는 고정 영어 문장을 붙여 `<lophn-run from="…">`으로 감싼 것이다. `from`은 `job:<job id>`, `flow:<instance id>`, origin이 없으면(`agent.run` 명령) `command`다. 사람 자격의 메시지라 tag가 없으면 agent가 사람이 친 글로 읽고, 사람이 없다는 것과 답이 어디로 가는지를 모른다. tag는 메시지 내용에 넣어 뒤 turn의 history와 harness에도 남는다. 화면은 이 글을 그대로 보인다.
 6. 자동 재시도는 없다.
 
 끝을 아는 법
@@ -90,7 +90,7 @@ run 기록 한 행(`runs` 표)이 정본이다. 화면과 CLI는 읽고, 쓰는 
 unattended
 
 13. run 입력은 `SendMessage`에 `unattended: true`를 실은 사람 메시지다. 이 메시지가 연 turn은 unattended라 묻지 않고, 그 turn이 보낸 call 사슬도 unattended다(`architecture/approval.md` "turn mode", `architecture/agent-call.md`).
-14. 표시는 `messages.unattended` 열에 남지만 tag 글과 받은 봉투에는 실리지 않는다. 화면의 메시지는 이 표시를 싣지 않고 run만 싣는다. CLI가 여는 run은 별도 flag 없이 처음부터 unattended다. 사람 메시지가 아닌 unattended 입력은 workflow의 step 입력이다(`architecture/workflow.md`).
+14. 표시는 `messages.unattended` 열에 남지만 받은 봉투에는 실리지 않는다. agent에게는 5의 `<lophn-run>`이 알린다. 화면의 메시지는 이 표시를 싣지 않고 run만 싣는다. CLI가 여는 run은 별도 flag 없이 처음부터 unattended다. 사람 메시지가 아닌 unattended 입력은 workflow의 step 입력이다(`architecture/workflow.md`).
 
 취소
 

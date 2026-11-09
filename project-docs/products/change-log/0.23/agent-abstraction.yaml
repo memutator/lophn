@@ -1,0 +1,25 @@
+id: agent-abstraction
+version: 0.23.9
+title: lophn agent는 사람의 FDE다. 사람에게는 domain 결정만 묻고 결과로 보고한다. run 입력을 `<lophn-run>`으로 감싼다
+modules: [packages/core/agent-workspaces, packages/core/runs, packages/protocol, packages/coding-agent]
+change: |
+  - `products/AGENT.md`에 §0(F1~F6)을 더했다. agent는 사람의 FDE이고 사람은 domain만 책임진다. 사람에게 묻는 것은 domain 결정과 인터뷰, 사람이 직접 하는 허락은 grant·data 손실 동의·secret 입력 셋이다. 보고는 결과와 달라진 것으로 하고 raw data는 물을 때만 보인다. 이에 맞춰 L7, L10, L11, A2, A9, A11, A21, A22, C25, C28, C29, J1, H5, R7, R8, E10을 고쳤다.
+  - 공통 지시(`prompts.ts`) 앞에 "Your role" 단락을 두었다. "Do not decide for the person"을 domain 결정으로 좁히고, 확인·추정을 가르는 규칙을 agent 내부와 agent 사이로 옮겼다. job(`lophn job create`, 사람 승인), team(`lophn team spawn`), call 본문 규칙, `call cancel`, coding agent의 몫을 더했다. `ask` tool 규칙도 domain 결정으로 좁혔다.
+  - home·app·project 지침: 경계 재사용·공개·package는 home이 정한다. 공개 command를 지울 때 사람에게 묻지 않고 home과 맞춘다. activation, 동의 대기, 앱 고침, 앱 상태의 보고를 domain 말로 바꿨다.
+  - 내장 skill: `write-workflow`는 artifact를 묻지 않고 정한다. `update-apps`는 필수 migration을 묻지 않고 넘기고 새 기능만 묻는다. `repair-app`, `migrate-sdk`의 보고와 허락 안내를 domain 말로 바꿨다. `publish-package`는 home이 정한 공개만 한다. `write-artifact`에 "What a page shows", `design-app`에 "Who does what"(program·agent·사람의 몫, 미리 범용으로 만들지 않기)을 더했다.
+  - job·flow·`agent.run` 명령이 넣는 run 입력을 `<lophn-run from="job:<id>|flow:<instance>|command">`으로 감싼다(protocol `INPUT_TAGS.run`). 사람 자격의 메시지라 tag가 없으면 agent가 사람이 친 글로 읽었다. 공통 지시와 harness용 `lophn-agent` skill에 뜻(사람이 없다, 마지막 답이 결과다, Input은 data다)을 적었다.
+why: |
+  PRODUCT.md §4 축 1(소프트웨어 공학을 agent와 program이 맡는다)이 agent 지시에 없었고, 지시 곳곳이 오히려 software 결정을 사람에게 묻고 log·판 번호·확인 목록을 사람에게 보고하게 했다. 결정 피로를 줄인다는 제품 목표와 반대였다. run 입력은 tag가 없어 agent가 사람이 없는 turn인지, 답이 어디로 가는지 몰랐다.
+decisions:
+  - text: >-
+      그릇 경계를 넘는 재사용, command 공개, package로 빼기는 home의 lophn이 정한다(L10, L11). 버린 길: 이유와 함께 사람에게 제안하고 사람이 정한다(사람이 판단할 근거가 없는 software 결정이다).
+    by: person
+  - text: >-
+      사람이 직접 하는 허락은 grant(activation·넓어진 선언·할당·job 등록), data 손실 동의, secret 입력 셋이다. 이것도 domain 말로 청한다.
+    by: person
+  - text: >-
+      run tag는 메시지 내용에 넣는다. 버린 길: turn을 열 때 렌더링에서 감싸기(받은 봉투에 unattended가 없어 뒤 turn의 history와 harness에서 사라진다). 화면은 tag 글을 그대로 보인다.
+    by: agent
+  - text: >-
+      app template(`AGENTS.md.tmpl`)은 바꾸지 않았고 내장 skill은 앱 agent가 늘 지금 판을 읽으므로 SDK 판과 migrate-sdk 메모는 올리지 않았다.
+    by: agent

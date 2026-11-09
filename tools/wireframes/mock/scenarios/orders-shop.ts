@@ -1,10 +1,8 @@
-// 앱 공간 gallery page들이 같이 쓰는 고정 데이터. 운영 패널과 문제 목록은 앞 화면의 fake source가 채우고 여기는 Orders 앱
-// 화면과 run 목록의 고정 값을 둔다.
+// scenario orders-shop(project-docs/flows/scenarios/app.yaml)의 고정 데이터. 앱 공간 gallery page들이 같이 쓴다.
+// 운영 패널과 문제 목록은 앞 화면의 fake source가 채우고 여기는 Orders 앱 화면과 run 목록의 고정 값을 둔다.
 
 import type { RunRecordView } from "../../../../packages/shell/renderer/workspace/sidebar/run-list.tsx";
 import { BUDGET_REVIEWER_ID } from "../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
-
-export const APP_NAME = "Orders";
 
 // ---- 앱 화면 (Orders가 그린 view) ----
 

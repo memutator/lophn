@@ -1,6 +1,6 @@
 # flows
 
-lophn이 하는 동작을 빠짐없이 적은 catalog다. 셋을 잇는다: 입구(entry), 동작(flow)과 그 끝 갈래(outcome), 사람이나 agent가 목표 하나를 이루는 길(journey). test가 어느 outcome을 덮는지도 여기 적는다. coverage는 `node tools/flows.ts report`가 잰다.
+lophn이 하는 동작을 빠짐없이 적은 catalog다. 셋을 잇는다: 입구(entry), 동작(flow)과 그 끝 갈래(outcome), 사람이나 agent가 목표 하나를 이루는 길(journey), 그 길을 가는 구체적인 사용자 예(scenario). test가 어느 outcome을 덮는지도 여기 적는다. coverage는 `node tools/flows.ts report`가 잰다.
 
 - 규칙과 이유는 architecture 문서에 있다. flow는 그것을 옮겨 적지 않고 `docs`로 가리킨다.
 - coverage 숫자는 test를 늘리라는 뜻이 아니다. 목표는 risk가 붙은 outcome뿐이다(AGENTS.md "속도"의 위험 목록).
@@ -13,8 +13,9 @@ lophn이 하는 동작을 빠짐없이 적은 catalog다. 셋을 잇는다: 입�
 | `areas.yaml` | area 지도: area마다 entry를 정의하는 path, 맡는 mechanism, 읽을 문서. test 묶음과 journey 묶음 |
 | `areas/<area>.yaml` | area 하나의 flow, links, ignore |
 | `journeys/<group>.yaml` | journey |
+| `scenarios/<group>.yaml` | scenario. 구현과 무관한 사용자 예 |
 | `tests/<group>.yaml` | test file 하나마다 덮는 outcome |
-| `tools/flows.ts` | `entries`, `index`, `check`, `report`, `sample`, `events`, `frames` |
+| `tools/flows.ts` | `entries`, `index`, `check`, `report`, `sample`, `events`, `frames [--unused]` |
 
 ## entry
 
@@ -142,6 +143,35 @@ journeys:
 
 - `flow`는 있는 `<flow>:<outcome>`이다. `screen`은 wireframe page id(`?frame=<id>`, `node tools/flows.ts frames`)다.
 - journey는 사람(또는 agent)이 실제로 그 순서로 가는 길이다. 같은 길의 갈래(동의 거절)는 따로 journey로 둔다.
+
+## scenario
+
+journey가 추상적인 길이라면 scenario는 그 길을 가는 구체적인 사용자 한 사람이다. 누가 어떤 상황에서 무엇을 말하고 어떤 data를 갖고 무엇을 기대하는지를 자연어로 쓴다. 구현을 모르고 쓴다. wireframe의 mock data는 여기서 나오고, 위험한 규칙의 test가 edge case를 필요로 할 때만 여기서 가져간다.
+
+```yaml
+group: app                   # file 이름과 같다. journey_groups와 무관하다
+scenarios:
+  - id: bakery-reservations  # kebab-case, 모든 scenario file에서 하나
+    who: 개발을 모르는 동네 빵집 사장
+    situation: 전화와 카톡으로 받던 예약을 한곳에 모으고 싶다
+    says: ["예약 받는 앱 만들어줘", "토요일 예약만 보여줘"]   # 선택. 글자 그대로의 말
+    has: 손님 40명, 한 주 예약 30건, 같은 이름 손님 둘        # 가져온 data
+    expects: 앱 화면에서 날짜별 예약을 보고 고친다
+    journeys: [app-plan-from-home]    # 있는 journey id. 하나 이상
+    edges: [예약 0건, 같은 이름 손님]  # 선택
+```
+
+- 필수: `id`, `who`, `situation`, `has`, `expects`, `journeys`. journey의 step을 되풀이하지 않는다. 길은 journey가 말한다.
+- mock data와는 file 이름으로 잇는다: `tools/wireframes/mock/scenarios/<scenario id>.ts`(또는 `.tsx`)가 그 scenario의 고정 data다. text를 훑어 찾지 않는다. `check`는 scenario가 없는 이름의 file을 거절한다. mock이 없는 scenario는 괜찮다(`report`가 센다).
+- 사람이 쓴 글이지 data가 아니다. `has`의 숫자와 이름이 mock과 어긋나면 mock을 scenario에 맞춘다.
+- eval과 잇지 않는다.
+
+## screen과 frame
+
+wireframe gallery의 page 하나(`{id, title, description, render}`)는 화면의 한 상태(screen state)다. catalog는 그 page를 id로 가리킨다(journey의 `screen`, outcome의 `observe: [screen:<id>]`). 가리키는 쪽은 catalog뿐이고 page는 catalog를 모른다.
+
+- `node tools/flows.ts frames --unused`는 어느 journey step이나 outcome observe도 가리키지 않는 frame을 정의한 file별로 보인다. `check`는 막지 않는다. 화면을 다듬을 때 참고하는 목록이다.
+- kit page(`tools/wireframes/pages/kit/`)는 component 견본이지 화면이 아니라서 `report`가 따로 센다. frame coverage 숫자는 screens만의 것이다.
 
 ## test 연결
 

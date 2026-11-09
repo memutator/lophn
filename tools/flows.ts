@@ -357,17 +357,29 @@ function eventNames(files: string[]): string[] {
 }
 
 // wireframe page id. frame의 `?frame=<id>`가 이것이다. area도 id가 있어서 뒤따르는 칸(description)으로 가른다.
-function frameIds(files: string[]): string[] {
-  const ids = new Set<string>();
+function frameIds(files: string[]): Map<string, string> {
+  const ids = new Map<string, string>();
   for (const file of files) {
     if (!/^tools\/wireframes\/.+\.tsx?$/.test(file)) continue;
     for (const m of text(file).matchAll(
       /\bid:\s*"([^"]+)",\s*title:\s*(?:"(?:[^"\\]|\\.)*"|'[^']*'|`[^`]*`)\s*,\s*description:/g,
     )) {
-      if (m[1]) ids.add(m[1]);
+      if (m[1] && !ids.has(m[1])) ids.set(m[1], file);
     }
   }
-  return [...ids].sort();
+  return ids;
+}
+
+const KIT_PAGES = "tools/wireframes/pages/kit/";
+const SCENARIO_MOCKS = "tools/wireframes/mock/scenarios";
+
+// scenario의 고정 data file. file 이름이 scenario id다.
+function scenarioMockIds(): string[] {
+  if (!existsSync(`${ROOT}/${SCENARIO_MOCKS}`)) return [];
+  return readdirSync(`${ROOT}/${SCENARIO_MOCKS}`)
+    .filter((n) => /\.tsx?$/.test(n))
+    .map((n) => n.replace(/\.tsx?$/, ""))
+    .sort();
 }
 
 // ---- catalog 읽기 ----
@@ -377,6 +389,8 @@ type Catalog = {
   areaIds: string[];
   areaFiles: { file: string; data: Obj }[];
   journeyFiles: { file: string; data: Obj }[];
+  scenarioFiles: { file: string; data: Obj }[];
+  scenarioMocks: string[];
   testFiles: { file: string; data: Obj }[];
   broken: { file: string; message: string }[];
   testGroups: Obj[];
@@ -384,6 +398,7 @@ type Catalog = {
   entries: Entry[];
   events: string[];
   frames: string[];
+  frameFiles: Map<string, string>;
   boundaries: Set<string>;
   agentLines: Set<string>;
   archDocs: string[];
@@ -456,6 +471,7 @@ async function load(): Promise<Catalog> {
     });
   const areaFiles = loadDir(`${FLOWS}/areas`);
   const journeyFiles = loadDir(`${FLOWS}/journeys`);
+  const scenarioFiles = loadDir(`${FLOWS}/scenarios`);
   const testFiles = loadDir(`${FLOWS}/tests`);
 
   // 소유: flow의 entries, area의 links, area의 ignore. 두 번째부터는 duplicates에 모은다.
@@ -493,18 +509,22 @@ async function load(): Promise<Catalog> {
     "utf8",
   );
   const archDir = `${ROOT}/project-docs/architecture`;
+  const frameFiles = frameIds(tracked);
   return {
     areas,
     areaIds: areas.map((a) => String(a.id)),
     areaFiles,
     broken,
     journeyFiles,
+    scenarioFiles,
+    scenarioMocks: scenarioMockIds(),
     testFiles,
     testGroups: asArray(areasYaml.test_groups).map(asObj),
     journeyGroups: asArray(areasYaml.journey_groups).map(asObj),
     entries,
     events: eventNames(tsFiles),
-    frames: frameIds(tracked),
+    frames: [...frameFiles.keys()].sort(),
+    frameFiles,
     boundaries: boundaryIds(),
     agentLines: new Set(
       [...agentMd.matchAll(/^- ([A-Z]+\d+)\./gm)].map((m) => m[1] ?? ""),
@@ -909,6 +929,61 @@ function check(c: Catalog, only: string | undefined, partial: boolean) {
     }
   }
 
+  // scenarios
+  const scenarioIds = new Map<string, string>();
+  for (const { file, data } of c.scenarioFiles) {
+    const name = file.replace(/^.*\//, "").replace(/\.yaml$/, "");
+    if (String(data.group) !== name)
+      add(file, "group", `file 이름(${name})과 다름: ${data.group}`);
+    unknownKeys(file, "(top)", data, ["group", "scenarios"]);
+    for (const [si, raw] of asArray(data.scenarios).entries()) {
+      const sc = asObj(raw);
+      const id = typeof sc.id === "string" ? sc.id : "";
+      const at = `scenarios[${id || si}]`;
+      unknownKeys(file, at, sc, [
+        "id",
+        "who",
+        "situation",
+        "says",
+        "has",
+        "expects",
+        "journeys",
+        "edges",
+      ]);
+      if (!KEBAB.test(id)) add(file, `${at}.id`, `kebab-case여야 함: ${id}`);
+      else if (scenarioIds.has(id))
+        add(
+          file,
+          `${at}.id`,
+          `scenario id가 겹침: ${scenarioIds.get(id)}`,
+          scenarioIds.get(id),
+        );
+      else scenarioIds.set(id, file);
+      for (const k of ["who", "situation", "has", "expects"]) {
+        const v = sc[k];
+        if (typeof v !== "string" || v.trim() === "")
+          add(file, `${at}.${k}`, "비어 있지 않은 문자열이 필요");
+      }
+      checkStrings(file, `${at}.says`, sc.says);
+      checkStrings(file, `${at}.edges`, sc.edges);
+      const js = strings(sc.journeys);
+      if (js.length === 0 || js.length !== asArray(sc.journeys).length)
+        add(file, `${at}.journeys`, "journey id 목록이 하나 이상 필요");
+      for (const j of js) {
+        if (!journeyIds.has(j))
+          add(file, `${at}.journeys`, `없는 journey id: ${j}`);
+      }
+    }
+  }
+  for (const id of c.scenarioMocks) {
+    if (!scenarioIds.has(id))
+      add(
+        SCENARIO_MOCKS,
+        id,
+        "이 id의 scenario가 없음. file 이름은 scenario id여야 한다",
+      );
+  }
+
   // tests
   const testGroupIds = c.testGroups.map((g) => String(g.id));
   const groupPrefixes = c.testGroups.flatMap((g) => strings(g.paths));
@@ -1001,7 +1076,7 @@ function check(c: Catalog, only: string | undefined, partial: boolean) {
 // ---- 출력 ----
 
 function parseArgs(argv: string[]) {
-  const flags = new Set(["json", "unaccounted", "partial"]);
+  const flags = new Set(["json", "unaccounted", "partial", "unused"]);
   const values = new Map<string, string>();
   const on = new Set<string>();
   const rest: string[] = [];
@@ -1072,6 +1147,11 @@ function cmdIndex(c: Catalog, a: ReturnType<typeof parseArgs>) {
       console.log(`journey ${j.id} | ${data.group} | ${j.title}`);
     }
   }
+  for (const { data } of c.scenarioFiles) {
+    for (const sc of asArray(data.scenarios).map(asObj)) {
+      console.log(`scenario ${sc.id} | ${data.group} | ${sc.who}`);
+    }
+  }
 }
 
 function layerOf(path: string): string {
@@ -1085,6 +1165,29 @@ function layerOf(path: string): string {
 const pct = (n: number, d: number) =>
   d === 0 ? "-" : `${((n / d) * 100).toFixed(0)}%`;
 const frac = (n: number, d: number) => `${n}/${d} (${pct(n, d)})`;
+
+// journey step의 screen과 outcome의 observe screen:이 가리키는 frame id.
+function usedFrameIds(c: Catalog): Set<string> {
+  const used = new Set<string>();
+  for (const { data } of c.journeyFiles) {
+    for (const j of asArray(data.journeys).map(asObj)) {
+      for (const s of asArray(j.steps).map(asObj)) {
+        if (typeof s.screen === "string") used.add(s.screen);
+      }
+    }
+  }
+  for (const { flow } of flowsOf(c)) {
+    for (const o of asArray(flow.outcomes).map(asObj)) {
+      for (const ob of strings(o.observe)) {
+        if (ob.startsWith("screen:")) used.add(ob.slice(7));
+      }
+    }
+  }
+  return used;
+}
+
+const isKitFrame = (c: Catalog, id: string) =>
+  (c.frameFiles.get(id) ?? "").startsWith(KIT_PAGES);
 
 function buildReport(c: Catalog) {
   const flows = flowsOf(c);
@@ -1140,18 +1243,21 @@ function buildReport(c: Catalog) {
     for (const r of strings(flow.refs)) usedLines.add(r);
     for (const d of strings(flow.docs)) usedDocs.add(d);
   }
-  const usedFrames = new Set<string>();
+  const usedFrames = usedFrameIds(c);
   const journeys = c.journeyFiles.flatMap(({ data }) =>
     asArray(data.journeys).map(asObj),
   );
   for (const j of journeys) {
     for (const r of strings(j.refs)) usedLines.add(r);
-    for (const s of asArray(j.steps).map(asObj)) {
-      if (typeof s.screen === "string") usedFrames.add(s.screen);
-    }
   }
   const inSet = (used: Set<string>, all: string[]) =>
     all.filter((x) => used.has(x)).length;
+  const screenFrames = c.frames.filter((id) => !isKitFrame(c, id));
+  const kitFrames = c.frames.filter((id) => isKitFrame(c, id));
+
+  const scenarioList = c.scenarioFiles.flatMap(({ data }) =>
+    asArray(data.scenarios).map((x) => String(asObj(x).id)),
+  );
 
   // test
   const tests = c.testFiles.flatMap(({ data }) =>
@@ -1249,7 +1355,19 @@ function buildReport(c: Catalog) {
         used: inSet(usedDocs, c.archDocs),
         total: c.archDocs.length,
       },
-      frames: { used: inSet(usedFrames, c.frames), total: c.frames.length },
+      frames: {
+        used: inSet(usedFrames, screenFrames),
+        total: screenFrames.length,
+      },
+      kit_frames: {
+        used: inSet(usedFrames, kitFrames),
+        total: kitFrames.length,
+      },
+    },
+    scenarios: {
+      total: scenarioList.length,
+      with_mock: scenarioList.filter((id) => c.scenarioMocks.includes(id))
+        .length,
     },
     tests: {
       listed: tests.length,
@@ -1350,8 +1468,21 @@ function cmdReport(c: Catalog, a: ReturnType<typeof parseArgs>) {
         "architecture docs",
         frac(r.refs.architecture_docs.used, r.refs.architecture_docs.total),
       ],
-      ["wireframe frames", frac(r.refs.frames.used, r.refs.frames.total)],
+      [
+        "wireframe frames (screens)",
+        frac(r.refs.frames.used, r.refs.frames.total),
+      ],
+      [
+        "wireframe frames (kit, 따로)",
+        frac(r.refs.kit_frames.used, r.refs.kit_frames.total),
+      ],
     ],
+  );
+
+  out.push("## Scenarios", "");
+  out.push(
+    `Scenarios ${r.scenarios.total}; with mock data (mock/scenarios/<id>.ts) ${frac(r.scenarios.with_mock, r.scenarios.total)}`,
+    "",
   );
 
   out.push("## Tests", "");
@@ -1405,6 +1536,34 @@ function cmdReport(c: Catalog, a: ReturnType<typeof parseArgs>) {
   console.log(out.join("\n"));
 }
 
+// --unused: 어느 journey step이나 outcome observe도 가리키지 않는 frame을 정의한 file별로 모은다. check는 막지 않는다.
+function cmdFrames(c: Catalog, a: ReturnType<typeof parseArgs>) {
+  if (!a.on.has("unused")) return void console.log(c.frames.join("\n"));
+  const used = usedFrameIds(c);
+  const byFile = new Map<string, string[]>();
+  for (const id of c.frames) {
+    if (used.has(id)) continue;
+    const file = c.frameFiles.get(id) ?? "?";
+    byFile.set(file, [...(byFile.get(file) ?? []), id]);
+  }
+  const files = [...byFile.keys()].sort(
+    (x, y) =>
+      Number(x.startsWith(KIT_PAGES)) - Number(y.startsWith(KIT_PAGES)) ||
+      x.localeCompare(y),
+  );
+  const out: string[] = [];
+  let screens = 0;
+  let kit = 0;
+  for (const file of files) {
+    const ids = byFile.get(file) ?? [];
+    if (file.startsWith(KIT_PAGES)) kit += ids.length;
+    else screens += ids.length;
+    out.push(`${file} (${ids.length})`, ...ids.map((id) => `  ${id}`));
+  }
+  out.push(`\n안 쓰는 frame: screens ${screens}, kit ${kit}`);
+  console.log(out.join("\n"));
+}
+
 // mulberry32. seed 문자열은 FNV-1a로 숫자로 만든다.
 function random(seed: string): () => number {
   let h = 2166136261;
@@ -1444,7 +1603,7 @@ async function main() {
   if (cmd === "sample") return cmdSample(c, args);
   // observe의 event:와 journey의 screen에 쓸 수 있는 이름.
   if (cmd === "events") return void console.log(c.events.join("\n"));
-  if (cmd === "frames") return void console.log(c.frames.join("\n"));
+  if (cmd === "frames") return cmdFrames(c, args);
   if (cmd === "check") {
     const file = args.values.get("file");
     const rel =
@@ -1459,7 +1618,7 @@ async function main() {
     if (result.issues.length > 0) process.exit(1);
     const owned = [...c.owners.keys()].length;
     console.log(
-      `flows check ok (${c.areaFiles.length} areas, ${result.flows.length} flows, ${result.outcomes.size} outcomes, ${c.journeyFiles.length} journey files, ${c.testFiles.length} test files, ${owned}/${c.entries.length} entries owned)`,
+      `flows check ok (${c.areaFiles.length} areas, ${result.flows.length} flows, ${result.outcomes.size} outcomes, ${c.journeyFiles.length} journey files, ${c.scenarioFiles.length} scenario files, ${c.testFiles.length} test files, ${owned}/${c.entries.length} entries owned)`,
     );
     return;
   }

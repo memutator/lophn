@@ -1,0 +1,10 @@
+group: agent-automation
+scenarios:
+  - id: agent-team-lead
+    who: agent 여럿에게 일을 나눠 맡기는 파워 유저
+    situation: 기획 agent가 조사 agent와 작성 agent를 팀으로 열어 나눠 맡기고, 도중에 팀원이 명령 실행 허락을 청한다
+    says: ["조사하고 초안까지 써 줘", "그 명령은 이번 한 번만 허락"]
+    has: 직접 만든 agent 셋(기획, 조사, 작성), 앱 하나를 붙인 agent 하나, 조사 결과를 돌려받아야 하는 일
+    expects: 팀원이 일을 끝내고 결과를 돌려주면 부모가 팀원을 닫는다. 허락이 필요한 일은 사람에게 올라와 한 번만 또는 계속 허락할 수 있다
+    journeys: [agent-create-by-person, team-spawn-and-end, call-with-result, shell-ask-allow-once, shell-ask-always, app-assign-to-agent]
+    edges: [부모가 먼저 사라짐, 닫힌 session으로 보낸 call, 허락 없이 기다리는 중에 lophn 재시작]

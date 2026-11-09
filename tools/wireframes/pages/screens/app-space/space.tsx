@@ -26,7 +26,7 @@ import { fakeAnnotate } from "../../../../../packages/shell/renderer/app-frame/t
 import type { CoreSource } from "../../../../../packages/shell/renderer/desktop/connection/connection.ts";
 import { APP_BUDGET } from "../../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
 import { openApp } from "../../../../../packages/shell/renderer/desktop/router.ts";
-import { fixedRuns } from "../../../mock/app-space/data.ts";
+import { fixedRuns } from "../../../mock/scenarios/orders-shop.ts";
 import {
   OrdersView,
   type ViewMarks,

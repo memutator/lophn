@@ -366,7 +366,7 @@ interfaces:
 
   - id: host-queue-interface
     kind: interface
-    description: shell main이 사람 token으로 부르는 host queue의 memory route(`host/take {workspaces, tui}` — 요청을 5초까지 기다리는 long-poll이고 tui는 harness TUI hold의 heartbeat —, `done`, `report`)와 agent 자격 또는 사람 token의 `tabs/open`, `tabs/close`, `browser/read|snapshot|act|navigate|screenshot|evaluate|logs|wait`. renderer의 호출 통로에는 없다.
+    description: shell main이 사람 token으로 부르는 host queue의 memory route(`host/take {workspaces, tui}` — 요청을 5초까지 기다리는 long-poll이고 tui는 harness TUI hold의 heartbeat —, `done`, `report`)와 agent 자격 또는 사람 token의 `tabs/open`, `tabs/close`, `tabs/show`, `browser/read|snapshot|act|navigate|screenshot|evaluate|logs|wait`. renderer의 호출 통로에는 없다.
     interface_type: protocol
     defined_by: lophn-agent
     provided_by:

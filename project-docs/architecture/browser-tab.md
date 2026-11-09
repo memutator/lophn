@@ -122,7 +122,7 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 
 **terminal bridge protocol.** 요청 `{v:1,key,url}` 한 줄 → 답 `{"result":"pane"|"declined"}` 한 줄. env `BROWSER`, `LPN_BROWSER_BRIDGE={"socket","key"}`. ack 대기 1500ms, shim 접속 한도 3000ms.
 
-**host queue의 browser 호출.** memory route `tabs/open`, `tabs/close`, `browser/read|snapshot|act|navigate|screenshot|evaluate|logs|wait`(boundary-catalog의 host queue 계약). 호출 기한 30초. act는 `click|type|fill|press|hover|select|scroll` 하나이고 대상은 snapshot의 ref(`e12`). wait는 `--text`나 `--url` 하나와 `timeout_ms`(기본 10초, 최대 25초). `lophn tab open --preview <app> --device <name>`은 emulation 기기를 고른다(없는 이름은 `not_found`).
+**host queue의 browser 호출.** memory route `tabs/open`, `tabs/close`, `tabs/show`, `browser/read|snapshot|act|navigate|screenshot|evaluate|logs|wait`(boundary-catalog의 host queue 계약). 호출 기한 30초. act는 `click|type|fill|press|hover|select|scroll` 하나이고 대상은 snapshot의 ref(`e12`). wait는 `--text`나 `--url` 하나와 `timeout_ms`(기본 10초, 최대 25초). `lophn tab open --preview <app> --device <name>`은 emulation 기기를 고른다(없는 이름은 `not_found`). `tabs/open`의 `relation`(`--as peer|stage|aside|work|glance`)은 연 탭이 연 session에게 무엇인지이고 자리는 core가 고르지 않는다. 작업용 browser 탭(`work`)은 접힌 float이라, 사람 손이 필요하면(로그인, captcha) agent가 `lophn tab show <tab>`(`tabs/show`, 연 쪽만)으로 펴고 `ask`로 알린다.
 
 **오류 code(agent 호출).** 남의 탭·없는 탭은 `not_found`, 낡은 ref·DevTools 열림·사람이 가져간 탭의 쓰기는 `conflict`, shell 없음·탭이 창에 없음·기한·wait 시간 끝은 `unavailable`, 틀린 url·preview·artifact 탭의 navigate는 `invalid_input`이다.
 

@@ -343,7 +343,7 @@ flows:
       - "agent면 자격의 session 행을 읽는다. 없으면 not_found, session 자격이 없으면 forbidden"
       - "session 대상이면 같은 workspace의 열린 session인지 본다. 아니면 not_found"
       - "browser 대상이면 url이 http나 https인지 본다. 아니면 invalid_input"
-      - "탭 표에 주인을 적고 tab_open 요청을 host queue에 넣는다. workspace는 agent면 부른 session의 것(home이면 home), 사람 token이면 입력의 workspace(없으면 home)다"
+      - "탭 표에 주인을 적고 tab_open 요청을 host queue에 넣는다. workspace는 agent면 부른 session의 것(home이면 home), 사람 token이면 입력의 workspace(없으면 home)다. --as로 말한 relation(peer, stage, aside, work, glance)을 요청에 그대로 싣는다(말하지 않으면 null). 자리는 core가 정하지 않고 renderer가 relation과 target으로 정한다"
       - "기다리지 않고 tab id와 accepted를 돌려준다. 실제 탭은 shell host take가 가져가 연다"
     outcomes:
       - id: accepted
@@ -518,6 +518,33 @@ flows:
         observe: [response]
     crosses_process: false
     docs: [architecture/terminal-agent.md, architecture/workspace-layout.md]
+
+  - id: host-tab-show
+    title: agent나 사람 token이 자기가 연 접힌 탭을 사람에게 편다
+    actor: agent
+    entries: [route:tabs/show]
+    pre: [host-tab-open:accepted]
+    boundary: [host-queue-interface, host-queue-core]
+    code:
+      - packages/core/host-queue/queue.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
+    steps:
+      - "agent 자격의 session이나 사람 token이 부른다. 사람 token의 주인은 모두 person이다"
+      - "탭이 없으면 not_found. 주인이 다른 탭이면 forbidden"
+      - "탭은 표에 그대로 두고 tab_show 요청을 그 탭의 workspace로 넣는다. 접힌 float을 그 자리에서 펴는 것은 shell host take가 가져가 하고, float이 아니거나 이미 펴져 있으면 할 일이 없다"
+    outcomes:
+      - id: accepted
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "탭이 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "주인이 다른 탭이거나, agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/browser-tab.md]
 
   - id: host-browser-read
     title: agent나 사람 token이 자기가 연 browser 탭의 url, title, loading을 읽는다
@@ -1867,7 +1894,7 @@ flows:
     steps:
       - "team spawn의 commit이 router.team-spawned를 낸 뒤 core main thread가 받는다(commit 뒤에만)"
       - "부모와 자식 session의 행을 다시 읽는다. 없으면 아무 일도 하지 않는다"
-      - "부모와 자식의 workspace 종류와 id가 같으면 host queue에 tab_open(group, opener는 부모)을 넣는다. 탭은 shell host poll이 연다(host-queue-poll)"
+      - "부모와 자식의 workspace 종류와 id가 같으면 host queue에 tab_open(relation은 team spawn의 --as인 peer나 stage이고 없으면 peer, source는 부모)을 넣는다. 탭은 shell host poll이 연다(host-queue-poll)"
       - "다른 workspace의 자식은 tree에만 있고 탭을 열지 않는다. agent 탭은 자기 workspace 창에만 그려진다"
     outcomes:
       - id: opened

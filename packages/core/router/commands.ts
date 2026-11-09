@@ -194,6 +194,7 @@ const teamSpawnCommand: CommandDefinition<typeof teamSpawn> = {
     tx.port(afterCommit).push(TEAM_SPAWNED_TOPIC, {
       parent: parent.value,
       child: session,
+      relation: input.relation ?? "peer",
     });
     return ok({ session: sesId(session), call: calId(call) });
   },

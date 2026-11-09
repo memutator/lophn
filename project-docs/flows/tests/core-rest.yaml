@@ -94,6 +94,9 @@ files:
       - host-tab-close:accepted
       - host-tab-close:forbidden
       - host-tab-close:not_found
+      - host-tab-show:accepted
+      - host-tab-show:forbidden
+      - host-tab-show:not_found
       - host-request-take:request
       - host-request-take:none
       - host-request-done:done

@@ -481,11 +481,11 @@ flows:
     boundary: [router, agent-sessions, core-api]
     code: [packages/core/router/commands.ts, packages/core/lophn-agent/workspaces/lifecycle.ts, packages/core/lophn-agent/workspaces/directory.ts, packages/protocol/lophn-agent/team.ts]
     steps:
-      - agent가 lophn team spawn으로 agent handle, workspace 이름(빼면 자기 workspace), reply(none, result, conversation)와 본문을 보낸다. 본문 앞에는 고정 글(TEAM_MEMBER_PREAMBLE)이 붙는다
+      - agent가 lophn team spawn으로 agent handle, workspace 이름(빼면 자기 workspace), reply(none, result, conversation), --as(peer나 stage, 없으면 peer)와 본문을 보낸다. 본문 앞에는 고정 글(TEAM_MEMBER_PREAMBLE)이 붙는다
       - 팀 상한을 본다. root 아래 열린 자손이 max_members(기본 8) 이상이면 거절한다. 새 자식의 깊이가 max_depth(기본 2)를 넘으면 거절한다
       - 새 session을 spawned_by가 부모인 것으로 열고, 받는 곳 풀기, call 정책, 명함 검사를 call.send와 같게 거친다
       - 거절되면 tx가 되돌아가 session도 call 행도 남지 않는다
-      - 성공하면 첫 call을 accepted로 남기고, 같은 workspace의 자식 탭은 commit 뒤 main thread가 연다(topic router.team-spawned)
+      - 성공하면 첫 call을 accepted로 남기고, 같은 workspace의 자식 탭은 commit 뒤 main thread가 --as의 relation으로 연다(topic router.team-spawned)
     outcomes:
       - id: spawned
         observe: [ledger:sessions, ledger:agent_calls, event:SessionStarted, event:MessageReceived, response]

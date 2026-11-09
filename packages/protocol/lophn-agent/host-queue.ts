@@ -37,7 +37,13 @@ export type HostWorkspace = z.infer<typeof hostWorkspaceSchema>;
 // - aside: 사람에게 보여 주려는 것(결과 page, artifact, preview, TUI). source 옆 칸이다.
 // - work: agent가 혼자 쓰는 작업 탭(browser-use). 접힌 float이고 사람이 펴서 지켜보거나 take control한다.
 // - glance: 잠깐 보여 주는 것. 펴진 float이고 사람이 밖을 누르면 접힌다.
-export const TAB_RELATIONS = ["peer", "stage", "aside", "work", "glance"] as const;
+export const TAB_RELATIONS = [
+  "peer",
+  "stage",
+  "aside",
+  "work",
+  "glance",
+] as const;
 export const tabRelationSchema = z.enum(TAB_RELATIONS);
 export type TabRelation = z.infer<typeof tabRelationSchema>;
 

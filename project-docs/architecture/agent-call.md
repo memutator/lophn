@@ -142,7 +142,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
     - 답(`call reply`)은 자식의 입력함으로 배달하지 않는다. Router가 call을 done으로 두고 commit 뒤 topic `router.ask-answered`를 내면 main thread가 짝을 푼다. 승인 call의 답은 `decision`(`allow` | `reject`)이 있어야 하고 다른 call의 답은 `decision`을 싣지 못한다(`invalid_input`). 허락은 이번 한 번뿐이고 `always`는 없다. harness·bare 부모의 자동 답이 승인 call에 닿으면 `reject`다.
     - 자식 쪽이 먼저 끝나면 main thread가 취소하고 부모는 취소 알림을 받는다. 부모가 끝나 `receiver_ended`면 자식 입력함에 실패 알림을 넣지 않고 topic `router.ask-ended`로 기다리는 쪽을 거절로 푼다.
     - 재시작하면 짝이 메모리와 함께 사라진다. 그래서 켤 때 `lophn_restarted`로 닫는 call에 부모가 이미 가져간 ask call도 넣는다. 자식에게는 알리지 않는다(자식 turn은 같은 recover에서 interrupted로 닫힌다). 부모의 늦은 답은 `closed: true`다.
-34. 같은 workspace의 자식은 부모 옆에 열린다. spawn이 commit된 뒤 router wiring이 host queue에 부모 옆 group 탭 열기를 요청한다(`architecture/workspace-layout.md` "agent가 연 탭"). 다른 workspace의 자식은 tree에만 있고 탭을 열지 않는다. layout은 보이는 방식일 뿐이라 사람이 탭을 옮겨도 팀은 바뀌지 않는다.
+34. 같은 workspace의 자식은 탭으로 열린다. spawn이 commit된 뒤 router wiring이 host queue에 탭 열기를 요청하며 자리를 고르지 않고 자식이 부모에게 무엇인지(`relation`)만 싣는다. `team spawn --as peer|stage`가 그 값이고 없으면 peer다(peer는 같은 일을 나눠 하는 동료, stage는 다음 단계나 다른 일을 맡는 coordinator). 자리는 renderer의 `openAt()`이 relation으로 정한다(`architecture/workspace-layout.md` "agent가 연 탭"). 다른 workspace의 자식은 tree에만 있고 탭을 열지 않는다. layout은 보이는 방식일 뿐이라 사람이 탭을 옮겨도 팀은 바뀌지 않는다.
 
 ### 화면
 
@@ -184,6 +184,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - **model이 이미지를 못 받아도 거절하지 않고 명함이 알린다(agent).** 차이는 system prompt에 싣지 않고(cache) 명함과 한 줄 목적으로만 알린다.
 - **lophn session의 waiting 구별.** 한때 reader가 허락 기다림을 못 본다고 waiting을 빼고 running으로 보이게 했다(구별이 필요해지면 turn 행에 적는 쪽). 지금은 도는 turn에 사람 동의를 기다리는 tool call이나 시작한 `ask`가 있으면 waiting으로 낸다. 보내는 쪽은 running이든 waiting이든 다음 turn 입력으로 같은 곳에 들어간다.
 - **팀은 spawn tree이고 규칙은 세 줄이다(사람, 2026-11-08).** 일손을 늘리고 줄이는 것과 누가 누구에게 말할지를 연 관계 하나로 정한다. layout group을 팀으로 쓰면 사람이 탭을 옮길 때 팀이 바뀐다. 연락처를 prompt에 싣지 않는 것은 팀원이 늘고 줄 때마다 prompt cache가 깨지지 않게 하려는 것이다.
+- **agent는 탭의 자리가 아니라 뜻을 말한다(사람, 2026-11-09).** 예전에는 `--place beside|group|float`로 자리를 골랐고 core가 팀 자식에 `group`을 박았다. 뜻을 아는 쪽이 없어 팀의 단계가 따로 group이 되지 않았고 browser-use 탭은 둘 곳이 없었다. 이제 agent는 `--as peer|stage|aside|work|glance`로 연 탭이 자기에게 무엇인지만 말하고, 자리는 renderer의 한 정책이 정한다. core는 자리를 고르지 않고 relation을 그대로 전한다. 말하지 않으면 null이고 target마다 기본을 renderer가 정한다.
 - **팀 상한은 root session 아래 열린 자손 수로 센다(사람이 확인).** core는 desk를 모른다. 기본은 처음 `max_depth: 3`, `max_members: 16`이었다가 `max_depth: 2`, `max_members: 8`로 줄였다.
 - **`team_changed`는 turn 준비 때 비교해 붙이고 입력함에 넣지 않는다(사람이 확인).** 쉬던 session을 깨우지 않는다.
 - **host queue로 탭을 여는 요청은 harness queue를 일반화하지 않고 같은 꼴로 따로 둔다(사람이 확인).** harness queue는 session마다 turn 입력을 담아 요청 종류를 실을 자리가 없다.

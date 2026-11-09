@@ -218,6 +218,7 @@ links:
   - {entry: "cli:settings.get", flow: settings-read}
   - {entry: "cli:tab.open", flow: host-tab-open}
   - {entry: "cli:tab.close", flow: host-tab-close}
+  - {entry: "cli:tab.show", flow: host-tab-show}
   - {entry: "cli:team.spawn", flow: team-spawn}
   - {entry: "cli:team.read", flow: team-read}
   - {entry: "cli:team.end", flow: team-end}

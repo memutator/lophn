@@ -235,6 +235,8 @@ files:
       - host-artifact-tab-open:reused
       - host-artifact-tab-open:not_found
       - host-artifact-tab-open:invalid_input
+      - host-coding-handoff-open:accepted
+      - host-coding-handoff-open:invalid_input
       - host-tab-close:accepted
       - host-tab-close:forbidden
       - host-tab-close:not_found

@@ -331,7 +331,7 @@ flows:
     title: agent나 사람 token이 session이나 browser 탭을 열어 달라고 요청한다
     actor: agent
     entries: [route:tabs/open]
-    when: "target이 session이거나 browser일 때. tui는 harness-tui-open, preview는 host-preview-tab-open, artifact는 host-artifact-tab-open이 맡는다"
+    when: "target이 session이거나 browser일 때. tui는 harness-tui-open, preview는 host-preview-tab-open, artifact는 host-artifact-tab-open, coding은 host-coding-handoff-open이 맡는다"
     boundary: [host-queue-interface, host-queue-core]
     code:
       - packages/core/main/daemon/wiring/host-queue.ts
@@ -447,6 +447,47 @@ flows:
     crosses_process: false
     risk: [sandbox]
     docs: [architecture/artifact.md, architecture/browser-tab.md, architecture/workspace-layout.md]
+
+  - id: host-coding-handoff-open
+    title: agent가 사람이 이어서 만질 일을 즐겨찾기 coding agent의 TUI 탭으로 넘긴다
+    actor: agent
+    uses: [route:tabs/open]
+    when: "target이 coding일 때"
+    boundary: [host-queue-interface, host-queue-core]
+    code:
+      - packages/core/main/daemon/wiring/host-queue.ts
+      - packages/core/host-queue/handoff.ts
+      - packages/shell/renderer/shell/agent-sections.tsx
+    steps:
+      - "agent가 `lophn tab open --coding <harness> --handoff <글>`로 부른다. 사람 token은 받지 않는다"
+      - "부른 session의 workspace가 project가 아니면 거절한다(home과 앱은 터미널이 없다)"
+      - "harness가 `shell.coding_agents.favorites`에 없거나 adapter에 첫 prompt 인자 꼴이 없으면 거절하고 열 수 있는 harness id를 message에 싣는다"
+      - "글을 `<data root>/handoffs/<tab>.md`(0600)에 쓰고 tab_open(target coding, handoff {harness, file})을 넣는다. lophn session과 hold는 만들지 않는다"
+      - "창은 사람의 즐겨찾기 명령 뒤에 고정 글 \"Read the handoff at <file> …\"만 첫 prompt로 붙여 새 터미널 탭에서 친다. agent가 쓴 글은 터미널에 치지 않는다"
+    outcomes:
+      - id: accepted
+        observe: ["disk:<data>/handoffs/<tab>.md", response]
+      - id: invalid_input
+        code: invalid_input
+        when: "사람 token이 불렀다, project가 아닌 session이다, 즐겨찾기에 없거나 첫 prompt 꼴이 없는 harness다, 글이 상한(64 KiB)을 넘는다"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "호출 session이 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "handoff file을 쓰지 못했다"
+        observe: [response]
+    crosses_process: true
+    risk: [sandbox]
+    docs: [architecture/coding-agent.md, architecture/workspace-layout.md]
+    unclear:
+      - "handoff file은 탭이 닫혀도 지우지 않는다. 창이 없어 요청이 기다리는 동안 core가 다시 뜨면 요청은 사라지고 file만 남는다"
 
   - id: harness-tui-open
     title: harness agent session을 TUI 탭으로 연다(CLI session을 hold한다)

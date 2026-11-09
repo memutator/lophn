@@ -71,16 +71,3 @@ modules: [packages/core/lophn-agent, packages/shell/renderer]
 고치려면:
 - 값을 쓰기 전에 그 id의 provider가 있는지 읽어 보고(또는 core가 login begin·secret put 단계에서 거절하고) 있으면 쓰지 않는다. 작음. 추천.
 - 새 연결은 임시 이름에 쓰고 ConnectProvider가 성공한 뒤에 `provider.<id>`로 옮긴다. 중간. 끊기의 정리 누락과 같이 core가 맡을 수 있다(Disconnect command가 값을 지운다).
-
-## `publish-package` skill이 내장으로 선언되지 않아 앱 agent가 읽지 못한다
-
-```yaml
-kind: bug
-modules: [packages/protocol, packages/core/lophn-agent, packages/core/agent-workspaces]
-```
-
-지금: `packages/core/agent-workspaces/skills/publish-package/SKILL.md`는 있지만 `BUILTIN_SKILLS`(`packages/protocol/lophn-agent/skill-settings.ts`)에 항목이 없다. skill 모으기(`packages/core/lophn-agent/extensions/skills.ts`)는 내장 폴더라도 선언되지 않은 이름을 "built-in skill is not declared"로 `skipped`에 넣고 후보에서 뺀다. 그런데 앱 workspace의 prompt(`packages/core/agent-workspaces/prompts/app.md`)는 "package를 옮기거나 다른 앱의 package를 더할 때 skill `publish-package`를 읽으라"고 말한다.
-
-영향: 앱 agent가 그 안내대로 skill을 찾으면 없어서 package 만들기·더하기를 skill 없이 짐작으로 하게 된다.
-
-고치려면: `BUILTIN_SKILLS`에 `{ name: "publish-package", workspaces: ["app"], can_disable: false, menu: false }`를 더한다. 작음. 앱 agent가 읽는 지침이 바뀌므로 `sdk-note` skill대로 `migrate-sdk` 메모 여부를 같이 본다.

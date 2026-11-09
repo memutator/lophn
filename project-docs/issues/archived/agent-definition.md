@@ -762,3 +762,20 @@ guard: 없음
 - 추천: 그대로 둔다. 다시 인증 길이 이미 있고, 전역 lophn에 OAuth MCP를 붙인 사람은 적다.
 
 닫음: 그대로 둔다(agent). 거절된 refresh는 `refresh_rejected`로 다시 인증을 묻고, 전역 lophn에 OAuth MCP를 붙인 사람만 workspace마다 한 번 다시 인증한다. 이유는 `packages/core/main/daemon/wiring/lophn-split.ts`의 `splitSecrets` 주석으로 옮겼다.
+
+## `publish-package` skill이 내장으로 선언되지 않아 앱 agent가 읽지 못한다
+
+```yaml
+kind: bug
+modules: [packages/protocol, packages/core/lophn-agent, packages/core/agent-workspaces]
+closed: fixed
+guard: 없음
+```
+
+지금: `packages/core/agent-workspaces/skills/publish-package/SKILL.md`는 있지만 `BUILTIN_SKILLS`(`packages/protocol/lophn-agent/skill-settings.ts`)에 항목이 없다. skill 모으기(`packages/core/lophn-agent/extensions/skills.ts`)는 내장 폴더라도 선언되지 않은 이름을 "built-in skill is not declared"로 `skipped`에 넣고 후보에서 뺀다. 그런데 앱 workspace의 prompt(`packages/core/agent-workspaces/prompts/app.md`)는 "package를 옮기거나 다른 앱의 package를 더할 때 skill `publish-package`를 읽으라"고 말한다.
+
+영향: 앱 agent가 그 안내대로 skill을 찾으면 없어서 package 만들기·더하기를 skill 없이 짐작으로 하게 된다.
+
+고치려면: `BUILTIN_SKILLS`에 `{ name: "publish-package", workspaces: ["app"], can_disable: false, menu: false }`를 더한다. 작음. 앱 agent가 읽는 지침이 바뀌므로 `sdk-note` skill대로 `migrate-sdk` 메모 여부를 같이 본다.
+
+닫음: `BUILTIN_SKILLS`에 `publish-package`(app, 끌 수 없음, menu 아님)를 더해 앱 workspace의 turn skill 목록에 들고 `skill.read`가 본문을 준다. 실제로 앱 session `ses_01m6z9tqefkwyxnk6fm55djgje`에서 forbidden으로 막혔다.

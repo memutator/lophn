@@ -410,8 +410,6 @@ journeys:
       - {do: "사용자 package 판이 catalog에 등록된다", flow: package-register-version:registered}
       - {do: "다른 앱 session이 사용자 package 목록과 판을 읽는다", flow: package-catalog-read:ok}
       - {do: "새 앱이 그 판을 선언의 의존에 고정해 release를 준비한다", flow: release-prepare:prepared}
-    gaps:
-      - "publish-package skill은 BUILTIN_SKILLS에 선언이 없어 skill.read로 도달하지 않는다(skill-publish-package not-available, defect 후보). 그래서 이 journey는 skill 없이 publish로 쓴다."
 
   - id: app-package-publish-dirty
     title: "커밋하지 않은 변경이 있어 package publish가 거절되고, commit 뒤 다시 낸다"

@@ -1,0 +1,13 @@
+id: bundled-extension-version-drift
+title: PATCH를 올려도 본체 안 extension manifest 판은 그대로라 harness·harness-gui가 멈추고 패키징이 실패한다
+kind: bug
+status: open
+topic: extension
+modules: [packages/shell/main, packages/protocol]
+now: |
+  `packages/shell/main/extensions/bundled/{harness,harness-gui}/manifest.json`의 `version`은 손으로 root `package.json` 판과 맞춘다. registry(`extensionVersionError`)는 판이 정확히 같아야 켜고, 다르면 incompatible로 두어 말없이 멈춘다. shell main build(`checkExtensionVersions`)도 다르면 실패한다. 0.23.0 뒤 PATCH(0.23.1~0.23.9)마다 root 판만 올라가 manifest는 0.23.0에 남았고, 0.23.9에서 `npm run package`가 실패해 알았다(2026-11-09, manifest를 손으로 0.23.9로 맞췄다).
+impact: |
+  PATCH를 올린 개발 판(`npm run dev`)에서 harness agent(headless coding agent)와 터미널 탭 GUI가 incompatible로 돌지 않는다. 다음 PATCH에서도 같은 일이 되풀이되고 패키징이 막힌다.
+fix: |
+  - (추천, 작음) 본체 안 extension은 판을 비교하지 않는다: manifest에서 `version`을 빼거나 build와 registry가 bundled는 제품 판으로 본다. 판 비교는 따로 설치하는 extension에만 뜻이 있다. AGENTS.md "제품 판은 root `package.json`의 `version` 하나다"와도 맞는다.
+  - (작음) check의 records 단계가 bundled manifest 판과 root 판이 다르면 실패하게 한다. 손으로 맞추는 일은 남는다.

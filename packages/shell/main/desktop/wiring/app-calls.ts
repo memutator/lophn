@@ -6,6 +6,7 @@ import {
 } from "../../../../base/mod.ts";
 import { createAppAgent } from "../../app-frame/app-agent.ts";
 import { createAppCall } from "../../app-frame/app-call.ts";
+import { createAppProjects } from "../../app-frame/app-projects.ts";
 import { registerAppIpc, removeAppIpc } from "../../app-frame/app-ipc.ts";
 import { createDeclarationSource } from "../../app-frame/declaration-source.ts";
 import type { AppViews } from "./app-views.ts";
@@ -40,6 +41,7 @@ export function register(ctx: ShellContext, views: AppViews): AppCalls {
       return true;
     },
   });
+  const appProjects = createAppProjects({ call: ctx.coreInternal });
   // 앱 화면이 연 session의 ACP 갱신. 어느 view로 보낼지는 appAgent가 고른다.
   ctx.relay.conditions.push({ types: ["AcpUpdated"] });
   ctx.relay.events.push((event) => {
@@ -53,6 +55,7 @@ export function register(ctx: ShellContext, views: AppViews): AppCalls {
     agentOpen: (view, input) => appAgent.open(view, input),
     agentSnapshot: (view, input) => appAgent.snapshot(view, input),
     agentSend: (view, input) => appAgent.send(view, input),
+    projectsList: () => appProjects.list(),
   });
   return {
     appCall,

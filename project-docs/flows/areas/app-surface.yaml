@@ -1174,6 +1174,35 @@ flows:
     crosses_process: true
     docs: [architecture/app-call.md]
 
+  - id: app-projects-list
+    title: 앱 화면이 lophn project 목록을 읽는다
+    actor: app
+    entries: []
+    uses: [ipc:app:projects-list, route:projects/list]
+    boundary: [shell, projects]
+    code: [packages/shell/main/app-frame/app-projects.ts, packages/shell/main/app-frame/app-ipc.ts]
+    steps:
+      - "sender가 살아 있는 앱 view의 main frame이 아니면 forbidden이다(app-ipc)"
+      - "사람 자격으로 projects.list를 next_cursor가 없을 때까지 읽는다(보관 포함)"
+      - "project마다 id·name·title·purpose·status만 남긴다. 폴더 path는 주지 않는다"
+    outcomes:
+      - id: listed
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "sender가 앱 view의 main frame이 아니다(app-ipc)"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "page를 읽는 사이 project 목록이나 ledger가 바뀌어 cursor가 conflict다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "core를 쓸 수 없다, 또는 projects.list가 conflict 밖의 실패다"
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/app-call.md]
+
   - id: app-agent-send
     title: 앱 화면이 자기 session에 입력을 보낸다(send·stop·answer·rename만)
     actor: app

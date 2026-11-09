@@ -12,6 +12,7 @@ import {
   APP_VIEW_ERROR_CHANNEL,
   type AppReply,
 } from "../../ipc/app.ts";
+import { APP_PROJECTS_LIST_CHANNEL } from "../../ipc/app-projects.ts";
 import type { CallerFrame, IpcEvent } from "../desktop/ipc-guard.ts";
 import type { CallOutcome } from "./app-call.ts";
 import { parseAppUrl } from "./app-protocol.ts";
@@ -37,6 +38,7 @@ interface AppIpcDeps {
   agentOpen(view: BoundView, input: unknown): Promise<CallOutcome<unknown>>;
   agentSnapshot(view: BoundView, input: unknown): Promise<CallOutcome<unknown>>;
   agentSend(view: BoundView, input: unknown): Promise<CallOutcome<unknown>>;
+  projectsList(): Promise<CallOutcome<unknown>>;
 }
 
 function isMainFrame(event: IpcEvent): CallerFrame | undefined {
@@ -98,6 +100,10 @@ export function registerAppIpc(ipc: AppIpcHost, deps: AppIpcDeps): void {
       return view === undefined ? NOT_APP_VIEW : await run(view, input);
     });
   }
+  ipc.handle(APP_PROJECTS_LIST_CHANNEL, async (event) => {
+    const view = senderView(deps.view, event);
+    return view === undefined ? NOT_APP_VIEW : await deps.projectsList();
+  });
   ipc.on(APP_VIEW_ERROR_CHANNEL, (event, input) => {
     const view = senderView(deps.view, event);
     if (view !== undefined) void deps.viewError(view, input);
@@ -110,5 +116,6 @@ export function removeAppIpc(ipc: AppIpcHost): void {
   ipc.removeHandler(APP_AGENT_OPEN_CHANNEL);
   ipc.removeHandler(APP_AGENT_SNAPSHOT_CHANNEL);
   ipc.removeHandler(APP_AGENT_SEND_CHANNEL);
+  ipc.removeHandler(APP_PROJECTS_LIST_CHANNEL);
   ipc.removeAllListeners(APP_VIEW_ERROR_CHANNEL);
 }

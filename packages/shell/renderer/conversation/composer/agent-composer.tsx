@@ -337,7 +337,11 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     if (!canSend) return;
     browse.current = null;
     if (shellMode) props.onShell(shellCommand);
-    else if (draft.text.startsWith("/") && capabilities.commands) {
+    else if (
+      draft.text.startsWith("/") &&
+      !draft.text.includes("\n") &&
+      capabilities.commands
+    ) {
       void slash.submit();
     } else props.onSend(delivery);
   };

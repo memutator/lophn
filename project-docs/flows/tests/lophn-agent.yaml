@@ -16,6 +16,10 @@ files:
     covers: [agent-definition-read:ok]
     note: "정의 읽기의 model 출처 순서(agent, project, global)와 workspace마다 따로 있는 lophn의 MCP 서버 분리"
 
+  - path: packages/core/lophn-agent/agents/coding-builtin_test.ts
+    covers: [agent-definition-read:ok, agent-change:handle-changed, agent-delete:lophn-cannot-delete, agent-create:invalid-definition]
+    note: "내장 coding agent는 harness가 켜지고 즐겨찾기일 때만 보이고 handle로 풀린다. 고정 칸 변경·지우기·예약 handle 생성은 거절"
+
   - path: packages/core/lophn-agent/agents/resolve_test.ts
     covers: [tool-list-assembly:bare-narrowed]
     note: "bare의 고른 tool과 skill(picks, skills)을 정하는 순수 함수. 종류별 tool 목록은 그대로"

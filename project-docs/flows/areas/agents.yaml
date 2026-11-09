@@ -11,6 +11,7 @@ flows:
       - core가 정의 file을 읽고 틀린 칸을 항목별 issues로 싣는다. 틀린 file도 목록에 남고 오류로 끊지 않는다
       - 목록은 전역 agent와 그 workspace의 범위 agent를 보이고, lophn은 자기 workspace의 것만 보인다
       - Home의 Agents 탭은 workspace 없이 불러 전역과 모든 workspace의 범위 agent를 한 목록으로 보이고(다른 workspace의 lophn은 화면이 뺀다), 범위 agent는 그 agent 자신의 workspace로 read한다
+      - 내장 coding agent(`coding_<harness>`, handle은 harness id)는 `extensions.harness.enabled`가 켜지고 `shell.coding_agents.favorites`에 있을 때만 목록에 선다. file이 없으면 기본 정의다. id로 읽기는 늘 된다
       - file이 없는 lophn의 read는 기본 정의(definition null, hash null)를 준다
     outcomes:
       - id: ok
@@ -104,7 +105,7 @@ flows:
         observe: [response, "screen:new-agent-editor-lophn"]
       - id: handle-changed
         code: invalid_input
-        when: 정의가 있는 agent의 handle을 바꿨다(lophn 포함)
+        when: 정의가 있는 agent의 handle을 바꿨다(lophn 포함). 내장 coding agent의 handle·runtime·범위를 바꿔도 여기다
         observe: [response, "screen:agent-settings-agent"]
       - id: workspace-changed
         code: invalid_input
@@ -142,7 +143,7 @@ flows:
         observe: [disk:agents/<id>.md, disk:agents/<id>/avatar.<ext>]
       - id: lophn-cannot-delete
         code: forbidden
-        when: agent가 lophn이다
+        when: agent가 lophn이나 내장 coding agent다
         observe: [response, "screen:new-agent-editor-lophn", "screen:agent-settings-home-lophn"]
       - id: agent-not-found
         code: not_found
@@ -169,14 +170,14 @@ flows:
     code: [packages/core/lophn-agent/agents/card.ts, packages/core/lophn-agent/agents/reads.ts]
     steps:
       - 사람의 agent 편집 화면(workspace/agents)이나 agent(CLI `agent.card`)가 handle(과 필요하면 workspace)로 명함을 읽는다. agent는 workspace를 빼면 자기 session의 workspace다
-      - core가 그 workspace에서 보이는 agent를 handle로 찾는다(lophn은 workspace마다 하나)
+      - core가 그 workspace에서 보이는 agent를 handle로 찾는다(lophn은 workspace마다 하나, 즐겨찾기 내장 coding agent 포함)
       - 명함에는 답 방식(replies), 기본 lophn과의 차이, 입력 modality와 자기 session에서 부를 수 있는지(callable)를 싣는다. prompt 원문은 싣지 않는다
     outcomes:
       - id: ok
         observe: [response]
       - id: agent-not-found
         code: not_found
-        when: 그 workspace에서 보이는 agent가 없다(범위 agent가 밖에서 보이면 없는 것이다). 보관된 앱 workspace의 agent도 없다
+        when: 그 workspace에서 보이는 agent가 없다(범위 agent가 밖에서 보이면 없는 것이다). 보관된 앱 workspace의 agent도 없다. message에 모르는 handle과 그 자리에서 부를 수 있는 handle을 싣고, agent의 tool 결과에도 그 message가 간다
         observe: [response]
       - id: file-broken
         code: invalid_input

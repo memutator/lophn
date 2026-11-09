@@ -58,6 +58,11 @@ export function AppWorkspaceMenu() {
   return <AppSpace menu />;
 }
 
+/** 탭 줄 끝의 + 메뉴를 열었다. 앱 화면 항목과 Agents(이 앱 workspace의 Agents 관리 탭) 항목이 있다. */
+export function AppWorkspaceNewTabMenu() {
+  return <AppSpace newTab />;
+}
+
 /** 그 앱에 preview가 돌고 있다. 앱 화면 탭 머리 줄에 [Preview]가 선다. */
 export function PreviewButton() {
   return <AppSpace preview="button" />;

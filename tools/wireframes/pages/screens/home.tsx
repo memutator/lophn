@@ -4,6 +4,7 @@ import {
   HomeEmpty,
   HomeJobs,
   HomeNewApp,
+  HomeNewTabMenu,
   HomeNoWorkspaces,
   HomeRegister,
   HomeRowMenu,
@@ -55,6 +56,13 @@ export const homeArea: Area = {
       description:
         "Home의 lophn session을 탭으로 연 상태. Home의 lophn session도 다른 workspace와 같이 tab으로 열린다. Home session의 탭은 project 폴더가 필요한 terminal, Explorer, workflow를 두지 않는다.",
       render: () => <HomeSession />,
+    },
+    {
+      id: "home-new-tab-menu",
+      title: "Home · new tab menu",
+      description:
+        "탭 줄 끝의 + 메뉴를 펼친 상태다. Home에는 project 폴더가 필요한 Terminal과 문서 항목이 없고 Browser, Agent 하위 메뉴, 그 아래 Agents 항목, App panel이 있다. Agents는 Home의 Agents(관리) 탭을 연다.",
+      render: () => <HomeNewTabMenu />,
     },
     {
       id: "home-workspaces-menu",

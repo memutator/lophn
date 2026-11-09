@@ -14,6 +14,7 @@ import type { AppearanceValues } from "../../../../packages/shell/renderer/deskt
 import { fakeAgents } from "../../../../packages/shell/renderer/desktop/settings/agents/testdata/fake-agents.ts";
 import { fakeProviders } from "../../../../packages/shell/renderer/desktop/settings/providers/testdata/fake-providers.ts";
 import { fakeSettings } from "../../../../packages/shell/renderer/desktop/settings/testdata/fake-settings.ts";
+import { fakeExtensions } from "../../../../packages/shell/renderer/desktop/settings/extension-packages/testdata/fake-extensions.ts";
 import { fakeBrowserSettings } from "../../../../packages/shell/renderer/desktop/settings/browser/testdata/fake-source.ts";
 import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
 import type {
@@ -48,6 +49,8 @@ interface SettingsFrameProps {
   };
   /** Keyboard 항목의 저장된 키. 안 쓰면 바꾼 키가 없다. */
   readonly keyboard?: StoredKeybindings;
+  /** Extensions 항목에 가짜 `lophnExtensions` 통로와 `extensions.<id>.enabled` 선언을 끼운다. */
+  readonly extensions?: boolean;
   /** custom provider를 붙일 수 있게 한다. found는 연결 뒤 목록을 찾고, empty는 /models가 없어 목록이 비어 있다. */
   readonly customList?: "found" | "empty";
   /** mount 뒤에 차례로 하는 동작. */
@@ -65,15 +68,20 @@ export function SettingsFrame({
   browser,
   customList,
   keyboard,
+  extensions = false,
   steps = [],
 }: SettingsFrameProps = {}) {
   const mock = useMemo(() => devMock("?mock")!, []);
   const [client] = useState(() => createEventClient(createFakeWaiting([])));
   // mock의 settings에는 필수 설정이 빈 항목이 하나 있어 General 위에 toast가 뜬다.
-  const settings = useMemo(
-    () => (requiredEmpty ? mock.settings : fakeSettings().source),
-    [mock, requiredEmpty],
-  );
+  const settings = useMemo(() => {
+    if (requiredEmpty) return mock.settings;
+    if (!extensions) return fakeSettings().source;
+    // Extensions 화면은 preload 통로를 window에서 읽는다. gallery는 창 하나에 frame 하나라 전역에 꽂아도 겹치지 않는다.
+    const fake = fakeExtensions();
+    (globalThis as { lophnExtensions?: unknown }).lophnExtensions = fake.api;
+    return fakeSettings({ declared: fake.settings }).source;
+  }, [mock, requiredEmpty, extensions]);
   // host가 Settings 화면과 같은 provider·기본 model source를 읽어야 연결 뒤에 새 provider를 찾는다.
   const panels = useMemo(
     () => ({

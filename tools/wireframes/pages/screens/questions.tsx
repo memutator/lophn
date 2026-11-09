@@ -14,6 +14,7 @@ import {
   WaitingList,
   WaitingPermission,
   WaitingSettled,
+  WaitingShare,
   WaitingToasts,
 } from "./waiting/waiting-pages.tsx";
 
@@ -70,6 +71,13 @@ export const questionsArea: Area = {
       description:
         "결정한 뒤 목록에 잠깐 남는 줄 셋이다. 허락, 거절, cancelled(원래 일이 끝남)를 나눈다.",
       render: () => <WaitingSettled />,
+    },
+    {
+      id: "waiting-share-request",
+      title: "Waiting · app share request",
+      description:
+        "앱 공유 요청 card다. 앱 workspace의 agent가 이 앱을 다른 agent와 터미널 coding agent에게 할당해 달라고 청했다. 받을 agent와 이유, 승인하면 열리는 공개 skill·command 수가 보이고 단추는 [Reject], [Share]이다. 승인하면 그 agent 정의의 apps에 앱이 더해진다.",
+      render: () => <WaitingShare />,
     },
     {
       id: "waiting-job-hold-list",

@@ -28,11 +28,11 @@ flows:
       - id: conflict
         code: conflict
         when: "선언이 틀려 시작할 수 없음(no_declaration, invalid_yaml, invalid_declaration)"
-        observe: [response]
+        observe: [response, screen:workflow-tab-invalid]
       - id: unavailable
         code: unavailable
         when: "ledger나 workflows 폴더를 못 읽음, 본문 redaction이 끝나지 않거나 blob을 못 준비함. instance 행도 줄도 남지 않는다"
-        observe: [response]
+        observe: [response, screen:workflow-start-failed]
     crosses_process: false
     refs: [W1, W2, W4, E9, H7]
     docs: [architecture/workflow.md]
@@ -55,7 +55,7 @@ flows:
         observe: [ledger:workflow_instances, ledger:workflow_lines, "process:flow-host", event:WorkflowInstanceChanged, response]
       - id: launch-failed
         when: "process를 띄우지 못함(flow host가 없음, agent 이름을 못 풀음, SDK 설치 사본이나 link가 없음, log 폴더 준비 실패, spawn 실패, start를 쓰지 못함). 응답은 ended인 instance다"
-        observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response, screen:workflow-start-failed]
       - id: invalid_input
         code: invalid_input
         when: "flow kind인데 step을 줌"
@@ -67,7 +67,7 @@ flows:
       - id: conflict
         code: conflict
         when: "선언이 틀리거나 flow.ts가 없어 시작할 수 없음(no_flow_file 포함)"
-        observe: [response]
+        observe: [response, screen:workflow-tab-invalid]
       - id: unavailable
         code: unavailable
         when: "ledger나 workflows 폴더를 못 읽음, 본문 redaction이나 blob 준비가 실패함. instance 행을 쓰기 전에 멈춘다"
@@ -232,7 +232,7 @@ flows:
       - id: conflict
         code: conflict
         when: "이미 stopped, 또는 state_seq가 3번 다시 읽어도 어긋남"
-        observe: [response]
+        observe: [response, screen:workflow-start-failed]
       - id: not_found
         code: not_found
         when: "instance가 없음"
@@ -288,7 +288,7 @@ flows:
       - "목록의 step에는 prompt, in, out을 싣지 않는다"
     outcomes:
       - id: ok
-        observe: [response]
+        observe: [response, screen:workflow-tab-empty, screen:new-sidebar-workflows-empty]
       - id: invalid_input
         code: invalid_input
         when: "project를 주지 않았고 호출한 agent가 project workspace에 없음"
@@ -878,7 +878,7 @@ flows:
       - "ListRuns는 session, agent, workspace, state로 거르고(모두 맞아야 함) 새것이 앞이며 50개씩 준다. 거르기만 하고 권한은 보지 않는다"
     outcomes:
       - id: ok
-        observe: [response]
+        observe: [response, screen:new-app-runs-empty]
       - id: not_found
         code: not_found
         when: "ReadRun의 run이 없음"
@@ -1015,7 +1015,7 @@ flows:
       - "승인 전 job이면 next_due_at은 null로 둔다. 할 일(action)은 바꾸지 못한다"
     outcomes:
       - id: updated
-        observe: [ledger:jobs, event:JobChanged, response]
+        observe: [ledger:jobs, event:JobChanged, response, screen:jobs-tab-edit]
       - id: invalid_input
         code: invalid_input
         when: "at이 있는데 every가 d 단위가 아님"
@@ -1054,7 +1054,7 @@ flows:
       - "JobChanged를 낸다"
     outcomes:
       - id: deleted
-        observe: [ledger:jobs, ledger:job_runs, event:JobChanged, response]
+        observe: [ledger:jobs, ledger:job_runs, event:JobChanged, response, screen:jobs-tab-delete]
       - id: not_found
         code: not_found
         when: "job이 없거나 다른 agent가 만든 job"
@@ -1118,7 +1118,7 @@ flows:
       - "사람(Jobs 탭)이 부르면 모든 job을 준다. id 순 50개씩 cursor로 읽는다"
     outcomes:
       - id: ok
-        observe: [response]
+        observe: [response, screen:home-jobs, screen:project-window-jobs, screen:project-window-jobs-empty]
       - id: forbidden
         code: forbidden
         when: "agent session을 모름"
@@ -1143,7 +1143,7 @@ flows:
       - "화면은 둘을 같이 읽어 맞추고 JobChanged를 받으면 다시 읽는다"
     outcomes:
       - id: ok
-        observe: [response]
+        observe: [response, screen:waiting-job-hold-kinds]
       - id: internal
         code: internal
         when: "승인 대기 job이나 held 줄이 깨져 읽지 못함(job이 없는 줄 포함)"

@@ -214,6 +214,13 @@ export const shellArea: Area = {
       render: () => <WorkspacesScene steps={workspacesSteps.menu} />,
     },
     {
+      id: "shell-workspaces-app-menu",
+      title: "Shell · Workspaces app row menu",
+      description:
+        "Workspaces panel의 앱 줄 ⋯ 메뉴를 연 상태. 앱 줄에는 Archive 하나뿐이다.",
+      render: () => <WorkspacesScene steps={workspacesSteps.appMenu} />,
+    },
+    {
       id: "shell-workspaces-archived",
       title: "Shell · Workspaces archived",
       description:
@@ -226,6 +233,18 @@ export const shellArea: Area = {
       description:
         "Archived 구역의 보관한 앱 줄에만 Unarchive 옆에 Delete(휴지통) 단추가 있다. 누르면 확인 dialog가 뜬다: 무엇이 영구히 지워지는지(소스 코드와 앱 data, 앱 agent와의 대화, release와 기록)를 보이고, secret 값은 남는다는 한 줄을 더한다. 이름을 따로 치게 하지 않는다. 되돌릴 수 없는 일을 실제로 하는 단추라 빨간 Delete(danger)가 오른쪽 끝이고 Cancel은 글자뿐이다.",
       render: () => <WorkspacesScene steps={workspacesSteps.deleteApp} />,
+    },
+    {
+      id: "shell-workspaces-delete-app-stopping",
+      title: "Shell · Delete app still stopping",
+      description:
+        "보관하자마자 지우면 앱 process가 아직 멈추는 중이라 지우기가 거절된다(unavailable). dialog는 닫히지 않고 잠시 뒤 다시 지우라는 글을 보이며 Delete로 다시 시도할 수 있다.",
+      render: () => (
+        <WorkspacesScene
+          steps={workspacesSteps.deleteAppStopping}
+          deleteCode="unavailable"
+        />
+      ),
     },
     {
       id: "shell-desk-menu",

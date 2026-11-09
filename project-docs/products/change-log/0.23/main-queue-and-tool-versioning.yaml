@@ -1,0 +1,21 @@
+id: main-queue-and-tool-versioning
+version: 0.23.9
+title: main에 쓰는 길을 main lock 하나로 줄 세우고 PATCH 판은 올리는 도구가 정한다
+modules: []
+change: |
+  전: land.sh가 land lock을 check:full, e2e, 기동, ff까지 쥐었다. lock은 land끼리만 줄 세워서 다른 session이 그 사이 main에 직접 merge·commit하면 ff가 실패해 다시 rebase, check, (e2e에 닿으면) e2e 7분 반을 또 돌았고 그동안 main이 또 움직였다. 모든 branch가 `package.json`의 판 줄을 고쳐서 동시에 land하면 늘 거기서 충돌했다.
+  후: lock이 둘이다. `lophn-land.lock`은 무거운 단계(rebase, check:full, e2e, 기동)만 줄 세운다(e2e는 동시에 돌리면 멈춘 적이 있어 하나씩). `lophn-main.lock`은 main에 쓰는 유일한 길이다. land.sh의 쓰는 단계는 main lock 아래서 지금 main 위로 rebase하고, 무거운 단계 동안 main이 움직였으면 `npm ci`(필요할 때)와 `npm run check`만 다시 본 뒤 판을 정하고 ff한다. 재시도 loop와 e2e·기동 재실행이 없다. 새 `main-merge.sh <branch> [--full]`은 계획이 아닌 session의 branch를 같은 길(main lock, rebase, check, 판 정하기, ff)로 올린다. main checkout에 직접 commit할 때는 `flock "$(git rev-parse --git-common-dir)/lophn-main.lock" git commit ...`. 판은 branch가 고치지 않는다: main에 올리는 순간 도구가 `packages/`를 바꿨으면 main 판의 PATCH+1(아니면 그대로)로 `package.json`과 branch가 더한 change-log 항목의 `version`·폴더를 맞춰 "Release <판>" commit으로 남긴다. branch가 옛 습관대로 판 줄만 고쳐 rebase가 거기서 부딪히면 main의 판으로 맞춰 푼다. 공용 함수는 `lead/main-lib.sh`다.
+why: 병렬 session이 많아 land 하나가 끝나는 동안 main이 계속 움직여 land가 몇십 분씩 반복됐고, PATCH-per-work 규칙 때문에 판 줄 충돌이 매번 났다.
+decisions:
+  - text: |
+      land 중 main이 움직여도 e2e와 기동을 다시 돌지 않는다(rebase 뒤 빠른 check만). 합친 상태의 e2e는 다음 land의 무거운 단계가 본다. 버린 길: main이 움직일 때마다 e2e 재실행(main이 계속 움직여 land가 끝나지 않았다).
+    by: person
+  - text: |
+      lock 둘(land lock은 무거운 단계만, main lock은 main에 쓰는 유일한 길)로 나눈다. 버린 길: land lock 하나를 끝까지 쥐기(다른 session의 직접 쓰기를 못 막아 ff가 실패한다).
+    by: agent
+  - text: |
+      PATCH 판은 branch가 아니라 land 도구가 main 위에서 정한다. 버린 길: branch마다 판을 올리고 rebase 때 다시 올리기(동시 land가 늘 충돌한다).
+    by: agent
+checklist:
+  - "해야: 계획이 아닌 session은 main에 직접 merge하지 말고 `project-docs/plan/tools/lead/main-merge.sh <branch>`로 올린다. branch는 `package.json`의 판을 고치지 않는다"
+  - "해야: main checkout에 직접 commit할 때는 `flock \"$(git rev-parse --git-common-dir)/lophn-main.lock\" git commit ...`로 main lock을 잡는다"

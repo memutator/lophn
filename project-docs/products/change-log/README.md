@@ -32,6 +32,6 @@ checklist:                     # 설치한 앱에서 사람이 할 것·볼 것(
 
 제품 판은 root `package.json`의 `version` 하나다. 그것이 지금 main의 판이다.
 
-- PATCH: 제품 code(`packages/`)를 바꾼 일 하나(계획 하나는 land가 여러 번이어도 하나)를 main에 올리는 agent가 올린다. 같은 변경에서 `package.json`의 판을 하나 올리고 그 판으로 항목을 쓴다. rebase 뒤 그 판을 다른 일이 이미 썼으면 다시 올리고 항목의 `version`을 고친다.
-- MINOR·MAJOR: 사람이 정한다. 사람이 release를 말하면 agent가 판을 올리고(`x.(y+1).0`) 지난 release 뒤 항목들로 `release-notes/<판>.md` 초안을 쓰고, 사람이 확인하면 tag `v<판>`을 단다.
+- PATCH: 제품 code(`packages/`)를 바꾼 일 하나를 main에 올릴 때 도구(`land.sh`, `main-merge.sh`)가 main 판의 PATCH를 올린다. branch는 `package.json`의 판을 고치지 않는다. 항목은 branch에서 보이는 판(`package.json`의 판)으로 쓰면 되고, 도구가 올릴 때 그 branch가 더한 항목의 `version`을 새 판으로 고치고 폴더를 옮겨 "Release <판>" commit 하나로 남긴다. `packages/`를 안 바꾼 일은 main 판 그대로다. 그래서 판 줄과 항목 폴더로 rebase가 부딪히지 않는다. 계획 하나가 land를 여러 번 하면 land마다 PATCH가 오른다.
+- MINOR·MAJOR: 사람이 정한다. 사람이 release를 말하면 agent가 main에서(main lock을 잡고 직접 commit) 판을 올리고(`x.(y+1).0`) 지난 release 뒤 항목들로 `release-notes/<판>.md` 초안을 쓰고, 사람이 확인하면 tag `v<판>`을 단다.
 - `node tools/records.ts check`: `package.json` 판의 항목이 있어야 하고, 그보다 높은 판의 항목이 없어야 한다.

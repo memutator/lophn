@@ -8,4 +8,4 @@ lead만 고친다. `tools/status.py browser-vault build`가 `tasks/*.md`에서 i
 | `vault-core` | vault | 1 | 없음 | merged | vault/vault-core | ef13bf4be |  |
 | `vault-fill` | vault | 2 | vault-core | merged | vault/vault-fill | d5d381ec4 |  |
 | `vault-ui` | vault | 2 | vault-core | merged | vault/vault-ui | 779ca178a |  |
-| `vault-request` | vault | 3 | vault-fill, vault-ui | todo |  |  |  |
+| `vault-request` | vault | 3 | vault-fill, vault-ui | running | vault/vault-request |  |  |

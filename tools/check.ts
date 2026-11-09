@@ -3,6 +3,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { stat } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { availableParallelism, constants, setPriority } from "node:os";
 import process from "node:process";
 import { platformNpmCliPath } from "../packages/core/supervision/security/node-shims.ts";
 import { PACKAGE_DEPENDENCIES } from "./check-deps.ts";
@@ -55,6 +56,11 @@ const USES: Record<string, string[]> = {
   // 어느 package가 바뀌어도 harness가 같이 돈다.
   tests: ALL_PACKAGES.filter((p) => p !== "tests"),
 };
+// agent 여럿이 check를 겹쳐 돌리면 core와 memory를 다 먹어 사람이 쓰는 터미널·창이 밀린다. 그래서 check는 낮은
+// 우선순위로 돌고(자식이 물려받는다), 무거운 둘의 동시 수를 묶는다. TypeScript 7 tsc는 혼자서도 여러 thread를 쓰고
+// project 하나에 1GB 넘게 잡는다. test는 file마다 Electron process 하나다.
+const TSC_AT_ONCE = 4;
+const TEST_CONCURRENCY = `--test-concurrency=${Math.max(2, Math.floor(availableParallelism() / 3))}`;
 // check의 test에서 뺀다. e2e는 `npm run e2e`, live는 `npm run test:live`로만 돈다.
 const NOT_IN_CHECK = ["tests/e2e", "tests/live"];
 const under = (f: string, paths: string[]) =>
@@ -334,6 +340,7 @@ async function buildSteps(
           [
             "node",
             "--test",
+            TEST_CONCURRENCY,
             "--experimental-strip-types",
             "--no-warnings",
             ...mainTests,
@@ -350,7 +357,8 @@ async function buildSteps(
     .flat()
     .filter((f) => !under(f, NOT_IN_CHECK));
   const commands: string[][] = [];
-  if (testFiles.length > 0) commands.push([ELECTRON, "--test", ...testFiles]);
+  if (testFiles.length > 0)
+    commands.push([ELECTRON, "--test", TEST_CONCURRENCY, ...testFiles]);
   return { checks, test: { name: "test", commands }, skipped };
 }
 
@@ -367,6 +375,19 @@ function killAll() {
   }
 }
 
+let tscRunning = 0;
+const tscWaiting: (() => void)[] = [];
+async function tscSlot(): Promise<() => void> {
+  if (tscRunning < TSC_AT_ONCE) tscRunning++;
+  else await new Promise<void>((resolve) => tscWaiting.push(resolve));
+  // 기다리는 쪽이 있으면 자리를 그대로 넘긴다. 세었다 줄였다 하면 그 사이에 다른 쪽이 끼어든다.
+  return () => {
+    const next = tscWaiting.shift();
+    if (next) next();
+    else tscRunning--;
+  };
+}
+
 type Done = { step: Step; result: Result; text: string };
 
 async function runStep(step: Step): Promise<Done> {
@@ -375,6 +396,12 @@ async function runStep(step: Step): Promise<Done> {
   let ok = true;
   for (const command of step.commands) {
     if (aborted) {
+      ok = false;
+      break;
+    }
+    const release = command[1] === TSC[1] ? await tscSlot() : undefined;
+    if (aborted) {
+      release?.();
       ok = false;
       break;
     }
@@ -400,6 +427,8 @@ async function runStep(step: Step): Promise<Done> {
       text += `${error}\n`;
       ok = false;
       break;
+    } finally {
+      release?.();
     }
   }
   return {
@@ -469,6 +498,7 @@ function table(results: Result[]): string {
 }
 
 async function main() {
+  setPriority(0, constants.priority.PRIORITY_BELOW_NORMAL);
   const args = process.argv.slice(2);
   const full = args.includes("--full");
   const baseIndex = args.indexOf("--base");

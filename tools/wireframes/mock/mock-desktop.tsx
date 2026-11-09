@@ -305,8 +305,6 @@ function layoutOf(panes: readonly PaneSpec[], floats: readonly FloatSpec[]) {
 // gallery의 Settings 탭 이름을 Settings 항목(pane)으로 잇는다.
 const SETTINGS_PANE = {
   coding: "coding",
-  general: "general",
-  diagnostics: "diagnostics",
   browser: "browser",
 } as const satisfies Record<string, SettingsPane>;
 

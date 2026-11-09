@@ -284,7 +284,7 @@ flows:
       - "project record(폴더마다 found)와 as_of_seq를 돌려준다. 쓰기는 없다"
     outcomes:
       - id: ok
-        observe: ["response"]
+        observe: ["response", "screen:home-no-workspaces"]
       - id: invalid-cursor
         code: invalid_input
         when: "list의 cursor를 해독할 수 없다, 또는 cursor의 조건(status·limit·호출자 principal·actor·credential)이 이 호출과 다르다, 또는 cursor의 위치가 목록 밖이다"
@@ -520,7 +520,7 @@ flows:
       - "창이 이 path를 watch 목록에 넣어 밖의 변화를 알린다. watch가 거절해도 renderer는 그 답을 버리고 편집기는 연다"
     outcomes:
       - id: ready
-        observe: ["response", "screen:new-editor-tabs"]
+        observe: ["response", "screen:new-editor-tabs", "screen:new-document-tab-info", "screen:new-file-outside", "screen:new-instructions-file", "screen:new-viewer-text", "screen:new-viewer-media", "screen:project-document"]
       - id: too-large
         observe: ["response"]
       - id: unsupported
@@ -715,7 +715,7 @@ flows:
       - "폴더를 읽어 폴더 먼저, 이름순으로 돌려준다. 끊긴 symlink는 뺀다. 펼쳐 둔 폴더가 사라졌으면 Files panel이 그 줄을 닫는다"
     outcomes:
       - id: ok
-        observe: ["response", "screen:new-explorer-root"]
+        observe: ["response", "screen:new-explorer-root", "screen:new-explorer-head"]
       - id: not-found
         code: not_found
         when: "연결 폴더 안의 path가 디스크에 없다"
@@ -892,7 +892,7 @@ flows:
       - "shell.showItemInFolder로 OS 파일 관리자를 연다. 그 결과는 기다리지 않는다"
     outcomes:
       - id: shown
-        observe: ["process:os-file-manager", "response"]
+        observe: ["process:os-file-manager", "response", "screen:new-organize"]
       - id: not-found
         code: not_found
         when: "path가 디스크에 없다"
@@ -935,7 +935,7 @@ flows:
       - "폴더가 없으면 view를 만들지 않고 탭이 안내와 [Try again]을 그린다. Try again은 artifact-reload로 새 화면 세대를 연다"
     outcomes:
       - id: opened
-        observe: ["response", "screen:artifact-tab"]
+        observe: ["response", "screen:artifact-tab", "screen:artifact-tab-file"]
         when: "view를 새로 세웠다, 또는 같은 창의 같은 source가 이미 열려 있어 기존 상태를 돌려줬다"
       - id: forbidden
         code: forbidden
@@ -1182,7 +1182,7 @@ flows:
       - "닫을 때 view를 부순다. 열린 상태는 main이 든다"
     outcomes:
       - id: opened
-        observe: ["response", "screen:browser-devtools-bottom", "screen:browser-devtools-right", "screen:browser-devtools-float"]
+        observe: ["response", "screen:browser-devtools-bottom", "screen:browser-devtools-right", "screen:browser-devtools-float", "screen:browser-overflow-menu"]
       - id: already-open
         code: conflict
         when: "DevTools가 이미 열려 있다"
@@ -1192,7 +1192,7 @@ flows:
         when: "그 창이 연 view가 아니다, 또는 DevTools view를 만들 수 없다(host가 contents를 주지 않았다)"
         observe: ["response"]
       - id: moved
-        observe: ["screen:browser-devtools-float"]
+        observe: ["screen:browser-devtools-float", "screen:browser-devtools-menu"]
         when: "DevTools의 자리를 바꿨다(탭 안·floated·따로 뜬 OS 창). 이미 그 자리면 아무 일도 없다"
       - id: closed
         observe: ["response", "screen:browser-tab"]
@@ -1252,7 +1252,7 @@ flows:
       - "그 밖의 읽기 오류(ENOENT 밖)는 unavailable로 답한다"
     outcomes:
       - id: ok
-        observe: ["response", "screen:browser-new-tab-bookmarks"]
+        observe: ["response", "screen:browser-new-tab-bookmarks", "screen:browser-bookmark-menu"]
         when: "파일이 맞거나 없다(없으면 빈 목록)"
       - id: corrupt
         observe: ["response", "screen:settings-browser-bookmarks-corrupt"]
@@ -1290,7 +1290,7 @@ flows:
       - "바뀐 목록을 열린 모든 shell 창에 bookmarks-changed로 알린다"
     outcomes:
       - id: saved
-        observe: ["disk:<dataRoot>/shell/bookmarks.json", "response", "screen:settings-browser-bookmarks"]
+        observe: ["disk:<dataRoot>/shell/bookmarks.json", "response", "screen:settings-browser-bookmarks", "screen:browser-star-empty"]
       - id: invalid-input
         code: invalid_input
         when: "title이나 url이 맞지 않거나 1000개를 넘는다, 또는 입력이 schema와 다르다"

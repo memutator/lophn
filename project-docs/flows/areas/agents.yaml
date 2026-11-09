@@ -49,11 +49,11 @@ flows:
       - id: agent-exists
         code: conflict
         when: 낸 id의 정의가 이미 있다
-        observe: [response]
+        observe: [response, "screen:agent-settings-save-conflict"]
       - id: invalid-definition
         code: invalid_input
         when: 파일 모양(malformed, unknown_field, invalid_value, required, not_allowed, reserved_name, duplicate, too_large, unknown)이 틀리다, 도구 이름이 모르는 것이다, handle이 다른 agent와 겹치거나 예약 이름이다, 새 handle 모양이 아니다, 없는 workspace다. details.issues에 항목이 든다
-        observe: [response]
+        observe: [response, "screen:agent-settings-save-issues"]
       - id: store-unavailable
         code: unavailable
         when: 정의 file이나 ledger 위치를 읽거나 쓰지 못했다
@@ -89,11 +89,11 @@ flows:
       - id: broken-file
         code: invalid_input
         when: "CLI agent.update만: agents/read가 틀린 칸(issues)을 싣거나 정의가 없는 lophn 밖 agent다. agents/change를 부르지 않고 거절한다(the agent file is broken)"
-        observe: [response]
+        observe: [response, "screen:agents-tab-broken", "screen:agent-settings-broken"]
       - id: hash-changed
         code: conflict
         when: 낸 hash가 지금 file의 hash와 다르다
-        observe: [response]
+        observe: [response, "screen:agent-settings-save-conflict"]
       - id: human-only-field
         code: forbidden
         when: agent 자격이 사람만 정하는 칸을 바꿨다
@@ -101,19 +101,19 @@ flows:
       - id: lophn-profile
         code: forbidden
         when: lophn의 profile을 고정 값과 다르게 낸다
-        observe: [response]
+        observe: [response, "screen:new-agent-editor-lophn"]
       - id: handle-changed
         code: invalid_input
         when: 정의가 있는 agent의 handle을 바꿨다(lophn 포함)
-        observe: [response]
+        observe: [response, "screen:agent-settings-agent"]
       - id: workspace-changed
         code: invalid_input
         when: lophn이 아닌 agent의 범위 workspace를 바꿨다
-        observe: [response]
+        observe: [response, "screen:agent-settings-agent"]
       - id: invalid-definition
         code: invalid_input
         when: 파일 모양이 틀리다(tools나 skills를 bare가 아닌 정의에 적은 것 포함), 도구 이름이 모르는 것이다, handle이 다른 agent와 겹친다
-        observe: [response]
+        observe: [response, "screen:agent-settings-save-issues"]
       - id: store-unavailable
         code: unavailable
         when: 정의 file이나 ledger 위치를 읽거나 쓰지 못했다
@@ -143,7 +143,7 @@ flows:
       - id: lophn-cannot-delete
         code: forbidden
         when: agent가 lophn이다
-        observe: [response]
+        observe: [response, "screen:new-agent-editor-lophn", "screen:agent-settings-home-lophn"]
       - id: agent-not-found
         code: not_found
         when: agent가 없거나 file이 없다
@@ -151,7 +151,7 @@ flows:
       - id: hash-changed
         code: conflict
         when: 낸 hash가 지금 file의 hash와 다르다
-        observe: [response]
+        observe: [response, "screen:agent-settings-delete-failed"]
       - id: store-unavailable
         code: unavailable
         when: ledger 위치나 정의 file을 읽거나 지우지 못했다
@@ -181,7 +181,7 @@ flows:
       - id: file-broken
         code: invalid_input
         when: agent 정의 file이 틀려 명함을 만들 수 없다
-        observe: [response]
+        observe: [response, "screen:agents-tab-broken"]
       - id: store-unavailable
         code: unavailable
         when: ledger 위치를 모르거나 agent 정의 folder를 읽지 못했다
@@ -203,15 +203,15 @@ flows:
       - 맞으면 agents/<id>/avatar.<ext>를 원자적으로 쓴다. 정의는 바꾸지 않는다. 정의를 저장할 때 profile로 연결된다
     outcomes:
       - id: stored
-        observe: [disk:agents/<id>/avatar.<ext>]
+        observe: [disk:agents/<id>/avatar.<ext>, "screen:agent-settings-image-uploaded"]
       - id: invalid-image
         code: invalid_input
         when: 입력이 틀렸거나, 형식이 png·jpg·webp가 아니거나, 크기가 범위 밖이거나, 선언 길이와 다르거나, 첫 byte가 형식과 다르거나, body를 읽지 못했다
-        observe: [response]
+        observe: [response, "screen:agent-settings-image-upload-failed"]
       - id: lophn-profile
         code: forbidden
         when: lophn의 profile은 고정이라 올릴 수 없다
-        observe: [response]
+        observe: [response, "screen:new-agent-editor-lophn"]
       - id: agent-not-found
         code: not_found
         when: agent가 없다(정의 읽기의 not_found를 그대로 돌려준다)

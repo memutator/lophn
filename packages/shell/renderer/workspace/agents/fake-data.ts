@@ -30,8 +30,10 @@ const NOTES_SYNC_ID = id("app", "ns1");
 export const EVAL_ANALYST_ID = id("agt", "ea1");
 export const BUDGET_REVIEWER_ID = id("agt", "br1");
 export const EXPERIMENT_PLANNER_ID = id("agt", "ep1");
-const QUEUE_WATCHER_ID = id("agt", "qw1");
-const CODEX_RUNNER_ID = id("agt", "cx1");
+export const QUEUE_WATCHER_ID = id("agt", "qw1");
+export const CODEX_RUNNER_ID = id("agt", "cx1");
+/** 정의 file이 틀린 agent. 목록에 개수와 명함이 없다. fake source의 brokenAgent 설정이 켠다. */
+export const BROKEN_AGENT_ID = id("agt", "bk1");
 
 /** 전역 model 하나. */
 export const GLOBAL_MODEL: ModelChoice = {

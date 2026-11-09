@@ -49,12 +49,16 @@ export function AgentsBody({
   open,
   at = "project",
   source: options,
+  steps = [],
 }: {
   open: Open;
   at?: AgentsAt;
   source?: FakeAgentsOptions;
+  /** gallery가 상태를 고정하려고 mount 뒤에 누를 것. */
+  steps?: readonly Step[];
 }) {
   const source = useMemo(() => createFakeAgentsSource(options), []);
+  useDrive(() => runSteps(steps));
   return (
     <AgentsPage
       workspace={AT[at].workspace}

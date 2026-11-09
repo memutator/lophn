@@ -65,6 +65,51 @@ flows:
     unclear:
       - "settings-update는 rejected를 ok 응답의 목록으로 준다. keyboard source(declared.ts chooseSetting)가 이것을 오류 code로 바꾸므로 not-saved 안의 실패 code는 나누지 않았다"
 
+  - id: key-reset
+    title: "Settings › Keyboard에서 줄 하나를 기본 키로 되돌린다"
+    actor: person
+    entries: [ui:key-reset]
+    uses: [settings-update:changed, ipc:shell:keybindings]
+    boundary: [shell, config]
+    code:
+      - packages/shell/renderer/desktop/settings/keyboard/keyboard-panel.tsx
+      - packages/shell/renderer/desktop/settings/keyboard/model.ts
+    steps:
+      - "사람이 바꾼 줄에만 있는 [Reset to default]를 누른다. 번호 묶음 줄이면 묶음의 모든 줄을 되돌린다"
+      - "그 줄의 사람이 단 키를 stored에서 빼고(key-record와 같은 저장 길) 이 창의 binding을 먼저 바꾼 뒤 main에 알리고 shell.keybindings를 쓴다"
+      - "쓰기가 거절되거나 실패하면 이전 값으로 되돌리고 저장되지 않았다고 보인다"
+    outcomes:
+      - id: reset
+        observe: ["disk:<root>/settings.json", "event:SettingsChanged", "screen:settings-keyboard"]
+      - id: not-saved
+        when: "settings-update가 rejected나 unavailable로 돌아왔다. 화면은 이전 값으로 되돌아간다"
+        observe: ["response", "screen:settings-keyboard"]
+    crosses_process: true
+    docs: [architecture/keybindings.md]
+
+  - id: key-reset-all
+    title: "Settings › Keyboard에서 이 OS의 모든 키를 기본으로 되돌린다"
+    actor: person
+    entries: [ui:key-reset-all]
+    uses: [settings-update:changed, ipc:shell:keybindings]
+    boundary: [shell, config]
+    risk: [data-loss]
+    code:
+      - packages/shell/renderer/desktop/settings/keyboard/keyboard-panel.tsx
+      - packages/shell/renderer/desktop/settings/keyboard/model.ts
+    steps:
+      - "바뀐 줄이 하나라도 있을 때만 보이는 [Reset all shortcuts]를 누른다. 확인을 묻지 않는다"
+      - "stored에서 이 OS의 사람이 단 키를 모두 빼고(다른 OS의 키는 둔다) key-record와 같은 저장 길로 쓴다"
+      - "쓰기가 거절되거나 실패하면 이전 값으로 되돌리고 저장되지 않았다고 보인다"
+    outcomes:
+      - id: reset-all
+        observe: ["disk:<root>/settings.json", "event:SettingsChanged", "screen:settings-keyboard"]
+      - id: not-saved
+        when: "settings-update가 rejected나 unavailable로 돌아왔다. 화면은 이전 값으로 되돌아간다"
+        observe: ["response", "screen:settings-keyboard"]
+    crosses_process: true
+    docs: [architecture/keybindings.md]
+
   # ---------- 사람이 단 키 되살리기 (창을 열 때와 설정이 바뀔 때) ----------
   - id: key-overrides-restore
     title: "저장된 사람의 키를 창을 열 때와 설정이 바뀔 때 다시 적용한다"

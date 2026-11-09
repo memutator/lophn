@@ -1,6 +1,16 @@
 import type { Area } from "../types.ts";
 import {
   AgentCreatePage,
+  AgentDeleteConfirmPage,
+  AgentDeleteFailedPage,
+  AgentEditorBarePage,
+  AgentEditorBrokenPage,
+  AgentEditorHarnessPage,
+  AgentImageUploadedPage,
+  AgentImageUploadFailedPage,
+  AgentSaveConflictPage,
+  AgentSaveIssuesPage,
+  AgentsBrokenPage,
   AgentEditorPage,
   AgentGrantsAppPage,
   AgentGrantsPage,
@@ -105,6 +115,76 @@ export const agentSettingsArea: Area = {
       description:
         "agent 층에서 MCP server를 더하는 form에 web 주소와 OAuth 2.1 로그인을 고른 상태다. 이름, 연결 방식, 실행이나 주소, 로그인 방식(None, Bearer, API key, OAuth 2.1)과 OAuth issuer·client ID·scopes를 받고 key·token·client secret은 더한 뒤 보호 입력으로 받는다. OAuth 2.1 server는 정의를 저장한 뒤 그 줄의 [Sign in]으로 로그인한다.",
       render: () => <AgentServerFormPage />,
+    },
+    {
+      id: "agent-settings-bare",
+      title: "Agent settings · bare runtime",
+      description:
+        "runtime이 bare인 agent의 설정이다. Tools 칸에서 내장 tool을 체크로 고르고(file.read, file.grep, call.reply가 켜져 있다) skill도 켠 것만 받는다(plain-writing을 하나 더 골랐다). lophn 지침과 built-in은 받지 않는다.",
+      render: () => <AgentEditorBarePage />,
+    },
+    {
+      id: "agent-settings-harness",
+      title: "Agent settings · harness runtime",
+      description:
+        "runtime이 harness(Codex)인 agent의 설정이다. 이 agent의 지침과 입력·출력 칸만 있고 model, tool, skill, MCP 칸은 없다. harness가 자기 도구를 쓴다.",
+      render: () => <AgentEditorHarnessPage />,
+    },
+    {
+      id: "agent-settings-delete-confirm",
+      title: "Agent settings · delete confirmation",
+      description:
+        "Delete agent를 누르면 뜨는 확인 창이다. 이름이 제목에 있고 Cancel과 Delete(danger)가 있다. 저장에는 확인이 없다.",
+      render: () => <AgentDeleteConfirmPage />,
+    },
+    {
+      id: "agent-settings-delete-failed",
+      title: "Agent settings · delete failed",
+      description:
+        "Delete를 확인했는데 그 사이 다른 곳이 정의를 바꿔(hash가 달라) 지워지지 않았다. 설정 탭 위쪽에 toast가 뜨고 화면은 그대로 남는다.",
+      render: () => <AgentDeleteFailedPage />,
+    },
+    {
+      id: "agent-settings-save-issues",
+      title: "Agent settings · save issues",
+      description:
+        "저장이 거절되어 틀린 항목마다 이유(unknown, reserved name)가 그 칸 안에 붙었다. 저장하지 않은 편집은 그대로다.",
+      render: () => <AgentSaveIssuesPage />,
+    },
+    {
+      id: "agent-settings-save-conflict",
+      title: "Agent settings · save conflict",
+      description:
+        "낡은 화면으로 저장해 hash 충돌로 거절됐다. 항목별 이유 없이 toast만 뜬다.",
+      render: () => <AgentSaveConflictPage />,
+    },
+    {
+      id: "agent-settings-image-uploaded",
+      title: "Agent settings · profile image uploaded",
+      description:
+        "Profile의 Upload image로 이미지를 올려 character 대신 그 이미지가 profile로 보이는 상태다(저장 전). [Remove image]로 character로 돌아간다.",
+      render: () => <AgentImageUploadedPage />,
+    },
+    {
+      id: "agent-settings-image-upload-failed",
+      title: "Agent settings · image upload failed",
+      description:
+        "이미지가 틀려(형식, 크기) 올리기가 거절됐다. toast가 뜨고 profile은 그대로다.",
+      render: () => <AgentImageUploadFailedPage />,
+    },
+    {
+      id: "agents-tab-broken",
+      title: "Agent settings · broken definition in the list",
+      description:
+        "정의 file이 틀린 agent(Broken notes)의 줄이다. skill·MCP 개수를 셀 수 없다고 보이고 명함이 없어 범위만 보인다. 이 줄에서 [Open]으로 연다.",
+      render: () => <AgentsBrokenPage />,
+    },
+    {
+      id: "agent-settings-broken",
+      title: "Agent settings · broken definition",
+      description:
+        "틀린 정의 file의 agent를 연 설정이다. 틀린 칸의 이유가 form 밑에 붙고 사람이 고쳐 저장한다.",
+      render: () => <AgentEditorBrokenPage />,
     },
     {
       id: "new-agent-grants",

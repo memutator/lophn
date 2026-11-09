@@ -1,0 +1,18 @@
+id: wireframe-coverage-and-bare-editor-fix
+version: 0.23.5
+title: 사람이 닿는 화면 상태를 wireframe으로 그리고 flow catalog에 잇는다. bare agent 편집기가 깨지던 것을 고친다
+modules: [packages/shell/renderer, tools]
+change: |
+  - bare runtime agent를 편집기로 열면 "Input needs a Field label"로 화면이 깨졌다. Tools의 이름으로 더하기 입력을 Field 안에 두어 고쳤다. 입력 위에 label이 보인다.
+  - wireframe frame을 더했다: agent 편집기(bare, harness, 삭제 확인·실패, 저장 issue·충돌, 이미지 올리기 성공·실패, 깨진 정의), 공유 요청 카드, 앱 줄 ⋯ menu, 앱 삭제 중 still-running, Settings › Extensions와 Remove, Home·앱의 + menu.
+  - 그 frame과 쓰이지 않던 frame을 journey 단계와 outcome `observe: screen:`에 이었다. 화면 frame 연결은 194/346에서 늘었다. 새 ui flow `key-reset`, `key-reset-all`을 더했다.
+  - renderer fake source에 실패와 상태를 고르는 option을 더했다(agents, waiting, apps, extensions). 제품 동작은 같다.
+why: |
+  사람이 닿는 화면 상태 가운데 그림이 없거나 catalog가 가리키지 않는 것이 절반 가까이였다. 그림이 없으면 사람이 모양을 고를 수 없고, catalog가 가리키지 않으면 어느 동작이 어느 화면을 내는지 모른다. 그리다 bare 편집기가 열리지 않는 bug를 찾았다.
+decisions:
+  - text: >-
+      남은 frame은 강제하지 않고 `frames --unused`로 보인다. 죽은 상태(home-connection-failed, home-sandbox-failed), 측정용(harness-gui-perf), 옛 중복(settings-general, settings-diagnostics)은 잇지 않았다.
+    by: agent
+  - text: >-
+      정확히 맞는 outcome이 없는 대화 화면 frame은 가장 가까운 flow에 이었다. 버린 길: frame마다 flow를 새로 만들기(화면 모양은 flow가 아니다).
+    by: agent

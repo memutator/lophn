@@ -73,8 +73,6 @@ export const workspace = {
     "lophn did not start. The history in your data differs from what this version expects, and lophn did not change it.",
   "home.failure.newer-schema":
     "lophn did not start. It left your data exactly as it was, and this version can't read it.",
-  "home.failure.sandbox-failed":
-    "Your system's security settings stopped lophn from starting. Check that lophn is allowed to open, then try again.",
   "home.failure.start-failed":
     "lophn couldn't start in the background. Your projects and apps can't open until it does.",
   "home.failure.update-damaged-original":
@@ -103,7 +101,6 @@ export const workspace = {
   "home.title.new-app": "New app",
   "home.title.newer-schema": "This data is from a newer lophn",
   "home.title.register": "Register project",
-  "home.title.sandbox-failed": "lophn is blocked by your system",
   "home.title.start-failed": "lophn didn't start",
   "projects.button.add-folder": "Add folder",
   "projects.button.remove": "Remove",

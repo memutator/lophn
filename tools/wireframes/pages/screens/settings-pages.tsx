@@ -249,3 +249,19 @@ export const SettingsBrowserBookmarks = () => (
 export const SettingsBrowserBookmarksCorrupt = () => (
   <SettingsFrame pane="browser" browser={{ corrupt: true }} />
 );
+
+/** Settings › Extensions: 켜짐(Harness GUI, [Turn off]), 설치했지만 꺼짐(Harness agents, [Turn on]), 설치 안 됨(Demo, [Install]) 세 줄. */
+export const SettingsExtensions = () => (
+  <SettingsFrame pane="extension-packages" extensions />
+);
+
+/** Settings › Extensions: 꺼진 extension의 [Remove]를 눌러 확인 dialog가 열린 상태. 켜져 있으면 먼저 끄라는 글만 보이고 dialog는 열리지 않는다. */
+export const SettingsExtensionRemove = () => (
+  <SettingsFrame
+    pane="extension-packages"
+    extensions
+    steps={[
+      () => click('[data-extension-id="harness"] [data-action="remove"]'),
+    ]}
+  />
+);

@@ -24,6 +24,9 @@ interface SecretInputProps {
   onCancel?: () => void;
 }
 
+const loginKind = (name: string) =>
+  name.endsWith(".totp") ? "login-totp" : "login-password";
+
 /**
  * secret 값을 받는 작은 창의 내용. 값은 이 칸에서 main으로 한 번 가고 화면 상태에 남기지 않는다
  * (보내기 전에 칸을 비운다). 저장되면 main이 창을 닫는다.
@@ -58,21 +61,42 @@ export function SecretInput({
       setBusy(false);
     }
   };
-  const title = t(`secret-input.title.${purpose}`);
+  // login은 같은 purpose에서 password와 TOTP seed를 이름 끝으로 가른다.
+  const kind = purpose === "login" ? loginKind(name) : purpose;
+  const title = t(`secret-input.title.${kind}`);
   return (
     <div className={styles.root} role="dialog" aria-label={title}>
       <div className={styles.bar}>{t("secret-input.title.bar")}</div>
       <div className={styles.body}>
         <h1 className={styles.title}>{title}</h1>
-        <p className={styles.text}>
-          <span>{t(`secret-input.label.subject-${purpose}`, { subject })}</span>
-          <span className={styles.name}>
-            {t("secret-input.label.saved-as", { name })}
-          </span>
-          {configured ? <span>{t("secret-input.help.configured")}</span> : null}
-        </p>
+        {purpose === "login" ? (
+          // 값이 갈 site다. 속아서 넣는 것을 사람이 origin으로 거른다.
+          <div className={styles.site} data-secret-origin="">
+            <span className={styles.siteLabel}>
+              {t("secret-input.label.login-site")}
+            </span>
+            <span className={styles.origin}>{subject}</span>
+            {configured ? (
+              <span className={styles.text}>
+                {t("secret-input.help.configured")}
+              </span>
+            ) : null}
+          </div>
+        ) : (
+          <p className={styles.text}>
+            <span>
+              {t(`secret-input.label.subject-${purpose}`, { subject })}
+            </span>
+            <span className={styles.name}>
+              {t("secret-input.label.saved-as", { name })}
+            </span>
+            {configured ? (
+              <span>{t("secret-input.help.configured")}</span>
+            ) : null}
+          </p>
+        )}
         <Field
-          label={t(`secret-input.label.field-${purpose}`)}
+          label={t(`secret-input.label.field-${kind}`)}
           help={t("secret-input.help.value")}
           {...(error === null
             ? {}

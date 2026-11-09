@@ -17,14 +17,14 @@ export const SECRET_INPUT_MAX_BYTES = 64 * 1024;
 
 // protocol/secrets의 secretNameSchema와 같은 규칙.
 const secretName = z.string().regex(/^[A-Za-z0-9_.:-]+$/);
-const purpose = z.enum(["app", "provider", "mcp"]);
+const purpose = z.enum(["app", "provider", "mcp", "login"]);
 
 export const secretInputOpenSchema = z
   .object({
     /** 저장할 secret 이름. */
     name: secretName,
     purpose,
-    /** 창에 보일 대상 이름(앱, provider, MCP server). 창은 글로만 그린다. */
+    /** 창에 보일 대상 이름(앱, provider, MCP server)이나 login의 origin. 창은 글로만 그린다. */
     subject: z
       .string()
       .min(1)

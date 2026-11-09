@@ -42,6 +42,13 @@ export const browser = {
   "settings.button.device-edit": "Edit",
   "settings.button.device-remove": "Remove",
   "settings.button.device-save": "Save",
+  "settings.button.login-add": "Add login",
+  "settings.button.login-delete": "Delete",
+  "settings.button.login-delete-confirm": "Delete",
+  "settings.button.login-edit": "Edit",
+  "settings.button.login-save": "Save",
+  "settings.button.login-set-password": "Set password",
+  "settings.button.login-set-totp": "Set TOTP",
   "settings.button.browser-clear-confirm": "Clear",
   "settings.error.bookmark-duplicate":
     "Another bookmark already has this address.",
@@ -57,10 +64,15 @@ export const browser = {
     "Enter a name nobody else has (up to 40 characters), a width of 200 to 2000, a height of 200 to 3000 and a pixel ratio of 1 to 4.",
   "settings.error.devices-load-failed": "Could not load devices.",
   "settings.error.links-load-failed": "Could not load link settings.",
+  "settings.error.login-failed": "Could not change the login.",
+  "settings.error.login-invalid":
+    "Enter a label and a site address such as https://example.com.",
+  "settings.error.logins-load-failed": "Could not load logins.",
   "settings.heading.bookmarks": "Bookmarks",
   "settings.heading.browser-data": "Browsing data",
   "settings.heading.devices": "Devices",
   "settings.heading.links": "Links",
+  "settings.heading.logins": "Logins",
   "settings.label.bookmark-title": "Title",
   "settings.label.bookmark-url": "URL",
   "settings.label.device-android": "Android",
@@ -72,6 +84,10 @@ export const browser = {
   "settings.label.device-width": "Width (px)",
   "settings.label.link-browser-tab": "Browser tab",
   "settings.label.link-system-browser": "System browser",
+  "settings.label.login-label": "Label",
+  "settings.label.login-note": "Note",
+  "settings.label.login-origin": "Site",
+  "settings.label.login-username": "Username",
   "settings.label.local-links": "Local links",
   "settings.label.tab-browser": "Browser",
   "settings.label.web-links": "Web links",
@@ -83,11 +99,21 @@ export const browser = {
     "Devices a preview tab can show an app in, with the size, pixel ratio, touch and user agent of a phone. Pick one in the tab, or give its name to tab open --device.",
   "settings.note.local-links":
     "Where localhost and local network addresses (.local, private IPs) go when a program in a terminal opens them or you Ctrl/Cmd-click them.",
+  "settings.note.login-delete-confirm":
+    "Delete {label}? Its saved password and TOTP key are deleted too.",
+  "settings.note.login-origin":
+    "Values are only entered on this exact site (scheme, host and port). Example: https://example.com",
+  "settings.note.logins":
+    "Site logins an agent can use in a Browser tab. Passwords and TOTP keys are entered in a protected window and never shown.",
   "settings.note.web-links":
     "Where public web addresses go when a program in a terminal opens them or you Ctrl/Cmd-click them.",
   "settings.notice.bookmarks-empty":
     "No bookmarks yet. Click the star in a Browser tab's address bar to add one.",
   "settings.notice.devices-empty": "No devices yet.",
+  "settings.notice.logins-empty": "No logins yet.",
   "settings.notice.browser-cleared": "Browsing data cleared.",
+  "settings.text.login-state":
+    "Password: {password, select, yes {set} other {not set}} · TOTP: {totp, select, yes {set} other {not set}}",
   "settings.title.browser-clear": "Clear browsing data?",
+  "settings.title.login-delete": "Delete login?",
 } as const;

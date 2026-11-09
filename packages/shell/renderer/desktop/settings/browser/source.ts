@@ -19,6 +19,19 @@ export interface Device {
   readonly os: DeviceOs;
 }
 
+/** 사람이 고치는 login 한 줄. password·TOTP 유무만 알고 값은 모른다. */
+export interface LoginRow {
+  readonly id: string;
+  readonly label: string;
+  readonly origin: string;
+  readonly username: string;
+  readonly note: string;
+  readonly password: boolean;
+  readonly totp: boolean;
+}
+
+export type LoginForm = Omit<LoginRow, "id" | "password" | "totp">;
+
 export interface BrowserSettingsSource {
   /** browser 탭의 cookie, site data, cache를 지우고 열린 탭을 다시 load한다. */
   clearData(): Promise<SourceResult<null>>;
@@ -38,6 +51,16 @@ export interface BrowserSettingsSource {
   devices(): Promise<SourceResult<readonly Device[]>>;
   /** 목록 전체를 바꾼다. 이름이 겹치거나 범위 밖이면 거절되고 code가 이유다. */
   saveDevices(list: readonly Device[]): Promise<SourceResult<null>>;
+  /** 저장된 login. 값은 없고 password·TOTP가 있는지만 안다. */
+  logins(): Promise<SourceResult<readonly LoginRow[]>>;
+  /** id가 없으면 새로 만든다. */
+  saveLogin(input: LoginForm & { id?: string }): Promise<SourceResult<null>>;
+  deleteLogin(id: string): Promise<SourceResult<null>>;
+  /** 보호 입력 창을 열고 닫힐 때까지 기다린다. `stored`면 값이 올라가 있다. 값은 이 통로를 지나지 않는다. */
+  enterLoginSecret(
+    login: LoginRow,
+    field: "password" | "totp",
+  ): Promise<SourceResult<"stored" | "cancelled">>;
   /** 다른 창에서 목록이 바뀌면 부른다. 받은 쪽이 다시 읽는다. 끄는 함수를 돌려준다. */
   watchBookmarks(listener: () => void): () => void;
 }

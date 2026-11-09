@@ -14,7 +14,7 @@ const SECRET_INPUT_URL = "lophn-shell://secret-input/index.html";
 
 /** 표시 최대폭. 좁은 부모는 창 안에 맞춘다. */
 const SECRET_INPUT_MAX_WIDTH = 480;
-const SECRET_INPUT_HEIGHT = 360;
+const SECRET_INPUT_HEIGHT = 420;
 const CHROME = 48;
 
 interface SecretInputWindowConfig {

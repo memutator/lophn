@@ -4,6 +4,7 @@ import type {
   BrowserSettingsSource,
   Device,
   LinkValues,
+  LoginRow,
   SourceResult,
 } from "../source.ts";
 
@@ -22,6 +23,10 @@ interface FakeBrowserSettingsOptions {
   linkCode?: string;
   /** 처음 기기 목록. 없으면 비어 있다. */
   devices?: Device[];
+  /** 처음 login 목록. 없으면 비어 있다. */
+  logins?: LoginRow[];
+  /** 보호 입력 창을 닫는 결과. 없으면 값을 넣는다. */
+  secretResult?: "stored" | "cancelled";
 }
 
 const sample = (n: number, title: string, url: string): Bookmark => ({
@@ -44,6 +49,7 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
     ...options.links,
   };
   let devices: readonly Device[] = options.devices ?? [];
+  let logins: readonly LoginRow[] = options.logins ?? [];
   const listeners = new Set<() => void>();
   const changed = () => listeners.forEach((listener) => listener());
   const refused = (code: string): Promise<SourceResult<null>> =>
@@ -110,6 +116,42 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
       }
       devices = list;
       return Promise.resolve({ ok: true, value: null });
+    },
+    logins() {
+      calls.push(["logins"]);
+      return Promise.resolve({ ok: true, value: logins });
+    },
+    saveLogin(input) {
+      calls.push(["saveLogin", input]);
+      const { id, ...form } = input;
+      logins =
+        id === undefined
+          ? [
+              ...logins,
+              {
+                ...form,
+                id: `lgn_fake${logins.length}`,
+                password: false,
+                totp: false,
+              },
+            ]
+          : logins.map((l) => (l.id === id ? { ...l, ...form } : l));
+      return Promise.resolve({ ok: true, value: null });
+    },
+    deleteLogin(id) {
+      calls.push(["deleteLogin", id]);
+      logins = logins.filter((l) => l.id !== id);
+      return Promise.resolve({ ok: true, value: null });
+    },
+    enterLoginSecret(login, field) {
+      calls.push(["enterLoginSecret", login.id, field]);
+      const result = options.secretResult ?? "stored";
+      if (result === "stored") {
+        logins = logins.map((l) =>
+          l.id === login.id ? { ...l, [field]: true } : l,
+        );
+      }
+      return Promise.resolve({ ok: true, value: result });
     },
     watchBookmarks(listener) {
       listeners.add(listener);

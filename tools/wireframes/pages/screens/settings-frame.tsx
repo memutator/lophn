@@ -20,6 +20,7 @@ import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
 import type {
   Device,
   LinkValues,
+  LoginRow,
 } from "../../../../packages/shell/renderer/desktop/settings/browser/source.ts";
 import { fakeKeyboard } from "../../../../packages/shell/renderer/desktop/settings/keyboard/testdata/fake-source.ts";
 import type { StoredKeybindings } from "../../../../packages/shell/renderer/desktop/settings/keyboard/source.ts";
@@ -46,6 +47,8 @@ interface SettingsFrameProps {
     readonly links?: Partial<LinkValues>;
     /** Devices 구역의 등록한 기기. 안 쓰면 비어 있다. */
     readonly devices?: Device[];
+    /** Logins 구역의 login. 안 쓰면 비어 있다. */
+    readonly logins?: LoginRow[];
   };
   /** Keyboard 항목의 저장된 키. 안 쓰면 바꾼 키가 없다. */
   readonly keyboard?: StoredKeybindings;

@@ -27,6 +27,8 @@ import {
   SettingsBrowserClearData,
   SettingsBrowserDeviceAdd,
   SettingsBrowserDevices,
+  SettingsBrowserLoginAdd,
+  SettingsBrowserLogins,
   SettingsBrowserLinks,
   SettingsBrowserLinksSystem,
   SettingsCoding,
@@ -277,6 +279,20 @@ export const settingsArea: Area = {
       description:
         "[Add device]를 눌러 입력 칸(Name, Width, Height, Pixel ratio, OS)이 열렸다. 처음 값은 iPhone 크기다. 범위 밖이거나 이름이 겹치면 저장되지 않고 한 줄 오류가 난다.",
       render: () => <SettingsBrowserDeviceAdd />,
+    },
+    {
+      id: "settings-browser-logins",
+      title: "Settings · Browser · logins",
+      description:
+        "Logins 구역이다. site login(label, origin, username)이 줄마다 서고 password·TOTP가 있는지만 보인다. 값은 [Set password]·[Set TOTP]가 여는 보호 입력 창으로만 넣는다.",
+      render: () => <SettingsBrowserLogins />,
+    },
+    {
+      id: "settings-browser-login-add",
+      title: "Settings · Browser · add a login",
+      description:
+        "[Add login]을 눌러 입력 칸(Label, Site, Username, Note)이 열렸다. Site는 주소를 쳐도 origin(scheme, host, port)만 저장한다.",
+      render: () => <SettingsBrowserLoginAdd />,
     },
     {
       id: "settings-browser-clear-data",

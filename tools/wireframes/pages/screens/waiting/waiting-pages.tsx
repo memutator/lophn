@@ -319,3 +319,13 @@ export const SecretInputMcp = () => (
     configured={false}
   />
 );
+
+/** secret 보호 입력: site login의 password. 값이 갈 origin을 크게 보인다. */
+export const SecretInputLogin = () => (
+  <SecretStage
+    purpose="login"
+    subject="https://github.com"
+    name="login.lgn_01h455vb4pex5v6nkc6gd5fd00.password"
+    configured={false}
+  />
+);

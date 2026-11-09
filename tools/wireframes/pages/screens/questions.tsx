@@ -1,6 +1,7 @@
 import type { Area } from "../types.ts";
 import {
   SecretInputApp,
+  SecretInputLogin,
   SecretInputMcp,
   SecretInputProvider,
   WaitingActivation,
@@ -133,6 +134,13 @@ export const questionsArea: Area = {
       title: "Secret input · MCP credential",
       description: "MCP server credential을 받는 같은 보호 입력 창이다.",
       render: () => <SecretInputMcp />,
+    },
+    {
+      id: "new-secret-input-login",
+      title: "Secret input · site password",
+      description:
+        "Settings › Browser › Logins의 [Set password]가 여는 같은 보호 입력 창이다. 값이 갈 site(origin)를 제목 아래에 크게 보인다. TOTP key는 제목과 칸 이름만 다르다.",
+      render: () => <SecretInputLogin />,
     },
   ],
 };

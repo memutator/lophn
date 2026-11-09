@@ -151,6 +151,44 @@ export const SettingsBrowserDeviceAdd = () => (
   />
 );
 
+const LOGINS = [
+  {
+    id: "lgn_fake0",
+    label: "GitHub",
+    origin: "https://github.com",
+    username: "dev@example.com",
+    note: "",
+    password: true,
+    totp: true,
+  },
+  {
+    id: "lgn_fake1",
+    label: "Staging admin",
+    origin: "http://localhost:3000",
+    username: "admin",
+    note: "",
+    password: false,
+    totp: false,
+  },
+];
+
+/** Settings › Browser: Logins 구역에 login 둘이 있다. 줄마다 password·TOTP 유무와 [Set password], [Set TOTP], [Edit], [Delete]가 있다. */
+export const SettingsBrowserLogins = () => (
+  <SettingsFrame
+    pane="browser"
+    browser={{ bookmarks: BOOKMARKS, logins: LOGINS }}
+  />
+);
+
+/** Settings › Browser: [Add login]을 눌러 입력 칸(Label, Site, Username, Note)이 열린 상태. */
+export const SettingsBrowserLoginAdd = () => (
+  <SettingsFrame
+    pane="browser"
+    browser={{ bookmarks: BOOKMARKS, logins: LOGINS }}
+    steps={[() => click("[data-login-add]")]}
+  />
+);
+
 /** Settings › Keyboard. 바꾼 키가 없다. section(Tabs, Splits, ...)마다 제목 아래 줄이 서고 키 없는 줄은 흐린 Not set이다. */
 export const SettingsKeyboard = () => <SettingsFrame pane="keyboard" />;
 

@@ -671,6 +671,7 @@ function fakeApi(
       ],
     }),
     uploadImage: async () => null,
+    readImage: async () => null,
   };
 }
 

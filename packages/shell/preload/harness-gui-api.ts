@@ -3,6 +3,7 @@ import {
   HARNESS_GUI_TAB_CONNECT_CHANNEL,
   HARNESS_GUI_TAB_DISCONNECT_CHANNEL,
   HARNESS_GUI_TAB_IMAGE_CHANNEL,
+  HARNESS_GUI_TAB_IMAGE_READ_CHANNEL,
   HARNESS_GUI_TAB_INPUT_CHANNEL,
   HARNESS_GUI_TAB_OPENED_CHANNEL,
   HARNESS_GUI_TAB_REWIND_PREVIEW_CHANNEL,
@@ -137,6 +138,16 @@ export function createHarnessGuiTabApi(
           ...image,
         });
         return typeof path === "string" ? path : null;
+      } catch {
+        return null;
+      }
+    },
+    async readImage(handle, path) {
+      try {
+        return (await transport.invoke(HARNESS_GUI_TAB_IMAGE_READ_CHANNEL, {
+          handle,
+          path,
+        })) as { mime: string; data: Uint8Array } | null;
       } catch {
         return null;
       }

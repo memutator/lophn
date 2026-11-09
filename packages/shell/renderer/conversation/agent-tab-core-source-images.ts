@@ -53,6 +53,8 @@ export function createImageSource(core: CoreSource): ImageSource {
     },
 
     imageUrl(session, id) {
+      // core의 그림은 blob hash로만 읽는다. file 링크는 chip으로 둔다.
+      if (id.startsWith("file://")) return Promise.resolve(null);
       const key = `${session}/${id}`;
       let url = urls.get(key);
       if (url === undefined) {

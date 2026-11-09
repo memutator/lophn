@@ -2003,6 +2003,30 @@ flows:
     crosses_process: false
     docs: [architecture/harness-gui.md]
 
+  - id: harness-gui-tab-image-read
+    title: "대화에 실린 그림 file 링크를 탭의 임시 폴더에서 읽어 그림으로 보이고, 누르면 크게 본다"
+    actor: person
+    uses: [ipc:harness-gui:tab-image-read]
+    boundary: [shell-extension, shell]
+    code:
+      - packages/shell/main/terminal/gui.ts
+      - packages/shell/main/desktop/wiring/extensions.ts
+      - packages/shell/main/desktop/wiring/coding.ts
+      - packages/shell/renderer/conversation/agent-tab-gui-source.ts
+      - packages/shell/renderer/conversation/message-list/message-attachments.tsx
+    steps:
+      - "메시지의 `file://` resource_link가 그림 확장자(png·jpg·jpeg·gif·webp)면 화면이 GUI source에 그림 주소를 묻는다. 읽는 동안은 chip이다"
+      - "main은 그 탭의 tmpdir 아래 lophn-gui/<터미널 ref>/ 바로 아래 file만 읽고, bytes가 png·jpeg·gif·webp일 때만 MIME과 함께 돌려준다"
+      - "화면은 blob URL로 그림을 그리고, 누르면 ImagePreview modal로 크게 보인다. Esc·바깥·[x]로 닫는다"
+    outcomes:
+      - id: shown
+        observe: [screen:harness-gui-terminal-tab, response]
+      - id: chip
+        when: "handle이 없거나, 그 폴더 밖 경로거나, file이 없거나 그림이 아니다. 링크는 chip으로 남고 누르면 file을 연다"
+        observe: [screen:harness-gui-terminal-tab, response]
+    crosses_process: false
+    docs: [architecture/harness-gui.md]
+
   - id: harness-gui-tab-rewind-preview
     title: "사람 메시지로 되돌리기 전에 되돌아갈 file 목록을 adapter가 dry-run으로 보인다"
     actor: person

@@ -43,6 +43,7 @@ function setup() {
       onForegroundExit: () => () => {},
     },
     writeImage: () => Promise.resolve("/tmp/x"),
+    readImage: () => Promise.resolve(null),
     log: () => {},
   });
   const ingress = createHookIngress({

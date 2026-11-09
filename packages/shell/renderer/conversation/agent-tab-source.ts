@@ -628,7 +628,10 @@ export interface AgentTabSource {
    * `resource_link`다. capability `images`가 붙이기를 켠다.
    */
   uploadImage(image: Blob): Promise<SourceResult<{ block: ContentBlock }>>;
-  /** 메시지 image block의 그림 주소(blob hash나 옛 첨부 id). 읽지 못하면 null이다. */
+  /**
+   * 그림 주소. id는 image block의 blob hash(옛 첨부 id)이거나, 그림 file을 가리킨 `file://` resource_link의 uri다(harness
+   * source가 붙인 이미지). 읽지 못하면 null이다.
+   */
   imageUrl(session: string, id: string): Promise<string | null>;
   /** 다음 turn 줄을 도는 turn에 steer로 올린다. */
   sendQueuedNow(queued: string): Promise<SourceResult<void>>;

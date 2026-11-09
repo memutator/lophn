@@ -66,3 +66,9 @@
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line);
 }
+
+.arrow {
+  margin-left: auto;
+  padding-left: var(--space-4);
+  color: var(--color-text-muted);
+}

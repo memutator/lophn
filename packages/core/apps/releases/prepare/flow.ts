@@ -25,6 +25,7 @@ import {
   gitCommandRunner,
 } from "./git-extract.ts";
 import { type LimitFailure, usageCounter } from "./limits.ts";
+import { checkAppSource } from "./source-checks.ts";
 
 // `app.icon`이 읽는 상한과 같다.
 const ICON_MAX_BYTES = 64 * 1024;
@@ -218,6 +219,9 @@ export async function prepareRelease(
       );
     }
   }
+  // esbuild는 type을 보지 않고 browser 기본 tooltip(`title=`)도 막지 않아, 앱 agent의 흔한 실수를 여기서 막는다.
+  const sourceProblem = checkAppSource(extracted.value);
+  if (sourceProblem !== null) return fail(sourceProblem);
   let bundleBytes = 0;
   const hashed: { path: string; hash: string }[] = [];
   for (const file of files) {

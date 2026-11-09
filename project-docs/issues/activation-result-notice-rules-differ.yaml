@@ -1,0 +1,17 @@
+id: activation-result-notice-rules-differ
+title: AGENT.md E3·A11은 동의 뒤 시도의 결과를 session에 알리지 않는다고 쓰는데 코드는 알리고, 거절은 알리지 않는다
+kind: bug
+status: open
+topic: activation
+modules: [packages/core/apps]
+now: |
+  - `project-docs/products/AGENT.md` A11과 E3: "동의 뒤의 결과는 사람이 화면에서 본다", "동의 뒤에 시작한 시도의 결과는 사람이 화면에서 본다. session을 부르지 않는다."
+  - `architecture/activation.md` 결정 29·139(0.13.0)와 코드는 반대다. 기다리지 않은 시도(동의 뒤, 2분 기다림 상한 뒤, 재시작 뒤 이어받음)가 active나 failed로 끝나면 `activation.report`(`packages/core/apps/releases/commands.ts`, `releases/activation/assembly.ts`)가 release를 만든 session에 `activation_finished` notice를 넣는다.
+  - 거절(`activation.consent` reject, 같은 파일의 `consent` 처리)은 `activation_consents` 줄을 지우고 `ActivationConsentClosed` transient event만 낸다. release를 만든 session에는 아무것도 가지 않는다. 앞 결정 13은 거절이 이유를 받지 않는다고만 적는다.
+impact: |
+  AGENT.md만 읽는 사람과 AI는 동의 뒤 결과가 session에 가지 않는다고 믿고 설계한다. 반대로 코드는 허락·실패는 session에 알리고 거절은 알리지 않아, 사람이 Deny를 누르면 session은 사람이 말해 주기 전까지 동의 대기로 알고 있다(release는 prepared로 남고 session은 release.get으로 읽을 수는 있다).
+fix: |
+  - AGENT.md A11·E3을 activation.md 결정 29에 맞게 고친다(동의 뒤 시도의 결과는 `activation.report`로 release를 만든 session에 알린다). 작음. 추천.
+  - 거절은 알리지 않는다로 둔다. 거절하는 사람은 그 session에서 바로 거절 이유와 방향을 말하는 흐름이라(journey app-first-activation-declined) 알림은 얻는 것이 작다. 알리려면 동의 표에 session이 없어(결정 139) schema step이 필요하다. 중간~큼. 권하지 않는다.
+decided: |
+  AGENT.md를 코드에 맞춘다. 거절 알림은 만들지 않는다.

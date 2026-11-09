@@ -1,5 +1,5 @@
 id: agents-tab-run-toggle-stop-notice
-version: 0.23.2
+version: 0.23.3
 title: "Agents 탭을 + menu로 열고, 앱 실행을 App details에서 켜고 끄고, Stop lophn 무응답을 알린다"
 modules: [packages/shell/renderer, packages/shell/main, packages/design]
 checked: []

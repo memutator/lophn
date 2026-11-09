@@ -77,6 +77,24 @@ export type LophnAppAgent<
   send(input: Input): Promise<Result<void>>;
 };
 
+/**
+ * 앱 화면이 읽는 lophn project. 앱은 project를 따로 만들지 않고 이 id를 key로 자기 data를 붙인다.
+ * 폴더 path는 싣지 않는다: 지금 열린 project의 폴더만 `place.workspace.folders`로 준다.
+ */
+export type AppProject = {
+  id: string;
+  /** agent 주소(`workspace: {project: name}`)에 쓰는 slug. */
+  name: string;
+  title: string;
+  purpose: string;
+  status: "active" | "archived";
+};
+
+/** lophn project 읽기. 보관한 project도 싣는다(`status`). */
+export type LophnAppProjects = {
+  list(): Promise<Result<{ projects: AppProject[] }>>;
+};
+
 /** 화면이 열린 workspace. project의 folders는 등록한 폴더 path 목록이고, Home과 앱 workspace는 비어 있다. */
 export type AppPlaceWorkspace = {
   kind: "project" | "home" | "app";
@@ -107,6 +125,7 @@ export type LophnApp = {
   callOperation(operation: string, input: Json): Promise<unknown>;
   openExternal(url: string): Promise<void>;
   agent: LophnAppAgent;
+  projects: LophnAppProjects;
   commands: LophnAppCommands;
   /** 이 화면 탭의 머리 줄을 바꾼다. null이면 내린다. */
   setTabHead(head: TabHead | null): void;

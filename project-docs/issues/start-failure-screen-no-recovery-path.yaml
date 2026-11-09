@@ -1,0 +1,18 @@
+id: start-failure-screen-no-recovery-path
+title: 이력이 어긋나거나 손상된 data의 시작 실패 화면은 복구본이 있다는 것도 되돌리는 길도 알리지 않는다
+kind: bug
+status: open
+topic: platform
+modules: [packages/core/storage, packages/shell/renderer]
+now: |
+  - core는 schema step을 적용하기 전에 변환 전 ledger의 복구본을 `<data root>/recovery/s<N>-<stamp>/ledger.db`에 가장 최근 하나만 남긴다(`packages/core/storage/migration/recovery.ts`, `migrations.ts`). 복구본을 만들거나 검사하지 못하면 원본을 변환하지 않고 시작을 거절한다.
+  - `history_mismatch`와 `damaged_original`로 시작이 거절되면 원본은 건드리지 않는다. 화면(`packages/shell/renderer/desktop/workspaces/start-failure/model.ts`, 문구는 `packages/design/i18n/catalog/workspace.ts`)은 "Update lophn and try again", "Update lophn, or start the version that wrote this data", "keep the folder as it is"만 말한다.
+  - 복구본 위치와 되돌리는 방법(복구본을 ledger 자리에 복사)은 화면에도 문서에도 없다. 되돌리는 command나 화면도 없다.
+  - 업데이트를 받아 설치하는 일 자체는 비목표다(`architecture/platform.md` 비목표: 자동 업데이트 channel). 새 판을 사람이 직접 받는다.
+impact: |
+  ledger가 손상됐거나 이력이 어긋난 사람은 새 판을 받아 와도 같은 화면을 보고, 직전 변환 전 복구본이 `recovery/`에 있다는 것을 모른 채 data root 전체를 잃은 것으로 안다. newer_schema는 새 판을 받으면 되니 해당하지 않는다.
+fix: |
+  - damaged_original·history_mismatch 화면에 복구본 폴더 위치와 "복구본을 `ledger.db` 자리에 복사하고 다시 켠다"를 글로 적는다. 작음. 추천. 복구본이 가장 최근 변환 전 것이라 그 뒤의 기록을 잃는다는 것도 적는다.
+  - [Restore backup] 단추로 shell이 복구본을 되돌린다. 중간~큼. 원본을 덮는 일이라 확인 dialog와 원본 보존이 필요하고, 손상은 드물어 쓸 때 만든다.
+decided: |
+  글 안내만 더한다. 되돌리는 단추는 필요해지면 만든다.

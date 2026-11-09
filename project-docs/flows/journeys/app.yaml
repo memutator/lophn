@@ -31,11 +31,11 @@ journeys:
     goal: "source 폴더가 없는 앱에 git 저장소 맨 위 폴더를 이어서 앱 session이 짓기를 시작할 수 있게 한다"
     steps:
       - {do: "New app을 만든다. source 폴더 깔기나 잇기가 실패해 앱은 source 없이 남는다", screen: home-new-app, flow: app-create:unlinked}
-      - {do: "고른 폴더가 git 저장소의 맨 위가 아니라서 거절된다", flow: app-connect-source:invalid-folder}
+      - {do: "앱의 Agents 탭에서 source 폴더가 없는 상태를 본다. 폴더를 잇는 화면은 없다", screen: agents-tab-app-no-source, flow: app-read:ok}
+      - {do: "앱 workspace의 session이나 사람이 CLI(app.link_source)로 폴더를 잇는다. 고른 폴더가 git 저장소의 맨 위가 아니라서 거절된다", flow: app-connect-source:invalid-folder}
       - {do: "git 저장소 맨 위 폴더를 다시 잇는다", flow: app-connect-source:connected}
     gaps:
-      - "source 폴더 잇기 화면의 wireframe frame이 없다(route apps/connect_source)."
-      - "AGENT.md A17은 source 폴더 잇기를 앱 workspace session만 한다고 쓰는데 route는 사람도 받는다(app-connect-source actor person). 정책과 맞는지 확인이 필요하다."
+      - "이슈 app-source-connect-actors-differ-from-a17: AGENT.md A17이 사람의 연결을 빼고 적었다."
 
   - id: app-first-build-and-activate
     title: "앱 workspace session이 앱을 설계하고 짓고 preview로 확인한 뒤 첫 activation을 한다"
@@ -76,7 +76,7 @@ journeys:
       - {do: "사람이 session에 거절 이유와 바꿀 방향을 말한다", flow: session-send:ok}
       - {do: "session이 선언을 줄여 release를 다시 준비한다", flow: release-prepare:prepared}
     gaps:
-      - "거절 결과를 release를 만든 session에 알리는 flow가 없다. activation.md는 거절이 이유를 받지 않는다고만 쓰고 ActivationConsentClosed는 event뿐이다. agent는 사람이 말해 줘야 안다. 알림이 필요한지 확인이 필요하다."
+      - "이슈 activation-result-notice-rules-differ: 거절은 session에 알리지 않는다(사람이 session에 말한다)."
 
   - id: app-consent-with-share
     title: "앱 공유 요청이 붙은 activation 동의를 허락하면 공유도 같이 승인된다"
@@ -139,7 +139,7 @@ journeys:
       - {do: "기다리지 않은 결과가 release를 만든 session의 다음 입력으로 간다", flow: activation-report:delivered}
       - {do: "session이 release.get으로 결과를 확인한다", flow: release-state-read:ok}
     gaps:
-      - "AGENT.md E3은 동의 뒤 시도의 실패를 session에 부르지 않는다고 쓰지만 activation.md와 activation-report는 session에 알린다. 어느 쪽이 맞는지 맞춘다."
+      - "이슈 activation-result-notice-rules-differ: AGENT.md E3·A11이 코드(activation-report)와 다르다."
 
   - id: app-rollback-previous
     title: "Version 탭에서 이전 release로 돌아간다"
@@ -147,12 +147,10 @@ journeys:
     goal: "data schema가 같은 이전 release를 골라 앱 code를 되돌리고, 열린 앱 화면이 그 release로 다시 붙는다"
     steps:
       - {do: "Version 탭에서 지금 release와 이전 release를 본다", screen: new-app-version-applied, flow: activation-state-read:ok}
-      - {do: "이전 release로 돌아가기를 누른다", screen: new-app-version-applied, flow: activation-activate-previous:requested}
+      - {do: "이전 release로 돌아가기를 누른다. data schema가 다르면 단추가 꺼져 있어 누를 수 없다(invalid_input은 화면에서 나오지 않는 방어다)", screen: new-app-version-applied, flow: activation-activate-previous:requested}
       - {do: "요청 행을 sweep이 가져가 activation을 시작한다", flow: activation-sweep:started}
       - {do: "이전 release가 active가 되고 되돌린 기록이 남는다", flow: activation-complete:active}
       - {do: "열린 앱 화면이 이전 release로 다시 붙는다", flow: app-view-refresh:remounted}
-    gaps:
-      - "data schema가 달라 돌아가기가 꺼지는 것은 화면 규칙이라 activation-activate-previous:invalid_input은 사람 화면에 나오지 않을 수 있다. 화면 문구와 함께 확인이 필요하다."
 
   - id: app-prepare-fails-and-fixed
     title: "release 준비가 handler 불일치로 실패해 session이 선언과 handler를 맞추고 다시 준비한다"
@@ -282,7 +280,7 @@ journeys:
       - {do: "App details 탭 Run 절이 Stopped after repeated crashes를 보인다", screen: new-app-run-halted, flow: app-runtime-read:state-unavailable}
       - {do: "원인을 고친 release를 활성화한다", flow: release-activate:active}
     gaps:
-      - "halted를 푸는 길이 사람에게 불분명하다. 종료 기록은 10분 창에서만 빠지고 새 활성화나 Run을 껐다 켜기도 창 안에서는 다시 halted가 되며, 창이 지나도 다음 reconcile 전에는 스스로 뜨지 않는다(app-supervisor-reconcile unclear)."
+      - "이슈 crash-loop-halted-app-stays-down: 멈춘 앱을 다시 띄우는 길은 새 release와 core 재시작뿐이다."
 
   - id: app-data-rewind-from-activity
     title: "Activity에서 고른 호출 시점으로 앱 data를 되돌린다"
@@ -293,8 +291,6 @@ journeys:
       - {do: "고른 호출의 Rewind from here로 되돌릴 목록을 본다. external은 Won't be undone으로 보인다", screen: new-app-rewind-confirm, flow: app-rewind-plan:planned}
       - {do: "사람이 확인하고 시작한다", screen: new-app-rewind-done, flow: app-rewind-apply:applied}
       - {do: "Activity에서 되돌리기 기록을 읽는다", flow: app-rewind-history-read:listed}
-    gaps:
-      - "사람 화면 Activity의 호출 목록이 route apps/invocations로 읽히는데 app-invocation-read의 actor는 agent다. 사람 자격의 읽기로 바꿀지 확인이 필요하다."
 
   - id: app-data-rewind-cancelled
     title: "앱 data 되돌리기가 도는 호출이나 계획 변경으로 취소된다"
@@ -398,7 +394,7 @@ journeys:
       - {do: "사람이 질문 카드에서 답한다", screen: new-agent-question, flow: ask-answer:answered}
       - {do: "허락되면 release를 활성화한다", flow: release-activate:active}
     gaps:
-      - "A21의 '쓰는 그릇의 lophn'을 앱 workspace session이 어떻게 찾는지 flow가 없다. app-usage-read는 home session만 읽는다(forbidden). 지운 command를 쓰는 곳을 찾는 길을 정한다."
+      - "이슈 remove-public-command-users-found-via-home: A21이 쓰는 그릇의 lophn이라 하지만 앱 session은 home을 거친다."
 
   - id: app-package-publish
     title: "앱 code의 package를 사용자 package로 내고 다른 앱이 그 판을 고정한다"

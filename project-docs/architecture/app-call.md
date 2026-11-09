@@ -178,6 +178,14 @@ SDK `@lophn/agent`는 앱 코드가 bridge를 직접 부르지 않게 한다(tem
 4. 꼴이 있는 답은 `send(blocks, {reply: schema})`다. SDK가 꼴을 알리는 글 block을 덧붙이고, 그 turn이 끝나면 마지막 agent 메시지 글의 마지막 ```` ```json ```` 블록(없으면 글 전체)을 꺼내 schema의 `type`·`properties`·`required`·`items`·`enum`만 검사한다. 맞지 않으면 값이 아니라 오류(`{ok: false}`)이고, 멈추거나 실패한 turn도 오류다. core는 꼴을 모른다.
 5. SDK가 보내는 입력은 `send`, `stop`, `answer`, `rename`뿐이다. 승인 결정과 줄 고치기는 lophn 채팅 탭에서 한다.
 
+### 앱 화면의 project 읽기
+
+project별 data를 다루는 앱은 project를 따로 만들지 않고 lophn project를 기준으로 쓴다. 앱 data는 project `id`를 key로 붙이고, 화면이 project workspace에서 열리면 그 project로 거르고 그 밖에서는 모든 project를 묶어 보인다.
+
+1. 화면은 `lophnApp.projects.list()`로 모든 project(보관 포함)를 읽는다. shell main이 sender view를 확인하고 사람 자격(`coreInternal`)으로 core `projects.list`를 끝 page까지 읽는다. 따로 허락 단계나 선언 permission이 없다.
+2. 앱에는 `{id, name, title, purpose, status}`만 준다. 폴더 path는 주지 않는다. 앱 code(AI가 만든 code일 수 있다)가 모든 project의 폴더 위치를 알 까닭이 없고, 지금 열린 project의 폴더는 `place.workspace.folders`로 이미 간다.
+3. 읽기만 연다. project 만들기와 고치기는 사람이 lophn 화면에서 한다. 변경 push는 없다. 화면이 다시 읽는다(SDK `useProjects().reload`).
+
 ### 앱 log
 
 1. 앱 log는 앱마다 `<data root>/apps/<app>/logs/app.log`와 돌린 앞 file `app.log.1` 둘이다. file 하나는 8 MiB까지이고 앱마다 합쳐 16 MiB다. 줄을 더해 8 MiB를 넘게 되면 `app.log`를 `app.log.1`로 옮기고(앞 `.1`은 버린다) 새 `app.log`에 쓴다.

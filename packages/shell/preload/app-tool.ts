@@ -1,5 +1,5 @@
 // 앱 view의 preload bridge(protocol/shell app-bridge-types). 페이지에는 `lophnApp.callOperation`,
-// `lophnApp.openExternal`, 앱 workspace의 agent session 길(`agent`)과 자기 탭 머리 줄(`setTabHead`·`onTabHead`)과 살려 두기 신호(`setKeepAlive`)만 열고, 다른 앱·shell API·token·임의
+// `lophnApp.openExternal`, 앱 workspace의 agent session 길(`agent`), project 읽기(`projects`)와 자기 탭 머리 줄(`setTabHead`·`onTabHead`)과 살려 두기 신호(`setKeepAlive`)만 열고, 다른 앱·shell API·token·임의
 // method·경로·파일 통로는 없다. 앱·release·actor는 보내지 않는다: main이 sender view에서 정한다.
 // transport와 Electron event는 closure 안에 남는다.
 import type { Result } from "../../base/result.ts";
@@ -36,6 +36,7 @@ import {
   APP_VIEW_ERROR_CHANNEL,
   type AppReply,
 } from "../ipc/app.ts";
+import { APP_PROJECTS_LIST_CHANNEL } from "../ipc/app-projects.ts";
 import { APP_KEEP_ALIVE_CHANNEL } from "../ipc/app-keep-alive.ts";
 import {
   APP_TAB_HEAD_CHANNEL,
@@ -81,7 +82,7 @@ async function request(
   return reply.value;
 }
 
-// agent 길은 실패를 던지지 않고 Result로 돌려준다.
+// agent·project 길은 실패를 던지지 않고 Result로 돌려준다.
 async function result(
   transport: AppTransport,
   channel: string,
@@ -310,6 +311,9 @@ export function createAppTool(
           updateListeners.delete(listener);
         };
       },
+    }),
+    projects: Object.freeze({
+      list: () => result(transport, APP_PROJECTS_LIST_CHANNEL, null),
     }),
     setTabHead(head: TabHead | null): void {
       try {

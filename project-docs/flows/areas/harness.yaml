@@ -1707,7 +1707,7 @@ flows:
     crosses_process: true
 
   - id: terminal-trace
-    title: "터미널 진단 기록을 logs file에 덧붙인다(LOPHN_TERMINAL_TRACE=1로 띄웠을 때만)"
+    title: "터미널 진단 기록을 logs file에 덧붙인다(설정 diagnostics.trace가 켜졌을 때만)"
     actor: shell
     uses: [ipc:shell:terminal-trace]
     boundary: [shell]
@@ -1716,14 +1716,15 @@ flows:
       - packages/shell/main/desktop/wiring/coding.ts
     steps:
       - "renderer가 모은 진단 event(이름, mode, 좌표, 개수)를 최대 500개 보낸다"
-      - "기록이 켜져 있으면 main이 창 번호와 함께 logs/terminal-trace.jsonl에 덧붙인다. 쓰기 실패는 버린다"
-      - "기록이 꺼져 있으면 아무것도 쓰지 않고 false를 돌려줘 renderer가 더 보내지 않는다"
+      - "main이 core 설정 diagnostics.trace를 읽는다(SettingsChanged가 오면 다시 읽는다). 읽지 못하면 꺼진 것으로 본다"
+      - "켜져 있으면 main이 창 번호와 함께 logs/terminal-trace.jsonl에 덧붙인다. 10 MiB를 넘기 전에 terminal-trace.1.jsonl로 넘기고 둘만 남긴다. 쓰기 실패는 버린다"
+      - "꺼져 있으면 아무것도 쓰지 않고 false를 돌려줘 renderer가 5초 동안 모으지 않는다. 그 뒤 다시 묻는다"
       - "친 글과 출력 내용은 싣지 않는다(비밀번호와 token이 지나간다)"
     outcomes:
       - id: recorded
         observe: ["disk:<data root>/logs/terminal-trace.jsonl", response]
       - id: off
-        when: "LOPHN_TERMINAL_TRACE=1로 띄우지 않았다"
+        when: "설정 diagnostics.trace가 꺼져 있다(기본)"
         observe: [response]
       - id: forbidden
         code: forbidden

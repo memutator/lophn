@@ -1,7 +1,8 @@
 // Settings › Diagnostics. 구성 요소마다 지금 쓸 수 있는지, 안전한 불가 이유, 실제로 점검한 시각을 보인다.
 // 사람이 [Run checks]를 누를 때만 점검한다. 보안 점검은 없다.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
+import { Switch } from "@lophn/ui/input";
 import { Skeleton, StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
 
@@ -22,6 +23,23 @@ type Loaded =
 
 export function DiagnosticsPanel({ source }: DiagnosticsPanelProps) {
   const [loaded, setLoaded] = useState<Loaded>({ state: "idle" });
+  // 진단 trace 설정. 읽기 전에는 null이다.
+  const [trace, setTrace] = useState<boolean | null>(null);
+  const [traceFailed, setTraceFailed] = useState(false);
+  useEffect(() => {
+    void source.trace().then((read) => {
+      if (read.ok) setTrace(read.value);
+    });
+  }, [source]);
+
+  async function chooseTrace(on: boolean): Promise<void> {
+    setTraceFailed(false);
+    setTrace(on);
+    const saved = await source.setTrace(on);
+    if (saved.ok) return;
+    setTraceFailed(true);
+    setTrace(!on);
+  }
 
   async function check(): Promise<void> {
     setLoaded({
@@ -44,6 +62,36 @@ export function DiagnosticsPanel({ source }: DiagnosticsPanelProps) {
         {t("settings.label.tab-diagnostics")}
       </h1>
       <p className={styles.lead}>{t("settings.intro.diagnostics")}</p>
+      {trace === null ? null : (
+        <ul className={styles.lines}>
+          <li className={styles.line} data-diagnostics-row="trace">
+            <div className={styles.lineMain}>
+              <span className={styles.lineName}>
+                {t("settings.label.diagnostics-trace")}
+              </span>
+              <span className={styles.lineHelp}>
+                {t("settings.diagnostics.trace-help")}
+              </span>
+            </div>
+            <div className={styles.endSlot}>
+              <Switch
+                label={t(
+                  trace
+                    ? "settings.label.value-on"
+                    : "settings.label.value-off",
+                )}
+                checked={trace}
+                onCheckedChange={(on) => void chooseTrace(on)}
+              />
+            </div>
+          </li>
+        </ul>
+      )}
+      {traceFailed ? (
+        <p className={styles.rejected} role="alert" data-failed="">
+          {t("settings.error.value-not-saved")}
+        </p>
+      ) : null}
       <div className={styles.toolbar}>
         <span className={styles.lineHelp} data-checked="">
           {view === null

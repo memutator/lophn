@@ -4,6 +4,7 @@ import type { DiagnosticsSource, DiagnosticsView } from "../source.ts";
 interface FakeDiagnosticsOptions {
   view?: DiagnosticsView;
   checkFails?: boolean;
+  trace?: boolean;
 }
 
 const AT = "2026-10-06T10:42:07.000Z";
@@ -37,7 +38,16 @@ const SAMPLE_VIEW: DiagnosticsView = {
 
 export function fakeDiagnostics(options: FakeDiagnosticsOptions = {}) {
   const calls: unknown[][] = [];
+  let trace = options.trace ?? false;
   const source: DiagnosticsSource = {
+    trace() {
+      return Promise.resolve({ ok: true, value: trace });
+    },
+    setTrace(on) {
+      calls.push(["setTrace", on]);
+      trace = on;
+      return Promise.resolve({ ok: true, value: null });
+    },
     check() {
       calls.push(["check"]);
       if (options.checkFails) {

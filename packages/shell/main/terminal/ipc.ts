@@ -175,8 +175,14 @@ export function createTerminalIpc(deps: {
     writeText(text: string): Promise<void>;
     readText(): Promise<string>;
   };
-  /** 터미널 진단 기록에 덧붙인다. 기록이 꺼져 있으면 없다. window는 보낸 창(webContents id)이다. */
-  trace?: (window: number, events: readonly TerminalTraceEvent[]) => void;
+  /**
+   * 터미널 진단 기록에 덧붙인다. window는 보낸 창(webContents id)이다. 기록이 꺼져 있으면(설정 `diagnostics.trace`)
+   * 덧붙이지 않고 false라 renderer가 잠시 모으지 않는다.
+   */
+  trace?: (
+    window: number,
+    events: readonly TerminalTraceEvent[],
+  ) => Promise<boolean>;
   /**
    * 새 shell이 시작 층을 다 읽을 때까지 기다린다(출력이 잠잠해질 때). 그 전에 친 글은 시작 중에 버려진다.
    * 없으면 기다리지 않는다.
@@ -439,8 +445,10 @@ export function createTerminalIpc(deps: {
         input,
       );
       if (!parsed.ok) return parsed;
-      deps.trace(event.sender.id, parsed.value.events);
-      return { ok: true, value: true };
+      return {
+        ok: true,
+        value: await deps.trace(event.sender.id, parsed.value.events),
+      };
     },
     paste: async (event) => {
       const caller = checkCaller(deps.registry, event);

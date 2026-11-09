@@ -126,7 +126,7 @@ export const terminalCopySchema = z
   .strict();
 
 /**
- * 터미널 진단 기록 한 묶음. 켜졌을 때만(`LOPHN_TERMINAL_TRACE=1`) main이 `<data root>/logs/terminal-trace.jsonl`에 쓴다.
+ * 터미널 진단 기록 한 묶음. 켜졌을 때만(설정 `diagnostics.trace`) main이 `<data root>/logs/terminal-trace.jsonl`에 쓴다.
  * 이벤트 이름·mode·좌표·개수만 싣는다. 친 글과 출력 내용은 싣지 않는다(비밀번호·token이 지나간다).
  */
 export const terminalTraceSchema = z

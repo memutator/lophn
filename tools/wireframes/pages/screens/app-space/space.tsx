@@ -72,6 +72,8 @@ interface AppWorkspaceProps {
   readonly rightClosed?: boolean;
   /** 앱 화면 탭 머리 줄의 ⋯ 메뉴를 연 채 둔다. */
   readonly menu?: boolean;
+  /** 탭 줄 끝의 + 메뉴를 연 채 둔다. */
+  readonly newTab?: boolean;
   /**
    * preview가 돌고 있다. button은 앱 화면 탭 머리 줄에 [Preview]가 선 모양, tab은 그것을 눌러 preview 탭을 연 모양,
    * stopped는 그 탭에서 [Stop]을 누른 뒤, device는 등록한 기기를 골라 폰 테두리 안에 놓은 모양이다.
@@ -307,6 +309,7 @@ export function AppSpace(props: AppWorkspaceProps = {}) {
     }
     if (props.preview === "stopped") await click("[data-preview-stop]");
     if (props.menu === true) await press("[data-tab-menu]");
+    if (props.newTab === true) await press("[data-new-tab]");
     if (props.rightClosed === true) {
       await click("button", new RegExp(`^${t("shell.button.toggle-right")}$`));
     }

@@ -684,7 +684,7 @@ flows:
     outcomes:
       - id: applied
         when: "값이 목록 안이고 main이 theme과 CSS를 맞췄다"
-        observe: ["screen:new-settings-appearance"]
+        observe: ["screen:new-settings-appearance", "screen:new-settings-appearance-font-search", "screen:new-settings-appearance-presets-dark"]
       - id: ignored
         when: "목록 밖 값이 있거나 객체가 아니거나, desktop 창 본문이 아닌 곳이 보냈다(checkCaller 실패 또는 origin이 desktop이 아니다). 아무것도 바뀌지 않고 IPC 응답은 값 없이 끝난다"
         observe: ["response", "process:변화가 없다"]

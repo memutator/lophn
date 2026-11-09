@@ -38,7 +38,7 @@ journeys:
     refs: [P10]
     steps:
       - {do: "project를 열면 등록 폴더가 없다고 표시된다", flow: project-read:ok}
-      - {do: "OS 폴더 선택기에서 폴더의 새 위치를 고른다", flow: folder-pick:picked}
+      - {do: "project 줄 ⋯ 메뉴의 새 위치 고르기로 OS 폴더 선택기에서 폴더의 새 위치를 고른다", screen: home-workspaces-menu, flow: folder-pick:picked}
       - {do: "고른 위치를 잇는다", flow: project-relink-folder:ok}
 
   - id: project-archive-restore
@@ -47,7 +47,7 @@ journeys:
     goal: "쓰지 않는 project를 보관하고 필요할 때 되살린다. 폴더의 파일은 건드리지 않는다"
     steps:
       - {do: "Home으로 간다", screen: shell-workspaces-panel, flow: workspace-switch:to-home}
-      - {do: "project 줄 ⋯ 메뉴에서 Archive를 누른다", screen: shell-workspaces-panel, flow: project-archive:archived}
+      - {do: "project 줄 ⋯ 메뉴에서 Archive를 누른다", screen: shell-workspaces-menu, flow: project-archive:archived}
       - {do: "Archived 구역을 펼쳐 줄 끝 단추로 되살린다", screen: shell-workspaces-archived, flow: project-unarchive:unarchived}
 
   - id: document-open-edit-save
@@ -551,6 +551,7 @@ journeys:
     steps:
       - {do: "터미널에서 claude gui를 친다. 탭이 채팅 화면이 된다", screen: harness-gui-terminal-tab, flow: harness-gui-open:opened}
       - {do: "채팅 입력칸에 말을 보내면 CLI에 넘어간다", screen: harness-gui-terminal-tab, flow: harness-gui-input:sent}
+      - {do: "채팅 탭의 ⋯ 메뉴에도 머리 단추 Terminal과 같은 Open in terminal이 있다", screen: harness-gui-open-terminal, flow: harness-gui-toggle:to-tui}
       - {do: "탭 머리 toggle로 TUI로 돌아간다. restart harness는 먼저 묻는다", screen: harness-gui-restart-modal, flow: harness-gui-toggle:to-tui}
 
   - id: harness-gui-approval-card
@@ -591,7 +592,7 @@ journeys:
     steps:
       - {do: "첫 메시지 뒤 hook이 CLI session id를 알린다", flow: terminal-hook-forward:sent}
       - {do: "session identity가 project 파일에 남는다", flow: terminal-agent-identity:saved}
-      - {do: "탭 머리의 Open as chat으로 같은 CLI session을 채팅 화면에 붙인다", screen: harness-gui-terminal-tab, flow: harness-gui-toggle:to-gui}
+      - {do: "탭 머리의 Open as chat이나 ⋯ 메뉴의 같은 항목으로 같은 CLI session을 채팅 화면에 붙인다", screen: terminal-open-chat, flow: harness-gui-toggle:to-gui}
       - {do: "채팅에서 이어 말한다", screen: harness-gui-terminal-tab, flow: harness-gui-input:sent}
 
   - id: terminal-open-as-chat-no-session
@@ -611,6 +612,59 @@ journeys:
     steps:
       - {do: "터미널에서 claude gui를 친다", screen: project-terminal, flow: terminal-tab-new:opened}
       - {do: "Settings › System › Extensions를 연다", flow: harness-gui-open:extension-off}
+
+  - id: harness-gui-compose-commands
+    title: "GUI 채팅 입력칸에서 슬래시 명령 메뉴로 명령을 고르고 출력을 본다"
+    actor: person
+    goal: "/로 여는 명령 메뉴에서 CLI 명령, skill, plugin 명령을 찾아 보내고 CLI가 낸 출력을 대화에서 읽는다"
+    refs: [P6]
+    steps:
+      - {do: "입력칸에 /만 치면 lophn 동작, CLI 명령, Skills, Plugins & MCP, Custom 묶음의 명령 메뉴가 선다", screen: harness-gui-slash-empty, flow: harness-gui-input:sent}
+      - {do: "글자를 더 치면 묶음 머리 없이 순위대로 한 목록으로 걸러진다", screen: harness-gui-slash-query, flow: harness-gui-input:sent}
+      - {do: "↓로 열 줄 밖까지 내려가면 고른 줄이 보이게 목록이 따라 scroll한다", screen: harness-gui-slash-scroll, flow: harness-gui-input:sent}
+      - {do: "긴 plugin 명령 이름은 가로 scroll 없이 한 줄에서 말줄임한다", screen: harness-gui-slash-long, flow: harness-gui-input:sent}
+      - {do: "/resume을 고르면 menu가 닫히고 머리의 session menu가 열린다", screen: harness-gui-resume-slash, flow: harness-gui-tab-sessions:listed}
+      - {do: "CLI 명령(/context)을 보내면 출력이 명령 출력 줄로 대화에 그려진다", screen: harness-gui-command-output, flow: harness-gui-command-output:output-shown}
+
+  - id: harness-gui-shell-line
+    title: "GUI 채팅에서 !로 시작하는 글을 모델에 보내지 않고 사람 쪽 shell로 돌린다"
+    actor: person
+    goal: "입력칸에 !명령을 치면 shell mode가 되어 그 명령이 모델이 아니라 사람 쪽 shell에서 돌고 출력이 대화에 남는다"
+    refs: [P6]
+    steps:
+      - {do: "입력칸에 !ls -la를 치면 Shell chip과 hint가 서고 명령 메뉴와 첨부는 꺼진다", screen: harness-gui-shell-mode, flow: harness-gui-bang-shell:ran}
+      - {do: "보내면 명령 머리와 출력 블록이 사람 줄 자리에 남는다", screen: harness-gui-shell-run, flow: harness-gui-bang-shell:ran}
+      - {do: "긴 명령은 줄바꿈되고 3줄을 넘으면 접혀 있다가 펼친다", screen: harness-gui-shell-run-long, flow: harness-gui-bang-shell:ran}
+      - {do: "대화의 !로 시작하는 코드 블록은 shell 단추를 가진다", screen: harness-gui-code-block-shell, flow: harness-gui-bang-shell:ran}
+      - {do: "shell 단추를 누르면 그 글이 shell mode로 입력칸에 채워진다. 보내지는 않는다", screen: harness-gui-code-block-shell-filled, flow: harness-gui-bang-shell:ran}
+
+  - id: harness-gui-session-and-model
+    title: "GUI 채팅에서 CLI의 지난 session으로 옮기고 model과 옵션을 고른다"
+    actor: person
+    goal: "탭을 닫지 않고 같은 폴더의 지난 CLI session으로 바꾸고, model과 effort·Fast·Thinking·role을 고른다"
+    refs: [P6]
+    steps:
+      - {do: "머리 제목을 눌러 그 CLI가 이 폴더에 가진 지난 session 목록을 연다", screen: harness-gui-resume, flow: harness-gui-tab-sessions:listed}
+      - {do: "줄을 누르면 같은 탭에서 그 session으로 바뀌고 상태가 비워져 그 대화가 다시 그려진다", screen: harness-gui-resume-switched, flow: harness-gui-input:sent}
+      - {do: "Claude의 model picker에서 Effort와 Fast·Thinking 축을 고른다", screen: harness-gui-picker-switch, flow: harness-gui-input:sent}
+      - {do: "Codex의 picker는 effort 아래 Fast 하나만 있다", screen: harness-gui-picker-switch-codex, flow: harness-gui-input:sent}
+      - {do: "omp의 picker는 Roles 절 아래 provider 묶음이 접혀 있다. role을 고르면 이 session만 그 role의 model이 된다", screen: harness-gui-roles, flow: harness-gui-roles:switched}
+      - {do: "검색어를 치면 접힘을 무시하고 맞는 묶음만 펼친다", screen: harness-gui-picker-search, flow: harness-gui-roles:switched}
+      - {do: "composer 아래 사용량 줄을 눌러 context 분해와 사용 한도를 본다", screen: harness-gui-status-limits, flow: harness-gui-usage-warning:warned}
+
+  - id: harness-gui-read-long-chat
+    title: "GUI 채팅에서 긴 대화를 읽고 turn 눈금으로 옮긴다"
+    actor: person
+    goal: "긴 대화도 화면 근처 행만 그려 가볍게 읽고, turn 눈금으로 첫 메시지나 bookmark한 turn으로 옮긴다"
+    refs: [P6]
+    steps:
+      - {do: "200 turn 대화는 화면 근처 행만 그리고 쓰는 중에도 맨 아래에 붙어 있다", screen: harness-gui-long-thread, flow: harness-gui-publish:snapshot}
+      - {do: "중간까지 올려 읽는 동안 새 글이 와도 읽는 글이 밀리지 않는다", screen: harness-gui-long-thread-middle, flow: harness-gui-publish:batched}
+      - {do: "사람 메시지가 4개 이상이면 왼쪽 가장자리에 turn 눈금이 선다", screen: harness-gui-thread-index, flow: harness-gui-publish:snapshot}
+      - {do: "눈금에 pointer를 올리면 그 turn의 첫 줄과 마지막 답 미리보기 card가 뜨고 bookmark 단추가 있다", screen: harness-gui-thread-index-card, flow: thread-bookmark-set:ok}
+      - {do: "맨 위 눈금을 누르면 안 그린 행에도 쌓아 둔 높이로 첫 메시지에 바로 간다", screen: harness-gui-long-thread-jump, flow: harness-gui-publish:snapshot}
+      - {do: "도구 줄을 펼치면 입력과 출력이 이스케이프 없이 그대로 보인다", screen: harness-gui-tool-body, flow: harness-gui-publish:snapshot}
+      - {do: "fork로 갈라진 session은 turn 밖 한 줄 알림(Forked from)을 맨 위에 낸다", screen: harness-gui-fork-info, flow: harness-gui-publish:snapshot}
 
   - id: harness-setup-detect-install
     title: "설치된 coding agent를 찾고 hook과 공유 skill을 놓는다"

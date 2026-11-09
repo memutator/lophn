@@ -77,13 +77,13 @@ flows:
       - "once나 always면 기다리던 call이 입력을 그대로 실행한다(call은 agent runtime child에서 깨어난다). TurnRequestClosed(allow)를 Bus로 낸다."
     outcomes:
       - id: once
-        observe: ["event:TurnRequestClosed", "response", "event:TurnResumed"]
+        observe: ["event:TurnRequestClosed", "response", "event:TurnResumed", "screen:new-waiting-permission", "screen:new-waiting-settled"]
       - id: always
         when: "always_patterns가 있고 shell 규칙 저장에 성공"
-        observe: ["disk:settings.json", "event:TurnRequestClosed", "response", "event:TurnResumed"]
+        observe: ["disk:settings.json", "event:TurnRequestClosed", "response", "event:TurnResumed", "screen:new-waiting-permission"]
       - id: reject
         when: "사람이 거절함(이유는 한 줄, 없을 수 있음)"
-        observe: ["event:TurnRequestClosed", "response", "event:TurnResumed"]
+        observe: ["event:TurnRequestClosed", "response", "event:TurnResumed", "screen:new-waiting-deny-reason"]
       - id: invalid-input
         code: invalid_input
         when: "결정 형식이 아님(session·request id·choice가 schema와 다름)"
@@ -514,12 +514,12 @@ flows:
     outcomes:
       - id: approved
         when: "approve. coding agent를 골랐으면 commit 뒤 공유 설정도 쓴다(실패는 approved-coding-not-saved)"
-        observe: ["disk:agents/<agent>.md", "ledger:share_requests", "event:ShareRequestClosed", "response"]
+        observe: ["disk:agents/<agent>.md", "ledger:share_requests", "event:ShareRequestClosed", "response", "screen:waiting-share-request"]
       - id: approved-coding-not-saved
         when: "approve였고 coding agent 공유 설정 쓰기가 실패함(승인은 확정)"
         observe: ["log:share-requests", "ledger:share_requests", "event:ShareRequestClosed", "response"]
       - id: rejected
-        observe: ["ledger:share_requests", "event:ShareRequestClosed", "response"]
+        observe: ["ledger:share_requests", "event:ShareRequestClosed", "response", "screen:waiting-share-request"]
       - id: conflict
         code: conflict
         when: "요청이 없거나 requested_at이 카드가 본 값과 다름"

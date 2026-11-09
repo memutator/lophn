@@ -20,7 +20,7 @@ function agentOf(tab: TabItem): string | null {
   return isAgentId(agent) ? agent : null;
 }
 
-/** Agents 탭을 연다. 이미 열려 있으면 고르기만 한다(sidebar의 Agents 줄과 권한 popover의 Edit in Agents가 부른다). */
+/** Agents 탭을 연다. 이미 열려 있으면 고르기만 한다(sidebar의 Agents 줄, + 메뉴의 Agents, 권한 popover의 Edit in Agents가 부른다). */
 export function openAgents(host: TabHost): void {
   host.openTab({
     key: AGENTS_TAB_KEY,

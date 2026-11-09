@@ -31,10 +31,15 @@ export const hostWorkspaceSchema = z.discriminatedUnion("kind", [
 ]);
 export type HostWorkspace = z.infer<typeof hostWorkspaceSchema>;
 
-// 놓는 자리 힌트다. 실제 자리는 renderer의 `openAt()`이 정한다.
-export const TAB_PLACES = ["beside", "group", "float"] as const;
-export const tabPlaceSchema = z.enum(TAB_PLACES);
-export type TabPlace = z.infer<typeof tabPlaceSchema>;
+// 연 탭이 연 session(source)에게 무엇인지다. agent는 자리가 아니라 이 뜻만 말하고, 자리는 renderer의 `openAt()`이 정한다.
+// - peer: source와 같은 일을 나눠 하는 동료(병렬 팀원). source의 group에 같이 선다.
+// - stage: 다음 단계나 다른 일을 맡는 coordinator. source 뒤에 새 group을 시작할 자리에 선다.
+// - aside: 사람에게 보여 주려는 것(결과 page, artifact, preview, TUI). source 옆 칸이다.
+// - work: agent가 혼자 쓰는 작업 탭(browser-use). 접힌 float이고 사람이 펴서 지켜보거나 take control한다.
+// - glance: 잠깐 보여 주는 것. 펴진 float이고 사람이 밖을 누르면 접힌다.
+export const TAB_RELATIONS = ["peer", "stage", "aside", "work", "glance"] as const;
+export const tabRelationSchema = z.enum(TAB_RELATIONS);
+export type TabRelation = z.infer<typeof tabRelationSchema>;
 
 // `tui`는 harness agent session을 터미널 탭에서 그 CLI의 resume으로 연다(project workspace의 session만).
 // `preview`는 그 앱에서 지금 돌고 있는 preview를 앱 view 탭으로 연다(요청의 workspace는 그 앱이다).
@@ -59,7 +64,8 @@ export type HostTabTarget = z.infer<typeof hostTabTargetSchema>;
 const tabOpenPayloadSchema = z.strictObject({
   tab: idSchema("tab"),
   target: hostTabTargetSchema,
-  place: tabPlaceSchema.nullable(),
+  // null은 말하지 않은 것이다. 기본 뜻은 target마다 renderer가 정한다.
+  relation: tabRelationSchema.nullable(),
   // 연 agent session이다. renderer가 그 session의 탭 옆에 놓는다.
   source: idSchema("ses").nullable(),
   // target이 tui일 때 CLI를 다시 여는 값이다. harness는 `HARNESS_ADAPTERS`의 id, external_session은 그 CLI의 session id다.
@@ -171,6 +177,13 @@ export const hostRequestSchema = z.discriminatedUnion("kind", [
     workspace: hostWorkspaceSchema,
     payload: z.strictObject({ tab: idSchema("tab") }),
   }),
+  // 접힌 float을 그 자리에서 편다. layout과 focus는 바꾸지 않는다. float이 아니거나 이미 펴져 있으면 할 일이 없다.
+  z.strictObject({
+    id: idSchema("hrq"),
+    kind: z.literal("tab_show"),
+    workspace: hostWorkspaceSchema,
+    payload: z.strictObject({ tab: idSchema("tab") }),
+  }),
   z.strictObject({
     id: idSchema("hrq"),
     kind: z.literal("tool_call"),
@@ -275,7 +288,7 @@ export const tabsOpen = defineMemory({
   name: "OpenTab",
   input: z.strictObject({
     target: hostTabTargetSchema,
-    place: tabPlaceSchema.optional(),
+    relation: tabRelationSchema.optional(),
     // 사람 token이 browser 탭을 놓을 workspace다. 없으면 home이다. agent는 자기 session의 workspace를 쓰므로 이 칸을 무시한다.
     workspace: workspaceSchema.optional(),
   }),
@@ -430,12 +443,25 @@ export const browserWait = defineMemory({
   errors,
 });
 
+// 자기가 연 탭을 사람에게 보인다(접힌 float을 편다). 사람 손이 필요할 때(로그인, captcha) `ask`와 같이 쓴다. 남이 연 탭이면
+// `forbidden`, 없는 탭이면 `not_found`다. 접수만 답한다.
+export const tabsShow = defineMemory({
+  resource: "tabs",
+  method: "show",
+  name: "ShowTab",
+  input: z.strictObject({ tab: idSchema("tab") }),
+  output: acceptedSchema,
+  actors: ["agent", "user"],
+  errors,
+});
+
 export const HOST_QUEUE_MEMORY_ROUTES = [
   hostTake,
   hostDone,
   hostReport,
   tabsOpen,
   tabsClose,
+  tabsShow,
   browserRead,
   browserSnapshot,
   browserAct,

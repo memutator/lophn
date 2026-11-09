@@ -171,7 +171,12 @@ function createHost(deps: HostDeps): Host {
     try {
       // strip 뒤에 덮어야 더한 LPN_ 값이 지워지지 않는다.
       const env = { ...terminalEnv(deps.env), ...shellEnv };
-      const integrated = integrateShell(program.file, program.args, env);
+      const integrated = integrateShell(
+        program.file,
+        program.args,
+        env,
+        deps.exists,
+      );
       const handle = deps.pty.spawn({
         file: program.file,
         args: integrated.args,

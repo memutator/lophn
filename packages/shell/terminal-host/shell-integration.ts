@@ -30,6 +30,7 @@ export function integrateShell(
   file: string,
   args: string[],
   env: Readonly<Record<string, string | undefined>>,
+  exists: (path: string) => boolean,
 ): ShellLaunch {
   const dir = env[SHELL_INIT_ENV];
   const unchanged = { args, env: {} };
@@ -40,10 +41,14 @@ export function integrateShell(
   switch (name) {
     // bash는 -l이면 --init-file을 무시하고 profile을 읽는다. -l 없이 --init-file로 띄우고 profile 순서는
     // bash.sh가 따라 한다(VS Code shell integration과 같은 방식).
+    // init file이 없으면 bash는 오류 없이 rc를 하나도 읽지 않고, zsh도 빈 ZDOTDIR에서 사용자 rc를 건너뛴다.
+    // 폴더는 tmp 정리 등으로 사라질 수 있으니 그때는 함수 없이 원래 login shell로 띄운다.
     case "bash":
+      if (!exists(`${dir}/bash.sh`)) return unchanged;
       return { args: ["--init-file", `${dir}/bash.sh`], env: {} };
     // ZDOTDIR을 우리 폴더로 줘 .zshenv만 먼저 읽히게 하고, 그 안에서 바로 사용자 값으로 돌려준다.
     case "zsh":
+      if (!exists(`${dir}/zsh/.zshenv`)) return unchanged;
       return {
         args,
         env: {

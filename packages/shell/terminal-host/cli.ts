@@ -61,7 +61,8 @@ const host = hostFromNodePty({
 });
 
 // 어느 harness TUI가 도는지는 foreground process가 바뀔 때만 알린다. 새 process가 뜨는 것을 받는 event가 없어 훑는다.
-const FOREGROUND_POLL_MS = 1000;
+// GUI ↔ TUI toggle이 TUI가 끝난 것을 이 훑기로 알아 간격만큼 기다린다. 한 번에 /proc 두 줄이라 짧게 훑는다.
+const FOREGROUND_POLL_MS = 250;
 setInterval(() => {
   for (const foreground of host.foregroundChanges()) {
     process.stdout.write(JSON.stringify({ foreground }) + "\n");

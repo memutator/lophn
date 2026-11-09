@@ -10,6 +10,9 @@ import type { Bus } from "../../../events/ports.ts";
 
 // `ask`가 올린 질문 묶음의 기다림이다. 메모리에만 두고 꺼졌다 켜지면 비어 있다(turn이 interrupted로 닫힌다).
 // 사람이 답하거나 그 session에 메시지를 보내거나 turn이 끝나면 기다리던 tool이 결과를 받는다.
+// 사람에게 가는 질문은 session마다 하나만 열린다. 한 응답의 `ask` 호출 여럿은 병렬로 오는데 화면은 session당
+// 질문 하나(pending.question)만 쥐므로, 나머지는 줄을 서고 앞 질문이 풀리면 차례로 열린다. 열리지 않은 질문은
+// 사람이 읽거나 답할 수 없고 QuestionAsked도 나가지 않는다.
 
 type Entry = {
   group: Id<"qgr">;
@@ -19,6 +22,8 @@ type Entry = {
   questions: AskInput["questions"];
   // 팀 자식의 질문이라 사람이 아니라 부모가 답한다.
   toParent: boolean;
+  // 팀 자식의 질문은 늘 열려 있다. 사람의 질문은 session의 앞 질문이 풀린 뒤에 열린다.
+  open: boolean;
   settle(result: AskResult): void;
 };
 
@@ -37,14 +42,42 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
   // unattended는 ask tool이 기다리지 않고 돌려주므로 기다림이 닫는 결과에는 없다.
   type Settled = Exclude<AskResult, { outcome: "unattended" }>;
 
-  function close(key: string, entry: Entry, result: Settled): void {
-    entries.delete(key);
+  function announce(entry: Entry): void {
+    entry.open = true;
     deps.bus.publish({
       session: entry.session,
-      type: "QuestionResolved",
+      type: "QuestionAsked",
       at: deps.clock.now(),
-      payload: { group: entry.group, outcome: result.outcome },
+      payload: {
+        group: entry.group,
+        turn: entry.turn,
+        tool_call: entry.toolCall,
+        to_parent: entry.toParent,
+      },
     });
+  }
+
+  // 사람에게 열린 질문이 없으면 줄 선 첫 질문을 연다.
+  function openNext(session: string): void {
+    const mine = [...entries.values()].filter(
+      (one) => one.session === session && !one.toParent,
+    );
+    if (mine.some((one) => one.open)) return;
+    const next = mine[0];
+    if (next !== undefined) announce(next);
+  }
+
+  function close(key: string, entry: Entry, result: Settled): void {
+    entries.delete(key);
+    // 열리지 않은 질문은 아무 화면도 몰라서 닫힘도 알리지 않는다.
+    if (entry.open) {
+      deps.bus.publish({
+        session: entry.session,
+        type: "QuestionResolved",
+        at: deps.clock.now(),
+        payload: { group: entry.group, outcome: result.outcome },
+      });
+    }
     entry.settle(result);
   }
 
@@ -58,6 +91,7 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
       if (turn !== undefined && entry.turn !== turn) continue;
       close(key, entry, result(entry));
     }
+    openNext(session);
   }
 
   return {
@@ -78,21 +112,13 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
           toolCall: call.tool_call,
           questions,
           toParent,
+          open: false,
           settle: resolve,
         });
       }).finally(() => promises.delete(key));
       promises.set(key, promise);
-      deps.bus.publish({
-        session: call.session,
-        type: "QuestionAsked",
-        at: deps.clock.now(),
-        payload: {
-          group,
-          turn: call.turn,
-          tool_call: call.tool_call,
-          to_parent: toParent,
-        },
-      });
+      if (toParent) announce(entries.get(key)!);
+      else openNext(call.session);
       return promise;
     },
 
@@ -104,7 +130,7 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
       questions: AskInput["questions"];
     }> {
       const entry = entries.get(keyOf(session, toolCall));
-      if (entry === undefined) {
+      if (entry === undefined || !entry.open) {
         return err({ code: "not_found", message: "the question is not open" });
       }
       return ok({ group: entry.group, questions: entry.questions });
@@ -118,7 +144,7 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
       to_parent: boolean;
     }[] {
       return [...entries.values()]
-        .filter((one) => one.session === session)
+        .filter((one) => one.session === session && one.open)
         .map((one) => ({
           group: one.group,
           turn: one.turn as Id<"trn">,
@@ -135,7 +161,7 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
     ): Result<AskResult> {
       const key = keyOf(session, toolCall);
       const entry = entries.get(key);
-      if (entry === undefined) {
+      if (entry === undefined || !entry.open) {
         return err({ code: "not_found", message: "the question is not open" });
       }
       const fits =
@@ -151,6 +177,7 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
       }
       const result: AskResult = { outcome: "submitted", answers: [...answers] };
       close(key, entry, result);
+      openNext(entry.session);
       return ok(result);
     },
 

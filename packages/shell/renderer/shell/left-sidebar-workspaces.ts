@@ -74,6 +74,8 @@ export interface WorkspacesInput {
   readonly apps: readonly { readonly id: string; readonly name: string }[];
   readonly entries: readonly SessionEntry[];
   readonly agents: readonly SidebarAgent[];
+  /** lophn agent id → 이름. 다른 workspace의 lophn 이름이다. */
+  readonly lophnNames: Readonly<Record<string, string>>;
   readonly known: KnownSessions;
   /** workspace key → 그 workspace의 layout에 탭이 열린 session id → 그 탭의 제목. */
   readonly openTitles: ReadonlyMap<string, ReadonlyMap<string, string>>;
@@ -131,8 +133,14 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
     const item: SidebarSession = {
       kind: "session",
       ref: entry.session,
-      // 다른 workspace의 탭 제목은 저장된 layout에서 읽어 빈 글이다. 그때는 session 제목을 쓴다.
-      title: tabTitle || read?.title || t("left-sidebar.label.untitled"),
+      // 다른 workspace의 탭 제목은 저장된 layout에서 읽어 빈 글이다. 그때는 탭 줄이 그 workspace에서 쓰는 이름(session 제목, 없으면 agent 이름)을 따른다.
+      title:
+        tabTitle !== undefined
+          ? tabTitle ||
+            read?.title ||
+            (entry.agent === null ? "" : input.lophnNames[entry.agent]) ||
+            agent.name
+          : read?.title || t("left-sidebar.label.untitled"),
       agent: { kind: "lophn", profile: agent.profile },
       dot,
       actions: true,

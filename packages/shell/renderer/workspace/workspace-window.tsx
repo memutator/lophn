@@ -2891,6 +2891,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                   agentViewSource={agentViewSource}
                   agents={sidebarAgents.agents}
                   lophnNames={sidebarAgents.lophnNames}
+                  layoutReady={readyWorkspace === workspaceId}
                   openTitles={agentTabTitles}
                   desks={sidebarDesks}
                   agentDrafts={agentDrafts}

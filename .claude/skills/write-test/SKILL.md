@@ -85,8 +85,9 @@ core를 쓰는 test는 Temporal이 있는 Electron의 Node로 돈다. 끝낼 때
 | `npm run check:full` | 전부. 모든 package의 `tsc --noEmit -p <폴더>`와 모든 `*_test.ts`를 Electron의 Node `--test`로 한 번에 돈다. wireframes smoke(`npm run wireframes:smoke`, gallery 전체를 offscreen Electron으로 그려 render 오류를 잡는다, 30초쯤)도 돈다 |
 
 - 독립 단계는 동시에 돌고 첫 실패에서 멈춘다. 실패하면 exit 1이고 출력에 `실패`가 찍힌다.
+- check는 낮은 우선순위(below normal, 자식도 물려받음)로 돌고, tsc는 한 번에 4개, test file은 core 수의 1/3개씩 돈다. agent 여럿이 겹쳐 돌려도 사람이 쓰는 터미널이 밀리지 않게 하려는 것이다. 다시 넓히지 않는다.
 - `tests/harness`, `tests/support`, `tests/eval`은 check에 든다. `tests/e2e`와 `tests/live`는 type check에는 들고 `--test`에는 안 든다(`tools/check.ts`의 `NOT_IN_CHECK`). e2e는 `npm run e2e`로만 돈다.
 - test가 도는 길은 Electron의 Node `--test` 하나다. 따로 묶는 runner와 두 번째 check를 두지 않는다.
 - 함정: main에서 이미 commit한 뒤 `npm run check`를 돌리면 기준이 HEAD라 바뀐 package가 없다. 그때는 `check:full`이나 `--base`를 쓴다.
 - 함정: `check:full`은 renderer build(`node packages/shell/renderer/build.ts`)를 안 본다. 화면 쪽을 건드렸으면 따로 돌린다.
-- test는 고정 port나 경로를 쓰지 않는다. `node --test`는 file을 동시에 돌린다(e2e만 `--test-concurrency=1`).
+- test는 고정 port나 경로를 쓰지 않는다. `node --test`는 file을 동시에 돌린다(check는 core 수의 1/3, e2e는 `--test-concurrency=1`).

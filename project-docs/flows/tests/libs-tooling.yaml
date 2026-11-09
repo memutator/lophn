@@ -264,6 +264,10 @@ files:
     covers: []
     note: check 도구가 core main의 bare fetch와 DOM title 속성을 막는지 보는 검사 도구
 
+  - path: tools/install-checklist_test.ts
+    covers: []
+    note: 설치 체크리스트가 깔린 판 초과 설치할 판 이하의 항목만 모으고 downgrade는 경고만 내는지 보는 도구 test
+
   - path: tools/dev_test.ts
     covers: []
     note: 개발 실행이 eval world는 열되 사람의 ~/.lophn은 열지 않는지 보는 dev 도구 test

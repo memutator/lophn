@@ -11,7 +11,7 @@ planner의 본업은 plan → implement → change-log → **context 유지보�
 
 - main에 그 계획의 commit이 있다(`git log --oneline main`). `npm run check`가 통과한다.
 - 계획 폴더(`project-docs/plan/<계획>/`), 계획이 지우기로 한 roadmap 파일, lead worktree(`git worktree list`), branch `plan/<계획>`(`git branch --list 'plan/*'`)이 없다. 남았으면 lead에게 알리거나 사람에게 묻고 지운다(지우기 전에 merge됐는지 본다).
-- 그 계획의 change-log 항목(`project-docs/products/change-log/<x.y>/<id>.yaml`, `node tools/records.ts changes --version <x.y>`)을 읽는다. `modules`가 실제 diff와 맞는지 2의 script로 본다. `decisions` 중 `by: agent`인 것을 모아 사람에게 보인다. 사람이 정하지 않고 넘어간 결정이다.
+- 그 계획의 change-log 항목(`project-docs/products/change-log/<x.y>/<id>.yaml`, `node tools/records.ts changes --version <x.y>`)을 읽는다. `modules`가 실제 diff와 맞는지 2의 script로 본다. `decisions` 중 `by: agent`인 것을 모아 사람에게 보인다. 사람이 정하지 않고 넘어간 결정이다. 사람이 설치한 앱에서 해야 하거나 확인할 것이 있는데 `checklist`가 비었으면 채운다(`products/change-log/README.md`).
 
 ## 2. context 유지보수
 

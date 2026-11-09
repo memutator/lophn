@@ -3,7 +3,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, dirname, relative, resolve } from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse } from "yaml";
 
 type Obj = Record<string, unknown>;
@@ -44,6 +44,7 @@ const CHANGE_KEYS = [
   "why",
   "decisions",
   "follow_up",
+  "checklist",
 ];
 
 function read(path: string): string {
@@ -109,7 +110,7 @@ function registryIds(): Set<string> {
   );
 }
 
-function compare(a: string, b: string): number {
+export function compare(a: string, b: string): number {
   const pa = SEMVER.exec(a)?.slice(1).map(Number) ?? [0, 0, 0];
   const pb = SEMVER.exec(b)?.slice(1).map(Number) ?? [0, 0, 0];
   for (let i = 0; i < 3; i++) {
@@ -199,6 +200,14 @@ function check(only: string | undefined, partial: boolean): Problem[] {
     else versions.push(version);
     for (const f of ["title", "change", "why"]) text(file, data, f, true);
     text(file, data, "follow_up", false);
+    if (data.checklist !== undefined) {
+      const list = data.checklist;
+      if (
+        !Array.isArray(list) ||
+        list.some((v) => typeof v !== "string" || !v.trim())
+      )
+        add(file, "checklist", "비지 않은 글의 목록이어야 함");
+    }
     moduleList(file, data);
     for (const c of strings(data.checked))
       if (!registry.has(c)) add(file, "checked", `registry에 없는 ID: ${c}`);
@@ -280,6 +289,14 @@ function listIssues(topic?: string, status?: string) {
   console.log(`\n${rows.length} issues`);
 }
 
+// install-checklist가 쓴다. 판이 SEMVER가 아닌 항목은 건너뛴다(check가 따로 잡는다).
+export function loadChanges(): Obj[] {
+  return changeFiles()
+    .map((f) => load(f).data)
+    .filter((d) => SEMVER.test(String(d.version)))
+    .sort((a, b) => compare(String(a.version), String(b.version)));
+}
+
 function listChanges(minor?: string) {
   const rows = changeFiles()
     .map((f) => load(f).data)
@@ -295,27 +312,30 @@ function arg(args: string[], name: string): string | undefined {
   return i >= 0 ? args[i + 1] : undefined;
 }
 
-const [cmd, ...args] = process.argv.slice(2);
-if (cmd === "check") {
-  const file = arg(args, "--file");
-  const only =
-    file === undefined
-      ? undefined
-      : relative(ROOT, resolve(process.cwd(), file));
-  const problems = check(
-    only,
-    args.includes("--partial") || only !== undefined,
-  );
-  for (const p of problems) console.error(p.text);
-  if (problems.length > 0) process.exit(1);
-  console.log("records check ok");
-} else if (cmd === "issues") {
-  listIssues(arg(args, "--topic"), arg(args, "--status"));
-} else if (cmd === "changes") {
-  listChanges(arg(args, "--version"));
-} else {
-  console.error(
-    "usage: node tools/records.ts <check [--file <path>] [--partial] | issues [--topic t] [--status s] | changes [--version x.y]>",
-  );
-  process.exit(1);
+// 다른 도구가 import해도 CLI가 돌지 않게 한다.
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  const [cmd, ...args] = process.argv.slice(2);
+  if (cmd === "check") {
+    const file = arg(args, "--file");
+    const only =
+      file === undefined
+        ? undefined
+        : relative(ROOT, resolve(process.cwd(), file));
+    const problems = check(
+      only,
+      args.includes("--partial") || only !== undefined,
+    );
+    for (const p of problems) console.error(p.text);
+    if (problems.length > 0) process.exit(1);
+    console.log("records check ok");
+  } else if (cmd === "issues") {
+    listIssues(arg(args, "--topic"), arg(args, "--status"));
+  } else if (cmd === "changes") {
+    listChanges(arg(args, "--version"));
+  } else {
+    console.error(
+      "usage: node tools/records.ts <check [--file <path>] [--partial] | issues [--topic t] [--status s] | changes [--version x.y]>",
+    );
+    process.exit(1);
+  }
 }

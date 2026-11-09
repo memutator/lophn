@@ -192,6 +192,16 @@ components:
       paths: [project-docs/issues/README.md, project-docs/products/change-log/README.md, project-docs/architecture/README.md]
       note: 이슈·항목·architecture 문서의 꼴이 바뀔 때.
 
+  - id: tool-install-checklist
+    kind: tool
+    roles: [planner, lead, worker]
+    description: 깔린 판과 설치할 판 사이 change-log 항목(`checklist` 칸)과 release notes의 Action needed로 설치 뒤 해야 할 것과 확인할 것의 markdown checklist를 만든다. `npm run package`가 `<out>/install-checklist.md`로도 낸다.
+    path: tools/install-checklist.ts
+    run: node tools/install-checklist.ts
+    change_reasons:
+      paths: [project-docs/products/change-log/README.md, project-docs/products/release-notes/README.md]
+      note: change-log 항목의 checklist 칸이나 release notes의 Action needed 꼴이 바뀔 때.
+
   - id: tool-check-docs
     kind: tool
     roles: [planner]

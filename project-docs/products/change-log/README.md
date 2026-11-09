@@ -18,9 +18,13 @@ decisions:                     # 정한 것. 버린 길과 그 이유를 같은 
   - text: entry는 code에서 뽑고 commit하지 않는다. 버린 길: 손으로 적기(다시 셀 수 없다).
     by: agent                  # person | agent. 사람이 정하지 않고 추천안으로 진행했으면 agent
 follow_up: |                   # 이 변경 때문에 다른 쪽이 할 일(선택)
+checklist:                     # 설치한 앱에서 사람이 할 것·볼 것(선택). 비지 않은 글의 목록
+  - "해야: 앱을 다시 build한다"          # `해야:`로 시작하면 설치 체크리스트의 "해야 할 것"
+  - Home의 + menu에 Agents가 보이는지 본다  # 그 밖은 "확인할 것"
 ```
 
 - 필수: `id`, `version`, `title`, `modules`, `change`, `why`. `decisions`는 결정이 있을 때.
+- `checklist`: 사람이 설치한 앱에서 해야 하거나 눈으로 확인할 것이 있을 때 land하는 agent가 쓴다(없으면 칸을 두지 않는다). `node tools/install-checklist.ts [--from <x.y.z>]`가 깔린 판과 설치할 판 사이 항목의 `checklist`와 release notes의 "Action needed"로 markdown checklist를 만든다. `npm run package`도 `<out>/install-checklist.md`로 낸다. 옛 항목은 채우지 않는다.
 - 쓰는 때: 동작·계약·저장 모양이 바뀌었을 때, 결정이 있었을 때. 동작이 같은 리팩터링, 주석, test 정리, 포맷은 쓰지 않는다.
 - 항목은 그 일의 마지막 commit에 넣는다. 올라간 항목은 고치지 않는다. 틀렸으면 바로잡는 항목을 새로 쓴다.
 

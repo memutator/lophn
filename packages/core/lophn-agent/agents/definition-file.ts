@@ -8,9 +8,10 @@ import {
   type AgentDefinitionIssue,
   type AgentId,
   agentDefinitionSchema,
-  agentHandleKey,
+  codingBuiltinOf,
   LOPHN_AGENT_HANDLE,
   isLophn,
+  isReservedHandle,
   LOPHN_AGENT_NAME,
 } from "../../../protocol/lophn-agent/mod.ts";
 
@@ -144,6 +145,14 @@ function checkDefinition(
 
   const fields: Plain = { ...raw };
   const lophn = isLophn(target.agent);
+  const coding = codingBuiltinOf(target.agent);
+  if (coding !== null) {
+    // 사람이 고친 file이어도 handle·runtime·workspace는 내장 값이 이긴다.
+    fields.handle = coding.harness;
+    fields.runtime = coding.runtime;
+    delete fields.workspace;
+    fields.name ??= coding.label;
+  }
   if (lophn) {
     for (const key of ["handle", "profile", "workspace"]) {
       if (Object.hasOwn(fields, key)) {
@@ -194,7 +203,8 @@ function checkDefinition(
     }
   } else if (
     !lophn &&
-    agentHandleKey(shaped.data.handle) === agentHandleKey(LOPHN_AGENT_HANDLE)
+    coding === null &&
+    isReservedHandle(shaped.data.handle)
   ) {
     addIssue(issues, "handle", "reserved_name");
   }

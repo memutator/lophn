@@ -16,6 +16,7 @@ import {
   type Modality,
 } from "../../../../../protocol/lophn-agent/agent-values.ts";
 import {
+  isCodingBuiltin,
   isLophn,
   workspaceOfLophn,
 } from "../../../../../protocol/lophn-agent/workspaces.ts";
@@ -228,6 +229,9 @@ export function DefinitionForm(props: DefinitionFormProps) {
   const [addServer, setAddServer] = useState(false);
   const fresh = detail.assignment === null;
   const lophn = detail.assignment !== null && isLophn(detail.assignment);
+  // 내장 coding agent는 handle·runtime·범위가 고정이다(handle과 범위는 저장한 agent라 이미 읽기 전용이다).
+  const coding =
+    detail.assignment !== null && isCodingBuiltin(detail.assignment);
   // lophn의 정의 file에는 workspace 칸이 없다(id가 말한다).
   const scope =
     detail.assignment !== null && lophn
@@ -261,6 +265,11 @@ export function DefinitionForm(props: DefinitionFormProps) {
       value: one,
       label: t(`agents.label.runtime-${one}`),
     }));
+  const runtimeOptions = [
+    { value: "lophn", label: t("agents.label.runtime-lophn") },
+    { value: "bare", label: t("agents.label.runtime-bare") },
+    ...harnessOptions,
+  ].map((one) => ({ ...one, disabled: coding }));
   // lophn에서는 tools와 skills를 쓰지 못해(저장 거절) lophn으로 돌아가면 함께 지운다. 기본값이라 runtime 칸도 지운다.
   const setRuntime = (picked: string) => {
     const next: Record<string, unknown> = { ...definition };
@@ -460,14 +469,14 @@ export function DefinitionForm(props: DefinitionFormProps) {
               size="sm"
               label={t("agents.label.runtime")}
               value={runtime}
-              options={[
-                { value: "lophn", label: t("agents.label.runtime-lophn") },
-                { value: "bare", label: t("agents.label.runtime-bare") },
-                ...harnessOptions,
-              ]}
+              options={runtimeOptions}
               onValueChange={setRuntime}
             />
-            <p className={styles.note}>{t("agents.notice.runtime-help")}</p>
+            <p className={styles.note}>
+              {coding
+                ? t("agents.notice.fixed-coding")
+                : t("agents.notice.runtime-help")}
+            </p>
             <Issues issues={issuesOf("runtime")} />
           </Group>
         </>

@@ -196,6 +196,8 @@ export const agents = {
   "agents.notice.description-help": "One line about what this agent is for.",
   "agents.notice.runtime-help":
     "lophn adds the lophn rules, skills and built-in tools. Bare sends only the instructions above and the tools and skills you pick.",
+  "agents.notice.fixed-coding":
+    "Built-in coding agent: its handle, runtime and scope can't be changed, and it can't be deleted. You can rename how it is shown. It runs the CLI with your own settings.",
   "agents.notice.tools-help":
     "A session only gets a picked tool its workspace kind (home, project, app), the agent's apps and its MCP servers allow.",
   "agents.notice.skip-help":

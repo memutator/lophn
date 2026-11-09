@@ -1,11 +1,9 @@
 import { jsonLine, safePrompt } from "./shared.ts";
 import type { HeadlessEvent, HeadlessSpec } from "./types.ts";
 
-// `codex exec --json`. 샌드박스는 cwd 안 쓰기까지다(workspace-write). danger-full-access는 쓰지 않는다.
-// resume에는 `-s`가 없어서 같은 값을 `-c`로 넘긴다. 입력(stdin)은 host가 바로 닫는다(안 닫으면 codex가 기다린다).
-// workspace-write는 network를 끄는데 `lophn` CLI는 core에 loopback TCP로 닿으므로(`codex sandbox`로 확인: 막힘) network를 켠다.
+// `codex exec --json`. sandbox mode는 lophn이 정하지 않는다: 사람의 Codex 기본 설정대로 돈다. 입력(stdin)은 host가 바로 닫는다(안 닫으면 codex가 기다린다).
+// 사람의 sandbox가 workspace write이면 network가 꺼져 `lophn` CLI가 core에 loopback TCP로 닿지 못하므로(`codex sandbox`로 확인: 막힘) network를 켠다.
 // codex에는 loopback만 여는 flag가 없다. 이 값이 codex가 돌리는 shell 명령의 network 전부를 연다.
-const SANDBOX = "workspace-write";
 const NETWORK = "sandbox_workspace_write.network_access=true";
 
 export const codexHeadless: HeadlessSpec = {
@@ -16,8 +14,6 @@ export const codexHeadless: HeadlessSpec = {
           "exec",
           "--json",
           "--skip-git-repo-check",
-          "-s",
-          SANDBOX,
           "-c",
           NETWORK,
           "--",
@@ -28,8 +24,6 @@ export const codexHeadless: HeadlessSpec = {
           "resume",
           "--json",
           "--skip-git-repo-check",
-          "-c",
-          `sandbox_mode="${SANDBOX}"`,
           "-c",
           NETWORK,
           "--",

@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
+import {
+  HARNESS_ADAPTER_OF_RUNTIME,
+  HARNESS_ADAPTERS,
+} from "../coding-agent/harness-adapter.ts";
+import type { HarnessId } from "../coding-agent/harness-id.ts";
 
 export const workspaceSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("project"), id: idSchema("prj") }),
@@ -24,9 +29,39 @@ const lophnWorkspaceIdSchema = z
       (idSchema("prj").safeParse(value.slice(6)).success ||
         idSchema("app").safeParse(value.slice(6)).success),
   );
+
+// 즐겨찾기 coding agent는 정의 file 없이 부르는 전역 내장 agent다: id `coding_<harness id>`, handle은 harness id, name은 adapter label.
+// headless runtime이 있는 harness(`HARNESS_ADAPTER_OF_RUNTIME`의 역)만 된다.
+export type CodingBuiltin = {
+  id: `coding_${string}`;
+  harness: HarnessId;
+  runtime: keyof typeof HARNESS_ADAPTER_OF_RUNTIME;
+  label: string;
+};
+export const CODING_BUILTINS: readonly CodingBuiltin[] = (
+  Object.entries(HARNESS_ADAPTER_OF_RUNTIME) as [
+    CodingBuiltin["runtime"],
+    HarnessId,
+  ][]
+).map(([runtime, harness]) => ({
+  id: `coding_${harness}`,
+  harness,
+  runtime,
+  label: HARNESS_ADAPTERS[harness].label,
+}));
+
+export function codingBuiltinOf(id: string): CodingBuiltin | null {
+  return CODING_BUILTINS.find((builtin) => builtin.id === id) ?? null;
+}
+
+export function isCodingBuiltin(id: string): boolean {
+  return codingBuiltinOf(id) !== null;
+}
+
 export const agentIdSchema = z.union([
   z.literal(LOPHN_HOME_ID),
   lophnWorkspaceIdSchema,
+  z.string().refine(isCodingBuiltin),
   idSchema("agt"),
 ]);
 export type AgentId = z.infer<typeof agentIdSchema>;

@@ -3,6 +3,8 @@ import {
   type AgentDefinitionIssue,
   type AgentId,
   type AgentValueLayer,
+  CODING_BUILTINS,
+  codingBuiltinOf,
   LOPHN_AGENT_HANDLE,
   isLophn,
   lophnIdOf,
@@ -11,6 +13,11 @@ import {
   type ModelChoice,
   type Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
+import {
+  codingAgentsSetting,
+  createFileSettingsReader,
+  harnessExtensionSetting,
+} from "../../config/mod.ts";
 import { type AgentFileDefinition, parseAgentFile } from "./definition-file.ts";
 import type { AgentDeps, AgentLookups, ReadSql } from "./ports.ts";
 import { AGENT_DEFAULT_PROFILE, LOPHN_PROFILE } from "./resolve.ts";
@@ -48,7 +55,7 @@ export function issuesOfError(error: unknown): AgentDefinitionIssue[] {
   return details?.issues ?? [];
 }
 
-// 읽은 agent 하나. lophn은 file이 없어도 agent이고 definition은 null이다.
+// 읽은 agent 하나. lophn과 내장 coding agent는 file이 없어도 agent이고, file이 없는 lophn의 definition은 기본 정의다.
 export type Loaded = {
   agent: AgentId;
   slot: AgentSlot;
@@ -64,7 +71,13 @@ export function loadAgent(
   const slot = agentSlotOf(context.store.root, agent);
   const read = context.store.read(slot);
   if (!read.ok) return read;
-  if (read.value === null && !isLophn(agent)) return ok(null);
+  if (
+    read.value === null &&
+    !isLophn(agent) &&
+    codingBuiltinOf(agent) === null
+  ) {
+    return ok(null);
+  }
   // 없는 workspace의 lophn은 없다(파일이 남아 있어도).
   if (isLophn(agent)) {
     const workspace = workspaceOfLophn(agent);
@@ -82,12 +95,20 @@ function parsedAgent(
 ): Loaded {
   let definition: AgentFileDefinition | null = null;
   const issues: AgentDefinitionIssue[] = [];
-  // lophn은 file이 없어도 기본 정의(handle·name)를 갖는다.
-  const text = file?.text ?? (isLophn(agent) ? "" : null);
+  const coding = codingBuiltinOf(agent);
+  // lophn과 내장 coding agent는 file이 없어도 기본 정의(handle·name)를 갖는다.
+  const text = file?.text ?? (isLophn(agent) || coding !== null ? "" : null);
   if (text !== null) {
     const parsed = parseAgentFile(text, { agent });
-    if (parsed.ok) definition = parsed.value;
-    else issues.push(...issuesOfError(parsed.error));
+    if (parsed.ok) {
+      definition = parsed.value;
+      if (file === null && coding !== null) {
+        definition = {
+          ...definition,
+          description: `Runs ${coding.label} headless.`,
+        };
+      }
+    } else issues.push(...issuesOfError(parsed.error));
   }
   return { agent, slot, file, definition, issues };
 }
@@ -95,13 +116,16 @@ function parsedAgent(
 // 틀린 file은 handle을 알 수 없어 id가 handle이다(주소로는 쓸 수 없고 목록에만 보인다).
 export function handleOf(loaded: Loaded): string {
   if (isLophn(loaded.agent)) return LOPHN_AGENT_HANDLE;
+  const coding = codingBuiltinOf(loaded.agent);
+  if (coding !== null) return coding.harness;
   return loaded.definition?.handle ?? loaded.agent;
 }
 
 // 보이는 이름이다. 주소가 아니다.
 export function nameOf(loaded: Loaded): string {
   if (loaded.definition !== null) return loaded.definition.name;
-  return isLophn(loaded.agent) ? LOPHN_AGENT_NAME : loaded.agent;
+  if (isLophn(loaded.agent)) return LOPHN_AGENT_NAME;
+  return codingBuiltinOf(loaded.agent)?.label ?? loaded.agent;
 }
 
 // 범위 없는 agent는 전역이다. lophn의 범위는 id에서 나오고 Home lophn은 null이다.
@@ -137,11 +161,26 @@ export function profileOf(loaded: Loaded) {
   return loaded.definition?.profile ?? AGENT_DEFAULT_PROFILE;
 }
 
-// workspace마다의 lophn이 앞이고(Home, project, 앱 순) 그 뒤는 `agents/`의 사람이 만든 agent id 순서다.
+// 내장 coding agent는 harness extension이 켜져 있고 그 harness가 coding agent 즐겨찾기에 있을 때만 목록에 선다.
+// 끈 뒤에도 id로 읽는 길(`loadAgent`)은 그대로다: 열린 session과 harness host가 계속 돈다.
+function shownCodingIds(root: string): AgentId[] {
+  const settings = createFileSettingsReader(root);
+  if (settings.get(harnessExtensionSetting) !== true) return [];
+  const favorites = settings.get(codingAgentsSetting)?.favorites ?? [];
+  return CODING_BUILTINS.filter((builtin) =>
+    favorites.includes(builtin.harness),
+  ).map((builtin) => builtin.id);
+}
+
+// workspace마다의 lophn이 앞이고(Home, project, 앱 순) 그 뒤는 내장 coding agent, `agents/`의 사람이 만든 agent id 순서다.
 // 틀린 file도 목록에 남아 issues를 보인다.
 export function listAgents(context: AgentContext): Result<Loaded[]> {
   const loaded: Loaded[] = [];
-  const ids = [lophnIdOf(null), ...context.lookups.workspaces().map(lophnIdOf)];
+  const ids = [
+    lophnIdOf(null),
+    ...context.lookups.workspaces().map(lophnIdOf),
+    ...shownCodingIds(context.store.root),
+  ];
   for (const id of ids) {
     const lophn = loadAgent(context, id);
     if (!lophn.ok) return lophn;

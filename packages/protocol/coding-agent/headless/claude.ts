@@ -1,7 +1,7 @@
 import { jsonLine, summaryOf } from "./shared.ts";
 import type { HeadlessEvent, HeadlessSpec } from "./types.ts";
 
-// `claude -p --output-format stream-json --verbose`. 권한은 묻지 못하므로 편집만 허락하고(acceptEdits) 나머지는 막힌다.
+// `claude -p --output-format stream-json --verbose`. permission mode는 lophn이 정하지 않는다: 사람의 Claude Code 기본 설정대로 돈다.
 // Bash는 `lophn` 명령 하나만 허락한다: harness가 `lophn call reply|send`로 답하고 다른 agent를 부르는 길이다.
 // 정의의 deny는 이 allow보다 앞서므로 금지한 `lophn` 명령은 그대로 막힌다. 전부 허락(bypassPermissions)은 쓰지 않는다. flag 뒤의 값 목록이 prompt를 삼키지 않게 `--`로 끊는다.
 export const claudeHeadless: HeadlessSpec = {
@@ -11,8 +11,6 @@ export const claudeHeadless: HeadlessSpec = {
     "--output-format",
     "stream-json",
     "--verbose",
-    "--permission-mode",
-    "acceptEdits",
     "--allowed-tools",
     "Bash(lophn *)",
     ...(sessionId === null ? [] : ["--resume", sessionId]),

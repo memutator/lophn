@@ -4,6 +4,7 @@ import { EXTENSION_ID } from "../extensions/manifest.ts";
 import { slugSchema } from "../projects/values.ts";
 import { profileOutputSchema, profileSchema } from "./agent-profile.ts";
 import { mcpServerSchema } from "./mcp-settings.ts";
+import { CODING_BUILTINS } from "./workspaces.ts";
 import {
   INSTRUCTION_FILE_MAX_BYTES,
   modelChoiceOutputSchema,
@@ -249,3 +250,12 @@ export type AgentCounts = z.infer<typeof agentCountsSchema>;
 // `lophn`은 workspace마다 있는 내장 lophn의 handle이고 사람이 만든 agent에게는 예약이다. 이름의 기본값도 `lophn`이며 사람이 workspace마다 바꿀 수 있다.
 export const LOPHN_AGENT_HANDLE = "lophn";
 export const LOPHN_AGENT_NAME = "lophn";
+
+// 내장 coding agent의 handle(harness id)도 예약이다. 사람이나 agent가 새로 만드는 agent가 쓰지 못한다.
+const RESERVED_HANDLE_KEYS = new Set([
+  LOPHN_AGENT_HANDLE,
+  ...CODING_BUILTINS.map((builtin) => builtin.harness),
+]);
+export function isReservedHandle(handle: string): boolean {
+  return RESERVED_HANDLE_KEYS.has(agentHandleKey(handle));
+}

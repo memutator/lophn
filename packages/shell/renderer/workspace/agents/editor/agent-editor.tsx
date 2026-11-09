@@ -12,7 +12,10 @@ import { type ReactElement, useEffect, useRef, useState } from "react";
 import type { AssignmentEntry } from "../../../../../protocol/approvals/assignment.ts";
 
 import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
-import { isLophn } from "../../../../../protocol/lophn-agent/workspaces.ts";
+import {
+  isCodingBuiltin,
+  isLophn,
+} from "../../../../../protocol/lophn-agent/workspaces.ts";
 import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
 import type {
@@ -227,6 +230,8 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   const { detail, definition } = state;
   const fresh = detail.assignment === null;
   const lophn = detail.assignment !== null && isLophn(detail.assignment);
+  const coding =
+    detail.assignment !== null && isCodingBuiltin(detail.assignment);
   const edit = (next: AgentDraft) =>
     setState((current) =>
       current.kind === "ready" ? { ...current, definition: next } : current,
@@ -468,7 +473,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
       <h1 className={styles.title}>
         <Avatar profile={shown} size="md" />
         {fresh ? t("project-workspace.heading.agents-new-agent") : name}
-        {lophn ? (
+        {lophn || coding ? (
           <span className={styles.chip}>{t("agents.label.built-in")}</span>
         ) : null}
       </h1>
@@ -534,7 +539,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             {t("project-workspace.notice.agent-editor-model-help")}{" "}
             {t("agents.notice.stored-in-lophn")}
           </p>
-          {!fresh && !lophn ? (
+          {!fresh && !lophn && !coding ? (
             <DeleteAgent name={name} onDelete={remove} />
           ) : null}
         </TabPanel>

@@ -47,6 +47,8 @@ const FAILURE_SUMMARIES: Readonly<Record<string, string>> = {
 // 문장에서 가릴 것이 없고, 가리면 원인을 못 가려 같은 입력으로 되풀이한다. 여기 없는 tool은 공통 문장만 쓴다.
 const INPUT_SCOPED_FAILURES: Readonly<Record<string, true>> = {
   "skill.read": true,
+  // 모르는 handle이면 부를 수 있는 handle 목록을 message에 싣는다.
+  "agent.card": true,
 };
 
 const FAILURE_CODES: ReadonlyMap<ErrorCode, string> = new Map([

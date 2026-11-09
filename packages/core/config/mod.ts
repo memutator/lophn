@@ -9,5 +9,9 @@ export {
   type SettingsRegistry,
 } from "./registry.ts";
 export { settingsListHandler, settingsUpdateHandler } from "./routes.ts";
-export { harnessExtensionSetting, shellSettings } from "./shell-settings.ts";
+export {
+  codingAgentsSetting,
+  harnessExtensionSetting,
+  shellSettings,
+} from "./shell-settings.ts";
 export { createSettingsStore, type SettingsStore } from "./store.ts";

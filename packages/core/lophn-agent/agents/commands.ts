@@ -6,6 +6,7 @@ import {
   agentHandleKey,
   type AgentId,
   agentDelete,
+  codingBuiltinOf,
   isLophn,
   type Profile,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -32,6 +33,7 @@ import { agentSlotOf } from "./store.ts";
 import { checkAgent } from "./validate.ts";
 
 // 정의 저장과 삭제는 사람과 agent가 할 수 있다. lophn은 workspace마다 하나이고 handle·profile은 고정이며 지울 수 없다(workspace를 지울 때만 정의 file이 지워진다).
+// 내장 coding agent는 handle·runtime·범위가 고정이고 지울 수 없다.
 // handle과 범위 workspace는 만들 때만 정한다. agent가 만들면 범위는 그 session의 workspace다(home이면 전역).
 // agent 자격은 `mcp_servers`, `skip`, `apps`, `extensions`, `permissions`를 바꾸지 못한다: 그 칸들은 사람의 승인 경계다.
 
@@ -192,6 +194,7 @@ export function createAgentCommands(deps: AgentDeps): {
             });
           }
         }
+        const coding = codingBuiltinOf(input.agent);
         // handle과 범위는 만들 때 정한 채로 둔다. 틀린 file은 정한 값을 알 수 없어 고쳐 쓸 수 있게 둔다.
         if (loaded.definition !== null) {
           if (
@@ -205,6 +208,9 @@ export function createAgentCommands(deps: AgentDeps): {
             !same(input.definition.workspace, workspaceOfAgent(loaded))
           ) {
             return notAllowed("workspace");
+          }
+          if (coding !== null && input.definition.runtime !== coding.runtime) {
+            return notAllowed("runtime");
           }
         }
         const checked = checkAgent({
@@ -237,6 +243,12 @@ export function createAgentCommands(deps: AgentDeps): {
       ): Result<Output<typeof agentDelete>> {
         if (isLophn(input.agent)) {
           return err({ code: "forbidden", message: "lophn cannot be deleted" });
+        }
+        if (codingBuiltinOf(input.agent) !== null) {
+          return err({
+            code: "forbidden",
+            message: "a built-in coding agent cannot be deleted",
+          });
         }
         const context = open(deps, tx);
         if (!context.ok) return context;

@@ -1,6 +1,7 @@
 // 화면이 agent를 가리키는 값(key)을 다룬다. agent id는 workspace마다의 lophn(`lophn_home`, `lophn_<prj|app id>`)이거나
-// `agt_…`이다. lophn의 id에는 그 workspace가 들어 있고, 사람이 만든 agent의 id에는 workspace가 끼지 않는다.
+// `agt_…`이거나 내장 coding agent(`coding_<harness id>`)이다. lophn의 id에는 그 workspace가 들어 있고, 사람이 만든 agent의 id에는 workspace가 끼지 않는다.
 import {
+  isCodingBuiltin,
   isLophn,
   lophnIdOf,
 } from "../../../../protocol/lophn-agent/workspaces.ts";
@@ -21,6 +22,7 @@ export const kindOfWorkspace = (workspace: string): WorkspaceKind =>
 export const lophnIdAt = (ref: WorkspaceRef) =>
   lophnIdOf(ref.kind === "home" ? null : ref);
 
-/** agent id(workspace의 lophn이거나 `agt_…`)인가. */
+/** agent id(workspace의 lophn, 내장 coding agent이거나 `agt_…`)인가. */
 export const isAgentId = (value: unknown): value is string =>
-  typeof value === "string" && (isLophn(value) || AGENT_ID.test(value));
+  typeof value === "string" &&
+  (isLophn(value) || isCodingBuiltin(value) || AGENT_ID.test(value));

@@ -174,7 +174,7 @@ export const appLaunchSetting = declareSetting({
 
 // coding agent 즐겨찾기(빠른 실행 Terminal hover와 workspace +의 hover 목록에 나온다)와 사람이 바꾼 실행 명령어.
 // harness id는 shell이 검사하고 모르는 것은 버린다.
-const codingAgentsSetting = declareSetting({
+export const codingAgentsSetting = declareSetting({
   key: "shell.coding_agents",
   type: z.object({
     favorites: z.array(z.string().min(1).max(64)).max(64),

@@ -131,13 +131,15 @@ export function cardByHandle(
   const listed = listAgents(context);
   if (!listed.ok) return listed;
   const key = agentHandleKey(handle);
-  const loaded = listed.value.find(
-    (entry) =>
-      agentHandleKey(handleOf(entry)) === key &&
-      (at === null || visibleIn(entry, at.workspace)),
+  const seen = listed.value.filter(
+    (entry) => at === null || visibleIn(entry, at.workspace),
   );
+  const loaded = seen.find((entry) => agentHandleKey(handleOf(entry)) === key);
   if (loaded === undefined) {
-    return err({ code: "not_found", message: "agent not found" });
+    return err({
+      code: "not_found",
+      message: `unknown agent handle "${handle}"; agents you can call: ${seen.map(handleOf).join(", ")}`,
+    });
   }
   if (loaded.issues.length > 0) {
     return err({ code: "invalid_input", message: "the agent file is broken" });

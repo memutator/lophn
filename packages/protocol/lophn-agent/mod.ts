@@ -9,6 +9,7 @@ export * from "./content-block.ts";
 export * from "./extension-tools.ts";
 export * from "./harness-host.ts";
 export * from "./host-queue.ts";
+export * from "./login-request.ts";
 export * from "./input-tags.ts";
 export * from "./inputs.ts";
 export * from "./instructions.ts";

@@ -158,6 +158,7 @@ areas:
     entries:
       - packages/protocol/lophn-agent/harness-host.ts
       - packages/protocol/lophn-agent/host-queue.ts
+      - packages/protocol/lophn-agent/login-request.ts
       - packages/protocol/coding-agent/
       - packages/coding-agent/
     owns:

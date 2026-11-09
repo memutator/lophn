@@ -18,6 +18,15 @@ export type BrowserCallPayload = Extract<
 >["payload"];
 export type BrowserDriver = {
   run(payload: BrowserCallPayload): Promise<HostToolOutput>;
+  // 사람이 보호 창에 넣은 값을 ref 칸에 한 번 친다(shell main 안에서만 부른다: core의 요청 queue를 지나지 않는다).
+  // 칠 때 그 칸이 든 frame의 origin이 card에 보인 origin과 다르면 치지 않고 conflict다.
+  typeOnce(input: {
+    tab: string;
+    view: BrowserCallPayload["view"];
+    ref: string;
+    origin: string;
+    value: string;
+  }): Promise<HostToolOutput>;
 };
 
 /** shell main이 core `logins/release`를 shell capability로 부른 결과. 값은 이 결과에만 있다. */
@@ -484,55 +493,55 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
     return undefined;
   }
 
-  // login 값을 ref 칸에 친다. origin은 그 칸이 든 frame의 것을 CDP로 재고(최상위 URL이 아니다), 값은 core가 저장된 origin과
-  // 글자 그대로 같을 때만 준다. 치는 동안 그 frame이 이동하면 멈춘다. 값은 이 함수 밖으로 나가지 않는다: 오류 글도 고정 문구다.
-  async function fillLogin(
-    session: Session,
-    act: Extract<BrowserAct, { type: "fill_login" }>,
-  ): Promise<void> {
-    if (act.field === "username") {
-      throw fail("invalid_input", "username is filled as text by core");
-    }
+  // ref 칸이 든 frame의 id다. frameOfNode가 못 찾으면 낡은 ref다.
+  async function frameIdOf(session: Session, ref: string): Promise<string> {
     const { frameTree } = await send<{ frameTree: FrameNode }>(
       session,
       "Page.getFrameTree",
     );
     const frameId = await frameOfNode(
       session,
-      node(session, act.ref),
+      node(session, ref),
       frameTree.frame.id,
     );
-    if (frameId === undefined) throw stale(act.ref);
+    if (frameId === undefined) throw stale(ref);
+    return frameId;
+  }
+
+  // frame의 origin이다. CDP가 잰 securityOrigin이고 페이지 JS가 정한 값이 아니다.
+  async function originOfFrame(
+    session: Session,
+    frameId: string,
+  ): Promise<string> {
+    const { frameTree } = await send<{ frameTree: FrameNode }>(
+      session,
+      "Page.getFrameTree",
+    );
+    const stack = [frameTree];
+    let origin: string | undefined;
+    for (let one = stack.pop(); one !== undefined; one = stack.pop()) {
+      if (one.frame.id === frameId) origin = one.frame.securityOrigin;
+      stack.push(...(one.childFrames ?? []));
+    }
+    if (origin === undefined || !URL.canParse(origin)) {
+      throw fail("forbidden", "this frame has no origin a login can match");
+    }
+    return new URL(origin).origin;
+  }
+
+  // 값을 ref 칸에 친다. origin은 그 칸이 든 frame의 것을 CDP로 재고(최상위 URL이 아니다), `valueFor`가 그 origin을 보고 값을 낸다
+  // (낼 수 없으면 던진다). 치는 동안 그 frame이 이동하면 멈춘다. 값은 이 함수 밖으로 나가지 않는다: 오류 글도 고정 문구다.
+  async function typeGuarded(
+    session: Session,
+    ref: string,
+    valueFor: (origin: string) => Promise<string>,
+  ): Promise<void> {
+    const frameId = await frameIdOf(session, ref);
     // 이동을 보기 시작한 뒤에 origin을 잰다.
     const typing = { frame: frameId, moved: false };
     session.typing = typing;
     try {
-      const { frameTree: now } = await send<{ frameTree: FrameNode }>(
-        session,
-        "Page.getFrameTree",
-      );
-      const stack = [now];
-      let origin: string | undefined;
-      for (let one = stack.pop(); one !== undefined; one = stack.pop()) {
-        if (one.frame.id === frameId) origin = one.frame.securityOrigin;
-        stack.push(...(one.childFrames ?? []));
-      }
-      if (origin === undefined || !URL.canParse(origin)) {
-        throw fail("forbidden", "this frame has no origin a login can match");
-      }
-      const released = await deps.releaseLogin({
-        id: act.login,
-        field: act.field,
-        origin: new URL(origin).origin,
-      });
-      if (!released.ok) {
-        throw fail(
-          (ERROR_CODES as readonly string[]).includes(released.error.code)
-            ? (released.error.code as ErrorCode)
-            : "internal",
-          released.error.message,
-        );
-      }
+      const value = await valueFor(await originOfFrame(session, frameId));
       const stop = () => {
         if (typing.moved) {
           throw fail(
@@ -543,18 +552,45 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
       };
       try {
         stop();
-        await clearValue(session, act.ref);
-        for (const char of released.value.value) {
+        await clearValue(session, ref);
+        for (const char of value) {
           stop();
           await Promise.all(charEvents(session, char));
         }
       } catch (error) {
         if (error instanceof CallError) throw error;
-        throw fail("unavailable", "typing the login value failed");
+        throw fail("unavailable", "typing the value failed");
       }
     } finally {
       session.typing = undefined;
     }
+  }
+
+  // login 값은 core가 저장된 origin과 글자 그대로 같을 때만 준다.
+  async function fillLogin(
+    session: Session,
+    act: Extract<BrowserAct, { type: "fill_login" }>,
+  ): Promise<void> {
+    if (act.field === "username") {
+      throw fail("invalid_input", "username is filled as text by core");
+    }
+    const { field } = act;
+    await typeGuarded(session, act.ref, async (origin) => {
+      const released = await deps.releaseLogin({
+        id: act.login,
+        field,
+        origin,
+      });
+      if (!released.ok) {
+        throw fail(
+          (ERROR_CODES as readonly string[]).includes(released.error.code)
+            ? (released.error.code as ErrorCode)
+            : "internal",
+          released.error.message,
+        );
+      }
+      return released.value.value;
+    });
   }
 
   async function act(
@@ -685,8 +721,12 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
     }
   }
 
-  async function call(payload: BrowserCallPayload): Promise<HostToolOutput> {
-    const { tab, view, action } = payload;
+  // 탭의 page에 붙은 session이다. 쓰는 일은 사람이 탭을 가져가 있으면 conflict다.
+  async function sessionFor(
+    tab: string,
+    view: BrowserCallPayload["view"],
+    write: boolean,
+  ): Promise<{ session: Session; page: Page }> {
     const viewSession = deps.viewSession(tab);
     const page =
       viewSession === undefined
@@ -702,12 +742,7 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
       );
     }
     deps.control.touch(tab);
-    if (
-      deps.control.held(tab) &&
-      (action.kind === "act" ||
-        action.kind === "navigate" ||
-        action.kind === "evaluate")
-    ) {
+    if (write && deps.control.held(tab)) {
       throw fail(
         "conflict",
         "The person took control of this tab, so act, navigate and evaluate are paused; retrying does not help. snapshot, screenshot, logs and wait still work. Tell the person you need the tab handed back.",
@@ -715,6 +750,28 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
     }
     const session = sessionOf(tab, page);
     await attach(session);
+    return { session, page };
+  }
+
+  async function call(payload: BrowserCallPayload): Promise<HostToolOutput> {
+    const { tab, view, action } = payload;
+    const { session, page } = await sessionFor(
+      tab,
+      view,
+      action.kind === "act" ||
+        action.kind === "navigate" ||
+        action.kind === "evaluate",
+    );
+
+    if (action.kind === "frame_origin") {
+      return reply({
+        origin: await originOfFrame(
+          session,
+          await frameIdOf(session, action.ref),
+        ),
+        title: page.title(),
+      });
+    }
 
     if (action.kind === "snapshot") {
       const { nodes } = await send<{ nodes: AxNode[] }>(
@@ -816,20 +873,40 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
     return reply(where(session));
   }
 
-  return {
-    async run(payload) {
-      try {
-        return await call(payload);
-      } catch (error) {
-        if (error instanceof CallError) {
-          return { error: { code: error.code, message: error.message } };
-        }
-        return {
+  const failed = (error: unknown): HostToolOutput =>
+    error instanceof CallError
+      ? { error: { code: error.code, message: error.message } }
+      : {
           error: {
             code: "internal",
             message: error instanceof Error ? error.message : String(error),
           },
         };
+
+  return {
+    async run(payload) {
+      try {
+        return await call(payload);
+      } catch (error) {
+        return failed(error);
+      }
+    },
+    async typeOnce({ tab, view, ref, origin, value }) {
+      try {
+        const { session, page } = await sessionFor(tab, view, true);
+        await typeGuarded(session, ref, (now) => {
+          if (now !== origin) {
+            throw fail(
+              "conflict",
+              "the page origin changed since the request; nothing was typed",
+            );
+          }
+          return Promise.resolve(value);
+        });
+        await settle(page, deps.nowMs() + LOAD_MS);
+        return reply({});
+      } catch (error) {
+        return failed(error);
       }
     },
   };

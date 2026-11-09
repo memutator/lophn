@@ -63,6 +63,7 @@ import type { createAppsControl } from "../../../apps/control.ts";
 import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
 import type { Queue } from "../../../lophn-agent/run-loop/queue.ts";
 import type { HarnessHold, HostQueue } from "../../../host-queue/mod.ts";
+import type { SecretStore } from "../../../secrets/mod.ts";
 import type { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import type { LiveTurns } from "../../../lophn-agent/run-loop/live-turns.ts";
@@ -230,7 +231,7 @@ type Late = {
   // config가 낸다. 사람의 결정이 Settings 값을 고칠 때만 쓴다.
   settingsUpdate: SettingsStore["update"];
   // secrets가 낸다.
-  secretStore: SecretStorePort;
+  secretStore: SecretStorePort & Pick<SecretStore, "hold" | "release">;
   secretAttach: SecretAttachPort;
   // events가 낸다.
   bus: Bus;

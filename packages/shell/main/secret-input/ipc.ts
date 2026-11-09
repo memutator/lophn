@@ -12,7 +12,14 @@ import {
   type SecretInputSubmitReply,
   secretInputSubmitSchema,
 } from "../../ipc/secret-input.ts";
-import { type SecretCore, submitSecret } from "./submit.ts";
+import {
+  type OnceTyper,
+  type OpenRequest,
+  readRequest,
+  type RequestCore,
+  submitRequest,
+} from "./request.ts";
+import { submitSecret } from "./submit.ts";
 import {
   type OpenedSecretInput,
   openSecretInputWindow,
@@ -38,7 +45,9 @@ interface SecretInputDeps {
   /** IPC를 보낸 webContents가 일반 shell 창 본문이면 그 창. 아니면 undefined다. */
   parentOf(event: SecretInputIpcEvent): ParentWindow | undefined;
   /** 준비된 core. 준비 전에는 null이다. */
-  core(): (SecretCore & StatusCore) | null;
+  core(): (RequestCore & StatusCore) | null;
+  /** agent의 한 번 넣기가 ref 칸에 치는 통로(browser driver). */
+  typeOnce?: OnceTyper;
   preload: string;
   packaged: boolean;
   headless?: HeadlessMode;
@@ -59,6 +68,8 @@ interface StatusCore {
 interface Active {
   readonly contentsId: number;
   readonly display: SecretInputDisplay;
+  /** agent의 login 요청이면 그 내용이다. 제출은 mode대로 끝난다. */
+  readonly request: OpenRequest | undefined;
   readonly opened: OpenedSecretInput;
   readonly done: (result: "stored" | "cancelled" | "unavailable") => void;
   submitting: boolean;
@@ -112,7 +123,31 @@ export function registerSecretInputIpc(
     }
     opening = true;
     try {
-      const configured = await isConfigured(core, parsed.data.name);
+      // 요청 card에서 온 열기는 origin·mode를 core의 열린 요청에서 읽는다(renderer가 보낸 글이 아니다).
+      let request: OpenRequest | undefined;
+      let display: SecretInputDisplay;
+      if ("request" in parsed.data) {
+        const read = await readRequest(core, parsed.data.request);
+        if (!read.ok) {
+          return {
+            ok: false,
+            code: "invalid_input",
+          } satisfies SecretInputOpenReply;
+        }
+        request = read.value;
+        display = {
+          name: "",
+          purpose: "login",
+          subject: request.origin,
+          configured: false,
+          request: { mode: request.mode, label: request.label },
+        };
+      } else {
+        display = {
+          ...parsed.data,
+          configured: await isConfigured(core, parsed.data.name),
+        };
+      }
       return await new Promise<SecretInputOpenReply>((resolve) => {
         let finished = false;
         const shown: { opened?: OpenedSecretInput } = {};
@@ -133,6 +168,8 @@ export function registerSecretInputIpc(
           parent,
           preload: deps.preload,
           packaged: deps.packaged,
+          // save 창은 칸이 넷이라 더 길다.
+          tall: request?.mode === "save",
           ...(deps.headless === undefined ? {} : { headless: deps.headless }),
           // 사람이 창을 닫으면 그만둔 것이다.
           onClosed: () => done("cancelled"),
@@ -141,7 +178,8 @@ export function registerSecretInputIpc(
         shown.opened = opened;
         active = {
           contentsId: opened.window.webContents.id,
-          display: { ...parsed.data, configured },
+          display,
+          request,
           opened,
           done,
           submitting: false,
@@ -180,10 +218,15 @@ export function registerSecretInputIpc(
       } satisfies SecretInputSubmitReply;
     }
     one.submitting = true;
-    const reply = await submitSecret(core, {
-      name: one.display.name,
-      value: parsed.data.value,
-    });
+    const reply =
+      one.request !== undefined
+        ? await submitRequest(core, deps.typeOnce, one.request, parsed.data)
+        : "value" in parsed.data
+          ? await submitSecret(core, {
+              name: one.display.name,
+              value: parsed.data.value,
+            })
+          : ({ ok: false, code: "invalid_input" } as const);
     one.submitting = false;
     if (reply.ok) one.done("stored");
     return reply;

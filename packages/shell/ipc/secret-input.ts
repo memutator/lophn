@@ -19,7 +19,7 @@ export const SECRET_INPUT_MAX_BYTES = 64 * 1024;
 const secretName = z.string().regex(/^[A-Za-z0-9_.:-]+$/);
 const purpose = z.enum(["app", "provider", "mcp", "login"]);
 
-export const secretInputOpenSchema = z
+const secretInputNameOpenSchema = z
   .object({
     /** 저장할 secret 이름. */
     name: secretName,
@@ -33,17 +33,55 @@ export const secretInputOpenSchema = z
   })
   .strict();
 
-export const secretInputSubmitSchema = z
+/**
+ * agent의 login 요청 card에서 연다. session과 tool call만 보내고 origin·mode·ref는 main이 core에서 읽는다
+ * (card가 보인 origin은 shell main이 잰 값이고 renderer가 적은 글이 아니다).
+ */
+const secretInputRequestOpenSchema = z
   .object({
-    value: z.string().refine((value) => {
-      const size = new TextEncoder().encode(value).byteLength;
-      return size >= 1 && size <= SECRET_INPUT_MAX_BYTES;
-    }),
+    request: z
+      .object({
+        session: z.string().min(1).max(64),
+        tool_call: z.string().min(1).max(64),
+      })
+      .strict(),
   })
   .strict();
 
-export type SecretInputOpen = z.infer<typeof secretInputOpenSchema>;
-type SecretInputSubmit = z.infer<typeof secretInputSubmitSchema>;
+export const secretInputOpenSchema = z.union([
+  secretInputNameOpenSchema,
+  secretInputRequestOpenSchema,
+]);
+/** 이름으로 연다(설정·앱·provider·MCP). preload의 `openSecretInput`이 받는 입력이다. */
+export type SecretInputNameOpen = z.infer<typeof secretInputNameOpenSchema>;
+export type SecretInputRequestOpen = z.infer<
+  typeof secretInputRequestOpenSchema
+>;
+
+const secretValue = z.string().refine((value) => {
+  const size = new TextEncoder().encode(value).byteLength;
+  return size >= 1 && size <= SECRET_INPUT_MAX_BYTES;
+});
+
+export const secretInputSubmitSchema = z.union([
+  z.object({ value: secretValue }).strict(),
+  // login 저장 요청 창의 여러 칸이다. totp는 비워 두면 보내지 않는다.
+  z
+    .object({
+      login: z
+        .object({
+          label: z.string().min(1).max(100),
+          username: z.string().max(200),
+          password: secretValue,
+          totp: secretValue.optional(),
+        })
+        .strict(),
+    })
+    .strict(),
+]);
+
+export type SecretInputOpen = SecretInputNameOpen;
+export type SecretInputSubmit = z.infer<typeof secretInputSubmitSchema>;
 export type SecretInputPurpose = z.infer<typeof purpose>;
 
 /** 값은 답에 없다. 호출한 화면은 `stored`를 받은 뒤에야 그 이름을 가리키는 command를 보낸다. */
@@ -60,6 +98,8 @@ export type SecretInputDisplay = {
   purpose: SecretInputPurpose;
   subject: string;
   configured: boolean;
+  /** agent의 login 요청이다. 있으면 `name`은 비고 `subject`가 shell main이 잰 origin이다. 창이 mode의 칸들을 그린다. */
+  request?: { mode: "save" | "once"; label: string };
 };
 
 /** core 오류와 OS 오류 원문은 싣지 않는다. */

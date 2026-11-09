@@ -126,7 +126,7 @@ const toolCallPayloadSchema = z.strictObject({
 });
 
 // browser 호출의 act 하나다. ref는 snapshot마다 새로 나고, 낡은 ref는 shell이 `conflict`로 답한다.
-const browserRefSchema = z.string().regex(/^e[1-9][0-9]{0,8}$/);
+export const browserRefSchema = z.string().regex(/^e[1-9][0-9]{0,8}$/);
 export const browserActSchema = z.discriminatedUnion("type", [
   z.strictObject({ type: z.literal("click"), ref: browserRefSchema }),
   // 지금 값 끝에 입력한다.
@@ -196,6 +196,8 @@ export const browserActionSchema = z.discriminatedUnion("kind", [
     expression: z.string().min(1).max(65_536),
   }),
   z.strictObject({ kind: z.literal("logs") }),
+  // ref 요소가 든 frame의 origin을 CDP로 잰다(최상위 URL이 아니다). 로그인 요청 card가 보이는 값이다.
+  z.strictObject({ kind: z.literal("frame_origin"), ref: browserRefSchema }),
   // text와 url 중 정확히 하나.
   z.strictObject({
     kind: z.literal("wait"),

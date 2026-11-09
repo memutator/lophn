@@ -92,6 +92,10 @@ import { FillShellProvider, RunCodeProvider } from "./message-list/run-code.ts";
 import type { ThreadScrollHandle } from "./message-list/thread-scroll.tsx";
 import type { ThreadPosition } from "./message-list/virtual-rows.ts";
 import { PermissionsView } from "./permissions-view/permissions-view.tsx";
+import {
+  LoginRequestCard,
+  openLoginRequestWindow,
+} from "./login-request-card/login-request-card.tsx";
 import { QuestionCard } from "./question-card/question-card.tsx";
 import { RewindPanel } from "./session-rewind/rewind-panel.tsx";
 import type { SlashEntryView } from "./slash-menu/types.ts";
@@ -1358,6 +1362,22 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             }
           />
         )}
+        {asked !== null &&
+        asked.questions === null &&
+        session !== null &&
+        source.readLoginRequest !== undefined ? (
+          // 질문 내용이 없는 대기 항목이다. agent의 login 요청이면 card가 읽어 보이고, 아니면 아무것도 그리지 않는다.
+          <LoginRequestCard
+            key={asked.group}
+            agent={agent.name}
+            session={session}
+            toolCall={asked.toolCall}
+            source={source}
+            onEnter={() =>
+              openLoginRequestWindow({ session, tool_call: asked.toolCall })
+            }
+          />
+        ) : null}
         {asked === null ||
         asked.questions === null ||
         session === null ? null : (

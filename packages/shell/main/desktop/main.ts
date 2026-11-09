@@ -96,7 +96,6 @@ function startDesktop(): void {
   const views = add(appViews.register(ctx, browserViews, artifacts));
   const calls = add(appCalls.register(ctx, views));
   add(annotate.register(ctx, views, artifacts));
-  add(secretInput.register(ctx));
   add(appearance.register(ctx));
   const terminals = add(coding.register(ctx, calls.appSessions));
   add(bookmarks.register(ctx));
@@ -113,7 +112,7 @@ function startDesktop(): void {
   add(editor.register(ctx));
   const detachedWindows = add(detached.register(ctx, views));
   add(layout.register(ctx, detachedWindows));
-  add(
+  const surfaceHost = add(
     surface.register(
       ctx,
       terminals.tui,
@@ -122,6 +121,8 @@ function startDesktop(): void {
       artifacts.views,
     ),
   );
+  // 보호 입력 창이 agent의 한 번 넣기를 browser driver로 친다. driver는 surface가 만든다.
+  add(secretInput.register(ctx, surfaceHost.typeOnce));
   add(desktop.register(ctx, views, terminals));
 
   // shell 자원과 core 연결을 정리하는 한 번의 순서. Quit·`--quit`·OS 종료가 같이 쓴다.

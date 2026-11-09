@@ -69,6 +69,13 @@ export type HostQueue = {
     result: Promise<CallResult>;
   };
   abandon(id: Id<"hrq">, message?: string): void;
+  // 기한이 지난 browser 호출을 거둔다. 부른 쪽이 주기로 부른다.
+  expire(): void;
+  // 자기가 연 browser·preview·artifact 탭의 종류. 없는 탭, 남의 탭, session·agent 탭은 `not_found`다.
+  browserTab(
+    tab: Id<"tab">,
+    caller: TabOwner,
+  ): Result<{ view: "browser" | "preview" | "artifact" }>;
 
   // 탭 표에 올리고 tab_open 요청을 넣는다. 그 앱의 preview 탭이나 그 artifact의 탭이 이미 있으면 새로 만들지 않고 그 탭의 주인만 바꿔
   // 돌려준다(preview에 기기가 있으면 같은 탭 id로 tab_open을 다시 넣는다).

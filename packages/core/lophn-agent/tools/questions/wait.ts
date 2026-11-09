@@ -6,6 +6,10 @@ import type {
   AskInput,
   AskResult,
 } from "../../../../protocol/lophn-agent/ask-tool.ts";
+import type {
+  LoginRequestResult,
+  LoginRequestView,
+} from "../../../../protocol/lophn-agent/login-request.ts";
 import type { Bus } from "../../../events/ports.ts";
 
 // `ask`가 올린 질문 묶음의 기다림이다. 메모리에만 두고 꺼졌다 켜지면 비어 있다(turn이 interrupted로 닫힌다).
@@ -13,6 +17,8 @@ import type { Bus } from "../../../events/ports.ts";
 // 사람에게 가는 질문은 session마다 하나만 열린다. 한 응답의 `ask` 호출 여럿은 병렬로 오는데 화면은 session당
 // 질문 하나(pending.question)만 쥐므로, 나머지는 줄을 서고 앞 질문이 풀리면 차례로 열린다. 열리지 않은 질문은
 // 사람이 읽거나 답할 수 없고 QuestionAsked도 나가지 않는다.
+// agent의 login 요청(`login`이 있는 항목)도 같은 줄에 선다: 질문 목록이 없는(snapshot의 questions가 null) 항목이고,
+// 사람이 card의 보호 입력 창에서 끝내거나(`finishLogin`) Cancel·turn 끝·메시지로 cancelled가 된다.
 
 type Entry = {
   group: Id<"qgr">;
@@ -24,6 +30,11 @@ type Entry = {
   toParent: boolean;
   // 팀 자식의 질문은 늘 열려 있다. 사람의 질문은 session의 앞 질문이 풀린 뒤에 열린다.
   open: boolean;
+  // login 요청이면 열린 내용과, 끝난 결과(없으면 cancelled)다.
+  login: {
+    view: Omit<LoginRequestView, "group">;
+    result: Result<LoginRequestResult> | null;
+  } | null;
   settle(result: AskResult): void;
 };
 
@@ -113,6 +124,7 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
           questions,
           toParent,
           open: false,
+          login: null,
           settle: resolve,
         });
       }).finally(() => promises.delete(key));
@@ -120,6 +132,54 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
       if (toParent) announce(entries.get(key)!);
       else openNext(call.session);
       return promise;
+    },
+
+    // agent의 login 요청을 줄에 세우고 끝날 때까지 기다린다. tool call이 없으니 id는 여기서 만든다.
+    askLogin(
+      call: { session: string; turn: string },
+      view: Omit<LoginRequestView, "group">,
+    ): Promise<Result<LoginRequestResult>> {
+      const toolCall = deps.ids.newId("tcl");
+      return new Promise((resolve) => {
+        const entry: Entry = {
+          group: deps.ids.newId("qgr") as Id<"qgr">,
+          session: call.session,
+          turn: call.turn,
+          toolCall,
+          questions: [],
+          toParent: false,
+          open: false,
+          login: { view, result: null },
+          settle: () => resolve(entry.login?.result ?? ok({ cancelled: true })),
+        };
+        entries.set(keyOf(call.session, toolCall), entry);
+        openNext(call.session);
+      });
+    },
+
+    readLogin(session: string, toolCall: string): Result<LoginRequestView> {
+      const entry = entries.get(keyOf(session, toolCall));
+      if (entry?.login == null || !entry.open) {
+        return err({ code: "not_found", message: "the request is not open" });
+      }
+      return ok({ group: entry.group, ...entry.login.view });
+    },
+
+    // 사람이 끝냈거나(login·filled·오류) Cancel했다. 열린 요청만 끝난다.
+    finishLogin(
+      session: string,
+      toolCall: string,
+      result: Result<LoginRequestResult>,
+    ): Result<void> {
+      const key = keyOf(session, toolCall);
+      const entry = entries.get(key);
+      if (entry?.login == null || !entry.open) {
+        return err({ code: "not_found", message: "the request is not open" });
+      }
+      entry.login.result = result;
+      close(key, entry, { outcome: "submitted", answers: [] });
+      openNext(session);
+      return ok(undefined);
     },
 
     read(
@@ -130,7 +190,7 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
       questions: AskInput["questions"];
     }> {
       const entry = entries.get(keyOf(session, toolCall));
-      if (entry === undefined || !entry.open) {
+      if (entry === undefined || !entry.open || entry.login !== null) {
         return err({ code: "not_found", message: "the question is not open" });
       }
       return ok({ group: entry.group, questions: entry.questions });
@@ -161,7 +221,7 @@ export function createQuestionWaits(deps: QuestionWaitsDeps) {
     ): Result<AskResult> {
       const key = keyOf(session, toolCall);
       const entry = entries.get(key);
-      if (entry === undefined || !entry.open) {
+      if (entry === undefined || !entry.open || entry.login !== null) {
         return err({ code: "not_found", message: "the question is not open" });
       }
       const fits =

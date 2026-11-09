@@ -26,6 +26,9 @@ export type SecretStore = SecretStorePort & {
   // 파일의 현재 값과 알려진 값을 맞춘다. 동시에 부르면 한 번 더 도는 것으로 합친다.
   sync(): Promise<Result<void>>;
   readonly known: KnownSecretMatch;
+  // 파일에 없는 값을 알려진 값으로 붙든다(agent에게 한 번 넣은 값). 파일에는 쓰지 않고, release할 때까지 sync가 회수하지 않는다.
+  hold(values: readonly string[]): Promise<Result<void>>;
+  release(values: readonly string[]): Promise<Result<void>>;
   // timer를 멈추고 core 쪽 값을 비운다(JS 메모리의 완전한 지움은 보장하지 않는다).
   stop(): void;
 };
@@ -42,6 +45,8 @@ export function openSecretStore(deps: {
   const coreKnown = createKnownSecretRegistry();
   // 통로에 올린 값. 파일의 현재 값과 비교해 올리고 회수한다.
   const registered = new Set<string>();
+  // 파일 밖에서 붙든 값. 파일의 값과 함께 알려진 값이다.
+  const held = new Set<string>();
   let ready = false;
   let running: Promise<Result<void>> | undefined;
   let again = false;
@@ -61,7 +66,7 @@ export function openSecretStore(deps: {
   async function once(): Promise<Result<void>> {
     const read = deps.file.values();
     if (!read.ok) return read;
-    const current = new Set(read.value);
+    const current = new Set([...read.value, ...held]);
     const add = [...current].filter((value) => !registered.has(value));
     const drop = [...registered].filter((value) => !current.has(value));
     // 등록을 먼저 한다. 회수가 실패해도 새 값은 이미 알려져 있다.
@@ -150,6 +155,14 @@ export function openSecretStore(deps: {
       await sync();
       return written;
     },
+    hold(values) {
+      for (const value of values) held.add(value);
+      return sync();
+    },
+    release(values) {
+      for (const value of values) held.delete(value);
+      return sync();
+    },
     async delete(name) {
       const deleted = await deps.file.delete(name);
       await sync();
@@ -160,6 +173,7 @@ export function openSecretStore(deps: {
       clearTimeout(timer);
       timer = undefined;
       registered.clear();
+      held.clear();
       coreKnown.clear();
       ready = false;
       deps.file.stop();

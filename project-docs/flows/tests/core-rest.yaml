@@ -405,6 +405,11 @@ files:
       - secret-status:ok
     note: 0600 고치기, 쓰기 실패 때 이전 값 유지, 값이 오류와 log와 status에 나가지 않음
 
+  - path: packages/core/secrets/secret-store-hold_test.ts
+    covers:
+      - login-request-finish:held
+    note: 붙든 값(한 번 넣은 값)은 파일에 없어도 sync가 회수하지 않고 release 뒤에야 알려진 값이 아니다
+
   - path: packages/core/server/control/handler_test.ts
     covers:
       - confirmation-handle-register:ok

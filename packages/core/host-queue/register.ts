@@ -2,9 +2,15 @@
 // extension tool의 route(목록 올리기·읽기·호출)도 같은 queue를 쓰므로 여기서 등록하고 handler는 wiring/extension-tools.ts가 붙인다.
 import { EXTENSION_TOOL_ROUTES } from "../../protocol/lophn-agent/extension-tools.ts";
 import { HOST_QUEUE_MEMORY_ROUTES } from "../../protocol/lophn-agent/host-queue.ts";
+import { LOGIN_REQUEST_ROUTES } from "../../protocol/lophn-agent/login-request.ts";
 
 export function createCoreRegistration() {
   return {
-    memoryRoutes: [...HOST_QUEUE_MEMORY_ROUTES, ...EXTENSION_TOOL_ROUTES],
+    // login 요청은 탭 표와 origin 재기를 host queue로 하므로 같이 등록하고 handler는 wiring/login-request.ts가 붙인다.
+    memoryRoutes: [
+      ...HOST_QUEUE_MEMORY_ROUTES,
+      ...EXTENSION_TOOL_ROUTES,
+      ...LOGIN_REQUEST_ROUTES,
+    ],
   };
 }

@@ -84,7 +84,7 @@ export function register(
   tools: ExtensionTools,
   appFrame: Pick<AppFrameService, "senderView">,
   artifacts: Pick<ArtifactViews, "guestId">,
-): Registered {
+): Registered & Pick<BrowserDriver, "typeOnce"> {
   const registry = ctx.overlays.overlayRegistry();
   // 창(webContents id)이 보이는 workspace.
   const shown = new Map<number, Workspace>();
@@ -447,6 +447,8 @@ export function register(
   void loop();
 
   return {
+    // 보호 입력 창의 한 번 넣기가 쓴다(secret-input wiring).
+    typeOnce: (input) => driver.typeOnce(input),
     stop() {
       stopped = true;
       clearTimeout(retry);

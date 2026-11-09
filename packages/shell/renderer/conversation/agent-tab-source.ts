@@ -16,6 +16,7 @@ import {
   type ContentBlock,
   IMAGE_NOTE,
 } from "../../../protocol/lophn-agent/content-block.ts";
+import type { LoginRequestView } from "../../../protocol/lophn-agent/login-request.ts";
 import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
 import type {
@@ -650,6 +651,18 @@ export interface AgentTabSource {
     session: string;
     toolCall: string;
     answers: readonly QuestionAnswer[];
+  }): Promise<SourceResult<void>>;
+  /**
+   * agent의 login 요청 card가 읽는 내용(shell main이 잰 origin 포함)과 Cancel. 질문 content 없는 대기 항목이 login 요청인지는
+   * 읽어 보아야 안다(아니면 not_found). core source만 갖는다: fake·GUI source는 card를 그리지 않는다.
+   */
+  readLoginRequest?(input: {
+    session: string;
+    toolCall: string;
+  }): Promise<SourceResult<LoginRequestView>>;
+  cancelLoginRequest?(input: {
+    session: string;
+    toolCall: string;
   }): Promise<SourceResult<void>>;
   /** 끝나지 않은 call을 취소한다. */
   cancelCall(call: string): Promise<SourceResult<void>>;

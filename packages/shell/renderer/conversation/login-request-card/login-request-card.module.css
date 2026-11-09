@@ -1,0 +1,64 @@
+/* composer 위 agent의 login 요청 card. 값이 갈 origin이 가장 눈에 띄는 줄이다. */
+.card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: var(--space-0);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.title {
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.site {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.caption {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.origin {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--type-title-small-size);
+  line-height: var(--type-title-small-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.tab {
+  overflow-wrap: anywhere;
+  color: var(--color-text-secondary);
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.note {
+  flex: 1;
+  min-width: var(--space-0);
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+}
+
+.error {
+  color: var(--status-critical-text);
+}

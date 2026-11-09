@@ -665,13 +665,15 @@ flows:
       - packages/shell/main/secret-input/ipc.ts
       - packages/shell/main/secret-input/window.ts
       - packages/shell/main/secret-input/submit.ts
+      - packages/shell/main/secret-input/request.ts
       - packages/shell/main/desktop/wiring/secret-input.ts
       - packages/shell/renderer/secret-input/secret-input.tsx
+      - packages/shell/renderer/secret-input/login-request-form.tsx
       - packages/shell/ipc/secret-input.ts
     steps:
       - "shell 창 본문(windows 집합에 든 창: 일반 desktop, detached 탭, 앱 전용 창)만 open(name, purpose, subject)을 보낼 수 있다. 그 밖의 sender는 forbidden이다. 부모 창은 보낸 창이고 renderer가 준 값은 쓰지 않는다. 꼴이 틀리면 invalid_input이다"
       - "보호 창이 이미 열려 있거나 여는 중이면 conflict다. core가 준비되지 않았으면 unavailable이다"
-      - "purpose는 app, provider, mcp, login이다. login은 subject에 값이 갈 site의 origin을 싣고 name은 `login.<id>.password|totp`다(Settings › Browser › Logins의 [Set password]·[Set TOTP]가 연다). 창은 제목을 name 끝으로 정하고(Enter site password, Enter TOTP key) origin을 제목 아래에 크게 보인다. 값 칸은 하나다"
+      - "purpose는 app, provider, mcp, login이다. login은 subject에 값이 갈 site의 origin을 싣고 name은 `login.<id>.password|totp`다(Settings › Browser › Logins의 [Set password]·[Set TOTP]가 연다). 창은 제목을 name 끝으로 정하고(Enter site password, Enter TOTP key) origin을 제목 아래에 크게 보인다. 값 칸은 하나다. agent의 login 요청 card가 여는 변형은 open({request: {session, tool_call}})이다. origin·mode·label·ref는 renderer가 준 글이 아니라 main이 core login_request/read에서 읽는다(origin은 요청 때 shell main이 ref의 frame에서 잰 값이다). 열린 요청이 없으면 invalid_input이다. 창은 origin을 크게 보이고 save는 label·username·password·선택 TOTP 칸, once는 값 한 칸을 둔다. 제출은 mode대로 끝난다(login-request-finish): save는 logins/save와 secrets/put, once는 알려진 값 등록 뒤 ref 칸에 치기이고 값은 저장하지 않는다. 사람이 창을 닫아도 card는 남아 다시 열 수 있다"
       - "core route secrets/status로 같은 이름이 이미 있는지만 읽는다(configured 표시용이고 값은 읽지 않는다). 읽지 못하면 configured를 false로 두고 연다"
       - "요청한 창의 child modal로 연다. 창마다 메모리 partition을 쓰고 설치된 secret-input 페이지만 연다. 권한 요청, download, network, 탐색, 새 창, webview를 막고 부모 창의 앱·문서 view 입력도 막는다"
       - "사람이 저장하면 칸을 먼저 비우고 main이 값을 UTF-8 1~64KiB로 secrets/put upload에 올린다. 성공이면 창을 닫고 stored를 돌려준다. 실패면 창이 남아 다시 할 수 있다"

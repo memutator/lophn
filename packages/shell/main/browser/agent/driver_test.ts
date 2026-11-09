@@ -122,7 +122,7 @@ function setup(mode: "live" | "preview" = "preview") {
     action: BrowserCallPayload["action"],
     view: "browser" | "preview" = "preview",
   ) => driver.run({ tab: TAB, view, action });
-  return { fake, control, run, released };
+  return { fake, control, run, released, driver };
 }
 
 const text = (output: Awaited<ReturnType<ReturnType<typeof setup>["run"]>>) =>
@@ -269,6 +269,31 @@ test("fill_login은 ref가 든 frame의 origin으로 값을 받아 치고 결과
   assert.ok("error" in moved && moved.error.code === "conflict");
   assert.equal(fake.state.typed.length, 3);
   assert.ok(!JSON.stringify(moved).includes(PASSWORD));
+});
+
+// card에 보인 origin(요청 때 잰 것)과 칠 때 origin이 다르면 한 번 넣는 값이 엉뚱한 site 칸에 쳐진다.
+test("typeOnce는 card의 origin과 칠 때 frame origin이 다르면 치지 않는다", async () => {
+  const { fake, run, driver } = setup();
+  framed(fake);
+  await run({ kind: "snapshot" });
+  const measured = await run({ kind: "frame_origin", ref: "e2" });
+  assert.equal(JSON.parse(text(measured)).origin, "https://evil.test");
+  const once = (origin: string) =>
+    driver.typeOnce({
+      tab: TAB,
+      view: "preview",
+      ref: "e2",
+      origin,
+      value: "123456",
+    });
+  const wrong = await once("https://app.test");
+  assert.ok("error" in wrong && wrong.error.code === "conflict");
+  assert.equal(fake.state.typed.length, 0);
+  assert.ok(!JSON.stringify(wrong).includes("123456"));
+  const right = await once("https://evil.test");
+  assert.ok("content" in right, JSON.stringify(right));
+  assert.equal(fake.state.typed.join(""), "123456");
+  assert.ok(!JSON.stringify(right).includes("123456"));
 });
 
 test("snapshot은 type=password 칸의 value를 찍지 않는다", async () => {

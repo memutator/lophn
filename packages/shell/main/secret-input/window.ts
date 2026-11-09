@@ -15,6 +15,8 @@ const SECRET_INPUT_URL = "lophn-shell://secret-input/index.html";
 /** 표시 최대폭. 좁은 부모는 창 안에 맞춘다. */
 const SECRET_INPUT_MAX_WIDTH = 480;
 const SECRET_INPUT_HEIGHT = 420;
+/** login 저장 요청 창은 칸이 넷이다. */
+const SECRET_INPUT_TALL_HEIGHT = 620;
 const CHROME = 48;
 
 interface SecretInputWindowConfig {
@@ -116,7 +118,10 @@ export interface OpenedSecretInput {
 let serial = 0;
 
 /** 부모보다 넓지 않게, 최대 480px. */
-function secretInputSize(parent: { width: number; height: number }): {
+function secretInputSize(
+  parent: { width: number; height: number },
+  tall: boolean,
+): {
   width: number;
   height: number;
 } {
@@ -126,7 +131,10 @@ function secretInputSize(parent: { width: number; height: number }): {
   );
   const height = Math.max(
     240,
-    Math.min(SECRET_INPUT_HEIGHT, parent.height - CHROME),
+    Math.min(
+      tall ? SECRET_INPUT_TALL_HEIGHT : SECRET_INPUT_HEIGHT,
+      parent.height - CHROME,
+    ),
   );
   return { width, height };
 }
@@ -136,9 +144,10 @@ function secretInputConfig(input: {
   preload: string;
   packaged: boolean;
   partition: string;
+  tall: boolean;
   headless?: HeadlessMode;
 }): SecretInputWindowConfig {
-  const size = secretInputSize(input.parent.getContentSize());
+  const size = secretInputSize(input.parent.getContentSize(), input.tall);
   return surfaceOptions(
     {
       parent: input.parent,
@@ -167,6 +176,7 @@ export function openSecretInputWindow(input: {
   parent: ParentWindow;
   preload: string;
   packaged: boolean;
+  tall?: boolean;
   /** 개발 확인 전용 headless. 켜지면 offscreen으로 만들고 앞에 띄우지 않는다. */
   headless?: HeadlessMode;
   onClosed: () => void;
@@ -183,6 +193,7 @@ export function openSecretInputWindow(input: {
       preload: input.preload,
       packaged: input.packaged,
       partition,
+      tall: input.tall ?? false,
       headless,
     }),
   );

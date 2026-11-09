@@ -15,6 +15,7 @@ import {
   registerDecisionHandle,
   removeDecisionHandle,
 } from "../../decision-handle/ipc.ts";
+import type { OnceTyper } from "../../secret-input/request.ts";
 import {
   registerSecretInputIpc,
   removeSecretInputIpc,
@@ -30,7 +31,7 @@ import { capturePaints } from "../headless.ts";
 import { createShellHandler } from "../shell-protocol.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
-export function register(ctx: ShellContext): Registered {
+export function register(ctx: ShellContext, typeOnce: OnceTyper): Registered {
   const { here, headless, windows, core, ipc, windowRef } = ctx;
   let shots = 0;
   const host: SecretInputHost = {
@@ -127,6 +128,7 @@ export function register(ctx: ShellContext): Registered {
       };
     },
     core: () => core.session(),
+    typeOnce,
     // build가 보호 preload를 같은 dist에 .cjs로 낸다.
     preload: join(here, "preload-secret-input.cjs"),
     packaged: app.isPackaged,

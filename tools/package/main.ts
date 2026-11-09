@@ -13,6 +13,7 @@
 //   desktop/     빌드된 desktop 화면
 //   skills/      coding agent skill 배포 원본
 import { type SpawnOptions, spawn } from "node:child_process";
+import { writeFileSync } from "node:fs";
 import {
   chmod,
   copyFile,
@@ -29,6 +30,7 @@ import { join, relative, sep } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import { checklistFor, installedVersion } from "../install-checklist.ts";
 import * as linux from "./linux.ts";
 import * as mac from "./mac.ts";
 import * as win from "./win.ts";
@@ -291,9 +293,21 @@ async function main(): Promise<void> {
   await target.stage(ctx, bundle);
   if (dirOnly) {
     console.log(`built ${unpacked}`);
-    return;
+  } else {
+    await target.pack(ctx, unpacked);
   }
-  await target.pack(ctx, unpacked);
+  writeInstallChecklist(out, version);
+}
+
+// build가 끝난 뒤의 덤이라 실패해도 build를 실패시키지 않는다. 깔린 판은 지금 OS 기준이다.
+function writeInstallChecklist(out: string, version: string) {
+  try {
+    const file = join(out, "install-checklist.md");
+    writeFileSync(file, checklistFor(installedVersion(), version));
+    console.log(`install checklist ${file}`);
+  } catch (error) {
+    console.warn(`install checklist skipped: ${error}`);
+  }
 }
 
 await main();

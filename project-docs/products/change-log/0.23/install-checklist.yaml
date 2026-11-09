@@ -1,0 +1,19 @@
+id: install-checklist
+version: 0.23.8
+title: 깔린 판과 설치할 판의 차이로 설치 체크리스트를 만든다
+modules: [tools]
+change: |
+  전: 다시 package해 설치할 때 무엇을 해야 하고 무엇을 확인할지 사람이 change-log와 release notes를 직접 훑었다.
+  후: `node tools/install-checklist.ts [--from <x.y.z>] [--to <x.y.z>] [--out <file>]`(`npm run install-checklist`)가 깔린 판(Linux dpkg, macOS Info.plist, Windows exe 판 정보)과 설치할 판 사이 change-log 항목과 release notes의 "Action needed"로 markdown checklist를 낸다. 해야 할 것, 저장 data가 바뀐 것(키워드로 가림), 판별 확인할 것이 있고, downgrade면 경고만, 같은 판이면 한 줄, 깔린 것이 없으면 첫 설치 checklist다. change-log 항목에 선택 칸 `checklist`(비지 않은 글의 목록, `해야: `로 시작하면 해야 할 것)를 더했고 `tools/records.ts`가 검사한다. `npm run package`는 build가 끝나면 지금 OS의 깔린 판 기준으로 `<out>/install-checklist.md`를 쓰되 실패해도 build를 실패시키지 않는다. `tools/records.ts`는 import해도 CLI가 돌지 않는다.
+why: 설치할 때마다 사람이 지난 항목을 다시 읽지 않고 할 일과 볼 것을 한 장으로 받으려고.
+decisions:
+  - text: checklist는 change-log 항목과 release notes를 판 범위(깔린 판 초과, 설치할 판 이하)로 모아 만든다. 사람이 요청했다.
+    by: person
+  - text: "별도 file을 두지 않고 change-log 항목에 선택 칸 checklist를 더한다. 버린 길: 판마다 checklist file(항목과 어긋난다). 옛 항목은 채우지 않는다."
+    by: agent
+  - text: "package 도구 끝에 건다(`<out>/install-checklist.md`). 실패는 경고만 한다. 버린 길: 별도 명령만 두기(package 때마다 잊는다)."
+    by: agent
+  - text: 영향 받은 journey 목록은 넣지 않는다. module-catalog의 module이 넓어(packages/core/main 하나가 대부분의 flow를 덮는다) journey로 좁혀지지 않는다.
+    by: agent
+checklist:
+  - Linux에서 `npm run package` 뒤 `build/linux/install-checklist.md`가 생기고 깔린 판 기준 목록이 맞는지 본다

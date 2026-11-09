@@ -14,6 +14,7 @@
   "scripts": {
     "check": "node tools/check.ts",
     "check:full": "node tools/check.ts --full",
+    "install-checklist": "node tools/install-checklist.ts",
     "eval": "node --env-file=.env tests/eval/run.ts",
     "eval:experiment": "node --env-file=.env tests/eval/run.ts experiment",
     "eval:gate": "node tests/eval/run.ts gate",

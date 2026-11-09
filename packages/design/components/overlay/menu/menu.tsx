@@ -27,6 +27,8 @@ export interface MenuItem {
   separatorBefore?: boolean;
   // 이 항목 위에 다는 묶음 이름. 항목이 아닌 글이라 키보드 이동과 typeahead가 지나친다.
   heading?: ReactNode;
+  // 하위 항목은 hover 또는 키보드로 옆에 열린다.
+  items?: readonly MenuItem[];
 }
 
 export interface MenuProps {
@@ -96,36 +98,80 @@ export function Menu({
           }}
           {...componentMark("Menu")}
         >
-          {items.map((item) => (
-            <Fragment key={item.id}>
-              {item.separatorBefore === true ? (
-                <Radix.Separator className={styles.separator} />
-              ) : null}
-              {item.heading === undefined ? null : (
-                <Radix.Label className={styles.heading}>
-                  {item.heading}
-                </Radix.Label>
-              )}
-              <Radix.Item
-                className={styles.item}
-                disabled={item.disabled}
-                textValue={
-                  item.textValue ??
-                  (typeof item.label === "string" ? item.label : undefined)
-                }
-                onSelect={() => onSelect(item.id)}
-                {...item.data}
-              >
-                {item.leading}
-                {item.label}
-                {item.shortcut === undefined ? null : (
-                  <span className={styles.shortcut}>{item.shortcut}</span>
-                )}
-              </Radix.Item>
-            </Fragment>
-          ))}
+          <MenuItems items={items} onSelect={onSelect} container={container} />
         </Radix.Content>
       </Radix.Portal>
     </Radix.Root>
   );
+}
+
+function MenuItems({
+  items,
+  onSelect,
+  container,
+}: {
+  items: readonly MenuItem[];
+  onSelect: (id: string) => void;
+  container?: HTMLElement | null;
+}) {
+  return items.map((item) => {
+    const content = (
+      <>
+        {item.leading}
+        {item.label}
+        {item.shortcut === undefined ? null : (
+          <span className={styles.shortcut}>{item.shortcut}</span>
+        )}
+        {item.items === undefined ? null : (
+          <span className={styles.arrow} aria-hidden="true">
+            ›
+          </span>
+        )}
+      </>
+    );
+    const textValue =
+      item.textValue ??
+      (typeof item.label === "string" ? item.label : undefined);
+    return (
+      <Fragment key={item.id}>
+        {item.separatorBefore === true ? (
+          <Radix.Separator className={styles.separator} />
+        ) : null}
+        {item.heading === undefined ? null : (
+          <Radix.Label className={styles.heading}>{item.heading}</Radix.Label>
+        )}
+        {item.items === undefined ? (
+          <Radix.Item
+            className={styles.item}
+            disabled={item.disabled}
+            textValue={textValue}
+            onSelect={() => onSelect(item.id)}
+            {...item.data}
+          >
+            {content}
+          </Radix.Item>
+        ) : (
+          <Radix.Sub>
+            <Radix.SubTrigger
+              className={styles.item}
+              disabled={item.disabled}
+              textValue={textValue}
+              {...item.data}
+            >
+              {content}
+            </Radix.SubTrigger>
+            <Radix.Portal container={container}>
+              <Radix.SubContent className={styles.menu} sideOffset={4}>
+                <MenuItems
+                  items={item.items}
+                  onSelect={onSelect}
+                  container={container}
+                />
+              </Radix.SubContent>
+            </Radix.Portal>
+          </Radix.Sub>
+        )}
+      </Fragment>
+    );
+  });
 }

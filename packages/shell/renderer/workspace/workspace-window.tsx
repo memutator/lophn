@@ -2856,7 +2856,10 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                         : { onTerminal: () => openTerminalTab(host) })}
                       {...(browserApi === null
                         ? {}
-                        : { onBrowser: () => openBrowserTab(host) })}
+                        : {
+                            onBrowser: () => openBrowserTab(host),
+                            browserItems: quickBrowserItems,
+                          })}
                       {...(agentView === null
                         ? {}
                         : {
@@ -2871,7 +2874,12 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                         ? { onAppScreen: () => openAppScreen(host) }
                         : {})}
                       {...(host.appScreens
-                        ? { onAppPanel: () => openAppPanel(host) }
+                        ? {
+                            onAppPanel: () => openAppPanel(host),
+                            appItems: quickAppItems.filter(
+                              (item) => item.id !== "app-screen",
+                            ),
+                          }
                         : {})}
                     />
                   }

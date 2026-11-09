@@ -101,16 +101,22 @@ export function useKnownSessions(
       }),
     ).then((lists) => {
       if (!live) return;
+      // 못 읽은 쌍(실패는 빈 목록으로 온다)이 그 session들의 제목을 지우지 않게 이어 쓴다. 지운 session은 entries에 없어 줄이 되지 않는다.
       setKnown(
-        () =>
-          new Map(
-            lists
-              .flat()
-              .map((entry) => [
-                entry.id,
-                { title: entry.title, at: Date.parse(entry.activeAt) || 0 },
-              ]),
-          ),
+        (now) =>
+          new Map([
+            ...now,
+            ...lists.flat().map(
+              (entry) =>
+                [
+                  entry.id,
+                  {
+                    title: entry.title,
+                    at: Date.parse(entry.activeAt) || 0,
+                  },
+                ] as const,
+            ),
+          ]),
       );
     });
     return () => {
@@ -120,7 +126,7 @@ export function useKnownSessions(
   return { known, reload: () => setReads((count) => count + 1) };
 }
 
-/** 이 창이 보이지 않는 workspace들의 저장된 layout에서 읽은 열린 탭. 창의 마지막 값에서 시작해 지금 workspace도 들 수 있어 부르는 쪽이 지금 workspace를 거른다. */
+/** workspace들의 저장된 layout에서 읽은 열린 탭. 창의 마지막 값에서 시작한다. 지금 workspace도 들어 있어(떠난 뒤 첫 그림이 쓴다) 부르는 쪽이 layout을 읽은 지금 workspace는 자기 값으로 덮는다. */
 export interface TabsElsewhere {
   /** workspace key → session id → Agent 탭 제목. 저장된 Agent 탭은 제목을 남기지 않아 빈 글이다. */
   readonly titles: ReadonlyMap<string, ReadonlyMap<string, string>>;
@@ -133,7 +139,8 @@ export interface TabsElsewhere {
 }
 
 /**
- * 이 창이 보이지 않는 workspace들의 layout에서 열린 Agent 탭과 coding agent 터미널 탭을 읽는다.
+ * workspace들의 layout에서 열린 Agent 탭과 coding agent 터미널 탭을 읽는다. 지금 workspace도 읽는다: 빼면 workspace를 옮긴 첫 그림에
+ * 방금 떠난 workspace의 값이 없어 그 줄이 모두 사라졌다 돌아온다.
  * 저장된 layout이라 창이 다시 포커스를 받거나 session 목록·workspace 목록이 바뀔 때 다시 읽는다.
  */
 export function useTabsElsewhere(
@@ -156,25 +163,23 @@ export function useTabsElsewhere(
   useEffect(() => {
     let live = true;
     void Promise.all(
-      workspaces
-        .filter((ref) => workspaceKey(ref) !== hereKey)
-        .map(async (ref) => {
-          const read = await layout.readWorkspaceLayout(ref);
-          const titles = new Map<string, string>();
-          const terminals: TabItem[] = [];
-          const desks =
-            read.ok && read.layout !== null ? layoutDesks(read.layout) : null;
-          if (read.ok && read.layout !== null) {
-            for (const tab of allTabs(read.layout)) {
-              const session = tab.kind === "agent" ? sessionOf(tab) : null;
-              if (session !== null) titles.set(session, tab.title);
-              if (tab.kind === "terminal" && harnessOf(tab) !== null) {
-                terminals.push(tab);
-              }
+      workspaces.map(async (ref) => {
+        const read = await layout.readWorkspaceLayout(ref);
+        const titles = new Map<string, string>();
+        const terminals: TabItem[] = [];
+        const desks =
+          read.ok && read.layout !== null ? layoutDesks(read.layout) : null;
+        if (read.ok && read.layout !== null) {
+          for (const tab of allTabs(read.layout)) {
+            const session = tab.kind === "agent" ? sessionOf(tab) : null;
+            if (session !== null) titles.set(session, tab.title);
+            if (tab.kind === "terminal" && harnessOf(tab) !== null) {
+              terminals.push(tab);
             }
           }
-          return { key: workspaceKey(ref), titles, terminals, desks };
-        }),
+        }
+        return { key: workspaceKey(ref), titles, terminals, desks };
+      }),
     ).then((rows) => {
       if (!live) return;
       setTitles(() => new Map(rows.map((row) => [row.key, row.titles])));

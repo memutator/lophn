@@ -33,17 +33,17 @@ export function useSidebarAgents(
     [remembered, mine],
   );
   const [reloads, setReloads] = useState(0);
-  const [lophnNames, setLophnNames] = useState<Record<string, string>>({});
+  const [lophnNames, setLophnNames] = useRemembered("lophnNames");
   useEffect(() => {
     if (source === undefined) return;
     let live = true;
     void source.lophnNames().then((result) => {
-      if (live && result.ok) setLophnNames({ ...result.value });
+      if (live && result.ok) setLophnNames(() => ({ ...result.value }));
     });
     return () => {
       live = false;
     };
-  }, [source, reloads]);
+  }, [source, reloads, setLophnNames]);
   useEffect(() => {
     if (source === undefined) return;
     let live = true;

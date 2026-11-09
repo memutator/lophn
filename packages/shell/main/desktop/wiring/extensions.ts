@@ -379,9 +379,11 @@ export function register(
       .sync()
       .catch((cause) => ctx.log(`extensions: ${String(cause)}`));
 
-  // 켜졌는지는 sync가 정한다. 탭의 `<harness> gui`와 toggle이 부른다.
+  // 켜졌는지는 sync가 정한다. 탭의 `<harness> gui`와 toggle이 부른다. 이미 켜져 있으면 sync를 건너뛴다: 설정을 바꾸면
+  // SettingsChanged가 sync를 돌려 끄고, toggle마다 manifest와 설정과 tool 목록을 다시 읽는 것은 시간만 쓴다.
   coding.bindTabGui({
     async handlers() {
+      if (tab() !== undefined) return tab();
       await registry
         .sync()
         .catch((cause) => ctx.log(`extensions: ${String(cause)}`));

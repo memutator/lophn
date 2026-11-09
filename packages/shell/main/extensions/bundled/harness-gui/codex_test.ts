@@ -388,6 +388,56 @@ test("TUI 같은 다른 client가 보낸 메시지는 사람 메시지로 보이
   assert.deepEqual(ends(t.state), ["completed"]);
 });
 
+// 손으로 만든 줄: request_user_input_async는 server 요청 없이 `questions`를 단 agentMessage 하나로 온다(녹화가 없다).
+test("async 질문은 turn이 끝나도 카드로 남고 답은 새 사람 메시지로 나간다", async () => {
+  const { t } = await boot();
+  const thread = "01a1aa8e-4ef3-7541-8699-96c63c40a8bb";
+  const turn = "01a1aa8f-0000-7000-8000-000000000001";
+  const item = {
+    type: "agentMessage",
+    id: "call_async",
+    text: "Which color?\n- Red\n- Blue",
+    phase: "final_answer",
+    memoryCitation: null,
+    delivery: "async",
+    questions: [{ title: "Which color?", options: ["Red", "Blue"] }],
+  };
+  await t.push({
+    method: "turn/started",
+    params: { threadId: thread, turn: { id: turn, status: "inProgress" } },
+  });
+  await t.push({
+    method: "item/completed",
+    params: { threadId: thread, turnId: turn, item },
+  });
+  assert.equal(
+    t.state.pending.question?.questions?.[0]?.header,
+    "Which color?",
+  );
+  await t.push({
+    method: "turn/completed",
+    params: { threadId: thread, turn: { id: turn, status: "completed" } },
+  });
+  const question = t.state.pending.question;
+  assert.ok(question);
+  assert.equal(question.questions?.[0]?.options.length, 2);
+
+  await t.input({
+    type: "answer",
+    tool_call: question.tool_call,
+    answers: [
+      { question: "Which color?", status: "answered", answer: ["Blue"] },
+    ],
+  });
+  assert.equal(t.state.pending.question, null);
+  const sent = t.written.findLast((one) => one.method === "turn/start");
+  assert.deepEqual(
+    (sent?.params?.input as { text: string }[])[0]?.text,
+    "> Which color?\n\nBlue",
+  );
+  assert.equal(results(t.written).length, 0);
+});
+
 const permissionRows = [
   { name: "거절", choice: { kind: "reject" }, granted: false },
   { name: "한 번", choice: { kind: "once" }, granted: true },

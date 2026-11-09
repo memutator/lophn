@@ -6,6 +6,6 @@ lead만 고친다. `tools/status.py browser-vault build`가 `tasks/*.md`에서 i
 |---|---|---|---|---|---|---|---|
 | `gmem` | gmem | 1 | 없음 | merged | gmem/gmem | c36207059 |  |
 | `vault-core` | vault | 1 | 없음 | merged | vault/vault-core | ef13bf4be |  |
-| `vault-fill` | vault | 2 | vault-core | todo |  |  |  |
-| `vault-ui` | vault | 2 | vault-core | todo |  |  |  |
+| `vault-fill` | vault | 2 | vault-core | running | vault/vault-fill |  |  |
+| `vault-ui` | vault | 2 | vault-core | running | vault/vault-ui |  |  |
 | `vault-request` | vault | 3 | vault-fill, vault-ui | todo |  |  |  |

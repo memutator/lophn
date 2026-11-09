@@ -20,7 +20,13 @@ type SocketDirectoryDeps = {
 export function socketDirectoryPath(
   deps: SocketDirectoryDeps,
 ): Result<string, SocketDirectoryError> {
-  if (deps.platform === "win32") return ok(deps.dataRoot);
+  // 이 값은 pipe 이름 hash에만 쓰인다. 같은 폴더를 core는 `C:\a\b`로, dev 도구는 `C:\a/b`로 받아 서로 다른 pipe를
+  // 찾았다. Windows path는 구분자와 대소문자를 가리지 않으므로 그 차이를 지운다.
+  if (deps.platform === "win32") {
+    return ok(
+      deps.dataRoot.replaceAll("/", "\\").replace(/\\+$/, "").toLowerCase(),
+    );
+  }
   if (!Number.isSafeInteger(deps.uid) || deps.uid < 0) {
     return err({ code: "invalid_input", message: "uid is not valid" });
   }

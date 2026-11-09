@@ -1,6 +1,6 @@
 // 묶인 host의 시작점. 테스트가 main.ts를 import해도 stdin을 잡지 않는다.
 // 줄마다 JSON 요청을 읽고 같은 줄로 답한다.
-import { existsSync, statSync } from "node:fs";
+import { lstatSync, statSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { createIdSource } from "../../base/id.ts";
 import { systemClock } from "../../base/clock.ts";
@@ -41,7 +41,15 @@ const host = hostFromNodePty({
   ids: createIdSource({ clock: systemClock, random: cryptoRandom }),
   env: process.env,
   platform: process.platform,
-  exists: (file) => existsSync(file),
+  // 앱 실행 alias(WindowsApps\pwsh.exe)는 stat이 EACCES라 existsSync가 false다. 자리만 본다.
+  exists: (file) => {
+    try {
+      lstatSync(file);
+      return true;
+    } catch {
+      return false;
+    }
+  },
   checkFolder: (path) => {
     try {
       const stat = statSync(path);

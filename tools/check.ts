@@ -167,6 +167,24 @@ async function packageFiles(
   return found.sort();
 }
 
+// 몇 package만 돌아도 file 이름이 Windows 명령줄 한도(32K)를 넘을 수 있어 여러 명령으로 나눈다.
+function batches(files: string[], maxChars = 24_000): string[][] {
+  const out: string[][] = [];
+  let current: string[] = [];
+  let size = 0;
+  for (const file of files) {
+    if (current.length > 0 && size + file.length + 1 > maxChars) {
+      out.push(current);
+      current = [];
+      size = 0;
+    }
+    current.push(file);
+    size += file.length + 1;
+  }
+  if (current.length > 0) out.push(current);
+  return out;
+}
+
 async function exists(path: string): Promise<boolean> {
   try {
     await stat(path);
@@ -223,15 +241,21 @@ async function buildSteps(
   } else if (pkgFolders.length > 0) {
     checks.push({
       name: "fmt",
-      commands: [
-        [...BIOME_CMD, "format", "--no-errors-on-unmatched", ...fmtFiles],
-      ],
+      commands: batches(fmtFiles).map((files) => [
+        ...BIOME_CMD,
+        "format",
+        "--no-errors-on-unmatched",
+        ...files,
+      ]),
     });
     checks.push({
       name: "lint",
-      commands: [
-        [...BIOME_CMD, "lint", "--no-errors-on-unmatched", ...lintFiles],
-      ],
+      commands: batches(lintFiles).map((files) => [
+        ...BIOME_CMD,
+        "lint",
+        "--no-errors-on-unmatched",
+        ...files,
+      ]),
     });
   } else {
     skip("fmt", "돌 package 없음");

@@ -377,6 +377,7 @@ set -e __lophn_kind
 
 // PowerShell 7·5.1 시작 층. 사용자의 profile을 모두 읽은 뒤 dot-source되므로 profile·alias·function은 고치지 않고
 // 지금 실제 외부 명령으로 잡히는 것만 감싼다. 감싼 경로를 call operator로 불러 자기 함수를 다시 부르지 않는다.
+// 경로는 `$global:`에 둔다. `$script:`는 함수를 부른 script의 scope로 풀려서 사용자 .ps1 안에서 부르면 비어 있었다.
 // GUI 넷은 첫 인자가 `gui`일 때만 분기하고, private server wrapper 넷은 bash·zsh·fish의 `FUNCTIONS`와 같은 규칙을 쓴다.
 const POWERSHELL = `# lophn shell integration (PowerShell 7·5.1)
 function __lophn_native {
@@ -433,34 +434,34 @@ function __lophn_gui {
 
 $__lophn_path = __lophn_native 'claude'
 if ($null -ne $__lophn_path) {
-  $script:__lophn_native_claude = $__lophn_path
+  $global:__lophn_native_claude = $__lophn_path
   function claude {
     if ($args.Count -gt 0 -and ([string] $args[0]) -ceq 'gui') {
       $rest = @($args | Select-Object -Skip 1)
       __lophn_gui 'claude' $rest
       return
     }
-    & $script:__lophn_native_claude @args
+    & $global:__lophn_native_claude @args
   }
 }
 
 $__lophn_path = __lophn_native 'omp'
 if ($null -ne $__lophn_path) {
-  $script:__lophn_native_omp = $__lophn_path
+  $global:__lophn_native_omp = $__lophn_path
   function omp {
     if ($args.Count -gt 0 -and ([string] $args[0]) -ceq 'gui') {
       $rest = @($args | Select-Object -Skip 1)
       __lophn_gui 'omp' $rest
       return
     }
-    & $script:__lophn_native_omp @args
+    & $global:__lophn_native_omp @args
   }
 }
 
 # Codex는 --help가 --no-daemon을 알릴 때만 붙인다. shared server가 목적인 명령에는 붙이지 않는다.
 $__lophn_path = __lophn_native 'codex'
 if ($null -ne $__lophn_path) {
-  $script:__lophn_native_codex = $__lophn_path
+  $global:__lophn_native_codex = $__lophn_path
   function codex {
     if ($args.Count -gt 0 -and ([string] $args[0]) -ceq 'gui') {
       $rest = @($args | Select-Object -Skip 1)
@@ -476,19 +477,19 @@ if ($null -ne $__lophn_path) {
     }
     $nativeArgs = @($args)
     if (-not $guarded) {
-      $help = & $script:__lophn_native_codex --help 2>$null
+      $help = & $global:__lophn_native_codex --help 2>$null
       if ($help -cmatch '--no-daemon') {
         $nativeArgs = @('--no-daemon') + $nativeArgs
       }
     }
-    & $script:__lophn_native_codex @nativeArgs
+    & $global:__lophn_native_codex @nativeArgs
   }
 }
 
 # OpenCode는 자기 server·flag·subcommand 예외에서 그대로 부르고, 아니면 run·mini 뒤 또는 TUI 앞에 --standalone을 넣는다.
 $__lophn_path = __lophn_native 'opencode'
 if ($null -ne $__lophn_path) {
-  $script:__lophn_native_opencode = $__lophn_path
+  $global:__lophn_native_opencode = $__lophn_path
   function opencode {
     if ($args.Count -gt 0 -and ([string] $args[0]) -ceq 'gui') {
       $rest = @($args | Select-Object -Skip 1)
@@ -503,7 +504,7 @@ if ($null -ne $__lophn_path) {
       }
     }
     if ($passthrough) {
-      & $script:__lophn_native_opencode @args
+      & $global:__lophn_native_opencode @args
       return
     }
     $first = ''
@@ -511,11 +512,11 @@ if ($null -ne $__lophn_path) {
       $first = [string] $args[0]
     }
     if (@('acp', 'api', 'auth', 'debug', 'mcp', 'models', 'pair', 'plugin', 'reload', 'serve', 'service', 'session', 'stats', 'uninstall', 'update', 'upgrade') -ccontains $first) {
-      & $script:__lophn_native_opencode @args
+      & $global:__lophn_native_opencode @args
       return
     }
     $nativeArgs = @($args)
-    $help = & $script:__lophn_native_opencode --help 2>$null
+    $help = & $global:__lophn_native_opencode --help 2>$null
     if ($help -cmatch '--standalone') {
       if ($first -ceq 'run' -or $first -ceq 'mini') {
         $rest = @($args | Select-Object -Skip 1)
@@ -524,52 +525,60 @@ if ($null -ne $__lophn_path) {
         $nativeArgs = @('--standalone') + $nativeArgs
       }
     }
-    & $script:__lophn_native_opencode @nativeArgs
+    & $global:__lophn_native_opencode @nativeArgs
   }
 }
 
 # Kilo와 Cline은 flag가 아니라 env다. 공유 daemon을 다루는 명령에는 env를 두지 않고, 그 밖의 호출 동안만 두었다가
-# 원래 값(없으면 없음)으로 돌린다.
+# 원래 값(없으면 없음)으로 돌린다. PowerShell 7은 $null을 ""로 넘겨 SetEnvironmentVariable이 빈 값을 남기므로 없던 값은 지운다.
 $__lophn_path = __lophn_native 'kilo'
 if ($null -ne $__lophn_path) {
-  $script:__lophn_native_kilo = $__lophn_path
+  $global:__lophn_native_kilo = $__lophn_path
   function kilo {
     $first = ''
     if ($args.Count -gt 0) {
       $first = [string] $args[0]
     }
     if ($first -ceq 'daemon' -or $first -ceq 'console') {
-      & $script:__lophn_native_kilo @args
+      & $global:__lophn_native_kilo @args
       return
     }
     $previous = [Environment]::GetEnvironmentVariable('KILO_NO_DAEMON', 'Process')
     try {
       [Environment]::SetEnvironmentVariable('KILO_NO_DAEMON', '1', 'Process')
-      & $script:__lophn_native_kilo @args
+      & $global:__lophn_native_kilo @args
     } finally {
-      [Environment]::SetEnvironmentVariable('KILO_NO_DAEMON', $previous, 'Process')
+      if ($null -eq $previous) {
+        Remove-Item -Path Env:KILO_NO_DAEMON -ErrorAction SilentlyContinue
+      } else {
+        [Environment]::SetEnvironmentVariable('KILO_NO_DAEMON', $previous, 'Process')
+      }
     }
   }
 }
 
 $__lophn_path = __lophn_native 'cline'
 if ($null -ne $__lophn_path) {
-  $script:__lophn_native_cline = $__lophn_path
+  $global:__lophn_native_cline = $__lophn_path
   function cline {
     $first = ''
     if ($args.Count -gt 0) {
       $first = [string] $args[0]
     }
     if ($first -ceq 'hub') {
-      & $script:__lophn_native_cline @args
+      & $global:__lophn_native_cline @args
       return
     }
     $previous = [Environment]::GetEnvironmentVariable('CLINE_SESSION_BACKEND_MODE', 'Process')
     try {
       [Environment]::SetEnvironmentVariable('CLINE_SESSION_BACKEND_MODE', 'local', 'Process')
-      & $script:__lophn_native_cline @args
+      & $global:__lophn_native_cline @args
     } finally {
-      [Environment]::SetEnvironmentVariable('CLINE_SESSION_BACKEND_MODE', $previous, 'Process')
+      if ($null -eq $previous) {
+        Remove-Item -Path Env:CLINE_SESSION_BACKEND_MODE -ErrorAction SilentlyContinue
+      } else {
+        [Environment]::SetEnvironmentVariable('CLINE_SESSION_BACKEND_MODE', $previous, 'Process')
+      }
     }
   }
 }

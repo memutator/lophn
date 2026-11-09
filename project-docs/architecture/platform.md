@@ -20,7 +20,7 @@ lophn이 Linux x64, macOS arm64, Windows x64에서 무엇을 다르게 하는가
 OS마다 다른 순수 규칙은 base의 OS 층 한 곳에 있다. base는 node 내장을 읽지 않으므로 필요한 것(hash, spawn)은 인자로 받는다.
 
 - **home.** POSIX는 `HOME`, win32는 `USERPROFILE`, 없으면 `HOMEDRIVE`+`HOMEPATH`.
-- **socket 자리.** 한 규칙이 정한다. POSIX는 `<XDG_RUNTIME_DIR>/lophn/<key>` 또는 `<tempParent>/lophn-<uid>/<key>`이고 key는 data root의 SHA-256 hex 앞 12자다(hash는 호출자가 넣는다). 폴더는 0700이다. win32는 폴더를 만들지 않고 data root를 pipe 이름 공간의 입력으로 쓴다.
+- **socket 자리.** 한 규칙이 정한다. POSIX는 `<XDG_RUNTIME_DIR>/lophn/<key>` 또는 `<tempParent>/lophn-<uid>/<key>`이고 key는 data root의 SHA-256 hex 앞 12자다(hash는 호출자가 넣는다). 폴더는 0700이다. win32는 폴더를 만들지 않고 data root를 pipe 이름 공간의 입력으로 쓴다. 이때 구분자를 `\`로 맞추고 끝 구분자를 빼고 소문자로 바꾼다. 같은 폴더를 core는 `C:\a\b`로, dev 도구는 `C:\a/b`로 받아 서로 다른 pipe를 찾은 일이 있다.
 - **IPC endpoint.** 폴더와 이름에서 endpoint를 만든다. POSIX는 `<dir>/<name>.sock`이고 길이 한도는 sun_path에서 Linux 107·macOS 103 byte, win32는 `\\.\pipe\lophn-<dir의 FNV-1a 64>-<name>`이고 한도 256이다. pipe 이름 공간은 하나뿐이라 data root마다 hash로 가른다.
 - **process tree 신호.** 보내기와 없어졌는지 보기. spawn은 인자로 받는다.
 - **PATH 앞에 폴더 더하기.** Windows는 `Path` 이름을 대소문자 없이 찾고 `;`로 잇는다.
@@ -67,8 +67,8 @@ OS마다 다른 순수 규칙은 base의 OS 층 한 곳에 있다. base는 node 
 - **harness 찾기.** Windows는 이름마다 `PATHEXT` 확장자로 찾고 실행 bit 대신 확장자로 판정한다. `.cmd`·`.bat`은 Node가 shell 없이 못 띄우므로 shell로 띄운다.
 - **터미널 끄기.** POSIX는 `SIGHUP` 뒤 process group, Windows는 pty를 죽인 뒤 `taskkill /T`다.
 - **hook·browser bridge도 공통 socket 자리를 쓴다.** POSIX file은 공통 폴더의 `shell-<pid>/`(0700), endpoint는 `b`(browser)·`h`(hook) 이름의 IPC endpoint(0600)다. Windows file은 `<data root>/run/shell-<pid>/`, endpoint는 data root 이름 공간의 `shell-<pid>-b`·`shell-<pid>-h` named pipe다. 두 endpoint가 OS별 길이 한도를 넘으면 file 정리 전에 기능을 끄고 로그 한 줄만 남긴다(pointer file이나 TCP로 우회하지 않는다). file 폴더 준비는 hook·browser 각자의 listen과 분리돼, shim 쓰기나 bridge listen이 실패해도 hook은 준비된다. 공통 폴더는 core·앱 socket과 `shell-<pid>/`가 같이 쓰므로 app supervisor는 정지할 때 아무것도 지우지 않는다(낡은 앱 socket은 그 자리에 새 자식을 띄우기 전에 지운다). 판이 바뀌어 shell이 옛 core를 멈추면 옛 supervisor가 새 shell보다 늦게 끝나기 때문이다. 터미널 host는 bash·zsh init file이 없으면 시작 층 없이 원래 login shell로 띄운다. win32 전체를 끄는 gate는 없다.
-- **browser shim.** POSIX sh와 Windows `.cmd` shim이 공통 `browser.js`를 Electron Node로 돌려 bridge에 URL을 넘긴다. 실패·declined·timeout이면 OS opener로 넘기고(Windows는 `cmd.exe start`) bridge env와 `ELECTRON_RUN_AS_NODE`를 지운다.
-- **PowerShell 시작 층.** PowerShell 7·5.1은 기존 profile 뒤 `-NoExit -Command ". '<init.ps1>'"`로 per-run 함수를 읽는다. 5.1용 file은 UTF-8 BOM을 포함한다. 사용자 alias·function·profile·execution policy는 고치지 않는다. 정책이 `.ps1` 읽기를 막으면 시작 층은 켜지지 않으며 우회하지 않는다.
+- **browser shim.** POSIX sh shim과 Windows `browser.exe`(OS의 .NET Framework 4 `csc.exe`로 data root `run\browser-<hash>\`에 build, `architecture/browser-tab.md` 28)가 공통 `browser.js`를 Electron Node로 돌려 bridge에 URL을 넘긴다. Windows가 `.cmd`가 아닌 것은 cmd.exe가 URL의 `&`를 명령으로 해석하고 한글 경로를 코드페이지로 깨서다. 실패·declined·timeout이면 OS opener로 넘기고(Windows는 `cmd.exe start`) bridge env와 `ELECTRON_RUN_AS_NODE`를 지운다.
+- **PowerShell 시작 층.** PowerShell 7·5.1은 기존 profile 뒤 `-NoExit -Command ". '<init.ps1>'"`로 per-run 함수를 읽는다. 5.1용 file은 UTF-8 BOM을 포함한다. 사용자 alias·function·profile·execution policy는 고치지 않는다. 정책이 `.ps1` 읽기를 막으면 시작 층은 켜지지 않으며 우회하지 않는다. 감싼 명령의 실제 경로는 `$global:`에 둔다(`$script:`는 사용자 script 안에서 부르면 비었다). 터미널 shell은 PATH의 `pwsh.exe`, `C:\Program Files\PowerShell\7\pwsh.exe`, 5.1 순서로 고른다. winget·Store의 MSIX 판은 PATH의 `WindowsApps\pwsh.exe` 앱 실행 alias로만 보이고 `stat`이 EACCES라 있는지는 `lstat`으로 본다.
 
 ### Windows에서 꺼진 기능
 
@@ -168,7 +168,8 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 - Quit나 `Stop lophn`이 ensure가 도는 중에 오면 ensure는 취소되지 않아 core가 새로 뜰 수 있다. 시작 중에 `Stop lophn`을 누르면 control stop이 `unavailable`로 돌아와 성공으로 치여 막 뜬 core가 남는다. 켜진 job이 없으면 10분 뒤 idle-exit로 끝난다. (이슈 "Quit 중에 돌던 ensure가 끝난 뒤 core를 새로 띄울 수 있다")
 - 다른 client(CLI)가 stop한 뒤 shell은 주기적으로 identify를 묻지 않아 새 core에 스스로 붙지 못한다. Reconnect를 눌러야 한다. (이슈 "shell이 다른 client의 stop 뒤에는 새 core를 스스로 알아채지 못한다")
 - 업데이트 뒤 첫 로그인 실행이 옛 `--tray` 등록이면 창이 한 번 뜬다. macOS `wasOpenedAtLogin`과 core-only 실행의 userData 폴더는 실기로 확인하지 않았다. (이슈 "업데이트 뒤 첫 로그인 실행은 창을 한 번 연다")
-- 이 workflow는 어느 OS에서도 CI로 돌려 보지 않았다. Windows는 실제 PC(Windows 11 x64, 개발자 모드 꺼짐)에서 같은 네 단계를 손으로 돌려 통과했다. macOS는 코드와 platform 인자를 넘긴 unit test로만 확인했다. PowerShell 7·5.1, named pipe, `.cmd`, 실제 browser·알림, Dock 다시 열기, login PATH, NSIS 설치 뒤 `lophn.cmd`, 터미널을 닫을 때 Windows에서 shell 아래 process가 남지 않는지는 미확인이다(수동 확인 목록은 저장소 root의 Windows checklist).
+- 이 workflow는 어느 OS에서도 CI로 돌려 보지 않았다. Windows는 실제 PC(Windows 11 x64, 개발자 모드 꺼짐)에서 같은 네 단계를 손으로 돌려 통과했다. macOS는 코드와 platform 인자를 넘긴 unit test로만 확인했다. Windows PowerShell 7·5.1에서 hook named pipe, 시작 층, `claude gui`, 알림, `$BROWSER` 중계와 fallback, bridge 실패 격리는 `npm run dev`로 실기 확인했다(저장소 root의 Windows checklist). Dock 다시 열기, login PATH, NSIS 설치 뒤 `lophn.cmd`, 터미널을 닫을 때 Windows에서 shell 아래 process가 남지 않는지는 미확인이다.
+- 서명하지 않은 `lophn-desktop.exe`는 Smart App Control이 켜진 Windows 11에서 실행이 막힌다. (이슈 "Smart App Control이 켜진 Windows 11에서 서명 안 한 `lophn-desktop.exe`가 실행되지 않는다")
 - 앱 Quit 뒤 켜진 job이 돌고 10분 뒤 core가 끝나는 것, 다시 켜면 돌던 core에 붙는 것, macOS(`wasOpenedAtLogin`)와 Windows(named pipe)에서 core를 찾는 것은 사람 확인이 남았다.
 - 연결마다 user credential을 새로 발급하고 끝내는 길이 없다(폐기는 core epoch이 바뀔 때뿐). 의도인지 확인이 필요하다. 같은 사용자의 아무 process나 control socket으로 진단 한 줄을 보낼 수 있는 것도 마찬가지다(쓰기 자리는 core가 고정한다).
 - 알려진 한계: macOS는 node로 도는 CLI를 hook이 올 때까지 foreground로 알아보지 못한다.

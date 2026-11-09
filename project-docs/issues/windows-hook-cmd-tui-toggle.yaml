@@ -5,7 +5,7 @@ status: open
 topic: platform
 modules: [packages/shell/main, packages/shell/terminal-host, packages/coding-agent]
 now: |
-  hook socket(named pipe)과 PowerShell 시작 층(`claude gui` 등)은 roadmap `platform-ipc`로 Windows에서도 열린다. 남은 것은 아래다. Windows 실기 확인은 루트 `WINDOWS-CHECKLIST.md`에 미확인으로 남아 있다.
+  hook socket(named pipe)과 PowerShell 시작 층(`claude gui` 등)은 roadmap `platform-ipc`로 Windows에서도 열린다. 남은 것은 아래다. Windows 실기 확인 결과는 루트 `WINDOWS-CHECKLIST.md`에 있다(hook 상태·알림과 `claude gui`는 PowerShell 5.1·7 모두 통과).
 
   - hook 명령: `packages/coding-agent/harnesses/install.ts`(`lineOf`)와 `json-hooks.ts`는 `${command} hook <harness> <event>`를 따옴표 없이 만든다. dev 경로(`C:/…/lophn.cmd`)는 Git Bash에서는 돌지만 cmd에서는 따옴표 없는 `C:/…`를 명령으로 읽지 못한다. 설치본은 맨 `lophn`이라 lophn 터미널 밖의 PATH와 Git Bash(`.cmd`를 PATHEXT로 찾지 않는다)에서 못 찾는다. lophn 터미널 안은 `wiring/agent.ts` `cliPath`가 PATH 앞에 CLI 폴더를 넣는다.
   - 우리 hook 알아보기: `install-common.ts` `ownedCommand`의 정규식이 `lophn`이나 `/`로 시작하는 경로만 받아 `C:/…` 경로의 hook을 우리 것으로 보지 않는다. 다시 깔기·지우기·dry_run 비교가 그 줄을 놓친다.

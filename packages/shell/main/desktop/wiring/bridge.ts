@@ -2,15 +2,20 @@
 // terminal IPC에 줄 TerminalBridge를 돌려준다. 폴더 준비만 `run`을 확정하고, shim·listen 실패는
 // bridge만 끈다(hook은 그 폴더와 자기 endpoint를 계속 쓴다. shell 탭은 OS browser를 쓴다).
 import { app, shell } from "electron";
-import { randomBytes, randomUUID } from "node:crypto";
+import { execFile } from "node:child_process";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   readdirSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
 
 import { checkExternalUrl } from "../../app-frame/external-link.ts";
 import { createBridge } from "../../browser-bridge/bridge.ts";
@@ -20,7 +25,7 @@ import {
   linkPrefsOf,
 } from "../../browser-bridge/policy.ts";
 import { prepareRunDir, type ShellRun } from "../../browser-bridge/run-dir.ts";
-import { writeShim } from "../../browser-bridge/shim.ts";
+import { winLauncherFiles, writeShim } from "../../browser-bridge/shim.ts";
 import { listenBridge } from "../../browser-bridge/socket.ts";
 import type { TerminalBridge } from "../../browser-bridge/types.ts";
 import type { ShellContext } from "./context.ts";
@@ -32,6 +37,65 @@ function isAlive(pid: number): boolean {
   } catch (cause) {
     return (cause as NodeJS.ErrnoException).code === "EPERM";
   }
+}
+
+const execFileAsync = promisify(execFile);
+
+// Windows 10·11에는 .NET Framework 4가 OS에 들어 있어 그 C# compiler로 launcher를 만든다.
+function cscPath(): string | null {
+  const windir = process.env.WINDIR ?? process.env.SystemRoot ?? "C:\\Windows";
+  for (const framework of ["Framework64", "Framework"]) {
+    const path = join(
+      windir,
+      "Microsoft.NET",
+      framework,
+      "v4.0.30319",
+      "csc.exe",
+    );
+    if (existsSync(path)) return path;
+  }
+  return null;
+}
+
+/**
+ * `<run>\browser-<hash>\browser.exe`를 돌려준다. 없으면 build하고, 다른 hash의 옛 launcher는 지운다.
+ * exe는 마지막에 rename으로 놓으므로 exe가 있으면 browser.js도 다 쓰인 것이다.
+ */
+async function buildWinLauncher(parent: string): Promise<string> {
+  const files = winLauncherFiles(process.execPath, (text) =>
+    createHash("sha256").update(text).digest("hex"),
+  );
+  for (const name of readdirSync(parent)) {
+    if (/^browser-[0-9a-f]{12}$/.test(name) && name !== files.name) {
+      try {
+        rmSync(join(parent, name), { recursive: true, force: true });
+      } catch {
+        /* 다른 터미널이 아직 쓰는 중이면 다음 실행이 지운다 */
+      }
+    }
+  }
+  const dir = join(parent, files.name);
+  const exe = join(dir, "browser.exe");
+  if (existsSync(exe)) return exe;
+  const csc = cscPath();
+  if (csc === null) throw new Error(".NET Framework csc.exe was not found");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "browser.js"), files.script);
+  writeFileSync(join(dir, "browser.cs"), files.source);
+  const built = join(dir, "browser.build.exe");
+  await execFileAsync(
+    csc,
+    [
+      "/nologo",
+      "/target:exe",
+      "/optimize+",
+      `/out:${built}`,
+      join(dir, "browser.cs"),
+    ],
+    { windowsHide: true },
+  );
+  renameSync(built, exe);
+  return exe;
 }
 
 export function createBridgeWiring(ctx: ShellContext): {
@@ -80,7 +144,7 @@ export function createBridgeWiring(ctx: ShellContext): {
     }
   };
 
-  function setup() {
+  async function setup() {
     if (stopped || !app.hasSingleInstanceLock()) return settleRun(null);
     const prepared = prepareRunDir({
       platform: process.platform,
@@ -112,22 +176,28 @@ export function createBridgeWiring(ctx: ShellContext): {
     // 폴더와 두 endpoint가 정해졌다. hook은 여기서부터 선다(bridge의 shim·listen을 기다리지 않는다).
     settleRun(run);
 
+    let shim: string;
     try {
-      writeShim(
-        { write: (path, text, mode) => writeFileSync(path, text, { mode }) },
-        { shim: run.shim, script: run.script },
-        process.execPath,
-        process.platform,
-      );
+      if (process.platform === "win32") {
+        shim = await buildWinLauncher(join(ctx.dataRoot, "run"));
+      } else {
+        writeShim(
+          { write: (path, text, mode) => writeFileSync(path, text, { mode }) },
+          { shim: run.shim, script: run.script },
+          process.execPath,
+        );
+        shim = run.shim;
+      }
     } catch (cause) {
       ctx.log(
         `browser bridge is off: cannot write the shim (${String(cause)})`,
       );
       return;
     }
+    if (stopped) return;
 
     const bridge = createBridge({
-      paths: { socket: run.bridgeSocket, shim: run.shim },
+      paths: { socket: run.bridgeSocket, shim },
       env: process.env,
       ids: { key: () => randomBytes(32).toString("hex"), request: randomUUID },
       readPrefs: async () => {

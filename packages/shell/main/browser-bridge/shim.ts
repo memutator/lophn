@@ -1,7 +1,9 @@
-// `$BROWSER`가 되는 shim 두 file. main이 per-run 폴더에 써 넣는다. shim에 박는 실행 file 경로
-// (`process.execPath`)가 packaged와 dev에서 달라서 설치 묶음에 file로 싣지 않는다. POSIX는 sh,
-// Windows는 `.cmd`이고 둘 다 같은 browser.js를 Electron의 Node로 돌린다.
-import type { OsPlatform } from "../../../base/os/mod.ts";
+// `$BROWSER`가 되는 shim과 그것이 돌리는 browser.js. shim에 박는 실행 file 경로(`process.execPath`)가
+// packaged와 dev에서 달라서 설치 묶음에 file로 싣지 않는다. POSIX는 per-run 폴더의 sh, Windows는 data root
+// `run\browser-<hash>\`에 build한 `browser.exe`이고 둘 다 같은 browser.js를 Electron의 Node로 돌린다.
+//
+// Windows가 `.cmd`가 아닌 이유: batch는 cmd.exe가 먼저 읽어 인자의 `& | % ^`를 명령으로 해석하고(URL이 잘리고 `&`
+// 뒤가 실행됐다), file을 console 코드페이지로 읽어 한글 경로가 깨졌다. exe는 인자와 경로를 UTF-16 그대로 받는다.
 import {
   BRIDGE_ENV,
   BRIDGE_KEY_PATTERN,
@@ -13,11 +15,6 @@ import {
 
 function shellQuote(text: string): string {
   return `'${text.replaceAll("'", `'\\''`)}'`;
-}
-
-// .cmd는 batch라 `%`를 겹쳐 써야 글자로 남고, 인용부호는 공백·한글 경로를 한 인자로 지킨다.
-function cmdQuote(text: string): string {
-  return `"${text.replaceAll("%", "%%")}"`;
 }
 
 // 사용자 PATH에 node가 있다고 믿지 않으려고 Electron을 node로 띄운다(terminal host와 같은 방식).
@@ -156,34 +153,75 @@ await main();
 })();
 `;
 
-export function shimSources(
-  paths: { shim: string; script: string },
-  execPath: string,
-  platform: OsPlatform,
-): { shim: string; script: string } {
-  if (platform === "win32") {
-    // setlocal로 ELECTRON_RUN_AS_NODE가 shim을 부른 cmd 세션에 남지 않게 한다.
-    const launch = `${cmdQuote(execPath)} ${cmdQuote(paths.script)} %*`;
-    return {
-      shim: `@setlocal\r\n@set ELECTRON_RUN_AS_NODE=1\r\n@${launch}\r\n`,
-      script: SCRIPT,
-    };
-  }
-  return {
-    shim: `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec ${shellQuote(execPath)} ${shellQuote(
-      paths.script,
-    )} "$@"\n`,
-    script: SCRIPT,
-  };
-}
-
+/** POSIX sh shim을 per-run 폴더에 쓴다. */
 export function writeShim(
   deps: { write(path: string, text: string, mode: number): void },
   paths: { shim: string; script: string },
   execPath: string,
-  platform: OsPlatform,
 ): void {
-  const sources = shimSources(paths, execPath, platform);
-  deps.write(paths.script, sources.script, 0o600);
-  deps.write(paths.shim, sources.shim, 0o700);
+  deps.write(paths.script, SCRIPT, 0o600);
+  deps.write(
+    paths.shim,
+    `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec ${shellQuote(execPath)} ${shellQuote(
+      paths.script,
+    )} "$@"\n`,
+    0o700,
+  );
+}
+
+// Windows launcher의 C# 본문. 옆의 browser.js를 `execPath`(Electron)로 Node처럼 돌리고 받은 인자를 그대로 넘긴다.
+// 인자는 CommandLineToArgvW 규칙으로 다시 묶는다(cmd.exe를 거치지 않아 `& | % ^ !`는 글자다). 종료 상태를 돌려준다.
+function launcherSource(execPath: string): string {
+  return `using System;
+using System.Diagnostics;
+using System.IO;
+using System.Text;
+
+static class LophnBrowser {
+  static string Quote(string arg) {
+    if (arg.Length > 0 && arg.IndexOfAny(new char[] { ' ', '\\t', '\\n', '\\v', '"' }) < 0) return arg;
+    StringBuilder sb = new StringBuilder("\\"");
+    int slashes = 0;
+    foreach (char c in arg) {
+      if (c == '\\\\') { slashes++; continue; }
+      if (c == '"') { sb.Append('\\\\', slashes * 2 + 1); } else { sb.Append('\\\\', slashes); }
+      sb.Append(c);
+      slashes = 0;
+    }
+    sb.Append('\\\\', slashes * 2);
+    sb.Append('"');
+    return sb.ToString();
+  }
+
+  static int Main(string[] args) {
+    string script = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "browser.js");
+    StringBuilder line = new StringBuilder(Quote(script));
+    foreach (string arg in args) { line.Append(' '); line.Append(Quote(arg)); }
+    ProcessStartInfo info = new ProcessStartInfo(@"${execPath.replaceAll('"', '""')}", line.ToString());
+    info.UseShellExecute = false;
+    info.EnvironmentVariables["ELECTRON_RUN_AS_NODE"] = "1";
+    using (Process child = Process.Start(info)) {
+      child.WaitForExit();
+      return child.ExitCode;
+    }
+  }
+}
+`;
+}
+
+/**
+ * Windows launcher의 file들. `dir`은 내용이 바뀌면 다른 폴더가 되도록 `hash`(sha256 hex)로 이름 짓는다.
+ * 같은 판·같은 Electron이면 앞서 build한 exe를 다시 쓴다.
+ */
+export function winLauncherFiles(
+  execPath: string,
+  hash: (text: string) => string,
+): { name: string; script: string; source: string } {
+  const source = launcherSource(execPath);
+  return {
+    name: `browser-${hash(SCRIPT + source).slice(0, 12)}`,
+    script: SCRIPT,
+    // csc는 BOM이 없으면 source를 ANSI 코드페이지로 읽어 한글 경로가 깨진다.
+    source: `﻿${source}`,
+  };
 }

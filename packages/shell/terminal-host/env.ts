@@ -66,15 +66,27 @@ type ShellLookup = {
   exists: (file: string) => boolean;
 };
 
-const POWERSHELL7 = ["pwsh.exe", "C:\\Program Files\\PowerShell\\7\\pwsh.exe"];
+const POWERSHELL7 = "C:\\Program Files\\PowerShell\\7\\pwsh.exe";
 const POWERSHELL51 = [
   "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
 ];
 
+// winget·Store가 까는 MSIX 판은 Program Files가 아니라 PATH의 앱 실행 alias(WindowsApps\pwsh.exe)로만 보인다.
+function pwshCandidates(
+  env: Readonly<Record<string, string | undefined>>,
+): string[] {
+  const name = Object.keys(env).find((key) => key.toLowerCase() === "path");
+  const dirs = (name === undefined ? "" : (env[name] ?? ""))
+    .split(";")
+    .map((dir) => dir.trim().replace(/[\\/]+$/, ""))
+    .filter((dir) => /^[A-Za-z]:/.test(dir));
+  return [...dirs.map((dir) => `${dir}\\pwsh.exe`), POWERSHELL7];
+}
+
 /** Linux·macOS는 login shell, Windows는 PowerShell 7, 없으면 표시한 5.1. */
 export function resolveLoginShell(lookup: ShellLookup): ShellProgram | null {
   if (lookup.platform === "win32") {
-    for (const file of POWERSHELL7) {
+    for (const file of pwshCandidates(lookup.env)) {
       if (lookup.exists(file)) {
         return { file, args: ["-NoLogo"], label: "PowerShell 7" };
       }

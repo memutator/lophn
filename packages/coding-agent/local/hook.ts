@@ -113,7 +113,10 @@ async function runHook(
     if (new TextEncoder().encode(text).length > HOOK_STDIN_MAX_BYTES) {
       return ok(stdout);
     }
-    const parsed = shortened(text.trim() === "" ? {} : JSON.parse(text));
+    // PowerShell은 `$OutputEncoding`이 BOM 있는 UTF-8이면 native 명령에 파이프로 넘긴 글 앞에 BOM을 붙인다.
+    // 그대로 두면 `claude gui` 요청이 JSON parse에서 조용히 버려진다.
+    const body = text.replace(/^﻿/, "");
+    const parsed = shortened(body.trim() === "" ? {} : JSON.parse(body));
     // main은 shell이 `cd`한 뒤의 폴더를 모르므로 gui 요청에는 이 함수를 친 폴더를 더한다.
     const payload =
       input.event === TERMINAL_GUI_EVENT

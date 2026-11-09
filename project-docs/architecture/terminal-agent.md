@@ -172,7 +172,7 @@ tracker ─ 바뀔 때 runtime.agent를 실어 모든 창에 push ─▶ rendere
 - Claude Stop payload의 `background_tasks` 항목 꼴과 id 일치(`background_tasks`의 id가 `SubagentStart`·`SubagentStop`의 `agent_id`와 같다)는 Claude Code CLI 2.1.316 bundle을 읽어 정했다. 실제 payload로 확인하지 않았다. 실제 model을 부르는 일이라 사람의 허락을 기다린다.
 - 끊기 key 판정이 남은 harness는 tool이 없는 turn(긴 생성)에서 입력 지우기로 내려간 상태를 되돌리지 못한다. hermes는 `on_session_end`의 `interrupted`를 읽는 코드가 있으나 실제로 오는지 확인하지 못해 key 판정을 남겼다.
 - 이미 hook을 놓은 사람은 새 event가 생긴 판에서 [Install hooks]를 다시 누르거나 처음 물을 때 허락해야 child 상태 같은 새 기능이 보인다.
-- macOS는 node로 도는 CLI를 hook이 올 때까지 알아보지 못한다. Windows는 foreground·signal이 없고, PowerShell 7·5.1·named pipe·`.cmd`·실제 browser·알림은 실기로 확인하지 않았다(Windows 실기 확인은 수동 checklist로 이어진다). macOS도 실기로 돌리지 않았다.
+- macOS는 node로 도는 CLI를 hook이 올 때까지 알아보지 못한다. Windows는 foreground·signal이 없다. PowerShell 7·5.1에서 hook·시작 층·`claude gui`·알림·`$BROWSER` 중계는 실기로 확인했다(저장소 root의 Windows checklist). macOS도 실기로 돌리지 않았다.
 - 개발 실행에서 hook launcher가 쓰는 dev CLI는 사람의 data root를 가리킬 수 있다(`LOPHN_HOME`이 없으면 `~/.lophn`).
 - 공유 daemon을 쓰는 harness의 새 판이 server 옵션 이름을 바꾸면 시작 층이 `--help`로 flag를 못 찾아 붙이지 않고, 그 탭은 hook이 옛 env를 본다.
 - scrollback 10,000줄을 넘어 빠진 줄은 `dropped_output`만 켜고 알리지 않는다. 열린 터미널마다 headless 화면 메모리를 더 쓴다.

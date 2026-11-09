@@ -90,16 +90,24 @@ export function devHomeOf(
   if (kept === undefined || kept === "") {
     return { ok: true, path: devDataRoot(root) };
   }
-  const path = kept.replace(/\/+$/, "");
-  if (!path.startsWith("/")) {
+  const path = kept.replace(/[\\/]+$/, "");
+  // Windows 경로(`C:\…`)는 구분자와 대소문자를 가리지 않으므로 견줄 때 맞춘다.
+  const win = /^[A-Za-z]:[\\/]/.test(path);
+  if (!path.startsWith("/") && !win) {
     return { ok: false, message: `${KEPT_HOME}는 절대 경로여야 한다` };
   }
-  const real = env["HOME"] ? `${env["HOME"].replace(/\/+$/, "")}/.lophn` : "";
-  if (real !== "" && (path === real || path.startsWith(`${real}/`))) {
-    return {
-      ok: false,
-      message: `${KEPT_HOME}로 사람의 ~/.lophn을 열지 않는다`,
-    };
+  const key = (text: string) =>
+    win ? text.replaceAll("\\", "/").toLowerCase() : text;
+  for (const home of [env["HOME"], env["USERPROFILE"]]) {
+    if (!home) continue;
+    const real = key(`${home.replace(/[\\/]+$/, "")}/.lophn`);
+    const mine = key(path);
+    if (mine === real || mine.startsWith(`${real}/`)) {
+      return {
+        ok: false,
+        message: `${KEPT_HOME}로 사람의 ~/.lophn을 열지 않는다`,
+      };
+    }
   }
   return { ok: true, path };
 }

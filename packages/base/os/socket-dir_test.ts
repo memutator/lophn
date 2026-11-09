@@ -42,15 +42,21 @@ test("data root가 다른 실행은 같은 socket namespace를 쓰지 않는다"
   assert.ok(tmp.ok);
   assert.equal(tmp.value, `/tmp/lophn-1000/${key}`);
 
-  // Windows는 pipe 이름 공간이라 data root를 그대로 쓰고 uid를 보지 않는다.
-  const win32 = socketDirectoryPath({
-    ...posix,
-    dataRoot: "C:\\Users\\ana\\.lophn",
-    platform: "win32",
-    uid: -1,
-  });
-  assert.ok(win32.ok);
-  assert.equal(win32.value, "C:\\Users\\ana\\.lophn");
+  // Windows는 pipe 이름 공간이라 uid를 보지 않는다. 같은 폴더를 다르게 쓴 data root는 같은 pipe 자리가 된다.
+  for (const dataRoot of [
+    "C:\\Users\\ana\\.lophn",
+    "C:/Users/ana/.lophn/",
+    "c:\\users\\ana/.LOPHN",
+  ]) {
+    const win32 = socketDirectoryPath({
+      ...posix,
+      dataRoot,
+      platform: "win32",
+      uid: -1,
+    });
+    assert.ok(win32.ok);
+    assert.equal(win32.value, "c:\\users\\ana\\.lophn");
+  }
 
   for (const uid of [-1, 1.5]) {
     const rejected = socketDirectoryPath({ ...posix, dataRoot, uid });

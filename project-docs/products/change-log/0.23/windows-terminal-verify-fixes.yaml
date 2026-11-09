@@ -1,0 +1,20 @@
+id: windows-terminal-verify-fixes
+version: 0.23.9
+title: Windows 실기 확인에서 나온 터미널·browser·dev 결함을 고친다
+modules: [packages/base, packages/shell/main, packages/shell/terminal-host, packages/coding-agent, tools]
+change: |
+  - Windows 터미널의 `$BROWSER`가 `.cmd`가 아니라 data root `run\browser-<hash>\browser.exe`다. OS의 .NET Framework 4 `csc.exe`로 앱이 켜질 때 한 번 build하고 같은 내용이면 다시 쓴다. csc가 없으면 bridge만 끈다.
+  - Windows named pipe 이름은 data root의 구분자·끝 구분자·대소문자와 상관없이 같다(`socketDirectoryPath`).
+  - PowerShell 시작 층: 감싼 명령의 경로를 `$global:`에 두고, Kilo·Cline env를 되돌릴 때 원래 없던 값은 지운다.
+  - `lophn hook`은 stdin 앞의 BOM을 뗀다.
+  - Windows 터미널은 PATH의 `pwsh.exe`(winget·Store MSIX 판의 앱 실행 alias 포함)를 먼저 고른다.
+  - 개발 도구: `LOPHN_DEV_HOME`이 `C:\…` 경로를 받는다. `npm run check`의 fmt·lint가 file 목록을 나눠 Windows 명령줄 한도를 넘지 않는다.
+why: |
+  루트 `WINDOWS-CHECKLIST.md`를 Windows 11에서 PowerShell 5.1·7로 돌려 보니, `$BROWSER`는 cmd.exe가 URL의 `&`를 명령으로 해석해 URL이 잘리고 `&` 뒤가 실행됐고 한글 경로에서는 열리지 않았다. `npm run dev`는 core와 dev 도구가 다른 pipe를 찾아 뜨지 않았다. script 안에서 부른 wrapper, PowerShell 7의 env 복원, `$OutputEncoding`이 BOM 있는 UTF-8일 때의 `claude gui`, winget으로 깐 PowerShell 7 고르기가 각각 틀렸다.
+decisions:
+  - text: Windows `$BROWSER`는 끄지 않고 cmd를 거치지 않는 exe로 바꾼다. 버린 길은 Windows에서 `$BROWSER` 중계를 끄는 것(터미널 CLI의 링크가 OS browser로 간다)이다.
+    by: person
+  - text: launcher는 묶음에 싣지 않고 OS의 .NET Framework `csc.exe`로 그 PC에서 build한다. 버린 길은 미리 build한 binary를 저장소에 싣는 것과 `lophn-desktop.exe`의 second-instance로 URL을 넘기는 것(dev의 `electron.exe`에서 안 된다)이다.
+    by: agent
+follow_up: |
+  설치본은 서명이 없어 Smart App Control이 켜진 PC에서 막힌다(이슈 `windows-unsigned-blocked-by-smart-app-control`). 그런 PC에서 csc로 만든 launcher가 막히는지는 이 PC(켜짐)에서 막히지 않은 것까지만 확인했다.

@@ -105,7 +105,8 @@ export function prepareRunDir(deps: RunDirDeps): Result<ShellRun, RunDirError> {
       }`,
     });
   }
-  const shim = join(dir, deps.platform === "win32" ? "browser.cmd" : "browser");
+  // Windows는 이 자리를 쓰지 않고 data root의 `run/browser-<hash>/browser.exe`를 쓴다(wiring/bridge.ts).
+  const shim = join(dir, "browser");
   return ok({
     dir,
     bridgeSocket,

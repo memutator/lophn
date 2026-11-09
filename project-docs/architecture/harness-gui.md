@@ -105,7 +105,7 @@ adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있�
 7. **adapter는 harness마다 하나이고 `Result`로 시작한다.** `start`가 실패하면 GUI view는 그대로 두고 오류를 실패한 turn으로 보인다. 사람이 TUI로 넘기거나 탭을 닫는다.
 8. **extension은 `ctx`로만 닿는다**([extension.md](extension.md)). CLI는 `ctx.spawn`으로 띄우고 사람의 설정과 login을 그대로 쓴다. 꺼진 extension은 code를 load하지 않으므로 탭 요청 handler(`onTab`)가 없는 것이 곧 "꺼짐"이다.
 9. **CLI는 사람의 login shell env로 띄운다.** 데스크톱 메뉴나 autostart로 뜬 앱의 env에는 사람의 shell 설정(nvm의 PATH, rc file의 API key)이 없다. extension이 처음 열 때 한 번 login shell로 env 전체를 읽고(tmux·updater guard, 5초), login env < 탭 hook env < adapter가 넘긴 key 순서로 합친다. 상위 session 표지(`CLAUDE_CODE_ENTRYPOINT` 포함)는 지운다. 탭 hook env 덕에 GUI가 띄운 CLI의 hook도 같은 탭으로 와 상태 점이 맞는다. CLI는 떼어 띄우고 process group째 끈다.
-10. **터미널 함수는 `gui`만 가로챈다.** bash·zsh·fish와 PowerShell 7·5.1 시작 층의 `claude`·`codex`·`opencode`·`omp` 함수는 첫 인자가 `gui`(또는 `gui --resume <id>`, `gui --resume=<id>`)면 그 탭의 hook endpoint에 요청을 보내고 아니면 인자를 그대로 원래 명령에 넘긴다. id는 `[A-Za-z0-9._-]` 200자까지다. PowerShell 함수는 profile 뒤에 읽고 사용자 alias·function·execution policy는 바꾸지 않는다. 요청은 친 곳의 cwd를 더해 그 탭의 hook socket으로 간다. 터미널 env에서는 `LOPHN_*`가 빠지므로 lophn CLI 경로는 shell main이 시작 층 file을 쓸 때 넣는다. Windows PowerShell 실기 확인은 별도다([terminal-agent.md](terminal-agent.md)).
+10. **터미널 함수는 `gui`만 가로챈다.** bash·zsh·fish와 PowerShell 7·5.1 시작 층의 `claude`·`codex`·`opencode`·`omp` 함수는 첫 인자가 `gui`(또는 `gui --resume <id>`, `gui --resume=<id>`)면 그 탭의 hook endpoint에 요청을 보내고 아니면 인자를 그대로 원래 명령에 넘긴다. id는 `[A-Za-z0-9._-]` 200자까지다. PowerShell 함수는 profile 뒤에 읽고 사용자 alias·function·execution policy는 바꾸지 않는다. 요청은 친 곳의 cwd를 더해 그 탭의 hook socket으로 간다. 터미널 env에서는 `LOPHN_*`가 빠지므로 lophn CLI 경로는 shell main이 시작 층 file을 쓸 때 넣는다. `lophn hook`은 stdin 앞의 BOM을 뗀다(PowerShell `$OutputEncoding`이 BOM 있는 UTF-8이면 파이프 글에 붙는다). Windows PowerShell 7·5.1에서 실기로 확인했다.
 11. **GUI view는 터미널 탭의 한 화면이고 접은 상태에서 한 번에 그린다.** 받은 snapshot에서 시작해 갱신 묶음을 접고, 묶음 하나는 한 번만 그린다. 화면이 붙은 뒤에 snapshot이 오면(창 다시 load) 화면이 새로 읽는다. adapter가 지난 대화를 다시 그릴 때 한꺼번에 publish한 것은 한 묶음이라 한 번에 그려진다. adapter는 `seq`를 1부터 빈틈없이 붙이고, 같은 탭에서 다른 CLI session으로 바꿀 때(resume)는 `session_reset`으로 접은 상태를 비운 뒤 다시 그린다.
 12. **GUI 동안 탭 이름은 ACP session 제목(없으면 harness 이름)이고 사람이 붙인 이름이 먼저다.** GUI 동안은 TUI가 터미널 제목을 알리지 않고 그 터미널의 마지막 OSC 제목은 shell prompt의 것이므로 쓰지 않는다. 제목은 탭의 GUI 제목 칸에 두고 GUI view일 때만 쓴다. TUI로 가거나 handle이 닫히면 지운다. 다른 workspace의 탭 줄(저장본이라 view가 없다)은 agent TUI가 foreground에 없으면 그 workspace가 저장한 이름을 OSC 제목보다 먼저 쓴다.
 13. **GUI 화면의 session key는 탭이 사는 동안 같고 ACP 입력의 session 검사를 통과해야 한다.** 터미널 ref(`trm_<ULID>`)의 ULID로 만든 `ses_<ULID>`다. 그래서 탭이나 GUI↔TUI를 오가도 창의 draft 저장소가 쳐 둔 글과 읽던 위치를 돌려준다. (handle id로 만든 `ses_win_…`은 schema에 떨어져 main이 모든 입력을 거절한 적이 있다.)
@@ -175,7 +175,7 @@ adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있�
 - 탭 CLI 아래에서 뜬 다른 harness process(Bash tool이나 `!`로 돌린 `claude -p`)가 hook 환경을 물려받아 그 탭의 session과 recent에 들어가고, GUI toggle이 엉뚱한 session을 열 수 있다(bug).
 
 알려진 한계다.
-- Windows에서는 foreground를 몰라 toggle이 없다. Windows PowerShell 실기 확인은 별도다.
+- Windows에서는 foreground를 몰라 toggle이 없다.
 - Codex: rewind는 마지막 메시지만(파일은 그대로), 이미지는 끈다, 첫 메시지 전에는 TUI로 넘어가지 못한다, plan "Implement" 카드는 실제 `plan` item으로 확인하지 못했다.
 - OpenCode: todo는 녹화한 판이 codemode라 실제 `todowrite`로 확인하지 못했다. 판 2.1.4 기준이다.
 - omp: 18.8.7 기준이고 plan mode(RPC 없음)와 파일 rewind가 없다. model turn이 없는 session은 저장되지 않아 다시 열면 `!` 기록이 사라진다.

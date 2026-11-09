@@ -110,7 +110,6 @@ test("Windows pipe는 긴 data root여도 pipe 한도 안에 들고 uid·chmod�
     assert.match(socket, /^\\\\\.\\pipe\\lophn-/);
     assert.ok(Buffer.byteLength(socket) <= 256);
   }
-  assert.equal(run.shim, join(run.dir, "browser.cmd"));
   assert.equal(
     calls.some((call) => call.startsWith("chmod:")),
     false,

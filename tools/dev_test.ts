@@ -27,4 +27,17 @@ test("dev는 남긴 eval world를 열되 사람의 ~/.lophn과 그 아래는 열
     devHomeOf("/repo", { ...env, LOPHN_DEV_HOME: "tmp/x" }).ok,
     false,
   );
+
+  // Windows는 `C:\…` 경로를 받고, 구분자·대소문자가 달라도 사람의 %USERPROFILE%\.lophn은 열지 않는다.
+  const win = { USERPROFILE: "C:\\Users\\me" };
+  assert.deepStrictEqual(
+    devHomeOf("C:\\repo", { ...win, LOPHN_DEV_HOME: "C:\\tmp\\로픈 데이터\\" }),
+    { ok: true, path: "C:\\tmp\\로픈 데이터" },
+  );
+  for (const path of ["C:\\Users\\me\\.lophn", "c:/users/ME/.lophn/x"]) {
+    assert.deepStrictEqual(
+      devHomeOf("C:\\repo", { ...win, LOPHN_DEV_HOME: path }).ok,
+      false,
+    );
+  }
 });

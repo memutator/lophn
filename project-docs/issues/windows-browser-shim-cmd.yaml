@@ -1,0 +1,17 @@
+id: windows-browser-shim-cmd
+title: "Windows 터미널의 `$BROWSER`가 `.cmd` shim이라 URL의 `&`가 명령으로 실행되고 한글 경로에서는 열리지 않는다"
+kind: bug
+status: fixed
+topic: browser-tab
+modules: [packages/shell/main]
+now: |
+  `packages/shell/main/browser-bridge/shim.ts` `shimSources`는 win32에서 `browser.cmd`(`"<execPath>" "<browser.js>" %*`)를 쓰고, `bridge.ts` `issue`가 그 경로를 터미널 env `BROWSER`로 준다. 이 file은 cmd.exe가 해석한다.
+
+  - 인자: PowerShell(5.1·7)은 공백 없는 인자를 따옴표 없이 `.cmd`에 넘긴다. Windows 실기에서 `& $env:BROWSER 'https://example.com/?x=1&echo>C:\tmp\lophn-check\inj&y=2'`를 치면 lophn 탭에는 `https://example.com/?x=1`만 열리고 `echo>…\inj`가 실행되어 file이 생겼다. `?q=한글&pipe=|&…` URL은 `&은(는) 예상되지 않았습니다`로 아무 데도 열리지 않았다. bridge 거절·연결 실패의 OS browser fallback(`browser.js` `openWithSystem`)은 cmd가 먼저 막아 닿지 않는다.
+  - 경로: `writeShim`은 file을 UTF-8로 쓰지만 cmd는 batch를 console 코드페이지(한국어 Windows는 949)로 읽는다. data root가 `C:\tmp\로픈 데이터\home`이면 `Cannot find module 'C:\tmp\嚥≪뮉逾??…\browser.js'`로 끝났다. 기본 data root가 `%USERPROFILE%\.lophn`이라 한글 사용자 이름이면 늘 이렇다.
+  - `browser.js`의 `cmdQuote`(opener 쪽 escape)는 맞지만, shim을 부르는 쪽의 cmd 해석은 막지 못한다.
+impact: |
+  Windows lophn 터미널에서 CLI가 `$BROWSER`로 여는 링크는 `&`가 있으면(OAuth·로그인 URL은 거의 다 있다) 잘리거나 열리지 않는다. 인터넷에서 온 URL의 `&` 뒤 글이 사람의 권한으로 명령으로 실행된다. 한글 이름 계정은 `$BROWSER`가 전혀 돌지 않는다.
+closed: |
+  Windows `$BROWSER`는 이제 `.cmd`가 아니라 data root `run\browser-<hash>\browser.exe`다(`packages/shell/main/browser-bridge/shim.ts` `winLauncherFiles`, `desktop/wiring/bridge.ts` `buildWinLauncher`). OS의 .NET Framework 4 `csc.exe`로 build하고 같은 내용이면 다시 쓴다. exe는 받은 인자를 CommandLineToArgvW 규칙으로 다시 묶어 `ELECTRON_RUN_AS_NODE=1`인 Electron에 `browser.js`와 함께 넘긴다. Windows 실기에서 PowerShell 5.1·7과 CreateProcess 호출 모두 특수문자 URL이 그대로 lophn 탭과 OS fallback에 도착했고 `&` 뒤가 실행되지 않았다. 한글·공백 data root와 코드페이지 949 터미널에서도 열렸다.
+guard: 없음 (Windows 수동 checklist W03·W10·W11)

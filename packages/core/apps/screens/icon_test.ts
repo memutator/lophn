@@ -8,7 +8,7 @@ import { appIconRead } from "../routes.ts";
 import { readAppIcon } from "./icon.ts";
 import { createScreenFileDeps } from "./mod.ts";
 
-// icon은 bundle 안의 이미지 파일만 준다. bundle 밖을 가리키는 symlink, `..`, 큰 파일은 null이다.
+// icon은 bundle 안의 이미지 파일이나 선언한 lucide 이름만 준다. bundle 밖을 가리키는 symlink, `..`, 큰 파일은 null이다.
 test("app icon read only serves image files inside the bundle", async (t) => {
   const tmp = await mkdtemp(join(tmpdir(), "lophn-icon-"));
   try {
@@ -40,6 +40,10 @@ test("app icon read only serves image files inside the bundle", async (t) => {
     assert.deepStrictEqual(await read("/assets/icon.svg"), {
       content_type: "image/svg+xml",
       data: Buffer.from("<svg/>").toString("base64"),
+    });
+    // lucide 이름은 파일을 읽지 않고 이름 그대로 준다.
+    assert.deepStrictEqual(await read("lucide:folder-kanban"), {
+      lucide: "folder-kanban",
     });
     for (const path of [
       null,

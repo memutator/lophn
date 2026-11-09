@@ -7,6 +7,7 @@ import type { LucideIcon } from "lucide-react";
 import { Fragment, type ReactElement, type ReactNode } from "react";
 
 import { useAppIcon } from "../app-frame/app-icon.tsx";
+import { IconImage } from "../parts/icon-upload/icon-image.tsx";
 import { useKeyLabel } from "../commands/react.tsx";
 import { appPanelBindingId } from "../../ipc/keybindings.ts";
 import { browserIcons, shellIcons, workspaceIcons } from "../icons/mod.ts";
@@ -73,7 +74,7 @@ function QuickPin({ pin }: { pin: QuickPinButton }) {
         {icon === undefined ? (
           <Icon icon={workspaceIcons.appPanel} pixels={16} />
         ) : (
-          <img src={icon} alt="" width={16} height={16} />
+          <IconImage src={icon} size={16} />
         )}
       </button>
     </Tooltip>

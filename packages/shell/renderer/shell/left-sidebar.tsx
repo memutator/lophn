@@ -21,7 +21,6 @@ import {
   useState,
 } from "react";
 
-import { useAppIcon } from "../app-frame/app-icon.tsx";
 import { useKeyLabel } from "../commands/react.tsx";
 import { appPanelBindingId } from "../../ipc/keybindings.ts";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";

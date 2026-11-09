@@ -24,6 +24,15 @@
   background: transparent;
 }
 
+/* lucide는 표식 칸 안에서 작게 그리고 선은 theme 글자색이다. */
+.mark[data-lucide] {
+  color: var(--color-text-primary);
+}
+.mark[data-lucide] > .image {
+  width: 70%;
+  height: 70%;
+}
+
 .mark[data-tone="1"] {
   background: var(--chart-series-1);
 }

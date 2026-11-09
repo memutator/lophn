@@ -163,7 +163,8 @@ export type AppKeyDeclaration = {
 export type AppDeclaration = {
   name: string;
   description: string;
-  // bundle 안 이미지 파일의 경로(`/assets/icon.svg`). svg·png·webp. lophn이 앱을 보이는 자리에 쓴다.
+  // bundle 안 이미지 파일의 경로(`/assets/icon.svg`, svg·png·webp)나 lucide icon 이름(`lucide:folder-kanban`).
+  // lophn이 앱을 보이는 자리에 쓴다.
   icon?: string;
   // 없어도 된다. skill 폴더는 commit의 .lophn/skills/<name>/SKILL.md다.
   skills?: SkillDeclaration[];

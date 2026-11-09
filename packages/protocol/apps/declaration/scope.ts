@@ -274,12 +274,20 @@ export function screenPath(value: unknown): string | undefined {
   return;
 }
 
-// screen path와 같은 규칙에 이미지 확장자만 더한다. 파일이 bundle에 있는지는 release 준비가 본다.
+export const LUCIDE_ICON_PREFIX = "lucide:";
+
+// icon은 bundle 안 이미지 경로(screen path와 같은 규칙에 이미지 확장자만 더한다)이거나 `lucide:<이름>`이다.
+// 파일이 bundle에 있는지, lucide 이름이 있는 이름인지는 release 준비가 본다.
 export function iconPath(value: unknown): string | undefined {
+  if (typeof value === "string" && value.startsWith(LUCIDE_ICON_PREFIX)) {
+    return /^lucide:[a-z0-9]+(-[a-z0-9]+)*$/.test(value) && value.length <= 80
+      ? undefined
+      : "icon lucide name must be a kebab-case lucide icon name like lucide:folder-kanban";
+  }
   const bad = screenPath(value);
   if (bad) return bad.replace("screen path", "icon path");
   if (!/\.(svg|png|webp)$/.test(value as string)) {
-    return "icon path must end with .svg, .png or .webp";
+    return "icon path must end with .svg, .png or .webp, or be lucide:<name>";
   }
   return;
 }

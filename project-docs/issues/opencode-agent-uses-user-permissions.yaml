@@ -1,9 +1,11 @@
 id: opencode-agent-uses-user-permissions
 title: opencode harness agent는 사람의 opencode 권한 설정대로 돈다
 kind: bug
-status: open
+status: kept
 topic: coding-agent
 modules: [packages/protocol]
 now: Claude Code는 `--permission-mode acceptEdits`(Bash 거절), Codex는 `-s workspace-write`로 띄운다(`packages/protocol/coding-agent/headless/`). opencode `run`에는 권한 flag가 없어 아무것도 넘기지 않고, 정의의 `permissions.deny`가 있으면 Codex·opencode는 띄우지 않는다.
 impact: "opencode agent는 사람의 opencode 설정(기본은 대부분 허락)으로 shell과 폴더 밖 쓰기를 한다. 사람이 자기 터미널에서 opencode를 쓸 때와 같다(사람, 2026-11-04: 이대로 둔다)."
 fix: opencode의 config env(inline config의 `permission`)로 bash deny, 바깥 폴더 deny를 넘기고 실제 실행으로 확인한다(작음).
+closed: "설계로 정했다: harness는 모두 사람의 CLI 권한 설정대로 돈다(사람, 2026-11-09). Claude Code·Codex도 permission mode flag를 빼 opencode와 같아졌다. `architecture/coding-agent.md` 결정 \"harness는 사람의 CLI 권한 설정대로 돈다\"."
+guard: 없음

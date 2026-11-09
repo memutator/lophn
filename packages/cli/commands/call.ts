@@ -91,7 +91,8 @@ const send = defineCommand({
     "Hand work to an agent asynchronously; returns a call ID. to.session uses an open session (session list); to.agent/workspace opens a new one using exact names (no workspace means home). " +
     'Supply both with fallback:"new" to open a replacement when the session is closed. Closed sessions stay closed. ' +
     "reply: none requires no answer; result asks the receiver to reply; conversation lets both sides continue via call reply. " +
-    "body is text. Repeat --image <path> to attach an image file (png, jpeg, gif or webp, under 180 KB) from a folder this session can read; the receiver gets the image itself and no read access to the file.",
+    "body is text. Repeat --image <path> to attach an image file (png, jpeg, gif or webp, under 180 KB) from a folder this session can read; the receiver gets the image itself and no read access to the file. " +
+    "To hand work to a coding agent the person will continue in a terminal, open its TUI with `lophn tab open --coding <harness> --handoff <text>` instead.",
   input: agentCallSend.input.omit({ dedup: true, body: true }).extend({
     ...bodyFields,
     refs: z.array(callRefSchema).default([]),

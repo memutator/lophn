@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 import {
   createIdSource,
@@ -7,7 +10,7 @@ import {
   seededRandom,
 } from "../../../../base/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import { createHostQueue } from "../../../host-queue/mod.ts";
+import { createHostQueue, fileHandoffs } from "../../../host-queue/mod.ts";
 import type { AgentSessionRow } from "../../../lophn-agent/session/model.ts";
 import { createTabHandlers } from "./host-queue.ts";
 
@@ -33,7 +36,7 @@ const person = {
   conditions: {},
 } as unknown as AuthenticatedContext;
 
-function setup(running: boolean) {
+function setup(running: boolean, root = "/nonexistent") {
   const clock = manualClock(1_700_000_000_000);
   const queue = createHostQueue({
     clock,
@@ -49,6 +52,9 @@ function setup(running: boolean) {
       Promise.resolve(workspace.id === id("prj", 1) && name === "report"),
     deviceNames: () => [],
     harnessHold: { open: () => ok({ harness: "x", external_session: "y" }) },
+    // pi는 즐겨찾기지만 TUI 첫 prompt 인자가 없다. cursor는 있어도 즐겨찾기가 아니다.
+    codingFavorites: () => ["claude", "pi"],
+    handoffs: fileHandoffs(root),
   });
   return { queue, ...handlers };
 }
@@ -138,4 +144,59 @@ test("artifact 탭은 자기 workspace의 있는 artifact만 열고, artifact마
   });
   assert.ok(again.ok);
   assert.equal((again.value as { tab: string }).tab, tab);
+});
+
+// handoff 글은 agent가 쓴 것이다. 깨지면 열 수 없는 자리의 요청이 data root에 file을 남기거나, 글이 터미널 쪽으로 새거나, file이 남에게 읽힌다.
+test("coding handoff는 사람 token, project가 아닌 session, 즐겨찾기에 없는 harness면 invalid_input이고 file도 요청도 남지 않는다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-handoff-"));
+  try {
+    const { queue, open } = setup(true, root);
+    const coding = (harness: string) => ({
+      target: { coding: { harness, handoff: "text" } },
+    });
+    assert.equal(code(await open(person, coding("claude"))), "invalid_input");
+    // 앱 session과 home session.
+    assert.equal(code(await open(agent(1), coding("claude"))), "invalid_input");
+    assert.equal(code(await open(agent(4), coding("claude"))), "invalid_input");
+    // 즐겨찾기에 없는 harness, 즐겨찾기지만 첫 prompt 인자가 없는 harness.
+    const unknown = await open(agent(3), coding("codex"));
+    assert.equal(code(unknown), "invalid_input");
+    assert.match(JSON.stringify(unknown), /claude/);
+    assert.equal(code(await open(agent(3), coding("pi"))), "invalid_input");
+    assert.deepEqual(await readdir(root), []);
+    assert.equal(
+      queue.take([{ kind: "project", id: id("prj", 1) as never }]),
+      null,
+    );
+  } finally {
+    await rm(root, { recursive: true });
+  }
+});
+
+test("받은 handoff는 data root handoffs/에 0600으로 쓰이고 tab_open payload에는 글이 아니라 file path만 있다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-handoff-"));
+  try {
+    const { queue, open } = setup(true, root);
+    const text = "goal: fix the login\nnext: run it";
+    const opened = await open(agent(3), {
+      target: { coding: { harness: "claude", handoff: text } },
+    });
+    assert.ok(opened.ok);
+    const tab = (opened.value as { tab: string }).tab;
+    const file = join(root, "handoffs", `${tab}.md`);
+    assert.equal(await readFile(file, "utf8"), text);
+    assert.equal((await stat(file)).mode & 0o777, 0o600);
+    assert.equal((await stat(join(root, "handoffs"))).mode & 0o777, 0o700);
+    const request = queue.take([
+      { kind: "project", id: id("prj", 1) as never },
+    ]);
+    assert.equal(request?.kind, "tab_open");
+    assert.ok(!JSON.stringify(request).includes("login"));
+    assert.deepEqual(
+      (request as { payload: { handoff: unknown } }).payload.handoff,
+      { harness: "claude", file },
+    );
+  } finally {
+    await rm(root, { recursive: true });
+  }
 });

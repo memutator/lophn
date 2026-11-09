@@ -36,7 +36,7 @@ export function parseWorkspaceText(text: string): Workspace | undefined {
 const open = defineCommand({
   name: "tab.open",
   summary:
-    "Open an agent session, a browser page, an app preview or an artifact as a tab in the shell",
+    "Open an agent session, a browser page, an app preview, an artifact or a coding agent handoff as a tab in the shell",
   description:
     "Open a tab in the shell: --session <ses> shows an open session of this workspace, --url <url> opens an http or https page in a browser tab, --preview <app> shows the running preview of an app, --artifact <name> shows an artifact of this workspace's artifacts folder (give exactly one). " +
     "--artifact is for a project or app workspace (home has no artifacts: invalid_input); it is not_found until <artifacts folder>/<name>/index.html exists. An artifact has one such tab: opening it again returns the same tab and you own it. " +
@@ -54,11 +54,15 @@ const open = defineCommand({
     "peer: a colleague session splitting the same work as you. stage: a session that takes the next step or other work (peer and stage are for --session). " +
     "Without --as the shell picks a default per target: a --url page is work, everything else is aside; use --as aside when you open a page to show the person. " +
     "When the person must use your work tab (login, captcha, payment confirmation), run tab show <tab> together with ask. " +
+    "--coding <harness> --handoff <text> opens a terminal tab in this project and starts that coding agent's TUI (a harness id from Settings > Coding agents favorites, such as claude, codex or opencode) with <text> as its first prompt (give both; at most 64 KiB; project workspaces only, else invalid_input; an unknown or non-favorite harness is invalid_input and the message lists the usable ids). " +
+    "Use it for work the person will pick up or debug together (a handoff). Write <text> like a note for an agent that knows nothing yet: the goal, what is known so far, the next steps. The text is saved to a file and only that file's path reaches the terminal. For one-off work that needs no person, send it headless with `lophn team spawn <handle>` instead. " +
     "Returns the tab ID with status accepted: the shell opens it when it shows this workspace, and an opened tab never takes focus from what the person is looking at. " +
     "Close only tabs you opened (tab close). Look at and drive a browser, preview or artifact tab you opened with browser snapshot, browser screenshot and browser act.",
   input: z.strictObject({
     session: idSchema("ses").optional(),
     tui: z.boolean().optional(),
+    coding: z.string().min(1).max(64).optional(),
+    handoff: z.string().min(1).optional(),
     url: z.string().min(1).max(8192).optional(),
     preview: idSchema("app").optional(),
     artifact: artifactNameSchema.optional(),
@@ -75,12 +79,19 @@ const open = defineCommand({
       input.url,
       input.preview,
       input.artifact,
+      input.coding,
     ].filter((value) => value !== undefined);
     if (given.length !== 1) {
       return err({
         code: "invalid_input",
         message:
-          "give exactly one of --session, --url, --preview or --artifact",
+          "give exactly one of --session, --url, --preview, --artifact or --coding",
+      });
+    }
+    if ((input.coding === undefined) !== (input.handoff === undefined)) {
+      return err({
+        code: "invalid_input",
+        message: "--coding and --handoff go together",
       });
     }
     if (input.device !== undefined && input.preview === undefined) {
@@ -112,11 +123,13 @@ const open = defineCommand({
           ? { preview: { app: input.preview, device: input.device ?? null } }
           : input.artifact !== undefined
             ? { artifact: { name: input.artifact } }
-            : input.session === undefined
-              ? { browser: { url: input.url! } }
-              : input.tui === true
-                ? { tui: input.session }
-                : { session: input.session },
+            : input.coding !== undefined
+              ? { coding: { harness: input.coding, handoff: input.handoff! } }
+              : input.session === undefined
+                ? { browser: { url: input.url! } }
+                : input.tui === true
+                  ? { tui: input.session }
+                  : { session: input.session },
       ...(input.as === undefined ? {} : { relation: input.as }),
       ...(workspace === undefined ? {} : { workspace }),
     });

@@ -49,6 +49,8 @@ decisions of the plan.
   `lophn app sdk-status`). The person calls `/update-apps` for it; follow that
   skill and hand the work to lophn at each app.
 - A claim in a plan must point to something you read. State risk first.
+- Home and apps have no terminal, so `lophn tab open --coding` does not work
+  here. Work for a coding agent goes headless with `lophn team spawn <handle>`.
 
 ## Memory
 

@@ -5,6 +5,10 @@ import { useEffect, useRef, useState } from "react";
 
 import type { LophnBrowserApi } from "../../ipc/browser.ts";
 import type { LophnSurfaceApi } from "../../ipc/surface.ts";
+import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
+import type { HarnessId } from "../../../protocol/coding-agent/harness-id.ts";
+import { useQuickPrefs } from "../desktop/settings/quick-launch/store.tsx";
+import { handoffCommand } from "../shell/agent-sections.tsx";
 import { type WorkspaceRef, workspaceKey } from "../shell/desk-model.ts";
 import { sessionOf } from "./agent/tab-fields.ts";
 import type { SessionTabOpen } from "./kinds/agent.tsx";
@@ -103,6 +107,9 @@ type Args = {
 export function useSurfaceRequests(args: Args): void {
   const latest = useRef(args);
   latest.current = args;
+  const { prefs } = useQuickPrefs();
+  const coding = useRef(prefs.coding);
+  coding.current = prefs.coding;
   const { surface, workspace, ready } = args;
   const workspaceId = workspaceKey(workspace);
 
@@ -254,6 +261,21 @@ export function useSurfaceRequests(args: Args): void {
           target.tui,
         );
         done();
+        return;
+      }
+      if ("coding" in target) {
+        const { handoff } = request.payload;
+        const { harness } = target.coding;
+        const command =
+          handoff === null || !(harness in HARNESS_ADAPTERS)
+            ? null
+            : handoffCommand(
+                coding.current.commands,
+                harness as HarnessId,
+                handoff.file,
+              );
+        if (command === null || host().props.terminal === undefined) return;
+        if (openTerminal(host(), { command, open }) !== null) done();
         return;
       }
       openBrowserTab(host(), target.browser.url, open);

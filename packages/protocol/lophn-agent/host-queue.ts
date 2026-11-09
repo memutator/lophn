@@ -51,7 +51,8 @@ export type TabRelation = z.infer<typeof tabRelationSchema>;
 // `preview`는 그 앱에서 지금 돌고 있는 preview를 앱 view 탭으로 연다(요청의 workspace는 그 앱이다).
 // device는 설정 `shell.devices`의 이름이다. 없으면 null이고 desktop 크기다. core가 이름을 확인해 보낸다.
 // `artifact`는 요청 workspace(project나 앱)의 artifact `artifacts/<name>/`을 artifact 탭으로 연다.
-export const hostTabTargetSchema = z.union([
+// `coding`은 project 터미널 탭에서 그 harness의 TUI를 띄운다. handoff 글은 core가 file로 쓰고 payload의 `handoff`에는 file만 간다.
+const sharedTargets = [
   z.strictObject({ session: idSchema("ses") }),
   z.strictObject({ tui: idSchema("ses") }),
   z.strictObject({
@@ -64,8 +65,32 @@ export const hostTabTargetSchema = z.union([
     }),
   }),
   z.strictObject({ artifact: z.strictObject({ name: artifactNameSchema }) }),
+] as const;
+export const hostTabTargetSchema = z.union([
+  ...sharedTargets,
+  z.strictObject({
+    coding: z.strictObject({ harness: z.string().min(1).max(64) }),
+  }),
 ]);
 export type HostTabTarget = z.infer<typeof hostTabTargetSchema>;
+
+// `tabs/open` 입력의 coding target이다. payload의 target과 달리 handoff 글을 싣는다.
+export const HANDOFF_MAX_BYTES = 64 * 1024;
+const codingOpenSchema = z.strictObject({
+  coding: z.strictObject({
+    harness: z.string().min(1).max(64),
+    handoff: z
+      .string()
+      .min(1)
+      .refine(
+        (text) =>
+          new TextEncoder().encode(text).byteLength <= HANDOFF_MAX_BYTES,
+        {
+          message: `handoff is at most ${HANDOFF_MAX_BYTES} bytes`,
+        },
+      ),
+  }),
+});
 
 const tabOpenPayloadSchema = z.strictObject({
   tab: idSchema("tab"),
@@ -81,6 +106,10 @@ const tabOpenPayloadSchema = z.strictObject({
       harness: z.string().min(1),
       external_session: z.string().min(1),
     })
+    .nullable(),
+  // target이 coding일 때 handoff 글을 쓴 file이다(data root `handoffs/<tab>.md`). 글 자체는 싣지 않는다.
+  handoff: z
+    .strictObject({ harness: z.string().min(1), file: z.string().min(1) })
     .nullable(),
 });
 
@@ -282,7 +311,9 @@ const acceptedSchema = z.strictObject({
 // session이 아니면 `not_found`, url이 http·https가 아니면 `invalid_input`이다.
 // `preview`는 그 앱 workspace의 session과 사람 token만 연다(agent가 다른 앱이면 `not_found`). 돌고 있는 preview가 없으면 `conflict`다.
 // `preview`의 device 이름이 `shell.devices`에 없으면 `not_found`다.
-// 사람 token은 `browser`·`preview`·`artifact`만 연다(session·tui는 `invalid_input`). 앱마다 preview 탭은 하나라 이미 있으면 그 탭을 돌려주고 주인이 새로 연 쪽이 된다.
+// `coding`은 agent가 부른 project workspace의 session만 연다. 그 밖(사람 token, home, 앱)이거나 harness가 `shell.coding_agents.favorites`에 없거나
+// adapter에 TUI 첫 prompt 인자(`session.prompt`)가 없으면 `invalid_input`이고 message에 열 수 있는 harness id가 있다. 글은 최대 64 KiB다.
+// 사람 token은 `browser`·`preview`·`artifact`만 연다(session·tui·coding은 `invalid_input`). 앱마다 preview 탭은 하나라 이미 있으면 그 탭을 돌려주고 주인이 새로 연 쪽이 된다.
 // `artifact`는 agent면 자기 session의 workspace, 사람 token이면 입력의 workspace의 것이다. home이면 `invalid_input`, 입구 `index.html`이
 // 없으면 `not_found`다. artifact마다 host 탭은 하나라 preview처럼 이미 있으면 그 탭을 돌려주고 주인이 바뀐다.
 // `tui`는 harness agent session을 터미널 탭에서 CLI의 resume으로 연다. harness가 아니거나 project workspace의 session이 아니면
@@ -293,7 +324,7 @@ export const tabsOpen = defineMemory({
   method: "open",
   name: "OpenTab",
   input: z.strictObject({
-    target: hostTabTargetSchema,
+    target: z.union([...sharedTargets, codingOpenSchema]),
     relation: tabRelationSchema.optional(),
     // 사람 token이 browser 탭을 놓을 workspace다. 없으면 home이다. agent는 자기 session의 workspace를 쓰므로 이 칸을 무시한다.
     workspace: workspaceSchema.optional(),

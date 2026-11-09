@@ -124,6 +124,8 @@ export type HarnessAdapter = {
     name: readonly string[];
     // 저장한 session을 다시 여는 인자다. command(`commands[0]`) 뒤에 붙이고 `{id}`를 session id로 바꾼다. 모르면 null이다.
     resume: readonly string[] | null;
+    // TUI를 첫 prompt와 함께 띄우는 인자다. command 뒤에 붙이고 `{prompt}`를 prompt로 바꾼다(handoff). 없으면 handoff 대상이 아니다.
+    prompt?: readonly string[];
   };
 };
 
@@ -165,6 +167,8 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
       name: ["session_title"],
       // 확인함: claude --help
       resume: ["--resume", "{id}"],
+      // 확인함: claude --help (`claude [options] [prompt]`)
+      prompt: ["{prompt}"],
     },
   },
   codex: {
@@ -201,6 +205,8 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
       name: [],
       // 확인함: codex --help
       resume: ["resume", "{id}"],
+      // 확인함: codex --help (`codex [OPTIONS] [PROMPT]`)
+      prompt: ["{prompt}"],
     },
   },
   opencode: {
@@ -228,6 +234,8 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
       name: ["properties.info.title", "properties.title"],
       // 확인함: opencode --help
       resume: ["--session", "{id}"],
+      // 확인함: opencode --help (2.1.4의 `--prompt`)
+      prompt: ["--prompt", "{prompt}"],
     },
   },
   pi: {
@@ -316,6 +324,8 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
       name: ["session_name"],
       // 확인함: omp --help
       resume: ["--resume={id}"],
+      // 확인함: omp --help (`omp [MESSAGES]`, "Interactive mode with initial prompt")
+      prompt: ["{prompt}"],
     },
   },
   cursor: {

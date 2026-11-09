@@ -1,7 +1,11 @@
 import { lstat } from "node:fs/promises";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
-import { devicesSetting } from "../../../config/shell-settings.ts";
+import {
+  codingAgentsSetting,
+  devicesSetting,
+} from "../../../config/shell-settings.ts";
+import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import type { ExtensionToolContent } from "../../../../protocol/extensions/manifest.ts";
 import {
   BROWSER_WAIT_DEFAULT_MS,
@@ -30,6 +34,8 @@ import {
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
   createHostQueue,
+  fileHandoffs,
+  type HandoffFiles,
   type HarnessHold,
   type HostQueueService,
   type TabOwner,
@@ -70,6 +76,9 @@ type TabDeps = {
   // 사람이 등록한 기기 이름들(설정 `shell.devices`).
   deviceNames(): readonly string[];
   harnessHold: Pick<HarnessHold, "open">;
+  // 사람이 고른 coding agent 즐겨찾기 harness id(설정 `shell.coding_agents`).
+  codingFavorites(): readonly string[];
+  handoffs: HandoffFiles;
 };
 
 // agent는 자격의 session으로, 사람은 사람 token으로 부른다. 탭의 주인은 session, 사람 token은 모두 "person"이다.
@@ -172,6 +181,50 @@ export function createTabHandlers(deps: TabDeps) {
       return err({ code: "not_found", message: "session not found" });
     }
     let resume: { harness: string; external_session: string } | undefined;
+    if ("coding" in input.target) {
+      const here = workspaceOf(from!);
+      if (here?.kind !== "project") {
+        return err({
+          code: "invalid_input",
+          message:
+            "coding tabs open in a project workspace; home and apps have no terminal",
+        });
+      }
+      const { harness, handoff } = input.target.coding;
+      const openable = deps
+        .codingFavorites()
+        .filter(
+          (id) =>
+            HARNESS_ADAPTERS[id as keyof typeof HARNESS_ADAPTERS]?.session
+              .prompt,
+        );
+      if (!openable.includes(harness)) {
+        return err({
+          code: "invalid_input",
+          message: `${harness} cannot open a handoff; use one of: ${openable.join(", ") || "(none; add a coding agent to the favorites in Settings)"}`,
+        });
+      }
+      const tab = queue.newTabId();
+      let file: string;
+      try {
+        file = await deps.handoffs.write(tab, handoff);
+      } catch {
+        return err({
+          code: "unavailable",
+          message: "the handoff could not be written",
+        });
+      }
+      queue.openTab({
+        owner: caller.value,
+        workspace: here,
+        target: { coding: { harness } },
+        place: input.place ?? null,
+        source: caller.value as Id<"ses">,
+        handoff: { harness, file },
+        tab,
+      });
+      return ok({ tab, status: "accepted" as const });
+    }
     if ("session" in input.target || "tui" in input.target) {
       // 같은 workspace의 열린 session만 연다.
       const session =
@@ -446,6 +499,9 @@ export const hostQueueWiring: WiringFactory = () => {
         deviceNames: () =>
           (ctx.settings.get(devicesSetting) ?? []).map((d) => d.name),
         harnessHold: ctx.harnessHold,
+        codingFavorites: () =>
+          ctx.settings.get(codingAgentsSetting)?.favorites ?? [],
+        handoffs: fileHandoffs(ctx.root.path),
       });
       tabs = handlers;
 

@@ -70,7 +70,12 @@ export type HostQueue = {
     source: Id<"ses"> | null;
     // target이 tui일 때 CLI를 다시 여는 값.
     resume?: { harness: string; external_session: string };
+    // target이 coding일 때 handoff 글을 쓴 file이다. `tab`은 그 file 이름에 쓴 `newTabId()`다.
+    handoff?: { harness: string; file: string };
+    tab?: Id<"tab">;
   }): Id<"tab">;
+  // 아직 쓰지 않은 탭 id다. file을 먼저 쓰고 `openTab({tab})`으로 여는 쪽이 받는다.
+  newTabId(): Id<"tab">;
   // 기다리는 take가 있거나 마지막 take가 끝난 지 3초 안이다.
   attached(): boolean;
 };
@@ -242,6 +247,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     releaseTakers(): void {
       for (const taker of [...takers]) taker.finish(null);
     },
+    newTabId: () => deps.ids.newId("tab") as Id<"tab">,
     openTab(input: Parameters<HostQueue["openTab"]>[0]) {
       const { target, workspace } = input;
       const single =
@@ -261,6 +267,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
             relation: input.relation,
             source: input.source,
             resume: input.resume ?? null,
+            handoff: input.handoff ?? null,
           },
         });
       if (single !== null) {
@@ -278,7 +285,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
           }
         }
       }
-      const tab = deps.ids.newId("tab") as Id<"tab">;
+      const tab = input.tab ?? (deps.ids.newId("tab") as Id<"tab">);
       tabs.set(tab, {
         owner: input.owner,
         workspace: input.workspace,

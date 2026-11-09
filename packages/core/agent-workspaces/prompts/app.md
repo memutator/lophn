@@ -118,6 +118,8 @@ information). Use `lophn app link-source` only for an existing git repo with a c
   person can see it. Keep the evidence for when they ask.
 - When you hear that a public command you use has changed, read the change
   and check the skills that call it before you use it again.
+- Home and apps have no terminal, so `lophn tab open --coding` does not work
+  here. Work for a coding agent goes headless with `lophn team spawn <handle>`.
 
 ## Memory
 

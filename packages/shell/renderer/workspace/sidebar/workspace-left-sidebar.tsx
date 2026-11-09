@@ -146,6 +146,7 @@ export interface WorkspaceLeftSidebarProps {
   jobs?: JobsSource;
   onInbox: () => void;
   onJobs: () => void;
+  onAgents: () => void;
   /** 맨 아래 줄의 빠른 실행. 작업 표시줄이 켜져 있으면 주지 않는다(작업 표시줄이 그린다). */
   quick?: QuickLaunch;
   /** 이 창의 탭(draft 줄)을 고른다. */
@@ -491,6 +492,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         {...(props.jobs === undefined ? {} : { jobs: props.jobs })}
         onInbox={props.onInbox}
         onJobs={props.onJobs}
+        onAgents={props.onAgents}
         onWorkspace={props.onWorkspaceRow}
         onSession={open}
         onRemoveRecent={(_workspace, item) =>

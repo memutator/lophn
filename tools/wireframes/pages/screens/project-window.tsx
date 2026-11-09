@@ -725,6 +725,7 @@ export function PageLeftSidebar(props: SidebarProps) {
           jobs={jobs}
           onInbox={() => {}}
           onJobs={() => {}}
+          onAgents={() => {}}
           onWorkspace={() => {}}
           onSession={(_workspace, item) => {
             const found = SESSIONS.find((entry) => entry.id === item.ref);

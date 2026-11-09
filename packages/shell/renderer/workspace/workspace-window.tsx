@@ -169,6 +169,7 @@ import {
   appScreenTab,
   openAppScreen,
 } from "./kinds/app-screen.tsx";
+import { openAgents } from "./kinds/agents.tsx";
 import { openInbox } from "./kinds/inbox.tsx";
 import { openJobs } from "./kinds/jobs.tsx";
 import { openArtifact } from "./kinds/artifact.tsx";
@@ -3018,6 +3019,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                   jobs={props.jobs}
                   onInbox={() => openInbox(host)}
                   onJobs={() => openJobs(host)}
+                  onAgents={() => openAgents(host)}
                   {...(taskbar ? {} : { onSettings: () => onSettings() })}
                 />
               }

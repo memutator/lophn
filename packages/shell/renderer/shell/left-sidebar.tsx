@@ -1,4 +1,4 @@
-// 왼쪽 sidebar. 위에 Inbox·Jobs, 아래에 workspace(Home, project, app)마다 줄 오른쪽 끝의 +(새 session. hover하면 agent 목록)와 열린 session과 이 workspace의 접힌 Recent 줄 하나,
+// 왼쪽 sidebar. 위에 Inbox·Jobs·Agents, 아래에 workspace(Home, project, app)마다 줄 오른쪽 끝의 +(새 session. hover하면 agent 목록)와 열린 session과 이 workspace의 접힌 Recent 줄 하나,
 // 맨 아래에 빠른 실행(quick-launch.tsx)과 Settings다. 작업 표시줄이 켜져 있으면 둘 다 작업 표시줄로 가므로 `quick`과 `onSettings`를 주지 않고 맨 아래 줄이 없다.
 // 값과 callback만 받아서 project 창 말고 Home과 app workspace도 같은 것을 쓴다.
 import { t } from "@lophn/i18n";
@@ -79,6 +79,8 @@ export interface LeftSidebarProps {
   /** Inbox·Jobs overlay의 [Open in tab]과 Jobs 줄(통로가 없을 때): 그 탭을 연다. */
   onInbox: () => void;
   onJobs: () => void;
+  /** Agents 줄: 지금 workspace의 Agents 탭을 연다. */
+  onAgents: () => void;
   /** workspace 줄 누르기. 앱 줄이면 그 앱 화면 탭으로 간다. */
   onWorkspace: (ref: WorkspaceRef) => void;
   onSession: (workspace: SidebarWorkspace, session: SidebarSession) => void;
@@ -270,6 +272,7 @@ export function LeftSidebar({
   jobs,
   onInbox,
   onJobs,
+  onAgents,
   onWorkspace,
   onSession,
   onRemoveRecent,
@@ -377,6 +380,12 @@ export function LeftSidebar({
             )}
           />
         )}
+        <NavRow
+          icon={commonIcons.agents}
+          label={t("left-sidebar.button.agents")}
+          onClick={onAgents}
+          data-nav="agents"
+        />
       </div>
 
       <div className={styles.sectionHead}>

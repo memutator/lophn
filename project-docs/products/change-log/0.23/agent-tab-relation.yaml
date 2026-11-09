@@ -1,0 +1,26 @@
+id: agent-tab-relation
+version: 0.23.8
+title: "agent는 탭의 자리가 아니라 뜻을 말하고, 자리는 open-policy 한 곳이 정한다"
+modules: [packages/protocol, packages/core/host-queue, packages/core/router, packages/core/main, packages/cli, packages/coding-agent, packages/shell/main, packages/shell/renderer]
+change: |
+  전: agent가 `lophn tab open --place beside|group|float`로 자리를 골랐고, core가 팀 자식을 늘 `place: "group"`으로 부모 group에 열었다. group 칸은 부모 칸을 0.5로 거듭 나눠(부모 1/8, 마지막 자식 1/2) 순서가 거꾸로였고, 손자도 root의 group에 들어가 4칸이 차면 plain tab으로 흩어졌다. 숨은 host 탭 mount는 지금 desk의 tab 줄만 보아 접힌 float과 다른 desk의 host 탭은 mount되지 않았다.
+  후:
+    - `lophn tab open --as peer|stage|aside|work|glance`(payload `relation`). 말하지 않으면 browser는 work, session·tui·preview·artifact는 aside다. `lophn team spawn --as peer|stage`(기본 peer). core는 뜻만 넘기고 자리를 고르지 않는다.
+    - renderer `open-policy.ts`가 뜻과 지금 layout으로 자리를 정한다. work는 접힌 float, glance는 펴진 float, aside는 source 칸을 나눈 옆 칸(가득 차면 다음 칸 stack), peer는 source group의 가장 큰 칸을 나눈다(가득 차면 마지막 칸에 숨겨 쌓는다), stage는 source group 뒤 plain tab이다.
+    - `lophn tab show <tab>`(route `tabs/show`, host 요청 `tab_show`): 자기가 연 접힌 float을 그 자리에서 편다. 선택·focus·desk는 바꾸지 않는다. 남의 탭은 `forbidden`, 없는 탭은 `not_found`.
+    - 숨은 host 탭 mount가 접힌 float과 다른 desk의 tab·float까지 덮는다.
+    - CLI help와 skill `lophn-agent`가 뜻과 쓰는 때를 말한다(사람 손이 필요하면 `tab show`와 `ask`).
+  저장 모양: 없음(host queue와 탭 표는 core 메모리다).
+why: |
+  자리 결정이 core, agent, renderer, desk-model에 흩어져 아무도 팀 구조와 탭의 쓰임을 보고 배치하지 못했다. 사람이 "책임을 모아도 semantic을 이해하지 못하니 agent가 뜻을 잘 전달하게" 하자고 정했다(2026-11-09).
+decisions:
+  - text: agent는 자리가 아니라 탭이 자기에게 무엇인지(peer·stage·aside·work·glance)만 말하고 자리는 open-policy 한 곳이 정한다. 버린 길은 open-policy에 책임만 모으기다(뜻을 몰라 단계별 group을 만들지 못한다).
+    by: person
+  - text: agent의 작업 탭에 사람 손이 필요하면 접힌 float을 그 자리에서 펴기만 한다(`tab show`). 옆 칸으로 옮기지 않아 사람의 split 배치를 건드리지 않는다.
+    by: person
+  - text: 이름은 peer·stage·aside·work·glance이고, 말하지 않으면 browser는 work, 나머지는 aside다.
+    by: person
+  - text: peer는 가장 큰 칸(같으면 뒤 칸)을 나눈다. 첫 peer가 사람이 보는 coordinator 칸을 줄이지 않게 하려는 것이다.
+    by: agent
+follow_up: |
+  실제 Electron 창에서 팀 group 모양, 접힌 work 탭, 다시 load 뒤 browser 호출, `tab show`를 사람이 아직 보지 않았다. 같은 source에 aside를 거듭 열면 source 칸이 줄고, float 상한(20)에 차면 탭이 조용히 버려진다.

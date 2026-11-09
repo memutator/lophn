@@ -1,6 +1,7 @@
-// core process 하나의 telemetry. 구조화 log는 늘 stderr로 나가고(dev는 pretty, 아니면 JSON 한 줄),
-// span·metric은 LOPHN_TELEMETRY가 켤 때만 모은다. 수집기 없이 보는 길(console)과 OTLP/HTTP JSON으로
-// loopback 수집기에 보내는 길(otlp) 둘이다. 바깥 host로는 보내지 않는다: core의 network는 loopback뿐이다.
+// process 하나의 telemetry. 구조화 log는 늘 stderr로 나가고(dev는 pretty, 아니면 JSON 한 줄) 기록기(log file)도 받는다.
+// span은 끝날 때마다 debug log 한 줄이 된다. stderr는 LOPHN_LOG_LEVEL을 따르고, 기록기는 trace 설정(`setTrace`)이 켜면
+// debug까지 받는다. OTLP는 LOPHN_TELEMETRY=otlp일 때만 span·metric·log를 OTLP/HTTP JSON으로 loopback 수집기에 보낸다.
+// 바깥 host로는 보내지 않는다: core의 network는 loopback뿐이다.
 import { AsyncLocalStorage } from "node:async_hooks";
 import { request } from "node:http";
 import type { Clock, LogLevel, RandomSource } from "../../base/mod.ts";
@@ -24,7 +25,7 @@ import {
   type Tracer,
 } from "../../base/telemetry/mod.ts";
 
-export type TelemetryMode = "off" | "console" | "otlp";
+export type TelemetryMode = "off" | "otlp";
 
 export type TelemetryConfig = {
   mode: TelemetryMode;
@@ -40,6 +41,8 @@ export type Telemetry = {
   meter: Meter;
   red: RedMetrics;
   config: TelemetryConfig;
+  // 기록기가 debug log와 span 줄까지 받게 한다(설정 `diagnostics.trace`). 도중에 바꿀 수 있다.
+  setTrace(on: boolean): void;
   // 알려진 secret 원문을 지우는 함수를 붙인다. secret store가 열린 뒤 core가 한 번 부른다. 그 전 log는
   // pattern 규칙(credential prefix·PEM)과 key 이름 규칙만으로 가린다.
   useRedactor(redact: (text: string) => string): void;
@@ -48,7 +51,7 @@ export type Telemetry = {
 };
 
 const LEVELS: readonly LogLevel[] = ["debug", "info", "warn", "error"];
-const MODES: readonly TelemetryMode[] = ["off", "console", "otlp"];
+const MODES: readonly TelemetryMode[] = ["off", "otlp"];
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
 const EXPORT_INTERVAL_MS = 10_000;
 const EXPORT_TIMEOUT_MS = 2_000;
@@ -93,9 +96,9 @@ export function readTelemetryConfig(env: Record<string, string | undefined>): {
       !LOOPBACK_HOSTS.has(parsed.hostname)
     ) {
       problems.push(
-        "LOPHN_TELEMETRY=otlp needs OTEL_EXPORTER_OTLP_ENDPOINT=http://<loopback>:<port>; telemetry falls back to console",
+        "LOPHN_TELEMETRY=otlp needs OTEL_EXPORTER_OTLP_ENDPOINT=http://<loopback>:<port>; telemetry falls back to off",
       );
-      mode = "console";
+      mode = "off";
     } else {
       endpoint = parsed;
     }
@@ -151,6 +154,13 @@ export function createTelemetry(options: {
   config: TelemetryConfig;
   // 한 줄(줄바꿈 없음)을 받는다. 보통 process.stderr.
   write(line: string): void;
+  // stderr가 받는 최저 level. 없으면 config.level이다. agent runtime child는 debug로 둬 core가 거른다.
+  writeLevel?: LogLevel;
+  // log file 기록기. 없으면 stderr와 OTLP뿐이다.
+  recorder?: {
+    push(record: LogRecord): void;
+    flush(): Promise<void>;
+  };
 }): Telemetry {
   const { config } = options;
   const context = asyncContextStore();
@@ -162,6 +172,7 @@ export function createTelemetry(options: {
   const logs: LogRecord[] = [];
   const meter = createMeter(options.clock.nowMs());
   let warned = false;
+  let trace = false;
   let redactKnown: ((text: string) => string) | undefined;
 
   const exportNow = async () => {
@@ -209,18 +220,23 @@ export function createTelemetry(options: {
   const logger = createLogger({
     service: options.service,
     clock: options.clock,
-    level: config.level,
+    level: options.writeLevel ?? config.level,
+    // 기록기는 trace가 켜면 debug까지, 아니면 stderr와 같은 level부터 받는다.
+    recordLevel: () => (trace ? "debug" : config.level),
     format: config.format,
     context,
     write: options.write,
     redactText: (text) => (redactKnown ? redactKnown(text) : text),
-    ...(config.mode === "otlp"
-      ? {
-          onRecord: (record: LogRecord) => {
-            if (logs.length < MAX_BUFFER) logs.push(record);
-          },
-        }
-      : {}),
+    onRecord: (record: LogRecord) => {
+      options.recorder?.push(record);
+      if (
+        config.mode === "otlp" &&
+        LEVELS.indexOf(record.level) >= LEVELS.indexOf(config.level) &&
+        logs.length < MAX_BUFFER
+      ) {
+        logs.push(record);
+      }
+    },
     flush: exportNow,
   });
 
@@ -229,22 +245,28 @@ export function createTelemetry(options: {
     random: options.random,
     context,
     onEnd(span) {
-      if (config.mode === "off") return;
-      if (config.mode === "console") {
-        // span 하나를 debug log 한 줄로 본다. 수집기 없이 지연을 보는 길이다.
-        logger.debug({
-          component: "trace",
-          event: span.name,
-          fields: {
-            duration_ms: Math.round((span.endMs - span.startMs) * 10) / 10,
-            kind: span.kind,
-            status: span.status,
-            ...span.attributes,
-          },
-        });
-        return;
+      // span 하나를 debug log 한 줄로 남긴다. 수집기 없이 지연을 보는 길이다. 아무도 debug를 받지 않으면 만들지 않는다.
+      // span 자신의 trace·span id가 줄에 실리게 그 context 안에서 쓴다(끝난 뒤라 지금 context는 부모다).
+      if (logger.enabled("debug")) {
+        context.run(span.context, () =>
+          logger.debug({
+            component: "trace",
+            event: span.name,
+            fields: {
+              duration_ms: Math.round((span.endMs - span.startMs) * 10) / 10,
+              kind: span.kind,
+              status: span.status,
+              ...(span.parentSpanId === undefined
+                ? {}
+                : { parent_span_id: span.parentSpanId }),
+              ...span.attributes,
+            },
+          }),
+        );
       }
-      if (spans.length < MAX_BUFFER) spans.push(span);
+      if (config.mode === "otlp" && spans.length < MAX_BUFFER) {
+        spans.push(span);
+      }
     },
   });
 
@@ -260,12 +282,16 @@ export function createTelemetry(options: {
     meter,
     red: createRedMetrics(meter),
     config,
+    setTrace(on) {
+      trace = on;
+    },
     useRedactor(redact) {
       redactKnown = redact;
     },
     async shutdown() {
       clearInterval(timer);
       await exportNow();
+      await options.recorder?.flush();
     },
   };
 }

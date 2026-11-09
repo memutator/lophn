@@ -42,6 +42,7 @@ import {
 import { createAgentRuntimeSecrets } from "../../../lophn-agent/run-loop/runtime-secret.ts";
 import { messageRemoveQueued } from "../../../lophn-agent/session/mod.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
+import { relayChildLine } from "../../../diagnostics/mod.ts";
 import { agentTools } from "../../agent-tools.ts";
 import type { WiringFactory } from "./context.ts";
 
@@ -279,11 +280,7 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
             })
             .catch(() => {}),
         stderr: (line) =>
-          ctx.telemetry.logger.info({
-            component: "agent-runtime",
-            event: "child_stderr",
-            message: line,
-          }),
+          relayChildLine(ctx.telemetry.logger, "agent-runtime", line),
         registry: ctx.registry,
         record: (context) => runtime.record(context),
         turns: createTurnSource({

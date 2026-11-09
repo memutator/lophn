@@ -124,32 +124,50 @@ export function formatLogRecord(record: LogRecord, format: LogFormat): string {
 }
 
 export type StructuredLogger = Logger & {
+  // write나 onRecord 어느 한쪽이라도 이 level을 받는지. debug 전용 일을 만들기 전에 묻는다.
   enabled(level: LogLevel): boolean;
+  // 다른 process가 만든 record를 그대로 싣는다(시각·service·trace·span 유지). 글은 이쪽 redaction을 한 번 더 거친다.
+  relay(record: LogRecord): void;
 };
 
 export function createLogger(options: {
   service: string;
   clock: Clock;
+  // write(stderr)가 받는 최저 level.
   level: LogLevel;
+  // onRecord가 받는 최저 level. 부를 때마다 읽는다(trace 설정처럼 도중에 바뀐다). 없으면 level이다.
+  recordLevel?: () => LogLevel;
   format: LogFormat;
   context: TraceContextStore;
   // 이미 직렬화한 한 줄(끝 줄바꿈 없음)을 받는다. stderr 쓰기는 core가 한다.
   write(line: string): void;
   // pattern 규칙에 더해 알려진 secret을 지우는 함수. 없으면 pattern 규칙만이다.
   redactText?: (text: string) => string;
-  // OTLP로도 보낼 때 같은 record를 받는다.
+  // redaction을 마친 같은 record를 받는다(OTLP 전송, log file).
   onRecord?: (record: LogRecord) => void;
   flush?: () => Promise<void>;
 }): StructuredLogger {
-  const floor = LEVEL_RANK[options.level];
+  const writeFloor = LEVEL_RANK[options.level];
+  const recordFloor = () =>
+    options.onRecord === undefined
+      ? Number.POSITIVE_INFINITY
+      : LEVEL_RANK[options.recordLevel?.() ?? options.level];
   const redactText = (text: string) =>
     redactCredentials(options.redactText ? options.redactText(text) : text);
+  const emit = (record: LogRecord) => {
+    const rank = LEVEL_RANK[record.level];
+    if (rank >= writeFloor) {
+      options.write(formatLogRecord(record, options.format));
+    }
+    if (rank >= recordFloor()) options.onRecord?.(record);
+  };
   const logger: StructuredLogger = {
-    enabled: (level) => LEVEL_RANK[level] >= floor,
+    enabled: (level) =>
+      LEVEL_RANK[level] >= Math.min(writeFloor, recordFloor()),
     log(input) {
-      if (LEVEL_RANK[input.level] < floor) return;
+      if (LEVEL_RANK[input.level] < Math.min(writeFloor, recordFloor())) return;
       const span = options.context.active();
-      const record: LogRecord = {
+      emit({
         timestamp: options.clock.now(),
         level: input.level,
         service_name: options.service,
@@ -167,9 +185,28 @@ export function createLogger(options: {
                 unknown
               >,
             }),
-      };
-      options.write(formatLogRecord(record, options.format));
-      options.onRecord?.(record);
+      });
+    },
+    relay(record) {
+      if (LEVEL_RANK[record.level] < Math.min(writeFloor, recordFloor())) {
+        return;
+      }
+      emit({
+        ...record,
+        component: redactText(record.component),
+        event: redactText(record.event),
+        ...(record.message === undefined
+          ? {}
+          : { message: redactText(record.message) }),
+        ...(record.fields === undefined
+          ? {}
+          : {
+              fields: redactFields(record.fields, redactText) as Record<
+                string,
+                unknown
+              >,
+            }),
+      });
     },
     debug: (event) => logger.log({ ...event, level: "debug" }),
     info: (event) => logger.log({ ...event, level: "info" }),

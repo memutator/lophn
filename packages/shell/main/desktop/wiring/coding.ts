@@ -1,7 +1,7 @@
 // harness 감지, 터미널 supervisor, 터미널 IPC.
 
 import { randomUUID } from "node:crypto";
-import { appendFile, mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { app, clipboard } from "electron";
@@ -24,6 +24,8 @@ import {
   type HarnessTui,
 } from "../../terminal/harness-tui.ts";
 import { createTerminalIpc } from "../../terminal/ipc.ts";
+import { createTraceFile } from "../../terminal/trace-file.ts";
+import { DIAGNOSTICS_TRACE_SETTING_KEY } from "../../../../protocol/diagnostics/trace.ts";
 import { TerminalOutputs } from "../../terminal/output.ts";
 import { createSupervisor, spawnNodeHost } from "../../terminal/supervisor.ts";
 import {
@@ -245,23 +247,46 @@ export function register(ctx: ShellContext, appSessions: AppSessions): Coding {
   // 실행마다 비우는 mock 데이터 root 안의 빈 폴더에서 연다.
   const mockFolder =
     process.env.LOPHN_DEV_MOCK === "1" ? join(dataRoot, "mock-terminal") : null;
-  // 터미널 진단 기록. 간헐적인 mouse·화면 문제는 재현이 어려워, 사람이 `LOPHN_TERMINAL_TRACE=1`로 띄웠을 때만 남긴다.
-  const traceDir = join(dataRoot, "logs");
-  let traceWrites = Promise.resolve();
-  const trace =
-    process.env.LOPHN_TERMINAL_TRACE === "1"
-      ? (window: number, events: readonly Record<string, unknown>[]) => {
-          const text = events
-            .map((event) => `${JSON.stringify({ win: window, ...event })}\n`)
-            .join("");
-          traceWrites = traceWrites
-            .then(() => mkdir(traceDir, { recursive: true }))
-            .then(() =>
-              appendFile(join(traceDir, "terminal-trace.jsonl"), text),
-            )
-            .catch(() => {});
-        }
-      : undefined;
+  // 터미널 진단 기록. 간헐적인 mouse·화면 문제는 재현이 어려워, Settings › Diagnostics의 trace를 켰을 때만 남긴다.
+  // 켬 여부는 core 설정을 처음 쓸 때 읽어 두고, 바뀌었다는 알림(SettingsChanged)이 오면 다시 읽는다. core를 읽지 못하면 꺼진 것으로 보고 다음에 다시 읽는다.
+  const traceFile = createTraceFile(join(dataRoot, "logs"));
+  let traceOn: boolean | undefined;
+  ctx.relay.conditions.push({ types: ["SettingsChanged"] });
+  ctx.relay.events.push((event) => {
+    if (
+      event.type === "SettingsChanged" &&
+      event.payload.keys.includes(DIAGNOSTICS_TRACE_SETTING_KEY)
+    ) {
+      traceOn = undefined;
+    }
+  });
+  const readTrace = async (): Promise<boolean> => {
+    if (traceOn !== undefined) return traceOn;
+    const listed = await ctx.coreInternal("memory", "settings", "list", {
+      keys: [DIAGNOSTICS_TRACE_SETTING_KEY],
+    });
+    if (!listed.ok) return false;
+    const entry = (
+      listed.value as {
+        settings?: { key: string; default?: unknown; chosen?: unknown }[];
+      }
+    ).settings?.find((one) => one.key === DIAGNOSTICS_TRACE_SETTING_KEY);
+    traceOn =
+      (entry && "chosen" in entry ? entry.chosen : entry?.default) === true;
+    return traceOn;
+  };
+  const trace = async (
+    window: number,
+    events: readonly Record<string, unknown>[],
+  ): Promise<boolean> => {
+    if (!(await readTrace())) return false;
+    traceFile.append(
+      events
+        .map((event) => `${JSON.stringify({ win: window, ...event })}\n`)
+        .join(""),
+    );
+    return true;
+  };
   const terminalIpc = createTerminalIpc({
     outputs,
     registry: overlays.overlayRegistry(),
@@ -285,7 +310,7 @@ export function register(ctx: ShellContext, appSessions: AppSessions): Coding {
     renameAgentSession: agent.renameSession,
     // headless 확인은 사람 장치의 clipboard를 건드리지 않는다.
     ...(ctx.headless.headless ? {} : { clipboard }),
-    ...(trace === undefined ? {} : { trace }),
+    trace,
     // shell은 시작 층(rc)을 읽는 동안 친 글을 버리고, rc를 읽는 동안은 출력도 없다. 첫 출력(prompt) 뒤 300ms
     // 잠잠하면 친다. prompt는 열기 답보다 늦게 나오므로 듣기 전에 지나가지 않는다. 5초면 그냥 친다.
     settled: (terminalRef) =>

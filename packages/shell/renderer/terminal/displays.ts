@@ -33,6 +33,8 @@ type OutputBridge = Pick<
 /** 개수로 묶어 남기는 잦은 일(mouse 이동, wheel, PTY로 보낸 입력). 다른 일이 오면 그 앞에 내보내 순서를 지킨다. */
 const COUNTED = new Set(["sent", "wheel"]);
 const TRACE_FLUSH_MS = 500;
+// main이 꺼져 있다고 답하면 이만큼 모으지 않다가 다시 묻는다. 설정에서 trace를 켜면 이 안에 이어진다.
+const TRACE_RECHECK_MS = 5000;
 
 /** React의 tab mount와 terminal의 수명을 분리해 화면을 옮길 때도 이미 파싱한 출력을 유지한다. */
 export class TerminalDisplays {
@@ -40,8 +42,8 @@ export class TerminalDisplays {
   readonly #store: TerminalStore;
   readonly #bridge: OutputBridge | null;
   readonly #now: () => number;
-  // 진단 기록. main이 꺼져 있다고 답하면 그 뒤로 모으지 않는다.
-  #traceOff = false;
+  // 진단 기록. main이 꺼져 있다고 답한 때(ms). 그 뒤 잠깐 모으지 않는다.
+  #traceOffAt = Number.NEGATIVE_INFINITY;
   #traced: TerminalTraceEvent[] = [];
   readonly #counted = new Map<string, TerminalTraceEvent>();
   #flushing: ReturnType<typeof setTimeout> | null = null;
@@ -254,8 +256,9 @@ export class TerminalDisplays {
   }
 
   #trace(key: string, kept: Kept, event: TerminalTraceEvent): void {
-    if (this.#traceOff || !this.#bridge) return;
-    const where = { t: this.#now(), tab: key, ref: kept.ref };
+    const now = this.#now();
+    if (now - this.#traceOffAt < TRACE_RECHECK_MS || !this.#bridge) return;
+    const where = { t: now, tab: key, ref: kept.ref };
     if (COUNTED.has(String(event.e))) {
       const id = `${key}\u0000${event.e}\u0000${event.kind ?? event.tui_mouse}`;
       const seen = this.#counted.get(id);
@@ -278,7 +281,9 @@ export class TerminalDisplays {
       void this.#bridge
         .trace({ events: events.slice(at, at + 500) })
         .then((reply) => {
-          if (reply.ok && reply.value === false) this.#traceOff = true;
+          if (reply.ok && reply.value === false) {
+            this.#traceOffAt = this.#now();
+          }
         });
     }
   }

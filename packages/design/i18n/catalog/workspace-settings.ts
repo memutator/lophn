@@ -136,6 +136,8 @@ export const workspaceSettings = {
   "settings.diagnostics.check-failed":
     "The check couldn't start right now. Try again.",
   "settings.diagnostics.last-run": "Last run at {time}.",
+  "settings.diagnostics.trace-help":
+    "Records event names, ids, timings and sizes to the logs folder of your lophn data folder (<data root>/logs). Typed text, terminal output, prompts and model replies are never recorded. Takes effect right away.",
   "settings.diagnostics.not-run":
     "No check has run yet. Checks run only when you press the button.",
   "settings.empty.coding-search": "No product matches your search.",
@@ -411,6 +413,7 @@ export const workspaceSettings = {
   "settings.label.tab-agents": "Agents",
   "settings.label.tab-appearance": "Appearance",
   "settings.label.tab-coding": "Coding agents",
+  "settings.label.diagnostics-trace": "Trace",
   "settings.label.tab-diagnostics": "Diagnostics",
   "settings.label.tab-extension-packages": "Extensions",
   "settings.label.tab-extensions": "Tools and skills",

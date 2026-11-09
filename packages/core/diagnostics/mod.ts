@@ -6,6 +6,8 @@ export {
 } from "./crash.ts";
 export { createComponentChecks } from "./components.ts";
 export { createLogFiles } from "./files.ts";
+export { relayChildLine } from "./relay.ts";
+export { createLogRecorder, type LogRecorder } from "./record.ts";
 export { createSafeLog, type DiagnosticCatalog, type SafeLog } from "./log.ts";
 export { createDiagnosticIngress, type DiagnosticAuthority } from "./pipe.ts";
 export type { ComponentCheck } from "./ports.ts";

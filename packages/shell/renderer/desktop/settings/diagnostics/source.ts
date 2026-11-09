@@ -22,4 +22,7 @@ export interface DiagnosticsView {
 export interface DiagnosticsSource {
   /** 지금 점검한다. 사람이 누를 때만 부른다. */
   check(): Promise<SourceResult<DiagnosticsView>>;
+  /** 진단 trace(설정 `diagnostics.trace`)가 켜져 있는지. */
+  trace(): Promise<SourceResult<boolean>>;
+  setTrace(on: boolean): Promise<SourceResult<null>>;
 }

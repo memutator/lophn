@@ -1,7 +1,9 @@
 // DiagnosticsSource를 main의 core 통로로 만든다. 결과는 contract memory(diagnostics/status)이고, 호출할
 // 때마다 지금 점검한다. 응답은 main의 contract client가 route output schema로 이미 검사했다.
 import type { CoreSource } from "../../connection/connection.ts";
+import { DIAGNOSTICS_TRACE_SETTING_KEY } from "../../../../../protocol/diagnostics/trace.ts";
 import { call } from "../core-call.ts";
+import { chooseSetting, readEffective } from "../declared.ts";
 import type { DiagnosticsSource, DiagnosticsView } from "./source.ts";
 
 interface StatusValue {
@@ -36,5 +38,16 @@ export function coreDiagnosticsSource(core: CoreSource): DiagnosticsSource {
       };
       return { ok: true, value: view };
     },
+
+    async trace() {
+      const read = await readEffective(core, [DIAGNOSTICS_TRACE_SETTING_KEY]);
+      if (!read.ok) return read;
+      return {
+        ok: true,
+        value: read.value.get(DIAGNOSTICS_TRACE_SETTING_KEY) === true,
+      };
+    },
+
+    setTrace: (on) => chooseSetting(core, DIAGNOSTICS_TRACE_SETTING_KEY, on),
   };
 }

@@ -8,9 +8,11 @@ const LOG_FILE_MAX_BYTES = 10 * 1024 * 1024;
 const LOG_FILE_COUNT = 5;
 
 // H is fixed nonsecret installation input; filenames never come from a report.
+// prefix는 file 이름의 앞(`platform-0.jsonl`, `core-0.jsonl`)이고 고정 값만 받는다.
 export async function createLogFiles(
   root: string,
   platform: OsPlatform = process.platform,
+  prefix: "platform" | "core" = "platform",
 ): Promise<{
   write(bytes: Uint8Array): Promise<void>;
 }> {
@@ -42,7 +44,7 @@ export async function createLogFiles(
   }
   const paths = Array.from(
     { length: LOG_FILE_COUNT },
-    (_, i) => `${directory}/platform-${i}.jsonl`,
+    (_, i) => `${directory}/${prefix}-${i}.jsonl`,
   );
   async function guard() {
     if ((await realpath(canonical)) !== canonical) {

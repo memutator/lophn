@@ -1,0 +1,14 @@
+id: dead-connection-states-removed
+version: 0.23.6
+title: main이 세우지 않는 연결 상태 failed·failed-sandbox와 옛 중복 wireframe frame을 지운다
+modules: [packages/shell/ipc, packages/shell/renderer, packages/design, tools]
+change: |
+  - 연결 상태 값 `failed`, `failed-sandbox`와 그것만 읽던 renderer 갈래(`ConnectionGate`의 실패 카드, `sandboxFailure()`와 `sandbox` 종류), i18n 문구(`home.connection.failed`, `home.title.sandbox-failed`, `home.failure.sandbox-failed`)를 지웠다. 같은 상황에서 사람이 보는 화면은 그대로 `failed-start` 시작 실패다.
+  - wireframe frame `home-connection-failed`, `home-sandbox-failed`와 옛 중복 `settings-general`, `settings-diagnostics`(`new-settings-general`, `new-settings-diagnostics`와 같은 SettingsSpace를 그리던 것)를 지웠다.
+  - Settings Diagnostics의 `settings.diagnostics.trace-help` 문구가 `<data root>`를 ICU tag로 읽혀 FORMAT_ERROR가 나던 것을 `'<'`로 escape해 고쳤다. 화면의 글은 같다.
+why: |
+  main이 세우지 않는 상태와 화면이 코드, 문구, wireframe, 문서에 남아 "OS 보안 설정이 막았다"는 안내가 뜨는 줄 알게 했다. 지워도 잃는 기능이 없다.
+decisions:
+  - text: >-
+      죽은 연결 상태와 옛 중복 frame을 지운다. 버린 길: core가 sandbox 실패를 구별해 알리고 main이 `failed-sandbox`를 세우게 하기(OS별 실패를 가를 신호가 없고 쓸 곳이 생길 때 한다).
+    by: person

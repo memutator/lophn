@@ -1,0 +1,14 @@
+id: harness-gui-image-modal
+version: 0.23.7
+title: "harness GUI 대화에 붙인 그림이 썸네일로 보이고 누르면 modal로 크게 뜬다"
+modules: [packages/shell/main, packages/shell/renderer]
+change: |
+  전: harness GUI에서 사람이 붙인 그림은 탭의 임시 폴더 file의 `file://` 링크로 메시지에 실려 file chip으로만 보였고, 누르면 탭으로 열렸다. GUI source의 그림 주소 읽기는 늘 null이었다.
+  후: 그림 확장자(png·jpg·jpeg·gif·webp)의 `file://` 링크는 썸네일로 그리고 누르면 `ImagePreview` modal로 크게 보인다(Esc·바깥·[x]로 닫는다). 새 IPC `harness-gui:tab-image-read`로 main이 그 탭의 임시 폴더 바로 아래 file만, bytes가 그림일 때만 읽어 준다. 못 읽으면 chip으로 남는다. 붙여 넣은 그림은 이름에 MIME의 확장자를 붙여 쓴다. lophn agent 대화는 그대로다.
+why: |
+  사람이 GUI 대화의 그림을 탭을 열지 않고 바로 크게 보고 싶어 했다.
+decisions:
+  - text: 그림 주소는 renderer 메모리 대신 main이 tmp file을 다시 읽어 준다. 창을 다시 load해도 그림이 남는다. 버린 길은 올릴 때의 Blob을 renderer에 기억하기다. 다시 load하면 chip으로 돌아간다.
+    by: agent
+follow_up: |
+  Claude adapter는 지난 대화를 다시 읽을 때 사람 메시지를 글로만 바꿔 옛 그림이 사라진다(이번에 고치지 않았다).

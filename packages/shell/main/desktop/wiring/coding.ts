@@ -1,9 +1,9 @@
 // harness 감지, 터미널 supervisor, 터미널 IPC.
 
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 import { app, clipboard } from "electron";
 import {
   canDeliverMessages,
@@ -71,6 +71,19 @@ async function projectFolders(
     folder_ref: `${project}_${index}`,
     path: folder.path,
   }));
+}
+
+// GUI 탭이 사람이 붙인 이미지를 쓰는 임시 폴더. 터미널을 닫아도 OS가 임시 폴더를 비운다.
+const imageDir = (ref: string) => join(tmpdir(), "lophn-gui", ref);
+
+// 붙이기가 받는 형식만 bytes로 가린다. 이름(확장자)은 renderer가 준 글이라 믿지 않는다.
+function imageMime(bytes: Uint8Array): string | null {
+  const at = (...head: number[]) => head.every((byte, i) => bytes[i] === byte);
+  if (at(0x89, 0x50, 0x4e, 0x47)) return "image/png";
+  if (at(0xff, 0xd8, 0xff)) return "image/jpeg";
+  if (at(0x47, 0x49, 0x46, 0x38)) return "image/gif";
+  if (at(0x52, 0x49, 0x46, 0x46) && bytes[8] === 0x57) return "image/webp";
+  return null;
 }
 
 function harnessLabel(harness: string): string {
@@ -391,15 +404,32 @@ export function register(ctx: ShellContext, appSessions: AppSessions): Coding {
       onForegroundExit: (ref, listener) =>
         agent.tracker.onForegroundExit(ref, listener),
     },
-    // 탭의 임시 폴더. 이미지는 CLI가 file 경로로 읽는다. 터미널을 닫아도 OS가 임시 폴더를 비운다.
+    // 이미지는 CLI가 file 경로로 읽는다.
     async writeImage(ref, image) {
-      const dir = join(tmpdir(), "lophn-gui", ref);
+      const dir = imageDir(ref);
       await mkdir(dir, { recursive: true, mode: 0o700 });
       // 이름은 renderer가 준 글이라 경로로 쓸 수 있는 글자만 남긴다.
       const name = image.name.replace(/[^A-Za-z0-9._-]/g, "_").slice(-100);
       const path = join(dir, `${randomUUID()}-${name}`);
       await writeFile(path, image.data, { mode: 0o600 });
       return path;
+    },
+    // 대화에 실린 경로는 renderer가 준 글이라 그 탭의 임시 폴더 바로 아래 file만 읽는다.
+    async readImage(ref, path) {
+      const rest = relative(imageDir(ref), path);
+      if (
+        rest === "" ||
+        rest.startsWith("..") ||
+        rest.includes(sep) ||
+        isAbsolute(rest)
+      ) {
+        return null;
+      }
+      const data = await readFile(path).catch(() => null);
+      const mime = data === null ? null : imageMime(data);
+      return data === null || mime === null
+        ? null
+        : { mime, data: new Uint8Array(data) };
     },
     log: ctx.log,
   });

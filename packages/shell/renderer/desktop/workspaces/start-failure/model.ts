@@ -1,10 +1,10 @@
-// 시작 실패 화면의 다섯 경우. core 연결 상태가 어느 경우인지 정한다.
+// 시작 실패 화면의 네 경우. core 연결 상태가 어느 경우인지 정한다.
 import type { MessageKey } from "@lophn/i18n";
 import type { ConnectionState } from "../../../../ipc/core.ts";
 
 type SchemaReason = NonNullable<ConnectionState["schemaFailure"]>;
 
-type StartFailureKind = "start" | "sandbox" | SchemaReason;
+type StartFailureKind = "start" | SchemaReason;
 
 export interface StartFailure {
   kind: StartFailureKind;
@@ -49,15 +49,6 @@ function startFailure(): StartFailure {
   };
 }
 
-/** Sandbox 실패: security settings 적용 불가, permissions 오류. */
-function sandboxFailure(): StartFailure {
-  return {
-    kind: "sandbox",
-    title: "home.title.sandbox-failed",
-    text: "home.failure.sandbox-failed",
-  };
-}
-
 /** 높은 schema, hash가 다른 이력, 손상 원본. 이유가 없으면 높은 schema로 본다. */
 export function schemaFailure(
   reason: SchemaReason = "newer_schema",
@@ -70,8 +61,6 @@ export function failureOf(connection: ConnectionState): StartFailure | null {
   switch (connection.state) {
     case "failed-start":
       return startFailure();
-    case "failed-sandbox":
-      return sandboxFailure();
     case "failed-schema":
       return schemaFailure(connection.schemaFailure);
     default:

@@ -55,6 +55,7 @@ import {
   HARNESS_GUI_TAB_CONNECT_CHANNEL,
   HARNESS_GUI_TAB_DISCONNECT_CHANNEL,
   HARNESS_GUI_TAB_IMAGE_CHANNEL,
+  HARNESS_GUI_TAB_IMAGE_READ_CHANNEL,
   HARNESS_GUI_TAB_INPUT_CHANNEL,
   HARNESS_GUI_TAB_REWIND_PREVIEW_CHANNEL,
   HARNESS_GUI_TAB_RUNNING_CHANNEL,
@@ -214,6 +215,10 @@ const tabToggleSchema = z.strictObject({
 });
 const tabAckSchema = z.strictObject({ request: z.string().min(1).max(100) });
 const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+const tabImageReadSchema = z.strictObject({
+  handle: z.string().min(1).max(100),
+  path: z.string().min(1).max(4096),
+});
 const tabImageSchema = z.strictObject({
   handle: z.string().min(1).max(100),
   name: z.string().min(1).max(200),
@@ -289,6 +294,11 @@ function registerTabGuiIpc(ctx: ShellContext, gui: TabGui): () => void {
   );
   handle(HARNESS_GUI_TAB_IMAGE_CHANNEL, tabImageSchema, (_event, input) =>
     gui.uploadImage(input.handle, { name: input.name, data: input.data }),
+  );
+  handle(
+    HARNESS_GUI_TAB_IMAGE_READ_CHANNEL,
+    tabImageReadSchema,
+    (_event, input) => gui.readImage(input.handle, input.path),
   );
   return () => {
     for (const channel of channels) ctx.ipc.removeHandler(channel);

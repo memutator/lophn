@@ -61,20 +61,6 @@ export const settingsArea: Area = {
       render: () => settings("coding"),
     },
     {
-      id: "settings-general",
-      title: "Settings · General",
-      description:
-        "Settings의 General 탭. 기본 model과 읽기 설정, 전역 Instructions 편집기로 가는 길.",
-      render: () => settings("general"),
-    },
-    {
-      id: "settings-diagnostics",
-      title: "Settings · Diagnostics",
-      description:
-        "Settings의 Diagnostics 탭. 보안 상태 점검과 doctor 결과를 영향 한 문장과 다음 행동으로 보인다.",
-      render: () => settings("diagnostics"),
-    },
-    {
       id: "new-settings-back",
       title: "Settings · Back",
       description:

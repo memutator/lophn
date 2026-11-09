@@ -98,6 +98,11 @@ export type TabGuiDeps = {
     terminalRef: string,
     image: { name: string; data: Uint8Array },
   ): Promise<string>;
+  /** `writeImage`가 그 터미널에 쓴 이미지를 읽는다. 그 폴더 밖이거나 이미지가 아니면 null. */
+  readImage(
+    terminalRef: string,
+    path: string,
+  ): Promise<{ mime: string; data: Uint8Array } | null>;
   log(message: string): void;
 };
 
@@ -142,6 +147,10 @@ export type TabGui = {
     handle: string,
     image: { name: string; data: Uint8Array },
   ): Promise<string | null>;
+  readImage(
+    handle: string,
+    path: string,
+  ): Promise<{ mime: string; data: Uint8Array } | null>;
   /** 터미널 runtime이 바뀌었다. 끝났거나 restart(새 generation)면 그 터미널의 handle을 닫는다. */
   terminalChanged(runtime: {
     terminal_ref: string;
@@ -463,6 +472,12 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
       const tab = byHandle.get(handleId);
       if (tab === undefined) return null;
       return await deps.writeImage(tab.handle.terminal, image);
+    },
+
+    async readImage(handleId, path) {
+      const tab = byHandle.get(handleId);
+      if (tab === undefined) return null;
+      return await deps.readImage(tab.handle.terminal, path);
     },
 
     terminalChanged(runtime) {

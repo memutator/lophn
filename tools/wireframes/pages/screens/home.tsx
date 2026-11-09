@@ -13,14 +13,9 @@ import {
 import { StartFailures } from "./home/start-failure-page.tsx";
 import { MockDesktop } from "../../mock/mock-desktop.tsx";
 
-type GateState =
-  | "starting"
-  | "failed"
-  | "failed-start"
-  | "failed-sandbox"
-  | "failed-schema";
+type GateState = "starting" | "failed-start" | "failed-schema";
 
-// core 연결이 이 상태로 고정된 창. Home 자리에 시작 화면(준비 중, 연결 실패, 시작 실패)이 선다.
+// core 연결이 이 상태로 고정된 창. Home 자리에 시작 화면(준비 중, 시작 실패)이 선다.
 function gatedCore(state: GateState): CoreSource {
   const current = { state, confirmedAt: null } as const;
   return {
@@ -41,7 +36,7 @@ export const homeArea: Area = {
   id: "home",
   title: "Home",
   summary:
-    "처음 여는 Home workspace. project 창과 같은 shell을 쓴다: 왼쪽 workspace·session, 가운데 tab(Home lophn session 등), 오른쪽 Workspaces·Jobs. desk 단추는 없다(Main 하나). core가 준비되지 않았거나 시작에 실패하면 같은 shell 틀(빈 sidebar와 tab 줄)의 card에 연결·시작 실패 화면.",
+    "처음 여는 Home workspace. project 창과 같은 shell을 쓴다: 왼쪽 workspace·session, 가운데 tab(Home lophn session 등), 오른쪽 Workspaces·Jobs. desk 단추는 없다(Main 하나). core가 준비되지 않았거나 시작에 실패하면 같은 shell 틀(빈 sidebar와 tab 줄)의 card에 시작 실패 화면.",
   pages: [
     {
       id: "home-empty",
@@ -106,25 +101,11 @@ export const homeArea: Area = {
       render: () => <MockDesktop core={gatedCore("starting")} />,
     },
     {
-      id: "home-connection-failed",
-      title: "Start · connection failed",
-      description:
-        "core에 연결하지 못했을 때. card 가운데에 실패 문장과 [Retry] 하나를 보인다.",
-      render: () => <MockDesktop core={gatedCore("failed")} />,
-    },
-    {
       id: "home-start-failed",
       title: "Start failure · start",
       description:
         "core가 시작하지 못했을 때 Home 자리에 뜨는 화면. 빈 shell 틀의 card에 실패 종류와 다음 행동 하나만 보인다.",
       render: () => <MockDesktop core={gatedCore("failed-start")} />,
-    },
-    {
-      id: "home-sandbox-failed",
-      title: "Start failure · sandbox",
-      description:
-        "sandbox를 세우지 못했을 때의 시작 실패 화면. start failure와 구별되는 종류 이름과 다음 행동 하나를 보인다.",
-      render: () => <MockDesktop core={gatedCore("failed-sandbox")} />,
     },
     {
       id: "home-schema-failed",

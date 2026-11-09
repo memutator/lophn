@@ -1,7 +1,7 @@
 id: dead-connection-states-failed-sandbox
 title: 연결 상태 failed·failed-sandbox와 그 화면은 main이 세우지 않는 죽은 상태다
 kind: defect
-status: open
+status: fixed
 topic: shell
 modules: [packages/shell/ipc, packages/shell/main, packages/shell/renderer]
 now: |
@@ -16,3 +16,6 @@ fix: |
   - sandbox 시작 실패를 core가 구별해 알리고 main이 `failed-sandbox`를 세우게 한다. 중간~큼. OS별 sandbox 실패를 가를 신호가 지금 없어 쓸 곳이 생길 때 한다.
 decided: |
   지운다. 쓰는 곳이 없는 죽은 상태다(AGENTS.md "속도": 미리 만들지 않는다).
+closed: |
+  연결 상태는 `starting`, `ready`, `stale`, `failed-start`, `failed-schema`뿐이다. `failed`·`failed-sandbox` 값, 그것만 읽던 renderer 갈래와 i18n 문구, wireframe frame 둘, 문서의 같은 줄을 지웠다. sandbox로 시작이 막혀도 사람이 보는 화면은 `failed-start`다.
+guard: 없음

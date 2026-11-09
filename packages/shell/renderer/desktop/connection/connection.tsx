@@ -3,11 +3,7 @@ import { t } from "@lophn/i18n";
 import { Button, Icon } from "@lophn/ui/primitives";
 import { Shimmer } from "@lophn/ui/feedback";
 import { iconPixels } from "@lophn/ui/shared";
-import {
-  actionIcons,
-  connectionFailedIcon,
-  connectionStaleIcon,
-} from "../../icons/mod.ts";
+import { actionIcons, connectionStaleIcon } from "../../icons/mod.ts";
 
 import type { ConnectionState, CoreSource } from "./connection.ts";
 import { initialConnection } from "./connection.ts";
@@ -32,39 +28,12 @@ export function retryConnection(source: CoreSource): void {
   });
 }
 
-interface ConnectionGateProps {
+// 준비 전은 시작 화면 card 가운데 640px 기둥에 흐르는 한 줄만 보인다.
+export function ConnectionGate({
+  connection,
+}: {
   connection: ConnectionState;
-  onRetry: () => void;
-}
-
-// 준비 전·실패는 시작 화면 card 가운데 640px 기둥에 놓인다. 준비 전은 흐르는 한 줄만, 실패는 다음 행동
-// 하나를 보인다.
-export function ConnectionGate({ connection, onRetry }: ConnectionGateProps) {
-  if (connection.state === "failed") {
-    return (
-      <div className={styles.gate}>
-        <div className={styles.failed} role="status" data-connection="failed">
-          <Icon
-            icon={connectionFailedIcon}
-            pixels={iconPixels("large")}
-            className={styles.critical}
-          />
-          <div className={styles.body}>
-            <p className={styles.title}>{t("home.connection.failed")}</p>
-            <div>
-              <Button
-                variant="primary"
-                icon={actionIcons.retry}
-                onClick={onRetry}
-              >
-                {t("home.button.retry")}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+}) {
   return (
     <div className={styles.gate}>
       <div className={styles.starting} data-connection={connection.state}>

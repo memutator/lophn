@@ -162,12 +162,12 @@ flows:
 
   - id: agent-card-read
     title: agent가 부를 상대의 명함을 읽는다
-    actor: agent
+    actor: person
     entries: [route:agents/card]
     boundary: [agents, router, core-api]
     code: [packages/core/lophn-agent/agents/card.ts, packages/core/lophn-agent/agents/reads.ts]
     steps:
-      - agent가 handle(와 필요하면 workspace)로 명함을 읽는다. workspace를 빼면 자기 session의 workspace다
+      - 사람의 agent 편집 화면(workspace/agents)이나 agent(CLI `agent.card`)가 handle(과 필요하면 workspace)로 명함을 읽는다. agent는 workspace를 빼면 자기 session의 workspace다
       - core가 그 workspace에서 보이는 agent를 handle로 찾는다(lophn은 workspace마다 하나)
       - 명함에는 답 방식(replies), 기본 lophn과의 차이, 입력 modality와 자기 session에서 부를 수 있는지(callable)를 싣는다. prompt 원문은 싣지 않는다
     outcomes:

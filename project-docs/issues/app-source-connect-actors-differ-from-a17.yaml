@@ -1,0 +1,17 @@
+id: app-source-connect-actors-differ-from-a17
+title: AGENT.md A17은 source 폴더 잇기를 앱 workspace session만 한다고 쓰는데 route는 사람도 받는다
+kind: bug
+status: open
+topic: app-call
+modules: [packages/core/apps, packages/cli]
+now: |
+  - `project-docs/products/AGENT.md` A17: "앱의 source 폴더를 잇거나 ... publish하는 것은 그 앱 workspace의 session만 한다."
+  - route `app.connect_source`(`packages/protocol/apps/apps.ts`)의 `actors`는 `user`, `agent`, `machine`이다. `requireWriter`(`packages/core/apps/registration/commands.ts`)는 agent는 자기 session의 앱만, user와 machine(앱 생성 직후 core 안)은 그대로 받는다.
+  - 사람이 부르는 길은 앱 workspace의 터미널에서 CLI 명령 `app.link_source`(`packages/cli/commands/app.ts` `app.link_source`, `workspaces: ["app"]`)뿐이다. 화면(renderer)에는 이 route를 부르는 곳이 없다.
+impact: |
+  동작은 의도대로다(사람도 같은 폴더를 이을 수 있다). 문서가 코드와 달라 읽는 사람과 AI가 "사람은 못 잇는다"고 읽고, 앱이 source 없이 남았을 때 사람이 CLI로 다시 잇는 길을 설계에서 빼 버린다.
+fix: |
+  - A17의 source 줄을 "사람이나 그 앱 workspace의 session이 잇는다. publish는 그 앱 workspace의 session만 한다"로 고친다. 작음. 추천.
+  - route에서 user를 빼 A17에 맞춘다. 작음. 사람이 잇는 길만 사라지고 얻는 것이 없어 권하지 않는다.
+decided: |
+  A17 문장을 고친다. 사람은 공격자가 아니고(AGENTS.md "속도") 사람이 CLI로 source를 다시 잇는 길은 앱이 source 없이 남았을 때 필요하다.

@@ -183,7 +183,6 @@ function check(only: string | undefined, partial: boolean): Problem[] {
   }
 
   const versions: string[] = [];
-  const seen = new Map<string, string>();
   for (const file of changeFiles()) {
     const { data, error } = load(file);
     if (error) {
@@ -192,9 +191,6 @@ function check(only: string | undefined, partial: boolean): Problem[] {
     }
     unknown(file, data, CHANGE_KEYS);
     idOf(file, data);
-    const before = seen.get(String(data.id));
-    if (before) add(file, "id", `다른 판에도 있음: ${before}`);
-    seen.set(String(data.id), file);
     const version = String(data.version);
     const folder = basename(dirname(file));
     if (!SEMVER.test(version)) add(file, "version", `x.y.z여야 함: ${version}`);

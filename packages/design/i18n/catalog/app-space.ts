@@ -24,6 +24,9 @@ export const appSpace = {
   "app-detail.error.revoke-failed": "Couldn't revoke that access. Try again.",
   "app-detail.error.rewind-failed":
     "Couldn't start the rewind. Nothing changed.",
+  "app-detail.error.run-failed-off": "Couldn't stop the app. Nothing changed.",
+  "app-detail.error.run-failed-on":
+    "Couldn't let the app run. Nothing changed.",
   "app-detail.error.secret-failed": "Couldn't save that. Try again.",
   "app-detail.error.sign-in-failed": "Sign-in didn't work. Try again.",
   "app-detail.heading.active-release": "Active release",
@@ -38,6 +41,7 @@ export const appSpace = {
   "app-detail.heading.other-apps": "Other apps",
   "app-detail.heading.outside-resources": "Outside resources",
   "app-detail.heading.progress": "Progress",
+  "app-detail.heading.run": "Run",
   "app-detail.heading.sdk": "SDK versions",
   "app-detail.heading.rewind-before": "Rewind {name} to before {time}",
   "app-detail.heading.rewind-cancelled": "Rewind cancelled",
@@ -47,6 +51,13 @@ export const appSpace = {
   "app-detail.label.access-target": "this app's access",
   "app-detail.label.calls": "Calls",
   "app-detail.label.records": "Records",
+  "app-detail.label.run-halted": "Stopped after repeated crashes",
+  "app-detail.label.run-preparing": "Not ready",
+  "app-detail.label.run-running": "Running",
+  "app-detail.label.run-stopped": "Stopped",
+  "app-detail.label.run-switch": "Run",
+  "app-detail.label.run-target": "this app's run state",
+  "app-detail.label.run-unavailable": "Not responding",
   "app-detail.label.sdk-available": "Update available",
   "app-detail.label.sdk-current": "Current",
   "app-detail.label.sdk-required": "Update required",
@@ -178,6 +189,13 @@ export const appSpace = {
     "The agent that applied this version sees why it failed.",
   "app-detail.note.failed-unchanged":
     "Nothing you use has changed. The agent that applied this version sees why it failed.",
+  "app-detail.note.run-halted":
+    "It exited unexpectedly more than five times in ten minutes, so lophn stopped restarting it. Turn it off and on again to restart it.",
+  "app-detail.note.run-preparing": "The app has no active release yet.",
+  "app-detail.note.run-stopped":
+    "The app is off. It doesn't run or answer calls.",
+  "app-detail.note.run-unavailable":
+    "The app is on but not answering yet. It may still be starting.",
   "app-detail.note.sdk-available":
     "Optional. The app runs as it is; newer versions only add features.",
   "app-detail.note.sdk-required":

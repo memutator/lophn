@@ -199,6 +199,32 @@ flows:
     crosses_process: false
     docs: [architecture/workspace-layout.md]
 
+  - id: agents-tab-open
+    title: "탭 줄 + menu의 Agents로 그 workspace의 Agents 탭을 연다"
+    actor: person
+    entries: [ui:agents-tab-open]
+    when: "Home, project, 앱 workspace 모두 + menu에 Agents 항목이 있다. Agents 통로(source)가 없으면 항목이 없다"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/add-tab-menu.tsx
+      - packages/shell/renderer/workspace/kinds/agents.tsx
+      - packages/shell/renderer/workspace/workspace-window.tsx
+    steps:
+      - "Agents 항목이 openAgents를 부른다. 탭은 workspace에 하나라 key가 agents인 탭이 있으면 그 탭을 고르기만 하고 없으면 새로 연다"
+      - "commit이 layout을 저장한다"
+      - "탭 본문이 그 workspace의 agent 목록과 정의 editor를 보인다"
+    uses: [ipc:shell:workspace-layout-save]
+    outcomes:
+      - id: opened
+        when: "Agents 탭이 없어 새로 열었거나 이미 있어 골랐다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json", "screen:new-project-agents"]
+      - id: save-refused
+        code: invalid_input
+        when: "main이 layout을 거절했다(탭 1200 상한 등) 또는 쓰지 못했다(unavailable). renderer는 결과를 무시한다"
+        observe: ["disk:<data>/shell/workspaces/<workspace>.json (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md, architecture/agent-definition.md]
+
   - id: tab-close
     title: "탭을 닫는다"
     actor: person

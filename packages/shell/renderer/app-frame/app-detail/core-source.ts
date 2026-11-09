@@ -13,7 +13,9 @@ import {
   type Rewind,
   type RewindPlan,
   type App,
+  appDisableExecution,
   appEditFolders,
+  appEnableExecution,
   appSetIcon,
 } from "../../../../protocol/apps/mod.ts";
 import type { Notice } from "../../../../protocol/apps/notice.ts";
@@ -55,6 +57,7 @@ import type {
   ReleaseCard,
   ReleaseChanges,
   ResourceKind,
+  RunState,
   SdkRow,
   ResourceRow,
   RewindItem,
@@ -519,6 +522,42 @@ export function coreAppDetailSource(
       : edited;
   }
   return {
+    async run(app) {
+      const found = await read<{ app: App }>(core, "apps", "get", { app });
+      if (!found.ok) return found;
+      const runtime = await read<{
+        state: { state: string; reason?: { code: string } };
+      }>(core, "apps", "runtime", { app });
+      if (!runtime.ok) return runtime;
+      const { state, reason } = runtime.value.state;
+      const shown: RunState =
+        state === "unavailable" && reason?.code === "crash_loop"
+          ? "halted"
+          : (state as RunState);
+      return {
+        ok: true,
+        value: { enabled: found.value.app.run_enabled, state: shown },
+      };
+    },
+
+    async setRun(app, enabled) {
+      const found = await read<{ app: App }>(core, "apps", "get", { app });
+      if (!found.ok) return found;
+      const route = enabled ? appEnableExecution : appDisableExecution;
+      const done = await call<App>(
+        core,
+        "command",
+        route.resource,
+        route.method,
+        commandBody(route, {
+          input: { app },
+          compare: { base_revision: found.value.app.revision },
+          key: crypto.randomUUID(),
+        }),
+      );
+      return done.ok ? { ok: true, value: true } : done;
+    },
+
     async icon(app) {
       const reply = await read<Parameters<typeof iconViewOf>[0]>(
         core,

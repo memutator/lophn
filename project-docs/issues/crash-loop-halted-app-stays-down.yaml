@@ -1,7 +1,7 @@
 id: crash-loop-halted-app-stays-down
 title: crash loop로 자동 재시작이 멈춘 앱은 새 release 말고는 다시 띄울 길이 없다
 kind: bug
-status: open
+status: fixed
 topic: app-call
 modules: [packages/core/apps, packages/shell/renderer]
 now: |
@@ -11,6 +11,6 @@ now: |
   - 다시 뜨는 길은 둘이다. 원인을 고친 새 release의 activation(`prepare`가 창을 거치지 않고 후보를 띄운다)과 core를 다시 켜는 것(supervisor 메모리가 비어 창도 빈다).
 impact: |
   앱이 일시적인 외부 실패(네트워크, 잠긴 파일)로 몇 번 죽었다 멈추면 사람은 toast만 받고 앱 화면과 tool 호출이 계속 실패한다. 코드를 안 고쳐도 되는 경우에 새 release를 만들거나 lophn 전체를 다시 켜야 한다.
-fix: |
-  - App details에 앱 실행 켜기·끄기를 두고(다른 작업이 `apps/enable_execution`·`disable_execution`을 화면에 잇는 중이다), 켜기가 멈춘 창을 비워 다시 띄운다(`reconcile`에서 `runEnabled`가 false에서 true로 바뀔 때 `exits`를 비운다). 작음~중간. 추천. 그 작업이 끝나면 이 이슈는 창 비우기만 확인하고 닫는다.
-  - 창이 비는 때(10분 뒤)에 supervisor가 스스로 한 번 다시 시도한다. 작음. 같은 원인이면 한 번 더 5회 죽고 멈춰 이유 없이 느리다.
+closed: |
+  사람이 Run을 켜면(`apps/enable_execution`, 이미 켜진 앱 포함) 또는 새 release가 열리면 supervisor가 그 앱의 종료 기록(`exits`)과 멈춤을 비우고 다시 띄운다(`reconcile`에서 실행이 꺼졌다 켜질 때나 멈춰 있을 때, activation `open`에서). 이미 켜진 채 멈춘 앱은 화면에서 껐다 켜면 된다. 자동 재시작 정책은 그대로고 창이 지나도 스스로 다시 시도하지 않는다. 한계: 멈춘 앱에 이름 바꾸기 같은 다른 revision 변경이 와도 reconcile이 오므로 그때도 다시 뜬다.
+guard: packages/core/apps/runtime/supervisor/supervisor_test.ts

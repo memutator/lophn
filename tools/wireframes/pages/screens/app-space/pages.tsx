@@ -109,6 +109,18 @@ export function VersionFailed() {
   return <AppSpace ops="version" version="failed" />;
 }
 
+export function RunRunning() {
+  return <AppSpace ops="version" run="running" />;
+}
+
+export function RunStopped() {
+  return <AppSpace ops="version" run="stopped" />;
+}
+
+export function RunHalted() {
+  return <AppSpace ops="version" run="halted" />;
+}
+
 export function AccessGrants() {
   return <AppSpace ops="access" />;
 }

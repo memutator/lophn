@@ -157,6 +157,7 @@ import {
   openAgent,
   type SessionTabOpen,
 } from "./kinds/agent.tsx";
+import { openAgents } from "./kinds/agents.tsx";
 import { openAppDetail } from "./kinds/app-detail.tsx";
 import {
   newKey,
@@ -2866,6 +2867,9 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                             choices: agentChoiceList,
                             onChoice: startChoice,
                           })}
+                      {...(agents === null
+                        ? {}
+                        : { onAgents: () => openAgents(host) })}
                       {...(source.searchSource === undefined ||
                       projectId === null
                         ? {}

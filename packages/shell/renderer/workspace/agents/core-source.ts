@@ -394,6 +394,35 @@ export function coreAgentsSource(
     };
   };
 
+  // Home의 Agents 탭: 전역과 Home lophn에 모든 workspace의 범위 agent를 더한다(다른 workspace의 lophn은 뺀다).
+  // 범위 agent는 줄마다 그 workspace의 이름을 달아 어느 범위인지 보인다.
+  const listEverything = async (): Promise<ReadResult<AgentListRow[]>> => {
+    const result = await link.read<{ agents: AgentRow[] }>(
+      "agents",
+      "list",
+      {},
+    );
+    if (!result.ok) return result;
+    const rows = await Promise.all(
+      result.value.agents
+        .map(toRow)
+        .filter((row) => !isLophn(row.assignment) || row.workspace === null)
+        .map(async (row) =>
+          row.workspace === null
+            ? row
+            : { ...row, workspaceName: await nameOf(row.workspace.id) },
+        ),
+    );
+    await Promise.all(
+      rows.map((row) =>
+        row.profile.kind === "image"
+          ? loadImage(row.assignment, row.profile.image)
+          : undefined,
+      ),
+    );
+    return { ok: true, value: rows };
+  };
+
   const detailOf = async (
     workspace: string | null,
     agent: string,
@@ -522,7 +551,8 @@ export function coreAgentsSource(
     },
 
     async overview(workspace) {
-      const agents = await list(workspace);
+      const agents =
+        workspace === "home" ? await listEverything() : await list(workspace);
       if (!agents.ok) return agents;
       const skills = await readSkills(link, workspace);
       if (!skills.ok) return skills;
@@ -537,7 +567,10 @@ export function coreAgentsSource(
       const view: AgentsOverview = {
         agents: await Promise.all(
           agents.value.map(async (row) => {
-            const card = await cardOf(row.handle, workspace);
+            const card = await cardOf(
+              row.handle,
+              row.workspace?.id ?? workspace,
+            );
             return card === undefined ? row : { ...row, card };
           }),
         ),

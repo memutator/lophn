@@ -169,15 +169,14 @@ journeys:
     actor: person
     goal: "실행을 끄면 자식이 멈추고 종료가 기록되며, 다시 켜면 supervisor가 자식을 띄워 열린 것을 기록한다"
     steps:
-      - {do: "앱 실행을 끈다", flow: app-execution-disable:disabled}
+      - {do: "App details 탭 Run 절의 Switch가 켜져 Running이다", screen: new-app-run-running, flow: app-runtime-read:state-running}
+      - {do: "Switch를 꺼 앱 실행을 끈다", screen: new-app-run-stopped, flow: app-execution-disable:disabled}
       - {do: "다음 reconcile이 자식을 멈추고 OS 종료를 확인한다", flow: app-supervisor-reconcile:stopped}
       - {do: "멈춘 자식의 종료를 AppStopped로 남긴다", flow: app-record-stopped:stopped}
       - {do: "session이 앱이 멈춘 것을 읽는다", flow: app-runtime-read:state-stopped}
-      - {do: "앱 실행을 다시 켠다", flow: app-execution-enable:enabled}
+      - {do: "Switch를 켜 앱 실행을 다시 켠다", screen: new-app-run-running, flow: app-execution-enable:enabled}
       - {do: "다음 reconcile이 자식을 띄우고 ready probe를 통과한다", flow: app-supervisor-reconcile:started}
       - {do: "자식이 열렸음을 AppStarted로 남긴다", flow: app-record-started:started}
-    gaps:
-      - "실행 켜기와 끄기의 wireframe frame이 없다. 어느 화면에 두는지 확인이 필요하다."
 
   - id: app-archive-and-restore
     title: "앱을 보관했다가 되살린 뒤 실행을 다시 켠다"
@@ -186,7 +185,7 @@ journeys:
     steps:
       - {do: "앱을 보관한다. 실행이 꺼지고 agent에게서 앱이 빠진다", flow: app-archive:archived}
       - {do: "Archived 구역에서 앱을 되살린다", screen: shell-workspaces-archived, flow: app-unarchive:unarchived}
-      - {do: "되살린 뒤 실행이 꺼진 채라 실행을 다시 켠다", flow: app-execution-enable:enabled}
+      - {do: "되살린 뒤 실행이 꺼진 채라 App details 탭 Run 절의 Switch로 실행을 다시 켠다", screen: new-app-run-stopped, flow: app-execution-enable:enabled}
     gaps:
       - "앱 줄의 ⋯ 메뉴와 Archive 단추의 frame이 없다. shell/workspaces-scene.tsx의 menu는 project 줄만 연다."
 
@@ -278,9 +277,9 @@ journeys:
       - {do: "사람에게 toast로 알린다", screen: new-waiting-toasts, flow: notice-alert:toast}
       - {do: "사람이 session에 앱 상태를 묻는다", flow: app-runtime-read:state-unavailable}
       - {do: "session이 앱 log를 읽는다", flow: app-log-read:read}
-      - {do: "원인을 고친 release를 활성화한다", flow: release-activate:active}
-    gaps:
-      - "이슈 crash-loop-halted-app-stays-down: 멈춘 앱을 다시 띄우는 길은 새 release와 core 재시작뿐이다."
+      - {do: "App details 탭 Run 절이 Stopped after repeated crashes를 보인다", screen: new-app-run-halted, flow: app-runtime-read:state-unavailable}
+      - {do: "Run을 껐다 켜면 종료 기록을 비우고 다시 뜬다", screen: new-app-run-running, flow: app-execution-enable:enabled-halted}
+      - {do: "원인을 고친 release를 활성화한다. 이때도 종료 기록을 비운다", flow: release-activate:active}
 
   - id: app-data-rewind-from-activity
     title: "Activity에서 고른 호출 시점으로 앱 data를 되돌린다"

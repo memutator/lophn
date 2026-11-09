@@ -27,8 +27,11 @@ import {
   RewindConflict,
   RewindDone,
   RewindRunning,
+  RunHalted,
+  RunRunning,
   RunsEmpty,
   RunsList,
+  RunStopped,
   VersionApplied,
   VersionApplying,
   VersionFailed,
@@ -129,6 +132,27 @@ export const appSpaceArea: Area = {
       description:
         "적용 실패와 이유가 보인다. 이전 release가 그대로 활성이고 이 앱 workspace의 lophn이 이어 받는다는 안내가 있다.",
       render: () => <VersionFailed />,
+    },
+    {
+      id: "new-app-run-running",
+      title: "App details · Run (running)",
+      description:
+        "App details 탭 위쪽 Run 절이다. 앱이 켜져 있고 답하는 중이라 Running이 보이고, 줄 오른쪽 끝 Switch가 켜져 있다. 끄면 앱 process가 멈춘다.",
+      render: () => <RunRunning />,
+    },
+    {
+      id: "new-app-run-stopped",
+      title: "App details · Run (stopped)",
+      description:
+        "Switch를 끈 앱이다. Stopped와 앱이 돌지도 호출에 답하지도 않는다는 안내가 보인다. 보관을 되살린 앱도 이 상태로 돌아오고 Switch를 켜야 다시 돈다.",
+      render: () => <RunStopped />,
+    },
+    {
+      id: "new-app-run-halted",
+      title: "App details · Run (halted after crashes)",
+      description:
+        "예상 밖 종료가 10분 안에 다섯 번을 넘어 lophn이 자동 재시작을 멈춘 앱이다. Switch는 켜진 채라 껐다가 10분이 지난 뒤 다시 켜야 돈다는 안내가 있다.",
+      render: () => <RunHalted />,
     },
     {
       id: "new-app-access",

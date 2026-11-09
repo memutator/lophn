@@ -66,7 +66,20 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
     };
   }, [source]);
 
+  // Home 목록에서 연 범위 agent는 그 agent의 workspace로 연다(탭에는 agent id만 남아 목록에서 찾는다).
+  const home = workspace === "home";
+  if (home && agent !== null && overview.kind === "loading") {
+    return (
+      <div className={styles.fill} data-agents-page="loading">
+        <Skeleton shape="line" lines={6} />
+      </div>
+    );
+  }
   if (agent !== null || creating) {
+    const own =
+      home && agent !== null && overview.kind === "ready"
+        ? overview.value.agents.find((row) => row.assignment === agent)
+        : undefined;
     const leave = () => {
       setCreating(false);
       props.onAgent(null);
@@ -75,8 +88,8 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
     return (
       <AgentEditor
         source={source}
-        workspace={workspace}
-        workspaceName={props.workspaceName}
+        workspace={own?.workspace?.id ?? workspace}
+        workspaceName={own?.workspaceName ?? props.workspaceName}
         agent={agent}
         onDone={leave}
         onChanged={props.onChanged}

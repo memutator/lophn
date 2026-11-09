@@ -156,6 +156,10 @@ files:
     covers: [app-log-write:written, app-log-write:rotated]
     note: "stdout 줄은 redaction 뒤에 300자로 잘려 JSON Lines로 붙고 알려진 secret은 파일에 안 남음, 8 MiB를 넘으면 app.log를 app.log.1로 옮기고 오래된 줄부터 버리며 크기 상한을 지킴"
 
+  - path: packages/core/apps/runtime/supervisor/supervisor_test.ts
+    covers: [app-supervisor-reconcile:started]
+    note: "crash loop로 멈춘 앱에 reconcile이 다시 오면(사람이 Run을 켬) 종료 기록을 비우고 새 자식을 띄워 멈춤 이유가 사라짐. fake spawn·clock으로 자식 process 없이 supervisor만 봄"
+
   - path: packages/core/apps/runtime/supervisor-link_test.ts
     covers: []
     note: "core와 supervisor 사이 link adapter. 한도를 넘는 rewind 적용이 changeset 전부를 한 요청으로 가서 applied로 돌아오는 입력(app-rewind-apply:applied의 입력)과, 큰 응답을 받다 끊긴 호출이 sent true와 response null로 돌아오는 입력(app-command-call:unknown의 입력)을 단정. adapter 결과라 outcome 자체는 단정하지 않아 covers 밖"

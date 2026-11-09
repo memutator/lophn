@@ -56,8 +56,7 @@ journeys:
     steps:
       - {do: "Stop lophn을 누르고 확인 창에서 허락한다. shell이 control stop을 보낸다", flow: control-stop:ok}
       - {do: "답을 받은 shell이 연결을 stale로 바꾸고 끝난다", flow: stop-lophn:stopped}
-    gaps:
-      - "control stop이 답하지 않으면 shell만 끝나 core가 남을 수 있다. 사람에게 그 사실을 알리는 화면이 없다(stop-lophn:no-answer는 log만 남긴다)"
+      - {do: "control stop이 답하지 않으면 native message box가 core가 남아 있을 수 있다고 알린 뒤 shell만 끝난다(frame 없음, OS 창)", flow: stop-lophn:no-answer}
 
   - id: login-autostart
     title: 로그인할 때 core만 미리 띄우게 한다

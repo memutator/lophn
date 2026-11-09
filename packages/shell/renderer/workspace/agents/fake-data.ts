@@ -29,7 +29,7 @@ const NOTES_SYNC_ID = id("app", "ns1");
 // agent에게는 일하는 자리가 그 앱일 때 tool이 모두, 다른 앱의 tool은 public만 보인다.
 export const EVAL_ANALYST_ID = id("agt", "ea1");
 export const BUDGET_REVIEWER_ID = id("agt", "br1");
-const EXPERIMENT_PLANNER_ID = id("agt", "ep1");
+export const EXPERIMENT_PLANNER_ID = id("agt", "ep1");
 const QUEUE_WATCHER_ID = id("agt", "qw1");
 const CODEX_RUNNER_ID = id("agt", "cx1");
 

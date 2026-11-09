@@ -58,6 +58,29 @@
   line-height: var(--type-caption-line);
 }
 
+/* Run 줄: 상태 글 아래에 안내가 줄바꿈된다. */
+.stack {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: var(--space-0);
+}
+
+.note {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.state {
+  flex: none;
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
 .counts {
   flex: none;
   color: var(--color-text-muted);

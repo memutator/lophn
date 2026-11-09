@@ -22,7 +22,8 @@ journeys:
     goal: "사람이 Agents 화면에서 새 agent 정의를 저장하고 저장된 설정을 다시 연다"
     refs: [H11, P2, G1]
     steps:
-      - {do: "Agents 목록을 연다", screen: new-project-agents, flow: agent-definition-read:ok}
+      - {do: "탭 줄의 + menu에서 Agents를 눌러 그 workspace의 Agents 탭을 연다", screen: new-project-tab-menu, flow: agents-tab-open:opened}
+      - {do: "Agents 목록을 읽는다", screen: new-project-agents, flow: agent-definition-read:ok}
       - {do: "New agent 폼에서 skill 목록을 본다", screen: agent-settings-create, flow: skills-list-read:ok}
       - {do: "이름, 지침, model을 채워 저장한다", screen: agent-settings-create, flow: agent-create:created}
       - {do: "저장된 agent 설정을 다시 연다", screen: agent-settings-agent, flow: agent-definition-read:ok}
@@ -45,6 +46,17 @@ journeys:
     steps:
       - {do: "agent 설정을 연다", screen: agent-settings-agent, flow: agent-definition-read:ok}
       - {do: "Model을 고르고 저장한다", screen: agent-settings-model-picker, flow: agent-change:saved}
+
+  - id: agent-edit-any-from-home
+    title: "사람이 Home에서 모든 agent를 보고 범위 agent를 고친다"
+    actor: person
+    goal: "workspace를 열지 않고 Home의 Agents 탭에서 전역과 project·앱 범위 agent를 한 목록으로 보고, 그 agent를 열어 고친다"
+    refs: [H11, P2]
+    steps:
+      - {do: "탭 줄 + menu의 Agents로 Home의 Agents 탭을 연다", screen: new-project-tab-menu, flow: agents-tab-open:opened}
+      - {do: "전역과 모든 workspace의 범위 agent가 범위 표시와 함께 한 목록에 있다", screen: agents-tab-home, flow: agent-definition-read:ok}
+      - {do: "project 범위 agent를 열면 editor가 그 agent의 workspace로 열린다", screen: agents-tab-home-open-scoped, flow: agent-definition-read:ok}
+      - {do: "고쳐 저장한다", screen: agents-tab-home-open-scoped, flow: agent-change:saved}
 
   - id: agent-change-stale-retry
     title: "낡은 화면으로 저장하면 충돌하고 다시 읽어 저장한다"

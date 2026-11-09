@@ -9,6 +9,7 @@ import {
   AppAgentsNoSourcePage,
   AppAgentsPage,
   AppWorkspaceEditorPage,
+  HomeAgentsOpenScopedPage,
   HomeAgentsPage,
   HomeLophnEditorPage,
   LophnEditorPage,
@@ -32,8 +33,15 @@ export const agentSettingsArea: Area = {
       id: "agents-tab-home",
       title: "Agent settings · Home Agents tab",
       description:
-        "Home에서 여는 같은 Agents 탭이다. Home lophn 카드의 범위는 Home이고, 지침은 Home의 LOPHN.md, memory는 Home의 memory.md이며 model·skill·MCP 층도 Home의 것이다.",
+        "Home에서 여는 Agents 탭은 모든 agent를 보인다: Home lophn, 전역 agent, 모든 project·앱의 범위 agent. 카드마다 범위(All of lophn, <name> · project, <name> · app)가 보이고 [New agent]는 전역 agent를 만든다. Home lophn 카드의 범위는 Home이고, 지침은 Home의 LOPHN.md, memory는 Home의 memory.md이며 model·skill·MCP 층도 Home의 것이다. project·앱의 Agents 탭은 그 범위의 목록 그대로다.",
       render: () => <HomeAgentsPage />,
+    },
+    {
+      id: "agents-tab-home-open-scoped",
+      title: "Agent settings · Home Agents tab, scoped agent open",
+      description:
+        "Home 목록에서 project 범위 agent(Experiment planner)를 열었다. 같은 editor가 그 agent 자신의 workspace(phroner)로 열려 범위가 phroner · project로 보이고, 지침·skill·MCP 층도 phroner의 것이다.",
+      render: () => <HomeAgentsOpenScopedPage />,
     },
     {
       id: "agents-tab-app",

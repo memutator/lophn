@@ -48,6 +48,7 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 - 이전 release로 돌아가기도 같은 순서다. 사람만 시작하고(요청 행 `activation_requests`), 지금 활성 release와 data schema가 같은 `superseded` release만 고른다. migration이 없어서 앱 code만 바뀌고 DB는 그대로다.
 - 시도가 멈출 수 있는 곳은 둘이다. 닫혀 끝난 시도(`active` 또는 `failed`)와 앱을 붙든 채 멈춘 시도(`held`)다. held는 복원이나 종료를 확인하지 못해 앱을 사용 불가로 두고 이전 release도 띄우지 않은 상태이고, 매 sweep이 이어받는다.
 - 앱 process는 권한 flag 없이 뜬다(사람이 정했다).
+- 실행 허용(`run_enabled`)은 activation과 별개의 사람의 스위치다. 사람이 끄거나 보관하면 꺼지고, 보관을 되살려도 꺼진 채라 사람이 켜야 한다. activation이 대신 켜지 않는다. 사람의 입구는 App details 탭의 Run 절이다. 켜는 것은 active 보관 상태와 채택한 release가 있을 때만 받는다. 이미 켜진 채 crash loop로 멈춘 앱(10분 창, 다섯 번 초과)은 `AppRestartHalted`가 알리고, 사람의 동작이 있어야 다시 뜬다. 사람이 Run을 켜거나 새 release를 활성화하면 종료 기록(crash 창)을 비우고 다시 띄운다. 그 밖에는 스스로 다시 시도하지 않는다.
 
 ## 지키는 것
 
@@ -141,6 +142,7 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 - 앱 알림과 toast가 앱 id가 아니라 앱 이름을 보이도록 event와 읽기에 `app_name`을 싣는다. 이유: renderer가 이름을 따로 찾지 않게 한다. (agent, 0.13.0)
 - 대화의 동의 카드 종류는 tool 이름이 아니라 결과를 보고 정하며, `release.activate`가 성공해 끝난 뒤에만 선다. 이유: 이름만으로 정해지는 종류는 시작 때부터 줄이 서야 하는데, `consent`는 결과(동의 대기)를 봐야 안다. (agent, 0.18.0)
 - 사람에게 남는 기록(program 줄)은 상태를 바꾸는 command와 같은 tx에서 쓴다. 이유: 재전송과 끊김에서 빠지거나 늘지 않는다. (agent, 0.20.0)
+- crash loop로 멈춘 앱은 사람의 동작(Run 켜기, 새 release 활성화)이 crash 창을 비우고 다시 띄운다. 창이 지난 뒤 supervisor가 스스로 다시 시도하지 않는다. 이유: 같은 원인이면 다섯 번 더 죽고 멈춰 이유 없이 느리다. 닫은 이슈 "crash loop로 자동 재시작이 멈춘 앱은 새 release 말고는 다시 띄울 길이 없다". (agent, 0.23.3)
 - 앱 process를 권한 flag 없이 띄운다. (사람)
 - 앱이 쓰는 npm·jsr 의존은 release 준비 때 받아 bundle에 통째로 담는다. 이유: 운영 앱이 network 없이 뜨고 앱이 자기 의존성(예: 공휴일 data 라이브러리)을 쓸 수 있어야 한다. 닫은 이슈 "npm·jsr 의존을 준비 때 받아 bundle에 통째로 담는다"(kept). 설계는 release 준비의 몫이고 activation이 받는 입력은 봉인된 bundle이다.
 

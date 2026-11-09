@@ -799,6 +799,7 @@ type NewTabPick =
   | "terminal"
   | "agent-lophn"
   | `agent:${string}`
+  | "agents"
   | "search"
   | "browser"
   | "app-screen"
@@ -806,7 +807,7 @@ type NewTabPick =
 
 /**
  * 탭 줄 끝의 + menu. 실제 `NewTabMenu`이고 Agent ▸(agent 목록)는 같은 menu가 다음 단계로 바뀐다.
- * Agents(관리 탭) 항목은 없다.
+ * Agents는 그 workspace의 Agents(관리) 탭을 여는 항목이다.
  */
 export function PageNewTabMenu({
   onPick,
@@ -839,6 +840,7 @@ export function PageNewTabMenu({
               : `agent:${choice.id}`,
         )
       }
+      onAgents={() => onPick("agents")}
       onSearch={() => onPick("search")}
       onAppPanel={() => onPick("app-panel")}
     />

@@ -1,0 +1,16 @@
+id: crash-loop-halted-app-stays-down
+title: crash loop로 자동 재시작이 멈춘 앱은 새 release 말고는 다시 띄울 길이 없다
+kind: bug
+status: open
+topic: app-call
+modules: [packages/core/apps, packages/shell/renderer]
+now: |
+  - `halt`(`packages/core/apps/runtime/supervisor/supervisor.ts`)가 10분 창 안 예상 밖 종료가 한도(5)를 넘으면 `runtime.held`를 두고 `record_unavailable(crash_loop)`와 `AppRestartHalted`를 한 번 남긴 뒤 멈춘다. 창은 메모리(`runtime.exits`)에만 있고 시간이 지나야 비워진다.
+  - supervisor를 다시 움직이는 `reconcile`은 core의 1초 sweep이 (활성 release, run_enabled, status)가 마지막에 알린 것과 다를 때나 supervisor가 앱을 잊었을 때만 부른다. 멈춘 채로 아무것도 안 바뀌면 부르지 않는다.
+  - 실행 켜기·끄기 command(`apps/enable_execution`, `apps/disable_execution`, `packages/core/apps/runtime/commands.ts`)를 부르는 화면이나 CLI는 없다(`packages/core/apps/register.ts`에서 등록만 한다). 끄고 켜도 창이 비기 전에는 `apply`가 다시 멈춘다.
+  - 다시 뜨는 길은 둘이다. 원인을 고친 새 release의 activation(`prepare`가 창을 거치지 않고 후보를 띄운다)과 core를 다시 켜는 것(supervisor 메모리가 비어 창도 빈다).
+impact: |
+  앱이 일시적인 외부 실패(네트워크, 잠긴 파일)로 몇 번 죽었다 멈추면 사람은 toast만 받고 앱 화면과 tool 호출이 계속 실패한다. 코드를 안 고쳐도 되는 경우에 새 release를 만들거나 lophn 전체를 다시 켜야 한다.
+fix: |
+  - App details에 앱 실행 켜기·끄기를 두고(다른 작업이 `apps/enable_execution`·`disable_execution`을 화면에 잇는 중이다), 켜기가 멈춘 창을 비워 다시 띄운다(`reconcile`에서 `runEnabled`가 false에서 true로 바뀔 때 `exits`를 비운다). 작음~중간. 추천. 그 작업이 끝나면 이 이슈는 창 비우기만 확인하고 닫는다.
+  - 창이 비는 때(10분 뒤)에 supervisor가 스스로 한 번 다시 시도한다. 작음. 같은 원인이면 한 번 더 5회 죽고 멈춰 이유 없이 느리다.

@@ -1,0 +1,18 @@
+id: dead-connection-states-failed-sandbox
+title: 연결 상태 failed·failed-sandbox와 그 화면은 main이 세우지 않는 죽은 상태다
+kind: defect
+status: open
+topic: shell
+modules: [packages/shell/ipc, packages/shell/main, packages/shell/renderer]
+now: |
+  - `connectionStateSchema`(`packages/shell/ipc/core.ts`)의 `state`는 `starting`, `ready`, `stale`, `failed`, `failed-start`, `failed-sandbox`, `failed-schema`다.
+  - main에서 `state.state`를 바꾸는 곳(`packages/shell/main/desktop/core/connection.ts`)은 `failed-start`(control을 못 열었을 때, 시작 실패)와 `failed-schema`(`fail`)뿐이다. `grep`으로 `failed`나 `failed-sandbox`를 세우는 main 코드는 찾지 못했다.
+  - renderer는 둘을 읽는다: `packages/shell/renderer/desktop/connection/events/client.ts`의 상태 목록과 `desktop/workspaces/start-failure/model.ts`의 `sandboxFailure()`(`home.title.sandbox-failed`, `home.failure.sandbox-failed`). 그 문구와 wireframe frame(`tools/wireframes/pages/screens/home.tsx`의 `home-connection-failed`, `home-sandbox-failed`)이 이 상태를 그린다.
+  - sandbox 실패는 core 시작 실패의 한 갈래로 다룬다(`core-boot:start-failed-other`). `project-docs/flows/areas/core-platform.yaml`과 `journeys/setup.yaml`(boot-start-failed)이 같은 사실을 적었다.
+impact: |
+  사람이 볼 수 없는 화면 둘이 코드, i18n 문구, wireframe, 문서에 남는다. "OS 보안 설정이 막았다"는 안내가 어디선가 뜨는 줄 알고 읽는 사람과 AI가 그 화면에 맞춰 설계를 이어 간다(실제로는 같은 상황에서 `failed-start` 화면이 뜬다).
+fix: |
+  - 상태 값 `failed`·`failed-sandbox`, `sandboxFailure()`, i18n 문구 둘(`home.title.sandbox-failed`, `home.failure.sandbox-failed`), wireframe frame 둘, 문서의 같은 줄을 지운다. 작음. 추천. 지워도 잃는 기능이 없다.
+  - sandbox 시작 실패를 core가 구별해 알리고 main이 `failed-sandbox`를 세우게 한다. 중간~큼. OS별 sandbox 실패를 가를 신호가 지금 없어 쓸 곳이 생길 때 한다.
+decided: |
+  지운다. 쓰는 곳이 없는 죽은 상태다(AGENTS.md "속도": 미리 만들지 않는다).

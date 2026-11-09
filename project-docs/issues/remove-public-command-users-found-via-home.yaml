@@ -1,0 +1,17 @@
+id: remove-public-command-users-found-via-home
+title: AGENT.md A21은 쓰는 그릇의 lophn에게 알리라고 쓰는데 앱 session은 누가 쓰는지 읽지 못하고 home을 거친다
+kind: bug
+status: open
+topic: app-call
+modules: [packages/core/apps, packages/core/agent-workspaces]
+now: |
+  - `project-docs/products/AGENT.md` A21: 공개 command를 지우려면 앱 workspace의 session이 "쓰는 그릇 workspace의 lophn에게 답을 받지 않는 call로 알리고 사람에게 묻는다."
+  - 앱 workspace session은 그 그릇이 어디인지 읽을 수 없다. `apps/usage`(`packages/core/apps/usage/reads.ts`)는 home session이 아니면 `forbidden`("only a home session reads app usage")이다. `release.prepare`의 `removed_public_tools`는 지워지는 command만 싣고 쓰는 곳은 싣지 않는다.
+  - 앱 지침(`packages/core/agent-workspaces/prompts/app.md`)은 그래서 "home의 lophn에게 알리라"고 쓴다(`to: {agent: "lophn"}`, home이 각 공개 command의 사용자를 본다). A21과 지침이 다르다.
+impact: |
+  문서(A21)대로 하려는 설계나 AI는 앱 session이 사용자를 찾는 길이 없어 막힌다. 실제 길은 home을 거치는 두 단계(앱 session → home lophn → 쓰는 그릇)인데 AGENT.md에 없다.
+fix: |
+  - A21을 지침대로 고친다: 앱 session이 home의 lophn에게 알리고, home이 `apps/usage`로 쓰는 곳을 찾아 사람에게 묻거나 그 그릇에 전한다. 작음. 추천.
+  - 앱 session이 자기 앱의 사용 관계를 읽게 route를 연다. 중간. 경계(그릇)를 넘는 읽기라 P12와 부딪혀 권하지 않는다.
+decided: |
+  A21 문장을 지침에 맞게 고친다.

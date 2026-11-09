@@ -322,8 +322,6 @@ journeys:
       - {do: "창이 그 session의 agent 탭을 연다", screen: new-agent-conversation, flow: agent-tab-request:opened}
       - {do: "agent가 자기가 연 탭을 닫는다", flow: host-tab-close:accepted}
       - {do: "창이 탭을 닫는다", flow: agent-tab-request:closed}
-    gaps:
-      - "agent가 문서 탭을 차례로 여는 길은 flow가 없다. host tab open은 session과 browser만 받는다(shell-workspace의 pane-stack 화면)"
 
   - id: agent-opens-tui
     title: "agent가 harness session을 터미널 TUI 탭으로 열어 준다"

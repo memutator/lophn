@@ -1014,14 +1014,14 @@ flows:
 
   - id: app-invocation-read
     title: "호출 기록을 목록이나 한 건으로 읽는다"
-    actor: agent
+    actor: person
     entries: [route:apps/invocations, route:apps/invocation]
     boundary: [app-runtime]
     code: [packages/core/apps/invocations/reads.ts, packages/core/apps/invocations/store.ts]
     steps:
       - "목록은 app, session, turn, effect, status, reverted, mode, release 필터와 cursor(최대 200개)로 자른다. 범위 밖 앱의 기록은 뺀다. agent에게는 보관한 앱의 기록이 없다(archivedToAgent)."
       - "한 건은 범위 밖이거나 없으면 null이다. 없는 기록과 같은 모양이다."
-      - "읽기만 한다. 기록을 남기지 않는다. 사람의 화면도 같은 두 route를 쓸 수 있다."
+      - "읽기만 한다. 기록을 남기지 않는다. 사람의 화면(App details의 Activity)과 agent의 CLI(`app.invocations`)가 같은 두 route를 쓴다."
     outcomes:
       - id: listed
         observe: [response]

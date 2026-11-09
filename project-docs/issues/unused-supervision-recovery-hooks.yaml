@@ -11,6 +11,7 @@ now: |
   - `resolveAgent`(`packages/core/lophn-agent/agents/resolve.ts`, 216줄): `agents/mod.ts`가 내보내고 test(`agent-tools_test.ts`)만 부른다. 타입 `ResolvedAgent`만 쓰인다.
   - `driver.revokeServer`(`run-loop/driver.ts`)와 `refreshNow`(`packages/core/lophn-agent/models/work.ts`)는 부르는 곳이 없다.
   - 감독 `onGiveUp`(`packages/core/supervision/responsiveness/slot.ts`)은 callback 칸만 있고 넘기는 곳이 없다.
+  - `revokeServer`가 없어도 전역 MCP 서버를 끄면 다음 tool 호출부터는 막힌다(`extensions/mcp-toolkit.ts`가 호출 때 `enabled`를 다시 본다). 없는 것은 도는 turn 안에서 이미 시작한 호출의 취소뿐이다(`run-loop/loop.ts`의 `revoke({server})`가 받는 쪽만 남았다).
 impact: |
   읽는 사람과 AI가 "재시작 점검이 있다", "앱을 다시 띄우는 길이 있다"고 믿고 설계를 이어 간다(앞 이슈의 exit 0 앱은 이 restart 통로가 닿지 않아 안 뜬다). 장치마다 test와 문서 줄이 딸려 있어 고칠 때 같이 움직여야 한다.
 fix: |

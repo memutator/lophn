@@ -2,8 +2,9 @@
 // 얼마나 썼는지, 이 session이 쓴 token과 금액을 이름·값 두 열로 보인다. core가 모르는 값(구독 남은 한도)은 줄을 두지 않는다.
 
 import { formatDate, formatNumber, t } from "@lophn/i18n";
-import { IconButton } from "@lophn/ui/primitives";
-import type { ReactElement } from "react";
+import { CopyButton, IconButton } from "@lophn/ui/primitives";
+import { systemClipboard } from "@lophn/ui/shared";
+import { type ReactElement, useEffect, useRef } from "react";
 import { workspaceIcons } from "../../icons/mod.ts";
 import type { AcpUsage } from "../../../../protocol/acp/mod.ts";
 import {
@@ -183,8 +184,21 @@ export function StatusView({ status, onClose }: StatusViewProps): ReactElement {
   const { context } = usage;
   const percent = context === null ? 0 : contextPercent(context);
   const level = contextLevel(percent);
+  const panel = useRef<HTMLElement>(null);
+  // 다른 곳을 누르면 닫는다. status footer는 스스로 여닫으므로 빼야 눌렀을 때 닫혔다 다시 열리지 않는다.
+  useEffect(() => {
+    const outside = (event: PointerEvent) => {
+      const target = event.target as Element;
+      if (panel.current?.contains(target)) return;
+      if (target.closest?.("[data-status-footer]")) return;
+      onClose();
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [onClose]);
   return (
     <section
+      ref={panel}
       className={styles.panel}
       aria-label={t("conversation.label.status-of")}
       data-status-view=""
@@ -200,7 +214,14 @@ export function StatusView({ status, onClose }: StatusViewProps): ReactElement {
       </header>
       <dl className={styles.body}>
         <Row name={t("conversation.label.status-session")}>
-          <span className={styles.mono}>{status.session}</span>
+          <span className={styles.session}>
+            <span className={styles.mono}>{status.session}</span>
+            <CopyButton
+              text={status.session}
+              label={t("common.button.copy-id")}
+              clipboard={systemClipboard}
+            />
+          </span>
         </Row>
         {model === null ? null : (
           <Row name={t("conversation.label.status-model")}>

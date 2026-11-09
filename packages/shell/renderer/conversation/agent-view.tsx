@@ -1531,7 +1531,12 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             onProblem={fail}
             usage={
               status === null ? null : (
-                <StatusFooter status={status} onOpen={showStatus} />
+                <StatusFooter
+                  status={status}
+                  onOpen={() =>
+                    layer?.kind === "status" ? setLayer(null) : showStatus()
+                  }
+                />
               )
             }
           />

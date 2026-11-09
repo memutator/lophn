@@ -9,6 +9,7 @@ import { type WorkspaceRef, workspaceKey } from "../shell/desk-model.ts";
 import { sessionOf } from "./agent/tab-fields.ts";
 import type { SessionTabOpen } from "./kinds/agent.tsx";
 import { appPreviewTab } from "./kinds/app-preview.tsx";
+import { artifactTab } from "./kinds/artifact.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
 import type { TabHost } from "./kinds/host.ts";
 import { openTerminal } from "./kinds/terminal.tsx";
@@ -192,6 +193,35 @@ export function useSurfaceRequests(args: Args): void {
           host().openFloat(tab, undefined, open.options);
         } else host().openTab(tab, open.options);
         if (person !== undefined) host().removeTab(person.key);
+        done();
+        return;
+      }
+      if ("artifact" in target) {
+        if (
+          host()
+            .windowTabs()
+            .some((tab) => tab.key === key)
+        ) {
+          done();
+          return;
+        }
+        const tab = artifactTab(host(), target.artifact.name, key);
+        if (tab === null) return;
+        // 같은 artifact 탭(사람이 연 것, core가 다시 떠 표에서 빠진 옛 host 탭)이 있으면 그 자리에 이 탭을 열고 그것을 닫는다.
+        // 같은 창의 같은 source는 view 하나라 두 탭이 한 page를 나눠 갖지 않게 한다.
+        const previous = host()
+          .windowTabs()
+          .find(
+            (item) =>
+              item.kind === "artifact" &&
+              item.fields?.name === target.artifact.name,
+          );
+        if (previous !== undefined) {
+          host().openTab(tab, { select: false, after: previous.key });
+          host().removeTab(previous.key);
+        } else if (open.float === true) {
+          host().openFloat(tab, undefined, open.options);
+        } else host().openTab(tab, open.options);
         done();
         return;
       }

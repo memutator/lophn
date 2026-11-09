@@ -137,6 +137,29 @@ and it works in a workflow artifact and in a project or app artifact.
 - What a status value means is yours to decide (for example `running` for the
   current step and `reported` when a report exists).
 
+## Check it on screen
+
+Look at the page before you tell the person it is done, the way an app is
+checked in its preview.
+
+1. `lophn tab open --artifact <name>` opens it as a tab next to yours and
+   returns its `tab` id. It is `not_found` until `<Folder>/<name>/index.html`
+   exists. Opening it again returns the same tab.
+2. `lophn browser screenshot <tab>` shows what the person sees.
+   `lophn browser logs <tab>` gives console errors (a script that failed, a
+   `fetch` of a missing `data/` file). `lophn browser snapshot <tab>` reads the
+   page as an accessibility tree with refs.
+3. Use the refs with `lophn browser act <tab>` (click, fill, select, scroll) to
+   try filters, tabs and buttons the page has, and `lophn browser evaluate <tab>`
+   to read a value from the page.
+4. Fix the files and look again. The tab reloads by itself when a file changes;
+   use `lophn browser wait <tab> --text <text>` if you need it settled.
+
+Leave the tab open for the person. While you drive it the tab shows
+[Take control]; if the person takes it, `act` and `evaluate` are `conflict` and
+you can still look. The page cannot navigate: `browser navigate` is for browser
+tabs.
+
 ## Changes show at once
 
 When you change a file in the folder, a tab that has it open reloads. There are

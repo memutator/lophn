@@ -1,8 +1,9 @@
 // `lophn tab open|close`: lophn agent session이나 사람 token이 shell에 탭을 열고 자기가 연 탭을 닫는다. 사람 token은
-// --url과 --preview 탭만 연다(core가 거절). core는 접수만 답한다(탭은 shell이 그 workspace를 보이는 창에서 연다).
+// --url, --preview, --artifact 탭만 연다(core가 거절). core는 접수만 답한다(탭은 shell이 그 workspace를 보이는 창에서 연다).
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
+import { artifactNameSchema } from "../../protocol/projects/values.ts";
 import {
   tabPlaceSchema,
   tabsClose,
@@ -34,24 +35,26 @@ export function parseWorkspaceText(text: string): Workspace | undefined {
 const open = defineCommand({
   name: "tab.open",
   summary:
-    "Open an agent session, a browser page or an app preview as a tab in the shell",
+    "Open an agent session, a browser page, an app preview or an artifact as a tab in the shell",
   description:
-    "Open a tab in the shell: --session <ses> shows an open session of this workspace, --url <url> opens an http or https page in a browser tab, --preview <app> shows the running preview of an app (give exactly one). " +
+    "Open a tab in the shell: --session <ses> shows an open session of this workspace, --url <url> opens an http or https page in a browser tab, --preview <app> shows the running preview of an app, --artifact <name> shows an artifact of this workspace's artifacts folder (give exactly one). " +
+    "--artifact is for a project or app workspace (home has no artifacts: invalid_input); it is not_found until <artifacts folder>/<name>/index.html exists. An artifact has one such tab: opening it again returns the same tab and you own it. " +
     "--device <name> (with --preview) shows it in a device registered in Settings > Browser (size, pixel ratio, touch and user agent); an unknown name is not_found, and without --device it is desktop size. " +
     "--preview is for the session of that app's workspace and for the person; another app's workspace gets not_found, and it is conflict if no preview is running (run preview start first). " +
-    'A person token opens only --url and --preview tabs. --url from a person goes to --workspace \'{"project":"<prj id>"}\' or \'{"app":"<app id>"}\', else env LOPHN_WORKSPACE (a project terminal sets it), else home; an agent session ignores it and uses its own workspace. ' +
+    'A person token opens only --url, --preview and --artifact tabs. --url and --artifact from a person go to --workspace \'{"project":"<prj id>"}\' or \'{"app":"<app id>"}\', else env LOPHN_WORKSPACE (a project terminal sets it), else home; an agent session ignores it and uses its own workspace. ' +
     "An app has one preview tab: opening it again returns the same tab and you own it. " +
     "--session <ses> --tui opens a harness agent session (claude-code, codex, opencode) of a project workspace in a terminal tab through the CLI's own resume; " +
     "while it is open that session starts no turn and its inputs and calls wait in its queue, and they run after the TUI ends. " +
     "A tui is invalid_input for a session that is not a harness agent of a project workspace, and conflict if the session has not run yet, a turn is running, or it is already open in a tui. " +
     "--place beside|group|float hints where it goes (next to your own tab, into your tab's group, or floating); without it the tab goes right after your tab. " +
     "Returns the tab ID with status accepted: the shell opens it when it shows this workspace, and an opened tab never takes focus from what the person is looking at. " +
-    "Close only tabs you opened (tab close). Look at and drive a browser or preview tab you opened with browser snapshot and browser act.",
+    "Close only tabs you opened (tab close). Look at and drive a browser, preview or artifact tab you opened with browser snapshot, browser screenshot and browser act.",
   input: z.strictObject({
     session: idSchema("ses").optional(),
     tui: z.boolean().optional(),
     url: z.string().min(1).max(8192).optional(),
     preview: idSchema("app").optional(),
+    artifact: artifactNameSchema.optional(),
     device: z.string().min(1).max(40).optional(),
     place: tabPlaceSchema.optional(),
     workspace: z.string().min(1).max(200).optional(),
@@ -60,13 +63,17 @@ const open = defineCommand({
   routes: [tabsOpen],
   workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
-    const given = [input.session, input.url, input.preview].filter(
-      (value) => value !== undefined,
-    );
+    const given = [
+      input.session,
+      input.url,
+      input.preview,
+      input.artifact,
+    ].filter((value) => value !== undefined);
     if (given.length !== 1) {
       return err({
         code: "invalid_input",
-        message: "give exactly one of --session, --url or --preview",
+        message:
+          "give exactly one of --session, --url, --preview or --artifact",
       });
     }
     if (input.device !== undefined && input.preview === undefined) {
@@ -96,11 +103,13 @@ const open = defineCommand({
       target:
         input.preview !== undefined
           ? { preview: { app: input.preview, device: input.device ?? null } }
-          : input.session === undefined
-            ? { browser: { url: input.url! } }
-            : input.tui === true
-              ? { tui: input.session }
-              : { session: input.session },
+          : input.artifact !== undefined
+            ? { artifact: { name: input.artifact } }
+            : input.session === undefined
+              ? { browser: { url: input.url! } }
+              : input.tui === true
+                ? { tui: input.session }
+                : { session: input.session },
       ...(input.place === undefined ? {} : { place: input.place }),
       ...(workspace === undefined ? {} : { workspace }),
     });

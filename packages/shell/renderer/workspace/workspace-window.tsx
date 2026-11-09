@@ -2173,12 +2173,14 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   const shown = (
     group === null ? [desk.selected] : leavesOf(group.layout)
   ).flatMap((key) => deskTab(key) ?? []);
-  // agent가 연 browser·preview 탭(key `host:`)은 사람이 고르기 전에도 본문을 mount한다. 그래야 page가 붙어 agent가 바로 다룬다.
+  // agent가 연 browser·preview·artifact 탭(key `host:`)은 사람이 고르기 전에도 본문을 mount한다. 그래야 page가 붙어 agent가 바로 다룬다.
   // 자리가 없어(display: none) 사람 화면에는 나오지 않고, 고르면 이 자리에서 pane 안으로 옮겨 mount된다(webview는 key로 이어진다).
   const hiddenHostTabs = desk.tabs.filter(
     (tab) =>
       tab.key.startsWith("host:") &&
-      (tab.kind === "browser" || tab.kind === "app_preview") &&
+      (tab.kind === "browser" ||
+        tab.kind === "app_preview" ||
+        tab.kind === "artifact") &&
       tab.fields?.native !== true &&
       !shown.some((item) => item.key === tab.key),
   );

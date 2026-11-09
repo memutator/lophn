@@ -228,6 +228,10 @@ files:
       - host-preview-tab-open:not_found
       - host-preview-tab-open:conflict
       - host-tab-open:invalid_input
+      - host-artifact-tab-open:accepted
+      - host-artifact-tab-open:reused
+      - host-artifact-tab-open:not_found
+      - host-artifact-tab-open:invalid_input
       - host-tab-close:accepted
       - host-tab-close:forbidden
       - host-tab-close:not_found

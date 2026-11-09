@@ -72,6 +72,7 @@ function setup(mode: "live" | "preview" = "preview") {
   const lookup: PageLookup = {
     guest: () => fake.page,
     app: () => ({ mode, page: fake.page }),
+    artifact: () => fake.page,
   };
   const driver = createBrowserDriver({
     viewSession: () => "view-1",

@@ -69,6 +69,7 @@ secret
 - 줄에 선 메시지는 도는 turn이 있을 때 사람이 다음 turn으로 보낸 것이다. 순번을 받지 않았으면(`acp_items`에 없으면) 줄에 서고, turn이 가져가거나 steer로 올릴 때 순번을 받는다.
 - snapshot의 `writing`은 core `live-turns.ts`가 낸 글 그대로이고 `at`은 그 turn의 시작이다. `pending`은 approvals(harness 물음과 부모가 푸는 `to_parent` 요청은 거른다)와 질문 기다림(`to_parent` 질문은 거른다)에서, `turn.elapsed`는 live-turns에서 읽는다.
 - 대기 중인 질문의 묶음 id는 메모리에만 있어, 풀린 질문의 `group`은 null이다.
+- 사람에게 가는 질문은 session당 하나만 열린다(`pending.question`이 한 칸이라서다). 한 응답의 `ask` 호출 여럿은 병렬로 오지만 QuestionWait가 나머지를 줄 세우고, 앞 질문이 풀린 때 다음 질문의 `QuestionAsked`를 낸다. 열리지 않은 질문은 `ask/read`·`ask/answer`가 `not_found`이고 snapshot의 질문 목록에도 없으며 닫혀도 `QuestionResolved`가 나가지 않는다.
 - 팀 자식의 요청과 질문(`TurnRequestOpened`·`QuestionAsked`의 `to_parent`)은 부모가 푸는 것이라 갱신(`approval_*`, `question_*`)으로 나가지 않는다. core가 열 때 기억해 두었다가 그 닫힘 event도 거른다. 그 자식의 `ask` tool 항목은 부모가 `call reply`로 답한 질문의 outcome을 `parent_reply`로 내고 부모의 답 글을 `detail.reply`에 싣는다. 자식 탭의 카드는 "Answered by the parent"와 그 글을 보인다.
 
 redaction

@@ -190,7 +190,7 @@ export const appSpace = {
   "app-detail.note.failed-unchanged":
     "Nothing you use has changed. The agent that applied this version sees why it failed.",
   "app-detail.note.run-halted":
-    "It exited unexpectedly more than five times in ten minutes, so lophn stopped restarting it. Turn it off, then on again after ten minutes to start it.",
+    "It exited unexpectedly more than five times in ten minutes, so lophn stopped restarting it. Turn it off and on again to restart it.",
   "app-detail.note.run-preparing": "The app has no active release yet.",
   "app-detail.note.run-stopped":
     "The app is off. It doesn't run or answer calls.",

@@ -644,6 +644,15 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
   return {
     reconcile(desired) {
       const runtime = runtimeOf(desired.app);
+      // 사람이 Run을 켜거나 멈춘 앱의 상태가 다시 알려지면 crash 창을 비워 다시 띄운다. core는
+      // 사람의 enable(이미 켜진 앱 포함)로 revision이 바뀔 때도 알리고, 자동 재시작은 알리지 않는다.
+      if (
+        desired.runEnabled &&
+        (!runtime.desired?.runEnabled || runtime.held)
+      ) {
+        runtime.exits = [];
+        runtime.haltReported = false;
+      }
       runtime.desired = desired;
       if (desired.runEnabled) runtime.held = undefined;
       return enqueue(runtime, () => apply(runtime));
@@ -684,7 +693,13 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
           return;
         opened = await openTracked(runtime, tracked, tracked.attestation);
         // 채택된 release의 자식이 열렸다. 붙들기를 풀 때 이 자식을 이전 상태로 되돌리지 않는다.
-        if (opened) runtime.desired = tracked.desired;
+        if (opened) {
+          runtime.desired = tracked.desired;
+          // 새 release는 옛 release의 crash 창을 이어받지 않는다.
+          runtime.exits = [];
+          runtime.held = undefined;
+          runtime.haltReported = false;
+        }
       });
       return opened;
     },

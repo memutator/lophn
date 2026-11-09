@@ -1,5 +1,5 @@
 // App details의 Run 절. 앱 실행 허용(run_enabled)을 켜고 끄는 곳이다. 끄면 앱 process가 멈추고, 켜면 채택한 release가
-// 다시 뜬다. crash loop로 멈춘 앱은 켜진 채라 껐다 켜야 하고, 최근 10분 안 종료가 남아 있으면 그 창이 지난 뒤에 다시 돈다.
+// 다시 뜬다. crash loop로 멈춘 앱은 켜진 채라 껐다 켜야 하고, 켜면 종료 기록(crash 창)을 비워 다시 띄운다.
 import { useEffect, useState } from "react";
 import { Switch } from "@lophn/ui/input";
 import { t } from "@lophn/i18n";

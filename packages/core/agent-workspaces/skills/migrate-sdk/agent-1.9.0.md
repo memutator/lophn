@@ -52,4 +52,12 @@ lophn changed the instruction text it gives app agents in this version. Change y
 -  expected. Material for the app to read goes to lophn at that project with
 +  project go to the person, who asks lophn at home. Material for the app to read goes to lophn at that project with
    `lophn call send`, result expected.
+--- a/packages/sdk/agent/guide.md
++++ b/packages/sdk/agent/guide.md
+@@ -73,3 +73,4 @@ import { contextBlock, useAgentSession } from "@lophn/agent";
+ - 앱을 짓고 옮기는 lophn은 사람이 정한 것(SDK를 올릴지, 어떤 기능을 쓸지)을 자기 memory(`agent.memory`)에
+-  적고, 사람에게 다시 묻기 전에 memory부터 본다. 이미 정한 것은 묻지 않는다.
++  적고, 사람에게 다시 묻기 전에 memory부터 본다. 이미 정한 것은 묻지 않는다. 모든 workspace가
++  읽는 global memory(Home이 씀)도 같은 prompt에 실리니, workspace를 건너는 사실은 거기서 먼저 본다.
+ - `contextBlock({name, mimeType, text})` — 화면의 context(보고 있는 글, 고른 항목)를
 ```

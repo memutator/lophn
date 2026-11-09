@@ -257,9 +257,11 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
           limit={MEMORY_MAX_BYTES}
         />
         <p className={styles.note}>
-          {t("agents.notice.memory-workspace", {
-            workspace: props.workspaceName,
-          })}
+          {kind === "home"
+            ? t("agents.notice.memory-home")
+            : t("agents.notice.memory-workspace", {
+                workspace: props.workspaceName,
+              })}
         </p>
       </Section>
 

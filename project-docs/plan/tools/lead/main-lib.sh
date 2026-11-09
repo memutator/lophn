@@ -45,7 +45,9 @@ assign_version() {
   branch=$(git branch --show-current)
   cur=$(git show main:package.json | grep -m1 -oP '"version": "\K[^"]+') || { echo "STOP: main의 판을 못 읽음"; return 1; }
   new=$cur
-  if git diff --name-only main...HEAD -- packages/ | grep -q .; then
+  # 일 하나가 판 하나다. 계획의 중간 land는 항목이 없어 판을 두고, 항목을 더하는 마지막 land가 올린다.
+  if git diff --name-only main...HEAD -- packages/ | grep -q . &&
+    git diff --diff-filter=A --name-only main...HEAD -- project-docs/products/change-log/ | grep -q '\.yaml$'; then
     new=${cur%.*}.$(( ${cur##*.} + 1 ))
   fi
   sed -i -E "0,/\"version\": \"[^\"]*\"/s//\"version\": \"$new\"/" package.json
@@ -70,6 +72,6 @@ finish_on_main() {
   if [ -n "$1" ]; then
     out=$(eval "$1" 2>&1 9>&-) || { echo "$out" | tail -30; stop "check failed" || return 1; }
   fi
-  # 판을 바꾼 뒤라 records(판과 항목 쌍)는 check를 건너뛰어도 꼭 본다. packages/를 바꿨는데 항목이 없으면 여기서 걸린다.
-  out=$(node tools/records.ts check 2>&1 9>&-) || { echo "$out" | head -10; stop "records check 실패(packages/를 바꿨으면 change-log 항목이 있어야 한다)" || return 1; }
+  # 판을 바꾼 뒤라 records(판과 항목 쌍)는 check를 건너뛰어도 꼭 본다.
+  out=$(node tools/records.ts check 2>&1 9>&-) || { echo "$out" | head -10; stop "records check 실패" || return 1; }
   git -C "$MAIN" merge --ff-only -q "$(git branch --show-current)" || stop "main ff failed(main checkout에 겹치는 고친 file이 있다)" || return 1; }

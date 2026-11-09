@@ -63,7 +63,7 @@ MVP 이전이다. 설계는 자유롭게 바꾸되, 사람이 실제로 쓰는 d
 * 저장된 data의 모양이 바뀌면 기존 data를 새 모양으로 옮기는 migration을 같은 변경에 넣는다.
   * ledger: 새 schema step(새 id)을 더한다. 이미 낸 step의 SQL은 고치지 않는다. 적용기가 id와 SQL hash로 대조해 다르면 기동을 거절한다. 새 step은 `WIRINGS`(`packages/core/main/daemon/assembly.ts`) 맨 뒤 wiring의 `schemaStepsAfterTeams`에 더하고, 같은 변경에서 `schema-steps.lock.json` 끝에 `{id, sha256}`을 덧붙인다.
   * ledger 밖 data root 파일(`agents/*.md`, `settings.json`, `secrets.json` 등): 소유 wiring의 `dataSteps`에 step을 더한다.
-* 제품 판은 root `package.json`의 `version` 하나다. 다른 package의 `version`은 쓰지 않는다. PATCH는 main에 올리는 도구(`land.sh`, `main-merge.sh`)가 정한다: branch는 판을 고치지 않고, `packages/`를 바꾼 branch를 올릴 때 도구가 main 판의 PATCH를 올리고 branch의 새 change-log 항목의 판을 맞춘다. 항목은 branch에서 보이는 판으로 쓴다. MINOR·MAJOR는 사람이 정하고 release notes를 쓴다(`products/change-log/README.md`).
+* 제품 판은 root `package.json`의 `version` 하나다. 다른 package의 `version`은 쓰지 않는다. PATCH는 main에 올리는 도구(`land.sh`, `main-merge.sh`)가 정한다: branch는 판을 고치지 않고, `packages/`를 바꾸고 change-log 항목을 더한 branch를 올릴 때 도구가 main 판의 PATCH를 올리고 branch의 새 change-log 항목의 판을 맞춘다. 항목은 branch에서 보이는 판으로 쓴다. MINOR·MAJOR는 사람이 정하고 release notes를 쓴다(`products/change-log/README.md`).
 * 틀린 옛 test(e2e 포함)는 옮기거나 고쳐 살리지 않는다. 지우고 새 설계에 맞춰 다시 쓴다.
 
 ## worker

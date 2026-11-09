@@ -53,7 +53,7 @@ journeys:
     goal: "workspace를 열지 않고 Home의 Agents 탭에서 전역과 project·앱 범위 agent를 한 목록으로 보고, 그 agent를 열어 고친다"
     refs: [H11, P2]
     steps:
-      - {do: "탭 줄 + menu의 Agents로 Home의 Agents 탭을 연다", screen: new-project-tab-menu, flow: agents-tab-open:opened}
+      - {do: "탭 줄 + menu의 Agents로 Home의 Agents 탭을 연다", screen: home-new-tab-menu, flow: agents-tab-open:opened}
       - {do: "전역과 모든 workspace의 범위 agent가 범위 표시와 함께 한 목록에 있다", screen: agents-tab-home, flow: agent-definition-read:ok}
       - {do: "project 범위 agent를 열면 editor가 그 agent의 workspace로 열린다", screen: agents-tab-home-open-scoped, flow: agent-definition-read:ok}
       - {do: "고쳐 저장한다", screen: agents-tab-home-open-scoped, flow: agent-change:saved}
@@ -264,10 +264,8 @@ journeys:
     refs: [C25, H3]
     steps:
       - {do: "앱 workspace의 agent가 lophn app share로 공유를 청한다", flow: share-request-open:opened}
-      - {do: "대기 목록에서 열린 공유 요청을 읽는다", screen: new-waiting-list, flow: share-request-list:ok}
-      - {do: "요청을 승인한다", flow: share-request-decide:approved}
-    gaps:
-      - "공유 요청 줄과 승인 단추를 그린 wireframe frame이 없다(new-waiting-list의 묶음 목록에 공유 요청이 보이는지 확인하지 못했다)"
+      - {do: "대기 목록에서 열린 공유 요청을 읽는다", screen: waiting-share-request, flow: share-request-list:ok}
+      - {do: "요청을 승인한다", screen: waiting-share-request, flow: share-request-decide:approved}
 
   - id: app-share-request-reject
     title: "앱 공유 요청을 사람이 거절한다"
@@ -276,7 +274,7 @@ journeys:
     refs: [C25]
     steps:
       - {do: "앱 workspace의 agent가 공유를 청한다", flow: share-request-open:opened}
-      - {do: "대기 목록에서 요청을 거절한다", screen: new-waiting-list, flow: share-request-decide:rejected}
+      - {do: "대기 목록에서 요청을 거절한다", screen: waiting-share-request, flow: share-request-decide:rejected}
 
   - id: app-share-with-activation-consent
     title: "앱 activation 동의와 함께 공유 요청을 승인한다"

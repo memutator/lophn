@@ -29,6 +29,10 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:settings/update",
   "memory:secrets/status",
   "memory:secrets/delete",
+  // logins/release는 shell capability를 싣는 shell main 전용이라 넣지 않는다.
+  "memory:logins/list",
+  "memory:logins/save",
+  "memory:logins/delete",
   "memory:diagnostics/status",
   "memory:turn_requests/decide",
   "memory:ask/read",

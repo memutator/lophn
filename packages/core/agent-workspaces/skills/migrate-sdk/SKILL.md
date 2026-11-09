@@ -64,7 +64,8 @@ package, also move the packages it depends on to the versions in its installed
 Change both `package.json` and `lophn.ts` to the target versions, exact and
 equal. Then run `npm install` in the source folder: it copies the new SDK into
 `.lophn/sdk/`. If it fails because a copy is missing, lophn does not have that
-version: stop and tell the person which package and version.
+version: stop and tell the person that lophn has to be updated before this app
+can move. Give the package and version only if they ask.
 
 ## 5. Change the code
 
@@ -84,10 +85,11 @@ migration is released (step 11).
 `lophn release prepare` (builds from the commit; on `failed` read `stage` and
 `reason`, fix, commit, prepare again). Then `lophn preview start`, walk the
 app's main operations and commands with `lophn preview call`, and
-`lophn preview stop`. Preview is not proof that production works; say so. Then
+`lophn preview stop`. Preview is not proof that production works, so tell the
+person what to try once it is live. Then
 `lophn release activate` and handle the result as the app prompt says (`active`,
-`waiting_consent`: say what is asked and that the person answers in the waiting
-list, `failed`: read `failure`, fix, prepare again).
+`waiting_consent`: say in their words what they are asked to allow and that
+they answer in the waiting list, `failed`: read `failure`, fix, prepare again).
 
 ## 8. A release that no longer starts
 
@@ -105,7 +107,7 @@ step; never edit a step file that was already released. A step that drops a
 table or column, or narrows a type, must start with a `-- loss:` line
 (`-- loss: drop_table t`, `-- loss: drop_column t.c`, `-- loss: narrow_type t.c`).
 Activation then waits for the person's consent. Tell the person what data would
-be lost before you activate; if you are not sure, do not drop it.
+be lost, in their words, before you activate; if you are not sure, do not drop it.
 
 ## 10. If a note cannot be followed
 
@@ -129,7 +131,9 @@ you see the code, say so and skip it instead of forcing it.
 
 ## 12. Report
 
-For each package: from version, to version, what you changed in the code. Then
-what you verified (check, tests, preview) and what you did not, and the release
-result. List each chosen feature as done, changed after talking to the person, or
-skipped with the reason. If something was left undone, say what and why.
+Tell the person in their words what changed in the app for them: whether it
+runs as before, what they can now do, and what to try. List each chosen feature
+as done, changed after talking to the person, or skipped with the reason. If
+something was left undone, say what and why. Put the package versions, the code
+changes and what you verified (check, tests, preview) in the commit message, and
+give them to the person only if they ask.

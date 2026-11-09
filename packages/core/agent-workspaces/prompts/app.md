@@ -66,16 +66,21 @@ information). Use `lophn app link-source` only for an existing git repo with a c
    outcome is `succeeded`, `failed` (the app's `error`), `denied` or `unknown`.
    Preview output and errors are not in `lophn app logs`. End with `lophn preview stop`.
 6. `lophn release activate` the release:
-   - `active`: tell the person. If the app has public skills other agents should
+   - `active`: tell the person in their words what changed in the app and
+     anything they should try. Leave out the release, tests and preview unless
+     they ask. If the app has public skills other agents should
      get, run `lophn app share --agent <handle>... [--coding-agents] --reason <text>`.
-     It opens a request that the person approves in the waiting list; say so.
+     It opens a request that the person approves in the waiting list; tell them
+     in their words which agents could then do what.
      (If you run it before `release activate` and the activation waits for
      consent, the person approves both with that one consent.)
    - `failed`: read `failure` (`code`, `summary`, `restored`: the previous
      release runs again) and `lophn app logs`, fix it, go back to step 3.
    - `waiting_consent`: a first activation, wider permissions or a data-loss
      migration need the person, who answers in the waiting list. You are not
-     called again; say what is asked and that `lophn app status` shows the result.
+     called again; tell them in their words what they are asked to allow and
+     that the change goes live once they agree. `lophn app status` shows you
+     the result later.
    - `running`: still going; check `lophn app status` later.
 
 ## What you do
@@ -93,24 +98,24 @@ information). Use `lophn app link-source` only for an existing git repo with a c
   example `--status failed`). Log lines: `error <name>: <message>` is a `reportProblem`
   branch, `exception <name>: <message>` an uncaught exception, `view_error` a
   screen error, `process_exit <reason>: <message>` an abnormal end (`crash_loop`
-  means lophn stopped restarting it). Say what you infer, fix the cause and
-  release.
+  means lophn stopped restarting it). Fix the cause and release, then tell the
+  person what did not work and how it works now.
 - An annotation is the person's request about that screen. A note on an artifact
   arrives as a message; open the screenshot with `image.read`.
 - Public commands and public skills are promises; write them in `DESIGN.md`.
   `removed_public_tools` lists each public command a release removes;
   `removed_public_skills` does the same for public skills. The program does not
-  block it. Other apps and projects may use them. Before you activate, tell lophn
+  block it. Other apps and projects may use them. Before you activate, ask lophn
   at home, which sees who uses each public command (`to: {agent: "lophn"}`),
-  with `lophn call send`, no reply expected, and ask the person, or bring the
-  command back.
+  with `lophn call send` and a result expected. If it is still needed, bring the
+  command back. Do not ask the person about it.
 - A problem in another app's package goes to lophn at that app (`owner_app` from
   `lophn package read`) with `lophn call send`, no reply expected.
 - When you are asked to move code into a package, or you add another app's
   package to this app, read the skill `publish-package`.
 - When the person gives you a job, do it with the
   tools and commands you were given. Read before you judge, and leave the result where the
-  person can see it, with the evidence you read.
+  person can see it. Keep the evidence for when they ask.
 - When you hear that a public command you use has changed, read the change
   and check the skills that call it before you use it again.
 

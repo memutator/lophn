@@ -175,7 +175,7 @@ artifact
 - workflow 안에서는 묻지 않는다. workflow로 쓴다는 것은 바깥 효과까지 책임지겠다는 뜻이다. (사람, 2026-10-20)
 - 진행은 agent가 받은 대로 쓰는 자연어 칸이다. lophn이 그 뜻을 이해하지 않는다. session을 이어 쓸지 같은 정책도 workflow가 정한다. (사람, 2026-10-22)
 - instance 상태는 workflow 안에서 고친다. 사람이 화면에서 step을 옮기는 길을 따로 두지 않는다. (사람, 2026-10-22) 사람 화면은 report와 고치기를 부르지 않는다. (agent, roadmap)
-- 정의는 셋이다: 선언, 자연어 글(`workflow.md`), artifact(정적인 것과 instance 상태까지 보이는 것). 모든 workflow에 artifact가 필요한 것은 아니다. workflow를 만드는 것은 project workspace의 agent의 책임이고 필요하면 사람에게 묻는다. node 시각화는 kit에서 재사용할 수 있게 만든다. (사람, 2026-10-22)
+- 정의는 셋이다: 선언, 자연어 글(`workflow.md`), artifact(정적인 것과 instance 상태까지 보이는 것). 모든 workflow에 artifact가 필요한 것은 아니다. workflow를 만드는 것은 project workspace의 agent의 책임이다. node 시각화는 kit에서 재사용할 수 있게 만든다. (사람, 2026-10-22) artifact를 둘지와 모양은 사람에게 묻지 않고 agent가 정한다(`products/AGENT.md` F5). (사람, 2026-11-09)
 - 사람 화면은 workflow 하나가 탭 하나다. 오른쪽 sidebar는 panel icon tab을 둔다(항목이 많아 segmented control로는 감당하지 못한다). wireframe을 추천안 그대로 승인했다. (사람, 2026-10-22)
 - coding agent 같은 third party harness는 참가자가 된다. harness는 programmatic 실행을 공식으로 지원하므로 사람 없이(workflow, job) 돌려도 된다. 이름 없는 `{kind: harness}` 참가자는 지웠고, harness agent는 이름이 있는 agent라 `{agent}` 참가자다. (사람, 2026-11-04)
 

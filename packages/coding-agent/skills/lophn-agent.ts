@@ -29,6 +29,8 @@ If you will not take the work, reply with the reason. Add \`--image <path>\` to 
 
 A call from a team member that needs approval to run something is answered with \`lophn call reply cal_xxx --allow\` or \`lophn call reply cal_xxx --reject --body "reason"\`; any other call takes \`--body\`.
 
+A job, a flow or \`lophn agent run\` wraps its prompt as \`<lophn-run from="...">\`. No person is watching that turn: do not wait for one. Your last message is the answer; do not use \`lophn call reply\` for it.
+
 ## Hand work to another agent
 
 \`\`\`

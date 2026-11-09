@@ -20,14 +20,16 @@ test("run의 결과는 그 입력이 연 turn의 답이고 같은 session에 먼
   const turns = new Map<string, TurnOfMessage>();
   const answers = new Map<string, string>();
   let runMessage = "";
+  let runText = "";
   const agents: RunAgents = {
     resolve: () =>
       Promise.resolve(ok({ agent: "lophn_home", workspace: null })),
     agentOf: () =>
       Promise.resolve(ok({ agent: "lophn_home", workspace: null })),
     open: () => Promise.resolve(ok(undefined)),
-    send: (_session, message) => {
+    send: (_session, message, text) => {
       runMessage = message;
+      runText = text;
       return Promise.resolve(ok(undefined));
     },
     turnOf: (message) => Promise.resolve(ok(turns.get(message) ?? null)),
@@ -93,6 +95,8 @@ test("run의 결과는 그 입력이 연 turn의 답이고 같은 session에 먼
     prompt: "hello",
   });
   if (!started.ok) throw new Error(started.error.message);
+  // 사람 자격으로 들어가는 run 입력이 사람이 친 글로 읽히지 않는다.
+  assert.equal(runText, '<lophn-run from="command">\nhello\n</lophn-run>');
   const id = started.value.id as `run_${string}`;
 
   // 먼저 들어온 입력 A가 연 turn T1이 먼저 끝난다.

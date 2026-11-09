@@ -104,7 +104,7 @@ publish는 같은 규칙을 폴더 `@lophn/cap-*` 의존에 적용해 낸 `permi
 - event: `PackageVersionRegistered`(name, version, permissions, bundle_hash, guide_hash).
 - 저장: ledger 표 `packages`, `package_versions`. blob field `package_version/bundle`, `package_version/guide`(owner key는 `<name>@<version>`). 설치 사본 `<data>/sdk/<part>/<ver>/`, `<data>/sdk/@me/<part>/<ver>/`. 앱 폴더의 `.lophn/sdk/...`.
 - log: `me_copy_skipped`.
-- 앱 agent의 지침: 내장 skill `publish-package`(내기와 쓰기 절차, 실패별 대처). app prompt는 package로 옮기거나 남의 package를 쓸 때 이 skill을 읽게 하고, home prompt는 사람이 정하면 code가 있는 앱의 lophn에게 넘기게 한다.
+- 앱 agent의 지침: 내장 skill `publish-package`(내기와 쓰기 절차, 실패별 대처). app prompt는 package로 옮기거나 남의 package를 쓸 때 이 skill을 읽게 하고, home prompt는 home의 lophn이 package로 빼기로 정하면 code가 있는 앱의 lophn에게 넘기게 한다(`products/AGENT.md` L11).
 
 ## 지키는 것
 

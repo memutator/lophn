@@ -12,7 +12,7 @@ const ASK_OPTION_MAX = 4;
 
 // tool 설명에 넣는 규칙 문구다.
 export const ASK_TOOL_RULES =
-  "Ask only for a decision that the human has to make and that the request, the files or a sensible default cannot settle. Never use it to confirm a permission; permissions are the Gate's job.";
+  "Ask only for a domain decision that the human has to make (what they want, their rules, what a term means, their taste) and that the request, the files or a sensible default cannot settle. Decide technical choices yourself. Never use it to confirm a permission; permissions are the Gate's job.";
 
 const nonblank = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",

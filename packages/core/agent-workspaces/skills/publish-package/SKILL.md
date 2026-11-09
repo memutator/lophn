@@ -10,8 +10,9 @@ A user package is a folder of this app's code that other apps pin and import as
 only that app publishes new versions. A published version never changes and is
 never deleted. A mistake is fixed by publishing a new version.
 
-Publish only when the person or lophn at home decided to share the code. Do not
-publish on your own to reuse code inside this app.
+Publish only when lophn at home decided to share the code and handed it to you.
+It decides; do not ask the person. Do not publish on your own to reuse code
+inside this app.
 
 ## Publish
 

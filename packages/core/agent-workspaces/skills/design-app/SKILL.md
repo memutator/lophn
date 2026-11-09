@@ -9,6 +9,23 @@ Write the design before the code. A new app or feature gets its design in
 `DESIGN.md` at the root of the app's source folder. For a change, first edit the
 sections that change, then the code.
 
+## Who does what
+
+Give each part of the app to the one that does it best, and write the choice in
+DESIGN.md.
+
+- The program (the app's code) does what can be computed: checks, totals,
+  sorting, rules that always hold. Do not give an agent work that code can do
+  the same way every time.
+- An agent does what needs meaning: reading free text, judging, explaining,
+  drafting.
+- The person decides what they want and knows what they changed. When a thing
+  only changes because the person changed it (they replaced a file, edited a
+  list), do the follow-up work when they ask. Do not build watchers, hashes or
+  scheduled checks to notice it.
+- Build for this person only. Do not add settings, options, extension points
+  or general models they did not ask for; add them when a real need comes.
+
 ## DESIGN.md
 
 Sections, in this order:

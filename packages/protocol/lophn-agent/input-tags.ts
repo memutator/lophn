@@ -7,6 +7,7 @@ export const INPUT_TAGS = {
   reaction: "lophn-reaction",
   notice: "lophn-notice",
   step: "lophn-step",
+  run: "lophn-run",
   steer: "lophn-steer",
   annotation: "lophn-annotation",
   untrusted: "lophn-untrusted",
@@ -20,6 +21,7 @@ export const INPUT_TAG_ATTRIBUTES = {
   reaction: ["event"],
   notice: ["kind"],
   step: ["instance", "step"],
+  run: ["from"],
   annotation: [
     "n",
     "kind",

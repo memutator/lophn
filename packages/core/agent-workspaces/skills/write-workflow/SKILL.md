@@ -151,7 +151,9 @@ and Node's built-in modules. Syntax that needs a transform, such as `enum` or
 Allotment: an app command that a flow calls works only within the current
 assignment of the agent whose handle is in `agent` of `workflow.yaml` (lophn when left
 out). Before you write the
-flow, choose that agent and ask the person with `ask` to assign the app to it.
+flow, choose that agent. If the app is not assigned to it, ask the person to
+assign it (an assignment is theirs to give), saying in their words what the
+workflow can then do.
 Without the assignment, `tool` comes back with `ok: false`. An agent that a flow
 calls can be anyone, but the agent works only within its own assignment.
 
@@ -186,12 +188,14 @@ The declaration is copied when an instance starts. Changing the file does not
 change a running instance. The participants of that instance change its steps
 with `lophn workflow edit`.
 
-## Artifacts are optional: ask
+## Artifacts are optional: you decide
 
-A workflow does not need a picture. Before you make any, ask the person with
-`ask` which they want: a static artifact (the steps as nodes), an instance
-artifact (the state of one instance), both, or none. None is a good answer. Do
-not make one without asking.
+A workflow does not need a picture. You decide, without asking the person,
+whether it gets a static artifact (the steps as nodes), an instance artifact
+(the state of one instance), both, or none. Make one when it helps the person
+follow work they handed off: an instance artifact when the instance runs long
+or passes through people. None is a good answer for a short workflow. If the
+person asks for a picture, make it.
 
 ## Drawing nodes with the kit
 

@@ -1,0 +1,16 @@
+id: claude-gui-resume-drops-images
+title: Claude GUI에서 지난 대화를 다시 열면 사람이 붙였던 그림이 사라진다
+kind: bug
+status: open
+topic: harness-gui
+modules: [packages/shell/main]
+now: |
+  live에서는 사람이 붙인 그림이 탭 임시 폴더 file의 `file://` resource_link로 메시지에 실려 썸네일과 modal로 보인다. CLI에는 `contentOf`(`packages/shell/main/extensions/bundled/harness-gui/claude.ts`)가 bytes를 읽어 base64 image block으로 넘기므로 transcript에는 그림이 base64로 남는다.
+  지난 대화를 다시 읽는 replay(같은 file의 transcript entry를 사람 메시지로 바꾸는 곳)는 `textOf(blocksOf(...))`로 글만 꺼내 `addUser(root, …, [{ type: "text", text }])`로 넣는다. image block은 버려진다. 그림만 보낸 메시지는 글이 ""라 `onToolResults`로 가서 사람 메시지 자체가 그려지지 않는다.
+  창을 다시 load하는 것은 main의 snapshot이라 그림이 남는다. 사라지는 것은 session을 resume하거나 session menu로 지난 session을 열 때다.
+  OpenCode·omp의 replay가 그림을 어떻게 다루는지는 아직 보지 않았다(Codex는 그림 붙이기를 끈다).
+impact: |
+  사람이 Claude GUI에서 지난 대화를 다시 열면 자기가 보낸 그림이 보이지 않는다. 그림만 보낸 메시지는 대화에서 통째로 빠져 무엇을 물었는지 알 수 없다. agent는 transcript로 그림을 기억하므로 화면과 agent가 아는 것이 다르다.
+fix: |
+  - 추천(중간): replay에서 base64 image block을 만나면 bytes를 탭 임시 폴더에 쓰고(live `writeImage`와 같은 자리·이름 규칙) `file://` resource_link block으로 사람 메시지에 싣는다. 화면은 지금의 썸네일·modal 길을 그대로 쓴다. adapter가 쓰기 port를 받아야 한다. 같은 때 OpenCode·omp replay도 보고 같은 꼴로 맞춘다.
+  - 작음: 그림 자리에 `[image]` 글만 남긴다. 메시지가 빠지지는 않지만 그림은 못 본다.

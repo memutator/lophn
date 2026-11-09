@@ -1,0 +1,14 @@
+id: agent-float-cap-drops-tab
+title: desk의 float이 20개면 agent가 연 work·glance 탭이 조용히 버려지고 agent는 열린 줄 안다
+kind: bug
+status: open
+topic: workspace-layout
+modules: [packages/shell/renderer, packages/core/host-queue]
+now: |
+  `packages/shell/renderer/shell/desk-model.ts`의 `openFloatTab`은 desk의 float이 `FLOATS_MAX`(20)이면 desk를 그대로 돌려준다. `packages/shell/renderer/workspace/use-surface-requests.ts`는 browser·preview·artifact 탭을 연 뒤 열렸는지 보지 않고 `done()`으로 ack한다. core의 탭 표(`packages/core/host-queue/queue.ts`)에는 탭이 남아 agent는 `accepted`를 받고 그 탭 id로 `browser *`를 부른다.
+  browser를 `--as` 없이 열면 기본 뜻이 work(접힌 float)라, 사람이 float을 지우지 않고 agent가 browser 탭을 거듭 열면 닿는다.
+impact: |
+  agent는 열리지 않은 탭을 다루려다 page가 없어 실패하고 왜인지 모른다. 사람 화면에는 아무것도 생기지 않는다.
+fix: |
+  - 추천(작음): float 상한이면 float 대신 desk 끝 plain tab으로 연다(접히지는 않지만 탭은 생긴다). `openAt`이나 `openFloat`에서 상한을 본다.
+  - 작음: 열지 못하면 ack하지 않거나 실패로 알려 core가 탭 표에서 빼고 agent가 `unavailable`을 받게 한다. retry가 되풀이되지 않게 실패를 따로 알려야 한다.

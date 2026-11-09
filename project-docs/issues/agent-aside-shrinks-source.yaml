@@ -1,0 +1,14 @@
+id: agent-aside-shrinks-source
+title: agent가 같은 source 옆에 aside 탭을 거듭 열면 source 칸이 1/8까지 줄어든다
+kind: bug
+status: open
+topic: workspace-layout
+modules: [packages/shell/renderer]
+now: |
+  `packages/shell/renderer/shell/desk-model.ts`의 `openBeside`는 relation `aside`이고 source의 group에 칸이 남으면 `splitOpen(…, source, …, "right")`로 source가 든 칸을 0.5로 나눈다. 같은 source에서 aside를 셋 열면 source 1/8, 새 탭들 1/8·1/4·1/2이 된다. peer(`openPeer`)는 가장 넓은 칸을 나눠 이 문제가 없다.
+  `aside`는 session·tui·preview·artifact 탭의 기본 뜻이라(`open-policy.ts` `openAt`) agent가 `--as`를 말하지 않아도 이 길을 탄다.
+impact: |
+  agent가 artifact, preview, 팀원 대화를 차례로 열면 사람이 보던 agent 대화 칸이 읽기 어려운 띠가 된다. 사람이 칸 경계를 다시 끌어 맞춰야 한다.
+fix: |
+  - 추천(작음): aside도 source 칸이 group에서 가장 넓은 칸의 절반보다 작으면 source 칸 대신 가장 넓은 칸을 나눈다(peer의 넓이 계산을 같이 쓴다). source 곁이라는 뜻은 조금 약해진다.
+  - 작음: aside로 나눌 때 source 칸 비율을 group 칸 수로 고르게 다시 맞춘다. 사람이 끌어 맞춘 비율을 덮는다.

@@ -57,6 +57,9 @@ files:
   - path: tests/e2e/rewind_test.ts
     covers: [file-write-stage:staged, file-write-stage:absent, file-write-record:recorded, rewind-file-record:recorded, tool-file-write:created, tool-file-write:overwritten, tool-call-execute:ok, session-rewind-preview:ok, session-rewind-apply:applied, session-rewind-apply:applied-partial, session-rewind-apply:blocked, session-rewind-apply:turn-running, rewind-reads:ok, core-boot:ready, turn-request-decide:once, turn-finish:completed]
     note: "agent가 두 번 고친 file은 첫 상태로 돌아가고, 사람이 그 사이 고친 file은 건너뛴다(applied-partial). 새 file의 사람 편집도 건너뛴다. 확인 없는 건너뜀이 있으면 blocked, 도는 turn 위에서는 conflict. 재시작 뒤에도 pre-image로 되돌린다. 허락 대기 request의 decide는 helper라 turn 완료로만 본다."
+  - path: tests/e2e/sdk-decide_test.ts
+    covers: [app-sdk-status-read:listed, app-sdk-decide:recorded, app-sdk-decide:handoff-refused, app-sdk-review-record:recorded, app-sdk-feature:reported, app-sdk-feature:not-found]
+    note: "한 test 안 앱 셋: home lophn의 update는 review와 open 기능을 남기고 그 앱 lophn의 첫 입력에 판·메모 file·기능 ID가 실린다(private 앱도 고정 예외로 받는다). leave는 call 없이 review만 남고 그 앱의 unreviewed가 비며, call 정책이 막은 update는 forbidden이고 review·기능·call이 남지 않는다. 앱 lophn은 자기 앱의 기능 결과만 낸다(남의 앱 기능과 없는 ID는 not_found). 판 올리기가 안 끝난 update는 migrated가 false다."
   - path: tests/e2e/secret_test.ts
     covers: [secret-attach:sent, secret-put:stored, secret-delete:deleted, secret-status:ok, provider-read:ok, model-call-read:ok, session-message-read:ok, message-body-read:ok, tool-call-read:ok, tool-file-read:read, turn-pump-start:closed-configuration-unavailable, turn-loop:failed-model-error]
     note: "provider key는 model 요청의 x-api-key에만 실리고 route 출력, ledger, secrets.json 밖 어디에도 없다. tool 결과에 든 key는 둘째 요청에 없다. key를 바꾸면 새 key만 쓰고 지우면 요청 없이 configuration_unavailable로 닫힌다. 401 오류 본문이 key를 되울려도 ledger와 log에 없다(오류 본문 가림은 flow outcome이 없다)."

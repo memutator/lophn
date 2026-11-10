@@ -1,5 +1,5 @@
 id: runtime-bare-renamed-custom
-version: 0.23.10
+version: 0.23.23
 title: agent runtime `bare`를 `custom`으로 바꾼다
 modules: [packages/protocol, packages/core/lophn-agent, packages/core/agent-workspaces, packages/core/main, packages/core/router, packages/shell/renderer, packages/design, packages/cli, packages/sdk, tools]
 change: |

@@ -1,5 +1,5 @@
 id: inbox-history-filters
-version: 0.23.22
+version: 0.23.24
 title: Inbox History 거르기를 kit filter로 바꾸고, 거르기를 열어도 Inbox overlay가 닫히지 않게 한다
 modules: [packages/design, packages/shell/renderer, tools]
 change: |

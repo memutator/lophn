@@ -1,5 +1,5 @@
 id: remove-eval
-version: 0.23.10
+version: 0.23.12
 title: eval 체계(tests/eval, eval skill, npm run eval*)를 지웠다
 modules: [tests, tools, packages/core/lophn-agent]
 change: |

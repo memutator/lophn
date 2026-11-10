@@ -6,9 +6,9 @@ files:
       - app-tab-head:head-cleared
     note: "readTabHead가 그릴 값과 그릴 것 없는 값을 가르는 판정(그릴 것 없으면 head-cleared, 글 길이와 항목 수 상한에서 자르면 head-set)"
 
-  - path: packages/shell/ipc/keybindings_test.ts
-    covers: [key-press:command-run, key-press:passed-on, key-overrides-main:applied, key-overrides-restore:restored]
-    note: "key 표, chord, context 판정, 사람이 바꾼 key 저장, 겹침 보고 단위. key-press 판정, 사람이 바꾼 키(key-overrides-main·restore)"
+  - path: packages/shell/ipc/shortcuts_test.ts
+    covers: [key-press:command-run]
+    note: "main이 창으로 넘기는 shortcut id 판정(isWindowShortcut): 표의 binding id·동적 id·app.panel id만 받는다"
 
   - path: packages/shell/main/app-frame/annotate_test.ts
     covers:

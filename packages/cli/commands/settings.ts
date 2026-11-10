@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
+  SETTING_ENTRY_ID,
   type SettingEntry,
   type SettingFolder,
   settingsList,
@@ -167,6 +168,8 @@ function readValue(schema: JsonSchema, text: string): Result<unknown> {
 }
 
 const REASON: Readonly<Record<string, string>> = {
+  unknown_key: "there is no such setting",
+  locked: "only the person changes it, in the Settings screen",
   wrong_type: "the value has the wrong type",
   out_of_range: "the value is out of range or not one of the allowed values",
   invalid_value: "the value is not valid",
@@ -196,6 +199,12 @@ async function target(
     return err({
       code: "forbidden",
       message: `only the person changes ${key}, in the Settings screen`,
+    });
+  }
+  if (found.kind === "entry" && !SETTING_ENTRY_ID.test(found.id)) {
+    return err({
+      code: "invalid_input",
+      message: `${key}: the id after ${found.folder.key}. is lowercase letters, digits and \`-\` (1 to 64)`,
     });
   }
   if (found.kind === "setting") {

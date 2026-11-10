@@ -209,8 +209,6 @@ function userBindings(
 export function createWindowCommands(deps: {
   platform: KeyPlatform;
   log: (message: string, error: unknown) => void;
-  /** main이 먼저 받는 키도 바뀐 키를 따르게 알린다. 통로가 없는 창(gallery)에서는 없다. */
-  tellMain?: (overrides: KeyOverrides) => void;
 }): WindowCommands {
   const registry = createCommandRegistry({ log: deps.log });
   const keybindings = createKeybindingService({
@@ -351,7 +349,6 @@ export function createWindowCommands(deps: {
     setOverrides(overrides) {
       current = overrides;
       refresh();
-      deps.tellMain?.(overrides);
       notify();
     },
     subscribe(listener) {

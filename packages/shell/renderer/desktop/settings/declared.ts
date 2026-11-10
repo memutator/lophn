@@ -53,6 +53,27 @@ export function updateSettings(
   });
 }
 
+/** 항목마다 file 하나인 설정 묶음(`shell.themes`)의 항목과 core가 읽지 못한 file. */
+export interface SettingFolderView {
+  readonly entries: readonly { readonly id: string; readonly value: unknown }[];
+  readonly unreadable: readonly {
+    readonly name: string;
+    readonly reason: "bad_id" | "too_large" | "not_json" | "bad_shape";
+  }[];
+}
+
+export async function readFolder(
+  core: CoreSource,
+  key: string,
+): Promise<SourceResult<SettingFolderView>> {
+  const read = await call<{
+    folders?: (SettingFolderView & { key: string })[];
+  }>(core, "memory", "settings", "list", { keys: [key] });
+  if (!read.ok) return read;
+  const folder = read.value.folders?.find((one) => one.key === key);
+  return { ok: true, value: folder ?? { entries: [], unreadable: [] } };
+}
+
 /** 사람이 정한 값이 있으면 그 값, 없으면 선언의 기본값이다. 둘 다 없으면 undefined다. */
 export function effectiveValue(entry: SettingEntry): unknown {
   return entry.hasChosen ? entry.chosen : entry.defaultValue;

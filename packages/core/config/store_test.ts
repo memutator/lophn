@@ -216,7 +216,7 @@ test("reload 없이 파일이 바뀐 뒤의 update는 손으로 고친 key를 �
   );
 });
 
-test("항목 file은 그 항목만 쓰고 지우며, 뜻 검사가 거절하면 아무 file도 바뀌지 않는다", async () => {
+test("항목 file은 그 항목만 쓰고 지우며, 거절하면 아무 file도 바뀌지 않고 사람이 둔 읽지 못한 file을 덮지 않는다", async () => {
   await withStore((store, file, published) => {
     const dir = join(file, "..", "notes");
     // 사람이 손으로 둔 file. 읽지 못하는 것도 그대로 남아야 한다.
@@ -224,6 +224,7 @@ test("항목 file은 그 항목만 쓰고 지우며, 뜻 검사가 거절하면 
     writeFileSync(join(dir, "hand.json"), '{"tone":"soft"}');
     writeFileSync(join(dir, "Broken Name.json"), "{}");
     writeFileSync(join(dir, "torn.json"), '{"tone": ');
+    writeFileSync(join(dir, "Mixed.json"), '{"tone":"soft"}');
     const names = () => readdirSync(dir).sort();
 
     // 손으로 둔 항목을 가리키는 새 항목과 그것을 고르는 설정을 한 번에 쓴다.
@@ -249,6 +250,7 @@ test("항목 file은 그 항목만 쓰고 지우며, 뜻 검사가 거절하면 
       values: { hand: { tone: "soft" }, mine: { tone: "loud", other: "hand" } },
       unreadable: [
         { name: "Broken Name", reason: "bad_id" },
+        { name: "Mixed", reason: "bad_id" },
         { name: "torn", reason: "not_json" },
       ],
     });
@@ -274,6 +276,16 @@ test("항목 file은 그 항목만 쓰고 지우며, 뜻 검사가 거절하면 
       [
         { key: "t.notes.Bad Id", action: "set", value: { tone: "a" } },
         "unknown_key",
+      ],
+      // 사람이 둔 file이 그 이름으로 있는데 읽지 못했다. 덮지 않는다.
+      [
+        { key: "t.notes.torn", action: "set", value: { tone: "a" } },
+        "invalid_value",
+      ],
+      // 대소문자만 다른 이름의 file이 있다(같은 file일 수 있다).
+      [
+        { key: "t.notes.mixed", action: "set", value: { tone: "a" } },
+        "invalid_value",
       ],
       [
         {
@@ -304,6 +316,7 @@ test("항목 file은 그 항목만 쓰고 지우며, 뜻 검사가 거절하면 
     assert.deepStrictEqual(removed.value.changed, ["t.notes.mine"]);
     assert.deepStrictEqual(names(), [
       "Broken Name.json",
+      "Mixed.json",
       "hand.json",
       "torn.json",
     ]);

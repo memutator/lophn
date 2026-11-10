@@ -1,9 +1,10 @@
-// 사람이 고른 appearance를 모든 문서에 닿게 한다. desktop 창 본문이 값을 보내면 검사해서
-// nativeTheme.themeSource를 맞추고(overlay·보호 입력 창·앱 view의 prefers-color-scheme), token을 덮어쓰는 CSS를
-// lophn 문서(shell 화면, overlay, 보호 입력 창, 앱 view)의 webContents에 insertCSS한다. 값이 바뀌면 옛 CSS를
-// 지우고 새로 넣고, 문서를 새로 읽으면(dom-ready) 지금 CSS를 다시 넣는다. 앱 view 문서에는 lophn 화면의 언어도
-// `<html data-lophn-locale>`로 적는다. `@lophn/app-ui`가 그 언어로 자기 문구를 고른다.
-// theme file(`<data root>/themes/`)도 여기서 읽고 지켜본다. 바뀌면 CSS를 다시 만들고 desktop 창에 알린다.
+// 고른 appearance를 모든 문서에 닿게 한다. 값(`shell.*` 설정)과 theme(`shell.themes`의 항목)은 core 설정의 사본
+// (ctx.settings)에서 읽는다. 사본이 바뀌면 다시 검사해서 nativeTheme.themeSource를 맞추고(overlay·보호 입력 창·앱 view의
+// prefers-color-scheme), token을 덮어쓰는 CSS를 lophn 문서(shell 화면, overlay, 보호 입력 창, 앱 view)의 webContents에
+// insertCSS한다. 값이 바뀌면 옛 CSS를 지우고 새로 넣고, 문서를 새로 읽으면(dom-ready) 지금 CSS를 다시 넣는다.
+// 그래서 Settings 화면이 바꾸든 `lophn settings set`이나 agent가 바꾸든 같은 길로 적용된다.
+// 앱 view 문서에는 lophn 화면의 언어도 `<html data-lophn-locale>`로 적는다. `@lophn/app-ui`가 그 언어로 자기 문구를 고른다.
+import { join } from "node:path";
 import {
   app,
   nativeTheme,
@@ -15,18 +16,16 @@ import {
 import { LOPHN_LOCALE } from "../../../../design/i18n/format.ts";
 import { APP_SCHEME } from "../../app-frame/network-policy.ts";
 import {
-  APPEARANCE_CHANNEL,
-  THEMES_CHANGED_CHANNEL,
-  THEMES_CHANNEL,
   THEMES_FOLDER_CHANNEL,
+  THEMES_SETTING_KEY,
 } from "../../../ipc/appearance.ts";
 import {
   type Appearance,
+  APPEARANCE_DEFAULTS,
   appearanceCss,
   parseAppearance,
 } from "../../../../design/appearance.ts";
-import { loadThemes, type Themes } from "../../../../design/themes.ts";
-import { themeFolder } from "../theme-files.ts";
+import { loadThemes } from "../../../../design/themes.ts";
 import { ARTIFACT_SCHEME } from "../../artifact/session.ts";
 import { artifactDocumentCss } from "../../artifact/theme-css.ts";
 import { checkCaller } from "../ipc-guard.ts";
@@ -38,11 +37,8 @@ const LOPHN_DOCUMENT = /^lophn-(?:shell|app|artifact):\/\//;
 const STAMP_LOCALE = `document.documentElement.setAttribute("data-lophn-locale", ${JSON.stringify(LOPHN_LOCALE)})`;
 
 export function register(ctx: ShellContext): Registered {
-  const { ipc, overlays, windows } = ctx;
+  const { ipc, overlays, settings } = ctx;
   let css = "";
-  let chosen: Appearance | undefined;
-  let themes: Themes = loadThemes([]);
-  const folder = themeFolder(ctx.dataRoot);
   // contents마다 지금 문서에 넣은 CSS의 key. 넣고 지우는 일은 contents마다 차례로 한다.
   const inserted = new WeakMap<WebContents, string>();
   const queue = new WeakMap<WebContents, Promise<void>>();
@@ -80,54 +76,49 @@ export function register(ctx: ShellContext): Registered {
   };
   app.on("web-contents-created", onCreated);
 
-  // 값이나 theme이 바뀌면 CSS를 다시 만들어 열린 문서에 넣는다.
+  // 설정이나 theme이 바뀌면 CSS를 다시 만들어 열린 문서에 넣는다. core가 받은 값이라도 CSS에 넣기 전에 다시
+  // 검사한다(앱 화면에 들어가는 CSS의 경계다). 목록 밖 값이 있으면 지금 모양을 둔다.
   function refresh(): void {
-    if (chosen === undefined) return;
-    const next = appearanceCss(chosen, themes.list);
+    const appearance: Appearance | undefined = parseAppearance(
+      Object.fromEntries(
+        Object.keys(APPEARANCE_DEFAULTS).map((field) => [
+          field,
+          settings.get(`shell.${field}`),
+        ]),
+      ),
+    );
+    if (appearance === undefined) return;
+    nativeTheme.themeSource = appearance.mode;
+    const themes = loadThemes(
+      (settings.folder(THEMES_SETTING_KEY)?.entries ?? []).map((entry) => ({
+        id: entry.id,
+        text: JSON.stringify(entry.value),
+      })),
+    );
+    const next = appearanceCss(appearance, themes.list);
     if (next === css) return;
     css = next;
     for (const contents of allContents.getAllWebContents()) {
       apply(contents, false);
     }
   }
+  const unwatch = settings.watch(refresh);
 
   const fromDesktop = (event: Parameters<typeof checkCaller>[1]) => {
     const caller = checkCaller(overlays.overlayRegistry(), event);
     return caller.ok && caller.value.origin.host === "desktop";
   };
 
-  ipc.handle(APPEARANCE_CHANNEL, (event, input: unknown) => {
-    if (!fromDesktop(event)) return;
-    const appearance = parseAppearance(input);
-    if (appearance === undefined) return;
-    nativeTheme.themeSource = appearance.mode;
-    chosen = appearance;
-    refresh();
-  });
-
-  ipc.handle(THEMES_CHANNEL, (event) =>
-    fromDesktop(event) ? themes : undefined,
-  );
+  // folder는 core가 만들고 지켜본다. 이름은 core가 알려 준 것을 쓴다.
   ipc.handle(THEMES_FOLDER_CHANNEL, (event) => {
-    if (fromDesktop(event)) void shell.openPath(folder.path);
-  });
-
-  const reload = async () => {
-    themes = await folder.read();
-    refresh();
-    for (const window of windows) {
-      if (!window.isDestroyed()) {
-        window.webContents.send(THEMES_CHANGED_CHANNEL);
-      }
+    const folder = settings.folder(THEMES_SETTING_KEY)?.folder;
+    if (fromDesktop(event) && folder !== undefined) {
+      void shell.openPath(join(ctx.dataRoot, folder));
     }
-  };
-  void reload();
-  const unwatch = folder.watch(() => void reload());
+  });
 
   return {
     stop() {
-      ipc.removeHandler(APPEARANCE_CHANNEL);
-      ipc.removeHandler(THEMES_CHANNEL);
       ipc.removeHandler(THEMES_FOLDER_CHANNEL);
       unwatch();
       app.off("web-contents-created", onCreated);

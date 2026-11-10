@@ -21,7 +21,11 @@ import {
   slimDetachedTab,
   type TabTransfer,
 } from "../../ipc/detached.ts";
-import { APP_PANEL, type Command, KEYBINDINGS } from "../../../protocol/shell/keybindings.ts";
+import {
+  APP_PANEL,
+  type Command,
+  KEYBINDINGS,
+} from "../../../protocol/shell/keybindings.ts";
 import { AppWorkspaceProvider } from "../app-frame/app-views.tsx";
 import { ViewKeepsProvider } from "../app-frame/embedded-view.tsx";
 import { useWorkspaceViews } from "../app-frame/workspace-views.tsx";

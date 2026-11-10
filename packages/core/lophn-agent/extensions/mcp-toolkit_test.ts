@@ -35,6 +35,7 @@ function toolkit(connected: string[], projectOff: string[] = []) {
   const settings = [
     {
       key: "lophn-agent.extensions.mcp_servers",
+      description: "t",
       type: {},
       chosen: [stdioServer("shared")],
     },
@@ -53,7 +54,7 @@ function toolkit(connected: string[], projectOff: string[] = []) {
                 as_of_seq: "0",
                 next_cursor: null,
               }
-            : { settings },
+            : { settings, folders: [] },
         ),
       ),
     connections: {} as never,

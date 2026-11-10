@@ -7,7 +7,7 @@ import "@lophn/ui/tokens.css";
 import "@lophn/ui/base.css";
 
 import { FramePage, Gallery } from "./gallery.tsx";
-import { installAppearanceApi } from "./mock/appearance.ts";
+import { paintAppearancePreset } from "./mock/appearance.ts";
 import { installWindowApi } from "./mock/window-api.ts";
 
 const params = new URLSearchParams(location.search);
@@ -18,7 +18,7 @@ if (theme === "light" || theme === "dark") {
 const frame = params.get("frame");
 if (frame !== null) {
   installWindowApi();
-  installAppearanceApi(params.get("appearance"));
+  paintAppearancePreset(params.get("appearance"));
   // 화면 root는 position:absolute; inset:0이라 viewport를 채운다. Radix modal(Select 등)이 열리면 scroll lock이
   // body에 `position: relative !important`를 걸어 기준이 body로 바뀌는데, body 높이가 0이면 화면이 접혀 비어 보인다.
   const { documentElement: html, body } = document;

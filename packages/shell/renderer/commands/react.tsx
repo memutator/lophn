@@ -8,7 +8,10 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { bindingLabel, type KeyOverrides } from "../../../protocol/shell/keybindings.ts";
+import {
+  bindingLabel,
+  type KeyOverrides,
+} from "../../../protocol/shell/keybindings.ts";
 
 import type { CommandHandler, CommandOptions } from "./registry.ts";
 import type { ContributedCommand, WindowCommands } from "./window.ts";

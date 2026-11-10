@@ -68,6 +68,29 @@ export function EventsProvider({
   );
 }
 
+/**
+ * core의 설정이 바뀌면 부른다. 누가 바꿨는지 가리지 않는다(이 화면, `lophn settings set`, agent, 손으로 고친 file).
+ * Gateway가 다시 붙었을 때도 부른다(끊긴 동안 놓쳤을 수 있다). 설정을 읽어 그리는 곳은 여기서 다시 읽는다.
+ * EventsProvider 밖(event가 없는 화면)에서는 아무것도 하지 않는다.
+ */
+export function useSettingsChanged(listener: () => void): void {
+  const client = useContext(EventsContext)?.client;
+  const latest = useRef(listener);
+  latest.current = listener;
+  useEffect(
+    () =>
+      client?.subscribe({ types: ["SettingsChanged"] }, (message) => {
+        if (
+          message.kind === "ready" ||
+          (message.kind === "event" && message.event.type === "SettingsChanged")
+        ) {
+          latest.current();
+        }
+      }),
+    [client],
+  );
+}
+
 export function useWaiting(): WaitingState {
   const { waiting } = useStores();
   return useSyncExternalStore(waiting.subscribe, waiting.get);

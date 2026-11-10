@@ -358,7 +358,7 @@ export const appLaunchSetting = declareSetting({
 });
 
 // coding agent 즐겨찾기(빠른 실행 Terminal hover와 workspace +의 hover 목록에 나온다)와 사람이 바꾼 실행 명령어.
-// harness id는 shell이 검사하고 모르는 것은 버린다.
+// harness id는 shell이 검사하고 모르는 것은 버린다. 실행 명령어는 사람의 터미널에서 도는 글이라 agent가 바꾸지 못한다.
 export const codingAgentsSetting = declareSetting({
   key: "shell.coding_agents",
   type: z.object({
@@ -369,7 +369,8 @@ export const codingAgentsSetting = declareSetting({
   }),
   default: { favorites: ["claude", "codex", "opencode"], commands: {} },
   description:
-    "Coding agents in the terminal: `favorites` is the harness ids shown in the quick launch and the new tab menu, `commands` replaces the command line that starts a harness (harness id to command). Unknown harness ids are skipped.",
+    "Coding agents in the terminal: `favorites` is the harness ids shown in the quick launch and the new tab menu, `commands` replaces the command line that starts a harness (harness id to command). Unknown harness ids are skipped. It holds command lines the person's terminal runs, so only the person changes it.",
+  locked: true,
 });
 
 // workspace 창 맨 아래 작업 표시줄. 끄면 float chip이 tab 줄 끝에 있다.

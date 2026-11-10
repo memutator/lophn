@@ -33,7 +33,7 @@ flows:
     title: "Settings › Keyboard에서 사람이 새 키를 고르고 저장한다"
     actor: person
     entries: [ui:key-record]
-    uses: [settings-update:changed, ipc:shell:keybindings]
+    uses: [settings-update:changed]
     boundary: [shell, config]
     code:
       - packages/shell/renderer/desktop/settings/keyboard/keyboard-panel.tsx
@@ -43,7 +43,7 @@ flows:
     steps:
       - "새 키를 받는 칸이 누른 chord를 checkChord로 본다. 두 타면 타마다 본다. modifier 없는 키(F1~F12 빼고)와 RESERVED(전역 팔레트 키, 글자 편집 Ctrl·Cmd 키, OS 키)는 거절하고 이유를 보인다"
       - "다른 줄이 쓰는 chord(taken)는 거절하지 않고 바꾸기를 준다. 사람이 고르면 그 chord를 가진 다른 줄에서 빼고 한 번에 저장한다"
-      - "통과하면 WindowCommands.setOverrides로 이 창의 binding을 먼저 바꾸고 ipc:shell:keybindings로 main에 알린다"
+      - "통과하면 WindowCommands.setOverrides로 이 창의 binding을 먼저 바꾼다"
       - "shell.keybindings 값을 settings-update로 쓴다. 쓰기가 거절되거나 실패하면 이전 값으로 되돌리고 저장되지 않았다고 보인다"
     outcomes:
       - id: saved
@@ -69,14 +69,14 @@ flows:
     title: "Settings › Keyboard에서 줄 하나를 기본 키로 되돌린다"
     actor: person
     entries: [ui:key-reset]
-    uses: [settings-update:changed, ipc:shell:keybindings]
+    uses: [settings-update:changed]
     boundary: [shell, config]
     code:
       - packages/shell/renderer/desktop/settings/keyboard/keyboard-panel.tsx
       - packages/shell/renderer/desktop/settings/keyboard/model.ts
     steps:
       - "사람이 바꾼 줄에만 있는 [Reset to default]를 누른다. 번호 묶음 줄이면 묶음의 모든 줄을 되돌린다"
-      - "그 줄의 사람이 단 키를 stored에서 빼고(key-record와 같은 저장 길) 이 창의 binding을 먼저 바꾼 뒤 main에 알리고 shell.keybindings를 쓴다"
+      - "그 줄의 사람이 단 키를 stored에서 빼고(key-record와 같은 저장 길) 이 창의 binding을 먼저 바꾼 뒤 shell.keybindings를 쓴다"
       - "쓰기가 거절되거나 실패하면 이전 값으로 되돌리고 저장되지 않았다고 보인다"
     outcomes:
       - id: reset
@@ -91,7 +91,7 @@ flows:
     title: "Settings › Keyboard에서 이 OS의 모든 키를 기본으로 되돌린다"
     actor: person
     entries: [ui:key-reset-all]
-    uses: [settings-update:changed, ipc:shell:keybindings]
+    uses: [settings-update:changed]
     boundary: [shell, config]
     risk: [data-loss]
     code:
@@ -115,20 +115,19 @@ flows:
     title: "저장된 사람의 키를 창을 열 때와 설정이 바뀔 때 다시 적용한다"
     actor: system
     entries: [system:key-overrides-restore]
-    uses: [settings-read:ok, ipc:shell:keybindings]
+    uses: [settings-read:ok]
     boundary: [shell, config]
     code:
       - packages/shell/renderer/desktop/main.tsx
       - packages/shell/renderer/desktop/settings/keyboard/core-source.ts
       - packages/protocol/shell/keybindings.ts
     steps:
-      - "desktop main이 keyboard source의 watch를 걸면 shell.keybindings를 읽는다(settings-read). 설정이 바뀌면 watch가 다시 읽는다"
+      - "desktop 창이 core가 준비되면 shell.keybindings를 읽는다(settings-read). 설정이 바뀌었다는 event(SettingsChanged)가 오거나 Gateway가 다시 붙으면 다시 읽는다. Settings 화면, `lophn settings set`, agent 어느 쪽이 바꿔도 같다"
       - "parseKeyOverrides로 검사하고 이 OS 것만 골라 WindowCommands.setOverrides로 창의 binding을 덮는다"
-      - "같은 값을 ipc:shell:keybindings로 main에 알려 main이 먼저 받는 키도 같게 맞춘다"
       - "읽기가 실패하면 아무것도 덮지 않아 표의 기본 키로 남는다"
     outcomes:
       - id: restored
-        observe: ["process:창의 키 표가 사람이 바꾼 키로 덮인다", "process:main의 키 표도 같이 바뀐다"]
+        observe: ["process:창의 키 표가 사람이 바꾼 키로 덮인다"]
       - id: read-failed
         when: "settings-read가 실패했다. 창은 표의 기본 키 그대로다"
         observe: ["process:창의 키 표는 기본 키 그대로다"]
@@ -137,31 +136,29 @@ flows:
     unclear:
       - "Settings › Keyboard 화면을 열 때의 load도 같은 setOverrides를 부른다(keyboard-panel.tsx). 그 경로는 화면 열기의 일이라 따로 두지 않았다"
 
-  # ---------- ipc: 사람이 바꾼 키를 main에 알린다 ----------
+  # ---------- main이 먼저 받는 키도 설정을 따른다 ----------
   - id: key-overrides-main
-    title: "사람이 바꾼 키를 main에 알려 main이 먼저 받는 키도 같게 바꾼다"
-    actor: person
-    entries: [ipc:shell:keybindings]
-    boundary: [shell]
+    title: "main이 core 설정의 사본을 따라 먼저 받는 키도 사람이 바꾼 키로 맞춘다"
+    actor: system
+    entries: [system:key-overrides-main]
+    uses: [route:settings/list]
+    boundary: [shell, config]
     code:
       - packages/protocol/shell/keybindings.ts
-      - packages/shell/preload/keybindings-api.ts
+      - packages/shell/main/desktop/core/settings.ts
       - packages/shell/main/desktop/wiring/desktop.ts
     steps:
-      - "preload의 createKeybindingsApi가 이 OS의 overrides를 KEYBINDINGS_CHANNEL로 invoke한다. 오류는 버린다"
-      - "desktop wiring의 handler가 보낸 창이 desktop 창인지 본다(checkCaller와 origin.host). 아니면 아무것도 하지 않는다"
-      - "parseKeyOverrides로 검사하고 resolveBindings와 compileBindings로 main의 표를 바꾼다. 틀린 줄만 버리고 나머지는 산다"
+      - "shell main은 core 설정의 사본을 둔다. Gateway가 붙으면 settings/list로 전체를 읽고 SettingsChanged가 오면 다시 읽는다"
+      - "사본이 바뀔 때마다 shell.keybindings에서 이 OS 것을 골라 parseKeyOverrides로 검사하고 resolveBindings와 compileBindings로 main의 표를 바꾼다. 틀린 줄만 버리고 나머지는 산다"
+      - "사본을 아직 읽지 못했으면 표의 기본 키다"
     outcomes:
       - id: applied
-        observe: ["response", "process:main의 before-input-event 표가 사람이 바꾼 키를 따른다"]
-      - id: ignored-sender
-        when: "보낸 창이 desktop 창이 아니다(checkCaller가 거절하거나 origin.host가 desktop이 아니다)"
-        observe: ["response"]
+        observe: ["process:main의 before-input-event 표가 사람이 바꾼 키를 따른다"]
+      - id: not-read
+        when: "settings/list를 읽지 못했다(core가 준비되지 않았다). 지금 표를 그대로 두고 다음 준비나 event 때 다시 읽는다"
+        observe: ["process:main의 키 표는 그대로다"]
     crosses_process: true
-    docs: [architecture/keybindings.md]
-    unclear:
-      - "호출하는 쪽이 사람의 저장(key-record)과 창을 열 때의 되살리기(key-overrides-restore) 둘이라 actor를 person으로 두었다"
-      - "sender 검사(checkCaller)는 ipc 통로 검사라 ipc area 소관일 수 있다. 여기서는 이 channel이 그것을 어떻게 쓰는지만 적었다"
+    docs: [architecture/keybindings.md, architecture/settings.md]
 
   # ---------- 전역 팔레트 키 (OS 전역 단축키) ----------
   - id: global-palette-register

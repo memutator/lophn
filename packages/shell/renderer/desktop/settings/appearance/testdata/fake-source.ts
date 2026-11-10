@@ -1,7 +1,8 @@
-// Appearance 화면의 가짜 통로. core를 부르지 않고 고른 것을 메모리에 둔다.
-import { loadThemes, type ThemeFile } from "@lophn/ui";
+// Appearance 화면의 가짜 통로. core를 부르지 않고 고른 것을 메모리에 둔다. 고른 모양은 이 문서에 바로 넣는다(paint.ts).
+import { loadThemes, parseAppearance, type ThemeFile } from "@lophn/ui";
 
 import { APPEARANCE_DEFAULTS } from "../model.ts";
+import { paintAppearance } from "./paint.ts";
 import type {
   AppearanceSource,
   AppearanceValues,
@@ -68,6 +69,11 @@ export const FAKE_THEME_FILES: readonly ThemeFile[] = [
 export function fakeAppearance(options: FakeAppearanceOptions = {}) {
   const calls: unknown[][] = [];
   let values: AppearanceValues = { ...APPEARANCE_DEFAULTS, ...options.values };
+  const themes = loadThemes(options.themeFiles ?? FAKE_THEME_FILES);
+  const paint = () => {
+    const appearance = parseAppearance(values);
+    if (appearance !== undefined) paintAppearance(appearance, themes.list);
+  };
   const source: AppearanceSource = {
     watch(listener) {
       listener({ state: "ready" });
@@ -75,6 +81,7 @@ export function fakeAppearance(options: FakeAppearanceOptions = {}) {
     },
     values() {
       calls.push(["values"]);
+      if (!options.readFails) paint();
       return Promise.resolve(
         options.readFails
           ? { ok: false, code: "unavailable" }
@@ -87,18 +94,14 @@ export function fakeAppearance(options: FakeAppearanceOptions = {}) {
         return Promise.resolve({ ok: false, code: options.chooseCode });
       }
       values = { ...values, [id]: value };
+      paint();
       return Promise.resolve({ ok: true, value: null });
     },
     fonts() {
       return Promise.resolve(options.fonts ?? FAKE_FONTS);
     },
     themes() {
-      return Promise.resolve(
-        loadThemes(options.themeFiles ?? FAKE_THEME_FILES),
-      );
-    },
-    onThemesChanged() {
-      return () => {};
+      return Promise.resolve(themes);
     },
     openThemesFolder() {
       calls.push(["openThemesFolder"]);

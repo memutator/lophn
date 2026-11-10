@@ -1,4 +1,11 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import type { CoreSource } from "./connection/connection.ts";
 import {
@@ -9,6 +16,7 @@ import {
 import {
   useOptionalEventClient,
   useSessions,
+  useSettingsChanged,
 } from "./connection/events/hooks.tsx";
 import {
   type HookPromptApi,
@@ -63,7 +71,6 @@ import { applyAppearance } from "./settings/appearance/model.ts";
 import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
-import type { KeybindingsApi } from "../../../protocol/shell/keybindings.ts";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { AppKeyContributions } from "../commands/app-keys.ts";
 import { CommandsProvider } from "../commands/react.tsx";
@@ -77,7 +84,6 @@ import { currentPlatform } from "./top-bar/platform.ts";
 import type { WorkspaceRef } from "../shell/desk-model.ts";
 
 // desktop preload만 연다(entry.tsx의 bridges와 같은 꼴). gallery·dev 창에는 없어 main이 먼저 받는 키는 표의 키로 남는다.
-const keybindingsBridge = globalThis as { lophnKeybindings?: KeybindingsApi };
 
 interface DesktopProps {
   source: CoreSource;
@@ -205,8 +211,6 @@ export function Desktop({
       createWindowCommands({
         platform: keyPlatform,
         log: (message, error) => console.error(message, error),
-        tellMain: (overrides) =>
-          keybindingsBridge.lophnKeybindings?.set(overrides),
       }),
     [keyPlatform],
   );
@@ -297,28 +301,26 @@ export function Desktop({
       ),
     [terminalBridge],
   );
-  // 저장한 appearance를 시작할 때 적용한다. core가 준비되면 읽는다.
+  // 저장한 모드와 사람이 바꾼 단축키를 이 창에 적용한다. core가 준비되면 읽고, 설정이 바뀌면 다시 읽는다
+  // (Settings 화면, `lophn settings set`, agent 어느 쪽이 바꿔도 같다). 색·글꼴 CSS는 main이 같은 설정을 따라 넣는다.
   const appearance = settingsPanels?.appearance;
-  useEffect(() => {
-    if (appearance === undefined) return;
-    return appearance.watch((state) => {
-      if (state.state !== "ready") return;
-      void appearance.values().then((read) => {
-        if (read.ok) applyAppearance(read.value);
-      });
-    });
-  }, [appearance]);
-  // 사람이 바꾼 단축키도 시작할 때 덮는다. Settings를 열지 않아도 바뀐 키가 듣는다.
   const keyboard = settingsPanels?.keyboard;
-  useEffect(() => {
-    if (keyboard === undefined) return;
-    return keyboard.watch((state) => {
-      if (state.state !== "ready") return;
-      void keyboard.read().then((read) => {
-        if (read.ok) commands.setOverrides(read.value[keyPlatform] ?? {});
-      });
+  const applySettings = useCallback(() => {
+    void appearance?.values().then((read) => {
+      if (read.ok) applyAppearance(read.value);
     });
-  }, [keyboard, commands, keyPlatform]);
+    void keyboard?.read().then((read) => {
+      if (read.ok) commands.setOverrides(read.value[keyPlatform] ?? {});
+    });
+  }, [appearance, keyboard, commands, keyPlatform]);
+  useEffect(
+    () =>
+      (appearance ?? keyboard)?.watch((state) => {
+        if (state.state === "ready") applySettings();
+      }),
+    [appearance, keyboard, applySettings],
+  );
+  useSettingsChanged(applySettings);
 
   // modal(dialog·palette)이 뜨면 scrim이 창의 위쪽 줄도 덮고 그 줄은 끌기에서 빠진다. 스타일은 chrome.css다.
   useEffect(() => {

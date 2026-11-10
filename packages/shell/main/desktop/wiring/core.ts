@@ -45,6 +45,9 @@ export function connectCore(input: ConnectInput) {
       })),
     own: {
       conditions: () => relay.conditions,
+      ready: () => {
+        for (const reaction of relay.ready) reaction();
+      },
       event: (event) => {
         for (const reaction of relay.events) reaction(event);
       },

@@ -2,7 +2,14 @@
 // 줄은 이름과 설명이 왼쪽이고 고르는 칸이 오른쪽 끝 고정 열이다. 고르면 바로 모든 문서에 적용된다.
 // 글꼴 줄은 preset과 설치된 글꼴을 검색해 고르는 칸과, 그 글꼴에 있는 굵기를 고르는 칸이다.
 // theme 줄은 내장 theme과 theme file을 고르고, 고른 file의 문제(틀린 값, 대비)를 줄 아래에 보인다.
-import { type ReactNode, useCallback, useEffect, useId, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import {
   FieldContext,
   SearchSelect,
@@ -92,16 +99,17 @@ export function AppearancePanel({ source }: AppearancePanelProps) {
     void source.fonts().then(setFonts);
   }, [source]);
   useEffect(loadFonts, [loadFonts]);
-  // 고를 수 있는 theme. theme file이 바뀌면 main이 알린다.
+  // 고를 수 있는 theme. theme file이 바뀌면 설정이 바뀐 것이라 값과 같이 다시 읽는다.
   const [themes, setThemes] = useState<Themes | null>(null);
-  useEffect(() => {
-    const loadThemes = () => void source.themes().then(setThemes);
-    loadThemes();
-    return source.onThemesChanged(loadThemes);
-  }, [source]);
 
+  // 여러 줄을 차례로 쓰는 동안에는 값을 다시 읽지 않는다. 쓸 때마다 오는 설정 event가 아직 쓰지 않은 줄을
+  // 옛 값으로 되돌려 보이지 않게 한다.
+  const saving = useRef(0);
   const load = useCallback(() => {
+    void source.themes().then(setThemes);
+    if (saving.current > 0) return;
     void source.values().then((read) => {
+      if (saving.current > 0) return;
       if (read.ok) applyAppearance(read.value);
       setLoaded(
         read.ok ? { state: "ready", values: read.value } : { state: "failed" },
@@ -119,14 +127,17 @@ export function AppearancePanel({ source }: AppearancePanelProps) {
     setLoaded({ state: "ready", values: next });
     applyAppearance(next);
     // 글꼴 이름을 먼저, 그 이름을 쓰는 값을 나중에 둔다.
+    saving.current += 1;
+    let ok = true;
     for (const [id, value] of changes) {
-      const saved = await source.choose(id, value);
-      if (saved.ok) continue;
-      // 저장하지 못했으면 저장된 값을 다시 읽어 그 모양으로 돌아간다.
-      setFailed(true);
-      load();
-      return;
+      ok = (await source.choose(id, value)).ok;
+      if (!ok) break;
     }
+    saving.current -= 1;
+    if (ok) return;
+    // 저장하지 못했으면 저장된 값을 다시 읽어 그 모양으로 돌아간다.
+    setFailed(true);
+    load();
   }
 
   if (loaded.state === "failed") {

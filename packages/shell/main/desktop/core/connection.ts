@@ -76,6 +76,8 @@ interface ConnectionOptions {
    */
   own?: {
     conditions(): readonly EventCondition[];
+    /** Gateway가 붙어 event가 다시 온다. 끊긴 동안 놓친 것이 있을 수 있어 main이 가진 사본을 다시 읽는다. */
+    ready?(): void;
     event(event: BusEvent): void;
     /** renderer로 가지 않는 main 전용 frame(coding 터미널 요청 등). */
     frame?(frame: { type: string }): void;
@@ -220,6 +222,7 @@ export function startCoreConnection(
           state.state = "ready";
           state.confirmedAt = options.clock.now();
           push();
+          options.own?.ready?.();
         },
         // renderer에 가는 것은 ready·event·closed뿐이다. 터미널 요청 같은 frame은 main 전용이다.
         frame: (frame, to) => {

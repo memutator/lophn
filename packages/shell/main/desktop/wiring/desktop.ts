@@ -24,7 +24,6 @@ import { BROWSER_EVENT_CHANNEL } from "../../../ipc/browser.ts";
 import {
   type CompiledBindings,
   compileBindings,
-  KEYBINDINGS_CHANNEL,
   parseKeyOverrides,
   resolveBindings,
 } from "../../../../protocol/shell/keybindings.ts";
@@ -268,15 +267,16 @@ export function register(
       }),
   });
 
-  // 사람이 Settings › Keyboard에서 바꾼 키. desktop 창 본문이 보내면 검사해서 main이 먼저 받는 키도 따른다.
-  // 이 OS의 것만 온다. 값이 틀리면 그 줄은 표의 키다.
+  // 사람이 바꾼 키(설정 `shell.keybindings`). core 설정의 사본이 바뀌면 main이 먼저 받는 키도 따른다.
+  // 이 OS의 것만 쓴다. 읽을 수 없는 줄은 표의 키다.
   let compiled: CompiledBindings | undefined;
   const platformKeys = process.platform === "darwin" ? "mac" : "other";
-  ipc.handle(KEYBINDINGS_CHANNEL, (event, input: unknown) => {
-    const caller = checkCaller(overlays.overlayRegistry(), event);
-    if (!caller.ok || caller.value.origin.host !== "desktop") return;
+  const unwatchKeys = ctx.settings.watch(() => {
+    const stored = ctx.settings.get("shell.keybindings") as
+      | Record<string, unknown>
+      | undefined;
     compiled = compileBindings(
-      resolveBindings(platformKeys, parseKeyOverrides(input)),
+      resolveBindings(platformKeys, parseKeyOverrides(stored?.[platformKeys])),
     );
   });
 
@@ -398,7 +398,7 @@ export function register(
       ipc.removeHandler(FOLDER_PICK_CHANNEL);
       ipc.removeHandler(FILE_PICK_CHANNEL);
       ipc.removeHandler(WINDOW_CONTROL_CHANNEL);
-      ipc.removeHandler(KEYBINDINGS_CHANNEL);
+      unwatchKeys();
       ipc.removeHandler(OPEN_EXTERNAL_CHANNEL);
       globalPalette?.dispose();
       ctx.tray.current?.destroy();

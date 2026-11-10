@@ -100,6 +100,10 @@ files:
     covers: [harness-sync-skills:synced]
     note: harness extension이 꺼지면 lophn-agent skill 사본만 지우고 사람 폴더는 둔다
 
+  - path: packages/protocol/shell/keybindings_test.ts
+    covers: [key-press:command-run, key-press:passed-on, key-overrides-main:applied, key-overrides-restore:restored]
+    note: "key 표, chord, context 판정, 사람이 바꾼 key 저장, 겹침 보고 단위. key-press 판정, 사람이 바꾼 키(key-overrides-main·restore)"
+
   - path: packages/design/appearance_test.ts
     covers: [appearance-set:applied, appearance-set:ignored, theme-files:listed]
     note: 글꼴 이름·theme file 색·accent의 CSS 안전 검사(hex만 CSS에 쓴다), 목록 밖 값이면 appearance 전체 거절, 내장 theme과 보정한 accent의 대비

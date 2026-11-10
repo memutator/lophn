@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { cryptoRandom, manualClock, ok } from "../../../../base/mod.ts";
-import { settingsUpdate } from "../../../../protocol/config/file.ts";
+import { hostTake } from "../../../../protocol/lophn-agent/host-queue.ts";
 import { harnessOperations } from "../../../agent-workspaces/credentials.ts";
 import { CredentialRegistry } from "../../../server/identity/registry.ts";
 import { createHarnessCredentials } from "./harness-credential.ts";
@@ -24,7 +24,7 @@ test("a tool call credential reaches only lophn commands of its own session and 
         actors: ["agent" as const],
         kind: "command" as const,
       })),
-      { name: settingsUpdate.name, actors: ["user"], kind: "command" },
+      { name: hostTake.name, actors: ["user"], kind: "command" },
     ],
   });
   const credentials = createHarnessCredentials({
@@ -47,7 +47,7 @@ test("a tool call credential reaches only lophn commands of its own session and 
   const [lophnRoute] = harnessOperations("home");
   assert.ok(registry.authorize(ctx, lophnRoute!, own).ok);
   // 사람 전용 route와 다른 session에는 닿지 않는다.
-  assert.equal(registry.authorize(ctx, settingsUpdate.name, own).ok, false);
+  assert.equal(registry.authorize(ctx, hostTake.name, own).ok, false);
   assert.equal(
     registry.authorize(ctx, lophnRoute!, { session: id("ses", 2), turn: TURN })
       .ok,

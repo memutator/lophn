@@ -655,13 +655,6 @@ interface Compiled {
 /** 사람이 바꾼 키. binding id(`tab.close`, `tab.nth:1`, `ext.<id>.<name>`, `app.panel:<app>:<surface>`) → 이 기기 platform의 chord. */
 export type KeyOverrides = Readonly<Record<string, readonly string[]>>;
 
-/** renderer가 사람이 바꾼 키를 main에 알리는 channel. main이 먼저 받는 키도 바뀐 키를 따른다. */
-export const KEYBINDINGS_CHANNEL = "shell:keybindings";
-
-export interface KeybindingsApi {
-  set(overrides: KeyOverrides): void;
-}
-
 export function bindingId(binding: Binding): string {
   return binding.arg === undefined
     ? binding.command

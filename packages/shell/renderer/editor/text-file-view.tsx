@@ -16,6 +16,7 @@ import { ErrorState, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
 
 import type { FileFailure } from "../../ipc/files.ts";
+import { useSettingsChanged } from "../desktop/connection/events/hooks.tsx";
 import { ConflictCompare } from "./conflict/conflict-compare.tsx";
 import type { DocumentViewProps } from "./document-view.tsx";
 import { FileFrame, FileStatus } from "./file-frame.tsx";
@@ -131,6 +132,8 @@ function ReadyTextFile({
   useEffect(() => {
     void readingWidth.load();
   }, [readingWidth]);
+  // 읽기 폭은 이 문서 밖(Settings 화면, `lophn settings set`)에서도 바뀐다.
+  useSettingsChanged(() => void readingWidth.load());
 
   useEffect(() => {
     setState(session.facts.state);

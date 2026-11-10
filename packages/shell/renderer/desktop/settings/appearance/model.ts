@@ -1,7 +1,7 @@
-// Appearance의 순수 규칙: 줄과 선택지, 그리고 고른 값을 화면에 바로 적용하는 일.
+// Appearance의 순수 규칙: 줄과 선택지, 그리고 모드를 이 문서에 적는 일.
 // 모드는 이 문서의 data-theme에 쓰고, 나머지(theme·accent·글꼴·글자 크기·밀도)는 token을 덮어쓰는 CSS라서
-// main이 모든 문서에 넣는다(wiring/appearance.ts). 그래서 여기서는 값 전체를 main에 보내기만 한다.
-// theme 목록(내장과 theme file)은 main이 읽어 준다.
+// main이 core 설정을 따라 모든 문서에 넣는다(wiring/appearance.ts). 이 화면은 설정을 쓰기만 한다.
+// theme 목록(내장과 `shell.themes` 항목)은 core 설정에서 읽는다.
 import {
   ACCENT_FROM_THEME,
   BUILT_IN_THEMES,
@@ -16,7 +16,6 @@ import {
 } from "@lophn/ui";
 import type { MessageKey } from "@lophn/i18n";
 
-import type { AppearanceApi } from "../../../../ipc/appearance.ts";
 import type {
   AppearanceId,
   AppearanceValues,
@@ -448,10 +447,7 @@ export function accentSwatch(
   );
 }
 
-/**
- * Light·Dark는 data-theme에 쓰고 System은 지워 OS 설정을 따른다. 나머지 값과 theme은 main에도 알려
- * overlay·보호 입력 창·앱 view까지 같은 모양이 되게 한다(main이 값을 다시 검사한다).
- */
+/** Light·Dark는 이 문서의 data-theme에 쓰고 System은 지워 OS 설정을 따른다. 나머지는 main이 넣는 CSS다. */
 export function applyAppearance(
   values: AppearanceValues,
   root: HTMLElement = document.documentElement,
@@ -460,7 +456,4 @@ export function applyAppearance(
   if (appearance === undefined) return;
   if (appearance.mode === "system") delete root.dataset.theme;
   else root.dataset.theme = appearance.mode;
-  (globalThis as { lophnAppearance?: AppearanceApi }).lophnAppearance?.set(
-    appearance,
-  );
 }

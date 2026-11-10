@@ -12,6 +12,7 @@ import { electronOverlays } from "../../app-frame/electron-overlay.ts";
 import { createAppConnector } from "../../app-frame/app-connection.ts";
 import { CloseGuards } from "../../editor/close-guard.ts";
 import type { CoreConnection } from "../core/connection.ts";
+import { createShellSettings, type ShellSettings } from "../core/settings.ts";
 import { type HeadlessMode, readHeadless } from "../headless.ts";
 import { packagedInstall, resolveDataRoot } from "../paths.ts";
 import { appIconPath, type InstalledTray } from "../tray.ts";
@@ -54,6 +55,8 @@ type Ipc = {
 export type CoreRelay = {
   /** main 자신의 Gateway 조건. renderer들의 조건과 합쳐 건다. */
   conditions: EventCondition[];
+  /** Gateway가 (다시) 붙었다. 끊긴 동안 놓친 event가 있을 수 있다. */
+  ready: Array<() => void>;
   /** 조건에 맞아 도착한 event. renderer에도 같이 가지만 main이 먼저 쓴다. */
   events: Array<(event: BusEvent) => void>;
   /** renderer로 가지 않는 main 전용 frame. 영역이 자기 type만 골라 쓴다. */
@@ -89,6 +92,8 @@ export type ShellContext = {
     method: string,
     body: unknown,
   ): Promise<CallResult>;
+  /** core 설정의 살아 있는 사본. 설정을 적용하는 영역이 듣는다. */
+  settings: ShellSettings;
   ipc: Ipc;
   relay: CoreRelay;
   windowHooks: WindowHooks;
@@ -138,6 +143,7 @@ export function createShellContext(): ShellContext {
   let stopped = false;
   const relay: CoreRelay = {
     conditions: [],
+    ready: [],
     events: [],
     frames: [],
   };
@@ -157,6 +163,15 @@ export function createShellContext(): ShellContext {
         });
   };
 
+  const settings = createShellSettings(() =>
+    coreInternal("memory", "settings", "list", {}),
+  );
+  relay.conditions.push({ types: ["SettingsChanged"] });
+  relay.ready.push(() => settings.refresh());
+  relay.events.push((event) => {
+    if (event.type === "SettingsChanged") settings.refresh();
+  });
+
   const windowStates = createWindowStateStore(dataRoot);
   const ctx: ShellContext = {
     here,
@@ -175,6 +190,7 @@ export function createShellContext(): ShellContext {
     log,
     core,
     coreInternal,
+    settings,
     ipc: {
       handle: (channel, listener) => ipcMain.handle(channel, listener as never),
       on: (channel, listener) => void ipcMain.on(channel, listener as never),

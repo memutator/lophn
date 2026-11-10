@@ -72,11 +72,18 @@ files:
     covers:
       - settings-update:changed
       - settings-update:rejected
+      - settings-update:locked
       - settings-update:unchanged
       - settings-update:unavailable
       - settings-file-watch:changed
       - settings-file-watch:rejected-key
-    note: settings store의 update와 기동 때 읽기
+    note: "settings store의 update와 기동 때 읽기. 항목 file은 그 항목만 쓰고 지운다(사람이 둔 file과 읽지 못한 file은 그대로), 거절이면 아무 file도 안 바뀐다, agent는 locked 설정을 못 바꾼다"
+
+  - path: packages/core/config/shell-settings_test.ts
+    covers:
+      - settings-update:rejected
+      - settings-update:changed
+    note: "shell 설정의 뜻 검사: 없는 theme id, 모드가 다른 theme, 쓸 수 없는 theme, 모르는 단축키 id와 chord, CSS로 새는 글꼴 이름은 거절하고 theme의 버린 색과 모자란 대비는 notes로 알린다"
 
   - path: packages/core/events/gateway_test.ts
     covers:

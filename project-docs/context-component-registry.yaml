@@ -457,8 +457,18 @@ components:
     path: project-docs/architecture/appearance.md
     change_reasons:
       boundaries: [design, design-api, shell]
-      paths: [packages/design/presets.ts, packages/design/appearance.ts, packages/shell/ipc/appearance.ts, packages/core/config/shell-settings.ts]
-      note: preset을 더하거나 바꿀 때, 적용 통로(channel, insertCSS 시점)가 바뀔 때.
+      paths: [packages/design/presets.ts, packages/design/appearance.ts, packages/shell/ipc/appearance.ts, packages/shell/main/desktop/wiring/appearance.ts, packages/core/config/shell-settings.ts]
+      note: preset을 더하거나 바꿀 때, 적용 통로(설정 사본, insertCSS 시점)가 바뀔 때.
+
+  - id: architecture-settings
+    kind: doc
+    roles: [planner, lead]
+    description: 설정을 한 번 선언하면 Settings 화면, `lophn settings` 명령, home의 lophn agent가 같이 읽고 바꾸는 설계. core의 뜻 검사, locked(사람만 바꾸는 설정), 항목마다 file 하나인 설정 묶음(theme), shell이 설정 사본을 따라 적용하는 길.
+    path: project-docs/architecture/settings.md
+    change_reasons:
+      boundaries: [config]
+      paths: [packages/protocol/config/, packages/core/config/, packages/cli/commands/settings.ts, packages/shell/main/desktop/core/settings.ts]
+      note: 설정 선언의 칸, settings route·event·명령, locked인 설정의 목록, shell이 설정을 따르는 길이 바뀔 때. 설정 하나를 더하는 것만으로는 고치지 않는다.
 
 
 

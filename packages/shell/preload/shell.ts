@@ -25,7 +25,6 @@ import { createGlobalFloatsApi } from "./global-floats-api.ts";
 import { createLayoutApi } from "./layout-api.ts";
 import { createShellApi } from "./shell-api.ts";
 import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
-import { createKeybindingsApi } from "./keybindings-api.ts";
 import { createAppearanceApi } from "./appearance-api.ts";
 import { createArtifactApi } from "./artifact-api.ts";
 import { createBrowserApi } from "./browser-api.ts";
@@ -102,11 +101,6 @@ if (role === "shell") {
   contextBridge.exposeInMainWorld(
     "lophnShortcuts",
     createShortcutApi(ipcRenderer),
-  );
-  // Settings › Keyboard에서 바꾼 키. main이 먼저 받는 키도 따르게 알린다.
-  contextBridge.exposeInMainWorld(
-    "lophnKeybindings",
-    createKeybindingsApi(ipcRenderer),
   );
   // 프로젝트 등록의 OS 폴더 선택기와 끌어 놓은 파일의 경로. 경로는 main이 연 dialog나 사람이 놓은 파일의 것만 온다.
   contextBridge.exposeInMainWorld(

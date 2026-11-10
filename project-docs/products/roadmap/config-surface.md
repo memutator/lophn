@@ -1,6 +1,6 @@
 # config surface: 설정을 한 번 선언하면 화면, CLI, agent가 같이 쓴다
 
-상태: 방향을 정했다. 2026-11-11 사람이 방향을 냈고 planner가 정리했다. 사람이 정할 것은 남아 있지 않다. 일은 아직 시작하지 않았다.
+상태: 순서 1(설정 surface)을 끝냈다(계획 없이 branch 하나에서 했다, change-log `0.23`의 `config-surface`). 흐름과 지키는 것은 `project-docs/architecture/settings.md`다. 아래 "지금 코드"는 하기 전의 코드다. 하며 바뀐 것은 "정한 것" 2, 6과 "순서" 1에 적었다. 순서 2는 쓰는 곳이 생길 때 한다. 2026-11-11 사람이 방향을 냈고 planner가 정리했다.
 배경 문서: `project-docs/architecture/appearance.md`, `keybindings.md`, `extension.md`, `layers.md`, `project-docs/products/roadmap/command-surface.md`(명령 표 하나), `standalone-core.md`(core가 shell 없이 선다), `theme.md`.
 
 ## 사람의 말 (원문)
@@ -100,11 +100,11 @@ core는 모양만 본다. 뜻은 shell과 design이 안다.
 
 ### 설정 surface
 
-설정 선언 하나가 값의 모양, 뜻 검사, 설명, 누가 바꿔도 되는지를 다 갖는다. 선언은 core와 shell이 같이 import하는 곳에 둔다.
+설정 선언 하나가 값의 모양, 뜻 검사, 설명, 누가 바꿔도 되는지를 다 갖는다. 뜻 검사가 쓰는 규칙은 core와 shell이 같이 import하는 곳에 둔다.
 
 - **저장과 검사는 core.** 뜻 검사까지 core가 하고, 틀리면 바꾼 쪽이 그 자리에서 이유를 받는다. shell이 손으로 한 벌 더 적은 규칙은 없어진다.
 - **바꾸는 길은 하나.** Settings 화면, `lophn settings set`, agent가 같은 route를 부른다. 설정을 더해도 명령과 route가 늘지 않는다.
-- **agent가 읽는 설명도 선언에서 나온다.** `lophn settings get`이 key, 뜻, 고를 수 있는 값, 바꿀 수 있는지를 보인다. 설정을 더해도 skill 글을 고치지 않는다. skill은 "`settings get`으로 찾아라"만 말한다.
+- **agent가 읽는 설명도 선언에서 나온다.** `lophn settings get`이 key, 뜻, 고를 수 있는 값, 바꿀 수 있는지를 보인다. 설정을 더해도 agent 지침을 고치지 않는다. 지침은 "`settings get`으로 찾아라"만 말한다.
 - **shell은 설정의 살아 있는 사본 하나를 둔다.** main과 renderer가 key를 구독하고(core의 `SettingsChanged`), 값이 바뀌면 누가 바꿨든 적용한다. 설정마다 IPC channel을 짓지 않는다.
 - **file로 저장되는 값도 같은 surface다.** theme처럼 항목마다 file 하나인 것(`themes/<id>.json`)은 "값이 folder에 저장되는 설정"으로 선언한다. core가 읽고, 검사하고, watch하고, 같은 route와 같은 event로 내놓는다. theme을 위한 route와 명령 묶음을 따로 만들지 않는다. 사람이 folder에 file을 손으로 두는 길은 그대로다.
 
@@ -118,11 +118,11 @@ core는 모양만 본다. 뜻은 shell과 design이 안다.
 ## 정한 것
 
 1. **설정을 쓰는 명령은 `lophn settings set <key> <value>`와 `settings unset <key>`뿐이다(agent).** 설정이나 설정 묶음마다 명령을 만들지 않는다. theme file도 이 명령으로 쓴다.
-2. **선언에 뜻 검사와 "명령으로 바꿀 수 있나"를 둔다(agent).** 권한에 걸린 설정(`approvals.shell_rules`, `lophn-agent.call_policy`, `lophn-agent.extensions.mcp_servers`·`skill_folders`·`skills_off`, `coding-agent.shared_apps`)은 바꿀 수 없음으로 선언한다. agent가 자기 범위를 넓히게 두지 않는다. `command-surface` 정한 것 8과 같은 원칙이다. CLI binary는 user token을 쓰므로 actor가 아니라 선언의 이 칸으로 막는다.
+2. **선언에 뜻 검사와 "명령으로 바꿀 수 있나"를 둔다(agent).** 권한에 걸린 설정(`approvals.shell_rules`, `lophn-agent.call_policy`, `lophn-agent.extensions.mcp_servers`·`skill_folders`·`skills_off`, `coding-agent.shared_apps`)은 바꿀 수 없음으로 선언한다. agent가 자기 범위를 넓히게 두지 않는다. 하면서 extension 켜기(agent에게 tool을 준다), 팀 한도, turn 한도, coding agent 실행 명령어(`shell.coding_agents`, 사람의 터미널에서 도는 글이다)를 이 목록에 더했다. `command-surface` 정한 것 8과 같은 원칙이다. CLI binary는 user token을 쓰므로 actor가 아니라 선언의 이 칸으로 막는다.
 3. **secret과 provider 연결은 넣지 않는다(agent).** secret 값은 보호 입력 창으로만 들어간다(`architecture/approval.md`). agent가 사람에게 넣어 달라고 요청하는 길은 `secret-request.md`가 맡는다.
 4. **agent는 file을 직접 쓰지 않는다(agent).** home에 `themes/` 쓰기 권한을 주는 길은 버린다. 설정 surface를 지나야 검사 결과(모르는 token 경로, 모자란 대비)가 agent에게 돌아온다.
 5. **shell의 적용 길은 구독 하나로 바꾼다(agent).** renderer가 값을 읽어 main에 미는 길(`shell:appearance`, `shell:keybindings`의 값 보내기, theme file을 shell main이 읽는 것)은 지운다. 기반 위로 옮기지 않은 옛 길을 남기면 한쪽만 바뀌는 bug가 또 난다.
-6. **선언과 규칙의 자리는 core와 shell이 같이 import하는 곳이다(agent).** 정확한 자리(`packages/protocol`, 또는 design의 순수한 부분을 core에 열기)는 계획에서 정한다. theme 검사는 token 목록(`packages/design`)이 있어야 한다는 것이 걸린다.
+6. **규칙의 자리는 core와 shell이 같이 import하는 곳이다(agent).** 하면서 이렇게 정했다: 뜻 검사의 규칙은 design(theme, 글꼴 이름, 고를 수 있는 값)과 protocol(단축키 표와 문법)에 두고 core가 import한다. 선언은 core에 그대로 둔다. theme 검사에 design의 token 목록이 필요한데 protocol은 design을 쓸 수 없고, shell은 값을 설정 사본으로 읽어 선언을 import할 일이 없었다.
 7. **화면 동작은 넣지 않는다(사람, 2026-11-11).** 탭 열기, desk 배치처럼 켜진 화면에서 하는 일은 값이 아니다. 꼭 필요한 것은 이미 명령으로 있고(`lophn tab`, `lophn browser`, `lophn ext call`), 더 필요해지면 그때 그 명령을 더한다. layout(desk, tab, group)의 주인은 지금처럼 renderer다(`architecture/workspace-layout.md`).
 8. **lophn agent에게는 home에서만 연다(사람의 말: "lophn home에서").** project·app workspace의 agent는 일하는 중에 사람의 화면 모양을 바꾸지 않는다. 사람의 터미널(CLI binary)은 어디서든 쓴다.
 9. **기반을 지은 그 일에서 지금 있는 것을 기반 위로 옮긴다(agent).** 기반만 짓고 쓰는 곳이 없으면 맞는지 알 수 없다. appearance, theme, 단축키, quick launch를 옮기는 것으로 확인한다.
@@ -131,11 +131,11 @@ core는 모양만 본다. 뜻은 shell과 design이 안다.
 ## 순서
 
 1. **설정 surface.**
-   - 선언에 뜻 검사, 설명, 바꿀 수 있는지를 더하고 core와 shell이 같이 import하는 곳으로 옮긴다. shell의 규칙 사본을 지운다.
+   - 선언에 뜻 검사, 설명, 바꿀 수 있는지를 더한다. 규칙은 core와 shell이 같이 import하는 곳의 것을 쓴다(단축키 표와 문법은 protocol로 옮겼다).
    - `settings set`·`unset` 명령, route가 선언대로 agent를 받는다, `settings get`이 바꿀 수 있는지와 고를 값을 보인다.
    - shell의 설정 사본과 구독. appearance, 단축키, quick launch, taskbar, tray를 그 위로 옮기고 묶음마다 있던 IPC 값 보내기를 지운다.
    - folder에 저장되는 설정. theme을 그 위로 옮긴다(`theme.md` 정한 것 9로 돌아간다).
-   - home prompt와 내장 skill 하나.
+   - home prompt에 설정을 바꾸는 법 몇 줄. 내장 skill은 만들지 않았다(무엇을 바꿀 수 있는지는 `settings get`의 설명이 말한다).
    - 끝나면: home agent에게 "Catppuccin Mocha theme 만들어서 적용해 줘", "글자 크게", "Ctrl+T를 새 터미널로"가 된다. 터미널에서 `lophn settings set shell.dark_theme tokyo-night`를 치면 켜진 창이 바로 바뀐다. 그 뒤 설정 하나를 더하는 일은 선언 하나와 적용 한 곳이다.
 2. **기반 위에 더하는 것(기반이 선 뒤, 쓰는 곳이 생길 때 하나씩).** 로그인 때 자동 시작, OS 전역 단축키, 언어를 설정으로. extension 설치 상태, 북마크를 core가 갖는 값으로. 이것들은 계획이 아니라 선언 하나씩이다.
 

@@ -1,10 +1,13 @@
 // AppearanceSource를 선언 설정(`shell.*`)의 읽기·쓰기로 만든다. 설치된 글꼴은 받은 queryLocalFonts로 읽고,
-// theme 목록은 main(`lophnAppearance`)에서 받는다. main이 없으면 내장 theme만이다.
+// theme 목록은 core 설정의 항목(`shell.themes`)을 main과 같은 규칙(loadThemes)으로 푼 것이다.
 import { loadThemes } from "@lophn/ui";
 
-import type { AppearanceApi } from "../../../../ipc/appearance.ts";
+import {
+  type AppearanceApi,
+  THEMES_SETTING_KEY,
+} from "../../../../ipc/appearance.ts";
 import type { CoreSource } from "../../connection/connection.ts";
-import { chooseSetting, readEffective } from "../declared.ts";
+import { chooseSetting, readEffective, readFolder } from "../declared.ts";
 import { installedFonts, type QueryLocalFonts } from "./local-fonts.ts";
 import {
   APPEARANCE_DEFAULTS,
@@ -52,11 +55,27 @@ export function coreAppearanceSource(
 
     fonts: () => installedFonts(queryFonts),
 
-    themes: async () =>
-      (await appearance?.themes().catch(() => undefined)) ?? loadThemes([]),
-
-    onThemesChanged: (listener) =>
-      appearance?.onThemesChanged(listener) ?? (() => {}),
+    async themes() {
+      const read = await readFolder(core, THEMES_SETTING_KEY);
+      if (!read.ok) return loadThemes([]);
+      const themes = loadThemes(
+        read.value.entries.map((entry) => ({
+          id: entry.id,
+          text: JSON.stringify(entry.value),
+        })),
+      );
+      // core가 읽지 못한 file(이름, 크기, JSON)도 쓸 수 없는 file로 같이 보인다.
+      return {
+        list: themes.list,
+        broken: [
+          ...themes.broken,
+          ...read.value.unreadable.map((one) => ({
+            id: one.name,
+            reason: one.reason,
+          })),
+        ],
+      };
+    },
 
     openThemesFolder: () => appearance?.openThemesFolder(),
   };

@@ -1,34 +1,46 @@
 // agent 하나의 설정 화면. 저장된 agent와 새 agent가 같은 화면을 쓴다.
-// Definition 탭에 profile·이름·지침·model·skill·MCP가 있고 Grants 탭에서 맡길 것을 붙인다. source에서 agent를
-// 읽어 form 값을 쥐고, 저장·삭제·이미지 올리기·grant 바꾸기를 source로 보낸다. 저장 실패·충돌 같은 알림은 그 탭 위쪽 toast다.
+// General · Runtime · Instructions · Skills · Memory · Tools 탭이 정의를 고치고(탭마다 파일 하나: tab-*.tsx) Grants 탭에서
+// 맡길 것을 붙인다. 머리의 [Cancel]·[Save]는 어느 탭에서나 보인다. source에서 agent를 읽어 form 값을 쥐고, 저장·삭제·이미지
+// 올리기·grant 바꾸기를 source로 보낸다. 저장 실패·충돌 같은 알림은 그 탭 위쪽 toast다.
 
 import { ErrorState, Skeleton } from "@lophn/ui/feedback";
 import { Tab, TabList, TabPanel, Tabs } from "@lophn/ui/navigation";
-import { Dialog, Toast } from "@lophn/ui/overlay";
+import { Toast } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
 import type { MessageKey } from "@lophn/i18n";
 import { t } from "@lophn/i18n";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 import type { AssignmentEntry } from "../../../../../protocol/approvals/assignment.ts";
 
-import type { AgentDefinitionIssue } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
-import {
-  isCodingBuiltin,
-  isLophn,
-} from "../../../../../protocol/lophn-agent/workspaces.ts";
 import { actionIcons } from "../../../icons/mod.ts";
+import { useCommands } from "../../../commands/react.tsx";
 import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
+import type { Face } from "../tab-state.ts";
 import type {
-  AgentDetail,
   AgentDraft,
   AgentsSource,
   GrantsView,
   ModelsView,
 } from "../source.ts";
 import type { McpLogin, McpRow, McpStatus } from "../views.ts";
-import styles from "./agent-editor.module.css";
-import { DefinitionForm } from "./definition-form.tsx";
+import {
+  type EditorTab,
+  factsOf,
+  isDirty,
+  looseIssues,
+  type Ready,
+  tabOfIssue,
+  visibleTabs,
+} from "./editor-model.ts";
+import { Issues } from "./form-kit.tsx";
 import { GrantsPanel } from "./grants-panel.tsx";
+import { GeneralTab } from "./tab-general.tsx";
+import { InstructionsTab } from "./tab-instructions.tsx";
+import { MemoryTab } from "./tab-memory.tsx";
+import { RuntimeTab } from "./tab-runtime.tsx";
+import { SkillsTab } from "./tab-skills.tsx";
+import { ToolsTab } from "./tab-tools.tsx";
+import styles from "./agent-editor.module.css";
 
 /** editor가 source에서 쓰는 것. */
 export type AgentEditorSource = Pick<
@@ -63,23 +75,28 @@ interface AgentEditorProps {
   readonly workspaceName: string;
   /** 열 agent를 가리키는 값. 새 agent는 null이다. */
   readonly agent: string | null;
-  /** 저장·삭제·취소로 editor를 떠난다. */
+  /** [Cancel]로 editor를 떠난다. */
   readonly onDone: () => void;
+  /** 지웠거나 열어 둔 agent가 이미 없어서 editor를 떠난다. 없으면 onDone이다. */
+  readonly onGone?: () => void;
+  /** 새 agent를 처음 저장했다. 이 editor는 그 agent로 이어진다. */
+  readonly onSaved?: (assignment: string) => void;
   /** 목록이나 정의가 바뀌었다. */
   readonly onChanged: () => void;
+  /** 탭을 떠났다 돌아온 editor가 이어 받을 저장하지 않은 편집. */
+  readonly restore?: Ready | null;
+  /** 편집 값이 바뀔 때마다 알린다. 부르는 쪽이 저장하지 않은 편집과 탭 줄의 얼굴을 쥔다. */
+  readonly onState?: (state: {
+    readonly ready: Ready;
+    readonly dirty: boolean;
+    readonly face: Face;
+  }) => void;
 }
-
-type Section = "definition" | "grants";
 
 type Loaded =
   | { readonly kind: "loading" }
   | { readonly kind: "failed" }
-  | {
-      readonly kind: "ready";
-      readonly detail: AgentDetail;
-      readonly definition: AgentDraft;
-      readonly issues: readonly AgentDefinitionIssue[];
-    };
+  | Ready;
 
 type GrantsLoaded =
   | { readonly kind: "loading" }
@@ -91,6 +108,16 @@ interface Notice {
   readonly body: MessageKey;
 }
 
+const TAB_LABEL: Readonly<Record<EditorTab, MessageKey>> = {
+  general: "agents.label.tab-general",
+  runtime: "agents.label.tab-runtime",
+  instructions: "agents.label.tab-instructions",
+  skills: "agents.label.tab-skills",
+  memory: "agents.label.tab-memory",
+  tools: "agents.label.tab-tools",
+  grants: "agents.label.tab-grants",
+};
+
 function Loading(): ReactElement {
   return (
     <div className={styles.fill} data-agent-editor="loading">
@@ -99,55 +126,13 @@ function Loading(): ReactElement {
   );
 }
 
-// 지우기는 확인을 한 번 받은 뒤에만 부른다. 저장은 확인이 없다.
-function DeleteAgent({
-  name,
-  onDelete,
-}: {
-  name: string;
-  onDelete: () => void;
-}) {
-  const [asking, setAsking] = useState(false);
-  return (
-    <div className={styles.danger}>
-      <Button icon={actionIcons.delete} onClick={() => setAsking(true)}>
-        {t("project-workspace.button.agent-editor-delete")}
-      </Button>
-      <Dialog
-        open={asking}
-        onOpenChange={setAsking}
-        title={t("project-workspace.heading.agent-editor-delete-title", {
-          name,
-        })}
-        actions={
-          <>
-            <Button onClick={() => setAsking(false)}>
-              {t("common.button.cancel")}
-            </Button>
-            <Button
-              variant="danger"
-              icon={actionIcons.delete}
-              onClick={() => {
-                setAsking(false);
-                onDelete();
-              }}
-            >
-              {t("project-workspace.button.agent-editor-delete-confirm")}
-            </Button>
-          </>
-        }
-      >
-        <p>{t("project-workspace.notice.agent-editor-delete-body")}</p>
-      </Dialog>
-    </div>
-  );
-}
-
 export function AgentEditor(props: AgentEditorProps): ReactElement {
   const { source, workspace, agent } = props;
-  const [state, setState] = useState<Loaded>({ kind: "loading" });
+  const [state, setState] = useState<Loaded>(
+    props.restore ?? { kind: "loading" },
+  );
   const [models, setModels] = useState<ModelsView | null>(null);
-  const [tab, setTab] = useState<Section>("definition");
+  const [tab, setTab] = useState<EditorTab>("general");
   const [notice, setNotice] = useState<Notice | null>(null);
   const [grants, setGrants] = useState<GrantsLoaded>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
@@ -156,6 +141,8 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   const revision = useRef(0);
   // 이 화면이 시작해 아직 callback을 기다리는 MCP 로그인이다.
   const [signingIn, setSigningIn] = useState<readonly string[]>([]);
+  // 탭을 떠났다 돌아왔으면 읽지 않고 그 편집에서 이어 간다. 한 번만 쓴다.
+  const restored = useRef(props.restore ?? null);
 
   useEffect(() => {
     let live = true;
@@ -168,6 +155,10 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   }, [source]);
 
   useEffect(() => {
+    if (restored.current !== null) {
+      restored.current = null;
+      return;
+    }
     let live = true;
     setState({ kind: "loading" });
     const opened =
@@ -178,13 +169,15 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
       if (!live) return;
       if (!result.ok) {
         // 열어 둔 agent가 이미 없으면 목록으로 돌아간다.
-        if (agent !== null && result.message === "not_found") props.onDone();
-        else setState({ kind: "failed" });
+        if (agent !== null && result.message === "not_found") {
+          (props.onGone ?? props.onDone)();
+        } else setState({ kind: "failed" });
         return;
       }
       setState({
         kind: "ready",
         detail: result.value,
+        base: result.value.definition,
         definition: result.value.definition,
         issues: result.value.issues,
       });
@@ -215,42 +208,52 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     };
   }, [source, workspace, agent, tab]);
 
-  if (state.kind === "loading") return <Loading />;
-  if (state.kind === "failed") {
-    return (
-      <div className={styles.fill} data-agent-editor="failed">
-        <ErrorState
-          target={t("project-workspace.label.agents-target")}
-          onRetry={() => setAttempt((count) => count + 1)}
-        />
-      </div>
-    );
-  }
-
-  const { detail, definition } = state;
-  const fresh = detail.assignment === null;
-  const lophn = detail.assignment !== null && isLophn(detail.assignment);
-  const coding =
-    detail.assignment !== null && isCodingBuiltin(detail.assignment);
-  const edit = (next: AgentDraft) =>
-    setState((current) =>
-      current.kind === "ready" ? { ...current, definition: next } : current,
-    );
-  const name = definition.name ?? detail.effective.name.value;
-  const shown: AvatarProfile = (() => {
-    const profile = definition.profile ?? detail.effective.profile.value;
+  const ready = state.kind === "ready" ? state : null;
+  const dirty = ready !== null && isDirty(ready);
+  const lastReport = useRef(props.onState);
+  lastReport.current = props.onState;
+  const shownName =
+    ready === null
+      ? ""
+      : (ready.definition.name ?? ready.detail.effective.name.value);
+  const shownProfile: AvatarProfile | null = (() => {
+    if (ready === null) return null;
+    const profile =
+      ready.definition.profile ?? ready.detail.effective.profile.value;
     return profile.kind === "character"
       ? profile
       : {
           kind: "image",
           src:
-            detail.assignment === null
+            ready.detail.assignment === null
               ? ""
-              : source.imageSrc(workspace, detail.assignment, profile.image),
+              : source.imageSrc(
+                  workspace,
+                  ready.detail.assignment,
+                  profile.image,
+                ),
         };
   })();
+  // 탭 줄이 이 agent의 이름과 아이콘을 보이도록 알린다(새 agent는 이름이 없어 제목 글이다).
+  useEffect(() => {
+    if (ready === null || shownProfile === null) return;
+    lastReport.current?.({
+      ready,
+      dirty,
+      face: {
+        name:
+          ready.detail.assignment === null && shownName.trim() === ""
+            ? t("project-workspace.heading.agents-new-agent")
+            : shownName,
+        profile: shownProfile,
+      },
+    });
+    // shownProfile은 매번 새로 만들어서 값으로 비교한다.
+  }, [ready, dirty, shownName, JSON.stringify(shownProfile)]);
 
   const save = () => {
+    if (ready === null) return;
+    const { detail, definition } = ready;
     void source
       .saveAgent(workspace, {
         assignment: detail.assignment,
@@ -262,7 +265,10 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
         if (result.ok) {
           setNotice(null);
           props.onChanged();
-          props.onDone();
+          // 새 agent는 id가 생겼으니 그 agent로 이어진다. 저장된 agent는 파일을 다시 읽어 hash와 명함을 맞춘다.
+          if (detail.assignment === null)
+            props.onSaved?.(result.value.assignment);
+          else setAttempt((count) => count + 1);
           return;
         }
         setState((current) =>
@@ -286,6 +292,30 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
       });
   };
 
+  // Ctrl+S(Mac은 Cmd+S). 편집 값이 있을 때만 받는다.
+  useCommands({ "agents.save": save }, { when: () => dirty });
+
+  if (state.kind === "loading") return <Loading />;
+  if (state.kind === "failed") {
+    return (
+      <div className={styles.fill} data-agent-editor="failed">
+        <ErrorState
+          target={t("project-workspace.label.agents-target")}
+          onRetry={() => setAttempt((count) => count + 1)}
+        />
+      </div>
+    );
+  }
+
+  const { detail, definition } = state;
+  const facts = factsOf(detail, definition);
+  const { fresh, lophn, coding } = facts;
+  const edit = (next: AgentDraft) =>
+    setState((current) =>
+      current.kind === "ready" ? { ...current, definition: next } : current,
+    );
+  const name = shownName;
+
   const remove = () => {
     if (detail.assignment === null || detail.hash === null) return;
     void source
@@ -299,7 +329,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
           return;
         }
         props.onChanged();
-        props.onDone();
+        (props.onGone ?? props.onDone)();
       });
   };
 
@@ -398,27 +428,27 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
       apps?: unknown;
       permissions?: unknown;
     };
-    setState((current) => {
-      if (current.kind !== "ready") return current;
+    const merge = (draft: AgentDraft) => {
       const {
         apps: _apps,
         permissions: _permissions,
         ...rest
-      } = current.definition as AgentDraft & {
-        apps?: unknown;
-        permissions?: unknown;
-      };
-      const definition = {
+      } = draft as AgentDraft & { apps?: unknown; permissions?: unknown };
+      return {
         ...rest,
         ...(stored.apps === undefined ? {} : { apps: stored.apps }),
         ...(stored.permissions === undefined
           ? {}
           : { permissions: stored.permissions }),
       } as AgentDraft;
+    };
+    setState((current) => {
+      if (current.kind !== "ready") return current;
       return {
         ...current,
         detail: { ...current.detail, hash: read.value.hash },
-        definition,
+        base: merge(current.base),
+        definition: merge(current.definition),
       };
     });
   };
@@ -458,6 +488,22 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     });
   };
 
+  const form = {
+    detail,
+    definition,
+    issues: state.issues,
+    workspaceName: props.workspaceName,
+    onChange: edit,
+  };
+  const tabs = visibleTabs(facts);
+  // 고른 탭이 runtime을 바꿔 사라졌으면 General로 돌아온다.
+  const shown: EditorTab = tabs.includes(tab) ? tab : "general";
+  const marked = new Set(state.issues.map(tabOfIssue));
+  const imageSrc = (image: string) =>
+    detail.assignment === null
+      ? ""
+      : source.imageSrc(workspace, detail.assignment, image);
+
   return (
     <div className={styles.page} data-agent-editor="ready">
       {notice === null ? null : (
@@ -470,44 +516,84 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
           />
         </div>
       )}
-      <h1 className={styles.title}>
-        <Avatar profile={shown} size="md" />
-        {fresh ? t("project-workspace.heading.agents-new-agent") : name}
-        {lophn || coding ? (
-          <span className={styles.chip}>{t("agents.label.built-in")}</span>
-        ) : null}
-      </h1>
-      <Tabs value={tab} onValueChange={(value) => setTab(value as Section)}>
-        <TabList>
-          <Tab value="definition">{t("agents.label.tab-definition")}</Tab>
-          <Tab value="grants" disabled={fresh}>
-            {t("agents.label.tab-grants")}
-          </Tab>
-        </TabList>
-        <TabPanel value="definition">
-          <DefinitionForm
-            detail={detail}
-            definition={definition}
-            extensions={detail.extensions}
-            issues={state.issues}
-            models={models}
-            source={source}
-            workspaceName={props.workspaceName}
-            imageSrc={(image) =>
-              detail.assignment === null
-                ? ""
-                : source.imageSrc(workspace, detail.assignment, image)
-            }
-            onChange={edit}
+      <Tabs value={shown} onValueChange={(value) => setTab(value as EditorTab)}>
+        <div className={styles.head}>
+          <div className={styles.headRow}>
+            <h1 className={styles.title}>
+              {shownProfile === null ? null : (
+                <Avatar profile={shownProfile} size="md" />
+              )}
+              {fresh ? t("project-workspace.heading.agents-new-agent") : name}
+              {lophn || coding ? (
+                <span className={styles.chip}>
+                  {t("agents.label.built-in")}
+                </span>
+              ) : null}
+            </h1>
+            <div className={styles.formActions}>
+              <Button onClick={props.onDone}>
+                {t("common.button.cancel")}
+              </Button>
+              <Button
+                variant="primary"
+                icon={fresh ? actionIcons.create : actionIcons.save}
+                onClick={save}
+              >
+                {fresh
+                  ? t("agents.button.create-agent")
+                  : t("project-workspace.button.agent-editor-save")}
+              </Button>
+            </div>
+          </div>
+          <Issues issues={looseIssues(state.issues)} />
+          <TabList>
+            {tabs.map((one) => (
+              <Tab
+                key={one}
+                size="sm"
+                value={one}
+                disabled={one === "grants" && fresh}
+              >
+                {t(TAB_LABEL[one])}
+                {marked.has(one) && one !== shown ? (
+                  <span
+                    className={styles.tabMark}
+                    role="img"
+                    aria-label={t("agents.label.tab-has-issues")}
+                  />
+                ) : null}
+              </Tab>
+            ))}
+          </TabList>
+        </div>
+        <TabPanel value="general">
+          <GeneralTab
+            {...form}
+            facts={facts}
+            imageSrc={imageSrc}
             onUpload={upload}
-            onSignIn={signIn}
-            onCancelSignIn={cancelSignIn}
-            signingIn={signingIn}
+            onDelete={remove}
+          />
+        </TabPanel>
+        <TabPanel value="runtime">
+          <RuntimeTab {...form} facts={facts} models={models} source={source} />
+        </TabPanel>
+        <TabPanel value="instructions">
+          <InstructionsTab
+            {...form}
             workspaceInstructions={{
               read: () => source.readInstructions(workspace ?? ""),
               write: (text, hash) =>
                 source.writeInstructions(workspace ?? "", text, hash),
             }}
+          />
+        </TabPanel>
+        <TabPanel value="skills">
+          <SkillsTab {...form} facts={facts} />
+        </TabPanel>
+        <TabPanel value="memory">
+          <MemoryTab
+            {...form}
             memoryPort={{
               read: () =>
                 source.readMemory({
@@ -522,33 +608,23 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
                 ),
             }}
           />
-          <div className={styles.formActions}>
-            <Button onClick={props.onDone}>{t("common.button.cancel")}</Button>
-            <Button
-              variant="primary"
-              icon={fresh ? actionIcons.create : actionIcons.save}
-              onClick={save}
-            >
-              {fresh
-                ? t("agents.button.create-agent")
-                : t("project-workspace.button.agent-editor-save")}
-            </Button>
-          </div>
-          <p className={`${styles.note} ${styles.stored}`}>
-            {fresh ? `${t("agents.notice.grants-after-create")} ` : ""}
-            {t("project-workspace.notice.agent-editor-model-help")}{" "}
-            {t("agents.notice.stored-in-lophn")}
-          </p>
-          {!fresh && !lophn && !coding ? (
-            <DeleteAgent name={name} onDelete={remove} />
-          ) : null}
+        </TabPanel>
+        <TabPanel value="tools">
+          <ToolsTab
+            {...form}
+            facts={facts}
+            extensions={detail.extensions}
+            onSignIn={signIn}
+            onCancelSignIn={cancelSignIn}
+            signingIn={signingIn}
+          />
         </TabPanel>
         <TabPanel value="grants">
           {grants.kind === "loading" ? <Loading /> : null}
           {grants.kind === "failed" ? (
             <ErrorState
               target={t("agents.label.grants-target")}
-              onRetry={() => setTab("definition")}
+              onRetry={() => setTab("general")}
             />
           ) : null}
           {grants.kind === "ready" ? (

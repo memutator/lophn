@@ -106,6 +106,9 @@ export const agents = {
   "agents.label.character-periwinkle": "Periwinkle",
   "agents.label.character-yellow": "Yellow",
   "agents.label.card-runtime": "Runtime: {runtime}",
+  "agents.label.card-model-line": "Model: {model} ({provider})",
+  "agents.label.card-model-priced":
+    "Model: {model} ({provider}), ${input} in / ${output} out per 1M tokens",
   "agents.label.card-modality": "Takes {input}. Gives {output}.",
   "agents.label.card-replies": "Replies: {replies}",
   "agents.label.card-plus": "Has more than lophn: {items}",
@@ -123,7 +126,7 @@ export const agents = {
   "agents.notice.card-help":
     "What other agents and people see when they pick this agent. It follows the saved definition.",
   "agents.notice.modality-help":
-    "What this agent takes in and gives back. All three when nothing is unchecked.",
+    "What this agent takes in and gives back. Every kind is on unless you turn it off.",
   "agents.label.character-sage": "Sage",
   "agents.label.character-lavender": "Lavender",
   "agents.label.character-peach": "Peach",
@@ -163,8 +166,16 @@ export const agents = {
   "agents.label.protected-key": "Key or token",
   "agents.label.protected-secret": "Client secret",
   "agents.label.skip-start": "Start new sessions with Skip permissions",
-  "agents.label.tab-definition": "Definition",
+  "agents.label.tab-general": "General",
+  "agents.label.tab-runtime": "Runtime",
+  "agents.label.tab-instructions": "Instructions",
+  "agents.label.tab-skills": "Skills",
+  "agents.label.tab-memory": "Memory",
+  "agents.label.tab-tools": "Tools",
   "agents.label.tab-grants": "Grants",
+  "agents.label.tab-has-issues": "Needs attention",
+  "agents.label.nav-back": "Back",
+  "agents.label.nav-forward": "Forward",
   "agents.notice.credential-later":
     "If the server needs a key or token, lophn asks for it in a protected prompt after you add it.",
   "agents.notice.grants-after-create":

@@ -24,7 +24,7 @@ const card = defineCommand({
   name: "agent.card",
   summary: "Read an agent's card",
   description:
-    "Read an agent's card by handle: handle, name, description, runtime, modality (what it takes and gives), replies it supports, how it differs from the default lophn agent (plus, minus) and notes. Read it before you call an agent. The handle `lophn` is the lophn of the workspace you run in.",
+    "Read an agent's card by handle: handle, name, description, runtime, model with its price (USD per 1M tokens; absent for harness runtimes), modality (what it takes and gives), replies it supports, how it differs from the default lophn agent (plus, minus) and notes. Read it before you call an agent. The handle `lophn` is the lophn of the workspace you run in.",
   input: z.strictObject({ handle: agentHandleSchema }),
   positional: ["handle"],
   effect: "read",

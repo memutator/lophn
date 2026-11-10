@@ -419,6 +419,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     sessionTitles,
     agentView,
     agents,
+    agentTabs,
     appViews,
     keeps,
     webviews,
@@ -594,9 +595,10 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   const latestLayout = useRef(layout);
   latestLayout.current = layout;
   const latestDesk = () => activeDesk(latestLayout.current);
-  // 저장 안 된 변경이 있는 탭. 탭 줄과 preview 탭 보호가 같은 session을 본다.
+  // 저장 안 된 변경이 있는 탭: 파일 탭의 편집 session과 Agents 탭의 agent 설정 편집. 탭 줄과 preview 탭 보호가 같은 것을 본다.
   const editorSessions = props.editor?.sessions;
-  const isUnsaved = (key: string) => editorSessions?.isUnsettled(key) ?? false;
+  const isUnsaved = (key: string) =>
+    (editorSessions?.isUnsettled(key) ?? false) || agentTabs.isDirty(key);
   const [, redrawUnsaved] = useReducer((count: number) => count + 1, 0);
   // 파일 탭의 읽던 위치. scroll마다 배치 state를 바꾸지 않고 저장만 늦춘다.
   const positions = useRef<
@@ -1374,9 +1376,12 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
           <Icon icon={def.icon} pixels={iconPixels("small")} />
         ));
   };
+  // 본문이 바뀌는 탭(Agents 탭의 열린 agent)은 kind가 이름을 정한다.
+  const titleOfTab = (tab: TabItem): string =>
+    tabKindOf(tab.kind)?.titleOf?.(tab, host) ?? tab.title;
   const stripTab = (tab: TabItem): StripTab => ({
     key: tab.key,
-    title: tab.title,
+    title: titleOfTab(tab),
     icon: iconOfTab(tab),
     dot: tabKindOf(tab.kind)?.dotOf?.(tab, host) ?? null,
     preview: tab.preview === true,
@@ -1425,7 +1430,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       unsaved: tabs
         .filter((tab) => isUnsaved(tab.key))
         .map((tab) => ({
-          title: tab.title,
+          title: titleOfTab(tab),
           path: tabKindOf(tab.kind)?.pathOf?.(tab) ?? tab.key,
         })),
     };
@@ -1491,7 +1496,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       const path = pathOfTab(tab);
       return {
         key: tab.key,
-        title: tab.title,
+        title: titleOfTab(tab),
         icon: iconOfTab(tab),
         ...(path === null ? {} : { path }),
       };

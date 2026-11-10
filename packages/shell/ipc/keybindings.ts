@@ -102,6 +102,9 @@ export type Command =
   | "agent.background"
   | "agent.toggle-details"
   | "agent.clear-input"
+  | "agents.save"
+  | "agents.back"
+  | "agents.forward"
   | "app.panel";
 
 /** 표의 command id. 내장은 Command, extension·앱은 `ext.<id>.<name>`·`app.<id>.<name>`이다. */
@@ -554,6 +557,29 @@ export const KEYBINDINGS: readonly Binding[] = [
     section: "agent",
     context: "agentView",
     ...NONE,
+  },
+
+  // Agents 탭의 agent 설정 저장과 탭 안 이동(목록 ↔ 연 agent). macOS는 Option+방향키가 단어 이동이라 Cmd+[ ]다.
+  {
+    command: "agents.save",
+    section: "view",
+    context: "agentsTab",
+    other: ["Ctrl+KeyS"],
+    mac: ["Cmd+KeyS"],
+  },
+  {
+    command: "agents.back",
+    section: "view",
+    context: "agentsTab",
+    other: ["Alt+ArrowLeft"],
+    mac: ["Cmd+BracketLeft"],
+  },
+  {
+    command: "agents.forward",
+    section: "view",
+    context: "agentsTab",
+    other: ["Alt+ArrowRight"],
+    mac: ["Cmd+BracketRight"],
   },
 
   // 터미널의 복사·붙여 넣기. macOS는 Cmd+C/V를 창 menu가 하므로 다른 OS만 기본 키가 있다.

@@ -1,3 +1,25 @@
+/* 탭 본문의 틀: 위쪽 ← → 줄(탭 왼쪽 위)과 그 아래 scroll하는 본문(목록이나 editor). */
+.shell {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  outline: none;
+}
+
+.nav {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+}
+
+.scroll {
+  flex: 1;
+  min-height: var(--space-0);
+  overflow: auto;
+}
+
 /* project의 Agents 탭. 카드 목록 위에 구역이 쌓이고, 구역 머리는 제목과 오른쪽 끝 단추 하나다. 본문은 최대 폭 기둥을 가로 가운데에 둔다. */
 .page {
   box-sizing: border-box;

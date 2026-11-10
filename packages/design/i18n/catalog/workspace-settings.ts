@@ -335,6 +335,9 @@ export const workspaceSettings = {
   "settings.label.key-float-minimize": "Fold the floating panels",
   "settings.label.key-inbox-open": "Open Inbox",
   "settings.label.key-jobs-open": "Open Jobs",
+  "settings.label.key-agents-save": "Save the agent",
+  "settings.label.key-agents-back": "Back in Agents",
+  "settings.label.key-agents-forward": "Forward in Agents",
   "settings.label.key-nav-back": "Go back",
   "settings.label.key-nav-forward": "Go forward",
   "settings.label.key-new-agent": "New session",
@@ -526,6 +529,12 @@ export const workspaceSettings = {
   "settings.note.key-jobs-open": "Opens Jobs.",
   "settings.note.key-nav-back":
     "Goes back to where you were before in this window.",
+  "settings.note.key-agents-save":
+    "Saves the agent you are editing in the Agents tab.",
+  "settings.note.key-agents-back":
+    "Goes back to the previous agent or the list in the Agents tab.",
+  "settings.note.key-agents-forward":
+    "Goes forward again after going back in the Agents tab.",
   "settings.note.key-nav-forward": "Goes forward again after going back.",
   "settings.note.key-new-agent": "Opens a new lophn session.",
   "settings.note.key-new-browser": "Opens a new browser tab.",

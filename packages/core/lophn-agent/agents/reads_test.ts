@@ -30,7 +30,7 @@ test("정의 읽기의 model 출처는 agent, project, global 순서다", () => 
       shared: () => [],
       mcp: () => [],
       sharedCommands: () => [],
-      inputMedia: () => null,
+      modelInfo: () => null,
       modelDefault: () => choice("global-model"),
       workspaceModel: (workspace) =>
         workspace?.kind === "project" ? project : null,
@@ -102,7 +102,7 @@ test("an app lophn's MCP server and token are not seen by the project lophn", ()
     shared: () => [],
     mcp: () => [],
     sharedCommands: () => [],
-    inputMedia: () => null,
+    modelInfo: () => null,
     modelDefault: () => choice("global-model"),
     workspaceModel: () => null,
   };

@@ -171,7 +171,7 @@ flows:
     steps:
       - 사람의 agent 편집 화면(workspace/agents)이나 agent(CLI `agent.card`)가 handle(과 필요하면 workspace)로 명함을 읽는다. agent는 workspace를 빼면 자기 session의 workspace다
       - core가 그 workspace에서 보이는 agent를 handle로 찾는다(lophn은 workspace마다 하나, 즐겨찾기 내장 coding agent 포함)
-      - 명함에는 답 방식(replies), 기본 lophn과의 차이, 입력 modality와 자기 session에서 부를 수 있는지(callable)를 싣는다. prompt 원문은 싣지 않는다
+      - 명함에는 쓰는 model(provider 이름, model 이름, 가격. harness runtime은 없다), 답 방식(replies), 기본 lophn과의 차이, 입력 modality와 자기 session에서 부를 수 있는지(callable)를 싣는다. prompt 원문은 싣지 않는다
     outcomes:
       - id: ok
         observe: [response]

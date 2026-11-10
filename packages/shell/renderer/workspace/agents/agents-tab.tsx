@@ -10,6 +10,7 @@ import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import { MEMORY_MAX_BYTES } from "../../../../protocol/lophn-agent/tool-lists.ts";
 import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { actionIcons } from "../../icons/mod.ts";
+import { isHarnessRuntime } from "../../../../protocol/lophn-agent/agent-values.ts";
 import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import { CardFacts, scopeLabel } from "./agent-card.tsx";
 import { kindOfWorkspace } from "./agent-key.ts";
@@ -104,14 +105,19 @@ function AgentCardView({
             </p>
           )}
           <ul className={styles.facts}>
-            <li data-agent-model="">
-              {row.model === null
-                ? t("project-workspace.label.agent-no-model")
-                : t("agents.label.card-model", {
-                    layer: row.model.source,
-                    model: row.model.model_name,
-                  })}
-            </li>
+            {/* 명함이 model(과 가격)을 보이면 그 줄이 대신한다. 명함이 없거나 model이 없는 줄만 층 이름이 붙은 이 줄이다. */}
+            {row.card?.model !== undefined ||
+            (row.card !== undefined &&
+              isHarnessRuntime(row.card.runtime)) ? null : (
+              <li data-agent-model="">
+                {row.model === null
+                  ? t("project-workspace.label.agent-no-model")
+                  : t("agents.label.card-model", {
+                      layer: row.model.source,
+                      model: row.model.model_name,
+                    })}
+              </li>
+            )}
             <li data-agent-counts="">{countsText(row)}</li>
             {/* 명함이 없는 줄(틀린 정의 file)은 범위를 여기서 보인다. */}
             {row.card === undefined ? (

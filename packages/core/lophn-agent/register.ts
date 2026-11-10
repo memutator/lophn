@@ -516,20 +516,31 @@ function agentLookups(
         can_disable: true,
       })),
     sharedCommands: (apps, deny) => workspaces.sharedCommands(sql, apps, deny),
-    inputMedia: (model) => {
-      const row = sql.get("select definition_key from providers where id = ?", [
-        model.provider,
-      ]);
-      const definition = row === undefined ? undefined : row["definition_key"];
-      if (typeof definition !== "string") return null;
+    modelInfo: (model) => {
+      const row = sql.get(
+        "select name, definition_key from providers where id = ?",
+        [model.provider],
+      );
+      if (row === undefined) return null;
+      const { name, definition_key: definition } = row;
+      if (typeof name !== "string" || typeof definition !== "string") {
+        return null;
+      }
       const { catalog } = catalogBase(
         { readDerived, snapshot: bundledSnapshot },
         sql,
       );
-      return (
-        checkEntryOf(sql, catalog, definition, model.model_name)?.input_media ??
-        null
-      );
+      const entry = checkEntryOf(sql, catalog, definition, model.model_name);
+      // 구간별 요율이 여러 개여도 첫 요율이 비용 계산이 쓰는 기준이다(usage/cost.ts).
+      const rate = entry?.price_basis?.rates[0];
+      return {
+        provider: name,
+        inputMedia: entry?.input_media ?? null,
+        price:
+          rate === undefined
+            ? null
+            : { input: rate.input, output: rate.output },
+      };
     },
     // 전역 기본 model.
     modelDefault: () => loadChoice(sql, GLOBAL_SCOPE),

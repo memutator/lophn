@@ -26,7 +26,7 @@ const lookups: AgentLookups = {
   shared: () => [],
   mcp: () => [],
   sharedCommands: () => [],
-  inputMedia: () => null,
+  modelInfo: () => null,
   modelDefault: () => null,
   workspaceModel: () => null,
 };

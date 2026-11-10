@@ -13,6 +13,7 @@ import type { ProjectsSource } from "../../desktop/workspaces/projects/source.ts
 import type { ViewKeeps } from "../../app-frame/view-keeps.ts";
 import type { WorkspaceWindowProps } from "../workspace-window.tsx";
 import type { AgentsSource } from "../agents/source.ts";
+import type { AgentsTabs, Face } from "../agents/tab-state.ts";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
 import type { DraftStore } from "../../conversation/drafts.ts";
 import type { ReadPosition } from "./kind.ts";
@@ -33,6 +34,10 @@ export interface AgentsSlice {
   changed(): void;
   /** Settings의 Tools and skills로 간다(skill·MCP 등록이 있는 곳). */
   openExtensions(): void;
+  /** 탭마다의 이동 기록과 저장하지 않은 편집. 탭 줄의 저장 안 됨 표시와 닫기 확인이 같은 곳을 본다. */
+  readonly tabs: AgentsTabs;
+  /** sidebar 목록에서 찾은 agent의 이름과 profile. 탭이 아직 본문을 그리지 않았을 때 탭 줄이 쓴다. */
+  faceOf(assignment: string): Face | undefined;
 }
 
 /** Agent 탭이 작업대와 나누는 것. 통로(agentViewSource)가 없으면 host.agentView는 null이다. */

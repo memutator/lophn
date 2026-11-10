@@ -261,6 +261,18 @@ const WORDING: Readonly<Record<Exclude<Command, "app.panel">, Wording>> = {
     name: "settings.label.key-nav-forward",
     help: "settings.note.key-nav-forward",
   },
+  "agents.save": {
+    name: "settings.label.key-agents-save",
+    help: "settings.note.key-agents-save",
+  },
+  "agents.back": {
+    name: "settings.label.key-agents-back",
+    help: "settings.note.key-agents-back",
+  },
+  "agents.forward": {
+    name: "settings.label.key-agents-forward",
+    help: "settings.note.key-agents-forward",
+  },
   "settings.open": {
     name: "settings.label.key-settings-open",
     help: "settings.note.key-settings-open",

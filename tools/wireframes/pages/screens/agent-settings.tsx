@@ -14,7 +14,12 @@ import {
   AgentEditorPage,
   AgentGrantsAppPage,
   AgentGrantsPage,
+  AgentInstructionsTabPage,
+  AgentMemoryTabPage,
   AgentModelPickerPage,
+  AgentRuntimeTabPage,
+  AgentToolsTabPage,
+  AgentsOpenedEditedPage,
   AgentServerFormPage,
   AppAgentsNoSourcePage,
   AppAgentsPage,
@@ -71,7 +76,7 @@ export const agentSettingsArea: Area = {
       id: "agent-settings-agent",
       title: "Agent settings · agent",
       description:
-        "사람이 만든 agent의 설정이다. 프로필, 이름, workspace 지침과 이 agent 지침을 같이 보이는 블록, 이 agent의 Memory 칸(8 KiB 대비 크기와 [Edit]), model, skill, MCP, 새 session을 Skip permissions로 시작하는 기본값 체크가 있다(사람만 쓰는 칸이고 꺼져 있다). Model 칸은 대화와 같은 picker이고(맨 아래 Manage models 줄) 칸 아래에 지금 model이 온 층(이 agent가 골랐다)이 한 줄로 보인다. MCP 아래의 Shell extensions 칸에는 설치되고 켜진 extension이 줄마다 이름, 설명, tool 수와 할당 check로 보인다(bare면 할당한 extension의 tool을 Tools에서 고른다). MCP 줄 중 OAuth로 로그인하는 server(이 agent 층의 linear 포함)는 아직 로그인하지 않았으면 오른쪽에 [Sign in]이 있다. Built-in instructions 줄과 Permissions 칸은 없고 Definition과 Grants 탭이 있다.",
+        "사람이 만든 agent의 설정이고 General 탭이 열려 있다. 탭은 General · Runtime · Instructions · Skills · Memory · Tools · Grants이고, 머리의 [Cancel]·[Save]는 어느 탭에서나 보인다(스크롤해도 머리가 남는다). General에는 프로필, 이름, handle, 범위, 설명, 받는 것(Takes)과 내는 것(Gives) 토글(text·image·file 아이콘 단추가 줄 오른쪽 고정 열에 있다), 명함(runtime, model과 가격, 받고 내는 것, 답 방식), 새 session을 Skip permissions로 시작하는 기본값 체크(사람만 쓰는 칸이고 꺼져 있다), Delete가 있다. 저장하지 못한 항목이 숨은 탭에 있으면 그 탭 이름 옆에 점이 뜬다.",
       render: () => <AgentEditorPage />,
     },
     {
@@ -80,6 +85,41 @@ export const agentSettingsArea: Area = {
       description:
         'agent의 Model 칸 picker를 연 상태다. 맨 위에 "Use workspace default — …" 줄이 있고 그 아래에 검색칸, provider별 model이 있다. provider 묶음은 대화의 picker와 같이 접고 펼 수 있다(묶음이 하나뿐이라 늘 펼쳐 있다). 맨 아래에 Manage models 줄이 있다. 칸 아래 한 줄이 층이다.',
       render: () => <AgentModelPickerPage />,
+    },
+    {
+      id: "agent-settings-runtime-tab",
+      title: "Agent settings · Runtime tab",
+      description:
+        "Runtime 탭이다. runtime(lophn, bare, 켜 둔 harness)을 고르고 그 아래에 Model 칸이 있다. Model은 위 층이 정한 값을 따르는 줄이 맨 위다. harness runtime이면 model 칸이 없다.",
+      render: () => <AgentRuntimeTabPage />,
+    },
+    {
+      id: "agent-settings-instructions-tab",
+      title: "Agent settings · Instructions tab",
+      description:
+        "Instructions 탭이다. workspace 지침(LOPHN.md나 AGENTS.md, 그 자리에서 [Edit])과 이 agent의 지침을 같이 보인다.",
+      render: () => <AgentInstructionsTabPage />,
+    },
+    {
+      id: "agent-settings-memory-tab",
+      title: "Agent settings · Memory tab",
+      description:
+        "Memory 탭이다. 이 agent의 memory가 8 KiB 대비 크기와 함께 보이고 [Edit]으로 그 자리에서 고친다. lophn과 harness agent에는 이 탭이 없다.",
+      render: () => <AgentMemoryTabPage />,
+    },
+    {
+      id: "agent-settings-tools-tab",
+      title: "Agent settings · Tools tab",
+      description:
+        "bare agent의 Tools 탭이다. 고르는 tool(체크와 이름 입력), MCP servers, Shell extensions가 위에서 아래로 있다. bare가 아니면 첫 칸이 없다. harness agent에는 이 탭이 없다.",
+      render: () => <AgentToolsTabPage />,
+    },
+    {
+      id: "agents-tab-opened-edited",
+      title: "Agent settings · agent opened in the Agents tab",
+      description:
+        "Agents 탭에서 [Open]을 누르면 같은 탭이 그 agent의 editor로 바뀌고(탭 이름과 아이콘도 그 agent가 된다) 왼쪽 위 ← →로 목록과 연 agent 사이를 오간다. 이름을 고쳐 저장하지 않은 편집이 있으면 탭 줄에 문서 탭과 같은 표시가 뜨고 Ctrl+S로 저장한다.",
+      render: () => <AgentsOpenedEditedPage />,
     },
     {
       id: "agent-settings-create",
@@ -113,21 +153,21 @@ export const agentSettingsArea: Area = {
       id: "new-agent-mcp-server-form",
       title: "Agent settings · add MCP server",
       description:
-        "agent 층에서 MCP server를 더하는 form에 web 주소와 OAuth 2.1 로그인을 고른 상태다. 이름, 연결 방식, 실행이나 주소, 로그인 방식(None, Bearer, API key, OAuth 2.1)과 OAuth issuer·client ID·scopes를 받고 key·token·client secret은 더한 뒤 보호 입력으로 받는다. OAuth 2.1 server는 정의를 저장한 뒤 그 줄의 [Sign in]으로 로그인한다.",
+        "agent 층에서 Tools 탭에서 MCP server를 더하는 form에 web 주소와 OAuth 2.1 로그인을 고른 상태다. 이름, 연결 방식, 실행이나 주소, 로그인 방식(None, Bearer, API key, OAuth 2.1)과 OAuth issuer·client ID·scopes를 받고 key·token·client secret은 더한 뒤 보호 입력으로 받는다. OAuth 2.1 server는 정의를 저장한 뒤 그 줄의 [Sign in]으로 로그인한다.",
       render: () => <AgentServerFormPage />,
     },
     {
       id: "agent-settings-bare",
       title: "Agent settings · bare runtime",
       description:
-        "runtime이 bare인 agent의 설정이다. Tools 칸에서 내장 tool을 체크로 고르고(file.read, file.grep, call.reply가 켜져 있다) skill도 켠 것만 받는다(plain-writing을 하나 더 골랐다). lophn 지침과 built-in은 받지 않는다.",
+        "runtime이 bare인 agent의 Skills 탭이다. skill은 켠 것만 받는다(plain-writing을 하나 더 골랐다). Tools 탭에서 내장 tool을 체크로 고른다. lophn 지침과 built-in은 받지 않는다.",
       render: () => <AgentEditorBarePage />,
     },
     {
       id: "agent-settings-harness",
       title: "Agent settings · harness runtime",
       description:
-        "runtime이 harness(Codex)인 agent의 설정이다. 이 agent의 지침과 입력·출력 칸만 있고 model, tool, skill, MCP 칸은 없다. harness가 자기 도구를 쓴다.",
+        "runtime이 harness(Codex)인 agent의 Runtime 탭이다. Skills와 Tools 탭이 없고 model 칸도 없다. harness가 자기 도구를 쓴다. General에는 지침과 입력·출력 칸이 있다.",
       render: () => <AgentEditorHarnessPage />,
     },
     {
@@ -190,7 +230,7 @@ export const agentSettingsArea: Area = {
       id: "new-agent-grants",
       title: "Agent settings · grants",
       description:
-        "agent에게 맡길 것은 앱 하나다. 효과별 기본값 표는 없다. 아래에 MCP server는 설정한 곳(Global, project, 이 agent의 Definition)이 할당이라는 한 줄만 있다.",
+        "agent에게 맡길 것은 앱 하나다. 효과별 기본값 표는 없다. 아래에 MCP server는 설정한 곳(Global, project, 이 agent의 Tools 탭)이 할당이라는 한 줄만 있다.",
       render: () => <AgentGrantsPage />,
     },
     {

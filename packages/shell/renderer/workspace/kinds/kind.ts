@@ -22,6 +22,8 @@ export interface TabKindDef {
   readonly labelKey: MessageKey;
   /** 탭 줄의 기본 아이콘. 탭마다 다르면 `iconOf`가 덮는다. */
   readonly icon: IconProps["icon"];
+  /** 탭 줄·닫기 확인에 보일 이름. 본문이 바뀌는 탭(Agents 탭의 열린 agent)이 쓴다. undefined면 `tab.title`이다. */
+  titleOf?(tab: TabItem, host: TabHost): string | undefined;
   /** 탭마다 다른 아이콘(파일 종류, agent의 profile, harness vendor). null이면 `icon`이다. */
   iconOf?(tab: TabItem, host: TabHost): ReactNode | null;
   /** 탭이 디스크 파일이면 그 절대 경로. 탭 menu의 Copy Path·Reveal in Explorer가 쓴다. */

@@ -33,7 +33,7 @@ export function overlayLeaveAsker(api: OverlayApi): LeaveAsker {
     },
   );
   return {
-    async ask(name) {
+    async ask(name, options) {
       const requestId = `editor-leave-${++requests}`;
       const opener =
         document.activeElement instanceof HTMLElement
@@ -55,7 +55,9 @@ export function overlayLeaveAsker(api: OverlayApi): LeaveAsker {
                 : t("document.dialog.unsaved-one", { name }),
             choices: [
               { id: KEEP, label: t("document.button.keep-editing") },
-              { id: CHECK, label: t("document.button.check-again") },
+              ...(options?.retry === false
+                ? []
+                : [{ id: CHECK, label: t("document.button.check-again") }]),
               { id: DISCARD, label: t("document.button.discard-changes") },
             ],
           },

@@ -342,7 +342,7 @@ export function ProjectApp({
       case "agents":
         return (
           <PaddedTab bare>
-            <AgentsBody open={open} />
+            <AgentsBody />
           </PaddedTab>
         );
       case "agent-settings":

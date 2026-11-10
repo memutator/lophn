@@ -43,8 +43,12 @@ export type AgentLookups = {
     apps: readonly string[],
     deny: readonly string[],
   ): { slug: string; name: string }[];
-  // model이 받는 입력 종류. catalog가 모르는 model이나 provider는 null이다.
-  inputMedia(model: ModelChoice): readonly string[] | null;
+  // model의 provider 이름과 catalog 사실(받는 입력 종류, 가격 첫 요율). provider가 없으면 null이고 catalog가 모르는 model은 inputMedia·price가 null이다.
+  modelInfo(model: ModelChoice): {
+    provider: string;
+    inputMedia: readonly string[] | null;
+    price: { input: string | null; output: string | null } | null;
+  } | null;
   // 전역 기본 model. 없으면 null.
   modelDefault(): ModelChoice | null;
   // workspace(null은 Home)의 model 층. 값이 없으면 null.

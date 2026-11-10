@@ -276,6 +276,8 @@ links:
   - {entry: "key:home.open", flow: workspace-switch}
   - {entry: "key:inbox.open", flow: inbox-tab-open}
   - {entry: "key:jobs.open", flow: jobs-tab-open}
+  # Agents 탭의 agent 설정 저장 (agents)
+  - {entry: "key:agents.save", flow: agent-change}
   # app panel (shell-workspace)
   - {entry: "key:app.panel", flow: app-panel-open}
   # browser (projects)
@@ -297,6 +299,8 @@ links:
   - {entry: "key:agent.background", flow: harness-gui-input}
 
 ignore:
+  - {entry: "key:agents.back", reason: "Agents 탭 안에서 목록과 연 agent 사이를 오간다(창 메모리의 이동 기록). 제품 상태를 바꾸지 않는다"}
+  - {entry: "key:agents.forward", reason: "Agents 탭 안에서 목록과 연 agent 사이를 오간다(창 메모리의 이동 기록). 제품 상태를 바꾸지 않는다"}
   - {entry: "key:agent.newline", reason: "입력칸 안에서 줄을 바꾼다. 글은 보낼 때 session-send가 본다"}
   - {entry: "key:agent.find", reason: "열린 대화 줄의 DOM 글을 훑어 칠하는 화면 찾기다(창 메모리). 세션 간 검색은 session-message-search다"}
   - {entry: "key:agent.jump-previous", reason: "대화 목차에서 앞 사람 글로 scroll한다. 제품 상태를 바꾸지 않는다"}

@@ -9,6 +9,7 @@ import {
   agentHandleKey,
   isLophn,
   lophnIdOf,
+  isHarnessRuntime,
   MODALITIES,
   type Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -83,10 +84,13 @@ function cardOf(
         };
 
   const notes: string[] = [];
-  const model = effectiveModel(context, loaded, workspaceOfAgent(loaded));
-  if (model !== null && input.includes("image")) {
-    const media = context.lookups.inputMedia(model.value);
-    if (media !== null && !media.includes("image")) {
+  // harness runtime은 자기 model을 써서 lophn의 model 층이 그 agent의 model이 아니다.
+  const chosen = isHarnessRuntime(runtime)
+    ? null
+    : effectiveModel(context, loaded, workspaceOfAgent(loaded));
+  const info = chosen === null ? null : context.lookups.modelInfo(chosen.value);
+  if (info?.inputMedia != null && input.includes("image")) {
+    if (!info.inputMedia.includes("image")) {
       notes.push("The model cannot take images.");
     }
   }
@@ -99,6 +103,15 @@ function cardOf(
       ? {}
       : { description: definition.description }),
     runtime,
+    ...(chosen === null || info === null
+      ? {}
+      : {
+          model: {
+            provider: info.provider,
+            model_name: chosen.value.model_name,
+            price: info.price,
+          },
+        }),
     modality: { input, output },
     replies: repliesOf({ runtime, tools: definition?.tools }),
     diff,

@@ -10,8 +10,11 @@ import type { EditorFiles, OpenFailure } from "./source.ts";
 export type LeaveChoice = "keep" | "discard" | "check";
 
 export interface LeaveAsker {
-  /** name은 한 파일이면 그 이름, 여러 파일이면 null이다. */
-  ask(name: string | null): Promise<LeaveChoice>;
+  /**
+   * name은 한 파일이면 그 이름, 여러 파일이면 null이다. `retry`가 false면 [Check again]을 두지 않는다
+   * (파일이 아니라 화면이 쥔 편집이라 다시 저장해 볼 것이 없다).
+   */
+  ask(name: string | null, options?: { retry?: boolean }): Promise<LeaveChoice>;
 }
 
 interface OpenedSession {
@@ -209,6 +212,14 @@ export class EditorSessions {
       }
       await entry.session.retry();
     }
+  }
+
+  /**
+   * 파일이 아닌 화면이 쥔 편집(Agents 탭의 agent 설정)을 두고 떠나도 되는지 묻는다. 같은 질문 창을 쓴다.
+   * 버리고 가겠다고 하면 true, 계속 편집이면 false다.
+   */
+  async askDiscard(name: string): Promise<boolean> {
+    return (await this.#asker.ask(name, { retry: false })) === "discard";
   }
 
   /** 명시 폐기. 사람이 잃기를 이미 확인한 파일(여러 탭 닫기)의 남은 고침을 버린다. */

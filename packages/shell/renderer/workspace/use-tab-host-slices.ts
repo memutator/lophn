@@ -12,6 +12,7 @@ import { useConversation } from "../conversation/window-deps.tsx";
 import type { TerminalStore } from "../terminal/store.ts";
 import { useSidebarAgents } from "./agents/sidebar-agents.ts";
 import { useKnownSessions } from "../shell/use-left-sidebar.ts";
+import { AgentsTabs } from "./agents/tab-state.ts";
 import { openAgent } from "./kinds/agent.tsx";
 import { openArtifact } from "./kinds/artifact.tsx";
 import { openFile } from "./kinds/document-editor.tsx";
@@ -57,6 +58,9 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
     ),
     () => terminalStore?.version() ?? 0,
   );
+  // Agents 탭의 이동 기록과 저장하지 않은 편집. 바뀌면 탭 줄이 다시 그려진다.
+  const agentTabs = useMemo(() => new AgentsTabs(), []);
+  useSyncExternalStore(agentTabs.subscribe, agentTabs.version);
   const sidebarAgents = useSidebarAgents(
     agentsSource,
     workspace.kind === "home" ? null : workspace.id,
@@ -145,6 +149,15 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
           source: agentsSource,
           changed: sidebarAgents.reload,
           openExtensions: () => onSettings("tools"),
+          tabs: agentTabs,
+          faceOf: (assignment) => {
+            const row = sidebarAgents.agents.find(
+              (one) => one.assignment === assignment,
+            );
+            return row === undefined
+              ? undefined
+              : { name: row.name, profile: row.profile };
+          },
         };
 
   return {
@@ -153,6 +166,7 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
     sessionTitles,
     agentView,
     agents,
+    agentTabs,
     appViews,
     keeps,
     webviews,

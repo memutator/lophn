@@ -1,4 +1,4 @@
-/* agent 설정 화면(Definition·Grants 탭)과 skill·MCP 줄 같은 조각. 같은 token만 쓰고, 토글과 행동 단추는 줄 오른쪽 끝 고정 열에 둔다. */
+/* agent 설정 화면(General·Runtime·Instructions·Skills·Memory·Tools·Grants 탭)과 skill·MCP 줄 같은 조각. 같은 token만 쓰고, 토글과 행동 단추는 줄 오른쪽 끝 고정 열에 둔다. */
 
 /* 폭은 Agents 탭 목록과 같은 기둥이다. 목록에서 [Open]을 눌러도 본문 폭이 바뀌지 않는다. */
 .page {
@@ -35,11 +35,67 @@
   pointer-events: auto;
 }
 
-.title {
+/* 머리(이름, [Cancel]·[Save], 탭 줄)는 스크롤해도 위에 남는다. 어느 탭에서나 저장할 수 있다. */
+.head {
+  position: sticky;
+  top: var(--space-0);
+  z-index: var(--z-sticky);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+  padding-top: var(--space-3);
+  background: var(--color-surface-base);
+}
+
+.headRow {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+}
+
+/* issue가 있는 탭(지금 보는 탭이 아닌 것)의 표시 */
+.tabMark {
+  flex: none;
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--status-critical-marker);
+}
+
+/* 받고 내는 것: 줄마다 이름 | 토글 열. 토글 열은 폭이 같아 줄마다 오른쪽 끝에 맞는다. */
+.modality {
+  display: flex;
+  flex-direction: column;
+}
+
+.modalityRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-3) var(--space-0);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.modalityLabel {
+  font-weight: var(--font-weight-medium);
+}
+
+.modalityToggles {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.title {
+  display: flex;
+  flex: 1;
+  align-items: center;
   gap: var(--space-4);
-  margin: var(--space-0) var(--space-0) var(--space-5);
+  min-width: var(--space-0);
+  margin: var(--space-0);
   font-size: var(--type-title-size);
   line-height: var(--type-title-line);
   font-weight: var(--font-weight-semibold);
@@ -403,11 +459,6 @@
   flex: 1;
 }
 
-.checks {
-  display: flex;
-  flex-direction: column;
-}
-
 .skillGroup {
   margin-top: var(--space-4);
 }
@@ -427,9 +478,3 @@
   gap: var(--space-4);
 }
 
-.checks {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-4);
-}

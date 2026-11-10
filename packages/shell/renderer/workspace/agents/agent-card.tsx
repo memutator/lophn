@@ -68,6 +68,21 @@ export function CardFacts({
               : card.runtime,
         })}
       </li>
+      {card.model === undefined ? null : (
+        <li data-card-model="">
+          {card.model.price === null
+            ? t("agents.label.card-model-line", {
+                provider: card.model.provider,
+                model: card.model.model_name,
+              })
+            : t("agents.label.card-model-priced", {
+                provider: card.model.provider,
+                model: card.model.model_name,
+                input: card.model.price.input ?? "-",
+                output: card.model.price.output ?? "-",
+              })}
+        </li>
+      )}
       <li data-card-modality="">
         {t("agents.label.card-modality", {
           input: list(card.modality.input.map(modalityLabel)),

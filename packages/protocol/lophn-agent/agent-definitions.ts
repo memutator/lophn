@@ -23,6 +23,7 @@ import {
   profileOutputSchema,
 } from "./agent-values.ts";
 import { modelChoiceOutputSchema } from "./models.ts";
+import { nonnegativeDecimalSchema } from "./resolved-model.ts";
 import { agentIdSchema, workspaceSchema } from "./workspaces.ts";
 
 // 사람(editor)과 agent가 전역 agent 정의를 읽고 저장하는 route다. agent를 가리키는 것은 `AgentId`다.
@@ -150,6 +151,20 @@ export const agentCardSchema = z.object({
   workspace: agentWorkspaceOutputSchema.nullable(),
   description: z.string().optional(),
   runtime: agentRuntimeSchema,
+  // 쓰는 model(정의 → workspace → 전역 순으로 정해진 것)과 가격(USD, 1000000 token당). harness runtime은 자기 model을 써서 없다.
+  // provider는 사람이 붙인 이름이다. price는 catalog가 가격을 모르면 null이다.
+  model: z
+    .object({
+      provider: z.string(),
+      model_name: z.string(),
+      price: z
+        .object({
+          input: nonnegativeDecimalSchema.nullable(),
+          output: nonnegativeDecimalSchema.nullable(),
+        })
+        .nullable(),
+    })
+    .optional(),
   modality: z.object({
     input: z.array(modalitySchema),
     output: z.array(modalitySchema),

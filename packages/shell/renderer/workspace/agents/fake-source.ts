@@ -8,6 +8,7 @@ import type {
   AgentDefinitionIssue,
 } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import type { PublishedExtension } from "../../../../protocol/lophn-agent/extension-tools.ts";
+import { isHarnessRuntime } from "../../../../protocol/lophn-agent/agent-values.ts";
 import {
   isLophn,
   lophnIdOf,
@@ -543,10 +544,12 @@ export function createFakeAgentsSource(
   const scopeOf = (key: string, item: Stored) =>
     isLophn(key) ? workspaceOfLophn(key) : (item.definition.workspace ?? null);
 
-  // core의 cardOf를 줄인 것: 차이는 skill·MCP 이름만 센다.
+  // core의 cardOf를 줄인 것: 차이는 skill·MCP 이름만 세고, model은 정의나 전역 값이다(가격은 anthropic 것만 안다).
   const cardOf = (key: string, item: Stored): AgentCard => {
     const definition = item.definition;
     const bare = definition.runtime === "bare";
+    const chosen = definition.model ?? GLOBAL_MODEL;
+    const harness = isHarnessRuntime(definition.runtime ?? "lophn");
     return {
       handle: isLophn(key) ? "lophn" : (definition.handle ?? item.name),
       name: item.name,
@@ -555,6 +558,25 @@ export function createFakeAgentsSource(
         ? {}
         : { description: definition.description }),
       runtime: definition.runtime ?? "lophn",
+      ...(harness
+        ? {}
+        : {
+            model: {
+              provider:
+                chosen.provider === ANTHROPIC
+                  ? "Anthropic"
+                  : chosen.provider === OPENAI
+                    ? "OpenAI"
+                    : chosen.provider === XAI
+                      ? "xAI"
+                      : "Local server",
+              model_name: chosen.model_name,
+              price:
+                chosen.provider === ANTHROPIC
+                  ? { input: "3", output: "15" }
+                  : null,
+            },
+          }),
       modality: {
         input: [...(definition.modality?.input ?? ALL_MODALITIES)],
         output: [...(definition.modality?.output ?? ALL_MODALITIES)],

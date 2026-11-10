@@ -16,7 +16,7 @@ export { browserIcons } from "./browser.ts";
 export { conversationIcons } from "./conversation.ts";
 export { editorIcons } from "./editor.ts";
 export { homeIcons } from "./home.ts";
-export { modelIcons } from "./model.ts";
+export { modalityIcons, modelIcons } from "./model.ts";
 export { actionIcons } from "./action.ts";
 export { commonIcons } from "./common.ts";
 export { paletteIcons } from "./palette.ts";

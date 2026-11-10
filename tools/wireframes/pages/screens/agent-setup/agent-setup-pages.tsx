@@ -1,5 +1,5 @@
 // agent 설정 묶음의 page들. 동작하는 ProjectApp(과 Settings) 위에 상태 하나를 고정해 놓는다.
-import { t } from "@lophn/i18n";
+import { type MessageKey, t } from "@lophn/i18n";
 import { useMemo, useState } from "react";
 
 import { OPENAI } from "../../../../../packages/shell/renderer/desktop/settings/providers/testdata/fake-providers.ts";
@@ -17,6 +17,7 @@ import {
   QUEUE_WATCHER_ID,
 } from "../../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 import { AgentsPage } from "../../../../../packages/shell/renderer/workspace/agents/agents-page.tsx";
+import { AgentsTabs } from "../../../../../packages/shell/renderer/workspace/agents/tab-state.ts";
 import {
   AGENTS_TAB_SPEC,
   AgentSettingsEditor,
@@ -63,8 +64,12 @@ function editor(
   });
 }
 
-const GRANTS_TAB: Step = () =>
-  press("[role=tab]", t("agents.label.tab-grants"));
+// editor의 탭 하나를 고른다. 칸은 탭마다 따로 있어서 그 칸을 보이려면 먼저 고른다.
+const tab =
+  (label: MessageKey): Step =>
+  () =>
+    press("[role=tab]", t(label));
+const GRANTS_TAB = tab("agents.label.tab-grants");
 
 /** project의 Agents 탭. 탭 줄의 + menu에서 연다. */
 export const ProjectAgentsPage = () => alone(AGENTS_TAB_SPEC);
@@ -79,7 +84,7 @@ const agentsAt = (
   alone({
     ...AGENTS_TAB_SPEC,
     title,
-    body: <AgentsBody open={() => {}} at={at} source={source} steps={steps} />,
+    body: <AgentsBody at={at} source={source} steps={steps} />,
   });
 
 /** Home의 Agents 탭. 목록은 모든 agent(전역과 project·앱 범위)이고 카드마다 범위가 보인다. Home lophn 카드의 범위는 Home이고, Home의 지침(LOPHN.md)·memory·model·skill·MCP 층이 있다. */
@@ -89,6 +94,7 @@ export const HomeAgentsPage = () => agentsAt("home", "Home · Agents");
 export const HomeAgentsOpenScopedPage = () => {
   const [agent, setAgent] = useState<string | null>(EXPERIMENT_PLANNER_ID);
   const source = useMemo(() => createFakeAgentsSource(), []);
+  const tabs = useMemo(() => new AgentsTabs(), []);
   return alone({
     ...AGENTS_TAB_SPEC,
     title: "Home · Agents",
@@ -97,8 +103,11 @@ export const HomeAgentsOpenScopedPage = () => {
         workspace="home"
         workspaceName="Home"
         source={source}
+        tabKey="agents"
+        tabs={tabs}
         agent={agent}
         onAgent={setAgent}
+        askLeave={() => Promise.resolve(true)}
         onAddExtension={() => {}}
         onChanged={() => {}}
       />
@@ -125,13 +134,41 @@ const scrollTo =
 /** bare agent의 설정. runtime이 bare라 Tools 칸에서 tool을 체크로 고르고 skill도 고른 것만 받는다. skill 하나를 더 골랐다. */
 export const AgentEditorBarePage = () =>
   editor(QUEUE_WATCHER_ID, [
+    tab("agents.label.tab-skills"),
     () => click(`[data-skill="plain-writing"] [role=switch]`),
-    scrollTo("[data-field=skills]", "end"),
+  ]);
+
+/** bare agent의 Tools 탭. 내장 tool을 체크로 고르고 lophn 명령·앱 command·MCP tool은 이름을 적어 더한다. 아래에 MCP servers와 Shell extensions가 이어진다. */
+export const AgentToolsTabPage = () =>
+  editor(QUEUE_WATCHER_ID, [tab("agents.label.tab-tools")]);
+
+/** Runtime 탭. runtime을 고르고 model은 대화와 같은 picker로 고른다(위 층이 정한 값이면 따르기 줄이 맨 위다). */
+export const AgentRuntimeTabPage = () =>
+  editor(EVAL_ANALYST_ID, [tab("agents.label.tab-runtime")]);
+
+/** Instructions 탭. workspace 지침(이 자리에서 고친다)과 이 agent의 지침을 같이 보인다. */
+export const AgentInstructionsTabPage = () =>
+  editor(EVAL_ANALYST_ID, [tab("agents.label.tab-instructions")]);
+
+/** Memory 탭. 이 agent의 memory(8 KiB 대비 크기와 [Edit]). */
+export const AgentMemoryTabPage = () =>
+  editor(EVAL_ANALYST_ID, [tab("agents.label.tab-memory")]);
+
+/** Agents 탭에서 agent를 열고 이름을 고친 상태. 위쪽 ← →가 목록으로 돌아가는 길이고, 저장하지 않은 편집은 탭 줄에 표시가 뜬다. */
+export const AgentsOpenedEditedPage = () =>
+  agentsAt("project", "phroner · Agents", undefined, [
+    () =>
+      click(
+        "[data-agent-card] button",
+        t("project-workspace.button.open-agent"),
+        1,
+      ),
+    () => type("[data-field=name] input", "Eval analyst (draft)"),
   ]);
 
 /** harness runtime(Codex) agent의 설정. 지침은 있고 model·tool·skill·MCP 칸이 없다. */
 export const AgentEditorHarnessPage = () =>
-  editor(CODEX_RUNNER_ID, [scrollTo("[data-field=runtime]")]);
+  editor(CODEX_RUNNER_ID, [tab("agents.label.tab-runtime")]);
 
 /** Delete agent를 눌러 확인 창이 뜬 상태. 확인을 한 번 받은 뒤에만 지운다. */
 export const AgentDeleteConfirmPage = () =>
@@ -158,7 +195,11 @@ export const AgentDeleteFailedPage = () =>
 export const AgentSaveIssuesPage = () =>
   editor(
     EVAL_ANALYST_ID,
-    [() => click("button", /^Save$/), scrollTo("[data-field=mcp]", "end")],
+    [
+      () => click("button", /^Save$/),
+      tab("agents.label.tab-tools"),
+      scrollTo("[data-field=mcp]", "end"),
+    ],
     {
       saveFails: {
         issues: [
@@ -220,6 +261,7 @@ export const AgentModelPickerPage = () =>
   editor(
     EVAL_ANALYST_ID,
     [
+      tab("agents.label.tab-runtime"),
       // 목록이 창 아래로 잘리지 않게 Model 칸을 위로 올린 뒤 연다.
       async () =>
         (await find("[data-model-field]")).scrollIntoView({ block: "start" }),
@@ -251,6 +293,7 @@ export const HomeLophnEditorPage = () =>
 /** agent 층에서 MCP server를 더하는 form을 열고 web 주소와 OAuth 2.1 로그인을 고른 상태. */
 export const AgentServerFormPage = () =>
   editor(EVAL_ANALYST_ID, [
+    tab("agents.label.tab-tools"),
     () => press("[data-field=mcp] button", t("settings.button.add-server")),
     () => press("[data-server-field=transport] [role=combobox]"),
     () => click("[role=option]", t("settings.label.over-web")),

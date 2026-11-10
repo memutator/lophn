@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 
 import { AgentsPage } from "../../../../packages/shell/renderer/workspace/agents/agents-page.tsx";
+import { AgentsTabs } from "../../../../packages/shell/renderer/workspace/agents/tab-state.ts";
 import { AgentEditor } from "../../../../packages/shell/renderer/workspace/agents/editor/agent-editor.tsx";
 import {
   APP_ID,
@@ -15,8 +16,6 @@ import {
 } from "../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
 import { runSteps, type Step, useDrive } from "../../mock/drive.ts";
 import type { TabSpec } from "./project-window.tsx";
-
-type Open = (tab: TabSpec, other?: boolean) => void;
 
 export const AGENTS_TAB_SPEC: TabSpec = {
   key: "agents",
@@ -44,30 +43,30 @@ export function agentTab(id: string): TabSpec {
 
 const noop = () => {};
 
-/** workspace의 Agents 탭. 카드의 Open은 agent 설정 탭을 따로 연다. */
+/** workspace의 Agents 탭. 카드의 [Open]은 같은 탭 안에서 editor로 바뀌고 위쪽 ← →가 목록과 연 agent 사이를 오간다. */
 export function AgentsBody({
-  open,
   at = "project",
   source: options,
   steps = [],
 }: {
-  open: Open;
   at?: AgentsAt;
   source?: FakeAgentsOptions;
   /** gallery가 상태를 고정하려고 mount 뒤에 누를 것. */
   steps?: readonly Step[];
 }) {
   const source = useMemo(() => createFakeAgentsSource(options), []);
+  const tabs = useMemo(() => new AgentsTabs(), []);
   useDrive(() => runSteps(steps));
   return (
     <AgentsPage
       workspace={AT[at].workspace}
       workspaceName={AT[at].name}
       source={source}
+      tabKey="agents"
+      tabs={tabs}
       agent={null}
-      onAgent={(key) => {
-        if (key !== null) open(agentTab(key));
-      }}
+      onAgent={noop}
+      askLeave={() => Promise.resolve(true)}
       onAddExtension={noop}
       onChanged={noop}
     />

@@ -1,0 +1,30 @@
+id: agents-tab-rework-and-card-model
+version: 0.23.10
+title: Agents 탭과 agent 편집기를 탭으로 나누고 이동·저장 표시를 더하며 명함에 model과 가격을 싣는다
+modules: [packages/protocol, packages/core/lophn-agent, packages/shell/renderer, packages/cli, packages/design, tools]
+change: |
+  - 명함(`agents/card`, `agent.card`)에 `model`을 더했다: provider 이름, model 이름과 가격(USD, 1000000 token당 input·output, catalog `price_basis`의 첫 요율이고 모르면 `price: null`). 정의 → workspace → 전역 순으로 정해진 model이다. harness runtime이거나 model이 어디에도 없거나 provider가 없으면 칸이 없다. 사람 화면(목록 카드, 편집기)과 `agent.card`를 읽는 agent가 같은 값을 본다. 목록 카드는 명함의 model 줄이 있으면 층 이름이 붙던 옛 model 줄을 그 줄로 대신한다. core의 동기 조회 `inputMedia`는 provider 이름과 가격까지 주는 `modelInfo`가 되었다.
+  - Agents 탭에서 [Open]하면 탭 이름과 아이콘이 그 agent가 되고(저장 전의 새 agent는 New agent) 목록으로 돌아오면 Agents다. 열어 둔 agent는 계속 `fields.agent` 하나만 layout에 남는다.
+  - 탭 본문 왼쪽 위 ←·→가 이 탭의 이동 기록(목록 → agent A → 뒤로 → 앞으로)을 오간다. 마우스 뒤로·앞으로 단추와 단축키 `agents.back`·`agents.forward`(Alt+←·→, macOS는 Cmd+[ ])도 같다. 기록은 창 메모리에만 있고 탭을 떠났다 돌아와도 남는다.
+  - agent 편집기가 저장하지 않은 편집을 쥐면 탭 줄에 문서 탭과 같은 저장 안 됨 표시가 뜬다. 탭 줄의 표시는 파일 편집 session만 알던 것을 Agents 탭의 편집도 아는 것으로 넓혔다(`AgentsTabs`가 창에 하나). Ctrl+S(macOS Cmd+S, 단축키 `agents.save`)가 저장한다. 편집이 남은 채 ←·→로 가거나 탭을 닫으면 문서 탭과 같은 질문 창이 뜬다(파일이 아니라 [Check again]은 없다). [Cancel]은 묻지 않고 버린다. 저장은 목록으로 돌아가지 않고 편집기에 머문다(새 agent는 만든 agent로 이어진다).
+  - 편집기를 탭으로 나눴다: General · Runtime · Instructions · Skills · Memory · Tools · Grants. 탭마다 컴포넌트 파일 하나(`editor/tab-*.tsx`)이고 옛 `definition-form.tsx`는 지웠다. harness runtime에는 Skills·Memory·Tools가 없고 lophn에는 Memory가 없으며 저장 전의 agent는 Grants가 닫혀 있다. [Cancel]·[Save]는 머리에 있어 어느 탭에서나 보이고 스크롤해도 남는다. 거절된 항목이 다른 탭에 있으면 그 탭에 표시가 뜬다.
+  - 받고 내는 것(modality)은 Takes·Gives 두 줄이고 줄마다 text·image·file 토글 단추(아이콘 `modalityIcons`)가 오른쪽 고정 열에 있다. 셋 다 켠 쪽은 정의에서 빠지는 규칙은 그대로다.
+  - wireframe: Runtime·Instructions·Memory·Tools 탭과 Agents 탭에서 연 agent 화면을 더하고 탭마다 칸이 나뉘어 달라진 기존 frame의 step을 고쳤다.
+why: |
+  편집기는 한 줄로 긴 form이라 칸을 찾기 어려웠고, 사람이 받고 내는 것을 체크 칸 줄로 고르게 한 것이 거칠었다. Agents 탭은 agent를 열어도 탭이 그대로 Agents이고 돌아가는 길이 [Cancel]뿐이었으며, 편집이 저장되지 않았음을 탭이 알리지 않아 문서 탭과 달랐다. 어느 agent에게 맡길지 고를 때(사람과 agent 모두) model과 가격이 필요한데 명함에 없었다.
+decisions:
+  - text: >-
+      명함이 model과 가격을 싣고 agent도 `agent.card`로 본다. 사람 화면만 따로 계산하지 않는다(renderer는 다시 계산하지 않는다는 규칙). 가격은 catalog `price_basis`의 첫 요율(비용 계산이 쓰는 기준)이고 harness runtime은 model 칸이 없다. 버린 길: 사람 화면만 목록 row의 model에서 보이기(agent가 맡길 agent를 고를 때 못 본다).
+    by: agent
+  - text: >-
+      저장 안 됨 표시는 파일 편집 session을 넓히지 않고 창이 쥐는 `AgentsTabs`(탭별 이동 기록, 저장하지 않은 편집, 탭 줄의 얼굴)에 둔다. 탭 줄의 `isUnsaved`가 두 곳을 본다. 버린 길: 편집 session에 가짜 파일을 만들기(session은 디스크 파일 저장 규칙이다).
+    by: agent
+  - text: >-
+      저장은 목록으로 돌아가지 않고 편집기에 머문다(문서 탭의 Ctrl+S와 같다). 버린 길: 저장하면 목록으로(Ctrl+S 뒤에도 쫓겨난다).
+    by: agent
+follow_up: |
+  - 창을 닫을 때의 저장 안 됨 질문(`closeWindow`)과 탭을 다른 창으로 옮길 때는 아직 Agents 탭의 편집을 모른다(탭을 닫거나 이동할 때만 묻는다).
+checklist:
+  - Agents 탭에서 agent를 열면 탭 이름이 그 agent가 되고 ← →로 목록과 오가는지 본다
+  - agent 이름을 고치면 탭에 저장 안 됨 표시가 뜨고 Ctrl+S 뒤에 사라지는지 본다
+  - 목록 카드와 편집기 General 탭의 명함에 Model 줄(provider와 가격)이 보이는지 본다

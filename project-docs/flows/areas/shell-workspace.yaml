@@ -225,6 +225,33 @@ flows:
     crosses_process: false
     docs: [architecture/workspace-layout.md, architecture/agent-definition.md]
 
+  - id: agents-tab-history
+    title: "Agents 탭 안에서 목록과 연 agent 사이를 오가고, 저장하지 않은 편집을 탭 줄에 보인다"
+    actor: person
+    entries: [ui:agents-tab-history]
+    when: "Agents 탭을 열었다. [Open]이나 [New agent]를 누르면 같은 탭이 그 agent의 editor로 바뀐다"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/agents/agents-page.tsx
+      - packages/shell/renderer/workspace/agents/tab-state.ts
+      - packages/shell/renderer/workspace/agents/editor/agent-editor.tsx
+      - packages/shell/renderer/workspace/kinds/agents.tsx
+      - packages/shell/renderer/workspace/workspace-window.tsx
+    steps:
+      - "탭 이름과 아이콘이 열린 agent가 되고(저장 전의 새 agent는 New agent) 목록으로 돌아오면 Agents다. 열어 둔 agent는 탭 필드로 layout에 남는다"
+      - "위쪽 ←·→, 마우스 뒤로·앞으로 단추, Alt+←·Alt+→(macOS는 Cmd+[ ])가 이 탭의 이동 기록(메모리)에서 한 칸 오간다"
+      - "editor가 읽거나 저장한 정의와 다른 값을 쥐면 탭 줄에 문서 탭과 같은 저장 안 됨 표시가 뜨고 다른 탭에 다녀와도 편집이 남는다. Ctrl+S(macOS는 Cmd+S)와 [Save]가 저장한다"
+      - "편집이 남은 채 ←·→로 가거나 탭을 닫으면 문서 탭과 같은 질문 창이 뜬다. [Cancel]은 편집을 버린다는 뜻이라 묻지 않는다"
+    outcomes:
+      - id: moved
+        when: "편집이 없거나 버리기로 했다. 목록과 연 agent 사이를 옮겼다"
+        observe: ["screen:agents-tab-opened-edited"]
+      - id: kept-editing
+        when: "편집이 남아 있고 사람이 계속 편집을 골랐다. 자리가 그대로다"
+        observe: ["screen:agents-tab-opened-edited"]
+    crosses_process: false
+    docs: [architecture/agent-definition.md]
+
   - id: tab-close
     title: "탭을 닫는다"
     actor: person

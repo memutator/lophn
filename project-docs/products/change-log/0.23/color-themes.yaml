@@ -1,5 +1,5 @@
 id: color-themes
-version: 0.23.27
+version: 0.23.29
 title: 색을 모드별 theme과 아무 accent 색으로 고르고, theme file로 색을 덮는다
 modules: [packages/design, packages/shell/main, packages/shell/renderer, packages/shell/preload, packages/shell/ipc, packages/core/config, packages/core/main]
 change: |

@@ -1,11 +1,25 @@
 ---
 name: orchestrate
-description: lead(주 session)가 계획 하나(project-docs/plan/<계획>/)를 worker 여럿에게 나눠 돌릴 때 쓴다. task 고르기, worktree 만들기, worker 띄우기, 보고 받기, review, merge, status 갱신, issue 기록까지. 일 하나를 혼자 하거나 worker 하나에 맡기는 정도면 쓰지 않는다.
+description: lead(주 session)가 일을 worker에게 맡겨 돌릴 때 쓴다. 먼저 일의 모양(직접, 한 줄, 병렬 계획)을 고르고, 병렬 계획이면 계획 하나(project-docs/plan/<계획>/)를 worker 여럿에게 나눠 돌린다. task 고르기, worktree 만들기, worker 띄우기, 보고 받기, review, merge, status 갱신, issue 기록까지.
 ---
 
 # 오케스트레이션
 
-lead는 task를 골라 worker에게 맡기고, 결과를 review해 그 계획의 branch에 합치고, wave마다 main에 올린다. 기능 코드를 직접 짜지 않는다. 직접 고치는 것은 셋뿐이다: 공용 등록 file, 고정된 계약을 바꾸는 작은 commit, merge 충돌 가운데 등록 file 충돌.
+## 먼저: 어떤 길인가
+
+worker 여럿을 계획 폴더와 brief로 돌리는 것은 병렬일 때만 값을 한다. 시작하기 전에 고른다(기준은 `planner-persona` skill의 "어떻게 할지 고르기"와 같다).
+
+- **직접.** 작은 일(task 한둘, 한 session)은 lead가 자기 worktree에서 직접 구현한다. 계획 폴더와 brief를 쓰지 않는다.
+- **한 줄.** 일이 서로 기대거나 같은 file을 고치거나 앞에서 읽은 것을 뒤가 그대로 써야 하면 계획 폴더를 열지 않는다. branch 하나(lead의 worktree)에서 lead가 직접 하거나 worker 하나가 한다. 다음 일은 새 worker를 띄우지 않고 같은 worker에게 SendMessage로 잇는다(context가 이어진다). 새 worker로 바꾸는 때는 그 worker의 context가 너무 커졌을 때뿐이고, 그때는 앞에서 정한 것과 바뀐 file을 prompt에 적어 넘긴다.
+- **병렬 계획.** 범위가 path로 깨끗이 나뉘고, task가 서로 기대지 않고(맞물리는 약속은 먼저 고정했고), worker가 brief만 보고 끝낼 수 있을 때다. 이 문서의 나머지(계획 폴더, brief, wave, `launch.sh`·`merge.sh`·`land.sh`)는 이 길의 것이다.
+
+어느 길이든 구현과 나란히 띄울 것이 있다: 구현한 worker가 아닌 worker의 review, 실제 앱에서 돌려 보는 확인, 코드 조사, spike. 이 일들은 context가 이어지면 안 되거나 이어질 필요가 없어서 따로 띄운다. worker가 앱을 띄워 보지 못한 변경은 merge 전에 이 확인을 거친다.
+
+직접과 한 줄에서도 지키는 것: main checkout에서 일하지 않는다(자기 worktree와 branch), worker prompt에 넣을 것(아래 "worker 띄우기"의 목록), 보고를 diff와 대조하기, main에는 `main-merge.sh`로 올리기, 이슈와 change-log.
+
+## 병렬 계획
+
+lead는 task를 골라 worker에게 맡기고, 결과를 review해 그 계획의 branch에 합치고, wave마다 main에 올린다. 병렬 계획에서 lead는 기능 코드를 직접 짜지 않는다. 직접 고치는 것은 셋뿐이다: 공용 등록 file, 고정된 계약을 바꾸는 작은 commit, merge 충돌 가운데 등록 file 충돌.
 
 계획 하나가 `project-docs/plan/<계획>/` 폴더 하나다(꼴은 `project-docs/plan/README.md`). task brief 꼴은 [brief-template.md](brief-template.md)다. 도구는 `project-docs/plan/tools/`(`status.py`, `lead/*`)이고 모두 첫 인자로 계획 이름을 받는다.
 
@@ -118,7 +132,8 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - worktree 안 `.dev-data`에는 쓰기 금지 file(core가 깐 읽기 전용 sdk 사본)이 남는다. `merge.sh`, `boot.sh`, `npm run dev:mock`은 지우기 전에 `chmod -R u+w`를 한다. 손으로 `git worktree remove`나 `rm`을 할 때 실패하면 `chmod -R u+w <worktree>/.dev-data` 뒤 다시 지운다.
 - `npm run dev`는 `LOPHN_HOME`을 무시하고 저장소(worktree) 안 `.dev-data`를 쓴다.
 - check:full이 못 보는 것: renderer build(`node packages/shell/renderer/build.ts`). 이것으로 main이 깨진 채 지나간 일이 있다.
-- 계획 폴더 없이 worker 여럿을 돌릴 때도 모양은 같다: branch 하나에 합치고 main에는 사람이 확인한 뒤 올린다. 첫 worker를 main으로 바로 올렸다가 사람이 바로잡은 일이 있다.
+- 계획 폴더 없이 돌릴 때(직접, 한 줄)도 모양은 같다: branch 하나에 합치고 main에는 사람이 확인한 뒤 올린다. 첫 worker를 main으로 바로 올렸다가 사람이 바로잡은 일이 있다.
+- wave마다 task가 하나씩인 계획을 계획 폴더와 brief로 돌린 일이 여러 번 있다. worker가 매번 처음부터 코드를 읽고, task마다 worktree와 merge 비용이 든다. 그런 일은 "한 줄"이다.
 - Agent tool의 `isolation: worktree`는 plan branch에서 갈라지지 않는다(main 쪽 옛 commit에서 시작한 일이 있다). launch.sh가 만든 worktree를 쓰고, 그렇게 못 했으면 worker가 먼저 `git reset --hard <합칠 branch>`를 하게 한다.
 - worker가 자주 한 실수(보고를 diff와 대조하는 이유):
   - template literal로 만드는 message key(`` `common.label.tab-${dot}` ``)를 "쓰는 곳 없음"으로 보고 지웠다.

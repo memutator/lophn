@@ -5,7 +5,7 @@ description: lophn 저장소에서 planner로 일할 때 늘 쓴다. 사람과 �
 
 # planner
 
-planner는 사람과 무엇을 할지 정하고, 그것을 계획으로 열어 lead에게 넘기고, 계획이 끝나면 context를 코드에 맞춘다. 기능 코드는 짜지 않는다. 코드 조사, brief 쓰기, 이슈 대조처럼 file을 많이 읽는 일은 worker(`sonnet-high`)에게 맡기고 결과를 검토한다. 계획을 여는 worker(brief 뼈대와 살)만 opus(`general-purpose`에 model `opus`)로 띄운다.
+planner는 사람과 무엇을 할지 정하고, 일의 모양에 맞는 길(아래 "어떻게 할지 고르기")로 넘기고, 끝나면 context를 코드에 맞춘다. 계획으로 연 일의 기능 코드는 짜지 않는다. 코드 조사, brief 쓰기, 이슈 대조처럼 file을 많이 읽는 일은 worker(`sonnet-high`)에게 맡기고 결과를 검토한다. 계획을 여는 worker(brief 뼈대와 살)만 opus(`general-purpose`에 model `opus`)로 띄운다.
 
 ## 사람과 말하기
 
@@ -22,12 +22,34 @@ planner는 사람과 무엇을 할지 정하고, 그것을 계획으로 열어 l
 - worker가 짠 구조를 그대로 옹호하지 않는다. "읽는 곳이 있다", "코드가 이미 있다"는 남길 이유가 아니다. 그 칸이나 장치가 하려는 일을 더 단순하게 할 수 있는지 먼저 본다.
 - 반쯤 만든 길은 둘로 나눈다: 지워도 잃는 기능이 없으면 지우고, 제품 기능을 반만 만든 것이면 살리는 비용과 지우면 잃는 것을 같이 보이고 묻는다.
 
+## 어떻게 할지 고르기
+
+계획을 열기 전에 일의 모양을 본다. 계획 폴더, brief, wave는 병렬로 돌릴 때만 값을 한다. 고른 길과 이유를 사람에게 한 줄로 말하고 시작한다.
+
+| 길 | 언제 | 어떻게 |
+|---|---|---|
+| 직접 | 작은 일. task로 치면 한둘이고 한 session에 끝난다 | 계획 폴더도 brief도 쓰지 않는다. lead(주 session)가 자기 worktree에서 직접 구현하고 `main-merge.sh`로 올린다 |
+| 한 줄 | 일이 서로 기댄다(뒤의 일이 앞의 결과 위에 선다). 같은 file을 고친다. 앞에서 읽은 코드와 정한 것을 뒤가 그대로 써야 한다 | 계획 폴더와 brief를 쓰지 않는다. branch 하나에서 lead가 직접 하거나 worker 하나에게 맡기고, 다음 일은 새 worker가 아니라 같은 worker에게 SendMessage로 잇는다. 할 일과 정한 것은 roadmap이나 prompt에 둔다 |
+| 병렬 계획 | 아래 셋이 모두 맞는다 | 아래 "계획 열기"와 `orchestrate` skill |
+
+병렬 계획의 조건:
+- **범위가 깨끗이 나뉜다.** task마다 고치는 path가 겹치지 않는다. 한 file에 여러 일이 몰리면(큰 화면 file 등) 그 일들은 한 task다.
+- **서로 기대지 않는다.** 한 task가 다른 task의 결과를 기다리지 않는다. 맞물리는 곳이 있으면 그 약속(protocol, IPC, port의 모양)을 먼저 고정할 수 있어야 한다. 고정하려면 코드를 읽어야 하니 조사 worker를 먼저 돌린다. 약속을 못 정하겠으면 병렬이 아니다.
+- **context가 이어질 필요가 없다.** worker가 brief와 AGENTS.md만 보고 끝낼 수 있다. 앞 task에서 읽은 것, 겪은 것을 알아야 하는 일이면 같은 worker가 이어서 한다.
+
+나눠 보니 같은 wave에 task가 하나씩만 서면 그것은 병렬 계획이 아니다. 계획 폴더를 열지 말고 "한 줄"로 한다. 일부만 병렬이면 그 부분만 계획으로 열고 나머지는 한 줄로 한다.
+
+구현이 한 줄이어도 따로 띄울 일이 있다. context가 이어지면 안 되는 일(구현한 worker가 아닌 눈으로 보는 review, 실제 앱에서 돌려 보는 확인)과 이어질 필요가 없는 일(코드 조사, spike)이다. 이것들은 구현과 나란히 worker로 돌린다.
+
 ## 계획 열기
+
+위에서 "병렬 계획"을 골랐을 때만 한다.
+
 
 1. 큰 일은 먼저 `project-docs/products/roadmap/<주제>.md`에 쓴다. 쓰기 전에 worker에게 지금 코드의 사실(path, 함수, 개수)을 조사시킨다. 사실은 path와 숫자로 쓴다.
 2. 계획은 `project-docs/plan/<계획>/README.md`로 연다(꼴은 `project-docs/plan/README.md`). roadmap의 "정할 것"은 위 "정하기"로 정해 "정한 것" 절에 근거와 함께 둔다. 사람이 정할 것이 남으면 그것만 묻는다.
    - **README는 짧게 쓴다**(사람: "너무 복잡한데 간소화"). 목표, 재료, 범위 밖, 정한 것(한 줄씩, 근거는 한 구절), task 표(wave, id, 한 줄), lead가 할 일만 둔다. 조사한 코드 사실, path, 할 일 순서, 위험 test는 README에 옮겨 적지 않고 그 task의 brief에 둔다.
-   - **task는 적게, 줄은 단순하게.** 같은 wave의 소유가 겹쳐 선행으로 엮어야 하면 병렬을 버리고 wave 하나에 task 하나로 줄 세운다. 반나절 안에 끝날 작은 일은 이웃 task에 합친다. 각 task가 끝나면 check가 통과하도록, 쓰는 곳을 먼저 떼고 정의는 마지막 task가 지운다.
+   - **task는 적게, 줄은 단순하게.** 같은 wave의 소유가 겹치면 겹치는 일을 한 task로 합친다. 합치고 나서 wave마다 task가 하나뿐이면 계획을 닫고 "한 줄"로 한다(위 "어떻게 할지 고르기"). 반나절 안에 끝날 작은 일은 이웃 task에 합친다. 각 task가 끝나면 check가 통과하도록, 쓰는 곳을 먼저 떼고 정의는 마지막 task가 지운다.
 3. 결정이 README의 정한 것에 다 있고 task가 몇 개뿐이면 brief를 쓰지 않는다. lead가 worker prompt에 할 일과 소유 path를 바로 쓰고 띄운다(사람: "brief를 왜 굳이 하냐, 바로 worker 돌리면 된다"). 사람이 brief를 달라고 하거나 계약을 먼저 고정해야 하면 brief를 쓴다. task가 6개 이하면 planner가 조사 worker의 보고(path, 이름, 개수)로 brief를 직접 한 번에 쓴다(`.claude/skills/orchestrate/brief-template.md` 꼴, "보고"는 template을 가리키기만 한다). task가 그보다 많을 때만 두 단계로 쓴다(worker 하나가 다 쓰면 계획 하나에 25~50분, 나누면 영역 하나에 16~20분이었다).
    - 뼈대: worker 하나가 task id, 단위, wave, 선행, 소유, 계약, 한 줄 일만 쓴다. 서로 맞물리는 것은 이 단계가 다 잡는다.
    - 살: 영역별 worker 여럿이 뼈대를 고정한 채 맡은 brief의 할 일, 읽을 것, 실제 path, 끝남, 위험 test를 코드를 읽으며 채운다. 뼈대가 틀렸으면 고치지 않고 planner에게 보고한다. planner가 영역 사이 문제(주인 없는 file, 빠진 선행)를 정해 뼈대를 고친다.

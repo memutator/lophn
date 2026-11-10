@@ -1,6 +1,6 @@
 # 계획
 
-계획 하나가 폴더 하나다: `project-docs/plan/<계획>/`. 여러 계획이 같이 열려 있을 수 있고, 끝난 계획은 폴더째 지운다(기록은 git과 change-log에 남는다). 돌리는 절차는 `.claude/skills/orchestrate/SKILL.md`, task brief 꼴은 `.claude/skills/orchestrate/brief-template.md`가 정한다.
+계획 폴더는 병렬로 돌릴 일에만 연다. 작은 일과 한 줄로 이어지는 일은 계획 폴더 없이 한다(`.claude/skills/planner-persona/SKILL.md` "어떻게 할지 고르기"). 계획 하나가 폴더 하나다: `project-docs/plan/<계획>/`. 여러 계획이 같이 열려 있을 수 있고, 끝난 계획은 폴더째 지운다(기록은 git과 change-log에 남는다). 돌리는 절차는 `.claude/skills/orchestrate/SKILL.md`, task brief 꼴은 `.claude/skills/orchestrate/brief-template.md`가 정한다.
 
 ## 계획 폴더
 

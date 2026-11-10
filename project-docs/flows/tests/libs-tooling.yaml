@@ -30,6 +30,10 @@ files:
     covers: [log-line-write:written, log-line-write:filtered]
     note: 첫 test는 error 한 줄을 쓰고 level 아래는 거르며 secret을 가린다. 둘째 test는 traceparent 파서 helper
 
+  - path: packages/cli/connection/core_test.ts
+    covers: [cli-core-connect:agent-shell, core-stop:forbidden]
+    note: "자격 없는 lophn agent shell 안의 CLI는 control socket에 닿지도 core를 띄우지도 멈추지도 않고 forbidden이다"
+
   - path: packages/cli/commands/agent_test.ts
     covers: [cli-argv:invalid-input]
     note: agent.create와 agent.update 입력 schema가 사람 전용 칸(skip, mcp_servers, apps, permissions)을 CLI에서 먼저 거른다

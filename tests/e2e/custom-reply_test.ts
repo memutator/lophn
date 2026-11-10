@@ -2,10 +2,10 @@
 // - contract: boundary `router`(result call의 답), `agent-sessions`(custom runtime session). custom이 `call.reply`를 부르지
 //   않아도 turn이 끝나면 마지막 응답 글이 보낸 session의 답으로 한 번 간다(`architecture/agent-call.md`).
 // - 현실적 회귀: custom-reply wiring의 machine scope나 route가 어긋나 `reply_failed` 로그만 남기고 call이 영영 accepted로
-//   남는 것, custom의 system에 제품 규칙이나 workspace 지침이 새는 것, 고르지 않은 내장 tool이 실리는 것.
+//   남는 것, custom의 system에 제품 규칙이나 workspace 지침이 새는 것(workspace 정보는 실린다), 고르지 않은 내장 tool이 실리는 것.
 // - 왜 지금 test로 못 잡나: custom-reply_test는 가짜 port만 본다. 진짜 core의 scope·route·Router 왕복은 process를 건너야 한다.
 //
-// 줄(lane): home은 `app create`를 부르는 lophn, custom은 system이 정의 본문뿐인 요청이다.
+// 줄(lane): home은 `app create`를 부르는 lophn, custom은 system이 정의 본문으로 시작하는 요청이다.
 // lophn runtime이 자동 답을 받지 않는 것은 custom-reply_test(가짜 port)가 본다.
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -37,11 +37,12 @@ const CUSTOM_BODY = "CUSTOM-BODY only.";
 const HOME: Lane = {
   name: "home",
   match: (r) =>
-    lophnCommands(r).includes("app create") && systemText(r) !== CUSTOM_BODY,
+    lophnCommands(r).includes("app create") &&
+    !systemText(r).startsWith(CUSTOM_BODY),
 };
 const CUSTOM: Lane = {
   name: "custom",
-  match: (r) => systemText(r) === CUSTOM_BODY,
+  match: (r) => systemText(r).startsWith(CUSTOM_BODY),
 };
 
 const text = (value: string): Step => ({
@@ -143,9 +144,16 @@ test("E2E result call을 받은 custom turn의 마지막 응답이 답으로 한
     assert.ok(
       JSON.stringify(lane(fake, "home")[2].body).includes("the answer is 42"),
     );
-    // fake: custom 요청의 system은 정의 본문뿐이고 tool은 `lophn`과 고른 것뿐이다.
+    // fake: custom 요청의 system은 정의 본문, untrusted 한 줄, workspace 정보이고 제품 규칙과 workspace 종류 지침은 없다.
+    // tool은 `lophn`과 고른 것뿐이다.
     const [request] = lane(fake, "custom");
-    assert.deepStrictEqual(systemText(request), CUSTOM_BODY);
+    const system = systemText(request);
+    assert.ok(system.includes("# Your workspace"));
+    assert.ok(!system.includes("The lophn browser"));
+    assert.ok(
+      !systemText(lane(fake, "home")[0]).startsWith(CUSTOM_BODY) &&
+        systemText(lane(fake, "home")[0]).includes("The lophn browser"),
+    );
     assert.deepStrictEqual([...toolNames(request)].sort(), [
       "file_read",
       "lophn",

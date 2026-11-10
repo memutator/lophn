@@ -129,7 +129,7 @@ harness session은 `lophn tab open --session <ses> --tui`로 터미널 탭에서
 
 경계: `coding-agent-cli`(명령 표와 binary), `coding-agent`(hook·감지·공유 skill 사본), `coding-agent-cli-interface`, `coding-agent-harness-api`, `harness-host-interface`, `external-coding-agent`(사람의 coding agent).
 
-- **env.** `LOPHN_DAEMON_URL`(CLI가 붙을 core 주소), `LOPHN_AGENT_CREDENTIAL`(harness turn 자격), `LOPHN_CLI`(개발 launcher 경로), `LOPHN_HOME`(shell의 data root), `LPN_TERMINAL_HOOK`(lophn 터미널이 넣는 hook 표지). CLI exit: success 0, internal 1, invalid_input 2, unauthorized·forbidden 3, failed 4, `unavailable` 5(transport), effect_unknown 6.
+- **env.** `LOPHN_DAEMON_URL`(CLI가 붙을 core 주소), `LOPHN_AGENT_CREDENTIAL`(harness turn 자격), `LOPHN_AGENT_SHELL`(lophn agent의 shell.run·ACP terminal 표시. 자격이 없으면 CLI가 바로 멈춘다), `LOPHN_CLI`(개발 launcher 경로), `LOPHN_HOME`(shell의 data root), `LPN_TERMINAL_HOOK`(lophn 터미널이 넣는 hook 표지). CLI exit: success 0, internal 1, invalid_input 2, unauthorized·forbidden 3, failed 4, `unavailable` 5(transport), effect_unknown 6.
 - **CLI 명령.** `lophn harness detect|refresh|install [--dry_run]|status|uninstall|sync-skills`, `lophn hook <harness> <event>`, `lophn core stop`, `lophn tab open --session <ses> --tui`, 그 밖은 core를 부르는 명령 표.
 - **설정 key.** `extensions.harness.enabled`, `coding-agent.shared_apps`(앱 slug 목록).
 - **core route·command.** `app.create`, `app.connect_source`, `app.skills`, harness host route(`harness/take`, `harness/start_turn`, `harness/record`, `harness/finish_turn`, `harness/set_external_id`), `host/take {workspaces, tui}`, `turns/read`, `agents/read`, `projects/get`, `apps/get`. 기존 command StartTurn, RecordMessage, FinishTurn, machine 전용 `BindHarnessSession`. event `TurnEnded`, `MessageRecorded`, `SettingsChanged`, `AppViewChanged`.

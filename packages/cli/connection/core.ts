@@ -28,7 +28,7 @@ import {
   sameCoreAddress,
 } from "./client/daemon.ts";
 import { cliDial, spawnDetachedCore } from "./client/node.ts";
-import { agentCredential } from "./client/token.ts";
+import { agentCredential, inAgentShell } from "./client/token.ts";
 
 export type CliConnection = {
   core: CommandCore;
@@ -204,6 +204,14 @@ export async function openConnection(
     env: request.env.get(LOPHN_DAEMON_URL),
   });
   if (!explicit.ok) return explicit;
+  // 자격 없는 agent shell에서 사람 자격을 받거나 core를 새로 띄우지 않는다.
+  if (inAgentShell(request.env)) {
+    return err({
+      code: "forbidden",
+      message:
+        'lophn commands do not run inside the shell tool. Call the lophn tool with the same words instead, e.g. args ["tab", "open", "--url", "https://example.com"].',
+    });
+  }
   const io = ioOf(request);
   if (!io.ok) return io;
   const agent = agentCredential(request.env);
@@ -223,7 +231,7 @@ export async function stopCore(request: {
   platform: OsPlatform;
   dial?: ControlDial;
 }): Promise<Result<null, LophnError>> {
-  if (agentCredential(request.env) !== undefined) {
+  if (agentCredential(request.env) !== undefined || inAgentShell(request.env)) {
     return err({
       code: "forbidden",
       message: "agent 자격으로는 core를 멈출 수 없다",

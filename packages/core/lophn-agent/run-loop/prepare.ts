@@ -103,7 +103,6 @@ import type {
 } from "./ports.ts";
 import { abortableWait } from "./retry.ts";
 import { turnModeOf } from "./turn-mode.ts";
-import { untrustedSource } from "./untrusted.ts";
 import type { TurnStart } from "./work.ts";
 
 // 시작할 turn의 재료를 core 기록에서 모은다. session의 agent id와 workspace, 이번 turn의 resolved agent
@@ -673,7 +672,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         images,
         runtime: resolved.runtime,
       });
-    // custom은 workspace memory를 받지 않는다(workspace 정보와 지침 층을 받지 않는 것과 같다). 자기 agent memory는 받는다.
+    // custom은 workspace memory를 받지 않는다(지침 층을 받지 않는 것과 같다). 자기 agent memory는 받는다.
     const memoryOf = async (compaction: string | null) => {
       const texts = await fixedMemory.get(
         seat.session,
@@ -733,12 +732,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           ),
           ...(resolved.runtime === "custom"
             ? {
-                custom: {
-                  system: instructions.agent,
-                  untrusted: fixed.definitions.some(
-                    (tool) => untrustedSource(tool.name) !== null,
-                  ),
-                },
+                custom: { system: instructions.agent },
               }
             : {}),
           workspace: placed.value.workspace,

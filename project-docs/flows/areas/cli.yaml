@@ -13,6 +13,7 @@ flows:
       - packages/cli/connection/client/node.ts
       - packages/cli/connection/client/token.ts
     steps:
+      - "LOPHN_AGENT_SHELL=1이고 LOPHN_AGENT_CREDENTIAL이 없으면(lophn agent의 shell.run·ACP terminal 안) 붙지도 띄우지도 않고 forbidden으로 끝낸다. 오류 글은 lophn tool을 쓰라고 알린다"
       - "LOPHN_AGENT_CREDENTIAL env가 있으면 그 자격으로만 부른다. connect도 띄우기도 하지 않고 identify로 core가 ready인지만 본다"
       - "LOPHN_DAEMON_URL이 있으면 loopback http 주소인지 보고, identify가 알린 api_url과 같은 core일 때만 control connect로 user 자격을 받는다. 띄우지 않는다"
       - "그 밖에는 system:core-ensure로 붙거나 띄운다. 판이 다른 core는 ensure가 한 번 갈아 띄운다. 받은 자격으로 core route를 HTTP로 부른다"
@@ -29,6 +30,10 @@ flows:
       - id: joined-address
         observe: [response]
         when: "LOPHN_DAEMON_URL이 identify가 알린 core와 같다. 띄우지 않고 user 자격을 받는다"
+      - id: agent-shell
+        code: forbidden
+        observe: [response]
+        when: "자격 없는 lophn agent shell 안이다(LOPHN_AGENT_SHELL). control socket에 닿지도 core를 띄우지도 않는다"
       - id: invalid-address
         code: invalid_input
         observe: [response]
@@ -78,7 +83,7 @@ flows:
       - packages/cli/connection/core.ts
       - packages/cli/connection/client/node.ts
     steps:
-      - "LOPHN_AGENT_CREDENTIAL env가 있으면 agent 자격으로는 core를 멈출 수 없어 forbidden으로 끝난다. 연결하지 않는다"
+      - "LOPHN_AGENT_CREDENTIAL env가 있거나 자격 없는 lophn agent shell(LOPHN_AGENT_SHELL=1) 안이면 core를 멈출 수 없어 forbidden으로 끝난다. 연결하지 않는다"
       - "data root와 control socket 자리를 구한다. 못 구하면 unavailable이다"
       - "control stop 한 줄을 보낸다. 띄우지 않는다. core가 없어 socket이 답하지 않으면 unavailable이다"
       - "core가 ready이면 control-stop이 ok를 먼저 쓰고 barrier를 돌린 뒤 나간다. tray의 Stop lophn과 같은 control stop이다(architecture/platform.md)"
@@ -90,7 +95,7 @@ flows:
       - id: forbidden
         code: forbidden
         observe: [response]
-        when: "LOPHN_AGENT_CREDENTIAL env가 있다(harness shell). core를 멈추지 않고 연결도 하지 않는다"
+        when: "LOPHN_AGENT_CREDENTIAL env가 있다(harness shell), 또는 LOPHN_AGENT_SHELL=1이다(lophn agent의 shell). core를 멈추지 않고 연결도 하지 않는다"
       - id: unavailable
         code: unavailable
         observe: [response]

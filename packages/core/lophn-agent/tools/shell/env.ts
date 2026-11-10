@@ -1,4 +1,5 @@
 import process from "node:process";
+import { AGENT_SHELL_ENV } from "../../../../protocol/lophn-agent/tool-lists.ts";
 import {
   envValue,
   WINDOWS_ENV_NAMES,
@@ -39,6 +40,7 @@ export function shellEnvironment(
     if (value !== undefined) env[name] = value;
   }
   if (shimFolder !== undefined) env.PATH = withNodeShims(shimFolder, env.PATH);
+  env[AGENT_SHELL_ENV] = "1";
   return env;
 }
 

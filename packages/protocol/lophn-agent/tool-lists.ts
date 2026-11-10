@@ -20,6 +20,10 @@ export const COMMON_TOOLS = [
 // memory 파일 하나의 크기 상한(byte)이다. 넘치는 쓰기는 거절한다.
 export const MEMORY_MAX_BYTES = 8192;
 
+// lophn agent의 shell 자식(shell.run, ACP terminal)에 core가 넣는 표시다. 그 shell에는 자격이 없어 CLI가 사람 자격으로 붙거나
+// core를 새로 띄우려 하면 안 되므로, CLI는 이 표시를 보면 바로 멈추고 `lophn` tool을 쓰라고 알린다.
+export const AGENT_SHELL_ENV = "LOPHN_AGENT_SHELL";
+
 // 작업 tool은 home이 빼고 project·app이 갖는다.
 export const WORK_TOOLS = ["file.write", "file.edit", "shell.run"] as const;
 

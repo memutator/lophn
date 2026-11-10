@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 import { SHELL_ENV_NAMES, shellEnvironment } from "./env.ts";
 
-test("shell 환경에 lophn token과 secret이 나가지 않는다", () => {
+test("shell 환경에 lophn token과 secret이 나가지 않고 agent shell 표시만 붙는다", () => {
   const env = shellEnvironment(
     {
       PATH: "/usr/bin",
@@ -20,8 +20,11 @@ test("shell 환경에 lophn token과 secret이 나가지 않는다", () => {
     // shim 폴더는 OS의 PATH 구분자로 붙는다(Windows는 `;`).
     PATH: `/data/run/bin${delimiter}/usr/bin`,
     HOME: "/home/x",
+    LOPHN_AGENT_SHELL: "1",
   });
-  for (const name of Object.keys(env)) {
+  for (const name of Object.keys(env).filter(
+    (one) => one !== "LOPHN_AGENT_SHELL",
+  )) {
     assert.deepStrictEqual(
       (SHELL_ENV_NAMES as readonly string[]).includes(name),
       true,

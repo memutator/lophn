@@ -74,9 +74,9 @@ turn마다 run-loop가 한 번 읽어 그 turn의 판을 고정하고, I/O 없�
          └ 날짜 notice(`date`)는 turn 이력 맨 앞(요청 바로 뒤)에 붙어 이력과 함께 남는다.
 
  custom runtime은 같은 길에서 고른 것만 싣는다:
- system  정의 본문 (+ web tool을 골랐으면 `<lophn-untrusted>` 한 줄) + 자기 agent memory + 고른 skill 목록   ← cache 경계
+ system  정의 본문 + `<lophn-untrusted>` 한 줄 + 자기 agent memory + 고른 skill 목록 + workspace 정보   ← 본문 뒤와 workspace 정보 뒤에 cache 경계
  tools[] 고른 내장 tool ∩ workspace 종류 목록, `lophn`(lophn runtime과 같다: workspace 종류의 명령 전부, 할당한 앱 command는 부를 때 푼다), 고른 MCP tool, 할당한 extension 가운데 고른 tool
- 대화    lophn과 같다. notice는 tool이 바뀐 것만 간다
+ 대화    lophn과 같다. notice는 지침 층을 보지 않아 tool과 agent 목록(workspace 정보)이 바뀐 것만 간다
 ```
 
 할당된 앱 command는 tools[]에 따로 싣지 않는다. model은 `lophn <slug> <command>`로 부르고 loop가 그 호출을 앱 command의 호출로 푼다.
@@ -118,7 +118,7 @@ turn마다 run-loop가 한 번 읽어 그 turn의 판을 고정하고, I/O 없�
 12. **감싸는 결과는 web 검색과 web 읽기뿐이다.** file, shell, 앱 tool, 외부 MCP 결과는 감싸지 않는다. 앱과 MCP는 사람이 할당하고 설정한 순간 믿는다는 철학이고 실행 때 의심을 더하지 않는다. "안전해 보이니 감싸자"로 되돌리지 않는다. 감싸는 글의 tag 처리는 한 곳이다.
 13. **web 읽기는 redirect를 hop마다 검사하며 직접 따라간다.** 자동으로 따라가지 않고 최대 5번이다. hop마다 scheme과 host literal(localhost, 사설 IPv4, IPv6 loopback·ULA·link-local, 매핑 주소)을 검사해 인터넷 내용이 사람 PC의 내부 주소를 치지 못하게 한다. host 이름이 사설 주소로 풀리는 경우(DNS)는 보지 않는다.
 14. **compact 요약 재료는 data 경계로 감싼다.** 요약할 대화 원문(web 결과가 섞여 있다)은 `~~~data` block으로 감싸고 제어 token과 동형 문자를 정리해 지시로 읽히지 않게 한다. tool 결과는 사람이 쓴 것이 아니라고 표시한다.
-15. **shell은 환경 변수 허용 목록만 넘긴다.** lophn token과 secret은 이름으로 막는 것이 아니라 목록에 없어서 나갈 수 없다. 앱 data는 앱 tool로만 다루고 앱 DB는 직접 열지 않는다(고정 본문).
+15. **shell은 환경 변수 허용 목록만 넘긴다.** lophn token과 secret은 이름으로 막는 것이 아니라 목록에 없어서 나갈 수 없다. 그 위에 `LOPHN_AGENT_SHELL=1`을 넣고, 그 shell 안의 `lophn` CLI는 이 표시를 보면 사람 자격을 받지도 core를 띄우지도 멈추지도 않고 `forbidden`으로 멈추며 `lophn` tool을 쓰라고 알린다. 앱 data는 앱 tool로만 다루고 앱 DB는 직접 열지 않는다(고정 본문).
 
 ### 권한과 경계
 
@@ -138,9 +138,9 @@ turn마다 run-loop가 한 번 읽어 그 turn의 판을 고정하고, I/O 없�
 
 ### custom
 
-29. **custom은 정의 본문과 고른 것만 싣고 상한은 lophn과 같다.**
-    - system은 정의 본문 한 block이고 workspace 종류 층 자리에 둬서 그 cache 표시가 tools까지 덮는다(system 표시는 하나). 제품 고정 규칙, workspace 종류 지침, 지침 층, workspace 정보는 싣지 않는다(지침 층은 읽지도 않아 깨져도 turn이 시작한다). 자기 agent memory는 받고 workspace memory는 받지 않는다. skill 목록은 정의 `skills`로 고른 것이 있을 때만 그것만 싣는다. 고른 skill은 turn마다 다시 읽고 바꾸면 다음 turn부터다. 본문이 비면 system이 없다.
-    - `untrusted` 결과를 내는 web tool이 고정 목록에 있으면 제품 고정 규칙과 같은 `<lophn-untrusted>` 한 줄을 본문 끝에 붙인다. tag escape와 받은 메시지마다 붙는 고정 글은 runtime과 상관없이 같다.
+29. **custom은 정의 본문, 고른 것, workspace 정보만 싣고 상한은 lophn과 같다.**
+    - system은 정의 본문 한 block이고 workspace 종류 층 자리에 둬서 그 cache 표시가 tools까지 덮는다(system 표시는 하나). 제품 고정 규칙, workspace 종류 지침, 지침 층은 싣지 않는다(지침 층은 읽지도 않아 깨져도 turn이 시작한다). workspace 정보는 lophn과 같은 글을 같은 자리(맨 끝, cache 경계)에 싣는다: custom도 `lophn` tool을 늘 가지므로 자기 workspace, 폴더, 부를 수 있는 agent, 앱 command 이름을 알아야 명령을 쓴다. 자기 agent memory는 받고 workspace memory는 받지 않는다. skill 목록은 정의 `skills`로 고른 것이 있을 때만 그것만 싣는다. 고른 skill은 turn마다 다시 읽고 바꾸면 다음 turn부터다. 본문이 비면 system이 없다.
+    - 제품 고정 규칙과 같은 `<lophn-untrusted>` 한 줄을 본문 끝에 늘 붙인다(`lophn` tool의 browser 명령이 늘 있어서다). tag escape와 받은 메시지마다 붙는 고정 글은 runtime과 상관없이 같다.
     - 보이는 tool = 고른 이름 ∩ workspace 종류 목록(`lophn` 빼고) + `lophn`(늘 선다. 설명과 `lophn help`에 싣는 명령은 lophn runtime과 같다: 그 workspace 종류의 명령 전부(명령의 `workspaces`)이고 할당한 앱 command는 `lophn <slug> <command>`로 부를 때 푼다) + `mcp__<server>__<tool>`로 고른 MCP tool + 할당한 extension 가운데 고른 tool. 목록 밖 이름은 말없이 빠진다.
     - 실행 목록은 그 session 고정 목록 중 지금 정의가 고른 tool과 그 workspace 종류의 명령·할당한 앱 command 전부다. 정의에서 뺀 tool은 바로 못 부르고 더한 tool은 새 session부터다(lophn의 tool 목록 고정과 같은 때). 명령과 앱 command의 상한은 lophn과 같은 workspace 종류, 할당, Gate다(custom이 좁히지도 넓히지도 않는다).
     - 브라우저(`tab.open`, `browser.*`) 같은 명령은 고르지 않고 `lophn` tool로 쓴다. 그래서 브라우저만 쓰는 좁은 agent는 내장 tool을 하나도 고르지 않아도 된다.
@@ -254,7 +254,7 @@ turn마다 run-loop가 한 번 읽어 그 turn의 판을 고정하고, I/O 없�
 - **지침 file은 `LOPHN.md`이고 `CLAUDE.md`를 fallback으로 읽는다. `AGENTS.md`는 앱 층만 읽는다.** 이유: lophn은 본질적으로 coding agent가 아니다. coding agent와 같이 쓰는 `AGENTS.md`를 모든 자리에서 읽으면 다른 도구의 지침이 섞여 사람이 무엇이 prompt에 들어가는지 모른다. 앱 source의 `AGENTS.md`는 앱 template에서 오고 앱 agent가 이미 그 지침 역할로 읽던 file이라 앱 층에 한해 지침으로 읽는다. (사람, 2026-11-02 / 앱 층 2026-11-09)
 - **tool 정의를 늦게 싣는 대신 명령으로 묶었다.** 이유: 늦게 싣기(`tool.load`, Anthropic `defer_loading`)는 provider마다 길이 갈렸고 숨길 tool이 늘수록 장치가 커졌다. lophn이 내놓는 일을 명령 표 하나로 두면 lophn agent는 `lophn` tool 하나로, coding agent는 같은 표의 binary로 같은 명령을 쓴다. 두 번 만들지 않고 `tools[]`는 workspace 종류마다 작은 고정 집합이 된다(`project-docs/products/roadmap/command-surface.md`). (사람, 2026-11-01)
 - **정의에 일할 범위를 고르는 칸이 없다.** 이유: 예전에는 `domains`가 그릇 안의 domain을 골라 `DOMAIN.md`, domain skill, 비공개 command를 좁혔다. domain을 지우며 칸도 지웠고 칸이 차 있던 agent는 그릇 전체로 넓어졌다. 같은 때 domain 폴더의 `skills/`는 그릇의 `skills/`로 옮기고(이름이 겹치면 뒤 domain의 skill이 `<name>-<domain 이름>`이 된다) `DOMAIN.md`·`kinds.yaml`은 지웠다. 보관 폴더는 만들지 않는다. (agent, 2026-11-03)
-- **custom은 정의 본문과 고른 것만 싣고 상한은 lophn과 같다.** 이유: 앱 안 코치나 짧은 일 agent는 lophn 제품 규칙과 내장 tool 전부가 필요 없고 그 bytes가 매 turn 든다. 고르는 칸은 `tools` 하나이고 custom에서만 쓴다(lophn runtime에는 항목별 끄기를 두지 않는다). 고른 것은 workspace 종류 목록, 할당, 설정한 MCP 안에서만 보이고 돈다. credential 상한은 고른 것과 상관없이 workspace 종류로 정한다. system cache 표시는 본문 block 하나에 단다(tools까지 덮는다). 정의에서 뺀 이름은 바로 못 부르고 더한 이름은 새 session부터다. 편집 화면의 내장 tool 목록은 core와 같은 protocol 목록을 쓴다. reply 명령을 모르는 runtime이 result call에 답하지 않아 부른 쪽이 멈추는 일은 자동 답으로 막는다(runtime 쪽이나 transaction 안이 아니라 core가 turn 끝 event를 보고 답하므로 멈춘 turn에 답이 나가지 않는다). custom이 받은 call의 경계는 tag 이름과 메시지마다 붙는 고정 글이 알리고 인터넷에서 온 것만 `<lophn-untrusted>` 한 줄로 알린다. (agent, 2026-11-04) 다 덜어진 상태에서 사람이 skill도 더한다. (사람, 2026-11-04) 그 뒤 lophn 명령과 앱 command는 고르지 않고 `lophn` tool로 늘 받는다: 명령을 이름으로 적게 하니 편집 화면에서 어떤 명령이 있는지 보이지 않아 브라우저를 쓰는 custom agent를 만들 길이 없었다. 명령은 workspace 종류와 할당·Gate가 이미 상한이라 custom이 고르게 둘 이유가 없다. 내장 tool, MCP, extension tool과 skill은 그대로 고른 것만이다. (사람, 2026-11-10) custom이 받은 result call의 답 방식 글은 harness와 같다: 마지막 응답이 답이고 `lophn call reply`로 먼저 답했으면 그것이 답이다. core의 자동 답은 call이 아직 accepted일 때만 보내므로 둘이 겹치지 않는다. (agent, 2026-11-10)
+- **custom은 정의 본문과 고른 것만 싣고 상한은 lophn과 같다.** 이유: 앱 안 코치나 짧은 일 agent는 lophn 제품 규칙과 내장 tool 전부가 필요 없고 그 bytes가 매 turn 든다. 고르는 칸은 `tools` 하나이고 custom에서만 쓴다(lophn runtime에는 항목별 끄기를 두지 않는다). 고른 것은 workspace 종류 목록, 할당, 설정한 MCP 안에서만 보이고 돈다. credential 상한은 고른 것과 상관없이 workspace 종류로 정한다. system cache 표시는 본문 block 하나에 단다(tools까지 덮는다). 정의에서 뺀 이름은 바로 못 부르고 더한 이름은 새 session부터다. 편집 화면의 내장 tool 목록은 core와 같은 protocol 목록을 쓴다. reply 명령을 모르는 runtime이 result call에 답하지 않아 부른 쪽이 멈추는 일은 자동 답으로 막는다(runtime 쪽이나 transaction 안이 아니라 core가 turn 끝 event를 보고 답하므로 멈춘 turn에 답이 나가지 않는다). custom이 받은 call의 경계는 tag 이름과 메시지마다 붙는 고정 글이 알리고 인터넷에서 온 것만 `<lophn-untrusted>` 한 줄로 알린다. (agent, 2026-11-04) 다 덜어진 상태에서 사람이 skill도 더한다. (사람, 2026-11-04) 그 뒤 lophn 명령과 앱 command는 고르지 않고 `lophn` tool로 늘 받는다: 명령을 이름으로 적게 하니 편집 화면에서 어떤 명령이 있는지 보이지 않아 브라우저를 쓰는 custom agent를 만들 길이 없었다. 명령은 workspace 종류와 할당·Gate가 이미 상한이라 custom이 고르게 둘 이유가 없다. 내장 tool, MCP, extension tool과 skill은 그대로 고른 것만이다. (사람, 2026-11-10) custom이 받은 result call의 답 방식 글은 harness와 같다: 마지막 응답이 답이고 `lophn call reply`로 먼저 답했으면 그것이 답이다. core의 자동 답은 call이 아직 accepted일 때만 보내므로 둘이 겹치지 않는다. (agent, 2026-11-10) `lophn` tool을 늘 주면서 workspace 정보도 싣는다: 명령이 있어도 자기 workspace와 앱 command 이름, 부를 agent를 모르면 쓰지 못한다. 처음에 뺀 이유(작은 agent의 bytes)는 잘 안 바뀌는 목록이라 cache되어 작다. (사람, 2026-11-10) shell.run과 ACP terminal의 자식에는 자격이 없어 그 안의 `lophn` CLI가 사람 자격을 받거나 core를 새로 띄우려 했고 "core가 준비되지 않았다"로 엉뚱하게 실패했다. core가 그 shell env에 `LOPHN_AGENT_SHELL=1`을 넣고 CLI는 agent 자격 없이 그 표시를 보면 바로 `forbidden`으로 멈추고 `lophn` tool을 쓰라고 알린다. (agent, 2026-11-10)
 - **명함은 program이 정의와 할당에서 계산하고 저장하지 않는다.** 이유: 사람이 agent가 서로를 고를 명함을 원했고 workspace마다 agent가 열리면 agent 쌍을 하나하나 고르기엔 경우가 너무 많아 call 정책을 크게 정한다. 답 방식은 칸 없이 program이 정한다. custom이 skill을 고르면 `skill.read`를 program이 더한다. (agent, 2026-11-04)
 - **큰 명령 결과는 버리지 않고 file로 쓰고 model에는 앞부분을 준다.** 이유: 앱이 질문에 맞는 결과를 내는 것을 model의 한도가 깎지 않게 하려는 것이다. 버린 안: 명령 handler가 결과를 줄이는 것(줄이기는 runtime의 일이다). (사람, 2026-11-02)
 - **archived 앱에 묶인 agent 정의는 agent에게 숨긴다.** 이유: 앱 read·call이 archived 앱을 가리는 규칙의 일부다. 사람의 화면은 그대로 본다. (사람, 2026-11-07)

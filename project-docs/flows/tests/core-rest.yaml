@@ -235,6 +235,13 @@ files:
       - host-shell-launch:spawn-failed
     note: "앱을 띄우는 명령은 개발(build한 shell entry 필요)과 설치본(실행 file만)이 다르고 ELECTRON_RUN_AS_NODE를 빼고 --agent-window를 붙인다. 켜지 않은 core(test, boot)와 build하지 않은 개발 저장소는 launcher가 없고 spawn 오류는 알린다. test·boot가 띄운 core가 사람 장치에 앱을 띄우면 안 되어서다"
 
+  - path: packages/core/main/daemon/wiring/secret-slot_test.ts
+    covers:
+      - input-request-ask:forbidden
+      - input-request-ask:not_found
+      - input-request-ask:invalid_input
+    note: "createSecretSlots 직접 호출. provider 자리는 home session만, 앱 자리는 그 앱과 home session만 청한다(그 밖은 forbidden). 모르는 정의와 허락받지 않은 secret 이름은 not_found, API key로 연결하지 않는 정의와 OAuth secret은 invalid_input이다. secret 이름과 목적지는 정의와 grant에서 나오고, 새 provider는 새 id의 이름과 연결 입력을, 이미 연결된 provider는 그 key 자리만 낸다. card에 뜨는 것과 결과 stored는 covers 밖"
+
   - path: packages/core/main/daemon/wiring/host-queue_test.ts
     covers:
       - host-preview-tab-open:accepted
@@ -407,7 +414,7 @@ files:
 
   - path: packages/core/secrets/secret-store-hold_test.ts
     covers:
-      - login-request-finish:held
+      - input-request-finish:held
     note: 붙든 값(한 번 넣은 값)은 파일에 없어도 sync가 회수하지 않고 release 뒤에야 알려진 값이 아니다
 
   - path: packages/core/server/control/handler_test.ts

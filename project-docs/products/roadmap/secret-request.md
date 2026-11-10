@@ -1,7 +1,14 @@
 # secret request: agent가 secret이 필요한 자리를 가리켜 사람에게 넣어 달라고 한다
 
-상태: 방향을 정했다. 2026-11-11 사람이 방향을 냈고 planner가 정리했다. 사람이 정할 것 둘이 남아 있고 추천안으로 적었다. 일은 아직 시작하지 않았다.
-선행: 계획 `browser-vault`가 main에 올라와야 한다(`lophn login request`가 이 roadmap의 재료다).
+상태: 순서 1(요청 모델, provider key와 앱 secret 자리, `lophn ask secret`, card, 지침)이 main에 올라갔다(change-log `secret-request`). 순서 2가 남았다. 사람이 정할 것 둘은 추천안으로 진행했다.
+아래 "지금 코드"는 순서 1 전의 모습이다. 순서 1이 바꾼 것은 `architecture/agent-definition.md`의 secret 저장소 절과 change-log에 있다.
+
+순서 1에서 이 문서와 다르게 간 것:
+
+- 명령 이름은 `lophn secret request`가 아니라 `lophn ask secret`이다. 새 명령 묶음 이름은 앱 slug 예약(`@lophn/declaration` 판 올리기)이 필요한데 `ask`는 이미 예약돼 있다.
+- 자리는 provider(내장 정의의 API key)와 앱 secret 둘만 했다. MCP server 자리와 custom provider는 순서 2로 옮겼다. MCP는 server가 전역·workspace·agent 정의 층에 걸쳐 있고 한 server가 secret 이름을 여럿 가져 자리 해석이 따로 든다.
+- 정한 것 4의 "pending도 자기 칸을 갖는다"는 하지 않았다. 대기 항목의 모양은 ACP 상태(`@lophn/agent`가 내놓는 type)라 칸을 더하면 SDK 판을 올리고 harness GUI adapter 넷을 같이 고쳐야 한다. 요청 모델(route, 대기열, card)은 하나로 합쳤고 card가 요청을 읽어 종류를 가른다.
+- 앱 자리는 "선언한 이름"이 아니라 "선언하고 사람이 허락한(active grant) 이름"이다. 앱 상세 › Access가 보이는 것과 같다.
 배경 문서: `project-docs/products/roadmap/config-surface.md`(설정은 agent가 바로 바꾼다. secret과 provider 연결은 뺐다), `browser-vault.md`, `project-docs/architecture/agent-definition.md`(secret 저장소), `browser-tab.md`(login 요청), `approval.md`, `app-call.md`.
 
 ## 사람의 말 (원문)
@@ -116,7 +123,8 @@
    - 자리 셋(provider key, 앱 secret, MCP server)의 해석: 자리 → secret 이름, card에 보일 목적지, 뒤따르는 일.
    - `lophn secret request` 명령, card, 창의 purpose 연결. `lophn login request`는 같은 모델 위에 선다.
    - 공통 prompt, 앱 prompt, `lophn-agent` skill 글. 앱 agent 지침이 바뀌므로 `sdk-note` 메모.
-2. **sign-in과 빈 자리 알리기.**
+2. **남은 자리, sign-in, 빈 자리 알리기.**
+   - MCP server 자리와 custom provider(base URL을 agent가 넘기고 card가 host를 보인다).
    - 구독 provider, 앱 OAuth, MCP OAuth의 [Sign in] card.
    - 앱 호출과 MCP tool 호출의 실패에 빈 자리를 싣는다.
    - provider 오류 줄의 button(사람이 정할 것 2).

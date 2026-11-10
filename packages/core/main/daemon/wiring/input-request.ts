@@ -1,29 +1,50 @@
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
+import { appGet } from "../../../../protocol/apps/apps.ts";
+import { appGrantsList } from "../../../../protocol/apps/grants.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
-  loginRequestAsk,
-  loginRequestCancel,
-  loginRequestDone,
-  loginRequestHold,
-  loginRequestRead,
-} from "../../../../protocol/lophn-agent/login-request.ts";
+  inputRequestAsk,
+  inputRequestCancel,
+  inputRequestDone,
+  inputRequestHold,
+  inputRequestRead,
+} from "../../../../protocol/lophn-agent/input-request.ts";
+import {
+  providerDefinitions,
+  providerList,
+} from "../../../../protocol/lophn-agent/providers.ts";
 import { turnRead } from "../../../../protocol/lophn-agent/turn-reads.ts";
 import type { TurnMode } from "../../../../protocol/lophn-agent/turn-values.ts";
 import { loginOriginSchema } from "../../../../protocol/secrets/logins.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import { createSecretSlots } from "./secret-slot.ts";
+import {
+  loadSession,
+  workspaceOf,
+} from "../../../lophn-agent/session/model.ts";
+import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
-// agent의 login 요청(`lophn login request`)의 core 쪽이다. 대기열은 `ask`와 같은 questionWaits이고, 여기는 입구 route와
-// origin 재기, once 값의 알려진 값 등록을 맡는다. 값은 이 파일에서 저장하지 않는다.
-const LOGIN_REQUEST_PRINCIPAL = "machine:login-request";
+// agent의 입력 요청(`lophn login request`, `lophn secret request`)의 core 쪽이다. 대기열은 `ask`와 같은 questionWaits이고,
+// 여기는 입구 route와 login의 origin 재기·once 값의 알려진 값 등록, secret 자리의 해석을 맡는다. 값은 이 파일에서 저장하지 않는다.
+const INPUT_REQUEST_PRINCIPAL = "machine:input-request";
 
-const LOGIN_REQUEST_CONTEXT: AuthenticatedContext = {
-  principal: LOGIN_REQUEST_PRINCIPAL,
+const INPUT_REQUEST_CONTEXT: AuthenticatedContext = {
+  principal: INPUT_REQUEST_PRINCIPAL,
   actor: "machine",
-  scope: { operations: [turnRead.name], targets: {} },
+  scope: {
+    operations: [
+      turnRead.name,
+      appGet.name,
+      appGrantsList.name,
+      providerDefinitions.name,
+      providerList.name,
+    ],
+    targets: {},
+  },
   conditions: {},
-  credential_ref: LOGIN_REQUEST_PRINCIPAL,
+  credential_ref: INPUT_REQUEST_PRINCIPAL,
 };
 
 // shell이 없을 때 origin 재기가 영원히 기다리지 않게 하는 감시 간격이다(host-queue 입구와 같다).
@@ -32,11 +53,11 @@ const WATCH_MS = 1000;
 const key = (route: { resource: string; method: string }) =>
   `${route.resource}/${route.method}`;
 
-export const loginRequestWiring: WiringFactory = () => {
+export const inputRequestWiring: WiringFactory = () => {
   let abandonAll: (() => void) | undefined;
   return {
-    name: "login-request",
-    records: () => [LOGIN_REQUEST_CONTEXT],
+    name: "input-request",
+    records: () => [INPUT_REQUEST_CONTEXT],
     build(ctx) {
       const queue = ctx.hostQueue;
       const waits = ctx.questionWaits;
@@ -60,7 +81,7 @@ export const loginRequestWiring: WiringFactory = () => {
       const modeOf = async (turn: string): Promise<Result<TurnMode>> => {
         const found = await ctx.runtime.readers.read(
           turnRead,
-          LOGIN_REQUEST_CONTEXT,
+          INPUT_REQUEST_CONTEXT,
           { turn },
         );
         return found.ok
@@ -121,17 +142,46 @@ export const loginRequestWiring: WiringFactory = () => {
         }
       };
 
+      const readAs = <T>(
+        route: { resource: string; method: string },
+        input: unknown,
+      ) =>
+        ctx.runtime.readers.read(
+          route as Parameters<typeof ctx.runtime.readers.read>[0],
+          INPUT_REQUEST_CONTEXT,
+          input,
+        ) as Promise<Result<T>>;
+      const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
+
+      const slots = createSecretSlots({
+        read: readAs,
+        newProviderId: () => ids.newId("pvd"),
+        configured: (name) => ctx.secretStore.get(name).ok,
+      });
+
       const ask: MemoryHandler = async (who, body) => {
         const session = who.conditions.session;
         if (!who.actor.startsWith("agent:") || session === undefined) {
           return err({ code: "forbidden", message: "only an agent session" });
         }
-        const input = loginRequestAsk.input.parse(body);
+        const input = inputRequestAsk.input.parse(body);
         const turn = who.conditions.turn ?? "";
         if (turn !== "") {
           const mode = await modeOf(turn);
           if (!mode.ok) return mode;
           if (mode.value === "unattended") return ok({ unattended: true });
+        }
+        if (input.kind === "secret") {
+          const row = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            loadSession(lookup, session),
+          );
+          if (!row.ok || row.value === undefined) {
+            return err({ code: "not_found", message: "the session is gone" });
+          }
+          const here = workspaceOf(row.value);
+          const content = await slots.resolve(here, input.slot);
+          if (!content.ok) return content;
+          return await waits.askRequest({ session, turn }, content.value);
         }
         const found = queue.browserTab(
           input.tab as Id<"tab">,
@@ -144,9 +194,10 @@ export const loginRequestWiring: WiringFactory = () => {
           input.ref,
         );
         if (!origin.ok) return origin;
-        return await waits.askLogin(
+        return await waits.askRequest(
           { session, turn },
           {
+            kind: "login",
             tab: input.tab as Id<"tab">,
             view: found.value.view,
             ref: input.ref,
@@ -165,14 +216,14 @@ export const loginRequestWiring: WiringFactory = () => {
       const read: MemoryHandler = (who, body) => {
         const user = humanOnly(who);
         if (!user.ok) return user;
-        const input = loginRequestRead.input.parse(body);
-        return waits.readLogin(input.session, input.tool_call);
+        const input = inputRequestRead.input.parse(body);
+        return waits.readRequest(input.session, input.tool_call);
       };
       const cancel: MemoryHandler = (who, body) => {
         const user = humanOnly(who);
         if (!user.ok) return user;
-        const input = loginRequestCancel.input.parse(body);
-        const done = waits.finishLogin(
+        const input = inputRequestCancel.input.parse(body);
+        const done = waits.finishRequest(
           input.session,
           input.tool_call,
           ok({ cancelled: true }),
@@ -182,10 +233,10 @@ export const loginRequestWiring: WiringFactory = () => {
       const hold: MemoryHandler = async (who, body) => {
         const user = humanOnly(who);
         if (!user.ok) return user;
-        const input = loginRequestHold.input.parse(body);
-        const open = waits.readLogin(input.session, input.tool_call);
+        const input = inputRequestHold.input.parse(body);
+        const open = waits.readRequest(input.session, input.tool_call);
         if (!open.ok) return open;
-        if (open.value.mode !== "once") {
+        if (open.value.kind !== "login" || open.value.mode !== "once") {
           return err({
             code: "invalid_input",
             message: "only a once request holds a value",
@@ -201,9 +252,9 @@ export const loginRequestWiring: WiringFactory = () => {
       const done: MemoryHandler = (who, body) => {
         const user = humanOnly(who);
         if (!user.ok) return user;
-        const input = loginRequestDone.input.parse(body);
+        const input = inputRequestDone.input.parse(body);
         const { result } = input;
-        const finished = waits.finishLogin(
+        const finished = waits.finishRequest(
           input.session,
           input.tool_call,
           "error" in result ? err(result.error) : ok(result),
@@ -213,11 +264,11 @@ export const loginRequestWiring: WiringFactory = () => {
 
       return ok({
         memory: [
-          [key(loginRequestAsk), ask],
-          [key(loginRequestRead), read],
-          [key(loginRequestCancel), cancel],
-          [key(loginRequestHold), hold],
-          [key(loginRequestDone), done],
+          [key(inputRequestAsk), ask],
+          [key(inputRequestRead), read],
+          [key(inputRequestCancel), cancel],
+          [key(inputRequestHold), hold],
+          [key(inputRequestDone), done],
         ],
       });
     },

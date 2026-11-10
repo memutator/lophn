@@ -6,9 +6,9 @@ import { ok } from "../../base/mod.ts";
 import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
 import {
-  loginRequestAsk,
+  inputRequestAsk,
   loginRequestModeSchema,
-} from "../../protocol/lophn-agent/login-request.ts";
+} from "../../protocol/lophn-agent/input-request.ts";
 import { loginOriginSchema, loginsList } from "../../protocol/secrets/mod.ts";
 import { defineCommand } from "./types.ts";
 
@@ -49,10 +49,13 @@ const request = defineCommand({
   }),
   positional: ["tab"],
   effect: "read",
-  routes: [loginRequestAsk],
+  routes: [inputRequestAsk],
   workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
-    const result = await ctx.core.read(loginRequestAsk, input);
+    const result = await ctx.core.read(inputRequestAsk, {
+      kind: "login",
+      ...input,
+    });
     if (!result.ok) return result;
     return ok({
       summary:

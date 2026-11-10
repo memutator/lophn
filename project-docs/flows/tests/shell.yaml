@@ -312,9 +312,10 @@ files:
 
   - path: packages/shell/main/secret-input/request_test.ts
     covers:
-      - login-request-finish:held
-      - login-request-finish:done
-    note: "한 번 넣기의 값은 hold(알려진 값 등록)와 치기에만 가고 secrets 저장이나 done 결과에는 없다. 치기가 conflict로 거절돼도 오류에 값이 없다"
+      - input-request-finish:held
+      - input-request-finish:done
+      - input-request-finish:connect-failed
+    note: "한 번 넣기의 값은 hold(알려진 값 등록)와 치기에만 가고 secrets 저장이나 done 결과에는 없다. 치기가 conflict로 거절돼도 오류에 값이 없다. 새 provider 자리는 secrets/put 뒤 providers/connect를 보내고, 연결이 실패하면 secrets/delete로 값을 지우며 결과에 값이 없다"
 
   - path: packages/shell/main/secret-input/submit_test.ts
     covers:

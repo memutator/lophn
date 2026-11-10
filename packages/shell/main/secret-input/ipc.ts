@@ -68,7 +68,7 @@ interface StatusCore {
 interface Active {
   readonly contentsId: number;
   readonly display: SecretInputDisplay;
-  /** agent의 login 요청이면 그 내용이다. 제출은 mode대로 끝난다. */
+  /** agent의 입력 요청이면 그 내용이다. 제출은 종류와 mode대로 끝난다. */
   readonly request: OpenRequest | undefined;
   readonly opened: OpenedSecretInput;
   readonly done: (result: "stored" | "cancelled" | "unavailable") => void;
@@ -135,13 +135,22 @@ export function registerSecretInputIpc(
           } satisfies SecretInputOpenReply;
         }
         request = read.value;
-        display = {
-          name: "",
-          purpose: "login",
-          subject: request.origin,
-          configured: false,
-          request: { mode: request.mode, label: request.label },
-        };
+        display =
+          request.kind === "secret"
+            ? {
+                // 이름과 대상은 core가 자리에서 읽은 값이다. 창은 설정 화면에서 연 것과 같은 한 칸이다.
+                name: request.name,
+                purpose: "provider" in request.slot ? "provider" : "app",
+                subject: request.subject.slice(0, 80),
+                configured: request.configured,
+              }
+            : {
+                name: "",
+                purpose: "login",
+                subject: request.origin,
+                configured: false,
+                request: { mode: request.mode, label: request.label },
+              };
       } else {
         display = {
           ...parsed.data,
@@ -169,7 +178,7 @@ export function registerSecretInputIpc(
           preload: deps.preload,
           packaged: deps.packaged,
           // save 창은 칸이 넷이라 더 길다.
-          tall: request?.mode === "save",
+          tall: request?.kind === "login" && request.mode === "save",
           ...(deps.headless === undefined ? {} : { headless: deps.headless }),
           // 사람이 창을 닫으면 그만둔 것이다.
           onClosed: () => done("cancelled"),

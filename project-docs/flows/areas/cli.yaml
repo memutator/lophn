@@ -208,7 +208,8 @@ links:
   - {entry: "cli:job.delete", flow: job-delete}
   - {entry: "cli:job.list", flow: job-list}
   - {entry: "cli:login.list", flow: login-list}
-  - {entry: "cli:login.request", flow: login-request-ask}
+  - {entry: "cli:login.request", flow: input-request-ask}
+  - {entry: "cli:ask.secret", flow: input-request-ask}
   - {entry: "cli:package.read", flow: package-guide-read}
   - {entry: "cli:package.publish", flow: package-publish}
   - {entry: "cli:preview.start", flow: preview-start}

@@ -25,7 +25,7 @@ import { customReplyWiring } from "./wiring/custom-reply.ts";
 import { harnessWiring } from "./wiring/harness.ts";
 import { extensionToolsWiring } from "./wiring/extension-tools.ts";
 import { hostQueueWiring } from "./wiring/host-queue.ts";
-import { loginRequestWiring } from "./wiring/login-request.ts";
+import { inputRequestWiring } from "./wiring/input-request.ts";
 import { appsWiring } from "./wiring/apps.ts";
 import { noticesWiring } from "./wiring/notices.ts";
 import { sealedMarkerWiring } from "./wiring/sealed-marker.ts";
@@ -175,7 +175,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   harnessWiring,
   hostQueueWiring,
   // approvals·secrets와 host queue 뒤다: 대기열과 알려진 값, 탭 표를 쓴다.
-  loginRequestWiring,
+  inputRequestWiring,
   // approvals와 host queue 뒤다: 호출 때 Gate와 queue를 쓴다.
   extensionToolsWiring,
   workflowsWiring,

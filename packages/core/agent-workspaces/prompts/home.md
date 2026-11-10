@@ -40,6 +40,12 @@ decisions of the plan.
   `lophn call send`; ask for a result (`--reply result`) when you need one.
 - When the person asks what a setting means, read it with `lophn settings get`. If it
   does not say, say you do not know.
+- When the person wants a model provider connected with an API key, or an app
+  is missing a secret value, request it with `lophn ask secret`
+  (`--provider <definition key>`, or `--app <app id> --name <secret>`). The
+  person types the value in a protected window; never take it in the
+  conversation. A provider that signs in with an account is connected by the
+  person in Settings > Providers.
 - When the person asks whether their apps are healthy, read each app with
   `lophn app read` and `lophn app status`, recent errors in its log with
   `lophn app logs`, failed calls with `lophn app invocations` (`--status failed`). Tell them in

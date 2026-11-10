@@ -8,6 +8,7 @@ import { APP_SHARE_COMMANDS } from "./app-share.ts";
 import { CALL_COMMANDS } from "./call.ts";
 import { EXT_COMMANDS } from "./ext.ts";
 import { JOB_COMMANDS } from "./job.ts";
+import { ASK_COMMANDS } from "./ask.ts";
 import { LOGIN_COMMANDS } from "./login.ts";
 import { PACKAGE_COMMANDS } from "./package.ts";
 import { PREVIEW_COMMANDS } from "./preview.ts";
@@ -36,6 +37,7 @@ export const COMMANDS: readonly Command[] = [
   ...EXT_COMMANDS,
   ...JOB_COMMANDS,
   ...LOGIN_COMMANDS,
+  ...ASK_COMMANDS,
   ...APP_COMMANDS,
   ...APP_SHARE_COMMANDS,
   ...BROWSER_COMMANDS,

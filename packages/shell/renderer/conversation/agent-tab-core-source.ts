@@ -20,9 +20,9 @@ import {
 } from "./agent-tab-core-source-env.ts";
 import { cancelCallOf, readCallState } from "./agent-tab-core-source-calls.ts";
 import {
-  cancelLoginRequest,
-  readLoginRequest,
-} from "./agent-tab-core-source-login.ts";
+  cancelInputRequest,
+  readInputRequest,
+} from "./agent-tab-core-source-request.ts";
 import {
   answerQuestions,
   editQueuedMessage,
@@ -105,8 +105,8 @@ function createSource(
     stop: (turn, key) => stopTurnOf(env, turn, key),
     retryTurn: (turn) => retryTurn(env, turn),
     answerQuestions: (input) => answerQuestions(env, input),
-    readLoginRequest: (input) => readLoginRequest(env, input),
-    cancelLoginRequest: (input) => cancelLoginRequest(env, input),
+    readInputRequest: (input) => readInputRequest(env, input),
+    cancelInputRequest: (input) => cancelInputRequest(env, input),
     cancelCall: (call) => cancelCallOf(env, call),
 
     async openSession({ id }): Promise<SourceResult<void>> {

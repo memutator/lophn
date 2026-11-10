@@ -41,8 +41,8 @@ export const conversation = {
   "conversation.button.hidden-hide": "Hide",
   "conversation.button.hidden-show": "Show",
   "conversation.button.jump-latest": "Jump to newest messages",
-  "conversation.button.login-request-cancel": "Cancel",
-  "conversation.button.login-request-enter": "Enter",
+  "conversation.button.input-request-cancel": "Cancel",
+  "conversation.button.input-request-enter": "Enter",
   "conversation.button.manage-models": "Manage models",
   "conversation.button.mermaid-show-diagram": "View diagram",
   "conversation.button.mermaid-show-source": "View source",
@@ -241,9 +241,11 @@ export const conversation = {
   "conversation.label.plan-in-progress": "In progress",
   "conversation.label.plan-not-approved": "Plan not approved",
   "conversation.label.plan-pending": "To do",
-  "conversation.label.login-request-card": "Login request from {agent}",
-  "conversation.label.login-request-origin": "Page origin",
-  "conversation.label.login-request-tab": "Tab",
+  "conversation.label.input-request-card": "Input request from {agent}",
+  "conversation.label.input-request-destinations": "Sent to",
+  "conversation.label.input-request-secret": "Secret",
+  "conversation.label.input-request-origin": "Page origin",
+  "conversation.label.input-request-tab": "Tab",
   "conversation.label.question-answered-by-parent": "Answered by the parent",
   "conversation.label.question-answered-elsewhere":
     "Answered in another window",
@@ -457,10 +459,14 @@ export const conversation = {
   "conversation.notice.permissions-no-apps": "No apps are assigned.",
   "conversation.notice.permissions-edited-in-agents":
     "Apps are assigned in Agents.",
-  "conversation.notice.login-request-failed":
+  "conversation.notice.input-request-failed":
     "Can't open the protected window right now. Try again.",
-  "conversation.notice.login-request-help":
+  "conversation.notice.input-request-help":
     "You type in a protected window. {agent} never sees the value.",
+  "conversation.notice.input-request-no-destination":
+    "This app declares no network destination yet.",
+  "conversation.notice.input-request-replaces":
+    "A value is already set. Entering one replaces it.",
   "conversation.notice.question-waiting":
     "Waiting for your answer. Sending a message instead also ends the questions.",
   "conversation.notice.questions-ended-by-message":
@@ -542,9 +548,13 @@ export const conversation = {
   "conversation.title.edit-model": "Edit model",
   "conversation.title.manage-models": "Manage models",
   "conversation.title.permissions": "Permissions · {agent}",
-  "conversation.title.login-request-once":
+  "conversation.title.input-request-app":
+    "{agent} asks you to enter a secret for the app {subject}",
+  "conversation.title.input-request-once":
     "{agent} asks you to type a value into this page",
-  "conversation.title.login-request-save":
+  "conversation.title.input-request-provider":
+    "{agent} asks you to enter an API key for {subject}",
+  "conversation.title.input-request-save":
     "{agent} asks you to save a login for this page",
   "conversation.title.question-asking": "{agent} is asking",
   "conversation.title.rewind": "Rewind to here",

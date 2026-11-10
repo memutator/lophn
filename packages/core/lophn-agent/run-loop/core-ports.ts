@@ -24,13 +24,13 @@ import {
   type ToolResult,
   TURN_BLOB_PURPOSES,
   turnRead,
+  workspaceSessionRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { ModelBinding } from "../models/binding.ts";
 import {
   parseSessionTitle,
   sessionTitleRequest,
 } from "../prompt-assembly/title.ts";
-import { autoSessionTitle } from "../session/session-title.ts";
 import { toolCallDisplay } from "../tools/display.ts";
 import {
   definitionHash,
@@ -943,7 +943,16 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
 
   // 첫 요청의 제목을 model로 짓는 call 하나. 이 turn의 call로 기록하되 판단(judgment)이 아니라 정리(organizing)라
   // 문맥 크기 기준에 들지 않는다. 실패하면 자른 자동 제목이 그대로 남는다.
-  async function titleAttempt(text: string, expected: string): Promise<void> {
+  async function titleAttempt(text: string): Promise<void> {
+    // 바꿀 대상은 지금 session에 적힌 제목이다. 요청 글에서 자동 제목을 다시 계산해 맞추면 이미지나 file이 붙은
+    // 말(자동 제목에 `[image]`가 든다)과 `/` 명령에서 어긋나 AI 제목이 붙지 않는다. 읽은 뒤 사람이 rename하면
+    // command가 바꾸지 않는다.
+    const read = await readOf(machine, workspaceSessionRead, {
+      session: seat.session,
+    });
+    if (!read.ok) return;
+    const expected = read.value.session.title;
+    if (expected === null) return;
     const model = deps.model;
     const prompt = sessionTitleRequest(text);
     const packed = model.pack(prompt);
@@ -1082,10 +1091,8 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     inputs,
     context: deps.context,
     title(text) {
-      const expected = autoSessionTitle(text);
-      if (expected === null) return;
       // 첫 turn을 기다리게 하지 않는다. 어떤 실패도 turn에 닿지 않는다.
-      void titleAttempt(text, expected).catch(() => undefined);
+      void titleAttempt(text).catch(() => undefined);
     },
     model: {
       pack: deps.model.pack,

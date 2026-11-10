@@ -48,7 +48,9 @@ function isTitleRequest(body: unknown): boolean {
   );
 }
 
-export function createFakeHandler(options: { fallback?: Reply } = {}) {
+export function createFakeHandler(
+  options: { fallback?: Reply; title?: string } = {},
+) {
   // 줄마다 따로 꺼낸다. 기본 줄은 match가 없고 어느 줄에도 안 맞은 요청이 간다.
   type Queue = { steps: readonly Step[]; taken: number };
   let fallbackQueue: Queue = { steps: [], taken: 0 };
@@ -79,10 +81,10 @@ export function createFakeHandler(options: { fallback?: Reply } = {}) {
       // JSON이 아니면 원문 글을 둔다.
     }
     // session 첫 요청마다 core가 제목을 짓는 call을 따로 보낸다. test의 대본과 journal은 turn의 call만 세므로 여기서
-    // 받아 넘긴다. 제목으로 쓸 수 없는 답을 주어 자른 자동 제목이 그대로 남는다.
+    // 받아 넘긴다. `title`을 주지 않으면 제목으로 쓸 수 없는 답을 주어 자른 자동 제목이 그대로 남는다.
     if (isTitleRequest(parsed)) {
       return toResponse(
-        { kind: "text", text: "-" },
+        { kind: "text", text: options.title ?? "-" },
         AbortSignal.any([request.signal, closing.signal]),
         { on: false, cancel() {} },
       );
@@ -199,7 +201,7 @@ export function createFakeHandler(options: { fallback?: Reply } = {}) {
 }
 
 export async function startFakeServer(
-  options: { fallback?: Reply } = {},
+  options: { fallback?: Reply; title?: string } = {},
 ): Promise<FakeServer> {
   const { release, ...fake } = createFakeHandler(options);
   const server = await serve({ hostname: "127.0.0.1", port: 0 }, fake.handle);

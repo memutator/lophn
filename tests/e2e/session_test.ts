@@ -281,7 +281,7 @@ test("session 열기·보관·fork는 agent와 workspace, 이력의 규칙을 �
   let fake: FakeServer | undefined;
   let core: Core | undefined;
   try {
-    fake = await startFakeServer();
+    fake = await startFakeServer({ title: "Named by the model" });
     core = await bootCore(run);
     await connectFakeProvider(core, fake);
     const c = core;
@@ -317,6 +317,13 @@ test("session 열기·보관·fork는 agent와 workspace, 이력의 규칙을 �
         });
         assert.deepStrictEqual(read.lifecycle, "open");
         assert.deepStrictEqual(f.journal().length, 1);
+        // 첫 요청의 제목 call이 지은 제목이 자른 자동 제목을 바꾼다. runtime이 그 command를 부를 수 없으면 남는다.
+        await until("AI 제목이 붙음", async () =>
+          (await c.call(workspaceSessionRead, { session })).session.title ===
+          "Named by the model"
+            ? true
+            : undefined,
+        );
       },
     );
 

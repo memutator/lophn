@@ -28,6 +28,7 @@ import {
   recordMessage,
   recordToolRequest,
   requestSessionCompact,
+  setSessionAiTitle,
   rewindList,
   sessionSummary,
   startModelCall,
@@ -85,6 +86,9 @@ export const RUNTIME_MACHINE_ROUTES = [
   rewindList,
   compactSession,
   failSessionCompact,
+  // 첫 요청의 제목 call이 지은 제목을 session에 쓴다. 이 목록에 없으면 runtime이 요청을 보내지 않아 제목이 자른 자동
+  // 제목으로 남는다.
+  setSessionAiTitle,
   settingsList,
   // 사람 지침(LOPHN.md)과 agent 지침. turn을 시작할 때 층마다 한 번 읽는다.
   instructionsGet,

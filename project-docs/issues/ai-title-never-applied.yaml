@@ -1,0 +1,15 @@
+id: ai-title-never-applied
+title: AI가 지은 session 제목이 붙지 않고 자른 자동 제목이 그대로 남는다
+kind: bug
+status: fixed
+topic: workspace-session
+modules: [packages/core/lophn-agent]
+now: |
+  제목 call은 돌고 model은 제목을 답하지만(실제 data root의 output blob: "메모 사이드바 길이 늘리기") session 제목은 바뀌지 않았다. 두 가지다.
+  - 제목을 쓰는 command `sessions/ai-title`이 agent runtime이 부를 수 있는 route 목록(`RUNTIME_MACHINE_ROUTES`)에 없었다. runtime은 목록에 없는 경로를 요청하지 않고 `invalid_input: route is not open`으로 돌려주고, 제목 call은 실패를 삼키므로 아무 흔적 없이 남았다. loop test는 port를 가짜로 대서 못 잡았다.
+  - command는 session 제목이 runtime이 요청 글에서 다시 계산한 자동 제목(`expected`)과 같을 때만 바꾼다. 저장된 자동 제목은 이미지·file 표시(`[image]`)를 넣어 만들고 runtime은 글만으로 만들어, 이미지가 붙은 말과 `/` 명령에서는 route가 열려도 어긋난다.
+impact: |
+  AI 제목 기능이 한 번도 적용되지 않았다. 제목 call의 token만 쓴다.
+closed: |
+  `setSessionAiTitle`을 runtime의 machine route 목록에 더했다. 제목 call은 시작할 때 session의 지금 제목을 읽어 그것을 `expected`로 보낸다(읽은 뒤 사람이 rename하면 command가 바꾸지 않는다).
+guard: '`tests/e2e/session_test.ts`의 "AI 제목이 붙음"(`npm run e2e`)'

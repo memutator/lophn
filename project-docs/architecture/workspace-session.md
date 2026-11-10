@@ -113,7 +113,7 @@ session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. �
 - 켤 때 사람 메시지는 다시 queue에 넣지만 call·step·run 입력은 다시 넣지 않는다. 이유: 사람 메시지는 잃으면 안 되고, run 입력을 다시 돌리면 바깥 효과가 두 번 난다. call은 보낸 쪽이 `lophn_restarted`로 알고, step은 workflow가 줄로 남긴다. (agent)
 - 이미지는 blob이고 session 경계로만 읽는다. 이유: 이미지 바이트는 core의 content 한도에 들어가지 않고, 다른 session의 이미지가 읽히면 안 된다. 옛 첨부 줄은 block으로 옮기지 않고 글 그대로 둔다(가져간 본문이 trigger로 고정돼 있다). (agent)
 
-- session 제목은 두 단계다. 첫 사람 요청을 접수하는 tx에서 앞 60자를 잘라 바로 제목으로 두고, 첫 turn이 첫 model call과 나란히 session model로 제목 call(`title_summary`, 첫 요청만 재료) 하나를 해 2–6단어 제목으로 바꾼다. 바꾸는 command(`sessions/ai-title`)는 제목이 아직 그 자른 제목일 때만 쓰므로 사람이 그 사이 rename한 제목은 덮지 않고, 출처 칸을 따로 두지 않는다. call이 실패하거나 답이 제목 꼴이 아니면 자른 제목이 남는다. 이유: 조사한 harness 대부분(Claude Code, Codex, OpenCode, omp, dsh, hermes, mixdog)이 LLM 제목을 쓰고, hermes·dsh처럼 즉시 보이는 제목을 먼저 두면 제목 call을 기다리지 않는다. 작은 model 설정이 없어 session model을 쓴다(dsh·hermes 기본과 같다). (agent, 2026-11-10)
+- session 제목은 두 단계다. 첫 사람 요청을 접수하는 tx에서 앞 60자를 잘라 바로 제목으로 두고, 첫 turn이 첫 model call과 나란히 session model로 제목 call(`title_summary`, 첫 요청만 재료) 하나를 해 2–6단어 제목으로 바꾼다. call로 시작한 session은 그 call의 맡긴 글을 같은 규칙으로 잘라 둔다. 제목 call은 시작할 때 session의 지금 제목을 읽고, 바꾸는 command(`sessions/ai-title`)는 제목이 아직 그 읽은 제목일 때만 쓰므로 사람이 그 사이 rename한 제목은 덮지 않고, 출처 칸을 따로 두지 않는다. 자른 제목을 요청 글에서 다시 계산해 맞추지 않는다(이미지·file 표시가 든 제목과 어긋난다). 제목 call은 본 call과 같은 turn의 call로 기록하되 시도 번호는 각자 잡는다. call이 실패하거나 답이 제목 꼴이 아니면 자른 제목이 남는다. 이유: 조사한 harness 대부분(Claude Code, Codex, OpenCode, omp, dsh, hermes, mixdog)이 LLM 제목을 쓰고, hermes·dsh처럼 즉시 보이는 제목을 먼저 두면 제목 call을 기다리지 않는다. 작은 model 설정이 없어 session model을 쓴다(dsh·hermes 기본과 같다). (agent, 2026-11-10)
 
 ## 열린 것
 

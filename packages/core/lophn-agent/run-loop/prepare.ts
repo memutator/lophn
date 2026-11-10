@@ -9,10 +9,6 @@ import {
   type Result,
 } from "../../../base/mod.ts";
 import type { Tracer } from "../../../base/telemetry/mod.ts";
-import {
-  type CommandDoc,
-  commandsForWorkspace,
-} from "../../../cli/commands/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
 import { extensionToolsCatalog } from "../../../protocol/lophn-agent/extension-tools.ts";
@@ -275,8 +271,6 @@ export type TurnPreparer = {
 type FixedTools = {
   definitions: readonly ToolDefinition[];
   key: string;
-  // custom이 그 session을 시작할 때 고른 이름이다. 뒤 turn에 고른 이름이 늘어도 이 밖은 실행하지 않는다.
-  picks: ReadonlySet<string>;
 };
 
 type MemoryTexts = NonNullable<TurnPromptInput["memory"]>;
@@ -328,9 +322,9 @@ function names(definitions: readonly ToolDefinition[]): Set<string> {
   return new Set(definitions.map((tool) => tool.name));
 }
 
-// model에 보이는 tool 목록(session의 고정 목록이 될 재료)이다. lophn은 workspace 종류 목록 전부이고, custom은 그 목록 ∩ 고른 이름이다.
-// 상한은 그대로다: 목록 밖 이름을 골라도 보이지 않는다. 앱 command는 목록에 없고 `lophn` tool로 부르므로 고른 명령이 있을 때만
-// (앱 command는 할당 안의 것만: `appDocs`) `lophn` tool이 서고, 그 설명에는 고른 명령만 싣는다. MCP는 resolve가 이미 고른 것만 `external`에 넘긴다.
+// model에 보이는 tool 목록(session의 고정 목록이 될 재료)이다. lophn은 workspace 종류 목록 전부이고, custom은 `lophn` tool(그 종류의
+// 명령 전부와 할당한 앱 command. lophn과 같다)과 목록 중 고른 내장 tool이다. 상한은 그대로다: 목록 밖 이름을 골라도 보이지 않는다.
+// MCP와 extension tool은 resolve와 호출한 쪽이 이미 고른 것만 `external`에 넘긴다.
 export function visibleTools(input: {
   kind: WorkspaceKind;
   agent: Pick<ResolvedAgent, "runtime" | "picks">;
@@ -338,54 +332,36 @@ export function visibleTools(input: {
   definitions: readonly ToolDefinition[];
   inputMedia: readonly string[];
   external: readonly ToolDefinition[];
-  appDocs: readonly CommandDoc[];
 }): ToolDefinition[] {
-  const picked = new Set(input.agent.picks);
-  const commands =
-    input.agent.runtime === "custom"
-      ? [
-          ...commandsForWorkspace(input.kind).filter((command) =>
-            picked.has(command.name),
-          ),
-          ...input.appDocs.filter((doc) => picked.has(doc.name)),
-        ]
-      : undefined;
   const names =
-    commands === undefined
-      ? input.names
-      : [
-          ...input.names.filter(
-            (name) => name !== LOPHN_TOOL_NAME && picked.has(name),
-          ),
-          ...(commands.length > 0 ? [LOPHN_TOOL_NAME] : []),
-        ];
+    input.agent.runtime === "custom"
+      ? input.names.filter(
+          (name) =>
+            name === LOPHN_TOOL_NAME || input.agent.picks.includes(name),
+        )
+      : input.names;
   return [
     ...selectTools(names, { input_media: input.inputMedia }, input.definitions),
     ...input.external,
   ].map((tool) =>
-    tool.name === LOPHN_TOOL_NAME
-      ? describeLophn(tool, input.kind, commands)
-      : tool,
+    tool.name === LOPHN_TOOL_NAME ? describeLophn(tool, input.kind) : tool,
   );
 }
 
-// session이 실행하는 tool의 정의(handler 붙이기 전)다. 고정 목록에 그 workspace 종류의 명령 정의를 더한다. custom은 고정 목록 중 지금도
-// 고른 것(`current`)과 고른 명령(`usable`)만이라 고르지 않은 tool은 실행기가 "not available"로 거절한다.
+// session이 실행하는 tool의 정의(handler 붙이기 전)다. 고정 목록에 그 workspace 종류의 명령 정의를 더한다(custom도 같다). custom은
+// 고정 목록 중 지금도 고른 것(`current`)만이라 고르지 않은 tool은 실행기가 "not available"로 거절한다.
 export function runnableTools(input: {
   fixed: readonly ToolDefinition[];
   kind: WorkspaceKind;
-  custom: {
-    current: ReadonlySet<string>;
-    usable: ReadonlySet<string>;
-  } | null;
+  current: ReadonlySet<string> | null;
 }): ToolDefinition[] {
-  const { fixed, kind, custom } = input;
-  return custom === null
-    ? [...fixed, ...commandTools(kind)]
-    : [
-        ...fixed.filter((tool) => custom.current.has(tool.name)),
-        ...commandTools(kind, custom.usable),
-      ];
+  const { fixed, kind, current } = input;
+  return [
+    ...(current === null
+      ? fixed
+      : fixed.filter((tool) => current.has(tool.name))),
+    ...commandTools(kind),
+  ];
 }
 
 // 고정한 목록과 지금 목록이 다를 때 대화 끝에 붙는 notice 본문이다. 이 session은 고정한 목록만 실행하므로 더한 tool은 새 session부터다. 빠진 tool은 Gate가 call 때 지금 할당을 읽어 바로 막으므로 지금부터 못 쓴다.
@@ -515,14 +491,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const kind = workspaceKindOf(session.workspace);
 
     // workspace 종류가 고정한 목록에 이 turn이 닿는 tool과 외부 MCP tool을 더한다. 앱 command는 목록에 없다:
-    // `lophn <앱 slug> <command>`를 부를 때 푼다. custom은 그 중 고른 것만이다.
-    const loaded =
-      agent.runtime === "custom"
-        ? await deps.toolkit.appTool?.load({
-            agent: session.agent,
-            workspace: session.workspace,
-          })
-        : undefined;
+    // `lophn <앱 slug> <command>`를 부를 때 푼다.
     const current = visibleTools({
       kind,
       agent,
@@ -530,9 +499,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       definitions: deps.toolkit.definitions,
       inputMedia: model.value.inputMedia,
       external: [...external.map((tool) => tool.definition), ...extensionTools],
-      appDocs: loaded?.ok
-        ? appCommandEntries(loaded.value).map((entry) => entry.doc)
-        : [],
     });
     const seat: TurnSeat = { turn, session: start.session };
     return ok({
@@ -588,38 +554,23 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       seat.session,
     ]);
     const operations = new Set(runOperations(fixed.definitions));
-    // custom이 부를 수 있는 것: 이 session의 고정 목록 ∩ 지금 정의가 고른 것. 정의를 고쳐 늘린 이름은 새 session부터다.
-    const custom =
-      resolved.runtime === "custom"
-        ? {
-            current: names(m.current),
-            usable: new Set(resolved.picks.filter((p) => fixed.picks.has(p))),
-          }
-        : null;
+    // custom이 부를 수 있는 내장·외부 tool: 이 session의 고정 목록 ∩ 지금 정의가 고른 것. 정의를 고쳐 늘린 이름은 새 session부터다.
+    const current = resolved.runtime === "custom" ? names(m.current) : null;
     // 지금 부를 수 있는 앱 command. 부를 때마다 읽는다: session을 시작할 때 고정하지 않고 바뀌어도 notice를 내지 않는다.
     const who = { agent: session.agent, workspace: session.workspace };
     const apps: AppCommandLookup = async () => {
       const loaded = await toolkit.appTool?.load(who);
-      const entries = loaded?.ok ? appCommandEntries(loaded.value) : [];
-      return custom === null
-        ? entries
-        : entries.filter((entry) => custom.usable.has(entry.doc.name));
+      return loaded?.ok ? appCommandEntries(loaded.value) : [];
     };
     // `lophn` tool이 명령으로 풀리는 호출을 실행할 정의도 여기 든다. model에 보이는 tools[]에는 없고 이 session의 workspace 종류가
     // 부를 수 있는 명령만 있으므로, 목록 밖 명령은 지금 목록 밖 tool과 같이 거절된다.
-    const help =
-      custom === null
-        ? undefined
-        : commandsForWorkspace(workspaceKindOf(session.workspace)).filter(
-            (command) => custom.usable.has(command.name),
-          );
     const base: ToolDefinition[] = runnableTools({
       fixed: fixed.definitions,
       kind: workspaceKindOf(session.workspace),
-      custom,
+      current,
     }).map((tool) => {
       const handler = legacy.get(tool.name);
-      if (tool.name === LOPHN_TOOL_NAME) return withApps(tool, apps, help);
+      if (tool.name === LOPHN_TOOL_NAME) return withApps(tool, apps);
       if (tool.handler !== undefined || handler === undefined) return tool;
       return {
         ...tool,
@@ -1070,7 +1021,6 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       fixedBySession.set(start.session, {
         definitions: m.current,
         key: await keyOf(m.current),
-        picks: new Set(agent.picks),
       });
     }
     const fixed = fixedBySession.get(start.session)!;

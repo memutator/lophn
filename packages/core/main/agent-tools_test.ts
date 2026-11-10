@@ -178,17 +178,11 @@ test("workspace 종류의 tool 목록과 명령 정의의 wire 이름이 겹치�
   }
 });
 
-// 고른 이름은 상한 안에서만 보이고 돈다. 목록 밖(home의 shell.run, project의 app.create), 고르지 않은 명령, 고르지 않은 MCP, 할당 밖 앱 command는
-// tools[]에도 실행 목록에도 없고, credential 상한은 고른 것과 상관없이 workspace 종류 그대로다.
-test("workspace 종류 목록 밖을 고른 custom은 그 tool을 보지도 부르지도 못하고 credential 작업은 workspace 종류 그대로다", async () => {
+// custom은 `lophn` tool(그 workspace 종류의 명령 전부)을 늘 받고 내장 tool은 고른 것만 받는다. 목록 밖(home의 shell.run), 고르지 않은
+// 내장 tool, 고르지 않은 MCP, 목록 밖 명령(project의 app.create)은 tools[]에도 실행 목록에도 없고, credential 상한은 workspace 종류 그대로다.
+test("custom은 lophn tool과 고른 내장 tool만 보고 workspace 종류 목록 밖은 보지도 부르지도 못한다", async () => {
   const definitions = agentTools({ file: FILE_HOOKS });
-  const picks = [
-    "file.read",
-    "shell.run",
-    "app.create",
-    "call.reply",
-    "notes.add",
-  ];
+  const picks = ["file.read", "shell.run", "notes.add"];
   const calls: unknown[] = [];
   for (const kind of ["home", "project"] as const) {
     const visible = visibleTools({
@@ -198,32 +192,39 @@ test("workspace 종류 목록 밖을 고른 custom은 그 tool을 보지도 부�
       definitions,
       inputMedia: ["image"],
       external: [],
-      appDocs: [],
     });
     const names = visible.map((tool) => tool.name);
-    // project는 shell.run이 목록 안이라 보인다. home은 밖이라 안 보인다.
+    // project는 shell.run이 목록 안이라 보인다. home은 밖이라 안 보인다. 고르지 않은 file.write, web.fetch 등도 없다.
     assert.deepStrictEqual(
-      names,
+      [...names].sort(),
       kind === "home"
         ? ["file.read", "lophn"]
-        : ["file.read", "shell.run", "lophn"],
+        : ["file.read", "lophn", "shell.run"],
       kind,
     );
+    // 설명이 싣는 명령은 lophn runtime이 보는 것과 같다.
     const lophn = visible.find((tool) => tool.name === "lophn")!;
+    const same = visibleTools({
+      kind,
+      agent: { runtime: "lophn", picks: [] },
+      names: workspaceToolNames(kind),
+      definitions,
+      inputMedia: ["image"],
+      external: [],
+    }).find((tool) => tool.name === "lophn")!;
+    assert.deepStrictEqual(lophn.description, same.description, kind);
+    assert.ok(lophn.description.includes("tab open - "), kind);
     assert.ok(lophn.description.includes("call reply"), kind);
-    // app.create는 home의 명령이라 home에서는 고른 대로 보이고, project에서는 밖이다.
     assert.deepStrictEqual(
       lophn.description.includes("app create - "),
       kind === "home",
       kind,
     );
-    assert.ok(!lophn.description.includes("job create - "), kind);
-    assert.ok(!lophn.description.includes("notes"), kind);
 
     const listed = runnableTools({
       fixed: visible,
       kind,
-      custom: { current: new Set(names), usable: new Set(picks) },
+      current: new Set(names),
     });
     const ctx = {
       kind,
@@ -234,7 +235,7 @@ test("workspace 종류 목록 밖을 고른 custom은 그 tool을 보지도 부�
         return Promise.resolve(ok({}));
       },
     } as unknown as ToolContext;
-    const tries: [string, unknown][] = [["lophn", { args: ["job", "list"] }]];
+    const tries: [string, unknown][] = [];
     if (kind === "project") {
       tries.push(["lophn", { args: ["app", "create", "x", "y"] }]);
     } else {
@@ -246,14 +247,15 @@ test("workspace 종류 목록 밖을 고른 custom은 그 tool을 보지도 부�
       assert.deepStrictEqual(denied.executed, false, `${kind} ${name}`);
     }
     assert.deepStrictEqual(calls, []);
-    // 고른 명령은 돈다.
-    const reply = dispatchTarget("lophn", { args: ["call", "reply"] });
-    assert.ok(
-      listed.some((tool) => tool.name === reply.name),
-      kind,
-    );
+    // 고르지 않은 명령도 돈다.
+    for (const name of ["call.reply", "tab.open"]) {
+      assert.ok(
+        listed.some((tool) => tool.name === name),
+        `${kind} ${name}`,
+      );
+    }
 
-    // credential 상한은 workspace 종류의 것이다: 고르지 않은 명령의 route도 있고 목록 밖 명령의 route는 없다.
+    // credential 상한은 workspace 종류의 것이다: 목록 밖 명령의 route는 없다.
     const operations = workspaceOperations(kind, definitions);
     assert.ok(operations.includes(jobCreate.name), kind);
     assert.deepStrictEqual(

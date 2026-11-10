@@ -16,6 +16,10 @@ files:
     covers: [agent-definition-data-steps:migrated, agent-definition-data-steps:untouched]
     note: "runtime: bare를 custom으로 옮기는 data step. 본문 줄과 다른 runtime의 file은 그대로이고 다시 돌려도 같다"
 
+  - path: packages/core/lophn-agent/agents/tools-no-commands-step_test.ts
+    covers: [agent-definition-data-steps:migrated, agent-definition-data-steps:untouched]
+    note: "tools에서 lophn 명령·앱 command 이름만 빼는 data step. 내장·MCP·extension tool, skills, 본문은 그대로이고 다시 돌려도 같다"
+
   - path: packages/core/lophn-agent/agents/reads_test.ts
     covers: [agent-definition-read:ok]
     note: "정의 읽기의 model 출처 순서(agent, project, global)와 workspace마다 따로 있는 lophn의 MCP 서버 분리"

@@ -785,7 +785,7 @@ flows:
       - "workspace 종류의 이름 목록(공통 목록(agent.memory 포함), visual.show, project와 app은 WORK_TOOLS)을 selectTools로 정의와 맞춘다"
       - "resolveModel로 model을 고른다(실패하면 목록을 만들지 못한다). model이 image 입력을 받지 않으면 image.read를 뺀다"
       - "lophn 명령 정의와 외부 MCP·extension tool을 더해 세션 시작 때 고정하고, turn마다 같은 목록을 쓴다"
-      - "custom agent는 고른 이름(picks)만 보이고, lophn tool은 고른 명령이 있을 때만 선다. 앱 command 읽기가 실패하면 앱 command 없이 만든다"
+      - "custom agent는 내장 tool을 고른 이름(picks)만 보이고 lophn tool은 늘 선다(lophn runtime과 같은 명령 전부, 같은 설명). 앱 command는 부를 때 읽고 읽기가 실패하면 앱 command 없이 만든다"
       - "시작 뒤 정의가 바뀌었으면 The tools available to this session changed. notice를 prompt 끝에 붙이고, 목록은 그대로 둔다"
     outcomes:
       - id: fixed
@@ -796,7 +796,7 @@ flows:
         when: "model이 image 입력을 받지 않아 image.read가 빠졌다"
       - id: custom-narrowed
         observe: ["request:model"]
-        when: "runtime이 custom인 agent라서 고른 이름만 보인다"
+        when: "runtime이 custom인 agent라서 내장 tool은 고른 이름만 보이고 lophn tool(명령 전부)은 늘 보인다"
       - id: changed-notice
         observe: ["request:model"]
         when: "고정한 목록과 지금 정의가 달라 notice가 붙었다"

@@ -581,7 +581,7 @@ export function createFakeAgentsSource(
         input: [...(definition.modality?.input ?? ALL_MODALITIES)],
         output: [...(definition.modality?.output ?? ALL_MODALITIES)],
       },
-      replies: custom ? ["none", "result"] : ["none", "result", "conversation"],
+      replies: ["none", "result", "conversation"],
       diff: custom
         ? {
             plus: [

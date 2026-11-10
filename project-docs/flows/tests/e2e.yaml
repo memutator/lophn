@@ -26,7 +26,7 @@ files:
     note: "묻는 shell 명령은 허락 전에 실행되지 않고, once면 실행되고 reject면 실행되지 않으며 거절이 tool 결과로 간다. ask는 답이나 기다리는 중 사람 말로 풀리고 질문이 닫힌다."
   - path: tests/e2e/custom-reply_test.ts
     covers: [custom-call-reply:replied, custom-reply-auto:ok, call-send:accepted, tool-list-assembly:custom-narrowed]
-    note: "custom runtime이 call.reply 없이 끝낸 마지막 글이 result call의 답으로 한 번 간다. custom 요청의 system은 정의 본문뿐이고 tool은 고른 file_read뿐이다. custom-call-reply(agents)와 custom-reply-auto(sessions)는 같은 wiring이다."
+    note: "custom runtime이 call.reply 없이 끝낸 마지막 글이 result call의 답으로 한 번 간다. custom 요청의 system은 정의 본문뿐이고 tool은 고른 file_read와 늘 있는 lophn뿐이다. custom-call-reply(agents)와 custom-reply-auto(sessions)는 같은 wiring이다."
   - path: tests/e2e/boot_test.ts
     covers: [core-boot:ready, core-boot:start-failed-other, core-boot:start-failed-damaged-original, ledger-migrate:damaged-original, control-stop:ok, platform-status-read:all-available, model-call-run:cancelled, agent-runtime-parent-gone:stopped]
     note: "정상 기동과 정리 뒤 흔적이 없고, 둘째 core는 instance lock으로 시작하지 못하며 첫째 data를 그대로 본다. 열린 model 요청이 있을 때 stop하면 요청이 끊긴다. 손상된 ledger는 시작을 거절하고 원본을 지킨다. start-failed-other는 lock 실패에 대응하는 것으로 적었다(test는 실패만 본다). SIGKILL 뒤 child가 스스로 끝나는 것은 agent-runtime-parent-gone:stopped."

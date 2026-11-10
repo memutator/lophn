@@ -224,16 +224,20 @@ about it.
    the whole product's rules and tools on every turn, which is slow and costly
    and lets it touch files and the shell.
 2. Make it custom (`runtime: custom`) with `tools: []` and text modality. A custom
-   agent gets only the instructions you write. Write them as a role, not a
-   chat: who it is, what the app sends it (name each context block), the exact
-   reply shape (the JSON fields and their meaning), and "do not use tools" is
-   unnecessary because it has none. Add a one-line `description`.
+   agent gets only the instructions you write and the `lophn` tool (see step 3);
+   it has no file, shell or web tools unless you pick them. Write the
+   instructions as a role, not a chat: who it is, what the app sends it (name
+   each context block), the exact reply shape (the JSON fields and their
+   meaning), and that it answers directly without calling any `lophn` command
+   unless step 3 applies. Add a one-line `description`.
 3. Prefer "the app assembles the context, the agent answers JSON". The screen
    sends the board, the draft or the history as context blocks and asks for a
-   reply schema. Give the agent commands only when it must act on app data; then
-   pick only this app's commands in `tools` (the app's own agent may call its
-   own commands without anyone assigning them) and say in the instructions when
-   to call which.
+   reply schema. A custom agent always has the `lophn` tool with every lophn
+   command of this app's workspace and this app's own commands (it may call
+   them without anyone assigning them). `tools` cannot name commands: it takes
+   only built-in tool names, `mcp__<server>__<tool>` and `ext__<id>__<tool>`.
+   When the agent must act on app data, say in the instructions when to call
+   which command.
 4. `model` takes a provider and model pair. Set it only when you know one that
    suits the call frequency (a small fast model for a move per click, a stronger
    one for a review). If you do not know, leave it unset: the person's default

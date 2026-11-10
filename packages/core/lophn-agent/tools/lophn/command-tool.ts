@@ -89,12 +89,7 @@ function commandTool(command: Command): ToolDefinition {
   };
 }
 
-// 그 workspace 종류가 부를 수 있는 명령의 정의다. loop가 session의 `listed`에 더한다. custom은 고른 이름(`only`)만 낸다.
-export function commandTools(
-  kind: WorkspaceKind,
-  only?: ReadonlySet<string>,
-): readonly ToolDefinition[] {
-  return commandsForWorkspace(kind)
-    .filter((command) => only === undefined || only.has(command.name))
-    .map(commandTool);
+// 그 workspace 종류가 부를 수 있는 명령의 정의다. loop가 session의 `listed`에 더한다.
+export function commandTools(kind: WorkspaceKind): readonly ToolDefinition[] {
+  return commandsForWorkspace(kind).map(commandTool);
 }

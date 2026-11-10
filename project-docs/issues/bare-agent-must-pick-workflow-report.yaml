@@ -1,7 +1,7 @@
 id: bare-agent-must-pick-workflow-report
 title: 'custom agent가 `workflow.report`를 고르지 않으면 step을 끝내지 못한다'
 kind: bug
-status: open
+status: fixed
 topic: workflow
 modules: [packages/core/lophn-agent, packages/core/main]
 now: |
@@ -14,3 +14,6 @@ fix: |
   - 편집 화면 Tools의 도움말에 workflow 참가자는 `workflow.report`를 골라야 한다고 적는다. 잊는 것은 그대로 막지 못한다. 작음.
 
   추천: 첫째. harness 참가자(roadmap `agent-platform.md` 단계 7)도 같은 길이 필요하다.
+closed: |
+  custom은 `lophn` tool로 그 종류의 명령 전부를 늘 받아 `workflow.report`를 고르지 않아도 부를 수 있다(`packages/core/lophn-agent/run-loop/prepare.ts`). step 입력 글이 말하는 report 길이 custom에도 열려 있다. 마지막 응답을 report로 보내는 자동 길과 저장 때 요구는 만들지 않았다(model이 report를 잊는 일은 lophn runtime과 같은 위험이다). harness 참가자는 이 이슈의 몫이 아니다(roadmap `agent-platform.md` 단계 7).
+guard: '`packages/core/main/agent-tools_test.ts` "custom은 lophn tool과 고른 내장 tool만 보고 workspace 종류 목록 밖은 보지도 부르지도 못한다"'

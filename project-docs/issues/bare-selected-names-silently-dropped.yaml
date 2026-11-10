@@ -15,4 +15,4 @@ fix: |
   추천: 둘째를 먼저, 첫째는 bare를 실제로 쓰며 필요해지면.
 closed: |
   저장(`agents/create`·`agents/change`의 `checkAgent`, `packages/core/lophn-agent/agents/validate.ts`)이 내장 tool, `COMMANDS`의 명령, `mcp__<server>__<tool>`, 첫 낱말이 명령 묶음이 아닌 `<slug>.<command>` 어느 것도 아닌 이름을 `invalid_input`(`tools.<n>`, `unknown`)으로 거절하고 편집 화면이 그 이름을 보인다. 꼴만 본다. 할당하지 않은 앱 command나 설정하지 않은 MCP server는 여전히 말없이 빠진다. 후보 목록을 보이는 안은 bare를 실제로 쓰며 필요해지면 한다.
-guard: '`packages/core/lophn-agent/agents/commands_test.ts` "bare가 고른 tool 이름이 아무것도 아니면 저장을 거절하고, 내장 tool·명령·앱 command·MCP tool은 받는다"'
+guard: '`packages/core/lophn-agent/agents/commands_test.ts` "custom이 고른 tool 이름이 아무것도 아니면 저장을 거절하고, 내장 tool·MCP tool·extension tool만 받고 lophn 명령과 앱 command 이름은 거절한다"'

@@ -11,8 +11,6 @@ import {
   WORKSPACE_KINDS,
   workspaceToolNames,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { COMMANDS } from "../../../cli/commands/mod.ts";
-import { isBuiltinWord } from "../tools/lophn/resolve.ts";
 import { serializeAgentFile } from "./definition-file.ts";
 import {
   type AgentContext,
@@ -63,20 +61,22 @@ function duplicateHandle(
   );
 }
 
-const BUILTIN_TOOLS = new Set(WORKSPACE_KINDS.flatMap(workspaceToolNames));
-const COMMAND_NAMES = new Set(COMMANDS.map((command) => command.name));
-const APP_COMMAND = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*\.\S+$/;
+// `lophn`은 custom이 늘 받으므로 고르는 이름이 아니다.
+const BUILTIN_TOOLS = new Set(
+  WORKSPACE_KINDS.flatMap(workspaceToolNames).filter(
+    (name) => name !== "lophn",
+  ),
+);
 
-// custom이 고른 이름이 내장 tool, lophn 명령, 앱 command(`<slug>.<command>`), MCP tool, extension tool(`ext__<id>__<tool>`) 중 하나인가. workspace 종류, 할당, 설정한 server는
-// 나중에 바뀌므로 보지 않는다. 앱 slug는 내장 명령 묶음의 첫 낱말과 겹칠 수 없어(RESERVED_APP_SLUGS), 첫 낱말이 명령 묶음이면
-// 앱 command일 수 없고 명령 표에 있는 이름이어야 한다(`call.replay`를 잡는다).
+// custom이 고른 이름이 내장 tool, MCP tool, extension tool(`ext__<id>__<tool>`) 중 하나인가. lophn 명령과 앱 command는 custom이
+// 늘 받는 `lophn` tool로 부르므로 여기 이름으로 적지 않는다. workspace 종류, 설정한 server는 나중에 바뀌므로 보지 않는다.
 function knownToolName(name: string): boolean {
-  if (BUILTIN_TOOLS.has(name) || COMMAND_NAMES.has(name)) return true;
+  if (BUILTIN_TOOLS.has(name)) return true;
   if (parseExtensionToolName(name) !== null) return true;
   if (name.startsWith(MCP_TOOL_PREFIX)) {
     return name.slice(MCP_TOOL_PREFIX.length).includes("__");
   }
-  return APP_COMMAND.test(name) && !isBuiltinWord(name.split(".")[0]);
+  return false;
 }
 
 // 맞으면 파일에 쓸 글을 돌려준다. 새로 만들 때(`creating`)만 handle의 모양과 범위 workspace가 있는지 본다:

@@ -13,7 +13,6 @@ import {
   MODALITIES,
   type Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { AgentFileDefinition } from "./definition-file.ts";
 import {
   type AgentContext,
   effectiveModel,
@@ -24,16 +23,6 @@ import {
   visibleIn,
   workspaceOfAgent,
 } from "./inspect.ts";
-
-// lophn은 셋 다 받는다. custom은 `call.reply`를 골랐을 때만 대화를 이어 간다(답을 보낼 길이 그것뿐이라서다).
-export function repliesOf(
-  agent: Pick<AgentFileDefinition, "runtime" | "tools">,
-): AgentCard["replies"] {
-  if (agent.runtime !== "custom") return ["none", "result", "conversation"];
-  return agent.tools?.includes("call.reply") === true
-    ? ["none", "result", "conversation"]
-    : ["none", "result"];
-}
 
 // 부르는 agent session의 자리와 call 정책. 명함의 callable을 정한다.
 export type CardCaller = { from: AgentAtWorkspace; policy: CallPolicy };
@@ -113,7 +102,8 @@ function cardOf(
           },
         }),
     modality: { input, output },
-    replies: repliesOf({ runtime, tools: definition?.tools }),
+    // custom도 `lophn` tool로 `call.reply`를 늘 가져 모든 runtime이 셋 다 받는다.
+    replies: ["none", "result", "conversation"],
     diff,
     notes,
     ...(caller === null

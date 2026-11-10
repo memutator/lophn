@@ -208,5 +208,4 @@ flow
 ## 열린 것
 
 - flow process에 CPU 한도가 없다. AI가 짠 flow code가 끝없는 loop에 빠지면 사람이 [Stop]할 때까지(job이 밤에 시작한 flow면 아무도 보지 않는 동안) CPU 하나를 잡는다. memory도 막지 않는다(Deno 때의 512 MiB 한도는 Node로 옮기며 없어졌다). 고치려면 OS 한도가 필요하고 core에 실행 허락이 있어야 한다(큼). 앱의 한도를 정할 때 같이 정한다. 이슈: `flow-process-cpu-limit`.
-- custom agent가 `workflow.report`를 정의 `tools`에서 고르지 않으면 step을 끝내지 못한다. step 입력은 runtime과 상관없이 report를 하라고 말하지만 custom session에는 그 명령이 없다. 추천: step도 result call처럼 custom이면 turn의 마지막 응답을 report로 보낸다. harness 참가자도 같은 길이 필요하다. 이슈: `custom-agent-must-pick-workflow-report`.
 - `workflow.yaml`에 남은 옛 `{kind: harness}` 참가자는 옮기지 않는다. `invalid_declaration`이고 손으로 고친다(agent 이름을 알 수 없다).

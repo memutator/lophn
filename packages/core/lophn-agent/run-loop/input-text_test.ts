@@ -74,7 +74,7 @@ test("받은 turn의 입력과 뒤 turn의 history는 call, reaction, 실패 답
       "answer with `lophn call reply`",
     ),
   );
-  // custom의 result call은 `lophn call reply` 대신 마지막 응답이 답이라고 알리고, 받은 turn과 이력 재생이 같은 bytes다.
+  // custom의 result call은 마지막 응답이 답이라고 알리되 `lophn call reply`로 먼저 답했으면 그것이 답이다. 받은 turn과 이력 재생이 같은 bytes다.
   const custom = partsText(
     receivedParts({ ...envelope, reply: "result" }, textBlocks(body), "custom"),
   );
@@ -87,8 +87,10 @@ test("받은 turn의 입력과 뒤 turn의 history는 call, reaction, 실패 답
       ),
     ),
   );
-  assert.ok(custom.includes("your last response is the answer"));
-  assert.ok(!custom.includes("lophn call reply"));
+  assert.ok(custom.includes("your last message is the answer"));
+  assert.ok(
+    custom.includes("unless you already answered with `lophn call reply`"),
+  );
   const program = { kind: "program" } as const;
   const reaction = {
     ...call,

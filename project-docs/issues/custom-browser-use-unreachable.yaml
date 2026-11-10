@@ -1,7 +1,7 @@
 id: custom-browser-use-unreachable
 title: 'custom agent가 브라우저를 쓰는 길을 고를 수 없고, shell.run으로 부른 lophn CLI는 엉뚱한 오류로 실패한다'
 kind: bug
-status: open
+status: fixed
 topic: agent-definition
 modules: [packages/core/lophn-agent, packages/shell/renderer, packages/cli]
 now: |
@@ -17,5 +17,8 @@ fix: |
   - shell 안 CLI가 agent credential 없이 user connect를 시도하면 "shell 안에서는 lophn 명령을 쓸 수 없다, lophn tool을 쓰라"로 오류 글을 바꾼다. 작음. 다른 안과 같이 한다.
 
   추천: 첫째와 셋째.
-decide: |
-  custom이 브라우저를 고르는 모양: 전용 browser tool을 둘지, 명령 후보 목록과 "Browser" 묶음으로 할지, 안내만 할지. 사람이 더 고민하기로 했다.
+decided: |
+  custom은 `lophn` tool을 늘 받는다. 그 종류의 명령 전부와 할당한 앱 command를 lophn runtime과 같이 싣는다(전용 browser tool, 명령 후보 목록, 안내만 하는 안은 버렸다). 내장 tool, MCP, extension tool과 skill은 그대로 고른 것만이다. 사람이 정했다.
+closed: |
+  custom의 `visibleTools`·`runnableTools`가 `lophn` tool과 명령·앱 command 전부를 늘 싣는다(`packages/core/lophn-agent/run-loop/prepare.ts`). 정의 `tools`는 내장 tool, `mcp__`, `ext__` 이름만 받고 명령 이름은 `invalid_input`이며 옛 정의의 명령 이름은 data step `agents.tools-no-commands`가 뺀다. 편집 화면은 명령 이름을 타이핑하게 하지 않고 "custom은 lophn 명령을 늘 가진다"고 알린다. shell.run 안 CLI의 오류 글(셋째 안)은 이 이슈에서 고치지 않았다: 브라우저를 쓰는 길이 `lophn` tool로 열려 shell을 줄 이유가 없어졌다.
+guard: '`packages/core/main/agent-tools_test.ts` "custom은 lophn tool과 고른 내장 tool만 보고 workspace 종류 목록 밖은 보지도 부르지도 못한다"'

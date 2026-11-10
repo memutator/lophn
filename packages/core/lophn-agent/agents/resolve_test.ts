@@ -31,13 +31,13 @@ test("custom은 고른 tool 이름을 picks로, 고른 skill만 skills로 갖는
     name: "reviewer",
     body: "review",
     runtime: "custom",
-    tools: ["file.read", "call.reply", "mcp__x__y"],
+    tools: ["file.read", "file.write", "mcp__x__y"],
   });
   assert.ok(custom.ok);
   assert.equal(custom.value.runtime, "custom");
   assert.deepEqual(custom.value.picks, [
     "file.read",
-    "call.reply",
+    "file.write",
     "mcp__x__y",
   ]);
   assert.deepEqual(custom.value.skills, []);

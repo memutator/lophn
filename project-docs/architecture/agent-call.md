@@ -42,7 +42,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 
 - **보낸 쪽**은 사람, program, agent session 셋이다. program은 늦은 실패와 취소의 알림, `tools_changed` 알림, workflow의 step 메시지다(종류만 있고 근거 칸이 없다). step 메시지는 `kind: step`이고 call 행이 없다(`architecture/workflow.md`).
 - **받는 곳**(`to`)은 셋 중 하나다. `{session}`(열린 session), `{agent, workspace?}`(새 session), `{agent, workspace?, session, fallback: "new"}`(열린 session, 닫혔으면 그 agent+workspace의 새 session). `agent`는 handle이고 workspace가 없으면 home이다. handle은 전역에 하나라(범위 있는 agent 포함) 하나로 풀린다. 단 handle `lophn`은 workspace마다 하나라 workspace와 짝으로 풀린다(`{agent: "lophn", workspace: X}`는 X의 lophn, workspace를 빼면 Home). agent가 보낸 call은 workspace를 빼면 부른 session의 workspace로 바뀐다(`lophn`과 spawn만, 다른 agent는 home 그대로). 그래서 workspace를 뺀 `lophn` call은 부른 쪽 workspace의 lophn에게 새 session을 연다. Home lophn은 Home에서 보낸 call이나 사람·program의 call로만 닿는다. 범위 있는 agent(`architecture/agent-definition.md`)는 그 workspace에 여는 call로만 닿고 다른 곳에 열려 하면 `not_found`다.
-- **답 방식**은 none(답 없음), result(받은 agent가 reply로 결과 하나), conversation(양쪽이 같은 call에 말을 잇는다)이다. 칸은 program이 정한다: lophn은 셋 모두, custom은 none과 result이고 `call.reply`를 골랐을 때 conversation이다.
+- **답 방식**은 none(답 없음), result(받은 agent가 reply로 결과 하나), conversation(양쪽이 같은 call에 말을 잇는다)이다. 칸은 program이 정한다: lophn과 custom 모두 셋이다(custom도 `lophn` tool로 `call.reply`를 늘 가진다).
 - **상태**는 accepted, done, failed, cancelled 넷이다. 끝난 행은 다시 바뀌지 않는다. 배달 실패는 accepted를 거치지 않고 바로 failed로 생긴다. 실패 이유는 `not_found`, `closed`, `receiver_ended`, `lophn_restarted` 넷이다.
   - none은 받는 turn이 입력을 가져갈 때(consumed) done이다. result는 받은 agent의 reply가 done으로 만든다. conversation은 program이 done으로 만들지 않고 취소나 실패로 끝난다.
 - **`agent_calls` 행**은 agent가 보낸 call에만 있다. 보낸 session, 풀린 받는 곳(`to`), 받는 session, 답 방식, 상태, 실패 이유, dedup 값, consumed, unattended, ask(`question` | `approval`, 팀의 ask call에만)를 갖는다. 내용(body, refs)은 받는 session의 받은 메시지 기록에 있다.
@@ -123,9 +123,9 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 ### 답 보내기
 
 26. lophn runtime의 result 답은 받은 agent가 reply로 직접 보내야 call이 done이 된다. lophn session은 저절로 끝나지 않아 program이 끝을 모른다.
-27. custom runtime(`architecture/agent-definition.md`)은 result call을 받은 turn이 끝날 때 마지막 응답 글이 답이다. 받은 call 글도 `lophn call reply` 대신 그렇게 알린다.
+27. custom runtime(`architecture/agent-definition.md`)은 result call을 받은 turn이 끝날 때 마지막 응답 글이 답이다. 받은 call 글도 "마지막 응답이 답이다. `lophn call reply`로 먼저 답했으면 그것이 답이다"로 알린다(harness와 같은 글).
     - core wiring이 turn 끝을 구독해, outcome이 completed이고, turn 입력이 result call이고, 그 call이 아직 이 session이 받은 accepted이고, turn이 고정한 agent가 custom이고, 그 turn의 마지막 agent 메시지 글이 비지 않았을 때만 보낸다. 답은 redaction과 본문 준비를 거쳐 machine 명령으로 reply를 부르고, agent의 reply와 같은 규칙이다. unattended 표시는 그 turn의 mode를 따른다.
-    - 그 밖(멈춤, 실패, 빈 글, conversation·none call)에는 보내지 않는다. call은 lophn에서 답하지 않은 때처럼 accepted로 남고 받은 session을 archive하거나 지울 때 `receiver_ended`로 닫힌다. turn 도중 custom이 `call.reply`로 이미 답했으면 call이 done이라 다시 보내지 않는다.
+    - 그 밖(멈춤, 실패, 빈 글, conversation·none call)에는 보내지 않는다. call은 lophn에서 답하지 않은 때처럼 accepted로 남고 받은 session을 archive하거나 지울 때 `receiver_ended`로 닫힌다. turn 도중 custom이 `call.reply`로 이미 답했으면 call이 done이라 다시 보내지 않는다(자동 답은 답하지 않은 때만 가는 안전망이다).
     - runtime 쪽(turn을 닫기 전)이나 tx 안에서 하지 않는다. 멈춘 turn에 답이 나가면 안 되고 본문 blob은 tx 안에서 만들 수 없다. 마지막 응답 읽기는 run의 결과와 같은 규칙이고 글만 싣는다(`architecture/run.md`).
 28. harness runtime session은 run-loop 입력함이 아니라 harness queue가 받는다(`architecture/coding-agent.md`). 설정 `extensions.harness.enabled`(Settings › System › Extensions)가 꺼져 있으면 그 session으로 가는 메시지·call·step은 `unavailable`이다. 답은 custom과 같다.
 
@@ -172,7 +172,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - **도는 turn에 끼우지 않는다.** 조사한 harness 대부분은 도는 turn을 끊지 않고 다음 model 요청 앞에 붙인다. lophn은 사람의 "그만"만 급하다고 보고 사람 메시지에만 steer를 열었다. 다른 agent의 입력까지 끼우면 입력 하나가 turn 하나라는 셈이 흐려진다.
 - **넘길 것은 값(content block)으로 싣고 읽기 grant를 만들지 않는다.** call 동안 file을 읽게 해 주는 장치를 두면 grant의 범위와 끝을 따로 관리해야 한다. 값으로 실으면 부른 쪽이 봉투에 실은 것이 곧 불린 agent에게 여는 시야다. block 꼴을 MCP ContentBlock에서 빌린 것은 ACP와 MCP tool 결과가 같은 꼴이라 harness 쪽과 그대로 이어지기 때문이다.
 - **원문 넘기기와 fuzzy 매칭을 버렸다.** OpenAI handoff의 history 전달은 맥락 비용과 오염이 크고, CrewAI식 비슷한 이름 짐작은 엉뚱한 agent에게 일을 맡긴다.
-- **reply 명령을 모르는 runtime은 turn 끝의 마지막 응답이 답이다(agent, 2026-11-04).** custom은 고른 tool만 받아 `call.reply`를 고르는 것을 잊으면 result call이 영영 accepted로 남아 부른 쪽(workflow 포함)이 멈춘다. lophn은 reply 명령 그대로다. lophn은 한 turn에 답 말고도 할 말이 많아 마지막 응답을 답으로 보면 틀린다. 자동 답은 runtime 쪽이나 tx 안이 아니라 core wiring이 turn 끝을 보고 한다(agent): 멈춘 turn에 답이 나가지 않고 본문 blob은 tx 밖에서 만든다. 답하지 못한 call에 새 실패 길을 더하지 않았다.
+- **reply 명령을 모르는 runtime은 turn 끝의 마지막 응답이 답이다(agent, 2026-11-04).** custom은 처음에 고른 tool만 받아 `call.reply`를 고르는 것을 잊으면 result call이 영영 accepted로 남아 부른 쪽(workflow 포함)이 멈췄다. 지금은 custom도 `call.reply`를 늘 가지지만 `lophn call reply`를 잊는 model이 있어 자동 답을 안전망으로 남긴다. lophn은 reply 명령 그대로다. lophn은 한 turn에 답 말고도 할 말이 많아 마지막 응답을 답으로 보면 틀린다. 자동 답은 runtime 쪽이나 tx 안이 아니라 core wiring이 turn 끝을 보고 한다(agent): 멈춘 turn에 답이 나가지 않고 본문 blob은 tx 밖에서 만든다. 답하지 못한 call에 새 실패 길을 더하지 않았다.
 - **바로 난 배달 실패는 call tool 결과에만 두고, 늦은 실패만 입력으로 돌린다(agent).** call tool 계약("If it fails, the result says why")을 바꾸지 않으려는 것이다. 같은 실패를 둘로 받으면 agent가 두 번 반응한다. 버린 안: agent는 입력 통지만 두기. 보낸 쪽마다 다른 꼴을 통일하는 것은 보낸 쪽이 늘 때로 미뤘다.
 - **custom이 받은 call의 경계는 tag 이름과 메시지마다 붙는 고정 글이 알린다(agent).** 인터넷에서 온 것만 `<lophn-untrusted>` 한 줄로 알린다.
 - **이력도 입력과 같은 함수로 싼다.** 처음에는 받은 turn의 입력만 싸고 이력은 원문이었다. 그러면 다른 agent(AI가 만든 글)의 지시가 다음 turn부터 사람의 글과 구별되지 않아 사람의 요청처럼 따라질 수 있다. 막는 것이 "AI가 만든 글"이라 남기는 쪽이다. 답 방식 같은 속성을 이력에 두려고 받은 메시지 봉투에 저장하는 쪽을 골랐다(받은 turn의 입력에서 속성을 빼는 안을 버렸다). 자기 답을 call로 싸던 오류는 assistant role로 바로잡았다.

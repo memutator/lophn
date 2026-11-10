@@ -269,7 +269,7 @@ Never change an expense. Ask me first.`,
       name: "Queue watcher",
       runtime: "custom",
       description: "Reads the run queue and answers with what is stuck.",
-      tools: ["file.read", "file.grep", "call.reply"],
+      tools: ["file.read", "file.grep"],
       profile: { kind: "character", shape: "capsule", color: "teal" },
       body: `Read the queue file the caller names and list the runs that
 have not moved. Answer in one short list.`,

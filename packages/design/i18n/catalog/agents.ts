@@ -87,9 +87,8 @@ export const agents = {
   "agents.label.runtime-claude-code": "Claude Code",
   "agents.label.runtime-codex": "Codex",
   "agents.label.runtime-opencode": "OpenCode",
-  "agents.label.tools-add": "Add a tool by name",
-  "agents.label.tools-add-placeholder":
-    "call.reply, my-app.command or mcp__server__tool",
+  "agents.label.tools-add": "Add an MCP tool by name",
+  "agents.label.tools-add-placeholder": "mcp__server__tool",
   "agents.label.auth-api-key": "API key in a header",
   "agents.label.auth-bearer": "Bearer token",
   "agents.label.auth-none": "None",
@@ -206,11 +205,11 @@ export const agents = {
     "Letters, numbers, dashes and underscores. Other agents don't see this server.",
   "agents.notice.description-help": "One line about what this agent is for.",
   "agents.notice.runtime-help":
-    "lophn adds the lophn rules, skills and built-in tools. Custom sends only the instructions above and the tools and skills you pick.",
+    "lophn adds the lophn rules, skills and built-in tools. Custom sends only the instructions above, the lophn tool and the tools and skills you pick.",
   "agents.notice.fixed-coding":
     "Built-in coding agent: its handle, runtime and scope can't be changed, and it can't be deleted. You can rename how it is shown. It runs the CLI with your own settings.",
   "agents.notice.tools-help":
-    "A session only gets a picked tool its workspace kind (home, project, app), the agent's apps and its MCP servers allow.",
+    "A session only gets a picked tool its workspace kind (home, project, app) and its MCP servers allow. A custom agent always has the lophn tool with every lophn command of its workspace and the public commands of its apps.",
   "agents.notice.skip-help":
     "A session started this way runs shell commands without asking. Deny rules still block them.",
   "agents.notice.skills-custom-pick":

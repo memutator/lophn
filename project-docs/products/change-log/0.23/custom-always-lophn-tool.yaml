@@ -1,0 +1,40 @@
+id: custom-always-lophn-tool
+version: 0.23.27
+title: custom agent는 lophn tool을 늘 받고, 정의 tools는 명령 이름을 받지 않는다
+modules: [packages/core/lophn-agent, packages/core/main, packages/shell/renderer, packages/design, packages/sdk, packages/core/agent-workspaces, packages/core/apps]
+change: |
+  전: custom(`runtime: custom`)은 정의 `tools`에 lophn 명령(`call.reply`, `tab.open`)이나 `<slug>.<command>`를 하나씩 적어야 `lophn` tool이 서고, 그 설명과 `lophn help`에는 고른 명령만 있었다. 편집 화면은 명령 이름을 타이핑하게 해서 브라우저(`tab.open`, `browser.*`)를 쓰는 custom agent를 만들 길이 보이지 않았다. 명함의 `replies`는 `call.reply`를 골랐을 때만 conversation을 더했다.
+  후:
+  - custom session은 `lophn` tool을 늘 받는다. 설명, `lophn help`, 실행 목록이 lophn runtime과 같다: 그 workspace 종류의 명령 전부(명령의 `workspaces`)와 할당한 앱 command(부를 때 푼다). 내장 tool, MCP tool, extension tool, skill은 그대로 고른 것만이다. system에 제품 고정 규칙, 지침 층, workspace 정보, workspace memory를 싣지 않는 것도 그대로다. 고정 tool 목록(session 시작 때 고정, 뒤에 늘린 이름은 새 session부터) 의미는 그대로다.
+  - 정의 `tools`는 내장 tool 이름, `mcp__<server>__<tool>`, `ext__<id>__<tool>`만 받는다. lophn 명령 이름, `<slug>.<command>`, `lophn`은 저장이 `invalid_input`(`tools.<n>`, `unknown`)으로 거절한다.
+  - data step `agents.tools-no-commands`(agent-handle wiring의 `dataSteps` 끝)가 `agents/agt_*.md` 정의의 `tools`에서 그 밖의 이름을 빼고, 다 빠지면 `tools` 칸을 지운다. 다른 칸과 본문은 그대로다.
+  - 명함의 `replies`는 모든 runtime이 none, result, conversation이다. `diff.plus`는 고른 내장·MCP·extension tool과 skill이다.
+  - result call의 자동 답(`custom-reply` wiring)은 그대로다. call이 아직 accepted일 때만 보내므로 custom이 `call.reply`로 먼저 답했으면 자동 답이 가지 않는다(두 번 답하지 않는다). custom이 받은 result call 글은 harness와 같은 글로 바뀌었다: "마지막 메시지가 답이다. `lophn call reply`로 이미 답했으면 그것이 답이다".
+  - Tools 탭은 명령 이름 타이핑을 없애고(내장 tool 체크, MCP tool 이름, extension tool 체크만) "custom은 lophn tool과 그 명령을 늘 가진다"를 알린다. wireframe fake data도 맞췄다.
+  - SDK `@lophn/agent` 1.8.0: design-app skill, 앱 template AGENTS.md, guide의 "앱 안 agent" 글을 고쳤다(메모 `migrate-sdk/agent-1.8.0.md`).
+  - 이슈 `custom-browser-use-unreachable`, `bare-agent-must-pick-workflow-report`를 닫는다.
+why: |
+  브라우저만 쓰는 좁은 agent를 custom으로 만들려던 사람이 명령을 고를 길을 찾지 못해 agent가 아무 일도 못 했다. 명령은 workspace 종류와 할당, Gate가 이미 상한을 정하므로 custom이 고르게 둘 이유가 없다. workflow 참가자가 `workflow.report`를 고르지 않아 step이 멈추는 문제도 같은 뿌리였다.
+decisions:
+  - text: |
+      custom은 lophn tool(그 종류의 명령 전부와 할당한 앱 command)을 늘 받는다. 버린 길: 전용 browser tool, 편집 화면에 명령 후보 목록과 Browser 묶음, 안내 글만 더하기(명령을 고르게 두는 구조가 문제였다).
+    by: person
+  - text: |
+      custom이 받은 result call 글은 harness와 같은 글("마지막 메시지가 답이고 lophn call reply로 이미 답했으면 그것이 답")로 한다. 버린 길: custom에게 `lophn call reply`만 시키기(model이 잊으면 부른 쪽이 멈추므로 자동 답 안전망을 남긴다), 자동 답 없애기.
+    by: agent
+  - text: |
+      두 번 답하지 않는 것은 wiring의 기존 검사(call이 accepted인지)에 맡기고 코드를 더하지 않는다.
+    by: agent
+  - text: |
+      custom의 `lophn` tool 설명은 lophn runtime과 같은 bytes로 workspace 종류의 명령만 싣는다. 앱 command는 설명에 싣지 않고(lophn runtime도 그렇다) 부를 때와 `lophn <slug> --help`로 푼다.
+    by: agent
+  - text: |
+      정의 `tools`의 `lophn` 이름도 거절하고 data step이 뺀다(늘 받으므로 고르는 이름이 아니다).
+    by: agent
+  - text: |
+      이슈 `bare-agent-must-pick-workflow-report`는 custom이 `workflow.report`를 늘 받는 것으로 닫는다. 마지막 응답을 report로 보내는 자동 길은 만들지 않는다(next step을 model이 못 주고 lophn runtime과 같은 위험이다).
+    by: agent
+follow_up: |
+  custom agent는 설명에 앱 command가 없어 앱 slug를 모르면 부르지 못한다. 앱 안 agent는 지침에 어느 command를 언제 부르는지 적게 했다(design-app skill). 필요하면 custom의 `lophn` 설명에 할당한 앱 command를 싣는다.
+checklist:
+  - 편집기 Tools 탭에서 custom agent에 "lophn 명령은 늘 있다"는 안내가 보이고 명령 이름을 적는 칸이 MCP tool 이름 칸뿐인지 본다

@@ -4,7 +4,6 @@ export {
   serializeAgentFile,
 } from "./definition-file.ts";
 export { resolveAgent, type ResolvedAgent } from "./resolve.ts";
-export { repliesOf } from "./card.ts";
 export { createAgentCommands } from "./commands.ts";
 export { createAgentReads } from "./reads.ts";
 export {

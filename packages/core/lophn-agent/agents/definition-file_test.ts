@@ -93,7 +93,7 @@ test("runtime, description, tools, skills는 저장하고 다시 읽어도 남�
     name: "ops",
     runtime: "custom" as const,
     description: "Checks the deploy queue",
-    tools: ["file.read", "call.reply", "mcp__github__issue"],
+    tools: ["file.read", "file.write", "mcp__github__issue"],
     skills: ["triage"],
     body: "Check.",
   };

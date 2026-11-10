@@ -53,7 +53,7 @@ flows:
         observe: [response, "screen:agent-settings-save-conflict"]
       - id: invalid-definition
         code: invalid_input
-        when: 파일 모양(malformed, unknown_field, invalid_value, required, not_allowed, reserved_name, duplicate, too_large, unknown)이 틀리다, 도구 이름이 모르는 것이다, handle이 다른 agent와 겹치거나 예약 이름이다, 새 handle 모양이 아니다, 없는 workspace다. details.issues에 항목이 든다
+        when: 파일 모양(malformed, unknown_field, invalid_value, required, not_allowed, reserved_name, duplicate, too_large, unknown)이 틀리다, 도구 이름이 모르는 것이다(lophn 명령·앱 command 이름과 `lophn`도 여기다. custom은 `lophn` tool을 늘 받아 이름으로 고르지 않는다), handle이 다른 agent와 겹치거나 예약 이름이다, 새 handle 모양이 아니다, 없는 workspace다. details.issues에 항목이 든다
         observe: [response, "screen:agent-settings-save-issues"]
       - id: store-unavailable
         code: unavailable
@@ -987,10 +987,11 @@ flows:
     actor: system
     entries: [system:agent-definition-data-steps]
     boundary: [agents, storage]
-    code: [packages/core/lophn-agent/agents/handle-step.ts, packages/core/lophn-agent/agents/runtime-custom-step.ts, packages/core/lophn-agent/agents/domains-field-step.ts, packages/core/lophn-agent/agents/skills-off-step.ts]
+    code: [packages/core/lophn-agent/agents/handle-step.ts, packages/core/lophn-agent/agents/runtime-custom-step.ts, packages/core/lophn-agent/agents/tools-no-commands-step.ts, packages/core/lophn-agent/agents/domains-field-step.ts, packages/core/lophn-agent/agents/skills-off-step.ts]
     steps:
       - 기동 때 data step agents.handle이 먼저 돈다. name을 handle로 채운다(handle이 있거나 name이 없으면 두고 고치지 않는다)
       - "agents.runtime-custom이 frontmatter의 `runtime: bare`를 `runtime: custom`으로 옮긴다(그 한 줄만 고친다)"
+      - "agents.tools-no-commands가 정의 `tools`에서 lophn 명령·앱 command 이름(내장 tool, MCP, extension tool이 아닌 것)을 뺀다. 다 빠지면 칸을 지운다"
       - agents.drop-domains가 옛 domains 칸을 지운다
       - agents.skills-off가 옛 skills를 skills_off로 옮긴다. 옮기기 전에 받던 skill이 그대로 받아지도록 끈 이름을 적는다
       - 정의마다 새 모양만 schema로 검사해 다시 쓴다. 칸이 없는 파일이나 깨진 파일은 건드리지 않는다

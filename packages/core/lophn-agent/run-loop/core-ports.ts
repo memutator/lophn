@@ -298,7 +298,9 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     signal: AbortSignal,
     span: Span | undefined,
   ): Promise<Result<ModelAttempt>> {
-    attempts += 1;
+    // 번호는 여기서 바로 잡는다. 아래에서 기다리는 사이 같은 turn의 다른 call(제목)이 counter를 올리면, 나중에 읽은
+    // 값이 그 call과 같은 번호가 되어 시작이 거절되고 turn이 model을 부르지 못한 채 실패한다.
+    const order = (attempts += 1);
     lastReasoning = null;
     // 요청은 안전화한 값 하나를 저장하고 그 값을 보낸다. 안전화를 끝내지 못하면 보내지 않고, 저장한
     // 바이트와 보낸 바이트가 같다. 조립 근거도 전송 전에 저장하며 저장하지 못하면 보내지 않는다.
@@ -330,7 +332,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       agent_hash: deps.agentHash,
       purpose: "judgment" as const,
       attempt_kind: request.kind,
-      attempt_order: attempts,
+      attempt_order: order,
       retry_of: request.retry_of,
       model: model.call,
       input: inputBlob.value.hash,
@@ -958,7 +960,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       session: seat.session,
     });
     if (!basisBlob.ok) return;
-    attempts += 1;
+    const order = (attempts += 1);
     const id = ids.newId("mcl");
     const started = await commandOf(
       machine,
@@ -972,7 +974,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
           agent_hash: deps.agentHash,
           purpose: "title_summary" as const,
           attempt_kind: "initial" as const,
-          attempt_order: attempts,
+          attempt_order: order,
           retry_of: null,
           model: model.call,
           input: inputBlob.value.hash,

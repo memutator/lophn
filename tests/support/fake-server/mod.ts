@@ -37,6 +37,17 @@ function mismatchResponse(message: string): Response {
 }
 
 // socket 없이 request를 직접 넣을 수 있는 몸체. startFakeServer가 serve adapter를 얹는다.
+// core의 제목 call(`prompt-assembly/title.ts`): tool이 없고 system이 제목 짓기 지침이다.
+function isTitleRequest(body: unknown): boolean {
+  const request = body as { tools?: unknown[]; system?: unknown } | null;
+  return (
+    typeof request === "object" &&
+    request !== null &&
+    (request.tools?.length ?? 0) === 0 &&
+    JSON.stringify(request.system ?? "").includes("You name a chat session")
+  );
+}
+
 export function createFakeHandler(options: { fallback?: Reply } = {}) {
   // 줄마다 따로 꺼낸다. 기본 줄은 match가 없고 어느 줄에도 안 맞은 요청이 간다.
   type Queue = { steps: readonly Step[]; taken: number };
@@ -59,7 +70,6 @@ export function createFakeHandler(options: { fallback?: Reply } = {}) {
   };
 
   async function handle(request: Request): Promise<Response> {
-    const n = entries.length + 1;
     const url = new URL(request.url);
     const text = await request.text();
     let parsed: unknown = text;
@@ -68,6 +78,16 @@ export function createFakeHandler(options: { fallback?: Reply } = {}) {
     } catch {
       // JSON이 아니면 원문 글을 둔다.
     }
+    // session 첫 요청마다 core가 제목을 짓는 call을 따로 보낸다. test의 대본과 journal은 turn의 call만 세므로 여기서
+    // 받아 넘긴다. 제목으로 쓸 수 없는 답을 주어 자른 자동 제목이 그대로 남는다.
+    if (isTitleRequest(parsed)) {
+      return toResponse(
+        { kind: "text", text: "-" },
+        AbortSignal.any([request.signal, closing.signal]),
+        { on: false, cancel() {} },
+      );
+    }
+    const n = entries.length + 1;
     const entry: JournalEntry = {
       n,
       method: request.method,

@@ -1,0 +1,13 @@
+id: ai-title-call-attempt-order
+version: 0.23.25
+title: 새 session의 첫 turn이 제목 call 때문에 실패하던 것을 고친다
+modules: [packages/core/lophn-agent]
+change: |
+  - 새 session의 첫 메시지가 `configuration_unavailable`로 바로 실패하던 것을 고쳤다. 제목을 짓는 call과 본 turn의 첫 call이 같은 시도 번호를 써서 본 call의 시작이 거절됐다. 이제 call마다 자기 번호를 쓴다.
+  - e2e의 가짜 provider가 제목 call을 대본과 journal 밖에서 받는다. AI 제목이 들어온 뒤 깨져 있던 e2e가 다시 돈다.
+why: |
+  0.23.22에 들어간 AI 제목이 첫 turn과 동시에 call을 띄우면서 생겼다. loop test는 가짜 port라 못 잡았고 e2e는 check에 없다. 이슈 `ai-title-call-fails-first-turn`.
+decisions:
+  - text: >-
+      제목 call은 그대로 첫 turn과 동시에 띄우고 번호만 가른다. 버린 길: 제목 call을 turn이 끝난 뒤로 미루기(제목이 늦게 바뀌고, 원인은 순서가 아니라 번호를 나중에 읽은 것이다).
+    by: agent

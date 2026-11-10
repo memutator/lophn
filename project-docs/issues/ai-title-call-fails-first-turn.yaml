@@ -1,0 +1,14 @@
+id: ai-title-call-fails-first-turn
+title: 새 session의 첫 turn이 model을 부르지 못하고 configuration_unavailable로 실패한다
+kind: bug
+status: fixed
+topic: workspace-session
+modules: [packages/core/lophn-agent]
+now: |
+  session 첫 요청에서 제목을 짓는 model call(`title_summary`)이 본 turn의 첫 call과 동시에 뜬다. 둘은 같은 turn의 call로 기록되고 시도 번호 counter(`core-ports.ts`의 `attempts`)를 같이 쓴다. 본 call은 counter를 먼저 올린 뒤 blob 저장을 기다리고 나서 그 값을 다시 읽어 번호로 썼다. 기다리는 사이 제목 call이 counter를 올리면 둘이 같은 번호(2)가 되어, 뒤에 시작한 쪽이 `model_calls`의 (turn, attempt_order) unique에 걸려 거절된다. 본 call이 거절되면 turn은 provider에 요청을 보내지 않고 `failed / configuration_unavailable`로 닫힌다.
+  재현: 새 session에 첫 말을 보낸다. 0.1초 안에 실패하고 그 turn의 model call은 제목 call 하나뿐이다. 다시 보내면 첫 요청이 아니라 제목 call이 없어 된다. 실제 data root의 `ses_01m72rmn3xpp2qq25hkts1bm92`(0.23.25)에서 같은 기록을 봤다.
+impact: |
+  새 대화의 첫 메시지가 실패한다. 사람은 같은 말을 다시 보내야 한다. call로 시작한 session도 첫 turn이 실패해 부른 쪽이 답을 못 받는다.
+closed: |
+  call마다 번호를 counter를 올리는 자리에서 바로 잡아 쓴다. e2e의 가짜 provider는 제목 call을 대본과 journal 밖에서 받아 넘긴다(제목으로 못 쓰는 답을 주어 자른 자동 제목이 남는다).
+guard: '`tests/e2e/agent-call_test.ts`(첫 turn이 돌아야 통과한다. `npm run check`에는 없고 `npm run e2e`로 돈다)'

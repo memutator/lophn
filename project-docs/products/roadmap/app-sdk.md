@@ -1,6 +1,6 @@
 # 앱 SDK: event, session lifecycle, A2A, ACP
 
-상태: 로드맵. 2026-11-10 사람이 방향을 냈고 planner가 대화를 정리했다. "정할 것" 둘은 planner 추천안으로 적었고 사람의 답을 받지 않았다.
+상태: 로드맵. 2026-11-10 사람이 방향을 냈고 planner가 대화를 정리했다. 정할 것은 남지 않았다.
 배경 문서: `project-docs/architecture/{event,app-notice,app-call,acp,agent-call,workspace-session,terminal-agent,coding-agent,observability}.md`, `project-docs/products/roadmap/{agent-platform,agent-surface,app-place,mobile}.md`. 비교: `../harness-lab`의 harness 여덟(Claude Code, Codex, OpenCode, pi, omp, dsh, mixdog, Hermes)의 session ↔ process 대응(2026-11-10 조사, 아래 "비교").
 
 ## 사람의 말 (원문, 2026-11-10)
@@ -147,7 +147,7 @@ const move = (await sent.result).value;
 - ACP 규격의 상태·갱신·입력은 그대로다. 바뀌는 것은 둘이다.
 - **붙을 수 있는 session이 넓어진다.** 지금 bridge는 자기 앱 workspace의 session만 읽게 한다. 시야 안 session이면 어디든 `useAgentSession({session})`으로 붙어 snapshot과 갱신을 받는다. 목록 read에서 고른 session의 대화를 앱이 그릴 수 있다.
 - **`sender`에 `app`이 는다.** 앱이 보낸 call이 받은 session의 대화에 앱이 보낸 것으로 나온다. SDK의 type 사본과 채팅 화면의 sender chip을 같이 고친다.
-- 앱이 보내는 ACP 입력은 지금 허용 목록(`send`, `stop`, `answer`, `rename`) 그대로다. 사람 이름으로 말하는 `send`의 범위는 "정할 것" 2다.
+- 앱이 보내는 ACP 입력은 지금 허용 목록(`send`, `stop`, `answer`, `rename`) 그대로이고, 시야 안 모든 session에 보낼 수 있다(정한 것 17).
 
 ## 정한 것
 
@@ -166,11 +166,8 @@ const move = (await sent.result).value;
 13. 앱은 팀의 node가 되지 않는다. 앱이 연 session은 `spawned_by`가 없는 root다. (agent) 팀의 부모는 자식의 승인에 답하는데, 앱이 승인을 정하지 못하게 한 사람의 결정(`architecture/acp.md`)과 부딪친다.
 14. event·목록·stop은 화면과 앱 process 양쪽에 둔다. call 보내기는 화면 먼저다. (agent) 한도 감지는 화면이 닫혀 있어도 돌아야 하고, 흐름을 돌리는 code는 지금 SDK와 같은 자리(`await`)에서 쓴다. 사람 없는 예약 흐름은 workflow의 일이다.
 15. SDK는 `@lophn/agent` 하나에 둔다. (사람, 2026-11-02: "저걸 lophn agent Sdk로 묶을 거 아니야")
-
-## 정할 것 (planner 추천안으로 적음)
-
-1. **구독에 사람 허락을 둘까.** 추천: 두지 않는다. event는 발행 앱이 내놓겠다고 선언한 것이고 사용자 앱은 공격자로 보지 않는다. 대안은 앱 command처럼 앱 쌍마다 허락인데 일대다의 편함이 준다.
-2. **사람 이름으로 말하기(ACP `send`)의 범위.** 추천: 자기 앱 workspace의 session과 앱이 연 session까지. 그 밖의 session에는 앱 이름의 call로만 말한다. 잃는 것은 dashboard 앱에서 사람이 연 project session에 사람으로서 바로 답장하지 못하는 것이다. 대안(보이는 모든 session)은 앱 code의 실수가 project session에 사람의 지시로 들어간다.
+16. 구독에 사람 허락을 두지 않는다. event는 발행 앱이 내놓겠다고 선언한 것이다. (사람, 2026-11-10, 추천대로)
+17. 앱은 시야 안 모든 session에 사람 이름으로 말할 수 있다(ACP `send`). 자기 앱 workspace나 자기가 연 session으로 좁히지 않는다. (사람, 2026-11-10. planner 추천은 좁히는 쪽이었다) 허용 목록 넷(`send`, `stop`, `answer`, `rename`)은 그대로이고 승인·model·rewind는 열지 않는다(쓰는 예가 없다. 사람, 2026-11-10).
 
 ## 단계
 

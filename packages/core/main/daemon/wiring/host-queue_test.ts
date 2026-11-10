@@ -336,9 +336,12 @@ test("받은 handoff는 data root handoffs/에 0600으로 쓰이고 tab_open pay
 // 값이 queue 항목이나 결과에 실리면 ledger·log·agent에 비밀번호가 남는다. username만 metadata의 글로 `fill`이 된다.
 test("fill_login의 queue 항목에는 login id만 있고, 결과와 page 글에서 알려진 값은 지워진다", async () => {
   const { queue, open, act, snapshot } = setup(true);
-  const opened = await open(agent(1), {
-    target: { browser: { url: "https://example.com" } },
+  queue.take([]);
+  const opening = open(agent(1), browser);
+  queue.done(queue.take([])!.id as never, "done", {
+    content: [{ type: "text", text: "bound" }],
   });
+  const opened = await opening;
   assert.ok(opened.ok);
   const tab = (opened.value as { tab: string }).tab;
   const fill = { tab, type: "fill_login", ref: "e2", login: LOGIN };

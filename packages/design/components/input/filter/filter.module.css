@@ -21,13 +21,26 @@
   flex: 1 1 auto;
 }
 
+/* 기간: 정한 기간 줄과 직접 기간 달력을 옆으로 놓는다. */
+.rangePanel {
+  display: flex;
+  align-items: stretch;
+}
+
+.presets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-right: var(--space-2);
+  white-space: nowrap;
+}
+
 .custom {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  margin-top: var(--space-2);
-  padding: var(--space-4) var(--space-4) var(--space-0);
-  border-top: var(--border-width) solid var(--color-border-subtle);
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-0) var(--space-4);
+  border-left: var(--border-width) solid var(--color-border-subtle);
 }
 
 .customTitle,
@@ -36,12 +49,6 @@
   color: var(--color-text-secondary);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
-}
-
-.customRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
 }
 
 .options {
@@ -57,9 +64,4 @@
   gap: var(--space-2);
   padding-top: var(--space-2);
   border-top: var(--border-width) solid var(--color-border-subtle);
-}
-
-.custom .footer {
-  padding-top: var(--space-0);
-  border-top: none;
 }

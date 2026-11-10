@@ -36,9 +36,8 @@ export const NO_FILTER: HistoryFilter = {
   range: null,
 };
 
-/** 거르기 선택지 순서. 사람이 찾는 것(release)을 앞에 둔다. */
-export const TYPE_OPTIONS: readonly TypeFilter[] = [
-  "all",
+/** 거르기 선택지 순서(전체 말고). 사람이 찾는 것(release)을 앞에 둔다. */
+export const TYPE_OPTIONS: readonly Exclude<TypeFilter, "all">[] = [
   "app",
   "program",
   ...PROGRAM_NOTICE_KINDS,

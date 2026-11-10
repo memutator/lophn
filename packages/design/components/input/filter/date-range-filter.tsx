@@ -1,18 +1,16 @@
 import { useState } from "react";
-import { Calendar, Check } from "lucide-react";
+import { Calendar as CalendarIcon, Check } from "lucide-react";
 import { formatDate, type MessageKey, t } from "@lophn/i18n";
 import { Button } from "../../primitives/button/button.tsx";
 import { Icon } from "../../primitives/icon/icon.tsx";
-import { Field } from "../field/field.tsx";
-import { Input } from "../input/input.tsx";
 import { Popover, PopoverRow } from "../../overlay/popover/popover.tsx";
 import { componentMark, iconPixels } from "../../_shared/shared.ts";
+import { Calendar } from "../calendar/calendar.tsx";
 import {
   type DateRange,
   parseDay,
   RANGE_PRESETS,
   type RangePreset,
-  resolveRange,
 } from "./range.ts";
 import styles from "./filter.module.css";
 
@@ -42,90 +40,89 @@ export function rangeLabel(range: DateRange, locale = "en"): string {
 }
 
 export interface DateRangeFilterProps {
-  value: DateRange;
+  // 고른 기간. null은 기간으로 거르지 않는 상태이고 버튼에 "Any time"이 보인다.
+  value: DateRange | null;
   onChange: (next: DateRange) => void;
-  // 직접 기간 칸의 처음 값을 정하는 지금. 앱의 clock에서 받는다.
+  // 달력의 오늘 표시와 처음 보이는 달. 앱의 clock에서 받는다.
   now: Date;
+  locale?: string;
   defaultOpen?: boolean;
 }
 
-// 기간 고르기. 정한 기간 줄과 그 아래 직접 기간(시작·끝 날짜와 [Apply])이다.
+// 기간 고르기. 왼쪽은 정한 기간 줄, 오른쪽은 직접 기간 달력이다. 달력은 첫 누름이 한쪽 끝, 둘째 누름이 다른 끝이고
+// 둘째에 고르고 닫힌다(DateRangePicker와 같다).
 export function DateRangeFilter({
   value,
   onChange,
   now,
+  locale = "en",
   defaultOpen = false,
 }: DateRangeFilterProps) {
   const [open, setOpen] = useState(defaultOpen);
-  const [draft, setDraft] = useState(() => resolveRange(value, now));
+  const [anchor, setAnchor] = useState<string | undefined>(undefined);
   const choose = (next: DateRange) => {
     onChange(next);
     setOpen(false);
   };
+  const pick = (day: string) => {
+    if (anchor === undefined) {
+      setAnchor(day);
+      return;
+    }
+    setAnchor(undefined);
+    choose(
+      anchor <= day
+        ? { preset: "custom", from: anchor, to: day }
+        : { preset: "custom", from: day, to: anchor },
+    );
+  };
+  const custom =
+    value?.preset === "custom" && parseDay(value.from) && parseDay(value.to)
+      ? { from: value.from, to: value.to }
+      : undefined;
   return (
     <Popover
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (next) setDraft(resolveRange(value, now));
+        setAnchor(undefined);
       }}
       trigger={
-        <Button size="sm" icon={Calendar} data-filter="date-range">
-          {rangeLabel(value)}
+        <Button size="sm" icon={CalendarIcon} data-filter="date-range">
+          {value === null
+            ? t("common.label.range-any")
+            : rangeLabel(value, locale)}
         </Button>
       }
     >
-      <div className={styles.panel} {...componentMark("DateRangeFilter")}>
-        {RANGE_PRESETS.map((preset) => (
-          <PopoverRow key={preset} onSelect={() => choose({ preset })}>
-            <span className={styles.rowLabel} data-preset={preset}>
-              {t(PRESET_LABELS[preset])}
-            </span>
-            {value.preset === preset && (
-              <Icon icon={Check} pixels={iconPixels("base")} />
+      <div className={styles.rangePanel} {...componentMark("DateRangeFilter")}>
+        <div className={styles.presets}>
+          {RANGE_PRESETS.map((preset) => (
+            <PopoverRow key={preset} onSelect={() => choose({ preset })}>
+              <span className={styles.rowLabel} data-preset={preset}>
+                {t(PRESET_LABELS[preset])}
+              </span>
+              {value?.preset === preset && (
+                <Icon icon={Check} pixels={iconPixels("base")} />
+              )}
+            </PopoverRow>
+          ))}
+        </div>
+        <div className={styles.custom} data-range-custom="">
+          <p className={styles.customTitle}>
+            {t(
+              anchor === undefined
+                ? "common.label.range-custom"
+                : "common.label.range-pick-end",
             )}
-          </PopoverRow>
-        ))}
-        <form
-          className={styles.custom}
-          onSubmit={(event) => {
-            event.preventDefault();
-            choose({ preset: "custom", ...draft });
-          }}
-        >
-          <p className={styles.customTitle}>{t("common.label.range-custom")}</p>
-          <div className={styles.customRow}>
-            <Field label={t("common.label.date-from")}>
-              <Input
-                size="sm"
-                type="date"
-                value={draft.from}
-                onChange={(event) =>
-                  setDraft({ ...draft, from: event.currentTarget.value })
-                }
-              />
-            </Field>
-            <Field label={t("common.label.date-to")}>
-              <Input
-                size="sm"
-                type="date"
-                value={draft.to}
-                onChange={(event) =>
-                  setDraft({ ...draft, to: event.currentTarget.value })
-                }
-              />
-            </Field>
-          </div>
-          <div className={styles.footer}>
-            <Button
-              size="sm"
-              type="submit"
-              disabled={!parseDay(draft.from) || !parseDay(draft.to)}
-            >
-              {t("common.button.apply")}
-            </Button>
-          </div>
-        </form>
+          </p>
+          <Calendar
+            selected={anchor ?? custom}
+            now={now}
+            locale={locale}
+            onPick={pick}
+          />
+        </div>
       </div>
     </Popover>
   );

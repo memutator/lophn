@@ -1,5 +1,7 @@
 // 단추나 줄에 붙어 열리는 overlay 층. Inbox와 Jobs가 같이 쓴다. 열려 있는 동안 층 밖을 누르거나 Esc를 누르면 닫힌다.
 // 열린 panel은 위쪽 바(끌기 영역) 안에서도 클릭과 scroll이 먹히도록 `no-drag`다.
+// panel 안의 Select·Popover는 body에 portal로 그려 DOM으로는 층 밖이다. React event는 portal에서도 React 부모로
+// 올라오므로 그 길로 "층 안"을 안다. Esc도 portal 안에서 눌렀으면 그 popover만 닫히고 층은 남는다.
 import { type ReactNode, useEffect, useRef } from "react";
 
 import styles from "./overlay-layer.module.css";
@@ -26,13 +28,25 @@ export function OverlayLayer({
   children: ReactNode;
 }) {
   const layer = useRef<HTMLDivElement>(null);
+  // React tree로 층을 지난 마지막 pointerdown·keydown. document listener가 React root보다 늦게 불려 그 사이에 읽는다.
+  const pointerInside = useRef(false);
+  const keyInPortal = useRef(false);
   useEffect(() => {
     if (!open) return;
+    // 층을 연 누름이 남긴 표시는 지운다.
+    pointerInside.current = false;
+    keyInPortal.current = false;
     const outside = (event: PointerEvent) => {
-      if (!layer.current?.contains(event.target as Node)) onOpenChange(false);
+      const inside =
+        pointerInside.current ||
+        layer.current?.contains(event.target as Node) === true;
+      pointerInside.current = false;
+      if (!inside) onOpenChange(false);
     };
     const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onOpenChange(false);
+      const portal = keyInPortal.current;
+      keyInPortal.current = false;
+      if (event.key === "Escape" && !portal) onOpenChange(false);
     };
     document.addEventListener("pointerdown", outside);
     document.addEventListener("keydown", escape);
@@ -42,7 +56,19 @@ export function OverlayLayer({
     };
   }, [open, onOpenChange]);
   return (
-    <div className={styles.layer} ref={layer} data-align={align}>
+    <div
+      className={styles.layer}
+      ref={layer}
+      data-align={align}
+      onPointerDownCapture={() => {
+        pointerInside.current = true;
+      }}
+      onKeyDownCapture={(event) => {
+        keyInPortal.current = !event.currentTarget.contains(
+          event.target as Node,
+        );
+      }}
+    >
       {trigger}
       {open ? <div className={styles.floating}>{children}</div> : null}
     </div>

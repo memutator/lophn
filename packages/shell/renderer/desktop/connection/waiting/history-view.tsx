@@ -5,15 +5,15 @@ import { t } from "@lophn/i18n";
 import { ErrorState } from "@lophn/ui/feedback";
 import {
   DateRangeFilter,
-  Field,
   FilterBar,
   SearchFilter,
-  Select,
-  type SelectOption,
+  SelectFilter,
+  type SelectFilterOption,
 } from "@lophn/ui/input";
 import { Button } from "@lophn/ui/primitives";
 import { useEffect, useState } from "react";
 import type { Notice } from "../../../../../protocol/apps/notice.ts";
+import { AppTabIcon } from "../../../app-frame/app-icon.tsx";
 import { actionIcons } from "../../../icons/mod.ts";
 import { useEventClient } from "../events/hooks.tsx";
 import { dismissNotice } from "./decide.ts";
@@ -31,10 +31,7 @@ import { KIND_LABEL } from "./notice-kinds.ts";
 import { NoticeRow } from "./notice-row.tsx";
 import styles from "./waiting.module.css";
 
-const ALL = "all";
-
-function typeLabel(type: TypeFilter): string {
-  if (type === "all") return t("waiting.label.type-all");
+function typeLabel(type: Exclude<TypeFilter, "all">): string {
   if (type === "app") return t("waiting.label.type-app");
   if (type === "program") return t("waiting.label.type-program");
   return t(KIND_LABEL[type]);
@@ -68,15 +65,15 @@ export function HistoryView({
       apps.set(row.app, row.app_name);
     }
   }
-  const appOptions: SelectOption[] = [
-    { value: ALL, label: t("waiting.label.filter-all-apps") },
-    ...[...apps].map(([value, label]) => ({ value, label })),
-  ];
-  const projectOptions: SelectOption[] = [
-    { value: ALL, label: t("waiting.label.filter-all-projects") },
-    ...[...names.projects].map(([value, label]) => ({ value, label })),
-  ];
-  const typeOptions: SelectOption[] = TYPE_OPTIONS.map((value) => ({
+  const appOptions: SelectFilterOption[] = [...apps].map(([value, label]) => ({
+    value,
+    label,
+    icon: <AppTabIcon app={value} />,
+  }));
+  const projectOptions: SelectFilterOption[] = [...names.projects].map(
+    ([value, label]) => ({ value, label }),
+  );
+  const typeOptions: SelectFilterOption[] = TYPE_OPTIONS.map((value) => ({
     value,
     label: typeLabel(value),
   }));
@@ -97,60 +94,48 @@ export function HistoryView({
   return (
     <div data-history="">
       <div className={styles.filters}>
-        <FilterBar
-          dirty={dirty}
-          onReset={() => {
-            setTyped("");
-            setFilter(NO_FILTER);
-          }}
-        >
-          <DateRangeFilter
-            // 기간을 안 고른 상태(null)는 빈 직접 기간으로 보인다.
-            value={filter.range ?? { preset: "custom", from: "", to: "" }}
-            now={new Date()}
-            onChange={(range) => setFilter((now) => ({ ...now, range }))}
-          />
-          <Field label={t("waiting.label.history-app")}>
-            <Select
-              size="sm"
+        <SearchFilter value={typed} onChange={setTyped} />
+        <div className={styles.filterRow}>
+          <FilterBar
+            dirty={dirty}
+            onReset={() => {
+              setTyped("");
+              setFilter(NO_FILTER);
+            }}
+          >
+            <DateRangeFilter
+              value={filter.range}
+              now={new Date()}
+              onChange={(range) => setFilter((now) => ({ ...now, range }))}
+            />
+            <SelectFilter
+              allLabel={t("waiting.label.filter-all-apps")}
               options={appOptions}
-              value={filter.app ?? ALL}
-              onValueChange={(value) =>
+              value={filter.app}
+              onChange={(app) => setFilter((now) => ({ ...now, app }))}
+            />
+            {names.projects.size === 0 ? null : (
+              <SelectFilter
+                allLabel={t("waiting.label.filter-all-projects")}
+                options={projectOptions}
+                value={filter.project}
+                onChange={(project) =>
+                  setFilter((now) => ({ ...now, project }))
+                }
+              />
+            )}
+            <SelectFilter
+              allLabel={t("waiting.label.type-all")}
+              options={typeOptions}
+              value={filter.type === "all" ? null : filter.type}
+              onChange={(type) =>
                 setFilter((now) => ({
                   ...now,
-                  app: value === ALL ? null : value,
+                  type: (type ?? "all") as TypeFilter,
                 }))
               }
             />
-          </Field>
-          {names.projects.size === 0 ? null : (
-            <Field label={t("waiting.label.history-project")}>
-              <Select
-                size="sm"
-                options={projectOptions}
-                value={filter.project ?? ALL}
-                onValueChange={(value) =>
-                  setFilter((now) => ({
-                    ...now,
-                    project: value === ALL ? null : value,
-                  }))
-                }
-              />
-            </Field>
-          )}
-          <Field label={t("waiting.label.history-type")}>
-            <Select
-              size="sm"
-              options={typeOptions}
-              value={filter.type}
-              onValueChange={(value) =>
-                setFilter((now) => ({ ...now, type: value as TypeFilter }))
-              }
-            />
-          </Field>
-          <SearchFilter value={typed} onChange={setTyped} />
-        </FilterBar>
-        <div className={styles.filterActions}>
+          </FilterBar>
           <Button
             size="sm"
             icon={actionIcons.confirm}

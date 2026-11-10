@@ -137,6 +137,34 @@ export const overlaysArea: Area = {
         ),
     },
     {
+      id: "inbox-history-app",
+      title: "Inbox tab · History app filter",
+      description:
+        "History의 앱 거르기를 연 모양이다. 첫 줄이 All apps이고 앱마다 앞에 앱 icon이 붙는다. 하나를 고르면 닫히고 버튼에도 그 앱 icon과 이름이 보인다. overlay에서 열어도 Inbox는 닫히지 않는다.",
+      render: () =>
+        driven(
+          [
+            () => press('[role="tab"]', /^History/),
+            () => press('[data-filter="select"]'),
+          ],
+          <MockDesktop homeTabs={[INBOX_TAB]} />,
+        ),
+    },
+    {
+      id: "inbox-history-calendar",
+      title: "Inbox tab · History custom range",
+      description:
+        "History의 기간 거르기를 연 모양이다. 왼쪽은 정한 기간 줄, 오른쪽은 직접 기간 달력이다. 달력은 첫 누름이 한쪽 끝, 둘째 누름이 다른 끝이고 둘째에 고르고 닫힌다.",
+      render: () =>
+        driven(
+          [
+            () => press('[role="tab"]', /^History/),
+            () => press('[data-filter="date-range"]'),
+          ],
+          <MockDesktop homeTabs={[INBOX_TAB]} />,
+        ),
+    },
+    {
       id: "inbox-history-period",
       title: "Inbox tab · History period",
       description:

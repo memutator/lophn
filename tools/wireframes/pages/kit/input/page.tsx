@@ -474,7 +474,7 @@ export function KitInput() {
       </Section>
       <Section
         title="orders-filters"
-        note="기간·상태·검색으로 read command의 입력을 만든다."
+        note="기간(DateRangeFilter)·창고 하나(SelectFilter)·상태 여럿(MultiSelectFilter)·검색으로 read command의 입력을 만든다."
       >
         <Example>
           <div className={kit.panel}>

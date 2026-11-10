@@ -1,0 +1,25 @@
+id: inbox-history-filters
+version: 0.23.22
+title: Inbox History 거르기를 kit filter로 바꾸고, 거르기를 열어도 Inbox overlay가 닫히지 않게 한다
+modules: [packages/design, packages/shell/renderer, tools]
+change: |
+  - Inbox overlay에서 History의 기간·앱·project·종류 거르기를 열거나 고르면 overlay가 닫혔다. 거르기 목록은 body에 portal로 뜨는데, overlay 층(Inbox와 Jobs)이 DOM 기준으로 "층 밖 누름"을 봤기 때문이다. 이제 React tree 기준으로 층 안의 누름을 알아 portal 안 누름에 닫히지 않는다. portal 안에서 누른 Esc는 그 목록만 닫고 overlay는 남는다.
+  - History 거르기 줄: 위에 검색 칸, 그 아래 [기간] [앱] [project] [종류] 버튼과 오른쪽 끝 [Mark all read]다. 라벨이 붙은 Select와 라벨 없는 기간 버튼이 섞여 줄이 어긋나던 것을 kit filter 버튼으로 맞췄다. 앱 거르기의 줄과 고른 버튼에 앱 icon이 붙는다. 기간을 안 고른 상태는 "Custom range" 대신 "Any time"이다.
+  - `@lophn/ui` 1.1.0(판 그대로, 더하기만): `SelectFilter`(하나만 고르는 filter 버튼, 첫 줄이 전체, option에 icon)를 더했다. `DateRangeFilter`의 직접 기간이 브라우저 date 입력 대신 kit `Calendar`다(왼쪽 preset, 오른쪽 달력, 두 번 눌러 고르고 닫힘, [Apply] 없음). `value`가 `null`(기간 없음, "Any time")도 받는다.
+  - i18n: `common.label.range-any`, `common.label.range-pick-end`를 더하고, 쓰지 않게 된 `common.label.date-from`·`date-to`, `waiting.label.history-app`·`history-project`·`history-type`을 지웠다.
+  - wireframe: `inbox-history-app`(앱 거르기 연 모양), `inbox-history-calendar`(기간 달력 연 모양)를 더하고 kit의 orders-filters 견본에 SelectFilter를 넣었다.
+why: |
+  사람이 Inbox History의 거르기가 어긋나 보이고, 날짜 고르기가 kit 달력이 아니고, 앱 목록에 icon이 없고, 거르기를 열면 Inbox가 닫힌다고 했다.
+decisions:
+  - text: >-
+      하나만 고르는 거르기는 Select(폼 입력, 보이는 라벨 필수)가 아니라 새 kit `SelectFilter`(filter 버튼과 popover)로 했다. 기간·다중 선택 filter와 같은 모양이라 한 줄에 맞는다. 버린 길: Select의 option에 icon만 더하기(라벨 줄 어긋남이 그대로다).
+    by: agent
+  - text: >-
+      `@lophn/ui`는 판을 올리지 않았다. 1.1.0 메모가 "새 component는 이 판에 더한다"고 정했고 기존 API를 깨지 않는다(DateRangeFilter `value`는 넓히기만 했다).
+    by: agent
+  - text: >-
+      DateRangeFilter 달력은 둘째 누름에 바로 고르고 닫는다(DateRangePicker와 같다). 버린 길: [Apply] 단추 유지(누름 하나가 늘고 두 picker가 다르게 군다).
+    by: agent
+checklist:
+  - Inbox overlay를 열고 History에서 기간·앱·project·종류 거르기를 열고 골라도 overlay가 닫히지 않는지 본다
+  - 앱 거르기 목록과 고른 버튼에 앱 icon이 보이는지 본다

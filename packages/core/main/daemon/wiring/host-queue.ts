@@ -38,6 +38,7 @@ import {
   type HandoffFiles,
   type HarnessHold,
   type HostQueueService,
+  SHELL_LOST,
   SHELL_NOT_ATTACHED,
   type TabOwner,
 } from "../../../host-queue/mod.ts";
@@ -80,6 +81,8 @@ type TabDeps = {
   // 사람이 고른 coding agent 즐겨찾기 harness id(설정 `shell.coding_agents`).
   codingFavorites(): readonly string[];
   handoffs: HandoffFiles;
+  // shell(앱)을 띄운다. 없으면 shell이 없을 때 browser 탭 열기는 SHELL_NOT_ATTACHED로 끝난다(시험, 띄울 길을 모르는 core).
+  launchShell?: () => void;
 };
 
 // agent는 자격의 session으로, 사람은 사람 token으로 부른다. 탭의 주인은 session, 사람 token은 모두 "person"이다.
@@ -275,11 +278,16 @@ export function createTabHandlers(deps: TabDeps) {
       return ok({ tab, status: "accepted" as const });
     }
     // browser 탭은 page가 생겼다는 shell의 답을 기다린다. 사람이 그 workspace를 띄우지 않아도 열린다.
-    if (!queue.attached()) {
-      return err({ code: "unavailable", message: SHELL_NOT_ATTACHED });
+    // shell이 없으면 띄우고 붙을 때까지 기다린다. 창이 없는 것은 shell이 창을 열어 푼다.
+    const starting = !queue.attached();
+    if (starting) {
+      if (deps.launchShell === undefined) {
+        return err({ code: "unavailable", message: SHELL_NOT_ATTACHED });
+      }
+      queue.startShell(deps.launchShell);
     }
     const sent = queue.openAndWait(opening);
-    const opened = await settled(sent.id, sent.result);
+    const opened = await settled(sent.id, sent.result, starting);
     if (!opened.ok) {
       queue.close(sent.tab, caller.value);
       return opened;
@@ -313,15 +321,18 @@ export function createTabHandlers(deps: TabDeps) {
 
   // 기다리는 browser 호출과 browser 탭 열기. core가 멈추기 전에 끝낸다.
   const inflight = new Set<() => void>();
-  // 요청의 결과를 기다리며 기한과 shell이 떨어짐을 1초마다 본다.
+  // 요청의 결과를 기다리며 기한과 shell이 떨어짐을 1초마다 본다. shell을 띄우는 중이면 처음 붙을 때까지는 떨어짐으로 보지 않는다.
   const settled = async (
     id: Id<"hrq">,
     result: Promise<Result<ExtensionToolContent[]>>,
+    starting = false,
   ) => {
     const abandon = () => queue.abandon(id);
     inflight.add(abandon);
+    let waitingShell = starting;
     const watch = setInterval(() => {
-      if (!queue.attached()) abandon();
+      if (queue.attached()) waitingShell = false;
+      if (!waitingShell && !queue.attached()) abandon();
       else queue.expire();
     }, WATCH_MS);
     try {
@@ -350,7 +361,7 @@ export function createTabHandlers(deps: TabDeps) {
       const action = build(input as never, found.value.view);
       if (!action.ok) return action;
       if (!queue.attached()) {
-        return err({ code: "unavailable", message: SHELL_NOT_ATTACHED });
+        return err({ code: "unavailable", message: SHELL_LOST });
       }
       const sent = queue.callBrowser({
         tab: input.tab as Id<"tab">,
@@ -488,6 +499,7 @@ export const hostQueueWiring: WiringFactory = () => {
       });
       queue = made;
       ctx.provide("hostQueue", made);
+      const { launchShell } = ctx.options;
 
       // shell main은 사람 token으로 부른다.
       const shell = (who: AuthenticatedContext): Result<void> =>
@@ -523,6 +535,9 @@ export const hostQueueWiring: WiringFactory = () => {
         codingFavorites: () =>
           ctx.settings.get(codingAgentsSetting)?.favorites ?? [],
         handoffs: fileHandoffs(ctx.root.path),
+        ...(launchShell === undefined
+          ? {}
+          : { launchShell: () => launchShell(ctx.root.path) }),
       });
       tabs = handlers;
 

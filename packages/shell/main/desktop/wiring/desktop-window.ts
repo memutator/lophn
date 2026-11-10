@@ -12,7 +12,12 @@ import { join } from "node:path";
 import { WINDOW_STATE_CHANNEL } from "../../../ipc/window-controls.ts";
 import type { DesktopIntent } from "../../../ipc/shortcuts.ts";
 import { DESKTOP_INTENT_CHANNEL } from "../../../ipc/shortcuts.ts";
-import { capturePaints, reveal, surfaceOptions } from "../headless.ts";
+import {
+  capturePaints,
+  reveal,
+  revealInactive,
+  surfaceOptions,
+} from "../headless.ts";
 import { decideShellNavigation } from "../navigation-guard.ts";
 import { openExternalLink } from "../open-external.ts";
 import { DESKTOP_URL } from "../shell-protocol.ts";
@@ -31,6 +36,8 @@ import type { ShellContext } from "./context.ts";
 /** 영역이 창을 열고 보이게 할 때 쓰는 통로. */
 export type DesktopWindows = {
   open(): BrowserWindow | undefined;
+  /** 일반 창이 있으면 그 창을, 없으면 focus 없이 새 창을 연다. 앱과 저장한 창 자리가 준비된 뒤 돌려준다. */
+  openInactive(): Promise<BrowserWindow | undefined>;
   show(): void;
   send(intent: DesktopIntent): void;
 };
@@ -96,6 +103,17 @@ export function recentWindow(ctx: ShellContext): BrowserWindow | undefined {
     .at(-1);
 }
 
+// browser page(<webview>)는 보이는 창에서만 그려서 agent가 창 없이 browser를 쓰려면 창이 실제로 떠야 한다. 사람이 하던
+// 일을 끊지 않게 focus는 가져오지 않고, 숨기거나 최소화하지 않는다. 앱이 준비되기 전에는 BrowserWindow를 만들 수 없다.
+export async function openInactiveWindow(
+  ctx: ShellContext,
+): Promise<BrowserWindow | undefined> {
+  await Promise.all([app.whenReady(), ctx.windowState.load()]);
+  return (
+    recentWindow(ctx) ?? openDesktopWindow(ctx, undefined, { inactive: true })
+  );
+}
+
 /** 가장 최근 창을 앞으로 가져온다. 창이 없으면 새 기본 창을 연다. */
 export function showDesktopWindow(ctx: ShellContext): void {
   const recent = recentWindow(ctx);
@@ -120,6 +138,8 @@ export interface DesktopWindowStart {
 export function openDesktopWindow(
   ctx: ShellContext,
   start?: DesktopWindowStart,
+  // 보이되 focus를 가져오지 않는다(`showInactive`). 저장한 자리가 있든 없든 숨긴 채 만들어 ready-to-show에서 보인다.
+  options: { inactive?: boolean } = {},
 ): BrowserWindow | undefined {
   const { here, headless, windows, overlays } = ctx;
   // detached 창은 layout이 탭마다 자리를 갖는다. 앱 전체의 마지막 자리는 desktop 창만 쓰고 고친다.
@@ -140,7 +160,7 @@ export function openDesktopWindow(
     // `app:<id>`는 그 앱 공간부터 연다.
     ...(bounds ? { bounds } : {}),
     // 저장한 자리로 여는 창은 숨긴 채 만들고 크기를 맞춘 뒤 보인다(`rememberWorkspace`).
-    ...(workspace ? { show: false } : {}),
+    ...(workspace || options.inactive ? { show: false } : {}),
     ...(start?.title === undefined ? {} : { title: start.title }),
     detached: start === undefined ? false : start.detached !== false,
     url:
@@ -216,7 +236,9 @@ export function openDesktopWindow(
         windows.add(window);
         created = window;
         for (const reaction of ctx.windowHooks.created) reaction(window);
-        if (start === undefined) rememberWorkspace(ctx, window, workspace);
+        if (start === undefined) {
+          rememberWorkspace(ctx, window, workspace, options.inactive === true);
+        }
         const contentsId = window.webContents.id;
         const ref = ctx.windowRef(window);
         window.on("closed", () => {
@@ -255,16 +277,21 @@ function rememberWorkspace(
   ctx: ShellContext,
   window: BrowserWindow,
   workspace: { bounds: WindowBounds; maximized: boolean } | undefined,
+  inactive: boolean,
 ): void {
-  if (workspace !== undefined) {
+  if (workspace !== undefined || inactive) {
     // Wayland(KWin)에서는 Electron이 창이 뜰 모니터를 몰라 만들 때 크기를 primary 모니터 안으로 자르고, 보인 뒤
     // 바꾼 크기도 받지 않는다. 숨긴 채 만든 창에 저장한 크기를 다시 건 뒤 보이면 그 크기로 뜬다(KWin에서 확인).
     // 자리(x·y)는 Wayland에서 compositor가 정한다. X11·macOS·Windows는 만들 때의 크기·자리가 이미 맞다.
     window.once("ready-to-show", () => {
       if (window.isDestroyed()) return;
-      window.setSize(workspace.bounds.width, workspace.bounds.height);
-      if (workspace.maximized) window.maximize();
-      reveal(window, ctx.headless);
+      if (workspace !== undefined) {
+        window.setSize(workspace.bounds.width, workspace.bounds.height);
+        // maximize()는 Windows에서 focus를 가져가므로 focus 없는 창은 저장한 일반 크기로 둔다.
+        if (workspace.maximized && !inactive) window.maximize();
+      }
+      if (inactive) revealInactive(window, ctx.headless);
+      else reveal(window, ctx.headless);
     });
   }
   let timer: NodeJS.Timeout | undefined;

@@ -23,6 +23,7 @@ import { connectCore } from "./core.ts";
 import {
   type DesktopWindows,
   openDesktopWindow,
+  openInactiveWindow,
   sendIntent,
   showDesktopWindow,
 } from "./desktop-window.ts";
@@ -198,6 +199,7 @@ export function createShellContext(): ShellContext {
     },
     desktop: {
       open: () => openDesktopWindow(ctx),
+      openInactive: () => openInactiveWindow(ctx),
       show: () => showDesktopWindow(ctx),
       send: (intent) => sendIntent(ctx, intent),
     },

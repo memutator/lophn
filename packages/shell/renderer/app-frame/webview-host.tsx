@@ -153,6 +153,8 @@ export interface WebviewHost {
   shownAt(key: string): number;
   /** agent가 연 browser 탭의 page인가. */
   isAgentPage(key: string): boolean;
+  /** guest가 붙었는가. 붙지 못한 page는 상한을 셀 때 세지 않고 다른 page를 밀어내지도 않는다. */
+  isBound(key: string): boolean;
   /** 그 화면을 방금 썼다. 오래 안 쓴 것부터 놓는 순서에 센다. */
   touch(key: string): void;
   keys(): readonly string[];
@@ -623,6 +625,7 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
     },
     shownAt: (key) => entries.get(key)?.shownAt ?? 0,
     isAgentPage: (key) => entries.get(key)?.agent ?? false,
+    isBound: (key) => entries.get(key)?.session != null,
     touch(key) {
       const entry = entries.get(key);
       if (entry !== undefined) entry.shownAt = now();

@@ -71,6 +71,8 @@ export type CoreOptions = {
   random?: RandomSource;
   // 없으면 process env(LOPHN_TELEMETRY 등)로 만들고 stderr에 쓴다.
   telemetry?: Telemetry;
+  // shell(앱)을 data root로 띄운다. browser가 필요한데 shell이 없을 때만 부른다. 없으면 core는 shell을 띄우지 않는다.
+  launchShell?: (dataRoot: string) => void;
 };
 
 type Core = {

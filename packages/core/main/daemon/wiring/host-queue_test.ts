@@ -36,7 +36,11 @@ const person = {
   conditions: {},
 } as unknown as AuthenticatedContext;
 
-function setup(running: boolean, root = "/nonexistent") {
+function setup(
+  running: boolean,
+  root = "/nonexistent",
+  launchShell?: () => void,
+) {
   const clock = manualClock(1_700_000_000_000);
   const queue = createHostQueue({
     clock,
@@ -55,6 +59,7 @@ function setup(running: boolean, root = "/nonexistent") {
     // pi는 즐겨찾기지만 TUI 첫 prompt 인자가 없다. cursor는 있어도 즐겨찾기가 아니다.
     codingFavorites: () => ["claude", "pi"],
     handoffs: fileHandoffs(root),
+    ...(launchShell === undefined ? {} : { launchShell }),
   });
   return { clock, queue, ...handlers };
 }
@@ -125,6 +130,54 @@ test("browser tab open은 workspace를 띄운 창 없이도 shell에 가고, 기
     content: [{ type: "text", text: "bound" }],
   });
   assert.equal(code(await quick), "ok");
+});
+
+// shell이 없을 때 browser 탭 열기가 shell을 띄운다. 깨지면 job이 browser를 못 쓰거나, 열기마다 앱이 여러 개 뜨거나, 띄울 이유가 없는
+// 호출(tool, preview)이 사람 장치에서 앱을 띄운다.
+test("shell이 없으면 browser tab open이 shell을 한 번만 띄우고 붙어 page가 bind되면 성공한다", async () => {
+  let launches = 0;
+  const { queue, open } = setup(true, "/nonexistent", () => launches++);
+  const first = open(agent(1), browser);
+  const second = open(agent(1), browser);
+  assert.equal(launches, 1);
+  const bound = { content: [{ type: "text" as const, text: "bound" }] };
+  for (let n = 0; n < 2; n++) {
+    queue.done(queue.take([])!.id as never, "done", bound);
+  }
+  assert.equal(code(await first), "ok");
+  assert.equal(code(await second), "ok");
+  assert.equal(launches, 1);
+  // preview·artifact 탭은 shell이 없어도 띄우지 않는다.
+  const none = setup(true, "/nonexistent", () => launches++);
+  assert.equal(code(await none.open(person, target)), "ok");
+  assert.equal(launches, 1);
+});
+
+test("shell이 30초 안에 붙지 않으면 unavailable이고 탭이 남지 않으며, 띄울 길이 없으면 바로 unavailable이다", async () => {
+  let launches = 0;
+  const { clock, queue, open } = setup(true, "/nonexistent", () => launches++);
+  const waiting = open(agent(1), browser);
+  clock.advance(30_001);
+  queue.expire();
+  const reply = await waiting;
+  assert.equal(code(reply), "unavailable");
+  assert.match(message(reply), /could not be started/);
+  // 열던 탭은 닫기만 남고 열기 요청은 거둬졌다.
+  assert.equal(queue.take([])?.kind, "tab_close");
+  assert.equal(queue.take([]), null);
+  // 앞선 시도가 끝났으니 다음 열기는 다시 띄운다.
+  clock.advance(10_000);
+  const again = open(agent(1), browser);
+  assert.equal(launches, 2);
+  queue.done(queue.take([])!.id as never, "done", {
+    content: [{ type: "text", text: "bound" }],
+  });
+  assert.equal(code(await again), "ok");
+
+  const without = setup(true);
+  const refused = await without.open(agent(1), browser);
+  assert.equal(code(refused), "unavailable");
+  assert.match(message(refused), /not connected/);
 });
 
 // 남의 탭을 보거나 조작하면 다른 session의 로그인 page를 읽는다. 주인 대조가 shell 가용 판정보다 앞서야 not_found가 먼저 나간다.

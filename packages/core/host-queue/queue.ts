@@ -24,7 +24,9 @@ import {
 const ATTACHED_MS = 3_000;
 const BORROW_MS = 10_000;
 // browser 탭을 열 때 shell이 page를 만들었다고 알릴 때까지 기다리는 기한이다. 넘으면 거두고 `unavailable`이다.
+// shell이 없어 띄워야 했던 열기는 앱 시작과 창 열기까지 걸려 START_WAIT_MS 하나로 끝낸다. 한 번 띄운 뒤 그 시간 안에는 다시 띄우지 않는다.
 const OPEN_WAIT_MS = 10_000;
+const START_WAIT_MS = 30_000;
 // shell이 없을 때 agent가 되풀이해도 메모리가 끝없이 늘지 않게 한다.
 const PENDING_MAX = 200;
 
@@ -69,13 +71,15 @@ export type HostQueue = {
   // 탭 표에 올리고 tab_open 요청을 넣는다. 그 앱의 preview 탭이나 그 artifact의 탭이 이미 있으면 새로 만들지 않고 그 탭의 주인만 바꿔
   // 돌려준다(preview에 기기가 있으면 같은 탭 id로 tab_open을 다시 넣는다).
   openTab(input: OpenInput): Id<"tab">;
-  // browser 탭을 열고 shell이 page를 만들었다고 done으로 답할 때까지 기다린다. OPEN_WAIT_MS 안에 답이 없으면 `expire()`가 거두고
-  // `unavailable`로 끝낸다. 탭은 표에 올라가 있으므로 실패하면 부른 쪽이 `close()`로 거둔다.
+  // browser 탭을 열고 shell이 page를 만들었다고 done으로 답할 때까지 기다린다. shell이 붙어 있으면 OPEN_WAIT_MS, 아니면 START_WAIT_MS
+  // 안에 답이 없을 때 `expire()`가 거두고 `unavailable`로 끝낸다. 탭은 표에 올라가 있으므로 실패하면 부른 쪽이 `close()`로 거둔다.
   openAndWait(input: OpenInput): {
     tab: Id<"tab">;
     id: Id<"hrq">;
     result: Promise<CallResult>;
   };
+  // shell이 붙어 있지 않을 때만 `launch`를 부른다. 띄운 뒤 shell이 붙거나 START_WAIT_MS가 지나기 전에는 다시 부르지 않는다.
+  startShell(launch: () => void): void;
   // 아직 쓰지 않은 탭 id다. file을 먼저 쓰고 `openTab({tab})`으로 여는 쪽이 받는다.
   newTabId(): Id<"tab">;
   // 기다리는 take가 있거나 마지막 take가 끝난 지 3초 안이다.
@@ -117,8 +121,13 @@ const NO_RESULT =
   "The lophn app returned no result for this call. Try once more; if it fails again, tell the person.";
 const TIMED_OUT =
   "The browser call timed out before the lophn app answered; the page may be busy or the app stuck. Try once more; if it times out again, tell the person.";
-export const OPEN_TIMED_OUT =
-  "The browser page did not start loading within 10 seconds (the site may be slow or not answering), so the tab was not opened. Try `lophn tab open` once more; if it fails again, tell the person.";
+const OPEN_TIMED_OUT =
+  "The browser page did not start loading in time (the site may be slow or not answering), so the tab was not opened. Try `lophn tab open` once more; if it fails again, tell the person.";
+const SHELL_START_FAILED =
+  "The lophn app could not be started, so there is no browser to use. Retrying may help once; if it fails again, tell the person.";
+// 이미 연 탭에 부른 browser 호출이나 열던 중 shell이 떨어졌을 때다. 다시 열면 shell을 띄운다.
+export const SHELL_LOST =
+  "The lophn app is not connected, so this tab has no page. Open the page again with `lophn tab open --url`; if that fails, tell the person.";
 // 없는 탭, 닫힌 탭, 남의 탭에 같은 문장을 써서 남의 탭이 있는지 새지 않게 한다.
 const NO_SUCH_TAB =
   "No such tab, or it was closed. Open the page again with `lophn tab open`, then use the new tab id.";
@@ -132,8 +141,8 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     {
       resolve: (result: CallResult) => void;
       deadline: number | null;
-      // 기한이 지났을 때 부른 쪽이 받는 문장.
-      timedOut: string;
+      // 기한이 지났을 때 부른 쪽이 받는 문장. 그때의 shell 상태를 본다.
+      timedOut: () => string;
     }
   >();
   // 요청을 기다리며 걸려 있는 take.
@@ -142,6 +151,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     finish(request: HostRequest | null): void;
   }>();
   let lastTakeMs: number | null = null;
+  let launchedAt: number | null = null;
 
   function settle(id: Id<"hrq">, result: CallResult) {
     const found = waiting.get(id);
@@ -172,7 +182,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
   function call(
     request: HostRequest,
     deadline: number | null,
-    timedOut = TIMED_OUT,
+    timedOut = () => TIMED_OUT,
   ): { id: Id<"hrq">; result: Promise<CallResult> } {
     const result = new Promise<CallResult>((resolve) => {
       waiting.set(request.id as Id<"hrq">, { resolve, deadline, timedOut });
@@ -181,14 +191,19 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     return { id: request.id as Id<"hrq">, result };
   }
 
-  function abandon(id: Id<"hrq">, message = SHELL_NOT_ATTACHED) {
+  function abandon(id: Id<"hrq">, message = SHELL_LOST) {
     const at = pending.findIndex((entry) => entry.request.id === id);
     if (at >= 0) pending.splice(at, 1);
     settle(id, unavailable(message));
   }
 
+  const attached = () =>
+    takers.size > 0 ||
+    (lastTakeMs !== null && deps.clock.nowMs() - lastTakeMs <= ATTACHED_MS);
+
   function take(workspaces: readonly HostWorkspace[]): HostRequest | null {
     lastTakeMs = deps.clock.nowMs();
+    launchedAt = null;
     return lend(workspaces);
   }
 
@@ -263,7 +278,12 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
         enqueue(request);
         return null;
       }
-      return call(request, deps.clock.nowMs() + OPEN_WAIT_MS, OPEN_TIMED_OUT);
+      // 기한 끝에 shell이 붙어 있지 않으면 띄우지 못한 것이고, 붙어 있으면 page가 안 생긴 것이다.
+      return call(
+        request,
+        deps.clock.nowMs() + (attached() ? OPEN_WAIT_MS : START_WAIT_MS),
+        () => (attached() ? OPEN_TIMED_OUT : SHELL_START_FAILED),
+      );
     };
     if (single !== null) {
       for (const [id, entry] of tabs) {
@@ -343,7 +363,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       const now = deps.clock.nowMs();
       for (const [id, found] of [...waiting]) {
         if (found.deadline !== null && found.deadline <= now) {
-          abandon(id, found.timedOut);
+          abandon(id, found.timedOut());
         }
       }
     },
@@ -356,9 +376,18 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
         ? err({ code: "not_found" as const, message: NO_SUCH_TAB })
         : ok({ view: kind });
     },
-    attached: () =>
-      takers.size > 0 ||
-      (lastTakeMs !== null && deps.clock.nowMs() - lastTakeMs <= ATTACHED_MS),
+    attached,
+    startShell(launch: () => void): void {
+      const now = deps.clock.nowMs();
+      if (
+        attached() ||
+        (launchedAt !== null && now - launchedAt < START_WAIT_MS)
+      ) {
+        return;
+      }
+      launchedAt = now;
+      launch();
+    },
     // 있으면 바로, 없으면 요청이 들어올 때까지 기다리다 HOST_TAKE_WAIT_MS 뒤 null이다. 기다리는 동안 attached다.
     wait(workspaces: readonly HostWorkspace[]): Promise<HostRequest | null> {
       const found = take(workspaces);

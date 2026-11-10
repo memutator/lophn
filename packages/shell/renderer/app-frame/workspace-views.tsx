@@ -137,15 +137,19 @@ export function createWorkspaceViews(
   }
 
   // agent가 연 page는 따로 센다: 사람이 켠 Keep alive 상한에 밀려 agent의 page가 사라지면 안 된다.
+  // guest가 붙은 page만 센다: 느린 site의 page는 열기가 시간 초과로 끝나 어차피 놓이므로, 그 page 때문에 멀쩡한 탭을 놓지 않는다.
+  // 붙지 못한 page가 나중에 붙으면 그때 다시 센다.
   function enforceCap(): void {
     const all = [...pools].flatMap(([workspace, pool]) =>
-      [...pool.parked].map((key) => ({
-        workspace,
-        pool,
-        key,
-        agent: pool.webviews.isAgentPage(key),
-        at: pool.webviews.shownAt(key),
-      })),
+      [...pool.parked]
+        .filter((key) => pool.webviews.isBound(key))
+        .map((key) => ({
+          workspace,
+          pool,
+          key,
+          agent: pool.webviews.isAgentPage(key),
+          at: pool.webviews.shownAt(key),
+        })),
     );
     all.sort((a, b) => a.at - b.at);
     for (const agent of [false, true]) {
@@ -188,6 +192,10 @@ export function createWorkspaceViews(
             if (!pool.parked.has(key)) keeps.release(key);
           }
           if (pool.parked.size === 0) pools.delete(workspace);
+          for (const key of pool.parked) {
+            if (pool.webviews.isBound(key) || pool.offBind.has(key)) continue;
+            pool.offBind.set(key, pool.webviews.onSession(key, enforceCap));
+          }
           enforceCap();
         });
       },
@@ -240,11 +248,11 @@ export function createWorkspaceViews(
       pool.parked.add(key);
       pool.offBind.set(
         key,
-        pool.webviews.onSession(key, (session) =>
-          hooks.bound(placement.tab, session),
-        ),
+        pool.webviews.onSession(key, (session) => {
+          hooks.bound(placement.tab, session);
+          enforceCap();
+        }),
       );
-      enforceCap();
     },
     hostGone(workspace, key, layout) {
       const pool = pools.get(workspace);

@@ -258,6 +258,7 @@ export function register(
     dataRoot,
     onOpenWindow: () => desktop.open(),
     onOpenApp: (app) => openIntent({ kind: "app", app }),
+    onAgentWindow: () => void desktop.openInactive(),
     onQuitIntent: () =>
       requestQuit({
         windows: { hasWindows: () => BrowserWindow.getAllWindows().length > 0 },
@@ -384,9 +385,10 @@ export function register(
         log,
       });
       // core만 띄우는 시작(`--core`)은 여기 오기 전에 끝난다. 첫 시작의 `--open-app`은
-      // 기본 창 대신 앱 전용 창을 연다.
+      // 기본 창 대신 앱 전용 창을, `--agent-window`는 focus 없는 창을 연다.
       const start = readOpenIntent(process.argv);
       if (start.kind === "app") openIntent(start);
+      else if (start.kind === "agent-window") void desktop.openInactive();
       else desktop.open();
     });
   }

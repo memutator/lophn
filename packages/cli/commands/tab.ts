@@ -1,5 +1,5 @@
 // `lophn tab open|close|show`: lophn agent session이나 사람 token이 shell에 탭을 열고 자기가 연 탭을 닫는다. 사람 token은
-// --url, --preview, --artifact 탭만 연다(core가 거절). core는 접수만 답한다(탭은 shell이 그 workspace를 보이는 창에서 연다). --url은 어느 창이든 page가 붙을 때까지 기다린다.
+// --url, --preview, --artifact 탭만 연다(core가 거절). core는 접수만 답한다(탭은 shell이 그 workspace를 보이는 창에서 연다). --url은 어느 창이든 page가 붙을 때까지 기다리고, 창이나 shell이 없으면 띄운다.
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
@@ -57,7 +57,7 @@ const open = defineCommand({
     "--coding <harness> --handoff <text> opens a terminal tab in this project and starts that coding agent's TUI (a harness id from Settings > Coding agents favorites, such as claude, codex or opencode) with <text> as its first prompt (give both; at most 64 KiB; project workspaces only, else invalid_input; an unknown or non-favorite harness is invalid_input and the message lists the usable ids). " +
     "Use it for work the person will pick up or debug together (a handoff). Write <text> like a note for an agent that knows nothing yet: the goal, what is known so far, the next steps. The text is saved to a file and only that file's path reaches the terminal. For one-off work that needs no person, send it headless with `lophn team spawn <handle>` instead. " +
     "Returns the tab ID with status accepted, and an opened tab never takes focus from what the person is looking at. " +
-    "A --url page is created in a lophn window even when no window shows this workspace, and the call returns once the page exists (it waits up to 10 seconds; unavailable means no page was made and the message says what to do). The page stays alive while that window is open, at most 12 such pages per window; a page that is dropped or whose window closes takes its tab with it, so open it again. " +
+    "A --url page is created in a lophn window even when no window shows this workspace, and the call returns once the page exists (unavailable means no page was made and the message says what to do). If no lophn window is open, lophn opens one without taking focus; if the lophn app is not running, lophn starts it first (the wait is then up to 30 seconds, otherwise up to 10). That window stays open until the person closes it. The page stays alive while that window is open, at most 12 such pages per window; a page that is dropped or whose window closes takes its tab with it, so open it again. " +
     "Every other target opens when the shell shows this workspace. " +
     "Close only tabs you opened (tab close). Look at and drive a browser, preview or artifact tab you opened with browser snapshot, browser screenshot and browser act.",
   input: z.strictObject({

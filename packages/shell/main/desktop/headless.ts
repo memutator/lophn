@@ -59,6 +59,15 @@ export function reveal(window: Revealable, mode: HeadlessMode): void {
   window.focus();
 }
 
+/** 창을 focus 없이 보인다. 이미 보이는 창은 앞으로 오지 않는다. headless면 아무것도 하지 않는다. */
+export function revealInactive(
+  window: { showInactive(): void },
+  mode: HeadlessMode,
+): void {
+  if (mode.headless) return;
+  window.showInactive();
+}
+
 /** focus만 옮기는 자리. headless면 아무것도 하지 않는다. */
 export function focusSurface(
   target: { focus(): void },

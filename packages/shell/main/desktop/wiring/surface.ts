@@ -1,5 +1,5 @@
 // core의 host queue를 가져와 그 workspace를 보이는 창에 push한다(agent가 연 탭). 단 browser 탭(`--url`)은 그 workspace를 보이는 창이
-// 없으면 가장 최근 일반 창이 page를 만들어 두고, page가 붙을 때(bind) core에 답한다. core가 시킬 일을 담는 queue는
+// 없으면 가장 최근 일반 창이 page를 만들어 두고(일반 창이 하나도 없으면 focus 없이 하나 연다), page가 붙을 때(bind) core에 답한다. core가 시킬 일을 담는 queue는
 // 메모리에 있고(`protocol/lophn-agent/host-queue.ts`), 여기가 `host/take`를 쉬지 않고 이어 불러(long-poll) 가져간다. 창을 앞으로 가져오거나
 // focus하지 않는다(알림의 `reveal()`과 다르다): agent가 연 탭은 사람이 하던 일을 끊지 않는다.
 // `browser_call`은 browser·preview·artifact 탭의 page에 CDP로 돌린다(browser/agent/). 창이 탭의 view session을 bind로 알리고,
@@ -46,9 +46,9 @@ import type { ExtensionTools } from "./extensions.ts";
 const RETRY_MS = 1000;
 // 창이 탭을 열고 ack하는 기한이다. 넘으면 retry로 되돌려 RETRY_MS 뒤 다시 보낸다.
 const ACK_TIMEOUT_MS = 1500;
-// 열린 창이 하나도 없어 browser 탭을 못 열 때 agent가 받는 문장이다(원인, 다음 할 일, 되풀이가 통하는지).
+// 창이 없어 browser 탭 열기가 새로 연 창마저 만들지 못했을 때 agent가 받는 문장이다(원인, 다음 할 일, 되풀이가 통하는지).
 const NO_WINDOW =
-  "No lophn window is open, so the browser page cannot be created. Retrying does not help until a person opens a lophn window; tell the person.";
+  "No lophn window could be opened, so the browser page cannot be created. Retrying may help once; if it fails again, tell the person.";
 // page가 붙었다(bind)고 core의 browser 탭 열기에 답하는 결과다.
 const BIND_OK = { content: [{ type: "text", text: "opened" }] };
 // page를 둘 창이 열기에 답하기 전에 닫혔다.
@@ -392,10 +392,15 @@ export function register(
         request.kind === "tab_open" &&
         "browser" in (request.payload.target ?? {});
       const { tab } = request.payload;
-      const target = windowFor(request);
+      // page를 둘 창이 하나도 없으면 focus 없이 하나 연다. 창이 아직 받을 준비가 안 됐으면 아래 ack 기한과 retry가 기다린다.
+      const target =
+        windowFor(request) ??
+        (browserOpen
+          ? await ctx.desktop.openInactive().catch(() => undefined)
+          : undefined);
       if (target === undefined) {
         if (browserOpen) {
-          // page를 둘 창이 하나도 없다. core가 기다리지 않고 이유를 agent에게 돌려주게 한다.
+          // 창을 만들지 못했다. core가 기다리지 않고 이유를 agent에게 돌려주게 한다.
           void done(request.id, {
             error: { code: "unavailable", message: NO_WINDOW },
           });

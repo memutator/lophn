@@ -1,8 +1,14 @@
-// 창 없는 시작 intent. 로그인 자동 시작은 `--core`로 core만 ensure하고 끝난다.
-// argv에서 읽는 것은 `--core`뿐이고 나머지 값은 실행 권한으로 해석하지 않는다.
+// 시작 intent. 로그인 자동 시작은 `--core`로 core만 ensure하고 끝난다. `--agent-window`는 창만 다르다(아래).
+// 이 모듈이 argv에서 읽는 것은 `--core`뿐이고 나머지 값은 실행 권한으로 해석하지 않는다.
 
 /** launcher가 첫 argv에 core만 띄우는 시작을 요청할 때 쓰는 실행 intent. */
 export const CORE_INTENT = "--core";
+
+/**
+ * core가 browser를 쓰려고 shell을 띄울 때 쓰는 실행 intent. 앱은 평소처럼 서고 첫 창을 focus 없이 연다.
+ * 이미 떠 있는 앱에는 창이 하나도 없을 때만 창 하나를 같은 모양으로 연다(open-intent.ts, single-instance.ts).
+ */
+export const AGENT_WINDOW_INTENT = "--agent-window";
 
 type LaunchMode = {
   /** true면 창·tray·terminal-host·extension을 조립하지 않고 core만 ensure한다. */

@@ -1,7 +1,9 @@
+import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { startFailureReason } from "../../storage/migration/mod.ts";
 import { TEAM_MODULES, TEAMS, WIRINGS } from "./assembly.ts";
 import { startCore } from "./core.ts";
+import { createShellLauncher } from "./shell-launcher.ts";
 
 // core에는 시작 모드가 하나뿐이다. stdin을 수명 신호로 읽지 않고, stdout 첫 JSON 줄로만
 // 시작 결과(ready 또는 start_failed)를 알린다. 종료는 control stop·idle-exit·SIGINT/SIGTERM이
@@ -17,6 +19,11 @@ const started = await startCore({
   teams: TEAMS,
   teamModules: TEAM_MODULES,
   wirings: WIRINGS,
+  launchShell: createShellLauncher({
+    platformRoot: fileURLToPath(new URL("../../../..", import.meta.url)),
+    execPath: process.execPath,
+    env: process.env,
+  }),
 });
 if (!started.ok) {
   // core의 logger는 기동 실패 전에 만들어졌어도 여기서는 손에 없다. 같은 모양의 줄을 직접 쓴다.

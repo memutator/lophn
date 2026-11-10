@@ -131,14 +131,14 @@ const scrollTo =
   async () =>
     (await find(selector)).scrollIntoView({ block });
 
-/** bare agent의 설정. runtime이 bare라 Tools 칸에서 tool을 체크로 고르고 skill도 고른 것만 받는다. skill 하나를 더 골랐다. */
-export const AgentEditorBarePage = () =>
+/** custom agent의 설정. runtime이 custom이라 Tools 칸에서 tool을 체크로 고르고 skill도 고른 것만 받는다. skill 하나를 더 골랐다. */
+export const AgentEditorCustomPage = () =>
   editor(QUEUE_WATCHER_ID, [
     tab("agents.label.tab-skills"),
     () => click(`[data-skill="plain-writing"] [role=switch]`),
   ]);
 
-/** bare agent의 Tools 탭. 내장 tool을 체크로 고르고 lophn 명령·앱 command·MCP tool은 이름을 적어 더한다. 아래에 MCP servers와 Shell extensions가 이어진다. */
+/** custom agent의 Tools 탭. 내장 tool을 체크로 고르고 lophn 명령·앱 command·MCP tool은 이름을 적어 더한다. 아래에 MCP servers와 Shell extensions가 이어진다. */
 export const AgentToolsTabPage = () =>
   editor(QUEUE_WATCHER_ID, [tab("agents.label.tab-tools")]);
 

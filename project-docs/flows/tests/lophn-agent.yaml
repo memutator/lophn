@@ -2,7 +2,7 @@ group: lophn-agent
 files:
   - path: packages/core/lophn-agent/agents/commands_test.ts
     covers: [agent-create:created, agent-create:invalid-definition, agent-create:human-only-field, agent-change:hash-changed, agent-change:handle-changed, agent-change:human-only-field, agent-change:lophn-profile, agent-delete:lophn-cannot-delete]
-    note: "lophn 고정 칸, handle 중복과 변경 거절, 옛 hash 충돌, bare tool 이름 검사, agent가 만든 agent의 범위"
+    note: "lophn 고정 칸, handle 중복과 변경 거절, 옛 hash 충돌, custom tool 이름 검사, agent가 만든 agent의 범위"
 
   - path: packages/core/lophn-agent/agents/definition-file_test.ts
     covers: []
@@ -11,6 +11,10 @@ files:
   - path: packages/core/lophn-agent/agents/handle-step_test.ts
     covers: [agent-definition-data-steps:migrated, agent-definition-data-steps:untouched]
     note: "옛 name을 handle로 옮기는 data step. 다른 칸·본문·이미 옮긴 file은 그대로이고 다시 돌려도 같다"
+
+  - path: packages/core/lophn-agent/agents/runtime-custom-step_test.ts
+    covers: [agent-definition-data-steps:migrated, agent-definition-data-steps:untouched]
+    note: "runtime: bare를 custom으로 옮기는 data step. 본문 줄과 다른 runtime의 file은 그대로이고 다시 돌려도 같다"
 
   - path: packages/core/lophn-agent/agents/reads_test.ts
     covers: [agent-definition-read:ok]
@@ -21,8 +25,8 @@ files:
     note: "내장 coding agent는 harness가 켜지고 즐겨찾기일 때만 보이고 handle로 풀린다. 고정 칸 변경·지우기·예약 handle 생성은 거절"
 
   - path: packages/core/lophn-agent/agents/resolve_test.ts
-    covers: [tool-list-assembly:bare-narrowed]
-    note: "bare의 고른 tool과 skill(picks, skills)을 정하는 순수 함수. 종류별 tool 목록은 그대로"
+    covers: [tool-list-assembly:custom-narrowed]
+    note: "custom의 고른 tool과 skill(picks, skills)을 정하는 순수 함수. 종류별 tool 목록은 그대로"
 
   - path: packages/core/lophn-agent/agents/skills-off-step_test.ts
     covers: [agent-definition-data-steps:migrated]

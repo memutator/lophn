@@ -25,25 +25,29 @@ const resolve = (definition: AgentFileDefinition) =>
     tools: TOOLS,
   });
 
-test("bare는 고른 tool 이름을 picks로, 고른 skill만 skills로 갖는다. workspace 종류 tool 목록은 그대로다", async () => {
-  const bare = await resolve({
+test("custom은 고른 tool 이름을 picks로, 고른 skill만 skills로 갖는다. workspace 종류 tool 목록은 그대로다", async () => {
+  const custom = await resolve({
     handle: "reviewer",
     name: "reviewer",
     body: "review",
-    runtime: "bare",
+    runtime: "custom",
     tools: ["file.read", "call.reply", "mcp__x__y"],
   });
-  assert.ok(bare.ok);
-  assert.equal(bare.value.runtime, "bare");
-  assert.deepEqual(bare.value.picks, ["file.read", "call.reply", "mcp__x__y"]);
-  assert.deepEqual(bare.value.skills, []);
-  assert.deepEqual(bare.value.tools, TOOLS);
+  assert.ok(custom.ok);
+  assert.equal(custom.value.runtime, "custom");
+  assert.deepEqual(custom.value.picks, [
+    "file.read",
+    "call.reply",
+    "mcp__x__y",
+  ]);
+  assert.deepEqual(custom.value.skills, []);
+  assert.deepEqual(custom.value.tools, TOOLS);
 
   const withSkill = await resolve({
     handle: "reviewer",
     name: "reviewer",
     body: "review",
-    runtime: "bare",
+    runtime: "custom",
     tools: ["file.read"],
     skills: ["s", "missing"],
   });

@@ -22,7 +22,7 @@ const USAGE =
 // 지금 부를 수 있는 앱 command다. 부를 때마다 읽는다(`apps`가 지금 할당, 활성 release 선언, 비공개 규칙으로 정한다).
 export type AppCommandLookup = () => Promise<readonly AppCommandEntry[]>;
 
-// commands는 도움말이 보여 줄 명령이다. 없으면 그 workspace 종류의 명령 전부이고, bare는 고른 것만 넘긴다.
+// commands는 도움말이 보여 줄 명령이다. 없으면 그 workspace 종류의 명령 전부이고, custom은 고른 것만 넘긴다.
 function lophnHandler(
   apps?: AppCommandLookup,
   only?: readonly CommandDoc[],
@@ -72,7 +72,7 @@ export function withApps(
 }
 
 // 설명 끝에 그 workspace 종류가 부를 수 있는 명령을 이름순으로 싣는다. 같은 workspace 종류면 늘 같은 bytes다(cache).
-// bare는 고른 명령만 넘긴다(`only`).
+// custom은 고른 명령만 넘긴다(`only`).
 export function describeLophn(
   tool: ToolDefinition,
   kind: WorkspaceKind,

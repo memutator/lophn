@@ -1,6 +1,6 @@
 import type { WorkspaceKind } from "./workspaces.ts";
 
-// workspace 종류가 보는 내장 tool의 이름 목록이다. 정의는 각 tool file이 갖는다. 편집 화면의 bare tool 고르기도 같은 목록을 쓴다.
+// workspace 종류가 보는 내장 tool의 이름 목록이다. 정의는 각 tool file이 갖는다. 편집 화면의 custom tool 고르기도 같은 목록을 쓴다.
 
 export const COMMON_TOOLS = [
   "file.read",

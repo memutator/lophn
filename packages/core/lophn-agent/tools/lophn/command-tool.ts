@@ -89,7 +89,7 @@ function commandTool(command: Command): ToolDefinition {
   };
 }
 
-// 그 workspace 종류가 부를 수 있는 명령의 정의다. loop가 session의 `listed`에 더한다. bare는 고른 이름(`only`)만 낸다.
+// 그 workspace 종류가 부를 수 있는 명령의 정의다. loop가 session의 `listed`에 더한다. custom은 고른 이름(`only`)만 낸다.
 export function commandTools(
   kind: WorkspaceKind,
   only?: ReadonlySet<string>,

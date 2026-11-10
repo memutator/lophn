@@ -41,7 +41,7 @@ Package를 쓴다.
 - 앱 화면에서 agent와 이야기할 때는 `@lophn/agent`다(`useAgentSession`, `contextBlock`,
   `send(blocks, {reply})`). 직접 통로를 만들거나 agent에게 닿으려고 operation·command를
   더하지 않는다. `agent`는 handle이다. 앱 안의 상대·코치·검토자는 먼저 이 앱 workspace에서
-  `lophn agent create <handle>`로 bare agent(지침만 싣고 `tools: []`)를 만들고 그 handle을
+  `lophn agent create <handle>`로 custom agent(지침만 싣고 `tools: []`)를 만들고 그 handle을
   준다. lophn 기본 agent를 쓰지 않는다. 절차는 `design-app` skill의 "앱 안 agent"다.
   화면의 context는 `contextBlock`으로 싸 보내고, 값이 필요하면 `reply`에 JSON schema를 준다.
   session은 첫 `send`에서 열린다(화면을 연 것만으로는 열리지 않는다). 판·검토 같은 일
@@ -49,7 +49,7 @@ Package를 쓴다.
   `session`으로 넘기며, 다음 일은 `reset()`과 새 `title`이다. turn을 기다리는 동안 page는
   스스로 살아 있다. 꼴에 맞지 않는 답은 값이 아니라 오류로 오니 화면이 다시 보내기를
   보이고, 값은 앱 코드가 검사한다. 쓰는 법과 예는 설치 사본의
-  `guide.md`(`.lophn/sdk/agent/1.6.0/guide.md`)다.
+  `guide.md`(`.lophn/sdk/agent/1.7.0/guide.md`)다.
 - token과 기본 글꼴은 `@lophn/ui/tokens.css`·`base.css`로 받는다. 앱의 chrome(버튼,
   줄, 글, 바탕)은 token 변수만 쓴다. 사람이 고른 accent, 배경, 글꼴이 그 변수로
   들어오므로 chrome에는 색과 글꼴 값을 직접 쓰지 않는다. 판·말·지도·차트·삽화 같은

@@ -275,7 +275,7 @@ export type TurnPreparer = {
 type FixedTools = {
   definitions: readonly ToolDefinition[];
   key: string;
-  // bare가 그 session을 시작할 때 고른 이름이다. 뒤 turn에 고른 이름이 늘어도 이 밖은 실행하지 않는다.
+  // custom이 그 session을 시작할 때 고른 이름이다. 뒤 turn에 고른 이름이 늘어도 이 밖은 실행하지 않는다.
   picks: ReadonlySet<string>;
 };
 
@@ -328,7 +328,7 @@ function names(definitions: readonly ToolDefinition[]): Set<string> {
   return new Set(definitions.map((tool) => tool.name));
 }
 
-// model에 보이는 tool 목록(session의 고정 목록이 될 재료)이다. lophn은 workspace 종류 목록 전부이고, bare는 그 목록 ∩ 고른 이름이다.
+// model에 보이는 tool 목록(session의 고정 목록이 될 재료)이다. lophn은 workspace 종류 목록 전부이고, custom은 그 목록 ∩ 고른 이름이다.
 // 상한은 그대로다: 목록 밖 이름을 골라도 보이지 않는다. 앱 command는 목록에 없고 `lophn` tool로 부르므로 고른 명령이 있을 때만
 // (앱 command는 할당 안의 것만: `appDocs`) `lophn` tool이 서고, 그 설명에는 고른 명령만 싣는다. MCP는 resolve가 이미 고른 것만 `external`에 넘긴다.
 export function visibleTools(input: {
@@ -342,7 +342,7 @@ export function visibleTools(input: {
 }): ToolDefinition[] {
   const picked = new Set(input.agent.picks);
   const commands =
-    input.agent.runtime === "bare"
+    input.agent.runtime === "custom"
       ? [
           ...commandsForWorkspace(input.kind).filter((command) =>
             picked.has(command.name),
@@ -369,22 +369,22 @@ export function visibleTools(input: {
   );
 }
 
-// session이 실행하는 tool의 정의(handler 붙이기 전)다. 고정 목록에 그 workspace 종류의 명령 정의를 더한다. bare는 고정 목록 중 지금도
+// session이 실행하는 tool의 정의(handler 붙이기 전)다. 고정 목록에 그 workspace 종류의 명령 정의를 더한다. custom은 고정 목록 중 지금도
 // 고른 것(`current`)과 고른 명령(`usable`)만이라 고르지 않은 tool은 실행기가 "not available"로 거절한다.
 export function runnableTools(input: {
   fixed: readonly ToolDefinition[];
   kind: WorkspaceKind;
-  bare: {
+  custom: {
     current: ReadonlySet<string>;
     usable: ReadonlySet<string>;
   } | null;
 }): ToolDefinition[] {
-  const { fixed, kind, bare } = input;
-  return bare === null
+  const { fixed, kind, custom } = input;
+  return custom === null
     ? [...fixed, ...commandTools(kind)]
     : [
-        ...fixed.filter((tool) => bare.current.has(tool.name)),
-        ...commandTools(kind, bare.usable),
+        ...fixed.filter((tool) => custom.current.has(tool.name)),
+        ...commandTools(kind, custom.usable),
       ];
 }
 
@@ -430,7 +430,7 @@ function noticeText(body: string): string {
   );
 }
 
-// prompt에 싣는 skill 목록이다. agent가 받는 이름만 켜진다(bare는 고른 이름만).
+// prompt에 싣는 skill 목록이다. agent가 받는 이름만 켜진다(custom은 고른 이름만).
 export function promptSkills(
   entries: readonly SkillEntry[],
   resolved: Pick<ResolvedAgent, "skills">,
@@ -499,14 +499,14 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       }
     }
 
-    // shell extension tool이다. 정의 `extensions`로 할당한 extension의 tool 전부이고, bare는 그 가운데 `tools`가 고른 것만이다.
+    // shell extension tool이다. 정의 `extensions`로 할당한 extension의 tool 전부이고, custom은 그 가운데 `tools`가 고른 것만이다.
     // catalog는 켜진 extension만이고 shell이 아직 올리지 않았으면 비어 있다(그 session은 tool 없이 시작하고 올린 뒤 notice로 받는다).
     const published = await readOf(machine, extensionToolsCatalog, {});
     const extensionTools = buildExtensionTools(
       published.ok ? published.value.extensions : [],
       extensions,
     ).filter(
-      (tool) => agent.runtime !== "bare" || agent.picks.includes(tool.name),
+      (tool) => agent.runtime !== "custom" || agent.picks.includes(tool.name),
     );
 
     const model = await deps.resolveModel({ model: agent.model });
@@ -515,9 +515,9 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const kind = workspaceKindOf(session.workspace);
 
     // workspace 종류가 고정한 목록에 이 turn이 닿는 tool과 외부 MCP tool을 더한다. 앱 command는 목록에 없다:
-    // `lophn <앱 slug> <command>`를 부를 때 푼다. bare는 그 중 고른 것만이다.
+    // `lophn <앱 slug> <command>`를 부를 때 푼다. custom은 그 중 고른 것만이다.
     const loaded =
-      agent.runtime === "bare"
+      agent.runtime === "custom"
         ? await deps.toolkit.appTool?.load({
             agent: session.agent,
             workspace: session.workspace,
@@ -588,9 +588,9 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       seat.session,
     ]);
     const operations = new Set(runOperations(fixed.definitions));
-    // bare가 부를 수 있는 것: 이 session의 고정 목록 ∩ 지금 정의가 고른 것. 정의를 고쳐 늘린 이름은 새 session부터다.
-    const bare =
-      resolved.runtime === "bare"
+    // custom이 부를 수 있는 것: 이 session의 고정 목록 ∩ 지금 정의가 고른 것. 정의를 고쳐 늘린 이름은 새 session부터다.
+    const custom =
+      resolved.runtime === "custom"
         ? {
             current: names(m.current),
             usable: new Set(resolved.picks.filter((p) => fixed.picks.has(p))),
@@ -601,22 +601,22 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const apps: AppCommandLookup = async () => {
       const loaded = await toolkit.appTool?.load(who);
       const entries = loaded?.ok ? appCommandEntries(loaded.value) : [];
-      return bare === null
+      return custom === null
         ? entries
-        : entries.filter((entry) => bare.usable.has(entry.doc.name));
+        : entries.filter((entry) => custom.usable.has(entry.doc.name));
     };
     // `lophn` tool이 명령으로 풀리는 호출을 실행할 정의도 여기 든다. model에 보이는 tools[]에는 없고 이 session의 workspace 종류가
     // 부를 수 있는 명령만 있으므로, 목록 밖 명령은 지금 목록 밖 tool과 같이 거절된다.
     const help =
-      bare === null
+      custom === null
         ? undefined
         : commandsForWorkspace(workspaceKindOf(session.workspace)).filter(
-            (command) => bare.usable.has(command.name),
+            (command) => custom.usable.has(command.name),
           );
     const base: ToolDefinition[] = runnableTools({
       fixed: fixed.definitions,
       kind: workspaceKindOf(session.workspace),
-      bare,
+      custom,
     }).map((tool) => {
       const handler = legacy.get(tool.name);
       if (tool.name === LOPHN_TOOL_NAME) return withApps(tool, apps, help);
@@ -722,7 +722,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         images,
         runtime: resolved.runtime,
       });
-    // bare는 workspace memory를 받지 않는다(workspace 정보와 지침 층을 받지 않는 것과 같다). 자기 agent memory는 받는다.
+    // custom은 workspace memory를 받지 않는다(workspace 정보와 지침 층을 받지 않는 것과 같다). 자기 agent memory는 받는다.
     const memoryOf = async (compaction: string | null) => {
       const texts = await fixedMemory.get(
         seat.session,
@@ -731,13 +731,15 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           deps.memory?.(session.agent, session.workspace) ??
           Promise.resolve({ workspace: "", agent: "" }),
       );
-      return resolved.runtime === "bare" ? { ...texts, workspace: "" } : texts;
+      return resolved.runtime === "custom"
+        ? { ...texts, workspace: "" }
+        : texts;
     };
     let built: Promise<Result<Built>> | undefined;
     const build = async (): Promise<Result<Built>> => {
-      // bare는 workspace 종류 지침(제품 고정 규칙)을 싣지 않는다.
+      // custom은 workspace 종류 지침(제품 고정 규칙)을 싣지 않는다.
       const prompt =
-        resolved.runtime === "bare"
+        resolved.runtime === "custom"
           ? ok("")
           : await deps.workspacePrompt(workspaceKindOf(resolved.workspace));
       if (!prompt.ok) return prompt;
@@ -778,9 +780,9 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
             )) ?? [],
             resolved,
           ),
-          ...(resolved.runtime === "bare"
+          ...(resolved.runtime === "custom"
             ? {
-                bare: {
+                custom: {
                   system: instructions.agent,
                   untrusted: fixed.definitions.some(
                     (tool) => untrustedSource(tool.name) !== null,
@@ -1009,13 +1011,13 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     }
 
     // 사람 지침은 turn을 시작할 때 한 번 읽고 turn 끝까지 쓴다. 한 층이라도 읽지 못했으면 turn을 시작하지 않는다.
-    // bare는 agent 층 밖의 지침을 싣지 않으므로 읽지도 않는다(그 파일이 깨져도 turn은 시작한다). agent 층이 정의 본문이다.
+    // custom은 agent 층 밖의 지침을 싣지 않으므로 읽지도 않는다(그 파일이 깨져도 turn은 시작한다). agent 층이 정의 본문이다.
     const files =
       deps.instructionFilesFor?.(start.session) ?? deps.instructions.files;
     const instructions = await readTurnInstructions({
       ...deps.instructions,
       files:
-        agent.runtime === "bare"
+        agent.runtime === "custom"
           ? {
               read: (layer) =>
                 layer === "agent"

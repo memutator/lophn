@@ -20,10 +20,10 @@ import type { WiringFactory } from "./context.ts";
 import { prepareBodies } from "./router.ts";
 import { turnAnswer } from "./turn-answer.ts";
 
-// bare session의 turn이 끝나면 마지막 응답 글을 result call의 답으로 보내는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
-const BARE_REPLY_PRINCIPAL = "machine:bare-reply";
-const BARE_REPLY_CONTEXT: AuthenticatedContext = {
-  principal: BARE_REPLY_PRINCIPAL,
+// custom session의 turn이 끝나면 마지막 응답 글을 result call의 답으로 보내는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
+const CUSTOM_REPLY_PRINCIPAL = "machine:custom-reply";
+const CUSTOM_REPLY_CONTEXT: AuthenticatedContext = {
+  principal: CUSTOM_REPLY_PRINCIPAL,
   actor: "machine",
   scope: {
     operations: [
@@ -38,7 +38,7 @@ const BARE_REPLY_CONTEXT: AuthenticatedContext = {
     targets: {},
   },
   conditions: {},
-  credential_ref: BARE_REPLY_PRINCIPAL,
+  credential_ref: CUSTOM_REPLY_PRINCIPAL,
 };
 
 const route = (r: { resource: string; method: string }) =>
@@ -51,12 +51,12 @@ type TurnInfo = {
 };
 
 // 결정만 담는다. 읽기와 보내기는 port이고 wiring이 끼운다.
-export type BareReplyPorts = {
+export type CustomReplyPorts = {
   turn(turn: string): Promise<Result<TurnInfo>>;
   // turn 입력이 result call이면 그 call, 아니면 null.
   resultCallOf(message: string): Promise<Result<string | null>>;
   callOpen(call: string, session: string): Promise<Result<boolean>>;
-  isBare(turn: string): Promise<Result<boolean>>;
+  isCustom(turn: string): Promise<Result<boolean>>;
   // 그 turn의 마지막 agent 메시지 글. 없거나 비면 null.
   answer(session: string, turn: string): Promise<Result<string | null>>;
   reply(input: {
@@ -68,7 +68,7 @@ export type BareReplyPorts = {
 };
 
 // 답이 없는 turn(멈춤, 실패, 빈 글)은 call을 그대로 둔다. agent가 이미 reply로 닫은 call은 `callOpen`이 거른다.
-export function createBareReply(ports: BareReplyPorts) {
+export function createCustomReply(ports: CustomReplyPorts) {
   return async function turnEnded(event: {
     turn: string;
     outcome: { kind: string };
@@ -80,8 +80,8 @@ export function createBareReply(ports: BareReplyPorts) {
     if (!call.ok || call.value === null) return call.ok ? ok(undefined) : call;
     const open = await ports.callOpen(call.value, turn.value.session);
     if (!open.ok || !open.value) return open.ok ? ok(undefined) : open;
-    const bare = await ports.isBare(event.turn);
-    if (!bare.ok || !bare.value) return bare.ok ? ok(undefined) : bare;
+    const custom = await ports.isCustom(event.turn);
+    if (!custom.ok || !custom.value) return custom.ok ? ok(undefined) : custom;
     const text = await ports.answer(turn.value.session, event.turn);
     if (!text.ok || text.value === null) return text.ok ? ok(undefined) : text;
     return await ports.reply({
@@ -93,11 +93,11 @@ export function createBareReply(ports: BareReplyPorts) {
   };
 }
 
-export const bareReplyWiring: WiringFactory = () => {
+export const customReplyWiring: WiringFactory = () => {
   let unsubscribe: (() => void) | undefined;
   return {
-    name: "bare-reply",
-    records: () => [BARE_REPLY_CONTEXT],
+    name: "custom-reply",
+    records: () => [CUSTOM_REPLY_CONTEXT],
     // 모든 wiring이 build한 뒤 구독한다. TurnEnded는 commit 뒤 Bus로 오므로 tx 밖이다.
     start(ctx) {
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
@@ -106,11 +106,11 @@ export const bareReplyWiring: WiringFactory = () => {
         input: unknown,
       ): Promise<Result<T>> =>
         (await ctx.runtime.reads.get(route(r))!(
-          BARE_REPLY_CONTEXT,
+          CUSTOM_REPLY_CONTEXT,
           input,
         )) as Result<T>;
 
-      const turnEnded = createBareReply({
+      const turnEnded = createCustomReply({
         async turn(turn) {
           const found = await read<Output<typeof turnRead>>(turnRead, { turn });
           if (!found.ok) return found;
@@ -145,7 +145,7 @@ export const bareReplyWiring: WiringFactory = () => {
         },
         // turn이 고정한 resolved agent의 runtime이다. 정의를 turn 도중 바꿔도 이 turn의 것을 본다.
         // harness session의 turn은 resolved를 고정하지 않으므로 session이 정한 harness로 같은 자동 답 길을 탄다.
-        async isBare(turn) {
+        async isCustom(turn) {
           const harness = ledgerSnapshot(
             ctx.ledgerPath,
             (lookup) =>
@@ -163,7 +163,7 @@ export const bareReplyWiring: WiringFactory = () => {
           });
           if (!found.ok) return found;
           return ok(
-            (found.value.value as { runtime?: string }).runtime === "bare",
+            (found.value.value as { runtime?: string }).runtime === "custom",
           );
         },
         answer: (session, turn) => turnAnswer(read, session, turn),
@@ -180,12 +180,12 @@ export const bareReplyWiring: WiringFactory = () => {
           }
           const prepared = await prepareBodies(
             ctx.bodyPrepare,
-            BARE_REPLY_CONTEXT,
+            CUSTOM_REPLY_CONTEXT,
             [safe],
           );
           if (!prepared.ok) return prepared;
           // 접은 writer를 쓴다. 날 writer는 본문 준비와 queue 적용을 건너뛰어 보낸 쪽 turn이 열리지 않는다.
-          const done = await ctx.writer.command(BARE_REPLY_CONTEXT, {
+          const done = await ctx.writer.command(CUSTOM_REPLY_CONTEXT, {
             command: callsAutoReply.name,
             input: {
               session: input.session,
@@ -207,7 +207,7 @@ export const bareReplyWiring: WiringFactory = () => {
           void turnEnded(event.payload).then((done) => {
             if (done.ok) return;
             ctx.telemetry.logger.error({
-              component: "bare-reply",
+              component: "custom-reply",
               event: "reply_failed",
               fields: { code: done.error.code },
             });

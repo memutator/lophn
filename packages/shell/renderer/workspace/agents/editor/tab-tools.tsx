@@ -1,4 +1,4 @@
-// Tools 탭: bare가 고르는 tool · MCP servers · shell extensions.
+// Tools 탭: custom이 고르는 tool · MCP servers · shell extensions.
 import { useState } from "react";
 import { Checkbox } from "@lophn/ui/input";
 import { Button } from "@lophn/ui/primitives";
@@ -61,7 +61,7 @@ interface ToolsTabProps extends FormProps {
 
 export function ToolsTab(props: ToolsTabProps) {
   const { detail, definition, facts, onChange } = props;
-  const { bare } = facts;
+  const { custom } = facts;
   const [addServer, setAddServer] = useState(false);
   const issues = (name: Parameters<typeof issuesOf>[1]) =>
     issuesOf(props.issues, name);
@@ -88,7 +88,7 @@ export function ToolsTab(props: ToolsTabProps) {
         ? [...new Set([...assigned, id])]
         : assigned.filter((one) => one !== id),
     );
-  // bare가 tools로 고를 수 있는 extension tool은 할당한 extension의 것이다.
+  // custom이 tools로 고를 수 있는 extension tool은 할당한 extension의 것이다.
   const extensionToolNames = catalog
     .filter((one) => assigned.includes(one.id))
     .flatMap((one) =>
@@ -97,7 +97,7 @@ export function ToolsTab(props: ToolsTabProps) {
 
   return (
     <div className={styles.form}>
-      {bare ? (
+      {custom ? (
         <Group name="tools" heading={t("agents.heading.tools")}>
           <ToolPicks
             value={definition.tools ?? []}

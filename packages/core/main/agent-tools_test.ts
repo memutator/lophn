@@ -180,7 +180,7 @@ test("workspace 종류의 tool 목록과 명령 정의의 wire 이름이 겹치�
 
 // 고른 이름은 상한 안에서만 보이고 돈다. 목록 밖(home의 shell.run, project의 app.create), 고르지 않은 명령, 고르지 않은 MCP, 할당 밖 앱 command는
 // tools[]에도 실행 목록에도 없고, credential 상한은 고른 것과 상관없이 workspace 종류 그대로다.
-test("workspace 종류 목록 밖을 고른 bare는 그 tool을 보지도 부르지도 못하고 credential 작업은 workspace 종류 그대로다", async () => {
+test("workspace 종류 목록 밖을 고른 custom은 그 tool을 보지도 부르지도 못하고 credential 작업은 workspace 종류 그대로다", async () => {
   const definitions = agentTools({ file: FILE_HOOKS });
   const picks = [
     "file.read",
@@ -193,7 +193,7 @@ test("workspace 종류 목록 밖을 고른 bare는 그 tool을 보지도 부르
   for (const kind of ["home", "project"] as const) {
     const visible = visibleTools({
       kind,
-      agent: { runtime: "bare", picks },
+      agent: { runtime: "custom", picks },
       names: workspaceToolNames(kind),
       definitions,
       inputMedia: ["image"],
@@ -223,7 +223,7 @@ test("workspace 종류 목록 밖을 고른 bare는 그 tool을 보지도 부르
     const listed = runnableTools({
       fixed: visible,
       kind,
-      bare: { current: new Set(names), usable: new Set(picks) },
+      custom: { current: new Set(names), usable: new Set(picks) },
     });
     const ctx = {
       kind,
@@ -271,7 +271,7 @@ test("workspace 종류 목록 밖을 고른 bare는 그 tool을 보지도 부르
       handle: "reviewer",
       name: "reviewer",
       body: "review",
-      runtime: "bare",
+      runtime: "custom",
       tools: ["mcp__s__a"],
     },
     global_model: {

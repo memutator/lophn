@@ -1,4 +1,4 @@
-// Runtime 탭: runtime(lophn·bare·harness)과 model. harness는 자기 model을 써서 model 칸이 없다.
+// Runtime 탭: runtime(lophn·custom·harness)과 model. harness는 자기 model을 써서 model 칸이 없다.
 import { SegmentedControl } from "@lophn/ui/input";
 import { t } from "@lophn/i18n";
 
@@ -36,15 +36,15 @@ export function RuntimeTab(props: RuntimeTabProps) {
     }));
   const runtimeOptions = [
     { value: "lophn", label: t("agents.label.runtime-lophn") },
-    { value: "bare", label: t("agents.label.runtime-bare") },
+    { value: "custom", label: t("agents.label.runtime-custom") },
     ...harnessOptions,
   ].map((one) => ({ ...one, disabled: coding }));
   // lophn에서는 tools와 skills를 쓰지 못해(저장 거절) lophn으로 돌아가면 함께 지운다. 기본값이라 runtime 칸도 지운다.
   const setRuntime = (picked: string) => {
     const next: Record<string, unknown> = { ...definition };
-    if (picked === "bare" || isHarnessRuntime(picked as never)) {
+    if (picked === "custom" || isHarnessRuntime(picked as never)) {
       next.runtime = picked;
-      if (picked !== "bare") {
+      if (picked !== "custom") {
         delete next.tools;
         delete next.skills;
       }

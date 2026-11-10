@@ -63,8 +63,8 @@ export function CardFacts({
       <li data-card-runtime="">
         {t("agents.label.card-runtime", {
           runtime:
-            card.runtime === "bare"
-              ? t("agents.label.runtime-bare")
+            card.runtime === "custom"
+              ? t("agents.label.runtime-custom")
               : card.runtime,
         })}
       </li>

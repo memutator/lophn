@@ -141,7 +141,7 @@ export type InputPart = { kind: "text"; text: string } | ImagePart;
 
 // Router 입력을 model에 user role로 넣는 part 목록이다. 받은 turn의 입력과 뒤 turn의 이력 재생(`receivedParts`)이
 // 이 함수 하나로 block을 싼다.
-// bare는 `lophn` 명령 없이 답하므로 result call의 답 방식 글만 다르다.
+// custom은 `lophn` 명령 없이 답하므로 result call의 답 방식 글만 다르다.
 export function inputParts(
   input: TextInput,
   runtime: AgentRuntime = "lophn",
@@ -219,7 +219,7 @@ const HARNESS_RESULT_NOTE =
 const RESULT_NOTE: Record<AgentRuntime, string> = {
   lophn:
     "When you finish, answer with `lophn call reply`. If you will not take it, send the reason with `lophn call reply`.",
-  bare: "When you finish, your last response is the answer to this call.",
+  custom: "When you finish, your last response is the answer to this call.",
   "claude-code": HARNESS_RESULT_NOTE,
   codex: HARNESS_RESULT_NOTE,
   opencode: HARNESS_RESULT_NOTE,

@@ -60,7 +60,7 @@ extension harness(1초마다) ─ 사람 token ─▶ harness/take → harness/s
    ─ spawn(<harness headless 명령>, cwd = workspace 폴더, stdin 닫음) ─ 줄마다 parser ─▶ harness/record(글, harness_tool)
    ─ 1초마다 turns/read: core가 닫았으면(멈춤) process를 끈다 ─ process 끝 ─▶ harness/finish_turn
                                           └▶ harness/set_external_id (harness의 session id, resume에 쓴다)
-TurnEnded ─▶ result call이면 마지막 기록 메시지가 답(bare의 자동 답과 같은 길)
+TurnEnded ─▶ result call이면 마지막 기록 메시지가 답(custom의 자동 답과 같은 길)
 ```
 
 - turn은 시작 → 기록 → 끝 순서이고 `TurnEnded`는 한 번이다. 기록은 core 안 machine 자격으로 기존 command(StartTurn, RecordMessage, FinishTurn)에 남는다.

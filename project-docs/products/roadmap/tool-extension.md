@@ -44,7 +44,7 @@ tool registry (`packages/core/lophn-agent/tools/`)
 - `activate(ctx)`에서 `ctx.tools.handle(name, handler)`. handler는 입력과 호출 context(session, workspace, 그 호출의 agent 자격으로 부르는 `core`)를 받아 MCP ContentBlock 배열(text, image)을 돌려준다.
 - tool 목록: core는 manifest를 읽지 못하므로 shell main이 판이 맞는 manifest의 tool 목록을 core에 올린다. core는 메모리에만 두고 shell이 다시 붙을 때마다 다시 받는다. 올리기 전에 연 session은 목록이 온 뒤 `tools_changed`로 받는다.
 - 호출 길: run-loop → core host queue(`agent-surface.md`) → shell main extension handler → 결과. shell이 붙어 있지 않으면 그 호출은 `unavailable`이다.
-- 정의에 사람만 쓰는 칸 `extensions`(extension id 목록)를 더한다. 할당한 extension의 tool이 그 agent의 `tools[]`에 들어간다. bare는 그 안에서 `tools`로 고른다.
+- 정의에 사람만 쓰는 칸 `extensions`(extension id 목록)를 더한다. 할당한 extension의 tool이 그 agent의 `tools[]`에 들어간다. custom은 그 안에서 `tools`로 고른다.
 - Gate에 `extension_tool`을 더한다. 할당했으면 run, 아니면 `not_assigned`, 켜진 extension의 목록에서 빠졌으면(꺼짐, tool 없어짐) `removed`.
 - harness agent는 같은 tool을 CLI로 부른다(`lophn` 명령 하나, 입력은 JSON). 자격과 Gate는 같다.
 - 편집기의 할당 화면에 extension을 고르는 칸을 더한다.

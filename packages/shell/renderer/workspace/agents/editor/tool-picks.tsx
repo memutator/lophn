@@ -1,4 +1,4 @@
-// bare agent가 고르는 tool. 내장 tool은 체크로 고르고, lophn 명령(`call.reply`), 앱 command(`<slug>.<command>`),
+// custom agent가 고르는 tool. 내장 tool은 체크로 고르고, lophn 명령(`call.reply`), 앱 command(`<slug>.<command>`),
 // MCP tool(`mcp__<server>__<tool>`)은 이름을 적어 더한다. 고른 이름 그대로 정의의 `tools`가 된다.
 // shell extension tool(`ext__<id>__<tool>`)은 할당한 extension의 것을 체크로 고른다.
 // 상한 안인지(workspace 종류 목록, 할당한 앱, 설정한 MCP)는 turn 조립이 본다.

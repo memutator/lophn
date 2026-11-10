@@ -1,4 +1,4 @@
-// Skills 탭: 이 agent가 쓰는 skill. bare는 고른 skill만 받고, 나머지는 끈 이름(`skills_off`)을 뺀 것을 받는다.
+// Skills 탭: 이 agent가 쓰는 skill. custom은 고른 skill만 받고, 나머지는 끈 이름(`skills_off`)을 뺀 것을 받는다.
 import { t } from "@lophn/i18n";
 
 import {
@@ -17,7 +17,7 @@ interface SkillsTabProps extends FormProps {
 
 export function SkillsTab(props: SkillsTabProps) {
   const { detail, definition, facts, onChange } = props;
-  const { bare } = facts;
+  const { custom } = facts;
   const set = (key: Parameters<typeof withField>[1], value: unknown) =>
     onChange(withField(definition, key, value));
 
@@ -30,7 +30,7 @@ export function SkillsTab(props: SkillsTabProps) {
         ? skillsOff.filter((one) => one !== name)
         : [...new Set([...skillsOff, name])],
     );
-  // bare는 고른 skill만 받는다. 목록은 같고 켠 줄이 고른 것이다.
+  // custom은 고른 skill만 받는다. 목록은 같고 켠 줄이 고른 것이다.
   const skillPicks = definition.skills ?? [];
   const togglePick = (name: string, on: boolean) =>
     set(
@@ -48,24 +48,24 @@ export function SkillsTab(props: SkillsTabProps) {
       >
         <SkillList
           items={
-            bare
+            custom
               ? detail.skills.map((row) => ({ ...row, builtIn: false }))
               : detail.skills
           }
           offNames={
-            bare
+            custom
               ? detail.skills
                   .map((row) => row.name)
                   .filter((name) => !skillPicks.includes(name))
               : skillsOff
           }
           lockOff
-          onToggle={bare ? togglePick : toggleSkill}
+          onToggle={custom ? togglePick : toggleSkill}
         />
         <p className={styles.note}>
           {t(
-            bare
-              ? "agents.notice.skills-bare-pick"
+            custom
+              ? "agents.notice.skills-custom-pick"
               : "agents.notice.skills-agent-only",
           )}
         </p>

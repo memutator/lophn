@@ -113,7 +113,7 @@ flows:
         observe: [response, "screen:agent-settings-agent"]
       - id: invalid-definition
         code: invalid_input
-        when: 파일 모양이 틀리다(tools나 skills를 bare가 아닌 정의에 적은 것 포함), 도구 이름이 모르는 것이다, handle이 다른 agent와 겹친다
+        when: 파일 모양이 틀리다(tools나 skills를 custom이 아닌 정의에 적은 것 포함), 도구 이름이 모르는 것이다, handle이 다른 agent와 겹친다
         observe: [response, "screen:agent-settings-save-issues"]
       - id: store-unavailable
         code: unavailable
@@ -902,35 +902,35 @@ flows:
     refs: [A17]
     docs: [architecture/agent-definition.md]
 
-  - id: bare-call-reply
-    title: bare agent가 끝낸 turn의 마지막 글을 result call의 답으로 보낸다
+  - id: custom-call-reply
+    title: custom agent가 끝낸 turn의 마지막 글을 result call의 답으로 보낸다
     actor: system
-    entries: [system:bare-call-reply]
+    entries: [system:custom-call-reply]
     uses: [route:calls/auto-reply]
     boundary: [router, run-loop]
-    code: [packages/core/main/daemon/wiring/bare-reply.ts]
+    code: [packages/core/main/daemon/wiring/custom-reply.ts]
     steps:
       - TurnEnded(commit 뒤)가 오면 wiring이 그 turn을 읽는다
-      - 끝 상태가 completed이고, 입력이 result call이고, 그 call이 아직 이 session이 받은 accepted이고, turn의 resolved runtime이 bare이거나 harness session의 turn인지 본다
-      - 마지막 agent 메시지 글이 비지 않았으면 redaction을 거쳐 calls/auto-reply로 답한다. agent의 reply와 같은 규칙이다. 본문 준비와 route의 오류 갈래는 bare-reply-auto가 정한다
+      - 끝 상태가 completed이고, 입력이 result call이고, 그 call이 아직 이 session이 받은 accepted이고, turn의 resolved runtime이 custom이거나 harness session의 turn인지 본다
+      - 마지막 agent 메시지 글이 비지 않았으면 redaction을 거쳐 calls/auto-reply로 답한다. agent의 reply와 같은 규칙이다. 본문 준비와 route의 오류 갈래는 custom-reply-auto가 정한다
       - 그 밖(멈춤, 실패, 빈 글, conversation이나 none call, 이미 reply로 답함)은 보내지 않고 call은 accepted로 남는다
     outcomes:
       - id: replied
         observe: [ledger:agent_calls, event:MessageReceived]
-        when: calls/auto-reply가 ok로 답해 메시지가 갔다. route의 나머지 갈래(not_found, forbidden, conflict, unavailable)는 bare-reply-auto의 outcome이라 여기 반복하지 않는다
+        when: calls/auto-reply가 ok로 답해 메시지가 갔다. route의 나머지 갈래(not_found, forbidden, conflict, unavailable)는 custom-reply-auto의 outcome이라 여기 반복하지 않는다
       - id: not-sent
         observe: [ledger:agent_calls]
-        when: 위 조건 가운데 하나라도 맞지 않는다(멈춤, 실패, conversation이나 none call, bare도 harness도 아닌 runtime, 빈 글, 이미 reply로 답함). call은 archive나 지움 때 receiver_ended로 닫힌다
+        when: 위 조건 가운데 하나라도 맞지 않는다(멈춤, 실패, conversation이나 none call, custom도 harness도 아닌 runtime, 빈 글, 이미 reply로 답함). call은 archive나 지움 때 receiver_ended로 닫힌다
       - id: unavailable
         code: unavailable
         when: redaction이 끝나지 않았다(알려진 값을 다 모름, fail-closed). calls/auto-reply를 부르지 않는다. log로 남고 call은 accepted로 남는다
-        observe: [ledger:agent_calls, log:bare-reply]
+        observe: [ledger:agent_calls, log:custom-reply]
       - id: read-failed
         when: wiring이 turn, 받은 메시지, call 행, turn의 정의 값을 읽지 못했다. calls/auto-reply를 부르지 않는다. log로 남고 call은 accepted로 남는다
-        observe: [log:bare-reply, ledger:agent_calls]
+        observe: [log:custom-reply, ledger:agent_calls]
     crosses_process: true
     unclear:
-      - redaction을 wiring이 거는지 bare-reply-auto(route)가 거는지 두 flow의 설명이 다르다. sessions와 맞출 것
+      - redaction을 wiring이 거는지 custom-reply-auto(route)가 거는지 두 flow의 설명이 다르다. sessions와 맞출 것
     refs: [T11]
     docs: [architecture/agent-call.md]
 
@@ -987,9 +987,10 @@ flows:
     actor: system
     entries: [system:agent-definition-data-steps]
     boundary: [agents, storage]
-    code: [packages/core/lophn-agent/agents/handle-step.ts, packages/core/lophn-agent/agents/domains-field-step.ts, packages/core/lophn-agent/agents/skills-off-step.ts]
+    code: [packages/core/lophn-agent/agents/handle-step.ts, packages/core/lophn-agent/agents/runtime-custom-step.ts, packages/core/lophn-agent/agents/domains-field-step.ts, packages/core/lophn-agent/agents/skills-off-step.ts]
     steps:
       - 기동 때 data step agents.handle이 먼저 돈다. name을 handle로 채운다(handle이 있거나 name이 없으면 두고 고치지 않는다)
+      - "agents.runtime-custom이 frontmatter의 `runtime: bare`를 `runtime: custom`으로 옮긴다(그 한 줄만 고친다)"
       - agents.drop-domains가 옛 domains 칸을 지운다
       - agents.skills-off가 옛 skills를 skills_off로 옮긴다. 옮기기 전에 받던 skill이 그대로 받아지도록 끈 이름을 적는다
       - 정의마다 새 모양만 schema로 검사해 다시 쓴다. 칸이 없는 파일이나 깨진 파일은 건드리지 않는다

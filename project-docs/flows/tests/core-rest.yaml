@@ -147,7 +147,7 @@ files:
       - tool-operations-ceiling:project
       - tool-operations-ceiling:app
       - tool-list-assembly:fixed
-      - tool-list-assembly:bare-narrowed
+      - tool-list-assembly:custom-narrowed
       - tool-call-execute:not-listed
       - tool-lophn-help:command
     note: "JSON Schema 변환 검사는 순수 helper라 covers에서 뺐다. lophn write 명령의 idempotency key는 tool-lophn-help:command"
@@ -203,10 +203,10 @@ files:
       - assignment-file-migrate:moved
       - assignment-file-migrate:deny-rule-slugged
 
-  - path: packages/core/main/daemon/wiring/bare-reply_test.ts
+  - path: packages/core/main/daemon/wiring/custom-reply_test.ts
     covers:
-      - bare-call-reply:replied
-      - bare-call-reply:not-sent
+      - custom-call-reply:replied
+      - custom-call-reply:not-sent
 
   - path: packages/core/main/daemon/wiring/call-policy-private_test.ts
     covers: [data-steps-apply:applied, settings-call-policy-private:filled, settings-call-policy-workspaces:moved]

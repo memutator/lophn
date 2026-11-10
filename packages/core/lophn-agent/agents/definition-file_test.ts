@@ -85,13 +85,13 @@ test("extensions는 저장하고 다시 읽어도 남고, 칸 없는 옛 정의�
   assert.strictEqual(old.value.extensions, undefined);
 });
 
-// serializer는 whitelist라 새 칸을 빠뜨리면 저장 때 조용히 사라진다. 내장 lophn은 bare가 될 수 없다.
-test("runtime, description, tools, skills는 저장하고 다시 읽어도 남고, lophn runtime의 tools·skills와 내장 lophn의 bare는 거절된다", () => {
+// serializer는 whitelist라 새 칸을 빠뜨리면 저장 때 조용히 사라진다. 내장 lophn은 custom이 될 수 없다.
+test("runtime, description, tools, skills는 저장하고 다시 읽어도 남고, lophn runtime의 tools·skills와 내장 lophn의 custom은 거절된다", () => {
   const target = { agent: AGENT } as const;
   const definition = {
     handle: "ops",
     name: "ops",
-    runtime: "bare" as const,
+    runtime: "custom" as const,
     description: "Checks the deploy queue",
     tools: ["file.read", "call.reply", "mcp__github__issue"],
     skills: ["triage"],
@@ -124,11 +124,11 @@ test("runtime, description, tools, skills는 저장하고 다시 읽어도 남�
   const builtin = { agent: LOPHN_HOME_ID } as const;
   assert.ok(
     !serializeAgentFile(
-      { handle: "lophn", name: "lophn", runtime: "bare", body: "" },
+      { handle: "lophn", name: "lophn", runtime: "custom", body: "" },
       builtin,
     ).ok,
   );
-  const text = "---\nruntime: bare\n---\nbody\n";
+  const text = "---\nruntime: custom\n---\nbody\n";
   assert.ok(!parseAgentFile(text, builtin).ok);
 });
 

@@ -3,7 +3,7 @@ import {
   AgentCreatePage,
   AgentDeleteConfirmPage,
   AgentDeleteFailedPage,
-  AgentEditorBarePage,
+  AgentEditorCustomPage,
   AgentEditorBrokenPage,
   AgentEditorHarnessPage,
   AgentImageUploadedPage,
@@ -90,7 +90,7 @@ export const agentSettingsArea: Area = {
       id: "agent-settings-runtime-tab",
       title: "Agent settings · Runtime tab",
       description:
-        "Runtime 탭이다. runtime(lophn, bare, 켜 둔 harness)을 고르고 그 아래에 Model 칸이 있다. Model은 위 층이 정한 값을 따르는 줄이 맨 위다. harness runtime이면 model 칸이 없다.",
+        "Runtime 탭이다. runtime(lophn, custom, 켜 둔 harness)을 고르고 그 아래에 Model 칸이 있다. Model은 위 층이 정한 값을 따르는 줄이 맨 위다. harness runtime이면 model 칸이 없다.",
       render: () => <AgentRuntimeTabPage />,
     },
     {
@@ -111,7 +111,7 @@ export const agentSettingsArea: Area = {
       id: "agent-settings-tools-tab",
       title: "Agent settings · Tools tab",
       description:
-        "bare agent의 Tools 탭이다. 고르는 tool(체크와 이름 입력), MCP servers, Shell extensions가 위에서 아래로 있다. bare가 아니면 첫 칸이 없다. harness agent에는 이 탭이 없다.",
+        "custom agent의 Tools 탭이다. 고르는 tool(체크와 이름 입력), MCP servers, Shell extensions가 위에서 아래로 있다. custom이 아니면 첫 칸이 없다. harness agent에는 이 탭이 없다.",
       render: () => <AgentToolsTabPage />,
     },
     {
@@ -157,11 +157,11 @@ export const agentSettingsArea: Area = {
       render: () => <AgentServerFormPage />,
     },
     {
-      id: "agent-settings-bare",
-      title: "Agent settings · bare runtime",
+      id: "agent-settings-custom",
+      title: "Agent settings · custom runtime",
       description:
-        "runtime이 bare인 agent의 Skills 탭이다. skill은 켠 것만 받는다(plain-writing을 하나 더 골랐다). Tools 탭에서 내장 tool을 체크로 고른다. lophn 지침과 built-in은 받지 않는다.",
-      render: () => <AgentEditorBarePage />,
+        "runtime이 custom인 agent의 Skills 탭이다. skill은 켠 것만 받는다(plain-writing을 하나 더 골랐다). Tools 탭에서 내장 tool을 체크로 고른다. lophn 지침과 built-in은 받지 않는다.",
+      render: () => <AgentEditorCustomPage />,
     },
     {
       id: "agent-settings-harness",

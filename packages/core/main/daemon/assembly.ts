@@ -21,7 +21,7 @@ import { workspaceDataMoveWiring } from "./wiring/workspace-data-move.ts";
 import { workspaceRenameWiring } from "./wiring/workspace-rename.ts";
 import { globalFloatsTabsWiring } from "./wiring/global-floats-tabs.ts";
 import { approvalsWiring } from "./wiring/approvals.ts";
-import { bareReplyWiring } from "./wiring/bare-reply.ts";
+import { customReplyWiring } from "./wiring/custom-reply.ts";
 import { harnessWiring } from "./wiring/harness.ts";
 import { extensionToolsWiring } from "./wiring/extension-tools.ts";
 import { hostQueueWiring } from "./wiring/host-queue.ts";
@@ -132,7 +132,7 @@ export const TEAM_MODULES = [
 // - supervision은 다른 start보다 앞이다(platform/io 위에서 다른 worker가 뜬다).
 // - runs는 router 뒤다. 켤 때 router가 돌던 turn을 닫은 뒤에 run을 맞춰야 그 turn의 끝을 본다.
 // - workflows는 runs와 같은 이유로 router 뒤다.
-// - bare-reply는 router 뒤다. 켤 때 router가 돌던 turn을 닫은 뒤에 TurnEnded를 구독한다. harness도 같은 이유로 router 뒤다.
+// - custom-reply는 router 뒤다. 켤 때 router가 돌던 turn을 닫은 뒤에 TurnEnded를 구독한다. harness도 같은 이유로 router 뒤다.
 // - flows는 workflows 뒤, jobs 앞이다. runs·workflows가 build에서 낸 service를 쓰고, job이 시작한 flow를 띄운다.
 // - jobs는 runs·workflows 뒤다. 켤 때 둘을 맞춘 뒤에 첫 claim이 돈다.
 export const WIRINGS: readonly WiringFactory[] = [
@@ -170,7 +170,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   lophnAgentProviderLoginWiring,
   annotationsWiring,
   runsWiring,
-  bareReplyWiring,
+  customReplyWiring,
   harnessWiring,
   hostQueueWiring,
   // approvals와 host queue 뒤다: 호출 때 Gate와 queue를 쓴다.

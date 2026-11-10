@@ -7,7 +7,7 @@
 ## 정한 것
 
 전역 memory:
-- **Home memory가 전역 memory다.** 새 파일을 두지 않는다. `<data>/home/memory.md`를 모든 workspace의 lophn·사람이 만든 agent가 `global memory` 출처로 받는다. Home session에서는 같은 파일이라 한 번만(`global memory`) 싣는다. bare는 받지 않는다(workspace memory와 같다). 순서는 global → workspace → agent. (agent: 새 층과 자리 입력 없이 주입만 바뀐다)
+- **Home memory가 전역 memory다.** 새 파일을 두지 않는다. `<data>/home/memory.md`를 모든 workspace의 lophn·사람이 만든 agent가 `global memory` 출처로 받는다. Home session에서는 같은 파일이라 한 번만(`global memory`) 싣는다. custom은 받지 않는다(workspace memory와 같다). 순서는 global → workspace → agent. (agent: 새 층과 자리 입력 없이 주입만 바뀐다)
 - **쓰는 것은 Home lophn과 사람뿐이다.** project·앱 lophn은 Home lophn을 부를 수 없다(`router.ts`가 handle `lophn`을 부른 쪽 workspace로 보낸다, `agent-call.md` "Home lophn은 Home에서 보낸 call이나 사람·program의 call로만 닿는다"). 이 경계는 그대로 두고, project·app prompt의 "Home lophn에 물어라" 줄(지금 자기 lophn으로 가는 bug)을 "전역 사실은 global memory에 있다. 없으면 사람에게 묻는다"로 고친다. (agent: 한 workspace에서 속은 agent가 모든 prompt에 글을 넣는 길을 만들지 않는다)
 - 크기는 그대로 8 KiB, session 첫 turn 고정도 그대로다. (agent)
 

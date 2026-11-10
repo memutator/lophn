@@ -92,7 +92,7 @@ const skillsSchema = z.array(nonblankSchema).refine(unique, {
 const appsSchema = z.array(slugSchema).refine(unique, {
   message: "duplicate app",
 });
-// 할당한 shell extension의 id. 그 extension이 manifest로 선언한 tool 전부가 이 agent의 `tools[]`에 든다(bare는 `tools`가 고른 것만).
+// 할당한 shell extension의 id. 그 extension이 manifest로 선언한 tool 전부가 이 agent의 `tools[]`에 든다(custom은 `tools`가 고른 것만).
 // 사람만 쓰는 칸이다. 꺼졌거나 없는 extension의 id를 적어도 저장은 되고, 그 tool은 목록에 서지 않는다.
 const extensionsSchema = z
   .array(z.string().regex(EXTENSION_ID).max(64))
@@ -127,11 +127,11 @@ const mcpServersSchema = z
     { message: "mcp server names must be unique" },
   );
 
-// runtime: 없으면 lophn이다. bare는 정의 본문과 `tools`, `skills`가 고른 것만 싣는다. harness 값은 third-party harness의
+// runtime: 없으면 lophn이다. custom은 정의 본문과 `tools`, `skills`가 고른 것만 싣는다. harness 값은 third-party harness의
 // CLI를 shell host가 돌리는 agent다(run-loop는 돌리지 않는다).
 export const HARNESS_RUNTIMES = ["claude-code", "codex", "opencode"] as const;
 export type HarnessRuntime = (typeof HARNESS_RUNTIMES)[number];
-export const AGENT_RUNTIMES = ["lophn", "bare", ...HARNESS_RUNTIMES] as const;
+export const AGENT_RUNTIMES = ["lophn", "custom", ...HARNESS_RUNTIMES] as const;
 export const agentRuntimeSchema = z.enum(AGENT_RUNTIMES);
 export type AgentRuntime = z.infer<typeof agentRuntimeSchema>;
 
@@ -145,7 +145,7 @@ export function isHarnessRuntime(
 export function selectableRuntimes(
   harnessEnabled: boolean,
 ): readonly AgentRuntime[] {
-  return harnessEnabled ? AGENT_RUNTIMES : ["lophn", "bare"];
+  return harnessEnabled ? AGENT_RUNTIMES : ["lophn", "custom"];
 }
 
 // 한 줄 목적. 목록 카드와 다른 agent가 읽는 한 줄이라 줄바꿈과 긴 글을 받지 않는다.
@@ -168,12 +168,12 @@ const modalityFieldSchema = z.strictObject({
   output: modalityListSchema.optional(),
 });
 
-// bare가 고른 tool 이름(내장 tool, lophn 명령, `<slug>.<command>`, `mcp__<server>__<tool>`). runtime이 bare일 때만 쓴다.
+// custom이 고른 tool 이름(내장 tool, lophn 명령, `<slug>.<command>`, `mcp__<server>__<tool>`). runtime이 custom일 때만 쓴다.
 const toolPicksSchema = z.array(nonblankSchema).refine(unique, {
   message: "duplicate tool",
 });
 
-// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·profile·`runtime: bare` 잠금, `tools`·`skills`와 runtime의 짝, 사람만 쓰는 칸(`mcp_servers`, `apps`, `extensions`, `permissions`, `skip`)의
+// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·profile·`runtime: custom` 잠금, `tools`·`skills`와 runtime의 짝, 사람만 쓰는 칸(`mcp_servers`, `apps`, `extensions`, `permissions`, `skip`)의
 // 거절은 저장하는 쪽(core)이 본다.
 const frontmatterFields = {
   handle: agentHandleSchema,

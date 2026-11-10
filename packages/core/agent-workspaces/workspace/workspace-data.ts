@@ -284,9 +284,9 @@ async function readWorkspaceData(
         : { description: row.description }),
     }));
 
-  // bare는 agents처럼 팀도 보지 않는다. 읽지 못하면 팀 밖과 같다.
+  // custom은 agents처럼 팀도 보지 않는다. 읽지 못하면 팀 밖과 같다.
   const team: string[] = [];
-  if (agent.runtime !== "bare") {
+  if (agent.runtime !== "custom") {
     const read = await readOf(call, teamRead, {});
     if (read.ok) {
       const { parent, siblings, children } = read.value;

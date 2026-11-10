@@ -139,14 +139,14 @@ journeys:
       - {do: "Add server로 web 주소와 OAuth 2.1을 고른다", screen: new-agent-mcp-server-form, flow: agent-definition-read:ok}
       - {do: "저장하면 정의의 mcp_servers로 적힌다", screen: new-agent-mcp-server-form, flow: agent-change:saved}
 
-  - id: agent-create-bare-or-harness
-    title: "사람이 runtime을 bare나 harness로 정해 agent를 만든다"
+  - id: agent-create-custom-or-harness
+    title: "사람이 runtime을 custom이나 harness로 정해 agent를 만든다"
     actor: person
-    goal: "Runtime을 Bare로 하면 tool과 skill을 고르고, harness(Codex)로 하면 지침만 적어 저장한다"
+    goal: "Runtime을 Custom으로 하면 tool과 skill을 고르고, harness(Codex)로 하면 지침만 적어 저장한다"
     refs: [H11]
     steps:
-      - {do: "Runtime을 Bare로 하고 tool과 skill을 고른다", screen: agent-settings-bare, flow: skills-list-read:ok}
-      - {do: "저장한다", screen: agent-settings-bare, flow: agent-create:created}
+      - {do: "Runtime을 Custom으로 하고 tool과 skill을 고른다", screen: agent-settings-custom, flow: skills-list-read:ok}
+      - {do: "저장한다", screen: agent-settings-custom, flow: agent-create:created}
       - {do: "Runtime을 Codex로 하면 model·tool·skill·MCP 칸이 없다", screen: agent-settings-harness, flow: skills-list-read:ok}
       - {do: "저장한다", screen: agent-settings-harness, flow: agent-create:created}
 
@@ -325,16 +325,16 @@ journeys:
     gaps:
       - "call-send의 outcome이 답 방식(none, result, conversation)을 나누지 않아 conversation 주고받기는 call-reply:delivered로만 보인다"
 
-  - id: call-result-bare-receiver
-    title: "bare agent가 끝낸 turn의 마지막 글이 result call의 답이 된다"
+  - id: call-result-custom-receiver
+    title: "custom agent가 끝낸 turn의 마지막 글이 result call의 답이 된다"
     actor: agent
-    goal: "result call을 받은 bare agent가 turn을 끝내면 마지막 글이 call의 답으로 자동 전달된다"
+    goal: "result call을 받은 custom agent가 turn을 끝내면 마지막 글이 call의 답으로 자동 전달된다"
     refs: [R2, T11]
     steps:
-      - {do: "lophn call send를 reply result로 bare agent에게 보낸다", flow: call-send:accepted}
-      - {do: "bare agent가 입력을 turn으로 연다", flow: turn-pump-start:started}
-      - {do: "bare agent가 turn을 끝낸다", flow: turn-loop:completed}
-      - {do: "마지막 글이 call의 답으로 자동 전달된다", flow: bare-call-reply:replied}
+      - {do: "lophn call send를 reply result로 custom agent에게 보낸다", flow: call-send:accepted}
+      - {do: "custom agent가 입력을 turn으로 연다", flow: turn-pump-start:started}
+      - {do: "custom agent가 turn을 끝낸다", flow: turn-loop:completed}
+      - {do: "마지막 글이 call의 답으로 자동 전달된다", flow: custom-call-reply:replied}
 
   - id: call-cancel-late-reply
     title: "사람이 보낸 call을 취소하면 뒤늦은 답은 닫힘으로 돌아간다"

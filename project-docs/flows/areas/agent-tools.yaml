@@ -436,7 +436,7 @@ flows:
       - packages/core/lophn-agent/tools/bundles/skill.ts
       - packages/core/lophn-agent/extensions/skill-read.ts
     steps:
-      - "turnSkillReader가 이름이 이 turn의 켜진 목록(agent 정의의 skills_off를 뺀 것, bare는 고른 것만)에 있는지 본다. 없으면 forbidden이다"
+      - "turnSkillReader가 이름이 이 turn의 켜진 목록(agent 정의의 skills_off를 뺀 것, custom은 고른 것만)에 있는지 본다. 없으면 forbidden이다"
       - "첫 호출 때 turn의 skill 판을 만들어 고정한다. 판은 전역 설정(settings/list), 원천 폴더(projects/get·apps/get), 공유 skill(apps/skills)을 core에서 읽는다. 이 읽기들이 실패하면 그 재료는 빈 값이 되어 판에서 빠지고 오류는 돌려주지 않는다"
       - "판에서 이름을 찾는다. 없으면 not_found, 전역·workspace(Home, project, 앱) 설정에서 끈 skill이면 forbidden이다"
       - "본문은 SKILL.md의 frontmatter 뒤 줄이다. SKILL.md가 없거나 24 KiB를 넘거나 frontmatter가 없으면 본문을 읽지 못한 skill이다. 딸린 .md는 skill 폴더 바로 아래의 24 KiB 이하 파일만 판에 든다"
@@ -452,7 +452,7 @@ flows:
       - id: not-enabled
         code: forbidden
         observe: ["response"]
-        when: "이 turn의 켜진 목록에 없다(is not available to this agent: agent 정의가 끈 skill, bare가 고르지 않은 skill). 또는 판에는 있지만 전역·workspace 설정에서 끈 skill이다(is turned off)"
+        when: "이 turn의 켜진 목록에 없다(is not available to this agent: agent 정의가 끈 skill, custom이 고르지 않은 skill). 또는 판에는 있지만 전역·workspace 설정에서 끈 skill이다(is turned off)"
       - id: not-found
         code: not_found
         observe: ["response"]
@@ -785,7 +785,7 @@ flows:
       - "workspace 종류의 이름 목록(공통 목록(agent.memory 포함), visual.show, project와 app은 WORK_TOOLS)을 selectTools로 정의와 맞춘다"
       - "resolveModel로 model을 고른다(실패하면 목록을 만들지 못한다). model이 image 입력을 받지 않으면 image.read를 뺀다"
       - "lophn 명령 정의와 외부 MCP·extension tool을 더해 세션 시작 때 고정하고, turn마다 같은 목록을 쓴다"
-      - "bare agent는 고른 이름(picks)만 보이고, lophn tool은 고른 명령이 있을 때만 선다. 앱 command 읽기가 실패하면 앱 command 없이 만든다"
+      - "custom agent는 고른 이름(picks)만 보이고, lophn tool은 고른 명령이 있을 때만 선다. 앱 command 읽기가 실패하면 앱 command 없이 만든다"
       - "시작 뒤 정의가 바뀌었으면 The tools available to this session changed. notice를 prompt 끝에 붙이고, 목록은 그대로 둔다"
     outcomes:
       - id: fixed
@@ -794,9 +794,9 @@ flows:
       - id: image-dropped
         observe: ["request:model"]
         when: "model이 image 입력을 받지 않아 image.read가 빠졌다"
-      - id: bare-narrowed
+      - id: custom-narrowed
         observe: ["request:model"]
-        when: "runtime이 bare인 agent라서 고른 이름만 보인다"
+        when: "runtime이 custom인 agent라서 고른 이름만 보인다"
       - id: changed-notice
         observe: ["request:model"]
         when: "고정한 목록과 지금 정의가 달라 notice가 붙었다"
@@ -807,7 +807,7 @@ flows:
     refs: [P4, P12]
     docs: [architecture/agent-definition.md, architecture/workspace-session.md]
     unclear:
-      - "bare의 picks(정의 tools 칸)와 changed-notice를 agents와 turns 중 어느 쪽이 소유하는지 정해야 한다. 여기서는 목록 조립으로만 적었다"
+      - "custom의 picks(정의 tools 칸)와 changed-notice를 agents와 turns 중 어느 쪽이 소유하는지 정해야 한다. 여기서는 목록 조립으로만 적었다"
 
   - id: tool-operations-ceiling
     title: "workspace 종류마다 agent credential이 부를 수 있는 route의 상한을 정한다"

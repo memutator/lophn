@@ -547,7 +547,7 @@ export function createFakeAgentsSource(
   // core의 cardOf를 줄인 것: 차이는 skill·MCP 이름만 세고, model은 정의나 전역 값이다(가격은 anthropic 것만 안다).
   const cardOf = (key: string, item: Stored): AgentCard => {
     const definition = item.definition;
-    const bare = definition.runtime === "bare";
+    const custom = definition.runtime === "custom";
     const chosen = definition.model ?? GLOBAL_MODEL;
     const harness = isHarnessRuntime(definition.runtime ?? "lophn");
     return {
@@ -581,8 +581,8 @@ export function createFakeAgentsSource(
         input: [...(definition.modality?.input ?? ALL_MODALITIES)],
         output: [...(definition.modality?.output ?? ALL_MODALITIES)],
       },
-      replies: bare ? ["none", "result"] : ["none", "result", "conversation"],
-      diff: bare
+      replies: custom ? ["none", "result"] : ["none", "result", "conversation"],
+      diff: custom
         ? {
             plus: [
               ...(definition.tools ?? []),
@@ -621,7 +621,7 @@ export function createFakeAgentsSource(
     const off = definition.skills_off ?? [];
     const mcpOff = (definition.mcp_off ?? []).map((entry) => entry.server_name);
     const skills =
-      definition.runtime === "bare"
+      definition.runtime === "custom"
         ? (definition.skills?.length ?? 0)
         : skillsFor(workspace).filter(
             (row) => row.on && (row.builtIn || !off.includes(row.name)),

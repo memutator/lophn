@@ -162,7 +162,7 @@ function checkDefinition(
     }
     fields.handle = LOPHN_AGENT_HANDLE;
     fields.name ??= LOPHN_AGENT_NAME;
-    // lophn은 자기 runtime만 쓴다(bare도 harness도 아니다).
+    // lophn은 자기 runtime만 쓴다(custom도 harness도 아니다).
     if (fields.runtime !== undefined && fields.runtime !== "lophn") {
       addIssue(issues, "runtime", "not_allowed");
     }
@@ -178,9 +178,9 @@ function checkDefinition(
     }
   }
 
-  // tools와 skills는 bare가 고르는 칸이다. lophn(runtime 없음 포함)이 적으면 뜻이 없어 거절한다.
+  // tools와 skills는 custom이 고르는 칸이다. lophn(runtime 없음 포함)이 적으면 뜻이 없어 거절한다.
   for (const key of ["tools", "skills"]) {
-    if (fields[key] !== undefined && fields.runtime !== "bare") {
+    if (fields[key] !== undefined && fields.runtime !== "custom") {
       addIssue(issues, key, "not_allowed");
     }
   }

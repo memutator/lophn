@@ -94,7 +94,7 @@ export interface AgentDraft {
   /** 범위 workspace. 없으면 전역이다. 저장된 값을 그대로 돌려보낸다. */
   readonly workspace?: AgentWorkspace;
   readonly profile?: Profile;
-  /** 없으면 lophn이다. bare는 본문과 `tools`, `skills`가 고른 것만 싣는다. */
+  /** 없으면 lophn이다. custom은 본문과 `tools`, `skills`가 고른 것만 싣는다. */
   readonly runtime?: AgentRuntime;
   /** 한 줄 목적. */
   readonly description?: string;
@@ -103,9 +103,9 @@ export interface AgentDraft {
     readonly input?: readonly Modality[];
     readonly output?: readonly Modality[];
   };
-  /** bare가 고른 tool 이름. runtime이 bare일 때만 둔다. */
+  /** custom이 고른 tool 이름. runtime이 custom일 때만 둔다. */
   readonly tools?: readonly string[];
-  /** bare가 고른 skill 이름. runtime이 bare일 때만 둔다. */
+  /** custom이 고른 skill 이름. runtime이 custom일 때만 둔다. */
   readonly skills?: readonly string[];
   readonly model?: ModelChoice;
   readonly skills_off?: readonly string[];

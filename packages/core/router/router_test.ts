@@ -634,7 +634,7 @@ test("when the parent ends, an ask call fails without telling the child's queue 
   ]);
 });
 
-test("a bare or harness parent's automatic reply to an approval ask call closes it as a reject", () => {
+test("a custom or harness parent's automatic reply to an approval ask call closes it as a reject", () => {
   const world = askCall("approval");
   const done = world.router.reply(
     world.tx,

@@ -127,14 +127,14 @@ flows:
     boundary: [harness-host-interface, harness-host-core]
     code:
       - packages/core/main/daemon/wiring/harness.ts
-      - packages/core/main/daemon/wiring/bare-reply.ts
+      - packages/core/main/daemon/wiring/custom-reply.ts
       - packages/protocol/lophn-agent/turns.ts
     steps:
       - "turn을 읽는다. 없으면 not_found, 그 session이 harness가 아니면 forbidden"
       - "outcome이 interrupted면 schema가 invalid_input으로 막는다(이 flow의 갈래가 아니다). 멈춤과 재시작은 core가 닫는다"
       - "FinishTurn을 machine 자격으로 turn의 state_seq에 맞춰 쓴다. 이미 끝났거나 재시작으로 닫혔으면 conflict"
       - "TurnEnded를 turn마다 한 번 낸다. queue는 running을 내리고 turn 자격을 끝낸다"
-      - "입력이 answer를 기다리는 result call이면 마지막 기록 메시지가 그 답이 된다(bare-reply가 TurnEnded를 듣고 보낸다)"
+      - "입력이 answer를 기다리는 result call이면 마지막 기록 메시지가 그 답이 된다(custom-reply가 TurnEnded를 듣고 보낸다)"
     outcomes:
       - id: finished
         observe: [ledger:turns, event:TurnEnded, response]

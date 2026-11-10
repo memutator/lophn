@@ -94,7 +94,7 @@ spawn된 session(`spawned_by` 있음)의 `ask` tool(질문)과 shell 규칙 `ask
 - 한쪽이 먼저 끝나는 경우:
   - 자식의 request·질문이 부모 답 말고 다른 것(turn 끝, session 닫힘, 사람 메시지)으로 닫히면 core가 그 ask call을 자식 이름으로 취소한다. 부모의 늦은 답은 `closed: true`다.
   - 부모가 끝나 call이 `receiver_ended`로 닫히면 승인은 `the parent session ended without answering` 거절로, 질문은 `cancelled`로 풀린다. 처음부터 부모에게 닿지 않으면 승인은 `the request could not reach the parent session` 거절이다.
-  - harness·bare 부모의 마지막 응답이 승인 call의 자동 답이 되면 거절로 친다. 명시하지 않은 허락은 없다.
+  - harness·custom 부모의 마지막 응답이 승인 call의 자동 답이 되면 거절로 친다. 명시하지 않은 허락은 없다.
 
 ### 앱 공유 요청
 

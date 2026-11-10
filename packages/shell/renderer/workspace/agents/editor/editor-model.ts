@@ -139,7 +139,7 @@ export interface AgentFacts {
   /** 내장 coding agent는 handle·runtime·범위가 고정이다. */
   readonly coding: boolean;
   readonly runtime: AgentRuntime;
-  readonly bare: boolean;
+  readonly custom: boolean;
   /** harness(third-party CLI)는 자기 model·skill·MCP를 쓴다. */
   readonly harness: boolean;
 }
@@ -154,7 +154,7 @@ export function factsOf(
     lophn: detail.assignment !== null && isLophn(detail.assignment),
     coding: detail.assignment !== null && isCodingBuiltin(detail.assignment),
     runtime,
-    bare: runtime === "bare",
+    custom: runtime === "custom",
     harness: isHarnessRuntime(runtime),
   };
 }

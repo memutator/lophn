@@ -81,7 +81,7 @@ export type ResolvedAgent = {
   agent_instructions: string;
   model: ModelChoice;
   runtime: AgentRuntime;
-  // 정의 `tools`에 적힌 이름이다(고른 skill이 있으면 `skill.read`가 더해진다). bare가 아니면 빈 목록이다. workspace 종류 목록과 할당·MCP 안으로 줄이는 것은 조립의 일이다.
+  // 정의 `tools`에 적힌 이름이다(고른 skill이 있으면 `skill.read`가 더해진다). custom이 아니면 빈 목록이다. workspace 종류 목록과 할당·MCP 안으로 줄이는 것은 조립의 일이다.
   picks: string[];
   tools: string[];
   skills: string[];
@@ -92,8 +92,8 @@ export type ResolvedAgent = {
 
 // 값마다 마지막 층이 이긴다(전역 → project → agent → session).
 // - model은 ModelChoice 하나를 통째로 쓴다. 어느 층에도 없으면 turn을 시작하지 않는다.
-// - tools는 workspace 종류가 고정한 목록이다. 정의에 무엇을 적어도 바뀌지 않는다. bare가 고른 이름은 picks에 따로 있다.
-// - skills는 환경이 준 것 가운데 정의가 끈 이름(skills_off)을 뺀 것이다. bare는 정의 `skills`가 고른 이름만이고
+// - tools는 workspace 종류가 고정한 목록이다. 정의에 무엇을 적어도 바뀌지 않는다. custom이 고른 이름은 picks에 따로 있다.
+// - skills는 환경이 준 것 가운데 정의가 끈 이름(skills_off)을 뺀 것이다. custom은 정의 `skills`가 고른 이름만이고
 //   harness는 skill을 받지 않아 빈 목록이다(harness는 자기 skill 폴더를 쓴다).
 // - agent_instructions는 정의 본문의 sha256Hex(정의가 없으면 빈 글), hash는 hash를 뺀 값의 fingerprint다.
 export async function resolveAgent(
@@ -123,27 +123,29 @@ export async function resolveAgent(
   const skillsOff = definition?.skills_off ?? [];
   const mcpOff = definition?.mcp_off ?? [];
   const runtime: AgentRuntime = definition?.runtime ?? "lophn";
-  const skillPicks = runtime === "bare" ? (definition?.skills ?? []) : [];
-  // bare가 고른 skill은 있는 것만 받는다. 목록을 읽을 길(`skill.read`)이 없으면 목록이 소용없어 함께 고른 것으로 친다.
+  const skillPicks = runtime === "custom" ? (definition?.skills ?? []) : [];
+  // custom이 고른 skill은 있는 것만 받는다. 목록을 읽을 길(`skill.read`)이 없으면 목록이 소용없어 함께 고른 것으로 친다.
   const skills =
-    runtime === "bare"
+    runtime === "custom"
       ? receivedSkills(environment.skills, []).filter((name) =>
           skillPicks.includes(name),
         )
       : runtime === "lophn"
         ? receivedSkills(environment.skills, skillsOff)
         : [];
-  const toolPicks = runtime === "bare" ? (definition?.tools ?? []) : [];
+  const toolPicks = runtime === "custom" ? (definition?.tools ?? []) : [];
   const picks =
-    runtime === "bare" && skills.length > 0 && !toolPicks.includes("skill.read")
+    runtime === "custom" &&
+    skills.length > 0 &&
+    !toolPicks.includes("skill.read")
       ? [...toolPicks, "skill.read"]
       : toolPicks;
-  // bare는 `mcp__<server>__<tool>`로 고른 tool만 받고 harness는 받지 않는다. 고르지 않은 서버는 연결 목록에도 서지 않는다.
+  // custom은 `mcp__<server>__<tool>`로 고른 tool만 받고 harness는 받지 않는다. 고르지 않은 서버는 연결 목록에도 서지 않는다.
   const mcp = environment.mcp
     .filter(
       (tool) =>
         runtime === "lophn" ||
-        (runtime === "bare" &&
+        (runtime === "custom" &&
           picks.includes(
             `${MCP_TOOL_PREFIX}${tool.server_name}__${tool.original_tool}`,
           )),

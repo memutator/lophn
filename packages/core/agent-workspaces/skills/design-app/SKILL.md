@@ -223,7 +223,7 @@ about it.
    `omok-opponent`. Do not use the built-in `lophn` agent for this: it carries
    the whole product's rules and tools on every turn, which is slow and costly
    and lets it touch files and the shell.
-2. Make it bare (`runtime: bare`) with `tools: []` and text modality. A bare
+2. Make it custom (`runtime: custom`) with `tools: []` and text modality. A custom
    agent gets only the instructions you write. Write them as a role, not a
    chat: who it is, what the app sends it (name each context block), the exact
    reply shape (the JSON fields and their meaning), and "do not use tools" is

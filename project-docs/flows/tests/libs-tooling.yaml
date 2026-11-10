@@ -22,8 +22,8 @@ files:
       - workflow-instance-apply:unavailable
       - workflow-flow-report:unavailable
       - queued-edit-record:unavailable
-      - bare-reply-auto:unavailable
-      - bare-call-reply:unavailable
+      - custom-reply-auto:unavailable
+      - custom-call-reply:unavailable
     note: 알려진 값과 prefix credential 가림, 알려진 값을 다 모르면 null(fail-closed). null이 "글 redaction이 끝나지 않음" 갈래를 정하므로 그 unavailable을 덮는다. 너무 넓으면 줄일 것
 
   - path: packages/base/telemetry/telemetry_test.ts
@@ -174,7 +174,7 @@ files:
 
   - path: tools/check-source_test.ts
     covers: []
-    note: check 도구가 core main의 bare fetch와 DOM title 속성을 막는지 보는 검사 도구
+    note: check 도구가 core main의 custom fetch와 DOM title 속성을 막는지 보는 검사 도구
 
   - path: tools/install-checklist_test.ts
     covers: []

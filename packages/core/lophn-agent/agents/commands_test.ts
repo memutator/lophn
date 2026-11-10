@@ -207,7 +207,7 @@ test("옛 hash로 agent를 고치면 충돌이고 파일은 그대로다", async
   }
 });
 
-test("bare가 고른 tool 이름이 아무것도 아니면 저장을 거절하고, 내장 tool·명령·앱 command·MCP tool은 받는다", async () => {
+test("custom이 고른 tool 이름이 아무것도 아니면 저장을 거절하고, 내장 tool·명령·앱 command·MCP tool은 받는다", async () => {
   const root = await mkdtemp(join(tmpdir(), "lophn-agent-commands-"));
   try {
     const commands = createAgentCommands({
@@ -224,7 +224,7 @@ test("bare가 고른 tool 이름이 아무것도 아니면 저장을 거절하�
           definition: {
             handle: id,
             name: id,
-            runtime: "bare",
+            runtime: "custom",
             tools,
             body: "x",
           },

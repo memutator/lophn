@@ -65,7 +65,7 @@ import { contextBlock, useAgentSession } from "@lophn/agent";
   workspace로 가도 page가 다시 load되지 않아 기다리던 답을 받는다. 앱은 아무것도 하지
   않는다. 앱이 자기 이유로 `useKeepAlive`(`@lophn/app-ui`)를 써도 서로 끄지 않는다.
   turn이 끝나면 내려가므로 늘 살아 있지는 않다(그래서 판의 session id는 저장한다).
-- 앱 안에서 쓸 agent(상대 선수, 코치, 검토자)는 **bare agent를 이 앱 workspace에서
+- 앱 안에서 쓸 agent(상대 선수, 코치, 검토자)는 **custom agent를 이 앱 workspace에서
   먼저 만들고**(`lophn agent create`, 지침에 역할과 답 꼴을 쓰고 `tools: []`) 그
   handle을 `agent`에 준다. 앱을 짓는 agent의 `design-app` skill이 "앱 안 agent"
   절에 절차를 적는다. lophn 기본 agent를 상대로 쓰지 않는다: 제품 규칙과 tool이

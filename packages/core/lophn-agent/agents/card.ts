@@ -25,11 +25,11 @@ import {
   workspaceOfAgent,
 } from "./inspect.ts";
 
-// lophn은 셋 다 받는다. bare는 `call.reply`를 골랐을 때만 대화를 이어 간다(답을 보낼 길이 그것뿐이라서다).
+// lophn은 셋 다 받는다. custom은 `call.reply`를 골랐을 때만 대화를 이어 간다(답을 보낼 길이 그것뿐이라서다).
 export function repliesOf(
   agent: Pick<AgentFileDefinition, "runtime" | "tools">,
 ): AgentCard["replies"] {
-  if (agent.runtime !== "bare") return ["none", "result", "conversation"];
+  if (agent.runtime !== "custom") return ["none", "result", "conversation"];
   return agent.tools?.includes("call.reply") === true
     ? ["none", "result", "conversation"]
     : ["none", "result"];
@@ -57,7 +57,7 @@ function cardOf(
   const off = definition?.skills_off ?? [];
 
   const diff =
-    runtime === "bare"
+    runtime === "custom"
       ? {
           plus: [
             ...(definition?.tools ?? []),

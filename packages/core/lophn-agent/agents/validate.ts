@@ -67,7 +67,7 @@ const BUILTIN_TOOLS = new Set(WORKSPACE_KINDS.flatMap(workspaceToolNames));
 const COMMAND_NAMES = new Set(COMMANDS.map((command) => command.name));
 const APP_COMMAND = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*\.\S+$/;
 
-// bare가 고른 이름이 내장 tool, lophn 명령, 앱 command(`<slug>.<command>`), MCP tool, extension tool(`ext__<id>__<tool>`) 중 하나인가. workspace 종류, 할당, 설정한 server는
+// custom이 고른 이름이 내장 tool, lophn 명령, 앱 command(`<slug>.<command>`), MCP tool, extension tool(`ext__<id>__<tool>`) 중 하나인가. workspace 종류, 할당, 설정한 server는
 // 나중에 바뀌므로 보지 않는다. 앱 slug는 내장 명령 묶음의 첫 낱말과 겹칠 수 없어(RESERVED_APP_SLUGS), 첫 낱말이 명령 묶음이면
 // 앱 command일 수 없고 명령 표에 있는 이름이어야 한다(`call.replay`를 잡는다).
 function knownToolName(name: string): boolean {

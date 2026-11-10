@@ -25,7 +25,7 @@ Home memory(`<data>/home/memory.md`)를 모든 workspace의 agent가 `global mem
 ## 할 일
 
 1. `hooks.ts` `readMemoryTexts`: `global`은 `workspaceMemoryFile(root, null)`. Home session(`workspace === null`)이면 `workspace`는 `""`이다(같은 파일을 두 번 싣지 않는다).
-2. `prepare.ts`: `MemoryTexts` type에 `global`. bare filter(지금 `{...texts, workspace: ""}`)가 `global`도 비운다. `createFixedMemory`의 고정·Compact 뒤 다시 읽기는 그대로.
+2. `prepare.ts`: `MemoryTexts` type에 `global`. custom filter(지금 `{...texts, workspace: ""}`)가 `global`도 비운다. `createFixedMemory`의 고정·Compact 뒤 다시 읽기는 그대로.
 3. `turn-prompt.ts` `memoryBlock`: 출처 순서 `global memory` → `workspace memory` → `agent memory`. 빈 것은 뺀다.
 4. prompt:
    - `home.md` "## Memory": 이 memory는 모든 workspace의 모든 agent가 본다. 그래서 workspace를 건너는 사실(사람의 계정·선호, workspace 지도, 앱 결정)만 담는다.
@@ -34,7 +34,7 @@ Home memory(`<data>/home/memory.md`)를 모든 workspace의 agent가 `global mem
 5. `app.md`는 앱 agent가 읽는 지침이다. `sdk-note` skill대로 메모와 Instruction diff를 쓴다.
 6. `agents.ts`: Home의 memory 안내 문구를 "모든 workspace의 모든 agent가 읽는다"로 바꾼다. project·app의 문구는 global memory도 받는다는 것을 한 구절 더한다.
 7. 문서:
-   - `agent-definition.md` memory 절(규칙, prompt 그림, bare)
+   - `agent-definition.md` memory 절(규칙, prompt 그림, custom)
    - `AGENT.md` P13
    - `flows/areas/turns.yaml`의 `memory-fixed` outcome
 

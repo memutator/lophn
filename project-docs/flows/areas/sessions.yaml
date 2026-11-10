@@ -1398,15 +1398,15 @@ flows:
     unclear:
       - "turns의 turn-restart(input-requeued)가 같은 start 되돌리기를 적는다. crosses_process는 여기서 true(본문을 blob에서 읽는다)이고 turns 쪽은 false다. 한쪽으로 모을지 정할 것"
 
-  - id: bare-reply-auto
-    title: "bare session이 result call을 받은 turn을 끝내면 마지막 답을 그 call의 답으로 보낸다"
+  - id: custom-reply-auto
+    title: "custom session이 result call을 받은 turn을 끝내면 마지막 답을 그 call의 답으로 보낸다"
     actor: system
     entries: [route:calls/auto-reply]
     boundary: [router]
     code:
       - packages/core/router/commands.ts
       - packages/core/router/router.ts
-      - packages/core/main/daemon/wiring/bare-reply.ts
+      - packages/core/main/daemon/wiring/custom-reply.ts
     steps:
       - "route를 부르기 전에 wiring이 마지막 답 글을 redaction하고 blob으로 준비한다. 끝내지 못하면 route를 부르지 않고 unavailable이다."
       - "route는 호출자가 core 안 machine인지 본다(forbidden). call을 찾는다(없으면 not_found). 그 call의 보낸 쪽도 받는 쪽도 아니면 forbidden이다."

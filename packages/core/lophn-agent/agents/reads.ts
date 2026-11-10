@@ -90,7 +90,7 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
       ? { skills: null, mcp: null }
       : {
           skills:
-            definition?.runtime === "bare"
+            definition?.runtime === "custom"
               ? (definition.skills?.length ?? 0)
               : receivedSkills(
                   [

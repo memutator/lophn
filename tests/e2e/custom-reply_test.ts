@@ -1,12 +1,12 @@
 // 세 질문
-// - contract: boundary `router`(result call의 답), `agent-sessions`(bare runtime session). bare가 `call.reply`를 부르지
+// - contract: boundary `router`(result call의 답), `agent-sessions`(custom runtime session). custom이 `call.reply`를 부르지
 //   않아도 turn이 끝나면 마지막 응답 글이 보낸 session의 답으로 한 번 간다(`architecture/agent-call.md`).
-// - 현실적 회귀: bare-reply wiring의 machine scope나 route가 어긋나 `reply_failed` 로그만 남기고 call이 영영 accepted로
-//   남는 것, bare의 system에 제품 규칙이나 workspace 지침이 새는 것, 고르지 않은 tool(`lophn`)이 실리는 것.
-// - 왜 지금 test로 못 잡나: bare-reply_test는 가짜 port만 본다. 진짜 core의 scope·route·Router 왕복은 process를 건너야 한다.
+// - 현실적 회귀: custom-reply wiring의 machine scope나 route가 어긋나 `reply_failed` 로그만 남기고 call이 영영 accepted로
+//   남는 것, custom의 system에 제품 규칙이나 workspace 지침이 새는 것, 고르지 않은 tool(`lophn`)이 실리는 것.
+// - 왜 지금 test로 못 잡나: custom-reply_test는 가짜 port만 본다. 진짜 core의 scope·route·Router 왕복은 process를 건너야 한다.
 //
-// 줄(lane): home은 `app create`를 부르는 lophn, bare는 `lophn` tool이 없고 `file_read`가 있는 요청이다.
-// lophn runtime이 자동 답을 받지 않는 것은 bare-reply_test(가짜 port)가 본다.
+// 줄(lane): home은 `app create`를 부르는 lophn, custom은 `lophn` tool이 없고 `file_read`가 있는 요청이다.
+// lophn runtime이 자동 답을 받지 않는 것은 custom-reply_test(가짜 port)가 본다.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -37,8 +37,8 @@ const HOME: Lane = {
   name: "home",
   match: (r) => lophnCommands(r).includes("app create"),
 };
-const BARE: Lane = {
-  name: "bare",
+const CUSTOM: Lane = {
+  name: "custom",
   match: (r) =>
     toolNames(r).includes("file_read") && !toolNames(r).includes("lophn"),
 };
@@ -94,7 +94,7 @@ async function callOf(core: Core, receiver: string): Promise<string> {
   });
 }
 
-test("E2E result call을 받은 bare turn의 마지막 응답이 답으로 한 번 돌아간다", async () => {
+test("E2E result call을 받은 custom turn의 마지막 응답이 답으로 한 번 돌아간다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -102,27 +102,27 @@ test("E2E result call을 받은 bare turn의 마지막 응답이 답으로 한 �
     core = await bootCore(run);
     const c = core;
     await connectFakeProvider(c, fake);
-    const bare = c.ids.newId("agt");
+    const custom = c.ids.newId("agt");
     await c.call(agentCreate, {
-      id: bare,
+      id: custom,
       definition: {
-        handle: "echo-bare",
-        name: "echo-bare",
-        runtime: "bare",
+        handle: "echo-custom",
+        name: "echo-custom",
+        runtime: "custom",
         tools: ["file.read"],
-        body: "BARE-BODY only.",
+        body: "CUSTOM-BODY only.",
       },
     });
 
-    // bare가 글만 답하고 끝나면 그 글이 call의 답이 된다.
+    // custom이 글만 답하고 끝나면 그 글이 call의 답이 된다.
     fake.script(
-      [send({ agent: "echo-bare" }), text("sent"), text("got it")],
+      [send({ agent: "echo-custom" }), text("sent"), text("got it")],
       HOME,
     );
-    fake.script([text("the answer is 42")], BARE);
+    fake.script([text("the answer is 42")], CUSTOM);
     const a = await openLophnSession(c);
-    await say(c, a, "ask the bare agent");
-    const b = await opened(c, bare);
+    await say(c, a, "ask the custom agent");
+    const b = await opened(c, custom);
     await waitTurnEnd(c, b);
     await waitTurnEnd(c, a, 1);
     assertNoMismatch(fake);
@@ -142,9 +142,9 @@ test("E2E result call을 받은 bare turn의 마지막 응답이 답으로 한 �
     assert.ok(
       JSON.stringify(lane(fake, "home")[2].body).includes("the answer is 42"),
     );
-    // fake: bare 요청의 system은 정의 본문뿐이고 tool은 고른 것뿐이다.
-    const [request] = lane(fake, "bare");
-    assert.deepStrictEqual(systemText(request), "BARE-BODY only.");
+    // fake: custom 요청의 system은 정의 본문뿐이고 tool은 고른 것뿐이다.
+    const [request] = lane(fake, "custom");
+    assert.deepStrictEqual(systemText(request), "CUSTOM-BODY only.");
     assert.deepStrictEqual(toolNames(request), ["file_read"]);
   } finally {
     await core?.kill().catch(() => {});

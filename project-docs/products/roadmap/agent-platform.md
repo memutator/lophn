@@ -53,7 +53,7 @@
   - third-party CLI의 출력을 ACP로 옮기면 같은 채팅 화면이 그 위에 GUI를 덮는다(`claude gui`).
   - agent가 앱 live 화면을 읽거나 조작하는 길은 두지 않는다. 자기 앱의 preview를 테스트하려고 다루는 것은 연다(사람, 2026-11-08: 앱을 CDP로 테스트한다. 계획 `browser-use`의 preview 탭과 `lophn browser`). agent는 자기가 연 browser 탭과 preview 탭만 다룬다(`architecture/browser-tab.md` "agent가 다루는 탭").
 - **A2A는 agent와 agent 사이의 lophn 자체 규격이다.** lophn끼리, lophn ↔ third-party harness. home의 전역 agent(Image Generator)를 어디서든 부른다. 핵심은 불린 agent의 시야다. 시야는 workspace와 workspace 사이의 정책이 크게 정하고 agent와 agent 사이의 정책이 예외로 덧쓴다. 명함에 modality와 skill diff를 싣고, 내부 구현을 몰라도 무엇을 기대할지 안다. third-party harness는 CLI 명령으로 실행한다.
-- **bare:** 기본으로 다 덜어진 상태이고 사람이 더한다(tool, lophn 명령, 앱 command, MCP, skill). lophn agent는 지금 그대로다.
+- **custom:** 기본으로 다 덜어진 상태이고 사람이 더한다(tool, lophn 명령, 앱 command, MCP, skill). lophn agent는 지금 그대로다.
 - **SDK:** 위 것을 lophn agent SDK로 묶는다.
 - **별도 설치:** 대다수에게 필요 없는 기능(third-party GUI 등)은 lophn 본체와 따로 설치한다. 그 구조를 만든다.
 - **domain과 kind를 지운다.**
@@ -64,7 +64,7 @@
 |---|---|---|---|
 | 1 | domain과 kind 지우기 | 없음 | 끝남(계획 remove-domain) |
 | 2 | content block: call 본문과 답, 사람 메시지가 block으로 | 없음 | 끝남(계획 content-block) |
-| 3 | bare runtime: 정의 본문과 고른 tool만 | 1, 2 | 끝남(계획 bare-runtime, bare가 skill도 더하기는 계획 agent-card) |
+| 3 | custom runtime: 정의 본문과 고른 tool만 | 1, 2 | 끝남(계획 bare-runtime, custom이 skill도 더하기는 계획 agent-card) |
 | 4 | ACP 규격과 채팅 화면: protocol에 ACP를 정하고 lophn agent가 내놓는 것과 채팅 화면이 그리는 것을 ACP로 | 2 | 끝남(계획 acp) |
 | 5 | 앱 화면의 ACP: SDK(`@lophn/agent`)로 앱이 context의 prompt 조립을 정하고 agent 응답을 받아 그린다 | 4 | 끝남(계획 app-agent, `project-docs/architecture/app-call.md`의 "앱 화면의 agent session"). 옛 계획 agent-screen은 agent가 client인 꼴이라 지웠다 |
 | 6 | 별도 설치 구조: 본체와 따로 설치하고 켜는 기능 묶음 | 없음 | 끝남(계획 extension, `project-docs/architecture/extension.md`). 설치본에 넣는 일은 첫 extension(harness)과 같이 했다(`packages/shell/main/build.ts`, `tools/package/main.ts`) |
@@ -80,7 +80,7 @@
 2. content block은 MCP ContentBlock 꼴을 빌린다. ACP와 A2A가 같은 block을 쓴다(agent, 단계 2에서 land).
 3. third-party harness의 실행은 CLI 명령이다. agent로 쓸 때는 headless 명령(`claude -p`, `codex exec`, `opencode run`)이고 사람 없이 돌려도 된다. harness가 programmatic 실행을 공식으로 지원한다(사람, 2026-11-04).
 4. harness host는 shell 쪽이다. core는 사람의 PATH와 실행 파일을 모른다(agent, `architecture/coding-agent.md`).
-5. "click command는 등록할 수 있다"는 내장을 덜어낸 agent에게도 lophn 명령을 붙일 수 있다는 것이다. bare의 `tools`가 그것이다(agent).
+5. "click command는 등록할 수 있다"는 내장을 덜어낸 agent에게도 lophn 명령을 붙일 수 있다는 것이다. custom의 `tools`가 그것이다(agent).
 
 ## 정한 것 (시야, 2026-11-04)
 

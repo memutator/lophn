@@ -44,7 +44,7 @@ export const callsRecover = defineCommand({
   errors: ["forbidden", "unavailable", "internal"],
 });
 
-// bare session이 result call을 받은 turn을 끝내면 core가 마지막 응답 글을 그 call의 답으로 보낸다. agent가 부르는
+// custom session이 result call을 받은 turn을 끝내면 core가 마지막 응답 글을 그 call의 답으로 보낸다. agent가 부르는
 // ReplyCall과 같은 규칙을 받는 session 이름으로 한 번 더 건다. core 안 machine만 쓴다.
 export const callsAutoReply = defineCommand({
   resource: "calls",

@@ -267,7 +267,7 @@ Never change an expense. Ask me first.`,
     summary: "Reads the run queue and answers with what is stuck.",
     definition: {
       name: "Queue watcher",
-      runtime: "bare",
+      runtime: "custom",
       description: "Reads the run queue and answers with what is stuck.",
       tools: ["file.read", "file.grep", "call.reply"],
       profile: { kind: "character", shape: "capsule", color: "teal" },

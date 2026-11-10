@@ -1,0 +1,18 @@
+id: browser-fail-reason
+version: 0.23.15
+title: browser·tab 호출이 실패한 이유를 model이 받는다
+modules: [packages/core/lophn-agent, packages/core/host-queue, packages/core/main, packages/shell/main, packages/cli, packages/core/agent-workspaces, packages/coding-agent]
+change: |
+  전: lophn agent의 `browser.*`·`tab.*` 호출이 `unavailable`·`conflict`로 실패하면 model은 code마다 고정된 "tool is unavailable", "tool call conflicted"만 받았다.
+  후: 그 두 code에 한해 handler의 문장이 model에 간다. 문장은 lophn이 쓴 고정 문장으로 다시 썼다(원인, 다음 할 일, 되풀이해도 되는지). page나 Chromium에서 온 글은 넣지 않는다(navigation 실패의 `net::ERR_*` 이름만 싣는다, stale ref 문장에서 CDP 글을 뺐다). 다른 tool과 다른 code의 공통 문장은 그대로다. CLI는 문장을 그대로 찍으므로 새 문장을 받는다.
+  agent 지침(workspace prompt `home`·`project`·`app`, 내장 skill `write-artifact`, coding agent의 `lophn-agent` skill)에 더했다: lophn browser가 이 일의 browser다. 실패하면 다른 browser를 띄우거나 사람의 browser profile·쿠키를 읽지 않고 받은 이유를 사람에게 전한다.
+why: 사람이 다른 workspace에 있어 탭이 열리지 않았을 때 이유를 받지 못한 agent가 사람의 Chrome 쿠키를 복사해 바깥 browser를 띄운 일이 있었다(`project-docs/products/roadmap/agent-browser-lifetime.md`의 단계 1).
+decisions:
+  - text: model에 싣는 것은 lophn이 쓴 고정 문장뿐이다. 버린 길은 handler 문장을 통째로 넘기기다(page는 인터넷이고 이 문장은 untrusted 감싸기 밖으로 간다).
+    by: agent
+  - text: 싣는 범위는 이름이 `browser.`·`tab.`으로 시작하는 tool의 `unavailable`·`conflict`다. `not_found`·`forbidden`은 대상의 존재를 가리려 공통 문장으로 둔다.
+    by: agent
+  - text: 사람의 browser profile 읽기와 바깥 browser 실행을 program으로 막지 않고 지침과 문장으로 막는다. `shell.run`에 OS sandbox가 없어 문자열 판정은 우회가 쉽다. 같은 일이 다시 생기면 그때 넣는다.
+    by: agent
+follow_up: |
+  "탭이 창에 열려 있지 않다"와 "lophn 앱이 붙어 있지 않다" 문장은 지금 동작(page 수명이 화면에 묶임)을 말한다. roadmap의 2·3단계가 수명을 바꾸면 같이 고친다.

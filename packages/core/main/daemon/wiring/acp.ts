@@ -33,6 +33,7 @@ import {
   changeSessionModel,
   changeSessionSkip,
   renameSession,
+  setSessionAiTitle,
 } from "../../../../protocol/lophn-agent/sessions.ts";
 import {
   toolCallList,
@@ -462,6 +463,7 @@ export const acpWiring: WiringFactory = () => {
                 enqueue(() => hiddenAfterRewind(session));
                 break;
               case renameSession.name:
+              case setSessionAiTitle.name:
               case sendMessage.name:
                 enqueue(() => publishSessionChange(session, "title"));
                 break;

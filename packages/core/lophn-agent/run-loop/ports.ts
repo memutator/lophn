@@ -253,11 +253,16 @@ export type TurnPorts = {
     history: readonly HistoryMessage[],
     signal: AbortSignal,
   ): Promise<"compacted" | "skipped" | "failed">;
+  // session 첫 요청의 글로 model이 제목을 짓게 한다. 기다리지 않고, 제목이 아직 자른 자동 제목일 때만 바꾼다.
+  // 없으면 자동 제목이 그대로 남는다.
+  title?(request: string): void;
 };
 
 export type LoopDeps = {
   // 기록 시각과 단조 ms.
   clock: Clock;
+  // 날짜 notice가 쓰는 IANA time zone.
+  timeZone: string;
   // 대기. 신호가 중단되면 "aborted"로 일찍 돌아온다.
   wait(ms: number, signal: AbortSignal): Promise<"elapsed" | "aborted">;
   // 진행 중인 호출의 한도 timer. 없으면 실제 timer를 쓴다.

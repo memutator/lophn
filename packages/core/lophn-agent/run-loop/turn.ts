@@ -1,6 +1,7 @@
 import type { Result } from "../../../base/mod.ts";
 import {
   assembleTurnPrompt,
+  dateNotice,
   estimateTokens,
   type HistoryMessage,
   type HistoryPart,
@@ -73,6 +74,8 @@ export type LoopState = {
   modelCalls: Set<AbortController>;
   serverCalls: Map<string, Set<AbortController>>;
   history: HistoryMessage[];
+  // 이 turn이 날짜 notice를 정했다. turn 첫 조립에서 한 번만 정한다.
+  dated: boolean;
   // 끝내려는 turn의 마지막 답 글. 정상 종료 확정 전에 이력과 함께 남긴다(그 답은 state.history에 없다).
   closing: string | null;
   // 연속으로 받은 partial 응답 수. 완전한 응답이 오면 0이 된다.
@@ -381,6 +384,33 @@ async function prepare(
     const read = await deps.ports.context();
     if (!read.ok) return await failWith(state, "configuration_unavailable");
     const context = read.value;
+    if (!state.dated) {
+      state.dated = true;
+      // turn 이력 맨 앞에 두어 요청 바로 뒤에 붙고, 이력과 함께 남아 다음 turn에도 같은 bytes로 간다.
+      const material = sessionMaterial(context.session);
+      const notice = dateNotice({
+        history: material.history,
+        now_ms: deps.clock.nowMs(),
+        time_zone: deps.timeZone,
+      });
+      if (notice !== null) {
+        state.history.unshift({
+          role: "user",
+          parts: [{ kind: "text", text: notice }],
+        });
+      }
+      // 이전 대화가 없는 turn의 요청이 session의 첫 요청이다.
+      if (
+        material.history.length === 0 &&
+        material.compact_summary === null &&
+        inputs.request !== null
+      ) {
+        const text = inputs.request
+          .flatMap((part) => (part.kind === "text" ? [part.text] : []))
+          .join("");
+        if (text.trim() !== "") deps.ports.title?.(text);
+      }
+    }
     const assembled = await assembleTurnPrompt(
       {
         ...context.prompt,

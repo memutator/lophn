@@ -35,7 +35,7 @@ function firstGraphemes(text: string, max: number): string {
 // 3. 앞 60자(글자)를 자른다. 자른 자리가 공백이면 끝 공백을 뺀다.
 //
 // 뺀 뒤 남은 글이 없으면(빈 본문·공백뿐) null이다. 번호 이름("Conversation N")은 만들지 않는다.
-function autoSessionTitle(text: string): string | null {
+export function autoSessionTitle(text: string): string | null {
   const flat = text.replace(LINE_BREAK_RUN, " ").trim();
   const title = firstGraphemes(flat, SESSION_AUTO_TITLE_MAX).trimEnd();
   return title === "" ? null : title;

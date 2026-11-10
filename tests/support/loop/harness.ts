@@ -182,6 +182,7 @@ export function loopHarness(init: {
 
   const deps: LoopDeps = {
     clock,
+    timeZone: "UTC",
     wait(ms, signal) {
       waits.push(ms);
       return Promise.resolve(signal.aborted ? "aborted" : "elapsed");

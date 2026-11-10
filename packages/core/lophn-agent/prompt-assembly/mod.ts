@@ -21,6 +21,7 @@ export {
 } from "./budget.ts";
 export { summaryOutputCap } from "./compaction.ts";
 export * from "./input-tags.ts";
+export { dateNotice } from "./date-notice.ts";
 export { anthropicSystem, anthropicTools } from "./layers.ts";
 export {
   type BlockedReason,

@@ -487,7 +487,8 @@ test("loop의 안전 규칙이 지켜진다", async (t) => {
                 .some((text) => text.includes("SUMMARY-OF-PROGRESS")),
               compacted.model.userTexts(4).includes("go"),
             ],
-            [completed, [6], ["t1", "t2", "t3"], [], true, true],
+            // 넘긴 이력은 맨 앞 날짜 notice와 tool 세 번의 호출·결과다.
+            [completed, [7], ["t1", "t2", "t3"], [], true, true],
           );
 
           const failedCompact = loopHarness({
@@ -503,7 +504,7 @@ test("loop의 안전 규칙이 지켜진다", async (t) => {
           // 요약이 실패해도 turn은 끝나지 않고 오래된 tool 결과를 줄여 이어 간다.
           assert.deepStrictEqual(
             [failedEnd, failedCompact.compactions, resultIds(failedCompact, 4)],
-            [completed, [6], ["omitted", "t2", "t3"]],
+            [completed, [7], ["omitted", "t2", "t3"]],
           );
         },
       ],

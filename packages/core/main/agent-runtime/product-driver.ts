@@ -204,6 +204,7 @@ export function productDriver(
     });
     const preparer = createTurnPreparer({
       clock: systemClock,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       ids,
       ...(options.tracer === undefined ? {} : { tracer: options.tracer }),
       machine: calls.machine,

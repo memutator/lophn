@@ -154,6 +154,28 @@ export const renameSession = defineCommand({
   errors: ["invalid_input", "not_found", "conflict", "unauthorized"],
 });
 
+// 첫 요청에서 자른 자동 제목을 model이 지은 제목으로 바꾼다. 제목이 아직 그 자동 제목(`expected`)일 때만
+// 바꾸고, 그 사이 사람이 rename했으면 그대로 둔다(`changed: false`).
+export const setSessionAiTitle = defineCommand({
+  resource: "sessions",
+  method: "ai-title",
+  name: "SetSessionAiTitle",
+  input: z.strictObject({
+    session: idSchema("ses"),
+    expected: sessionTitleSchema,
+    title: sessionTitleSchema,
+  }),
+  output: z.object({
+    id: idSchema("ses"),
+    title: z.string().nullable(),
+    changed: z.boolean(),
+    state_seq: seqSchema,
+  }),
+  compare: z.strictObject({}),
+  actors: ["machine"],
+  errors: ["invalid_input", "forbidden", "not_found", "unauthorized"],
+});
+
 export const archiveSession = defineCommand({
   resource: "sessions",
   method: "archive",

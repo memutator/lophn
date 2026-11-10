@@ -77,6 +77,45 @@ flows:
     docs: [architecture/workspace-session.md]
     unclear: []
 
+  - id: session-ai-title
+    title: "첫 요청에서 자른 자동 제목을 model이 지은 제목으로 바꾼다"
+    actor: system
+    entries: [route:sessions/ai-title]
+    boundary: [agent-sessions, run-loop]
+    code:
+      - packages/core/lophn-agent/session/commands.ts
+      - packages/core/lophn-agent/run-loop/core-ports.ts
+      - packages/core/lophn-agent/prompt-assembly/title.ts
+    steps:
+      - "session의 첫 turn이 첫 model call과 나란히 그 session model로 제목 call 하나를 한다(organizing, title_summary로 그 turn에 기록). turn은 기다리지 않는다."
+      - "답에서 제목 한 줄을 고르지 못하거나 call이 실패하면 아무것도 부르지 않고 자른 자동 제목이 남는다."
+      - "runtime(machine)이 아니면 forbidden이다(requireMachine). session이 없으면 not_found다."
+      - "제목이 아직 첫 요청에서 자른 자동 제목(expected)일 때만 제목과 state_seq를 고친다. 사람이 그 사이 rename했으면 changed false로 그대로 둔다."
+      - "ACP writer가 바뀐 제목을 화면에 낸다."
+    outcomes:
+      - id: ok
+        observe: [ledger:sessions, response]
+        when: "제목을 바꿨다(changed true)"
+      - id: kept
+        observe: [response]
+        when: "제목이 이미 자동 제목이 아니거나(사람 rename) 같은 제목이다(changed false)"
+      - id: forbidden
+        code: forbidden
+        when: "machine이 아닌 호출자다(requireMachine)"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "session이 없다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "expected나 title이 비었거나 120자를 넘는다(schema)"
+        observe: [response]
+    declared_only: [unauthorized]
+    crosses_process: false
+    docs: [architecture/workspace-session.md]
+    unclear: []
+
   - id: session-archive
     title: "session을 archive해 더 이상 새 입력을 받지 않게 한다"
     actor: person

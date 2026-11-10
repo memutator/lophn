@@ -13,6 +13,7 @@ import {
   type recordMessage,
   type recordShellMessage,
   renameSession,
+  setSessionAiTitle,
   type requestSessionCompact,
   type sendMessage,
   type bindHarnessSession,
@@ -31,7 +32,12 @@ import { createHarnessCommands } from "./harness.ts";
 import { createForkCommand } from "./fork.ts";
 import { createTeamEnd } from "./team-commands.ts";
 import { deleteSessionReverts } from "./rewind/mod.ts";
-import { reject, requireUser, sessionNotFound } from "./guards.ts";
+import {
+  reject,
+  requireMachine,
+  requireUser,
+  sessionNotFound,
+} from "./guards.ts";
 import {
   createMessageCommands,
   type SendMessageDeps,
@@ -81,6 +87,7 @@ function openedOf(row: SessionRow) {
 export function createConversationCommands(deps: ConversationDeps): {
   open: CommandDefinition<typeof workspaceSessionOpen>;
   rename: CommandDefinition<typeof renameSession>;
+  aiTitle: CommandDefinition<typeof setSessionAiTitle>;
   archive: CommandDefinition<typeof archiveSession>;
   delete: CommandDefinition<typeof deleteSession>;
   changeModel: CommandDefinition<typeof changeSessionModel>;
@@ -158,6 +165,35 @@ export function createConversationCommands(deps: ConversationDeps): {
         return ok({
           id: session.id,
           title: title.value,
+          state_seq: String(seq),
+        });
+      },
+    },
+    aiTitle: {
+      route: setSessionAiTitle,
+      handle(tx, ctx, input: Input<typeof setSessionAiTitle>) {
+        const machine = requireMachine(ctx);
+        if (!machine.ok) return machine;
+        const session = loadSession(tx, input.session);
+        if (session === undefined) return sessionNotFound();
+        const title = input.title.trim();
+        if (session.title !== input.expected || session.title === title) {
+          return ok({
+            id: session.id,
+            title: session.title,
+            changed: false,
+            state_seq: session.state_seq,
+          });
+        }
+        const seq = nextSessionSeq(tx);
+        tx.sql.run(
+          "update sessions set title = ?, state_seq = ? where id = ?",
+          [title, seq, session.id],
+        );
+        return ok({
+          id: session.id,
+          title,
+          changed: true,
           state_seq: String(seq),
         });
       },

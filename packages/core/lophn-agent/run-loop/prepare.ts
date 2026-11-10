@@ -163,6 +163,8 @@ export type ToolPorts = Pick<
 
 type PreparerDeps = {
   clock: Clock;
+  // 날짜 notice의 IANA time zone. host의 time zone이다.
+  timeZone: string;
   ids: IdSource;
   // model call·tool call span을 낸다. 없으면 span 없이 돈다.
   tracer?: Tracer;
@@ -867,6 +869,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
           };
     const loopDeps: LoopDeps = {
       clock,
+      timeZone: deps.timeZone,
       wait: abortableWait,
       random: Math.random,
       ports: turnPorts,

@@ -17,6 +17,7 @@ import {
   finishTurn,
   recordMessage,
   recordToolRequest,
+  setSessionAiTitle,
   startModelCall,
   startToolCall,
   type TokenUsage,
@@ -25,6 +26,11 @@ import {
   turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { ModelBinding } from "../models/binding.ts";
+import {
+  parseSessionTitle,
+  sessionTitleRequest,
+} from "../prompt-assembly/title.ts";
+import { autoSessionTitle } from "../session/session-title.ts";
 import { toolCallDisplay } from "../tools/display.ts";
 import {
   definitionHash,
@@ -125,6 +131,9 @@ type CorePortsDeps = {
   // 쓰는 중인 글을 core로 보내는 묶음이 기다리는 timer다.
   wait: LoopDeps["wait"];
 };
+
+// 제목 call은 첫 turn과 나란히 돈다. 늦게 오는 제목은 쓸모가 줄어 오래 기다리지 않는다.
+const TITLE_TIMEOUT_MS = 30_000;
 
 const STOP_REASONS: ReadonlySet<string> = new Set<StopReason>([
   "user_stopped",
@@ -930,10 +939,152 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     return ok(undefined);
   }
 
+  // 첫 요청의 제목을 model로 짓는 call 하나. 이 turn의 call로 기록하되 판단(judgment)이 아니라 정리(organizing)라
+  // 문맥 크기 기준에 들지 않는다. 실패하면 자른 자동 제목이 그대로 남는다.
+  async function titleAttempt(text: string, expected: string): Promise<void> {
+    const model = deps.model;
+    const prompt = sessionTitleRequest(text);
+    const packed = model.pack(prompt);
+    const safeBody = await redactValue(deps.redact, packed.body);
+    if (!safeBody.ok) return;
+    const inputBlob = await storeRedacted(
+      deps.blobs,
+      TURN_BLOB_PURPOSES.model_call_input,
+      safeBody.value,
+    );
+    if (!inputBlob.ok) return;
+    const basisBlob = await store(TURN_BLOB_PURPOSES.model_call_basis, {
+      kind: "session_title",
+      session: seat.session,
+    });
+    if (!basisBlob.ok) return;
+    attempts += 1;
+    const id = ids.newId("mcl");
+    const started = await commandOf(
+      machine,
+      startModelCall,
+      {
+        call: {
+          id,
+          turn: seat.turn,
+          session: seat.session,
+          model_use: "organizing" as const,
+          agent_hash: deps.agentHash,
+          purpose: "title_summary" as const,
+          attempt_kind: "initial" as const,
+          attempt_order: attempts,
+          retry_of: null,
+          model: model.call,
+          input: inputBlob.value.hash,
+          context_basis: basisBlob.value.hash,
+          output: null,
+          state: "started" as const,
+          started_at: clock.now(),
+          finished_at: null,
+          duration_ms: null,
+          first_output_ms: null,
+          outcome: null,
+          usage: EMPTY_USAGE(model.usageRevision),
+          cost: UNKNOWN_COST,
+        },
+        applied_messages: [],
+        blob_sizes: {
+          input: inputBlob.value.size,
+          context_basis: basisBlob.value.size,
+        },
+        state_seq: "1",
+      },
+      { state_seq: "1" },
+      `${id}:start`,
+    );
+    if (!started.ok) return;
+    const invoked = await model.invoke(
+      {
+        callId: id,
+        turn: seat.turn,
+        session: seat.session,
+        purpose: "organizing",
+        model: model.call,
+        endpoint: model.endpoint,
+        inputHash: inputBlob.value.hash,
+        contextBasisHash: basisBlob.value.hash,
+        body: safeBody.value as Record<string, unknown>,
+        usageRevision: model.usageRevision,
+      },
+      AbortSignal.timeout(TITLE_TIMEOUT_MS),
+    );
+    const output = invoked.ok ? invoked.value : undefined;
+    const outcome = output?.outcome ?? {
+      kind: "failed" as const,
+      code: "credential_unavailable" as const,
+      retry_at: null,
+      finish_reason: null,
+      http_status: null,
+      provider_code: null,
+    };
+    const usage = output?.usage ?? EMPTY_USAGE(model.usageRevision);
+    const price = model.call.price_basis;
+    const charged = price === null ? undefined : estimatedCost(usage, price);
+    const cost: CallCost =
+      charged?.amount == null
+        ? UNKNOWN_COST
+        : {
+            kind: "estimated",
+            amount: charged.amount,
+            currency: "USD",
+            basis: (charged.rate_basis ?? {}) as Record<string, never>,
+            confirmed_at: clock.now(),
+          };
+    const outputBlob =
+      output !== undefined && output.text.length > 0
+        ? await store(TURN_BLOB_PURPOSES.model_call_output, {
+            text: output.text,
+            tools: [],
+          })
+        : null;
+    const kept = outputBlob?.ok === true ? outputBlob.value : null;
+    await commandOf(
+      machine,
+      finishModelCall,
+      {
+        call: id,
+        output: kept?.hash ?? null,
+        ...(kept === null ? {} : { output_size: kept.size }),
+        outcome:
+          outcome.kind === "partial" && kept === null
+            ? { ...outcome, kind: "failed" as const, code: "unknown" as const }
+            : outcome,
+        usage,
+        cost,
+        duration_ms: output?.durationMs ?? null,
+        first_output_ms: output?.firstOutputMs ?? null,
+        state_seq: "2",
+      },
+      { state_seq: "1" },
+      `${id}:finish`,
+    );
+    if (output === undefined || outcome.kind !== "complete") return;
+    const title = parseSessionTitle(output.text);
+    if (title === null) return;
+    await commandOf(
+      machine,
+      setSessionAiTitle,
+      { session: seat.session, expected, title },
+      {},
+      `${seat.session}:ai-title`,
+    );
+  }
+
   return {
     stop,
     inputs,
     context: deps.context,
+    title(text) {
+      const expected = autoSessionTitle(text);
+      if (expected === null) return;
+      // 첫 turn을 기다리게 하지 않는다. 어떤 실패도 turn에 닿지 않는다.
+      void titleAttempt(text, expected).catch(() => undefined);
+    },
     model: {
       pack: deps.model.pack,
       available: () => deps.model.available(),

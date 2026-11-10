@@ -837,6 +837,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       interruptTurnsCommand(publishAfterCommit),
       conversationCommands.open,
       conversationCommands.rename,
+      conversationCommands.aiTitle,
       conversationCommands.archive,
       conversationCommands.delete,
       conversationCommands.changeModel,

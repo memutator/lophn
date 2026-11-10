@@ -1,0 +1,16 @@
+id: session-ai-title-and-date-notice
+version: 0.23.20
+title: lophn agent가 오늘 날짜를 알고, session 제목을 model이 짓는다
+modules: [packages/core/lophn-agent, packages/protocol, packages/core/main]
+change: |
+  - model이 오늘 날짜를 안다. turn 첫 조립에서 이력이 마지막으로 알린 날짜·time zone과 지금(host time zone)이 다르면(처음 포함) `date` notice "Today's date is YYYY-MM-DD (time zone Z)."를 turn 이력 맨 앞(요청 바로 뒤)에 둔다. system prompt와 cache 경계는 그대로다.
+  - session 제목이 두 단계다. 첫 요청 앞 60자를 바로 제목으로 두는 것은 같고, 첫 turn이 나란히 session model로 제목 call 하나(`title_summary`, organizing)를 해 2–6단어 제목으로 바꾼다. 새 machine command `sessions/ai-title`은 제목이 아직 그 자른 제목일 때만 바꿔 사람 rename을 덮지 않는다.
+why: |
+  lophn agent에는 날짜를 알 길이 없어 "오늘", 마감, 최근 같은 말을 풀지 못했다. 조사한 harness 13개 중 날짜를 안 주는 곳은 둘뿐이다. 제목은 첫 문장 자르기라 긴 첫 메시지에서 목록에서 찾기 어려웠다.
+decisions:
+  - text: >-
+      날짜는 system이 아니라 대화에 덧붙이고 바뀔 때만 다시 보낸다. 날짜만 싣고 시·분은 싣지 않는다. 이유: system에 두면 날짜가 바뀔 때 tools·system 전체 cache가 깨진다(pi가 이 이유로 날짜를 뺐다). Claude Code·Codex·OpenCode·omp가 같은 길이다. 버린 길: 시각 tool, 매 turn 시각.
+    by: agent
+  - text: >-
+      제목 출처 칸을 두지 않고 compare-and-set(expected = 자른 자동 제목)으로 사람 rename을 지킨다. 작은 model 설정이 없어 session model을 쓴다. 버린 길: `title_source` 칸과 ledger migration(지금 요구에는 CAS로 충분하다).
+    by: agent

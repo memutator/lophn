@@ -21,6 +21,7 @@ import {
   useState,
 } from "react";
 
+import { AppTabIcon } from "../app-frame/app-icon.tsx";
 import { useKeyLabel } from "../commands/react.tsx";
 import { appPanelBindingId } from "../../ipc/keybindings.ts";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
@@ -440,7 +441,18 @@ export function LeftSidebar({
                   aria-current={here || undefined}
                   onClick={() => onWorkspace(workspace.ref)}
                 >
-                  <Icon icon={WORKSPACE_ICON[workspace.ref.kind]} pixels={16} />
+                  {workspace.ref.kind === "app" ? (
+                    <AppTabIcon
+                      app={workspace.ref.id}
+                      pixels={16}
+                      fallback={WORKSPACE_ICON.app}
+                    />
+                  ) : (
+                    <Icon
+                      icon={WORKSPACE_ICON[workspace.ref.kind]}
+                      pixels={16}
+                    />
+                  )}
                   <span className={styles.rowLabel}>{workspace.name}</span>
                 </button>
                 {workspace.ref.kind !== "home" &&

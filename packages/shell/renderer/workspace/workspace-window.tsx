@@ -3038,15 +3038,17 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                   {...(taskbar ? {} : { onSettings: () => onSettings() })}
                 />
               }
-              titleTray={
-                taskbar ? undefined : (
-                  <TrayHost
-                    off={quickPrefs.trayOff}
-                    order={quickPrefs.trayOrder}
-                    screens={panelApps}
-                    side="below"
-                  />
-                )
+              tray={
+                taskbar
+                  ? undefined
+                  : (side) => (
+                      <TrayHost
+                        off={quickPrefs.trayOff}
+                        order={quickPrefs.trayOrder}
+                        screens={panelApps}
+                        side={side}
+                      />
+                    )
               }
               rightSidebar={activePanel?.render(sidebarCtx)}
               taskbarStart={

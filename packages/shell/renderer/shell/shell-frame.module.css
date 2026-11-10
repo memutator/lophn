@@ -150,6 +150,14 @@
   padding: var(--space-2) var(--space-4) var(--space-4);
 }
 
+/* 작업 표시줄이 꺼졌을 때 tray 자리. 오른쪽 sidebar 아래 끝에 오른쪽으로 붙는다. */
+.rightTray {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  padding-block-start: var(--space-2);
+}
+
 /* float 층의 기준이다. 접힌 쪽은 card가 shell 가장자리에 붙지 않게 띄운다. */
 .stage {
   position: relative;

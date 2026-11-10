@@ -12,7 +12,7 @@ export interface WorkspaceMarkProps {
   /** 색을 정하는 값. 이름을 바꿔도 색이 그대로이도록 id를 준다. */
   readonly id: string;
   readonly name: string;
-  /** 이미지 src(favicon 등)나 `lucide:<이름>`. 없거나 못 읽으면 첫 글자와 색 배경이다. */
+  /** 이미지 src(favicon 등)나 `lucide:<이름>`. 있으면 배경 없이 그것만, 없거나 못 읽으면 첫 글자와 색 배경이다. */
   readonly icon?: string;
 }
 
@@ -38,7 +38,8 @@ export function WorkspaceMark({
     <span
       className={styles.mark}
       data-kind={kind}
-      data-tone={toneOf(id)}
+      // 이미지가 있으면 tone 색을 두지 않는다(tone 규칙이 투명 배경을 덮는다).
+      data-tone={shown === undefined ? toneOf(id) : undefined}
       data-image={shown === undefined ? undefined : ""}
       data-lucide={
         shown !== undefined && lucideNameOf(shown) !== null ? "" : undefined

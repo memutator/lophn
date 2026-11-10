@@ -2,6 +2,7 @@
 // 그릴 때마다 읽는다.
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
+import type { LucideIcon } from "lucide-react";
 
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import {
@@ -43,12 +44,19 @@ export function useAppIcon(app: string | undefined): string | undefined {
   return useDrawableIcon(useIconSrc(useAppViews()?.icon, app));
 }
 
-/** 탭 줄의 앱 패널 아이콘. 앱 icon이 없으면 기본 아이콘이다. */
-export function AppTabIcon({ app }: { app: string | undefined }) {
+/** 탭 줄·사이드바의 앱 아이콘. 앱 icon이 없으면 fallback(기본은 앱 패널 아이콘)이다. */
+export function AppTabIcon({
+  app,
+  pixels = iconPixels("small"),
+  fallback = workspaceIcons.appPanel,
+}: {
+  app: string | undefined;
+  pixels?: number;
+  fallback?: LucideIcon;
+}) {
   const icon = useAppIcon(app);
-  const pixels = iconPixels("small");
   if (icon === undefined) {
-    return <Icon icon={workspaceIcons.appPanel} pixels={pixels} />;
+    return <Icon icon={fallback} pixels={pixels} />;
   }
   return <IconImage src={icon} size={pixels} className={styles.tab} />;
 }

@@ -40,8 +40,11 @@ export interface ShellFrameProps {
   tabs: ReactNode;
   /** 오른쪽 구역의 panel icon tab(PanelTabs). */
   panelTabs?: ReactNode;
-  /** 작업 표시줄이 꺼져 있을 때 tray 항목(Tray). 오른쪽 구역의 sidebar 단추 옆에 선다. */
-  titleTray?: ReactNode;
+  /**
+   * 작업 표시줄이 꺼져 있을 때 tray 항목(Tray). 오른쪽 sidebar가 열려 있으면 그 아래 끝(작업 표시줄의 tray와 같은 구석)에,
+   * 닫혀 있으면 title bar 오른쪽 구역의 sidebar 단추 옆에 선다. side는 popup이 열리는 쪽이다.
+   */
+  tray?: (side: "above" | "below") => ReactNode;
   leftSidebar: ReactNode;
   rightSidebar?: ReactNode;
   /** 몸통(title bar 아래, 양쪽 sidebar 포함) 전체를 덮는 층(webview 그릇과 FloatLayer). float 패널이 sidebar 위로도 간다. */
@@ -170,7 +173,7 @@ export function ShellFrame({
   deskSwitcher,
   tabs,
   panelTabs,
-  titleTray,
+  tray,
   leftSidebar,
   rightSidebar,
   floats,
@@ -239,7 +242,7 @@ export function ShellFrame({
         >
           {right ? panelTabs : null}
           <span className={styles.grow} />
-          {titleTray}
+          {taskbar === undefined && !right ? tray?.("below") : null}
           {onToggleRight ? (
             <IconButton
               icon={shellIcons.rightPanel}
@@ -275,6 +278,9 @@ export function ShellFrame({
             style={{ width: rightWidth }}
           >
             {rightSidebar}
+            {taskbar === undefined && tray !== undefined ? (
+              <div className={styles.rightTray}>{tray("above")}</div>
+            ) : null}
             <Resizer
               side="right"
               width={rightBox}

@@ -1,5 +1,6 @@
 // title bar 오른쪽 구역의 panel icon tab(Obsidian). 고른 panel이 오른쪽 sidebar에 보인다.
 import type { LucideIcon } from "lucide-react";
+import { useLayoutEffect, useRef } from "react";
 import { Icon } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 
@@ -21,8 +22,36 @@ export interface PanelTabsProps {
 }
 
 export function PanelTabs({ tabs, selected, onSelect }: PanelTabsProps) {
+  const list = useRef<HTMLDivElement>(null);
+  // 고른 tab이 줄 밖이면 줄 안에서만 scroll해 보이게 한다.
+  useLayoutEffect(() => {
+    const element = list.current;
+    const tab = element?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!element || !tab) return;
+    if (
+      tab.offsetLeft + tab.offsetWidth >
+      element.scrollLeft + element.clientWidth
+    ) {
+      element.scrollLeft =
+        tab.offsetLeft + tab.offsetWidth - element.clientWidth;
+    }
+    if (tab.offsetLeft < element.scrollLeft)
+      element.scrollLeft = tab.offsetLeft;
+  }, [selected, tabs]);
+
   return (
-    <div className={styles.tabs} role="tablist">
+    <div
+      ref={list}
+      className={styles.tabs}
+      role="tablist"
+      // 세로 wheel도 가로로 옮긴다.
+      onWheel={(event) => {
+        const element = list.current;
+        if (!element || Math.abs(event.deltaY) <= Math.abs(event.deltaX))
+          return;
+        element.scrollLeft += event.deltaY;
+      }}
+    >
       {tabs.map((tab) => (
         <Tooltip key={tab.key} content={tab.label}>
           <button

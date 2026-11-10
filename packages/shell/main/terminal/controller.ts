@@ -6,6 +6,7 @@ import type { BrowserWindow } from "electron";
 import {
   TERMINAL_AGENT_SESSION_RENAME_CHANNEL,
   TERMINAL_AGENT_SESSIONS_CHANNEL,
+  TERMINAL_AGENTS_CHANNEL,
   TERMINAL_BRIDGE_ACK_CHANNEL,
   TERMINAL_CLOSE_CHANNEL,
   TERMINAL_FOCUS_CHANNEL,
@@ -53,6 +54,7 @@ export function registerTerminalIpc(register: MainIpc, ipc: TerminalIpc): void {
     [TERMINAL_PASTE_CHANNEL, "paste"],
     [TERMINAL_TRACE_CHANNEL, "trace"],
     [TERMINAL_BRIDGE_ACK_CHANNEL, "bridgeAck"],
+    [TERMINAL_AGENTS_CHANNEL, "agents"],
     [TERMINAL_AGENT_SESSIONS_CHANNEL, "agentSessions"],
     [TERMINAL_AGENT_SESSION_RENAME_CHANNEL, "renameAgentSession"],
   ] as const) {
@@ -84,6 +86,7 @@ export function removeTerminalIpc(register: MainIpc): void {
     TERMINAL_TRACE_CHANNEL,
     TERMINAL_BRIDGE_ACK_CHANNEL,
     TERMINAL_AGENT_SESSIONS_CHANNEL,
+    TERMINAL_AGENTS_CHANNEL,
     TERMINAL_AGENT_SESSION_RENAME_CHANNEL,
   ]) {
     register.removeHandler(channel);

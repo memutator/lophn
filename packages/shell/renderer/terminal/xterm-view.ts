@@ -42,8 +42,6 @@ export interface TerminalView {
    * PTY로 보낸 입력의 종류. 친 글과 출력 내용은 싣지 않는다.
    */
   onTrace(listener: (event: TerminalTraceEvent) => void): () => void;
-  /** program이 OSC 0/2로 터미널 제목을 바꿨다. */
-  onTitle(listener: (title: string) => void): () => void;
   /**
    * 고른 글을 OS clipboard에 쓴다. 고른 글이 없으면 아무것도 하지 않는다(그래도 key는 먹는다).
    * shell 창 session은 web clipboard permission을 거절하므로 main이 쓴다.
@@ -162,7 +160,6 @@ interface XtermLike {
   focus(): void;
   onData(listener: (data: string) => void): { dispose(): void };
   onBinary(listener: (data: string) => void): { dispose(): void };
-  onTitleChange(listener: (title: string) => void): { dispose(): void };
   dispose(): void;
 }
 
@@ -727,10 +724,6 @@ export function createXtermView(
     onTrace(listener) {
       traceListeners.add(listener);
       return () => traceListeners.delete(listener);
-    },
-    onTitle(listener) {
-      const subscription = term.onTitleChange(listener);
-      return () => subscription.dispose();
     },
     copySelection() {
       if (clipboard !== null && term.hasSelection()) {

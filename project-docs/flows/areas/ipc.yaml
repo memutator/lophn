@@ -496,6 +496,7 @@ links:
   - {entry: "ipc:shell:terminal-agent-sessions", flow: terminal-agent-session-list}
   - {entry: "ipc:shell:terminal-agent-session-rename", flow: terminal-agent-session-rename}
   - {entry: "ipc:shell:terminal-state", flow: terminal-agent-track}
+  - {entry: "ipc:shell:terminal-agents", flow: terminal-agent-track}
   - {entry: "ipc:shell:terminal-reveal", flow: terminal-agent-notice}
   - {entry: "ipc:shell:terminal-agent-sessions-changed", flow: terminal-agent-identity}
   - {entry: "ipc:shell:coding-hook-ask", flow: terminal-hook-install}

@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import type { TerminalRuntime } from "../../../ipc/terminal.ts";
 import { createHookIngress } from "./ingress.ts";
+import { createTitleScanner } from "./osc-title.ts";
 import { type AgentSignal, createAgentTracker } from "./tracker.ts";
 
 const KEY = "a".repeat(64);
@@ -129,6 +130,41 @@ test("Esc or Ctrl-C while running makes the state unknown until the next hook", 
     "claude:idle",
     "-:none",
   ]);
+});
+
+// 탭 이름이 날아가던 bug: 제목을 창의 xterm만 알아, 탭을 그리지 않았거나 다시 뜬 창은 자동 이름으로 떨어졌다.
+test("the terminal's OSC title is read from PTY output across chunk splits and rides on the agent for every window", () => {
+  const scan = createTitleScanner();
+  assert.equal(scan("plain output"), null);
+  assert.equal(scan("\x1b]0;\u2733 Claude Code\x07"), "\u2733 Claude Code");
+  assert.equal(scan("text\x1b]2;Fix the"), null);
+  assert.equal(scan(" widget\x1b\\more"), "Fix the widget");
+  assert.equal(scan("\x1b]0;a\x07\x1b]0;b\x07\x1b"), "b");
+  assert.equal(scan("]0;c\x07"), "c");
+  // 제목이 아닌 OSC(8: link)는 읽지 않는다.
+  assert.equal(scan("\x1b]8;;http://x\x07"), null);
+
+  const runtime = { terminal_ref: "t", state: "running" } as TerminalRuntime;
+  const titles: (string | undefined)[] = [];
+  const tracker = createAgentTracker({
+    harnessOfProcess: (argv) => (argv[0] === "claude" ? "claude" : null),
+    interruptKeys: () => [],
+    signalOf: () => null,
+    runtimeOf: () => runtime,
+    publish: (rt) => titles.push(rt.agent?.screen_title),
+    looking: () => true,
+    notify: () => false,
+    ...fakeClock(),
+  });
+  // agent가 뜨기 전의 제목도 터미널의 것이라 기억한다(TUI는 foreground로 알아보기 전에 첫 제목을 낸다).
+  tracker.screenTitle("t", "\u2733 Claude Code");
+  tracker.foreground("t", ["claude"]);
+  tracker.screenTitle("t", "\u2802 Fix the widget");
+  // spinner 프레임만 바뀌면 다시 알리지 않는다.
+  tracker.screenTitle("t", "\u2810 Fix the widget");
+  tracker.screenTitle("t", "\u2733 Fix the widget");
+  assert.deepEqual(titles, ["Claude Code", "Fix the widget"]);
+  assert.equal(tracker.decorate(runtime).agent?.screen_title, "Fix the widget");
 });
 
 test("a hook from another harness does not flip a tab the process identified, and Esc does not interrupt grok", () => {

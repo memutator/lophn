@@ -60,6 +60,10 @@ export interface AgentViewSlice {
   workspaceLophnSession(): string | null;
   /** session의 agent 이름. 이 project의 agent가 아니면 undefined. */
   nameOf(session: string): string | undefined;
+  /** 창이 아는 session 제목. 제목이 없거나 아직 읽지 못했으면 null이다. 탭 이름의 정본이다. */
+  titleOf(session: string): string | null;
+  /** 화면이 먼저 안 session 제목(열린 대화가 읽은 것, 방금 바꾼 이름)을 창에 알린다. */
+  titled(session: string, title: string): void;
   /** 이 창 workspace(project나 앱)의 artifact. 대화 글의 path를 link로 그리고 누르면 artifact 탭을 연다. */
   readonly artifacts: ArtifactsSlice;
 }

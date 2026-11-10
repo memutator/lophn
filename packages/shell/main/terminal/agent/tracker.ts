@@ -4,6 +4,7 @@
 import { isAbsolute } from "node:path";
 
 import type { TerminalAgent, TerminalRuntime } from "../../../ipc/terminal.ts";
+import { stripStatusGlyphs } from "./osc-title.ts";
 
 /** protocol `HookSignal` 가운데 이 module이 읽는 칸. */
 export type AgentSignal = {
@@ -111,6 +112,8 @@ type Entry = {
   unseen: boolean;
   /** 사람이 친 끊기 key로 내렸다. 끝 신호가 아니라 짐작이라, 뒤에 tool이 끝났다는 hook이 오면 되돌린다. */
   guessed: boolean;
+  /** 이 터미널의 program이 마지막으로 낸 제목(상태 글리프를 뗀 것). agent가 오가도 터미널의 것이라 남는다. */
+  screenTitle: string | null;
   /** 마지막으로 push한 agent 값(JSON, 없으면 "null"). 같으면 다시 push하지 않는다. */
   pushed: string;
 };
@@ -166,6 +169,7 @@ function agentOf(entry: Entry): TerminalAgent | undefined {
     ...(entry.session === null ? {} : { session: entry.session }),
     ...(entry.title === null ? {} : { title: entry.title }),
     ...(entry.name === null ? {} : { name: entry.name }),
+    ...(entry.screenTitle === null ? {} : { screen_title: entry.screenTitle }),
   };
 }
 
@@ -177,6 +181,8 @@ export type AgentTracker = {
     event: string,
     payload: unknown,
   ): void;
+  /** 터미널의 program이 OSC로 낸 제목. agent가 있는 동안 runtime에 실려 모든 창에 간다. */
+  screenTitle(terminalRef: string, title: string): void;
   /** 사람이 친 입력. Esc·Ctrl-C로 도는 turn을 끊으면 상태를 모르게 둔다. */
   humanInput(terminalRef: string, text: string): void;
   /** 그 탭이 focus를 받았다. 못 본 것이 있었으면 지운다. */
@@ -227,6 +233,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
         pending: null,
         sweepTimer: null,
         finishTimer: null,
+        screenTitle: null,
         pushed: "null",
       };
       entries.set(ref, entry);
@@ -466,6 +473,15 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
           name: entry.name,
         });
       }
+    },
+    screenTitle(ref, title) {
+      if (!alive(ref)) return;
+      const entry = entryOf(ref);
+      // spinner 프레임만 바뀐 제목은 같은 이름이라 다시 알리지 않는다.
+      const name = stripStatusGlyphs(title);
+      if (entry.screenTitle === name) return;
+      entry.screenTitle = name;
+      push(ref, entry);
     },
     humanInput(ref, text) {
       const entry = entries.get(ref);

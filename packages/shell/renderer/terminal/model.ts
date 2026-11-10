@@ -180,19 +180,10 @@ export function folderTitle(path: string): string | null {
   return name.length > 0 ? name : null;
 }
 
-// agent TUI가 제목 앞에 붙이는 상태 글리프: braille spinner, 반원 spinner, Claude의 ✳, ASCII `* `·`. `.
-// spinner 한 프레임이 제목에 남아도(herdr #5358) 이름이 흔들리지 않게 앞에서 걷어 낸다.
-const STATUS_PREFIX = /^(?:[\u2800-\u28FF\u25D0-\u25D3\u2733]\s*|[*.]\s+)+/;
-
-/** 터미널 제목에서 앞의 상태 글리프를 뗀 이름. harness별 손질은 하지 않는다. */
-export function stripStatusGlyphs(title: string): string {
-  return title.replace(STATUS_PREFIX, "").trim();
-}
-
 /**
  * 탭에 보일 이름. 사람이 붙인 이름, GUI view의 ACP session 제목(`guiTitle`, GUI가 아니면 null), harness가 hook으로
- * 알린 session 이름(`sessionName`), 그다음 coding agent가 도는 동안의 터미널 제목(`agentTitle`, agent가 없으면 null),
- * 없으면 자동 이름이다. GUI 동안의 터미널 제목은 TUI가 끝난 뒤 shell prompt가 낸 것이라 쓰지 않는다. 일반 shell은
+ * 알린 session 이름(`sessionName`), 그다음 coding agent가 도는 동안의 터미널 제목(`agentTitle`, agent가 없으면 null.
+ * main이 PTY 출력에서 읽어 상태 글리프를 뗀 값이다), 없으면 자동 이름이다. GUI 동안의 터미널 제목은 TUI가 끝난 뒤 shell prompt가 낸 것이라 쓰지 않는다. 일반 shell은
  * prompt가 제목을 계속 바꾸므로 제목을 쓰지 않는다.
  */
 export function tabName({
@@ -211,8 +202,7 @@ export function tabName({
   if (person !== null) return person;
   if (guiTitle !== null && guiTitle.length > 0) return guiTitle;
   if (sessionName !== null && sessionName.length > 0) return sessionName;
-  const stripped = agentTitle === null ? "" : stripStatusGlyphs(agentTitle);
-  return stripped.length > 0 ? stripped : auto;
+  return agentTitle !== null && agentTitle.length > 0 ? agentTitle : auto;
 }
 
 /**

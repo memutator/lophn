@@ -43,7 +43,7 @@ import {
   sidebarWorkspaces,
 } from "../../shell/left-sidebar-workspaces.ts";
 import {
-  useKnownSessions,
+  type SessionTitles,
   useTabsElsewhere,
   useSidebarWorkspaceList,
 } from "../../shell/use-left-sidebar.ts";
@@ -102,12 +102,14 @@ export interface WorkspaceLeftSidebarProps {
   projects?: ProjectsSource;
   apps?: AppsSource;
   agentViewSource?: AgentTabSourceFactory;
+  /** 창이 아는 session 제목. 탭 줄과 같은 값이다. */
+  sessionTitles: SessionTitles;
   agents: readonly SidebarAgent[];
   /** 모든 workspace의 lophn 이름(agent id → 이름). 다른 workspace의 새 session 줄이 쓴다. */
   lophnNames: Readonly<Record<string, string>>;
   /** 이 창의 layout을 읽었다. 읽기 전의 `openTitles`·`desks`는 기본 layout의 값이라 sidebar가 쓰지 않는다. */
   layoutReady: boolean;
-  /** 이 창에 탭이 열린 session id → 그 탭의 제목. */
+  /** 이 창에 탭이 열린 session id → 그 탭의 제목. 줄이 current인지만 정하고 이름으로는 쓰지 않는다. */
   openTitles: ReadonlyMap<string, string>;
   /** 이 창 layout의 desk. current 줄을 desk로 나눈다. */
   desks: LayoutDesks;
@@ -166,10 +168,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   const projectId = current.kind === "project" ? current.id : null;
   const list = useSidebarWorkspaceList(projects, apps);
   const { sessions } = useSessions();
-  const { known, reload: reloadKnown } = useKnownSessions(
-    props.agentViewSource,
-    sessions,
-  );
+  const { known, reload: reloadKnown } = props.sessionTitles;
   const workspaceRefs = useMemo(
     (): WorkspaceRef[] => [
       { kind: "home" },

@@ -92,6 +92,7 @@ export function fakeTerminal(
     ackBridgeOpen: () => ok(null),
     onBridgeOpen: () => () => {},
     onReveal: () => () => {},
+    agents: () => ok([]),
     agentSessions: () => ok([]),
     renameAgentSession: () => ok([]),
     onAgentSessions: () => () => {},

@@ -1,5 +1,6 @@
-// Agent 탭의 본문. agent 하나의 source를 factory로 얻어 Agent 화면에 넘기고, 화면이 읽은
-// agent 이름을 탭 제목으로 알린다. 보는 session은 탭이 쥐고 화면은 바꾸자고 말하기만 한다.
+// Agent 탭의 본문. agent 하나의 source를 factory로 얻어 Agent 화면에 넘긴다. 보는 session은 탭이 쥐고 화면은 바꾸자고
+// 말하기만 한다. 탭 제목은 창이 아는 session 제목(`slice.titleOf`)이 정본이다: 이 화면이 읽은 제목은 창에 알리고
+// (`slice.titled`), 탭 제목은 그 값으로 맞춘다. 이 화면만 아는 값으로 탭을 쓰면 그려지지 않은 탭의 이름이 갈라진다.
 
 import { t } from "@lophn/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -41,6 +42,12 @@ export function AgentTab(props: AgentTabProps) {
   latest.current = { title, onTitle };
   const [agentName, setAgentName] = useState<string | null>(null);
   const [sessionTitle, setSessionTitle] = useState<string | null>(null);
+  const { session } = props;
+  useEffect(() => {
+    if (session !== null && sessionTitle !== null) {
+      slice.titled(session, sessionTitle);
+    }
+  }, [session, sessionTitle, slice.titled]);
   useEffect(() => {
     let live = true;
     void source.agent().then((read) => {
@@ -51,7 +58,10 @@ export function AgentTab(props: AgentTabProps) {
     };
   }, [source]);
   // desired가 바뀔 때만 맞춘다. 탭 줄에서 이름을 바꾼 직후의 title로 되돌리지 않고, 고친 뒤 루프도 없다.
-  const desired = sessionTitle ?? agentName;
+  const desired =
+    (session === null ? null : slice.titleOf(session)) ??
+    sessionTitle ??
+    agentName;
   useEffect(() => {
     if (desired !== null && desired !== latest.current.title) {
       latest.current.onTitle(desired);

@@ -1,0 +1,18 @@
+id: session-name-falls-back-until-reselected
+title: sidebar와 탭 줄의 agent session 이름이 agent 이름·project 이름으로 떨어졌다가 그 탭이나 project를 고르면 돌아온다
+kind: bug
+status: fixed
+topic: workspace-layout
+modules: [packages/shell/renderer, packages/shell/main]
+now: |
+  이름의 정본이 "그 탭을 그린 화면"이었다. 두 갈래다.
+  - lophn session: 저장된 Agent 탭은 제목이 없고, 본문을 그린 탭(`AgentTab`)만 자기가 읽은 session 목록에서 제목을 채웠다. 고르지 않은 탭은 agent 이름("lophn")이었고, sidebar는 그 탭 제목을 줄 이름으로 썼다. workspace를 옮기거나 앱을 다시 띄울 때마다 고르지 않은 session이 모두 agent 이름이 됐다. 또 자동 제목은 첫 말을 접수할 때 붙는데(event 없음) session 목록은 session이 생기거나 끝날 때만 다시 읽어서, 새 session은 첫 말 뒤에도 탭·sidebar·머리 목록이 agent 이름·"New session"이었고 탭을 다시 골라야 제목이 보였다.
+  - 터미널 coding agent: agent가 OSC로 낸 터미널 제목을 그 창의 xterm이 읽어 창 메모리(`TerminalStore`)에만 두었다. 창이 다시 뜨면(닫았다 열기, reload) 제목을 잊어 탭이 자동 이름(project 이름)으로 떨어졌고, agent가 새 제목을 낼 때까지 탭을 골라도 돌아오지 않았다. 그 이름이 layout에 저장되며 저장해 둔 `agent_title`도 지웠다. main은 agent를 바뀔 때만 push해서 다시 뜬 창은 탭을 그리지 않은 터미널의 agent를 몰라 다른 workspace의 sidebar 줄도 빠졌다.
+  재현(고치기 전, `npm run dev`): Home에서 새 session에 첫 말 → 탭·sidebar가 "lophn". session 둘을 만든 뒤 다른 workspace에 갔다 오면 고르지 않은 탭과 그 줄이 "lophn". project 터미널 둘에서 coding agent를 띄우고 창을 reload하면 두 탭이 project 이름.
+impact: |
+  사람이 session을 이름으로 찾지 못한다. sidebar와 탭 줄에 같은 이름("lophn", project 이름, "Claude Code")이 여럿 보인다.
+closed: |
+  - session 제목은 창에 하나인 값(`useKnownSessions`, `useTabHostSlices`가 든다)이 정본이다. session이 생기거나 끝날 때, turn이 돌기 시작할 때, 창 focus, rename 뒤 다시 읽고, 열린 대화가 읽은 제목과 방금 바꾼 이름은 바로 넣는다. 탭 줄은 모든 Agent 탭 제목을 이 값으로 맞추고 sidebar도 탭 제목이 아니라 이 값을 쓴다.
+  - 터미널 제목은 shell main이 PTY 출력에서 읽어 runtime의 `agent.screen_title`로 싣는다. 창의 xterm은 읽지 않는다. 창은 뜰 때 `shell:terminal-agents`로 지금 agent가 도는 터미널을 한 번 읽는다.
+  남은 것: GUI view(`claude gui`) 터미널의 ACP session 제목은 아직 탭 field(`guiTitle`)라 그 탭을 그린 창만 안다. 그리지 않은 동안은 저장된 `agent_title`로 버틴다.
+guard: '`packages/shell/main/terminal/agent/agent_test.ts`의 OSC title 사례, `packages/shell/renderer/shell/session-titles_test.ts`'

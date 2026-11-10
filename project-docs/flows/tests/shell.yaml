@@ -508,13 +508,17 @@ files:
       - pane-focus:unchanged
     note: "방향 키가 맞닿은 칸 중 겹침이 큰 칸으로 갈지, 가장자리에서 멈출지 정하는 판정. pane-focus의 focused와 unchanged를 정한다"
 
+  - path: packages/shell/renderer/shell/session-titles_test.ts
+    covers: []
+    note: "lophn session 제목을 다시 읽는 때(turn 시작)와 sidebar 줄 이름 규칙(session 제목이 탭 제목보다 먼저). 이름이 agent 이름으로 떨어지던 bug의 순수 함수 guard"
+
   - path: packages/shell/renderer/terminal/displays_test.ts
     covers: [terminal-snapshot:screen]
     note: "터미널 view 재사용, snapshot 중 출력 순서, restart 뒤 늦은 snapshot을 새 generation에 쓰지 않는 규칙. 터미널 다시 붙이기는 terminal-snapshot:screen"
 
   - path: packages/shell/renderer/terminal/model_test.ts
     covers: []
-    note: "터미널 제목의 상태 글리프 제거, 탭 이름 우선순위, GUI session id 변환. 표시 규칙 순수 함수"
+    note: "탭 이름 우선순위, GUI session id 변환. 표시 규칙 순수 함수"
 
   - path: packages/shell/renderer/terminal/store_test.ts
     covers: []

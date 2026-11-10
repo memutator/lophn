@@ -1054,10 +1054,11 @@ flows:
     title: 터미널 탭의 coding agent 상태(running, waiting, idle, unknown)를 정하고 탭 점을 바꾼다
     actor: shell
     entries: [system:terminal-agent-track]
-    uses: [cli:hook, ipc:shell:terminal-state]
+    uses: [cli:hook, ipc:shell:terminal-state, ipc:shell:terminal-agents]
     boundary: [shell, coding-agent]
     code:
       - packages/shell/main/terminal/agent/tracker.ts
+      - packages/shell/main/terminal/agent/osc-title.ts
       - packages/shell/main/terminal/agent/ingress.ts
       - packages/shell/main/desktop/wiring/agent.ts
       - packages/protocol/coding-agent/hook-signal.ts
@@ -1067,8 +1068,8 @@ flows:
       - "TurnStarted는 running, PermissionRequested는 waiting(수를 센다), TurnEnded는 main turn을 끝내고 권한 수를 0으로 둔다. ChildStarted·ChildEnded는 child 집합을 바꾼다. SessionEnded는 unknown이다"
       - "보이는 상태는 권한 물음이 있으면 waiting, main turn이나 child가 있으면 running, 아니면 idle이다. hook을 한 번도 못 들었으면 unknown이다"
       - "Esc나 Ctrl-C를 사람이 치면 끊김 hook이 없는 harness에 한해 unknown으로 짐작(guessed)한다. 뒤따르는 PermissionResolved가 오면 running으로 되돌린다"
-      - "child는 10분 동안 신호가 없으면 뺀다. foreground를 떠나면 집합을 비운다"
-      - "상태가 바뀌면 runtime(agent와 탭 이름 포함)을 모든 창에 push하고 탭 점을 갱신한다"
+      - "child는 10분 동안 신호가 없으면 뺀다. foreground를 떠나면 집합을 비운다. PTY 출력의 OSC 0·2 터미널 제목은 main이 읽어(상태 글리프를 뗀다) agent의 screen_title로 싣는다"
+      - "상태나 제목이 바뀌면 runtime(agent와 탭 이름 포함)을 모든 창에 push하고 탭 점을 갱신한다. 새로 뜨거나 다시 읽은 창은 ipc:shell:terminal-agents로 지금 agent가 도는 터미널의 runtime을 한 번 읽는다"
     outcomes:
       - id: running
         observe: [screen:project-terminal]

@@ -4,6 +4,7 @@ import {
   TERMINAL_AGENT_SESSION_RENAME_CHANNEL,
   TERMINAL_AGENT_SESSIONS_CHANGED_CHANNEL,
   TERMINAL_AGENT_SESSIONS_CHANNEL,
+  TERMINAL_AGENTS_CHANNEL,
   TERMINAL_BRIDGE_ACK_CHANNEL,
   TERMINAL_BRIDGE_OPEN_CHANNEL,
   TERMINAL_CLOSE_CHANNEL,
@@ -142,6 +143,7 @@ export function createTerminalApi(transport: TerminalTransport): TerminalApi {
       transport.on(TERMINAL_STATE_CHANNEL, callback);
       return () => transport.removeListener(TERMINAL_STATE_CHANNEL, callback);
     },
+    agents: () => invoke(TERMINAL_AGENTS_CHANNEL, null),
     agentSessions: (input) => invoke(TERMINAL_AGENT_SESSIONS_CHANNEL, input),
     renameAgentSession: (input) =>
       invoke(TERMINAL_AGENT_SESSION_RENAME_CHANNEL, input),

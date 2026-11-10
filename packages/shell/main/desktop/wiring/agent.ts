@@ -44,6 +44,7 @@ import {
   type AgentTracker,
   createAgentTracker,
 } from "../../terminal/agent/tracker.ts";
+import { createTitleScanner } from "../../terminal/agent/osc-title.ts";
 import type { Supervisor } from "../../terminal/supervisor.ts";
 import { lophnCliPath } from "../paths.ts";
 import type { ShellContext } from "./context.ts";
@@ -179,7 +180,20 @@ export function createAgentWiring(options: {
     },
   });
 
+  // 제목은 터미널마다 chunk 경계를 넘어 이어 읽는다.
+  const titleScanners = new Map<string, (chunk: string) => string | null>();
   terminals.on({
+    output(chunks) {
+      for (const chunk of chunks) {
+        let scan = titleScanners.get(chunk.terminal_ref);
+        if (scan === undefined) {
+          scan = createTitleScanner();
+          titleScanners.set(chunk.terminal_ref, scan);
+        }
+        const title = scan(chunk.chunk);
+        if (title !== null) tracker.screenTitle(chunk.terminal_ref, title);
+      }
+    },
     foreground(change) {
       const runtime = terminals
         .runtimes()
@@ -190,6 +204,7 @@ export function createAgentWiring(options: {
     runtime(runtime) {
       if (runtime.state === "exited" || runtime.state === "unknown") {
         tabNames.delete(runtime.terminal_ref);
+        titleScanners.delete(runtime.terminal_ref);
         tracker.gone(runtime.terminal_ref);
       }
     },

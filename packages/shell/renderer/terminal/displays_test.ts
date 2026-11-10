@@ -102,7 +102,6 @@ function setup() {
     },
     onLink: () => () => {},
     onPathLink: () => () => {},
-    onTitle: () => () => {},
     onTrace: () => () => {},
     copySelection: () => {},
     paste: () => {},

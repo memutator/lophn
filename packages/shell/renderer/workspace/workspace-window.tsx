@@ -416,6 +416,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   const {
     sidebarAgents,
     sessionStates,
+    sessionTitles,
     agentView,
     agents,
     appViews,
@@ -780,16 +781,27 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   const updateRef = useRef(update);
   updateRef.current = update;
 
-  // 저장된 agent 탭은 제목 없이 되살아나고, 본문을 그린 탭만 이름을 채운다. 작업대가 다시 열리면(Settings나 런처에
-  // 다녀오거나 연결이 잠깐 끊기면) 고르지 않은 탭의 이름이 비므로 agent 목록의 이름으로 채운다.
+  // 저장된 agent 탭은 제목 없이 되살아난다. 그려진 탭만 이름을 채우면 고르지 않은 탭이 agent 이름으로 남으므로, 모든
+  // agent 탭의 이름을 창이 아는 session 제목으로 여기서 맞춘다. 제목을 아직 모르면(첫 말 전, 읽기 전) 빈 이름만 agent
+  // 이름으로 채우고, 이미 있는 이름은 건드리지 않는다.
   useEffect(() => {
-    const nameOf = (tab: TabItem) =>
-      tab.kind === "agent" && tab.title === ""
-        ? sidebarAgents.agents.find((row) => row.assignment === agentOf(tab))
-            ?.name
-        : tab.kind === "app_screen" && tab.title === ""
-          ? appName
+    const nameOf = (tab: TabItem) => {
+      if (tab.kind === "agent") {
+        const session = sessionOf(tab);
+        const title =
+          session === null
+            ? undefined
+            : sessionTitles.known.get(session)?.title;
+        if (title) return title === tab.title ? undefined : title;
+        return tab.title === ""
+          ? sidebarAgents.agents.find((row) => row.assignment === agentOf(tab))
+              ?.name
           : undefined;
+      }
+      return tab.kind === "app_screen" && tab.title === ""
+        ? appName
+        : undefined;
+    };
     if (!allTabs(layout).some((tab) => nameOf(tab) !== undefined)) return;
     commit(
       mapLayoutTabs(latestLayout.current, (tab) => {
@@ -798,7 +810,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       }),
       false,
     );
-  }, [layout, sidebarAgents.agents, appName]);
+  }, [layout, sidebarAgents.agents, appName, sessionTitles.known]);
 
   // desk를 바꾼다. 저장과 detached 창 맞추기는 commit이 한다.
   const switchDesk = (key: string) =>
@@ -2922,6 +2934,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                   projects={props.projects}
                   apps={props.apps}
                   agentViewSource={agentViewSource}
+                  sessionTitles={sessionTitles}
                   agents={sidebarAgents.agents}
                   lophnNames={sidebarAgents.lophnNames}
                   layoutReady={readyWorkspace === workspaceId}

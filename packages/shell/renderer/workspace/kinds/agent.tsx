@@ -197,7 +197,10 @@ export const agentKind: TabKindDef = {
         title: trimmed,
       })
       .then((result) => {
-        if (result.ok) host.patchTab(tab.key, () => ({ title: trimmed }));
+        if (!result.ok) return;
+        // 창의 session 제목도 같이 고친다. 탭만 고치면 옛 제목을 아는 창이 탭을 되돌린다.
+        host.agentView?.titled(session, trimmed);
+        host.patchTab(tab.key, () => ({ title: trimmed }));
       });
   },
   fromStored(stored, { key }) {

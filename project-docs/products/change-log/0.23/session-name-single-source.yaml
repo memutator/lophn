@@ -1,0 +1,17 @@
+id: session-name-single-source
+version: 0.23.13
+title: sidebar와 탭 줄의 session 이름이 그 탭을 그리지 않아도, 창이 다시 떠도 남는다
+modules: [packages/shell/renderer, packages/shell/main]
+change: |
+  - lophn session: 새 session의 자동 제목이 첫 말 뒤 바로 탭·sidebar·머리 목록에 보인다. 고르지 않은 Agent 탭과 그 sidebar 줄이 workspace를 옮기거나 앱을 다시 띄워도 session 제목을 지킨다(전에는 agent 이름). sidebar나 탭 줄에서 바꾼 이름이 고르지 않은 탭에도 바로 간다.
+  - 터미널 coding agent: 창을 닫았다 열거나 reload해도 탭 이름이 agent가 낸 제목을 지킨다(전에는 project 이름으로 떨어지고 저장해 둔 이름도 지웠다). 다시 뜬 창의 sidebar에 다른 workspace에서 도는 coding agent 줄이 빠지지 않는다.
+  - `TerminalAgent.screen_title`(main이 PTY 출력에서 읽은 터미널 제목)과 IPC `shell:terminal-agents`(지금 agent가 도는 터미널의 runtime 읽기)를 더했다. renderer의 xterm 제목 읽기(`TerminalStore.noteTitle`, `TerminalView.onTitle`)는 지웠다.
+why: |
+  이름을 "그 탭을 그린 화면"이 채워서, 그리지 않은 탭과 다시 뜬 창은 이름을 몰랐다. 여러 번 fallback을 덧대 고쳤지만 정본이 화면에 있는 한 다른 길에서 다시 생겼다. 이슈 `session-name-falls-back-until-reselected`.
+decisions:
+  - text: >-
+      session 제목이 바뀐 것을 알리는 event를 새로 만들지 않고 turn 시작과 창 focus에 session 목록을 다시 읽는다. event에 제목을 싣지 않는다는 기존 결정을 지킨다. 버린 길: 탭 제목을 layout에 저장하기(다른 창에서 바뀐 이름을 모른다).
+    by: agent
+  - text: >-
+      터미널 제목은 main이 PTY 출력의 OSC 0·2를 직접 읽는다. 버린 길: renderer가 알린 탭 이름(`tab_name`)을 fallback으로 되받기(화면이 계산한 값을 화면이 다시 읽어 틀린 이름이 굳는다).
+    by: agent

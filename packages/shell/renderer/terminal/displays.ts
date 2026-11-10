@@ -141,11 +141,6 @@ export class TerminalDisplays {
               });
         }),
       );
-      display.off.push(
-        display.view.onTitle((title) => {
-          if (display.ref) this.#store.noteTitle(display.ref, title);
-        }),
-      );
       this.#sync(key, kept);
     }
     return kept;

@@ -24,6 +24,7 @@ import {
   type LayoutDesks,
   layoutDesks,
 } from "./left-sidebar-workspaces.ts";
+import { sessionTitlesKey } from "./session-titles.ts";
 import { useRemembered } from "./sidebar-memory.tsx";
 
 /** 보관하지 않은 project와 앱. 순서는 런처와 같다. 등록·생성 뒤에는 reload로 다시 읽는다. */
@@ -58,13 +59,23 @@ export function useSidebarWorkspaceList(
   return { projects: projectItems, apps: appItems, reload };
 }
 
-/** 모든 workspace의 session 제목과 마지막 활동 시각. session 목록이 바뀔 때 다시 읽는다. */
+export interface SessionTitles {
+  readonly known: KnownSessions;
+  /** 제목만 바뀐 것(Rename)은 event가 없어 부르는 쪽이 다시 읽게 한다. */
+  readonly reload: () => void;
+  /** 화면이 먼저 안 제목(열린 대화가 읽은 것, 방금 바꾼 이름)을 넣는다. 탭 줄과 sidebar가 바로 따라간다. */
+  readonly put: (session: string, title: string) => void;
+}
+
+/**
+ * 모든 workspace의 session 제목과 마지막 활동 시각. 창에 하나이고 탭 줄과 sidebar가 같이 쓴다: 이름을 탭 화면이
+ * 그려질 때만 채우면 고르지 않은 탭과 다른 workspace의 줄이 agent 이름으로 떨어진다.
+ */
 export function useKnownSessions(
   factory: AgentTabSourceFactory | undefined,
   entries: readonly SessionEntry[],
-): { known: KnownSessions; reload: () => void } {
+): SessionTitles {
   const [known, setKnown] = useRemembered("known");
-  // 제목만 바뀐 것(sidebar의 Rename)은 entries가 그대로라 부르는 쪽이 reload로 다시 읽게 한다.
   const [reads, setReads] = useState(0);
   // agent × workspace 쌍. 같은 쌍은 한 번만 읽는다.
   const pairs = useMemo(
@@ -82,7 +93,13 @@ export function useKnownSessions(
       ].sort(),
     [entries],
   );
-  const ids = entries.map((entry) => entry.session).join();
+  const key = sessionTitlesKey(entries);
+  // 다른 창에서 바꾼 이름은 이 창에 event가 없다. 창이 다시 포커스를 받을 때 읽는다.
+  useEffect(() => {
+    const onFocus = () => setReads((count) => count + 1);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
   useEffect(() => {
     if (factory === undefined) return;
     let live = true;
@@ -122,8 +139,21 @@ export function useKnownSessions(
     return () => {
       live = false;
     };
-  }, [factory, pairs, ids, reads, setKnown]);
-  return { known, reload: () => setReads((count) => count + 1) };
+  }, [factory, pairs, key, reads, setKnown]);
+  const reload = useCallback(() => setReads((count) => count + 1), []);
+  const put = useCallback(
+    (session: string, title: string) =>
+      setKnown((now) =>
+        now.get(session)?.title === title
+          ? now
+          : new Map(now).set(session, {
+              title,
+              at: now.get(session)?.at ?? 0,
+            }),
+      ),
+    [setKnown],
+  );
+  return useMemo(() => ({ known, reload, put }), [known, reload, put]);
 }
 
 /** workspace들의 저장된 layout에서 읽은 열린 탭. 창의 마지막 값에서 시작한다. 지금 workspace도 들어 있어(떠난 뒤 첫 그림이 쓴다) 부르는 쪽이 layout을 읽은 지금 workspace는 자기 값으로 덮는다. */

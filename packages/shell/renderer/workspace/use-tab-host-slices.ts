@@ -11,6 +11,7 @@ import { DraftStore } from "../conversation/drafts.ts";
 import { useConversation } from "../conversation/window-deps.tsx";
 import type { TerminalStore } from "../terminal/store.ts";
 import { useSidebarAgents } from "./agents/sidebar-agents.ts";
+import { useKnownSessions } from "../shell/use-left-sidebar.ts";
 import { openAgent } from "./kinds/agent.tsx";
 import { openArtifact } from "./kinds/artifact.tsx";
 import { openFile } from "./kinds/document-editor.tsx";
@@ -61,6 +62,7 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
     workspace.kind === "home" ? null : workspace.id,
   );
   const { sessions: sessionStates } = useSessions();
+  const sessionTitles = useKnownSessions(agentViewSource, sessionStates);
   const conversation = useConversation();
   // 창에 대화 메모리가 없을 때(통로 없는 화면 시험) Agent 탭이 쓰는 입력 메모리.
   const localDrafts = useMemo(() => new DraftStore(), []);
@@ -126,6 +128,8 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
           workspaceLophnSession: () =>
             openedWorkspaceLophnSession(sessionStates, workspace),
           nameOf: (session) => rowOfSession(session)?.name,
+          titleOf: (session) => sessionTitles.known.get(session)?.title ?? null,
+          titled: sessionTitles.put,
           artifacts: {
             workspace: artifactWorkspace,
             items: artifactList.items,
@@ -146,6 +150,7 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
   return {
     sidebarAgents,
     sessionStates,
+    sessionTitles,
     agentView,
     agents,
     appViews,

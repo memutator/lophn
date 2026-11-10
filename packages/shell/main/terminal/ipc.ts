@@ -90,6 +90,8 @@ export type TerminalIpc = {
   trace(event: IpcEvent, input: unknown): Promise<IpcResult<boolean>>;
   /** bridge push를 받은 renderer의 답. browser 탭을 열었을 때만 온다. */
   bridgeAck(event: IpcEvent, input: unknown): Promise<IpcResult<null>>;
+  /** 지금 coding agent가 도는 터미널의 runtime. */
+  agents(event: IpcEvent): Promise<IpcResult<TerminalRuntime[]>>;
   /** 그 project에서 저장한 coding agent session. 새것부터다. */
   agentSessions(
     event: IpcEvent,
@@ -162,6 +164,8 @@ export function createTerminalIpc(deps: {
   agent?: Pick<AgentTracker, "decorate" | "humanInput" | "tabFocused">;
   /** 탭 줄에 보이는 이름을 적는다. */
   tabName?: (terminalRef: string, name: string) => void;
+  /** 지금 coding agent가 도는 터미널의 runtime(agent를 실은 것). */
+  agents?: () => TerminalRuntime[];
   /** 저장한 coding agent session. 꺼져 있으면 없다. */
   agentSessions?: (project: string) => Promise<TerminalAgentSession[]>;
   /** 저장한 session의 이름을 바꾸고 고정한다. 꺼져 있으면 없다. */
@@ -468,6 +472,11 @@ export function createTerminalIpc(deps: {
       if (!parsed.ok) return Promise.resolve(parsed);
       deps.bridge?.ack(parsed.value.request, parsed.value.opened);
       return Promise.resolve({ ok: true, value: null });
+    },
+    agents: (event) => {
+      const caller = checkCaller(deps.registry, event);
+      if (!caller.ok) return Promise.resolve(caller);
+      return Promise.resolve({ ok: true, value: deps.agents?.() ?? [] });
     },
     agentSessions: async (event, input) => {
       const caller = checkCaller(deps.registry, event);

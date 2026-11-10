@@ -9,7 +9,7 @@ import type {
   TerminalResume,
   TerminalRuntime,
 } from "../../ipc/terminal.ts";
-import { type Phase, stripStatusGlyphs } from "./model.ts";
+import type { Phase } from "./model.ts";
 
 export interface TerminalEntry {
   /** 사람이 이 탭에서 터미널을 열었다. 아직 시작 전일 수 있다. */
@@ -53,8 +53,6 @@ export class TerminalStore {
   // 터미널 안에서 도는 coding agent. 탭 key가 아니라 terminal_ref로 둔다. main의 push가 탭 항목보다
   // 먼저 올 수 있고, 탭을 옮겨도 PTY 참조는 같다.
   readonly #agents = new Map<string, TerminalAgent>();
-  // program이 OSC로 낸 제목의 마지막 값. agent와 같은 이유로 terminal_ref로 둔다.
-  readonly #titles = new Map<string, string>();
   #version = 0;
   readonly #storage: RefStorage | null;
 
@@ -74,6 +72,11 @@ export class TerminalStore {
     }
     // store는 창과 함께 살아 해지하지 않는다.
     bridge?.onRuntime((runtime) => this.noteRuntime(runtime));
+    // main은 agent가 바뀔 때만 push한다. 다시 뜬 창은 탭을 그리지 않은 터미널의 agent를 모르므로 지금 값을 한 번 읽는다.
+    void bridge?.agents().then((reply) => {
+      if (!reply.ok) return;
+      for (const runtime of reply.value) this.noteRuntime(runtime);
+    });
     bridge?.onReveal(({ terminal_ref }) => this.reveal(terminal_ref));
   }
 
@@ -97,24 +100,12 @@ export class TerminalStore {
     return ref == null ? undefined : this.#agents.get(ref);
   }
 
-  /** coding agent가 도는 동안 그 터미널의 마지막 OSC 제목. agent가 없거나 제목이 없으면 null이다. */
-  agentTitleOf(key: string): string | null {
-    const ref = this.#entries.get(key)?.terminalRef;
-    return ref == null || !this.#agents.has(ref)
-      ? null
-      : (this.#titles.get(ref) ?? null);
-  }
-
   /**
-   * 터미널이 낸 제목을 적는다. spinner 같은 상태 글리프를 먼저 떼어, 프레임만 바뀌는 동안에는
-   * store가 흔들리지 않게 한다(이 store를 구독하는 workspace가 매 프레임 다시 그리지 않는다).
+   * coding agent가 도는 동안 그 터미널의 마지막 OSC 제목. agent가 없거나 제목이 없으면 null이다. main이 runtime에 실어
+   * 보낸 값이라 이 창이 그 탭을 그린 적이 없어도 안다.
    */
-  noteTitle(terminalRef: string, title: string): void {
-    const name = stripStatusGlyphs(title);
-    if (this.#titles.get(terminalRef) === name) return;
-    this.#titles.set(terminalRef, name);
-    this.#version += 1;
-    for (const listener of this.#listeners) listener();
+  agentTitleOf(key: string): string | null {
+    return this.agentOf(key)?.screen_title ?? null;
   }
 
   /** 항목이나 agent가 바뀔 때마다 오르는 값. 탭 줄이 useSyncExternalStore로 읽어 다시 그린다. */

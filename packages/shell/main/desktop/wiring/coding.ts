@@ -319,6 +319,11 @@ export function register(ctx: ShellContext, appSessions: AppSessions): Coding {
     cliPath: agent.cliPath,
     agent: agent.tracker,
     tabName: agent.setTabName,
+    agents: () =>
+      terminals
+        .runtimes()
+        .map((runtime) => agent.tracker.decorate(runtime))
+        .filter((runtime) => runtime.agent !== undefined),
     agentSessions: agent.listSessions,
     renameAgentSession: agent.renameSession,
     // headless 확인은 사람 장치의 clipboard를 건드리지 않는다.

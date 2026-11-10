@@ -81,7 +81,10 @@ export function useAgentTabList(source: AgentTabSource): AgentTabList {
               one.agent === face.agent &&
               (one.workspace?.kind ?? null) === (face.workspace?.kind ?? null),
           )
-          .map((one) => `${one.session}:${one.ended}`)
+          // 자동 제목은 첫 말에 붙고 session이 생긴 때에는 아직 없다. turn이 돌기 시작할 때도 다시 읽는다.
+          .map(
+            (one) => `${one.session}:${one.ended}:${one.state === "running"}`,
+          )
           .join();
   const seen = useRef<string | null>(null);
   useEffect(() => {

@@ -2,23 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { idSchema } from "../../../protocol/base/ids.ts";
-import { guiSessionId, stripStatusGlyphs, tabName } from "./model.ts";
-
-test("터미널 제목 앞의 상태 글리프를 뗀다", () => {
-  const cases: [string, string][] = [
-    ["✳ Claude Code", "Claude Code"],
-    ["⠋ lophn", "lophn"],
-    ["◐ lophn", "lophn"],
-    ["* Fix the build", "Fix the build"],
-    [". Fix the build", "Fix the build"],
-    ["OC | session title", "OC | session title"],
-    ["a.b *c", "a.b *c"],
-    ["⠋", ""],
-  ];
-  for (const [title, expected] of cases) {
-    assert.deepStrictEqual(stripStatusGlyphs(title), expected);
-  }
-});
+import { guiSessionId, tabName } from "./model.ts";
 
 test("탭 이름은 사람 이름, GUI 제목, harness session 이름, agent 제목, 자동 이름 순이다", () => {
   const auto = "lophn";
@@ -27,7 +11,7 @@ test("탭 이름은 사람 이름, GUI 제목, harness session 이름, agent 제
       person: "mine",
       guiTitle: null,
       sessionName: "named",
-      agentTitle: "⠋ x",
+      agentTitle: "x",
       auto,
     }),
     "mine",
@@ -57,7 +41,7 @@ test("탭 이름은 사람 이름, GUI 제목, harness session 이름, agent 제
       person: null,
       guiTitle: null,
       sessionName: "named",
-      agentTitle: "⠋ x",
+      agentTitle: "x",
       auto,
     }),
     "named",
@@ -67,7 +51,7 @@ test("탭 이름은 사람 이름, GUI 제목, harness session 이름, agent 제
       person: null,
       guiTitle: null,
       sessionName: null,
-      agentTitle: "⠋ x",
+      agentTitle: "x",
       auto,
     }),
     "x",
@@ -77,7 +61,7 @@ test("탭 이름은 사람 이름, GUI 제목, harness session 이름, agent 제
       person: null,
       guiTitle: null,
       sessionName: null,
-      agentTitle: "✳",
+      agentTitle: "",
       auto,
     }),
     auto,

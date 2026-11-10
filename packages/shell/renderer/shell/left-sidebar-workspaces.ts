@@ -21,6 +21,7 @@ import { lophnSessionDot } from "../parts/agent-session/lophn.ts";
 import type { SidebarAgent } from "../workspace/sidebar/sidebar-agent.ts";
 import type { PanelTerminal } from "../workspace/sidebar/panel-types.ts";
 import { sessionOf } from "../workspace/agent/tab-fields.ts";
+import { sessionRowTitle } from "./session-titles.ts";
 import {
   deskTabs,
   type WorkspaceLayout,
@@ -77,7 +78,7 @@ export interface WorkspacesInput {
   /** lophn agent id → 이름. 다른 workspace의 lophn 이름이다. */
   readonly lophnNames: Readonly<Record<string, string>>;
   readonly known: KnownSessions;
-  /** workspace key → 그 workspace의 layout에 탭이 열린 session id → 그 탭의 제목. */
+  /** workspace key → 그 workspace의 layout에 탭이 열린 session id → 그 탭의 제목. 열렸는지만 본다. */
   readonly openTitles: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** workspace key → 그 workspace layout의 desk. 없으면 그 workspace의 줄은 desk 없는 묶음 하나다. */
   readonly desks: ReadonlyMap<string, LayoutDesks>;
@@ -133,14 +134,16 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
     const item: SidebarSession = {
       kind: "session",
       ref: entry.session,
-      // 다른 workspace의 탭 제목은 저장된 layout에서 읽어 빈 글이다. 그때는 탭 줄이 그 workspace에서 쓰는 이름(session 제목, 없으면 agent 이름)을 따른다.
-      title:
-        tabTitle !== undefined
-          ? tabTitle ||
-            read?.title ||
-            (entry.agent === null ? "" : input.lophnNames[entry.agent]) ||
-            agent.name
-          : read?.title || t("left-sidebar.label.untitled"),
+      // 이름은 session 제목이다. 탭 제목은 쓰지 않는다: 저장된 탭은 제목이 없고 그려지기 전의 탭은 agent 이름이라, 탭을
+      // 따르면 고르지 않은 session이 agent 이름으로 보인다. 제목이 아직 없는 열린 session만 탭 줄처럼 agent 이름이다.
+      title: sessionRowTitle({
+        title: read?.title,
+        open: tabTitle !== undefined,
+        agentName:
+          (entry.agent === null ? "" : input.lophnNames[entry.agent]) ||
+          agent.name,
+        untitled: t("left-sidebar.label.untitled"),
+      }),
       agent: { kind: "lophn", profile: agent.profile },
       dot,
       actions: true,

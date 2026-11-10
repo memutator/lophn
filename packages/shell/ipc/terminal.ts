@@ -245,6 +245,11 @@ export type TerminalAgent = {
   title?: string;
   /** hook이 알려 준 harness의 session 이름. 모르면 없다. */
   name?: string;
+  /**
+   * 이 터미널의 program이 OSC로 낸 마지막 제목(상태 글리프를 뗀 것). main이 PTY 출력에서 읽어, 탭을 그리지 않은 창과
+   * 다시 뜬 창도 같은 값을 안다. foreground가 harness TUI가 아닐 때는 shell prompt의 제목이다.
+   */
+  screen_title?: string;
 };
 
 /**
@@ -372,6 +377,11 @@ export interface TerminalApi {
   onRuntime(listener: (runtime: TerminalRuntime) => void): () => void;
   /** main이 그 터미널 탭을 골라 보이라고 보낸다(OS 알림 누름). 구독 해지를 돌려준다. */
   onReveal(listener: (reveal: TerminalReveal) => void): () => void;
+  /**
+   * 지금 coding agent가 도는 터미널의 runtime. main은 agent가 바뀔 때만 push하므로, 새로 뜨거나 다시 읽은 창이
+   * 처음에 한 번 읽는다. 안 읽으면 탭을 그리지 않은 터미널의 이름과 sidebar 줄이 다음 변화까지 빠진다.
+   */
+  agents(): Promise<TerminalCall<TerminalRuntime[]>>;
   /** 그 project에서 저장한 coding agent session. 새것부터다. */
   agentSessions(
     input: TerminalAgentSessionsQuery,
@@ -404,6 +414,7 @@ export const TERMINAL_TRACE_CHANNEL = "shell:terminal-trace";
 export const TERMINAL_BRIDGE_ACK_CHANNEL = "shell:terminal-bridge-ack";
 export const TERMINAL_BRIDGE_OPEN_CHANNEL = "shell:terminal-bridge-open";
 export const TERMINAL_REVEAL_CHANNEL = "shell:terminal-reveal";
+export const TERMINAL_AGENTS_CHANNEL = "shell:terminal-agents";
 export const TERMINAL_AGENT_SESSIONS_CHANNEL = "shell:terminal-agent-sessions";
 export const TERMINAL_AGENT_SESSIONS_CHANGED_CHANNEL =
   "shell:terminal-agent-sessions-changed";

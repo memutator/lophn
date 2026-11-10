@@ -1,5 +1,5 @@
 id: ai-title-call-attempt-order
-version: 0.23.25
+version: 0.23.26
 title: 새 session의 첫 turn이 제목 call 때문에 실패하던 것을 고친다
 modules: [packages/core/lophn-agent]
 change: |

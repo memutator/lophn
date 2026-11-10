@@ -1,11 +1,17 @@
 export const artifact = {
   "artifact.button.annotate": "Annotate",
+  "artifact.button.delete": "Delete",
+  "artifact.button.delete-named": "Delete {name}",
   "artifact.button.edit-source": "Edit source",
   "artifact.button.send-annotations": "Send to agent",
+  "artifact.dialog.delete-text":
+    "This deletes the artifact's folder and everything in it. Rewind can't bring it back.",
+  "artifact.dialog.delete-title": "Delete {title}?",
   "artifact.empty.missing":
     "The folder for {name} isn't here anymore. It may have been moved or deleted.",
   "artifact.empty.none":
     "No artifacts yet. Ask an agent for a chart or a report and it will show up here.",
+  "artifact.error.delete-failed": "{title} wasn't deleted. Try again.",
   "artifact.label.agent": "the agent",
   "artifact.label.kind": "Artifact",
   "artifact.label.list": "Artifacts",

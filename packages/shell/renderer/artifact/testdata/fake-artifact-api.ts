@@ -50,6 +50,7 @@ export function fakeArtifactApi(
       return Promise.resolve(latest);
     },
     reload: () => Promise.resolve(null),
+    delete: () => Promise.resolve(null),
     list: () => Promise.resolve({ artifacts: [...(options.artifacts ?? [])] }),
     subscribeState(listener) {
       stateListeners.add(listener);

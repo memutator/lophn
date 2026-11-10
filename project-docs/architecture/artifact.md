@@ -10,11 +10,11 @@ agent의 결과가 사람에게 가는 길이 대화 글, 파일, 앱 화면뿐�
 
 - 목표: agent가 HTML 폴더 하나를 쓰면 사람이 탭으로 본다. 파일이 바뀌면 그 탭이 따라 바뀐다. 사람이 그 page 위에서 annotation을 달아 그 폴더를 쓴 agent에게 보낼 수 있다.
 - 목표: AI가 쓴 page가 자기 폴더 밖 file과 바깥 network에 닿지 못한다.
+- 목표: 사람이 project sidebar의 Artifacts 목록에서 artifact를 지울 수 있다. 지운 폴더는 rewind로 되살릴 수 없다.
 - 비목표: artifact 전용 tool. 만들기는 file tool, 찾기는 관례 자리, 알리기는 agent의 말로 이미 된다.
 - 비목표: tool을 부르는 화면. 그것은 앱의 일이다(`architecture/app-call.md`).
 - 비목표: 바깥 library와 CDN. 사람의 data가 담긴 page가 바깥 server를 부르지 않게 한다.
 - 비목표: 대화 안에 artifact를 live로 끼워 그리기, 공유·내보내기·판 기록. 지금은 link로 탭을 연다.
-- 비목표: 화면에서 artifact를 지우는 단추(아래 "결정").
 
 ## 모델
 
@@ -85,11 +85,13 @@ agent의 결과가 사람에게 가는 길이 대화 글, 파일, 앱 화면뿐�
 22. **쓴 agent가 화면을 보고 다룰 수 있다.** `lophn tab open --artifact <name>`이 그 그릇 workspace의 artifact를 host 탭(key `host:<tab>`)으로 열고, `lophn browser snapshot|screenshot|act|evaluate|logs|wait`가 앱의 preview 탭처럼 그 page를 CDP로 다룬다(`architecture/browser-tab.md` "agent가 다루는 탭", 여는 규칙은 `architecture/workspace-layout.md` "agent가 연 탭"). main은 artifact view registry에 붙은 guest만 고르고 navigate는 `invalid_input`이다: page 안의 상대 link는 page가 따라가고 다른 artifact는 다른 탭이다. CDP는 page를 바깥에서 다루는 것이라 봉한 규칙(network, scheme, CSP)은 그대로다. 사람이 연 artifact 탭은 core의 표에 없어 다루지 못한다.
 23. **artifact IPC는 desktop 창의 shell renderer에서 온 요청만 받는다.** 요청마다 sender가 살아 있는 desktop 창의 main frame인지, 입력이 schema에 맞는지 본다. 창은 sender에서 main이 정한다. view를 열 수 있는 것은 이 길뿐이고 page(guest)는 부르지 못한다.
 
+24. **지우기는 그 artifact 폴더 하나만 지운다.** project artifact만이고 앱 artifact는 화면에서 지우지 못한다. main은 이름을 slug로 다시 검사하고, 대상 `<project 자리>/artifacts/<name>`을 `lstat`해 symlink가 아닌 폴더일 때만 간다(symlink 폴더는 forbidden이고 가리키는 곳은 건드리지 않는다). realpath가 artifacts 폴더 realpath 바로 안이어야 한다(접두사만 같은 형제 폴더는 밖). 재귀로 지우되 폴더 안 symlink는 따라가지 않고 link만 지운다. 폴더가 없으면 not_found다. 지운 뒤에 그 source를 연 모든 창의 view를 버리고 `removed` event를 밀어, 열린 탭이 폴더 없음 안내(불변식 20)로 바뀐다. 지우기가 실패하면 view는 그대로다. rewind 기록은 지우지 않아서 되돌리려 해도 폴더는 돌아오지 않는다.
+
 ## 경계와 계약
 
 - 파일 규약: `<그릇 자리>/artifacts/<name>/index.html`, 같은 폴더의 file(상대 path로 읽음), `data/*.json`. 쓰는 법은 내장 skill `write-artifact`다.
 - workspace 정보(turn 시작): `Artifacts` 절에 `Folder:` 절대 path와 `- <name>: <title> — <description> (artifacts/<name>/index.html)` 줄들(50개까지).
-- shell IPC(renderer → main): `shell:artifact-open`(source), `shell:artifact-reload`(view_session), `shell:artifact-list`(`{project}`나 `{app}`). push: `shell:artifact-state`(view state), `shell:artifact-event`(`open-link`). renderer API는 `window.lophnArtifact`다. view 폐기는 앱 view와 같은 `shell:view-close`를 쓴다. 오류는 공통 code 가운데 `invalid_input`, `forbidden`, `not_found`, `unavailable`이다. 목록 줄은 `{name, title, description, modified}`다.
+- shell IPC(renderer → main): `shell:artifact-open`(source), `shell:artifact-reload`(view_session), `shell:artifact-list`(`{project}`나 `{app}`), `shell:artifact-delete`(`{project, name}`, 응답 null). push: `shell:artifact-state`(view state), `shell:artifact-event`(`open-link`, `removed`). renderer API는 `window.lophnArtifact`다. view 폐기는 앱 view와 같은 `shell:view-close`를 쓴다. 오류는 공통 code 가운데 `invalid_input`, `forbidden`, `not_found`, `unavailable`, `internal`(지우다 실패)이다. 목록 줄은 `{name, title, description, modified}`다.
 - 봉한 scheme: `lophn-artifact://<host>/<path>`, GET·HEAD. 가상 file `data/_entries.json`, `_lophn/kit.js`, `_lophn/kit.css`, `data/_instance.json`(instance view).
 - annotation: `annotations.send`의 target `{kind: "artifact", project | app, name}` 또는 `{kind: "file", project}`. 읽기는 `annotations.get`과 `image.read "annotation:<id>"`다(`architecture/annotation.md`).
 - 대화 글 link: 이 창 workspace의 `…/projects/<prj>/artifacts/<name>` 또는 `…/apps/<app>/artifacts/<name>` 꼴 path 조각이 그 workspace의 아는 artifact를 가리킬 때 link가 된다. 글 끝 구두점은 뺀다. 목록에 아직 없는 이름이 글에 나오면 목록을 이름당 한 번 다시 읽는다.
@@ -100,7 +102,7 @@ agent의 결과가 사람에게 가는 길이 대화 글, 파일, 앱 화면뿐�
 ## 결정
 
 - **artifact 전용 tool을 두지 않는다.** 이유: 만들기는 file tool, 찾기는 관례 자리, 알리기는 agent의 말과 link, annotation 받는 쪽은 rewind 기록으로 이미 된다. 화면 확인도 새 명령 없이 앱 preview가 쓰는 `tab open`과 `browser *`에 대상 하나(`artifact`)를 더했다. (사람, roadmap; 화면 확인은 agent, 2026-11-09)
-- **화면에서 artifact를 지우는 단추를 두지 않는다.** 이유: 지운 폴더는 rewind로 되살릴 수 없어 확인 대화상자와 data 손실 test가 필요하다. 지금은 agent에게 시키거나 파일 관리자로 지운다(roadmap `artifact.md`). (사람, 2026-10-19)
+- **sidebar Artifacts 목록에 지우기 단추를 둔다.** 이유: 쓸모없는 artifact를 지우려고 agent에게 시키거나 파일 관리자를 열게 하지 않는다. 지운 폴더는 rewind로 되살릴 수 없어서 확인 대화상자를 거치고, 폴더 밖을 건드리지 않는다는 위험 test를 둔다(불변식 24). 이전 결정(단추를 두지 않는다, 사람, 2026-10-19)을 뒤집는다. 열린 탭은 main이 view를 버리며 `removed` event를 밀어 폴더 없음 안내로 바꾼다. 버린 안: 탭이 watch로 알아채기(폴더가 사라지면 watch가 조용히 멈춘다). (사람, 2026-11-10)
 - **agent는 artifact를 절대 path로 쓴다.** 이유: 상대 path의 기준이 사람의 project 폴더라서 상대 `artifacts/…`는 사람의 폴더에 써진다. (agent)
 - **제목과 설명을 HTML에서 읽는다.** 이유: metadata 파일을 따로 두면 둘이 어긋난다.
 - **봉한 guest는 browser 탭과 다른 kind다.** 이유: browser 탭의 navigation 규칙과 로그인 cookie partition을 섞지 않는다. 같은 창의 `<webview>` 그릇을 쓰지만 partition·preload·navigation 규칙은 kind별로 main이 강제한다.
@@ -116,7 +118,7 @@ agent의 결과가 사람에게 가는 길이 대화 글, 파일, 앱 화면뿐�
 
 ## 열린 것
 
-- 화면에서 artifact 지우기(roadmap `artifact.md`). 확인 대화상자와, 지우기가 그 폴더 밖을 건드리지 않는다는 위험 test가 먼저다.
+- 앱의 artifact는 화면에서 지우지 못한다(앱 sidebar 목록이 없다).
 - 인터넷 page(browser 탭)의 annotation은 하지 않는다. transport와 받는 쪽이 정해진 뒤 따로 roadmap을 쓴다.
 - artifact 탭의 page는 workspace를 떠나면 놓인다. 머리 줄 통로는 생겼지만 살려 두기 신호는 열지 않았다.
 - sidebar Artifacts 목록은 project에만 있다. 앱의 artifact는 대화 link로만 연다.

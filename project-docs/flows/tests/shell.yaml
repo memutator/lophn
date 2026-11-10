@@ -52,6 +52,14 @@ files:
       - app-view-reopen:invalid-input
     note: "view 열기의 src와 guest 신원 묶기, params schema 거절, crash 뒤 reopen 세대 교체, 건강한 view의 reopen 거절, 다른 창의 reopen 거절"
 
+  - path: packages/shell/main/artifact/delete_test.ts
+    covers:
+      - artifact-delete:deleted
+      - artifact-delete:forbidden
+      - artifact-delete:invalid-input
+      - artifact-delete:not-found
+    note: "지우기가 그 artifact 폴더만 지우고, symlink 폴더는 거절하며 가리키는 곳은 그대로이고, 폴더 안 symlink는 link만 지우는 것을 temp dir에서 본다"
+
   - path: packages/shell/main/artifact/navigation_test.ts
     covers:
       - artifact-navigation:same-host

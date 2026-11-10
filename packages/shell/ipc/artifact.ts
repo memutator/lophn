@@ -22,6 +22,7 @@ const viewSession = z.string().min(1).refine(noControl);
 export const ARTIFACT_OPEN_CHANNEL = "shell:artifact-open";
 export const ARTIFACT_RELOAD_CHANNEL = "shell:artifact-reload";
 export const ARTIFACT_LIST_CHANNEL = "shell:artifact-list";
+export const ARTIFACT_DELETE_CHANNEL = "shell:artifact-delete";
 // main → renderer push.
 export const ARTIFACT_STATE_CHANNEL = "shell:artifact-state";
 export const ARTIFACT_EVENT_CHANNEL = "shell:artifact-event";
@@ -72,6 +73,10 @@ export const artifactListSchema = z.union([
   z.object({ project: projectId }).strict(),
   z.object({ app: appId }).strict(),
 ]);
+// 지우기는 project의 artifact만이다(앱 artifact는 sidebar 목록이 없다).
+export const artifactDeleteSchema = z
+  .object({ project: projectId, name: artifactNameSchema })
+  .strict();
 
 export const artifactViewStateSchema = z
   .object({
@@ -89,6 +94,7 @@ export const artifactViewStateSchema = z
   .strict();
 
 // open-link: 사용자 입력 직후 page에서 누른 http/https link. renderer가 browser 탭으로 연다.
+// removed: 그 폴더가 지워져 main이 view를 버렸다. renderer는 그 탭을 폴더 없음 안내로 바꾼다.
 export const artifactEventSchema = z.discriminatedUnion("kind", [
   z
     .object({
@@ -97,6 +103,7 @@ export const artifactEventSchema = z.discriminatedUnion("kind", [
       url: z.string(),
     })
     .strict(),
+  z.object({ kind: z.literal("removed"), view_session: viewSession }).strict(),
 ]);
 
 export const artifactListItemSchema = z
@@ -112,6 +119,7 @@ export type ArtifactSource = z.infer<typeof artifactSourceSchema>;
 export type ArtifactOpen = z.infer<typeof artifactOpenSchema>;
 export type ArtifactReload = z.infer<typeof artifactReloadSchema>;
 export type ArtifactList = z.infer<typeof artifactListSchema>;
+export type ArtifactDelete = z.infer<typeof artifactDeleteSchema>;
 export type ArtifactViewState = z.infer<typeof artifactViewStateSchema>;
 export type ArtifactEvent = z.infer<typeof artifactEventSchema>;
 export type ArtifactListItem = z.infer<typeof artifactListItemSchema>;
@@ -120,7 +128,8 @@ type ArtifactErrorCode =
   | "invalid_input"
   | "forbidden"
   | "not_found"
-  | "unavailable";
+  | "unavailable"
+  | "internal";
 
 /** main이 IPC로 돌려주는 모양(`BrowserReply`와 같다). */
 export type ArtifactReply<T> =
@@ -136,6 +145,8 @@ export interface LophnArtifactApi {
   open(input: ArtifactOpen): Promise<ArtifactViewState>;
   reload(input: ArtifactReload): Promise<null>;
   list(input: ArtifactList): Promise<{ artifacts: ArtifactListItem[] }>;
+  /** project의 artifact 폴더를 지운다. 되돌릴 수 없다. 열린 탭의 view는 main이 버리고 removed event를 민다. */
+  delete(input: ArtifactDelete): Promise<null>;
   subscribeState(listener: (state: ArtifactViewState) => void): () => void;
   subscribeEvent(listener: (event: ArtifactEvent) => void): () => void;
 }

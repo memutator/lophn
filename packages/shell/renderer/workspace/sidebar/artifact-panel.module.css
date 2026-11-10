@@ -1,0 +1,8 @@
+.text {
+  margin: var(--space-0);
+}
+
+.failure {
+  margin: var(--space-0);
+  color: var(--status-critical-text);
+}

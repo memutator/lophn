@@ -1,4 +1,5 @@
 import {
+  ARTIFACT_DELETE_CHANNEL,
   ARTIFACT_EVENT_CHANNEL,
   ARTIFACT_LIST_CHANNEL,
   ARTIFACT_OPEN_CHANNEL,
@@ -55,6 +56,7 @@ export function createArtifactApi(transport: ViewsTransport): LophnArtifactApi {
         ARTIFACT_LIST_CHANNEL,
         input,
       ),
+    delete: (input) => call<null>(transport, ARTIFACT_DELETE_CHANNEL, input),
     subscribeState: (listener) =>
       subscribe(
         transport,

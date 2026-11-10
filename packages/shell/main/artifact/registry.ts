@@ -140,6 +140,8 @@ export interface ArtifactViews {
   /** 건강한 view는 cache를 거치지 않고 다시 load하고, 깨진 view는 새 화면 세대를 연다. */
   reload(window: string, view_session: string): ArtifactReply<null>;
   reloadInstance(instance: string): void;
+  /** 그 artifact 폴더가 지워졌다. 어느 창이든 그 source의 view를 버리고 renderer에 removed를 민다. */
+  removeSource(source: ArtifactSource): void;
   acceptGuest(window: string, src: string): AcceptedArtifactGuest | undefined;
   dropGuest(accepted: AcceptedArtifactGuest): void;
   bindGuest(accepted: AcceptedArtifactGuest, guest: GuestContents): void;
@@ -325,6 +327,17 @@ export function createArtifactViews(deps: ArtifactViewsDeps): ArtifactViews {
           entry.health === "ok"
         )
           entry.contents?.reload();
+      }
+    },
+
+    removeSource(source: ArtifactSource): void {
+      for (const entry of [...entries.values()]) {
+        if (!sameSource(entry.source, source)) continue;
+        forget(entry);
+        deps.pushEvent(entry.window, {
+          kind: "removed",
+          view_session: entry.view_session,
+        });
       }
     },
 

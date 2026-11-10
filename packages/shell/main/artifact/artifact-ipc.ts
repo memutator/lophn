@@ -2,10 +2,12 @@
 // 입력이 schema에 맞는지 본다. 창은 sender에서 main이 정한다. view의 bounds·숨기기·폐기는
 // 앱 view와 같은 길(view-ipc.ts)을 쓴다.
 import {
+  ARTIFACT_DELETE_CHANNEL,
   ARTIFACT_LIST_CHANNEL,
   ARTIFACT_OPEN_CHANNEL,
   ARTIFACT_RELOAD_CHANNEL,
   type ArtifactListItem,
+  artifactDeleteSchema,
   artifactListSchema,
   artifactOpenSchema,
   artifactReloadSchema,
@@ -31,6 +33,11 @@ interface ArtifactIpcDeps {
   windowOf(sender: CallerContents): string | undefined;
   views: Pick<ArtifactViews, "open" | "reload">;
   list(workspace: ArtifactWorkspace): Promise<ArtifactListItem[]>;
+  /** project의 artifact 폴더를 지우고 그 폴더를 연 view를 버린다. */
+  remove(input: {
+    project: string;
+    name: string;
+  }): Promise<ArtifactReply<null>>;
 }
 
 interface ArtifactIpcHandlers {
@@ -43,6 +50,7 @@ interface ArtifactIpcHandlers {
     event: IpcEvent,
     input: unknown,
   ): Promise<ArtifactReply<{ artifacts: ArtifactListItem[] }>>;
+  delete(event: IpcEvent, input: unknown): Promise<ArtifactReply<null>>;
 }
 
 const DESKTOP_HOST = "desktop";
@@ -93,6 +101,13 @@ export function createArtifactIpc(deps: ArtifactIpcDeps): ArtifactIpcHandlers {
         },
       };
     },
+    async delete(event, input) {
+      const window = callerWindow(event);
+      if (!window.ok) return window;
+      const checked = checkInput(artifactDeleteSchema, input);
+      if (!checked.ok) return checked;
+      return await deps.remove(checked.value);
+    },
   };
 }
 
@@ -108,6 +123,7 @@ const CHANNELS = [
   [ARTIFACT_OPEN_CHANNEL, "open"],
   [ARTIFACT_RELOAD_CHANNEL, "reload"],
   [ARTIFACT_LIST_CHANNEL, "list"],
+  [ARTIFACT_DELETE_CHANNEL, "delete"],
 ] as const;
 
 export function registerArtifactIpc(

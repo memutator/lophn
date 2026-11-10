@@ -183,8 +183,14 @@ function OpenTab(
       report(next);
     });
     const offEvent = api.subscribeEvent((event) => {
-      if (event.view_session === viewSession && event.kind === "open-link") {
-        callbacks.current.onOpenLink(event.url);
+      if (event.view_session !== viewSession) return;
+      if (event.kind === "open-link") callbacks.current.onOpenLink(event.url);
+      else {
+        // 폴더가 지워졌다. main이 view를 버렸으니 보관소에 넘기지 않고 폴더 없음 안내로 바꾼다.
+        last.current = null;
+        setViewSession(null);
+        setState(null);
+        setMissing(true);
       }
     });
     return () => {

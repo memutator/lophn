@@ -957,6 +957,49 @@ flows:
     risk: [sandbox]
     refs: [C28]
 
+  - id: artifact-delete
+    title: "sidebar Artifacts에서 artifact 폴더를 지운다"
+    actor: person
+    entries: [ui:artifact-delete]
+    uses:
+      - ipc:shell:artifact-delete
+    boundary: [shell]
+    code:
+      - packages/shell/main/artifact/delete.ts
+      - packages/shell/main/artifact/registry.ts
+      - packages/shell/main/desktop/wiring/artifact.ts
+      - packages/shell/renderer/workspace/sidebar/artifact-panel.tsx
+      - packages/shell/renderer/artifact/artifact-tab.tsx
+    docs: [architecture/artifact.md]
+    steps:
+      - "줄의 휴지통을 누르면 확인 dialog가 artifact 제목과 rewind로 되살릴 수 없다는 글을 보인다. 지우기를 누르면 artifact-delete를 부른다"
+      - "main이 이름을 slug로 다시 검사하고, 대상 `<project>/artifacts/<name>`이 symlink가 아닌 폴더이고 realpath가 artifacts realpath 바로 안인지(접두사만 같은 형제는 밖) 본다"
+      - "폴더를 재귀로 지운다. 안의 symlink는 따라가지 않고 link만 지운다"
+      - "그 폴더를 연 모든 창의 view를 버리고 removed event를 민다. 열린 탭은 폴더 없음 안내로 바뀐다"
+      - "성공하면 목록을 다시 읽는다. 실패하면 dialog에 안내를 보이고 목록은 그대로다. not_found는 이미 없는 것이라 목록만 다시 읽는다"
+    outcomes:
+      - id: deleted
+        observe: ["response", "disk:<data>/projects/<prj>/artifacts/<name>", "screen:artifact-missing"]
+        when: "폴더를 지웠다"
+      - id: forbidden
+        code: forbidden
+        when: "보낸 창이 등록된 desktop 창 본문 main frame이 아니다(artifact IPC guard), 또는 대상이 symlink이거나 realpath가 artifacts 밖이다(가리키는 곳은 건드리지 않는다)"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "이름이 slug가 아니거나 입력이 schema와 다르다"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "폴더가 없거나 폴더가 아니다"
+        observe: ["response"]
+      - id: internal
+        code: internal
+        when: "지우다 실패했다(권한, 쓰고 있는 file 등). 일부만 지워졌을 수 있다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [data-loss, sandbox]
+
   - id: artifact-serve
     title: "lophn-artifact:// 요청에 root 안의 일반 file만 답한다"
     actor: system

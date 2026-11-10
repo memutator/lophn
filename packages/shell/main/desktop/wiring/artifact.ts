@@ -16,6 +16,7 @@ import {
   registerArtifactIpc,
   removeArtifactIpc,
 } from "../../artifact/artifact-ipc.ts";
+import { deleteArtifactFolder } from "../../artifact/delete.ts";
 import { electronArtifactViews } from "../../artifact/electron-view.ts";
 import { electronArtifactSession } from "../../artifact/electron-session.ts";
 import { listArtifacts } from "../../artifact/list.ts";
@@ -24,6 +25,7 @@ import {
   type ArtifactViews,
   createArtifactViews,
 } from "../../artifact/registry.ts";
+import { artifactsFolder } from "../../../../protocol/projects/artifact.ts";
 import { createArtifactRoots } from "../../artifact/roots.ts";
 import { createArtifactServer } from "../../artifact/serve.ts";
 import { sealArtifactSession } from "../../artifact/session.ts";
@@ -158,6 +160,30 @@ export function register(
       views,
       list: (workspace) =>
         listArtifacts(ctx.dataRoot, workspace, nodeArtifactFs),
+      remove: async ({ project, name }) => {
+        const deleted = await deleteArtifactFolder(
+          artifactsFolder(ctx.dataRoot, { kind: "project", id: project }),
+          name,
+        );
+        if (!deleted.ok) {
+          const { code, message } = deleted.error;
+          return {
+            ok: false,
+            error: {
+              code:
+                code === "invalid_input" ||
+                code === "forbidden" ||
+                code === "not_found"
+                  ? code
+                  : "internal",
+              message,
+            },
+          };
+        }
+        // 지운 뒤에 view를 버린다. 지우기가 실패하면 열린 탭은 그대로다.
+        views.removeSource({ kind: "artifact", project, name });
+        return { ok: true, value: null };
+      },
     }),
   );
   // build가 artifact preload를 같은 dist에 .cjs로 낸다. 붙이기에서 강제한다.

@@ -396,6 +396,7 @@ links:
   # artifact
   - {entry: "ipc:shell:artifact-open", flow: artifact-open}
   - {entry: "ipc:shell:artifact-list", flow: artifact-open}
+  - {entry: "ipc:shell:artifact-delete", flow: artifact-delete}
   - {entry: "ipc:shell:artifact-state", flow: artifact-open}
   - {entry: "ipc:shell:artifact-reload", flow: artifact-guest-health}
   - {entry: "ipc:shell:artifact-event", flow: artifact-navigation}

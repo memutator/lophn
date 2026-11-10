@@ -1,5 +1,5 @@
 id: inbox-history-mark-all-read-row
-version: 0.23.24
+version: 0.23.25
 title: Inbox History의 [Mark all read]를 거르기 줄 아래 오른쪽 끝으로 옮긴다
 modules: [packages/shell/renderer]
 change: |

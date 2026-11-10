@@ -119,7 +119,7 @@ core는 모양만 본다. 뜻은 shell과 design이 안다.
 
 1. **설정을 쓰는 명령은 `lophn settings set <key> <value>`와 `settings unset <key>`뿐이다(agent).** 설정이나 설정 묶음마다 명령을 만들지 않는다. theme file도 이 명령으로 쓴다.
 2. **선언에 뜻 검사와 "명령으로 바꿀 수 있나"를 둔다(agent).** 권한에 걸린 설정(`approvals.shell_rules`, `lophn-agent.call_policy`, `lophn-agent.extensions.mcp_servers`·`skill_folders`·`skills_off`, `coding-agent.shared_apps`)은 바꿀 수 없음으로 선언한다. agent가 자기 범위를 넓히게 두지 않는다. `command-surface` 정한 것 8과 같은 원칙이다. CLI binary는 user token을 쓰므로 actor가 아니라 선언의 이 칸으로 막는다.
-3. **secret과 provider 연결은 넣지 않는다(agent).** secret 값은 보호 입력 창으로만 들어간다(`architecture/approval.md`).
+3. **secret과 provider 연결은 넣지 않는다(agent).** secret 값은 보호 입력 창으로만 들어간다(`architecture/approval.md`). agent가 사람에게 넣어 달라고 요청하는 길은 `secret-request.md`가 맡는다.
 4. **agent는 file을 직접 쓰지 않는다(agent).** home에 `themes/` 쓰기 권한을 주는 길은 버린다. 설정 surface를 지나야 검사 결과(모르는 token 경로, 모자란 대비)가 agent에게 돌아온다.
 5. **shell의 적용 길은 구독 하나로 바꾼다(agent).** renderer가 값을 읽어 main에 미는 길(`shell:appearance`, `shell:keybindings`의 값 보내기, theme file을 shell main이 읽는 것)은 지운다. 기반 위로 옮기지 않은 옛 길을 남기면 한쪽만 바뀌는 bug가 또 난다.
 6. **선언과 규칙의 자리는 core와 shell이 같이 import하는 곳이다(agent).** 정확한 자리(`packages/protocol`, 또는 design의 순수한 부분을 core에 열기)는 계획에서 정한다. theme 검사는 token 목록(`packages/design`)이 있어야 한다는 것이 걸린다.

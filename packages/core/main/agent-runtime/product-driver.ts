@@ -26,6 +26,7 @@ import { toolResultFolder } from "../../../protocol/lophn-agent/tool-results.ts"
 import { projectApi } from "../../../protocol/projects/mod.ts";
 import { workflowsFolder } from "../../../protocol/workflows/paths.ts";
 import { FILE_HOOKS, readMemoryTexts } from "../../agent-workspaces/hooks.ts";
+import { memoryNames } from "../../agent-workspaces/memory-names.ts";
 import { listArtifactEntries } from "../../agent-workspaces/workspace/artifact-list.ts";
 import {
   workspaceDataFolder,
@@ -245,7 +246,14 @@ export function productDriver(
           session,
         ),
       workspaceTools: workspaceToolNames,
-      memory: readMemoryTexts,
+      memory: async (agent, workspace) => {
+        const texts = await readMemoryTexts(agent, workspace);
+        const names = await memoryNames(calls.machine, [
+          texts.workspace,
+          texts.agent,
+        ]);
+        return { ...texts, names };
+      },
       instructions: {
         // turn 없이는 읽지 않는다. 실제 읽기는 아래 instructionFilesFor가 turn마다 연다.
         files: {

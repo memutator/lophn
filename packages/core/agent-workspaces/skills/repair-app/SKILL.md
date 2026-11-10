@@ -17,7 +17,7 @@ find out what went wrong and hand it to lophn at that app.
    Leave out logs, IDs and numbers unless they ask, and never give a number you
    did not read. Do not interpret the cause or change code.
 4. Hand it to lophn at that app with `lophn call send`
-   (`to: {agent: "lophn", workspace: {app: "<app name>"}}`, no reply expected). Keep
+   (`to: {agent: "lophn", workspace: {app: "<app slug>"}}`, no reply expected). Keep
    the body short and point to the evidence by invocation id and log time. Do
    not paste the conversation.
 5. Tell the person lophn at the app took it.

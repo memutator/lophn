@@ -50,7 +50,8 @@ export type TurnPromptInput = {
   };
   // session 첫 turn에 읽어 고정한 memory 글이다(workspace memory, agent memory 순). 판 비교(basis)에 넣지 않아 notice가
   // 나지 않고, session 안에서는 같은 bytes로 간다. 없거나 빈 글이면 block이 없다.
-  memory?: { workspace: string; agent: string };
+  // names는 memory 글에 나온 id마다 그때의 이름을 푼 줄이다(memory 글이 옛 이름을 쥐고 있을 수 있다).
+  memory?: { workspace: string; agent: string; names?: string };
   skills: readonly SkillListItem[];
   // custom이면 system은 이 글(정의 본문), 고른 skill 목록, workspace 정보이고 workspace 종류 지침과 지침 층은 싣지 않는다. 판 비교는
   // 지침을 보지 않는다. custom은 늘 `lophn` tool(browser 명령 포함)을 가져 untrusted 경계 줄을 늘 붙인다.
@@ -129,6 +130,12 @@ function memoryBlock(memory: TurnPromptInput["memory"]): string {
     { source: "workspace memory", text: memory.workspace },
     { source: "agent memory", text: memory.agent },
   ].filter((section) => section.text.trim() !== "");
+  if (sections.length > 0 && (memory.names ?? "").trim() !== "") {
+    sections.push({
+      source: "current names of the ids in memory",
+      text: memory.names ?? "",
+    });
+  }
   return sections.length === 0
     ? ""
     : ["# Memory", fencedSections(sections)].join("\n\n");

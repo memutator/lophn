@@ -134,6 +134,8 @@ test("home의 앱 목록에는 공개 command와 쓰는 곳이 실리고 package
   assert.ok(!text.includes("hidden"));
   assert.ok(text.includes(`show ← ${id("prj", "2")}`));
   assert.ok(
-    text.includes("- Ledger: keeps the books\n  Packages: @me/ui@1.0.0"),
+    text.includes(
+      `- Ledger (ledger, ${APP}): keeps the books\n  Packages: @me/ui@1.0.0`,
+    ),
   );
 });

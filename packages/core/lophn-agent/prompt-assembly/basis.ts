@@ -34,10 +34,12 @@ function cmp(a: string, b: string): number {
 
 // workspace 정보의 목록 줄과 판 비교가 같은 글을 쓴다. 목적이 바뀌면 system 글이 바뀌므로 notice도 가야 한다.
 export function agentLine(agent: WorkspaceAgent): string {
+  const extra = [
+    ...(agent.name === agent.handle ? [] : [agent.name]),
+    ...(agent.id === undefined ? [] : [agent.id]),
+  ];
   const label =
-    agent.name === agent.handle
-      ? agent.handle
-      : `${agent.handle} (${agent.name})`;
+    extra.length === 0 ? agent.handle : `${agent.handle} (${extra.join(", ")})`;
   const scope = agent.scoped === true ? " [this workspace only]" : "";
   return agent.description === undefined
     ? `${label}${scope}`

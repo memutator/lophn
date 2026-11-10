@@ -51,7 +51,7 @@
 
 - 앱은 같은 판을 `package.json`(`file:.lophn/sdk/[@me/]<part>/<ver>`)과 앱 선언의 `sdk_dependencies` 두 곳에 적는다. release 준비가 둘을 대조해 다르면 `invalid_input`이다.
 - 그 밖의 npm 의존은 정확한 판만 받는다. 범위, 원격 주소(`npm:`·URL), 앱 폴더 밖 경로, 설치 사본 꼴이 아닌 `file:` 값은 release 준비가 거절한다.
-- `@me` 이름은 전역이다. 처음 publish한 앱이 `owner_app`이고 그 앱만 새 판을 낸다(다른 앱은 `forbidden`). 앱을 지워도 package는 남고 `owner_app`은 지운 앱 id를 가리킨다. `owner_app`이 없는 package는 다음에 publish한 앱이 주인이 된다.
+- `@me` 이름은 전역이다. 처음 publish한 앱이 `owner_app`이고 그 앱만 새 판을 낸다(다른 앱은 `forbidden`). 앱을 지워도 package와 판은 남고 `owner_app`은 비워진다(null). `owner_app`이 없는 package는 다음에 publish한 앱이 주인이 된다.
 - 같은 name·version을 같은 bundle hash, guide hash, permissions로 다시 내면 재시도로 받는다. 이때 새 판 행도 event도 없고 빠진 blob 참조만 붙는다. 하나라도 다르면 `conflict`이고 공개 판은 바뀌지 않는다. 이미 낸 판의 description은 바뀌지 않는다. 새 판을 낼 때 그 판의 description이 package의 description이 된다.
 - 판 등록(`package.register_version`)은 machine 자격만 부른다. 사람도 agent도 직접 부르지 않고 publish가 부른다. 등록은 판 행, blob 참조 둘, `PackageVersionRegistered` event를 같은 tx에 넣는다. blob의 hash·목적이 입력과 다르거나 그 호출자가 준비한 blob이 아니면 `invalid_input`이다.
 - 설치 사본은 같은 byte면 그대로 두고 다르면 지우고 다시 쓴다. 사본은 읽기 전용이라 덮어쓰지 않는다.
@@ -130,6 +130,7 @@ publish는 같은 규칙을 폴더 `@lophn/cap-*` 의존에 적용해 낸 `permi
 - 옛 SDK 사본은 data root에 따로 싣지 않는다. 지원 하한 아래 앱은 처음 다시 release할 때 옮긴다. (agent)
 - `package.publish`의 HEAD는 core가 읽고 agent runtime에 git 실행 권한을 주지 않는다. 이유: agent runtime child는 git을 띄울 수 없어 늘 "commit이 없다"고 답해 어떤 앱도 package를 내지 못했다. (사람)
 - package 주인은 domain이 아니라 앱이다(`owner_app`). (agent)
+- 앱을 지우면 그 앱이 주인인 package의 `owner_app`을 비운다. 이유: 지운 앱 id는 다시 쓰이지 않아 주인을 남기면 누구도 새 판을 내지 못하고, 원본 source도 앱 폴더와 함께 지워져 고칠 길이 없었다. 판은 정확한 `x.y.z`로 고정되고 낸 판은 바뀌지 않으므로 새 주인이 낸 판이 쓰는 앱에 몰래 들어가지 않는다. 이 규칙 전에 지운 앱이 주인으로 남은 package는 ledger step이 같은 상태로 옮긴다. (사람이 추천을 받음, 2026-11-10)
 - 공개 판의 byte는 ledger blob이 지키고 설치 사본은 그 파생이다. 이유: 설치 사본을 잃으면 공개 판을 되살릴 길이 없었고 이것은 사용자 data다. 버린 안: "같은 내용으로 다시 publish"로 복구(앱 HEAD가 바뀌면 hash가 달라 불가). (사람이 추천을 받음, 2026-11-08)
 - `@me` permission은 publish와 release 준비에서 강제한다. 이유: 권한 누락이 실행 중 broker 거절로만 드러났다. 버린 안: 칸 지우기(schema step이 들어 일이 비슷한데 얻는 것이 없다), 정보로 두기. (사람이 추천을 받음, 2026-11-08)
 - description은 최신 판을 따른다. 버린 안: 다르면 `conflict`(설명 하나로 publish가 막힌다). (사람이 추천을 받음, 2026-11-08)

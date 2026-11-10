@@ -231,7 +231,7 @@ export const shellArea: Area = {
       id: "shell-workspaces-delete-app",
       title: "Shell · Delete app",
       description:
-        "Archived 구역의 보관한 앱 줄에만 Unarchive 옆에 Delete(휴지통) 단추가 있다. 누르면 확인 dialog가 뜬다: 무엇이 영구히 지워지는지(소스 코드와 앱 data, 앱 agent와의 대화, release와 기록)를 보이고, secret 값은 남는다는 한 줄을 더한다. 이름을 따로 치게 하지 않는다. 되돌릴 수 없는 일을 실제로 하는 단추라 빨간 Delete(danger)가 오른쪽 끝이고 Cancel은 글자뿐이다.",
+        "Archived 구역의 보관한 앱 줄에만 Unarchive 옆에 Delete(휴지통) 단추가 있다. 누르면 확인 dialog가 뜬다: 무엇이 영구히 지워지는지(소스 코드와 앱 data, 앱 agent와의 대화, release와 기록)를 보이고, 그 앱이 낸 package가 있으면 남는 package와 쓰는 다른 앱 수를 보이고, 원본 source는 함께 지워지며 다음에 그 package를 낸 앱이 이어받는다는 한 줄을 붙인다. secret 값은 남는다는 한 줄을 더한다. 이름을 따로 치게 하지 않는다. 되돌릴 수 없는 일을 실제로 하는 단추라 빨간 Delete(danger)가 오른쪽 끝이고 Cancel은 글자뿐이다.",
       render: () => <WorkspacesScene steps={workspacesSteps.deleteApp} />,
     },
     {

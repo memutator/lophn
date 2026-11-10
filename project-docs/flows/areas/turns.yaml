@@ -107,6 +107,9 @@ flows:
       - id: memory-fixed
         observe: ["request:model"]
         when: "workspace memory나 agent memory가 비어 있지 않아 system에 Memory block(자료 경계 안, 출처별)이 실렸다. session 첫 turn에 읽은 글이 그 session의 뒤 turn에도 같은 bytes로 간다. Compact로 경계가 바뀌면 다시 읽는다. custom은 workspace memory를 받지 않고 자기 agent memory만 받는다"
+      - id: memory-names
+        observe: ["request:model"]
+        when: "memory 글에 앱·project·agent id가 있어 Memory block 끝에 id마다 지금 이름과 slug(또는 deleted) 줄이 붙었다. not_found만 deleted이고 읽지 못한 id는 줄이 없다"
       - id: completed
         observe: [ledger:turns, ledger:messages, event:MessageRecorded, event:TurnEnded]
         when: 완전한 답으로 끝났다(answer_completed)

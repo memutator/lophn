@@ -4,17 +4,21 @@ import { t } from "@lophn/i18n";
 import { Button } from "@lophn/ui/primitives";
 import { Dialog } from "@lophn/ui/overlay";
 
+import type { PublishedPackage } from "../apps/source.ts";
 import { actionIcons } from "../icons/mod.ts";
 import styles from "./delete-app-dialog.module.css";
 
 export function DeleteAppDialog({
   name,
+  packages = [],
   busy = false,
   failure,
   onCancel,
   onConfirm,
 }: {
   name: string;
+  /** 앱이 주인인 공개 package. 지워도 남고 주인이 빈다. */
+  packages?: readonly PublishedPackage[];
   /** 지우는 중이면 단추를 막는다. */
   busy?: boolean;
   /** 지우지 못한 이유 글. */
@@ -56,6 +60,26 @@ export function DeleteAppDialog({
             <li>{t("home.dialog.delete-app-releases")}</li>
           </ul>
         </div>
+        {packages.length === 0 ? null : (
+          <div className={styles.group} role="group" data-delete-packages="">
+            <p className={styles.heading}>
+              {t("home.dialog.delete-app-published")}
+            </p>
+            <ul className={styles.list}>
+              {packages.map((pkg) => (
+                <li key={pkg.name}>
+                  {t("home.dialog.delete-app-package", {
+                    name: pkg.name,
+                    count: pkg.users,
+                  })}
+                </li>
+              ))}
+            </ul>
+            <p className={styles.note}>
+              {t("home.dialog.delete-app-published-note")}
+            </p>
+          </div>
+        )}
         <p className={styles.note}>{t("home.dialog.delete-app-kept")}</p>
         {failure === undefined ? null : (
           <p className={styles.failure} role="alert" data-delete-failure="">

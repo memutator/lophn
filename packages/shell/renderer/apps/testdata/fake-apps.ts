@@ -1,6 +1,12 @@
 // 런처·앱 공간 테스트의 가짜 통로. core를 부르지 않고 부른 것을 기록한다.
 import { newId } from "../../prefixed-id.ts";
-import type { AppRow, AppsSource, RunState, SourceResult } from "../source.ts";
+import type {
+  AppRow,
+  AppsSource,
+  PublishedPackage,
+  RunState,
+  SourceResult,
+} from "../source.ts";
 
 export function appRow(
   id: string,
@@ -31,6 +37,8 @@ interface FakeAppsOptions {
   archiveCode?: string;
   /** 지우기 결과 code. 없으면 성공이다. */
   deleteCode?: string;
+  /** 앱 id마다 그 앱이 주인인 공개 package. */
+  published?: Readonly<Record<string, readonly PublishedPackage[]>>;
 }
 
 export function fakeApps(options: FakeAppsOptions = {}) {
@@ -93,6 +101,12 @@ export function fakeApps(options: FakeAppsOptions = {}) {
       rows = rows.filter((row) => row.id !== app.id);
       return Promise.resolve({ ok: true, value: null });
     },
+    publishedPackages(app) {
+      return Promise.resolve({
+        ok: true,
+        value: options.published?.[app.id] ?? [],
+      });
+    },
     entryScreen(app, release): Promise<SourceResult<string>> {
       calls.push(["entry", app, release]);
       return Promise.resolve(
@@ -125,6 +139,8 @@ export function galleryApps(options: Pick<FakeAppsOptions, "deleteCode"> = {}) {
       appRow(report, "Weekly report", { release: "12" }),
       appRow(habit, "Habit tracker", { archived: true }),
     ],
+    // 보관한 앱이 낸 package. 지우기 확인이 남는 것으로 보인다.
+    published: { [habit]: [{ name: "@me/streaks", users: 2 }] },
     runs: {
       [grocery]: "running",
       [planner]: "stopped",

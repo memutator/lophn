@@ -88,6 +88,12 @@ export function agentSlotOf(root: string, id: string): AgentSlot {
   return { folder: `${root}/agents`, file: `${id}.md` };
 }
 
+// agent memory 파일. 사람이 만든 agent마다 하나다. `<data>/agents/*.md`(정의)를 훑는 옛 data step과 섞이지 않게
+// 폴더를 따로 둔다. agent를 지우면 함께 지운다.
+export function agentMemoryFile(root: string, agentId: string): string {
+  return `${root}/agent-memory/${agentId}.md`;
+}
+
 // 코드가 data root를 따로 받지 않으면 ledger 파일이 있는 폴더가 data root다(reader도 같은 파일을 연다).
 export function dataRootOf(
   sql: ReadSql,

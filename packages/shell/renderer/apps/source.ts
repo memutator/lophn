@@ -24,6 +24,12 @@ export interface AppDraft {
   readonly description: string;
 }
 
+/** 앱이 주인인 공개 package 하나와 그것을 켜진 release로 쓰는 다른 앱 수. */
+export interface PublishedPackage {
+  readonly name: string;
+  readonly users: number;
+}
+
 /** supervisor가 본 실행 상태. 과거 기록으로 running이라 하지 않는다. */
 export type RunState = "preparing" | "stopped" | "running" | "unavailable";
 
@@ -41,6 +47,10 @@ export interface AppsSource {
   setArchived(app: AppRow, archived: boolean): Promise<SourceResult<AppRow>>;
   /** 보관한 앱을 영구히 지운다. 보관하지 않은 앱은 `conflict`, 앱 process가 아직 멈추는 중이면 `unavailable`이다. */
   deleteApp(app: AppRow): Promise<SourceResult<null>>;
+  /** 앱이 주인인 공개 package. 지워도 남고 주인이 빈다. 지우기 전에 사람에게 보인다. */
+  publishedPackages(
+    app: AppRow,
+  ): Promise<SourceResult<readonly PublishedPackage[]>>;
   /** 그 version에서 앱 공간에 여는 화면. 선언에 full 크기로 적힌 첫 화면이다. */
   entryScreen(app: string, release: string): Promise<SourceResult<string>>;
 }

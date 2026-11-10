@@ -242,5 +242,9 @@
   {
     "id": "apps.annotations.preview-bundle",
     "sha256": "9a65b9cb8dd6e09fa31ab5fcbb34dbc3d2afae5b01c252660c0a8be68b19144e"
+  },
+  {
+    "id": "apps.packages.release-deleted-owners",
+    "sha256": "0df3870dee42995b4fc8b52f2ff32a855e92569f7fa31fd92f40f60356500a4d"
   }
 ]

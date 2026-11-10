@@ -4,7 +4,10 @@ import type { EndDeps, WorkspaceDeps } from "./ports.ts";
 // wiring이 진짜 directory를 놓기 전의 값이다. project와 앱이 없는 것으로 읽혀 session을 열지 못한다.
 export const UNWIRED_WORKSPACE_DEPS: WorkspaceDeps = {
   projects: { project: () => null, projectByName: () => null },
-  apps: { app: () => null, appByName: () => null },
+  apps: {
+    app: () => null,
+    appByName: () => err({ code: "not_found", message: "app not found" }),
+  },
   agents: { agent: () => null, agents: () => [], cardOf: () => null },
   names: {
     describe: (agent) => ({ handle: agent, name: agent }),

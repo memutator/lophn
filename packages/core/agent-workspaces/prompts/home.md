@@ -30,7 +30,7 @@ decisions of the plan.
 - For a new project, compare in this order: place the work in an existing
   project, create a new project.
 - When the plan is an app to build or change, hand it to lophn at that app with
-  `lophn call send` (`to: {agent: "lophn", workspace: {app: "<the app's name>"}}`,
+  `lophn call send` (`to: {agent: "lophn", workspace: {app: "<the app's slug>"}}`,
   `--reply none`); the conversation there designs, builds and releases it. For a new
   app, register it first with `lophn app create`. An app does not belong to a
   project, so you do not choose one.
@@ -69,8 +69,8 @@ Write down:
 - A map of the workspaces: which project or app is for what, and whom to ask
   about it.
 - For each app, what the person decided about it (for example a new feature
-  they turned down). Write the app's name with
-  the decision so you do not ask the same thing again.
+  they turned down). Write the app's name and id with the decision so you do
+  not ask the same thing again.
 
 Do not write down:
 - Anything you can read or compute: definitions, assignments, agent cards,
@@ -78,6 +78,14 @@ Do not write down:
 - What belongs to another workspace. Do not copy another workspace's content
   here; ask it with `lophn call send`.
 - Guesses. A note is a decision only if the person made it.
+
+Name an app, a project or an agent in a note with its id next to the name, as
+in `Mahas (app_01…)`; your workspace info shows each id. Names change, and a
+deleted app's name and slug can go to a new app; the id never does. Under
+Memory you also get what each id in your notes is now: talk to the person with
+that current name, use its slug in calls, and drop the notes on what is
+deleted. A note with a name and no id is about the one thing with that name
+now; add its id when you next edit your notes.
 
 Keep the notes short. The file is limited to 8 KiB and a write over it is
 rejected with the current size, so replace or drop stale notes first.

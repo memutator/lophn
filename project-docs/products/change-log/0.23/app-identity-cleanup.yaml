@@ -1,0 +1,24 @@
+id: app-identity-cleanup
+version: 0.23.28
+title: 앱 이름 바꾸기와 지우기에서 앱을 가리키는 것이 엉뚱한 앱으로 가지 않게 한다
+modules: [packages/core/main, packages/core/apps, packages/core/agent-workspaces, packages/core/lophn-agent, packages/shell/renderer, packages/design]
+change: |
+  - call·job·run의 앱 주소는 id, slug, 표시 이름 순으로 푼다. 표시 이름이 여러 앱에 걸리면 첫 행으로 가지 않고 `invalid_input`이며 오류에 후보 slug가 실린다. 지침(Home·project prompt, `update-apps`·`new-app`·`repair-app`·`publish-package`·`write-workflow` skill)은 앱을 slug로 가리킨다.
+  - 앱을 지우면 그 앱이 주인인 `@me` package의 `owner_app`이 비고(null) 다음에 publish한 앱이 이어받는다. ledger step `apps.packages.release-deleted-owners`가 이전에 지운 앱이 주인으로 남은 package를 같은 상태로 옮긴다.
+  - 앱 지우기 확인 dialog가 그 앱이 낸 package와 쓰는 다른 앱 수를 보이고, 원본 source는 함께 지워지며 다음에 낸 앱이 이어받는다고 알린다.
+  - 사람이 만든 agent를 지우면 `<data>/agent-memory/<agt>.md`도 지운다.
+  - workspace 정보가 지금 workspace, Home의 앱·project 목록, 부를 수 있는 agent(lophn 밖) 줄에 id를 싣는다(앱은 slug, project는 title도).
+  - memory를 싣는 때 memory 글에 나온 앱·project·agent id마다 지금 이름과 slug(또는 `deleted`)를 푼 줄을 memory block 끝에 더한다. 세 workspace 종류 prompt는 memory note에 이름과 id를 같이 적고, 지금 이름으로 사람에게 말하고, 지운 것의 note를 지우게 한다.
+why: |
+  앱 이름은 unique가 아니고 바꿀 수 있으며, 지운 앱의 이름과 slug는 새 앱이 다시 쓴다. 그런데 call 주소는 이름이 겹치면 아무 앱으로나 갔고(맡긴 일이 다른 앱의 code를 고칠 수 있었다), Home memory의 앱 결정은 이름으로만 적혀 이름이 같은 다른 앱이 옛 결정을 물려받아 업데이트 질문을 조용히 건너뛸 수 있었다. 지운 앱이 주인인 package는 지운 앱 id가 다시 쓰이지 않아 누구도 새 판을 낼 수 없었고 원본 source도 사라졌다. 지운 agent의 memory는 사람이 지운 줄 아는 글로 디스크에 남았다.
+decisions:
+  - text: memory는 앱·project·agent를 이름과 id로 적고, 싣는 때 프로그램이 id를 지금 이름·slug로 푼다. id만이 바뀌지 않고 다시 쓰이지 않는다. 버린 길 — 셋(id·slug·name)을 다 적기(slug와 이름은 적는 순간부터 낡는다), 앱을 지울 때 프로그램이 memory 줄을 지우기(자유 글이라 찾을 수 없고 사람의 글을 프로그램이 지운다), 지울 때 Home lophn에게 정리를 시키기(지울 때마다 model 호출), 싣는 때 글 자체를 바꿔 쓰기(`agent.memory`의 old_string 대조가 깨진다).
+    by: person
+  - text: 지운 앱이 주인인 package는 주인을 비워 다음에 publish한 앱이 이어받게 한다. 판은 정확한 x.y.z로 고정되고 낸 판은 바뀌지 않으므로 새 주인의 판이 쓰는 앱에 몰래 들어가지 않는다.
+    by: person
+  - text: 이름이 겹친 주소는 `invalid_input`이다(agent-call.md 구조 6이 이미 정한 code). 버린 길 — 앱 이름을 unique로 막기(같은 이름의 앱 둘을 원할 수 있고, 주소 풀기만 고치면 잘못 가는 일이 없다).
+    by: agent
+  - text: 앱 agent가 읽는 `prompts/app.md`를 바꿨지만 migrate-sdk 메모를 쓰지 않는다. workspace 종류 prompt는 core가 session마다 싣는 글이라 이미 있는 앱의 agent도 다음 session부터 바뀐 글을 받는다.
+    by: agent
+  - text: 읽지 못한 id(not_found 밖의 오류)는 `deleted`로 알리지 않고 줄을 내지 않는다. 잘못 알리면 agent가 사람이 정한 note를 지운다.
+    by: agent

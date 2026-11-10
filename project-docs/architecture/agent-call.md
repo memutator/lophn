@@ -59,7 +59,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 3. 입력함과 Bus는 main thread 메모리에 있고 command는 writer Worker의 tx에서 돈다. 그래서 입력함 적용은 tx가 commit된 뒤에만 한다. 되돌린 tx나 재전달은 입력을 넣지 않는다. 입력함을 표로 옮기면 durable queue라 쓰지 않는다. 이 길이 없으면 "commit됐는데 입력이 안 들어간" 틈이 생긴다.
 4. 받는 session 기록의 본문은 blob이고 tx 안에서는 blob을 만들 수 없다. 그래서 call 본문(redaction 거친)과 고정 문구(늦은 실패 알림, 취소 알림)는 writer 앞 단계가 미리 blob으로 준비한다. 고정 문구가 몇 개뿐이라 쓰이지 않을 때의 낭비가 작고, inline 글로 바꾸면 받은 메시지 기록의 꼴(계약)이 바뀐다.
 5. 새 session을 열지 열린 session에 보낼지는 보내는 쪽이 고른다. "있으면 보내고 없으면 연다"를 기본으로 두지 않는다. session을 열 때마다 token이 든다. "열린 session, 없으면 새 session"(`fallback`)은 놓치면 안 되는 사실을 돌려줄 때만 쓴다.
-6. 받는 쪽의 앱(id, slug, 이름)과 project(id, 이름)는 정확히 맞아야 풀린다. 짐작하지 않는다. 풀리지 않으면 `not_found`, 같은 이름이 여럿이면 `invalid_input`이다(앱은 아직 이 검사가 없다. "열린 것").
+6. 받는 쪽의 앱(id, slug, 이름)과 project(id, 이름)는 정확히 맞아야 풀린다. 짐작하지 않는다. 앱은 id와 slug를 먼저 보고 표시 이름은 마지막에 본다(표시 이름만 unique가 아니고 이름 바꾸기로 겹칠 수 있다). 풀리지 않으면 `not_found`, 같은 이름이 여럿이면 `invalid_input`이고 오류에 후보 slug가 실린다. 지침은 앱을 slug로 가리키게 한다.
 7. agent가 archived 앱 workspace로 보내는 call은 없는 앱과 같은 `not_found`다(사람, 2026-11-07). archived 앱은 agent에게 보이지 않는 규칙의 한 부분이다(`architecture/app-call.md`). 사람과 program이 같은 workspace를 여는 길은 `conflict`(closed) 그대로다. 이미 열려 있던 session 주소로 보내는 call은 그 session이 입력을 받지 않아 `closed`다.
 8. 부르는 것 자체에는 묻지 않는다. call tool에 Gate가 없다. workspace 안에서 누구를 부를지는 지침과 workflow의 일이다(`products/AGENT.md` T5).
 9. 받은 메시지는 허락이 아니다. 받은 agent는 자기 할당으로만 일한다(`products/AGENT.md` T6). program이 막는 것은 이것 하나다. "거절당한 일을 다른 agent에게 돌려 시키지 않기"는 의미 판단이라 program이 막을 수 없고 agent 지침에 둔다.
@@ -193,7 +193,6 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 
 ## 열린 것
 
-- 이름이 겹치는 앱으로 call을 보내면 첫 행으로 간다(이슈 `same-name-app-call-first-row`). 앱 이름은 겹칠 수 있고 앱 이름이 다른 앱의 slug와 같을 수도 있는데 받는 곳 풀기에 같은 이름이 여럿인지 검사가 없다. 맡긴 일이 다른 앱의 agent에게 갈 수 있다. job·workflow·run이 앱을 이름으로 푸는 길도 같다. 고치려면 둘 이상 맞을 때 `invalid_input`으로 id나 slug를 쓰라고 알린다(추천).
 - 보낸 쪽마다 배달 실패의 꼴이 다르다(사람은 오류 코드, program은 `state: failed`, agent는 tool 결과 + 늦은 실패의 입력). 보낸 쪽이 늘 때 통일한다.
 - 상태 `unknown`은 상태를 알아내는 길이 없는 곳에서만 난다. 지금 lophn session은 running, waiting, idle만 낸다.
 - agent 쌍 규칙에 workspace 조건이 없어 한 workspace 안에서만 여는 agent 예외는 만들 수 없다.

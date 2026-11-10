@@ -29,7 +29,7 @@ import { loadSession, workspaceOf } from "../session/model.ts";
 import type { AgentDeps } from "./ports.ts";
 import { LOPHN_PROFILE } from "./resolve.ts";
 import { staleImagePaths } from "./profile-asset.ts";
-import { agentSlotOf } from "./store.ts";
+import { agentMemoryFile, agentSlotOf } from "./store.ts";
 import { checkAgent } from "./validate.ts";
 
 // 정의 저장과 삭제는 사람과 agent가 할 수 있다. lophn은 workspace마다 하나이고 handle·profile은 고정이며 지울 수 없다(workspace를 지울 때만 정의 file이 지워진다).
@@ -263,6 +263,14 @@ export function createAgentCommands(deps: AgentDeps): {
         const removed = context.value.store.remove(loaded.slot);
         if (!removed.ok) return removed;
         removeStaleImages(deps, context.value, input.agent, undefined);
+        // memory는 정의에 딸린 사람의 글이다. 남기면 사람이 지운 줄 아는 글이 디스크에 남는다.
+        try {
+          deps.files.remove(
+            agentMemoryFile(context.value.store.root, input.agent),
+          );
+        } catch {
+          // 이름 없는 고아로 남을 뿐이다. id는 다시 쓰이지 않는다.
+        }
         return ok({ agent: input.agent, hash: loaded.file.hash });
       },
     },

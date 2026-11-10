@@ -18,6 +18,7 @@ import {
   noticeSchemaSteps,
   noticeUnifiedSchemaSteps,
 } from "../notices/schema.ts";
+import { sdkSchemaSteps } from "../packages/schema.ts";
 import { permissionsSchemaSteps } from "../permissions/schema.ts";
 import { releasesSchemaSteps } from "../releases/schema.ts";
 import { rewindSchemaSteps } from "../rewind/schema.ts";
@@ -58,6 +59,7 @@ function open(status: "active" | "archived") {
     ...annotationSchemaSteps,
     ...noticeUnifiedSchemaSteps,
     ...appDeleteSchemaSteps,
+    ...sdkSchemaSteps,
   ]) {
     db.exec(step.sql);
   }
@@ -99,6 +101,17 @@ function open(status: "active" | "archived") {
     `INSERT INTO notices (id, source, app, kind, title, body, persistent, created_at)
      VALUES ('ntc_program', 'program', ?, 'release_activated', 't', 'b', 1, '2026-01-01')`,
   ).run(GONE);
+  for (const [id, owner] of [
+    ["pkg_gone", GONE],
+    ["pkg_kept", KEPT],
+  ]) {
+    db.prepare(
+      `INSERT INTO packages (id, name, description, owner_app) VALUES (?, ?, 'd', ?)`,
+    ).run(id, `@me/${id}`, owner);
+    db.prepare(
+      `INSERT INTO package_versions (package, version, bundle_hash, guide_hash) VALUES (?, '1.0.0', ?, ?)`,
+    ).run(id, "a".repeat(64), "b".repeat(64));
+  }
 
   let count = 0;
   const erased: string[] = [];
@@ -202,6 +215,16 @@ test("보관한 앱을 지우면 그 앱의 기록만 지우고 다른 앱과 pr
   assert.strictEqual(t.rows("activation_requests", "rel_gone", "release"), 0);
   assert.strictEqual(t.rows("blob_refs", "inv_gone", "owner_key"), 0);
   assert.strictEqual(t.rows("blob_refs", "inv_kept", "owner_key"), 1);
+  // 공개한 package와 판은 남고, 지운 앱이 주인이던 package는 다음에 publish한 앱이 이어받도록 주인이 빈다.
+  const owners = t.db
+    .prepare("SELECT id, owner_app FROM packages ORDER BY id")
+    .all()
+    .map((row) => [row["id"], row["owner_app"]]);
+  assert.deepStrictEqual(owners, [
+    ["pkg_gone", null],
+    ["pkg_kept", KEPT],
+  ]);
+  assert.strictEqual(t.rows("package_versions", "pkg_gone", "package"), 1);
   // erase 창은 닫혀 있다: 평소의 DELETE는 여전히 막힌다.
   assert.throws(() => t.db.exec("DELETE FROM apps WHERE id = '" + KEPT + "'"));
   assert.throws(() => t.db.exec("DELETE FROM releases"));

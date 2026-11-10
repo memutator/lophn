@@ -145,6 +145,14 @@ Do not write down:
   here; ask it with `lophn call send`.
 - Guesses. A note is a decision only if the person made it.
 
+Name an app, a project or an agent in a note with its id next to the name, as
+in `Mahas (app_01…)`; your workspace info shows each id. Names change, and a
+deleted app's name and slug can go to a new app; the id never does. Under
+Memory you also get what each id in your notes is now: talk to the person with
+that current name, use its slug in calls, and drop the notes on what is
+deleted. A note with a name and no id is about the one thing with that name
+now; add its id when you next edit your notes.
+
 Keep the notes short. The file is limited to 8 KiB and a write over it is
 rejected with the current size, so replace or drop stale notes first.
 

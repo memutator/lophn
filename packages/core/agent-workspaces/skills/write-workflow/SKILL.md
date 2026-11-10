@@ -43,7 +43,7 @@ does not read it or call it wrong.
 - `participants`: a map from a key you choose to `{ agent, workspace? }`
   or `{ kind: human }`.
   - `agent` is the agent's handle. `workspace` is `{project: <name>}` or
-    `{app: <name>}`; when left out it is this instance's project, not home.
+    `{app: <slug>}`; when left out it is this instance's project, not home.
 - `steps`: a map from a step name to `{ by, with?, prompt, in?, out?, next? }`.
   The first key is the first step.
   - `by`: the participant key that does the step.

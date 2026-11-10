@@ -299,6 +299,10 @@ flows:
       - id: failed-closed
         observe: [ledger:agent_calls, response]
         when: 주소의 session이 닫혔거나 workspace가 보관됐다. ok 응답의 state가 failed이고 fail_reason이 closed다
+      - id: ambiguous-app
+        code: invalid_input
+        when: 받는 workspace의 앱을 표시 이름으로 적었는데 그 이름의 앱이 여럿이다. 앱은 id, slug, 표시 이름 순으로 풀고 오류에 후보 slug가 실린다. 행도 새 session도 없다
+        observe: [response]
       - id: call-policy-refused
         code: forbidden
         when: call 정책(private workspace, workspace 쌍, agent 쌍)이 막는다

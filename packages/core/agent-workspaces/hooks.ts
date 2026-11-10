@@ -10,11 +10,8 @@ import {
 import { recordBeforeWrite } from "../lophn-agent/session/rewind/record.ts";
 import { rewindOverCore } from "../lophn-agent/session/rewind/runtime-port.ts";
 import type { FileHooks } from "../lophn-agent/tools/ports.ts";
-import {
-  agentMemoryFile,
-  memoryFileOf,
-  workspaceMemoryFile,
-} from "./workspace/data-folder.ts";
+import { agentMemoryFile } from "../lophn-agent/agents/store.ts";
+import { memoryFileOf, workspaceMemoryFile } from "./workspace/data-folder.ts";
 
 // agent runtime child의 data root(LOPHN_HOME)다. 절대 path가 아니면 memory 자리를 알 수 없다.
 function dataRoot(): string | null {

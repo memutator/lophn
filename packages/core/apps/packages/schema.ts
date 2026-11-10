@@ -44,3 +44,13 @@ export const sdkSchemaSteps: readonly SchemaStep[] = [
   `,
   },
 ];
+
+// 앱을 지우면 그 앱이 주인인 package는 주인 없음(null)이 되어 다음에 publish한 앱이 이어받는다. 이 step 전에 지운 앱이
+// 주인으로 남은 package를 같은 상태로 옮긴다. 남겨 두면 지운 앱 id는 다시 쓰이지 않아 누구도 새 판을 내지 못한다.
+// WIRINGS 맨 뒤 wiring(domains-retire)의 schemaStepsAfterTeams에서 잇는다(schema-steps.lock.json 끝).
+export const packagesDeletedOwnerSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "apps.packages.release-deleted-owners",
+    sql: "UPDATE packages SET owner_app = NULL WHERE owner_app IS NOT NULL AND owner_app NOT IN (SELECT id FROM apps);",
+  },
+];

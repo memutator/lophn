@@ -12,6 +12,7 @@ import { withEraseWindow } from "../../storage/ledger/mod.ts";
 // DELETE trigger가 평소 막는 표다. 이 창 안에서만 지울 수 있다(storage/ledger/erase.ts).
 // 지우지 않고 남기는 것: events와 command_results(immutable), program notices와 workflow_lines(기록),
 // jobs의 run 기록과 runs(job·다른 앱의 이력), packages(공개 묶음), secret 값(이름은 앱 사이에 공유된다).
+// 지운 앱이 주인인 package는 주인 없음이 된다. 지운 앱 id는 다시 쓰이지 않아, 남겨 두면 누구도 새 판을 내지 못한다.
 const WINDOW_TABLES = [
   "apps",
   "releases",
@@ -40,6 +41,7 @@ export function eraseApp(tx: Tx, app: string): Result<void> {
   if (!annotated.ok) return annotated;
   tx.sql.run("DELETE FROM annotation_batches WHERE app = ?", [app]);
   eraseAppNotices(tx, app);
+  tx.sql.run("UPDATE packages SET owner_app = NULL WHERE owner_app = ?", [app]);
 
   withEraseWindow(tx.sql, WINDOW_TABLES, () => {
     // releases를 가리키는 표부터 지운다.

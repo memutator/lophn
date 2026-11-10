@@ -40,9 +40,7 @@ function targetsOf(sql: Query): JobTargets {
     },
     resolveApp(ref) {
       const found = workspaceDepsOf(sql).apps.appByName(ref);
-      return found === null
-        ? err({ code: "not_found", message: "app not found" })
-        : ok(found.id);
+      return found.ok ? ok(found.value.id) : found;
     },
     resolveProject(ref) {
       const found = workspaceDepsOf(sql).projects.projectByName(ref);

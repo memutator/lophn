@@ -9,7 +9,7 @@ import { Menu, MenuIcon, Tooltip } from "@lophn/ui/overlay";
 
 import { AppWorkspaceMark } from "../app-frame/app-icon.tsx";
 import { sortApps } from "../apps/model.ts";
-import type { AppRow, AppsSource } from "../apps/source.ts";
+import type { AppRow, AppsSource, PublishedPackage } from "../apps/source.ts";
 import { CreateAppDialog } from "../desktop/workspaces/create-app-dialog.tsx";
 import { missingFolder, type Loaded } from "../desktop/workspaces/model.ts";
 import { ProjectDetailDialog } from "../desktop/workspaces/projects/project-detail.tsx";
@@ -134,6 +134,18 @@ export function WorkspacesPanel({
     busy: boolean;
     failure?: string;
   } | null>(null);
+  // 지우려는 앱이 주인인 공개 package. 지워도 남는 것을 dialog가 미리 보인다. 못 읽으면 비운다.
+  const [published, setPublished] = useState<{
+    app: string;
+    packages: readonly PublishedPackage[];
+  } | null>(null);
+  const askDelete = (row: AppRow) => {
+    setDeleting({ row, busy: false });
+    setPublished(null);
+    void apps?.publishedPackages(row).then((read) => {
+      if (read.ok) setPublished({ app: row.id, packages: read.value });
+    });
+  };
 
   const loadProjects = useCallback(async () => {
     if (!projects) return;
@@ -442,7 +454,7 @@ export function WorkspacesPanel({
                 item.id,
                 item.name,
                 () => void setAppArchived(item, false),
-                () => setDeleting({ row: item, busy: false }),
+                () => askDelete(item),
               ),
             )}
           </PanelRows>
@@ -473,6 +485,9 @@ export function WorkspacesPanel({
       {apps && deleting !== null ? (
         <DeleteAppDialog
           name={deleting.row.name}
+          packages={
+            published?.app === deleting.row.id ? published.packages : []
+          }
           busy={deleting.busy}
           failure={deleting.failure}
           onCancel={() => setDeleting(null)}

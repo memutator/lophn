@@ -71,7 +71,10 @@ const deps: OpenDeps = {
       id === OTHER_APP
         ? null
         : ({ id, archived: archivedWorkspaces.has(id) } as never),
-    appByName: () => null,
+    appByName: () => ({
+      ok: false,
+      error: { code: "not_found", message: "app not found" },
+    }),
   },
   agents: {
     agent: (id) =>

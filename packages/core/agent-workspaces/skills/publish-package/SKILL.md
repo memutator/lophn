@@ -64,7 +64,7 @@ inside this app.
    offset it gives when the guide is long), `owner_app`, other versions and the
    apps that use each version.
 7. If other apps use an older version, tell lophn at each of them with
-   `lophn call send` (`to: {agent: "lophn", workspace: {app: "<app name>"}}`, no
+   `lophn call send` (`to: {agent: "lophn", workspace: {app: "<app slug>"}}`, no
    reply expected): the new version, what changed, and whether they must move.
 
 When publish fails:

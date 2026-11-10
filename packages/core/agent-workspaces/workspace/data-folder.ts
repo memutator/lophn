@@ -1,4 +1,5 @@
 import { idSchema } from "../../../protocol/base/ids.ts";
+import { agentMemoryFile } from "../../lophn-agent/agents/store.ts";
 import {
   type AgentId,
   isLophn,
@@ -39,12 +40,6 @@ export function workspaceMemoryFile(
   workspace: Workspace | null,
 ): string {
   return `${workspaceDataFolder(root, workspace)}/${WORKSPACE_MEMORY_FILE}`;
-}
-
-// agent memory 파일. 사람이 만든 agent마다 하나다. `<data>/agents/*.md`(정의)를 훑는 옛 data step과 섞이지 않게
-// 폴더를 따로 둔다.
-export function agentMemoryFile(root: string, agentId: string): string {
-  return `${root}/agent-memory/${agentId}.md`;
 }
 
 // agent.memory가 쓸 파일. 어느 파일인지는 부른 agent의 id만이 정한다(입력에서 자리를 받지 않는다).

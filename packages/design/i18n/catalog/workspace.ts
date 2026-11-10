@@ -36,6 +36,11 @@ export const workspace = {
   "home.dialog.delete-app-intro":
     "This permanently deletes the app. It can't be undone.",
   "home.dialog.delete-app-kept": "Secret values you saved are kept.",
+  "home.dialog.delete-app-package":
+    "{name} — {count, plural, =0 {no other app uses it} one {used by # other app} other {used by # other apps}}",
+  "home.dialog.delete-app-published": "These packages it published are kept:",
+  "home.dialog.delete-app-published-note":
+    "Their source code is deleted with the app. The next app that publishes one of them takes it over.",
   "home.dialog.delete-app-releases": "Releases and history of this app",
   "home.dialog.delete-app-source": "Source code and the app's data",
   "home.dialog.delete-app-title": "Delete {name}?",

@@ -228,10 +228,9 @@ export const runsWiring: WiringFactory = () => {
             workspaceDepsOf(lookup.sql).apps.appByName(app),
           );
           if (!found.ok) return Promise.resolve(found);
+          const resolved = found.value;
           return Promise.resolve(
-            found.value === null
-              ? err({ code: "not_found" as const, message: "app not found" })
-              : ok(found.value.id as Id<"app">),
+            resolved.ok ? ok(resolved.value.id as Id<"app">) : resolved,
           );
         },
         // 사람이 부른 것과 같은 길이다. Gate를 거치지 않는다.

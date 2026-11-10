@@ -50,8 +50,8 @@ export function createWorkspaceNameRules(
         workspace = { kind: "project", id: project.id };
       } else {
         const app = deps.apps.appByName(named.app);
-        if (app === null) return fail("not_found", "app not found");
-        workspace = { kind: "app", id: app.id };
+        if (!app.ok) return app;
+        workspace = { kind: "app", id: app.value.id };
       }
     }
     const agent =

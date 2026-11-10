@@ -1,7 +1,7 @@
 id: same-name-app-call-first-row
 title: 이름이 겹치는 앱으로 call을 보내면 첫 행으로 간다
 kind: bug
-status: open
+status: fixed
 topic: agent-call
 modules: [packages/core/main, packages/core/agent-workspaces, packages/core/lophn-agent]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 이름·slug·id가 둘 이상 맞으면 `invalid_input`으로 거절하고 id나 slug를 쓰라고 알린다. 작음. 추천. 문서와 같아진다.
   - slug와 id만 받고 표시 이름은 받지 않는다. 작음. 이름으로 부르던 사용은 깨진다.
+closed: |
+  `appByName`가 id와 slug를 먼저 보고(둘 다 unique이고 서로 겹치지 않는다) 표시 이름은 마지막에 본다. 이름이 여러 앱에 걸리면 `invalid_input`이고 오류에 후보 slug가 실린다. port는 `Result<AppInfo>`를 돌려 call·job·run이 같은 오류를 낸다. 앱 agent 지침(skill, workspace 종류 prompt)은 call 주소에 slug를 쓰게 했다.
+guard: lophn-agent-registration_test.ts "앱 주소는 id·slug를 먼저 보고, 여러 앱에 걸린 표시 이름은 invalid_input이다"

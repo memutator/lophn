@@ -17,7 +17,7 @@ where you start; do not ask again for what they already said.
    person choose with `ask`.
 3. For a new app, pick a name and register it with `lophn app create`.
 4. Hand it to lophn at the chosen app with `lophn call send`
-   (`to: {agent: "lophn", workspace: {app: "<app name>"}}`, no reply
+   (`to: {agent: "lophn", workspace: {app: "<app slug>"}}`, no reply
    expected). Write in the body what the person wants, in their words, and what
    is decided and what is not. If the app needs an
    agent inside it (an opponent, a coach, a reviewer), say so as decided or

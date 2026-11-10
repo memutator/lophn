@@ -13,6 +13,7 @@ export type FolderRead = { path: string; description: string };
 export type WorkspaceProject = {
   id: string;
   name: string;
+  title: string;
   purpose: string;
   folders: readonly FolderRead[];
 };
@@ -20,6 +21,7 @@ export type WorkspaceProject = {
 type WorkspaceApp = {
   id: string;
   name: string;
+  slug: string;
   purpose: string;
   // source 폴더. 아직 잇지 않았으면 null.
   source: string | null;
@@ -31,6 +33,7 @@ type CommandLine = { key: string; effect: string; description: string };
 
 // home의 앱 목록에서 앱 하나의 덩어리다. packages는 그 앱이 주인인 package(name@version)다.
 export type WorkspaceAppItem = {
+  id: string;
   name: string;
   // `lophn <slug> <command>`로 부르는 이름
   slug: string;
@@ -42,6 +45,19 @@ export type WorkspaceAppItem = {
   usedBy: readonly { tool: string; workspace: string }[];
 };
 
+// home의 project 목록 한 줄. name은 call 주소의 slug이고 title은 사람에게 보이는 이름이다.
+export type WorkspaceProjectItem = {
+  id: string;
+  name: string;
+  title: string;
+  purpose: string;
+};
+
+// 이름과 slug는 바뀌거나 다시 쓰이고 id만 그대로다. memory가 id를 key로 적을 수 있게 줄마다 싣는다.
+function named(title: string, slug: string, id: string): string {
+  return title === slug ? `${title} (${id})` : `${title} (${slug}, ${id})`;
+}
+
 export type WorkspaceData = {
   self: { name: string };
   // 이 agent가 놓인 workspace. project 또는 app 중 하나다.
@@ -52,7 +68,7 @@ export type WorkspaceData = {
   // home만. 모든 앱
   apps: readonly WorkspaceAppItem[];
   // home만
-  projects: readonly { name: string; purpose: string }[];
+  projects: readonly WorkspaceProjectItem[];
   // 앱 workspace만. 앱의 활성 release가 없으면 null.
   release: { version: string; command_names: readonly string[] } | null;
   // project workspace만. 만들어 둔 workflows 폴더의 절대 path다. home과 app workspace는 null
@@ -97,7 +113,9 @@ function appLines(
 function workspaceLines(data: WorkspaceData): string[] {
   const { project, app, release } = data;
   if (project !== null) {
-    const lines = [`Workspace: project ${project.name}. ${project.purpose}`];
+    const lines = [
+      `Workspace: project ${named(project.title, project.name, project.id)}. ${project.purpose}`,
+    ];
     if (project.folders.length > 0) {
       lines.push(`  Folders: ${project.folders.map(folderText).join(", ")}`);
     }
@@ -111,7 +129,7 @@ function workspaceLines(data: WorkspaceData): string[] {
   }
   if (app !== null) {
     return [
-      `Workspace: app ${app.name}. ${app.purpose}`,
+      `Workspace: app ${named(app.name, app.slug, app.id)}. ${app.purpose}`,
       ...appLines(app, release, "  "),
       ...(data.skillsFolder === null
         ? []
@@ -135,13 +153,13 @@ function agentLines(agents: readonly WorkspaceAgent[]): string[] {
   ];
 }
 
-function listLines(
-  title: string,
-  items: readonly { name: string; purpose: string }[],
-): string[] {
+function projectListLines(items: readonly WorkspaceProjectItem[]): string[] {
   if (items.length === 0) return [];
   const sorted = [...items].sort((a, b) => cmp(a.name, b.name));
-  return [title, ...sorted.map((i) => `- ${i.name}: ${i.purpose}`)];
+  return [
+    "Projects",
+    ...sorted.map((i) => `- ${named(i.title, i.name, i.id)}: ${i.purpose}`),
+  ];
 }
 
 // prompt 안의 글이라 앞쪽만 싣는다.
@@ -196,7 +214,7 @@ function appListLines(
 ): string[] {
   const lines: string[] = [];
   for (const a of [...apps].sort((x, y) => cmp(x.name, y.name))) {
-    lines.push(`- ${a.name}: ${oneLine(a.purpose)}`);
+    lines.push(`- ${named(a.name, a.slug, a.id)}: ${oneLine(a.purpose)}`);
     const packages = unique(a.packages);
     if (packages.length > 0) lines.push(`  Packages: ${packages.join(", ")}`);
     if (level === "bare") continue;
@@ -238,7 +256,7 @@ export function workspaceInfo(
   ];
   const sections: string[][] = [agentLines(data.agents)];
   if (kind === "home") {
-    sections.push(listLines("Projects", data.projects));
+    sections.push(projectListLines(data.projects));
     sections.push(appSectionLines(data.apps, budget));
   }
   sections.push(artifactLines(data.artifacts));

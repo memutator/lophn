@@ -36,7 +36,8 @@ type AppInfo = {
 
 export interface AppDirectory {
   app(id: Id<"app">): AppInfo | null;
-  appByName(name: string): AppInfo | null;
+  // id, slug, 표시 이름 순으로 찾는다. 표시 이름은 unique가 아니라 여러 앱에 걸리면 invalid_input이다.
+  appByName(name: string): Result<AppInfo>;
   list(): readonly AppInfo[];
 }
 

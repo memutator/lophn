@@ -26,6 +26,7 @@ import { type CoreCall, readOf } from "../../lophn-agent/run-loop/core-call.ts";
 import {
   type FolderRead,
   type WorkspaceAppItem,
+  type WorkspaceProjectItem,
   type WorkspaceData,
   workspaceInfo,
   type WorkspaceProject,
@@ -87,6 +88,7 @@ async function pages<T>(
 type ProjectRecord = {
   id: string;
   name: string;
+  title: string;
   purpose: string;
   folders: readonly FolderRead[];
 };
@@ -99,6 +101,7 @@ function workspaceProject(project: ProjectRecord): WorkspaceProject {
   return {
     id: project.id,
     name: project.name,
+    title: project.title,
     purpose: project.purpose,
     folders: project.folders.map((f) => ({
       path: f.path,
@@ -170,6 +173,7 @@ async function readWorkspaceData(
     app = {
       id: found.id,
       name: found.name,
+      slug: found.slug,
       purpose: found.description,
       source: appSource,
       folders: found.folders.map((f) => ({
@@ -190,7 +194,7 @@ async function readWorkspaceData(
   }
 
   // home: 모든 project와 앱의 목록(앱마다 공개 command와 쓰는 곳). 폴더는 읽기만 열린다.
-  const projectList: { name: string; purpose: string }[] = [];
+  const projectList: WorkspaceProjectItem[] = [];
   const appItems: WorkspaceAppItem[] = [];
   const allProjectFolders: string[] = [];
   if (workspace === null) {
@@ -211,7 +215,12 @@ async function readWorkspaceData(
     if (!apps.ok) return apps;
     for (const record of listed.value) {
       projects.set(record.id, record);
-      projectList.push({ name: record.name, purpose: record.purpose });
+      projectList.push({
+        id: record.id,
+        name: record.name,
+        title: record.title,
+        purpose: record.purpose,
+      });
       allProjectFolders.push(...record.folders.map((f) => f.path));
     }
     // 읽기 오류는 그 덩어리만 비우고 간다.
@@ -249,6 +258,7 @@ async function readWorkspaceData(
             (u) => u.app === a.id && toolNames.has(u.tool),
           );
       appItems.push({
+        id: a.id,
         name: a.name,
         slug: a.slug,
         purpose: a.description,
@@ -277,6 +287,7 @@ async function readWorkspaceData(
     .map((row) => ({
       handle: row.handle,
       name: row.name,
+      ...(isLophn(row.agent) ? {} : { id: row.agent }),
       // lophn은 workspace마다 하나이고 workspace를 빼면 부른 쪽의 것이라 범위 표시를 달지 않는다.
       ...(row.workspace === null || isLophn(row.agent) ? {} : { scoped: true }),
       ...(row.description === undefined

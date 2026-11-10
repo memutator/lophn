@@ -94,6 +94,8 @@ export type WirePacker = (request: PromptRequest) => WirePack;
 export type WorkspaceAgent = {
   handle: string;
   name: string;
+  // 사람이 만든 agent의 id. handle과 이름은 바뀌므로 memory가 이것을 key로 적는다. lophn은 handle이 고정이라 없다.
+  id?: string;
   description?: string;
   scoped?: boolean;
 };

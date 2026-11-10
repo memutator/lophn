@@ -162,6 +162,58 @@ export function coreAppsSource(core: CoreSource): AppsSource {
       return result.ok ? { ok: true, value: null } : result;
     },
 
+    async publishedPackages(app) {
+      const owned: { name: string; versions: string[] }[] = [];
+      let cursor: string | undefined;
+      for (let page = 0; page < PAGE_LIMIT; page += 1) {
+        const reply = await core.call({
+          kind: "read",
+          resource: "packages",
+          method: "list",
+          body: { limit: 200, ...(cursor === undefined ? {} : { cursor }) },
+        });
+        if (!reply.ok) {
+          return { ok: false, code: reply.error?.code ?? "internal" };
+        }
+        const value = reply.value as {
+          packages: {
+            name: string;
+            owner_app: string | null;
+            versions: { version: string }[];
+          }[];
+          next_cursor?: string | null;
+        };
+        for (const pkg of value.packages) {
+          if (pkg.owner_app !== app.id) continue;
+          owned.push({
+            name: pkg.name,
+            versions: pkg.versions.map((v) => v.version),
+          });
+        }
+        if (!value.next_cursor) break;
+        cursor = value.next_cursor;
+      }
+      const result: { name: string; users: number }[] = [];
+      for (const pkg of owned) {
+        const users = new Set<string>();
+        for (const version of pkg.versions) {
+          const reply = await core.call({
+            kind: "read",
+            resource: "packages",
+            method: "usage",
+            body: { name: pkg.name, version },
+          });
+          if (!reply.ok) continue;
+          for (const use of (reply.value as { usages: { app: string }[] })
+            .usages) {
+            if (use.app !== app.id) users.add(use.app);
+          }
+        }
+        result.push({ name: pkg.name, users: users.size });
+      }
+      return { ok: true, value: result };
+    },
+
     // 앱 공간 본문에 여는 화면은 선언 read(`/apps/tools`)가 준다. 그 release의
     // 선언에 `tab` 자리로 적힌 첫 화면이다(main의 앱 전용 창 `createEntryScreen`과 같은 규칙).
     async entryScreen(app, release) {

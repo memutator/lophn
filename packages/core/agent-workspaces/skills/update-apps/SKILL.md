@@ -46,8 +46,11 @@ the notes. Leave code-level detail to lophn at the app.
    - (c) Leave as is: it runs and nothing new is useful.
    Mark which feature proposals you recommend and why.
    Before you ask about an app, look in your Memory for what the person already
-   decided about that app. An app they already settled is not asked again: follow
-   the decision and say only that you are doing so.
+   decided about that app. Match the note by the app's id, not its name: a
+   renamed or new app with the same name is not the app the note is about. A
+   note with a name and no id is about the one app with that name now; add its
+   id to the note. An app they already settled is not asked again: follow the
+   decision and say only that you are doing so.
 6. Tell the person a short plan per app, without lophn internals (no package
    names, version numbers or code words unless asked): which apps you are
    keeping working after lophn's update (one line, no question), and what new
@@ -56,9 +59,9 @@ the notes. Leave code-level detail to lophn at the app.
    features (per app: which to add, or none); leave out the apps already
    settled. Hand over required migrations right away; hand over features after
    they answer. When they answer, write each app's feature decision in your
-   Memory with `agent.memory`, with the app's name.
+   Memory with `agent.memory`, with the app's name and id.
 7. For each app with a required migration or chosen features, hand it to lophn at that app with
-   `lophn call send` (`to: {agent: "lophn", workspace: {app: "<app name>"}}`,
+   `lophn call send` (`to: {agent: "lophn", workspace: {app: "<app slug>"}}`,
    `--reply none`). Body: the required migration (if any); each feature the
    person chose, as a proposal for lophn at the app to confirm with the person
    in the app conversation and design with the `design-app` skill (the person

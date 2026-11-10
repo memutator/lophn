@@ -26,7 +26,7 @@ lophn이 하는 동작을 빠짐없이 적은 catalog다. 셋을 잇는다: 입�
 | `route:<resource>/<method>` | `packages/protocol`, `packages/core`의 `defineRead`·`defineCommand`·`defineMemory` |
 | `cli:<name>` | `packages/cli/commands`의 `defineCommand`의 `name`(예: `cli:app.read`) |
 | `tool:<name>` | `defineTool`의 `name`. 정적인 것만이다. CLI 명령은 lophn agent의 `lophn` tool로도 불리지만 `cli:`로 센다. 앱 command·MCP·extension tool은 동적이라 entry가 없다 |
-| `key:<command>` | `packages/shell/ipc/keybindings.ts`의 `Command` |
+| `key:<command>` | `packages/protocol/shell/keybindings.ts`의 `Command` |
 | `ipc:<channel>` | `packages/shell/ipc/*.ts`의 `*_CHANNEL` 상수 |
 | `sdk:<package>/<export>` | `packages/sdk/<package>/mod.ts`의 runtime export. 다른 package에서 다시 내보낸 것도 sdk area다 |
 | `skill:<name>` | `packages/core/agent-workspaces/skills/<name>/` |

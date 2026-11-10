@@ -1,7 +1,7 @@
 import {
   KEYBINDINGS_CHANNEL,
   type KeybindingsApi,
-} from "../ipc/keybindings.ts";
+} from "../../protocol/shell/keybindings.ts";
 
 interface KeybindingsTransport {
   invoke(channel: string, input: unknown): Promise<unknown>;

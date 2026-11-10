@@ -365,7 +365,7 @@ areas:
   - id: keys
     title: 단축키와 화면 command
     entries:
-      - packages/shell/ipc/keybindings.ts
+      - packages/protocol/shell/keybindings.ts
     owns:
       - key 판정, chord, context
       - 사람이 단 키 저장과 되살리기

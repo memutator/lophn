@@ -9,7 +9,7 @@ import {
   parseChord,
   resolveBindings,
   type Stroke,
-} from "../../ipc/keybindings.ts";
+} from "../../../protocol/shell/keybindings.ts";
 import {
   type AppScreens,
   type ScreensRead,

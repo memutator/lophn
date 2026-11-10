@@ -9,7 +9,7 @@ import {
   parseBindingId,
   shellOwns,
   tableBinding,
-} from "../../ipc/keybindings.ts";
+} from "../../../protocol/shell/keybindings.ts";
 import {
   createKeybindingService,
   type KeybindingInput,

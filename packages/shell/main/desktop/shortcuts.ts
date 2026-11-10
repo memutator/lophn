@@ -7,7 +7,7 @@ import {
   type CompiledBindings,
   type KeyHit,
   matchKey,
-} from "../../ipc/keybindings.ts";
+} from "../../../protocol/shell/keybindings.ts";
 import type { WindowShortcut } from "../../ipc/shortcuts.ts";
 
 /** Electron `Input`에서 쓰는 부분. */

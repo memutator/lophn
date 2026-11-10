@@ -3,7 +3,7 @@
 import { SettingsFrame } from "./settings-frame.tsx";
 import { click, find, press, type, wait } from "../../mock/drive.ts";
 import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
-import { appPanelBindingId } from "../../../../packages/shell/ipc/keybindings.ts";
+import { appPanelBindingId } from "../../../../packages/protocol/shell/keybindings.ts";
 import { APP_BUDGET } from "../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
 
 /** Settings 머리의 [Back]. 누르면 Settings를 열기 전 화면으로 돌아간다. */

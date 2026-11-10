@@ -9,7 +9,7 @@ flows:
     uses: [ipc:shell:shortcut]
     boundary: [shell]
     code:
-      - packages/shell/ipc/keybindings.ts
+      - packages/protocol/shell/keybindings.ts
       - packages/shell/main/desktop/shortcuts.ts
       - packages/shell/renderer/commands/keybinding-service.ts
       - packages/shell/renderer/commands/window.ts
@@ -120,7 +120,7 @@ flows:
     code:
       - packages/shell/renderer/desktop/main.tsx
       - packages/shell/renderer/desktop/settings/keyboard/core-source.ts
-      - packages/shell/ipc/keybindings.ts
+      - packages/protocol/shell/keybindings.ts
     steps:
       - "desktop main이 keyboard source의 watch를 걸면 shell.keybindings를 읽는다(settings-read). 설정이 바뀌면 watch가 다시 읽는다"
       - "parseKeyOverrides로 검사하고 이 OS 것만 골라 WindowCommands.setOverrides로 창의 binding을 덮는다"
@@ -144,7 +144,7 @@ flows:
     entries: [ipc:shell:keybindings]
     boundary: [shell]
     code:
-      - packages/shell/ipc/keybindings.ts
+      - packages/protocol/shell/keybindings.ts
       - packages/shell/preload/keybindings-api.ts
       - packages/shell/main/desktop/wiring/desktop.ts
     steps:

@@ -23,7 +23,7 @@ import {
   type KeyPlatform,
   modifierLabel,
   bindingId,
-} from "../../../../ipc/keybindings.ts";
+} from "../../../../../protocol/shell/keybindings.ts";
 import {
   KEY_CAPTURE_ATTRIBUTE,
   type KeymapEntry,

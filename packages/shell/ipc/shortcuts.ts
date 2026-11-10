@@ -2,7 +2,7 @@
 // renderer로 보낸다. renderer는 같은 표로 팔레트 행의 키 이름을 그린다.
 // 작업대 단축키(탭·칸·sidebar·팔레트·Home)는 keybindings.ts의 표가 정하고, 그중 main이 먼저 받아야
 // 하는 것(menu와 겹치는 Cmd+W, page가 삼키는 키)만 이 channel로 온다. 그 payload는 binding id 글자다.
-import { parseBindingId } from "./keybindings.ts";
+import { parseBindingId } from "../../protocol/shell/keybindings.ts";
 
 /** main이 shell renderer로 보내는 channel. payload는 WindowShortcut(binding id) 하나다. */
 export const WINDOW_SHORTCUT_CHANNEL = "shell:shortcut";

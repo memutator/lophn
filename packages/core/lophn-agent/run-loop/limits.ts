@@ -38,11 +38,17 @@ export const turnLimitSettings = {
     key: TURN_LIMIT_SETTING_KEYS.model_attempts,
     type: limitValue.nullable(),
     default: DEFAULT_TURN_LIMITS.model_attempts,
+    description:
+      "The most model calls one agent turn may make; null is no limit. Applies from the next turn. Only the person changes it.",
+    locked: true,
   }),
   stall_ms: declareSetting({
     key: TURN_LIMIT_SETTING_KEYS.stall_ms,
     type: limitValue,
     default: DEFAULT_TURN_LIMITS.stall_ms,
+    description:
+      "How long (ms) an agent turn may go without progress before it is stopped. Applies from the next turn. Only the person changes it.",
+    locked: true,
   }),
 } as const;
 

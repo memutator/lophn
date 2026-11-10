@@ -50,11 +50,13 @@ const WATCH_MS = 1000;
 const key = (route: { resource: string; method: string }) =>
   `${route.resource}/${route.method}`;
 
+// 값을 읽는 손잡이다. 설정으로 올리는 선언은 config의 shell-settings에 있다.
 const enabledSetting = (id: string) =>
   declareSetting({
     key: extensionSettingKey(id),
     type: z.boolean(),
     default: false,
+    description: `Turns on the ${id} extension.`,
   });
 
 const forbidden = (message: string) =>

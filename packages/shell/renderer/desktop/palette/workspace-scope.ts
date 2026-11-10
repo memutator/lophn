@@ -6,7 +6,7 @@ import {
   type Command,
   commandLabel,
   type KeyOverrides,
-} from "../../../ipc/keybindings.ts";
+} from "../../../../protocol/shell/keybindings.ts";
 import { tabKindLabel, tabKindOf } from "../../workspace/kinds/registry.ts";
 import {
   type Desk,

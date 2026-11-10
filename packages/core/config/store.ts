@@ -9,18 +9,34 @@
 // - 쓰기는 같은 폴더의 임시 파일(0600)에 쓰고 rename한다. 실패하면 파일은 그대로다.
 // - watch는 폴더를 보고 settings.json 이벤트만 timer로 묶어 한 번 다시 읽는다. 내용이
 //   마지막으로 읽거나 쓴 것과 같으면 무시한다(자기 쓰기에 반응하지 않는다).
+//
+// folder 설정(`<data root>/<folder>/<id>.json`, 항목마다 file 하나)도 여기서 읽고 쓰고 지켜본다.
+// - 항목의 key는 `<folder key>.<id>`다. 읽지 못한 file(이름, 크기, JSON, 모양)은 항목이 되지 않고
+//   이유와 함께 unreadable에 남는다. 사람이 둔 file이라 고치거나 지우지 않는다.
+// - 쓰기는 같은 folder의 임시 file에 쓰고 rename한다. unset은 그 file을 지운다.
 import {
   type FSWatcher,
+  mkdirSync,
+  readdirSync,
   readFileSync,
   renameSync,
   rmSync,
+  statSync,
   watch,
   writeFileSync,
 } from "node:fs";
+import type { z } from "zod";
 import { err, errorCode, ok, type Result } from "../../base/mod.ts";
 import {
+  SETTING_ENTRY_ID,
+  SETTING_ENTRY_MAX_BYTES,
   SETTINGS_FILE_NAME,
+  type SettingDeclaration,
+  type SettingFolder,
+  type SettingFolderDeclaration,
+  type SettingNote,
   type SettingRejection,
+  type SettingsView,
 } from "../../protocol/config/mod.ts";
 import type { SettingChange, SettingsRegistry } from "./registry.ts";
 
@@ -39,12 +55,22 @@ const systemTimer: SettingsTimer = {
 type UpdateResult = {
   changed: string[];
   rejected: SettingRejection[];
+  notes: SettingNote[];
 };
+
+type Unreadable = SettingFolder["unreadable"];
+type FolderState = { values: Record<string, unknown>; unreadable: Unreadable };
+const ENTRY_SUFFIX = ".json";
 
 export interface SettingsStore {
   readonly registry: SettingsRegistry;
-  /** 사람이 고른 값. 기본값과 합치지 않는다. */
+  /** 사람이 고른 값. 기본값과 합치지 않는다. folder 설정의 항목은 들지 않는다. */
   chosen(): Readonly<Record<string, unknown>>;
+  /** folder 설정의 항목(id → 값)과 읽지 못한 file. */
+  folder(declaration: SettingFolderDeclaration): {
+    readonly values: Readonly<Record<string, unknown>>;
+    readonly unreadable: Unreadable;
+  };
   /** 하나라도 거절이면 아무것도 쓰지 않는다. 값이 같은 set과 없는 unset은 changed에 넣지 않는다. */
   update(changes: readonly SettingChange[]): Result<UpdateResult>;
   /** 폴더 watch를 시작한다. */
@@ -71,6 +97,13 @@ export function createSettingsStore(options: {
   let watcher: FSWatcher | undefined;
   let pending: unknown;
   let closed = false;
+  const folders = new Map<string, FolderState>();
+  const folderWatchers: FSWatcher[] = [];
+  const folderPending = new Map<string, unknown>();
+  const folderPath = (folder: SettingFolderDeclaration) =>
+    `${root}/${folder.folder}`;
+  const entryKey = (folder: SettingFolderDeclaration, id: string) =>
+    `${folder.key}.${id}`;
 
   const readText = (): string => {
     try {
@@ -154,6 +187,99 @@ export function createSettingsStore(options: {
   };
   reload();
 
+  // folder의 file을 모두 읽는다. folder가 없으면 만든다(사람이 file을 둘 자리다). 읽지 못하면 undefined다.
+  const readFolder = (
+    folder: SettingFolderDeclaration,
+  ): FolderState | undefined => {
+    const dir = folderPath(folder);
+    const values: Record<string, unknown> = {};
+    const unreadable: Unreadable = [];
+    let names: string[];
+    try {
+      mkdirSync(dir, { recursive: true });
+      names = readdirSync(dir).sort();
+    } catch {
+      log(`settings: ${folder.folder} could not be read`);
+      return undefined;
+    }
+    for (const file of names) {
+      if (!file.endsWith(ENTRY_SUFFIX)) continue;
+      const name = file.slice(0, -ENTRY_SUFFIX.length);
+      if (!SETTING_ENTRY_ID.test(name)) {
+        unreadable.push({ name, reason: "bad_id" });
+        continue;
+      }
+      try {
+        if (statSync(`${dir}/${file}`).size > SETTING_ENTRY_MAX_BYTES) {
+          unreadable.push({ name, reason: "too_large" });
+          continue;
+        }
+        const json: unknown = JSON.parse(
+          readFileSync(`${dir}/${file}`, "utf8"),
+        );
+        if (folder.type.safeParse(json).success) values[name] = json;
+        else unreadable.push({ name, reason: "bad_shape" });
+      } catch {
+        unreadable.push({ name, reason: "not_json" });
+      }
+    }
+    return { values, unreadable };
+  };
+
+  // 다시 읽고 달라진 항목의 key를 돌려준다. 읽지 못한 file 목록이 달라지면 folder key도 든다.
+  const reloadFolder = (folder: SettingFolderDeclaration): string[] => {
+    const before = folders.get(folder.key) ?? { values: {}, unreadable: [] };
+    const next = readFolder(folder);
+    if (next === undefined) return [];
+    folders.set(folder.key, next);
+    const changed = differing(before.values, next.values).map((id) =>
+      entryKey(folder, id),
+    );
+    if (JSON.stringify(before.unreadable) !== JSON.stringify(next.unreadable)) {
+      changed.push(folder.key);
+    }
+    return changed;
+  };
+  for (const folder of registry.folders()) reloadFolder(folder);
+
+  const writeEntry = (
+    folder: SettingFolderDeclaration,
+    id: string,
+    value: unknown,
+  ): boolean => {
+    const dir = folderPath(folder);
+    // 임시 file은 `.json`으로 끝나지 않아 항목으로 읽히지 않는다.
+    const temp = `${dir}/.${id}.${crypto.randomUUID()}.tmp`;
+    try {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(temp, `${JSON.stringify(value, null, 2)}\n`, {
+        flag: "wx",
+      });
+      renameSync(temp, `${dir}/${id}${ENTRY_SUFFIX}`);
+      return true;
+    } catch {
+      try {
+        rmSync(temp);
+      } catch {
+        // 임시 파일이 없으면 지울 것이 없다.
+      }
+      return false;
+    }
+  };
+
+  const viewOf = (
+    nextChosen: Record<string, unknown>,
+    nextFolders: ReadonlyMap<string, Record<string, unknown>>,
+  ): SettingsView => ({
+    get<S extends z.ZodType>(
+      setting: SettingDeclaration<S>,
+    ): z.output<S> | undefined {
+      const picked = nextChosen[setting.key] ?? setting.default;
+      return picked === undefined ? undefined : setting.type.parse(picked);
+    },
+    entries: (folder) => nextFolders.get(folder.key) ?? {},
+  });
+
   const write = (next: Record<string, unknown>): boolean => {
     const sorted = Object.fromEntries(
       Object.keys(next)
@@ -180,9 +306,11 @@ export function createSettingsStore(options: {
   return {
     registry,
     chosen: () => chosen,
+    folder: (declaration) =>
+      folders.get(declaration.key) ?? { values: {}, unreadable: [] },
     update(changes) {
       const rejected = registry.validate(changes);
-      if (rejected.length > 0) return ok({ changed: [], rejected });
+      if (rejected.length > 0) return ok({ changed: [], rejected, notes: [] });
       // watch debounce 안의 손 편집이나 읽기 실패로 raw가 낡았을 수 있다. 쓰기 직전에 다시 읽는다.
       try {
         apply(readText());
@@ -199,25 +327,110 @@ export function createSettingsStore(options: {
         });
       }
       const nextRaw = { ...raw };
+      // 항목 변경이 닿는 folder는 손으로 둔 file을 놓치지 않게 다시 읽고 그 위에 변경을 얹는다.
+      const stale: string[] = [];
+      const nextFolders = new Map<string, Record<string, unknown>>();
+      const entryChanges: {
+        folder: SettingFolderDeclaration;
+        id: string;
+        key: string;
+        change: SettingChange;
+      }[] = [];
       for (const change of changes) {
-        if (change.action === "set") nextRaw[change.key] = change.value;
-        else delete nextRaw[change.key];
+        const ref = registry.entry(change.key);
+        if (ref === undefined) {
+          if (change.action === "set") nextRaw[change.key] = change.value;
+          else delete nextRaw[change.key];
+          continue;
+        }
+        if (!nextFolders.has(ref.folder.key)) {
+          stale.push(...reloadFolder(ref.folder));
+          nextFolders.set(ref.folder.key, {
+            ...folders.get(ref.folder.key)?.values,
+          });
+        }
+        const values = nextFolders.get(ref.folder.key)!;
+        if (change.action === "set") values[ref.id] = change.value;
+        else delete values[ref.id];
+        entryChanges.push({ ...ref, key: change.key, change });
       }
-      if (differing(raw, nextRaw).length === 0) {
-        return ok({ changed: [], rejected: [] });
+      if (stale.length > 0) publish(stale);
+      for (const folder of registry.folders()) {
+        if (!nextFolders.has(folder.key)) {
+          nextFolders.set(folder.key, folders.get(folder.key)?.values ?? {});
+        }
       }
-      if (!write(nextRaw)) {
-        return err({
-          code: "unavailable",
-          message: "settings could not be written",
+      const tooLarge = entryChanges.filter(
+        ({ change }) =>
+          change.action === "set" &&
+          Buffer.byteLength(JSON.stringify(change.value, null, 2)) >
+            SETTING_ENTRY_MAX_BYTES,
+      );
+      if (tooLarge.length > 0) {
+        return ok({
+          changed: [],
+          rejected: tooLarge.map(({ key }) => ({
+            key,
+            reason: "out_of_range" as const,
+          })),
+          notes: [],
         });
       }
-      raw = nextRaw;
-      const next = choose(nextRaw).chosen;
-      const changed = differing(chosen, next);
-      chosen = next;
+      const checked = registry.check(
+        changes,
+        viewOf(choose(nextRaw).chosen, nextFolders),
+      );
+      if (checked.rejected.length > 0) {
+        return ok({ changed: [], rejected: checked.rejected, notes: [] });
+      }
+      const changed: string[] = [];
+      if (differing(raw, nextRaw).length > 0) {
+        if (!write(nextRaw)) {
+          return err({
+            code: "unavailable",
+            message: "settings could not be written",
+          });
+        }
+        raw = nextRaw;
+        const next = choose(nextRaw).chosen;
+        changed.push(...differing(chosen, next));
+        chosen = next;
+      }
+      for (const { folder, id, key, change } of entryChanges) {
+        const state = folders.get(folder.key) ?? { values: {}, unreadable: [] };
+        const before = state.values[id];
+        const values = { ...state.values };
+        if (change.action === "set") {
+          if (JSON.stringify(before) === JSON.stringify(change.value)) continue;
+          if (!writeEntry(folder, id, change.value)) {
+            if (changed.length > 0) publish(changed);
+            return err({
+              code: "unavailable",
+              message: `${folder.folder}/${id}.json could not be written`,
+            });
+          }
+          values[id] = change.value;
+        } else {
+          if (before === undefined) continue;
+          try {
+            rmSync(`${folderPath(folder)}/${id}${ENTRY_SUFFIX}`, {
+              force: true,
+            });
+          } catch {
+            if (changed.length > 0) publish(changed);
+            return err({
+              code: "unavailable",
+              message: `${folder.folder}/${id}.json could not be removed`,
+            });
+          }
+          delete values[id];
+        }
+        folders.set(folder.key, { ...state, values });
+        changed.push(key);
+      }
+      changed.sort();
       if (changed.length > 0) publish(changed);
-      return ok({ changed, rejected: [] });
+      return ok({ changed, rejected: [], notes: checked.notes });
     },
     watch() {
       if (watcher !== undefined || closed) return;
@@ -239,6 +452,30 @@ export function createSettingsStore(options: {
       // 오류로 끝난 감시는 더 신호를 주지 않는다. listener가 없으면 error event가 process를 끝낸다.
       events.on("error", () => events.close());
       watcher = events;
+      for (const folder of registry.folders()) {
+        try {
+          const folderEvents = watch(
+            folderPath(folder),
+            { recursive: false },
+            () => {
+              const waiting = folderPending.get(folder.key);
+              if (waiting !== undefined) timer.clear(waiting);
+              folderPending.set(
+                folder.key,
+                timer.set(() => {
+                  folderPending.delete(folder.key);
+                  const changed = reloadFolder(folder);
+                  if (changed.length > 0) publish(changed);
+                }, WATCH_DEBOUNCE_MS),
+              );
+            },
+          );
+          folderEvents.on("error", () => folderEvents.close());
+          folderWatchers.push(folderEvents);
+        } catch {
+          log(`settings: ${folder.folder} could not be watched`);
+        }
+      }
     },
     close() {
       closed = true;
@@ -246,6 +483,9 @@ export function createSettingsStore(options: {
       pending = undefined;
       watcher?.close();
       watcher = undefined;
+      for (const waiting of folderPending.values()) timer.clear(waiting);
+      folderPending.clear();
+      for (const one of folderWatchers.splice(0)) one.close();
     },
   };
 }

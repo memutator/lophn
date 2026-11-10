@@ -5,7 +5,7 @@
 // `app.panel:*`은 표에 줄이 없고 사람이 단 키(overrides)에서만 생긴다(resolveBindings가 표 뒤에 붙인다).
 // extension(`ext.<id>.<name>`)·앱(`app.<id>.<name>`)의 command id는 지금 표에 없어도 사람이 단 키를 버리지
 // 않는다(parseKeyOverrides). 지금 등록되지 않은 id도 그대로 저장하고, 그 command를 부를 수 없으면 키만 지나간다.
-// 이 파일은 main·preload·renderer가 함께 부르므로 import가 없다.
+// 이 파일은 shell의 main·preload·renderer와 core(설정 `shell.keybindings`의 검사)가 함께 부르므로 import가 없다.
 //
 // chord는 "Ctrl+Shift+KeyT"처럼 modifier(Ctrl·Cmd·Alt·Shift)와 KeyboardEvent.code 하나다.
 // 두 타를 공백으로 이어 연속 key가 된다(`"Ctrl+KeyX Ctrl+KeyE"`, `"Escape Escape"`). 최대 두 타다.
@@ -723,6 +723,11 @@ const STROKE_TEXT = `(?:(?:Ctrl|Cmd|Alt|Shift)\\+)*(?:Key[A-Z]|Digit[0-9]|F[1-9]
 const CHORD_TEXT = new RegExp(`^${STROKE_TEXT}(?: ${STROKE_TEXT})?$`);
 const MAX_CHORDS = 4;
 
+/** chord 글자로 읽을 수 있는가(`Ctrl+Shift+KeyT`, `Ctrl+KeyX Ctrl+KeyE`). */
+export function isChordText(value: unknown): value is string {
+  return typeof value === "string" && CHORD_TEXT.test(value);
+}
+
 /** 받은 값에서 표에 있는 id(와 `app.panel:*`, 동적 id)와 읽을 수 있는 chord만 남긴다. 저장 파일이나 IPC 값이 틀려도 키가 죽지 않게. */
 export function parseKeyOverrides(value: unknown): KeyOverrides {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
@@ -731,10 +736,7 @@ export function parseKeyOverrides(value: unknown): KeyOverrides {
   const out: Record<string, readonly string[]> = {};
   for (const [id, chords] of Object.entries(value)) {
     if (parseBindingId(id) === null || !Array.isArray(chords)) continue;
-    const valid = chords.filter(
-      (chord): chord is string =>
-        typeof chord === "string" && CHORD_TEXT.test(chord),
-    );
+    const valid = chords.filter(isChordText);
     if (valid.length === chords.length && valid.length <= MAX_CHORDS) {
       out[id] = valid;
     }

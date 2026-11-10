@@ -63,7 +63,7 @@ import { applyAppearance } from "./settings/appearance/model.ts";
 import type { AppDetailSource } from "../app-frame/app-detail/source.ts";
 import type { LophnShellViewsApi } from "../../ipc/app-frame.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
-import type { KeybindingsApi } from "../../ipc/keybindings.ts";
+import type { KeybindingsApi } from "../../../protocol/shell/keybindings.ts";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
 import { AppKeyContributions } from "../commands/app-keys.ts";
 import { CommandsProvider } from "../commands/react.tsx";

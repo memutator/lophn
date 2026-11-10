@@ -21,7 +21,7 @@ import {
   slimDetachedTab,
   type TabTransfer,
 } from "../../ipc/detached.ts";
-import { APP_PANEL, type Command, KEYBINDINGS } from "../../ipc/keybindings.ts";
+import { APP_PANEL, type Command, KEYBINDINGS } from "../../../protocol/shell/keybindings.ts";
 import { AppWorkspaceProvider } from "../app-frame/app-views.tsx";
 import { ViewKeepsProvider } from "../app-frame/embedded-view.tsx";
 import { useWorkspaceViews } from "../app-frame/workspace-views.tsx";
@@ -1729,7 +1729,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     }),
   );
 
-  // 작업대 단축키의 command는 작업대가 갖는다. 키는 창의 keybinding service가 표(ipc/keybindings.ts)로
+  // 작업대 단축키의 command는 작업대가 갖는다. 키는 창의 keybinding service가 표(protocol의 shell/keybindings.ts)로
   // 정하고, main이 먼저 받는 것(macOS의 Cmd+W)도 같은 command id로 온다. 지금 배치는 latestLayout에서 읽는다.
   const openQuickFiles = useOpenPalette();
   const runCommand = (command: Command, arg?: number | string) => {

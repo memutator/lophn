@@ -11,20 +11,34 @@ export const settingsFileSchema = z.record(
 );
 
 // 하나라도 거절이면 아무것도 적용하지 않는다. 값은 싣지 않는다.
+// locked는 agent가 사람만 바꾸는 설정을 바꾸려 한 것이다. message는 뜻 검사가 거절한 이유(영어)다.
 const SETTING_REJECTION_REASONS = [
   "unknown_key",
   "wrong_type",
   "out_of_range",
   "invalid_value",
+  "locked",
 ] as const;
 const settingRejectionSchema = z.strictObject({
   key: z.string(),
   reason: z.enum(SETTING_REJECTION_REASONS),
+  message: z.string().optional(),
 });
 export type SettingRejection = z.infer<typeof settingRejectionSchema>;
 
+// 값은 썼지만 바꾼 쪽이 알아야 할 것(theme의 모자란 대비 등)이다.
+const settingNoteSchema = z.strictObject({
+  key: z.string(),
+  message: z.string(),
+});
+export type SettingNote = z.infer<typeof settingNoteSchema>;
+
 const settingEntrySchema = z.strictObject({
   key: z.string(),
+  // 선언의 설명(영어)이다.
+  description: z.string(),
+  // 사람이 Settings 화면에서만 바꾼다. 명령과 agent는 바꾸지 못한다.
+  locked: z.literal(true).optional(),
   // core가 선언의 zod type에서 만든 JSON Schema다.
   type: z.record(z.string(), z.json()),
   default: z.json().optional(),
@@ -36,8 +50,30 @@ export type SettingEntry = z.infer<typeof settingEntrySchema>;
 const settingsListInputSchema = z.strictObject({
   keys: z.array(z.string()).optional(),
 });
+// 항목마다 file 하나인 설정 묶음. 항목의 key는 `<key>.<id>`이고 `settings/update`로 쓰고 지운다.
+const settingFolderSchema = z.strictObject({
+  key: z.string(),
+  description: z.string(),
+  locked: z.literal(true).optional(),
+  // data root 아래 folder 이름이다.
+  folder: z.string(),
+  // 항목 하나의 JSON Schema다.
+  type: z.record(z.string(), z.json()),
+  entries: z.array(z.strictObject({ id: z.string(), value: z.json() })),
+  // 읽지 못한 file. name은 `.json`을 뺀 file 이름이다.
+  unreadable: z.array(
+    z.strictObject({
+      name: z.string(),
+      reason: z.enum(["bad_id", "too_large", "not_json", "bad_shape"]),
+    }),
+  ),
+});
+export type SettingFolder = z.infer<typeof settingFolderSchema>;
+
+// keys를 주면 그 key의 설정과 그 key의 folder만 온다.
 const settingsListOutputSchema = z.strictObject({
   settings: z.array(settingEntrySchema),
+  folders: z.array(settingFolderSchema),
 });
 
 const settingChangeInputSchema = z.discriminatedUnion("action", [
@@ -61,6 +97,7 @@ const settingsUpdateInputSchema = z.strictObject({
 const settingsUpdateOutputSchema = z.strictObject({
   changed: z.array(z.string()),
   rejected: z.array(settingRejectionSchema),
+  notes: z.array(settingNoteSchema),
 });
 
 export const settingsList = defineMemory({
@@ -78,7 +115,8 @@ export const settingsUpdate = defineMemory({
   name: "SettingsUpdate",
   input: settingsUpdateInputSchema,
   output: settingsUpdateOutputSchema,
-  actors: ["user"],
+  // agent는 locked가 아닌 설정만 바꾼다(handler가 거른다). 어느 agent가 닿는지는 credential 상한(명령의 workspaces)이 정한다.
+  actors: ["user", "agent"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });
 

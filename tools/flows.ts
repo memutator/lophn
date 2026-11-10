@@ -210,7 +210,7 @@ function toolEntries(files: string[]): Raw[] {
   return found;
 }
 
-const KEYBINDINGS = "packages/shell/ipc/keybindings.ts";
+const KEYBINDINGS = "packages/protocol/shell/keybindings.ts";
 
 function keyEntries(): Raw[] {
   const body = /export type Command =([^;]*);/.exec(text(KEYBINDINGS))?.[1];

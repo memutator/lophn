@@ -432,7 +432,7 @@ const blockPreview = StateField.define<DecorationSet>({
 });
 
 const editingKeymap = keymap.of([
-  // Mod-b는 작업대의 sidebar 보이기·숨기기가 먼저 받는다(ipc/keybindings.ts).
+  // Mod-b는 작업대의 sidebar 보이기·숨기기가 먼저 받는다(protocol의 shell/keybindings.ts).
   { key: "Mod-Shift-b", run: toggleMark("**") },
   { key: "Mod-i", run: toggleMark("*") },
   { key: "Mod-Shift-x", run: toggleMark("~~") },

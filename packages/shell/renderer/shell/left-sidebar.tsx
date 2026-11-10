@@ -23,7 +23,7 @@ import {
 
 import { AppTabIcon } from "../app-frame/app-icon.tsx";
 import { useKeyLabel } from "../commands/react.tsx";
-import { appPanelBindingId } from "../../ipc/keybindings.ts";
+import { appPanelBindingId } from "../../../protocol/shell/keybindings.ts";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import { JobsLayer } from "../desktop/jobs/jobs-layer.tsx";
 import type { JobsSource } from "../desktop/jobs/source.ts";

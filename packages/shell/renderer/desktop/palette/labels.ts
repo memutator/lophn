@@ -5,7 +5,7 @@ import {
   type BindingCommand,
   commandLabel,
   type KeyOverrides,
-} from "../../../ipc/keybindings.ts";
+} from "../../../../protocol/shell/keybindings.ts";
 import type { WindowPlatform } from "../top-bar/platform.ts";
 import type { PaletteGroup } from "./model.ts";
 

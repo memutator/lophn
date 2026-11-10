@@ -2,7 +2,7 @@
 // 선택·닫기·float·group만 가볍게 받는다. desk는 실제 desk model이고 동작은 그 순수 함수를 부른다.
 import { useEffect, useRef, useState } from "react";
 import { useObservedSize } from "@lophn/ui/shared";
-import { matchKey } from "../../../../../packages/shell/ipc/keybindings.ts";
+import { matchKey } from "../../../../../packages/protocol/shell/keybindings.ts";
 import { shellIcons } from "../../../../../packages/shell/renderer/icons/mod.ts";
 import {
   ContentCard,
@@ -187,7 +187,7 @@ export function ShellScene({
       ),
     );
 
-  // 실제 앱의 pane.focus-* command와 같은 표(ipc/keybindings.ts)와 같은 함수(neighborLeaf)를 쓴다.
+  // 실제 앱의 pane.focus-* command와 같은 표(protocol의 shell/keybindings.ts)와 같은 함수(neighborLeaf)를 쓴다.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const hit = matchKey(

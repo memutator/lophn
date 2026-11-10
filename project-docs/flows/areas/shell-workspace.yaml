@@ -2318,7 +2318,7 @@ flows:
     code:
       - packages/shell/renderer/desktop/palette/host.tsx
       - packages/shell/renderer/desktop/palette/session.ts
-      - packages/shell/ipc/keybindings.ts
+      - packages/protocol/shell/keybindings.ts
       - packages/shell/main/desktop/wiring/desktop.ts
     steps:
       - "main이 palette.open을 모든 OS에서 먼저 받아 shell renderer로 보낸다(terminal 안에서도 열리게)"

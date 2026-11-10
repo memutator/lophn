@@ -1,4 +1,4 @@
-// 창 하나의 키 → command id 표와 keydown listener 하나. 키 판정은 ipc/keybindings.ts의 것을 쓰고
+// 창 하나의 키 → command id 표와 keydown listener 하나. 키 판정은 protocol의 shell/keybindings.ts의 것을 쓰고
 // command를 하는 일은 registry에 넘긴다. 기능의 구현을 모르고 React도 모른다.
 //
 // context는 keydown target에서 위로 올라가며 만난 `data-key-context` 이름의 stack이다(안쪽부터, 맨 끝은
@@ -13,7 +13,7 @@ import {
   parseChord,
   type Stroke,
   strokeMatches,
-} from "../../ipc/keybindings.ts";
+} from "../../../protocol/shell/keybindings.ts";
 import type { CommandRegistry, Disposable } from "./registry.ts";
 
 export interface KeybindingInput {

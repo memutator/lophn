@@ -20,6 +20,9 @@ export const callPolicySetting = declareSetting({
   key: CALL_POLICY_SETTING_KEY,
   type: callPolicySchema,
   default: DEFAULT_CALL_POLICY,
+  description:
+    "Which agents may call which: rules per workspace pair and per agent pair. It decides what agents can reach, so only the person changes it (Settings > Agents).",
+  locked: true,
 });
 
 // writer·reader Worker처럼 store가 없는 곳이 data root의 설정 파일에서 읽는다.
@@ -34,6 +37,9 @@ export const teamSetting = declareSetting({
   key: TEAM_SETTING_KEY,
   type: teamLimitsSchema,
   default: DEFAULT_TEAM_LIMITS,
+  description:
+    "Upper bounds on the teams an agent builds with `lophn team spawn`. Only the person changes it.",
+  locked: true,
 });
 
 export function teamLimitsAt(root: string): TeamLimits {
@@ -45,4 +51,6 @@ export const diagnosticsTraceSetting = declareSetting({
   key: DIAGNOSTICS_TRACE_SETTING_KEY,
   type: z.boolean(),
   default: false,
+  description:
+    "Write debug logs, span lines and terminal traces to the logs folder of the data root. Applies at once. Turn it on to investigate a problem and off afterwards.",
 });

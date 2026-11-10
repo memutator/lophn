@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { KeyPlatform } from "../../ipc/keybindings.ts";
-import { shellOwns } from "../../ipc/keybindings.ts";
+import type { KeyPlatform } from "../../../protocol/shell/keybindings.ts";
+import { shellOwns } from "../../../protocol/shell/keybindings.ts";
 import {
   createKeybindingService,
   type KeyEventLike,

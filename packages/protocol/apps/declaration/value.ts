@@ -98,7 +98,7 @@ function validateSkills(
 }
 
 // 앱이 내는 key(`keys`)의 검사. 앱 key는 홑 타만 받는다(연속 key는 앱 page가 맞추지 않는다). 글 입력을 삼키지
-// 않게 modifier가 있거나 F키여야 한다. key 이름 목록은 shell의 ipc/keybindings.ts와 같다(의존 없이 두려고 옮겨 적었다).
+// 않게 modifier가 있거나 F키여야 한다. key 이름 목록은 protocol의 shell/keybindings.ts와 같다(의존 없이 두려고 옮겨 적었다).
 const NAMED_KEYS =
   "Backquote|Backslash|BracketLeft|BracketRight|Comma|Period|Slash|Semicolon|Quote|Minus|Equal|" +
   "ArrowUp|ArrowDown|ArrowLeft|ArrowRight|PageUp|PageDown|Home|End|Tab|Enter|Space|Escape|" +

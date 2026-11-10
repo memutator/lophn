@@ -12,6 +12,9 @@ export const skillFoldersSetting = declareSetting({
   key: "lophn-agent.extensions.skill_folders",
   type: z.array(z.string().regex(/^(\/|[A-Za-z]:\\).+/)).max(64),
   default: [],
+  description:
+    "Folders (absolute paths) where lophn looks for skills, in this order. Skills are instructions agents follow, so only the person changes it.",
+  locked: true,
 });
 
 // 모든 agent에서 끈 skill의 정확한 이름. 지금 발견되지 않는 이름도 그대로 둔다.
@@ -19,6 +22,9 @@ export const skillsOffSetting = declareSetting({
   key: "lophn-agent.extensions.skills_off",
   type: z.array(skillNameSchema).max(SKILLS_OFF_MAX),
   default: [],
+  description:
+    "Exact names of skills turned off for every agent. Only the person changes it.",
+  locked: true,
 });
 
 // 전역 MCP server 목록. project·agent 층과 같은 mcpServerSchema 배열이다.
@@ -26,6 +32,9 @@ export const globalMcpServersSetting = declareSetting({
   key: "lophn-agent.extensions.mcp_servers",
   type: z.array(mcpServerSchema).max(32),
   default: [],
+  description:
+    "MCP servers every agent can use. A server gives agents new tools, so only the person changes it (Settings > Agents).",
+  locked: true,
 });
 
 export const extensionSettings = [

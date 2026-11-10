@@ -1,139 +1,285 @@
-// shell이 core에 선언하는 화면 설정 열. 이름과 설명 문구는 settingWordingKey가 key에서 만든다.
-// 고르는 값의 목록은 packages/design의 appearance와 같아야 한다(core는 design을 import하지 못한다).
-// Custom 글꼴 이름의 글자 규칙은 CSS를 만드는 main이 검사한다. 여기는 길이만 본다.
+// shell의 화면 설정 선언. 화면의 이름과 설명 문구는 settingWordingKey가 key에서 만들고, 여기 description은
+// `lophn settings get`과 agent가 읽는 영어 설명이다.
+// 고르는 값의 목록과 뜻 검사는 shell과 같은 규칙을 쓴다: 모양은 packages/design(appearance, themes),
+// 단축키는 packages/protocol/shell/keybindings.ts다. 그래서 틀린 값은 바꾼 쪽이 그 자리에서 이유를 받는다.
+// shell은 CSS를 만들 때 같은 규칙으로 한 번 더 검사한다(앱 화면에 들어가는 CSS의 경계다).
 import { z } from "zod";
-import { declareSetting } from "../../protocol/config/mod.ts";
+import {
+  ACCENT_FROM_THEME,
+  CODE_FONTS,
+  DENSITIES,
+  FONT_WEIGHTS,
+  FONTS,
+  isFontName,
+  MODES,
+  READING_FONTS,
+  TEXT_SIZES,
+} from "../../design/appearance.ts";
+import {
+  BUILT_IN_THEMES,
+  type BrokenReason,
+  loadThemes,
+  type Mode,
+  THEME_PATHS,
+  type ThemeProblem,
+  type Themes,
+} from "../../design/themes.ts";
+import {
+  declareSetting,
+  declareSettingFolder,
+  SETTING_ENTRY_ID,
+  type SettingIssue,
+  type SettingsView,
+} from "../../protocol/config/mod.ts";
 import { extensionSettingKey } from "../../protocol/extensions/mod.ts";
+import {
+  bindingId,
+  isChordText,
+  KEYBINDINGS,
+  parseBindingId,
+} from "../../protocol/shell/keybindings.ts";
+
+const reject = (message: string): SettingIssue => ({
+  level: "reject",
+  message,
+});
+const note = (message: string): SettingIssue => ({ level: "note", message });
+const oneOf = <T extends string>(list: readonly T[]) =>
+  z.enum(list as readonly [T, ...T[]]);
 
 const modeSetting = declareSetting({
   key: "shell.mode",
-  type: z.enum(["light", "dark", "system"]),
+  type: oneOf(MODES),
   default: "system",
+  description:
+    "Light or dark. `system` follows the OS. The mode picks which of shell.light_theme and shell.dark_theme is shown.",
 });
 
-// 모드마다 고른 색 theme. 내장 theme이나 `<data root>/themes/<id>.json`의 id다. 목록은 shell main이 알아서
-// 여기서는 id 모양만 본다(packages/design/themes.ts의 isThemeId와 같다). 없는 id면 shell이 기본 theme을 쓴다.
-const themeId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
+const BROKEN_THEME: Readonly<Record<BrokenReason, string>> = {
+  bad_id: "the id must be lowercase letters, digits and `-` (1 to 64)",
+  too_large: "the theme is larger than 256 KB",
+  not_json: "the theme is not JSON",
+  bad_shape:
+    "the shape is wrong: name is nonblank text up to 64, mode is light or dark, extends is a theme id, colors is an object",
+  no_mode: "give `mode` (light or dark) or `extends` (a theme id)",
+  unknown_extends: "`extends` names a theme that does not exist",
+  extends_cycle: "`extends` loops back to this theme",
+  id_taken: "a built-in theme already has this id",
+};
+
+function problemText(problem: ThemeProblem): string {
+  switch (problem.kind) {
+    case "unknown_path":
+      return `colors.${problem.path} is not a color token and was ignored`;
+    case "bad_value":
+      return `colors.${problem.path} is not a hex color and was ignored`;
+    case "contrast":
+      return `low contrast: ${problem.foreground} on ${problem.background} is ${problem.ratio.toFixed(2)}:1, needs ${problem.minimum}:1`;
+  }
+}
+
+// 색 theme. 항목 하나가 한 모드의 theme이고 `<data root>/themes/<id>.json`이다. 모양과 상속은 design의 loadThemes가 본다.
+// 쓸 수 없는 theme은 거절하고, 버린 색과 모자란 대비는 쓰되 알린다(사람이 일부러 적은 색을 막지 않는다).
+export const themesSetting = declareSettingFolder({
+  key: "shell.themes",
+  folder: "themes",
+  type: z.record(z.string(), z.json()),
+  description:
+    "Color themes the person or an agent added. One entry is one theme for one mode: " +
+    '{ "name"?: text, "mode"?: "light" | "dark", "extends"?: <theme id>, "colors": { "<color token>": "<hex>" } }. ' +
+    "Give mode or extends (mode then follows the parent). Colors left out come from the parent, else from the default theme of that mode, so a few lines are a full theme. " +
+    "Hex is #rgb, #rrggbb or #rrggbbaa. Setting an entry answers with notes for ignored colors and low contrast pairs; fix them and set it again. " +
+    "To use a theme set shell.light_theme or shell.dark_theme to its id. " +
+    `Built-in theme ids (usable in extends, not as an entry id): ${BUILT_IN_THEMES.map((theme) => `${theme.id} (${theme.mode})`).join(", ")}. ` +
+    `Color tokens: ${THEME_PATHS.join(", ")}.`,
+  check(_value, view, id): readonly SettingIssue[] {
+    const themes = themesOf(view);
+    const broken = themes.broken.find((one) => one.id === id);
+    if (broken !== undefined) return [reject(BROKEN_THEME[broken.reason])];
+    const theme = themes.list.find((one) => one.id === id);
+    return (theme?.problems ?? []).map((problem) => note(problemText(problem)));
+  },
+});
+
+function themesOf(view: SettingsView): Themes {
+  return loadThemes(
+    Object.entries(view.entries(themesSetting)).map(([id, value]) => ({
+      id,
+      text: JSON.stringify(value),
+    })),
+  );
+}
+
+// 고른 theme이 있고 그 모드의 것인지 본다. file을 손으로 지워 없어진 id는 shell이 기본 theme으로 그린다.
+const themeCheck =
+  (mode: Mode) =>
+  (id: string, view: SettingsView): readonly SettingIssue[] => {
+    const list = themesOf(view).list.filter((theme) => theme.mode === mode);
+    return list.some((theme) => theme.id === id)
+      ? []
+      : [
+          reject(
+            `no ${mode} theme has the id ${id}. ${mode} themes: ${list.map((theme) => theme.id).join(", ")}`,
+          ),
+        ];
+  };
+const themeId = z.string().regex(SETTING_ENTRY_ID);
 const lightThemeSetting = declareSetting({
   key: "shell.light_theme",
   type: themeId,
   default: "warm-light",
+  description:
+    "The color theme used in light mode: the id of a built-in light theme or of a shell.themes entry whose mode is light.",
+  check: themeCheck("light"),
 });
 const darkThemeSetting = declareSetting({
   key: "shell.dark_theme",
   type: themeId,
   default: "warm-dark",
+  description:
+    "The color theme used in dark mode: the id of a built-in dark theme or of a shell.themes entry whose mode is dark.",
+  check: themeCheck("dark"),
 });
 
 // `theme`이면 고른 theme의 accent, 아니면 사람이 고른 색 하나다. 나머지 색은 shell이 대비에 맞춰 만든다.
 const accentSetting = declareSetting({
   key: "shell.accent",
-  type: z.union([z.literal("theme"), z.string().regex(/^#[0-9a-fA-F]{6}$/)]),
-  default: "theme",
+  type: z.union([
+    z.literal(ACCENT_FROM_THEME),
+    z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  ]),
+  default: ACCENT_FROM_THEME,
+  description:
+    "The accent color (primary buttons, focus ring, selection). `theme` uses the accent of the chosen theme; a #rrggbb color overrides it, and lophn shifts its lightness to keep contrast.",
 });
+
+// Custom 글꼴 이름은 CSS 문자열에 들어간다. 빈 값은 "고르지 않음"이다.
+const fontName = z.string().max(64);
+const fontNameCheck = (name: string): readonly SettingIssue[] =>
+  name === "" || isFontName(name)
+    ? []
+    : [
+        reject(
+          "a font family name is letters, digits, spaces, `-` and `_` (1 to 64)",
+        ),
+      ];
+const CUSTOM_FONT =
+  "An installed font family name. It is used when the matching font setting is `custom`; a name that is not installed falls back to the default font.";
+const FONT_WEIGHT =
+  "The body weight (CSS font-weight) of that font. Emphasis and headings stay bolder.";
 
 const fontSetting = declareSetting({
   key: "shell.font",
-  type: z.enum(["pretendard", "system", "custom"]),
+  type: oneOf(FONTS),
   default: "pretendard",
+  description:
+    "The UI font. `custom` uses the family in shell.font_custom (set that first).",
 });
 
 const fontCustomSetting = declareSetting({
   key: "shell.font_custom",
-  type: z.string().max(64),
+  type: fontName,
   default: "",
+  description: CUSTOM_FONT,
+  check: fontNameCheck,
 });
-
-// 글꼴마다 고르는 본문 굵기(CSS font-weight). 목록은 packages/design/appearance.ts의 FONT_WEIGHTS와 같다.
-const FONT_WEIGHTS = [
-  "100",
-  "200",
-  "300",
-  "400",
-  "500",
-  "600",
-  "700",
-  "800",
-  "900",
-] as const;
 
 const fontWeightSetting = declareSetting({
   key: "shell.font_weight",
-  type: z.enum(FONT_WEIGHTS),
+  type: oneOf(FONT_WEIGHTS),
   default: "400",
+  description: FONT_WEIGHT,
 });
 
 const codeFontSetting = declareSetting({
   key: "shell.code_font",
-  type: z.enum(["jetbrains-mono", "system", "custom"]),
+  type: oneOf(CODE_FONTS),
   default: "jetbrains-mono",
+  description:
+    "The font of code, the editor and terminals. `custom` uses the family in shell.code_font_custom. An open terminal keeps its font; new terminals use the new one.",
 });
 
 const codeFontCustomSetting = declareSetting({
   key: "shell.code_font_custom",
-  type: z.string().max(64),
+  type: fontName,
   default: "",
+  description: CUSTOM_FONT,
+  check: fontNameCheck,
 });
 
 const codeFontWeightSetting = declareSetting({
   key: "shell.code_font_weight",
-  type: z.enum(FONT_WEIGHTS),
+  type: oneOf(FONT_WEIGHTS),
   default: "400",
+  description: FONT_WEIGHT,
 });
 
 const readingFontSetting = declareSetting({
   key: "shell.reading_font",
-  type: z.enum(["ui", "serif", "custom"]),
+  type: oneOf(READING_FONTS),
   default: "ui",
+  description:
+    "The font of documents and agent conversations. `ui` follows shell.font, `serif` is the OS serif, `custom` uses the family in shell.reading_font_custom.",
 });
 
 const readingFontCustomSetting = declareSetting({
   key: "shell.reading_font_custom",
-  type: z.string().max(64),
+  type: fontName,
   default: "",
+  description: CUSTOM_FONT,
+  check: fontNameCheck,
 });
 
 const readingFontWeightSetting = declareSetting({
   key: "shell.reading_font_weight",
-  type: z.enum(FONT_WEIGHTS),
+  type: oneOf(FONT_WEIGHTS),
   default: "400",
+  description: FONT_WEIGHT,
 });
 
 const textSizeSetting = declareSetting({
   key: "shell.text_size",
-  type: z.enum(["small", "default", "large"]),
+  type: oneOf(TEXT_SIZES),
   default: "default",
+  description: "The size of all text in lophn.",
 });
 
 const readingWidthSetting = declareSetting({
   key: "shell.reading_width",
   type: z.enum(["narrow", "default", "wide"]),
   default: "default",
+  description: "The column width of documents and agent conversations.",
 });
 
 const densitySetting = declareSetting({
   key: "shell.density",
-  type: z.enum(["comfortable", "compact"]),
+  type: oneOf(DENSITIES),
   default: "comfortable",
+  description:
+    "How tightly controls, rows and panes are spaced. `compact` fits more on screen.",
 });
 
 // key는 packages/shell/main/browser-bridge/policy.ts의 LINK_SETTING_KEYS와 같은 글자여야 한다
 // (shell은 core를 import하지 못한다).
+const LINKS =
+  "`browser_tab` opens it in a lophn browser tab, `system_browser` in the OS browser.";
 const webLinksSetting = declareSetting({
   key: "shell.browser.web_links",
   type: z.enum(["browser_tab", "system_browser"]),
   default: "browser_tab",
+  description: `Where a web link clicked in a terminal opens. ${LINKS}`,
 });
 
 const localLinksSetting = declareSetting({
   key: "shell.browser.local_links",
   type: z.enum(["browser_tab", "system_browser"]),
   default: "browser_tab",
+  description: `Where a localhost link clicked in a terminal opens. ${LINKS}`,
 });
 
-// 사람이 바꾼 작업대 단축키. OS마다 따로다(macOS는 Cmd, 다른 OS는 Ctrl). binding id와 chord 글자는
-// shell(packages/shell/ipc/keybindings.ts parseKeyOverrides)이 검사하고 모르는 것은 버린다. key 상한 160은
+// 사람이 바꾼 작업대 단축키. OS마다 따로다(macOS는 Cmd, 다른 OS는 Ctrl). key 상한 160은
 // 사람이 단 앱 단축키 id(`app.panel:<app>:<surface>`)가 들어가는 길이, 항목 수 256은 표(약 90줄)에 앱 단축키가 더해지는 수다.
+// binding id와 chord 글자는 shell과 같은 규칙(parseBindingId, isChordText)으로 본다. shell은 읽을 때 모르는 것을 버린다.
 const overrides = z
   .record(z.string().max(160), z.array(z.string().max(64)).max(4))
   .refine((value) => Object.keys(value).length <= 256);
@@ -141,6 +287,32 @@ const keybindingsSetting = declareSetting({
   key: "shell.keybindings",
   type: z.object({ mac: overrides, other: overrides }).partial(),
   default: {},
+  description:
+    "Keyboard shortcuts the person changed, per platform: `mac` is macOS, `other` is Linux and Windows. " +
+    "Each is { <binding id>: [<chord>, up to 4] }; an empty list removes the default key and an id left out keeps it. " +
+    "A value replaces the whole setting, so read it first and send back every changed id of both platforms. " +
+    "A chord is modifiers (Ctrl, Cmd, Alt, Shift) and one key code joined by `+`, e.g. Ctrl+Shift+KeyT; two strokes separated by a space make a sequence (Ctrl+KeyK Ctrl+KeyS). " +
+    "Key codes: KeyA..KeyZ, Digit0..Digit9, F1..F12, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, PageUp, PageDown, Home, End, Tab, Enter, Space, Escape, Backspace, Delete, Insert, " +
+    "Backquote, Backslash, BracketLeft, BracketRight, Comma, Period, Slash, Semicolon, Quote, Minus, Equal. " +
+    "Two bindings with the same key in the same place are not rejected here; the earlier one wins, so check the defaults below. " +
+    `Binding ids and their default keys (other | mac): ${KEYBINDINGS.map((binding) => `${bindingId(binding)} (${binding.other.join(", ") || "none"} | ${binding.mac.join(", ") || "none"})`).join("; ")}.`,
+  check(value) {
+    const issues: SettingIssue[] = [];
+    for (const [platform, table] of Object.entries(value)) {
+      for (const [id, chords] of Object.entries(table ?? {})) {
+        if (parseBindingId(id) === null) {
+          issues.push(
+            reject(`${platform}.${id}: there is no binding with this id`),
+          );
+        }
+        const bad = chords.find((chord) => !isChordText(chord));
+        if (bad !== undefined) {
+          issues.push(reject(`${platform}.${id}: \`${bad}\` is not a chord`));
+        }
+      }
+    }
+    return issues;
+  },
 });
 
 // 왼쪽 sidebar 빠른 실행의 전역 값. 모양은 workspace layout의 `quick`과 같고(packages/shell/main/workspace/workspace-layout.ts),
@@ -161,6 +333,8 @@ export const quickLaunchSetting = declareSetting({
     hidden: z.array(z.string().min(1).max(200)).max(64).optional(),
   }),
   default: { order: [], apps: [] },
+  description:
+    "The quick launch buttons of the left sidebar, for workspaces that have no own list: `order` is the button ids in order, `apps` the app screens added as buttons, `hidden` the ids turned off. Unknown ids and removed apps are skipped.",
 });
 
 // 앱 panel 화면(`<app>:<surface>`)마다 여는 자리와 마지막 float 자리·크기(stage 기준 CSS px).
@@ -179,6 +353,8 @@ export const appLaunchSetting = declareSetting({
     )
     .refine((value) => Object.keys(value).length <= 200),
   default: {},
+  description:
+    "Per app panel screen (`<app>:<surface>`): whether it opens docked or as a float, and the last float position and size. lophn writes this when the person moves a float.",
 });
 
 // coding agent 즐겨찾기(빠른 실행 Terminal hover와 workspace +의 hover 목록에 나온다)와 사람이 바꾼 실행 명령어.
@@ -192,6 +368,8 @@ export const codingAgentsSetting = declareSetting({
       .refine((value) => Object.keys(value).length <= 64),
   }),
   default: { favorites: ["claude", "codex", "opencode"], commands: {} },
+  description:
+    "Coding agents in the terminal: `favorites` is the harness ids shown in the quick launch and the new tab menu, `commands` replaces the command line that starts a harness (harness id to command). Unknown harness ids are skipped.",
 });
 
 // workspace 창 맨 아래 작업 표시줄. 끄면 float chip이 tab 줄 끝에 있다.
@@ -199,6 +377,8 @@ const taskbarSetting = declareSetting({
   key: "shell.taskbar",
   type: z.boolean(),
   default: true,
+  description:
+    "Show the taskbar at the bottom of a workspace window. When off, float chips sit at the end of the tab strip.",
 });
 
 // 사람이 등록한 기기. preview 탭이 이 크기·DPR로 emulation하고 `tab open --preview --device <name>`이 이름으로 찾는다.
@@ -218,6 +398,8 @@ export const devicesSetting = declareSetting({
     .max(32)
     .refine((list) => new Set(list.map((d) => d.name)).size === list.length),
   default: [],
+  description:
+    "Devices for app previews: each has a name, a viewport size in CSS px, a pixel ratio and an OS. `lophn tab open --preview <app> --device <name>` and the preview tab use them. Names are unique.",
 });
 
 // 설치된 앱의 `sidebar` 자리 화면은 선언하면 오른쪽 sidebar에 panel로 나온다. 사람이 끈 것만 여기에 쌓인다.
@@ -232,6 +414,8 @@ export const sidebarPanelsOffSetting = declareSetting({
     )
     .max(20),
   default: [],
+  description:
+    "App screens of the right sidebar that the person turned off. A screen not listed here is shown.",
 });
 
 // 설치된 앱의 `tray` 자리 화면은 선언하면 작업 표시줄 오른쪽 tray에 항목으로 나온다. 사람이 끈 것만 여기에 쌓인다.
@@ -246,6 +430,8 @@ export const trayOffSetting = declareSetting({
     )
     .max(20),
   default: [],
+  description:
+    "App tray items of the taskbar that the person turned off. An item not listed here is shown.",
 });
 
 // tray 항목의 순서. 여기 든 화면이 이 순서로 먼저 서고, 없는 화면은 그 뒤에 선언 순서로 선다.
@@ -260,20 +446,30 @@ export const trayOrderSetting = declareSetting({
     )
     .max(64),
   default: [],
+  description:
+    "The order of app tray items. Screens listed here come first in this order; the rest follow in declaration order.",
 });
 
 // extension은 id마다 켜는 설정이 하나씩 정적으로 선언된다(core는 manifest를 읽지 못한다). 새 extension은 여기에 한 줄을 더하고
-// shellSettings에 올린다. 선언이 없는 id는 shell의 registry가 켜지 않는다. 사람만 켠다(settings/update는 user만).
-const extensionEnabled = (id: string) =>
+// shellSettings에 올린다. 선언이 없는 id는 shell의 registry가 켜지 않는다. extension은 agent에게 tool을 더하므로 사람만 켠다.
+const extensionEnabled = (id: string, what: string) =>
   declareSetting({
     key: extensionSettingKey(id),
     type: z.boolean(),
     default: false,
+    description: `Turns on the ${id} extension: ${what}`,
+    locked: true,
   });
 // harness agent(core의 harness session, queue, host route)도 이 설정 하나로 켠다.
-export const harnessExtensionSetting = extensionEnabled("harness");
+export const harnessExtensionSetting = extensionEnabled(
+  "harness",
+  "coding agent CLIs (Claude Code, Codex, OpenCode) run as lophn agent sessions.",
+);
 // `claude gui` 같은 CLI 화면 대체 창. 본체와 따로 켠다.
-const harnessGuiExtensionSetting = extensionEnabled("harness-gui");
+const harnessGuiExtensionSetting = extensionEnabled(
+  "harness-gui",
+  "`claude gui`, `codex gui` and the like open a chat screen in place of the CLI screen of a terminal tab.",
+);
 
 export const shellSettings = [
   modeSetting,
@@ -306,3 +502,6 @@ export const shellSettings = [
   harnessExtensionSetting,
   harnessGuiExtensionSetting,
 ] as const;
+
+// 항목마다 file 하나인 설정 묶음.
+export const shellSettingFolders = [themesSetting] as const;

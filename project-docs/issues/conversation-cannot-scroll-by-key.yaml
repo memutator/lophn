@@ -5,7 +5,7 @@ status: fixed
 topic: agent-chat
 modules: [packages/shell/ipc, packages/shell/renderer]
 now: |
-  `packages/shell/ipc/keybindings.ts`의 `agent.*` command에 scroll(한 화면 위·아래, 맨 위·맨 아래)이 없다. harness-gui manifest의 keymap도 같은 command만 다시 단다. 대화 scroll 칸(`message-list/thread-scroll.tsx` `ThreadScroll`)은 `tabIndex`가 없고 focus는 보통 입력칸에 있어, PageUp·PageDown은 입력칸 caret만 옮긴다. `message-list/follow.ts`는 그 key를 맨 아래 따라가기를 끄는 데만 본다.
+  `packages/protocol/shell/keybindings.ts`의 `agent.*` command에 scroll(한 화면 위·아래, 맨 위·맨 아래)이 없다. harness-gui manifest의 keymap도 같은 command만 다시 단다. 대화 scroll 칸(`message-list/thread-scroll.tsx` `ThreadScroll`)은 `tabIndex`가 없고 focus는 보통 입력칸에 있어, PageUp·PageDown은 입력칸 caret만 옮긴다. `message-list/follow.ts`는 그 key를 맨 아래 따라가기를 끄는 데만 본다.
 impact: |
   사람이 긴 대화를 mouse 없이 올려 읽지 못한다. harness GUI를 CLI 대신 쓰는 사람이 가장 먼저 느낀다(CLI TUI는 key로 scroll한다).
 fix: |

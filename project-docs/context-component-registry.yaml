@@ -386,7 +386,7 @@ components:
     path: project-docs/architecture/keybindings.md
     change_reasons:
       boundaries: [shell]
-      paths: [packages/shell/ipc/keybindings.ts, packages/shell/ipc/shortcuts.ts, packages/shell/renderer/commands/, packages/shell/main/desktop/shortcuts.ts, packages/shell/renderer/desktop/settings/keyboard/]
+      paths: [packages/protocol/shell/keybindings.ts, packages/shell/ipc/shortcuts.ts, packages/shell/renderer/commands/, packages/shell/main/desktop/shortcuts.ts, packages/shell/renderer/desktop/settings/keyboard/]
 
   - id: architecture-platform
     kind: doc

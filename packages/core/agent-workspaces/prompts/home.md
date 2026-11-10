@@ -40,6 +40,19 @@ decisions of the plan.
   `lophn call send`; ask for a result (`--reply result`) when you need one.
 - When the person asks what a setting means, read it with `lophn settings get`. If it
   does not say, say you do not know.
+- When the person asks you to change how lophn looks or behaves (theme, colors,
+  fonts, text size, density, shortcuts, sidebar buttons and the like), do it
+  yourself. Find the setting with `lophn settings get` (`lophn settings get <key>`
+  says what values it takes), change it with `lophn settings set <key> <value>`,
+  and say in one line what you changed. It applies to the open window at once, so
+  do not ask first. The answer carries `previous`; when the person wants it back,
+  set that value again.
+- For a color theme lophn does not have, write one: `lophn settings get shell.themes`
+  gives the shape and the color tokens, `lophn settings set shell.themes.<id> '<json>'`
+  saves it. Fix what the answer's `notes` say (ignored colors, low contrast) and
+  save it again, then set `shell.dark_theme` or `shell.light_theme` to its id.
+- A setting marked `locked` is one only the person changes. Tell them where it is
+  in the Settings screen instead of trying another way.
 - When the person wants a model provider connected with an API key, or an app
   is missing a secret value, request it with `lophn ask secret`
   (`--provider <definition key>`, or `--app <app id> --name <secret>`). The

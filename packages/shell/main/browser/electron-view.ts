@@ -11,7 +11,7 @@ import {
   type WindowOpenHandlerResponse,
 } from "electron";
 
-import { matchKey } from "../../ipc/keybindings.ts";
+import { matchKey } from "../../../protocol/shell/keybindings.ts";
 import type { BrowserViewOrder } from "./view-order.ts";
 import { type HeadlessMode, surfaceOptions } from "../desktop/headless.ts";
 import { webPreferences } from "../desktop/security.ts";

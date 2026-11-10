@@ -198,6 +198,8 @@ const catalogAutoUpdateSetting = declareSetting({
   key: CATALOG_AUTO_UPDATE_KEY,
   type: z.boolean(),
   default: true,
+  description:
+    "Refresh the model catalog (model names, prices, limits) automatically. When off lophn uses the bundled catalog. Applies from the next start.",
 });
 
 // 이 module이 선언하는 설정 전부다. 조립이 settingDeclarations로 모은다.

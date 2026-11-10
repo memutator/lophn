@@ -57,6 +57,12 @@ const CLI_BINARY_ONLY = [
   "packages/cli/connection/",
   "packages/cli/output.ts",
 ];
+// core가 packages/design에서 가져올 수 있는 것은 설정 값의 규칙(고를 수 있는 값, theme 검사)뿐이다. 둘 다 design 안의
+// 순수 계산만 import한다. component와 CSS는 core에 실리지 않는다.
+const DESIGN_FOR_CORE = [
+  "packages/design/appearance.ts",
+  "packages/design/themes.ts",
+];
 // 폴더("/"로 끝)는 그 아래 전부, 아니면 그 file이다.
 const cliHit = (path: string, list: readonly string[]) =>
   list.some((x) => (x.endsWith("/") ? path.startsWith(x) : path === x));
@@ -423,6 +429,11 @@ export async function checkRepo(root: string): Promise<Violation[]> {
           own === "cli" &&
           targetPackage === "coding-agent" &&
           file === "packages/cli/main.ts"
+        ) &&
+        !(
+          own === "core" &&
+          target !== undefined &&
+          cliHit(target, DESIGN_FOR_CORE)
         )
       ) {
         add(

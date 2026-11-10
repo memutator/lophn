@@ -1,5 +1,5 @@
 // KeyboardSource를 선언 설정 `shell.keybindings`의 읽기·쓰기로 만든다.
-import { parseKeyOverrides } from "../../../../ipc/keybindings.ts";
+import { parseKeyOverrides } from "../../../../../protocol/shell/keybindings.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { chooseSetting, readEffective } from "../declared.ts";
 import type { KeyboardSource, StoredKeybindings } from "./source.ts";

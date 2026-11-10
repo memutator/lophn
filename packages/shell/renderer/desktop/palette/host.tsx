@@ -14,7 +14,7 @@ import { systemTimer, type Timer } from "@lophn/ui/shared";
 import { paletteIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
-import { parseBindingId } from "../../../ipc/keybindings.ts";
+import { parseBindingId } from "../../../../protocol/shell/keybindings.ts";
 import type { OverlayApi } from "../../../ipc/overlay.ts";
 import {
   useCommands,

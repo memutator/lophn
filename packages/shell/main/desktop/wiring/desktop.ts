@@ -27,7 +27,7 @@ import {
   KEYBINDINGS_CHANNEL,
   parseKeyOverrides,
   resolveBindings,
-} from "../../../ipc/keybindings.ts";
+} from "../../../../protocol/shell/keybindings.ts";
 import { WINDOW_SHORTCUT_CHANNEL } from "../../../ipc/shortcuts.ts";
 import { WINDOW_CONTROL_CHANNEL } from "../../../ipc/window-controls.ts";
 import { guestViewSession } from "../../browser/webview-guest.ts";

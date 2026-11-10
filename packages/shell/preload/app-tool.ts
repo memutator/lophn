@@ -21,7 +21,7 @@ import {
   parseChord,
   type Stroke,
   strokeMatches,
-} from "../ipc/keybindings.ts";
+} from "../../protocol/shell/keybindings.ts";
 import {
   APP_AGENT_OPEN_CHANNEL,
   APP_AGENT_SEND_CHANNEL,

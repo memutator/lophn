@@ -9,7 +9,7 @@ import { Fragment, type ReactElement, type ReactNode } from "react";
 import { useAppIcon } from "../app-frame/app-icon.tsx";
 import { IconImage } from "../parts/icon-upload/icon-image.tsx";
 import { useKeyLabel } from "../commands/react.tsx";
-import { appPanelBindingId } from "../../ipc/keybindings.ts";
+import { appPanelBindingId } from "../../../protocol/shell/keybindings.ts";
 import { browserIcons, shellIcons, workspaceIcons } from "../icons/mod.ts";
 import { type HoverSection, Keyed, sectionHeading } from "./agent-sections.tsx";
 import styles from "./quick-launch.module.css";

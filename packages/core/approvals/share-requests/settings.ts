@@ -10,4 +10,7 @@ export const sharedAppsSetting = declareSetting({
   key: SHARED_APPS_SETTING_KEY,
   type: sharedAppsSettingSchema,
   default: DEFAULT_SHARED_APPS_SETTING,
+  description:
+    "Apps whose commands coding agents in the terminal may use. An app is added when the person approves a share request.",
+  locked: true,
 });

@@ -11,6 +11,7 @@ import {
   type SettingsStore,
   settingsListHandler,
   settingsUpdateHandler,
+  shellSettingFolders,
   shellSettings,
 } from "../../../config/mod.ts";
 import type { WiringFactory } from "./context.ts";
@@ -32,10 +33,10 @@ export const configWiring: WiringFactory = () => {
         );
       let registry;
       try {
-        registry = createSettingsRegistry([
-          ...shellSettings,
-          ...ctx.settingDeclarations,
-        ]);
+        registry = createSettingsRegistry(
+          [...shellSettings, ...ctx.settingDeclarations],
+          shellSettingFolders,
+        );
       } catch (error) {
         return err({
           code: "internal",

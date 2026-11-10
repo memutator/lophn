@@ -29,7 +29,8 @@ An artifact belongs to the project or app you work in. Its place is the
 `<Folder>/<name>/index.html` with `file.write`. `<Folder>` is the absolute
 `artifacts` folder, given in the Artifacts section of your workspace information. Always use that absolute path: a relative
 `artifacts/...` path lands in the person's project folder, which is wrong.
-`<name>` is a lowercase slug (`spending`, `weekly-report`). Once an `index.html`
+`<name>` is a lowercase slug (`spending`, `weekly-report`) used only in paths;
+the person sees the page's title (see "Title and description"). Once an `index.html`
 exists at that spot, it is an artifact. Tell the person its path in your answer;
 the path becomes a link that opens it. The same name in two workspaces is two
 artifacts.
@@ -115,9 +116,20 @@ computed in the page for data that was collected earlier.
 ## Title and description
 
 Always write `<title>` and `<meta name="description" content="...">` in
-`index.html`. The artifact list and the prompt show these two. Without a
-`<title>` the folder name is used. Keep the title short and the description to
-one sentence.
+`index.html`. The title is what the person sees: the tab name, the head row and
+the Artifacts list. Without a `<title>` the folder name is used. The folder
+name is for paths; the title is for the person.
+
+- Write the title as the person would name the page, in the language they
+  speak to you: what it shows, in a few words ("Git 활동", "이번 달 지출",
+  "Project docs status").
+- Not a slug, ID, file name or path (`lophn project-docs`, `git-activity`,
+  `report_v2`), not code-style casing, not a date stamp unless the date is the
+  point.
+- Do not start with the project or app name; lophn already shows where the
+  artifact lives.
+- The description is one sentence on what the person learns from the page, in
+  the same language.
 
 ## The view is sealed
 

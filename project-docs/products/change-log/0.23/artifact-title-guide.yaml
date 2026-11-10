@@ -1,0 +1,8 @@
+id: artifact-title-guide
+version: 0.23.16
+title: artifact 제목을 사람이 부르는 이름으로 짓는다
+modules: [packages/core/agent-workspaces]
+change: |
+  - 내장 skill `write-artifact`의 "Title and description"을 고쳤다. `<title>`은 탭 이름·머리 줄·Artifacts 목록에 보이는 이름이라, 사람이 쓰는 말로 무엇을 보이는지 몇 낱말로 짓는다. slug·ID·file 이름·path·code식 대소문자를 쓰지 않고 project·앱 이름으로 시작하지 않는다. 폴더 이름(slug)은 path에만 쓴다.
+why: |
+  agent가 `lophn project-docs`처럼 폴더 이름 같은 제목을 지어 사람이 읽기 어려웠다. 지침은 "짧게"뿐이었다.

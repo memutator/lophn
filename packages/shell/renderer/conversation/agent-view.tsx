@@ -287,8 +287,10 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
 
   const { agent, thread, refresh } = data;
   const entry = data.sessions.find((item) => item.id === session) ?? null;
-  const sessionTitle = session === null ? null : (entry?.title ?? null);
-  // 머리글 이름 바꾸기 뒤의 refresh도 이 읽기를 거치므로 탭 제목이 같은 길로 따라간다.
+  // 열린 대화는 제목이 바뀐 것을 갱신(`session_changed`)으로 바로 안다: 이름 바꾸기, 첫 말의 자동 제목, 조금 뒤에 오는
+  // AI 제목. session 목록은 다시 읽어야 따라오므로 갱신이 준 제목이 먼저다.
+  const sessionTitle =
+    session === null ? null : (thread?.session?.title ?? entry?.title ?? null);
   useEffect(() => {
     props.onSessionTitle?.(sessionTitle);
   }, [session, sessionTitle]);

@@ -5,6 +5,7 @@ modules: [packages/shell/renderer, packages/shell/main, packages/core/lophn-agen
 change: |
   - coding agent 터미널 탭(TUI, `claude gui`)이 쓰다 보면 project 이름이나 "Claude Code"로 바뀌던 것을 고쳤다. 탭은 한 번 얻은 session 이름을 같은 session인 동안 기억하고, 이름의 출처가 없는 동안 그 이름을 보인다. `/clear`나 새 session이면 버린다.
   - 다른 agent나 앱의 call로 시작한 lophn session에 제목이 붙는다(맡긴 글의 앞 60자). 전에는 제목이 없어 탭과 sidebar에 agent 이름으로만 보였다. 이미 있는 제목 없는 session은 다음 call을 받을 때 붙는다.
+  - 열린 Agent 탭은 제목이 바뀐 것(이름 바꾸기, 자동 제목, 뒤에 오는 AI 제목)을 대화 갱신으로 바로 받아 탭 줄과 sidebar에 알린다. 전에는 session 목록을 다시 읽을 때까지 옛 제목이었다.
   - layout의 터미널 탭에 `agent_session`을 더했다(`agent_title`이 어느 session의 이름인지). 터미널 탭 이름 규칙은 `terminalName` 하나이고 `tabName`, `otherWorkspaceTerminalTitle`, `TerminalTab`의 `naming`은 지웠다.
 why: |
   0.23.14의 수정 뒤에도 같은 증상이 보고됐다. 실제 data root를 읽어 보니 저장한 탭 이름이 쓰는 중에 지워졌고, 제목 없는 session은 모두 call로 시작한 것이었다. 이슈 `session-name-falls-back-until-reselected`.

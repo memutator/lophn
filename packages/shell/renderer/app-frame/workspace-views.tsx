@@ -74,6 +74,8 @@ export interface WorkspaceViews {
   downloading(session: string, active: boolean): void;
   /** 이 창이 그 workspace를 mount하고 있는가. */
   mounted(workspace: string): boolean;
+  /** agent가 그 page를 방금 썼다. 모든 pool에서 찾아 쓴 때를 갱신한다. */
+  touch(key: string): void;
   /** workspace 상관없이 이 창의 어느 pool에든 있는 page의 탭 key. */
   keyOf(session: string): string | undefined;
   /** mount되지 않은 workspace에 agent가 연 browser page를 만들어 두고 자리는 mount될 때로 미룬다. */
@@ -175,7 +177,13 @@ export function createWorkspaceViews(
         pool.mounted = false;
         queueMicrotask(() => {
           if (pool.mounted) return;
-          pool.parked = new Set(webviews.park(tabKeys()));
+          // 자리를 아직 받지 못한 agent page는 layout에 없어도 놓지 않는다.
+          const unplaced = (pending.get(workspace)?.opens ?? []).map(
+            (item) => `host:${item.tab}`,
+          );
+          pool.parked = new Set(
+            webviews.park(new Set([...tabKeys(), ...unplaced])),
+          );
           for (const key of keeps.keys()) {
             if (!pool.parked.has(key)) keeps.release(key);
           }
@@ -208,6 +216,9 @@ export function createWorkspaceViews(
       return existing;
     },
     mounted: (workspace) => pools.get(workspace)?.mounted === true,
+    touch(key) {
+      for (const pool of pools.values()) pool.webviews.touch(key);
+    },
     keyOf(session) {
       for (const pool of pools.values()) {
         const key = pool.webviews.keyOf(session);
@@ -315,6 +326,12 @@ export function WorkspaceViewsProvider(props: { children: ReactNode }) {
       void surface.ack({ request: request.id, opened: true });
     });
   }, [views]);
+  // agent가 browser 호출을 할 때마다 main이 알린다. 쓴 page는 상한에서 나중에 놓인다.
+  useEffect(
+    () =>
+      surfaceApi()?.control((control) => views.touch(`host:${control.tab}`)),
+    [views],
+  );
   // host 탭의 browser 상태. page는 workspace가 mount되지 않아도 사니 창 단위로 받는다.
   useEffect(() => {
     const surface = surfaceApi();

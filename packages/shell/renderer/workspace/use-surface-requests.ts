@@ -3,7 +3,7 @@
 // retry로 되돌린다). 열린 탭의 key는 `host:<tab id>`다. host 탭의 browser 상태와 닫힘은 main을 거쳐 core에 알린다.
 import { useEffect, useRef, useState } from "react";
 
-import type { LophnSurfaceApi } from "../../ipc/surface.ts";
+import { type LophnSurfaceApi, SURFACE_RELEASE_ID } from "../../ipc/surface.ts";
 import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
 import type { HarnessId } from "../../../protocol/coding-agent/harness-id.ts";
 import type { PendingHost } from "../app-frame/workspace-views.tsx";
@@ -129,6 +129,8 @@ type Args = {
   showFloat: (key: string) => void;
   /** 이 workspace가 mount되기 전에 agent가 연 browser 탭과 닫힌 탭. 가져가면 비운다. */
   takePending: (() => PendingHost) | undefined;
+  /** 이 창의 pool에 그 key의 page가 이미 있다(떠나며 남긴 것). */
+  hasPage: ((key: string) => boolean) | undefined;
 };
 
 export function useSurfaceRequests(args: Args): void {
@@ -150,6 +152,8 @@ export function useSurfaceRequests(args: Args): void {
   useEffect(() => {
     if (surface === null || !ready) return;
     return surface.on(({ request }) => {
+      // 다른 창이 page를 이어받았다는 알림이다. layout을 건드리지 않고 창 단위 receiver(workspace-views.tsx)만 받는다.
+      if (request.id === SURFACE_RELEASE_ID) return;
       const { host, openSession, showFloat } = latest.current;
       if (workspaceKey(request.workspace) !== workspaceKey(host().workspace)) {
         return;
@@ -300,7 +304,21 @@ export function useSurfaceRequests(args: Args): void {
   // browser 탭의 상태(url·title)는 창 단위로 workspace-views.tsx가 알린다.
   useEffect(() => {
     if (!ready) return;
-    const { host, takePending } = latest.current;
+    const { host, takePending, hasPage } = latest.current;
+    // 창이 닫힐 때 core가 버린 agent 탭이 접힌 채 layout에 남았다. page가 없는 접힌 것은 사람의 탭이 아니므로 뺀다.
+    if (hasPage !== undefined) {
+      for (const float of host().desk.floats) {
+        const { key, kind } = float.tab;
+        if (
+          float.minimized &&
+          kind === "browser" &&
+          key.startsWith(HOST_KEY) &&
+          !hasPage(key)
+        ) {
+          host().removeTab(key);
+        }
+      }
+    }
     const pending = takePending?.();
     if (pending === undefined) return;
     for (const item of pending.opens) {

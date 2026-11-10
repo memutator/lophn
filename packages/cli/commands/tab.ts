@@ -1,5 +1,5 @@
 // `lophn tab open|close|show`: lophn agent session이나 사람 token이 shell에 탭을 열고 자기가 연 탭을 닫는다. 사람 token은
-// --url, --preview, --artifact 탭만 연다(core가 거절). core는 접수만 답한다(탭은 shell이 그 workspace를 보이는 창에서 연다). --url은 page가 생길 때까지 기다린다.
+// --url, --preview, --artifact 탭만 연다(core가 거절). core는 접수만 답한다(탭은 shell이 그 workspace를 보이는 창에서 연다). --url은 어느 창이든 page가 붙을 때까지 기다린다.
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";

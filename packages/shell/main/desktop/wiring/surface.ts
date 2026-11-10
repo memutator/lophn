@@ -1,4 +1,5 @@
-// core의 host queue를 가져와 그 workspace를 보이는 창에 push한다(agent가 연 탭). core가 시킬 일을 담는 queue는
+// core의 host queue를 가져와 그 workspace를 보이는 창에 push한다(agent가 연 탭). 단 browser 탭(`--url`)은 그 workspace를 보이는 창이
+// 없으면 가장 최근 일반 창이 page를 만들어 두고, page가 붙을 때(bind) core에 답한다. core가 시킬 일을 담는 queue는
 // 메모리에 있고(`protocol/lophn-agent/host-queue.ts`), 여기가 `host/take`를 쉬지 않고 이어 불러(long-poll) 가져간다. 창을 앞으로 가져오거나
 // focus하지 않는다(알림의 `reveal()`과 다르다): agent가 연 탭은 사람이 하던 일을 끊지 않는다.
 // `browser_call`은 browser·preview·artifact 탭의 page에 CDP로 돌린다(browser/agent/). 창이 탭의 view session을 bind로 알리고,
@@ -48,8 +49,11 @@ const ACK_TIMEOUT_MS = 1500;
 // 열린 창이 하나도 없어 browser 탭을 못 열 때 agent가 받는 문장이다(원인, 다음 할 일, 되풀이가 통하는지).
 const NO_WINDOW =
   "No lophn window is open, so the browser page cannot be created. Retrying does not help until a person opens a lophn window; tell the person.";
-// 이 요청이 browser 탭 열기다. page를 만들었다고 알릴 때까지 core가 기다린다.
+// page가 붙었다(bind)고 core의 browser 탭 열기에 답하는 결과다.
 const BIND_OK = { content: [{ type: "text", text: "opened" }] };
+// page를 둘 창이 열기에 답하기 전에 닫혔다.
+const WINDOW_CLOSED =
+  "The lophn window that was to hold the browser page was closed, so the tab was not opened. Try `lophn tab open` once more; if it fails again, tell the person.";
 
 type Workspace = NonNullable<SurfaceWorkspace["workspace"]>;
 // tab 요청은 workspace가 있고, extension tool 호출(`tool_call`)과 browser 호출(`browser_call`)은 workspace를 가리지 않아 payload만 있다.
@@ -87,8 +91,12 @@ export function register(
   const pending = new Map<string, (opened: boolean) => void>();
   // browser·preview·artifact host 탭이 어느 창(webContents id)의 어느 view인지. 창이 bind로 알린다.
   const bound = new Map<string, { window: number; view_session: string }>();
-  // 이 main이 창에 보낸 browser 탭 열기의 workspace. 창이 닫히면 page가 사라지므로 그 탭을 core 표에서 빼야 하는 탭이다.
-  const hostBrowser = new Map<string, Workspace>();
+  // 이 main이 창에 보낸 browser 탭 열기의 workspace와 page를 둔 일반 창. 창이 닫히면 page가 사라지므로 그 탭을 core 표에서 빼야 하는
+  // 탭이다. 창은 열기를 보낸 창이고, 다른 일반 창이 bind하면 그 창으로 바뀐다. 닫기가 bind 전에 오면 이 창으로 보낸다.
+  const hostBrowser = new Map<
+    string,
+    { workspace: Workspace; window: number }
+  >();
   // page가 만들어졌다고(bind) 알리기를 기다리는 browser 탭 열기. 탭 id로 찾는다.
   const opening = new Map<string, string>();
 
@@ -118,8 +126,18 @@ export function register(
       if (at.window !== contentsId) continue;
       bound.delete(tab);
       control.forget(tab);
-      // page가 창과 함께 사라졌으니 core 표에도 두지 않는다.
-      if (hostBrowser.delete(tab)) {
+    }
+    // page가 창과 함께 사라졌으니 core 표에도 두지 않는다. detached 창은 탭이 원래 창으로 돌아가므로 page를 둔 일반 창만 본다.
+    for (const [tab, at] of hostBrowser) {
+      if (at.window !== contentsId) continue;
+      hostBrowser.delete(tab);
+      const request = opening.get(tab);
+      if (request !== undefined) {
+        opening.delete(tab);
+        void done(request, {
+          error: { code: "unavailable", message: WINDOW_CLOSED },
+        });
+      } else {
         void ctx.coreInternal("memory", "host", "report", {
           tab,
           state: "closed",
@@ -153,6 +171,10 @@ export function register(
         const { tab, view_session } = parsed.value.bind;
         const before = bound.get(tab);
         bound.set(tab, { window: event.sender.id, view_session });
+        const host = hostBrowser.get(tab);
+        if (host !== undefined && regular(event.sender.id) !== undefined) {
+          host.window = event.sender.id;
+        }
         releaseOld(tab, before, event.sender.id);
         const request = opening.get(tab);
         if (request !== undefined) {
@@ -243,7 +265,7 @@ export function register(
     before: { window: number } | undefined,
     now: number,
   ) {
-    const workspace = hostBrowser.get(tab);
+    const workspace = hostBrowser.get(tab)?.workspace;
     if (
       before === undefined ||
       before.window === now ||
@@ -271,19 +293,25 @@ export function register(
     });
   }
 
+  // detached 창과 앱 전용 창이 아닌 살아 있는 창.
+  const regular = (id: number | undefined) =>
+    [...ctx.windows].find(
+      (window) =>
+        !window.isDestroyed() &&
+        !ctx.detached.has(window) &&
+        !ctx.appWindows.has(window) &&
+        window.webContents.id === id,
+    );
+
   // browser 탭의 page는 어느 workspace를 띄운 창이든 산다. 그 workspace를 띄운 창이 없으면 가장 최근 창이 받는다.
-  // 닫기는 page를 가진 창이 먼저다.
+  // browser 탭의 닫기는 page를 가진 창이 먼저고, bind 전이면 열기를 보낸 창이다.
   function windowFor(request: Extract<Request, { workspace: Workspace }>) {
     const { tab, target } = request.payload;
-    const page =
-      request.kind === "tab_close" ? bound.get(tab)?.window : undefined;
+    const host = hostBrowser.get(tab);
     return (
-      [...ctx.windows].find(
-        (window) =>
-          !window.isDestroyed() &&
-          !ctx.detached.has(window) &&
-          window.webContents.id === page,
-      ) ??
+      (request.kind === "tab_close" && host !== undefined
+        ? (regular(bound.get(tab)?.window) ?? regular(host.window))
+        : undefined) ??
       windowOf(request.workspace) ??
       (target !== undefined && "browser" in target
         ? recentWindow(ctx)
@@ -294,9 +322,8 @@ export function register(
   function offer(
     request: Extract<Request, { workspace: Workspace }>,
     payload: unknown,
+    window: NonNullable<ReturnType<typeof windowFor>>,
   ): Promise<boolean> {
-    const window = windowFor(request);
-    if (window === undefined) return Promise.resolve(false);
     return new Promise((resolve) => {
       const timer = setTimeout(() => settle(false), ACK_TIMEOUT_MS);
       // 먼저 온 쪽이 이기고, 끝난 request의 늦은 ack는 pending에 없어 버려진다.
@@ -308,6 +335,14 @@ export function register(
       pending.set(request.id, settle);
       window.webContents.send(SURFACE_REQUEST_CHANNEL, payload);
     });
+  }
+
+  // 닫힌 탭의 흔적을 지운다. 열기를 기다리던 것도 닫기가 이긴다.
+  function forgetTab(tab: string): void {
+    bound.delete(tab);
+    hostBrowser.delete(tab);
+    opening.delete(tab);
+    control.forget(tab);
   }
 
   const done = (id: string, output?: unknown) =>
@@ -345,6 +380,9 @@ export function register(
         continue;
       }
       if (request.kind === "browser_call") {
+        // 호출마다 그 page를 가진 창에 알려 쓴 때를 센다(상한을 넘으면 오래 안 쓴 page부터 놓는다).
+        const now = control.current(request.payload.tab);
+        if (now !== undefined) pushControl(request.payload.tab, now);
         void driver
           .run(request.payload)
           .then((output) => done(request.id, output));
@@ -353,7 +391,9 @@ export function register(
       const browserOpen =
         request.kind === "tab_open" &&
         "browser" in (request.payload.target ?? {});
-      if (windowFor(request) === undefined) {
+      const { tab } = request.payload;
+      const target = windowFor(request);
+      if (target === undefined) {
         if (browserOpen) {
           // page를 둘 창이 하나도 없다. core가 기다리지 않고 이유를 agent에게 돌려주게 한다.
           void done(request.id, {
@@ -363,15 +403,29 @@ export function register(
         }
         // 창과 함께 page가 사라졌으면 닫을 것이 없다.
         if (request.kind === "tab_close") {
+          forgetTab(tab);
           await done(request.id);
           continue;
         }
       }
-      if (browserOpen) hostBrowser.set(request.payload.tab, request.workspace);
-      const opened = await offer(request, { request });
+      if (target === undefined) {
+        await ctx.coreInternal("memory", "host", "done", {
+          id: request.id,
+          result: "retry",
+        });
+        await rest();
+        continue;
+      }
+      if (browserOpen) {
+        hostBrowser.set(tab, {
+          workspace: request.workspace,
+          window: target.webContents.id,
+        });
+      }
+      const opened = await offer(request, { request }, target);
+      if (opened && request.kind === "tab_close") forgetTab(tab);
       if (opened && browserOpen) {
         // 창이 page를 만들겠다고 답했다. page가 붙어 bind가 오면 core에 알린다.
-        const { tab } = request.payload;
         if (bound.has(tab)) await done(request.id, BIND_OK);
         else opening.set(tab, request.id);
         continue;

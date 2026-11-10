@@ -153,6 +153,8 @@ export interface WebviewHost {
   shownAt(key: string): number;
   /** agent가 연 browser 탭의 page인가. */
   isAgentPage(key: string): boolean;
+  /** 그 화면을 방금 썼다. 오래 안 쓴 것부터 놓는 순서에 센다. */
+  touch(key: string): void;
   keys(): readonly string[];
   /** 그릇 요소. WebviewLayer가 붙인다. */
   attach(container: HTMLElement | null): void;
@@ -621,6 +623,10 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
     },
     shownAt: (key) => entries.get(key)?.shownAt ?? 0,
     isAgentPage: (key) => entries.get(key)?.agent ?? false,
+    touch(key) {
+      const entry = entries.get(key);
+      if (entry !== undefined) entry.shownAt = now();
+    },
     keys: () => [...entries.keys()],
     attach(next) {
       container = next;

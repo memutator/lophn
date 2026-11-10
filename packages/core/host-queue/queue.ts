@@ -118,7 +118,7 @@ const NO_RESULT =
 const TIMED_OUT =
   "The browser call timed out before the lophn app answered; the page may be busy or the app stuck. Try once more; if it times out again, tell the person.";
 export const OPEN_TIMED_OUT =
-  "The lophn app did not create the browser page in time, so the tab was not opened. Try `lophn tab open` once more; if it fails again, tell the person.";
+  "The browser page did not start loading within 10 seconds (the site may be slow or not answering), so the tab was not opened. Try `lophn tab open` once more; if it fails again, tell the person.";
 // 없는 탭, 닫힌 탭, 남의 탭에 같은 문장을 써서 남의 탭이 있는지 새지 않게 한다.
 const NO_SUCH_TAB =
   "No such tab, or it was closed. Open the page again with `lophn tab open`, then use the new tab id.";

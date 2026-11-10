@@ -650,7 +650,8 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   // layout에서 사라진 탭의 view를 닫는다. 탭을 닫는 길이 여럿이라 길마다 닫지 않고 차이로 본다.
   // <webview>는 모든 desk의 탭이 사는 동안(보이지 않는 desk 포함) 그대로 두어 desk를 오가도 page가
   // 다시 load되지 않는다. 놓는 것은 탭 key가 layout에서 사라졌을 때뿐이다.
-  const webviewTabKeys = useRef<Set<string>>(new Set());
+  // layout을 읽기 전에 떠나도 가져온 화면(agent page 포함)을 놓지 않도록 가져온 key로 시작한다.
+  const webviewTabKeys = useRef<Set<string>>(new Set(pool?.carried() ?? []));
   // 앞서 떠나며 살려 둔 화면(workspace-views.tsx)은 layout을 읽은 뒤 지금 탭과 맞춘다.
   const carriedKeys = useRef<readonly string[]>(pool?.carried() ?? []);
   // 다른 창으로 넘긴 view(main이 소유를 옮긴 browser popup native view)는 여기서 닫지 않는다.
@@ -1221,6 +1222,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       }
     },
     takePending: pool?.takePending,
+    hasPage: pool === null ? undefined : (key) => pool.carried().includes(key),
   });
   useBridgeOpenRequests(terminal?.bridge ?? null, (request) =>
     terminal === undefined

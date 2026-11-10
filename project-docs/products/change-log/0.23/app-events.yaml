@@ -1,5 +1,5 @@
 id: app-events
-version: 0.23.27
+version: 0.23.35
 title: "앱 event: 앱이 선언한 event를 내고 구독한 앱과 화면이 받는다"
 modules: [packages/protocol, packages/core/apps, packages/core/main, packages/core/storage, packages/sdk, packages/shell/main, packages/shell/preload, packages/shell/ipc, packages/shell/renderer, packages/cli, packages/design, packages/core/agent-workspaces]
 checked: []

@@ -1,5 +1,5 @@
 id: event-jobs
-version: 0.23.27
+version: 0.23.35
 title: "event로 도는 job: 앱 event나 core의 session event가 job을 연다"
 modules: [packages/protocol, packages/core/jobs, packages/core/apps, packages/core/runs, packages/core/main, packages/core/agent-workspaces, packages/cli, packages/shell/renderer, packages/design]
 checked: []

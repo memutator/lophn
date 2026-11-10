@@ -1,5 +1,5 @@
 id: app-message-via
-version: 0.23.27
+version: 0.23.35
 title: "앱 화면이 보낸 사람 메시지에 어느 앱이 보냈는지 이름표를 붙인다"
 modules: [packages/protocol, packages/core/lophn-agent, packages/core/router, packages/core/main, packages/sdk, packages/shell/main, packages/shell/renderer, packages/design, packages/core/agent-workspaces]
 checked: []

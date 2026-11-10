@@ -1,5 +1,5 @@
 id: app-a2a
-version: 0.23.27
+version: 0.23.35
 title: "앱이 A2A와 ACP에 선다: agent에게 call을 보내고 답을 받고, session을 열고 끝내고, 보이는 session에 붙는다"
 modules: [packages/protocol, packages/core/router, packages/core/lophn-agent, packages/core/main, packages/core/apps, packages/core/storage, packages/sdk, packages/shell/main, packages/shell/preload, packages/shell/ipc, packages/shell/renderer, packages/core/agent-workspaces]
 checked: []

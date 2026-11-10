@@ -1,5 +1,5 @@
 id: app-a2a-fixes-2
-version: 0.23.27
+version: 0.23.35
 title: "앱 event 발행 기록의 구독자 수와 앱이 멈춘 터미널 session의 상태를 고친다"
 modules: [packages/core/apps, packages/core/main, packages/shell/main]
 checked: []

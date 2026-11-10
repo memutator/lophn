@@ -1,5 +1,5 @@
 id: event-jobs-review-fixes
-version: 0.23.27
+version: 0.23.35
 title: "event job review 수정: 반복 고리, 같은 앱 tool_run, 앱 event 가시성, 화면 문구"
 modules: [packages/core/jobs, packages/core/main, packages/core/lophn-agent, packages/core/router, packages/protocol, packages/shell/renderer, packages/design]
 checked: []

@@ -1,5 +1,5 @@
 id: session-lifecycle
-version: 0.23.27
+version: 0.23.35
 title: "session lifecycle: 앱이 agent session 목록·상태를 읽고 멈추고 session.* event를 듣는다"
 modules: [packages/protocol, packages/core/lophn-agent, packages/core/main, packages/core/apps, packages/core/host-queue, packages/sdk, packages/shell/main, packages/shell/preload, packages/shell/ipc, packages/shell/terminal-host, packages/shell/renderer, packages/design, packages/core/agent-workspaces]
 checked: []

@@ -48,7 +48,7 @@ components:
   - id: agents-md
     kind: instruction
     roles: [all]
-    description: 모든 작업에 실리는 저장소 지침. 속도, 위협 원칙, 문서 표, 코드 규칙, 사람에게 묻는 것.
+    description: 모든 작업에 실리는 저장소 지침. 속도, 위협 원칙, 설계 방향, 문서 표, 코드 규칙, 사람에게 묻는 것.
     path: AGENTS.md
     change_reasons:
       paths: [package.json, tools/check.ts]

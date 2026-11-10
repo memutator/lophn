@@ -1,5 +1,5 @@
 id: agents-tab-rework-and-card-model
-version: 0.23.10
+version: 0.23.22
 title: Agents 탭과 agent 편집기를 탭으로 나누고 이동·저장 표시를 더하며 명함에 model과 가격을 싣는다
 modules: [packages/protocol, packages/core/lophn-agent, packages/shell/renderer, packages/cli, packages/design, tools]
 change: |

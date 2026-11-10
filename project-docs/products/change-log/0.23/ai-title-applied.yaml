@@ -1,5 +1,5 @@
 id: ai-title-applied
-version: 0.23.26
+version: 0.23.27
 title: AI가 지은 session 제목이 실제로 붙는다
 modules: [packages/core/lophn-agent]
 change: |

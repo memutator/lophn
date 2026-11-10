@@ -288,7 +288,7 @@ journeys:
     goal: "agent가 사람에게 보일 page를 browser 탭으로 열고, 자기가 연 탭의 상태를 읽은 뒤 닫는다"
     refs: [G4]
     steps:
-      - {do: "agent가 lophn tab open <url>로 browser 탭을 요청한다", flow: host-tab-open:accepted}
+      - {do: "agent가 lophn tab open <url>로 browser 탭을 요청한다", flow: host-browser-tab-open:opened}
       - {do: "shell main이 쉬지 않고 가져가는 take로 곧바로 창에 탭을 연다", screen: browser-tab, flow: host-queue-poll:offered}
       - {do: "shell이 탭의 url, title, loading 상태를 알린다", flow: host-tab-report:state}
       - {do: "agent가 lophn browser read로 자기 탭의 상태를 읽는다", flow: host-browser-read:state}
@@ -296,6 +296,21 @@ journeys:
       - {do: "agent가 browser act로 ref를 눌러 page를 다루고 browser wait로 결과를 기다린다", flow: host-browser-act:ok}
       - {do: "page가 바뀐 뒤 browser wait가 text를 기다린다", flow: host-browser-wait:ok}
       - {do: "끝나면 lophn tab close로 자기가 연 탭을 닫는다", flow: host-tab-close:accepted}
+
+  - id: agent-opens-browser-without-window
+    title: "사람이 앱을 껐거나 다른 workspace에 있는 동안 agent가 browser 탭을 열어 쓴다"
+    actor: agent
+    goal: "job이나 workflow의 agent가 사람 없이 browser page를 열어 일하고, 사람이 돌아오면 같은 page가 그 workspace의 접힌 탭으로 있다"
+    refs: [G4]
+    steps:
+      - {do: "앱이 꺼져 있고 core만 떠 있는 때 agent가 lophn tab open <url>을 부른다", flow: host-browser-tab-open:opened-app-started}
+      - {do: "core가 앱을 --agent-window로 띄운다(shell이 없을 때만, 켠 core만)", flow: host-shell-launch:launched}
+      - {do: "앱이 일반 창이 없으면 focus 없이 창을 연다", flow: desktop-window-open-inactive:opened}
+      - {do: "창이 그 workspace를 mount하지 않았으니 page만 만들어 두고 bind를 알린다", flow: agent-browser-page-host:page-parked}
+      - {do: "agent가 snapshot으로 page를 읽고 act로 다룬다", flow: host-browser-inspect:ok}
+      - {do: "사람이 그 workspace로 돌아오면 접힌 float으로 같은 page가 놓인다(다시 load하지 않는다)", flow: agent-browser-page-host:placed-from-pending}
+    gaps:
+      - "최소화한 창에서는 page가 그리지 않아 screenshot이 실패한다"
 
   - id: agent-drives-preview-person-takes-control
     title: "agent가 앱의 preview 탭을 다루는 중 사람이 take control로 가져온다"

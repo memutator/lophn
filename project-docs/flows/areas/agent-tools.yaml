@@ -655,7 +655,7 @@ flows:
       - "zod schema로 입력을 검사하고, 값이 바뀌는 변환이 있었으면 실행하지 않는다"
       - "정의에 gate가 있으면(shell.run, 앱·MCP tool) core의 tool_gate/check에 묻는다. 판정은 approvals 몫이고, 막히면 그 이유를 tool 결과로 옮긴다"
       - "handler를 부른다. 정의에 handler가 없으면 unavailable이다"
-      - "실패는 공통 문장으로 바꿔 돌려준다. invalid_input과 skill.read만 handler 문장을 붙인다. 성공이면 결과를 spillLarge에 넘긴다"
+      - "실패는 공통 문장으로 바꿔 돌려준다. invalid_input, skill.read, browser·tab tool의 unavailable·conflict, browser tool의 not_found만 handler 문장(lophn이 쓴 고정 문장)을 붙인다. 성공이면 결과를 spillLarge에 넘긴다"
     outcomes:
       - id: ok
         observe: ["response"]

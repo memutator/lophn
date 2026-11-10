@@ -6,7 +6,7 @@ flows:
     title: "desktop app을 켠다(single instance, tray, 전역 팔레트, 첫 창)"
     actor: system
     entries: [system:shell-start]
-    uses: [control:identify, control:connect, desktop-window-open:opened]
+    uses: [control:identify, control:connect, desktop-window-open:opened, desktop-window-open-inactive:opened]
     boundary: [shell, core-control-protocol]
     code:
       - packages/shell/main/desktop/main.ts
@@ -24,7 +24,7 @@ flows:
       - "ready 뒤 window 상태를 읽고 autostart 등록을 migrate하고 `lophn-shell` scheme을 붙인다"
       - "headless가 아니면 tray를 올린다. tray 실패는 log만 남기고 창은 연다"
       - "전역 팔레트 key를 건다(keys 소유). 실패하면 tray에 안내 한 줄만 보인다"
-      - "첫 argv를 읽는다. `--open-app <ULID>`이 맞으면 앱 전용 창을 요청하고, 그 밖의 argv(`--quit`도)는 기본 창을 연다"
+      - "첫 argv를 읽는다. `--open-app <ULID>`이 맞으면 앱 전용 창을 요청하고, `--agent-window`(core가 browser를 쓰려고 앱을 띄운 시작)이면 focus 없는 창을 연다(desktop-window-open-inactive). 그 밖의 argv(`--quit`도)는 기본 창을 연다"
     outcomes:
       - id: window-opened
         when: "기본 창이 열렸다(desktop-window-open:opened). 첫 실행의 `--quit`은 종료가 아니라 창 열기로 읽힌다. core 연결이 실패(failed-start)해도, 전역 팔레트 등록이 실패해도 창은 연다(tray 안내만 남는다)"
@@ -38,6 +38,9 @@ flows:
       - id: app-window-requested
         when: "첫 argv가 `--open-app <app ID>`이고 ID 모양이 맞다. 앱 전용 창은 app-surface가 열고, 열지 못하면 기본 창(desktop-window-show)으로 돌아간다"
         observe: ["process:앱 전용 창 요청(app-surface 소유)"]
+      - id: agent-window-opened
+        when: "첫 argv가 `--agent-window`다. 기본 창을 focus 없이 연다(desktop-window-open-inactive). 앱을 띄운 core가 browser page를 둘 창이 필요해서다"
+        observe: ["process:shell 기본 창 하나가 focus 없이 생긴다"]
       - id: second-process-exits
         when: "single instance lock을 다른 main이 잡고 있다. 이 process는 창 없이 끝난다(core identify와 ensure는 이미 돌았다)"
         observe: ["process:두 번째 shell process가 끝난다"]
@@ -83,7 +86,7 @@ flows:
     title: "이미 떠 있는 desktop main이 두 번째 실행의 argv를 받아 창을 열거나 끄기로 답한다"
     actor: system
     entries: [system:second-instance]
-    uses: [desktop-window-open:opened, ui:tray-quit, shell-stop:stopped]
+    uses: [desktop-window-open:opened, desktop-window-open-inactive:opened, desktop-window-open-inactive:reused, ui:tray-quit, shell-stop:stopped]
     boundary: [shell]
     code:
       - packages/shell/main/desktop/single-instance.ts
@@ -94,6 +97,7 @@ flows:
       - "Electron이 두 번째 실행의 argv를 second-instance event로 넘긴다. 두 번째 process는 곧 끝난다"
       - "argv를 readOpenIntent로 읽는다. 모양이 조금이라도 다르면 기본 창 요청으로 본다"
       - "`--core`이면 아무 일도 하지 않는다(창을 열지 않는다)"
+      - "`--agent-window`이면 일반 창이 하나도 없을 때만 focus 없이 창 하나를 연다(desktop-window-open-inactive). 있으면 아무것도 하지 않는다. 앞으로 가져오지 않는다"
       - "`--quit`이면 창이 하나라도 있을 때 tray Quit과 같은 확인 경로를 타고, 창이 없으면 확인 없이 shell 정리를 밟는다"
       - "`--open-app <ID>`이 맞으면 앱 전용 창(app-surface)을 요청한다"
       - "그 밖의 argv는 desktop-window-open과 같은 길로 새 기본 창을 연다"
@@ -107,6 +111,12 @@ flows:
       - id: core-intent-ignored
         when: "`--core`다. 창은 바뀌지 않는다"
         observe: ["process:창 수가 그대로다"]
+      - id: agent-window-opened
+        when: "`--agent-window`이고 일반 창(detached와 앱 전용 창이 아닌 창)이 하나도 없다. focus 없이 연다"
+        observe: ["process:desktop 창 하나가 focus 없이 생긴다"]
+      - id: agent-window-kept
+        when: "`--agent-window`이고 일반 창이 이미 있다. 창 수도 순서도 focus도 그대로다"
+        observe: ["process:창 수와 순서가 그대로다"]
       - id: quit-with-window
         when: "`--quit`이고 BrowserWindow가 하나 이상 있다(detached와 앱 창 포함). ui:tray-quit과 같은 경로라 quit-app의 quit·cancelled·busy 가운데 하나가 된다. 두 번째 `--quit`이 확인 창 중에 오면 busy로 조용히 끝난다"
         observe: ["process:진행 중인 터미널·저장이 있으면 끄기 확인 창이 뜨고, 없으면 확인 없이 shell이 끝난다"]
@@ -150,6 +160,40 @@ flows:
     docs: [architecture/platform.md]
     unclear:
       - "window.json 저장은 shell-workspace의 '창 상태'와 겹쳐 보인다. 여기서는 되살리기 절차만 적었다(저장 file은 workspace/window-state.ts)"
+
+  - id: desktop-window-open-inactive
+    title: "browser page를 둘 일반 창을 focus 없이 연다(없을 때만)"
+    actor: system
+    entries: [system:agent-window-open]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/wiring/desktop-window.ts
+      - packages/shell/main/desktop/headless.ts
+      - packages/shell/main/desktop/single-instance.ts
+      - packages/shell/main/desktop/open-intent.ts
+      - packages/shell/main/desktop/launch-mode.ts
+      - packages/shell/main/desktop/wiring/desktop.ts
+    steps:
+      - "부르는 길은 셋이다: core가 띄운 앱의 첫 argv `--agent-window`, 이미 떠 있는 앱이 받은 두 번째 실행의 `--agent-window`, shell main이 page를 둘 일반 창이 없는 browser 탭 열기를 받았을 때(host-queue-poll)"
+      - "앱이 ready가 되고 저장한 창 자리(window.json)를 읽을 때까지 기다린다. 그 전에는 BrowserWindow를 만들 수 없다"
+      - "일반 창(detached와 앱 전용 창이 아닌 창, 최소화하거나 숨긴 것 포함)이 있으면 가장 최근 것을 돌려주고 아무것도 하지 않는다. 앞으로 가져오지 않는다"
+      - "없으면 desktop 창을 숨긴 채 만들고 ready-to-show에서 저장한 크기로 맞춘 뒤 focus 없이 보인다(showInactive). 최대화하지 않고 최소화하거나 숨긴 채 두지 않는다. headless이면 보이지 않는다"
+      - "focus 없이 연 창의 maximize 상태는 사람이 고른 것이 아니므로 사람이 그 창을 최대화하거나 되돌리기 전에는 저장된 maximized를 덮지 않는다"
+    outcomes:
+      - id: opened
+        when: "일반 창이 없어 새로 열었다. focus는 가져오지 않는다(Wayland에서는 compositor가 가져갈 수 있다)"
+        observe: ["process:desktop 창 하나가 focus 없이 생긴다", "disk:<data root>/shell/window.json(최대화 값은 그대로)"]
+      - id: reused
+        when: "일반 창이 이미 있다. 그 창을 돌려주고 화면은 바뀌지 않는다"
+        observe: ["process:창 수와 순서가 그대로다"]
+      - id: not-created
+        when: "창을 만들지 못했다(BrowserWindow 생성이 undefined나 오류). 부른 쪽이 해당 browser 탭 열기를 unavailable로 끝낸다"
+        observe: ["process:창 수가 그대로다"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md, architecture/platform.md]
+    unclear:
+      - "최소화하거나 숨긴 일반 창이 있으면 그 창을 쓰므로 그리지 않아 screenshot이 실패한다(Linux x11에서 쟀다). 보이게 하지 않는다"
+      - "macOS와 Windows, Wayland의 focus는 돌려 보지 않았다"
 
   - id: desktop-window-show
     title: "가장 최근 desktop 창을 앞으로 가져오고, 창이 없으면 새 기본 창을 연다"

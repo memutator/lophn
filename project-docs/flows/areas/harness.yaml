@@ -242,8 +242,8 @@ flows:
       - "shell main의 surface loop가 보이는 workspace 목록과 TUI 탭 session 목록을 싣고 take를 쉬지 않고 이어 부른다(long-poll)"
       - "매 take가 heartbeat다. TUI hold를 갱신한다. 기다리는 take가 있거나 마지막 take가 끝난 지 3초 안이면 shell이 붙어 있다(attached)고 본다"
       - "보이는 workspace의 가장 오래된 대기 요청 하나를 빌려 주고 빌린 시각을 적는다. 없으면 요청이 들어올 때까지 최대 5초 기다린다(기다리는 동안 attached다)"
-      - "빌린 요청은 done이 없으면 10초 뒤 다시 대기한다. tool_call과 browser_call은 기한이 없다"
-      - "tool_call과 browser_call은 workspace와 상관없이 아무 shell이나 가져간다. 5초 안에 요청이 없거나 core가 멈추면 request가 null이다"
+      - "빌린 요청은 done이 없으면 10초 뒤 다시 대기한다. 결과를 기다리는 요청(tool_call, browser_call, browser tab_open)은 다시 내놓지 않는다. take가 오면 shell이 새로 붙었으므로 shell을 띄우려던 시도의 기록(시작한 때, 실패한 때)을 지운다"
+      - "tool_call과 browser_call은 workspace와 상관없이 아무 shell이나 가져간다. browser 탭의 tab_open과 tab_close도 그렇다(page가 창 단위로 살아 그 workspace를 보이는 창이 없어도 열고 닫는다). 결과를 기다리는 요청(browser_call, browser tab_open)은 두 번 실행하면 안 되어 done이 없어도 다시 내놓지 않는다. 5초 안에 요청이 없거나 core가 멈추면 request가 null이다"
     outcomes:
       - id: request
         observe: [response]
@@ -308,14 +308,14 @@ flows:
     steps:
       - "renderer가 host 탭의 url, title, loading을 shell main에 알리면 shell main이 부른다"
       - "탭이 표에 있으면 browser 상태를 저장한다"
-      - "closed면 탭을 표에서 뺀다. 이후 browser/read는 not_found다"
+      - "closed면 탭을 표에서 뺀다. 이후 browser/read와 browser/*는 not_found다. closed는 사람이 탭을 닫거나 layout에서 사라졌을 때뿐 아니라 browser 탭의 page가 상한(창마다 12개)이나 page를 든 창의 닫힘으로 없어졌을 때도 온다"
       - "모르는 탭이면 아무것도 하지 않고 ok다"
     outcomes:
       - id: state
         when: "탭이 표에 있고 browser 상태(url, title, loading)를 저장했다"
         observe: [response]
       - id: closed
-        when: "closed를 받았다. 탭을 표에서 뺀다(표에 없었어도 ok다)"
+        when: "closed를 받았다(사람이 닫음, page가 상한으로 놓임, page를 든 창이 닫힘). 탭을 표에서 뺀다(표에 없었어도 ok다)"
         observe: [response]
       - id: unknown
         when: "표에 없는 탭이고 closed가 아니다. 아무것도 하지 않고 ok다"
@@ -328,10 +328,10 @@ flows:
     docs: [architecture/browser-tab.md]
 
   - id: host-tab-open
-    title: agent나 사람 token이 session이나 browser 탭을 열어 달라고 요청한다
+    title: agent나 사람 token이 session 탭을 열어 달라고 요청한다
     actor: agent
     entries: [route:tabs/open]
-    when: "target이 session이거나 browser일 때. tui는 harness-tui-open, preview는 host-preview-tab-open, artifact는 host-artifact-tab-open, coding은 host-coding-handoff-open이 맡는다"
+    when: "target이 session일 때. browser(--url)는 host-browser-tab-open, tui는 harness-tui-open, preview는 host-preview-tab-open, artifact는 host-artifact-tab-open, coding은 host-coding-handoff-open이 맡는다"
     boundary: [host-queue-interface, host-queue-core]
     code:
       - packages/core/main/daemon/wiring/host-queue.ts
@@ -339,12 +339,11 @@ flows:
       - packages/protocol/lophn-agent/host-queue.ts
     steps:
       - "lophn tool이나 lophn tab open 명령이 agent 자격이나 사람 token으로 부른다. 탭의 주인은 agent면 그 session, 사람 token이면 모두 같은 주인 person이다"
-      - "사람 token은 이 flow에서 browser(--url) 탭만 연다. session 대상이면 invalid_input"
+      - "사람 token은 session 대상을 열지 못한다. invalid_input"
       - "agent면 자격의 session 행을 읽는다. 없으면 not_found, session 자격이 없으면 forbidden"
-      - "session 대상이면 같은 workspace의 열린 session인지 본다. 아니면 not_found"
-      - "browser 대상이면 url이 http나 https인지 본다. 아니면 invalid_input"
+      - "같은 workspace의 열린 session인지 본다. 아니면 not_found"
       - "탭 표에 주인을 적고 tab_open 요청을 host queue에 넣는다. workspace는 agent면 부른 session의 것(home이면 home), 사람 token이면 입력의 workspace(없으면 home)다. --as로 말한 relation(peer, stage, aside, work, glance)을 요청에 그대로 싣는다(말하지 않으면 null). 자리는 core가 정하지 않고 renderer가 relation과 target으로 정한다"
-      - "기다리지 않고 tab id와 accepted를 돌려준다. 실제 탭은 shell host take가 가져가 연다"
+      - "기다리지 않고 tab id와 accepted를 돌려준다. 실제 탭은 shell host take가 가져가 연다. 그 workspace를 보이는 창이 없으면 요청은 기다린다"
     outcomes:
       - id: accepted
         observe: [response]
@@ -358,11 +357,116 @@ flows:
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "browser url이 http나 https가 아니다. 또는 사람 token이 browser·preview·artifact가 아닌 대상(session, tui)을 열려 한다"
+        when: "사람 token이 browser·preview·artifact가 아닌 대상(session, tui)을 열려 한다"
         observe: [response]
     crosses_process: false
     risk: [sandbox]
-    docs: [architecture/browser-tab.md, architecture/workspace-layout.md]
+    docs: [architecture/workspace-layout.md]
+
+  - id: host-browser-tab-open
+    title: agent나 사람 token이 browser 탭(--url)을 열어 달라고 요청하고 page가 붙을 때까지 기다린다
+    actor: agent
+    uses: [route:tabs/open, host-shell-launch:launched, desktop-window-open-inactive:opened, host-request-take:request, host-request-done:done]
+    when: "target이 browser일 때(`lophn tab open --url`)"
+    boundary: [host-queue-interface, host-queue-core, shell]
+    code:
+      - packages/core/main/daemon/wiring/host-queue.ts
+      - packages/core/host-queue/queue.ts
+      - packages/protocol/lophn-agent/host-queue.ts
+      - packages/shell/main/desktop/wiring/surface.ts
+      - packages/shell/renderer/app-frame/workspace-views.tsx
+    steps:
+      - "agent면 자격의 session 행을 읽는다(없으면 not_found, session 자격이 없으면 forbidden). 사람 token의 주인은 person이다. url이 http나 https가 아니면 invalid_input"
+      - "shell이 붙어 있지 않으면(기다리는 take도 없고 마지막 take가 3초 전보다 앞) 앱을 띄운다(host-shell-launch). 띄울 길이 없으면 바로 unavailable이다. 띄우는 시도가 쉬는 중이거나 바로 실패해도 unavailable이다"
+      - "탭 표에 주인과 workspace(agent면 그 session의 것, 사람 token이면 입력의 workspace나 home)를 적고 tab_open 요청을 넣는다. 요청은 workspace를 가리지 않고 아무 shell main이 가져간다"
+      - "shell main은 그 workspace를 보이는 창(가장 최근에 focus를 받은 것), 없으면 가장 최근 일반 창에 보낸다. 일반 창이 하나도 없으면 focus 없이 하나 연다(desktop-window-open-inactive)"
+      - "창이 그 workspace를 mount하고 있으면 평소처럼 자리를 정해 탭을 연다. mount하지 않았으면 그 workspace의 pool에 page만 숨은 항목으로 만들고 자리는 다음 mount로 미룬다(agent-browser-page-host). 어느 쪽이든 ack한다"
+      - "page의 guest가 dom-ready로 붙어 창이 bind를 알리면 shell main이 done으로 답하고 core는 tab id와 accepted를 돌려준다. 기한은 shell이 붙어 있으면 10초, 앱을 띄웠으면 30초(앱 시작과 창 열기와 page까지)다. 같은 시도를 기다리던 열기는 함께 끝난다"
+      - "실패하면 표에서 탭을 빼고(shell이 가져간 적이 있으면 닫기 요청을 보낸다) unavailable과 고정 문장을 돌려준다. 탭이 남지 않는다"
+    outcomes:
+      - id: opened
+        when: "page가 붙었다. 이미 떠 있던 앱의 창이 받았다"
+        observe: [response, "process:창의 pool에 page가 있다(mount되지 않은 workspace면 숨은 항목)"]
+      - id: opened-new-window
+        when: "일반 창이 하나도 없어 focus 없이 창을 열고 거기에 page가 붙었다"
+        observe: [response, "process:desktop 창 하나가 focus 없이 생긴다"]
+      - id: opened-app-started
+        when: "shell이 붙어 있지 않아 core가 앱을 띄웠고 그 앱의 창에 page가 붙었다(기한 30초)"
+        observe: [response, "process:앱 process가 detached로 뜬다"]
+      - id: shell-not-attached
+        code: unavailable
+        when: "shell이 붙어 있지 않은데 앱을 띄울 길이 없다(그 core를 띄운 쪽이 켜지 않았거나, build하지 않은 개발 저장소). 앱을 열라고 사람에게 알리라는 고정 문장"
+        observe: [response]
+      - id: start-failed
+        code: unavailable
+        when: "앱을 띄우지 못했다: spawn 실패, 30초 안에 shell이 붙지 않음, 앞선 실패 뒤 5분 안이라 다시 띄우지 않음"
+        observe: [response, "log:host-queue shell_launch_failed(spawn 실패일 때)"]
+      - id: page-timeout
+        code: unavailable
+        when: "shell이 붙어 있는데 10초 안에 page가 붙지 않았다(첫 응답이 느린 site 포함, dom-ready까지 기다린다). 만들어졌을지 모르는 page를 닫으라는 요청이 나간다"
+        observe: [response]
+      - id: shell-lost
+        code: unavailable
+        when: "기다리는 동안 shell이 떨어졌다, 받을 창을 만들지 못했다, page를 둘 창이 답하기 전에 닫혔다, 요청이 대기 200개를 넘어 버려졌다"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "호출 session 행이 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "agent 자격도 사람 token도 아니거나 agent 자격에 session이 없다(부르는 쪽 검사)"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "url이 http나 https가 아니다"
+        observe: [response]
+    crosses_process: true
+    risk: [sandbox]
+    docs: [architecture/browser-tab.md, architecture/workspace-layout.md, architecture/platform.md]
+    unclear:
+      - "page가 붙은 뒤 사람이 그 창을 최소화하면 그리지 않아 screenshot이 실패한다. 열기 자체는 성공한다"
+      - "열기가 끝난 뒤 ack 1.5초나 창 안 열기 실패는 retry로 되돌려 다시 시도하고 기한이 끝나면 위 unavailable 가운데 하나가 된다"
+
+  - id: host-shell-launch
+    title: browser 탭을 열려는데 shell이 없으면 core가 앱을 띄운다(--agent-window)
+    actor: system
+    entries: [system:host-shell-launch]
+    boundary: [host-queue-core, core-control-protocol]
+    code:
+      - packages/core/main/daemon/shell-launcher.ts
+      - packages/core/main/daemon/main.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
+      - packages/core/host-queue/queue.ts
+      - packages/cli/connection/client/node.ts
+      - packages/shell/main/desktop/core/supervise.ts
+    steps:
+      - "launcher는 그 core를 띄운 쪽(shell main의 core 감독, CLI의 detached 시작)이 환경 LOPHN_LAUNCH_SHELL=1을 준 core에만 있다. 시험, boot, E2E가 띄운 core에는 없다. 설치본이 아닌 개발 저장소에서 shell entry를 build하지 않았으면 없다"
+      - "browser 탭 열기가 shell 없이 오면 queue가 launcher를 부른다. 이미 시도 중이고 30초가 안 지났으면 부르지 않고 그 시도를 같이 기다린다. 앞선 실패 뒤 5분 안이면 부르지 않고 실패로 답한다"
+      - "launcher가 core의 platform 배치에서 명령을 만든다(설치본은 core를 띄운 Electron 실행 file, 개발은 build한 shell entry 추가). ELECTRON_RUN_AS_NODE를 빼고 `--home <data root> --agent-window`를 붙여 detached로 띄우고 놓는다"
+      - "spawn이 던지거나 error event가 오면 로그를 한 줄 남기고 기다리던 열기를 바로 끝낸다. 띄운 뒤의 일은 알 길이 없어 shell이 붙는지(take)로 본다. 30초 안에 붙지 않으면 시도가 실패다"
+      - "shell이 붙으면(take) 시도와 실패 기록을 지운다"
+    outcomes:
+      - id: launched
+        when: "launcher가 앱을 띄웠다(처음 시도이거나 앞 시도가 끝났다)"
+        observe: ["process:앱 process가 detached로 뜬다(--agent-window)"]
+      - id: shared
+        when: "30초 안에 이미 띄운 시도가 있다. 다시 띄우지 않고 그 시도에 같이 기다린다"
+        observe: ["process:띄운 앱이 하나뿐이다"]
+      - id: backoff
+        when: "앞선 시도가 실패한 지 5분 안이다. 띄우지 않고 열기를 바로 실패시킨다. shell이 붙으면 풀린다"
+        observe: [response]
+      - id: spawn-failed
+        when: "spawn이 던졌거나 error event가 왔다. 5분 쉬는 상태로 들어간다"
+        observe: ["log:host-queue shell_launch_failed"]
+      - id: not-enabled
+        when: "launcher가 없다(켜지 않은 core, 띄울 길을 모름). browser 탭 열기는 shell-not-attached로 끝난다"
+        observe: [response]
+    crosses_process: true
+    risk: [sandbox]
+    docs: [architecture/platform.md, architecture/workspace-layout.md]
+    unclear:
+      - "앱 Quit 뒤에도 띄운다. 사람이 앱을 껐다고 의도하지 않았는지를 판단하는 장치는 없다(승인한 job의 browser 사용으로 본다, 사람 2026-11-10)"
 
   - id: host-preview-tab-open
     title: agent나 사람 token이 앱의 지금 preview를 앱마다 하나인 preview 탭으로 열어 달라고 요청한다
@@ -544,7 +648,7 @@ flows:
     steps:
       - "agent 자격의 session이나 사람 token이 부른다. 사람 token의 주인은 모두 person이다"
       - "탭이 없으면 not_found. 주인이 다른 탭(다른 session이 연 탭, agent가 연 탭을 사람이, 사람이 연 탭을 agent가)이면 forbidden"
-      - "탭을 표에서 빼고 tab_close 요청을 그 탭의 workspace로 넣는다"
+      - "탭을 표에서 빼고 tab_close 요청을 그 탭의 workspace로 넣는다. browser 탭의 닫기는 workspace를 가리지 않고 아무 shell이 가져가고, shell main이 그 page를 가진 창(bind 전이면 열기를 보낸 창)에 보낸다"
       - "화면에서 닫는 것은 shell host take가 가져가 한다. 터미널 탭을 닫으면 PTY도 닫힌다"
     outcomes:
       - id: accepted
@@ -598,14 +702,14 @@ flows:
       - packages/core/main/daemon/wiring/host-queue.ts
     steps:
       - "agent 자격의 session이나 사람 token이 부른다"
-      - "남이 연 탭이거나 탭이 없으면 not_found"
+      - "남이 연 탭이거나 탭이 없으면 not_found. 같은 고정 문장이라 남의 탭이 있는지 새지 않는다. 닫혔거나 page가 없어져 표에서 빠진 탭도 같다. shell이 붙어 있지 않은 browser 탭은 page가 사라진 것이라 표에서 빼고 같은 not_found다"
       - "browser 탭이고 상태가 있으면 url, title, loading을 돌려준다. 상태가 아직 없거나 agent·preview·artifact 탭이면 not_found"
     outcomes:
       - id: state
         observe: [response]
       - id: not_found
         code: not_found
-        when: "남의 탭이거나 없거나, browser 상태가 아직 없거나, agent·preview·artifact 탭이다"
+        when: "남의 탭이거나 없거나(닫혔거나 page가 없어져 표에서 빠진 것, shell이 없을 때의 browser 탭 포함), browser 상태가 아직 없거나, agent·preview·artifact 탭이다"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -639,7 +743,7 @@ flows:
         observe: [response]
       - id: not_found
         code: not_found
-        when: "남의 탭이거나 사람이 손으로 연 탭이거나 없는 탭이거나 session·agent 탭이다"
+        when: "남의 탭이거나 사람이 손으로 연 탭이거나 없는 탭(닫혔거나 page가 없어져 표에서 빠진 탭, shell이 없을 때의 browser 탭 포함)이거나 session·agent 탭이다. 같은 고정 문장이고 model이 그대로 받아 탭을 다시 열게 한다"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -647,7 +751,7 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "shell이 붙어 있지 않거나, 호출 도중 떨어졌거나, 30초 기한이 지났거나, 탭이 창에 열려 있지 않거나, page가 답하지 않거나, 가려진 탭이라 screenshot이 그려지지 않았다. queue가 가득 차도 같다"
+        when: "shell이 붙어 있지 않거나(preview·artifact 탭), 호출 도중 떨어졌거나, 30초 기한이 지났거나, 탭이 창에 열려 있지 않거나(preview·artifact 탭, browser 탭은 page가 막 사라진 틈), page가 답하지 않거나, 가려진 탭이라 screenshot이 그려지지 않았다(최소화하거나 숨긴 창 포함). queue가 가득 차도 같다"
         observe: [response]
       - id: conflict
         code: conflict
@@ -681,7 +785,7 @@ flows:
         observe: [response]
       - id: not_found
         code: not_found
-        when: "남의 탭이거나 사람이 손으로 연 탭이거나 없는 탭이거나 session·agent 탭이다"
+        when: "남의 탭이거나 사람이 손으로 연 탭이거나 없는 탭(닫혔거나 page가 없어져 표에서 빠진 탭, shell이 없을 때의 browser 탭 포함)이거나 session·agent 탭이다. 같은 고정 문장이고 model이 그대로 받아 탭을 다시 열게 한다"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -697,7 +801,7 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "shell이 붙어 있지 않거나, 호출 도중 떨어졌거나, 30초 기한이 지났거나, 탭이 창에 열려 있지 않거나, page가 답하지 않는다"
+        when: "shell이 붙어 있지 않거나(preview·artifact 탭), 호출 도중 떨어졌거나, 30초 기한이 지났거나, 탭이 창에 열려 있지 않거나(preview·artifact 탭, browser 탭은 page가 막 사라진 틈), page가 답하지 않는다"
         observe: [response]
       - id: conflict
         code: conflict
@@ -733,7 +837,7 @@ flows:
         observe: [response]
       - id: not_found
         code: not_found
-        when: "남의 탭이거나 사람이 손으로 연 탭이거나 없는 탭이거나 session·agent 탭이다"
+        when: "남의 탭이거나 사람이 손으로 연 탭이거나 없는 탭(닫혔거나 page가 없어져 표에서 빠진 탭, shell이 없을 때의 browser 탭 포함)이거나 session·agent 탭이다. 같은 고정 문장이고 model이 그대로 받아 탭을 다시 열게 한다"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -749,7 +853,7 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "shell이 붙어 있지 않거나, 호출 도중 떨어졌거나, 30초 기한이 지났거나, 탭이 창에 열려 있지 않거나, page가 답하지 않거나, 이동이 실패했다"
+        when: "shell이 붙어 있지 않거나(preview·artifact 탭), 호출 도중 떨어졌거나, 30초 기한이 지났거나, 탭이 창에 열려 있지 않거나(preview·artifact 탭, browser 탭은 page가 막 사라진 틈), page가 답하지 않거나, 이동이 실패했다"
         observe: [response]
       - id: internal
         code: internal
@@ -773,8 +877,8 @@ flows:
       - packages/shell/main/browser/agent/snapshot.ts
       - packages/shell/main/desktop/wiring/surface.ts
     steps:
-      - "take가 browser_call을 주면 창에 보내지 않고 shell main이 따로 돌린다. 끝나면 결과나 오류를 done에 싣는다"
-      - "창이 bind로 알린 view session에서 page를 찾는다. browser 탭은 browser partition의 webview guest, preview 탭은 mode가 preview인 앱 view, artifact 탭은 artifact view registry에 붙은 guest다. 앱 live view는 어떤 경우에도 고르지 않는다. 없으면 unavailable"
+      - "take가 browser_call을 주면 창에 보내지 않고 shell main이 따로 돌린다. 끝나면 결과나 오류를 done에 싣는다. 호출마다 그 page를 가진 창에 알려 쓴 때를 센다(창마다 12개 상한에서 오래 쓰지 않은 것부터 놓는다)"
+      - "창이 bind로 알린 view session에서 page를 찾는다. host browser 탭은 그 workspace가 mount되지 않아도 창 단위로 bind한다. browser 탭은 browser partition의 webview guest, preview 탭은 mode가 preview인 앱 view, artifact 탭은 artifact view registry에 붙은 guest다. 앱 live view는 어떤 경우에도 고르지 않는다. 없으면 unavailable"
       - "그 탭을 agent가 다루는 중으로 적는다. 사람이 take control 중이면 act, navigate, evaluate는 conflict이고 읽기(snapshot, screenshot, logs, wait)는 된다"
       - "DevTools가 열려 있거나 다른 debugger가 붙어 있으면 붙지 않고 conflict다. 붙으면 DOM, Accessibility 등 domain을 켠다"
       - "snapshot마다 ref를 새로 매긴다. 새 snapshot이나 main frame 이동 뒤 옛 ref는 conflict다"
@@ -785,7 +889,7 @@ flows:
         observe: [response]
       - id: tab-not-open
         code: unavailable
-        when: "bind된 view session이 없거나 page가 닫혔거나 browser·preview 종류가 맞지 않는다(앱 live view 포함)"
+        when: "bind된 view session이 없거나 page가 닫혔거나 browser·preview 종류가 맞지 않는다(앱 live view 포함). browser 탭이면 \"page가 사라졌다, tab open --url로 다시 열라\"는 고정 문장이고, preview·artifact 탭이면 그 workspace를 띄운 창이 없다는 문장이다"
         observe: [response]
       - id: person-holds
         code: conflict
@@ -886,14 +990,20 @@ flows:
     steps:
       - "host/take를 쉬지 않고 이어 부른다(core가 요청이 올 때까지 최대 5초 잡아 둔다). 보이는 workspace와 TUI 목록을 싣는다. 답을 받자마자 다시 부른다"
       - "tool_call이면 extension tool을, browser_call이면 browser driver를 따로 돌리고 기다리지 않는다. 끝나면 done에 결과를 싣는다"
-      - "탭 요청이면 그 workspace를 보이는 창 가운데 focus를 가장 최근에 받은 하나에만 push하고 창의 ack를 1.5초 기다린다(두 창이 같은 탭을 열지 않는다)"
-      - "ack가 오면 done. 창이 없거나 ack가 없으면 retry로 done하고 1초 쉰 뒤 다시 가져간다"
+      - "탭 요청이면 그 workspace를 보이는 창 가운데 focus를 가장 최근에 받은 하나에만 push하고 창의 ack를 1.5초 기다린다(두 창이 같은 탭을 열지 않는다). browser 탭 열기는 보이는 창이 없으면 가장 최근 일반 창에 보내고, 일반 창이 하나도 없으면 focus 없이 하나 연다(desktop-window-open-inactive). browser 탭 닫기는 page를 가진 창에 보낸다"
+      - "ack가 오면 done. browser 탭 열기는 ack 뒤 page가 붙는(bind) 때 done으로 core에 답한다(page를 둘 창이 닫히면 오류로 답한다). 창이 없거나 ack가 없으면 retry로 done하고 1초 쉰 뒤 다시 가져간다. 창을 끝내 만들지 못한 browser 탭 열기는 retry가 아니라 unavailable로 답한다"
       - "요청이 없으면(null) 바로 다시 부른다. take가 실패해도 1초 쉰 뒤 다시 부른다"
     outcomes:
       - id: offered
         observe: [screen:project-terminal]
       - id: retry
-        when: "창이 없거나, 창이 1.5초 안에 ack하지 않았거나, 창이 열지 못했다고 답했다"
+        when: "창이 없거나, 창이 1.5초 안에 ack하지 않았거나, 창이 열지 못했다고 답했다(browser 탭 열기는 창을 열어 보고도 없을 때만 오류로 끝난다)"
+        observe: [response]
+      - id: browser-open-answered
+        when: "browser 탭 열기를 창이 ack했고 page가 bind되어 done으로 답했다. 일반 창이 없었으면 focus 없이 창을 열고 거기 보냈다"
+        observe: [response, "process:창의 pool에 page가 있다"]
+      - id: browser-open-failed
+        when: "browser 탭 열기에 받을 창을 만들지 못했거나 page를 둘 창이 답하기 전에 닫혔다. unavailable과 고정 문장으로 done한다"
         observe: [response]
       - id: tool-call
         when: "tool_call 요청이다. extension tool을 따로 돌리고 끝나면 done에 결과를 싣는다"

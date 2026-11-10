@@ -274,7 +274,7 @@ files:
 
   - path: packages/core/lophn-agent/tools/work_test.ts
     covers: [tool-call-execute:handler-failed, tool-skill-read:not-found]
-    note: "handler 실패 문장: skill.read는 원인(없는 file 이름)을 싣고 다른 tool의 not_found는 공통 문장만 쓴다"
+    note: "handler 실패 문장: skill.read는 원인(없는 file 이름)을 싣고, browser·tab의 unavailable·conflict와 browser의 not_found는 고정 문장을 싣고, 다른 tool의 not_found는 공통 문장만 쓴다"
 
   - path: packages/core/lophn-agent/usage/cost_test.ts
     covers: []

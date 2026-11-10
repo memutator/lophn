@@ -1,0 +1,15 @@
+id: agent-browser-page-dot-visible
+title: 숨은 agent browser page의 1px 띠가 창 오른쪽 아래에 점으로 보일 수 있다
+kind: bug
+status: open
+topic: browser-tab
+modules: [packages/shell/renderer]
+now: |
+  숨은 agent page(workspace를 떠났거나 접힌 탭, mount되지 않은 workspace의 page)는 그리기를 이어 가야 screenshot이 되어서 그릇의 오른쪽 아래 모서리에 1px만 걸쳐 둔다(`packages/shell/renderer/app-frame/webview-host.tsx`의 `apply`: `left`·`top`이 `calc(100% - 1px)`, `z-index: 1`, `pointer-events: none`). 한 점이라도 그릇 안에 걸쳐야 Chromium이 그리고(다른 내용 뒤나 opacity 0이면 멈춘다), 그 한 점은 창 위에 그려진다. 사람이 그 점이 어떻게 보이는지는 사람 눈으로 확인하지 않았다(headless 확인뿐).
+impact: |
+  - agent page가 사는 동안(탭이 닫히거나 창이 닫힐 때까지) 사람 화면 오른쪽 아래에 page의 한 픽셀이 점으로 보일 수 있다. 숨은 page마다 겹쳐 같은 자리에 그린다.
+  - 보이는지, 얼마나 거슬리는지에 따라 그리는 방식을 바꿔야 한다.
+fix: |
+  - (확인 먼저) 설치한 앱에서 agent browser 탭을 열어 두고 창 오른쪽 아래를 본다. 안 보이면 이 이슈를 닫는다.
+  - (작음) 보이면 걸치는 자리와 크기를 바꿔 본다. 그리려면 viewport 안에 1px가 들어야 해서 완전히 없앨 수는 없다(세 번째 확인, roadmap `agent-browser-lifetime`).
+  - (큼) 숨은 page를 그리지 않고 screenshot 때만 보이게 하는 길은 없다(보이는 창 안에서만 그린다). 그릇을 창 밖의 native view(A1)로 옮기는 것이 근본이지만 browser 탭의 그릇이 둘이 된다.

@@ -1,5 +1,5 @@
 id: artifact-delete
-version: 0.23.16
+version: 0.23.18
 title: sidebar Artifacts 목록에서 artifact를 지울 수 있다
 modules: [packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer, packages/design]
 change: |

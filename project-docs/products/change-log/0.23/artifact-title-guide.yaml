@@ -1,5 +1,5 @@
 id: artifact-title-guide
-version: 0.23.16
+version: 0.23.17
 title: artifact 제목을 사람이 부르는 이름으로 짓는다
 modules: [packages/core/agent-workspaces]
 change: |

@@ -1,5 +1,5 @@
 id: session-name-sticky
-version: 0.23.20
+version: 0.23.21
 title: 터미널 탭이 얻은 session 이름을 기억하고, call로 시작한 session에도 제목이 붙는다
 modules: [packages/shell/renderer, packages/shell/main, packages/core/lophn-agent]
 change: |

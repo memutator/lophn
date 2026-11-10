@@ -317,10 +317,9 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       };
       element.addEventListener("did-finish-load", loaded);
       element.addEventListener("did-fail-load", loaded);
-      if (entry.kind === "app") {
-        bindTabHead(entry, element);
-        bindKeys(entry, element);
-      }
+      // artifact page도 자기 탭 머리 줄을 올린다(preload/artifact.ts). key 통로는 앱만이다.
+      bindTabHead(entry, element);
+      if (entry.kind === "app") bindKeys(entry, element);
       return;
     }
     if (!webviewSupported()) {

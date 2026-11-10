@@ -40,6 +40,7 @@ agent의 결과가 사람에게 가는 길이 대화 글, 파일, 앱 화면뿐�
    탭 ─ shell:artifact-open ─▶ 창의 `<webview>` 그릇(element src = state.src)
    page의 http/https link(입력 직후) ─ open-link event ─▶ browser 탭
    Annotate ─▶ annotations.send(target)
+   page의 머리 줄(LophnKit.useTabHead) ─ sendToHost ─▶ 탭 머리 줄(경로·탭·상태·단추), 누름 ─▶ page
 
  shell main
    open ─ source 해석(root, 입구) ─ 첫 view에서 봉한 session을 세운다
@@ -72,15 +73,15 @@ agent의 결과가 사람에게 가는 길이 대화 글, 파일, 앱 화면뿐�
 10. **instance가 바뀌면 그 instance를 여는 view만 다시 load한다.** shell main이 workflow instance 변경을 구독해 그 instance의 view에만 reload를 건다. page 안 상태(펼친 칸, scroll)는 남지 않는다.
 11. **navigation은 main frame이 같은 host의 `lophn-artifact:`로만 간다.** 같은 폴더 안의 다른 HTML로 가는 상대 link는 된다. http·https는 막고, 사용자 입력 5000ms 안이면 renderer에 알려 browser 탭으로 연다. 입력 없이 page가 스스로 보낸 이동은 조용히 버린다. `window.open`은 늘 거절한다(http·https이고 입력 직후면 같은 방식으로 browser 탭으로 알린다). subframe은 같은 host만이다. permission은 거절하고 download는 취소한다.
 12. **navigation 판단은 `will-frame-navigate`와 `will-redirect`에서 한다.** Electron 44에서 main frame은 `will-frame-navigate`가 먼저 오고, 거기서 막으면 `will-navigate`는 오지 않는다. 알리는 일을 `will-navigate`에 두면 link가 아무 일도 하지 않는다.
-13. **guest 붙이기는 main이 정한 값으로만 한다.** `<webview>`는 renderer가 만들지만 붙이기는 src 하나에 한 번만 받는다. renderer가 적은 partition·preload·webPreferences는 버리고 main이 정한 값(봉한 partition, annotate layer만 있는 preload)을 쓴다. 이 창의 view가 아니거나 모르는 src거나 이미 쓴 src면 거절한다. 붙은 guest의 안쪽 `<webview>` 만들기도 거절한다. 패키지된 앱에서는 DevTools를 열자마자 닫는다.
-14. **preload에는 annotate layer만 있다.** tool을 부르는 bridge도 오류 보고도 없다. 이것이 앱 화면과 갈리는 곳이다.
+13. **guest 붙이기는 main이 정한 값으로만 한다.** `<webview>`는 renderer가 만들지만 붙이기는 src 하나에 한 번만 받는다. renderer가 적은 partition·preload·webPreferences는 버리고 main이 정한 값(봉한 partition, annotate layer와 탭 머리 줄만 있는 preload)을 쓴다. 이 창의 view가 아니거나 모르는 src거나 이미 쓴 src면 거절한다. 붙은 guest의 안쪽 `<webview>` 만들기도 거절한다. 패키지된 앱에서는 DevTools를 열자마자 닫는다.
+14. **preload에는 annotate layer와 탭 머리 줄만 있다.** 머리 줄(`window.lophnTabHead`의 `setTabHead`·`onTabHead`)은 앱 화면과 같은 통로(`app:tab-head`)로 page와 그것을 품은 shell renderer 사이만 오가고 main을 부르지 않는다. renderer는 앱 머리 줄과 같은 읽기로 글과 id만 그린다. tool을 부르는 bridge, 오류 보고, 살려 두기 신호, key 통로는 없다. 이것이 앱 화면과 갈리는 곳이다.
 15. **annotation의 신원은 shell main이 view의 source로 정한다.** page가 보낸 값은 쓰지 않는다. artifact annotation에는 release와 screen이 없다(null). target은 `{kind: "artifact", project | app, name}`이고 사람의 `.html`과 workflow artifact는 `{kind: "file", project}`다.
 16. **annotation을 받는 쪽은 그 폴더에 마지막으로 쓴 session이다.** rewind 기록(root가 그 그릇의 artifacts 폴더 realpath, path가 `<name>/`로 시작, 되돌려지지 않은 쓰기)에서 그 그릇 workspace의 열린 session 가운데 마지막 것을 고른다. 쓴 agent는 가리지 않는다. root가 그릇마다 달라 같은 이름의 artifact가 다른 그릇에 있어도 섞이지 않는다. 쓴 session이 없으면 pane에서 보낸 session이 받는다. 그 session은 그 그릇 workspace의 열린 lophn session이어야 하고 아니면 conflict로 거절한다. pane에 그런 session이 없으면 그 그릇 workspace의 lophn 새 session이다. 사람의 `.html`은 같은 순서에서 쓴 session 조회만 빠지고 그 project workspace의 lophn이 받는다.
 17. **artifact annotation을 읽는 것은 그 그릇의 agent다.** 자격 조건 `project`(project workspace의 session)는 그 project의 artifact target과 file target을, 조건 `app`(앱 workspace의 session)은 그 앱의 artifact target을 읽는다. 다른 그릇 것은 not_found이고, 그릇 조건이 없는 home의 session은 forbidden이다(`architecture/annotation.md`).
 18. **파일이 바뀌면 열린 탭이 다시 load한다.** artifact와 workflow artifact는 폴더 전체, 사람의 `.html`은 그 폴더 바로 아래만 지켜본다(사람의 폴더는 클 수 있다). 150ms 동안 모아 cache 없이 한 번 다시 load한다. view가 깨진 상태(crashed)면 하지 않는다. 폴더가 사라지거나 watch가 깨지면 조용히 멈춘다.
 19. **같은 창에서 같은 source는 view 하나다.** 탭이 Float·Dock으로 다시 mount되어도 창의 `<webview>` 그릇이 element를 들고 있고 view_session도 그대로다. 같은 source를 동시에 연 요청은 먼저 만든 view로 모인다. main이 새 화면을 열 때(열기, crash 뒤 다시 열기)는 `mount`가 바뀐 새 src를 내고 renderer가 element를 새로 만든다. 건강한 view의 reload는 cache 없이 다시 load하고 깨진 view의 reload는 새 화면 세대를 연다.
 20. **폴더가 없으면 view를 만들지 않는다.** open은 not_found로 답하고 탭이 안내와 다시 시도 단추를 그린다. 봉한 session을 못 세웠으면 unavailable이다.
-21. **workspace를 바꾸면 artifact 탭의 page는 놓고 돌아오면 다시 load한다.** artifact page의 preload에는 bridge가 없어 "살려 둬" 신호를 보낼 길이 없다(`architecture/workspace-layout.md`의 `<webview>` 그릇 절, workspace를 떠나도 살려 두는 page). Detach하면 page가 다시 load된다.
+21. **workspace를 바꾸면 artifact 탭의 page는 놓고 돌아오면 다시 load한다.** artifact page의 preload에는 살려 두기 신호가 없다(`architecture/workspace-layout.md`의 `<webview>` 그릇 절, workspace를 떠나도 살려 두는 page). Detach하면 page가 다시 load된다.
 22. **쓴 agent가 화면을 보고 다룰 수 있다.** `lophn tab open --artifact <name>`이 그 그릇 workspace의 artifact를 host 탭(key `host:<tab>`)으로 열고, `lophn browser snapshot|screenshot|act|evaluate|logs|wait`가 앱의 preview 탭처럼 그 page를 CDP로 다룬다(`architecture/browser-tab.md` "agent가 다루는 탭", 여는 규칙은 `architecture/workspace-layout.md` "agent가 연 탭"). main은 artifact view registry에 붙은 guest만 고르고 navigate는 `invalid_input`이다: page 안의 상대 link는 page가 따라가고 다른 artifact는 다른 탭이다. CDP는 page를 바깥에서 다루는 것이라 봉한 규칙(network, scheme, CSP)은 그대로다. 사람이 연 artifact 탭은 core의 표에 없어 다루지 못한다.
 23. **artifact IPC는 desktop 창의 shell renderer에서 온 요청만 받는다.** 요청마다 sender가 살아 있는 desktop 창의 main frame인지, 입력이 schema에 맞는지 본다. 창은 sender에서 main이 정한다. view를 열 수 있는 것은 이 길뿐이고 page(guest)는 부르지 못한다.
 
@@ -92,7 +93,7 @@ agent의 결과가 사람에게 가는 길이 대화 글, 파일, 앱 화면뿐�
 - 봉한 scheme: `lophn-artifact://<host>/<path>`, GET·HEAD. 가상 file `data/_entries.json`, `_lophn/kit.js`, `_lophn/kit.css`, `data/_instance.json`(instance view).
 - annotation: `annotations.send`의 target `{kind: "artifact", project | app, name}` 또는 `{kind: "file", project}`. 읽기는 `annotations.get`과 `image.read "annotation:<id>"`다(`architecture/annotation.md`).
 - 대화 글 link: 이 창 workspace의 `…/projects/<prj>/artifacts/<name>` 또는 `…/apps/<app>/artifacts/<name>` 꼴 path 조각이 그 workspace의 아는 artifact를 가리킬 때 link가 된다. 글 끝 구두점은 뺀다. 목록에 아직 없는 이름이 글에 나오면 목록을 이름당 한 번 다시 읽는다.
-- 탭 진입: 대화 link, project sidebar Artifacts, 파일 열기의 `.html`(Home에서는 문서 탭으로 열린다. artifact 탭은 project의 파일로만 열린다), workflow 탭의 [Open artifact]다. 탭 머리 줄에는 [Edit source](입구나 `.html` 원본을 text 편집기로)와 Annotate가 있고 Annotate가 켜지면 머리 줄 전체가 Annotate 줄이 된다. card 밖(floated)에서는 ⋯ 메뉴가 없어 탭 자기 toolbar에 단추를 둔다.
+- 탭 진입: 대화 link, project sidebar Artifacts, 파일 열기의 `.html`(Home에서는 문서 탭으로 열린다. artifact 탭은 project의 파일로만 열린다), workflow 탭의 [Open artifact]다. 탭 머리 줄에는 [Edit source](입구나 `.html` 원본을 text 편집기로)와 Annotate(⋯ 메뉴)가 있고, 그 뒤에 page가 올린 머리 줄(경로 첫 칸은 page 제목, 탭·상태·단추·메뉴)이 앱 화면 탭과 같은 모양으로 붙는다. Annotate가 켜지면 머리 줄 전체가 Annotate 줄이 된다. card 밖(floated)에서는 ⋯ 메뉴가 없어 탭 자기 toolbar에 단추를 두고, page는 shown=false를 받아 자기 조작을 스스로 그린다.
 - 저장 모양: layout의 artifact 탭 source(위 "탭"). 이 문서가 새로 정하는 저장 file은 없다.
 - 관련 문서: `architecture/annotation.md`(target과 받는 쪽), `architecture/workflow.md`(workflow artifact), `architecture/ui-kit.md`(kit), `architecture/workspace-layout.md`(`<webview>` 그릇), `architecture/appearance.md`(lophn-artifact 문서에 token 전체와 appearance CSS를 주입한다).
 
@@ -110,12 +111,13 @@ agent의 결과가 사람에게 가는 길이 대화 글, 파일, 앱 화면뿐�
 - **Annotate는 탭의 머리 줄(⋯ 메뉴)에 둔다.** 이유: 화면 위를 덮는 목록과 toast는 그 밑의 요소를 가렸다. 앱 화면 탭과 같은 기능이라 같이 옮겼다. (agent)
 - **navigation 판단을 `will-frame-navigate`에 둔다.** 이유: Electron 44에서 `will-navigate`는 오지 않아 link가 아무 일도 하지 않았다. artifact 탭을 손으로 확인하다 찾았다.
 - **artifact는 그릇 자리에 있다(agent, 2026-11-03).** 처음에는 domain 폴더(`<data>/domains/<dom>/artifacts/`)에 있었다. domain을 지우며 data step `artifacts.container`가 옮긴다. 그릇마다 domain 이름 순으로 옮기고, 이름이 겹치면 뒤 domain의 것이 `<name>-<domain 이름>`이 된다. 그 이름도 있으면 옮기지 않는다(덮어쓰지 않는다). 같은 step이 그 artifact의 rewind 기록(옛 root `…/domains/<dom>` + `artifacts/<name>/…`와 `…/domains/<dom>/artifacts` + `<name>/…` 두 꼴)을 새 꼴(root `<그릇 자리>/artifacts`, path `<최종 이름>/…`)로 다시 써, 옛 checkpoint를 되돌려도 새 자리의 그 artifact에 쓰게 하고, workspace layout의 artifact 탭도 새 신원으로 다시 쓴다. 옮기기 전에 계획을 다 세우고 기록과 layout을 먼저 써서, 중간에 끊겨 다시 돌아도 같은 이름이 된다.
+- **artifact도 앱처럼 kit 전체와 탭 머리 줄을 쓴다(사람, 2026-11-10).** kit이 node 그림 하나뿐이고 머리 줄 통로가 없어, agent가 header·탭·입력을 손으로 짜 lophn 화면과 다른 page가 나왔다. 머리 줄은 renderer와만 오가는 표시라 봉한 규칙(network, scheme, main 호출 없음)을 바꾸지 않는다. 버린 안: page에 쓸 component만 골라 싣기(고르는 일이 끝나지 않고 앱과 갈라진다).
 - **kit 쓰는 법은 skill `write-artifact` 한 곳에 둔다.** 이유: artifact를 쓰는 모든 agent가 받고, 같은 API 설명이 두 곳에 있으면 갈라진다. workflow에만 걸린 것(static·instance artifact, `data/_instance.json`)은 `write-workflow`에 둔다. (agent)
 
 ## 열린 것
 
 - 화면에서 artifact 지우기(roadmap `artifact.md`). 확인 대화상자와, 지우기가 그 폴더 밖을 건드리지 않는다는 위험 test가 먼저다.
 - 인터넷 page(browser 탭)의 annotation은 하지 않는다. transport와 받는 쪽이 정해진 뒤 따로 roadmap을 쓴다.
-- artifact 탭의 page는 workspace를 떠나면 놓인다. page와 host 사이 통로가 없어 "살려 둬" 신호를 켤 수 없다.
+- artifact 탭의 page는 workspace를 떠나면 놓인다. 머리 줄 통로는 생겼지만 살려 두기 신호는 열지 않았다.
 - sidebar Artifacts 목록은 project에만 있다. 앱의 artifact는 대화 link로만 연다.
 - sidebar 목록은 탭이 그려질 때 한 번 읽고 폴더 변경을 따라가지 않는다(다시 보일 때 읽는다).

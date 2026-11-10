@@ -10,8 +10,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const screens = ["desktop", "overlay", "secret-input"];
 
 // CSS Modules는 local-css, 나머지 CSS는 css, woff2는 file로 읽고 svg는 currentColor가 둘레 글자 색을
-// 따르게 inline으로 그린다.
-function assetPlugin(): esbuild.Plugin {
+// 따르게 inline으로 그린다. artifact kit은 봉한 scheme이 kit.js·kit.css 둘만 주므로 글꼴도 CSS 안에 싣는다.
+function assetPlugin(inlineFonts = false): esbuild.Plugin {
   return {
     name: "renderer-assets",
     setup(build) {
@@ -23,7 +23,9 @@ function assetPlugin(): esbuild.Plugin {
             ? "local-css"
             : args.path.endsWith(".css")
               ? "css"
-              : "file";
+              : inlineFonts
+                ? "dataurl"
+                : "file";
         return {
           contents: await readFile(args.path),
           loader,
@@ -41,6 +43,7 @@ const entries: readonly {
   format: esbuild.Format;
   splitting?: boolean;
   chunkNames?: string;
+  inlineFonts?: boolean;
 }[] = [
   ...screens.map((name) => ({
     in: join(name, "entry.tsx"),
@@ -55,6 +58,7 @@ const entries: readonly {
     out: "entry",
     dir: "artifact-kit",
     format: "iife",
+    inlineFonts: true,
   },
   {
     in: join("highlight", "worker.ts"),
@@ -94,7 +98,7 @@ async function build(outdir = join(here, "dist")): Promise<void> {
       define: {
         "import.meta.env.DEV": String(process.env.LOPHN_RENDERER_DEV === "1"),
       },
-      plugins: [assetPlugin()],
+      plugins: [assetPlugin(entry.inlineFonts)],
     });
   }
   // 첫 창은 lophn-shell://desktop/index.html로 연다. 문구가 없는 정적 html이다.

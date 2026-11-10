@@ -38,7 +38,7 @@ design (package @lophn/ui)       범용 kit. 사용자 앱도 그대로 쓸 만�
         │ 판 고정 사본(npm file: 의존)
         └────────────▶ 사용자 앱 화면          @lophn/ui/<분류>로 import
 app-ui (package @lophn/app-ui)   앱 bridge를 쓰는 UI만: tool 호출 단추, 호출 hook, place hook, 오류 경계
-artifact kit                     판 고정 browser build 하나. 전역 LophnKit 하나
+artifact kit                     판 고정 browser build 하나. 전역 LophnKit 하나(kit 전체, React, 머리 줄 hook)
 gallery                          사람이 보고 승인하는 곳. 실제 component를 import만 한다
 ```
 
@@ -94,7 +94,7 @@ component는 분류 폴더 하나 안에 있고(tsx, module CSS, 보조 file), �
 11. 앱을 고치는 agent는 `package.read @lophn/ui` 한 번으로 모든 분류의 이름과 "언제 쓰나" 줄을 받는다. props 정의가 예산 때문에 밀려도 분류가 사라지지 않는다.
 12. SDK 판을 올리면 메모를 같이 쓴다. 지금 판과 하한의 메모, 하한이 판보다 높지 않은 것, 메모 사슬이 check에서 맞아야 한다.
 13. 앱마다 SDK 알림 줄을 두지 않는다. 앱 없는 program 줄 하나가 숲의 입구다.
-14. artifact kit의 전역은 하나(`LophnKit.renderGraph`)이고 token은 artifact 문서에 appearance가 이미 넣은 것을 쓴다. 판은 repo의 lock이 잠근 그대로다.
+14. artifact kit의 전역은 하나(`LophnKit`)이고 앱이 `@lophn/ui/<분류>`로 받는 분류 8개를 그대로 싣는다(`LophnKit.ui.<분류>`). token은 artifact 문서에 appearance가 이미 넣은 것을 쓴다. 판은 repo의 lock이 잠근 그대로이고 artifact는 판을 고정하지 않는다: lophn이 kit을 바꾸면 이미 쓴 artifact도 따라 바뀐다.
 
 ## 경계와 계약
 
@@ -134,8 +134,8 @@ component는 분류 폴더 하나 안에 있고(tsx, module CSS, 보조 file), �
 
 봉한 artifact view는 module을 import하지 못하고 바깥 library도 받지 못한다(`architecture/artifact.md`). 그래서 kit을 판을 고정한 browser build 하나로 묶어 가상 path로 준다. 사용자 앱의 `.lophn/sdk` 사본과 상관없는 길이다.
 
-1. 제품 build가 renderer 화면 셋과 함께 artifact kit entry를 IIFE로 묶어 `entry.js`와 `entry.css`를 낸다. minify하지 않는다(CSS Modules의 class 이름이 `.chart_diagram` 꼴로 남는다). `entry.css`에는 component CSS만 있다.
-2. 전역은 `LophnKit.renderGraph(element, {nodes, edges, locale?, timeZone?})` 하나다. 같은 element에 다시 부르면 갱신한다. 그 네 칸만 받고 상태 prop(`onRetry`, `empty`)은 entry가 채운다. 다른 component는 내놓지 않는다.
+1. 제품 build가 renderer 화면 셋과 함께 artifact kit entry를 IIFE로 묶어 `entry.js`와 `entry.css`를 낸다. minify하지 않는다(CSS Modules의 class 이름이 `.chart_diagram` 꼴로 남는다). `entry.css`에는 component CSS만 있고(`base.css` 없음), 글꼴(KaTeX)은 data URL로 그 안에 싣는다. 봉한 scheme이 kit file 둘만 주기 때문이다.
+2. 전역은 `LophnKit` 하나다. 칸은 `ui`(분류 8개의 공개 목록 그대로), `React`, `h`(`createElement`), `Fragment`와 흔한 hook, `render(element, node)`(같은 element에 다시 부르면 갱신), `icons`(lucide 전체, 앱이 `lucide-react`에서 받는 이름), `useTabHead(head, handlers)`(`@lophn/app-ui`의 같은 이름 hook과 같은 약속, bridge는 artifact preload의 `lophnTabHead`), `renderGraph(element, {nodes, edges, locale?, timeZone?})`(상태 prop `onRetry`·`empty`를 entry가 채운 GraphDiagram)다. build가 없어 JSX 대신 `h`로 부른다. shell은 sdk를 import하지 못해 `useTabHead`는 entry에 사본이 있다.
 3. shell main의 봉한 scheme이 이 둘을 모든 artifact view에 `_lophn/kit.js`, `_lophn/kit.css`로 준다. artifact HTML은 plain `<script>`와 stylesheet로 부른다. 쓰는 법은 skill `write-artifact`에 있고, workflow artifact에만 걸린 것은 project workspace skill `write-workflow`에 있다.
 
 ### gallery
@@ -172,7 +172,7 @@ check `sdk notes` step은 지금 판과 하한의 메모, 하한이 판보다 �
 - guide 예산은 tool 한 창보다 작은 20 KiB다. props는 분류마다 돌아가며 배분한다. 옛 길은 알파벳 앞 분류가 예산을 다 써서 앱에서 가장 많이 쓰는 `primitives`와 `overlay`가 먼저 사라졌다. 버린 안: props를 guide에서 빼기(13 KiB로 돌아가지만 agent가 props를 모른다). (agent)
 - 창 크기는 tool 결과 상한에서 JSON overhead를 빼서 재고, 넘치면 줄여 다시 재서 escape가 늘어나는 본문도 상한을 넘지 않게 한다. (agent)
 - 화면 지침은 slop을 없애는 원칙만 둔다. 어떤 component를 쓰라고 지시하지 않고 무엇을 쓸지는 앱 agent가 guide에서 찾는다. 설계 절차, kit 찾기, 화면 원칙은 role prompt가 아니라 skill(`design-app`)에 둔다. (사람)
-- kit은 artifact view에 판 고정 IIFE로 준다. kit 쓰는 법은 `write-artifact` 한 곳에 둔다. domain artifact를 쓰는 role이 모두 받고, 같은 API 설명이 두 곳에 있으면 갈라진다. 자기 kind를 가리키는 `ref`는 kind 지도에 edge로 그리지 않고 node의 note에 쓴다(kit은 self-edge 하나로 그림 전체를 오류로 그린다). (agent)
+- kit은 artifact view에 판 고정 IIFE로 주고, 앱과 같은 kit 전체를 싣는다(사람, 2026-11-10). 처음에는 GraphDiagram 하나만 실어 agent가 나머지를 손으로 짰고 화면이 lophn과 달랐다. artifact가 판을 고정하지 않는 것은 받아들인다(한 번 보는 결과물이고 rewind가 있다). kit 쓰는 법은 `write-artifact` 한 곳에 둔다. domain artifact를 쓰는 role이 모두 받고, 같은 API 설명이 두 곳에 있으면 갈라진다. 자기 kind를 가리키는 `ref`는 kind 지도에 edge로 그리지 않고 node의 note에 쓴다(kit은 self-edge 하나로 그림 전체를 오류로 그린다). (agent)
 - GraphDiagram의 되돌아가는 edge는 node 줄 위 여백으로 돌린다(작은 변경). 버린 안: 되돌아가는 edge가 지나는 층에 빈 자리를 두어 그 높이로 지나게 하기(layout 규칙이 늘고 node 위치가 바뀐다). (agent)
 - SDK 판 메모는 skill 하나에 file로 더하고 지우지 않는다. agent는 범위만 읽어 context는 그 앱이 뒤처진 만큼만 커진다. 버린 안: 판마다 skill. (사람)
 - `@lophn/agent` 하한은 1.1.0이다. `agt_` id를 넘긴 1.2.0 앱만 깨지는데 판으로 알 수 없어 1.3.0 메모에 적었다. (agent)

@@ -1,0 +1,20 @@
+id: artifact-full-kit-and-tab-head
+version: 0.23.12
+title: artifact가 앱처럼 kit 전체와 탭 머리 줄을 쓴다
+modules: [packages/shell/renderer, packages/shell/preload, packages/core/agent-workspaces]
+change: |
+  - artifact kit(`_lophn/kit.js`·`kit.css`)이 GraphDiagram 하나가 아니라 `@lophn/ui` 분류 8개 전체와 React를 싣는다. 전역 `LophnKit`에 `ui.<분류>`, `h`, `render`, 흔한 hook, `icons`(lucide), `useTabHead`, 그대로 남은 `renderGraph`가 있다. KaTeX 글꼴은 `kit.css` 안에 data URL로 싣는다.
+  - artifact preload가 앱 화면과 같은 탭 머리 줄 통로(`window.lophnTabHead`의 `setTabHead`·`onTabHead`)를 연다. page가 올린 경로·탭·상태·단추·메뉴를 artifact 탭 머리 줄에 앱 탭과 같은 모양으로 그리고, [Edit source]와 Annotate는 그 앞에 남는다. 통로는 page와 shell renderer 사이만 오가고 main을 부르지 않는다.
+  - 내장 skill `write-artifact`에 kit으로 page를 짓는 법(`lophn package read @lophn/ui`로 props를 보고 `h`로 부른다), 탭 머리 줄, 화면 원칙(제목·header를 다시 그리지 않기, px·색 지어내지 않기, `title` 속성 대신 Tooltip)을 더했다.
+why: |
+  artifact가 받는 kit이 node 그림 하나뿐이고 머리 줄 통로도 지침도 없어서, agent가 header·탭·입력·배지를 손으로 짜 lophn 화면보다 완성도가 크게 떨어지는 page를 냈다. 탭 머리 줄에 이미 있는 제목을 page가 다시 그렸다.
+decisions:
+  - text: >-
+      component를 골라 싣지 않고 앱과 같은 kit 전체를 싣는다. artifact는 판을 고정하지 않아 lophn이 kit을 바꾸면 이미 쓴 artifact도 따라 바뀐다. 버린 안: page에 쓸 component만 골라 싣기.
+    by: person
+  - text: >-
+      artifact에도 탭 머리 줄을 앱과 같은 통로로 연다. renderer와만 오가는 표시라 봉한 규칙을 바꾸지 않는다. 살려 두기 신호와 key 통로는 열지 않는다.
+    by: person
+  - text: >-
+      글꼴은 kit.css 안에 data URL로 싣는다. 버린 안: 봉한 scheme이 `_lophn/` 아래 글꼴 file을 더 주기(scheme의 가상 path가 는다).
+    by: agent

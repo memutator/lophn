@@ -1,6 +1,6 @@
 ---
 name: write-artifact
-description: "Write an artifact: a static HTML page in the artifacts folder of a project or app that shows the person a result on screen. Where it goes, its folder and data, the sealed view and theme tokens."
+description: "Write an artifact: a static HTML page in the artifacts folder of a project or app that shows the person a result on screen. Where it goes, its folder and data, the sealed view, building it with lophn's kit, the tab head and theme tokens."
 ---
 
 # Artifact
@@ -87,21 +87,103 @@ one sentence.
 
 - There is no network. `fetch` reaches only files in the artifact's own folder;
   any outside server is blocked.
-- No external library and no CDN. Scripts, styles and fonts are inline or files
-  in the same folder. If you need a chart, draw it with inline SVG, canvas, or a
-  small script you write into the folder.
+- No external library and no CDN. The one library is lophn's kit (below). Other
+  scripts and styles are inline or files in the same folder. Do not copy a
+  bundle, a framework or fonts into the folder.
 - One file can be at most 4 MiB.
 - Files outside the folder, other artifacts and the person's documents cannot be
   read.
-- The page has no lophn bridge. It cannot run commands or read app data. It shows
-  what is already in the folder.
+- The page cannot run commands or read app data. It shows what is already in
+  the folder. Its only link to lophn is the tab head (below).
+
+## Build the page with the kit
+
+The page is built from the same kit as lophn's own screens and apps, so it looks
+like lophn. `/_lophn/kit.js` gives the whole kit (`@lophn/ui`) and React as one
+global, `LophnKit`. Load it with a plain `<script>` (not a module) and its
+stylesheet:
+
+```html
+<link rel="stylesheet" href="/_lophn/kit.css">
+<script src="/_lophn/kit.js"></script>
+```
+
+- `LophnKit.ui.<category>.<Part>` is the kit. The categories are `primitives`,
+  `input`, `layout`, `navigation`, `data`, `feedback`, `overlay` and `reading`,
+  the same as `@lophn/ui/<category>` in an app. Run `lophn package read
+  @lophn/ui` once before you write the page: it lists every part, when to use
+  it, and its props. Give every required prop: a missing one breaks the whole
+  page, and `lophn browser logs` shows the error.
+- There is no build step, so there is no JSX. Write `h(Part, props, ...children)`
+  with `LophnKit.h` (React's `createElement`). `LophnKit.React` is React, and
+  the common hooks are on `LophnKit` too (`useState`, `useEffect`, `useMemo`,
+  `useRef`, `useCallback`).
+- `LophnKit.render(element, node)` draws into an element; calling it again
+  updates it.
+- `LophnKit.icons.<Name>` is a lucide icon (PascalCase, such as `Folder`), for
+  the `icon` props of the kit.
+- Write a part of your own only when nothing in the kit does the job, and style
+  it with the token variables (below).
+
+```html
+<div id="root"></div>
+<script>
+  const { h, render, useState, useTabHead, ui } = LophnKit;
+  const { StatTile } = ui.data;
+  const { Tabs, TabList, Tab } = ui.navigation;
+  const VIEWS = [{ id: "summary", label: "Summary" }, { id: "months", label: "Months" }];
+
+  function Page({ months }) {
+    const [view, setView] = useState("summary");
+    const inHead = useTabHead({ tabs: { items: VIEWS, selected: view } }, { onTab: setView });
+    return h("main", { className: "page" },
+      inHead ? null : h(Tabs, { value: view, onValueChange: setView },
+        h(TabList, null, VIEWS.map((v) => h(Tab, { key: v.id, value: v.id, size: "sm" }, v.label)))),
+      view === "summary"
+        ? h("div", { className: "tiles" }, months.map((m) =>
+            h(StatTile, { key: m.name, label: m.name, value: m.total, unit: "KRW" })))
+        : h("ul", null, months.map((m) => h("li", { key: m.name }, m.name))));
+  }
+  fetch("data/latest.json").then((r) => r.json())
+    .then((d) => render(document.getElementById("root"), h(Page, d)));
+</script>
+```
+
+## The tab head
+
+lophn draws a head row above the page: its title (from `<title>`), [Edit
+source] and the ⋯ menu. Do not draw your own header, title bar or tab row. Put
+the page's view tabs, a short status and its main actions in lophn's head with
+`LophnKit.useTabHead(head, handlers)`, the same hook as `useTabHead` in an app:
+
+- `head` is `{ crumbs?, status?, tabs?: { items, selected }, actions?, menu? }`.
+  An item is `{ id, label, disabled? }`; an action may add `primary`, `busy`
+  and an `icon` (`refresh`, `add`, `open`, `edit`, `delete`, `copy`, `run`,
+  `stop`, `download`). lophn draws them; `handlers` (`onTab`, `onAction`,
+  `onMenu`) get the id when the person presses one.
+- It returns `true` when lophn draws the head. It returns `false` when the tab
+  floats outside a card or the file is opened outside lophn; only then draw the
+  same tabs yourself, small, with `ui.navigation.Tabs`.
+- Keep the page's state in React. The head is only text and ids.
+
+## Screens without clutter
+
+- lophn already shows the title. Do not repeat it in the page, and do not add a
+  subtitle that restates it.
+- Show what the person needs to judge or act on. No text that explains the
+  page, no decoration.
+- Lay out by the width you get, not by a fixed `max-width`; a tab can be narrow
+  or a whole window.
+- A hover hint is `ui.overlay.Tooltip`, never the HTML `title` attribute.
+- Spacing, type size, corners and color come from the token variables. Do not
+  write `px` values or colors of your own.
 
 ## Appearance
 
 Use lophn's tokens as CSS variables. The page already has them, so it follows
 the person's theme (light or dark, and their appearance settings) without any
-setup. Do not hard-code colors as hex; a hard-coded color stays the same in dark
-mode and looks wrong.
+setup. Kit parts already use them. Do not hard-code colors as hex; a hard-coded
+color stays the same in dark mode and looks wrong.
 
 | Variable                                                                | Use                                      |
 | ----------------------------------------------------------------------- | ---------------------------------------- |
@@ -128,16 +210,11 @@ body {
 }
 ```
 
-## Drawing nodes with the kit
+## Drawing nodes
 
-The kit draws a node diagram. It is the one library the sealed view gives you,
-and it works in a workflow artifact and in a project or app artifact.
-
-- Load it with a plain `<script>` (not a module) and a stylesheet:
-  `<link rel="stylesheet" href="/_lophn/kit.css">` and
-  `<script src="/_lophn/kit.js"></script>`.
-- Call `LophnKit.renderGraph(element, { nodes, edges })`. Calling it again on
-  the same element updates it. The element must be a block with a width that is
+For a node diagram, call `LophnKit.renderGraph(element, { nodes, edges })` (or
+`ui.data.GraphDiagram` inside your React tree). Calling it again on the same
+element updates it. The element must be a block with a width that is
   not 0 (not hidden, not `display: inline`).
 - A node is `{ id, label, status?: { label, tone }, note? }`. `tone` must be one
   of `good`, `warning`, `serious`, `critical`, `neutral`. `note` is a short

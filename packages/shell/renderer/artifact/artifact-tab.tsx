@@ -1,9 +1,9 @@
 // artifact 탭 본문. page 자리에 봉한 `lophn-artifact:` page를 창의 <webview> 그릇으로 그린다.
 // DOM 안에 그려지므로 알림과 annotation 목록은 z-index로 page 위에 겹친다. 폴더가 없으면 view 없이 안내와
-// [Retry]만 그린다. [Edit source]·[Annotate]는 card 머리 줄에 올리고, card 밖(floated 탭, detached 창)이면 본문 위
-// toolbar 한 줄로 그린다. 탭이 Float·Dock으로 다시 mount되면 keeps에서 view를 이어 쓰고, 닫는 일은 보관소의
+// [Retry]만 그린다. page가 올린 머리 줄(탭·상태·단추)과 [Edit source]·[Annotate]는 앱 화면 탭과 같은 길(useAppTabHead)로
+// card 머리 줄에 올리고, card 밖(floated 탭, detached 창)이면 본문 위 toolbar 한 줄로 그린다. 탭이 Float·Dock으로 다시 mount되면 keeps에서 view를 이어 쓰고, 닫는 일은 보관소의
 // 주인(Workspace)이 한다.
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { EmptyState, ErrorState } from "@lophn/ui/feedback";
 import { MenuIcon, Toast } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
@@ -15,6 +15,7 @@ import type {
   LophnArtifactApi,
 } from "../../ipc/artifact.ts";
 import { useAppViews } from "../app-frame/app-views.tsx";
+import { useAppTabHead } from "../app-frame/app-tab-head.tsx";
 import { annotateHead } from "../app-frame/annotate/annotate-head.tsx";
 import { useAnnotate } from "../app-frame/annotate/use-annotate.ts";
 import { STAY, useViewToast } from "../app-frame/annotate/use-view-toast.ts";
@@ -28,7 +29,7 @@ import type { ViewKeeps } from "../app-frame/view-keeps.ts";
 import { useBrowserOverlay } from "../browser/browser-api.tsx";
 import { AgentControlBar } from "../browser/browser-chrome.tsx";
 import { useAgentControl } from "../workspace/use-surface-requests.ts";
-import { useCardHead } from "../shell/card-head.tsx";
+import { CardHeadContext } from "../shell/card-head.tsx";
 import { fileNameOf } from "../editor/model.ts";
 import { artifactIcons, editorIcons } from "../icons/mod.ts";
 import { useAnnotateApi, useArtifactApi } from "./artifact-api.tsx";
@@ -311,32 +312,47 @@ function OpenTab(
         onSend: () => void latest.current.sendAnnotations(),
       })
     : null;
-  // card 안이면 Edit source와 폴더 안내를 card 머리 줄에, Annotate를 ⋯ 메뉴 맨 위에 올린다. 제목은 경로가 이미 보인다.
-  const inCard = useCardHead(
-    annotateBar ?? {
-      actions: (
-        <>
-          {rootNote}
-          {agentBar}
-          <span className={styles.actions} data-artifact-toolbar="">
+  // card 안이면 Edit source와 폴더 안내를 card 머리 줄에, Annotate를 ⋯ 메뉴 맨 위에 올리고 page가 올린 머리 줄을 그 뒤에 둔다.
+  // 경로 첫 칸은 page 제목이다. card 밖이면 page는 shown=false를 받아 자기 조작을 스스로 그린다.
+  const inCard = useContext(CardHeadContext) !== null;
+  useAppTabHead({
+    host: webviews,
+    viewKey: keepKey,
+    enabled: state !== null && !missing && !failed && !crashed,
+    label: title,
+    shellHead: {
+      key: JSON.stringify([
+        ready,
+        annotateOn,
+        folder,
+        count,
+        sending,
+        title,
+        agent?.held,
+        driven,
+      ]),
+      ...(annotateBar ?? {
+        actions: (
+          <>
+            {rootNote}
+            {agentBar}
             {editSource}
-          </span>
-        </>
-      ),
-      menu: {
-        items: [
-          {
-            id: ANNOTATE_ITEM,
-            label: t("artifact.button.annotate"),
-            leading: <MenuIcon icon={editorIcons.edit} />,
-            ...(ready ? {} : { disabled: true }),
-          },
-        ],
-        onSelect: () => latest.current.annotating.setMode(true),
-      },
+          </>
+        ),
+        menu: {
+          items: [
+            {
+              id: ANNOTATE_ITEM,
+              label: t("artifact.button.annotate"),
+              leading: <MenuIcon icon={editorIcons.edit} />,
+              ...(ready ? {} : { disabled: true }),
+            },
+          ],
+          onSelect: () => latest.current.annotating.setMode(true),
+        },
+      }),
     },
-    [ready, annotateOn, folder, count, sending, title, agent?.held, driven],
-  );
+  });
 
   return (
     <div className={styles.tab}>

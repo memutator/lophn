@@ -9,8 +9,6 @@ import type {
   Json,
   LophnApp,
   LophnAppCommands,
-  TabHead,
-  TabHeadEvent,
 } from "../../protocol/shell/app-bridge-types.ts";
 import {
   APP_KEYS_CHANNEL,
@@ -38,10 +36,7 @@ import {
 } from "../ipc/app.ts";
 import { APP_PROJECTS_LIST_CHANNEL } from "../ipc/app-projects.ts";
 import { APP_KEEP_ALIVE_CHANNEL } from "../ipc/app-keep-alive.ts";
-import {
-  APP_TAB_HEAD_CHANNEL,
-  APP_TAB_HEAD_EVENT_CHANNEL,
-} from "../ipc/app-tab-head.ts";
+import { createTabHead } from "./tab-head.ts";
 
 interface AppTransport {
   invoke(channel: string, input: unknown): Promise<unknown>;
@@ -241,21 +236,8 @@ export function createAppTool(
   transport: AppTransport,
   query: string,
 ): LophnApp {
-  // shell이 머리 줄을 그리는지는 page가 받기 시작하기 전에 올 수 있어 여기 쥐고 있다가 새 listener에 준다.
-  let shown = false;
-  const listeners = new Set<(event: TabHeadEvent) => void>();
+  const tabHead = createTabHead(transport);
   const keepAliveKeys = new Set<string>();
-  transport.on(APP_TAB_HEAD_EVENT_CHANNEL, (payload) => {
-    const event = payload as TabHeadEvent;
-    if (event?.type === "shown") shown = event.shown === true;
-    for (const listener of listeners) {
-      try {
-        listener(event);
-      } catch {
-        // 한 listener의 오류가 다른 listener를 막지 않는다. 오류 자체는 main world가 본다.
-      }
-    }
-  });
   const updateListeners = new Set<(session: string, update: unknown) => void>();
   transport.on(APP_AGENT_UPDATE_CHANNEL, (payload) => {
     const { session, update } = payload as {
@@ -270,11 +252,6 @@ export function createAppTool(
       }
     }
   });
-  try {
-    transport.sendToHost(APP_TAB_HEAD_CHANNEL, { hello: true });
-  } catch {
-    // shell 밖이면 머리 줄이 없다.
-  }
   const keys = createAppKeys(transport);
   // 창(window)에서 듣는다. page의 keydown listener보다 먼저 받아야 맞은 key를 page가 받기 전에 삼킬 수 있다.
   // Node 테스트처럼 window가 없으면 듣지 않는다.
@@ -315,13 +292,7 @@ export function createAppTool(
     projects: Object.freeze({
       list: () => result(transport, APP_PROJECTS_LIST_CHANNEL, null),
     }),
-    setTabHead(head: TabHead | null): void {
-      try {
-        transport.sendToHost(APP_TAB_HEAD_CHANNEL, head ?? null);
-      } catch {
-        // 보낼 수 없는 값(함수 등)이면 머리 줄을 바꾸지 않는다.
-      }
-    },
+    setTabHead: tabHead.setTabHead,
     setKeepAlive(active: boolean, key = "default"): void {
       // 앱 코드와 SDK가 각자 key로 켜므로 host에는 "켠 key가 있나"만 올린다.
       if (active === true) keepAliveKeys.add(String(key));
@@ -332,13 +303,7 @@ export function createAppTool(
         // shell 밖이면 살려 둘 곳이 없다.
       }
     },
-    onTabHead(listener: (event: TabHeadEvent) => void): () => void {
-      listeners.add(listener);
-      listener({ type: "shown", shown });
-      return () => {
-        listeners.delete(listener);
-      };
-    },
+    onTabHead: tabHead.onTabHead,
   });
 }
 

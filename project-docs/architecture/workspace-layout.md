@@ -305,7 +305,7 @@ DetachedItem { tab, bounds }
 - 전역 float으로 올린 터미널은 그 project layout에서 빠져, 다른 workspace sidebar가 layout만 보고 아는 coding agent 터미널 표시(`harness`)가 그 동안 보이지 않는다.
 - 다른 workspace의 저장된 layout을 sidebar에서 고친 것은 그 workspace를 다른 창에서 열어 두었으면 그 창이 다음에 저장할 때 덮인다.
 - 살려 둔 page를 놓는 시점은 떠날 때뿐이라 떠난 뒤 소리가 멈추거나 신호를 끈 page도 상한이나 돌아옴까지 남는다.
-- 숨은 agent page의 1px 띠가 창 오른쪽 아래에 점으로 보일 수 있다. page가 사는 동안 계속이다. 확인과 고치는 안은 이슈 `agent-browser-page-dot-visible`이다.
+- 숨은 agent page의 1px 띠가 창 오른쪽 아래에 점으로 보일 수 있다. page가 사는 동안 계속이다. 사람 눈으로는 아직 확인하지 않았다. 설치한 앱에서 보고, 보이면 그때 이슈로 올린다.
 - 최소화하거나 숨긴 창은 그리지 않아 그 창에 있는 agent page의 screenshot이 실패한다(Linux x11에서 쟀다). 사람이 창을 최소화해 둔 채 job이 browser를 쓰면 `unavailable`이다. 열 때 쓰는 창이 없으면 lophn이 보이는 창을 연다. Wayland에서는 `showInactive`가 focus를 가져갈 수 있다. macOS와 Windows는 돌려 보지 않았다. 화면이 없는 Linux는 창을 열 수 없어 browser를 쓸 수 없다.
 - 두 창이 같은 workspace를 mount하면 agent page가 창마다 하나씩 생긴다(이슈 `agent-browser-page-duplicated-across-windows`).
 - 창 닫힘이나 앱 종료 뒤 layout에 남은 agent 탭은 지금 desk의 접힌 float만 mount 때 정리한다. 다른 desk의 것이나 펴진 float, 탭 줄에 있던 것은 사람의 탭으로 남고 열면 다시 load한다.

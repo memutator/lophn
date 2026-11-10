@@ -1632,7 +1632,7 @@ flows:
     unclear:
       - "stale-float-removed는 지금 desk의 접힌 float만 본다. 다른 desk의 것이나 펴진 float, 탭 줄의 agent 탭은 사람의 탭으로 남아 열면 다시 load한다"
       - "같은 workspace를 두 창이 mount하면 page가 창마다 생긴다(이슈 agent-browser-page-duplicated-across-windows)"
-      - "숨은 page의 1px 띠가 창 오른쪽 아래에 점으로 보일 수 있다(이슈 agent-browser-page-dot-visible)"
+      - "숨은 page의 1px 띠가 창 오른쪽 아래에 점으로 보일 수 있다(설치한 앱에서 눈으로 확인한다)"
 
   # ---- agent가 다루는 browser·preview 탭: take control과 기기 emulation ----
   - id: browser-tab-control

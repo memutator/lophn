@@ -8,7 +8,7 @@ change: |
   - page 수명. agent가 연 탭(key `host:<tab>`)의 page는 그 탭을 든 창이 사는 동안, 창이 어느 workspace를 보이든 산다. workspace를 떠날 때 놓지 않고 숨겨 두며 숨은 동안에도 그린다(그릇 오른쪽 아래 1px). 6개 상한(Keep alive)에 세지 않고 창마다 12개 상한을 따로 둔다. guest가 붙은 page만 세고, 가장 오래 쓰지 않은 것(agent의 browser 호출과 bind가 쓴 때)부터 놓는다.
   - 열기. browser 탭의 `tab_open`·`tab_close`는 take하는 아무 shell main이 가져간다. shell main은 그 workspace를 보이는 창, 없으면 가장 최근 일반 창에 보내고, 창은 그 workspace를 mount하지 않았으면 page를 pool에 숨은 항목으로 만들고 자리는 다음 mount로 미룬다(다시 load하지 않는다). `tabs/open --url`은 page가 붙은 뒤(dom-ready)에 답한다. 기한은 10초, 앱을 띄웠으면 30초 하나다. 실패는 `unavailable`과 고정 문장이고 탭이 남지 않는다.
   - 창 열기. 일반 창이 하나도 없으면 shell main이 데스크톱 창을 focus 없이 연다(`showInactive`, 저장한 크기, 최대화하지 않고 저장된 최대화 상태를 덮지 않는다. 최소화하거나 숨기지 않는다).
-  - 앱 띄우기. shell이 없으면 core가 앱을 detached로 띄운다. 새 launch intent `--agent-window`는 앱의 첫 창을 focus 없이 열고, 이미 떠 있는 앱은 창이 없을 때만 같은 창을 연다. browser 탭 열기에만, 그 core를 띄운 쪽(shell main, CLI)이 환경 `LOPHN_LAUNCH_SHELL=1`을 준 core만(시험·boot·E2E가 띄운 core는 아님), 한 번에 하나, 실패(spawn 오류, 30초 안에 shell이 붙지 않음) 뒤 5분은 다시 띄우지 않는다. 앱을 Quit한 뒤에도 띄운다.
+  - 앱 띄우기. shell이 없으면 core가 앱을 detached로 띄운다. 새 launch intent `--agent-window`는 앱의 첫 창을 focus 없이 열고, 이미 떠 있는 앱은 창이 없을 때만 같은 창을 연다. browser 탭 열기에만, 그 core를 띄운 쪽(shell main, CLI)이 환경 `LOPHN_LAUNCH_SHELL=1`을 준 core만(test·boot·E2E가 띄운 core는 아님), 한 번에 하나, 실패(spawn 오류, 30초 안에 shell이 붙지 않음) 뒤 5분은 다시 띄우지 않는다. 앱을 Quit한 뒤에도 띄운다.
   - 사라진 page. 탭 닫기 말고 상한, 창 닫힘으로 page가 없어지면 그 탭은 core 표에서 빠진다(`host/report closed`). 앱이 끝나 알릴 길이 없으면 shell 없이 온 browser 탭 호출이 그 탭을 빼고 답한다. 없는 탭, 닫힌 탭, 남의 탭에 오는 `browser.*`는 같은 고정 `not_found` 한 문장이고 model에 그대로 간다(`unavailable`·`conflict`는 전부터). 마지막 url을 다시 load하지 않는다.
   - layout. 상한으로 놓은 탭은 그 workspace가 mount될 때 layout에서 뺀다. mount할 때 지금 desk의 접힌 float 가운데 page가 없는 agent browser 탭은 사람의 탭이 아니므로 뺀다.
   - state(url, title, loading)와 bind 보고는 창 단위라 workspace가 mount되지 않아도 간다.
@@ -28,10 +28,10 @@ decisions:
     by: agent
   - text: "model에 가는 것은 lophn이 쓴 고정 문장뿐이다. `browser.*`의 `not_found`도 같은 고정 문장(없는 탭, 닫힌 탭, 남의 탭이 같아 존재가 새지 않는다)이라 model에 싣는다."
     by: agent
-  - text: "core가 앱을 띄우는 조건: browser 탭 열기만, 그 core를 띄운 쪽이 `LOPHN_LAUNCH_SHELL=1`을 준 core만, 한 번에 하나, 실패 뒤 5분 쉼. 시험과 개발 환경이 사람 장치에 앱을 띄우지 않게 하려는 제한이다."
+  - text: "core가 앱을 띄우는 조건: browser 탭 열기만, 그 core를 띄운 쪽이 `LOPHN_LAUNCH_SHELL=1`을 준 core만, 한 번에 하나, 실패 뒤 5분 쉼. test와 개발 환경이 사람 장치에 앱을 띄우지 않게 하려는 제한이다."
     by: agent
 follow_up: |
-  - 숨은 page의 1px 띠가 창 오른쪽 아래에 점으로 보일 수 있다(이슈 `agent-browser-page-dot-visible`).
+  - 숨은 page의 1px 띠가 창 오른쪽 아래에 점으로 보일 수 있다(설치한 앱에서 눈으로 확인한다).
   - 두 창이 같은 workspace를 mount하면 agent page가 창마다 생긴다(이슈 `agent-browser-page-duplicated-across-windows`).
   - `tabs/open`은 dom-ready까지 기다려 첫 응답이 기한(10초, 앱을 띄웠으면 30초)보다 늦는 site는 실패한다.
   - 창 닫힘·앱 종료 뒤 layout에 남은 agent 탭은 지금 desk의 접힌 float만 mount 때 정리한다. 다른 desk의 것이나 펴진 float, 탭 줄의 것은 사람의 탭으로 남는다.

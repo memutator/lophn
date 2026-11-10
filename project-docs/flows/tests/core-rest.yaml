@@ -229,7 +229,7 @@ files:
       - host-shell-launch:launched
       - host-shell-launch:not-enabled
       - host-shell-launch:spawn-failed
-    note: "앱을 띄우는 명령은 개발(build한 shell entry 필요)과 설치본(실행 file만)이 다르고 ELECTRON_RUN_AS_NODE를 빼고 --agent-window를 붙인다. 켜지 않은 core(시험, boot)와 build하지 않은 개발 저장소는 launcher가 없고 spawn 오류는 알린다. 시험·boot가 띄운 core가 사람 장치에 앱을 띄우면 안 되어서다"
+    note: "앱을 띄우는 명령은 개발(build한 shell entry 필요)과 설치본(실행 file만)이 다르고 ELECTRON_RUN_AS_NODE를 빼고 --agent-window를 붙인다. 켜지 않은 core(test, boot)와 build하지 않은 개발 저장소는 launcher가 없고 spawn 오류는 알린다. test·boot가 띄운 core가 사람 장치에 앱을 띄우면 안 되어서다"
 
   - path: packages/core/main/daemon/wiring/host-queue_test.ts
     covers:

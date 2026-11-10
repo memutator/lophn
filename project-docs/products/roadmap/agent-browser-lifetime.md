@@ -56,8 +56,8 @@
 1. **수명.** (구현) agent가 연 page는 탭이 닫히거나, 그 page가 든 창이 닫히거나, 창마다 12개 상한에서 가장 오래 쓰지 않은 것으로 밀릴 때까지 산다. 그 창이 어느 workspace를 띄웠는지, 사람이 다른 workspace로 갔는지는 상관없다. idle 기한은 두지 않았다. 창이 닫히거나 앱을 Quit하면 page와 함께 탭도 core 표에서 빠지고, 마지막 url을 다시 load하지 않는다(agent가 다시 연다). 처음 안은 탭이 남고 다음 호출이 창을 다시 열어 url을 다시 load하는 것이었는데 "page가 없으면 탭이 없다"로 줄였다.
 2. **그릇.** 사람 화면과 상관없이, 창이 하나도 없어도 page가 살 자리(정할 것 A).
 3. **core가 shell을 띄운다.** (구현) `tab open --url`이 shell이 붙어 있지 않을 때 오면 core가 앱을 `--agent-window` intent로 띄우고, 앱은 첫 창을 focus 없이 연다. 이미 떠 있는 앱에는 창이 하나도 없을 때만 같은 창을 연다. agent page는 그 창의 창 단위 그릇에 산다. 사람이 나중에 lophn을 쓰면 그 창이 평소의 창이다. 같은 partition이라 사람이 해 둔 로그인이 이어진다.
-   - 의존 방향이 새로 생겼다(core → shell). 명령은 인자로 받지 않고 core가 자기 platform 배치에서 정한다(설치본은 core를 띄운 Electron 실행 file, 개발은 build한 shell entry를 더한다). 띄우기는 주입하는 port라 시험은 fake를 쓴다.
-   - 사람이 쓰는 core를 띄운 쪽(shell main, CLI)이 `LOPHN_LAUNCH_SHELL=1`을 준 core만 띄운다. 시험·boot·E2E가 띄운 core는 앱을 띄우지 않는다. 한 번에 하나만 띄우고(같이 온 열기는 그 시도를 함께 기다린다) 실패하면(spawn 오류, 30초 안에 shell이 붙지 않음) 5분은 다시 띄우지 않고 바로 실패한다. shell이 붙으면 풀린다.
+   - 의존 방향이 새로 생겼다(core → shell). 명령은 인자로 받지 않고 core가 자기 platform 배치에서 정한다(설치본은 core를 띄운 Electron 실행 file, 개발은 build한 shell entry를 더한다). 띄우기는 주입하는 port라 test는 fake를 쓴다.
+   - 사람이 쓰는 core를 띄운 쪽(shell main, CLI)이 `LOPHN_LAUNCH_SHELL=1`을 준 core만 띄운다. test·boot·E2E가 띄운 core는 앱을 띄우지 않는다. 한 번에 하나만 띄우고(같이 온 열기는 그 시도를 함께 기다린다) 실패하면(spawn 오류, 30초 안에 shell이 붙지 않음) 5분은 다시 띄우지 않고 바로 실패한다. shell이 붙으면 풀린다.
    - `platform.md`의 "Quit 뒤 shell이 core를 저절로 다시 띄우지 않는다"는 명시 stop 뒤의 일이고 이 일은 그 반대 방향(Quit 뒤 core가 shell을 띄움)이다(E에서 정했고 `platform.md`에 적었다). `Stop lophn`(core stop) 뒤에는 띄울 core가 없다.
 4. **열기.** (구현) `tab open --url`은 page가 붙을 때까지(guest의 dom-ready, bind) 기다린 뒤 답한다. 기한은 shell이 붙어 있으면 10초, 앱을 띄웠으면 30초 하나다(앱 시작, 창 열기, page까지). 그 workspace를 띄운 창은 필요 없다. 실패는 `unavailable`과 고정 문장이고 탭이 남지 않는다(shell이 page를 만들었을지 모르면 닫기 요청을 보낸다). 처음 안은 "load가 시작될 때까지만"이었는데 구현은 dom-ready까지 기다린다. 그래서 첫 응답이 기한보다 늦는 site는 실패한다. browser 아닌 target은 전과 같이 `accepted`를 바로 답한다.
 5. **자리.** (구현) "page가 있다"와 "layout에 탭 자리가 있다"를 나눴다. 그 workspace가 지금 mount되어 있으면 지금처럼 `openAt()`이 자리를 정하고, 아니면 다음에 mount될 때 자리를 붙인다. 사람이 돌아오면 접힌 float에 같은 page가 그대로 있다(다시 load하지 않는다).

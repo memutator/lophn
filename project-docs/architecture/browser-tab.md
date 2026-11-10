@@ -167,6 +167,6 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 - **다시 열어 복원한 detached terminal과 host가 죽은 뒤 사람이 다시 시작한 shell은 bridge가 없다.** OS browser로 간다(`workspace-layout.md` 이슈의 terminal 재연결과 함께 풀린다).
 - **detached 창에서 DevTools를 floated 패널로 둘 수 없다.**
 - **실제로 보이는 창에서의 agent 입력·1px·기기 frame은 사람이 아직 보지 않았다(headless Electron으로만 확인).** Windows bridge의 실기 확인도 별도다.
-- **agent page는 보이는 창에서만 그린다.** `<webview>` guest는 화면에 보이는 창(숨기거나 최소화하지 않은)에서만 그린다. 숨기거나 최소화한 창은 그리지 않아 screenshot이 끝나지 않는다(x11에서 쟀다). 다른 창에 덮인 것은 그린다. 창 안에서는 화면에 있거나 1px 띠가 가려지지 않은 것만 믿을 수 있고 완전히 덮거나 viewport 밖에 두면 그리지 않는다. 숨은 page의 1px 띠는 창 오른쪽 아래에 점으로 보일 수 있다(이슈 `agent-browser-page-dot-visible`). macOS와 Windows는 돌려 보지 않았다. Wayland에서는 focus 없이 연 창이 focus를 가져갈 수 있다. 화면이 없는 Linux는 browser를 쓸 수 없다.
+- **agent page는 보이는 창에서만 그린다.** `<webview>` guest는 화면에 보이는 창(숨기거나 최소화하지 않은)에서만 그린다. 숨기거나 최소화한 창은 그리지 않아 screenshot이 끝나지 않는다(x11에서 쟀다). 다른 창에 덮인 것은 그린다. 창 안에서는 화면에 있거나 1px 띠가 가려지지 않은 것만 믿을 수 있고 완전히 덮거나 viewport 밖에 두면 그리지 않는다. 숨은 page의 1px 띠는 창 오른쪽 아래에 점으로 보일 수 있다(설치한 앱에서 눈으로 확인한다). macOS와 Windows는 돌려 보지 않았다. Wayland에서는 focus 없이 연 창이 focus를 가져갈 수 있다. 화면이 없는 Linux는 browser를 쓸 수 없다.
 - **`tabs/open --url`은 page의 dom-ready까지 기다린다.** 첫 응답이 기한(10초, 앱을 띄웠으면 30초)보다 늦는 site는 실패한다.
 - **emulation은 진짜 폰이 아니다.** iOS는 WebKit이다. 실제 폰은 roadmap `mobile.md`.

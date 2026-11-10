@@ -1,5 +1,5 @@
 id: app-identity-cleanup
-version: 0.23.28
+version: 0.23.30
 title: 앱 이름 바꾸기와 지우기에서 앱을 가리키는 것이 엉뚱한 앱으로 가지 않게 한다
 modules: [packages/core/main, packages/core/apps, packages/core/agent-workspaces, packages/core/lophn-agent, packages/shell/renderer, packages/design]
 change: |

@@ -1,5 +1,5 @@
 id: agent-browser-window-lifetime
-version: 0.23.19
+version: 0.23.20
 title: agent가 연 browser page는 창이 사는 동안 산다. 창이 없으면 창을 열고 앱이 없으면 앱을 띄운다
 modules: [packages/protocol, packages/cli, packages/core/host-queue, packages/core/main, packages/core/lophn-agent, packages/shell/main, packages/shell/renderer, packages/shell/ipc]
 change: |

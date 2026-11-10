@@ -1,5 +1,5 @@
 id: config-surface
-version: 0.23.30
+version: 0.23.33
 title: 설정을 명령과 home의 lophn agent가 바꾸고, 켜진 창이 바로 따라 바뀐다
 modules: [packages/protocol, packages/core/config, packages/core/main, packages/core/agent-workspaces, packages/core/lophn-agent, packages/core/approvals, packages/cli, packages/shell/main, packages/shell/renderer, packages/shell/preload, packages/shell/ipc, tools]
 change: |

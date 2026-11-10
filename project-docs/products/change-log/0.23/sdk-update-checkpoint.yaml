@@ -1,5 +1,5 @@
 id: sdk-update-checkpoint
-version: 0.23.32
+version: 0.23.34
 title: SDK 업데이트의 검토와 맡긴 기능의 진행 상태를 ledger가 안다
 modules: [packages/core/apps, packages/core/main, packages/core/router, packages/core/agent-workspaces, packages/protocol, packages/cli, packages/sdk]
 change: |

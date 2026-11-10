@@ -2,7 +2,7 @@ id: custom-model-info-and-output-cap
 version: 0.3.0
 title: 'custom provider model 정보를 catalog 모양으로 적고, output 상한을 32000으로 올린다'
 modules: [packages/core/lophn-agent, packages/protocol, packages/shell/renderer, packages/design, tools, tests]
-checked: [architecture-layers, architecture-approval, architecture-testing, architecture-eval, architecture-agent-call, architecture-agent-definition, architecture-appearance, architecture-workspace-layout, architecture-ui-kit, context-component-registry, tests-support, tool-e2e, tool-test-live, tool-eval, tool-check-deps, tool-models-snapshot, tool-check, tool-wireframes, tool-worktree-prep, tool-dev, skill-ui-design]
+checked: [architecture-layers, architecture-approval, architecture-testing, architecture-agent-call, architecture-agent-definition, architecture-appearance, architecture-workspace-layout, architecture-ui-kit, context-component-registry, tests-support, tool-e2e, tool-test-live, tool-check-deps, tool-models-snapshot, tool-check, tool-wireframes, tool-worktree-prep, tool-dev, skill-ui-design]
 change: |
   전: custom provider model은 이름뿐이라 effort를 고를 수 없었다. context는 131072, 입력은 text, 가격은 모름으로 돌았다. OpenAI 계열 호출은 catalog model도 output 4096에 묶였다.
   후:

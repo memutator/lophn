@@ -84,7 +84,7 @@
    - `plan/context-cache`의 `defer-responses`는 하지 않는다.
 5. **명령 하나가 지금 tool 정의 하나가 들던 것을 든다(agent).**
    - route 목록(credential 상한), effect, display, 기록 이름을 명령마다 둔다.
-   - `tool_calls`에는 `lophn`이 아니라 명령 이름(`release.prepare`)을 적는다. 그래야 기록, eval, 관측의 key가 유지된다.
+   - `tool_calls`에는 `lophn`이 아니라 명령 이름(`release.prepare`)을 적는다. 그래야 기록과 관측의 key가 유지된다.
    - `lophn` 호출 하나에 명령 하나다(`&&`, pipe 없음). idempotency key와 effect가 호출 단위이기 때문이다.
 6. **CLI를 `packages/coding-agent`에서 떼어 독립 package `packages/cli`로 옮기고, 명령 표는 거기 하나만 둔다(사람·agent, 2026-11-01).**
    - CLI는 이제 coding agent 연결 장치가 아니라 lophn이 내놓는 명령 전체의 입구다. lophn agent, coding agent, 사람이 같이 쓴다.
@@ -151,7 +151,6 @@
 1. **명령 표와 `lophn` tool**
    - 내장 tool 37개를 명령으로 옮기고 늦게 싣기를 지운다.
    - 내장 skill 8개와 workspace prompt에 적힌 tool 이름을 고친다. 점 이름이 약 76줄, `ask`/`call` 같은 맨 이름이 약 22곳이다.
-   - eval scenario와 check 약 10개, eval registry 기록을 고친다.
 2. **앱 두 층**
    - 선언(operation + 바깥 명령), SDK(`@lophn/cap-tool`, `@lophn/app-ui`), 화면 호출 경로와 큰 결과, 할당과 Grants 화면, `design-app`, app template, `architecture/app-call.md`를 바꾼다.
    - 앱 tool마다 provider tool을 만들던 `buildAppTools`를 지운다.

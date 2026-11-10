@@ -122,4 +122,4 @@ modules:
 
   - path: tests
     boundary: null
-    notes: harness(loop, wire), core E2E, provider live test, 진짜 model로 판단을 재는 eval(tests/eval)과 그 support·fixture다. 제품 코드는 여기를 import하지 않는다.
+    notes: harness(loop, wire), core E2E, provider live test와 그 support·fixture다. 제품 코드는 여기를 import하지 않는다.

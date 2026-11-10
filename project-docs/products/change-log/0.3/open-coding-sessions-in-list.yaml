@@ -2,7 +2,7 @@ id: open-coding-sessions-in-list
 version: 0.3.0
 title: '열린 coding session이 목록과 모든 창에 보임'
 modules: [packages/core/router, packages/core/main, packages/core/agent-workspaces, packages/protocol, packages/shell/renderer]
-checked: [architecture-eval, architecture-approval, architecture-agent-definition, boundary-catalog]
+checked: [architecture-approval, architecture-agent-definition, boundary-catalog]
 change: |
   전:
   - App Engineer의 `session.list`에 열린 coding session이 없었다. 봉투가 없는 turn(같은 앱의 새 App Engineer session, 사람이 "그 coding agent에게 전해"라고 할 때)에서는 도는 coding agent에게 말을 걸 id를 몰랐다.

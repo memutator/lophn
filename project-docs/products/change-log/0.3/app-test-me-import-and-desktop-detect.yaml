@@ -2,7 +2,7 @@ id: app-test-me-import-and-desktop-detect
 version: 0.3.0
 title: 'app test가 `@me` package import와 바꿀 것 없는 write app-api를 통과시키고, 데스크톱이 harness 감지 결과를 읽고, eval run이 dirty로 남지 않음'
 modules: [packages/shell/main, tests]
-checked: [architecture-coding-agent, architecture-eval]
+checked: [architecture-coding-agent]
 change: |
   전:
   - app test의 의존 확인이 `./sdk/@me/<part>/<version>/`을 읽지 못해, 앱이 낸 package를 선언하고 import한 앱을 "선언하지 않은 의존"으로 떨어뜨렸다.

@@ -16,10 +16,6 @@
       "!.claude",
       "!.dev-data",
       "!project-docs",
-      "!tests/eval/materials",
-      "!tests/eval/registry",
-      "!tests/eval/runs",
-      "!tests/eval/experiments",
       "!**/dist",
       "!**/release",
       "!build"

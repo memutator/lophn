@@ -2,7 +2,7 @@ id: eval-layer-and-17-judgment-cases
 version: 0.3.0
 title: 'eval 층과 판단 case 17개'
 modules: [tests]
-checked: [architecture-eval, architecture-testing, agents-md, tool-check, tool-context-review]
+checked: [architecture-testing, agents-md, tool-check, tool-context-review]
 change: |
   전: 지침과 model이 맡은 일을 맞게 하는지 재는 장치가 없었다. test는 fake model로 계약만 본다.
   후:

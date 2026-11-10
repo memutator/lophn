@@ -66,7 +66,7 @@
    - L1 `cache-tail`: tool 목록이 바뀐 Anthropic session에서 연속 call의 `cache_read_input_tokens`가 앞 call prompt의 대부분이다(지금은 system 층만큼).
    - L2 `cache-ttl`: Claude 구독으로 call 하나. 400이 없고 `cache_creation.ephemeral_1h_input_tokens > 0`이다.
    - L3 `cache-openai`: OpenAI 연속 call의 `cached_tokens > 0`. OpenRouter `anthropic/` model의 두 번째 call `cache_read > 0`.
-   - L4 `defer-responses`: gpt-5.4 이상에서 `tool.load` → `tool_search_call` → 불러온 tool 호출이 한 turn에 돈다. eval scenario 몇 개로 tool 지연 켜기·끄기의 완료율과 input token을 비교한다.
+   - L4 `defer-responses`: gpt-5.4 이상에서 `tool.load` → `tool_search_call` → 불러온 tool 호출이 한 turn에 돈다.
    `cache-tail`과 `cache-openai`는 fake로 요청 모양을 확인하고 합칠 수 있다. L1·L3는 효과를 재는 확인이라 나중에 해도 된다. `cache-ttl`(L2)과 `defer-responses`(L4)는 서버가 받는지 모르므로 확인 전에는 합치지 않는다.
 
 ## 범위 밖

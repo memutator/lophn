@@ -140,7 +140,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - fix task가 merge되면, 같은 길을 쓰는 running worker에게 그 사실을 바로 알리고 commit이 있으면 lead가 그 branch를 rebase한다. worker는 rebase할 수 없어서 옛 base에서 이미 고친 bug를 다시 쫓는다(앱 E2E worker 셋이 한 시간 가까이 그랬다).
 - 같은 기계에서 E2E가 "부하 때문" flake로 보이면 먼저 사용자 단위로 공유하는 자원(`XDG_RUNTIME_DIR` 아래 socket, `/tmp`의 고정 이름)을 의심한다. 앱 start flake 둘이 core끼리 같은 socket 경로를 쓴 제품 bug였다.
 - worker가 test에 기다림이나 우회를 넣어 통과시켰으면(보고의 "무겁게 짠 것") 제품 bug를 가린 것인지 본다. 가렸으면 그 test를 land 전에 fix task로 되돌린다.
-- 권한 분류기는 session마다 그 session에 사람이 직접 한 말만 본다. planner가 전한 사람의 허락("진짜 provider 맘껏 써")은 lead session에서 통하지 않아, `LOPHN_LAND_SKIP_E2E=1 land.sh`("CI Bypass")와 진짜 model eval 명령("Real-World Transactions")이 막혔다. 계획에 이런 일이 있으면 사람이 자리를 비우기 전에 lead session에 직접 말하게 한다. 다른 session에 대신 돌려 달라고 하지 않는다.
+- 권한 분류기는 session마다 그 session에 사람이 직접 한 말만 본다. planner가 전한 사람의 허락("진짜 provider 맘껏 써")은 lead session에서 통하지 않아, `LOPHN_LAND_SKIP_E2E=1 land.sh`("CI Bypass")와 진짜 model을 부르는 명령("Real-World Transactions")이 막혔다. 계획에 이런 일이 있으면 사람이 자리를 비우기 전에 lead session에 직접 말하게 한다. 다른 session에 대신 돌려 달라고 하지 않는다.
 - planner나 lead가 main에서 문서를 바로 고쳐도 `npm run check:full`을 돈다. `npm run check`가 못 보는 문서 fmt로 main이 깨진 일이 있다.
 - 이슈와 문서의 path는 저장소 root부터 쓴다. package 안에서 줄인 path는 docs check가 "없는 path"로 막는다.
 - 층 하나를 지우는 cleanup의 끝남 grep은 이름(type, route, 표)만 잡는다. 그 층만 쓰던 화면 칸은 이름이 달라 남는다(remove-role 뒤 session popover의 "Waiting for a coding agent" 칸과 `queuedCoding` prop이 넘기는 곳 없이 남았다). 지운 층의 화면 문구 key로 한 번 더 grep하고, 그 key를 쓰는 component의 prop을 넘기는 곳이 있는지 본다.

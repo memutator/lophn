@@ -2,7 +2,7 @@ id: workflow-instance-in-core
 version: 0.6.0
 title: "workflow instance를 core에서 돌린다 (화면 전)"
 modules: [packages/protocol, packages/core/workflows, packages/core/router, packages/core/lophn-agent, packages/core/agent-workspaces, packages/core/main, packages/coding-agent, packages/design, packages/shell/main, packages/shell/renderer, tools, tests]
-checked: [tool-check, architecture-testing, architecture-eval, architecture-activation, architecture-app-call, architecture-browser-tab, architecture-appearance, tool-context-review, tool-worktree-prep, tool-e2e, tool-test-live, tool-dev, tests-support, tool-models-snapshot]
+checked: [tool-check, architecture-testing, architecture-activation, architecture-app-call, architecture-browser-tab, architecture-appearance, tool-context-review, tool-worktree-prep, tool-e2e, tool-test-live, tool-dev, tests-support, tool-models-snapshot]
 change: |
   전:
   - 사람과 agent가 step을 넘기며 도는 일을 적을 곳도, 한 번 돌린 것(instance)을 추적할 곳도 없었다.

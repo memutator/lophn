@@ -63,7 +63,7 @@ README "outcome"과 "쪼개는 기준"을 따른다. 조사 review에서 반복�
 
 ## scenario를 쓸 때
 
-README "scenario"를 따른다. 구현(route, 화면 이름)이 아니라 사람의 상황을 쓴다. `has`는 mock data의 근거라 숫자와 이름을 구체적으로 적는다. 그 data를 wireframe에서 쓰게 되면 `tools/wireframes/mock/scenarios/<id>.ts`로 두고(file 이름이 id), scenario의 `has`와 맞춘다. 순수 component 견본의 data는 scenario가 아니다. eval과 잇지 않는다.
+README "scenario"를 따른다. 구현(route, 화면 이름)이 아니라 사람의 상황을 쓴다. `has`는 mock data의 근거라 숫자와 이름을 구체적으로 적는다. 그 data를 wireframe에서 쓰게 되면 `tools/wireframes/mock/scenarios/<id>.ts`로 두고(file 이름이 id), scenario의 `has`와 맞춘다. 순수 component 견본의 data는 scenario가 아니다.
 
 ## test를 고를 때
 

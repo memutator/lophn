@@ -2,7 +2,7 @@ id: claude-antigravity-subscription-oauth
 version: 0.9.0
 title: 'Claude와 Google Antigravity 구독 계정으로 provider를 연결함'
 modules: [packages/protocol, packages/core/lophn-agent, packages/shell/renderer]
-checked: [boundary-catalog, architecture-layers, architecture-testing, tool-e2e, tool-test-live, tool-eval, tool-check-deps, architecture-terminal-agent, architecture-browser-tab, architecture-agent-chat, architecture-artifact, architecture-workspace-layout, architecture-appearance, tool-worktree-prep, tool-dev, skill-ui-design, tool-wireframes]
+checked: [boundary-catalog, architecture-layers, architecture-testing, tool-e2e, tool-test-live, tool-check-deps, architecture-terminal-agent, architecture-browser-tab, architecture-agent-chat, architecture-artifact, architecture-workspace-layout, architecture-appearance, tool-worktree-prep, tool-dev, skill-ui-design, tool-wireframes]
 change: |
   전:
   - 구독 OAuth는 ChatGPT와 SuperGrok뿐이었다. `anthropic` 정의는 API key만 받았고 Google은 API key의 OpenAI 호환 `google-gemini`뿐이었다.

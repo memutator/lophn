@@ -73,7 +73,7 @@ async function appStateOf(core: Core, app: string): Promise<string> {
   }, runtime: ${runtime.state.state}`;
 }
 
-// 앱의 project 이름이다. 그 project workspace를 이름으로 가리키는 쪽(eval 시나리오)이 같은 규칙을 쓴다.
+// 앱의 project 이름이다.
 export const appProjectName = (slug: string) => `${slug}-project`;
 
 // 앱은 project 하나에 묶이므로 사람이 먼저 project를 등록한다. 폴더는 run의 work 아래 `<slug>-project` 하나다.

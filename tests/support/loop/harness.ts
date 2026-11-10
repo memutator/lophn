@@ -120,6 +120,7 @@ export function loopHarness(init: {
             project: "",
             app: "",
             agent: "",
+            files: {},
           },
           skills: [],
           workspace: { text: "", agents: [] },

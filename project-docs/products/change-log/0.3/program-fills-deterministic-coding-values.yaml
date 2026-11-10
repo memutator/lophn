@@ -2,7 +2,7 @@ id: program-fills-deterministic-coding-values
 version: 0.3.0
 title: 'coding agent 길에서 결정적인 것을 program이 함'
 modules: [packages/core/apps, packages/protocol, packages/coding-agent, packages/core/main]
-checked: [architecture-coding-agent, architecture-eval, architecture-testing, architecture-activation, architecture-approval, architecture-annotation]
+checked: [architecture-coding-agent, architecture-testing, architecture-activation, architecture-approval, architecture-annotation]
 change: |
   전: eval의 첫 진짜 run에서 coding agent 길이 막혔다.
   - coding session 행의 flag를 `row.heard === 1`로 읽었는데 SQLite가 bigint를 돌려줘, 모든 coding session이 늘 `unknown`이었다. App Engineer가 coding agent에게 보내는 message도 거절됐다.

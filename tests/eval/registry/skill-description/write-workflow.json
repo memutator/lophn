@@ -1,9 +1,0 @@
-[
-  {
-    "kind": "skill-description",
-    "name": "write-workflow",
-    "n": 1,
-    "hash": "89af129ba85f035051343eab49d598182f79bb54bf5aa1411ff30c0c9c830bed",
-    "content": "Write a workflow: how people and agents pass a job from step to step. Read this skill and write it as it says."
-  }
-]

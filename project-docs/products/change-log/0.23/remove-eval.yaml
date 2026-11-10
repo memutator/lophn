@@ -1,0 +1,15 @@
+id: remove-eval
+version: 0.23.10
+title: eval 체계(tests/eval, eval skill, npm run eval*)를 지웠다
+modules: [tests, tools, packages/core/lophn-agent]
+change: |
+  - `tests/eval`(runner, scenario, materials, registry, runs, experiments, scorecard, judge)과 `npm run eval`·`eval:experiment`·`eval:gate`·`eval:judge`·`eval:scorecard`를 지웠다.
+  - skill `eval-run`·`eval-experiment`, `architecture/eval.md`, `roadmap/eval.md`, context registry의 runner·experimenter role과 eval 조각을 지웠다. testing 문서와 `write-test` skill에서 eval 층을 뺐다.
+  - `npm run dev`의 `LOPHN_DEV_HOME`(eval이 남긴 world를 여는 길)을 지웠다. dev와 doctor는 늘 `.dev-data`를 연다.
+  - turn prompt의 지침 `files`가 필수다. 이름이 없을 때 project를 LOPHN.md로 보던 fallback은 eval 재조립만 썼다.
+why: |
+  사람이 eval 체계 전체를 지우라고 했다.
+decisions:
+  - text: >-
+      eval topic의 이슈와 옛 change-log 항목은 기록이라 남겼다. wireframe mock의 `eval/` 경로, JS `eval`(`eval-declaration.ts`), 내장 skill `write-workflow`의 `eval-loop` 예는 eval 체계가 아니라 두었다.
+    by: agent

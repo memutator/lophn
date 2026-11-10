@@ -2,7 +2,7 @@ id: agent-answer-streams-as-markdown
 version: 0.9.0
 title: 'agent 답이 쓰이는 대로 markdown으로 흐르고, reasoning·tool 제목·일한 시간이 보인다'
 modules: [packages/base, packages/protocol, packages/core/lophn-agent, packages/core/main, packages/core/secrets, packages/core/storage, packages/core/apps, packages/design, packages/shell/main, packages/shell/renderer, tools]
-checked: [architecture-approval, skill-ui-design, skill-write-test, boundary-catalog, architecture-layers, architecture-testing, architecture-eval, architecture-activation, architecture-agent-call, architecture-app-call, architecture-browser-tab, architecture-artifact, architecture-workspace-layout, architecture-agent-definition, tool-check, tool-worktree-prep, tool-e2e, tool-test-live, tool-eval, tool-check-deps, tool-dev, tests-support, tool-models-snapshot]
+checked: [architecture-approval, skill-ui-design, skill-write-test, boundary-catalog, architecture-layers, architecture-testing, architecture-activation, architecture-agent-call, architecture-app-call, architecture-browser-tab, architecture-artifact, architecture-workspace-layout, architecture-agent-definition, tool-check, tool-worktree-prep, tool-e2e, tool-test-live, tool-check-deps, tool-dev, tests-support, tool-models-snapshot]
 change: |
   전:
   - agent 글은 plain text였고 tool call 없는 마지막 답만 저장했다. tool call과 같이 온 글("X를 확인하겠다")은 model 이력에만 들어가 사람은 끝내 보지 못했고, 마지막 답도 turn이 끝나야 보였다.

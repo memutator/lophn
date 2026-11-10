@@ -2,7 +2,7 @@ id: app-test-key-and-examples-fixes
 version: 0.6.0
 title: "진짜 model eval이 찾은 것과 작은 열린 이슈를 고침"
 modules: [packages/core/approvals, packages/core/lophn-agent, packages/core/main, packages/core/diagnostics, packages/core/agent-workspaces, packages/protocol, packages/shell/renderer, tools, tests]
-checked: [tool-e2e, tool-eval]
+checked: [tool-e2e]
 change: |
   전:
   - test runner가 app test 요청의 ledger key와 작업 폴더를 `request_key`만으로 만들었다. 두 coding session이 같은 key(`t-1`)를 보내면 둘째가 `conflict`를 받았고, test control은 그 요청을 log 없이 5초마다 영영 다시 시도했다. coding agent는 시작하지 않는 test를 기다리다 보고 없이 끝났다.

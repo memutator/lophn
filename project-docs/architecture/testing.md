@@ -1,6 +1,6 @@
 # testing
 
-test는 적게 쓰고, 깨지면 정말 곤란한 것만 가장 싼 층에서 본다. 층은 다섯이고 층마다 무엇이 진짜이고 무엇이 가짜인지가 다르다. model provider는 늘 가짜이고, lophn이 만든 것(core, child process, 앱 process)은 진짜를 쓴다. 그 위에 test가 아닌 eval 층이 있다(진짜 model의 판단을 잰다. `project-docs/architecture/eval.md`). helper, 명령, 실행 폴더, case 고르는 규칙 같은 운용은 `.claude/skills/write-test/reference.md`에, 쓸지 말지와 모양은 `.claude/skills/write-test/SKILL.md`에 있다.
+test는 적게 쓰고, 깨지면 정말 곤란한 것만 가장 싼 층에서 본다. 층은 다섯이고 층마다 무엇이 진짜이고 무엇이 가짜인지가 다르다. model provider는 늘 가짜이고, lophn이 만든 것(core, child process, 앱 process)은 진짜를 쓴다. helper, 명령, 실행 폴더, case 고르는 규칙 같은 운용은 `.claude/skills/write-test/reference.md`에, 쓸지 말지와 모양은 `.claude/skills/write-test/SKILL.md`에 있다.
 
 ## 문제
 
@@ -11,7 +11,7 @@ test는 적게 쓰고, 깨지면 정말 곤란한 것만 가장 싼 층에서 �
 ## 목표와 비목표
 
 - 목표: 사용자 data를 잃거나 망가뜨리는 규칙, 권한·secret·sandbox 경계, 두 번 이상 고친 bug를 가장 싼 층에서 결정적으로 본다. process 경계를 건너야만 깨지는 것은 core E2E가 본다. 전체 check는 빠르게 유지한다.
-- 비목표: 화면, 문구, 내부 구현, 이미 다른 test가 보는 동작은 test하지 않는다. model 판단의 품질은 test가 아니라 eval이 잰다. Electron 창 E2E와 coding agent의 실제 PTY는 범위 밖이다. E2E file 수에 상한을 두지 않는다(아래 결정).
+- 비목표: 화면, 문구, 내부 구현, 이미 다른 test가 보는 동작은 test하지 않는다. Electron 창 E2E와 coding agent의 실제 PTY는 범위 밖이다. E2E file 수에 상한을 두지 않는다(아래 결정).
 
 ## 모델
 
@@ -22,7 +22,6 @@ test는 적게 쓰고, 깨지면 정말 곤란한 것만 가장 싼 층에서 �
 | harness wire | provider adapter, 실패 분류, 호출당 idle | 녹화·손 fixture를 `fetch`로 재생 | check |
 | core E2E | core daemon, agent runtime·worker·app child 전부 | HTTP fake server | `npm run e2e`(merge 전, land 전) |
 | provider live | 진짜 provider와 model | 없음 | 사람이 key를 주거나 구독 로그인을 저장했을 때만 |
-| eval (test 아님) | core, 진짜 model(`real` 참가자만), judge(eval을 돌리는 agent의 subagent) | 나머지 참가자는 model 없음 | 사람이 진짜 provider 호출을 허락했을 때만 |
 
 가짜는 셋이고 model이 끼는 자리마다 하나씩이다.
 

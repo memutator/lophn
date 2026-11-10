@@ -2,7 +2,7 @@ id: eval-experiment-judged-by-program
 version: 0.3.0
 title: 'eval experiment: harness 고침을 program이 판정한다'
 modules: [tests]
-checked: [architecture-eval, architecture-testing, tool-eval, skill-orchestrate, context-component-registry]
+checked: [architecture-testing, skill-orchestrate, context-component-registry]
 change: |
   전:
   - harness를 고친 것을 재려면 planner가 run 기록을 보고 다시 돌릴 case를 손으로 고르고, `--trials N`으로 하나씩 돌린 뒤 scorecard를 눈으로 비교했다.

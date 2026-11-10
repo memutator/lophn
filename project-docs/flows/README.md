@@ -164,7 +164,6 @@ scenarios:
 - 필수: `id`, `who`, `situation`, `has`, `expects`, `journeys`. journey의 step을 되풀이하지 않는다. 길은 journey가 말한다.
 - mock data와는 file 이름으로 잇는다: `tools/wireframes/mock/scenarios/<scenario id>.ts`(또는 `.tsx`)가 그 scenario의 고정 data다. text를 훑어 찾지 않는다. `check`는 scenario가 없는 이름의 file을 거절한다. mock이 없는 scenario는 괜찮다(`report`가 센다).
 - 사람이 쓴 글이지 data가 아니다. `has`의 숫자와 이름이 mock과 어긋나면 mock을 scenario에 맞춘다.
-- eval과 잇지 않는다.
 
 ## screen과 frame
 

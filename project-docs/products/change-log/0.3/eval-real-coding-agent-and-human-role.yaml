@@ -2,7 +2,7 @@ id: eval-real-coding-agent-and-human-role
 version: 0.3.0
 title: 'eval에 진짜 coding agent, 사람 역할, 캘린더 단위'
 modules: [tests]
-checked: [architecture-eval, architecture-coding-agent]
+checked: [architecture-coding-agent]
 change: |
   전: eval은 판단 case만 돌렸다. App Engineer가 coding session을 맡겨도 띄울 터미널이 없었고, 사람에게 묻는 `ask`와 허락에 답할 사람도 없었다. 재료는 앱 source, project, context, Operator뿐이었다.
   후:

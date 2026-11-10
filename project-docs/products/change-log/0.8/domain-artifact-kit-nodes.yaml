@@ -2,7 +2,7 @@ id: domain-artifact-kit-nodes
 version: 0.8.0
 title: 'domain artifact에서도 kit으로 node를 그린다'
 modules: [packages/core/agent-workspaces]
-checked: [context-component-registry, architecture-layers, architecture-approval, architecture-eval, architecture-workflow, architecture-agent-definition, architecture-artifact, tool-check-deps]
+checked: [context-component-registry, architecture-layers, architecture-approval, architecture-workflow, architecture-agent-definition, architecture-artifact, tool-check-deps]
 change: |
   전:
   - kit(`_lophn/kit.js`의 `LophnKit.renderGraph`)은 모든 artifact view에 있었지만 쓰는 법은 PM skill `guide-workflows`에만 있었다. domain artifact를 쓰는 App Engineer와 Operator는 kit을 몰랐다.

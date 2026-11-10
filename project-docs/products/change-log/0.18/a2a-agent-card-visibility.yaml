@@ -2,7 +2,7 @@ id: a2a-agent-card-visibility
 version: 0.18.0
 title: "A2A의 명함과 시야: agent가 서로를 고르고, place 정책이 누가 누구를 부를지 정한다"
 modules: [packages/protocol, packages/cli, packages/core/agent-workspaces, packages/core/lophn-agent, packages/core/main, packages/core/router, packages/core/config, packages/core/apps, packages/shell/renderer, packages/design, tests]
-checked: [architecture-layers, architecture-run, architecture-workflow, architecture-eval, architecture-testing, architecture-app-call, architecture-activation, architecture-artifact, tool-eval, tests-support, tool-test-live, tool-models-snapshot]
+checked: [architecture-layers, architecture-run, architecture-workflow, architecture-testing, architecture-app-call, architecture-activation, architecture-artifact, tests-support, tool-test-live, tool-models-snapshot]
 change: |
   전: 부르는 agent는 "Agents you can call"의 이름만 보고 골랐다. 받는 agent가 이미지를 받는지, result로 답할 수 있는지 알 길이 없었고 Router는 무엇이든 보냈다. 어느 place의 agent든 어느 place로든 call을 보낼 수 있었고, 불려서 home에 열린 session은 등록된 모든 project 폴더를 읽었다. bare는 skill을 받지 못했다.
   후:

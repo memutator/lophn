@@ -2,7 +2,7 @@ id: drop-problem-model-app-log-file
 version: 0.6.0
 title: "problem 모델과 reaction 다섯을 지우고, 앱 log를 앱마다 file로 남긴다"
 modules: [packages/coding-agent, packages/core/agent-workspaces, packages/core/approvals, packages/core/apps, packages/core/diagnostics, packages/core/events, packages/core/lophn-agent, packages/core/main, packages/core/projects, packages/core/server, packages/core/storage, packages/core/supervision, packages/design, packages/protocol, packages/sdk, packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer, tools]
-checked: [agents-md, architecture-approval, architecture-eval, architecture-agent-call, architecture-browser-tab, architecture-artifact, architecture-workspace-layout, architecture-ui-kit, architecture-appearance, tool-context-review, tool-lead, tool-worktree-prep, tool-test-live, tool-dev, tool-models-snapshot, skill-ui-design]
+checked: [agents-md, architecture-approval, architecture-agent-call, architecture-browser-tab, architecture-artifact, architecture-workspace-layout, architecture-ui-kit, architecture-appearance, tool-context-review, tool-lead, tool-worktree-prep, tool-test-live, tool-dev, tool-models-snapshot, skill-ui-design]
 change: |
   전:
   - 앱 오류는 problem이 됐다. SDK `reportProblem`, 잡히지 않은 예외, 화면 오류, process crash, 사람의 [Report a problem]이 collector worker를 거쳐 snapshot과 보고 표에 쌓이고, 이름으로 묶여 `open | resolved | ignored` 상태를 가졌다. 열리거나 다시 열리면 reaction이 App Engineer session을 열었다.

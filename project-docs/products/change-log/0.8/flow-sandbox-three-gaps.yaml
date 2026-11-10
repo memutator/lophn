@@ -2,7 +2,7 @@ id: flow-sandbox-three-gaps
 version: 0.8.0
 title: 'flow process sandbox의 틈 셋을 막았다'
 modules: [packages/core/main, packages/sdk, packages/core/agent-workspaces]
-checked: [architecture-layers, architecture-app-call, tool-check-deps, context-component-registry, architecture-approval, architecture-testing, architecture-eval, architecture-activation, architecture-agent-call, architecture-run, architecture-agent-definition, architecture-annotation, architecture-artifact, architecture-ui-kit, tool-e2e, tool-test-live, tool-dev, tests-support, tool-models-snapshot]
+checked: [architecture-layers, architecture-app-call, tool-check-deps, context-component-registry, architecture-approval, architecture-testing, architecture-activation, architecture-agent-call, architecture-run, architecture-agent-definition, architecture-annotation, architecture-artifact, architecture-ui-kit, tool-e2e, tool-test-live, tool-dev, tests-support, tool-models-snapshot]
 change: |
   전:
   - flow process는 workflow 폴더 안 symlink를 따라 폴더 밖을 읽을 수 있었다.

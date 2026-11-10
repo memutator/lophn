@@ -2,7 +2,7 @@ id: defer-hidden-tool-definitions
 version: 0.8.0
 title: 'tool 정의를 늦게 싣는다: 숨긴 tool은 이름만 알리고 `tool.load`로 펼친다'
 modules: [packages/core/agent-workspaces, packages/core/apps, packages/core/jobs, packages/core/lophn-agent, packages/core/main, packages/core/workflows, packages/protocol, tests, tools]
-checked: [agents-md, boundary-catalog, context-component-registry, architecture-layers, architecture-approval, architecture-testing, architecture-eval, architecture-activation, architecture-agent-call, architecture-run, architecture-workflow, architecture-job, architecture-artifact, architecture-ui-kit, tool-lead, tool-test-live, skill-write-test, tool-check-deps, tool-dev, tests-support, tool-models-snapshot]
+checked: [agents-md, boundary-catalog, context-component-registry, architecture-layers, architecture-approval, architecture-testing, architecture-activation, architecture-agent-call, architecture-run, architecture-workflow, architecture-job, architecture-artifact, architecture-ui-kit, tool-lead, tool-test-live, skill-write-test, tool-check-deps, tool-dev, tests-support, tool-models-snapshot]
 change: |
   전:
   - 모든 tool 정의(내장 34~52개, 할당한 앱 tool, 외부 MCP tool)를 첫 요청부터 다 실었다. tool 정의가 role prompt, skill 목록, tool을 합친 고정 부분의 약 80%였다.

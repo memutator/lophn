@@ -3,7 +3,7 @@
 // core는 standalone daemon이다. shell main(Electron)이 없어도 돌고, `npm run dev`는 shell main을,
 // `npm run dev:core`는 core만 직접 띄운다. 둘 다 개발 데이터 root(저장소 안의
 // .dev-data/)를 절대 경로로 만들어 LOPHN_HOME으로 넘긴다. 실제 ~/.lophn은 읽지도 쓰지도
-// 않는다. LOPHN_DEV_HOME을 주면 그 root(eval이 남긴 world)를 열고 fake를 심지 않는다. tests/support/fake-server를 고정 port(기본 7499, LOPHN_DEV_FAKE_PORT)로 띄우고,
+// 않는다. tests/support/fake-server를 고정 port(기본 7499, LOPHN_DEV_FAKE_PORT)로 띄우고,
 // 앱을 띄우기 전에 core를 한 번 띄워 그 주소를 providers/connect로 연결해 둔 뒤 닫는다. 연결은
 // ledger에 남으므로 뒤에 뜨는 core가 시작할 때부터 쓴다. CLI와 shell은 control identify·connect로 붙는다.
 // 사람이 LOPHN_LIVE_PROVIDER=1을 두면 fake를 띄우지도 연결하지도 않는다.
@@ -73,43 +73,6 @@ const DEFAULT_FAKE_PORT = 7499;
  */
 function devDataRoot(root: string): string {
   return `${root}/.dev-data`;
-}
-
-// eval이 남긴 world(`npm run eval -- --keep`)를 데스크톱 앱으로 열 때 그 data root를 절대 경로로 준다.
-const KEPT_HOME = "LOPHN_DEV_HOME";
-
-/**
- * `dev`·`dev:core`가 여는 데이터 root. LOPHN_DEV_HOME이 있으면 그 root이고 없으면 <root>/.dev-data다.
- * 사람의 ~/.lophn과 그 아래는 받지 않는다.
- */
-export function devHomeOf(
-  root: string,
-  env: Record<string, string | undefined>,
-): { ok: true; path: string } | { ok: false; message: string } {
-  const kept = env[KEPT_HOME];
-  if (kept === undefined || kept === "") {
-    return { ok: true, path: devDataRoot(root) };
-  }
-  const path = kept.replace(/[\\/]+$/, "");
-  // Windows 경로(`C:\…`)는 구분자와 대소문자를 가리지 않으므로 견줄 때 맞춘다.
-  const win = /^[A-Za-z]:[\\/]/.test(path);
-  if (!path.startsWith("/") && !win) {
-    return { ok: false, message: `${KEPT_HOME}는 절대 경로여야 한다` };
-  }
-  const key = (text: string) =>
-    win ? text.replaceAll("\\", "/").toLowerCase() : text;
-  for (const home of [env["HOME"], env["USERPROFILE"]]) {
-    if (!home) continue;
-    const real = key(`${home.replace(/[\\/]+$/, "")}/.lophn`);
-    const mine = key(path);
-    if (mine === real || mine.startsWith(`${real}/`)) {
-      return {
-        ok: false,
-        message: `${KEPT_HOME}로 사람의 ~/.lophn을 열지 않는다`,
-      };
-    }
-  }
-  return { ok: true, path };
 }
 
 /** mock 모드 데이터 root. 실행마다 비우고 새로 만든다. */
@@ -404,7 +367,7 @@ export async function removeDataRoot(dataRoot: string): Promise<void> {
 /**
  * `npm run dev`와 `npm run dev:core`의 진행 순서다.
  *
- * 데이터 root(저장소 밖으로 가지 않는다. 예외는 LOPHN_DEV_HOME)를 만들고(0700) → fake server를 고정 port로 띄워
+ * 데이터 root(저장소 밖으로 가지 않는다)를 만들고(0700) → fake server를 고정 port로 띄워
  * (필요할 때만) core에 provider로 연결해 두고 → `dev`는 shell main을, `dev:core`는 core를
  * 띄운다. 띄운 process가 끝난 뒤에 fake server를 닫는다(먼저 닫으면 쓰던 core가 죽은 주소를 본다).
  * shell이 없는데 `dev`를 부르면 이유를 말하고 실패로 끝난다. Ctrl+C·SIGTERM에 띄운 것을 모두 끝낸다.
@@ -436,13 +399,10 @@ async function launch(
   closers: (() => Promise<void>)[],
 ): Promise<{ ok: true } | { ok: false }> {
   const parentEnv = { ...envObject(), ...options.env };
-  const home = devHomeOf(options.root, parentEnv);
-  if (!home.ok) {
-    console.error(`npm run ${mode}: ${home.message}`);
-    return { ok: false };
-  }
-  const kept = mode !== "dev:mock" && home.path !== devDataRoot(options.root);
-  const dataRoot = mode === "dev:mock" ? mockDataRoot(options.root) : home.path;
+  const dataRoot =
+    mode === "dev:mock"
+      ? mockDataRoot(options.root)
+      : devDataRoot(options.root);
   const group = new ProcessGroup();
   const spawn = options.spawn ?? defaultSpawn;
 
@@ -475,8 +435,7 @@ async function launch(
     return { ok: false };
   }
 
-  // 남긴 eval world는 그 run의 provider를 그대로 쓴다. fake를 심으면 world가 바뀐다.
-  if (mode !== "dev:mock" && !kept && parentEnv[LIVE] !== "1") {
+  if (mode !== "dev:mock" && parentEnv[LIVE] !== "1") {
     try {
       const fake = await startDevFake(parentEnv[FAKE_PORT]);
       closers.push(fake.close);

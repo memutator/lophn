@@ -1,7 +1,0 @@
-{
-  "name": "repeat-kind",
-  "n": 1,
-  "question": "In one session a model called the same tool several times with exactly the same input. [REPEATED_CALL] is that tool and input. [TIMELINE] lists the session's tool calls from the first repeat to the last repeat, one per line; repeated calls start with '*' and each line ends with its result. Decide what the model did between the repeats. Verdicts: different_attempts = between the repeats the model changed its approach (a different tool or a different target), or it re-checked something that changes over time, so the same call could have returned a different result; same_mistake = nothing changed between the repeats and each repeat got the same failure or a result with no new information; cannot_tell = the input does not let you decide. The quote must be the part of the input that decided your verdict (for same_mistake, a repeated line; for different_attempts, the line that shows the change).",
-  "verdicts": ["different_attempts", "same_mistake", "cannot_tell"],
-  "pass": ["different_attempts"]
-}

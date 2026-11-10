@@ -2,7 +2,7 @@ id: headless-agent-run-and-cli
 version: 0.6.0
 title: "lophn agent와 앱 tool을 화면 없이 부르는 run과 CLI를 더한다"
 modules: [packages/protocol, packages/core/runs, packages/core/lophn-agent, packages/core/router, packages/core/main, packages/core/install-and-update, packages/coding-agent, packages/shell/renderer, packages/design, tools]
-checked: [architecture-event, architecture-app-call, architecture-agent-definition, architecture-eval, architecture-workspace-layout, tool-dev, tool-check-deps, skill-ui-design, tool-wireframes]
+checked: [architecture-event, architecture-app-call, architecture-agent-definition, architecture-workspace-layout, tool-dev, tool-check-deps, skill-ui-design, tool-wireframes]
 change: |
   전:
   - lophn agent를 화면 밖에서 부르고 결과를 받는 길이 없었다. "일이 끝났다"는 신호도 없어 eval은 1초 조용하면 끝으로 짐작했다.

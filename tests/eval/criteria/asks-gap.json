@@ -1,7 +1,0 @@
-{
-  "name": "asks-gap",
-  "n": 1,
-  "question": "The input has two sections. [HUMAN_REQUEST] is what a human asked an agent for. [QUESTIONS] is what the agent then asked the human before going on. Decide whether the questions ask for something that the request leaves unsaid and that is needed to decide what to build. Verdicts: asks_gap = at least one question asks for a decision the request does not state and that the work needs; asks_irrelevant = the questions only ask about things the request already says, trivial matters, or things unrelated to what to build; cannot_tell = the input does not let you decide. The quote must be the part of the input that decided your verdict (the question that asks the gap, or for asks_irrelevant the request part or question that shows it).",
-  "verdicts": ["asks_gap", "asks_irrelevant", "cannot_tell"],
-  "pass": ["asks_gap"]
-}

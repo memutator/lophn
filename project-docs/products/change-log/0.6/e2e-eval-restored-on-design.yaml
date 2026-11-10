@@ -2,7 +2,7 @@ id: e2e-eval-restored-on-design
 version: 0.6.0
 title: "e2e와 eval을 개편 뒤 설계로 되살려 check와 land에 되돌리고, Agents 탭 Instructions 카드가 LOPHN.md를 읽는다"
 modules: [packages/shell/renderer, packages/shell/ipc, tests, tools]
-checked: [tool-e2e, tool-eval, tool-lead, tool-check, architecture-approval, architecture-activation, architecture-agent-definition, architecture-coding-agent, skill-eval-experiment, worker-prompt, agents-md, architecture-browser-tab, architecture-artifact, architecture-workspace-layout, architecture-appearance, tool-worktree-prep, tool-dev, skill-ui-design, tool-wireframes]
+checked: [tool-e2e, tool-lead, tool-check, architecture-approval, architecture-activation, architecture-agent-definition, architecture-coding-agent, worker-prompt, agents-md, architecture-browser-tab, architecture-artifact, architecture-workspace-layout, architecture-appearance, tool-worktree-prep, tool-dev, skill-ui-design, tool-wireframes]
 change: |
   전:
   - primitive 개편(problem-remove부터 agent-definition까지) 동안 `tests/e2e`, `tests/eval`과 그것만 쓰는 `tests/support`를 check의 type check와 test에서 뺐다(`tools/check.ts`의 `NOT_CHECKED`). land는 `LOPHN_LAND_SKIP_E2E`로 e2e를 건너뛰었다. 앱 e2e와 eval의 켜진 앱 재료는 지운 ticket·coding CLI 길로 앱을 올렸고, 묻는 e2e는 이제 묻지 않는 file 쓰기로 물음을 만들었다.

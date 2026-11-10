@@ -2,7 +2,7 @@ id: callable-agents-without-session
 version: 0.3.0
 title: '부를 수 있는 agent 목록에 session 없는 상대도 싣는다'
 modules: [packages/core/agent-workspaces, packages/core/approvals, packages/protocol]
-checked: [architecture-approval, architecture-agent-call, architecture-eval, architecture-layers]
+checked: [architecture-approval, architecture-agent-call, architecture-layers]
 change: |
   전: place prompt의 "Agents you can call"은 이미 session이 있는 agent만 실었다. 새 world에서는 넘길 상대(그 앱의 App Engineer, 다른 project의 Project Manager, lophn)가 없거나 절 자체가 없어 agent가 call을 하지 않았다(eval O4, A12, A14-other, C9-other).
   후: lophn, 활성 project마다 Project Manager, 활성 앱마다 App Engineer, 정의에 문제가 없는 Operator를 session이 없어도 싣는다. 자기 grant에 `excluded`인 상대는 뺀다. agent가 자기 grant를 읽도록 `GetAgentGrant`에 agent actor를 열었고, 남의 grant는 `forbidden`이다.

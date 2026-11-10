@@ -78,10 +78,8 @@ function shown(root: string, path: string): string {
   return path.startsWith(`${root}/`) ? path.slice(root.length + 1) : path;
 }
 
-// dev가 여는 data root: LOPHN_DEV_HOME이 있으면 그 root, 없으면 <root>/.dev-data(tools/dev.ts와 같다).
+// dev가 여는 data root(tools/dev.ts와 같다).
 function devDataRootOf(ctx: Ctx): string {
-  const kept = ctx.env["LOPHN_DEV_HOME"];
-  if (kept !== undefined && kept !== "") return kept.replace(/\/+$/, "");
   return join(ctx.root, ".dev-data");
 }
 
@@ -342,7 +340,7 @@ export const checks: Check[] = [
       if (exampleText === null) {
         return {
           status: "fail",
-          detail: ".env.example이 없다. eval·test:live가 읽는 key 목록이다",
+          detail: ".env.example이 없다. test:live가 읽는 key 목록이다",
         };
       }
       const example = parseEnvFile(exampleText);
@@ -350,7 +348,7 @@ export const checks: Check[] = [
       if (envText === null) {
         return {
           status: "warn",
-          detail: ".env가 없다(eval·test:live만 읽는다)",
+          detail: ".env가 없다(test:live만 읽는다)",
           fix: {
             command: "cp .env.example .env && chmod 600 .env",
             apply: () => ctx.fs.copyText(examplePath, envPath, 0o600),

@@ -2,7 +2,7 @@ id: agent-team-tabs-extension-tools
 version: 0.22.0
 title: "agent가 팀을 늘리고 탭을 연다, shell extension이 agent의 tool을 낸다"
 modules: [packages/protocol, packages/core/host-queue, packages/core/router, packages/core/approvals, packages/core/lophn-agent, packages/core/agent-workspaces, packages/core/config, packages/core/main, packages/core/storage, packages/cli, packages/coding-agent, packages/shell/main, packages/shell/renderer, packages/design, tools]
-checked: [architecture-layers, architecture-testing, architecture-eval, architecture-activation, architecture-app-call, architecture-package, architecture-app-notice, architecture-run, architecture-workflow, architecture-harness-gui, architecture-terminal-agent, architecture-keybindings, architecture-agent-chat, architecture-artifact, architecture-ui-kit, architecture-appearance, skill-ui-design, context-component-registry, tool-check, tool-context-review, tool-worktree-prep, tool-e2e, tool-test-live, tool-eval, tool-check-deps, tool-dev, tool-package, tool-models-snapshot]
+checked: [architecture-layers, architecture-testing, architecture-activation, architecture-app-call, architecture-package, architecture-app-notice, architecture-run, architecture-workflow, architecture-harness-gui, architecture-terminal-agent, architecture-keybindings, architecture-agent-chat, architecture-artifact, architecture-ui-kit, architecture-appearance, skill-ui-design, context-component-registry, tool-check, tool-context-review, tool-worktree-prep, tool-e2e, tool-test-live, tool-check-deps, tool-dev, tool-package, tool-models-snapshot]
 change: |
   전: agent는 `call.send`로 새 session을 열 수 있었지만 누가 누구를 위해 열었는지 기록이 없어 팀이 없었다. agent는 탭을 열 길이 없었고, harness agent session을 TUI로 여는 화면도 없었다. shell extension은 agent에게 아무것도 주지 못했다.
   후:

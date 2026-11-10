@@ -2,7 +2,7 @@ id: call-body-content-blocks
 version: 0.18.0
 title: "call 본문과 답, 사람 메시지가 content block으로 오가고 이미지는 model에 바로 간다"
 modules: [packages/protocol, packages/cli, packages/core/lophn-agent, packages/core/router, packages/core/main, packages/shell/renderer]
-checked: [architecture-event, architecture-run, architecture-workflow, architecture-agent-chat, architecture-eval, architecture-testing, architecture-approval, architecture-artifact, architecture-coding-agent, architecture-terminal-agent]
+checked: [architecture-event, architecture-run, architecture-workflow, architecture-agent-chat, architecture-testing, architecture-approval, architecture-artifact, architecture-coding-agent, architecture-terminal-agent]
 change: |
   전: call 본문·답(`body`)과 사람 메시지 content는 글뿐이었다. 사람이 붙인 이미지는 `<data>/message-images/<session>/<id>`에 올라가고 글 끝에 `Attached image: open with image.read path "attachment:<id>".` 줄이, 붙인 파일은 `Attached file: <path>` 줄이 붙었다. agent는 `image.read`로 이미지를 열었다. agent는 call에 이미지를 실을 수 없었다.
   후:

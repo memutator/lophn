@@ -23,6 +23,7 @@ test("session 중 memory를 써도 다음 turn의 system prompt bytes가 같고 
           project: "",
           app: "",
           agent: "",
+          files: {},
         },
         memory,
         skills: [],

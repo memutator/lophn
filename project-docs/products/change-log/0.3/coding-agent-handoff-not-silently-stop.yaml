@@ -2,7 +2,7 @@ id: coding-agent-handoff-not-silently-stop
 version: 0.3.0
 title: 'coding agent에 맡긴 일이 조용히 멈추지 않게'
 modules: [packages/core/lophn-agent, packages/core/agent-workspaces, packages/coding-agent, packages/protocol, packages/shell/renderer, packages/design]
-checked: [architecture-eval, architecture-approval, architecture-agent-definition, architecture-workspace-layout]
+checked: [architecture-approval, architecture-agent-definition, architecture-workspace-layout]
 change: |
   전:
   - coding agent가 `lophn message send`로 물으면 App Engineer가 받는 봉투에 답하는 길이 없었다. 글로만 답하면 터미널에 가지 않아 coding agent가 멈췄다. `lophn message send --help`는 `refs (선택, array)`로만 적었다.

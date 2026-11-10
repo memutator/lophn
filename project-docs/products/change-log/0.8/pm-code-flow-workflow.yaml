@@ -2,7 +2,7 @@ id: pm-code-flow-workflow
 version: 0.8.0
 title: 'PM이 쓴 code가 이끄는 flow workflow'
 modules: [packages/protocol, packages/core/workflows, packages/core/runs, packages/core/apps, packages/core/main, packages/core/agent-workspaces, packages/core/jobs, packages/sdk, packages/coding-agent, packages/design, packages/shell/renderer, tools]
-checked: [tool-check, architecture-testing, architecture-eval, architecture-activation, architecture-agent-call, architecture-coding-agent, architecture-annotation, architecture-browser-tab, architecture-artifact, architecture-workspace-layout, architecture-ui-kit, architecture-appearance, tool-context-review, tool-worktree-prep, tool-e2e, tool-test-live, tool-check-deps, tool-dev, tests-support, tool-models-snapshot, skill-ui-design]
+checked: [tool-check, architecture-testing, architecture-activation, architecture-agent-call, architecture-coding-agent, architecture-annotation, architecture-browser-tab, architecture-artifact, architecture-workspace-layout, architecture-ui-kit, architecture-appearance, tool-context-review, tool-worktree-prep, tool-e2e, tool-test-live, tool-check-deps, tool-dev, tests-support, tool-models-snapshot, skill-ui-design]
 change: |
   전:
   - `kind: flow` 선언은 읽혔지만 시작하지 못했다(`problem` `not_agent`, sidebar "Flow · can't be started here").

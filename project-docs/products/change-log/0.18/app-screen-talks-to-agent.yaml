@@ -2,7 +2,7 @@ id: app-screen-talks-to-agent
 version: 0.18.0
 title: "앱 화면이 ACP로 agent와 이야기한다(`@lophn/agent`)"
 modules: [packages/protocol, packages/shell/ipc, packages/shell/preload, packages/shell/main, packages/sdk, packages/core/apps, packages/core/agent-workspaces, tools]
-checked: [architecture-annotation, architecture-ui-kit, architecture-approval, architecture-activation, architecture-testing, architecture-layers, architecture-workflow, architecture-agent-definition, architecture-eval, architecture-artifact, context-component-registry, tool-check, tool-check-deps, tool-doctor, tool-e2e, skill-ui-design]
+checked: [architecture-annotation, architecture-ui-kit, architecture-approval, architecture-activation, architecture-testing, architecture-layers, architecture-workflow, architecture-agent-definition, architecture-artifact, context-component-registry, tool-check, tool-check-deps, tool-doctor, tool-e2e, skill-ui-design]
 change: |
   전: 앱 화면이 lophn에 닿는 길은 `lophnApp`의 넷(operation 호출, 외부 link, 탭 머리 줄 둘)뿐이었다. 앱 화면에서 agent에게 보내는 길도, agent 답을 앱이 받는 길도 없었다.
   후:

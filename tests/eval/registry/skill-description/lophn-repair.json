@@ -1,9 +1,0 @@
-[
-  {
-    "kind": "skill-description",
-    "name": "lophn-repair",
-    "n": 1,
-    "hash": "93cd914059c588e7e9e6f72858bd179371091fbd531ef003e467c3d238e3a83d",
-    "content": "맡겨진 수리 ticket 하나로 lophn 앱의 문제를 고치는 절차. lophn CLI로 ticket 읽기와 claim, 문제 근거 읽기, 수정, release 준비, 실제 테스트와 preview, claim 재확인, release 확인, 결과 보고 순서를 따른다. 맡겨지지 않은 ticket은 claim하지 않고 조사만 요청받으면 수리하지 않는다."
-  }
-]

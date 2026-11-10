@@ -46,7 +46,7 @@ export type TurnPromptInput = {
   tools: readonly PromptTool[];
   // files는 층이 실제로 읽은 파일 이름이다(LOPHN.md, CLAUDE.md, 앱 층은 AGENTS.md). 제목에 쓴다.
   instructions: InstructionTexts & {
-    files?: Partial<Record<InstructionLayerName, string>>;
+    files: Partial<Record<InstructionLayerName, string>>;
   };
   // session 첫 turn에 읽어 고정한 memory 글이다(workspace memory, agent memory 순). 판 비교(basis)에 넣지 않아 notice가
   // 나지 않고, session 안에서는 같은 bytes로 간다. 없거나 빈 글이면 block이 없다.
@@ -102,13 +102,11 @@ const INSTRUCTION_TITLE: Record<InstructionLayerName, string> = {
   agent: "Agent instructions",
 };
 
-// 읽은 파일 이름이 없으면(eval 재조립) project만 LOPHN.md로 본다.
 function titleOf(
   layer: InstructionLayerName,
   input: TurnPromptInput["instructions"],
 ): string {
-  const name =
-    input.files?.[layer] ?? (layer === "project" ? "LOPHN.md" : undefined);
+  const name = input.files[layer];
   return name === undefined
     ? INSTRUCTION_TITLE[layer]
     : `${INSTRUCTION_TITLE[layer]} (${name})`;

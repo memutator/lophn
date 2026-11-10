@@ -1,5 +1,5 @@
 id: browser-fail-reason
-version: 0.23.15
+version: 0.23.19
 title: browser·tab 호출이 실패한 이유를 model이 받는다
 modules: [packages/core/lophn-agent, packages/core/host-queue, packages/core/main, packages/shell/main, packages/cli, packages/core/agent-workspaces, packages/coding-agent]
 change: |

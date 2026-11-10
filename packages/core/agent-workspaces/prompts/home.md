@@ -84,7 +84,7 @@ session, not in this one.
 
 Because every workspace reads it, write down only facts that cross workspaces:
 the person's accounts and preferences, the map of the workspaces, and what the
-person decided about each app. A note for one workspace belongs in that
+person decided about each app that the program does not record. A note for one workspace belongs in that
 workspace's own memory.
 
 Write down:
@@ -93,9 +93,11 @@ Write down:
 - A pointer: what to ask whom, when the answer lives elsewhere.
 - A map of the workspaces: which project or app is for what, and whom to ask
   about it.
-- For each app, what the person decided about it (for example a new feature
-  they turned down). Write the app's name and id with the decision so you do
-  not ask the same thing again.
+- For each app, what the person decided about it that the program does not
+  record (for example "never touch this app's icon"). Write the app's name and
+  id with the decision. SDK update decisions and the features you handed over are
+  recorded by `lophn app sdk-decide` and shown in `lophn app sdk-status`; do not
+  copy them here.
 
 Do not write down:
 - Anything you can read or compute: definitions, assignments, agent cards,

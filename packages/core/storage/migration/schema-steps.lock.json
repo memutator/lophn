@@ -246,5 +246,9 @@
   {
     "id": "apps.packages.release-deleted-owners",
     "sha256": "0df3870dee42995b4fc8b52f2ff32a855e92569f7fa31fd92f40f60356500a4d"
+  },
+  {
+    "id": "apps.sdk-review.tables",
+    "sha256": "6f308a8c454d06f21969d88db721fdcb3ed40b17deaa8de69f1e787551e34610"
   }
 ]

@@ -178,7 +178,10 @@ files:
 
   - path: packages/core/apps/sdk-status/status_test.ts
     covers: [app-sdk-status-read:listed]
-    note: "sdkEntry 판정: 지원 하한보다 낮은 고정은 required, 그 위지만 옛 판이면 available, notes는 고정 판 다음부터 지금 판까지. recordSdkUpdates는 필수·가능 앱 수를 세서 sdk_update_needed 알림 입력을 만들고 필요한 앱이 없으면 기록하지 않음. sdkEntry 판정은 app-sdk-status-read:listed. 알림 입력은 notice-record 쪽"
+    note: "sdkEntry 판정: 지원 하한보다 낮은 고정은 required, 그 위지만 옛 판이면 available, notes는 고정 판 다음부터 지금 판까지, unreviewed는 마지막 결정의 through와 고정 판 가운데 높은 쪽 다음부터. recordSdkUpdates는 필수 앱과 검토하지 않은 메모가 있는 앱 수를 세서 sdk_update_needed 알림 입력을 만들고 필요한 앱이 없으면 기록하지 않음. sdkEntry 판정은 app-sdk-status-read:listed. 알림 입력은 notice-record 쪽"
+  - path: packages/core/apps/sdk-status/commands_test.ts
+    covers: [app-sdk-review-record:recorded, app-sdk-review-record:forbidden, app-sdk-feature:reported, app-sdk-feature:not-found]
+    note: "call이 거절된 update는 review도 feature도 남기지 않고, 받아들여지면 review와 open feature가 남는다. 앱 workspace의 agent는 다른 앱의 기능 결과를 쓰지 못하고(forbidden이나 not_found) 자기 앱의 것은 쓴다. 거절 갈래는 Router가 내는 forbidden"
 
   - path: packages/core/apps/usage/users_test.ts
     covers: [app-usage-read:listed, app-command-call:denied-gate-blocked]

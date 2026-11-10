@@ -71,7 +71,8 @@ import { dataSchemaSteps } from "./data/schema.ts";
 import { BACKUP_BLOB_FIELD } from "./data/blobs.ts";
 import { createDataRecordStore } from "./data/store.ts";
 import { appIcon, appSkills } from "../../protocol/apps/declaration/read.ts";
-import { appSdkStatus } from "../../protocol/apps/sdk-status.ts";
+import { appSdkDecide, appSdkStatus } from "../../protocol/apps/sdk-status.ts";
+import { sdkReviewCommands } from "./sdk-status/commands.ts";
 import {
   appTrayList,
   appTraySet,
@@ -205,6 +206,8 @@ export function createLedgerRegistration(
       runtime.recordStopped,
       runtime.recordUnavailable,
       sdk.registerVersion,
+      sdkReviewCommands.recordReview,
+      sdkReviewCommands.recordFeature,
       data.recordBackup,
       data.recordDataChange,
       data.recordDataRestore,
@@ -240,6 +243,7 @@ export function createLedgerRegistration(
     // invocations·rewind module이 자기 쓰기로 남긴다.
     memoryRoutes: [
       appCallTool,
+      appSdkDecide,
       appTraySet,
       appTrayList,
       appRewind,

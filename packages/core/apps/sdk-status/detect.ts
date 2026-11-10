@@ -4,7 +4,8 @@ import type { AppSdkStatus } from "../../../protocol/apps/sdk-status.ts";
 
 export const SDK_UPDATE_NOTICE_KEY = "sdk_update_needed";
 
-// 앱을 필수(옮겨야 한다)와 가능(필수는 없고 새 SDK 판만 있다)으로 센다. 한 앱은 한 쪽에만 든다.
+// 앱을 필수(옮겨야 한다)와 가능(필수는 없고 아직 검토하지 않은 새 메모가 있다)으로 센다. 한 앱은 한 쪽에만 든다. 그대로 두기로 한 앱은
+// 새 판이 나와도 새 메모가 없으면 세지 않는다.
 export function countSdkUpdates(statuses: readonly AppSdkStatus[]): {
   required: number;
   available: number;
@@ -13,7 +14,7 @@ export function countSdkUpdates(statuses: readonly AppSdkStatus[]): {
   let available = 0;
   for (const status of statuses) {
     if (status.sdks.some((sdk) => sdk.level === "required")) required += 1;
-    else if (status.sdks.some((sdk) => sdk.level === "available"))
+    else if (status.sdks.some((sdk) => sdk.unreviewed.length > 0))
       available += 1;
   }
   return { required, available };

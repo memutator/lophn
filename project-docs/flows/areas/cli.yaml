@@ -231,6 +231,8 @@ links:
   - {entry: "cli:declaration.check", flow: declaration-check}
   - {entry: "cli:app.status", flow: app-runtime-read}
   - {entry: "cli:app.sdk_status", flow: app-sdk-status-read}
+  - {entry: "cli:app.sdk_decide", flow: app-sdk-decide}
+  - {entry: "cli:app.sdk_feature", flow: app-sdk-feature}
   - {entry: "cli:app.logs", flow: app-log-read}
   - {entry: "cli:app.invocations", flow: app-invocation-read}
   - {entry: "cli:browser.read", flow: host-browser-read}

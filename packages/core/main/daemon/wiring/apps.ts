@@ -19,6 +19,7 @@ import {
   packagesBuiltin,
   packagesGuideBody,
 } from "../../../../protocol/apps/mod.ts";
+import { appSdkReviewRecord } from "../../../../protocol/apps/sdk-status.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import type { At } from "../../../../protocol/base/values.ts";
 import type { BusEvent } from "../../../../protocol/events/mod.ts";
@@ -106,6 +107,9 @@ import { NOTICE_TOPIC } from "../../../apps/notices/mod.ts";
 import {
   readSdkStatus,
   recordSdkUpdates,
+  SDK_REVIEW_CONTEXT,
+  sdkDecideHandler,
+  withSdkDecide,
 } from "../../../apps/sdk-status/mod.ts";
 import { BUNDLED_SKILLS_ROOT } from "../../../agent-workspaces/skills/root.ts";
 import { createTray } from "../../../apps/tray/mod.ts";
@@ -147,12 +151,15 @@ export const appsWiring: WiringFactory = () => {
       ...appsOperationPolicies(),
       // 새 앱의 source를 잇는 core 안 machine 자격(registration/source-folder.ts).
       { name: appConnectSource.name, actors: ["machine"], kind: "command" },
+      // SDK 결정을 기록하고 handoff call을 낸다(apps/sdk-status/decide.ts).
+      { name: appSdkReviewRecord.name, actors: ["machine"], kind: "command" },
     ],
     // apps 제어(runtime·logs 덮기, activation)가 ledger 사실을 읽고 기록하는 core 내부 자격 기록.
     records: () => [
       APPS_CONTROL_CONTEXT,
       PACKAGE_PUBLISH_CONTEXT,
       SOURCE_FOLDER_CONTEXT,
+      SDK_REVIEW_CONTEXT,
     ],
     build(ctx) {
       const { runtime } = ctx;
@@ -376,7 +383,14 @@ export const appsWiring: WiringFactory = () => {
           withSourceFolder(
             withAfterCommit(
               withStartInvocation(
-                withReleasePreparation(inner, appsControl.commands),
+                withSdkDecide(
+                  withReleasePreparation(inner, appsControl.commands),
+                  sdkDecideHandler({
+                    ...sdkDeps,
+                    writer: () => ctx.writer,
+                    ids,
+                  }),
+                ),
                 { ledger, sql: link.sql, clock: ctx.clock, ids },
               ),
               // 다른 topic은 router·coding wiring의 applier가 따로 본다.

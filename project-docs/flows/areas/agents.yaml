@@ -741,7 +741,7 @@ flows:
       - 사람이 composer에 /update-apps를 치거나 Inbox 알림에서 부르면 core가 Use the "update-apps" skill for this request.를 사람 메시지로 접수한다
       - agent가 skill.read로 update-apps 본문을 읽는다
       - home이 아니면 선언에 없어 그 turn의 skill 목록에 없어 forbidden으로 막힌다
-      - 본문을 tool 결과로 준다. 앱별 판단과 사람에게 묻기, 고른 앱에 call로 넘기기는 본문이 정한다
+      - 본문을 tool 결과로 준다. 앱별 판단과 사람에게 묻기, 앱마다 결정을 기록하고 맡기는 app.sdk_decide는 본문이 정한다
     outcomes:
       - id: loaded
         observe: [response]

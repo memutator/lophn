@@ -25,10 +25,31 @@ test("a pin below the support floor is required, above it but old is available, 
     "declaration-4.0.0.md",
   ]);
   assert.deepStrictEqual(at("4.0.0").notes, []);
+  // 결정이 없으면 unreviewed는 notes와 같고, 마지막 결정의 through 다음부터만 남는다. through가 고정 판보다 낮으면 고정 판이 이긴다.
+  assert.deepStrictEqual(at("2.1.0").unreviewed, at("2.1.0").notes);
+  const reviewed = (version: string, through: string) =>
+    sdkEntry(
+      { name: "@lophn/declaration", version },
+      installed,
+      notes,
+      "declaration",
+      through,
+    );
+  assert.deepStrictEqual(reviewed("2.1.0", "3.0.0").unreviewed, [
+    "declaration-4.0.0.md",
+  ]);
+  assert.deepStrictEqual(reviewed("3.0.0", "2.0.0").unreviewed, [
+    "declaration-4.0.0.md",
+  ]);
+  assert.deepStrictEqual(reviewed("2.1.0", "4.0.0").unreviewed, []);
 });
 
-test("one app-less row counts required and optional apps, and nothing is recorded when no app needs an update", async () => {
-  const status = (name: string, level: "required" | "available" | "current") =>
+test("one app-less row counts required apps and apps with unreviewed notes, and nothing is recorded when no app needs an update", async () => {
+  const status = (
+    name: string,
+    level: "required" | "available" | "current",
+    unreviewed: string[] = level === "current" ? [] : ["declaration-4.0.0.md"],
+  ) =>
     ({
       app: `app_${name}`,
       name,
@@ -41,6 +62,7 @@ test("one app-less row counts required and optional apps, and nothing is recorde
           supported_from: "4.0.0",
           level,
           notes: [],
+          unreviewed,
         },
       ],
     }) as unknown as AppSdkStatus;
@@ -54,6 +76,8 @@ test("one app-less row counts required and optional apps, and nothing is recorde
       status("Old", "required"),
       status("Older", "required"),
       status("Maybe", "available"),
+      // 그대로 두기로 해서 새 메모가 없는 앱은 새 판이 있어도 세지 않는다.
+      status("Left", "available", []),
       status("Fine", "current"),
     ],
     record,

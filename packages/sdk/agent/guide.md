@@ -71,9 +71,11 @@ import { contextBlock, useAgentSession } from "@lophn/agent";
   handle을 `agent`에 준다. 앱을 짓는 agent의 `design-app` skill이 "앱 안 agent"
   절에 절차를 적는다. lophn 기본 agent를 상대로 쓰지 않는다: 제품 규칙과 tool이
   매 turn마다 실려 느리고 비싸다.
-- 앱을 짓고 옮기는 lophn은 사람이 정한 것(SDK를 올릴지, 어떤 기능을 쓸지)을 자기 memory(`agent.memory`)에
-  적고, 사람에게 다시 묻기 전에 memory부터 본다. 이미 정한 것은 묻지 않는다. 모든 workspace가
-  읽는 global memory(Home이 씀)도 같은 prompt에 실리니, workspace를 건너는 사실은 거기서 먼저 본다.
+- 앱을 짓고 옮기는 lophn은 사람이 그 앱에서 고른 세부(임계값, 단축키)를 자기 memory(`agent.memory`)에
+  적고, 사람에게 다시 묻기 전에 memory부터 본다. 모든 workspace가 읽는 global memory(Home이 씀)도
+  같은 prompt에 실리니, workspace를 건너는 사실은 거기서 먼저 본다. SDK를 올릴지·어떤 기능을 쓸지의
+  결정과 진행은 memory가 아니라 lophn이 기록한다(`lophn app sdk-status`로 읽는다): Home이 넘긴 기능마다
+  결과를 `lophn app sdk-feature`로 낸다.
 - `contextBlock({name, mimeType, text})` — 화면의 context(보고 있는 글, 고른 항목)를
   `resource` block으로 싼다. 같은 `name`이 한 메시지에서 구별되게 짓는다.
 - 꼴은 JSON schema의 부분이다: `type`(object, array, string, number, integer,

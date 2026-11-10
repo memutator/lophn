@@ -6,6 +6,7 @@ import { deleteAnnotations } from "../annotations/retention.ts";
 import { discardBackups } from "../data/discard.ts";
 import { CHANGESET_OWNER_KIND } from "../invocations/changesets.ts";
 import { eraseAppNotices } from "../notices/commands.ts";
+import { eraseAppReviews } from "../sdk-status/review-store.ts";
 import { eraseBlobRefs } from "../../storage/blobs/mod.ts";
 import { withEraseWindow } from "../../storage/ledger/mod.ts";
 
@@ -41,6 +42,7 @@ export function eraseApp(tx: Tx, app: string): Result<void> {
   if (!annotated.ok) return annotated;
   tx.sql.run("DELETE FROM annotation_batches WHERE app = ?", [app]);
   eraseAppNotices(tx, app);
+  eraseAppReviews(tx, app);
   tx.sql.run("UPDATE packages SET owner_app = NULL WHERE owner_app = ?", [app]);
 
   withEraseWindow(tx.sql, WINDOW_TABLES, () => {

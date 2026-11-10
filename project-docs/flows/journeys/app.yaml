@@ -423,9 +423,10 @@ journeys:
       - {do: "home lophn이 update-apps 지침을 읽는다", flow: skill-update-apps:loaded}
       - {do: "앱이 고정한 SDK 판과 지원 하한을 읽는다", flow: app-sdk-status-read:listed}
       - {do: "새 SDK 판의 안내를 읽는다", flow: package-guide-read:ok}
-      - {do: "고른 앱 workspace에 call로 넘긴다", flow: call-send:accepted}
+      - {do: "앱마다 결정을 기록하고 update는 그 앱의 lophn에게 같은 동작으로 맡긴다", flow: app-sdk-decide:recorded}
       - {do: "앱 session이 migrate-sdk 지침을 읽고 코드를 고친다", flow: skill-migrate-sdk:loaded}
       - {do: "고친 코드로 release를 준비한다", flow: release-prepare:prepared}
+      - {do: "앱 lophn이 맡은 기능마다 결과를 낸다", flow: app-sdk-feature:reported}
 
   - id: app-notify-person
     title: "앱이 사람에게 알림을 보내고 tray에 값을 둔다"

@@ -15,6 +15,7 @@ import {
   callCancel,
   callReply,
 } from "../../../../protocol/lophn-agent/calls.ts";
+import { appSdkReviewRecord } from "../../../../protocol/apps/sdk-status.ts";
 import { sendMessage } from "../../../../protocol/lophn-agent/inputs.ts";
 import {
   TEAM_MEMBER_PREAMBLE,
@@ -170,7 +171,8 @@ function createCallBodyPreparer(deps: {
       name === agentCallSend.name ||
       name === callReply.name ||
       name === teamSpawn.name ||
-      name === callsAskOpen.name
+      name === callsAskOpen.name ||
+      name === appSdkReviewRecord.name
     ) {
       // 모양이 틀린 요청은 건드리지 않고 지나가 command의 schema 검사가 거절한다.
       const shaped = contentBlocksSchema.safeParse(

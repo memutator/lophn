@@ -5,6 +5,7 @@
 //   마지막 step이다(assembly.ts의 WIRINGS 순서). 표와 `derived/kinds.sqlite`를 지우고, `domains/` 폴더는 file이 남지 않았을 때만 지운다.
 import { annotationPreviewBundleSchemaSteps } from "../../../apps/annotations/mod.ts";
 import { packagesDeletedOwnerSchemaSteps } from "../../../apps/packages/schema.ts";
+import { sdkReviewSchemaSteps } from "../../../apps/sdk-status/schema.ts";
 import { readdir, rm } from "node:fs/promises";
 import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import type { SchemaStep } from "../../../../protocol/server/mod.ts";
@@ -91,6 +92,7 @@ export const domainsRetireWiring: WiringFactory = () => ({
   schemaStepsAfterTeams: [
     ...annotationPreviewBundleSchemaSteps,
     ...packagesDeletedOwnerSchemaSteps,
+    ...sdkReviewSchemaSteps,
   ],
   dataSteps: [domainsRetireStep],
 });

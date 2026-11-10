@@ -1226,11 +1226,12 @@ flows:
     actor: agent
     entries: [route:apps/sdk_status]
     boundary: [sdk]
-    code: [packages/core/apps/sdk-status/status.ts, packages/core/apps/sdk-status/detect.ts, packages/core/apps/routes.ts]
+    code: [packages/core/apps/sdk-status/status.ts, packages/core/apps/sdk-status/review-store.ts, packages/core/apps/sdk-status/detect.ts, packages/core/apps/routes.ts]
     steps:
       - "보관하지 않고 켜진 release가 있는 앱만 싣는다. agent는 자기 범위의 앱만 본다. 범위 판정이 실패하면 그 앱은 목록에서 빠진다."
       - "앱 bundle 사본의 @lophn/* 고정 판을 지원 하한(lophn.supported_from)과 지금 판에 견준다(required, available, current). 설치된 SDK 부분만 본다."
-      - "migrate-sdk 메모 file 이름은 고정 판 다음부터 지금 판까지 옛것부터 싣는다."
+      - "migrate-sdk 메모 file 이름은 고정 판 다음부터 지금 판까지 옛것부터 싣는다(notes). 마지막 결정(review)의 through와 고정 판 가운데 높은 쪽 다음부터 지금 판까지는 unreviewed로 따로 싣는다."
+      - "앱마다 마지막 결정(decision, 시각, through, update의 판 올리기가 끝났는지(지금 pin과 through를 견줘 계산), 고른 기능과 state·한 줄 사유)를 싣는다. 앞선 결정의 기능이 아직 open이면 같이 싣는다. 결정이 없으면 null이다."
       - "지정한 앱이 범위 밖이면 빈 목록이 아니라 not_found다. 범위 판정 실패도 같은 not_found로 가려진다(routes.ts)."
     outcomes:
       - id: listed
@@ -1251,6 +1252,104 @@ flows:
     unclear:
       - "route가 unavailable을 선언하지만 handler는 내지 않는다. 메인 스레드 sql read라 reader unavailable이 없고, 범위 판정 실패는 목록에서 빠지거나 not_found로 가려진다. 선언을 고칠 곳이다."
       - "bundle 파일 읽기의 예외(readdir·readFile, status.ts)는 Result가 아니라 throw로 올라간다. 어떤 code로 보이는지 확인이 필요하다."
+
+  - id: app-sdk-decide
+    title: "home lophn이 앱 하나의 SDK 업데이트 결정을 기록하고 update면 그 앱의 lophn에게 같은 동작으로 맡긴다"
+    actor: agent
+    entries: [route:apps/sdk_decide]
+    uses: [route:apps/sdk_review_record, route:apps/sdk_status]
+    boundary: [sdk, app-runtime]
+    code: [packages/core/apps/sdk-status/decide.ts, packages/core/apps/sdk-status/status.ts, packages/core/main/daemon/wiring/apps.ts]
+    steps:
+      - "메인 스레드 handler가 입력을 검사하고 호출 agent의 session·turn을 credential에서 읽는다. 앱의 지금 판을 읽어(app-sdk-status-read와 같은 읽기) 보관한 앱과 켜진 release가 없는 앱은 not_found로 닫는다."
+      - "leave는 required SDK가 있는 앱에 낼 수 없고 기능을 달 수 없다. update는 모든 SDK가 지금 판이고 기능도 없으면 낼 수 없다. 기능의 근거 메모는 그 앱의 notes나 unreviewed에 있는 file이어야 한다."
+      - "program이 through(SDK → 지금 판)와 handoff 글(옮길 SDK의 고정 판 → 목표 판과 메모 file, migrate-sdk를 따르라는 글, 기능마다 ID와 제안 글)을 채운다. agent 입력으로 받지 않는다. 기능 ID는 handler가 정한다."
+      - "machine 자격의 internal command(app-sdk-review-record)로 낸다. 글은 call 본문과 같은 길로 redaction과 blob 준비를 거친다."
+    outcomes:
+      - id: recorded
+        when: "leave는 review 한 줄, update는 review와 feature(open)와 handoff call(reply none)이 한 tx에 남는다"
+        observe: [ledger:sdk_reviews, ledger:sdk_features, ledger:agent_calls, response]
+      - id: forbidden
+        code: forbidden
+        when: "agent turn의 credential이 아니다(route actors는 agent)"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "앱이 없거나 보관했거나 켜진 release가 없다"
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력 모양이 틀림, required SDK가 있는 앱의 leave, leave에 기능, 할 일이 없는 update(모든 SDK가 지금 판이고 기능이 없음), 그 앱의 메모가 아닌 근거 메모"
+        observe: [response]
+      - id: handoff-refused
+        when: "handoff call이 거절되거나 배달되지 못했다(call 정책·private 예외, 명함 검사, 받는 곳이 없거나 닫힘). 그 오류가 그대로 돌아가고 review와 feature도 남지 않는다"
+        observe: [response]
+      - id: status-read-failed
+        when: "앱 목록이나 선언 읽기가 실패함"
+        observe: [response]
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/ui-kit.md, architecture/agent-call.md]
+    declared_only: [conflict, unavailable]
+    unclear:
+      - "call 거절은 router가 낸 code가 그대로 온다(forbidden, not_found, conflict, unavailable). 정확한 code 목록은 app-sdk-review-record 쪽이 소유한다."
+
+  - id: app-sdk-review-record
+    title: "core 안 machine이 SDK 결정과 고른 기능, handoff call을 한 tx에 남긴다"
+    actor: system
+    entries: [route:apps/sdk_review_record]
+    boundary: [sdk, app-runtime]
+    code: [packages/core/apps/sdk-status/commands.ts, packages/core/apps/sdk-status/review-store.ts, packages/core/router/commands.ts]
+    steps:
+      - "machine 자격만 받는다. 앱이 없거나 보관했으면 not_found다."
+      - "update면 호출한 home session의 이름으로 그 앱의 lophn에게 reply none call을 Router로 보낸다. call 정책(private 예외 포함)과 명함 검사가 call.send와 같다. call이 거절되거나 배달 실패면 오류를 돌려 tx를 되돌린다."
+      - "call이 닿으면 review(through, call ID)와 feature(처음 state open)를 쓴다. leave는 review만 쓴다."
+    outcomes:
+      - id: recorded
+        observe: [ledger:sdk_reviews, ledger:sdk_features, ledger:agent_calls, response]
+      - id: forbidden
+        code: forbidden
+        when: "machine 자격이 아니다, 또는 Router가 call을 거절한다(call 정책)"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "앱이 없거나 보관했다, 또는 받는 agent·workspace가 풀리지 않는다"
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "update에 본문이 없다, leave에 기능이 있다, 또는 명함이 받지 못하는 본문"
+        observe: [response]
+      - id: handoff-undelivered
+        code: conflict
+        when: "받는 session이 닫혀 있다 등 배달 실패(fail_reason closed). 다른 배달 실패는 unavailable"
+        observe: [response]
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/ui-kit.md, architecture/agent-call.md]
+
+  - id: app-sdk-feature
+    title: "앱 lophn이 home이 넘긴 기능 하나의 결과(done, changed, skipped)와 한 줄 사유를 낸다"
+    actor: agent
+    entries: [route:apps/sdk_feature]
+    boundary: [sdk, app-runtime]
+    code: [packages/core/apps/sdk-status/commands.ts, packages/core/apps/sdk-status/review-store.ts]
+    steps:
+      - "기능이 속한 앱을 찾고 호출한 agent가 그 앱을 다룰 수 있는지 authorizeApp으로 본다. 앱 workspace의 agent는 자기 앱의 기능만 고친다."
+      - "state와 한 줄 사유, 시각을 바꾼다. 처음 state는 open이다."
+    outcomes:
+      - id: reported
+        observe: [ledger:sdk_features, response]
+      - id: not-found
+        code: not_found
+        when: "기능이 없거나, 다른 앱의 기능이거나, 보관한 앱의 기능이다(없는 기능과 같은 답)"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "그 앱을 다룰 자격이 없다(authorizeApp)"
+        observe: [response]
+    crosses_process: false
+    risk: [permission]
+    docs: [architecture/ui-kit.md]
 
   - id: app-screen-file-read
     title: "앱 화면의 bundle 파일 한 개를 내준다"

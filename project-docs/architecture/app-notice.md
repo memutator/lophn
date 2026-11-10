@@ -53,9 +53,9 @@
 | `app_unavailable` | 앱이 사용 불가가 됨(시작 실패, crash loop, 예기치 않은 종료, activation의 복원 실패·종료 확인 불가). 같은 사실의 재전송은 쓰지 않는다 | `app_unavailable`(앱마다 한 줄. 되풀이되면 그 줄을 안 읽음으로 되돌린다) |
 | `app_data_migrated`, `app_data_restored` | 앱 data migration이 적용됨, 백업에서 복원됨. 복원은 새로 기록할 때만 | 없음 |
 | `lophn_updated` | 제품 판이 바뀐 기동(아래 "제품 판 marker") | 없음 |
-| `sdk_update_needed` | 제품 판이나 설치된 SDK 판이 바뀐 기동의 SDK 감지(`architecture/ui-kit.md`의 "SDK 상태 read"와 "SDK 업데이트 감지와 맡기기"). 필수나 가능 SDK가 있는 앱이 하나라도 있을 때 앱 없는 줄 하나 | `sdk_update_needed`(다음 기동이 개수를 새로 쓰고 안 읽음으로 되돌린다) |
+| `sdk_update_needed` | 제품 판이나 설치된 SDK 판이 바뀐 기동의 SDK 감지(`architecture/ui-kit.md`의 "SDK 상태 read"와 "SDK 업데이트 감지와 맡기기"). 필수 SDK가 있거나 아직 검토하지 않은 SDK 메모(`unreviewed`)가 있는 앱이 하나라도 있을 때 앱 없는 줄 하나 | `sdk_update_needed`(다음 기동이 개수를 새로 쓰고 안 읽음으로 되돌린다) |
 
-`sdk_update_needed`의 params는 `{required, available}`(옮겨야 하는 앱 수, 필수는 아니지만 새 판이 있는 앱 수)이고 글은 "SDK updates for your apps" / "3 apps must update, 2 can use new SDK features."이다. action은 `open_home_skill` `update-apps` + 빈 args(전체)다. 앱마다 줄을 만들지 않는 것은 각 앱을 두고 갈지 올릴지(그리고 새 SDK 기능을 쓸지) 숲으로 보는 일이 사람이 아니라 home lophn의 몫이기 때문이다. 앱마다 있던 옛 `sdk_update_needed` 줄(앱 있음)은 program 줄이라 지울 수 없어 남고 단추도 그대로 동작한다.
+`sdk_update_needed`의 params는 `{required, available}`(옮겨야 하는 앱 수, 필수는 아니지만 home이 아직 검토하지 않은 새 메모가 있는 앱 수)이고 글은 "SDK updates for your apps" / "3 apps must update, 2 can use new SDK features."이다. action은 `open_home_skill` `update-apps` + 빈 args(전체)다. 앱마다 줄을 만들지 않는 것은 각 앱을 두고 갈지 올릴지(그리고 새 SDK 기능을 쓸지) 숲으로 보는 일이 사람이 아니라 home lophn의 몫이기 때문이다. 앱마다 있던 옛 `sdk_update_needed` 줄(앱 있음)은 program 줄이라 지울 수 없어 남고 단추도 그대로 동작한다.
 
 release·data·runtime command는 상태를 바꾸는 자기 transaction 안에서 줄을 쓴다. 상태 변경과 줄이 한 commit이라 한쪽만 남지 않고, 응답을 잃은 재전송이 줄을 늘리지 않는다. 이미 commit된 뒤 core 안 다른 곳이 쓸 때는 core 안 machine 자격(`machine:notice-recorder`)으로 `notices.record`를 부른다. 그 길은 transaction 안에서 부르면 안 된다(쓰기 층을 따로 지난다).
 
@@ -164,7 +164,7 @@ Inbox는 탭 둘이다.
 - program 기록은 상태를 바꾸는 command의 transaction 안에서 쓴다. 재전송과 끊김에서 빠지거나 늘지 않는다. (agent)
 - program 줄의 글은 core의 template으로 고정한다. 이유: 앱이 쓴 글이 lophn의 기록처럼 보이는 일을 막는다. (agent)
 - 안 읽은 영구 기록도 sidebar 배지에 센다. 이유: 알림의 목적은 사람이 알게 하는 것이고, SDK 업데이트 같은 놓치면 안 되는 program 기록이 배지에 없어 사람이 몰랐다. 처음에는 "기록은 나중에 찾는 것이고 급한 것은 toast가 맡는다"며 세지 않았으나 뒤집었다. 버린 안: 줄마다 단추를 두고 배지에서 빼는 것. (사람, 2026-11-07)
-- SDK 업데이트 줄은 앱 없이 하나다. 필수와 가능을 한 줄에 세고, 가능만 있어도 쓴다(앱 상세 Version 탭과 별개로 새 기능을 채택할지 판단하게 하려는 것). 이유: 각 앱을 두고 갈지 올릴지, 새 기능을 쓸지 숲으로 보는 일은 사람이 아니라 home lophn의 몫이다. 사람은 SDK 변화가 무엇을 깨고 무엇을 가능하게 했는지 판단하지 못한다. 줄마다 [Ask lophn]이 있으면 home을 거칠 이유가 없다. 버린 안: 앱마다 줄과 단추(0.20.0 첫 모양). 새 kind를 만들지 않고 `sdk_update_needed`를 앱 없이 다시 썼다. (줄 하나·home이 숲을 봄·배지: 사람, 2026-11-07. 가능만 있어도 쓴다: 사람. kind 재사용과 필수·가능 한 줄: agent)
+- SDK 업데이트 줄은 앱 없이 하나다. 필수와 가능을 한 줄에 세고, 가능만 있어도 쓴다(앱 상세 Version 탭과 별개로 새 기능을 채택할지 판단하게 하려는 것). 가능은 "새 판이 있는 앱"이 아니라 "검토하지 않은 새 메모가 있는 앱"이다: home이 그대로 두기로 한 앱이 판이 바뀔 때마다 계속 세어지지 않는다(2026-11-11). 이유: 각 앱을 두고 갈지 올릴지, 새 기능을 쓸지 숲으로 보는 일은 사람이 아니라 home lophn의 몫이다. 사람은 SDK 변화가 무엇을 깨고 무엇을 가능하게 했는지 판단하지 못한다. 줄마다 [Ask lophn]이 있으면 home을 거칠 이유가 없다. 버린 안: 앱마다 줄과 단추(0.20.0 첫 모양). 새 kind를 만들지 않고 `sdk_update_needed`를 앱 없이 다시 썼다. (줄 하나·home이 숲을 봄·배지: 사람, 2026-11-07. 가능만 있어도 쓴다: 사람. kind 재사용과 필수·가능 한 줄: agent)
 - 앱 없는 program 줄 중 `sdk_update_needed`만 toast로 띄운다. (agent)
 - tray 값은 새 SDK package·permission 없이 `@lophn/cap-notify`와 `notify.send`로 내고 core는 memory에만 둔다. 이유: tray 값도 앱이 사람에게 보이는 것이고, 앱 process가 오래 살아 timer로 값을 다시 낼 수 있어 저장이 필요 없다. 새 permission kind를 두지 않았다. (agent)
 - tray는 OS tray가 아니라 lophn 창 안의 것이다. 앱·sidebar panel·전역 float처럼 앱이 채우고 lophn은 자리만 준다. (사람)

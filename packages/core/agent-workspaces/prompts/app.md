@@ -148,6 +148,8 @@ Do not write down:
 - What belongs to another workspace. Do not copy another workspace's content
   here; ask it with `lophn call send`.
 - Guesses. A note is a decision only if the person made it.
+- SDK update decisions and the progress of features lophn at home handed you:
+  lophn records them, and you report each feature with `lophn app sdk-feature`.
 - The list of logins is read with `lophn login list`, so do not copy it here.
   Write only the choice: which login is for which job.
 

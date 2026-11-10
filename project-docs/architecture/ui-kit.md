@@ -72,9 +72,11 @@ component는 분류 폴더 하나 안에 있고(tsx, module CSS, 보조 file), �
 
 앱이 고정한 판과 지금 판의 차이는 read `app.sdk_status {app?}`(`lophn app sdk-status [<앱>]`, home·앱 workspace, 사람·agent·machine)가 낸다. 계약 오류는 `invalid_input`, `unauthorized`, `forbidden`, `not_found`, `unavailable`이다.
 
-- 보관하지 않은 앱 중 켜진 release가 있는 앱마다, 그 release에 봉인된 선언의 `sdk_dependencies`(정확한 판) 가운데 `@lophn/*`를 `{sdk, pinned, current, supported_from, level, notes}`로 싣는다. `current`는 설치 사본의 가장 높은 판이다.
+- 보관하지 않은 앱 중 켜진 release가 있는 앱마다, 그 release에 봉인된 선언의 `sdk_dependencies`(정확한 판) 가운데 `@lophn/*`를 `{sdk, pinned, current, supported_from, level, notes, unreviewed}`로 싣고 앱마다 `review`를 싣는다. `current`는 설치 사본의 가장 높은 판이다.
 - `level`은 `required`(고정 판 < 그 SDK 설치 사본의 `supported_from`), `available`(하한 이상이지만 지금 판보다 옛것), `current`다.
 - `notes`는 `migrate-sdk` 메모 file 이름 가운데 고정 판 다음부터 지금 판까지를 판 순으로 낸 것이다. `Previous:` 사슬을 따르지 않고 file 이름으로 거른다. `current`면 비어 있다.
+- `unreviewed`는 home이 그 앱을 두고 마지막으로 결정한 판(마지막 review의 `through`)과 고정 판 가운데 높은 쪽 다음부터 지금 판까지의 메모다. 결정이 없으면 `notes`와 같다. `notes`는 앱 lophn이 판을 올릴 때 읽는 범위이고 `unreviewed`는 home이 판단할 범위다.
+- `review`는 앱의 마지막 결정이다: `decision`(`leave`·`update`), 시각, `through`(그때의 지금 판, SDK마다), `migrated`(`update`일 때 지금 고정 판이 `through`에 닿았는지. 저장하지 않고 지금 pin과 견줘 계산하고 `leave`면 null), 고른 기능과 state·한 줄 사유. 앞선 결정의 기능이 아직 `open`이면 같이 싣는다(다음 결정이 덮어 조용히 잊히지 않게). 결정이 없으면 null이다.
 - 설치 사본에 없는 SDK 이름은 견줄 수 없어 뺀다.
 - 파일을 읽으므로 reader Worker가 아니라 메인 스레드 read다(`app.icon`·`app.skills`와 같다).
 - 앱 범위와 archived는 다른 앱 read와 같은 `authorizeApp`이 거른다. 앱 workspace의 agent는 자기 앱만 보고, archived 앱은 agent에게 없는 앱(`not_found`)이며 목록에서 빠진다.
@@ -125,10 +127,22 @@ component는 분류 폴더 하나 안에 있고(tsx, module CSS, 보조 file), �
 ### SDK 업데이트 감지와 맡기기
 
 - 감지는 core가 새 제품 판으로 켜질 때, 또는 설치된 SDK 판의 묶음이 지난 기동과 달라졌을 때(제품 판이 같아도) 한 번이다. 설치된 SDK 판 묶음(part → 가장 높은 판)은 제품 판 marker 옆 같은 키 값 표에 적고 기동마다 견준다(`architecture/app-notice.md`의 "제품 판 marker"). 새 표나 data root file은 만들지 않는다.
-- 필수(`required`)나 가능(`available`) SDK가 있는 앱이 하나라도 있으면 앱 없는 program 줄 `sdk_update_needed` 하나를 쓴다. params는 `{required, available}`(옮겨야 하는 앱 수, 필수는 없고 새 판만 있는 앱 수)이고 글은 "3 apps must update, 2 can use new SDK features."꼴이다. 한 앱은 둘 중 한 쪽에만 센다. key가 `sdk_update_needed`라 되풀이되는 기동이 줄을 늘리지 않고 그 줄을 새 개수로 바꿔 안 읽음으로 되돌린다.
+- 필수(`required`) SDK가 있거나 아직 검토하지 않은 메모(`unreviewed`)가 있는 앱이 하나라도 있으면 앱 없는 program 줄 `sdk_update_needed` 하나를 쓴다. params는 `{required, available}`(옮겨야 하는 앱 수, 필수는 없고 `unreviewed` 메모가 있는 앱 수)이고 그대로 두기로 한 앱은 새 판이 나와도 새 메모가 없으면 세지 않는다. 글은 "3 apps must update, 2 can use new SDK features."꼴이다. 한 앱은 둘 중 한 쪽에만 센다. key가 `sdk_update_needed`라 되풀이되는 기동이 줄을 늘리지 않고 그 줄을 새 개수로 바꿔 안 읽음으로 되돌린다.
 - action은 `{kind: "open_home_skill", skill: "update-apps", args: ""}`다(전체). 앱마다 줄·단추를 두지 않는다. 앱마다 있던 옛 줄은 ledger에 남고 단추도 그대로 동작하지만 새로 쓰지 않는다. `lophn_updated` 줄에는 SDK 갱신 수를 싣지 않는다(이 줄과 겹친다).
-- 맡기기는 늘 home을 거친다. Inbox 단추가 home lophn 대화를 `/update-apps`로 열고(앱 이름을 붙이면 그 앱만), home lophn이 `app.sdk_status`, 앱의 목적·공개 command(`app read`), 지나는 판의 메모로 앱마다 (a) 필수 migration, (b) 새 SDK 기능 중 이 앱에 쓸 만한 것(예: 한도를 넘으면 휘발 알림), (c) 그대로 두기를 정해 추천한다. 사람이 고른 앱에만 그 앱의 lophn에게 `reply: none`으로 필수 migration, 고른 기능, 목표 판, 메모 file을 넘긴다. 고른 기능은 앱 대화에서 사람과 확인하고 `design-app`으로 설계해 migration 뒤에 넣는다. home은 앱 source를 못 읽어 목적·command·메모로만 판단하고 자세한 것은 앱 lophn에게 맡긴다(내장 skill `update-apps`, `architecture/agent-call.md`의 private 예외).
-- 지금 상태는 SDK 상태 read와 앱 상세 Version 탭이 말한다. 사람이 앱을 옮긴 뒤에도 줄은 그때의 기록으로 남는다. 줄을 닫는 일이 앱이 release를 끝내는 순간과 이어지지 않으면 어긋나므로, 어긋나지 않는 길을 둘 때까지 일부러 가만히 둔다.
+- 맡기기는 늘 home을 거친다. Inbox 단추가 home lophn 대화를 `/update-apps`로 열고(앱 이름을 붙이면 그 앱만), home lophn이 `app.sdk_status`, 앱의 목적·공개 command(`app read`), `unreviewed` 메모로 앱마다 (a) 필수 migration, (b) 새 SDK 기능 중 이 앱에 쓸 만한 것(예: 한도를 넘으면 휘발 알림), (c) 그대로 두기를 정해 추천한다. home은 앱 source를 못 읽어 목적·command·메모로만 판단하고 자세한 것은 앱 lophn에게 맡긴다(내장 skill `update-apps`).
+- 진행 상태는 program이 안다: 앱이 어느 판까지 옮겼나(켜진 release의 pin), home이 어느 판까지 보고 무엇을 정했나(review), 맡긴 기능이 끝났나(feature state). home의 memory에는 계산할 수 없는 사람의 취향만 남는다(`architecture/agent-definition.md`의 memory).
+
+### SDK 결정과 맡기기
+
+모델은 표 둘이다(ledger step `apps.sdk-review.tables`). **review**는 home이 앱 하나를 두고 낸 결정 한 번이고 덧붙이기만 한다(앱의 checkpoint는 마지막 review): 앱, 결정한 session, `decision`(`leave`: 그대로 둔다, `update`: 판을 올린다. 고른 기능이 있으면 같이), `through`(그때의 지금 판, SDK마다. program이 채운다), 시각, `update`일 때 보낸 handoff의 call ID. **feature**는 `update` review에 달린 사람이 고른 기능 하나다: 사람 말 제목, 앱 lophn에게 주는 제안 글, 근거 메모 file, `state`(`open` → `done`·`changed`·`skipped`)와 한 줄 사유. 처음 state는 `open`이라 결과를 안 내면 끝난 것으로 보이지 않는다. 판 올리기가 끝났는지는 저장하지 않고 `through`와 지금 pin을 견줘 계산한다. 앱을 지우면 두 표의 그 앱 행이 지워지고 보관한 앱의 행은 남는다.
+
+- **`app.sdk_decide {app, decision, features?}`**(`lophn app sdk-decide <app> --decision … [--features <json>]`, home lophn만). 기능은 `{title, proposal, note}`이고 `note`는 그 앱의 `notes`·`unreviewed`에 나온 메모 file이어야 한다. `leave`는 review를 적는다. `update`는 review와 feature를 적고 같은 동작에서 그 앱의 lophn에게 handoff call(호출한 home session이 보내고 `reply: none`)을 보낸다. 그래서 private 예외와 call 정책, 명함 검사가 그대로 걸린다(`architecture/agent-call.md`). call이 거절되거나 배달에 실패하면 tx가 되돌아가 아무것도 적히지 않고 그 거절이 돌아간다. 기록과 call은 한 tx라 하나만 남지 않는다. `required` SDK가 있는 앱의 `leave`, `leave`에 기능을 단 입력, 모든 SDK가 지금 판인데 기능도 없는 `update`는 `invalid_input`이다. 같은 앱에 `update`를 다시 내면 다시 보낸다(멈춘 handoff 되살리기).
+- 판·메모 목록·글 틀은 program이 채우고 agent 입력으로 받지 않는다. 메인 스레드 handler가 지금 판과 메모 file을 읽어 `through`와 handoff 글(옮길 SDK의 고정 판 → 목표 판과 메모 file, "follow the migrate-sdk skill", 기능마다 ID와 agent가 쓴 제안 글)을 만들고, core 안 machine 전용 command 하나(`app.sdk_review_record`)로 tx에 낸다. 기능 ID는 글에 먼저 실려야 해서 handler가 정한다. 글은 call 본문과 같은 길로 redaction과 blob 준비를 거친다.
+- **`app.sdk_feature {feature, state, note?}`**(`lophn app sdk-feature <feature> --state … [--note …]`, 앱 workspace의 lophn만). 앱 lophn이 migrate-sdk의 report 단계에서 기능마다 낸다. 자기 앱의 기능만 고치고 없는 기능과 범위 밖 앱의 기능은 같은 답(`not_found`)이다. 판 올리기는 release가 켜지면 pin으로 보이므로 따로 내지 않는다.
+- **`/update-apps` 한 round.** `app.sdk_status`를 읽고 앱마다 가른다: `unreviewed`와 `required`가 없으면 볼 것이 없다(지난 `update`가 안 끝났으면, 즉 pin이 `through`보다 옛것이거나 `open` 기능이 있으면 그것만 사람에게 말하고 다시 보낼지 정한다). `unreviewed`가 있으면 그 메모만 읽고 판단한다(지난 결정이 `leave`였어도 새 메모는 새로 본다). `required`는 묻지 않고 `update`다. 새 기능 제안만 `ask`로 묻고, `unreviewed`가 있던 앱마다 `sdk_decide`를 낸다. 맞는 것이 없으면 `leave`다. 판만 올리는 release는 만들지 않는다: `available`이고 고른 기능이 없으면 `leave`이고, 메모가 "다음 release부터 막힌다"고 해도 지금 돌아가는 앱은 두며 그 앱을 다음에 고칠 때 앱 lophn이 migrate-sdk로 옮긴다. session이 중간에 끊기면 결정을 낸 앱은 끝났고 안 낸 앱은 `unreviewed`로 남아 다음 round가 잇는다.
+- home이 private 앱에서 받는 것은 기능의 state와 한 줄 사유와 pin뿐이다. call의 답·결과는 여전히 나오지 않는다(결정, 2026-11-11).
+
+ledger에 결정이 없는 앱은 "아직 안 봄"이고(처음에는 모든 앱이 그렇다) 결과가 없는 기능은 "아직 안 끝남"이다. 조용히 끝난 것으로 치는 상태가 없다. 앱 lophn의 일이 멈췄을 때 program이 스스로 깨우지는 않는다(program이 agent session을 여는 길이 없다). 다음 `/update-apps`가 보고한다.
 
 ### artifact에 닿는 길
 

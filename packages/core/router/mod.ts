@@ -27,6 +27,7 @@ export {
   ASK_ENDED_TOPIC,
   CANCEL_TEXT,
   FAILURE_TEXTS,
+  failureCode,
   type RouteInput,
   type RouteResult,
   TEAM_SPAWNED_TOPIC,

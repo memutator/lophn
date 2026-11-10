@@ -19,6 +19,7 @@ import {
   noticeUnifiedSchemaSteps,
 } from "../notices/schema.ts";
 import { sdkSchemaSteps } from "../packages/schema.ts";
+import { sdkReviewSchemaSteps } from "../sdk-status/schema.ts";
 import { permissionsSchemaSteps } from "../permissions/schema.ts";
 import { releasesSchemaSteps } from "../releases/schema.ts";
 import { rewindSchemaSteps } from "../rewind/schema.ts";
@@ -60,6 +61,7 @@ function open(status: "active" | "archived") {
     ...noticeUnifiedSchemaSteps,
     ...appDeleteSchemaSteps,
     ...sdkSchemaSteps,
+    ...sdkReviewSchemaSteps,
   ]) {
     db.exec(step.sql);
   }
@@ -95,6 +97,14 @@ function open(status: "active" | "archived") {
       `INSERT INTO notices (id, source, app, kind, title, body, persistent, created_at)
        VALUES (?, 'app', ?, 'app', 't', 'b', 1, '2026-01-01')`,
     ).run(`ntc_${slug}`, id);
+    db.prepare(
+      `INSERT INTO sdk_reviews (id, app, session, decision, through, created_at)
+       VALUES (?, ?, 'ses_x', 'leave', '{}', '2026-01-01')`,
+    ).run(`sdr_${slug}`, id);
+    db.prepare(
+      `INSERT INTO sdk_features (id, review, app, title, proposal, note_file, state, state_at)
+       VALUES (?, ?, ?, 't', 'p', 'n.md', 'open', '2026-01-01')`,
+    ).run(`sdf_${slug}`, `sdr_${slug}`, id);
   }
   // program 줄은 기록이라 지우는 길이 없다.
   db.prepare(
@@ -166,6 +176,8 @@ const OWNED = [
   ["grants", "app"],
   ["invocations", "app"],
   ["notices", "app"],
+  ["sdk_reviews", "app"],
+  ["sdk_features", "app"],
   ["apps", "id"],
 ] as const;
 

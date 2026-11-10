@@ -1,0 +1,56 @@
+id: sdk-update-checkpoint
+version: 0.23.32
+title: SDK 업데이트의 검토와 맡긴 기능의 진행 상태를 ledger가 안다
+modules: [packages/core/apps, packages/core/main, packages/core/router, packages/core/agent-workspaces, packages/protocol, packages/cli, packages/sdk]
+change: |
+  전: `/update-apps`의 진행 상태 셋 가운데 program이 아는 것은 앱의 pin 하나뿐이었다. home이 어느 판까지 보고 무엇을 정했는지는 home lophn의 memory 자유 글(`## SDK round …`)이었고, 맡긴 기능이 끝났는지는 어디에도 없었다. `app.sdk_status`는 pin 다음의 메모를 매번 전부 냈고 handoff 글은 agent가 손으로 `lophn call send`로 짰다. `sdk_update_needed`의 `available`은 새 판이 있는 앱을 셌다.
+  후:
+  - ledger step `apps.sdk-review.tables`(domains-retire wiring의 `schemaStepsAfterTeams` 끝)가 `sdk_reviews`(덧붙이기만 하는 결정: app, session, `leave`·`update`, `through` JSON, call, 시각)와 `sdk_features`(review, app, 제목, 제안 글, 근거 메모 file, state `open`→`done`·`changed`·`skipped`, 한 줄 사유, state 시각)를 더한다. ID 접두사 `sdr`·`sdf`. 앱을 지우면 두 표의 그 앱 행이 지워진다.
+  - `app.sdk_status`: SDK마다 `unreviewed`(마지막 review의 `through`와 고정 판 가운데 높은 쪽 다음부터 지금 판까지의 메모. 결정이 없으면 `notes`와 같다)와 앱마다 `review`(마지막 결정, 시각, `through`, `migrated`(update일 때 지금 pin이 `through`에 닿았는지, 계산), 고른 기능과 state·사유. 앞선 결정의 `open` 기능도 같이)를 더한다. `notes`는 그대로다.
+  - `app.sdk_decide {app, decision, features?}`(`lophn app sdk-decide`, home lophn): `leave`는 review를 적고 `update`는 review·feature를 적으면서 같은 tx에서 그 앱의 lophn에게 handoff call(호출한 home session이 보내고 `reply: none`)을 보낸다. 글은 program이 짠다(옮길 SDK의 pin → 목표 판, 메모 file, "follow the migrate-sdk skill", 기능마다 ID와 agent가 쓴 제안 글). call이 거절되거나 배달에 실패하면 아무것도 적히지 않고 그 오류가 돌아간다. `required` SDK가 있는 앱의 `leave`, `leave`에 기능, 할 일 없는 `update`, 앱의 메모가 아닌 근거 메모는 `invalid_input`. 같은 앱에 `update`를 다시 내면 다시 보낸다. 메인 스레드 handler(writer 앞 처리, release 준비와 같은 모양)가 지금 판과 메모 file을 읽어 `through`·글을 채우고, machine 전용 internal command `app.sdk_review_record`(`machine:sdk-review` 자격, 글은 call 본문과 같은 redaction·blob 준비)로 tx에 낸다.
+  - `app.sdk_feature {feature, state, note?}`(`lophn app sdk-feature`, 앱 workspace의 lophn): 자기 앱의 기능 결과만 고친다. 다른 앱의 기능은 `not_found`/`forbidden`.
+  - `sdk_update_needed`의 `available`은 `unreviewed` 메모가 있는(그리고 `required`가 없는) 앱을 센다. 그대로 두기로 한 앱은 새 메모가 없으면 새 판이 있어도 세지 않는다.
+  - `update-apps` skill을 다시 썼다: memory를 보고 쓰는 줄과 손으로 짜던 `lophn call send` 단계를 없애고 status → `unreviewed` 메모만 읽기 → 새 기능만 `ask` → 앱마다 `sdk-decide`로 바꿨다. `available`이고 고른 기능이 없으면 `leave`, 끝나지 않은 지난 handoff는 사람에게 말한다. `migrate-sdk`의 report 단계가 기능마다 `lophn app sdk-feature`로 결과를 낸다(앱별 세부 취향의 memory 줄은 그대로). home prompt의 memory 줄에서 SDK 결정을 뺐다.
+  - SDK `@lophn/agent` 1.10.0(guide의 memory 줄, app·home prompt의 memory 줄, 메모 `migrate-sdk/agent-1.10.0.md`의 Instruction diff). 앱 template과 sample의 pin을 맞췄다.
+  - 화면은 만들지 않았다. home lophn이 round마다 말한다(앱 상세 Version 탭은 그대로).
+why: |
+  사람이 `/update-apps` session을 보고 "이전 변경을 다 읽고 checkpoint 없이 기억에만 의존한다"고 짚었다. 결정이 어느 판까지인지가 글이라 Mahas의 "그대로 두기"가 새 기능(아이콘)까지 덮었고, 맡긴 기능이 끝났는지는 `done` 배달 표시로 짐작했다. 진행 상태는 program이 적고 돌려주고, 사람의 취향만 memory에 남긴다. 결정을 내는 command가 기록과 handoff를 같이 해서 checkpoint가 따로 적는 일이 아니라 해야 하는 동작의 결과로 남는다.
+decisions:
+  - text: |
+      그대로 두기로 한 앱에 새 판이 나오면 새 메모만 다시 보고 그 앱에 맞는 기능이 있을 때만 묻는다(추천안). 버린 길: `leave`를 영구로 두고 사람이 풀 때까지 묻지 않기(조용하지만 옛 결정이 새 기능을 가리는 일이 그대로다).
+    by: person
+  - text: |
+      private 앱의 기능 state와 한 줄 사유는 home에 보인다(추천안). 버린 길: private 앱은 pin만 보이고 기능은 늘 알 수 없음.
+    by: person
+  - text: |
+      이번에는 화면을 만들지 않고 home lophn이 round마다 말한다(추천안). 써 보고 필요하면 앱 상세 Version 탭에 마지막 결정과 기능 상태 줄을 더한다.
+    by: person
+  - text: |
+      결정 command를 두 겹으로 나눴다. 공개 command route `app.sdk_decide`(writer 앞 메인 스레드 처리, 메인 스레드가 지금 판과 메모 file을 읽어 program 값을 채운다)와 machine 전용 ledger command `app.sdk_review_record`(기록과 handoff call을 한 tx에 낸다). 버린 길 둘. (1) CLI가 call을 보내고 이어서 기록하기: 둘이 따로 나가 하나만 남을 수 있고 `through`·글을 agent 입력 쪽에서 채우게 된다. (2) ledger tx 안에서 설치 사본과 메모 file을 동기로 읽기: writer Worker가 파일을 읽고 data root·skill 폴더를 아는 새 port가 필요하다.
+    by: agent
+  - text: |
+      handoff는 `from: agent session`으로 Router의 `route`를 같은 tx에서 불러 보낸다(`call.send`·`team.spawn`과 같은 길). private 예외, call 정책, 명함 검사가 그대로 걸리고 새 권한 길을 만들지 않았다. 거절이거나 `fail_reason`이 있는 배달 실패는 오류로 돌려 tx를 되돌린다(`team.spawn`과 같다). 기능 ID는 글에 먼저 실려야 해서 메인 스레드 handler가 IdSource로 정해 internal command에 넘긴다.
+    by: agent
+  - text: |
+      앱 하나의 기능은 마지막 review의 것에 더해 앞선 review의 `open` 기능도 status에 싣는다. 버린 길: 마지막 review의 기능만 싣기(그 뒤 `leave`가 열린 기능을 조용히 가려 "조용히 끝난 것으로 치는 상태 없음" 원칙이 깨진다).
+    by: agent
+  - text: |
+      기능의 근거 메모는 필수이고 그 앱의 `notes`·`unreviewed`에 나온 file이어야 한다. 모르는 file 이름이 handoff 글에 실리지 않게 한다.
+    by: agent
+  - text: |
+      `update`는 모든 SDK가 지금 판이고 고른 기능도 없으면 `invalid_input`이다(보낼 일이 없다). 판만 올리는 release를 만들지 않는 원칙을 command가 지킨다.
+    by: agent
+  - text: |
+      `unreviewed`의 아래 경계는 마지막 `through`와 고정 판 가운데 높은 쪽이다. through 뒤에 앱이 더 높은 판으로 옮겼으면 이미 반영한 메모는 다시 나오지 않는다. review가 없으면 `notes`와 같다.
+    by: agent
+  - text: |
+      review의 앱 FK를 두지 않고 `eraseApp`이 두 표를 지운다(notices와 같다). 보관한 앱의 행은 남는다. 지난 두 round의 memory 결정은 표로 옮기지 않는다(자유 글이라 program이 옮기면 틀릴 수 있다). 첫 round에 모든 앱이 review 없이 시작한다.
+    by: agent
+  - text: |
+      앱 agent가 읽는 지침이 바뀌어(migrate-sdk의 report 단계, guide의 memory 줄) 이미 있는 앱이 알 길이 `@lophn/agent` 1.10.0 메모의 Instruction diff뿐이라 SDK를 올렸다(`agent-1.6.0`과 같은 선례). 그래서 `@lophn/agent`를 고정한 앱은 `available`에 `agent-1.10.0.md` 하나가 `unreviewed`로 나오고 home이 한 번 본다.
+    by: agent
+follow_up: |
+  home memory의 `## SDK …` 두 절은 쓸모가 없어졌다. program이 사람의 자유 글을 자르지 않으므로 사람에게 지워도 되는지 한 번 묻고 지운다. 써 보고 필요하면 앱 상세 Version 탭에 마지막 결정과 기능 상태를 보이는 줄을 더한다.
+checklist:
+  - Home에서 /update-apps를 불러 앱마다 `lophn app sdk-status`의 `unreviewed`와 `review`가 보이는지, 결정 뒤 `sdk-decide`가 기록되고 앱 workspace에 handoff가 들어가는지 본다
+  - Home memory의 `## SDK round …` 절을 지워도 되는지 lophn에게 묻고 지운다

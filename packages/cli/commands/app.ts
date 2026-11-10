@@ -1,4 +1,4 @@
-// `lophn app read|tools|create|link-source|status|sdk-status|logs|invocations`, `lophn declaration check`: 앱을 찾고 만들고 진단하는 명령이다.
+// `lophn app read|tools|create|link-source|status|sdk-status|sdk-decide|sdk-feature|logs|invocations`, `lophn declaration check`: 앱을 찾고 만들고 진단하는 명령이다.
 // 다른 앱의 비공개 command를 숨기는 일은 `app.tool_index` route가 부른 쪽 credential을 보고 한다. 여기서는 부르기만 한다.
 import { resolve } from "node:path";
 import { z } from "zod";
@@ -13,6 +13,8 @@ import {
   appLogs,
   appLogsReadInputSchema,
   appRuntime,
+  appSdkDecide,
+  appSdkFeature,
   appSdkStatus,
   appSlugOf,
   declarationCheck,
@@ -220,7 +222,7 @@ const sdkStatus = defineCommand({
   name: "app.sdk_status",
   summary: "Read which SDK versions an app uses and which are out of date",
   description:
-    'For each app (or the one you name) with a live release: every lophn SDK package it pins with the pinned version, the version lophn has now, the oldest version lophn still runs (supported_from), a level and the note files to read. level "required": the pinned version is older than supported_from, so the app does not start or soon will not; "available": it still runs and only lacks newer features; "current". notes are the `migrate-sdk` skill note files after the pinned version up to the current one, oldest first (read each with `skill.read {name: "migrate-sdk", path}`). Archived apps are not listed.',
+    'For each app (or the one you name) with a live release: every lophn SDK package it pins with the pinned version, the version lophn has now, the oldest version lophn still runs (supported_from), a level and the note files to read. level "required": the pinned version is older than supported_from, so the app does not start or soon will not; "available": it still runs and only lacks newer features; "current". notes are the `migrate-sdk` skill note files after the pinned version up to the current one, oldest first (read each with `skill.read {name: "migrate-sdk", path}`). unreviewed is the part of notes lophn at Home has not yet decided on (after the version of its last decision for this app). review is the last decision for the app: decision leave or update, time, through (the versions that decision covered), migrated (for update: whether the app now pins those versions), and the features it chose with their state (open until lophn at the app reports a result). Archived apps are not listed.',
   input: z.strictObject({ app: appIdSchema.optional() }),
   positional: ["app"],
   effect: "read",
@@ -233,6 +235,49 @@ const sdkStatus = defineCommand({
       summary: countSummary("apps", read.value.apps.length, false),
       content: read.value,
       arrayKeys: ["apps"],
+    });
+  },
+});
+
+const sdkDecide = defineCommand({
+  name: "app.sdk_decide",
+  summary: "Decide what to do about an app's SDK update",
+  description:
+    "Lophn at Home records its decision for one app and, for update, hands the work to lophn at that app in the same action. decision leave: keep the app as is (not allowed when an SDK of the app is required). decision update: move the app to the current SDK versions and, optionally, build the features the person chose. features is a JSON array of {title, proposal, note}: title in the person's words, proposal for lophn at the app (what the person asked for and why it fits the app), note the migrate-sdk note file that adds the capability (from sdk-status notes or unreviewed). Lophn writes the versions, the note files and the migrate-sdk instruction itself; do not send a call for this. The decision covers the versions lophn has now: a later SDK version comes back as unreviewed. If the handoff is refused nothing is recorded and the refusal is returned (tell the person to open the app and ask lophn there to follow the migrate-sdk skill). Running update again for an app sends the handoff again.",
+  input: appSdkDecide.input,
+  positional: ["app"],
+  effect: "write",
+  routes: [appSdkDecide],
+  workspaces: ["home"],
+  run: async (input, ctx) => {
+    const done = await ctx.core.command(appSdkDecide, input, { key: ctx.key });
+    if (!done.ok) return done;
+    return ok({
+      summary:
+        input.decision === "update"
+          ? `update recorded and handed to lophn at the app (call ${done.value.call})`
+          : "leave recorded",
+      content: done.value,
+    });
+  },
+});
+
+const sdkFeature = defineCommand({
+  name: "app.sdk_feature",
+  summary: "Report the result of a chosen SDK feature",
+  description:
+    "Lophn at an app reports what became of one feature Home handed over (its ID is in the handoff): done, changed (built differently after talking to the person) or skipped, with a one-line note. Only this app's features can be reported.",
+  input: appSdkFeature.input,
+  positional: ["feature"],
+  effect: "write",
+  routes: [appSdkFeature],
+  workspaces: ["app"],
+  run: async (input, ctx) => {
+    const done = await ctx.core.command(appSdkFeature, input, { key: ctx.key });
+    if (!done.ok) return done;
+    return ok({
+      summary: `feature ${input.feature} is ${done.value.state}`,
+      content: done.value,
     });
   },
 });
@@ -294,6 +339,8 @@ export const APP_COMMANDS = [
   check,
   status,
   sdkStatus,
+  sdkDecide,
+  sdkFeature,
   logs,
   invocations,
 ];

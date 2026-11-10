@@ -187,7 +187,7 @@ turn마다 run-loop가 한 번 읽어 그 turn의 판을 고정하고, I/O 없�
     - 주입: 지침 block 뒤에 `memory` system block으로 싣는다. 글은 `~~~data` 경계 안에 출처 줄(`global memory`, `workspace memory`, `agent memory`) 순으로 놓는다. cache 표시는 달지 않고 판 비교에 넣지 않아 notice도 없다. custom은 global·workspace memory를 받지 않는다.
     - session 첫 turn에 읽어 고정한다. session마다 첫 turn에 읽은 글을 쥐고 이후 turn에 같은 bytes를 싣는다. session 중에 쓴 memory는 다음 session부터 보인다(tool 결과가 그렇게 말한다). daemon이 다시 뜨거나 Compact로 compaction 경계가 바뀌면 다시 읽는다(tool 목록, 이전 turn의 판이 사라지는 때와 같다).
     - 파일마다 8 KiB이고 넘치는 쓰기는 거절한다(`invalid_input`, 거절 문장에 지금 크기를 싣는다). 줄이는 일은 agent의 몫이다. 자동 추출, 주기 정리, 검색은 하지 않는다.
-    - 무엇을 담나는 내장 prompt가 말한다. Home memory는 모든 workspace가 읽으므로 workspace를 건너는 사실(사람의 계정·선호, workspace 지도, 앱 결정)만 담고, login 목록은 계산되므로(`lophn login list`) 옮기지 않으며 "이 일에는 이 login"이라는 선택만 적는다. 사람이 정한 것, 계산할 수 없는 의도, "무엇을 누구에게 물으면 되나" pointer만 담는다. 정의·할당·명함처럼 계산할 수 있는 것과 다른 workspace의 내용은 담지 않는다. 경계를 넘는 길은 call뿐이다. `update-apps`·`migrate-sdk` skill은 사람에게 묻기 전에 memory의 그 앱 결정을 보고 이미 정한 앱은 묻지 않는다.
+    - 무엇을 담나는 내장 prompt가 말한다. Home memory는 모든 workspace가 읽으므로 workspace를 건너는 사실(사람의 계정·선호, workspace 지도, 앱에 대한 사람의 결정 가운데 program이 기록하지 않는 것)만 담고, login 목록은 계산되므로(`lophn login list`) 옮기지 않으며 "이 일에는 이 login"이라는 선택만 적는다. 사람이 정한 것, 계산할 수 없는 의도, "무엇을 누구에게 물으면 되나" pointer만 담는다. 정의·할당·명함처럼 계산할 수 있는 것과 다른 workspace의 내용은 담지 않는다. 경계를 넘는 길은 call뿐이다. 진행 상태(앱이 어느 판까지 옮겼나, home이 어느 판까지 검토하고 무엇을 정했나, 맡긴 기능이 끝났나)는 program이 ledger에 적고 돌려주므로(`architecture/ui-kit.md`의 "SDK 결정과 맡기기") global·workspace 어느 memory에도 담지 않는다. `update-apps`는 memory를 보지도 쓰지도 않고, `migrate-sdk`는 사람이 그 앱에서 고른 세부(임계값, 단축키)만 memory에 적고 묻기 전에 본다.
 
 ### 명함
 

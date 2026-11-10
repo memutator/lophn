@@ -1,6 +1,6 @@
 # SDK 업데이트 checkpoint: 검토와 맡긴 일의 상태를 ledger가 안다
 
-상태: 구현 중(2026-11-11, branch `feat/sdk-update-checkpoint`). "사람이 정할 것" 셋은 사람이 추천안으로 정했다(2026-11-11).
+상태: 완료(2026-11-11, branch `feat/sdk-update-checkpoint`, change-log `sdk-update-checkpoint`). "사람이 정할 것" 셋은 사람이 추천안으로 정했다(2026-11-11).
 배경 문서: `products/roadmap/inbox-history-sdk-migration.md`(지금 구조를 만든 일), `architecture/ui-kit.md`의 "SDK 상태 read"·"SDK 업데이트 감지와 맡기기", `architecture/agent-call.md`의 private 예외, `architecture/agent-definition.md`의 memory.
 
 ## 사람의 말 (원문)

@@ -7,6 +7,7 @@ import type {
   SdkLevel,
   SdkStatusEntry,
 } from "../../../protocol/apps/sdk-status.ts";
+import { loadLastReview } from "./review-store.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { loadActiveDeclaration } from "../releases/store.ts";
 import { loadApps } from "../registration/store.ts";
@@ -89,12 +90,28 @@ async function readNotes(notesRoot: string): Promise<Map<string, string[]>> {
 }
 
 // 고정 판 하나의 단계와 읽을 메모다. 지원 하한보다 옛 판은 required, 그 위에서 지금 판보다 옛 판은 available이다.
+// unreviewed는 마지막 결정의 through와 고정 판 가운데 높은 쪽 다음부터다(결정이 없으면 고정 판 다음부터라 notes와 같다).
 export function sdkEntry(
   pin: { name: string; version: string },
   installed: Installed,
   noteVersions: readonly string[],
   part: string,
+  reviewedThrough?: string,
 ): SdkStatusEntry {
+  const after =
+    reviewedThrough !== undefined &&
+    compareVersion(reviewedThrough, pin.version) > 0
+      ? reviewedThrough
+      : pin.version;
+  const notesAfter = (floor: string) =>
+    noteVersions
+      .filter(
+        (version) =>
+          compareVersion(version, floor) > 0 &&
+          compareVersion(version, installed.current) <= 0,
+      )
+      .sort(compareVersion)
+      .map((version) => `${part}-${version}.md`);
   const level: SdkLevel =
     installed.supportedFrom !== null &&
     compareVersion(pin.version, installed.supportedFrom) < 0
@@ -108,17 +125,8 @@ export function sdkEntry(
     current: installed.current,
     supported_from: installed.supportedFrom,
     level,
-    notes:
-      level === "current"
-        ? []
-        : noteVersions
-            .filter(
-              (version) =>
-                compareVersion(version, pin.version) > 0 &&
-                compareVersion(version, installed.current) <= 0,
-            )
-            .sort(compareVersion)
-            .map((version) => `${part}-${version}.md`),
+    notes: level === "current" ? [] : notesAfter(pin.version),
+    unreviewed: level === "current" ? [] : notesAfter(after),
   };
 }
 
@@ -145,13 +153,22 @@ export async function readSdkStatus(
     const active = loadActiveDeclaration(deps.sql, app.id);
     if (!active.ok) return active;
     if (active.value === null) continue;
+    const review = loadLastReview(deps.sql, app.id);
     const sdks: SdkStatusEntry[] = [];
     for (const pin of active.value.declaration.sdk_dependencies) {
       if (!pin.name.startsWith(SDK_PREFIX)) continue;
       const part = pin.name.slice(SDK_PREFIX.length);
       const now = installed.get(part);
       if (now === undefined) continue;
-      sdks.push(sdkEntry(pin, now, notes.get(part) ?? [], part));
+      sdks.push(
+        sdkEntry(
+          pin,
+          now,
+          notes.get(part) ?? [],
+          part,
+          review?.through[pin.name],
+        ),
+      );
     }
     sdks.sort((a, b) => (a.sdk < b.sdk ? -1 : 1));
     statuses.push({
@@ -159,6 +176,32 @@ export async function readSdkStatus(
       name: app.name,
       release: active.value.release.id,
       sdks,
+      review:
+        review === null
+          ? null
+          : {
+              id: review.id as never,
+              decision: review.decision,
+              at: review.at,
+              through: review.through,
+              // update의 판 올리기는 저장하지 않고 지금 pin이 through에 닿았는지로 계산한다.
+              migrated:
+                review.decision === "leave"
+                  ? null
+                  : sdks.every(
+                      (sdk) =>
+                        review.through[sdk.sdk] === undefined ||
+                        compareVersion(sdk.pinned, review.through[sdk.sdk]!) >=
+                          0,
+                    ),
+              features: review.features.map((feature) => ({
+                id: feature.id as never,
+                title: feature.title,
+                state: feature.state,
+                outcome: feature.outcome,
+                state_at: feature.state_at,
+              })),
+            },
     });
   }
   return ok(statuses);

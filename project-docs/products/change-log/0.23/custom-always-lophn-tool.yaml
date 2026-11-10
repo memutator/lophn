@@ -1,5 +1,5 @@
 id: custom-always-lophn-tool
-version: 0.23.27
+version: 0.23.28
 title: custom agent는 lophn tool과 workspace 정보를 늘 받고, 정의 tools는 명령 이름을 받지 않으며, agent shell 안의 lophn CLI는 바로 멈춘다
 modules: [packages/core/lophn-agent, packages/core/main, packages/cli, packages/protocol, packages/shell/renderer, packages/design, packages/sdk, packages/core/agent-workspaces, packages/core/apps]
 change: |

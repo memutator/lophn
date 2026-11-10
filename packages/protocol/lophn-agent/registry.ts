@@ -1,4 +1,6 @@
 import { SESSION_COMMANDS } from "./sessions.ts";
+import { APP_CALL_ROUTES } from "./app-calls.ts";
+import { SESSION_LIFECYCLE_ROUTES } from "./session-lifecycle.ts";
 import { SESSION_STATUS_ROUTES } from "./session-status.ts";
 import { WORKSPACE_SESSION_ROUTES } from "./agent-sessions.ts";
 import { MESSAGE_ROUTES, messagesList } from "./messages.ts";
@@ -46,6 +48,8 @@ import { issuerRequestDone, issuerRequestTake } from "./issuer-requests.ts";
 export const ROUTES = [
   ...SESSION_COMMANDS,
   ...SESSION_STATUS_ROUTES,
+  ...SESSION_LIFECYCLE_ROUTES,
+  ...APP_CALL_ROUTES,
   ...WORKSPACE_SESSION_ROUTES,
   ...MESSAGE_ROUTES.filter((route) => route !== messagesList),
   ...REVERT_ROUTES,

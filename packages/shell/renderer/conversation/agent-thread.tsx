@@ -630,6 +630,7 @@ function userMessage(
       key={message.id}
       id={message.id}
       steer={message.delivery === "steer"}
+      {...(message.via === undefined ? {} : { via: message.via })}
       time={messageTime(message.at, new Date(props.now()))}
       rewindOpen={props.rewindOpen === message.id}
       {...(nested ? {} : { copyText: () => textOfParts(message.parts) })}

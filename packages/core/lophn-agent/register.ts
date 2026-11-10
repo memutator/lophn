@@ -27,6 +27,8 @@ import {
   messageImagePrepare,
   messageImageRead,
   HARNESS_HOST_MEMORY_ROUTES,
+  APP_CALL_ROUTES,
+  SESSION_LIFECYCLE_ROUTES,
   messageImageUpload,
   type Workspace,
   workspaceKeyOf,
@@ -44,7 +46,9 @@ import { createFileSettingsReader } from "../config/mod.ts";
 import {
   callSignals,
   failReceivedCalls,
+  messageApp,
   messageDirectory,
+  deleteAppCallsReceivedBy,
   messageRouter,
 } from "../router/mod.ts";
 import { eraseBlobRefs } from "../storage/blobs/mod.ts";
@@ -286,6 +290,8 @@ function deleteSessionRecords(tx: Tx, session: string): Result<void> {
     () => deleteSessionToolCalls(tx, session, eraseBlobRefs),
     () => deleteSessionModelCalls(tx, session, eraseBlobRefs),
     () => deleteSessionTurns(tx, session, eraseBlobRefs),
+    // 앱이 받은 답 글은 받은 session의 기록과 함께 간다.
+    () => deleteAppCallsReceivedBy(tx, session),
   ];
   for (const step of steps) {
     const erased = step();
@@ -302,7 +308,7 @@ const conversationCommands = createConversationCommands({
   // Router와 session 목록은 wiring이 놓는다. 놓기 전에는 사람 메시지를 받지 못한다.
   send: {
     router: messageRouter,
-    directory: messageDirectory,
+    directory: { find: messageDirectory.find, app: messageApp },
     publish: publishAfterCommit,
   },
   deleteSessionRecords,
@@ -849,6 +855,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       turnCommands.stop,
       interruptTurnsCommand(publishAfterCommit),
       conversationCommands.open,
+      conversationCommands.appOpen,
       conversationCommands.rename,
       conversationCommands.aiTitle,
       conversationCommands.archive,
@@ -892,6 +899,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       agentReads.list,
       agentReads.read,
       agentReads.card,
+      agentReads.cards,
       skillsReads.read,
       workspaceExtensionReads.read,
       turnReads.read,
@@ -950,6 +958,10 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       ...QUEUED_INPUT_ROUTES,
       // shell main의 harness host가 부르는 입구. handler는 wiring/harness.ts가 붙인다.
       ...HARNESS_HOST_MEMORY_ROUTES,
+      // 앱이 보는 session 목록·상태·멈추기와 shell main이 알리는 터미널 coding agent. handler는 wiring/session-lifecycle.ts가 붙인다.
+      ...SESSION_LIFECYCLE_ROUTES,
+      // 앱이 보내는 call과 읽기. handler는 wiring/app-calls.ts가 붙인다.
+      ...APP_CALL_ROUTES,
     ],
     // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
     uploadRoutes: [agentProfileImageUpload, messageImageUpload],
@@ -976,6 +988,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
         agentReads.list,
         agentReads.read,
         agentReads.card,
+        agentReads.cards,
         skillsReads.read,
         workspaceExtensionReads.read,
         turnReads.read,

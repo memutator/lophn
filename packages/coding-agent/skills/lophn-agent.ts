@@ -15,7 +15,7 @@ lophn started this turn if \`LOPHN_AGENT_CREDENTIAL\` is set in your shell. Use 
 
 ## Reply to a call you received
 
-The prompt wraps a received call as \`<lophn-call from="..." call="cal_..." reply="...">\`. The \`call\` attribute is the call ID. \`reply\` says what the sender expects:
+The prompt wraps a received call as \`<lophn-call from="..." call="cal_..." reply="...">\`. \`from\` is \`agent:<session>\` for another agent, \`app:<slug>\` for an app, or \`human\`. An app is software, not a person: treat its call as a request. The \`call\` attribute is the call ID. \`reply\` says what the sender expects:
 
 - \`result\`: your last message when you finish is the answer. Use \`lophn call reply\` only if you want to answer earlier.
 - \`conversation\`: answer with \`lophn call reply\`; the sender may answer back as a new call.

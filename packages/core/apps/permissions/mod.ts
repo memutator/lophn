@@ -9,7 +9,18 @@ export {
   type AppsCallService,
   createAppsCallService,
 } from "./broker/apps-call.ts";
+export {
+  createEventsService,
+  type EventPublishPort,
+  type EventsService,
+} from "./broker/events.ts";
 export type { BrokerChild } from "./broker/invocations.ts";
+export {
+  createSessionsService,
+  type SessionsOperation,
+  type SessionsPort,
+  type SessionsService,
+} from "./broker/sessions.ts";
 export {
   createNetFetchService,
   destinationAllowed,

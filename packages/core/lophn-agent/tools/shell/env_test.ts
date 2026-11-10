@@ -31,3 +31,19 @@ test("shell 환경에 lophn token과 secret이 나가지 않고 agent shell 표�
     );
   }
 });
+
+test("LOPHN_SESSION_ID는 부르는 쪽이 준 session만 나가고 부모 env에서 물려받지 않는다", () => {
+  const parent = {
+    PATH: "/usr/bin",
+    LOPHN_SESSION_ID: "ses_parent",
+    LOPHN_X: "x",
+  };
+  assert.deepStrictEqual(shellEnvironment(parent, undefined, "linux"), {
+    PATH: "/usr/bin",
+    LOPHN_AGENT_SHELL: "1",
+  });
+  assert.deepStrictEqual(
+    shellEnvironment(parent, undefined, "linux", "ses_mine"),
+    { PATH: "/usr/bin", LOPHN_SESSION_ID: "ses_mine", LOPHN_AGENT_SHELL: "1" },
+  );
+});

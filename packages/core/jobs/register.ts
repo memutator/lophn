@@ -1,6 +1,7 @@
 import type { ReaderRegistration } from "../storage/ledger/mod.ts";
 import { createJobCommands } from "./commands.ts";
 import { createDueCommands } from "./due.ts";
+import { createEventCommands } from "./events.ts";
 import { createJobReads } from "./reads.ts";
 import { jobsSchemaSteps } from "./schema.ts";
 
@@ -17,6 +18,7 @@ export function createLedgerRegistration(
   const commands = createJobCommands();
   const due = createDueCommands();
   const reads = createJobReads();
+  const events = createEventCommands();
   return {
     schemaSteps: jobsSchemaSteps,
     commands: [
@@ -28,6 +30,7 @@ export function createLedgerRegistration(
       due.started,
       due.ended,
       due.decideHold,
+      events.fire,
     ],
     reads: [
       reads.list,
@@ -36,12 +39,14 @@ export function createLedgerRegistration(
       reads.holds,
       reads.open,
       reads.activity,
+      events.triggers,
     ],
   };
 }
 
 export function createReaderRegistration(): ReaderRegistration {
   const reads = createJobReads();
+  const events = createEventCommands();
   return {
     reads: [
       reads.list,
@@ -50,6 +55,7 @@ export function createReaderRegistration(): ReaderRegistration {
       reads.holds,
       reads.open,
       reads.activity,
+      events.triggers,
     ],
     ports: new Map<unknown, unknown>(),
   };

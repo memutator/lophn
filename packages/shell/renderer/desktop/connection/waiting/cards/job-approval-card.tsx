@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
-import { scheduleText } from "../../../jobs/model.ts";
+import { intervalText, scheduleText } from "../../../jobs/model.ts";
 import type { CoreSource } from "../../connection.ts";
 import type { WaitingEntry } from "../../events/waiting-store.ts";
 import { decideJobApproval } from "../decide.ts";
@@ -40,10 +40,26 @@ export function JobApprovalCard({
       <Head view={view} agent={entry.agent} />
       <div className={styles.reason}>
         <p className={styles.desc}>
-          {t("waiting.notice.job-approval", {
-            schedule: scheduleText(entry.job.every, entry.job.at),
-          })}
+          {entry.job.trigger !== null
+            ? t(
+                entry.job.trigger.source === "lophn"
+                  ? "waiting.notice.job-approval-lophn"
+                  : "waiting.notice.job-approval-event",
+                {
+                  source: entry.job.trigger.source,
+                  event: entry.job.trigger.event,
+                  interval: intervalText(entry.job.trigger.min_interval),
+                },
+              )
+            : t("waiting.notice.job-approval", {
+                schedule: scheduleText(entry.job.every!, entry.job.at),
+              })}
         </p>
+        {entry.job.trigger?.pass_event === true ? (
+          <p className={styles.desc} data-pass-event="">
+            {t("waiting.notice.job-pass-event")}
+          </p>
+        ) : null}
       </div>
       {failed ? (
         <p className={styles.error}>{t("waiting.notice.decide-failed")}</p>

@@ -1,0 +1,19 @@
+id: event-jobs-review-fixes
+version: 0.23.27
+title: "event job review 수정: 반복 고리, 같은 앱 tool_run, 앱 event 가시성, 화면 문구"
+modules: [packages/core/jobs, packages/core/main, packages/core/lophn-agent, packages/core/router, packages/protocol, packages/shell/renderer, packages/design]
+checked: []
+change: |
+  전: lophn 출처 session event(`session.idle` 등)가 job run·workflow step이 연 session에서도 다른 event job을 열 수 있었고, 앱 event job은 trigger 앱이 workspace에 닿는지 보지 않았다. 같은 앱의 tool_run을 action으로 거는 job이 만들어졌다. 화면은 event job에 "If missed"를 보이고 제목이 "Scheduled"였다.
+  후:
+  - 고리: lophn 출처 event는 사람이 연 session의 것만 job을 연다. job run이 가진 session, run이 연 session, workflow step, `spawned_by`·`called_from` session은 fire도 count도 하지 않는다. 앱이 연 session(`opened_by_app`)은 그대로 fire한다. `JobEventPolicy.drivenSession`이 판단한다.
+  - 같은 앱 tool_run: trigger 앱과 action 앱이 같은 job은 만들 때 `invalid_input`이다(그 앱의 call이 낳은 event는 어차피 chain에서 막힌다).
+  - 가시성: 앱 event job은 `mayReachWorkspace`(call policy)를 따른다. 만들 때 닿지 못하면 `forbidden`이고, fire 때 닿지 못하면 조용히 무시(count 없음). 앱이 active가 아니면 선언도 없는 것으로 본다.
+  - 화면: approval card가 `pass_event`를 문장으로 보인다. Jobs 제목은 "Jobs"/"Edit job"이고 event job에는 "If missed" 줄이 없다. 마지막 skip 이유(busy, too soon)를 보이고, 프로젝트 panel은 trigger와 count를 줄을 나눠 자르지 않고 보인다. edit dialog의 trigger는 읽기 전용이다. 앱이 더는 그 event를 내지 않으면 목록에 "source no longer publishes" 줄이 뜬다(`source_gone`, 목록을 읽을 때 계산).
+  - 부수: `message-commands.ts`의 쓰이지 않던 `app.archived` 제거.
+why: event job끼리 session event로 서로를 계속 여는 길과 내 앱이 아닌 앱의 event를 받는 길을 막고, event job이 일정 job처럼 보이는 화면 문구를 바로잡는다.
+decisions:
+  - text: "lophn 출처 event는 사람이 연 session만 센다. 어떤 job run이 낳은 session도 다른 job을 열지 않는다. 버린 길: job별 ancestry(chain)만으로 막기(서로 다른 job이 번갈아 열면 chain이 끊긴다)."
+    by: agent
+  - text: "source_gone은 저장하지 않고 목록을 읽을 때 현재 선언으로 계산한다. 버린 길: event를 낼 때마다 job에 표시 쓰기(앱 보관 때 쓸 곳이 없다)."
+    by: agent

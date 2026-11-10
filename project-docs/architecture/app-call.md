@@ -1,6 +1,6 @@
 # app-call
 
-앱은 선언에서 두 층을 내놓는다. 화면과 앱 자신이 쓰는 저수준 동작인 operation(`operations[]`)과, 앱이 골라 바깥에 내놓는 command(`commands[]`)다. operation은 사람이 연 앱 화면과 그 앱 workspace session의 preview만 부른다. command를 부르는 길은 넷이다: agent의 명령 `lophn <app> <command>`(`<app>`은 앱 slug), 다른 앱, job이 연 tool run(program), flow instance가 연 tool run(flow). 어느 길이든 같은 판정(부른 쪽 확인, 막기)과 같은 기록(invocation)과 같은 직렬화(write는 앱마다 하나씩)를 거치고, write 동안의 앱 DB 변경은 changeset으로 떠서 invocation에 붙여 보관한다. 그래서 "이 호출이 앱 data에 한 일"을 호출 단위로 알고, 사람이 고른 시점으로 앱 data를 되돌릴 수 있다(rewind). 같은 문서가 앱의 화면과 agent의 접점(앱 화면이 쓰는 agent session), 앱 log, 앱 process가 바깥으로 나가는 길(net, secret, OAuth, fs), 보관한 앱의 지우기도 다룬다.
+앱은 선언에서 두 층을 내놓는다. 화면과 앱 자신이 쓰는 저수준 동작인 operation(`operations[]`)과, 앱이 골라 바깥에 내놓는 command(`commands[]`)다. operation은 사람이 연 앱 화면과 그 앱 workspace session의 preview만 부른다. command를 부르는 길은 넷이다: agent의 명령 `lophn <app> <command>`(`<app>`은 앱 slug), 다른 앱, job이 연 tool run(program), flow instance가 연 tool run(flow). 앱이 내는 event를 받은 구독 handler(event)도 같은 호출 경로의 호출이다(아래 "앱 event"). 어느 길이든 같은 판정(부른 쪽 확인, 막기)과 같은 기록(invocation)과 같은 직렬화(write는 앱마다 하나씩)를 거치고, write 동안의 앱 DB 변경은 changeset으로 떠서 invocation에 붙여 보관한다. 그래서 "이 호출이 앱 data에 한 일"을 호출 단위로 알고, 사람이 고른 시점으로 앱 data를 되돌릴 수 있다(rewind). 같은 문서가 앱의 화면과 agent의 접점(앱 화면이 쓰는 agent session), 앱 log, 앱 process가 바깥으로 나가는 길(net, secret, OAuth, fs), 보관한 앱의 지우기도 다룬다.
 
 ## 문제
 
@@ -29,6 +29,7 @@
 - `effect`는 `read`, `write`, `external`이다. program이 강제한다(write 줄, 기록). command의 `public`은 그 앱 workspace 밖에 보이는지다.
 - 이름은 1~64자 `[A-Za-z0-9_.-]`이고 command schema의 root는 `object`다(인자가 없으면 `inputSchema: null`). agent wire 이름 `<slug>_<command>`의 64자 한도와 이름 겹침은 slug를 아는 쪽(`declaration.check`와 release 기록)이 검사한다. SDK의 선언 정의는 slug를 모른다.
 - 내장 명령 묶음 이름은 앱 slug로 쓰지 못한다. `app.create`가 `invalid_input`으로 거절한다.
+- 선언의 `events`와 `subscriptions`는 앱 사이의 알림이다(없어도 되는 칸). `events`는 `{name, description, payloadSchema}`(payload는 command의 `inputSchema`와 같은 규칙, root는 object)이고 `subscriptions`는 `{source, event}`(source는 발행 앱의 slug나 `lophn`)다. 구독 handler의 이름은 `on.<source>.<event>`로 정해져 operation·command와 한 handler 이름 공간에 들고, 64자를 넘거나 다른 이름과 겹치면 선언 오류다. 앱 slug `lophn`은 쓰지 못한다(core가 발행자일 때의 source 이름). 칸이 없거나 비면 정본 json에 칸을 두지 않아 옛 선언의 hash가 그대로다.
 - 선언의 `skills`는 앱이 내놓는 skill이다(없어도 되는 칸). 항목은 `{name, public, commands}`다. `name`은 skill 폴더 이름 규칙(소문자·숫자·`-`, 64자까지)이고 겹치지 못하며, `commands`는 이 선언의 command 이름이다. `public`이 true인 skill은 다른 agent에게도 가므로 `commands`가 모두 public command여야 한다. 없는 command나 비공개 command를 쓰는 public skill은 선언 오류다. 칸이 없거나 비면 정본 json에 칸을 두지 않아 옛 선언의 hash가 그대로다.
 - 선언의 화면은 `{key, label, path, places, params?, tray?}`이고 `places`가 그 화면이 열릴 수 있는 자리다. 자리는 `tab | panel | card | sidebar | tray`다. `tab`은 앱 workspace 본문과 앱 전용 창(둘 다 `tab` 자리를 가진 첫 화면), `panel`은 project dock·desk float·전역 float, `card`는 대화의 앱 카드, `sidebar`는 오른쪽 sidebar, `tray`는 작업 표시줄 tray다. `places`는 비어 있거나 겹칠 수 없다.
   - `params`는 화면이 받는 인자의 입력 schema(root는 object)이고 없으면 그 화면은 인자를 받지 않는다.
@@ -42,8 +43,9 @@
  agent  ── lophn <app> <command> ──────┼─ core-api(app.call_tool) ─▶ 호출 경로
  app    ── sdk ─ broker (command) ─────┤              1 부른 쪽 확인        (credential, 도는 turn·부모 invocation·job run·instance)
  program ── job run의 tool run ─────────┤   (core 안 run 연산만. route로는 못 연다)
- flow  ── instance의 tool run ──────────┘   (같다)
-                                             2 막기               agent는 할당(judge), program은 통과(사람이 등록을 승인한 job), flow는 project workspace의 agent의 할당(unattended)과 비공개 거르기,
+ flow  ── instance의 tool run ──────────┤   (같다)
+ event ── 앱이 낸 event를 받은 구독 handler ┘   (core 안 발행 처리만. route로는 못 연다)
+                                             2 막기               agent는 할당(judge), program은 통과(사람이 등록을 승인한 job), flow는 project workspace의 agent의 할당(unattended)과 비공개 거르기, event는 통과(구독은 발행 앱이 내놓은 event를 받겠다는 선언),
                                                                   앱은 active 앱 grant의 app.call. 묻지 않는다
                                              3 write·external이면 앱별 줄을 얻는다. read는 바로
                                              4 invocation 시작을 남긴다        ─▶ storage (ledger + changeset blob)
@@ -60,7 +62,21 @@
  session rewind에서 사람이 앱을 고르면 같은 rewind로 간다 (workspace-session)
 ```
 
-invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unknown`)이고, 되돌림이 끝난 행에는 되돌림 표시가 붙는다. `caller_kind`는 person, agent, app, program, flow 다섯이다.
+invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unknown`)이고, 되돌림이 끝난 행에는 되돌림 표시가 붙는다. `caller_kind`는 person, agent, app, program, flow, event 여섯이다.
+
+### 앱 event
+
+한 앱이 사실을 내고 여러 앱이 듣는 일대다를 위한 길이다(사용량 앱이 한도를 감지해 알리면 다른 앱이 반응한다). 계약은 `architecture/event.md`의 "앱 event"다. 여기에는 호출 경로에 닿는 부분만 적는다.
+
+- 발행은 앱 process의 `publish(name, payload)`(`@lophn/cap-tool`) → broker → core route `app_events.publish`(actor app)다. 앱은 입력에 없고 자식 credential이 정한다. 부모 invocation이 돌고 있지 않아도 된다(시작 코드, timer). core가 active release의 `events` 선언에 그 event가 있고 payload가 `payloadSchema`와 맞는지 본다(아니면 `invalid_input`).
+- 전달은 발행 앱의 slug로 `subscriptions`를 선언한 active 앱 가운데 지금 그 release로 떠서 받는 앱마다 구독 handler를 호출 경로로 부르는 것이다. 발행은 구독자의 답을 기다리지 않고, 저장도 재시도도 없다. 켜져 있지 않은 구독자는 받지 못하고 발행 기록의 `unreachable`로 센다.
+- 호출 기록의 caller가 발행자와 event를 싣고, 발행 기록(`app_event_publications`)의 id와 trace id를 같이 싣는다. 그래서 `lophn app invocations`의 한 줄이 "어느 앱의 어느 event가 불렀나"를 말하고, `lophn app event-publications`가 같은 trace id로 몇 구독자에게 갔는지를 말한다.
+
+### 앱의 session 시야
+
+앱 process와 앱 화면은 lophn의 agent session을 읽고 멈춘다(`architecture/workspace-session.md`의 session lifecycle). 앱 process는 broker(`/_lophn/broker/sessions/*`) → core route `app_sessions.list|status|stop`(actor app, 자식 credential 허용 목록)만 쓰고(열기·끝내기·call 보내기는 앱 process에 없다), 앱 화면은 `lophnApp.sessions`를 shell main이 사람 자격으로 부르며 sender view의 앱을 입력에 싣는다. 보이는 session은 그 앱 workspace에 사는 agent가 call로 닿을 수 있는 workspace의 것뿐이고(`mayReachWorkspace`: agent 쌍 규칙 없이 workspace 쌍 규칙, 같은 workspace, private) 안 보이는 session은 없는 session과 같다. 멈춘 것은 program 기록(`session_stopped_by_app`)으로 남는다. 부모 invocation이 돌고 있지 않아도 된다.
+
+앱 **화면**은 agent에게 call을 보내는 쪽이기도 하다(`architecture/agent-call.md`의 "앱이 보낸 call"). 한 IPC 통로(`app:agents`, `{op, input}`)로 core의 `app_calls.*`·`app_agents.list`·`app_sessions.end`를, `lophnApp.agent.open`으로 `app_sessions.open`을 부른다(shell main이 앱을 싣는다). 앱 process에는 call 보내기와 session 열기·끝내기 길이 없다(상한 없는 unattended turn을 막는다). 앱이 열 수 있는 session은 기본이 그 앱 workspace이고 call 정책이 닿게 허락한 workspace에도 열 수 있다(`opened_by_app` 표시). 끝낼 수 있는 session은 자기가 연 것뿐이다. call의 끝남은 `lophn`의 `call.settled` event로 그 앱의 화면에만 간다.
 
 ### 앱 log
 
@@ -87,7 +103,7 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
 ### 호출 경로
 
 1. 모든 tool 호출은 core를 지난다. 화면에서 앱으로, 앱에서 앱으로 가는 직통 통로를 두지 않는다. 막기, 기록, write 줄이 core 한 곳에 있어야 changeset이 빠지지 않는다.
-2. 부른 쪽은 호출 본문이 주장하는 대로 믿지 않고 core가 확인한다. credential의 종류와 caller 종류가 맞아야 하고, agent는 지금 도는 turn의 tool call이어야 하고, 앱은 활성 release이면서 부모 invocation이 지금 도는 호출이어야 하고, program은 본문의 job과 job run이, flow는 본문의 instance가 core가 만든 자격과 같아야 한다. 끝난 turn이나 꺼진 판의 호출이 섞이면 막기와 기록이 틀린다. agent, 앱, program, flow는 늘 live 활성 release만 부른다.
+2. 부른 쪽은 호출 본문이 주장하는 대로 믿지 않고 core가 확인한다. credential의 종류와 caller 종류가 맞아야 하고, agent는 지금 도는 turn의 tool call이어야 하고, 앱은 활성 release이면서 부모 invocation이 지금 도는 호출이어야 하고, program은 본문의 job과 job run이, flow는 본문의 instance가, event는 본문의 발행자·event·publication·trace id·부모 invocation이 core가 만든 자격과 같아야 한다. 끝난 turn이나 꺼진 판의 호출이 섞이면 막기와 기록이 틀린다. agent, 앱, program, flow, event는 늘 live 활성 release만 부른다.
 3. tool 호출은 부른 workspace를 싣지 않는다. 어느 workspace가 불렀는지는 부른 session의 workspace로 안다. 앱 코드가 호출자별로 data를 나누는 관례는 core가 지키지 못하므로 호출에 범위를 싣지 않는다.
 4. operation은 사람(화면)과 그 앱 workspace session의 preview만 부른다. agent, 다른 앱, job, flow가 operation을 부르면 handler에 보내기 전에 `denied(gate_blocked)`다. 화면용 저수준 동작이 agent 계약(할당, 결과 크기)에 묶이지 않게 하려는 것이다.
 5. 호출 경로는 묻지 않고 막기만 한다. 판정 자리는 write 줄 앞이다. 막히면 `denied(gate_blocked)`다.
@@ -97,8 +113,9 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
    - 판정은 하지 않고 통과한다. 허락은 사람이 그 job의 등록을 승인한 것이다(`architecture/job.md`의 지키는 것, 등록 승인). scheduler는 승인한 job만 돌리고, 할 일(앱, tool, 입력)은 승인 뒤 바뀌지 않고, program 자격은 core 안 run 연산만 만든다. 만든 agent의 할당과 비공개 규칙은 보지 않는다.
    - 그 밖의 줄, 기록, 직렬화는 다른 호출과 같다.
 7. flow는 workflow instance가 연 tool run의 호출이다(`architecture/workflow.md`). program과 같은 길이지만 판정이 있다. 자격(instance, 그 project workspace와 그 agent)은 core 안 run 연산만 만들고, caller 본문 `{kind: flow, instance}`의 instance가 자격과 같아야 한다. 판정은 그 project workspace의 agent의 지금 할당과 비공개 규칙(그 agent가 놓인 workspace)이다. code를 쓴 것이 그 agent라 code로 그 할당을 넓히지 못한다. 사람이 그 agent에게 그 앱을 할당해야 flow가 그 tool을 쓴다.
-8. 앱 process의 caller parser, SDK의 호출 context, invocation의 caller 모양은 protocol schema의 손 사본이라(앱 process는 schema 검증 library를 싣지 않는다) caller 다섯 종류를 protocol과 같이 받아야 한다. 하나라도 빠지면 그 caller의 호출이 앱에서 말없이 거절된다. invocation 표의 `caller_kind` CHECK는 protocol의 caller schema에서 만든다.
+8. 앱 process의 caller parser, SDK의 호출 context, invocation의 caller 모양은 protocol schema의 손 사본이라(앱 process는 schema 검증 library를 싣지 않는다) caller 여섯 종류를 protocol과 같이 받아야 한다(손 사본은 SDK `cap-tool`의 호출 문맥, 앱 process entrypoint의 caller parser, core의 invocation 문맥 셋이다). 하나라도 빠지면 그 caller의 호출이 앱에서 말없이 거절된다. invocation 표의 `caller_kind` CHECK는 literal 목록이라 종류를 더할 때마다 표를 다시 짜는 ledger step이 필요하다(`apps.invocations.event-caller`가 `event`를 더하며 행, index, trigger를 그대로 옮겼다).
 9. 앱 호출 사슬은 같은 앱이 다시 나오면(`call_loop`) 또는 깊이 한도를 넘으면 handler에 가기 전에 막는다. 앱끼리 서로 부르다 줄이 영영 풀리지 않는 것을 막는다.
+10. event 전달은 앱 호출 경로의 호출 하나다(caller `{kind: event, publisher, event, publication, trace_id, chain, parent_invocation}`). 구독 handler는 operation 자리로 부르고(선언에 따로 없는 이름이라 core의 선언 찾기가 구독만 operation으로 찾아 준다) effect는 write로 고정한다. 앱 DB를 바꿀 수 있어 changeset을 뜨고 rewind 대상이어야 하기 때문이다. 사람이나 다른 caller가 그 이름을 부르면 `denied(not_declared)`다. Gate는 묻지 않는다: 구독은 발행 앱이 내놓은 event를 받겠다는 선언이고 사람 허락을 두지 않았다. event로 이어지는 고리는 살아 있는 호출 사슬로 끊을 수 없다(전달은 구독자를 기다리지 않아 발행 앱의 호출이 먼저 끝난다). 그래서 caller의 `chain`(이 event를 부른 인과의 앱들, 발행자 포함)이 사슬을 싣고 간다: 구독 handler 안에서 낸 event의 chain은 그 handler가 불린 caller의 chain(호출 기록에서 읽는다)에 이어진다. 구독자가 chain에 이미 있거나 chain이 깊이 한도에 닿았으면 호출을 넘기지 않고 발행 기록의 `refused`에 센다.
 
 ### 공개 범위와 사용 관계
 
@@ -162,12 +179,12 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
 
 앱 화면은 자기 앱 workspace의 agent session과 ACP로 이야기한다(`lophnApp.agent`의 `open`, `snapshot`, `onUpdate`, `send`). shell main이 sender view에서 앱을 정하고 사람 자격(`coreInternal`)으로 core에 넘긴다. 따로 허락 단계가 없다.
 
-1. `open({agent, title?})`의 `agent`는 agent의 handle이다. main이 그 앱 workspace에서 보이는 agent(전역과 그 앱의 범위 agent) 가운데 handle로 id를 풀고, 못 찾으면(없거나 다른 workspace의 범위 agent) `not_found`다. 늘 그 view의 앱 workspace(`{kind: app, id}`)에 새 session을 연다. 보통 lophn session이라 sidebar와 채팅 탭에도 보인다. 앱 코드는 workspace를 고르지 못한다. `title`을 주면 연 직후 ACP `rename`을 보내 session 제목으로 한다(`OpenSession`에 제목 칸이 없다. 이름을 못 붙여도 session은 열린 채다). 주지 않으면 제목은 첫 prompt 글이다.
-2. `send`는 ACP 입력 `send`, `stop`, `answer`, `rename`만 넘기고 나머지(`decide`, `rewind`, `fork`, `run_shell` …)는 core에 닿기 전에 `forbidden`이다. 앱 코드는 AI가 만든 코드일 수 있고, 승인은 사람이 채팅 탭에서만 한다. 허용 목록이라 ACP에 입력이 늘어도 앱은 닿지 못한다.
-3. `snapshot`·`send`는 먼저 session의 workspace가 그 앱인지 보고, 아니면(home, project, 다른 앱, 없는 session) `forbidden`이다. 확인한 session은 view마다 기억한다(session의 workspace는 바뀌지 않는다). 보내는 body의 상한과 입력 검사는 ACP 입력의 것이고 bridge는 자르지 않는다.
-4. 앱 view는 다른 앱, project, home의 session을 읽지도 보내지도 못하고, 열기는 늘 그 앱 workspace이며, 갱신은 그 앱 workspace의 것만 받는다.
-5. `AcpUpdated`는 main이 type으로 구독해 그 session을 열었거나 확인한 view로만 보낸다. 그래서 앱이 기억해 둔 session에 다시 붙을 때는 `snapshot`부터 읽어야 갱신이 온다. view가 새로 열리면 기억도 비어 있다.
-6. 앱 화면이 연 session은 알림 규칙이 다르다. 앱이 turn마다 agent를 부려 쓰므로(오목의 수마다 한 turn) turn 끝(완료·실패)은 알리지 않고 못 본 점(Finished)도 찍지 않는다. 승인·질문은 사람이 가야 풀리므로 그대로 알리되, 그 session을 쥔 앱 view가 focus 창에 보이면 보고 있는 것으로 쳐서 알리지 않는다. "앱 화면이 연 session"은 앱 화면이 연 것과 `snapshot`·`send`로 앱 workspace의 것임을 확인한 것의 집합이고(view가 사라져도 앱 process 수명 동안 남는다), "쥔 view"는 view별로 세는 소유다. 앱 view가 보이는지는 view가 보이는 동안 shell이 notice 쪽에 `{view_session, visible}`로 알린다. 그 session을 채팅 탭으로 보고 있을 때의 규칙은 그대로다(`architecture/terminal-agent.md`의 "알림").
+1. `open({agent, title?})`의 `agent`는 agent의 handle이다. main이 core의 `app_sessions.open`을 부르고 core가 그 앱 workspace에서 보이는 agent(전역과 그 앱의 범위 agent, 그 workspace의 lophn) 가운데 handle로 id를 풀고, 못 찾으면(없거나 다른 workspace의 범위 agent) `not_found`다. `open`은 선택 `workspace`(`{kind: project|app, id}`)를 받는다. 빼면 그 view의 앱 workspace에 열고, 주면 그 앱이 call로 닿을 수 있는 workspace(call 정책)에만 열린다(아니면 `forbidden`). 열린 session에는 `sessions.opened_by_app`이 달린다. 보통 lophn session이라 sidebar와 채팅 탭에도 보인다. 앱은 고르는 workspace가 정책 안이어야 할 뿐 앱 id는 고르지 못한다. `title`을 주면 core가 연 직후 `RenameSession`으로 붙인다(이름을 못 붙여도 session은 열린 채다). 주지 않으면 제목은 첫 prompt 글이다.
+2. `send`는 ACP 입력 `send`, `stop`, `answer`, `rename`만 넘기고(`send`에는 이 view의 앱을 이름표 `via_app`으로 싣는다: 앱 화면이 보낸 사람 메시지가 채팅 탭에서 친 것과 구별되게 채팅이 "via <앱>"을 붙인다. 이름표일 뿐 메시지는 사람의 것이다. page가 준 값은 덮는다. `architecture/acp.md`) 나머지(`decide`, `rewind`, `fork`, `run_shell` …)는 core에 닿기 전에 `forbidden`이다. 앱 코드는 AI가 만든 코드일 수 있고, 승인은 사람이 채팅 탭에서만 한다. 허용 목록이라 ACP에 입력이 늘어도 앱은 닿지 못한다.
+3. `snapshot`·`send`는 먼저 그 session이 이 앱에 보이는지 core에 묻고(`app_sessions.list`의 session 한 건, 읽을 때마다), 안 보이거나 없거나 터미널 탭(`term:`)이면 `forbidden`이다. 보이는 session은 workspace와 상관없이 붙는다(앱 workspace에서 call로 닿을 수 있는 workspace의 lophn·harness session, private workspace는 안 보인다). 보내는 body의 상한과 입력 검사는 ACP 입력의 것이고 bridge는 자르지 않는다.
+4. 앱 view는 보이지 않는 session을 읽지도 보내지도 못하고, 열기는 call 정책이 닿는 workspace이며, 갱신은 그 view가 읽은 session의 것만 받는다. 정책이 바뀌어 안 보이게 된 session은 다음 읽기·보내기부터 막히고, 이미 붙은 view의 갱신은 그 view가 다시 읽을 때까지 멈추지 않는다(알려진 한계).
+5. `AcpUpdated`는 main이 type으로 구독해 그 session을 열었거나 읽은 view로만 보낸다. 그래서 앱이 기억해 둔 session에 다시 붙을 때는 `snapshot`부터 읽어야 갱신이 온다. view가 새로 열리면 기억도 비어 있다.
+6. 앱 화면이 연 session은 알림 규칙이 다르다. 앱이 turn마다 agent를 부려 쓰므로(오목의 수마다 한 turn) turn 끝(완료·실패)은 알리지 않고 못 본 점(Finished)도 찍지 않는다. 승인·질문은 사람이 가야 풀리므로 그대로 알리되, 그 session을 쥔 앱 view가 focus 창에 보이면 보고 있는 것으로 쳐서 알리지 않는다. "앱이 연 session"은 core의 `sessions.opened_by_app`이 정한다(앱 화면이 연 것과 앱이 call로 열게 한 것. shell 메모리가 아니라 ledger라 shell을 다시 켜도 남는다). "쥔 view"는 그 session을 읽은 view별로 세는 소유다. 앱 view가 보이는지는 view가 보이는 동안 shell이 notice 쪽에 `{view_session, visible}`로 알린다. 그 session을 채팅 탭으로 보고 있을 때의 규칙은 그대로다(`architecture/terminal-agent.md`의 "알림").
 7. bridge의 type은 일반 `LophnAppAgent<State, Update, Input>`이고 SDK가 ACP의 상태·갱신·입력 type을 채운다. 이 portable entry가 ACP protocol을 import하면 shell main의 type 검사가 base까지 읽어 깨지기 때문이다.
 
 SDK `@lophn/agent`는 앱 코드가 bridge를 직접 부르지 않게 한다(template이 의존으로 싣는다).
@@ -215,15 +232,15 @@ project별 data를 다루는 앱은 project를 따로 만들지 않고 lophn pro
 
 ## 경계와 계약
 
-- core 경계: route `app.call_tool`이 호출 경로의 입구다. program과 flow 자격은 route로는 열 수 없고 core 안 run 연산만 만든다. 앱 process와는 `child-supervision-protocol`(supervisor가 길만 이어 준다)로 이야기한다.
-- caller 본문은 다섯 종류다: `{kind: person, view_session}`, agent(도는 turn과 tool call), 앱(부모 invocation), `{kind: program, job, job_run}`, `{kind: flow, instance}`.
+- core 경계: route `app.call_tool`이 호출 경로의 입구다. program, flow, event 자격은 route로는 열 수 없고 core 안 연산만 만든다(event는 발행을 받은 core의 전달). 앱 process와는 `child-supervision-protocol`(supervisor가 길만 이어 준다)로 이야기한다.
+- caller 본문은 여섯 종류다: `{kind: person, view_session}`, agent(도는 turn과 tool call), 앱(부모 invocation), `{kind: program, job, job_run}`, `{kind: flow, instance}`, `{kind: event, publisher, event, publication, trace_id, chain, parent_invocation}`(publisher는 앱 id나 `lophn`).
 - 호출 결과의 막힘 code는 `denied(gate_blocked)`(막기), `denied(call_loop)`(같은 앱이 사슬에 다시 나옴), `denied(call_too_deep)`(깊이 한도), `denied(app_archived)`(보관한 앱. 사람 화면에만 이대로 가고 agent에게는 `not_found`)다. 결과 모름은 `unknown`, 보내기 전에 막힌 것은 `unavailable`이다.
-- route와 tool 이름: `app.call_tool`, `app.tool_index`, `app.usage`, `app.skills`, `app.status`, `app.invocations`, `app.logs`(`apps/logs`), `app.log_view_error`(shell main → core), `app.delete`, `app.create`, `release.prepare`(결과의 `removed_public_tools`, `removed_public_skills`), `declaration.check`, `package.publish`, `apps.apply`(rewind 적용), `apps.secret_value`, `apps.oauth_sign_out`, `apps/oauth_state`, `preview.call`, `visual.show`.
+- route와 tool 이름: `app.call_tool`, `app.tool_index`, `app.usage`, `app.skills`, `app.status`, `app.invocations`, `app.event_publications`(발행 기록, CLI `lophn app event-publications`), `app_events.publish`(앱 process → core), `app_sessions.list|status|stop`(앱 → core), `terminal_sessions.report`(shell main → core), `app.logs`(`apps/logs`), `app.log_view_error`(shell main → core), `app.delete`, `app.create`, `release.prepare`(결과의 `removed_public_tools`, `removed_public_skills`), `declaration.check`, `package.publish`, `apps.apply`(rewind 적용), `apps.secret_value`, `apps.oauth_sign_out`, `apps/oauth_state`, `preview.call`, `visual.show`.
 - 선언: `operations[]`, `commands[]`, `skills[]`, 화면 `{key, label, path, places, params?, tray?}`, `permissions`, `sdk_dependencies`, `secret.use`(`oauth`), `fs.read|fs.write`. 정본 json은 비었거나 없는 칸을 두지 않는다.
-- 화면 bridge: `lophnApp.callOperation`(SDK의 `useOperation`, `OperationButton`), `lophnApp.place`, `lophnApp.agent`(`open`, `snapshot`, `onUpdate`, `send`), `lophnApp.setKeepAlive`. 화면 주소 query는 `place`, `params`, `workspace`다. 앱 화면의 agent 입력은 `send`·`stop`·`answer`·`rename`만 허용된다.
+- 화면 bridge: `lophnApp.callOperation`(SDK의 `useOperation`, `OperationButton`), `lophnApp.place`, `lophnApp.agent`(`open`, `snapshot`, `onUpdate`, `send`), `lophnApp.events`(`subscribe`, SDK의 `useEvent`), `lophnApp.sessions`(`list`, `status`, `stop`, SDK의 `useSessions`), `lophnApp.setKeepAlive`. 화면 주소 query는 `place`, `params`, `workspace`다. 앱 화면의 agent 입력은 `send`·`stop`·`answer`·`rename`만 허용된다.
 - 저장: `<data root>/apps/<app>/`(source 저장소, bundle, data DB, `logs/app.log`·`app.log.1`, preview). log 줄 모양은 `{ at, invocation, text }`. 앱 source의 `.lophn/skills/<name>/SKILL.md`. OAuth 값은 `app-oauth.<이름>.*` secret 항목.
-- ledger: 표 `invocations`(끝 상태, `caller_kind`, changeset blob 참조, 되돌림 표시), `app_rewinds`(rewind 기록, 불변), `grants`, `releases`, 선언 hash(`declaration_hash`). 옮기기 step: `apps.releases.declaration-places`, `apps.releases.declaration-no-domain`(저장된 선언의 `commands[].domain`을 지운다. `declaration_hash`는 그대로), `apps.delete.erase-windows`, data step `approvals.deny-rule-slug`(정의 파일의 `lophn(<domain> …)`을 그 domain을 가진 앱의 slug로. 못 찾은 규칙은 그대로).
-- event: `AppStarted`, `AppStopped`, `AppCreated`, `AppDeleted`(남는다), `AppRemoved`(남지 않는다, shell 정리용), `AcpUpdated`.
+- ledger: 표 `invocations`(끝 상태, `caller_kind`, changeset blob 참조, 되돌림 표시), `app_event_publications`(발행 기록), `app_rewinds`(rewind 기록, 불변), `grants`, `releases`, 선언 hash(`declaration_hash`). 옮기기 step: `apps.invocations.event-caller`(표를 다시 짠다), `apps.events.publications`, `apps.releases.declaration-places`, `apps.releases.declaration-no-domain`(저장된 선언의 `commands[].domain`을 지운다. `declaration_hash`는 그대로), `apps.delete.erase-windows`, data step `approvals.deny-rule-slug`(정의 파일의 `lophn(<domain> …)`을 그 domain을 가진 앱의 slug로. 못 찾은 규칙은 그대로).
+- event: `AppStarted`, `AppStopped`, `AppCreated`, `AppDeleted`(남는다), `AppRemoved`(남지 않는다, shell 정리용), `AcpUpdated`, `AppEventPublished`(남지 않는다, 열린 앱 화면에 앱 event를 전하는 신호).
 - 설정 key: `shell.quick_launch`, `shell.app_launch`, `shell.sidebar_panels_off`, `shell.tray_off`, `shell.tray_order`.
 - 정의의 deny 규칙은 `lophn(<slug> <낱말>)`이다.
 - agent 명령: `lophn <app> <command>`(`lophn <slug> --help`가 description과 입력을 보인다). 기록 이름은 `<slug>.<command>`(argv 낱말은 `.`로 나누고 `_`는 `-`)이고 effect는 선언에서 온다. 사람은 binary의 `lophn <slug> <command>`로 run을 거쳐 부른다.
@@ -259,6 +276,7 @@ project별 data를 다루는 앱은 project를 따로 만들지 않고 lophn pro
 - program caller를 따로 둔다. 사람이 연 run의 호출은 사람의 호출이라 Gate를 거치지 않는다. job의 호출은 사람이 등록을 승인한 job의 호출이라 판정 없이 지나가지만, 기록에는 어느 job, 어느 차례가 불렀는지 남아야 한다. agent caller는 도는 turn과 tool call을 싣고 그것으로 확인하는데 job에는 그것이 없다. 그래서 job과 job run을 싣고 core가 만든 자격과 맞춰 본다. agent를 빌려 쓰면 없는 turn을 만들어야 한다. invocation 기록과 rewind 화면이 job이 한 호출을 가려 보인다. (agent)
 - job의 허락은 만든 agent의 할당이 아니라 사람의 등록 승인이다. 할당으로 판정하면 job 하나를 돌리려고 만든 agent에게 그 앱 전체를 열어 줘야 하고(그 agent는 다른 session에서도 그 앱의 모든 tool을 부른다), job을 만든 agent는 그 tool을 직접 쓸 이유가 없을 때가 많다(앱 workspace에서 앱을 만든 agent가 그 앱의 수집 job을 만드는 경우). 할당이 없으면 job은 만들어지고 차례마다 말없이 막혔다. 사람이 job 하나(주기와 할 일)를 보고 승인하면 허락의 범위가 그 job의 할 일 하나로 맞는다.
 - flow caller를 program에서 가른다. flow instance의 호출도 사람이 없지만 자격의 agent(`workflow.yaml`의 `agent`, 없으면 lophn)의 할당으로 판정한다. job이 없으니 본문과 자격이 맞춰 볼 것이 instance다. 같은 kind에 job과 instance를 nullable로 두면 parser 손 사본마다 둘 중 하나만 있는지를 다시 검사해야 한다.
+- event caller를 따로 둔다. 구독 handler의 호출은 사람도 agent도 job도 아니고 어느 앱의 어느 event가 불렀는지가 기록에 남아야 한다. 기존 kind를 빌리면(app caller) 부른 앱이 호출을 직접 한 것처럼 grant `app.call`을 요구하고 "event 때문"이 한 줄에 보이지 않는다. kind를 더하는 값은 표를 다시 짜는 step 하나다. 구독 handler의 effect는 write로 고정한다. 구독 선언에 effect를 두면 handler마다 앱이 골라야 하고 read로 선언한 handler가 DB를 바꾸면 changeset이 없어 rewind가 틀린다. 구독 handler는 별도 호출 종류(`kind`)를 만들지 않고 operation 자리로 부르고 caller로 막는다. 호출 종류를 늘리면 invocation의 operation 모양, process wire, SDK context가 모두 바뀐다. (agent)
 - preview 호출은 기록을 남기지 않는다. ledger의 `release`를 비울 수 없어 release 없는 bundle의 호출은 기록할 자리가 없고, preview는 일회용 DB라 rewind 대상이 아니다. coding agent의 MCP 호출은 새 caller 종류 없이 `person` caller와 preview 전용 자격으로 들어간다. 새 종류는 ledger의 caller CHECK, caller 판정, rewind를 바꿔야 하는데 preview 호출은 기록이 없다. (agent)
 - `app.usage`는 invocation만 센다. 할당받은 agent의 열린 session place를 세던 안은 session을 열고 닫을 때마다 결과가 바뀌어 버렸다. (agent)
 - 앱 log를 앱마다 file로 남기고 쓰는 쪽을 supervisor 하나로 했다. 앱 안에서 쓰게 하면 앱 코드가 log를 지우거나 고칠 수 있다. supervisor는 이미 앱의 stdout·stderr를 쥐고 있고 lophn의 코드라, 앱이 쓴 줄과 lophn이 아는 사실(비정상 종료, 화면 오류)을 같은 file에 같은 redaction으로 쌓는다. 메모리 buffer가 아니라 file인 것은 앱이 죽거나 supervisor가 다시 뜬 뒤에도 원인을 읽어야 해서다. 이전 log는 supervisor 메모리에만 있어 재시작하면 사라졌다. (agent)

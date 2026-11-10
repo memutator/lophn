@@ -20,9 +20,13 @@ files:
     covers: [release-activate:active]
     note: "ledger 저장 규칙: 끝난 invocation은 표 trigger로 못 바꾸고 못 지움, 되돌림 표시 한 번, 큰 changeset은 결과를 살리고 changeset_dropped로 닫음, activation 뒤 이전 release의 changeset 지우기. activation 뒤 changeset 지우기는 release-activate:active"
 
+  - path: packages/core/apps/events/publish_test.ts
+    covers: [app-event-publish:published, app-event-publish:delivered, app-event-publish:loop-refused, app-event-publish:undeclared-or-mismatched]
+    note: "선언하지 않은 event와 schema에 맞지 않는 payload는 invalid_input이고 아무에게도 가지 않으며 기록도 없다. 그 (source, event)를 구독으로 선언한 켜진 앱에만 가고 꺼진 구독자는 unreachable로, event의 chain에 이미 있는 구독자(A → B → A)는 refused로 센다. 발행 기록에 payload 칸이 없다. 호출 경로와 broker는 가짜 port"
+
   - path: packages/core/apps/invocations/schema_test.ts
     covers: []
-    note: "invocations schema step 2: 옛 tool 기록을 command로 옮기고 끝난 행의 잠금 trigger를 되살림. migration step 검사라 covers 밖"
+    note: "invocations schema step 2: 옛 tool 기록을 command로 옮기고 끝난 행의 잠금 trigger를 되살림. step 3(event-caller): caller 종류에 event를 더하려고 표를 다시 짜도 모든 행, index 넷, trigger 둘이 그대로이고 event caller를 받음. migration step 검사라 covers 밖"
 
   - path: packages/core/apps/lookups_test.ts
     covers: []
@@ -87,6 +91,10 @@ files:
   - path: packages/core/apps/releases/activation/consents_test.ts
     covers: [release-activate:waiting-consent, activation-ask-consent:requested, activation-ask-consent:unchanged, activation-consent:allow, activation-consent:forbidden, activation-sweep:reasked, activation-sweep:started]
     note: "넓어진 선언은 동의 줄 하나만 만들고 시작하지 않음(다시 불러도 하나), 사람만 허락, 허락 뒤 비교가 바뀌면 시작하지 않고 다시 묻고, 지금 비교를 허락하면 시작 큐에 넣음"
+
+  - path: packages/core/apps/releases/activation/desired_test.ts
+    covers: []
+    note: "bundle의 선언 handler 목록(supervisor가 ready probe에서 등록한 handler와 맞추는 이름)에 구독 handler on.<source>.<event>가 든다. 순수 함수라 covers 밖"
 
   - path: packages/core/apps/releases/activation/orchestrator_test.ts
     covers: [release-activate:failed, release-activate:held]

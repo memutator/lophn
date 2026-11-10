@@ -84,6 +84,7 @@ import { ACTIVATION_CONSENT_TOPIC } from "../../../apps/releases/activation/cons
 import { createCopyPreviewBundles } from "../../../apps/releases/activation/desired.ts";
 import { observeReleaseActivations } from "../../../apps/releases/activation/recovery.ts";
 import { releaseFacts } from "../../../apps/releases/mod.ts";
+import { loadActiveDeclaration } from "../../../apps/releases/store.ts";
 import {
   closeInterruptedRewinds,
   createAppRewind,
@@ -112,7 +113,12 @@ import {
   withSdkDecide,
 } from "../../../apps/sdk-status/mod.ts";
 import { BUNDLED_SKILLS_ROOT } from "../../../agent-workspaces/skills/root.ts";
+import {
+  createEventDelivery,
+  createEventPublisher,
+} from "../../../apps/events/mod.ts";
 import { createTray } from "../../../apps/tray/mod.ts";
+import { appEventPublish } from "../../../../protocol/apps/events.ts";
 import { appTrayList, appTraySet } from "../../../../protocol/apps/tray.ts";
 import { APP_RESTART_HALTED_TOPIC } from "../../../apps/runtime/commands.ts";
 import { viewErrorLogHandler } from "../../../apps/runtime/view-errors.ts";
@@ -325,6 +331,92 @@ export const appsWiring: WiringFactory = () => {
           } as BusEvent);
         },
       });
+      // 앱 event: 전달(구독 앱의 handler를 앱 호출 경로로 부른다)과 앱의 발행. 발행 기록은 invocation과 같이 짧은 연결로 쓴다.
+      const eventDelivery = createEventDelivery({
+        clock: ctx.clock,
+        ids,
+        random: ctx.random,
+        activeTraceId: () => ctx.telemetry.tracer.context.active()?.traceId,
+        sql: link.sql,
+        transaction: link.transaction,
+        async running(app, release, handler) {
+          const observed = await appsControl.client.observe(app);
+          if (
+            observed.ok &&
+            observed.value !== null &&
+            observed.value.mode === "live" &&
+            observed.value.release === release &&
+            observed.value.ready &&
+            observed.value.accepting
+          ) {
+            // 등록한 handler 이름은 ready probe가 알린 것이다. 화면만 구독하는 앱은 등록하지 않아 process 전달 대상이 아니다.
+            return observed.value.tools.includes(handler) ? "running" : "none";
+          }
+          return "down";
+        },
+        deliver: path.call,
+        announce({ publisher, source, event, payload, audience, at }) {
+          ctx.peek.bus?.publish({
+            type: "AppEventPublished",
+            subject: publisher === "lophn" ? null : publisher,
+            at,
+            payload: { source, event, payload, audience },
+          } as BusEvent);
+        },
+        failed(app, event, message) {
+          ctx.telemetry.logger.warn({
+            component: "apps/events",
+            event: "delivery_failed",
+            fields: { app, name: event, message },
+          });
+        },
+      });
+      ctx.provide("eventDelivery", eventDelivery);
+      const publishEvent = createEventPublisher({
+        delivery: eventDelivery,
+        app(app) {
+          const loaded = loadApp(link.sql, app);
+          if (!loaded.ok) return loaded;
+          return ok(
+            loaded.value === null
+              ? null
+              : {
+                  slug: loaded.value.slug,
+                  archived: loaded.value.status !== "active",
+                },
+          );
+        },
+        activeDeclaration(app) {
+          const loaded = loadActiveDeclaration(link.sql, app);
+          if (!loaded.ok) return loaded;
+          return ok(
+            loaded.value === null
+              ? null
+              : {
+                  release: loaded.value.release.id as Id<"rel">,
+                  declaration: loaded.value.declaration,
+                },
+          );
+        },
+        flight: intake.flight,
+        // 지금 도는 호출의 사슬(살아 있는 호출)과, 그 호출이 event로 불린 것이면 그 event가 싣고 온 chain(기록에서 읽는다).
+        ancestry(parent, publisher) {
+          if (parent === null) return [];
+          // 이 앱의 호출만 본다(다른 앱의 invocation id로 그 앱의 chain을 읽거나 조작하지 못한다).
+          const recorded = ledger.get(parent);
+          const own =
+            recorded.ok && recorded.value !== null
+              ? recorded.value.app === publisher
+              : intake.flight(parent)?.app === publisher;
+          if (!own) return [];
+          const apps = intake.chainApps(parent).reverse();
+          const caller = recorded.ok ? recorded.value?.caller : null;
+          return [
+            ...(caller?.kind === "event" ? caller.chain : []),
+            ...apps,
+          ] as Id<"app">[];
+        },
+      });
       const locator: BundleLocator = {
         dir: (target) =>
           (
@@ -419,6 +511,10 @@ export const appsWiring: WiringFactory = () => {
           ["apps/rewind", rewindHandler(rewind, link.sql)],
           [`${appTraySet.resource}/${appTraySet.method}`, tray.set],
           [`${appTrayList.resource}/${appTrayList.method}`, tray.list],
+          [
+            `${appEventPublish.resource}/${appEventPublish.method}`,
+            publishEvent,
+          ],
           [
             `${appLogViewError.resource}/${appLogViewError.method}`,
             viewErrorLogHandler({

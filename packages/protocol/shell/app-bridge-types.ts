@@ -57,8 +57,8 @@ export type TabHeadEvent =
   | { type: "back" | "forward" };
 
 /**
- * 앱 화면이 자기 앱 workspace의 agent session과 ACP로 이야기하는 길. session이 이 앱 workspace의 것이 아니면 모두
- * `forbidden`이다. `send`는 ACP 입력 `send`·`stop`·`answer`·`rename`만 받고 나머지(승인 `decide` 등)는 `forbidden`이다. 값은 protocol/acp의 `AcpState`·`AcpUpdate`·`AcpInput`이다. 이 entry가 그 type을 import하면 shell main의
+ * 앱 화면이 agent session과 ACP로 이야기하는 길. 붙을 수 있는 session은 이 앱이 보는 session(이 앱 workspace에서 call로 닿을 수 있는
+ * workspace의 lophn·harness session, 터미널 탭 `term:`은 아님)이고 아니면 모두 `forbidden`이다. `send`는 ACP 입력 `send`·`stop`·`answer`·`rename`만 받고 나머지(승인 `decide` 등)는 `forbidden`이다. 값은 protocol/acp의 `AcpState`·`AcpUpdate`·`AcpInput`이다. 이 entry가 그 type을 import하면 shell main의
  * tsconfig.json(noUncheckedIndexedAccess)이 `base/mod.ts`까지 읽어 깨지므로 type 인자로 두고, 쓰는 쪽(SDK)이 채운다.
  */
 export type LophnAppAgent<
@@ -66,13 +66,18 @@ export type LophnAppAgent<
   Update = unknown,
   Input = unknown,
 > = {
-  /** 이 앱 workspace에 그 agent의 새 session을 연다. `title`을 주면 sidebar에 보일 session 제목이 된다. */
+  /**
+   * 그 agent의 새 session을 연다(기본은 이 앱 workspace). 그 session은 이 앱이 열었다는 표시가 붙고(앱은 그 session만 `sessions.end`로 끝낸다,
+   * turn 끝 알림이 가지 않는다), `title`을 주면 sidebar에 보일 session 제목이 된다.
+   */
   open(input: {
     agent: string;
     title?: string;
+    /** 빼면 이 앱 workspace. 주면 이 앱이 call로 닿을 수 있는 workspace(call 정책)이고 아니면 `forbidden`이다. */
+    workspace?: { kind: "project" | "app"; id: string };
   }): Promise<Result<{ session: string }>>;
   snapshot(session: string): Promise<Result<State>>;
-  /** 이 화면이 열었거나 snapshot·send로 확인한 session의 갱신만 온다. 놓치면 snapshot을 다시 읽는다. */
+  /** 이 화면이 열었거나 snapshot·send로 읽은 session의 갱신만 온다. 놓치면 snapshot을 다시 읽는다. */
   onUpdate(listener: (session: string, update: Update) => void): () => void;
   send(input: Input): Promise<Result<void>>;
 };
@@ -93,6 +98,62 @@ export type AppProject = {
 /** lophn project 읽기. 보관한 project도 싣는다(`status`). */
 export type LophnAppProjects = {
   list(): Promise<Result<{ projects: AppProject[] }>>;
+};
+
+/**
+ * 앱 event를 받는다. `source`는 event를 낸 앱의 slug이거나 core가 내는 event의 `lophn`이다. 이 화면의 release가 선언에서
+ * 구독(`subscriptions`)한 (source, event)만 온다(선언하지 않으면 listener를 달아도 아무것도 오지 않는다). 화면이 떠 있는
+ * 동안만 받고, 놓친 event는 다시 오지 않으므로 처음 값은 발행 앱의 read command로 읽는다. 돌려주는 함수로 listener를 푼다.
+ */
+export type LophnAppEvents = {
+  subscribe(
+    source: string,
+    event: string,
+    listener: (payload: unknown) => void,
+  ): () => void;
+};
+
+/**
+ * lophn의 agent session 목록·상태·멈추기(session lifecycle). 이 앱이 보는 session은 이 앱 workspace에 사는 agent가 call로 닿을 수 있는
+ * workspace의 것뿐이다(private workspace는 안 보이고 같은 workspace는 늘 보인다). 안 보이는 session은 없는 session과 같다(`not_found`).
+ * 값의 모양은 protocol/lophn-agent/session-lifecycle의 `SessionInfo`다. 이 entry가 그 type을 import하면 shell main의 tsconfig가 깨지므로
+ * type 인자로 두고 쓰는 쪽(SDK)이 채운다.
+ */
+export type LophnAppSessions<Info = unknown, Status = unknown> = {
+  list(filter?: {
+    workspace?: { kind: "home" } | { kind: "project" | "app"; id: string };
+    state?: "running" | "waiting" | "idle" | "unknown";
+    harness?: string;
+    kind?: "lophn" | "harness" | "terminal";
+  }): Promise<Result<{ sessions: Info[] }>>;
+  status(session: string): Promise<Result<Status>>;
+  /** 도는 turn을 멈추고 그 turn에 딸린 process를 정리한다. 멈춘 것은 사람이 볼 수 있게 기록된다. 터미널 session은 그 CLI의 끊기 key를 보낸다. */
+  stop(session: string): Promise<Result<{ stopped: boolean }>>;
+  /** 이 앱이 연 session을 끝낸다(archive와 같은 영향). 남이 연 session은 `forbidden`이다. */
+  end(session: string): Promise<Result<{ ended: boolean }>>;
+};
+
+/**
+ * 앱이 agent에게 보내는 call(A2A). 보낼 수 있는 곳은 이 앱 workspace에서 call로 닿을 수 있는 workspace의 agent와 session이다(call 정책).
+ * 값의 모양은 protocol/lophn-agent/app-calls의 입력·`AppCallRow`다(type 인자로 두고 SDK가 채운다). 끝남은 `lophn`의 `call.settled`
+ * event로 받는다(`events.subscribe("lophn", "call.settled", ...)`, 선언의 `subscriptions`가 필요하다).
+ */
+export type LophnAppCalls<Input = unknown, Sent = unknown, Row = unknown> = {
+  /** 사람이 이 화면에서 보낸 call이라 받는 turn은 attended다. */
+  send(input: Input): Promise<Result<Sent>>;
+  /** 이 앱이 보낸 call 하나(result call의 답 글 포함). */
+  read(call: string): Promise<Result<{ call: Row }>>;
+  cancel(
+    call: string,
+    reason?: string,
+  ): Promise<Result<{ call: string; state: string }>>;
+  /** 보이는 session이 받은 call들(새것부터, 최대 50). */
+  list(session: string): Promise<Result<{ calls: Row[] }>>;
+};
+
+/** 이 앱 workspace에서 부를 수 있는 agent들의 명함(protocol의 `AgentCard`가 값의 모양이다). */
+export type LophnAppAgents<Card = unknown> = {
+  list(): Promise<Result<{ agents: Card[] }>>;
 };
 
 /** 화면이 열린 workspace. project의 folders는 등록한 폴더 path 목록이고, Home과 앱 workspace는 비어 있다. */
@@ -125,7 +186,11 @@ export type LophnApp = {
   callOperation(operation: string, input: Json): Promise<unknown>;
   openExternal(url: string): Promise<void>;
   agent: LophnAppAgent;
+  calls: LophnAppCalls;
+  agents: LophnAppAgents;
   projects: LophnAppProjects;
+  events: LophnAppEvents;
+  sessions: LophnAppSessions;
   commands: LophnAppCommands;
   /** 이 화면 탭의 머리 줄을 바꾼다. null이면 내린다. */
   setTabHead(head: TabHead | null): void;

@@ -5,7 +5,7 @@ import type { RequestContext, Sql, Tx } from "../../../protocol/server/mod.ts";
 import { turnSchemaSteps } from "../run-loop/schema.ts";
 import { usageSchemaSteps } from "../usage/model.ts";
 import { createCompactCommands } from "./compact.ts";
-import { conversationSchemaSteps } from "./model.ts";
+import { conversationTestSteps } from "./test-steps.ts";
 
 // 도는 turn이 있는 session은 그 turn 자신(machine)만 Compact를 열고 확정한다. 다른 turn이나 turn 없는 요청, 사람이
 // turn을 흉내 낸 요청이 열면 사람의 대화가 turn 도중에 요약으로 바뀐다.
@@ -14,7 +14,7 @@ const HASH = "a".repeat(64);
 function setup() {
   const db = new DatabaseSync(":memory:");
   for (const step of [
-    ...conversationSchemaSteps,
+    ...conversationTestSteps,
     ...turnSchemaSteps,
     ...usageSchemaSteps,
   ]) {

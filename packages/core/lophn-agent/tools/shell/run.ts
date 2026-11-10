@@ -235,7 +235,7 @@ export async function runShell(
     {
       command: input.command,
       cwd,
-      env: readShellEnvironment(deps.env, deps.platform),
+      env: readShellEnvironment(deps.env, deps.platform, ctx.session),
       timeoutMs,
       signal: ctx.signal,
     },

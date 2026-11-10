@@ -25,6 +25,8 @@ areas:
       - packages/protocol/lophn-agent/message-images.ts
       - packages/protocol/lophn-agent/message-search.ts
       - packages/protocol/lophn-agent/session-status.ts
+      - packages/protocol/lophn-agent/session-lifecycle.ts
+      - packages/protocol/lophn-agent/app-calls.ts
       - packages/protocol/lophn-agent/commands.ts
     owns:
       - session 열기, 닫기, archive, 이름
@@ -203,6 +205,7 @@ areas:
       - packages/protocol/apps/apps.ts
       - packages/protocol/apps/runtime.ts
       - packages/protocol/apps/calls/
+      - packages/protocol/apps/events.ts
       - packages/protocol/apps/oauth.ts
       - packages/protocol/apps/grants.ts
       - packages/protocol/apps/secret-use.ts
@@ -213,6 +216,7 @@ areas:
       - 앱 등록, 지우기, source 폴더
       - 앱 process 감독(시작, crash, 다시 띄우기)
       - 앱 호출(operation, command, 앱끼리의 call)과 호출 기록, 앱 data rewind
+      - 앱 event의 발행과 구독 handler 호출, 발행 기록
       - capability broker(fs, net, secret, store, notify, problem)
       - 앱 OAuth, grant, 앱 log
     read:

@@ -410,8 +410,13 @@ export const acpWiring: WiringFactory = () => {
         shell: {
           folderOf: (session) =>
             workspaceBaseOf({ sql }, ctx.root.path, session),
-          env: () =>
-            shellEnvironment(process.env, nodeShimFolder(ctx.root.path)),
+          env: (session) =>
+            shellEnvironment(
+              process.env,
+              nodeShimFolder(ctx.root.path),
+              undefined,
+              session,
+            ),
           run: runCommand,
           nowMs: () => ctx.clock.nowMs(),
         },

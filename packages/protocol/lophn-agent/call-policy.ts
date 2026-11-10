@@ -82,8 +82,25 @@ export function mayCall(
     (rule) => rule.from === from.agent && rule.to === to.agent,
   );
   if (byAgent !== undefined) return byAgent.allow;
-  const fromWorkspace = callWorkspaceOf(from.workspace);
-  const toWorkspace = callWorkspaceOf(to.workspace);
+  const handoff =
+    reply === "none" &&
+    isLophn(from.agent) &&
+    from.workspace === null &&
+    isLophn(to.agent);
+  return mayReachWorkspace(policy, from.workspace, to.workspace, handoff);
+}
+
+// agent 쌍 규칙을 빼고 workspace 쌍 규칙 → 같은 workspace → private만 본다. agent가 없는 쪽(앱 workspace의 앱 process와 화면)이
+// 그 workspace에 사는 agent와 같은 시야를 갖게 할 때 쓴다(앱이 보는 session은 그 앱 workspace의 agent가 call로 닿을 수 있는 session이다).
+// 가짜 agent를 만들어 agent 쌍 규칙에 걸리지 않게 하려고 agent 칸을 아예 받지 않는다.
+export function mayReachWorkspace(
+  policy: CallPolicy,
+  from: Workspace | null,
+  to: Workspace | null,
+  handoff = false,
+): boolean {
+  const fromWorkspace = callWorkspaceOf(from);
+  const toWorkspace = callWorkspaceOf(to);
   const byWorkspace = policy.workspaces.find(
     (rule) =>
       sameWorkspace(rule.from, fromWorkspace) &&
@@ -91,11 +108,6 @@ export function mayCall(
   );
   if (byWorkspace !== undefined) return byWorkspace.allow;
   if (sameWorkspace(fromWorkspace, toWorkspace)) return true;
-  const handoff =
-    reply === "none" &&
-    isLophn(from.agent) &&
-    from.workspace === null &&
-    isLophn(to.agent);
   return !policy.private.some(
     (workspace) =>
       sameWorkspace(workspace, fromWorkspace) ||

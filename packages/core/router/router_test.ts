@@ -15,7 +15,11 @@ import {
   lophnIdOf,
 } from "../../protocol/lophn-agent/workspaces.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
-import { ASK_ANSWERED_TOPIC, ASK_ENDED_TOPIC } from "./model.ts";
+import {
+  APP_CALL_SETTLED_TOPIC,
+  ASK_ANSWERED_TOPIC,
+  ASK_ENDED_TOPIC,
+} from "./model.ts";
 import { createRouter } from "./router.ts";
 import type {
   CallStore,
@@ -71,13 +75,19 @@ function setup(
       [...rows.values()].find(
         (row) =>
           row.from.kind === "agent" &&
-          row.from.session === sender &&
+          sender.kind === "agent" &&
+          row.from.session === sender.session &&
           row.dedup === dedup,
       ) ?? null,
     read: (_tx, call) => rows.get(call) ?? null,
-    move: (_tx, call, to, reason) => {
+    move: (_tx, call, to, reason, result) => {
       const row = rows.get(call)!;
-      const moved = { ...row, state: to, fail_reason: reason };
+      const moved = {
+        ...row,
+        state: to,
+        fail_reason: reason,
+        result: result ?? null,
+      };
       rows.set(call, moved);
       return ok(moved);
     },
@@ -97,6 +107,7 @@ function setup(
       openedBy.push(spawnedBy);
       return ok(sessions[RECEIVER]!);
     },
+    app: (id) => ({ slug: id.replace("app_", ""), archived: false }),
     accepts,
     listOpen: () => [],
   };
@@ -658,4 +669,83 @@ test("a custom or harness parent's automatic reply to an approval ask call close
       },
     },
   ]);
+});
+
+// 앱이 보낸 call. 정책이 떼어 놓은 workspace로는 가지 않고, 받는 쪽의 답은 call 행에 글로 남아 그 앱에만 알려지고, 남의 call은 취소하지 못한다.
+test("an app call obeys the workspace policy, its reply is stored on the row and settles for that app only", () => {
+  const appWorkspace = { kind: "app", id: "app_notes" } as const;
+  const away = target(RECEIVER, true, {
+    agent: lophnIdOf(null),
+    workspace: { kind: "project", id: "prj_other" },
+  });
+  const apart: CallPolicy = {
+    ...DEFAULT_CALL_POLICY,
+    workspaces: [
+      {
+        from: appWorkspace,
+        to: { kind: "project", id: "prj_other" },
+        allow: false,
+      },
+    ],
+  };
+  const refused = setup({ [RECEIVER]: away }, () => null, apart);
+  const from = refused.router.appSender("app_notes");
+  assert.ok(from.ok);
+  const sent = refused.router.route(refused.tx, {
+    ...base,
+    from: from.value,
+    to: { session: RECEIVER },
+    dedup: null,
+  });
+  assert.ok(!sent.ok && sent.error.code === "forbidden");
+  assert.equal(refused.rows.size, 0);
+  assert.deepStrictEqual(refused.delivered, []);
+
+  const open = setup({ [RECEIVER]: target(RECEIVER, true) });
+  const sender = open.router.appSender("app_notes");
+  assert.ok(sender.ok);
+  const routed = open.router.route(open.tx, {
+    ...base,
+    from: sender.value,
+    to: { session: RECEIVER },
+    dedup: null,
+  });
+  assert.ok(routed.ok && routed.value.call !== null);
+  const call = routed.value.call as Parameters<
+    typeof open.router.reply
+  >[2]["call"];
+  assert.deepStrictEqual(open.rows.get(call)!.from, sender.value);
+  const answered = open.router.reply(
+    open.tx,
+    { session: RECEIVER },
+    { call, body: textBlocks("done"), refs: [] },
+  );
+  assert.deepStrictEqual(answered, ok({ delivered: true, closed: false }));
+  assert.equal(open.rows.get(call)!.state, "done");
+  assert.equal(open.rows.get(call)!.result, "done");
+  assert.deepStrictEqual(open.announced, [
+    {
+      topic: APP_CALL_SETTLED_TOPIC,
+      data: { app: "app_notes", call, state: "done", fail_reason: null },
+    },
+  ]);
+  // 답은 받는 session 말고 어느 queue로도 가지 않는다(앱에는 queue가 없다).
+  assert.equal(
+    open.delivered.filter((one) => one.input.kind === "reply").length,
+    0,
+  );
+
+  const other = open.router.appSender("app_other");
+  assert.ok(other.ok);
+  const second = open.router.route(open.tx, {
+    ...base,
+    from: sender.value,
+    to: { session: RECEIVER },
+    dedup: null,
+  });
+  assert.ok(second.ok && second.value.call !== null);
+  const stolen = open.router.cancel(open.tx, other.value, {
+    call: second.value.call as typeof call,
+  });
+  assert.ok(!stolen.ok && stolen.error.code === "forbidden");
 });

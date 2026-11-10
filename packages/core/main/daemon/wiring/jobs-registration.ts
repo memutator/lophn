@@ -4,8 +4,20 @@
 // read를 가진 jobs/register.ts와 따로 둔다.
 import { err, ok } from "../../../../base/mod.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
-import { jobTargetsPort, jobZonePort } from "../../../jobs/ports.ts";
-import type { JobTargets } from "../../../jobs/ports.ts";
+import {
+  jobEventPolicyPort,
+  jobTargetsPort,
+  jobZonePort,
+} from "../../../jobs/ports.ts";
+import type { JobEventPolicy, JobTargets } from "../../../jobs/ports.ts";
+import {
+  DEFAULT_CALL_POLICY,
+  mayReachWorkspace,
+} from "../../../../protocol/lophn-agent/call-policy.ts";
+import { appStatusOf } from "../../../apps/lookups.ts";
+import { loadActiveDeclaration } from "../../../apps/releases/store.ts";
+import { callPolicyAt } from "../../../config/setting-declarations.ts";
+import { dataRootOf } from "../../../lophn-agent/agents/store.ts";
 import {
   createSessionDirectory,
   workspaceDepsOf,
@@ -51,10 +63,61 @@ function targetsOf(sql: Query): JobTargets {
   };
 }
 
+// event 때의 판정. writer Worker 안에서 설정 파일(call 정책)을 읽는다(Router와 같다).
+function eventPolicyOf(sql: Query): JobEventPolicy {
+  return {
+    resolveSource(ref) {
+      const found = workspaceDepsOf(sql).apps.appByName(ref);
+      return found.ok
+        ? ok({ app: found.value.id, slug: found.value.name })
+        : found;
+    },
+    declares(app, event) {
+      // 보관한 앱은 event를 내지 못한다.
+      if (appStatusOf(sql, app) !== "active") return false;
+      const active = loadActiveDeclaration(sql, app);
+      return (
+        active.ok &&
+        active.value !== null &&
+        (active.value.declaration.events ?? []).some(
+          (declared) => declared.name === event,
+        )
+      );
+    },
+    drivenSession(session) {
+      // 터미널 탭의 coding agent는 사람이 연 것이다.
+      if (session.startsWith("term:")) return false;
+      const row = sql.get(
+        "SELECT spawned_by, called_from_kind FROM sessions WHERE id = ?",
+        [session],
+      );
+      if (row === undefined) return true;
+      if (row["spawned_by"] !== null || row["called_from_kind"] !== null) {
+        return true;
+      }
+      // run 입력(unattended 사람 메시지)이나 workflow step 입력을 받은 session은 사람이 연 것이 아니다.
+      return (
+        sql.get(
+          `SELECT 1 AS found FROM messages
+            WHERE session = ? AND ((from_kind = 'human' AND unattended = 1) OR step_instance IS NOT NULL)
+            LIMIT 1`,
+          [session],
+        ) !== undefined
+      );
+    },
+    reaches(from, to) {
+      const root = dataRootOf(sql, undefined);
+      const policy = root.ok ? callPolicyAt(root.value) : DEFAULT_CALL_POLICY;
+      return mayReachWorkspace(policy, from as never, to as never);
+    },
+  };
+}
+
 export function createCoreRegistration() {
   return {
     ports: [
       defineTxPort(jobTargetsPort, (tx) => targetsOf(tx.sql)),
+      defineTxPort(jobEventPolicyPort, (tx) => eventPolicyOf(tx.sql)),
       defineTxPort(jobZonePort, () => ({
         zone: () => Intl.DateTimeFormat().resolvedOptions().timeZone,
       })),
@@ -67,6 +130,10 @@ export function createReaderRegistration(): ReaderRegistration {
     reads: [],
     ports: new Map<unknown, unknown>([
       [jobTargetsPort, snapshotPort((snapshot) => targetsOf(snapshot.sql))],
+      [
+        jobEventPolicyPort,
+        snapshotPort((snapshot) => eventPolicyOf(snapshot.sql)),
+      ],
     ]),
   };
 }

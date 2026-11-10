@@ -11,6 +11,7 @@ import {
   DECLARATION_REQUIRED_KEYS,
   type AppKeyDeclaration,
   type DeclarationOptions,
+  type EventDeclaration,
   exactKeys,
   invalid,
   isObject,
@@ -20,10 +21,13 @@ import {
   type PermissionRequirement,
   singleLine,
   type SkillDeclaration,
+  type SubscriptionDeclaration,
+  LOPHN_EVENT_SOURCE,
+  subscriptionHandlerName,
   type ValidationResult,
 } from "./types.ts";
 import { normalizeJson, sortBy, unique } from "./json.ts";
-import { TOOL_NAME, validateLayers } from "./tools.ts";
+import { objectSchema, TOOL_NAME, validateLayers } from "./tools.ts";
 import { validateUses } from "./uses.ts";
 import { iconPath, permissionScope, scopeKey } from "./scope.ts";
 
@@ -172,6 +176,101 @@ export function validateKeys(
   return { ok: true, value: sortBy(keys, (key) => key.id) };
 }
 
+// 앱 slug의 모양이다(protocol/projects/values.ts의 slugSchema와 같다. 이 file은 의존성이 없어 따로 쓴다).
+const SLUG = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+const HANDLER_NAME_MAX = 64;
+
+function validateEvents(items: unknown): ValidationResult<EventDeclaration[]> {
+  if (items === undefined) return { ok: true, value: [] };
+  if (!Array.isArray(items)) return invalid("events must be an array");
+  const events: EventDeclaration[] = [];
+  for (const item of items) {
+    if (!isObject(item)) return invalid("event must be an object");
+    const bad = exactKeys(
+      item,
+      ["description", "name", "payloadSchema"],
+      ["description", "name", "payloadSchema"],
+    );
+    if (bad) return invalid(`event ${bad}`);
+    if (typeof item.name !== "string" || !TOOL_NAME.test(item.name)) {
+      return invalid(
+        "event name must be 1-64 characters of letters, digits, _ - .",
+      );
+    }
+    if (!nonBlank(item.description)) {
+      return invalid(`event ${item.name} description must be nonblank`);
+    }
+    const payload = objectSchema(
+      item.payloadSchema,
+      `event ${item.name} payloadSchema`,
+    );
+    if (!payload.ok) return payload;
+    events.push({
+      name: item.name,
+      description: item.description,
+      payloadSchema: payload.value,
+    });
+  }
+  const dup = unique(
+    events.map((event) => event.name),
+    "event",
+  );
+  if (dup) return invalid(dup);
+  return { ok: true, value: sortBy(events, (event) => event.name) };
+}
+
+// handler 이름은 `on.<source>.<event>`이고 operation·command와 한 이름 공간이다. 겹치면 한쪽 handler가 가려진다.
+function validateSubscriptions(
+  items: unknown,
+  taken: readonly string[],
+): ValidationResult<SubscriptionDeclaration[]> {
+  if (items === undefined) return { ok: true, value: [] };
+  if (!Array.isArray(items)) return invalid("subscriptions must be an array");
+  const subscriptions: SubscriptionDeclaration[] = [];
+  for (const item of items) {
+    if (!isObject(item)) return invalid("subscription must be an object");
+    const bad = exactKeys(item, ["event", "source"], ["event", "source"]);
+    if (bad) return invalid(`subscription ${bad}`);
+    if (
+      typeof item.source !== "string" ||
+      !(item.source === LOPHN_EVENT_SOURCE || SLUG.test(item.source))
+    ) {
+      return invalid(
+        `subscription source must be "${LOPHN_EVENT_SOURCE}" or an app slug`,
+      );
+    }
+    if (typeof item.event !== "string" || !TOOL_NAME.test(item.event)) {
+      return invalid(
+        "subscription event must be 1-64 characters of letters, digits, _ - .",
+      );
+    }
+    const subscription = { source: item.source, event: item.event };
+    const handler = subscriptionHandlerName(subscription);
+    if (handler.length > HANDLER_NAME_MAX) {
+      return invalid(
+        `subscription handler ${handler} is longer than ${HANDLER_NAME_MAX} characters`,
+      );
+    }
+    if (taken.includes(handler)) {
+      return invalid(
+        `subscription handler ${handler} is also an operation or command name`,
+      );
+    }
+    subscriptions.push(subscription);
+  }
+  const dup = unique(
+    subscriptions.map(subscriptionHandlerName),
+    "subscription",
+  );
+  if (dup) return invalid(dup);
+  return {
+    ok: true,
+    value: sortBy(subscriptions, (subscription) =>
+      subscriptionHandlerName(subscription),
+    ),
+  };
+}
+
 export function validateDeclaration(
   value: unknown,
   options?: DeclarationOptions,
@@ -235,6 +334,13 @@ export function validateDeclaration(
   if (!skills.ok) return skills;
   const keys = validateKeys(value.keys);
   if (!keys.ok) return keys;
+  const events = validateEvents(value.events);
+  if (!events.ok) return events;
+  const subscriptions = validateSubscriptions(value.subscriptions, [
+    ...operations.map((operation) => operation.name),
+    ...commands.map((command) => command.name),
+  ]);
+  if (!subscriptions.ok) return subscriptions;
 
   const permissions: PermissionRequirement[] = [];
   const kinds = new Set<PermissionKind>([
@@ -297,6 +403,10 @@ export function validateDeclaration(
     ...(typeof value.icon === "string" ? { icon: value.icon } : {}),
     ...(skills.value.length > 0 ? { skills: skills.value } : {}),
     ...(keys.value.length > 0 ? { keys: keys.value } : {}),
+    ...(events.value.length > 0 ? { events: events.value } : {}),
+    ...(subscriptions.value.length > 0
+      ? { subscriptions: subscriptions.value }
+      : {}),
     screens: sortBy(screens, (screen) => screen.key),
     operations: sortBy(operations, (operation) => operation.name),
     commands: sortBy(commands, (command) => command.name),

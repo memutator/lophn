@@ -31,6 +31,7 @@ export * from "./invocations.ts";
 export * from "./grants.ts";
 export * from "./notice.ts";
 export * from "./tray.ts";
+export * from "./events.ts";
 export * from "./package-routes.ts";
 export * from "./previews.ts";
 export * from "./releases.ts";

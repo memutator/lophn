@@ -49,6 +49,7 @@ const ALERT_PROGRAM_KINDS: ReadonlySet<NoticeKind> = new Set([
   "app_unavailable",
   "app_data_restored",
   "sdk_update_needed",
+  "session_stopped_by_app",
 ]);
 
 const TITLES = {
@@ -104,9 +105,8 @@ export type NoticeWiring = Registered & {
   show(notice: Notice): boolean;
 };
 
-/** 앱 화면이 연 session. main의 앱 agent service가 안다. */
+/** 앱 화면이 붙은 session을 쥔 view. main의 앱 agent service가 안다. 앱이 연 session인지는 core가 안다(`opened_by_app`). */
 export type AppSessions = {
-  isAppSession(session: string): boolean;
   viewsOf(session: string): string[];
 };
 
@@ -345,7 +345,9 @@ export function createNoticeWiring(
     who,
     bodyOf,
     looking: (session) => looking({ kind: "session", session }),
-    appSession: (session) => appSessions.isAppSession(session),
+    appSession: async (session) =>
+      (await read("read", workspaceSessionRead, { session }))?.session
+        .opened_by_app != null,
     notify: (notice: SessionNotice) =>
       show({
         kind: notice.kind,

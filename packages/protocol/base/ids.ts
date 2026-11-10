@@ -35,6 +35,7 @@ const ID_PREFIXES = {
   job: "Job",
   jbr: "JobRun",
   ntc: "Notice",
+  pub: "Publication",
   sdr: "SdkReview",
   sdf: "SdkFeature",
   tab: "Tab",

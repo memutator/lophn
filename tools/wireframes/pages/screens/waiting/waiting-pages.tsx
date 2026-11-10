@@ -211,7 +211,7 @@ export const WaitingShare = () => (
   <Over items={[SHARE_REQUEST()]} initial={{ open: true }} />
 );
 
-/** job hold: 놓친 차례가 "Scheduled jobs" 묶음으로 다른 대기 항목 아래에 섞여 있다. 단추는 오른쪽 끝에 [Skip], [Start now]이다. */
+/** job hold: 놓친 차례가 "Jobs" 묶음으로 다른 대기 항목 아래에 섞여 있다. 단추는 오른쪽 끝에 [Skip], [Start now]이다. */
 export const WaitingJobHolds = () => (
   <Over
     items={[SHELL_COMMAND(), ACTIVATION(), JOB_HOLD_AGENT()]}

@@ -65,7 +65,7 @@ export function createSessionDirectory(
       }
       // archived 앱은 agent에게 없는 앱이다. 사람과 program은 conflict로 닫힘을 안다.
       if (
-        opener.kind === "agent" &&
+        (opener.kind === "agent" || opener.kind === "app") &&
         agent.workspace?.kind === "app" &&
         deps.apps.app(agent.workspace.id as Id<"app">)?.archived === true
       ) {
@@ -76,7 +76,12 @@ export function createSessionDirectory(
         opener.kind === "agent"
           ? loadSession({ sql: tx.sql }, opener.session)
           : undefined;
-      const from = sender === undefined ? null : workspaceOf(sender);
+      const from: Workspace | null =
+        opener.kind === "app"
+          ? { kind: "app", id: opener.app }
+          : sender === undefined
+            ? null
+            : workspaceOf(sender);
       const started = startSession(tx, deps, {
         id: tx.newId("ses"),
         agent: agent.agent,
@@ -89,8 +94,16 @@ export function createSessionDirectory(
             ? from
             : null,
         spawnedBy,
+        // 앱이 불러 열린 session은 그 앱이 끝낼 수 있다.
+        openedByApp: opener.kind === "app" ? opener.app : null,
       });
       return started.ok ? ok(targetOf(started.value)) : started;
+    },
+    app(id) {
+      const info = deps.apps.app(id as Id<"app">);
+      return info === null
+        ? null
+        : { slug: info.name, archived: info.archived };
     },
     accepts(agent) {
       const info = deps.agents.agent(agent);

@@ -42,6 +42,7 @@ function world() {
         find: (session) => target(session),
         resolveAddress: () => ok({ agent: "lophn_home", workspace: null }),
         open: () => ok(target(RECEIVER)),
+        app: () => null,
         accepts: () => null,
         listOpen: () => [],
       },
@@ -61,7 +62,8 @@ function world() {
           [...rows.values()].find(
             (row) =>
               row.from.kind === "agent" &&
-              row.from.session === sender &&
+              sender.kind === "agent" &&
+              row.from.session === sender.session &&
               row.dedup === dedup,
           ) ?? null,
         read: (_tx, call) => rows.get(call) ?? null,

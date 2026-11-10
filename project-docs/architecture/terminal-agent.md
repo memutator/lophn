@@ -128,6 +128,7 @@ tracker ─ 바뀔 때 runtime.agent를 실어 모든 창에 push ─▶ rendere
 - **IPC**: `shell:terminal-tab-name`(창 → main, 탭 이름), `shell:terminal-copy`·`shell:terminal-paste`(clipboard), `shell:terminal-trace`(진단 묶음), `shell:terminal-agents`(창 → main, 지금 agent가 도는 터미널의 runtime 읽기), `shell:terminal-agent-sessions`(저장한 session 읽기)와 `shell:terminal-agent-sessions-changed`(push), `shell:notice-unseen`(못 본 session 목록 push), `shell:notice-dismiss`(Finished 줄 지우기). 터미널 open은 `command`와 `resume`을 받는다.
 - **저장 모양**: `<data root>/shell/agent-sessions/<project>.json`(project마다 최대 50개, 원자 교체로 쓴다). 상태는 저장하지 않는다. 터미널 진단은 `<data root>/logs/terminal-trace.jsonl`(+ `.1`). 시작 층 file은 per-run 폴더의 `shell-init/`이고 이 폴더는 앱 실행마다 새로 만든다.
 - **설정**: `diagnostics.trace`(기본 꺼짐).
+- **core로 가는 길(session lifecycle)**: 앱이 터미널 coding agent도 session으로 보도록 shell main이 지금의 집합(터미널 탭, project, harness, 상태, hook이 알린 CLI session id와 제목, 탭이 뜬 폴더, PTY shell pid)을 core의 `terminal_sessions.report`로 통째로 알린다(바뀔 때와 5초마다). core는 메모리에만 두고 shell이 붙어 있지 않으면(`host/take`가 끊김) 비운다. 상태 계산은 tracker가 그대로 한다. 앱이 그 session을 멈추면 core가 host queue의 `terminal_interrupt`로 shell main에 넘기고 shell main이 그 harness의 끊기 key를 친다(key가 없는 harness는 `unavailable`). CLI 자신의 pid, process 목록, git 정보, process kill은 주지 않는다.
 - **알림 모델**: shell main 한 곳이 `{누구, 어디, 본문, 종류(finished·failed·permission)}`로 알림을 정하고, 보고 있는지에 따라 없음·toast·OS 알림 중 하나로 보낸다. 터미널 알림 누름은 `TerminalReveal`(터미널 ref와 project)로, lophn session 알림은 toast 행동 `session`으로 탭을 연다.
 - **harness 표와 hook 설치**: 제품마다 hook 위치·event·stdout·session 규칙·끊기 key를 한 표가 정하고 설치 규칙은 [coding-agent.md](coding-agent.md)다. 설치 dry_run·dialog·결과 통지의 창 고르기도 거기에 있다.
 - **harness GUI 전환**: 탭 머리 단추와 `<harness> gui` 함수가 같은 hook socket으로 탭을 GUI로 바꾸고 TUI로 되돌린다([harness-gui.md](harness-gui.md)).
@@ -166,6 +167,8 @@ tracker ─ 바뀔 때 runtime.agent를 실어 모든 창에 push ─▶ rendere
 - **Windows: 인증은 기존 64 hex key만 쓴다.** SID·DACL 검사는 더하지 않는다. 경로가 한도를 넘으면 기능을 끄고 로그 한 줄만 남기며 pointer file·TCP로 우회하지 않는다. hook 준비는 browser shim·listen 성공과 분리한다. PowerShell은 사람의 실행 정책을 우회하지 않는다. Windows foreground·signal·TUI toggle·GUI adapter 전체 대응은 아직 범위가 아니다. (agent)
 - **resume 규칙은 확인한 것과 못 한 것이 섞여 있다.** 이 컴퓨터의 `--help`로 확인한 것(claude, codex, opencode, omp, kiro-cli, agy, grok, devin, hermes, cline)과 herdr의 표에서 가져와 실행해 보지 못한 것(copilot, droid, qwen, qoder, cursor, kimi, kilo, letta)이 있다. (agent)
 - **터미널에서 lophn을 부르는 code는 CLI 경로와 data root를 shell main에서 받는다.** 이것이 적혀 있지 않아 개발 앱 터미널의 `lophn gui`가 사람의 `~/.lophn` 앱으로 가 사람의 data root에 개발 판 schema가 적용될 뻔한 일이 있었다(mistakes 이슈). 저장소 실행의 `lophn gui`는 data root가 `~/.lophn`이거나 없으면 앱을 띄우지 않는다. (agent)
+
+- 터미널 coding agent를 core에 알린다(lifecycle의 terminal session). 상태가 이미 shell main의 tracker 한 곳에 있어 core가 따로 알 길을 만들지 않고 shell main이 결과를 알린다. core에 hook을 보내는 길을 새로 두는 안은 버렸다(터미널·탭·focus가 shell의 것이라는 위 결정과 부딪힌다). 알리는 단위는 변경분이 아니라 집합 전체다: core 재시작과 연결 끊김에서 어긋나는 경우가 없고 크기는 터미널 수라 작다. (agent)
 
 ## 열린 것
 

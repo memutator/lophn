@@ -61,6 +61,13 @@ export const messageRouter = {
   },
 };
 
+// 앱의 slug와 보관 여부. 앱 화면이 보낸 사람 메시지의 이름표를 얼릴 때 쓴다.
+export function messageApp(tx: Tx, id: string): { slug: string } | null {
+  const environment = routerEnvironment();
+  if (!environment.ok) return null;
+  return environment.value.deps(tx, () => "").directory.app(id);
+}
+
 // 받는 session을 찾는다. `SendMessage`가 입력을 쓰기 전에 archive한 session을 거절하는 데 쓴다.
 export const messageDirectory = {
   find(tx: Tx, session: string): TargetSession | null {

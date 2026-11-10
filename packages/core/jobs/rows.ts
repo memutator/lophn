@@ -21,6 +21,10 @@ export function jobRunFromRow(
     run: row.run,
     instance: row.instance,
     session: row.session,
+    event:
+      row.event === null || row.event === undefined
+        ? null
+        : JSON.parse(String(row.event)),
     started_at: row.started_at,
     ended_at: row.ended_at,
     created_at: row.created_at,
@@ -40,6 +44,16 @@ export function jobFromRow(
     creator: creatorFromRow(row),
     every: row.every,
     at: row.at,
+    trigger:
+      row.trigger === null || row.trigger === undefined
+        ? null
+        : JSON.parse(String(row.trigger)),
+    fired_count: Number(row.fired_count ?? 0),
+    skipped_count: Number(row.skipped_count ?? 0),
+    last_fired_at: row.last_fired_at ?? null,
+    last_skipped_at: row.last_skipped_at ?? null,
+    last_skip_reason: row.last_skip_reason ?? null,
+    source_gone: false,
     action: JSON.parse(String(row.action)),
     missed_policy: row.missed_policy,
     enabled: Number(row.enabled) === 1,

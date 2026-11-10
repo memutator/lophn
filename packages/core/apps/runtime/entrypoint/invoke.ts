@@ -1,5 +1,8 @@
 // core가 보낸 call 요청 하나에 invocation 하나. 결과는 응답으로 돌려주고 기록은 core가 남긴다.
-import { validateInput } from "../../../../protocol/apps/declaration/mod.ts";
+import {
+  subscriptionHandlerName,
+  validateInput,
+} from "../../../../protocol/apps/declaration/mod.ts";
 import { encodeChangeset, inputHashOf } from "./cap-host.ts";
 import { CALL_RESPONSE_MAX_BYTES } from "../../../../protocol/base/frame.ts";
 import {
@@ -96,7 +99,16 @@ async function run(
   // operation의 schema는 앱 code의 일이라 입력을 검사하지 않는다. command만 선언의 schema로 검사한다.
   let input: { ok: true; value: unknown };
   if (call.kind === "operation") {
-    if (!state.declaration.operations.some((item) => item.name === call.name)) {
+    // 구독 handler(`on.<source>.<event>`)는 operation 자리로 오지만 event 전달만 부른다.
+    const subscribed =
+      call.context.caller?.kind === "event" &&
+      (state.declaration.subscriptions ?? []).some(
+        (item) => subscriptionHandlerName(item) === call.name,
+      );
+    if (
+      !subscribed &&
+      !state.declaration.operations.some((item) => item.name === call.name)
+    ) {
       return failed("not_found", "operation is not declared", null);
     }
     input = { ok: true, value: call.input };

@@ -13,7 +13,7 @@ import {
   messageImageUploadHandler,
 } from "./message-images.ts";
 import { imageReferenced } from "./session/message-images.ts";
-import { conversationSchemaSteps } from "./session/model.ts";
+import { conversationTestSteps } from "./session/test-steps.ts";
 
 const A = "ses_0aaaaaaaaaaaaaaaaaaaaaaaaa";
 const B = "ses_0bbbbbbbbbbbbbbbbbbbbbbbbb";
@@ -31,7 +31,7 @@ const who = (actor: string, session?: string) =>
 // A가 보낸 이미지(SENT)를 B가 call로 받았다: 두 session의 메시지가 같은 blob을 건다. A만 가진 이미지(OTHER)도 있다.
 function setup() {
   const db = new DatabaseSync(":memory:");
-  for (const step of conversationSchemaSteps) db.exec(step.sql);
+  for (const step of conversationTestSteps) db.exec(step.sql);
   db.exec(`
     create table blob_refs (
       owner_kind text not null, owner_key text not null, field text not null,

@@ -15,10 +15,10 @@ import type {
   PermanentBlobReference,
 } from "../../../protocol/storage/mod.ts";
 import type { RequestContext, Sql, Tx } from "../../../protocol/server/mod.ts";
-import { conversationSchemaSteps } from "./model.ts";
 import { editQueuedCommand } from "./queued-edit.ts";
 import { moveQueuedCommand } from "./queued-move.ts";
 import { removeQueuedCommand } from "./queued-remove.ts";
+import { conversationTestSteps } from "./test-steps.ts";
 
 const machine = {
   actor: "machine",
@@ -27,7 +27,7 @@ const machine = {
 
 function store() {
   const db = new DatabaseSync(":memory:");
-  for (const step of conversationSchemaSteps) db.exec(step.sql);
+  for (const step of conversationTestSteps) db.exec(step.sql);
   db.exec(`
     create table events (seq integer primary key);
     create table erase_windows (table_name text primary key);

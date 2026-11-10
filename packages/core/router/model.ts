@@ -45,6 +45,8 @@ export type RouteInput = {
   notice?: NoticeKind | null;
   // agent의 SendCall·ReplyCall과 run이 넣은 사람 메시지(`SendMessage`의 `unattended: true`)가 싣는다. 없으면 false.
   unattended?: boolean;
+  // 앱 화면이 보낸 사람 메시지의 이름표(MessageReceived가 싣는다).
+  via?: { app: Id<"app">; slug: string } | null;
   // 팀 자식의 질문·승인이 부모에게 가는 call이면 그 종류. 답은 보낸 session의 queue로 가지 않고 topic으로 main thread에 간다.
   ask?: CallAskKind | null;
   // `team spawn`이면 true: 받는 곳의 새 session은 보낸 session의 자식(spawned_by)으로 열리고 workspace를 빼면 보낸 session의 workspace다.
@@ -106,6 +108,9 @@ export const TEAM_SPAWNED_TOPIC = "router.team-spawned";
 export const ASK_ANSWERED_TOPIC = "router.ask-answered";
 // 부모가 답하지 않고 끝나 ask call이 receiver_ended로 닫혔다(`{call}`). main thread가 짝을 거절·취소로 푼다.
 export const ASK_ENDED_TOPIC = "router.ask-ended";
+
+// 앱이 보낸 call이 끝났다(답, 실패, 취소, 답 없는 call의 소비). commit 뒤 main thread가 그 앱에 `call.settled` event를 낸다.
+export const APP_CALL_SETTLED_TOPIC = "router.app-call-settled";
 
 export function isFinished(state: CallState): boolean {
   return state !== "accepted";

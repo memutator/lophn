@@ -242,8 +242,8 @@ flows:
       - "shell main의 surface loop가 보이는 workspace 목록과 TUI 탭 session 목록을 싣고 take를 쉬지 않고 이어 부른다(long-poll)"
       - "매 take가 heartbeat다. TUI hold를 갱신한다. 기다리는 take가 있거나 마지막 take가 끝난 지 3초 안이면 shell이 붙어 있다(attached)고 본다"
       - "보이는 workspace의 가장 오래된 대기 요청 하나를 빌려 주고 빌린 시각을 적는다. 없으면 요청이 들어올 때까지 최대 5초 기다린다(기다리는 동안 attached다)"
-      - "빌린 요청은 done이 없으면 10초 뒤 다시 대기한다. 결과를 기다리는 요청(tool_call, browser_call, browser tab_open)은 다시 내놓지 않는다. take가 오면 shell이 새로 붙었으므로 shell을 띄우려던 시도의 기록(시작한 때, 실패한 때)을 지운다"
-      - "tool_call과 browser_call은 workspace와 상관없이 아무 shell이나 가져간다. browser 탭의 tab_open과 tab_close도 그렇다(page가 창 단위로 살아 그 workspace를 보이는 창이 없어도 열고 닫는다). 결과를 기다리는 요청(browser_call, browser tab_open)은 두 번 실행하면 안 되어 done이 없어도 다시 내놓지 않는다. 5초 안에 요청이 없거나 core가 멈추면 request가 null이다"
+      - "빌린 요청은 done이 없으면 10초 뒤 다시 대기한다. 결과를 기다리는 요청(tool_call, browser_call, terminal_interrupt, browser tab_open)은 다시 내놓지 않는다. take가 오면 shell이 새로 붙었으므로 shell을 띄우려던 시도의 기록(시작한 때, 실패한 때)을 지운다"
+      - "tool_call, browser_call, terminal_interrupt(앱이 멈춘 터미널 탭의 coding agent를 끊는 요청)은 workspace와 상관없이 아무 shell이나 가져간다. browser 탭의 tab_open과 tab_close도 그렇다(page가 창 단위로 살아 그 workspace를 보이는 창이 없어도 열고 닫는다). 결과를 기다리는 요청(browser_call, browser tab_open)은 두 번 실행하면 안 되어 done이 없어도 다시 내놓지 않는다. 5초 안에 요청이 없거나 core가 멈추면 request가 null이다"
     outcomes:
       - id: request
         observe: [response]
@@ -272,7 +272,7 @@ flows:
     steps:
       - "shell이 요청 id와 결과(done 또는 retry)를 보낸다. 없는 id면 아무것도 하지 않는다"
       - "retry면 그 요청을 빌림 해제하고 맨 뒤로 보낸다. 앞 요청이 뒤를 막지 않게 한다"
-      - "done이고 tool_call이나 browser_call이면 output을 그 호출을 기다리던 쪽(extension tool 호출, browser/* route)에 넘긴다(content는 성공, error는 실패)"
+      - "done이고 tool_call, browser_call, terminal_interrupt이면 output을 그 호출을 기다리던 쪽(extension tool 호출, browser/* route, 앱의 session stop)에 넘긴다(content는 성공, error는 실패)"
       - "그 호출인데 output이 없으면 기다리던 쪽은 unavailable로 끝난다"
     outcomes:
       - id: done
@@ -2813,7 +2813,7 @@ flows:
         when: "다른 client가 보낸 사람 글이다. codex는 turn이 돌면 steer, 아니면 next_turn으로 쌓는다. omp는 message_end의 글을 사람 메시지로 넣는다. opencode는 inbox 항목을 queue를 거쳐 보인다"
         observe: [screen:harness-gui-terminal-tab]
       - id: received
-        when: "lophn 호출이나 답, task 알림 같은 글이다. 사람 메시지가 아니라 received로 그린다"
+        when: "lophn 호출이나 답, task 알림 같은 글이다. 사람 메시지가 아니라 received로 그린다. 보낸 쪽이 from=app:<slug>면 앱 sender(앱 id는 tag에 없어 null)로, agent면 agent로 그린다"
         observe: [screen:harness-gui-terminal-tab]
       - id: echo-skipped
         when: "우리 창이 보낸 글의 echo다. 다시 그리지 않는다. omp는 attribution agent나 합성 메시지도 그리지 않는다"

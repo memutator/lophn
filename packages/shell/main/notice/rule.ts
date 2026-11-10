@@ -43,10 +43,10 @@ export type SessionNoticesDeps = {
   /** 그 session을 사람이 보고 있다: 그 session 탭이나 그 session을 가진 앱 화면이 focus를 가진 창에 보인다. */
   looking(session: string): boolean;
   /**
-   * 앱 화면이 연(또는 다시 붙은) session이다. 앱이 turn마다 agent를 부려 쓰므로 turn 끝(완료·실패)은 알리지 않고
+   * 앱이 연 session이다(core의 `opened_by_app`). 앱이 turn마다 agent를 부려 쓰므로 turn 끝(완료·실패)은 알리지 않고
    * 못 본 점도 찍지 않는다. 승인·질문은 사람이 가야 풀리므로 그대로 알린다.
    */
-  appSession(session: string): boolean;
+  appSession(session: string): Promise<boolean>;
   /** 알림을 내보낸다. 알렸으면(none이 아니면) true다. */
   notify(notice: SessionNotice): boolean;
   /** 못 본 turn 끝이 있는 session 목록이 바뀌었다. */
@@ -93,7 +93,7 @@ export function createSessionNotices(deps: SessionNoticesDeps): SessionNotices {
           ? "permission"
           : null;
     if (kind === null) return;
-    if (kind !== "permission" && deps.appSession(session)) return;
+    if (kind !== "permission" && (await deps.appSession(session))) return;
     const who = await deps.who(session);
     if (who === null) return;
     const notified = deps.notify({

@@ -13,6 +13,7 @@ export type PreviewLaunch = {
   release: string | null;
   bundleHash: string;
   tools: string[];
+  subscribed?: string[];
   dataSchema: number;
   entry: string;
   // disposable 영역. `apps/<app ID>/preview/<nonce>`다.

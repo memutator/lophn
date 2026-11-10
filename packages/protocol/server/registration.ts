@@ -127,4 +127,6 @@ export type EventVisibilityDefinition<
 };
 
 // id는 concern 안에서 안정된 이름이다. 순번·hash 배정은 core 조립이 맡는다.
-export type SchemaStep = { id: string; sql: string };
+// `foreignKeys: "off"`는 FK 자식이 있는 표를 다시 짜는 step이 쓴다. FK는 transaction 안에서 끌 수 없고 `on delete restrict` 자식이 있으면
+// 부모 표를 지울 수 없어서, 적용기가 step 앞뒤로 FK를 끄고 켜며 commit 전에 foreign_key_check를 한다. 이 칸은 hash에 들지 않는다.
+export type SchemaStep = { id: string; sql: string; foreignKeys?: "off" };

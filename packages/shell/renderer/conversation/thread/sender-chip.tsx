@@ -28,6 +28,8 @@ function senderLabel(sender: Sender): string {
       return sender.name ?? t("conversation.label.sender-agent-other");
     case "program":
       return sender.label ?? t("conversation.label.sender-program-unknown");
+    case "app":
+      return sender.name;
   }
 }
 
@@ -82,6 +84,7 @@ export function SenderChip({
 
 const HEAD: Record<Sender["kind"], MessageKey> = {
   agent: "conversation.label.sender-head-handed",
+  app: "conversation.label.sender-head-handed",
   program: "conversation.label.sender-head-why",
 };
 

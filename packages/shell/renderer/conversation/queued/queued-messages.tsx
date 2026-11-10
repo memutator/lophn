@@ -151,6 +151,11 @@ export function QueuedMessages({
                 {item.summary}
               </button>
             )}
+            {item.via === undefined ? null : (
+              <span className={styles.viaMark} data-via={item.via}>
+                {t("conversation.label.via", { app: item.via })}
+              </span>
+            )}
             {editingThis ? (
               <>
                 <Button size="sm" variant="ghost" onClick={stop}>

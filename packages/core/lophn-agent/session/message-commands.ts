@@ -56,6 +56,7 @@ type MessageRouter = {
       reply: CallReply;
       body: ContentBlock[];
       refs: CallRef[];
+      via?: { app: Id<"app">; slug: string } | null;
       reply_to: null;
       dedup: null;
       kind: "message";
@@ -71,6 +72,8 @@ export type SendMessageDeps = {
   // session의 받는 길과 `accepting`(archive나 workspace 보관이면 false)을 본다.
   directory: {
     find(tx: Tx, session: Id<"ses">): ReturnType<SessionDirectory["find"]>;
+    // 앱의 slug(앱 화면이 보낸 메시지의 이름표를 얼린다). 없는 앱은 null이다.
+    app(tx: Tx, id: string): { slug: string } | null;
   };
   // commit 뒤에 Bus로 낸다. `!` 명령 기록(ShellRan)이 쓴다.
   publish?: (tx: Tx, event: AgentEvent) => void;
@@ -152,6 +155,8 @@ type HumanMessage = {
   delivery: InputDelivery;
   refs: CallRef[];
   unattended: boolean;
+  // 앱 화면이 보낸 메시지의 이름표(`<앱 id>|<slug>`). 사람 메시지에만 있고 보낸 쪽이나 model이 받는 글을 바꾸지 않는다.
+  origin_app?: string;
   // `!` 명령 기록이면 그 본문. content는 비어 있고, queue·checkpoint·제목은 이 기록에 해당하지 않는다.
   shell?: ReturnType<typeof contentOfShell>;
 };
@@ -205,8 +210,8 @@ function writeHuman(
   const seq = nextCreatedSeq(tx);
   tx.sql.run(
     `insert into messages (id, session, from_kind, from_ref, call, reply_to,
-       refs, delivery, unattended, shell, turn, body, created_seq, created_at, state_seq)
-     values (?, ?, 'human', null, null, null, ?, ?, ?, ?, null, ?, ?, ?, ?)`,
+       refs, delivery, unattended, shell, origin_app, turn, body, created_seq, created_at, state_seq)
+     values (?, ?, 'human', null, null, null, ?, ?, ?, ?, ?, null, ?, ?, ?, ?)`,
     [
       input.id,
       session.id,
@@ -214,6 +219,7 @@ function writeHuman(
       input.delivery,
       input.unattended ? 1 : 0,
       shell ? 1 : 0,
+      input.origin_app ?? null,
       body.hash,
       seq,
       tx.now(),
@@ -285,10 +291,22 @@ function sendWith(
       ? "steer"
       : "next_turn";
   const unattended = input.unattended === true;
+  // 앱 화면이 보낸 메시지의 이름표는 그 앱이 있어야 얼린다(slug를 보낼 때의 것으로).
+  let via: { app: Id<"app">; slug: string } | null = null;
+  if (input.via_app !== undefined) {
+    const app = deps.directory.app(tx, input.via_app);
+    if (app === null) return reject("not_found", "app not found");
+    via = { app: input.via_app as Id<"app">, slug: app.slug };
+  }
   const written = writeHuman(
     tx,
     ctx,
-    { ...input, delivery, unattended },
+    {
+      ...input,
+      delivery,
+      unattended,
+      ...(via === null ? {} : { origin_app: `${via.app}|${via.slug}` }),
+    },
     existingBody,
   );
   if (!written.ok) return written;
@@ -307,6 +325,7 @@ function sendWith(
     delivery,
     message: input.id as Id<"msg">,
     unattended,
+    via,
   });
   if (!routed.ok) return routed;
   return ok({ message: input.id, state_seq: written.value.state_seq });

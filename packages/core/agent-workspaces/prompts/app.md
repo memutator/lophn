@@ -96,6 +96,12 @@ information). Use `lophn app link-source` only for an existing git repo with a c
 - When the app must tell the person something (a reminder before an event, a
   limit running low), declare `notify.send` and read the `@lophn/cap-notify`
   guide. The notice lands in the person's Inbox. It does not reach agents.
+- When the app must tell other apps that something happened (one fact, many
+  listeners), declare `events` (publisher) and `subscriptions` (listener) and read
+  the `@lophn/cap-tool` guide. Delivery is once and not stored, so the publisher
+  also exposes a read command for the current value. `lophn app event-publications`
+  shows what an app published and how many subscribers got it; the calls it caused
+  are in `lophn app invocations` with an event caller.
 - When the app seems to misbehave, read before you decide: `lophn app status`,
   `lophn app logs` (narrow by invocation or time), `lophn app invocations` (for
   example `--status failed`). Log lines: `error <name>: <message>` is a `reportProblem`

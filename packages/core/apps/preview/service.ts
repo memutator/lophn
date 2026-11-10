@@ -17,8 +17,10 @@ import type {
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import {
   type CommandDeclaration,
-  handlerNames,
+  requiredHandlerNames,
+  subscriptionHandlerName,
   type OperationDeclaration,
+  type SubscriptionDeclaration,
 } from "../declaration/mod.ts";
 import type { PreviewArea } from "./area.ts";
 import {
@@ -48,6 +50,7 @@ export type PreviewBundle = {
   // bundle 선언의 operation과 command. preview 대상 호출이 이 선언으로 판정된다.
   operations: readonly OperationDeclaration[];
   commands: readonly CommandDeclaration[];
+  subscriptions: readonly SubscriptionDeclaration[];
   dataSchema: number;
   // bundle 파일 중 그 경로의 byte. fixture는 bundle 안의 파일이다.
   fixture(path: string): Promise<Uint8Array | undefined>;
@@ -238,7 +241,8 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
       nonce,
       release,
       bundleHash,
-      tools: handlerNames(bundle),
+      tools: requiredHandlerNames(bundle),
+      subscribed: bundle.subscriptions.map(subscriptionHandlerName),
       dataSchema: bundle.dataSchema,
       entry: bundle.entry,
       dataPath,

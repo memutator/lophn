@@ -170,6 +170,8 @@ export function callerText(caller: Caller): string {
       return t("app-detail.label.caller-program");
     case "flow":
       return t("app-detail.label.caller-flow");
+    case "event":
+      return t("app-detail.label.caller-event", { event: caller.event });
     case "start":
       return t("app-detail.label.caller-start");
   }

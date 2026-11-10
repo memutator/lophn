@@ -1,4 +1,4 @@
-// Scheduled jobs가 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은 core-source.ts만 안다.
+// Jobs가 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은 core-source.ts만 안다.
 // 화면이 쓰는 칸만 담는다. project 창의 job panel도 이 통로와 model.ts를 그대로 쓴다.
 import type { JobRunState } from "../../../../protocol/jobs/values.ts";
 import type { AgentId } from "../../../../protocol/lophn-agent/workspaces.ts";
@@ -38,10 +38,25 @@ export interface JobView {
     readonly agent: AgentId;
     readonly workspace: WorkspaceView | null;
   };
-  /** `30m`, `6h`, `1d`처럼 숫자와 단위(m, h, d). */
-  readonly every: string;
+  /** `30m`, `6h`, `1d`처럼 숫자와 단위(m, h, d). event job은 null이다. */
+  readonly every: string | null;
   /** `09:00`. every가 d 단위일 때만 있다. */
   readonly at: string | null;
+  /** event로 도는 job의 때. source는 `lophn`이거나 앱 slug다. 주기 job은 null이다. */
+  readonly trigger: {
+    readonly source: string;
+    readonly event: string;
+    readonly min_interval: string;
+    readonly pass_event: boolean;
+  } | null;
+  /** event job의 기록: 차례를 연 수, 건너뛴 수(busy | too_soon), 마지막 시각. */
+  readonly fired_count: number;
+  readonly skipped_count: number;
+  readonly last_fired_at: string | null;
+  readonly last_skipped_at: string | null;
+  readonly last_skip_reason: "busy" | "too_soon" | null;
+  /** event job의 앱이 지금 그 event를 내지 않는다(job.list만 채운다). */
+  readonly source_gone?: boolean;
   readonly action: JobActionView;
   readonly missed_policy: MissedPolicy;
   readonly enabled: boolean;
@@ -76,6 +91,7 @@ export interface JobNames {
 
 export interface JobPatch {
   readonly title?: string;
+  /** 주기 job만. event job은 제목만 고친다. */
   readonly every?: string;
   /** every가 d 단위가 아니게 바꾸면 null. */
   readonly at?: string | null;

@@ -620,7 +620,9 @@ function numbered(
 const fromEnvelope = (sender: Envelope["sender"]): AcpSender =>
   sender.kind === "program"
     ? { kind: "program" }
-    : { kind: "agent", agent: sender.agent, name: sender.name };
+    : sender.kind === "app"
+      ? sender
+      : { kind: "agent", agent: sender.agent, name: sender.name };
 
 function received(
   n: number,

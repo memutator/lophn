@@ -90,6 +90,19 @@ const appKeySchema = z.object({
   context: z.string().min(1).optional(),
 });
 
+// 앱이 내는 event와 듣는 event. 칸이 없는 선언은 없다.
+const appEventSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(1),
+  // 정규 InputSchema(root는 object).
+  payloadSchema: jsonValueSchema,
+});
+const appSubscriptionSchema = z.object({
+  // 다른 앱의 slug이거나 `lophn`.
+  source: z.string().min(1),
+  event: z.string().min(1),
+});
+
 const appDeclarationOutputSchema = withReadCommon(
   z.object({
     app: appIdSchema,
@@ -104,6 +117,8 @@ const appDeclarationOutputSchema = withReadCommon(
     operations: z.array(appOperationSchema),
     screens: z.array(appDeclarationScreenSchema),
     keys: z.array(appKeySchema).optional(),
+    events: z.array(appEventSchema).optional(),
+    subscriptions: z.array(appSubscriptionSchema).optional(),
     facts: appFactsSchema,
     evidence: appDeclarationEvidenceSchema,
   }),

@@ -29,7 +29,7 @@ files:
       - app-agent-snapshot:forbidden
       - app-agent-send:sent
       - app-agent-send:forbidden
-    note: "앱 view는 자기 앱 workspace의 session만 읽고 보낸다. send·stop·answer·rename만 넘기고 decide·run_shell·rewind는 core 전에 forbidden"
+    note: "앱 view는 core가 보인다고 한 session(터미널 탭 제외)만 읽고 보낸다. send·stop·answer·rename만 넘기고 decide·run_shell·rewind는 core 전에 forbidden"
 
   - path: packages/shell/main/app-frame/app-call_test.ts
     covers:
@@ -188,6 +188,11 @@ files:
       - file-delete:trashed
       - file-delete:unavailable
     note: "write는 hash가 다르면 conflict로 원본을 안 바꾸고, 쓰기가 끊겨도 원본이 남고 임시 파일을 치운다(unknown-result 갈래로 묶음). 파일 트리의 만들기·옮기기·지우기는 file-create·file-rename·file-delete"
+
+  - path: packages/shell/main/extensions/bundled/harness-gui/received_test.ts
+    covers:
+      - harness-gui-user-message:received
+    note: "tag의 from=app:<slug>는 앱 sender이고 agent 이름이 아니다"
 
   - path: packages/shell/main/extensions/bundled/harness-gui/claude_test.ts
     covers:

@@ -73,13 +73,24 @@ const DENIAL_MESSAGES: Record<ToolDenial["code"], string> = {
 
 type Phase = "gate" | "queued" | "sent";
 
+// 앱 호출과 event 전달은 부른 invocation이 있을 수 있고, 그 사슬로 루프·깊이를 본다.
+function parentOf(caller: VerifiedCaller): Flight | null {
+  return caller.kind === "app" || caller.kind === "event"
+    ? caller.parent
+    : null;
+}
+
 function forbidden(message: string): Result<never> {
   return err({ code: "forbidden", message });
 }
 
 export function createAppCalls(deps: AppCallsDeps): {
   path: AppToolCallPath;
-  intake: AppIntake;
+  // flight는 도는 호출 하나를 찾고, chainApps는 그 호출부터 위로 올라간 앱 목록이다(event 발행이 부모 invocation을 확인한다).
+  intake: AppIntake & {
+    flight(id: Id<"inv">): Flight | undefined;
+    chainApps(parent: Id<"inv"> | null): Id<"app">[];
+  };
 } {
   const queue = createWriteQueue();
   const intake = createIntake({
@@ -179,6 +190,10 @@ export function createAppCalls(deps: AppCallsDeps): {
     );
     if (!found.ok) return found;
     if (found.value === null) return ok(denied("not_declared", null));
+    // 구독 handler는 event 전달만 부른다. 사람이나 다른 caller가 이름으로 부르면 선언에 없는 것과 같다.
+    if (found.value.subscription && caller.kind !== "event") {
+      return ok(denied("not_declared", null));
+    }
     const { release, effect } = found.value;
     const declared = { public: found.value.public };
 
@@ -194,11 +209,16 @@ export function createAppCalls(deps: AppCallsDeps): {
     };
 
     // operation은 사람(화면)만 부른다. 다른 caller는 handler에 보내기 전에 막는다.
-    if (input.kind === "operation" && caller.kind !== "person") {
+    // 예외는 event 전달이다. 구독 handler는 core가 이름을 정해 부른다(`lookups.ts`가 구독 handler만 operation으로 찾아 준다).
+    if (
+      input.kind === "operation" &&
+      caller.kind !== "person" &&
+      caller.kind !== "event"
+    ) {
       return recordDenied(base, "gate_blocked");
     }
 
-    const parent = caller.kind === "app" ? caller.parent : null;
+    const parent = parentOf(caller);
     const refused = checkCallChain(
       app,
       intake.chainApps(parent === null ? null : parent.id),
@@ -279,7 +299,7 @@ export function createAppCalls(deps: AppCallsDeps): {
       app,
       release: base.release,
       mode: "live",
-      parent: caller.kind === "app" ? caller.parent.id : null,
+      parent: parentOf(caller)?.id ?? null,
       async abandon() {
         abandoned = true;
         if (phase !== "sent") {

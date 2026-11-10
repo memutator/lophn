@@ -119,6 +119,7 @@ function startDesktop(): void {
       extensionHost,
       views.appFrame,
       artifacts.views,
+      terminals.interrupt,
     ),
   );
   // 보호 입력 창이 agent의 한 번 넣기를 browser driver로 친다. driver는 surface가 만든다.

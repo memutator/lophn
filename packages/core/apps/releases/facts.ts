@@ -1,6 +1,9 @@
 // 고정 선언에서 현재 release의 선언 사실을 만든다. permissions의 `currentFacts` port가
 // 읽는 값이고 준비 때 한 번 계산해 release 행에 둔다(permissions는 선언을 해석하지 않는다).
-import { type AppDeclaration, handlerNames } from "../declaration/mod.ts";
+import {
+  type AppDeclaration,
+  requiredHandlerNames,
+} from "../declaration/mod.ts";
 import type { GrantPermissionRequirement } from "../../../protocol/apps/mod.ts";
 import type { AppFacts } from "../permissions/mod.ts";
 
@@ -19,7 +22,7 @@ export function factsOfDeclaration(
       app: use.app,
       tools: [...use.commands],
     })),
-    // 선언과 handler를 대조하는 이름이라 operation과 command를 합친다.
-    tools: handlerNames(declaration),
+    // 선언과 handler를 대조하는 이름이라 operation과 command를 합친다. 구독 handler는 등록이 필수가 아니라 뺀다.
+    tools: requiredHandlerNames(declaration),
   };
 }

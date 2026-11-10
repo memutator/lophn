@@ -87,6 +87,7 @@ function stub(
             skip: false,
             called_from: null,
             spawned_by: null,
+            opened_by_app: null,
             harness: null,
             state_seq: "1",
           },

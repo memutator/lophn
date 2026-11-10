@@ -41,6 +41,8 @@ export async function callAllowed(
   deps: CallGateDeps,
 ): Promise<Result<boolean>> {
   if (caller.kind === "program") return ok(true);
+  // 구독은 발행한 앱이 내놓은 event를 받겠다고 선언한 것이다. 사람 허락도 grant도 묻지 않는다(roadmap 정한 것 16).
+  if (caller.kind === "event") return ok(true);
   if (caller.kind === "flow") {
     // 할당은 호출 때 읽는다. flow 호출은 사람이 없는 호출이고 할당을 읽는 agent는 flow instance의 creator다.
     const assignment = assignmentOf(caller.agent, deps);

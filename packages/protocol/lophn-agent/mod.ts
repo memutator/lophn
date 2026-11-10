@@ -32,6 +32,8 @@ export * from "./received-messages.ts";
 export { ROUTES } from "./registry.ts";
 export * from "./resolved-model.ts";
 export * from "./reverts.ts";
+export * from "./app-calls.ts";
+export * from "./session-lifecycle.ts";
 export * from "./session-rewinds.ts";
 export * from "./session-status.ts";
 export * from "./sessions.ts";

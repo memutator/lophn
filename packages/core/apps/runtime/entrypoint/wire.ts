@@ -26,7 +26,16 @@ type InvocationCaller =
       parent_invocation: string | null;
     }
   | { kind: "program"; job: string; job_run: string }
-  | { kind: "flow"; instance: string };
+  | { kind: "flow"; instance: string }
+  | {
+      kind: "event";
+      publisher: string;
+      event: string;
+      publication: string;
+      trace_id: string;
+      chain: string[];
+      parent_invocation: string | null;
+    };
 
 function caller(value: unknown): InvocationCaller | undefined {
   const source = record(value);
@@ -69,6 +78,54 @@ function caller(value: unknown): InvocationCaller | undefined {
       if (exact(source, ["kind", "instance"])) return;
       const instance = id(source.instance, "wfi");
       return instance ? { kind: "flow", instance } : undefined;
+    }
+    case "event": {
+      if (
+        exact(source, [
+          "kind",
+          "publisher",
+          "event",
+          "publication",
+          "trace_id",
+          "chain",
+          "parent_invocation",
+        ])
+      ) {
+        return;
+      }
+      const publisher =
+        source.publisher === "lophn" ? "lophn" : id(source.publisher, "app");
+      const event = text(source.event);
+      const publication = id(source.publication, "pub");
+      const trace = text(source.trace_id);
+      const parent =
+        source.parent_invocation === null
+          ? null
+          : id(source.parent_invocation, "inv");
+      const chain = Array.isArray(source.chain)
+        ? source.chain.map((item) => id(item, "app"))
+        : undefined;
+      if (
+        chain === undefined ||
+        chain.some((item) => item === undefined) ||
+        !publisher ||
+        !event ||
+        !publication ||
+        !trace ||
+        !/^[0-9a-f]{32}$/.test(trace) ||
+        parent === undefined
+      ) {
+        return;
+      }
+      return {
+        kind: "event",
+        publisher,
+        event,
+        publication,
+        trace_id: trace,
+        chain: chain as string[],
+        parent_invocation: parent,
+      };
     }
     default:
       return;

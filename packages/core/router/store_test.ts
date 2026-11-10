@@ -2,10 +2,19 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import type { Id } from "../../protocol/base/ids.ts";
-import type { CallReply } from "../../protocol/lophn-agent/calls.ts";
+import type {
+  AgentCallRow,
+  CallReply,
+} from "../../protocol/lophn-agent/calls.ts";
 import type { Sql, Tx } from "../../protocol/server/mod.ts";
+import { appSenderSchemaSteps } from "./app-sender-schema.ts";
 import { ROUTER_SCHEMA_STEPS } from "./schema.ts";
-import { createCallStore } from "./store.ts";
+import {
+  callsOfSession,
+  createCallStore,
+  deleteAppCallsReceivedBy,
+  deleteCallsSentByApp,
+} from "./store.ts";
 
 // 답 없는 call(handoff)이 받는 turn이 가져간 뒤에도 accepted로 남으면, 받는 session을 닫을 때 보낸 쪽에 거짓 실패가 간다.
 // 가져가기 전에 끝나 버리면, 켤 때 잃은 call로 닫히지 않고 조용히 사라진다.
@@ -18,6 +27,12 @@ const RECEIVER: Id<"ses"> = `ses_0${"z".repeat(25)}`;
 test("답 없는 call은 받는 turn이 가져갈 때 done이 되고, 가져가기 전이면 켤 때 잃은 call로 남는다", () => {
   const db = new DatabaseSync(":memory:");
   for (const step of ROUTER_SCHEMA_STEPS) db.exec(step.sql);
+  // messages 표가 없는 이 test는 agent_calls를 짜는 step만 더한다.
+  db.exec(
+    appSenderSchemaSteps.find(
+      (step) => step.id === "router.app-sender.agent-calls",
+    )!.sql,
+  );
   const sql: Sql = {
     run: (query, params) => db.prepare(query).run(...params),
     get: (query, params) => db.prepare(query).get(...params) as never,
@@ -47,6 +62,7 @@ test("답 없는 call은 받는 turn이 가져갈 때 done이 되고, 가져가�
       ask: call === "cal_ask" ? "approval" : null,
       created_at: AT,
       state_changed_at: AT,
+      result: null,
     });
     assert.ok(stored.ok);
   }
@@ -70,4 +86,92 @@ test("답 없는 call은 받는 turn이 가져갈 때 done이 되고, 가져가�
     store.lost(tx).map((row) => row.call),
     ["cal_ask", "cal_none_waiting"],
   );
+});
+
+// 앱이 보낸 call 행은 답 글을 담는다. 받은 session을 지우면 글이 남지 않고, 앱이 보낸 call은 앱을 지울 때 간다. 같은 key는 같은 앱 안에서만 같은 call이다.
+test("앱이 받은 답 글은 받은 session을 지울 때 같이 지워지고 dedup key는 앱마다 따로다", () => {
+  const db = new DatabaseSync(":memory:");
+  for (const step of ROUTER_SCHEMA_STEPS) db.exec(step.sql);
+  db.exec(
+    appSenderSchemaSteps.find(
+      (step) => step.id === "router.app-sender.agent-calls",
+    )!.sql,
+  );
+  const sql: Sql = {
+    run: (query, params) => db.prepare(query).run(...params),
+    get: (query, params) => db.prepare(query).get(...params) as never,
+    all: (query, params) => db.prepare(query).all(...params) as never,
+  };
+  const tx = { sql, now: () => AT } as unknown as Tx;
+  const store = createCallStore();
+  const appA = {
+    kind: "app",
+    app: `app_0${"a".repeat(25)}`,
+    slug: "a",
+  } as const;
+  const appB = {
+    kind: "app",
+    app: `app_0${"b".repeat(25)}`,
+    slug: "b",
+  } as const;
+  const row = (
+    call: Id<"cal">,
+    from: AgentCallRow["from"],
+    receiver: Id<"ses">,
+    dedup: string | null,
+  ) => ({
+    call,
+    from,
+    to: { kind: "open_session" as const, session: receiver },
+    receiver_session: receiver,
+    reply: "result" as const,
+    state: "accepted" as const,
+    fail_reason: null,
+    dedup,
+    unattended: false,
+    ask: null,
+    created_at: AT,
+    state_changed_at: AT,
+    result: null,
+  });
+  assert.ok(store.insert(tx, row("cal_a1", appA, RECEIVER, "k")).ok);
+  assert.ok(store.insert(tx, row("cal_b1", appB, RECEIVER, "k")).ok);
+  assert.ok(
+    store.insert(
+      tx,
+      row("cal_g1", { kind: "agent", session: SENDER }, RECEIVER, null),
+    ).ok,
+  );
+  assert.equal(store.byDedup(tx, appA, "k")?.call, "cal_a1");
+  assert.equal(store.byDedup(tx, appB, "k")?.call, "cal_b1");
+  assert.equal(
+    store.byDedup(tx, { kind: "agent", session: SENDER }, "k"),
+    null,
+  );
+  assert.ok(store.move(tx, "cal_a1", "done", null, "secret answer").ok);
+
+  assert.ok(deleteAppCallsReceivedBy(tx, RECEIVER).ok);
+  assert.equal(
+    db
+      .prepare("select count(*) as n from agent_calls where result is not null")
+      .get()?.["n"],
+    0,
+  );
+  // 앱이 보내지 않은 행은 글이 없어 그대로다.
+  assert.equal(store.read(tx, "cal_g1")?.call, "cal_g1");
+
+  // 보낸 session의 목록에도 그 session이 보낸 call이 든다(받은 call과 함께).
+  assert.deepStrictEqual(
+    callsOfSession(tx, SENDER, 10).map((one) => one.call),
+    ["cal_g1"],
+  );
+  assert.ok(store.insert(tx, row("cal_a2", appA, SENDER, null)).ok);
+  assert.deepStrictEqual(
+    callsOfSession(tx, SENDER, 10)
+      .map((one) => one.call)
+      .sort(),
+    ["cal_a2", "cal_g1"],
+  );
+  assert.ok(deleteCallsSentByApp(tx, appA.app).ok);
+  assert.equal(store.read(tx, "cal_a2"), null);
 });

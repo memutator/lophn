@@ -45,6 +45,11 @@ export function programNoticeText(input: NoticeRecordInput): {
             ? "The earlier version was not recorded."
             : `It was ${input.params.from} before.`,
       };
+    case "session_stopped_by_app":
+      return {
+        title: "An app stopped an agent turn",
+        body: `The running turn of ${input.params.title ?? input.params.session} was stopped.`,
+      };
     case "sdk_update_needed": {
       const { required, available } = input.params;
       const apps = (count: number) =>

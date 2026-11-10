@@ -145,6 +145,8 @@ function turnFor(
   if (job === null || !job.enabled || job.approved_at === null) {
     return ok(undefined);
   }
+  // event job은 때가 없다. 켤 때 닫힌 줄이 있어도 놓친 차례를 만들지 않는다(event는 꺼진 사이를 따라잡지 않는다).
+  if (job.every === null) return ok(undefined);
   const spec = { every: job.every, at: job.at, zone };
   const came = job.next_due_at !== null && job.next_due_at <= now;
   const turns = came ? dueTurns(spec, job.next_due_at!, now) : null;

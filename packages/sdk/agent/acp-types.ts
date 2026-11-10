@@ -89,7 +89,10 @@ export type AcpMessageItem = {
   sender:
     | { kind: "agent"; agent: string | null; name: string | null }
     | { kind: "program" }
+    | { kind: "app"; app: string | null; name: string }
     | null;
+  /** 앱 화면이 보낸 사람 메시지의 표시(이름표일 뿐 보낸 쪽이 아니다. name은 보낼 때의 앱 slug). */
+  via?: { app: string; name: string };
   call: string | null;
   reply_to: string | null;
   delivery: InputDelivery;
@@ -246,7 +249,13 @@ export type AcpTurn = {
   elapsed: { active_ms: number; at: string } | null;
 };
 
-export type AcpQueued = { id: string; at: string; content: ContentBlock[] };
+export type AcpQueued = {
+  id: string;
+  at: string;
+  content: ContentBlock[];
+  /** 앱 화면이 보낸 사람 메시지의 표시(이름표일 뿐 보낸 쪽이 아니다). */
+  via?: { app: string; name: string };
+};
 
 export type AcpApproval = {
   id: string;

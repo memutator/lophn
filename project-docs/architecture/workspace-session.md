@@ -90,10 +90,22 @@ session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. �
 - 열 때의 오류: agent 정의 없음 또는 그 agent의 범위 밖 workspace는 `not_found`, workspace 없음·보관은 `conflict`, harness agent인데 harness 설정이 꺼져 있으면 `unavailable`이다.
 - archive·지움은 receiver_ended 알림 글을 blob으로 미리 준비해야 한다(못 하면 `unavailable`). 받은 열린 call을 닫을 때 보낸 쪽이 살아 있는 agent session이면 그 queue에 그 call을 가리키는 program 알림 하나를 같은 tx로 넣는다(ask call이면 알림 대신 main thread에 알린다). 기다리던 request와 질문은 `SessionEnded`를 듣는 approvals 쪽이 cancelled(`session_closed`)로 푼다. 지움은 메시지 본문의 blob 영구 참조, rewind 기록과 checkpoint, 메시지와 turn·model call 기록, session 행을 지우고 되돌릴 수 없다. 응답에는 지운 내용을 싣지 않고 지운 시각만 돌려준다. archive한 session은 기록을 그대로 두고 읽기는 된다.
 - fork 입력은 `through_seq`(고른 메시지의 `created_seq`까지 복사. agent 답에서 갈라도 그 답까지 들어간다)다. 출처의 확정 메시지가 아니면 `invalid_input`이다.
-- event: `SessionStarted`, `SessionEnded`(reason `archived` | `deleted`). turn 끝은 `TurnEnded`. supervision의 `turn_stop`(reason `user_stopped` | `session_ended`)이 agent runtime child에 간다.
+- event: `SessionStarted`, `SessionEnded`(reason `archived` | `deleted`). turn 끝은 `TurnEnded`. 이 agent event와 turn·요청·질문 event를 core가 `session.started|running|waiting|idle|ended`(발행자 `lophn`)로 바꿔 앱에 준다(아래 "session lifecycle"). supervision의 `turn_stop`(reason `user_stopped` | `session_ended`)이 agent runtime child에 간다.
 - 저장: `sessions` 표(`agent`, `workspace_kind`, `workspace_id`, `skip`, `called_from_kind`, `called_from_id`, `state_seq`, model 선택). 이미지는 blob 참조(메시지의 `image`)와 옛 `<data>/message-images/<session>/`.
 - 설정·표시: `app.edit_folders`(앱에 더 이은 폴더), agent 정의의 `skip`(새 session의 skip 기본값).
 - 앱 rewind와의 이음: session rewind가 사람이 고른 앱의 rewind를 요청한다(`architecture/app-call.md`).
+
+### session lifecycle
+
+앱이 "어떤 session이 있고 무슨 상태인가"를 읽고 멈춘다. lophn만 아는 것만 주고(git 정보, process 목록, process kill은 주지 않는다. 앱이 shell pid·cwd·`LOPHN_SESSION_ID`로 직접 한다) 새 permission이나 새 정책을 만들지 않는다.
+
+- 상태(running·waiting·idle)는 한 곳(session 상태 파생)이 정한다: 도는 turn이 있으면 running, 사람의 동의나 질문 답을 기다리면 waiting(approval | question), 아니면 idle이다. 기다림을 메모리(대기 요청·질문)로 보는 곳(snapshot·목록·event)과 ledger의 tool call로 보는 곳(Router의 call 대상 상태, Worker라 메모리가 없다)은 같은 함수의 두 입력이다. ACP의 turn `phase`(화면 투영)와 shell의 터미널 tracker(hook으로 아는 터미널 CLI의 상태)는 따로 남는다.
+- session 한 줄: id, kind(`lophn` | `harness` | `terminal`), agent(handle·이름·runtime, terminal은 없음), harness, workspace, 제목, 상태, waiting_for, 마지막 활동 시각, `spawned_by`, cwd와 폴더 목록, terminal이면 {harness, CLI session id, 탭, PTY shell pid}. event payload도 같은 한 줄이다.
+- event(발행자 `lophn`, 앱은 `subscriptions`의 source `lophn`으로 듣는다): `session.started`, `session.running`, `session.waiting`, `session.idle`, `session.ended`. 상태가 바뀐 뒤(commit 뒤 agent event를 받아 다시 파생해 바뀐 때)에만 낸다. 앱 event와 같은 전달 길(구독을 선언한 켜진 앱의 handler 호출, 열린 앱 화면)을 쓴다.
+- 보이는 범위는 call 정책이다: 앱은 그 앱 workspace에 사는 agent가 call로 닿을 수 있는 workspace의 session만 보고(private workspace는 안 보이고 같은 workspace는 늘 보인다) event도 그 session의 것만 받는다. agent 쌍 규칙과 팀 규칙은 agent가 없는 앱에 적용되지 않는다(`mayReachWorkspace`).
+- 읽기: `app_sessions.list`(workspace·state·harness·kind로 거른다), `app_sessions.status`(`ReadSessionStatus`와 같은 값, lophn·harness session만). 멈추기: `app_sessions.stop`은 보이는 모든 session에 열려 있다(승인·rewind·fork·지움은 열지 않는다). lophn runtime은 도는 turn을 `StopTurn`으로 닫고(model 요청과 도는 `shell.run`을 process group째 끊는다), harness runtime은 turn이 닫히면 host가 CLI를 group째 끊고(SIGTERM, 남으면 SIGKILL), 터미널 탭은 그 harness의 끊기 key를 친다(key가 없는 harness는 `unavailable`). 친 뒤 shell의 터미널 tracker는 사람이 같은 key를 친 것과 같이 상태를 `unknown`으로 내린다(다음 hook까지, 목록이 running으로 남지 않는다). 앱이 멈춘 것은 사람이 볼 수 있게 program 기록(`session_stopped_by_app`, Inbox History와 앱 상세 Activity)으로 남는다.
+- 열기와 끝내기(앱 화면만, 앱 process에는 없다): `app_sessions.open`은 agent(handle)의 새 session을 열고(machine 명령 `OpenAppSession`, 사람 자격의 `OpenSession`은 표시를 받지 않는다) `sessions.opened_by_app`(바뀌지 않는다)을 단다. workspace를 빼면 그 앱 workspace이고, 주면 그 앱이 call로 닿을 수 있는 workspace(call 정책)에만 열린다(아니면 `forbidden`). 앱이 call로 새 session을 열게 한 것(`architecture/agent-call.md`)도 같은 표시가 달린다. `app_sessions.end`는 그 앱이 연 session만 `ArchiveSession`과 같은 영향으로 끝낸다(도는 turn 중단, 받은 call 실패, 대기 요청 취소, queue 비움). 남이 연 session(사람 포함)은 `forbidden`, 이미 끝난 것은 `ended: false`다. 앱이 연 session은 turn 끝 알림을 내지 않는다(승인·질문은 낸다). 이 억제는 `opened_by_app`이 ledger에 있어 영구하다(전에는 shell 메모리라 shell을 다시 켜면 풀렸다). `app_sessions.list`는 `session` 한 건으로 묻는 길이 있다(앱 화면의 ACP 붙이기가 보이는지 본다).
+- 앱 process는 broker(`/_lophn/broker/sessions/{list,status,stop}`), 앱 화면은 `lophnApp.sessions`(shell main이 sender view에서 앱을 정한다)로 목록·상태·멈추기·끝내기 route를 부른다. 부모 invocation이 돌고 있지 않아도 된다.
 
 ## 결정
 
@@ -102,7 +114,7 @@ session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. �
 - 앱 일은 그 앱 workspace의 session이 한다. 이유: 앱은 project에 묶이지 않는 그릇이라 앱 코드의 일(설계, 선언, 구현, release)은 그 앱 workspace에서 한다. 앱은 사람이 Home의 Workspaces panel에서 New app으로 직접 만들거나(그 앱 workspace의 lophn 새 session으로 시작한다), home의 lophn이 등록하고 그 앱 workspace의 lophn session에 call로 맡긴다. (agent)
 - 앱 workspace에는 project 지침이 없고 앱 지침이 있다. 이유: 앱은 project에 묶이지 않는다. (agent)
 - "이 session 동안" 허락은 없다. 이유: 할당했으면 허락한 것이고 shell 규칙의 `ask`는 `always`로 규칙 줄을 더한다(`architecture/approval.md`). skip은 사람이 그 session에 켠 표시라 표에 남긴다. (agent)
-- agent runtime child 하나가 여러 session을 돈다. 이유: 폴더·provider·MCP·skill 목록이 바뀌어도 다시 띄우지 않으려는 것이다. 권한 flag를 두지 않는 것은 사람이 정했다. 좁힌 권한은 경계가 아니었다(`shell.run`이 `/bin/sh`로 우회하고, 폴더 목록이 어긋나면 file tool만 `NotCapable`로 막혔다). file tool의 폴더 범위는 코드가 지킨다. 버린 안: Deno 권한 flag로 폴더 좁히기. (사람, 2026-10-24)
+- agent runtime child 하나가 여러 session을 돈다. 이유: 폴더·provider·MCP·skill 목록이 바뀌어도 다시 띄우지 않으려는 것이다. 권한 flag를 두지 않는 것은 사람이 정했다. 좁힌 권한은 경계가 아니었다(`shell.run`이 `/bin/sh`로 우회하고, 폴더 목록이 어긋나면 file tool만 `NotCapable`로 막혔다). file tool의 폴더 범위는 코드가 지킨다. 버린 안: Deno 권한 flag로 폴더 좁히기. 비교(2026-11-10, harness 여덟을 조사했다): session마다 process를 두는 쪽은 Claude Code·pi·omp(CLI가 먼저인 제품)이고, Codex·OpenCode·dsh·mixdog·Hermes는 server가 먼저라 session이 process 안의 task다(N:1). lophn은 뒤쪽이다. 어느 쪽도 process를 권한 경계로 쓰지 않고 sandbox는 명령마다 씌운다. session마다 process를 나눠 얻는 것(crash 격리, session별 kill)보다 치르는 것(기동 시간, memory, session마다 MCP)이 커서 나누지 않는다. session별 kill은 turn을 끊는 `turn_stop`(model 요청과 도는 `shell.run`을 process group째)이 하고 session별 pid는 없다. 여덟 곳 가운데 shell tool을 가진 곳은 child env에 session id를 넣는다(`CODEX_THREAD_ID`, `OPENCODE_SESSION_ID`, `CLAUDE_CODE_SESSION_ID` 등). lophn도 `shell.run`과 harness CLI의 env에 `LOPHN_SESSION_ID`를 넣는다. (사람, 2026-10-24. 비교와 `LOPHN_SESSION_ID`: 사람, 2026-11-10)
 - 다른 workspace의 session이 부른 call로 열린 home session은 project 폴더를 읽지 않는다. 이유: home의 전역 agent가 부른 쪽과 상관없는 project를 읽는 것을 막는다. (사람, 2026-11-04)
 - fork는 있는 그대로 복사하되 묶인 것은 놓고 간다. 이유: skip을 가져가면 한 번의 사람 결정이 두 session에 쓰이고, call을 가져가면 한 call에 받는 session이 둘이다. (agent)
 - checkpoint는 turn을 시작한 입력에만 둔다. 이유: steer로 도는 turn에 끼어든 메시지는 turn의 경계가 아니라서 돌아갈 시점이 아니다. Claude Code checkpointing도 turn 중 보낸 메시지는 checkpoint로 치지 않는다. (agent)
@@ -114,6 +126,10 @@ session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. �
 - 이미지는 blob이고 session 경계로만 읽는다. 이유: 이미지 바이트는 core의 content 한도에 들어가지 않고, 다른 session의 이미지가 읽히면 안 된다. 옛 첨부 줄은 block으로 옮기지 않고 글 그대로 둔다(가져간 본문이 trigger로 고정돼 있다). (agent)
 
 - session 제목은 두 단계다. 첫 사람 요청을 접수하는 tx에서 앞 60자를 잘라 바로 제목으로 두고, 첫 turn이 첫 model call과 나란히 session model로 제목 call(`title_summary`, 첫 요청만 재료) 하나를 해 2–6단어 제목으로 바꾼다. call로 시작한 session은 그 call의 맡긴 글을 같은 규칙으로 잘라 둔다. 제목 call은 시작할 때 session의 지금 제목을 읽고, 바꾸는 command(`sessions/ai-title`)는 제목이 아직 그 읽은 제목일 때만 쓰므로 사람이 그 사이 rename한 제목은 덮지 않고, 출처 칸을 따로 두지 않는다. 자른 제목을 요청 글에서 다시 계산해 맞추지 않는다(이미지·file 표시가 든 제목과 어긋난다). 제목 call은 본 call과 같은 turn의 call로 기록하되 시도 번호는 각자 잡는다. call이 실패하거나 답이 제목 꼴이 아니면 자른 제목이 남는다. 이유: 조사한 harness 대부분(Claude Code, Codex, OpenCode, omp, dsh, hermes, mixdog)이 LLM 제목을 쓰고, hermes·dsh처럼 즉시 보이는 제목을 먼저 두면 제목 call을 기다리지 않는다. 작은 model 설정이 없어 session model을 쓴다(dsh·hermes 기본과 같다). (agent, 2026-11-10)
+- session lifecycle을 SDK에 따로 짓지 않고 core가 event의 첫 발행자가 된다. 앱은 listener를 건다. 같은 일을 앱마다 다시 만들 필요가 없다. (사람, 2026-11-10)
+- 터미널의 coding agent도 같은 목록과 event에 넣는다(kind `terminal`). session id가 없어 `term:<탭>`을 id로 쓴다. 상태는 shell main의 tracker가 알고, shell main이 core에 지금 집합을 통째로 알린다(`terminal_sessions.report`). core는 메모리에만 두고 shell이 붙어 있지 않으면 비운다. (사람이 session id·ppid를 물은 것에서, 2026-11-10. 통째로 알리기와 메모리: agent)
+- `stop`은 시야 안 모든 session에 열고 archive·승인·rewind·fork·지움은 열지 않는다. stop은 잃는 것이 없고 사람의 예(한도에서 멈춤)가 남이 연 session을 멈추는 일이다. 멈춘 앱은 사람이 볼 수 있게 남긴다. (agent, 사람이 방향을 받음)
+- 가시성은 mayCall을 그대로 쓰되 agent 쌍을 빼는 함수(`mayReachWorkspace`)를 떼어 앱이 쓴다. 가짜 agent를 앱 대신 세우면 agent 쌍 규칙에 걸린다. (agent)
 
 ## 열린 것
 

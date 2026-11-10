@@ -13,7 +13,11 @@ import { afterCommit } from "../../storage/ledger/after-commit.ts";
 import { LEDGER_SCHEMA_STEPS } from "../../storage/ledger/schema.ts";
 import { annotationSchemaSteps } from "../annotations/schema.ts";
 import { dataSchemaSteps } from "../data/schema.ts";
-import { invocationsSchemaSteps } from "../invocations/schema.ts";
+import { eventPublicationSchemaSteps } from "../events/schema.ts";
+import {
+  invocationEventCallerSchemaSteps,
+  invocationsSchemaSteps,
+} from "../invocations/schema.ts";
 import {
   noticeSchemaSteps,
   noticeUnifiedSchemaSteps,
@@ -62,6 +66,8 @@ function open(status: "active" | "archived") {
     ...appDeleteSchemaSteps,
     ...sdkSchemaSteps,
     ...sdkReviewSchemaSteps,
+    ...invocationEventCallerSchemaSteps,
+    ...eventPublicationSchemaSteps,
   ]) {
     db.exec(step.sql);
   }

@@ -23,7 +23,6 @@ import type {
   Tx,
 } from "../../../../protocol/server/mod.ts";
 import type { Writer } from "../../../storage/ledger/mod.ts";
-import { conversationSchemaSteps } from "../model.ts";
 import { turnSchemaSteps } from "../../run-loop/schema.ts";
 import { toolsSchemaSteps } from "../../tools/model.ts";
 import {
@@ -37,6 +36,7 @@ import {
 import { observeFiles } from "./prepare.ts";
 import { requestApps, withRewindFiles } from "./files.ts";
 import { editMemory } from "../../tools/memory/edit.ts";
+import { conversationTestSteps } from "../test-steps.ts";
 
 const SESSION = "ses_00000000000000000000000001";
 const user: RequestContext = {
@@ -55,7 +55,7 @@ function setup() {
   // tool call 같은 앞 표의 행은 이 시험이 판정하지 않으므로 외래 키를 켜지 않는다.
   db.exec("pragma foreign_keys = off");
   for (const step of [
-    ...conversationSchemaSteps,
+    ...conversationTestSteps,
     ...turnSchemaSteps,
     ...toolsSchemaSteps,
     ...revertSchemaSteps,

@@ -99,7 +99,51 @@ export function createAgentWiring(options: {
         window.webContents.send(TERMINAL_STATE_CHANNEL, runtime);
       }
     }
+    reportToCore();
   }
+
+  // core에 지금 터미널 coding agent의 집합을 통째로 알린다(session lifecycle의 terminal session). 바뀔 때 보내고, 집합이 비어 있지 않으면
+  // 주기적으로도 다시 보낸다: core는 메모리에만 두므로 core가 다시 떴을 때 이 주기가 채워 준다. 빈 집합은 core가 잃을 것이 없어 다시 보내지 않는다.
+  let reported = "";
+  function reportToCore(): void {
+    const sessions = terminals.runtimes().flatMap((runtime) => {
+      const agent = tracker.decorate(runtime).agent;
+      if (
+        agent === undefined ||
+        runtime.state === "exited" ||
+        runtime.state === "unknown" ||
+        !runtime.project.startsWith("prj_")
+      ) {
+        return [];
+      }
+      return [
+        {
+          terminal_ref: runtime.terminal_ref,
+          project: runtime.project,
+          harness: agent.harness,
+          state: agent.state,
+          cli_session: agent.session ?? null,
+          title: agent.title ?? agent.name ?? null,
+          cwd: runtime.cwd_at_start,
+          shell_pid: runtime.shell_pid ?? null,
+        },
+      ];
+    });
+    const key = JSON.stringify(sessions);
+    if (key === reported) return;
+    reported = key;
+    void ctx
+      .coreInternal("memory", "terminal_sessions", "report", { sessions })
+      .then((reply) => {
+        if (!reply.ok) reported = "";
+      });
+  }
+  const reporting = setInterval(() => {
+    if (reported === "[]") return;
+    reported = "";
+    reportToCore();
+  }, 5000);
+  reporting.unref?.();
 
   // 터미널이 끝나면 지운다.
   const tabNames = new Map<string, string>();
@@ -202,6 +246,7 @@ export function createAgentWiring(options: {
       tracker.foreground(change.terminal_ref, change.argv);
     },
     runtime(runtime) {
+      reportToCore();
       if (runtime.state === "exited" || runtime.state === "unknown") {
         tabNames.delete(runtime.terminal_ref);
         titleScanners.delete(runtime.terminal_ref);
@@ -334,6 +379,7 @@ export function createAgentWiring(options: {
     stop() {
       stopped = true;
       clearInterval(startup);
+      clearInterval(reporting);
       void server.then((started) => started?.stop()).catch(() => {});
     },
   };

@@ -52,6 +52,9 @@ async function callerName(
   if (caller.kind === "flow") {
     return t("conversation.label.rewind-caller-flow");
   }
+  if (caller.kind === "event") {
+    return t("conversation.label.rewind-caller-event");
+  }
   if (caller.kind === "agent") {
     const read = await readSession(env, caller.session);
     if (!read.ok) return caller.session;

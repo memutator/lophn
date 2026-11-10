@@ -39,6 +39,7 @@ ACP(App Context Protocol)는 agent 쪽이 내놓는 대화(메시지와 content 
 
 - `message`: actor(user, agent, received), sender, call, reply_to, delivery, turn, `content`(content block 배열), `reasoning`, `cards`, `complete`, `origin`.
   - `received`는 다른 쪽(다른 agent나 program)이 보낸 메시지이고 sender로 가른다.
+  - `via`(선택 `{app, name}`)는 앱 화면이 보낸 사람 메시지의 이름표다. 이름표일 뿐 보낸 쪽(sender)이 아니다: 메시지는 사람의 것(`actor: user`, `from` human)이고 model이 받는 글, 허락, attended, checkpoint·rewind·steer·queue edit은 그대로다. name은 보낼 때의 앱 slug다. snapshot과 갱신, 줄 선 메시지(`queued`)에 모두 있다. 채팅 탭·CLI·run·job이 보낸 메시지에는 없다.
   - `cards`는 `visual.show`가 올린 앱 카드 `{app, view, params?}`이고 content block이 아니라 message의 따로 칸이다. `params`는 그 카드 화면의 선언 schema로 검사해 실은 인자이고, 옛 message에는 없다.
   - `origin`은 그 CLI 자신의 message id다. 같은 CLI session을 다시 열어도 같아서 thread bookmark의 key가 된다. lophn은 null이고 늦게 알면 `origin_set`으로 채운다.
   - `complete`가 false면 `content`는 흘러나온 글(최종 본문의 앞부분)이거나 비어 있다. 최종 본문은 snapshot을 다시 읽어야 안다.
@@ -206,10 +207,11 @@ projection은 event만으로 알 수 없는 것을 core가 context로 받는다.
 
 ### 앱 화면
 
-앱 화면도 ACP 화면이다. 앱 bridge `lophnApp.agent`(`open({agent, title?})`, `snapshot(session)`, `onUpdate(listener)`, `send(input)`)가 `OpenSession`, `AcpSnapshot`, `AcpUpdated`, `AcpSend` 넷만 그 앱 workspace의 session으로 묶어 사람 자격으로 넘긴다. 앱은 sender view에서 정해지고 page가 고르지 못한다. 그 앱 workspace의 session이 아니면(Home, project, 다른 앱, 없는 session) `forbidden`이다.
+앱 화면도 ACP 화면이다. 앱 bridge `lophnApp.agent`(`open({agent, title?})`, `snapshot(session)`, `onUpdate(listener)`, `send(input)`)가 `app_sessions.open`(선택 `workspace`: 그 앱이 call로 닿을 수 있는 workspace), `AcpSnapshot`, `AcpUpdated`, `AcpSend`를 사람 자격으로 넘긴다. 앱은 sender view에서 정해지고 page가 고르지 못한다. 붙을 수 있는 session은 그 앱에 보이는 lophn·harness session이다(앱 workspace에서 call로 닿을 수 있는 workspace의 것, call 정책). 안 보이는 session, 없는 session, 터미널 탭(`term:`)은 `forbidden`이다. 앱이 보낸 call로 받은 메시지는 sender가 `{kind: app, app, name}`(name은 보낼 때의 slug)이고 chat에 "From <slug>" chip으로 보인다.
 
+- `AcpSend`의 `send`는 선택 `via_app`을 받는다. shell main이 앱 화면의 `send`에 sender view의 앱을 싣는다(page가 준 값은 덮는다). core는 그 앱의 slug를 얼려 메시지에 남기고(불변) fork가 복사한다.
 - `AcpSend`로는 입력 `send`·`stop`·`answer`·`rename`만 간다. 나머지(승인 `decide`, `rewind`, `fork`, `run_shell` 등)는 core에 닿기 전에 `forbidden`이다. 승인은 lophn 채팅 탭에서만 한다.
-- 앱 session의 turn 끝 알림과 Finished 표시는 앱 화면이 쥔 동안 내지 않는다([app-call.md](app-call.md)의 "앱 화면의 agent session").
+- 앱이 연 session의 turn 끝 알림과 Finished 표시는 내지 않는다([app-call.md](app-call.md)의 "앱 화면의 agent session").
 - core는 앱이 연 session을 따로 다루지 않는다. prompt 조립과 답 꼴은 앱과 SDK(`@lophn/agent`)의 몫이고 core는 모른다. SDK가 snapshot 위에 갱신을 같은 reducer로 접는다.
 - 설치된 앱의 SDK 사본은 앱 bundle 안에서 zod도 저장소도 없이 읽혀 protocol의 ACP type(zod 정본)을 싣지 못한다. 그래서 zod 없는 type 사본을 따로 두고 정본과 서로 대입되는지 type 검사로 맞춘다. ACP 항목·상태·갱신의 모양을 바꾸면 그 사본도 같이 고친다. 사본의 reducer가 runtime import를 더하면 설치 사본이 깨진다. bridge type은 ACP type을 SDK가 채우는 generic이다(이 portable entry가 protocol을 import하면 shell main tsc가 base까지 읽어 깨진다).
 
@@ -234,7 +236,7 @@ third-party CLI GUI(extension `harness-gui`, [harness-gui.md](harness-gui.md))�
 - omp role은 "이 session만 이 role의 model로"(`use_role`)만 넣고 `~/.omp`의 배정은 바꾸지 않는다. (사람, 2026-11-05)
 - fast·thinking·Speed는 composer chip이 아니라 model 축이고 picker가 그린다. lophn agent도 같다. (사람, 2026-11-05)
 - `!` shell mode는 harness와 lophn agent 모두에 둔다. lophn은 사람이 친 것이라 승인 없이 agent shell runner로 돌리고 앱 bridge는 막는다. (agent가 추천, 사람이 반대하지 않음)
-- 받은 메시지는 있는 ACP 칸(`received`, sender agent | program)으로만 가른다. sender 확장과 A2A 화면은 사람이 모양을 정한 뒤에 한다. (agent)
+- 받은 메시지는 있는 ACP 칸(`received`, sender agent | program | app)으로 가른다. 앱이 보낸 call(`architecture/agent-call.md`)은 sender `app`을 더해 chip으로 보이게 했다. A2A의 다른 화면은 사람이 모양을 정한 뒤에 한다. (agent)
 - 팀 자식의 event는 그대로 내고 표시로 거른다. `TurnResumed`, snapshot의 `waiting`, acp가 그 event에 기댄다. (agent)
 - 질문의 부모 답 글은 질문 줄(`lines`)이 아니라 항목의 `reply` 한 칸에 둔다. 이유: 부모의 답은 질문마다가 아니라 한 글이다. (agent)
 - model 출처 값 `project`는 이제 workspace 층(Home·project·앱)을 뜻하지만 이름은 그대로 둔다. 이유: 공개 SDK type의 session meta `layer`에 실려 있어 바꾸면 SDK가 깨지는 변경이 된다. 화면 글만 "workspace default"다. (agent)

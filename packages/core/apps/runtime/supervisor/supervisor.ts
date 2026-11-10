@@ -39,6 +39,8 @@ export type DesiredApp = {
   runEnabled: boolean;
   archived: boolean;
   tools: string[];
+  // 등록해도 되는 구독 handler 이름(`on.<source>.<event>`). 등록은 필수가 아니다.
+  subscribed?: string[];
   dataSchema: number;
   entry: string;
   dataPath: string;
@@ -429,11 +431,12 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       });
       return { ok: false, reason };
     }
-    const declared = [...desired.tools].sort();
-    const reported = [...probe.tools].sort();
+    // operation·command는 모두 등록돼야 하고, 그 밖에 등록한 것은 선언한 구독 handler뿐이어야 한다.
+    const reportedNames = new Set(probe.tools);
+    const allowed = new Set([...desired.tools, ...(desired.subscribed ?? [])]);
     const commandsMatch =
-      declared.length === reported.length &&
-      declared.every((key, index) => key === reported[index]);
+      desired.tools.every((key) => reportedNames.has(key)) &&
+      probe.tools.every((key) => allowed.has(key));
     if (!commandsMatch || probe.dataSchema !== desired.dataSchema) {
       await failStart(runtime, tracked, {
         code: "start_failed",

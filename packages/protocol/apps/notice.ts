@@ -44,6 +44,7 @@ export const PROGRAM_NOTICE_KINDS = [
   "app_data_restored",
   "lophn_updated",
   "sdk_update_needed",
+  "session_stopped_by_app",
 ] as const;
 export const programNoticeKindSchema = z.enum(PROGRAM_NOTICE_KINDS);
 export type ProgramNoticeKind = z.infer<typeof programNoticeKindSchema>;
@@ -137,6 +138,11 @@ export const noticeRecordInputSchema = z.discriminatedUnion("kind", [
   variant("lophn_updated", { from: short, to: short }),
   // 앱 없이 한 줄이다(숲을 보는 일은 home lophn의 몫이라 앱마다 줄을 만들지 않는다).
   // required: 옮겨야 하는 앱 수, available: 필수는 아니지만 새 SDK 판이 있는 앱 수.
+  // 앱이 session의 도는 turn을 멈췄다(`app_sessions.stop`). 어느 앱인지는 행의 app이다. title은 session 제목이다(앱이 쓴 글이 아니다).
+  variant("session_stopped_by_app", {
+    session: short,
+    title: short.optional(),
+  }),
   variant("sdk_update_needed", {
     required: z.number().int().min(0).max(9999),
     available: z.number().int().min(0).max(9999),

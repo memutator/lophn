@@ -113,7 +113,10 @@ export type SurfaceControl = { tab: string; agent: boolean; held: boolean };
 
 /** main이 창에 push하는 요청. extension tool 호출(`tool_call`)과 browser 호출(`browser_call`)은 main이 처리하므로 창에 오지 않는다. */
 export type SurfaceRequest = {
-  request: Exclude<HostRequest, { kind: "tool_call" | "browser_call" }>;
+  request: Exclude<
+    HostRequest,
+    { kind: "tool_call" | "browser_call" | "terminal_interrupt" }
+  >;
 };
 
 /** preload가 shell renderer에 여는 통로. */

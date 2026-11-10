@@ -7,6 +7,8 @@ import { NET_FETCH_BODY_MAX_BYTES } from "../../../../protocol/apps/mod.ts";
 import { ERROR_HTTP_STATUS } from "../../../../protocol/base/mod.ts";
 import { serve } from "../../../server/serve.ts";
 import type { AppsCallService } from "./apps-call.ts";
+import type { EventsService } from "./events.ts";
+import type { SessionsService } from "./sessions.ts";
 import type { BrokerChild } from "./invocations.ts";
 import type { NetFetchService } from "./net-fetch.ts";
 import type { NotifyService } from "./notify.ts";
@@ -22,6 +24,10 @@ const BROKER_ROUTES = {
   notifyTray: "/_lophn/broker/notify/tray",
   problemsObserve: "/_lophn/broker/problems/observe-exception",
   appsCall: APP_BROKER_PATHS.call,
+  eventsPublish: "/_lophn/broker/events/publish",
+  sessionsList: "/_lophn/broker/sessions/list",
+  sessionsStatus: "/_lophn/broker/sessions/status",
+  sessionsStop: "/_lophn/broker/sessions/stop",
 } as const;
 
 const BROKER_BODY_MAX_BYTES = 1_048_576;
@@ -40,6 +46,8 @@ export type BrokerServices = {
   notify?: NotifyService;
   exceptions?: ExceptionLogService;
   appsCall?: AppsCallService;
+  events?: EventsService;
+  sessions?: SessionsService;
 };
 
 export type BrokerSession = {
@@ -59,7 +67,16 @@ type Handler = (child: BrokerChild, body: unknown) => Promise<Result<unknown>>;
 
 function routes(services: BrokerServices): Map<string, Handler> {
   const table = new Map<string, Handler>();
-  const { ready, net, secrets, notify, exceptions, appsCall } = services;
+  const {
+    ready,
+    net,
+    secrets,
+    notify,
+    exceptions,
+    appsCall,
+    events,
+    sessions,
+  } = services;
   if (ready) {
     table.set(BROKER_ROUTES.ready, (child, body) =>
       Promise.resolve(ready.ready(child, body)),
@@ -78,6 +95,20 @@ function routes(services: BrokerServices): Map<string, Handler> {
   }
   if (appsCall) {
     table.set(BROKER_ROUTES.appsCall, (c, b) => appsCall.call(c, b));
+  }
+  if (events) {
+    table.set(BROKER_ROUTES.eventsPublish, (c, b) => events.publish(c, b));
+  }
+  if (sessions) {
+    table.set(BROKER_ROUTES.sessionsList, (c, b) =>
+      sessions.call(c, "list", b),
+    );
+    table.set(BROKER_ROUTES.sessionsStatus, (c, b) =>
+      sessions.call(c, "status", b),
+    );
+    table.set(BROKER_ROUTES.sessionsStop, (c, b) =>
+      sessions.call(c, "stop", b),
+    );
   }
   return table;
 }

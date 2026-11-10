@@ -1,4 +1,4 @@
-// 사람이 치지 않은 user 글(다른 agent의 lophn call·reply, task 알림, 다른 session)을 가려낸다. 모르는 꼴은 null이라
+// 사람이 치지 않은 user 글(다른 agent나 앱의 lophn call·reply, task 알림, 다른 session)을 가려낸다. 모르는 꼴은 null이라
 // 호출한 쪽이 지금처럼 사람 메시지로 둔다.
 import type { AcpSender } from "../../../../../protocol/acp/items.ts";
 
@@ -40,11 +40,15 @@ export function classifyReceived(
     // 사람이 보낸 call이다. 받은 메시지가 아니라 지금처럼 사람 메시지로 둔다(호출한 쪽이 풀어 그리지 않는다).
     if (from === "human") return null;
     const id = attr.call === undefined || attr.call === "" ? null : attr.call;
+    // 앱이 보낸 call은 `app:<slug>`다. tag에는 앱 id가 없어 app은 null이다.
+    const appSlug = from.startsWith("app:") ? from.slice("app:".length) : null;
     return {
       sender:
         from === "program"
           ? { kind: "program" }
-          : { kind: "agent", agent: null, name: from === "" ? null : from },
+          : appSlug !== null
+            ? { kind: "app", app: null, name: appSlug }
+            : { kind: "agent", agent: null, name: from === "" ? null : from },
       call: tag[1] === "call" ? id : null,
       reply_to: tag[1] === "reply" ? id : null,
       text: (tag[3] ?? "").replace(/&lt;(\/?)lophn-/g, "<$1lophn-"),

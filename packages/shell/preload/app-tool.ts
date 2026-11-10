@@ -1,5 +1,5 @@
 // 앱 view의 preload bridge(protocol/shell app-bridge-types). 페이지에는 `lophnApp.callOperation`,
-// `lophnApp.openExternal`, 앱 workspace의 agent session 길(`agent`), project 읽기(`projects`)와 자기 탭 머리 줄(`setTabHead`·`onTabHead`)과 살려 두기 신호(`setKeepAlive`)만 열고, 다른 앱·shell API·token·임의
+// `lophnApp.openExternal`, 앱 workspace의 agent session 길(`agent`), project 읽기(`projects`), session 목록·멈추기·끝내기(`sessions`), agent에게 call 보내기(`calls`)와 agent 명함(`agents`), 앱 event 받기(`events`)와 자기 탭 머리 줄(`setTabHead`·`onTabHead`)과 살려 두기 신호(`setKeepAlive`)만 열고, 다른 앱·shell API·token·임의
 // method·경로·파일 통로는 없다. 앱·release·actor는 보내지 않는다: main이 sender view에서 정한다.
 // transport와 Electron event는 closure 안에 남는다.
 import type { Result } from "../../base/result.ts";
@@ -34,7 +34,14 @@ import {
   APP_VIEW_ERROR_CHANNEL,
   type AppReply,
 } from "../ipc/app.ts";
+import { APP_EVENT_CHANNEL } from "../ipc/app-events.ts";
+import { APP_AGENTS_CHANNEL } from "../ipc/app-agents.ts";
 import { APP_PROJECTS_LIST_CHANNEL } from "../ipc/app-projects.ts";
+import {
+  APP_SESSIONS_LIST_CHANNEL,
+  APP_SESSIONS_STATUS_CHANNEL,
+  APP_SESSIONS_STOP_CHANNEL,
+} from "../ipc/app-sessions.ts";
 import { APP_KEEP_ALIVE_CHANNEL } from "../ipc/app-keep-alive.ts";
 import { createTabHead } from "./tab-head.ts";
 
@@ -252,6 +259,27 @@ export function createAppTool(
       }
     }
   });
+  // 앱 event. main이 이 화면의 release가 구독을 선언한 것만 보낸다. 여기서는 (source, event)별 listener에 나눠 준다.
+  const eventListeners = new Map<string, Set<(payload: unknown) => void>>();
+  const eventKey = (source: string, event: string) => `${source}\u0000${event}`;
+  transport.on(APP_EVENT_CHANNEL, (payload) => {
+    const {
+      source,
+      event,
+      payload: body,
+    } = payload as {
+      source: string;
+      event: string;
+      payload: unknown;
+    };
+    for (const listener of eventListeners.get(eventKey(source, event)) ?? []) {
+      try {
+        listener(body);
+      } catch {
+        // 한 listener의 오류가 다른 listener를 막지 않는다.
+      }
+    }
+  });
   const keys = createAppKeys(transport);
   // 창(window)에서 듣는다. page의 keydown listener보다 먼저 받아야 맞은 key를 page가 받기 전에 삼킬 수 있다.
   // Node 테스트처럼 window가 없으면 듣지 않는다.
@@ -273,10 +301,17 @@ export function createAppTool(
       await request(transport, APP_OPEN_EXTERNAL_CHANNEL, { url });
     },
     agent: Object.freeze({
-      open: (input: { agent: string; title?: string }) =>
+      open: (input: {
+        agent: string;
+        title?: string;
+        workspace?: { kind: "project" | "app"; id: string };
+      }) =>
         result(transport, APP_AGENT_OPEN_CHANNEL, {
           agent: input.agent,
           ...(input.title === undefined ? {} : { title: input.title }),
+          ...(input.workspace === undefined
+            ? {}
+            : { workspace: input.workspace }),
         }),
       snapshot: (session: string) =>
         result(transport, APP_AGENT_SNAPSHOT_CHANNEL, { session }),
@@ -291,6 +326,57 @@ export function createAppTool(
     }),
     projects: Object.freeze({
       list: () => result(transport, APP_PROJECTS_LIST_CHANNEL, null),
+    }),
+    sessions: Object.freeze({
+      list: (filter?: unknown) =>
+        result(transport, APP_SESSIONS_LIST_CHANNEL, filter ?? null),
+      status: (session: string) =>
+        result(transport, APP_SESSIONS_STATUS_CHANNEL, { session }),
+      stop: (session: string) =>
+        result(transport, APP_SESSIONS_STOP_CHANNEL, { session }),
+      end: (session: string) =>
+        result(transport, APP_AGENTS_CHANNEL, {
+          op: "sessions.end",
+          input: { session },
+        }),
+    }),
+    calls: Object.freeze({
+      send: (input: unknown) =>
+        result(transport, APP_AGENTS_CHANNEL, { op: "calls.send", input }),
+      read: (call: string) =>
+        result(transport, APP_AGENTS_CHANNEL, {
+          op: "calls.read",
+          input: { call },
+        }),
+      cancel: (call: string, reason?: string) =>
+        result(transport, APP_AGENTS_CHANNEL, {
+          op: "calls.cancel",
+          input: { call, ...(reason === undefined ? {} : { reason }) },
+        }),
+      list: (session: string) =>
+        result(transport, APP_AGENTS_CHANNEL, {
+          op: "calls.list",
+          input: { session },
+        }),
+    }),
+    agents: Object.freeze({
+      list: () =>
+        result(transport, APP_AGENTS_CHANNEL, { op: "agents.list", input: {} }),
+    }),
+    events: Object.freeze({
+      subscribe(
+        source: string,
+        event: string,
+        listener: (payload: unknown) => void,
+      ) {
+        const key = eventKey(String(source), String(event));
+        const set = eventListeners.get(key) ?? new Set();
+        set.add(listener);
+        eventListeners.set(key, set);
+        return () => {
+          set.delete(listener);
+        };
+      },
     }),
     setTabHead: tabHead.setTabHead,
     setKeepAlive(active: boolean, key = "default"): void {

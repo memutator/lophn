@@ -6,7 +6,7 @@
 `OperationButton`·`useOperation`, 앱 화면 root의 `AppErrorBoundary`, 화면의 머리
 조작을 lophn 탭 머리 줄에 올리는 `useTabHead`, 화면이 열린 자리·인자·workspace를 읽는
 `usePlace`, lophn project 목록을 읽는 `useProjects`, 일이 도는 동안 page를 살려 두는
-`useKeepAlive`, 선언한 key의 handler를 거는 `useCommand`다. 화면은
+`useKeepAlive`, 선언한 key의 handler를 거는 `useCommand`, 앱 event를 받는 `useEvent`다. 화면은
 operation만 부르고, 호출은 앱 view의 `lophnApp.callOperation` 하나로만 한다.
 호출이 허락되는지, 사람이 정해야 하는지는 lophn이 정하고 앱 안에 따로 확인
 dialog를 두지 않는다. 조작은 lophn 화면과 같은 component(`@lophn/ui`)다. bridge가
@@ -102,6 +102,14 @@ import {
   `usePlace().workspace.folders`). 화면이 열린 동안 바뀐 것은 저절로 오지 않으니
   `reload()`로 다시 읽는다(예: 머리 줄의 새로 고침). 읽는 사이 목록이 바뀌면
   `conflict`, 앱 view 밖이면 `unavailable`이다. 쓰는 법은 아래 "project에 붙는 앱".
+- `useEvent(source, event, listener)` — 다른 앱이나 lophn이 낸 event를 화면이 mount된 동안 받는다. `source`는 발행 앱의
+  slug이거나 lophn의 `"lophn"`이다. 앱의 선언 `subscriptions`에 같은 `{source, event}`가 있어야 온다(`@lophn/declaration`).
+  `listener(payload)`는 부를 때의 가장 최근 것을 쓰므로 그릴 때마다 새로 넘겨도 된다. event는 일이 일어난 뒤의 알림이라 한 번
+  오고 저장되지 않는다. 화면이 닫힌 동안의 것은 오지 않으니 **처음 값은 발행 앱의 read로 읽고** event로 고친다(화면은
+  operation만 부르므로 앱이 그 값을 operation으로도 내놓는다). 앱 view 밖이면 아무 일도 없다.
+  ```tsx
+  useEvent<{ percent: number }>("masup", "usage.limit", (e) => setPercent(e.percent));
+  ```
 - `useKeepAlive(active, app?)` — `active`인 동안 사람이 이 화면이 있는 workspace를
   떠나도(다른 project로 가도) lophn이 page를 숨겨 살려 두고, 돌아오면 다시 load하지
   않는다. 기본은 떠나면 page를 놓고 돌아오면 다시 load한다. 다시 load하면 화면
@@ -116,7 +124,7 @@ import {
     있으면 page가 살아 있다. `@lophn/agent`가 turn이 도는 동안 스스로 켜는
     신호와 서로 끄지 않으므로 agent 답을 기다리는 것만이면 이 hook이 필요 없다.
     `lophnApp.setKeepAlive(active, key?)`를 직접 부를 때도 같은 key로 켜고 끈다.
-- type: `CommandOptions`, `CommandBridge`, `KeepAliveBridge`, `Project`, `ProjectsBridge`, `ProjectsState`, `UseProjects`, `Place`, `PlaceJson`, `PlaceValue`, `PlaceWorkspace`, `OperationSpec`, `OperationInput`, `AppBridge`, `OperationState`,
+- type: `CommandOptions`, `CommandBridge`, `KeepAliveBridge`, `EventBridge`, `Project`, `ProjectsBridge`, `ProjectsState`, `UseProjects`, `Place`, `PlaceJson`, `PlaceValue`, `PlaceWorkspace`, `OperationSpec`, `OperationInput`, `AppBridge`, `OperationState`,
   `OperationResult`, `OperationButtonProps`, `UseOperation`,
   `AppErrorBoundaryProps`, `TabHead`, `TabHeadItem`, `TabHeadAction`, `TabHeadIcon`,
   `TabHeadEvent`, `TabHeadHandlers`, `TabHeadBridge`
@@ -134,7 +142,7 @@ import {
 | -------------------- | ------- |
 | `react`              | 19.3.0  |
 | `lucide-react`       | 1.51.0  |
-| `@lophn/declaration` | 4.4.0   |
+| `@lophn/declaration` | 4.5.0   |
 | `@lophn/ui`          | 1.1.0   |
 | `@lophn/i18n`        | 1.0.0   |
 

@@ -17,13 +17,27 @@ test("declaration: the declaration is valid and already canonical", () => {
   assert.deepStrictEqual(checked.value, declaration);
 });
 
-test("declaration: every declared operation and command has a registered handler and nothing else is registered", () => {
+test("declaration: every declared operation and command has a registered handler and only declared subscriptions are registered besides", () => {
   registerHandlers();
+  const registered = [...registeredHandlers()];
+  const required = [
+    ...declaration.operations.map((entry) => entry.name),
+    ...declaration.commands.map((entry) => entry.name),
+  ];
+  // 구독 handler의 이름은 `on.<source>.<event>`다(`subscribe`가 등록한다). 등록은 필수가 아니다(화면만 구독하는 앱).
+  const allowed = new Set([
+    ...required,
+    ...(declaration.subscriptions ?? []).map(
+      (entry) => `on.${entry.source}.${entry.event}`,
+    ),
+  ]);
   assert.deepStrictEqual(
-    [...registeredHandlers()].sort(),
-    [...declaration.operations, ...declaration.commands]
-      .map((entry) => entry.name)
-      .sort(),
+    required.filter((name) => !registered.includes(name)),
+    [],
+  );
+  assert.deepStrictEqual(
+    registered.filter((name) => !allowed.has(name)),
+    [],
   );
 });
 

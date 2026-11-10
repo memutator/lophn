@@ -53,6 +53,7 @@ test("a stopped instance is not handed: report with next records the line only a
             agent: lophnAtWorkspace,
             accepting: true,
           } as never),
+        app: () => null,
         accepts: () => null,
         listOpen: () => [],
       },

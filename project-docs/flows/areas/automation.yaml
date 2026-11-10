@@ -973,23 +973,24 @@ flows:
     code: [packages/core/jobs/commands.ts, packages/core/jobs/schedule.ts, packages/core/main/daemon/wiring/jobs-registration.ts]
     steps:
       - "호출한 session을 creator (agent, workspace)로 찾는다. agent가 아니거나 모르는 session이면 forbidden"
-      - "at은 every가 d 단위일 때만 받는다. 아니면 invalid_input"
+      - "때는 every(주기)와 trigger(event) 가운데 정확히 하나다. 아니면 invalid_input. 주기 job은 missed_policy가 필요하고 at은 every가 d 단위일 때만 받는다. event job은 at을 받지 않는다(invalid_input)"
       - "할 일의 이름(agent, app, project)을 지금 풀어 id로 저장한다. 못 풀면 not_found. schema를 못 읽으면 invalid_input"
-      - "job 행을 approved_at 없이 만든다. 다음 차례는 잡지 않는다(사람이 승인해야 돈다)"
+      - "trigger는 source(앱이면 그 앱의 active release가 선언한 event, lophn이면 session.* event만. call.settled는 아님)를 풀어 앱 id와 slug, 최소 간격(기본 5m), pass_event(tool_run만, 입력이 객체이거나 없을 때)로 저장한다. 못 풀면 not_found, 선언이 없거나 못 쓰는 event, 같은 앱의 tool을 부르는 tool_run이면 invalid_input, job의 workspace가 call 정책으로 그 앱 workspace에 닿지 못하면 forbidden"
+      - "job 행을 approved_at 없이 만든다. 다음 차례는 잡지 않는다(사람이 승인해야 돈다. event job은 승인해도 next_due_at이 늘 null이다)"
     outcomes:
       - id: created
         observe: [ledger:jobs, event:JobChanged, response]
       - id: invalid_input
         code: invalid_input
-        when: "at이 d 단위 주기가 아님, schema를 읽을 수 없음"
+        when: "at이 d 단위 주기가 아님, schema를 읽을 수 없음, 때가 둘이거나 없음, event job에 at, 앱이 선언하지 않은 event나 쓸 수 없는 lophn event"
         observe: [response]
       - id: not_found
         code: not_found
-        when: "agent, app, project 이름을 풀지 못함"
+        when: "agent, app, project 이름을 풀지 못함(trigger의 앱 포함)"
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "agent가 아닌 호출자이거나 호출한 session을 모름"
+        when: "agent가 아닌 호출자이거나 호출한 session을 모름, trigger의 앱 workspace에 job의 workspace가 call 정책으로 닿지 못함"
         observe: [response]
       - id: internal
         code: internal
@@ -1010,7 +1011,7 @@ flows:
     code: [packages/core/jobs/commands.ts, packages/core/jobs/schedule.ts]
     steps:
       - "agent는 같은 agent, 같은 workspace가 만든 job만 고친다. 남의 job은 not_found. 사람은 Jobs 탭에서 같은 route로 모든 job을 고친다"
-      - "at이 있으면 every가 d 단위여야 한다. 아니면 invalid_input"
+      - "at이 있으면 every가 d 단위여야 한다. 아니면 invalid_input. event job은 every나 at을 받지 않는다(때는 승인한 값이라 새 job으로 만든다)"
       - "주기나 시각이 바뀌거나 꺼진 job이 켜지면 지금 뒤의 첫 차례로 다시 센다. 놓친 것으로 치지 않는다"
       - "승인 전 job이면 next_due_at은 null로 둔다. 할 일(action)은 바꾸지 못한다"
     outcomes:
@@ -1018,7 +1019,7 @@ flows:
         observe: [ledger:jobs, event:JobChanged, response, screen:jobs-tab-edit]
       - id: invalid_input
         code: invalid_input
-        when: "at이 있는데 every가 d 단위가 아님"
+        when: "at이 있는데 every가 d 단위가 아님, event job에 every나 at"
         observe: [response]
       - id: not_found
         code: not_found
@@ -1254,6 +1255,41 @@ flows:
     crosses_process: false
     refs: [J3, J6, E10]
     docs: [architecture/job.md]
+
+  - id: job-event-fire
+    title: "event가 오면 그 event를 때로 가진 job이 차례를 열거나 건너뛴다"
+    actor: system
+    entries: [route:jobs/fire_event, route:jobs/event_triggers, system:job-event]
+    uses: [route:app_events/publish]
+    boundary: [jobs, events]
+    code: [packages/core/jobs/events.ts, packages/core/apps/events/publish.ts, packages/core/main/daemon/wiring/jobs.ts]
+    steps:
+      - "jobs wiring이 앱 event 전달의 안 구독자(앱이 아니고 호출 기록이 없다)로 들어간다. 앱이 낸 event와 core가 낸 `lophn`의 session.* event가 모두 온다. 승인하고 켜진 event job이 하나도 없는 (앱, event)는 바로 버리고, lophn event는 구독자가 없으면 session 한 줄도 만들지 않는다. 저장하지 않으므로 core가 꺼진 사이의 event는 job을 열지 않는다"
+      - "machine 자격의 job.fire_event가 한 tx에서 그 event를 때로 가진 승인한 켜진 job마다 판정한다. lophn session event는 job의 workspace(home이면 home)가 call 정책(mayReachWorkspace)으로 닿을 수 있고 사람이 연 session만 본다: 어느 job의 run이 연 session, run·workflow step 입력을 받은 session, 팀·call로 열린 session은 보지 않는다(고리). 앱 event는 job의 workspace가 그 앱 workspace에 닿을 때만 보고, 이 job이 부르는 앱(tool_run)이 이 event의 사슬(chain)에 있으면 보지 않는다"
+      - "보는 event에 앞 차례가 queued·running이면 건너뛰고(busy), 마지막으로 연 때부터 최소 간격(기본 5분) 안이면 건너뛴다(too_soon). 건너뜀은 job run 줄로 쌓지 않고 job의 skipped_count와 마지막 시각·이유로 센다(event는 흔하다)"
+      - "그 밖에는 event를 싣은 queued 줄을 만들고 fired_count와 마지막 시각을 고쳐 scheduler를 깨운다. 시작은 평소 차례와 같다(job-run-started). agent_run은 고정 prompt 뒤에 event를 data 블록으로 붙이고, workflow_start는 시작 글을 JSON {text, event}로 주고, tool_run은 pass_event일 때만 입력의 event 칸에 합친다"
+    outcomes:
+      - id: fired
+        when: "차례를 열었다(queued 줄)"
+        observe: [ledger:job_runs, ledger:jobs, event:JobChanged, response]
+      - id: skipped-busy
+        when: "앞 차례가 아직 돎. 건너뛰고 센다"
+        observe: [ledger:jobs, response]
+      - id: skipped-too-soon
+        when: "마지막으로 연 때에서 최소 간격 안이다. 건너뛰고 센다"
+        observe: [ledger:jobs, response]
+      - id: ignored
+        when: "이 job이 볼 event가 아니다: 승인 전이거나 꺼짐, 닿을 수 없는 workspace의 session이나 앱, 사람이 연 것이 아닌 session(어느 job의 run, run·workflow step·팀·call로 열림), 이 job이 부르는 앱의 사슬. 아무것도 세지 않는다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "machine 자격이 아님"
+        observe: [response]
+    crosses_process: false
+    declared_only: [unauthorized, invalid_input]
+    unclear:
+      - "route가 invalid_input과 unauthorized를 선언하지만 handler는 schema 검사 밖에 내지 않는다(선언을 고칠 곳)"
+    docs: [architecture/job.md, architecture/event.md]
 
   - id: job-startup
     title: "켤 때 첫 바퀴가 도는 줄을 닫고 꺼진 사이의 차례를 센다"

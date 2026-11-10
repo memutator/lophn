@@ -1,4 +1,4 @@
-// Scheduled jobs 화면의 순수 규칙. 주기·할 일·기록 줄을 화면 말로 바꾼다. project 창의 job panel도 쓴다.
+// Jobs 화면의 순수 규칙. 주기·할 일·기록 줄을 화면 말로 바꾼다. project 창의 job panel도 쓴다.
 import type { StatusTone } from "@lophn/ui";
 import { formatRelativeTime, type MessageKey, t } from "@lophn/i18n";
 
@@ -31,6 +31,39 @@ export function scheduleText(every: string, at: string | null): string {
     : t(EVERY_KEY[unit], { n });
 }
 
+const INTERVAL_KEY = {
+  m: "jobs.label.interval-minutes",
+  h: "jobs.label.interval-hours",
+  d: "jobs.label.interval-days",
+} as const;
+
+/** `5m` → "5 minutes". */
+export function intervalText(every: string): string {
+  const n = Number(every.slice(0, -1));
+  return t(INTERVAL_KEY[every.slice(-1) as keyof typeof INTERVAL_KEY], { n });
+}
+
+/** event job의 때를 말로. 승인 card와 목록이 같은 글을 쓴다: "When masup publishes usage.limit, at most every 5 minutes". */
+export function triggerText(trigger: NonNullable<JobView["trigger"]>): string {
+  return t(
+    trigger.source === "lophn"
+      ? "jobs.label.trigger-lophn"
+      : "jobs.label.trigger-app",
+    {
+      source: trigger.source,
+      event: trigger.event,
+      interval: intervalText(trigger.min_interval),
+    },
+  );
+}
+
+/** 목록의 때 칸: 주기 job은 주기, event job은 event. */
+export function whenOf(job: Pick<JobView, "every" | "at" | "trigger">): string {
+  return job.trigger !== null
+    ? triggerText(job.trigger)
+    : scheduleText(job.every!, job.at);
+}
+
 /** 이 project에 걸린 job: 그 project workspace의 agent가 만들었거나, 그 project의 agent를 부르거나, 그 project의 workflow를 시작하는 것. */
 export function jobsOfProject(
   jobs: readonly JobView[],
@@ -47,9 +80,46 @@ export function jobsOfProject(
   );
 }
 
+// event job은 다음 차례 대신 몇 번 열었고 몇 번 건너뛰었는지를 보인다.
+function eventStatsText(job: JobView, now: Date): string {
+  const stats = t("jobs.label.event-stats", {
+    fired: job.fired_count,
+    skipped: job.skipped_count,
+  });
+  const parts = [stats];
+  if (job.skipped_count > 0 && job.last_skip_reason !== null) {
+    parts.push(
+      t("jobs.label.skipped-last", {
+        reason: t(
+          job.last_skip_reason === "busy"
+            ? "jobs.label.skip-busy"
+            : "jobs.label.skip-too-soon",
+        ),
+      }),
+    );
+  }
+  if (job.last_fired_at !== null) {
+    parts.push(
+      t("jobs.label.event-last-fired", {
+        time: formatRelativeTime(new Date(job.last_fired_at), now),
+      }),
+    );
+  }
+  return parts.join(" · ");
+}
+
+/** event job의 앱이 지금 그 event를 내지 않으면 그 말. 아니면 null이다. */
+export function sourceGoneText(job: JobView): string | null {
+  return job.trigger !== null && job.source_gone === true
+    ? t("jobs.label.source-gone")
+    : null;
+}
+
 export function nextText(job: JobView, now: Date): string {
   if (job.approved_at === null) return t("jobs.label.waiting-approval");
-  if (!job.enabled || job.next_due_at === null) {
+  if (!job.enabled) return t("jobs.label.turned-off");
+  if (job.trigger !== null) return eventStatsText(job, now);
+  if (job.next_due_at === null) {
     return t("jobs.label.turned-off");
   }
   return t("jobs.label.next", {

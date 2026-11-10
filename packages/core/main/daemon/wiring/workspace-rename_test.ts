@@ -17,7 +17,6 @@ import { callTargetSchema } from "../../../../protocol/lophn-agent/calls.ts";
 import type { SchemaStep } from "../../../../protocol/server/mod.ts";
 import { workflowInstanceSchema } from "../../../../protocol/workflows/instances.ts";
 import { jobsSchemaSteps } from "../../../jobs/schema.ts";
-import { conversationSchemaSteps } from "../../../lophn-agent/session/model.ts";
 import { ROUTER_SCHEMA_STEPS } from "../../../router/mod.ts";
 import { runsSchemaSteps } from "../../../runs/schema.ts";
 import { applyMigrations } from "../../../storage/migration/mod.ts";
@@ -27,6 +26,7 @@ import {
   workflowWorkspaceStep,
   workspaceLayoutsStep,
 } from "./workspace-rename.ts";
+import { conversationTestSteps } from "../../../lophn-agent/session/test-steps.ts";
 
 const PRJ = "prj_01hzzzzzzzzzzzzzzzzzzzzzza";
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
@@ -50,7 +50,7 @@ const NEW_STEPS = new Set([
 ]);
 
 const ALL_STEPS: readonly SchemaStep[] = [
-  ...conversationSchemaSteps,
+  ...conversationTestSteps,
   ...jobsSchemaSteps,
   ...runsSchemaSteps,
   ...ROUTER_SCHEMA_STEPS,

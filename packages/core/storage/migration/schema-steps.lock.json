@@ -250,5 +250,29 @@
   {
     "id": "apps.sdk-review.tables",
     "sha256": "6f308a8c454d06f21969d88db721fdcb3ed40b17deaa8de69f1e787551e34610"
+  },
+  {
+    "id": "apps.invocations.event-caller",
+    "sha256": "de73f3e18179c430cdb2ba137a9702f0c7139f548ba3cb6e15a923d85cb85de9"
+  },
+  {
+    "id": "apps.events.publications",
+    "sha256": "a6a0c00f34b31bb53bfe9617a81ce977078b72b47820e65b11814b6831a3dd6b"
+  },
+  {
+    "id": "router.app-sender.messages",
+    "sha256": "2a5c9a957c54e8123042cac16d0cd35cc057336f153abdd5e57fd2b08667171d"
+  },
+  {
+    "id": "router.app-sender.agent-calls",
+    "sha256": "3935f177bdf633719fc9f37127371242c0e0a95f695fc4ea0b5adde5986e7575"
+  },
+  {
+    "id": "router.app-sender.session-opener",
+    "sha256": "ad289d7a3f95f131534b03625c586d9749ea86f539852dff9fae4a1f1a3ea4f7"
+  },
+  {
+    "id": "jobs.trigger",
+    "sha256": "d4bfc211734966f814e73bd13c92710a2e0771121babe8aed170ec90595dd778"
   }
 ]

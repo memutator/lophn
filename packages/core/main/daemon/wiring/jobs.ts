@@ -1,7 +1,10 @@
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
+import type { JsonValue } from "../../../../protocol/base/mod.ts";
 import {
   jobClaimDue,
+  jobEventTriggers,
+  jobFireEvent,
   jobRunEnded,
   jobRunOpen,
   jobRunStarted,
@@ -34,6 +37,8 @@ const JOBS_CONTEXT: AuthenticatedContext = {
       jobRunOpen.name,
       jobRunStarted.name,
       jobRunEnded.name,
+      jobFireEvent.name,
+      jobEventTriggers.name,
       workflowInstanceRead.name,
     ],
     targets: {},
@@ -52,6 +57,7 @@ const WAIT_MS = 60_000;
 export const jobsWiring: WiringFactory = () => {
   let scheduler: ReturnType<typeof createJobScheduler> | undefined;
   let closing = false;
+  let stopEvents: (() => void) | undefined;
   return {
     name: "jobs",
     records: () => [JOBS_CONTEXT],
@@ -108,10 +114,17 @@ export const jobsWiring: WiringFactory = () => {
         async start(job, jobRun) {
           const action = job.action;
           if (action.kind === "workflow_start") {
+            // event job은 시작 입력 글을 JSON으로 준다: 고정한 글과 event(data).
             const started = await ctx.workflowService.start(
               {
                 workflow: `${action.project}/${action.workflow}`,
-                text: action.text,
+                text:
+                  jobRun.event === null
+                    ? action.text
+                    : JSON.stringify({
+                        text: action.text,
+                        event: jobRun.event,
+                      }),
                 ...(action.step === undefined ? {} : { step: action.step }),
               },
               { kind: "job", job: job.id },
@@ -128,8 +141,22 @@ export const jobsWiring: WiringFactory = () => {
             job: job.id as Id<"job">,
             job_run: jobRun.id as Id<"jbr">,
           };
+          // tool_run은 승인한 flag(pass_event)가 있을 때만 event를 입력의 `event` 칸에 합쳐 준다.
           const input =
-            action.input === undefined ? {} : { input: action.input };
+            action.kind === "tool_run" &&
+            job.trigger?.pass_event === true &&
+            jobRun.event !== null
+              ? {
+                  input: {
+                    ...((action.input as
+                      | Record<string, JsonValue>
+                      | undefined) ?? {}),
+                    event: jobRun.event,
+                  },
+                }
+              : action.input === undefined
+                ? {}
+                : { input: action.input };
           const started = await ctx.runService.start(
             action.kind === "agent_run"
               ? {
@@ -140,6 +167,7 @@ export const jobsWiring: WiringFactory = () => {
                   },
                   prompt: action.prompt,
                   ...input,
+                  ...(jobRun.event === null ? {} : { event: jobRun.event }),
                   ...(action.schema === undefined
                     ? {}
                     : { schema: action.schema }),
@@ -192,6 +220,58 @@ export const jobsWiring: WiringFactory = () => {
         },
       };
 
+      // event를 때로 가진 승인한 켜진 job이 있는 (앱 id 또는 null=lophn, event). event 전달이 job에 관심이 있는지 거르는 표다.
+      // job이 바뀔 때마다 다시 읽는다. 저장하지 않으므로 core가 꺼진 사이의 event는 job을 열지 않는다.
+      let triggers: { app: string | null; event: string }[] = [];
+      const refreshTriggers = async () => {
+        const done = await read<Output<typeof jobEventTriggers>>(
+          jobEventTriggers,
+          {},
+        );
+        if (done.ok) triggers = done.value.triggers;
+      };
+      const offEvents = ctx.eventDelivery.addInternal({
+        wantsSource: (source) =>
+          source === "lophn" && triggers.some((one) => one.app === null),
+        deliver(event) {
+          const publisher =
+            event.publisher === "lophn" ? null : event.publisher;
+          if (
+            !triggers.some(
+              (one) => one.app === publisher && one.event === event.event,
+            )
+          ) {
+            return;
+          }
+          // lophn의 session event는 그 session과 workspace를 싣는다(job의 보이는 범위와 자기 run 걸러내기).
+          const line = event.payload as {
+            session?: string;
+            workspace?: { kind: "project" | "app"; id: string } | null;
+          } | null;
+          const session =
+            publisher === null && typeof line?.session === "string"
+              ? { id: line.session, workspace: line.workspace ?? null }
+              : null;
+          void command(jobFireEvent, {
+            publisher: event.publisher,
+            event: event.event,
+            payload: event.payload as JsonValue,
+            chain: [...event.chain],
+            session,
+          }).then((done) => {
+            if (!done.ok) {
+              ctx.telemetry.logger.warn({
+                component: "jobs",
+                event: "fire_event_failed",
+                fields: { message: done.error.message },
+              });
+            }
+          });
+        },
+      });
+      stopEvents = offEvents;
+      void refreshTriggers();
+
       const built = createJobScheduler({
         clock: ctx.clock,
         timers: systemTimers,
@@ -219,7 +299,10 @@ export const jobsWiring: WiringFactory = () => {
                   payload: { job_run: data.job_run },
                 });
               }
-              if (changed) built.wake();
+              if (changed) {
+                void refreshTriggers();
+                built.wake();
+              }
             },
             ctx.telemetry.logger,
           ),
@@ -231,6 +314,7 @@ export const jobsWiring: WiringFactory = () => {
     },
     async closeWork() {
       closing = true;
+      stopEvents?.();
       await scheduler?.stop();
     },
   };

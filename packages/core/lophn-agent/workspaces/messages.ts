@@ -9,6 +9,7 @@ import {
   contentOfBlocks,
   serializeMessageContent,
 } from "../../../protocol/lophn-agent/mod.ts";
+import { callFromRef } from "../../../protocol/lophn-agent/calls.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import type { RoutedInput } from "../../router/ports.ts";
 import { createCheckpoint } from "../session/rewind/mod.ts";
@@ -44,9 +45,7 @@ export function createReceivedRecorder(deps: { principal(): string }) {
           id,
           session,
           from.kind,
-          from.kind === "human" || from.kind === "program"
-            ? null
-            : from.session,
+          callFromRef(from),
           input.call,
           input.reply_to,
           JSON.stringify(input.refs),

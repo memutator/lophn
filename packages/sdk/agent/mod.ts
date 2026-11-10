@@ -10,6 +10,19 @@ export type {
   AcpUpdate,
   ContentBlock,
 } from "./acp-types.ts";
+export type { AppBridge } from "./bridge.ts";
+export {
+  type AgentCard,
+  CALL_SETTLED_EVENT,
+  type CallAddress,
+  type CallFailReason,
+  type CallReply,
+  type CallRow,
+  type CallSendInput,
+  type CallSent,
+  type CallSettled,
+  type CallState,
+} from "./call-types.ts";
 export { contextBlock } from "./context-block.ts";
 export { type JsonSchema, parseReply, type Reply } from "./reply.ts";
 export {
@@ -19,3 +32,27 @@ export {
   type Sent,
 } from "./session.ts";
 export { type AgentSession, useAgentSession } from "./use-agent-session.ts";
+export type {
+  SessionFilter,
+  SessionInfo,
+  SessionKind,
+  SessionResult,
+  SessionState,
+  SessionStatus,
+} from "./session-types.ts";
+export {
+  type AgentsState,
+  calls,
+  type CallsState,
+  onCallSettled,
+  type UseAgentCalls,
+  useAgentCalls,
+  useAgents,
+} from "./use-calls.ts";
+export { SESSION_EVENTS } from "./session-types.ts";
+export {
+  type SessionsBridge,
+  type SessionsState,
+  type UseSessions,
+  useSessions,
+} from "./use-sessions.ts";

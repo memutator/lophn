@@ -17,12 +17,12 @@ import type {
   Tx,
 } from "../../../protocol/server/mod.ts";
 import { createConversationCommands } from "../session/commands.ts";
-import { conversationSchemaSteps } from "../session/model.ts";
 import { revertSchemaSteps } from "../session/rewind/mod.ts";
 import { createSessionDirectory } from "./directory.ts";
 import { acceptsInput } from "./model.ts";
 import type { OpenDeps } from "./ports.ts";
 import { UNWIRED_END_DEPS, UNWIRED_WORKSPACE_DEPS } from "./unwired.ts";
+import { conversationTestSteps } from "../session/test-steps.ts";
 
 const PROJECT = "prj_00000000000000000000000001";
 const APP = "app_00000000000000000000000001";
@@ -35,7 +35,7 @@ const SCOPED = "agt_00000000000000000000000003";
 // 저장소만 쓴다. 표는 실제 schema step 그대로다.
 function store() {
   const db = new DatabaseSync(":memory:");
-  for (const step of [...conversationSchemaSteps, ...revertSchemaSteps]) {
+  for (const step of [...conversationTestSteps, ...revertSchemaSteps]) {
     db.exec(step.sql);
   }
   // fork가 복사한 메시지의 이미지 참조를 읽는다.
@@ -131,7 +131,7 @@ function commandsOf() {
   return createConversationCommands({
     send: {
       router: { route: () => ok({ session: null }) },
-      directory: { find: () => null },
+      directory: { find: () => null, app: () => null },
     },
     deleteSessionRecords: () => ok(undefined),
     catalog: () => [],

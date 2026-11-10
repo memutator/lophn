@@ -12,7 +12,16 @@ export type AppCaller =
       parent_invocation: string | null;
     }
   | { kind: "program"; job: string; job_run: string }
-  | { kind: "flow"; instance: string };
+  | { kind: "flow"; instance: string }
+  | {
+      kind: "event";
+      publisher: string;
+      event: string;
+      publication: string;
+      trace_id: string;
+      chain: string[];
+      parent_invocation: string | null;
+    };
 
 export type InvocationContext = {
   app: string;

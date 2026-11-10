@@ -21,7 +21,11 @@ import {
   releaseRecord,
   releaseRecordSchema,
 } from "../../../protocol/apps/mod.ts";
-import { canonicalJson, validateDeclaration } from "../declaration/mod.ts";
+import {
+  canonicalJson,
+  subscriptionHandlerName,
+  validateDeclaration,
+} from "../declaration/mod.ts";
 import { loadVersionPermissions } from "../packages/store.ts";
 import { missingSdkPermission } from "./sdk-permissions.ts";
 import type {
@@ -774,7 +778,12 @@ function checkReady(
     result: ActivationDataResult;
     attestation: ReadyAttestation;
   },
-  stored: { facts: { tools: readonly string[] } },
+  stored: {
+    facts: { tools: readonly string[] };
+    declaration: {
+      subscriptions?: readonly { source: string; event: string }[];
+    };
+  },
 ): Result<void> {
   const { result, attestation } = input;
   if (result.release !== release.id || result.attempt !== activation.attempt) {
@@ -795,14 +804,18 @@ function checkReady(
   if (!recorded) {
     return unavailable("the data change is not recorded");
   }
-  const declared = [...stored.facts.tools].sort();
-  const reported = [...attestation.tools].sort();
+  // operation·command는 모두 등록돼야 하고, 그 밖에 등록한 것은 선언한 구독 handler뿐이어야 한다(구독 handler 등록은 필수가 아니다).
+  const reported = new Set(attestation.tools);
+  const allowed = new Set([
+    ...stored.facts.tools,
+    ...(stored.declaration.subscriptions ?? []).map(subscriptionHandlerName),
+  ]);
   if (
     attestation.release !== release.id ||
     attestation.bundle_hash !== release.bundle_hash ||
     attestation.data_schema !== release.data_schema ||
-    declared.length !== reported.length ||
-    declared.some((key, index) => key !== reported[index])
+    stored.facts.tools.some((key) => !reported.has(key)) ||
+    attestation.tools.some((key) => !allowed.has(key))
   ) {
     return unavailable("the started app does not match the release");
   }

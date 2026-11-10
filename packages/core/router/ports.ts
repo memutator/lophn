@@ -66,6 +66,8 @@ export type RoutedInput = {
   notice: NoticeKind | null;
   // kind가 step이면 그 workflow instance와 step 이름.
   step: { instance: Id<"wfi">; step: string } | null;
+  // 앱 화면이 보낸 사람 메시지의 이름표. 보낸 쪽(from)과 model이 받는 글은 바꾸지 않는다.
+  via?: { app: Id<"app">; slug: string } | null;
   // 사람 메시지, reaction, coding agent 입력은 false. step은 workflow가 실은 표시(true). agent의 call과 답은 보낸 turn이 실은 표시.
   // 늦은 실패와 취소 알림은 그 call의 표시.
   unattended: boolean;
@@ -91,6 +93,8 @@ export interface SessionDirectory {
     spawnedBy: Id<"ses"> | null,
   ): Result<TargetSession>;
 
+  // 앱의 slug와 보관 여부. 없는 앱은 null이다.
+  app(id: string): { slug: string; archived: boolean } | null;
   // 받는 agent의 명함. 명함을 못 읽는 agent는 null이고 검사하지 않는다.
   accepts(agent: AgentId): AgentAccepts | null;
   // session 목록 tool이 쓴다.
@@ -118,13 +122,16 @@ export interface InputTransport {
 
 export interface CallStore {
   insert(tx: Tx, record: AgentCallRow): Result<void>;
-  byDedup(tx: Tx, sender: Id<"ses">, dedup: string): AgentCallRow | null;
+  // 같은 보낸 쪽(session이나 앱)과 dedup 값의 call.
+  byDedup(tx: Tx, sender: CallFrom, dedup: string): AgentCallRow | null;
   read(tx: Tx, call: Id<"cal">): AgentCallRow | null;
   move(
     tx: Tx,
     call: Id<"cal">,
     to: Exclude<CallState, "accepted">,
     reason: CallFailReason | null,
+    // 앱이 보낸 result call의 답 글. 다른 call은 싣지 않는다.
+    result?: string,
   ): Result<AgentCallRow>;
   // 받는 session의 turn이 이 입력을 가져갔음을 적는다. 답 없는 call은 여기서 done이 된다. 재시작 때 잃어버린 call을
   // 가리는 근거다.

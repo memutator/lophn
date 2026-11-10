@@ -215,6 +215,12 @@ const browserCallPayloadSchema = z.strictObject({
   action: browserActionSchema,
 });
 
+// 터미널 탭의 coding agent CLI를 끊는다(그 harness의 끊기 key를 친다). 앱이 터미널 session을 멈출 때 core가 넣는다. workspace 칸이 없고 아무
+// shell main이 가져간다. key가 없는 harness나 없는 탭은 `host/done`의 error(unavailable·not_found)로 답한다.
+const terminalInterruptPayloadSchema = z.strictObject({
+  terminal_ref: z.string().min(1),
+});
+
 export const hostRequestSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     id: idSchema("hrq"),
@@ -244,6 +250,11 @@ export const hostRequestSchema = z.discriminatedUnion("kind", [
     id: idSchema("hrq"),
     kind: z.literal("browser_call"),
     payload: browserCallPayloadSchema,
+  }),
+  z.strictObject({
+    id: idSchema("hrq"),
+    kind: z.literal("terminal_interrupt"),
+    payload: terminalInterruptPayloadSchema,
   }),
 ]);
 export type HostRequest = z.infer<typeof hostRequestSchema>;

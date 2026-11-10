@@ -10,6 +10,8 @@ import {
   nonBlank,
   type OperationDeclaration,
   type ScreenDeclaration,
+  type SubscriptionDeclaration,
+  subscriptionHandlerName,
   type Place,
   type ToolEffect,
   type TraySize,
@@ -262,7 +264,7 @@ function isEffect(value: unknown): value is ToolEffect {
   return value === "read" || value === "write" || value === "external";
 }
 
-function objectSchema(
+export function objectSchema(
   value: unknown,
   label: string,
 ): ValidationResult<InputSchema> {
@@ -277,12 +279,26 @@ function objectSchema(
 }
 
 // handler가 이름 하나로 등록되므로 선언과 대조하는 이름은 operation과 command를 합친 목록이다.
-export function handlerNames(declaration: {
+// 앱이 반드시 등록해야 하는 handler(operation과 command)다. 구독 handler는 뺀다: 구독을 선언했어도 handler를 등록하지 않은 앱(화면만 구독하는 앱)은 process가 받지 않을 뿐 시작에는 문제없다.
+export function requiredHandlerNames(declaration: {
   operations: readonly Pick<OperationDeclaration, "name">[];
   commands: readonly Pick<CommandDeclaration, "name">[];
 }): string[] {
   return [
     ...declaration.operations.map((operation) => operation.name),
     ...declaration.commands.map((command) => command.name),
+  ];
+}
+
+// 구독 handler(`on.<source>.<event>`)도 같은 이름 공간이다. 등록해도 되는 이름 전부다(필수는 아니다).
+export function handlerNames(declaration: {
+  operations: readonly Pick<OperationDeclaration, "name">[];
+  commands: readonly Pick<CommandDeclaration, "name">[];
+  subscriptions?: readonly SubscriptionDeclaration[];
+}): string[] {
+  return [
+    ...declaration.operations.map((operation) => operation.name),
+    ...declaration.commands.map((command) => command.name),
+    ...(declaration.subscriptions ?? []).map(subscriptionHandlerName),
   ];
 }

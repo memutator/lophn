@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { defineCommand, defineRead } from "../base/route.ts";
-import { idSchema } from "../base/ids.ts";
+import { type Id, idSchema } from "../base/ids.ts";
 import { atSchema } from "../base/values.ts";
 import { annotationIdSchema } from "../apps/annotation.ts";
 import { withReadCommon } from "../base/envelope.ts";
@@ -28,10 +28,46 @@ function fromSchemas(strict: boolean) {
     // program이 낸 입력이다(늦은 실패 알림, 취소 알림, tools_changed 알림).
     obj(strict, { kind: z.literal("program") }),
     obj(strict, { kind: z.literal("agent"), session: idSchema("ses") }),
+    // 앱이 보낸 call이다. slug는 보낼 때의 것이다(받은 message의 `from="app:<slug>"` tag가 늘 같은 bytes여야 해서 얼린다).
+    obj(strict, {
+      kind: z.literal("app"),
+      app: idSchema("app"),
+      slug: z.string().min(1),
+    }),
   ]);
 }
 export const callFromOutputSchema = fromSchemas(false);
 export type CallFrom = z.infer<typeof callFromOutputSchema>;
+
+// message 행의 `from_ref`다. agent는 보낸 session이고 앱은 `<앱 id>|<slug>`다. 사람과 program은 근거가 없다.
+export function callFromRef(from: CallFrom): string | null {
+  switch (from.kind) {
+    case "human":
+    case "program":
+      return null;
+    case "agent":
+      return from.session;
+    case "app":
+      return `${from.app}|${from.slug}`;
+  }
+}
+
+export function callFromOfRow(
+  kind: CallFrom["kind"],
+  ref: string | null,
+): CallFrom {
+  switch (kind) {
+    case "human":
+    case "program":
+      return { kind };
+    case "agent":
+      return { kind, session: ref! as Id<"ses"> };
+    case "app": {
+      const [app, ...slug] = ref!.split("|");
+      return { kind, app: app as Id<"app">, slug: slug.join("|") };
+    }
+  }
+}
 
 // 근거 링크.
 function refSchemas(strict: boolean) {
@@ -167,9 +203,12 @@ export const agentCallEnvelopeSchema = z
     // 보낸 turn의 mode가 unattended면 true. 답과 늦은 실패, 취소 알림이 이 표시를 따른다.
     unattended: z.boolean(),
   })
-  .refine((v) => v.dedup === null || v.from.kind === "agent", {
-    message: "dedup is only for an agent-originated call",
-  });
+  .refine(
+    (v) => v.dedup === null || v.from.kind === "agent" || v.from.kind === "app",
+    {
+      message: "dedup is only for an agent- or app-originated call",
+    },
+  );
 export type AgentCallEnvelope = z.infer<typeof agentCallEnvelopeSchema>;
 
 // agent_calls 행이다. 내용(body, refs)은 받는 session 기록에 있다.
@@ -187,6 +226,8 @@ export const agentCallRowSchema = z
     unattended: z.boolean(),
     // 질문이나 승인을 부모에게 보낸 call이면 그 종류.
     ask: callAskKindSchema.nullable(),
+    // 앱이 보낸 result call의 답 글. 앱 말고는 보낸 쪽에 답이 가는 곳이 call 행이 아니라 queue라 늘 null이다.
+    result: z.string().nullable(),
     created_at: atSchema,
     state_changed_at: atSchema,
   })

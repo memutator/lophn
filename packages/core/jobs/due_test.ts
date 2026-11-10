@@ -6,7 +6,7 @@ import type { Tx } from "../../protocol/server/mod.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import { createDueCommands } from "./due.ts";
 import { jobZonePort } from "./ports.ts";
-import { jobsSchemaSteps } from "./schema.ts";
+import { jobsTestSteps } from "./test-steps.ts";
 import { approveJob, insertJob, insertJobRun, loadJobRuns } from "./store.ts";
 
 const T = (hour: number, minute = 0) =>
@@ -29,7 +29,7 @@ const WORKFLOW: JobAction = {
 // 시각은 변수 하나다. 실제로 기다리지 않는다.
 function setup() {
   const db = new DatabaseSync(":memory:");
-  for (const step of jobsSchemaSteps) db.exec(step.sql);
+  for (const step of jobsTestSteps) db.exec(step.sql);
   const sql = createSql(db, () => true);
   let now = T(0);
   let seq = 0;

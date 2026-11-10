@@ -299,7 +299,9 @@ export function createPreviewLauncher(
       (name) => !probe.tools.includes(name),
     );
     const undeclared = probe.tools.filter(
-      (name) => !launch.tools.includes(name),
+      (name) =>
+        !launch.tools.includes(name) &&
+        !(launch.subscribed ?? []).includes(name),
     );
     if (
       noHandler.length > 0 ||

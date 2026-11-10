@@ -168,6 +168,10 @@ export function createDeclarationReads(load: ActiveDeclarationLoader): {
             ...(screen.tray ? { tray: screen.tray } : {}),
           })),
           ...(declaration.keys ? { keys: declaration.keys } : {}),
+          ...(declaration.events ? { events: declaration.events } : {}),
+          ...(declaration.subscriptions
+            ? { subscriptions: declaration.subscriptions }
+            : {}),
           // 선언 사실은 고정 선언에서 푼다. 실행 범위(선언 ∩ grant)를 읽는 쪽이 쓴다.
           facts: {
             permissions: declaration.permissions as never,

@@ -1,11 +1,14 @@
 {
   "name": "@lophn/agent",
-  "version": "1.10.0",
+  "version": "1.12.0",
   "type": "module",
   "lophn": {
     "supported_from": "1.1.0"
   },
-  "exports": "./mod.ts",
+  "exports": {
+    ".": "./mod.ts",
+    "./process": "./process.ts"
+  },
   "dependencies": {
     "@types/react": "19.3.0",
     "react": "19.3.0"

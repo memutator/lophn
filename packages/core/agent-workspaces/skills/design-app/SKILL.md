@@ -259,3 +259,82 @@ You cannot see the screen when you test in preview. Keep the logic that talks to
 the agent in plain functions (build the context, parse and check the reply,
 choose what to do on a bad reply) and test those; keep the component thin.
 
+
+## Watching agent sessions and their processes
+
+Use this when the app reacts to the agent sessions lophn runs: stop Claude Code
+when a usage limit is near, kill a runaway process before it exhausts memory. lophn
+gives you only what lophn alone knows: which sessions exist and their state
+(`sessions.list`, the `session.*` events, `sessions.stop`; read the
+`@lophn/agent` guide, section "session lifecycle"). Everything about processes you do
+yourself. lophn gives no process list, no git information and no process kill.
+
+- A session you may see has `cwd`, `folders` and, for a coding agent in a terminal
+  tab, `terminal.shell_pid` (the PTY shell, not the CLI itself).
+- A command a lophn agent runs with `shell.run`, and a headless harness CLI
+  (Claude Code, Codex, OpenCode) with every process it starts, has
+  `LOPHN_SESSION_ID=<session id>` in its environment. Find that session's
+  processes by that variable. An agent that clears the environment before it
+  starts a process hides it; you cannot find that one by the variable.
+- For a terminal tab, start from `shell_pid` and walk the children.
+
+Linux only (`/proc`); on macOS and Windows use `ps` or the platform's tools and
+expect only the shell pid to be reliable. Keep it small and run it from the app
+process (a handler), never from a screen.
+
+```ts
+import { readdirSync, readFileSync } from "node:fs";
+
+// pid -> parent pid for every process.
+function parents(): Map<number, number> {
+  const out = new Map<number, number>();
+  for (const name of readdirSync("/proc")) {
+    if (!/^\d+$/.test(name)) continue;
+    try {
+      // "pid (comm) S ppid ..." — comm may contain spaces, so split after the last ")".
+      const stat = readFileSync(`/proc/${name}/stat`, "utf8");
+      out.set(Number(name), Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[1]));
+    } catch {
+      // the process ended meanwhile
+    }
+  }
+  return out;
+}
+
+// every descendant of root, deepest first (kill children before parents).
+export function treeOf(root: number): number[] {
+  const parent = parents();
+  const found: number[] = [];
+  const walk = (pid: number) => {
+    for (const [child, p] of parent) if (p === pid) walk(child);
+    found.push(pid);
+  };
+  walk(root);
+  return found;
+}
+
+// pids whose environment has LOPHN_SESSION_ID=<session>.
+export function processesOf(session: string): number[] {
+  const want = `LOPHN_SESSION_ID=${session}`;
+  return [...parents().keys()].filter((pid) => {
+    try {
+      return readFileSync(`/proc/${pid}/environ`, "utf8").split("\0").includes(want);
+    } catch {
+      return false; // not yours, or gone
+    }
+  });
+}
+
+export function kill(pids: number[], signal: NodeJS.Signals = "SIGTERM"): void {
+  for (const pid of pids) {
+    try {
+      process.kill(pid, signal);
+    } catch {
+      // already gone
+    }
+  }
+}
+```
+
+Ending the turn is `sessions.stop`; killing a process is yours, and a stopped
+turn leaves no harm the person cannot see: lophn records that an app stopped it.

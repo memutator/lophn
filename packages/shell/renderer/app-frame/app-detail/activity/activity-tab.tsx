@@ -139,6 +139,16 @@ function CalledBy({
       return <span>{t("app-detail.label.called-by-program")}</span>;
     case "flow":
       return <span>{t("app-detail.label.called-by-flow")}</span>;
+    case "event":
+      return (
+        <span>
+          {t("app-detail.label.called-by-event", {
+            name:
+              caller.publisherName ?? t("app-detail.label.caller-app-unnamed"),
+            event: caller.event,
+          })}
+        </span>
+      );
     case "start":
       return (
         <span>

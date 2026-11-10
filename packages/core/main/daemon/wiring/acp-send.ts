@@ -62,7 +62,7 @@ export type AcpSendDeps = {
   shell: {
     // 그 session의 기본 폴더. home이거나 session이 없으면 undefined.
     folderOf(session: string): string | undefined;
-    env(): Record<string, string>;
+    env(session: string): Record<string, string>;
     run(input: {
       command: string;
       cwd: string;
@@ -173,7 +173,7 @@ export function createAcpSend(deps: AcpSendDeps) {
     const ran = await deps.shell.run({
       command: input.command,
       cwd,
-      env: deps.shell.env(),
+      env: deps.shell.env(input.session),
       timeoutMs: SHELL_TIMEOUT_MS,
     });
     if (!ran.ok) return ran;
@@ -262,6 +262,8 @@ export function createAcpSend(deps: AcpSendDeps) {
             content: input.content,
             delivery: input.delivery,
             refs: [],
+            // 앱 화면이 보낸 것이면 그 앱. shell main이 sender view에서 정해 덮는다(이름표일 뿐이다).
+            ...(input.via_app === undefined ? {} : { via_app: input.via_app }),
           },
           input.key,
           {},

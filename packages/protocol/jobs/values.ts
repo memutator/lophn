@@ -24,6 +24,41 @@ export const jobEverySchema = z.string().regex(/^[1-9][0-9]{0,4}[mhd]$/);
 // 그 판정은 core의 command가 본다. 같은 판정을 두 곳에 두지 않으려고 schema에 refine을 두지 않는다.
 export const jobAtSchema = z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/);
 
+// job의 때는 주기(`every`) 아니면 event(`trigger`)다. event는 앱이 낸 것(source는 앱)이거나 core가 내는 `lophn`의 session.* event다.
+// 같은 source의 같은 event를 사이를 두고 한 번만 받는다: `min_interval`(기본 5분)보다 가까운 event는 건너뛴다.
+export const JOB_TRIGGER_DEFAULT_INTERVAL = "5m";
+export const JOB_SKIP_REASONS = ["busy", "too_soon"] as const;
+export const jobSkipReasonSchema = z.enum(JOB_SKIP_REASONS);
+export type JobSkipReason = z.infer<typeof jobSkipReasonSchema>;
+
+// route와 tool이 받는 꼴. source는 앱(id, slug, 이름 가운데 하나) 또는 `lophn`이다. 이름은 만들 때 core가 풀어 저장한다.
+export const jobTriggerInputSchema = z.strictObject({
+  source: z.string().min(1),
+  event: z.string().min(1),
+  min_interval: jobEverySchema.optional(),
+  // tool_run만: 도는 tool의 입력에 `event`({source, event, payload})를 합쳐 넣는다. 사람이 승인하는 값이다.
+  pass_event: z.boolean().optional(),
+});
+export type JobTriggerInput = z.infer<typeof jobTriggerInputSchema>;
+
+// 저장하고 읽는 꼴. source는 `lophn`이거나 승인한 때의 앱 slug이고 app은 그 앱 id다(앱의 event는 id로 맞춘다).
+export const jobTriggerSchema = z.object({
+  source: z.string().min(1),
+  app: idSchema("app").nullable(),
+  event: z.string().min(1),
+  min_interval: jobEverySchema,
+  pass_event: z.boolean(),
+});
+export type JobTrigger = z.infer<typeof jobTriggerSchema>;
+
+// 차례를 연 event다. job run과 함께 남아 action에 data로 들어간다.
+export const jobEventSchema = z.object({
+  source: z.string().min(1),
+  event: z.string().min(1),
+  payload: z.json(),
+});
+export type JobEvent = z.infer<typeof jobEventSchema>;
+
 export const MISSED_POLICIES = ["run", "hold"] as const;
 export const missedPolicySchema = z.enum(MISSED_POLICIES);
 export type MissedPolicy = z.infer<typeof missedPolicySchema>;

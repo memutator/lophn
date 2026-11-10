@@ -76,7 +76,7 @@ export function messageSearchRead(
           "s.agent = ?",
           "s.workspace_kind is ?",
           "s.workspace_id = ?",
-          "m.from_kind in ('human', 'agent')",
+          "m.from_kind in ('human', 'agent', 'app')",
         ];
         const params: (string | null)[] = [
           agent,

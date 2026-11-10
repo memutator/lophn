@@ -18,6 +18,7 @@ import type { Modality } from "../../protocol/lophn-agent/agent-values.ts";
 import {
   type CallPolicy,
   mayCall,
+  mayReachWorkspace,
 } from "../../protocol/lophn-agent/call-policy.ts";
 import {
   type AgentAddress,
@@ -25,9 +26,11 @@ import {
   type AgentId,
   isLophn,
   lophnIdOf,
+  type Workspace,
 } from "../../protocol/lophn-agent/workspaces.ts";
 import {
   addressingOf,
+  APP_CALL_SETTLED_TOPIC,
   ASK_ANSWERED_TOPIC,
   ASK_ENDED_TOPIC,
   calId,
@@ -72,7 +75,9 @@ export function transportBySession(
 }
 
 export interface Router {
-  // 모든 보낸 쪽이 쓰는 입구. 사람, program, agent.
+  // 앱이 보내는 call의 보낸 쪽. 그 앱의 지금 slug로 얼린다. 없는 앱은 not_found, 보관한 앱은 conflict다.
+  appSender(app: string): Result<Extract<CallFrom, { kind: "app" }>>;
+  // 모든 보낸 쪽이 쓰는 입구. 사람, program, agent, 앱.
   route(tx: Tx, input: RouteInput): Result<RouteResult>;
   reply(
     tx: Tx,
@@ -178,13 +183,17 @@ export function createRouter(deps: RouterDeps): Router {
     }
     const spawn = input.spawn === true;
     // workspace를 빼면 spawn과 lophn(workspace마다 하나)은 부른 쪽 workspace에 열린다. 다른 agent의 call은 home이다.
+    // 앱이 보낸 call은 workspace를 빼면 모든 agent가 그 앱 workspace에 열린다(앱 화면이 여는 session과 같다).
     const inCaller =
-      from.kind === "agent" &&
       address.workspace === undefined &&
-      (spawn || isLophn(resolved.value.agent));
-    const callerWorkspace = inCaller
-      ? (directory.find(sesId(from.session))?.agent.workspace ?? null)
-      : null;
+      (from.kind === "app" ||
+        (from.kind === "agent" && (spawn || isLophn(resolved.value.agent))));
+    const callerWorkspace =
+      from.kind === "app"
+        ? ({ kind: "app", id: from.app } as Workspace)
+        : inCaller && from.kind === "agent"
+          ? (directory.find(sesId(from.session))?.agent.workspace ?? null)
+          : null;
     const agent = inCaller
       ? {
           agent: isLophn(resolved.value.agent)
@@ -227,6 +236,7 @@ export function createRouter(deps: RouterDeps): Router {
       event: input.event ?? null,
       notice: input.notice ?? null,
       step: input.step ?? null,
+      via: input.via ?? null,
       unattended: input.unattended === true,
     };
   }
@@ -252,7 +262,7 @@ export function createRouter(deps: RouterDeps): Router {
   function newRecord(
     tx: Tx,
     call: string,
-    session: string,
+    from: CallFrom,
     input: RouteInput,
     to: CallTarget,
     receiver: string | null,
@@ -262,7 +272,7 @@ export function createRouter(deps: RouterDeps): Router {
     const at = tx.now();
     return {
       call,
-      from: { kind: "agent", session },
+      from,
       to,
       receiver_session: receiver,
       reply: input.reply,
@@ -273,6 +283,7 @@ export function createRouter(deps: RouterDeps): Router {
       ask: input.ask ?? null,
       created_at: at,
       state_changed_at: at,
+      result: null,
     };
   }
 
@@ -287,7 +298,7 @@ export function createRouter(deps: RouterDeps): Router {
     if (from.kind === "human") {
       return err({ code: failureCode(reason), message: FAILURE_TEXTS[reason] });
     }
-    if (from.kind !== "agent") {
+    if (from.kind !== "agent" && from.kind !== "app") {
       return ok({
         call: null,
         state: "failed",
@@ -300,7 +311,7 @@ export function createRouter(deps: RouterDeps): Router {
     if (to !== null) {
       const stored = store.insert(
         tx,
-        newRecord(tx, call, from.session, input, to, null, "failed", reason),
+        newRecord(tx, call, from, input, to, null, "failed", reason),
       );
       if (!stored.ok) return stored;
     }
@@ -350,6 +361,23 @@ export function createRouter(deps: RouterDeps): Router {
         });
   }
 
+  // 앱이 보낸 call은 그 앱 workspace에서 닿을 수 있는 workspace의 session과 agent로만 간다. agent 쌍 규칙과 팀 규칙은 앱에 없다.
+  function appPolicyRefusal(
+    app: string,
+    to: AgentAtWorkspace,
+  ): Result<RouteResult> | null {
+    return mayReachWorkspace(
+      callPolicy(),
+      { kind: "app", id: app } as Workspace,
+      to.workspace,
+    )
+      ? null
+      : err({
+          code: "forbidden",
+          message: "the call policy does not allow this call",
+        });
+  }
+
   // 규칙 2. agent가 보낸 call만 거른다. 다른 거절과 같이 err로 돌려 tx가 되돌아간다.
   function teamRefusal(
     sender: string,
@@ -365,10 +393,33 @@ export function createRouter(deps: RouterDeps): Router {
         });
   }
 
+  // call을 끝낸 상태로 옮긴다. 앱이 보낸 call이면 commit 뒤 그 앱에 `call.settled`를 낸다(앱에는 queue가 없어 끝남을 알릴 곳이 이 event다).
+  function finish(
+    tx: Tx,
+    record: AgentCallRow,
+    to: Exclude<CallState, "accepted">,
+    reason: CallFailReason | null,
+    result?: string,
+  ): Result<AgentCallRow> {
+    const moved = store.move(tx, calId(record.call), to, reason, result);
+    if (moved.ok && record.from.kind === "app") {
+      announce(tx, APP_CALL_SETTLED_TOPIC, {
+        app: record.from.app,
+        call: record.call,
+        state: to,
+        fail_reason: reason,
+      });
+    }
+    return moved;
+  }
+
   function route(tx: Tx, input: RouteInput): Result<RouteResult> {
     const from = input.from;
-    if (from.kind === "agent" && input.dedup !== null) {
-      const prior = store.byDedup(tx, sesId(from.session), input.dedup);
+    if (
+      (from.kind === "agent" || from.kind === "app") &&
+      input.dedup !== null
+    ) {
+      const prior = store.byDedup(tx, from, input.dedup);
       if (prior !== null) {
         return ok({
           call: prior.call,
@@ -395,24 +446,21 @@ export function createRouter(deps: RouterDeps): Router {
         teamRefusal(from.session, target) ??
         refusal(target.agent.agent, input);
       if (refused !== null) return refused;
+    } else if (from.kind === "app") {
+      const refused =
+        appPolicyRefusal(from.app, target.agent) ??
+        refusal(target.agent.agent, input);
+      if (refused !== null) return refused;
     }
-    const call = from.kind === "agent" ? tx.newId("cal") : null;
+    const hasRow = from.kind === "agent" || from.kind === "app";
+    const call = hasRow ? tx.newId("cal") : null;
     const delivered = transport.deliver(tx, target, inputOf(input, call));
     if (!delivered.ok) return delivered;
     const receiver = target.session;
-    if (call !== null && from.kind === "agent") {
+    if (call !== null && hasRow) {
       const stored = store.insert(
         tx,
-        newRecord(
-          tx,
-          call,
-          from.session,
-          input,
-          to,
-          receiver,
-          "accepted",
-          null,
-        ),
+        newRecord(tx, call, from, input, to, receiver, "accepted", null),
       );
       if (!stored.ok) return stored;
     }
@@ -451,6 +499,11 @@ export function createRouter(deps: RouterDeps): Router {
       return err({ code: "conflict", message: "this call takes no reply" });
     }
     if (isFinished(record.state)) return ok({ delivered: false, closed: true });
+    if (record.from.kind === "app") {
+      // 앱에는 받을 queue가 없다. 답은 call 행에 글로 남고 앱은 `call.settled`를 받아 읽는다.
+      const closed = finish(tx, record, "done", null, blocksText(input.body));
+      return closed.ok ? ok({ delivered: true, closed: false }) : closed;
+    }
     const decision =
       input.decision ??
       (input.auto === true && record.ask === "approval" ? "reject" : null);
@@ -524,16 +577,19 @@ export function createRouter(deps: RouterDeps): Router {
     if (record === null) {
       return err({ code: "not_found", message: "call not found" });
     }
-    // 보낸 agent는 자기가 보낸 것만, 사람은 모두 취소한다.
+    // 보낸 agent와 앱은 자기가 보낸 것만, 사람은 모두 취소한다.
     const own =
-      by.kind === "agent" &&
-      record.from.kind === "agent" &&
-      record.from.session === by.session;
+      (by.kind === "agent" &&
+        record.from.kind === "agent" &&
+        record.from.session === by.session) ||
+      (by.kind === "app" &&
+        record.from.kind === "app" &&
+        record.from.app === by.app);
     if (by.kind !== "human" && !own) {
       return err({ code: "forbidden", message: "not your call" });
     }
     if (isFinished(record.state)) return ok(record);
-    const moved = store.move(tx, calId(record.call), "cancelled", null);
+    const moved = finish(tx, record, "cancelled", null);
     if (!moved.ok) return moved;
     const target =
       record.receiver_session === null
@@ -555,7 +611,7 @@ export function createRouter(deps: RouterDeps): Router {
     notify: boolean,
   ): Result<number> {
     for (const record of records) {
-      const moved = store.move(tx, calId(record.call), "failed", reason);
+      const moved = finish(tx, record, "failed", reason);
       if (!moved.ok) return moved;
       // ask call의 보낸 쪽은 기다리는 request·질문이라 queue에 알리지 않고 main thread가 푼다. 재시작이면 짝이 이미 없다.
       if (record.ask !== null) {
@@ -579,6 +635,16 @@ export function createRouter(deps: RouterDeps): Router {
   }
 
   return {
+    appSender(app) {
+      const info = directory.app(app);
+      if (info === null) {
+        return err({ code: "not_found", message: "app not found" });
+      }
+      if (info.archived) {
+        return err({ code: "conflict", message: "the app is archived" });
+      }
+      return ok({ kind: "app", app: app as Id<"app">, slug: info.slug });
+    },
     route,
     reply,
     cancel,
@@ -597,7 +663,24 @@ export function createRouter(deps: RouterDeps): Router {
       return failAll(tx, store.lost(tx), "lophn_restarted", notify);
     },
     markConsumed(tx, call) {
-      return store.markConsumed(tx, calId(call));
+      const before = store.read(tx, calId(call));
+      const marked = store.markConsumed(tx, calId(call));
+      if (!marked.ok) return marked;
+      // 답 없는 call은 소비하는 순간 끝난다. 앱이 보낸 것이면 그 앱에 알린다.
+      if (
+        before !== null &&
+        before.from.kind === "app" &&
+        before.state === "accepted" &&
+        before.reply === "none"
+      ) {
+        announce(tx, APP_CALL_SETTLED_TOPIC, {
+          app: before.from.app,
+          call: before.call,
+          state: "done",
+          fail_reason: null,
+        });
+      }
+      return ok(undefined);
     },
   };
 }

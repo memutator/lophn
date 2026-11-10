@@ -40,12 +40,12 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
    (셋 다 call 행도 새 session도 남지 않는다)
 ```
 
-- **보낸 쪽**은 사람, program, agent session 셋이다. program은 늦은 실패와 취소의 알림, `tools_changed` 알림, workflow의 step 메시지다(종류만 있고 근거 칸이 없다). step 메시지는 `kind: step`이고 call 행이 없다(`architecture/workflow.md`).
+- **보낸 쪽**은 사람, program, agent session, 앱 넷이다. 앱은 앱 화면이 보낸다("앱이 보낸 call"). program은 늦은 실패와 취소의 알림, `tools_changed` 알림, workflow의 step 메시지다(종류만 있고 근거 칸이 없다). step 메시지는 `kind: step`이고 call 행이 없다(`architecture/workflow.md`).
 - **받는 곳**(`to`)은 셋 중 하나다. `{session}`(열린 session), `{agent, workspace?}`(새 session), `{agent, workspace?, session, fallback: "new"}`(열린 session, 닫혔으면 그 agent+workspace의 새 session). `agent`는 handle이고 workspace가 없으면 home이다. handle은 전역에 하나라(범위 있는 agent 포함) 하나로 풀린다. 단 handle `lophn`은 workspace마다 하나라 workspace와 짝으로 풀린다(`{agent: "lophn", workspace: X}`는 X의 lophn, workspace를 빼면 Home). agent가 보낸 call은 workspace를 빼면 부른 session의 workspace로 바뀐다(`lophn`과 spawn만, 다른 agent는 home 그대로). 그래서 workspace를 뺀 `lophn` call은 부른 쪽 workspace의 lophn에게 새 session을 연다. Home lophn은 Home에서 보낸 call이나 사람·program의 call로만 닿는다. 범위 있는 agent(`architecture/agent-definition.md`)는 그 workspace에 여는 call로만 닿고 다른 곳에 열려 하면 `not_found`다.
 - **답 방식**은 none(답 없음), result(받은 agent가 reply로 결과 하나), conversation(양쪽이 같은 call에 말을 잇는다)이다. 칸은 program이 정한다: lophn과 custom 모두 셋이다(custom도 `lophn` tool로 `call.reply`를 늘 가진다).
 - **상태**는 accepted, done, failed, cancelled 넷이다. 끝난 행은 다시 바뀌지 않는다. 배달 실패는 accepted를 거치지 않고 바로 failed로 생긴다. 실패 이유는 `not_found`, `closed`, `receiver_ended`, `lophn_restarted` 넷이다.
   - none은 받는 turn이 입력을 가져갈 때(consumed) done이다. result는 받은 agent의 reply가 done으로 만든다. conversation은 program이 done으로 만들지 않고 취소나 실패로 끝난다.
-- **`agent_calls` 행**은 agent가 보낸 call에만 있다. 보낸 session, 풀린 받는 곳(`to`), 받는 session, 답 방식, 상태, 실패 이유, dedup 값, consumed, unattended, ask(`question` | `approval`, 팀의 ask call에만)를 갖는다. 내용(body, refs)은 받는 session의 받은 메시지 기록에 있다.
+- **`agent_calls` 행**은 agent와 앱이 보낸 call에만 있다. 보낸 session이나 보낸 앱(`<앱 id>|<slug>`, 둘 중 하나), 풀린 받는 곳(`to`), 받는 session, 답 방식, 상태, 실패 이유, dedup 값, consumed, unattended, ask(`question` | `approval`, 팀의 ask call에만), 앱이 보낸 result call의 답 글(`result`)을 갖는다. 내용(body, refs)은 받는 session의 받은 메시지 기록에 있다.
 - **부를 수 있는 session 목록**(`session.list`, route `calls/sendable`)의 항목은 session ID, agent handle·이름, 제목, workspace, 상태, 마지막 활동 시각이다. 상태는 running, waiting, idle, unknown이다. waiting은 도는 turn이 사람의 동의나 질문 답을 기다리는 것이고, 그 turn이 없으면 idle이다. 자기 자신과 닫힌 session은 빼고, 팀 member에게는 부모·형제·자기 밑만 보인다.
 - **call 읽기**(route `calls/read`)는 agent에게 자기가 보냈거나 받은 call만 보인다.
 - **팀**은 spawn tree다. `lophn team spawn`으로 연 session은 연 session의 자식이고 `sessions.spawned_by`에 부모가 남는다(바뀌지 않는다). spawn은 새 session을 여는 call의 한 갈래라 call 하나를 같이 만든다. `call.send`의 `to: {agent, workspace}` 새 session은 `spawned_by`가 없는 팀 밖이다(Home lophn이 project lophn에 넘기는 흐름이 팀 규칙에 묶이지 않게).
@@ -144,6 +144,14 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
     - 재시작하면 짝이 메모리와 함께 사라진다. 그래서 켤 때 `lophn_restarted`로 닫는 call에 부모가 이미 가져간 ask call도 넣는다. 자식에게는 알리지 않는다(자식 turn은 같은 recover에서 interrupted로 닫힌다). 부모의 늦은 답은 `closed: true`다.
 34. 같은 workspace의 자식은 탭으로 열린다. spawn이 commit된 뒤 router wiring이 host queue에 탭 열기를 요청하며 자리를 고르지 않고 자식이 부모에게 무엇인지(`relation`)만 싣는다. `team spawn --as peer|stage`가 그 값이고 없으면 peer다(peer는 같은 일을 나눠 하는 동료, stage는 다음 단계나 다른 일을 맡는 coordinator). 자리는 renderer의 `openAt()`이 relation으로 정한다(`architecture/workspace-layout.md` "agent가 연 탭"). 다른 workspace의 자식은 tree에만 있고 탭을 열지 않는다. layout은 보이는 방식일 뿐이라 사람이 탭을 옮겨도 팀은 바뀌지 않는다.
 
+### 앱이 보낸 call
+
+36. 앱은 call의 한쪽이다(view-first): 앱 **화면**(shell main이 앱을 정한다)이 `app_calls/send`로 agent나 보이는 session에 일을 맡긴다. 앱 process(handler, 시작 code)에는 이 길이 없다. 앱 code는 AI가 만든 코드일 수 있고, process가 사람이 지켜보지 않는 turn(unattended)으로 상한 없이 session과 model 호출을 만들 수 있어서다. 그래서 앱이 보낸 call은 모두 사람이 앱 화면에서 보낸 것이고 attended turn이다. 앱은 입력에서 자기를 말하지 않는다. shell main이 앱을 정해 싣고 core wiring가 core 안 machine 명령 `calls/app-send`로 Router에 넣는다. Router는 앱의 지금 slug로 보낸 쪽을 얼린다(`{kind: app, app, slug}`). 받은 message의 `from_ref`는 `<앱 id>|<slug>`이고 입력 tag는 `from="app:<slug>"`다. slug를 message에 얼려 이력 재생의 tag가 늘 같은 bytes다(앱 이름이 바뀌어도). 입력 끝의 고정 줄은 앱이 보냈다고 말하고("This was sent by an app …") agent가 보낸 call의 줄은 그대로다(prompt cache).
+37. 앱이 닿는 곳은 그 앱 workspace에서 call 정책(시야 10)이 허락하는 workspace의 agent와 session이다. agent 쌍 규칙과 팀 규칙은 앱에 없다(앱은 agent가 아니다). 명함 검사(11)는 그대로다. workspace를 뺀 call은 그 앱 workspace에 열린다(앱 화면이 여는 session과 같다). 받는 곳의 workspace 이름은 agent의 call과 같은 모양이고 `{home: true}`로 Home을 밝혀 적을 수 있다(전역 agent를 Home에서 부른다. 같은 정책을 받는다). 앱이 불러 새로 열린 session에는 `sessions.opened_by_app`이 달리고, 그 앱은 그 session을 끝낼 수 있다. 그 표시는 앱 wiring이 machine 명령으로만 단다(사람 자격의 `OpenSession`은 표시를 받지 않는다).
+38. 앱이 보내는 답 방식은 none과 result뿐이다(앱에는 대화를 이을 queue가 없다). 앱 call은 선택 `key`로 dedup한다: 같은 앱의 같은 key는 첫 call을 돌려준다(`agent_calls`의 `(from_app, dedup)` unique index, Router의 dedup 경로). SDK가 `send`마다 key를 만든다.
+39. 앱에는 보낸 session 같은 입력함이 없어 답은 call 행에 글로 남는다(`result`, 글 block만, 이미지 등은 담기지 않는다). 끝남(답, 실패, 취소, 답 없는 call의 소비)은 commit 뒤 발행자 `lophn`의 `call.settled`(call, state, fail_reason) event로 그 앱에만 간다(`architecture/event.md`). 보낸 앱의 열린 화면이 듣는다. event는 저장되지 않고, 켤 때 닫힌 call(`lophn_restarted`)의 event는 가지 않으며 놓친 앱은 `app_calls/read`로 읽는다. 늦은 실패·취소를 보낸 쪽 입력으로 돌려주는 길(agent 보낸 쪽)은 앱에 없다.
+40. 답 글은 받은 session의 기록과 같은 수명이다. 받은 session을 지우면(`DeleteSession`) 그 session이 받은 앱 call 행이 같이 지워지고, 앱을 지우면 그 앱이 보낸 call 행이 지워진다. agent가 보낸 행은 글이 없어 그대로다.
+
 ### 화면
 
 35. 화면의 call 블록은 펼치지 않는다. 머리 줄이 답 방식에 맞는 말(none은 "Handoff to", result는 "Asked", conversation은 "Working with")과 받는 곳이고 오른쪽 끝 [Open conversation]이 받은 session을 연다. 끝나지 않은 call은 사람이 [Cancel]로 취소한다. 실패만 그 자리에 이유 한 줄로 보이고, 답과 늦게 안 실패는 이어지는 새 메시지다.
@@ -155,8 +163,9 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - 팀 route(resource `team`): `team/spawn`(`SpawnTeamMember`: `agent`, `workspace?`, `reply`, `body`, `dedup`. 결과 `{session, call}`), `team/end`(결과 `{ended}`), `team/read`(`ReadTeam`).
 - CLI·tool: `lophn call send|reply|cancel`(`--image <path>`, 승인 call의 답은 `--allow | --reject [--body]`), `lophn team spawn|read|end`, `lophn session list`, `lophn agent card`. 같은 일을 하는 lophn tool이 있다(`call.send`, `call.reply`, `session.list`).
 - 저장: ledger 표 `agent_calls`(위 "모델")와 `sessions.spawned_by`, `sessions.called_from_kind`·`called_from_id`. 설정 `lophn-agent.call_policy`(`{private, workspaces, agents}`), `lophn-agent.team`(`{max_members, max_depth}`), `extensions.harness.enabled`. `private`이 없던 옛 call 정책 설정은 data step이 빈 목록으로 채운다.
+- 앱이 보낸 call route(core 안 machine): `calls/app-send`(`SendAppCall`), `calls/app-cancel`(`CancelAppCall`). 앱 화면이 부르는 route(resource `app_calls`, actor user. shell main이 앱을 정해 싣는다): `send`(`to`, `reply`, `text`, 선택 `key`), `read`(이 앱이 보낸 것만), `cancel`, `list`(보이는 session이 받았거나 보낸 call 최대 50), 그리고 `app_agents/list`(앱 workspace에서 부를 수 있는 agent 명함. reader의 `agents/cards`를 쓴다). 앱 process에는 broker 길이 없다.
 - 입력 봉투(`RoutedInput`): 종류(message, call, reply, reaction, step 등), from, call, reply_to, body, refs, delivery, 답 방식, 결과(outcome), event, notice, step, unattended.
-- 내부 topic: `router.team-spawned`(spawn commit 뒤 탭 열기), `router.ask-answered`, `router.ask-ended`.
+- 내부 topic: `router.team-spawned`(spawn commit 뒤 탭 열기), `router.ask-answered`, `router.ask-ended`, `router.app-call-settled`(앱이 보낸 call이 끝남).
 - 고정 글: 늦은 실패 알림(이유마다 하나), 취소 알림(글 없음, 알림 종류가 말한다), 팀 지시문, `team_changed`.
 - 판정 규칙은 protocol에 있는 순수 함수라 core와 화면이 같은 규칙을 쓴다(call 정책, 팀 규칙).
 
@@ -190,6 +199,8 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - **host queue로 탭을 여는 요청은 harness queue를 일반화하지 않고 같은 꼴로 따로 둔다(사람이 확인).** harness queue는 session마다 turn 입력을 담아 요청 종류를 실을 자리가 없다.
 - **팀 자식의 물음은 부모에게 가는 call이다(사람, 2026-11-08: "coordinator든 leader든 걔가 먼저 답하고 걔 판단으로 안 되겠음 걔가 사용자한테 올리고").** 자식의 물음이 모두 사람에게 오면 coordinator가 할 일을 사람이 한다. 올리는 장치를 따로 두지 않는다(agent): 부모가 자기 `ask`를 쓰면 같은 규칙이 사슬을 만들어 root에서 사람에게 닿는다. 부모의 승인 답은 글이 아니라 `call reply`의 구조 칸이다(agent): 새 명령을 두지 않았다. call과 request의 짝은 main thread 메모리에 두고 행에는 `ask` 표시만 둔다(agent). skip session의 shell ask는 부모에게 가지 않는다(agent). 팀 자식의 물음 event는 그대로 내고 표시로 거른다(agent).
 - **팀 지시문은 system prompt에 넣지 않는다(agent).** prompt cache가 깨지지 않게 첫 call 본문 앞에 붙인다.
+
+- **앱도 call의 보낸 쪽이다. 단 화면만 보낸다(app-sdk, 2026-11-10).** 앱을 agent와 같은 보낸 쪽으로 두면 시야·명함·실패·취소가 한 벌이다. 앱 process가 call을 보내고 답을 handler로 받는 길은 만들지 않았다(roadmap의 하지 않는 것): AI가 만든 앱 process가 상한 없이 unattended turn을 열 수 있다. 그래서 모든 앱 call은 attended이고 `unattended` 갈래가 앱에 없다. 버린 안: 앱 전용 입구(실패 처리와 화면이 둘). 앱의 답을 message로 두는 안은 앱에 session이 없어 버리고 call 행의 글(`result`)로 두었다: 가장 단순하고 읽는 길이 `app_calls/read` 하나다. 글이 아닌 block은 담지 않는다(알려진 한계). event는 `call.settled`만 내고 본문을 싣지 않는다(저장하지 않는 event에 본문을 두지 않으려고, 본문은 읽는다). 앱의 slug는 message에 얼린다(tag bytes 고정).
 
 ## 열린 것
 

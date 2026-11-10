@@ -11,4 +11,7 @@ export {
 } from "./changesets.ts";
 export { createInvocationsReads } from "./reads.ts";
 export { closeUnfinishedInvocations, observeInvocations } from "./restart.ts";
-export { invocationsSchemaSteps } from "./schema.ts";
+export {
+  invocationEventCallerSchemaSteps,
+  invocationsSchemaSteps,
+} from "./schema.ts";

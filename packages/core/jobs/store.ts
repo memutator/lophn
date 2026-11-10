@@ -4,7 +4,10 @@ import type {
   JobAction,
   JobRecord,
   JobRunRecord,
+  JobEvent,
   JobRunState,
+  JobSkipReason,
+  JobTrigger,
   MissedPolicy,
 } from "../../protocol/jobs/mod.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
@@ -69,8 +72,9 @@ export function insertJob(
     id: string;
     title: string;
     creator: AgentAtWorkspace;
-    every: string;
+    every: string | null;
     at: string | null;
+    trigger?: JobTrigger | null;
     action: JobAction;
     missed_policy: MissedPolicy;
     enabled: boolean;
@@ -80,9 +84,9 @@ export function insertJob(
   const { creator_agent, creator_workspace } = creatorColumns(job.creator);
   sql.run(
     `INSERT INTO jobs
-      (id, title, creator_agent, creator_workspace, every, at, action, missed_policy,
+      (id, title, creator_agent, creator_workspace, every, at, trigger, action, missed_policy,
        enabled, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       job.id,
       job.title,
@@ -90,6 +94,9 @@ export function insertJob(
       creator_workspace,
       job.every,
       job.at,
+      job.trigger === undefined || job.trigger === null
+        ? null
+        : JSON.stringify(job.trigger),
       JSON.stringify(job.action),
       job.missed_policy,
       job.enabled ? 1 : 0,
@@ -104,7 +111,7 @@ export function replaceJob(
   id: string,
   fields: {
     title: string;
-    every: string;
+    every: string | null;
     at: string | null;
     missed_policy: MissedPolicy;
     enabled: boolean;
@@ -239,12 +246,13 @@ export function insertJobRun(
     state: JobRunState;
     reason: string | null;
     created_at: string;
+    event?: JobEvent | null;
   },
 ): void {
   sql.run(
     `INSERT INTO job_runs
-      (id, job, due_at, missed_count, state, reason, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      (id, job, due_at, missed_count, state, reason, created_at, event)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       run.id,
       run.job,
@@ -253,7 +261,32 @@ export function insertJobRun(
       run.state,
       run.reason,
       run.created_at,
+      run.event === undefined || run.event === null
+        ? null
+        : JSON.stringify(run.event),
     ],
+  );
+}
+
+// event job이 차례를 열었다(queued 줄은 호출한 쪽이 만든다).
+export function noteFired(sql: Write, id: string, at: string): void {
+  sql.run(
+    "UPDATE jobs SET fired_count = fired_count + 1, last_fired_at = ? WHERE id = ?",
+    [at, id],
+  );
+}
+
+// event를 건너뛰었다. 줄로 쌓지 않고 센다.
+export function noteSkipped(
+  sql: Write,
+  id: string,
+  at: string,
+  reason: JobSkipReason,
+): void {
+  sql.run(
+    `UPDATE jobs SET skipped_count = skipped_count + 1, last_skipped_at = ?,
+       last_skip_reason = ? WHERE id = ?`,
+    [at, reason, id],
   );
 }
 

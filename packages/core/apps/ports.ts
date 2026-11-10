@@ -58,7 +58,7 @@ export interface CallerDirectory {
 /**
  * 구현: app-calls-assembly(`core/apps/declaration` 읽기). 쓰는 곳: app-calls-path.
  * 활성 release(release가 null일 때) 또는 고정 release의 선언. 없는 operation·command는 null.
- * operation은 `public`이 false다(Gate가 아니라 caller 종류로 막는다).
+ * operation은 `public`이 false다(Gate가 아니라 caller 종류로 막는다). 구독 handler는 effect가 write인 operation으로 찾는다.
  * `findPreview`는 그 앱의 지금 preview(nonce가 맞을 때)가 띄운 bundle의 선언이다.
  */
 export interface AppToolLookup {
@@ -72,6 +72,8 @@ export interface AppToolLookup {
     effect: "read" | "write" | "external";
     // 공개 command 여부(flow caller의 비공개 거르기 재료).
     public: boolean;
+    // 구독 handler(`on.<source>.<event>`)다. operation 자리로 불리지만 event 전달만 부를 수 있다.
+    subscription?: true;
   } | null>;
   findPreview(
     app: Id<"app">,

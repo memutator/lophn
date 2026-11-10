@@ -1,0 +1,19 @@
+id: app-message-via
+version: 0.23.27
+title: "앱 화면이 보낸 사람 메시지에 어느 앱이 보냈는지 이름표를 붙인다"
+modules: [packages/protocol, packages/core/lophn-agent, packages/core/router, packages/core/main, packages/sdk, packages/shell/main, packages/shell/renderer, packages/design, packages/core/agent-workspaces]
+checked: []
+change: |
+  전: 앱 화면의 ACP `send`는 채팅 탭에서 친 메시지와 똑같이 저장되고 그려졌다(`from` human, 표시 없음). 앱이 시야 안 모든 session에 말할 수 있게 되면서(결정 17) 사람이 나중에 자기가 친 것과 앱 화면이 보낸 것을 가릴 수 없었다.
+  후:
+  - `messages.origin_app`(앱 id와 보낼 때의 slug, 앱이 보낸 call의 `from_ref`와 같은 꼴): 아직 나가지 않은 `router.app-sender.messages` step에 열을 더했다(lock hash 갱신, 새 step 없음). 사람 메시지에만 있고(check) 불변 trigger의 열 목록에 들어 있으며 fork가 복사한다. 그 step은 lophn-agent의 소유로 옮겨 session 표 step과 같은 곳(`opener-schema.ts`)에 두었다(등록 순서와 id는 그대로).
+  - ACP `send` 입력에 선택 `via_app`. shell main이 앱 화면의 `send`에 sender view의 앱을 실어 덮는다(page가 준 값은 버린다). core는 SendMessage가 그 앱의 slug를 얼려 쓰고 MessageReceived에도 싣는다.
+  - ACP message 항목과 줄 선 항목에 선택 `via: {app, name}`(snapshot과 갱신 모두, 줄에서 항목이 될 때도 이어짐). SDK zod 없는 사본과 `Same<>` type 검사가 맞춘다. 채팅은 사람 말풍선 옆에 "via <앱>"을, 다음 turn 줄의 줄에도 같은 글을 보인다. 채팅 탭·CLI·run·job이 보낸 메시지에는 없다.
+  - 이름표일 뿐이다. `from`은 그대로 human이고 model이 받는 글(받은 turn과 이력), 허락, attended, skip, checkpoint·rewind·steer·queue edit은 바뀌지 않는다(test가 같은 글임을 본다).
+  - 문서: `acp.md`, `app-call.md`, roadmap 결정 17, `agent-1.12.0` migrate 메모와 guide.
+why: 앱 화면이 사람 이름으로 시야 안 모든 session에 말할 수 있는데 그 말이 사람이 친 것과 구별되지 않으면 나중에 누가 무엇을 보냈는지 알 길이 없다.
+decisions:
+  - text: "앱 화면이 보낸 사람 메시지는 사람의 메시지 그대로 두고 이름표(via)만 붙인다. sender나 새 from 종류를 만들지 않는다."
+    by: person
+  - text: "origin 열은 아직 나가지 않은 messages step에 더한다. 새 step을 만들지 않는다."
+    by: person

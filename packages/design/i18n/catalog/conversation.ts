@@ -274,9 +274,10 @@ export const conversation = {
     "{count, plural, one {# write} other {# writes}} by this session after this message",
   "conversation.label.rewind-apps-head":
     "Apps this session wrote to after this message",
+  "conversation.label.rewind-caller-event": "App event",
   "conversation.label.rewind-caller-flow": "Workflow",
   "conversation.label.rewind-caller-person": "You",
-  "conversation.label.rewind-caller-program": "Scheduled job",
+  "conversation.label.rewind-caller-program": "Job",
   "conversation.label.rewind-conversation": "Conversation",
   "conversation.label.rewind-files":
     "Also restore files changed with file tools",
@@ -375,6 +376,7 @@ export const conversation = {
   "conversation.label.status-waiting-answer": "Waiting for your answer",
   "conversation.label.status-waiting-approval": "Waiting for your approval",
   "conversation.label.status-working": "Working",
+  "conversation.label.via": "via {app}",
   "conversation.label.steer": "Steer · went into the running turn",
   "conversation.label.steps-value": "Show steps: {detail}",
   "conversation.label.stopped-after": "Stopped after {duration}",

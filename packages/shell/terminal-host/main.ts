@@ -189,6 +189,8 @@ function createHost(deps: HostDeps): Host {
       session.handle = handle;
       session.group = deps.pty.group(handle.pid);
       runtime.state = "running";
+      // 앱이 shell pid에서 process tree를 따라갈 수 있게 core에 알린다(CLI 자신의 pid가 아니다).
+      runtime.shell_pid = handle.pid;
       // 등록을 spawn 직후 동기로 붙인다. 미루면 초기 출력·종료를 놓친다.
       session.handle?.onData((chunk) => {
         void acceptChunk(session, chunk);

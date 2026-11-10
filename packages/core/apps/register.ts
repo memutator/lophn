@@ -7,6 +7,7 @@ import {
 } from "./registration/mod.ts";
 import {
   appCallTool,
+  appEventPublish,
   appLogViewError,
   appRegistrationLookup,
   appRewind,
@@ -37,6 +38,7 @@ import {
   noticesOpenRead,
   noticeSchemaSteps,
 } from "./notices/mod.ts";
+import { createEventPublicationReads } from "./events/mod.ts";
 import { rewindSchemaSteps } from "./rewind/mod.ts";
 import {
   createGrantCommands,
@@ -128,6 +130,7 @@ export function createLedgerRegistration(
   const commands = createAppCommands();
   const reads = createAppsReads();
   const invocationReads = createInvocationsReads();
+  const publicationReads = createEventPublicationReads();
   const sdk = createSdkCommands();
   const sdkReads = createSdkReads();
   // 기록은 command가 받은 tx의 sql에만 남긴다. DB 파일은 data worker가 연다.
@@ -235,6 +238,7 @@ export function createLedgerRegistration(
       runtimeReads.logs,
       invocationReads.list,
       invocationReads.get,
+      publicationReads.list,
       sdkReads.list,
       sdkReads.versions,
       sdkReads.usage,
@@ -246,6 +250,8 @@ export function createLedgerRegistration(
       appSdkDecide,
       appTraySet,
       appTrayList,
+      // handler는 wiring/apps.ts가 붙인다.
+      appEventPublish,
       appRewind,
       appLogViewError,
       // handler는 wiring/apps.ts가 붙인다.
@@ -286,6 +292,7 @@ export function createLedgerRegistration(
 export function createReaderRegistration(): ReaderRegistration {
   const reads = createAppsReads();
   const invocations = createInvocationsReads();
+  const publicationReads = createEventPublicationReads();
   const sdkReads = createSdkReads();
   const runtimeReads = createRuntimeReads();
   const grantReads = createGrantsReads();
@@ -307,6 +314,7 @@ export function createReaderRegistration(): ReaderRegistration {
       runtimeReads.logs,
       invocations.list,
       invocations.get,
+      publicationReads.list,
       sdkReads.list,
       sdkReads.versions,
       sdkReads.usage,

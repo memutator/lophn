@@ -120,9 +120,9 @@ export function createForkCommand(
         const seq = nextMessageSeq(tx);
         tx.sql.run(
           `insert into messages (id, session, from_kind, from_ref, call,
-             reply_to, refs, reply, event, fail_reason, delivery, step_instance, step_name, shell, turn, body,
+             reply_to, refs, reply, event, fail_reason, delivery, step_instance, step_name, shell, origin_app, turn, body,
              created_seq, created_at, state_seq)
-           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             copy,
             input.id,
@@ -138,6 +138,7 @@ export function createForkCommand(
             original.step_instance,
             original.step_name,
             original.shell ? 1 : 0,
+            original.origin_app,
             // 원본 turn이 이미 가져간 `!` 기록은 가져간 채로 복사한다. 그래야 복사본의 첫 turn이 다시 가져가지 않는다.
             // 아직 가져가지 않은 기록(null)은 복사본의 다음 turn이 가져간다.
             original.shell ? original.turn : null,

@@ -10,6 +10,7 @@ import {
   type forkSession,
   MESSAGE_BODY_OWNER_KIND,
   workspaceSessionOpen,
+  workspaceSessionAppOpen,
   type recordMessage,
   type recordShellMessage,
   renameSession,
@@ -86,6 +87,7 @@ function openedOf(row: SessionRow) {
 
 export function createConversationCommands(deps: ConversationDeps): {
   open: CommandDefinition<typeof workspaceSessionOpen>;
+  appOpen: CommandDefinition<typeof workspaceSessionAppOpen>;
   rename: CommandDefinition<typeof renameSession>;
   aiTitle: CommandDefinition<typeof setSessionAiTitle>;
   archive: CommandDefinition<typeof archiveSession>;
@@ -133,6 +135,37 @@ export function createConversationCommands(deps: ConversationDeps): {
           id: input.id,
           agent: input.agent,
           workspace: input.workspace,
+        });
+        return started.ok ? ok(openedOf(started.value)) : started;
+      },
+    },
+    appOpen: {
+      route: workspaceSessionAppOpen,
+      handle(
+        tx,
+        ctx: RequestContext,
+        input: Input<typeof workspaceSessionAppOpen>,
+      ) {
+        const machine = requireMachine(ctx);
+        if (!machine.ok) return machine;
+        const existing = loadSession(tx, input.id);
+        if (existing !== undefined) {
+          const same =
+            existing.agent === input.agent &&
+            existing.opened_by_app === input.app &&
+            canonicalize(workspaceOf(existing)) ===
+              canonicalize(input.workspace);
+          if (!same) return reject("conflict", "session id already used");
+          if (existing.lifecycle !== "open") {
+            return reject("conflict", "session changed since it was opened");
+          }
+          return ok(openedOf(existing));
+        }
+        const started = startSession(tx, deps.open(tx), {
+          id: input.id,
+          agent: input.agent,
+          workspace: input.workspace,
+          openedByApp: input.app,
         });
         return started.ok ? ok(openedOf(started.value)) : started;
       },

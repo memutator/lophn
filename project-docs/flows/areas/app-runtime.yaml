@@ -262,7 +262,7 @@ flows:
     steps:
       - "쓰기 앞 처리기(apps-delete wiring)가 먼저 본다. 보관한 앱의 preview를 멈추려 하고, 보관한 앱의 살아 있는 supervisor 자식(멈추는 중 포함)이 있으면 지우지 않고 unavailable로 끝낸다. 이 판정은 사람 확인과 revision 검사보다 먼저다."
       - "그 다음 사람만 받는다. 앱이 보관 상태이고 base_revision이 맞아야 한다. 활성 앱이면 conflict다."
-      - "같은 transaction에서 그 앱 workspace의 session을 session.delete와 같은 규칙으로 지우고, 앱 범위 agent 정의와 다른 agent의 할당, job을 지운다. 열린 공유 요청은 지우고 ShareRequestClosed(reject)를 남긴다."
+      - "같은 transaction에서 그 앱이 보낸 call 행(agent_calls)과 그 앱 workspace의 session을 session.delete와 같은 규칙으로 지우고, 앱 범위 agent 정의와 다른 agent의 할당, job을 지운다. 열린 공유 요청은 지우고 ShareRequestClosed(reject)를 남긴다."
       - "blob 참조, annotation batch와 annotation, notice를 지운 뒤 erase window 안에서 apps, releases, grants, invocations, app_rewinds, 활성화 요청·동의, 데이터 기록, 폴더·icon 표를 지운다."
       - "commit 뒤 apps/<id> 폴더를 지우고(읽기 전용 폴더도), session의 tool-results와 되돌리기 저장소를 지우고, 설정에서 이 앱을 가리키는 것을 뺀다. 실패는 log만 남긴다."
       - "남지 않는 event AppRemoved를 내 shell이 browser 저장소와 layout을 정리하게 한다. AppDeleted event는 남는다."
@@ -765,7 +765,7 @@ flows:
     boundary: [app-runtime, core-api]
     code: [packages/core/apps/calls/service.ts, packages/core/apps/calls/caller.ts, packages/core/apps/calls/gate.ts, packages/core/apps/calls/intake.ts, packages/core/apps/calls/record.ts, packages/core/apps/calls/loop.ts, packages/core/apps/routes.ts]
     steps:
-      - "core가 부른 쪽을 확인한다(verifyCaller). credential 종류와 caller 종류가 맞아야 하고, agent는 지금 도는 turn의 tool call이어야 하며, app은 활성 release와 지금 도는 부모 호출이어야 한다. program과 flow는 core 안 run 연산이 만든 자격과 맞아야 한다. preview 전용 credential은 live를 부르지 못한다(본문 검사보다 앞)."
+      - "core가 부른 쪽을 확인한다(verifyCaller). credential 종류와 caller 종류가 맞아야 하고, agent는 지금 도는 turn의 tool call이어야 하며, app은 활성 release와 지금 도는 부모 호출이어야 한다. program·flow·event는 core 안 연산이 만든 자격과 맞아야 한다(event는 구독 handler를 operation 자리의 `on.<source>.<event>`로 부르고 Gate는 묻지 않으며, 사람이 그 이름을 부르면 denied(not_declared)다. app-event-publish). preview 전용 credential은 live를 부르지 못한다(본문 검사보다 앞)."
       - "보관한 앱은 agent에게 not_found, 사람과 app에게 denied(app_archived)다. 활성 release의 command 선언에서 찾고 없으면 denied(not_declared)다(기록 없음)."
       - "같은 앱이 호출 사슬에 다시 나오거나 깊이 8을 넘으면 handler에 가지 않고 denied(call_loop, call_too_deep)로 기록한다. 본문이 CALL_BODY_MAX_BYTES를 넘으면 invalid_input이고 기록은 남기지 않는다."
       - "막기(Gate): agent는 지금 할당(judge)으로 본다. 앱 workspace의 agent는 자기 앱이 할당에 자동으로 들어 있어(agentAssignment) 그 앱의 command는 할당 없이 통과하고, 다른 앱은 할당에 있어야 하며 deny로 뺀 command는 막힌다. app은 부른 앱의 active grant app.call이 그 tool을 덮는지로 본다. program은 판정 없이 통과하고, flow는 PM의 할당과 비공개 규칙을 본다. 묻지 않는다. 막히면 denied(gate_blocked)다. 사람은 Gate를 거치지 않는다."
@@ -1943,3 +1943,154 @@ flows:
         observe: [response]
     crosses_process: false
     refs: [A15]
+
+  # ---------- 앱 event ----------
+
+  - id: app-event-publish
+    title: "앱이 선언한 event를 내고 구독한 켜진 앱의 handler를 부른다"
+    actor: app
+    entries: [route:app_events/publish]
+    uses: [route:apps/call_tool]
+    pre: [route:releases/activate]
+    boundary: [app-runtime, app-capability, core-api]
+    code: [packages/core/apps/events/publish.ts, packages/core/apps/events/store.ts, packages/core/apps/calls/caller.ts, packages/core/apps/calls/gate.ts, packages/core/apps/routes.ts, packages/protocol/apps/events.ts]
+    steps:
+      - "core가 자격이 app인지 본다. 앱은 입력에 없고 자식 credential이 정한다. 발행이 앱 handler 안에서 일어났으면 parent_invocation이 그 앱의 지금 도는 호출일 때만 사슬로 쓰고, 아니면 사슬 없이 낸다(부모가 돌고 있지 않아도 발행은 된다)."
+      - "앱이 없으면 not_found, 보관했거나 active release가 없으면 conflict다. active release의 events 선언에 그 event가 없거나 payload가 payloadSchema와 맞지 않거나 16 KiB를 넘으면 invalid_input이다. 이때 아무에게도 가지 않고 기록도 없다."
+      - "active release의 subscriptions에 이 앱의 slug와 event를 선언한 active 앱을 모은다. 그 가운데 지금 그 release로 떠서 호출을 받는 앱에만 간다. 닿지 못한 수는 unreachable로 센다(저장도 재시도도 없다)."
+      - "발행 기록(누가, 어느 event, 언제, trace id, 켜져 있던 구독자 reachable, 닿지 못한 수 unreachable, 고리·깊이로 넘기지 않은 수 refused, payload 없음)을 앱마다 최근 200개만 남기고 AppEventPublished(payload 포함, 저장하지 않음)를 Bus로 낸다. 그 뒤 구독 앱마다 handler를 앱 호출 경로로 부르고 기다리지 않는다."
+      - "호출은 caller kind event(발행자, event, publication, trace_id, chain, parent)로 operation 자리의 `on.<source>.<event>`를 effect write로 부른다. Gate는 묻지 않는다. chain은 이 event를 부른 인과의 앱들(발행자 포함)이고, 발행이 구독 handler 안에서 일어났으면 그 handler가 불린 event의 chain(호출 기록에서 읽는다)에 이어진다. 구독자가 chain에 이미 있거나 chain이 깊이 한도 8에 닿았으면 호출을 넘기지 않고 refused로 센다(앞선 호출이 이미 끝났어도 고리가 끊긴다). 구독 앱이 그 사이 꺼졌거나 handler가 실패하면 그 호출의 기록이 말하고 발행에는 영향이 없다."
+    outcomes:
+      - id: published
+        when: "선언한 event를 냈다. 구독자가 없어도 기록하고 reachable 0으로 돌려준다"
+        observe: [response, "ledger:app_event_publications", "event:AppEventPublished"]
+      - id: delivered
+        when: "켜진 구독 앱마다 invocation 하나가 caller kind event로 남는다(write라 changeset이 붙는다)"
+        observe: ["ledger:invocations", "event:AppEventPublished"]
+      - id: loop-refused
+        when: "켜진 구독자가 event의 chain에 이미 있거나 chain이 깊이 한도에 닿아 호출을 넘기지 않았다(발행 기록의 refused에 센다. 호출 기록은 없다)"
+        observe: [response, "ledger:app_event_publications"]
+      - id: undeclared-or-mismatched
+        code: invalid_input
+        when: "선언하지 않은 event, payload가 payloadSchema와 맞지 않음, payload가 16 KiB를 넘음(기록 없음, 아무에게도 가지 않음)"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "자격이 app이 아님"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "자격의 앱이 등록부에 없다"
+        observe: [response]
+      - id: unavailable-app
+        code: conflict
+        when: "앱이 보관됐거나 active release가 없다"
+        observe: [response]
+      - id: core-failed
+        when: "선언을 읽거나 발행 기록을 쓰지 못함(그 오류 그대로)"
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/event.md, architecture/app-call.md]
+
+  - id: app-broker-events-publish
+    title: "앱이 broker로 event를 낸다"
+    actor: app
+    entries: [system:app-broker-events-publish]
+    uses: [route:app_events/publish]
+    pre: [app-record-started:started]
+    boundary: [app-runtime, app-capability]
+    code: [packages/core/apps/permissions/broker/events.ts, packages/core/apps/permissions/broker/server.ts]
+    steps:
+      - "앱 자식이 SDK의 publish로 broker의 events/publish에 event, payload, 현재 호출의 invocation(없으면 null)을 보낸다. broker endpoint가 credential, 본문, process_nonce·mode가 연결과 같은지 먼저 본다."
+      - "요청 모양을 검사한다. 자식이 운영 앱(live)이면서 release가 있고 그 release가 지금 active release여야 한다. 사람 허락(grant)은 보지 않는다: event는 발행 앱이 선언해 내놓는 것이다."
+      - "core app_events.publish를 이 자식의 app credential로 부르고 결과를 그대로 돌려준다(app-event-publish)."
+    outcomes:
+      - id: forwarded
+        when: "core의 결과(published와 reachable·unreachable·refused 수)를 그대로 전달"
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "본문이 JSON 객체가 아니거나 1 MiB를 넘음, events/publish 모양이 맞지 않음, 또는 core가 거절함(선언하지 않은 event, payload 불일치)"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "운영 자식이 아님(preview 자식, release 없음), 또는 자식의 release가 지금 active release가 아님"
+        observe: [response]
+      - id: unauthorized
+        code: unauthorized
+        when: "credential이 틀림, 또는 본문의 process_nonce·mode가 연결과 다름"
+        observe: [response]
+      - id: broker-closing
+        code: unavailable
+        when: "회수·교체를 시작한 연결이라 새 요청을 받지 않음(broker is closing)"
+        observe: [response]
+      - id: core-failed
+        when: "core가 낸 그 밖의 오류 그대로(not_found, conflict 포함)"
+        observe: [response]
+    crosses_process: true
+
+  - id: app-event-publications-read
+    title: "앱이 낸 event의 발행 기록을 읽는다"
+    actor: agent
+    entries: [route:apps/event_publications]
+    boundary: [app-runtime, core-api]
+    code: [packages/core/apps/events/reads.ts, packages/core/apps/events/store.ts]
+    steps:
+      - "app, 선택 event, cursor(pub id), limit(최대 200)로 그 앱의 발행 기록을 새 것부터 읽는다. 앱마다 최근 200개만 있다."
+      - "범위 밖 앱은 없는 앱과 같은 not_found다(app.invocations와 같은 판정). payload 본문은 기록에 없다."
+      - "사람이 쓰는 화면은 없다. agent가 CLI `lophn app event-publications`로 읽는다. 같은 trace_id의 호출은 `lophn app invocations`의 event caller 행이다."
+    outcomes:
+      - id: listed
+        observe: [response]
+      - id: invalid-cursor
+        code: invalid_input
+        when: "cursor가 pub id 꼴이 아님"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "범위 밖이거나 없는 앱"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "app credential(route actors는 user, agent, machine)"
+        observe: [response]
+    crosses_process: false
+    declared_only: [unavailable]
+    docs: [architecture/event.md, architecture/observability.md]
+
+  - id: app-broker-sessions
+    title: "앱이 broker로 session 목록·상태를 읽고 멈춘다"
+    actor: app
+    entries: [system:app-broker-sessions]
+    uses: [route:app_sessions/list, route:app_sessions/status, route:app_sessions/stop]
+    pre: [app-record-started:started]
+    boundary: [app-runtime, app-capability]
+    code: [packages/core/apps/permissions/broker/sessions.ts, packages/core/apps/permissions/broker/server.ts, packages/sdk/agent/process.ts]
+    steps:
+      - "앱 자식이 SDK(`@lophn/agent/process`의 sessions)로 broker의 sessions/list·status·stop에 입력을 보낸다. broker endpoint가 credential, 본문, process_nonce·mode가 연결과 같은지 먼저 본다"
+      - "route 입력 모양을 검사한다. 자식이 운영 앱(live)이면서 release가 있고 그 release가 지금 active release여야 한다. 사람 허락(grant)은 보지 않는다: 보이는 범위는 call 정책이고 멈춘 것은 기록된다"
+      - "core app_sessions.*를 이 자식의 app credential로 부르고 결과를 그대로 돌려준다(app-sessions-list, -status, -stop). 부모 invocation이 돌고 있지 않아도 된다"
+    outcomes:
+      - id: forwarded
+        when: "core의 결과를 그대로 전달"
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "본문이 JSON 객체가 아니거나 1 MiB를 넘음, 입력 모양이 맞지 않음, 또는 core가 거절함"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "운영 자식이 아님(preview 자식, release 없음), 자식의 release가 지금 active release가 아님, 또는 core가 거절함(다른 앱을 입력에 적음)"
+        observe: [response]
+      - id: unauthorized
+        code: unauthorized
+        when: "credential이 틀림, 또는 본문의 process_nonce·mode가 연결과 다름"
+        observe: [response]
+      - id: broker-closing
+        code: unavailable
+        when: "회수·교체를 시작한 연결이라 새 요청을 받지 않음(broker is closing)"
+        observe: [response]
+      - id: core-failed
+        when: "core가 낸 그 밖의 오류 그대로(not_found, unavailable 포함)"
+        observe: [response]
+    crosses_process: true

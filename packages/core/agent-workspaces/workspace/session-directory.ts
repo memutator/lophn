@@ -44,7 +44,9 @@ export function createWorkspaceNameRules(
     const named = address.workspace;
     let workspace: Workspace | null = null;
     if (named !== undefined) {
-      if ("project" in named) {
+      if ("home" in named) {
+        // 명시한 home. workspace가 null이다(빼면 home이 기본인 agent의 call과 같고, 앱이 보낸 call은 이것으로만 home에 닿는다).
+      } else if ("project" in named) {
         const project = deps.projects.projectByName(named.project);
         if (project === null) return fail("not_found", "project not found");
         workspace = { kind: "project", id: project.id };

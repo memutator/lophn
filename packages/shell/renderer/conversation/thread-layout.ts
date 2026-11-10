@@ -115,6 +115,7 @@ function messageEntry(item: AcpMessageItem): ThreadMessage | null {
         : item.sender.kind === "program"
           ? { kind: "program", label: null }
           : item.sender,
+    ...(item.via === undefined ? {} : { via: item.via.name }),
     call: item.call,
     replyTo: item.reply_to,
     delivery: item.delivery,
@@ -369,6 +370,7 @@ export function layoutOf(
       at: queued.at,
       text: blocksText(queued.content),
       summary: blocksSummary(queued.content),
+      ...(queued.via === undefined ? {} : { via: queued.via.name }),
     })),
     pending: {
       approval: pending.approval,

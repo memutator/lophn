@@ -33,7 +33,7 @@ test("못 본 turn 끝은 탭이 보이거나 다음 turn이 시작하면 지우
       ),
     bodyOf: () => Promise.resolve(undefined),
     looking: () => looking,
-    appSession: (session) => session === "ses_app",
+    appSession: (session) => Promise.resolve(session === "ses_app"),
     notify: (notice) => {
       sent.push(notice);
       return !looking;

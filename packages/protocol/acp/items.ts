@@ -30,6 +30,13 @@ export const acpSenderSchema = z.discriminatedUnion("kind", [
     name: z.string().nullable(),
   }),
   z.strictObject({ kind: z.literal("program") }),
+  // 앱이 보낸 call이다. name은 그 앱의 slug(보낼 때의 것)다.
+  z.strictObject({
+    kind: z.literal("app"),
+    // 앱 id. 앱 id를 모르는 곳(harness GUI가 tag에서 읽은 것)은 null이다.
+    app: idSchema("app").nullable(),
+    name: z.string(),
+  }),
 ]);
 export type AcpSender = z.infer<typeof acpSenderSchema>;
 
@@ -58,6 +65,8 @@ export const acpMessageItemSchema = z.strictObject({
   actor: z.enum(["user", "agent", "received"]),
   /** received일 때만 있다. */
   sender: acpSenderSchema.nullable(),
+  /** 앱 화면이 보낸 사람 메시지의 표시다(이름표일 뿐 보낸 쪽이 아니다: 메시지는 사람의 것이고 model이 받는 글은 같다). name은 보낼 때의 앱 slug다. */
+  via: z.strictObject({ app: idSchema("app"), name: z.string() }).optional(),
   /** 이 메시지가 맡긴 call. */
   call: id.nullable(),
   /** 이 메시지가 답하는 call. */

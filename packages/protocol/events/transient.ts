@@ -5,6 +5,7 @@ import { eventTypeSchema } from "../base/event.ts";
 import { workflowNameSchema } from "../workflows/values.ts";
 import { acpUpdatedPayloadSchema } from "../acp/routes.ts";
 import { noticeSchema } from "../apps/notice.ts";
+import { jsonValueSchema } from "../base/json-values.ts";
 
 // 남지 않는 event는 session 밖에서 화면만 알면 되는 일이다. 메모리로만 흐르고 Ledger에 쓰지 않는다.
 // 놓쳐도 그 대상은 표에 남아 있어 snapshot으로 맞춘다.
@@ -142,6 +143,21 @@ const appTrayChanged = defineTransientEvent("AppTrayChanged", {
   payload: z.strictObject({ app: idSchema("app") }),
 });
 
+// 앱(또는 core)이 event를 낸 뒤 낸다. 열린 앱 화면 가운데 구독을 선언한 화면이 받는다. 앱 process의 구독자는 core가 앱 호출로 직접
+// 부르므로 이 event를 거치지 않는다. subject는 발행한 앱이고 core가 낸 event(`source` `lophn`)면 null이다.
+// payload는 발행 앱이 선언한 schema를 통과한 값이다(저장하지 않는다).
+const appEventPublished = defineTransientEvent("AppEventPublished", {
+  subject: idSchema("app").nullable(),
+  payload: z.strictObject({
+    // 발행 앱의 slug이거나 `lophn`. 구독 선언의 source와 같은 이름이다.
+    source: z.string().min(1),
+    event: z.string().min(1),
+    payload: jsonValueSchema,
+    // 이 앱들의 화면만 받는다. null이면 구독을 선언한 모든 화면이다(core가 내는 event는 앱이 볼 수 있는 것만 싣는다).
+    audience: z.array(idSchema("app")).nullable(),
+  }),
+});
+
 // instance 행이나 줄이 바뀐 command가 commit된 뒤 한 번 낸다. 화면과 artifact view가 다시 읽으라는 신호다.
 // CLI로 낸 report는 session event가 없어 화면이 알 길이 이것뿐이다. 정의 file이 바뀐 것은 알리지 않는다.
 const workflowInstanceChanged = defineTransientEvent(
@@ -185,6 +201,7 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(noticeClosed),
   transientEventEnvelopeSchema(noticeRead),
   transientEventEnvelopeSchema(appTrayChanged),
+  transientEventEnvelopeSchema(appEventPublished),
   transientEventEnvelopeSchema(workflowInstanceChanged),
   transientEventEnvelopeSchema(jobChanged),
 ]);

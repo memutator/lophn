@@ -562,6 +562,13 @@ const job = (
   approved_at: at(-30 * DAY),
   next_due_at: null,
   last_run: null,
+  trigger: null,
+  fired_count: 0,
+  skipped_count: 0,
+  last_fired_at: null,
+  last_skipped_at: null,
+  last_skip_reason: null,
+  source_gone: false,
   ...fields,
 });
 

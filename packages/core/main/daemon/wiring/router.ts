@@ -15,6 +15,7 @@ import {
   callCancel,
   callReply,
 } from "../../../../protocol/lophn-agent/calls.ts";
+import { APP_CALL_SETTLED_EVENT } from "../../../../protocol/lophn-agent/app-calls.ts";
 import { appSdkReviewRecord } from "../../../../protocol/apps/sdk-status.ts";
 import { sendMessage } from "../../../../protocol/lophn-agent/inputs.ts";
 import {
@@ -65,9 +66,12 @@ import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { lastArtifactWriter } from "../../../lophn-agent/session/rewind/mod.ts";
 import { projectStatusOf } from "../../../projects/lookups.ts";
 import {
+  APP_CALL_SETTLED_TOPIC,
   ASK_ANSWERED_TOPIC,
   ASK_ENDED_TOPIC,
   CANCEL_TEXT,
+  callsAppCancel,
+  callsAppSend,
   callsAskOpen,
   callsAskWithdraw,
   callsRecover,
@@ -172,6 +176,7 @@ function createCallBodyPreparer(deps: {
       name === callReply.name ||
       name === teamSpawn.name ||
       name === callsAskOpen.name ||
+      name === callsAppSend.name ||
       name === appSdkReviewRecord.name
     ) {
       // 모양이 틀린 요청은 건드리지 않고 지나가 command의 schema 검사가 거절한다.
@@ -194,7 +199,11 @@ function createCallBodyPreparer(deps: {
           : safe;
       bodies.push(body);
       next = { ...envelope, input: { ...(input as object), body } };
-    } else if (name === callCancel.name || name === callsAskWithdraw.name) {
+    } else if (
+      name === callCancel.name ||
+      name === callsAskWithdraw.name ||
+      name === callsAppCancel.name
+    ) {
       bodies.push(textBlocks(CANCEL_TEXT));
     } else if (
       name === archiveSession.name ||
@@ -266,6 +275,38 @@ export const routerWiring: WiringFactory = () => {
           source: data.parent,
         });
       };
+      // 앱이 보낸 call이 끝났다. 앱에는 queue가 없어 `call.settled` event(발행자 lophn)로 그 앱에만 알린다.
+      const settled = (data: {
+        app: string;
+        call: string;
+        state: string;
+        fail_reason: string | null;
+      }) => {
+        void ctx.eventDelivery
+          .publish({
+            publisher: "lophn",
+            release: null,
+            source: "lophn",
+            event: APP_CALL_SETTLED_EVENT,
+            payload: {
+              call: data.call,
+              state: data.state,
+              fail_reason: data.fail_reason,
+            },
+            chain: [],
+            parent: null,
+            audience: (app) => app === data.app,
+          })
+          .then((published) => {
+            if (!published.ok) {
+              ctx.telemetry.logger.warn({
+                component: "router",
+                event: "call_settled_publish_failed",
+                fields: { message: published.error.message },
+              });
+            }
+          });
+      };
       const apply = (actions: readonly CommitAction[]) => {
         applyQueue(actions);
         for (const action of actions) {
@@ -282,6 +323,15 @@ export const routerWiring: WiringFactory = () => {
               action.data as Parameters<
                 ApprovalsService["askReplies"]["ended"]
               >[0],
+            );
+          } else if (action.topic === APP_CALL_SETTLED_TOPIC) {
+            settled(
+              action.data as {
+                app: string;
+                call: string;
+                state: string;
+                fail_reason: string | null;
+              },
             );
           }
         }

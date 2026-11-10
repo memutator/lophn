@@ -1,6 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   agentCard,
+  agentCards,
   agentList,
   agentRead,
   type AgentRow,
@@ -32,7 +33,7 @@ import {
 } from "./inspect.ts";
 import { callPolicyAt } from "../../config/setting-declarations.ts";
 import { loadSession, workspaceOf } from "../session/model.ts";
-import { type CardCaller, cardByHandle } from "./card.ts";
+import { type CardCaller, cardByHandle, cardsIn } from "./card.ts";
 import type { AgentDeps } from "./ports.ts";
 import { receivedSkills } from "./resolve.ts";
 
@@ -116,6 +117,7 @@ export function createAgentReads(deps: AgentDeps): {
   list: ReadDefinition<typeof agentList>;
   read: ReadDefinition<typeof agentRead>;
   card: ReadDefinition<typeof agentCard>;
+  cards: ReadDefinition<typeof agentCards>;
 } {
   return {
     list: {
@@ -179,6 +181,24 @@ export function createAgentReads(deps: AgentDeps): {
         }
         return ok({
           card: card.value,
+          as_of_seq: snapshot.as_of_seq,
+          next_cursor: null,
+        });
+      },
+    },
+    cards: {
+      route: agentCards,
+      handle(
+        snapshot: ReadSnapshot,
+        _ctx,
+        input: Input<typeof agentCards>,
+      ): Result<Output<typeof agentCards>> {
+        const context = openAgentContext(deps, snapshot.sql);
+        if (!context.ok) return context;
+        const cards = cardsIn(context.value, input.workspace);
+        if (!cards.ok) return cards;
+        return ok({
+          cards: cards.value,
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
         });

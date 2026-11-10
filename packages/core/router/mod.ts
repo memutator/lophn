@@ -6,6 +6,7 @@ export {
 export {
   failReceivedCalls,
   installRouterEnvironment,
+  messageApp,
   messageDirectory,
   messageRouter,
   type RouterEnvironment,
@@ -13,6 +14,8 @@ export {
   routerFor,
 } from "./environment.ts";
 export {
+  callsAppCancel,
+  callsAppSend,
   callsAskOpen,
   callsAskWithdraw,
   callsAutoReply,
@@ -21,8 +24,16 @@ export {
 } from "./commands.ts";
 export { ROUTER_READS } from "./reads.ts";
 export { ROUTER_SCHEMA_STEPS } from "./schema.ts";
-export { callSignals, createCallStore } from "./store.ts";
 export {
+  callSignals,
+  callsOfSession,
+  deleteAppCallsReceivedBy,
+  deleteCallsSentByApp,
+  createCallStore,
+  readCall,
+} from "./store.ts";
+export {
+  APP_CALL_SETTLED_TOPIC,
   ASK_ANSWERED_TOPIC,
   ASK_ENDED_TOPIC,
   CANCEL_TEXT,

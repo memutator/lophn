@@ -7,7 +7,7 @@ import { Dialog } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 import { actionIcons } from "../../icons/mod.ts";
 
-import { agentName, MISSED_OPTIONS } from "./model.ts";
+import { agentName, MISSED_OPTIONS, triggerText } from "./model.ts";
 import type { JobPatch, JobNames, JobView, MissedPolicy } from "./source.ts";
 import styles from "./jobs.module.css";
 
@@ -25,18 +25,20 @@ export function EditDialog({
 }: {
   job: JobView;
   names: JobNames;
-  onSave: (patch: Required<JobPatch>) => void;
+  onSave: (patch: JobPatch) => void;
   onClose: () => void;
 }) {
   const [title, setTitle] = useState(job.title);
-  const [count, setCount] = useState(job.every.slice(0, -1));
-  const [unit, setUnit] = useState(job.every.slice(-1));
+  // event job은 제목만 고친다(때는 승인한 값이다).
+  const scheduled = job.every !== null;
+  const [count, setCount] = useState(job.every?.slice(0, -1) ?? "1");
+  const [unit, setUnit] = useState(job.every?.slice(-1) ?? "d");
   const [time, setTime] = useState(job.at ?? "09:00");
   const [missed, setMissed] = useState<string>(job.missed_policy);
   const valid =
     title.trim() !== "" &&
-    /^[1-9][0-9]{0,4}$/.test(count) &&
-    (unit !== "d" || time !== "");
+    (!scheduled ||
+      (/^[1-9][0-9]{0,4}$/.test(count) && (unit !== "d" || time !== "")));
   return (
     <Dialog
       open
@@ -51,12 +53,16 @@ export function EditDialog({
             disabled={!valid}
             data-job-save=""
             onClick={() =>
-              onSave({
-                title: title.trim(),
-                every: `${count}${unit}`,
-                at: unit === "d" ? time : null,
-                missed_policy: missed as MissedPolicy,
-              })
+              onSave(
+                scheduled
+                  ? {
+                      title: title.trim(),
+                      every: `${count}${unit}`,
+                      at: unit === "d" ? time : null,
+                      missed_policy: missed as MissedPolicy,
+                    }
+                  : { title: title.trim() },
+              )
             }
           >
             {t("settings.button.save")}
@@ -72,44 +78,58 @@ export function EditDialog({
             onChange={(event) => setTitle(event.target.value)}
           />
         </Field>
-        <div className={styles.pair}>
-          <Field label={t("jobs.label.every")}>
-            <Input
-              inputMode="numeric"
-              value={count}
-              onChange={(event) => setCount(event.target.value)}
-            />
+        {job.trigger === null ? null : (
+          <Field label={t("jobs.label.trigger-field")}>
+            <p className={styles.note} data-trigger="">
+              {triggerText(job.trigger)}
+              {job.trigger.pass_event
+                ? ` ${t("jobs.label.trigger-pass-event")}`
+                : ""}
+            </p>
           </Field>
-          <Field label={t("jobs.label.unit")}>
-            <Select
-              options={UNITS.map((one) => ({
-                value: one.value,
-                label: t(one.label),
-              }))}
-              value={unit}
-              onValueChange={setUnit}
-            />
-          </Field>
-        </div>
-        {unit === "d" ? (
-          <Field label={t("jobs.label.at")} help={t("jobs.note.at-help")}>
-            <Input
-              type="time"
-              value={time}
-              onChange={(event) => setTime(event.target.value)}
-            />
-          </Field>
+        )}
+        {scheduled ? (
+          <>
+            <div className={styles.pair}>
+              <Field label={t("jobs.label.every")}>
+                <Input
+                  inputMode="numeric"
+                  value={count}
+                  onChange={(event) => setCount(event.target.value)}
+                />
+              </Field>
+              <Field label={t("jobs.label.unit")}>
+                <Select
+                  options={UNITS.map((one) => ({
+                    value: one.value,
+                    label: t(one.label),
+                  }))}
+                  value={unit}
+                  onValueChange={setUnit}
+                />
+              </Field>
+            </div>
+            {unit === "d" ? (
+              <Field label={t("jobs.label.at")} help={t("jobs.note.at-help")}>
+                <Input
+                  type="time"
+                  value={time}
+                  onChange={(event) => setTime(event.target.value)}
+                />
+              </Field>
+            ) : null}
+            <Field label={t("jobs.label.if-missed")}>
+              <Select
+                options={MISSED_OPTIONS.map((one) => ({
+                  value: one.value,
+                  label: t(one.label),
+                }))}
+                value={missed}
+                onValueChange={setMissed}
+              />
+            </Field>
+          </>
         ) : null}
-        <Field label={t("jobs.label.if-missed")}>
-          <Select
-            options={MISSED_OPTIONS.map((one) => ({
-              value: one.value,
-              label: t(one.label),
-            }))}
-            value={missed}
-            onValueChange={setMissed}
-          />
-        </Field>
         <p className={styles.note}>
           {t("jobs.note.edit-readonly", {
             agent: agentName(job.creator.agent, names),

@@ -3,7 +3,10 @@ import { defineCommand, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, readCursorSchema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
-import { agentAtWorkspaceOutputSchema } from "../lophn-agent/workspaces.ts";
+import {
+  agentAtWorkspaceOutputSchema,
+  workspaceSchema,
+} from "../lophn-agent/workspaces.ts";
 import {
   jobActionInputSchema,
   jobActionSchema,
@@ -11,8 +14,12 @@ import {
   jobEverySchema,
   jobIdSchema,
   jobRunIdSchema,
+  jobEventSchema,
   jobRunStateSchema,
+  jobSkipReasonSchema,
   jobTitleSchema,
+  jobTriggerInputSchema,
+  jobTriggerSchema,
   missedPolicySchema,
 } from "./values.ts";
 
@@ -23,8 +30,18 @@ export const jobRecordSchema = z.object({
   id: jobIdSchema,
   title: jobTitleSchema,
   creator: agentAtWorkspaceOutputSchema,
-  every: jobEverySchema,
+  // 때는 주기(every, at)나 event(trigger) 하나다. event job은 every가 null이고 next_due_at도 늘 null이다.
+  every: jobEverySchema.nullable(),
   at: jobAtSchema.nullable(),
+  trigger: jobTriggerSchema.nullable(),
+  // event job의 기록: 차례를 연 수와 건너뛴 수(이유 busy | too_soon), 마지막 시각. 건너뜀은 job run 줄로 쌓지 않고 센다(event는 흔하다).
+  fired_count: z.number().int().min(0),
+  skipped_count: z.number().int().min(0),
+  last_fired_at: atSchema.nullable(),
+  last_skipped_at: atSchema.nullable(),
+  last_skip_reason: jobSkipReasonSchema.nullable(),
+  // event job의 앱이 지금 그 event를 내지 않는다(보관·지움, active release가 선언을 뺌). job은 켜져 있어도 돌지 않는다. `job.list`만 채운다.
+  source_gone: z.boolean(),
   action: jobActionSchema,
   missed_policy: missedPolicySchema,
   enabled: z.boolean(),
@@ -57,6 +74,7 @@ export const jobRunRecordSchema = z.object({
   run: idSchema("run").nullable(), // agent_run·tool_run이 연 run
   instance: idSchema("wfi").nullable(), // workflow_start가 시작한 instance
   session: idSchema("ses").nullable(), // agent_run이 연 session
+  event: jobEventSchema.nullable(), // event job의 차례를 연 event
   started_at: atSchema.nullable(),
   ended_at: atSchema.nullable(),
   created_at: atSchema,
@@ -83,12 +101,14 @@ export const jobCreate = defineCommand({
   resource: "jobs",
   method: "create",
   name: "job.create",
+  // 때는 `every`(주기)와 `trigger`(event) 가운데 정확히 하나다. 칸 사이 검사는 core가 본다(`at`은 주기만, event job은 missed_policy가 뜻이 없다).
   input: z.strictObject({
     title: jobTitleSchema,
-    every: jobEverySchema,
+    every: jobEverySchema.optional(),
     at: jobAtSchema.optional(),
+    trigger: jobTriggerInputSchema.optional(),
     action: jobActionInputSchema,
-    missed_policy: missedPolicySchema,
+    missed_policy: missedPolicySchema.optional(), // 주기 job은 필수, event job은 쓰지 않는다
     enabled: z.boolean().optional(), // 기본 true
   }),
   output: z.object({ job: jobRecordSchema }),
@@ -297,6 +317,49 @@ export const jobRunEnded = defineCommand({
   ],
 });
 
+// event가 왔다. 그 event를 때로 가진 승인한 켜진 job마다 차례를 열거나(queued) 건너뛰고 센다(busy | too_soon). 같은 tx에서 한다.
+// payload는 data다. session event면 session id와 그 workspace를 싣는다(보이는 범위와 job 자신의 run 걸러내기). chain은 앱 event의 인과다.
+export const jobFireEvent = defineCommand({
+  resource: "jobs",
+  method: "fire_event",
+  name: "job.fire_event",
+  input: z.strictObject({
+    // 앱이 낸 event면 그 앱 id, core가 낸 event면 `lophn`.
+    publisher: z.string().min(1),
+    event: z.string().min(1),
+    payload: z.json(),
+    chain: z.array(idSchema("app")),
+    // lophn의 session event만. 그 session과 그 workspace(home이면 null).
+    session: z
+      .strictObject({
+        id: z.string().min(1),
+        workspace: workspaceSchema.nullable(),
+      })
+      .nullable(),
+  }),
+  output: z.object({ fired: z.number().int(), skipped: z.number().int() }),
+  compare: z.strictObject({}),
+  actors: ["machine"],
+  errors: ["invalid_input", "unauthorized", "forbidden"],
+});
+
+// event를 때로 가진 승인한 켜진 job의 (앱 id 또는 null=lophn, event) 목록이다. event 전달이 관심 있는지 거르는 데 쓴다.
+export const jobEventTriggers = defineRead({
+  resource: "jobs",
+  method: "event_triggers",
+  name: "job.event_triggers",
+  input: z.strictObject({}),
+  output: withReadCommon(
+    z.object({
+      triggers: z.array(
+        z.object({ app: idSchema("app").nullable(), event: z.string() }),
+      ),
+    }),
+  ),
+  actors: ["machine"],
+  errors: [...readErrors],
+});
+
 export const JOB_ROUTES = [
   jobCreate,
   jobUpdate,
@@ -312,4 +375,6 @@ export const JOB_ROUTES = [
   jobRunStarted,
   jobRunEnded,
   jobActivity,
+  jobFireEvent,
+  jobEventTriggers,
 ] as const;

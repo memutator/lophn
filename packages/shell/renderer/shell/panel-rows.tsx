@@ -100,8 +100,8 @@ export function PanelRow({
   tag?: string;
   meta?: ReactNode;
   metaTone?: "critical" | "warning";
-  /** true면 아래 줄을 두 줄까지 보인다. 아니면 한 줄에서 자른다. */
-  wrapMeta?: boolean;
+  /** true면 아래 줄을 두 줄까지 보인다. 수를 주면 그 줄 수까지 보인다. 아니면 한 줄에서 자른다. */
+  wrapMeta?: boolean | number;
   active?: boolean;
   /** 오른쪽 끝 고정 칸. */
   trailing?: ReactNode;
@@ -123,6 +123,9 @@ export function PanelRow({
             className={styles.meta}
             data-tone={metaTone}
             data-wrap={wrapMeta || undefined}
+            {...(typeof wrapMeta === "number"
+              ? { style: { WebkitLineClamp: wrapMeta } }
+              : {})}
           >
             {meta}
           </span>

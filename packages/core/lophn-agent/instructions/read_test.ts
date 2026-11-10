@@ -10,8 +10,8 @@ import type {
   ReadSnapshot,
 } from "../../../protocol/server/mod.ts";
 import { projectsSchemaSteps } from "../../projects/registry/schema.ts";
-import { conversationSchemaSteps } from "../session/model.ts";
 import { createReaderRegistration } from "../../main/daemon/wiring/instructions-registration.ts";
+import { conversationTestSteps } from "../session/test-steps.ts";
 
 const PRJ_A = "prj_00000000000000000000000001";
 const PRJ_B = "prj_00000000000000000000000002";
@@ -36,7 +36,7 @@ function setup() {
   mkdirSync(join(root, "projects", PRJ_C), { recursive: true });
   writeFileSync(join(root, "projects", PRJ_C, "CLAUDE.md"), "rules of C");
   const db = new DatabaseSync(join(root, "ledger.db"));
-  for (const step of [...projectsSchemaSteps, ...conversationSchemaSteps]) {
+  for (const step of [...projectsSchemaSteps, ...conversationTestSteps]) {
     db.exec(step.sql);
   }
   for (const [id, name, folder] of [

@@ -20,7 +20,6 @@ import type {
   Tx,
 } from "../../../../protocol/server/mod.ts";
 import { domainsSchemaSteps } from "./domains-retire.ts";
-import { conversationSchemaSteps } from "../../../lophn-agent/session/model.ts";
 import { turnSchemaSteps } from "../../../lophn-agent/run-loop/schema.ts";
 import { toolsSchemaSteps } from "../../../lophn-agent/tools/model.ts";
 import {
@@ -33,6 +32,7 @@ import {
 } from "../../../lophn-agent/session/rewind/mod.ts";
 import { observeFiles } from "../../../lophn-agent/session/rewind/prepare.ts";
 import { artifactMoveStep } from "./artifact-move.ts";
+import { conversationTestSteps } from "../../../lophn-agent/session/test-steps.ts";
 
 const PRJ = "prj_01hzzzzzzzzzzzzzzzzzzzzzza";
 const OTHER = "prj_01hzzzzzzzzzzzzzzzzzzzzzzb";
@@ -60,7 +60,7 @@ test("artifact 옮기기는 이름이 겹쳐도 file을 잃지 않고 다시 돌
     db.exec("pragma foreign_keys = off");
     for (const step of [
       ...domainsSchemaSteps,
-      ...conversationSchemaSteps,
+      ...conversationTestSteps,
       ...turnSchemaSteps,
       ...toolsSchemaSteps,
       ...revertSchemaSteps,
@@ -251,7 +251,7 @@ test("artifact 옮기기 뒤 옛 checkpoint를 되돌리면 최종 이름의 새
     db.exec("pragma foreign_keys = off");
     for (const step of [
       ...domainsSchemaSteps,
-      ...conversationSchemaSteps,
+      ...conversationTestSteps,
       ...turnSchemaSteps,
       ...toolsSchemaSteps,
       ...revertSchemaSteps,

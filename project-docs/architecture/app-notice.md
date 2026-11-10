@@ -4,7 +4,7 @@
 
 ## 문제
 
-- 앱이 사람에게 닿는 길이 없었다. 캘린더의 "일정 전에 알려 줘"나 사용량 앱의 한도 경고는 갈 곳이 없었다. 앱 event를 열어 앱끼리·job이 서로 반응하게 하는 길은 반응을 믿게 할 장치(저장, 구독자 cursor, 재시도, 멱등 key)가 다시 필요해 열지 않았고, 그 첫 단계로 "앱 → 사람" 알림만 열었다.
+- 앱이 사람에게 닿는 길이 없었다. 캘린더의 "일정 전에 알려 줘"나 사용량 앱의 한도 경고는 갈 곳이 없었다. 앱끼리·job이 서로 반응하게 하는 길은 반응을 믿게 할 장치(저장, 구독자 cursor, 재시도, 멱등 key)가 다시 필요해 처음에는 열지 않았고, 그 첫 단계로 "앱 → 사람" 알림만 열었다. 앱 event(앱 → 앱의 알림)는 그 약속을 하지 않는 길로 나중에 열렸다(`architecture/event.md`). 이 문서의 알림과는 받는 쪽(사람이 아니라 앱)과 저장(없음)이 다르다.
 - core는 사람에게 알릴 길이 없었다. release 결과, 앱 멈춤, data migration, lophn 업데이트가 어디에도 남지 않아 사람이 "예전에 release한 것"을 찾을 수 없었다. release 결과는 `releases` 표에만 있어 앱 상세에서만 보였다.
 - 알림이 모두 휘발이면 지우는 순간 사라진다. 놓치면 안 되는 기록(SDK 업데이트 필요 같은 것)과 지나가는 알림(수마다 뜨는 일정 알림)을 같은 취급으로 둘 수 없다.
 - 앱이 쓴 글이 lophn의 기록처럼 보이면 안 된다. 또 주기적으로 같은 사실을 다시 확인하는 앱, 고장 난 앱이 목록과 표를 채우면 안 된다.
@@ -13,7 +13,7 @@
 
 - 목표: 앱과 core가 사람에게 알리고, 사람이 Inbox에서 지우거나 나중에 찾는다. 영구/휘발은 알리는 쪽이 고른다(앱은 기본이 휘발). 알림은 재시작을 넘어 남는다.
 - 목표: 앱 알림과 program 기록을 같은 표에 두어 Inbox 하나가 거르고 찾는다.
-- 비목표: 알림에 반응하는 길. core 로직도 agent도 알림에 반응하지 않는다. 앱 event의 발행·구독과 event로 시작하는 job은 roadmap에도 없다(`architecture/event.md`가 Reactor를 지운 이유와 같다. program이 agent session을 스스로 열지 않는 선과도 같다).
+- 비목표: 알림에 반응하는 길. core 로직도 agent도 알림에 반응하지 않는다. 앱 event(`architecture/event.md`)는 알림을 거치지 않는 별개의 길이고, event로 도는 job은 2026-11-11에 별개의 길로 열렸다(`architecture/job.md`. 사람이 승인한 job이 도는 것이고 알림에는 반응하지 않는다).
 - 비목표: 앱이 열린 알림을 스스로 거두는 길. 같은 key로 덮는 것만 있다. 지우는 것은 사람의 일이다.
 - 비목표: 정책. 언제 알릴지, 영구로 남길지는 앱이 가진다. lophn은 한도나 일정이 무엇인지 모르고 보여 주기만 한다.
 - 비목표: 놓친 toast를 다시 띄우는 것. toast는 shell 정책이고 정본은 표다.
@@ -125,9 +125,9 @@ Inbox는 탭 둘이다.
 
 ## 지키는 것
 
-1. 받는 쪽은 사람뿐이다. Bus에서 `NoticePosted`를 받아 일을 하는 core 코드를 두지 않는다. agent에게 알릴 일이면 agent가 앱 tool로 읽는다.
+1. 받는 쪽은 사람뿐이다. Bus에서 `NoticePosted`를 받아 일을 하는 core 코드를 두지 않는다. agent에게 알릴 일이면 agent가 앱 tool로 읽는다. 다른 앱에 알릴 일은 알림이 아니라 앱 event다.
 2. 권한은 grant `notify.send`(scope 없음)다. 앱이 선언하고 activation 때 사람이 허락한다. broker가 요청마다 지금 release의 선언 ∩ grant를 본다. preview·test 자식과 옛 release의 자식은 거절한다. SDK는 live가 아닌 mode에서 broker를 부르지 않고 `standIn`을 돌려준다. tray 값도 같은 권한이다. grant가 없는 앱의 `setTray`는 거절되고 값이 바뀌지 않는다.
-3. 앱은 입력에서 앱도 출처도 종류도 고르지 못한다. 어느 앱의 줄인지는 자식의 app credential이 정한다. app credential이 닿는 operation은 다른 앱 호출과 `notices.post`, `app_tray.set`뿐이다. 앱은 program 줄을 쓰지 못하고 다른 앱의 줄도 쓰지 못한다.
+3. 앱은 입력에서 앱도 출처도 종류도 고르지 못한다. 어느 앱의 줄인지는 자식의 app credential이 정한다. app credential이 닿는 operation은 다른 앱 호출, `notices.post`, `app_tray.set`, 앱 event 발행(`app_events.publish`)뿐이다. 앱은 program 줄을 쓰지 못하고 다른 앱의 줄도 쓰지 못한다.
 4. program 줄에는 앱이 쓴 글이 들어가지 않는다. 글은 core의 template과 매개변수(짧은 식별자, release 이름, core가 정한 이유 코드)로 만든다. 앱 이름이나 앱 출력을 이유 칸에 그대로 싣지 않는다. 예외 하나: `release_failed`·`app_unavailable`의 reason은 core가 기록한 실패 summary다(release의 `failure.summary`, runtime reason). migration script 실패 summary에는 그 script가 낸 글이 섞일 수 있어 200자로 자른다.
 5. 같은 key는 대신한다. 주기적으로 같은 사실을 다시 확인하는 앱이 Inbox를 채우지 않게 하려는 것이다. 대신한 줄은 id가 같아 `NoticeClosed` 없이 `NoticePosted`만 다시 나가고, toast도 다시 뜬다. 영구 줄이 읽음이었어도 안 읽음으로 돌아온다.
 6. program 기록은 상태를 바꾸는 command와 같은 transaction에서 쓴다. 상태만 바뀌고 줄이 없거나 줄만 있는 일이 없고, 재전송이 줄을 늘리지 않는다.
@@ -154,7 +154,7 @@ Inbox는 탭 둘이다.
 
 ## 결정
 
-- 앱이 사람에게 알리기를 가장 먼저 열고(앱 event의 발행·구독·event로 시작하는 job은 열지 않는다), 받는 쪽은 사람뿐이다. 이유: 반응을 믿게 하려면 저장, 구독자 cursor, 재시도, 멱등 key가 다시 필요하다(`event.md`가 Reactor를 지운 이유). 사람에게 알리기는 놓쳐도 표가 남아 그 짐이 없다. 앱 event를 이야기하다 가장 실용적인 첫 단계로 골랐다. (사람, 2026-11-05. "받는 쪽은 사람뿐"은 agent 추천을 사람이 받음)
+- 앱이 사람에게 알리기를 가장 먼저 열고(그때는 앱 event의 발행·구독과 event로 시작하는 job을 열지 않았다), 받는 쪽은 사람뿐이다. 앱 event는 2026-11-10에 저장·cursor·재시도 없는 알림으로 열렸다(`architecture/event.md`). 그래도 알림(`notices`)이 받는 쪽은 여전히 사람뿐이다. event로 도는 job은 2026-11-11에 열렸는데 저장·cursor·재시도 없이 켜져 있는 동안 온 event에만 반응하는 약속이라 알림과 다른 길이다(`architecture/job.md`). 사람에게 알리기는 놓쳐도 표가 남아 그 짐이 없다. 앱 event를 이야기하다 가장 실용적인 첫 단계로 골랐다. (사람, 2026-11-05. "받는 쪽은 사람뿐"은 agent 추천을 사람이 받음)
 - 정책(언제 알릴지, 영구로 남길지)은 앱이 가진다. lophn은 보여 주기만 한다. (agent)
 - 앱 알림은 Inbox에서 답할 것과 따로 두고, 표에 남기고, 같은 key는 대신한다. 이유: 주기적으로 같은 사실을 확인하는 앱이 목록을 채우지 않게. 앱이 열린 알림을 직접 지우는 길은 두지 않았다. (agent 추천을 사람이 받음)
 - Inbox는 답할 것·알림(휘발)·기록(영구) 셋이다. 앱 알림도 영구/휘발을 고르고 기본은 휘발이다. 이유: 사람이 지난 release 같은 것을 찾을 수 있어야 하고 영구와 휘발을 가르고 싶어 했다. (사람, 2026-11-07)

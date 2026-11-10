@@ -8,7 +8,11 @@ import {
   type WorkspaceSession,
   type ReceivedMessage,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { CallFrom, CallRef } from "../../../protocol/lophn-agent/calls.ts";
+import {
+  type CallFrom,
+  callFromOfRow,
+  type CallRef,
+} from "../../../protocol/lophn-agent/calls.ts";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type {
@@ -278,6 +282,8 @@ export type AgentSessionRow = {
   called_from_id: string | null;
   // `team spawn`으로 열렸으면 연 session. 열 때 정해 바뀌지 않는다.
   spawned_by: string | null;
+  // 앱이 열었으면 그 앱. 앱은 자기가 연 session만 끝낼 수 있고 알림 규칙이 turn 끝 알림을 거른다. 열 때 정해 바뀌지 않는다.
+  opened_by_app: string | null;
   created_seq: string;
   state_seq: string;
 };
@@ -287,7 +293,7 @@ export type SessionRow = AgentSessionRow;
 export const SESSION_COLUMNS = `id, agent, project, app, workspace_kind,
   workspace_id, title, lifecycle, forked_from_session, forked_from_through_seq,
   model_selection, compaction_through_seq,
-  compaction_summary_call, skip, harness, harness_session, called_from_kind, called_from_id, spawned_by, created_seq, state_seq`;
+  compaction_summary_call, skip, harness, harness_session, called_from_kind, called_from_id, spawned_by, opened_by_app, created_seq, state_seq`;
 
 export function sessionRowOf(row: SqlRow): AgentSessionRow {
   return {
@@ -314,6 +320,7 @@ export function sessionRowOf(row: SqlRow): AgentSessionRow {
     ) as AgentSessionRow["called_from_kind"],
     called_from_id: text(row["called_from_id"]),
     spawned_by: text(row["spawned_by"]),
+    opened_by_app: text(row["opened_by_app"]),
     created_seq: String(row["created_seq"]),
     state_seq: String(row["state_seq"]),
   };
@@ -417,6 +424,7 @@ export function workspaceSessionOf(row: AgentSessionRow): WorkspaceSession {
     skip: row.skip,
     called_from: calledFromOf(row),
     spawned_by: row.spawned_by as WorkspaceSession["spawned_by"],
+    opened_by_app: row.opened_by_app as WorkspaceSession["opened_by_app"],
     harness: row.harness,
     state_seq: row.state_seq,
   } as WorkspaceSession;
@@ -455,6 +463,8 @@ type MessageRow = {
   step_instance: string | null;
   step_name: string | null;
   shell: boolean;
+  // 앱 화면이 보낸 사람 메시지의 이름표(`<앱 id>|<slug>`). 보낸 쪽이 아니다.
+  origin_app: string | null;
   turn: string | null;
   body: string;
   created_seq: string;
@@ -463,7 +473,7 @@ type MessageRow = {
 };
 
 export const MESSAGE_COLUMNS = `id, session, from_kind, from_ref, call,
-  reply_to, refs, reply, event, fail_reason, delivery, step_instance, step_name, shell, turn, body,
+  reply_to, refs, reply, event, fail_reason, delivery, step_instance, step_name, shell, origin_app, turn, body,
   created_seq, created_at, state_seq`;
 
 export function messageRowOf(row: SqlRow): MessageRow {
@@ -482,6 +492,7 @@ export function messageRowOf(row: SqlRow): MessageRow {
     step_instance: text(row["step_instance"]),
     step_name: text(row["step_name"]),
     shell: Number(row["shell"]) === 1,
+    origin_app: text(row["origin_app"]),
     turn: text(row["turn"]),
     body: String(row["body"]),
     created_seq: String(row["created_seq"]),
@@ -501,14 +512,18 @@ export function loadMessage(
   return row === undefined ? undefined : messageRowOf(row);
 }
 
-// 받은 봉투의 보낸 쪽. 사람과 program은 근거가 없고, 나머지는 보낸 session이다.
+// 이름표(`<앱 id>|<slug>`)를 읽는다.
+export function viaOfRow(
+  origin: string | null,
+): { app: string; slug: string } | null {
+  if (origin === null) return null;
+  const [app, ...slug] = origin.split("|");
+  return { app: app!, slug: slug.join("|") };
+}
+
+// 받은 봉투의 보낸 쪽. 사람과 program은 근거가 없고, agent는 보낸 session, 앱은 앱 id와 보낼 때의 slug다.
 export function receivedMessageOf(row: MessageRow): ReceivedMessage {
-  const from =
-    row.from_kind === "human"
-      ? { kind: "human" as const }
-      : row.from_kind === "program"
-        ? { kind: "program" as const }
-        : { kind: row.from_kind, session: row.from_ref! };
+  const from = callFromOfRow(row.from_kind, row.from_ref);
   return {
     id: row.id,
     session: row.session,
@@ -526,6 +541,7 @@ export function receivedMessageOf(row: MessageRow): ReceivedMessage {
     turn: row.turn,
     delivery: row.delivery,
     shell: row.shell,
+    via: viaOfRow(row.origin_app),
     body: row.body,
     created_seq: row.created_seq,
     created_at: row.created_at,
@@ -546,16 +562,6 @@ export function openCompactRequest(
   return row === undefined
     ? undefined
     : { request_seq: String(row["request_seq"]) };
-}
-
-// 도는 turn이 있는지.
-export function hasUnfinishedTurn(lookup: Lookup, session: string): boolean {
-  return (
-    lookup.sql.get(
-      "select 1 as found from turns where session = ? and state = 'running' limit 1",
-      [session],
-    ) !== undefined
-  );
 }
 
 // 도는 turn의 model 요청에 반영한 steer(queue에서 지금 올린 것 포함)를 그 turn이 가져간 것으로 적는다. 반영은 StartModelCall과 같은 tx다.

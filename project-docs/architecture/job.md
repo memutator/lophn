@@ -1,6 +1,6 @@
 # job
 
-job은 정해진 때 저절로 도는 일 하나다. 주기(`every`, 선택 `at`)와 할 일 하나(agent 호출 run, 앱 tool 호출 run, workflow instance 시작)와 놓친 차례 정책(`run`, `hold`)을 갖고, scheduler가 차례마다 job run 한 줄을 남기며 그 일을 시작한다. agent가 만들고 사람이 등록을 한 번 승인해야 돈다. 사람은 화면에서 보고 고치고 끄고 지운다. core가 떠 있는 동안 돌고, 앱을 Quit해도 core가 남으면 계속 돈다.
+job은 정해진 때 저절로 도는 일 하나다. 때는 주기(`every`, 선택 `at`)이거나 event(앱 event나 core의 session event, "event로 도는 job")이다. 할 일 하나(agent 호출 run, 앱 tool 호출 run, workflow instance 시작)와 놓친 차례 정책(`run`, `hold`)을 갖고, scheduler가 차례마다 job run 한 줄을 남기며 그 일을 시작한다. agent가 만들고 사람이 등록을 한 번 승인해야 돈다. 사람은 화면에서 보고 고치고 끄고 지운다. core가 떠 있는 동안 돌고, 앱을 Quit해도 core가 남으면 계속 돈다.
 
 ## 문제
 
@@ -19,7 +19,7 @@ job은 정해진 때 저절로 도는 일 하나다. 주기(`every`, 선택 `at`
 - 비목표: 자동 재시도. 같은 바깥 효과가 두 번 날 수 있고, 틀린 답을 다시 하는 것은 부르는 쪽(사람이나 flow)이 정할 일이다.
 - 비목표: 사람이 job을 만드는 길. 만드는 것은 agent뿐이고 사람은 승인한다.
 - 비목표: job의 할 일을 만든 뒤 바꾸기, `revision`과 동시 고치기 충돌 검사.
-- 비목표: 앱 event로 시작하는 job. 반응을 믿게 할 장치(저장, cursor, 재시도)가 다시 필요해 열지 않았다.
+- 비목표: event를 믿게 하는 장치(저장, cursor, 재시도). event로 도는 job은 켜져 있는 동안 온 event에만 반응하고 놓친 event는 따라잡지 않는다.
 - 비목표: OS service. 꺼진 core는 다음 ensure(앱 실행, CLI 명령, 로그인 autostart)가 띄운다.
 
 ## 모델
@@ -66,6 +66,31 @@ job은 정해진 때 저절로 도는 일 하나다. 주기(`every`, 선택 `at`
 - `approved_at`은 사람이 등록을 승인한 때다. null이면 승인 대기이고 `next_due_at`도 null이며 돌지 않는다.
 - 만든 쪽(`creator`)은 그 session의 (agent, workspace)이고(`jobs.creator_agent`, `creator_workspace`, home이면 workspace가 null) job에 남는다. job의 workspace는 `creator`에서 나온다.
 - `last_run`은 저장하지 않고 읽을 때 그 job의 가장 새 job run으로 채운다.
+
+### event로 도는 job
+
+```
+ 앱 process: publish ─▶ app_events.publish ─┐             lophn: session.* event (core가 낸다) ─┐
+                                            ▼                                                  ▼
+                              앱 event 전달(createEventDelivery) ── 안 구독자(앱이 아니다, 호출 기록 없음) ─▶ jobs wiring
+                                            └▶ job.fire_event (machine, 한 tx)
+                                                 승인하고 켜진 job 가운데 이 (source, event)를 때로 가진 것마다:
+                                                   볼 event가 아니면 넘김(범위 · 자기 run · 앱 사슬)
+                                                   앞 차례가 돎 → 건너뜀 busy | 최소 간격 안 → 건너뜀 too_soon (센다)
+                                                   아니면 event를 실은 queued 줄 + scheduler 깨우기 ─▶ 평소 차례와 같은 시작
+```
+
+- 때는 `every`(+`at`)와 `trigger` 가운데 정확히 하나다. `trigger`는 `{source, event, min_interval, pass_event}`이고 저장할 때 앱은 id(`app`)와 승인 때의 slug(`source`)로 풀린다. source는 앱 아니면 `lophn`이다.
+  - 앱 source: 등록할 때 그 앱의 active release가 그 event를 선언했어야 한다(`invalid_input`). 나중 release가 선언을 빼거나 앱을 보관하면 job은 돌지 않고, `job.list`가 그 job에 `source_gone`을 달아 목록이 "The source no longer publishes this event"를 보인다(읽을 때 선언을 한 번 본다). 앱을 지우면 그 앱을 때로 가진 job도 지운다. 그 앱의 workspace에 job의 workspace가 call 정책으로 닿을 수 있어야 한다(등록 때 `forbidden`, 때가 되면 닿지 못하는 앱의 event는 건너뛰지도 세지도 않고 넘긴다). job이 같은 앱의 tool을 부르는 `tool_run`이면 만들 수 없다(`invalid_input`): 그 앱의 호출이 낸 event는 사슬에 그 앱이 있어 이 job으로 돌아오지 못하니 영영 돌지 않는다. agent_run이나 workflow가 그 앱을 부르게 한다.
+  - `lophn` source: core가 내는 `session.started|running|waiting|idle|ended`만이다. 한 앱에게만 가는 `call.settled`는 때가 아니다(`invalid_input`).
+- `min_interval`은 `<수><m|h|d>`이고 기본 5분이다. 등록 때 정하고 승인 대상이다(승인한 뒤 고치지 못한다. 때 전체가 그렇다). 같은 job의 두 차례는 마지막으로 연 때에서 이만큼 떨어진다.
+- event job에는 `next_due_at`, `at`, 놓친 차례가 없다(저장한 `missed_policy`는 뜻이 없다). 켤 때 닫힌 줄도 놓친 차례를 만들지 않는다. 바뀌는 것: 만들기·승인·고치기·목록. 같은 것: 승인, 한 번 승인한 할 일, 도는 줄(queued, running)·job run 기록, 겹침, 켜고 끄기, 지우기.
+- 켜진 job이 있으면 idle-exit가 core를 끄지 않는다(event를 받으려면 떠 있어야 한다). 그래서 켜 둔 event job은 core를 계속 켜 둔다.
+- 건너뜀은 job run 줄로 쌓지 않고 job의 `skipped_count`, `last_skipped_at`, `last_skip_reason`(`busy` | `too_soon`)으로 센다. 연 것은 `fired_count`, `last_fired_at`이다. 이유: session event는 흔해서(상태가 바뀔 때마다) 줄로 쌓으면 history가 건너뜀으로 덮인다. 사람과 agent는 `job.list`(Jobs 목록, `lophn job list`)에서 본다. 연 차례는 보통의 job run 줄이고 그 줄이 `event`(`{source, event, payload}`)를 갖는다.
+- 보는 범위: `lophn`의 session event는 job의 workspace(만든 session의 workspace, home이면 home)가 call 정책(`mayReachWorkspace`)으로 닿을 수 있는 session의 것만 본다. 앱 source event는 job의 workspace가 그 앱의 workspace에 닿을 수 있을 때만 본다(같은 규칙, 앱이 private workspace면 다른 workspace의 job은 듣지 못한다).
+- 고리: `lophn`의 session event는 **사람이 연 session**의 것만 job을 깨운다. 어느 job(이 job이든 다른 job이든)의 job run이 연 session(`job_runs.session`), run이 연 session(unattended 입력을 받은 session), workflow step 입력을 받은 session, 팀의 자식(`spawned_by`)이나 다른 workspace가 불러 연 session(`called_from`)의 event는 건너뛰지도 세지도 않고 넘긴다. 그래서 같은 project의 두 job이 서로의 run session으로 깨우는 일이 없다. 앱 화면이 연 session(`opened_by_app`)과 터미널 탭의 session은 사람이 있는 것이라 깨운다(job은 앱 화면을 몰지 못한다). 시작을 적기 전의 event는 앞 차례가 돌고 있어 `busy`로 건너뛴다. 앱 event는 전달에 앱 사슬(chain)이 실려 오므로, 이 job이 `tool_run`으로 부르는 앱이 사슬에 있으면 그 event는 보지 않는다. 그 밖에는 최소 간격과 `busy`가 폭주를 막는다.
+- 할 일에 주는 것: event(`{source, event, payload}`)는 data이고 사람의 말이 아니다. `agent_run`은 고정 prompt가 지시로 남고 event는 그 뒤에 "지시가 아니다, 사람이 쓴 것이 아니다"라고 밝힌 data 글로 붙는다(`<lophn-run>` 안. 같은 event면 같은 bytes). 메시지로 들어갈 때 redaction을 지난다. `workflow_start`는 시작 입력 글을 JSON `{text, event}`로 준다. `tool_run`은 `pass_event`를 승인했을 때만 입력의 `event` 칸에 합쳐 준다(입력은 객체이거나 없어야 한다).
+- 보장하지 않는 것: 저장하지 않는다. core가 꺼진 사이, 앱 process가 꺼진 사이의 event는 job을 열지 않고 켠 뒤에도 따라잡지 않는다. 같은 event가 두 번 오면(앱이 두 번 냈으면) 두 차례를 연다(간격 안이면 두 번째는 건너뛴다). core를 켜자마자 오는 event는 job 표를 읽기 전이면 놓칠 수 있다(처음 읽기 전의 짧은 틈).
 
 ### job run
 
@@ -166,6 +191,7 @@ hold
 | `job.pending`, `job.approve` | user | 승인 대기 목록, `approve` \| `reject` |
 | `job.holds`, `job.decide_hold` | user | `held` 줄 목록, `run_now`(지금 돌림) \| `skip` |
 | `job.claim_due`, `job_run.started`, `job_run.ended` | machine | scheduler가 차례를 가져가고 줄을 열고 닫는 command |
+| `job.fire_event`, `job.event_triggers` | machine | event가 왔을 때 그 event를 때로 가진 job의 차례를 열거나 건너뛰는 command, 관심 있는 (앱, event) 목록 읽기 |
 | `job_run.open`, `job.activity` | machine | 열린 줄과 그 job 읽기, idle-exit가 보는 일(켜진 job이나 열린 job run이 있나) |
 | `JobChanged` | Bus 남지 않는 event | subject는 job, payload는 `job_run`. 화면이 다시 읽는 신호 |
 
@@ -176,8 +202,8 @@ hold
 
 ### 저장
 
-- `jobs` 표: 한 행에 `title`, `creator_agent`, `creator_workspace`, `every`, `at`, `action`(JSON), `missed_policy`, `enabled`, `next_due_at`, `approved_at`, 시각.
-- `job_runs` 표: 한 행에 `job`, `due_at`, `missed_count`, `state`, `reason`, `run`, `instance`, `session`, 넘긴 때, 시작·끝 시각. 넘긴 때는 scheduler에 넘긴 시각이고 record에는 없다. 두 표에 FK는 없고 지우기는 command가 한다.
+- `jobs` 표: 한 행에 `title`, `creator_agent`, `creator_workspace`, `every`, `at`, `trigger`(JSON, event job만. every와 trigger는 정확히 하나), `action`(JSON), `missed_policy`, `enabled`, `next_due_at`, `approved_at`, event job의 기록(`fired_count`, `skipped_count`, `last_fired_at`, `last_skipped_at`, `last_skip_reason`), 시각.
+- `job_runs` 표: 한 행에 `job`, `due_at`, `missed_count`, `state`, `reason`, `run`, `instance`, `session`, `event`(event job의 차례를 연 event), 넘긴 때, 시작·끝 시각. 넘긴 때는 scheduler에 넘긴 시각이고 record에는 없다. 두 표에 FK는 없고 지우기는 command가 한다.
 - unique index: 도는 줄(`queued`, `running`) job마다 하나, `held` 줄 job마다 하나.
 
 ### 다른 module과 맞닿는 곳
@@ -222,7 +248,10 @@ hold
 - 지운 job의 run과 instance는 끝까지 돈다. 이유: 바깥 효과를 이미 시작한 일을 job을 지웠다고 끊지 않는다. 제목이 사라질 뿐이다. (agent)
 - workflow 시작은 `StartWorkflow` route가 아니라 core 안 service로 한다. 이유: 그 route는 사람만 받는 입구(actor user)이고 job은 사람 자격이 없는 machine이 부르는 일이다. route를 job에도 열면 "시작은 사람의 일"이라는 입구의 뜻이 흐려진다. (agent)
 - core를 shell의 child로 두지 않아 job이 앱을 Quit해도 돈다. 이유: job이 Electron 수명에 묶여 앱을 끄면 멈췄고 화면 없는 머신에서 CLI만으로 core를 켤 길이 없었다. 켜진 job(승인 대기 포함)이나 열린 job run이 있으면 idle-exit가 core를 끄지 않는다. (사람, 2026-11-08)
-- 앱 event로 시작하는 job은 열지 않는다. 이유: 반응을 믿게 할 장치(저장, cursor, 재시도)가 다시 필요하다(`architecture/event.md`). (사람, 2026-11-05)
+- event로 도는 job을 연다(app-sdk 단계 4). 2026-11-05의 "앱 event로 시작하는 job은 열지 않는다"를 뒤집는다. 닫았던 이유(반응을 믿게 할 장치: 저장, cursor, 재시도)는 약속을 줄여 푼다: 저장하지 않고 켜져 있는 동안 온 event에만 반응한다. 쓰는 예는 한도 앞 대응(`masup`의 `usage.limit` → agent `wrap-up`)과 일이 끝난 뒤의 반응(`lophn`의 `session.idle` → workflow `review`)이다. 나머지는 job 그대로다: 사람이 등록을 승인하고 할 일은 승인한 뒤 바뀌지 않으며 사람 없이 돌고 run과 기록이 같다. (사람, 2026-11-11)
+- event job의 때와 최소 간격은 승인 대상이고 고치지 못한다. 폭풍은 앞 차례가 도는 중이면 건너뛰고(`busy`), 마지막으로 연 때에서 최소 간격(기본 5분) 안이면 건너뛴다(`too_soon`). 건너뜀은 줄로 쌓지 않고 센다. 이유: session event는 흔하고 job run 줄은 사람이 읽는 history라서다. (사람이 규칙을 정하고 agent가 세는 자리를 골랐다, 2026-11-11)
+- jobs는 앱이 아닌 안 구독자로 앱 event 전달에 붙는다(호출 기록 없음). 이유: job은 앱이 아니고 handler 호출이 아니라 job run이 기록이다. core가 `lophn` event를 낼 때 안 구독자가 있으면 구독 앱이 없어도 session 한 줄을 만든다. (agent)
+- 고리를 네 겹으로 막는다: 사람이 연 것이 아닌 session(어느 job의 run, run·workflow step·팀·call로 열린 것)의 event 무시, 이 job이 부르는 앱이 event 사슬에 있으면 무시(같은 앱의 tool은 만들 때 거절), 최소 간격과 `busy`. 앱 event는 job의 workspace가 그 앱 workspace에 닿을 때만 본다. 이유: 한 job이 자기 일의 결과로 다시 깨어나는 길이 둘(session event, 앱 event)이라 둘 다 닫는다. agent_run이 만든 앱 event의 사슬은 agent가 앱을 부르는 호출로 이어지지 않아 사슬로는 못 막고 최소 간격이 막는다. (agent)
 - 앱을 지우면 그 앱이 만든 job과 부르는 job도 지운다. 이유: 같은 slug의 새 앱이 옛 앱의 job을 물려받지 않게 한다. (agent)
 - 화면의 자리는 처음에 Settings › System과 project 창의 panel(그 project와 걸린 job만)이었다. shell을 하나로 합치면서 Settings에서 빼고 모든 workspace의 Jobs 탭, 왼쪽 sidebar의 Jobs overlay, 오른쪽 sidebar의 Jobs panel로 옮겼다. 처음 자리와 panel은 (사람, 2026-10-22)가 정했고 옮김은 shell 개편의 일부다.
 - job 명령 입력의 자유 JSON 칸(할 일의 입력, 출력 schema)은 tool의 JSON Schema로 바꿀 수 있는 형태로 둔다. 그 결과 JSON Schema에 `$defs`/`$ref`가 처음 들어갔고 진짜 Anthropic으로 보내 받아지는 것을 확인했다. OpenAI는 key가 없어 돌리지 못했다(adapter는 `strict`를 켜지 않는다). (agent)

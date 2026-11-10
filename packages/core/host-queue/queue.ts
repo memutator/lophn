@@ -53,6 +53,10 @@ type BrowserCallPayload = Extract<
   HostRequest,
   { kind: "browser_call" }
 >["payload"];
+type TerminalInterruptPayload = Extract<
+  HostRequest,
+  { kind: "terminal_interrupt" }
+>["payload"];
 type CallResult = Result<ExtensionToolContent[]>;
 
 // 뒤 task(surf-team, ext-tools)가 쓰는 port다.
@@ -65,6 +69,11 @@ export type HostQueue = {
   };
   // browser 호출을 넣고 shell main의 결과를 기다린다. BROWSER_CALL_MS 안에 답이 없으면 `expire()`가 거두고 `unavailable`로 끝낸다.
   callBrowser(payload: BrowserCallPayload): {
+    id: Id<"hrq">;
+    result: Promise<CallResult>;
+  };
+  // 터미널 탭의 coding agent를 끊는 요청을 넣고 shell main의 결과를 기다린다. shell이 없거나 기한(TERMINAL_INTERRUPT_MS)이 지나면 `unavailable`이다.
+  callTerminalInterrupt(payload: TerminalInterruptPayload): {
     id: Id<"hrq">;
     result: Promise<CallResult>;
   };
@@ -118,12 +127,15 @@ const sameWorkspace = (a: HostWorkspace, b: HostWorkspace) =>
 const isCall = (request: HostRequest) =>
   request.kind === "tool_call" ||
   request.kind === "browser_call" ||
+  request.kind === "terminal_interrupt" ||
   (request.kind === "tab_open" && "browser" in request.payload.target);
 
 const unavailable = (message: string) =>
   err({ code: "unavailable" as const, message });
 
 // browser·tab 호출의 이 문장들은 model이 그대로 받는다(work.ts). 원인, 다음 할 일, 되풀이가 통하는지를 적는다.
+// 터미널 끊기 요청의 기한이다. key를 치는 일이라 짧다.
+const TERMINAL_INTERRUPT_MS = 10_000;
 export const SHELL_NOT_ATTACHED =
   "The lophn app is not connected, so there is no browser to use. Retrying does not help until a person opens the lophn app; tell the person.";
 const QUEUE_FULL =
@@ -404,6 +416,15 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       return call(
         { id, kind: "browser_call", payload },
         deps.clock.nowMs() + BROWSER_CALL_MS,
+      );
+    },
+    callTerminalInterrupt(payload: TerminalInterruptPayload) {
+      const id = deps.ids.newId("hrq") as Id<"hrq">;
+      return call(
+        { id, kind: "terminal_interrupt", payload },
+        deps.clock.nowMs() + TERMINAL_INTERRUPT_MS,
+        () =>
+          "The lophn app did not answer in time, so the terminal was not interrupted.",
       );
     },
     abandon,

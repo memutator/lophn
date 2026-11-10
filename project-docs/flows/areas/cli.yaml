@@ -235,6 +235,7 @@ links:
   - {entry: "cli:app.sdk_feature", flow: app-sdk-feature}
   - {entry: "cli:app.logs", flow: app-log-read}
   - {entry: "cli:app.invocations", flow: app-invocation-read}
+  - {entry: "cli:app.event_publications", flow: app-event-publications-read}
   - {entry: "cli:browser.read", flow: host-browser-read}
   - {entry: "cli:browser.snapshot", flow: host-browser-inspect}
   - {entry: "cli:browser.screenshot", flow: host-browser-inspect}

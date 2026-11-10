@@ -90,6 +90,8 @@ const nodeFiles: ExtensionFiles = {
   },
 };
 
+// SIGTERM 뒤 group에 남은 process를 SIGKILL하기까지 기다리는 시간이다.
+const KILL_GRACE_MS = 3000;
 // env는 `cliEnv`(data root를 넣고 상위 session 표지를 지운다). CLI는 자기 process group으로 띄우고 group째 끈다:
 // CLI가 띄운 명령(tool, background task)이 CLI가 죽은 뒤에도 남지 않게 한다.
 const nodeSpawn =
@@ -117,11 +119,22 @@ const nodeSpawn =
           void signalTree(child.pid, "SIGTERM", "win32", nodeTreeDeps(spawn));
           return;
         }
+        // CLI는 자기 process group의 leader라 group째 끊는다(CLI가 띄운 명령까지). SIGTERM을 무시하거나 멈춘 process가 남지 않게
+        // 유예 뒤에도 group에 살아 있는 것이 있으면 SIGKILL을 보낸다(앱이 멈춘 session이 도는 채로 남지 않게 한다).
+        const group = -child.pid;
         try {
-          process.kill(-child.pid, "SIGTERM");
+          process.kill(group, "SIGTERM");
         } catch {
-          // 이미 끝난 group이다.
+          return; // 이미 끝난 group이다.
         }
+        setTimeout(() => {
+          try {
+            process.kill(group, 0);
+            process.kill(group, "SIGKILL");
+          } catch {
+            // 다 끝났다.
+          }
+        }, KILL_GRACE_MS).unref();
       },
       onStdout(listener) {
         child.stdout.setEncoding("utf8").on("data", listener);

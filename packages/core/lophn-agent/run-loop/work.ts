@@ -177,6 +177,7 @@ export function createQueueApplier(deps: {
             call: input.call,
             reply_to: input.reply_to,
             steer,
+            via: input.via ?? null,
           },
         } as AgentEvent);
       } else if (action.topic === QUEUE_CLEAR_TOPIC) {

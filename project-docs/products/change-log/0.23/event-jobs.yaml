@@ -1,0 +1,31 @@
+id: event-jobs
+version: 0.23.27
+title: "event로 도는 job: 앱 event나 core의 session event가 job을 연다"
+modules: [packages/protocol, packages/core/jobs, packages/core/apps, packages/core/runs, packages/core/main, packages/core/agent-workspaces, packages/cli, packages/shell/renderer, packages/design]
+checked: []
+change: |
+  전: job의 때는 주기(`every`, `at`)뿐이었다. 앱의 `usage.limit`이나 session이 idle이 되는 것에 반응해 agent를 돌리거나 workflow를 시작하려면 사람이 직접 하거나 앱 process가 해야 했다.
+  후:
+  - job의 때가 주기 아니면 event(`trigger: {source, event, min_interval, pass_event}`)다(정확히 하나). source는 앱(그 앱의 active release가 등록 때 선언한 event만)이거나 `lophn`(`session.started|running|waiting|idle|ended`만, `call.settled`는 안 됨). 사람의 등록 승인, 승인 뒤 고정된 할 일, 사람 없이 도는 run, job run 기록은 그대로다. event job은 `next_due_at`이 늘 null이고 놓친 차례가 없다.
+  - ledger step `jobs.trigger`: jobs 표를 다시 짜(every가 비어야 해서) `trigger`, `fired_count`, `skipped_count`, `last_fired_at`, `last_skipped_at`, `last_skip_reason`을 더하고 `job_runs.event`를 더한다. 주기 job과 job run은 그대로다(test).
+  - 전달: jobs wiring이 앱 event 전달(`createEventDelivery`)에 앱이 아닌 안 구독자로 붙는다(호출 기록도 발행 기록의 reachable·unreachable도 없음). core의 `lophn` event는 안 구독자가 원하면 구독 앱이 없어도 session 한 줄을 만든다. 승인하고 켜진 job만 연다(machine 명령 `job.fire_event`, 한 tx). 저장하지 않는다: 꺼진 사이의 event는 job을 열지 않는다.
+  - 폭풍: 앞 차례가 돌면 건너뛰고(`busy`) 마지막으로 연 때에서 최소 간격(기본 5분) 안이면 건너뛴다(`too_soon`). 건너뜀은 job run 줄이 아니라 job의 `skipped_count`와 마지막 시각·이유로 센다(session event가 흔해 history가 덮이는 것을 피함).
+  - 보이는 범위와 고리: `lophn` session event는 job의 workspace(home이면 home)가 call 정책(`mayReachWorkspace`)으로 닿을 수 있는 session만 연다. 이 job의 run이 연 session의 event, 이 job이 부르는 앱(tool_run)이 사슬에 있는 앱 event는 보지 않는다.
+  - 할 일에 주는 것: agent_run은 고정 prompt 뒤에 "지시가 아니다, 사람이 쓴 것이 아니다"라고 밝힌 Event data 글을 `<lophn-run>` 안에 붙인다(redaction은 메시지로 들어갈 때). workflow_start는 시작 글을 JSON `{text, event}`로, tool_run은 `pass_event`를 승인했을 때만 입력의 `event` 칸에 합친다.
+  - 화면과 도구: `lophn job create`에 `trigger`(`every`와 택일, `missed_policy` 선택). 승인 card가 때를 말로 보인다("When masup publishes usage.limit, at most every 5 minutes"). Jobs 목록·project panel은 다음 차례 대신 때와 연 수·건너뛴 수·마지막으로 연 때를 보이고, 고치기는 event job이면 제목만이다. 시스템 prompt에 `<lophn-run>`의 Event 블록과 trigger를 적었다.
+  - 문서: `job.md`, `event.md`, `app-notice.md`, roadmap `app-sdk.md`(6절, 결정 18, 단계 4).
+why: 한도 앞 대응이나 일이 끝난 뒤의 반응처럼 "무슨 일이 생기면 도는 일"을 사람이 승인하는 같은 job 길로 연다. 놓친 event를 믿게 할 장치는 만들지 않는다.
+decisions:
+  - text: "event로 도는 job을 연다(2026-11-05의 닫음을 뒤집음). 약속은 저장 없이 켜져 있는 동안 온 event에만 반응하는 것이다."
+    by: person
+  - text: "폭풍 규칙: busy는 건너뜀, 최소 간격(기본 5분, 승인 대상) 안이면 too_soon. 건너뜀은 job run 줄이 아니라 job의 counter와 마지막 시각·이유로 센다."
+    by: agent
+  - text: "때는 `every`와 `trigger` 택일이고 jobs 표의 every를 비울 수 있게 표를 다시 짠다. 대신 every 자리에 가짜 값을 두지 않는다."
+    by: agent
+  - text: "event 전달에 안 구독자를 더한다(앱이 아니고 기록 없음). 승인하고 켜진 job이 원할 때만 core가 session 한 줄을 만든다."
+    by: agent
+follow_up: |
+  - 켜 둔 event job은 core를 계속 켜 둔다(idle-exit가 켜진 job이 있으면 끄지 않는다).
+  - 앱이 나중 release에서 event 선언을 빼면 job은 말없이 돌지 않는다(상태에 표시하지 않았다).
+  - agent_run이 부른 앱 tool이 낸 event는 사슬로 이어지지 않아 같은 job으로 돌아오는 것을 최소 간격만 막는다.
+  - 사람이 job 화면의 새 글(때 문구, 건너뜀 수)을 실제 창에서 아직 보지 않았다.

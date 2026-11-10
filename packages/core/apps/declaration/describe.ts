@@ -43,5 +43,9 @@ export function descriptionGaps(declaration: AppDeclaration): string[] {
       );
     }
   }
+  for (const event of declaration.events ?? []) {
+    if (blank(event.description)) gaps.push(`events.${event.name}.description`);
+    inputGaps(`events.${event.name}.payloadSchema`, event.payloadSchema, gaps);
+  }
   return gaps.sort();
 }

@@ -1,4 +1,4 @@
-// `lophn app read|tools|create|link-source|status|sdk-status|sdk-decide|sdk-feature|logs|invocations`, `lophn declaration check`: 앱을 찾고 만들고 진단하는 명령이다.
+// `lophn app read|tools|create|link-source|status|sdk-status|sdk-decide|sdk-feature|logs|invocations|event-publications`, `lophn declaration check`: 앱을 찾고 만들고 진단하는 명령이다.
 // 다른 앱의 비공개 command를 숨기는 일은 `app.tool_index` route가 부른 쪽 credential을 보고 한다. 여기서는 부르기만 한다.
 import { resolve } from "node:path";
 import { z } from "zod";
@@ -6,6 +6,7 @@ import { ok } from "../../base/mod.ts";
 import {
   appConnectSource,
   appCreate,
+  appEventPublications,
   appGet,
   appInvocations,
   appInvocationsInputSchema,
@@ -331,6 +332,28 @@ const invocations = defineCommand({
   },
 });
 
+const eventPublications = defineCommand({
+  name: "app.event_publications",
+  summary: "List the events an app published",
+  description:
+    "List the events an app published, newest first: which event, when, how many subscribers were running (reachable), how many could not be reached because they were not running (unreachable) and how many of the reachable ones were not handed the event because it would loop back to an app already in the chain (refused; a later denial or failure of a handed call is not counted, see `lophn app invocations`), and the trace_id the publication shares with the calls it caused (see `lophn app invocations`: those calls have an event caller). The payload is not kept. Only the most recent 200 per app are kept. Filter by event.",
+  input: appEventPublications.input.omit({ cursor: true }),
+  positional: ["app"],
+  effect: "read",
+  routes: [appEventPublications],
+  workspaces: ["home", "app"],
+  run: async (input, ctx) => {
+    const read = await ctx.core.read(appEventPublications, input);
+    if (!read.ok) return read;
+    const { body, more } = readBody(read.value);
+    return ok({
+      summary: countSummary("publications", body.publications.length, more),
+      content: body,
+      arrayKeys: ["publications"],
+    });
+  },
+});
+
 export const APP_COMMANDS = [
   read,
   tools,
@@ -343,4 +366,5 @@ export const APP_COMMANDS = [
   sdkFeature,
   logs,
   invocations,
+  eventPublications,
 ];

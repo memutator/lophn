@@ -192,6 +192,17 @@ export const agentCard = defineRead({
   errors: [...readErrors],
 });
 
+// 앱이 자기 workspace에서 부를 수 있는 agent들의 명함이다. 한 번에 읽는다(앱 화면의 agent 목록). core 안 machine만 쓴다.
+export const agentCards = defineRead({
+  resource: "agents",
+  method: "cards",
+  name: "ListAgentCards",
+  input: z.strictObject({ workspace: workspaceSchema }),
+  output: withReadCommon(z.object({ cards: z.array(agentCardSchema) })),
+  actors: ["machine"],
+  errors: [...readErrors],
+});
+
 export const agentCreate = defineCommand({
   resource: "agents",
   method: "create",
@@ -268,6 +279,7 @@ export const AGENT_ROUTES = [
   agentList,
   agentRead,
   agentCard,
+  agentCards,
   agentCreate,
   agentChange,
   agentDelete,

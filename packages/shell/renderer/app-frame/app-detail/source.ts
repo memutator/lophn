@@ -193,6 +193,12 @@ export type Caller =
     }
   | { readonly kind: "program" }
   | { readonly kind: "flow" }
+  | {
+      readonly kind: "event";
+      /** 발행한 앱의 이름. core(`lophn`)가 낸 것이면 `lophn`, 못 읽으면 null. */
+      readonly publisherName: string | null;
+      readonly event: string;
+    }
   | { readonly kind: "start"; readonly reason: "activation" | "restart" };
 
 export type CallState = "done" | "failed" | "waiting" | "running" | "unknown";

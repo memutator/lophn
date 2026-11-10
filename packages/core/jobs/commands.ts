@@ -2,14 +2,18 @@ import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 import { type Id, parseActor } from "../../protocol/base/mod.ts";
 import {
+  JOB_TRIGGER_DEFAULT_INTERVAL,
   type JobAction,
   type JobActionInput,
   jobApprove,
   jobCreate,
   jobDelete,
   type JobRecord,
+  type JobTrigger,
+  type JobTriggerInput,
   jobUpdate,
 } from "../../protocol/jobs/mod.ts";
+import { SESSION_EVENTS } from "../../protocol/lophn-agent/session-lifecycle.ts";
 import type { AgentAtWorkspace } from "../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
@@ -20,6 +24,7 @@ import { afterCommit } from "../storage/ledger/after-commit.ts";
 import {
   JOBS_CHANGED_TOPIC,
   type JobsChangedData,
+  jobEventPolicyPort,
   jobTargetsPort,
   jobZonePort,
 } from "./ports.ts";
@@ -103,6 +108,77 @@ function resolveAction(tx: Tx, input: JobActionInput): Result<JobAction> {
   }
 }
 
+// event 때를 푼다: 앱은 id로 풀고 그 active release가 선언한 event여야 하며, `lophn`은 core의 session event만이다(`call.settled`는 한 앱에게만
+// 가는 event라 job의 때가 아니다). 앱 event의 선언이 나중 release에서 빠지면 job은 그냥 돌지 않는다.
+function resolveTrigger(
+  tx: Tx,
+  input: JobTriggerInput,
+  action: JobAction,
+  creator: AgentAtWorkspace,
+): Result<JobTrigger> {
+  const passEvent = input.pass_event ?? false;
+  if (passEvent) {
+    if (action.kind !== "tool_run") {
+      return fail("invalid_input", "pass_event is only for a tool_run action");
+    }
+    const given = action.input;
+    if (
+      given !== undefined &&
+      (typeof given !== "object" || given === null || Array.isArray(given))
+    ) {
+      return fail(
+        "invalid_input",
+        "pass_event needs the tool input to be an object or absent",
+      );
+    }
+  }
+  const base = {
+    event: input.event,
+    min_interval: input.min_interval ?? JOB_TRIGGER_DEFAULT_INTERVAL,
+    pass_event: passEvent,
+  };
+  if (input.source === "lophn") {
+    if (!(SESSION_EVENTS as readonly string[]).includes(input.event)) {
+      return fail(
+        "invalid_input",
+        `lophn events a job can use: ${SESSION_EVENTS.join(", ")}`,
+      );
+    }
+    return ok({ ...base, source: "lophn", app: null });
+  }
+  const policy = tx.port(jobEventPolicyPort);
+  const app = policy.resolveSource(input.source);
+  if (!app.ok) return app;
+  // 앱의 event에 같은 앱의 tool로 답하면 그 호출이 낸 event의 사슬에 그 앱이 늘 있어 job이 영영 돌지 않는다.
+  if (action.kind === "tool_run" && action.app === app.value.app) {
+    return fail(
+      "invalid_input",
+      `a job cannot call ${app.value.slug} when ${app.value.slug} publishes the event: events caused by a call to the same app never start the job (use an agent_run or a workflow that calls the app instead)`,
+    );
+  }
+  // 앱 event는 그 앱 workspace가 job의 workspace에서 call 정책으로 닿을 수 있어야 한다(private 앱의 event를 다른 workspace의 job이 듣지 못한다).
+  if (
+    !policy.reaches(
+      creator.workspace === null
+        ? null
+        : { kind: creator.workspace.kind, id: creator.workspace.id },
+      { kind: "app", id: app.value.app },
+    )
+  ) {
+    return fail(
+      "forbidden",
+      `the call policy does not let this workspace reach ${app.value.slug}`,
+    );
+  }
+  if (!policy.declares(app.value.app, input.event)) {
+    return fail(
+      "invalid_input",
+      `${app.value.slug} does not declare the event ${input.event} in its active release`,
+    );
+  }
+  return ok({ ...base, source: app.value.slug, app: app.value.app });
+}
+
 // agent는 같은 agent가 같은 workspace에서 만든 job만 본다. 남의 job은 있는지도 알리지 않는다(not_found).
 // user는 어느 job이든 한다.
 function loadOwned(tx: Tx, ctx: RequestContext, id: string): Result<JobRecord> {
@@ -133,6 +209,7 @@ export function eraseJobsOfApp(tx: Tx, app: string): void {
     .all(
       `SELECT id FROM jobs
        WHERE creator_workspace = ?1
+          OR json_extract(trigger, '$.app') = ?1
           OR (json_extract(action, '$.kind') = 'tool_run' AND json_extract(action, '$.app') = ?1)
           OR (json_extract(action, '$.kind') = 'agent_run'
               AND json_extract(action, '$.agent_workspace.kind') = 'app'
@@ -167,19 +244,48 @@ export function createJobCommands(): {
           return fail("forbidden", "the session is not known");
         }
         const at = input.at ?? null;
-        const checked = checkAt(input.every, at);
-        if (!checked.ok) return checked;
+        // 때는 주기와 event 가운데 정확히 하나다.
+        if ((input.every === undefined) === (input.trigger === undefined)) {
+          return fail(
+            "invalid_input",
+            "give either every (a schedule) or trigger (an event), not both",
+          );
+        }
+        let every: string | null = null;
+        if (input.every !== undefined) {
+          if (input.missed_policy === undefined) {
+            return fail("invalid_input", "a scheduled job needs missed_policy");
+          }
+          const checked = checkAt(input.every, at);
+          if (!checked.ok) return checked;
+          every = input.every;
+        } else if (at !== null) {
+          return fail("invalid_input", "at is only for a scheduled job");
+        }
         const action = resolveAction(tx, input.action);
         if (!action.ok) return action;
+        let trigger: JobTrigger | null = null;
+        if (input.trigger !== undefined) {
+          const resolved = resolveTrigger(
+            tx,
+            input.trigger,
+            action.value,
+            creator,
+          );
+          if (!resolved.ok) return resolved;
+          trigger = resolved.value;
+        }
         const id = tx.newId("job");
         insertJob(tx.sql, {
           id,
           title: input.title,
           creator,
-          every: input.every,
+          every,
           at,
+          trigger,
           action: action.value,
-          missed_policy: input.missed_policy,
+          // event job은 놓친 차례가 없다(저장값은 뜻이 없다).
+          missed_policy: input.missed_policy ?? "run",
           enabled: input.enabled ?? true,
           created_at: tx.now(),
         });
@@ -194,15 +300,26 @@ export function createJobCommands(): {
         const owned = loadOwned(tx, ctx, input.job);
         if (!owned.ok) return owned;
         const job = owned.value;
+        // event job의 때(trigger)는 승인한 값이라 고치지 못한다. 주기와 시각은 주기 job의 것이다.
+        if (
+          job.trigger !== null &&
+          (input.every !== undefined || input.at !== undefined)
+        ) {
+          return fail(
+            "invalid_input",
+            "an event job has no schedule; delete it and create a new one to change its event",
+          );
+        }
         const every = input.every ?? job.every;
         const at = input.at === undefined ? job.at : input.at;
         const enabled = input.enabled ?? job.enabled;
-        const checked = checkAt(every, at);
+        const checked = every === null ? ok(undefined) : checkAt(every, at);
         if (!checked.ok) return checked;
         const now = tx.now();
         // 켜지는 순간이거나 주기나 시각이 바뀌면 그 순간부터 새로 센다. 놓친 것으로 치지 않는다.
         const recount =
           every !== job.every || at !== job.at || (enabled && !job.enabled);
+        const scheduled = every !== null;
         replaceJob(tx.sql, job.id, {
           title: input.title ?? job.title,
           every,
@@ -210,7 +327,7 @@ export function createJobCommands(): {
           missed_policy: input.missed_policy ?? job.missed_policy,
           enabled,
           next_due_at:
-            !enabled || job.approved_at === null
+            !scheduled || !enabled || job.approved_at === null
               ? null
               : recount
                 ? firstDue(
@@ -244,16 +361,18 @@ export function createJobCommands(): {
         const now = tx.now();
         approveJob(tx.sql, job.id, {
           approved_at: now,
-          next_due_at: job.enabled
-            ? firstDue(
-                {
-                  every: job.every,
-                  at: job.at,
-                  zone: tx.port(jobZonePort).zone(),
-                },
-                now,
-              )
-            : null,
+          // event job은 때가 없다(next_due_at은 늘 null이고 event가 차례를 연다).
+          next_due_at:
+            job.enabled && job.every !== null
+              ? firstDue(
+                  {
+                    every: job.every,
+                    at: job.at,
+                    zone: tx.port(jobZonePort).zone(),
+                  },
+                  now,
+                )
+              : null,
         });
         const approved = loadJob(tx.sql, job.id);
         return approved.ok ? ok({ job: approved.value! }) : approved;

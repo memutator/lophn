@@ -260,6 +260,10 @@ files:
     covers: [tool-list-assembly:fixed, tool-call-execute:not-listed, tool-call-execute:ok, tool-call-execute:gate-denied, tool-call-execute:input-invalid, tool-call-execute:handler-failed]
     note: "workspace 종류의 고정 목록에 없는 tool은 실행되지 않고, Gate가 막으면 실행하지 않으며, 입력은 Gate 전에 검사한다. 같은 wire 이름 둘은 목록 build 오류다(내부)"
 
+  - path: packages/core/lophn-agent/session/lifecycle_test.ts
+    covers: [app-sessions-list:listed, app-sessions-stop:not-found, session-lifecycle-publish:invisible]
+    note: "private workspace의 session은 앱에게 목록과 event에 안 보이고 멈추기는 not_found다(call 정책 시야). 보이는 터미널 session은 끊기 요청이 간다. 상태 파생과 host queue는 가짜 port"
+
   - path: packages/core/lophn-agent/tools/shell/env_test.ts
     covers: []
     note: "shell 자식 환경은 허락한 이름만 넘긴다. LOPHN token과 secret은 나가지 않는다(순수 함수). tool-shell-run의 단계 3이라 단독 outcome이 없다"

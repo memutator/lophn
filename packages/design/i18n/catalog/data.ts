@@ -80,7 +80,7 @@ export const data = {
   "waiting.label.group-notifications": "Notifications",
   "waiting.label.group-permission": "Permission requests",
   "waiting.label.group-question": "Questions",
-  "waiting.label.group-job": "Scheduled jobs",
+  "waiting.label.group-job": "Jobs",
   "waiting.label.group-share": "App sharing",
   "waiting.label.share-coding": "coding agents in terminals",
   "waiting.label.filter-all-apps": "All apps",
@@ -96,6 +96,7 @@ export const data = {
   "waiting.label.kind-release-failed": "Release failed",
   "waiting.label.kind-release-rolled-back": "Release rolled back",
   "waiting.label.kind-sdk-update-needed": "SDK update needed",
+  "waiting.label.kind-session-stopped-by-app": "App stopped a session",
   "waiting.label.tab-history": "History",
   "waiting.label.tab-history-unread": "History ({count})",
   "waiting.label.tab-now": "Now",
@@ -145,6 +146,12 @@ export const data = {
   "waiting.notice.share":
     "Wants {who} to use its {skills, plural, one {# public skill} other {# public skills}} and {commands, plural, one {# public command} other {# public commands}}. Nothing changes until you approve.",
   "waiting.notice.job-agent": "Asks {agent}.",
+  "waiting.notice.job-pass-event":
+    "The event's data is passed into the command input.",
+  "waiting.notice.job-approval-event":
+    "Wants to run when {source} publishes {event}, at most every {interval}, unattended. It won't run until you approve. Reject deletes it.",
+  "waiting.notice.job-approval-lophn":
+    "Wants to run when lophn reports {event}, at most every {interval}, unattended. It won't run until you approve. Reject deletes it.",
   "waiting.notice.job-conflict":
     "The previous turn is still going. Try again when it finishes.",
   "waiting.notice.job-approval":

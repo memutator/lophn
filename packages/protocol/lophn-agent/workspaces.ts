@@ -104,9 +104,11 @@ export const agentAtWorkspaceOutputSchema = z.object({
 export type AgentAtWorkspace = z.infer<typeof agentAtWorkspaceSchema>;
 
 // 이름으로 가리키는 받는 쪽이다. workspace가 없으면 home이다(workflow 참가자만 instance의 project다).
+// `{home: true}`는 home을 뜻을 밝혀 적는 것이다(앱이 보낸 call은 workspace를 빼면 그 앱 workspace라 home은 이것으로만 닿는다).
 export const workspaceNameSchema = z.union([
   z.strictObject({ project: z.string().min(1) }),
   z.strictObject({ app: z.string().min(1) }),
+  z.strictObject({ home: z.literal(true) }),
 ]);
 export const agentAddressSchema = z.strictObject({
   agent: z.string().min(1),

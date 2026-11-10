@@ -1,0 +1,12 @@
+id: app-a2a-fixes-2
+version: 0.23.27
+title: "앱 event 발행 기록의 구독자 수와 앱이 멈춘 터미널 session의 상태를 고친다"
+modules: [packages/core/apps, packages/core/main, packages/shell/main]
+checked: []
+change: |
+  - 발행 기록: process에 handler를 등록하지 않은 화면만 구독하는 앱을 `unreachable`로 세던 것을 고쳤다. process가 떠 있고 handler가 없는 구독자는 process 전달 대상이 아니라 reachable도 unreachable도 아니다. handler가 있을 수 있는데 받을 수 없는(process가 떠 있지 않은) 구독자만 unreachable이다. process가 꺼진 화면 전용 앱은 handler 등록 여부를 알 수 없어 unreachable으로 세어진다.
+  - 앱이 터미널 탭 session을 멈추면 shell의 터미널 tracker가 사람이 같은 key를 친 것과 같이 상태를 `unknown`으로 내린다. 전에는 다음 hook까지 목록에 running으로 남았다.
+why: 실제 창에서 돌려 본 뒤 나온 두 틈이다.
+decisions:
+  - text: "process가 꺼져 있으면 handler 등록 여부를 알 수 없어 보수적으로 unreachable이다(등록 이름은 ready probe만 안다)."
+    by: agent

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { acpApprovalSubjectSchema } from "../approvals/gate-call.ts";
 import { shellPatternSchema } from "../approvals/shell-rules.ts";
+import { idSchema } from "../base/ids.ts";
 import { atSchema } from "../base/values.ts";
 import { askInputSchema } from "../lophn-agent/ask-tool.ts";
 import { contentBlockSchema } from "../lophn-agent/content-block.ts";
@@ -42,6 +43,8 @@ export const acpQueuedSchema = z.strictObject({
   id,
   at: atSchema,
   content: z.array(contentBlockSchema),
+  /** 앱 화면이 보낸 사람 메시지의 표시다(이름표일 뿐 보낸 쪽이 아니다: 메시지는 사람의 것이고 model이 받는 글은 같다). name은 보낼 때의 앱 slug다. */
+  via: z.strictObject({ app: idSchema("app"), name: z.string() }).optional(),
 });
 export type AcpQueued = z.infer<typeof acpQueuedSchema>;
 

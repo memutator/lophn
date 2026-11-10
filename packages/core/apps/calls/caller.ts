@@ -10,7 +10,7 @@ import type { Flight } from "./intake.ts";
 
 // previewOnly는 route 입력이 아니라 core 안 호출자만 켠다(preview로만 가는 credential).
 export type CallAuth = {
-  actor: "user" | "agent" | "app" | "program" | "flow";
+  actor: "user" | "agent" | "app" | "program" | "flow" | "event";
   app?: Id<"app">;
   // actor가 program일 때만 있다. route는 이 자격을 만들지 못하고 core 안 run 연산만 만든다.
   program?: {
@@ -22,6 +22,16 @@ export type CallAuth = {
     instance: Id<"wfi">;
     agent: AgentId;
     workspace: Workspace | null;
+  };
+  // actor가 event일 때만 있다. 발행을 받은 core의 event 전달만 만든다(route는 만들지 못한다).
+  // parent는 발행한 앱이 부모 invocation 안에서 냈을 때 core가 발행을 받는 순간 확인해 둔 도는 호출이다.
+  event?: {
+    publisher: string;
+    event: string;
+    publication: Id<"pub">;
+    trace_id: string;
+    chain: readonly string[];
+    parent: Flight | null;
   };
   previewOnly?: true;
 };
@@ -39,6 +49,7 @@ export type VerifiedCaller =
     }
   | { kind: "app"; app: Id<"app">; parent: Flight }
   | { kind: "program"; job: Id<"job">; job_run: Id<"jbr"> }
+  | { kind: "event"; parent: Flight | null }
   | {
       kind: "flow";
       instance: Id<"wfi">;
@@ -58,6 +69,7 @@ const KIND_OF_ACTOR = {
   app: "app",
   program: "program",
   flow: "flow",
+  event: "event",
 } as const;
 
 function forbidden(message: string): Result<never> {
@@ -137,6 +149,29 @@ export function verifyCaller(
       job: program.job,
       job_run: program.job_run,
     });
+  }
+
+  if (caller.kind === "event") {
+    if (input.target.mode !== "live" || input.target.release !== null) {
+      return err({
+        code: "invalid_input",
+        message: "event deliveries target the live active release",
+      });
+    }
+    // 본문은 주장일 뿐이라 core가 만든 자격과 맞춰 본다.
+    const { event } = auth;
+    if (
+      event === undefined ||
+      event.publisher !== caller.publisher ||
+      event.event !== caller.event ||
+      event.publication !== caller.publication ||
+      event.trace_id !== caller.trace_id ||
+      event.chain.join(",") !== caller.chain.join(",") ||
+      (event.parent?.id ?? null) !== caller.parent_invocation
+    ) {
+      return forbidden("event delivery does not match the credential");
+    }
+    return ok({ kind: "event", parent: event.parent });
   }
 
   if (caller.kind === "flow") {

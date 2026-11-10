@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { sha256Hex } from "../../../base/mod.ts";
 import { TEAMS, WIRINGS } from "./assembly.ts";
+import { stepContent } from "../../storage/migration/mod.ts";
 import { assemble } from "./registration.ts";
 
 // 낸 schema step의 id·순서·SQL hash를 schema-steps.lock.json에 얼려 둔다. 실제 data root(~/.lophn)는
@@ -11,7 +12,7 @@ import { assemble } from "./registration.ts";
 // lock 갱신: step을 새로 더하는 같은 변경에서 lock 끝에 {id, sha256}을 덧붙인다(lock 앞쪽 줄은 고치지 않는다).
 // 등록된 목록과 lock은 길이까지 같아야 한다. 덧붙이지 않으면 새 step의 hash가 얼지 않아 낸 뒤 고쳐도 모른다.
 // sha256은 step.sql의 UTF-8 byte의 SHA-256 hex다. 이 test가 쓰는 목록(core.ts와 같은 순서)에서 뽑는다:
-//   node --input-type=module -e 'import {createHash} from "node:crypto"; import {TEAMS,WIRINGS} from "./packages/core/main/daemon/assembly.ts"; import {assemble} from "./packages/core/main/daemon/registration.ts"; const w=WIRINGS.map(f=>f()); const a=assemble(TEAMS,{}); const s=[...w.flatMap(x=>x.schemaSteps??[]),...a.value.schemaSteps,...w.flatMap(x=>x.schemaStepsAfterTeams??[])]; for (const x of s) console.log(x.id, createHash("sha256").update(x.sql).digest("hex"))'
+//   node --input-type=module -e 'import {createHash} from "node:crypto"; import {TEAMS,WIRINGS} from "./packages/core/main/daemon/assembly.ts"; import {assemble} from "./packages/core/main/daemon/registration.ts"; const w=WIRINGS.map(f=>f()); const a=assemble(TEAMS,{}); const s=[...w.flatMap(x=>x.schemaSteps??[]),...a.value.schemaSteps,...w.flatMap(x=>x.schemaStepsAfterTeams??[])]; for (const x of s) console.log(x.id, createHash("sha256").update(x.foreignKeys==="off"?"-- foreign_keys=off\n"+x.sql:x.sql).digest("hex"))'
 const RULE =
   "낸 step은 고치지 말고 새 step을 더한다. 새 step의 {id, sha256}은 schema-steps.lock.json 끝에 덧붙인다.";
 
@@ -30,7 +31,7 @@ async function registeredSteps(): Promise<Locked[]> {
   return Promise.all(
     steps.map(async (step) => ({
       id: step.id,
-      sha256: await sha256Hex(step.sql),
+      sha256: await sha256Hex(stepContent(step)),
     })),
   );
 }

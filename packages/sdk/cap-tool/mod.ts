@@ -37,3 +37,5 @@ export type {
   CallOutput,
   CommandClient,
 } from "./connect.ts";
+export { publish, subscribe } from "./events.ts";
+export type { PublishOutput } from "./events.ts";

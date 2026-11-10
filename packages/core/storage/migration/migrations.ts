@@ -129,6 +129,13 @@ function integrityPassed(connection: LedgerConnection): boolean {
   }
 }
 
+// hash가 보는 step의 내용이다. FK를 끄고 도는 step은 그 사실이 실행 방식을 바꾸므로 hash에 든다(낸 step의 flag를 조용히 바꾸지 못한다).
+export function stepContent(step: SchemaStep): string {
+  return step.foreignKeys === "off"
+    ? `-- foreign_keys=off\n${step.sql}`
+    : step.sql;
+}
+
 // 적용한 step 수를 돌려준다.
 export async function applyMigrations(
   path: string,
@@ -145,7 +152,7 @@ export async function applyMigrations(
       });
     }
     ids.add(step.id);
-    planned.push({ step, contentHash: await sha256Hex(step.sql) });
+    planned.push({ step, contentHash: await sha256Hex(stepContent(step)) });
   }
   const opened = openConnection(path);
   if (!opened.ok) {
@@ -202,10 +209,53 @@ function applyStep(
   version: number,
   clock: Clock,
 ): Result<void> {
+  // FK 자식이 있는 표를 다시 짜는 step은 FK를 끈 채 돌고 commit 전에 위반이 없음을 확인한다(transaction 안에서는 끌 수 없어 앞에서 끈다).
+  const foreignKeysOff = entry.step.foreignKeys === "off";
+  const failed = (message: string): Result<void> =>
+    err({ code: "unavailable", message });
+  if (foreignKeysOff) {
+    try {
+      connection.exec("pragma foreign_keys=OFF");
+    } catch {
+      return failed("FK를 끄지 못해 그 단계를 거절한다");
+    }
+  }
+  const applied = applyStepInTransaction(
+    connection,
+    entry,
+    version,
+    clock,
+    foreignKeysOff,
+  );
+  if (foreignKeysOff) {
+    // 다시 켜지 못하면 FK 없이 도는 connection이 남으므로 단계가 성공했어도 오류로 올린다.
+    try {
+      connection.exec("pragma foreign_keys=ON");
+    } catch {
+      return failed("FK를 다시 켜지 못해 migration을 거절한다");
+    }
+  }
+  return applied;
+}
+
+function applyStepInTransaction(
+  connection: LedgerConnection,
+  entry: PlannedStep,
+  version: number,
+  clock: Clock,
+  checkForeignKeys: boolean,
+): Result<void> {
   connection.exec("begin immediate");
   try {
     connection.exec(MIGRATIONS_TABLE);
     connection.exec(entry.step.sql);
+    if (
+      checkForeignKeys &&
+      connection.sql.all("select * from pragma_foreign_key_check", []).length >
+        0
+    ) {
+      throw new Error("foreign key violation after the step");
+    }
     // step이 commit이나 rollback을 하면 적용기의 transaction이 끝난다.
     if (!connection.inTransaction()) {
       return err({

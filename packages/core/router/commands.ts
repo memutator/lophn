@@ -5,6 +5,7 @@ import { defineCommand, parseActor } from "../../protocol/base/mod.ts";
 import { z } from "zod";
 import {
   agentCallSend,
+  callAddressInputSchema,
   callAskKindSchema,
   callCancel,
   callFailReasonSchema,
@@ -98,6 +99,55 @@ export const callsAskWithdraw = defineCommand({
   compare: z.strictObject({}),
   actors: ["machine"],
   errors: ["forbidden", "not_found", "unavailable", "internal"],
+});
+
+// 앱 화면이 보내는 call(view-first: 앱 process에는 이 길이 없다). 사람이 앱 화면에서 보낸 것이라 받는 turn은 attended다. shell main이 앱을
+// 정해 부른 core wiring이 이 command를 core 안 machine 자격으로 불러 그 앱 이름으로 Router에 넣는다.
+// 받을 곳 풀기, workspace 정책(앱 workspace에서 닿을 수 있는 workspace), 명함 검사는 agent의 call.send와 같다. core 안 machine만 쓴다.
+export const callsAppSend = defineCommand({
+  resource: "calls",
+  method: "app-send",
+  name: "SendAppCall",
+  input: z.strictObject({
+    app: idSchema("app"),
+    to: callAddressInputSchema,
+    // 앱은 답 없는 call과 결과 하나를 받는 call만 보낸다. 대화(conversation)는 앱에 받을 queue가 없어 열지 않는다.
+    reply: z.enum(["none", "result"]),
+    body: contentBlocksSchema,
+    // 같은 앱의 같은 key는 첫 call을 돌려준다.
+    key: z.string().min(1).max(200).optional(),
+  }),
+  output: z.object({
+    call: idSchema("cal"),
+    state: callStateSchema,
+    fail_reason: callFailReasonSchema.nullable(),
+  }),
+  compare: z.strictObject({}),
+  actors: ["machine"],
+  errors: [
+    "invalid_input",
+    "forbidden",
+    "not_found",
+    "conflict",
+    "unavailable",
+    "internal",
+  ],
+});
+
+// 앱이 자기가 보낸 call을 취소한다. 받는 session에 취소 알림이 간다. core 안 machine만 쓴다.
+export const callsAppCancel = defineCommand({
+  resource: "calls",
+  method: "app-cancel",
+  name: "CancelAppCall",
+  input: z.strictObject({
+    app: idSchema("app"),
+    call: idSchema("cal"),
+    reason: z.string().min(1).optional(),
+  }),
+  output: z.object({ call: idSchema("cal"), state: callStateSchema }),
+  compare: z.strictObject({}),
+  actors: ["machine"],
+  errors: ["forbidden", "not_found", "conflict", "unavailable", "internal"],
 });
 
 // 호출한 agent의 session이다. agent 자격은 session에 묶인다.
@@ -315,6 +365,59 @@ const cancelCallCommand: CommandDefinition<typeof callCancel> = {
   },
 };
 
+const appSendCommand: CommandDefinition<typeof callsAppSend> = {
+  route: callsAppSend,
+  handle(tx, ctx, input) {
+    if (parseActor(ctx.actor)?.kind !== "machine") {
+      return err({ code: "forbidden", message: "only core sends for an app" });
+    }
+    const router = routerFor(tx);
+    if (!router.ok) return router;
+    const from = router.value.appSender(input.app);
+    if (!from.ok) return from;
+    const routed = router.value.route(tx, {
+      from: from.value,
+      to: input.to,
+      reply: input.reply,
+      body: input.body,
+      refs: [],
+      reply_to: null,
+      dedup: input.key ?? null,
+      kind: "call",
+      delivery: "next_turn",
+      unattended: false,
+    });
+    if (!routed.ok) return routed;
+    if (routed.value.call === null) {
+      return err({ code: "internal", message: "an app call has an ID" });
+    }
+    return ok({
+      call: calId(routed.value.call),
+      state: routed.value.state,
+      fail_reason: routed.value.fail_reason,
+    });
+  },
+};
+
+const appCancelCommand: CommandDefinition<typeof callsAppCancel> = {
+  route: callsAppCancel,
+  handle(tx, ctx, input) {
+    if (parseActor(ctx.actor)?.kind !== "machine") {
+      return err({
+        code: "forbidden",
+        message: "only core cancels for an app",
+      });
+    }
+    const router = routerFor(tx);
+    if (!router.ok) return router;
+    const by = router.value.appSender(input.app);
+    if (!by.ok) return by;
+    const cancelled = router.value.cancel(tx, by.value, input);
+    if (!cancelled.ok) return cancelled;
+    return ok({ call: cancelled.value.call, state: cancelled.value.state });
+  },
+};
+
 const recoverCallsCommand: CommandDefinition<typeof callsRecover> = {
   route: callsRecover,
   handle(tx, ctx, input) {
@@ -342,4 +445,6 @@ export const ROUTER_COMMANDS = [
   autoReplyCallCommand,
   cancelCallCommand,
   recoverCallsCommand,
+  appSendCommand,
+  appCancelCommand,
 ] as const;

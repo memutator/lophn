@@ -10,7 +10,24 @@ import type {
   AcpUpdate as ProtocolUpdate,
 } from "../../protocol/acp/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
-import type { LophnAppAgent } from "../../protocol/shell/app-bridge-types.ts";
+import type { AgentCard as ProtocolAgentCard } from "../../protocol/lophn-agent/agent-definitions.ts";
+import type {
+  AppCallRow as ProtocolCallRow,
+  CallSettledPayload as ProtocolCallSettled,
+} from "../../protocol/lophn-agent/app-calls.ts";
+import type {
+  LophnAppAgent,
+  LophnAppAgents,
+  LophnAppCalls,
+} from "../../protocol/shell/app-bridge-types.ts";
+import type { AppBridge } from "./bridge.ts";
+import type {
+  AgentCard,
+  CallRow,
+  CallSendInput,
+  CallSent,
+  CallSettled,
+} from "./call-types.ts";
 import type {
   AcpChildState,
   AcpChildUpdate,
@@ -39,6 +56,24 @@ same<AcpInput extends ProtocolInput ? true : false>();
 // bridge의 type 인자를 이 SDK의 type으로 채우면 SDK의 bridge 사본이 된다.
 same<
   LophnAppAgent<AcpState, AcpUpdate, AcpInput> extends AgentBridge
+    ? true
+    : false
+>();
+
+// 앱이 agent에게 보내는 call의 사본도 정본과 같다.
+same<Same<CallRow, ProtocolCallRow>>();
+same<Same<CallSettled, ProtocolCallSettled>>();
+// 명함은 SDK가 enum을 string으로 느슨하게 적은 사본이라 정본이 사본에 들어가는지만 본다.
+same<ProtocolAgentCard extends AgentCard ? true : false>();
+same<
+  LophnAppCalls<CallSendInput, CallSent, CallRow> extends NonNullable<
+    AppBridge["calls"]
+  >
+    ? true
+    : false
+>();
+same<
+  LophnAppAgents<AgentCard> extends NonNullable<AppBridge["agents"]>
     ? true
     : false
 >();

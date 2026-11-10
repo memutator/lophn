@@ -6,6 +6,7 @@ export type {
   CommandDeclaration,
   AppCommandUseDeclaration,
   DeclarationOptions,
+  EventDeclaration,
   InputSchema,
   InputType,
   JsonObject,
@@ -19,6 +20,7 @@ export type {
   ScreenDeclaration,
   SDKDependency,
   SkillDeclaration,
+  SubscriptionDeclaration,
   ToolEffect,
   TraySide,
   TraySize,
@@ -26,10 +28,12 @@ export type {
   ValidationResult,
 } from "./types.ts";
 export {
+  LOPHN_EVENT_SOURCE,
   OAUTH_RESERVED_PARAMS,
   RESERVED_APP_SLUGS,
+  subscriptionHandlerName,
 } from "./types.ts";
-export { handlerNames } from "./tools.ts";
+export { handlerNames, requiredHandlerNames } from "./tools.ts";
 export { canonicalInputHash, validateInput } from "./schema.ts";
 export { canonicalJson } from "./json.ts";
 export { validateDeclaration } from "./value.ts";

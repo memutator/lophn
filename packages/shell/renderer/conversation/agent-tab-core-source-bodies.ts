@@ -121,6 +121,8 @@ async function senderOf(
       return null;
     case "program":
       return { kind: "program", label: null };
+    case "app":
+      return { kind: "app", app: from.app, name: from.slug };
     default: {
       const agent = await agentOf(env, memo, from.session);
       return {
@@ -172,7 +174,7 @@ export async function readEnvelope(
   if (base === null) return { ok: false, code: "not_found" };
   const sender = await withName(env, base, from);
   let session: Envelope["session"] = null;
-  if (from.kind !== "human" && from.kind !== "program") {
+  if (from.kind === "agent") {
     const sent = await readSession(env, from.session);
     if (sent.ok) {
       session = { id: from.session, title: sent.value.title ?? "" };

@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import type { Sql } from "../../../../protocol/server/mod.ts";
-import { conversationSchemaSteps } from "../model.ts";
 import { turnSchemaSteps } from "../../run-loop/schema.ts";
 import { toolsSchemaSteps } from "../../tools/model.ts";
 import { lastArtifactWriter, revertSchemaSteps } from "./mod.ts";
+import { conversationTestSteps } from "../test-steps.ts";
 
 const ROOT_A = "/data/projects/prj_a/artifacts";
 const ROOT_B = "/data/projects/prj_b/artifacts";
@@ -14,7 +14,7 @@ function setup() {
   const db = new DatabaseSync(":memory:");
   db.exec("pragma foreign_keys = off");
   for (const step of [
-    ...conversationSchemaSteps,
+    ...conversationTestSteps,
     ...turnSchemaSteps,
     ...toolsSchemaSteps,
     ...revertSchemaSteps,

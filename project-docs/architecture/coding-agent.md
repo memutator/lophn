@@ -129,7 +129,7 @@ harness session은 `lophn tab open --session <ses> --tui`로 터미널 탭에서
 
 경계: `coding-agent-cli`(명령 표와 binary), `coding-agent`(hook·감지·공유 skill 사본), `coding-agent-cli-interface`, `coding-agent-harness-api`, `harness-host-interface`, `external-coding-agent`(사람의 coding agent).
 
-- **env.** `LOPHN_DAEMON_URL`(CLI가 붙을 core 주소), `LOPHN_AGENT_CREDENTIAL`(harness turn 자격), `LOPHN_AGENT_SHELL`(lophn agent의 shell.run·ACP terminal 표시. 자격이 없으면 CLI가 바로 멈춘다), `LOPHN_CLI`(개발 launcher 경로), `LOPHN_HOME`(shell의 data root), `LPN_TERMINAL_HOOK`(lophn 터미널이 넣는 hook 표지). CLI exit: success 0, internal 1, invalid_input 2, unauthorized·forbidden 3, failed 4, `unavailable` 5(transport), effect_unknown 6.
+- **env.** `LOPHN_DAEMON_URL`(CLI가 붙을 core 주소), `LOPHN_AGENT_CREDENTIAL`(harness turn 자격), `LOPHN_AGENT_SHELL`(lophn agent의 shell.run·ACP terminal 표시. 자격이 없으면 CLI가 바로 멈춘다), `LOPHN_SESSION_ID`(headless harness CLI에 넣는 lophn session id. CLI가 띄운 process가 상속하며 앱이 session의 process를 찾는 표지다. secret이 아니다. 터미널 env는 바깥 `LOPHN_*`를 지우고 터미널 탭은 core session이 아니라 넣지 않는다), `LOPHN_CLI`(개발 launcher 경로), `LOPHN_HOME`(shell의 data root), `LPN_TERMINAL_HOOK`(lophn 터미널이 넣는 hook 표지). CLI exit: success 0, internal 1, invalid_input 2, unauthorized·forbidden 3, failed 4, `unavailable` 5(transport), effect_unknown 6.
 - **CLI 명령.** `lophn harness detect|refresh|install [--dry_run]|status|uninstall|sync-skills`, `lophn hook <harness> <event>`, `lophn core stop`, `lophn tab open --session <ses> --tui`, 그 밖은 core를 부르는 명령 표.
 - **설정 key.** `extensions.harness.enabled`, `coding-agent.shared_apps`(앱 slug 목록).
 - **core route·command.** `app.create`, `app.connect_source`, `app.skills`, harness host route(`harness/take`, `harness/start_turn`, `harness/record`, `harness/finish_turn`, `harness/set_external_id`), `host/take {workspaces, tui}`, `turns/read`, `agents/read`, `projects/get`, `apps/get`. 기존 command StartTurn, RecordMessage, FinishTurn, machine 전용 `BindHarnessSession`. event `TurnEnded`, `MessageRecorded`, `SettingsChanged`, `AppViewChanged`.
@@ -174,6 +174,8 @@ harness session은 `lophn tab open --session <ses> --tui`로 터미널 탭에서
 - **TUI는 project workspace의 session만 열고, 첫 turn 전·turn 중이면 `conflict`다. TUI hold는 탭이 있는 동안이다.** 이유: 한 CLI session에 두 process가 쓰지 않게 하려는 것이다. 열기는 core가 거르고 lease는 shell main의 poll이 잇는다. (사람이 확인, agent)
 - **harness agent의 home은 session마다 빈 폴더다.** 이유: home의 전역 agent를 harness로 두면 cwd가 없어 부를 때마다 실패한다. data root 안 `harness-home/<session>/`을 turn 시작 때 만들고 지우지 않는다. opencode는 git root가 아니면 띄우지 않는다(위 지키는 것).
 - **harness session은 steer를 받지 못한다.** ACP `steer` capability를 끄고 send-now를 `unavailable`로 둔다. 이유: headless process는 turn 중 대기 메시지를 받지 못한다.
+
+- 앱이 session을 멈추면(`app_sessions.stop`) turn이 core에서 닫히고 host가 그 turn의 CLI를 끊는다. host는 CLI를 자기 process group의 leader로 띄우므로 group째 SIGTERM을 보내고, 유예(3초) 뒤에도 group에 남은 것이 있으면 SIGKILL을 보낸다(앞서는 SIGTERM만이라 신호를 무시하는 process가 남을 수 있었다). (agent)
 
 ## 열린 것
 

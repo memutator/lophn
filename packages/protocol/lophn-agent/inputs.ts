@@ -26,6 +26,8 @@ const sendMessageInputSchema = z.strictObject({
   refs: z.array(callRefSchema),
   // 사람 화면은 싣지 않고 run만 싣는다. 이 메시지가 연 turn은 unattended다(approval.md "turn mode").
   unattended: z.literal(true).optional(),
+  // 앱 화면이 보낸 사람 메시지면 그 앱. 이름표일 뿐이다: 메시지는 사람의 것이고 model이 받는 글과 권한은 그대로다.
+  via_app: idSchema("app").optional(),
 });
 
 export const sendMessage = defineCommand({
@@ -92,6 +94,11 @@ export const receivedEnvelopeSchema = z.object({
   fail_reason: callFailReasonSchema.nullable(),
   // step 입력이 가리키는 workflow instance와 step 이름. step이 아니면 null이다.
   step: z.object({ instance: idSchema("wfi"), step: z.string() }).nullable(),
+  // 앱 화면이 보낸 사람 메시지의 표시(앱 id와 보낼 때의 slug). 보낸 쪽(from)이 아니라 이름표다.
+  via: z
+    .object({ app: idSchema("app"), slug: z.string().min(1) })
+    .nullable()
+    .optional(),
 });
 
 // 받는 쪽이 본문의 tag를 고르는 기준이다.

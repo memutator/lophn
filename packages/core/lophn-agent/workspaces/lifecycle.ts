@@ -92,6 +92,8 @@ export function startSession(
     calledFrom?: Workspace | null;
     // `team spawn`이 열었으면 연 session.
     spawnedBy?: Id<"ses"> | null;
+    // 앱이 열었으면 그 앱. 앱은 자기가 연 session만 끝낼 수 있다.
+    openedByApp?: string | null;
     // fork는 출처의 제목, model 선택, 출처 표시를 이어받는다. skip은 가져가지 않는다:
     // 새 session은 정의의 기본값으로 시작한다(workspace-session의 fork가 허락을 가져가지 않는 것과 같은 이유).
     inherit?: {
@@ -131,8 +133,8 @@ export function startSession(
   tx.sql.run(
     `insert into sessions (id, agent, project, app, workspace_kind,
        workspace_id, title, lifecycle, forked_from_session, forked_from_through_seq,
-       model_selection, skip, harness, called_from_kind, called_from_id, spawned_by, created_seq, state_seq)
-     values (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       model_selection, skip, harness, called_from_kind, called_from_id, spawned_by, opened_by_app, created_seq, state_seq)
+     values (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       input.id,
       input.agent,
@@ -149,6 +151,7 @@ export function startSession(
       input.calledFrom?.kind ?? null,
       input.calledFrom?.id ?? null,
       input.spawnedBy ?? null,
+      input.openedByApp ?? null,
       seq,
       seq,
     ],

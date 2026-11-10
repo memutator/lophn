@@ -20,8 +20,10 @@ import {
 } from "../../../../protocol/apps/mod.ts";
 import {
   type CommandDeclaration,
-  handlerNames,
+  requiredHandlerNames,
+  subscriptionHandlerName,
   type OperationDeclaration,
+  type SubscriptionDeclaration,
   validateDeclaration,
 } from "../../declaration/mod.ts";
 import type { PreviewBundle, PreviewBundles } from "../../preview/mod.ts";
@@ -39,6 +41,8 @@ type BundleParts = {
   entry: string;
   operations: OperationDeclaration[];
   commands: CommandDeclaration[];
+  // 구독 handler(`on.<source>.<event>`)도 선언한 handler 이름이라 빠지면 준비 때 "handler not declared"로 거절된다.
+  subscriptions: SubscriptionDeclaration[];
   // migrations/<from>-<to>.sql 단계의 가장 큰 도착 schema다. 단계가 없으면 0이다.
   dataSchema: number;
 };
@@ -161,6 +165,7 @@ export async function readBundleCopy(
     entry: `${root}/${manifest.entrypoint}`,
     operations: declaration.value.operations,
     commands: declaration.value.commands,
+    subscriptions: declaration.value.subscriptions ?? [],
     dataSchema: dataSchemaOf(manifest),
   });
 }
@@ -185,7 +190,8 @@ export function desiredFromBundle(
     bundleHash: input.bundleHash,
     runEnabled: input.runEnabled,
     archived: input.archived,
-    tools: handlerNames(parts),
+    tools: requiredHandlerNames(parts),
+    subscribed: parts.subscriptions.map(subscriptionHandlerName),
     dataSchema: input.dataSchema,
     entry: parts.entry,
     dataPath: input.dataPath,
@@ -207,6 +213,7 @@ export function createCopyPreviewBundles(options: {
         entry: parts.entry,
         operations: parts.operations,
         commands: parts.commands,
+        subscriptions: parts.subscriptions,
         dataSchema: parts.dataSchema,
         async fixture(path) {
           const file = parts.manifest.files.find(

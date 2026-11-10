@@ -680,6 +680,15 @@ function steered(
   return turn !== undefined && turn.input_message !== message.id;
 }
 
+// 앱 화면이 보낸 사람 메시지의 이름표. 보낸 쪽이 아니라 표시일 뿐이다.
+function viaLabel(
+  via: ReceivedMessage["via"],
+): { via: { app: string; name: string } } | Record<string, never> {
+  return via === null || via === undefined
+    ? {}
+    : { via: { app: via.app, name: via.slug } };
+}
+
 function senderOf(
   from: ReceivedMessage["from"],
   agent: AgentId | null,
@@ -687,6 +696,8 @@ function senderOf(
 ): AcpMessageItem["sender"] {
   if (from.kind === "human") return null;
   if (from.kind === "program") return { kind: "program" };
+  if (from.kind === "app")
+    return { kind: "app", app: from.app, name: from.slug };
   return { kind: "agent", agent, name };
 }
 
@@ -771,6 +782,7 @@ export async function buildAcpState(
       id: message.id,
       at: message.created_at,
       content: bodyOf.get(message.id)?.content ?? [],
+      ...viaLabel(message.via),
     });
   }
   for (const message of messages.value) {
@@ -830,6 +842,7 @@ export async function buildAcpState(
         actor:
           message.from.kind === "human" ? "user" : own ? "agent" : "received",
         sender: own ? null : senderOf(message.from, sender.agent, sender.name),
+        ...viaLabel(message.via),
         call: message.call,
         reply_to: message.reply_to,
         delivery:

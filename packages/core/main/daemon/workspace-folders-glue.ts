@@ -97,3 +97,16 @@ export function workspaceBaseOf(
 ): string | undefined {
   return scopeOf(lookup, dataRoot, session)?.base;
 }
+
+// session의 기본 폴더와 workspace가 여는 폴더 목록(절대 경로)이다. session lifecycle 목록이 싣는다. home이거나 session이 없으면 폴더가 없다.
+export function sessionFoldersOf(
+  lookup: Lookup,
+  dataRoot: string,
+  session: string,
+): { cwd: string | null; folders: string[] } {
+  const scope = scopeOf(lookup, dataRoot, session);
+  return {
+    cwd: scope?.base ?? null,
+    folders: scope === undefined ? [] : [...scope.write],
+  };
+}

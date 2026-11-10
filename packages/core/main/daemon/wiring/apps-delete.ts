@@ -1,6 +1,7 @@
 // app.delete의 조립. approvals·jobs·lophn-agent의 기록은 서로 import하지 못하는 module의 것이라 이 조립이 port 하나로
 // 한 Tx에서 지우고(createCoreRegistration), commit 뒤의 파일과 설정 정리를 쓰기 앞 처리기가 한다.
 // ledger를 먼저 지우므로 파일 정리 중에 끊겨도 설치된 척하는 앱은 없다. 남은 폴더는 이름 없는 고아일 뿐이다.
+import { deleteCallsSentByApp } from "../../../router/mod.ts";
 import { chmod, readdir, rm } from "node:fs/promises";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { appDelete, appRemnantsEraser } from "../../../../protocol/apps/mod.ts";
@@ -62,6 +63,9 @@ function eraseRemnants(
     if (!deleted.ok) return deleted;
     sessions.push(session.id);
   }
+  // 그 앱이 보낸 call 행(받은 session이 앱 밖이어도 답 글이 남지 않게).
+  const sent = deleteCallsSentByApp(tx, app.id);
+  if (!sent.ok) return sent;
 
   // 그 앱에 범위가 있는 agent 정의(파일, 앱의 lophn 포함)와 다른 agent에 준 할당. 슬러그가 비면 같은 slug의 새 앱이 할당을 물려받으므로 지운다.
   const agents = agentDirectory(tx.sql);

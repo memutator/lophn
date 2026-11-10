@@ -68,8 +68,8 @@ export async function netFetchPatch(
   );
   await replaceOnce(
     declaration,
-    `    { name: "@lophn/cap-tool", version: "2.0.0" },`,
-    `    { name: "@lophn/cap-tool", version: "2.0.0" },
+    `    { name: "@lophn/cap-tool", version: "2.1.0" },`,
+    `    { name: "@lophn/cap-tool", version: "2.1.0" },
     { name: "@lophn/cap-net", version: "1.0.0" },
     { name: "@lophn/cap-secret", version: "1.0.0" },`,
   );

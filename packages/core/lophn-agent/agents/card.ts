@@ -123,6 +123,22 @@ function cardOf(
   };
 }
 
+// 그 workspace에서 보이는 agent들의 명함이다(전역과 그 workspace의 범위 agent, lophn은 그 workspace의 것). 틀린 정의 file은 뺀다.
+export function cardsIn(
+  context: AgentContext,
+  workspace: Workspace | null,
+): Result<AgentCard[]> {
+  const listed = listAgents(context);
+  if (!listed.ok) return listed;
+  return ok(
+    listed.value
+      .filter(
+        (entry) => visibleIn(entry, workspace) && entry.issues.length === 0,
+      )
+      .map((entry) => cardOf(context, entry, null)),
+  );
+}
+
 // handle(앞뒤 공백과 대소문자 무시)로 찾는 동기 조회다. 틀린 정의 file은 명함을 만들 수 없다.
 // `at`이 있으면 그 workspace에서 보이는 agent만 찾는다(범위 agent와 lophn은 밖에서 not_found). 없으면 좁히지 않는다.
 export function cardByHandle(

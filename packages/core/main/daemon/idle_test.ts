@@ -13,7 +13,7 @@ import {
   type Result,
 } from "../../../base/mod.ts";
 import { type Sql } from "../../../protocol/server/mod.ts";
-import { jobsSchemaSteps } from "../../jobs/schema.ts";
+import { jobsTestSteps } from "../../jobs/test-steps.ts";
 import { hasActivity as jobsActivity } from "../../jobs/store.ts";
 import { runsSchemaSteps } from "../../runs/schema.ts";
 import { hasActivity as runsActivity } from "../../runs/store.ts";
@@ -218,7 +218,7 @@ test("idle activity read는 다른 project의 running instance와 꺼진 job 뒤
   let sql: Sql;
   try {
     for (const step of [
-      ...jobsSchemaSteps,
+      ...jobsTestSteps,
       ...runsSchemaSteps,
       ...workflowsSchemaSteps,
     ]) {

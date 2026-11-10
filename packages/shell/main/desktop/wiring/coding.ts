@@ -105,6 +105,10 @@ export type Coding = Registered & {
   /** agent가 `--tui`로 연 TUI 탭의 session 표. surface wiring이 묶고 extension `harness`가 읽는다. */
   tui: HarnessTui;
   bindTabGui(port: TabGuiPort): void;
+  /** 터미널 탭의 coding agent를 그 harness의 끊기 key로 끊는다(core가 앱의 session stop을 넘긴다). key가 없는 harness는 unavailable이다. */
+  interrupt(
+    terminalRef: string,
+  ): Promise<{ ok: true } | { ok: false; code: string; message: string }>;
 };
 
 export function register(ctx: ShellContext, appSessions: AppSessions): Coding {
@@ -480,6 +484,44 @@ export function register(ctx: ShellContext, appSessions: AppSessions): Coding {
     tui,
     bindTabGui(port) {
       tabPort = port;
+    },
+    async interrupt(terminalRef) {
+      const runtime = terminals
+        .runtimes()
+        .find((item) => item.terminal_ref === terminalRef);
+      const harness =
+        runtime === undefined
+          ? undefined
+          : agent.tracker.decorate(runtime).agent?.harness;
+      if (runtime === undefined || harness === undefined) {
+        return {
+          ok: false,
+          code: "not_found",
+          message: "no coding agent runs in that terminal",
+        };
+      }
+      const keys =
+        harness in HARNESS_ADAPTERS
+          ? HARNESS_ADAPTERS[harness as keyof typeof HARNESS_ADAPTERS]
+              .interrupt_keys
+          : [];
+      const key = keys[0];
+      if (key === undefined) {
+        return {
+          ok: false,
+          code: "unavailable",
+          message: `${harness} has no key that interrupts its turn`,
+        };
+      }
+      const text = key === "escape" ? "\x1b" : "\x03";
+      try {
+        await terminalIpc.typeInto(terminalRef, runtime.generation, text);
+      } catch (cause) {
+        return { ok: false, code: "unavailable", message: String(cause) };
+      }
+      // 사람이 같은 key를 친 것과 같다: 도는 turn을 끊었으니 다음 hook까지 상태를 모르게 둔다(안 그러면 목록이 running으로 남는다).
+      agent.tracker.humanInput(terminalRef, text);
+      return { ok: true };
     },
     stop() {
       offGui();

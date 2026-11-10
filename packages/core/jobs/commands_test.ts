@@ -7,7 +7,7 @@ import type { Tx } from "../../protocol/server/mod.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import { createJobCommands } from "./commands.ts";
 import { jobTargetsPort, jobZonePort } from "./ports.ts";
-import { jobsSchemaSteps } from "./schema.ts";
+import { jobsTestSteps } from "./test-steps.ts";
 import { loadJob, loadJobRuns } from "./store.ts";
 
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
@@ -29,7 +29,7 @@ const agents: Record<string, AgentAtWorkspace> = {
 test("agent는 같은 agent가 같은 workspace에서 만든 job만 고치고 지운다. 다른 workspace의 같은 agent와 다른 agent에게는 없는 job이고, 사람은 모두 고치고 지운다", () => {
   const db = new DatabaseSync(":memory:");
   try {
-    for (const step of jobsSchemaSteps) db.exec(step.sql);
+    for (const step of jobsTestSteps) db.exec(step.sql);
     const sql = createSql(db, () => true);
     const ports = new Map<unknown, unknown>([
       [

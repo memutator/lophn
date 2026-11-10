@@ -189,6 +189,7 @@ export function UserMessage({
   id,
   steer = false,
   sending = false,
+  via,
   time,
   copyText,
   rewindOpen = false,
@@ -199,6 +200,8 @@ export function UserMessage({
   steer?: boolean;
   /** 아직 받았다는 답이 오지 않았다. */
   sending?: boolean;
+  /** 앱 화면이 보낸 메시지면 그 앱 이름. 사람의 메시지는 그대로이고 이름표만 붙는다. */
+  via?: string;
   time?: string;
   /** 메시지 글. 누를 때 읽는다. */
   copyText?: () => string;
@@ -218,6 +221,11 @@ export function UserMessage({
       data-sending={sending ? "" : undefined}
     >
       <div className={styles.bubble}>{children}</div>
+      {via === undefined ? null : (
+        <span className={styles.viaMark} data-via={via}>
+          {t("conversation.label.via", { app: via })}
+        </span>
+      )}
       {steer ? (
         <span className={styles.steerMark} data-steer="">
           <Icon icon={conversationIcons.steer} pixels={iconPixels("small")} />

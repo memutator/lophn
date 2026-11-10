@@ -12,7 +12,8 @@ import {
   nextText,
   runText,
   runWhen,
-  scheduleText,
+  sourceGoneText,
+  whenOf,
   STATE,
   whenText,
 } from "./model.ts";
@@ -57,15 +58,21 @@ export function JobLine({
         <div className={styles.main}>
           <span className={styles.title}>{job.title}</span>
           <span className={styles.line}>
-            {scheduleText(job.every, job.at)} · {nextText(job, now)}
+            {whenOf(job)} · {nextText(job, now)}
           </span>
           <span className={styles.line}>
             <span className={styles.summary}>{action.summary}</span>
             <span className={styles.detail}>{action.detail}</span>
           </span>
           <span className={styles.meta}>
-            {creatorText(job.creator, names)} · {missedText(job.missed_policy)}
+            {creatorText(job.creator, names)}
+            {job.trigger === null ? ` · ${missedText(job.missed_policy)}` : ""}
           </span>
+          {sourceGoneText(job) === null ? null : (
+            <span className={styles.meta} data-source-gone="">
+              {sourceGoneText(job)}
+            </span>
+          )}
           <span className={styles.last}>
             {last === null ? (
               <span className={styles.meta}>{t("jobs.label.not-yet")}</span>

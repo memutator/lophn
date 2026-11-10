@@ -160,6 +160,30 @@ export type AppKeyDeclaration = {
   context?: string;
 };
 
+// 앱이 내는 event. 일이 일어난 뒤의 알림이고 payload는 object schema(command의 inputSchema와 같은 규칙)다.
+// 발행한 쪽이 선언하지 않은 event는 core가 받지 않는다.
+export type EventDeclaration = {
+  name: string;
+  description: string;
+  payloadSchema: InputSchema;
+};
+
+// 다른 앱(그 앱의 slug)이나 lophn(`lophn`)이 낸 event를 받겠다는 선언. handler 이름은 `on.<source>.<event>`로 정해지고
+// operation·command와 같은 handler 이름 공간을 쓴다(`subscriptionHandlerName`).
+export type SubscriptionDeclaration = {
+  source: string;
+  event: string;
+};
+
+// core가 event의 발행자일 때 source로 쓰는 이름이다.
+export const LOPHN_EVENT_SOURCE = "lophn";
+
+export function subscriptionHandlerName(
+  subscription: SubscriptionDeclaration,
+): string {
+  return `on.${subscription.source}.${subscription.event}`;
+}
+
 export type AppDeclaration = {
   name: string;
   description: string;
@@ -170,6 +194,9 @@ export type AppDeclaration = {
   skills?: SkillDeclaration[];
   // 없어도 된다. 칸이 없는 옛 선언의 hash는 그대로다.
   keys?: AppKeyDeclaration[];
+  // 없어도 된다. 칸이 없는 옛 선언의 hash는 그대로다.
+  events?: EventDeclaration[];
+  subscriptions?: SubscriptionDeclaration[];
   screens: ScreenDeclaration[];
   // operation과 command의 이름은 합쳐 하나다. handler는 이름 하나로 등록한다.
   operations: OperationDeclaration[];
@@ -186,6 +213,7 @@ export const DECLARATION_KEYS = [
   "app_connections",
   "commands",
   "description",
+  "events",
   "icon",
   "keys",
   "name",
@@ -194,11 +222,19 @@ export const DECLARATION_KEYS = [
   "screens",
   "sdk_dependencies",
   "skills",
+  "subscriptions",
 ] as const;
 
-// icon, skills, keys는 칸이 없어도 된다.
+// icon, skills, keys, events, subscriptions는 칸이 없어도 된다.
+const OPTIONAL_KEYS: readonly string[] = [
+  "icon",
+  "skills",
+  "keys",
+  "events",
+  "subscriptions",
+];
 export const DECLARATION_REQUIRED_KEYS = DECLARATION_KEYS.filter(
-  (key) => key !== "icon" && key !== "skills" && key !== "keys",
+  (key) => !OPTIONAL_KEYS.includes(key),
 );
 
 export const INPUT_KEYS = [
@@ -267,6 +303,8 @@ export const RESERVED_APP_SLUGS: readonly string[] = [
   "tab",
   "browser",
   "team",
+  // core가 event의 발행자일 때 쓰는 source 이름과 겹치면 안 된다.
+  "lophn",
   "login",
 ];
 export const SECRET_NAME = /^[A-Za-z0-9_.:-]+$/;

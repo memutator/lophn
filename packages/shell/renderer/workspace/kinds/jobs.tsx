@@ -1,4 +1,4 @@
-// jobs 탭 kind. Scheduled jobs 전체를 보고 고치는 탭이고 desk마다 하나다. 값은 모두 core의 jobs 표에 있어 layout에는
+// jobs 탭 kind. Jobs 전체를 보고 고치는 탭이고 desk마다 하나다. 값은 모두 core의 jobs 표에 있어 layout에는
 // 탭이 있다는 사실만 남는다. 어느 workspace에서든 모든 job을 보인다.
 import { t } from "@lophn/i18n";
 

@@ -28,6 +28,8 @@ type AgentResolvedStart = {
   prompt: string;
   input?: JsonValue;
   schema?: Record<string, JsonValue>;
+  // event job이 이 run을 연 event다. prompt는 고정이고 event는 data로만 붙는다.
+  event?: { source: string; event: string; payload: JsonValue };
 };
 type Settlement =
   | {

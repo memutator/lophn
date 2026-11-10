@@ -12,4 +12,5 @@ export const KIND_LABEL = {
   app_data_restored: "waiting.label.kind-app-data-restored",
   lophn_updated: "waiting.label.kind-lophn-updated",
   sdk_update_needed: "waiting.label.kind-sdk-update-needed",
+  session_stopped_by_app: "waiting.label.kind-session-stopped-by-app",
 } as const satisfies Record<NoticeKind, MessageKey>;

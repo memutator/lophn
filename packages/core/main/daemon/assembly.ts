@@ -70,6 +70,8 @@ import { runsWiring } from "./wiring/runs.ts";
 import { sdkInstallWiring } from "./wiring/sdk-install.ts";
 import { secretsWiring } from "./wiring/secrets.ts";
 import { serverWiring } from "./wiring/server.ts";
+import { appCallsWiring } from "./wiring/app-calls.ts";
+import { sessionLifecycleWiring } from "./wiring/session-lifecycle.ts";
 import { sessionSnapshotsWiring } from "./wiring/session-snapshots.ts";
 import { settingDeclarationsWiring } from "./wiring/setting-declarations.ts";
 import { agentHandleWiring } from "./wiring/agent-handle.ts";
@@ -184,6 +186,8 @@ export const WIRINGS: readonly WiringFactory[] = [
   lophnAgentExtensionsWiring,
   lophnAgentRuntimeWiring,
   sessionSnapshotsWiring,
+  sessionLifecycleWiring,
+  appCallsWiring,
   acpWiring,
   idleWiring,
   serverWiring,

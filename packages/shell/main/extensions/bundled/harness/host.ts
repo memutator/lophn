@@ -40,8 +40,15 @@ type Part =
     };
 
 // harness가 `lophn`을 부를 env다. 자격은 이 turn에만 쓰이고(core가 turn 끝에 만료한다) user token은 넣지 않는다.
-function harnessEnv(credential: string): Record<string, string> {
-  const env: Record<string, string> = { [AGENT_CREDENTIAL_ENV]: credential };
+function harnessEnv(
+  credential: string,
+  session: string,
+): Record<string, string> {
+  // LOPHN_SESSION_ID는 CLI가 띄우는 process에도 상속된다. 앱이 process 목록에서 이 session의 process를 찾는 표지다(secret이 아니다).
+  const env: Record<string, string> = {
+    [AGENT_CREDENTIAL_ENV]: credential,
+    LOPHN_SESSION_ID: session,
+  };
   // 개발 실행은 PATH에 `lophn`이 없다. `LOPHN_CLI`(launcher 경로)는 개발 실행은 사람이, packaged는 shell main이 채운다. extension은
   // electron·설치 위치를 몰라 env로만 받는다.
   const cli = process.env.LOPHN_CLI;
@@ -207,7 +214,7 @@ export function createHarnessHost(
         sessionId: input.external_session_id,
         deny,
       }),
-      { cwd, env: harnessEnv(credential) },
+      { cwd, env: harnessEnv(credential, input.session) },
     );
     entry.kill = () => proc.kill();
     if (entry.shutdown) proc.kill();

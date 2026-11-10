@@ -4,10 +4,10 @@ import { DatabaseSync } from "node:sqlite";
 import { ok } from "../../../base/mod.ts";
 import type { AgentEvent } from "../../../protocol/events/mod.ts";
 import type { RequestContext, Sql, Tx } from "../../../protocol/server/mod.ts";
-import { conversationSchemaSteps } from "../session/model.ts";
 import { createTurnCommands } from "./commands.ts";
 import { interruptRunningTurns } from "./interrupt.ts";
 import { turnSchemaSteps } from "./schema.ts";
+import { conversationTestSteps } from "../session/test-steps.ts";
 
 // harness turn은 basis·result blob 없이 시작하고 끝난다. 그 모양으로도 TurnEnded가 turn마다 한 번이고,
 // 재시작이 끝나지 않은 turn을 interrupted(restarted)로 닫은 뒤에는 host의 끝냄이 결과를 덮지 못해야 한다.
@@ -16,7 +16,7 @@ const HASH = "a".repeat(64);
 
 function setup() {
   const db = new DatabaseSync(":memory:");
-  for (const step of [...conversationSchemaSteps, ...turnSchemaSteps]) {
+  for (const step of [...conversationTestSteps, ...turnSchemaSteps]) {
     db.exec(step.sql);
   }
   db.exec(`

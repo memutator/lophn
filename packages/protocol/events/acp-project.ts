@@ -103,7 +103,11 @@ export function acpUpdatesOf(
 ): AcpUpdate[] {
   switch (event.type) {
     case "MessageReceived": {
-      const { message, body, from, call, reply_to, steer } = event.payload;
+      const { message, body, from, call, reply_to, steer, via } = event.payload;
+      const label =
+        via === null || via === undefined
+          ? {}
+          : { via: { app: via.app, name: via.slug } };
       const seq = context.seq(message);
       if (seq === null) {
         // 사람이 도는 중에 다음 turn으로 보낸 말이다.
@@ -111,7 +115,7 @@ export function acpUpdatesOf(
           ? [
               {
                 type: "message_queued",
-                queued: { id: message, at: event.at, content: body },
+                queued: { id: message, at: event.at, content: body, ...label },
               },
             ]
           : [];
@@ -127,16 +131,19 @@ export function acpUpdatesOf(
             seq,
             at: event.at,
             actor: from.kind === "human" ? "user" : "received",
+            ...label,
             sender:
               from.kind === "human"
                 ? null
                 : from.kind === "program"
                   ? { kind: "program" }
-                  : {
-                      kind: "agent",
-                      agent,
-                      name: agent === null ? null : context.agentName(agent),
-                    },
+                  : from.kind === "app"
+                    ? { kind: "app", app: from.app, name: from.slug }
+                    : {
+                        kind: "agent",
+                        agent,
+                        name: agent === null ? null : context.agentName(agent),
+                      },
             call,
             reply_to,
             delivery: steer ? "steer" : "next_turn",

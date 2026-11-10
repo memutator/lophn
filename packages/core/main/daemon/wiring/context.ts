@@ -6,6 +6,7 @@
 //   → prepare → openRuntime → records → build → API → start → ready → afterReady
 // 종료 순서: closeIntake → server.stop → closeChildren → 감독 정지 → closeWork → runtime.close → stopped
 import type { Clock, RandomSource, Result } from "../../../../base/mod.ts";
+import type { EventDelivery } from "../../../apps/events/mod.ts";
 import type { Frame, Route } from "../../../../protocol/base/mod.ts";
 import type {
   AuthenticatedContext,
@@ -248,6 +249,8 @@ type Late = {
   appIntake: AppIntake;
   // 앱 tool 호출 길. runs가 앱 tool을 부른다.
   appCallPath: AppToolCallPath;
+  // apps가 낸다. 앱 event(와 core가 낼 event `lophn`)를 구독 앱에 넘긴다.
+  eventDelivery: EventDelivery;
   invocationLedger: InvocationLedger;
   appRewind: AppRewind;
   // annotations가 받는 것. Router(workspaces-sessions)가 annotationDelivery를 채운다. 없으면 보내기는 unavailable이다.
@@ -316,6 +319,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   appViewSignal: true,
   appIntake: true,
   appCallPath: true,
+  eventDelivery: true,
   invocationLedger: true,
   appRewind: true,
   annotationDelivery: true,

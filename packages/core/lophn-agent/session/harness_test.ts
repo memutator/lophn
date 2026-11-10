@@ -3,13 +3,14 @@ import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import type { RequestContext, Sql, Tx } from "../../../protocol/server/mod.ts";
 import { createHarnessCommands, harnessOf } from "./harness.ts";
-import { conversationSchemaSteps, loadSession } from "./model.ts";
+import { loadSession } from "./model.ts";
+import { conversationTestSteps } from "./test-steps.ts";
 
 // host route는 runtime이 harness인 session만 고친다. 아니면 session 행이 그대로여야 한다.
 test("harness host binding cannot change a session whose runtime is not a harness", () => {
   const db = new DatabaseSync(":memory:");
   try {
-    for (const step of conversationSchemaSteps) db.exec(step.sql);
+    for (const step of [...conversationTestSteps]) db.exec(step.sql);
     db.exec(`
       insert into sessions (id, agent, harness, lifecycle, created_seq, state_seq)
         values ('ses_plain', 'lophn', null, 'open', 1, 1),

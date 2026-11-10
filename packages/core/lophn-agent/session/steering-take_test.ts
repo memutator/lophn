@@ -2,14 +2,15 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import type { Sql, Tx } from "../../../protocol/server/mod.ts";
-import { conversationSchemaSteps, takeSteering } from "./model.ts";
+import { takeSteering } from "./model.ts";
+import { conversationTestSteps } from "./test-steps.ts";
 
 // [Send now]로 올린 메시지는 접수 때 next_turn이라 checkpoint가 있다. model 요청에 실리는 순간 turn이 정해지고
 // rewind 시점에서 빠져야 한다. 이미 turn이 정해진 메시지는 건드리지 않는다.
 test("model 요청이 가져간 steer는 turn이 정해지고 checkpoint를 잃는다", () => {
   const db = new DatabaseSync(":memory:");
   try {
-    for (const step of conversationSchemaSteps) db.exec(step.sql);
+    for (const step of [...conversationTestSteps]) db.exec(step.sql);
     db.exec(`
       create table model_calls (id text primary key, turn text);
       create table checkpoints (message text primary key);

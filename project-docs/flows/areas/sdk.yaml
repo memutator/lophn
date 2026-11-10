@@ -378,7 +378,7 @@ flows:
     steps:
       - "앱 code가 load될 때 handle(이름, 함수)을 부른다. 같은 process에 port가 이미 있으면 그 registry를 쓴다"
       - "같은 이름이 이미 있으면 Error(handler already registered)를 던진다. 앱 load가 실패하면 자식이 준비되지 못한다"
-      - "등록된 이름 목록은 자식의 attestation이 알리고 supervisor의 ready probe가 선언과 맞춘다. 빠지거나 더해지면 start-failed다"
+      - "등록된 이름 목록은 자식의 attestation이 알리고 supervisor의 ready probe가 선언과 맞춘다(operation·command는 빠지거나, 구독 handler 밖의 것이 더해지면 start-failed다. 선언한 구독 handler는 없어도 된다)"
       - "호출은 등록된 이름으로 handler를 찾는다(app-command-call, app-operation-call). 없으면 not_found다"
     outcomes:
       - id: registered
@@ -392,6 +392,56 @@ flows:
 
     crosses_process: false
     docs: [architecture/app-call.md]
+
+  - id: sdk-event-publish
+    title: "앱 process가 publish로 선언한 event를 낸다"
+    actor: app
+    entries: [sdk:cap-tool/publish]
+    uses: [app-broker-events-publish:forwarded, app-broker-events-publish:invalid-input, app-broker-events-publish:forbidden]
+    boundary: [sdk-api, app-capability, core-api]
+    code: [packages/sdk/cap-tool/events.ts]
+    steps:
+      - "publish(name, payload)는 호출 port가 없으면(앱 process 밖) unavailable이다. preview·test는 core에 가지 않고 standIn으로 돌려준다"
+      - "broker의 events/publish에 event, payload, 현재 호출의 invocation(없으면 null)을 보낸다. 부모 invocation이 돌고 있지 않아도 된다"
+      - "보낸 뒤 연결이 끊기면 처리됐는지 모르므로 다시 보내지 않고 unavailable이다. 200이면 {publication, reachable, unreachable, refused}를 돌려주고 모양이 맞지 않으면 unavailable, 200이 아니면 broker의 오류 code를 옮긴다"
+      - "구독자의 답을 기다리지 않는다. 선언·payload 검사는 core의 일이다(app-event-publish)"
+    outcomes:
+      - id: published
+        when: "core가 발행을 받았다. 넘긴 구독자 수와 닿지 못한 수를 돌려준다"
+        observe: ["response", "ledger:app_event_publications"]
+      - id: stand-in
+        when: "preview·test라 core에 가지 않았다(standIn true)"
+        observe: ["response"]
+      - id: no-host
+        code: unavailable
+        when: "앱 process 밖이라 호출 port가 없다"
+        observe: ["response"]
+      - id: rejected
+        when: "broker가 200이 아닌 답을 줬다. 선언하지 않은 event나 payload 불일치는 invalid_input, 그 밖의 공통 오류 code를 그대로 옮긴다. 끊김이나 모양 불일치는 unavailable이다"
+        observe: ["response"]
+    crosses_process: true
+    docs: [architecture/event.md]
+
+  - id: sdk-event-subscribe
+    title: "앱 process가 선언한 구독의 handler를 subscribe로 등록한다"
+    actor: app
+    entries: [sdk:cap-tool/subscribe]
+    uses: [sdk-handler-register:registered, sdk-handler-register:duplicate-refused, app-supervisor-reconcile:start-failed]
+    boundary: [sdk-api, app-spi]
+    code: [packages/sdk/cap-tool/events.ts, packages/sdk/cap-tool/handlers.ts]
+    steps:
+      - "subscribe(source, event, handler)는 이름 `on.<source>.<event>`의 handle로 등록한다. 같은 구독을 두 번 등록하면 Error를 던진다(sdk-handler-register)"
+      - "선언의 subscriptions가 같은 이름을 handler 이름 공간에 올리므로, 선언하지 않았는데 등록했으면 ready probe가 start-failed로 거절한다. 선언만 하고 등록하지 않아도 된다(화면만 구독하는 앱. core는 등록한 handler 이름을 probe로 알아 그 앱 process에는 event를 보내지 않는다)"
+      - "event가 오면 handler(payload)를 부른다. 반환값은 쓰지 않는다. 호출은 write로 기록된다(app-event-publish)"
+    outcomes:
+      - id: registered
+        when: "handler가 등록됐다"
+        observe: ["process:app-child"]
+      - id: duplicate-refused
+        when: "같은 구독을 두 번 등록했다. 앱 load가 Error로 끝난다"
+        observe: ["process:app-child", "log:app"]
+    crosses_process: false
+    docs: [architecture/event.md, architecture/app-call.md]
 
   # ---------- declaration ----------
 
@@ -462,6 +512,14 @@ links:
   - {entry: "sdk:app-ui/useKeepAlive", flow: app-page-hints}
   - {entry: "sdk:app-ui/usePlace", flow: app-view-open}
   - {entry: "sdk:app-ui/useProjects", flow: app-projects-list}
+  - {entry: "sdk:app-ui/useEvent", flow: app-event-view-deliver}
+  - {entry: "sdk:agent/useSessions", flow: app-sessions-view}
+  - {entry: "sdk:agent/SESSION_EVENTS", flow: app-sessions-view}
+  - {entry: "sdk:agent/calls", flow: app-agents-view}
+  - {entry: "sdk:agent/useAgentCalls", flow: app-agents-view}
+  - {entry: "sdk:agent/useAgents", flow: app-agents-view}
+  - {entry: "sdk:agent/onCallSettled", flow: app-agents-view}
+  - {entry: "sdk:agent/CALL_SETTLED_EVENT", flow: app-agents-view}
   - {entry: "sdk:app-ui/useTabHead", flow: app-tab-head}
   - {entry: "sdk:cap-tool/HandlerRejection", flow: app-command-call}
   - {entry: "sdk:cap-tool/runWith", flow: app-command-call}

@@ -30,6 +30,8 @@ export const acpInputSchema = z.discriminatedUnion("type", [
     key: z.string().min(1),
     content: contentBlocksSchema,
     delivery: inputDeliverySchema,
+    /** 앱 화면이 보낸 것이면 그 앱(shell main이 보낸 view에서 정해 덮는다. 이름표일 뿐이다). */
+    via_app: idSchema("app").optional(),
   }),
   /** 도는 turn을 멈춘다. */
   z.strictObject({

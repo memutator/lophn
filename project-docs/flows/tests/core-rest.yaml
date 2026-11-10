@@ -130,6 +130,15 @@ files:
       - job-delete:deleted
       - job-delete:not_found
 
+  - path: packages/core/jobs/events_test.ts
+    covers:
+      - job-event-fire:fired
+      - job-event-fire:skipped-busy
+      - job-event-fire:skipped-too-soon
+      - job-event-fire:ignored
+      - job-create:invalid_input
+    note: "승인 전·꺼진 event job은 안 돈다. 폭풍(busy, too_soon)은 건너뛰고 센다. 자기 run이 연 session과 닿을 수 없는 workspace의 session event는 보지 않는다. 때는 선언한 event와 lophn의 session event만"
+
   - path: packages/core/jobs/due_test.ts
     covers:
       - job-claim-due:queued
@@ -366,6 +375,10 @@ files:
       - call-send:card-refused
       - call-send:call-policy-refused
       - call-send:team-refused
+      - app-call-send:accepted
+      - app-call-send:call-policy-refused
+      - app-call-settle:settled
+      - app-call-cancel:not-yours
       - call-reply:delivered
       - call-reply:closed
       - call-reply:ask-answered
@@ -380,8 +393,8 @@ files:
     note: step 입력 전달은 workflow handoff로 보고 workflow-instance-apply:handed에 붙였다. 받는 session 종료 때 call 실패는 session-archive의 receiver_ended다
 
   - path: packages/core/router/store_test.ts
-    covers: [call-restart-recovery:recovered]
-    note: "call 저장소의 consume과 lost 목록(복구 대상). 잃은 call 목록은 call-restart-recovery:recovered의 대상"
+    covers: [call-restart-recovery:recovered, app-call-send:deduplicated]
+    note: "call 저장소의 consume과 lost 목록(복구 대상). 앱이 보낸 call의 dedup key는 앱마다 따로이고, 받은 session을 지우면 앱이 받은 답 글 행이 같이 지워진다"
 
   - path: packages/core/runs/service_test.ts
     covers:
@@ -476,3 +489,8 @@ files:
   - path: packages/core/workflows/service_test.ts
     covers: [workflow-restart:flow-closed]
     note: 켤 때 running flow instance를 닫고 다시 띄우지 않는다. agent instance는 건드리지 않는다
+
+  - path: packages/core/main/daemon/app-sender-migration_test.ts
+    covers:
+      - app-call-send:accepted
+    note: "앱 보낸 쪽 ledger step이 messages(FK 자식 checkpoints·reverts가 on delete restrict)와 agent_calls를 다시 짜도 행·index·trigger·FK가 그대로인지 파일 ledger로 본다"

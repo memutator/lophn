@@ -6,9 +6,11 @@ import { currentContext } from "./handlers.ts";
 const APP_CALL_PATH = "/_lophn/broker/apps/call";
 const CAP_HOST = Symbol.for("lophn.cap-host");
 
-type PortResponse = { status: number; body: unknown };
+export type PortResponse = { status: number; body: unknown };
 
-type HostPort = {
+export type HostPort = {
+  // preview·test는 실제 broker에 닿지 않는다.
+  mode?: "live" | "preview" | "test";
   post(path: string, body: Record<string, unknown>): Promise<PortResponse>;
 };
 
@@ -76,17 +78,17 @@ const UNKNOWN_REASONS: readonly string[] = [
   "timeout",
 ];
 
-function failure(message: string, code: AppErrorCode = "unavailable") {
+export function failure(message: string, code: AppErrorCode = "unavailable") {
   return { ok: false, error: { code, message } } as const;
 }
 
-function plain(value: unknown): Record<string, unknown> | undefined {
+export function plain(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : undefined;
 }
 
-function failed(response: PortResponse): AppResult<never> {
+export function failed(response: PortResponse): AppResult<never> {
   const error = plain(plain(response.body)?.["error"]);
   if (
     error !== undefined &&
@@ -142,7 +144,7 @@ function outcomeOf(value: unknown): CallOutcome | undefined {
   }
 }
 
-function host(): HostPort | undefined {
+export function host(): HostPort | undefined {
   const found = (globalThis as Record<symbol, unknown>)[CAP_HOST];
   return found !== null &&
     typeof found === "object" &&

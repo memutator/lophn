@@ -64,6 +64,7 @@ function world(refuse: boolean) {
         open: () => ok(target),
         accepts: () => null,
         listOpen: () => [],
+        app: () => null,
       },
       transport: { deliver: () => ok(undefined), cancel: () => ok(undefined) },
       store: {

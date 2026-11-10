@@ -4,6 +4,7 @@ import { z } from "zod";
 import { ok } from "../../base/mod.ts";
 import {
   jobActionInputSchema,
+  jobTriggerInputSchema,
   jobAtSchema,
   jobCreate,
   jobDelete,
@@ -19,6 +20,8 @@ import { defineCommand } from "./types.ts";
 
 const SCHEDULE_NOTE =
   "every uses m/h/d (minutes/hours/days); at is this computer's local HH:MM, only for d. After downtime, missed_policy run runs once; hold asks the person.";
+const TRIGGER_NOTE =
+  "Instead of every, trigger {source, event} runs the job when an event happens: source is an app (its slug, and the active release must declare the event) or lophn (session.started, session.running, session.waiting, session.idle, session.ended; session events are only for sessions this workspace may call). At most one run starts per min_interval (default 5m); an event that arrives while the previous run is still going, or too soon, is skipped and counted (see skipped_count in job list). The event is handed to the action as data: for agent_run it is attached to your prompt as a data block, for workflow_start the start text becomes JSON {text, event}, for tool_run it is added to the tool input as `event` only if you set trigger.pass_event. Events are not stored: nothing fires while lophn is off. A job started by an event does not fire again for the sessions it opens itself.";
 const ACTION_NOTE =
   "Runs unattended. agent_run opens a new session (agent/workspace use exact names; no workspace means home). tool_run calls one app tool. workflow_start names <project>/<workflow>; step is only for agent workflows, not flows.";
 const APPROVAL_NOTE =
@@ -30,14 +33,15 @@ const RESTART_NOTE =
 
 const create = defineCommand({
   name: "job.create",
-  summary: "Create a repeating job",
-  description: `Create a repeating job; enabled defaults to true. ${APPROVAL_NOTE} ${SCHEDULE_NOTE} ${ACTION_NOTE}`,
+  summary: "Create a repeating job, or one that runs when an event happens",
+  description: `Create a job that runs on a schedule (every) or when an event happens (trigger); give exactly one of them. enabled defaults to true. ${APPROVAL_NOTE} ${SCHEDULE_NOTE} ${TRIGGER_NOTE} ${ACTION_NOTE}`,
   input: z.strictObject({
     title: jobTitleSchema,
-    every: jobEverySchema,
+    every: jobEverySchema.optional(),
     at: jobAtSchema.optional(),
+    trigger: jobTriggerInputSchema.optional(),
     action: jobActionInputSchema,
-    missed_policy: missedPolicySchema,
+    missed_policy: missedPolicySchema.optional(),
     enabled: z.boolean().optional(),
   }),
   positional: ["title"],
@@ -54,7 +58,7 @@ const create = defineCommand({
 const update = defineCommand({
   name: "job.update",
   summary: "Change a job's title, schedule or on/off",
-  description: `Update a job's title, schedule, missed policy or on/off. Omitted fields stay; at:null clears the time (--input '{"at":null}'). The action cannot be changed. ${RESTART_NOTE} ${SCHEDULE_NOTE} ${OWN_NOTE}`,
+  description: `Update a job's title, schedule, missed policy or on/off. Omitted fields stay; at:null clears the time (--input '{"at":null}'). The action cannot be changed, and neither can the event of an event job (delete it and create a new one). ${RESTART_NOTE} ${SCHEDULE_NOTE} ${OWN_NOTE}`,
   input: z.strictObject({
     job: jobIdSchema,
     title: jobTitleSchema.optional(),
@@ -100,7 +104,7 @@ const list = defineCommand({
   name: "job.list",
   summary: "List the jobs you created in this workspace",
   description:
-    "List the scheduled jobs you created in this workspace: title, schedule, action, whether it is on, the next due time and the last run.",
+    "List the jobs you created in this workspace: title, schedule or event trigger, action, whether it is on, the next due time (scheduled jobs), fired_count and skipped_count (event jobs) and the last run.",
   input: z.strictObject({}),
   effect: "read",
   routes: [jobList],

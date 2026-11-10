@@ -22,7 +22,6 @@ import type {
 import { domainsSchemaSteps } from "./domains-retire.ts";
 import { dropDomainsFieldStep } from "../../../lophn-agent/agents/domains-field-step.ts";
 import { parseAgentFile } from "../../../lophn-agent/agents/definition-file.ts";
-import { conversationSchemaSteps } from "../../../lophn-agent/session/model.ts";
 import { turnSchemaSteps } from "../../../lophn-agent/run-loop/schema.ts";
 import { toolsSchemaSteps } from "../../../lophn-agent/tools/model.ts";
 import {
@@ -35,6 +34,7 @@ import {
 } from "../../../lophn-agent/session/rewind/mod.ts";
 import { observeFiles } from "../../../lophn-agent/session/rewind/prepare.ts";
 import { workspaceDataMoveStep } from "./workspace-data-move.ts";
+import { conversationTestSteps } from "../../../lophn-agent/session/test-steps.ts";
 
 const PRJ = "prj_01hzzzzzzzzzzzzzzzzzzzzzza";
 const OTHER = "prj_01hzzzzzzzzzzzzzzzzzzzzzzb";
@@ -67,7 +67,7 @@ function openLedger(file: string) {
   db.exec("pragma foreign_keys = off");
   for (const step of [
     ...domainsSchemaSteps,
-    ...conversationSchemaSteps,
+    ...conversationTestSteps,
     ...turnSchemaSteps,
     ...toolsSchemaSteps,
     ...revertSchemaSteps,

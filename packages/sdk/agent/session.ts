@@ -25,6 +25,7 @@ export interface AgentBridge {
   open(input: {
     agent: string;
     title?: string;
+    workspace?: { kind: "project" | "app"; id: string };
   }): Promise<BridgeResult<{ session: string }>>;
   snapshot(session: string): Promise<BridgeResult<AcpState>>;
   onUpdate(listener: (session: string, update: AcpUpdate) => void): () => void;
@@ -68,7 +69,9 @@ export type AgentSessionOptions = {
   agent: string;
   /** SDK가 session을 열 때 붙일 제목. 읽는 시점의 값이 쓰인다. */
   title?: (() => string | undefined) | undefined;
-  /** 이 앱 workspace의 기존 session에 다시 붙는다. 주면 바로 snapshot을 읽고 첫 `send`도 거기로 간다. */
+  /** 첫 `send`가 session을 열 workspace. 빼면 이 앱 workspace이고, 주면 이 앱이 call로 닿을 수 있는 workspace(call 정책)다. */
+  workspace?: { kind: "project" | "app"; id: string } | undefined;
+  /** 이 앱이 볼 수 있는 기존 session에 다시 붙는다. 주면 바로 snapshot을 읽고 첫 `send`도 거기로 간다. */
   session?: string | undefined;
 };
 
@@ -200,6 +203,9 @@ export function openAgentSession(
       const result = await app.open({
         agent,
         ...(title === undefined ? {} : { title }),
+        ...(options.workspace === undefined
+          ? {}
+          : { workspace: options.workspace }),
       });
       if (mine !== epoch) return { ok: false, error: "session reset" };
       if (!result.ok) {

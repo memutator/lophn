@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { type CommandDeclaration, validateDeclaration } from "./mod.ts";
+import {
+  type CommandDeclaration,
+  handlerNames,
+  validateDeclaration,
+} from "./mod.ts";
 
 const command = {
   name: "list_items",
@@ -135,4 +139,64 @@ test("icon 선언은 bundle 안 svg·png·webp 경로나 lucide:<kebab-case 이�
   assert.ok(withLucide.ok && withLucide.value.icon === "lucide:folder-kanban");
   const without = validateDeclaration(declarationWith([]));
   assert.ok(without.ok && !("icon" in without.value));
+});
+
+// event와 구독은 선택 칸이다. 비면 정규형에 칸이 없어 옛 선언의 hash가 그대로이고, 구독 handler 이름
+// (`on.<source>.<event>`)은 operation·command와 한 이름 공간이다.
+test("events와 subscriptions는 비면 칸을 두지 않고 payload는 object schema여야 하며 구독 handler 이름은 다른 handler와 겹치지 못한다", () => {
+  const event = {
+    name: "usage.limit",
+    description: "A limit was reached.",
+    payloadSchema: objectSchema,
+  };
+  const subscription = { source: "masup", event: "usage.limit" };
+  const plain = validateDeclaration(declarationWith([]));
+  const empty = validateDeclaration({
+    ...declarationWith([]),
+    events: [],
+    subscriptions: [],
+  });
+  assert.ok(plain.ok && empty.ok);
+  assert.deepStrictEqual(empty.value, plain.value);
+
+  const rejected: [string, Record<string, unknown>][] = [
+    [
+      "payload not an object",
+      { events: [{ ...event, payloadSchema: { type: "string" } }] },
+    ],
+    ["duplicate event", { events: [event, { ...event }] }],
+    ["event without description", { events: [{ ...event, description: " " }] }],
+    ["bad source", { subscriptions: [{ ...subscription, source: "Mas up" }] }],
+    [
+      "duplicate subscription",
+      { subscriptions: [subscription, { ...subscription }] },
+    ],
+    ["unknown field", { subscriptions: [{ ...subscription, handler: "x" }] }],
+    [
+      "handler name taken by a command",
+      {
+        subscriptions: [subscription],
+        commands: [{ ...command, name: "on.masup.usage.limit" }],
+      },
+    ],
+    [
+      "handler name too long",
+      { subscriptions: [{ source: "masup", event: "e".repeat(60) }] },
+    ],
+  ];
+  for (const [label, extra] of rejected) {
+    const result = validateDeclaration({ ...declarationWith([]), ...extra });
+    assert.ok(!result.ok, label);
+  }
+
+  const accepted = validateDeclaration({
+    ...declarationWith([]),
+    events: [event],
+    subscriptions: [subscription, { source: "lophn", event: "session.idle" }],
+  });
+  assert.ok(accepted.ok);
+  assert.deepStrictEqual(handlerNames(accepted.value), [
+    "on.lophn.session.idle",
+    "on.masup.usage.limit",
+  ]);
 });

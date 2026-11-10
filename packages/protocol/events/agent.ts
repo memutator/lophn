@@ -69,6 +69,11 @@ const messageReceived = defineAgentEvent(
     call: idSchema("cal").nullable(),
     reply_to: idSchema("cal").nullable(),
     steer: z.boolean(),
+    // 앱 화면이 보낸 사람 메시지의 이름표. 보낸 쪽(from)은 그대로 human이다.
+    via: z
+      .strictObject({ app: idSchema("app"), slug: z.string().min(1) })
+      .nullable()
+      .optional(),
   }),
 );
 

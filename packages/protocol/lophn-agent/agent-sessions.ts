@@ -55,6 +55,8 @@ const workspaceSessionObject = z.object({
   called_from: workspaceOutputSchema.nullable(),
   // `team spawn`으로 열린 session이면 연 session(팀의 부모). 열 때 정해 바뀌지 않는다. null이면 팀 밖이거나 팀의 root다.
   spawned_by: idSchema("ses").nullable(),
+  // 앱이 열었으면 그 앱. 앱은 자기가 연 session만 끝낼 수 있다. 앱 화면이 연 session은 turn 끝 알림을 거른다. 열 때 정해 바뀌지 않는다.
+  opened_by_app: idSchema("app").nullable(),
   // runtime이 harness인 agent의 session이면 그 harness. 열 때 정해 바뀌지 않는다.
   harness: z.enum(HARNESS_RUNTIMES).nullable(),
   state_seq: seqSchema,
@@ -101,6 +103,29 @@ export const workspaceSessionOpen = defineCommand({
   }),
   compare: z.strictObject({}),
   actors: ["user"],
+  errors: [...commandErrors],
+});
+
+// 앱 화면이 연 session. `opened_by_app`을 다는 길은 이것뿐이다(앱은 자기가 연 session만 끝낼 수 있어 사람 자격의 OpenSession이 표시를 달 수
+// 있으면 안 된다). core의 앱 wiring이 앱을 정해 core 안 machine 자격으로 부른다.
+export const workspaceSessionAppOpen = defineCommand({
+  resource: "sessions",
+  method: "app-open",
+  name: "OpenAppSession",
+  input: z.strictObject({
+    id: idSchema("ses"),
+    agent: agentIdSchema,
+    workspace: workspaceSchema,
+    app: idSchema("app"),
+  }),
+  output: z.object({
+    id: idSchema("ses"),
+    lifecycle: z.literal("open"),
+    workspace: workspaceOutputSchema.nullable(),
+    state_seq: seqSchema,
+  }),
+  compare: z.strictObject({}),
+  actors: ["machine"],
   errors: [...commandErrors],
 });
 
@@ -154,6 +179,7 @@ export const workspaceSessionCompactRequests = defineRead({
 
 export const WORKSPACE_SESSION_ROUTES = [
   workspaceSessionOpen,
+  workspaceSessionAppOpen,
   workspaceSessionRead,
   workspaceSessionList,
   workspaceSessionCompactRequests,

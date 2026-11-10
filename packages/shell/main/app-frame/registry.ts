@@ -481,6 +481,23 @@ export function createAppFrame(deps: AppFrameDeps) {
       return boundViewOf(entry);
     },
 
+    /** page가 붙어 있는 live view(release에 묶인 것). 앱 event를 받을 수 있는 view다. */
+    liveViews(): { view_session: string; app: string; release: string }[] {
+      return [...entries.values()].flatMap((entry) =>
+        entry.contents !== undefined &&
+        entry.target.mode === "live" &&
+        entry.target.release !== null
+          ? [
+              {
+                view_session: entry.view_session,
+                app: entry.target.app,
+                release: entry.target.release,
+              },
+            ]
+          : [],
+      );
+    },
+
     /** annotate가 쓰는 view 입구. 없는 view는 undefined다. */
     annotateView(view_session: string): AnnotateViewPort | undefined {
       const entry = entries.get(view_session);

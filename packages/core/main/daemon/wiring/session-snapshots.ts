@@ -11,8 +11,8 @@ import {
   recordMessage,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import { sessionStateOf } from "../../../lophn-agent/session/state.ts";
 import {
-  hasUnfinishedTurn,
   loadSession,
   openSessions,
   workspaceOf,
@@ -104,12 +104,10 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
             session: row.id,
             agent: row.agent,
             workspace: workspaceOf(row),
-            state:
-              turn_requests.length > 0 || questions.length > 0
-                ? "waiting"
-                : hasUnfinishedTurn(lookup, row.id)
-                  ? "running"
-                  : "idle",
+            state: sessionStateOf(sql, row.id, {
+              approval: turn_requests.length > 0,
+              question: questions.length > 0,
+            }).state,
             turn_requests,
             questions,
           } satisfies SessionSnapshot);

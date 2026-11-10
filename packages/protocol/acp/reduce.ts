@@ -179,6 +179,7 @@ function reduceChild(
           at: queued.at,
           actor: "user",
           sender: null,
+          ...(queued.via === undefined ? {} : { via: queued.via }),
           call: null,
           reply_to: null,
           delivery: update.delivery,

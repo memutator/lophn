@@ -7,7 +7,10 @@ import {
   parseControlShutdown,
 } from "./wire.ts";
 import type { RuntimeState } from "./state.ts";
-import { handlerNames } from "../../../../protocol/apps/declaration/mod.ts";
+import {
+  handlerNames,
+  requiredHandlerNames,
+} from "../../../../protocol/apps/declaration/mod.ts";
 import { readAppToolPort } from "../../invocations/context.ts";
 import { ensureAppToolPort } from "./tool-port.ts";
 
@@ -41,10 +44,12 @@ function listed(names: readonly string[]): string {
 
 // 선언과 등록된 handler의 차이. 둘 다 비면 맞는 것이다.
 function handlerMismatch(state: RuntimeState): string {
-  const declared = handlerNames(state.declaration);
+  // 구독 handler는 등록하지 않아도 된다(화면만 구독하는 앱). 등록했으면 선언한 구독이어야 한다.
+  const required = requiredHandlerNames(state.declaration);
+  const allowed = handlerNames(state.declaration);
   const registered = attestation(state).tools;
-  const missing = declared.filter((name) => !registered.includes(name));
-  const extra = registered.filter((name) => !declared.includes(name));
+  const missing = required.filter((name) => !registered.includes(name));
+  const extra = registered.filter((name) => !allowed.includes(name));
   const parts: string[] = [];
   if (missing.length > 0) {
     parts.push(`declared without a handler: ${listed(missing)}`);

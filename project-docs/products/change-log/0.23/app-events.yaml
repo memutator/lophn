@@ -1,0 +1,34 @@
+id: app-events
+version: 0.23.27
+title: "앱 event: 앱이 선언한 event를 내고 구독한 앱과 화면이 받는다"
+modules: [packages/protocol, packages/core/apps, packages/core/main, packages/core/storage, packages/sdk, packages/shell/main, packages/shell/preload, packages/shell/ipc, packages/shell/renderer, packages/cli, packages/design, packages/core/agent-workspaces]
+checked: []
+change: |
+  전: 앱끼리 닿는 길은 방향 있는 앱 쌍의 command 호출뿐이었다. 한 앱이 낸 사실을 여러 앱이 듣는 일대다에 맞지 않았다.
+  후:
+  - 선언(`@lophn/declaration` 4.5.0)에 선택 칸 `events`(`{name, description, payloadSchema}`)와 `subscriptions`(`{source, event}`, source는 발행 앱의 slug나 `lophn`)를 더했다. 빈 칸은 정본 json에서 빠져 옛 선언의 hash가 그대로다. 구독 handler의 이름은 `on.<source>.<event>`이고 operation·command와 한 handler 이름 공간이다(겹침·64자 검사). 앱 slug `lophn`은 예약어가 됐다.
+  - 앱 process는 `publish(name, payload)`·`subscribe(source, event, handler)`(`@lophn/cap-tool` 2.1.0)를 쓴다. 발행은 broker → core route `app_events.publish`(actor app, 자식 credential 허용 목록에 추가)다. core가 active release가 선언한 event인지, payload가 schema와 16 KiB 한도에 맞는지 본다(아니면 `invalid_input`). 부모 invocation이 돌고 있지 않아도 된다. 구독자를 기다리지 않는다.
+  - 전달은 구독을 선언한 active 앱 가운데 지금 그 release로 떠 있는 앱의 handler를 앱 호출 경로로 부르는 것이다. 새 caller 종류 `event`(`{publisher, event, publication, trace_id, chain, parent_invocation}`)를 protocol caller schema, 손 사본 셋(cap-tool context, entrypoint wire, invocations context), core의 caller 확인·Gate(묻지 않음)·service에 더했다. 구독 handler는 operation 자리의 이름으로 부르고 effect는 write로 고정해 changeset을 떠 rewind 대상이다. 저장, cursor, 재시도는 없다.
+  - ledger step `apps.invocations.event-caller`가 `invocations` 표를 다시 짜 `caller_kind` CHECK에 `event`를 더한다(모든 행, index 넷, trigger 둘을 그대로 옮긴다). step `apps.events.publications`가 발행 기록 표 `app_event_publications`를 더한다. `schema-steps.lock.json`에 둘을 덧붙였다.
+  - 발행 기록(누가, 어느 event, 언제, trace id, 켜져 있던 구독자 수(reachable), 닿지 못한 수(unreachable), 고리·깊이로 넘기지 않은 수(refused). payload 없음)을 앱마다 최근 200개 둔다. agent가 `lophn app event-publications`(route `app.event_publications`)로 읽는다. 발행과 거기서 나온 호출은 같은 trace id를 싣는다. App details의 Activity에 event가 부른 호출이 보인다.
+  - 앱 화면은 `lophnApp.events.subscribe`(`@lophn/app-ui` 2.14.0의 `useEvent`)로 같은 구독을 받는다. core가 남지 않는 event `AppEventPublished`를 Bus로 내고 shell main이 그 화면의 release가 구독을 선언한 event만 page에 `app:event`로 보낸다.
+  - `architecture/event.md`·`app-notice.md`가 말하던 "앱 event를 열지 않는다"를 뒤집었다. `app-call.md`에 caller 종류와 앱 event를 더했다. 앱 template `declaration_test.ts`가 구독 handler 이름을 선언된 이름으로 센다.
+why: 한 앱이 낸 사실(구독 사용량 한도)을 여러 앱이 듣는 일대다가 많을 것이라는 사람의 요구. 닫았던 이유(반응을 믿게 할 저장, cursor, 재시도)는 그 약속을 하지 않는 알림으로 열면 필요 없다. 다음 단계의 session lifecycle event(`lophn`이 발행자)가 이 전달 길을 그대로 쓴다.
+decisions:
+  - text: "앱 event를 연다. event는 일이 일어난 뒤의 알림이고 core는 답을 기다리지 않는다. 전달은 한 번, 저장하지 않는다. 정본은 발행 앱의 read command다. 버린 길: 저장하는 event(구독자 cursor와 재시도), hook."
+    by: person
+  - text: "구독에 사람 허락을 두지 않는다. event는 발행 앱이 내놓겠다고 선언한 것이다."
+    by: person
+  - text: "구독 handler의 이름은 선언에 따로 적지 않고 `on.<source>.<event>`로 정한다. 버린 길: 선언에 handler 이름 칸을 두기(선언과 코드가 어긋날 곳만 늘고, `subscribe(source, event, handler)`가 이름을 알 수 없다)."
+    by: agent
+  - text: "구독 handler는 새 호출 종류가 아니라 operation 자리로 부르고 caller event로만 부를 수 있게 막는다. effect는 write로 고정한다(앱 DB를 바꿀 수 있어 changeset이 있어야 rewind가 맞다). 버린 길: 구독마다 effect 선언, `kind`를 새로 늘리기(invocation 모양, process wire, SDK context가 모두 바뀐다)."
+    by: agent
+  - text: "publish·subscribe는 새 SDK package가 아니라 `@lophn/cap-tool`에 둔다. handler 등록(`handle`)과 broker로 앱을 부르는 길(`connectCommands`)이 이미 있고 앱마다 이미 깔려 있다. `@lophn/agent`는 view 전용(React peer)이라 앱 process에 맞지 않는다. 화면 쪽은 `@lophn/app-ui`의 `useEvent`다."
+    by: agent
+  - text: "발행 기록은 ledger 표에 앱마다 최근 200개(앱의 영구 알림 한도와 같다)만 두고 payload는 남기지 않는다. 읽기는 `app.invocations`와 같은 범위 판정이다."
+    by: agent
+  - text: "event 고리는 event가 싣고 가는 chain(이 event를 부른 인과의 앱들)으로 끊는다. 전달이 구독자를 기다리지 않아 살아 있는 호출 표로는 끊기지 않는다(앞선 호출이 이미 끝난다). 구독자가 chain에 있거나 깊이 한도면 넘기지 않고 발행 기록의 refused에 센다."
+    by: agent
+follow_up: |
+  - 다음 단계(session lifecycle): core가 발행자 `lophn`으로 같은 전달 길을 쓴다. caller와 발행 기록은 publisher `lophn`을 이미 받는다.
+  - 앱 SDK 판: `@lophn/declaration` 4.5.0, `@lophn/cap-tool` 2.1.0, `@lophn/app-ui` 2.14.0(모두 minor, `migrate-sdk` 메모 있음). 지원 하한은 그대로다.

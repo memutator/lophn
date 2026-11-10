@@ -5,7 +5,7 @@ import type { RequestContext, Sql, Tx } from "../../../protocol/server/mod.ts";
 import { modelSchemaSteps } from "../models/schema.ts";
 import { GLOBAL_SCOPE, loadChoice, loadShown } from "../models/store.ts";
 import { createConversationCommands } from "./commands.ts";
-import { conversationSchemaSteps } from "./model.ts";
+import { conversationTestSteps } from "./test-steps.ts";
 
 const PROVIDER = "pvd_00000000000000000000000000";
 const user = { actor: "user" } as RequestContext;
@@ -13,7 +13,7 @@ const user = { actor: "user" } as RequestContext;
 function setup() {
   const db = new DatabaseSync(":memory:");
   db.exec("create table providers (id text primary key, definition_key text)");
-  for (const step of [...conversationSchemaSteps, ...modelSchemaSteps]) {
+  for (const step of [...conversationTestSteps, ...modelSchemaSteps]) {
     db.exec(step.sql);
   }
   db.prepare("insert into providers (id, definition_key) values (?, ?)").run(

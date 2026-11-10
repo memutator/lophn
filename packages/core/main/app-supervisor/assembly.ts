@@ -19,13 +19,16 @@ import {
   appsSecretValue,
   CONTROL_PATHS,
 } from "../../../protocol/apps/mod.ts";
+import { appEventPublish } from "../../../protocol/apps/events.ts";
 import { appTraySet } from "../../../protocol/apps/tray.ts";
 import { CALL_RESPONSE_MAX_BYTES } from "../../../protocol/base/mod.ts";
 import {
   type AppCallPort,
   type BrokerChild,
+  type EventPublishPort,
   type NoticePostPort,
   type ReadyReceiver,
+  type SessionsPort,
 } from "../../apps/permissions/mod.ts";
 import {
   createPreviewLauncher,
@@ -367,6 +370,20 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       asChild(child, `${appTraySet.resource}/${appTraySet.method}`, input),
   };
 
+  const events: EventPublishPort = {
+    publish: (child, input) =>
+      asChild(
+        child,
+        `${appEventPublish.resource}/${appEventPublish.method}`,
+        input,
+      ),
+  };
+
+  const sessions: SessionsPort = {
+    call: (child, operation, input) =>
+      asChild(child, `app_sessions/${operation}`, input),
+  };
+
   const toCore = { post: io.post, bearer: () => hello.credential };
   // 앱 secret 값은 supervisor의 machine credential로 core에서 받는다. 앱 process는 이 route를 부르지 못한다.
   const secrets = {
@@ -408,6 +425,8 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     access: createCoreBrokerAccess(toCore),
     ready,
     appCall,
+    events,
+    sessions,
     notice,
     platformPorts: () => (hello.apiPort === 0 ? [] : [hello.apiPort]),
     exceptions: {

@@ -13,7 +13,7 @@ import {
 import type { AgentAtWorkspace } from "../../protocol/lophn-agent/mod.ts";
 import type { ReadDefinition } from "../../protocol/server/mod.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
-import { jobTargetsPort } from "./ports.ts";
+import { jobEventPolicyPort, jobTargetsPort } from "./ports.ts";
 import {
   hasActivity,
   loadHolds,
@@ -74,7 +74,16 @@ export function createJobReads(): {
           limit: PAGE + 1,
         });
         if (!loaded.ok) return loaded;
-        const page = loaded.value.slice(0, PAGE);
+        // event job의 앱이 지금 그 event를 내지 않으면 표시한다(읽을 때 선언을 한 번 본다).
+        const policy = snapshot.port(jobEventPolicyPort);
+        const page = loaded.value
+          .slice(0, PAGE)
+          .map((job) =>
+            job.trigger?.app != null &&
+            !policy.declares(job.trigger.app as Id<"app">, job.trigger.event)
+              ? { ...job, source_gone: true }
+              : job,
+          );
         return ok({
           jobs: page,
           as_of_seq: snapshot.as_of_seq,

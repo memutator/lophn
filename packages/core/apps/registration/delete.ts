@@ -42,6 +42,7 @@ export function eraseApp(tx: Tx, app: string): Result<void> {
   if (!annotated.ok) return annotated;
   tx.sql.run("DELETE FROM annotation_batches WHERE app = ?", [app]);
   eraseAppNotices(tx, app);
+  tx.sql.run("DELETE FROM app_event_publications WHERE publisher = ?", [app]);
   eraseAppReviews(tx, app);
   tx.sql.run("UPDATE packages SET owner_app = NULL WHERE owner_app = ?", [app]);
 

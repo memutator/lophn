@@ -16,6 +16,11 @@ import {
 } from "../../base/mod.ts";
 import { appTools } from "../../protocol/apps/declaration/read.ts";
 import {
+  appSessionsList,
+  appSessionsStatus,
+  appSessionsStop,
+} from "../../protocol/lophn-agent/session-lifecycle.ts";
+import {
   type AppGrant,
   activationAskConsent,
   activationComplete,
@@ -28,6 +33,7 @@ import {
   appCallTool,
   noticePost,
   appTraySet,
+  appEventPublish,
   appGrantsList,
   appLogFile,
   appLogPreviousFile,
@@ -169,12 +175,16 @@ const SUPERVISOR_OPERATIONS = [
   // 앱의 외부 요청에 붙일 secret 값을 core가 현재 grant로 다시 판정해 건넨다.
   appsSecretValue.name,
 ];
-// 자식 앱마다 받는 app credential이 닿는 operation. 다른 앱 호출과 사람에게 알리기(notice)뿐이다.
+// 자식 앱마다 받는 app credential이 닿는 operation. 다른 앱 호출, 사람에게 알리기(notice·tray), event 발행, session 목록·상태·멈추기뿐이다.
 // 호출은 앱 process의 broker가 그 자식의 credential로 core를 부른다. notice의 권한은 broker가 판정한다.
 const APP_CHILD_OPERATIONS = [
   appCallTool.name,
   noticePost.name,
   appTraySet.name,
+  appEventPublish.name,
+  appSessionsList.name,
+  appSessionsStatus.name,
+  appSessionsStop.name,
 ];
 
 // registry 상한. 이 목록에 없는 operation은 그 actor에게 발급하지 못한다.
@@ -196,6 +206,14 @@ export function appsOperationPolicies(): OperationPolicy[] {
     },
     { name: noticePost.name, actors: ["machine", "app"], kind: "command" },
     { name: appTraySet.name, actors: ["machine", "app"], kind: "command" },
+    { name: appEventPublish.name, actors: ["machine", "app"], kind: "command" },
+    ...[appSessionsList, appSessionsStatus, appSessionsStop].map(
+      (route): OperationPolicy => ({
+        name: route.name,
+        actors: ["machine", "app"],
+        kind: "command",
+      }),
+    ),
     // supervisor(machine)의 broker가 실행 범위(선언 ∩ grant)를 읽는다. machine 자격은 command 종류만 받는다.
     { name: appTools.name, actors: ["machine"], kind: "command" },
     { name: appGrantsList.name, actors: ["machine"], kind: "command" },

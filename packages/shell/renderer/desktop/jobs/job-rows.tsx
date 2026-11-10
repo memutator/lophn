@@ -15,7 +15,13 @@ import {
 } from "../../shell/panel-rows.tsx";
 import { useJobChanges } from "../connection/events/hooks.tsx";
 import { useReload } from "../settings/use-reload.ts";
-import { jobsOfProject, nextText, scheduleText, STATE } from "./model.ts";
+import {
+  jobsOfProject,
+  nextText,
+  sourceGoneText,
+  STATE,
+  whenOf,
+} from "./model.ts";
 import type { JobsSource, JobView } from "./source.ts";
 import styles from "./jobs.module.css";
 
@@ -28,7 +34,7 @@ type Loaded =
 const stateText = (job: JobView): string =>
   job.enabled && job.last_run?.state === "held"
     ? t("jobs.label.waiting-decision")
-    : nextText(job, new Date());
+    : ((job.enabled ? sourceGoneText(job) : null) ?? nextText(job, new Date()));
 
 export function JobRows({
   project,
@@ -103,10 +109,19 @@ export function JobRows({
               data-job={job.id}
               leading={<TileIcon icon={shellIcons.jobs} />}
               title={job.title}
-              wrapMeta
+              wrapMeta={job.trigger === null ? true : 6}
               meta={
                 <>
-                  {scheduleText(job.every, job.at)} · {stateText(job)}
+                  {whenOf(job)}
+                  {job.trigger === null ? (
+                    ` · ${stateText(job)}`
+                  ) : (
+                    // event job은 때와 기록(연 수·건너뛴 수)을 각자 줄로 보인다. 좁은 panel에서 잘리지 않게 줄 수를 넉넉히 준다.
+                    <>
+                      <br />
+                      {stateText(job)}
+                    </>
+                  )}
                   {job.last_run?.state === "failed" ? (
                     <>
                       {" "}

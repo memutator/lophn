@@ -141,7 +141,13 @@ export type Sender =
       readonly agent: AgentId | null;
       readonly name: string | null;
     }
-  | { readonly kind: "program"; readonly label: string | null };
+  | { readonly kind: "program"; readonly label: string | null }
+  // 앱이 보낸 call. name은 그 앱의 slug다.
+  | {
+      readonly kind: "app";
+      readonly app: string | null;
+      readonly name: string;
+    };
 
 /** 맡긴 글의 근거 링크. */
 export interface EvidenceRef {
@@ -283,6 +289,8 @@ export interface ThreadMessage extends EntryBase {
   readonly actor: "user" | "agent" | "received";
   /** received일 때만 있다. */
   readonly sender: Sender | null;
+  /** 앱 화면이 보낸 사람 메시지면 그 앱 이름(slug). 사람의 메시지는 그대로고 이름표만 붙는다. */
+  readonly via?: string;
   /** 받은 call. 이 메시지가 맡긴 일이면 있다. */
   readonly call: string | null;
   /** 이 메시지가 답하는 call. 어느 부탁의 답인지 한 줄로 잇는다. */
@@ -483,6 +491,8 @@ export interface QueuedView {
   readonly text: string;
   /** 줄에 보이는 글. 이미지나 파일만 든 메시지는 그 표시다. */
   readonly summary: string;
+  /** 앱 화면이 보낸 메시지면 그 앱 이름(slug). 이름표일 뿐이다. */
+  readonly via?: string;
 }
 
 /** 사람이 답할 것. 둘 다 composer 위에 놓인다. */

@@ -59,6 +59,12 @@
   white-space: nowrap;
 }
 
+.viaMark {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+}
+
 .text:disabled {
   cursor: default;
 }

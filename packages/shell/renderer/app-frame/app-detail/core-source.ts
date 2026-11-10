@@ -446,6 +446,15 @@ async function callerOf(
       return { kind: "program" };
     case "flow":
       return { kind: "flow" };
+    case "event":
+      return {
+        kind: "event",
+        publisherName:
+          caller.publisher === "lophn"
+            ? "lophn"
+            : await names.appName(caller.publisher),
+        event: caller.event,
+      };
   }
 }
 

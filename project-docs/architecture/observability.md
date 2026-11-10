@@ -48,6 +48,8 @@ base는 node를 모른다(id, traceparent, logger, tracer, meter, OTLP JSON 인�
 
 바깥 provider나 MCP로 나가는 요청에는 `traceparent`를 붙이지 않는다(loopback으로 가는 요청에만 붙는다).
 
+앱 event의 발행(`app_events.publish`)은 요청이라 그 server span의 trace id를 갖는다. 그 id를 발행 기록(`app.event_publications`)과 그 발행이 부른 구독 handler 호출의 caller(`{kind: event, …, trace_id}`, `app.invocations`)에 같이 적어 한 발행과 거기서 나온 호출을 한 id로 잇는다. telemetry가 없는 조립은 id를 새로 만든다. 앱을 짓는 agent가 trace를 심지 않는다.
+
 ### log의 길
 
 ```

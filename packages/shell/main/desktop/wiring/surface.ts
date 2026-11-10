@@ -73,6 +73,11 @@ type Request =
       id: string;
       kind: "browser_call";
       payload: Parameters<BrowserDriver["run"]>[0];
+    }
+  | {
+      id: string;
+      kind: "terminal_interrupt";
+      payload: { terminal_ref: string };
     };
 
 const sameWorkspace = (a: Workspace, b: Workspace) =>
@@ -84,6 +89,9 @@ export function register(
   tools: ExtensionTools,
   appFrame: Pick<AppFrameService, "senderView">,
   artifacts: Pick<ArtifactViews, "guestId">,
+  interruptTerminal: (
+    terminalRef: string,
+  ) => Promise<{ ok: true } | { ok: false; code: string; message: string }>,
 ): Registered & Pick<BrowserDriver, "typeOnce"> {
   const registry = ctx.overlays.overlayRegistry();
   // 창(webContents id)이 보이는 workspace.
@@ -378,6 +386,18 @@ export function register(
         void tools
           .run(request.payload)
           .then((output) => done(request.id, output));
+        continue;
+      }
+      if (request.kind === "terminal_interrupt") {
+        // 앱이 멈춘 session이 터미널 탭의 coding agent다. 그 harness의 끊기 key를 친다.
+        void interruptTerminal(request.payload.terminal_ref).then((result) =>
+          done(
+            request.id,
+            result.ok
+              ? { content: [{ type: "text", text: "interrupted" }] }
+              : { error: { code: result.code, message: result.message } },
+          ),
+        );
         continue;
       }
       if (request.kind === "browser_call") {

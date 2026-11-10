@@ -33,6 +33,7 @@ import { readSdkStatus, type SdkStatusDeps } from "./sdk-status/mod.ts";
 import type { PreviewService } from "./preview/mod.ts";
 import { loadActiveDeclaration, loadRelease } from "./releases/store.ts";
 import { type AppStates } from "./calls/mod.ts";
+import { subscriptionHandlerName } from "./declaration/mod.ts";
 import { bundleCopyPath } from "./releases/mod.ts";
 import { createAppRewindCommand } from "./rewind/mod.ts";
 import {
@@ -284,11 +285,25 @@ export function appToolLookupOf(
       if (stored.value === null || stored.value.release.app !== app) {
         return ok(null);
       }
-      const { operations, commands } = stored.value.declaration;
+      const { operations, commands, subscriptions } = stored.value.declaration;
       const releaseId = stored.value.release.id as Id<"rel">;
       if (kind === "operation") {
         const declared = operations.find((entry) => entry.name === name);
-        if (declared === undefined) return ok(null);
+        if (declared === undefined) {
+          // 구독 handler의 effect는 write로 고정한다: 앱 DB를 바꿀 수 있어 changeset을 떠 rewind 대상이 되게 한다.
+          return ok(
+            (subscriptions ?? []).some(
+              (entry) => subscriptionHandlerName(entry) === name,
+            )
+              ? {
+                  release: releaseId,
+                  effect: "write" as const,
+                  public: false,
+                  subscription: true as const,
+                }
+              : null,
+          );
+        }
         return ok({
           release: releaseId,
           effect: declared.effect,

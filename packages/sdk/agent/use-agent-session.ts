@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { AcpAnswer, ContentBlock } from "./acp-types.ts";
 import type { JsonSchema } from "./reply.ts";
 import {
@@ -47,10 +54,21 @@ export function useAgentSession(options: {
   agent: string;
   title?: string;
   session?: string;
+  workspace?: { kind: "project" | "app"; id: string };
   app?: AgentBridge | undefined;
   newId?: () => string;
 }): AgentSession {
   const { agent, session, newId } = options;
+  // 객체 literal은 렌더마다 새로 만들어지므로 값으로 비교한다.
+  const workspaceKey =
+    options.workspace === undefined
+      ? ""
+      : `${options.workspace.kind}:${options.workspace.id}`;
+  const workspace = useMemo(
+    () => options.workspace,
+    // biome-ignore lint/correctness/useExhaustiveDependencies: workspaceKey가 값이다
+    [workspaceKey],
+  );
   const app = options.app ?? agentBridge();
   const [view, setView] = useState<SessionView>(EMPTY);
   const [sending, setSending] = useState(0);
@@ -70,7 +88,7 @@ export function useAgentSession(options: {
     }
     const opened = openAgentSession(
       app,
-      { agent, session, title: () => title.current },
+      { agent, session, workspace, title: () => title.current },
       setView,
       newId,
     );
@@ -79,7 +97,7 @@ export function useAgentSession(options: {
       opened.close();
       controller.current = null;
     };
-  }, [agent, session, app, newId]);
+  }, [agent, session, workspace, app, newId]);
 
   // 보내기가 접수되기까지와 turn이 도는 동안 켠다. 다른 key(앱의 `useKeepAlive`)와 서로 끄지 않는다.
   const keepKey = `agent:${useId()}`;

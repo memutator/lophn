@@ -95,47 +95,45 @@ export function HistoryView({
     <div data-history="">
       <div className={styles.filters}>
         <SearchFilter value={typed} onChange={setTyped} />
-        <div className={styles.filterRow}>
-          <FilterBar
-            dirty={dirty}
-            onReset={() => {
-              setTyped("");
-              setFilter(NO_FILTER);
-            }}
-          >
-            <DateRangeFilter
-              value={filter.range}
-              now={new Date()}
-              onChange={(range) => setFilter((now) => ({ ...now, range }))}
-            />
+        <FilterBar
+          dirty={dirty}
+          onReset={() => {
+            setTyped("");
+            setFilter(NO_FILTER);
+          }}
+        >
+          <DateRangeFilter
+            value={filter.range}
+            now={new Date()}
+            onChange={(range) => setFilter((now) => ({ ...now, range }))}
+          />
+          <SelectFilter
+            allLabel={t("waiting.label.filter-all-apps")}
+            options={appOptions}
+            value={filter.app}
+            onChange={(app) => setFilter((now) => ({ ...now, app }))}
+          />
+          {names.projects.size === 0 ? null : (
             <SelectFilter
-              allLabel={t("waiting.label.filter-all-apps")}
-              options={appOptions}
-              value={filter.app}
-              onChange={(app) => setFilter((now) => ({ ...now, app }))}
+              allLabel={t("waiting.label.filter-all-projects")}
+              options={projectOptions}
+              value={filter.project}
+              onChange={(project) => setFilter((now) => ({ ...now, project }))}
             />
-            {names.projects.size === 0 ? null : (
-              <SelectFilter
-                allLabel={t("waiting.label.filter-all-projects")}
-                options={projectOptions}
-                value={filter.project}
-                onChange={(project) =>
-                  setFilter((now) => ({ ...now, project }))
-                }
-              />
-            )}
-            <SelectFilter
-              allLabel={t("waiting.label.type-all")}
-              options={typeOptions}
-              value={filter.type === "all" ? null : filter.type}
-              onChange={(type) =>
-                setFilter((now) => ({
-                  ...now,
-                  type: (type ?? "all") as TypeFilter,
-                }))
-              }
-            />
-          </FilterBar>
+          )}
+          <SelectFilter
+            allLabel={t("waiting.label.type-all")}
+            options={typeOptions}
+            value={filter.type === "all" ? null : filter.type}
+            onChange={(type) =>
+              setFilter((now) => ({
+                ...now,
+                type: (type ?? "all") as TypeFilter,
+              }))
+            }
+          />
+        </FilterBar>
+        <div className={styles.filterActions}>
           <Button
             size="sm"
             icon={actionIcons.confirm}

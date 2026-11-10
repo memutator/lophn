@@ -1,0 +1,8 @@
+id: inbox-history-mark-all-read-row
+version: 0.23.24
+title: Inbox History의 [Mark all read]를 거르기 줄 아래 오른쪽 끝으로 옮긴다
+modules: [packages/shell/renderer]
+change: |
+  - History 거르기 배치: 검색 칸, 그 아래 [기간] [앱] [project] [종류] [Reset filters] 줄, 그 아래 줄 오른쪽 끝에 [Mark all read]다. 전에는 [Mark all read]가 거르기 줄 오른쪽에 붙어 좁은 overlay에서 [Reset filters]가 다음 줄로 밀렸다.
+why: |
+  사람이 [Reset filters]와 [Mark all read]의 자리를 바꾸고 [Mark all read]를 오른쪽 끝에 두라고 했다.

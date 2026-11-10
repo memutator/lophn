@@ -335,16 +335,10 @@
   border-bottom: var(--border-width) solid var(--color-border-subtle);
 }
 
-/* 거르기 버튼 줄과 그 오른쪽 끝의 [Mark all read]. 거르기가 넘치면 버튼 줄 안에서 접힌다. */
-.filterRow {
+/* [Mark all read]는 거르기 줄 아래 오른쪽 끝에 둔다. [Reset filters]가 거르기 줄 안에 붙어 자리가 흔들리지 않는다. */
+.filterActions {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.filterRow > :last-child {
-  flex: none;
+  justify-content: flex-end;
 }
 
 .more {

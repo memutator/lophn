@@ -1,5 +1,5 @@
 id: browser-vault
-version: 0.23.5
+version: 0.23.31
 title: Home memory를 전역 memory로 싣고, 사람이 넣은 site login을 agent가 handle로 browser 탭에 채우고, agent가 login 입력을 요청한다
 modules: [packages/core/agent-workspaces, packages/core/lophn-agent, packages/core/secrets, packages/core/host-queue, packages/core/main, packages/protocol, packages/cli, packages/coding-agent, packages/shell/main, packages/shell/renderer, packages/shell/ipc, packages/sdk]
 change: |

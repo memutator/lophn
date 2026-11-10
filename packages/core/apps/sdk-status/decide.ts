@@ -153,7 +153,7 @@ export function sdkDecideHandler(deps: SdkDecideDeps) {
       idempotency_key: deps.ids.newId("sdr"),
       compare: {},
       prepared: [],
-    } as never);
+    });
     return done.ok ? ok(done.value.result) : done;
   };
 }

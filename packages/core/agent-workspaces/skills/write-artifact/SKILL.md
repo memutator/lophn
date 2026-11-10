@@ -177,6 +177,7 @@ the page's view tabs, a short status and its main actions in lophn's head with
 - A hover hint is `ui.overlay.Tooltip`, never the HTML `title` attribute.
 - Spacing, type size, corners and color come from the token variables. Do not
   write `px` values or colors of your own.
+- Do not style scrollbars. lophn draws them like its own screens.
 
 ## Appearance
 

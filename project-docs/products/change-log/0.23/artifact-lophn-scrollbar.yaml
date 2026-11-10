@@ -1,0 +1,13 @@
+id: artifact-lophn-scrollbar
+version: 0.23.14
+title: artifact page의 scroll 막대가 lophn 모양이다
+modules: [packages/shell/main, packages/core/agent-workspaces]
+change: |
+  - artifact 문서에 token과 함께 `design/base.css`의 scroll 막대 규칙을 넣는다. kit을 쓰지 않는 page와 사람이 연 `.html`도 OS 기본 막대 대신 lophn 화면·앱과 같은 얇은 막대를 그린다.
+  - 내장 skill `write-artifact`에 scroll 막대를 꾸미지 말라는 줄을 더했다.
+why: |
+  앱은 template이 base.css를 import해 막대를 받지만 artifact는 token만 받아 OS 기본 막대가 나왔다. 막대는 page가 고르는 것이 아니라 제품 모양이다.
+decisions:
+  - text: >-
+      base.css 전체가 아니라 막대 규칙 사본만 넣는다. 버린 안: kit.css에 base.css 싣기(kit을 쓰는 page에만 닿고 body 배경·글꼴 file이 같이 온다).
+    by: agent

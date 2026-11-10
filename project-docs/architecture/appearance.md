@@ -31,7 +31,7 @@ main
      webContents마다 insertCSS한다
        - 값이 바뀌면 옛 CSS를 지우고 새 CSS를 넣는다
        - 문서를 새로 읽을 때마다(dom-ready) 지금 CSS를 다시 넣는다
-       - artifact 문서에는 token 정의가 없어 token 정의 전체를 appearance CSS 앞에 붙인다
+       - artifact 문서에는 token 정의가 없어 token 정의 전체와 scroll 막대 규칙을 appearance CSS 앞에 붙인다
 ```
 
 - 보내는 쪽은 desktop renderer 하나다. main은 보낸 쪽이 desktop 창 본문인지 보고 값을 다시 검사한다. renderer가 직접 쓰는 것은 자기 문서의 `data-theme`뿐이고, 나머지는 desktop 창도 앱 화면 guest와 같은 길(main의 insertCSS)로 받는다.
@@ -87,7 +87,7 @@ html[data-theme="dark"] { dark 값 }
 1. 모든 lophn 문서(desktop 창, overlay, 보호 입력 창, 앱 화면, artifact 화면)가 같은 appearance를 받는다. 값이 바뀌면 지금 열린 문서가 바뀌고, 이후 열리는 문서와 새로 읽은 문서(dom-ready)에도 지금 CSS가 들어간다. lophn 것이 아닌 문서(devtools 등)에는 넣지 않는다.
 2. main은 desktop 창 본문이 보낸 값만 받고, 받을 때 다시 검사한다. 고르는 값이 목록 밖이면 전체를 거절하고 아무것도 바꾸지 않는다. 거절은 응답 없이 끝난다.
 3. CSS 문자열에 들어가는 값은 preset 상수, 허용 목록의 굵기, 검사한 Custom 글꼴 이름뿐이다. Custom 글꼴 이름은 글자·숫자(Unicode, 한글 포함)·공백·`-`·`_`로 1~64자만 받는다. 따옴표, 괄호, 세미콜론, 중괄호, 역슬래시, 줄바꿈이 들어올 수 없어 CSS 문자열 밖으로 나갈 수 없다. renderer는 저장 전에 이 규칙으로 거절하고, main은 어긴 이름만 버려 기본 글꼴로 둔다. core는 길이만 본다. 이것이 앱 화면 guest에 들어가는 CSS의 injection을 막는 경계다.
-4. 기본이 아닌 선택만 token을 덮어쓴다. 모두 기본이면 덮어쓰는 CSS는 비어 있다. 단 artifact 문서에는 token 정의가 없으므로 CSS가 비어도 token 정의를 넣는다.
+4. 기본이 아닌 선택만 token을 덮어쓴다. 모두 기본이면 덮어쓰는 CSS는 비어 있다. 단 artifact 문서에는 token 정의가 없으므로 CSS가 비어도 token 정의를 넣는다. scroll 막대도 OS 기본이 아니라 lophn 모양이어야 해서 `design/base.css`의 막대 규칙 사본을 같이 넣는다(body 배경·글꼴 file은 넣지 않는다. page의 것과 부딪친다).
 5. 덮어쓰는 CSS는 문서 안 stylesheet의 순서와 상관없이 token 정의를 이긴다.
 6. 색 역할이 같다. "주 행동·고른 것·켜진 것·지금 것"의 표시(primary 단추, 강조선, marker, 고른 option 바탕)는 `color.ink.background`다. `color.focus`는 키보드 focus ring, 글 넣는 칸의 focus 테두리, 끌기와 drop 신호(탭 줄 resizer, 칸 divider, drop 자리)에만 쓴다. `color.text.*`는 글자에만 쓰고 표시 색으로 쓰지 않는다. 기본 Ink는 focus·selection·`ink.soft`까지 무채색이라 화면에 accent 색이 하나뿐이다.
 7. 되돌릴 수 없는 일을 실제로 하는 단추(지우기 확인, Rewind, 연결 끊기, 값 지우기, Workflow Stop)만 `color.danger`(채운 빨강, 흰 글자)다. accent에 묶지 않는다. Deny·Skip은 secondary다. link(`color.link`)는 accent에 묶지 않는다. link는 "누르는 것"을 알리는 뜻이라 accent가 Ink(검정)일 때도 파랑으로 남는다.

@@ -169,6 +169,11 @@ export const BROWSER_CALL_MS = 30_000;
 // `host/take`가 요청을 기다리는 시간이다. 매 take가 TUI hold의 heartbeat이고 hold 갱신이 10초(`BEAT_MS`)라 그보다 짧아야 한다.
 export const HOST_TAKE_WAIT_MS = 5_000;
 
+// core가 browser를 쓰려고 shell(앱)을 띄우는 약속이다. 앱의 실행 intent와, 그 길을 켜 달라고 core를 띄운 쪽(shell main, CLI)이
+// core env에 주는 표시다. test·boot처럼 사람이 아닌 쪽이 띄운 core는 이 표시가 없어 shell을 띄우지 않는다.
+export const AGENT_WINDOW_INTENT = "--agent-window";
+export const LAUNCH_SHELL_ENV = "LOPHN_LAUNCH_SHELL";
+
 export const browserActionSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("snapshot") }),
   z.strictObject({ kind: z.literal("act"), act: browserActSchema }),

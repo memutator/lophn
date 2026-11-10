@@ -12,6 +12,7 @@ import {
   type DetachedStart,
   type SpawnDetached,
 } from "../../../protocol/client/mod.ts";
+import { LAUNCH_SHELL_ENV } from "../../../protocol/lophn-agent/host-queue.ts";
 import {
   START_FAILURE_REASONS,
   type StartFailureReason,
@@ -93,6 +94,8 @@ export function spawnDetachedCore(options: {
         ...process.env,
         ELECTRON_RUN_AS_NODE: "1",
         LOPHN_HOME: options.dataRoot,
+        // 사람이 쓰는 core만 browser가 필요할 때 앱을 띄울 수 있다.
+        [LAUNCH_SHELL_ENV]: "1",
       },
       detached: true,
       windowsHide: true,

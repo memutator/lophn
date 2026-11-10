@@ -1,3 +1,5 @@
+import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 import { startFailureReason } from "../../storage/migration/mod.ts";
@@ -23,6 +25,8 @@ const started = await startCore({
     platformRoot: fileURLToPath(new URL("../../../..", import.meta.url)),
     execPath: process.execPath,
     env: process.env,
+    exists: existsSync,
+    spawn: (command, args, options) => spawn(command, args, options),
   }),
 });
 if (!started.ok) {

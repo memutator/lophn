@@ -39,7 +39,7 @@ const person = {
 function setup(
   running: boolean,
   root = "/nonexistent",
-  launchShell?: () => void,
+  launchShell?: (failed: () => void) => void,
 ) {
   const clock = manualClock(1_700_000_000_000);
   const queue = createHostQueue({
@@ -153,26 +153,45 @@ test("shell이 없으면 browser tab open이 shell을 한 번만 띄우고 붙�
   assert.equal(launches, 1);
 });
 
-test("shell이 30초 안에 붙지 않으면 unavailable이고 탭이 남지 않으며, 띄울 길이 없으면 바로 unavailable이다", async () => {
+test("shell이 30초 안에 붙지 않거나 띄우다 실패하면 열기가 unavailable이고, 5분은 다시 띄우지 않고 바로 실패하며, 붙으면 풀린다", async () => {
   let launches = 0;
-  const { clock, queue, open } = setup(true, "/nonexistent", () => launches++);
+  let fail: (() => void) | undefined;
+  const { clock, queue, open } = setup(true, "/nonexistent", (failed) => {
+    launches++;
+    fail = failed;
+  });
   const waiting = open(agent(1), browser);
-  clock.advance(30_001);
+  const late = open(agent(1), browser);
+  clock.advance(29_000);
+  // 29초에 온 열기도 같은 시도와 같이 30초에 끝난다(자기 기한을 따로 기다리지 않는다).
+  const alsoWaiting = open(agent(1), browser);
+  clock.advance(1_001);
   queue.expire();
-  const reply = await waiting;
-  assert.equal(code(reply), "unavailable");
-  assert.match(message(reply), /could not be started/);
-  // 열던 탭은 닫기만 남고 열기 요청은 거둬졌다.
-  assert.equal(queue.take([])?.kind, "tab_close");
-  assert.equal(queue.take([]), null);
-  // 앞선 시도가 끝났으니 다음 열기는 다시 띄운다.
-  clock.advance(10_000);
-  const again = open(agent(1), browser);
+  for (const reply of await Promise.all([waiting, late, alsoWaiting])) {
+    assert.equal(code(reply), "unavailable");
+    assert.match(message(reply), /could not be started/);
+  }
+  // 실패한 뒤 5분은 띄우지 않고 바로 실패한다.
+  clock.advance(60_000);
+  assert.match(message(await open(agent(1), browser)), /could not be started/);
+  assert.equal(launches, 1);
+  // 띄우자마자 실패(spawn 오류)해도 기다리지 않고 끝난다.
+  clock.advance(5 * 60_000);
+  const spawning = open(agent(1), browser);
   assert.equal(launches, 2);
+  fail!();
+  assert.match(message(await spawning), /could not be started/);
+  // 사람이 앱을 열어 shell이 붙으면 풀리고 열린다.
+  clock.advance(1_000);
+  queue.take([]);
+  const again = open(agent(1), browser);
   queue.done(queue.take([])!.id as never, "done", {
     content: [{ type: "text", text: "bound" }],
   });
   assert.equal(code(await again), "ok");
+  assert.equal(launches, 2);
+  // 받는 shell이 없었던 실패한 열기들의 닫기 요청은 쌓이지 않았다.
+  assert.equal(queue.take([]), null);
 
   const without = setup(true);
   const refused = await without.open(agent(1), browser);
@@ -211,13 +230,14 @@ test("browser 호출은 연 쪽만 하고, 남이나 사람이 연 탭은 없는
     code(await act(agent(2), { tab: agentTab, type: "click", ref: "e1" })),
     "not_found",
   );
-  // 주인은 주인 대조를 지나 shell이 붙어 있는지로 간다.
+  // 앱이 끝나 shell이 없으면 browser 탭의 page는 사라진 것이라 탭을 표에서 빼고 같은 not_found 문장을 준다.
   clock.advance(3_001);
   assert.equal(
-    code(await snapshot(agent(1), { tab: agentTab })),
-    "unavailable",
+    message(await snapshot(agent(1), { tab: agentTab })),
+    message(gone),
   );
-  assert.equal(code(await snapshot(person, { tab: personTab })), "unavailable");
+  assert.equal(code(await snapshot(person, { tab: personTab })), "not_found");
+  assert.equal(queue.read(agentTab as never, id("ses", 1) as never).ok, false);
 });
 
 // artifact는 그 그릇 workspace의 것만 연다. 깨지면 다른 project·앱의 agent가 남의 artifact를 사람 화면에 띄우고 읽는다.

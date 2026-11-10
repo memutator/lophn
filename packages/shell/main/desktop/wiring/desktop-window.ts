@@ -294,6 +294,11 @@ function rememberWorkspace(
       else reveal(window, ctx.headless);
     });
   }
+  // focus 없이 연 창은 maximize하지 않았으므로 그 창의 상태가 사람이 고른 것이 아니다. 사람이 그 창을 최대화하거나 되돌리기
+  // 전에는 앞서 저장한 값을 그대로 쓴다. 안 그러면 다음 창이 최대화 없이 열린다.
+  let kept: boolean | undefined = inactive
+    ? (workspace?.maximized ?? false)
+    : undefined;
   let timer: NodeJS.Timeout | undefined;
   const save = () => {
     clearTimeout(timer);
@@ -303,8 +308,12 @@ function rememberWorkspace(
     const { x, y, width, height } = window.getNormalBounds();
     ctx.windowState.save({
       bounds: { x, y, width, height },
-      maximized: window.isMaximized(),
+      maximized: kept ?? window.isMaximized(),
     });
+  };
+  const savePicked = () => {
+    kept = undefined;
+    save();
   };
   const later = () => {
     clearTimeout(timer);
@@ -313,8 +322,8 @@ function rememberWorkspace(
   // Linux에는 moved가 없어 move와 resize를 같이 듣는다.
   window.on("move", later);
   window.on("resize", later);
-  window.on("maximize", save);
-  window.on("unmaximize", save);
+  window.on("maximize", savePicked);
+  window.on("unmaximize", savePicked);
   window.on("close", save);
 }
 

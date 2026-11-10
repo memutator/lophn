@@ -194,7 +194,14 @@ export function createWorkspaceViews(
           if (pool.parked.size === 0) pools.delete(workspace);
           for (const key of pool.parked) {
             if (pool.webviews.isBound(key) || pool.offBind.has(key)) continue;
-            pool.offBind.set(key, pool.webviews.onSession(key, enforceCap));
+            // 늦게 붙은 page는 방금 쓴 것으로 센다. 안 그러면 가장 오래된 것으로 보여 붙자마자 놓인다.
+            pool.offBind.set(
+              key,
+              pool.webviews.onSession(key, () => {
+                pool.webviews.touch(key);
+                enforceCap();
+              }),
+            );
           }
           enforceCap();
         });
@@ -250,6 +257,8 @@ export function createWorkspaceViews(
         key,
         pool.webviews.onSession(key, (session) => {
           hooks.bound(placement.tab, session);
+          // 늦게 붙은 page는 방금 쓴 것으로 센다(만든 때가 아니라 붙은 때). 안 그러면 가장 오래된 것으로 보여 붙자마자 놓인다.
+          pool.webviews.touch(key);
           enforceCap();
         }),
       );

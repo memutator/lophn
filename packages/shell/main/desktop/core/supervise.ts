@@ -30,6 +30,7 @@ import {
   type EnsuredCore,
   type SpawnDetached,
 } from "../../../../protocol/client/mod.ts";
+import { LAUNCH_SHELL_ENV } from "../../../../protocol/lophn-agent/host-queue.ts";
 import {
   CORE_CONTROL_PROTOCOL_VERSION,
   type ControlConfirmation,
@@ -117,6 +118,8 @@ function coreLaunch(options: ShellLaunch): {
       // process.execPath가 Electron이어도 이 표시가 없으면 두 번째 Electron 앱으로 뜬다.
       ELECTRON_RUN_AS_NODE: "1",
       LOPHN_HOME: options.dataRoot,
+      // 사람이 쓰는 core만 browser가 필요할 때 이 앱을 다시 띄울 수 있다.
+      [LAUNCH_SHELL_ENV]: "1",
     },
   };
 }

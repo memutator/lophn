@@ -5,10 +5,10 @@
 export const CORE_INTENT = "--core";
 
 /**
- * core가 browser를 쓰려고 shell을 띄울 때 쓰는 실행 intent. 앱은 평소처럼 서고 첫 창을 focus 없이 연다.
- * 이미 떠 있는 앱에는 창이 하나도 없을 때만 창 하나를 같은 모양으로 연다(open-intent.ts, single-instance.ts).
+ * core가 browser를 쓰려고 shell을 띄울 때 쓰는 실행 intent(값은 core와 나누므로 protocol에 있다). 앱은 평소처럼 서고
+ * 첫 창을 focus 없이 연다. 이미 떠 있는 앱에는 창이 하나도 없을 때만 창 하나를 같은 모양으로 연다(open-intent.ts, single-instance.ts).
  */
-export const AGENT_WINDOW_INTENT = "--agent-window";
+export { AGENT_WINDOW_INTENT } from "../../../protocol/lophn-agent/host-queue.ts";
 
 type LaunchMode = {
   /** true면 창·tray·terminal-host·extension을 조립하지 않고 core만 ensure한다. */

@@ -6,5 +6,6 @@ export {
   type HostQueueService,
   SHELL_LOST,
   SHELL_NOT_ATTACHED,
+  SHELL_START_FAILED,
   type TabOwner,
 } from "./queue.ts";

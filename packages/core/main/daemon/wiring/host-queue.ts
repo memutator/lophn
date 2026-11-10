@@ -1,5 +1,6 @@
 import { lstat } from "node:fs/promises";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
+import { describeThrown } from "../../../../base/telemetry/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
   codingAgentsSetting,
@@ -40,6 +41,7 @@ import {
   type HostQueueService,
   SHELL_LOST,
   SHELL_NOT_ATTACHED,
+  SHELL_START_FAILED,
   type TabOwner,
 } from "../../../host-queue/mod.ts";
 import {
@@ -81,8 +83,9 @@ type TabDeps = {
   // 사람이 고른 coding agent 즐겨찾기 harness id(설정 `shell.coding_agents`).
   codingFavorites(): readonly string[];
   handoffs: HandoffFiles;
-  // shell(앱)을 띄운다. 없으면 shell이 없을 때 browser 탭 열기는 SHELL_NOT_ATTACHED로 끝난다(시험, 띄울 길을 모르는 core).
-  launchShell?: () => void;
+  // shell(앱)을 띄운다. 시작이 실패하면 받은 `failed`를 부른다. 없으면 shell이 없을 때 browser 탭 열기는 SHELL_NOT_ATTACHED로
+  // 끝난다(시험, 사람이 띄우지 않은 core, 띄울 길을 모르는 core).
+  launchShell?: (failed: () => void) => void;
 };
 
 // agent는 자격의 session으로, 사람은 사람 token으로 부른다. 탭의 주인은 session, 사람 token은 모두 "person"이다.
@@ -284,7 +287,9 @@ export function createTabHandlers(deps: TabDeps) {
       if (deps.launchShell === undefined) {
         return err({ code: "unavailable", message: SHELL_NOT_ATTACHED });
       }
-      queue.startShell(deps.launchShell);
+      if (!queue.startShell(deps.launchShell)) {
+        return err({ code: "unavailable", message: SHELL_START_FAILED });
+      }
     }
     const sent = queue.openAndWait(opening);
     const opened = await settled(sent.id, sent.result, starting);
@@ -321,7 +326,8 @@ export function createTabHandlers(deps: TabDeps) {
 
   // 기다리는 browser 호출과 browser 탭 열기. core가 멈추기 전에 끝낸다.
   const inflight = new Set<() => void>();
-  // 요청의 결과를 기다리며 기한과 shell이 떨어짐을 1초마다 본다. shell을 띄우는 중이면 처음 붙을 때까지는 떨어짐으로 보지 않는다.
+  // 요청의 결과를 기다리며 기한과 shell이 떨어짐을 1초마다 본다. shell을 띄우며 기다리는 열기는 take 사이가 벌어져도(창을 만드는 동안)
+  // 떨어짐으로 보지 않고 30초 기한에 맡긴다.
   const settled = async (
     id: Id<"hrq">,
     result: Promise<Result<ExtensionToolContent[]>>,
@@ -329,10 +335,8 @@ export function createTabHandlers(deps: TabDeps) {
   ) => {
     const abandon = () => queue.abandon(id);
     inflight.add(abandon);
-    let waitingShell = starting;
     const watch = setInterval(() => {
-      if (queue.attached()) waitingShell = false;
-      if (!waitingShell && !queue.attached()) abandon();
+      if (!starting && !queue.attached()) abandon();
       else queue.expire();
     }, WATCH_MS);
     try {
@@ -537,7 +541,17 @@ export const hostQueueWiring: WiringFactory = () => {
         handoffs: fileHandoffs(ctx.root.path),
         ...(launchShell === undefined
           ? {}
-          : { launchShell: () => launchShell(ctx.root.path) }),
+          : {
+              launchShell: (failed) =>
+                launchShell(ctx.root.path, (thrown) => {
+                  ctx.telemetry.logger.warn({
+                    component: "host-queue",
+                    event: "shell_launch_failed",
+                    fields: describeThrown(thrown),
+                  });
+                  failed();
+                }),
+            }),
       });
       tabs = handlers;
 

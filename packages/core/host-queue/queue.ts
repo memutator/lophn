@@ -27,6 +27,8 @@ const BORROW_MS = 10_000;
 // shell이 없어 띄워야 했던 열기는 앱 시작과 창 열기까지 걸려 START_WAIT_MS 하나로 끝낸다. 한 번 띄운 뒤 그 시간 안에는 다시 띄우지 않는다.
 const OPEN_WAIT_MS = 10_000;
 const START_WAIT_MS = 30_000;
+// shell을 띄우지 못한 뒤(기한, spawn 오류) 이만큼은 다시 띄우지 않고 열기를 바로 실패시킨다. 붙으면 풀린다.
+const RETRY_BACKOFF_MS = 5 * 60_000;
 // shell이 없을 때 agent가 되풀이해도 메모리가 끝없이 늘지 않게 한다.
 const PENDING_MAX = 200;
 
@@ -78,8 +80,10 @@ export type HostQueue = {
     id: Id<"hrq">;
     result: Promise<CallResult>;
   };
-  // shell이 붙어 있지 않을 때만 `launch`를 부른다. 띄운 뒤 shell이 붙거나 START_WAIT_MS가 지나기 전에는 다시 부르지 않는다.
-  startShell(launch: () => void): void;
+  // shell이 붙어 있지 않을 때 `launch`를 불러 띄운다. 띄운 뒤 START_WAIT_MS 안에는 다시 부르지 않고 그 시도를 같이 기다린다.
+  // `launch`는 시작이 실패하면 받은 `failed`를 부른다. 지금 shell을 기다려도 되면 true, 앞선 실패의 RETRY_BACKOFF_MS 안이거나
+  // 띄우자마자 실패했으면 false다(부른 쪽이 SHELL_START_FAILED로 끝낸다).
+  startShell(launch: (failed: () => void) => void): boolean;
   // 아직 쓰지 않은 탭 id다. file을 먼저 쓰고 `openTab({tab})`으로 여는 쪽이 받는다.
   newTabId(): Id<"tab">;
   // 기다리는 take가 있거나 마지막 take가 끝난 지 3초 안이다.
@@ -116,18 +120,18 @@ const unavailable = (message: string) =>
 export const SHELL_NOT_ATTACHED =
   "The lophn app is not connected, so there is no browser to use. Retrying does not help until a person opens the lophn app; tell the person.";
 const QUEUE_FULL =
-  "Too many requests are waiting for the lophn app, so this one was dropped. They wait because no window can take them. Retrying does not help until a person opens the lophn app; tell the person.";
+  "Too many requests are waiting for the lophn app, so this one was dropped. They wait because the app is not taking them. Retrying may help once the app is running; if it fails again, tell the person.";
 const NO_RESULT =
   "The lophn app returned no result for this call. Try once more; if it fails again, tell the person.";
 const TIMED_OUT =
   "The browser call timed out before the lophn app answered; the page may be busy or the app stuck. Try once more; if it times out again, tell the person.";
 const OPEN_TIMED_OUT =
   "The browser page did not start loading in time (the site may be slow or not answering), so the tab was not opened. Try `lophn tab open` once more; if it fails again, tell the person.";
-const SHELL_START_FAILED =
+export const SHELL_START_FAILED =
   "The lophn app could not be started, so there is no browser to use. Retrying may help once; if it fails again, tell the person.";
-// 이미 연 탭에 부른 browser 호출이나 열던 중 shell이 떨어졌을 때다. 다시 열면 shell을 띄운다.
+// 이미 연 탭에 부른 browser 호출이나 열던 중 shell이 떨어졌을 때다(browser·preview·artifact 탭 모두).
 export const SHELL_LOST =
-  "The lophn app is not connected, so this tab has no page. Open the page again with `lophn tab open --url`; if that fails, tell the person.";
+  "The lophn app is not connected, so this tab has no page. Open the tab again with the command you used to open it; if that fails, tell the person.";
 // 없는 탭, 닫힌 탭, 남의 탭에 같은 문장을 써서 남의 탭이 있는지 새지 않게 한다.
 const NO_SUCH_TAB =
   "No such tab, or it was closed. Open the page again with `lophn tab open`, then use the new tab id.";
@@ -143,6 +147,8 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       deadline: number | null;
       // 기한이 지났을 때 부른 쪽이 받는 문장. 그때의 shell 상태를 본다.
       timedOut: () => string;
+      // shell을 띄우며 기다리는 browser 탭 열기. 띄우기가 실패하면 기한 전에 끝낸다.
+      starting: boolean;
     }
   >();
   // 요청을 기다리며 걸려 있는 take.
@@ -151,7 +157,9 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     finish(request: HostRequest | null): void;
   }>();
   let lastTakeMs: number | null = null;
+  // 마지막으로 shell을 띄운 때(붙으면 null)와 띄우기가 실패한 때(붙으면 null).
   let launchedAt: number | null = null;
+  let failedAt: number | null = null;
 
   function settle(id: Id<"hrq">, result: CallResult) {
     const found = waiting.get(id);
@@ -183,9 +191,15 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     request: HostRequest,
     deadline: number | null,
     timedOut = () => TIMED_OUT,
+    starting = false,
   ): { id: Id<"hrq">; result: Promise<CallResult> } {
     const result = new Promise<CallResult>((resolve) => {
-      waiting.set(request.id as Id<"hrq">, { resolve, deadline, timedOut });
+      waiting.set(request.id as Id<"hrq">, {
+        resolve,
+        deadline,
+        timedOut,
+        starting,
+      });
     });
     enqueue(request);
     return { id: request.id as Id<"hrq">, result };
@@ -193,8 +207,23 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
 
   function abandon(id: Id<"hrq">, message = SHELL_LOST) {
     const at = pending.findIndex((entry) => entry.request.id === id);
-    if (at >= 0) pending.splice(at, 1);
+    if (at >= 0) {
+      const [entry] = pending.splice(at, 1);
+      // shell이 열기를 가져간 적이 없으면 page가 없으니 닫으라고 알릴 것도 없다(받는 shell이 없을 때 쌓이지 않게).
+      if (entry!.request.kind === "tab_open" && entry!.borrowedAt === null) {
+        tabs.delete(entry!.request.payload.tab as Id<"tab">);
+      }
+    }
     settle(id, unavailable(message));
+  }
+
+  // shell을 띄우려던 시도가 실패했다(spawn 오류, 기한). 기다리던 열기는 바로 끝내고 한동안 다시 띄우지 않는다.
+  function startFailed(): void {
+    launchedAt = null;
+    failedAt = deps.clock.nowMs();
+    for (const [id, found] of [...waiting]) {
+      if (found.starting) abandon(id, SHELL_START_FAILED);
+    }
   }
 
   const attached = () =>
@@ -204,6 +233,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
   function take(workspaces: readonly HostWorkspace[]): HostRequest | null {
     lastTakeMs = deps.clock.nowMs();
     launchedAt = null;
+    failedAt = null;
     return lend(workspaces);
   }
 
@@ -245,6 +275,16 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     return ok(entry);
   }
 
+  // browser 탭의 page는 shell이 든다. 앱이 끝나면 창이 닫혔다고 알리는 길이 없어 표에 탭이 남으므로, shell이 없을 때 그 탭을 부르면
+  // page가 이미 사라진 것으로 보고 표에서 뺀다. preview·artifact 탭은 앱이 다시 뜨면 layout에서 다시 열려 그대로 둔다.
+  function pageAlive(tab: Id<"tab">, entry: TabEntry): boolean {
+    if (entry.kind !== "browser" || attached()) return true;
+    tabs.delete(tab);
+    return false;
+  }
+  const noSuchTab = () =>
+    err({ code: "not_found" as const, message: NO_SUCH_TAB });
+
   // 탭 표에 올리고 tab_open 요청을 넣는다. wait면 shell main이 page를 만들었다고 done으로 답할 때까지 기다리는 result를 같이 준다.
   function place(
     input: OpenInput,
@@ -279,10 +319,12 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
         return null;
       }
       // 기한 끝에 shell이 붙어 있지 않으면 띄우지 못한 것이고, 붙어 있으면 page가 안 생긴 것이다.
+      const starting = !attached();
       return call(
         request,
-        deps.clock.nowMs() + (attached() ? OPEN_WAIT_MS : START_WAIT_MS),
+        deps.clock.nowMs() + (starting ? START_WAIT_MS : OPEN_WAIT_MS),
         () => (attached() ? OPEN_TIMED_OUT : SHELL_START_FAILED),
+        starting,
       );
     };
     if (single !== null) {
@@ -361,6 +403,14 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     // 기한이 지난 browser 호출을 거둔다. 부른 쪽이 주기로 부른다.
     expire(): void {
       const now = deps.clock.nowMs();
+      // 띄운 shell이 기한 안에 붙지 않았다. 같은 시도를 기다리던 열기를 모두 끝낸다.
+      if (
+        launchedAt !== null &&
+        !attached() &&
+        now - launchedAt >= START_WAIT_MS
+      ) {
+        startFailed();
+      }
       for (const [id, found] of [...waiting]) {
         if (found.deadline !== null && found.deadline <= now) {
           abandon(id, found.timedOut());
@@ -371,22 +421,23 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     browserTab(tab: Id<"tab">, caller: TabOwner) {
       const found = owned(tab, caller, "read");
       if (!found.ok) return found;
+      if (!pageAlive(tab, found.value)) return noSuchTab();
       const { kind } = found.value;
       return kind === "agent"
         ? err({ code: "not_found" as const, message: NO_SUCH_TAB })
         : ok({ view: kind });
     },
     attached,
-    startShell(launch: () => void): void {
+    startShell(launch: (failed: () => void) => void): boolean {
+      if (attached()) return true;
       const now = deps.clock.nowMs();
-      if (
-        attached() ||
-        (launchedAt !== null && now - launchedAt < START_WAIT_MS)
-      ) {
-        return;
+      if (failedAt !== null && now - failedAt < RETRY_BACKOFF_MS) return false;
+      if (launchedAt === null || now - launchedAt >= START_WAIT_MS) {
+        launchedAt = now;
+        launch(startFailed);
       }
-      launchedAt = now;
-      launch();
+      // launch가 바로 실패했으면 startFailed가 비웠다.
+      return launchedAt !== null;
     },
     // 있으면 바로, 없으면 요청이 들어올 때까지 기다리다 HOST_TAKE_WAIT_MS 뒤 null이다. 기다리는 동안 attached다.
     wait(workspaces: readonly HostWorkspace[]): Promise<HostRequest | null> {
@@ -456,6 +507,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     read(tab: Id<"tab">, caller: TabOwner): Result<BrowserTabState> {
       const found = owned(tab, caller, "read");
       if (!found.ok) return found;
+      if (!pageAlive(tab, found.value)) return noSuchTab();
       return found.value.kind === "browser" && found.value.state !== null
         ? ok(found.value.state)
         : err({ code: "not_found", message: "tab has no browser state" });

@@ -97,6 +97,16 @@ const reachable = (
 const unavailable = (message: string) =>
   err({ code: "unavailable" as const, message });
 
+// browser·tab 호출의 이 문장들은 model이 그대로 받는다(work.ts). 원인, 다음 할 일, 되풀이가 통하는지를 적는다.
+export const SHELL_NOT_ATTACHED =
+  "The lophn app is not connected, so there is no browser to use. Retrying does not help until a person opens the lophn app; tell the person.";
+const QUEUE_FULL =
+  "Too many requests are waiting for the lophn app, so this one was dropped. They wait because no window can take them. Retrying does not help until a person opens the lophn app; tell the person.";
+const NO_RESULT =
+  "The lophn app returned no result for this call. Try once more; if it fails again, tell the person.";
+const TIMED_OUT =
+  "The browser call timed out before the lophn app answered; the page may be busy or the app stuck. Try once more; if it times out again, tell the person.";
+
 export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
   const pending: Entry[] = [];
   const tabs = new Map<Id<"tab">, TabEntry>();
@@ -143,7 +153,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     return { id: request.id as Id<"hrq">, result };
   }
 
-  function abandon(id: Id<"hrq">, message = "the shell is not attached") {
+  function abandon(id: Id<"hrq">, message = SHELL_NOT_ATTACHED) {
     const at = pending.findIndex((entry) => entry.request.id === id);
     if (at >= 0) pending.splice(at, 1);
     settle(id, unavailable(message));
@@ -162,10 +172,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     }
     if (pending.length > PENDING_MAX) {
       const [dropped] = pending.splice(0, 1);
-      settle(
-        dropped!.request.id as Id<"hrq">,
-        unavailable("host queue is full"),
-      );
+      settle(dropped!.request.id as Id<"hrq">, unavailable(QUEUE_FULL));
     }
   }
 
@@ -209,7 +216,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       const now = deps.clock.nowMs();
       for (const [id, found] of [...waiting]) {
         if (found.deadline !== null && found.deadline <= now) {
-          abandon(id, "the browser call timed out");
+          abandon(id, TIMED_OUT);
         }
       }
     },
@@ -322,7 +329,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
         settle(
           id,
           output === undefined
-            ? unavailable("the shell returned no result")
+            ? unavailable(NO_RESULT)
             : "content" in output
               ? ok(output.content)
               : err(output.error),

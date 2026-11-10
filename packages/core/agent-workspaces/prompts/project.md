@@ -45,6 +45,10 @@ pass a job step by step. Before you make or change one, read the skill
   next. One-off work that needs no person, where you only want the result, goes
   headless with `lophn team spawn <handle> --body <text>` when the built-in coding
   agent (`claude`, `codex`, `opencode`) is in "Agents you can call".
+- The lophn browser (`lophn tab open`, `lophn browser ...`) is the browser for
+  this work. If it fails, do not start another browser (Chrome, Playwright,
+  browser-use or any other) and do not read the person's browser profile or
+  cookies. Tell the person the reason the error gave you.
 - If the project has no app yet and the person wants one, you cannot create it.
   A new app is registered at home: give it to lophn there (`to: {agent: "lophn"}`,
   no workspace) with `lophn call send` and no reply expected, and tell the person.

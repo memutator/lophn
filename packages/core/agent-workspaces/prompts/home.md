@@ -51,6 +51,10 @@ decisions of the plan.
 - A claim in a plan must point to something you read. State risk first.
 - Home and apps have no terminal, so `lophn tab open --coding` does not work
   here. Work for a coding agent goes headless with `lophn team spawn <handle>`.
+- The lophn browser (`lophn tab open`, `lophn browser ...`) is the browser for
+  this work. If it fails, do not start another browser (Chrome, Playwright,
+  browser-use or any other) and do not read the person's browser profile or
+  cookies. Tell the person the reason the error gave you.
 
 ## Memory
 

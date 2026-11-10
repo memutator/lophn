@@ -35,8 +35,15 @@ class CallError extends Error {
   }
 }
 const fail = (code: ErrorCode, message: string) => new CallError(code, message);
-const stale = (ref: string, why = "") =>
-  fail("conflict", `stale ref ${ref}: run browser snapshot again${why}`);
+// 이 문장들은 model이 그대로 받는다. lophn이 쓴 고정 문장만 두고 page나 Chromium이 낸 글은 섞지 않는다.
+const stale = (ref: string) =>
+  fail(
+    "conflict",
+    `Ref ${ref} is stale because the page changed. Run browser snapshot again and use a ref from the new snapshot; the same ref will not work.`,
+  );
+
+// Chromium의 navigation 오류 이름만 싣는다. 그 밖의 글은 page에서 올 수 있어 버린다.
+const NET_ERROR = /^net::ERR_[A-Z0-9_]+$/;
 
 const LOG_LINES = 200;
 const CALL_MS = 20_000;
@@ -162,14 +169,20 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
   async function attach(session: Session): Promise<void> {
     const { page } = session;
     if (page.isDevToolsOpened()) {
-      throw fail("conflict", "DevTools is open on this tab");
+      throw fail(
+        "conflict",
+        "DevTools is open on this tab, so the agent cannot attach. Retrying does not help until the person closes DevTools; tell the person.",
+      );
     }
     if (session.attached) return;
     session.attaching ??= (async () => {
       try {
         page.attach("driver");
       } catch {
-        throw fail("conflict", "another debugger is attached to this tab");
+        throw fail(
+          "conflict",
+          "Another debugger is attached to this tab. Retrying does not help until the person closes it; tell the person.",
+        );
       }
       try {
         for (const domain of DOMAINS) await page.send(`${domain}.enable`);
@@ -198,7 +211,13 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const late = new Promise<never>((_, reject) => {
       timer = setTimeout(
-        () => reject(fail("unavailable", "the page did not answer")),
+        () =>
+          reject(
+            fail(
+              "unavailable",
+              "The page did not answer in time; it may be busy or stuck. Wait a little and try once more. If it still does not answer, tell the person.",
+            ),
+          ),
         limit,
       );
     });
@@ -231,7 +250,7 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
       };
     } catch (error) {
       if (error instanceof CallError) throw error;
-      throw stale(ref, ` (${(error as Error).message})`);
+      throw stale(ref);
     }
   }
 
@@ -241,7 +260,7 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
       await send(session, "DOM.focus", { backendNodeId });
     } catch (error) {
       if (error instanceof CallError) throw error;
-      throw stale(ref, ` (${(error as Error).message})`);
+      throw stale(ref);
     }
   }
 
@@ -262,7 +281,7 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
       objectId = resolved.object.objectId;
     } catch (error) {
       if (error instanceof CallError) throw error;
-      throw stale(ref, ` (${(error as Error).message})`);
+      throw stale(ref);
     }
     const called = await send<{
       exceptionDetails?: { exception?: { description?: string }; text: string };
@@ -490,7 +509,10 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
         ? undefined
         : pageOf(deps.lookup, view, viewSession);
     if (page === undefined || page.isDestroyed()) {
-      throw fail("unavailable", "the tab is not open in a window");
+      throw fail(
+        "unavailable",
+        "The tab is not open in a window: no window is showing this tab's workspace right now. Retrying does not help until a person opens that workspace in lophn; tell the person.",
+      );
     }
     deps.control.touch(tab);
     if (
@@ -499,7 +521,10 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
         action.kind === "navigate" ||
         action.kind === "evaluate")
     ) {
-      throw fail("conflict", "the person took control of this tab");
+      throw fail(
+        "conflict",
+        "The person took control of this tab, so act, navigate and evaluate are paused; retrying does not help. snapshot, screenshot, logs and wait still work. Tell the person you need the tab handed back.",
+      );
     }
     const session = sessionOf(tab, page);
     await attach(session);
@@ -533,7 +558,10 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
         { url: action.url },
       );
       if (errorText !== undefined) {
-        throw fail("unavailable", `navigation failed: ${errorText}`);
+        throw fail(
+          "unavailable",
+          `The navigation failed${NET_ERROR.test(errorText) ? ` (${errorText})` : ""}. Check that the url is right. Retrying the same url helps only if the failure was temporary; if it fails again, tell the person.`,
+        );
       }
       await settle(page, deps.nowMs() + LOAD_MS);
       return reply(where(session));
@@ -548,7 +576,7 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
         if (!(error instanceof CallError)) throw error;
         throw fail(
           "unavailable",
-          "the page was not drawn; a tab hidden behind another tab can't be captured, so show it and try again",
+          `The page was not drawn, so no screenshot was taken: a tab hidden behind another tab cannot be captured. Run \`lophn tab show ${tab}\` and try once more. If it fails again, tell the person.`,
         );
       });
       return { content: [{ type: "image", mimeType: "image/png", data }] };
@@ -590,7 +618,7 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
       if (deps.nowMs() >= until) {
         throw fail(
           "unavailable",
-          `the condition did not hold within ${action.timeout_ms} ms`,
+          `The condition did not hold within ${action.timeout_ms} ms. Run browser snapshot to see the page, then change the condition or wait longer; the same wait will fail the same way.`,
         );
       }
       await sleep(200);

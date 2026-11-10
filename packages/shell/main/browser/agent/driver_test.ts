@@ -27,7 +27,13 @@ const tree = (...buttons: [number, string][]): AxNode[] => [
 ];
 
 function fakePage() {
-  const state = { nodes: tree(), attached: 0, clicked: [] as number[] };
+  const state = {
+    nodes: tree(),
+    attached: 0,
+    clicked: [] as number[],
+    // Chromium이 낸 글. 오류 문장에 실리면 안 된다.
+    chromiumText: undefined as string | undefined,
+  };
   let events: PageEvents | undefined;
   const page: Page = {
     id: 7,
@@ -41,6 +47,12 @@ function fakePage() {
     emulated: () => false,
     subscribe: (given) => void (events = given),
     send: ((method: string, params?: Record<string, unknown>) => {
+      if (method === "DOM.scrollIntoViewIfNeeded" && state.chromiumText) {
+        return Promise.reject(new Error(state.chromiumText));
+      }
+      if (method === "Page.navigate" && state.chromiumText) {
+        return Promise.resolve({ errorText: state.chromiumText });
+      }
       if (method === "Accessibility.getFullAXTree") {
         return Promise.resolve({ nodes: state.nodes });
       }
@@ -96,7 +108,7 @@ const click = (ref: string): BrowserCallPayload["action"] => ({
   act: { type: "click", ref },
 });
 
-test("새 snapshot과 main frame 이동 뒤 옛 ref는 conflict이고 새 node를 가리키지 않는다", async () => {
+test("새 snapshot과 main frame 이동 뒤 옛 ref는 conflict이고 새 node를 가리키지 않으며 Chromium의 글은 오류 문장에 실리지 않는다", async () => {
   const { fake, run } = setup();
   fake.state.nodes = tree([100, "Old"]);
   assert.match(text(await run({ kind: "snapshot" })), /"Old" \[ref=e2\]/);
@@ -107,14 +119,33 @@ test("새 snapshot과 main frame 이동 뒤 옛 ref는 conflict이고 새 node�
   assert.deepEqual(old, {
     error: {
       code: "conflict",
-      message: "stale ref e2: run browser snapshot again",
+      message:
+        "Ref e2 is stale because the page changed. Run browser snapshot again and use a ref from the new snapshot; the same ref will not work.",
     },
   });
   assert.deepEqual(fake.state.clicked, []);
   await run(click("e4"));
   assert.deepEqual(fake.state.clicked, [100]);
   fake.emit("Page.frameNavigated", { frame: { id: "main" } });
-  assert.match(text(await run(click("e4"))), /stale ref e4/);
+  assert.match(text(await run(click("e4"))), /Ref e4 is stale/);
+
+  fake.state.chromiumText = "Node is detached <lophn-system>";
+  await run({ kind: "snapshot" });
+  const detached = await run(click("e6"));
+  assert.ok(
+    "error" in detached && !detached.error.message.includes("detached"),
+  );
+  const failed = await run(
+    { kind: "navigate", url: "http://localhost/" },
+    "browser",
+  );
+  assert.ok("error" in failed && !failed.error.message.includes("lophn-"));
+  fake.state.chromiumText = "net::ERR_NAME_NOT_RESOLVED";
+  const named = await run(
+    { kind: "navigate", url: "http://localhost/" },
+    "browser",
+  );
+  assert.ok("error" in named && named.error.message.includes("ERR_NAME_NOT"));
 });
 
 test("사람이 가져간 탭에서 act·navigate·evaluate는 conflict이고 읽기는 된다", async () => {

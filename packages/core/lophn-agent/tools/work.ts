@@ -43,6 +43,16 @@ const FAILURE_SUMMARIES: Readonly<Record<string, string>> = {
   internal: "tool call failed",
 };
 
+// browser·tab 호출의 unavailable·conflict 문장은 lophn이 쓴 고정 문장(원인과 다음 할 일)이라 그대로 싣는다.
+// model이 이유를 못 받으면 우회로 바깥 browser를 띄운다. 이 tool들의 문장에는 page나 Chromium의 글이 들어가지 않는다.
+// 그 밖의 code(not_found·forbidden)는 대상 이름·존재를 가리려 공통 문장으로 둔다.
+function carriesReason(name: string, code: string): boolean {
+  return (
+    (name.startsWith("browser.") || name.startsWith("tab.")) &&
+    (code === "unavailable" || code === "conflict")
+  );
+}
+
 // 실패한 대상이 model이 보낸 입력뿐인 tool이다. skill.read의 이름은 prompt의 skill 목록에 이미 실려 있어
 // 문장에서 가릴 것이 없고, 가리면 원인을 못 가려 같은 입력으로 되풀이한다. 여기 없는 tool은 공통 문장만 쓴다.
 const INPUT_SCOPED_FAILURES: Readonly<Record<string, true>> = {
@@ -150,7 +160,9 @@ export async function executeToolCall(
     // handler 문장은 대상 이름·존재를 담을 수 있어 공통 코드 문장만 돌려준다. 입력이 틀렸다는 문장은 그대로 싣는다.
     // 입력 밖 대상을 다루지 않는 tool(input-scoped)도 그대로 싣는다: 가릴 것이 없고, 가리면 같은 입력으로 되풀이한다.
     const summary =
-      code === "invalid_input" || INPUT_SCOPED_FAILURES[name] === true
+      code === "invalid_input" ||
+      INPUT_SCOPED_FAILURES[name] === true ||
+      carriesReason(name, code)
         ? `${FAILURE_SUMMARIES[code] ?? "tool call failed"}: ${produced.error.message}`
         : (FAILURE_SUMMARIES[code] ?? "tool call failed");
     return {

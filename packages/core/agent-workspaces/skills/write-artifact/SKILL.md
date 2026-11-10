@@ -299,6 +299,10 @@ Leave the tab open for the person. While you drive it the tab shows
 you can still look. The page cannot navigate: `browser navigate` is for browser
 tabs.
 
+If a `lophn tab` or `lophn browser` command fails, do not start another browser
+(Chrome, Playwright, browser-use or any other) and do not read the person's
+browser profile or cookies. Tell the person the reason the error gave you.
+
 ## Changes show at once
 
 When you change a file in the folder, a tab that has it open reloads. There are

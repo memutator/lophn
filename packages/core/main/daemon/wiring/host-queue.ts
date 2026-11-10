@@ -38,6 +38,7 @@ import {
   type HandoffFiles,
   type HarnessHold,
   type HostQueueService,
+  SHELL_NOT_ATTACHED,
   type TabOwner,
 } from "../../../host-queue/mod.ts";
 import {
@@ -123,7 +124,8 @@ export function createTabHandlers(deps: TabDeps) {
       if (current.value === null) {
         return err({
           code: "conflict",
-          message: "no preview is running; run preview start first",
+          message:
+            "No preview is running for this app, so there is nothing to open. Run `lophn preview start`, then open the tab again.",
         });
       }
       const tab = queue.openTab({
@@ -211,7 +213,8 @@ export function createTabHandlers(deps: TabDeps) {
       } catch {
         return err({
           code: "unavailable",
-          message: "the handoff could not be written",
+          message:
+            "The handoff file could not be written. Try once more; if it fails again, tell the person.",
         });
       }
       queue.openTab({
@@ -315,10 +318,7 @@ export function createTabHandlers(deps: TabDeps) {
       const action = build(input as never, found.value.view);
       if (!action.ok) return action;
       if (!queue.attached()) {
-        return err({
-          code: "unavailable",
-          message: "the shell is not attached",
-        });
+        return err({ code: "unavailable", message: SHELL_NOT_ATTACHED });
       }
       const sent = queue.callBrowser({
         tab: input.tab as Id<"tab">,

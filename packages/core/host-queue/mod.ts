@@ -4,5 +4,6 @@ export {
   createHostQueue,
   type HostQueue,
   type HostQueueService,
+  SHELL_NOT_ATTACHED,
   type TabOwner,
 } from "./queue.ts";

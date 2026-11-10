@@ -526,7 +526,7 @@ files:
 
   - path: packages/shell/renderer/terminal/model_test.ts
     covers: []
-    note: "탭 이름 우선순위, GUI session id 변환. 표시 규칙 순수 함수"
+    note: "터미널 탭 이름 규칙(우선순위, 출처가 사라진 동안 같은 session의 이름을 기억, 새 session이면 버림), GUI session id 변환. 표시 규칙 순수 함수"
 
   - path: packages/shell/renderer/terminal/store_test.ts
     covers: []

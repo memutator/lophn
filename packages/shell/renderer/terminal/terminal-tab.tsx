@@ -16,7 +16,6 @@ import {
   type Phase,
   phaseOfReply,
   phaseOfRuntime,
-  tabName,
 } from "./model.ts";
 import type { TerminalEntry } from "./store.ts";
 import styles from "./terminal.module.css";
@@ -43,18 +42,10 @@ interface TerminalTabProps {
     open(path: string, line: number | undefined): void;
   };
   /**
-   * 탭 줄에 보이는 이름과 그 이름을 정하는 입력. 사람이 붙인 이름 > GUI 제목 > harness session 이름 > agent의 터미널 제목 > 자동 이름.
-   * 탭 줄이 없는 자리는 주지 않는다.
+   * agent나 터미널 제목이 바뀌었다. 탭 이름을 다시 맞출 때다. 이름 규칙은 탭 kind가 하나로 쥐고(`syncTerminalTab`) 이 화면은
+   * 때만 알린다: 작업대가 없는 창(detached)의 탭도 이 길로 이름을 따라간다.
    */
-  naming?: {
-    name: {
-      shown: string;
-      person: string | null;
-      guiTitle: string | null;
-      auto: string;
-    };
-    onName: (name: string) => void;
-  };
+  onAgentChange?: () => void;
   /** 이 탭에 GUI handle이 붙어 있다(shared 대화가 TUI view로 와 있다). TUI를 끄지 않고 view만 GUI로 바꾼다. */
   gui?: GuiField | null;
 }
@@ -71,7 +62,7 @@ export function TerminalTab({
   active,
   deps,
   onStarted,
-  naming,
+  onAgentChange,
   paths,
   gui = null,
 }: TerminalTabProps) {
@@ -85,28 +76,11 @@ export function TerminalTab({
   );
   // agent와 제목은 store version이 알린다.
   useSyncExternalStore(subscribe, () => store.version());
-  const agentTitle = store.agentTitleOf(tabKey);
   const agent = store.agentOf(tabKey);
-  const sessionName = agent?.name ?? null;
-  const nextName =
-    naming === undefined
-      ? null
-      : tabName({
-          person: naming.name.person,
-          guiTitle: naming.name.guiTitle,
-          sessionName,
-          agentTitle,
-          auto: naming.name.auto,
-        });
+  const agentView = JSON.stringify(agent ?? null);
   useEffect(() => {
-    if (
-      naming !== undefined &&
-      nextName !== null &&
-      nextName !== naming.name.shown
-    ) {
-      naming.onName(nextName);
-    }
-  }, [nextName, naming?.name.shown]);
+    onAgentChange?.();
+  }, [agentView]);
   const phase = entry?.phase ?? IDLE;
 
   // GUI로 바꾸는 단추와 ⋯ 메뉴의 "Open as chat". GUI가 붙은 탭이거나, 어댑터가 있는 harness의 CLI라고 알려진 탭(hook만 들은

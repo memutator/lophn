@@ -182,7 +182,7 @@ import { openSearchShortcut } from "./kinds/search.tsx";
 import {
   harnessOf,
   openTerminal as openTerminalTab,
-  terminalTabTitle,
+  syncTerminalTab,
 } from "./kinds/terminal.tsx";
 import { openWorkflow } from "./kinds/workflow.tsx";
 import { NoticeCard } from "./notice-card.tsx";
@@ -2130,7 +2130,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   );
   const panelTerminals = usePanelTerminals(terminal, projectId, terminalTabs);
 
-  // 숨은 탭은 TerminalTab 화면이 없어 hook이 알린 session 이름을 못 받는다. store가 바뀔 때 여기서 이름을 맞춘다.
+  // 이름은 탭 화면이 아니라 여기서 모든 터미널 탭에 맞춘다. 그려진 탭만 맞추면 숨은 탭의 이름이 갈라진다.
   const subscribeTerminal = useCallback(
     (listener: () => void) => terminal?.store.subscribe(listener) ?? (() => {}),
     [terminal],
@@ -2143,10 +2143,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     if (terminal === undefined) return;
     for (const tab of allTabs(latestLayout.current)) {
       if (tab.kind !== "terminal") continue;
-      const title = terminalTabTitle(tab, terminal.store);
-      if (title !== tab.title) {
-        host.patchTab(tab.key, { title }, { later: true });
-      }
+      syncTerminalTab(tab, terminal.store, host.patchTab);
       // 저장된 layout만 보는 다른 workspace의 sidebar가 coding agent 터미널을 알아보게 harness를 탭에 남긴다.
       const agent = terminal.store.agentOf(tab.key);
       if (agent?.hooked === true && harnessOf(tab) !== agent.harness) {

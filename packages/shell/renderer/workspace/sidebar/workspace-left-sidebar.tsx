@@ -51,7 +51,7 @@ import { useRemembered } from "../../shell/sidebar-memory.tsx";
 import { closeTerminalTab, type TerminalDeps } from "../../terminal/deps.ts";
 import type { TabItem } from "../model.ts";
 import {
-  otherWorkspaceTerminalTitle,
+  terminalTabTitle,
   pinAgentSessionName,
   terminalNamed,
 } from "../kinds/terminal.tsx";
@@ -214,7 +214,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
                   key: tab.key,
                   harness: agent.harness,
                   label: agent.harness,
-                  title: otherWorkspaceTerminalTitle(tab, store),
+                  title: terminalTabTitle(tab, store),
                   dot: codingDot(agent),
                   at: 0,
                   live: { tabKey: tab.key },

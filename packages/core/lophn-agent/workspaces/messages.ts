@@ -5,6 +5,7 @@ import {
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
   MESSAGE_CONTENT_PURPOSE,
+  blocksSummary,
   contentOfBlocks,
   serializeMessageContent,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -13,6 +14,7 @@ import type { RoutedInput } from "../../router/ports.ts";
 import { createCheckpoint } from "../session/rewind/mod.ts";
 import { registerImageRefs } from "../session/message-images.ts";
 import { loadSession, nextMessageSeq } from "../session/model.ts";
+import { autoSessionTitle } from "../session/session-title.ts";
 
 // call, reply, reaction, notice, step을 받는 session 기록(messages 행)에 쓴다. lophn InputTransport가 배달하는
 // tx에서 부른다. 사람 메시지는 보내는 쪽이 먼저 쓰므로 `message`가 있으면 그 id를 돌려줄 뿐이다.
@@ -85,6 +87,17 @@ export function createReceivedRecorder(deps: { principal(): string }) {
         input.body,
       );
       if (!images.ok) return images;
+      // call로 시작한 session은 사람의 첫 말이 없어 자동 제목이 붙지 않았고, 탭과 sidebar에 agent 이름으로만 보였다.
+      // 제목이 없는 session이 받는 call의 맡긴 글로 제목을 정한다(사람의 첫 말과 같은 규칙).
+      if (input.kind === "call" && row.title === null) {
+        const title = autoSessionTitle(blocksSummary(input.body));
+        if (title !== null) {
+          tx.sql.run("update sessions set title = ? where id = ?", [
+            title,
+            session,
+          ]);
+        }
+      }
       // turn을 시작하는 call, 답, step도 rewind로 돌아갈 시점이다.
       if (
         input.kind === "call" ||

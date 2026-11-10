@@ -100,14 +100,6 @@ export class TerminalStore {
     return ref == null ? undefined : this.#agents.get(ref);
   }
 
-  /**
-   * coding agent가 도는 동안 그 터미널의 마지막 OSC 제목. agent가 없거나 제목이 없으면 null이다. main이 runtime에 실어
-   * 보낸 값이라 이 창이 그 탭을 그린 적이 없어도 안다.
-   */
-  agentTitleOf(key: string): string | null {
-    return this.agentOf(key)?.screen_title ?? null;
-  }
-
   /** 항목이나 agent가 바뀔 때마다 오르는 값. 탭 줄이 useSyncExternalStore로 읽어 다시 그린다. */
   version(): number {
     return this.#version;

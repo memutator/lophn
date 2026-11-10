@@ -27,7 +27,7 @@ function firstGraphemes(text: string, max: number): string {
   return head;
 }
 
-// 첫 사람 request 본문의 앞 60자로 자동 제목을 만든다.
+// 첫 사람 request(또는 session을 시작한 call의 맡긴 글) 본문의 앞 60자로 자동 제목을 만든다.
 //
 // 1. 줄바꿈(CRLF·LF·CR·U+2028·U+2029)을 포함하는 연속 공백은 공백 하나로 바꾼다.
 //    줄바꿈이 없는 공백은 그대로 둔다.

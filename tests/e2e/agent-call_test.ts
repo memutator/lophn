@@ -256,6 +256,15 @@ test("E2E agent 사이 call은 답이 돌아오고, 끝나거나 재시작해도
           (await sessionIds(c, lophnIdOf(atProject), atProject)).length,
           known.length + 1,
         );
+        // call로 시작한 session도 제목이 있다(맡긴 글). 없으면 탭과 sidebar에 agent 이름으로만 보인다.
+        const listed = await c.call(workspaceSessionList, {
+          agent: lophnIdOf(atProject),
+          workspace: atProject,
+        });
+        assert.deepStrictEqual(
+          listed.sessions.find((session) => session.id === b)?.title,
+          "ping",
+        );
         // fake: 원문 대화가 아니라 body만 넘어가고 B의 답이 A의 셋째 요청에 있다.
         const toA = lane(fake, "home");
         const toB = lane(fake, "project");

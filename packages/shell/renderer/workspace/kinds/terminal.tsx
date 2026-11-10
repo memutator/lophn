@@ -8,7 +8,9 @@ import { AgentFaceIcon } from "../../parts/agent-session/agent-session.tsx";
 import { codingDot, codingFace } from "../../parts/agent-session/coding.ts";
 import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 import { closeTerminalTab, type TerminalDeps } from "../../terminal/deps.ts";
-import { tabName } from "../../terminal/model.ts";
+import { type RememberedName, terminalName } from "../../terminal/model.ts";
+import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
+import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
 import type { TerminalStore } from "../../terminal/store.ts";
 import {
   GuiSwitch,
@@ -106,51 +108,92 @@ function autoOf(tab: TabItem): string {
   return typeof auto === "string" ? auto : tab.title;
 }
 
-/**
- * 탭에 지금 보일 이름. 탭 화면(`TerminalTab`)과 workspace가 같은 계산을 쓴다. 탭 화면이 없는 숨은 탭도
- * hook이 알린 session 이름을 따라가야 하기 때문이다.
- *
- * 터미널 제목(OSC)은 agent의 TUI가 foreground일 때만 쓴다. hook만 있고 foreground가 아니면(GUI가 띄운 CLI) 그 제목은
- * shell prompt의 경로다. 저장본에서 다시 만든 탭은 GUI 제목이 `tab-current`가 답할 때까지 없으므로, 그동안은 탭에 있던
- * 이름(지금 `title`, 없으면 저장된 `agentTitle`)을 지켜 경로가 잠깐 비치지 않게 한다.
- */
-export function terminalTabTitle(tab: TabItem, store: TerminalStore): string {
-  const agent = store.agentOf(tab.key);
-  const auto = autoOf(tab);
-  const kept =
-    agent?.hooked === true && agent.foreground !== true
-      ? tab.title !== auto
-        ? tab.title
-        : savedAgentTitleOf(tab)
-      : null;
-  return tabName({
-    person: personOf(tab),
+function rememberedOf(tab: TabItem): RememberedName | null {
+  const title = tab.fields?.agentTitle;
+  const session = tab.fields?.agentSession;
+  return typeof title === "string" && title.length > 0
+    ? { title, session: typeof session === "string" ? session : null }
+    : null;
+}
+
+function harnessLabel(harness: string): string {
+  return harness in HARNESS_ADAPTERS
+    ? HARNESS_ADAPTERS[harness as HarnessId].label
+    : harness;
+}
+
+// 탭 하나의 이름 계산. 입력은 탭 field(사람 이름, GUI 제목, 기억한 이름)와 창의 terminal store(main이 보낸 agent)뿐이라
+// 탭을 그리지 않아도, 다른 workspace의 저장된 탭이어도 같은 답이 나온다. 규칙은 `terminalName`이다.
+function namingOf(
+  tab: TabItem,
+  store: TerminalStore | undefined,
+  person: string | null = personOf(tab),
+) {
+  const agent = store?.agentOf(tab.key);
+  return terminalName({
+    person,
     guiTitle: guiTitleOf(tab),
-    sessionName: agent?.name ?? null,
-    agentTitle: agent?.foreground === true ? store.agentTitleOf(tab.key) : null,
-    auto: kept ?? auto,
+    agent:
+      agent === undefined
+        ? null
+        : {
+            session: agent.session ?? null,
+            name: agent.name ?? null,
+            // hook만 있고 foreground가 아니면(GUI가 띄운 CLI) 터미널 제목은 shell prompt의 경로다.
+            screenTitle:
+              agent.foreground === true ? (agent.screen_title ?? null) : null,
+            label: harnessLabel(agent.harness),
+          },
+    remembered: rememberedOf(tab),
+    auto: autoOf(tab),
   });
 }
 
-function savedAgentTitleOf(tab: TabItem): string | null {
-  const saved = tab.fields?.agentTitle;
-  return typeof saved === "string" && saved.length > 0 ? saved : null;
+/** 탭에 지금 보일 이름. 이 창의 탭과 다른 workspace의 저장된 layout에서 읽은 탭이 같이 쓴다. */
+export function terminalTabTitle(tab: TabItem, store: TerminalStore): string {
+  return namingOf(tab, store).title;
 }
 
 /**
- * 다른 workspace의 저장된 layout에서 읽은 탭의 이름. 저장본에는 GUI view와 제목이 없다(`guiTitleOf`는 null). 계산은 이 창의
- * 탭과 같고(`terminalTabTitle`), agent가 이 창에 한 번도 없어 자동 이름만 남으면 그 workspace가 마지막으로 저장한 이름
- * (`agentTitle`)을 쓴다.
+ * 탭의 이름과 기억한 session 이름을 지금 agent에 맞춘다. 바뀐 것이 없으면 아무것도 하지 않는다. 작업대가 store가 바뀔 때
+ * 모든 터미널 탭에 부르고, 그려진 탭 화면도 부른다(작업대가 없는 detached 창).
  */
-export function otherWorkspaceTerminalTitle(
+export function syncTerminalTab(
   tab: TabItem,
   store: TerminalStore,
-): string {
-  const name = terminalTabTitle(tab, store);
-  const saved = savedAgentTitleOf(tab);
-  return saved !== null && personOf(tab) === null && name === autoOf(tab)
-    ? saved
-    : name;
+  patchTab: TabHost["patchTab"],
+): void {
+  const { title, remembered } = namingOf(tab, store);
+  const before = rememberedOf(tab);
+  const sameMemory =
+    remembered?.title === before?.title &&
+    remembered?.session === before?.session;
+  if (title === tab.title && sameMemory) return;
+  patchTab(
+    tab.key,
+    (current) => {
+      if (sameMemory) return { title };
+      const {
+        agentTitle: _title,
+        agentSession: _session,
+        ...rest
+      } = current.fields ?? {};
+      return {
+        title,
+        fields:
+          remembered === null
+            ? rest
+            : {
+                ...rest,
+                agentTitle: remembered.title,
+                ...(remembered.session === null
+                  ? {}
+                  : { agentSession: remembered.session }),
+              },
+      };
+    },
+    { later: true },
+  );
 }
 
 /** 사람이 붙인 이름(`person`, null이면 지움)을 준 터미널 탭. 이 창의 탭과 다른 workspace의 저장된 탭이 같이 쓴다. */
@@ -163,13 +206,7 @@ export function terminalNamed(
   return {
     ...tab,
     fields: person === null ? rest : { ...rest, name: person },
-    title: tabName({
-      person,
-      guiTitle: guiTitleOf(tab),
-      sessionName: store?.agentOf(tab.key)?.name ?? null,
-      agentTitle: store?.agentTitleOf(tab.key) ?? null,
-      auto: autoOf(tab),
-    }),
+    title: namingOf(tab, store, person).title,
   };
 }
 
@@ -257,6 +294,9 @@ export const terminalKind: TabKindDef = {
         ...(typeof stored.agent_title === "string"
           ? { agentTitle: stored.agent_title }
           : {}),
+        ...(typeof stored.agent_session === "string"
+          ? { agentSession: stored.agent_session }
+          : {}),
       },
     };
   },
@@ -271,11 +311,9 @@ export const terminalKind: TabKindDef = {
     const auto = autoOf(tab);
     const person = personOf(tab);
     const harness = harnessOf(tab);
-    // 복원은 자동 이름과 사람이 붙인 이름만 쓴다. agent가 정한 이름은 다른 workspace의 sidebar가 읽도록 따로 남긴다.
-    const agentTitle =
-      harness !== null && person === null && tab.title !== auto
-        ? tab.title.slice(0, 200)
-        : "";
+    // 기억한 session 이름은 탭의 지금 이름에서 다시 만들지 않고 그대로 남긴다. 지금 이름으로 만들면 이름이 잠깐 자동
+    // 이름인 순간의 저장이 기억을 지운다.
+    const remembered = rememberedOf(tab);
     return {
       kind: "terminal",
       key: tab.key,
@@ -283,7 +321,14 @@ export const terminalKind: TabKindDef = {
       ...(auto.length < 1 ? {} : { title: auto.slice(0, 200) }),
       ...(person === null ? {} : { name: person.slice(0, 200) }),
       ...(harness === null ? {} : { harness }),
-      ...(agentTitle.length < 1 ? {} : { agent_title: agentTitle }),
+      ...(remembered === null
+        ? {}
+        : {
+            agent_title: remembered.title.slice(0, 200),
+            ...(remembered.session === null
+              ? {}
+              : { agent_session: remembered.session.slice(0, 200) }),
+          }),
     };
   },
   // PTY는 main이 쥐고 있어 참조만 넘긴다. 받는 창이 snapshot을 0부터 받아 다시 그린다.
@@ -337,15 +382,9 @@ export const terminalKind: TabKindDef = {
         active={active}
         deps={terminal}
         gui={guiOf(tab)}
-        naming={{
-          name: {
-            shown: tab.title,
-            person: personOf(tab),
-            guiTitle: guiTitleOf(tab),
-            auto: autoOf(tab),
-          },
-          onName: (title) => host.patchTab(tab.key, { title }, { later: true }),
-        }}
+        onAgentChange={() =>
+          syncTerminalTab(tab, terminal.store, host.patchTab)
+        }
         onStarted={(info) =>
           host.patchTab(tab.key, (current) => {
             const auto = info.title ?? autoOf(current);

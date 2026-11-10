@@ -1,0 +1,20 @@
+id: session-name-sticky
+version: 0.23.20
+title: 터미널 탭이 얻은 session 이름을 기억하고, call로 시작한 session에도 제목이 붙는다
+modules: [packages/shell/renderer, packages/shell/main, packages/core/lophn-agent]
+change: |
+  - coding agent 터미널 탭(TUI, `claude gui`)이 쓰다 보면 project 이름이나 "Claude Code"로 바뀌던 것을 고쳤다. 탭은 한 번 얻은 session 이름을 같은 session인 동안 기억하고, 이름의 출처가 없는 동안 그 이름을 보인다. `/clear`나 새 session이면 버린다.
+  - 다른 agent나 앱의 call로 시작한 lophn session에 제목이 붙는다(맡긴 글의 앞 60자). 전에는 제목이 없어 탭과 sidebar에 agent 이름으로만 보였다. 이미 있는 제목 없는 session은 다음 call을 받을 때 붙는다.
+  - layout의 터미널 탭에 `agent_session`을 더했다(`agent_title`이 어느 session의 이름인지). 터미널 탭 이름 규칙은 `terminalName` 하나이고 `tabName`, `otherWorkspaceTerminalTitle`, `TerminalTab`의 `naming`은 지웠다.
+why: |
+  0.23.14의 수정 뒤에도 같은 증상이 보고됐다. 실제 data root를 읽어 보니 저장한 탭 이름이 쓰는 중에 지워졌고, 제목 없는 session은 모두 call로 시작한 것이었다. 이슈 `session-name-falls-back-until-reselected`.
+decisions:
+  - text: >-
+      기억한 이름은 session id가 같을 때만 쓴다. 버린 길: session을 가리지 않고 마지막 이름을 계속 보이기(`/clear` 뒤에 옛 대화의 이름이 남는다).
+    by: agent
+  - text: >-
+      터미널 제목이 제품 이름("Claude Code")뿐이면 session 이름으로 보지 않고 기억한 이름을 먼저 보인다. 기억이 없을 때만 제품 이름을 보인다.
+    by: agent
+  - text: >-
+      이미 있는 제목 없는 session에 제목을 채워 넣는 migration은 넣지 않았다. 본문이 blob이라 schema step으로 읽을 수 없고, 다음 call에서 붙는다.
+    by: agent

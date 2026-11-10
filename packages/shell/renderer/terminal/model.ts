@@ -180,29 +180,72 @@ export function folderTitle(path: string): string | null {
   return name.length > 0 ? name : null;
 }
 
+/** 탭이 기억하는 coding agent session 이름과 그 이름의 session id(hook이 알려 준 것, 모르면 null). */
+export interface RememberedName {
+  readonly title: string;
+  readonly session: string | null;
+}
+
 /**
- * 탭에 보일 이름. 사람이 붙인 이름, GUI view의 ACP session 제목(`guiTitle`, GUI가 아니면 null), harness가 hook으로
- * 알린 session 이름(`sessionName`), 그다음 coding agent가 도는 동안의 터미널 제목(`agentTitle`, agent가 없으면 null.
- * main이 PTY 출력에서 읽어 상태 글리프를 뗀 값이다), 없으면 자동 이름이다. GUI 동안의 터미널 제목은 TUI가 끝난 뒤 shell prompt가 낸 것이라 쓰지 않는다. 일반 shell은
- * prompt가 제목을 계속 바꾸므로 제목을 쓰지 않는다.
+ * 터미널 탭에 보일 이름과 탭이 기억할 session 이름. 탭 줄, sidebar, 그려지지 않은 탭 모두 이 규칙 하나를 쓴다.
+ *
+ * 순서는 사람이 붙인 이름 > GUI view의 ACP session 제목 > harness가 hook으로 알린 session 이름 > agent TUI가 낸 터미널
+ * 제목 > 기억한 이름 > 제품 이름뿐인 터미널 제목 > 자동 이름이다.
+ *
+ * 이름의 출처는 그때그때 사라진다: GUI 제목은 그 탭을 그린 동안만 있고, 터미널 제목은 TUI가 foreground일 때만 믿을 수 있고
+ * (아니면 shell prompt의 것이다), 새로 뜬 TUI는 topic을 다시 내기 전까지 제품 이름("Claude Code")을 낸다. 그때마다 자동
+ * 이름으로 떨어지지 않게, 한 번 얻은 이름을 같은 session인 동안 기억한다. hook이 다른 session id를 알리면(`/clear`, 새
+ * session) 옛 이름은 버린다. agent가 없으면(일반 shell) 터미널 제목을 쓰지 않는다: prompt가 계속 바꾼다.
  */
-export function tabName({
-  person,
-  guiTitle,
-  sessionName,
-  agentTitle,
-  auto,
-}: {
+export function terminalName(input: {
   person: string | null;
+  /** GUI view가 알린 ACP session 제목. GUI를 그리는 동안만 있다. */
   guiTitle: string | null;
-  sessionName: string | null;
-  agentTitle: string | null;
+  /** 터미널 안의 coding agent. 없으면 null. */
+  agent: {
+    readonly session: string | null;
+    /** hook이 알린 session 이름. */
+    readonly name: string | null;
+    /** agent TUI가 foreground일 때의 터미널 제목. 아니면 null. */
+    readonly screenTitle: string | null;
+    /** 제품 이름. 터미널 제목이 이것뿐이면 session 이름이 아니다. */
+    readonly label: string;
+  } | null;
+  remembered: RememberedName | null;
   auto: string;
-}): string {
-  if (person !== null) return person;
-  if (guiTitle !== null && guiTitle.length > 0) return guiTitle;
-  if (sessionName !== null && sessionName.length > 0) return sessionName;
-  return agentTitle !== null && agentTitle.length > 0 ? agentTitle : auto;
+}): { title: string; remembered: RememberedName | null } {
+  const { person, agent, remembered, auto } = input;
+  const some = (text: string | null) =>
+    text !== null && text.length > 0 ? text : null;
+  const guiTitle = some(input.guiTitle);
+  if (agent === null) {
+    return { title: person ?? guiTitle ?? auto, remembered };
+  }
+  const same =
+    remembered !== null &&
+    (remembered.session === null ||
+      agent.session === null ||
+      remembered.session === agent.session);
+  const screen = some(agent.screenTitle);
+  const real =
+    guiTitle ?? some(agent.name) ?? (screen !== agent.label ? screen : null);
+  const kept = same ? remembered.title : null;
+  const next: RememberedName | null =
+    real !== null
+      ? { title: real, session: agent.session }
+      : kept !== null
+        ? { title: kept, session: agent.session ?? remembered!.session }
+        : null;
+  return {
+    title: person ?? real ?? kept ?? screen ?? auto,
+    remembered:
+      next !== null &&
+      remembered !== null &&
+      next.title === remembered.title &&
+      next.session === remembered.session
+        ? remembered
+        : next,
+  };
 }
 
 /**

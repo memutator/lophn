@@ -84,9 +84,15 @@ const rows: Row[] = [
       // fake: 다음 요청은 요약을 쓰고 옛 원문은 쓰지 않는다.
       assert.ok(bodyOf(fake, 3).includes("SUMMARY-MARK"));
       assert.ok(!bodyOf(fake, 3).includes("FIRST-MARK"));
-      // blob: 요약 call이 기록된다(turn 둘 + 요약 하나).
+      // blob: 요약 call이 기록된다(turn 둘 + 요약 하나). session 제목을 짓는 call은 세지 않는다.
       const { calls } = await core.call(modelCallList, { session });
-      assert.deepStrictEqual(calls.length, 3);
+      assert.deepStrictEqual(
+        calls
+          .filter((call) => call.purpose !== "title_summary")
+          .map((call) => call.purpose)
+          .sort(),
+        ["conversation_compression", "judgment", "judgment"],
+      );
       assert.ok(
         calls.some((call) => call.purpose === "conversation_compression"),
       );

@@ -43,7 +43,7 @@
 | T3 Code, omp, Hermes | 따로 띄운 Chromium process. 사람은 screencast로 본다 | 상관없다 | 상관없다 |
 
 - 앱 안 page를 쓰는 곳 가운데 창이 하나도 없을 때도 agent browser가 도는 것은 Orca(숨은 `BrowserWindow`)뿐이다. 나머지는 오류이거나 tool을 숨긴다. 창 없이 늘 도는 것은 따로 띄운 Chromium(T3 Code, omp, Hermes)이고, 그 대가로 사람 browser와 로그인이 갈린다.
-- 창에서 떼어 낸 view로 page를 돌리는 곳은 없다. main이 `WebContentsView`를 갖는 OpenCode와 Claude Code desktop도 view를 창에 붙여 둔 채 숨기거나 창 밖 좌표에 둔다. 그래서 "어느 창에도 붙지 않은 view"는 선례가 없고 직접 확인해야 한다(열기 전에 확인할 것).
+- 창에서 떼어 낸 view로 page를 돌리는 곳은 없다. main이 `WebContentsView`를 갖는 OpenCode와 Claude Code desktop도 view를 창에 붙여 둔 채 숨기거나 창 밖 좌표에 둔다. 직접 확인하니 떼어 낸 view는 그리지 않았다(확인한 것).
 - 오류 문장: Codex skill은 "사람이 고른 browser가 안 되면 다른 browser로 바꾸지 말고 안 된다고 알린다"고 적는다. OpenCode는 원인, 다음 할 일, "되풀이해도 소용없다"를 싣는다. Hermes와 Claude in Chrome은 "사람에게 필요한 것을 말하라"다. T3 Code는 기능이 꺼지면 "shell의 Playwright나 curl을 쓰라"고 한다. 이번 일과 같은 우회를 부르는 문장이다.
 - 사람 browser의 로그인을 쓰는 곳(Hermes의 real profile, T3 Code의 cookie import)은 모두 사람이 설정에서 켠다. agent가 스스로 쿠키를 가져오는 곳은 없다.
 
@@ -82,19 +82,22 @@
 4. 사람이 보는 page 위로 shell의 menu·popover·패널이 덮인다(`app-webview.md`로 정한 것).
 5. workspace를 오가도 다시 load하지 않는다.
 
-- **A1. main 소유 `WebContentsView`.** agent page는 shell main이 `WebContentsView`로 갖고, 탭은 위치만 정한다. 안 보일 때도 `backgroundThrottling:false`로 계속 그리게 한다. 사람이 보는 창이 없을 때 view를 어디에 두는지는 확인 뒤에 정한다: 어느 창에도 붙이지 않거나(선례 없음), main이 숨은 `BrowserWindow` 하나를 두고 거기에 붙인다(Orca 방식). 사람이 볼 때 그 창으로 view를 옮긴다.
-  - 지키는 것: 1, 2, 3, 5. 다른 OS 창으로 옮겨도 다시 load하지 않는다(`browser-tab.md` 결정 6의 대가도 agent page에는 없다). renderer가 필요 없어 창 없는 shell이 page만 들면 된다.
+- **A1. main 소유 `WebContentsView`와 ghost 창.** agent page는 shell main이 `WebContentsView`로 갖고, 탭은 위치만 정한다. 사람이 그 page를 보지 않는 동안 view는 main이 하나 두는 ghost 창(frame 없는 투명 1x1 `BrowserWindow`, `showInactive()`, 작업 표시줄 제외, focus 받지 않음)에 page 크기 bounds로 붙어 있다. 사람이 볼 때 그 창으로 view를 옮기고, 안 보게 되면 ghost 창으로 돌려보낸다.
+  - 확인한 것(아래 "확인한 것"): ghost 창의 view는 보이는 창과 똑같이 그린다(screenshot, rAF, 입력). 여러 view를 겹쳐 두어도 각각 그린다. view를 옮겨도 다시 load하지 않고 debugger와 ref가 남는다. 창 없는 앱에 second-instance가 와도 된다. display 없는 Linux에서도 된다.
+  - 지키는 것: 1, 2, 3, 5. 다른 OS 창으로 옮겨도 다시 load하지 않는다(`browser-tab.md` 결정 6의 대가도 agent page에는 없다). renderer가 필요 없다.
   - 잃는 것: 4. native view는 shell DOM 위에 그려진다. `app-webview.md`가 2026-10-31에 없앤 층 순서, cover, 위치 IPC, overlay toast가 browser 탭에 다시 들어온다. 사람의 결정을 browser 탭에 한해 뒤집는다. 접힌 float(`work`)은 보는 때가 짧지만, `aside`·`glance`로 연 탭과 7번의 take control 로그인은 사람이 그 page를 직접 쓰는 때라 그동안 menu·popover가 page 밑에 깔린다.
   - 크기: browser 탭이라는 kind 하나에 그릇이 둘이 된다(사람 탭 `<webview>`, agent 탭 native view). 주소 줄, popup, DevTools, download, 단축키 전달, take control, 붙이기 규칙이 두 길을 갖는다. 두 길을 오래 두지 않으려면 사람 탭도 같은 그릇으로 옮겨야 하므로(단계 4), A1을 고르는 것은 사실상 "browser 탭 전체를 native view로 되돌린다"를 고르는 것이다. popup·DevTools용 native view 층과 bounds(`main/browser/view-order.ts`, `native-bounds.ts`)는 남아 있어 바닥부터 다시 짜는 것은 아니다.
-- **A2. 창 단위 `<webview>` 층.** agent page의 `<webview>`를 `WorkspaceWindow`가 아니라 창 단위 그릇에 둔다. 그 창이 어느 workspace를 띄웠든 거기에 산다(Codex, GooeyPi, Paseo 방식).
-  - 지키는 것: 1, 3(창이 있을 때), 4, 5.
-  - 잃는 것: 2를 지키려면 창 없는 shell이 page를 담을 숨은 창을 만들어야 한다. 사람이 나중에 그 page를 다른 창에서 보면 `<webview>`는 부모를 옮길 수 없어 다시 load된다(결정 6). 이를 피하려면 사람이 처음 여는 창을 그 숨은 창으로 보여 줘야 하고, 창이 여럿이면 여전히 다시 load된다. 사람이 마지막 창을 닫을 때도 지우지 않고 숨겨야 해서 `quit.ts`·tray의 끄기 길이 바뀐다.
-- **A3. A2에 숨은 창을 더하고, 옮길 때의 reload를 받아들인다.** 창이 있으면 A2대로 그 창의 창 단위 그릇에 산다. 창이 없으면 숨은 창의 shell 문서가 `<webview>`를 든다. 사람이 나중에 창을 열면 page를 저절로 옮기지 않는다. 탭 자리에는 "agent가 쓰는 중"과 [여기로 가져오기]를 보이고, 가져오면 다시 load한다. agent가 쓰는 동안에는 사람이 누르기 전까지 page가 깨지지 않는다.
-  - 지키는 것: 1, 2, 4, 5. 2026-10-31 결정을 뒤집지 않고 그릇이 하나로 남는다.
-  - 잃는 것: 3의 일부. 창 없을 때 연 page는 사람이 다시 load 없이 볼 수 없고, 그 page에서 take control하려면 가져와야 한다(로그인 page라면 다시 load해도 잃는 것이 없다). 숨은 창과 그 문서, "가져오기" 화면이 새로 든다.
-- 하지 않는 안: 따로 띄운 Chromium process와 screencast(T3 Code, omp, Hermes). Chromium profile은 한 process만 열 수 있어 사람 탭과 같은 partition(같은 로그인)을 쓸 수 없다. 사람이 같은 page를 쓰려면 화면과 입력도 다시 만들어야 한다.
+  - 남은 위험: ghost 창이 사람 눈에 띄는지(1px 점, 작업 표시줄, alt-tab)는 program으로 확인하지 못했다. macOS와 Windows에서는 돌려 보지 않았다.
+- **A2. 창 단위 `<webview>` 층, 창이 없을 때는 포기한다.** agent page의 `<webview>`를 `WorkspaceWindow`가 아니라 창 단위 그릇에 둔다. 그 창이 어느 workspace를 띄웠든 거기에 산다(Codex, GooeyPi, Paseo 방식). 창이 하나도 없으면 browser는 지금처럼 `unavailable`이다(이유 문장은 간다).
+  - 지키는 것: 1, 3(같은 창 안에서), 4, 5. 2026-10-31 결정을 지키고 그릇이 하나로 남는다. 이번에 실제로 일어난 일(사람이 다른 workspace로 감)은 고친다.
+  - 잃는 것: 2. 창을 모두 닫았거나 core만 뜬 job은 browser를 못 쓴다. 3단계(창 없는 shell)가 없어진다. 창이 여럿이면 page는 연 창에 묶이고 다른 창에서 보면 다시 load된다(결정 6). 사람이 그 창을 닫으면 page가 사라진다.
+- **안 되는 안(확인으로 버렸다):**
+  - 어느 창에도 붙지 않은 view, 숨은 `BrowserWindow`(`show:false`)의 view: 입력, timer, accessibility snapshot은 되지만 그리지 않는다. screenshot이 끝나지 않고 rAF, `IntersectionObserver`, `ResizeObserver`, CSS transition이 멈춘다(lazy load, 가상 목록, 많은 SPA가 여기에 기댄다).
+  - 숨은 창의 `<webview>`(앞서 적었던 A3): guest가 그리지 않는다. ghost 창에서도 `<webview>`는 창이 자기만큼 커야 그린다. `<webview>`로는 창 없는 때를 지킬 길이 없다.
+  - offscreen rendering: `BrowserWindow`의 것은 다른 창으로 옮길 수 없고, view의 것은 ghost 창에서 깨진다.
+  - 따로 띄운 Chromium process와 screencast(T3 Code, omp, Hermes): Chromium profile은 한 process만 열 수 있어 사람 탭과 같은 partition(같은 로그인)을 쓸 수 없다. 사람이 같은 page를 쓰려면 화면과 입력도 다시 만들어야 한다.
 
-추천은 확인(열기 전에 확인할 것) 뒤에 굳힌다. 지금의 추천은 A1이다. 이 일의 중심 조건은 1·2·3이고(사람이 없는 동안 agent가 일하고 사람이 나중에 같은 page를 본다), A2는 2를 장치 둘(숨은 창, 처음 여는 창 바꿔치기)로 겨우 지키고 창이 여럿이면 지키지 못한다. 다만 A1의 값은 browser 탭 전체의 그릇을 되돌리는 것이므로, 사람이 2026-10-31 결정을 지키려 하거나 확인에서 A1이 막히면 A3이다. 사람에게는 A1(단계 4 포함)과 A3 둘을 크기와 함께 올린다.
+추천은 A1이다. 확인 결과 창이 없을 때 page가 그려지는 길은 main 소유 view와 ghost 창뿐이다. 이 일의 중심 조건은 1·2·3이고(사람이 없는 동안 agent가 일하고 사람이 나중에 같은 page를 본다), A2는 2를 버린다. 다만 A1의 값은 browser 탭 전체의 그릇을 되돌리는 것(단계 4 포함)이고 2026-10-31 결정을 browser 탭에 한해 뒤집는다. 사람에게는 "A1로 가서 창 없는 job까지 지킨다"와 "A2로 가서 창이 있을 때만 고친다" 둘을 올린다.
 
 ### B. agent page는 언제 지우나 (근거로 정한다)
 
@@ -110,9 +113,9 @@
 
 추천: 이번에는 지침(6번)과 오류 문장으로 막는다. `shell.run`에는 OS sandbox가 없어서 shell 규칙은 문자열 판정이고, 지금 막아도 우회가 쉽다. 그래서 값에 비해 얻는 것이 적다. 같은 일이 한 번 더 생기면 그때 shell 규칙에 사람 browser profile 폴더 읽기와 `--remote-debugging-port`를 단 browser 실행을 넣는다.
 
-### D. 화면 없는 머신 (확인할 것)
+### D. 화면 없는 머신 (확인했다)
 
-Linux 서버처럼 display가 없는 곳에서 창 없는 shell(Electron)이 뜨는지 확인하지 않았다(`--ozone-platform=headless` 등). display가 있는 데스크톱에서는 창을 만들지 않으면 된다. 서버에서 job이 browser를 쓰는 것은 이 확인 뒤에 정한다. 그 전에는 shell을 띄우지 못하면 4번의 오류로 끝난다.
+display가 없는 Linux에서도 된다. `--ozone-platform=headless`로 띄우고 ghost 창을 frame 없이 만들면 그린다(screenshot, rAF, 입력). frame 있는 `BrowserWindow`는 거기서 segfault가 나므로 창 없는 shell은 frame 있는 창을 만들지 않는다. display도 없고 그 flag도 없으면 Electron이 시작하다 끝나므로, core가 shell을 띄울 때 display가 없으면 그 flag를 준다. A1일 때만 해당한다.
 
 ### E. 사람이 없을 때 agent가 사람의 로그인으로 browser를 쓴다 (사람이 정한다)
 
@@ -123,23 +126,35 @@ Linux 서버처럼 display가 없는 곳에서 창 없는 shell(Electron)이 뜨
 - 추천 3: job의 browser 사용을 따로 승인받지 않는다. job은 등록할 때 사람이 한 번 승인하고, 그 agent가 가진 tool이 승인 범위다. 대신 job 승인 card에 그 agent가 browser tool을 가졌음을 보인다.
 - 다른 안: 무인 실행(붙은 창이 없는 동안)의 agent page는 로그인이 없는 다른 partition을 쓴다. 속아도 건드릴 로그인이 없지만, 로그인이 필요한 일은 무인으로 못 하고 사람이 본 page와 agent가 본 page가 달라진다. 이 일의 원칙(사람과 같은 browser)과 어긋나 추천하지 않는다.
 
-## 열기 전에 확인할 것
+## 확인한 것
 
-A를 사람에게 올리기 전에 지금 Electron 판의 개발 앱에서 throwaway로 본다(`app-webview.md`가 한 방식).
+Electron 44.5.1(Chrome 152), Linux에서 throwaway script로 봤다(2026-11-10). wayland(기본)와 `--ozone-platform=x11` 둘 다 돌렸다. script와 출력은 저장소에 두지 않았다.
 
-- 어느 창에도 붙지 않은 `WebContentsView`에서 CDP `Page.captureScreenshot`이 끝나는가, `Input.*`이 닿는가, rAF와 timer가 도는가. 안 되면 숨은 `BrowserWindow`(`show:false`)에 붙였을 때 되는가. 지금 driver는 그리지 않는 guest에서 screenshot이 끝나지 않는다(`driver.ts`, `browser-tab.md` 결정 41).
-- view를 숨은 자리에서 사람의 창으로, 창에서 다른 창으로 옮길 때 다시 load하지 않는가. 붙여 둔 debugger와 snapshot의 ref가 그대로인가.
-- A3을 위해: 숨은 창의 `<webview>` guest가 그리기를 이어 가는가.
-- 창 없는 Electron이 macOS dock과 Windows 작업 표시줄에 나타나지 않게 뜨는가. 떠 있는 채로 second-instance가 창을 만들 때 평소 실행과 같은가.
-- D: display 없는 Linux에서 뜨는가(`--ozone-platform=headless` 등).
+| 자리 | screenshot | rAF·observer·transition | 입력, timer, `fetch`, accessibility tree, box model |
+|---|---|---|---|
+| 어느 창에도 붙지 않은 `WebContentsView` | 끝나지 않는다 | 멈춘다 | 된다(bounds가 0이 아니어야 click이 닿는다) |
+| 숨은 `BrowserWindow`(`show:false`)의 view | 끝나지 않는다 | 멈춘다 | 된다 |
+| 숨은 창의 `<webview>` guest | 끝나지 않는다(1px 걸치기도 소용없다) | 믿을 수 없다 | 된다 |
+| ghost 창(frame 없는 투명 1x1, `showInactive()`)의 view, 1280x800 | 된다. 잘리지 않은 전체 크기 | 된다 | 된다 |
+| ghost 창의 `<webview>` | 창이 `<webview>`만큼 커야 된다 | | |
+| 보이는 창의 view | 된다 | 된다 | 된다 |
+
+- **view는 `setVisible(true)`로 둔다.** ghost 창 안에서 `setVisible(false)`로 숨긴 view는 screenshot이 끝나지 않거나 들쭉날쭉하다. ghost 창에 `setOpacity(0)`을 주면 그리지 않는다.
+- **여러 view.** ghost 창 하나에 view 셋을 같은 자리에 겹쳐 두어도 각각 screenshot이 자기 page로 나오고 rAF가 돈다. 수십 개일 때의 memory와 GPU 값은 보지 않았다.
+- **옮기기.** 떼어 낸 view나 숨은 창의 view를 창으로, 창에서 다른 창으로, 다시 떼었다 붙여도 다시 load하지 않는다. page의 JS 상태, 붙여 둔 debugger, 옮기기 전에 얻은 `backendNodeId`가 그대로다. view가 든 창을 닫아도 view의 webContents는 살아 있어 다른 창에 붙일 수 있다.
+- **창 없는 앱과 second-instance.** `BrowserWindow`가 하나도 없어도 앱은 살아 있다. single-instance lock을 쥔 창 없는 main에 두 번째 실행이 오면 `second-instance`가 오고, 창을 만들어 있던 view를 붙여도 다시 load하지 않는다.
+- **partition.** 같은 partition의 `WebContentsView`와 `<webview>`는 같은 session이다(cookie를 서로 본다). 그래서 agent 탭과 사람 탭의 그릇이 달라도 로그인은 같다.
+- **display 없는 Linux.** D에 적었다.
+- **조심할 것.** 떼어 낸 view에 첫 load 전에 debugger를 붙이고 `Emulation.setDeviceMetricsOverride`를 부르면 segfault가 난다(load 뒤에는 괜찮다). 한 번도 그리지 않은 page의 첫 `Input.dispatchMouseEvent`가 5초 동안 돌아오지 않은 적이 있다(event는 닿았다).
+- **확인하지 못한 것.** ghost 창이 사람 눈에 띄는지(1px 점, 작업 표시줄, alt-tab), macOS dock과 Windows 작업 표시줄, macOS와 Windows에서 ghost 창이 그리는지, 실제 site가 그리지 않는 page에서 얼마나 멈추는지(만든 page 하나로만 봤다).
 
 ## 단계
 
-0. **확인.** 위 "열기 전에 확인할 것"을 spike로 보고 결과를 A에 반영한 뒤 A와 E를 사람에게 올린다.
+0. ~~**확인.**~~ 봤다("확인한 것"). A와 E를 사람에게 올린다.
 1. ~~**오류 계약과 지침.**~~ 구현했다. `browser.*`·`tab.*`의 `unavailable`·`conflict`가 고정 문장을 싣고, agent 지침(workspace prompt 셋, `write-artifact` skill, coding agent의 `lophn-agent` skill)에 6번을 넣었다. "탭이 창에 열려 있지 않다"와 "앱이 붙어 있지 않다" 문장은 지금 동작을 말하므로 2·3단계가 고친다.
 2. **수명과 그릇.** A에서 고른 그릇으로 agent page를 옮기고 4·5·8번(열기, 자리, 수명 맞추기)과 B를 한다. host queue의 `tab_open` 전달 규칙, `workspace-layout.md` 결정 18과 "agent가 연 탭", `browser-tab.md` 결정 5·41과 "agent가 다루는 탭"을 고친다.
-3. **창 없는 shell.** core가 shell main을 창 없이 띄우는 실행 intent와, 사람이 lophn을 열 때 그 main에 붙어 창을 만드는 길(3번), E에서 정한 표시. `platform.md`의 launch intent와 core 수명을 고친다. D를 여기서 정한다.
-4. **사람 탭.** A1이면 선택이 아니라 A1의 나머지다: 사람 browser 탭도 같은 그릇으로 옮겨 그릇을 하나로 만든다. 2와 사이를 오래 두지 않는다. A3이면 사람 탭이 workspace를 오갈 때 다시 load하지 않게 할지만 정한다(창 단위 그릇에 같이 둔다). 어느 쪽이든 Keep alive는 화면을 내렸느냐가 아니라 자원(상한) 정책이 된다.
+3. **창 없는 shell.** A1일 때만 한다. core가 shell main을 창 없이(ghost 창만) 띄우는 실행 intent와, 사람이 lophn을 열 때 그 main에 붙어 창을 만드는 길(3번), E에서 정한 표시, D의 flag. `platform.md`의 launch intent와 core 수명을 고친다.
+4. **사람 탭.** A1이면 선택이 아니라 A1의 나머지다: 사람 browser 탭도 같은 그릇으로 옮겨 그릇을 하나로 만든다. 2와 사이를 오래 두지 않는다. A2이면 사람 탭이 workspace를 오갈 때 다시 load하지 않게 할지만 정한다(창 단위 그릇에 같이 둔다). 어느 쪽이든 Keep alive는 화면을 내렸느냐가 아니라 자원(상한) 정책이 된다.
 
 ## 하지 않는 것
 

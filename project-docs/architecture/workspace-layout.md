@@ -148,7 +148,7 @@ DetachedItem { tab, bounds }
   - `stage`는 group 안이 아니라 source의 group 바로 뒤(group이 없으면 source 바로 뒤) 탭이다. 이 탭의 `peer` 자식이 나중에 이 탭과 새 group을 이룬다.
   - source가 floated·detached이거나 없으면 desk 끝이다(`work`·`glance`는 어차피 float). source가 보이지 않는 desk에 있으면 desk를 바꾸지 않고 그 desk에서 위 규칙을 푼다. 모두 선택하지 않고(`select: false`) 창을 앞으로 가져오거나 focus하지 않는다. 그 session의 탭이 이미 창에 있으면 새로 열지 않고 ack한다. 사람이 연 같은 앱의 preview·같은 artifact 탭이 있으면 relation과 상관없이 그 자리에서 바꿔 연다. 자식 agent의 relation은 `agent-call.md`다.
 - core의 `tab_show {tab}` 요청은 접힌 float을 그 자리에서 편다. layout과 선택·focus를 바꾸지 않고(맨 위로 올라올 뿐이다), 어느 desk의 float이든 찾아 편다. float이 아니거나 이미 펴져 있거나 없는 탭이면 할 일이 없고, 그래도 그 workspace를 가진 창은 ack한다.
-- agent가 연 browser·preview·artifact 탭은 사람이 고르기 전에도 본문을 mount해 page가 붙어 있다(숨은 mount). 고르지 않은 탭뿐 아니라 접힌 float과 다른 desk의 탭·float도 대상이라 창을 다시 열거나 workspace를 바꾼 뒤에도 agent의 browser 호출이 `unavailable`이 되지 않는다. detached 창의 탭은 그 창이 mount한다.
+- agent가 연 browser·preview·artifact 탭은 사람이 고르기 전에도 본문을 mount해 page가 붙어 있다(숨은 mount). 고르지 않은 탭뿐 아니라 접힌 float과 다른 desk의 탭·float도 대상이라 같은 workspace 안에서는 사람이 무엇을 보든 agent의 browser 호출이 된다. 숨은 mount는 그 workspace가 창에 mount된 동안만 돈다. 그 창이 다른 workspace로 가거나 그 workspace를 띄운 창이 없으면 page가 없어 browser 호출은 `unavailable`이다(Keep alive, download, 소리로 남긴 page는 예외). detached 창의 탭은 그 창이 mount한다.
 - 사람이 host 탭을 닫거나 layout에서 사라지면 renderer가 `shell:surface-report`로 `closed`를 알리고 main이 `host/report`로 core 표에서 뺀다. agent가 연 browser 탭의 상태는 `browser-tab.md`다.
 
 ### 빠른 실행

@@ -12,7 +12,7 @@ now: |
   3. 연 뒤에도 사람이 그 창에서 다른 workspace로 가면 page가 사라진다. 숨은 mount(`packages/shell/renderer/workspace/workspace-window.tsx`의 `hiddenHostTabs`)는 그 workspace가 창에 mount된 동안만 돈다. 떠나는 workspace의 `<webview>`를 남기는 조건은 `wantsKeep`(`packages/shell/renderer/app-frame/webview-host.tsx`)의 Keep alive, 사람 toggle, download, 소리뿐이고 "agent가 다루는 중"은 들어 있지 않다. 돌아오면 다시 load된다.
   4. 창이 하나도 없거나 core만 떠 있으면(로그인 autostart, 앱 Quit 뒤) 1과 2가 늘 그렇다.
 
-  model이 받는 문장은 code마다 고정이라(`packages/core/lophn-agent/tools/work.ts`의 `FAILURE_SUMMARIES`) 2의 이유는 "tool is unavailable"로만 간다. 이 문장은 roadmap의 1단계(오류 계약)가 artifact 탭에도 고친다.
+  2의 이유는 model이 받는다. `browser`·`tab` 호출의 `unavailable`·`conflict`는 원인과 다음 할 일을 적은 고정 문장이 그대로 간다(`packages/core/lophn-agent/tools/work.ts`의 `carriesReason`). 그래서 agent는 사람에게 올릴 수는 있지만 스스로 풀 길은 없다.
 
   되는 것: artifact file 쓰기와 사람이 나중에 artifact 탭을 손으로 여는 것은 창과 상관없다. 그 workspace를 띄운 창이 있는 동안에는 열기와 다루기가 모두 된다.
 impact: |
@@ -21,10 +21,9 @@ impact: |
   - agent가 다루던 중에 사람이 workspace를 옮기면 그 뒤 호출이 실패하고 page 상태(scroll, 입력)를 잃는다.
   - `tab open --url`은 http·https만 받으므로, 확인이 막힌 agent가 local 서버를 띄우거나 바깥 browser로 artifact를 열 수 있다. browser 탭에서 실제로 일어난 우회와 같은 길이다.
 fix: |
-  - (작음) 오류 문장만 고친다. roadmap 1단계에 들어 있다. agent가 이유를 알고 사람에게 올리게 될 뿐 한계는 그대로다.
   - (중간, 추천) agent의 확인용 page와 사람이 보는 탭을 나눈다. roadmap 2·3단계에서 정한 그릇(창 없이 사는 page) 위에 artifact를 따로 열어 `browser.*`를 거기서 실행하고, 사람의 artifact 탭은 지금의 `<webview>`로 둔다. artifact는 local file이고 로그인이 없어 사람이 볼 때 다시 load해도 잃는 것이 적다. 잃는 것: agent가 본 page와 사람이 보는 page가 다른 instance다. artifact preload와 partition을 그 page에도 붙여야 한다.
   - (큼) artifact 탭의 그릇을 browser 탭과 같이 옮긴다. 앱·artifact view의 registry, ticket, preload 붙이기(`project-docs/products/roadmap/app-webview.md`)를 다시 짜야 하고, native view로 가면 그때 없앤 cover와 층 순서가 artifact 탭에 돌아온다.
 
-  추천은 둘째 안이고, browser 탭의 그릇이 정해져 land된 뒤에 한다.
+  추천은 첫째 안이고, browser 탭의 그릇이 정해져 land된 뒤에 한다.
 decided: |
   roadmap `agent-browser-lifetime`의 범위에서 artifact 탭을 뺀다(사람). browser 탭을 먼저 하고, 이 한계는 이 이슈로 남겨 둔다.

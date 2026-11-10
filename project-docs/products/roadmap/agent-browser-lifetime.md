@@ -22,9 +22,9 @@
 - **shell main은 창이 알린 workspace만 안다.** renderer가 layout을 다 읽은 뒤 `shell:surface-workspace`로 그 창의 workspace를 알리고(`packages/shell/renderer/workspace/use-surface-requests.ts`), main은 창마다 하나를 `shown`에 둔다(`packages/shell/main/desktop/wiring/surface.ts`의 `visibleWorkspaces`). detached 창은 세지 않는다.
 - **page를 찾는 길은 renderer의 bind다.** host 탭의 `<webview>`가 mount되어 view session이 생기면 `useAgentControl`이 `{bind: {tab, view_session}}`을 보내고 main이 `bound`에 둔다. driver는 거기서 `wv-<id>` guest를 찾고, 없으면 `unavailable` "the tab is not open in a window"다(`packages/shell/main/browser/agent/driver.ts`).
 - **창 하나는 workspace 하나만 mount한다.** `packages/shell/renderer/desktop/main.tsx`가 route마다 `WorkspaceWindow` 하나를 key로 그린다. workspace를 바꾸면 그 안의 `<webview>`가 DOM에서 빠져 guest가 사라진다. 창 단위 그릇(`packages/shell/renderer/app-frame/workspace-views.tsx`, 창마다 6개)이 떠나는 workspace의 page를 숨겨 남기는 조건은 `wantsKeep`(`packages/shell/renderer/app-frame/webview-host.tsx`)의 Keep alive, 사람 toggle, download, 소리 넷뿐이다. agent가 다루는 중(`driven`)은 가려진 page를 1px 걸쳐 계속 그리게 할 뿐 남기는 조건이 아니다.
-- **문서와 코드가 어긋난다.** `workspace-layout.md`는 "workspace를 바꾼 뒤에도 agent의 browser 호출이 `unavailable`이 되지 않는다"고 적었다. 숨은 mount(`workspace-window.tsx`의 `hiddenHostTabs`)는 그 workspace가 창에 mount된 동안만 돈다.
+- **숨은 mount는 그 workspace가 창에 mount된 동안만 돈다**(`workspace-window.tsx`의 `hiddenHostTabs`). `workspace-layout.md`는 "workspace를 바꾼 뒤에도 `unavailable`이 되지 않는다"고 적었었고, 단계 1에서 지금 코드대로 고쳤다.
 - **창을 모두 닫아도 shell main·tray·core는 남는다**(`packages/shell/main/desktop/tray.ts`). 그때 renderer가 없어 `<webview>`도 없다.
-- **model은 이유를 받지 못한다.** lophn agent tool의 실패 문장은 `FAILURE_SUMMARIES`가 code마다 하나로 고정한다(`packages/core/lophn-agent/tools/work.ts`). `unavailable`은 "tool is unavailable"이다. handler 문장을 싣는 것은 `invalid_input`과 `INPUT_SCOPED_FAILURES`(`skill.read`, `agent.card`)뿐이다.
+- **model이 이유를 받는다(단계 1, 구현했다).** `browser.*`·`tab.*`의 `unavailable`·`conflict`는 handler의 고정 문장(원인, 다음 할 일, 되풀이해도 되는지)이 model에 간다(`packages/core/lophn-agent/tools/work.ts`의 `carriesReason`). 그 밖의 tool과 code는 `FAILURE_SUMMARIES`의 공통 문장 그대로다. 그 전에는 `unavailable`이 "tool is unavailable"뿐이었고 아래 일이 그때 일어났다.
 - **`shell.run`에는 OS sandbox가 없다**(`packages/core/lophn-agent/tools/bundles/shell.ts`). agent가 사람의 browser profile을 읽고 다른 browser를 띄우는 것을 막는 것은 지금 없다.
 - 기한: `HOST_TAKE_WAIT_MS` 5초, `BROWSER_CALL_MS` 30초, shell attached 판정 3초(`packages/protocol/lophn-agent/host-queue.ts`, `queue.ts`).
 
@@ -136,7 +136,7 @@ A를 사람에게 올리기 전에 지금 Electron 판의 개발 앱에서 throw
 ## 단계
 
 0. **확인.** 위 "열기 전에 확인할 것"을 spike로 보고 결과를 A에 반영한 뒤 A와 E를 사람에게 올린다.
-1. **오류 계약과 지침.** `browser.*`·`tab.*`의 `unavailable`·`conflict`에 고정 문장(원인과 다음 할 일)을 싣고, agent 지침에 6번을 넣는다. 그릇과 상관없어 0과 같이 먼저 할 수 있고, 이번 같은 우회를 바로 줄인다.
+1. ~~**오류 계약과 지침.**~~ 구현했다. `browser.*`·`tab.*`의 `unavailable`·`conflict`가 고정 문장을 싣고, agent 지침(workspace prompt 셋, `write-artifact` skill, coding agent의 `lophn-agent` skill)에 6번을 넣었다. "탭이 창에 열려 있지 않다"와 "앱이 붙어 있지 않다" 문장은 지금 동작을 말하므로 2·3단계가 고친다.
 2. **수명과 그릇.** A에서 고른 그릇으로 agent page를 옮기고 4·5·8번(열기, 자리, 수명 맞추기)과 B를 한다. host queue의 `tab_open` 전달 규칙, `workspace-layout.md` 결정 18과 "agent가 연 탭", `browser-tab.md` 결정 5·41과 "agent가 다루는 탭"을 고친다.
 3. **창 없는 shell.** core가 shell main을 창 없이 띄우는 실행 intent와, 사람이 lophn을 열 때 그 main에 붙어 창을 만드는 길(3번), E에서 정한 표시. `platform.md`의 launch intent와 core 수명을 고친다. D를 여기서 정한다.
 4. **사람 탭.** A1이면 선택이 아니라 A1의 나머지다: 사람 browser 탭도 같은 그릇으로 옮겨 그릇을 하나로 만든다. 2와 사이를 오래 두지 않는다. A3이면 사람 탭이 workspace를 오갈 때 다시 load하지 않게 할지만 정한다(창 단위 그릇에 같이 둔다). 어느 쪽이든 Keep alive는 화면을 내렸느냐가 아니라 자원(상한) 정책이 된다.

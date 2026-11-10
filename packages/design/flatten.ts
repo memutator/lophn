@@ -15,10 +15,15 @@ function segment(key: string): string {
   return key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
 }
 
+/** token 경로의 CSS 변수 이름(`["color", "surface", "base"]` → `--color-surface-base`). */
+export function tokenVar(path: readonly string[]): string {
+  return `--${path.map(segment).join("-")}`;
+}
+
 export function flatten(source: unknown = tokens): FlatToken[] {
   const flat: FlatToken[] = [];
   const walk = (value: unknown, path: string[]) => {
-    const name = `--${path.map(segment).join("-")}`;
+    const name = tokenVar(path);
     if (typeof value === "string" || typeof value === "number") {
       flat.push({ name, path, light: String(value) });
     } else if (typeof value === "object" && value !== null) {

@@ -1,4 +1,8 @@
-// AppearanceSource를 선언 설정(`shell.*`)의 읽기·쓰기로 만든다. 설치된 글꼴은 받은 queryLocalFonts로 읽는다.
+// AppearanceSource를 선언 설정(`shell.*`)의 읽기·쓰기로 만든다. 설치된 글꼴은 받은 queryLocalFonts로 읽고,
+// theme 목록은 main(`lophnAppearance`)에서 받는다. main이 없으면 내장 theme만이다.
+import { loadThemes } from "@lophn/ui";
+
+import type { AppearanceApi } from "../../../../ipc/appearance.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { chooseSetting, readEffective } from "../declared.ts";
 import { installedFonts, type QueryLocalFonts } from "./local-fonts.ts";
@@ -17,6 +21,7 @@ import type { AppearanceSource, AppearanceValues } from "./source.ts";
 export function coreAppearanceSource(
   core: CoreSource,
   queryFonts: QueryLocalFonts | undefined,
+  appearance: AppearanceApi | undefined,
 ): AppearanceSource {
   return {
     watch: (listener) => core.subscribe(listener),
@@ -46,5 +51,13 @@ export function coreAppearanceSource(
     },
 
     fonts: () => installedFonts(queryFonts),
+
+    themes: async () =>
+      (await appearance?.themes().catch(() => undefined)) ?? loadThemes([]),
+
+    onThemesChanged: (listener) =>
+      appearance?.onThemesChanged(listener) ?? (() => {}),
+
+    openThemesFolder: () => appearance?.openThemesFolder(),
   };
 }

@@ -101,8 +101,8 @@ files:
     note: harness extension이 꺼지면 lophn-agent skill 사본만 지우고 사람 폴더는 둔다
 
   - path: packages/design/appearance_test.ts
-    covers: [appearance-set:applied, appearance-set:ignored]
-    note: 글꼴 이름 CSS 안전 검사(위험한 이름은 그 칸만 비운다)와 목록 밖 값이면 appearance 전체 거절
+    covers: [appearance-set:applied, appearance-set:ignored, theme-files:listed]
+    note: 글꼴 이름·theme file 색·accent의 CSS 안전 검사(hex만 CSS에 쓴다), 목록 밖 값이면 appearance 전체 거절, 내장 theme과 보정한 accent의 대비
 
   - path: packages/design/components/reading/markdown/stream_test.ts
     covers: []

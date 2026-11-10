@@ -5,22 +5,31 @@ import { z } from "zod";
 import { declareSetting } from "../../protocol/config/mod.ts";
 import { extensionSettingKey } from "../../protocol/extensions/mod.ts";
 
-const themeSetting = declareSetting({
-  key: "shell.theme",
+const modeSetting = declareSetting({
+  key: "shell.mode",
   type: z.enum(["light", "dark", "system"]),
   default: "system",
 });
 
-const accentSetting = declareSetting({
-  key: "shell.accent",
-  type: z.enum(["ink", "blue", "green", "purple", "orange"]),
-  default: "ink",
+// 모드마다 고른 색 theme. 내장 theme이나 `<data root>/themes/<id>.json`의 id다. 목록은 shell main이 알아서
+// 여기서는 id 모양만 본다(packages/design/themes.ts의 isThemeId와 같다). 없는 id면 shell이 기본 theme을 쓴다.
+const themeId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
+const lightThemeSetting = declareSetting({
+  key: "shell.light_theme",
+  type: themeId,
+  default: "warm-light",
+});
+const darkThemeSetting = declareSetting({
+  key: "shell.dark_theme",
+  type: themeId,
+  default: "warm-dark",
 });
 
-const backgroundSetting = declareSetting({
-  key: "shell.background",
-  type: z.enum(["warm", "neutral", "cool"]),
-  default: "warm",
+// `theme`이면 고른 theme의 accent, 아니면 사람이 고른 색 하나다. 나머지 색은 shell이 대비에 맞춰 만든다.
+const accentSetting = declareSetting({
+  key: "shell.accent",
+  type: z.union([z.literal("theme"), z.string().regex(/^#[0-9a-fA-F]{6}$/)]),
+  default: "theme",
 });
 
 const fontSetting = declareSetting({
@@ -267,9 +276,10 @@ export const harnessExtensionSetting = extensionEnabled("harness");
 const harnessGuiExtensionSetting = extensionEnabled("harness-gui");
 
 export const shellSettings = [
-  themeSetting,
+  modeSetting,
+  lightThemeSetting,
+  darkThemeSetting,
   accentSetting,
-  backgroundSetting,
   fontSetting,
   fontCustomSetting,
   fontWeightSetting,

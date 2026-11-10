@@ -20,10 +20,12 @@ export const SettingsRequiredEmpty = () => (
 /** Settings › Appearance. */
 export const SettingsAppearance = () => <SettingsFrame pane="appearance" />;
 
-// 처음 값과 다르게 고른 preset. Purple, Cool, System UI, 설치된 코드 글꼴(D2Coding Bold), Serif 본문, Large, Compact다.
+// 처음 값과 다르게 고른 것. Cool(light)·Tokyo Night(dark) theme, Purple accent, System UI, 설치된 코드 글꼴(D2Coding Bold),
+// Serif 본문, Large, Compact다.
 const PRESETS = {
-  accent: "purple",
-  background: "cool",
+  light_theme: "cool-light",
+  dark_theme: "tokyo-night",
+  accent: "#6b3fc4",
   font: "system",
   code_font: "custom",
   code_font_custom: "D2Coding",
@@ -35,15 +37,23 @@ const PRESETS = {
 
 /** Settings › Appearance: preset을 바꾼 상태(Light). 화면 전체가 고른 색·글꼴·크기로 바뀐다. */
 export const SettingsAppearancePresets = () => (
-  <SettingsFrame
-    pane="appearance"
-    appearance={{ ...PRESETS, theme: "light" }}
-  />
+  <SettingsFrame pane="appearance" appearance={{ ...PRESETS, mode: "light" }} />
 );
 
 /** Settings › Appearance: preset을 바꾼 상태(Dark). */
 export const SettingsAppearancePresetsDark = () => (
-  <SettingsFrame pane="appearance" appearance={{ ...PRESETS, theme: "dark" }} />
+  <SettingsFrame pane="appearance" appearance={{ ...PRESETS, mode: "dark" }} />
+);
+
+/**
+ * Settings › Appearance: light theme으로 theme file(Pastel)을 고른 상태. 그 file의 문제(모르는 색 이름, 대비가 모자란
+ * 글자)가 줄 아래에 보이고, 읽을 수 없는 file(draft.json)은 Themes folder 줄 아래에 이유와 함께 보인다.
+ */
+export const SettingsAppearanceThemeFile = () => (
+  <SettingsFrame
+    pane="appearance"
+    appearance={{ mode: "light", light_theme: "pastel" }}
+  />
 );
 
 /** Settings › Appearance: UI 글꼴 칸을 열고 검색 칸에 "no"를 쳐 설치된 글꼴을 거른 상태. */

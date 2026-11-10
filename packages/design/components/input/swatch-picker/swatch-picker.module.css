@@ -28,7 +28,8 @@
   border-radius: var(--radius-full);
 }
 
-.input:checked + .swatch {
+.input:checked + .swatch,
+.swatch[data-chosen] {
   box-shadow:
     0 0 0 var(--space-1) var(--color-surface-base),
     0 0 0 calc(var(--space-1) * 2) var(--color-text-primary);

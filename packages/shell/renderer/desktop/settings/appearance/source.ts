@@ -1,13 +1,17 @@
 // Appearance가 읽고 쓰는 통로. 값은 General과 같은 선언 설정(`shell.*`)이다. 화면은 이 interface만 보고
-// core route 이름은 core-source.ts만 안다. 설치된 글꼴 목록은 core가 아니라 이 문서의 OS 글꼴(local-fonts.ts)이다.
+// core route 이름은 core-source.ts만 안다. 설치된 글꼴 목록은 core가 아니라 이 문서의 OS 글꼴(local-fonts.ts)이고,
+// theme 목록은 main이 읽은 theme file이다(`lophnAppearance`).
+import type { Themes } from "@lophn/ui";
+
 import type { SourceResult } from "../source.ts";
 
 export type { SourceResult };
 
 export type AppearanceId =
-  | "theme"
+  | "mode"
+  | "light_theme"
+  | "dark_theme"
   | "accent"
-  | "background"
   | "font"
   | "font_custom"
   | "font_weight"
@@ -38,4 +42,10 @@ export interface AppearanceSource {
   choose(id: AppearanceId, value: string): Promise<SourceResult<null>>;
   /** 설치된 글꼴. 읽지 못하면 빈 목록이다. */
   fonts(): Promise<readonly InstalledFont[]>;
+  /** 고를 수 있는 theme(내장과 theme file). 읽지 못하면 내장 theme만이다. */
+  themes(): Promise<Themes>;
+  /** theme file이 바뀌면 부른다. 해제는 반환 함수다. */
+  onThemesChanged(listener: () => void): () => void;
+  /** theme file 폴더를 연다. */
+  openThemesFolder(): void;
 }

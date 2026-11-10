@@ -21,6 +21,7 @@ import {
   type TerminalClipboard,
 } from "../terminal/xterm-view.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
+import type { AppearanceApi } from "../../ipc/appearance.ts";
 import {
   type AppViewsDeps,
   AppViewsProvider,
@@ -126,6 +127,7 @@ const settingsPanels = mock?.settingsPanels ?? {
     (globalThis as { queryLocalFonts?: QueryLocalFonts }).queryLocalFonts?.bind(
       globalThis,
     ),
+    (globalThis as { lophnAppearance?: AppearanceApi }).lophnAppearance,
   ),
   keyboard: coreKeyboardSource(core),
   coding: coreCodingConnectionsSource({ core, coding: windowCodingApi() }),

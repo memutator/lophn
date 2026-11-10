@@ -86,8 +86,24 @@ export const workspaceSettings = {
   "jobs.note.run-skipped-person": "You skipped it.",
   "jobs.note.run-skipped-superseded": "Replaced by the turn that came on time.",
   "settings.appearance.accent-help":
-    "The color of main buttons, focus rings, and selections.",
-  "settings.appearance.background-help": "The tint of backgrounds and borders.",
+    "The color of main buttons, focus rings, and selections. lophn adjusts the shade so text stays readable.",
+  "settings.appearance.dark-theme-help": "The colors lophn uses in dark mode.",
+  "settings.appearance.light-theme-help":
+    "The colors lophn uses in light mode.",
+  "settings.appearance.mode-help": "Light, dark, or follow the system setting.",
+  "settings.appearance.theme-broken":
+    "themes/{id}.json can't be used: {reason}",
+  "settings.appearance.theme-missing":
+    "{name} isn't in your themes folder, so lophn uses its default theme.",
+  "settings.appearance.theme-more": "And {count} more.",
+  "settings.appearance.theme-problem-bad-value":
+    "{path} isn't a hex color like #1a1b26, so it keeps the inherited color.",
+  "settings.appearance.theme-problem-contrast":
+    "{foreground} on {background} has {ratio}:1 contrast; readable text needs {minimum}:1.",
+  "settings.appearance.theme-problem-unknown-path":
+    "{path} isn't a color lophn knows, so it's ignored.",
+  "settings.appearance.themes-folder-help":
+    "Add a theme as a JSON file. lophn picks up changes as soon as you save.",
   "settings.appearance.code-font-help":
     "The font of code, terminals, and file paths.",
   "settings.appearance.density-help":
@@ -102,8 +118,6 @@ export const workspaceSettings = {
   "settings.appearance.taskbar-help":
     "A bar at the bottom of the window that holds your floating panels.",
   "settings.appearance.text-size-help": "The size of text across lophn.",
-  "settings.appearance.theme-help":
-    "Light, dark, or follow the system setting.",
   "settings.button.add-entry": "Add",
   "settings.button.back-to": "Back to {workspace}",
   "settings.button.back-to-home": "Back to Home",
@@ -214,20 +228,40 @@ export const workspaceSettings = {
   "settings.intro.shell-rules":
     "Before lophn runs a command for an agent, it checks these rules. Deny blocks the command, Ask waits for your answer, and Allow lets it run. The last matching rule wins, and project rules come after global rules. A command that matches no rule runs. In a pattern, * matches any text.",
   "settings.label.accent": "Accent",
+  "settings.label.accent-custom": "Pick a color",
+  "settings.label.accent-theme": "From theme",
   "settings.label.accent-blue": "Blue",
   "settings.label.accent-green": "Green",
-  "settings.label.accent-ink": "Ink",
   "settings.label.accent-orange": "Orange",
   "settings.label.accent-purple": "Purple",
   "settings.label.add-entry": "Add an entry",
   "settings.label.appearance-target": "your appearance settings",
+  "settings.label.dark-theme": "Dark theme",
+  "settings.label.light-theme": "Light theme",
+  "settings.label.mode": "Mode",
+  "settings.label.mode-dark": "Dark",
+  "settings.label.mode-light": "Light",
+  "settings.label.mode-system": "System",
+  "settings.label.open-themes-folder": "Open folder",
+  "settings.label.theme-file": "{name} (file)",
+  "settings.label.theme-not-found": "{name} (not found)",
+  "settings.label.themes-folder": "Themes folder",
+  "settings.reason.theme-bad_id":
+    "the file name can only use lowercase letters, digits, and -.",
+  "settings.reason.theme-bad_shape":
+    "it needs an object with name, mode, extends, and colors.",
+  "settings.reason.theme-extends_cycle":
+    "its extends chain loops back to itself.",
+  "settings.reason.theme-id_taken": "a built-in theme already uses this name.",
+  "settings.reason.theme-no_mode":
+    'it needs "mode": "light" or "dark", or an extends.',
+  "settings.reason.theme-not_json": "it isn't valid JSON.",
+  "settings.reason.theme-too_large": "it's larger than 256 KB.",
+  "settings.reason.theme-unknown_extends":
+    "the theme it extends doesn't exist.",
   "settings.label.available": "Available",
   "settings.label.available-no": "Unavailable",
   "settings.label.available-yes": "Available",
-  "settings.label.background": "Background",
-  "settings.label.background-cool": "Cool",
-  "settings.label.background-neutral": "Neutral",
-  "settings.label.background-warm": "Warm",
   "settings.label.call-agents": "Agent pairs",
   "settings.label.call-allow": "Allow",
   "settings.label.call-effect": "Rule",
@@ -427,10 +461,6 @@ export const workspaceSettings = {
   "settings.label.tab-shell-rules": "Shell rules",
   "settings.label.taskbar": "Taskbar",
   "settings.label.text-size": "Text size",
-  "settings.label.theme": "Theme",
-  "settings.label.theme-dark": "Dark",
-  "settings.label.theme-light": "Light",
-  "settings.label.theme-system": "System",
   "settings.label.value-custom": "Custom",
   "settings.label.value-items": "{count, plural, one {# item} other {# items}}",
   "settings.label.value-no-default": "None",
@@ -637,8 +667,8 @@ export const workspaceSettings = {
   "settings.shell-reading_width.name": "Reading width",
   "settings.shell-text_size.help": "The size of text across lophn.",
   "settings.shell-text_size.name": "Text size",
-  "settings.shell-theme.help": "Light, dark, or follow the system setting.",
-  "settings.shell-theme.name": "Theme",
+  "settings.shell-mode.help": "Light, dark, or follow the system setting.",
+  "settings.shell-mode.name": "Mode",
   "settings.note.extension-remove":
     "This deletes the files {name} wrote on this computer. Files you put in its folder stay.",
   "settings.title.extension-remove": "Remove {name}?",

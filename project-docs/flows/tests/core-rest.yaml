@@ -264,6 +264,10 @@ files:
     covers: [data-steps-apply:applied, lophn-split-per-workspace:split]
     note: "옛 lophn id를 workspace별 값으로 나누는 data step. lophn-split-per-workspace:split"
 
+  - path: packages/core/main/daemon/wiring/appearance-themes_test.ts
+    covers: [data-steps-apply:applied, settings-appearance-themes:moved]
+    note: 옛 theme·background·accent 설정을 새 key로 옮기기
+
   - path: packages/core/main/daemon/wiring/places-default-on_test.ts
     covers: [data-steps-apply:applied, settings-places-default-on:removed]
     note: 옛 sidebar panel·tray 설정 key 제거

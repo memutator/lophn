@@ -1,4 +1,6 @@
 // Appearance 화면의 가짜 통로. core를 부르지 않고 고른 것을 메모리에 둔다.
+import { loadThemes, type ThemeFile } from "@lophn/ui";
+
 import { APPEARANCE_DEFAULTS } from "../model.ts";
 import type {
   AppearanceSource,
@@ -38,7 +40,30 @@ interface FakeAppearanceOptions {
   readFails?: boolean;
   /** 설치된 글꼴. 없으면 FAKE_FONTS다. */
   fonts?: readonly InstalledFont[];
+  /** theme file. 없으면 FAKE_THEME_FILES다. */
+  themeFiles?: readonly ThemeFile[];
 }
+
+/** 견본 theme file. 하나는 내장 theme을 조금 바꾼 것이고, 하나는 대비가 모자라고, 하나는 읽을 수 없다. */
+export const FAKE_THEME_FILES: readonly ThemeFile[] = [
+  {
+    id: "midnight",
+    text: JSON.stringify({
+      name: "Midnight",
+      extends: "tokyo-night",
+      colors: { "color.surface.base": "#11121a" },
+    }),
+  },
+  {
+    id: "pastel",
+    text: JSON.stringify({
+      name: "Pastel",
+      mode: "light",
+      colors: { "color.text.muted": "#b8b8c8", "color.wrong": "#ffffff" },
+    }),
+  },
+  { id: "draft", text: "{ not json" },
+];
 
 export function fakeAppearance(options: FakeAppearanceOptions = {}) {
   const calls: unknown[][] = [];
@@ -66,6 +91,17 @@ export function fakeAppearance(options: FakeAppearanceOptions = {}) {
     },
     fonts() {
       return Promise.resolve(options.fonts ?? FAKE_FONTS);
+    },
+    themes() {
+      return Promise.resolve(
+        loadThemes(options.themeFiles ?? FAKE_THEME_FILES),
+      );
+    },
+    onThemesChanged() {
+      return () => {};
+    },
+    openThemesFolder() {
+      calls.push(["openThemesFolder"]);
     },
   };
   return { source, calls };

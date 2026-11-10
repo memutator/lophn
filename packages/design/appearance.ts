@@ -1,14 +1,29 @@
 // 사람이 고른 appearance를 token을 덮어쓰는 CSS로 만든다. 순수 함수라서 main(모든 문서에 insertCSS),
 // gallery, test가 같은 규칙을 쓴다. 값 검사도 여기 있다: Custom 글꼴 이름은 CSS 문자열 안에 들어가므로
 // 글자·숫자·공백·`-`·`_`만 받는다. 그 밖의 글자는 따옴표·괄호·세미콜론을 열 수 없는 것만 남기려는 경계다.
-import { flatten, type FlatToken } from "./flatten.ts";
+// 색 값은 hex 형식만 CSS에 쓴다(theme file에서 온 값도 같다).
+import { isHex6, isHexColor } from "./color.ts";
+import { flatten, tokenVar } from "./flatten.ts";
 import {
   appearancePresets,
   fontStacks,
   type TokenOverride,
 } from "./presets.ts";
+import {
+  accentColors,
+  BUILT_IN_THEMES,
+  type ColorTheme,
+  DEFAULT_COLORS,
+  DEFAULT_THEMES,
+  isThemeId,
+  type Mode,
+  pickTheme,
+  THEME_PATHS,
+} from "./themes.ts";
 
-export const THEMES = ["light", "dark", "system"] as const;
+export const MODES = ["light", "dark", "system"] as const;
+/** accent 값이 이것이면 theme에 적힌 accent를 쓴다. 아니면 `#rrggbb`다. */
+export const ACCENT_FROM_THEME = "theme";
 export const FONTS = ["pretendard", "system", "custom"] as const;
 export const CODE_FONTS = ["jetbrains-mono", "system", "custom"] as const;
 /** ui는 UI 글꼴(`font`)을 따른다. */
@@ -26,9 +41,7 @@ export const FONT_WEIGHTS = [
   "900",
 ] as const;
 
-export type Theme = (typeof THEMES)[number];
-export type Accent = keyof typeof appearancePresets.accent;
-export type Background = keyof typeof appearancePresets.background;
+export type AppearanceMode = (typeof MODES)[number];
 export type Font = (typeof FONTS)[number];
 export type CodeFont = (typeof CODE_FONTS)[number];
 export type ReadingFont = (typeof READING_FONTS)[number];
@@ -36,18 +49,17 @@ export type FontWeight = (typeof FONT_WEIGHTS)[number];
 export type TextSize = keyof typeof appearancePresets.textSize;
 export type Density = keyof typeof appearancePresets.density;
 
-export const ACCENTS = Object.keys(appearancePresets.accent) as Accent[];
-export const BACKGROUNDS = Object.keys(
-  appearancePresets.background,
-) as Background[];
 export const TEXT_SIZES = Object.keys(appearancePresets.textSize) as TextSize[];
 export const DENSITIES = Object.keys(appearancePresets.density) as Density[];
 
-/** 화면 모양 열네 값. 문서 읽기 폭은 문서가 따로 읽어서 여기 없다. */
+/** 화면 모양 열다섯 값. 문서 읽기 폭은 문서가 따로 읽어서 여기 없다. */
 export interface Appearance {
-  readonly theme: Theme;
-  readonly accent: Accent;
-  readonly background: Background;
+  readonly mode: AppearanceMode;
+  /** light 모드에서 쓰는 theme id. 목록에 없으면 기본 theme이다. */
+  readonly light_theme: string;
+  readonly dark_theme: string;
+  /** `theme`이거나 `#rrggbb`. */
+  readonly accent: string;
   readonly font: Font;
   /** font가 custom일 때 설치된 글꼴 이름. */
   readonly font_custom: string;
@@ -65,9 +77,10 @@ export interface Appearance {
 }
 
 export const APPEARANCE_DEFAULTS: Appearance = {
-  theme: "system",
-  accent: "ink",
-  background: "warm",
+  mode: "system",
+  light_theme: DEFAULT_THEMES.light,
+  dark_theme: DEFAULT_THEMES.dark,
+  accent: ACCENT_FROM_THEME,
   font: "pretendard",
   font_custom: "",
   font_weight: "400",
@@ -102,9 +115,13 @@ function oneOf<T extends string>(
 export function parseAppearance(input: unknown): Appearance | undefined {
   if (typeof input !== "object" || input === null) return undefined;
   const raw = input as Record<string, unknown>;
-  const theme = oneOf(THEMES, raw.theme);
-  const accent = oneOf(ACCENTS, raw.accent);
-  const background = oneOf(BACKGROUNDS, raw.background);
+  const mode = oneOf(MODES, raw.mode);
+  const light_theme = isThemeId(raw.light_theme) ? raw.light_theme : undefined;
+  const dark_theme = isThemeId(raw.dark_theme) ? raw.dark_theme : undefined;
+  const accent =
+    raw.accent === ACCENT_FROM_THEME || isHex6(raw.accent)
+      ? raw.accent
+      : undefined;
   const font = oneOf(FONTS, raw.font);
   const code_font = oneOf(CODE_FONTS, raw.code_font);
   const reading_font = oneOf(READING_FONTS, raw.reading_font);
@@ -114,9 +131,10 @@ export function parseAppearance(input: unknown): Appearance | undefined {
   const text_size = oneOf(TEXT_SIZES, raw.text_size);
   const density = oneOf(DENSITIES, raw.density);
   if (
-    !theme ||
+    !mode ||
+    !light_theme ||
+    !dark_theme ||
     !accent ||
-    !background ||
     !font ||
     !code_font ||
     !reading_font ||
@@ -130,9 +148,10 @@ export function parseAppearance(input: unknown): Appearance | undefined {
   const name = (value: unknown) =>
     typeof value === "string" && isFontName(value) ? value : "";
   return {
-    theme,
+    mode,
+    light_theme,
+    dark_theme,
     accent,
-    background,
     font,
     font_custom: name(raw.font_custom),
     font_weight,
@@ -190,30 +209,57 @@ function fontOverride(a: Appearance): TokenOverride {
   };
 }
 
+/** 한 모드의 색: 고른 theme에 accent를 덮은 것. */
+export function modeColors(
+  a: Appearance,
+  mode: Mode,
+  themes: readonly ColorTheme[] = BUILT_IN_THEMES,
+): Record<string, string> {
+  const theme = pickTheme(
+    themes,
+    mode === "light" ? a.light_theme : a.dark_theme,
+    mode,
+  );
+  return {
+    ...theme.colors,
+    ...(a.accent === ACCENT_FROM_THEME
+      ? {}
+      : accentColors(a.accent, theme.colors, mode)),
+  };
+}
+
+// 기본과 다른 hex 색만 남긴다. hex가 아닌 값은 어디서 왔든 CSS에 쓰지 않는다.
+function colorLines(colors: Record<string, string>, mode: Mode): string[] {
+  return THEME_PATHS.filter(
+    (path) =>
+      colors[path] !== DEFAULT_COLORS[mode][path] && isHexColor(colors[path]),
+  ).map((path) => `  ${tokenVar(path.split("."))}: ${colors[path]};`);
+}
+
 /**
- * 기본이 아닌 선택만 token을 덮어쓰는 CSS. 모두 기본이면 빈 문자열이다.
+ * 기본이 아닌 선택만 token을 덮어쓰는 CSS. 모두 기본이면 빈 문자열이다. light 블록은 light theme 색과
+ * 글꼴·크기·밀도, dark 블록은 dark theme 색이다. `themes`는 고를 수 있는 theme(내장과 theme file)이다.
  * tokens.css와 같은 구조(기본 → data-theme=dark → OS가 dark이고 data-theme≠light)이고, 그 규칙보다
  * 선택자 우선순위가 한 칸 높아 문서 안 stylesheet 순서와 상관없이 이긴다.
  */
-export function appearanceCss(a: Appearance): string {
-  const d = APPEARANCE_DEFAULTS;
+export function appearanceCss(
+  a: Appearance,
+  themes: readonly ColorTheme[] = BUILT_IN_THEMES,
+): string {
   const parts: TokenOverride[] = [
-    ...(a.accent === d.accent ? [] : [appearancePresets.accent[a.accent]]),
-    ...(a.background === d.background
-      ? []
-      : [appearancePresets.background[a.background]]),
     appearancePresets.textSize[a.text_size],
     appearancePresets.density[a.density],
     fontOverride(a),
   ];
-  const merged = new Map<string, FlatToken>();
+  const merged = new Map<string, string>();
   for (const part of parts) {
-    for (const token of flatten(part)) merged.set(token.name, token);
+    for (const token of flatten(part)) merged.set(token.name, token.light);
   }
-  const base = [...merged.values()].map((t) => `  ${t.name}: ${t.light};`);
-  const dark = [...merged.values()]
-    .filter((t) => t.dark !== undefined)
-    .map((t) => `  ${t.name}: ${t.dark};`);
+  const base = [
+    ...colorLines(modeColors(a, "light", themes), "light"),
+    ...[...merged].map(([name, value]) => `  ${name}: ${value};`),
+  ];
+  const dark = colorLines(modeColors(a, "dark", themes), "dark");
   return [
     ...(base.length ? ["html:root {", ...base, "}"] : []),
     ...(dark.length

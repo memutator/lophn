@@ -1,6 +1,6 @@
 # appearance
 
-사람이 고른 색(accent, 배경), 글꼴, 글자 크기, 밀도, theme이 lophn의 모든 문서에 같이 닿게 하는 메커니즘이다. 문서는 desktop 창, overlay, 보호 입력 창, 사용자 앱 화면과 artifact 화면이다. 앱 화면과 artifact 화면은 shell 창의 `<webview>` guest다. 사람은 Settings › Appearance에서 preset과 설치된 글꼴을 고르고, 고른 값은 열린 문서와 이후 열리는 문서에 같은 모양으로 적용된다. token과 component의 자리는 `ui-kit.md`다.
+사람이 고른 모드(light, dark, system), 모드별 색 theme, accent 색, 글꼴, 글자 크기, 밀도가 lophn의 모든 문서에 같이 닿게 하는 메커니즘이다. 문서는 desktop 창, overlay, 보호 입력 창, 사용자 앱 화면과 artifact 화면이다. 앱 화면과 artifact 화면은 shell 창의 `<webview>` guest다. 사람은 Settings › Appearance에서 theme, accent 색, preset, 설치된 글꼴을 고르고, 고른 값은 열린 문서와 이후 열리는 문서에 같은 모양으로 적용된다. token과 component의 자리는 `ui-kit.md`다.
 
 ## 문제
 
@@ -9,11 +9,12 @@ lophn은 사람이 오래 읽고 쓰는 앱이라 색과 글꼴을 자기 취향
 ## 목표와 비목표
 
 - 목표: 사람이 고른 appearance가 shell 화면, overlay, 보호 입력 창, 앱 화면, artifact 화면에 같은 token 변수로 닿는다. token 변수만 쓴 앱은 따로 고치지 않아도 따라 바뀐다. 색 역할이 화면마다 같다. 대비를 지킨다.
-- 비목표: 사용자가 임의의 token 값이나 CSS를 넣는 길(고르는 것은 preset과 설치된 글꼴 이름뿐이다). hex 색이나 글꼴 이름을 직접 쓴 앱 CSS를 검사하거나 고치는 일. shadow의 색조 바꾸기(popover·dialog 그림자는 background preset과 상관없이 같다). 이미 만든 xterm 터미널의 글꼴 즉시 갱신.
+- 목표: 사람과 agent가 theme file 하나로 색 theme(Tokyo Night 같은 것)을 더하고, 저장하면 바로 화면이 바뀐다.
+- 비목표: 사용자가 CSS나 색이 아닌 token 값을 넣는 길(theme file이 덮는 것은 색 token뿐이다). VS Code theme 바로 가져오기. 앱이 자기 theme을 내는 것. hex 색이나 글꼴 이름을 직접 쓴 앱 CSS를 검사하거나 고치는 일. shadow의 색조 바꾸기(popover·dialog 그림자는 background preset과 상관없이 같다). 이미 만든 xterm 터미널의 글꼴 즉시 갱신.
 
 ## 모델
 
-고르는 값은 열네 개다. 모두 core의 선언 설정(`shell.*`)에 저장되고 기본 값이 있다. 열네 값은 하나의 묶음(Appearance)으로 다룬다. 문서 읽기 폭(`shell.reading_width`)은 이 묶음에 들지 않는다. 읽기 폭은 CSS가 아니라 문서가 따로 읽는다.
+고르는 값은 열다섯 개다. 모두 core의 선언 설정(`shell.*`)에 저장되고 기본 값이 있다. 열다섯 값은 하나의 묶음(Appearance)으로 다룬다. 문서 읽기 폭(`shell.reading_width`)은 이 묶음에 들지 않는다. 읽기 폭은 CSS가 아니라 문서가 따로 읽는다.
 
 흐름은 설정 → desktop renderer → main → 모든 lophn 문서의 CSS다.
 
@@ -21,12 +22,12 @@ lophn은 사람이 오래 읽고 쓰는 앱이라 색과 글꼴을 자기 취향
 Settings › Appearance
   고르면 선언 설정 shell.*에 저장 ─┐
   시작 때 core가 준비되면 같은 설정을 읽는다
-        │ Appearance 열네 값을 main에 보낸다 (IPC shell:appearance)
+        │ Appearance 열다섯 값을 main에 보낸다 (IPC shell:appearance)
         ▼
-main
+main                                  ◀── <data root>/themes/*.json (읽고 지켜본다)
   1. 값을 검사한다 (목록 밖 값이면 전체 거절)
-  2. nativeTheme.themeSource = theme
-  3. 기본이 아닌 선택만 token을 덮어쓰는 CSS로 만든다
+  2. nativeTheme.themeSource = mode
+  3. 모드마다 고른 theme에 accent를 덮은 색과 글꼴·크기·밀도 중 기본이 아닌 것만 token을 덮어쓰는 CSS로 만든다
   4. lophn 문서(lophn-shell://, lophn-app://, lophn-artifact://. <webview> guest 포함)의
      webContents마다 insertCSS한다
        - 값이 바뀌면 옛 CSS를 지우고 새 CSS를 넣는다
@@ -38,6 +39,26 @@ main
 - main은 처음에 값을 모른다. desktop 창이 core가 준비된 뒤 설정을 읽어 보내면 그때부터 열린 모든 문서와 이후 열리는 문서에 넣는다. 그 전의 첫 한 번은 기본 모양이 잠깐 보일 수 있다.
 - CSS는 insertCSS로 들어가 앱 화면 guest의 CSP를 지난다. 그래서 CSS 문자열에 들어가는 값은 preset 상수, 허용 목록의 굵기, 검사한 Custom 글꼴 이름뿐이다.
 - 덮어쓰는 CSS를 만드는 규칙은 순수 함수 하나이고 main, gallery, test가 같은 규칙을 쓴다.
+- theme file이 바뀌면 main이 다시 읽어 CSS를 다시 만들고, desktop 창에 알려 Settings가 목록을 다시 받는다.
+
+### theme
+
+theme 하나는 한 모드(light 또는 dark)의 색 token 전부다. 덮는 것은 hex 값을 가진 색 token 모두다: `color.*`(surface, border, text, ink, link, focus, selection, danger), `status.*`, `chart.*`, `diff.*`, `code.*`(syntax), `terminal.*`(ANSI 16), `tabStrip.*`, `floating.surface·hover`. file icon 색(식별 색), 창 닫기 단추(OS 모양), 그림자와 backdrop(hex가 아니다)은 덮지 않는다.
+
+- 사람은 light용 theme과 dark용 theme을 따로 고른다. 모드는 둘 중 무엇을 쓸지 정한다. dark 판만 있는 theme도 그대로 들어온다.
+- 내장 theme: Warm(기본, token 정의의 값), Neutral, Cool은 light·dark 판이 하나씩 있고, Tokyo Night(dark)와 Tokyo Night Day(light)가 있다. id는 `warm-light`, `warm-dark`, `neutral-*`, `cool-*`, `tokyo-night`, `tokyo-night-day`다.
+- theme file: `<data root>/themes/<id>.json`. id는 file 이름이고 소문자·숫자·`-`(1~64자)다. 모양은 `{ "name"?, "mode"?: "light"|"dark", "extends"?: <theme id>, "colors": { "<token 경로>": "<hex>" } }`이고 경로는 `color.surface.base`, `code.token.keyword`, `chart.series.0`처럼 token 정의의 점 경로다. 빠진 색은 `extends`의 theme(내장이나 다른 file)에서, 없으면 같은 모드의 기본 theme에서 채운다. mode는 `extends`가 있으면 그 theme을 따른다.
+- 쓸 수 없는 file(이름 규칙 위반, 256 KB 초과, JSON 아님, 모양 틀림, mode도 extends도 없음, 없는 extends, extends 고리, 내장 id와 같은 이름)은 목록에 오르지 않고 Settings의 Themes folder 줄 아래에 이유와 함께 보인다.
+- 모르는 경로와 hex가 아닌 값은 그 색만 버리고 상속 값을 쓴다. 대비가 모자란 짝(지키는 것 8)도 막지 않는다. 셋 다 그 theme을 고른 줄 아래에 문제로 보인다.
+- 고른 id가 목록에 없거나(file을 지웠다) 모드가 다르면 그 모드의 기본 theme을 쓰고, Settings는 그 id에 not found를 붙여 보인다.
+
+### accent
+
+`shell.accent`는 `theme`(고른 theme에 적힌 ink·focus·selection을 쓴다, 기본)이거나 `#rrggbb` 하나다. hex이면 그 색에서 모드마다 ink background·text·hover·soft, focus, selection을 만들어 theme 위에 덮는다. 색상(hue)과 채도는 두고 OKLCH 명도만 옮겨 대비를 맞춘다.
+
+- ink background는 카드 바탕(`surface.base`)과 3:1이 될 때까지 바탕에서 멀어진다. ink 글자는 theme의 바탕색과 글자색 중 대비가 큰 쪽이고, 4.5:1이 안 되면 바탕에서 더 멀어지며 바탕 쪽 글자를 쓴다. hover는 글자에서 한 걸음 더 멀어진다.
+- focus는 모든 바탕과 3:1이 될 때까지 바탕에서 멀어진다. selection·soft는 카드 바탕에 accent를 섞되 primary 글자와 4.5:1이 남는 만큼만 섞는다.
+- Settings는 theme을 따르기, 옛 accent preset의 네 색(Blue, Green, Purple, Orange), 그리고 아무 색을 고르는 색 칸(OS 색 고르기 창)을 보인다. 그래서 보이는 색은 고른 색과 명도가 조금 다를 수 있다.
 
 ### 값과 preset
 
@@ -45,9 +66,9 @@ preset은 token과 같은 경로 모양이라 CSS 변수 이름이 token과 같�
 
 | 설정 key | 값(기본 먼저) | 바뀌는 token |
 |---|---|---|
-| `shell.theme` | system, light, dark | CSS가 아니라 `data-theme`과 `nativeTheme.themeSource` |
-| `shell.accent` | ink, blue, green, purple, orange | `color.ink`(background·text·hover·soft), `color.focus`, `color.selection` |
-| `shell.background` | warm, neutral, cool | `color.surface` 다섯(floor·base·subtle·muted·shell), `color.border` 셋, `color.text` 넷, `code.foreground`, `tabStrip.bar·hover`, `floating.surface·hover` |
+| `shell.mode` | system, light, dark | CSS가 아니라 `data-theme`과 `nativeTheme.themeSource` |
+| `shell.light_theme`, `shell.dark_theme` | theme id(기본 `warm-light`, `warm-dark`) | 그 모드의 색 token 전부(위 "theme") |
+| `shell.accent` | theme, `#rrggbb` | `color.ink`(background·text·hover·soft), `color.focus`, `color.selection` |
 | `shell.font`, `shell.font_custom`, `shell.font_weight` | pretendard, system, custom / 100~900(400) | `font.sans`, `font.weight.regular`(UI 본문 굵기. medium·semibold는 그대로라 강조·제목은 따로 굵다) |
 | `shell.code_font`, `shell.code_font_custom`, `shell.code_font_weight` | jetbrains-mono, system, custom / 100~900(400) | `font.mono`, `font.weight.mono`(`code`·`pre`·`.mono`, 코드 편집기, xterm) |
 | `shell.reading_font`, `shell.reading_font_custom`, `shell.reading_font_weight` | ui, serif, custom / 100~900(400) | `font.reading`(문서·대화 본문: design `Markdown`, markdown 편집기), `font.weight.reading`. ui는 `font.sans`와 그 굵기를 따른다. serif는 글꼴을 싣지 않고 OS serif stack이다 |
@@ -55,8 +76,8 @@ preset은 token과 같은 경로 모양이라 CSS 변수 이름이 token과 같�
 | `shell.density` | comfortable, compact | `control`, `field.gap`, `menu.row`, `tree.row`, `palette.item`, `layout.panePadding`, `tab.contentGap` |
 | `shell.reading_width` | narrow, default, wide | CSS가 아니다. 문서가 따로 읽는다 |
 
-- `color.surface.shell`은 창 바탕(sidebar·title bar 뒤)이고 content card는 `surface.base`다. 각 background preset의 shell은 그 preset의 `subtle` light 값과 `floor` dark 값을 다시 쓴다.
-- 모서리 `radius`는 xs 6, sm 8, md 10, lg 14, xl 20, full 9999px이고 preset으로 바뀌지 않는다. Dialog·Sheet·Palette는 xl, 떠 있는 표면(FloatPanel·Menu·Popover·Toast)은 lg, Tooltip·입력·Button은 md, SegmentedControl은 full이다.
+- `color.surface.shell`은 창 바탕(sidebar·title bar 뒤)이고 content card는 `surface.base`다.
+- 모서리 `radius`는 xs 6, sm 8, md 10, lg 14, xl 20, full 9999px이고 preset이나 theme으로 바뀌지 않는다. Dialog·Sheet·Palette는 xl, 떠 있는 표면(FloatPanel·Menu·Popover·Toast)은 lg, Tooltip·입력·Button은 md, SegmentedControl은 full이다.
 - accent를 따르는 것: 고른 tab의 강조선(`TabStrip`의 focus 칸, design `Tabs`의 밑줄), primary Button·Switch·badge, focus ring, 고른 행의 selection 바탕.
 - 글꼴 stack: custom은 `"<이름>", "Pretendard Variable", system-ui, sans-serif`처럼 기본 stack으로 이어진다. 이름의 글꼴이 설치돼 있지 않아도 깨지지 않는다. reading의 custom은 `font.reading`의 기본 stack으로 이어진다.
 - 글꼴 고르기: 화면은 이름을 직접 받지 않는다. 글꼴 줄은 design `SearchSelect`(목록 위 검색 칸)에 preset과 설치된 글꼴을 두고, 설치된 글꼴을 고르면 `*_custom`에 family 이름을 쓰고 줄 값을 `custom`으로 한다. 옆 Select가 그 글꼴에 있는 굵기를 고르고, 글꼴을 바꿔 지금 굵기가 없으면 가장 가까운 굵기로 옮긴다. 앱에 실은 Pretendard·JetBrains Mono는 400~600, OS stack(system, serif)과 목록에 없는 이름은 400·700으로 고정한 목록이다.
@@ -86,20 +107,22 @@ html[data-theme="dark"] { dark 값 }
 
 1. 모든 lophn 문서(desktop 창, overlay, 보호 입력 창, 앱 화면, artifact 화면)가 같은 appearance를 받는다. 값이 바뀌면 지금 열린 문서가 바뀌고, 이후 열리는 문서와 새로 읽은 문서(dom-ready)에도 지금 CSS가 들어간다. lophn 것이 아닌 문서(devtools 등)에는 넣지 않는다.
 2. main은 desktop 창 본문이 보낸 값만 받고, 받을 때 다시 검사한다. 고르는 값이 목록 밖이면 전체를 거절하고 아무것도 바꾸지 않는다. 거절은 응답 없이 끝난다.
-3. CSS 문자열에 들어가는 값은 preset 상수, 허용 목록의 굵기, 검사한 Custom 글꼴 이름뿐이다. Custom 글꼴 이름은 글자·숫자(Unicode, 한글 포함)·공백·`-`·`_`로 1~64자만 받는다. 따옴표, 괄호, 세미콜론, 중괄호, 역슬래시, 줄바꿈이 들어올 수 없어 CSS 문자열 밖으로 나갈 수 없다. renderer는 저장 전에 이 규칙으로 거절하고, main은 어긴 이름만 버려 기본 글꼴로 둔다. core는 길이만 본다. 이것이 앱 화면 guest에 들어가는 CSS의 injection을 막는 경계다.
+3. CSS 문자열에 들어가는 값은 preset 상수, 허용 목록의 굵기, 검사한 Custom 글꼴 이름, hex 형식(`#rgb`, `#rrggbb`, `#rrggbbaa`)의 색뿐이다. theme file의 색은 읽을 때 검사하고 CSS를 쓰는 자리에서 다시 검사한다. accent는 `#rrggbb`만 받는다. theme id는 소문자·숫자·`-`라 CSS에 들어가지 않고 목록을 찾는 데만 쓴다. Custom 글꼴 이름은 글자·숫자(Unicode, 한글 포함)·공백·`-`·`_`로 1~64자만 받는다. 따옴표, 괄호, 세미콜론, 중괄호, 역슬래시, 줄바꿈이 들어올 수 없어 CSS 문자열 밖으로 나갈 수 없다. renderer는 저장 전에 이 규칙으로 거절하고, main은 어긴 이름만 버려 기본 글꼴로 둔다. core는 길이만 본다. 이것이 앱 화면 guest에 들어가는 CSS의 injection을 막는 경계다.
 4. 기본이 아닌 선택만 token을 덮어쓴다. 모두 기본이면 덮어쓰는 CSS는 비어 있다. 단 artifact 문서에는 token 정의가 없으므로 CSS가 비어도 token 정의를 넣는다. scroll 막대도 OS 기본이 아니라 lophn 모양이어야 해서 `design/base.css`의 막대 규칙 사본을 같이 넣는다(body 배경·글꼴 file은 넣지 않는다. page의 것과 부딪친다).
 5. 덮어쓰는 CSS는 문서 안 stylesheet의 순서와 상관없이 token 정의를 이긴다.
 6. 색 역할이 같다. "주 행동·고른 것·켜진 것·지금 것"의 표시(primary 단추, 강조선, marker, 고른 option 바탕)는 `color.ink.background`다. `color.focus`는 키보드 focus ring, 글 넣는 칸의 focus 테두리, 끌기와 drop 신호(탭 줄 resizer, 칸 divider, drop 자리)에만 쓴다. `color.text.*`는 글자에만 쓰고 표시 색으로 쓰지 않는다. 기본 Ink는 focus·selection·`ink.soft`까지 무채색이라 화면에 accent 색이 하나뿐이다.
 7. 되돌릴 수 없는 일을 실제로 하는 단추(지우기 확인, Rewind, 연결 끊기, 값 지우기, Workflow Stop)만 `color.danger`(채운 빨강, 흰 글자)다. accent에 묶지 않는다. Deny·Skip은 secondary다. link(`color.link`)는 accent에 묶지 않는다. link는 "누르는 것"을 알리는 뜻이라 accent가 Ink(검정)일 때도 파랑으로 남는다.
-8. 대비를 지키는 값만 둔다. ink 글자와 바탕(hover 포함) 4.5:1 이상, focus ring과 모든 background preset의 surface 3:1 이상, selection 위 text 4.5:1 이상, primary·secondary·muted 글자와 모든 surface 4.5:1 이상이다. 값을 바꿀 때는 이 비율을 WCAG 상대 휘도로 계산해 확인한다.
+8. 내장 theme과 accent 색으로 만든 색은 대비를 지킨다. 바탕은 surface 다섯과 탭 줄·떠 있는 표면이다. primary·secondary·muted 글자와 모든 바탕 4.5:1, focus와 모든 바탕 3:1, selection·ink.soft 위 primary 글자 4.5:1, ink·danger 단추 글자와 바탕(hover 포함) 4.5:1, code 글자·token과 code block 바탕(subtle)·카드 바탕 4.5:1, status 글자와 카드 바탕 4.5:1, link와 카드 바탕 4.5:1(WCAG 상대 휘도). theme file은 사람이 적은 값을 그대로 쓰고, 모자란 짝을 Settings에 문제로 보인다.
 9. 굵기는 그 글꼴의 본문 굵기만 바꾼다. 강조·제목 굵기(medium, semibold)는 그대로 더 굵다.
-10. 사람이 고르는 것은 preset과 설치된 글꼴 이름뿐이다. 임의의 token 값이나 CSS를 넣는 길은 없다.
+10. 사람이 고르는 것은 preset, 설치된 글꼴 이름, theme(내장이나 theme file), accent 색이다. theme file로 덮을 수 있는 것은 색 token의 hex 값뿐이고, CSS나 색이 아닌 token 값을 넣는 길은 없다.
 11. 설치되지 않은 글꼴 이름이 저장돼 있어도 깨지지 않는다. 기본 stack으로 이어지고, 화면은 Not installed와 기본 글꼴을 쓴다는 안내를 보인다.
 
 ## 경계와 계약
 
-- IPC channel `shell:appearance`(preload `lophnAppearance.set`). 값은 Appearance 열네 값이다. 응답이 없다. 보낼 수 있는 쪽은 desktop 창 본문이다. boundary-catalog의 `shell`, `design-api`에 걸친다.
-- 설정 key(core 선언 설정): `shell.theme`, `shell.accent`, `shell.background`, `shell.font`, `shell.font_custom`, `shell.font_weight`, `shell.code_font`, `shell.code_font_custom`, `shell.code_font_weight`, `shell.reading_font`, `shell.reading_font_custom`, `shell.reading_font_weight`, `shell.text_size`, `shell.density`, `shell.reading_width`(CSS가 아님). 모두 기본 값이 있고 없으면 기본으로 읽힌다. `*_custom`은 core가 길이(64)만 검사한다.
+- IPC channel `shell:appearance`(preload `lophnAppearance.set`). 값은 Appearance 열다섯 값이다. 응답이 없다. 보낼 수 있는 쪽은 desktop 창 본문이다.
+- IPC channel `shell:themes`(`lophnAppearance.themes`): 고를 수 있는 theme(내장과 file, 각 theme의 색 전부와 문제)과 쓸 수 없는 file. `shell:themes-changed`(main → desktop 창): theme file이 바뀌었다. `shell:themes-folder`(`lophnAppearance.openThemesFolder`): main이 themes 폴더를 OS 파일 관리자로 연다. 둘 다 desktop 창 본문만 부른다.
+- theme file: `<data root>/themes/<id>.json`(위 "theme"). main이 폴더가 없으면 만들고 지켜본다. boundary-catalog의 `shell`, `design-api`에 걸친다.
+- 설정 key(core 선언 설정): `shell.mode`, `shell.light_theme`, `shell.dark_theme`, `shell.accent`, `shell.font`, `shell.font_custom`, `shell.font_weight`, `shell.code_font`, `shell.code_font_custom`, `shell.code_font_weight`, `shell.reading_font`, `shell.reading_font_custom`, `shell.reading_font_weight`, `shell.text_size`, `shell.density`, `shell.reading_width`(CSS가 아님). 모두 기본 값이 있고 없으면 기본으로 읽힌다. `*_custom`은 core가 길이(64)만 검사한다. theme id는 core가 모양만 보고(목록은 main이 안다), accent는 `theme`이나 `#rrggbb`만 받는다.
 - 문서 scheme: `lophn-shell://`, `lophn-app://`, `lophn-artifact://`만 CSS를 받는다. `lophn-app://`만 `data-lophn-locale`을 받는다.
 - token 변수: preset이 덮는 변수는 위 표의 token이 이름이다. 앱은 `@lophn/ui/tokens.css`로 같은 변수를 쓴다.
 - 저장 순서: 화면은 고르면 main에 먼저 보내고 `shell.*` 설정을 한 줄씩 쓴다. 쓰기가 하나라도 실패하면 저장된 값을 다시 읽어 그 모양으로 돌아가고 main에도 그 값이 간다. 읽기가 실패하면 적용하지 않고 오류 화면(다시 시도)을 보인다.
@@ -132,3 +155,9 @@ html[data-theme="dark"] { dark 값 }
 - shadow의 색조는 background preset과 상관없이 같다.
 - 언어를 고르는 설정은 없다. 앱 화면에 적는 `data-lophn-locale`은 en 상수다.
 - 앱이 hex 색이나 글꼴 이름을 직접 쓰면 appearance가 닿지 않는다. 검사하지 않는다.
+- 색은 background·accent preset 두 축이 아니라 모드별 theme 하나와 accent 색 하나로 고른다. theme은 syntax·터미널·diff·status 색까지 덮는다. 이유: 축이 둘이면 Tokyo Night 같은 theme이 어디까지 덮는지 사람이 알 수 없고, syntax와 터미널이 고정이면 그 theme처럼 보이지 않는다. 옛 warm·neutral·cool은 내장 theme이 되었고 설정은 data step으로 옮겼다. (사람: 모드별 theme, 2026-11-10 / agent: 축 합치기)
+- 0.2.0의 "임의의 token 값이나 CSS를 넣는 길은 없다"를 뒤집어, theme file로 색 token 전부를 덮게 한다. CSS injection 경계는 값 형식(hex)으로 지킨다. 버린 안: Settings의 색 칸 몇 개만(사람이나 agent가 theme 하나를 file로 만들어 넣을 수 없다), 색 밖 token까지(간격·크기가 앱 화면을 깨뜨린다). (사람, 2026-11-10)
+- accent는 아무 색이나 받고 명도만 옮겨 대비를 맞춘다. 고른 색과 조금 달라 보일 수 있다. 버린 안: 고른 색 그대로에 경고만(단추 글자가 안 읽힌다), preset만 늘리기(자유도가 낮다). (사람, 2026-11-10)
+- theme file의 대비는 막지 않고 알린다. 이유: 사람이 일부러 적은 색을 lophn이 바꾸면 남의 theme을 옮겨 올 수 없다. (agent, 2026-11-10)
+- theme file은 core가 아니라 shell main이 읽고 지켜본다. 이유: CSS를 만드는 것도 검사하는 것도 main이고, 색은 core가 쓸 데가 없다. renderer는 지금처럼 id만 보내고 main이 목록에서 찾는다. 버린 안: core route로 목록을 주기(protocol과 route가 늘고 renderer가 색을 실어 보내야 한다). (agent, 2026-11-10)
+- 모드 설정 key를 `shell.theme`에서 `shell.mode`로 바꾸었다. 이유: theme은 이제 색 theme을 뜻한다. (agent, 2026-11-10)

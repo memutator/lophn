@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useEffect, useId, useRef } from "react";
 import { useField } from "../field/field-context.ts";
 import { componentMark } from "../../_shared/shared.ts";
 import { Tooltip } from "../../overlay/tooltip/tooltip.tsx";
@@ -18,6 +18,56 @@ export interface SwatchPickerProps {
   onValueChange: (value: string) => void;
   /** 묶음의 이름. 보통 Field의 라벨과 같은 글이다. */
   label: string;
+  /**
+   * 있으면 끝에 아무 색이나 고르는 칸을 둔다(OS 색 고르기 창). 값은 `#rrggbb`이고, 값이 선택지에 없는
+   * hex이면 이 칸이 고른 것이다. label은 그 칸의 이름이다.
+   */
+  custom?: { label: string };
+}
+
+const HEX6 = /^#[0-9a-fA-F]{6}$/;
+// 아직 고르지 않은 색 칸은 "아무 색"을 뜻하는 색 바퀴다.
+const WHEEL = "conic-gradient(#f44, #fd4, #4d4, #4dd, #44f, #d4d, #f44)";
+
+/** 색 칸. 끌 때마다가 아니라 OS 창을 닫을 때(native change) 한 번 고른다. */
+function CustomSwatch({
+  label,
+  value,
+  chosen,
+  onValueChange,
+}: {
+  label: string;
+  value: string;
+  chosen: boolean;
+  onValueChange: (value: string) => void;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    const element = input.current;
+    if (element === null) return;
+    const onChange = () => onValueChange(element.value);
+    element.addEventListener("change", onChange);
+    return () => element.removeEventListener("change", onChange);
+  }, [onValueChange]);
+  return (
+    <Tooltip content={label}>
+      <label className={styles.option}>
+        <input
+          ref={input}
+          type="color"
+          aria-label={label}
+          className={styles.input}
+          defaultValue={chosen ? value : "#808080"}
+          key={chosen ? value : ""}
+        />
+        <span
+          className={styles.swatch}
+          data-chosen={chosen ? "" : undefined}
+          style={{ background: chosen ? value : WHEEL }}
+        />
+      </label>
+    </Tooltip>
+  );
 }
 
 // 방향키와 선택은 같은 name의 native radio가 맡는다.
@@ -26,6 +76,7 @@ export function SwatchPicker({
   value,
   onValueChange,
   label,
+  custom,
 }: SwatchPickerProps) {
   const field = useField("SwatchPicker");
   const name = useId();
@@ -56,6 +107,17 @@ export function SwatchPicker({
           </label>
         </Tooltip>
       ))}
+      {custom === undefined ? null : (
+        <CustomSwatch
+          label={custom.label}
+          value={value}
+          chosen={
+            HEX6.test(value) &&
+            !options.some((option) => option.value === value)
+          }
+          onValueChange={onValueChange}
+        />
+      )}
     </div>
   );
 }

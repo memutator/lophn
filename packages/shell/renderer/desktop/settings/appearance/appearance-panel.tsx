@@ -1,6 +1,7 @@
-// Settings › Appearance. 화면 모양을 고른다: theme, accent, 배경, 글꼴, 글자 크기, 문서 읽기 폭, 화면 밀도.
+// Settings › Appearance. 화면 모양을 고른다: 모드, 모드별 theme, accent, 글꼴, 글자 크기, 문서 읽기 폭, 화면 밀도.
 // 줄은 이름과 설명이 왼쪽이고 고르는 칸이 오른쪽 끝 고정 열이다. 고르면 바로 모든 문서에 적용된다.
 // 글꼴 줄은 preset과 설치된 글꼴을 검색해 고르는 칸과, 그 글꼴에 있는 굵기를 고르는 칸이다.
+// theme 줄은 내장 theme과 theme file을 고르고, 고른 file의 문제(틀린 값, 대비)를 줄 아래에 보인다.
 import { type ReactNode, useCallback, useEffect, useId, useState } from "react";
 import {
   FieldContext,
@@ -10,6 +11,8 @@ import {
   SwatchPicker,
 } from "@lophn/ui/input";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
+import { Button } from "@lophn/ui/primitives";
+import type { ThemeProblem, Themes } from "@lophn/ui";
 import { VisuallyHidden } from "@lophn/ui/shared";
 import { type MessageKey, t } from "@lophn/i18n";
 
@@ -18,12 +21,15 @@ import { useQuickPrefs } from "../quick-launch/store.tsx";
 import { useReload } from "../use-reload.ts";
 import styles from "../settings.module.css";
 import {
+  accentSwatch,
   APPEARANCE_ROWS,
   applyAppearance,
   chooseFont,
   fontChoiceOf,
   fontChoices,
   missingFontOf,
+  themeChoices,
+  themeProblemsOf,
   weightsOf,
 } from "./model.ts";
 import type {
@@ -86,6 +92,13 @@ export function AppearancePanel({ source }: AppearancePanelProps) {
     void source.fonts().then(setFonts);
   }, [source]);
   useEffect(loadFonts, [loadFonts]);
+  // 고를 수 있는 theme. theme file이 바뀌면 main이 알린다.
+  const [themes, setThemes] = useState<Themes | null>(null);
+  useEffect(() => {
+    const loadThemes = () => void source.themes().then(setThemes);
+    loadThemes();
+    return source.onThemesChanged(loadThemes);
+  }, [source]);
 
   const load = useCallback(() => {
     void source.values().then((read) => {
@@ -166,16 +179,33 @@ export function AppearancePanel({ source }: AppearancePanelProps) {
                                 void choose(values, changes)
                               }
                             />
+                          ) : row.control === "theme" ? (
+                            <ThemeControl
+                              row={row}
+                              values={values}
+                              themes={themes}
+                              provide={provide}
+                              onChoose={(value) =>
+                                void choose(values, [[row.id, value]])
+                              }
+                            />
                           ) : (
                             provide(
-                              row.control === "swatch" ? (
+                              row.control === "accent" ? (
                                 <SwatchPicker
                                   label={t(row.name)}
                                   options={row.options.map((option) => ({
                                     value: option.value,
                                     label: t(option.label),
-                                    swatch: option.swatch ?? "",
+                                    swatch: accentSwatch(
+                                      option.value,
+                                      values,
+                                      themes,
+                                    ),
                                   }))}
+                                  custom={{
+                                    label: t("settings.label.accent-custom"),
+                                  }}
                                   value={values[row.id]}
                                   onValueChange={(value) =>
                                     void choose(values, [[row.id, value]])
@@ -201,6 +231,40 @@ export function AppearancePanel({ source }: AppearancePanelProps) {
                   </NamedControl>
                 </li>
               ))}
+          {values === null ? null : (
+            <li className={styles.line} data-appearance-row="themes-folder">
+              <div className={styles.lineMain}>
+                <span className={styles.lineName}>
+                  {t("settings.label.themes-folder")}
+                </span>
+                <span className={styles.lineHelp}>
+                  {t("settings.appearance.themes-folder-help")}
+                </span>
+                {themes?.broken.map((broken) => (
+                  <span
+                    key={broken.id}
+                    className={styles.lineHelp}
+                    data-theme-broken={broken.id}
+                  >
+                    {t("settings.appearance.theme-broken", {
+                      id: broken.id,
+                      reason: t(
+                        `settings.reason.theme-${broken.reason}` as MessageKey,
+                      ),
+                    })}
+                  </span>
+                ))}
+              </div>
+              <div className={styles.endSlot}>
+                <Button
+                  variant="secondary"
+                  onClick={() => source.openThemesFolder()}
+                >
+                  {t("settings.label.open-themes-folder")}
+                </Button>
+              </div>
+            </li>
+          )}
           {values === null ? null : (
             <li className={styles.line} data-appearance-row="taskbar">
               <div className={styles.lineMain}>
@@ -298,6 +362,85 @@ function FontControl({
           {t("settings.appearance.font-missing", { name: missing })}
         </p>
       )}
+    </>
+  );
+}
+
+// 문제가 많으면 처음 몇 개만 보이고 나머지는 수로 말한다.
+const SHOWN_PROBLEMS = 3;
+
+function problemText(problem: ThemeProblem): string {
+  switch (problem.kind) {
+    case "unknown_path":
+      return t("settings.appearance.theme-problem-unknown-path", {
+        path: problem.path,
+      });
+    case "bad_value":
+      return t("settings.appearance.theme-problem-bad-value", {
+        path: problem.path,
+      });
+    case "contrast":
+      return t("settings.appearance.theme-problem-contrast", {
+        foreground: problem.foreground,
+        background: problem.background,
+        ratio: String(problem.ratio),
+        minimum: String(problem.minimum),
+      });
+  }
+}
+
+/** theme 줄: 그 모드의 theme을 고르는 칸과, 고른 file theme의 문제·없는 file 안내. */
+function ThemeControl({
+  row,
+  values,
+  themes,
+  provide,
+  onChoose,
+}: {
+  readonly row: AppearanceRow;
+  readonly values: AppearanceValues;
+  readonly themes: Themes | null;
+  readonly provide: (control: ReactNode) => ReactNode;
+  readonly onChoose: (value: string) => void;
+}) {
+  const choices = themeChoices(row, values, themes);
+  const missing = choices.find(
+    (choice) => choice.missing && choice.value === values[row.id],
+  );
+  const problems = themeProblemsOf(row, values, themes);
+  return (
+    <>
+      {provide(
+        <Select
+          options={choices.map((choice) => ({
+            value: choice.value,
+            label: choice.missing
+              ? t("settings.label.theme-not-found", { name: choice.name })
+              : choice.file
+                ? t("settings.label.theme-file", { name: choice.name })
+                : choice.name,
+          }))}
+          value={values[row.id]}
+          onValueChange={onChoose}
+        />,
+      )}
+      {missing === undefined ? null : (
+        <p className={styles.lineHelp} data-theme-missing="">
+          {t("settings.appearance.theme-missing", { name: missing.name })}
+        </p>
+      )}
+      {problems.slice(0, SHOWN_PROBLEMS).map((problem, index) => (
+        <p key={index} className={styles.lineHelp} data-theme-problem="">
+          {problemText(problem)}
+        </p>
+      ))}
+      {problems.length > SHOWN_PROBLEMS ? (
+        <p className={styles.lineHelp}>
+          {t("settings.appearance.theme-more", {
+            count: String(problems.length - SHOWN_PROBLEMS),
+          })}
+        </p>
+      ) : null}
     </>
   );
 }

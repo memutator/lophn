@@ -717,18 +717,21 @@ flows:
       - packages/shell/main/desktop/wiring/appearance.ts
       - packages/design/appearance.ts
       - packages/design/presets.ts
+      - packages/design/themes.ts
+      - packages/design/color.ts
       - packages/shell/renderer/desktop/settings/appearance/model.ts
       - packages/shell/renderer/desktop/settings/appearance/appearance-panel.tsx
     steps:
       - "Settings › Appearance에서 고르면 renderer의 applyAppearance가 같은 값을 IPC appearance로 보낸다. 이어서 shell.* 선언 설정을 route:settings/update로 한 줄씩 쓴다. 저장이 실패하면 저장된 값을 다시 읽는다"
       - "시작할 때는 core가 준비되면 renderer가 shell.*을 읽어 같은 IPC로 보낸다"
-      - "main은 desktop 창 본문만 받는다. parseAppearance로 다시 검사한다. 목록 밖 값이 하나라도 있으면 전체를 버리고 응답이 없다"
+      - "main은 desktop 창 본문만 받는다. parseAppearance로 다시 검사한다. 목록 밖 값(모드, 크기, 밀도, 굵기), id 모양이 아닌 theme id, theme도 #rrggbb도 아닌 accent가 하나라도 있으면 전체를 버리고 응답이 없다"
       - "글꼴 이름이 규칙(글자·숫자·공백·-·_, 1~64자)을 어기면 그 이름만 버리고 그 칸은 기본 글꼴이다. 나머지 값은 적용된다"
-      - "nativeTheme.themeSource를 맞춘다. CSS가 옛것과 같으면 여기서 끝이다. 다르면 열린 lophn 문서마다 옛 CSS를 지우고 새로 넣는다"
+      - "모드마다 고른 theme을 지금 theme 목록(내장과 theme file)에서 찾는다. 없거나 모드가 다르면 그 모드의 기본 theme이다. accent가 hex면 그 색에서 ink·focus·selection 색을 대비에 맞춰 만들어 theme 위에 덮는다"
+      - "nativeTheme.themeSource를 맞춘다. CSS(기본과 다른 hex 색, 글꼴·크기·밀도)가 옛것과 같으면 여기서 끝이다. 다르면 열린 lophn 문서마다 옛 CSS를 지우고 새로 넣는다"
     outcomes:
       - id: applied
         when: "값이 목록 안이고 main이 theme과 CSS를 맞췄다"
-        observe: ["screen:new-settings-appearance", "screen:new-settings-appearance-font-search", "screen:new-settings-appearance-presets-dark"]
+        observe: ["screen:new-settings-appearance", "screen:new-settings-appearance-font-search", "screen:new-settings-appearance-presets-dark", "screen:new-settings-appearance-theme-file"]
       - id: ignored
         when: "목록 밖 값이 있거나 객체가 아니거나, desktop 창 본문이 아닌 곳이 보냈다(checkCaller 실패 또는 origin이 desktop이 아니다). 아무것도 바뀌지 않고 IPC 응답은 값 없이 끝난다"
         observe: ["response", "process:변화가 없다"]
@@ -772,6 +775,42 @@ flows:
     crosses_process: true
     risk: [sandbox]
     docs: [architecture/appearance.md]
+
+  - id: theme-files
+    title: "theme file 폴더를 읽고 지켜봐 고를 수 있는 theme을 Settings에 주고 CSS를 다시 만든다"
+    actor: system
+    entries: [system:theme-files-watch]
+    uses: [ipc:shell:themes, ipc:shell:themes-changed, ipc:shell:themes-folder]
+    boundary: [shell, design-api]
+    code:
+      - packages/shell/main/desktop/wiring/appearance.ts
+      - packages/shell/main/desktop/theme-files.ts
+      - packages/design/themes.ts
+      - packages/shell/renderer/desktop/settings/appearance/appearance-panel.tsx
+    steps:
+      - "main이 시작할 때 <data root>/themes/를 만들고(없으면) *.json을 읽는다. 256 KB가 넘는 file은 읽지 않는다. 폴더를 fs.watch로 지켜보고 바뀌면 150ms 모아 다시 읽는다"
+      - "loadThemes가 file마다 id(file 이름), JSON 모양, mode·extends를 검사하고 extends 사슬을 풀어 색 token 전부를 채운다. 모르는 색 경로와 hex가 아닌 값은 그 색만 버리고 문제로 남긴다. 대비가 모자란 짝도 문제로 남긴다"
+      - "다시 읽으면 고른 appearance로 CSS를 다시 만들어 열린 문서에 넣고, desktop 창에 IPC themes-changed를 보낸다"
+      - "Settings는 IPC themes로 목록을 받아 모드별 theme 칸과 고른 file의 문제, 쓸 수 없는 file을 보인다. themes-changed를 받으면 다시 받는다"
+      - "[Open folder]는 IPC themes-folder로 main이 OS 파일 관리자에서 폴더를 연다"
+    outcomes:
+      - id: listed
+        when: "폴더를 읽었다. 쓸 수 있는 file은 theme 목록에, 쓸 수 없는 file은 이유와 함께 broken에 있다"
+        observe: ["screen:new-settings-appearance-theme-file"]
+      - id: reapplied
+        when: "theme file이 바뀌었고 고른 theme이 그 file이다. 열린 문서의 색이 바로 바뀐다"
+        observe: ["process:문서의 CSS가 바뀐다"]
+      - id: built-in-only
+        when: "폴더를 만들거나 읽지 못했다. 내장 theme만 고를 수 있다"
+        observe: ["screen:new-settings-appearance"]
+      - id: ignored
+        when: "desktop 창 본문이 아닌 곳이 themes·themes-folder를 불렀다. 목록은 값 없이 끝나고 폴더는 열리지 않는다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [sandbox]
+    docs: [architecture/appearance.md]
+    unclear:
+      - "risk sandbox는 theme file 값이 앱 화면 guest의 CSS가 되는 경계(hex만 CSS에 쓴다)로 봤다"
 
   # ---------- 개발 확인 ----------
   - id: headless-paint

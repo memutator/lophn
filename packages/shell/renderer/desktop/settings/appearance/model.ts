@@ -1,7 +1,19 @@
 // Appearance의 순수 규칙: 줄과 선택지, 그리고 고른 값을 화면에 바로 적용하는 일.
-// theme은 이 문서의 data-theme에 쓰고, 나머지(accent·배경·글꼴·글자 크기·밀도)는 token을 덮어쓰는 CSS라서
+// 모드는 이 문서의 data-theme에 쓰고, 나머지(theme·accent·글꼴·글자 크기·밀도)는 token을 덮어쓰는 CSS라서
 // main이 모든 문서에 넣는다(wiring/appearance.ts). 그래서 여기서는 값 전체를 main에 보내기만 한다.
-import { appearancePresets, FONT_WEIGHTS, parseAppearance } from "@lophn/ui";
+// theme 목록(내장과 theme file)은 main이 읽어 준다.
+import {
+  ACCENT_FROM_THEME,
+  BUILT_IN_THEMES,
+  type ColorTheme,
+  FONT_WEIGHTS,
+  isHex6,
+  isThemeId,
+  modeColors,
+  parseAppearance,
+  type ThemeProblem,
+  type Themes,
+} from "@lophn/ui";
 import type { MessageKey } from "@lophn/i18n";
 
 import type { AppearanceApi } from "../../../../ipc/appearance.ts";
@@ -26,7 +38,9 @@ interface AppearanceRow {
   readonly settingKey: string;
   readonly name: MessageKey;
   readonly help: MessageKey;
-  readonly control: "select" | "swatch" | "font";
+  readonly control: "select" | "theme" | "accent" | "font";
+  /** theme 줄이 고르는 모드. */
+  readonly mode?: "light" | "dark";
   /** 글꼴 줄에서는 preset이고, 그 뒤에 설치된 글꼴이 붙는다. */
   readonly options: readonly AppearanceOption[];
   /** 글꼴 줄에서 설치된 글꼴 이름을 두는 설정. 그 글꼴을 고르면 이 줄 값은 custom이다. */
@@ -40,93 +54,62 @@ const BUNDLED_WEIGHTS = ["400", "500", "600"] as const;
 // OS stack은 무엇이 그려질지 몰라 Regular·Bold만 둔다.
 const STACK_WEIGHTS = ["400", "700"] as const;
 
-// 견본은 light 쪽과 dark 쪽을 반반 보인다. 어느 theme이든 같은 그림이다.
+// 견본은 light 쪽과 dark 쪽을 반반 보인다. 어느 모드이든 같은 그림이다.
 function half(light: string, dark: string): string {
   return `linear-gradient(135deg, ${light} 50%, ${dark} 50%)`;
 }
 
-function accentSwatch(name: keyof typeof appearancePresets.accent): string {
-  const { background } = appearancePresets.accent[name].color.ink;
-  return half(background.light, background.dark);
-}
-
-function backgroundSwatch(
-  name: keyof typeof appearancePresets.background,
-): string {
-  const { surface, border } = appearancePresets.background[name].color;
-  // 틴트가 잘 보이게 light의 surface·border 띠와 dark의 surface 띠를 이어 붙인다.
-  return `linear-gradient(135deg, ${surface.muted.light} 33%, ${border.strong.light} 33% 66%, ${surface.muted.dark} 66%)`;
-}
+/** 빠르게 고르는 accent 색. 옛 accent preset의 색이고, 그 밖의 색은 색 칸에서 고른다. */
+const ACCENT_PRESETS = [
+  { value: "#1d5bbf", label: "settings.label.accent-blue" },
+  { value: "#1b7a3c", label: "settings.label.accent-green" },
+  { value: "#6b3fc4", label: "settings.label.accent-purple" },
+  { value: "#b34a0c", label: "settings.label.accent-orange" },
+] as const;
 
 export const APPEARANCE_ROWS: readonly AppearanceRow[] = [
   {
-    id: "theme",
-    settingKey: "shell.theme",
-    name: "settings.label.theme",
-    help: "settings.appearance.theme-help",
+    id: "mode",
+    settingKey: "shell.mode",
+    name: "settings.label.mode",
+    help: "settings.appearance.mode-help",
     control: "select",
     options: [
-      { value: "light", label: "settings.label.theme-light" },
-      { value: "dark", label: "settings.label.theme-dark" },
-      { value: "system", label: "settings.label.theme-system" },
+      { value: "light", label: "settings.label.mode-light" },
+      { value: "dark", label: "settings.label.mode-dark" },
+      { value: "system", label: "settings.label.mode-system" },
     ],
+  },
+  {
+    id: "light_theme",
+    settingKey: "shell.light_theme",
+    name: "settings.label.light-theme",
+    help: "settings.appearance.light-theme-help",
+    control: "theme",
+    mode: "light",
+    options: [],
+  },
+  {
+    id: "dark_theme",
+    settingKey: "shell.dark_theme",
+    name: "settings.label.dark-theme",
+    help: "settings.appearance.dark-theme-help",
+    control: "theme",
+    mode: "dark",
+    options: [],
   },
   {
     id: "accent",
     settingKey: "shell.accent",
     name: "settings.label.accent",
     help: "settings.appearance.accent-help",
-    control: "swatch",
+    control: "accent",
     options: [
-      {
-        value: "ink",
-        label: "settings.label.accent-ink",
-        swatch: accentSwatch("ink"),
-      },
-      {
-        value: "blue",
-        label: "settings.label.accent-blue",
-        swatch: accentSwatch("blue"),
-      },
-      {
-        value: "green",
-        label: "settings.label.accent-green",
-        swatch: accentSwatch("green"),
-      },
-      {
-        value: "purple",
-        label: "settings.label.accent-purple",
-        swatch: accentSwatch("purple"),
-      },
-      {
-        value: "orange",
-        label: "settings.label.accent-orange",
-        swatch: accentSwatch("orange"),
-      },
-    ],
-  },
-  {
-    id: "background",
-    settingKey: "shell.background",
-    name: "settings.label.background",
-    help: "settings.appearance.background-help",
-    control: "swatch",
-    options: [
-      {
-        value: "warm",
-        label: "settings.label.background-warm",
-        swatch: backgroundSwatch("warm"),
-      },
-      {
-        value: "neutral",
-        label: "settings.label.background-neutral",
-        swatch: backgroundSwatch("neutral"),
-      },
-      {
-        value: "cool",
-        label: "settings.label.background-cool",
-        swatch: backgroundSwatch("cool"),
-      },
+      { value: ACCENT_FROM_THEME, label: "settings.label.accent-theme" },
+      ...ACCENT_PRESETS.map((preset) => ({
+        ...preset,
+        swatch: preset.value,
+      })),
     ],
   },
   {
@@ -245,9 +228,10 @@ export function settingKeyOf(id: AppearanceId): string {
 
 /** 선언이 아직 없을 때 쓰는 값. 선언의 기본값과 같다. */
 export const APPEARANCE_DEFAULTS: AppearanceValues = {
-  theme: "system",
-  accent: "ink",
-  background: "warm",
+  mode: "system",
+  light_theme: "warm-light",
+  dark_theme: "warm-dark",
+  accent: ACCENT_FROM_THEME,
   font: "pretendard",
   font_custom: "",
   font_weight: "400",
@@ -262,8 +246,15 @@ export const APPEARANCE_DEFAULTS: AppearanceValues = {
   density: "comfortable",
 };
 
-/** 저장된 값이 선택지 안에 있을 때만 쓴다(글꼴 줄은 custom도). 아니면 기본값이다. */
+/**
+ * 저장된 값이 선택지 안에 있을 때만 쓴다(글꼴 줄은 custom도, theme 줄은 id 모양이면, accent는 hex도).
+ * 아니면 기본값이다.
+ */
 export function valueOf(row: AppearanceRow, stored: unknown): string {
+  if (row.control === "theme") {
+    return isThemeId(stored) ? stored : APPEARANCE_DEFAULTS[row.id];
+  }
+  if (row.control === "accent" && isHex6(stored)) return stored;
   const known =
     row.options.some((option) => option.value === stored) ||
     (row.customId !== undefined && stored === "custom");
@@ -393,6 +384,70 @@ export function chooseFont(
   return changes;
 }
 
+/** theme 줄의 선택지: 그 모드의 theme과, 목록에 없는 저장 id(없는 file). */
+export function themeChoices(
+  row: AppearanceRow,
+  values: AppearanceValues,
+  themes: Themes | null,
+): readonly {
+  readonly value: string;
+  readonly name: string;
+  readonly file: boolean;
+  readonly missing: boolean;
+}[] {
+  const list = (themes?.list ?? BUILT_IN_THEMES).filter(
+    (theme) => theme.mode === row.mode,
+  );
+  const value = values[row.id];
+  return [
+    ...list.map((theme) => ({
+      value: theme.id,
+      name: theme.name,
+      file: !theme.builtIn,
+      missing: false,
+    })),
+    ...(list.some((theme) => theme.id === value)
+      ? []
+      : [{ value, name: value, file: true, missing: themes !== null }]),
+  ];
+}
+
+/** theme 줄에서 고른 theme. 목록에 없으면 undefined다. */
+export function chosenTheme(
+  row: AppearanceRow,
+  values: AppearanceValues,
+  themes: Themes | null,
+): ColorTheme | undefined {
+  return (themes?.list ?? BUILT_IN_THEMES).find(
+    (theme) => theme.id === values[row.id] && theme.mode === row.mode,
+  );
+}
+
+/** 고른 theme file의 문제. */
+export function themeProblemsOf(
+  row: AppearanceRow,
+  values: AppearanceValues,
+  themes: Themes | null,
+): readonly ThemeProblem[] {
+  return chosenTheme(row, values, themes)?.problems ?? [];
+}
+
+/** accent 견본. "theme을 따름"은 고른 두 theme의 accent를 반반 보인다. */
+export function accentSwatch(
+  value: string,
+  values: AppearanceValues,
+  themes: Themes | null,
+): string {
+  if (value !== ACCENT_FROM_THEME) return value;
+  const appearance = parseAppearance({ ...values, accent: ACCENT_FROM_THEME });
+  if (appearance === undefined) return "";
+  const list = themes?.list ?? BUILT_IN_THEMES;
+  return half(
+    modeColors(appearance, "light", list)["color.ink.background"]!,
+    modeColors(appearance, "dark", list)["color.ink.background"]!,
+  );
+}
+
 /**
  * Light·Dark는 data-theme에 쓰고 System은 지워 OS 설정을 따른다. 나머지 값과 theme은 main에도 알려
  * overlay·보호 입력 창·앱 view까지 같은 모양이 되게 한다(main이 값을 다시 검사한다).
@@ -403,8 +458,8 @@ export function applyAppearance(
 ): void {
   const appearance = parseAppearance(values);
   if (appearance === undefined) return;
-  if (appearance.theme === "system") delete root.dataset.theme;
-  else root.dataset.theme = appearance.theme;
+  if (appearance.mode === "system") delete root.dataset.theme;
+  else root.dataset.theme = appearance.mode;
   (globalThis as { lophnAppearance?: AppearanceApi }).lophnAppearance?.set(
     appearance,
   );

@@ -458,6 +458,9 @@ links:
   - {entry: "ipc:shell:surface-emulate", flow: preview-tab-emulate}
   - {entry: "ipc:shell:intent", flow: desktop-window-intent}
   - {entry: "ipc:shell:appearance", flow: appearance-set}
+  - {entry: "ipc:shell:themes", flow: theme-files}
+  - {entry: "ipc:shell:themes-changed", flow: theme-files}
+  - {entry: "ipc:shell:themes-folder", flow: theme-files}
   # 창 안 키
   - {entry: "ipc:shell:shortcut", flow: key-press}
   # 보호 입력, 결정 handle

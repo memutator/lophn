@@ -1158,6 +1158,32 @@ flows:
     risk: [data-loss]
     docs: [products/change-log/0.21/sidebar-tray-default-on.yaml]
 
+  - id: settings-appearance-themes
+    title: "옛 theme·background·accent 설정을 모드·모드별 theme·accent 색으로 옮긴다(data step)"
+    actor: system
+    entries: [system:settings-appearance-themes]
+    boundary: [config, core]
+    code: [packages/core/main/daemon/wiring/appearance-themes.ts, packages/core/main/daemon/wiring/setting-declarations.ts]
+    steps:
+      - "settings.json을 읽는다. 없거나 JSON이 깨졌으면 그대로 둔다(깨진 것은 사람이 고친다)"
+      - "shell.theme은 shell.mode로 옮긴다. shell.background가 neutral·cool이면 shell.light_theme·shell.dark_theme을 같은 이름의 내장 theme으로 둔다(이미 있으면 그대로). warm은 기본이라 지우기만 한다"
+      - "shell.accent가 옛 이름이면 blue·green·purple·orange는 그 preset의 light 바탕색 hex로, ink는 지워 theme을 따르게 한다"
+      - "바뀐 것이 있으면 같은 mode로 temp에 쓰고 rename한다. 다른 key는 그대로다"
+    outcomes:
+      - id: moved
+        observe: ["disk:settings.json의 옛 key가 새 key와 값으로 바뀜"]
+        when: "옛 key나 옛 accent 이름이 있어 옮겼다"
+      - id: skipped
+        observe: ["disk:settings.json 변화 없음"]
+        when: "settings.json이 없거나 깨졌거나 옮길 것이 없다"
+      - id: failed
+        code: unavailable
+        observe: ["process:stdout start_failed other"]
+        when: "settings.json을 읽거나 쓰지 못했다"
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/appearance.md]
+
   - id: apps-sealed-marker
     title: "옛 core가 봉인한 bundle 사본에 표지 file을 써 준다(data step)"
     actor: system

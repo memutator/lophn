@@ -1,0 +1,30 @@
+id: color-themes
+version: 0.23.27
+title: 색을 모드별 theme과 아무 accent 색으로 고르고, theme file로 색을 덮는다
+modules: [packages/design, packages/shell/main, packages/shell/renderer, packages/shell/preload, packages/shell/ipc, packages/core/config, packages/core/main]
+change: |
+  - Settings › Appearance의 Theme(light·dark·system)은 Mode가 되었다. 그 아래 Light theme과 Dark theme을 따로 고른다. Background 줄은 없다.
+  - theme 하나가 한 모드의 색 token 전부를 덮는다: surface·border·글자·accent·link·danger, status, chart, diff, code syntax, 터미널 ANSI 16, 탭 줄, 떠 있는 표면. 내장 theme은 Warm(기본)·Neutral·Cool의 light·dark 판과 Tokyo Night(dark), Tokyo Night Day(light)다.
+  - 사람이나 agent가 `<data root>/themes/<id>.json`을 두면 목록에 나온다. `{name, mode, extends, colors}` 꼴이고 빠진 색은 extends의 theme이나 기본 theme에서 온다. 저장하면 열린 화면이 바로 바뀐다. 모르는 색 이름, hex가 아닌 값, 대비가 모자란 짝은 그 theme 줄 아래에 문제로 보이고, 쓸 수 없는 file은 Themes folder 줄 아래에 이유와 함께 보인다. [Open folder]가 폴더를 연다.
+  - Accent는 From theme, 네 색(Blue, Green, Purple, Orange), 아무 색(색 칸)이다. 고른 색에서 단추·focus·고른 행 색을 모드마다 만들고, 대비가 모자라면 명도를 옮긴다.
+  - 설정 key: `shell.theme` → `shell.mode`, `shell.background`가 없어지고 `shell.light_theme`·`shell.dark_theme`이 생겼다. `shell.accent`는 `theme`이나 `#rrggbb`다. data step `settings.appearance-themes`가 옛 값을 옮긴다(background는 같은 이름 theme으로, 이름 accent는 그 색 hex로, ink는 From theme으로).
+  - IPC `shell:themes`, `shell:themes-changed`, `shell:themes-folder`를 더했다. `shell:appearance`의 값은 mode·light_theme·dark_theme·accent를 싣는다.
+  - `@lophn/ui`: `SwatchPicker`에 선택 prop `custom`(아무 색 칸)을 더했다. appearance export가 바뀌었다(`THEMES`·`ACCENTS`·`BACKGROUNDS`와 accent·background preset이 빠지고 `MODES`, theme 함수와 type이 생겼다). 판은 1.1.0 그대로다.
+why: |
+  사람이 editor·터미널에서 쓰던 theme(Tokyo Night 등)을 lophn에서도 쓰고, 색을 직접 넣고, primary 색을 다섯 개보다 넓게 고르고 싶어 했다. 바탕만 바꾸는 preset으로는 syntax와 터미널 색이 그대로라 그 theme처럼 보이지 않았다.
+decisions:
+  - text: >-
+      theme은 모드마다 따로 고른다(VS Code·Zed 꼴). dark 판만 있는 theme도 들어온다.
+    by: person
+  - text: >-
+      accent는 아무 색이나 받고 대비가 모자라면 명도를 옮긴다. 버린 길: 고른 색 그대로에 경고만, preset만 늘리기.
+    by: person
+  - text: >-
+      override는 색 token 전부를 theme file로 한다. 색이 아닌 token은 지금처럼 preset만이다. 0.2.0의 "임의의 token 값을 넣는 길은 없다"를 뒤집고, injection은 hex 형식만 CSS에 쓰는 것으로 막는다.
+    by: person
+  - text: >-
+      background·accent 두 축을 theme 하나로 합쳤다. theme file의 대비는 막지 않고 알린다. theme file은 core가 아니라 shell main이 읽고 지켜본다(CSS를 만들고 검사하는 쪽이 main이다). 모드 설정 key를 shell.mode로 바꾸었다.
+    by: agent
+  - text: >-
+      `@lophn/ui` 판을 올리지 않았다. 선택 prop 추가는 판을 올리지 않는 관행이고, 빠진 appearance export는 lophn shell만 쓰던 것이며 앱 지침(token 변수만 쓴다)은 그대로 맞다. 앱은 token 변수로 theme을 그대로 받는다.
+    by: agent

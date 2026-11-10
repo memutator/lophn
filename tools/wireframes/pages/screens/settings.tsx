@@ -19,6 +19,7 @@ import {
   SettingsAppearanceFontSearch,
   SettingsAppearancePresets,
   SettingsAppearancePresetsDark,
+  SettingsAppearanceThemeFile,
   SettingsBack,
   SettingsBrowser,
   SettingsBrowserBookmarks,
@@ -92,7 +93,7 @@ export const settingsArea: Area = {
       id: "new-settings-appearance-presets",
       title: "Settings · Appearance, presets (light)",
       description:
-        "기본이 아닌 preset(Purple, Cool, System UI, 설치된 코드 글꼴 D2Coding Bold, Serif 본문, Large, Compact)을 고른 상태다. 같은 화면의 색, 글꼴, 글자 크기, 줄 높이가 바뀐다. 다른 화면은 주소에 ?appearance=accent:purple,background:cool을 붙여 본다.",
+        "기본이 아닌 값(light는 Cool, dark는 Tokyo Night theme, Purple accent, System UI, 설치된 코드 글꼴 D2Coding Bold, Serif 본문, Large, Compact)을 고른 상태다. 같은 화면의 색, 글꼴, 글자 크기, 줄 높이가 바뀐다. 다른 화면은 주소에 ?appearance=mode:dark,dark_theme:tokyo-night을 붙여 본다.",
       render: () => <SettingsAppearancePresets />,
     },
     {
@@ -112,8 +113,16 @@ export const settingsArea: Area = {
     {
       id: "new-settings-appearance-presets-dark",
       title: "Settings · Appearance, presets (dark)",
-      description: "같은 preset을 Dark로 본 상태다.",
+      description:
+        "같은 값을 Dark로 본 상태다. dark theme이 Tokyo Night라 syntax·터미널 색까지 Tokyo Night다.",
       render: () => <SettingsAppearancePresetsDark />,
+    },
+    {
+      id: "new-settings-appearance-theme-file",
+      title: "Settings · Appearance, theme file with problems",
+      description:
+        "light theme으로 theme file(Pastel)을 고른 상태다. 고른 file의 문제(모르는 색 이름, 대비가 모자란 글자)가 줄 아래에 보인다. 읽을 수 없는 file(draft.json)은 Themes folder 줄 아래에 이유와 함께 보인다. [Open folder]는 data root의 themes 폴더를 연다.",
+      render: () => <SettingsAppearanceThemeFile />,
     },
     {
       id: "new-settings-providers",

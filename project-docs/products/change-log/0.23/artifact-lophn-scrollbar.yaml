@@ -1,5 +1,5 @@
 id: artifact-lophn-scrollbar
-version: 0.23.14
+version: 0.23.15
 title: artifact page의 scroll 막대가 lophn 모양이다
 modules: [packages/shell/main, packages/core/agent-workspaces]
 change: |

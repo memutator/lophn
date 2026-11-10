@@ -49,17 +49,17 @@
 
 ## 무엇을 만드나
 
-원칙: **agent browser page의 수명은 그 일(session과 탭)이 정한다. 사람의 화면은 그 page를 보는 자리일 뿐이다. browser는 shell main의 기능이고, core는 필요할 때 shell main을 창 없이 띄운다.**
+원칙: **agent browser page의 수명은 그 일(session과 탭)이 정한다. 사람의 화면은 그 page를 보는 자리일 뿐이다. browser는 shell의 기능이고, 창이 없으면 core가 shell을 띄워 창을 연다.**
 
-1. **수명.** agent가 연 page는 탭이 닫히거나 idle 기한이 지날 때까지 산다(정할 것 B). 그 workspace를 어느 창이 띄웠는지, 사람이 다른 workspace로 갔는지, 창을 모두 닫았는지, 앱을 Quit했는지는 상관없다. 살릴지는 program이 정한다.
+1. **수명.** agent가 연 page는 탭이 닫히거나 idle 기한이 지나거나 그 page가 든 창이 닫힐 때까지 산다(정할 것 B). 그 창이 어느 workspace를 띄웠는지, 사람이 다른 workspace로 갔는지는 상관없다. 창이 닫혔거나 앱을 Quit했으면 page는 사라지지만 탭은 남고, 다음 호출이 창을 다시 열어 마지막 url을 다시 load한다. 살릴지는 program이 정한다.
 2. **그릇.** 사람 화면과 상관없이, 창이 하나도 없어도 page가 살 자리(정할 것 A).
-3. **창 없는 shell.** shell이 붙어 있지 않을 때 `tab open`이나 `browser.*`가 오면 core가 shell main을 창 없이 띄운다(core를 ensure하는 길과 같은 꼴의 실행 intent). 그 shell main은 single-instance lock을 잡고 창 없이 page만 든다(tray 표시는 정할 것 E). 나중에 사람이 lophn을 열면 second-instance 요청이 그 main으로 가서 창을 만들고, agent가 쓰던 page가 그 창에 그대로 있다. 같은 partition이라 사람이 해 둔 로그인이 이어진다.
+3. **core가 shell을 띄운다.** shell이 붙어 있지 않거나 창이 하나도 없을 때 `tab open`이나 `browser.*`가 오면 core가 shell을 띄우고(이미 떠 있으면 그 main에 창을 요청하고) shell은 창 하나를 focus 없이 연다. agent page는 그 창의 창 단위 그릇에 산다. 사람이 나중에 lophn을 쓰면 그 창이 평소의 창이다. 같은 partition이라 사람이 해 둔 로그인이 이어진다.
    - 의존 방향이 새로 생긴다. 지금 core는 shell의 child도 launcher도 아니다(`platform.md`). core가 Electron을 띄우려면 실행 경로를 인자로 받아야 한다(packaged 실행 file, 개발은 `npm run dev`가 넘기는 명령, test는 fake).
-   - `platform.md`는 사람이 Quit하거나 명시 stop한 뒤 shell이 core를 저절로 다시 띄우지 않는다고 적는다. 그 반대 방향(Quit 뒤 core가 shell main을 다시 띄움)을 이 일이 새로 허락한다. 사람이 Quit한 뜻과 부딪치므로 E에서 같이 정한다. `Stop lophn`(core stop) 뒤에는 띄울 core가 없어 문제가 없다.
+   - `platform.md`는 사람이 Quit하거나 명시 stop한 뒤 shell이 core를 저절로 다시 띄우지 않는다고 적는다. 그 반대 방향(Quit 뒤 core가 shell을 다시 띄움)을 이 일이 새로 허락한다(E에서 정했다). `Stop lophn`(core stop) 뒤에는 띄울 core가 없어 문제가 없다.
 4. **열기.** `tab open`은 page를 바로 만들고 load가 시작될 때까지만 기다린다(초 단위 기한). 그 workspace를 띄운 창은 필요 없다. 그래서 browser 탭에는 host queue의 "보이는 workspace에만 전달" 규칙이 필요 없다. 기한 안에 page를 만들지 못하면(shell을 띄우지 못함 등) 이유를 담은 오류로 끝낸다. `accepted`를 답하고 기다리지 않는다.
 5. **자리.** "page가 있다"와 "layout에 탭 자리가 있다"를 나눈다. 그 workspace가 지금 mount되어 있으면 지금처럼 `openAt()`이 자리를 정하고, 아니면 다음에 mount될 때 자리를 붙인다. 사람이 돌아오면 접힌 float에 같은 page가 그대로 있다(다시 load하지 않는다).
    - layout file은 renderer만 쓴다. 미룬 자리(탭, relation, source)는 shell main이 page와 같이 메모리에 든다. shell main이 끝나면 page도 없으므로 같이 사라져도 된다.
-   - 한 번도 mount되지 않은 채 page가 놓이면(B의 idle, 창 없는 shell의 종료) 미룬 자리도 버린다. layout에 탭이 남지 않는다. agent가 browser로 한 일의 기록은 session의 tool 기록이고 탭이 아니다.
+   - 한 번도 mount되지 않은 채 page가 놓이면(B의 idle, 그 창을 닫음) 미룬 자리도 버린다. layout에 탭이 남지 않는다. agent가 browser로 한 일의 기록은 session의 tool 기록이고 탭이 아니다.
 6. **오류 계약.** `browser.*`·`tab.*`의 `unavailable`과 `conflict`는 원인과 다음 할 일을 model에 싣는다. `conflict`도 넣는 것은 "stale ref: snapshot을 다시 하라", "사람이 take control했다"를 model이 알아야 다음 행동을 고르기 때문이다(지금은 "tool call conflicted"뿐이다).
    - 싣는 것은 lophn이 쓴 고정 문장뿐이다. handler 문장을 통째로 넘기지 않는다. driver 문장에는 page에서 온 값이 섞여 있고(`navigation failed: ${errorText}`) page는 인터넷이다. 그런 값은 지금처럼 `<lophn-untrusted>` 안에만 싣거나 뺀다(`browser-tab.md` 결정 36).
    - agent 지침(`lophn-agent` skill과 lophn agent의 browser 지침)에 넣는다: lophn browser가 이 일의 browser다. 안 되면 다른 browser를 띄우거나 사람의 browser profile·쿠키를 건드리지 말고 사람에게 올린다.
@@ -73,11 +73,11 @@
 
 ## 정할 것
 
-### A. 그릇: page가 어디에 사는가 (정했다: A1)
+### A. 그릇: page가 어디에 사는가 (정했다: A2, 창이 없으면 core가 창을 띄운다)
 
 조건은 다섯이다.
 1. 아무 창도 그 workspace를 띄우지 않아도 산다.
-2. 창이 하나도 없어도 산다(창 없는 shell, 3번).
+2. 창이 하나도 없어도 쓸 수 있다(3번).
 3. 사람이 같은 page를 보고 take control한다. 창 없을 때 연 page를 나중에 연 창에서 다시 load 없이 본다.
 4. 사람이 보는 page 위로 shell의 menu·popover·패널이 덮인다(`app-webview.md`로 정한 것).
 5. workspace를 오가도 다시 load하지 않는다.
@@ -90,14 +90,14 @@
   - 남은 위험: ghost 창이 사람 눈에 띄는지(1px 점, 작업 표시줄, alt-tab)는 program으로 확인하지 못했다. macOS와 Windows에서는 돌려 보지 않았다.
 - **A2. 창 단위 `<webview>` 층, 창이 없을 때는 포기한다.** agent page의 `<webview>`를 `WorkspaceWindow`가 아니라 창 단위 그릇에 둔다. 그 창이 어느 workspace를 띄웠든 거기에 산다(Codex, GooeyPi, Paseo 방식). 창이 하나도 없으면 browser는 지금처럼 `unavailable`이다(이유 문장은 간다).
   - 지키는 것: 1, 3(같은 창 안에서), 4, 5. 2026-10-31 결정을 지키고 그릇이 하나로 남는다. 이번에 실제로 일어난 일(사람이 다른 workspace로 감)은 고친다.
-  - 잃는 것: 2. 창을 모두 닫았거나 core만 뜬 job은 browser를 못 쓴다. 3단계(창 없는 shell)가 없어진다. 창이 여럿이면 page는 연 창에 묶이고 다른 창에서 보면 다시 load된다(결정 6). 사람이 그 창을 닫으면 page가 사라진다.
+  - 잃는 것: 2를 창 없이는 못 지킨다. 창을 모두 닫았거나 core만 뜬 job이 browser를 쓰려면 core가 창을 띄워야 한다(위 결정). 창이 여럿이면 page는 연 창에 묶이고 다른 창에서 보면 다시 load된다(결정 6). 사람이 그 창을 닫으면 page가 사라진다.
 - **안 되는 안(확인으로 버렸다):**
   - 어느 창에도 붙지 않은 view, 숨은 `BrowserWindow`(`show:false`)의 view: 입력, timer, accessibility snapshot은 되지만 그리지 않는다. screenshot이 끝나지 않고 rAF, `IntersectionObserver`, `ResizeObserver`, CSS transition이 멈춘다(lazy load, 가상 목록, 많은 SPA가 여기에 기댄다).
   - 숨은 창의 `<webview>`(앞서 적었던 A3): guest가 그리지 않는다. ghost 창에서도 `<webview>`는 창이 자기만큼 커야 그린다. `<webview>`로는 창 없는 때를 지킬 길이 없다.
   - offscreen rendering: `BrowserWindow`의 것은 다른 창으로 옮길 수 없고, view의 것은 ghost 창에서 깨진다.
   - 따로 띄운 Chromium process와 screencast(T3 Code, omp, Hermes): Chromium profile은 한 process만 열 수 있어 사람 탭과 같은 partition(같은 로그인)을 쓸 수 없다. 사람이 같은 page를 쓰려면 화면과 입력도 다시 만들어야 한다.
 
-A1로 간다(사람, 2026-11-10). 확인 결과 창이 없을 때 page가 그려지는 길은 main 소유 view와 ghost 창뿐이고, 사람이 없는 동안에도 agent가 browser로 일하는 것이 이 일의 목적이다. 2026-10-31 결정(`<webview>`로 통일)은 browser 탭에 한해 뒤집는다. 그릇을 둘로 두지 않으려고 사람 browser 탭을 먼저 같은 그릇으로 옮긴다(단계 순서를 바꿨다).
+A2로 가고, 창이 하나도 없을 때 browser가 필요하면 core가 shell을 띄워 창을 연다(사람, 2026-11-10). 처음에는 A1을 골랐다가 바꿨다. `<webview>`는 보이는 창 안에서만 그리므로(확인한 것) 그 창은 실제로 화면에 뜬다. 앞으로 나오거나 focus를 뺏지 않게 띄우고, 최소화한 채로도 그리는지는 따로 확인한다. 사람이 받아들인 대가는 "job이 browser를 쓸 때 lophn 창이 저절로 열린다"이다. 얻는 것: 2026-10-31 결정을 지키고 browser 탭의 그릇이 하나로 남으며, 창이 보이므로 agent가 사람의 로그인으로 browser를 쓰는 중임이 드러난다. 써 보고 창이 뜨는 것이 거슬리면 그때 A1(ghost 창)로 간다. 그때 버리는 것은 창 단위 그릇이고 core가 shell을 띄우는 길은 그대로 쓴다.
 
 ### B. agent page는 언제 지우나 (근거로 정한다)
 
@@ -107,15 +107,15 @@ A1로 간다(사람, 2026-11-10). 확인 결과 창이 없을 때 page가 그려
 - 놓인 page의 탭에 `browser.*`가 다시 오면 마지막 url을 다시 load하고 결과에 다시 load했음을 적는다. 탭 id는 그대로다. 그래서 30분은 자원 정책일 뿐이고 agent가 오래 쉬어도(긴 build, 사람 로그인 기다리기) 탭을 잃지 않는다. 로그인은 partition에 남는다. 잃는 것은 form과 scroll이다.
 - agent page는 shell main 전체에서 12개까지 든다. 넘으면 가장 오래 쓰지 않은 것부터 놓는다. 창마다 6개였던 상한(Keep alive)을 대신한다.
 - session이 끝날 때 지우는 안은 버린다. lophn session은 닫히지 않고 이어진다.
-- 창 없는 shell은 든 page가 모두 놓이고 붙은 창도 없으면 스스로 끝난다(core의 idle-exit와 같은 생각).
+- core가 띄운 창은 저절로 닫지 않는다. 사람이 돌아와 그 창을 쓰거나 닫는다. page가 든 창을 사람이 닫으면 page는 놓인다(다음 호출이 창을 다시 열고 마지막 url을 다시 load한다).
 
 ### C. 사람의 browser profile을 program으로 막나 (근거로 정한다)
 
 추천: 이번에는 지침(6번)과 오류 문장으로 막는다. `shell.run`에는 OS sandbox가 없어서 shell 규칙은 문자열 판정이고, 지금 막아도 우회가 쉽다. 그래서 값에 비해 얻는 것이 적다. 같은 일이 한 번 더 생기면 그때 shell 규칙에 사람 browser profile 폴더 읽기와 `--remote-debugging-port`를 단 browser 실행을 넣는다.
 
-### D. 화면 없는 머신 (확인했다)
+### D. 화면 없는 머신 (하지 않는다)
 
-display가 없는 Linux에서도 된다. `--ozone-platform=headless`로 띄우고 ghost 창을 frame 없이 만들면 그린다(screenshot, rAF, 입력). frame 있는 `BrowserWindow`는 거기서 segfault가 나므로 창 없는 shell은 frame 있는 창을 만들지 않는다. display도 없고 그 flag도 없으면 Electron이 시작하다 끝나므로, core가 shell을 띄울 때 display가 없으면 그 flag를 준다. A1일 때만 해당한다.
+A2는 보이는 창이 있어야 해서 display 없는 Linux에서는 browser를 쓸 수 없다. 그때는 이유 문장으로 끝난다. frame 있는 `BrowserWindow`는 `--ozone-platform=headless`에서 segfault가 났다(확인한 것). 서버에서 browser가 필요해지면 A1(frame 없는 ghost 창은 거기서도 그렸다)과 같이 다시 연다.
 
 ### E. 사람이 없을 때 agent가 사람의 로그인으로 browser를 쓴다 (정했다)
 
@@ -124,9 +124,9 @@ display가 없는 Linux에서도 된다. `--ozone-platform=headless`로 띄우�
 원칙(사람, 2026-11-10): job을 등록할 때의 승인이 그 job이 browser를 쓰는 것까지 포함한다. `PRODUCT.md`의 "쓸데없는 결정 피로를 줄인다. 결정은 앞에서 몰아서 하고 그 뒤에는 믿고 쓴다" 그대로다. 그래서 무인 실행에 묻는 것을 새로 만들지 않는다.
 
 - job의 browser 사용을 따로 승인받지 않는다. 승인 card에 표시를 더하지도 않는다. (사람)
-- 사람이 Quit한 뒤에도 core는 browser가 필요하면 shell main을 창 없이 다시 띄운다. Quit은 "화면을 끈다"이고 승인한 job은 계속 돈다(`job.md`). 모두 멈추는 길은 `Stop lophn`이다. (agent: 위 원칙)
+- 사람이 Quit한 뒤에도 core는 browser가 필요하면 shell을 다시 띄워 창을 연다. Quit은 "화면을 끈다"이고 승인한 job은 계속 돈다(`job.md`). 모두 멈추는 길은 `Stop lophn`이다. (agent: 위 원칙)
 - 무인일 때도 사람 탭과 같은 partition(같은 로그인)을 쓴다. 로그인 없는 partition으로 가르지 않는다. (agent: 위 원칙. 로그인이 필요한 일을 무인으로 못 하면 job의 쓸모가 없다)
-- 창 없는 shell의 tray icon은 지금 설정(`shell.tray_off`)을 따른다. 새 설정이나 물음을 만들지 않는다. (agent)
+- 따로 표시를 만들지 않는다. 창이 화면에 뜨는 것이 표시다. (agent)
 - 남는 대가: browser로 바깥 site에 한 일은 rewind로 되돌릴 수 없다. 막는 것은 지금처럼 주인 좁히기와 untrusted 감싸기이고, 남는 기록은 session의 tool 기록이다.
 
 ## 확인한 것
@@ -155,9 +155,9 @@ Electron 44.5.1(Chrome 152), Linux에서 throwaway script로 봤다(2026-11-10).
 
 0. ~~**확인.**~~ 봤다("확인한 것"). A는 A1, E는 위대로 정했다.
 1. ~~**오류 계약과 지침.**~~ 구현했다. `browser.*`·`tab.*`의 `unavailable`·`conflict`가 고정 문장을 싣고, agent 지침(workspace prompt 셋, `write-artifact` skill, coding agent의 `lophn-agent` skill)에 6번을 넣었다. "탭이 창에 열려 있지 않다"와 "앱이 붙어 있지 않다" 문장은 지금 동작을 말하므로 2·3단계가 고친다.
-2. **그릇.** browser 탭(사람 탭과 agent 탭 모두)의 page를 shell main 소유 `WebContentsView`로 옮긴다. 탭은 위치만 정한다. 그릇을 둘로 두지 않으려고 사람 탭을 같이 옮긴다. 이 단계가 끝나면 browser 탭은 workspace를 오가도, 다른 OS 창으로 옮겨도 다시 load하지 않는다. Keep alive는 화면을 내렸느냐가 아니라 자원(상한) 정책이 된다. `browser-tab.md`의 모델과 결정 2·4·5·6, `workspace-layout.md`의 그릇 절을 고친다.
-3. **수명.** ghost 창을 두고 agent page를 창과 상관없이 살린다. 4·5·8번(열기, 자리, 수명 맞추기)과 B를 한다. host queue의 `tab_open` 전달 규칙, `workspace-layout.md` 결정 18과 "agent가 연 탭", `browser-tab.md` 결정 41과 "agent가 다루는 탭"을 고친다. 여기서 사람이 ghost 창이 눈에 띄는지 본다.
-4. **창 없는 shell.** core가 shell main을 창 없이(ghost 창만) 띄우는 실행 intent와, 사람이 lophn을 열 때 그 main에 붙어 창을 만드는 길(3번), E의 tray, D의 flag. `platform.md`의 launch intent와 core 수명을 고친다.
+2. **창 단위 그릇과 열기.** agent가 연 browser 탭의 `<webview>`를 창 단위 그릇에 두어 그 창이 어느 workspace를 띄웠든 살게 한다. 4·5·8번(열기, 자리, 수명 맞추기)과 B를 한다. host queue의 `tab_open` 전달 규칙, `workspace-layout.md` 결정 18과 "agent가 연 탭", `browser-tab.md` 결정 5·41과 "agent가 다루는 탭"을 고친다.
+3. **core가 shell을 띄운다.** 창이 없을 때 core가 shell을 띄워 창을 focus 없이 여는 실행 intent(3번). `platform.md`의 launch intent와 core 수명을 고친다.
+4. **사람 탭(나중).** 사람 browser 탭도 같은 창 단위 그릇에 두어 workspace를 오가도 다시 load하지 않게 할지 정한다. Keep alive는 화면을 내렸느냐가 아니라 자원(상한) 정책이 된다.
 
 ## 하지 않는 것
 

@@ -1,5 +1,5 @@
 id: artifact-freshness-guide
-version: 0.23.15
+version: 0.23.16
 title: artifact를 쓰는 agent가 data를 어떻게 새로 둘지 고른다
 modules: [packages/core/agent-workspaces]
 change: |

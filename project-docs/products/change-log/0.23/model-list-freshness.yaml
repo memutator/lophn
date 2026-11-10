@@ -1,5 +1,5 @@
 id: model-list-freshness
-version: 0.23.10
+version: 0.23.11
 title: 새 model이 열리면 몇 시간 안에, provider가 알려 주면 바로 고를 수 있게 한다
 modules: [packages/core/lophn-agent, packages/core/main, packages/protocol, packages/shell/renderer]
 change: |

@@ -110,7 +110,7 @@ files:
 
   - path: packages/core/lophn-agent/providers/model-list_test.ts
     covers: [provider-models-refresh:refreshed, provider-models-refresh:unavailable, provider-models-refresh:invalid_input, provider-models-record:recorded]
-    note: "custom provider model 목록 읽기는 실패하면 앞 목록을 남기고 성공하면 바꾼다. key는 요청 header에만 간다. 내장 provider는 거절"
+    note: "provider model 목록 읽기는 실패하면 앞 목록을 남기고 성공하면 바꾼다. key는 요청 header에만, 그 provider 주소로만 간다. 내장 Anthropic은 x-api-key로 읽고 날짜 뺀 alias를 더한다. openrouter는 거절"
 
   - path: packages/core/lophn-agent/providers/oauth-refresh_test.ts
     covers: [provider-token-refresh:refreshed, provider-token-refresh:revoked, provider-token-refresh:still-valid, provider-token-refresh:unavailable, provider-models-record:recorded]

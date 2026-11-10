@@ -97,7 +97,7 @@ function catalogPaths(dataRoot: string): {
 export type CatalogRefresher = {
   // 저장된 catalog와 state를 읽는다. 파일이 없으면 동봉 snapshot에서 다시 만든다(plan 완료 1).
   load(): Promise<Result<CatalogStore>>;
-  // 마지막 확인 뒤 24시간이 지났으면 갱신을 시작한다.
+  // 마지막 확인 뒤 CATALOG_REFRESH_INTERVAL_MS가 지났으면 갱신을 시작한다.
   // 시작한 갱신이 끝나면 풀린다. 갱신하지 않으면 바로 풀린다.
   kickAutoUpdate(): Promise<void>;
   // 사람의 즉시 새로 받기. TTL을 건너뛰되 검증과 개인 자료 규칙은 유지한다.
@@ -142,7 +142,7 @@ export function createCatalogRefresher(
     if (!validated.ok) return validated;
     const entries = validated.value;
     const hash = await hashEntries(entries);
-    // 마지막 확인은 비워 둔다. 새 data root가 24시간을 기다리지 않고 바로 갱신해야 한다.
+    // 마지막 확인은 비워 둔다. 새 data root가 주기를 기다리지 않고 바로 갱신해야 한다.
     const state = initialState(input.autoUpdate, hash);
     // state만 쓰면 다음 load가 catalog가 비어 있어 state를 무시한다. 둘을 함께 쓴다.
     // 쓰지 못해도 메모리 값으로 계속 간다.
@@ -304,7 +304,7 @@ export function createCatalogRefresher(
   };
 }
 
-// 갱신 시점 판정(24시간). 마지막 확인이 없으면 갱신한다.
+// 갱신 시점 판정. 마지막 확인이 없으면 갱신한다.
 function refreshDueAt(state: CatalogState, nowMs: number): boolean {
   if (!state.auto_update) return false;
   if (state.last_checked_at === null) return true;

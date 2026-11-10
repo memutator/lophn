@@ -181,8 +181,10 @@ export interface ProviderChoice {
   readonly kind: string;
   /** provider가 알려 준 model 이름. null이면 아직 모르는 것이다. */
   readonly reportedModels: readonly string[] | null;
-  /** model 목록을 다시 읽을 수 있는가: catalog에 그 정의의 model이 하나도 없는 provider(custom)다. catalog를 못 읽었으면 false다. */
+  /** model 목록을 다시 읽을 수 있는가: custom provider와 목록을 알려 주는 내장 provider다. */
   readonly refreshable: boolean;
+  /** model 정보를 적을 수 있는가: catalog에 그 정의의 model이 하나도 없는 provider(custom)다. catalog를 못 읽었으면 false다. */
+  readonly editable: boolean;
 }
 
 export interface ShownModel {

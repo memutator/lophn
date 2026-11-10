@@ -1,7 +1,8 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import type {
-  OAuthDefinition,
-  ProviderRecord,
+import {
+  CATALOG_REFRESH_INTERVAL_MS,
+  type OAuthDefinition,
+  type ProviderRecord,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   SecretFileUse,
@@ -12,7 +13,7 @@ import { chatGptRefreshRequest } from "./oauth-chatgpt.ts";
 import { claudeRefreshRequest } from "./oauth-claude.ts";
 import { antigravityRefreshRequest } from "./oauth-antigravity.ts";
 import { loadProviderTokens, providerTokenNames } from "./oauth-secrets.ts";
-import { readAccountModels, readsAccountModels } from "./reported-models.ts";
+import { readProviderModels, readsModels } from "./reported-models.ts";
 
 // 구독 provider의 OAuth access token 갱신이다. agent runtime이 model 호출에 실을 token(`provider.<id>`)을 달라고
 // 할 때 core가 값을 건네기 직전에 부른다(runtime-secret.ts의 providerOAuth hook). 만료가 lead보다 가까우면
@@ -24,8 +25,9 @@ import { readAccountModels, readsAccountModels } from "./reported-models.ts";
 // - 그 밖의 실패(발급자에 닿지 못함, 5xx, 이상한 응답)는 지금 token이 아직 살아 있으면 그대로 건넨다.
 // - lead는 실제 만료 5분 전 하나다. Claude Code는 응답 TTL에서 6분 앞을 갱신 시점으로 쓰지만 여기는 lead 하나로 줄였다.
 // token과 응답 본문은 오류·log에 싣지 않는다.
-// ChatGPT 계정의 model 목록은 token을 건넨 뒤에 읽는다(갱신 직후, 그리고 목록이 아직 없을 때). 읽는 데 발급자 대기열
-// 기한(8초)까지 걸릴 수 있어 token을 기다리게 하지 않는다. 실패는 삼키고 앞서 저장한 목록은 남긴다.
+// provider의 model 목록(구독 계정과 내장 API key provider)은 token이나 key를 건넨 뒤에 읽는다: 갱신 직후,
+// 이 process에서 처음 쓸 때, 마지막으로 읽기 시작한 뒤 catalog 주기가 지났을 때. provider가 새 model을 열면 쓰는 동안 따라온다.
+// 읽는 데 발급자 대기열 기한(8초)까지 걸릴 수 있어 token을 기다리게 하지 않는다. 실패는 삼키고 앞서 저장한 목록은 남긴다.
 
 const ACCESS_DEFAULT_S = 3_600;
 const ACCESS_NAME = /^provider\.([^.]+)$/;
@@ -91,15 +93,30 @@ export function createProviderRefresher(deps: {
 } {
   const flights = new Map<string, Promise<Result<void>>>();
   const reads = new Map<string, Promise<void>>();
+  // provider마다 마지막으로 읽기를 시작한 때다. 기동하면 비어 있어 처음 쓸 때 한 번 읽는다.
+  const readAt = new Map<string, number>();
+
+  function readModelsWhenStale(provider: ProviderRecord): void {
+    const at = readAt.get(provider.id);
+    // 읽기가 실패해도 주기를 기다린다. 목록을 못 읽는 provider에서 model 호출마다 다시 읽지 않는다.
+    if (at === undefined || deps.nowMs() - at >= CATALOG_REFRESH_INTERVAL_MS) {
+      readModelsLater(provider);
+    }
+  }
 
   // provider마다 한 번에 하나만 돈다. 기다리지 않고 돌려보낸다.
   function readModelsLater(provider: ProviderRecord): void {
-    const source = { ...provider, account: provider.credential.account };
-    if (!readsAccountModels(source) || reads.has(provider.id)) return;
+    const source = {
+      ...provider,
+      kind: provider.credential.kind,
+      account: provider.credential.account,
+    };
+    if (!readsModels(source) || reads.has(provider.id)) return;
+    readAt.set(provider.id, deps.nowMs());
     const read = (async () => {
       const access = deps.secrets.get(providerTokenNames(provider.id).access);
       if (!access.ok) return;
-      const models = await readAccountModels(deps.http, source, access.value);
+      const models = await readProviderModels(deps.http, source, access.value);
       if (models === null) return;
       const latest = await deps.readProvider(provider.id);
       if (!latest.ok || latest.value === null) return;
@@ -216,18 +233,19 @@ export function createProviderRefresher(deps: {
       const read = await deps.readProvider(`pvd_${name[1]}`);
       if (!read.ok) return read;
       const provider = read.value;
+      if (provider === null) return undefined;
+      if (provider.credential.kind === "api_key") {
+        readModelsWhenStale(provider);
+        return undefined;
+      }
       if (
-        provider === null ||
         provider.credential.kind !== "oauth" ||
         provider.credential.state === "revoked"
       )
         return undefined;
       const expires = Date.parse(provider.credential.expires_at ?? "");
       if (Number.isFinite(expires) && expires - deps.nowMs() > deps.leadMs) {
-        // 연결 직후 첫 읽기가 실패했으면 여기서 다시 읽는다.
-        if (provider.credential.reported_models === null) {
-          readModelsLater(provider);
-        }
+        readModelsWhenStale(provider);
         return undefined;
       }
       const running = flights.get(provider.id);

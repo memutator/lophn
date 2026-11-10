@@ -120,6 +120,29 @@ export function selectableModels(input: {
   ];
 }
 
+// 내장 정의 provider 중 model 목록을 provider에게서 읽는 것이다(custom provider는 따로 늘 읽는다). catalog(models.dev)는
+// 새 model을 늦게 싣기 때문에 provider가 열자마자 고를 수 있게 한다. openrouter는 목록이 수백 개라 catalog만 쓰고,
+// SuperGrok 구독은 목록을 읽는 곳이 없다.
+const API_KEY_MODEL_LISTS = new Set([
+  "anthropic",
+  "openai",
+  "xai",
+  "groq",
+  "deepseek",
+  "google-gemini",
+]);
+const OAUTH_MODEL_LISTS = new Set([
+  "anthropic",
+  "openai",
+  "google-antigravity",
+]);
+
+export function builtinListsModels(definition: string, kind: string): boolean {
+  if (kind === "api_key") return API_KEY_MODEL_LISTS.has(definition);
+  if (kind === "oauth") return OAUTH_MODEL_LISTS.has(definition);
+  return false;
+}
+
 // 구독 OAuth provider의 목록만 계정의 허락 목록이다. custom·API key provider의 목록은 찾기 위한 것이다.
 function isEntitlement(kind: string, reported: readonly string[] | null) {
   return kind === "oauth" && reported !== null;

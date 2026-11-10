@@ -24,7 +24,7 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { SecretStorePort } from "../../../protocol/secrets/secret-file.ts";
 import type { CallbackListener, CallbackOptions } from "../extensions/mod.ts";
-import { readAccountModels, readsAccountModels } from "./reported-models.ts";
+import { readProviderModels, readsModels } from "./reported-models.ts";
 import { createProviderOAuth } from "./oauth.ts";
 import type { IssuerFetch } from "./issuer-http.ts";
 import {
@@ -133,9 +133,9 @@ export function withProviderLogin(
     }
     const record = (connected.value.result as { provider: unknown }).provider;
     // 계정 model 목록은 로그인 결과를 기다리게 하지 않고 뒤에서 읽는다. 실패하면 token을 처음 건넬 때(prepareToken) 다시 읽는다.
-    const source = { ...target, account: tokens.account };
-    if (readsAccountModels(source)) {
-      void readAccountModels(deps.http, source, tokens.access)
+    const source = { ...target, kind: "oauth", account: tokens.account };
+    if (readsModels(source)) {
+      void readProviderModels(deps.http, source, tokens.access)
         .then((models) =>
           models === null
             ? undefined

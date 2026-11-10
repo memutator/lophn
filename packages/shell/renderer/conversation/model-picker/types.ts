@@ -105,7 +105,7 @@ export interface ManageProviderView {
   readonly name: string;
   /** 이 provider에서 고를 수 있는 model과 켠 여부. */
   readonly models: readonly ManageModelView[];
-  /** model 목록을 다시 읽을 수 있는 provider(custom)다. */
+  /** model 목록을 다시 읽을 수 있는 provider(custom, 목록을 알려 주는 내장 provider)다. */
   readonly refreshable: boolean;
   /** model 정보를 적을 수 있는가: custom provider다. catalog에 있는 provider의 model은 읽기만 한다. */
   readonly editable: boolean;

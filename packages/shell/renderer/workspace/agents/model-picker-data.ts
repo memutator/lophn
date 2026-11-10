@@ -9,6 +9,7 @@ import type {
   ModelChoice,
 } from "../../../../protocol/lophn-agent/models.ts";
 import {
+  builtinListsModels,
   fitOptionValues,
   optionAxesOf,
   orderPicker,
@@ -69,13 +70,17 @@ export function providerChoiceOf(
   },
   catalog: readonly CatalogEntry[],
 ): ProviderChoice {
+  const custom = isCustomDefinition(catalog, provider.definition.key);
   return {
     id: provider.id,
     name: provider.name,
     definition: provider.definition.key,
     kind: provider.credential.kind,
     reportedModels: provider.credential.reported_models,
-    refreshable: isCustomDefinition(catalog, provider.definition.key),
+    refreshable:
+      custom ||
+      builtinListsModels(provider.definition.key, provider.credential.kind),
+    editable: custom,
   };
 }
 
@@ -250,7 +255,7 @@ export function manageProviders(
           )?.info ?? null,
       })),
       refreshable: provider.refreshable,
-      editable: provider.refreshable,
+      editable: provider.editable,
     }),
   );
   return [

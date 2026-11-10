@@ -47,8 +47,8 @@ function custom(): ProviderRecord {
 }
 
 // 목록 읽기가 실패하면 앞서 저장한 reported_models가 그대로이고, 성공하면 새 목록으로 바뀐다.
-// key는 요청 header에만 간다.
-test("custom provider 목록 읽기는 실패하면 앞 목록을 남기고 성공하면 바꾼다", async () => {
+// key는 요청 header에만, 그 provider의 주소로만 간다.
+test("provider 목록 읽기는 실패하면 앞 목록을 남기고 성공하면 바꾸며, key는 그 provider의 주소로만 간다", async () => {
   let record = custom();
   const sent: { url: string; authorization: string | null }[] = [];
   let answer: () => Response = () =>
@@ -118,10 +118,56 @@ test("custom provider 목록 읽기는 실패하면 앞 목록을 남기고 성�
     authorization: "Bearer SECRET-KEY",
   });
 
-  // 내장 provider는 읽지 않는다.
-  const builtin = builtinProviderDefinition("anthropic");
-  assert.ok(builtin.ok);
-  record = { ...custom(), definition: builtin.value } as ProviderRecord;
+  // 내장 Anthropic은 정의의 주소로 x-api-key를 보내고(Bearer 아님), 날짜 뺀 alias를 같이 둔다.
+  const anthropic = builtinProviderDefinition("anthropic");
+  assert.ok(anthropic.ok);
+  record = {
+    ...custom(),
+    definition: anthropic.value,
+    endpoint: "https://api.anthropic.com/v1",
+  } as ProviderRecord;
+  let apiKey: string | null = null;
+  const builtinList = withProviderModelList(writer, {
+    http: (url, init) => {
+      const headers = new Headers(init.headers);
+      apiKey = headers.get("x-api-key");
+      sent.push({ url, authorization: headers.get("authorization") });
+      return Promise.resolve(
+        Response.json({
+          data: [
+            { id: "claude-fable-5-2" },
+            { id: "claude-haiku-4-5-20251001" },
+          ],
+        }),
+      );
+    },
+    secrets: { get: () => ok("SECRET-KEY") },
+    readProvider: () => Promise.resolve(ok(record)),
+    newKey: () => crypto.randomUUID(),
+  });
+  const read = await builtinList.command(WHO, {
+    command: refreshProviderModels.name,
+    input: { provider: ID },
+    idempotency_key: "k2",
+    compare: {},
+    prepared: [],
+  });
+  assert.ok(read.ok);
+  assert.deepStrictEqual(sent.at(-1), {
+    url: "https://api.anthropic.com/v1/models?limit=1000",
+    authorization: null,
+  });
+  assert.equal(apiKey, "SECRET-KEY");
+  assert.deepStrictEqual(record.credential.reported_models, [
+    "claude-fable-5-2",
+    "claude-haiku-4-5",
+    "claude-haiku-4-5-20251001",
+  ]);
+
+  // 목록을 catalog에만 기대는 내장 provider(openrouter)는 읽지 않는다.
+  const openrouter = builtinProviderDefinition("openrouter");
+  assert.ok(openrouter.ok);
+  record = { ...custom(), definition: openrouter.value } as ProviderRecord;
   const refused = await refresh();
   assert.ok(!refused.ok && refused.error.code === "invalid_input");
 });

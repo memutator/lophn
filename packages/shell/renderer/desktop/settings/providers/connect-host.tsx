@@ -101,7 +101,7 @@ export function ConnectProviderHost({
       const provider = read.ok
         ? read.value.providers.find((item) => item.id === id)
         : undefined;
-      if (provider === undefined || !provider.refreshable) return null;
+      if (provider === undefined || !provider.editable) return null;
       const refreshed = await agents.editor.refreshModels(id);
       const after = refreshed ? await agents.editor.models() : null;
       const count = after?.ok

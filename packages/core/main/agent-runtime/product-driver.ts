@@ -178,6 +178,8 @@ export function productDriver(
             message: "the model catalog is not available",
           });
         }
+        // 기동 때 한 번만 보면 켜 둔 동안 새 model을 못 받는다. turn마다 주기가 지났는지 보고, 갱신은 기다리지 않는다.
+        void calls.catalog.kickAutoUpdate();
         const loaded = await calls.catalog.load();
         return loaded.ok ? ok(loaded.value.entries) : loaded;
       },

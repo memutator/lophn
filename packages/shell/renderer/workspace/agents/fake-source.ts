@@ -760,6 +760,7 @@ export function createFakeAgentsSource(
         kind: "api_key",
         reportedModels: null,
         refreshable: false,
+        editable: false,
       });
       return Promise.resolve(
         ok({
@@ -784,6 +785,7 @@ export function createFakeAgentsSource(
                       ? ["llama-3.3-70b", "qwen-3-coder"]
                       : null,
                     refreshable: true,
+                    editable: true,
                   },
                 ]
               : []),

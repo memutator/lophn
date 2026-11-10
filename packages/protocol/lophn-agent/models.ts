@@ -518,7 +518,9 @@ export const MODEL_ROUTES = [
   modelCatalogRead,
 ] as const;
 
-export const CATALOG_REFRESH_INTERVAL_MS = 86_400_000;
+// models.dev catalog와 provider model 목록을 다시 읽는 주기다. 새 model이 열린 날 하루를 기다리지 않게 짧게 둔다.
+// models.dev는 ETag로 조건부 GET이라 바뀌지 않았으면 본문을 받지 않는다.
+export const CATALOG_REFRESH_INTERVAL_MS = 7_200_000;
 export const INSTRUCTION_FILE_MAX_BYTES = 32_768;
 
 // turn 기준에 고정하는 값은 ResolvedModel을 그대로 쓴다.

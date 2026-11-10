@@ -178,7 +178,7 @@ export function stateAfterFailure(
   return { ...state, last_failure: failure };
 }
 
-// 갱신 시점 판정. 마지막 확인 뒤 24시간이 지나면 갱신한다.
+// 갱신 시점 판정. 마지막 확인 뒤 CATALOG_REFRESH_INTERVAL_MS가 지나면 갱신한다.
 
 export async function hashEntries(
   entries: readonly CatalogEntry[],

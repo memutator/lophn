@@ -1,0 +1,22 @@
+id: model-list-freshness
+version: 0.23.10
+title: 새 model이 열리면 몇 시간 안에, provider가 알려 주면 바로 고를 수 있게 한다
+modules: [packages/core/lophn-agent, packages/core/main, packages/protocol, packages/shell/renderer]
+change: |
+  - models.dev catalog 갱신 주기를 24시간에서 2시간으로 줄였다. agent runtime 기동 때만 보던 것을 turn마다(기다리지 않고) 본다.
+  - 내장 provider도 provider가 알려 주는 model 목록을 읽는다. API key: anthropic, openai, xai, groq, deepseek, google-gemini. 구독: Claude(Anthropic /v1/models)도 ChatGPT·Antigravity처럼 읽는다. openrouter와 SuperGrok은 읽지 않는다.
+  - 목록은 연결 직후, 사람이 Refresh를 누를 때, 그리고 쓰는 동안(key나 token을 건넬 때) 이 process에서 처음이거나 마지막으로 읽기 시작한 뒤 2시간이 지났으면 뒤에서 다시 읽는다. 실패해도 2시간을 기다린다(전에는 구독 목록이 없으면 token 요청마다 다시 읽었다).
+  - Anthropic 목록에는 날짜 뺀 alias를 더한다. OpenAI 꼴 목록에서는 embedding·음성·그림 생성 같은 채팅 밖 model을 빼고, Gemini는 `models/` 앞붙임을 뗀다.
+  - model 관리 화면의 목록 Refresh가 내장 provider에도 보인다. model 정보 편집은 그대로 custom provider만이다(`editable`을 `refreshable`에서 떼었다).
+why: |
+  Fable 5.2가 나온 날 omp에는 바로 보였는데 lophn에는 보이지 않았다. lophn은 models.dev만 하루에 한 번, 기동 때만 보았고, omp는 Anthropic /v1/models를 직접 2시간마다 읽는다.
+decisions:
+  - text: >-
+      사람이 누르는 "지금 받기"는 models.dev catalog가 아니라 provider 목록 Refresh로 했다. catalog 파일은 agent runtime이 쓰므로 core에서 runtime으로 가는 새 요청이 필요하다. provider 목록에만 있는 model도 picker에 나오고 catalog에 없는 model의 기본 한도로 돌므로 그것으로 충분하다. refreshNow는 여전히 부르는 곳이 없다.
+    by: agent
+  - text: >-
+      채팅 밖 model은 id 패턴으로 거른다. 버린 길: catalog에 있는 id만 남기기(새 model이 빠져 목적과 어긋난다).
+    by: agent
+  - text: >-
+      Anthropic은 날짜 붙은 id만 주므로 alias를 더한다. 구독 계정에서는 이 목록이 허락 목록이라 alias가 빠지면 저장된 선택(claude-haiku-4-5 등)이 막힌다.
+    by: agent

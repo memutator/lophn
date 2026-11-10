@@ -1,5 +1,5 @@
 id: session-name-single-source
-version: 0.23.13
+version: 0.23.14
 title: sidebar와 탭 줄의 session 이름이 그 탭을 그리지 않아도, 창이 다시 떠도 남는다
 modules: [packages/shell/renderer, packages/shell/main]
 change: |

@@ -1,4 +1,4 @@
-# 앱 event, session lifecycle, 앱의 A2A
+# 앱 SDK: event, session lifecycle, A2A, ACP
 
 상태: 로드맵. 2026-11-10 사람이 방향을 냈고 planner가 대화를 정리했다. "정할 것" 둘은 planner 추천안으로 적었고 사람의 답을 받지 않았다.
 배경 문서: `project-docs/architecture/{event,app-notice,app-call,acp,agent-call,workspace-session,terminal-agent,coding-agent,observability}.md`, `project-docs/products/roadmap/{agent-platform,agent-surface,app-place,mobile}.md`. 비교: `../harness-lab`의 harness 여덟(Claude Code, Codex, OpenCode, pi, omp, dsh, mixdog, Hermes)의 session ↔ process 대응(2026-11-10 조사, 아래 "비교").
@@ -131,7 +131,7 @@ subscribe("masup", "usage.limit", async (e) => {
 - 받는 곳은 지금 call과 같다: 열린 session, agent + workspace(새 session). 답 방식은 none과 result다. call 정책과 명함 검사를 그대로 거친다(보낸 workspace는 그 앱의 workspace).
 - 답과 늦은 실패는 session 입력함 대신 call 행과 event로 앱에 간다. call 행이 앱이 보낸 call도 갖고, 답 본문을 앱이 읽을 수 있게 한다.
 - 앱이 session을 연다(시야 안 어느 workspace든). session에 연 앱을 남기고 고정한다. 앱은 자기가 연 것만 끝낸다(archive). 알림 규칙의 "앱이 연 session"은 이 칸을 읽는다.
-- 읽기: 명함(`agents/card`), session이 주고받은 call 목록, 보이는 session의 ACP snapshot과 갱신.
+- 읽기: 명함(`agents/card`), session이 주고받은 call 목록.
 
 ```tsx
 const sent = await calls.send({
@@ -141,6 +141,13 @@ const sent = await calls.send({
 });
 const move = (await sent.result).value;
 ```
+
+### 5. ACP
+
+- ACP 규격의 상태·갱신·입력은 그대로다. 바뀌는 것은 둘이다.
+- **붙을 수 있는 session이 넓어진다.** 지금 bridge는 자기 앱 workspace의 session만 읽게 한다. 시야 안 session이면 어디든 `useAgentSession({session})`으로 붙어 snapshot과 갱신을 받는다. 목록 read에서 고른 session의 대화를 앱이 그릴 수 있다.
+- **`sender`에 `app`이 는다.** 앱이 보낸 call이 받은 session의 대화에 앱이 보낸 것으로 나온다. SDK의 type 사본과 채팅 화면의 sender chip을 같이 고친다.
+- 앱이 보내는 ACP 입력은 지금 허용 목록(`send`, `stop`, `answer`, `rename`) 그대로다. 사람 이름으로 말하는 `send`의 범위는 "정할 것" 2다.
 
 ## 정한 것
 
@@ -171,7 +178,7 @@ const move = (await sent.result).value;
 |---|---|---|
 | 1 | 앱 event: 선언의 event·구독 칸, `publish`·`subscribe`, handler 호출로 전달, caller 종류 event(표 rebuild step), 발행 기록과 읽는 tool, 화면 구독 | 없음 |
 | 2 | session lifecycle: 상태 계산 하나로 모으기, core의 `session.*` event, 목록 read, status, `stop`, `LOPHN_SESSION_ID`, shell main → core의 터미널 상태 길 | 1 |
-| 3 | 앱의 A2A: 보낸 쪽 `app`(`messages` 표 rebuild step), call 행과 답 읽기, call event, session 열기와 연 앱 남기기, 자기 것 archive, 명함·call 목록 read, 보이는 session의 ACP, ACP `sender`의 `app`과 채팅 화면 | 2 |
+| 3 | 앱의 A2A와 ACP: 보낸 쪽 `app`(`messages` 표 rebuild step), call 행과 답 읽기, call event, session 열기와 연 앱 남기기, 자기 것 archive, 명함·call 목록 read, 시야 안 session에 ACP로 붙기, ACP `sender`의 `app`과 채팅 화면 | 2 |
 
 각 단계는 SDK 판 올림과 `migrate-sdk` 메모, `project-docs/flows/` 갱신을 같이 한다. 선언 칸이 늘어도 빈 칸은 hash에서 빠져 옛 release는 그대로 뜬다.
 

@@ -259,18 +259,32 @@ export function createTabHandlers(deps: TabDeps) {
         });
       }
     }
-    const tab = queue.openTab({
+    const opening = {
       owner: caller.value,
       // 사람 token은 입력의 workspace(없으면 home)에, agent는 자기 session의 workspace에 연다.
       workspace: person
-        ? (input.workspace ?? { kind: "home" })
+        ? (input.workspace ?? { kind: "home" as const })
         : hostWorkspaceOf(workspaceOf(from!)),
       target: input.target,
       relation: input.relation ?? null,
       source: caller.value === "person" ? null : caller.value,
       ...(resume === undefined ? {} : { resume }),
-    });
-    return ok({ tab, status: "accepted" as const });
+    };
+    if (!("browser" in input.target)) {
+      const tab = queue.openTab(opening);
+      return ok({ tab, status: "accepted" as const });
+    }
+    // browser 탭은 page가 생겼다는 shell의 답을 기다린다. 사람이 그 workspace를 띄우지 않아도 열린다.
+    if (!queue.attached()) {
+      return err({ code: "unavailable", message: SHELL_NOT_ATTACHED });
+    }
+    const sent = queue.openAndWait(opening);
+    const opened = await settled(sent.id, sent.result);
+    if (!opened.ok) {
+      queue.close(sent.tab, caller.value);
+      return opened;
+    }
+    return ok({ tab: sent.tab, status: "accepted" as const });
   };
   const close: MemoryHandler = (who, body) => {
     const caller = owner(who);
@@ -297,9 +311,27 @@ export function createTabHandlers(deps: TabDeps) {
     return queue.read(input.tab as Id<"tab">, caller.value);
   };
 
-  // 기다리는 browser 호출. core가 멈추기 전에 끝낸다.
+  // 기다리는 browser 호출과 browser 탭 열기. core가 멈추기 전에 끝낸다.
   const inflight = new Set<() => void>();
-  // 주인을 대조한 뒤에만 요청을 넣고, 기한과 shell이 떨어짐을 1초마다 본다.
+  // 요청의 결과를 기다리며 기한과 shell이 떨어짐을 1초마다 본다.
+  const settled = async (
+    id: Id<"hrq">,
+    result: Promise<Result<ExtensionToolContent[]>>,
+  ) => {
+    const abandon = () => queue.abandon(id);
+    inflight.add(abandon);
+    const watch = setInterval(() => {
+      if (!queue.attached()) abandon();
+      else queue.expire();
+    }, WATCH_MS);
+    try {
+      return await result;
+    } finally {
+      clearInterval(watch);
+      inflight.delete(abandon);
+    }
+  };
+  // 주인을 대조한 뒤에만 요청을 넣는다.
   const call =
     (
       build: (
@@ -325,19 +357,8 @@ export function createTabHandlers(deps: TabDeps) {
         view: found.value.view,
         action: action.value,
       });
-      const abandon = () => queue.abandon(sent.id);
-      inflight.add(abandon);
-      const watch = setInterval(() => {
-        if (!queue.attached()) abandon();
-        else queue.expire();
-      }, WATCH_MS);
-      try {
-        const result = await sent.result;
-        return result.ok ? shape(result.value) : result;
-      } finally {
-        clearInterval(watch);
-        inflight.delete(abandon);
-      }
+      const result = await settled(sent.id, sent.result);
+      return result.ok ? shape(result.value) : result;
     };
 
   const textOf = (content: ExtensionToolContent[]): Result<string> => {

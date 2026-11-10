@@ -10,6 +10,7 @@ import {
   SURFACE_ACK_CHANNEL,
   SURFACE_CONTROL_CHANNEL,
   SURFACE_EMULATE_CHANNEL,
+  SURFACE_RELEASE_ID,
   SURFACE_REPORT_CHANNEL,
   SURFACE_REQUEST_CHANNEL,
   SURFACE_TAKE_CHANNEL,
@@ -37,12 +38,18 @@ import type { ArtifactViews } from "../../artifact/registry.ts";
 import type { HarnessTui } from "../../terminal/harness-tui.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import type { Registered, ShellContext } from "./context.ts";
+import { recentWindow } from "./desktop-window.ts";
 import type { ExtensionTools } from "./extensions.ts";
 
 // take가 실패하거나 창이 탭 요청을 받지 못했을 때 다시 가져가기 전에 쉬는 시간이다.
 const RETRY_MS = 1000;
 // 창이 탭을 열고 ack하는 기한이다. 넘으면 retry로 되돌려 RETRY_MS 뒤 다시 보낸다.
 const ACK_TIMEOUT_MS = 1500;
+// 열린 창이 하나도 없어 browser 탭을 못 열 때 agent가 받는 문장이다(원인, 다음 할 일, 되풀이가 통하는지).
+const NO_WINDOW =
+  "No lophn window is open, so the browser page cannot be created. Retrying does not help until a person opens a lophn window; tell the person.";
+// 이 요청이 browser 탭 열기다. page를 만들었다고 알릴 때까지 core가 기다린다.
+const BIND_OK = { content: [{ type: "text", text: "opened" }] };
 
 type Workspace = NonNullable<SurfaceWorkspace["workspace"]>;
 // tab 요청은 workspace가 있고, extension tool 호출(`tool_call`)과 browser 호출(`browser_call`)은 workspace를 가리지 않아 payload만 있다.
@@ -51,6 +58,7 @@ type Request =
       id: string;
       kind: "tab_open" | "tab_close" | "tab_show";
       workspace: Workspace;
+      payload: { tab: string; target?: Record<string, unknown> };
     }
   | {
       id: string;
@@ -79,6 +87,10 @@ export function register(
   const pending = new Map<string, (opened: boolean) => void>();
   // browser·preview·artifact host 탭이 어느 창(webContents id)의 어느 view인지. 창이 bind로 알린다.
   const bound = new Map<string, { window: number; view_session: string }>();
+  // 이 main이 창에 보낸 browser 탭 열기의 workspace. 창이 닫히면 page가 사라지므로 그 탭을 core 표에서 빼야 하는 탭이다.
+  const hostBrowser = new Map<string, Workspace>();
+  // page가 만들어졌다고(bind) 알리기를 기다리는 browser 탭 열기. 탭 id로 찾는다.
+  const opening = new Map<string, string>();
 
   // 그 탭을 가진 창의 renderer에 take control 상태를 민다.
   const pushControl = (tab: string, state: ControlState) => {
@@ -106,6 +118,13 @@ export function register(
       if (at.window !== contentsId) continue;
       bound.delete(tab);
       control.forget(tab);
+      // page가 창과 함께 사라졌으니 core 표에도 두지 않는다.
+      if (hostBrowser.delete(tab)) {
+        void ctx.coreInternal("memory", "host", "report", {
+          tab,
+          state: "closed",
+        });
+      }
     }
   });
 
@@ -132,7 +151,14 @@ export function register(
       if (!parsed.ok) return;
       if ("bind" in parsed.value) {
         const { tab, view_session } = parsed.value.bind;
+        const before = bound.get(tab);
         bound.set(tab, { window: event.sender.id, view_session });
+        releaseOld(tab, before, event.sender.id);
+        const request = opening.get(tab);
+        if (request !== undefined) {
+          opening.delete(tab);
+          void done(request, BIND_OK);
+        }
         // 창이 다시 mount했거나 다른 창으로 옮겨 왔으면 지금 상태를 다시 준다.
         const now = control.current(tab);
         if (now !== undefined) pushControl(tab, now);
@@ -146,6 +172,7 @@ export function register(
       }
       if (parsed.value.state === "closed") {
         tui.release(parsed.value.tab);
+        hostBrowser.delete(parsed.value.tab);
         bound.delete(parsed.value.tab);
         control.forget(parsed.value.tab);
       }
@@ -209,11 +236,66 @@ export function register(
     return found;
   }
 
+  // 다른 창이 같은 탭의 page를 새로 만들어 bind했다. 그 workspace를 띄우지 않은 옛 창은 자기 page를 놓는다.
+  // 띄운 창이면 탭이 layout에 열려 있어 놓지 않는다(알려진 한계).
+  function releaseOld(
+    tab: string,
+    before: { window: number } | undefined,
+    now: number,
+  ) {
+    const workspace = hostBrowser.get(tab);
+    if (
+      before === undefined ||
+      before.window === now ||
+      workspace === undefined
+    )
+      return;
+    const old = [...ctx.windows].find(
+      (window) => window.webContents.id === before.window,
+    );
+    const at = shown.get(before.window);
+    if (
+      old === undefined ||
+      old.isDestroyed() ||
+      (at !== undefined && sameWorkspace(at, workspace))
+    ) {
+      return;
+    }
+    old.webContents.send(SURFACE_REQUEST_CHANNEL, {
+      request: {
+        id: SURFACE_RELEASE_ID,
+        kind: "tab_close",
+        workspace,
+        payload: { tab },
+      },
+    });
+  }
+
+  // browser 탭의 page는 어느 workspace를 띄운 창이든 산다. 그 workspace를 띄운 창이 없으면 가장 최근 창이 받는다.
+  // 닫기는 page를 가진 창이 먼저다.
+  function windowFor(request: Extract<Request, { workspace: Workspace }>) {
+    const { tab, target } = request.payload;
+    const page =
+      request.kind === "tab_close" ? bound.get(tab)?.window : undefined;
+    return (
+      [...ctx.windows].find(
+        (window) =>
+          !window.isDestroyed() &&
+          !ctx.detached.has(window) &&
+          window.webContents.id === page,
+      ) ??
+      windowOf(request.workspace) ??
+      (target !== undefined && "browser" in target
+        ? recentWindow(ctx)
+        : undefined)
+    );
+  }
+
   function offer(
     request: Extract<Request, { workspace: Workspace }>,
     payload: unknown,
   ): Promise<boolean> {
-    const window = windowOf(request.workspace);
+    const window = windowFor(request);
     if (window === undefined) return Promise.resolve(false);
     return new Promise((resolve) => {
       const timer = setTimeout(() => settle(false), ACK_TIMEOUT_MS);
@@ -228,11 +310,11 @@ export function register(
     });
   }
 
-  const done = (id: string, output: unknown) =>
+  const done = (id: string, output?: unknown) =>
     ctx.coreInternal("memory", "host", "done", {
       id,
       result: "done",
-      output,
+      ...(output === undefined ? {} : { output }),
     });
 
   // take가 기다리는 동안 다음 요청이 오면 바로 답이 오므로 답을 받자마자 다시 부른다.
@@ -268,7 +350,32 @@ export function register(
           .then((output) => done(request.id, output));
         continue;
       }
+      const browserOpen =
+        request.kind === "tab_open" &&
+        "browser" in (request.payload.target ?? {});
+      if (windowFor(request) === undefined) {
+        if (browserOpen) {
+          // page를 둘 창이 하나도 없다. core가 기다리지 않고 이유를 agent에게 돌려주게 한다.
+          void done(request.id, {
+            error: { code: "unavailable", message: NO_WINDOW },
+          });
+          continue;
+        }
+        // 창과 함께 page가 사라졌으면 닫을 것이 없다.
+        if (request.kind === "tab_close") {
+          await done(request.id);
+          continue;
+        }
+      }
+      if (browserOpen) hostBrowser.set(request.payload.tab, request.workspace);
       const opened = await offer(request, { request });
+      if (opened && browserOpen) {
+        // 창이 page를 만들겠다고 답했다. page가 붙어 bind가 오면 core에 알린다.
+        const { tab } = request.payload;
+        if (bound.has(tab)) await done(request.id, BIND_OK);
+        else opening.set(tab, request.id);
+        continue;
+      }
       await ctx.coreInternal("memory", "host", "done", {
         id: request.id,
         result: opened ? "done" : "retry",

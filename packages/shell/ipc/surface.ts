@@ -132,6 +132,8 @@ export interface LophnSurfaceApi {
   emulate(input: SurfaceEmulate): Promise<SurfaceEmulateResult>;
 }
 
+/** main이 다른 창이 page를 이어받았다고 옛 창에 보내는 tab_close의 id. 탭이 닫힌 것이 아니라 layout은 그대로 둔다. */
+export const SURFACE_RELEASE_ID = "hrq_release";
 export const SURFACE_REQUEST_CHANNEL = "shell:surface-request";
 export const SURFACE_ACK_CHANNEL = "shell:surface-ack";
 export const SURFACE_WORKSPACE_CHANNEL = "shell:surface-workspace";

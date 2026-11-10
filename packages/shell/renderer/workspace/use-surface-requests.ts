@@ -3,10 +3,10 @@
 // retry로 되돌린다). 열린 탭의 key는 `host:<tab id>`다. host 탭의 browser 상태와 닫힘은 main을 거쳐 core에 알린다.
 import { useEffect, useRef, useState } from "react";
 
-import type { LophnBrowserApi } from "../../ipc/browser.ts";
 import type { LophnSurfaceApi } from "../../ipc/surface.ts";
 import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
 import type { HarnessId } from "../../../protocol/coding-agent/harness-id.ts";
+import type { PendingHost } from "../app-frame/workspace-views.tsx";
 import { useQuickPrefs } from "../desktop/settings/quick-launch/store.tsx";
 import { handoffCommand } from "../shell/agent-sections.tsx";
 import { type WorkspaceRef, workspaceKey } from "../shell/desk-model.ts";
@@ -20,6 +20,7 @@ import { openTerminal } from "./kinds/terminal.tsx";
 import { closeTerminalTab } from "../terminal/deps.ts";
 import type { TerminalStore } from "../terminal/store.ts";
 import { type AgentOpen, openAt } from "./open-policy.ts";
+import type { TabRelation } from "../../../protocol/lophn-agent/host-queue.ts";
 
 const HOST_KEY = "host:";
 
@@ -42,6 +43,33 @@ function reportTui(
       tui: { tab, session, terminal_ref: entry.terminalRef },
     });
   });
+}
+
+// agent가 연 탭의 자리. source의 agent 탭이 이 창에 있으면 그 옆이고, 없으면 desk 끝이다.
+function placementOf(
+  host: () => TabHost,
+  key: string,
+  relation: TabRelation | null,
+  source: string | null,
+  target: AgentOpen["target"],
+): SessionTabOpen {
+  const sourceTab =
+    source === null
+      ? undefined
+      : host()
+          .windowTabs()
+          .find((tab) => tab.kind === "agent" && sessionOf(tab) === source);
+  const at = openAt(host().desk, sourceTab?.key, "show", { relation, target });
+  return {
+    key,
+    float: at.kind === "float",
+    options: {
+      select: false,
+      ...(at.kind === "tab"
+        ? { after: at.after, beside: at.beside, relation: at.relation }
+        : { minimized: at.minimized === true }),
+    },
+  };
 }
 
 export function surfaceApi(): LophnSurfaceApi | null {
@@ -99,9 +127,8 @@ type Args = {
   openSession: (session: string, open: SessionTabOpen) => boolean;
   /** 이 창 어느 desk에든 그 key의 float이 있으면 그 자리에서 편다. */
   showFloat: (key: string) => void;
-  browserApi: LophnBrowserApi | null;
-  /** browser view의 session으로 그 화면의 탭 key를 찾는다. */
-  keyOf: (session: string) => string | undefined;
+  /** 이 workspace가 mount되기 전에 agent가 연 browser 탭과 닫힌 탭. 가져가면 비운다. */
+  takePending: (() => PendingHost) | undefined;
 };
 
 export function useSurfaceRequests(args: Args): void {
@@ -152,27 +179,13 @@ export function useSurfaceRequests(args: Args): void {
         return;
       }
       const { target, relation, source } = request.payload;
-      // source는 연 agent의 session을 이 창에서 보이는 agent 탭이다. 없으면 desk 끝이다.
-      const sourceTab =
-        source === null
-          ? undefined
-          : host()
-              .windowTabs()
-              .find((tab) => tab.kind === "agent" && sessionOf(tab) === source);
-      const at = openAt(host().desk, sourceTab?.key, "show", {
-        relation,
-        target: Object.keys(target)[0] as AgentOpen["target"],
-      });
-      const open: SessionTabOpen = {
+      const open = placementOf(
+        host,
         key,
-        float: at.kind === "float",
-        options: {
-          select: false,
-          ...(at.kind === "tab"
-            ? { after: at.after, beside: at.beside, relation: at.relation }
-            : { minimized: at.minimized === true }),
-        },
-      };
+        relation,
+        source,
+        Object.keys(target)[0] as AgentOpen["target"],
+      );
       if ("preview" in target) {
         // 이미 이 창에 열려 있는 탭이면 새로 열지 않고 기기만 바꾼다. at이 달라야 같은 기기를 다시 줘도 탭이 알아챈다.
         const existing = host()
@@ -283,19 +296,33 @@ export function useSurfaceRequests(args: Args): void {
     });
   }, [surface, ready]);
 
-  // host 탭의 browser 상태. 접힌 float이나 다른 desk의 탭도 mount와 상관없이 받는다.
+  // 이 workspace가 떠나 있는 사이 창이 page만 만들어 둔 agent 탭에 자리를 준다. 만들어 둔 <webview>를 이어 쓰므로 다시 load하지 않는다.
+  // browser 탭의 상태(url·title)는 창 단위로 workspace-views.tsx가 알린다.
   useEffect(() => {
-    const { browserApi } = latest.current;
-    if (surface === null || browserApi === null) return;
-    return browserApi.subscribeState((state) => {
-      const key = latest.current.keyOf(state.view_session);
-      if (key === undefined || !key.startsWith(HOST_KEY)) return;
-      void surface.report({
-        tab: key.slice(HOST_KEY.length),
-        state: { url: state.url, title: state.title, loading: state.loading },
-      });
-    });
-  }, [surface, args.browserApi]);
+    if (!ready) return;
+    const { host, takePending } = latest.current;
+    const pending = takePending?.();
+    if (pending === undefined) return;
+    for (const item of pending.opens) {
+      openBrowserTab(
+        host(),
+        item.url,
+        placementOf(
+          host,
+          `${HOST_KEY}${item.tab}`,
+          item.relation,
+          item.source,
+          "browser",
+        ),
+      );
+    }
+    const keys = new Set(
+      host()
+        .windowTabs()
+        .map((tab) => tab.key),
+    );
+    for (const key of pending.closes) if (keys.has(key)) host().removeTab(key);
+  }, [ready]);
 
   // 사람이 host 탭을 닫으면 core의 표에서 뺀다. layout을 읽는 중에 사라진 것은 닫힘이 아니라 읽기 전이라 ready 뒤부터 본다.
   const open = useRef<ReadonlySet<string>>(new Set());

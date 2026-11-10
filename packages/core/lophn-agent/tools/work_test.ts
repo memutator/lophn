@@ -44,9 +44,9 @@ test("skill.read와 agent.card의 실패는 원인을 싣고 다른 tool의 not_
   );
 });
 
-// 이유를 못 받은 model이 바깥 browser를 띄운 일이 있었다. browser·tab의 unavailable·conflict는 이유 문장을 싣고,
+// 이유를 못 받은 model이 바깥 browser를 띄운 일이 있었다. browser·tab의 unavailable·conflict와 browser의 not_found는 이유 문장을 싣고,
 // 그 밖의 code와 tool은 대상 이름·존재를 가리려 공통 문장을 쓴다.
-test("browser 호출이 unavailable·conflict로 실패하면 model이 이유 문장을 받고 다른 경우는 공통 문장이다", async () => {
+test("browser 호출이 unavailable·conflict·not_found로 실패하면 model이 이유 문장을 받고 browser 밖 tool은 공통 문장이다", async () => {
   const reason = "The tab is not open in a window. Tell the person.";
   const failing = (name: string, code: ErrorCode) =>
     defineTool({
@@ -72,6 +72,6 @@ test("browser 호출이 unavailable·conflict로 실패하면 model이 이유 �
   assert.ok((await summary("browser_snapshot")).endsWith(reason));
   assert.ok((await summary("browser_act")).endsWith(reason));
   assert.ok((await summary("tab_open")).endsWith(reason));
-  assert.equal(await summary("browser_read"), "tool target is not available");
+  assert.ok((await summary("browser_read")).endsWith(reason));
   assert.equal(await summary("file_read"), "tool is unavailable");
 });

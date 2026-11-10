@@ -56,7 +56,7 @@ function setup(running: boolean, root = "/nonexistent") {
     codingFavorites: () => ["claude", "pi"],
     handoffs: fileHandoffs(root),
   });
-  return { queue, ...handlers };
+  return { clock, queue, ...handlers };
 }
 const target = { target: { preview: { app: APP } } };
 const code = (reply: { ok: boolean }) =>
@@ -97,17 +97,61 @@ test("탭은 연 쪽만 닫고, 같은 앱의 preview 탭은 하나이며 주인
   assert.equal(code(await close(person, { tab })), "not_found");
 });
 
+const browser = { target: { browser: { url: "https://example.com" } } };
+const message = (reply: unknown) =>
+  (reply as { error: { message: string } }).error.message;
+
+// browser 탭은 사람이 그 workspace를 띄우지 않아도(take의 workspaces가 비어도) 열려야 하고, page를 못 만들면 표에 탭이 남으면 안 된다.
+// 남으면 agent가 없는 page에 호출을 되풀이한다.
+test("browser tab open은 workspace를 띄운 창 없이도 shell에 가고, 기한 안에 답이 없으면 unavailable이며 탭이 남지 않는다", async () => {
+  const { clock, queue, open } = setup(true);
+  queue.take([]);
+  const slow = open(agent(1), browser);
+  const lent = queue.take([]);
+  assert.equal(lent?.kind, "tab_open");
+  const tab = (lent as { payload: { tab: string } }).payload.tab;
+  clock.advance(10_001);
+  queue.expire();
+  const reply = await slow;
+  assert.equal(code(reply), "unavailable");
+  assert.equal(queue.read(tab as never, id("ses", 1) as never).ok, false);
+  // 늦게 온 done은 무시되고, 늦게 만들어졌을지 모르는 page를 닫으라는 요청이 나간다.
+  queue.done(lent!.id as never, "done");
+  assert.equal(queue.take([])?.kind, "tab_close");
+
+  const quick = open(agent(1), browser);
+  const next = queue.take([]);
+  queue.done(next!.id as never, "done", {
+    content: [{ type: "text", text: "bound" }],
+  });
+  assert.equal(code(await quick), "ok");
+});
+
 // 남의 탭을 보거나 조작하면 다른 session의 로그인 page를 읽는다. 주인 대조가 shell 가용 판정보다 앞서야 not_found가 먼저 나간다.
-test("browser 호출은 연 쪽만 하고, 남이나 사람이 연 탭은 not_found다", async () => {
-  const { open, snapshot, act } = setup(true);
-  const browser = { target: { browser: { url: "https://example.com" } } };
-  const mine = await open(agent(1), browser);
-  const theirs = await open(person, browser);
+// 없는 탭과 남의 탭은 같은 문장이어야 남의 탭이 있는지 새지 않는다.
+test("browser 호출은 연 쪽만 하고, 남이나 사람이 연 탭은 없는 탭과 같은 not_found 문장이다", async () => {
+  const { clock, queue, open, snapshot, act } = setup(true);
+  queue.take([]);
+  const openedBy = async (who: AuthenticatedContext) => {
+    const pending = open(who, browser);
+    queue.done(queue.take([])!.id as never, "done", {
+      content: [{ type: "text", text: "bound" }],
+    });
+    return pending;
+  };
+  const mine = await openedBy(agent(1));
+  const theirs = await openedBy(person);
   assert.ok(mine.ok && theirs.ok);
   const agentTab = (mine.value as { tab: string }).tab;
   const personTab = (theirs.value as { tab: string }).tab;
 
   assert.equal(code(await snapshot(agent(2), { tab: agentTab })), "not_found");
+  const gone = await snapshot(agent(1), { tab: id("tab", 9) });
+  assert.equal(code(gone), "not_found");
+  assert.equal(
+    message(await snapshot(agent(2), { tab: agentTab })),
+    message(gone),
+  );
   assert.equal(code(await snapshot(person, { tab: agentTab })), "not_found");
   assert.equal(code(await snapshot(agent(1), { tab: personTab })), "not_found");
   assert.equal(
@@ -115,6 +159,7 @@ test("browser 호출은 연 쪽만 하고, 남이나 사람이 연 탭은 not_fo
     "not_found",
   );
   // 주인은 주인 대조를 지나 shell이 붙어 있는지로 간다.
+  clock.advance(3_001);
   assert.equal(
     code(await snapshot(agent(1), { tab: agentTab })),
     "unavailable",

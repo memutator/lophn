@@ -85,7 +85,7 @@ export function sendIntent(ctx: ShellContext, intent: DesktopIntent): void {
 }
 
 // detached 창과 앱 전용 창은 건너뛴다: 전역 키와 tray가 탭 하나만 든 창으로 가지 않게 한다.
-function recentWindow(ctx: ShellContext): BrowserWindow | undefined {
+export function recentWindow(ctx: ShellContext): BrowserWindow | undefined {
   return [...ctx.windows]
     .filter(
       (window) =>

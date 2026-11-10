@@ -23,10 +23,16 @@ import {
 // 빌려 간 요청은 shell main이 죽어 done이 오지 않아도 BORROW_MS 뒤 다시 대기한다.
 const ATTACHED_MS = 3_000;
 const BORROW_MS = 10_000;
+// browser 탭을 열 때 shell이 page를 만들었다고 알릴 때까지 기다리는 기한이다. 넘으면 거두고 `unavailable`이다.
+const OPEN_WAIT_MS = 10_000;
 // shell이 없을 때 agent가 되풀이해도 메모리가 끝없이 늘지 않게 한다.
 const PENDING_MAX = 200;
 
-type Entry = { request: HostRequest; borrowedAt: number | null };
+type Entry = {
+  request: HostRequest;
+  borrowedAt: number | null;
+  anywhere: boolean;
+};
 // 탭의 주인이다. 사람 token은 모두 같은 주인 "person"이다.
 export type TabOwner = Id<"ses"> | "person";
 type TabEntry = {
@@ -62,37 +68,42 @@ export type HostQueue = {
 
   // 탭 표에 올리고 tab_open 요청을 넣는다. 그 앱의 preview 탭이나 그 artifact의 탭이 이미 있으면 새로 만들지 않고 그 탭의 주인만 바꿔
   // 돌려준다(preview에 기기가 있으면 같은 탭 id로 tab_open을 다시 넣는다).
-  openTab(input: {
-    owner: TabOwner;
-    workspace: HostWorkspace;
-    target: HostTabTarget;
-    relation: TabRelation | null;
-    source: Id<"ses"> | null;
-    // target이 tui일 때 CLI를 다시 여는 값.
-    resume?: { harness: string; external_session: string };
-    // target이 coding일 때 handoff 글을 쓴 file이다. `tab`은 그 file 이름에 쓴 `newTabId()`다.
-    handoff?: { harness: string; file: string };
-    tab?: Id<"tab">;
-  }): Id<"tab">;
+  openTab(input: OpenInput): Id<"tab">;
+  // browser 탭을 열고 shell이 page를 만들었다고 done으로 답할 때까지 기다린다. OPEN_WAIT_MS 안에 답이 없으면 `expire()`가 거두고
+  // `unavailable`로 끝낸다. 탭은 표에 올라가 있으므로 실패하면 부른 쪽이 `close()`로 거둔다.
+  openAndWait(input: OpenInput): {
+    tab: Id<"tab">;
+    id: Id<"hrq">;
+    result: Promise<CallResult>;
+  };
   // 아직 쓰지 않은 탭 id다. file을 먼저 쓰고 `openTab({tab})`으로 여는 쪽이 받는다.
   newTabId(): Id<"tab">;
   // 기다리는 take가 있거나 마지막 take가 끝난 지 3초 안이다.
   attached(): boolean;
 };
 
+type OpenInput = {
+  owner: TabOwner;
+  workspace: HostWorkspace;
+  target: HostTabTarget;
+  relation: TabRelation | null;
+  source: Id<"ses"> | null;
+  // target이 tui일 때 CLI를 다시 여는 값.
+  resume?: { harness: string; external_session: string };
+  // target이 coding일 때 handoff 글을 쓴 file이다. `tab`은 그 file 이름에 쓴 `newTabId()`다.
+  handoff?: { harness: string; file: string };
+  tab?: Id<"tab">;
+};
+
 const sameWorkspace = (a: HostWorkspace, b: HostWorkspace) =>
   a.kind === b.kind && (a.kind === "home" || a.id === (b as typeof a).id);
 
-// tool_call·browser_call은 workspace를 가리지 않아 아무 shell main이 가져가고, 빌려 가면 done이 올 때까지 다시 내놓지 않는다.
+// 결과를 기다리는 요청이다. 빌려 가면 done이 올 때까지 다시 내놓지 않는다(두 번 실행하면 안 된다). tool_call·browser_call과,
+// browser 탭의 tab_open(page 만들기를 기다린다)이다.
 const isCall = (request: HostRequest) =>
-  request.kind === "tool_call" || request.kind === "browser_call";
-
-const reachable = (
-  request: HostRequest,
-  workspaces: readonly HostWorkspace[],
-) =>
-  isCall(request) ||
-  workspaces.some((workspace) => sameWorkspace(workspace, request.workspace));
+  request.kind === "tool_call" ||
+  request.kind === "browser_call" ||
+  (request.kind === "tab_open" && "browser" in request.payload.target);
 
 const unavailable = (message: string) =>
   err({ code: "unavailable" as const, message });
@@ -106,6 +117,11 @@ const NO_RESULT =
   "The lophn app returned no result for this call. Try once more; if it fails again, tell the person.";
 const TIMED_OUT =
   "The browser call timed out before the lophn app answered; the page may be busy or the app stuck. Try once more; if it times out again, tell the person.";
+export const OPEN_TIMED_OUT =
+  "The lophn app did not create the browser page in time, so the tab was not opened. Try `lophn tab open` once more; if it fails again, tell the person.";
+// 없는 탭, 닫힌 탭, 남의 탭에 같은 문장을 써서 남의 탭이 있는지 새지 않게 한다.
+const NO_SUCH_TAB =
+  "No such tab, or it was closed. Open the page again with `lophn tab open`, then use the new tab id.";
 
 export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
   const pending: Entry[] = [];
@@ -113,7 +129,12 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
   // 결과를 기다리는 tool_call·browser_call. deadline이 null이면 기한이 없다.
   const waiting = new Map<
     Id<"hrq">,
-    { resolve: (result: CallResult) => void; deadline: number | null }
+    {
+      resolve: (result: CallResult) => void;
+      deadline: number | null;
+      // 기한이 지났을 때 부른 쪽이 받는 문장.
+      timedOut: string;
+    }
   >();
   // 요청을 기다리며 걸려 있는 take.
   const takers = new Set<{
@@ -135,7 +156,13 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       (entry) =>
         (entry.borrowedAt === null ||
           (!isCall(entry.request) && now - entry.borrowedAt > BORROW_MS)) &&
-        reachable(entry.request, workspaces),
+        (entry.anywhere ||
+          workspaces.some((workspace) =>
+            sameWorkspace(
+              workspace,
+              (entry.request as { workspace: HostWorkspace }).workspace,
+            ),
+          )),
     );
     if (found === undefined) return null;
     found.borrowedAt = now;
@@ -145,9 +172,10 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
   function call(
     request: HostRequest,
     deadline: number | null,
+    timedOut = TIMED_OUT,
   ): { id: Id<"hrq">; result: Promise<CallResult> } {
     const result = new Promise<CallResult>((resolve) => {
-      waiting.set(request.id as Id<"hrq">, { resolve, deadline });
+      waiting.set(request.id as Id<"hrq">, { resolve, deadline, timedOut });
     });
     enqueue(request);
     return { id: request.id as Id<"hrq">, result };
@@ -164,8 +192,10 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     return lend(workspaces);
   }
 
-  function enqueue(request: HostRequest): void {
-    pending.push({ request, borrowedAt: null });
+  // 호출은 workspace를 가리지 않고 아무 take가 가져간다. browser 탭의 page는 그 workspace가 안 보여도 창 단위로 살아서
+  // 열기(isCall)와 닫기(close가 anywhere를 준다)도 그렇다.
+  function enqueue(request: HostRequest, anywhere = isCall(request)): void {
+    pending.push({ request, borrowedAt: null, anywhere });
     for (const taker of [...takers]) {
       const lent = lend(taker.workspaces);
       if (lent !== null) taker.finish(lent);
@@ -176,7 +206,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     }
   }
 
-  // 자기가 연 탭만 다룬다. 없는 탭과 남의 탭은 다르게 답한다(close·show: forbidden, read: not_found).
+  // 자기가 연 탭만 다룬다. 없는 탭과 남의 탭은 다르게 답한다(close·show: forbidden, read: 같은 not_found 문장).
   function owned(
     tab: Id<"tab">,
     caller: TabOwner,
@@ -184,7 +214,10 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
   ) {
     const entry = tabs.get(tab);
     if (entry === undefined) {
-      return err({ code: "not_found" as const, message: "tab not found" });
+      return err({
+        code: "not_found" as const,
+        message: missing === "read" ? NO_SUCH_TAB : "tab not found",
+      });
     }
     if (entry.owner !== caller) {
       return missing !== "read"
@@ -192,9 +225,103 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
             code: "forbidden" as const,
             message: `only the caller that opened the tab can ${missing} it`,
           })
-        : err({ code: "not_found" as const, message: "tab not found" });
+        : err({ code: "not_found" as const, message: NO_SUCH_TAB });
     }
     return ok(entry);
+  }
+
+  // 탭 표에 올리고 tab_open 요청을 넣는다. wait면 shell main이 page를 만들었다고 done으로 답할 때까지 기다리는 result를 같이 준다.
+  function place(
+    input: OpenInput,
+    wait: boolean,
+  ): {
+    tab: Id<"tab">;
+    sent: { id: Id<"hrq">; result: Promise<CallResult> } | null;
+  } {
+    const { target, workspace } = input;
+    const single =
+      "preview" in target
+        ? `preview:${target.preview.app}`
+        : "artifact" in target && workspace.kind !== "home"
+          ? `artifact:${workspace.kind}:${workspace.id}:${target.artifact.name}`
+          : null;
+    const open = (tab: Id<"tab">) => {
+      const request: HostRequest = {
+        id: deps.ids.newId("hrq") as Id<"hrq">,
+        kind: "tab_open",
+        workspace: input.workspace,
+        payload: {
+          tab,
+          target: input.target,
+          relation: input.relation,
+          source: input.source,
+          resume: input.resume ?? null,
+          handoff: input.handoff ?? null,
+        },
+      };
+      if (!wait) {
+        enqueue(request);
+        return null;
+      }
+      return call(request, deps.clock.nowMs() + OPEN_WAIT_MS, OPEN_TIMED_OUT);
+    };
+    if (single !== null) {
+      for (const [id, entry] of tabs) {
+        if (entry.single === single) {
+          entry.owner = input.owner;
+          // 이미 열린 탭에 기기를 주면 같은 탭에 기기를 다시 알린다(창이 그 탭의 기기만 바꾼다).
+          if (
+            "preview" in input.target &&
+            input.target.preview.device !== null
+          ) {
+            open(id);
+          }
+          return { tab: id, sent: null };
+        }
+      }
+    }
+    const tab = input.tab ?? (deps.ids.newId("tab") as Id<"tab">);
+    tabs.set(tab, {
+      owner: input.owner,
+      workspace: input.workspace,
+      kind:
+        "preview" in target
+          ? "preview"
+          : "artifact" in target
+            ? "artifact"
+            : "browser" in target
+              ? "browser"
+              : "agent",
+      single,
+      state: null,
+    });
+    return { tab, sent: open(tab) };
+  }
+
+  function done(
+    id: Id<"hrq">,
+    result: "done" | "retry",
+    output?: HostToolOutput,
+  ): void {
+    const at = pending.findIndex((entry) => entry.request.id === id);
+    if (at < 0) return;
+    const [entry] = pending.splice(at, 1);
+    // 못 여는 요청이 앞에서 뒤 요청을 막지 않게 retry는 맨 뒤로 보낸다.
+    if (result === "retry") {
+      entry!.borrowedAt = null;
+      pending.push(entry!);
+      return;
+    }
+    if (isCall(entry!.request)) {
+      settle(
+        id,
+        output === undefined
+          ? unavailable(NO_RESULT)
+          : "content" in output
+            ? ok(output.content)
+            : err(output.error),
+      );
+    }
   }
 
   return {
@@ -216,7 +343,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       const now = deps.clock.nowMs();
       for (const [id, found] of [...waiting]) {
         if (found.deadline !== null && found.deadline <= now) {
-          abandon(id, TIMED_OUT);
+          abandon(id, found.timedOut);
         }
       }
     },
@@ -226,7 +353,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       if (!found.ok) return found;
       const { kind } = found.value;
       return kind === "agent"
-        ? err({ code: "not_found" as const, message: "tab not found" })
+        ? err({ code: "not_found" as const, message: NO_SUCH_TAB })
         : ok({ view: kind });
     },
     attached: () =>
@@ -255,87 +382,13 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       for (const taker of [...takers]) taker.finish(null);
     },
     newTabId: () => deps.ids.newId("tab") as Id<"tab">,
-    openTab(input: Parameters<HostQueue["openTab"]>[0]) {
-      const { target, workspace } = input;
-      const single =
-        "preview" in target
-          ? `preview:${target.preview.app}`
-          : "artifact" in target && workspace.kind !== "home"
-            ? `artifact:${workspace.kind}:${workspace.id}:${target.artifact.name}`
-            : null;
-      const open = (tab: Id<"tab">) =>
-        enqueue({
-          id: deps.ids.newId("hrq") as Id<"hrq">,
-          kind: "tab_open",
-          workspace: input.workspace,
-          payload: {
-            tab,
-            target: input.target,
-            relation: input.relation,
-            source: input.source,
-            resume: input.resume ?? null,
-            handoff: input.handoff ?? null,
-          },
-        });
-      if (single !== null) {
-        for (const [id, entry] of tabs) {
-          if (entry.single === single) {
-            entry.owner = input.owner;
-            // 이미 열린 탭에 기기를 주면 같은 탭에 기기를 다시 알린다(창이 그 탭의 기기만 바꾼다).
-            if (
-              "preview" in input.target &&
-              input.target.preview.device !== null
-            ) {
-              open(id);
-            }
-            return id;
-          }
-        }
-      }
-      const tab = input.tab ?? (deps.ids.newId("tab") as Id<"tab">);
-      tabs.set(tab, {
-        owner: input.owner,
-        workspace: input.workspace,
-        kind:
-          "preview" in target
-            ? "preview"
-            : "artifact" in target
-              ? "artifact"
-              : "browser" in target
-                ? "browser"
-                : "agent",
-        single,
-        state: null,
-      });
-      open(tab);
-      return tab;
+    openTab: (input: OpenInput) => place(input, false).tab,
+    openAndWait(input: OpenInput) {
+      const placed = place(input, true);
+      return { tab: placed.tab, ...placed.sent! };
     },
     take,
-    done(
-      id: Id<"hrq">,
-      result: "done" | "retry",
-      output?: HostToolOutput,
-    ): void {
-      const at = pending.findIndex((entry) => entry.request.id === id);
-      if (at < 0) return;
-      const [entry] = pending.splice(at, 1);
-      // 못 여는 요청이 앞에서 뒤 요청을 막지 않게 retry는 맨 뒤로 보낸다.
-      if (result === "retry") {
-        entry!.borrowedAt = null;
-        pending.push(entry!);
-        return;
-      }
-      if (isCall(entry!.request)) {
-        settle(
-          id,
-          output === undefined
-            ? unavailable(NO_RESULT)
-            : "content" in output
-              ? ok(output.content)
-              : err(output.error),
-        );
-      }
-    },
+    done,
     // renderer가 host 탭의 상태나 닫힘을 알린다. 모르는 탭은 무시한다.
     report(tab: Id<"tab">, state: BrowserTabState | "closed"): void {
       if (state === "closed") tabs.delete(tab);
@@ -348,12 +401,16 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       const found = owned(tab, caller, "close");
       if (!found.ok) return found;
       tabs.delete(tab);
-      enqueue({
-        id: deps.ids.newId("hrq") as Id<"hrq">,
-        kind: "tab_close",
-        workspace: found.value.workspace,
-        payload: { tab },
-      });
+      enqueue(
+        {
+          id: deps.ids.newId("hrq") as Id<"hrq">,
+          kind: "tab_close",
+          workspace: found.value.workspace,
+          payload: { tab },
+        },
+        // browser 탭의 page는 그 workspace가 안 보여도 창 단위로 살아 있다.
+        found.value.kind === "browser",
+      );
       return ok(tab);
     },
     show(tab: Id<"tab">, caller: TabOwner): Result<Id<"tab">> {

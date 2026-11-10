@@ -102,6 +102,8 @@ interface Entry {
   downloading: boolean;
   /** agent가 다루는 중이다. 가려져도 그리기를 이어 가야 screenshot과 입력이 된다. */
   driven: boolean;
+  /** agent가 `tab open --url`로 연 browser 탭의 page(key `host:`)다. 탭 mount나 workspace와 상관없이 창이 사는 동안 살고 그린다. */
+  agent: boolean;
   /** 마지막으로 보인 때(host의 tick 값). 살려 둔 것이 넘칠 때 오래 안 본 것부터 놓는 기준이다. */
   shownAt: number;
 }
@@ -149,6 +151,8 @@ export interface WebviewHost {
   park(tabKeys: ReadonlySet<string>): string[];
   /** 마지막으로 보인 때. 없으면 0이다. */
   shownAt(key: string): number;
+  /** agent가 연 browser 탭의 page인가. */
+  isAgentPage(key: string): boolean;
   keys(): readonly string[];
   /** 그릇 요소. WebviewLayer가 붙인다. */
   attach(container: HTMLElement | null): void;
@@ -242,7 +246,11 @@ function audible(entry: Entry): boolean {
 
 function wantsKeep(entry: Entry): boolean {
   return (
-    entry.keepAlive || entry.userKeep || entry.downloading || audible(entry)
+    entry.agent ||
+    entry.keepAlive ||
+    entry.userKeep ||
+    entry.downloading ||
+    audible(entry)
   );
 }
 
@@ -268,7 +276,7 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       // 보이던 것이 가려지는 때가 마지막으로 본 때다.
       if (style.visibility === "visible") entry.shownAt = now();
       if (
-        entry.driven &&
+        (entry.driven || entry.agent) &&
         container !== null &&
         (entry.kind === "browser" || entry.loaded)
       ) {
@@ -451,8 +459,11 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       userKeep: false,
       downloading: false,
       driven: driven.has(key),
+      agent: kind === "browser" && key.startsWith("host:"),
       shownAt: 0,
     };
+    // 새 page는 가장 최근에 쓴 것으로 센다(상한을 넘으면 오래된 것부터 놓는다).
+    if (entry.agent) entry.shownAt = now();
     bind(entry, entry.element);
     if (kind === "browser") {
       entry.element.setAttribute("partition", PARTITION);
@@ -464,6 +475,8 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       entry.element.setAttribute("src", src);
     }
     container?.append(entry.element);
+    // agent의 page는 자리가 없어도 첫 load부터 그려야 한다.
+    if (entry.agent) apply(entry);
     return entry;
   }
 
@@ -607,6 +620,7 @@ export function createWebviewHost(tick?: () => number): WebviewHost {
       return parked;
     },
     shownAt: (key) => entries.get(key)?.shownAt ?? 0,
+    isAgentPage: (key) => entries.get(key)?.agent ?? false,
     keys: () => [...entries.keys()],
     attach(next) {
       container = next;

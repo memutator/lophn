@@ -1220,8 +1220,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
         updateAt(found.desk, (item) => restoreFloat(item, key));
       }
     },
-    browserApi,
-    keyOf: (session) => webviews.keyOf(session),
+    takePending: pool?.takePending,
   });
   useBridgeOpenRequests(terminal?.bridge ?? null, (request) =>
     terminal === undefined

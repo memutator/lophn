@@ -37,7 +37,7 @@ const read = defineCommand({
   summary: "Read the url, title and loading state of a browser tab you opened",
   description:
     "Read url, title and loading of a browser tab you opened with tab open --url. It returns only these three (no page content; use browser snapshot for that). " +
-    "not_found means the tab is not yours, is not a browser tab, or has not reported its state yet (the shell opens it only when it shows this workspace).",
+    "not_found means there is no such tab for you (it is not yours, or it was closed or dropped: open the page again with tab open --url), or it is not a browser tab, or it has not reported its state yet.",
   input: z.strictObject({ tab }),
   positional: ["tab"],
   effect: "read",

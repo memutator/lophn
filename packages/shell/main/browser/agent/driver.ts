@@ -509,9 +509,12 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
         ? undefined
         : pageOf(deps.lookup, view, viewSession);
     if (page === undefined || page.isDestroyed()) {
+      // browser 탭의 page는 창이 사는 동안 workspace와 상관없이 산다. 여기 오는 때는 page가 방금 사라진 틈(창이 닫힘, page가 죽음)이다.
       throw fail(
         "unavailable",
-        "The tab is not open in a window: no window is showing this tab's workspace right now. Retrying does not help until a person opens that workspace in lophn; tell the person.",
+        view === "browser"
+          ? "The browser page is gone: the lophn window that held it was closed or the page was destroyed. Open the page again with `lophn tab open --url`, then use the new tab id."
+          : "The tab is not open in a window: no window is showing this tab's workspace right now. Retrying does not help until a person opens that workspace in lophn; tell the person.",
       );
     }
     deps.control.touch(tab);

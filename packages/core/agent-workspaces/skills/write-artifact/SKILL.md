@@ -76,6 +76,42 @@ const months = await Promise.all(
 );
 ```
 
+## Keeping it current
+
+The page cannot fetch anything new by itself. It shows what is in `data/` until
+someone writes there again. Opening the tab does not refresh it. Before you
+write the page, decide how its data gets old and pick one of these. Write the
+choice in your answer to the person, in one sentence.
+
+1. **Snapshot.** The answer to one question at one moment: a review, a
+   comparison, a plan. Write the data once. No refresh.
+2. **Refresh on request.** The data comes from something that keeps changing
+   (a repository, a folder, an app's records), and the person looks at it now
+   and then. This is the default for changing data.
+   - Put the collecting step in the folder as a script (`collect.py`,
+     `collect.mjs`) that writes `data/`. Refreshing is then running that one
+     script again, the same way every time, not redoing the work by hand.
+   - Record when the data was collected in the data, and show it in the tab
+     head `status` (for example "As of Nov 6, 14:00"), so the person sees how
+     old it is.
+   - Tell the person: "Ask me to refresh it." When they do, run the script.
+3. **Scheduled.** The person expects it current whenever they look, at a known
+   rhythm: every morning, every Monday.
+   - Do everything in 2, then propose a job with `lophn job create` (see
+     `--help`) that asks an agent in this project to run the script. Give the
+     script's absolute path in the job's message. The person approves the job
+     once before it runs.
+   - Every run is a model call. Match the rhythm to how often the person looks;
+     not more often than daily unless they ask.
+   - When the history matters (trends, "since last week"), write each run as a
+     new file in `data/` (series) instead of overwriting.
+4. **Live.** It must be current at the moment it is opened, refresh in seconds,
+   or let the person change things. That is an app, not an artifact. Tell the
+   person, and suggest building it as an app in that app's conversation.
+
+Do not let the page look fresher than it is: no "today", "now" or clock time
+computed in the page for data that was collected earlier.
+
 ## Title and description
 
 Always write `<title>` and `<meta name="description" content="...">` in

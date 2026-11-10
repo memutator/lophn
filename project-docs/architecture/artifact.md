@@ -121,3 +121,4 @@ agent의 결과가 사람에게 가는 길이 대화 글, 파일, 앱 화면뿐�
 - artifact 탭의 page는 workspace를 떠나면 놓인다. 머리 줄 통로는 생겼지만 살려 두기 신호는 열지 않았다.
 - sidebar Artifacts 목록은 project에만 있다. 앱의 artifact는 대화 link로만 연다.
 - sidebar 목록은 탭이 그려질 때 한 번 읽고 폴더 변경을 따라가지 않는다(다시 보일 때 읽는다).
+- 탭을 열 때 data를 새로 고치는 길은 없다. page는 `data/`에 쓰인 것만 보이고, 새로 쓰는 것은 agent(사람의 요청이나 job)다. agent는 snapshot, 요청 때 새로 고침(폴더 안 수집 script), job, 앱 넷 가운데 고른다(skill `write-artifact` "Keeping it current"). artifact가 새로 고침 명령을 적어 두고 lophn이 열 때 돌리는 안은 AI가 쓴 코드를 agent 없이 돌리는 새 길이라 정하지 않았다.

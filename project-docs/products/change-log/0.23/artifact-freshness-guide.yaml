@@ -1,0 +1,13 @@
+id: artifact-freshness-guide
+version: 0.23.15
+title: artifact를 쓰는 agent가 data를 어떻게 새로 둘지 고른다
+modules: [packages/core/agent-workspaces]
+change: |
+  - 내장 skill `write-artifact`에 "Keeping it current" 절을 더했다. agent는 page를 쓰기 전에 snapshot, 요청 때 새로 고침, job, 앱 넷 가운데 하나를 고르고 사람에게 한 문장으로 말한다.
+  - 바뀌는 data는 폴더 안 수집 script로 모으고, 모은 시각을 탭 머리 줄 status에 보인다. 정해진 주기로 봐야 하면 그 script를 돌리는 job을 제안한다(사람 승인, 하루보다 잦게 잡지 않는다). 열 때마다 최신이어야 하면 앱을 권한다.
+why: |
+  git 활동 artifact처럼 바뀌는 data를 담은 page가 언제 모았는지 보이지 않은 채 옛 data로 남았다. agent가 새로 두는 길을 고르라는 지침이 없었다.
+decisions:
+  - text: >-
+      열 때 새로 고침은 만들지 않고 지침으로 넷 가운데 고르게 한다. artifact가 명령을 적고 lophn이 열 때 돌리는 안은 AI가 쓴 코드를 agent 없이 돌리는 새 길이라 따로 정한다.
+    by: agent

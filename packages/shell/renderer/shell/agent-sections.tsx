@@ -8,9 +8,10 @@ import type { ReactNode } from "react";
 
 import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
 import type { HarnessId } from "../../../protocol/coding-agent/harness-id.ts";
+import { isCodingBuiltin } from "../../../protocol/lophn-agent/workspaces.ts";
 import {
-  AgentFaceIcon,
   type AgentChoice,
+  AgentFaceIcon,
 } from "../parts/agent-session/agent-session.tsx";
 import { codingFace } from "../parts/agent-session/coding.ts";
 import type { SidebarAgent } from "../workspace/sidebar/sidebar-agent.ts";
@@ -68,18 +69,23 @@ export function handoffCommand(
   ].join(" ");
 }
 
-/** 고를 수 있는 agent: lophn agent 먼저, 그 뒤에 즐겨찾기 coding agent. */
+/**
+ * 고를 수 있는 agent: lophn agent 먼저, 그 뒤에 즐겨찾기 coding agent.
+ * 내장 coding agent(`coding_<harness>`)는 lophn이 부르는 headless 주소라 뺀다. 사람은 아래 Coding agents 줄로 같은 CLI를 TUI로 연다.
+ */
 export function agentChoices(
   agents: readonly SidebarAgent[],
   favorites: readonly HarnessId[],
 ): AgentChoice[] {
   return [
-    ...agents.map((agent) => ({
-      kind: "lophn" as const,
-      id: agent.assignment,
-      name: agent.name,
-      face: { kind: "lophn" as const, profile: agent.profile },
-    })),
+    ...agents
+      .filter((agent) => !isCodingBuiltin(agent.assignment))
+      .map((agent) => ({
+        kind: "lophn" as const,
+        id: agent.assignment,
+        name: agent.name,
+        face: { kind: "lophn" as const, profile: agent.profile },
+      })),
     ...favorites.map((id) => ({
       kind: "coding" as const,
       id,

@@ -6,7 +6,7 @@ checked: []
 change: |
   전: agent가 Claude Code 같은 coding agent를 부르려면 사람이 `runtime: claude-code` 정의를 만들어야 했고, 없으면 `agent.card`가 "tool target is not available"만 돌려줘 agent가 handle을 추측하다 멈췄다. coding agent를 사람이 이어서 쓰는 TUI로 넘기는 길은 없었다(`tab open --tui`는 첫 headless turn이 끝난 harness session만). headless Claude Code는 `--permission-mode acceptEdits`로 `lophn` 밖 Bash를 못 돌렸고 Codex는 `-s workspace-write`로 떴다. 왼쪽 sidebar에는 Agents 탭 입구가 없었다.
   후:
-  - 즐겨찾기(`shell.coding_agents.favorites`) 가운데 headless runtime이 있는 Claude Code·Codex·OpenCode는 정의 없이 전역 내장 agent(id `coding_<harness>`, handle `claude`·`codex`·`opencode`)다. harness extension이 켜졌을 때만 보인다. 세 handle은 예약이고, 내장 agent는 지우지 못하고 handle·runtime·범위가 잠긴다.
+  - 즐겨찾기(`shell.coding_agents.favorites`) 가운데 headless runtime이 있는 Claude Code·Codex·OpenCode는 정의 없이 전역 내장 agent(id `coding_<harness>`, handle `claude`·`codex`·`opencode`)다. harness extension이 켜졌을 때만 보인다. 사람의 새 session 메뉴(lophn agents 묶음)에는 넣지 않는다. 세 handle은 예약이고, 내장 agent는 지우지 못하고 handle·runtime·범위가 잠긴다.
   - `lophn tab open --coding <harness> --handoff <글>`: project의 새 터미널 탭에 사람의 즐겨찾기 명령으로 그 coding agent TUI를 띄우고 handoff를 첫 prompt로 준다. 글은 `<data root>/handoffs/<tab>.md`에 쓰고 터미널에는 고정 글과 경로만 친다. 즐겨찾기 가운데 첫 prompt 인자를 아는 claude·codex·opencode·omp가 된다.
   - project prompt, 내장 skill `lophn-agent`, `tab`·`team`·`call` help: 사람이 이어서 만질 handoff는 TUI, 결과만 받으면 되는 일회성 일은 `team spawn`으로 headless.
   - headless harness의 permission mode·sandbox는 사람의 CLI 설정대로다. `Bash(lophn *)` 허락, Codex `network_access=true`, 정의 deny는 남는다.

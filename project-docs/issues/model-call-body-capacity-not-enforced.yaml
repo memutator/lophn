@@ -1,0 +1,19 @@
+id: model-call-body-capacity-not-enforced
+title: model call 본문 blob의 용량 상한(512MB)이 참조된 blob에 걸리지 않아 끝없이 쌓인다
+kind: bug
+status: open
+topic: code-health
+modules: [packages/core/storage, packages/core/lophn-agent]
+now: |
+  `packages/core/lophn-agent/usage/commands.ts`의 `modelCallBodyFields`가 `model_call`의 `input`·`context_basis`·`output`을 retention `capacity`(category `model_call_body`)로 등록하고, `packages/core/storage/blobs/gc.ts`의 `BLOB_CAPACITY_MAX_BYTES`가 그 상한을 512MB로 둔다.
+  그런데 `packages/core/storage/blobs/worker/gc.ts`의 `trimCapacity`는 정리 후보를 `unreferencedGracePassed`로 거른다. 미참조로 기록되고 유예(7일)가 지난 blob만 후보다. 그런 blob은 `collectGarbage`가 어차피 지우므로 상한은 아무것도 지우지 않는다. `model_calls` 행이 참조하는 본문은 늘 참조 중이라 상한과 상관없이 남는다.
+  `input`은 호출마다 그때 보낸 context 전체(사람 data에서 중앙값 140KB, 큰 것 1.5MB)라 호출 수 × context 크기로 자란다. 사람의 data root에서 12일에 3,405번 호출, 참조된 `model_call` 본문이 710MB로 이미 상한을 넘었고 하루 16~227MB씩 늘었다.
+  지금 이 본문 byte를 읽는 길은 없다. `run-loop/turn-body-reads.ts`의 `SOURCES`에 `model_call_output`만 있고 `input`·`context_basis`는 없다. trace read(`observability/reads.ts`)는 hash 참조만 본다.
+impact: |
+  사람의 디스크가 agent를 쓰는 만큼 끝없이 찬다(지금 속도로 한 달 2GB 안팎). 상한 값과 retention `capacity` 표시가 지켜지는 것처럼 보여 아무도 모른다. 아무도 읽지 않는 byte라 남겨서 얻는 것도 지금은 없다.
+fix: |
+  1. (추천, 중간) `trimCapacity`가 `capacity` category의 참조된 blob도 등록이 오래된 것부터 상한까지 지우게 한다. 지운 본문의 참조를 어떻게 남길지(참조 행을 지우거나 "본문 없음"으로 표시) 정하고, 본문을 읽는 `model_call_output` 읽기는 없으면 지금처럼 `unavailable`이다. 정리가 core 정지 때만 돌아 오래 켜 둔 core에서는 늦는 것도 같이 본다.
+  2. (작음) `input`·`context_basis`를 아예 저장하지 않는다. 읽는 길이 없으니 잃는 화면은 없지만 나중에 디버깅으로 "그때 model이 무엇을 받았나"를 다시 볼 수 없다.
+  3. (큼) `input`을 호출마다 전체가 아니라 이전 호출과의 차이로 저장한다. 공간은 가장 적지만 저장과 읽기 모양이 바뀐다.
+decide: |
+  지난 model call의 입력 원문(그때 보낸 context 전체)을 얼마나 남길까. 추천은 1(512MB 안에서 오래된 것부터 지움). 잃는 것: 오래된 호출의 원문을 다시 볼 수 없다. 2는 더 단순하지만 최근 호출의 원문도 남지 않는다.

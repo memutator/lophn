@@ -1,0 +1,16 @@
+id: blob-metadata-left-after-gc
+title: GC가 blob을 지워도 목적 기록과 미참조 표지 file이 남아 쌓인다
+kind: defect
+status: open
+topic: code-health
+modules: [packages/core/storage]
+now: |
+  blob 하나마다 작은 file이 둘 따라 생긴다. 준비 때 `packages/core/storage/blobs/worker/pipe.ts`가 목적 기록 `blobs/purposes/<2자>/<62자>`(`purposesPathFor`)를 쓰고, 미참조를 확인하면 `worker/maintenance.ts`의 `recordUnreferenced`가 `blobs/unreferenced/<2자>/<62자>.json`을 쓴다.
+  GC의 실제 삭제 `maintenanceObservation`의 `removeBlob`은 `objectPathFor`의 본문 file만 지운다. 목적 기록은 지우는 곳이 없고, 미참조 표지는 다시 참조될 때(`forgetUnreferenced`)만 지운다.
+  사람의 data root에서 본문 25,046개에 목적 기록 25,279개, 본문이 없는 미참조 표지가 233개였다. 지금 유예 중인 미참조 blob 5,435개가 지워지면 그만큼 고아 file이 둘씩 더 남는다.
+impact: |
+  file 하나가 4KB 블록을 먹어 blob 하나를 지울 때마다 8KB가 남는다. 사람 data에서 일주일에 blob 5천여 개가 지워져 일주일 40MB쯤씩 영원히 쌓이고, 폴더의 file 수도 같이 늘어 GC 목록 읽기가 느려진다.
+fix: |
+  (추천, 작음) `removeBlob`이 본문을 지운 뒤 같은 hash의 목적 기록과 미참조 표지도 지운다(없으면 넘어간다). 이미 남은 고아는 정지 유지보수가 본문 없는 기록을 한 번 쓸어 지운다.
+decided: |
+  줄인다. 지우는 비용이 작고 잃는 것이 없다(본문이 없는 hash의 기록은 아무도 읽지 않는다).

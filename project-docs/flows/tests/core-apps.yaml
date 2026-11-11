@@ -112,6 +112,10 @@ files:
     covers: []
     note: "봉인 표지가 있는 사본은 준비가 지우지 않고, 표지 없는 끊긴 사본은 지움(읽기 전용 사본 포함). release-prepare 내부 함수라 covers 밖"
 
+  - path: packages/core/apps/releases/bundle/share_test.ts
+    covers: []
+    note: "봉인한 사본끼리 같은 내용의 file이 store와 hardlink로 나눠 쓰이고, 표지 없는 사본을 지워도 다른 사본의 file이 0444·같은 byte로 남으며, store 쓸기는 아무 사본도 안 쓰는 file만 지움. 봉인 내부 함수라 covers 밖"
+
   - path: packages/core/apps/releases/commands_test.ts
     covers: [activation-start:started, activation-fail:failed]
     note: "activation 시작 뒤 실패 보고를 두 번 보내도 release_failed 줄은 하나만 남음(응답을 잃은 재전송)"

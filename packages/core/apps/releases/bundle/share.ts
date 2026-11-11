@@ -1,9 +1,19 @@
 // 봉인된 bundle 사본의 file을 내용 hash로 store 한 곳(`<data>/bundle-files/<sha256>`)과 hardlink로 나눠 쓴다.
 // release마다 `node_modules`를 통째로 담아 같은 byte가 release 수만큼 쌓이기 때문이다. 봉인된 file은 0444라 고쳐지지
 // 않으니 inode를 같이 써도 한 사본이 다른 사본을 바꾸지 못한다.
+// Windows는 읽기 전용 속성이 link끼리 같이 붙고, 읽기 전용 file을 지우면 Node가 속성을 풀어 다른 사본의 것도 풀린다.
+// 그래서 사본을 지운 쪽 뒤에 `sweepBundleFiles`가 남은 store file을 다시 0444로 잠근다.
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { link, lstat, mkdir, readdir, rename, rm } from "node:fs/promises";
+import {
+  chmod,
+  link,
+  lstat,
+  mkdir,
+  readdir,
+  rename,
+  rm,
+} from "node:fs/promises";
 
 async function hashFile(path: string): Promise<string> {
   const hash = createHash("sha256");
@@ -27,6 +37,8 @@ async function shareFile(path: string, store: string): Promise<void> {
   try {
     await rm(temp, { force: true });
     await link(stored, temp);
+    // Windows는 읽기 전용 file 위로 rename하지 못한다. 이 file은 아직 link가 하나라 풀어도 다른 사본에 닿지 않는다.
+    await chmod(path, 0o644);
     // rename은 원자적이라 도중에 꺼져도 file은 옛 byte나 같은 byte의 link 중 하나다.
     await rename(temp, path);
   } catch {
@@ -61,7 +73,8 @@ export async function shareCopyFiles(
   await Promise.all(Array.from({ length: 16 }, lane));
 }
 
-// 어느 사본도 쓰지 않는(link가 store 하나뿐인) file을 지운다. 앱을 지운 뒤 부른다.
+// 어느 사본도 쓰지 않는(link가 store 하나뿐인) file을 지우고, 남은 file이 쓸 수 있게 풀려 있으면 다시 0444로 잠근다.
+// 사본을 지울 수 있는 일(봉인 앞의 끊긴 사본 지우기, 앱 지우기) 뒤에 부른다.
 export async function sweepBundleFiles(store: string): Promise<void> {
   let names: string[];
   try {
@@ -72,8 +85,11 @@ export async function sweepBundleFiles(store: string): Promise<void> {
   for (const name of names) {
     const path = `${store}/${name}`;
     const info = await lstat(path).catch(() => null);
-    if (info?.isFile() && info.nlink === 1) {
+    if (!info?.isFile()) continue;
+    if (info.nlink === 1) {
       await rm(path, { force: true }).catch(() => undefined);
+    } else if ((info.mode & 0o222) !== 0) {
+      await chmod(path, 0o444).catch(() => undefined);
     }
   }
 }

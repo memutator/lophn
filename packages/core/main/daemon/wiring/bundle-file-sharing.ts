@@ -6,7 +6,10 @@ import process from "node:process";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { bundleFileStore } from "../../../../protocol/apps/app-storage.ts";
 import { isSealed, narrowTree } from "../../../apps/releases/bundle/seal.ts";
-import { shareCopyFiles } from "../../../apps/releases/bundle/share.ts";
+import {
+  shareCopyFiles,
+  sweepBundleFiles,
+} from "../../../apps/releases/bundle/share.ts";
 import type { DataStep } from "../../../storage/migration/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
@@ -27,36 +30,51 @@ async function openDirectories(directory: string): Promise<void> {
   }
 }
 
+async function shareSealedCopies(root: string): Promise<Result<void>> {
+  const store = bundleFileStore(root);
+  try {
+    for (const app of await directoriesIn(`${root}/apps`)) {
+      const folder = `${root}/apps/${app}/bundles`;
+      for (const name of await directoriesIn(folder)) {
+        const copy = `${folder}/${name}`;
+        if (!(await isSealed(copy))) continue;
+        await openDirectories(copy);
+        try {
+          await shareCopyFiles(copy, store);
+        } finally {
+          await narrowTree(copy);
+        }
+      }
+    }
+    await sweepBundleFiles(store);
+    return ok(undefined);
+  } catch {
+    return err({
+      code: "unavailable",
+      message: "the bundle copies could not share their files",
+    });
+  }
+}
+
+// 처음에는 Windows를 빼고 냈다. 그 판을 거친 Windows data root는 이 step을 적용한 것으로 적어 두었으므로
+// Windows는 아래 step이 따로 옮긴다.
 export const bundleFileSharingStep: DataStep = {
   id: "apps.bundle-file-sharing",
   async run(root): Promise<Result<void>> {
-    // seal.ts의 sealCopy와 같은 이유로 Windows는 나눠 쓰지 않는다.
     if (process.platform === "win32") return ok(undefined);
-    try {
-      for (const app of await directoriesIn(`${root}/apps`)) {
-        const folder = `${root}/apps/${app}/bundles`;
-        for (const name of await directoriesIn(folder)) {
-          const copy = `${folder}/${name}`;
-          if (!(await isSealed(copy))) continue;
-          await openDirectories(copy);
-          try {
-            await shareCopyFiles(copy, bundleFileStore(root));
-          } finally {
-            await narrowTree(copy);
-          }
-        }
-      }
-      return ok(undefined);
-    } catch {
-      return err({
-        code: "unavailable",
-        message: "the bundle copies could not share their files",
-      });
-    }
+    return await shareSealedCopies(root);
+  },
+};
+
+export const bundleFileSharingWindowsStep: DataStep = {
+  id: "apps.bundle-file-sharing-win32",
+  async run(root): Promise<Result<void>> {
+    if (process.platform !== "win32") return ok(undefined);
+    return await shareSealedCopies(root);
   },
 };
 
 export const bundleFileSharingWiring: WiringFactory = () => ({
   name: "bundle-file-sharing",
-  dataSteps: [bundleFileSharingStep],
+  dataSteps: [bundleFileSharingStep, bundleFileSharingWindowsStep],
 });

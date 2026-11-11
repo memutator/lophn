@@ -1,0 +1,21 @@
+id: bundle-file-sharing-windows
+version: 0.23.36
+title: Windows에서도 봉인된 앱 bundle 사본이 같은 file을 hardlink로 나눠 쓴다
+modules: [packages/core/apps, packages/core/main]
+change: |
+  전: bundle file 나눠 쓰기(`bundle-file-sharing`)가 Windows에서는 꺼져 있어 release마다 `node_modules`가 통째로 쌓였다.
+  후:
+  - Windows도 봉인 때 store와 hardlink로 잇는다. 사본 쪽 file을 store의 것으로 바꾸기 전에 그 file의 읽기 전용을 푼다(Windows는 읽기 전용 file 위로 rename하지 못한다. 아직 link가 하나라 다른 사본에 닿지 않는다).
+  - store 쓸기(`sweepBundleFiles`)가 아무도 안 쓰는 file을 지우면서, 남은 file이 쓸 수 있게 풀려 있으면 0444로 다시 잠근다. 봉인할 때마다(나눠 쓴 뒤), 앱을 지운 뒤, data step 끝에 돈다. Windows에서 끊긴 사본이나 앱을 지우면 Node가 나눠 쓰는 file의 읽기 전용을 풀기 때문이다. 봉인 때 쓸기는 끊긴 봉인이 남긴 아무도 안 쓰는 file도 지운다(POSIX도).
+  - data step `apps.bundle-file-sharing-win32`가 Windows data root의 봉인된 사본을 옮긴다. 기존 `apps.bundle-file-sharing`은 그대로 Windows에서 아무것도 하지 않는다.
+why: |
+  사람이 Windows는 어떻게 하냐고 물었고 Windows도 고치라고 했다. Windows만 빼 두면 그 사람의 data root만 release마다 100MB 넘게 쌓인다.
+decisions:
+  - text: |
+      Windows의 읽기 전용이 지우기 때 풀리는 것은 막지 않고 store 쓸기로 다시 잠근다. Windows의 봉인 판정은 표지 file이고 폴더에 쓰기 bit가 없어 읽기 전용은 실수를 막는 정도라, 지우기와 다음 쓸기 사이의 틈을 받아들였다. 버린 길: `node_modules` junction 공유(덜 아끼고 module 경로 규칙을 고쳐야 한다), ReFS block clone(일반 NTFS에 없다).
+    by: agent
+  - text: |
+      0.23.36의 data step을 고치지 않고 Windows 전용 step을 새 id로 더했다. 0.23.36을 거친 Windows data root는 앞 step을 적용한 것으로 적어 두어, 고친 step이 다시 돌지 않는다.
+    by: agent
+checklist:
+  - "Windows: WINDOWS-CHECKLIST.md의 \"bundle file 나눠 쓰기\" 절을 실기에서 확인한다"

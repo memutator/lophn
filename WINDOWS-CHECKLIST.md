@@ -217,3 +217,33 @@ PowerShell 버전: 7.6.9, 5.1.26100.9711
 - [ ] lead가 Windows 실기 결과를 review했다.
 
 현재 판정: **hook·PowerShell 시작 층·`claude gui`·`$BROWSER` 중계와 fallback·bridge 실패 격리는 Windows(PowerShell 5.1·7)에서 통과한다. `$BROWSER`는 확인 중 `.cmd`에서 exe launcher로 바꿨다. 한글 설치 경로의 CLI는 미확인이다.**
+
+# bundle file 나눠 쓰기 Windows 수동 확인
+
+## 상태와 범위
+
+- 상태: **Windows 실기 미확인**. Linux test와 check만 통과했다. 통과로 쓰지 않는다.
+- 확인 대상: change-log `bundle-file-sharing`·`bundle-file-sharing-windows`(0.23.36 이후 판)의 `npm run dev`.
+- 무엇: 봉인된 앱 bundle 사본의 file이 `<data>\bundle-files\<sha256>`과 hardlink로 이어지고, 사본을 지운 뒤에도 남은 사본의 file이 읽기 전용으로 남는지.
+- 개발용 data root(`.dev-data`)만 쓴다. 사람의 `%USERPROFILE%\.lophn`을 바꾸지 않는다. 실제 provider를 부르지 않는다.
+
+## 확인표
+
+- [ ] B01 옛 data root 옮기기: 0.23.35 이하로 release를 둘 이상 낸 `.dev-data`를 새 판으로 띄운다. dev log에 data step `apps.bundle-file-sharing-win32` 오류가 없고, `.dev-data\data-migrations.json`에 그 id가 있다.
+- [ ] B02 link가 이어졌다: 두 release의 bundle에서 같은 의존 file 하나를 골라 `fsutil hardlink list <bundle>\node_modules\react\index.js`가 두 bundle과 `bundle-files\<sha256>`을 함께 보인다(관리자 PowerShell이 필요할 수 있다).
+- [ ] B03 용량: 옮기기 전후로 `.dev-data\apps`와 `.dev-data\bundle-files`를 합친 크기가 release 수만큼 늘지 않는다(Explorer 속성은 hardlink를 두 번 센다. `fsutil volume diskfree`로 전후 빈 공간을 비교한다).
+- [ ] B04 새 release: 앱 하나를 고쳐 release를 새로 준비하고 activation한다. 앱이 정상으로 뜨고, 새 bundle의 `node_modules` file도 B02처럼 이어진다.
+- [ ] B05 읽기 전용 유지: B04 뒤 지난 bundle의 이어진 file에 `attrib <file>`이 `R`을 보인다.
+- [ ] B06 앱 지우기: 같은 의존을 쓰는 앱이 둘 이상일 때 하나를 지운다. 남은 앱이 뜨고, 그 앱 bundle의 이어진 file이 `attrib`에서 `R`이고, 지운 앱만 쓰던 `bundle-files` file은 없어졌다.
+- [ ] B07 끊긴 준비: release 준비 도중(봉인 전) core를 끄고 다시 띄워 같은 commit으로 다시 준비한다. 준비가 성공하고 B05가 그대로다.
+- [ ] B08 이전 release로 돌아가기: data schema가 같은 지난 release로 돌아간다. 앱이 그 release의 화면으로 뜬다.
+
+## 결과 기록
+
+```text
+ID:
+결과: 통과 | 실패 | 미확인
+재현 절차·명령:
+실제 결과:
+환경 제약·후속 조치:
+```

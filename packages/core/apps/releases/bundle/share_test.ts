@@ -35,9 +35,7 @@ async function removeTree(path: string): Promise<void> {
 }
 
 // 봉인된 사본끼리 inode를 같이 쓴다. 틀리면 한 release의 file이 다른 release를 바꾸거나, 지우기가 다른 사본을 망친다.
-test("봉인한 사본은 같은 내용의 file을 store와 나눠 쓰고, 다른 사본을 지우거나 store를 쓸어도 byte와 읽기 전용이 남는다", {
-  skip: process.platform === "win32",
-}, async () => {
+test("봉인한 사본은 같은 내용의 file을 store와 나눠 쓰고, 다른 사본을 지우거나 store를 쓸어도 byte와 읽기 전용이 남는다", async () => {
   const work = await mkdtemp(join(tmpdir(), "lophn-share-"));
   const store = join(work, "store");
   try {
@@ -63,6 +61,10 @@ test("봉인한 사본은 같은 내용의 file을 store와 나눠 쓰고, 다�
       ok: true,
       value: true,
     });
+    // Windows는 지우며 나눠 쓰는 file의 읽기 전용이 풀린다. 다음 봉인이 store를 쓸며 다시 잠근다.
+    const third = join(work, "third");
+    await write(third, { "main.js": "three" });
+    assert.ok((await sealCopy(third, store)).ok);
     const after = await stat(`${first}/node_modules/a.js`);
     assert.equal(after.mode & 0o777, 0o444);
     assert.equal(await readFile(`${first}/node_modules/a.js`, "utf8"), "same");

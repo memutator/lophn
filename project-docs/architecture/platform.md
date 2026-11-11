@@ -62,7 +62,7 @@ OS마다 다른 순수 규칙은 base의 OS 층 한 곳에 있다. base는 node 
 
 - **data root.** 기본은 home 아래 `.lophn`(Windows `%USERPROFILE%\.lophn`)이다. POSIX는 소유 uid와 mode(group·other 권한 없음)를 보고 아니면 기동을 거절한다. Windows는 mode·uid가 없어 보지 않고 user profile ACL을 믿는다. `secrets.json`도 같은 file이고 Windows는 0600 검사를 하지 않는다.
 - **봉인.** 앱 bundle 사본(`apps/<app>/bundles/<hash>/`)은 file 0444·폴더 0555로 좁힌 뒤 옆에 빈 표지 `<사본>.sealed`를 쓴다. 봉인 판정은 표지가 있는가 하나다(Windows 폴더에는 쓰기 bit가 없다). 표지 없는 사본은 끊긴 준비가 남긴 것이라 쓰기 권한을 돌려준 뒤 지우고 다시 쓰고, 못 지우면 준비가 실패한다. 옛 data root는 data step `apps.sealed-marker`가 쓰기 bit 없는 사본에 표지를 써서 옮긴다.
-- **bundle file 나눠 쓰기.** POSIX에서 봉인은 좁히기 전에 사본의 file을 내용 sha256으로 `<data>/bundle-files/<sha256>`과 hardlink로 잇는다. release마다 `node_modules`를 통째로 담아도 같은 byte는 디스크에 한 번만 있고, 앱 사이에도 나눠 쓴다. 0444 file이라 한 사본이 다른 사본을 바꾸지 못한다. 나눠 쓰지 못한 file(다른 fs, link 수 한도)은 사본 그대로 둔다. 표지 없는 사본을 지울 때 hardlink인 file의 mode는 건드리지 않는다(mode가 inode에 붙어 다른 사본까지 풀린다). 앱을 지우면 어느 사본도 쓰지 않는 store file을 쓸어 낸다. 옛 data root는 data step `apps.bundle-file-sharing`이 봉인된 사본의 폴더를 잠시 열어 옮긴다. Windows는 나눠 쓰지 않는다.
+- **bundle file 나눠 쓰기.** 봉인은 좁히기 전에 사본의 file을 내용 sha256으로 `<data>/bundle-files/<sha256>`과 hardlink로 잇는다. release마다 `node_modules`를 통째로 담아도 같은 byte는 디스크에 한 번만 있고, 앱 사이에도 나눠 쓴다. 0444 file이라 한 사본이 다른 사본을 바꾸지 못한다. 나눠 쓰지 못한 file(다른 fs, link 수 한도)은 사본 그대로 둔다. 표지 없는 사본을 지울 때 hardlink인 file의 mode는 건드리지 않는다(mode가 inode에 붙어 다른 사본까지 풀린다). Windows는 읽기 전용 속성이 link끼리 같이 붙어, 읽기 전용 file을 지울 때 Node가 속성을 풀면 다른 사본의 것도 풀린다. 그래서 store 쓸기가 아무도 안 쓰는 file을 지우면서 남은 file이 풀려 있으면 다시 0444로 잠그고, 사본이 지워질 수 있는 일(봉인, 앱 지우기, data step) 뒤마다 돈다. 지우기부터 다음 쓸기까지 그 file은 쓸 수 있는 채다. NTFS의 link 수 한도(1023)에 닿은 file은 사본 그대로 둔다. 옛 data root는 data step `apps.bundle-file-sharing`(POSIX)·`apps.bundle-file-sharing-win32`(Windows)가 봉인된 사본의 폴더를 잠시 열어 옮긴다.
 - **연결.** bundle과 flow host의 directory 연결은 Windows에서 junction(권한이 필요 없다), 그 밖은 symlink다. file 연결은 모든 OS에서 symlink다.
 - **권한 path 비교.** `relative`로 보고, Windows와 macOS는 대소문자를 가리지 않는다(file system 기본이 그렇다).
 
@@ -137,7 +137,7 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 - **환경 이름.** `LOPHN_GIT_BASH`(Windows Git Bash 경로), `LOPHN_CLI`(개발 실행의 CLI launcher), `LOPHN_DAEMON_URL`, `LOPHN_LAUNCH_SHELL`(`1`이면 그 core가 browser가 필요할 때 앱을 띄울 수 있다. shell과 CLI의 core 시작이 준다).
 - **install 계약.** 설치 root 아래 `platform/`, `extensions/`, `desktop/`, `skills/`, 그리고 `bin/`의 CLI launcher.
 - **data step** `apps.sealed-marker`: 옛 data root의 봉인 사본에 표지를 쓴다. 두 번 돌아도 같고 새 data root는 처음부터 적용한 것으로 친다.
-- **data step** `apps.bundle-file-sharing`: 옛 data root의 봉인 사본 file을 store와 hardlink로 잇는다. 이미 이어진 file은 건너뛰어 두 번 돌아도 같다. win32에서는 아무것도 하지 않는다.
+- **data step** `apps.bundle-file-sharing`·`apps.bundle-file-sharing-win32`: 옛 data root의 봉인 사본 file을 store와 hardlink로 잇는다. 이미 이어진 file은 건너뛰어 두 번 돌아도 같다. 앞의 것은 win32가 아닐 때만, 뒤의 것은 win32일 때만 돈다. 앞의 것을 Windows를 빼고 먼저 내서, 그 판을 거친 Windows data root도 옮기려고 둘로 나눴다.
 
 ## 결정
 
@@ -146,7 +146,8 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 - process group은 POSIX `kill(-pid)`, Windows `taskkill /T`다. 버린 안: Job Object. native addon이라서. (agent)
 - Windows data root는 user profile ACL을 믿는다. keychain·DPAPI는 하지 않는다. 이유: Claude Code·Codex가 같은 식이다. (agent)
 - 봉인은 mode bit 대신 표지 file로 판정한다. 이유: Windows 폴더에 쓰기 bit가 없다. (agent)
-- 앱 bundle은 release마다 통째로 두고, 같은 file을 내용 hash store와 hardlink로 나눠 쓴다. 이유: 이전 release로 돌아가기가 network 없이 되어야 해서 지난 bundle을 지울 수 없는데, release 하나의 99%가 같은 `node_modules`라 release 80여 개가 9.5GB였다(나눠 쓴 뒤 1GB 아래). 버린 길: 지난 bundle을 N개만 남기기(돌아가기 범위가 줄어든다), 준비에서 devDependencies 빼기(나눠 쓰면 아끼는 것이 거의 없고 런타임에 dev 의존을 쓰는 앱이 깨진다), reflink(ext4에 없다). Windows는 읽기 전용 속성이 link끼리 같이 붙어 빼 두었다. (agent)
+- 앱 bundle은 release마다 통째로 두고, 같은 file을 내용 hash store와 hardlink로 나눠 쓴다. 이유: 이전 release로 돌아가기가 network 없이 되어야 해서 지난 bundle을 지울 수 없는데, release 하나의 99%가 같은 `node_modules`라 release 80여 개가 9.5GB였다(나눠 쓴 뒤 1GB 아래). 버린 길: 지난 bundle을 N개만 남기기(돌아가기 범위가 줄어든다), 준비에서 devDependencies 빼기(나눠 쓰면 아끼는 것이 거의 없고 런타임에 dev 의존을 쓰는 앱이 깨진다), reflink(ext4에 없다). (agent)
+- Windows도 나눠 쓰고, 읽기 전용이 풀리는 것은 store 쓸기가 다시 잠가 메운다. 이유: Windows의 봉인은 원래 표지 file로 판정하고 폴더에 쓰기 bit가 없어, 읽기 전용 속성은 같은 사용자의 실수를 막는 정도다. 지우기와 다음 쓸기 사이의 틈이 그 보호를 크게 줄이지 않고, 빼 두면 Windows 사람의 data root만 release마다 100MB 넘게 쌓인다. 버린 길: `node_modules` 폴더를 junction으로 나눠 쓰기(의존 하나만 바뀌어도 폴더째 새로 써서 덜 아끼고, Node가 실제 경로로 module을 풀어 sandbox 경로 규칙을 고쳐야 한다), ReFS block clone(일반 NTFS에 없다). (agent)
 - Windows agent shell tool은 Git Bash이고 shell 규칙은 POSIX 그대로다. 이유: Claude Code가 Windows에서 Git Bash를 요구한다. (agent)
 - Windows 첫 land는 CI를 돌리지 않고 했다(Windows·macOS 처음 실행은 깨질 것으로 보았다). (사람, 2026-11-06)
 - 공통 socket 자리 규칙은 base의 순수 함수 한 곳이다. hash는 호출자가 넣고 POSIX key(SHA-256 앞 12자)는 바꾸지 않는다. 이유: base는 Node를 import하지 않고, 기존 앱 socket 경로와 slot 수를 지켜야 migration이 없다. (agent)

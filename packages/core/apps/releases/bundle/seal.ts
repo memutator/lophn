@@ -30,7 +30,7 @@ import {
 } from "../../../../protocol/projects/mod.ts";
 import { sha256Schema } from "../../../../protocol/base/mod.ts";
 import { createLinks, decodeLinks, LINKS_PATH } from "./links.ts";
-import { shareCopyFiles } from "./share.ts";
+import { shareCopyFiles, sweepBundleFiles } from "./share.ts";
 
 type SealFailure = {
   code: "unavailable" | "invalid_input";
@@ -72,7 +72,7 @@ export async function isSealed(copyPath: string): Promise<boolean> {
 
 // 읽기 전용 사본(0555·0444)을 지우거나 고칠 수 있게 폴더와 file의 쓰기 권한을 돌려준다. 연결은 따라가지 않는다.
 // 다른 사본과 hardlink로 나눠 쓰는 file은 mode가 inode에 붙어 그 사본까지 쓸 수 있게 되므로 그대로 둔다.
-// 나눠 쓰기는 POSIX에서만 하고, POSIX에서 file을 지우는 데는 폴더 권한만 있으면 된다.
+// POSIX에서 file을 지우는 데는 폴더 권한만 있으면 되고, Windows는 지울 때 Node가 속성을 풀어 봉인이 store 쓸기로 다시 잠근다.
 export async function makeTreeWritable(directory: string): Promise<void> {
   await chmod(directory, 0o755);
   for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -205,7 +205,8 @@ export async function writeBundle(input: {
 
 // 쓴 사본을 봉인한다: 연결 목록 file대로 symlink를 만들고, file을 `fileStore`와 나눠 쓰고, 폴더는 0555·file은
 // 0444로 좁힌 뒤 표지를 쓴다. 이미 봉인된(표지가 있는) 사본은 그대로 둔다. 연결은 읽을 때 한 번 더 사본 안으로 걸러진다.
-// Windows는 나눠 쓰지 않는다: 읽기 전용 속성이 link끼리 같이 붙어, 한 사본의 file을 지우려고 속성을 풀면 다른 사본도 풀린다.
+// 나눠 쓴 뒤 store를 쓴다: 이번 준비가 끊긴 사본을 지우며 Windows에서 풀린 나눠 쓰는 file을 다시 잠그고, 끊긴 봉인이
+// 남긴 아무도 안 쓰는 file을 지운다.
 export async function sealCopy(
   copyPath: string,
   fileStore: string | null,
@@ -219,8 +220,9 @@ export async function sealCopy(
     const links = linksFile ? decodeLinks(linksFile) : ok([]);
     if (!links.ok) return links;
     await createLinks(copyPath, links.value, platform);
-    if (fileStore !== null && platform !== "win32") {
+    if (fileStore !== null) {
       await shareCopyFiles(copyPath, fileStore);
+      await sweepBundleFiles(fileStore);
     }
     await narrowTree(copyPath);
     await writeFile(sealMarkerPath(copyPath), "");

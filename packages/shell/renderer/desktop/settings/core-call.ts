@@ -80,6 +80,11 @@ export async function enterSecret(
   }
 }
 
+/** 연결된 provider 몫의 secret 이름. `ConnectProvider`가 받는 이름이 이것뿐이다. */
+export function providerSecretName(provider: string): string {
+  return `provider.${provider.slice("pvd_".length)}`;
+}
+
 /** preload의 shell 링크 열기. 없는 창이면 undefined다. */
 export function windowLinkOpener():
   | OpenExternalApi["openExternal"]

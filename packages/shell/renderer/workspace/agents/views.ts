@@ -87,6 +87,15 @@ export interface McpLogin {
   readonly reason: McpAuthFailure | null;
 }
 
+/** server가 가리키는 secret 한 자리. 값은 보호 입력 창이 받고 `name`은 `secrets.json`의 이름이다. */
+export interface McpSecret {
+  readonly name: string;
+  /** 단추에 쓰는 말(value, client secret, 헤더 이름). */
+  readonly label: string;
+  /** 값이 들어 있는지. 읽지 않은 화면에서는 null이다. */
+  readonly set: boolean | null;
+}
+
 /** MCP server 한 줄. */
 export interface McpRow {
   readonly name: string;
@@ -96,4 +105,6 @@ export interface McpRow {
   readonly status: McpStatus;
   /** OAuth server이고 화면이 로그인을 시작할 수 있으면 있다. agent 정의 층은 저장된 정의의 서버에만 있다. */
   readonly login?: McpLogin;
+  /** http server가 secret을 가리키는 자리(bearer·API key credential, OAuth client secret, `{secret}` 헤더). 없으면 값 단추가 없다. */
+  readonly secrets?: readonly McpSecret[];
 }

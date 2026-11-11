@@ -30,6 +30,7 @@ import {
   writeInstructions,
 } from "../../../workspace/agents/core-extensions.ts";
 import { coreAgentsSource } from "../../../workspace/agents/core-source.ts";
+import { secretsOf } from "../../../workspace/agents/mcp-secrets.ts";
 import { createLink } from "../../../workspace/agents/core-link.ts";
 import type { InstructionsApi } from "../../../../ipc/instructions.ts";
 import type { FilesApi } from "../../../../ipc/files.ts";
@@ -299,7 +300,7 @@ export function coreAgentsSettingsSource(
       const states = await secretStates(
         core,
         serverValues.flatMap((server) =>
-          [secretOf(server)].filter((name) => name !== null),
+          secretsOf(server).map((secret) => secret.name),
         ),
       );
       const logins = await authStates(core, serverValues);
@@ -319,6 +320,10 @@ export function coreAgentsSettingsSource(
                 ? server.http.auth
                 : null;
             const login = logins?.get(server.name);
+            const secrets = secretsOf(server, (name) => {
+              const state = states?.get(name);
+              return state === undefined ? null : state === "set";
+            });
             return {
               name: server.name,
               detail: detailOf(server),
@@ -337,6 +342,7 @@ export function coreAgentsSettingsSource(
                       reason: login?.reason ?? null,
                     },
                   }),
+              ...(secrets.length === 0 ? {} : { secrets }),
             };
           }),
         },
@@ -437,6 +443,15 @@ export function coreAgentsSettingsSource(
       return done.ok
         ? { ok: true, value: null }
         : { ok: false, code: done.message };
+    },
+
+    async enterServerSecret(row, secret) {
+      const entered = await enterSecret(openSecret, {
+        name: secret.name,
+        purpose: "mcp",
+        subject: row.name,
+      });
+      return entered.ok ? { ok: true, value: null } : entered;
     },
 
     async setServerEnabled(name, enabled) {

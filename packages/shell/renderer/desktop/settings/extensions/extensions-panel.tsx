@@ -217,6 +217,9 @@ export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
                 signingIn={signingIn}
                 onSignIn={(row) => void signIn(row)}
                 onCancelSignIn={(row) => void cancelSignIn(row)}
+                onSetSecret={(row, secret) =>
+                  void act(() => source.enterServerSecret(row, secret))
+                }
                 onToggle={(name, on) =>
                   void act(() => source.setServerEnabled(name, on))
                 }

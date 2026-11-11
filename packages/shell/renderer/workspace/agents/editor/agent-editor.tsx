@@ -22,7 +22,7 @@ import type {
   GrantsView,
   ModelsView,
 } from "../source.ts";
-import type { McpLogin, McpRow, McpStatus } from "../views.ts";
+import type { McpLogin, McpRow, McpSecret, McpStatus } from "../views.ts";
 import {
   type EditorTab,
   factsOf,
@@ -61,6 +61,7 @@ export type AgentEditorSource = Pick<
   | "setGrants"
   | "signInMcp"
   | "cancelMcpSignIn"
+  | "enterMcpSecret"
   | "readInstructions"
   | "writeInstructions"
   | "readMemory"
@@ -399,6 +400,10 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
       });
   };
 
+  const setSecret = (row: McpRow, secret: McpSecret) => {
+    void source.enterMcpSecret(secret.name, row.name);
+  };
+
   const upload = (file: File) => {
     if (detail.assignment === null) return;
     void source
@@ -616,6 +621,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             extensions={detail.extensions}
             onSignIn={signIn}
             onCancelSignIn={cancelSignIn}
+            onSetSecret={setSecret}
             signingIn={signingIn}
           />
         </TabPanel>

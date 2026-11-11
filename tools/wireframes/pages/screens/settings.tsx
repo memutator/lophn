@@ -186,7 +186,7 @@ export const settingsArea: Area = {
       id: "new-settings-tools",
       title: "Settings · Tools and skills",
       description:
-        "전역 skill 켬과 끔, 전역 MCP server다. 같은 이름은 project나 agent 층이 덮는다는 안내가 있다. OAuth로 로그인하는 server는 아직 로그인하지 않았으면 줄 오른쪽에 [Sign in]이 있다.",
+        "전역 skill 켬과 끔, 전역 MCP server다. 같은 이름은 project나 agent 층이 덮는다는 안내가 있다. OAuth로 로그인하는 server는 아직 로그인하지 않았으면 줄 오른쪽에 [Sign in]이 있다. secret을 가리키는 server(bearer·API key credential, OAuth client secret, 헤더)는 자리마다 [Set …]이나 값이 들어 있으면 [Change …]가 있어 이미 있는 server의 값을 보호 입력 창으로 바꾼다.",
       render: () => <SettingsToolsPage />,
     },
     {

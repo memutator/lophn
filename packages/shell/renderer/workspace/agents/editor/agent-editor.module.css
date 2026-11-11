@@ -385,6 +385,7 @@
 .toggleCell {
   display: flex;
   justify-content: flex-end;
+  gap: var(--space-3);
 }
 
 /* 이름은 줄 왼쪽에 따로 있어서 Switch와 Select의 라벨은 눈에는 숨기고 화면 읽기용으로만 둔다 */

@@ -65,6 +65,8 @@ export const conversation = {
   "conversation.button.refresh-models": "Refresh models",
   "conversation.button.rename": "Rename",
   "conversation.button.resend": "Send again",
+  "conversation.button.provider-key": "Enter {name} key",
+  "conversation.button.provider-key-open": "Open Providers",
   "conversation.button.retry": "Retry",
   "conversation.button.rewind-go": "Rewind",
   "conversation.button.run-in-terminal": "Run in terminal",

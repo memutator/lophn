@@ -18,6 +18,7 @@ import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
 import type {
   McpLayer,
   McpRow,
+  McpSecret,
   McpStatus,
   SkillLayer,
   SkillRow,
@@ -140,6 +141,8 @@ interface McpListProps {
   readonly onCancelSignIn?: (row: McpRow) => void;
   /** 이 화면이 시작해 기다리는 server 이름. 이 줄은 [Cancel]을 그린다. */
   readonly signingIn?: readonly string[];
+  /** server가 가리키는 secret 한 자리의 값을 넣거나 바꾼다. 없으면 값 단추를 그리지 않는다. */
+  readonly onSetSecret?: (row: McpRow, secret: McpSecret) => void;
 }
 
 /** MCP server 목록. 이름 옆 점이 연결 상태다. OAuth server는 로그인하지 않았으면 오른쪽에 [Sign in]이 있다. */
@@ -152,6 +155,7 @@ export function McpList({
   onSignIn,
   onCancelSignIn,
   signingIn = [],
+  onSetSecret,
 }: McpListProps) {
   return (
     <ul className={styles.toggleList}>
@@ -197,6 +201,25 @@ export function McpList({
               <span />
             )}
             <span className={styles.toggleCell}>
+              {onSetSecret === undefined
+                ? null
+                : (item.secrets ?? []).map((secret) => (
+                    <Button
+                      key={secret.name}
+                      size="sm"
+                      icon={actionIcons.edit}
+                      data-action="set-secret"
+                      data-secret={secret.name}
+                      onClick={() => onSetSecret(item, secret)}
+                    >
+                      {t(
+                        secret.set === true
+                          ? "agents.button.change-secret"
+                          : "agents.button.set-secret",
+                        { label: secret.label },
+                      )}
+                    </Button>
+                  ))}
               {login !== undefined && onSignIn !== undefined ? (
                 waiting ? (
                   <Button

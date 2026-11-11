@@ -8,6 +8,7 @@ import { type MessageKey, t } from "@lophn/i18n";
 
 import { TURN_FAILED_REASONS } from "../../../../protocol/lophn-agent/turn-values.ts";
 import type { AgentTabSource } from "../agent-tab-source.ts";
+import type { ProviderKeyFix } from "./provider-key.ts";
 import styles from "./thread.module.css";
 
 interface ProviderErrorProps {
@@ -22,6 +23,8 @@ interface ProviderErrorProps {
   source: Pick<AgentTabSource, "retryTurn">;
   /** `capabilities.retry`. 꺼져 있으면 [Retry]가 없다. 기본은 true다. */
   canRetry?: boolean;
+  /** provider key가 없거나 안 맞아 멈췄을 때(`configuration_unavailable`)의 [Enter key]. 없으면 단추가 없다. */
+  providerKey?: ProviderKeyFix | undefined;
 }
 
 type FailedReason = (typeof TURN_FAILED_REASONS)[number];
@@ -52,6 +55,7 @@ export function ProviderError({
   evidence,
   source,
   canRetry = true,
+  providerKey,
 }: ProviderErrorProps): ReactElement {
   const detail =
     code in FAILED_TEXT ? t(FAILED_TEXT[code as FailedReason]) : message;
@@ -87,6 +91,21 @@ export function ProviderError({
           </p>
         ) : null}
       </div>
+      {code === "configuration_unavailable" && providerKey !== undefined ? (
+        <Button
+          size="sm"
+          icon={
+            providerKey.name === null ? actionIcons.open : actionIcons.connect
+          }
+          onClick={providerKey.run}
+        >
+          {providerKey.name === null
+            ? t("conversation.button.provider-key-open")
+            : t("conversation.button.provider-key", {
+                name: providerKey.name,
+              })}
+        </Button>
+      ) : null}
       {canRetry ? (
         <Button
           size="sm"

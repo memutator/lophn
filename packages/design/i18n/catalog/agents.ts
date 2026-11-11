@@ -66,6 +66,8 @@ export const agents = {
   "agents.button.remove-tool": "Remove {name}",
   "agents.button.remove-tool-short": "Remove",
   "agents.button.add-tool": "Add",
+  "agents.button.change-secret": "Change {label}",
+  "agents.button.set-secret": "Set {label}",
   "agents.button.sign-in": "Sign in",
   "agents.empty.grants-apps":
     "No apps. An assigned app brings all of its tools.",
@@ -146,6 +148,9 @@ export const agents = {
   "agents.label.grants-target": "the grants",
   "agents.label.instructions-head-placed":
     "Workspace instructions \u00b7 {file} in {workspace} \u2014 read by every agent working there",
+  "agents.label.secret-client": "client secret",
+  "agents.label.secret-header": "{name} header",
+  "agents.label.secret-value": "value",
   "agents.label.layer-agent": "This agent",
   "agents.label.layer-app": "App",
   "agents.label.layer-builtin": "Built-in",

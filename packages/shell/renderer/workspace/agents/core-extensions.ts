@@ -27,6 +27,7 @@ import type { OpenExternalApi } from "../../../ipc/open-external.ts";
 import type { ReadResult } from "../source.ts";
 import { isAppWorkspace, kindOfWorkspace } from "./agent-key.ts";
 import type { Link } from "./core-link.ts";
+import { secretsOf } from "./mcp-secrets.ts";
 import type {
   InstructionsFile,
   McpLayer,
@@ -161,6 +162,7 @@ async function rowsWithLogins(
     const { server } = entry;
     const login = logins[at];
     const on = enabled(entry);
+    const secrets = secretsOf(server);
     return {
       name: server.name,
       detail: detailOf(server),
@@ -173,6 +175,7 @@ async function rowsWithLogins(
             ? "connected"
             : "needs-sign-in",
       ...(login === undefined ? {} : { login }),
+      ...(secrets.length === 0 ? {} : { secrets }),
     } satisfies McpRow;
   });
 }

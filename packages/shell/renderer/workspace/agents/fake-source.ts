@@ -119,6 +119,7 @@ type FakeCall =
       workspace: McpOwnerWorkspace | null;
       agent: string | null;
     }
+  | { method: "enterMcpSecret"; name: string; server: string }
   | {
       method: "cancelMcpSignIn";
       name: string;
@@ -1019,6 +1020,11 @@ export function createFakeAgentsSource(
         agent: login.agent,
       });
       return Promise.resolve(ok(null));
+    },
+
+    enterMcpSecret(name, server) {
+      calls.push({ method: "enterMcpSecret", name, server });
+      return Promise.resolve();
     },
 
     setMcp(workspace, name, on) {

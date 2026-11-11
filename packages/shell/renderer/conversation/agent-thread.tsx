@@ -64,6 +64,7 @@ import { InfoRow } from "./thread/info-row.tsx";
 import { ReleaseConsent } from "./thread/release-consent.tsx";
 import { ShellRun } from "./thread/shell-run.tsx";
 import { ProviderError } from "./thread/provider-error.tsx";
+import type { ProviderKeyFix } from "./thread/provider-key.ts";
 import { ReceivedMessage } from "./thread/received-message.tsx";
 import type { ArtifactsSlice } from "../workspace/kinds/host.ts";
 import turns from "./message-list/turns.module.css";
@@ -125,6 +126,8 @@ interface AgentThreadProps {
   onOpenSession: ((session: string) => void) | undefined;
   /** 글 안 artifact path를 link로 그리는 길. */
   artifacts: ArtifactsSlice | undefined;
+  /** provider 오류 줄의 [Enter key]. 읽기 전용 대화에는 없다. 부르는 쪽이 값을 안정되게 쥔다. */
+  providerKey?: ProviderKeyFix | undefined;
   /** 화면이 key로 대화를 scroll하는 길. */
   scroll?: Ref<ThreadScrollHandle>;
 }
@@ -207,6 +210,7 @@ function AgentThreadView(props: AgentThreadProps): ReactElement {
       props.onOpenSession,
       props.onOpenChild,
       props.onStopShell,
+      props.providerKey,
     ],
   );
   const nodes = [...settled.nodes];
@@ -543,6 +547,7 @@ function itemsOf(
             evidence={entry.evidence}
             source={props.source}
             canRetry={props.can.retry}
+            providerKey={props.providerKey}
           />,
         );
         break;

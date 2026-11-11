@@ -334,6 +334,8 @@ export interface AgentsSource {
     name: string,
     login: Pick<McpLogin, "workspace" | "agent">,
   ): Promise<ReadResult<null>>;
+  /** MCP server의 secret 한 자리(`mcp.…` 이름)에 값을 넣는 보호 입력 창을 열고 닫힐 때까지 기다린다. 값은 이 길을 지나지 않는다. */
+  enterMcpSecret(name: string, server: string): Promise<void>;
   /** 이 agent에 붙은 할당과 붙일 수 있는 앱. */
   grants(
     workspace: string | null,

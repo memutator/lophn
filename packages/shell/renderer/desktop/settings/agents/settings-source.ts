@@ -7,6 +7,7 @@ import type { AgentEditorSource } from "../../../workspace/agents/editor/agent-e
 import type {
   InstructionsFile,
   McpRow,
+  McpSecret,
   SkillRow,
 } from "../../../workspace/agents/views.ts";
 import type { SourceResult } from "../source.ts";
@@ -15,6 +16,7 @@ export type {
   AgentEditorSource,
   InstructionsFile,
   McpRow,
+  McpSecret,
   ModelChoice,
   SkillRow,
   SourceResult,
@@ -105,4 +107,9 @@ export interface AgentsSettingsSource {
   signInServer(row: McpRow): Promise<SourceResult<null>>;
   /** 기다리는 로그인을 그만둔다. */
   cancelServerSignIn(row: McpRow): Promise<SourceResult<null>>;
+  /** 이미 있는 server의 secret 한 자리에 값을 넣는 보호 입력 창을 열고 닫힐 때까지 기다린다. */
+  enterServerSecret(
+    row: McpRow,
+    secret: McpSecret,
+  ): Promise<SourceResult<null>>;
 }

@@ -852,6 +852,10 @@ export function coreAgentsSource(
 
     cancelMcpSignIn: (name, login) => cancelMcpSignIn(link, { name, login }),
 
+    enterMcpSecret: async (name, server) => {
+      await enterSecret(openSecret, { name, purpose: "mcp", subject: server });
+    },
+
     grants: (project, agent) => readGrants(link, project, agent),
 
     setGrants: (project, agent, entries, revision) =>

@@ -9,13 +9,14 @@ import type { PublishedExtension } from "../../../../../protocol/lophn-agent/ext
 import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
 import { actionIcons } from "../../../icons/mod.ts";
 import type { AgentDraft } from "../source.ts";
-import type { McpLogin, McpRow } from "../views.ts";
+import type { McpLogin, McpRow, McpSecret } from "../views.ts";
 import {
   type AgentFacts,
   type FormProps,
   issuesOf,
   withField,
 } from "./editor-model.ts";
+import { secretsOf } from "../mcp-secrets.ts";
 import { Group, Issues } from "./form-kit.tsx";
 import { McpList } from "./parts.tsx";
 import { ServerForm } from "./server-form.tsx";
@@ -28,6 +29,7 @@ function ownServers(
 ): McpRow[] {
   return (definition.mcp_servers ?? []).map((server) => {
     const login = logins[server.name];
+    const secrets = secretsOf(server);
     return {
       name: server.name,
       detail:
@@ -43,6 +45,7 @@ function ownServers(
             ? "connected"
             : "needs-sign-in",
       ...(login === undefined ? {} : { login }),
+      ...(secrets.length === 0 ? {} : { secrets }),
     };
   });
 }
@@ -55,6 +58,8 @@ interface ToolsTabProps extends FormProps {
   readonly onCancelSignIn: (row: McpRow) => void;
   /** 이 화면이 시작해 기다리는 server 이름. */
   readonly signingIn: readonly string[];
+  /** server의 secret 한 자리의 [Set]·[Change]. 보호 입력 창이 열린다. */
+  readonly onSetSecret: (row: McpRow, secret: McpSecret) => void;
   /** 설치되고 켜진 shell extension(core의 `extension_tools/catalog`). */
   readonly extensions: readonly PublishedExtension[];
 }
@@ -120,6 +125,7 @@ export function ToolsTab(props: ToolsTabProps) {
           onSignIn={props.onSignIn}
           onCancelSignIn={props.onCancelSignIn}
           signingIn={props.signingIn}
+          onSetSecret={props.onSetSecret}
           onToggle={(name, on) => {
             if (own.some((row) => row.name === name)) {
               set(

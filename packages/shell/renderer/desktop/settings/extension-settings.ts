@@ -23,6 +23,7 @@ export interface McpServerValue {
   stdio?: { executable: string };
   http?: {
     url: string;
+    headers?: Record<string, { value?: string; secret?: string }>;
     auth: {
       kind: ServerAuth;
       credential?: { secret: string };
@@ -51,7 +52,7 @@ export function applySetting(
   return chooseSetting(core, key, value);
 }
 
-/** 값을 넣을 credential의 `secrets.json` 이름(bearer·API key). */
+/** 값을 넣을 credential의 `secrets.json` 이름(bearer·API key). 상태 점이 이 값만 본다. */
 export function secretOf(server: McpServerValue): string | null {
   return server.http?.auth.credential?.secret ?? null;
 }

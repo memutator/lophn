@@ -31,7 +31,8 @@ type AgentsCall =
   | readonly ["create-server", string]
   | readonly ["server", string, boolean]
   | readonly ["sign-in", string]
-  | readonly ["cancel-sign-in", string];
+  | readonly ["cancel-sign-in", string]
+  | readonly ["enter-secret", string, string];
 
 type Failing =
   | "read"
@@ -231,6 +232,10 @@ export function fakeAgents(options: FakeAgentsOptions = {}) {
             }
           : one,
       );
+      return Promise.resolve(ok());
+    },
+    enterServerSecret(row, secret) {
+      calls.push(["enter-secret", row.name, secret.name]);
       return Promise.resolve(ok());
     },
     setServerEnabled(name, enabled) {

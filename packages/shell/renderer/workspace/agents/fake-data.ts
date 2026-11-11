@@ -405,6 +405,7 @@ export const GLOBAL_MCP: readonly McpRow[] = [
     layer: "global",
     on: true,
     status: "connected",
+    secrets: [{ name: "mcp.global.fetch", label: "value", set: true }],
   },
   {
     name: "calendar",

@@ -1,5 +1,5 @@
 id: sent-image-shows-before-commit
-version: 0.23.39
+version: 0.23.41
 title: 이미 있는 session에 보낸 이미지가 대화 줄에 보이고 크게 열린다
 modules: [packages/shell/renderer]
 change: |

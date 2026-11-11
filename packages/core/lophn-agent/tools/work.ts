@@ -61,6 +61,8 @@ const INPUT_SCOPED_FAILURES: Readonly<Record<string, true>> = {
   "skill.read": true,
   // 모르는 handle이면 부를 수 있는 handle 목록을 message에 싣는다.
   "agent.card": true,
+  // 모르는 provider면 내장 정의 key 목록, 청할 수 없는 자리면 어디서 청하는지를 message에 싣는다.
+  "ask.secret": true,
 };
 
 const FAILURE_CODES: ReadonlyMap<ErrorCode, string> = new Map([

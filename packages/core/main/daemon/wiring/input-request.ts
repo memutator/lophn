@@ -79,14 +79,10 @@ export const inputRequestWiring: WiringFactory = () => {
       });
 
       const modeOf = async (turn: string): Promise<Result<TurnMode>> => {
-        const found = await ctx.runtime.readers.read(
-          turnRead,
-          INPUT_REQUEST_CONTEXT,
-          { turn },
-        );
-        return found.ok
-          ? ok((found.value as { turn: { mode: TurnMode } }).turn.mode)
-          : found;
+        const found = await readAs<{ turn: { mode: TurnMode } }>(turnRead, {
+          turn,
+        });
+        return found.ok ? ok(found.value.turn.mode) : found;
       };
 
       // ref 요소가 든 frame의 origin을 shell main이 CDP로 잰다. agent가 적은 글이 아니다.
@@ -142,15 +138,17 @@ export const inputRequestWiring: WiringFactory = () => {
         }
       };
 
-      const readAs = <T>(
+      // reader pool이 아니라 core의 read 표로 읽는다. `providers/definitions`는 pool 밖 api read라 pool로는 not_found다.
+      const readAs = async <T>(
         route: { resource: string; method: string },
         input: unknown,
-      ) =>
-        ctx.runtime.readers.read(
-          route as Parameters<typeof ctx.runtime.readers.read>[0],
-          INPUT_REQUEST_CONTEXT,
-          input,
-        ) as Promise<Result<T>>;
+      ): Promise<Result<T>> => {
+        const handler = ctx.runtime.reads.get(key(route));
+        if (handler === undefined) {
+          return err({ code: "unavailable", message: "read not served" });
+        }
+        return (await handler(INPUT_REQUEST_CONTEXT, input)) as Result<T>;
+      };
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
 
       const slots = createSecretSlots({

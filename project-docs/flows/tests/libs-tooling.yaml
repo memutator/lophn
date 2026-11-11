@@ -1,5 +1,8 @@
 group: libs-tooling
 files:
+  - path: packages/cli/commands/agent-models_test.ts
+    covers: [agent-models-list:listed]
+    note: 켠 model과 provider 목록의 교집합만 내고 provider 계정·credential·접속 metadata를 결과에서 뺀다. catalog 다음 page와 미확인 옵션도 함께 본다
   - path: packages/base/os/cmd-shim_test.ts
     covers: []
     note: Windows cmd launcher 인자 escape 문자열 helper

@@ -219,6 +219,7 @@ flows:
     docs: [architecture/settings.md]
 
 links:
+  - {entry: "cli:agent.models", flow: agent-models-list}
   - {entry: "cli:agent.card", flow: agent-card-read}
   - {entry: "cli:agent.create", flow: agent-create}
   - {entry: "cli:agent.update", flow: agent-change}

@@ -557,6 +557,40 @@ flows:
 
   # ---- model 선택과 catalog ----
 
+  - id: agent-models-list
+    title: agent가 사람이 켠 model과 지원 옵션을 조회한다
+    actor: agent
+    uses: [route:shown-models/read, route:providers/read, route:agent-model-catalog/read]
+    boundary: [coding-agent-cli, lophn-agent]
+    code: [packages/cli/commands/agent-models.ts]
+    steps:
+      - 사람이 켠 model 목록과 그 provider를 읽고 provider 정의별 catalog를 마지막 page까지 읽는다
+      - 화면 picker와 같은 선택 규칙으로 고를 수 있는 model 중 켠 것만 남긴다. 읽는 사이 연결을 끊어 not_found인 provider는 뺀다
+      - provider ID·이름, model 이름, 지원 옵션·기본값, 한도, media, 가격을 낸다. 계정·credential과 option wire는 싣지 않고 미확인 정보는 null이다
+    outcomes:
+      - id: listed
+        observe: [response]
+        when: 켠 model의 정보를 돌려준다. 켠 model이 없으면 빈 목록이다
+      - id: forbidden
+        code: forbidden
+        observe: [response]
+        when: 읽기 route가 자격이나 scope를 거절한다
+      - id: unavailable
+        code: unavailable
+        observe: [response]
+        when: 읽기 route에 연결하지 못하거나 읽기를 완료하지 못한다
+      - id: invalid_input
+        code: invalid_input
+        observe: [response]
+        when: catalog 읽기가 cursor를 거절한다
+      - id: internal
+        code: internal
+        observe: [response]
+        when: provider 저장 자료나 catalog 항목을 해석하지 못한다
+    crosses_process: false
+    risk: [secret]
+    docs: [architecture/agent-definition.md]
+
   - id: shown-models-read
     title: "picker에 켜 둔 model 목록을 읽는다"
     actor: person

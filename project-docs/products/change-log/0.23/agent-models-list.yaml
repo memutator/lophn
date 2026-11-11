@@ -1,5 +1,5 @@
 id: agent-models-list
-version: 0.23.39
+version: 0.23.40
 title: agent가 사람이 켠 model과 지원 옵션을 조회한다
 modules: [packages/cli]
 change: |

@@ -1,5 +1,5 @@
 id: acp-tool-input-read
-version: 0.23.37
+version: 0.23.38
 title: 대화 화면의 질문·call·edit 줄이 tool 입력을 다시 읽는다
 modules: [packages/protocol, packages/core/main]
 change: |

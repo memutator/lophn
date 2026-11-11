@@ -39,6 +39,7 @@ import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts
 import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import { commandBody, type CompareOf } from "../../command-call.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
+import { beginAppSignIn } from "../../desktop/settings/sign-in.ts";
 import {
   enterSecret,
   windowLinkOpener,
@@ -835,28 +836,7 @@ export function coreAppDetailSource(
         subject,
       }),
 
-    // 열 곳이 없거나 열기가 실패하면 시작한 sign-in이 남지 않게 닫는다.
-    async signIn(app, name) {
-      const begun = await call<{ url: string }>(
-        core,
-        "memory",
-        "apps",
-        "oauth_begin",
-        { app, name },
-      );
-      if (!begun.ok) return begun;
-      let opened = false;
-      if (openLink !== undefined) {
-        try {
-          opened = (await openLink(begun.value.url)).ok;
-        } catch {
-          opened = false;
-        }
-      }
-      if (opened) return { ok: true, value: true };
-      await call(core, "memory", "apps", "oauth_cancel", { app, name });
-      return { ok: false, code: "unavailable" };
-    },
+    signIn: (app, name) => beginAppSignIn(core, openLink, app, name),
 
     cancelSignIn: (app, name) =>
       stored(call(core, "memory", "apps", "oauth_cancel", { app, name })),

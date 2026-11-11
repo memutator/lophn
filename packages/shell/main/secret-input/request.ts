@@ -10,7 +10,6 @@ import {
 } from "../../ipc/secret-input.ts";
 import {
   inputRequestViewSchema,
-  type InputRequestView,
   type LoginRequestView,
   type SecretRequestView,
 } from "../../../protocol/lophn-agent/input-request.ts";
@@ -55,8 +54,9 @@ export async function readRequest(
     .catch(() => null);
   if (read === null || !read.ok) return { ok: false };
   const parsed = inputRequestViewSchema.safeParse(read.value);
-  if (!parsed.success) return { ok: false };
-  const { group: _group, ...view } = parsed.data as InputRequestView;
+  // sign_in 요청은 보호 창이 아니라 card의 로그인 흐름이 끝낸다.
+  if (!parsed.success || parsed.data.kind === "sign_in") return { ok: false };
+  const { group: _group, ...view } = parsed.data;
   return { ok: true, value: { ...target, ...view } as OpenRequest };
 }
 

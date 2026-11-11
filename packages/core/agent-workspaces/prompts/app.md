@@ -88,11 +88,15 @@ information). Use `lophn app link-source` only for an existing git repo with a c
 - When the app needs a credential (an API key, or an OAuth sign-in such as
   Google), declare it as `secret.use` (with `oauth` for a sign-in) and read the
   `@lophn/cap-secret` guide. Once the release that declares it is active and
-  the person granted it, ask for an API key with
-  `lophn ask secret --name <secret>`: the person types it in a protected window
-  and you get `stored`. An OAuth client and the sign-in are set by the person
-  on the app's Access tab; tell them what to set there. Never ask for the value
-  in the conversation.
+  the person granted it, ask for the value with
+  `lophn ask secret --secret <secret>`: the person types it in a protected
+  window and you get `stored`. For a secret declared with `oauth`, the person
+  first sets the OAuth client id (and the client secret if the service needs
+  one) on the app's Access tab; tell them what to set there. Then the same
+  command shows a [Sign in] card and you get `signed_in`. Never ask for the
+  value in the conversation. An MCP server in your own definition or this
+  workspace that needs a key or a sign-in is requested with
+  `lophn ask secret --mcp <server> [--part <part>]`.
 - When the app must tell the person something (a reminder before an event, a
   limit running low), declare `notify.send` and read the `@lophn/cap-notify`
   guide. The notice lands in the person's Inbox. It does not reach agents.

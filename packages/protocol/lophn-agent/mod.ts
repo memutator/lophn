@@ -25,6 +25,7 @@ export * from "./model-picker.ts";
 export * from "./models.ts";
 export * from "./option-axes.ts";
 export * from "./workspaces.ts";
+export * from "./custom-provider.ts";
 export * from "./provider-inputs.ts";
 export * from "./provider-values.ts";
 export * from "./providers.ts";

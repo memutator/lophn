@@ -22,6 +22,7 @@ import { cancelCallOf, readCallState } from "./agent-tab-core-source-calls.ts";
 import {
   cancelInputRequest,
   readInputRequest,
+  signInInputRequest,
 } from "./agent-tab-core-source-request.ts";
 import {
   answerQuestions,
@@ -107,6 +108,7 @@ function createSource(
     answerQuestions: (input) => answerQuestions(env, input),
     readInputRequest: (input) => readInputRequest(env, input),
     cancelInputRequest: (input) => cancelInputRequest(env, input),
+    signInInputRequest: (input) => signInInputRequest(core, env, input),
     cancelCall: (call) => cancelCallOf(env, call),
 
     async openSession({ id }): Promise<SourceResult<void>> {

@@ -2,6 +2,8 @@
 // 통로에는 model 이름·기본값 route가 없다. provider 하나에는 연결 하나다. 모양은 protocol(providers·provider definitions)에서 이 화면이 쓰는 field만 옮긴 것이고
 // secret 값은 없다: API key는 보호 창이 받고, 구독 로그인의 token은 core가 받아 저장한다.
 // 연결된 provider는 기존 settings의 ProviderRow를 그대로 쓴다.
+import type { CustomProtocol } from "../../../../../protocol/lophn-agent/custom-provider.ts";
+import type { SignInProgress } from "../sign-in.ts";
 import type {
   AuthWay,
   CredentialReason,
@@ -11,6 +13,9 @@ import type {
   WindowOutcome,
 } from "../source.ts";
 
+export { CUSTOM_PROTOCOLS } from "../../../../../protocol/lophn-agent/custom-provider.ts";
+export type { CustomProtocol } from "../../../../../protocol/lophn-agent/custom-provider.ts";
+export type { SignInProgress } from "../sign-in.ts";
 export type {
   AuthWay,
   CredentialReason,
@@ -35,14 +40,6 @@ export interface ProviderDefinitionRow {
   readonly custom: boolean;
 }
 
-/** Custom provider가 말하는 API. 주소 뒤에 `/chat/completions`, `/responses`, `/messages`가 붙는다. */
-export const CUSTOM_PROTOCOLS = [
-  "openai-chat-completions",
-  "openai-responses",
-  "anthropic-messages",
-] as const;
-export type CustomProtocol = (typeof CUSTOM_PROTOCOLS)[number];
-
 /**
  * Custom provider 입력. API key 값은 이 모양에 없다: withKey가 참이면 보호 창이 열려 거기서 받는다.
  */
@@ -54,13 +51,6 @@ export interface CustomProviderInput {
   readonly baseUrl: string;
   readonly protocol: CustomProtocol;
   readonly withKey: boolean;
-}
-
-/** 구독 로그인의 진행. source가 browser를 연 뒤 started를 한 번 부르고, signal이 끊기면 로그인을 그만둔다. */
-export interface SignInProgress {
-  readonly signal: AbortSignal;
-  /** device code 로그인이면 사람이 browser에 넣을 code가 온다. 아니면 null이다. */
-  started(info: { readonly userCode: string | null }): void;
 }
 
 export interface ProviderSettingsSource {

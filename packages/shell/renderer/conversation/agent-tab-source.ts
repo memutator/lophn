@@ -16,7 +16,11 @@ import {
   type ContentBlock,
   IMAGE_NOTE,
 } from "../../../protocol/lophn-agent/content-block.ts";
-import type { InputRequestView } from "../../../protocol/lophn-agent/input-request.ts";
+import type {
+  InputRequestView,
+  SignInRequestView,
+} from "../../../protocol/lophn-agent/input-request.ts";
+import type { SignInProgress } from "../desktop/settings/sign-in.ts";
 import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
 import type {
@@ -673,6 +677,16 @@ export interface AgentTabSource {
   cancelInputRequest?(input: {
     session: string;
     toolCall: string;
+  }): Promise<SourceResult<void>>;
+  /**
+   * sign_in 요청의 [Sign in]. view의 target 로그인 흐름을 끝까지 돌리고 결과를 core에 알린다. 사람이 그만두면(progress.signal)
+   * 알리지 않고 `cancelled`다.
+   */
+  signInInputRequest?(input: {
+    session: string;
+    toolCall: string;
+    view: SignInRequestView;
+    progress: SignInProgress;
   }): Promise<SourceResult<void>>;
   /** 끝나지 않은 call을 취소한다. */
   cancelCall(call: string): Promise<SourceResult<void>>;

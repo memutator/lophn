@@ -43,6 +43,7 @@ export const conversation = {
   "conversation.button.jump-latest": "Jump to newest messages",
   "conversation.button.input-request-cancel": "Cancel",
   "conversation.button.input-request-enter": "Enter",
+  "conversation.button.input-request-sign-in": "Sign in",
   "conversation.button.manage-models": "Manage models",
   "conversation.button.mermaid-show-diagram": "View diagram",
   "conversation.button.mermaid-show-source": "View source",
@@ -244,6 +245,7 @@ export const conversation = {
   "conversation.label.input-request-card": "Input request from {agent}",
   "conversation.label.input-request-destinations": "Sent to",
   "conversation.label.input-request-secret": "Secret",
+  "conversation.label.input-request-sign-in-at": "Sign in at",
   "conversation.label.input-request-origin": "Page origin",
   "conversation.label.input-request-tab": "Tab",
   "conversation.label.question-answered-by-parent": "Answered by the parent",
@@ -465,6 +467,12 @@ export const conversation = {
     "Can't open the protected window right now. Try again.",
   "conversation.notice.input-request-help":
     "You type in a protected window. {agent} never sees the value.",
+  "conversation.notice.input-request-sign-in-help":
+    "You sign in in your browser. {agent} never sees your credentials.",
+  "conversation.notice.input-request-signing-in":
+    "Finish signing in in your browser.",
+  "conversation.notice.input-request-user-code":
+    "Finish signing in in your browser. Code: {code}",
   "conversation.notice.input-request-no-destination":
     "This app declares no network destination yet.",
   "conversation.notice.input-request-replaces":
@@ -552,10 +560,14 @@ export const conversation = {
   "conversation.title.permissions": "Permissions · {agent}",
   "conversation.title.input-request-app":
     "{agent} asks you to enter a secret for the app {subject}",
+  "conversation.title.input-request-mcp":
+    "{agent} asks you to enter a secret for the MCP server {subject}",
   "conversation.title.input-request-once":
     "{agent} asks you to type a value into this page",
   "conversation.title.input-request-provider":
     "{agent} asks you to enter an API key for {subject}",
+  "conversation.title.input-request-sign-in":
+    "{agent} asks you to sign in to {subject}",
   "conversation.title.input-request-save":
     "{agent} asks you to save a login for this page",
   "conversation.title.question-asking": "{agent} is asking",

@@ -53,12 +53,19 @@ decisions of the plan.
   save it again, then set `shell.dark_theme` or `shell.light_theme` to its id.
 - A setting marked `locked` is one only the person changes. Tell them where it is
   in the Settings screen instead of trying another way.
-- When the person wants a model provider connected with an API key, or an app
-  is missing a secret value, request it with `lophn ask secret`
-  (`--provider <definition key>`, or `--app <app id> --name <secret>`). The
-  person types the value in a protected window; never take it in the
-  conversation. A provider that signs in with an account is connected by the
-  person in Settings > Providers.
+- When the person wants a model provider connected, an app is missing a secret
+  value or sign-in, or an MCP server needs its key or sign-in, request it with
+  `lophn ask secret`: `--provider <key>` (an API key; add `--sign-in` for a
+  subscription account of anthropic, openai or xai; google-antigravity is
+  sign-in only), `--display-name <name> --base-url <https url> --protocol <api>`
+  (a custom provider: the card shows the host, so use exactly the address the
+  person gave), `--app <app id> --secret <name>` (an app secret, or its OAuth
+  sign-in), or `--mcp <server> [--part <part>]` (an MCP server that already
+  exists in the settings; a new server is added by the person in Settings >
+  Agents). The person types the value in a protected window or signs in in
+  their browser; never take a value in the conversation. If the command says
+  what the person must set first (for example an app's OAuth client id on its
+  Access tab), tell them in their words and request again afterwards.
 - When the person asks whether their apps are healthy, read each app with
   `lophn app read` and `lophn app status`, recent errors in its log with
   `lophn app logs`, failed calls with `lophn app invocations` (`--status failed`). Tell them in

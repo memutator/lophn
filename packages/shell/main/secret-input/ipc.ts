@@ -140,7 +140,12 @@ export function registerSecretInputIpc(
             ? {
                 // 이름과 대상은 core가 자리에서 읽은 값이다. 창은 설정 화면에서 연 것과 같은 한 칸이다.
                 name: request.name,
-                purpose: "provider" in request.slot ? "provider" : "app",
+                purpose:
+                  "mcp" in request.slot
+                    ? "mcp"
+                    : "app" in request.slot
+                      ? "app"
+                      : "provider",
                 subject: request.subject.slice(0, 80),
                 configured: request.configured,
               }

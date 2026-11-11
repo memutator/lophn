@@ -319,7 +319,13 @@ export async function readServers(
 export async function signInMcpServer(
   link: Link,
   openLink: OpenExternalApi["openExternal"] | undefined,
-  server: { readonly name: string; readonly login: McpLogin },
+  server: {
+    readonly name: string;
+    readonly login: Pick<
+      McpLogin,
+      "workspace" | "agent" | "client_id" | "scopes"
+    >;
+  },
 ): Promise<ReadResult<null>> {
   const begun = await link.memory<{ url: string; callback_port: number }>(
     "agent-mcp-auth",

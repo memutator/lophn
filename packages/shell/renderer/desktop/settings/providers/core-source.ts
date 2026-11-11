@@ -20,9 +20,6 @@ import type { SecretInputOpenApi } from "../../../../ipc/secret-input.ts";
 import {
   connectProvider,
   disconnectProvider,
-  loginBegin,
-  loginCancel,
-  loginComplete,
 } from "../../../../../protocol/lophn-agent/providers.ts";
 import type { ProviderDefinition } from "../../../../../protocol/lophn-agent/provider-values.ts";
 import type { CoreSource } from "../../connection/connection.ts";
@@ -34,7 +31,13 @@ import {
   windowLinkOpener,
   windowSecretInputOpener,
 } from "../core-call.ts";
+import {
+  customBaseUrl,
+  customDefinition,
+  customNeedsKey,
+} from "../../../../../protocol/lophn-agent/custom-provider.ts";
 import { waysOf } from "../model.ts";
+import { signInProvider, timerWait } from "../sign-in.ts";
 import type {
   AuthWay,
   CredentialReason,
@@ -80,8 +83,6 @@ const PRODUCTS: Readonly<Record<string, string>> = {
   claude: "Claude",
   antigravity: "Google Antigravity",
 };
-/** login-complete가 발급자에 닿지 못해 연달아 실패해도 다시 부르는 횟수. */
-const COMPLETE_MISSES = 3;
 
 function providerOf(value: ProviderValue): ProviderRow {
   return {
@@ -170,21 +171,6 @@ interface ProviderDeps {
   wait: (ms: number, signal: AbortSignal | undefined) => Promise<void>;
 }
 
-function timerWait(ms: number, signal: AbortSignal | undefined): Promise<void> {
-  return new Promise((resolve) => {
-    if (signal?.aborted) return resolve();
-    const timer = setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-    function onAbort() {
-      clearTimeout(timer);
-      resolve();
-    }
-    signal?.addEventListener("abort", onAbort, { once: true });
-  });
-}
-
 const UNAVAILABLE = { ok: false, code: "unavailable" } as const;
 
 export function coreProviderSettingsSource(
@@ -262,11 +248,8 @@ export function coreProviderSettingsSource(
     return sent;
   }
 
-  /**
-   * 구독 계정으로 로그인한다. provider는 아직 없다: core가 로그인을 마치면 token을 저장하고 이 ID로 Connect한다.
-   * 주소를 OS browser로 연 뒤 login-complete를 core가 정한 간격마다 부른다. signal이 끊기면 로그인을 그만둔다.
-   */
-  async function signIn(
+  /** 구독 계정으로 로그인한다. 주소와 protocol은 내장 정의에서 온다. */
+  function signIn(
     definition: BuiltinDefinition,
     progress: SignInProgress | undefined,
   ): Promise<WindowOutcome> {
@@ -276,65 +259,18 @@ export function coreProviderSettingsSource(
       base !== null && definition.oauth?.product === "chatgpt"
         ? { ...base, endpoint: definition.oauth.inference_endpoint }
         : base;
-    if (route === null) return UNAVAILABLE;
-    const id = idFor(definition.key);
-    const begun = await command(core, loginBegin, {
-      input: {
-        provider: id,
+    if (route === null) return Promise.resolve(UNAVAILABLE);
+    return signInProvider(
+      core,
+      { openLink, random, wait },
+      {
+        provider: idFor(definition.key),
         name: definition.display_name,
         definition,
         ...route,
       },
-      compare: {},
-      key: `login-begin-${random()}`,
-    });
-    if (!begun.ok) return begun;
-    const login = begun.value.login;
-    const cancel = () =>
-      command(core, loginCancel, {
-        input: { provider: id, login },
-        compare: {},
-        key: `login-cancel-${random()}`,
-      });
-    let opened = false;
-    if (openLink !== undefined) {
-      try {
-        opened = (await openLink(begun.value.sign_in.url)).ok;
-      } catch {
-        opened = false;
-      }
-    }
-    if (!opened) {
-      // 열 곳이 없으면 시작한 로그인이 남지 않게 닫는다.
-      await cancel();
-      return UNAVAILABLE;
-    }
-    progress?.started({ userCode: begun.value.sign_in.user_code });
-    const signal = progress?.signal;
-    let interval = begun.value.interval_ms;
-    let misses = 0;
-    for (;;) {
-      await wait(interval, signal);
-      if (signal?.aborted) {
-        await cancel();
-        return { ok: false, code: "cancelled" };
-      }
-      const step = await command(core, loginComplete, {
-        input: { provider: id, login },
-        compare: {},
-        key: `login-complete-${random()}`,
-      });
-      if (!step.ok) {
-        // 발급자에 잠깐 닿지 못한 것이면 다시 본다. ChatGPT는 교환이 실패하면 세션이 없어져 not_found가 온다.
-        if (step.code === "unavailable" && ++misses < COMPLETE_MISSES) continue;
-        if (step.code === "not_found" && misses > 0) return UNAVAILABLE;
-        if (step.code === "unavailable") await cancel();
-        return step;
-      }
-      misses = 0;
-      if (step.value.state === "connected") return { ok: true, value: null };
-      interval = step.value.interval_ms;
-    }
+      progress,
+    );
   }
 
   return {
@@ -422,21 +358,18 @@ export function coreProviderSettingsSource(
     },
 
     async registerCustom(input: CustomProviderInput) {
-      const base = input.baseUrl.replace(/\/+$/, "");
-      const remote = base.startsWith("https://");
+      const base = customBaseUrl(input.baseUrl);
       // 웹 주소는 key가 있어야 한다. 인증 없음은 이 컴퓨터의 주소에만 있다.
-      if (remote && !input.withKey) {
+      if (base === null || (customNeedsKey(base) && !input.withKey)) {
         return { ok: false, code: "invalid_input" };
       }
-      const definition: ProviderDefinition = {
-        key: input.id,
-        display_name: input.name,
-        protocols: [input.protocol],
-        auth_kinds: [input.withKey ? "api_key" : "none"],
-        models_endpoint: remote ? `${base}/models` : null,
-        oauth: null,
-        revision: "1",
-      };
+      const definition = customDefinition({
+        id: input.id,
+        name: input.name,
+        base,
+        protocol: input.protocol,
+        withKey: input.withKey,
+      });
       const id = idFor(input.id);
       const connect = {
         id,

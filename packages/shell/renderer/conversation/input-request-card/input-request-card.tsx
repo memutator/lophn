@@ -1,10 +1,14 @@
-// composer 위 agent의 입력 요청 card. 값이 가는 곳을 가장 눈에 띄게 보인다: login은 shell main이 잰 origin, secret은 core가
-// 정의·선언에서 읽은 목적지다(agent가 적은 글이 아니다). [Enter]는 보호 입력 창을 연다.
-// 창은 사람이 이 단추를 눌러야 열리고, 창에 보이는 값은 main이 core에서 다시 읽는다.
-import { useEffect, useState } from "react";
+// composer 위 agent의 입력 요청 card. 값이 가는 곳을 가장 눈에 띄게 보인다: login은 shell main이 잰 origin, secret과
+// sign_in은 core가 정의·선언·설정에서 읽은 목적지다(agent가 적은 글이 아니다). [Enter]는 보호 입력 창을 연다.
+// 창은 사람이 이 단추를 눌러야 열리고, 창에 보이는 값은 main이 core에서 다시 읽는다. sign_in은 넣을 값이 없어 [Sign in]이
+// browser 로그인을 돌린다(Settings·앱 상세와 같은 흐름).
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
-import type { InputRequestView } from "../../../../protocol/lophn-agent/input-request.ts";
+import type {
+  InputRequestView,
+  SignInRequestView,
+} from "../../../../protocol/lophn-agent/input-request.ts";
 import type {
   SecretInputOpenReply,
   SecretInputRequestOpen,
@@ -37,7 +41,10 @@ interface InputRequestCardProps {
   session: string;
   toolCall: string;
   /** 읽고 접는 route. 없는 source(fake·GUI)면 card는 아무것도 그리지 않는다. */
-  source: Pick<AgentTabSource, "readInputRequest" | "cancelInputRequest">;
+  source: Pick<
+    AgentTabSource,
+    "readInputRequest" | "cancelInputRequest" | "signInInputRequest"
+  >;
   /** 보호 창을 열고 닫힐 때까지 기다린다. 열지 못하면 false다. */
   onEnter(): Promise<boolean>;
 }
@@ -46,10 +53,18 @@ function titleOf(view: InputRequestView, agent: string): string {
   if (view.kind === "login") {
     return t(`conversation.title.input-request-${view.mode}`, { agent });
   }
+  if (view.kind === "sign_in") {
+    return t("conversation.title.input-request-sign-in", {
+      agent,
+      subject: view.subject,
+    });
+  }
   return t(
-    "provider" in view.slot
-      ? "conversation.title.input-request-provider"
-      : "conversation.title.input-request-app",
+    "app" in view.slot
+      ? "conversation.title.input-request-app"
+      : "mcp" in view.slot
+        ? "conversation.title.input-request-mcp"
+        : "conversation.title.input-request-provider",
     { agent, subject: view.subject },
   );
 }
@@ -64,6 +79,9 @@ export function InputRequestCard({
   const [view, setView] = useState<InputRequestView | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  // 로그인을 돌리는 중이면 그만둘 신호와 device code다.
+  const [signing, setSigning] = useState<{ code: string | null } | null>(null);
+  const stop = useRef<AbortController | null>(null);
   useEffect(() => {
     let live = true;
     void source.readInputRequest?.({ session, toolCall }).then((result) => {
@@ -81,13 +99,49 @@ export function InputRequestCard({
     setBusy(false);
     setFailed(!opened);
   };
+  const signIn = async (request: SignInRequestView) => {
+    const controller = new AbortController();
+    stop.current = controller;
+    setFailed(false);
+    setSigning({ code: null });
+    const result = await source.signInInputRequest?.({
+      session,
+      toolCall,
+      view: request,
+      progress: {
+        signal: controller.signal,
+        started: (info) => setSigning({ code: info.userCode }),
+      },
+    });
+    stop.current = null;
+    setSigning(null);
+    // 사람이 그만두면 요청도 접는다. 그 밖의 실패는 core가 결과로 받아 agent에게 알린다.
+    if (result?.ok === false && result.code === "cancelled") {
+      void source.cancelInputRequest?.({ session, toolCall });
+    }
+  };
+  const cancel = () => {
+    if (stop.current !== null) stop.current.abort();
+    else void source.cancelInputRequest?.({ session, toolCall });
+  };
   return (
     <section
       className={styles.card}
       aria-label={t("conversation.label.input-request-card", { agent })}
     >
       <span className={styles.title}>{titleOf(view, agent)}</span>
-      {view.kind === "login" ? (
+      {view.kind === "sign_in" ? (
+        <div className={styles.site} data-sign-in-destinations="">
+          <span className={styles.caption}>
+            {t("conversation.label.input-request-sign-in-at")}
+          </span>
+          {view.destinations.map((destination) => (
+            <span key={destination} className={styles.origin}>
+              {destination}
+            </span>
+          ))}
+        </div>
+      ) : view.kind === "login" ? (
         <>
           <div className={styles.site} data-login-origin="">
             <span className={styles.caption}>
@@ -137,28 +191,42 @@ export function InputRequestCard({
       )}
       <div className={styles.foot}>
         <p className={failed ? `${styles.note} ${styles.error}` : styles.note}>
-          {failed
-            ? t("conversation.notice.input-request-failed")
-            : t("conversation.notice.input-request-help", { agent })}
+          {signing !== null
+            ? signing.code === null
+              ? t("conversation.notice.input-request-signing-in")
+              : t("conversation.notice.input-request-user-code", {
+                  code: signing.code,
+                })
+            : failed
+              ? t("conversation.notice.input-request-failed")
+              : view.kind === "sign_in"
+                ? t("conversation.notice.input-request-sign-in-help", {
+                    agent,
+                  })
+                : t("conversation.notice.input-request-help", { agent })}
         </p>
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={busy}
-          onClick={() =>
-            void source.cancelInputRequest?.({ session, toolCall })
-          }
-        >
+        <Button size="sm" variant="ghost" onClick={cancel}>
           {t("conversation.button.input-request-cancel")}
         </Button>
-        <Button
-          size="sm"
-          variant="primary"
-          disabled={busy}
-          onClick={() => void enter()}
-        >
-          {t("conversation.button.input-request-enter")}
-        </Button>
+        {view.kind === "sign_in" ? (
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={signing !== null}
+            onClick={() => void signIn(view)}
+          >
+            {t("conversation.button.input-request-sign-in")}
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={busy}
+            onClick={() => void enter()}
+          >
+            {t("conversation.button.input-request-enter")}
+          </Button>
+        )}
       </div>
     </section>
   );

@@ -33,9 +33,10 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:logins/list",
   "memory:logins/save",
   "memory:logins/delete",
-  // agent의 login 요청 card가 읽고 Cancel한다. hold·done은 once 값과 결과를 싣는 shell main 전용이다.
+  // agent의 입력 요청 card가 읽고 Cancel하고, sign_in 요청의 로그인 결과를 알린다(done). hold는 once 값을 싣는 shell main 전용이다.
   "memory:input_request/read",
   "memory:input_request/cancel",
+  "memory:input_request/done",
   "memory:diagnostics/status",
   "memory:turn_requests/decide",
   "memory:ask/read",

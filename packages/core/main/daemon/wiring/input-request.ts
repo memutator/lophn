@@ -17,6 +17,9 @@ import { turnRead } from "../../../../protocol/lophn-agent/turn-reads.ts";
 import type { TurnMode } from "../../../../protocol/lophn-agent/turn-values.ts";
 import { loginOriginSchema } from "../../../../protocol/secrets/logins.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import { PROJECT_LAYER } from "../../../agent-workspaces/workspace/project-layer.ts";
+import { registeredMcpServers } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
+import { readAgentMcp } from "./agent-mcp.ts";
 import { createSecretSlots } from "./secret-slot.ts";
 import {
   loadSession,
@@ -26,7 +29,7 @@ import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
-// agent의 입력 요청(`lophn login request`, `lophn secret request`)의 core 쪽이다. 대기열은 `ask`와 같은 questionWaits이고,
+// agent의 입력 요청(`lophn login request`, `lophn ask secret`)의 core 쪽이다. 대기열은 `ask`와 같은 questionWaits이고,
 // 여기는 입구 route와 login의 origin 재기·once 값의 알려진 값 등록, secret 자리의 해석을 맡는다. 값은 이 파일에서 저장하지 않는다.
 const INPUT_REQUEST_PRINCIPAL = "machine:input-request";
 
@@ -155,6 +158,11 @@ export const inputRequestWiring: WiringFactory = () => {
         read: readAs,
         newProviderId: () => ids.newId("pvd"),
         configured: (name) => ctx.secretStore.get(name).ok,
+        mcpServers: () =>
+          registeredMcpServers(ctx.ledgerPath, {
+            projectLayer: PROJECT_LAYER,
+            agents: () => readAgentMcp(ctx.ledgerPath),
+          }),
       });
 
       const ask: MemoryHandler = async (who, body) => {
@@ -177,7 +185,11 @@ export const inputRequestWiring: WiringFactory = () => {
             return err({ code: "not_found", message: "the session is gone" });
           }
           const here = workspaceOf(row.value);
-          const content = await slots.resolve(here, input.slot);
+          const content = await slots.resolve(
+            here,
+            row.value.agent,
+            input.slot,
+          );
           if (!content.ok) return content;
           return await waits.askRequest({ session, turn }, content.value);
         }
@@ -252,6 +264,19 @@ export const inputRequestWiring: WiringFactory = () => {
         if (!user.ok) return user;
         const input = inputRequestDone.input.parse(body);
         const { result } = input;
+        // sign_in 요청은 로그인 결과(signed_in이나 오류)만, 다른 요청은 signed_in을 받지 않는다.
+        const open = waits.readRequest(input.session, input.tool_call);
+        if (!open.ok) return open;
+        const signedIn = "signed_in" in result;
+        if (
+          !("error" in result) &&
+          signedIn !== (open.value.kind === "sign_in")
+        ) {
+          return err({
+            code: "invalid_input",
+            message: "the result does not fit this request",
+          });
+        }
         const finished = waits.finishRequest(
           input.session,
           input.tool_call,

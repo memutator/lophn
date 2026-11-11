@@ -53,6 +53,10 @@ pass a job step by step. Before you make or change one, read the skill
   A new app is registered at home: tell the person, who asks lophn at home.
 - When you hear that a public command you use has changed, read the change
   and check the skills that call it before you use it again.
+- When an MCP server of your own definition or of this project needs its key or
+  sign-in, request it with `lophn ask secret --mcp <server> [--part <part>]`;
+  the person types the value or signs in themselves and you never see it. A
+  model provider is connected from home, not here.
 - A problem in a package goes to lophn at the app that owns it (`owner_app` from
   `lophn package read`) with `lophn call send`, no reply expected.
 

@@ -71,7 +71,7 @@ export async function netFetchPatch(
     `    { name: "@lophn/cap-tool", version: "2.1.0" },`,
     `    { name: "@lophn/cap-tool", version: "2.1.0" },
     { name: "@lophn/cap-net", version: "1.0.0" },
-    { name: "@lophn/cap-secret", version: "1.0.0" },`,
+    { name: "@lophn/cap-secret", version: "1.1.0" },`,
   );
   const manifest = `${dir}/package.json`;
   const parsed = JSON.parse(await readFile(manifest, "utf8")) as {

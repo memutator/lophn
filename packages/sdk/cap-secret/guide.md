@@ -24,6 +24,10 @@ import { useSecret } from "@lophn/cap-secret";
   밖으로 나가지 않는 loopback만 http이며, `net.fetch` grant가 허락한 정확한
   host·port여야 한다. 호출마다 사람 확인을 받지 않고, tool을 부른 쪽(사람
   화면·agent·다른 앱)으로 막지도 않는다.
+- 값이 아직 없으면 앱의 lophn agent가 `lophn ask secret --secret <name>`로
+  사람에게 청한다. 대화에 card가 뜨고 사람이 보호 창에 값을 넣으며, agent는
+  `stored`만 받는다. 값을 대화로 받지 않는다. 선언에 `oauth`가 있으면 같은
+  명령이 [Sign in] card를 띄우고 agent는 `signed_in`을 받는다.
 - `createSecretClient({ host?, standIn? })` — host를 바꿔 끼운다.
 - `createSecretStandIn({ allowed? })` — preview·test의 대역이다. live가 아닌
   mode에서는 broker에도 외부에도 나가지 않고 `{ used: true, standIn: true }`만
@@ -62,8 +66,10 @@ Google Drive처럼 OAuth로 여는 서비스는 선언의 `secret.use`에 `oauth
 ```
 
 - 사람이 그 서비스에 OAuth client를 만들고(Google Cloud는 "Desktop app") client
-  id와 client secret을 앱 Access 탭에 넣은 뒤 [Sign in]을 누른다. lophn이 PKCE로
-  browser를 열고 loopback으로 돌아온 code를 token으로 바꾼다.
+  id와 client secret을 앱 Access 탭에 넣는다(client id가 없으면 `lophn ask
+  secret`이 `conflict`로 거절한다). 그 뒤 [Sign in]을 누르거나 앱의 lophn agent가
+  `lophn ask secret --secret <name>`로 대화에 [Sign in] card를 띄운다. lophn이
+  PKCE로 browser를 열고 loopback으로 돌아온 code를 token으로 바꾼다.
 - 앱은 지금처럼 `useSecret({ name: "gdrive", destination })`만 부른다. lophn이
   access token을 붙이기 직전에 만료가 5분 안이면 refresh한다. 앱은 token도
   refresh token도 보지 못한다.

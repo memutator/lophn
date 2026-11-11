@@ -5,6 +5,11 @@ import { Dialog } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 import { actionIcons } from "../../../icons/mod.ts";
 
+import {
+  CUSTOM_ID_SHAPE,
+  customBaseUrl,
+  customNeedsKey,
+} from "../../../../../protocol/lophn-agent/custom-provider.ts";
 import { ProtectedKeyNote } from "../../../workspace/agents/editor/parts.tsx";
 import { waysOf } from "../model.ts";
 import { ProviderName } from "./provider-name.tsx";
@@ -251,25 +256,8 @@ function methodHint(way: Exclude<AuthWay, "none">): string {
   }
 }
 
-const ID_SHAPE = /^[a-z0-9_-]+$/;
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
-
-/** https 주소이거나 이 컴퓨터(127.0.0.1·::1·localhost)의 http 주소만 받는다. */
-function baseUrlOk(value: string): boolean {
-  let url: URL;
-  try {
-    url = new URL(value.trim());
-  } catch {
-    return false;
-  }
-  if (url.protocol === "https:") return url.hostname !== "";
-  return url.protocol === "http:" && LOCAL_HOSTS.has(url.hostname);
-}
-
-/** 웹 주소는 key 없이 연결할 수 없다. 인증 없음은 이 컴퓨터의 주소에만 있다. */
-function needsKey(value: string): boolean {
-  return value.trim().startsWith("https://");
-}
+const baseUrlOk = (value: string): boolean => customBaseUrl(value) !== null;
+const needsKey = (value: string): boolean => customNeedsKey(value.trim());
 
 /** Custom provider form의 값. API key는 여기 없다. */
 interface CustomFields {
@@ -289,7 +277,7 @@ function CustomProviderBody({
   failed?: boolean;
   onChange?: (fields: CustomFields) => void;
 }): ReactNode {
-  const idOk = ID_SHAPE.test(fields.id);
+  const idOk = CUSTOM_ID_SHAPE.test(fields.id);
   const urlOk = baseUrlOk(fields.baseUrl);
   return (
     <div className={styles.form}>
@@ -383,7 +371,7 @@ function CustomDialog({ source, onClose, onConnected }: Props): ReactNode {
   const [busy, setBusy] = useState(false);
 
   const valid =
-    ID_SHAPE.test(fields.id) &&
+    CUSTOM_ID_SHAPE.test(fields.id) &&
     fields.name.trim() !== "" &&
     baseUrlOk(fields.baseUrl);
 

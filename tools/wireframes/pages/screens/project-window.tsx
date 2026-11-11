@@ -311,7 +311,7 @@ const SIDEBAR_WORKSPACES: readonly SidebarWorkspace[] = [
   {
     ref: { kind: "project", id: PROJECT_ID },
     name: "phroner",
-    // desk 둘에 열린 줄과 탭을 닫았지만 아직 도는 줄이 있어 desk 이름으로 나뉜다.
+    // desk 둘에 열린 줄이 있어 desk 이름으로 나뉜다. 탭이 없는 줄은 Main 묶음에 든다.
     current: [
       {
         desk: { key: "_default", label: "Main" },
@@ -324,6 +324,7 @@ const SIDEBAR_WORKSPACES: readonly SidebarWorkspace[] = [
             "1 min ago",
             "working",
           ),
+          ...lophnLine(byId("harness")),
         ],
       },
       {
@@ -347,7 +348,6 @@ const SIDEBAR_WORKSPACES: readonly SidebarWorkspace[] = [
           ),
         ],
       },
-      { desk: null, items: lophnLine(byId("harness")) },
     ],
     recent: [
       ...lophnLine(byId("release-check")),

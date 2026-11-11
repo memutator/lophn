@@ -1,0 +1,18 @@
+id: spawned-session-tabs
+version: 0.23.35
+title: "agent의 call과 run이 연 session을 Main desk의 Agent 탭으로 연다"
+modules: [packages/core/router, packages/core/runs, packages/core/main, packages/shell/renderer, packages/design, tools]
+checked: []
+change: |
+  전: `team spawn`의 같은 workspace 자식만 탭이 열렸다. call로 새 session을 열거나 run(job의 agent_run, `lophn run`)이 연 session은 탭이 없어 왼쪽 sidebar의 "No tab" 묶음에 숨었다.
+  후: call이 새 session을 열 때와 run이 새 session을 열 때 commit 뒤(run은 session을 연 직후) core가 host queue에 Agent 탭을 요청한다. 탭은 그 session의 workspace에 열리고 선택하지 않는다. call의 주인은 연 session이고 같은 workspace면 연 session을 source로 relation `stage`(바로 뒤의 plain 탭)를 싣는다. 다른 workspace의 call과 run은 source가 없고 run의 주인은 `"person"`이다. team spawn은 전과 같고 Router가 따로 알리지 않아 탭이 둘 열리지 않는다. 다른 workspace로 spawn한 자식도 그 workspace에 source 없이 열린다. renderer는 source 없는 session 탭을 보던 desk가 아니라 Main desk 끝에 붙인다. 왼쪽 sidebar의 "No tab" 묶음을 없애고 탭 없는 줄은 Main 묶음에 둔다(`left-sidebar.label.desk-none` 문구 삭제). 이미 열린 session으로 보낸 call, `--session`으로 이어 쓴 run, 앱 화면이 연 session(`opened_by_app`), workflow step·program 알림이 연 session은 탭이 없다.
+why: 사람이 agent가 연 session을 sidebar의 "No tab" 줄로만 찾아야 했다. 일이 시작된 것이 보여야 한다.
+decisions:
+  - text: "run마다 새 session을 그대로 열고 탭이 쌓이게 둔다. 사람이 닫으면 Recent로 간다. 버린 길: 접은 float으로 열기(사람이 놓친다), run마다 session을 재사용하기(job 기록이 한 session에 섞인다)."
+    by: person
+  - text: "run 탭의 주인은 \"person\"이다. 탭 주인은 browser 호출 권한만 가르고 session 탭에는 뜻이 없으며 run에는 session을 연 agent가 없다."
+    by: agent
+  - text: "앱 화면이 연 session은 탭을 열지 않는다. 앱이 turn마다 session을 부려 쓰면(오목의 수마다 한 turn) 탭이 넘치고 앱 화면이 이미 자리다. workflow step과 program 알림도 자기 화면이 있어 뺐다."
+    by: agent
+  - text: "탭 없는 current 줄은 새 묶음 대신 Main 묶음에 둔다. 호스트 요청을 core 재시작으로 잃은 경우에도 줄이 보이고 줄을 눌러 여는 길은 그대로다."
+    by: agent

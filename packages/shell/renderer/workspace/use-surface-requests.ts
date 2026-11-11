@@ -9,7 +9,11 @@ import type { HarnessId } from "../../../protocol/coding-agent/harness-id.ts";
 import type { PendingHost } from "../app-frame/workspace-views.tsx";
 import { useQuickPrefs } from "../desktop/settings/quick-launch/store.tsx";
 import { handoffCommand } from "../shell/agent-sections.tsx";
-import { type WorkspaceRef, workspaceKey } from "../shell/desk-model.ts";
+import {
+  MAIN_DESK,
+  type WorkspaceRef,
+  workspaceKey,
+} from "../shell/desk-model.ts";
 import { sessionOf } from "./agent/tab-fields.ts";
 import type { SessionTabOpen } from "./kinds/agent.tsx";
 import { appPreviewTab } from "./kinds/app-preview.tsx";
@@ -45,7 +49,7 @@ function reportTui(
   });
 }
 
-// agent가 연 탭의 자리. source의 agent 탭이 이 창에 있으면 그 옆이고, 없으면 desk 끝이다.
+// agent가 연 탭의 자리. source의 agent 탭이 이 창에 있으면 그 옆이고, 없으면 desk 끝이다(session 탭은 Main desk 끝).
 function placementOf(
   host: () => TabHost,
   key: string,
@@ -66,7 +70,15 @@ function placementOf(
     options: {
       select: false,
       ...(at.kind === "tab"
-        ? { after: at.after, beside: at.beside, relation: at.relation }
+        ? {
+            after: at.after,
+            beside: at.beside,
+            relation: at.relation,
+            // 만든 이가 없는 session 탭(job·run, 다른 workspace의 call)은 보던 desk가 아니라 Main desk 끝에 쌓인다.
+            ...(at.after === undefined && target === "session"
+              ? { desk: MAIN_DESK }
+              : {}),
+          }
         : { minimized: at.minimized === true }),
     },
   };

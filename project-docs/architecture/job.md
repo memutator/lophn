@@ -157,7 +157,7 @@ hold
 27. `at`이 없는 `Nd`는 24시간 × N인 고정 길이다. 서머타임에 local 시각이 밀린다. 시각을 지키려면 `at`을 준다. `at`이 있으면 날짜를 달력으로 더하고 그날의 시각을 푼다.
 
 시작과 끝
-28. agent_run은 이름을 푼 agent로 run을 연다. 차례마다 새 session을 열고 unattended 사람 메시지로 turn을 연다. 끝은 그 run의 상태다. run의 결과 칸은 job run에 옮기지 않고 run 기록에서 읽는다.
+28. agent_run은 이름을 푼 agent로 run을 연다. 차례마다 새 session을 열고(그 workspace의 Main desk에 Agent 탭으로도 열린다. `architecture/run.md`) unattended 사람 메시지로 turn을 연다. 끝은 그 run의 상태다. run의 결과 칸은 job run에 옮기지 않고 run 기록에서 읽는다.
 29. tool_run은 run 연산이 앱 호출 경로를 program caller로 부른다. 앱이 꺼졌거나 tool이 선언에 없으면 run이 실패하고 job run이 `failed`다.
 30. workflow_start는 workflow 시작을 시작한 쪽 `{kind: "job", job}`으로 core 안 service에서 직접 부른다. 사람만 받는 `StartWorkflow` route는 그대로다. flow면 service가 그 process를 띄운다. 시작하지 못하면(`conflict` 등) job run이 `failed`다. 끝은 scheduler가 다음 바퀴에 instance 상태를 읽어 안다: `ended`면 `done`, `stopped`면 `cancelled`. 한 번 닫은 줄은 instance가 다시 열려도 되살리지 않는다.
 31. 시작하지 못한 차례(이름이 안 풀림, run 시작 실패)는 그 자리에서 `failed`로 닫는다. run을 기다리다 오류로 그치거나 lophn이 꺼지는 중이면 거짓 끝을 적지 않고 줄을 둔다. 다음 켤 때 `interrupted`로 닫힌다.

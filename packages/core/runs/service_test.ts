@@ -21,12 +21,16 @@ test("run의 결과는 그 입력이 연 turn의 답이고 같은 session에 먼
   const answers = new Map<string, string>();
   let runMessage = "";
   let runText = "";
+  const tabs: string[] = [];
   const agents: RunAgents = {
     resolve: () =>
       Promise.resolve(ok({ agent: "lophn_home", workspace: null })),
     agentOf: () =>
       Promise.resolve(ok({ agent: "lophn_home", workspace: null })),
     open: () => Promise.resolve(ok(undefined)),
+    showTab: (_agent, session) => {
+      tabs.push(session);
+    },
     send: (_session, message, text) => {
       runMessage = message;
       runText = text;
@@ -98,6 +102,8 @@ test("run의 결과는 그 입력이 연 turn의 답이고 같은 session에 먼
   // 사람 자격으로 들어가는 run 입력이 사람이 친 글로 읽히지 않는다.
   assert.equal(runText, '<lophn-run from="command">\nhello\n</lophn-run>');
   const id = started.value.id as `run_${string}`;
+  // 이어 쓴 session은 새 탭을 요청하지 않는다.
+  assert.deepStrictEqual(tabs, []);
 
   // 먼저 들어온 입력 A가 연 turn T1이 먼저 끝난다.
   turns.set(OLDER_MESSAGE, {
@@ -121,4 +127,13 @@ test("run의 결과는 그 입력이 연 turn의 답이고 같은 session에 먼
     [done.state, done.result, done.turn],
     ["done", "second", T2],
   );
+
+  // run이 새로 연 session은 탭을 한 번 요청한다.
+  const fresh = await service.start({
+    kind: "agent",
+    agent: { agent: "lophn" },
+    prompt: "again",
+  });
+  if (!fresh.ok) throw new Error(fresh.error.message);
+  assert.deepStrictEqual(tabs, [fresh.value.session]);
 });

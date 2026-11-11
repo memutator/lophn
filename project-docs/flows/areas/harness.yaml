@@ -2189,7 +2189,7 @@ flows:
     docs: [architecture/coding-agent.md]
 
   - id: harness-team-child-tab
-    title: "team spawn으로 생긴 자식 agent session의 탭을 host queue에 넣는다"
+    title: "agent가 연 새 session(team spawn, call)의 탭을 host queue에 넣는다"
     actor: system
     entries: [system:team-child-tab]
     pre: [team-spawn:spawned]
@@ -2198,18 +2198,18 @@ flows:
       - packages/core/main/daemon/wiring/router.ts
       - packages/core/router/commands.ts
     steps:
-      - "team spawn의 commit이 router.team-spawned를 낸 뒤 core main thread가 받는다(commit 뒤에만)"
-      - "부모와 자식 session의 행을 다시 읽는다. 없으면 아무 일도 하지 않는다"
-      - "부모와 자식의 workspace 종류와 id가 같으면 host queue에 tab_open(relation은 team spawn의 --as인 peer나 stage이고 없으면 peer, source는 부모)을 넣는다. 탭은 shell host poll이 연다(host-queue-poll)"
-      - "다른 workspace의 자식은 tree에만 있고 탭을 열지 않는다. agent 탭은 자기 workspace 창에만 그려진다"
+      - "team spawn의 commit이 router.team-spawned를, call이 새 session을 연 commit이 router.call-session-opened를 낸 뒤 core main thread가 받는다(commit 뒤에만). team spawn은 앞의 것 하나만 내 탭이 둘 열리지 않는다. 열린 session으로 보낸 call과 앱이 보낸 call은 내지 않는다"
+      - "연 session과 새 session의 행을 다시 읽는다. 없으면 아무 일도 하지 않는다"
+      - "둘의 workspace 종류와 id가 같으면 host queue에 tab_open(relation은 team spawn의 --as인 peer나 stage이고 없으면 peer, 그냥 call은 stage, source는 연 session)을 넣는다. 탭은 shell host poll이 연다(host-queue-poll)"
+      - "다른 workspace의 새 session은 source와 relation 없이 그 session의 workspace에 tab_open을 넣는다. renderer가 Main desk 끝에 붙인다"
     outcomes:
       - id: opened
         observe: [request:shell-host]
       - id: other-workspace
-        when: "부모와 자식의 workspace가 다르다. 탭을 열지 않는다"
-        observe: []
+        when: "연 session과 새 session의 workspace가 다르다. source 없이 새 session의 workspace에 연다"
+        observe: [request:shell-host]
       - id: missing-row
-        when: "부모나 자식 행을 읽지 못했다. 아무 일도 하지 않는다"
+        when: "연 session이나 새 session 행을 읽지 못했다. 아무 일도 하지 않는다"
         observe: []
     crosses_process: false
     docs: [architecture/coding-agent.md]

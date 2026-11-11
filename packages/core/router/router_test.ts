@@ -19,6 +19,7 @@ import {
   APP_CALL_SETTLED_TOPIC,
   ASK_ANSWERED_TOPIC,
   ASK_ENDED_TOPIC,
+  CALL_SESSION_OPENED_TOPIC,
 } from "./model.ts";
 import { createRouter } from "./router.ts";
 import type {
@@ -532,6 +533,8 @@ test("a member opening a new session by agent name is refused as outside its tea
   });
   assert.ok(routed.ok);
   assert.deepStrictEqual(spawned.openedBy, [SENDER]);
+  // team spawn의 탭은 command가 relation과 같이 요청하므로 Router는 따로 알리지 않는다(탭이 둘 열리지 않게).
+  assert.deepStrictEqual(spawned.announced, []);
 });
 
 test("call.send to an agent name opens a session that belongs to no team", () => {
@@ -546,6 +549,37 @@ test("call.send to an agent name opens a session that belongs to no team", () =>
   });
   assert.ok(routed.ok);
   assert.deepStrictEqual(openedBy, [null]);
+});
+
+test("a call that opens a new session asks for its tab once, and a call to an open session does not", () => {
+  const world = setup({
+    [SENDER]: target(SENDER, true),
+    [RECEIVER]: target(RECEIVER, true),
+  });
+  const opened = world.router.route(world.tx, {
+    ...base,
+    to: { agent: "lophn" },
+    dedup: "tool-1",
+  });
+  assert.ok(opened.ok);
+  assert.deepStrictEqual(world.announced, [
+    {
+      topic: CALL_SESSION_OPENED_TOPIC,
+      data: { caller: SENDER, session: RECEIVER },
+    },
+  ]);
+  // 같은 dedup의 다시 보내기와 열린 session으로 보내기는 새 session이 아니다.
+  world.router.route(world.tx, {
+    ...base,
+    to: { agent: "lophn" },
+    dedup: "tool-1",
+  });
+  world.router.route(world.tx, {
+    ...base,
+    to: { session: RECEIVER },
+    dedup: "tool-2",
+  });
+  assert.strictEqual(world.announced.length, 1);
 });
 
 // 팀 자식(SENDER)이 부모 ses_p에게 질문·승인 call을 연다.

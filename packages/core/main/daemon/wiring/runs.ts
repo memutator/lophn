@@ -161,6 +161,16 @@ export const runsWiring: WiringFactory = () => {
           });
           return opened.ok ? ok(undefined) : opened;
         },
+        // run이 연 session의 탭이다. session을 연 agent가 없어 주인은 사람(person)이고 source 없이 그 workspace의 Main desk 끝에 열린다.
+        showTab(agent: AgentAtWorkspace, session: Id<"ses">) {
+          ctx.hostQueue.openTab({
+            owner: "person",
+            workspace: agent.workspace ?? { kind: "home" },
+            target: { session },
+            relation: null,
+            source: null,
+          });
+        },
         async send(session: Id<"ses">, message: Id<"msg">, text: string) {
           const sent = await command(RUNS_CONTEXT, sendMessage, {
             id: message,

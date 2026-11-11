@@ -518,7 +518,7 @@ export function LeftSidebar({
                       className={styles.deskHead}
                       data-sidebar-desk={group.desk?.key ?? ""}
                     >
-                      {group.desk?.label ?? t("left-sidebar.label.desk-none")}
+                      {group.desk?.label}
                     </div>
                   )}
                   {group.items.map((item) => {

@@ -600,6 +600,7 @@ flows:
       - "agent 주소(또는 이어 쓸 session)의 이름을 다 푼다. 못 풀면 session도 run도 남기지 않는다"
       - "입력 글(prompt, input JSON, 출력 schema 안내)의 크기와 schema를 검사한다. 넘거나 못 읽으면 invalid_input"
       - "CreateRun으로 run 행(running)을 만들고, 새 session이면 연다. 이어 쓰기면 session은 열지 않는다"
+      - "새 session이면 열린 직후 그 workspace의 Agent 탭을 host queue에 요청한다(주인 person, source 없음, relation 없음. renderer가 Main desk 끝에 붙인다). 이어 쓰기는 요청하지 않는다. job의 agent_run도 같다"
       - "입력을 unattended 사람 메시지로 넣는다. 열기나 넣기가 실패하면 run을 start_failed로 닫는다"
       - "끝은 run-agent-end가 본다. 응답은 running인 run 기록이다"
     outcomes:

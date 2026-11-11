@@ -921,8 +921,13 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
         options?.after === undefined
           ? undefined
           : findTab(all, options.after)?.desk;
-      if (at === undefined) update(open);
-      else updateAt(at, open);
+      const named =
+        options?.desk !== undefined && Object.hasOwn(all.desks, options.desk)
+          ? options.desk
+          : undefined;
+      if (at !== undefined) updateAt(at, open);
+      else if (named !== undefined) updateAt(named, open);
+      else update(open);
       return;
     }
     // 사는 desk가 있는 탭(workflow)은 그 desk로 건너가서 연다(없는 desk는 만든다). 이미 어느 desk에 열려 있으면 그 desk가 먼저다.

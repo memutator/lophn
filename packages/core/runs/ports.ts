@@ -39,6 +39,8 @@ export type RunAgents = {
   // 없으면 not_found, 열린 session이 아니면 conflict.
   agentOf(session: Id<"ses">): Promise<Result<AgentAtWorkspace>>;
   open(agent: AgentAtWorkspace, session: Id<"ses">): Promise<Result<void>>;
+  // run이 새로 연 session을 사람이 볼 Agent 탭으로 요청한다. 요청이 늦거나 잃어도 run에는 영향이 없다.
+  showTab(agent: AgentAtWorkspace, session: Id<"ses">): void;
   // unattended로 넣는다.
   send(
     session: Id<"ses">,

@@ -69,6 +69,7 @@ import {
   APP_CALL_SETTLED_TOPIC,
   ASK_ANSWERED_TOPIC,
   ASK_ENDED_TOPIC,
+  CALL_SESSION_OPENED_TOPIC,
   CANCEL_TEXT,
   callsAppCancel,
   callsAppSend,
@@ -250,29 +251,28 @@ export const routerWiring: WiringFactory = () => {
         queue: ctx.queue,
         publish: (event) => ctx.bus.publish(event),
       });
-      // 같은 workspace의 자식은 부모에게 무엇인지(peer·stage)만 말해 연다. 자리는 renderer가 정한다. 다른 workspace의 자식은
-      // tree에만 있고 그 desk에는 그리지 않는다(agent 탭은 자기 workspace 창에만 그려진다). host queue는 늦게 채워지므로 부를 때 읽는다.
-      const openChildTab = (data: {
-        parent: Id<"ses">;
-        child: Id<"ses">;
+      // agent가 연 session은 그 session의 workspace에 Agent 탭으로 연다. 같은 workspace면 연 session의 탭을 source로 두고 무엇인지
+      // (relation: team spawn은 peer·stage, 그냥 call은 stage)만 말하며 자리는 renderer가 정한다. 다른 workspace면 source 없이
+      // 그 workspace의 Main desk 끝에 열린다. host queue는 늦게 채워지므로 부를 때 읽는다.
+      const openSessionTab = (data: {
+        opener: Id<"ses">;
+        session: Id<"ses">;
         relation: "peer" | "stage";
       }) => {
         const rows = ledgerSnapshot(ctx.ledgerPath, (lookup) => ({
-          parent: loadSession(lookup, data.parent),
-          child: loadSession(lookup, data.child),
+          opener: loadSession(lookup, data.opener),
+          session: loadSession(lookup, data.session),
         }));
-        if (!rows.ok || !rows.value.parent || !rows.value.child) return;
-        const workspace = workspaceOf(rows.value.parent);
-        const there = workspaceOf(rows.value.child);
-        if (workspace?.kind !== there?.kind || workspace?.id !== there?.id) {
-          return;
-        }
+        if (!rows.ok || !rows.value.opener || !rows.value.session) return;
+        const from = workspaceOf(rows.value.opener);
+        const there = workspaceOf(rows.value.session);
+        const same = from?.kind === there?.kind && from?.id === there?.id;
         ctx.hostQueue.openTab({
-          owner: data.parent,
-          workspace: workspace ?? { kind: "home" },
-          target: { session: data.child },
-          relation: data.relation,
-          source: data.parent,
+          owner: data.opener,
+          workspace: there ?? { kind: "home" },
+          target: { session: data.session },
+          relation: same ? data.relation : null,
+          source: same ? data.opener : null,
         });
       };
       // 앱이 보낸 call이 끝났다. 앱에는 queue가 없어 `call.settled` event(발행자 lophn)로 그 앱에만 알린다.
@@ -311,7 +311,26 @@ export const routerWiring: WiringFactory = () => {
         applyQueue(actions);
         for (const action of actions) {
           if (action.topic === TEAM_SPAWNED_TOPIC) {
-            openChildTab(action.data as Parameters<typeof openChildTab>[0]);
+            const spawned = action.data as {
+              parent: Id<"ses">;
+              child: Id<"ses">;
+              relation: "peer" | "stage";
+            };
+            openSessionTab({
+              opener: spawned.parent,
+              session: spawned.child,
+              relation: spawned.relation,
+            });
+          } else if (action.topic === CALL_SESSION_OPENED_TOPIC) {
+            const opened = action.data as {
+              caller: Id<"ses">;
+              session: Id<"ses">;
+            };
+            openSessionTab({
+              opener: opened.caller,
+              session: opened.session,
+              relation: "stage",
+            });
           } else if (action.topic === ASK_ANSWERED_TOPIC) {
             ctx.peek.approvals?.askReplies.answered(
               action.data as Parameters<

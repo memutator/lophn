@@ -41,5 +41,6 @@ export {
   failureCode,
   type RouteInput,
   type RouteResult,
+  CALL_SESSION_OPENED_TOPIC,
   TEAM_SPAWNED_TOPIC,
 } from "./model.ts";

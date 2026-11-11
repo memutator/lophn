@@ -149,7 +149,7 @@ tool run
 
 **화면**
 
-- run이 연 session은 sidebar에 그대로 두지 않고 그 run 아래로 묶어 보인다. 쌓일 session을 그대로 두면 job이 하루에 session을 수십 개 만든다. 묶는 것은 `session_opened`가 true인 run의 session뿐이다. `--session`으로 이어 쓴 session은 원래 자리에 둔다.
+- run이 새로 연 session(`session_opened`가 true)은 그 workspace의 Main desk에 Agent 탭으로 열린다. session을 연 run service가 session을 연 직후 host queue에 탭 열기를 요청한다. 주인은 `"person"`이고 source가 없다(run은 session을 연 agent가 없다). 선택하지 않는다. run마다 새 session이라 탭이 쌓이고 사람이 닫는다(닫으면 Recent). 왼쪽 sidebar는 run의 session을 run 아래로 묶지 않고 다른 session처럼 탭이 있는 desk의 줄로 둔다. `--session`으로 이어 쓴 session은 새 탭을 요청하지 않는다. job·CLI·workflow instance가 연 run이 모두 같다.
 - project workspace의 session은 project sidebar의 Background 칸에서, 앱 workspace의 session은 그 앱 workspace의 Logs panel에서 묶는다. home의 session은 Home 창의 agent 탭의 것이다. tool run은 session이 없어 run 목록에만 보인다. Agent 탭의 session 목록(session popover)은 모든 session을 찾는 곳이라 run이 연 session도 그대로 보인다.
 - project 창은 처음과 session 상태가 바뀔 때마다 `ListRuns`를 `workspace: { project }`로 읽는다. 앱 workspace는 Logs panel이 열려 있는 동안 `workspace: { app }`으로 읽는다. 읽는 곳은 workspace source의 `runs` 하나다.
 - job이 연 run 줄(그 job이 아직 있을 때)은 이름 자리에 job 제목을 보이고 agent 이름이나 tool 이름은 둘째 줄이다. 제목은 읽는 곳이 `job.list`로 붙인다. 지운 job의 run 줄은 일반 run과 같다.
@@ -167,7 +167,7 @@ tool run
 - `invalid_output`을 오류 코드가 아니라 실패 이유로 둔다. 이유: 경계의 오류 코드는 일곱으로 두고, run이 어떻게 끝났는지는 run의 기록이다. (agent)
 - run 입력을 켤 때 다시 줄 세우지 않는다. 이유: 다시 돌면 이미 `lophn_restarted`로 닫힌 run 뒤에 attended turn이 생기고 바깥 효과가 두 번 난다. (agent)
 - tool 이름이 없는 것을 `StartRun`에서 막지 않고 run이 `tool_denied`로 실패하게 둔다. 이유: 선언을 미리 볼 port를 두지 않는 쪽이 단순하다. (agent)
-- run이 연 session은 열린 채 남고 화면은 그 run 아래로 묶는다. `--session`으로 이어 쓴 session은 원래 자리다. run이 연 session도 Agent 탭의 session 목록에는 보인다. (agent)
+- run이 연 session은 열린 채 남고 그 workspace의 Main desk에 Agent 탭으로 쌓인다. 탭을 닫는 것은 사람이다. `--session`으로 이어 쓴 session은 새 탭이 없다. 이유: run이 연 session이 sidebar의 "탭 없음" 줄로 숨어 사람이 못 보는 것보다, 쌓이더라도 보이고 사람이 닫는 편이 낫다(사람, 2026-11-11). 탭 요청의 주인은 `"person"`이다: 탭 주인은 browser 호출을 가리는 값이라 session 탭에는 의미가 없고 run에는 연 session이 없다. (사람이 보이게 하기로, 주인은 agent)
 - `origin`과 `agent_resolved`는 route 입력에 없고 core 안 시작만 받는다. 이유: `origin`이 program·flow 자격으로 앱 tool을 부르게 하므로, route 입력으로 열려 있으면 누구든 job이나 flow의 이름으로 앱을 부르는 길이 된다. flow process에는 credential을 주지 않고 origin과 flow 자격은 core가 그 instance의 이름으로 만든다. (agent)
 - 새 session을 열기 전에 이름을 먼저 푼다. 이유: 안 풀린 채 session부터 열면 CLI의 project 먼저, app 나중 재시도가 session을 남긴다.
 - 취소할 때 run을 먼저 닫는다. 이유: 뒷일(입력 빼기, turn 멈추기)이 실패해도 run의 상태는 사람이 요청한 대로 남는다.

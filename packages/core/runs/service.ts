@@ -217,6 +217,8 @@ export function createRunService(deps: {
     if (!created.ok) return created;
 
     const sent = opened ? await agents.open(agent, session) : ok(undefined);
+    // run마다 새 session을 열어 탭이 쌓이는 것은 뜻이다. 사람이 닫으면 Recent로 간다. `--session`으로 이어 쓴 session은 원래 자리다.
+    if (opened && sent.ok) agents.showTab(agent, session);
     const delivered = sent.ok
       ? await agents.send(session, message, text)
       : sent;

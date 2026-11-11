@@ -32,6 +32,7 @@ import {
   addressingOf,
   APP_CALL_SETTLED_TOPIC,
   ASK_ANSWERED_TOPIC,
+  CALL_SESSION_OPENED_TOPIC,
   ASK_ENDED_TOPIC,
   calId,
   FAILURE_TEXTS,
@@ -109,7 +110,7 @@ export interface Router {
 
 // 받는 곳을 푼 결과. 실패하면 이유와, 행에 남길 수 있는 풀린 받는 곳(이름을 못 풀었으면 null)이다.
 type Resolved =
-  | { ok: true; to: CallTarget; target: TargetSession }
+  | { ok: true; to: CallTarget; target: TargetSession; opened?: boolean }
   | { ok: false; reason: CallFailReason; to: CallTarget | null };
 
 function failed(reason: CallFailReason, to: CallTarget | null): Resolved {
@@ -139,7 +140,9 @@ export function createRouter(deps: RouterDeps): Router {
       from,
       spawn && from.kind === "agent" ? sesId(from.session) : null,
     );
-    if (opened.ok) return ok({ ok: true, to, target: opened.value });
+    if (opened.ok) {
+      return ok({ ok: true, to, target: opened.value, opened: true });
+    }
     // spawn은 실패를 call의 실패가 아니라 오류로 돌린다(팀이 가득 찬 conflict가 closed로 바뀌지 않게).
     if (spawn) return opened;
     if (opened.error.code === "conflict") return ok(failed("closed", to));
@@ -439,7 +442,7 @@ export function createRouter(deps: RouterDeps): Router {
         resolved.value.reason,
       );
     }
-    const { to, target } = resolved.value;
+    const { to, target, opened } = resolved.value;
     if (from.kind === "agent") {
       const refused =
         policyRefusal(from.session, target.agent, input.reply) ??
@@ -463,6 +466,13 @@ export function createRouter(deps: RouterDeps): Router {
         newRecord(tx, call, from, input, to, receiver, "accepted", null),
       );
       if (!stored.ok) return stored;
+    }
+    // team spawn의 자식 탭은 그 command가 relation과 같이 따로 요청한다. 앱이 연 session은 앱 화면이 자리다.
+    if (opened === true && from.kind === "agent" && input.spawn !== true) {
+      announce(tx, CALL_SESSION_OPENED_TOPIC, {
+        caller: from.session,
+        session: receiver,
+      });
     }
     return ok({
       call,

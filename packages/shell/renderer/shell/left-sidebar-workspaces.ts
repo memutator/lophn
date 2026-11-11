@@ -11,7 +11,7 @@
 // - 줄의 연필·x(actions)는 lophn session과 터미널은 어느 workspace든 있다. draft는 x만, workflow desk는 없다.
 // - current 줄의 순서는 고정이다: lophn session은 id 순(만든 순), draft, 그 뒤에 터미널은 key 순. 상태가 바뀌어도 자리를 지킨다.
 //   draft는 첫 메시지 뒤 session 줄의 끝(가장 새 id)이 되어 자리가 거의 그대로다.
-// - current는 그 탭이 있는 desk로 나눈다(layout의 desk 순서). 탭 없이 도는 줄은 desk 없는 묶음으로 끝에 둔다.
+// - current는 그 탭이 있는 desk로 나눈다(layout의 desk 순서). 탭 없이 도는 줄은 Main desk 묶음에 둔다.
 import { t } from "@lophn/i18n";
 
 import { isLophn } from "../../../protocol/lophn-agent/workspaces.ts";
@@ -24,6 +24,7 @@ import { sessionOf } from "../workspace/agent/tab-fields.ts";
 import { sessionRowTitle } from "./session-titles.ts";
 import {
   deskTabs,
+  MAIN_DESK,
   type WorkspaceLayout,
   workspaceKey,
   type WorkspaceRef,
@@ -227,17 +228,22 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
         : [];
     const items = [...waiting, ...(current.get(key) ?? []).sort(stable)];
     const desks = input.desks.get(key);
+    // 탭이 없는 줄(host 요청을 잃었거나 사람이 안 보고 닫은 것)은 Main desk의 줄과 같이 둔다. "탭 없음" 묶음은 없다.
+    const main = desks?.list.find((desk) => desk.key === MAIN_DESK);
     const deskOf = (item: SidebarSession) =>
       desks?.at.get(
         item.kind === "workflow" ? `workflow:${item.ref}` : item.ref,
-      ) ?? null;
-    const groups: SidebarDeskGroup[] = [
-      ...(desks?.list ?? []).map((desk) => ({
-        desk,
-        items: items.filter((item) => deskOf(item) === desk.key),
-      })),
-      { desk: null, items: items.filter((item) => deskOf(item) === null) },
-    ];
+      ) ??
+      main?.key ??
+      null;
+    // layout을 아직 못 읽은 workspace는 desk 이름 없는 묶음 하나다(묶음이 하나면 이름 줄을 그리지 않는다).
+    const groups: SidebarDeskGroup[] =
+      desks === undefined || desks.list.length === 0
+        ? [{ desk: null, items }]
+        : desks.list.map((desk) => ({
+            desk,
+            items: items.filter((item) => deskOf(item) === desk.key),
+          }));
     return {
       ref,
       name,

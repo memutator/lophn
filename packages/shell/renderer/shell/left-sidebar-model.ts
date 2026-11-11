@@ -28,7 +28,7 @@ export const sessionKey = (item: Pick<SidebarSession, "kind" | "ref">) =>
 
 /** current 줄을 그 탭이 있는 desk로 나눈 묶음. */
 export interface SidebarDeskGroup {
-  /** 탭이 있는 desk. 탭 없이 도는 줄(탭을 닫았지만 아직 도는 session)은 null이다. */
+  /** 줄이 속한 desk. 탭 없는 줄도 Main desk에 든다. layout을 아직 못 읽은 workspace의 묶음 하나만 null이다. */
   readonly desk: { readonly key: string; readonly label: string } | null;
   readonly items: readonly SidebarSession[];
 }
@@ -36,7 +36,7 @@ export interface SidebarDeskGroup {
 export interface SidebarWorkspace {
   readonly ref: WorkspaceRef;
   readonly name: string;
-  /** 지금 열려 있거나 도는 session을 desk로 나눈 것. layout의 desk 순서이고 desk null 묶음이 끝이다. 빈 묶음은 없다. */
+  /** 지금 열려 있거나 도는 session을 desk로 나눈 것. layout의 desk 순서다. 빈 묶음은 없다. */
   readonly current: readonly SidebarDeskGroup[];
   /** 끝났거나 닫은 session. 접힌 줄 하나로 시작한다. */
   readonly recent: readonly SidebarSession[];

@@ -285,6 +285,7 @@ flows:
       - 주소가 안 풀리거나 session이 닫혔거나 workspace가 보관됐으면 주소가 풀린 경우에만 call 행을 failed로 남기고 보낸 쪽에는 state로 돌려준다. 열린 session 주소는 닫혔으면 fallback이 없는 한 새로 열지 않는다
       - call 정책, 팀 규칙, 받는 agent 명함(modality, reply 방식) 순으로 거른다. 거르면 err로 돌려 tx가 되돌아가 행도 새 session도 없다
       - 통과하면 agent_calls에 accepted 행을 쓰고 받는 session의 queue에 봉투를 넣는다. unattended 표시는 call을 따라간다
+      - 새 session을 열었으면(agent가 보낸 call) commit 뒤 그 session의 Agent 탭을 host queue에 요청한다(topic router.call-session-opened, harness-team-child-tab)
       - 보낸 쪽은 기다리지 않고 답은 나중에 새 입력으로 온다
     outcomes:
       - id: accepted

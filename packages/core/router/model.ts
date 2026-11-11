@@ -104,6 +104,9 @@ export function teamMayReach(
 // `team spawn`이 새 session을 연 뒤 main thread가 자식 탭을 열도록 commit 뒤에 넘기는 일의 이름이다.
 export const TEAM_SPAWNED_TOPIC = "router.team-spawned";
 
+// agent의 call이 새 session을 열었다(`{caller, session}`, `team spawn`은 제외). main thread가 그 session의 Agent 탭을 요청한다.
+export const CALL_SESSION_OPENED_TOPIC = "router.call-session-opened";
+
 // 부모가 ask call에 답했다(`{call, decision, text}`). main thread가 짝인 request나 질문을 푼다.
 export const ASK_ANSWERED_TOPIC = "router.ask-answered";
 // 부모가 답하지 않고 끝나 ask call이 receiver_ended로 닫혔다(`{call}`). main thread가 짝을 거절·취소로 푼다.

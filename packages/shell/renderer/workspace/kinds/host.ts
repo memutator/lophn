@@ -132,6 +132,8 @@ export interface TabHost {
       readonly after?: string;
       readonly beside?: boolean;
       readonly relation?: OpenRelation;
+      /** `select: false`이고 `after`가 없을 때 붙일 desk. 없는 desk면 보이는 desk다. */
+      readonly desk?: string;
     },
   ): void;
   /**

@@ -1,5 +1,5 @@
 id: no-saved-agent-tabs
-version: 0.23.35
+version: 0.23.39
 title: "Agent 탭(lophn session)을 layout 파일에 저장하지 않는다. 앱을 다시 켜면 sidebar에서 연다"
 modules: [packages/core/main, packages/shell/main, packages/shell/renderer]
 checked: []

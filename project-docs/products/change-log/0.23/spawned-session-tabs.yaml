@@ -1,5 +1,5 @@
 id: spawned-session-tabs
-version: 0.23.35
+version: 0.23.39
 title: "agent의 call과 run이 연 session을 Main desk의 Agent 탭으로 연다"
 modules: [packages/core/router, packages/core/runs, packages/core/main, packages/shell/renderer, packages/design, tools]
 checked: []

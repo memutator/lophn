@@ -1,5 +1,5 @@
 id: bundle-file-sharing
-version: 0.23.35
+version: 0.23.36
 title: 봉인된 앱 bundle 사본이 같은 file을 hardlink로 나눠 쓴다
 modules: [packages/core/apps, packages/core/main, packages/protocol]
 change: |

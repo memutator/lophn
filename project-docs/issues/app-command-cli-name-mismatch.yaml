@@ -1,0 +1,25 @@
+id: app-command-cli-name-mismatch
+title: 앱 command 안내가 실제 CLI 문법과 달라 agent가 실패를 권한이나 세션 문제로 오진한다
+kind: bug
+status: open
+topic: app-call
+modules: [packages/protocol, packages/cli, packages/core/agent-workspaces, packages/core/lophn-agent, packages/core/apps, packages/sdk]
+now: |
+  packages/core/agent-workspaces/workspace/workspace-info.ts의 appLines는 활성 release의 command 이름을 그대로 prompt에 넣는다.
+  packages/cli/parser.ts의 wordsOf는 점을 argv 낱말 경계로, underscore를 hyphen으로 바꾼다.
+  그래서 안내의 add_event와 quota.list를 그대로 호출하면 unknown command이고, 실제 호출은 add-event와 quota list여야 한다.
+  보존된 77개 tool 사용 세션에서 이 문법의 실패가 10개 세션 14건이었다.
+  ses_01m74vhjgck7101xscn55n0jc6은 add_schedule을 추가한 뒤에도 잘못된 이름으로 재시도하고 목록이 고정됐다고 오진해 새 세션에 넘겼다.
+  위임받은 세션도 같은 입력으로 실패한 뒤 help에서 add-schedule을 찾아 성공했다.
+  packages/protocol/apps/declaration/tools.ts의 validateLayers는 원래 이름과 provider wire 이름의 중복만 검사한다.
+  add_event와 add-event, inputSchema의 start_time과 start-time은 서로 다른 이름으로 등록되지만 CLI에서는 같은 이름이 된다.
+impact: |
+  agent가 사용할 수 있는 앱 command를 호출하지 못해 사용자 작업이 늦어지거나 끝나지 않는다.
+  일부 agent는 권한 부여나 새 세션이 필요하다고 잘못 설명한다.
+  CLI 이름 충돌이 있는 선언은 같은 명령줄이 다른 handler나 필드로 풀려 잘못된 쓰기를 일으킬 수 있다.
+fix: |
+  - 추천(중간): 선언 이름은 handler·grant·job의 ID로 유지한다. CLI 낱말과 flag의 공통 변환을 선언 검사, parser, prompt, help가 함께 쓴다.
+    선언 검사에서 변환 후 command·flag 충돌을 거절하고, 잘못된 호출에는 실제 이름과 해당 group의 help 경로를 안내한다.
+  - 이름을 선언에서 자동으로 바꾸는 안(큼)은 기존 handler와 grant·job·skill의 참조를 함께 옮겨야 하므로 쓰지 않는다.
+decided: |
+  선언 ID를 바꾸지 않고 실제 호출 문법을 일치시킨다. 이름이나 권한을 추측해 다른 command를 자동 실행하지 않는다.

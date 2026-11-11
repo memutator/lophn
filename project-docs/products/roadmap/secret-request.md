@@ -1,7 +1,15 @@
 # secret request: agent가 secret이 필요한 자리를 가리켜 사람에게 넣어 달라고 한다
 
-상태: 순서 1(요청 모델, provider key와 앱 secret 자리, `lophn ask secret`, card, 지침)이 main에 올라갔다(change-log `secret-request`). 순서 2가 남았다. 사람이 정할 것 둘은 추천안으로 진행했다.
-아래 "지금 코드"는 순서 1 전의 모습이다. 순서 1이 바꾼 것은 `architecture/agent-definition.md`의 secret 저장소 절과 change-log에 있다.
+상태: 끝남. 순서 1은 change-log `secret-request`, 순서 2는 `secret-request-2`다(둘 다 계획 없이 branch 하나에서 했다). 사람이 정할 것 둘은 추천안으로 진행했다.
+아래 "지금 코드"는 순서 1 전의 모습이다. 바뀐 것은 `architecture/agent-definition.md`의 secret 저장소 절, `app-call.md`의 빈 자리 알리기, change-log에 있다.
+
+순서 2에서 이 문서와 다르게 간 것:
+
+- MCP 자리: project·앱 session은 자기 agent 정의 층에 더해 자기 workspace 층의 server도 청한다(다른 workspace에 닿지 않는다). home은 전역, Home 층, 자기 정의 층이다. 한 server가 청할 것을 여럿 가지면 agent는 이름이 아니라 `--part`(`sign_in`, `client`, `credential`, `header:<이름>`)로 고른다.
+- custom provider는 https 주소에 key를 넣는 연결만 받는다. key 없이 붙는 loopback http는 지금처럼 Settings에서 한다.
+- sign-in은 card(renderer)가 지금 Settings·앱 상세의 로그인 흐름을 그대로 돌고 결과를 `input_request/done`으로 알린다(device code를 card에 보여야 한다). 이미 연결된 provider에 다시 로그인을 청하면 `conflict`다(만료된 구독은 사람이 Settings에서 끊고 다시 연결한다).
+- 앱 secret flag는 `--name`이 아니라 `--secret`이다. flag가 자리 칸과 같아 실패가 빈 자리를 그대로 명령으로 찍는다.
+- 빈 자리 알리기는 SDK를 고치지 않고 core가 한다: 앱 호출은 core가 값을 못 붙인 invocation을 기억해 실패 결과에 `missing`을 싣고, MCP는 연결 층이 빈 secret 이름을 자리로 되돌린다. turn을 시작할 때 붙지 못한 MCP server는 tool이 아예 안 실려 알릴 실패가 없다.
 
 순서 1에서 이 문서와 다르게 간 것:
 

@@ -28,6 +28,7 @@ import {
   command,
   enterSecret,
   newProviderId,
+  providerSecretName,
   windowLinkOpener,
   windowSecretInputOpener,
 } from "../core-call.ts";
@@ -227,7 +228,7 @@ export function coreProviderSettingsSource(
     endpoint: string;
     protocol: ProviderProtocol;
   }): Promise<WindowOutcome> {
-    const secret = `provider.${input.id.slice("pvd_".length)}`;
+    const secret = providerSecretName(input.id);
     const entered = await enterSecret(openSecret, {
       name: secret,
       purpose: "provider",
@@ -332,7 +333,7 @@ export function coreProviderSettingsSource(
       });
       if (!sent.ok) return sent;
       // 값 정리는 best-effort다. 못 지워도 끊기는 끝났다. 구독 로그인은 refresh token과 meta를 옆에 둔다.
-      const secret = `provider.${provider.slice("pvd_".length)}`;
+      const secret = providerSecretName(provider);
       for (const name of [secret, `${secret}.refresh`, `${secret}.meta`]) {
         await call(core, "memory", "secrets", "delete", { name });
       }

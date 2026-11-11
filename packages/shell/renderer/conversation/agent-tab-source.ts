@@ -661,6 +661,11 @@ export interface AgentTabSource {
   stop(turn: string, key: string): Promise<SourceResult<void>>;
   /** 실패한 turn의 입력을 같은 session에 다시 보낸다. */
   retryTurn(turn: string): Promise<SourceResult<void>>;
+  /**
+   * 연결된 provider가 어떤 인증인지(`api_key`·`oauth`·`none`). provider 오류 줄의 [Enter key]가 API key provider에만 뜨게 한다
+   * (구독 provider의 `provider.<id>`는 OAuth token이라 key를 덮어쓰면 안 된다). core source만 갖는다.
+   */
+  providerAuthKind?(provider: string): Promise<SourceResult<string>>;
   answerQuestions(input: {
     session: string;
     toolCall: string;

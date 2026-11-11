@@ -43,7 +43,11 @@ import type {
   ThreadEntry,
 } from "./agent-tab-source.ts";
 import { AgentThread } from "./agent-thread.tsx";
-import { providerKeyFix, providerOfModel } from "./thread/provider-key.ts";
+import {
+  providerKeyFix,
+  providerOfModel,
+  useProviderAuthKind,
+} from "./thread/provider-key.ts";
 import { type FocusRoutes, useFocusRoutes } from "./agent-keys.ts";
 import styles from "./agent-view.module.css";
 import {
@@ -343,10 +347,11 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
           };
   const caps = capabilitiesOf(meta);
   const failedProvider = providerOfModel(meta);
+  const authKind = useProviderAuthKind(source, failedProvider?.id ?? null);
   const providerKey = useMemo(
-    () => providerKeyFix(failedProvider, host.openConnections),
+    () => providerKeyFix(failedProvider, authKind, host.openConnections),
     // meta는 갱신마다 새 객체라 값(id, 이름)으로만 다시 만든다. AgentThread가 memo다.
-    [failedProvider?.id, failedProvider?.name, host.openConnections],
+    [failedProvider?.id, failedProvider?.name, authKind, host.openConnections],
   );
   // thread index: harness는 CLI 자신의 session id가 bookmark의 session key이고 lophn은 session id다.
   const harness = meta?.harness ?? null;

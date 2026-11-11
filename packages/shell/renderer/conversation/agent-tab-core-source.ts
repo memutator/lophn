@@ -6,6 +6,7 @@
 // 갱신을 `reduceAcp`로 접으므로 source는 event를 듣지도 polling하지도 않는다. 결과를 모르는 호출(통로가 끊김)은
 // unavailable이다.
 import { acpDraft, acpSend, acpSnapshot } from "../../../protocol/acp/mod.ts";
+import { providerRead } from "../../../protocol/lophn-agent/providers.ts";
 import type {
   AgentTabSource,
   AgentTabSourceFactory,
@@ -105,6 +106,12 @@ function createSource(
       moveQueuedMessage(env, queued, direction),
     stop: (turn, key) => stopTurnOf(env, turn, key),
     retryTurn: (turn) => retryTurn(env, turn),
+    providerAuthKind: async (provider) => {
+      const read = await env.read(providerRead, { provider });
+      return read.ok
+        ? { ok: true, value: read.value.provider.credential.kind }
+        : read;
+    },
     answerQuestions: (input) => answerQuestions(env, input),
     readInputRequest: (input) => readInputRequest(env, input),
     cancelInputRequest: (input) => cancelInputRequest(env, input),

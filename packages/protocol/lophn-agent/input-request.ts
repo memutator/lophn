@@ -53,6 +53,25 @@ export const secretSlotSchema = z.union([
 ]);
 export type SecretSlot = z.infer<typeof secretSlotSchema>;
 
+// 자리를 `lophn ask secret`의 flag로 찍는다. flag 이름은 field 이름에서 `_`를 `-`로 바꾼 것이다(`sign_in`은 `--sign-in`).
+// 값이 빈 칸 없는 자리(앱 호출·MCP 호출의 실패가 가리키는 빈 자리)를 그대로 명령으로 옮기는 한 곳이다.
+export function secretSlotFlags(slot: SecretSlot): string {
+  return Object.entries(slot)
+    .filter(([, value]) => value !== undefined)
+    .map(([key, value]) => {
+      const flag = `--${key.replace(/_/g, "-")}`;
+      if (value === true) return flag;
+      const text = String(value);
+      return `${flag} ${/^[\w.:/@-]+$/.test(text) ? text : JSON.stringify(text)}`;
+    })
+    .join(" ");
+}
+
+// agent에게 실패와 함께 주는 고정 문장이다. slot은 core가 설정·선언에서 만든 값이라 앱·MCP server가 쓴 글이 들어가지 않는다.
+export function missingSecretSentence(slot: SecretSlot): string {
+  return `A secret value or sign-in is missing. Ask the person with \`lophn ask secret ${secretSlotFlags(slot)}\`.`;
+}
+
 const target = { session: idSchema("ses"), tool_call: idSchema("tcl") };
 
 // login save는 login id, once는 filled, secret은 stored, sign_in은 signed_in이다. 값은 어디에도 없다.

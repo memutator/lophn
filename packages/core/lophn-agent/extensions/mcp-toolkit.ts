@@ -22,6 +22,7 @@ import {
   type McpRuntimeServer,
   mergeMcpLayers,
   runtimeServerOfLayer,
+  mcpMissingSlot,
 } from "./mcp-server.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import { createListSettingsReader } from "../../config/mod.ts";
@@ -334,17 +335,38 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
       // 도구 호출 통로다. 재조회가 진행·실패 중이면 그 server의 호출은
       // 거절이다. 연결이 살아 있지 않으면 reconnect로 다시 본다.
       call(): McpToolCall {
+        // 호출을 거절하는 이유가 값 없음이나 인증 거절이면 빈 자리를 싣는다(agent가 `lophn ask secret`에 넘긴다).
+        const refused = (
+          serverName: string,
+          message: string,
+        ): Result<never> => {
+          const server = knownOf(assignmentId).get(serverName);
+          const connection = connections
+            .views()
+            .find(
+              (one) =>
+                one.owner[0] === assignmentId && one.owner[1] === serverName,
+            );
+          const slot =
+            server === undefined || connection === undefined
+              ? undefined
+              : mcpMissingSlot(server, connection);
+          return err({
+            code: "unavailable",
+            message,
+            ...(slot === undefined ? {} : { details: { missing: slot } }),
+          });
+        };
         return async (invoke) => {
           const state = stateOf(assignmentId, invoke.server);
           if (state !== "fresh") {
             // 재조회가 끝날 때까지 그 server의 tool 호출을 막는다.
-            return err({
-              code: "unavailable",
-              message:
-                state === "refreshing"
-                  ? "서버의 tool 목록을 다시 읽는 중이라 호출을 거절한다"
-                  : "서버의 tool 목록 재조회가 실패해 호출을 거절한다",
-            });
+            return refused(
+              invoke.server,
+              state === "refreshing"
+                ? "서버의 tool 목록을 다시 읽는 중이라 호출을 거절한다"
+                : "서버의 tool 목록 재조회가 실패해 호출을 거절한다",
+            );
           }
           const server = knownOf(assignmentId).get(invoke.server);
           if (server === undefined) {
@@ -393,19 +415,16 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
               );
               if (!reconnected.ok) {
                 setState(assignmentId, invoke.server, "failed");
-                return err({
-                  code: "unavailable",
-                  message: reconnected.error.message,
-                });
+                return refused(invoke.server, reconnected.error.message);
               }
               setState(assignmentId, invoke.server, "refreshing");
               await requery(assignmentId, invoke.server);
               // 재조회가 실패하면 failed다. 호출은 그래도 거절이다.
               if (stateOf(assignmentId, invoke.server) !== "fresh") {
-                return err({
-                  code: "unavailable",
-                  message: "서버의 tool 목록 재조회가 실패해 호출을 거절한다",
-                });
+                return refused(
+                  invoke.server,
+                  "서버의 tool 목록 재조회가 실패해 호출을 거절한다",
+                );
               }
               continue;
             }

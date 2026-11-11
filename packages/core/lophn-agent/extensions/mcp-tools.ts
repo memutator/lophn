@@ -224,7 +224,13 @@ async function invoke(
 ): Promise<Result<ToolResult>> {
   const sent = await call(request);
   if (!sent.ok) {
-    return err({ code: "unavailable", message: sent.error.message });
+    return err({
+      code: "unavailable",
+      message: sent.error.message,
+      ...(sent.error.details === undefined
+        ? {}
+        : { details: sent.error.details }),
+    });
   }
   const limited = limitJson(sent.value);
   // 상한을 넘은 결과는 content를 비우고 complete만 남긴다(limitJson). 결과는 감싸지 않는다.

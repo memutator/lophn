@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { defineMemory } from "../../base/route.ts";
 import { appIdSchema } from "../../projects/values.ts";
+import { secretNameSchema } from "../../secrets/secrets.ts";
 import {
   invocationIdSchema,
   jsonValueSchema,
@@ -72,6 +73,10 @@ const toolOutcomeSchema = z.discriminatedUnion("status", [
   z.strictObject({
     status: z.literal("failed"),
     error: z.strictObject({ code: z.string(), message: z.string() }),
+    // 이 호출이 값이나 sign-in이 없는 secret을 쓰려다 실패했으면 그 자리다. 앱이 쓴 글이 아니라 core가 `apps.secret_value`에서 본 것이다.
+    missing: z
+      .array(z.strictObject({ app: appIdSchema, secret: secretNameSchema }))
+      .optional(),
   }),
   // handler까지 가지 못했다.
   z.strictObject({

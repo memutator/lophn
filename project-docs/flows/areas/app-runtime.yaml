@@ -771,7 +771,7 @@ flows:
       - "막기(Gate): agent는 지금 할당(judge)으로 본다. 앱 workspace의 agent는 자기 앱이 할당에 자동으로 들어 있어(agentAssignment) 그 앱의 command는 할당 없이 통과하고, 다른 앱은 할당에 있어야 하며 deny로 뺀 command는 막힌다. app은 부른 앱의 active grant app.call이 그 tool을 덮는지로 본다. program은 판정 없이 통과하고, flow는 PM의 할당과 비공개 규칙을 본다. 묻지 않는다. 막히면 denied(gate_blocked)다. 사람은 Gate를 거치지 않는다."
       - "write와 external이면 앱별 줄을 얻고 invocation 시작을 남긴다. read는 줄 없이 바로 간다. 성공한 read는 기록을 남기지 않는다."
       - "접수가 닫힌 동안(활성화나 rewind) 온 호출은 접수가 열릴 때까지 붙잡혔다가 그때의 활성 release로 정해 보낸다. 앱 process에 보낸다. 보내기 전에 막히면 denied(app_unavailable), 보냈는데 답이 없으면 unknown이다. 활성화 drain이 기다리던 호출을 끊으면 같은 답이 된다."
-      - "응답의 결과와 changeset으로 invocation을 끝내고 부른 쪽에 succeeded, failed, denied, unknown 가운데 하나를 준다. changeset은 write 구간의 DB 변경이다(cap-store가 잡고 lophn_data_schema 표는 뺀다). frame 한도, release 상한, blob 준비 중 하나에 걸리면 changeset만 빼고 changeset_dropped로 알린다."
+      - "응답의 결과와 changeset으로 invocation을 끝내고 부른 쪽에 succeeded, failed, denied, unknown 가운데 하나를 준다. 그 호출이 쓰려던 secret의 값이나 sign-in이 비어 있었으면(app-secret-value가 적은 빈 자리) failed 결과에 `missing: [{app, secret}]`을 싣는다. agent의 `lophn <slug> <command>`는 그 자리를 `lophn ask secret --app <id> --secret <name>` 문장과 함께 결과에 보인다. 앱이 쓴 오류 글과 따로 lophn이 쓴 것이다. changeset은 write 구간의 DB 변경이다(cap-store가 잡고 lophn_data_schema 표는 뺀다). frame 한도, release 상한, blob 준비 중 하나에 걸리면 changeset만 빼고 changeset_dropped로 알린다."
     outcomes:
       - id: succeeded
         when: "write나 external이 성공함(invocation을 남기고 write 구간의 changeset을 붙인다)"
@@ -783,7 +783,7 @@ flows:
         when: "write나 external이 성공했는데 changeset을 못 붙임(summary.changeset_dropped: too_large는 앱 응답이 frame을 넘거나 changeset이 상한을 넘음, release_full은 release 안 changeset 상한, unavailable은 blob 준비 실패). 호출은 succeeded로 닫히고 changeset이 없어 rewind 계획은 reverts_db를 false로 본다"
         observe: [response, "ledger:invocations"]
       - id: failed
-        when: "앱 child가 failed로 답함: 입력이 inputSchema와 맞지 않음(invalid_input), 선언이나 handler가 없음(not_found), 이 둘은 handler 전이다. handler가 일반 예외를 던짐(internal 'handler failed', 원문은 주지 않는다). 결과가 JSON이 아님(internal). 읽기 실패도 기록한다"
+        when: "(값이나 sign-in이 없어 실패한 호출은 missing에 빈 자리가 실린다) 앱 child가 failed로 답함: 입력이 inputSchema와 맞지 않음(invalid_input), 선언이나 handler가 없음(not_found), 이 둘은 handler 전이다. handler가 일반 예외를 던짐(internal 'handler failed', 원문은 주지 않는다). 결과가 JSON이 아님(internal). 읽기 실패도 기록한다"
         observe: [response, "ledger:invocations"]
       - id: rejected
         when: "handler가 HandlerRejection(sdk:cap-tool)을 효과 전에 던짐. 그 코드(invalid_input·forbidden·conflict·unavailable 가운데 하나)와 200자 이하 문장을 그대로 준다. 기록은 failed다"
@@ -1511,6 +1511,7 @@ flows:
       - "목적지(scheme, host, port)를 확인한다. http는 loopback host만이다."
       - "현재 선언 ∩ active grant로 secret.use와 목적지의 net.fetch 허락을 다시 판정한다. 선언에 없거나 grant가 없으면 forbidden이다. 이 판정은 파일 값 읽기보다 먼저다."
       - "OAuth secret이면 access token을 쓸 수 있게 한다. 만료 5분 전부터 발급자에게 refresh를 대기열로 부른다. 발급자가 거절하면 token을 지우고 sign-in이 필요하다. 닿지 못했는데 token이 만료됐으면 unavailable이다. 닿지 못했어도 token이 아직 유효하면 그대로 쓴다."
+      - "값을 못 주었는데 이유가 값 없음(not_found)이나 OAuth sign-in 필요(conflict)이고 입력에 invocation이 있으면, 그 invocation의 빈 자리 {app, secret}을 core 메모리에 적어 둔다(app-command-call의 failed가 싣는다). 값은 어디에도 없다."
       - "secrets 파일에서 값을 읽는다. 값이 없으면 not_found다. 알려진 값 registry가 그 값을 알 때만 값을 응답 본문으로 준다. 값은 ledger, event, log, 오류에 남지 않는다."
     outcomes:
       - id: delivered

@@ -27,7 +27,9 @@ import { useSecret } from "@lophn/cap-secret";
 - 값이 아직 없으면 앱의 lophn agent가 `lophn ask secret --secret <name>`로
   사람에게 청한다. 대화에 card가 뜨고 사람이 보호 창에 값을 넣으며, agent는
   `stored`만 받는다. 값을 대화로 받지 않는다. 선언에 `oauth`가 있으면 같은
-  명령이 [Sign in] card를 띄우고 agent는 `signed_in`을 받는다.
+  명령이 [Sign in] card를 띄우고 agent는 `signed_in`을 받는다. 값이나 sign-in이
+  없어 앱 command가 실패하면 agent가 받는 결과의 `missing`이 그 자리와 명령을
+  알려 주므로 앱이 오류 글로 안내할 필요는 없다.
 - `createSecretClient({ host?, standIn? })` — host를 바꿔 끼운다.
 - `createSecretStandIn({ allowed? })` — preview·test의 대역이다. live가 아닌
   mode에서는 broker에도 외부에도 나가지 않고 `{ used: true, standIn: true }`만

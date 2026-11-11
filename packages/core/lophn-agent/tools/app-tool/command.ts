@@ -5,6 +5,7 @@ import {
 } from "../../../../protocol/apps/mod.ts";
 import type { AppCommand } from "../../../../protocol/apps/declaration/read.ts";
 import type { AssignmentEntry } from "../../../../protocol/approvals/mod.ts";
+import { missingSecretSentence } from "../../../../protocol/lophn-agent/input-request.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import type { CommandDoc } from "../../../../cli/commands/types.ts";
 import { appCommandDoc } from "../../../../cli/commands/app-command.ts";
@@ -146,11 +147,22 @@ function resultOf(
         invocation,
         result: outcome.result,
       });
-    case "failed":
-      return toolResult("failure", `${label} failed`, {
-        invocation,
-        error: outcome.error,
-      });
+    case "failed": {
+      // core가 이 호출이 쓰려던 secret의 값이나 sign-in이 비어 있음을 보았으면 그 자리와 청하는 명령을 싣는다.
+      // 앱이 쓴 오류 글과 따로 lophn이 쓴 문장이다.
+      const missing = outcome.missing ?? [];
+      return toolResult(
+        "failure",
+        missing.length === 0
+          ? `${label} failed`
+          : `${label} failed. ${missing.map(missingSecretSentence).join(" ")}`,
+        {
+          invocation,
+          error: outcome.error,
+          ...(missing.length === 0 ? {} : { missing }),
+        },
+      );
+    }
     case "denied":
       return toolResult("not_executed", `${label} was not run`, {
         invocation,

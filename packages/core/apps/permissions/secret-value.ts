@@ -36,6 +36,8 @@ export function secretValueHandler(deps: {
     app: string;
     name: string;
   }): Promise<Result<void> | undefined>;
+  // 값이 없거나(not_found) 앱 OAuth에 sign-in이 필요해서(conflict) 값을 못 주었을 때 부른다. 그 호출의 실패가 빈 자리를 싣게 한다.
+  missing?(input: { invocation: string; app: string; name: string }): void;
 }): MemoryHandler {
   return async (caller, body) => {
     const parsed = appsSecretValue.input.safeParse(body);
@@ -78,7 +80,19 @@ export function secretValueHandler(deps: {
       app: input.app,
       name: input.name,
     });
-    if (prepared !== undefined && !prepared.ok) return prepared;
+    const lacking = () => {
+      if (input.invocation !== undefined) {
+        deps.missing?.({
+          invocation: input.invocation,
+          app: input.app,
+          name: input.name,
+        });
+      }
+    };
+    if (prepared !== undefined && !prepared.ok) {
+      if (prepared.error.code === "conflict") lacking();
+      return prepared;
+    }
     let value: SecretValue | undefined;
     const sent = await deps.attach.send(
       {
@@ -92,7 +106,10 @@ export function secretValueHandler(deps: {
         return Promise.resolve(ok({ sent: true }));
       },
     );
-    if (!sent.ok) return sent;
+    if (!sent.ok) {
+      if (sent.error.code === "not_found") lacking();
+      return sent;
+    }
     const text =
       typeof value === "string"
         ? value

@@ -21,6 +21,7 @@ import {
 } from "../../../../protocol/apps/mod.ts";
 import { appSdkReviewRecord } from "../../../../protocol/apps/sdk-status.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
+import type { ToolCallOutput } from "../../../../protocol/apps/mod.ts";
 import type { At } from "../../../../protocol/base/values.ts";
 import type { BusEvent } from "../../../../protocol/events/mod.ts";
 import type { RequestContext } from "../../../../protocol/server/mod.ts";
@@ -470,6 +471,15 @@ export const appsWiring: WiringFactory = () => {
       ctx.provide("invocationLedger", ledger);
       ctx.provide("appRewind", rewind);
 
+      // 값이나 sign-in이 없어 secret을 못 받은 호출의 빈 자리다(invocation → 자리). 호출이 실패로 끝날 때 한 번 꺼내 싣는다.
+      // 앱이 오류를 삼켜 성공으로 끝난 호출의 항목이 쌓이지 않게 가장 오래된 것부터 버린다.
+      const missingSlots = new Map<
+        string,
+        { app: Id<"app">; secret: string }[]
+      >();
+      const MISSING_LIMIT = 256;
+      const callTool = callToolHandler(path);
+
       return ok({
         writer: (inner) =>
           withSourceFolder(
@@ -507,7 +517,20 @@ export const appsWiring: WiringFactory = () => {
           ),
         memory: [
           ...appOAuth.handlers,
-          ["apps/call_tool", callToolHandler(path)],
+          [
+            "apps/call_tool",
+            async (who, body) => {
+              const called = await callTool(who, body);
+              if (!called.ok) return called;
+              const output = called.value as ToolCallOutput;
+              if (output.invocation === null) return called;
+              const missing = missingSlots.get(output.invocation);
+              missingSlots.delete(output.invocation);
+              return missing === undefined || output.outcome.status !== "failed"
+                ? called
+                : ok({ ...output, outcome: { ...output.outcome, missing } });
+            },
+          ],
           ["apps/rewind", rewindHandler(rewind, link.sql)],
           [`${appTraySet.resource}/${appTraySet.method}`, tray.set],
           [`${appTrayList.resource}/${appTrayList.method}`, tray.list],
@@ -533,6 +556,21 @@ export const appsWiring: WiringFactory = () => {
                 return observed.ok ? ok(observed.value) : observed;
               },
               prepare: (input) => appOAuth.prepare(input),
+              missing: (input) => {
+                const held = missingSlots.get(input.invocation) ?? [];
+                if (!held.some((one) => one.secret === input.name)) {
+                  held.push({
+                    app: input.app as Id<"app">,
+                    secret: input.name,
+                  });
+                }
+                missingSlots.delete(input.invocation);
+                missingSlots.set(input.invocation, held);
+                const oldest = missingSlots.keys().next().value;
+                if (missingSlots.size > MISSING_LIMIT && oldest !== undefined) {
+                  missingSlots.delete(oldest);
+                }
+              },
             }),
           ],
           [

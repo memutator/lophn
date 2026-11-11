@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { McpServer } from "../../../protocol/lophn-agent/mod.ts";
-import { mcpSecretDestinations, runtimeServerOfLayer } from "./mcp-server.ts";
+import { secretSlotFlags } from "../../../protocol/lophn-agent/input-request.ts";
+import {
+  mcpMissingSlot,
+  mcpSecretDestinations,
+  runtimeServerOfLayer,
+} from "./mcp-server.ts";
 
 const PROJECT = {
   kind: "project",
@@ -49,4 +54,57 @@ test("mcp secret 이름은 그 이름을 쓰는 server의 origin으로만 간다
     assert.equal(origins.length, 1, secret);
     assert.ok(origins[0]!.includes(new URL(url).host), secret);
   }
+});
+
+// 값이 없거나 인증이 거절된 MCP 호출은 agent에게 빈 자리를 알린다. 이름은 설정에서 역산한 역할이라 agent가 정하지 못하고,
+// 그 자리를 `lophn ask secret`의 flag로 그대로 찍어 준다.
+test("MCP 연결 실패는 설정에서 역산한 빈 자리를 알리고 flag로 찍힌다", () => {
+  const server = runtimeServerOfLayer(
+    {
+      name: "docs",
+      enabled: true,
+      call_timeout_ms: 60_000,
+      transport: "http",
+      http: {
+        url: "https://mcp.example.com/x",
+        headers: { "X-Team": { secret: "mcp.global.docs.team" } },
+        auth: { kind: "bearer", credential: { secret: "mcp.global.docs" } },
+      },
+    },
+    null,
+  );
+  const part = (missing_secret: string | null, state = "failed_temporary") =>
+    mcpMissingSlot(server, { state, missing_secret });
+  assert.deepEqual(part("mcp.global.docs"), {
+    mcp: "docs",
+    part: "credential",
+  });
+  assert.deepEqual(part("mcp.global.docs.team"), {
+    mcp: "docs",
+    part: "header:X-Team",
+  });
+  // 인증 거절은 값이 있는데 틀린 것이라 credential을 다시 청한다. 아무 이유도 모르면 자리가 없다.
+  assert.deepEqual(part(null, "failed_auth"), {
+    mcp: "docs",
+    part: "credential",
+  });
+  assert.equal(part(null), undefined);
+  assert.equal(part("mcp.global.other"), undefined);
+
+  assert.equal(
+    secretSlotFlags({ mcp: "docs", part: "header:X-Team" }),
+    "--mcp docs --part header:X-Team",
+  );
+  assert.equal(
+    secretSlotFlags({ provider: "anthropic", sign_in: true }),
+    "--provider anthropic --sign-in",
+  );
+  assert.equal(
+    secretSlotFlags({
+      display_name: "River AI",
+      base_url: "https://api.river.ai/v1",
+      protocol: "openai-chat-completions",
+    }),
+    '--display-name "River AI" --base-url https://api.river.ai/v1 --protocol openai-chat-completions',
+  );
 });

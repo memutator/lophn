@@ -5,6 +5,10 @@ import type {
   ToolOutcome,
   ToolResult,
 } from "../../../protocol/lophn-agent/mod.ts";
+import {
+  missingSecretSentence,
+  secretSlotSchema,
+} from "../../../protocol/lophn-agent/input-request.ts";
 import { checkInput, unchanged } from "./schema.ts";
 import { spillLarge } from "./spill.ts";
 import type { ToolDefinition } from "./registry.ts";
@@ -163,12 +167,19 @@ export async function executeToolCall(
     const code = FAILURE_CODES.get(produced.error.code) ?? "internal";
     // handler 문장은 대상 이름·존재를 담을 수 있어 공통 코드 문장만 돌려준다. 입력이 틀렸다는 문장은 그대로 싣는다.
     // 입력 밖 대상을 다루지 않는 tool(input-scoped)도 그대로 싣는다: 가릴 것이 없고, 가리면 같은 입력으로 되풀이한다.
-    const summary =
+    const base =
       code === "invalid_input" ||
       INPUT_SCOPED_FAILURES[name] === true ||
       carriesReason(name, code)
         ? `${FAILURE_SUMMARIES[code] ?? "tool call failed"}: ${produced.error.message}`
         : (FAILURE_SUMMARIES[code] ?? "tool call failed");
+    // handler가 값이나 sign-in이 빈 자리를 알렸으면(details.missing, 설정에서 만든 자리) 청하는 명령을 고정 문장으로 붙인다.
+    const missing = secretSlotSchema.safeParse(
+      produced.error.details?.["missing"],
+    );
+    const summary = missing.success
+      ? `${base}. ${missingSecretSentence(missing.data)}`
+      : base;
     return {
       ...stopped(name, "failure", code, summary, effect),
       executed: true,

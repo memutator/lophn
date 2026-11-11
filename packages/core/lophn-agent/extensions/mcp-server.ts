@@ -8,6 +8,7 @@ import {
   type SecretDestination,
   secretDestinationOf,
 } from "../../../protocol/secrets/mod.ts";
+import type { SecretSlot } from "../../../protocol/lophn-agent/input-request.ts";
 import { mcpOwnerScope, mcpTokenNames } from "./mcp-oauth-vault.ts";
 
 // 연결이 쓰는 MCP 서버 한 대다. 층에서 온 설정(`McpServer`, secret은 `secrets.json`의 이름 `{secret}`)을 연결,
@@ -177,4 +178,41 @@ export function mergeMcpLayers(
     for (const server of layer.servers) merged.set(server.name, server);
   }
   return [...merged.values()];
+}
+
+// 연결하지 못한 이유가 값이 없음이거나 인증 거절이면 agent가 `lophn ask secret`에 그대로 넘길 빈 자리다. 이름은 설정에서 역산한
+// 역할(`credential`, `sign_in`, `client`, `header:<이름>`)이고 agent가 정한 것도 서버가 쓴 글도 아니다.
+export function mcpMissingSlot(
+  server: McpRuntimeServer,
+  connection: { state: string; missing_secret: string | null },
+): SecretSlot | undefined {
+  if (server.transport !== "http") return undefined;
+  const { auth, headers } = server.http;
+  const secret = connection.missing_secret;
+  let part: string | undefined;
+  if (secret !== null) {
+    if (
+      (auth.kind === "bearer" || auth.kind === "api_key") &&
+      auth.secret === secret
+    ) {
+      part = "credential";
+    } else if (auth.kind === "oauth2" && auth.token === secret) {
+      part = "sign_in";
+    } else if (auth.kind === "oauth2" && auth.client_secret === secret) {
+      part = "client";
+    } else {
+      const header = Object.entries(headers).find(
+        ([, value]) => value.kind === "secret" && value.secret === secret,
+      );
+      if (header !== undefined) part = `header:${header[0]}`;
+    }
+  } else if (connection.state === "failed_auth") {
+    part =
+      auth.kind === "oauth2"
+        ? "sign_in"
+        : auth.kind === "bearer" || auth.kind === "api_key"
+          ? "credential"
+          : undefined;
+  }
+  return part === undefined ? undefined : { mcp: server.name, part };
 }

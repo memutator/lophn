@@ -73,6 +73,8 @@ type ConnectionView = {
   tool_list_hash: string | null;
   retry_count: 0 | 1 | 2 | 3;
   error: string | null;
+  // 값이 없어 연결하지 못했으면 그 secret 이름이다. 호출 실패가 빈 자리를 알리는 근거다.
+  missing_secret: string | null;
 };
 
 // JSON-RPC over transport 눈이다. stdio·HTTP가 같은 모양을 낸다.
@@ -187,12 +189,20 @@ type Entry = {
   toolListHash: string | null;
   retryCount: 0 | 1 | 2 | 3;
   error: string | null;
+  missing: string | null;
   // detach 뒤 새 호출을 막는다.
   acceptingCalls: boolean;
   // 이미 전달하고 응답을 기다리는 요청이다. 재전송 하지 않는다.
   pending: Set<number>;
   nextId: number;
 };
+
+function missingOf(error: {
+  details?: Record<string, unknown>;
+}): string | null {
+  const secret = error.details?.["missing_secret"];
+  return typeof secret === "string" ? secret : null;
+}
 
 function keyOf(assignment: string, server: string): string {
   return `${assignment}\0${server}`;
@@ -206,7 +216,7 @@ type SecretHeader = {
 };
 
 // 비밀 헤더를 하나씩 전송 부착으로 받아 모두 모이면 send를 부른다. 값은 callback 호출 틀 안에만 있다.
-function attachHeaders(
+async function attachHeaders(
   secrets: McpSecretAttach,
   destination: SecretDestination,
   url: string,
@@ -216,30 +226,48 @@ function attachHeaders(
 ): Promise<Result<{ sent: boolean }>> {
   const [head, ...others] = rest;
   if (head === undefined) return send(collected);
-  return secrets.send(
-    {
-      // context는 caller 주장을 믿지 않는다. supervisor가 주입하고 core가 재검사한다.
-      context: {} as never,
-      use: { name: head.secret, destination },
-      operation: "mcp.request",
-      body: { url, method: "POST" },
-    },
-    (value) => {
-      const text =
-        typeof value === "string" ? value : new TextDecoder().decode(value);
-      return attachHeaders(
-        secrets,
-        destination,
-        url,
-        others,
-        {
-          ...collected,
-          ...head.headers(text),
-        },
-        send,
-      );
-    },
+  return tagMissing(
+    head.secret,
+    await secrets.send(
+      {
+        // context는 caller 주장을 믿지 않는다. supervisor가 주입하고 core가 재검사한다.
+        context: {} as never,
+        use: { name: head.secret, destination },
+        operation: "mcp.request",
+        body: { url, method: "POST" },
+      },
+      (value) => {
+        const text =
+          typeof value === "string" ? value : new TextDecoder().decode(value);
+        return attachHeaders(
+          secrets,
+          destination,
+          url,
+          others,
+          {
+            ...collected,
+            ...head.headers(text),
+          },
+          send,
+        );
+      },
+    ),
   );
+}
+
+// 값이 없어(not_found) 부착이 거절됐으면 어느 이름인지 오류에 싣는다. 가장 안쪽 이름이 먼저 붙고 바깥은 덮지 않는다.
+function tagMissing<T>(secret: string, result: Result<T>): Result<T> {
+  if (
+    result.ok ||
+    result.error.code !== "not_found" ||
+    result.error.details?.["missing_secret"] !== undefined
+  ) {
+    return result;
+  }
+  return err({
+    ...result.error,
+    details: { ...result.error.details, missing_secret: secret },
+  });
 }
 
 export function createMcpConnections(deps: McpConnectionsDeps): McpConnections {
@@ -258,6 +286,7 @@ export function createMcpConnections(deps: McpConnectionsDeps): McpConnections {
       tool_list_hash: entry.toolListHash,
       retry_count: entry.retryCount,
       error: entry.error,
+      missing_secret: entry.missing,
     };
   }
 
@@ -403,11 +432,18 @@ export function createMcpConnections(deps: McpConnectionsDeps): McpConnections {
         return err({ code: "unavailable", message: "서버에 닿지 못했다" });
       }
       // 부착이 거절한 이유(오류 원문)는 값이 없어도 옮기지 않는다.
+      const missingSecret = attached.error.details?.["missing_secret"];
       return err(
         attached.error.code === "forbidden" ||
           attached.error.code === "conflict"
           ? { code: "forbidden", message: "인증 비밀을 붙이지 못했다" }
-          : { code: "unavailable", message: "인증 비밀을 읽지 못했다" },
+          : {
+              code: "unavailable",
+              message: "인증 비밀을 읽지 못했다",
+              ...(typeof missingSecret === "string"
+                ? { details: { missing_secret: missingSecret } }
+                : {}),
+            },
       );
     }
     return await ok({
@@ -679,6 +715,7 @@ export function createMcpConnections(deps: McpConnectionsDeps): McpConnections {
         toolListHash: null,
         retryCount: 0,
         error: null,
+        missing: null,
         acceptingCalls: true,
         pending: new Set(),
         nextId: 1,
@@ -698,6 +735,7 @@ export function createMcpConnections(deps: McpConnectionsDeps): McpConnections {
           ? "failed_auth"
           : "failed_temporary";
       entry.error = connected.error.message;
+      entry.missing = missingOf(connected.error);
       deadlineSignal.abort();
       return err(connected.error);
     },
@@ -808,11 +846,13 @@ export function createMcpConnections(deps: McpConnectionsDeps): McpConnections {
             ? "failed_auth"
             : "failed_temporary";
         entry.error = connected.error.message;
+        entry.missing = missingOf(connected.error);
         outer.abort();
         return err(connected.error);
       }
       entry.state = "connected";
       entry.error = null;
+      entry.missing = null;
       outer.abort();
       return ok(view(entry));
     },
@@ -873,6 +913,9 @@ export function createMcpConnections(deps: McpConnectionsDeps): McpConnections {
         return err({
           code: authFailed ? "forbidden" : "unavailable",
           message: authFailed ? "인증 거절이다" : init.error.message,
+          ...(init.error.details === undefined
+            ? {}
+            : { details: init.error.details }),
         });
       }
       const result = init.value as { protocolVersion?: unknown };

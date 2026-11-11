@@ -3,6 +3,7 @@ import { defineMemory } from "../base/route.ts";
 import { secretNameSchema } from "../secrets/secrets.ts";
 import {
   appIdSchema,
+  invocationIdSchema,
   processNonceSchema,
   releaseIdSchema,
 } from "./channel-values.ts";
@@ -18,6 +19,8 @@ export const appsSecretValue = defineMemory({
     app: appIdSchema,
     release: releaseIdSchema,
     process_nonce: processNonceSchema,
+    // 값을 청한 호출이다. 값이 없어 실패하면 core가 그 호출의 실패에 빈 자리를 싣는다(`app.call_tool`의 missing).
+    invocation: invocationIdSchema.optional(),
     name: secretNameSchema,
     destination: z.strictObject({
       scheme: z.enum(["http", "https"]),

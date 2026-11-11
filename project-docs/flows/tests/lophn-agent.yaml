@@ -46,7 +46,7 @@ files:
 
   - path: packages/core/lophn-agent/extensions/mcp-server_test.ts
     covers: []
-    note: "mcp secret 이름별 허용 목적지 목록(순수 함수). secret-attach의 목적지 판정 입력이다"
+    note: "mcp secret 이름별 허용 목적지 목록(순수 함수). secret-attach의 목적지 판정 입력이다. 연결 실패가 가리키는 빈 자리(`mcp-server-connect`의 details.missing)의 역산과 자리를 `lophn ask secret` flag로 찍는 helper도 본다"
 
   - path: packages/core/lophn-agent/extensions/mcp-toolkit_test.ts
     covers: [mcp-server-connect:attached, mcp-server-connect:call-rejected]

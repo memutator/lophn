@@ -437,6 +437,7 @@ flows:
       - "연결이나 목록 읽기가 실패하면 unreachable이다. 연결이 인증 거절(forbidden)로 끝나면 sign-in-required다"
       - "요청마다 인증 토큰은 secret 부착(system:secret-attach)이 청한다. OAuth2 서버는 만료가 가까우면 core가 refresh한다. refresh가 거절되면 forbidden이라 요청 없이 막혀 sign-in-required가 된다. 닿지 못했는데 token이 아직 살아 있으면 그대로 쓴다. 닿지 못하고 만료면 unavailable이라 unreachable이다"
       - "tool 호출마다 지금 설정을 다시 읽는다. 사람이 끈 서버나 지워진 서버, 재조회가 진행·실패 중인 서버, 등록되지 않은 서버는 call-rejected다. 연결이 끊기면 다시 연결(최대 3번)하고 전체 목록을 다시 읽는다. 재연결이나 재조회가 실패하면 call-rejected다"
+      - "호출을 거절한 이유가 값 없음(비밀 부착이 not_found)이나 인증 거절(failed_auth)이면 오류 details에 빈 자리 {mcp, part}를 싣는다. part는 설정에서 역산한 역할(credential, sign_in, client, header:<이름>)이다. tool 실행기가 이 자리를 고정 문장 `lophn ask secret --mcp <서버> --part <역할>`로 agent의 실패 요약에 붙인다. tool 목록(Grants)의 sign_in은 사람 화면용이라 agent에게 가지 않는다"
       - "보낸 뒤 결과가 성공이면 called, 서버가 isError로 답하면 tool-error, 응답을 받지 못하면 uncertain이다"
     outcomes:
       - id: attached
@@ -472,7 +473,7 @@ flows:
       - id: call-rejected
         code: unavailable
         observe: ["response"]
-        when: "서버에 닿기 전에 거절했다: 재조회 중이거나 재조회가 실패한 서버, 등록되지 않은 서버, 사람이 끈 서버나 지워진 서버(설정을 읽지 못한 것 포함), 회수된 설정(not_executed), 재연결 실패(한도 3번 초과, 인증 거절 포함), 재연결 뒤 재조회 실패"
+        when: "서버에 닿기 전에 거절했다: 재조회 중이거나 재조회가 실패한 서버, 등록되지 않은 서버, 사람이 끈 서버나 지워진 서버(설정을 읽지 못한 것 포함), 회수된 설정(not_executed), 재연결 실패(한도 3번 초과, 인증 거절 포함), 재연결 뒤 재조회 실패. 이유가 값 없음이나 인증 거절이면 실패 요약에 빈 자리와 `lophn ask secret` 문장이 붙는다"
     crosses_process: true
     risk: [sandbox]
     refs: [H3]

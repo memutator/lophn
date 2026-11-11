@@ -37,6 +37,7 @@ export function createSecretDelivery(deps: {
           app: request.app,
           release: request.release,
           process_nonce: request.processNonce,
+          invocation: request.invocation,
           name: request.name,
           destination: request.destination,
         },

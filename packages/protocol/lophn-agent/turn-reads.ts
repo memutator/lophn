@@ -84,6 +84,7 @@ const TURN_BODY_KINDS = [
   "turn_resolved",
   "turn_history",
   "model_call_output",
+  "tool_call_input",
   "tool_call_output",
 ] as const;
 
@@ -92,6 +93,7 @@ const BODY_ID_PREFIX = {
   turn_resolved: "trn_",
   turn_history: "trn_",
   model_call_output: "mcl_",
+  tool_call_input: "tcl_",
   tool_call_output: "tcl_",
 } as const;
 

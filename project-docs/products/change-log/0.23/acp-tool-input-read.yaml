@@ -1,0 +1,12 @@
+id: acp-tool-input-read
+version: 0.23.37
+title: 대화 화면의 질문·call·edit 줄이 tool 입력을 다시 읽는다
+modules: [packages/protocol, packages/core/main]
+change: |
+  전: `turns/body`(ReadTurnBody)의 입력 schema가 `tool_call_input`을 받지 않아, ACP가 tool 입력에서 뽑는 칸이 늘 비었다. 답한 질문 묶음은 "Answered 0 questions"로, call 카드는 받는 쪽·맡긴 일 없이, edit 카드는 path·줄 수 없이 보였다.
+  후: `turns/body`가 `tool_call_input`을 받는다(machine만 읽는 것은 같다). 질문 묶음은 질문마다 답을 보인다.
+why: |
+  사람이 답한 내용이 대화에서 사라지면 agent가 무엇을 근거로 일하는지 볼 수 없다. 같은 증상을 여러 번 고쳤는데 원인(읽기 거절)이 남아 있었다.
+decisions:
+  - text: "ACP 단위 test의 가짜 읽기가 route 입력 schema를 먼저 지킨다. 버린 길: 입력 읽기 하나만 보는 test(같은 꼴의 다른 route 어긋남을 못 잡는다)."
+    by: agent

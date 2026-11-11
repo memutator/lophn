@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { ok, type Result } from "../../../../base/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
 import {
   type AcpState,
   type AcpUpdate,
@@ -170,6 +170,13 @@ function env(): AcpEnv {
       route: { resource: string; method: string },
       input: unknown,
     ): Promise<Result<T>> {
+      // 진짜 route처럼 입력 schema를 지킨다. 가짜 읽기가 route가 거절하는 입력을 받아 주면 화면 칸이 빈 bug를 놓친다.
+      const schema = (
+        route as { input?: { safeParse(value: unknown): { success: boolean } } }
+      ).input;
+      if (schema !== undefined && !schema.safeParse(input).success) {
+        return err({ code: "invalid_input", message: "invalid read input" });
+      }
       if (key(route) === key(messageBody)) {
         const message = (input as { message: string }).message;
         return ok({ content: bodies[message] } as T);

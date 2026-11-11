@@ -1,6 +1,6 @@
-// workspace(Home, project, app) layout 파일의 값. 파일 하나가 workspace 하나이고 desk 여럿을 가진다. 판 10이다(agent 탭이
-// `work_place` 대신 `workspace`를 가진다. 판 9 파일은 core의 data step이 `shell/places/`에서 옮겨 판 10으로 쓴다).
-// 다른 판은 읽지 않는다.
+// workspace(Home, project, app) layout 파일의 값. 파일 하나가 workspace 하나이고 desk 여럿을 가진다. 판 10이다(판 9 파일은
+// core의 data step이 `shell/places/`에서 옮겨 판 10으로 쓴다). 다른 판은 읽지 않는다.
+// Agent 탭은 저장하지 않는다(renderer의 창 메모리에만 산다). 여기 kind가 없고 옛 파일의 Agent 탭은 core의 data step `shell.agent-tabs-unsaved`가 걷어냈다.
 // 파일이 없으면 기본 layout으로 시작한다.
 // 상한과 불변 조건(tab key는 desk 안에서 한 번, selected·group의 leaf는 tabs 안, group은 leaf 2~4개이고 tabs에서
 // leaf 순서로 붙어 있고 칸에 숨은 tab이 그 바로 뒤에 붙어 있음)은 renderer shell/desk-model.ts와 짝이다.

@@ -396,7 +396,7 @@ files:
       - layout-restore:fresh-corrupt
       - layout-restore:read-failed
       - quick-launch-edit:saved-project
-    note: "workspace layout 읽기. 옛 layouts/ 파일은 무시, 없으면 null, 판이 다르면 unsupported_schema로 읽고 파일을 안 고친다, 폴더 밖 workspace key는 거절. group·stack·agent·앱 화면·browser keep_alive·terminal 명령은 쓴 대로 읽힌다. quick 필드 쓰기는 quick-launch-edit에 묶었다. 쓰기 쪽 거절 규칙은 flow outcome이 없다"
+    note: "workspace layout 읽기. 옛 layouts/ 파일은 무시, 없으면 null, 판이 다르면 unsupported_schema로 읽고 파일을 안 고친다, 폴더 밖 workspace key는 거절. group·stack·앱 화면·browser keep_alive·terminal 명령은 쓴 대로 읽힌다. quick 필드 쓰기는 quick-launch-edit에 묶었다. 쓰기 쪽 거절 규칙은 flow outcome이 없다"
 
   - path: packages/shell/preload/app-tool_test.ts
     covers:

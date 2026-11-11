@@ -1,4 +1,4 @@
-// Agent 탭이 TabItem.fields에 두는 값(agent·workspace·session)의 읽기와 쓰기. layout 파일에 남는 것은 이 셋뿐이다.
+// Agent 탭이 TabItem.fields에 두는 값(agent·workspace·session)의 읽기와 쓰기.
 import type { TabItem } from "../model.ts";
 
 export const SESSION_ID = /^ses_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
@@ -40,17 +40,6 @@ export function sourceWorkspaceOf(
   | { readonly kind: "project" | "app"; readonly id: string } {
   if (workspace === null || workspace === "home")
     return { kind: "global", id: "" };
-  return {
-    kind: APP_WORKSPACE.test(workspace) ? "app" : "project",
-    id: workspace,
-  };
-}
-
-/** layout 파일의 workspace. */
-export function layoutWorkspaceOf(
-  workspace: string,
-): { kind: "home" } | { kind: "project" | "app"; id: string } {
-  if (workspace === "home") return { kind: "home" };
   return {
     kind: APP_WORKSPACE.test(workspace) ? "app" : "project",
     id: workspace,

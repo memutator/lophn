@@ -80,7 +80,7 @@ export function AgentTab(props: AgentTabProps) {
   );
 }
 
-/** agentViewSource가 없는 작업대에서 저장된 Agent 탭이 보이는 안내. */
+/** agentViewSource가 없는 작업대에서 Agent 탭이 보이는 안내. */
 export function AgentNotReady() {
   return (
     <p className={styles.notReady} data-agent-not-ready="">

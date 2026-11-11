@@ -156,9 +156,12 @@ export function useKnownSessions(
   return useMemo(() => ({ known, reload, put }), [known, reload, put]);
 }
 
-/** workspace들의 저장된 layout에서 읽은 열린 탭. 창의 마지막 값에서 시작한다. 지금 workspace도 들어 있어(떠난 뒤 첫 그림이 쓴다) 부르는 쪽이 layout을 읽은 지금 workspace는 자기 값으로 덮는다. */
+/**
+ * workspace들의 layout에서 읽은 열린 탭. 창의 마지막 값에서 시작한다. 지금 workspace도 들어 있어(떠난 뒤 첫 그림이 쓴다) 부르는 쪽이 layout을 읽은 지금 workspace는 자기 값으로 덮는다.
+ * Agent 탭은 파일에 없고 이 창 메모리의 layout(layout-source)에만 있다: 이 창이 연 적 있는 workspace의 Agent 탭만 보이고, 다시 켠 뒤 아직 안 연 workspace는 도는 session과 못 본 turn 끝(상태 점)만 줄이 된다.
+ */
 export interface TabsElsewhere {
-  /** workspace key → session id → Agent 탭 제목. 저장된 Agent 탭은 제목을 남기지 않아 빈 글이다. */
+  /** workspace key → session id → Agent 탭 제목. 열렸는지만 쓴다(이름은 session 제목이 정본이다). */
   readonly titles: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** workspace key → coding agent가 돈 적이 있는 터미널 탭(harness가 저장된 것). 지금 도는지는 창의 terminal store가 안다. */
   readonly terminals: ReadonlyMap<string, readonly TabItem[]>;
@@ -171,7 +174,7 @@ export interface TabsElsewhere {
 /**
  * workspace들의 layout에서 열린 Agent 탭과 coding agent 터미널 탭을 읽는다. 지금 workspace도 읽는다: 빼면 workspace를 옮긴 첫 그림에
  * 방금 떠난 workspace의 값이 없어 그 줄이 모두 사라졌다 돌아온다.
- * 저장된 layout이라 창이 다시 포커스를 받거나 session 목록·workspace 목록이 바뀔 때 다시 읽는다.
+ * 창이 다시 포커스를 받거나 session 목록·workspace 목록이 바뀔 때 다시 읽는다.
  */
 export function useTabsElsewhere(
   layout: LayoutSource,

@@ -24,11 +24,11 @@ export interface SidebarValues {
   /** lophn agent id → 이름. 다른 workspace의 이름 없는 session 줄이 쓴다. */
   readonly lophnNames: Readonly<Record<string, string>>;
   readonly known: KnownSessions;
-  /** workspace key → session id → Agent 탭 제목(다른 workspace의 저장된 layout). */
+  /** workspace key → session id → Agent 탭 제목(다른 workspace의 layout, Agent 탭은 이 창 메모리의 것). */
   readonly elsewhereTitles: ReadonlyMap<string, ReadonlyMap<string, string>>;
-  /** workspace key → coding agent가 돈 적이 있는 터미널 탭(다른 workspace의 저장된 layout). */
+  /** workspace key → coding agent가 돈 적이 있는 터미널 탭(다른 workspace의 layout, Agent 탭은 이 창 메모리의 것). */
   readonly elsewhereTerminals: ReadonlyMap<string, readonly TabItem[]>;
-  /** workspace key → 그 workspace의 desk(다른 workspace의 저장된 layout). */
+  /** workspace key → 그 workspace의 desk(다른 workspace의 layout, Agent 탭은 이 창 메모리의 것). */
   readonly elsewhereDesks: ReadonlyMap<string, LayoutDesks>;
   /** project id → main이 저장한 coding agent session. */
   readonly savedTerminals: ReadonlyMap<string, readonly TerminalAgentSession[]>;

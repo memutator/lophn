@@ -17,7 +17,7 @@ export const GLOBAL_FLOATS_SCHEMA_VERSION = 2;
 export const GLOBAL_FLOATS_MAX = 20;
 
 const globalFloat = z.strictObject({
-  // 탭이 나온 workspace. 본문은 이 workspace의 통로로 그린다(agent 탭 kind의 workspace와 같은 모양).
+  // 탭이 나온 workspace. 본문은 이 workspace의 통로로 그린다(터미널의 cwd, 파일의 folder).
   workspace: z.union([
     z.strictObject({
       kind: z.literal("project"),

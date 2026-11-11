@@ -149,7 +149,7 @@ tool run
 
 **화면**
 
-- run이 새로 연 session(`session_opened`가 true)은 그 workspace의 Main desk에 Agent 탭으로 열린다. session을 연 run service가 session을 연 직후 host queue에 탭 열기를 요청한다. 주인은 `"person"`이고 source가 없다(run은 session을 연 agent가 없다). 선택하지 않는다. run마다 새 session이라 탭이 쌓이고 사람이 닫는다(닫으면 Recent). 왼쪽 sidebar는 run의 session을 run 아래로 묶지 않고 다른 session처럼 탭이 있는 desk의 줄로 둔다. `--session`으로 이어 쓴 session은 새 탭을 요청하지 않는다. job·CLI·workflow instance가 연 run이 모두 같다.
+- run이 새로 연 session(`session_opened`가 true)은 그 workspace의 Main desk에 Agent 탭으로 열린다. session을 연 run service가 session을 연 직후 host queue에 탭 열기를 요청한다. 주인은 `"person"`이고 source가 없다(run은 session을 연 agent가 없다). 선택하지 않는다. run마다 새 session이라 탭이 쌓이고 사람이 닫는다(닫으면 Recent). Agent 탭은 저장하지 않아 앱을 다시 켜면 쌓인 탭도 없고, 돌거나 못 본 session은 sidebar Main 묶음에, 나머지는 Recent에서 다시 연다. 왼쪽 sidebar는 run의 session을 run 아래로 묶지 않고 다른 session처럼 탭이 있는 desk의 줄로 둔다. `--session`으로 이어 쓴 session은 새 탭을 요청하지 않는다. job·CLI·workflow instance가 연 run이 모두 같다.
 - project workspace의 session은 project sidebar의 Background 칸에서, 앱 workspace의 session은 그 앱 workspace의 Logs panel에서 묶는다. home의 session은 Home 창의 agent 탭의 것이다. tool run은 session이 없어 run 목록에만 보인다. Agent 탭의 session 목록(session popover)은 모든 session을 찾는 곳이라 run이 연 session도 그대로 보인다.
 - project 창은 처음과 session 상태가 바뀔 때마다 `ListRuns`를 `workspace: { project }`로 읽는다. 앱 workspace는 Logs panel이 열려 있는 동안 `workspace: { app }`으로 읽는다. 읽는 곳은 workspace source의 `runs` 하나다.
 - job이 연 run 줄(그 job이 아직 있을 때)은 이름 자리에 job 제목을 보이고 agent 이름이나 tool 이름은 둘째 줄이다. 제목은 읽는 곳이 `job.list`로 붙인다. 지운 job의 run 줄은 일반 run과 같다.

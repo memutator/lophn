@@ -1,6 +1,8 @@
 // renderer가 workspace layout을 읽고 쓰는 통로. main의 `shell:workspace-layout-*` IPC(preload의 lophnLayout)를 감싸고
 // 저장된 snake_case 값과 WorkspaceLayout을 오간다. tab 값은 kinds registry의 fromStored/toStored가 정한다.
 // tab 읽기·쓰기 보조는 옛 workspace/layout-map.ts와 같은 규칙이다(그 파일은 옛 layout을 지울 때 같이 없어진다).
+// 저장하지 않는 kind(Agent 탭)의 탭은 파일에 없고, 이 창이 workspace마다 마지막으로 읽거나 쓴 layout을 메모리에 들고 있다가
+// 파일이 그 layout 그대로일 때 돌려준다(아래 createLayoutSource). 창을 닫거나 다시 켜면 사라진다.
 import type {
   WorkspaceLayoutReadResult,
   WorkspaceLayoutSaveResult,
@@ -56,40 +58,78 @@ export interface LayoutSource {
 const globalBridge = (): WorkspaceLayoutBridge | undefined =>
   (globalThis as { lophnLayout?: WorkspaceLayoutBridge }).lophnLayout;
 
+// 저장 값을 같은 길로 다시 읽고 써 모양을 맞춘 글. detached 창 bounds는 main이 저장할 때 살아 있는 창 값으로 덮으므로 뺀다.
+function signatureOf(stored: unknown): string {
+  const layout = layoutFromStored(stored);
+  if (layout === null) return "";
+  const { desks, ...rest } = layoutToStored(layout);
+  return JSON.stringify({
+    ...rest,
+    desks: Object.entries(desks).map(([key, desk]) => [
+      key,
+      {
+        ...desk,
+        detached: (desk["detached"] as { tab: unknown }[]).map(
+          (item) => item.tab,
+        ),
+      },
+    ]),
+  });
+}
+
 export function createLayoutSource(
   bridge: () => WorkspaceLayoutBridge | undefined = globalBridge,
 ): LayoutSource {
+  // 이 창이 workspace마다 마지막으로 읽거나 쓴 layout. 저장하지 않는 탭(Agent 탭)은 파일에 없어서 workspace를 오가는 동안은 여기만
+  // 지닌다. 파일이 이 layout을 저장한 그대로일 때만 쓴다: 다른 창이 그 workspace를 고쳤으면 파일이 이긴다(그 창의 Agent 탭은 잃는다).
+  const windowLayouts = new Map<string, WorkspaceLayout>();
+  // 쓰는 중인 저장. 읽기가 쓰기 전의 파일을 보고 메모리 layout을 버리지 않도록 기다린다.
+  const writing = new Map<string, Promise<unknown>>();
   return {
     async readWorkspaceLayout(workspace) {
       const api = bridge();
       if (api === undefined) {
         return { ok: false, message: "layout is unavailable" };
       }
+      const key = workspaceKey(workspace);
       try {
-        const reply = await api.readWorkspace({
-          workspace: workspaceKey(workspace),
-        });
+        await writing.get(key);
+        const reply = await api.readWorkspace({ workspace: key });
         if (!reply.ok) return { ok: false, message: reply.code };
-        return {
-          ok: true,
-          layout: reply.available ? layoutFromStored(reply.layout) : null,
-        };
+        if (!reply.available) return { ok: true, layout: null };
+        const mine = windowLayouts.get(key);
+        if (
+          mine !== undefined &&
+          signatureOf(layoutToStored(mine)) === signatureOf(reply.layout)
+        ) {
+          return { ok: true, layout: mine };
+        }
+        return { ok: true, layout: layoutFromStored(reply.layout) };
       } catch {
         return { ok: false, message: "layout is unavailable" };
       }
     },
-    async saveWorkspaceLayout(workspace, layout) {
+    saveWorkspaceLayout(workspace, layout) {
       const api = bridge();
-      if (api === undefined) return { ok: false };
-      try {
-        const reply = await api.saveWorkspace({
-          workspace: workspaceKey(workspace),
-          layout: layoutToStored(layout),
-        });
-        return { ok: reply.ok };
-      } catch {
-        return { ok: false };
-      }
+      if (api === undefined) return Promise.resolve({ ok: false });
+      const key = workspaceKey(workspace);
+      windowLayouts.set(key, layout);
+      const done = (async () => {
+        try {
+          const reply = await api.saveWorkspace({
+            workspace: key,
+            layout: layoutToStored(layout),
+          });
+          return { ok: reply.ok };
+        } catch {
+          return { ok: false };
+        }
+      })();
+      writing.set(key, done);
+      void done.then(() => {
+        if (writing.get(key) === done) writing.delete(key);
+      });
+      return done;
     },
   };
 }
@@ -135,7 +175,7 @@ function readPosition(value: unknown): TabItem["readPosition"] {
   return { section, scroll_offset: offset };
 }
 
-/** 등록되지 않은 kind거나 맞출 수 없으면 null이다. */
+/** 등록되지 않은 kind, 저장하지 않는 kind(Agent 탭)거나 맞출 수 없으면 null이다. */
 export function tabFromStored(value: unknown): TabItem | null {
   if (typeof value !== "object" || value === null) return null;
   const tab = value as Record<string, unknown>;
@@ -144,7 +184,7 @@ export function tabFromStored(value: unknown): TabItem | null {
     typeof tab.key !== "string" ||
     tab.key.length === 0 ||
     tab.key.length > TAB_KEY_MAX ||
-    kind === undefined
+    kind?.fromStored === undefined
   ) {
     return null;
   }
@@ -154,10 +194,11 @@ export function tabFromStored(value: unknown): TabItem | null {
   });
 }
 
+/** transient 탭, 저장하지 않는 kind(Agent 탭)의 탭, 맞출 수 없는 탭은 null이다. 부르는 쪽이 그 탭을 빼고 남은 배치를 맞춘다. */
 export function tabToStored(tab: TabItem): Record<string, unknown> | null {
   if (tab.transient === true) return null;
   return (
-    tabKindOf(tab.kind)?.toStored(tab, {
+    tabKindOf(tab.kind)?.toStored?.(tab, {
       position: readPosition(tab.readPosition),
     }) ?? null
   );

@@ -2,12 +2,14 @@
 //
 // 규칙
 // - current: 이 창에 탭이 열린 session, 또는 끝나지 않았고 점이 있는 session(도는 중, 기다리는 중, 못 본 turn 끝).
-//   탭이 열렸는지는 workspace마다 그 workspace의 layout에서 읽는다(`openTitles`). 닫기 전에는 current에 남는다.
+//   탭이 열렸는지는 workspace마다 이 창이 아는 그 workspace의 layout에서 읽는다(`openTitles`). Agent 탭은 저장하지 않아 이 창 메모리의
+//   layout뿐이다: 이 창이 연 적 없는 workspace(앱을 다시 켠 뒤 처음)는 탭이 없어 도는·못 본 session만 current다. 닫기 전에는 current에 남는다.
 // - lophn session은 첫 메시지를 보낼 때 생긴다. 그 전의 Agent 탭은 이 창이 보이는 workspace의 draft 줄("New session")이다.
 // - recent: 나머지(끝났거나 닫았거나 가만히 있는). 이 창이 보이는 workspace에만 둔다. 최근 7일 안에 움직인 것만, 사람이 지운 줄은 그 뒤 움직이기 전까지 뺀다.
 //   시각을 모르는 줄(at 0)은 7일 경계로 지우지 않는다.
 // - 터미널 coding agent session의 saved 줄과 사람 차례인 workflow desk는 이 창이 보이는 workspace의 것만 온다.
 //   다른 workspace는 layout에 탭이 열렸고 창의 terminal store가 agent가 지금 돈다고 아는 터미널(`otherTerminals`)이 current로 온다.
+//   draft 줄도 이 창이 보이는 workspace의 것만이다(다른 workspace의 메모리 layout에 있는 새 session 탭은 줄이 없다).
 // - 줄의 연필·x(actions)는 lophn session과 터미널은 어느 workspace든 있다. draft는 x만, workflow desk는 없다.
 // - current 줄의 순서는 고정이다: lophn session은 id 순(만든 순), draft, 그 뒤에 터미널은 key 순. 상태가 바뀌어도 자리를 지킨다.
 //   draft는 첫 메시지 뒤 session 줄의 끝(가장 새 id)이 되어 자리가 거의 그대로다.
@@ -79,7 +81,7 @@ export interface WorkspacesInput {
   /** lophn agent id → 이름. 다른 workspace의 lophn 이름이다. */
   readonly lophnNames: Readonly<Record<string, string>>;
   readonly known: KnownSessions;
-  /** workspace key → 그 workspace의 layout에 탭이 열린 session id → 그 탭의 제목. 열렸는지만 본다. */
+  /** workspace key → 이 창이 아는 그 workspace의 layout에 탭이 열린 session id → 그 탭의 제목. 열렸는지만 본다. */
   readonly openTitles: ReadonlyMap<string, ReadonlyMap<string, string>>;
   /** workspace key → 그 workspace layout의 desk. 없으면 그 workspace의 줄은 desk 없는 묶음 하나다. */
   readonly desks: ReadonlyMap<string, LayoutDesks>;
@@ -135,7 +137,7 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
     const item: SidebarSession = {
       kind: "session",
       ref: entry.session,
-      // 이름은 session 제목이다. 탭 제목은 쓰지 않는다: 저장된 탭은 제목이 없고 그려지기 전의 탭은 agent 이름이라, 탭을
+      // 이름은 session 제목이다. 탭 제목은 쓰지 않는다: 그려지기 전의 탭은 agent 이름이라, 탭을
       // 따르면 고르지 않은 session이 agent 이름으로 보인다. 제목이 아직 없는 열린 session만 탭 줄처럼 agent 이름이다.
       title: sessionRowTitle({
         title: read?.title,

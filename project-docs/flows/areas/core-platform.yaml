@@ -450,7 +450,7 @@ flows:
     title: "ledger 밖 data root 파일의 data step을 한 번씩 적용한다"
     actor: system
     entries: [system:data-steps-apply]
-    uses: [system:settings-call-policy-private, system:settings-places-default-on, system:apps-sealed-marker, system:artifacts-container, system:domains-place-data, system:domains-retire, system:lophn-split-per-workspace, system:settings-call-policy-workspaces, system:shell-workspace-layouts, system:workflows-participant-workspace, system:shell-global-floats-tabs]
+    uses: [system:settings-call-policy-private, system:settings-places-default-on, system:apps-sealed-marker, system:artifacts-container, system:domains-place-data, system:domains-retire, system:lophn-split-per-workspace, system:settings-call-policy-workspaces, system:shell-workspace-layouts, system:workflows-participant-workspace, system:shell-global-floats-tabs, system:shell-agent-tabs-unsaved]
     boundary: [core]
     code: [packages/core/storage/migration/data-steps.ts, packages/core/main/daemon/core.ts, packages/core/main/daemon/wiring/context.ts]
     steps:
@@ -1424,6 +1424,30 @@ flows:
       - id: skipped
         observe: ["disk:변화 없음"]
         when: "파일이 없거나 깨졌거나 이미 판 1이 아니다"
+      - id: failed
+        code: unavailable
+        observe: ["process:stdout start_failed other"]
+        when: "읽기나 쓰기가 실패했다"
+    crosses_process: false
+    risk: [data-loss]
+
+  - id: shell-agent-tabs-unsaved
+    title: "저장된 layout과 전역 float 파일에서 Agent 탭을 걷어낸다(data step)"
+    actor: system
+    entries: [system:shell-agent-tabs-unsaved]
+    boundary: [shell]
+    code: [packages/core/main/daemon/wiring/shell-agent-tabs.ts]
+    docs: [architecture/workspace-layout.md]
+    steps:
+      - "shell/workspaces/*.json(판 10)의 모든 desk에서 tabs·floats·detached의 `kind: agent` 탭을 지운다. Agent 탭이 든 group은 풀고(남은 탭은 tabs에 남는다) 고른 탭이 지워졌으면 첫 보이는 탭을 고른다"
+      - "shell/global-floats.json(판 2)에서 Agent 탭의 float을 지운다"
+      - "판 10·판 2가 아니거나 깨진 파일, 바꿀 것이 없는 파일은 건드리지 않는다. 같은 mode로 temp에 쓰고 rename한다. 다시 돌면 아무것도 쓰지 않는다"
+    outcomes:
+      - id: stripped
+        observe: ["disk:shell/workspaces/<workspace>.json 또는 shell/global-floats.json에서 Agent 탭이 사라짐"]
+        when: "Agent 탭이 든 파일을 하나 이상 고쳤다"
+      - id: skipped
+        observe: ["disk:변화 없음"]
       - id: failed
         code: unavailable
         observe: ["process:stdout start_failed other"]

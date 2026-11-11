@@ -1,0 +1,24 @@
+id: no-saved-agent-tabs
+version: 0.23.35
+title: "Agent 탭(lophn session)을 layout 파일에 저장하지 않는다. 앱을 다시 켜면 sidebar에서 연다"
+modules: [packages/core/main, packages/shell/main, packages/shell/renderer]
+checked: []
+change: |
+  전: workspace layout 파일(desk 탭 줄, group, float, detached)과 전역 float 파일이 Agent 탭을 session 참조(agent, workspace, session)로 저장했고, 앱을 다시 켜거나 창을 다시 열면 지난 session의 탭이 모두 돌아왔다. 다른 workspace의 sidebar current 줄도 그 workspace의 저장된 layout을 읽어 열린 Agent 탭을 알았다.
+  후: Agent 탭은 어디에도 저장하지 않는다(New session draft 탭 포함). 다시 켜면 Agent 탭이 없고 session은 core에 그대로 있어 sidebar의 Recent나 Main 묶음(도는·못 본 session)에서 연다. 다른 탭 kind(터미널의 coding agent TUI, browser, 파일, 앱 화면, artifact 등)는 그대로 저장한다. renderer의 agent kind는 `fromStored`·`toStored`가 없고(없으면 저장하지 않는 kind) 저장 모양 변환이 그 탭을 빼며 남은 group을 풀고 고른 탭을 맞춘다. shell main의 kind registry에서 agent kind를 뺐다. 한 창 안에서는 잃지 않는다: layout source가 workspace마다 이 창이 마지막으로 읽거나 쓴 layout을 메모리에 들고 있다가 파일이 그 layout의 저장 모양과 같을 때 돌려주므로 workspace·desk를 바꾸거나 float·dock·detach해도 Agent 탭이 남고, 전역 float 상태는 창의 store가 메모리로 든다. 다른 창이 그 workspace를 고쳐 파일이 달라졌으면 파일이 이긴다. 같은 source를 읽는 왼쪽 sidebar는 이 창이 연 적 있는 workspace의 Agent 탭을 그대로 알고, 다시 켠 뒤 아직 안 연 workspace는 도는·못 본 session만 current에 보인다.
+  마이그레이션: core의 data step `shell.agent-tabs-unsaved`가 `shell/workspaces/*.json`(판 10)과 `shell/global-floats.json`(판 2)에서 Agent 탭을 걷어낸다. Agent 탭이 든 group은 풀리고 남은 탭은 탭 줄에 남으며 고른 탭이 지워졌으면 첫 보이는 탭을 고른다. 모양(판)은 그대로다.
+why: 앱을 켤 때마다 지난 session 탭이 한꺼번에 돌아와 탭 줄이 넘치고, 사람이 닫은 적 없는 대화가 열린 채 쌓였다. spawned-session-tabs로 call과 run이 연 session도 탭이 되어 이 쌓임이 더 커진다. session은 core가 갖고 있고 다시 열 길(Recent, Main 묶음)이 이미 있다.
+decisions:
+  - text: "Agent 탭은 저장하지 않는다. 사람이 정했다. 앱을 다시 켜거나 창을 다시 열면 없다. 버린 길: 저장은 하되 복원 때만 거르기(읽을 때마다 걸러야 하고 session 참조가 파일에 쌓인다)."
+    by: person
+  - text: "한 창 안의 유지는 layout source의 창 메모리 layout 하나로 한다. 파일에는 Agent 탭이 없어 workspace 전환 때 새로 mount되는 창 본문이 파일만 읽으면 잃기 때문이다. 파일이 이 창이 쓴 저장 모양과 다르면(다른 창이 고침) 파일이 이긴다. 그래야 다른 창의 고침을 오래된 메모리가 덮지 않는다. detached 창 bounds는 main이 저장할 때 덮으므로 비교에서 뺀다. 버린 길: Agent 탭만 따로 든 메모리 map(탭 자리와 group·float 위치를 따로 맞춰야 한다)."
+    by: agent
+  - text: "옛 파일은 data step으로 걷어냈다. main의 읽기가 모르는 kind를 건너뛰어도 session 참조가 파일에 남고 main schema에서 agent kind를 뺐으므로 옛 모양을 정리하는 것이 AGENTS.md의 호환성 규칙에 맞다. Agent 탭이 든 group은 남은 탭을 알맞게 걷어내는 대신 푼다(artifact-move와 같은 규칙. 옛 파일 한 번의 정리라 단순한 쪽이다)."
+    by: agent
+  - text: "sidebar의 draft 줄(New session)은 이 창이 보이는 workspace의 탭만 그대로다. 다른 workspace의 메모리 layout에 있는 새 session 탭은 줄을 만들지 않는다(session이 없어 누를 곳이 그 workspace의 탭뿐이다)."
+    by: agent
+follow_up: |
+  앱 창을 둘 이상 같은 workspace로 열어 두면 한 창의 Agent 탭이 다른 창이 쓴 파일과 달라 메모리가 버려질 수 있다(Agent 탭을 잃는다). 다른 탭은 이전과 같이 마지막에 쓴 것이 이긴다.
+checklist:
+  - "확인할 것: 앱을 다시 켜면 Agent 탭이 없고 sidebar Recent·Main 묶음에서 session을 열 수 있다. 터미널·browser·파일 탭은 그대로 돌아온다"
+  - "확인할 것: Agent 탭을 열어 둔 채 다른 workspace로 갔다 오거나 desk를 바꾸거나 float으로 뜨워도 Agent 탭이 남는다"

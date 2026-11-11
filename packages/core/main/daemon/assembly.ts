@@ -20,6 +20,7 @@ import { artifactMoveWiring } from "./wiring/artifact-move.ts";
 import { workspaceDataMoveWiring } from "./wiring/workspace-data-move.ts";
 import { workspaceRenameWiring } from "./wiring/workspace-rename.ts";
 import { globalFloatsTabsWiring } from "./wiring/global-floats-tabs.ts";
+import { shellAgentTabsWiring } from "./wiring/shell-agent-tabs.ts";
 import { approvalsWiring } from "./wiring/approvals.ts";
 import { customReplyWiring } from "./wiring/custom-reply.ts";
 import { harnessWiring } from "./wiring/harness.ts";
@@ -164,6 +165,8 @@ export const WIRINGS: readonly WiringFactory[] = [
   workspaceRenameWiring,
   // shell 파일의 모양을 옮기는 data step이다. 다른 step과 순서 의존이 없다.
   globalFloatsTabsWiring,
+  // workspace-rename이 layout을 판 10으로, global-floats-tabs가 전역 float을 판 2로 올린 뒤에 두 파일에서 Agent 탭을 걷어낸다.
+  shellAgentTabsWiring,
   shareRequestsWiring,
   routerWiring,
   appsWiring,

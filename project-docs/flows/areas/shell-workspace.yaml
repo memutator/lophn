@@ -2241,7 +2241,7 @@ flows:
       - packages/shell/renderer/shell/left-sidebar.tsx
     steps:
       - "lophn session이면 source.stopSession으로 도는 turn을 멈춘다(sessions 쪽 flow). source가 없거나 멈추지 못하면 탭을 남긴다"
-      - "이 workspace의 탭이면 onCloseTab으로 닫고, 다른 workspace면 그 workspace의 저장된 layout에서 agent 탭을 뺀다(editTabAt). layout을 못 읽으면 그대로 둔다"
+      - "이 workspace의 탭이면 onCloseTab으로 닫고, 다른 workspace면 이 창이 아는 그 workspace의 layout(Agent 탭은 저장하지 않아 창 메모리의 값)에서 agent 탭을 뺀다(editTabAt). layout을 못 읽으면 그대로 둔다"
       - "터미널은 이 workspace면 탭 닫기처럼 확인을 묻고, 다른 workspace면 PTY store로 닫은 뒤 저장된 layout에서 뺀다. PTY를 못 닫으면 탭을 남긴다"
     uses: [ipc:shell:workspace-layout-save]
     outcomes:

@@ -47,7 +47,7 @@ session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. �
 1. session의 정체(agent, workspace)는 열 때 정해져 바뀌지 않는다. 저장소가 거절한다(`sessions` 표의 `agent`, `workspace_kind`, `workspace_id`는 고치지 못한다). agent 정의가 없는 agent, 없거나 보관된 workspace에는 열지 않는다. 어느 agent든 자기 범위 안의 어느 workspace에든 열 수 있다.
    - agent 정의, 할당, 지침, file 범위가 agent와 workspace에서 나온다. 열린 session의 것을 바꾸면 쌓인 대화가 다른 agent의 것이 된다.
 2. session을 여는 길은 사람, Router, run이고 같은 연산으로 연다. Router는 call과 workflow step의 새 session(`architecture/workflow.md`)과 program 알림으로 연다. 열 때의 검사(agent 정의, workspace, 보관 여부)가 한 곳이라 어느 길로 열어도 같은 session이 된다.
-3. run(`architecture/run.md`)이 연 session도 사람이 연 것과 같은 session이고 run이 끝나도 열린 채 남는다. 저절로 닫지 않는다. agent의 call이나 run이 연 새 session은 그 workspace의 Main desk에 Agent 탭으로 보인다(`architecture/workspace-layout.md` "agent가 연 탭"). run마다 새 session이라 탭이 쌓이고 닫는 것은 사람이다. 탭을 닫은 session은 Recent로 간다. 왼쪽 sidebar는 run의 session을 따로 묶지 않는다.
+3. run(`architecture/run.md`)이 연 session도 사람이 연 것과 같은 session이고 run이 끝나도 열린 채 남는다. 저절로 닫지 않는다. agent의 call이나 run이 연 새 session은 그 workspace의 Main desk에 Agent 탭으로 보인다(`architecture/workspace-layout.md` "agent가 연 탭"). run마다 새 session이라 탭이 쌓이고 닫는 것은 사람이다. 탭을 닫은 session은 Recent로 간다. Agent 탭은 저장하지 않아 앱을 다시 켜면 탭이 없고(session은 열린 채 core에 남는다) sidebar에서 다시 연다. 왼쪽 sidebar는 run의 session을 따로 묶지 않는다.
 4. session은 저절로 끝나지 않는다. 끝은 사람의 archive나 지움뿐이다. lophn agent는 일이 끝났다고 program에게 알리지 않는다. 열려 있어야 call과 reaction을 받을 수 있다.
 5. archive와 지움은 모든 영향을 한 tx에 묶는다. 일부만 적용된 끝이 없다.
    - 도는 turn은 interrupted(`session_ended`)로 닫는다. agent runtime child에도 `turn_stop`을 보내 진행 중인 model 요청을 끊는다.

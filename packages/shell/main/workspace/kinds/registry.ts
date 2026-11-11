@@ -2,7 +2,6 @@
 // LayoutTab 타입도 이 목록에서 나온다.
 import type { z } from "zod";
 
-import { agentKind } from "./agent.ts";
 import { agentsKind } from "./agents.ts";
 import { appDetailKind } from "./app-detail.ts";
 import { appPanelKind } from "./app-panel.ts";
@@ -25,7 +24,6 @@ const BUILT_IN_TAB_KINDS = [
   appScreenKind,
   searchKind,
   agentsKind,
-  agentKind,
   browserKind,
   artifactKind,
   workflowKind,

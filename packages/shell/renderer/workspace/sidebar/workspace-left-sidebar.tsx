@@ -341,7 +341,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     props.onWorkspace(ref);
   };
 
-  // 다른 workspace의 탭은 그 workspace의 저장된 layout을 고친다. 그 workspace를 열면 고친 탭으로 시작한다.
+  // 다른 workspace의 탭은 그 workspace의 layout(이 창이 읽거나 쓴 값)을 고친다. 그 workspace를 열면 고친 탭으로 시작한다.
   const editTabAt = async (
     ref: WorkspaceRef,
     match: (tab: TabItem) => boolean,

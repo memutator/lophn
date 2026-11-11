@@ -69,7 +69,8 @@ export interface DeskTarget {
 
 /**
  * 전역 float으로 올릴 수 있는 탭인지. kind가 Detach를 막거나(`noDetach`) 이 탭만 막거나(`noGlobal`), layout 파일로
- * 저장하지 못하는 탭(앱을 아직 고르지 않은 앱 panel)이면 아니다.
+ * 저장하지 못하는 탭(앱을 아직 고르지 않은 앱 panel)이면 아니다. 저장하지 않는 kind(Agent 탭)는 이 창 메모리의 전역 float으로
+ * 살고 파일에는 쓰지 않으므로 저장 검사를 건너뛴다.
  */
 export function canGoGlobal(tab: TabItem): boolean {
   const def = tabKindOf(tab.kind);
@@ -78,7 +79,7 @@ export function canGoGlobal(tab: TabItem): boolean {
     def.noDetach !== true &&
     def.noGlobal?.(tab) !== true &&
     tab.transient !== true &&
-    tabToStored(tab) !== null
+    (def.toStored === undefined || tabToStored(tab) !== null)
   );
 }
 

@@ -1,5 +1,5 @@
 // lophn session 이름의 순수 규칙. 탭 줄과 sidebar가 같이 쓴다. 정본은 창에 하나인 session 제목 값이고(`useKnownSessions`),
-// 탭 제목은 정본이 아니다: 저장된 Agent 탭은 제목이 없고 그려지기 전의 탭은 agent 이름이다.
+// 탭 제목은 정본이 아니다: 그려지기 전의 탭은 agent 이름이다.
 
 /** 다시 읽을 때를 정하는 값. session이 생기거나 끝날 때와 turn이 돌기 시작할 때 바뀐다. */
 export function sessionTitlesKey(

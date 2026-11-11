@@ -292,7 +292,7 @@ export interface WorkspaceWindowProps {
   projects?: ProjectsSource;
   /**
    * Agent 탭이 agent 하나의 통로를 얻는 함수(agentViewSource). 없으면
-   * Agent 탭을 열지 않고 저장된 Agent 탭은 준비되지 않았다는 안내만 보인다. WorkspaceSource에 두지 않는 까닭: source.ts는 core 통로를 부르는 순수 `.ts`
+   * Agent 탭을 열지 않고 이미 열린 Agent 탭은 준비되지 않았다는 안내만 보인다. WorkspaceSource에 두지 않는 까닭: source.ts는 core 통로를 부르는 순수 `.ts`
    * 모듈들이 type으로 읽는데 이 type은 화면 부품(`.tsx`)의 view 값을 끌고 와 그 모듈들의 시험이 css import에서
    * 막힌다. core 구현(agent-tab-core-source.ts의 factory)은 entry(`.tsx`)가 여기에 넘긴다.
    */
@@ -788,7 +788,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   const updateRef = useRef(update);
   updateRef.current = update;
 
-  // 저장된 agent 탭은 제목 없이 되살아난다. 그려진 탭만 이름을 채우면 고르지 않은 탭이 agent 이름으로 남으므로, 모든
+  // agent 탭의 이름은 session 제목이 정본이다. 그려진 탭만 이름을 채우면 고르지 않은 탭이 agent 이름으로 남으므로, 모든
   // agent 탭의 이름을 창이 아는 session 제목으로 여기서 맞춘다. 제목을 아직 모르면(첫 말 전, 읽기 전) 빈 이름만 agent
   // 이름으로 채우고, 이미 있는 이름은 건드리지 않는다.
   useEffect(() => {

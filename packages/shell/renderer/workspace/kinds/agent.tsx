@@ -1,5 +1,6 @@
 // agent 탭 kind. 한 탭은 agent 하나와 이 project workspace의 session 하나를 담고
-// 탭 안에서 agent를 바꾸지 않는다. layout에는 agent·자리·session 참조만 저장하고 다시 열 때 그대로 복원한다.
+// 탭 안에서 agent를 바꾸지 않는다. 저장하지 않는다(fromStored·toStored가 없다): 탭은 이 창 메모리(layout-source의 창 메모리)에만
+// 살고 다시 켜면 sidebar의 Recent나 Main 묶음에서 사람이 연다. session은 core가 갖고 있어 대화는 그대로다.
 // 여는 길(sidebar 줄·activity bar 아래쪽 바로 가기·새 탭 menu·Ask)은 모두 openAgent 하나를 부른다.
 
 import type { AgentViewHost } from "../../conversation/agent-view.tsx";
@@ -13,11 +14,8 @@ import { AgentNotReady, AgentTab } from "../agent/agent-tab.tsx";
 import {
   agentOf,
   workspaceOf,
-  SESSION_ID,
   sessionOf,
   sourceWorkspaceOf,
-  TAB_KEY,
-  layoutWorkspaceOf,
 } from "../agent/tab-fields.ts";
 import type { Desk } from "../../shell/desk-model.ts";
 import { workspaceKey, whereInDesk } from "../../shell/desk-model.ts";
@@ -203,55 +201,6 @@ export const agentKind: TabKindDef = {
         host.patchTab(tab.key, () => ({ title: trimmed }));
       });
   },
-  fromStored(stored, { key }) {
-    const { agent, workspace, session } = stored;
-    if (typeof agent !== "string" || agent.length === 0 || agent.length > 128) {
-      return null;
-    }
-    const where = workspace as { kind?: unknown; id?: unknown } | null;
-    if (typeof where !== "object" || where === null) return null;
-    const home = where.kind === "home";
-    if (
-      !home &&
-      ((where.kind !== "project" && where.kind !== "app") ||
-        typeof where.id !== "string" ||
-        where.id.length === 0 ||
-        where.id.length > 128)
-    )
-      return null;
-    if (
-      session !== undefined &&
-      session !== null &&
-      (typeof session !== "string" || !SESSION_ID.test(session))
-    )
-      return null;
-    return {
-      key,
-      kind: "agent",
-      // agent 이름은 source가 읽은 뒤 채운다. 파일에는 제목을 남기지 않는다.
-      title: "",
-      fields: {
-        agent,
-        workspace: home ? HOME : (where.id as string),
-        ...(typeof session === "string" ? { session } : {}),
-      },
-    };
-  },
-  toStored(tab) {
-    const agent = agentOf(tab);
-    const workspace = workspaceOf(tab);
-    if (agent === null || workspace === null || !TAB_KEY.test(tab.key)) {
-      return null;
-    }
-    const session = sessionOf(tab);
-    return {
-      kind: "agent",
-      key: tab.key,
-      agent,
-      workspace: layoutWorkspaceOf(workspace),
-      ...(session === null ? {} : { session }),
-    };
-  },
   // 작성 중 말을 넘긴다. session 탭은 그 session의 draft 하나, 새 session 탭은 key를 탭이 모르므로
   // `new:` draft 전부다. store가 창마다 하나라 받는 창의 같은 key에 이미 글이 있으면 덮지 않는다.
   transfer(tab, host) {
@@ -288,7 +237,7 @@ export const agentKind: TabKindDef = {
     if (agent === null || workspace === null) return null;
     const slice = host.agentView;
     if (slice === null) return <AgentNotReady />;
-    // 다른 workspace로 저장된 탭은 이 workspace의 agent로 바꾸어 읽지 않는다.
+    // 다른 workspace에서 온 탭(전역 float)은 이 workspace의 agent로 바꾸어 읽지 않는다.
     if (workspace !== workspaceKey(host.workspace)) return null;
     return (
       <>

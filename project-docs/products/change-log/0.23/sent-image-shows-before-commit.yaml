@@ -1,0 +1,11 @@
+id: sent-image-shows-before-commit
+version: 0.23.39
+title: 이미 있는 session에 보낸 이미지가 대화 줄에 보이고 크게 열린다
+modules: [packages/shell/renderer]
+change: |
+  전: 이미 있는 session에 이미지를 붙여 보내면 보내는 중인 줄이 core의 `message-images/read`로 그림을 읽었다. 메시지가 아직 commit되지 않아 그 session의 참조가 없으므로 404가 났고, commit된 줄도 다시 읽지 않았다. 그래서 그림 자리가 비고 눌러 크게 보기도 열리지 않았다. 새 session을 여는 첫 메시지는 session id가 생긴 뒤에 읽어서 보였다.
+  후: renderer의 image source가 올린 이미지를 blob hash로 기억하고, 그 hash는 올린 바이트의 object URL로 그린다. 보내는 중과 commit 뒤 모두 core를 읽지 않는다. 다른 화면이 올린 이미지는 전처럼 core에서 읽는다.
+why: 사람이 붙인 이미지가 대화에 안 보였다(agent에게는 갔다).
+decisions:
+  - text: "올린 쪽이 가진 바이트로 그린다. 버린 길: 실패하면 다시 읽기(보내는 순간 빈 자리가 남고 commit 시점을 알아야 한다), core가 참조 전 blob도 열기(session 경계 규칙이 약해진다)."
+    by: agent

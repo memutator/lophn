@@ -21,6 +21,56 @@ const objectSchema = {
   required: ["id"],
 };
 
+test("CLI 이름이나 flag가 겹친 선언은 slug 없이도 거절하고 서로 다른 이름은 유지한다", () => {
+  const field = (type = "string") => ({ type, description: "A value." });
+  const rejected = [
+    [
+      { ...command, name: "add_event" },
+      { ...command, name: "add-event" },
+    ],
+    [
+      {
+        ...command,
+        inputSchema: {
+          type: "object",
+          properties: { start_time: field(), "start-time": field() },
+        },
+      },
+    ],
+    [
+      {
+        ...command,
+        inputSchema: {
+          type: "object",
+          properties: { enabled: field("boolean"), no_enabled: field() },
+        },
+      },
+    ],
+  ];
+  for (const commands of rejected) {
+    for (const options of [undefined, { slug: "items" }]) {
+      const result = validateDeclaration(declarationWith(commands), options);
+      assert.ok(!result.ok);
+      assert.equal(result.error.code, "invalid_input");
+    }
+  }
+  const result = validateDeclaration(
+    declarationWith([
+      { ...command, name: "add_event", inputSchema: objectSchema },
+      { ...command, name: "quota.list" },
+    ]),
+  );
+  assert.ok(result.ok);
+  assert.deepEqual(
+    result.value.commands.map((item) => item.name),
+    ["add_event", "quota.list"],
+  );
+  assert.deepEqual(result.value.commands[0].inputSchema, {
+    ...objectSchema,
+    additionalProperties: false,
+  });
+});
+
 function declarationWith(commands: unknown[], operations: unknown[] = []) {
   return {
     name: "Items",

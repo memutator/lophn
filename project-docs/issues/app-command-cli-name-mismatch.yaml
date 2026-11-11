@@ -1,7 +1,7 @@
 id: app-command-cli-name-mismatch
 title: 앱 command 안내가 실제 CLI 문법과 달라 agent가 실패를 권한이나 세션 문제로 오진한다
 kind: bug
-status: open
+status: fixed
 topic: app-call
 modules: [packages/protocol, packages/cli, packages/core/agent-workspaces, packages/core/lophn-agent, packages/core/apps, packages/sdk]
 now: |
@@ -23,3 +23,9 @@ fix: |
   - 이름을 선언에서 자동으로 바꾸는 안(큼)은 기존 handler와 grant·job·skill의 참조를 함께 옮겨야 하므로 쓰지 않는다.
 decided: |
   선언 ID를 바꾸지 않고 실제 호출 문법을 일치시킨다. 이름이나 권한을 추측해 다른 command를 자동 실행하지 않는다.
+closed: |
+  CLI 이름 변환을 의존성 없는 선언 검증기와 공유한다. 앱 workspace 안내는 실제로 호출할 수 있는 명령줄과 현재 help 경로를 보여 준다.
+  선언 검사는 CLI로 바꾼 command 이름과 최상위 필드 flag(boolean의 --no- 포함)가 겹치면 SDK의 defineApp 단계부터 거절한다.
+  parser와 잘못된 help 대상은 현재 부를 수 있는 command 안에서 정확한 문법을 안내하고 실행하지 않는다.
+  SDK 설치 사본도 같은 검증기를 받도록 declaration 4.5.1과 app-ui 2.14.1, pin, migration 메모를 함께 갱신했다. 저장된 이름은 바꾸지 않는다.
+guard: packages/protocol/apps/declaration/validate_test.ts의 CLI 이름·flag 충돌 검사, packages/core/lophn-agent/tools/app-public_test.ts의 실행 차단·할당 밖 이름 미노출 검사

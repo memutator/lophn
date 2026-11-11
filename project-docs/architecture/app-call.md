@@ -28,6 +28,7 @@
 - 선언은 두 목록이다. operation은 `{name, title, effect}`이고 입력 schema가 없다(입력 검사는 앱 코드의 일이다). command는 `{name, description, inputSchema, effect, public}`이다. 두 목록을 합쳐 이름이 하나이고 handler는 이름 하나로 등록한다.
 - `effect`는 `read`, `write`, `external`이다. program이 강제한다(write 줄, 기록). command의 `public`은 그 앱 workspace 밖에 보이는지다.
 - 이름은 1~64자 `[A-Za-z0-9_.-]`이고 command schema의 root는 `object`다(인자가 없으면 `inputSchema: null`). agent wire 이름 `<slug>_<command>`의 64자 한도와 이름 겹침은 slug를 아는 쪽(`declaration.check`와 release 기록)이 검사한다. SDK의 선언 정의는 slug를 모른다.
+- 선언 이름은 handler·grant·job이 참조하는 ID다. CLI는 그 이름의 `.`을 낱말 경계로, `_`를 `-`로 바꾼다. 선언 검사와 CLI·prompt·help는 같은 변환을 쓰고, 변환 후 command 이름이 겹치면 slug 없이도 선언을 거절한다. 최상위 입력 필드의 flag도 `_`를 `-`로 바꾸며, boolean의 `--no-`까지 포함해 겹치면 거절한다. nested object는 JSON 값이므로 flag 충돌 검사 대상이 아니다. 선언과 저장된 입력의 원래 이름은 바꾸지 않는다.
 - 내장 명령 묶음 이름은 앱 slug로 쓰지 못한다. `app.create`가 `invalid_input`으로 거절한다.
 - 선언의 `events`와 `subscriptions`는 앱 사이의 알림이다(없어도 되는 칸). `events`는 `{name, description, payloadSchema}`(payload는 command의 `inputSchema`와 같은 규칙, root는 object)이고 `subscriptions`는 `{source, event}`(source는 발행 앱의 slug나 `lophn`)다. 구독 handler의 이름은 `on.<source>.<event>`로 정해져 operation·command와 한 handler 이름 공간에 들고, 64자를 넘거나 다른 이름과 겹치면 선언 오류다. 앱 slug `lophn`은 쓰지 못한다(core가 발행자일 때의 source 이름). 칸이 없거나 비면 정본 json에 칸을 두지 않아 옛 선언의 hash가 그대로다.
 - 선언의 `skills`는 앱이 내놓는 skill이다(없어도 되는 칸). 항목은 `{name, public, commands}`다. `name`은 skill 폴더 이름 규칙(소문자·숫자·`-`, 64자까지)이고 겹치지 못하며, `commands`는 이 선언의 command 이름이다. `public`이 true인 skill은 다른 agent에게도 가므로 `commands`가 모두 public command여야 한다. 없는 command나 비공개 command를 쓰는 public skill은 선언 오류다. 칸이 없거나 비면 정본 json에 칸을 두지 않아 옛 선언의 hash가 그대로다.
@@ -245,6 +246,7 @@ project별 data를 다루는 앱은 project를 따로 만들지 않고 lophn pro
 - 설정 key: `shell.quick_launch`, `shell.app_launch`, `shell.sidebar_panels_off`, `shell.tray_off`, `shell.tray_order`.
 - 정의의 deny 규칙은 `lophn(<slug> <낱말>)`이다.
 - agent 명령: `lophn <app> <command>`(`lophn <slug> --help`가 description과 입력을 보인다). 기록 이름은 `<slug>.<command>`(argv 낱말은 `.`로 나누고 `_`는 `-`)이고 effect는 선언에서 온다. 사람은 binary의 `lophn <slug> <command>`로 run을 거쳐 부른다.
+- 앱 workspace의 command 안내는 선언 ID 대신 그대로 호출할 수 있는 CLI 문법과 앱별 help 경로를 보여 준다. 잘못된 이름이 현재 부를 수 있는 command의 `.`·`_` 표기를 그대로 쓴 경우 정확한 호출법을 `invalid_input`에 안내하고 실행하지 않는다. 할당 밖 command를 추천하지 않는다. 현재 group에 속한 다른 잘못된 명령도 group의 help 경로를 알려 준다.
 - 같이 보는 문서: `architecture/approval.md`(tool gate), `architecture/job.md`(program), `architecture/workflow.md`(flow), `architecture/activation.md`(release 교체와 grant), `architecture/workspace-session.md`(session rewind), `architecture/workspace-layout.md`, `architecture/agent-definition.md`, `architecture/coding-agent.md`, `architecture/app-notice.md`.
 
 ## 결정

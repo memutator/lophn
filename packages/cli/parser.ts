@@ -4,7 +4,10 @@
 // core의 `lophn` tool도 같은 parser를 쓴다(파일을 읽지 않으므로 `--input-file`은 readText를 받을 때만 된다).
 import { z } from "zod";
 import { err, type LophnError, ok, type Result } from "../base/mod.ts";
+import { kebab, wordsOf } from "../protocol/apps/declaration/tools.ts";
 import type { CommandDoc } from "./commands/types.ts";
+
+export { kebab, wordsOf };
 
 type Kind = "string" | "number" | "boolean" | "json" | "null";
 
@@ -62,8 +65,6 @@ function kindOf(
   return { kind: "json", array: false };
 }
 
-export const kebab = (name: string) => name.replaceAll("_", "-");
-
 // 입력 schema 하나의 칸 목록이다. 같은 schema는 한 번만 푼다.
 const fieldCache = new WeakMap<z.ZodType, Field[]>();
 export function fieldsOf(schema: z.ZodType): Field[] {
@@ -86,11 +87,6 @@ export function fieldsOf(schema: z.ZodType): Field[] {
   );
   fieldCache.set(schema, fields);
   return fields;
-}
-
-// 점 이름을 argv 낱말로 바꾼다: `app.link_source` → `app link-source`.
-export function wordsOf(name: string): string[] {
-  return name.split(".").map(kebab);
 }
 
 export function placeholder(field: Field): string {
@@ -123,6 +119,36 @@ function invalid(message: string, command?: CommandDoc): LophnError {
         ? message
         : `${message}\nusage: ${usageOf(command)}`,
   };
+}
+
+export function unknownCommandError(
+  argv: readonly string[],
+  commands: readonly CommandDoc[],
+): LophnError {
+  const flag = argv.findIndex((word) => word.startsWith("--"));
+  const given = argv.slice(0, flag < 0 ? argv.length : flag);
+  const normalized = given.flatMap(wordsOf);
+  const correction = commands.find((command) => {
+    const words = wordsOf(command.name);
+    return (
+      words.length === normalized.length &&
+      words.every((word, at) => word === normalized[at])
+    );
+  });
+  const group = commands.some(
+    (command) => wordsOf(command.name)[0] === given[0],
+  );
+  const help = correction
+    ? `${wordsOf(correction.name).join(" ")} --help`
+    : group
+      ? `${given[0]} --help`
+      : "help";
+  const hint = correction
+    ? ` Use \`lophn ${wordsOf(correction.name).join(" ")}\`.`
+    : "";
+  return invalid(
+    `unknown command: ${given.join(" ")}.${hint} Run \`lophn ${help}\``,
+  );
 }
 
 function convert(field: Field, raw: string): Result<unknown, string> {
@@ -219,11 +245,7 @@ export function parseCommandLine<C extends CommandDoc>(
     if (isGroup && rest.every((arg) => arg.startsWith("--"))) {
       return ok({ kind: "help", topic: [argv[0]] });
     }
-    return err(
-      invalid(
-        `unknown command: ${argv.filter((arg) => !arg.startsWith("--")).join(" ")}. Run \`lophn help\``,
-      ),
-    );
+    return err(unknownCommandError(argv, commands));
   }
 
   const fields = fieldsOf(command.input);

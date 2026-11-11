@@ -705,14 +705,14 @@ flows:
       - "범위와 연결된 source를 확인한다. 범위 밖(권한 거절 포함), 보관한 앱, source 없음은 not_found다"
       - "lophn.ts가 없으면 errors에 적는다. package.json이 가리키는 SDK 사본과 node_modules가 어긋나면 npm install을 권하는 errors를 싣는다"
       - "Node 자식으로 lophn.ts를 평가한다. 최소 환경으로 돌고 10초가 넘으면 끊는다"
-      - "평가 결과를 선언 검증기에 넣는다. 평가 실패, JSON이 아님, 검증 실패는 errors로 돌아간다"
+      - "평가 결과를 선언 검증기에 넣는다. command의 CLI 낱말과 최상위 입력 flag(boolean의 --no- 포함)가 변환 후 겹치는지도 검사한다. 평가 실패, JSON이 아님, 검증 실패는 errors로 돌아간다"
       - "통과하면 설명이 빈 칸인 곳을 warnings로, permission 선언을 permission_review로 돌려준다. release는 만들지 않는다"
     outcomes:
       - id: passed
         when: "errors가 비었다. warnings와 permission_review를 싣는다"
         observe: [response]
       - id: errors
-        when: "lophn.ts 없음, SDK 사본과 node_modules 어긋남, 평가 실패(exit 0 아님), default export가 JSON이 아님, 선언 검증 실패 중 하나. 응답은 ok이고 errors에 사유가 든다"
+        when: "lophn.ts 없음, SDK 사본과 node_modules 어긋남, 평가 실패(exit 0 아님), default export가 JSON이 아님, 선언 검증 실패(CLI command·flag 이름 충돌 포함) 중 하나. 응답은 ok이고 errors에 사유가 든다"
         observe: [response]
       - id: not_found
         code: not_found

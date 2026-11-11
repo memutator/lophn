@@ -27,6 +27,12 @@ export const TOOL_NAME = /^[A-Za-z0-9_.-]{1,64}$/;
 // protocol/lophn-agent/tool-catalog.ts의 TOOL_NAME_MAX와 같은 값이다. 이 file은 의존성이 없어 따로 쓴다.
 const WIRE_NAME_MAX = 64;
 
+export const kebab = (name: string): string => name.replaceAll("_", "-");
+
+export function wordsOf(name: string): string[] {
+  return name.split(".").map(kebab);
+}
+
 const PLACES: readonly unknown[] = ["tab", "panel", "card", "sidebar", "tray"];
 // tray popup 크기의 범위(px). 창이 더 작으면 shell이 창 안으로 줄인다.
 const TRAY_SIZE = {
@@ -193,6 +199,7 @@ export function validateLayers(
   }
 
   const commands: CommandDeclaration[] = [];
+  const cliNames = new Map<string, string>();
   for (const item of commandItems) {
     if (!isObject(item)) return invalid("command must be an object");
     const bad = exactKeys(
@@ -220,6 +227,30 @@ export function validateLayers(
         ? ({ ok: true, value: null } as const)
         : objectSchema(item.inputSchema, `command ${item.name} inputSchema`);
     if (!inputSchema.ok) return inputSchema;
+    const cliName = wordsOf(item.name).join(" ");
+    const previous = cliNames.get(cliName);
+    if (previous !== undefined) {
+      return invalid(
+        `commands ${previous} and ${item.name} have the same CLI name ${cliName}`,
+      );
+    }
+    cliNames.set(cliName, item.name);
+    const flags = new Map<string, string>();
+    for (const [name, property] of Object.entries(
+      inputSchema.value?.properties ?? {},
+    )) {
+      const names = [`--${kebab(name)}`];
+      if (property.type === "boolean") names.push(`--no-${kebab(name)}`);
+      for (const flag of names) {
+        const previous = flags.get(flag);
+        if (previous !== undefined) {
+          return invalid(
+            `command ${item.name} fields ${previous} and ${name} have the same CLI flag ${flag}`,
+          );
+        }
+        flags.set(flag, name);
+      }
+    }
     commands.push({
       name: item.name,
       description: item.description,

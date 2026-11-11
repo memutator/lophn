@@ -1,0 +1,22 @@
+id: app-command-cli-name-mismatch
+version: 0.23.43
+title: 앱 command 안내와 실제 CLI 이름을 맞추고 변환 후 이름 충돌을 거절한다
+modules: [packages/protocol, packages/cli, packages/core/agent-workspaces, packages/core/lophn-agent, packages/core/apps, packages/sdk]
+change: |
+  - 앱 workspace의 활성 command 목록이 add_event·quota.list 같은 선언 ID 대신 lophn calendar add-event·lophn masup quota list 같은 실제 호출 문법을 보여 준다. 현재 앱별 help 경로와 command를 호출마다 읽는다는 안내도 붙인다.
+  - 선언 검사와 CLI·prompt·help가 같은 점·underscore 변환을 쓴다. 변환 후 같은 CLI 이름이 되는 command와 같은 flag가 되는 최상위 입력 필드는 선언 오류다. boolean의 --no- 이름도 충돌 검사에 포함하고 nested JSON 필드는 제외한다.
+  - 잘못된 command 이름이 현재 부를 수 있는 command의 점·underscore 표기라면 정확한 호출법과 help 경로를 invalid_input에 싣는다. 이름을 자동으로 바꿔 실행하지 않는다. 알려진 group의 다른 잘못된 이름은 group help로 안내한다.
+  - @lophn/declaration 4.5.1에 검증기 수정과 CLI 문법 guide를 담고, 정확한 의존을 쓰는 @lophn/app-ui를 2.14.1로 맞췄다. template·sample·wireframes pin과 migration 메모를 함께 갱신했다. SDK 지원 하한은 그대로다.
+why: |
+  보존된 tool 사용 세션 77개 중 10개에서 선언 ID를 CLI 문법으로 그대로 써 14번 실패했다.
+  치과 반복 일정 등록에서는 agent가 이름 오류를 세션 목록 고정으로 오진해 다른 세션에 넘겼다.
+  이슈 app-command-cli-name-mismatch. CLI 이름 충돌은 command 선택이나 필드 전달을 바꿀 수 있어 등록 전에 거절한다.
+decisions:
+  - text: 선언 ID와 저장된 입력 이름은 유지한다. handler·grant·job·skill의 참조를 자동으로 바꾸는 대신 실제 CLI 문법을 모든 안내와 parser가 공유한다.
+    by: agent
+  - text: 교정 안내는 현재 호출 가능한 명령만 보고 실행은 하지 않는다. 유사 이름을 자동으로 실행하면 다른 write command나 할당 밖 기능으로 잘못 이어질 수 있다.
+    by: agent
+  - text: SDK 판은 검증 버그 수정인 patch로 올리고 지원 하한은 유지한다. 이름이 모호하지 않은 기존 앱은 code를 옮길 필요가 없다.
+    by: agent
+checklist:
+  - 앱 대화의 command 안내에서 add-event와 quota list 같은 실제 CLI 문법이 보이는지 확인한다

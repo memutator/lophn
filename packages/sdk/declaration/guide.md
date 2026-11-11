@@ -113,6 +113,14 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   agent는 `lophn <앱 slug> <command>`로 부른다.
   - operation과 command의 이름(1~64자, 영문·숫자·`_ - .`)은 합쳐 하나이고
     handler는 이름 하나로 등록한다. 이름을 두 목록에 같이 쓰지 못한다.
+  - CLI에서는 command 이름의 `.`을 낱말 경계로, `_`를 `-`로 바꾼다.
+    `add_event`는 `lophn <slug> add-event`, `quota.list`는 `lophn <slug> quota list`다.
+    입력 필드 `start_time`의 flag는 `--start-time`이다. JSON 입력과 handler 이름은 원래 이름을 쓴다.
+    실제 호출법은 `lophn <slug> --help`로 확인한다. 앱 command는 호출마다 현재 선언과 할당을 읽으므로
+    새 command를 쓰려고 새 session을 열 필요는 없다.
+  - CLI로 바꾼 뒤 같은 이름이 되는 command(`add_event`와 `add-event`)나 같은 flag가 되는
+    최상위 입력 필드(`start_time`과 `start-time`, boolean `enabled`와 `no_enabled`)는 선언 오류다.
+    필드 충돌 검사는 JSON 안의 nested object에는 적용하지 않는다.
 - `permissions` — 앱이 바깥에 닿는 자원이다. 항목은 `{kind, scope, reason}`이고
   kind는 `fs.read`·`fs.write`(`{path, recursive}`), `net.fetch`·`net.listen`
   (`{host, port}`), `secret.use`(`{name, oauth?}`), `notify.send`(`{}`, scope 없음.
@@ -149,7 +157,7 @@ const declaration = defineApp({
   commands: [],
   permissions: [],
   app_connections: [],
-  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.5.0" }],
+  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.5.1" }],
 });
 
 const result = validateDeclaration(declaration);

@@ -5,6 +5,7 @@ import { withPublicOnly } from "./app-public.ts";
 import { appCommandEntries, appCommandTool } from "./app-tool/command.ts";
 import type { AppToolkit } from "./app-toolkit.ts";
 import { resolveAppCall } from "./lophn/resolve.ts";
+import { parseCommandLine } from "../../../cli/parser.ts";
 import { toolForWireName } from "./wire.ts";
 
 const ULID = "01arz3ndektsv4rrffq69g5fav";
@@ -116,5 +117,36 @@ test("a resolved app command is found by the executor's wire name lookup", () =>
   assert.deepStrictEqual(
     toolForWireName([appCommandTool(hit.entry)], hit.name)?.name,
     "alpha.open",
+  );
+});
+
+test("wrong CLI spelling stays unexecuted and corrections only name commands the agent can call", () => {
+  const entries = appCommandEntries({
+    views: [view(APP_A, [tool("add_event", false), tool("quota.list", false)])],
+    entries: [{ app: APP_A, removed_tools: ["quota.list"] }],
+  });
+  const docs = entries.map((entry) => entry.doc);
+  assert.equal(
+    resolveAppCall({ args: ["alpha", "add_event", "--help"] }, entries),
+    undefined,
+  );
+  const spelling = parseCommandLine(["alpha", "add_event", "--help"], docs);
+  assert.ok(!spelling.ok);
+  assert.equal(spelling.error.code, "invalid_input");
+  assert.ok(spelling.error.message.includes("alpha add-event"));
+  for (const args of [
+    ["alpha", "quota.list"],
+    ["beta", "add_event"],
+  ]) {
+    assert.equal(resolveAppCall({ args }, entries), undefined);
+    const unavailable = parseCommandLine(args, docs);
+    assert.ok(!unavailable.ok);
+    assert.ok(!unavailable.error.message.includes("alpha quota list"));
+    assert.ok(!unavailable.error.message.includes("beta add-event"));
+  }
+  assert.equal(
+    resolveAppCall({ args: ["alpha", "add-event"] }, entries)?.entry.command
+      .name,
+    "add_event",
   );
 });

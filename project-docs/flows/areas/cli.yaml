@@ -122,7 +122,7 @@ flows:
       - packages/cli/commands/types.ts
     steps:
       - "첫 낱말이 help면 명령 표로 help 글을 낸다. 인자가 없으면 같은 글을 exit 2로 낸다. version은 core 없이 제품 판을 낸다"
-      - "명령 표의 점 이름을 argv 낱말로 맞춘다(app.link_source는 app link-source). 맞는 명령이 없고 첫 낱말이 표에 없으면 system:core-ensure로 core에 붙어 그 slug의 앱 command를 표에 더해 다시 맞춘다. 그래도 없으면 unknown command다"
+      - "명령 표의 점 이름을 argv 낱말로 맞춘다(app.link_source는 app link-source). 맞는 명령이 없고 첫 낱말이 표에 없으면 system:core-ensure로 core에 붙어 그 slug의 앱 command를 표에 더해 다시 맞춘다. 그래도 없으면 unknown command다. 현재 command의 점·underscore 표기를 그대로 쓴 경우 정확한 CLI 문법과 help 경로를 안내하며 실행하지 않는다"
       - "flag와 위치 인자를 칸에 맞춘다. 모르는 flag, 값 없는 flag, 중복, 위치 인자 초과, 숫자·boolean·JSON 변환 실패는 usage 한 줄과 함께 invalid_input이다"
       - "--input은 JSON object여야 하고 칸과 겹치면 안 된다. 칸 schema가 막으면 빠진 칸과 틀린 칸을 항목별로 적은 invalid_input이다. 명령의 run은 실행 전에 인자 조합을 한 번 더 거른다"
       - "run이 돌려준 오류는 code 그대로 쓴다. 갈래는 그 명령의 flow가 정한다. 결과는 --json이면 JSON 한 줄, 아니면 text나 줄로 푼 글을 stdout에 쓴다"
@@ -150,7 +150,7 @@ flows:
       - id: unknown-command
         code: invalid_input
         observe: [response]
-        when: "명령 표와 앱 command 어디에도 없는 낱말이다(앱 slug가 없는 경우 포함). Run lophn help를 안내한다"
+        when: "명령 표와 앱 command 어디에도 없는 CLI 낱말이다(앱 slug가 없는 경우 포함). 현재 command의 점·underscore 표기를 쓴 경우 정확한 호출법과 command help를 안내하고, 그 밖에 알려진 group이면 group help, 아니면 lophn help로 안내한다"
       - id: help-unknown-topic
         code: invalid_input
         observe: [response]

@@ -101,10 +101,14 @@ function appLines(
   if (release !== null) {
     const commands =
       release.command_names.length > 0
-        ? [...release.command_names].sort(cmp).join(", ")
+        ? [...release.command_names]
+            .sort(cmp)
+            .map((name) => `lophn ${wordsOf(`${app.slug}.${name}`).join(" ")}`)
+            .join(", ")
         : "none";
     lines.push(
       `${indent}Active release: ${release.version}. commands: ${commands}`,
+      `${indent}Run lophn ${app.slug} --help for current commands; app commands are read again on every call.`,
     );
   }
   return lines;

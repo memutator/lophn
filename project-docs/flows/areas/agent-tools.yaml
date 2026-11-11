@@ -623,7 +623,7 @@ flows:
       - "dispatchTarget이 lophn 호출을 명령 하나로 읽히면 그 명령의 정의로 바꿔 실행한다. 명령 자체의 flow는 cli와 route 쪽이다"
       - "풀리지 않은 호출(help, 그룹이나 명령의 --help, 틀린 명령줄, 할당 밖 앱 command)만 이 handler가 받는다"
       - "parseCommandLine으로 읽는다. help면 그 workspace 종류의 명령과 지금 부를 수 있는 앱 command의 도움말 글을 돌려준다. 앱 command 목록은 할당(agent_assignments/get)과 선언(apps/tools)을 읽어 붙이고, 그 읽기가 실패하면 앱 command 없이 답한다"
-      - "명령줄이 틀리거나 도움말 대상이 없으면 invalid_input으로 돌려준다"
+      - "명령줄이 틀리거나 도움말 대상이 없으면 invalid_input으로 돌려준다. 현재 호출 가능한 command의 점·underscore 표기를 CLI에 그대로 썼으면 올바른 문법과 그 command의 help 경로를 알려 주고 실행하지 않는다. 그 밖에 알려진 group의 잘못된 이름은 group help로 안내한다"
     outcomes:
       - id: command
         observe: ["request:core(idempotency_key = tool call id)", "response"]

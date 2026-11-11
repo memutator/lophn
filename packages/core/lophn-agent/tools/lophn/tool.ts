@@ -1,9 +1,13 @@
 import { z } from "zod";
-import { ok } from "../../../../base/mod.ts";
+import { err, ok } from "../../../../base/mod.ts";
 import { commandsForWorkspace } from "../../../../cli/commands/mod.ts";
 import { helpText } from "../../../../cli/help.ts";
 import type { CommandDoc } from "../../../../cli/commands/types.ts";
-import { parseCommandLine, wordsOf } from "../../../../cli/parser.ts";
+import {
+  parseCommandLine,
+  unknownCommandError,
+  wordsOf,
+} from "../../../../cli/parser.ts";
 import type { WorkspaceKind } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { AppCommandEntry } from "../app-tool/command.ts";
 import { defineTool } from "../define.ts";
@@ -40,7 +44,7 @@ function lophnHandler(apps?: AppCommandLookup): ToolCallHandler {
     }
     const text = helpText(docs, parsed.value.topic);
     return text === undefined
-      ? invalid(`unknown command: ${parsed.value.topic.join(" ")}`)
+      ? err(unknownCommandError(parsed.value.topic, docs))
       : ok(fitted("help", { help: text }));
   };
 }

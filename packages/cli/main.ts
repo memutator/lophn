@@ -37,7 +37,7 @@ import type { Command, CommandCore, CommandResult } from "./commands/types.ts";
 import { openConnection, stopCore } from "./connection/mod.ts";
 import { helpJson, helpText } from "./help.ts";
 import { CLI_EXITS, createOutput, exitOf } from "./output.ts";
-import { parseCommandLine, wordsOf } from "./parser.ts";
+import { parseCommandLine, unknownCommandError, wordsOf } from "./parser.ts";
 
 // 시험이 끼우는 환경이다. 없으면 process의 것이다.
 type CliOptions = {
@@ -225,10 +225,7 @@ export async function cliMain(
   if (line.kind === "help") {
     const text = helpText(commands, line.topic);
     if (text === undefined) {
-      const error = {
-        code: "invalid_input",
-        message: `unknown command: ${line.topic.join(" ")}. Run \`lophn help\``,
-      } as const;
+      const error = unknownCommandError(line.topic, commands);
       await output().failure(error);
       return exitOf(error);
     }

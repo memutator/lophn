@@ -1,5 +1,5 @@
 id: app-command-cli-name-mismatch
-version: 0.23.43
+version: 0.23.44
 title: 앱 command 안내와 실제 CLI 이름을 맞추고 변환 후 이름 충돌을 거절한다
 modules: [packages/protocol, packages/cli, packages/core/agent-workspaces, packages/core/lophn-agent, packages/core/apps, packages/sdk]
 change: |

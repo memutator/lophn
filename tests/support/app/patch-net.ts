@@ -24,8 +24,18 @@ async function replaceOnce(
 }
 
 // 앱 package.json에 거는 SDK 의존 값. release 준비는 정확한 판과 `file:.lophn/sdk/...` 값을 요구한다.
-function sdkDependency(name: string): { name: string; value: string } {
-  const path = packageInstallPath(name, "1.0.0");
+// 판은 저장소의 SDK package.json에서 읽는다: 손으로 적은 판은 SDK를 올릴 때 선언과 어긋난다.
+async function sdkDependency(
+  name: string,
+): Promise<{ name: string; value: string }> {
+  const manifest = new URL(
+    `../../../packages/sdk/${name.slice("@lophn/".length)}/package.json`,
+    import.meta.url,
+  );
+  const { version } = JSON.parse(await readFile(manifest, "utf8")) as {
+    version: string;
+  };
+  const path = packageInstallPath(name, version);
   if (!path.ok) throw new Error(`SDK 설치 경로: ${path.error.message}`);
   return { name, value: appSdkDependency(path.value) };
 }
@@ -78,10 +88,10 @@ export async function netFetchPatch(
     dependencies?: Record<string, string>;
   };
   const dependencies = parsed.dependencies ?? {};
-  for (const dependency of [
+  for (const dependency of await Promise.all([
     sdkDependency("@lophn/cap-net"),
     sdkDependency("@lophn/cap-secret"),
-  ]) {
+  ])) {
     dependencies[dependency.name] = dependency.value;
   }
   parsed.dependencies = dependencies;

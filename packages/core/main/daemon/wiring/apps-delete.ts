@@ -5,7 +5,10 @@ import { deleteCallsSentByApp } from "../../../router/mod.ts";
 import { chmod, readdir, rm } from "node:fs/promises";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { appDelete, appRemnantsEraser } from "../../../../protocol/apps/mod.ts";
-import { appFolder } from "../../../../protocol/apps/app-storage.ts";
+import {
+  appFolder,
+  bundleFileStore,
+} from "../../../../protocol/apps/app-storage.ts";
 import { agentDelete } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { deleteSession } from "../../../../protocol/lophn-agent/sessions.ts";
@@ -24,6 +27,7 @@ import {
   trayOffSetting,
   trayOrderSetting,
 } from "../../../config/shell-settings.ts";
+import { sweepBundleFiles } from "../../../apps/releases/bundle/share.ts";
 import { eraseJobsOfApp } from "../../../jobs/commands.ts";
 import {
   agentSlotOf,
@@ -258,6 +262,7 @@ export const appsDeleteWiring: WiringFactory = () => ({
       } catch (thrown) {
         log("folder_not_removed", thrown);
       }
+      await sweepBundleFiles(bundleFileStore(ctx.root.path));
       for (const session of app.sessions) {
         await eraseToolResults(ctx.root.path, session);
         await ctx.rewindFiles.store.removeSession(session).catch(() => {});

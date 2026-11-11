@@ -1,0 +1,26 @@
+id: bundle-file-sharing
+version: 0.23.35
+title: 봉인된 앱 bundle 사본이 같은 file을 hardlink로 나눠 쓴다
+modules: [packages/core/apps, packages/core/main, packages/protocol]
+change: |
+  전: release를 준비할 때마다 `apps/<app>/bundles/<hash>/`에 `node_modules`까지 통째로 복사한 사본이 생기고 지워지지 않았다. 사람의 data root에서 release 86개가 bundle 9.5GB였고 그 가운데 고유 byte는 0.4GB쯤이었다.
+  후:
+  - POSIX에서 봉인(`sealCopy`)이 좁히기 전에 사본의 file을 내용 sha256으로 data root의 `bundle-files/<sha256>`과 hardlink로 잇는다. 앱 사이에도 나눠 쓴다. 빈 file과 나눠 쓰지 못한 file은 사본 그대로다.
+  - 표지 없는 사본을 지울 때(`clearUnsealedCopy`) hardlink인 file은 mode를 바꾸지 않는다. 다른 사본의 file이 쓸 수 있게 풀리지 않는다.
+  - 앱을 지우면 어느 사본도 쓰지 않는 store file을 지운다.
+  - data step `apps.bundle-file-sharing`(sealed-marker 뒤)이 이미 봉인된 사본을 옮긴다. 기동 때 한 번 모든 bundle file을 읽어 hash를 내므로 그 기동이 수십 초 길어진다(세 앱 2.8GB가 11초, 247MB로 줄었다).
+  - Windows는 나눠 쓰지 않는다.
+why: |
+  사람이 lophn이 만든 앱이 디스크를 많이 먹는다고 했다. `~/.lophn` 15GB 가운데 12GB가 앱 폴더였고 거의 다 지난 release의 bundle 사본 속 같은 `node_modules`였다.
+decisions:
+  - text: |
+      지난 release bundle은 그대로 남기고 같은 byte만 나눠 쓴다. 이전 release로 돌아가기가 network 없이 되어야 해서다. 버린 길: 최근 N개만 남기기(돌아가기 범위를 줄이는 제품 판단이라, 나눠 쓰기로 부족할 때 정한다).
+    by: agent
+  - text: |
+      release 준비에서 devDependencies를 빼지 않았다. 나눠 쓰면 같은 판의 dev 의존은 한 번만 쌓여 아끼는 것이 거의 없고, 런타임에 dev 의존을 import하는 앱이 깨질 수 있다.
+    by: agent
+  - text: |
+      나눠 쓰기는 준비 자식(좁힌 권한)이 아니라 core의 봉인에서 한다. 준비 자식은 store를 모르고 symlink도 못 만들어 이미 core가 봉인을 마친다. Windows는 읽기 전용 속성이 link끼리 같이 붙어, 한 사본을 지우려고 속성을 풀면 다른 사본도 풀려 빼 두었다.
+    by: agent
+checklist:
+  - 새 판으로 처음 기동할 때 bundle 옮기기로 기동이 수십 초 더 걸린다. 그 뒤 `du -sh ~/.lophn/apps ~/.lophn/bundle-files`로 줄었는지 본다

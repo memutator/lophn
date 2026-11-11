@@ -45,6 +45,11 @@ export function appBundleCopy(
   )}`;
 }
 
+// 봉인된 bundle 사본들이 hardlink로 나눠 쓰는 file store. 앱 사이에도 나눠 쓴다. `<sha256>` 하나가 file 하나다.
+export function bundleFileStore(dataRoot: string): string {
+  return `${dataRoot}/bundle-files`;
+}
+
 export function appStagingFolder(dataRoot: string, app: string): string {
   return `${appFolder(dataRoot, app)}/staging`;
 }

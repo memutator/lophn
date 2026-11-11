@@ -95,6 +95,7 @@ import {
   dataChangesOf,
   readBundleCopy,
 } from "./releases/activation/desired.ts";
+import { bundleFileStore } from "../../protocol/apps/app-storage.ts";
 import { bundleCopyPath, sealCopy } from "./releases/bundle/seal.ts";
 import { gitCommandRunner } from "./releases/prepare/git-extract.ts";
 import { createActivationQueueRead } from "./releases/reads.ts";
@@ -617,7 +618,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
       // 준비 자식은 symlink를 못 만들어 사본을 열어 둔 채 끝낸다. 검사 전에 core가 봉인한다.
       const copyPath = bundleCopyPath(dataRoot, app, bundleHash);
       if (!copyPath.ok) return internalError();
-      const sealed = await sealCopy(copyPath.value);
+      const sealed = await sealCopy(copyPath.value, bundleFileStore(dataRoot));
       if (!sealed.ok) {
         return err({ code: "unavailable", message: sealed.error.message });
       }

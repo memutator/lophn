@@ -28,6 +28,7 @@ import { hostQueueWiring } from "./wiring/host-queue.ts";
 import { inputRequestWiring } from "./wiring/input-request.ts";
 import { appsWiring } from "./wiring/apps.ts";
 import { noticesWiring } from "./wiring/notices.ts";
+import { bundleFileSharingWiring } from "./wiring/bundle-file-sharing.ts";
 import { sealedMarkerWiring } from "./wiring/sealed-marker.ts";
 import { createCoreRegistration as createUsageRegistration } from "./wiring/apps-usage.ts";
 import {
@@ -169,6 +170,8 @@ export const WIRINGS: readonly WiringFactory[] = [
   // 쓰기 앞 처리기는 앞이 안쪽이다. lophn-agent의 session 정리(rewind files)보다 안쪽이라 app.delete의 session 정리도 이 위에서 한다.
   appsDeleteWiring,
   sealedMarkerWiring,
+  // 봉인 표지를 보고 사본을 고르므로 sealed-marker 뒤다.
+  bundleFileSharingWiring,
   lophnAgentRewindWiring,
   lophnAgentProviderLoginWiring,
   annotationsWiring,

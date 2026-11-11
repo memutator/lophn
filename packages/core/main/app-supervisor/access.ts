@@ -12,6 +12,7 @@ import {
 import {
   type AccessState,
   type BrokerAccess,
+  type BrokerChild,
   effectiveScope,
 } from "../../apps/permissions/mod.ts";
 
@@ -62,6 +63,7 @@ type AppDeclarationView = ReturnType<typeof appTools.output.parse>;
 async function load(
   deps: { post: CorePost; bearer: () => string },
   app: string,
+  release?: string,
 ): Promise<Result<Loaded | null>> {
   const bearer = deps.bearer();
   if (bearer === "") return unavailable("core is not connected");
@@ -69,7 +71,10 @@ async function load(
   let grants: Result<AppGrant[]>;
   try {
     [declaration, grants] = await Promise.all([
-      deps.post("apps/tools", bearer, { app }),
+      deps.post("apps/tools", bearer, {
+        app,
+        ...(release === undefined ? {} : { release }),
+      }),
       activeGrants(deps.post, bearer, app),
     ]);
   } catch {
@@ -90,10 +95,13 @@ export function createCoreBrokerAccess(deps: {
   post: CorePost;
   // supervisor의 machine credential. hello 뒤에 채워지므로 호출 때 읽는다.
   bearer: () => string;
+  // supervisor가 아는 activation 후보. supervisor는 이 어댑터보다 늦게 만들어져 호출 때 읽는다.
+  candidate: (child: BrokerChild) => boolean;
 }): BrokerAccess {
   return {
-    async current(app) {
-      const loaded = await load(deps, app);
+    candidate: deps.candidate,
+    async current(app, release) {
+      const loaded = await load(deps, app, release);
       if (!loaded.ok) return loaded;
       if (loaded.value === null) return ok(null);
       const { declared: view, grants } = loaded.value;

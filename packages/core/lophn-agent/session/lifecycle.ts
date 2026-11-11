@@ -10,9 +10,12 @@ import {
 import {
   type SessionEventName,
   type SessionInfo,
-  TERMINAL_SESSION_PREFIX,
   type TerminalSessionReport,
 } from "../../../protocol/lophn-agent/session-lifecycle.ts";
+import {
+  TERMINAL_SESSION_PREFIX,
+  terminalSessionId,
+} from "../../../protocol/lophn-agent/session-tag.ts";
 import type { Workspace } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { SESSION_COLUMNS, sessionRowOf } from "./model.ts";
@@ -127,7 +130,7 @@ export function createSessionLifecycle(deps: LifecycleDeps) {
 
   function terminalInfo(report: TerminalSessionReport): SessionInfo {
     return {
-      session: `${TERMINAL_SESSION_PREFIX}${report.terminal_ref}`,
+      session: terminalSessionId(report.terminal_ref),
       kind: "terminal",
       agent: null,
       harness: report.harness,

@@ -45,6 +45,7 @@ import {
   createAgentTracker,
 } from "../../terminal/agent/tracker.ts";
 import { createTitleScanner } from "../../terminal/agent/osc-title.ts";
+import type { GuiTabSession } from "../../terminal/gui.ts";
 import type { Supervisor } from "../../terminal/supervisor.ts";
 import { lophnCliPath } from "../paths.ts";
 import type { ShellContext } from "./context.ts";
@@ -66,6 +67,8 @@ export function createAgentWiring(options: {
   /** 새 터미널의 PATH 앞에 둘 CLI 폴더. hook 길과 무관하다. 더할 것이 없으면 빈 객체. */
   cliPath(): Record<string, string>;
   tracker: AgentTracker;
+  /** GUI 탭(harness-gui)을 터미널 session 보고에 싣는다. coding wiring이 TabGui를 만든 뒤 한 번 꽂고, GUI 탭이 바뀔 때 부를 함수를 돌려준다. */
+  bindGuiTabs(source: () => readonly GuiTabSession[]): () => void;
   /** 사람 터미널의 shell에 끼울 시작 층 폴더. hook이 꺼져 있으면 null. */
   shellInit(): string | null;
   /** 공유 skill 사본을 다시 맞춘다(hook을 놓거나 지운 뒤). */
@@ -105,11 +108,19 @@ export function createAgentWiring(options: {
   // core에 지금 터미널 coding agent의 집합을 통째로 알린다(session lifecycle의 terminal session). 바뀔 때 보내고, 집합이 비어 있지 않으면
   // 주기적으로도 다시 보낸다: core는 메모리에만 두므로 core가 다시 떴을 때 이 주기가 채워 준다. 빈 집합은 core가 잃을 것이 없어 다시 보내지 않는다.
   let reported = "";
+  // GUI 탭(harness-gui)은 coding wiring이 나중에 꽂는다. GUI가 띄운 CLI는 foreground TUI가 아니고 hook이 안 닿을 수 있어
+  // tracker가 모르는 채로 목록에서 빠지므로, GUI 탭이 있는 터미널은 handle이 아는 값(title, CLI session, turn 상태)으로 채운다.
+  let guiTabs: () => readonly GuiTabSession[] = () => [];
   function reportToCore(): void {
+    const gui = new Map(guiTabs().map((tab) => [tab.terminal_ref, tab]));
     const sessions = terminals.runtimes().flatMap((runtime) => {
       const agent = tracker.decorate(runtime).agent;
+      const tab = gui.get(runtime.terminal_ref);
+      // GUI view에서는 handle이 진실이다. TUI view(shared 대화의 handle이 남은 때)는 foreground TUI를 tracker가 안다.
+      const guided =
+        tab !== undefined && (tab.view === "gui" || agent === undefined);
       if (
-        agent === undefined ||
+        (agent === undefined && !guided) ||
         runtime.state === "exited" ||
         runtime.state === "unknown" ||
         !runtime.project.startsWith("prj_")
@@ -120,10 +131,12 @@ export function createAgentWiring(options: {
         {
           terminal_ref: runtime.terminal_ref,
           project: runtime.project,
-          harness: agent.harness,
-          state: agent.state,
-          cli_session: agent.session ?? null,
-          title: agent.title ?? agent.name ?? null,
+          harness: guided ? tab.harness : (agent?.harness ?? ""),
+          state: guided ? tab.state : (agent?.state ?? "unknown"),
+          cli_session:
+            (guided ? tab.cli_session : null) ?? agent?.session ?? null,
+          title:
+            (guided ? tab.title : null) ?? agent?.title ?? agent?.name ?? null,
           cwd: runtime.cwd_at_start,
           shell_pid: runtime.shell_pid ?? null,
         },
@@ -358,6 +371,10 @@ export function createAgentWiring(options: {
       return path === undefined ? {} : { [path.name]: path.value };
     },
     tracker,
+    bindGuiTabs(source: () => readonly GuiTabSession[]): () => void {
+      guiTabs = source;
+      return reportToCore;
+    },
     shellInit: () => (live && !stopped ? shellInit : null),
     syncSkills: () => skillSync.request(),
     publish,

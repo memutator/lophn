@@ -10,6 +10,10 @@ import type {
   TerminalSnapshotReply,
 } from "../ipc/terminal.ts";
 import type { IdSource } from "../../base/id.ts";
+import {
+  SESSION_ENV_NAME,
+  terminalSessionId,
+} from "../../protocol/lophn-agent/session-tag.ts";
 import { resolveLoginShell, terminalEnv } from "./env.ts";
 import {
   nodePtyAdapter,
@@ -169,8 +173,12 @@ function createHost(deps: HostDeps): Host {
     };
     sessions.set(terminalRef, session);
     try {
-      // strip 뒤에 덮어야 더한 LPN_ 값이 지워지지 않는다.
-      const env = { ...terminalEnv(deps.env), ...shellEnv };
+      // strip 뒤에 덮어야 더한 LPN_ 값이 지워지지 않는다. 세션 표지는 물려받은 값이 아니라 이 탭의 id다(strip이 지운다).
+      const env = {
+        ...terminalEnv(deps.env),
+        ...shellEnv,
+        [SESSION_ENV_NAME]: terminalSessionId(terminalRef),
+      };
       const integrated = integrateShell(
         program.file,
         program.args,

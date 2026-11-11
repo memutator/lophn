@@ -15,6 +15,7 @@ function setup(access: { kind: string; scope: unknown }[], release = "r1") {
   const posted: unknown[] = [];
   const service = createNotifyService({
     access: {
+      candidate: () => false,
       current: () =>
         Promise.resolve(
           ok({

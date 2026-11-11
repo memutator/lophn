@@ -82,6 +82,7 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 18. migration의 출발 schema는 ledger 값이 아니라 종료 뒤 읽은 실제 DB의 값이다. 기록과 실제가 어긋날 수 있다.
 19. 복구본이 ledger에 확정된 뒤에만 migration을 시작한다. 확정 전에 꺼지면 복원할 근거가 없다.
 20. 새 process는 준비 모드로 확인까지만 하고 업무 통로는 complete가 commit된 뒤에 연다. 그 전에 업무가 들어오면 실패해도 되돌릴 수 없는 쓰기가 생긴다.
+    - 후보의 시작 code가 broker를 부르는 것은 채택 중에만 일어난다(process를 먼저 띄우고 commit으로 release를 active로 잇는다). broker는 supervisor가 아는 후보(prepare로 띄웠고 아직 열리지 않은 자식)에게만 예외를 둔다: 읽기뿐인 `sessions`는 그 release의 선언으로 답하고, 발행·net·secret·notify는 `forbidden`이 아니라 `unavailable`(곧 된다, 다시 시도)이다. core의 발행과 알림이 active release를 보고 일하기 때문이다. 교체된 옛 release의 자식은 후보가 아니므로 그대로 `forbidden`이다.
 21. complete 뒤에는 그 후보 process가 그대로 운영 process가 된다. 다시 띄우지 않는다. 앱 process를 바꿀 때 끝내는 credential은 그 앱의 app credential이다. 같은 앱 조건의 agent credential(coding session의 CLI 등)은 남는다.
 22. complete는 한 tx다. active 참조, grant 맞춤, 복구본 정리가 따로 있으면 어디서 끊겨도 중간 상태가 남는다. complete는 같은 시도인지와 실제 데이터 결과, 준비 확인을 core가 다시 검사한다.
 23. 도는 호출이 유예(30초) 안에 끝나지 않으면 결과 모름으로 닫고 강제로 멈춘다. 호출 접수는 성공이든 실패든 끝에 다시 연다. 닫힌 채 두면 앱이 영영 안 받는다.

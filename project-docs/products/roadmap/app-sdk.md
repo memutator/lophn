@@ -123,7 +123,7 @@ subscribe("masup", "usage.limit", async (e) => {
 - 목록 read 하나: session마다 id, agent(handle·이름·runtime), workspace, 제목, 상태, 무엇을 기다리나, 마지막 활동 시각, `spawned_by`, 종류(`lophn` | `harness` | `terminal`), 터미널이면 harness·CLI session id·탭·shell pid, cwd와 폴더 목록. 지금 넷으로 흩어진 상태 계산을 이 하나로 모은다.
 - 하나만 깊게 읽기: token, 비용, context 점유(`ReadSessionStatus`).
 - `stop(session)`: 도는 turn을 멈추고 그 turn에 딸린 process를 정리한다. lophn runtime은 지금 그대로, harness runtime은 CLI를 tree째 끝내고, 터미널 탭은 끊기 key를 보낸다.
-- `shell.run`의 child env에 `LOPHN_SESSION_ID`를 넣는다. harness runtime의 CLI에도 넣는다.
+- `shell.run`의 child env에 `LOPHN_SESSION_ID`를 넣는다. harness runtime의 CLI에도 넣고, 터미널 탭의 shell과 GUI view가 띄운 CLI에는 `term:<탭>`을 넣는다.
 
 ### 4. 앱의 A2A
 
@@ -168,7 +168,7 @@ job의 "때"가 주기 대신 event일 수 있다. 예: `masup`의 `usage.limit`
 4. session lifecycle은 SDK에 따로 짓지 않는다. core가 event의 첫 발행자이고 앱은 listener를 건다. (사람, 2026-11-10)
 5. 터미널 탭의 coding agent를 lifecycle에 넣는다. (사람이 session id·ppid를 물은 것에서, 2026-11-10) pid가 뜻이 있는 것은 process가 곧 session인 터미널 CLI뿐이다.
 6. session마다 process를 두지 않는다. (agent, 사람이 비교를 봄) server가 먼저인 harness 다섯이 모두 N:1이고, process를 나눠 얻는 것(crash 격리, session별 kill)보다 치르는 것(기동 시간, memory, session마다 MCP)이 크다.
-7. lophn만 아는 것만 SDK로 준다. git root·worktree·branch, process 목록, CLI 자신의 pid, process kill은 주지 않는다. 앱이 shell pid, cwd, `LOPHN_SESSION_ID`로 직접 한다. (사람, 2026-11-10) process tree 따라가기와 group kill은 `design-app` skill의 예제로 둔다.
+7. lophn만 아는 것만 SDK로 준다. git root·worktree·branch, process 목록, CLI 자신의 pid, process kill은 주지 않는다. 앱이 `LOPHN_SESSION_ID`(환경 표지가 먼저다. core session은 `ses_…`, 터미널 탭은 shell과 그 아래 CLI(GUI view가 띄운 CLI 포함)가 `term:<탭>`), cwd, shell pid(표지가 없을 때의 대안)로 직접 한다. (사람, 2026-11-10) process tree 따라가기와 group kill은 `design-app` skill의 예제로 둔다.
 8. `shell.run`의 child env에 session id를 넣는다. (사람, 2026-11-10)
 9. `stop`은 시야 안 모든 session에 연다. archive는 앱이 연 것만, 지움·승인·rewind·fork는 계속 사람만이다. (agent) stop은 잃는 것이 없고 사람의 예(한도에서 멈춤)가 남이 연 session을 멈추는 일이다.
 10. A2A를 같은 계획에 넣는다. (사람, 2026-11-10)

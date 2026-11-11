@@ -14,8 +14,11 @@ export type AccessState = {
 };
 
 export interface BrokerAccess {
-  // 앱을 모르거나 현재 release가 없으면 null이다. 매 요청마다 다시 읽는다.
-  current(app: string): Promise<Result<AccessState | null>>;
+  // 앱을 모르거나 현재 release가 없으면 null이다. 매 요청마다 다시 읽는다. `release`를 주면 active가 아니라 그 release의
+  // 선언으로 읽는다(채택 중인 후보의 시작 코드가 쓴다).
+  current(app: string, release?: string): Promise<Result<AccessState | null>>;
+  // 그 자식이 core의 activation이 띄운 후보(채택 commit 전)인가.
+  candidate(child: BrokerChild): boolean;
 }
 
 type Permission = "net.fetch" | "secret.use" | "notify.send";
@@ -56,16 +59,29 @@ export function liveOnly(
 
 // 자식이 시작한 release가 지금 release일 때만 그 선언을 기준으로 삼는다. 교체된 뒤의 옛
 // 자식은 새 선언으로 접근을 얻지 못한다.
+// 예외는 core의 activation이 지금 띄운 후보다: 프로세스를 먼저 띄우고 commit으로 release를 active로 잇기 때문에 시작 코드의 첫
+// 호출은 아직 active가 아닌 자기 release로 온다. 이 창에서는 `forbidden`(영구 거절)이 아니라 `unavailable`(곧 된다, 다시 시도)을
+// 준다. 읽기뿐인 호출(`servesCandidate`)은 그 release의 선언으로 답한다: 발행, 외부 접근, 알림은 core가 active release를 보고
+// 일하므로 commit 뒤에 되어야 한다.
 export async function currentAccess(
   access: BrokerAccess,
   child: BrokerChild,
+  options: { servesCandidate?: boolean } = {},
 ): Promise<Result<AccessState | null>> {
   const found = await access.current(child.app);
   if (!found.ok) return found;
-  if (found.value === null || found.value.release !== child.release) {
-    return ok(null);
+  if (found.value !== null && found.value.release === child.release) {
+    return found;
   }
-  return found;
+  if (child.release !== null && access.candidate(child)) {
+    if (options.servesCandidate !== true) {
+      return unavailable("the release is being activated; try again shortly");
+    }
+    const own = await access.current(child.app, child.release);
+    if (!own.ok) return own;
+    return own.value?.release === child.release ? own : ok(null);
+  }
+  return ok(null);
 }
 
 export function normalHost(value: string): string | undefined {

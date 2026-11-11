@@ -175,6 +175,7 @@ function createAcp(ids: IdSource, gui: Pick<TabGui, "opened">) {
         harness: options.harness,
         handoff: options.handoff,
         cwd: options.terminal.cwd,
+        state: () => state,
         attach(listener) {
           if (closed) {
             listener.closed();

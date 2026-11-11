@@ -28,6 +28,7 @@ function setup(
   const sent: { headers: Headers; body: unknown }[] = [];
   const service = createNetFetchService({
     access: {
+      candidate: () => false,
       current: () =>
         Promise.resolve(
           ok({

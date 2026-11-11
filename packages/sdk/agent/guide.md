@@ -106,7 +106,7 @@ import { contextBlock, useAgentSession } from "@lophn/agent";
 ### session lifecycle
 
 lophn만 아는 것(어떤 session이 있고 무슨 상태인가)을 앱이 읽고 멈춘다. 폴더의 git 상태, process 목록, process 죽이기는 주지 않는다. 그것은 앱이 session의
-shell pid·cwd·`LOPHN_SESSION_ID`로 직접 한다(`design-app` skill의 예).
+환경 표지 `LOPHN_SESSION_ID`와 shell pid·cwd로 직접 한다(`design-app` skill의 예).
 
 - **보이는 범위.** 앱은 그 앱 workspace에 사는 agent가 call로 닿을 수 있는 workspace의 session만 본다(private workspace는 안 보이고 같은
   workspace는 늘 보인다). 안 보이는 session은 없는 session과 같다(`not_found`).
@@ -115,12 +115,50 @@ shell pid·cwd·`LOPHN_SESSION_ID`로 직접 한다(`design-app` skill의 예).
   - `sessions.list(filter?)` → `{ok, value: {sessions}}`. session 한 줄은 `{session, kind("lophn"|"harness"|"terminal"), agent, harness, workspace, title,
     state("running"|"waiting"|"idle"|"unknown"), waiting_for("approval"|"question"|null), last_active_at, spawned_by, cwd, folders, terminal}`이다.
     `terminal`은 터미널 탭의 coding agent일 때 `{harness, cli_session, tab, shell_pid}`다(`shell_pid`는 PTY shell이고 CLI 자신이 아니다).
+    탭이 GUI view(`claude gui`·`codex gui`)이면 `title`, `state`, `terminal.cli_session`은 GUI가 아는 값(제목, turn 단계)이다.
+  - **process를 session에 잇는 법.** 환경 표지를 먼저 본다. lophn agent의 `shell.run`과 그 아래 process, headless harness CLI와 그 아래 process는
+    `LOPHN_SESSION_ID=<session>`(`ses_…`)이고, 터미널 탭의 shell과 그 안에서 뜬 모든 process(TUI CLI)는 `LOPHN_SESSION_ID=term:<탭>`이다. 목록 한 줄의
+    `session`과 같은 값이다. GUI view가 띄운 CLI도 같은 값을 받지만 그 CLI는 탭의 shell이 아니라 lophn shell의 자식이라 `shell_pid` 아래에서 찾을 수 없다.
+    `shell_pid`는 환경 표지가 없는 때(표지가 생기기 전에 연 탭, 환경을 비우고 띄운 process)의 대안이다.
   - `sessions.status(session)` → token, 비용, context 점유(lophn·harness session만).
   - `sessions.stop(session)` → `{stopped}`. 도는 turn을 멈추고 그 turn에 딸린 process를 정리한다. 앱이 멈춘 것은 사람이 볼 수 있게 기록된다(Inbox History와 앱 상세
     Activity). 터미널 session은 그 CLI의 끊기 key를 보내고, key가 없는 harness는 `unavailable`이다.
 - **상태가 바뀔 때**를 받으려면 선언의 `subscriptions`에 `{source: "lophn", event: "session.running"}`을 적고 앱 process에서
   `subscribe("lophn", "session.running", (info) => …)`(`@lophn/cap-tool`)를 건다. payload는 목록의 한 줄과 같다. event는 일이 일어난 뒤의 알림이고 한 번만 오며 저장되지 않는다.
-  **켤 때 `sessions.list()`를 한 번 읽고** event로 고친다.
+  **켤 때 `sessions.list()`를 한 번 읽고** event로 고친다. timer로 목록을 계속 다시 읽지 않는다.
+- **시작 code의 첫 호출은 한 번 더 시도한다.** 프로세스를 먼저 띄우고 release를 active로 잇는 사이에 시작 code가 `publish`, `net`·`secret`·`notify`를 부르면
+  `unavailable`이 온다(곧 된다는 뜻이다). `sessions.list`는 이 사이에도 읽힌다. `unavailable`을 영구 실패로 굳히지 말고 짧게 쉬었다 다시 시도한다.
+
+```ts
+// 앱 process: 켤 때 한 번 읽고 event로 고친다. 시작 중의 unavailable은 다시 시도한다.
+import { type SessionInfo, SESSION_EVENTS, sessions } from "@lophn/agent/process";
+import { subscribe } from "@lophn/cap-tool";
+
+const known = new Map<string, SessionInfo>();
+
+async function load(): Promise<void> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const read = await sessions.list();
+    if (read.ok) {
+      known.clear();
+      for (const info of read.value.sessions) known.set(info.session, info);
+      return;
+    }
+    if (read.error.code !== "unavailable") return; // 영구 거절은 다시 해도 같다
+    await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+  }
+}
+
+await load();
+for (const event of SESSION_EVENTS) {
+  subscribe<SessionInfo>("lophn", event, (info) => {
+    if (event === "session.ended") known.delete(info.session);
+    else known.set(info.session, info);
+  });
+}
+```
+
+화면은 `useSessions()`가 같은 일을 한다(한 번 읽고 `session.*` event에 다시 읽는다). timer로 `reload()`를 부르지 않는다.
 - **session 열기와 끝내기는 앱 화면만 한다.** 앱 process는 session을 열거나 끝내지 못한다(상한 없이 session과 model 호출을 만들 수 있어서다). 화면의
   `useAgentSession`이 첫 `send`에서 session을 연다(`workspace: {kind, id}`를 주면 이 앱이 call로 닿을 수 있는 다른 workspace에 연다. 정책이 막으면 `forbidden`).
   앱이 연 session에는 그 표시가 붙는다. 앱은 **자기가 연 session만** `lophnApp.sessions.end`(`useSessions().end`)로 끝낸다(archive와 같은 영향: 도는 turn 중단,

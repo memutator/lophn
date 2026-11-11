@@ -271,12 +271,17 @@ yourself. lophn gives no process list, no git information and no process kill.
 
 - A session you may see has `cwd`, `folders` and, for a coding agent in a terminal
   tab, `terminal.shell_pid` (the PTY shell, not the CLI itself).
-- A command a lophn agent runs with `shell.run`, and a headless harness CLI
-  (Claude Code, Codex, OpenCode) with every process it starts, has
-  `LOPHN_SESSION_ID=<session id>` in its environment. Find that session's
-  processes by that variable. An agent that clears the environment before it
-  starts a process hides it; you cannot find that one by the variable.
-- For a terminal tab, start from `shell_pid` and walk the children.
+- Join a process to its session by the environment first. These all have
+  `LOPHN_SESSION_ID=<session id>`: a command a lophn agent runs with `shell.run`,
+  a headless harness CLI (Claude Code, Codex, OpenCode) with every process it
+  starts, and, in a terminal tab, the tab's shell with everything started in it
+  (the value is the row's `session`, `term:<tab>`). The CLI that `claude gui` or
+  `codex gui` starts for a tab carries the same tag, but it is a child of lophn's
+  shell process, not of the tab's shell, so `shell_pid` cannot find it. An agent
+  that clears the environment before it starts a process hides it from the tag.
+- Use `terminal.shell_pid` as the fallback: for a tab opened before the tag
+  existed, or a process that dropped the variable, start from `shell_pid` and walk
+  the children.
 
 Linux only (`/proc`); on macOS and Windows use `ps` or the platform's tools and
 expect only the shell pid to be reliable. Keep it small and run it from the app
@@ -313,7 +318,7 @@ export function treeOf(root: number): number[] {
   return found;
 }
 
-// pids whose environment has LOPHN_SESSION_ID=<session>.
+// pids whose environment has LOPHN_SESSION_ID=<session>: core sessions (ses_...) and terminal tabs (term:...).
 export function processesOf(session: string): number[] {
   const want = `LOPHN_SESSION_ID=${session}`;
   return [...parents().keys()].filter((pid) => {

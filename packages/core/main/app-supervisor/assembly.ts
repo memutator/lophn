@@ -422,7 +422,10 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     redaction: registeredByCore,
   };
   const brokerAdapters: BrokerAdapters = {
-    access: createCoreBrokerAccess(toCore),
+    access: createCoreBrokerAccess({
+      ...toCore,
+      candidate: (child) => guarded.candidate(child.app, child.processNonce),
+    }),
     ready,
     appCall,
     events,

@@ -24,7 +24,6 @@ export const SESSION_KINDS = ["lophn", "harness", "terminal"] as const;
 export const sessionKindSchema = z.enum(SESSION_KINDS);
 export type SessionKind = z.infer<typeof sessionKindSchema>;
 
-export const TERMINAL_SESSION_PREFIX = "term:";
 export const sessionRefSchema = z.union([
   idSchema("ses"),
   z.string().regex(/^term:.+$/),

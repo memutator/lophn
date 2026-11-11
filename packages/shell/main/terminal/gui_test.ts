@@ -3,13 +3,14 @@ import { test } from "node:test";
 
 import { terminalHookLineSchema } from "../../../protocol/coding-agent/terminal-hook.ts";
 import type { AcpTabRequest } from "../../../protocol/extensions/mod.ts";
+import { type AcpState, EMPTY_ACP_STATE } from "../../../protocol/acp/mod.ts";
 import { createHookIngress } from "./agent/ingress.ts";
 import { cliEnv, createTabGui, type TabHandle } from "./gui.ts";
 
 const KEY_A = "a".repeat(64);
 const KEY_B = "b".repeat(64);
 
-function setup() {
+function setup(options: { state?: () => AcpState } = {}) {
   const requests: AcpTabRequest[] = [];
   const pushes: { channel: string; payload: unknown }[] = [];
   const gui = createTabGui({
@@ -18,7 +19,7 @@ function setup() {
         gui(request) {
           requests.push(request);
           // extension은 탭에 묶인 handle을 열어 shell main에 알린다.
-          gui.opened(fakeHandle(request.terminal.id));
+          gui.opened(fakeHandle(request.terminal.id, options.state));
         },
         tui: () => {},
         running: () => null,
@@ -79,21 +80,76 @@ function setup() {
       .filter((push) => push.channel === "harness-gui:tab-opened")
       .map((push) => (push.payload as { terminal_ref: string }).terminal_ref);
   const settle = () => new Promise((resolve) => setTimeout(resolve, 5));
-  return { requests, opened, line, settle };
+  return { requests, opened, line, settle, gui };
 }
 
-function fakeHandle(terminal: string): TabHandle {
+function fakeHandle(
+  terminal: string,
+  state: () => AcpState = () => EMPTY_ACP_STATE,
+): TabHandle {
   return {
     id: `win_${terminal}`,
     terminal,
     harness: "claude",
     handoff: "restart",
     cwd: "/work",
+    state,
     attach: () => () => {},
     input: () => {},
     close: () => {},
   };
 }
+
+// 앱이 GUI가 띄운 CLI(shell main의 자식이라 shell_pid로 못 찾는다)를 session에 잇는 길이다. 이 표지가 빠지거나 shell main이
+// 물려받은 값이 새면 앱이 엉뚱한 session에 process를 붙인다.
+test("GUI가 띄우는 CLI는 그 탭의 session 표지를 받고 shell main이 물려받은 표지는 받지 않는다", async () => {
+  const t = setup();
+  t.line(KEY_A, { cwd: "/work/a" });
+  await t.settle();
+  const given = t.requests[0]?.terminal.env;
+  assert.equal(given?.LOPHN_SESSION_ID, "term:trm_a");
+  const env = cliEnv({
+    base: { PATH: "/usr/bin", LOPHN_SESSION_ID: "ses_from_shell_main" },
+    dataRoot: "/data",
+    given,
+  });
+  assert.equal(env.LOPHN_SESSION_ID, "term:trm_a");
+  assert.equal(
+    cliEnv({ base: { LOPHN_SESSION_ID: "ses_x" }, dataRoot: "/data" })
+      .LOPHN_SESSION_ID,
+    undefined,
+  );
+});
+
+// GUI view에는 foreground TUI도 없고 hook이 안 닿을 수 있어 tracker가 이 탭을 모른다. 목록은 handle의 ACP 상태로 채운다.
+test("GUI 탭의 session은 ACP 상태의 제목, CLI session, turn 단계로 읽는다", async () => {
+  let state = EMPTY_ACP_STATE;
+  const t = setup({ state: () => state });
+  t.line(KEY_A, { cwd: "/work/a" });
+  await t.settle();
+  assert.deepEqual(t.gui.tabSessions()[0]?.state, "unknown");
+  state = {
+    ...EMPTY_ACP_STATE,
+    // test는 title과 cli_session만 읽는다.
+    session: {
+      title: "Fix the build",
+      cli_session: "abc-1",
+    } as unknown as AcpState["session"],
+    turn: { id: "trn_1", phase: "working", started_at: null, elapsed: null },
+  };
+  assert.deepEqual(t.gui.tabSessions(), [
+    {
+      terminal_ref: "trm_a",
+      harness: "claude",
+      view: "gui",
+      title: "Fix the build",
+      cli_session: "abc-1",
+      state: "running",
+    },
+  ]);
+  state = { ...state, turn: { ...state.turn!, phase: "waiting" } };
+  assert.equal(t.gui.tabSessions()[0]?.state, "waiting");
+});
 
 // 한 탭의 `claude gui`가 다른 탭의 GUI를 열거나, 모르는 key가 아무 탭이나 바꾸면 안 된다.
 test("lophn-gui 요청은 그 key의 터미널에만 handle을 열고 모르는 key로는 열지 않는다", async () => {

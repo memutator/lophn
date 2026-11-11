@@ -369,7 +369,9 @@ export function register(ctx: ShellContext, appSessions: AppSessions): Coding {
   });
   registerTerminalIpc(ipc, terminalIpc);
   let tabPort: TabGuiPort | undefined;
+  let reportGuiTabs: () => void = () => {};
   const gui = createTabGui({
+    changed: () => reportGuiTabs(),
     handlers: () => tabPort?.handlers() ?? Promise.resolve(undefined),
     showExtensionSettings: () => tabPort?.showExtensionSettings(),
     windows: () =>
@@ -443,6 +445,7 @@ export function register(ctx: ShellContext, appSessions: AppSessions): Coding {
     log: ctx.log,
   });
   tabGui = gui;
+  reportGuiTabs = agent.bindGuiTabs(() => gui.tabSessions());
   const offGui = terminals.on({
     runtime: (runtime) => gui.terminalChanged(runtime),
     hostLost() {

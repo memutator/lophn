@@ -137,6 +137,8 @@ type Tracked = {
   probed: boolean;
   // control/open까지 끝나 새 호출을 받는다.
   opened: boolean;
+  // core의 activation이 `prepare`로 띄운 후보다. 채택 commit 전이라 ledger는 아직 이 release를 active로 보지 않는다.
+  candidate: boolean;
   // probe가 확인한 실제 등록 command. probe 전에는 선언한 목록이다.
   tools: string[];
   // 준비 모드(activation 후보)로 probe만 통과하고 아직 열지 않았다. 열 때 시작 사실에 쓴다.
@@ -178,6 +180,8 @@ export type Supervisor = {
   open(app: string): Promise<boolean>;
   // activation: 붙들기를 풀고 core가 알린 원하는 상태로 맞춘다.
   resume(app: string): Promise<void>;
+  // 그 nonce의 자식이 activation 후보(채택 commit 전)인가. broker가 이 자식의 시작 코드가 하는 호출을 받을지 정한다.
+  candidate(app: string, nonce: string): boolean;
   // core 호출을 중계할 수 있는 live 자식의 control socket. probe와 open을 마쳤고 멈추는 중이 아닌 자식만이다.
   control(app: string): ControlTarget | undefined;
   // core 제어 연결이 끊겼다. 새 호출을 닫고 자식을 모두 끝낸다.
@@ -405,6 +409,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       started: false,
       probed: false,
       opened: false,
+      candidate: !mode.open,
       tools: [...desired.tools],
     };
     runtime.tracked = tracked;
@@ -735,6 +740,16 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
         await apply(runtime);
       });
       return restarted;
+    },
+    candidate(app, nonce) {
+      const tracked = apps.get(app)?.tracked;
+      return (
+        tracked !== undefined &&
+        tracked.candidate &&
+        !tracked.opened &&
+        tracked.intended === undefined &&
+        tracked.child.identity.processNonce === nonce
+      );
     },
     control(app) {
       const runtime = apps.get(app);

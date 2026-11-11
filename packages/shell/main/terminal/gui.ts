@@ -29,6 +29,10 @@ import {
   type GuiHarness,
   isGuiHarness,
 } from "../../../protocol/extensions/mod.ts";
+import {
+  SESSION_ENV_NAME,
+  terminalSessionId,
+} from "../../../protocol/lophn-agent/session-tag.ts";
 import { SESSION_MARKER_NAME } from "../../terminal-host/env.ts";
 import type { RoutedHook } from "./agent/ingress.ts";
 
@@ -49,6 +53,8 @@ export type TabHandle = {
   /** adapter의 `handoff`(extension이 `open`에 실었다). */
   readonly handoff: HarnessGuiHandoff;
   readonly cwd: string;
+  /** 지금까지 접은 상태(session meta의 title·cli_session, turn의 phase). 앱이 보는 터미널 session 목록이 읽는다. */
+  state(): AcpState;
   /** 지금까지 접은 상태를 `snapshot`으로 한 번 주고 이어서 새 update를 보낸다. 돌려받은 함수로 그만 듣는다. 이미 닫혔으면 바로 `closed`다. */
   attach(listener: {
     snapshot(state: AcpState): void;
@@ -104,6 +110,8 @@ export type TabGuiDeps = {
     path: string,
   ): Promise<{ mime: string; data: Uint8Array } | null>;
   log(message: string): void;
+  /** GUI 탭의 session 상태(title, turn phase)가 바뀌었다. 앱이 보는 터미널 session 목록을 다시 보내게 한다. */
+  changed?(): void;
 };
 
 type Tab = {
@@ -116,6 +124,29 @@ type Tab = {
   /** 마지막으로 창에 알린 view. 저장본에서 다시 만들어진 탭이 `current`로 되찾는다. */
   view: "gui" | "tui";
 };
+
+/** GUI 탭의 CLI session. 상태는 ACP 상태에서 읽는다: 도는 turn은 running, 사람이 답할 것이 있으면 waiting. */
+export type GuiTabSession = {
+  terminal_ref: string;
+  harness: string;
+  view: "gui" | "tui";
+  title: string | null;
+  cli_session: string | null;
+  state: "running" | "waiting" | "idle" | "unknown";
+};
+
+// ACP update 중 title, cli session, turn phase가 바뀌는 것. 글 조각 같은 잦은 update는 목록을 다시 만들지 않는다.
+const SESSION_CHANGING: ReadonlySet<string> = new Set([
+  "turn_started",
+  "turn_resumed",
+  "turn_ended",
+  "approval_opened",
+  "approval_closed",
+  "question_asked",
+  "question_resolved",
+  "session_changed",
+  "session_reset",
+]);
 
 export type TabGui = {
   /** 탭에서 친 `<harness> gui`(hook socket). */
@@ -140,6 +171,8 @@ export type TabGui = {
   ): Promise<HarnessGuiRewindPreview | null>;
   /** 그 터미널에 살아 있는 GUI와 지금 view. 없으면 null. */
   current(terminalRef: string): HarnessGuiTabCurrent | null;
+  /** 살아 있는 GUI 탭마다 CLI session의 모습. tracker는 foreground TUI와 hook으로만 알아 GUI가 띄운 CLI를 모를 수 있다. */
+  tabSessions(): GuiTabSession[];
   connect(sender: TabSender, handle: string): HarnessGuiInfo | null;
   disconnect(sender: TabSender, handle: string): void;
   input(handle: string, input: AcpInput): boolean;
@@ -184,7 +217,11 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
       id: terminalRef,
       cwd,
       harness,
-      env: deps.terminals.hookEnv(terminalRef),
+      // hook 표지와 session 표지: GUI가 띄운 CLI는 탭의 shell 아래가 아니라 shell main 아래라 앱이 shell_pid로 찾을 수 없다.
+      env: {
+        ...deps.terminals.hookEnv(terminalRef),
+        [SESSION_ENV_NAME]: terminalSessionId(terminalRef),
+      },
       state: () => deps.terminals.tui(terminalRef)?.state ?? "shell",
       sessionId: () => deps.terminals.tui(terminalRef)?.session ?? null,
       type(text) {
@@ -291,13 +328,17 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
       };
       byTerminal.set(handle.terminal, tab);
       byHandle.set(handle.id, tab);
+      deps.changed?.();
       // 닫힘은 어디서 시작했든(extension, 시간 초과, 터미널 끝) 한 곳에서 알린다.
       handle.attach({
         snapshot: () => {},
-        update: () => {},
+        update: (update) => {
+          if (SESSION_CHANGING.has(update.type)) deps.changed?.();
+        },
         closed() {
           const mine = byHandle.get(handle.id) === tab;
           dropTab(tab);
+          deps.changed?.();
           if (mine) {
             view({ terminal_ref: handle.terminal, view: "tui", closed: true });
           }
@@ -409,6 +450,28 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
           };
     },
 
+    tabSessions() {
+      return [...byTerminal.values()].map((tab) => {
+        const state = tab.handle.state();
+        const phase = state.turn?.phase;
+        return {
+          terminal_ref: tab.handle.terminal,
+          harness: tab.handle.harness,
+          view: tab.view,
+          title: state.session?.title ?? null,
+          cli_session: state.session?.cli_session ?? null,
+          state:
+            phase === "working"
+              ? "running"
+              : phase === "waiting"
+                ? "waiting"
+                : state.session === null && state.turn === null
+                  ? "unknown"
+                  : "idle",
+        };
+      });
+    },
+
     connect(sender, handleId) {
       const tab = byHandle.get(handleId);
       if (tab === undefined) return null;
@@ -509,8 +572,10 @@ export function cliEnv(input: {
   dataRoot: string;
   given?: Readonly<Record<string, string>>;
 }): Record<string, string> {
+  // shell main이 물려받은 session 표지는 이 CLI의 것이 아니다. 이 탭의 표지는 `given`(탭의 env)으로만 들어온다.
+  const { [SESSION_ENV_NAME]: _inherited, ...base } = input.base;
   const merged = {
-    ...input.base,
+    ...base,
     // 띄운 process의 `lophn`이 이 shell의 core에 닿게 data root를 늘 넣는다(`--home`만으로 띄우면 env에 없다).
     LOPHN_HOME: input.dataRoot,
     ...input.given,

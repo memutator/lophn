@@ -64,7 +64,10 @@ export function createSessionsService(deps: {
           message: "only a live app process reads sessions",
         });
       }
-      const access = await currentAccess(deps.access, child);
+      // 시작 코드가 session 목록을 읽는다(읽기뿐이라 채택 중인 후보도 받는다).
+      const access = await currentAccess(deps.access, child, {
+        servesCandidate: true,
+      });
       if (!access.ok) return access;
       if (access.value === null) {
         return err({

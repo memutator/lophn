@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { WebSocket } from "ws";
 import type { Result } from "../../../../../base/result.ts";
+import { redactCredentials } from "../../../../../base/telemetry/log.ts";
 import type { AcpInput } from "../../../../../protocol/acp/input.ts";
 import type {
   AcpApprovalItem,
@@ -61,6 +62,16 @@ export type CodexIo = {
 };
 
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
+
+// app-server가 답하지 않는 요청을 끊는 기한. 일이 끝난 뒤에야 답할 수 있는 요청은 뺀다: turn/start·thread/shellCommand는 일이
+// 시작되자마자 답하는 것을 녹화로 봤고, review/start·thread/compact/start는 녹화가 없어 모르므로 뺐다(느린 호출을 끊는 쪽이 더 나쁘다).
+const REQUEST_WAIT_MS = 30_000;
+const NO_DEADLINE = new Set([
+  "turn/start",
+  "thread/shellCommand",
+  "review/start",
+  "thread/compact/start",
+]);
 
 const realIo: CodexIo = {
   // unix socket 경로는 108자를 넘으면 안 되어 짧은 tmp 폴더에 둔다. mkdtemp는 0700이다.
@@ -782,6 +793,8 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         number,
         { resolve(value: Json): void; reject(cause: Error): void }
       >();
+      // 요청 id → 기한 timer. cleanup이 닫힌 session에 남은 것을 지운다.
+      const deadlines = new Map<number, ReturnType<typeof setTimeout>>();
       const write = (message: Json) => link?.send(JSON.stringify(message));
       const request = (method: string, params: Json) =>
         new Promise<Json>((resolve, reject) => {
@@ -790,7 +803,33 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             return;
           }
           const id = ++nextRequest;
-          pending.set(id, { resolve, reject });
+          const settle = () => {
+            clearTimeout(deadlines.get(id));
+            deadlines.delete(id);
+          };
+          if (!NO_DEADLINE.has(method))
+            deadlines.set(
+              id,
+              setTimeout(() => {
+                pending.delete(id);
+                settle();
+                reject(
+                  new Error(
+                    `Codex did not answer ${method} in ${REQUEST_WAIT_MS / 1000} seconds.`,
+                  ),
+                );
+              }, REQUEST_WAIT_MS).unref(),
+            );
+          pending.set(id, {
+            resolve: (value) => {
+              settle();
+              resolve(value);
+            },
+            reject: (cause) => {
+              settle();
+              reject(cause);
+            },
+          });
           write({ id, method, params });
         });
       // 실패해도 대화를 멈추지 않는 호출. 오류는 한 줄 알림으로 보인다.
@@ -798,7 +837,9 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         try {
           await call();
         } catch (cause) {
-          info(`${what} failed: ${(cause as Error).message}`);
+          info(
+            `${what} failed: ${redactCredentials((cause as Error).message)}`,
+          );
         }
       };
 
@@ -1765,7 +1806,8 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           seq: ++root.seq,
           at: now(),
         });
-        if (wait.kind === "plan" && decision === "mode") void implementPlan();
+        if (wait.kind === "plan" && decision === "mode")
+          void attempt("Plan", implementPlan);
       }
 
       // --- 질문
@@ -2220,7 +2262,9 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
                 wire.status === "failed"
                   ? {
                       code: "internal",
-                      message: wire.error?.message ?? "codex turn failed",
+                      message: redactCredentials(
+                        wire.error?.message ?? "codex turn failed",
+                      ),
                     }
                   : undefined,
               );
@@ -2228,7 +2272,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
               childEnded(lane, wire.status);
               return;
             }
-            void readShells();
+            void attempt("Terminal list", readShells);
             if (
               plan !== null &&
               root.turn === null &&
@@ -2345,7 +2389,12 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           case "error":
             // 재연결·재시도 알림이다. 끝내 실패하면 turn/completed가 오류를 싣는다.
             if (params.willRetry)
-              info(oneLine(params.error?.message ?? "Retrying…", 200));
+              info(
+                oneLine(
+                  redactCredentials(params.error?.message ?? "Retrying…"),
+                  200,
+                ),
+              );
             return;
         }
       }
@@ -2405,7 +2454,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         if (wait === undefined) return;
         pending.delete(Number(message.id));
         if (message.error !== undefined)
-          wait.reject(new Error(message.error.message));
+          wait.reject(new Error(redactCredentials(message.error.message)));
         else wait.resolve(message.result ?? {});
       }
 
@@ -2437,8 +2486,9 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         if (dead !== null || closed) return;
         dead = {
           code: "unavailable",
-          message:
+          message: redactCredentials(
             stderrTail === "" ? reason : `${reason}\n${stderrTail.trim()}`,
+          ),
         };
         for (const wait of pending.values()) wait.reject(new Error(reason));
         pending.clear();
@@ -2446,6 +2496,11 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         for (const lane of lanes.values())
           if (lane !== root && lane.turn !== null)
             endTurn(lane, "failed", dead);
+        // ws가 닫혔는데 app-server가 살아 있으면 탭을 닫을 때까지 남는다. 이미 끝난 process에는 kill을 보내지 않는다.
+        if (!exited) {
+          link?.close();
+          proc.kill();
+        }
       };
       proc.onExit(() => failure("codex exited."));
 
@@ -2484,7 +2539,9 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
               wire.status === "failed"
                 ? {
                     code: "internal",
-                    message: wire.error?.message ?? "codex turn failed",
+                    message: redactCredentials(
+                      wire.error?.message ?? "codex turn failed",
+                    ),
                   }
                 : undefined,
             );
@@ -2568,8 +2625,20 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           () => !exited && dead === null,
         );
         link = connected;
+        // 틀린 줄 하나가 ws listener에서 던지면 uncaught exception으로 앱이 꺼진다. 그 줄만 버리고 session은 살린다.
+        let unreadable = false;
         connected.onMessage((text) => {
-          if (!closed) onLine(text);
+          if (closed) return;
+          try {
+            onLine(text);
+          } catch (cause) {
+            if (unreadable) return;
+            unreadable = true;
+            info(
+              `Codex sent a message lophn could not read: ${redactCredentials((cause as Error).message)}`,
+              "warning",
+            );
+          }
         });
         connected.onClose(() =>
           failure("The Codex app-server closed the connection."),
@@ -2609,7 +2678,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
           request("model/list", {}).catch(() => ({ data: [] })),
           request("collaborationMode/list", {}).catch(() => ({ data: [] })),
           request("skills/list", { cwds: [cwd] }).catch(() => ({ data: [] })),
-          readGoal(),
+          attempt("Goal", readGoal),
         ]);
         void request("account/rateLimits/read", {}).then(
           (rates) => {
@@ -2645,14 +2714,16 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
       // 입력은 준비된 뒤에만 처리한다.
       session.onInput(
         (message) =>
-          void ready.then(
-            () => handle(message),
-            () => {},
-          ),
+          void ready
+            .then(() => handle(message))
+            .catch((cause: Error) =>
+              info(`Request failed: ${redactCredentials(cause.message)}`),
+            ),
       );
 
       function cleanup() {
         closed = true;
+        for (const timer of deadlines.values()) clearTimeout(timer);
         link?.close();
         proc.kill();
         return Promise.race([exit, sleep(5000)]).then(() => io.removeDir(dir));
@@ -2661,10 +2732,11 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
       try {
         await ready;
       } catch (cause) {
-        const message =
+        const message = redactCredentials(
           stderrTail === ""
             ? (cause as Error).message
-            : `${(cause as Error).message}\n${stderrTail.trim()}`;
+            : `${(cause as Error).message}\n${stderrTail.trim()}`,
+        );
         await cleanup();
         return { ok: false, error: { code: "unavailable", message } };
       }
@@ -2690,7 +2762,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
         publishTasks();
         publish({ type: "plan_changed", entries: [] });
         change({ usage: usageNow() });
-        void readGoal();
+        void attempt("Goal", readGoal);
       }
 
       // git 명령의 출력. git 폴더가 아니면 code가 0이 아니다.
@@ -3137,34 +3209,41 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             return;
           }
           case "run_command":
-            void runCommand(message.name, message.argument);
+            void attempt("Request", () =>
+              runCommand(message.name, message.argument),
+            );
             return;
           case "rewind":
-            void rewind(message.message);
+            void attempt("Request", () => rewind(message.message));
             return;
           case "fork":
-            void fork(message.message);
+            void attempt("Request", () => fork(message.message));
             return;
           case "compact":
-            void runCommand("compact", "");
+            void attempt("Request", () => runCommand("compact", ""));
             return;
           case "rename":
-            void rename(message.title);
+            void attempt("Request", () => rename(message.title));
             return;
           case "stop_child":
             stopChild(message.child);
             return;
           case "steer_child":
-            void steerChild(message.child, message.text);
+            void attempt("Request", () =>
+              steerChild(message.child, message.text),
+            );
             return;
           case "stop_task":
-            void stopTask(message.task);
+            void attempt("Request", () => stopTask(message.task));
             return;
           case "set_toggle":
-            if (message.id === "plan") void setPlan(message.on);
+            if (message.id === "plan")
+              void attempt("Request", () => setPlan(message.on));
             return;
           case "set_goal":
-            void setGoal(message.objective, message.paused);
+            void attempt("Request", () =>
+              setGoal(message.objective, message.paused),
+            );
             return;
           case "run_shell":
             runShell(message.command);
@@ -3173,7 +3252,7 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             stopShell(message.item);
             return;
           case "open_session":
-            void openSession(message.cli_session);
+            void attempt("Request", () => openSession(message.cli_session));
             return;
         }
       }

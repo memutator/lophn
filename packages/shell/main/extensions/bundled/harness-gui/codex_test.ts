@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { manualClock } from "../../../../../base/clock.ts";
@@ -159,6 +159,11 @@ async function boot(
     /** 손으로 만든 줄 하나를 server가 낸 것처럼 내보낸다. */
     async push(line: Wire) {
       emit(`${JSON.stringify(line)}\n`);
+      await flush();
+    },
+    /** server가 낸 글자를 그대로 내보낸다(JSON이 아닐 수도 있다). */
+    async raw(text: string) {
+      emit(text);
       await flush();
     },
     /** adapter가 마지막으로 보낸 `method` 요청에 답한다. 요청이 없으면 실패다. */
@@ -645,4 +650,93 @@ test("spawn item보다 먼저 온 자식 thread 이벤트는 lane이 열릴 때 
         JSON.stringify(item.content).includes("child says hi"),
     ),
   );
+});
+
+test("깨진 JSON 줄이나 모양이 틀린 thread/tokenUsage/updated가 와도 adapter가 던지지 않고 다음 녹화 메시지를 그대로 그린다", async () => {
+  const { t } = await ask("decline");
+  assert.ok(t.state.pending.approval);
+  await t.raw("{not json");
+  await t.push({
+    method: "thread/tokenUsage/updated",
+    params: { tokenUsage: { modelContextWindow: 1000 } },
+  });
+  await t.raw("{not json again");
+
+  const approval = t.state.pending.approval;
+  assert.ok(approval);
+  await t.input({
+    type: "decide",
+    request: approval.id,
+    choice: { kind: "reject" },
+  });
+  await t.play();
+  assert.deepEqual(ends(t.state), ["completed"]);
+  // 알림은 처음 한 번만 낸다.
+  const warnings = t.state.items.filter(
+    (item) =>
+      item.kind === "notice" &&
+      item.notice.type === "info" &&
+      /could not read/.test(item.notice.text),
+  );
+  assert.equal(warnings.length, 1);
+});
+
+test("app-server가 initialize에 답하지 않으면 30초 뒤 start가 unavailable로 끝나고 process를 끈다", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const exits: ((code: number | null) => void)[] = [];
+    let killed = 0;
+    const proc: ExtensionProcess = {
+      pid: 1,
+      write() {},
+      end() {},
+      kill() {
+        killed += 1;
+        for (const done of exits) done(null);
+      },
+      onStdout() {},
+      onStderr(listener) {
+        listener(
+          "token sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789 failed",
+        );
+      },
+      onExit: (listener) => void exits.push(listener),
+    };
+    const link: CodexLink = {
+      send() {},
+      onMessage() {},
+      onClose() {},
+      close() {},
+    };
+    const clock = manualClock(Date.UTC(2026, 10, 5));
+    const starting = createCodexAdapter({
+      makeDir: () => "/tmp/lophn-codex-test",
+      removeDir() {},
+      connect: () => Promise.resolve(link),
+    }).start({
+      terminal: null,
+      cwd: "/work/startup",
+      session: {
+        id: "win_test",
+        publish() {},
+        onInput() {},
+        onClose() {},
+        close() {},
+      },
+      spawn: () => proc,
+      clock,
+      ids: createIdSource({ clock, random: seededRandom(1) }),
+    });
+    await flush();
+    mock.timers.tick(30_000);
+    const started = await starting;
+    assert.equal(started.ok, false);
+    if (started.ok) return;
+    assert.equal(started.error.code, "unavailable");
+    assert.match(started.error.message, /did not answer initialize/);
+    assert.doesNotMatch(started.error.message, /sk-ant/);
+    assert.equal(killed, 1);
+  } finally {
+    mock.timers.reset();
+  }
 });

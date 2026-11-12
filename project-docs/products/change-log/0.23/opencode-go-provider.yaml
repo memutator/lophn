@@ -1,5 +1,5 @@
 id: opencode-go-provider
-version: 0.23.45
+version: 0.23.46
 title: OpenCode Go gateway를 provider로 연결해 그 model을 lophn agent에서 고르고 부른다
 modules: [packages/core/lophn-agent, packages/protocol, packages/shell/renderer]
 change: |

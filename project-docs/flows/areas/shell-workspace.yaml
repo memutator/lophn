@@ -2199,6 +2199,85 @@ flows:
     crosses_process: false
     docs: [architecture/workspace-layout.md]
 
+  - id: explorer-copy-cut
+    title: "Files panel에서 고른 줄을 복사하거나 잘라낸다"
+    actor: person
+    entries: [ui:explorer-copy, ui:explorer-cut]
+    when: "Ctrl/Cmd+C, Ctrl/Cmd+X, 오른쪽 클릭 menu의 Copy·Cut"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/sidebar/explorer.tsx
+    steps:
+      - "고른 줄(없으면 이 줄)의 경로에서 위 폴더에 딸려 가는 것을 뺀 목록을 만든다(outermost)"
+      - "복사는 그 목록을 앱 clipboard state(`{mode: copy, paths}`)에 두고 절대 경로들을 줄바꿈으로 이어 OS 글 clipboard에도 쓴다"
+      - "잘라내기는 앱 state(`{mode: cut}`)에만 두고 OS clipboard는 건드리지 않는다. 잘라낸 줄은 흐리게 보인다"
+      - "복사·잘라낸 개수를 tree 아래 status 줄로 보인다. 고른 것이 없으면 아무 일도 하지 않고 키를 삼키지 않는다"
+    outcomes:
+      - id: copied
+        observe: ["process:os-clipboard", "screen:new-explorer-root"]
+      - id: cut
+        observe: ["screen:new-explorer-root"]
+      - id: nothing
+        when: "고른 줄도 열린 menu의 줄도 없다"
+        observe: ["screen:new-explorer-root"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: explorer-paste
+    title: "Files panel에서 clipboard의 파일·경로·이미지를 붙여넣는다"
+    actor: person
+    entries: [ui:explorer-paste]
+    when: "Ctrl/Cmd+V, 오른쪽 클릭 menu의 Paste"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/sidebar/explorer.tsx
+      - packages/shell/renderer/workspace/sidebar/explorer-paste.ts
+    uses:
+      - ipc:shell:file-copy
+      - ipc:shell:file-write-bytes
+      - ipc:shell:file-rename
+    steps:
+      - "대상 폴더는 고른 폴더 안, 고른 파일이면 그 파일의 폴더, 아무것도 고르지 않았으면 루트다"
+      - "앱 clipboard이 있으면 키를 그 자리에서 처리한다. 잘라낸 것이면 옮기고(옮긴 뒤 비운다), 복사한 것이면 복사하고 남겨 둔다. 이름은 이미 읽은 항목과 이번 반복의 이름을 본 freeName(`a copy.md`, `a copy 2.md`)이다"
+      - "앱 clipboard이 비었으면 keydown은 아무것도 하지 않고 paste 이벤트가 맡는다. document capture에서 받되 이름 입력에 focus가 있으면 가로채지 않는다"
+      - "paste 이벤트에 이미지 file이 있으면 MIME으로 확장자를 정해(겹치면 `image 2.png`) shell:file-write-bytes로 새 file만 만들고, 아니면 text/plain을 절대 경로 목록으로 걸러 shell:file-copy로 복사한다"
+      - "성공하면 tree를 다시 읽고 새 경로를 고른다. 개수를 status로 보이고, 실패가 있으면 오류 줄을 보인다. 붙일 것이 없으면 그렇게 알린다"
+    outcomes:
+      - id: pasted
+        observe: ["disk:<path>", "response", "screen:new-explorer-root"]
+      - id: moved
+        when: "잘라낸 것을 붙여넣었다(옮기기)"
+        observe: ["disk:<from> (없음)", "disk:<to>", "screen:new-explorer-root"]
+      - id: nothing-to-paste
+        when: "앱 clipboard도 비었고 paste 이벤트에 이미지도 절대 경로도 없다. 아무것도 바꾸지 않는다"
+        observe: ["screen:new-explorer-root"]
+      - id: failed
+        when: "복사·이미지 저장이 하나라도 실패했다(대상이 이미 있거나 상한을 넘음 등). 성공한 것은 남는다"
+        observe: ["disk:<path> (일부만 생김)", "response", "screen:new-explorer-root"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
+  - id: explorer-duplicate
+    title: "Files panel에서 고른 줄의 복사본을 같은 폴더에 만든다"
+    actor: person
+    entries: [ui:explorer-duplicate]
+    when: "Ctrl/Cmd+D, 오른쪽 클릭 menu의 Duplicate"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/sidebar/explorer.tsx
+    uses: [ipc:shell:file-copy]
+    steps:
+      - "고른 줄(없으면 이 줄)의 부모 폴더를 대상으로 freeName(`copy`) 이름을 골라 shell:file-copy로 복사한다"
+      - "성공하면 새 복사본을 고르고 tree를 다시 읽는다. 실패가 있으면 오류 줄을 보인다"
+    outcomes:
+      - id: duplicated
+        observe: ["disk:<path>", "response", "screen:new-explorer-root"]
+      - id: failed
+        when: "복사가 실패했다(이름이 겹치거나 디스크 오류). 아무것도 만들지 않는다"
+        observe: ["response"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
   - id: workspace-switch
     title: "왼쪽 sidebar에서 다른 workspace로 간다"
     actor: person

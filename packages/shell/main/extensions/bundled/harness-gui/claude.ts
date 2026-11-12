@@ -2631,23 +2631,20 @@ const start: (sdk: ClaudeSdk) => Start =
       return old;
     }
     // `undo`가 있으면(rewind·fork) 새 CLI가 뜨지 못했을 때 앞 session과 숨긴 구간으로 돌아간다.
-    // "떴다"의 표지는 그 query의 첫 메시지다.
+    // "떴다"의 표지는 그 query의 첫 메시지다. query()가 바로 던져도 같은 길이고, 그때 false를 돌려준다.
     async function reopen(
       old: Live,
       from: Parameters<typeof open>[0],
       undo?: { what: string; hidden: string | undefined; note: string },
-    ) {
+    ): Promise<boolean> {
       old.input.end();
       old.q.close();
       await old.exited;
       const before = { cliSession, empty };
-      // 새 query가 죽은 CLI의 자리를 잇는다.
-      dead = null;
-      live = open(
-        from,
+      const restore =
         undo === undefined
           ? undefined
-          : (reason) => {
+          : (reason: string) => {
               cliSession = before.cliSession;
               empty = before.empty;
               changed({ cli_session: cliSession });
@@ -2657,8 +2654,19 @@ const start: (sdk: ClaudeSdk) => Start =
                 `${undo.what} did not happen: claude could not open the new session (${reason}). The earlier session is kept.${undo.note}`,
                 "warning",
               );
-            },
-      );
+            };
+      // 새 query가 죽은 CLI의 자리를 잇는다.
+      dead = null;
+      try {
+        live = open(from, restore);
+      } catch (cause) {
+        if (restore === undefined) throw cause;
+        const reason = cause instanceof Error ? cause.message : String(cause);
+        restore(reason);
+        // 다음 send의 revive가 앞 session을 연다.
+        failure(reason);
+        return false;
+      }
       empty = from.resume === undefined;
       cliSession = from.sessionId ?? from.resume ?? cliSession;
       changed({ cli_session: cliSession });
@@ -2668,6 +2676,7 @@ const start: (sdk: ClaudeSdk) => Start =
         from.resume === undefined
           ? { base: total, last: 0 }
           : { base: 0, last: total };
+      return true;
     }
 
     live = open(resumable ? { resume } : { sessionId: cliSession });
@@ -3154,7 +3163,7 @@ const start: (sdk: ClaudeSdk) => Start =
         restored,
       );
       const fresh = uuidOf(ids);
-      await reopen(
+      const opened = await reopen(
         old,
         before === undefined
           ? { sessionId: fresh }
@@ -3170,6 +3179,7 @@ const start: (sdk: ClaudeSdk) => Start =
           note: files ? " Files already restored stay restored." : "",
         },
       );
+      if (!opened) return;
       info(
         `Rewound to “${title}”${files ? ` · ${restored} ${restored === 1 ? "file" : "files"} restored` : ""}`,
       );
@@ -3203,11 +3213,12 @@ const start: (sdk: ClaudeSdk) => Start =
         );
         if (next !== undefined) hidden = hideFrom(next.id, "messages_only", 0);
       }
-      await reopen(
+      const opened = await reopen(
         old,
         { resume: made.sessionId },
         { what: "Fork", hidden, note: "" },
       );
+      if (!opened) return;
       info(
         from === null
           ? "Forked into a new session. The original session is unchanged."

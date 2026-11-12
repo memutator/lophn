@@ -108,8 +108,8 @@ async function setup(
     contextModel?: string;
     /** interrupt·setPermissionMode에 CLI가 답하지 않는다. */
     hang?: boolean;
-    /** 두 번째부터의 query는 메시지 없이 끝난다(새 CLI가 뜨지 못함). */
-    emptyReopen?: boolean;
+    /** 두 번째부터의 query는 메시지 없이 끝나거나(`true`) query()가 바로 던진다(`"throw"`). 새 CLI가 뜨지 못함. */
+    emptyReopen?: boolean | "throw";
   } = {},
 ) {
   const sdkMessages: unknown[] = [];
@@ -135,6 +135,8 @@ async function setup(
       const fake: Fake = { options: params.options, sent: [], closed: false };
       queries.push(fake);
       const reopened = queries.length > 1;
+      if (options.emptyReopen === "throw" && reopened)
+        throw new Error("spawn failed");
       void (async () => {
         for await (const message of params.prompt) fake.sent.push(message);
       })();
@@ -1370,39 +1372,41 @@ test("앞 입력이 CLI 답을 기다리는 동안에도 Stop과 승인 답은 �
   }
 });
 
-test("rewind로 연 새 CLI가 메시지 없이 끝나면 다음 send와 TUI 명령은 앞 session id를 쓰고 숨긴 구간이 되살아난다", async () => {
-  const options: Parameters<typeof setup>[0] = { emptyReopen: true };
-  const t = await setup(options);
-  assert.ok(t.started.ok);
-  const run = t.started.value;
-  const before = run.sessionId();
-  await t.input(t.send("1", "hello"));
-  const uuid = t.queries[0]?.sent[0]?.uuid;
-  // 손으로 만든 transcript다(녹화 아님). rewind가 사람 메시지 uuid를 여기서 찾는다.
-  options.history = [{ type: "user", uuid, message: { content: "hello" } }];
+for (const mode of [true, "throw"] as const) {
+  test(`rewind로 연 새 CLI가 메시지 없이 끝나면 다음 send와 TUI 명령은 앞 session id를 쓰고 숨긴 구간이 되살아난다 (${mode === true ? "empty" : "query throws"})`, async () => {
+    const options: Parameters<typeof setup>[0] = { emptyReopen: mode };
+    const t = await setup(options);
+    assert.ok(t.started.ok);
+    const run = t.started.value;
+    const before = run.sessionId();
+    await t.input(t.send("1", "hello"));
+    const uuid = t.queries[0]?.sent[0]?.uuid;
+    // 손으로 만든 transcript다(녹화 아님). rewind가 사람 메시지 uuid를 여기서 찾는다.
+    options.history = [{ type: "user", uuid, message: { content: "hello" } }];
 
-  await t.input({ type: "rewind", message: "msg_1", files: false });
-  await flush();
-  assert.equal(t.queries.length, 2);
-  assert.equal(run.sessionId(), before);
-  assert.equal(
-    t.state.items.some((item) => item.kind === "hidden"),
-    false,
-  );
-  assert.ok(
-    t.state.items.some(
-      (item) => item.kind === "message" && item.id === "msg_1",
-    ),
-  );
-  assert.ok(
-    infos(t.state).some((text) => text.startsWith("Rewind did not happen")),
-  );
+    await t.input({ type: "rewind", message: "msg_1", files: false });
+    await flush();
+    assert.equal(t.queries.length, 2);
+    assert.equal(run.sessionId(), before);
+    assert.equal(
+      t.state.items.some((item) => item.kind === "hidden"),
+      false,
+    );
+    assert.ok(
+      t.state.items.some(
+        (item) => item.kind === "message" && item.id === "msg_1",
+      ),
+    );
+    assert.ok(
+      infos(t.state).some((text) => text.startsWith("Rewind did not happen")),
+    );
 
-  await t.input(t.send("2", "again"));
-  assert.equal(t.queryOptions?.resume, before);
-  await run.stop();
-  assert.match(run.tuiCommand(), new RegExp(`^claude --resume '${before}'`));
-});
+    await t.input(t.send("2", "again"));
+    assert.equal(t.queryOptions?.resume, before);
+    await run.stop();
+    assert.match(run.tuiCommand(), new RegExp(`^claude --resume '${before}'`));
+  });
+}
 
 test("interrupt에 답하지 않는 CLI도 stop()이 3초 뒤 query를 닫고 끝난다", async () => {
   mock.timers.enable({ apis: ["setTimeout"] });

@@ -5,6 +5,7 @@ lead만 고친다. `tools/status.py explorer-files build`가 `tasks/*.md`에서 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `explorer-multi-select` | explorer | 1 | 없음 | running | explorer/explorer-multi-select |  |  |
-| `files-transfer` | files | 1 | 없음 | running | files/files-transfer |  |  |
+| `files-transfer` | files | 1 | 없음 | merged | files/files-transfer | ed2da6265 |  |
 | `editor-image-paste` | editor | 2 | files-transfer | todo |  |  |  |
 | `explorer-clipboard` | explorer | 2 | files-transfer, explorer-multi-select | todo |  |  |  |
+| `explorer-clipboard-ui` | explorer | 2 | explorer-clipboard | todo |  |  |  |

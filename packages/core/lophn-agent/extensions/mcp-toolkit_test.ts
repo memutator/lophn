@@ -4,6 +4,7 @@ import { ok } from "../../../base/mod.ts";
 import type { McpServer } from "../../../protocol/lophn-agent/mod.ts";
 import { createMcpToolkit } from "./mcp-toolkit.ts";
 import type { McpConnections } from "./mod.ts";
+import type { StdioSpawn } from "./adapters/mcp-stdio.ts";
 
 const workspace = {
   kind: "project",
@@ -20,7 +21,35 @@ function stdioServer(name: string): McpServer {
   };
 }
 
-// 연결 대상만 기록하는 가짜 연결 관리. 전역 설정은 서버 `shared` 하나다.
+// 전역 설정은 서버 `shared` 하나다.
+function machineOf(projectOff: string[]) {
+  const settings = [
+    {
+      key: "lophn-agent.extensions.mcp_servers",
+      description: "t",
+      type: {},
+      chosen: [stdioServer("shared")],
+    },
+  ];
+  return (path: string) =>
+    Promise.resolve(
+      ok(
+        path === "/workspace-extension-settings/read"
+          ? {
+              workspace: workspace.id,
+              mcp_servers: [],
+              skills_off: [],
+              mcp_off: projectOff,
+              hash: null,
+              as_of_seq: "0",
+              next_cursor: null,
+            }
+          : { settings, folders: [] },
+      ),
+    ) as never;
+}
+
+// 연결 대상만 기록하는 가짜 연결 관리.
 // projectOff는 project 층의 mcp_off다. 테스트가 session 도중 바꾼다.
 function toolkit(connected: string[], projectOff: string[] = []) {
   const connections = {
@@ -32,31 +61,8 @@ function toolkit(connected: string[], projectOff: string[] = []) {
       Promise.resolve(ok({ tools: [], hash: "h", protocol_version: "v" })),
     call: () => Promise.resolve({ kind: "success", result: "done" }),
   } as unknown as McpConnections;
-  const settings = [
-    {
-      key: "lophn-agent.extensions.mcp_servers",
-      description: "t",
-      type: {},
-      chosen: [stdioServer("shared")],
-    },
-  ];
   return createMcpToolkit({
-    machine: (path) =>
-      Promise.resolve(
-        ok(
-          path === "/workspace-extension-settings/read"
-            ? {
-                workspace: workspace.id,
-                mcp_servers: [],
-                skills_off: [],
-                mcp_off: projectOff,
-                hash: null,
-                as_of_seq: "0",
-                next_cursor: null,
-              }
-            : { settings, folders: [] },
-        ),
-      ),
+    machine: machineOf(projectOff),
     connections: {} as never,
     create: () => connections,
   }).toolkit("asg");
@@ -89,4 +95,128 @@ test("session 도중 끈 MCP server의 tool은 그 session에서 부르면 거�
   assert.equal((await call(invoke)).ok, true);
   projectOff.push("shared");
   assert.equal((await call(invoke)).ok, false);
+});
+
+// 줄 단위 JSON-RPC로 답하는 가짜 server process다. initialize·tools/list에는 답하고
+// tools/call은 answerCall이 true일 때만 답한다. exit()가 process 종료다(stdout은 열려 있다: 손자가 쥔 pipe).
+function fakeProcess(answerCall: boolean) {
+  const out = new TransformStream<Uint8Array, Uint8Array>();
+  const outWriter = out.writable.getWriter();
+  const encoder = new TextEncoder();
+  const reply = (id: unknown, result: unknown) =>
+    outWriter.write(
+      encoder.encode(`${JSON.stringify({ jsonrpc: "2.0", id, result })}\n`),
+    );
+  let exit!: (value: { code: number | null; signal: string | null }) => void;
+  const exited = new Promise<{ code: number | null; signal: string | null }>(
+    (resolve) => {
+      exit = resolve;
+    },
+  );
+  let sawCall!: () => void;
+  const called = new Promise<void>((resolve) => {
+    sawCall = resolve;
+  });
+  let buffer = "";
+  const spawn: StdioSpawn = {
+    pid: 1,
+    stdin: new WritableStream<Uint8Array>({
+      async write(chunk) {
+        buffer += new TextDecoder().decode(chunk);
+        for (;;) {
+          const at = buffer.indexOf("\n");
+          if (at < 0) return;
+          const message = JSON.parse(buffer.slice(0, at)) as {
+            id?: number;
+            method: string;
+          };
+          buffer = buffer.slice(at + 1);
+          if (message.id === undefined) continue;
+          if (message.method === "initialize") {
+            await reply(message.id, { protocolVersion: "2025-06-18" });
+          } else if (message.method === "tools/list") {
+            await reply(message.id, {
+              tools: [{ name: "t", inputSchema: { type: "object" } }],
+            });
+          } else if (message.method === "tools/call") {
+            sawCall();
+            if (answerCall) {
+              await reply(message.id, {
+                content: [{ type: "text", text: "hi" }],
+              });
+            }
+          }
+        }
+      },
+    }),
+    stdout: out.readable,
+    stderrText: () => "",
+    exited,
+    close: () => Promise.resolve(),
+    kill: () => Promise.resolve(),
+  };
+  return { spawn, exit, called };
+}
+
+// 진짜 연결 관리에 가짜 process를 끼운다. 기다림은 없고, 호출 기한(60초)만 `fire`가 풀릴 때 끝난다.
+function realToolkit(
+  spawns: ReturnType<typeof fakeProcess>[],
+  fire: Promise<void>,
+) {
+  let opened = 0;
+  const kit = createMcpToolkit({
+    machine: machineOf([]),
+    connections: {
+      nowMs: () => 0,
+      wait: () => Promise.resolve("elapsed"),
+      deadline: (ms, signal) =>
+        ms === 60_000
+          ? Promise.race([
+              fire.then(() => "elapsed" as const),
+              new Promise<"aborted">((resolve) =>
+                signal.addEventListener("abort", () => resolve("aborted")),
+              ),
+            ])
+          : new Promise<"aborted">((resolve) =>
+              signal.addEventListener("abort", () => resolve("aborted")),
+            ),
+      openStdio: () => Promise.resolve(ok(spawns[opened++]!.spawn)),
+    },
+  }).toolkit("asg");
+  return { kit, opened: () => opened };
+}
+
+const invokeShared = { server: "shared", original: "t", input: {} } as never;
+
+test("stdio MCP server process가 끝나면 다음 호출은 다시 연결해 실행되고 결과 불명으로 끝나지 않는다", async () => {
+  const first = fakeProcess(true);
+  const second = fakeProcess(true);
+  const { kit, opened } = realToolkit([first, second], new Promise(() => {}));
+  await kit.source("asg", { workspace });
+
+  first.exit({ code: 1, signal: null });
+  await new Promise((resolve) => setImmediate(resolve));
+  const called = await kit.call("asg")(invokeShared);
+
+  assert.equal(opened(), 2);
+  assert.deepEqual(called.ok && called.value.kind, "answered");
+});
+
+test("보낸 뒤 기한 안에 답이 없는 MCP 호출은 uncertain으로 끝난다", async () => {
+  const silent = fakeProcess(false);
+  let fire!: () => void;
+  const { kit } = realToolkit(
+    [silent],
+    new Promise<void>((resolve) => {
+      fire = resolve;
+    }),
+  );
+  await kit.source("asg", { workspace });
+
+  const pending = kit.call("asg")(invokeShared);
+  await silent.called;
+  fire();
+  const called = await pending;
+
+  assert.deepEqual(called.ok && called.value.kind, "uncertain");
 });

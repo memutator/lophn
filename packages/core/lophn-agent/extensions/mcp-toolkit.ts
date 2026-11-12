@@ -428,28 +428,15 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
               }
               continue;
             }
-            if (sent.kind === "success") return ok(sent.result);
-            // failure다. code는 상한 종류(EXTERNAL_TOOL_ERRORS)다. 서버의
-            // tool_error는 호출이 실패한 것이고 나머지는 그대로 온다.
-            if (sent.kind === "failure") {
-              const code =
-                sent.code === "tool_error"
-                  ? ("unavailable" as const)
-                  : (sent.code as
-                      | "invalid_input"
-                      | "not_found"
-                      | "forbidden"
-                      | "unavailable");
-              return err({ code, message: sent.message });
+            if (sent.kind === "success") {
+              return ok({ kind: "answered", result: sent.result });
             }
-            // uncertain·not_executed다. 응답은 못 받았거나 설정이 회수됐다.
-            // 모두 모른다.
+            // 보낸 뒤 답이 없다. 효과가 났을 수 있어 model이 알아야 한다.
+            if (sent.kind === "uncertain") return ok({ kind: "uncertain" });
+            // not_executed다. 설정이 회수돼 서버에 닿지 않았다.
             return err({
               code: "unavailable",
-              message:
-                sent.kind === "not_executed"
-                  ? "서버 설정이 회수됐다"
-                  : sent.message,
+              message: "서버 설정이 회수됐다",
             });
           }
         };

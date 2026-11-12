@@ -23,7 +23,6 @@ export {
 export { type AppToolkit, createAppToolkit } from "./app-toolkit.ts";
 export { checkInput, unchanged } from "./schema.ts";
 export {
-  limitJson,
   limitText,
   PAGE_SIZE,
   TEXT_MAX_BYTES,

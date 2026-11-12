@@ -6,7 +6,7 @@ import {
   type ToolEffect,
   type ToolResult,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { limitJson } from "../tools/mod.ts";
+import type { SpillableResult } from "../tools/spill.ts";
 import type {
   ToolDefinition,
   ToolHandler,
@@ -215,13 +215,16 @@ type McpInvokeCall = {
 };
 
 // 이 ToolCall의 호출 통로다. 실제 연결은 agent runtime 조립이 낸다(mcp-connections). 연결이 없거나 사라진 이름은
-// err이다(없는 tool과 같은 답).
-export type McpToolCall = (call: McpInvokeCall) => Promise<Result<unknown>>;
+// err이다(없는 tool과 같은 답). 보낸 뒤 답을 못 받은 호출은 err가 아니라 uncertain이다.
+export type McpAnswer =
+  | { kind: "answered"; result: unknown }
+  | { kind: "uncertain" };
+export type McpToolCall = (call: McpInvokeCall) => Promise<Result<McpAnswer>>;
 
 async function invoke(
   call: McpToolCall,
   request: McpInvokeCall,
-): Promise<Result<ToolResult>> {
+): Promise<Result<SpillableResult>> {
   const sent = await call(request);
   if (!sent.ok) {
     return err({
@@ -232,17 +235,39 @@ async function invoke(
         : { details: sent.error.details }),
     });
   }
-  const limited = limitJson(sent.value);
-  // 상한을 넘은 결과는 content를 비우고 complete만 남긴다(limitJson). 결과는 감싸지 않는다.
+  const answer = sent.value;
+  if (answer.kind === "uncertain") {
+    return ok({
+      status: "uncertain",
+      summary:
+        `The call to tool ${request.original} of server ${request.server} was sent but no answer came back. It may have taken effect; check before calling it again.`.slice(
+          0,
+          400,
+        ),
+      content: null,
+      complete: true,
+      source: null,
+      continuation: null,
+      pending: [],
+    });
+  }
+  // 결과는 감싸지 않는다. 줄이는 것은 runtime의 spill이고, server의 isError 본문도 그대로 model에 간다.
+  const isError =
+    typeof answer.result === "object" &&
+    answer.result !== null &&
+    (answer.result as { isError?: unknown }).isError === true;
   return ok({
-    status: "success",
-    summary: `tool ${request.original} of server ${request.server} finished`,
-    content: limited.content as ToolResult["content"],
-    complete: limited.complete,
+    status: isError ? "failure" : "success",
+    summary: isError
+      ? `tool ${request.original} of server ${request.server} returned an error`
+      : `tool ${request.original} of server ${request.server} finished`,
+    content: answer.result as ToolResult["content"],
+    complete: true,
     source: null,
     continuation: null,
     pending: [],
-  } satisfies ToolResult);
+    spill: { arrayKeys: [] },
+  });
 }
 
 // 정의가 handler를 들지 않은 tool(MCP)의 handler 표다. 호출 이름 → handler.

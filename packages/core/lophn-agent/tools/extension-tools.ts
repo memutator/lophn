@@ -9,10 +9,9 @@ import {
   type PublishedExtension,
 } from "../../../protocol/lophn-agent/extension-tools.ts";
 import { WIRE_TOOL_NAME_PATTERN } from "../../../protocol/lophn-agent/tool-catalog.ts";
-import type { ToolResult } from "../../../protocol/lophn-agent/mod.ts";
 import { readOf } from "../run-loop/core-call.ts";
-import { limitJson } from "./result.ts";
 import type { ToolDefinition } from "./registry.ts";
+import type { SpillableResult } from "./spill.ts";
 
 // shell extension이 manifest로 선언한 tool의 정의다. 사람이 정의 `extensions`로 할당한 extension의 tool 전부를 싣고(custom은
 // `tools`가 고른 이름만 prepare가 거른다), 실행은 `extension_tools/call` 한 곳으로 간다: Gate 판정, host queue, shell main의
@@ -30,7 +29,7 @@ const OBJECT_INPUT: z.ZodType = z.unknown().superRefine((value, context) => {
 function resultOf(
   name: string,
   content: readonly ExtensionToolContent[],
-): ToolResult {
+): SpillableResult {
   const image = content.length === 1 ? content[0] : undefined;
   if (image?.type === "image") {
     return {
@@ -49,15 +48,15 @@ function resultOf(
     block.type === "text" ? [block.text] : [],
   );
   const dropped = content.length - text.length;
-  const limited = limitJson(text.join("\n"));
   return {
     status: "success",
     summary: `tool ${name} finished${dropped > 0 ? " (images were not included)" : ""}`,
-    content: limited.content as ToolResult["content"],
-    complete: limited.complete,
+    content: text.join("\n"),
+    complete: true,
     source: null,
     continuation: null,
     pending: [],
+    spill: { arrayKeys: [] },
   };
 }
 

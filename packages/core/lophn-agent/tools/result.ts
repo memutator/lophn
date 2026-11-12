@@ -84,21 +84,6 @@ function countOmitted(original: string, kept: string): number {
   );
 }
 
-// JSON 결과는 문자열 한가운데를 자르지 않는다. 상한을 넘으면 content를 비우고
-// 생략을 표시한다.
-export function limitJson(value: unknown): {
-  content: unknown;
-  complete: boolean;
-  originalBytes: number;
-} {
-  const text = JSON.stringify(value);
-  const originalBytes = new TextEncoder().encode(text).byteLength;
-  if (originalBytes <= TEXT_MAX_BYTES) {
-    return { content: value, complete: true, originalBytes };
-  }
-  return { content: null, complete: false, originalBytes };
-}
-
 // 소유 contract의 cursor를 감싸는 이어 보기 위치다. 조건(scope)을 같이 담아 다른 조건의 목록에서
 // 온 cursor를 거절하고, 한 page에서 앞 20개만 보여 준 뒤의 위치(skip)도 지킨다.
 // 소유 contract의 cursor는 그대로 안에 둔다. 해석하거나 만들어 내지 않는다.
@@ -118,7 +103,7 @@ export function jsonBytes(value: unknown): number {
 
 // 상한을 넘는 JSON 결과는 지정한 배열 키의 뒤쪽 항목부터 덜어 낸다. 항목 하나를 쪼개지 않으므로
 // JSON·문자열 경계가 깨지지 않고, 덜어 낸 수는 content.omitted에 남는다. 덜어 낼 배열이
-// 없으면 content를 비운다(limitJson과 같다).
+// 없으면 content를 비운다.
 export function fitJson(
   value: Record<string, unknown>,
   arrayKeys: readonly string[],

@@ -89,6 +89,8 @@ type McpTransport = {
   notify(method: string, params: unknown): Promise<void>;
   // 서버가 보낸 역방향 요청이다. 없으면 null을 기다린다.
   reverseRequests(): ReadableStream<{ id: unknown; method: string }>;
+  // server process가 끝나면 그 사실을 글로 푸는 약속이다. process가 없는 HTTP는 null이다.
+  exited: Promise<string> | null;
   close(): Promise<void>;
 };
 
@@ -140,7 +142,6 @@ export type McpConnectionsDeps = {
 
 type CallOutcome =
   | { kind: "success"; result: unknown }
-  | { kind: "failure"; code: string; message: string }
   | { kind: "uncertain"; message: string }
   | { kind: "not_executed"; code: string }
   | { kind: "no_connection"; code: string };
@@ -456,6 +457,7 @@ export function createMcpConnections(deps: McpConnectionsDeps): McpConnections {
       reverseRequests() {
         return reverse.readable;
       },
+      exited: null,
       async close() {
         if (closed.done) return;
         closed.done = true;
@@ -594,6 +596,21 @@ export function createMcpConnections(deps: McpConnectionsDeps): McpConnections {
         pending.clear();
       })();
     }
+    // 손자 process가 stdout pipe를 쥐면 읽기 loop가 끝나지 않으므로 exit를 따로 본다.
+    // 이미 보낸 요청이라 호출 쪽에서는 uncertain이 된다.
+    const exited = spawn.exited.then(
+      ({ code, signal }) =>
+        `MCP server process exited (${
+          signal === null ? `code ${code}` : `signal ${signal}`
+        })`,
+      () => "MCP server process exited",
+    );
+    void exited.then((message) => {
+      for (const [, settle] of pending) {
+        settle(err({ code: "unavailable", message }));
+      }
+      pending.clear();
+    });
     const encoder = new TextEncoder();
     let writer: WritableStreamDefaultWriter<Uint8Array> | null = null;
     async function writeLine(message: unknown): Promise<boolean> {
@@ -642,6 +659,7 @@ export function createMcpConnections(deps: McpConnectionsDeps): McpConnections {
       reverseRequests() {
         return reverse.readable;
       },
+      exited,
       async close() {
         // 잠긴 writer가 stdin.close를 막으므로 먼저 놓는다(그림 ad·ah).
         if (writer !== null) writer.releaseLock();
@@ -785,19 +803,9 @@ export function createMcpConnections(deps: McpConnectionsDeps): McpConnections {
           hard.signal,
         );
         if (response.ok) {
-          const result = response.value as {
-            content?: unknown;
-            isError?: unknown;
-          };
-          if (result["isError"] === true) {
-            outcome = {
-              kind: "failure",
-              code: "tool_error",
-              message: "tool이 오류로 답했다",
-            };
-          } else {
-            outcome = { kind: "success", result: response.value };
-          }
+          // 답을 받았으니 "답 없이 이어진 재연결" 세기를 비운다. isError 본문도 model에 간다.
+          entry.retryCount = 0;
+          outcome = { kind: "success", result: response.value };
         } else {
           // 이미 전달했을 수 있으므로 모두 uncertain이다.
           outcome = { kind: "uncertain", message: response.error.message };
@@ -925,6 +933,14 @@ export function createMcpConnections(deps: McpConnectionsDeps): McpConnections {
       }
       entry.protocolVersion = result["protocolVersion"];
       entry.transport = transport;
+      // 연결이 `connected`로 남은 채 process만 죽으면 다음 호출이 reconnect 길을 못 탄다.
+      void transport.exited?.then((message) => {
+        if (entry.transport !== transport) return;
+        entry.transport = null;
+        if (entry.state === "connected") entry.state = "failed_temporary";
+        entry.error = message;
+        void transport.close();
+      });
       await transport.notify("notifications/initialized", {});
       return ok(undefined);
     } finally {
@@ -1052,6 +1068,8 @@ export function createMcpConnections(deps: McpConnectionsDeps): McpConnections {
     entry.acceptingCalls = false;
     const transport = entry.transport;
     if (transport !== null) {
+      // 먼저 비워야 close 중에 process가 끝나도 exit 감시가 상태를 건드리지 않는다.
+      entry.transport = null;
       // 진행 호출에 MCP 취소를 요청한다.
       for (const id of entry.pending) {
         await transport.notify("notifications/cancelled", {
@@ -1061,7 +1079,6 @@ export function createMcpConnections(deps: McpConnectionsDeps): McpConnections {
       }
       entry.pending.clear();
       await transport.close();
-      entry.transport = null;
     }
     entry.state = "disconnected";
   }

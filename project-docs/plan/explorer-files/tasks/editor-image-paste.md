@@ -16,6 +16,7 @@ md 문서에 붙여넣은 이미지를 그 file 옆에 png로 저장하고 커�
 - 읽을 것:
   - 앞 task 계약: `packages/shell/renderer/workspace/files/paste-names.ts`의 `freeName`, `WorkspaceSource.writeBytes`(files-transfer brief). 이 task는 `EditorSessions`(editor/sessions.ts)의 `files`(`EditorFiles`, editor/source.ts의 `Pick<FilesApi, ...>`)를 쓴다. 그쪽 `writeBytes({path, bytes})`를 쓴다. `EditorFiles`의 Pick 목록에 `writeBytes`를 더한다.
   - 지금 코드: `live-preview.ts`의 `ImageWidget`·`defaultResolveImage`, `markdown-editor.tsx`의 `EditorView.domEventHandlers`, `text-file-view.tsx`의 `MarkdownPane` 자리
+  - gallery·test: `lophnFiles` bridge가 없는 곳(gallery fake-source)에서는 `writeBytes`가 `unavailable`이라 붙여넣기가 실패 문구를 보인다. 그것이 정상이다. `editor/fake-source.ts`도 고칠 필요가 있으면 소유에 더하고 보고에 적는다.
   - 배경: `project-docs/architecture/agent-chat.md` 16번은 **대화의** image URL 규칙이다. 문서 본문은 사람이 쓴 파일이라 다르게 둔다(이 계획 README "정한 것").
 - 계약:
   - `MarkdownEditor`의 props에 둘을 더한다(이 모양을 바꾸지 않는다):

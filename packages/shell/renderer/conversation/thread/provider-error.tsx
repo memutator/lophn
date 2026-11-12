@@ -19,7 +19,11 @@ interface ProviderErrorProps {
   /** 어떤 오류인지. core가 준 글이고, code가 turn이 끝난 이유면 쓰지 않는다. */
   message: string;
   /** provider 호출이 실패했을 때 판정 길과 request id. 원인 갈래를 DB 없이 알게 한다. */
-  evidence?: { verdict_path: string | null; request_id: string | null };
+  evidence?: {
+    verdict_path: string | null;
+    request_id: string | null;
+    http_status?: number | null;
+  };
   source: Pick<AgentTabSource, "retryTurn">;
   /** `capabilities.retry`. 꺼져 있으면 [Retry]가 없다. 기본은 true다. */
   canRetry?: boolean;
@@ -48,6 +52,28 @@ const FAILED_TEXT = {
   internal: "conversation.error.turn-internal",
 } as const satisfies Record<FailedReason, MessageKey>;
 
+// 원인을 말하는 문구. 표에 없으면 turn이 끝난 이유의 문구다.
+function causeText(
+  code: string,
+  status: number | null | undefined,
+): MessageKey | null {
+  if (code === "configuration_unavailable") {
+    if (status === 402 || status === 429) {
+      return "conversation.error.turn-usage-limit";
+    }
+    if (status === 401 || status === 403) {
+      return "conversation.error.turn-sign-in-rejected";
+    }
+  }
+  if (
+    (code === "model_error" || code === "model_attempt_limit") &&
+    status === 429
+  ) {
+    return "conversation.error.turn-rate-limited";
+  }
+  return null;
+}
+
 export function ProviderError({
   turn,
   code,
@@ -57,8 +83,13 @@ export function ProviderError({
   canRetry = true,
   providerKey,
 }: ProviderErrorProps): ReactElement {
+  const cause = causeText(code, evidence?.http_status);
   const detail =
-    code in FAILED_TEXT ? t(FAILED_TEXT[code as FailedReason]) : message;
+    cause !== null
+      ? t(cause)
+      : code in FAILED_TEXT
+        ? t(FAILED_TEXT[code as FailedReason])
+        : message;
   const [state, setState] = useState<"idle" | "sending" | "failed">("idle");
   const retry = async () => {
     setState("sending");

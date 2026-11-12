@@ -393,6 +393,7 @@ interface ThreadProviderError extends EntryBase {
   readonly evidence?: {
     readonly verdict_path: string | null;
     readonly request_id: string | null;
+    readonly http_status?: number | null;
   };
 }
 

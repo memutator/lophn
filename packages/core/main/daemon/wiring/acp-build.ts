@@ -621,7 +621,7 @@ type ErrorEvidence = NonNullable<
   Extract<AcpNoticeItem["notice"], { type: "error" }>["evidence"]
 >;
 
-// provider 호출 탓으로 실패한 turn의 마지막 실패 호출에서 판정 길과 request id를 읽는다. 그 밖의 실패 이유에는 호출 근거가 없다.
+// provider 호출 탓으로 실패한 turn의 마지막 실패 호출에서 판정 길, request id, http status를 읽는다. 그 밖의 실패 이유에는 호출 근거가 없다.
 async function failureEvidence(
   env: AcpEnv,
   turn: TurnRecord,
@@ -629,7 +629,8 @@ async function failureEvidence(
   if (
     turn.outcome?.kind !== "failed" ||
     (turn.outcome.reason !== "model_error" &&
-      turn.outcome.reason !== "model_attempt_limit")
+      turn.outcome.reason !== "model_attempt_limit" &&
+      turn.outcome.reason !== "configuration_unavailable")
   ) {
     return undefined;
   }
@@ -640,10 +641,16 @@ async function failureEvidence(
     (out: { calls: ModelCallRecord[] }) => out.calls,
   );
   if (!calls.ok) return undefined;
-  const failed = calls.value.findLast((call) => call.outcome?.kind === "failed")
-    ?.outcome?.evidence;
-  if (failed === undefined) return undefined;
-  return { verdict_path: failed.verdict_path, request_id: failed.request_id };
+  const outcome = calls.value.findLast(
+    (call) => call.outcome?.kind === "failed",
+  )?.outcome;
+  const failed = outcome?.evidence;
+  if (outcome == null || failed === undefined) return undefined;
+  return {
+    verdict_path: failed.verdict_path,
+    request_id: failed.request_id,
+    http_status: outcome.http_status,
+  };
 }
 
 function noticeOf(

@@ -19,6 +19,7 @@ import {
   modelCatalogRead,
   shownModelsRead,
 } from "../../../../protocol/lophn-agent/models.ts";
+import { modelCallList } from "../../../../protocol/lophn-agent/model-calls.ts";
 import { providerList } from "../../../../protocol/lophn-agent/providers.ts";
 import { sessionStatusRead } from "../../../../protocol/lophn-agent/session-status.ts";
 import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
@@ -557,4 +558,66 @@ test("state_seq가 같아도 도는 turn이 지금 turn이다", () => {
   assert.equal(currentTurn([next, old])?.id, next.id);
   const ended = { ...next, state: "finished" as const };
   assert.equal(currentTurn([old, ended])?.id, next.id);
+});
+
+// 화면이 사용량 한도·로그인 거절·rate limit을 가르는 근거다. configuration_unavailable도 실패 call의 http_status를 싣는다.
+test("configuration_unavailable로 끝난 turn의 error notice는 실패 call의 http_status를 싣는다", async () => {
+  const base = env();
+  const failedTurn = {
+    ...(records.get(key(turnList)) as { turns: object[] }).turns[0],
+    outcome: { kind: "failed", reason: "configuration_unavailable" },
+  };
+  const failedEnv: AcpEnv = {
+    read: <T>(route: { resource: string; method: string }, input: unknown) => {
+      if (key(route) === key(turnList)) {
+        return Promise.resolve(
+          ok({ turns: [failedTurn], next_cursor: null } as T),
+        );
+      }
+      if (key(route) === key(modelCallList)) {
+        return Promise.resolve(
+          ok({
+            calls: [
+              {
+                id: MCL,
+                outcome: {
+                  kind: "failed",
+                  code: "quota",
+                  retry_at: null,
+                  finish_reason: null,
+                  http_status: 402,
+                  provider_code: null,
+                  evidence: {
+                    verdict_path: "http_status",
+                    content_type: null,
+                    request_id: null,
+                    unknown_events: [],
+                  },
+                },
+              },
+            ],
+            next_cursor: null,
+          } as T),
+        );
+      }
+      return base.read<T>(route, input);
+    },
+    redact: base.redact,
+  };
+  const snapshot = await buildAcpState(failedEnv, SES, {
+    steering: new Set(),
+    writing: null,
+    elapsed: null,
+    approval: null,
+    question: null,
+    session: null,
+    stored: [],
+    allocate: (items) =>
+      Promise.resolve(ok(new Map(items.map((item) => [item.id, 1])))),
+  });
+  assert.ok(snapshot.ok);
+  const notice = snapshot.value.items.find((item) => item.kind === "notice");
+  assert.ok(notice?.kind === "notice" && notice.notice.type === "error");
+  assert.equal(notice.notice.code, "configuration_unavailable");
+  assert.equal(notice.notice.evidence?.http_status, 402);
 });

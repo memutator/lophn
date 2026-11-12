@@ -130,11 +130,17 @@ export const conversation = {
     "No model is chosen yet. Pick one in the model menu below, then try again.",
   "conversation.error.turn-no-answer":
     "The agent finished without writing an answer.",
+  "conversation.error.turn-rate-limited":
+    "The provider is limiting requests right now. Wait a moment, then retry.",
   "conversation.error.turn-repeated-tool-failure":
     "The same tool kept failing, so the agent stopped.",
+  "conversation.error.turn-sign-in-rejected":
+    "The provider rejected the key or sign-in. Enter the key again, or sign in again in Settings → Providers.",
   "conversation.error.turn-stall-limit": "The agent stopped making progress.",
   "conversation.error.turn-target-unavailable": "This agent no longer exists.",
   "conversation.error.turn-tool-error": "A tool failed and the agent stopped.",
+  "conversation.error.turn-usage-limit":
+    "This provider's usage limit is reached. Check your plan or billing, or pick another model below.",
   "conversation.label.approval": "Approval",
   "conversation.label.approval-app": "App {id}",
   "conversation.label.approval-allowed": "Allowed",

@@ -45,7 +45,7 @@ export function parseTraceparent(
   if (value === null || value === undefined) return undefined;
   const found = TRACEPARENT.exec(value.trim());
   if (!found) return undefined;
-  const [, version, traceId, spanId, flags, rest] = found;
+  const [, version, traceId = "", spanId = "", flags = "", rest] = found;
   if (version === "ff") return undefined;
   if (version === "00" && rest !== undefined) return undefined;
   if (traceId === ZERO_TRACE || spanId === ZERO_SPAN) return undefined;

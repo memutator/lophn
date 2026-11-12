@@ -188,6 +188,6 @@ function tailRunStart(
   continues: (char: string) => boolean,
 ): number {
   let start = text.length;
-  while (start > 0 && continues(text[start - 1])) start--;
+  while (start > 0 && continues(text.charAt(start - 1))) start--;
   return start;
 }

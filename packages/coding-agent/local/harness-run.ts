@@ -6,8 +6,11 @@ import {
   mkdir,
   readdir,
   readFile,
+  realpath,
+  rename,
   rm,
   rmdir,
+  stat,
   writeFile,
 } from "node:fs/promises";
 import { dirname } from "node:path";
@@ -83,15 +86,33 @@ const nodePorts: InstallPorts = {
     }
   },
   async write(path, text, executable) {
-    // 폴더가 이미 있으면 file 하나의 권한만으로 쓴다(폴더째 권한을 열지 않는 harness가 있다).
+    // 쓰는 중에 끝나도 설정이 반쯤 쓰인 채 남지 않게 같은 폴더의 tmp에 쓰고 rename한다.
+    // symlink인 dotfile은 실제 대상을 고치고 권한은 있던 file의 것을 따른다.
+    let target = path;
+    let mode: number | undefined;
     try {
-      await writeFile(path, text);
+      target = await realpath(path);
+      mode = (await stat(target)).mode & 0o7777;
     } catch (thrown) {
       if (errorCode(thrown) !== "ENOENT") throw thrown;
-      await mkdir(dirname(path), { recursive: true });
-      await writeFile(path, text);
     }
-    if (executable === true) await chmod(path, 0o755);
+    const tmp = `${target}.${process.pid}.tmp`;
+    try {
+      // 폴더가 이미 있으면 file 하나의 권한만으로 쓴다(폴더째 권한을 열지 않는 harness가 있다).
+      try {
+        await writeFile(tmp, text);
+      } catch (thrown) {
+        if (errorCode(thrown) !== "ENOENT") throw thrown;
+        await mkdir(dirname(target), { recursive: true });
+        await writeFile(tmp, text);
+      }
+      const want = executable === true ? 0o755 : mode;
+      if (want !== undefined) await chmod(tmp, want);
+      await rename(tmp, target);
+    } catch (thrown) {
+      await rm(tmp, { force: true });
+      throw thrown;
+    }
   },
   async list(dir) {
     try {

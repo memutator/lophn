@@ -59,7 +59,19 @@ function canon(value: unknown): string {
   return JSON.stringify(value) ?? "null";
 }
 
+// 계산에 쓴 본문과 지금 file이 모두 같은지다. 읽은 뒤 다른 도구가 고쳤으면 그 고침을 덮지 않으려고 쓰기 직전에 본다.
+export async function unchangedSinceRead(
+  ports: InstallPorts,
+  files: readonly { path: string; text: string | null }[],
+): Promise<boolean> {
+  for (const file of files) {
+    if ((await ports.read(file.path)) !== file.text) return false;
+  }
+  return true;
+}
+
 // 쓸 file들을 모두 계산한 뒤 하나라도 못 만들면(null) 아무것도 쓰지 않고 `failed`다. 계산 결과가 현재 본문과 같으면 놓을 것이 없다.
+// 쓰기 직전에 file이 바뀌었으면 읽기부터 한 번 다시 하고, 두 번째도 바뀌었으면 아무것도 쓰지 않고 `failed`다.
 export async function editFiles(
   ports: InstallPorts,
   jobs: readonly {
@@ -69,23 +81,34 @@ export async function editFiles(
   }[],
   dryRun: boolean,
 ): Promise<Step> {
-  const planned: { path: string; next: string; executable?: boolean }[] = [];
-  for (const job of jobs) {
-    const text = await ports.read(job.path);
-    const next = job.make(text);
-    if (next === null) return { outcome: "failed", files: [] };
-    if (next !== text) {
-      planned.push({ path: job.path, next, executable: job.executable });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const planned: {
+      path: string;
+      text: string | null;
+      next: string;
+      executable?: boolean;
+    }[] = [];
+    for (const job of jobs) {
+      const text = await ports.read(job.path);
+      const next = job.make(text);
+      if (next === null) return { outcome: "failed", files: [] };
+      if (next !== text) {
+        planned.push({
+          path: job.path,
+          text,
+          next,
+          executable: job.executable,
+        });
+      }
     }
-  }
-  if (planned.length === 0) return { outcome: "unchanged", files: [] };
-  if (!dryRun) {
+    if (planned.length === 0) return { outcome: "unchanged", files: [] };
+    const files = planned.map((one) => one.path);
+    if (dryRun) return { outcome: "missing", files };
+    if (!(await unchangedSinceRead(ports, planned))) continue;
     for (const one of planned) {
       await ports.write(one.path, one.next, one.executable);
     }
+    return { outcome: "installed", files };
   }
-  return {
-    outcome: dryRun ? "missing" : "installed",
-    files: planned.map((one) => one.path),
-  };
+  return { outcome: "failed", files: [] };
 }

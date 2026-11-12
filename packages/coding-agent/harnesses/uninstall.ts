@@ -17,6 +17,7 @@ import {
   isObject,
   type Json,
   ownedCommand,
+  unchangedSinceRead,
 } from "./install-common.ts";
 import { jsoncHooksWithout } from "./jsonc-hooks.ts";
 import { type JsonHook, jsonHooksWithout, withoutOwned } from "./json-hooks.ts";
@@ -30,24 +31,33 @@ type Change = string | null | typeof REMOVE;
 type Job = { path: string; make(text: string): Change };
 
 // 없는 file은 지울 것이 없다. null을 만든 job이 하나라도 있으면 아무것도 쓰지 않는다.
+// 쓰기 직전에 file이 바뀌었으면 읽기부터 한 번 다시 하고, 두 번째도 바뀌었으면 아무것도 쓰지 않고 `failed`다.
 async function changeFiles(
   ports: InstallPorts,
   jobs: readonly Job[],
 ): Promise<UninstallStep> {
-  const planned: { path: string; next: string | typeof REMOVE }[] = [];
-  for (const job of jobs) {
-    const text = await ports.read(job.path);
-    if (text === null) continue;
-    const next = job.make(text);
-    if (next === null) return { outcome: "failed", files: [] };
-    if (next !== text) planned.push({ path: job.path, next });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const planned: {
+      path: string;
+      text: string;
+      next: string | typeof REMOVE;
+    }[] = [];
+    for (const job of jobs) {
+      const text = await ports.read(job.path);
+      if (text === null) continue;
+      const next = job.make(text);
+      if (next === null) return { outcome: "failed", files: [] };
+      if (next !== text) planned.push({ path: job.path, text, next });
+    }
+    if (planned.length === 0) return { outcome: "unchanged", files: [] };
+    if (!(await unchangedSinceRead(ports, planned))) continue;
+    for (const one of planned) {
+      if (one.next === REMOVE) await ports.remove(one.path);
+      else await ports.write(one.path, one.next);
+    }
+    return { outcome: "removed", files: planned.map((one) => one.path) };
   }
-  if (planned.length === 0) return { outcome: "unchanged", files: [] };
-  for (const one of planned) {
-    if (one.next === REMOVE) await ports.remove(one.path);
-    else await ports.write(one.path, one.next);
-  }
-  return { outcome: "removed", files: planned.map((one) => one.path) };
+  return { outcome: "failed", files: [] };
 }
 
 // 놓을 때 우리가 만든 file은 우리 것을 지우면 빈다. 빈 file은 남기지 않는다.
@@ -231,8 +241,13 @@ async function uninstallHook(
           return { outcome: "failed", files: [] };
         }
       }
+      const hooksJob = jsonJob(harness, hooksPath, spec);
       return await changeFiles(ports, [
-        jsonJob(harness, hooksPath, spec),
+        // trust 변경을 계산한 본문과 달라졌으면 그 key가 맞지 않으므로 고치지 않는다.
+        {
+          path: hooksPath,
+          make: (text) => (text === hooksText ? hooksJob.make(text) : null),
+        },
         {
           path: at(CODEX_CONFIG_PATH),
           make(text) {

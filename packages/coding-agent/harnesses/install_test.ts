@@ -85,6 +85,29 @@ test("전역 설정 install은 사람이 쓴 key와 hook을 보존하고 파싱�
 });
 
 // 이미 hook을 놓은 사람: 새 event(SubagentStart·SubagentStop)가 없는 설정은 dry_run이 missing이고, 설치가 사람의 hook을 두고 둘을 더한다.
+// 사람의 settings.json을 고치는 일이라 지킨다: 읽은 뒤 쓰기 전에 다른 도구가 file을 고쳐도 그 고침을 지우지 않는다.
+test("설치가 설정을 읽은 뒤 다른 도구가 그 file을 고치면, 그 고침을 지우지 않고 다시 읽어 우리 항목만 더한다", async () => {
+  const files = new Map([[SETTINGS, JSON.stringify({ theme: "dark" })]]);
+  const base = memory(files);
+  let reads = 0;
+  const racing: InstallPorts = {
+    ...base,
+    async read(path) {
+      const text = await base.read(path);
+      if (path === SETTINGS && ++reads === 1) {
+        files.set(SETTINGS, JSON.stringify({ theme: "dark", other: "tool" }));
+      }
+      return text;
+    },
+  };
+  const done = await installGlobal(racing, input);
+  assert.deepStrictEqual(done.ok && done.value.hook, "installed");
+  const written = JSON.parse(files.get(SETTINGS)!);
+  assert.deepStrictEqual(written.other, "tool");
+  assert.deepStrictEqual(written.theme, "dark");
+  assert.deepStrictEqual(Object.keys(written.hooks).length > 0, true);
+});
+
 test("옛 Claude 설정에는 subagent hook만 새로 더해진다", async () => {
   const mine = { type: "command", command: "my-stop-hook" };
   const files = new Map<string, string>([

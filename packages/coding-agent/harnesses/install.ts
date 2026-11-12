@@ -298,10 +298,10 @@ async function installHook(
       const nextHooks = make(hooksText);
       if (nextHooks === null) return { outcome: "failed", files: [] };
       const trusts = await codexTrustOf(at(spec.path), nextHooks);
+      // config.toml(trust)을 먼저 쓴다. 사이에서 끊겨도 trust 없는 hook이 아니라 없는 handler를 가리키는 기록만 남는다.
       return await editFiles(
         ports,
         [
-          { path: at(spec.path), make: () => nextHooks },
           {
             path: at(CODEX_CONFIG_PATH),
             make: (text) => {
@@ -320,6 +320,11 @@ async function installHook(
               }
               return next;
             },
+          },
+          // trust를 계산한 본문과 달라졌으면 그 hash가 맞지 않으므로 쓰지 않는다.
+          {
+            path: at(spec.path),
+            make: (text) => (text === hooksText ? nextHooks : null),
           },
         ],
         dryRun,

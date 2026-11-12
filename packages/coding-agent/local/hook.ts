@@ -21,7 +21,7 @@ import {
 import { z } from "zod";
 import type { LocalCommand, LocalContext } from "./types.ts";
 
-// 느린 shell main이 harness를 붙잡지 않게 한다.
+// 느린 shell main이나 닫히지 않는 stdin이 harness를 붙잡지 않게 한다. stdin 읽기와 socket 쓰기가 이 하나를 나눠 쓴다.
 const HOOK_DEADLINE_MS = 1_000;
 
 function terminalHookOf(env: LocalContext["env"]) {
@@ -49,7 +49,11 @@ function connectSocket(path: string): Promise<Socket> {
   });
 }
 
-async function writeLine(path: string, line: string): Promise<void> {
+async function writeLine(
+  path: string,
+  line: string,
+  deadlineMs: number,
+): Promise<void> {
   let socket: Socket | undefined;
   let done = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -70,7 +74,7 @@ async function writeLine(path: string, line: string): Promise<void> {
     await Promise.race([
       send,
       new Promise<void>((resolve) => {
-        timer = setTimeout(resolve, HOOK_DEADLINE_MS);
+        timer = setTimeout(resolve, deadlineMs);
       }),
     ]);
   } finally {
@@ -107,8 +111,17 @@ async function runHook(
     hookStdout(String(input.harness), String(input.event)) ?? undefined;
   const target = terminalHookOf(ctx.env);
   if (target === null) return ok(stdout);
+  const startedAt = Date.parse(ctx.now());
   try {
-    const text = await ctx.stdin();
+    // 기한 뒤 매달린 읽기는 그대로 둔다. cliMain이 끝에서 process.exit하므로 process를 붙잡지 않는다.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const text = await Promise.race([
+      ctx.stdin(),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), HOOK_DEADLINE_MS);
+      }),
+    ]).finally(() => clearTimeout(timer));
+    if (text === null) return ok(stdout);
     // 읽다 만 JSON은 못 읽는다.
     if (new TextEncoder().encode(text).length > HOOK_STDIN_MAX_BYTES) {
       return ok(stdout);
@@ -135,7 +148,11 @@ async function runHook(
       payload,
     });
     if (line.success) {
-      await writeLine(target.socket, JSON.stringify(line.data));
+      await writeLine(
+        target.socket,
+        JSON.stringify(line.data),
+        Math.max(0, HOOK_DEADLINE_MS - (Date.parse(ctx.now()) - startedAt)),
+      );
     }
   } catch {
     // payload가 JSON이 아니거나 socket이 없다. hook 실패가 harness를 멈추게 하지 않는다.

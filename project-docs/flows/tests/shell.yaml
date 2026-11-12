@@ -561,7 +561,11 @@ files:
 
   - path: packages/shell/terminal-host/env_test.ts
     covers: [terminal-shell-env:env-built]
-    note: "터미널 shell env에 COLORTERM=truecolor. 두 번 renderer만 고쳤다가 다시 생긴 bug라 test를 둔다. 터미널 시작 env는 terminal-shell-env:env-built"
+    note: "터미널 shell env에 COLORTERM=truecolor. 두 번 renderer만 고쳤다가 다시 생긴 bug라 test를 둔다. SSH_AUTH_SOCK·XAUTHORITY·GIT_AUTHOR_*·proxy 같은 허용 이름은 local port 값이어도 남는다. 터미널 시작 env는 terminal-shell-env:env-built"
+
+  - path: packages/shell/terminal-host/main_test.ts
+    covers: []
+    note: "host 안에서 요청 하나가 던져도 host가 끝나지 않고 다른 터미널의 입력·resize가 그대로 답한다. 던진 요청은 host_lost로 답한다"
 
   - path: packages/shell/terminal-host/shell-integration_test.ts
     covers: [terminal-shell-env:user-rc-kept]

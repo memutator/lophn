@@ -123,6 +123,10 @@ export interface CoreConnection {
 
 /** Gateway가 끊긴 뒤 다시 붙기까지의 대기. 곧바로 실패하는 연결이 core를 두드리지 않게 한다. */
 const RECOVER_DELAY_MS = 1_000;
+/** Gateway ready 뒤 이 시간 안에 끝나는 core를 crash로 센다. 이보다 오래 산 core는 센 수를 0으로 돌린다. */
+const STABLE_MS = 60_000;
+/** crash가 이만큼 이어지면 shell이 다시 띄우지 않고 failed-start에 멈춘다. */
+const RESTART_LIMIT = 5;
 
 /** main 조립이 부른다. 준비 전에 창은 이미 열려 있다. */
 export function startCoreConnection(
@@ -159,6 +163,11 @@ export function startCoreConnection(
   let stopped = false;
   // 다른 client가 control stop을 보냈다(`closed(shutdown)`). 저절로 다시 띄우지 않는다.
   let shutdownSeen = false;
+  // 이어진 짧은 crash 수와 마지막 ready 시각. Retry(attachIfAlive)는 수를 비우지 않는다.
+  let crashes = 0;
+  let readyAt: number | undefined;
+  // Quit·`Stop lophn`이 돌던 ensure가 core를 새로 띄우지 않게 끊는다.
+  const controller = new AbortController();
   // ensure는 한 번에 하나만 돈다. renderer들이 같이 재연결해도 core를 두 번 띄우지 않는다.
   let recovering: Promise<void> | undefined;
   // handle 등록은 한 번에 하나씩 보낸다.
@@ -216,11 +225,29 @@ export function startCoreConnection(
           if (shutdownSeen) return;
           state.state = "stale";
           push();
-          setTimeout(() => void recover(), RECOVER_DELAY_MS);
+          if (
+            readyAt !== undefined &&
+            options.clock.now() - readyAt >= STABLE_MS
+          ) {
+            crashes = 0;
+          }
+          crashes += 1;
+          readyAt = undefined;
+          if (crashes >= RESTART_LIMIT) {
+            // 죽은 연결을 비워 둬야 Retry(renderer의 core call)가 attachIfAlive로 간다.
+            attached = undefined;
+            fail();
+            return;
+          }
+          setTimeout(
+            () => void recover(),
+            RECOVER_DELAY_MS * 2 ** (crashes - 1),
+          );
         },
         ready: () => {
           state.state = "ready";
           state.confirmedAt = options.clock.now();
+          readyAt = state.confirmedAt;
           push();
           options.own?.ready?.();
         },
@@ -255,7 +282,7 @@ export function startCoreConnection(
 
   async function attach(): Promise<void> {
     if (control === undefined) return;
-    const ensured = await control.ensure();
+    const ensured = await control.ensure(controller.signal);
     if (stopped) return;
     if (!ensured.ok) {
       fail(ensured.error.reason);
@@ -387,15 +414,19 @@ export function startCoreConnection(
     },
     detach() {
       stopped = true;
+      controller.abort();
       attached?.gateway.stop();
       attached = undefined;
     },
     async stopCore() {
       // 멈추는 동안의 reconnect는 core를 다시 띄우지 않는다.
       stopped = true;
+      controller.abort();
       attached?.gateway.stop();
       attached = undefined;
       if (control === undefined) return false;
+      // 돌던 ensure가 이미 띄운 core는 ready가 된 뒤에야 stop이 닿는다.
+      await recovering?.catch(() => {});
       const stoppedCore = await control.stop();
       // 끄기가 취소돼 shell이 살아 남아도 화면이 끊긴 core를 ready로 보이지 않게 한다.
       state.state = "stale";

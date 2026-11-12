@@ -185,8 +185,8 @@ function startLine(line: string): DetachedStart {
 
 // shell main이 core와 주고받는 통로. socket 경로 계산과 IO는 여기서만 한다.
 export type ShellCoreControl = {
-  /** core가 없으면 한 번 띄우고 붙는다. 판이 다르면 한 번 갈아 띄운다. */
-  ensure(): Promise<Result<EnsuredCore, EnsureFailure>>;
+  /** core가 없으면 한 번 띄우고 붙는다. 판이 다르면 한 번 갈아 띄운다. signal이 서면 새로 띄우지 않는다. */
+  ensure(signal?: AbortSignal): Promise<Result<EnsuredCore, EnsureFailure>>;
   /** 지금 core 상태. 답이 없으면 실패한다. */
   identify(): Promise<Result<ControlIdentify>>;
   /** 이미 서 있는 core에만 붙는다. 없거나 판이 다르면 띄우지 않고 실패한다. */
@@ -229,10 +229,11 @@ export function openShellCoreControl(options: {
   const failure = (error: { code: ErrorCode; message: string }) =>
     err({ code: error.code, message: error.message });
   return ok({
-    ensure: () =>
+    ensure: (signal) =>
       ensureCore(deps, {
         client: "shell",
         productVersion: options.productVersion,
+        ...(signal ? { signal } : {}),
       }),
     identify: () => controlIdentify(request),
     async join() {

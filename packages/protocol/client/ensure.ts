@@ -47,6 +47,8 @@ export type EnsureOptions = {
   client: ControlClient;
   // root package.json의 판. identify가 알린 판과 다르면 core를 한 번 갈아 띄운다.
   productVersion: string;
+  // 끝난 뒤(Quit·`Stop lophn`)에 core를 새로 띄우거나 갈아 띄우지 않게 한다. 띄운 core의 ready 기다림은 끊지 않는다.
+  signal?: AbortSignal;
 };
 
 export type EnsuredCore = {
@@ -68,6 +70,7 @@ const STARTUP_MS = 30_000;
 const READY_MS = 60_000;
 const STOP_MS = 15_000;
 const POLL_MS = 100;
+const ABORTED = "core 띄우기가 취소됐다";
 
 function unavailable(message: string): EnsureFailure {
   return { code: "unavailable", message };
@@ -166,6 +169,7 @@ async function startAndJoin(
   deps: EnsureDeps,
   options: EnsureOptions,
 ): Promise<Result<EnsuredCore, EnsureFailure>> {
+  if (options.signal?.aborted) return err(unavailable(ABORTED));
   const started = await deps.spawnDetached({
     timeoutMs: deps.startupMs ?? STARTUP_MS,
   });
@@ -203,6 +207,7 @@ export async function ensureCore(
       return connectReady(deps, options);
     }
     // 판이 다르면 한 번만 멈추고 새로 띄운다. 돌던 run을 다시 시작하지는 않는다.
+    if (options.signal?.aborted) return err(unavailable(ABORTED));
     const stopped = await controlStop(requestDeps(deps));
     // 그 사이 core가 이미 끝나고 있을 수 있다. 그때는 사라지기를 기다리기만 한다.
     if (!stopped.ok && stopped.error.code !== "unavailable") return stopped;

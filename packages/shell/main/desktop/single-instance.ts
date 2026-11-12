@@ -12,9 +12,8 @@ interface SingleInstanceApp {
   on(event: "second-instance", listener: (...args: unknown[]) => void): void;
 }
 
-interface SingleInstanceOptions {
-  app: SingleInstanceApp;
-  dataRoot: string;
+interface SingleInstanceListenerOptions {
+  app: Pick<SingleInstanceApp, "on">;
   /** 새 기본 창 요청. 대상 intent가 없는 second-instance마다 부른다. */
   onOpenWindow: () => void;
   /** argv `--quit`의 종료 요청. 있으면 second-instance가 부른다. */
@@ -25,19 +24,23 @@ interface SingleInstanceOptions {
   onAgentWindow: () => void;
 }
 
-interface SingleInstance {
-  /** 이 프로세스가 lock을 가졌는지. 못 가졌으면 이미 종료를 요청했다. */
-  acquired: boolean;
+/**
+ * lock만 잡는다. core를 건드리기 전에 부른다. 못 잡으면 이미 종료를 요청했고 false다.
+ * Electron의 lock은 userData 폴더에 걸리므로 userData를 정한 뒤에 부른다.
+ */
+export function acquireSingleInstance(
+  app: Pick<SingleInstanceApp, "requestSingleInstanceLock" | "quit">,
+  dataRoot: string,
+): boolean {
+  if (app.requestSingleInstanceLock({ dataRoot })) return true;
+  app.quit();
+  return false;
 }
 
-export function startSingleInstance(
-  options: SingleInstanceOptions,
-): SingleInstance {
-  const { app, dataRoot, onOpenWindow, onQuitIntent } = options;
-  if (!app.requestSingleInstanceLock({ dataRoot })) {
-    app.quit();
-    return { acquired: false };
-  }
+export function listenSecondInstance(
+  options: SingleInstanceListenerOptions,
+): void {
+  const { app, onOpenWindow, onQuitIntent } = options;
   app.on("second-instance", (...args: unknown[]) => {
     // Electron은 argv를 두 번째 인자로 보낸다.
     const argv = Array.isArray(args[1])
@@ -52,5 +55,4 @@ export function startSingleInstance(
       options.onOpenApp(intent.app);
     } else onOpenWindow();
   });
-  return { acquired: true };
 }

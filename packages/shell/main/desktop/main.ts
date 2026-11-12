@@ -25,7 +25,8 @@ import * as surface from "./wiring/surface.ts";
 import { loginPathOf } from "./core/login-path.ts";
 import { openShellCoreControl, productVersionOf } from "./core/supervise.ts";
 import { resolveLaunchMode } from "./launch-mode.ts";
-import { resolveDataRoot } from "./paths.ts";
+import { browserDataPath, resolveDataRoot } from "./paths.ts";
+import { acquireSingleInstance } from "./single-instance.ts";
 
 // core·terminal-host·extension이 이 env를 물려받으므로 어느 것보다 먼저 둔다.
 const loginPath = loginPathOf(process.platform, process.env);
@@ -83,6 +84,12 @@ async function ensureCoreOnly(): Promise<void> {
 }
 
 function startDesktop(): void {
+  // core를 건드리기 전에 lock부터 잡는다. 곧 끝날 두 번째 process가 core를 띄우거나 갈아 띄우지 않게 한다.
+  // lock은 userData 폴더에 걸리고, session이 생기기 전에 userData를 데이터 root 안으로 잡아야 한다.
+  const dataRoot = resolveDataRoot();
+  app.setPath("userData", browserDataPath(dataRoot));
+  if (!acquireSingleInstance(app, dataRoot)) return;
+
   const ctx = createShellContext();
   const add = <T extends { stop(): void }>(area: T): T => {
     ctx.registered.push(area);

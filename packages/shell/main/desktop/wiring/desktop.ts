@@ -53,7 +53,6 @@ import { guardShortcuts } from "../headless.ts";
 import { word } from "../i18n.ts";
 import { readOpenIntent } from "../open-intent.ts";
 import { createOpenExternal } from "../open-external.ts";
-import { browserDataPath } from "../paths.ts";
 import {
   createQuitFlow,
   quitChosen,
@@ -63,7 +62,7 @@ import {
 import { registerViewSchemes } from "../security.ts";
 import { createShellHandler } from "../shell-protocol.ts";
 import { listenShortcuts } from "../shortcuts.ts";
-import { startSingleInstance } from "../single-instance.ts";
+import { listenSecondInstance } from "../single-instance.ts";
 import { installTray, TRAY_ICON_SIZE, type TrayFactory } from "../tray.ts";
 import { createWindowControl } from "../window-controls.ts";
 import { checkCaller } from "../ipc-guard.ts";
@@ -120,7 +119,7 @@ export function register(
   views: AppViews,
   coding: Coding,
 ): Registered {
-  const { dataRoot, headless, overlays, windows, ipc, log, desktop } = ctx;
+  const { headless, overlays, windows, ipc, log, desktop } = ctx;
   const { openIntent } = views;
   let globalPalette: GlobalPalette | undefined;
 
@@ -248,13 +247,11 @@ export function register(
     log: (message) => console.log(`[lophn] ${message}`),
   };
 
-  // session이 생기기 전에 userData를 잡아야 Chromium 저장이 데이터 root 안에 있다.
-  app.setPath("userData", browserDataPath(dataRoot));
   registerViewSchemes(protocol);
 
-  const instance = startSingleInstance({
+  // lock은 main.ts `startDesktop`이 core를 건드리기 전에 이미 잡았다.
+  listenSecondInstance({
     app,
-    dataRoot,
     onOpenWindow: () => desktop.open(),
     onOpenApp: (app) => openIntent({ kind: "app", app }),
     onAgentWindow: () => void desktop.openInactive(),
@@ -345,53 +342,50 @@ export function register(
     if (BrowserWindow.getAllWindows().length === 0) desktop.show();
   });
 
-  if (instance.acquired) {
-    // 첫 창이 마지막 자리로 열리게 창보다 먼저 읽는다.
-    Promise.all([app.whenReady(), ctx.windowState.load()]).then(() => {
-      // 업데이트 전에 켜 둔 등록(`--tray`)을 새 intent(`--core`)로 한 번 다시 쓴다.
-      migrateAutostart(autostartOs);
-      const serve = createShellHandler({ distDir: ctx.rendererDist() });
-      protocol.handle("lophn-shell", (request) =>
-        serve(request).then(
-          (res) =>
-            new Response(res.body ? Buffer.from(res.body) : null, {
-              status: res.status,
-              headers: res.headers,
-            }),
-        ),
-      );
-      // headless는 사람 화면의 tray 영역에도 아무것도 올리지 않는다.
-      if (!headless.headless) {
-        ctx.tray.current = installTray({
-          factory: electronTray,
-          icon: ctx.appIcon,
-          actions: {
-            openWindow: () => desktop.show(),
-            openHome: () => desktop.open(),
-            readAutostart: () => readAutostart(autostartOs),
-            writeAutostart: (enabled) => writeAutostart(autostartOs, enabled),
-            stop: () => void quitFlow.request(stopLophn),
-            quit: () => void quitFlow.request(quitShell),
-          },
-        });
-      }
-      // 전역 팔레트. 실패하면 tray에 사용 불가로 보이고 다른 key는 잡지 않는다.
-      // headless는 OS에 등록하지 않는다.
-      globalPalette = installGlobalPalette({
-        port: guardShortcuts(electronShortcuts, headless, log),
-        onPalette: () => desktop.send("global-palette"),
-        unavailable: () =>
-          ctx.tray.current?.notice("global-search-unavailable"),
-        log,
+  // 첫 창이 마지막 자리로 열리게 창보다 먼저 읽는다.
+  Promise.all([app.whenReady(), ctx.windowState.load()]).then(() => {
+    // 업데이트 전에 켜 둔 등록(`--tray`)을 새 intent(`--core`)로 한 번 다시 쓴다.
+    migrateAutostart(autostartOs);
+    const serve = createShellHandler({ distDir: ctx.rendererDist() });
+    protocol.handle("lophn-shell", (request) =>
+      serve(request).then(
+        (res) =>
+          new Response(res.body ? Buffer.from(res.body) : null, {
+            status: res.status,
+            headers: res.headers,
+          }),
+      ),
+    );
+    // headless는 사람 화면의 tray 영역에도 아무것도 올리지 않는다.
+    if (!headless.headless) {
+      ctx.tray.current = installTray({
+        factory: electronTray,
+        icon: ctx.appIcon,
+        actions: {
+          openWindow: () => desktop.show(),
+          openHome: () => desktop.open(),
+          readAutostart: () => readAutostart(autostartOs),
+          writeAutostart: (enabled) => writeAutostart(autostartOs, enabled),
+          stop: () => void quitFlow.request(stopLophn),
+          quit: () => void quitFlow.request(quitShell),
+        },
       });
-      // core만 띄우는 시작(`--core`)은 여기 오기 전에 끝난다. 첫 시작의 `--open-app`은
-      // 기본 창 대신 앱 전용 창을, `--agent-window`는 focus 없는 창을 연다.
-      const start = readOpenIntent(process.argv);
-      if (start.kind === "app") openIntent(start);
-      else if (start.kind === "agent-window") void desktop.openInactive();
-      else desktop.open();
+    }
+    // 전역 팔레트. 실패하면 tray에 사용 불가로 보이고 다른 key는 잡지 않는다.
+    // headless는 OS에 등록하지 않는다.
+    globalPalette = installGlobalPalette({
+      port: guardShortcuts(electronShortcuts, headless, log),
+      onPalette: () => desktop.send("global-palette"),
+      unavailable: () => ctx.tray.current?.notice("global-search-unavailable"),
+      log,
     });
-  }
+    // core만 띄우는 시작(`--core`)은 여기 오기 전에 끝난다. 첫 시작의 `--open-app`은
+    // 기본 창 대신 앱 전용 창을, `--agent-window`는 focus 없는 창을 연다.
+    const start = readOpenIntent(process.argv);
+    if (start.kind === "app") openIntent(start);
+    else if (start.kind === "agent-window") void desktop.openInactive();
+    else desktop.open();
+  });
 
   return {
     stop() {

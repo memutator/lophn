@@ -6,7 +6,7 @@
 
 import { readdirSync } from "node:fs";
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import { assignmentOf, isSha256Hash, type RetentionRule } from "../mod.ts";
 import {
   collectGarbage,
@@ -17,7 +17,10 @@ import {
 import { parsePurposeRecord } from "../mod.ts";
 import { parseUnreferencedRecord, unreferencedPathFor } from "../mod.ts";
 import { BLOB_STORE_TMP_DIR } from "../mod.ts";
-import { objectPathFor } from "../mod.ts";
+import { objectPathFor, purposesPathFor } from "../mod.ts";
+
+// 고아 기록 sweep이 한 번에 보는 후보 수. 남은 것은 다음 정지 때 이어진다.
+const ORPHAN_SWEEP_MAX = 2_000;
 
 // GC 관측의 설치 blob 파일 목록. hash 폴더 2자 아래 나머지 62자다.
 // core는 파일을 열지 않는다. 관측 실패는 없다고 본다.
@@ -125,6 +128,8 @@ export async function runMaintenanceGc(
       message: "정지 조건이 모두 관측되지 않아 유지보수를 실행하지 않는다",
     });
   }
+  // 고아 기록 sweep은 ledger 참조에 기대지 않아 참조 읽기 실패와 무관하게 돈다.
+  await sweepOrphanRecords(deps.root);
   // blob_refs 참조 행 + 등록 field 규칙 + 목적 기록으로 trimCapacity의
   // 할당을 산다. 목록 관측 실패는 아무것도 지우지 않는다(fail-closed).
   const rows = await deps.listReferenceRows();
@@ -187,6 +192,46 @@ async function forgetUnreferenced(
   }
 }
 
+// 본문이 없다고 확인된 hash의 목적 기록·미참조 표지 지우기. 실패는 삼킨다:
+// 남은 기록은 다음 정지 유지보수의 sweepOrphanRecords가 지운다.
+async function removeRecords(root: string, hash: string): Promise<void> {
+  for (const path of [
+    purposesPathFor(root, hash),
+    unreferencedPathFor(root, hash),
+  ]) {
+    if (!path.ok) continue;
+    await rm(path.value).catch(() => undefined);
+  }
+}
+
+// 이미 남은 고아 기록 쓸기. 본문이 없는(stat ENOENT) hash의 기록만 지운다.
+// 이름만 읽고, 후보는 ORPHAN_SWEEP_MAX개까지다. 실패는 GC 결과를 바꾸지 않는다.
+async function sweepOrphanRecords(root: string): Promise<void> {
+  const candidates = new Set<string>();
+  for (const name of ["purposes", "unreferenced"]) {
+    const dir = `${root}/blobs/${name}`;
+    try {
+      for (const prefix of readdirSync(dir)) {
+        for (const file of readdirSync(`${dir}/${prefix}`)) {
+          if (candidates.size >= ORPHAN_SWEEP_MAX) break;
+          if (!file.endsWith(".json")) continue;
+          const hash = `${prefix}${file.slice(0, -".json".length)}`;
+          if (isSha256Hash(hash)) candidates.add(hash);
+        }
+      }
+    } catch {
+      // 폴더가 없거나 읽지 못하면 이번 sweep에서 뺀다.
+    }
+  }
+  for (const hash of candidates) {
+    try {
+      await stat(objectPathFor(root, hash));
+    } catch (thrown) {
+      if (errorCode(thrown) === "ENOENT") await removeRecords(root, hash);
+    }
+  }
+}
+
 // collectGarbage·trimCapacity가 부르는 파일 관측 deps. 삭제·목록·기록은 이
 // file worker의 실제 관측이다.
 function maintenanceObservation(deps: MaintenanceDeps): GcDeps {
@@ -205,15 +250,18 @@ function maintenanceObservation(deps: MaintenanceDeps): GcDeps {
       recordUnreferenced(deps.root, hash, atMs),
     // 다시 참조된 hash의 기록 지우기(유예기간이 새로 섞인다).
     forgetUnreferenced: (hash) => forgetUnreferenced(deps.root, hash),
-    removeBlob: (hash) =>
-      (async () => {
-        try {
-          await rm(objectPathFor(deps.root, hash));
-          return ok(undefined);
-        } catch {
+    removeBlob: async (hash) => {
+      try {
+        await rm(objectPathFor(deps.root, hash));
+      } catch (thrown) {
+        // 본문이 이미 없으면 없다고 확인된 것이다. 그 밖의 실패는 기록을 건드리지 않는다.
+        if (errorCode(thrown) !== "ENOENT") {
           return err({ code: "unavailable", message: "blob 삭제에 실패했다" });
         }
-      })(),
+      }
+      await removeRecords(deps.root, hash);
+      return ok(undefined);
+    },
     listTmp: async () => {
       const entries: { name: string; observedAtMs: number }[] = [];
       let names: string[];

@@ -1,5 +1,5 @@
 // OS 사용자 환경에서 플랫폼이 만든 token·connection·handle·내부 endpoint를 뺀다.
-// 일반 shell에는 플랫폼 credential을 넣지 않는다.
+// 일반 shell에는 플랫폼 credential을 넣지 않는다. 사용자 env(ssh-agent·git 작성자·proxy)는 남긴다.
 
 const SECRET_NAME =
   /(TOKEN|SECRET|PASSWORD|CREDENTIAL|KEYCHAIN|HANDLE|API_KEY|AUTH)/i;
@@ -26,6 +26,21 @@ export const SESSION_MARKER_NAME = new Set([
   "CODEX_SANDBOX",
   "CODEX_SANDBOX_NETWORK_DISABLED",
 ]);
+// 이름 규칙·값 규칙이 지우는 사용자 env 중 남길 것. 정확한 이름만 받아 GIT_AUTHOR_TOKEN 같은 것은 지운다.
+const KEEP_NAME = new Set([
+  "SSH_AUTH_SOCK",
+  "XAUTHORITY",
+  "GIT_AUTHOR_NAME",
+  "GIT_AUTHOR_EMAIL",
+  "GIT_AUTHOR_DATE",
+  "GIT_COMMITTER_NAME",
+  "GIT_COMMITTER_EMAIL",
+  "GIT_COMMITTER_DATE",
+  ...["HTTP", "HTTPS", "ALL", "NO", "FTP"].flatMap((kind) => [
+    `${kind}_PROXY`,
+    `${kind.toLowerCase()}_proxy`,
+  ]),
+]);
 const INTERNAL_VALUE = /lophn-(core|agent|shell):\/\/|127\.0\.0\.1:\d{2,5}/i;
 
 export function stripPlatformEnv(
@@ -36,6 +51,10 @@ export function stripPlatformEnv(
     if (value === undefined) continue;
     if (INTERNAL_NAME.test(name)) continue;
     if (SESSION_MARKER_NAME.has(name)) continue;
+    if (KEEP_NAME.has(name)) {
+      out[name] = value;
+      continue;
+    }
     if (SECRET_NAME.test(name)) continue;
     if (INTERNAL_VALUE.test(value)) continue;
     out[name] = value;

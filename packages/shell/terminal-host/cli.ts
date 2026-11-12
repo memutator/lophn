@@ -77,7 +77,31 @@ setInterval(() => {
   }
 }, FOREGROUND_POLL_MS).unref();
 
+// 끝내는 길은 하나다. PTY 자식을 SIGHUP, SIGKILL까지 정리한 뒤 끝난다.
+let exiting = false;
+function exit(reason: string, code: number): void {
+  if (exiting) return;
+  exiting = true;
+  console.error(`terminal host exiting: ${reason}`);
+  host.shutdown().then(
+    () => process.exit(code),
+    () => process.exit(1),
+  );
+}
+process.on("SIGTERM", () => exit("SIGTERM", 0));
+// 요청 밖의 예외는 상태를 믿을 수 없어 정리하고 끝난다.
+for (const event of ["uncaughtException", "unhandledRejection"] as const) {
+  process.on(event, (error) => {
+    console.error(`terminal host ${event}:`, error);
+    exit(event, 1);
+  });
+}
+// main이 사라지면 EPIPE가 난다.
+process.stdout.on("error", () => exit("stdout closed", 0));
+
 const lines = createInterface({ input: process.stdin });
+// main이 사라지면 stdin이 EOF가 된다. 살아 있는 PTY가 event loop를 붙잡아 고아가 되지 않게 끝낸다.
+lines.on("close", () => exit("stdin closed", 0));
 lines.on("line", async (line) => {
   const text = line.trim();
   if (text.length === 0) return;
@@ -89,7 +113,7 @@ lines.on("line", async (line) => {
   }
   // close·restart는 child 종료 확인을 기다린다. 다른 요청은 그 사이에도 답한다.
   const reply = await host.handle(request);
-  // runtime을 함께 보내야 supervisor가 종료·host-lost 때 unknown을 표시할
+  // runtime을 함께 보내야 supervisor가 host가 사라졌을 때 unknown을 표시할
   // 자료를 가진다. reply에 runtime이 이미 있으면 한 번만 싣는다.
   const runtime = reply.ok && "runtime" in reply ? reply.runtime : undefined;
   process.stdout.write(

@@ -71,8 +71,7 @@ export type HostRequest =
     }
   | { id: string; type: "close"; terminal_ref: string; generation: number }
   | { id: string; type: "restart"; terminal_ref: string; generation: number }
-  | { id: string; type: "snapshot"; terminal_ref: string; after_seq?: number }
-  | { id: string; type: "host-lost" };
+  | { id: string; type: "snapshot"; terminal_ref: string; after_seq?: number };
 
 type HostDeps = {
   ids: IdSource;
@@ -95,8 +94,6 @@ type Session = {
   screen: Screen;
   handle: PtyHandle | null;
   group: ProcessGroup | null;
-  /** 사람이 보낸 입력. 재시작 때 재생하지 않는다. */
-  typed: string[];
   /** open 요청이 더한 env. restart가 이어 쓴다. */
   env?: Record<string, string>;
   /** 마지막으로 알린 foreground process argv를 이어 붙인 것. 바뀌었는지만 본다. */
@@ -110,17 +107,13 @@ export type ForegroundChange = {
 };
 
 type Host = {
-  /** close·restart는 child 종료를 기다려 확인하므로 Promise다. */
-  handle(
-    request: HostRequest,
-  ):
-    | TerminalReply
-    | TerminalSnapshotReply
-    | Promise<TerminalReply | TerminalSnapshotReply>;
+  /** 요청 하나의 예외는 그 요청의 host_lost 답이 된다. close·restart는 child 종료를 기다린다. */
+  handle(request: HostRequest): Promise<TerminalReply | TerminalSnapshotReply>;
   sessions(): readonly TerminalRuntime[];
   /** 살아 있는 shell 터미널 중 foreground argv가 지난번과 달라진 것만 돌려준다. */
   foregroundChanges(): ForegroundChange[];
-  dispose(): TerminalRuntime[];
+  /** 도는 모든 터미널을 SIGHUP, 확인, SIGKILL로 정리한다. host가 끝나기 전에 부른다. */
+  shutdown(): Promise<void>;
 };
 
 function createHost(deps: HostDeps): Host {
@@ -167,7 +160,6 @@ function createHost(deps: HostDeps): Host {
       screen: new Screen(request.columns, request.rows),
       handle: null,
       group: null,
-      typed: [],
       env: shellEnv,
       foreground: null,
     };
@@ -201,7 +193,10 @@ function createHost(deps: HostDeps): Host {
       runtime.shell_pid = handle.pid;
       // 등록을 spawn 직후 동기로 붙인다. 미루면 초기 출력·종료를 놓친다.
       session.handle?.onData((chunk) => {
-        void acceptChunk(session, chunk);
+        // 한 탭 출력의 parse 예외가 host 전체를 끝내지 않게 한다.
+        acceptChunk(session, chunk).catch((error: unknown) => {
+          console.error("terminal output failed:", error);
+        });
       });
       session.handle?.onExit((exit) => {
         // 성공을 추정하지 않고 관측한 종료를 기록한다. 이미 기록한
@@ -213,7 +208,11 @@ function createHost(deps: HostDeps): Host {
         session.handle = null;
         deps.onRuntime?.({ ...runtime });
       });
-    } catch {
+    } catch (error) {
+      // 화면에는 spawn_failed만 보이므로 원인(SHELL 실행 불가, cwd 권한 등)은 stderr로만 남는다.
+      console.error(
+        `terminal spawn failed: ${program.file}: ${error instanceof Error ? error.message : String(error)}`,
+      );
       runtime.state = "exited";
       runtime.failure_reason = "spawn_failed";
       runtime.exit_code = null;
@@ -260,102 +259,96 @@ function createHost(deps: HostDeps): Host {
       columns: session.runtime.columns,
       rows: session.runtime.rows,
     });
-    if (next.ok) {
-      const restarted = sessions.get(next.runtime.terminal_ref);
-      if (restarted && restarted.typed.length !== 0) {
-        throw new Error("restart replayed input");
-      }
-    }
     return next;
   }
 
+  function dispatch(
+    request: HostRequest,
+  ):
+    | TerminalReply
+    | TerminalSnapshotReply
+    | Promise<TerminalReply | TerminalSnapshotReply> {
+    if (request.type === "open") return start(undefined, request);
+    if (request.type === "snapshot") {
+      const session = sessions.get(request.terminal_ref);
+      if (!session) return reject("host_lost", "terminal is gone");
+      const after = request.after_seq ?? 0;
+      // after_seq 뒤 출력이 있으면 지금 화면 하나를 그 마지막 seq로 준다. raw chunk를 나눠 주지 않는다.
+      return session.screen.snapshot().then((screen) => ({
+        ok: true as const,
+        // runtime을 같이 실어야 renderer가 종료·exit code·결과 불명을 본다.
+        runtime: { ...session.runtime },
+        output:
+          screen.seq > after && screen.text !== ""
+            ? [
+                {
+                  terminal_ref: session.runtime.terminal_ref,
+                  generation: session.runtime.generation,
+                  seq: screen.seq,
+                  chunk: screen.text,
+                  dropped_output: session.screen.dropped,
+                },
+              ]
+            : [],
+      }));
+    }
+    const session = sessionAt(request.terminal_ref, request.generation);
+    if (!session) return reject("host_lost", "generation does not match");
+    if (request.type === "input") {
+      if (session.runtime.state !== "running" || !session.handle) {
+        return reject("host_lost", "terminal is not running");
+      }
+      session.handle.write(request.text);
+      return { ok: true, runtime: { ...session.runtime } };
+    }
+    if (request.type === "signal") {
+      if (session.runtime.state !== "running" || !session.handle) {
+        return reject("host_lost", "terminal is not running");
+      }
+      if (deps.platform !== "linux") {
+        return reject("host_lost", "signal is only available on Linux");
+      }
+      // foreground가 shell 자신이면 보낼 곳이 없다.
+      const group = foregroundGroupOf({
+        pid: session.handle.pid,
+        platform: deps.platform,
+        readFile: (path) => readFileSync(path, "utf8"),
+      });
+      if (group !== null) {
+        try {
+          process.kill(-group, request.signal);
+        } catch {
+          // 그 사이 끝난 group이다.
+        }
+      }
+      return { ok: true, runtime: { ...session.runtime } };
+    }
+    if (request.type === "resize") {
+      if (session.runtime.state !== "running" || !session.handle) {
+        return reject("host_lost", "terminal is not running");
+      }
+      session.handle.resize(request.columns, request.rows);
+      session.screen.resize(request.columns, request.rows);
+      session.runtime.columns = request.columns;
+      session.runtime.rows = request.rows;
+      return { ok: true, runtime: { ...session.runtime } };
+    }
+    if (request.type === "close") return stop(session, deps.sleep);
+    if (request.type === "restart") {
+      return restart(session, request.id);
+    }
+    return reject("spawn_failed", "unknown request");
+  }
+
   return {
-    handle(request) {
-      if (request.type === "open") return start(undefined, request);
-      if (request.type === "host-lost") {
-        const gone = this.dispose();
-        const marked = gone.map((runtime) => {
-          runtime.state = "unknown";
-          runtime.failure_reason = "host_lost";
-          runtime.exit_code = null;
-          const session = sessions.get(runtime.terminal_ref);
-          if (session) session.runtime = runtime;
-          return runtime;
-        });
-        return marked[0]
-          ? { ok: true, runtime: marked[0] }
-          : reject("host_lost", "terminal host is gone");
+    async handle(request) {
+      try {
+        return await dispatch(request);
+      } catch (error) {
+        console.error("terminal request failed:", error);
+        const message = error instanceof Error ? error.message : String(error);
+        return reject("host_lost", `terminal host failed: ${message}`);
       }
-      if (request.type === "snapshot") {
-        const session = sessions.get(request.terminal_ref);
-        if (!session) return reject("host_lost", "terminal is gone");
-        const after = request.after_seq ?? 0;
-        // after_seq 뒤 출력이 있으면 지금 화면 하나를 그 마지막 seq로 준다. raw chunk를 나눠 주지 않는다.
-        return session.screen.snapshot().then((screen) => ({
-          ok: true as const,
-          // runtime을 같이 실어야 renderer가 종료·exit code·결과 불명을 본다.
-          runtime: { ...session.runtime },
-          output:
-            screen.seq > after && screen.text !== ""
-              ? [
-                  {
-                    terminal_ref: session.runtime.terminal_ref,
-                    generation: session.runtime.generation,
-                    seq: screen.seq,
-                    chunk: screen.text,
-                    dropped_output: session.screen.dropped,
-                  },
-                ]
-              : [],
-        }));
-      }
-      const session = sessionAt(request.terminal_ref, request.generation);
-      if (!session) return reject("host_lost", "generation does not match");
-      if (request.type === "input") {
-        if (session.runtime.state !== "running" || !session.handle) {
-          return reject("host_lost", "terminal is not running");
-        }
-        session.typed.push(request.text);
-        session.handle.write(request.text);
-        return { ok: true, runtime: { ...session.runtime } };
-      }
-      if (request.type === "signal") {
-        if (session.runtime.state !== "running" || !session.handle) {
-          return reject("host_lost", "terminal is not running");
-        }
-        if (deps.platform !== "linux") {
-          return reject("host_lost", "signal is only available on Linux");
-        }
-        // foreground가 shell 자신이면 보낼 곳이 없다.
-        const group = foregroundGroupOf({
-          pid: session.handle.pid,
-          platform: deps.platform,
-          readFile: (path) => readFileSync(path, "utf8"),
-        });
-        if (group !== null) {
-          try {
-            process.kill(-group, request.signal);
-          } catch {
-            // 그 사이 끝난 group이다.
-          }
-        }
-        return { ok: true, runtime: { ...session.runtime } };
-      }
-      if (request.type === "resize") {
-        if (session.runtime.state !== "running" || !session.handle) {
-          return reject("host_lost", "terminal is not running");
-        }
-        session.handle.resize(request.columns, request.rows);
-        session.screen.resize(request.columns, request.rows);
-        session.runtime.columns = request.columns;
-        session.runtime.rows = request.rows;
-        return { ok: true, runtime: { ...session.runtime } };
-      }
-      if (request.type === "close") return stop(session, deps.sleep);
-      if (request.type === "restart") {
-        return restart(session, request.id);
-      }
-      return reject("spawn_failed", "unknown request");
     },
     sessions() {
       return [...sessions.values()].map((session) => ({ ...session.runtime }));
@@ -381,18 +374,10 @@ function createHost(deps: HostDeps): Host {
       }
       return changes;
     },
-    dispose() {
-      const gone: TerminalRuntime[] = [];
-      for (const session of sessions.values()) {
-        if (
-          session.runtime.state === "running" ||
-          session.runtime.state === "starting"
-        ) {
-          finish(session);
-        }
-        gone.push({ ...session.runtime });
-      }
-      return gone;
+    async shutdown() {
+      await Promise.all(
+        [...sessions.values()].map((session) => stop(session, deps.sleep)),
+      );
     },
   };
 }
@@ -456,31 +441,7 @@ function settleRuntime(session: Session, confirmed: boolean): TerminalReply {
   }
   session.handle = null;
   session.screen.dispose();
-  session.typed.length = 0;
   return { ok: true, runtime: { ...session.runtime } };
-}
-
-/** host 종료 때의 동기 정리. 기다릴 수 없으므로 신호 직후의 관측만 쓴다. */
-function finish(session: Session): TerminalReply {
-  if (
-    session.runtime.state !== "running" &&
-    session.runtime.state !== "starting"
-  ) {
-    return { ok: true, runtime: { ...session.runtime } };
-  }
-  try {
-    hangup(session.handle);
-  } catch {
-    // group 확인이 종료의 근거다.
-  }
-  const killed = session.group?.kill("SIGHUP") ?? {
-    confirmed: false as const,
-    reason: "no_group",
-  };
-  const confirmed = killed.confirmed
-    ? killed
-    : (session.group?.kill("SIGKILL") ?? killed);
-  return settleRuntime(session, confirmed.confirmed);
 }
 
 function pickFolder(

@@ -354,12 +354,12 @@ flows:
     code: [packages/core/main/daemon/main.ts, packages/core/main/daemon/core.ts, packages/core/install-and-update/data-root.ts, packages/core/install-and-update/instance-lock.ts, packages/core/main/daemon/wiring/context.ts]
     steps:
       - "data root를 풀고 POSIX면 소유자와 0700(apps, run 포함)을 검사한다. 어긋나면 기동을 거절한다. 그 뒤 run/instance.lock을 EXCLUSIVE sqlite lock으로 잡는다. 이미 잡혔으면 물러선다"
-      - "앞 판의 run/user-token과 run/location.json을 지운다(ENOENT가 아닌 오류는 throw다). control socket을 listen한다(state starting)"
+      - "앞 판의 run/user-token과 run/location.json을 지운다(ENOENT가 아닌 오류는 throw다). run/running.marker(pid, started_at)가 남아 있으면 previous_unclean_exit를 log에 남기고 새로 쓴다. control socket을 listen한다(state starting)"
       - "팀 조립과 route 등록을 확인한다. ledger schema step(system:ledger-migrate)을 적용하고, data step(system:data-steps-apply)을 적용한 뒤 ledger-id를 정하고 재시작 점검을 돈다. 점검 결과는 어디에도 기록하지 않는다"
       - "writer와 reader Worker를 열고 wiring의 build를 돈다. sdk-install build는 node·npm shim, SDK 사본(app-release flow), 내장 앱 template 순서로 깐다(system:builtin-install)"
       - "memory route와 handler 짝을 확인하고 API를 연 뒤 wiring start를 돈다. platform/io child가 이때 뜬다. @me 사본 되살리기도 start에서 돈다(app-release 몫)"
       - "ready를 세우고 afterReady를 돈다(복구본 정리, idle 시작). control을 ready로 바꾼다"
-      - "stdout에 ready 한 줄을 쓴다. 실패는 start_failed와 reason 한 줄을 쓰고 exit 1로 끝난다. reason은 migration이 낸 세 가지만 구별하고 나머지는 other다"
+      - "stdout에 ready 한 줄을 쓴다. 실패는 start_failed와 reason 한 줄을 쓰고 exit 1로 끝난다(running.marker를 지운다). reason은 migration이 낸 세 가지만 구별하고 나머지는 other다. ready 전에 ledger writer가 죽어도 이 길이다"
     outcomes:
       - id: ready
         observe: ["process:stdout 첫 줄 ready", "ledger:schema_migrations", "log:core started"]
@@ -378,7 +378,7 @@ flows:
       - id: start-failed-other
         code: unavailable
         observe: ["process:stdout start_failed other"]
-        when: "reason을 구별하지 않는 나머지 실패 전부다. data root 검사 실패, instance lock 충돌(내부 conflict)과 lock 파일 열기 실패, control socket·API·writer·reader 기동 실패, 팀 조립 실패, route 등록 충돌이나 schema step id 중복(internal), 복구본 만들기 실패(recovery-copy-failed), 적용 step 실패나 적용 뒤 FK·무결성 검사 실패(step-failed), data step의 기록 깨짐·기록 쓰기 실패·step 실패, ledger 식별 기록 실패, 재시작 점검 실패, wiring record 실패, builtin-install build 실패, platform/io 시작 실패와 다른 wiring의 start 실패(@me 되살리기 읽기 실패 등), memory route와 handler 불일치(internal), API 열기 실패"
+        when: "reason을 구별하지 않는 나머지 실패 전부다. data root 검사 실패, instance lock 충돌(내부 conflict)과 lock 파일 열기 실패, control socket·API·writer·reader 기동 실패(ready 전 writer Worker 죽음 포함), 팀 조립 실패, route 등록 충돌이나 schema step id 중복(internal), 복구본 만들기 실패(recovery-copy-failed), 적용 step 실패나 적용 뒤 FK·무결성 검사 실패(step-failed), data step의 기록 깨짐·기록 쓰기 실패·step 실패, ledger 식별 기록 실패, 재시작 점검 실패, wiring record 실패, builtin-install build 실패, platform/io 시작 실패와 다른 wiring의 start 실패(@me 되살리기 읽기 실패 등), memory route와 handler 불일치(internal), API 열기 실패"
       - id: uncaught-throw
         observe: ["process:stdout 줄 없음", "process:exit 1"]
         when: "Result가 아니라 throw로 startCore를 떠난다(run/user-token이나 location.json을 ENOENT가 아닌 오류로 지울 때 등). start_failed 줄이 나가지 않는다"
@@ -676,6 +676,49 @@ flows:
     unclear:
       - "알려진 secret 등록 전에 죽으면 패턴 규칙만 적용된다. 값이 stderr에 새는지는 test로 본 적이 없다"
 
+  - id: core-writer-dead
+    title: "ready 뒤 ledger writer Worker가 죽으면 core가 graceful shutdown 없이 exit 1로 끝난다"
+    actor: system
+    entries: [system:core-writer-dead]
+    boundary: [core, storage]
+    code: [packages/core/main/daemon/runtime.ts, packages/core/main/daemon/core.ts, packages/core/storage/ledger/writer-worker.ts]
+    steps:
+      - "writer Worker가 error 없이 끝나거나, error event가 나거나, 보낸 failed(id 0, 연결 fault 포함)를 받으면 닫는 중이 아닌 한 죽은 것으로 본다. 기다리던 요청은 unavailable로 끝난다"
+      - "ready 전이면 표시만 남기고 기동이 unavailable로 끝나 core-boot의 start_failed가 된다"
+      - "ready 뒤면 writer_dead(cause)를 log에 남기고 log flush를 1초까지 기다린 뒤 exit 1로 끝난다. graceful shutdown은 하지 않는다. shell이 다시 띄운다(shell-core-stale)"
+    outcomes:
+      - id: exit-after-ready
+        observe: ["log:core writer_dead", "process:exit 1", "disk:run/running.marker 남음"]
+        when: "ready 뒤 writer가 죽었다(cause는 exit, error, failed). stop 중이면 아무 일도 없다"
+      - id: start-failed
+        code: unavailable
+        observe: ["log:core writer_dead", "process:stdout start_failed other"]
+        when: "ready 전에 writer가 죽었다. 기동이 실패로 돌려준다"
+    crosses_process: true
+    risk: [data-loss]
+    docs: [architecture/platform.md]
+
+  - id: core-shutdown-deadline
+    title: "종료 순서가 90초를 넘기면 core가 exit 1로 끝난다"
+    actor: system
+    entries: [system:core-shutdown-deadline]
+    boundary: [core]
+    code: [packages/core/main/daemon/core.ts, packages/core/server/serve.ts]
+    steps:
+      - "shutdown barrier(control stop, idle-exit, 신호가 같은 하나)가 시작되면 90초 timer를 건다. 단계별 기한의 합(65초)보다 길다"
+      - "HTTP server는 받은 요청을 10초까지 기다린 뒤 남은 connection을 끊는다"
+      - "정상 종료는 running.marker를 지우고 lock을 푼 뒤 timer를 푼다. timer가 먼저 서면 shutdown_deadline을 log에 남기고 exit 1이다(자식은 stdin EOF로 끝나고 lock은 OS가 푼다)"
+    outcomes:
+      - id: finished-in-time
+        observe: ["disk:run/running.marker 삭제", "process:exit"]
+        when: "90초 안에 barrier가 끝났다"
+      - id: deadline-exit
+        observe: ["log:core shutdown_deadline", "process:exit 1", "disk:run/running.marker 남음"]
+        when: "90초 안에 끝나지 않은 단계가 있다"
+    crosses_process: true
+    risk: [data-loss]
+    docs: [architecture/platform.md]
+
   - id: core-idle-exit
     title: "일도 client도 없는 상태가 10분 이어지면 core가 스스로 끝난다"
     actor: system
@@ -684,7 +727,7 @@ flows:
     boundary: [core]
     code: [packages/core/main/daemon/idle.ts, packages/core/main/daemon/wiring/idle.ts]
     steps:
-      - "ready가 된 뒤 30초마다 깨어 일을 본다. 일은 job, run, workflow instance의 activity read 셋을 machine:idle 자격으로 읽은 것이다"
+      - "ready가 된 뒤 30초마다 깨어 일을 본다. 일은 도는 lophn agent turn(core 메모리의 queue)과 job, run, workflow instance의 activity read 셋을 machine:idle 자격으로 읽은 것이다. 대기 중인 입력과 harness queue는 세지 않는다"
       - "붙은 client(진행 중 HTTP 요청과 Gateway 구독)가 있거나 일이 있거나 읽는 동안 새 client가 들어왔으면 유휴를 비운다"
       - "읽기가 err를 돌려주거나 throw하면 일이 있는 것으로 보고 warn 한 줄을 남기고 살아 있는다"
       - "일도 client도 없는 상태가 10분 이어지면 shutdown barrier를 시작한다. control stop과 같은 barrier다"
@@ -694,7 +737,7 @@ flows:
         when: "유휴가 10분 이어졌다"
       - id: kept-alive
         observe: ["process:core 계속 실행"]
-        when: "일이나 client가 있다. 활동 읽기가 err를 돌려주거나 throw했다(log:core idle_activity_read_failed로도 남는다)"
+        when: "일(도는 lophn agent turn 포함)이나 client가 있다. 활동 읽기가 err를 돌려주거나 throw했다(log:core idle_activity_read_failed로도 남는다)"
     crosses_process: true
     risk: [data-loss]
 
@@ -1080,7 +1123,7 @@ flows:
         when: "identify가 stopping이라 답했다. 연결은 stale로 남고 이후 자동 복구도 멈춘다"
       - id: skipped
         observe: ["process:core를 띄우지 않는다"]
-        when: "Stop lophn이나 detach로 멈췄거나 shutdown을 본 뒤다. control이 처음부터 없었으면(판을 읽지 못함) 연결은 failed-start이고 여기서는 아무것도 하지 않는다"
+        when: "Stop lophn이나 detach로 멈췄거나(돌던 ensure는 signal로 끊겨 core를 새로 띄우지 않는다) shutdown을 본 뒤다. control이 처음부터 없었으면(판을 읽지 못함) 연결은 failed-start이고 여기서는 아무것도 하지 않는다"
     crosses_process: true
     unclear:
       - "identify가 ok가 아니면 stopping 검사를 건너뛰고 바로 ensure로 간다. 의도인지 확인할 것"
@@ -1093,13 +1136,16 @@ flows:
     boundary: [shell, event-stream]
     code: [packages/shell/main/desktop/core/connection.ts, packages/shell/main/desktop/core/events.ts]
     steps:
-      - "Gateway sink가 stale을 알리면 shutdown을 본 적이 없을 때만 연결 state를 stale로 밀고 1초 뒤 recover를 건다"
+      - "Gateway sink가 stale을 알리면 shutdown을 본 적이 없을 때만 연결 state를 stale로 밀고 recover를 건다. ready 뒤 60초를 못 산 core의 끝을 crash로 세고(60초 넘게 산 뒤의 끝은 센 수를 0으로 돌린다) 대기는 1, 2, 4, 8초다. 다섯 번째에서 멈춘다"
       - "core가 closed(shutdown) frame을 보내면 창에 closed를 넘기고 shutdownSeen을 세운 뒤 state를 stale로 둔다. 이 뒤로는 recover가 다시 띄우지 않는다"
       - "shutdownSeen이 선 뒤의 stale 알림은 무시한다"
     outcomes:
       - id: retry-scheduled
-        observe: ["process:연결 state가 stale이 되고 1초 뒤 shell-core-recover가 돈다"]
-        when: "socket이 끊겼고 shutdown을 보지 않았다"
+        observe: ["process:연결 state가 stale이 되고 1초(crash가 이어지면 2, 4, 8초) 뒤 shell-core-recover가 돈다"]
+        when: "socket이 끊겼고 shutdown을 보지 않았다. 연속 crash가 네 번 이하다"
+      - id: restart-capped
+        observe: ["screen:home-start-failed", "process:core를 다시 띄우지 않는다"]
+        when: "ready 뒤 60초를 못 산 core가 연달아 다섯 번째로 끝났다. 시작 실패 화면에 멈춘다. Retry(attachIfAlive)는 센 수를 비우지 않고 이미 서 있는 core에만 붙는다"
       - id: shutdown-stale
         observe: ["process:재연결이 없다", "process:창에 closed가 간다"]
         when: "closed(shutdown) frame을 받았다. core가 내려가는 중이라 다시 띄우지 않는다"

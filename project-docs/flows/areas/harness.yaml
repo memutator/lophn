@@ -1256,7 +1256,7 @@ flows:
     steps:
       - "harness의 전역 hook이 lophn hook <harness> <event>를 부르고 JSON을 stdin으로 준다"
       - "LPN_TERMINAL_HOOK이 없으면 stdin을 읽지 않고 harness가 요구하는 stdout만 내고 끝낸다"
-      - "stdin은 1 MiB까지 읽고 최상위 글 field를 4096자로 자른다. event가 lophn-gui면 호출한 cwd를 더한다"
+      - "stdin은 1 MiB까지 1초 안에 읽고(닫히지 않는 stdin이면 포기하고 성공으로 끝낸다) 최상위 글 field를 4096자로 자른다. event가 lophn-gui면 호출한 cwd를 더한다"
       - "payload가 64 KiB를 넘거나 JSON이 깨졌으면 버린다"
       - "터미널 socket에 {v, key, harness, event, payload} 한 줄을 쓰고 답 없이 닫는다. 1초 안에 못 쓰면 버린다. 실패해도 성공으로 끝낸다"
     outcomes:
@@ -1267,7 +1267,7 @@ flows:
         when: "LPN_TERMINAL_HOOK이 없거나 맞지 않다. stdin을 읽지 않는다"
         observe: [response]
       - id: dropped
-        when: "stdin이 1 MiB를 넘었다, JSON이 깨졌다, payload가 64 KiB를 넘었다, 줄이 계약에 맞지 않다, socket에 1초 안에 못 썼다(실패도 성공으로 끝난다)"
+        when: "stdin이 1 MiB를 넘었거나 1초 안에 끝나지 않았다, JSON이 깨졌다, payload가 64 KiB를 넘었다, 줄이 계약에 맞지 않다, socket에 1초 안에 못 썼다(stdin 읽기와 쓰기가 1초를 나눠 쓴다. 실패도 성공으로 끝난다)"
         observe: [response]
     crosses_process: false
     refs: [P6]
@@ -1624,8 +1624,8 @@ flows:
       - "command 입력(harness, command)을 검사한다. 틀리면 invalid_input"
       - "옛 skill 사본은 lophn이 쓰던 byte 그대로일 때만 지운다(RETIRED_SKILL_NAMES)"
       - "harness의 전역 설정에 lophn 항목만 넣는다. JSON, JSONC, TOML, YAML, plugin file 꼴에 따라 다르다. 사람의 나머지 byte는 그대로 둔다"
-      - "Codex는 config.toml에 우리 hook의 trust hash를 쓴다"
-      - "파싱되지 않거나 고칠 수 없으면 아무것도 쓰지 않고 failed다. muse에 다른 managed_hooks_path가 있으면 conflict다. 쓰기 자체가 던지면 unavailable이다"
+      - "Codex는 config.toml에 우리 hook의 trust hash를 hooks.json보다 먼저 쓴다. 설정 file은 임시 file에 쓴 뒤 rename하고(symlink는 가리키는 file을 고치고 mode를 지킨다), 읽은 뒤 쓰기 전에 file이 바뀌었으면 한 번 다시 읽는다"
+      - "파싱되지 않거나 고칠 수 없으면, 또는 다시 읽고도 또 바뀌었으면 아무것도 쓰지 않고 failed다. muse에 다른 managed_hooks_path가 있으면 conflict다. 쓰기 자체가 던지면 unavailable이다"
     outcomes:
       - id: installed
         observe: ["disk:<harness 전역 설정 file>", response]
@@ -1669,7 +1669,7 @@ flows:
       - "lophn 항목만 알아본다(command가 lophn hook으로 시작, 표시 block, lophn 이름의 file). 사람이 더한 항목은 남긴다"
       - "글 형식은 놓기 전 byte로 돌아가고, 우리 것만 남은 event key와 file은 지운다. Codex는 우리 trust 기록을 지운다"
       - "그 harness의 skill 폴더에서 lophn이 쓴 공유 사본도 지운다"
-      - "설정을 파싱할 수 없거나 사람 항목이 섞여 안전하게 못 고치면 아무것도 쓰지 않고 failed다"
+      - "설정을 파싱할 수 없거나 사람 항목이 섞여 안전하게 못 고치면 아무것도 쓰지 않고 failed다. 읽은 뒤 쓰기 전에 file이 바뀌었으면 한 번 다시 읽고, 또 바뀌었으면 쓰지 않고 failed다. 설정은 임시 file에 쓴 뒤 rename한다"
     outcomes:
       - id: removed
         observe: ["disk:<harness 전역 설정 file>", response]
@@ -1736,8 +1736,8 @@ flows:
       - "renderer가 project와 folder_ref나 cwd를 보낸다. 창이 등록된 본문 창이 아니면 forbidden이다"
       - "cwd가 있으면 등록 폴더 안인지 realpath로 본다. 밖이거나 없는 경로면 outside-folder로 끝낸다"
       - "bridge와 hook의 env, CLI PATH, shell 시작 층을 모아 host에 open을 보낸다. host가 등록 폴더를 고르고 login shell을 찾아 PTY를 띄운다"
-      - "host가 폴더를 고르지 못하거나 쓰지 못하면 refused다. shell을 띄우지 못하면 spawn-failed다"
-      - "띄우면 bridge와 hook을 이 터미널에 묶는다. resume 값이나 command가 있으면 shell 시작 층이 가라앉은 뒤 그 줄을 친다(한 줄은 Enter까지, 여러 줄은 bracketed paste)"
+      - "host가 폴더를 고르지 못하거나 쓰지 못하면 refused다. shell을 띄우지 못하면 spawn-failed다. 원인(SHELL 실행 불가, cwd 권한 등)은 host가 stderr에 남기고 화면에는 spawn_failed만 보인다. supervisor 요청은 10초 안에 host가 답하지 않으면 host_lost로 끝난다"
+      - "띄우면 bridge와 hook을 이 터미널에 묶는다. resume 값이나 command가 있으면 shell 시작 층이 가라앉은 뒤 그 줄을 친다(한 줄은 Enter까지, 여러 줄은 bracketed paste). 친 줄이 거절돼도 탭은 이미 열렸으므로 열기는 실패가 아니고 다시 치지 않는다"
     outcomes:
       - id: opened
         observe: [process:pty-shell, response]
@@ -1748,8 +1748,11 @@ flows:
         when: "project에 등록 폴더가 없다(no_folder), folder_ref가 등록되지 않았다(unreadable), 폴더를 쓸 수 없다(not_directory, unreadable)"
         observe: [response]
       - id: spawn-failed
-        when: "login shell을 찾지 못했다(응답 ok가 거짓). 또는 PTY spawn이 던졌다(응답은 ok이고 runtime이 exited, failure_reason spawn_failed)"
-        observe: [response]
+        when: "login shell을 찾지 못했다(응답 ok가 거짓). 또는 PTY spawn이 던졌다(응답은 ok이고 runtime이 exited, failure_reason spawn_failed). 두 번째 경우 원인은 host stderr에 한 줄로 남는다"
+        observe: [response, "log:host stderr terminal spawn failed"]
+      - id: host-lost
+        when: "terminal host가 10초 안에 답하지 않았거나 요청을 처리하다 던졌다(응답 ok가 거짓, reason host_lost). host가 끝났으면 shell main log에 code, signal, stderr 마지막 4 KiB가 한 줄로 남는다"
+        observe: [response, "log:shell terminal host exited"]
       - id: forbidden
         code: forbidden
         when: "창이 등록된 본문 창이 아니다(checkCaller)"
@@ -1769,7 +1772,7 @@ flows:
       - packages/shell/terminal-host/main.ts
       - packages/shell/terminal-host/shell-integration.ts
     steps:
-      - "lophn을 띄운 process의 env에서 내부 이름(LOPHN_, ELECTRON_), secret류 이름(TOKEN, PASSWORD, API_KEY 등), 상위 session 표지를 뺀다"
+      - "lophn을 띄운 process의 env에서 내부 이름(LOPHN_, ELECTRON_), secret류 이름(TOKEN, PASSWORD, API_KEY 등), local port 값, 상위 session 표지를 뺀다. 단 SSH_AUTH_SOCK, XAUTHORITY, GIT_AUTHOR_·GIT_COMMITTER_의 NAME·EMAIL·DATE, proxy 변수(HTTP_PROXY 등 대소문자 둘)는 정확한 이름만 남긴다"
       - "COLORTERM을 truecolor로 덮는다. TERM만 보면 Claude Code와 Codex가 256색으로 내려 자기 색을 근사한다"
       - "shell 시작 층과 탭의 env는 그 뒤에 덮는다"
       - "bash·zsh 시작 층 file이 run 폴더에 없으면 시작 층 없이 원래 login shell 인자로 띄운다. 없는 --init-file이나 빈 ZDOTDIR이면 사용자 rc를 하나도 읽지 않는다"
@@ -1782,7 +1785,7 @@ flows:
     risk: [secret, twice-fixed]
     docs: [architecture/terminal-agent.md, products/change-log/0.9/terminal-env-colorterm-truecolor.yaml]
     unclear:
-      - "env_test는 COLORTERM만 단정한다. secret 이름을 빼는 것은 테스트가 없다"
+      - "env_test는 허용 목록이 남는 것과 token·endpoint가 지워지는 것을 단정한다. COLORTERM 덮기는 단정하지 않는다"
 
   - id: terminal-input
     title: "사람이 친 글을 focus가 있는 터미널의 PTY에 넣는다"
@@ -2079,10 +2082,10 @@ flows:
     steps:
       - "Ctrl+Shift+V(terminal.paste)가 focus가 있는 탭의 paste를 부른다"
       - "main이 OS clipboard의 글을 돌려준다. 읽지 못했거나 clipboard가 없으면 빈 글이다"
-      - "글이 있으면 xterm이 붙여 넣고, 그 입력이 terminal-input을 탄다. focus 검사와 사람 입력 알림을 그대로 거친다"
+      - "글이 있으면 xterm이 붙여 넣고, 그 입력이 terminal-input을 탄다. focus 검사와 사람 입력 알림을 그대로 거친다. 큰 글은 조각으로 나뉘어 가고 한 조각이 거절되면 그 paste의 나머지는 보내지 않는다(닫는 표지 없이 끝나거나 중간이 빠진 채 PTY에 들어가지 않게 한다)"
     outcomes:
       - id: pasted
-        when: "글이 있다. focus가 없으면 terminal-input:not-focused로 PTY에 가지 않는다"
+        when: "글이 있다. focus가 없으면 terminal-input:not-focused로 PTY에 가지 않는다. 한 조각이 거절되면 뒤 조각은 보내지 않고 input_refused를 trace에 남긴다"
         observe: [process:pty-shell]
       - id: empty
         when: "clipboard가 비었거나 읽지 못했거나 clipboard가 없다(headless)"

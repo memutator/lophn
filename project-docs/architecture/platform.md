@@ -49,14 +49,26 @@ OS마다 다른 순수 규칙은 base의 OS 층 한 곳에 있다. base는 node 
 - **control socket.** data root마다 공통 socket 자리 아래 이름 `core`로 연다. POSIX는 0700 폴더의 unix socket, win32는 data root 이름 공간의 named pipe다. 한 연결에 JSON 한 줄 요청 하나와 Result 답 하나다(계약 `core-control-protocol`). verb는 `identify`(제품 판, protocol 판, `core_epoch`, `api_url`, `starting|ready|stopping`, credential 없음), `connect {client: cli|shell}`(user token을 주고, shell이면 shell capability도), `stop`, `diagnostic`, 사람 결정 handle 등록과 창 닫기(shell capability만, `architecture/approval.md`)다. 경계는 socket 자리의 권한이고 OS peer 신원은 보지 않는다. 데이터(API)는 그대로 loopback HTTP·WebSocket이다. core의 user token은 file로 쓰지 않고 `connect`로만 준다. 같은 core에 shell과 CLI가 각자 connect하므로 core마다 user credential이 하나라는 제한은 없다.
 - **동시 시작은 data root의 `run/instance.lock`이 가른다.** lock을 잡은 core만 socket 잔여물을 치우고 listen한다. 진 core는 살아 있는 core의 socket과 runtime file을 건드리지 않고 끝나며, ensure는 identify를 다시 물어 이긴 core에 붙는다. liveness는 "identify가 답한다"이고 pid file이나 HTTP health probe를 쓰지 않는다. 끝나는 중(`stopping`)인 core를 만나면 ready나 사라짐을 기다린다.
 - **판 대조.** identify의 제품 판이나 protocol 판이 ensure 쪽과 다르면 ensure가 `stop`을 보내 끝나기를 기다린 뒤 새로 띄운다(한 번). 돌던 run·job 차례는 종료와 같이 `interrupted`가 된다.
-- **끝나는 길은 셋이고 barrier는 하나다.** control `stop`(`lophn core stop`, tray의 `Stop lophn`, 판 교체), idle-exit, SIGINT·SIGTERM. 앱의 Quit(Cmd+Q, `--quit`, will-quit, tray의 `Quit lophn`)는 shell 자원과 연결만 정리하고 core는 남긴다. 명시 stop 뒤에는 shell이 core를 저절로 다시 띄우지 않는다(`closed(shutdown)`이나 identify `stopping`을 본 shell은 이미 도는 같은 판 core에만 다시 붙는다). 반대 방향은 하나 있다: 앱을 Quit한 뒤에도 core가 browser가 필요하면 shell을 띄운다(아래 "core가 shell을 띄운다"). core가 crash하면 다시 띄우는 감독은 없고 다음 ensure(shell 재연결, CLI 호출, autostart)가 띄운다. core가 SIGKILL돼도 child는 stdin EOF로 스스로 끝난다. `lophn core stop`은 core를 띄우지 않는다.
-- **idle-exit.** ready 뒤부터 30초마다 일과 client를 다시 본다. 일은 module마다의 machine 전용 read로 센다: 켜진 job(승인 대기 중인 켜진 job도 일), 열린 job run, running run, 모든 project의 running workflow instance. client는 진행 중 HTTP 요청과 Gateway 구독이다. 앱 process와 control 요청은 세지 않는다. 일도 client도 없는 상태가 10분 이어져야 끝난다. 읽기가 실패하면 일이 있는 것으로 보고, 읽는 동안 새 요청이 들어왔으면 그 판정을 버린다.
+- **끝나는 길은 셋이고 barrier는 하나다.** control `stop`(`lophn core stop`, tray의 `Stop lophn`, 판 교체), idle-exit, SIGINT·SIGTERM. 앱의 Quit(Cmd+Q, `--quit`, will-quit, tray의 `Quit lophn`)는 shell 자원과 연결만 정리하고 core는 남긴다. 명시 stop 뒤에는 shell이 core를 저절로 다시 띄우지 않는다(`closed(shutdown)`이나 identify `stopping`을 본 shell은 이미 도는 같은 판 core에만 다시 붙는다). 반대 방향은 하나 있다: 앱을 Quit한 뒤에도 core가 browser가 필요하면 shell을 띄운다(아래 "core가 shell을 띄운다"). core가 crash하면 core 쪽에서 다시 띄우는 감독은 없고 다음 ensure(shell 재연결, CLI 호출, autostart)가 띄운다. shell의 재연결에는 상한이 있다(아래 "core가 죽었을 때"). core가 SIGKILL돼도 child는 stdin EOF로 스스로 끝난다. `lophn core stop`은 core를 띄우지 않는다.
+- **idle-exit.** ready 뒤부터 30초마다 일과 client를 다시 본다. 일은 module마다의 machine 전용 read로 센다: 켜진 job(승인 대기 중인 켜진 job도 일), 열린 job run, running run, 모든 project의 running workflow instance. 도는 lophn agent turn도 일이다(대기 중인 입력과 harness queue는 세지 않는다). client는 진행 중 HTTP 요청과 Gateway 구독이다. 앱 process와 control 요청은 세지 않는다. 일도 client도 없는 상태가 10분 이어져야 끝난다. 읽기가 실패하면 일이 있는 것으로 보고, 읽는 동안 새 요청이 들어왔으면 그 판정을 버린다.
 - **autostart는 core만 띄운다.** packaged일 때만 로그인 항목이 `--core`(macOS는 `wasOpenedAtLogin`)로 lophn을 연다. 그 Electron은 창·tray·terminal-host·extension을 조립하지 않고 ensure만 한 뒤 끝난다. 업데이트 전의 `--tray` 등록은 다음 일반 실행에서 한 번 `--core`로 다시 쓴다. shell single-instance lock은 창 하나를 지키는 것이라 core의 instance lock과 따로이고, core-only 실행은 그 lock을 잡지 않는다.
 - **core가 shell을 띄운다(browser가 필요할 때만).** agent가 `lophn tab open --url`로 browser 탭을 열려는데 shell이 붙어 있지 않으면 core가 앱을 띄운다. 앱 창이 있어야 page가 있고(`<webview>`는 보이는 창에서만 그린다) job과 workflow는 사람이 앱을 Quit한 뒤에도 돌기 때문이다. 이 방향(core → shell)은 새로 생겼고 사람이 Quit한 뒤에도 적용된다. Quit은 화면을 끈다는 뜻이고 등록을 승인한 job은 계속 돈다(모두 멈추는 길은 `Stop lophn`이고, 그때는 띄울 core가 없다).
   - **조건.** browser 탭 열기에만 띄운다. extension tool 호출, preview·artifact 탭 열기, 이미 연 탭의 browser 호출은 shell이 없어도 띄우지 않는다(앞의 둘은 기다리고, 마지막은 실패한다). 그리고 그 core를 띄운 쪽이 켰을 때만이다. 사람이 쓰는 core를 띄우는 두 곳(shell의 core 감독, CLI의 detached 시작)이 환경 `LOPHN_LAUNCH_SHELL=1`을 준다. test, boot, E2E가 띄운 core는 이 값이 없어 앱을 띄우지 않고 shell 없음으로 실패한다. 띄울 길을 모를 때(build하지 않은 개발 저장소)도 같다.
   - **명령.** core는 자기 platform 배치에서 명령을 정한다. 설치본은 core를 띄운 Electron 실행 file 하나이고, 개발은 build한 shell entry를 같이 넘긴다. 어느 쪽이든 `--home <data root>`와 launch intent `--agent-window`를 붙이고, core가 Node로 도는 표시(`ELECTRON_RUN_AS_NODE`)는 뺀다. detached로 띄우고 놓아 core가 끝나도 앱은 남는다.
   - **한 번에 하나, 실패하면 쉰다.** 같은 시도를 동시에 온 열기가 함께 기다린다(앱을 여럿 띄우지 않는다). 시작을 30초 안에 확인하지 못하거나 spawn이 실패하면 시도가 끝나고 5분 동안은 다시 띄우지 않고 열기를 바로 실패시킨다. shell이 붙으면 풀린다.
   - **launch intent `--agent-window`.** 앱은 평소처럼 서고 첫 창을 focus 없이 연다. 이미 떠 있는 앱이 받으면 일반 창이 하나도 없을 때만 같은 창을 연다. core만 띄우는 `--core`와 달리 창을 만든다.
+
+### core가 죽었을 때
+
+- **ledger writer Worker가 ready 뒤에 죽으면 core가 로그(`writer_dead`)를 남기고 graceful shutdown 없이 exit 1한다.** Worker가 error 없이 끝나거나, error 이벤트가 나거나, 연결이 fault돼도 같다. shell이 core를 다시 띄운다(graceful shutdown은 shell이 다시 띄우지 않으므로 쓰지 않는다). ready 전에 죽으면 기동 실패(`start_failed`)로 돌려줘 시작 실패 화면이 바로 뜬다. writer만 다시 띄우지 않는 이유는 writer 안의 기억(준비한 blob, confirmation handle)을 잃기 때문이다.
+- **shell의 core 재시작 상한.** ready 뒤 60초를 살지 못하고 끝난 core를 crash로 세고, 5번째에서 멈춰 시작 실패 화면에 둔다. 그 전의 재시작은 1·2·4·8초 쉰다. 60초 넘게 산 core가 끝나면 센 수를 0으로 돌린다. Retry는 센 수를 비우지 않는다.
+- **종료의 전체 기한은 90초다.** 단계별 기한의 합(65초)보다 길어 정상 종료를 자르지 않는다. 넘으면 `shutdown_deadline`을 남기고 exit 1한다(자식은 stdin EOF로 끝나고 lock은 OS가 푼다). HTTP server는 받은 요청을 10초까지 기다리고 그 뒤 남은 connection을 끊는다.
+- **실행 중 표지.** core가 사는 동안 `run/running.marker`(pid, started_at)가 있고 정상 종료가 지운다. 다음 기동이 남은 것을 보면 `previous_unclean_exit`를 로그로 남긴다. liveness에는 쓰지 않는다.
+- **agent runtime.** runtime process가 끝나면 그 안의 `shell.run` 자식 group을 죽인다(SIGKILL·OOM은 못 덮는다). 감독이 재시작 한도를 넘어 포기하면 core가 로그를 남기고 60초 뒤 한 번 다시 띄운다(core process당 한 번). 사람에게 알림은 띄우지 않는다.
+- **두 번째 shell process.** single-instance lock을 shell context를 만들거나 core를 건드리기 전에 잡는다. 못 잡으면 곧 끝나므로 core를 띄우거나 갈아 띄우지 않는다. Quit과 `Stop lophn`은 돌던 ensure를 끊는다(spawn 전, 판 교체 stop 전에 확인한다). `Stop lophn`은 돌던 ensure가 끝나기를 기다린 뒤 core를 멈춘다.
+- **저장소 오류는 원인을 글에 싣는다**(disk full, locked, corrupt, io). corrupt면 writer 연결을 fault로 만들어 위 규칙대로 core가 끝나고, 다음 기동은 시작 실패 화면으로 간다.
+- **blob 정지 maintenance.** 목적 기록과 미참조 표지는 본문을 지웠거나 본문이 없다고 확인된(ENOENT) 것만 지운다. 정지마다 고아 기록을 최대 2,000개까지 쓸어 낸다(남은 것은 다음 정지로 미룬다).
+- **git이 없으면** 앱 source·release 경로가 "git was not found" 오류로 끝난다(commit이 없다는 말로 바꾸지 않는다). **extension tool 호출은 5분 기한이 있다.** 넘으면 거두고 `unavailable`로 끝난다.
 
 ### file
 
@@ -120,12 +132,17 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 6. 한 data root에 core는 하나다. 동시 시작은 instance lock이 가르고, 진 core는 이긴 core의 socket과 runtime file을 건드리지 않는다.
 7. core의 liveness는 identify가 답하는가 하나다. 판이 다르면 stop → 사라짐 확인 → 새로 띄우기를 한 번만 한다.
 8. 앱을 끄는 것(Quit)은 core를 끄지 않는다. core는 stop, idle-exit, 신호로만 끝난다. 명시 stop 뒤 shell이 core를 저절로 다시 띄우지 않는다. core가 shell을 띄우는 것은 browser 탭 열기가 shell 없이 왔고 그 core를 띄운 쪽이 켰을 때뿐이다.
-9. idle-exit는 일도 client도 없는 10분이 이어져야 하고, 읽기 실패는 일로 친다. 켜진 job이 있는 core는 끝나지 않는다.
+9. idle-exit는 일도 client도 없는 10분이 이어져야 하고, 읽기 실패는 일로 친다. 켜진 job이 있는 core, 도는 lophn agent turn이 있는 core는 끝나지 않는다.
 10. core 기동 launcher는 stdout 첫 줄만 읽고 놓으며 그 줄에 credential이 없다. user token은 file에도 stdout에도 쓰지 않는다.
 11. hook 준비는 browser shim·bridge listen의 성공과 분리한다. endpoint가 길이 한도를 넘으면 그 기능만 끄고 우회 길을 만들지 않는다.
 12. app supervisor는 정지할 때 공통 socket 폴더에서 아무것도 지우지 않는다.
 13. 사용자의 PowerShell profile·alias·function·execution policy를 고치거나 우회하지 않는다.
 14. OS service는 등록하지 않는다. 로그인 때 켜는 것은 core만 띄우는 autostart다.
+15. ready 뒤 ledger writer가 죽은 core는 살아 있지 않는다(exit 1). 조용히 끝난 Worker 때문에 모든 command가 `unavailable`로만 끝나는 core를 남기지 않는다.
+16. 종료는 90초 안에 끝난다. 멈춘 단계 하나가 instance lock을 쥔 채 끝없이 기다리지 않는다.
+17. shell의 core 재시작은 상한(60초 안에 5번)이 있고, 넘으면 시작 실패 화면에 멈춘다. Retry가 상한을 풀지 않는다.
+18. 곧 끝날 두 번째 shell process는 core를 건드리지 않는다. Quit·`Stop lophn` 뒤에는 돌던 ensure가 core를 새로 띄우지 않는다.
+19. blob의 목적 기록과 미참조 표지는 본문이 없다고 확인된 것만 지운다.
 
 ## 경계와 계약
 
@@ -166,6 +183,9 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 - 동시 시작은 instance lock이 가르고 liveness는 identify다. 버린 안: pid file, HTTP health probe. 판이 다르면 stop → 종료 확인 → 새로 띄우기를 한 번 한다. (agent)
 - shell의 single-instance lock은 남긴다. 이유: 창 하나·탭 하나를 지키는 것이라 core lock과 따로다. (agent)
 - core가 crash해도 core 쪽에서 다시 띄우는 감독은 두지 않는다. 다음 ensure가 띄운다. 놓친 job 차례는 놓친 차례 정책(`run`, `hold`)이 받는다. (agent)
+- ledger writer가 죽으면 writer만 다시 띄우지 않고 core가 exit 1한다. 이유: writer 안 기억(준비한 blob, confirmation handle)을 잃고 새 core 상태와 화면이 필요하다. shell 재시작 상한이 되풀이를 시작 실패 화면으로 보낸다. (agent)
+- 종료 기한은 90초, 재시작 상한은 ready 뒤 60초 안에 5번이다. 이유: 단계 기한의 합(65초)보다 길어야 정상 종료를 자르지 않는다. 사람에게 알림은 띄우지 않는다(agent runtime 포기 뒤 60초 한 번 재시도도 같다. 맞는 알림 종류가 없고 새로 만들면 protocol이 바뀐다). (agent)
+- 저장소 오류는 원인을 오류 글에 싣고 새 화면은 만들지 않는다. blob 부속 기록은 본문이 없다고 확인된 것만 지운다. 지우는 곳은 멈출 때 도는 maintenance뿐이다(주기 GC는 관찰만 한다). (agent)
 - 명시 stop 뒤 shell은 core를 저절로 다시 띄우지 않는다. (agent)
 - browser 탭 열기에 한해 core가 shell을 띄운다. 앱을 Quit한 뒤에도 띄운다. 이유: 로그인한 browser page를 쓰려면 앱 창이 있어야 하고 job은 사람 없이 browser를 쓴다. 승인한 job은 Quit 뒤에도 도는 것이 이미 제품 규칙이다. 그 core를 띄운 쪽이 켰을 때만, 한 번에 하나, 실패 뒤 5분 쉰다는 제한으로 test나 개발 환경이 앱을 띄우지 않게 한다. 버린 길: 사람에게 따로 묻기(등록 승인이 이미 그 일을 포함한다), 앱 없이 core에서 browser 엔진 돌리기(Chromium profile은 한 process만 열고 사람의 로그인과 갈린다). (사람, 2026-11-10: 방향, agent: 조건과 제한)
 - `Stop lophn`에서 control stop이 답하지 않으면 shell은 그래도 끝나되 먼저 native message box로 core가 남아 있을 수 있다고 알린다. 이유: 끝난 뒤에는 알릴 화면이 없어 사람이 앱과 job이 계속 돈다는 것을 모른다. 버린 안: 끝내지 않고 재시도(답이 없는 core를 두고 shell만 붙들게 된다). (agent)
@@ -175,7 +195,6 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 
 - Windows hook 명령이 cmd에서 돌지 않는다. 따옴표 없는 `C:/…` 경로는 cmd가 명령으로 읽지 못하고, 설치본의 맨 `lophn`은 lophn 터미널 밖의 PATH와 Git Bash에서 못 찾는다. 다시 깔기·지우기·dry_run이 `C:/…` 경로 hook을 우리 것으로 알아보지 못한다. 추천은 hook 명령을 cmd와 Git Bash 양쪽에서 도는 꼴로 쓰는 것이다. (이슈 "Windows에서 깔린 hook 명령이 cmd에서 돌지 않고 GUI↔TUI toggle이 없다")
 - Windows에서 foreground 판정과 TUI 끄기가 없다. 후보는 ConPTY에 Ctrl+C를 쓰거나 process tree를 끄는 것, foreground는 PTY shell pid 아래 process tree 근사다. 그 전까지는 toggle이 없음이 드러나야 한다(지키는 것 4). (같은 이슈)
-- Quit나 `Stop lophn`이 ensure가 도는 중에 오면 ensure는 취소되지 않아 core가 새로 뜰 수 있다. 시작 중에 `Stop lophn`을 누르면 control stop이 `unavailable`로 돌아와 성공으로 치여 막 뜬 core가 남는다. 켜진 job이 없으면 10분 뒤 idle-exit로 끝난다. (이슈 "Quit 중에 돌던 ensure가 끝난 뒤 core를 새로 띄울 수 있다")
 - 다른 client(CLI)가 stop한 뒤 shell은 주기적으로 identify를 묻지 않아 새 core에 스스로 붙지 못한다. Reconnect를 눌러야 한다. (이슈 "shell이 다른 client의 stop 뒤에는 새 core를 스스로 알아채지 못한다")
 - 업데이트 뒤 첫 로그인 실행이 옛 `--tray` 등록이면 창이 한 번 뜬다. macOS `wasOpenedAtLogin`과 core-only 실행의 userData 폴더는 실기로 확인하지 않았다. (이슈 "업데이트 뒤 첫 로그인 실행은 창을 한 번 연다")
 - 이 workflow는 어느 OS에서도 CI로 돌려 보지 않았다. Windows는 실제 PC(Windows 11 x64, 개발자 모드 꺼짐)에서 같은 네 단계를 손으로 돌려 통과했다. macOS는 코드와 platform 인자를 넘긴 unit test로만 확인했다. Windows PowerShell 7·5.1에서 hook named pipe, 시작 층, `claude gui`, 알림, `$BROWSER` 중계와 fallback, bridge 실패 격리는 `npm run dev`로 실기 확인했다(저장소 root의 Windows checklist). Dock 다시 열기, login PATH, NSIS 설치 뒤 `lophn.cmd`, 터미널을 닫을 때 Windows에서 shell 아래 process가 남지 않는지는 미확인이다.

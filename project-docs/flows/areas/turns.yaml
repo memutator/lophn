@@ -10,11 +10,11 @@ flows:
     code: [packages/core/main/agent-runtime/product-driver.ts, packages/core/lophn-agent/run-loop/driver.ts, packages/core/lophn-agent/run-loop/work.ts, packages/core/lophn-agent/run-loop/prepare.ts]
     steps:
       - "500ms 주기 pump가 provider 해지 알림을 훑고(poll) queue에서 맨 앞 session의 입력을 고른다. 도는 session은 건너뛴다"
-      - "그 session이 이전 대화가 커져 Compact가 정해졌으면(compactBefore) 기다리지 않고 compact-summary를 연 뒤 다음 주기로 간다"
-      - "prepare가 session 열림, agent 정의, 설정 한도, 지침 층, workspace 정보, model 해석(resolveModel), 쓸 tool 목록(extension 포함)을 읽고 resolved agent를 turn 기준에 고정한다. 읽기나 쓰기가 실패하면 Err로 돌아가 입력은 queue에 남는다"
+      - "그 session이 이전 대화가 커져 Compact가 정해졌으면(compactBefore) 기다리지 않고 compact-summary를 연 뒤 다음 주기로 간다. 한 session의 Compact가 연속 3번 실패하면 그 session은 더 정하지 않는다(메모리에만 둔다)"
+      - "prepare가 session 열림, agent 정의, 설정 한도, 지침 층, workspace 정보, model 해석(resolveModel), 쓸 tool 목록(extension 포함)을 읽고 resolved agent를 turn 기준에 고정한다. 바로 앞 turn이 restarted로 끝났고 그 turn에 uncertain tool call이 있으면 어느 호출이 돌았는지 모른다는 [machine] 알림을 대화 끝에 붙인다(읽지 못하면 알리지 않는다). 읽기나 쓰기가 실패하면 Err로 돌아가 입력은 queue에 남는다"
       - "정의 오류, model 없음, harness runtime, 지침 층 차단이면 StartTurn과 FinishTurn(failed)을 보내 그 turn만 닫는다. 입력은 소비된다"
       - "ready면 StartTurn을 보낸다. 거절되면 입력은 queue에 남는다. 확정되면 agent credential을 받고, 못 받으면 closeStarted(credential)로 failed(configuration_unavailable)로 닫는다"
-      - "StartTurn 뒤 queue에서 입력을 꺼낸다. 이미 없으면(사람이 지움) input_gone으로 닫는다. 있으면 session을 도는 중으로 두고 turn-loop에 넘긴다"
+      - "StartTurn 뒤 queue에서 입력을 꺼낸다. 이미 없으면(사람이 지움) input_gone으로 닫는다. 있으면 session을 도는 중으로 두고 turn-loop에 넘긴다. loop가 finish_failed로 끝나면 driver가 closeStarted(finish_failed)로 failed(internal)로 닫는다"
       - "pump 예외는 log:diagnostics에 남기고 다음 주기에 다시 본다"
     outcomes:
       - id: started
@@ -48,7 +48,7 @@ flows:
     unclear:
       - "waiting은 로그도 응답도 없어 observe가 비었다. prepare Err를 log:diagnostics에 남길지 정한다(지금은 driver가 unavailable로만 돌려준다)"
       - "prepare가 Err를 돌려주면 driver는 unavailable로만 보고 입력을 queue에 둔다. session 닫기(archive·delete)는 endSession의 clearQueue로 queue를 비우므로 닫힌 session의 입력은 남지 않을 것으로 보인다. 확인이 필요하다"
-      - "closeStarted(why)는 readOf, storeValue, FinishTurn의 실패를 기록 없이 삼킨다. 그 경우 turn 행이 running으로 남을 수 있다. 확인이 필요하다"
+      - "closeStarted(why)는 readOf, storeValue, FinishTurn의 실패를 기록 없이 삼킨다. 그 경우 turn 행이 running으로 남을 수 있다(finish_failed 뒤의 닫기도 같다). 확인이 필요하다"
       - "closed-* outcome은 StartTurn 뒤 FinishTurn 두 번이라 TurnStarted와 TurnEnded가 모두 난다. 화면과 테스트가 이것을 전제하는지 확인이 필요하다"
 
   - id: workspace-info
@@ -96,9 +96,9 @@ flows:
       - "걸음마다 먼저 멈춤을 본다. core가 turn 행을 이미 닫았으면 FinishTurn 없이 stopped로 끝난다"
       - "접수 입력(첫 입력과 steer)을 고르고 model 시도 수와 무진행 시간 한도, provider 연결을 본다"
       - "prompt를 조립한다. system은 workspace 종류 지침, 지침 층(global, home | project | app, agent), memory(workspace memory, agent memory), skill 목록, workspace 정보 순이다. memory는 session 첫 turn에 읽어 고정해 그 session 안에서는 같은 bytes로 가고(Compact 뒤나 daemon 재기동 뒤에는 다시 읽는다) 세션 중에 쓴 memory는 다음 session부터 보인다. 읽지 못한 memory 파일은 빈 글로 보고 turn을 막지 않는다. 지난 model 요청 뒤 지침 층 글이 달라졌으면 instructions_changed notice를 대화 끝에 붙인다. 예산의 85%를 넘으면 turn 안 Compact나 오래된 tool 결과 줄이기로 낮추고, 그래도 input_over_budget이면 context_limit으로 끝낸다"
-      - "model-call-run으로 model 호출 하나를 하고 완전한 응답이면 그 응답을 agent message로 남긴다"
-      - "tool 응답이면 tool-call-batch로 묶음을 실행하고 결과를 이력에 붙인 뒤 checkpoint한다"
-      - "tool 없는 완전한 답이면 미반영 steer를 확인하고 completed(answer_completed)로 FinishTurn한다. steer가 남았으면 끝내지 않고 다음 판단으로 간다"
+      - "model-call-run으로 model 호출 하나를 하고 글이 있는 완전한 응답이면 그 응답을 agent message로 남긴다. 길이 한도로 잘린 응답은 tool을 시작하지 않고 나눠 부르라고 알린 뒤 다시 간다. 글도 tool call도 없는 응답은 남기지 않고 한 번 되묻고, 연이어 또 비면 no_answer로 끝낸다"
+      - "tool 응답이면 tool-call-batch로 묶음을 실행하고 결과를 이력에 붙인 뒤 checkpoint한다. 바로 이어진 같은 호출이 같은 실패로 여섯 번 이어지면 repeated_tool_failure로 끝낸다(세 번부터는 batch가 그 호출을 돌리지 않는다)"
+      - "tool 없는 글 있는 답이면 미반영 steer를 확인하고 completed(answer_completed)로 FinishTurn한다. steer가 남았으면 끝내지 않고 다음 판단으로 간다"
       - "한도에 닿으면 machine이 확정한 사실만으로 failed로 끝낸다. 끝내는 길은 모두 finish를 거친다"
     outcomes:
       - id: instructions-notice
@@ -118,7 +118,7 @@ flows:
         when: "사람 멈춤, session 끝남 또는 restart로 core가 turn을 이미 닫았다(stop 확인). loop는 새 호출을 막고 FinishTurn 없이 끝난다. FinishTurn이 실패했어도 그 사이 멈춤이 왔으면 여기로 간다"
       - id: failed-model-error
         observe: [ledger:turns, ledger:model_calls, event:TurnEnded]
-        when: "일시 실패가 아닌 model 실패(400 invalid_request 같은 요청 오류, unknown), 재시도 소진, partial 응답 3회 연속, 중단 요청 없이 호출이 취소로 돌아왔다, 알 수 없는 실패 code"
+        when: "일시 실패가 아닌 model 실패(400 invalid_request 같은 요청 오류, unknown), 재시도 소진(연결 끊김은 5·15·30초로 세 번, 그 밖은 2·4초로 두 번), partial 응답 3회 연속, 중단 요청 없이 호출이 취소로 돌아왔다, 알 수 없는 실패 code"
       - id: failed-context-limit
         observe: [ledger:turns, event:TurnEnded]
         when: "입력이 예산을 넘고 turn 안에서 더 줄일 것이 없다, provider가 context_exceeded를 거절했고 줄일 것이 없거나 세 번째 거절이다"
@@ -131,19 +131,24 @@ flows:
       - id: failed-configuration-unavailable
         observe: [ledger:turns, event:TurnEnded]
         when: "provider 연결이 없거나 회수됐다, 재시도 대기 중 연결이 사라졌다, 접수 입력이나 steer를 못 읽었다, turn 문맥(지침, workspace, session 대화)을 못 읽었다, workspace 종류 지침이 없다(workspace_kind_missing), prompt 설정(invalid_budget)이 잘못됐다, 요청 안전화를 끝내지 못했다, 호출 기록을 시작하지 못했다, 답 글을 저장하지 못했다, 모델 실패 code가 credential_unavailable이거나 model_unavailable(404 model, provider가 그 model을 못 찾음)이다, 호출 결과가 없었다(invoke 실패)"
+      - id: failed-no-answer
+        observe: [ledger:turns, event:TurnEnded]
+        when: 글도 tool call도 없는 빈 응답을 되물은 뒤에도 연이어 받았다
+      - id: failed-repeated-tool-failure
+        observe: [ledger:turns, event:TurnEnded]
+        when: 바로 이어진 똑같은 tool 호출(실행 이름과 입력)이 같은 이유로 여섯 번 이어서 실패했다. 막혀서 돌지 않은 호출도 센다. 성공이 섞이면 세기가 끊긴다
       - id: failed-internal
         observe: [ledger:turns, event:TurnEnded, log:diagnostics]
-        when: loop가 예외를 던졌다. driver가 loop_threw로 닫는다
+        when: "loop가 예외를 던졌다(driver가 loop_threw로 닫는다), 호출 본문 만들기·blob 저장 같은 lophn 안의 오류(internal, conflict)로 model을 부르지 못했다, FinishTurn이 실패해 driver가 finish_failed로 닫았다"
       - id: finish-failed
-        observe: [ledger:turns]
-        when: "끝낼 이유는 정했지만 FinishTurn을 확정하지 못했다(결과 저장 실패, FinishTurn 거절, turn 읽기 실패). LoopEnd finish_failed로 driver에 가고 turn 행은 running으로 남는다"
+        observe: [ledger:turns, log:diagnostics]
+        when: "끝낼 이유는 정했지만 FinishTurn을 확정하지 못했다(결과 저장 실패, FinishTurn 거절, turn 읽기 실패). LoopEnd finish_failed로 driver에 가고, driver가 그 turn을 internal로 닫는다(failed-internal). 닫지 못하면 행이 running으로 남는다"
     crosses_process: true
     risk: []
     refs: []
     docs: [architecture/run.md, architecture/agent-chat.md]
     unclear:
-      - "TURN_OUTCOME_REASONS에는 있으나 loop가 내지 않는 reason이 있다: tool_error, repeated_tool_failure, effect_unknown(LoopFailureReason 타입에만 있다), clock_uncertain, active_limit(지워진 한도), no_answer(run 쪽이 낸다). 죽은 값인지 정하고 schema에서 뺄지 본다"
-      - "driver.ts는 finish_failed를 받아도 turn 행을 닫지 않는다. 행이 running으로 남으면 session의 다음 StartTurn이 conflict로 막힌다. pump도 resolved finish_failed를 기록하지 않는다. 확인이 필요하다"
+      - "TURN_OUTCOME_REASONS에는 있으나 loop가 내지 않는 reason이 있다: tool_error, effect_unknown(LoopFailureReason 타입에만 있다), clock_uncertain, active_limit(지워진 한도). 죽은 값인지 정하고 schema에서 뺄지 본다"
       - "retry.ts 주석의 시도 한도(30)는 기본값 null과 맞지 않고 PARTIAL_RUN_MAX(3)과도 다르다. 주석을 고칠지 본다"
 
   - id: turn-start
@@ -356,12 +361,12 @@ flows:
     steps:
       - "agent runtime child가 종료되면(onEnd) core가 machine 자격으로 InterruptTurns를 부른다. machine이 아니면 forbidden이다(requireMachine)"
       - "writer 앞 처리기가 core 메모리에서 센 active를 turn마다 CheckpointTurn으로 마감한다. 실패해도 다음 단계로 간다"
-      - "같은 tx에서 running인 turn 전부를 interrupted(restarted)로 닫고 TurnEnded를 낸다. 도는 turn이 없으면 0으로 끝난다"
+      - "같은 tx에서 running인 turn 전부를 interrupted(restarted)로 닫고 TurnEnded를 낸다. 그 turn의 requested·started tool call은 결과를 모르므로 uncertain으로 닫고 turn 결과의 unknown_effects에 싣는다. 도는 turn이 없으면 0으로 끝난다"
       - "InterruptTurns가 실패했어도 queue의 도는 표시는 푼다(finally). 새 입력이 running 행과 겹치지 않게 하려는 순서다"
     outcomes:
       - id: interrupted
-        observe: [ledger:turns, event:TurnEnded]
-        when: child가 돌리던 turn이 하나 이상 있었다
+        observe: [ledger:turns, ledger:tool_calls, event:TurnEnded]
+        when: child가 돌리던 turn이 하나 이상 있었다. 끝나지 않은 tool call은 uncertain으로 닫힌다
       - id: nothing-running
         observe: [response]
         when: child가 사라졌지만 도는 turn이 없었다
@@ -378,7 +383,7 @@ flows:
     refs: []
     docs: [architecture/workspace-session.md]
     unclear:
-      - "끝나지 않은 model call과 tool call 행(started, requested)을 닫는 곳이 없다. lophn-agent.harness-tools.close-stuck schema step은 migration 때 한 번만 돈다. 죽은 child의 호출 행이 started로 남는지 확인이 필요하다"
+      - "끝나지 않은 model call 행(started)을 닫는 곳이 없다. tool call 행은 이 tx가 uncertain으로 닫는다"
 
   - id: turn-restart
     title: lophn이 켜질 때 돌던 turn을 interrupted로 닫고 아직 가져가지 않은 입력을 다시 줄 세운다
@@ -388,14 +393,14 @@ flows:
     boundary: [run-loop, router]
     code: [packages/core/main/daemon/wiring/router.ts, packages/core/router/commands.ts, packages/core/lophn-agent/run-loop/interrupt.ts, packages/core/lophn-agent/session/message-commands.ts, packages/core/lophn-agent/run-loop/startup.ts]
     steps:
-      - "lophn이 켜질 때 router wiring의 start가 RecoverCalls(machine)를 한 번 부른다. 잃은 call을 닫고 state가 running인 turn 전부를 interrupted(restarted)로 닫는다. 이 호출이 실패하면 log:router에 남기고 turn 닫기는 건너뛰며 입력 되돌리기는 계속한다"
+      - "lophn이 켜질 때 router wiring의 start가 RecoverCalls(machine)를 한 번 부른다. 잃은 call을 닫고 state가 running인 turn 전부를 interrupted(restarted)로 닫으며 그 turn의 끝나지 않은 tool call을 uncertain으로 닫는다(다음 turn의 알림은 turn-pump-start). 이 호출이 실패하면 log:router에 남기고 turn 닫기는 건너뛰며 입력 되돌리기는 계속한다"
       - "agent runtime이 turn을 읽기 전에(afterReady 앞) 끝난다. 켜진 뒤 turn은 이어 받지 않고 child는 빈 상태로 뜬다"
       - "사람 메시지 중 from_kind = 'human', turn is null, sessions.lifecycle = 'open', unattended = 0, shell = 0인 것을 접수 순서로 고른다. 포크 session은 자기 turn이 가져간 마지막 메시지(created_seq) 뒤만 세고, rewind가 숨긴 구간(hiddenRanges)은 뺀다"
       - "입력의 session이 accepting이고 transport가 lophn이어야 한다(harness는 harness wiring이 되돌린다). 본문을 읽어 queue에 넣고 MessageReceived를 낸다. 본문을 못 읽으면 그 입력만 건너뛰고 log:router에 남긴다"
     outcomes:
       - id: turns-interrupted
-        observe: [ledger:turns, event:TurnEnded]
-        when: 켤 때 running인 turn이 있었다
+        observe: [ledger:turns, ledger:tool_calls, event:TurnEnded]
+        when: 켤 때 running인 turn이 있었다. 끝나지 않은 tool call은 uncertain으로 닫힌다
       - id: recover-failed
         observe: [log:router]
         when: "RecoverCalls가 실패해 running turn을 닫지 못했다. 같은 tx라 turn 행은 그대로 running이고 입력 되돌리기는 계속한다"
@@ -414,7 +419,7 @@ flows:
     docs: [architecture/workspace-session.md, architecture/run.md]
     unclear:
       - "TurnEnded를 낸 interrupted turn은 다시 돌지 않는다. 사용자가 말한 turn fate의 '복구'는 코드에 없고 interrupted로 닫히는 것뿐이다"
-      - "checkRestart의 owners에는 apps만 있고(apps.ts restartOwners) turn 관측은 없다. 끝나지 않은 model·tool 호출 행도 이 flow가 닫지 않는다"
+      - "checkRestart의 owners에는 apps만 있고(apps.ts restartOwners) turn 관측은 없다. 끝나지 않은 model 호출 행은 이 flow가 닫지 않는다"
 
   - id: turn-end-by-session
     title: session을 archive하거나 지울 때 그 session의 도는 turn을 interrupted(session_ended)로 닫는다
@@ -549,7 +554,7 @@ flows:
       - "요청 body를 지금의 redaction으로 안전화해 저장한 뒤 보낸다. 안전화를 못 끝내면 보내지 않고 turn을 configuration_unavailable로 끝낸다"
       - "호출은 한도 안에서만 시작한다. 시도 수나 무진행 시간이 상한에 닿으면 model을 부르지 않는다"
       - "진행 없는 시간 한도에 닿으면 timer가 호출을 중단한다. 중단 뒤 grace(5초) 안에 답이 없으면 불명확으로 보고 turn을 끝낸다"
-      - "일시 실패(temporary)만 같은 입력으로 최대 2번 다시 보낸다. 대기는 서버가 준 시각을 지키고 없으면 2초, 4초다"
+      - "provider 실패를 분류한다. reset 정보가 없는 429는 일시 제한(temporary)이고, reset이 30초 이하면 그 시각의 일시 실패, 넘으면 그 시각까지 쓸 수 없는 quota다(OpenAI의 x-ratelimit-reset-requests·tokens와 \"try again in\" 문구도 reset으로 읽는다). max_tokens나 request entity too large는 context 초과가 아니다. 일시 실패(temporary)만 같은 입력으로 다시 보낸다. 최대 2번이고, 연결 끊김은 3번이다. 대기는 서버가 준 시각을 지키고 없으면 2초, 4초(연결 끊김은 5초, 15초, 30초)에 ±20% jitter를 섞는다"
       - "대기 중 멈춤, 새 입력, provider 회수가 오면 retry를 취소한다. 새 입력이면 turn이 다시 조립한다"
       - "partial 응답은 tool을 시작하지 않고 잘림을 기록한다. 3회 연속이면 model_error로 끝낸다. context_exceeded는 turn 안 Compact(최대 2회)나 tool 결과 줄이기로 다시 조립한다"
       - "쓰는 중 글은 알려진 secret을 가려 ModelOutputStreamed로 보낸다. 두 batch에 걸쳐 나뉜 값도 조각이 밖으로 나가지 않는다"
@@ -559,10 +564,10 @@ flows:
         when: 완전한 응답을 받았다. 글이나 tool 호출이 있다
       - id: transient-retry
         observe: [ledger:model_calls]
-        when: 일시 실패 뒤 같은 입력으로 새 시도를 했다(attempt_kind retry, retry_of 연결)
+        when: 일시 실패(429 reset 미상, reset 30초 이하 포함) 뒤 같은 입력으로 새 시도를 했다(attempt_kind retry, retry_of 연결)
       - id: partial-continue
         observe: [ledger:model_calls]
-        when: 잘린 partial 응답을 남기고 잘림 사실을 이력에 붙여 다음 판단으로 간다
+        when: 잘린 partial 응답을 남기고 잘림 사실을 이력에 붙여 다음 판단으로 간다. 길이 한도로 잘렸으면 나눠 부르라는 말이 붙는다
       - id: retry-cancelled
         observe: [ledger:model_calls]
         when: retry 대기 중 멈춤, 새 입력, 회수가 와서 재시도를 취소했다
@@ -770,7 +775,7 @@ flows:
       - "세 길로 열린다. 사람이 청한 요청을 pump가 집거나, 끝난 turn이 정한 다음 turn 전 Compact(compactNow), 도는 turn이 예산을 넘는 turn 안 Compact(compactInTurn)다"
       - "최근 사람 메시지 3개는 요약하지 않고 원문으로 남긴다. 덮을 구간의 끝은 확정 메시지다. 대화나 요청 목록을 읽지 못하면 요청을 닫지 않고 다음 주기에 다시 본다"
       - "요약 model을 고르고(summaryChoice, resolveModel) 요약 call을 시작한다. 재료가 입력 예산 절반을 넘으면 chunk로 나눠 앞 요약을 이어받는다"
-      - "요약 call을 끝까지 받는다. 완전한 출력이 없거나 본문이 상한을 넘으면 FailCompact로 이유와 함께 요청만 닫는다. session과 원문은 그대로다"
+      - "요약 call을 끝까지 받는다. 일시 실패(5xx, 연결 끊김)면 model 호출과 같은 규칙으로 최대 2번 다시 보낸다(시도마다 새 model call). 완전한 출력이 없거나 본문이 상한을 넘으면 FailCompact로 이유와 함께 요청만 닫는다. session과 원문은 그대로다"
       - "성공하면 CompactSession으로 구간과 요약 call을 session에 잇고 CompactEnded(ok)를 낸다. 요약하는 사이 turn이 시작됐거나 session이 바뀌었으면 session_changed로 닫는다"
       - "rewind의 Summarize from here도 같은 요약 call을 쓰지만 요청과 확정은 rewind route다"
     outcomes:
@@ -934,8 +939,8 @@ flows:
     code: [packages/core/lophn-agent/run-loop/tool-batch.ts, packages/core/lophn-agent/run-loop/retry.ts, packages/core/lophn-agent/run-loop/core-ports.ts]
     steps:
       - "model 응답의 tool 호출을 요청 순서대로 풀고 lophn 명령이면 그 명령의 호출로 풀어 실행 대상을 정한다. 모든 호출이 read이면 병렬로, 아니면 하나씩 한다. 결과는 언제나 요청 순서다"
-      - "시작 직전마다 멈춤, 한도, provider 회수, 새 입력을 다시 본다. 막히면 not_executed로 닫는다. 없는 tool이나 JSON 객체가 아닌 인자는 실행하지 않고 failure로 닫는다(기록 행 없음)"
-      - "요청 행을 쓰고 결정과 시작을 남긴 뒤 handler를 돌린다. 요청 행 쓰기가 실패해도 호출은 기록 없이 실행된다. 결정이나 시작 기록이 실패하면 handler를 돌리지 않고 불명확으로 닫는다"
+      - "시작 직전마다 멈춤, 한도, provider 회수, 새 입력을 다시 본다. 막히면 not_executed로 닫는다. 바로 앞부터 같은 호출이 같은 이유로 세 번 실패했으면 그 호출도 돌리지 않고 방법을 바꾸라는 답으로 not_executed(repeated_call)로 닫는다. 없는 tool은 고를 수 있는 tool 이름(정렬, 300자까지)을 알리는 failure로, JSON 객체가 아닌 인자도 failure로 닫는다(기록 행 없음)"
+      - "요청 행을 쓰고 결정과 시작을 남긴 뒤 handler를 돌린다. 요청 행 쓰기가 실패하면 읽기 tool만 기록 없이 실행하고 write나 external은 돌리지 않고 not_executed로 닫는다. 결정이나 시작 기록이 실패하면 handler를 돌리지 않고 불명확으로 닫는다"
       - "read tool이 일시 실패(unavailable, internal, uncertain)면 1초(±10%) 뒤 한 번 다시 부른다. write와 external은 다시 부르지 않는다"
       - "write나 external이 실패하거나 불명확이면 뒤 호출은 earlier_call_failed로 미실행 처리한다"
       - "중단 뒤 grace 안에 답이 없으면 abort_unconfirmed로 불명확 처리하고 늦은 결과는 기록을 나중에 보완한다"
@@ -949,19 +954,19 @@ flows:
         when: tool이 실패로 끝났다(인자 오류가 아닌 handler 실패)
       - id: not-found
         observe: [response]
-        when: tool 이름이 없다. 행을 남기지 않고 model에 failure를 준다
+        when: tool 이름이 없다. 행을 남기지 않고 고를 수 있는 tool 이름을 담은 failure를 model에 준다
       - id: invalid-input
         observe: [response]
         when: 인자가 JSON 객체가 아니다. 행을 남기지 않고 failure를 준다
       - id: not-executed
         observe: [response]
-        when: 시작 전에 멈춤, 새 입력, 한도, 회수, 앞 호출 실패로 막혔다
+        when: 시작 전에 멈춤, 새 입력, 한도, 회수, 앞 호출 실패, 같은 호출의 같은 실패 세 번 뒤 반복(repeated_call), 요청 행을 쓰지 못한 write·external(unrecorded)로 막혔다
       - id: uncertain
         observe: [ledger:tool_calls, event:ToolCallEnded, response]
         when: "중단 뒤 답이 없었거나, handler가 던졌거나, 결과를 저장하지 못했거나 결과 기록을 남기지 못해 불명확으로 닫았다, 결정이나 시작 기록이 실패해 handler를 돌리지 않고 닫았다"
       - id: unrecorded-run
         observe: [event:ToolCallStarted, response]
-        when: "요청 행을 쓰지 못했다. 호출은 기록 없이 그대로 실행되고 결정·시작·끝 기록도 남지 않는다"
+        when: "요청 행을 쓰지 못한 읽기 tool이다. 호출은 기록 없이 그대로 실행되고 결정·시작·끝 기록도 남지 않는다. write·external은 이 길로 돌지 않는다(not-executed)"
       - id: retried
         observe: [ledger:tool_calls, response]
         when: 읽기 tool의 일시 실패 뒤 한 번 다시 불렀다(attempt 1, retry_of 연결)
@@ -1263,7 +1268,7 @@ flows:
       - "agent session과 turn 조건이 없으면 forbidden이다. 이름이 ext__<extension>__<tool> 꼴이 아니면 not_found다"
       - "session과 agent 정의의 extensions를 읽는다(읽기 오류는 그대로 간다). Gate extension_tool을 판정한다: 할당이 없으면 not-assigned, 켜진 catalog에 tool이 없으면 removed다"
       - "shell이 붙어 있지 않으면 unavailable이다. 이 호출만 쓰는 harness credential을 빌려(ledger 기록) host queue의 tool_call로 shell main handler를 부른다. host queue가 가득 차 가장 앞이라 밀려나면 unavailable이다"
-      - "기다리는 동안 1초마다 shell이 붙었는지 보고 떨어지면 호출을 버린다(unavailable). shell이 결과 없이 끝내면 unavailable, 오류를 돌려주면 그 code가 그대로 간다"
+      - "기다리는 동안 1초마다 shell이 붙었는지 보고 떨어지면 호출을 버린다(unavailable). 붙어 있으면 5분 기한이 지난 호출을 거둔다(unavailable). shell이 결과 없이 끝내면 unavailable, 오류를 돌려주면 그 code가 그대로 간다"
       - "결과 content는 감싸지 않고 돌려준다. 이 호출 자격은 자기 session·turn의 lophn 명령 route에만 닿고(사람 전용 route와 다른 session은 막힌다), 끝나면 release해 더는 쓰이지 않는다"
     outcomes:
       - id: ran
@@ -1306,6 +1311,10 @@ flows:
         code: unavailable
         observe: [response]
         when: host queue가 가득 차 이 호출이 가장 앞이라 밀려났다. shell에 닿지 못했다
+      - id: call-timed-out
+        code: unavailable
+        observe: [response, process:shell-main]
+        when: "shell이 호출을 가져갔거나 줄에 있는데 5분 안에 답이 없어 core가 거뒀다. 늦게 온 done은 무시된다. 효과가 났을 수 있다고 model에게 알린다"
     crosses_process: true
     risk: [permission]
     refs: [H3]

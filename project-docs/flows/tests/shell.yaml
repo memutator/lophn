@@ -367,8 +367,8 @@ files:
     note: "터미널 출력은 그 terminal을 구독한 창에만 가고 창이 놓으면 더 보내지 않는다. terminal-output:pushed·not-watched"
 
   - path: packages/shell/main/terminal/supervisor_test.ts
-    covers: []
-    note: "pipe에서 읽은 줄 나누기 순수 함수. 조각 사이에 갈린 UTF-8과 큰 JSON 한 줄을 보존한다"
+    covers: [terminal-open:host-lost]
+    note: "pipe에서 읽은 줄 나누기 순수 함수. 조각 사이에 갈린 UTF-8과 큰 JSON 한 줄을 보존한다. host child가 exit 없이 error를 내도 앱이 던지지 않고 기다리던 요청이 host_lost로 끝나며, 10초 안에 답이 없는 요청은 host_lost로 끝나고 늦은 답은 무시한다"
 
   - path: packages/shell/main/thread-bookmarks/store_test.ts
     covers: [thread-bookmark-list:ok, thread-bookmark-list:unavailable, thread-bookmark-set:ok, thread-bookmark-set:unavailable]

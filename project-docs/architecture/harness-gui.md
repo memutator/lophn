@@ -125,6 +125,10 @@ adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있�
     - 도는 tool을 background로 보내기는 ACP 입력 `background_tool`과 capability `background`다. Claude와 OpenCode만 true이고 Codex·omp는 false다.
 22. **편집 카드의 Open은 절대 경로로 연다.** ACP edit detail의 `document`가 절대 경로이고 `path`는 cwd 상대의 보이는 이름이다. adapter는 `document`를 늘 절대 경로로 낸다.
 23. **저장되지 않은 session이라고 GUI가 실패하지 않는다.** 첫 메시지 전의 TUI session은 CLI가 저장하지 않으므로 resume하지 않고 실패 줄 없이 새 session으로 연다(Claude는 같은 id).
+24. **CLI 하나의 이상이 앱이나 GUI 줄 전체를 멈추지 않는다.** 읽지 못하는 frame과 너무 큰 frame(64 MiB)은 그 줄만 버리고 경고를 한 번만 낸다(Codex·omp·OpenCode, Claude는 SDK가 읽는다). CLI에 보내는 요청은 30초 기한이 있고 일이 끝나야 답하는 요청(turn 시작, shell 명령, compact 등)은 뺀다. 답 없는 CLI가 입력 줄이나 handler를 붙들지 않는다.
+25. **adapter가 실패하면 CLI를 남기지 않는다.** 시작이 중간에 실패하거나 연결을 잃으면 띄운 CLI를 끈다. stop은 정중한 단계(abort, session id 읽기)를 3초만 기다린 뒤 닫는다(Claude·omp). 오류 글과 stderr 꼬리는 credential을 가려서 화면에 보인다.
+26. **Claude의 rewind·fork가 새 CLI를 띄우지 못하면 앞 session을 지킨다.** 앞 session과 숨긴 구간으로 돌아가고 경고로 알린다.
+27. **OpenCode의 event stream이 끊겨도 session은 산다.** 0.5초에서 10초까지 늘리며 다시 구독하고, 끊긴 사이 끝난 turn은 닫고 도는 turn에는 출력이 빠졌을 수 있다고 알린다. 끊긴 사이 뜬 승인은 다시 읽는다. event 없이 이어 실패하면 그때 실패로 끝낸다.
 
 ## 경계와 계약
 

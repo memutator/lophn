@@ -761,7 +761,7 @@ flows:
     steps:
       - "TurnEnded가 오면 실행 중 run 가운데 입력 메시지를 그 turn에 넣은 run을 고른다. Bus 이벤트는 찾는 데만 쓰고 믿지 않는다"
       - "입력 메시지의 turn을 표에서 읽는다. turn이 끝나지 않았으면 그대로 둔다"
-      - "completed면 그 turn에서 session agent가 남긴 마지막 메시지 글을 답으로 하고, 글이 없으면 no_answer. schema가 있으면 code fence 하나를 벗겨 JSON으로 읽어 검사하고 틀리면 invalid_output"
+      - "completed면 그 turn에서 session agent가 남긴 마지막 메시지 글을 답으로 하고, 글이 없으면 no_answer. failed면 turn_failed이고 reason은 turn의 실패 이유다(빈 응답 뒤 끝난 turn은 no_answer). schema가 있으면 code fence 하나를 벗겨 JSON으로 읽어 검사하고 틀리면 invalid_output"
       - "SettleRun으로 running일 때만 닫는다. WaitRun도 같은 길로 표를 다시 본다"
     outcomes:
       - id: done
@@ -770,10 +770,10 @@ flows:
         when: "schema가 있는데 답이 JSON이 아니거나 schema에 맞지 않음"
         observe: [ledger:runs]
       - id: no-answer
-        when: "turn이 completed로 끝났는데 agent의 답 글이 없음"
+        when: "turn이 completed로 끝났는데 agent의 답 글이 없음(옛 turn의 빈 마지막 응답. 지금 loop는 빈 응답을 no_answer로 끝낸 failed turn으로 두므로 새 turn은 turn-failed로 온다)"
         observe: [ledger:runs]
       - id: turn-failed
-        when: "turn outcome이 failed"
+        when: "turn outcome이 failed. error.reason은 turn_failed이고 message가 turn의 실패 이유다(no_answer, repeated_tool_failure 포함)"
         observe: [ledger:runs]
       - id: turn-interrupted
         when: "turn이 user_stopped나 session_ended로 끝남"

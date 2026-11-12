@@ -68,7 +68,7 @@ flows:
         observe: [response]
       - id: git-failed
         code: unavailable
-        when: "git 실행이 실패함(프로세스를 띄우지 못함), 또는 폴더 경로 확인이 예외로 끝남"
+        when: "git 실행이 실패함(프로세스를 띄우지 못함. git이 없으면 \"git was not found\" 문구로 알린다), 또는 폴더 경로 확인이 예외로 끝남"
         observe: [response]
       - id: forbidden
         code: forbidden

@@ -116,7 +116,8 @@ files:
       - host-browser-inspect:unavailable
       - extension-tool-call:ran
       - extension-tool-call:shell-detached
-    note: "host queue 표의 함수(openTab, take, wait, done, abandon, expire). 탭 요청은 route 입구 없이 queue를 직접 부른다. 이미 열린 preview 탭에 기기를 주면 같은 tab id로 tab_open이 다시 나가는 것(reused), 기한을 넘은 browser_call이 unavailable로 끝나고 늦은 done이 무시되는 것, 기다리는 take가 attached로 보이고 요청이 오면 바로 받는 것"
+      - extension-tool-call:call-timed-out
+    note: "host queue 표의 함수(openTab, take, wait, done, abandon, expire). 탭 요청은 route 입구 없이 queue를 직접 부른다. 이미 열린 preview 탭에 기기를 주면 같은 tab id로 tab_open이 다시 나가는 것(reused), 기한을 넘은 browser_call이 unavailable로 끝나고 늦은 done이 무시되는 것, 기다리는 take가 attached로 보이고 요청이 오면 바로 받는 것, 가져간 extension tool 호출이 5분 안에 답이 없으면 거두고 늦은 done이 무시되는 것"
 
   - path: packages/core/install-and-update/data-root_test.ts
     covers: [core-boot:start-failed-other]

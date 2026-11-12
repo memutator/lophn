@@ -71,11 +71,12 @@ flows:
     code:
       - packages/core/lophn-agent/tools/bundles/file.ts
       - packages/core/lophn-agent/tools/file/search.ts
+      - packages/core/lophn-agent/tools/file/search-worker.ts
       - packages/core/lophn-agent/tools/file/scope.ts
     steps:
-      - "path가 없으면 workspace 첫 폴더를 resolveInWorkspace(read)로 풀고, 폴더면 아래를 훑고 파일이면 그 파일 하나만 본다"
+      - "path가 없으면 workspace 첫 폴더를 resolveInWorkspace(read)로 풀고, 폴더면 아래를 훑고 파일이면 그 파일 하나만 본다. 훑기는 Worker에서 돌고 10초에 끊는다(model이 준 정규식이 끝나지 않을 수 있다)"
       - "훑을 때 .git과 node_modules는 건너뛰고, 범위 밖으로 나가는 symlink는 넣지 않는다"
-      - "file.glob은 ** * ? {a,b} 패턴에 맞는 경로를 모은다(200개 상한). file.grep은 정규식을 줄마다 맞춘다(2 MiB 넘거나 NUL이 있는 파일은 건너뛰고, 100줄 상한, 줄은 300자로 자른다)"
+      - "file.glob은 ** * ? {a,b} 패턴에 맞는 경로를 모은다(200개 상한). file.grep은 정규식을 줄마다 맞춘다(2 MiB 넘거나 NUL이 있는 파일은 건너뛰고, 100줄 상한, 줄은 300자로 자른다). 4,000자를 넘는 줄은 검사하지 않고 건너뛴 수를 summary에 알린다"
       - "상한에 걸리면 complete false와 narrow pattern or path 안내(continuation)를 준다"
     outcomes:
       - id: matched
@@ -100,6 +101,14 @@ flows:
         code: invalid_input
         observe: ["response"]
         when: "그 밖의 fs 오류다(path의 stat이 ENOENT가 아닌 오류)"
+      - id: timed-out
+        code: invalid_input
+        observe: ["response"]
+        when: "훑기가 10초 안에 끝나지 않아 Worker를 끝냈다. 더 단순한 pattern이나 좁은 path·glob을 쓰라고 알린다"
+      - id: search-failed
+        code: unavailable
+        observe: ["response"]
+        when: "Worker가 오류나 exit로 끝났거나 turn이 멈춰 훑기를 중단했다(the search failed, the search was stopped)"
     crosses_process: false
     refs: [P4]
     docs: [architecture/workspace-session.md]
@@ -117,9 +126,9 @@ flows:
       - packages/core/lophn-agent/session/rewind/record.ts
     steps:
       - "resolveInWorkspace(write)로 path를 풀고, 범위 밖이면 forbidden으로 끝낸다"
-      - "기존 파일을 읽는다. 없으면 새 파일이다. ENOENT가 아닌 오류는 invalid_input이다"
+      - "기존 파일을 읽는다. 없으면 새 파일이다. ENOENT가 아닌 오류는 invalid_input이고 원인(권한, 폴더 등)을 errno별 문장으로 알린다. 기존 file이 CRLF만 쓰고 content에 CRLF가 없으면 content도 CRLF로 쓰고, 기존 BOM은 지킨다. 결과가 10 MiB를 넘으면 거절한다"
       - "FILE_HOOKS의 aroundWrite가 쓰기 전 pre-image를 stage-file route로 core에 남긴다"
-      - "부모 폴더가 없으면 만들고 content를 쓴 뒤, record-write route로 쓴 뒤의 hash를 남긴다. stage나 record가 실패해도 쓰기는 막지 않는다(기록이 없을 뿐이다)"
+      - "부모 폴더가 없으면 만들고 content를 같은 폴더의 임시 file에 쓴 뒤 rename하고(실패해도 원본이 온전하고 mode가 남는다), record-write route로 쓴 뒤의 hash를 남긴다. stage나 record가 실패해도 쓰기는 막지 않는다(기록이 없을 뿐이다)"
       - "summary에 created 또는 wrote와 bytes를 실어 돌려준다. file tool은 Gate를 거치지 않는다"
     outcomes:
       - id: created
@@ -135,7 +144,11 @@ flows:
       - id: cannot-write
         code: invalid_input
         observe: ["response"]
-        when: "폴더 만들기나 쓰기가 실패했다(cannot write this path), 또는 기존 내용 읽기가 ENOENT가 아닌 오류다(폴더를 가리키는 path 포함)"
+        when: "폴더 만들기나 쓰기가 실패했다(권한, disk 가득, 읽기 전용, 사용 중 같은 원인을 errno별 문장으로 알린다), 또는 기존 내용 읽기가 ENOENT가 아닌 오류다(폴더를 가리키는 path 포함). 원본은 그대로다"
+      - id: too-large
+        code: invalid_input
+        observe: ["response"]
+        when: "쓸 결과가 10 MiB를 넘는다(file tool의 읽기 상한과 같다). 쓰지 않는다"
     crosses_process: false
     risk: [data-loss, sandbox]
     refs: [A1, A6, C28, C29]
@@ -154,9 +167,9 @@ flows:
       - packages/core/lophn-agent/session/rewind/record.ts
     steps:
       - "resolveInWorkspace(write)로 path를 풀고, 범위 밖이면 forbidden으로 끝낸다"
-      - "기존 파일을 읽는다. 없으면 not_found다(edit은 새로 만들지 않는다)"
-      - "old_string이 비었거나 new_string과 같으면, 한 번도 안 나오면, 두 번 넘게 나오는데 replace_all이 아니면 invalid_input이다"
-      - "file.write와 같은 aroundWrite(stage-file, record-write)로 바뀐 내용을 쓴다. stage나 record가 실패해도 쓰기는 막지 않는다"
+      - "기존 파일을 읽는다. 없으면 not_found다(edit은 새로 만들지 않는다). 10 MiB를 넘거나 UTF-8이 아니거나 NUL이 든 file은 invalid_input으로 거절한다"
+      - "old_string이 비었거나 new_string과 같으면, 한 번도 안 나오면, 두 번 넘게 나오는데 replace_all이 아니면 invalid_input이다. 모든 줄이 CRLF인 file은 old_string·new_string의 줄바꿈을 맞춰 찾고 CRLF로 쓰며 BOM은 지킨다"
+      - "file.write와 같은 aroundWrite(stage-file, record-write)로 임시 file에 쓴 뒤 rename한다. stage나 record가 실패해도 쓰기는 막지 않는다"
       - "summary에 edited와 바꾼 수(N replaced)를 실어 돌려준다"
     outcomes:
       - id: edited
@@ -185,7 +198,15 @@ flows:
       - id: cannot-write
         code: invalid_input
         observe: ["response"]
-        when: "쓰기가 실패했다(cannot write this path), 또는 기존 내용 읽기가 ENOENT가 아닌 오류다"
+        when: "쓰기가 실패했다(원인을 errno별 문장으로 알린다), 또는 기존 내용 읽기가 ENOENT가 아닌 오류다. 원본은 그대로다"
+      - id: not-text
+        code: invalid_input
+        observe: ["response"]
+        when: "기존 file이 UTF-8 글이 아니거나 NUL이 들었다. file.edit은 UTF-8 글만 고친다"
+      - id: too-large
+        code: invalid_input
+        observe: ["response"]
+        when: "기존 file이나 바뀐 결과가 10 MiB를 넘는다"
     crosses_process: false
     risk: [data-loss, sandbox]
     refs: [A6]
@@ -315,14 +336,14 @@ flows:
       - "자식 환경 변수는 PATH HOME USER LANG LC_ALL TERM TMPDIR SHELL만 넘기고 PATH 앞에 node shim 폴더를 붙인다. LOPHN_ 값과 secret은 나가지 않는다. LOPHN_AGENT_SHELL=1만 더해 그 안의 lophn CLI가 바로 멈추게 한다(cli-core-connect:agent-shell)"
       - "POSIX는 /bin/sh -c로, Windows는 Git for Windows의 bash로 detached process group을 띄운다. bash가 없으면 unavailable이다"
       - "출력은 stream마다 앞 12 KiB와 뒤 12 KiB만 남기고 가운데는 생략 표시한다. 제한 시간(기본 120초, 최대 600초)이 지나면 group을 죽인다"
-      - "사람이 turn을 멈추면 group을 죽이고 stopped로 끝난다. OS sandbox는 없다(열린 issue)"
+      - "사람이 turn을 멈추면 group을 죽이고 stopped로 끝난다. agent runtime process가 exit로 끝날 때도 남은 group을 죽인다(SIGKILL·OOM은 못 덮는다). OS sandbox는 없다(열린 issue)"
     outcomes:
       - id: finished
         observe: ["process:sh group", "response"]
         when: "명령이 끝났다. exit code가 0이 아니어도 status는 success이고 summary는 exit code N이다. 출력을 잘랐으면 complete false다"
       - id: timed-out
         observe: ["process:sh group", "response"]
-        when: "제한 시간을 넘어 group을 죽였다(status failure)"
+        when: "제한 시간을 넘어 group을 죽였다(status uncertain). 명령이 이미 효과를 냈을 수 있다고 알린다"
       - id: stopped
         observe: ["process:sh group", "response"]
         when: "turn이 멈춰 group을 죽였다(status failure)"
@@ -484,7 +505,7 @@ flows:
       - "파일을 읽는다. 없으면 빈 글이다. ENOENT가 아닌 읽기 오류는 invalid_input이다"
       - "old_string이 없으면 new_string을 덧붙인다(앞 글이 줄바꿈으로 끝나지 않으면 줄바꿈을 먼저 넣는다). 있으면 정확히 한 번 나온 자리를 new_string으로 바꾼다(빈 new_string은 지운다)"
       - "결과가 8 KiB(MEMORY_MAX_BYTES)를 넘으면 지금 크기를 알리며 거절하고 파일은 그대로다"
-      - "폴더를 만들고 file tool과 같은 aroundWrite(stage-file, record-write)로 쓴다. rewind가 되돌린다. 쓴 글은 지금 session의 prompt에는 보이지 않고 다음 session부터 보인다(memory는 session 첫 turn에 고정)"
+      - "폴더를 만들고 file tool과 같은 aroundWrite(stage-file, record-write)로 임시 file에 쓴 뒤 rename한다. rewind가 되돌린다. 쓴 글은 지금 session의 prompt에는 보이지 않고 다음 session부터 보인다(memory는 session 첫 turn에 고정)"
     outcomes:
       - id: appended
         observe: ["disk:<memory 파일>", "ledger:rewind_files", "response"]
@@ -519,7 +540,7 @@ flows:
       - id: cannot-write
         code: invalid_input
         observe: ["response"]
-        when: "쓰기가 실패했다(cannot write the memory)"
+        when: "쓰기가 실패했다(원인을 errno별 문장으로 알린다). 원본은 그대로다"
     crosses_process: false
     risk: [data-loss, sandbox]
     docs: [architecture/workspace-session.md]
@@ -662,7 +683,10 @@ flows:
         when: "handler가 status success를 돌려줬다"
       - id: status-failure
         observe: ["response"]
-        when: "handler가 status failure를 돌려줬다(shell의 시간 초과와 멈춤)"
+        when: "handler가 status failure를 돌려줬다(shell의 멈춤, MCP server의 isError 답)"
+      - id: status-uncertain
+        observe: ["response"]
+        when: "handler가 status uncertain을 돌려줬다(shell의 시간 초과, MCP 호출을 보냈는데 답이 없음). 효과가 났을 수 있다고 알린다"
       - id: not-listed
         code: not_found
         observe: ["response"]
@@ -728,7 +752,7 @@ flows:
     crosses_process: false
     docs: [architecture/agent-definition.md]
     unclear:
-      - "현재 spill 표시를 다는 것은 lophn 명령과 앱 command 결과뿐이라 static tool은 이 길을 타지 않는다. test는 명령 결과로 해야 한다"
+      - "spill 표시를 다는 것은 lophn 명령, 앱 command, MCP tool, extension tool 결과다. static tool은 이 길을 타지 않는다. test는 명령 결과로 해야 한다"
 
   - id: workspace-file-scope
     title: "turn 시작에 workspace 종류마다 file tool이 닿는 폴더를 정한다"

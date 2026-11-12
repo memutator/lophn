@@ -252,6 +252,10 @@ files:
     covers: [tool-file-read:forbidden, tool-file-write:forbidden]
     note: "resolveInWorkspace 직접 호출. workspace 밖과 밖을 가리키는 symlink를 거절하고, 파일 entry는 그 파일만 열며, session은 자기 tool-results 폴더만 읽는다"
 
+  - path: packages/core/lophn-agent/tools/file/write_test.ts
+    covers: [tool-file-write:overwritten, tool-file-write:cannot-write]
+    note: "사람 file을 쓰는 규칙. file.edit이 BOM·CRLF와 바꾸지 않은 byte, mode를 지키고 UTF-8이 아닌 file은 고치지 않는다. 쓰기는 임시 file 뒤 rename이라 실패하거나 10 MiB를 넘으면 원본이 그대로이고 임시 file이 남지 않는다"
+
   - path: packages/core/lophn-agent/tools/questions/wait_test.ts
     covers: [ask-wait:submitted, ask-answer:answered, ask-answer:not-open]
     note: "한 session의 ask 여럿은 하나씩 열린다. 열리지 않은 질문은 읽지도 답하지도 못하고, 답은 그 질문만 풀며 풀리면 다음이 열린다"

@@ -9,19 +9,19 @@ lead만 고친다. `tools/status.py failure-hardening build`가 `tasks/*.md`에�
 | `core-smalls` | core | 1 | 없음 | running | core/core-smalls |  |  |
 | `runtime-children` | core | 1 | 없음 | running | core/runtime-children |  |  |
 | `storage-errors` | core | 1 | 없음 | running | core/storage-errors |  |  |
-| `gui-claude` | gui | 1 | 없음 | running | gui/gui-claude |  |  |
-| `gui-codex` | gui | 1 | 없음 | running | gui/gui-codex |  |  |
-| `gui-omp` | gui | 1 | 없음 | running | gui/gui-omp |  |  |
-| `gui-opencode` | gui | 1 | 없음 | running | gui/gui-opencode |  |  |
-| `loop-driver` | loop | 1 | 없음 | running | loop/loop-driver |  |  |
-| `loop-turn` | loop | 1 | 없음 | running | loop/loop-turn |  |  |
-| `provider-error-text` | provider | 1 | 없음 | running | provider/provider-error-text |  |  |
-| `provider-failures` | provider | 1 | 없음 | running | provider/provider-failures |  |  |
+| `gui-claude` | gui | 1 | 없음 | merged | gui/gui-claude | 7240da1ee |  |
+| `gui-codex` | gui | 1 | 없음 | merged | gui/gui-codex | 0763abf41 |  |
+| `gui-omp` | gui | 1 | 없음 | merged | gui/gui-omp | 939739d06 |  |
+| `gui-opencode` | gui | 1 | 없음 | merged | gui/gui-opencode | 82858adfe |  |
+| `loop-driver` | loop | 1 | 없음 | merged | loop/loop-driver | a46173062 |  |
+| `loop-turn` | loop | 1 | 없음 | merged | loop/loop-turn | 4c64efc27 |  |
+| `provider-error-text` | provider | 1 | 없음 | merged | provider/provider-error-text | 55ea4fd1a |  |
+| `provider-failures` | provider | 1 | 없음 | merged | provider/provider-failures | 2ab41e81d |  |
 | `ext-spawn` | shell | 1 | 없음 | running | shell/ext-spawn |  |  |
 | `shell-core-connection` | shell | 1 | 없음 | running | shell/shell-core-connection |  |  |
 | `hooks-install` | term | 1 | 없음 | todo |  |  |  |
-| `term-host` | term | 1 | 없음 | running | term/term-host |  |  |
-| `term-supervisor` | term | 1 | 없음 | running | term/term-supervisor |  |  |
+| `term-host` | term | 1 | 없음 | merged | term/term-host | 49d9a5562 |  |
+| `term-supervisor` | term | 1 | 없음 | merged | term/term-supervisor | 53a1b0a9d |  |
 | `mcp-failures` | tools | 1 | 없음 | todo |  |  |  |
 | `tools-file-write` | tools | 1 | 없음 | todo |  |  |  |
 | `tools-grep` | tools | 1 | 없음 | merged | tools/tools-grep | 30a229f67 |  |

@@ -7,5 +7,5 @@ lead만 고친다. `tools/status.py explorer-files build`가 `tasks/*.md`에서 
 | `explorer-multi-select` | explorer | 1 | 없음 | merged | explorer/explorer-multi-select | 2b19a6358 |  |
 | `files-transfer` | files | 1 | 없음 | merged | files/files-transfer | ed2da6265 |  |
 | `editor-image-paste` | editor | 2 | files-transfer | running | editor/editor-image-paste |  |  |
-| `explorer-clipboard` | explorer | 2 | files-transfer, explorer-multi-select | running | explorer/explorer-clipboard |  |  |
+| `explorer-clipboard` | explorer | 2 | files-transfer, explorer-multi-select | merged | explorer/explorer-clipboard | 01316169d |  |
 | `explorer-clipboard-ui` | explorer | 2 | explorer-clipboard | todo |  |  |  |

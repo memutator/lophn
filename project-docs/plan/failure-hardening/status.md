@@ -4,11 +4,11 @@ lead만 고친다. `tools/status.py failure-hardening build`가 `tasks/*.md`에�
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `blob-gc` | core | 1 | 없음 | todo |  |  |  |
+| `blob-gc` | core | 1 | 없음 | running | core/blob-gc |  |  |
 | `core-lifetime` | core | 1 | 없음 | running | core/core-lifetime |  |  |
-| `core-smalls` | core | 1 | 없음 | todo |  |  |  |
-| `runtime-children` | core | 1 | 없음 | todo |  |  |  |
-| `storage-errors` | core | 1 | 없음 | todo |  |  |  |
+| `core-smalls` | core | 1 | 없음 | running | core/core-smalls |  |  |
+| `runtime-children` | core | 1 | 없음 | running | core/runtime-children |  |  |
+| `storage-errors` | core | 1 | 없음 | running | core/storage-errors |  |  |
 | `gui-claude` | gui | 1 | 없음 | running | gui/gui-claude |  |  |
 | `gui-codex` | gui | 1 | 없음 | running | gui/gui-codex |  |  |
 | `gui-omp` | gui | 1 | 없음 | running | gui/gui-omp |  |  |

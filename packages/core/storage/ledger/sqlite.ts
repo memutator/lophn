@@ -275,13 +275,29 @@ export function isTransactionLost(thrown: unknown): boolean {
 const STORAGE_CODES = new Set([5, 6, 8, 10, 11, 13, 14, 15, 26]);
 const STORAGE_NAMES =
   /^SQLITE_(BUSY|LOCKED|READONLY|IOERR|CORRUPT|FULL|CANTOPEN|PROTOCOL|NOTADB)(_|$)/;
-const STORAGE_MARKERS = [
-  "disk i/o",
-  "database or disk is full",
-  "database is locked",
-  "unable to open",
-  "disk image is malformed",
-  "readonly database",
+export type StorageReason = "disk full" | "locked" | "corrupt" | "io";
+
+const REASON_BY_PRIMARY = new Map<number, StorageReason>([
+  [13, "disk full"],
+  [5, "locked"],
+  [6, "locked"],
+  [11, "corrupt"],
+  [26, "corrupt"],
+]);
+const REASON_BY_NAME = new Map<string, StorageReason>([
+  ["FULL", "disk full"],
+  ["BUSY", "locked"],
+  ["LOCKED", "locked"],
+  ["CORRUPT", "corrupt"],
+  ["NOTADB", "corrupt"],
+]);
+const STORAGE_MARKERS: readonly (readonly [string, StorageReason])[] = [
+  ["disk i/o", "io"],
+  ["database or disk is full", "disk full"],
+  ["database is locked", "locked"],
+  ["unable to open", "io"],
+  ["disk image is malformed", "corrupt"],
+  ["readonly database", "io"],
 ];
 
 export function isStorageUnavailable(thrown: unknown): boolean {
@@ -298,5 +314,24 @@ export function isStorageUnavailable(thrown: unknown): boolean {
   }
   if (!(thrown instanceof Error)) return false;
   const message = thrown.message.toLowerCase();
-  return STORAGE_MARKERS.some((marker) => message.includes(marker));
+  return STORAGE_MARKERS.some(([marker]) => message.includes(marker));
+}
+
+// isStorageUnavailable이 참인 값만 받는다. 표는 위와 같고 분류가 안 되면 io다.
+export function storageReason(thrown: unknown): StorageReason {
+  if (thrown !== null && typeof thrown === "object") {
+    const { errcode, code } = thrown as { errcode?: unknown; code?: unknown };
+    if (typeof errcode === "number" && STORAGE_CODES.has(errcode & 255)) {
+      return REASON_BY_PRIMARY.get(errcode & 255) ?? "io";
+    }
+    if (typeof code === "string") {
+      const name = STORAGE_NAMES.exec(code)?.[1];
+      if (name !== undefined) return REASON_BY_NAME.get(name) ?? "io";
+    }
+  }
+  if (!(thrown instanceof Error)) return "io";
+  const message = thrown.message.toLowerCase();
+  return (
+    STORAGE_MARKERS.find(([marker]) => message.includes(marker))?.[1] ?? "io"
+  );
 }

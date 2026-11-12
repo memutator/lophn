@@ -17,6 +17,10 @@ import {
   type LedgerConnection,
   openConnection,
 } from "../storage/ledger/mod.ts";
+import {
+  isStorageUnavailable,
+  storageReason,
+} from "../storage/ledger/sqlite.ts";
 
 type WriteLinkDeps = {
   ledgerPath: string;
@@ -89,11 +93,20 @@ export function openWriteLink(deps: WriteLinkDeps): Result<WriteLink> {
         if (result.ok) connection.exec("commit");
         else rollback();
         return result;
-      } catch {
+      } catch (thrown) {
         rollback();
+        if (!isStorageUnavailable(thrown)) {
+          return err({
+            code: "unavailable",
+            message: "ledger에 기록할 수 없다",
+          });
+        }
+        const reason = storageReason(thrown);
+        // core를 끝내는 길은 없다. writer Worker가 같은 file에서 corrupt를 만나 끝낸다.
+        if (reason === "corrupt") connection.fault();
         return err({
           code: "unavailable",
-          message: "ledger에 기록할 수 없다",
+          message: `ledger에 기록할 수 없다: ${reason}`,
         });
       }
     },

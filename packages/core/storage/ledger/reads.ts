@@ -13,6 +13,7 @@ import {
 import type { ReaderConnection } from "./reader-connection.ts";
 import { createTargetAuthorizer } from "./target-authorization.ts";
 import { validateOutput } from "./output.ts";
+import type { StorageReason } from "./sqlite.ts";
 
 export const READ_MAX_ROWS = 500;
 export const READ_MAX_BYTES = 1024 * 1024;
@@ -23,7 +24,14 @@ export const READ_TIMEOUT_MS = 2000;
 export const READER_BUSY_TIMEOUT_MS = 1000;
 
 export class ReadLimitExceeded extends Error {}
-export class ReaderStorageError extends Error {}
+export class ReaderStorageError extends Error {
+  // 저장소가 낸 오류만 원인이 있다. 닫기 실패 등은 없다.
+  readonly reason: StorageReason | undefined;
+  constructor(message: string, reason?: StorageReason) {
+    super(message);
+    this.reason = reason;
+  }
+}
 
 function synchronousResult(value: unknown): Result<unknown> {
   // 이미 시작된 async handler의 rejection은 관측하되 Result로 채택하지 않는다.
@@ -210,7 +218,12 @@ function executeSnapshot(
             details: { max_rows: READ_MAX_ROWS },
           }
         : error instanceof ReaderStorageError
-          ? { code: "unavailable", message: "reader 저장소를 사용할 수 없다" }
+          ? {
+              code: "unavailable",
+              message: `reader 저장소를 사용할 수 없다${
+                error.reason === undefined ? "" : `: ${error.reason}`
+              }`,
+            }
           : { code: "internal", message: "read 처리에 실패했다" },
     );
   }

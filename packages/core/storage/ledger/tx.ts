@@ -22,6 +22,7 @@ import {
   isStorageUnavailable,
   isTransactionLost,
   type LedgerConnection,
+  storageReason,
 } from "./sqlite.ts";
 import { targetAuthorizationPort } from "./target-authorization.ts";
 import type { CommandDispatch } from "./dispatch.ts";
@@ -82,13 +83,22 @@ function rejected(thrown: unknown): Result<never> | undefined {
   return undefined;
 }
 
-function storageFailure(thrown: unknown): Result<never> | undefined {
+// corrupt면 호출한 쪽이 연결을 fault하도록 onCorrupt로 알린다.
+export function storageFailure(
+  thrown: unknown,
+  onCorrupt?: () => void,
+): Result<never> | undefined {
   if (!isStorageUnavailable(thrown)) return undefined;
-  return err({ code: "unavailable", message: "ledger에 기록할 수 없다" });
+  const reason = storageReason(thrown);
+  if (reason === "corrupt") onCorrupt?.();
+  return err({
+    code: "unavailable",
+    message: `ledger에 기록할 수 없다: ${reason}`,
+  });
 }
 
-function settle(thrown: unknown): Result<never> {
-  const failure = rejected(thrown) ?? storageFailure(thrown);
+function settle(thrown: unknown, onCorrupt: () => void): Result<never> {
+  const failure = rejected(thrown) ?? storageFailure(thrown, onCorrupt);
   if (failure) return failure;
   return err(internalError());
 }
@@ -103,9 +113,9 @@ function rollback(connection: LedgerConnection): Result<never> | undefined {
   try {
     if (connection.inTransaction()) connection.exec("rollback");
     return undefined;
-  } catch {
+  } catch (thrown) {
     connection.fault();
-    return UNAVAILABLE;
+    return storageFailure(thrown) ?? UNAVAILABLE;
   }
 }
 
@@ -123,6 +133,23 @@ export function runTransaction<T>(
       message: "transaction 안에서 transaction을 열 수 없다",
     });
   }
+  // corrupt 파일에는 다시 쓰지 않는다. rollback을 시도한 뒤 연결을 fault한다.
+  let corrupt = false;
+  const onCorrupt = () => {
+    corrupt = true;
+  };
+  const result = attempt(connection, ctx, deps, fn, onCorrupt);
+  if (corrupt) connection.fault();
+  return result;
+}
+
+function attempt<T>(
+  connection: LedgerConnection,
+  ctx: TxContext | (() => Result<TxContext>),
+  deps: TxDeps,
+  fn: (tx: Tx, seal: () => void) => Result<T>,
+  onCorrupt: () => void,
+): Result<T> {
   try {
     connection.exec("begin immediate");
     const resolved = typeof ctx === "function" ? ctx() : ok(ctx);
@@ -130,7 +157,7 @@ export function runTransaction<T>(
       const failed = rollback(connection);
       return failed ?? resolved;
     }
-    const built = createTx(connection.sql, resolved.value, deps);
+    const built = createTx(connection.sql, resolved.value, deps, onCorrupt);
     let handled: Result<T>;
     try {
       handled = fn(built.tx, built.seal);
@@ -148,7 +175,7 @@ export function runTransaction<T>(
   } catch (thrown) {
     const failed = rollback(connection);
     if (failed) return failed;
-    return settle(thrown);
+    return settle(thrown, onCorrupt);
   }
 }
 
@@ -177,7 +204,12 @@ type BuiltTx = {
   failure: () => Result<never> | undefined;
 };
 
-function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
+function createTx(
+  sql: Sql,
+  ctx: TxContext,
+  deps: TxDeps,
+  onCorrupt: () => void,
+): BuiltTx {
   let open = true;
   let changedRows = 0n;
   let sticky: Result<never> | undefined;
@@ -194,7 +226,7 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
     try {
       found = sql.get("select total_changes() as n", [])?.["n"];
     } catch (thrown) {
-      throw fail(storageFailure(thrown) ?? err(internalError()));
+      throw fail(storageFailure(thrown, onCorrupt) ?? err(internalError()));
     }
     if (typeof found !== "bigint" || found < 0n) {
       throw fail(err(internalError()));
@@ -218,7 +250,7 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
     if (ctx.unboundedRows !== true && changedRows > COMMAND_MAX_CHANGED_ROWS) {
       throw fail(OVER_LIMIT);
     }
-    if (thrown !== undefined) throw sqlFailure(thrown.error, fail);
+    if (thrown !== undefined) throw sqlFailure(thrown.error, fail, onCorrupt);
     return value as T;
   };
   const emitAs = (
@@ -321,9 +353,10 @@ function createTx(sql: Sql, ctx: TxContext, deps: TxDeps): BuiltTx {
 function sqlFailure(
   thrown: unknown,
   fail: (result: Result<never>) => TxRejected,
+  onCorrupt: () => void,
 ): unknown {
   if (thrown instanceof TxRejected) return thrown;
-  const failure = rejected(thrown) ?? storageFailure(thrown);
+  const failure = rejected(thrown) ?? storageFailure(thrown, onCorrupt);
   return failure ? fail(failure) : thrown;
 }
 

@@ -35,10 +35,14 @@ import type {
   CommandSuccess,
   StoredCommandResult,
 } from "./writer-message.ts";
-import { isStorageUnavailable, type LedgerConnection } from "./sqlite.ts";
+import {
+  isStorageUnavailable,
+  type LedgerConnection,
+  storageReason,
+} from "./sqlite.ts";
 import { createCommandDispatch } from "./dispatch.ts";
 import { admitAgentTurn, turnDisposition } from "./commands.ts";
-import { runTransaction, type TxDeps } from "./tx.ts";
+import { runTransaction, storageFailure, type TxDeps } from "./tx.ts";
 import {
   actorKind,
   authorityTarget,
@@ -310,10 +314,9 @@ function commitCommand(
   } catch (thrown) {
     // commit이 예외로 끝나면 살아 있는 handle의 예약만 푼다. 종료·만료 handle은 되살리지 않는다.
     if (reserved !== undefined) deps.confirmation?.release(reserved);
-    if (isStorageUnavailable(thrown)) {
-      return err({ code: "unavailable", message: "ledger에 기록할 수 없다" });
-    }
-    return err(internalError());
+    return (
+      storageFailure(thrown, () => connection.fault()) ?? err(internalError())
+    );
   } finally {
     if (committed && reserved !== undefined) {
       deps.confirmation?.consume(reserved);
@@ -423,7 +426,12 @@ export function readOwnResult(
     );
   } catch (thrown) {
     if (isStorageUnavailable(thrown)) {
-      return err({ code: "unavailable", message: "ledger를 읽을 수 없다" });
+      const reason = storageReason(thrown);
+      if (reason === "corrupt") connection.fault();
+      return err({
+        code: "unavailable",
+        message: `ledger를 읽을 수 없다: ${reason}`,
+      });
     }
     return err(internalError());
   }

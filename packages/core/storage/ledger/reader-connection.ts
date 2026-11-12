@@ -1,7 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { ReadSnapshot } from "../../../protocol/server/mod.ts";
-import { createSql, isStorageUnavailable } from "./sqlite.ts";
+import { createSql, isStorageUnavailable, storageReason } from "./sqlite.ts";
 import {
   READ_MAX_ROWS,
   READER_BUSY_TIMEOUT_MS,
@@ -14,7 +14,10 @@ function readerStorage<T>(operation: () => T): T {
     return operation();
   } catch (error) {
     if (isStorageUnavailable(error)) {
-      throw new ReaderStorageError("reader storage unavailable");
+      throw new ReaderStorageError(
+        "reader storage unavailable",
+        storageReason(error),
+      );
     }
     throw error;
   }

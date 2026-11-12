@@ -10,10 +10,11 @@ md 문서에 붙여넣은 이미지를 그 file 옆에 png로 저장하고 커�
   - `packages/shell/renderer/editor/live-preview.ts`
   - `packages/shell/renderer/editor/text-file-view.tsx`
   - `packages/shell/renderer/editor/use-file.ts`
+  - `packages/shell/renderer/editor/source.ts`
   - `packages/shell/renderer/editor/image-paste.ts`(새 file)
   - `packages/shell/renderer/editor/markdown-editor.module.css`
 - 읽을 것:
-  - 앞 task 계약: `packages/shell/renderer/workspace/files/paste-names.ts`의 `freeName`, `WorkspaceSource.writeBytes`(files-transfer brief). 이 task는 `EditorSessions`(editor/sessions.ts)의 `files`(`FilesApi`)를 쓴다. 그쪽 `writeBytes({path, bytes})`를 쓴다.
+  - 앞 task 계약: `packages/shell/renderer/workspace/files/paste-names.ts`의 `freeName`, `WorkspaceSource.writeBytes`(files-transfer brief). 이 task는 `EditorSessions`(editor/sessions.ts)의 `files`(`EditorFiles`, editor/source.ts의 `Pick<FilesApi, ...>`)를 쓴다. 그쪽 `writeBytes({path, bytes})`를 쓴다. `EditorFiles`의 Pick 목록에 `writeBytes`를 더한다.
   - 지금 코드: `live-preview.ts`의 `ImageWidget`·`defaultResolveImage`, `markdown-editor.tsx`의 `EditorView.domEventHandlers`, `text-file-view.tsx`의 `MarkdownPane` 자리
   - 배경: `project-docs/architecture/agent-chat.md` 16번은 **대화의** image URL 규칙이다. 문서 본문은 사람이 쓴 파일이라 다르게 둔다(이 계획 README "정한 것").
 - 계약:

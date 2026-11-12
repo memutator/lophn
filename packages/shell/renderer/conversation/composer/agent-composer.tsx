@@ -523,6 +523,7 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
               placeholder={props.hint}
               readOnly={locked}
               data-composer-input=""
+              data-tab-focus=""
               data-key-context={
                 shellMode && draft.text === "!" ? "modal" : undefined
               }

@@ -2632,7 +2632,10 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
         // 배치를 읽기 전에는 빈 desk 안내가 잠깐 떴다 사라지지 않게 빈 card를 둔다.
         pending={readyWorkspace !== workspaceId}
         onFocus={(key) => update((item) => selectTab(item, key))}
-        onCycle={(key, delta) => update((item) => cyclePane(item, key, delta))}
+        onCycle={(key, delta) => {
+          update((item) => cyclePane(item, key, delta));
+          focusTabBody(latestDesk().selected);
+        }}
         onAction={runTabAction}
         onDropPath={(path) =>
           openFile(host, path, {
@@ -2868,7 +2871,10 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                   globalFloats={taskbar ? [] : globalChips}
                   floating={pressedChips}
                   onToggleGlobalFloat={globalFloats.toggle}
-                  onSelect={(key) => update((item) => selectTab(item, key))}
+                  onSelect={(key) => {
+                    update((item) => selectTab(item, key));
+                    focusTabBody(key);
+                  }}
                   onClose={close}
                   onMenu={(key, at) => setTabMenu({ key, ...at })}
                   onPin={(key) => update((item) => pinTab(item, key))}

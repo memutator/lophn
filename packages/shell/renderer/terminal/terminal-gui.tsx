@@ -49,6 +49,7 @@ import {
 } from "../icons/mod.ts";
 import type { TabItem } from "../workspace/model.ts";
 import type { TabHost } from "../workspace/kinds/host.ts";
+import { focusTabBody } from "../workspace/focus-tab.ts";
 import type { TerminalDeps } from "./deps.ts";
 import { blocksText } from "../../../protocol/lophn-agent/content-block.ts";
 import { guiSessionId } from "./model.ts";
@@ -516,6 +517,12 @@ export function GuiSwitch({
   // 끝난 turn의 점과 알림이 사라진다.
   const showingGui = viewOf(tab) === "gui";
   const generation = entry?.generation ?? 0;
+  // TUI에서 GUI로 바뀌면 xterm이 사라지며 focus가 창 밖(body)에 남는다. 그대로면 대화 scroll key가
+  // 아무 데도 닿지 않으므로, 이 탭을 보고 있을 때는 입력칸으로 focus를 옮긴다.
+  useEffect(() => {
+    if (!active || !showingGui) return;
+    focusTabBody(tab.key);
+  }, [active, showingGui, tab.key]);
   useEffect(() => {
     const bridge = deps.bridge;
     if (

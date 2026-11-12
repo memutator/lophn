@@ -93,7 +93,7 @@ files:
       - harness-hook-check:ok
       - harness-hook-check:missing
       - harness-hook-check:unchanged
-    note: "installGlobal과 uninstallGlobal의 판정(형식별 보존, 파싱 실패 failed, muse conflict, 지우기 뒤 흔적 없음). dry_run 행 값 missing·unchanged는 harness-hook-check"
+    note: "installGlobal과 uninstallGlobal의 판정(형식별 보존, 파싱 실패 failed, muse conflict, 지우기 뒤 흔적 없음, 읽은 뒤 다른 도구가 고친 설정을 다시 읽어 지킨다). dry_run 행 값 missing·unchanged는 harness-hook-check"
 
   - path: packages/coding-agent/harnesses/skill-copies_test.ts
     covers: [harness-sync-skills:synced]
@@ -101,7 +101,7 @@ files:
 
   - path: packages/coding-agent/local/harness-run_test.ts
     covers: [harness-sync-skills:synced]
-    note: harness extension이 꺼지면 lophn-agent skill 사본만 지우고 사람 폴더는 둔다
+    note: "harness extension이 꺼지면 lophn-agent skill 사본만 지우고 사람 폴더는 둔다. 설정 file 쓰기는 symlink를 따라가 target을 바꾸고 mode를 지킨다"
 
   - path: packages/protocol/shell/keybindings_test.ts
     covers: [key-press:command-run, key-press:passed-on, key-overrides-main:applied, key-overrides-restore:restored]

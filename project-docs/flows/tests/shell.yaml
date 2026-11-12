@@ -182,12 +182,20 @@ files:
       - editor-save:unknown-result
       - file-create:created
       - file-create:name-exists
+      - file-copy:copied
+      - file-copy:name-exists
+      - file-copy:into-self
+      - file-copy:forbidden
+      - file-write-bytes:created
+      - file-write-bytes:name-exists
+      - file-write-bytes:too-large
+      - file-write-bytes:forbidden
       - file-rename:moved
       - file-rename:name-exists
       - file-rename:into-self
       - file-delete:trashed
       - file-delete:unavailable
-    note: "write는 hash가 다르면 conflict로 원본을 안 바꾸고, 쓰기가 끊겨도 원본이 남고 임시 파일을 치운다(unknown-result 갈래로 묶음). 파일 트리의 만들기·옮기기·지우기는 file-create·file-rename·file-delete"
+    note: "write는 hash가 다르면 conflict로 원본을 안 바꾸고, 쓰기가 끊겨도 원본이 남고 임시 파일을 치운다(unknown-result 갈래로 묶음). 파일 트리의 만들기·옮기기·지우기는 file-create·file-rename·file-delete, 복사와 클립보드 이미지 저장은 file-copy·file-write-bytes"
 
   - path: packages/shell/main/extensions/bundled/harness-gui/received_test.ts
     covers:

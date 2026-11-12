@@ -426,6 +426,8 @@ links:
   # 파일 tree (projects)
   - {entry: "ipc:shell:file-list", flow: file-tree-list}
   - {entry: "ipc:shell:file-create", flow: file-create}
+  - {entry: "ipc:shell:file-copy", flow: file-copy}
+  - {entry: "ipc:shell:file-write-bytes", flow: file-write-bytes}
   - {entry: "ipc:shell:file-rename", flow: file-rename}
   - {entry: "ipc:shell:file-delete", flow: file-delete}
   - {entry: "ipc:shell:file-reveal", flow: file-reveal}

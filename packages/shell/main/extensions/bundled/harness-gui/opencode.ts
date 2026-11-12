@@ -6,6 +6,7 @@ import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import type { Result } from "../../../../../base/result.ts";
+import { redactCredentials } from "../../../../../base/telemetry/log.ts";
 import type { AcpInput } from "../../../../../protocol/acp/input.ts";
 import {
   ACP_TOOL_BODY_LIMIT,
@@ -53,8 +54,19 @@ const oneLine = (text: string, max: number) =>
     .slice(0, max);
 const lineCount = (text: unknown) =>
   typeof text === "string" && text !== "" ? text.split("\n").length : 0;
+// 창에 보이는 오류 글은 server와 process의 말이라 credential이 섞일 수 있다.
 const message = (cause: unknown) =>
-  cause instanceof Error ? cause.message : String(cause);
+  redactCredentials(cause instanceof Error ? cause.message : String(cause));
+
+/** SSE 한 건(`\n\n`까지)이 이보다 커지면 stream 오류로 끝낸다. */
+const MAX_EVENT_BYTES = 64 * 1024 * 1024;
+/** 요청 하나에 server가 답하기를 기다리는 시간. */
+const REQUEST_WAIT_MS = 30_000;
+// OpenCode 자신의 client(`packages/client/src/mcp.ts`)와 같은 간격이다.
+const RECONNECT_MIN_MS = 500;
+const RECONNECT_MAX_MS = 10_000;
+/** event 없이 이만큼 이어 실패하면 다시 구독을 그만둔다. */
+const RECONNECT_GIVE_UP = 5;
 
 // --- server와 말하는 길 -------------------------------------------------------------------------------------------------
 
@@ -137,8 +149,20 @@ export function fetchTransport(input: {
               )
               .join("\n");
             buffer = buffer.slice(end + 2);
-            if (data !== "") onEvent(JSON.parse(data) as Json);
+            if (data === "") continue;
+            // 틀린 event 하나로 stream 전체를 끝내지 않는다.
+            let event: Json;
+            try {
+              event = JSON.parse(data) as Json;
+            } catch {
+              continue;
+            }
+            onEvent(event);
           }
+          if (buffer.length > MAX_EVENT_BYTES)
+            throw new Error(
+              "The OpenCode event stream sent an event that was too large.",
+            );
         }
         throw new Error("The OpenCode event stream closed.");
       })().catch((cause: unknown) => {
@@ -152,11 +176,31 @@ export function fetchTransport(input: {
 
 /** 쓰는 endpoint만 둔 client. 이름은 OpenCode의 route 이름이다. */
 export function createApi(transport: OpencodeTransport) {
-  const call = (
-    method: string,
-    path: string,
-    options?: { query?: Record<string, string | number>; body?: unknown },
-  ) => transport.request(method, path, options);
+  type Options = { query?: Record<string, string | number>; body?: unknown };
+  // 기한을 넘긴 요청은 끊지 않고 둔다: server는 이미 받았을 수 있어 그 호출만 실패로 보인다.
+  const call = (method: string, path: string, options?: Options) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    return Promise.race([
+      transport.request(method, path, options),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new Error(
+                `OpenCode did not answer ${method} ${path} in ${REQUEST_WAIT_MS / 1000} seconds.`,
+              ),
+            ),
+          REQUEST_WAIT_MS,
+        );
+        // 답을 기다리는 timer가 process 종료를 붙잡지 않게 한다.
+        timer.unref();
+      }),
+    ]).finally(() => clearTimeout(timer));
+  };
+  // 일이 끝나야 답하는 요청(기한 없음): `wait`는 execution이 멈출 때까지, `shell`은 명령이 끝날 때까지,
+  // `command`는 plugin이 template을 펼칠 때까지, `revertStage`는 file을 되돌리는 동안 답하지 않는다.
+  const slowCall = (method: string, path: string, options?: Options) =>
+    transport.request(method, path, options);
   const session = (id: string) => `/api/session/${encodeURIComponent(id)}`;
   const data = async (result: Promise<Json | undefined>): Promise<unknown> =>
     (await result)?.data;
@@ -183,9 +227,9 @@ export function createApi(transport: OpencodeTransport) {
     prompt: (id: string, body: Json) =>
       call("POST", `${session(id)}/prompt`, { body }),
     command: (id: string, body: Json) =>
-      call("POST", `${session(id)}/command`, { body }),
+      slowCall("POST", `${session(id)}/command`, { body }),
     shell: (id: string, body: Json) =>
-      call("POST", `${session(id)}/shell`, { body }),
+      slowCall("POST", `${session(id)}/shell`, { body }),
     // 도는 명령 하나를 죽이고 지운다(`interrupt`는 turn을 멈출 뿐 명령은 그대로 둔다). 끝은 killed로 온다.
     killShell: (id: string, directory: string) =>
       call("DELETE", `/api/shell/${encodeURIComponent(id)}`, {
@@ -196,9 +240,14 @@ export function createApi(transport: OpencodeTransport) {
     interrupt: (id: string) => call("POST", `${session(id)}/interrupt`),
     background: (id: string) => call("POST", `${session(id)}/background`),
     wait: (id: string) =>
-      call("POST", `/api/experimental/session/${encodeURIComponent(id)}/wait`),
+      slowCall(
+        "POST",
+        `/api/experimental/session/${encodeURIComponent(id)}/wait`,
+      ),
     revertStage: (id: string, body: Json) =>
-      call("POST", `${session(id)}/revert/stage`, { body }),
+      slowCall("POST", `${session(id)}/revert/stage`, { body }),
+    permissions: async (id: string) =>
+      arr(await data(call("GET", `${session(id)}/permission`))),
     revertCommit: (id: string) => call("POST", `${session(id)}/revert/commit`),
     revertClear: (id: string) => call("DELETE", `${session(id)}/revert`),
     inbox: (id: string) => call("GET", `${session(id)}/inbox`),
@@ -488,6 +537,24 @@ const TASK_STATES = {
   cancelled: "stopped",
 } as const;
 
+// session message의 `idle` 줄(turn 하나가 끝났다는 표)을 turn의 끝으로 옮긴다.
+function idleEnd(item: Json): {
+  outcome: "completed" | "stopped" | "failed";
+  error?: { code: string; message: string };
+} {
+  const outcome = str(item.outcome);
+  if (outcome === "interrupted") return { outcome: "stopped" };
+  if (outcome !== "failed") return { outcome: "completed" };
+  return {
+    outcome: "failed",
+    error: {
+      code: "internal",
+      message:
+        redactCredentials(str(rec(item.error).message)) || "OpenCode failed.",
+    },
+  };
+}
+
 const lastLine = (text: string) => oneLine(text, 200) || null;
 
 /** tool 본문 한 쪽의 글자 수 상한(`ACP_TOOL_BODY_LIMIT`)을 넘으면 자른다. */
@@ -532,7 +599,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
     ids,
   }) => {
     const password = ids.newId("pwd");
-    // env는 호출자(`index.ts`)가 login shell env < 탭의 hook env 순으로 합쳐 둔다. 여기서는 바꾸는 칸만 넘긴다.
+    // env는 extension spawner(`nodeSpawn`)가 login shell env < 여기서 넘기는 env 순으로 합친다. 여기서는 바꾸는 칸만 넘긴다.
     const proc = spawn("opencode", ["serve", "--stdio", "--port", "0"], {
       cwd,
       env: { OPENCODE_PASSWORD: password },
@@ -553,7 +620,14 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
     proc.onStderr((text) => {
       stderrTail = (stderrTail + text).slice(-500);
     });
-    const exited = new Promise<void>((resolve) => proc.onExit(() => resolve()));
+    // 끝난 process에는 kill을 보내지 않는다.
+    let alive = true;
+    const exited = new Promise<void>((resolve) =>
+      proc.onExit(() => {
+        alive = false;
+        resolve();
+      }),
+    );
 
     // server가 첫 줄에 `{"url": …}`를 쓰면 준비된 것이다.
     const url = await new Promise<string | null>((resolve) => {
@@ -586,15 +660,31 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
         ok: false,
         error: {
           code: "unavailable",
-          message: `OpenCode did not start.${stderrTail === "" ? "" : `\n${stderrTail.trim()}`}`,
+          message: redactCredentials(
+            `OpenCode did not start.${stderrTail === "" ? "" : `\n${stderrTail.trim()}`}`,
+          ),
         },
       } satisfies Result<never>;
     }
 
-    const secret = await deps.writeSecret(password);
+    let secret: SecretFile;
+    try {
+      secret = await deps.writeSecret(password);
+    } catch (cause) {
+      proc.end();
+      proc.kill();
+      return {
+        ok: false,
+        error: {
+          code: "unavailable",
+          message: `OpenCode could not start: ${message(cause)}`,
+        },
+      } satisfies Result<never>;
+    }
     const transport = deps.connect({ url, password });
     const api = createApi(transport);
     let events: { close(): void } | undefined;
+    let retry: ReturnType<typeof setTimeout> | undefined;
 
     const now = () => clock.now();
     // 창에 낸 갱신을 접어 둔다. rewind·fork가 숨길 항목과 줄 선 메시지를 여기서 읽는다.
@@ -1457,7 +1547,9 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
           end.outcome === "failed"
             ? {
                 code: "internal",
-                message: str(rec(data.error).message) || "OpenCode failed.",
+                message:
+                  redactCredentials(str(rec(data.error).message)) ||
+                  "OpenCode failed.",
               }
             : undefined,
         );
@@ -1545,7 +1637,9 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
           end.outcome === "failed"
             ? {
                 code: "internal",
-                message: str(rec(data.error).message) || "OpenCode failed.",
+                message:
+                  redactCredentials(str(rec(data.error).message)) ||
+                  "OpenCode failed.",
               }
             : undefined,
         );
@@ -1595,12 +1689,15 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
           refreshUsage();
           return;
         case "session.compaction.failed":
-          info(`Compaction failed: ${str(rec(data.error).message)}`, "warning");
+          info(
+            `Compaction failed: ${redactCredentials(str(rec(data.error).message))}`,
+            "warning",
+          );
           if (!executing) endTurn(main, "completed");
           return;
         case "session.retry.scheduled":
           info(
-            `Retrying after an error (attempt ${String(data.attempt)}): ${oneLine(str(rec(data.error).message), 160)}`,
+            `Retrying after an error (attempt ${String(data.attempt)}): ${oneLine(redactCredentials(str(rec(data.error).message)), 160)}`,
             "warning",
           );
           return;
@@ -2079,20 +2176,8 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
         }
         case "idle": {
           const outcome = str(item.outcome);
-          endTurn(
-            lane,
-            outcome === "interrupted"
-              ? "stopped"
-              : outcome === "failed"
-                ? "failed"
-                : "completed",
-            outcome === "failed"
-              ? {
-                  code: "internal",
-                  message: str(rec(item.error).message) || "OpenCode failed.",
-                }
-              : undefined,
-          );
+          const end = idleEnd(item);
+          endTurn(lane, end.outcome, end.error);
           if (lane !== main) {
             const child = [...children.entries()].find(
               ([, one]) => one.lane === lane,
@@ -2665,24 +2750,99 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
       if (closed || dead !== null) return;
       dead = {
         code: "unavailable",
-        message: stderrTail === "" ? reason : `${reason}\n${stderrTail.trim()}`,
+        message: redactCredentials(
+          stderrTail === "" ? reason : `${reason}\n${stderrTail.trim()}`,
+        ),
       };
       endTurn(main, "failed", dead);
+      // 다시 구독을 포기했는데 process가 산 채면 server를 끈다(shared handoff의 TUI도 같이 끝난다).
+      clearTimeout(retry);
+      events?.close();
+      if (alive) {
+        proc.end();
+        proc.kill();
+      }
     };
     proc.onExit(() => failure("OpenCode exited."));
+
+    // event stream이 끊겨도 session은 산다. 간격을 두고 다시 붙고, event 없이 이어 실패하면 그때 죽는다.
+    // OpenCode는 끊긴 사이 event를 다시 보내지 않아서, 다시 붙은 뒤 첫 event(`server.connected`)에서 놓친 것을 읽는다.
+    let failures = 0;
+    let delay = RECONNECT_MIN_MS;
+    let dropped = false;
+    let eventWarned = false;
+    const subscribe = () => {
+      events = transport.events(
+        (event) => {
+          failures = 0;
+          delay = RECONNECT_MIN_MS;
+          if (dropped) {
+            dropped = false;
+            void catchUp();
+          }
+          try {
+            onEvent(event);
+          } catch (cause) {
+            // 틀린 event 하나는 버린다. 알림은 처음 한 번만.
+            if (!eventWarned) {
+              eventWarned = true;
+              info(
+                `OpenCode sent an event lophn could not read: ${message(cause)}`,
+                "warning",
+              );
+            }
+          }
+        },
+        (cause) => {
+          if (closed || dead !== null) return;
+          failures += 1;
+          if (!alive || failures >= RECONNECT_GIVE_UP) {
+            failure(cause.message);
+            return;
+          }
+          dropped = true;
+          retry = setTimeout(subscribe, delay);
+          delay = Math.min(delay * 2, RECONNECT_MAX_MS);
+        },
+      );
+    };
+
+    // 끊긴 사이 끝난 turn은 닫고, 아직 도는 turn은 빠진 출력이 있을 수 있다고 알리며, 끊긴 사이 뜬 승인은 다시 읽는다.
+    async function catchUp() {
+      if (replaying || main.turn === null) return;
+      try {
+        const last = arr(
+          (await api.messages(sessionId, { limit: 1, order: "desc" })).data,
+        ).map(rec)[0];
+        if (last?.type === "idle") {
+          executing = false;
+          const end = idleEnd(last);
+          endTurn(main, end.outcome, end.error);
+          return;
+        }
+        info(
+          "The connection to OpenCode dropped; some output may be missing.",
+          "warning",
+        );
+        for (const request of (await api.permissions(sessionId)).map(rec))
+          if (!approvalOf.has(str(request.id))) openApproval(request);
+      } catch (cause) {
+        info(`Catching up with OpenCode failed: ${message(cause)}`, "warning");
+      }
+    }
 
     try {
       const server = await api.info();
       const version = str(server.version);
-      events = transport.events(onEvent, (cause) => failure(cause.message));
+      subscribe();
       let resumed = false;
       // 404는 첫 메시지 전의 TUI session처럼 저장된 적이 없는 것이다. 조용히 새로 열고, 그 밖의 실패만 알린다.
-      let unreadable = false;
+      let notLoaded = false;
       if (resume !== undefined)
         resumed = await api.get(resume).then(
           () => true,
           (cause: { status?: number }) => {
-            unreadable = cause.status !== 404;
+            notLoaded = cause.status !== 404;
             return false;
           },
         );
@@ -2697,7 +2857,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
           "warning",
         );
       if (resumed) await replay();
-      else if (unreadable)
+      else if (notLoaded)
         endTurn(main, "failed", {
           code: "not_found",
           message: `The session ${resume} could not be loaded, so a new session was started.`,
@@ -2705,6 +2865,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
       endReplay();
       refreshUsage();
     } catch (cause) {
+      clearTimeout(retry);
       events?.close();
       proc.end();
       proc.kill();
@@ -2725,6 +2886,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
       value: {
         async stop() {
           closed = true;
+          clearTimeout(retry);
           events?.close();
           // stdin이 닫히면 server가 스스로 끝난다(lease). 그래도 안 끝나면 process group째 끈다.
           proc.end();

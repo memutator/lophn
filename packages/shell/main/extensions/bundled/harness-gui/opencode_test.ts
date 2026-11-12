@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { manualClock } from "../../../../../base/clock.ts";
@@ -60,6 +60,10 @@ async function setup(name: string, resume?: string) {
   // adapter가 보낸 요청(method, path, body)을 순서대로.
   const requests: { method: string; path: string; body: unknown }[] = [];
   let emit: (event: Record<string, unknown>) => void = () => {};
+  // SSE를 연 횟수와 끊김을 알리는 길. server process를 끈 횟수.
+  let subscribes = 0;
+  let end: (error: Error) => void = () => {};
+  const stopped = { kill: 0 };
   const transport: OpencodeTransport = {
     request: (method, path, options) =>
       new Promise((resolve, reject) => {
@@ -76,8 +80,10 @@ async function setup(name: string, resume?: string) {
           reject,
         });
       }),
-    events(onEvent) {
+    events(onEvent, onEnd) {
+      subscribes += 1;
       emit = onEvent;
+      end = onEnd;
       return { close() {} };
     },
   };
@@ -117,7 +123,9 @@ async function setup(name: string, resume?: string) {
     pid: 1,
     write() {},
     end() {},
-    kill() {},
+    kill() {
+      stopped.kill += 1;
+    },
     onStdout: (listener) => {
       stdout.push(listener);
       setImmediate(() => listener('{"url":"http://127.0.0.1:1"}\n'));
@@ -181,6 +189,11 @@ async function setup(name: string, resume?: string) {
     exported,
     auto,
     emit: (event: Record<string, unknown>) => emit(event),
+    end: (error: Error) => end(error),
+    stopped,
+    get subscribes() {
+      return subscribes;
+    },
     run: started?.ok === true ? started.value : undefined,
     pump,
     async input(input: Record<string, unknown>) {
@@ -354,7 +367,7 @@ test("tab 전용 server의 password는 spawn env의 그 칸과 0600 file에만 �
   const [spawn] = t.spawned;
   assert.deepEqual(spawn?.args, ["serve", "--stdio", "--port", "0"]);
   const env = spawn?.env as Record<string, string>;
-  // login shell env를 덮지 않도록 바꾸는 칸만 넘긴다.
+  // extension spawner가 login shell env 위에 이 env를 얹으니 바꾸는 칸만 넘긴다.
   assert.deepEqual(Object.keys(env), ["OPENCODE_PASSWORD"]);
   const password = env.OPENCODE_PASSWORD;
   assert.equal(t.secrets[0], password);
@@ -624,4 +637,136 @@ test("`!ls`는 POST …/shell로만 가고 prompt로 가지 않는다. 그 shell
   );
   // 도는 execution이 없어 turn을 열지도 닫지도 않는다.
   assert.deepEqual(ends(t.state), []);
+});
+
+const notices = (state: AcpState) =>
+  state.items.flatMap((item) =>
+    item.kind === "notice" && item.notice.type === "info"
+      ? [item.notice.text]
+      : [],
+  );
+
+test("모양이 틀린 event와 SSE 끊김이 와도 session이 살고, adapter가 다시 구독하며, server process를 끄지 않는다", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const t = await setup("approve_once");
+    // 읽을 수 없는 event는 그 하나만 버리고 알림은 한 번만 난다.
+    t.emit(null as never);
+    t.emit(null as never);
+    assert.equal(
+      notices(t.state).filter((one) => one.includes("could not read")).length,
+      1,
+    );
+
+    // 도는 turn이 있는 채로 끊겼다가 다시 붙으면, 그 사이 끝난 turn은 닫힌다.
+    t.emit({
+      type: "session.execution.started",
+      data: { sessionID: "ses_test" },
+    });
+    t.auto.set("GET /api/session/ses_test/message", {
+      data: [{ type: "idle", outcome: "succeeded" }],
+    });
+    t.end(new Error("closed"));
+    assert.equal(t.subscribes, 1);
+    mock.timers.tick(500);
+    assert.equal(t.subscribes, 2);
+    t.emit({ type: "server.connected", data: {} });
+    await flush();
+    assert.deepEqual(ends(t.state), ["completed"]);
+
+    // event가 하나 오면 횟수가 되살아난다. event 없이 다섯 번 이어 끊겨야 죽고, 그때 server를 끈다.
+    for (let failed = 1; failed <= 5; failed++) {
+      t.end(new Error("closed"));
+      if (failed < 5) {
+        assert.equal(t.stopped.kill, 0);
+        mock.timers.tick(10_000);
+      }
+    }
+    assert.equal(t.subscribes, 6);
+    assert.equal(t.stopped.kill, 1);
+    const failed = t.state.items.find(
+      (item) => item.kind === "notice" && item.notice.type === "error",
+    );
+    assert.ok(failed);
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+// 시작 실패의 길만 보는 adapter. 실제 server 없이 요청과 password file을 대역으로 바꾼다.
+function bareStart(deps: {
+  request?: OpencodeTransport["request"];
+  writeSecret?: () => Promise<{ path: string; remove(): Promise<void> }>;
+}) {
+  const stopped = { kill: 0 };
+  const proc: ExtensionProcess = {
+    pid: 1,
+    write() {},
+    end() {},
+    kill() {
+      stopped.kill += 1;
+    },
+    onStdout: (listener) =>
+      void setImmediate(() => listener('{"url":"http://127.0.0.1:1"}\n')),
+    onStderr() {},
+    onExit() {},
+  };
+  const adapter = createOpencodeAdapter({
+    connect: () => ({
+      request: deps.request ?? (() => new Promise(() => {})),
+      events: () => ({ close() {} }),
+    }),
+    writeSecret:
+      deps.writeSecret ??
+      (async () => ({ path: "/tmp/x/password", remove: async () => {} })),
+    writeExport: async () => "",
+    home: "/home/user",
+    readCommandTemplates: async () => new Map(),
+  });
+  const clock = manualClock(Date.UTC(2026, 10, 5));
+  const result = adapter.start({
+    terminal: null,
+    cwd: "/work",
+    session: {
+      id: "win_test",
+      publish() {},
+      onInput() {},
+      onClose() {},
+      close() {},
+    },
+    spawn: () => proc,
+    clock,
+    ids: createIdSource({ clock, random: seededRandom(1) }),
+  });
+  return { result, stopped };
+}
+
+test("/api/info에 답하지 않으면 30초 뒤 start가 unavailable로 끝나고 server process를 끈다", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const t = bareStart({});
+    await flush();
+    await flush();
+    mock.timers.tick(30_000);
+    const result = await t.result;
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.equal(result.error.code, "unavailable");
+    assert.match(result.error.message, /did not answer GET \/api\/info/);
+    assert.equal(t.stopped.kill, 1);
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("password file을 못 쓰면 start가 실패하고 server process를 끈다", async () => {
+  const t = bareStart({
+    writeSecret: () => Promise.reject(new Error("ENOSPC: no space left")),
+  });
+  const result = await t.result;
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.equal(result.error.code, "unavailable");
+  assert.match(result.error.message, /could not start: ENOSPC/);
+  assert.equal(t.stopped.kill, 1);
 });

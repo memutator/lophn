@@ -74,6 +74,10 @@ async function closeWithin(
   }
 }
 
+// writer가 어디서 죽은 것으로 읽혔는지다. exit: Worker가 error 없이 끝남, error: Worker의 uncaught
+// exception 또는 postMessage 실패, failed: Worker가 보낸 id 0 failed(연결 fault 포함).
+export type WriterDeadCause = "exit" | "error" | "failed";
+
 const WRITER_DEAD = {
   code: "unavailable" as const,
   message: "writer가 끝났다",
@@ -88,6 +92,8 @@ export async function openRuntime(input: {
   modules: readonly string[];
   assembled: Assembled;
   source: StatusSource;
+  // writer가 닫는 중이 아닌데 죽으면 한 번 부른다.
+  onDead(cause: WriterDeadCause): void;
   // blob 읽기. field 등록과 바이트 관측은 core가 넣는다. 없으면 읽기는 unavailable이다.
   blob?: {
     fields: readonly BlobFieldDefinition[];
@@ -98,12 +104,16 @@ export async function openRuntime(input: {
     ): Promise<Result<{ hash: string; sizeBytes: number; bytes: Uint8Array }>>;
   };
 }): Promise<Result<CoreRuntime>> {
-  const openedWriter = openProductWriter(input.ledgerPath, {
-    modules: [...input.modules],
-    // writer는 자기 system clock으로 커밋 시각을 따라간다.
-    clock: "system",
-    seed: input.seed,
-  });
+  const openedWriter = openProductWriter(
+    input.ledgerPath,
+    {
+      modules: [...input.modules],
+      // writer는 자기 system clock으로 커밋 시각을 따라간다.
+      clock: "system",
+      seed: input.seed,
+    },
+    input.onDead,
+  );
   // reader Worker는 건넨 module마다 createReaderRegistration을 부른다. export가 있는 팀 모듈만 건넨다.
   const readerModules: URL[] = [];
   for (const url of input.modules) {
@@ -192,6 +202,7 @@ function openProductWriter(
     clock: "system";
     seed: number;
   },
+  onDead: (cause: WriterDeadCause) => void,
 ): {
   writer: Writer;
   confirmation(body: {
@@ -215,23 +226,27 @@ function openProductWriter(
     }
   >();
   let dead: Result<never> | undefined;
-  const fail = () => {
+  // close가 시작되면 closed 답, 그 뒤의 exit, 기한 초과 terminate()는 죽음이 아니다.
+  let closing = false;
+  const fail = (cause: WriterDeadCause) => {
     if (dead !== undefined) return;
     dead = err(WRITER_DEAD);
     for (const waiting of pending.values()) {
       waiting.resolve({ id: 0, op: "failed", body: WRITER_DEAD });
     }
     pending.clear();
+    if (!closing) onDead(cause);
   };
   worker.on("message", (message: WriterResponse) => {
-    if (message.op === "failed" && message.id === 0) return fail();
+    if (message.op === "failed" && message.id === 0) return fail("failed");
     const waiting = pending.get(message.id);
     if (!waiting) return;
     pending.delete(message.id);
     waiting.resolve(message);
-    if (message.op === "closed") fail();
+    if (message.op === "closed") fail("exit");
   });
-  worker.on("error", () => fail());
+  worker.on("error", () => fail("error"));
+  worker.on("exit", () => fail("exit"));
   const send = (request: WriterRequest): Promise<WriterResponse> => {
     if (dead !== undefined && !dead.ok) {
       return Promise.resolve({
@@ -246,7 +261,7 @@ function openProductWriter(
         worker.postMessage(request);
       } catch {
         pending.delete(request.id);
-        fail();
+        fail("error");
         resolve({ id: request.id, op: "failed", body: WRITER_DEAD });
       }
     });
@@ -273,6 +288,7 @@ function openProductWriter(
       },
       async close() {
         if (dead !== undefined) return;
+        closing = true;
         // writer가 아직 module을 올리는 중이거나 멈춰 있어도 닫기가 영원히 기다리지 않는다.
         // SQLite commit은 원자적이라 기한이 지나면 Worker를 끝내고 죽은 것으로 친다.
         await closeWithin(
@@ -280,7 +296,7 @@ function openProductWriter(
           WRITER_CLOSE_MS,
           () => {
             worker.terminate();
-            fail();
+            fail("exit");
           },
         );
       },

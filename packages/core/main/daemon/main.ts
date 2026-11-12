@@ -21,6 +21,7 @@ const started = await startCore({
   teams: TEAMS,
   teamModules: TEAM_MODULES,
   wirings: WIRINGS,
+  exit: (code) => process.exit(code),
   launchShell: createShellLauncher({
     platformRoot: fileURLToPath(new URL("../../../..", import.meta.url)),
     execPath: process.execPath,

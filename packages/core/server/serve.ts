@@ -140,6 +140,9 @@ function trackRequests(server: Server): Requests {
   };
 }
 
+// shutdown이 받은 요청을 기다리는 최대 시간.
+const SERVER_DRAIN_MS = 10_000;
+
 function handleOf(
   server: Server,
   addr: ServeAddr,
@@ -151,7 +154,17 @@ function handleOf(
     activity: requests.activity,
     shutdown() {
       closing ??= new Promise<void>((resolve, reject) => {
-        server.close((error) => (error ? reject(error) : resolve()));
+        // 멈춘 요청 하나가 close를 붙들지 않게, 기한이 지나면 남은 connection을 끊는다.
+        const drain = setTimeout(
+          () => server.closeAllConnections(),
+          SERVER_DRAIN_MS,
+        );
+        drain.unref();
+        server.close((error) => {
+          clearTimeout(drain);
+          if (error) reject(error);
+          else resolve();
+        });
         // 받은 요청은 끝까지 기다린다. 그 뒤에 남은 connection(요청을 아직 보내지 않은 것, keep-alive)은
         // close가 기다려 주지 않고 끊는다. 바쁜 기계에서 자식이 연결만 열어 둔 채 종료가 오면 close가
         // 끝나지 않았다.

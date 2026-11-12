@@ -37,6 +37,7 @@ if (!opened.ok) {
     onTx: registration.onTx,
   };
   let chain = Promise.resolve();
+  let reported = false;
   port.on("message", (message) => {
     const data = message as WorkerMessage;
     chain = chain
@@ -46,6 +47,17 @@ if (!opened.ok) {
           id: data.id,
           op: "failed",
           body: internalError(),
+        });
+      })
+      .then(() => {
+        // rollback 실패나 corrupt가 연결을 fault시켜도 Worker는 살아 있다. main이 모르면 이후 모든 command가
+        // unavailable로만 끝나므로 한 번 알린다. close는 failed()를 참으로 만들고 Worker를 끝내므로 뺀다.
+        if (reported || data.op === "close" || !connection.failed()) return;
+        reported = true;
+        port.postMessage({
+          id: 0,
+          op: "failed",
+          body: { code: "unavailable", message: "ledger 연결이 fault됐다" },
         });
       });
   });

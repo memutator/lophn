@@ -1,4 +1,4 @@
-import { rm, stat } from "node:fs/promises";
+import { readFile, rm, stat, writeFile } from "node:fs/promises";
 import process from "node:process";
 import { systemClock } from "../../../base/clock.ts";
 import { cryptoRandom } from "../../../base/random.ts";
@@ -74,6 +74,8 @@ export type CoreOptions = {
   // shell(앱)을 data root로 띄운다. browser가 필요한데 shell이 없을 때만 부른다. 시작이 실패하면 onError로 알린다.
   // 없으면 core는 shell을 띄우지 않는다.
   launchShell?: (dataRoot: string, onError: (error: unknown) => void) => void;
+  // ready 뒤 writer가 죽었거나 shutdown이 기한을 넘기면 core를 끝낸다. graceful 종료가 아니다: shell이 다시 띄운다.
+  exit(code: number): void;
 };
 
 type Core = {
@@ -121,6 +123,7 @@ export async function startCore(options: CoreOptions): Promise<Result<Core>> {
       if (errorCode(thrown) !== "ENOENT") throw thrown;
     }
   }
+  await markRunning(root.value, clock, telemetry);
 
   // epoch은 control이 먼저 알린다(migration 전에도 identify가 답한다). open은 같은 값을 쓴다.
   const epoch = hex(random, 16);
@@ -133,6 +136,7 @@ export async function startCore(options: CoreOptions): Promise<Result<Core>> {
     platform: process.platform,
   });
   if (!control.ok) {
+    await clearMarker(root.value, telemetry);
     await locked.value.release();
     return control;
   }
@@ -150,6 +154,7 @@ export async function startCore(options: CoreOptions): Promise<Result<Core>> {
   if (!opened.ok) {
     // 기동이 실패하면 listener·socket을 닫고 lock을 푼다.
     await control.value.close();
+    await clearMarker(root.value, telemetry);
     await locked.value.release();
     return opened;
   }
@@ -244,6 +249,9 @@ async function open(
   ctx.provide("operations", operations);
   for (const wiring of wirings) wiring.prepare?.(ctx);
 
+  // ready 전 writer 죽음은 끝내지 않고 표시만 남긴다. 기동이 실패로 돌려주어야 main이 start_failed 줄을 쓴다.
+  let writerDead = false;
+  let wasReady = false;
   const openedRuntime = await openRuntime({
     ledgerPath,
     clock,
@@ -253,6 +261,15 @@ async function open(
     source: ctx.statusSource,
     blob: ctx.blobRead.deps,
     logger: telemetry.logger,
+    onDead: (cause) => {
+      telemetry.logger.error({
+        component: "core",
+        event: "writer_dead",
+        fields: { cause },
+      });
+      if (!wasReady) writerDead = true;
+      else if (!ctx.stopped) void exitAfterFlush(telemetry, options.exit);
+    },
   });
   if (!openedRuntime.ok) return openedRuntime;
   const runtime = openedRuntime.value;
@@ -306,6 +323,15 @@ async function open(
     return (shutdownRun ??= (async () => {
       if (ctx.stopped) return;
       ctx.stopped = true;
+      // 멈춘 단계 하나가 instance lock을 쥔 채 끝없이 기다리지 않게 한다. 자식은 stdin EOF로 끝나고 lock은 OS가 푼다.
+      const deadline = setTimeout(() => {
+        telemetry.logger.error({
+          component: "core",
+          event: "shutdown_deadline",
+        });
+        options.exit(1);
+      }, SHUTDOWN_DEADLINE_MS);
+      deadline.unref();
       // control의 identify가 stopping을 내고 붙을 API가 없다고 알린다.
       control.stopping();
       const stoppedAt: StoppedConditions = {
@@ -345,10 +371,12 @@ async function open(
           await control.close();
         } finally {
           try {
+            await clearMarker(root, telemetry);
             await lock.release();
           } finally {
             telemetry.logger.info({ component: "core", event: "stopped" });
             await telemetry.shutdown();
+            clearTimeout(deadline);
             done.resolve();
           }
         }
@@ -450,7 +478,14 @@ async function open(
       return started;
     }
   }
+  if (writerDead) {
+    health.close();
+    await server.stop();
+    await runtime.close();
+    return err({ code: "unavailable", message: "writer가 끝났다" });
+  }
   ctx.ready = true;
+  wasReady = true;
   // `kill -USR2 <pid>`가 <data root>/diagnostics/에 자원 요약과 CPU profile을 남긴다.
   uninstallSnapshot = installSnapshotSignal({
     dir: `${root.path}/diagnostics`,
@@ -509,6 +544,71 @@ async function open(
 }
 
 const SERVICE_NAME = "lophn-core";
+
+// 단계별 기한의 합(server 10초 + 자식 정지 5초씩 + writer close 15초 + 정지 유지보수 30초 = 65초)보다 길어야
+// 정상 종료를 자르지 않는다.
+const SHUTDOWN_DEADLINE_MS = 90_000;
+
+// log를 flush할 시간을 주되 멈춰도 core가 끝나게 한다.
+async function exitAfterFlush(
+  telemetry: Telemetry,
+  exit: (code: number) => void,
+): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    telemetry.shutdown(),
+    new Promise((resolve) => (timer = setTimeout(resolve, 1_000))),
+  ]).catch(() => undefined);
+  clearTimeout(timer);
+  exit(1);
+}
+
+// 실행 중 표지. 지우지 못하고 끝난 core(crash, SIGKILL, exit(1))가 있었는지 다음 기동이 log로 알린다.
+// lock을 쥔 동안에만 쓰고 지운다. liveness에는 쓰지 않는다(identify 하나다).
+async function markRunning(
+  root: DataRoot,
+  clock: Clock,
+  telemetry: Telemetry,
+): Promise<void> {
+  const path = `${root.run}/running.marker`;
+  try {
+    let previous: unknown;
+    try {
+      previous = JSON.parse(await readFile(path, "utf8"));
+    } catch (thrown) {
+      if (errorCode(thrown) !== "ENOENT") throw thrown;
+    }
+    if (previous !== undefined) {
+      telemetry.logger.warn({
+        component: "core",
+        event: "previous_unclean_exit",
+        fields: typeof previous === "object" ? { ...previous } : { previous },
+      });
+    }
+    await writeFile(
+      path,
+      JSON.stringify({ pid: process.pid, started_at: clock.now() }),
+    );
+  } catch (thrown) {
+    telemetry.logger.warn({
+      component: "core",
+      event: "running_marker_failed",
+      fields: describeThrown(thrown),
+    });
+  }
+}
+
+async function clearMarker(root: DataRoot, telemetry: Telemetry) {
+  try {
+    await rm(`${root.run}/running.marker`, { force: true });
+  } catch (thrown) {
+    telemetry.logger.warn({
+      component: "core",
+      event: "running_marker_failed",
+      fields: describeThrown(thrown),
+    });
+  }
+}
 
 function telemetryFromEnv(
   clock: Clock,

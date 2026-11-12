@@ -1,5 +1,5 @@
 // Agents 탭의 본문 전체. 목록(AgentsTab)과 같은 탭 안에서 여는 editor(AgentEditor)를 source에 잇고, 위쪽 ← →로 목록과
-// 이 탭에서 연 agent들 사이를 오간다(브라우저처럼). 읽기와 설정 바꾸기는 여기서 쥐고, 바꾸지 못했다는 알림은 탭 위쪽 toast다.
+// 이 탭에서 연 agent들 사이를 오간다(브라우저처럼). ← →는 card 머리 줄의 것을 덮어쓰고, card 밖에서만 스스로 그린다. 읽기와 설정 바꾸기는 여기서 쥐고, 바꾸지 못했다는 알림은 탭 위쪽 toast다.
 // 이동 기록과 저장하지 않은 편집은 창이 쥔 탭 상태(`AgentsTabs`)에 있어서 다른 탭에 다녀와도 남는다.
 import {
   type ReactElement,
@@ -15,6 +15,7 @@ import { t } from "@lophn/i18n";
 
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import { useCommands } from "../../commands/react.tsx";
+import { useCardHead } from "../../shell/card-head.tsx";
 import { commonIcons } from "../../icons/mod.ts";
 import { AgentsTab } from "./agents-tab.tsx";
 import { AgentEditor } from "./editor/agent-editor.tsx";
@@ -139,6 +140,20 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
 
   const goBack = () => guarded(() => go(back(latest.current)));
   const goForward = () => guarded(() => go(forward(latest.current)));
+  // 머리 줄 spec은 기록이 바뀔 때만 다시 올리므로, 단추는 ref로 지금 render의 이동을 부른다.
+  const moves = useRef({ goBack, goForward });
+  moves.current = { goBack, goForward };
+  const inCard = useCardHead(
+    {
+      nav: {
+        canBack: canBack(history),
+        canForward: canForward(history),
+        onBack: () => moves.current.goBack(),
+        onForward: () => moves.current.goForward(),
+      },
+    },
+    [canBack(history), canForward(history)],
+  );
   useCommands({ "agents.back": goBack }, { when: () => canBack(history) });
   useCommands(
     { "agents.forward": goForward },
@@ -325,24 +340,26 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
         else goForward();
       }}
     >
-      <div className={styles.nav}>
-        <IconButton
-          icon={commonIcons.back}
-          label={t("agents.label.nav-back")}
-          size="sm"
-          variant="ghost"
-          disabled={!canBack(history)}
-          onClick={goBack}
-        />
-        <IconButton
-          icon={commonIcons.forward}
-          label={t("agents.label.nav-forward")}
-          size="sm"
-          variant="ghost"
-          disabled={!canForward(history)}
-          onClick={goForward}
-        />
-      </div>
+      {inCard ? null : (
+        <div className={styles.nav}>
+          <IconButton
+            icon={commonIcons.back}
+            label={t("agents.label.nav-back")}
+            size="sm"
+            variant="ghost"
+            disabled={!canBack(history)}
+            onClick={goBack}
+          />
+          <IconButton
+            icon={commonIcons.forward}
+            label={t("agents.label.nav-forward")}
+            size="sm"
+            variant="ghost"
+            disabled={!canForward(history)}
+            onClick={goForward}
+          />
+        </div>
+      )}
       <div className={styles.scroll}>{body()}</div>
     </div>
   );

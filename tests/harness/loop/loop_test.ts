@@ -8,6 +8,7 @@ import { formatAt } from "../../../packages/base/mod.ts";
 import type {
   LoopEnd,
   LoopFailureReason,
+  TurnLoopHandle,
 } from "../../../packages/core/lophn-agent/run-loop/mod.ts";
 import {
   type HarnessTool,
@@ -210,6 +211,95 @@ test("loop의 안전 규칙이 지켜진다", async (t) => {
           });
           assert.deepStrictEqual(h.model.signals[0].aborted, true);
           assert.deepStrictEqual(h.finishes, []);
+        },
+      ],
+
+      [
+        "6b tool round 도중에 멈춘 turn은 멈춘 뒤 그 round의 tool_use와 결과를 이력으로 한 번 남긴다",
+        async (root) => {
+          let handle: TurnLoopHandle | undefined;
+          const stopWhileWriting: HarnessTool = {
+            ...writeFileTool(root),
+            async run(args) {
+              handle!.stop("user_stopped");
+              return await writeFileTool(root).run(args);
+            },
+          };
+          const h = loopHarness({
+            steps: [tools([call("t1", "write_file", '{"path":"a.md"}')])],
+            tools: [stopWhileWriting],
+          });
+          handle = h.run();
+          const end = await handle.done;
+          settle(h);
+          const round = h.checkpoints.filter(({ history }) =>
+            history?.some((message) =>
+              message.parts.some(
+                (part) => part.kind === "tool_use" && part.id === "t1",
+              ),
+            ),
+          );
+          const parts = round[0]?.history?.flatMap((m) => m.parts) ?? [];
+          assert.deepStrictEqual(end, {
+            kind: "stopped",
+            reason: "user_stopped",
+          });
+          assert.deepStrictEqual(round.length, 1);
+          assert.deepStrictEqual(
+            parts.some(
+              (part) => part.kind === "tool_result" && part.id === "t1",
+            ),
+            true,
+          );
+        },
+      ],
+
+      [
+        "6c image_rejected면 image를 뺀 같은 요청을 한 번 다시 보내고, image가 없으면 model_error로 끝난다",
+        async () => {
+          const picture = {
+            kind: "image" as const,
+            media_type: "image/png",
+            data_base64: "AAAA",
+          };
+          const h = loopHarness({
+            steps: [failed({ code: "image_rejected" }), answer("ok")],
+            request: [{ kind: "text", text: "look" }, picture],
+          });
+          const end = await h.run().done;
+          // image를 뺀 요청은 앞 요청의 접두가 아니라 불변식은 보지 않는다.
+          h.model.finish();
+          const images = (i: number) =>
+            h.model.requests[i].prompt.request.messages.flatMap((message) =>
+              message.parts.filter((part) => part.kind === "image"),
+            );
+          assert.deepStrictEqual(
+            [end, images(0).length, images(1).length],
+            [completed, 1, 0],
+          );
+
+          const bare = loopHarness({
+            steps: [failed({ code: "image_rejected" })],
+          });
+          assert.deepStrictEqual(
+            await bare.run().done,
+            failedWith("model_error"),
+          );
+          settle(bare);
+
+          // 뺀 뒤에 또 거절하면 다시 보내지 않는다.
+          const twice = loopHarness({
+            steps: [
+              failed({ code: "image_rejected" }),
+              failed({ code: "image_rejected" }),
+            ],
+            request: [picture],
+          });
+          assert.deepStrictEqual(
+            await twice.run().done,
+            failedWith("model_error"),
+          );
+          twice.model.finish();
         },
       ],
 

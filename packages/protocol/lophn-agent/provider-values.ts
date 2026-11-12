@@ -181,6 +181,7 @@ export const PROVIDER_FAILURES = [
   "model_unavailable",
   "context_exceeded",
   "invalid_request",
+  "image_rejected",
   "unknown",
   "cancelled",
   "refused",

@@ -284,25 +284,45 @@ export function createTurnCommands(deps: TurnCommandDeps = {}): {
         if (!machine.ok) return machine;
         const row = loadTurn(tx, input.turn);
         if (row === undefined) return notFound();
-        if (row.state !== "running") {
+        // 사람이 멈춘 turn은 마지막 tool round의 이력만 받는다. Stop이 turn 행을 먼저 끝내므로 loop가 그 뒤에 남긴다.
+        const stopped =
+          row.state === "finished" &&
+          row.outcome_kind === "interrupted" &&
+          row.outcome_reason === "user_stopped";
+        if (row.state !== "running" && !stopped) {
           return reject("conflict", "only a running turn takes a checkpoint");
         }
         if (row.state_seq !== compare.state_seq) {
           return reject("conflict", "turn state changed");
         }
-        if (input.elapsed.active_ms < row.elapsed_active_ms) {
-          return reject("invalid_input", "active time cannot decrease");
+        if (stopped) {
+          if (input.history === undefined || input.history_size === undefined) {
+            return reject("invalid_input", "a stopped turn takes only history");
+          }
+          // 다음 turn이 이미 옛 이력을 읽었다.
+          const later = tx.sql.get(
+            `select id from turns where session = ?
+               and rowid > (select rowid from turns where id = ?)`,
+            [row.session, row.id],
+          );
+          if (later !== undefined) {
+            return reject("conflict", "a later turn already started");
+          }
+        } else {
+          if (input.elapsed.active_ms < row.elapsed_active_ms) {
+            return reject("invalid_input", "active time cannot decrease");
+          }
+          const previous = row.elapsed_checkpoint_at;
+          const at = input.elapsed.checkpoint_at;
+          if (previous !== null && (at === null || at < previous)) {
+            return reject("invalid_input", "checkpoint time cannot go back");
+          }
+          tx.sql.run(
+            `update turns set elapsed_active_ms = ?, elapsed_stall_ms = ?,
+               elapsed_checkpoint_at = ? where id = ?`,
+            [input.elapsed.active_ms, input.elapsed.stall_ms, at, row.id],
+          );
         }
-        const previous = row.elapsed_checkpoint_at;
-        const at = input.elapsed.checkpoint_at;
-        if (previous !== null && (at === null || at < previous)) {
-          return reject("invalid_input", "checkpoint time cannot go back");
-        }
-        tx.sql.run(
-          `update turns set elapsed_active_ms = ?, elapsed_stall_ms = ?,
-             elapsed_checkpoint_at = ? where id = ?`,
-          [input.elapsed.active_ms, input.elapsed.stall_ms, at, row.id],
-        );
         if (input.history !== undefined && input.history_size !== undefined) {
           const current = tx.sql.get(
             `select hash from blob_refs
@@ -331,9 +351,15 @@ export function createTurnCommands(deps: TurnCommandDeps = {}): {
         }
         return ok({
           id: row.id,
-          state: "running" as const,
+          state: row.state,
           state_seq: row.state_seq,
-          elapsed: input.elapsed,
+          elapsed: stopped
+            ? {
+                active_ms: row.elapsed_active_ms,
+                stall_ms: row.elapsed_stall_ms,
+                checkpoint_at: row.elapsed_checkpoint_at,
+              }
+            : input.elapsed,
         });
       },
     },

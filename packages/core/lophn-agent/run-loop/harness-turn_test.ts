@@ -26,6 +26,8 @@ function setup() {
   }
   db.exec(`
     create table events (seq integer primary key);
+    create table blob_refs (owner_kind text, owner_key text, field text, hash text);
+    create table erase_windows (table_name text primary key);
     insert into sessions (id, agent, harness, lifecycle, created_seq, state_seq)
       values ('ses_h', 'agt_x', 'codex', 'open', 1, 1);
   `);
@@ -40,7 +42,25 @@ function setup() {
     get: (query, params) => db.prepare(query).get(...params) as never,
     all: (query, params) => db.prepare(query).all(...params) as never,
   };
-  const tx = { sql, now: () => "2026-11-04T00:00:00.000Z" } as unknown as Tx;
+  // 준비한 blob의 등록은 참조 행 하나로 줄여 센다.
+  const tx = {
+    sql,
+    now: () => "2026-11-04T00:00:00.000Z",
+    registerBlobRef: (ref: {
+      owner_kind: string;
+      owner_key: string;
+      field: string;
+      source: { blob: { hash: string } };
+    }) => {
+      db.prepare("insert into blob_refs values (?, ?, ?, ?)").run(
+        ref.owner_kind,
+        ref.owner_key,
+        ref.field,
+        ref.source.blob.hash,
+      );
+      return ok(undefined);
+    },
+  } as unknown as Tx;
   const ended: AgentEvent[] = [];
   const publish = (_tx: Tx, event: AgentEvent) => {
     if (event.type === "TurnEnded") ended.push(event);
@@ -75,7 +95,26 @@ function setup() {
       } as never,
       { state_seq: seq },
     );
-  return { db, tx, ended, publish, start, finish };
+  const stop = (id: string, seq: string) =>
+    commands.stop.handle(
+      tx,
+      { actor: "user" } as unknown as RequestContext,
+      { turn: id, request_key: "k", reason: "user_stopped" } as never,
+      { state_seq: seq },
+    );
+  const checkpoint = (id: string, seq: string, history: string) =>
+    commands.checkpoint.handle(
+      tx,
+      machine,
+      {
+        turn: id,
+        elapsed: { active_ms: 0, stall_ms: 0, checkpoint_at: null },
+        history,
+        history_size: 10,
+      } as never,
+      { state_seq: seq },
+    );
+  return { db, tx, ended, publish, start, finish, stop, checkpoint };
 }
 
 test("a harness turn ends once and a restart ends an unfinished one as interrupted", () => {
@@ -140,6 +179,38 @@ test("a restart closes the open tool calls of the turn it interrupts as uncertai
       "tcl_req",
       "tcl_run",
     ]);
+  } finally {
+    db.close();
+  }
+});
+
+test("a stopped turn takes a history-only checkpoint until the next turn of the session starts", () => {
+  const { db, start, finish, stop, checkpoint } = setup();
+  try {
+    const first = start("trn_1", "msg_1");
+    assert.ok(first.ok);
+    const stopped = stop("trn_1", first.value.state_seq);
+    assert.ok(stopped.ok);
+    const kept = checkpoint("trn_1", stopped.value.state_seq, "b".repeat(64));
+    assert.ok(kept.ok && kept.value.state === "finished");
+    const refs = () =>
+      db
+        .prepare("select hash from blob_refs where owner_key = 'trn_1'")
+        .all()
+        .map((row) => row.hash);
+    assert.deepEqual(refs(), ["b".repeat(64)]);
+
+    const second = start("trn_2", "msg_2");
+    assert.ok(second.ok);
+    // 다음 turn이 시작했으니 앞 turn의 이력은 바뀌지 않는다.
+    const late = checkpoint("trn_1", stopped.value.state_seq, "c".repeat(64));
+    assert.ok(!late.ok && late.error.code === "conflict");
+    assert.deepEqual(refs(), ["b".repeat(64)]);
+    const done = finish("trn_2", second.value.state_seq);
+    assert.ok(done.ok);
+    // 사람이 멈추지 않고 끝난 turn은 이력을 받지 않는다.
+    const after = checkpoint("trn_2", done.value.state_seq, "d".repeat(64));
+    assert.ok(!after.ok && after.error.code === "conflict");
   } finally {
     db.close();
   }

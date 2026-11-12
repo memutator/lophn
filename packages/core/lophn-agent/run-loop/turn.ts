@@ -94,6 +94,8 @@ export type LoopState = {
   opening: { tokens: number; session: number } | null;
   // provider가 입력이 너무 크다고 거절해 이력을 줄이고 다시 보낸 수.
   overflowRecoveries: number;
+  // provider가 image를 거절해 이 turn의 모든 image를 뺐다. 어느 image인지 provider가 알려 주지 않아 전부 뺀다.
+  dropImages: boolean;
   // 이 turn이 한 turn 안 Compact 수(실패 포함).
   midTurnCompactions: number;
   // 다음 turn을 시작하기 전에 이 session을 Compact한다.
@@ -178,15 +180,28 @@ async function finishWith(
   return endWith({ kind: "finish_failed", outcome, error: finished.error });
 }
 
+function imageBudget(state: LoopState): number {
+  return state.dropImages ? 0 : KEEP_IMAGE_BYTES;
+}
+
 // 다음 turn이 이어 붙일 이 turn의 이력이다. 끝내려는 답은 이력에 아직 없어 끝에 붙인다.
 // 보낸 것과 같게 오래된 이미지는 뺀 채 남긴다.
 function keptHistory(state: LoopState): HistoryMessage[] {
-  const sent = omitOldImages(state.history, KEEP_IMAGE_BYTES);
+  const sent = omitOldImages(state.history, imageBudget(state));
   if (state.closing === null || state.closing.trim() === "") return sent;
   return [
     ...sent,
     { role: "assistant", parts: [{ kind: "text", text: state.closing }] },
   ];
+}
+
+// 사람이 멈춘 turn의 이력을 남긴다. Stop이 turn 행을 먼저 끝내므로 마지막 tool round의 checkpoint가 거절됐을 수 있어
+// loop가 멈춘 끝에서 한 번 더 보낸다. assistant message가 없으면(tool round도 답도 없었다) 남길 이력이 없다.
+export async function keepStopped(state: LoopState): Promise<void> {
+  if (!state.history.some((message) => message.role === "assistant")) return;
+  await state.deps.ports
+    .checkpoint(state.limiter.snapshot(), keptHistory(state))
+    .catch(() => undefined);
 }
 
 function failWith(
@@ -386,7 +401,7 @@ function historyOf(
   ];
   if (tail.length > 0) pushHistory(messages, "user", tail);
   // 앞 turn 이력의 이미지도 이 turn의 것과 함께 센다. 이력이 turn을 넘어 이어지므로 이 turn 것만 세면 쌓인다.
-  return omitOldImages(messages, KEEP_IMAGE_BYTES);
+  return omitOldImages(messages, imageBudget(state));
 }
 
 async function prepare(
@@ -498,6 +513,8 @@ type ModelStep =
   | { kind: "restart" }
   // provider가 입력이 context보다 크다고 거절했다.
   | { kind: "overflow" }
+  // provider가 보낸 image를 거절했다.
+  | { kind: "image_rejected" }
   | { kind: "end"; end: TurnResult };
 
 function failureReason(code: string | null): LoopFailureReason {
@@ -591,6 +608,17 @@ async function callModel(
     }
     limiter.endAttempt("failed");
     if (outcome.code === "context_exceeded") return { kind: "overflow" };
+    if (
+      outcome.code === "image_rejected" &&
+      !state.dropImages &&
+      prepared.prompt.request.messages.some((message) =>
+        message.parts.some(
+          (part) => part.kind === "image" || part.kind === "tool_result_image",
+        ),
+      )
+    ) {
+      return { kind: "image_rejected" };
+    }
     if (!isTransientFailure(outcome) || retries >= modelRetryLimit(outcome)) {
       return {
         kind: "end",
@@ -717,6 +745,12 @@ export async function runTurn(state: LoopState): Promise<TurnResult> {
   if (steering.length > 0) appendUser(state, steering);
   if (step.kind === "restart") return continueTurn;
   if (step.kind === "overflow") return await afterOverflow(state, prepared);
+  if (step.kind === "image_rejected") {
+    // image를 뺀 크기는 다음 call의 실제 token이 올 때까지 크기로만 센다.
+    state.dropImages = true;
+    state.anchor = null;
+    return continueTurn;
+  }
   const attempt = step.attempt;
   noteUsage(state, prepared, attempt);
   if (step.kind === "partial") {
@@ -890,7 +924,10 @@ async function afterModel(
   noteRepeats(state, batch.results);
   // 확정한 tool 결과는 진행이다.
   if (batch.results.some((result) => result.entries > 0)) limiter.toolResult();
-  await ports.checkpoint(limiter.snapshot(), keptHistory(state));
+  // 멈춘 turn의 이력은 loop가 끝에서 한 번 남긴다(keepStopped).
+  if (state.flags.stop === null) {
+    await ports.checkpoint(limiter.snapshot(), keptHistory(state));
+  }
   // 같은 호출이 같게 실패하기만 하는 turn은 막아도 계속된다. 이력은 남기고 끝낸다.
   if (state.repeat !== null && state.repeat.count >= REPEAT_END_AT) {
     return await failWith(state, "repeated_tool_failure");

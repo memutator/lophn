@@ -4,6 +4,7 @@ import { manualClock, ok } from "../../../packages/base/mod.ts";
 import {
   type FinishRequest,
   type LoopDeps,
+  type PendingInputs,
   startTurnLoop,
   type ToolDone,
   type TurnContext,
@@ -11,6 +12,7 @@ import {
   type TurnLoopHandle,
   type TurnPorts,
 } from "../../../packages/core/lophn-agent/run-loop/mod.ts";
+import type { HistoryMessage } from "../../../packages/core/lophn-agent/prompt-assembly/mod.ts";
 import {
   DEFAULT_TURN_LIMITS,
   type TurnElapsed,
@@ -64,6 +66,8 @@ export function loopHarness(init: {
   steps: readonly Step[];
   tools?: readonly HarnessTool[];
   limits?: Partial<TurnInput["limits"]>;
+  // 첫 입력의 part. 없으면 글 하나다.
+  request?: PendingInputs["request"];
   // turn 안 Compact다. 끝난 결과를 내고, compacted면 그 뒤의 context()가 after를 이전 대화로 읽는다.
   compact?: {
     outcome: "compacted" | "skipped" | "failed";
@@ -76,7 +80,10 @@ export function loopHarness(init: {
   const waits: number[] = [];
   const answers: string[] = [];
   const finishes: FinishRequest[] = [];
-  const checkpoints: TurnElapsed[] = [];
+  const checkpoints: {
+    elapsed: TurnElapsed;
+    history: readonly HistoryMessage[] | undefined;
+  }[] = [];
   const runs: { name: string; args: unknown }[] = [];
   // turn 안 Compact가 불린 때 turn이 넘긴 진행(이력)의 message 수.
   const compactions: number[] = [];
@@ -103,7 +110,10 @@ export function loopHarness(init: {
     stop: () => Promise.resolve({ stopped: false }),
     inputs: () =>
       Promise.resolve(
-        ok({ request: [{ kind: "text", text: "go" }], steering: [] }),
+        ok({
+          request: init.request ?? [{ kind: "text", text: "go" }],
+          steering: [],
+        }),
       ),
     context: () => {
       const context: TurnContext = {
@@ -158,8 +168,8 @@ export function loopHarness(init: {
       },
       close: (_call, why) => done(why.status, why.code, why.summary),
     },
-    checkpoint(elapsed) {
-      checkpoints.push(elapsed);
+    checkpoint(elapsed, history) {
+      checkpoints.push({ elapsed, history });
       return Promise.resolve();
     },
     answer(text) {

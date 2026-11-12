@@ -177,6 +177,20 @@ const MEMORY_CEILING_PATTERNS: readonly RegExp[] = [
   /request too large for this model to process/i,
 ];
 
+// server가 image 크기·꼴을 이유로 거절한 문구. 같은 image를 다시 보내도 같게 거절된다. 이 목록은 provider 문서에서
+// 알려진 문구이고 fixture로 확인한 것이 아니다.
+const IMAGE_REJECTED_PATTERNS: readonly RegExp[] = [
+  /image (exceeds|is too large|dimensions)/i,
+  /(invalid|unsupported|could not process) image/i,
+];
+
+function isImageRejectedMessage(message: string | undefined): boolean {
+  return (
+    message !== undefined &&
+    IMAGE_REJECTED_PATTERNS.some((pattern) => pattern.test(message))
+  );
+}
+
 function isOverflowMessage(message: string): boolean {
   return OVERFLOW_PATTERNS.some((pattern) => pattern.test(message));
 }
@@ -222,6 +236,12 @@ const MODEL_CODES: readonly string[] = [
   "model_not_available",
 ];
 const INVALID_REQUEST_CODES: readonly string[] = ["invalid_prompt"];
+const IMAGE_REJECTED_CODES: readonly string[] = [
+  "invalid_image",
+  "invalid_image_format",
+  "image_parse_error",
+  "invalid_image_url",
+];
 const REFUSED_CODES: readonly string[] = [
   "content_filter",
   "cyber_policy",
@@ -357,9 +377,15 @@ function fromStructuredCode(input: FailureInput): CoreVerdict | null {
   if (codeOf(INVALID_REQUEST_CODES, code) !== null) {
     return { code: "invalid_request", ...blank };
   }
+  if (codeOf(IMAGE_REJECTED_CODES, code) !== null) {
+    return { code: "image_rejected", ...blank };
+  }
   if (code === "invalid_request_error") {
-    // Anthropic은 문맥 초과도 이 type으로 알린다. 한계 문구가 있으면 문맥 초과,
-    // 없으면 검증 실패다. 인증 실패로 추측하지 않는다.
+    // Anthropic은 image 크기 거절과 문맥 초과도 이 type으로 알린다. image 문구가 먼저고, 한계 문구가 있으면 문맥
+    // 초과, 없으면 검증 실패다. 인증 실패로 추측하지 않는다.
+    if (isImageRejectedMessage(input.message)) {
+      return { code: "image_rejected", ...blank };
+    }
     const fragment = input.message ?? "";
     if (fragment.length > 0 && isOverflowMessage(fragment)) {
       return { code: "context_exceeded", ...blank };
@@ -428,6 +454,12 @@ function fromStatus(input: FailureInput): CoreVerdict | null {
       return { code: "model_unavailable", ...blank };
     }
     return null;
+  }
+  if (
+    (status === 400 || status === 413) &&
+    isImageRejectedMessage(input.message)
+  ) {
+    return { code: "image_rejected", ...blank };
   }
   if (status === 413) {
     // 413를 context_exceeded로 단정하지 않는다. 본문에 한계 문구가 있을 때만이다.

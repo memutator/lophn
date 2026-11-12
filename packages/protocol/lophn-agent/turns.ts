@@ -91,7 +91,8 @@ export const checkpointTurn = defineCommand({
   input: checkpointTurnInputSchema,
   output: z.object({
     id: idSchema("trn"),
-    state: z.literal("running"),
+    // 사람이 멈춘 turn은 이력만 싣는 checkpoint를 받아 finished로 돌려준다.
+    state: z.enum(["running", "finished"]),
     state_seq: seqSchema,
     elapsed: turnElapsedOutputSchema,
   }),

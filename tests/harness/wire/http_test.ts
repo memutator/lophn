@@ -127,6 +127,18 @@ const ROWS: Row[] = [
     code: "invalid_request",
   },
   {
+    name: "400 image 크기 거절",
+    response: http(
+      400,
+      json({
+        type: "invalid_request_error",
+        message:
+          "messages.0.content.1.image.source.base64: image exceeds 5 MB maximum",
+      }),
+    ),
+    code: "image_rejected",
+  },
+  {
     name: "413 context 초과 문구",
     response: http(
       413,

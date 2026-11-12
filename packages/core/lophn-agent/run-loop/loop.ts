@@ -6,7 +6,7 @@ import type {
   TurnInput,
   TurnLoopHandle,
 } from "./ports.ts";
-import { type LoopState, runTurn } from "./turn.ts";
+import { keepStopped, type LoopState, runTurn } from "./turn.ts";
 
 // 한 turn의 agent loop. provider에 독립적이고, model call·tool 동작·시간 대기는 모두 비동기 호출이라
 // ledger writer나 다른 turn을 점유하지 않는다. loop는 turn을 끝낼 때까지 되풀이하고 한도·멈춤·완료에서
@@ -57,6 +57,7 @@ export function startTurnLoop(
     sessionTokens: null,
     opening: null,
     overflowRecoveries: 0,
+    dropImages: false,
     midTurnCompactions: 0,
     compactNext: false,
     facts: { changes: [], unexecuted: [], unknown_effects: [] },
@@ -65,7 +66,12 @@ export function startTurnLoop(
   async function run(): Promise<LoopEnd> {
     for (;;) {
       const turn = await runTurn(state);
-      if (turn.kind === "end") return turn.end;
+      if (turn.kind !== "end") continue;
+      // restarted·session_ended는 loop가 없거나 session이 끝난 뒤라 남기지 않는다.
+      if (turn.end.kind === "stopped" && turn.end.reason === "user_stopped") {
+        await keepStopped(state);
+      }
+      return turn.end;
     }
   }
 

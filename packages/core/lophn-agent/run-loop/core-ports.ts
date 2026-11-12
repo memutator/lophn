@@ -1126,13 +1126,21 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     },
     async checkpoint(elapsed, history) {
       const current = await turnRecord();
-      if (!current.ok || current.value.turn.state !== "running") return;
+      if (!current.ok) return;
+      const { turn } = current.value;
+      // 사람이 멈춘 turn도 마지막 tool round의 이력은 받는다.
+      const stoppedByPerson =
+        turn.state === "finished" &&
+        turn.outcome?.kind === "interrupted" &&
+        turn.outcome.reason === "user_stopped";
+      if (turn.state !== "running" && !stoppedByPerson) return;
       // 이력을 남기지 못하면 시간만 남긴다. 다음 turn은 이 turn을 메시지로만 읽는다.
       const stored =
         history === undefined || history.length === 0
           ? null
           : await store(TURN_BLOB_PURPOSES.turn_history, history);
       const kept = stored?.ok === true ? stored.value : null;
+      if (stoppedByPerson && kept === null) return;
       await commandOf(
         machine,
         checkpointTurn,
@@ -1143,7 +1151,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
             ? {}
             : { history: kept.hash, history_size: kept.size }),
         },
-        { state_seq: current.value.turn.state_seq },
+        { state_seq: turn.state_seq },
         `${seat.turn}:checkpoint:${elapsed.active_ms}:${elapsed.stall_ms}:${kept?.hash ?? ""}`,
       );
     },

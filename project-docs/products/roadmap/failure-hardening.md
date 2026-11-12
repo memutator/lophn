@@ -1,6 +1,6 @@
 # 실패 대응: 다른 harness가 막아 둔 실패를 lophn에 대어 본 뒤 남은 것
 
-상태: 로드맵. 계획 `failure-hardening`(`project-docs/plan/failure-hardening/`)이 고칠 것을 가져갔고, 이 문서는 그 계획에 넣지 않은 것과 이유를 둔다. 계획이 끝나도 이 문서는 남는다.
+상태: 로드맵. 계획 `failure-hardening`이 고칠 것을 가져가 끝냈다(change-log `0.23/failure-hardening`). 이 문서는 그 계획에 넣지 않은 것과 이유를 둔다.
 
 ## 재료
 

@@ -21,8 +21,11 @@ import { readProviderModels, readsModels } from "./reported-models.ts";
 // token을 바꾸는 곳은 이 core 하나다. inference·model 목록·quota가 따로 갱신하지 않는다.
 // - refresh token은 회전한다. 같은 token을 두 번 보내면 발급자가 둘 다 폐기하므로 provider마다 한 번에 하나만 돈다.
 // - 회전한 refresh token을 먼저 저장한다. 잃으면 사람이 다시 로그인해야 한다.
-// - 발급자가 grant를 거절하면(400·401, invalid_grant) credential을 revoked로 하고 token을 건네지 않는다.
-// - 그 밖의 실패(발급자에 닿지 못함, 5xx, 이상한 응답)는 지금 token이 아직 살아 있으면 그대로 건넨다.
+// - 발급자가 grant를 거절했다고 확인되면(오류 code가 invalid_grant·invalid_client·unauthorized_client) credential을
+//   revoked로 하고 token을 건네지 않는다.
+// - 그 밖의 실패(발급자에 닿지 못함, 5xx, WAF·proxy의 JSON 아닌 400·401, 이상한 응답)는 지금 token이 아직 살아 있으면
+//   그대로 건넨다.
+// - 요청 중 401을 받은 runtime은 force로 다시 부른다. force는 만료 lead를 건너뛰고 갱신한다.
 // - lead는 실제 만료 5분 전 하나다. Claude Code는 응답 TTL에서 6분 앞을 갱신 시점으로 쓰지만 여기는 lead 하나로 줄였다.
 // token과 응답 본문은 오류·log에 싣지 않는다.
 // provider의 model 목록(구독 계정과 내장 API key provider)은 token이나 key를 건넨 뒤에 읽는다: 갱신 직후,
@@ -33,6 +36,12 @@ const ACCESS_DEFAULT_S = 3_600;
 const ACCESS_NAME = /^provider\.([^.]+)$/;
 // 받은 token의 저장을 같은 값으로 다시 해 보는 횟수다.
 const SAVE_ATTEMPTS = 3;
+// 발급자가 grant를 거절했다고 보는 OAuth 2.0 token endpoint 오류 code다. 나머지는 일시 실패로 본다.
+const GRANT_REFUSED = [
+  "invalid_grant",
+  "invalid_client",
+  "unauthorized_client",
+];
 
 // product마다 refresh grant의 모양이 다르다.
 function refreshRequestOf(
@@ -87,12 +96,22 @@ export function createProviderRefresher(deps: {
   nowMs(): number;
   leadMs: number;
 }): {
-  prepareToken(use: SecretFileUse): Promise<Result<void> | undefined>;
+  // force면 만료가 멀어도 갱신한다(요청이 401을 받았을 때).
+  prepareToken(
+    use: SecretFileUse,
+    options?: { force?: boolean },
+  ): Promise<Result<void> | undefined>;
   // 뒤에서 도는 목록 읽기가 끝나기를 기다린다(test와 정지용).
   idle(): Promise<void>;
 } {
   const flights = new Map<string, Promise<Result<void>>>();
   const reads = new Map<string, Promise<void>>();
+  // 회전해서 받았지만 저장하지 못한 refresh token이다. 옛 것은 이미 써서 이것이 유일한 살아 있는 token이라 메모리에
+  // 두고 다음 갱신이 먼저 쓴다. 다시 로그인했으면(logged_in_at이 다르면) 버린다. log·오류에 싣지 않는다.
+  const unsaved = new Map<
+    string,
+    { token: string; loggedInAt: string | null }
+  >();
   // provider마다 마지막으로 읽기를 시작한 때다. 기동하면 비어 있어 처음 쓸 때 한 번 읽는다.
   const readAt = new Map<string, number>();
 
@@ -133,7 +152,20 @@ export function createProviderRefresher(deps: {
     if (oauth === null || !stored.ok) {
       return err({ code: "unavailable", message: "저장된 token이 없다" });
     }
-    const request = refreshRequestOf(oauth, stored.value.refresh);
+    const names = providerTokenNames(provider.id);
+    let refreshToken = stored.value.refresh;
+    const kept = unsaved.get(provider.id);
+    if (kept !== undefined) {
+      if (kept.loggedInAt !== provider.credential.logged_in_at) {
+        unsaved.delete(provider.id);
+      } else {
+        refreshToken = kept.token;
+        if ((await putAgain(names.refresh, kept.token)).ok) {
+          unsaved.delete(provider.id);
+        }
+      }
+    }
+    const request = refreshRequestOf(oauth, refreshToken);
     // Antigravity token은 계정 project와 함께여야 쓸 수 있다. project 없는 기록은 다시 로그인해야 한다.
     if (
       oauth.product === "antigravity" &&
@@ -168,7 +200,8 @@ export function createProviderRefresher(deps: {
     ) {
       return err({ code: "unavailable", message: "연결이 바뀌었다" });
     }
-    if (status === 400 || status === 401 || body["error"] === "invalid_grant") {
+    if (GRANT_REFUSED.includes(text(body["error"]) ?? "")) {
+      unsaved.delete(provider.id);
       const revoked = await recordWithRetry(provider, {
         unavailable_reason: "refresh_revoked",
       });
@@ -180,13 +213,19 @@ export function createProviderRefresher(deps: {
     }
     const access = text(body["access_token"]);
     if (status !== 200 || access === null) return still();
-    const names = providerTokenNames(provider.id);
     // 발급자가 refresh token을 새로 주지 않으면 지금 것을 그대로 쓴다. 새로 준 것은 저장이 잠깐 실패해도 같은 값으로
     // 다시 쓴다: 옛 refresh token은 이미 썼을 수 있어 다시 보내지 않는다.
     const rotated = text(body["refresh_token"]);
     if (rotated !== null) {
       const put = await putAgain(names.refresh, rotated);
-      if (!put.ok) return put;
+      if (!put.ok) {
+        unsaved.set(provider.id, {
+          token: rotated,
+          loggedInAt: provider.credential.logged_in_at,
+        });
+        return put;
+      }
+      unsaved.delete(provider.id);
     }
     const put = await putAgain(names.access, access);
     if (!put.ok) return put;
@@ -227,7 +266,7 @@ export function createProviderRefresher(deps: {
     async idle() {
       await Promise.all([...reads.values()]);
     },
-    async prepareToken(use) {
+    async prepareToken(use, options) {
       const name = ACCESS_NAME.exec(use.name);
       if (name === null) return undefined;
       const read = await deps.readProvider(`pvd_${name[1]}`);
@@ -244,7 +283,11 @@ export function createProviderRefresher(deps: {
       )
         return undefined;
       const expires = Date.parse(provider.credential.expires_at ?? "");
-      if (Number.isFinite(expires) && expires - deps.nowMs() > deps.leadMs) {
+      if (
+        options?.force !== true &&
+        Number.isFinite(expires) &&
+        expires - deps.nowMs() > deps.leadMs
+      ) {
         readModelsWhenStale(provider);
         return undefined;
       }

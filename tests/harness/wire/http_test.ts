@@ -6,7 +6,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { formatAt } from "../../../packages/base/mod.ts";
+import { err, formatAt, ok } from "../../../packages/base/mod.ts";
+import {
+  createAuthTransport,
+  type SecretAttachLike,
+  type Transport,
+  type TransportResponse,
+} from "../../../packages/core/lophn-agent/providers/adapters/auth-transport.ts";
 import {
   callWire,
   type Fixture,
@@ -70,7 +76,36 @@ const ROWS: Row[] = [
   {
     name: "429 header 없음",
     response: http(429),
-    code: "credential_unavailable",
+    code: "temporary",
+  },
+  {
+    name: "429 x-ratelimit-reset-requests 20s",
+    response: http(429, "", { "x-ratelimit-reset-requests": "20s" }),
+    code: "temporary",
+    retryInSeconds: 20,
+  },
+  {
+    name: "429 try again in 1.5s",
+    response: http(
+      429,
+      json({
+        type: "rate_limit_error",
+        message: "Rate limit reached. Please try again in 1.5s.",
+      }),
+    ),
+    code: "temporary",
+    retryInSeconds: 1.5,
+  },
+  {
+    name: "400 max_tokens 인자 오류",
+    response: http(
+      400,
+      json({
+        type: "invalid_request_error",
+        message: "max_tokens: 99999 > 8192, the maximum for this model",
+      }),
+    ),
+    code: "invalid_request",
   },
   { name: "500", response: http(500), code: "temporary" },
   { name: "502", response: http(502), code: "temporary" },
@@ -162,4 +197,72 @@ test("HTTP 오류는 retry할 것과 안 할 것으로 갈리고 redirect는 따
   }
   // redirect를 따라갔다면 요청이 늘어난다(요청 하나가 case 하나다).
   assert.deepStrictEqual(replay.requests.length, ROWS.length);
+});
+
+test("요청 중 401이면 token을 새로 받아 한 번만 다시 보내고, 갱신할 수 없으면 처음 401을 그대로 돌려준다", async () => {
+  const reply = (status: number): TransportResponse => ({
+    status,
+    headers: new Headers(),
+    stream: null,
+    json: String(status),
+  });
+  const run = async (statuses: number[], refreshable: boolean) => {
+    const seen: { auth: string | undefined }[] = [];
+    const refreshed: (boolean | undefined)[] = [];
+    const attach: SecretAttachLike = {
+      async send(_input, transmit, options) {
+        refreshed.push(options?.refresh);
+        if (options?.refresh === true && !refreshable) {
+          return err({ code: "conflict", message: "no" });
+        }
+        return await transmit(options?.refresh === true ? "NEW" : "OLD");
+      },
+    };
+    const transport: Transport = (request) => {
+      seen.push({ auth: request.headers["authorization"] });
+      return Promise.resolve(ok(reply(statuses.shift()!)));
+    };
+    const auth = createAuthTransport({
+      attach,
+      transport,
+      context: {} as never,
+      use: {} as never,
+      operation: "op",
+      headerName: "authorization",
+      kind: "bearer",
+    });
+    const out = await auth.send({
+      url: "https://x.test/v1",
+      method: "POST",
+      headers: {},
+      body: "",
+    });
+    return {
+      status: out.ok ? out.value.status : null,
+      auths: seen.map((s) => s.auth),
+      refreshed,
+    };
+  };
+  // 갱신되면 새 token으로 한 번 더 보내고 두 번째 응답을 그대로 돌려준다(401이어도 세 번째는 없다).
+  assert.deepStrictEqual(await run([401, 200], true), {
+    status: 200,
+    auths: ["Bearer OLD", "Bearer NEW"],
+    refreshed: [undefined, true],
+  });
+  assert.deepStrictEqual(await run([401, 401], true), {
+    status: 401,
+    auths: ["Bearer OLD", "Bearer NEW"],
+    refreshed: [undefined, true],
+  });
+  // 갱신할 수 없으면 다시 보내지 않고 처음 401이다. 401이 아니면 다시 부르지 않는다.
+  assert.deepStrictEqual(await run([401], false), {
+    status: 401,
+    auths: ["Bearer OLD"],
+    refreshed: [undefined, true],
+  });
+  assert.deepStrictEqual(await run([200], true), {
+    status: 200,
+    auths: ["Bearer OLD"],
+    refreshed: [undefined],
+  });
 });

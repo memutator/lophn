@@ -13,6 +13,8 @@ export type SecretAttachLike = {
     transmit: (
       value: Uint8Array | string,
     ) => Promise<Result<{ sent: boolean }>>,
+    // refresh: 요청이 401을 받아 token을 새로 받아 달라는 것이다.
+    options?: { refresh?: boolean },
   ): Promise<Result<{ sent: boolean }>>;
 };
 
@@ -64,35 +66,51 @@ export function createAuthTransport(options: {
 }): AuthTransport {
   return {
     async send(request) {
-      let response: TransportResponse | undefined;
-      const transmit = async (
-        value: Uint8Array | string,
-      ): Promise<Result<{ sent: boolean }>> => {
-        // header 값은 이 callback 메모리에서만 산다(Pi식 attach 밖 반출 없음).
-        const headers = { ...request.headers };
-        headers[options.headerName] = kindValue(options.kind, value);
-        const sent = await options.transport({ ...request, headers });
-        if (!sent.ok) return sent;
-        response = sent.value;
-        return ok({ sent: true });
-      };
-      const input: SecretFileSendInput = {
-        context: options.context,
-        use: options.use,
-        operation: options.operation,
-        // body는 전송 근거다. header 값과 credential 값은 여기 없다.
-        body: { url: request.url, method: request.method },
-      };
-      const sent = await options.attach.send(input, transmit);
-      // 전송 실패·허용 거절은 그대로. 오류에 header 값·credential 값은 없다.
-      if (!sent.ok) return sent;
-      if (response === undefined) {
-        // transmit이 부르지 않았다는 것은 attach가 잘못 응답한 것이다.
-        return err({ code: "internal", message: "전송 응답이 없다" });
-      }
-      return ok(response);
+      const first = await sendOnce(request, false);
+      // 만료 5분 전에만 갱신하므로 요청 중에 만료되면 401을 받는다. token을 새로 받아 한 번만 다시 보낸다. 갱신할 수
+      // 없으면(API key, 거절) 첫 401을 그대로 돌려준다. 401은 stream이 없고 본문을 이미 읽었다.
+      if (!first.ok || first.value.status !== 401) return first;
+      const second = await sendOnce(request, true);
+      return second.ok ? second : first;
     },
   };
+
+  async function sendOnce(
+    request: TransportRequest,
+    refresh: boolean,
+  ): Promise<Result<TransportResponse>> {
+    let response: TransportResponse | undefined;
+    const transmit = async (
+      value: Uint8Array | string,
+    ): Promise<Result<{ sent: boolean }>> => {
+      // header 값은 이 callback 메모리에서만 산다(Pi식 attach 밖 반출 없음).
+      const headers = { ...request.headers };
+      headers[options.headerName] = kindValue(options.kind, value);
+      const sent = await options.transport({ ...request, headers });
+      if (!sent.ok) return sent;
+      response = sent.value;
+      return ok({ sent: true });
+    };
+    const input: SecretFileSendInput = {
+      context: options.context,
+      use: options.use,
+      operation: options.operation,
+      // body는 전송 근거다. header 값과 credential 값은 여기 없다.
+      body: { url: request.url, method: request.method },
+    };
+    const sent = await options.attach.send(
+      input,
+      transmit,
+      refresh ? { refresh: true } : undefined,
+    );
+    // 전송 실패·허용 거절은 그대로. 오류에 header 값·credential 값은 없다.
+    if (!sent.ok) return sent;
+    if (response === undefined) {
+      // transmit이 부르지 않았다는 것은 attach가 잘못 응답한 것이다.
+      return err({ code: "internal", message: "전송 응답이 없다" });
+    }
+    return ok(response);
+  }
 }
 
 function kindValue(kind: AuthKind, value: Uint8Array | string): string {

@@ -36,7 +36,7 @@ export function createSecretLink(options: {
 
   return {
     attach: {
-      async send(input, transmit) {
+      async send(input, transmit, sendOptions) {
         const body = input.body as { url?: unknown; method?: unknown };
         if (typeof body.url !== "string" || typeof body.method !== "string") {
           return err({
@@ -59,6 +59,7 @@ export function createSecretLink(options: {
             operation: input.operation,
             url: body.url,
             method: body.method,
+            ...(sendOptions?.refresh === true ? { refresh: true } : {}),
           });
         } catch {
           clearTimeout(pending.get(id)?.timer);

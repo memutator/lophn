@@ -300,6 +300,8 @@ export const secretSendRequestSchema = z.strictObject({
   operation: opaque,
   url: opaque,
   method: opaque,
+  // 요청이 401을 받아 구독 token을 새로 받아 달라는 것이다.
+  refresh: z.boolean().optional(),
 });
 const secretSendResponseSchema = z.discriminatedUnion("ok", [
   z.strictObject({

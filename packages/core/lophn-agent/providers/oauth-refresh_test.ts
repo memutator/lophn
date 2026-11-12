@@ -54,6 +54,8 @@ function setup(expiresAtMs: number, product: "chatgpt" | "claude" = "chatgpt") {
     [`${ACCESS}.refresh`, "OLD-REFRESH"],
     [`${ACCESS}.meta`, JSON.stringify({ subject: "u" })],
   ]);
+  // broken이면 저장이 모두 실패한다.
+  const store = { broken: false };
   const read = () => {
     const found = loadProvider(sql, ID);
     assert.ok(found.ok && found.value !== null);
@@ -73,6 +75,11 @@ function setup(expiresAtMs: number, product: "chatgpt" | "claude" = "chatgpt") {
             ? ok(secrets.get(name)!)
             : err({ code: "not_found", message: "없다" }),
         put: (name, value) => {
+          if (store.broken) {
+            return Promise.resolve(
+              err({ code: "unavailable", message: "막혔다" }),
+            );
+          }
           secrets.set(name, String(value));
           return Promise.resolve(ok({ names: [] }) as never);
         },
@@ -136,7 +143,7 @@ function setup(expiresAtMs: number, product: "chatgpt" | "claude" = "chatgpt") {
     assert.ok(removed.ok);
     secrets.clear();
   };
-  return { secrets, read, refresher, expire, sent, disconnect };
+  return { secrets, read, refresher, expire, sent, disconnect, store };
 }
 
 const use = {
@@ -298,4 +305,54 @@ test("Claude 갱신은 JSON grant를 보내고 refresh token이 안 오면 지�
   );
   const result = await pending;
   assert.deepStrictEqual([result?.ok, [...gone.secrets.keys()]], [false, []]);
+});
+
+test("JSON이 아닌 400은 credential을 revoked로 하지 않고 살아 있는 token을 건넨다", async () => {
+  const t = setup(NOW + 60_000);
+  const waf = await t
+    .refresher(new Response("<html>blocked</html>", { status: 400 }))
+    .prepareToken(use);
+  assert.deepStrictEqual(waf, ok(undefined));
+  assert.deepStrictEqual(t.read().credential.state, "available");
+});
+
+test("회전한 refresh token을 저장하지 못하면 다음 갱신이 옛 token이 아니라 그 token을 보낸다", async () => {
+  const t = setup(NOW + 60_000);
+  const grants: string[] = [];
+  // 저장소가 잠깐 막혔다가 풀린다.
+  t.store.broken = true;
+  const refresher = t.refresher(() => {
+    grants.push(
+      new URLSearchParams(String(t.sent.at(-1)!.init.body)).get(
+        "refresh_token",
+      )!,
+    );
+    return Promise.resolve(
+      Response.json({
+        access_token: `A${grants.length}`,
+        refresh_token: `R${grants.length}`,
+        expires_in: 3600,
+      }),
+    );
+  });
+  const first = await refresher.prepareToken(use);
+  assert.deepStrictEqual(first?.ok, false);
+  t.store.broken = false;
+  t.expire(NOW + 60_000);
+  assert.deepStrictEqual(await refresher.prepareToken(use), ok(undefined));
+  assert.deepStrictEqual(grants, ["OLD-REFRESH", "R1"]);
+  assert.deepStrictEqual(t.secrets.get(`${ACCESS}.refresh`), "R2");
+});
+
+test("force면 만료가 멀어도 갱신한다", async () => {
+  const t = setup(NOW + 3_600_000);
+  const refresher = t.refresher(
+    Response.json({ access_token: "NEW-ACCESS", expires_in: 3600 }),
+  );
+  assert.deepStrictEqual(await refresher.prepareToken(use), undefined);
+  assert.deepStrictEqual(
+    await refresher.prepareToken(use, { force: true }),
+    ok(undefined),
+  );
+  assert.deepStrictEqual(t.secrets.get(ACCESS), "NEW-ACCESS");
 });

@@ -4,7 +4,6 @@
 // 안전하지 않으면 unknown이다. 인증 실패로 추측하지 않는다. 오류
 // 본문 원문은 여기에도 어디에도 남지 않는다.
 
-import { USAGE_WAIT_DEFAULT_MS } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   ModelOutcome,
   VERDICT_PATHS,
@@ -40,6 +39,14 @@ function retryAfterMs(source: ResetSource): number | null {
     const parsed = retryAfterHeader(seconds, source.nowMs);
     if (parsed !== null) return parsed;
   }
+  // OpenAI는 요청·token 한도가 따로 reset되고 먼저 풀리는 쪽이 다시 보낼 수 있는 때다.
+  const openai = [
+    source.headers["x-ratelimit-reset-requests"],
+    source.headers["x-ratelimit-reset-tokens"],
+  ]
+    .map((value) => (value === undefined ? null : durationMs(value)))
+    .filter((value) => value !== null);
+  if (openai.length > 0) return Math.min(...openai);
   // reset header는 provider별 이름이 갈린다. 알려진 이름만 숫자로 본다.
   for (const name of [
     "x-ratelimit-reset",
@@ -57,6 +64,26 @@ function retryAfterMs(source: ResetSource): number | null {
     if (parsed !== null) return parsed;
   }
   return messageResetMs(source.message);
+}
+
+// OpenAI reset 값 꼴: `20s`, `1m30s`, `6ms`, `1h2m`.
+function durationMs(value: string): number | null {
+  const trimmed = value.trim();
+  if (!/^(?:\d+(?:\.\d+)?(?:ms|h|m|s))+$/.test(trimmed)) return null;
+  let total = 0;
+  for (const part of trimmed.matchAll(/(\d+(?:\.\d+)?)(ms|h|m|s)/g)) {
+    const n = Number(part[1]);
+    const unit = part[2];
+    total +=
+      unit === "ms"
+        ? n
+        : unit === "s"
+          ? n * 1000
+          : unit === "m"
+            ? n * 60_000
+            : n * 3_600_000;
+  }
+  return Math.ceil(total);
 }
 
 function numberHeaders(value: string): number | null {
@@ -96,15 +123,16 @@ function resetHeaderValue(value: string, nowMs: number): number | null {
 // message 문구. 명시 "retry after N"이 "resets in"보다 우선이다.
 function messageResetMs(message: string | undefined): number | null {
   if (message === undefined) return null;
-  const retry = /retry after\s+(\d+)\s*(ms|s|seconds?|minutes?|m)/i.exec(
-    message,
-  );
+  const retry =
+    /(?:retry after|try again in)\s+(\d+(?:\.\d+)?)\s*(ms|s|seconds?|minutes?|m)/i.exec(
+      message,
+    );
   if (retry !== null) {
     const n = Number(retry[1]);
     const unit = retry[2].toLowerCase();
-    if (unit === "ms") return n;
-    if (unit.startsWith("s")) return n * 1000;
-    return n * 60_000;
+    if (unit === "ms") return Math.ceil(n);
+    if (unit.startsWith("s")) return Math.ceil(n * 1000);
+    return Math.ceil(n * 60_000);
   }
   const resets =
     /resets in\s+(\d+)\s*(ms|s|seconds?|m|minutes?|h|hr|hours?)/i.exec(message);
@@ -125,12 +153,10 @@ function messageResetMs(message: string | undefined): number | null {
 // byte·메모리 한도 문구는 여기에 두지 않는다.
 const OVERFLOW_PATTERNS: readonly RegExp[] = [
   /context length/i,
-  /max_tokens/i,
   /exceeds the max_model_len/i,
   /maximum context length/i,
   /input length and\s+`max_tokens`/i,
   /tokens in request more than max tokens allowed/i,
-  /request entity too large/i,
   /context window/i,
   /prompt is too long/i,
   /prompt too long/i,
@@ -229,7 +255,7 @@ type FailureInput = {
   code?: string;
   // 종료 message 파편. 원문이 아니라 이 파편만 문구 파싱에 쓰고 버린다.
   message?: string;
-  // 지금 시각(ms). 429 경계와 reset default에 쓴다.
+  // 지금 시각(ms). reset 시각과 429 경계에 쓴다.
   nowMs: number;
   // 429 경계(ms). 기본은 30_000이고 이 안이면 일시 실패다.
   temporary_ms?: number;
@@ -442,11 +468,10 @@ function disconnectVerdict(input: FailureInput): CoreVerdict {
   };
 }
 
-// 429와 rate limit 계열. retry 시각이 30초(주는 쪽이 정한 상한) 이내로 확인되면
-// temporary(시각 전달), 초과·미상이면 credential_unavailable이다. 미상의
-// usage_wait는 1시간이다. 단 stream 안 오류로 reset 미상이면 temporary다.
+// 429와 rate limit 계열. reset을 모르면 일시 제한이다(retry-after 없이 429를 주는 OpenAI 호환·OpenRouter가 많다):
+// loop 기본 대기(2초·4초)로 retry한다. reset이 30초(주는 쪽이 정한 상한) 이내면 그 시각의 temporary,
+// 넘으면 그 시각까지 쓸 수 없는 credential_unavailable이다.
 function rateVerdict(input: FailureInput): CoreVerdict {
-  const status = input.status;
   const boundary = input.temporary_ms ?? 30_000;
   const reset = retryAfterMs({
     headers: input.headers,
@@ -455,24 +480,12 @@ function rateVerdict(input: FailureInput): CoreVerdict {
   });
   const base = {
     finish_reason: null,
-    http_status: status,
+    http_status: input.status,
   };
-  if (reset !== null && reset <= boundary) {
-    // temporary의 retry_at은 시각 전달이다.
+  if (reset === null || reset <= boundary) {
     return {
       code: "temporary",
-      retry_at_ms: input.nowMs + reset,
-      until_ms: null,
-      unavailable_reason: null,
-      ...base,
-    };
-  }
-  // stream 안 rate limit frame은 header가 없어 reset을 모른다. 1시간 대기가 아니라
-  // loop 기본 대기(2초·4초)로 retry한다. 긴 reset 문구가 있으면 위 분기를 지나 아래로 간다.
-  if (reset === null && input.kind === "stream_error") {
-    return {
-      code: "temporary",
-      retry_at_ms: null,
+      retry_at_ms: reset === null ? null : input.nowMs + reset,
       until_ms: null,
       unavailable_reason: null,
       ...base,
@@ -482,8 +495,7 @@ function rateVerdict(input: FailureInput): CoreVerdict {
   return {
     code: "credential_unavailable",
     retry_at_ms: null,
-    // 서버가 준 reset 시각까지 유지하고 시각을 모르면 1시간이다.
-    until_ms: input.nowMs + (reset ?? USAGE_WAIT_DEFAULT_MS),
+    until_ms: input.nowMs + reset,
     unavailable_reason: "quota",
     ...base,
   };

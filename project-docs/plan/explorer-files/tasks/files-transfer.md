@@ -2,7 +2,7 @@
 
 Explorer 붙여넣기에 필요한 디스크 동작 둘(복사, 바이트 쓰기)을 파일 경계에 더한다. 붙여넣기 이름 규칙(같은 이름이 있으면 `a copy.md`)을 순수 함수 하나로 둔다.
 
-- 단위: `files` (wave 1)
+- 단위: files (wave 1)
 - 선행: 없음
 - 소유(이 task만 고친다):
   - `packages/shell/ipc/files.ts`

@@ -2,7 +2,7 @@
 
 Explorer에서 Ctrl/Cmd+C·X·V·D로 파일을 복사·잘라내기·붙여넣기·복제한다. 앱 안 clipboard 상태와 OS 글 clipboard를 같이 쓴다. OS에서 복사한 경로 목록과 이미지도 붙여넣는다.
 
-- 단위: `explorer` (wave 2)
+- 단위: explorer (wave 2)
 - 선행: `files-transfer`, `explorer-multi-select`
 - 소유(이 task만 고친다):
   - `packages/shell/renderer/workspace/sidebar/explorer.tsx`

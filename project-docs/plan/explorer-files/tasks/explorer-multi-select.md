@@ -2,7 +2,7 @@
 
 Explorer에서 파일 여러 개를 고른다(Ctrl/Cmd·Shift 클릭, 키보드 확장). 고른 것 여러 개를 한 번에 지우기·경로 복사·끌어 옮기기 한다.
 
-- 단위: `explorer` (wave 1)
+- 단위: explorer (wave 1)
 - 선행: 없음
 - 소유(이 task만 고친다):
   - `packages/shell/renderer/workspace/sidebar/explorer.tsx`

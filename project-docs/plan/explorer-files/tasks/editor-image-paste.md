@@ -2,7 +2,7 @@
 
 md 문서에 붙여넣은 이미지를 그 file 옆에 png로 저장하고 커서에 상대 경로 링크를 넣는다. 문서 본문의 상대 경로 이미지를 그린다(지금은 https·data만 그린다).
 
-- 단위: `editor` (wave 2)
+- 단위: editor (wave 2)
 - 선행: `files-transfer`
 - 소유(이 task만 고친다):
   - `packages/shell/renderer/editor/markdown-editor.tsx`

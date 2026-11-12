@@ -1,0 +1,40 @@
+id: explorer-clipboard-and-multi-select
+version: 0.23.46
+title: Explorer에서 여러 줄을 고르고 파일을 복사·잘라내기·붙여넣기·복제하며, md 문서에 이미지를 붙여넣는다
+modules: [packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer]
+change: |
+  전:
+  - Files panel은 한 줄만 고를 수 있었고, 선택은 경로 하나였다. Delete·Copy Path·끌어 옮기기도 그 한 줄에만 했다.
+  - 파일 clipboard가 없었다. Ctrl/Cmd+C·V가 아무것도 하지 않았고, 오른쪽 클릭 menu에는 Copy Path만 있었다. 앱 밖에서 복사한 경로나 이미지를 Explorer에 붙이는 길도 없었다.
+  - md 편집기에는 그림을 붙여넣는 길이 없었고, 문서 본문의 상대 경로 이미지는 그리지 않았다(http·data만 그렸다).
+  후:
+  - 선택은 경로 집합과 Shift 기준 줄(anchor)이고, Ctrl/Cmd+클릭은 더하거나 빼고 Shift+클릭은 범위다. Ctrl/Cmd+A와 Shift+화살표도 된다. Delete(확인 dialog 하나), Copy Path/Copy Relative Path(줄바꿈으로 이은 경로 한 번), 끌어 옮기기는 고른 것 전부에 한다. 폴더와 그 안의 줄이 같이 골라지면 폴더만 다룬다. 접어서 화면에서 사라진 줄은 선택에서 빠진다.
+  - Ctrl/Cmd+C는 경로를 OS 글 clipboard에도 쓰고, Ctrl/Cmd+X는 앱 안 잘라내기(흐리게 표시)다. Ctrl/Cmd+V는 잘라낸 것을 옮기고 복사한 것을 복사하며, 앱 clipboard이 비면 `paste` 이벤트에서 OS clipboard의 절대 경로 목록이나 이미지 파일을 받아 붙인다(`navigator.clipboard.read`는 쓰지 않는다 — shell 창은 clipboard 쓰기만 허락된다). Ctrl/Cmd+D는 같은 폴더에 복사본을 만든다. 오른쪽 클릭 menu는 Cut·Copy·Paste·Duplicate를 더했다.
+  - 붙여넣기는 덮어쓰지 않고 비켜 간다(`a copy.md`, `a copy 2.md`, 이미지는 `image 2.png`). IPC `shell:file-copy`(재귀 복사, 대상이 있으면 `conflict`)와 `shell:file-write-bytes`(새 파일만, 64 MiB 상한에 `too_large`)가 디스크를 만진다. `WorkspaceSource`에 `copy`·`writeBytes`가 늘었다.
+  - md 문서에 이미지를 붙여넣으면 그 문서 옆에 png(원래 이름, 겹치면 `image 2.png`)로 저장하고 커서에 `![](./이름)` 링크를 넣는다. 문서 본문의 상대 경로 이미지는 그 문서 옆 파일에서 읽어 그린다.
+why: |
+  사람이 "VS Code처럼 복사·붙여넣기가 안 된다"고 했다. 여러 파일을 골라 지우거나 옮기는 일, 스크린샷을 문서·프로젝트에 넣는 일이 매일의 작업이다.
+decisions:
+  - text: |
+      파일 clipboard는 VS Code와 같이 앱 안 state와 OS 글 clipboard 둘을 쓴다. 복사는 경로를 OS clipboard에도 쓰고, 잘라내기는 쓰지 않는다. OS 파일 관리자와 파일 자체를 주고받는 MIME(x-special)은 하지 않는다.
+    by: person
+  - text: |
+      붙여넣을 때 덮어쓰지 않고 `copy`·번호로 비켜 간다. 버린 길: 덮어쓸지 묻기(한 번에 여럿을 붙일 때 사람이 계속 결정해야 한다).
+    by: agent
+  - text: |
+      한 번 클릭은 지금처럼 탭을 연다(VS Code처럼 미리 보기로 바꾸지 않는다). 다중 선택만 더한다.
+    by: agent
+  - text: |
+      OS clipboard 읽기는 renderer의 `navigator.clipboard.read`(permission 거절)를 풀지 않고 `paste` 이벤트의 `clipboardData`만 쓴다. 좁은 통로를 하나 더 여는 것보다 이미 되는 DOM 통로가 작다.
+    by: agent
+  - text: |
+      대화의 markdown image는 여전히 불러오지 않는다(agent 답의 URL로 대화가 새지 않게). 문서 본문은 사람이 쓴 파일이라 상대 경로 그림을 그린다.
+    by: agent
+follow_up: |
+  연결 폴더 밖 경로를 OS clipboard에서 붙여넣으면 `file-copy`가 연결 폴더 판정 없이 복사한다(file-adapter의 지금 규칙과 같다). Explorer가 밖의 경로를 받기 시작한 첫 길이라, 범위를 좁힐지 다음에 정한다.
+checklist:
+  - Files panel에서 두 줄을 Ctrl+클릭으로 고르고 Delete가 둘 다 묻는지 본다.
+  - 파일을 Ctrl+C 한 뒤 터미널에 붙여넣으면 그 경로가 나오는지 본다.
+  - 다른 폴더에서 Ctrl+V 하면 `a copy.md`가 생기고 원본은 그대로인지 본다.
+  - 스크린샷을 Explorer 폴더에 Ctrl+V 하면 이미지 파일이 생기는지 본다.
+  - md 문서에 스크린샷을 붙이면 문서 옆에 png가 생기고 커서에 링크가 들어가며 미리보기에 그림이 보이는지 본다.

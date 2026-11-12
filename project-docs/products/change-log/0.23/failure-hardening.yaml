@@ -1,5 +1,5 @@
 id: failure-hardening
-version: 0.23.44
+version: 0.23.45
 title: 다른 harness가 막아 둔 실패 가운데 lophn에 없던 것을 고친다
 modules: [packages/protocol, packages/coding-agent, packages/core/apps, packages/core/host-queue, packages/core/lophn-agent, packages/core/main, packages/core/server, packages/core/storage, packages/design, packages/shell/main, packages/shell/renderer, packages/shell/terminal-host]
 change: |

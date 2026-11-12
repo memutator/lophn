@@ -182,7 +182,7 @@ export async function runCommand(
   });
 
   const kill = () => killTree(child, deps.platform);
-  // 이 process가 먼저 끝나면(crash, 감독의 SIGKILL, 정상 정지) 자식 group이 남지 않게 죽인다. 자식이 끝나면 푼다: 끝난 group 번호를 쥐고 있으면 재사용된 번호를 죽일 수 있다.
+  // 이 process가 exit으로 먼저 끝나면(잡히지 않은 예외로 인한 종료, 정상 정지·stdin EOF) 자식 group이 남지 않게 죽인다. SIGKILL·OOM은 exit hook이 안 돌아 덮지 못한다. 자식이 끝나면 푼다: 끝난 group 번호를 쥐고 있으면 재사용된 번호를 죽일 수 있다.
   const offExit = deps.onExit(kill);
   let timedOut = false;
   const timer = setTimeout(() => {

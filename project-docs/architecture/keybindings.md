@@ -145,7 +145,7 @@ OS마다 따로 저장하고(macOS의 Cmd 조합을 Linux에 옮기면 뜻이 �
 - 저장 단위는 binding id이고 Settings 화면만 command로 묶는다. 이유: "n번째 탭"·"칸 focus"가 번호마다 따로 서 있을 이유가 없다는 사람의 지적. 번호 줄은 modifier 하나를 모든 번호에 붙이고 번호마다 겹침을 본다. 처음 결정(줄 하나에 키 하나, 여러 키 UI 없음)에서 바뀐 것이다. (사람, 0.10.0)
 - 기본 키는 자주 쓰고 이름난 키가 있는 것(VS Code·Chrome)만 준다. 나머지는 Settings에서 단다. (agent, 0.18.0) float 이동·dock에는 기본 키를 두지 않는다. 처음 float 때 Ctrl+Alt+화살표가 GNOME에서 workspace를 바꿔서 기본 키를 두지 않기로 했고(사람, 0.4.0), 그 뒤에도 float 줄은 키 없이 표에 있다.
 - Linux·Windows의 `Ctrl+Alt+숫자`는 AltGr 배열에서 `{ [ ] @`를 치는 키라 쓰지 않는다. desk 번호는 `Ctrl+Shift+숫자`다. (agent, 0.18.0)
-- 기본 키가 편집기·터미널 키와 부딪힐 때: Explorer의 F2, 터미널 Ctrl+Shift+C/V, 글자 편집 키는 빼앗지 않는다. 편집기의 `Shift+Mod+\`(괄호 짝)와 `Mod+Alt+↑↓`(커서 더하기)는 `pane.split-down`·`pane.focus-*`가 가린다(VS Code와 같은 선택). Linux 터미널의 `Alt+PageUp/Down`은 쌓인 tab 돌려 보기가 가져간다. Linux·Windows 터미널의 Ctrl+글자(W·B·P·T·N·O)는 shell로 간다. (agent, 0.2.0·0.18.0)
+- 기본 키가 편집기·터미널 키와 부딪힐 때: Explorer의 F2와 파일 clipboard 키(Ctrl/Cmd+C·X·V·D)는 표가 아니라 Explorer tree가 자기 `onKeyDown`에서 받는다(고른 줄이 있을 때만 삼킨다). 터미널 Ctrl+Shift+C/V, 글자 편집 키는 표가 빼앗지 않는다. 편집기의 `Shift+Mod+\`(괄호 짝)와 `Mod+Alt+↑↓`(커서 더하기)는 `pane.split-down`·`pane.focus-*`가 가린다(VS Code와 같은 선택). Linux 터미널의 `Alt+PageUp/Down`은 쌓인 tab 돌려 보기가 가져간다. Linux·Windows 터미널의 Ctrl+글자(W·B·P·T·N·O)는 shell로 간다. (agent, 0.2.0·0.18.0)
 - Ctrl/Cmd+B(sidebar)는 편집기 밖 우선이다(VS Code처럼). markdown 편집기의 굵게는 Mod-Shift-b로 옮겼다. Ctrl/Cmd+P는 창 팔레트와 같은 곳의 파일 빠른 열기다. (agent, 0.2.0)
 - `inbox.open`·`jobs.open`은 왼쪽 sidebar overlay가 아니라 Inbox·Jobs 탭을 연다. 이유: overlay 상태가 sidebar component 안에만 있다. (agent, 0.18.0)
 

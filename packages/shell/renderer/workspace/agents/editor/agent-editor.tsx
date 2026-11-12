@@ -15,6 +15,7 @@ import type { AssignmentEntry } from "../../../../../protocol/approvals/assignme
 import { actionIcons } from "../../../icons/mod.ts";
 import { useCommands } from "../../../commands/react.tsx";
 import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
+import { codingFaceOf } from "../coding-face.ts";
 import type { Face } from "../tab-state.ts";
 import type {
   AgentDraft,
@@ -219,6 +220,11 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
       : (ready.definition.name ?? ready.detail.effective.name.value);
   const shownProfile: AvatarProfile | null = (() => {
     if (ready === null) return null;
+    const coding =
+      ready.detail.assignment === null
+        ? undefined
+        : codingFaceOf(ready.detail.assignment);
+    if (coding !== undefined) return coding;
     const profile =
       ready.definition.profile ?? ready.detail.effective.profile.value;
     return profile.kind === "character"
@@ -529,7 +535,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
                 <Avatar profile={shownProfile} size="md" />
               )}
               {fresh ? t("project-workspace.heading.agents-new-agent") : name}
-              {lophn || coding ? (
+              {lophn ? (
                 <span className={styles.chip}>
                   {t("agents.label.built-in")}
                 </span>

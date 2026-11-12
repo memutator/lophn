@@ -1,0 +1,14 @@
+id: coding-agents-own-section
+version: 0.23.45
+title: "Agents 탭이 즐겨찾기 coding agent를 lophn agent와 따로 묶고 그 제품 아이콘으로 보인다"
+modules: [packages/shell/renderer, packages/design]
+checked: []
+change: |
+  전: 내장 coding agent(`coding_claude`·`coding_codex`·`coding_opencode`)가 All agents 목록에 lophn agent와 같은 카드로 섞였고, 얼굴이 lophn 캐릭터였으며 editor에서 캐릭터를 고를 수 있었다. editor 머리에는 lophn과 같은 Built-in chip이 붙었다.
+  후: Agents 탭에서 내장 coding agent는 All agents 아래 "Your coding agents" 묶음에 따로 선다. 얼굴은 그 제품의 vendor 아이콘이다(목록 카드, editor 머리와 General의 profile, 탭 줄, sidebar, 대화 머리). editor에서 profile을 고르지 못하고 Built-in chip은 lophn에만 붙는다.
+why: |
+  사람이 원한 것은 lophn이 사람이 쓰는 coding agent를 쓰는 것인데, 화면은 lophn agent가 Claude Code인 척하는 것처럼 보였다. 사람: "따로 sector를 구분하고 해당 agent들의 icon asset을 쓰면서".
+decisions:
+  - text: |
+      화면만 고친다. core의 내장 agent 모델(id, 정의 file, 잠긴 칸)은 그대로 둔다. 사람이 UI만 고치기로 정했다.
+    by: person

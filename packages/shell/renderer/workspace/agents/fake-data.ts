@@ -287,6 +287,19 @@ have not moved. Answer in one short list.`,
       body: "Do the coding task the caller names and answer with a short summary.",
     },
   },
+  {
+    key: "coding_claude",
+    name: "Claude Code",
+    summary: "Runs Claude Code headless.",
+    definition: {
+      name: "Claude Code",
+      handle: "claude",
+      runtime: "claude-code",
+      description: "Runs Claude Code headless.",
+      profile: { kind: "character", shape: "square", color: "sage" },
+      body: "",
+    },
+  },
 ];
 
 // ---- skill와 MCP ----

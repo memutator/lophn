@@ -10,6 +10,7 @@ import type { AgentWorkspace } from "../../../../../protocol/lophn-agent/agent-v
 import { workspaceOfLophn } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar } from "../../../parts/avatar/avatar.tsx";
+import { codingFaceOf } from "../coding-face.ts";
 import { CardFacts, scopeLabel } from "../agent-card.tsx";
 import {
   type AgentFacts,
@@ -94,15 +95,19 @@ export function GeneralTab(props: GeneralTabProps) {
           id: detail.workspace.id,
         } as AgentWorkspace);
   const profile = definition.profile ?? detail.effective.profile.value;
+  // 내장 coding agent의 얼굴은 그 제품 아이콘이고 고르지 않는다.
   const shownProfile =
-    profile.kind === "character"
+    (detail.assignment === null
+      ? undefined
+      : codingFaceOf(detail.assignment)) ??
+    (profile.kind === "character"
       ? profile
-      : { kind: "image" as const, src: props.imageSrc(profile.image) };
+      : { kind: "image" as const, src: props.imageSrc(profile.image) });
   const name = definition.name ?? detail.effective.name.value;
 
   return (
     <div className={styles.form}>
-      {lophn ? (
+      {lophn || coding ? (
         <Group
           name="profile"
           heading={t("project-workspace.heading.agent-editor-profile")}

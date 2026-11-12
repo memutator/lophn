@@ -9,6 +9,7 @@ import {
 import { useRemembered } from "../../shell/sidebar-memory.tsx";
 import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import type { SidebarAgent } from "../sidebar/sidebar-agent.ts";
+import { codingFaceOf } from "./coding-face.ts";
 import { workspaceOf } from "./core-extensions.ts";
 import type { AgentsSource } from "./source.ts";
 
@@ -52,7 +53,8 @@ export function useSidebarAgents(
       setAgents(() =>
         result.value.flatMap((row) => {
           const profile: AvatarProfile =
-            row.profile.kind === "character"
+            codingFaceOf(row.assignment) ??
+            (row.profile.kind === "character"
               ? row.profile
               : {
                   kind: "image",
@@ -61,7 +63,7 @@ export function useSidebarAgents(
                     row.assignment,
                     row.profile.image,
                   ),
-                };
+                });
           return [
             {
               assignment: row.assignment,

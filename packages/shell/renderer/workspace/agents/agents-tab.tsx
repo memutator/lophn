@@ -1,6 +1,6 @@
 // workspace(Home, project, 앱)의 Agents 탭 본문. 위에서부터 전역 agent와 이 workspace 범위 agent의 카드 목록(lophn이 첫 줄)과 [New agent],
-// 같이 쓰는 지침(LOPHN.md, 앱은 AGENTS.md), workspace memory, workspace 층 model 하나, skill, MCP server와 맨 아래
-// "Agent definitions are stored in lophn, not in your project folder." 한 줄이다. [Open]이 여는 editor는 editor/agent-editor.tsx가 맡는다.
+// 사람의 coding agent(내장 coding agent) 카드, 같이 쓰는 지침(LOPHN.md, 앱은 AGENTS.md), workspace memory, workspace 층 model 하나, skill,
+// MCP server와 맨 아래 "Agent definitions are stored in lophn, not in your project folder." 한 줄이다. [Open]이 여는 editor는 editor/agent-editor.tsx가 맡는다.
 
 import { Card } from "@lophn/ui/layout";
 import { Button } from "@lophn/ui/primitives";
@@ -8,12 +8,16 @@ import { t } from "@lophn/i18n";
 import type { ReactElement, ReactNode } from "react";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import { MEMORY_MAX_BYTES } from "../../../../protocol/lophn-agent/tool-lists.ts";
-import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
+import {
+  isCodingBuiltin,
+  isLophn,
+} from "../../../../protocol/lophn-agent/workspaces.ts";
 import { actionIcons } from "../../icons/mod.ts";
 import { isHarnessRuntime } from "../../../../protocol/lophn-agent/agent-values.ts";
 import { Avatar, type AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import { CardFacts, scopeLabel } from "./agent-card.tsx";
 import { kindOfWorkspace } from "./agent-key.ts";
+import { codingFaceOf } from "./coding-face.ts";
 import styles from "./agents-tab.module.css";
 import {
   InstructionsEditor,
@@ -53,9 +57,12 @@ interface AgentsTabProps {
 const PREVIEW_LINES = 3;
 
 function avatarProfile(row: AgentListRow, imageSrc: ImageSrc): AvatarProfile {
-  return row.profile.kind === "character"
-    ? row.profile
-    : { kind: "image", src: imageSrc(row.assignment, row.profile.image) };
+  return (
+    codingFaceOf(row.assignment) ??
+    (row.profile.kind === "character"
+      ? row.profile
+      : { kind: "image", src: imageSrc(row.assignment, row.profile.image) })
+  );
 }
 
 // 파일이 틀려 resolve하지 못한 행은 개수를 셀 수 없다(counts가 null).
@@ -189,6 +196,22 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
   const { overview } = props;
   const kind = kindOfWorkspace(props.workspace);
   const inherited = overview.workspaceModel.inherited;
+  // 내장 coding agent는 lophn의 agent가 아니라 사람이 쓰는 제품이라 따로 묶는다.
+  const lophnAgents = overview.agents.filter(
+    (row) => !isCodingBuiltin(row.assignment),
+  );
+  const codingAgents = overview.agents.filter((row) =>
+    isCodingBuiltin(row.assignment),
+  );
+  const card = (row: AgentListRow) => (
+    <AgentCardView
+      key={row.assignment}
+      row={row}
+      workspaceName={props.workspaceName}
+      imageSrc={props.imageSrc}
+      onOpen={() => props.onOpenAgent(row.assignment)}
+    />
+  );
   return (
     <div className={styles.page} data-agents-tab="">
       <h1 className={styles.title}>{t("project-workspace.heading.agents")}</h1>
@@ -213,18 +236,18 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
           </Button>
         }
       >
-        <ul className={styles.cards}>
-          {overview.agents.map((row) => (
-            <AgentCardView
-              key={row.assignment}
-              row={row}
-              workspaceName={props.workspaceName}
-              imageSrc={props.imageSrc}
-              onOpen={() => props.onOpenAgent(row.assignment)}
-            />
-          ))}
-        </ul>
+        <ul className={styles.cards}>{lophnAgents.map(card)}</ul>
       </Section>
+
+      {codingAgents.length === 0 ? null : (
+        <Section
+          name="coding-agents"
+          heading={t("agents.heading.coding-agents")}
+        >
+          <p className={styles.note}>{t("agents.notice.coding-agents")}</p>
+          <ul className={styles.cards}>{codingAgents.map(card)}</ul>
+        </Section>
+      )}
 
       <Section
         name="instructions"

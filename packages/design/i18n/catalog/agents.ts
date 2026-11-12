@@ -72,6 +72,9 @@ export const agents = {
   "agents.empty.grants-apps":
     "No apps. An assigned app brings all of its tools.",
   "agents.heading.all-agents": "All agents",
+  "agents.heading.coding-agents": "Your coding agents",
+  "agents.notice.coding-agents":
+    "Your favorite coding agents from Settings. lophn can hand work to them, and they run with your own settings for that tool.",
   "agents.heading.grants-apps": "Apps",
   "agents.heading.server-form": "Add a server for this agent only",
   "agents.heading.skip": "Skip permissions",

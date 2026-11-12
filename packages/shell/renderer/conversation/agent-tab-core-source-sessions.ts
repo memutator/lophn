@@ -21,6 +21,7 @@ import {
   deleteSession,
 } from "../../../protocol/lophn-agent/sessions.ts";
 import { projectApi } from "../../../protocol/projects/project-api.ts";
+import { codingFaceOf } from "../workspace/agents/coding-face.ts";
 import {
   dropValue,
   type Env,
@@ -137,11 +138,12 @@ export async function readFace(
   const face: AgentFace = {
     agent: env.agent,
     name,
-    // 올린 이미지는 renderer가 읽을 수 있는 주소가 없어 이름 첫 글자로 그린다.
+    // 내장 coding agent는 그 제품 아이콘이다. 올린 이미지는 renderer가 읽을 수 있는 주소가 없어 이름 첫 글자로 그린다.
     profile:
-      profile.kind === "character"
+      codingFaceOf(env.agent) ??
+      (profile.kind === "character"
         ? profile
-        : { kind: "initial", text: name.slice(0, 1) },
+        : { kind: "initial", text: name.slice(0, 1) }),
     workspace:
       workspace === null ? null : { kind: workspace.kind, name: named.value },
     permissionSummary: t("conversation.label.permission-summary", {

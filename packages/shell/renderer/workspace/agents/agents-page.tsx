@@ -17,6 +17,7 @@ import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import { useCommands } from "../../commands/react.tsx";
 import { useCardHead } from "../../shell/card-head.tsx";
 import { commonIcons } from "../../icons/mod.ts";
+import { codingFaceOf } from "./coding-face.ts";
 import { AgentsTab } from "./agents-tab.tsx";
 import { AgentEditor } from "./editor/agent-editor.tsx";
 import type { Ready } from "./editor/editor-model.ts";
@@ -172,7 +173,8 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
         : {
             name: row.name,
             profile:
-              row.profile.kind === "character"
+              codingFaceOf(assignment) ??
+              (row.profile.kind === "character"
                 ? row.profile
                 : {
                     kind: "image",
@@ -181,7 +183,7 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
                       assignment,
                       row.profile.image,
                     ),
-                  },
+                  }),
           },
     );
   };

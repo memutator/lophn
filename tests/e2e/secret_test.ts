@@ -8,6 +8,7 @@
 //   건너고 disk 전체를 봐야 알 수 있다.
 import assert from "node:assert/strict";
 import { AGENT_SHELL_ENV } from "../../packages/protocol/lophn-agent/tool-lists.ts";
+import { SESSION_ENV_NAME } from "../../packages/protocol/lophn-agent/session-tag.ts";
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { normalize } from "node:path";
 import { test } from "node:test";
@@ -231,8 +232,13 @@ test("E2E tool 결과에 key가 들어 있어도 model 요청·ledger·disk에�
         "tool 결과가 둘째 요청에 실려야 한다",
       );
       assert.ok(!sent.includes(key));
-      // agent shell 표시(값은 "1")는 자격이 아니라서 남아도 된다.
-      assert.ok(!sent.replaceAll(AGENT_SHELL_ENV, "").includes("LOPHN_"));
+      // agent shell 표시(값은 "1")와 session id 표지는 자격이 아니라서 남아도 된다.
+      assert.ok(
+        !sent
+          .replaceAll(AGENT_SHELL_ENV, "")
+          .replaceAll(SESSION_ENV_NAME, "")
+          .includes("LOPHN_"),
+      );
       assert.ok(!sent.includes(core.token));
 
       // ledger: tool 결과 blob까지.

@@ -1290,7 +1290,7 @@ flows:
       - "extension이 꺼져 있으면 Settings › System › Extensions를 열고 끝낸다"
       - "이미 그 터미널에 GUI를 여는 중이면 이 요청은 아무 일도 하지 않는다"
       - "TUI가 떠 있으면 adapter.exitTui로 끄고 5초 안에 foreground가 shell이 되기를 기다린다. 못 기다리면 실패"
-      - "adapter.start로 CLI를 사람의 login env와 탭 폴더에서 띄우고 ACP handle을 만든다. 시작하는 사이 탭이나 터미널이 닫혔으면 CLI를 세운다"
+      - "extension spawner가 사람의 login env를 읽기를 기다린 뒤(최대 5초) adapter.start로 CLI를 그 env와 탭 폴더에서 띄우고 ACP handle을 만든다. 시작하는 사이 탭이나 터미널이 닫혔으면 CLI를 세운다. adapter나 TUI 끄기가 던지면 internal 실패로 turn 오류를 보인다"
       - "탭을 가진 창에 GUI 열림을 push하고 1.5초 안에 ack가 와야 탭이 GUI view가 된다. 없으면 handle을 닫는다"
     outcomes:
       - id: opened
@@ -1308,7 +1308,7 @@ flows:
         when: "harness-gui extension이 꺼져 있다. Settings를 연다"
         observe: [process:settings-window]
       - id: start-failed
-        when: "adapter.start나 exitTui가 실패했다, 또는 exitTui 뒤 5초 안에 shell이 foreground가 되지 않았다. GUI view에는 실패한 turn으로 보인다"
+        when: "adapter.start나 exitTui가 실패했다(던진 것은 internal로 보인다), 또는 exitTui 뒤 5초 안에 shell이 foreground가 되지 않았다. GUI view에는 실패한 turn으로 보인다"
         observe: [screen:harness-gui-terminal-tab]
       - id: terminal-gone
         when: "adapter가 시작하는 사이 터미널이 끝났다. handle을 닫아 CLI를 세운다"
@@ -1485,7 +1485,7 @@ flows:
       - "to tui인데 handle이 없으면 view만 tui로 바꾸고 끝낸다"
       - "to gui: handle이 있으면 view만 바꾼다. 없으면 TUI의 session id를 읽는다. id가 없으면 no-session, TUI가 떠 있지 않으면 not-running"
       - "handle이 없을 때 gui로 가는 길은 harness-gui-open과 같은 open이다. harness-gui가 꺼져 있으면 Settings를 연다"
-      - "to tui에서 extension handler가 던지면 failed다"
+      - "to tui에서 CLI의 stop()이 8초 안에 끝나지 않거나 던지면 TUI 명령을 치지 않고 handle을 닫은 뒤 failed다(앞 process가 끝났는지 모르면 TUI를 띄우지 않는다). extension handler가 던져도 failed다"
     outcomes:
       - id: to-tui
         observe: [process:cli-tui, screen:project-terminal]
@@ -1504,7 +1504,7 @@ flows:
         when: "to gui에서 harness-gui extension이 꺼져 있다. Settings를 연다"
         observe: [process:settings-window]
       - id: failed
-        when: "to tui에서 extension handler가 던졌다. 또는 to gui의 adapter 시작이 던졌다"
+        when: "to tui에서 extension handler가 던졌거나 CLI의 stop()이 8초 안에 끝나지 않았거나 던졌다(TUI 명령은 치지 않는다). 또는 to gui의 adapter 시작이 던졌다"
         observe: [log:shell]
       - id: refused
         when: "desktop 창이 아니거나 입력 schema가 맞지 않다(IPC가 null을 돌려준다)"

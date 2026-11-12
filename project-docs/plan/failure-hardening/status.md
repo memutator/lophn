@@ -17,7 +17,7 @@ lead만 고친다. `tools/status.py failure-hardening build`가 `tasks/*.md`에�
 | `loop-turn` | loop | 1 | 없음 | merged | loop/loop-turn | 4c64efc27 |  |
 | `provider-error-text` | provider | 1 | 없음 | merged | provider/provider-error-text | 55ea4fd1a |  |
 | `provider-failures` | provider | 1 | 없음 | merged | provider/provider-failures | 2ab41e81d |  |
-| `ext-spawn` | shell | 1 | 없음 | review | shell/ext-spawn |  | GUI 탭 아래 CLI kill 확인 대기(사람) |
+| `ext-spawn` | shell | 1 | 없음 | merged | shell/ext-spawn | dceff2b37 | GUI 탭 아래 CLI kill 확인 대기(사람) |
 | `shell-core-connection` | shell | 1 | 없음 | merged | shell/shell-core-connection | edf8ae689 |  |
 | `hooks-install` | term | 1 | 없음 | merged | term/hooks-install | 44531c010 |  |
 | `term-host` | term | 1 | 없음 | merged | term/term-host | 49d9a5562 |  |

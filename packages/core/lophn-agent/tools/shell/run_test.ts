@@ -52,6 +52,7 @@ test("Windows에서 Git Bash를 못 찾으면 shell tool은 unavailable로 끝�
     spawn: (() => {
       throw new Error("must not spawn");
     }) as never,
+    onExit: () => () => {},
   };
   const result = await runShell({ command: "echo hi" }, ctx, deps);
   assert.ok(!result.ok);

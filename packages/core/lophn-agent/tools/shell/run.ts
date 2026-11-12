@@ -30,6 +30,8 @@ export type ShellDeps = {
   env: Readonly<Record<string, string | undefined>>;
   exists(path: string): boolean;
   spawn: typeof spawn;
+  // process가 끝날 때 동기로 부를 hook을 건다. 돌려준 함수가 푼다.
+  onExit(hook: () => void): () => void;
 };
 
 // Windows의 shell tool은 Git for Windows의 bash로 돈다. 환경 변수 → 흔한 설치 자리 순이다.
@@ -131,6 +133,10 @@ function processShellDeps(): ShellDeps {
     env: process.env,
     exists: existsSync,
     spawn,
+    onExit(hook) {
+      process.on("exit", hook);
+      return () => process.off("exit", hook);
+    },
   };
 }
 
@@ -176,6 +182,8 @@ export async function runCommand(
   });
 
   const kill = () => killTree(child, deps.platform);
+  // 이 process가 먼저 끝나면(crash, 감독의 SIGKILL, 정상 정지) 자식 group이 남지 않게 죽인다. 자식이 끝나면 푼다: 끝난 group 번호를 쥐고 있으면 재사용된 번호를 죽일 수 있다.
+  const offExit = deps.onExit(kill);
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
@@ -194,6 +202,7 @@ export async function runCommand(
   const errOut = collect(child.stderr!);
   const code = await exited;
   clearTimeout(timer);
+  offExit();
   input.signal?.removeEventListener("abort", stop);
   const empty: Collected = { text: "", truncated: false };
   const grace = <T>(promise: Promise<T>, fallback: T) =>
@@ -253,9 +262,10 @@ export async function runShell(
   };
   const truncated = ran.value.stdout_truncated || ran.value.stderr_truncated;
   return ok({
-    status: timedOut || stopped ? "failure" : "success",
+    // 시간 초과로 죽인 명령은 효과가 났는지 모른다. 사람이 멈춘 것은 지금처럼 failure다.
+    status: timedOut ? "uncertain" : stopped ? "failure" : "success",
     summary: timedOut
-      ? `timed out after ${timeoutMs} ms`
+      ? `timed out after ${timeoutMs} ms and was killed; it may have already taken effect, check before running it again`
       : stopped
         ? "stopped before it finished"
         : `exit code ${code}`,

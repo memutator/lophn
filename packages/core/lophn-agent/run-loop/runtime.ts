@@ -29,7 +29,10 @@ import type {
   CredentialRegistry,
   OperationPolicy,
 } from "../../server/identity/mod.ts";
-import type { Supervisor } from "../../supervision/responsiveness/mod.ts";
+import type {
+  ChildCallbacks,
+  Supervisor,
+} from "../../supervision/responsiveness/mod.ts";
 import { answerRedactRequest } from "./runtime-redaction.ts";
 import type { AgentRuntimeSecrets } from "./runtime-secret.ts";
 import { createAgentCredentialLink } from "./agent-credentials.ts";
@@ -62,6 +65,8 @@ export const AGENT_RUNTIME_KIND = "lophn-agent/runtime";
 export const AGENT_RUNTIME_TASK = "lophn-agent";
 // agent credential의 process 조건이다. child가 끝나면 이 조건의 credential을 모두 끝낸다.
 const AGENT_RUNTIME_PROCESS = "agent-runtime";
+// 감독이 포기한 뒤 한 번만 다시 띄우기까지 기다리는 시간이다.
+const GIVE_UP_RETRY_MS = 60_000;
 
 type RouteLike = { name: string; kind: string };
 
@@ -167,6 +172,8 @@ type AgentRuntimeDeps = {
   publish?: (event: AgentEvent) => void;
   // child가 보낸 쓰는 중인 model 날 글이다. core가 redaction해 내므로 Bus에 싣지 않는다. 없으면 버린다.
   output?: (batch: ModelOutputMessage) => void;
+  // 감독이 재기동 한도를 넘어 포기했다. retry가 true면 이 함수가 한 번 다시 띄운다.
+  onGiveUp?(reason: string, retry: boolean): void;
 };
 
 export async function startAgentRuntimeChild(
@@ -234,7 +241,11 @@ export async function startAgentRuntimeChild(
         deps.io.send(AGENT_RUNTIME_KIND, message).then((sent) => sent.ok),
       prepareBlob: deps.prepareBlob,
     });
-  const callbacks = () => {
+  // 다시 띄우기는 core process 하나에 한 번이다. 망가진 설치에서 1분마다 crash가 되풀이되지 않게 한다.
+  let gaveUpBefore = false;
+  let stopped = false;
+  let retryTimer: ReturnType<typeof setTimeout> | undefined;
+  const callbacks = (): ChildCallbacks => {
     blob?.close();
     let handler = newBlob();
     blob = handler;
@@ -300,6 +311,21 @@ export async function startAgentRuntimeChild(
           blob = handler;
         }
       },
+      onGiveUp(reason: string) {
+        const retry = !gaveUpBefore && !stopped;
+        gaveUpBefore = true;
+        deps.onGiveUp?.(reason, retry);
+        if (!retry) return;
+        retryTimer = setTimeout(() => {
+          retryTimer = undefined;
+          void deps.io
+            .updateSpec(agentRuntimeLaunchSpec(), hello, callbacks())
+            .then((result) => {
+              if (!result.ok) deps.onGiveUp?.("retry_failed", false);
+            })
+            .catch(() => deps.onGiveUp?.("retry_failed", false));
+        }, GIVE_UP_RETRY_MS);
+      },
     };
   };
 
@@ -317,6 +343,8 @@ export async function startAgentRuntimeChild(
 
   return ok({
     stop() {
+      stopped = true;
+      clearTimeout(retryTimer);
       blob?.close();
     },
   });

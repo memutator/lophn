@@ -38,6 +38,7 @@ import {
 } from "./received.ts";
 import type { IdSource } from "../../../../../base/id.ts";
 import type { Result } from "../../../../../base/result.ts";
+import { redactCredentials } from "../../../../../base/telemetry/log.ts";
 import type { AcpInput } from "../../../../../protocol/acp/input.ts";
 import {
   ACP_TOOL_BODY_LIMIT,
@@ -205,6 +206,36 @@ type Question = {
 type Cancelable = Query & {
   cancelAsyncMessage(uuid: string): Promise<boolean>;
 };
+
+// CLI가 control 요청에 답하지 않으면 입력 줄이 멈춘다. 기한을 넘기면 실패로 알린다.
+const REQUEST_WAIT_MS = 30_000;
+// stop()의 interrupt는 정중하게 3초만 기다리고 바로 close한다(nodeSpawn의 SIGKILL 유예 3초, tui() 기한 8초 안).
+const STOP_POLITE_MS = 3_000;
+function bounded<T>(
+  work: Promise<T>,
+  what: string,
+  ms = REQUEST_WAIT_MS,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () =>
+        reject(
+          new Error(`claude did not answer ${what} in ${ms / 1000} seconds.`),
+        ),
+      ms,
+    );
+    work.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (cause) => {
+        clearTimeout(timer);
+        reject(cause);
+      },
+    );
+  });
+}
 
 const DENIED = "The user denied this tool use.";
 const EDIT_TOOLS = ["Write", "Edit", "MultiEdit", "NotebookEdit"];
@@ -1082,7 +1113,10 @@ const start: (sdk: ClaudeSdk) => Start =
     }
     async function refreshContext() {
       try {
-        const usage = await live.q.getContextUsage({ detail: "full" });
+        const usage = await bounded(
+          live.q.getContextUsage({ detail: "full" }),
+          "context usage",
+        );
         contextUsage = {
           tokens: usage.totalTokens,
           limit: usage.maxTokens,
@@ -1195,7 +1229,7 @@ const start: (sdk: ClaudeSdk) => Start =
     }
     // turn이 없어도 버리지 않는다(`turn: null`).
     function info(text: string, level: "info" | "warning" = "info") {
-      const clean = text.trim().slice(0, 8000);
+      const clean = redactCredentials(text.trim()).slice(0, 8000);
       if (clean !== "") notify(root, { type: "info", text: clean, level });
     }
     function commandOutput(command: string, text: string) {
@@ -1827,11 +1861,12 @@ const start: (sdk: ClaudeSdk) => Start =
             ? undefined
             : {
                 code: "internal",
-                message:
+                message: redactCredentials(
                   message.result ??
-                  message.errors?.join("; ") ??
-                  message.subtype ??
-                  "claude failed",
+                    message.errors?.join("; ") ??
+                    message.subtype ??
+                    "claude failed",
+                ),
               },
         );
       }
@@ -2455,12 +2490,16 @@ const start: (sdk: ClaudeSdk) => Start =
     // --- query ------------------------------------------------------------------------------
     let live!: Live;
 
-    function open(from: {
-      resume?: string;
-      sessionId?: string;
-      resumeSessionAt?: string;
-      fork?: boolean;
-    }): Live {
+    function open(
+      from: {
+        resume?: string;
+        sessionId?: string;
+        resumeSessionAt?: string;
+        fork?: boolean;
+      },
+      // 이 query가 메시지를 하나도 내지 못하고 끝나면 부른다(rewind·fork가 앞 session으로 돌아간다).
+      onNoStart?: (reason: string) => void,
+    ): Live {
       const input = inputQueue();
       let onExit: () => void = () => {};
       const exited = new Promise<void>((resolve) => {
@@ -2502,7 +2541,7 @@ const start: (sdk: ClaudeSdk) => Start =
           ? {}
           : { additionalDirectories: [...carry.dirs] }),
         spawnClaudeCodeProcess(spawnOptions: SpawnOptions) {
-          // SDK는 shell main의 env 전체를 준다. 그대로 넘기면 탭 쪽 합치기가 login shell env를 덮으므로 다른 값만 넘긴다.
+          // SDK는 shell main의 env 전체를 준다. 그대로 넘기면 extension spawner가 login shell env 위에 합치며 그것을 덮으므로 바뀐 값만 넘긴다.
           const env: Record<string, string> = {};
           for (const [key, value] of Object.entries(spawnOptions.env)) {
             if (value !== undefined && process.env[key] !== value)
@@ -2528,15 +2567,24 @@ const start: (sdk: ClaudeSdk) => Start =
       const q = sdk.query({ prompt: input, options }) as Cancelable;
       const me: Live = { q, input, exited, retired: false };
       void (async () => {
+        let got = false;
         try {
           for await (const message of q) {
             if (me.retired || closed) return;
+            got = true;
             onMessage(message as unknown as SdkMessage);
           }
-          if (!me.retired && !closed) failure("claude exited.");
+          if (!me.retired && !closed) {
+            if (!got) onNoStart?.("claude exited.");
+            failure("claude exited.");
+          }
         } catch (cause) {
-          if (!me.retired && !closed)
-            failure(cause instanceof Error ? cause.message : String(cause));
+          if (!me.retired && !closed) {
+            const reason =
+              cause instanceof Error ? cause.message : String(cause);
+            if (!got) onNoStart?.(reason);
+            failure(reason);
+          }
         }
       })();
       return me;
@@ -2545,7 +2593,9 @@ const start: (sdk: ClaudeSdk) => Start =
     function failure(reason: string) {
       dead = {
         code: "unavailable",
-        message: stderrTail === "" ? reason : `${reason}\n${stderrTail.trim()}`,
+        message: redactCredentials(
+          stderrTail === "" ? reason : `${reason}\n${stderrTail.trim()}`,
+        ),
       };
       endTurn("failed", dead);
     }
@@ -2580,13 +2630,35 @@ const start: (sdk: ClaudeSdk) => Start =
       }
       return old;
     }
-    async function reopen(old: Live, from: Parameters<typeof open>[0]) {
+    // `undo`가 있으면(rewind·fork) 새 CLI가 뜨지 못했을 때 앞 session과 숨긴 구간으로 돌아간다.
+    // "떴다"의 표지는 그 query의 첫 메시지다.
+    async function reopen(
+      old: Live,
+      from: Parameters<typeof open>[0],
+      undo?: { what: string; hidden: string | undefined; note: string },
+    ) {
       old.input.end();
       old.q.close();
       await old.exited;
+      const before = { cliSession, empty };
       // 새 query가 죽은 CLI의 자리를 잇는다.
       dead = null;
-      live = open(from);
+      live = open(
+        from,
+        undo === undefined
+          ? undefined
+          : (reason) => {
+              cliSession = before.cliSession;
+              empty = before.empty;
+              changed({ cli_session: cliSession });
+              if (undo.hidden !== undefined)
+                publish({ type: "hidden_restored", hidden: undo.hidden });
+              info(
+                `${undo.what} did not happen: claude could not open the new session (${reason}). The earlier session is kept.${undo.note}`,
+                "warning",
+              );
+            },
+      );
       empty = from.resume === undefined;
       cliSession = from.sessionId ?? from.resume ?? cliSession;
       changed({ cli_session: cliSession });
@@ -2611,29 +2683,44 @@ const start: (sdk: ClaudeSdk) => Start =
       } satisfies Result<never>;
     }
 
-    defaults = settingsDefaults(await settingsFiles(sdk, cwd));
-    const firstMode = defaults.mode;
-    changed({
-      title: null,
-      cli_session: cliSession,
-      capabilities: CAPABILITIES,
-      models: [],
-      model: null,
-      modes: MODES.map(([id, label]) => ({ id, label, description: null })),
-      mode: firstMode,
-      commands: [],
-      usage: null,
-      toggles: [],
-      goal: null,
-      roles: null,
-      harness: "claude",
-    });
+    // CLI를 띄운 뒤라 여기서 던지면 CLI가 남는다.
+    try {
+      defaults = settingsDefaults(await settingsFiles(sdk, cwd));
+      changed({
+        title: null,
+        cli_session: cliSession,
+        capabilities: CAPABILITIES,
+        models: [],
+        model: null,
+        modes: MODES.map(([id, label]) => ({ id, label, description: null })),
+        mode: defaults.mode,
+        commands: [],
+        usage: null,
+        toggles: [],
+        goal: null,
+        roles: null,
+        harness: "claude",
+      });
+    } catch (cause) {
+      closed = true;
+      live.input.end();
+      live.q.close();
+      return {
+        ok: false,
+        error: {
+          code: "internal",
+          message: redactCredentials(
+            cause instanceof Error ? cause.message : String(cause),
+          ),
+        },
+      } satisfies Result<never>;
+    }
     // 목록은 첫 메시지 전에도 읽힌다.
     void (async () => {
       try {
-        models = await live.q.supportedModels();
+        models = await bounded(live.q.supportedModels(), "model list");
         publishModels();
-        rawCommands = await live.q.supportedCommands();
+        rawCommands = await bounded(live.q.supportedCommands(), "command list");
         publishCommands();
       } catch {
         // 목록을 못 읽어도 대화는 이어진다.
@@ -2820,9 +2907,11 @@ const start: (sdk: ClaudeSdk) => Start =
     }
     function detach(useId: string, call: Call) {
       call.detached = true;
-      void live.q.backgroundTasks(useId).catch(() => {
-        // background를 못 쓰는 session이면 tool이 끝나길 기다린다.
-      });
+      void bounded(live.q.backgroundTasks(useId), "background request").catch(
+        () => {
+          // background를 못 쓰는 session이면 tool이 끝나길 기다린다.
+        },
+      );
     }
     // desktop의 runSteerDetach: 3초 넘게 돈 tool을 1초마다 보며 15초 안에, 줄에 steer가 남아 있는 동안 최대 2개를 보낸다.
     function detachForSteer(uuid: string) {
@@ -2842,13 +2931,18 @@ const start: (sdk: ClaudeSdk) => Start =
       tick();
     }
 
+    // 줄에서 못 뺐으면(이미 가져갔거나 CLI가 답하지 않으면) false다.
+    const cancelQueued = (uuid: string) =>
+      bounded(live.q.cancelAsyncMessage(uuid), "queue change").catch(
+        () => false,
+      );
+
     // CLI의 줄은 push한 순서다. 순서나 내용이 바뀌면 줄에 있는 것을 모두 빼고 새 순서로 다시 넣는다.
     async function requeue(next: Queued[]) {
       const before = [...queued.entries()];
       const taken = new Set<string>();
       for (const [uuid] of before) {
-        if (!(await live.q.cancelAsyncMessage(uuid).catch(() => false)))
-          taken.add(uuid);
+        if (!(await cancelQueued(uuid))) taken.add(uuid);
       }
       for (const [uuid, one] of before) {
         queued.delete(uuid);
@@ -2893,7 +2987,7 @@ const start: (sdk: ClaudeSdk) => Start =
     async function setModel(model: string, options: Record<string, string>) {
       carry.model = model;
       try {
-        await live.q.setModel(model);
+        await bounded(live.q.setModel(model), "model change");
         shownModel = model;
       } catch {
         // 지금 process가 거절했다. 다음에 띄울 때 쓰도록 기억만 해 두고 지금 값을 다시 보인다.
@@ -2904,14 +2998,20 @@ const start: (sdk: ClaudeSdk) => Start =
       if (options.fast !== undefined) {
         const on = options.fast === "on";
         if (on !== (carry.fast ?? fastState === "on")) {
-          await live.q.applyFlagSettings({ fastMode: on });
+          await bounded(
+            live.q.applyFlagSettings({ fastMode: on }),
+            "fast mode change",
+          );
           carry.fast = on;
         }
       }
       if (options.thinking !== undefined) {
         const on = options.thinking !== "off";
         if (on !== (carry.thinking ?? true)) {
-          await live.q.setMaxThinkingTokens(on ? null : 0);
+          await bounded(
+            live.q.setMaxThinkingTokens(on ? null : 0),
+            "thinking change",
+          );
           carry.thinking = on;
         }
       }
@@ -2960,20 +3060,21 @@ const start: (sdk: ClaudeSdk) => Start =
       fromId: string,
       choice: "restore_all" | "messages_only",
       restored: number,
-    ) {
+    ): string | undefined {
       const first = mirror.items.find((one) => one.id === fromId);
-      if (first === undefined) return;
+      if (first === undefined) return undefined;
       const items = mirror.items
         .filter((one) => one.seq >= first.seq)
         .flatMap((one): AcpEntry[] =>
           one.kind === "hidden" ? one.items : [one],
         );
-      if (items.length === 0) return;
+      if (items.length === 0) return undefined;
+      const id = ids.newId("hid");
       publish({
         type: "hidden_added",
         item: {
           kind: "hidden",
-          id: ids.newId("hid"),
+          id,
           seq: first.seq,
           at: now(),
           checkpoint: fromId,
@@ -2984,6 +3085,7 @@ const start: (sdk: ClaudeSdk) => Start =
           items,
         },
       });
+      return id;
     }
 
     const firstLine = (message: string) =>
@@ -3000,9 +3102,10 @@ const start: (sdk: ClaudeSdk) => Start =
     async function rewindPreview(message: string): Promise<AcpRewindPreview> {
       const uuid = uuidOfMessage.get(message);
       if (uuid === undefined) return { files: [] };
-      const preview = await live.q
-        .rewindFiles(uuid, { dryRun: true })
-        .catch(() => undefined);
+      const preview = await bounded(
+        live.q.rewindFiles(uuid, { dryRun: true }),
+        "rewind preview",
+      ).catch(() => undefined);
       if (preview === undefined || !preview.canRewind) {
         info(preview?.error ?? "Could not preview the files.");
         return { files: [] };
@@ -3027,22 +3130,29 @@ const start: (sdk: ClaudeSdk) => Start =
       }
       if (root.turn !== null) {
         stopping = true;
-        await live.q.interrupt().catch(() => undefined);
+        await bounded(live.q.interrupt(), "interrupt").catch(() => undefined);
       }
       let restored = 0;
       if (files) {
         // 화면이 확인을 받은 뒤라 미리 보기는 한 줄 알림으로 남기고 바로 되돌린다.
-        const preview = await live.q.rewindFiles(uuid, { dryRun: true });
+        const preview = await bounded(
+          live.q.rewindFiles(uuid, { dryRun: true }),
+          "rewind preview",
+        );
         if (!preview.canRewind) {
           info(preview.error ?? "Could not rewind the files.");
           return;
         }
         restored = preview.filesChanged?.length ?? 0;
-        await live.q.rewindFiles(uuid);
+        await bounded(live.q.rewindFiles(uuid), "rewind");
       }
       const title = firstLine(message);
       const old = retire();
-      hideFrom(message, files ? "restore_all" : "messages_only", restored);
+      const hidden = hideFrom(
+        message,
+        files ? "restore_all" : "messages_only",
+        restored,
+      );
       const fresh = uuidOf(ids);
       await reopen(
         old,
@@ -3054,6 +3164,11 @@ const start: (sdk: ClaudeSdk) => Start =
               fork: true,
               sessionId: fresh,
             },
+        {
+          what: "Rewind",
+          hidden,
+          note: files ? " Files already restored stay restored." : "",
+        },
       );
       info(
         `Rewound to “${title}”${files ? ` · ${restored} ${restored === 1 ? "file" : "files"} restored` : ""}`,
@@ -3078,6 +3193,7 @@ const start: (sdk: ClaudeSdk) => Start =
         ...(upTo === undefined ? {} : { upToMessageId: upTo }),
       });
       const old = retire();
+      let hidden: string | undefined;
       if (message !== null) {
         // 새 session에 없는 뒷부분을 숨긴다.
         const at = mirror.items.findIndex((one) => one.id === message);
@@ -3085,9 +3201,13 @@ const start: (sdk: ClaudeSdk) => Start =
           (one, index) =>
             index > at && one.kind === "message" && one.actor === "user",
         );
-        if (next !== undefined) hideFrom(next.id, "messages_only", 0);
+        if (next !== undefined) hidden = hideFrom(next.id, "messages_only", 0);
       }
-      await reopen(old, { resume: made.sessionId });
+      await reopen(
+        old,
+        { resume: made.sessionId },
+        { what: "Fork", hidden, note: "" },
+      );
       info(
         from === null
           ? "Forked into a new session. The original session is unchanged."
@@ -3202,7 +3322,7 @@ const start: (sdk: ClaudeSdk) => Start =
           killShells();
           if (root.turn !== null) {
             stopping = true;
-            void live.q.interrupt().catch(() => {});
+            await bounded(live.q.interrupt(), "interrupt");
           }
           return;
         case "retry": {
@@ -3238,8 +3358,7 @@ const start: (sdk: ClaudeSdk) => Start =
           );
           if (entry === undefined) return;
           const [uuid, one] = entry;
-          if (!(await live.q.cancelAsyncMessage(uuid).catch(() => false)))
-            return;
+          if (!(await cancelQueued(uuid))) return;
           queued.delete(uuid);
           // 지금 보내기는 도는 turn을 끊고 이 메시지를 먼저 돌린다. 줄에서는 CLI가 가져갈 때 빠진다.
           const fresh = uuidOf(ids);
@@ -3257,8 +3376,7 @@ const start: (sdk: ClaudeSdk) => Start =
             ([, one]) => one.id === message.message,
           );
           if (entry === undefined) return;
-          if (!(await live.q.cancelAsyncMessage(entry[0]).catch(() => false)))
-            return;
+          if (!(await cancelQueued(entry[0]))) return;
           queued.delete(entry[0]);
           publish({ type: "message_removed", message: message.message });
           return;
@@ -3288,8 +3406,11 @@ const start: (sdk: ClaudeSdk) => Start =
           await setModel(message.model, message.options);
           return;
         case "set_mode":
-          await live.q.setPermissionMode(
-            message.mode as Parameters<Query["setPermissionMode"]>[0],
+          await bounded(
+            live.q.setPermissionMode(
+              message.mode as Parameters<Query["setPermissionMode"]>[0],
+            ),
+            "mode change",
           );
           setMode(message.mode);
           return;
@@ -3297,7 +3418,7 @@ const start: (sdk: ClaudeSdk) => Start =
           if (message.name === "clear") await clear();
           else if (message.name === "plan") {
             const next = carry.mode === "plan" ? "default" : "plan";
-            await live.q.setPermissionMode(next);
+            await bounded(live.q.setPermissionMode(next), "mode change");
             setMode(next);
           } else
             await sendCommand(
@@ -3306,11 +3427,12 @@ const start: (sdk: ClaudeSdk) => Start =
           return;
         case "stop_child": {
           const taskId = agentCalls.get(message.child)?.agent?.taskId;
-          if (taskId != null) await live.q.stopTask(taskId);
+          if (taskId != null)
+            await bounded(live.q.stopTask(taskId), "task stop");
           return;
         }
         case "stop_task":
-          await live.q.stopTask(message.task);
+          await bounded(live.q.stopTask(message.task), "task stop");
           return;
         // steer의 detach와 같은 길이지만 3초를 기다리지 않는다.
         case "background_tool":
@@ -3344,10 +3466,26 @@ const start: (sdk: ClaudeSdk) => Start =
           return;
       }
     }
+    const run = (message: AcpInput) =>
+      handle(message).catch((cause) =>
+        info(
+          `${message.type} failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+          "warning",
+        ),
+      );
     // 입력은 앞 입력이 끝난 뒤에 처리한다(rewind·fork가 query를 바꾸는 동안 다음 입력이 옛 query에 가지 않게).
+    // Stop과 승인·질문 답은 query를 바꾸지 않으니 줄 밖에서 바로 처리한다. 앞 입력이 답 없는 CLI를 기다려도 닿아야 한다.
     let chain: Promise<void> = ready;
     session.onInput((message) => {
-      chain = chain.then(() => handle(message)).catch(() => undefined);
+      if (
+        message.type === "stop" ||
+        message.type === "decide" ||
+        message.type === "answer"
+      ) {
+        void run(message);
+        return;
+      }
+      chain = chain.then(() => run(message));
     });
 
     return {
@@ -3359,7 +3497,11 @@ const start: (sdk: ClaudeSdk) => Start =
             killShells();
             if (root.turn !== null) {
               stopping = true;
-              await live.q.interrupt().catch(() => undefined);
+              await bounded(
+                live.q.interrupt(),
+                "interrupt",
+                STOP_POLITE_MS,
+              ).catch(() => undefined);
             }
             closed = true;
             for (const wait of approvals.values())

@@ -106,6 +106,10 @@ async function setup(
     models?: unknown[];
     /** getContextUsage가 말하는 resolved model. */
     contextModel?: string;
+    /** interrupt·setPermissionMode에 CLI가 답하지 않는다. */
+    hang?: boolean;
+    /** 두 번째부터의 query는 메시지 없이 끝난다(새 CLI가 뜨지 못함). */
+    emptyReopen?: boolean;
   } = {},
 ) {
   const sdkMessages: unknown[] = [];
@@ -115,6 +119,8 @@ async function setup(
   // 옛 session의 transcript를 바꾸는 SDK 호출. open_session은 이것을 부르면 안 된다.
   const calls: string[] = [];
   const backgrounded: string[] = [];
+  let interrupts = 0;
+  const never = () => new Promise<never>(() => {});
   const spawn = (
     command: string,
     args: readonly string[],
@@ -128,6 +134,7 @@ async function setup(
     query(params: { prompt: AsyncIterable<SDKUserMessage>; options: Options }) {
       const fake: Fake = { options: params.options, sent: [], closed: false };
       queries.push(fake);
+      const reopened = queries.length > 1;
       void (async () => {
         for await (const message of params.prompt) fake.sent.push(message);
       })();
@@ -139,6 +146,7 @@ async function setup(
       });
       return {
         async *[Symbol.asyncIterator]() {
+          if (options.emptyReopen && reopened) return;
           for (;;) {
             const next = sdkMessages.shift();
             if (next instanceof Error) throw next;
@@ -146,7 +154,11 @@ async function setup(
             else await new Promise<void>((resolve) => (wake = resolve));
           }
         },
-        interrupt: () => Promise.resolve(),
+        interrupt() {
+          interrupts++;
+          return options.hang ? never() : Promise.resolve();
+        },
+        setPermissionMode: () => (options.hang ? never() : Promise.resolve()),
         close() {
           fake.closed = true;
           if (options.autoExit !== false) processes.at(-1)?.exit();
@@ -233,6 +245,9 @@ async function setup(
     calls,
     backgrounded,
     clock,
+    get interrupts() {
+      return interrupts;
+    },
     get state() {
       return state;
     },
@@ -1309,4 +1324,101 @@ test("명령 출력은 색 code를 떼고 `/compact` 출력은 그리지 않는�
     notices.map((one) => ("text" in one ? one.text : "")),
     ["Theme set"],
   );
+});
+
+const infos = (state: AcpState) =>
+  state.items.flatMap((item) =>
+    item.kind === "notice" && item.notice.type === "info"
+      ? [item.notice.text]
+      : [],
+  );
+
+// 앞 입력(set_mode)이 답 없는 CLI를 기다리면 줄이 멈춘다. Stop과 승인 답까지 거기 서면 사람이 끌 수 없다.
+test("앞 입력이 CLI 답을 기다리는 동안에도 Stop과 승인 답은 바로 처리된다", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const t = await setup({ hang: true });
+    const rec = recording("write_approval");
+    const cursor = { at: 0 };
+    await t.input(t.send("1", textOf(rec[cursor.at++] as Entry)));
+    const asked = (await t.play(rec, cursor)) as Entry;
+    const { result } = t.askPermission(asked);
+    await flush();
+    const approval = t.state.pending.approval;
+    assert.ok(approval);
+
+    await t.input({ type: "set_mode", mode: "plan" });
+    await t.input({
+      type: "decide",
+      request: approval.id,
+      choice: { kind: "once" },
+    });
+    assert.equal(t.state.pending.approval, null);
+    assert.equal(((await result) as { behavior: string }).behavior, "allow");
+
+    await t.input({ type: "stop" });
+    assert.equal(t.interrupts, 1);
+
+    // 기한이 지나면 줄이 풀리고 실패가 사람에게 보인다.
+    mock.timers.tick(30_000);
+    await flush();
+    assert.ok(
+      infos(t.state).some((text) => text.startsWith("set_mode failed:")),
+    );
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("rewind로 연 새 CLI가 메시지 없이 끝나면 다음 send와 TUI 명령은 앞 session id를 쓰고 숨긴 구간이 되살아난다", async () => {
+  const options: Parameters<typeof setup>[0] = { emptyReopen: true };
+  const t = await setup(options);
+  assert.ok(t.started.ok);
+  const run = t.started.value;
+  const before = run.sessionId();
+  await t.input(t.send("1", "hello"));
+  const uuid = t.queries[0]?.sent[0]?.uuid;
+  // 손으로 만든 transcript다(녹화 아님). rewind가 사람 메시지 uuid를 여기서 찾는다.
+  options.history = [{ type: "user", uuid, message: { content: "hello" } }];
+
+  await t.input({ type: "rewind", message: "msg_1", files: false });
+  await flush();
+  assert.equal(t.queries.length, 2);
+  assert.equal(run.sessionId(), before);
+  assert.equal(
+    t.state.items.some((item) => item.kind === "hidden"),
+    false,
+  );
+  assert.ok(
+    t.state.items.some(
+      (item) => item.kind === "message" && item.id === "msg_1",
+    ),
+  );
+  assert.ok(
+    infos(t.state).some((text) => text.startsWith("Rewind did not happen")),
+  );
+
+  await t.input(t.send("2", "again"));
+  assert.equal(t.queryOptions?.resume, before);
+  await run.stop();
+  assert.match(run.tuiCommand(), new RegExp(`^claude --resume '${before}'`));
+});
+
+test("interrupt에 답하지 않는 CLI도 stop()이 3초 뒤 query를 닫고 끝난다", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const t = await setup({ hang: true });
+    assert.ok(t.started.ok);
+    await t.input(t.send("1", "run it"));
+    let done = false;
+    const stopping = t.started.value.stop().then(() => (done = true));
+    await flush();
+    assert.equal(t.queries[0]?.closed, false);
+    mock.timers.tick(3000);
+    await stopping;
+    assert.equal(done, true);
+    assert.equal(t.queries[0]?.closed, true);
+  } finally {
+    mock.timers.reset();
+  }
 });

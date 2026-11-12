@@ -5,11 +5,13 @@ import type { ModelOutcome } from "../../../protocol/lophn-agent/mod.ts";
 
 export const MODEL_RETRY_MAX = 2;
 // 서버가 시각을 주지 않았을 때 첫째·둘째 retry 앞의 대기.
-const MODEL_RETRY_DEFAULT_MS: readonly [number, number] = [2000, 4000];
+const MODEL_RETRY_DEFAULT_MS: readonly number[] = [2000, 4000];
 
 // 연속으로 잘린 응답을 이만큼 받으면 turn을 끝낸다. 같은 입력이 같게 잘리는 되풀이를 시도 한도(30)까지
 // 끌지 않으려는 것이다. 완전한 응답이 오면 센 값이 0으로 돌아간다. 일시 실패와 그 retry는 세지 않는다.
 export const PARTIAL_RUN_MAX = 3;
+// 연속으로 빈 응답(글도 tool call도 없는 완전한 응답)을 이만큼 받으면 turn을 끝낸다. 첫 번째는 되묻는다.
+export const EMPTY_RUN_MAX = 2;
 
 export const TOOL_RETRY_MAX = 1;
 const TOOL_RETRY_BASE_MS = 1000;
@@ -21,16 +23,38 @@ export function isTransientFailure(outcome: ModelOutcome): boolean {
   return outcome.kind === "failed" && outcome.code === "temporary";
 }
 
+// 연결 실패(네트워크가 끊김)는 몇 초 안에 돌아오지 않을 수 있어 사다리를 더 길게 둔다.
+const CONNECTION_RETRY_MS: readonly number[] = [5000, 15_000, 30_000];
+// 기본 사다리에 섞는 비율. 동시에 실패한 turn들이 같은 순간에 다시 보내지 않게 한다.
+const MODEL_RETRY_JITTER = 0.2;
+
+export function isConnectionFailure(outcome: ModelOutcome): boolean {
+  return outcome.evidence?.verdict_path === "connection_failed";
+}
+
+// 이 실패가 허락하는 retry 수. 연결 실패만 사다리가 더 길다.
+export function modelRetryLimit(outcome: ModelOutcome): number {
+  return isConnectionFailure(outcome)
+    ? CONNECTION_RETRY_MS.length
+    : MODEL_RETRY_MAX;
+}
+
 // n번째(1부터) retry 앞의 대기 ms. 서버의 최소 재시도 시각이 있으면 그 시각을 지키고 앞당기지
-// 않는다. 없으면 2초·4초다.
+// 않는다. 없으면 2초·4초(연결 실패는 5초·15초·30초)이고 random을 주면 ±20% jitter를 섞는다.
 export function modelRetryDelayMs(
   retryNumber: number,
   retryAt: string | null,
   nowMs: number,
+  options: { random?: () => number; connection?: boolean } = {},
 ): number {
   if (retryAt !== null) return Math.max(0, Date.parse(retryAt) - nowMs);
-  const index = Math.min(retryNumber, MODEL_RETRY_MAX) - 1;
-  return MODEL_RETRY_DEFAULT_MS[index];
+  const ladder = options.connection
+    ? CONNECTION_RETRY_MS
+    : MODEL_RETRY_DEFAULT_MS;
+  const base = ladder[Math.min(retryNumber, ladder.length) - 1];
+  if (options.random === undefined) return base;
+  const spread = (options.random() * 2 - 1) * MODEL_RETRY_JITTER;
+  return Math.round(base * (1 + spread));
 }
 
 // tool 자동 retry는 읽기에만 허용한다. 쓰기와 external은 다시 부르지 않는다.

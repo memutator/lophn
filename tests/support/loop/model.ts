@@ -11,6 +11,9 @@ import type { ModelOutcome } from "../../../packages/protocol/lophn-agent/mod.ts
 
 type ToolCall = { id: string; name: string; args: string };
 type FailureCode = NonNullable<ModelOutcome["code"]>;
+type VerdictPath = NonNullable<
+  NonNullable<ModelOutcome["evidence"]>["verdict_path"]
+>;
 
 export type Step =
   | { kind: "answer"; text: string }
@@ -21,7 +24,12 @@ export type Step =
       finish_reason: string | null;
       calls: ToolCall[];
     }
-  | { kind: "failed"; code: FailureCode; retry_at: string | null }
+  | {
+      kind: "failed";
+      code: FailureCode;
+      retry_at: string | null;
+      verdict_path: VerdictPath | null;
+    }
   | { kind: "hang" };
 
 export const answer = (text: string): Step => ({ kind: "answer", text });
@@ -45,10 +53,12 @@ export const partial = (
 export const failed = (opts: {
   code: FailureCode;
   retry_at?: string;
+  verdict_path?: VerdictPath;
 }): Step => ({
   kind: "failed",
   code: opts.code,
   retry_at: opts.retry_at ?? null,
+  verdict_path: opts.verdict_path ?? null,
 });
 
 // signal이 중단될 때만 cancelled로 돌아온다.
@@ -133,7 +143,20 @@ export function scriptedModel(steps: readonly Step[]) {
           return Promise.resolve(
             attemptOf(
               n,
-              outcome("failed", { code: step.code, retry_at: step.retry_at }),
+              outcome("failed", {
+                code: step.code,
+                retry_at: step.retry_at,
+                ...(step.verdict_path === null
+                  ? {}
+                  : {
+                      evidence: {
+                        verdict_path: step.verdict_path,
+                        content_type: null,
+                        request_id: null,
+                        unknown_events: [],
+                      },
+                    }),
+              }),
             ),
           );
         case "hang":

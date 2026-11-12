@@ -5,6 +5,7 @@ import { err, ok } from "../../../base/mod.ts";
 import { routePath } from "../../../protocol/base/mod.ts";
 import {
   finishToolCall,
+  recordToolRequest,
   TURN_BLOB_PURPOSES,
   turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -72,6 +73,8 @@ test("when StartModelCall fails the steering stays queued and the model is not c
 async function attemptProbe(options: {
   result: unknown;
   failOutputBlob?: boolean;
+  effect?: "read" | "write";
+  failRequest?: boolean;
   rejectFinish?: (input: Record<string, unknown>) => boolean;
 }) {
   const finishes: { input: Record<string, unknown>; accepted: boolean }[] = [];
@@ -94,8 +97,14 @@ async function attemptProbe(options: {
     as_of_seq: "1",
     next_cursor: null,
   };
+  let ran = 0;
   const machine = (path: string, body: unknown) => {
     const input = (body as { input: Record<string, unknown> }).input;
+    if (options.failRequest === true && path === routePath(recordToolRequest)) {
+      return Promise.resolve(
+        err({ code: "unavailable", message: "disk full" }),
+      );
+    }
     if (path === routePath(turnRead)) return Promise.resolve(ok(turnRecord));
     if (path === routePath(finishToolCall)) {
       const rejected = options.rejectFinish?.(input) === true;
@@ -118,10 +127,13 @@ async function attemptProbe(options: {
   const probe = defineTool({
     name: "probe.read",
     description: "probe",
-    effect: "read",
+    effect: options.effect ?? "read",
     input: z.strictObject({}),
     routes: [],
-    handler: () => Promise.resolve(ok(options.result as never)),
+    handler: () => {
+      ran += 1;
+      return Promise.resolve(ok(options.result as never));
+    },
   });
   const ports = createCorePorts({
     seat: {
@@ -166,7 +178,7 @@ async function attemptProbe(options: {
     new AbortController().signal,
     { begin() {}, end() {} },
   );
-  return { done, finishes };
+  return { done, finishes, ran: () => ran };
 }
 
 const success = (extra: Record<string, unknown> = {}) => ({
@@ -237,4 +249,20 @@ test("a result the finish route rejects is recorded in compact form and the call
   assert.deepEqual(record.content, {
     image: { media_type: "image/png", data_base64: "" },
   });
+});
+
+// 기록 없이 돈 쓰기는 rewind 기록도 남지 않는다. 읽기는 기록을 못 해도 돈다.
+test("a write tool call whose request cannot be recorded does not run but a read tool does", async () => {
+  const write = await attemptProbe({
+    result: success(),
+    effect: "write",
+    failRequest: true,
+  });
+  assert.equal(write.ran(), 0);
+  assert.equal(write.done.status, "not_executed");
+  assert.equal(write.done.code, "unrecorded");
+
+  const read = await attemptProbe({ result: success(), failRequest: true });
+  assert.equal(read.ran(), 1);
+  assert.equal(read.done.status, "success");
 });

@@ -142,6 +142,7 @@ export function loopHarness(init: {
     },
     model: model.port,
     tools: {
+      names: () => harnessTools.map((tool) => tool.name),
       info(name) {
         const tool = harnessTools.find((t) => t.name === name);
         return tool === undefined

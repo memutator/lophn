@@ -1,4 +1,4 @@
-import type { Result } from "../../../base/mod.ts";
+import { canonicalize, type Result } from "../../../base/mod.ts";
 import {
   assembleTurnPrompt,
   dateNotice,
@@ -40,9 +40,11 @@ import type {
 } from "./ports.ts";
 import {
   abortableWait,
+  EMPTY_RUN_MAX,
+  isConnectionFailure,
   isTransientFailure,
-  MODEL_RETRY_MAX,
   modelRetryDelayMs,
+  modelRetryLimit,
   PARTIAL_RUN_MAX,
 } from "./retry.ts";
 import {
@@ -80,6 +82,10 @@ export type LoopState = {
   closing: string | null;
   // 연속으로 받은 partial 응답 수. 완전한 응답이 오면 0이 된다.
   partialRun: number;
+  // 연속으로 받은 빈 응답(글도 tool call도 없는 완전한 응답) 수. 글이나 tool call이 있는 응답이 오면 0이 된다.
+  emptyRun: number;
+  // 바로 앞부터 이어진 같은 호출(실행 이름과 입력)의 같은 실패(code) 수. 막힌 호출도 센다. 다른 결과가 오면 null이다.
+  repeat: { key: string; code: string; count: number } | null;
   // 앞 call의 실제 prompt token과 그때의 크기. 다음 call의 입력 예산을 여기서 잰다. 이력을 줄이면 버린다.
   anchor: PromptAnchor | null;
   // 이전 대화(session 이력)가 차지하는 token 추정. 첫 조립에서 한 번 잰다.
@@ -313,10 +319,19 @@ function sessionTokens(context: TurnContext): number {
 
 function blockedEnd(
   state: LoopState,
+  context: TurnContext,
   reason: Extract<TurnPromptResult, { status: "blocked" }>["reason"],
+  over: { input_budget: number } | undefined,
 ): Promise<TurnResult> {
-  // turn 안에서 더 줄일 것이 없다. 다음 turn 전에 이전 대화를 Compact하고, 이 call은 보내지 않는다.
-  if (reason === "input_over_budget") state.compactNext = true;
+  // turn 안에서 더 줄일 것이 없다. 이전 대화가 예산의 한 몫을 차지할 때만 다음 turn 전에 Compact하고, 이 call은
+  // 보내지 않는다. 고정 prompt(system·tool 목록)가 예산을 넘는 것은 요약으로 풀리지 않는다.
+  if (
+    reason === "input_over_budget" &&
+    over !== undefined &&
+    sessionTokens(context) >= over.input_budget * COMPACT_SESSION_SHARE
+  ) {
+    state.compactNext = true;
+  }
   return failWith(
     state,
     reason === "input_over_budget"
@@ -431,7 +446,7 @@ async function prepare(
         if (relieved === "again") continue;
         if (relieved !== "none") return relieved;
       }
-      return await blockedEnd(state, assembled.reason);
+      return await blockedEnd(state, context, assembled.reason, over);
     }
     if (assembled.measured_tokens > assembled.input_budget * SHRINK_AT) {
       const relieved = await relieve(
@@ -548,9 +563,16 @@ async function callModel(
     }
     if (!settled.value.ok) {
       limiter.endAttempt("failed");
+      // lophn 안의 오류(본문 만들기·blob 저장·state-free 계속 불가)는 model 설정 문제가 아니다.
+      const { code } = settled.value.error;
       return {
         kind: "end",
-        end: await failWith(state, "configuration_unavailable"),
+        end: await failWith(
+          state,
+          code === "internal" || code === "conflict"
+            ? "internal"
+            : "configuration_unavailable",
+        ),
       };
     }
     const attempt = settled.value.value;
@@ -569,7 +591,7 @@ async function callModel(
     }
     limiter.endAttempt("failed");
     if (outcome.code === "context_exceeded") return { kind: "overflow" };
-    if (!isTransientFailure(outcome) || retries >= MODEL_RETRY_MAX) {
+    if (!isTransientFailure(outcome) || retries >= modelRetryLimit(outcome)) {
       return {
         kind: "end",
         end: await failWith(state, failureReason(outcome.code)),
@@ -581,6 +603,7 @@ async function callModel(
       retries,
       outcome.retry_at,
       deps.clock.nowMs(),
+      { random: deps.random, connection: isConnectionFailure(outcome) },
     );
     const how = await deps.wait(delay, state.control.signal);
     if (how === "aborted") {
@@ -615,6 +638,33 @@ function appendUser(state: LoopState, parts: HistoryPart[]): void {
   } else state.history.push({ role: "user", parts });
 }
 
+// 같은 실패를 이만큼 이어 받은 호출은 다시 돌리지 않고, 막힌 호출까지 합쳐 이만큼 이어지면 turn을 끝낸다.
+// 진행하는 turn(성공이 섞이는 turn)에는 상한이 없다.
+const REPEAT_REFUSE_AT = 3;
+const REPEAT_END_AT = 6;
+
+// 실행한 이름과 입력이 같은 호출이다. `lophn`이면 푼 명령이라 다른 명령이 같은 key가 되지 않는다.
+function callKey(name: string, input: unknown): string {
+  return canonicalize([name, input]);
+}
+
+// 바로 이어진 같은 호출의 같은 실패(status failure와 같은 code)만 센다. 요청 순서로 결과를 본다.
+function noteRepeats(state: LoopState, results: readonly CallResult[]): void {
+  for (const result of results) {
+    const key = callKey(result.name, result.input);
+    const repeat = state.repeat;
+    const same = repeat !== null && repeat.key === key;
+    if (result.status === "failure") {
+      state.repeat =
+        same && repeat.code === result.code
+          ? { ...repeat, count: repeat.count + 1 }
+          : { key, code: result.code, count: 1 };
+    } else if (result.code === "repeated_call" && same) {
+      state.repeat = { ...repeat, count: repeat.count + 1 };
+    } else state.repeat = null;
+  }
+}
+
 function record(state: LoopState, results: readonly CallResult[]): void {
   const { facts } = state;
   for (const result of results) {
@@ -632,6 +682,14 @@ function record(state: LoopState, results: readonly CallResult[]): void {
 }
 
 // ---- turn ----
+
+// 출력 길이 한도에 닿아 잘린 응답의 finish_reason이다. provider마다 이름이 다르다.
+const LENGTH_FINISH_REASONS: ReadonlySet<string> = new Set([
+  "max_tokens",
+  "length",
+  "max_output_tokens",
+  "MAX_TOKENS",
+]);
 
 export async function runTurn(state: LoopState): Promise<TurnResult> {
   const { deps, limiter } = state;
@@ -667,11 +725,15 @@ export async function runTurn(state: LoopState): Promise<TurnResult> {
       return await failWith(state, "model_error");
     }
     // 불완전한 응답의 tool은 하나도 시작하지 않고 잘림 사실만 다음 판단에 전한다.
+    // 길이 한도로 잘렸으면 같은 큰 호출을 다시 보내 또 잘리지 않게 나눠 부르라고 알린다.
     const why = attempt.outcome.finish_reason ?? "unknown";
+    const split = LENGTH_FINISH_REASONS.has(why)
+      ? " Split the work into smaller tool calls (for example write a large file in parts)."
+      : "";
     appendUser(state, [
       {
         kind: "text",
-        text: `[machine] The previous response was cut off (${why}). None of its tool calls were started. Continue from what is confirmed.`,
+        text: `[machine] The previous response was cut off (${why}). None of its tool calls were started. Continue from what is confirmed.${split}`,
       },
     ]);
     await ports.checkpoint(limiter.snapshot(), keptHistory(state));
@@ -744,9 +806,23 @@ async function afterModel(
 ): Promise<TurnResult> {
   const { deps, limiter } = state;
   const ports = deps.ports;
-  // 마지막 응답(tool call이 없는 것)은 글이 비어도 남긴다. run의 답이 그 message의 글이라서다. 중간 응답은
+  // 글도 tool call도 없는 응답은 답이 아니다. 남기지 않고 한 번 되물은 뒤 또 비면 끝낸다.
+  if (attempt.toolCalls.length === 0 && attempt.text.trim() === "") {
+    state.emptyRun += 1;
+    if (state.emptyRun >= EMPTY_RUN_MAX)
+      return await failWith(state, "no_answer");
+    appendUser(state, [
+      {
+        kind: "text",
+        text: "[machine] The previous response was empty. Answer the request or call a tool.",
+      },
+    ]);
+    await ports.checkpoint(limiter.snapshot(), keptHistory(state));
+    return continueTurn;
+  }
+  state.emptyRun = 0;
   // 사람이 볼 글이 있을 때만 남긴다.
-  if (attempt.toolCalls.length === 0 || attempt.text.trim() !== "") {
+  if (attempt.text.trim() !== "") {
     const answered = await ports.answer(attempt.text);
     if (!answered.ok) return await failWith(state, "configuration_unavailable");
   }
@@ -777,6 +853,14 @@ async function afterModel(
     random: deps.random,
     graceMs: deps.abortGraceMs ?? 5000,
     pause: state.pause,
+    refuse(name, input) {
+      const repeat = state.repeat;
+      return repeat !== null &&
+        repeat.count >= REPEAT_REFUSE_AT &&
+        repeat.key === callKey(name, input)
+        ? "repeated_call"
+        : null;
+    },
   };
   const batch = await runToolBatch(control, attempt.toolCalls);
   // 8. 결과 영속 기록은 call마다 끝났다. 이력과 사실을 잇는다.
@@ -803,9 +887,14 @@ async function afterModel(
   }
   state.history.push({ role: "user", parts: answers });
   record(state, batch.results);
+  noteRepeats(state, batch.results);
   // 확정한 tool 결과는 진행이다.
   if (batch.results.some((result) => result.entries > 0)) limiter.toolResult();
   await ports.checkpoint(limiter.snapshot(), keptHistory(state));
+  // 같은 호출이 같게 실패하기만 하는 turn은 막아도 계속된다. 이력은 남기고 끝낸다.
+  if (state.repeat !== null && state.repeat.count >= REPEAT_END_AT) {
+    return await failWith(state, "repeated_tool_failure");
+  }
   // 9. 계속·종료 판정은 다음 걸음이 한다.
   return continueTurn;
 }

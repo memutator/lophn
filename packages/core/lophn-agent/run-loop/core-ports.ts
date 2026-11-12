@@ -26,6 +26,7 @@ import {
   turnRead,
   workspaceSessionRead,
 } from "../../../protocol/lophn-agent/mod.ts";
+import { toWireToolName } from "../../../protocol/lophn-agent/tool-catalog.ts";
 import type { ModelBinding } from "../models/binding.ts";
 import {
   parseSessionTitle,
@@ -78,7 +79,7 @@ import {
 // agent loop의 port를 실제 core 호출로 잇는다. 읽기와 기록은 machine 자격의 loopback이고 tool 실행은 이
 // turn의 agent 자격(`ToolContext.core`)이다. turn 행이 정본이다: 이 모듈은 상태를 따로 들고 있지 않고
 // id·순번·마지막 model call만 기억한다. model call과 tool call의 사용 기록은 route를 best-effort로
-// 부른다(기록을 못 해도 turn은 간다).
+// 부른다(기록을 못 해도 turn은 간다). 다만 tool 호출은 요청을 기록하지 못하면 읽기만 돈다.
 
 export type TurnSeat = {
   turn: string;
@@ -512,6 +513,10 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
 
   // ---- tool ----
 
+  function names(): readonly string[] {
+    return deps.tools.listed.map((tool) => toWireToolName(tool.name));
+  }
+
   function info(name: string): ToolInfo | undefined {
     const definition = definitionOf(name);
     if (definition === undefined) return undefined;
@@ -521,7 +526,8 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     };
   }
 
-  // 사용 기록. 요청을 남기고 끝난 결과를 잇는다. 어느 쪽이든 못 남겨도 호출은 그대로 간다.
+  // 사용 기록. 요청을 남기고 끝난 결과를 잇는다. 요청을 못 남기면 읽기만 돈다(attemptTool). 끝난 결과를 못
+  // 남기면 불명확으로 닫는다.
   async function record(
     call: ToolCallRequest,
     id: string,
@@ -664,6 +670,19 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     const definition = definitionOf(call.name);
     const id = ids.newId("tcl") as Id<"tcl">;
     const recorded = await record(call, id, definition);
+    // 기록 없이 쓰기가 돌면 rewind 기록도 남지 않는다. 돌지 않은 것은 확정 사실이라 not_executed다.
+    if (
+      !recorded.ok &&
+      definition !== undefined &&
+      definition.effect !== "read"
+    ) {
+      return done(
+        id,
+        "not_executed",
+        "unrecorded",
+        "The call could not be recorded, so it did not run.",
+      );
+    }
     const display = await toolCallDisplay(
       definition,
       definition?.name ?? call.name,
@@ -902,12 +921,9 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
   // 이 session 자신이 보낸 메시지로 session 기록에 남는다. runtime(machine)이 쓰고 core가 이
   // turn이 이 session에서 도는 중인지 본다. id를 그 호출에서 정해 멈춤 wrapper와 child가 같은
   // 응답을 저장해도 둘째는 같은 id 규칙에 걸린다. 남길 part가 없으면 아무것도 남기지 않는다.
-  // `emptyTextPart`는 answer 길이다: 마지막 응답은 글이 비어도 남겨야 run의 답이 그 응답이 되고,
-  // 빈 답은 no_answer로 끝난다(`wiring/runs.ts`).
   async function recordReply(
     modelCall: string,
     text: string,
-    emptyTextPart = false,
   ): Promise<Result<void>> {
     const parts: { kind: string; text: string; duration_ms?: number | null }[] =
       [];
@@ -918,7 +934,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
         duration_ms: lastReasoning.duration_ms,
       });
     }
-    if (text.trim() !== "" || emptyTextPart) {
+    if (text.trim() !== "") {
       parts.push({ kind: "text", text });
     }
     if (parts.length === 0) return ok(undefined);
@@ -1101,6 +1117,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
     },
     tools: {
       info,
+      names,
       attempt: tracedAttemptTool,
       close,
       ...(deps.tools.dispatch === undefined
@@ -1131,7 +1148,7 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       );
     },
     answer(text) {
-      return recordReply(lastModelCall!, text, true);
+      return recordReply(lastModelCall!, text);
     },
     finish,
   };

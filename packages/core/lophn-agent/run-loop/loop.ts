@@ -51,6 +51,8 @@ export function startTurnLoop(
     dated: false,
     closing: null,
     partialRun: 0,
+    emptyRun: 0,
+    repeat: null,
     anchor: null,
     sessionTokens: null,
     opening: null,

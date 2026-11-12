@@ -531,6 +531,73 @@ test("loop의 안전 규칙이 지켜진다", async (t) => {
           );
         },
       ],
+
+      [
+        "13 같은 입력으로 같은 실패를 세 번 낸 tool 호출은 네 번째부터 돌지 않고 여섯 번째에 turn이 끝난다",
+        async () => {
+          const broken: HarnessTool = {
+            name: "read_file",
+            effect: "read",
+            run: () => ({
+              status: "failure",
+              code: "not_found",
+              summary: "no such file",
+            }),
+          };
+          const same = () => tools([call("t", "read_file", '{"path":"a"}')]);
+          const h = loopHarness({
+            steps: [same(), same(), same(), same(), same(), same()],
+            tools: [broken],
+          });
+          const end = await h.run().done;
+          settle(h);
+          assert.deepStrictEqual(
+            [end, h.runs.length, h.model.requests.length],
+            [failedWith("repeated_tool_failure"), 3, 6],
+          );
+          assert.match(h.model.lastToolResult(4)?.text ?? "", /not run again/);
+        },
+      ],
+
+      [
+        "14 빈 응답은 한 번 되묻고 또 비면 turn이 no_answer로 끝난다",
+        async () => {
+          const retried = loopHarness({ steps: [answer(""), answer("ok")] });
+          const retriedEnd = await retried.run().done;
+          settle(retried);
+          assert.deepStrictEqual(
+            [retriedEnd, retried.answers],
+            [completed, ["ok"]],
+          );
+          const again = retried.model.userTexts(1);
+          assert.match(again[again.length - 1], /response was empty/);
+
+          const empty = loopHarness({ steps: [answer(""), answer(" ")] });
+          const emptyEnd = await empty.run().done;
+          settle(empty);
+          assert.deepStrictEqual(
+            [emptyEnd, empty.answers],
+            [failedWith("no_answer"), []],
+          );
+        },
+      ],
+
+      [
+        "15 연결 실패는 5초·15초·30초 뒤 세 번까지 다시 보낸다",
+        async () => {
+          const down = () =>
+            failed({ code: "temporary", verdict_path: "connection_failed" });
+          const h = loopHarness({
+            steps: [down(), down(), down(), down()],
+          });
+          const end = await h.run().done;
+          settle(h);
+          assert.deepStrictEqual(
+            [end, h.model.requests.length, h.waits],
+            [failedWith("model_error"), 4, [5000, 15_000, 30_000]],
+          );
+        },
+      ],
     ];
     for (const [name, row] of rows) {
       await t.test(name, () => row(dir));

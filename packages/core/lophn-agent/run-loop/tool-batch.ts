@@ -55,6 +55,8 @@ export type BatchControl = {
   tools: ToolPort;
   modelCall: string;
   gate: Gate;
+  // 이 호출을 다시 돌리지 않을 이유(미실행 code). 없으면 null이다. gate 다음에 본다.
+  refuse(name: string, input: unknown): string | null;
   // 이 tool 진입의 중단 신호. 멈춤·한도·MCP 서버 연결 제거에 중단된다. release는 끝난 뒤 부른다.
   signalFor(server: string | null): { signal: AbortSignal; release(): void };
   wait(ms: number, signal: AbortSignal): Promise<"elapsed" | "aborted">;
@@ -72,7 +74,26 @@ const REASON_TEXT: Readonly<Record<string, string>> = {
     "The provider or connection was turned off before the call started.",
   earlier_call_failed:
     "An earlier call did not complete, so this call did not start.",
+  repeated_call:
+    "This exact call already failed the same way three times in a row, so it was not run again. Change the approach: different input, a different tool, or ask the person.",
 };
+
+const NOT_FOUND_SUMMARY_MAX = 300;
+
+// 없는 이름을 부른 model에게 고를 수 있는 이름을 알린다. 길면 앞에서 자르고 `, …`를 붙인다.
+function notFoundText(name: string, names: readonly string[]): string {
+  const head = `\`${name.slice(0, 80)}\` is not a tool in this session. Tools: `;
+  const sorted = [...names].sort();
+  const whole = `${head}${sorted.join(", ")}.`;
+  if (whole.length <= NOT_FOUND_SUMMARY_MAX) return whole;
+  let text = head;
+  for (const [index, tool] of sorted.entries()) {
+    const next = text + (index === 0 ? "" : ", ") + tool;
+    if (next.length + 3 > NOT_FOUND_SUMMARY_MAX) break;
+    text = next;
+  }
+  return `${text}, …`;
+}
 
 function notExecutedText(code: string): string {
   return REASON_TEXT[code] ?? "The call did not start.";
@@ -279,6 +300,8 @@ export async function runToolBatch(
     const info = infos[index];
     const blocked = (await control.gate(info?.server ?? null)) ?? held;
     if (blocked !== null) return await notExecuted(index, blocked);
+    const refused = control.refuse(request.name, request.input);
+    if (refused !== null) return await notExecuted(index, refused);
     if (info === undefined) {
       return toResult(
         request,
@@ -286,7 +309,7 @@ export async function runToolBatch(
         await control.tools.close(request, {
           status: "failure",
           code: "not_found",
-          summary: "tool is not available",
+          summary: notFoundText(request.name, control.tools.names()),
         }),
         0,
       );

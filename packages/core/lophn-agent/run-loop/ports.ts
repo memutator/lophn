@@ -183,6 +183,8 @@ export type ToolPort = {
   ): Promise<{ name: string; input: unknown }>;
   // 이번 turn이 제공한 tool의 정보. 없는 tool이면 undefined다.
   info(name: string): ToolInfo | undefined;
+  // 이번 turn이 model에 준 tool의 wire 이름. 없는 이름을 부른 model에게 고를 수 있는 이름을 알린다.
+  names(): readonly string[];
   // 판정→진입→실행→종료 기록의 한 번이다. 재시도는 이 한 번을 다시 부르며 진입 직전 판정을 매번
   // 다시 한다. Gate가 묻는다고 답하면 사람의 결정이 날 때까지 돌아오지 않는다(turn은 running인 채
   // 기다리고, turn이 닫히면 signal이 중단된다).
@@ -210,6 +212,8 @@ export type LoopFailureReason =
   | "effect_unknown"
   | "configuration_unavailable"
   | "target_unavailable"
+  | "no_answer"
+  | "repeated_tool_failure"
   | "internal";
 
 export type FinishRequest = {
@@ -242,8 +246,8 @@ export type TurnPorts = {
     elapsed: TurnElapsed,
     history?: readonly HistoryMessage[],
   ): Promise<void>;
-  // 완전한 model 응답 하나의 글을 그 응답의 agent message로 남긴다(RecordMessage). 마지막 응답은 글이 비어도
-  // 남기고, 중간 응답은 남길 글이 있을 때만 부른다. 그 응답의 tool call보다 먼저 부른다.
+  // 완전한 model 응답 하나의 글을 그 응답의 agent message로 남긴다(RecordMessage). 남길 글이 있을 때만
+  // 부른다. 그 응답의 tool call보다 먼저 부른다.
   answer(text: string): Promise<Result<void>>;
   finish(request: FinishRequest): Promise<Result<FinishResult>>;
   // 도는 turn이 자기 session을 Compact한다(turn 안 Compact). history는 이 turn이 쌓은 진행이고 요약에 들어간다.

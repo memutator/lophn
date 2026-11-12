@@ -175,6 +175,10 @@ files:
     covers: [shell-navigation:allowed, shell-navigation:external-link, shell-navigation:blocked]
     note: "shell 창 main frame의 탐색 판정(lophn-shell://desktop 밖 차단, http·https는 OS browser). shell-navigation:allowed·external-link·blocked"
 
+  - path: packages/shell/renderer/workspace/sidebar/explorer-paste_test.ts
+    covers: []
+    note: "OS clipboard의 text에서 절대 경로만 고르고, 붙여넣는 그림의 이름이 MIME 확장자를 따른다"
+
   - path: packages/shell/main/editor/file-adapter_test.ts
     covers:
       - editor-save:saved

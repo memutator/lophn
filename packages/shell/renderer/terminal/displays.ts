@@ -118,26 +118,33 @@ export class TerminalDisplays {
             generation: display.generation,
           };
           const human = display.active;
+          // 조각 하나가 거절되면 그 paste의 나머지는 보내지 않는다. 닫는 ESC[201~ 없이 끝나거나 중간이 빠진 채 PTY에 들어가지 않게 한다.
+          let stopped = false;
           for (const part of splitInput(text))
             replies = replies
               .then(() =>
-                human
-                  ? this.#bridge?.input({ ...ref, text: part })
-                  : this.#bridge?.respond({ ...ref, text: part }),
+                stopped
+                  ? undefined
+                  : human
+                    ? this.#bridge?.input({ ...ref, text: part })
+                    : this.#bridge?.respond({ ...ref, text: part }),
               )
               .then((reply) => {
+                if (stopped) return;
                 // main이 거절한 입력(focus 표에 없음, 구독 안 함)은 PTY에 닿지 않는다.
                 const refused = !reply?.ok
                   ? (reply?.error.code ?? "no bridge")
                   : reply.value.ok
                     ? null
                     : reply.value.reason;
-                if (refused !== null)
+                if (refused !== null) {
+                  stopped = true;
                   this.#trace(key, display, {
                     e: "input_refused",
                     human,
                     reason: refused,
                   });
+                }
               });
         }),
       );

@@ -220,12 +220,13 @@ export function createTerminalIpc(deps: {
     generation: number,
     text: string,
   ): Promise<void> {
-    await deps.host.request({
+    const reply = await deps.host.request({
       type: "input",
       terminal_ref: terminalRef,
       generation,
       text,
     });
+    if (!reply.ok) throw new Error(reply.message);
   }
 
   return {
@@ -287,11 +288,12 @@ export function createTerminalIpc(deps: {
             line !== null ? `${line}\r` : commandInput(value.command);
           if (typed !== null) {
             await deps.settled?.(reply.runtime.terminal_ref);
+            // 탭은 이미 열렸다. 친 줄이 거절돼도 open을 실패로 만들지 않고 다시 치지 않는다.
             await typeInto(
               reply.runtime.terminal_ref,
               reply.runtime.generation,
               typed,
-            );
+            ).catch(() => {});
           }
         }
         return reply;

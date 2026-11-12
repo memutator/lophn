@@ -255,7 +255,12 @@ export function register(ctx: ShellContext, appSessions: AppSessions): Coding {
   const offOutputs = terminals.on({
     output: (chunks) => outputs.output(chunks),
     runtime: (runtime) => outputs.runtime(agent.tracker.decorate(runtime)),
-    hostLost() {
+    hostLost(exit) {
+      if (exit) {
+        ctx.log(
+          `terminal host exited: code=${exit.code} signal=${exit.signal} stderr=${JSON.stringify(exit.stderr)}`,
+        );
+      }
       for (const runtime of terminals.runtimes())
         outputs.runtime(agent.tracker.decorate(runtime));
     },

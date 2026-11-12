@@ -13,11 +13,33 @@ import type {
 } from "../../ipc/terminal.ts";
 
 type HostProcess = {
-  stdin: { write(data: string): void } | null;
+  stdin: {
+    write(data: string): unknown;
+    on(event: "error", listener: () => void): unknown;
+  } | null;
   stdout: AsyncIterable<string | Uint8Array> | null;
+  stderr: {
+    on(event: "data", listener: (chunk: string | Uint8Array) => void): unknown;
+    on(event: "error", listener: () => void): unknown;
+  } | null;
   killed: boolean;
   kill(signal?: NodeJS.Signals): boolean;
-  on(event: "exit", listener: (code: number | null) => void): void;
+  on(
+    event: "exit",
+    listener: (code: number | null, signal: string | null) => void,
+  ): unknown;
+  on(event: "error", listener: () => void): unknown;
+};
+
+/** host가 답 줄을 내지 못해도 renderer의 IPC가 영영 기다리지 않게 한다. 가장 긴 정상 요청(close·restart)이 2초쯤이다. */
+const REQUEST_TIMEOUT_MS = 10_000;
+const STDERR_TAIL_BYTES = 4096;
+
+/** host가 스스로 끝났을 때의 원인. stderr는 마지막 4 KiB다. */
+export type HostExit = {
+  code: number | null;
+  signal: string | null;
+  stderr: string;
 };
 
 type SpawnHost = (entry: string) => HostProcess;
@@ -34,7 +56,7 @@ type SupervisorListener = {
   runtime?(runtime: TerminalRuntime): void;
   output?(output: readonly TerminalOutput[]): void;
   foreground?(change: ForegroundChange): void;
-  hostLost?(): void;
+  hostLost?(exit?: HostExit): void;
 };
 
 export type Supervisor = {
@@ -61,13 +83,40 @@ export function createSupervisor(options: {
   function ensure(): HostProcess | undefined {
     if (lost) return undefined;
     if (child && !child.killed) return child;
-    child = options.spawnHost(options.entry);
-    const stdout = child.stdout;
-    if (stdout) {
-      void readLines(stdout, (line) => onLine(line));
-    }
-    child.on("exit", () => onExit());
+    child = attach(options.spawnHost(options.entry));
     return child;
+  }
+
+  /**
+   * exit, spawn 실패(error), stdout 오류 어느 쪽이든 child마다 한 번만 끝 처리를 한다. 새 host를 띄운 뒤 옛 host의
+   * 늦은 event가 새 host를 lost로 만들지 않도록 지금 child일 때만 onExit를 부른다.
+   */
+  function attach(proc: HostProcess): HostProcess {
+    let ended = false;
+    let stderrTail = "";
+    const end = (code: number | null, signal: string | null): void => {
+      if (ended) return;
+      ended = true;
+      if (child === proc) onExit({ code, signal, stderr: stderrTail });
+    };
+    if (proc.stdout) {
+      readLines(proc.stdout, (line) => onLine(line)).catch(() =>
+        end(null, null),
+      );
+    }
+    proc.on("exit", end);
+    proc.on("error", () => end(null, null));
+    // host가 exit보다 먼저 죽으면 다음 write의 EPIPE가 stdin error로 온다. 받는 곳이 없으면 앱이 끝난다.
+    proc.stdin?.on("error", () => {});
+    proc.stderr?.on("error", () => {});
+    proc.stderr?.on("data", (chunk) => {
+      // 개발 terminal에서 보이던 host stderr를 그대로 보이게 한다.
+      process.stderr.write(chunk);
+      const text =
+        typeof chunk === "string" ? chunk : Buffer.from(chunk).toString();
+      stderrTail = (stderrTail + text).slice(-STDERR_TAIL_BYTES);
+    });
+    return proc;
   }
 
   function refreshRuntime(runtime: TerminalRuntime): void {
@@ -77,11 +126,11 @@ export function createSupervisor(options: {
     }
   }
 
-  function hostLost(): void {
-    for (const listener of listeners) listener.hostLost?.();
+  function hostLost(exit?: HostExit): void {
+    for (const listener of listeners) listener.hostLost?.(exit);
   }
 
-  function onExit(): void {
+  function onExit(exit: HostExit): void {
     lost = true;
     for (const [id, resolve] of pending) {
       pending.delete(id);
@@ -90,7 +139,6 @@ export function createSupervisor(options: {
         reason: "host_lost",
         message: "terminal host exited",
       });
-      void id;
     }
     for (const runtime of runtimes.values()) {
       if (runtime.state === "running" || runtime.state === "starting") {
@@ -99,7 +147,7 @@ export function createSupervisor(options: {
         runtime.exit_code = null;
       }
     }
-    hostLost();
+    hostLost(exit);
   }
 
   function onLine(line: string): void {
@@ -139,12 +187,7 @@ export function createSupervisor(options: {
   /** 사람이 누른 열기·다시 시작이 죽은 host 뒤에 새 host를 하나 띄운다. */
   function revive(): HostProcess {
     if (child && !child.killed && !lost) return child;
-    child = options.spawnHost(options.entry);
-    const stdout = child.stdout;
-    if (stdout) {
-      void readLines(stdout, (line) => onLine(line));
-    }
-    child.on("exit", () => onExit());
+    child = attach(options.spawnHost(options.entry));
     lost = false;
     return child;
   }
@@ -203,7 +246,18 @@ export function createSupervisor(options: {
       const id = `req_${++requestSeq}`;
       const payload = JSON.stringify({ ...(body as object), id }) + "\n";
       return new Promise((resolve) => {
-        pending.set(id, resolve);
+        const timer = setTimeout(() => {
+          pending.delete(id);
+          resolve({
+            ok: false,
+            reason: "host_lost",
+            message: "terminal host did not answer",
+          });
+        }, REQUEST_TIMEOUT_MS);
+        pending.set(id, (reply) => {
+          clearTimeout(timer);
+          resolve(reply);
+        });
         current.stdin?.write(payload);
       });
     },
@@ -267,7 +321,7 @@ export function spawnNodeHost(entry: string): ChildProcess {
   // Electron main에서 process.execPath는 Electron이다. 이 표시가 없으면
   // host가 두 번째 Electron 앱으로 떠 second-instance가 된다.
   return spawn(process.execPath, [entry], {
-    stdio: ["pipe", "pipe", "inherit"],
+    stdio: ["pipe", "pipe", "pipe"],
     env: {
       ...process.env,
       ELECTRON_RUN_AS_NODE: "1",

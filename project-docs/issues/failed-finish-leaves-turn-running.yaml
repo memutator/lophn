@@ -1,7 +1,7 @@
 id: failed-finish-leaves-turn-running
 title: 끝내는 기록이 실패한 turn이 running으로 남아 session이 막힌다
 kind: bug
-status: open
+status: fixed
 topic: workspace-session
 modules: [packages/core/lophn-agent]
 now: |
@@ -13,3 +13,6 @@ impact: '`FinishTurn`이 거절되거나(예: 결과 blob이 core의 본문 한�
 fix: |
   - driver가 `done`이 `finish_failed`를 돌려주면 `closeStarted`로 failed(`internal`)로 닫는다. 작음. 닫는 command도 실패하면 로그만 남고 같은 상태이므로 그 경우의 복구는 재시작에 맡긴다. 추천.
   - `FinishTurn`이 실패해도 core가 turn을 닫는 길을 둔다(예: `StopTurn`을 스스로 부름). 중간.
+closed: |
+  driver가 `done`이 `finish_failed`를 돌려주면 `closeStarted("finish_failed")`로 turn을 failed(`internal`)로 닫고 다음 turn이 시작된다. 닫는 command마저 실패하면 재시작까지 남는다.
+guard: '`packages/core/lophn-agent/run-loop/driver_test.ts` "a turn whose finish record failed is closed as failed by the driver and the next turn can start"'

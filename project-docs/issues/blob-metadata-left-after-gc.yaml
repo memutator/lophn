@@ -1,7 +1,7 @@
 id: blob-metadata-left-after-gc
 title: GC가 blob을 지워도 목적 기록과 미참조 표지 file이 남아 쌓인다
 kind: defect
-status: open
+status: fixed
 topic: code-health
 modules: [packages/core/storage]
 now: |
@@ -14,3 +14,6 @@ fix: |
   (추천, 작음) `removeBlob`이 본문을 지운 뒤 같은 hash의 목적 기록과 미참조 표지도 지운다(없으면 넘어간다). 이미 남은 고아는 정지 유지보수가 본문 없는 기록을 한 번 쓸어 지운다.
 decided: |
   줄인다. 지우는 비용이 작고 잃는 것이 없다(본문이 없는 hash의 기록은 아무도 읽지 않는다).
+closed: |
+  정지 유지보수가 blob 본문을 지웠거나 이미 없을 때만 그 blob의 purpose 기록과 미참조 표지를 같이 지운다. 본문이 없는 고아 기록은 같은 정지 유지보수가 한 번에 2,000개까지 쓸어낸다.
+guard: '`packages/core/storage/blobs/worker/maintenance_test.ts`'

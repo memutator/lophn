@@ -1,7 +1,7 @@
 id: second-shell-touches-core-before-lock
 title: 두 번째 shell process가 single-instance lock보다 먼저 core를 확인하고 띄운다
 kind: bug
-status: open
+status: fixed
 topic: shell
 modules: [packages/shell/main]
 now: |
@@ -10,3 +10,6 @@ impact: |
   이미 떠 있는 shell 위에서 `--quit`나 `--open-app`, 아이콘 두 번째 클릭이 core를 띄울 수 있다. `Stop lophn`으로 core를 멈춰 둔 shell 옆에서 두 번째 process가 core를 되살리고, 판이 다른 빌드(dev 실행과 설치본)를 두 번째로 켜면 돌고 있는 core를 갈아 띄워 첫 shell의 연결이 끊긴다.
 fix: |
   lock을 `startDesktop` 맨 앞(context 만들기 전)에서 잡거나, `connectCore`의 `recover`를 lock을 얻은 뒤에 시작한다(작음). 추천: 앞의 것.
+closed: |
+  shell은 `userData`를 정하고 single-instance lock을 잡은 뒤에만 shell context를 만들고 core를 확인한다. lock을 못 잡은 두 번째 process는 아무것도 조립하지 않고 끝난다.
+guard: '없음'

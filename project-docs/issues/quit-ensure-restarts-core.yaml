@@ -1,7 +1,7 @@
 id: quit-ensure-restarts-core
 title: "Quit 중에 돌던 ensure가 끝난 뒤 core를 새로 띄울 수 있다"
 kind: bug
-status: open
+status: fixed
 topic: platform
 modules: [packages/shell/main]
 now: |
@@ -10,3 +10,6 @@ impact: |
   사람이 끄라고 했는데 core가 남는다. 켜진 job이 없으면 10분 뒤 idle-exit로 끝나므로 data는 잃지 않는다.
 fix: |
   ensure에 abort signal을 받아 spawn 전에 보고, `Stop lophn`은 starting core면 ready를 기다린 뒤 stop한다(작음). 추천.
+closed: |
+  ensure가 `AbortSignal`을 받아 core를 띄우기 직전과 판 교체 정지 직전에 본다. Quit과 `Stop lophn`이 abort하고, `Stop lophn`은 돌던 ensure를 기다린 뒤 core를 멈춘다.
+guard: '없음'

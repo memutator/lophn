@@ -125,6 +125,18 @@ test("tool_call은 workspace 없이 가져가고, 빌려 간 뒤 기한이 지�
   const gone = await second.result;
   assert.ok(!gone.ok && gone.error.code === "unavailable");
   assert.equal(queue.take([]), null);
+
+  // 빌려 간 뒤 답이 없으면 5분 뒤 거두고, 늦은 done은 무시된다.
+  const third = queue.callTool(payload("c"));
+  assert.equal(queue.take([])?.id, third.id);
+  clock.advance(299_000);
+  queue.expire();
+  clock.advance(2_000);
+  queue.expire();
+  const timedOut = await third.result;
+  assert.ok(!timedOut.ok && timedOut.error.code === "unavailable");
+  assert.match(timedOut.error.message, /within 5 minutes/);
+  queue.done(third.id, "done", { content: [{ type: "text", text: "late" }] });
 });
 
 // 기한을 넘은 browser 호출이 pending에 남으면 shell이 오래 뒤 낡은 click을 실행한다.

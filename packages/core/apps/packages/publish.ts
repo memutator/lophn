@@ -83,6 +83,8 @@ export function publishPackage(deps: PublishDeps): MemoryHandler {
     // agent runtime child는 git을 못 띄우므로 HEAD도 core가 읽는다.
     const git = deps.git ?? gitCommandRunner();
     const head = await git.run(["-C", source.value, "rev-parse", "HEAD"]);
+    // git을 못 띄운 것(`unavailable`)은 commit이 없다는 말로 바꾸지 않는다.
+    if (!head.ok && head.error.code === "unavailable") return head;
     if (!head.ok) {
       return err({
         code: "unavailable",

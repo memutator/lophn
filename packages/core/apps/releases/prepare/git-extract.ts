@@ -7,6 +7,7 @@ import { spawn } from "node:child_process";
 import type { Stats } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
 import { err, ok, type Result } from "../../../../base/mod.ts";
+import { RELEASE_BUNDLE_MAX_BYTES } from "../../../../protocol/apps/releases.ts";
 
 type ExtractedFile = {
   path: string;
@@ -16,6 +17,7 @@ type ExtractedFile = {
 type ExtractFailure = {
   code: "invalid_input";
   reason:
+    | "git_not_found"
     | "source_outside_boundary"
     | "commit_unknown"
     | "working_tree_changed"
@@ -56,7 +58,10 @@ function decode(result: Result<Uint8Array, unknown>): string {
   return new TextDecoder().decode(result.value);
 }
 
-// 실제 git. argv 배열만 넘기고 shell은 쓰지 않는다.
+export const GIT_NOT_FOUND =
+  "git was not found; install git and make sure it is on PATH";
+
+// 실제 git. argv 배열만 넘기고 shell은 쓰지 않는다. spawn 실패는 `unavailable`, git의 실패 종료는 `invalid_input`이다.
 export function gitCommandRunner(): GitRunner {
   return {
     async run(args) {
@@ -64,12 +69,38 @@ export function gitCommandRunner(): GitRunner {
         stdio: ["ignore", "pipe", "ignore"],
       });
       const chunks: Buffer[] = [];
-      child.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
-      const code = await new Promise<number>((resolve, reject) => {
-        // spawn 실패(ENOENT 등)를 듣지 않으면 unhandled 'error'로 process가 죽는다. 던져서 git 실행 실패로 다룬다.
-        child.on("error", reject);
+      let size = 0;
+      // bundle 상한보다 큰 blob은 어차피 bundle에 들 수 없다.
+      let tooLarge = false;
+      child.stdout.on("data", (chunk: Buffer) => {
+        size += chunk.length;
+        if (size > RELEASE_BUNDLE_MAX_BYTES) {
+          tooLarge = true;
+          child.kill();
+          return;
+        }
+        chunks.push(chunk);
+      });
+      // spawn 실패(ENOENT 등)를 듣지 않으면 unhandled 'error'로 process가 죽는다.
+      const code = await new Promise<number | Error>((resolve) => {
+        child.on("error", resolve);
         child.on("close", (code) => resolve(code ?? 1));
       });
+      if (code instanceof Error) {
+        return err({
+          code: "unavailable",
+          message:
+            (code as NodeJS.ErrnoException).code === "ENOENT"
+              ? GIT_NOT_FOUND
+              : code.message,
+        });
+      }
+      if (tooLarge) {
+        return err({
+          code: "invalid_input",
+          message: "git output is too large",
+        });
+      }
       if (code !== 0) {
         return err({ code: "invalid_input", message: "git failed" });
       }
@@ -98,6 +129,7 @@ async function requireRepository(
     return fail("source_outside_boundary");
   }
   const rev = await git.run(["-C", real, "rev-parse", "--is-inside-work-tree"]);
+  if (!rev.ok && rev.error.code === "unavailable") return fail("git_not_found");
   // 디렉터리인데 work tree가 아니면 git 저장소가 아니다. 경계 밖이다.
   if (!rev.ok || decode(rev).trim() !== "true") {
     return fail("source_outside_boundary");

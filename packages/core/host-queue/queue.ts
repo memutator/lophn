@@ -9,6 +9,7 @@ import type { Id } from "../../protocol/base/ids.ts";
 import type { ExtensionToolContent } from "../../protocol/extensions/manifest.ts";
 import {
   BROWSER_CALL_MS,
+  EXTENSION_TOOL_CALL_MS,
   type BrowserTabState,
   HOST_TAKE_WAIT_MS,
   type HostRequest,
@@ -62,7 +63,7 @@ type CallResult = Result<ExtensionToolContent[]>;
 // 뒤 task(surf-team, ext-tools)가 쓰는 port다.
 export type HostQueue = {
   enqueue(request: HostRequest): void;
-  // extension tool 호출을 넣고 shell main의 handler 결과를 기다린다. `abandon(id)`로 거두면 `unavailable`로 끝난다.
+  // extension tool 호출을 넣고 shell main의 handler 결과를 기다린다. EXTENSION_TOOL_CALL_MS 안에 답이 없으면 `expire()`가 거두고, `abandon(id)`로 거둬도 `unavailable`로 끝난다.
   callTool(payload: ToolCallPayload): {
     id: Id<"hrq">;
     result: Promise<CallResult>;
@@ -78,7 +79,7 @@ export type HostQueue = {
     result: Promise<CallResult>;
   };
   abandon(id: Id<"hrq">, message?: string): void;
-  // 기한이 지난 browser 호출을 거둔다. 부른 쪽이 주기로 부른다.
+  // 기한이 지난 호출(extension tool, browser 등)을 거둔다. 부른 쪽이 주기로 부른다.
   expire(): void;
   // 자기가 연 browser·preview·artifact 탭의 종류. 없는 탭, 남의 탭, session·agent 탭은 `not_found`다.
   browserTab(
@@ -144,6 +145,8 @@ const NO_RESULT =
   "The lophn app returned no result for this call. Try once more; if it fails again, tell the person.";
 const TIMED_OUT =
   "The browser call timed out before the lophn app answered; the page may be busy or the app stuck. Try once more; if it times out again, tell the person.";
+const EXTENSION_TOOL_TIMED_OUT =
+  "The extension tool did not answer within 5 minutes, so lophn stopped waiting. It may still be running in the lophn app; check its effect before calling it again, and tell the person if it happens again.";
 const OPEN_TIMED_OUT =
   "The browser page did not start loading in time (the site may be slow or not answering), so the tab was not opened. Try `lophn tab open` once more; if it fails again, tell the person.";
 export const SHELL_START_FAILED =
@@ -409,7 +412,11 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     enqueue,
     callTool(payload: ToolCallPayload) {
       const id = deps.ids.newId("hrq") as Id<"hrq">;
-      return call({ id, kind: "tool_call", payload }, null);
+      return call(
+        { id, kind: "tool_call", payload },
+        deps.clock.nowMs() + EXTENSION_TOOL_CALL_MS,
+        () => EXTENSION_TOOL_TIMED_OUT,
+      );
     },
     callBrowser(payload: BrowserCallPayload) {
       const id = deps.ids.newId("hrq") as Id<"hrq">;
@@ -428,7 +435,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       );
     },
     abandon,
-    // 기한이 지난 browser 호출을 거둔다. 부른 쪽이 주기로 부른다.
+    // 기한이 지난 호출을 거둔다. 부른 쪽이 주기로 부른다.
     expire(): void {
       const now = deps.clock.nowMs();
       // 띄운 shell이 기한 안에 붙지 않았다. 같은 시도를 기다리던 열기를 모두 끝낸다.

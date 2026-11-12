@@ -38,7 +38,7 @@ const ACTIVITY_READS = [
 const route = (r: { resource: string; method: string }) =>
   `${r.resource}/${r.method}`;
 
-// module별 activity read와 server의 client 수를 합쳐 idle-exit를 건다. ready 뒤에 세기 시작하고,
+// module별 activity read, 도는 lophn agent turn, server의 client 수를 합쳐 idle-exit를 건다. ready 뒤에 세기 시작하고,
 // idle-exit는 core.ts의 shutdown barrier를 그대로 쓴다.
 export const idleWiring: WiringFactory = () => {
   let monitor: IdleMonitor | undefined;
@@ -53,6 +53,8 @@ export const idleWiring: WiringFactory = () => {
         (await ctx.runtime.reads.get(route(r))!(IDLE_CONTEXT, {})) as Result<T>;
       const activity: IdleActivity = {
         async busy() {
+          // 도는 lophn agent turn은 ledger의 activity가 아니라 core 메모리의 queue가 정본이다.
+          if (ctx.queue.anyRunning()) return ok(true);
           for (const each of ACTIVITY_READS) {
             const done = await read<{ busy: boolean }>(each);
             if (!done.ok) return done;

@@ -182,9 +182,10 @@ export const extensionToolsWiring: WiringFactory = () => {
         });
         const abandon = () => ctx.hostQueue.abandon(sent.id);
         inflight.add(abandon);
-        // 기다리는 동안 shell이 떨어지면 끝낸다.
+        // 기다리는 동안 shell이 떨어지면 끝내고, 붙어 있으면 기한이 지난 호출을 거둔다.
         const watch = setInterval(() => {
           if (!ctx.hostQueue.attached()) abandon();
+          else ctx.hostQueue.expire();
         }, WATCH_MS);
         try {
           const result = await sent.result;

@@ -567,6 +567,10 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
         "rev-parse",
         "HEAD",
       ]);
+      // git을 못 띄운 것(`unavailable`)은 commit이 없다는 말로 바꾸지 않는다.
+      if (!head.ok && head.error.code === "unavailable") {
+        return prepareFailed("build", head.error.message);
+      }
       const commit = head.ok ? new TextDecoder().decode(head.value).trim() : "";
       if (!/^[0-9a-f]{40}$/.test(commit)) {
         return prepareFailed(

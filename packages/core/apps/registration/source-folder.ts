@@ -20,6 +20,7 @@ import {
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import type { Writer } from "../../storage/ledger/mod.ts";
 import { builtinTemplate } from "../packages/template/files.ts";
+import { GIT_NOT_FOUND } from "../releases/prepare/git-extract.ts";
 import { scaffoldApp } from "../packages/template/scaffold.ts";
 
 // 새 앱의 source를 잇는 core 안 machine 자격이다. 기록이 없으면 writer가 거절한다.
@@ -33,6 +34,9 @@ export const SOURCE_FOLDER_CONTEXT: AuthenticatedContext = {
 };
 
 type ScaffoldTarget = Pick<App, "id" | "slug" | "name">;
+
+// stdout·stderr를 각각 이만큼까지만 모은다. 넘는 뒤는 버린다.
+const GIT_OUTPUT_MAX = 64 * 1024;
 
 // 사람의 git 설정(서명, hook, 이름)을 읽지 않는다.
 async function git(dir: string, ...args: string[]): Promise<Result<string>> {
@@ -48,12 +52,18 @@ async function git(dir: string, ...args: string[]): Promise<Result<string>> {
   let stdout = "";
   let stderr = "";
   child.stdout?.setEncoding("utf8");
-  child.stdout?.on("data", (chunk: string) => (stdout += chunk));
+  child.stdout?.on("data", (chunk: string) => {
+    if (stdout.length < GIT_OUTPUT_MAX) stdout += chunk;
+  });
   child.stderr?.setEncoding("utf8");
-  child.stderr?.on("data", (chunk: string) => (stderr += chunk));
+  child.stderr?.on("data", (chunk: string) => {
+    if (stderr.length < GIT_OUTPUT_MAX) stderr += chunk;
+  });
   // exit가 아니라 close를 기다린다. stdout·stderr의 남은 byte를 다 받은 뒤에 판정한다.
   const code = await new Promise<number | null>((resolve, reject) => {
-    child.on("error", reject);
+    child.on("error", (error: NodeJS.ErrnoException) =>
+      reject(error.code === "ENOENT" ? new Error(GIT_NOT_FOUND) : error),
+    );
     child.on("close", resolve);
   });
   return code === 0

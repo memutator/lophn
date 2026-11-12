@@ -175,6 +175,8 @@ export const BROWSER_WAIT_DEFAULT_MS = 10_000;
 export const BROWSER_WAIT_MAX_MS = 25_000;
 // core가 browser 호출의 답을 기다리는 기한이다. 넘으면 거두고 `unavailable`이다. wait의 최대(25초)가 이 안에 든다.
 export const BROWSER_CALL_MS = 30_000;
+// core가 extension tool 호출의 답을 기다리는 기한이다. 넘으면 거두고 `unavailable`이다.
+export const EXTENSION_TOOL_CALL_MS = 5 * 60_000;
 // `host/take`가 요청을 기다리는 시간이다. 매 take가 TUI hold의 heartbeat이고 hold 갱신이 10초(`BEAT_MS`)라 그보다 짧아야 한다.
 export const HOST_TAKE_WAIT_MS = 5_000;
 

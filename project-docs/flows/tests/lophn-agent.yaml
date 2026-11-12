@@ -104,6 +104,10 @@ files:
     covers: [model-call-run:complete, model-call-run:partial-continue]
     note: "Cloud Code stream 조립과 요청 모양(순수 어댑터). verdict complete와 partial은 model-call-run 판정의 입력이다"
 
+  - path: packages/core/lophn-agent/providers/adapters/opencode-go_test.ts
+    covers: []
+    note: "OpenCode Go gateway 요청 모양(순수 어댑터). 정의마다 자기 wire 경로·x-opencode-session·User-Agent·stream을 싣고, session이 같으면 같은 대화 값이다"
+
   - path: packages/core/lophn-agent/providers/commands_test.ts
     covers: [provider-connect:connected, provider-connect:invalid_input]
     note: "provider.<id>가 아닌 secret 이름은 거절하고 row를 남기지 않는다. 맞는 이름은 연결된다"

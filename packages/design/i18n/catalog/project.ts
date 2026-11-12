@@ -120,13 +120,17 @@ export const project = {
   "project-workspace.button.detached-dock": "Dock",
   "project-workspace.button.explorer-collapse-all": "Collapse All",
   "project-workspace.button.explorer-add-folder": "Add folder",
+  "project-workspace.button.explorer-copy": "Copy",
   "project-workspace.button.explorer-copy-path": "Copy Path",
   "project-workspace.button.explorer-copy-relative-path": "Copy Relative Path",
+  "project-workspace.button.explorer-cut": "Cut",
   "project-workspace.button.explorer-delete": "Delete",
+  "project-workspace.button.explorer-duplicate": "Duplicate",
   "project-workspace.button.explorer-move": "Move",
   "project-workspace.button.explorer-new-file": "New File",
   "project-workspace.button.explorer-new-folder": "New Folder",
   "project-workspace.button.explorer-open-terminal": "Open in Terminal",
+  "project-workspace.button.explorer-paste": "Paste",
   "project-workspace.button.explorer-refresh": "Refresh",
   "project-workspace.button.explorer-rename": "Rename",
   "project-workspace.button.explorer-reveal": "Reveal in File Manager",
@@ -153,6 +157,10 @@ export const project = {
     "Couldn't remove “{name}” from this project. Nothing changed.",
   "project-workspace.error.explorer-trash-failed":
     "Couldn't move “{name}” to the Trash, so nothing was deleted.",
+  "project-workspace.error.explorer-paste-failed":
+    "Couldn't paste here. Nothing changed.",
+  "project-workspace.error.explorer-paste-unsupported":
+    "The clipboard has nothing lophn can paste here.",
   "project-workspace.error.files-failed": "Couldn't read this folder.",
   "project-workspace.error.load-failed": "Couldn't load this project.",
   "project-workspace.heading.agents": "Agents",
@@ -183,12 +191,18 @@ export const project = {
   "project-workspace.label.tab-rename": "Tab name",
   "project-workspace.label.tab-tooltip": "{title} · {state}",
   "project-workspace.label.tab-unsaved": "Unsaved changes",
+  "project-workspace.notice.explorer-copied":
+    "{count, plural, one {Copied # item} other {Copied # items}}.",
+  "project-workspace.notice.explorer-cut":
+    "{count, plural, one {Cut # item} other {Cut # items}}.",
   "project-workspace.notice.explorer-delete-file":
     "Are you sure you want to delete “{name}”? You can restore it from the Trash.",
   "project-workspace.notice.explorer-delete-folder":
     "Are you sure you want to delete “{name}” and its contents? You can restore it from the Trash.",
   "project-workspace.notice.explorer-move":
     "This moves “{name}” into “{folder}”.",
+  "project-workspace.notice.explorer-pasted":
+    "{count, plural, one {Pasted # item} other {Pasted # items}}.",
   "project-workspace.notice.explorer-remove-folder":
     "“{name}” is removed from this project. The folder and its files stay on your disk.",
   "project-workspace.title.explorer-delete": "Delete {name}?",

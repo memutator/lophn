@@ -29,7 +29,10 @@ test("agent는 자기 memory만 쓰고 lophn은 자기 workspace의 memory만 �
     const edit = (agent: string, input: Record<string, unknown>) => {
       const parsed = tool!.input.safeParse(input);
       assert.ok(parsed.success, "input is accepted");
-      return tool!.handler!(parsed.data, { agent } as ToolContext);
+      return tool!.handler!(parsed.data, {
+        agent,
+        ids: { newId: (prefix: string) => `${prefix}_x` },
+      } as ToolContext);
     };
 
     // 자리를 고르는 입력은 받지 않는다.

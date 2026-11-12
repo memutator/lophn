@@ -345,7 +345,14 @@ test("agent.memory의 쓰기를 rewind하면 쓰기 전 내용으로 돌아간�
       },
     };
     const edit = (input: { old_string?: string; new_string: string }) =>
-      editMemory(input, { agent: "agt_x" } as never, hooks as never);
+      editMemory(
+        input,
+        {
+          agent: "agt_x",
+          ids: { newId: (prefix: string) => `${prefix}_x` },
+        } as never,
+        hooks as never,
+      );
 
     // msg_2 turn이 같은 memory를 덧붙이고 고친다.
     await writeFile(file, "origin");

@@ -132,10 +132,25 @@ export function fail(
   return err({ code, message });
 }
 
-// 파일을 읽다 난 오류를 tool 오류 코드로 옮긴다.
+// model이 원인(권한, disk, 폴더 여부)을 알아야 다음 수를 고르므로 errno마다 문장을 나눈다. 모두 invalid_input이다:
+// executeToolCall은 invalid_input일 때만 이 문장을 model에 보인다.
+const FS_MESSAGES: Record<string, string> = {
+  EACCES: "permission denied",
+  EPERM: "permission denied",
+  EISDIR: "the path is a directory",
+  ENOTDIR: "a parent of the path is not a directory",
+  ENOSPC: "no space left on the disk",
+  EDQUOT: "no space left on the disk",
+  EROFS: "the file system is read-only",
+  EBUSY: "the file is in use by another program",
+};
+
+// 파일을 읽거나 쓰다 난 오류를 tool 오류 코드로 옮긴다.
 export function fsFail(error: unknown): Result<never> {
-  if (errorCode(error) === "ENOENT") {
-    return fail("not_found", "file not found");
-  }
-  return fail("invalid_input", "cannot access this path");
+  const code = errorCode(error);
+  if (code === "ENOENT") return fail("not_found", "file not found");
+  return fail(
+    "invalid_input",
+    (code !== undefined && FS_MESSAGES[code]) || "cannot access this path",
+  );
 }

@@ -1,9 +1,10 @@
-import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath } from "node:fs/promises";
 import { basename, dirname } from "node:path";
 import { errorCode, ok, type Result } from "../../../../base/mod.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import { MEMORY_MAX_BYTES } from "../../../../protocol/lophn-agent/tool-lists.ts";
 import { fail, fsFail } from "../file/scope.ts";
+import { replaceFile } from "../file/write.ts";
 import type { FileHooks } from "../ports.ts";
 import type { ToolContext } from "../tool-context.ts";
 
@@ -66,10 +67,10 @@ export async function editMemory(
     { root: await realpath(dir), relative: basename(file) },
     async () => {
       try {
-        await writeFile(file, next);
+        await replaceFile(file, new TextEncoder().encode(next), ctx.ids);
         return ok(undefined);
-      } catch {
-        return fail("invalid_input", "cannot write the memory");
+      } catch (error) {
+        return fsFail(error);
       }
     },
   );

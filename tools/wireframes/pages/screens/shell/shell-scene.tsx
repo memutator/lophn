@@ -552,10 +552,6 @@ export function ShellScene({
             patch((d) => setRatio(d, d.selected!, path, ratio))
           }
           deskLabel={mock.label}
-          canBack
-          canForward={false}
-          onBack={() => {}}
-          onForward={() => {}}
           onFocus={(key) => patch((d) => selectTab(d, key))}
           onCycle={(key, delta) => patch((d) => cyclePane(d, key, delta))}
           onAction={action}

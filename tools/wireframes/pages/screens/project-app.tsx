@@ -462,10 +462,6 @@ export function ProjectApp({
               {...(group === null ? {} : { layout: group.layout })}
               focus={desk.selected}
               deskLabel="Main"
-              canBack={false}
-              canForward={false}
-              onBack={() => {}}
-              onForward={() => {}}
               onFocus={(key) => setDesk((current) => selectTab(current, key))}
               onSplitRatio={(path, ratio) =>
                 setDesk((current) =>

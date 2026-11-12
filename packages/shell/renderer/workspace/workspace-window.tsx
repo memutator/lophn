@@ -2631,10 +2631,6 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
         deskLabel={desk.label}
         // 배치를 읽기 전에는 빈 desk 안내가 잠깐 떴다 사라지지 않게 빈 card를 둔다.
         pending={readyWorkspace !== workspaceId}
-        canBack={backAt >= 0}
-        canForward={forwardAt >= 0}
-        onBack={() => walk(backAt)}
-        onForward={() => walk(forwardAt)}
         onFocus={(key) => update((item) => selectTab(item, key))}
         onCycle={(key, delta) => update((item) => cyclePane(item, key, delta))}
         onAction={runTabAction}

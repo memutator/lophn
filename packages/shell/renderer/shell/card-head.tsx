@@ -11,7 +11,7 @@ import {
 import type { MenuItem } from "@lophn/ui/overlay";
 
 export interface CardHeadSpec {
-  /** ← →(와 새로 고침)의 덮어쓰기. 없으면 shell 이동 기록이다. */
+  /** 본문 안의 이동을 오가는 ← →(와 새로 고침). 없으면 머리 줄에 ← →가 없다. */
   readonly nav?: {
     readonly canBack: boolean;
     readonly canForward: boolean;

@@ -81,10 +81,6 @@ export interface ContentCardProps {
   deskLabel: string;
   /** 저장된 배치를 아직 읽는 중이다. panes가 없어도 빈 desk 안내 대신 빈 card를 둔다. */
   pending?: boolean;
-  canBack: boolean;
-  canForward: boolean;
-  onBack: () => void;
-  onForward: () => void;
   /** group에서 칸을 눌렀다. */
   onFocus: (key: string) => void;
   /** 칸 머리의 ‹ ›. key가 보이는 칸에서 delta(-1, 1)만큼 넘긴다. 칸이 여러 tab을 돌려 볼 때만 보인다. */
@@ -106,10 +102,6 @@ export function ContentCard({
   onSplitRatio,
   deskLabel,
   pending = false,
-  canBack,
-  canForward,
-  onBack,
-  onForward,
   onFocus,
   onCycle,
   onAction,
@@ -216,10 +208,6 @@ export function ContentCard({
                 <CardHead
                   pane={pane}
                   spec={heads[pane.key]}
-                  canBack={canBack}
-                  canForward={canForward}
-                  onBack={onBack}
-                  onForward={onForward}
                   onAction={(action) => onAction(action, pane.key)}
                   cycle={
                     stack.length < 2 || onCycle === undefined
@@ -317,20 +305,12 @@ function HeadScope({
 function CardHead({
   pane,
   spec,
-  canBack,
-  canForward,
-  onBack,
-  onForward,
   onAction,
   cycle,
   onDragStart,
 }: {
   pane: CardPane;
   spec: CardHeadSpec | undefined;
-  canBack: boolean;
-  canForward: boolean;
-  onBack: () => void;
-  onForward: () => void;
   onAction: (action: TabAction) => void;
   /** 칸이 돌려 보는 tab 중 몇째(1부터)인지와 넘기기. 하나뿐이면 없다. */
   cycle:
@@ -344,7 +324,7 @@ function CardHead({
   onDragStart: ((event: PointerEvent<HTMLElement>) => void) | undefined;
 }) {
   const keyLabel = useKeyLabel();
-  const nav = spec?.nav ?? { canBack, canForward, onBack, onForward };
+  const nav = spec?.nav;
   const extra = spec?.menu;
   return (
     <div
@@ -356,28 +336,32 @@ function CardHead({
         onDragStart?.(event);
       }}
     >
-      <IconButton
-        icon={shellIcons.back}
-        label={t("shell.button.back")}
-        size="sm"
-        disabled={!nav.canBack}
-        onClick={nav.onBack}
-      />
-      <IconButton
-        icon={shellIcons.forward}
-        label={t("shell.button.forward")}
-        size="sm"
-        disabled={!nav.canForward}
-        onClick={nav.onForward}
-      />
-      {nav.onReload === undefined ? null : (
-        <IconButton
-          icon={shellIcons.reload}
-          label={t("shell.button.reload")}
-          size="sm"
-          disabled={nav.reloadDisabled}
-          onClick={nav.onReload}
-        />
+      {nav === undefined ? null : (
+        <>
+          <IconButton
+            icon={shellIcons.back}
+            label={t("shell.button.back")}
+            size="sm"
+            disabled={!nav.canBack}
+            onClick={nav.onBack}
+          />
+          <IconButton
+            icon={shellIcons.forward}
+            label={t("shell.button.forward")}
+            size="sm"
+            disabled={!nav.canForward}
+            onClick={nav.onForward}
+          />
+          {nav.onReload === undefined ? null : (
+            <IconButton
+              icon={shellIcons.reload}
+              label={t("shell.button.reload")}
+              size="sm"
+              disabled={nav.reloadDisabled}
+              onClick={nav.onReload}
+            />
+          )}
+        </>
       )}
       {spec?.center === undefined ? (
         <>

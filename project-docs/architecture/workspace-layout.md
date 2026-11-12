@@ -61,7 +61,7 @@ DetachedItem { tab, bounds }
 - card는 group을 평평한 absolute 칸들로 그린다. 칸(머리 줄 + 본문)은 탭 key로 key를 주고 DOM 순서도 key 순으로 고정하므로, leaf가 자리를 바꾸거나 구조가 달라져도 요소가 옮겨지거나 본문이 다시 mount되지 않는다. 칸의 자리는 tree에서 계산하고 나누는 선을 끌어 몫을 바꾼다(놓을 때 한 번 저장, 더블클릭은 0.5). 칸을 누르면 그 칸이 focus가 된다. 고른 탭이 group 구성원이면 그 group의 leaf 전부를 mount한다.
 - 탭 줄의 group 칸은 반쪽 N개와 사이의 방향 표시다. 탭 줄이 넘치지 않으면 group도 모든 이름이 보이고, 넘치면 먼저 고르지 않은 group 칸이 아이콘만 남고(이름은 tooltip), 그다음 고른 group의 focus 아닌 반쪽, 그다음 고르지 않은 탭이 좁아지다 최소 폭에서 가로 scroll이 된다. 닫기 자리는 탭(group이면 반쪽)마다 이름 뒤에 하나다: 저장 안 된 표시나 상태 점이 있으면 평소 그것을 보이고 hover하면 ×가 된다. 고르지 않은 group과 칸에 숨은 탭에는 ×가 없다.
 - drag and drop은 pointer drag다. 탭 줄의 칸(group 칸이면 누른 탭 하나, 칸의 빈 곳이면 통째)과 group 칸의 머리 줄이 시작점이고 4px 넘게 움직여야 drag다. 놓을 자리는 사각형으로 찾는다: 탭 줄(어느 칸 앞인지), 탭 줄 group 칸의 안쪽(그 칸 stack의 자리), card 칸(가장자리 안쪽 28%는 그쪽으로 split, 가운데는 swap이거나 group 칸이면 그 칸 stack 끝에 쌓기). 가득 찬 group의 가장자리, 자기 자신, 옮기면 group이 풀리는 가운데는 놓을 수 없다. 떠 있는 패널과 접힌 칸 아이콘은 대상이 아니다. 끄는 동안 `<webview>`는 pointer를 받지 않는다(guest로 새면 놓을 자리가 안 보인다). Esc와 pointercancel은 취소다. Explorer 파일을 card에 놓는 것만 HTML5 drag다.
-- 이동 기록(← →)은 창 하나의 메모리에만 있다. `{ desk, 고른 칸, 그 칸의 focus 탭 }` 최대 50개이고 저장하지 않는다. desk, 고른 칸, group 안 focus가 바뀔 때 쌓고 뒤로 간 뒤 새로 쌓으면 앞이 잘린다. 닫은 탭과 지운 desk의 자리는 건너뛰고, 걷는 중에는 더 쌓지 않는다. layout을 다 읽은 뒤부터 쌓는다.
+- 이동 기록은 창 하나의 메모리에만 있고 단축키(`nav.back`·`nav.forward`)로 걷는다. card 머리 줄의 ← →는 이 기록이 아니라 탭 본문 안의 이동이다. `{ desk, 고른 칸, 그 칸의 focus 탭 }` 최대 50개이고 저장하지 않는다. desk, 고른 칸, group 안 focus가 바뀔 때 쌓고 뒤로 간 뒤 새로 쌓으면 앞이 잘린다. 닫은 탭과 지운 desk의 자리는 건너뛰고, 걷는 중에는 더 쌓지 않는다. layout을 다 읽은 뒤부터 쌓는다.
 - focus는 group의 leaf 하나이고 `selected`와 같다. 탭에 들어가는 `active`는 group이 아니거나 focus leaf일 때 true이고 float 안의 탭은 늘 true다. 탭 단축키는 focus leaf에 듣는다.
 
 ### float
@@ -105,7 +105,7 @@ DetachedItem { tab, bounds }
 ### 창 틀(shell)
 
 - title bar 왼쪽: 왼쪽 sidebar 접기, lophn 표지, desk 단추(project만). 가운데: 탭 줄(끝에 새 탭 + menu, 오른쪽 끝에 접힌 float 아이콘 칸). 오른쪽: 그 workspace 종류의 panel icon(PanelTabs)과 창 단추. 검색 단추는 없다(palette는 Ctrl+K).
-- stage: card. 머리 줄(← →, 경로, 상태 글, ⋯ tab menu)은 한 탭당 하나이고, 탭 본문이 머리 줄 일부를 덮어쓸 수 있다(nav, 경로 자리의 center, ⋯ 앞 actions, ⋯ menu 묶음). browser, 파일, agent(session switcher), artifact, 앱 화면이 쓴다. card 밖(float 패널, detached 창)은 올릴 곳이 없어 본문이 자기 줄을 그린다. 고른 탭, 고른 탭이 group 구성원이면 그 group의 leaf 전부를 mount하고, keep kind(앱 panel·browser·artifact)는 keep, 나머지는 render로 그린다.
+- stage: card. 머리 줄(경로, 상태 글, ⋯ tab menu)은 한 탭당 하나이고, 탭 본문이 머리 줄 일부를 올리거나 덮어쓸 수 있다(본문 안 이동의 ← →인 nav, 경로 자리의 center, ⋯ 앞 actions, ⋯ menu 묶음). ← →는 nav를 올린 탭에만 선다. browser, 파일, agent(session switcher), artifact, 앱 화면이 쓴다. card 밖(float 패널, detached 창)은 올릴 곳이 없어 본문이 자기 줄을 그린다. 고른 탭, 고른 탭이 group 구성원이면 그 group의 leaf 전부를 mount하고, keep kind(앱 panel·browser·artifact)는 keep, 나머지는 render로 그린다.
 - 창 틀의 폭과 접힘: 양쪽 sidebar 폭은 끌어서 바꾸고 쪽마다 localStorage에 기억한다. 열림은 저장한 값이 창 폭 기본값을 이긴다. 왼쪽의 열림은 workspace와 무관하게 하나(Settings도 같이 쓴다)이고 오른쪽의 열림은 workspace마다 기억한다.
 - 왼쪽 sidebar는 Home·project·앱 창이 같이 쓴다. 위에서부터 Inbox와 Jobs overlay(줄 오른쪽 옆에 열리고 머리의 [Open in tab]이 inbox·jobs 탭을 연다), 지금 workspace의 Agents 탭을 여는 Agents 줄, Workspaces마다 열린 session과 이 workspace의 접힌 Recent, 맨 아래 빠른 실행과 Settings.
   - workspace 줄 오른쪽 끝의 +는 그 workspace의 lophn 새 session이다. 이 workspace는 이 창에서 열고 hover하면 agent 목록(lophn agent 묶음, divider, 즐겨찾기 coding agent 묶음)이 뜬다. 이 목록은 탭 줄 + menu의 Agent 단계와 같은 값 하나이고 고르면 하는 일도 같다(lophn agent는 새 Agent 탭, coding agent는 그 명령어의 docked 새 터미널). 다른 workspace는 route의 `startSession`(`{agent}`·`{command}`, 비면 기본 lophn)으로 그 workspace로 가서 연다. 다른 workspace의 agent 목록은 읽지 않아 기본 lophn agent와 즐겨찾기 coding agent(터미널이 있는 project만)다. 이 workspace의 +는 늘 보이고 다른 workspace의 +는 hover·focus 때만 보인다. project·앱 줄의 톱니가 Project settings·App details 탭을 연다(다른 workspace는 route의 `startSettings`로 간다).
@@ -179,7 +179,7 @@ DetachedItem { tab, bounds }
 
 ### 앱 화면의 머리 줄
 
-앱 화면은 lophn이 감싸는 프레임의 머리 줄에 올린다. 앱 page가 `useTabHead`로 글과 id만인 `TabHead`(경로 조각, 탭, 상태 글, ⋯ 앞 단추, ⋯ menu 묶음, ← → 덮어쓰기)를 보내면 shell이 머리 줄 값으로 바꾼다. 탭(앱 화면 탭, dock한 앱 panel 탭)은 card의 머리 줄에, card 칸이 없는 프레임(tray popup 머리, 앱 sidebar panel 머리의 단추 자리, 앱 panel float의 bar, session 앱 카드의 줄 끝)은 그 프레임이 같은 값의 가운데·단추·⋯ 메뉴를 그린다(nav는 탭만, tray popup은 앱 단추만 icon 단추로). 단추의 `icon`은 `TAB_HEAD_ICONS`(refresh, add, open, edit, delete, copy, run, stop, download)의 이름이고 모르는 이름은 버려 글 단추가 된다. 그 프레임의 제목과 단추(pin, minimize, dock, close)는 그대로 둔다. 앱 전용 창과 detached 창의 앱 panel은 머리 줄이 없어 앱이 같은 조작을 스스로 그린다.
+앱 화면은 lophn이 감싸는 프레임의 머리 줄에 올린다. 앱 page가 `useTabHead`로 글과 id만인 `TabHead`(경로 조각, 탭, 상태 글, ⋯ 앞 단추, ⋯ menu 묶음, ← →)를 보내면 shell이 머리 줄 값으로 바꾼다. 탭(앱 화면 탭, dock한 앱 panel 탭)은 card의 머리 줄에, card 칸이 없는 프레임(tray popup 머리, 앱 sidebar panel 머리의 단추 자리, 앱 panel float의 bar, session 앱 카드의 줄 끝)은 그 프레임이 같은 값의 가운데·단추·⋯ 메뉴를 그린다(nav는 탭만, tray popup은 앱 단추만 icon 단추로). 단추의 `icon`은 `TAB_HEAD_ICONS`(refresh, add, open, edit, delete, copy, run, stop, download)의 이름이고 모르는 이름은 버려 글 단추가 된다. 그 프레임의 제목과 단추(pin, minimize, dock, close)는 그대로 둔다. 앱 전용 창과 detached 창의 앱 panel은 머리 줄이 없어 앱이 같은 조작을 스스로 그린다.
 
 - 통로는 main을 거치지 않는다. preload가 host로 올리고 webview 그릇이 그 element의 message로 받고 element로 내린다. 머리 줄은 그 탭 안의 표시라 신원이 필요 없고 보낸 element가 곧 그 탭이다. 받은 값은 글·bool만 남기고 자른다(앱 코드가 객체를 보내 React child가 되면 창이 깨진다). page는 preload가 붙자마자 shell이 머리 줄을 그리는지(shown)를 물어 보통 첫 render 전에 답을 쥐고, 답을 못 받았으면 그릇이 dom-ready에 다시 보낸다.
 - 살려 두기 신호는 같은 길로 올라간다. 신호는 key별이고(`useKeepAlive`와 agent turn 동안의 자동 신호) preload가 켠 key 집합을 쥐어 "켠 key가 있나" 하나만 올린다. 그릇이 그 화면의 신호로 쥐고 page가 새로 load되면(preload도 새로 만들어져 key 집합이 비므로 어긋나지 않는다) 지운다.

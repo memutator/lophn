@@ -84,10 +84,6 @@ function WorkflowWindow({
           ]}
           focus="a"
           deskLabel="Main"
-          canBack={false}
-          canForward={false}
-          onBack={noop}
-          onForward={noop}
           onFocus={noop}
           onAction={noop}
           onEmptyAction={noop}

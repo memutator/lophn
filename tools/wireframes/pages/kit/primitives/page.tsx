@@ -6,11 +6,14 @@ import {
   FileIcon,
   Icon,
   IconButton,
+  IconToggle,
   Kbd,
 } from "@lophn/ui/primitives";
 import {
+  browserIcons,
   commonIcons,
   conversationIcons,
+  shellIcons,
   workspaceIcons,
 } from "../../../../../packages/shell/renderer/icons/mod.ts";
 
@@ -81,6 +84,40 @@ export function KitPrimitives() {
               icon={workspaceIcons.close}
               label="Close"
               variant={variant}
+              disabled
+            />
+          </Row>
+        ))}
+      </Section>
+      <Section
+        title="IconToggle"
+        note="선 아이콘 하나로 켜고 끈다(pin, bookmark, 즐겨찾기). 켜면 아이콘 안쪽이 글자색으로 차고 테두리·선택 배경은 없다."
+      >
+        {[false, true].map((pressed) => (
+          <Row key={String(pressed)} label={pressed ? "on" : "off"}>
+            {sizes.map((size) => (
+              <IconToggle
+                key={size}
+                icon={shellIcons.pin}
+                label="Pin"
+                pressed={pressed}
+                size={size}
+              />
+            ))}
+            <IconToggle
+              icon={browserIcons.star}
+              label="Favorite"
+              pressed={pressed}
+            />
+            <IconToggle
+              icon={conversationIcons.bookmark}
+              label="Bookmark"
+              pressed={pressed}
+            />
+            <IconToggle
+              icon={shellIcons.pin}
+              label="Pin"
+              pressed={pressed}
               disabled
             />
           </Row>

@@ -15,7 +15,7 @@ import {
 import { createPortal } from "react-dom";
 import { t } from "@lophn/i18n";
 import { Tooltip } from "@lophn/ui/overlay";
-import { IconButton } from "@lophn/ui/primitives";
+import { IconToggle } from "@lophn/ui/primitives";
 
 import type { TrayTone, TrayValue } from "../../../../protocol/apps/tray.ts";
 import { AppTabIcon } from "../../app-frame/app-icon.tsx";
@@ -206,13 +206,13 @@ function Popup({
         <span className={styles.title}>{item.title}</span>
         {head?.center === undefined ? <span className={styles.grow} /> : null}
         <HeadControls spec={head} />
-        <IconButton
+        <IconToggle
           icon={shellIcons.pin}
           label={t(
             pinned ? "shell.button.tray-unpin" : "shell.button.tray-pin",
           )}
           size="sm"
-          aria-pressed={pinned}
+          pressed={pinned}
           data-tray-pin=""
           onClick={() => onPin(!pinned)}
         />

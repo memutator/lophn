@@ -11,7 +11,7 @@ import {
 } from "react";
 import { t } from "@lophn/i18n";
 import { type FloatEdge, FloatPanel, Tooltip } from "@lophn/ui/overlay";
-import { IconButton } from "@lophn/ui/primitives";
+import { IconButton, IconToggle } from "@lophn/ui/primitives";
 
 import {
   HeadControls,
@@ -186,6 +186,10 @@ function FloatEntryView({
     </Tooltip>
   );
 
+  const pinLabel = t(
+    float.pinned ? "shell.button.float-unpin" : "shell.button.float-pin",
+  );
+
   return (
     <div
       className={styles.slot}
@@ -237,16 +241,16 @@ function FloatEntryView({
                     t("shell.button.float-to-global"),
                     () => onGlobal(float.key),
                   )}
-            {float.pinned
-              ? action(
-                  "unpin",
-                  shellIcons.pin,
-                  t("shell.button.float-unpin"),
-                  () => onPin(float.key, false),
-                )
-              : action("pin", shellIcons.pin, t("shell.button.float-pin"), () =>
-                  onPin(float.key, true),
-                )}
+            <Tooltip content={pinLabel}>
+              <IconToggle
+                icon={shellIcons.pin}
+                label={pinLabel}
+                size="sm"
+                pressed={float.pinned}
+                data-float-action="pin"
+                onClick={() => onPin(float.key, !float.pinned)}
+              />
+            </Tooltip>
             {action(
               "minimize",
               shellIcons.minimize,

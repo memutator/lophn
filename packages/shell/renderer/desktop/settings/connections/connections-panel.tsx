@@ -1,11 +1,11 @@
-// Settings › Coding agents. 제품마다 실행 파일, version, turn 끝 신호, hook, 실행 명령어, 즐겨찾기를 보인다. 연결 만들기·범위·
+// Settings › Coding agents. 제품마다 즐겨찾기(맨 왼쪽), 실행 파일, version, turn 끝 신호, hook, 실행 명령어를 보인다. 연결 만들기·범위·
 // 이름·회수와 doctor 단계는 없다. 감지는 사람이 [Detect again]을 누를 때만 다시 한다. 즐겨찾기와 명령어는 빠른 실행 전역 값이다.
 import { useCallback, useId, useState } from "react";
 import {
   harnessVendorOf,
   VendorIcon,
 } from "../../../parts/vendor-icon/vendor-icon.tsx";
-import { Button, IconButton } from "@lophn/ui/primitives";
+import { Button, IconToggle } from "@lophn/ui/primitives";
 import { FieldContext, Input, SearchFilter } from "@lophn/ui/input";
 import { ErrorState, Loading, Skeleton, StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
@@ -14,7 +14,6 @@ import { HARNESS_ADAPTERS } from "../../../../../protocol/coding-agent/harness-a
 import type { HarnessId } from "../../../../../protocol/coding-agent/harness-id.ts";
 import { actionIcons, browserIcons } from "../../../icons/mod.ts";
 import { useQuickPrefs } from "../quick-launch/store.tsx";
-import starStyles from "../../../browser/bookmark.module.css";
 import { useReload } from "../use-reload.ts";
 import styles from "../settings.module.css";
 import {
@@ -209,12 +208,12 @@ export function CodingConnectionsPanel({
           <table className={styles.table}>
             <thead>
               <tr>
+                <th scope="col">{t("settings.label.coding-col-favorite")}</th>
                 <th scope="col">{t("settings.label.coding-col-product")}</th>
                 <th scope="col">{t("settings.label.coding-col-executable")}</th>
                 <th scope="col">{t("settings.label.coding-col-turn-end")}</th>
                 <th scope="col">{t("settings.label.coding-col-hooks")}</th>
                 <th scope="col">{t("settings.label.coding-col-command")}</th>
-                <th scope="col">{t("settings.label.coding-col-favorite")}</th>
               </tr>
             </thead>
             <tbody>
@@ -323,6 +322,20 @@ function HarnessRow({
   return (
     <tr data-harness={harness.harness_id}>
       <td>
+        <IconToggle
+          icon={browserIcons.star}
+          label={t(
+            favorite
+              ? "settings.button.coding-unfavorite"
+              : "settings.button.coding-favorite",
+          )}
+          size="sm"
+          pressed={favorite}
+          data-action="favorite"
+          onClick={onFavorite}
+        />
+      </td>
+      <td>
         <ProductName harness={harness.harness_id} label={harness.label} />
       </td>
       <td>
@@ -359,22 +372,6 @@ function HarnessRow({
           command={command}
           onCommand={onCommand}
         />
-      </td>
-      <td>
-        <span className={favorite ? starStyles.filled : undefined}>
-          <IconButton
-            icon={browserIcons.star}
-            label={t(
-              favorite
-                ? "settings.button.coding-unfavorite"
-                : "settings.button.coding-favorite",
-            )}
-            size="sm"
-            aria-pressed={favorite}
-            data-action="favorite"
-            onClick={onFavorite}
-          />
-        </span>
       </td>
     </tr>
   );

@@ -10,6 +10,11 @@ export {
   IconButton,
   type IconButtonProps,
 } from "./icon-button/icon-button.tsx";
+// 선 아이콘 하나로 켜고 끄는 조작(pin, bookmark, 즐겨찾기). 켜면 아이콘 안쪽이 찬다. 이름(label)을 꼭 준다.
+export {
+  IconToggle,
+  type IconToggleProps,
+} from "./icon-toggle/icon-toggle.tsx";
 // 단축키 표시. 눌러 보는 조작이 아니라 키 이름을 알릴 때 쓴다.
 export { Kbd, type KbdProps } from "./kbd/kbd.tsx";
 // Lucide 아이콘을 선 두께와 크기 token에 맞춰 그린다. 조작이면 IconButton을 쓴다.

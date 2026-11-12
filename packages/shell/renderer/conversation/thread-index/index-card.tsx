@@ -1,6 +1,6 @@
 // 눈금에 hover하면 뜨는 card: 사람 메시지 첫 줄과 bookmark 단추, 그 아래 답 미리보기 2줄.
 import { t } from "@lophn/i18n";
-import { IconButton } from "@lophn/ui/primitives";
+import { IconToggle } from "@lophn/ui/primitives";
 import type { ReactElement } from "react";
 
 import { conversationIcons } from "../../icons/mod.ts";
@@ -37,15 +37,11 @@ export function IndexCard({
       <div className={styles.cardHead}>
         <span className={styles.cardTitle}>{item.title}</span>
         {onBookmark === null ? null : (
-          <IconButton
-            icon={
-              bookmarked
-                ? conversationIcons.bookmarked
-                : conversationIcons.bookmark
-            }
+          <IconToggle
+            icon={conversationIcons.bookmark}
             label={label}
             size="sm"
-            aria-pressed={bookmarked}
+            pressed={bookmarked}
             data-thread-bookmark=""
             onClick={onBookmark}
           />

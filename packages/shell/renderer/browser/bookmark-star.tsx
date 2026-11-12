@@ -4,7 +4,7 @@
 // Ctrl/Cmd+D는 `presses`가 올라 별을 누른 것과 같은 동작을 한다.
 import { useEffect, useRef, useState } from "react";
 import { Field, Input } from "@lophn/ui/input";
-import { Button, IconButton } from "@lophn/ui/primitives";
+import { Button, IconToggle } from "@lophn/ui/primitives";
 import { Popover } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 
@@ -84,42 +84,41 @@ export function BookmarkStar(props: BookmarkStarProps) {
   }, [open, existing === undefined]);
 
   return (
-    <span className={existing === undefined ? undefined : styles.filled}>
-      <Popover
-        open={shown}
-        // 채우기 전의 누름은 trigger onClick이 더한다. 열고 닫기는 채운 별만 한다.
-        onOpenChange={(next) => {
-          if (existing === undefined) return;
-          // native popup 탭이면 DOM popover를 열지 않고 overlay popover를 연다.
-          if (next && props.openOverlay !== null) press();
-          else change(next);
-        }}
-        trigger={
-          <IconButton
-            ref={anchor}
-            icon={browserIcons.star}
-            label={
-              existing === undefined
-                ? t("browser.button.bookmark-add")
-                : t("browser.button.bookmark-edit")
-            }
-            size="sm"
-            disabled={disabled}
-            onClick={existing === undefined ? () => void add() : undefined}
-          />
-        }
-      >
-        {existing === undefined ? null : (
-          <StarPopover
-            key={existing.id}
-            bookmark={existing}
-            bookmarks={bookmarks}
-            onNotice={onNotice}
-            onClose={() => change(false)}
-          />
-        )}
-      </Popover>
-    </span>
+    <Popover
+      open={shown}
+      // 채우기 전의 누름은 trigger onClick이 더한다. 열고 닫기는 채운 별만 한다.
+      onOpenChange={(next) => {
+        if (existing === undefined) return;
+        // native popup 탭이면 DOM popover를 열지 않고 overlay popover를 연다.
+        if (next && props.openOverlay !== null) press();
+        else change(next);
+      }}
+      trigger={
+        <IconToggle
+          ref={anchor}
+          icon={browserIcons.star}
+          label={
+            existing === undefined
+              ? t("browser.button.bookmark-add")
+              : t("browser.button.bookmark-edit")
+          }
+          size="sm"
+          pressed={existing !== undefined}
+          disabled={disabled}
+          onClick={existing === undefined ? () => void add() : undefined}
+        />
+      }
+    >
+      {existing === undefined ? null : (
+        <StarPopover
+          key={existing.id}
+          bookmark={existing}
+          bookmarks={bookmarks}
+          onNotice={onNotice}
+          onClose={() => change(false)}
+        />
+      )}
+    </Popover>
   );
 }
 

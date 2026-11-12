@@ -16,15 +16,6 @@
   pointer-events: auto;
 }
 
-/* 고정한 패널의 pin 단추(푸는 단추)는 빈 핀을 글자색으로 채운다. tray popup의 pin과 같은 모양이다. */
-.slot [data-float-action="unpin"] {
-  color: var(--color-text-primary);
-}
-
-.slot [data-float-action="unpin"] svg {
-  fill: currentcolor;
-}
-
 .body {
   display: flex;
   flex-direction: column;

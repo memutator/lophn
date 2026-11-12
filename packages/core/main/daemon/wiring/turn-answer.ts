@@ -42,6 +42,6 @@ export async function turnAnswer(
   const text = body.value.content.parts
     .flatMap((part) => (part.kind === "text" ? [part.text] : []))
     .join("\n");
-  // 마지막 응답은 글이 비어도 message로 남는다. 그때는 답이 없는 것으로 본다.
+  // 옛 turn은 글이 빈 마지막 응답도 message로 남겼다. 그때는 답이 없는 것으로 본다.
   return ok(text.trim() === "" ? null : text);
 }

@@ -9,11 +9,15 @@ import {
   rmdir,
   writeFile,
 } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import { app, type IpcMainInvokeEvent } from "electron";
 import { z } from "zod";
 
-import { nodeTreeDeps, signalTree } from "../../../../base/os/mod.ts";
+import {
+  nodeTreeDeps,
+  prependPath,
+  signalTree,
+} from "../../../../base/os/mod.ts";
 import {
   createIdSource,
   cryptoRandom,
@@ -92,59 +96,226 @@ const nodeFiles: ExtensionFiles = {
 
 // SIGTERM 뒤 group에 남은 process를 SIGKILL하기까지 기다리는 시간이다.
 const KILL_GRACE_MS = 3000;
-// env는 `cliEnv`(data root를 넣고 상위 session 표지를 지운다). CLI는 자기 process group으로 띄우고 group째 끈다:
-// CLI가 띄운 명령(tool, background task)이 CLI가 죽은 뒤에도 남지 않게 한다.
-const nodeSpawn =
-  (dataRoot: string): ExtensionSpawn =>
-  (command, args, options) => {
+// `exit` 뒤 `close`(stdio가 다 닫힘)를 기다리는 시간이다. CLI가 띄운 손자가 pipe를 물려받으면 `close`가 오지 않는다.
+const DRAIN_MS = 250;
+
+const ENV_BEGIN = "<<lophn-env-begin>>";
+const ENV_END = "<<lophn-env-end>>";
+const ENV_WAIT_MS = 5000;
+// login shell을 한 번 띄운 값이라 이 process의 것이다. CLI에 물려주면 틀리다.
+const LOGIN_ONLY = new Set(["PWD", "OLDPWD", "SHLVL", "_"]);
+
+// macOS 12 이하의 BSD `env`에는 -0이 없어 darwin은 줄바꿈으로 나뉜 출력을 읽는다. `NAME=`로 시작하지 않는 줄은 앞 값의 이어진 줄이다.
+function splitEnv(text: string, nul: boolean): string[] {
+  if (nul) return text.split("\0");
+  const entries: string[] = [];
+  for (const line of text.replace(/\n$/, "").split("\n")) {
+    if (entries.length > 0 && !/^[A-Za-z_][A-Za-z0-9_]*=/.test(line)) {
+      entries[entries.length - 1] += `\n${line}`;
+    } else {
+      entries.push(line);
+    }
+  }
+  return entries;
+}
+
+/** `env -0`의 출력(표시 사이의 NUL로 나뉜 `NAME=value`)을 읽는다. 표시가 없으면 undefined. darwin은 `env`의 줄바꿈 출력이다. */
+function parseLoginEnv(
+  out: string,
+  platform: string = process.platform,
+): Record<string, string> | undefined {
+  const start = out.indexOf(ENV_BEGIN);
+  const end = out.indexOf(ENV_END, start);
+  if (start < 0 || end < 0) return undefined;
+  const env: Record<string, string> = {};
+  const body = out.slice(start + ENV_BEGIN.length, end);
+  for (const entry of splitEnv(body, platform !== "darwin")) {
+    const eq = entry.indexOf("=");
+    if (eq <= 0) continue;
+    const name = entry.slice(0, eq);
+    if (!LOGIN_ONLY.has(name)) env[name] = entry.slice(eq + 1);
+  }
+  return Object.keys(env).length === 0 ? undefined : env;
+}
+
+// 데스크톱 메뉴나 autostart로 뜬 앱의 env에는 사람의 shell 설정(nvm의 PATH, rc file에 둔 API key)이 없다. 사람의 login shell에서
+// env 전체를 읽는다. rc file이 tmux나 updater를 띄우지 않게 막고(Emdash), 다른 글을 찍을 수 있어 표시 사이의 값만 쓴다.
+// 못 읽으면 undefined다.
+function readLoginEnv(
+  spawn: ExtensionSpawn,
+): Promise<Record<string, string> | undefined> {
+  return new Promise((resolve) => {
+    const proc = spawn(
+      process.env.SHELL || "/bin/sh",
+      [
+        "-ilc",
+        `printf '%s' '${ENV_BEGIN}'; env${process.platform === "darwin" ? "" : " -0"}; printf '%s' '${ENV_END}'`,
+      ],
+      {
+        env: {
+          DISABLE_AUTO_UPDATE: "true",
+          ZSH_TMUX_AUTOSTART: "false",
+          ZSH_TMUX_AUTOSTARTED: "true",
+        },
+      },
+    );
+    let out = "";
+    let done = false;
+    const finish = (value: Record<string, string> | undefined) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const timer = setTimeout(() => {
+      proc.kill();
+      finish(undefined);
+    }, ENV_WAIT_MS);
+    proc.onStdout((text) => {
+      out += text;
+    });
+    proc.onExit(() => finish(parseLoginEnv(out)));
+  });
+}
+
+// extension이 띄우는 process의 spawn과 사람의 login shell env를 한 곳에 둔다.
+// env는 process.env < login shell env < (`lophn` CLI 폴더를 앞에 둔 PATH) < 넘긴 env다(`cliEnv`가 data root를 넣고 상위 session
+// 표지를 지운다). CLI는 자기 process group으로 띄우고 group째 끈다: CLI가 띄운 명령(tool, background task)이 CLI가 죽은 뒤에도
+// 남지 않게 한다. 살아 있는 process는 `stopAll`이 앱이 끝날 때 SIGTERM한다.
+function createSpawner(dataRoot: string) {
+  const live = new Set<() => void>();
+  // 성공한 결과만 지닌다. 실패하면 다음에 env가 필요할 때 다시 읽는다.
+  let login: Record<string, string> | undefined;
+  let reading: Promise<void> | undefined;
+
+  const start = (
+    command: string,
+    args: readonly string[],
+    options: Parameters<ExtensionSpawn>[2],
+    withLogin: boolean,
+  ): ReturnType<ExtensionSpawn> => {
+    const base = { ...process.env, ...(withLogin ? login : undefined) };
+    // `LOPHN_CLI`(launcher 경로)는 개발 실행은 사람이, packaged는 shell main이 채운다. 개발 실행은 PATH에 `lophn`이 없다.
+    const cli = process.env.LOPHN_CLI;
+    const path =
+      cli !== undefined && isAbsolute(cli)
+        ? prependPath(base, dirname(cli), process.platform)
+        : undefined;
     const child = spawn(command, [...args], {
       cwd: options?.cwd,
-      env: cliEnv({ base: process.env, dataRoot, given: options?.env }),
+      env: cliEnv({
+        base: path === undefined ? base : { ...base, [path.name]: path.value },
+        dataRoot,
+        given: options?.env,
+      }),
       detached: process.platform !== "win32",
     });
-    // 시작하지 못하면 'error'가 오고, 처리하지 않으면 main이 죽는다.
+    // 죽는 사이 쓰면 EPIPE 같은 'error'가 오고, 처리하지 않으면 main이 죽는다.
+    for (const stream of [child.stdin, child.stdout, child.stderr]) {
+      stream.on("error", () => {});
+    }
     const exits: Array<(code: number | null) => void> = [];
-    child.on("error", () => exits.forEach((listener) => listener(null)));
-    child.on("exit", (code) => exits.forEach((listener) => listener(code)));
+    const stderrs: Array<(text: string) => void> = [];
+    let exited = false;
+    const exit = (code: number | null) => {
+      if (exited) return;
+      exited = true;
+      live.delete(kill);
+      exits.forEach((listener) => listener(code));
+    };
+    // 시작하지 못하면 'error'가 오고, 원인(ENOENT, EACCES)은 stderr로 먼저 보낸다. 시작한 뒤의 'error'(kill 실패 등)는 exit가 아니다.
+    child.on("error", (error) => {
+      if (child.pid !== undefined) return;
+      stderrs.forEach((listener) => listener(error.message));
+      exit(null);
+    });
+    // `exit`는 stdout을 다 읽기 전에 올 수 있어 `close`(다 읽음)나 DRAIN_MS 중 먼저 온 때에 알린다.
+    child.on("exit", (code) => {
+      const timer = setTimeout(() => exit(code), DRAIN_MS);
+      child.once("close", () => {
+        clearTimeout(timer);
+        exit(code);
+      });
+    });
+    child.stderr.setEncoding("utf8").on("data", (text: string) => {
+      if (!exited) stderrs.forEach((listener) => listener(text));
+    });
+    function kill() {
+      if (child.pid === undefined) {
+        child.kill("SIGTERM");
+        return;
+      }
+      if (process.platform === "win32") {
+        void signalTree(child.pid, "SIGTERM", "win32", nodeTreeDeps(spawn));
+        return;
+      }
+      // CLI는 자기 process group의 leader라 group째 끊는다(CLI가 띄운 명령까지). SIGTERM을 무시하거나 멈춘 process가 남지 않게
+      // 유예 뒤에도 group에 살아 있는 것이 있으면 SIGKILL을 보낸다(앱이 멈춘 session이 도는 채로 남지 않게 한다).
+      const group = -child.pid;
+      try {
+        process.kill(group, "SIGTERM");
+      } catch {
+        return; // 이미 끝난 group이다.
+      }
+      setTimeout(() => {
+        try {
+          process.kill(group, 0);
+          process.kill(group, "SIGKILL");
+        } catch {
+          // 다 끝났다.
+        }
+      }, KILL_GRACE_MS).unref();
+    }
+    live.add(kill);
     return {
       pid: child.pid,
-      write: (text) => void child.stdin.write(text),
-      end: () => void child.stdin.end(),
-      kill() {
-        if (child.pid === undefined) {
-          child.kill("SIGTERM");
-          return;
-        }
-        if (process.platform === "win32") {
-          void signalTree(child.pid, "SIGTERM", "win32", nodeTreeDeps(spawn));
-          return;
-        }
-        // CLI는 자기 process group의 leader라 group째 끊는다(CLI가 띄운 명령까지). SIGTERM을 무시하거나 멈춘 process가 남지 않게
-        // 유예 뒤에도 group에 살아 있는 것이 있으면 SIGKILL을 보낸다(앱이 멈춘 session이 도는 채로 남지 않게 한다).
-        const group = -child.pid;
-        try {
-          process.kill(group, "SIGTERM");
-        } catch {
-          return; // 이미 끝난 group이다.
-        }
-        setTimeout(() => {
-          try {
-            process.kill(group, 0);
-            process.kill(group, "SIGKILL");
-          } catch {
-            // 다 끝났다.
-          }
-        }, KILL_GRACE_MS).unref();
+      write(text) {
+        if (child.stdin.writable) child.stdin.write(text);
       },
+      end() {
+        if (child.stdin.writable) child.stdin.end();
+      },
+      kill,
       onStdout(listener) {
-        child.stdout.setEncoding("utf8").on("data", listener);
+        child.stdout.setEncoding("utf8").on("data", (text: string) => {
+          if (!exited) listener(text);
+        });
       },
-      onStderr(listener) {
-        child.stderr.setEncoding("utf8").on("data", listener);
-      },
+      onStderr: (listener) => void stderrs.push(listener),
       onExit: (listener) => void exits.push(listener),
     };
   };
+
+  /** login env를 읽은 뒤(또는 못 읽어 포기한 뒤) 끝난다. 읽는 중이면 그 하나를 같이 기다린다. win32는 login shell이 없다. */
+  const loginReady = (): Promise<void> => {
+    if (process.platform === "win32" || login !== undefined) {
+      return Promise.resolve();
+    }
+    reading ??= readLoginEnv((command, args, options) =>
+      start(command, args, options, false),
+    )
+      .then((env) => {
+        login = env;
+      })
+      .finally(() => {
+        reading = undefined;
+      });
+    return reading;
+  };
+
+  return {
+    loginReady,
+    spawn: ((command, args, options) => {
+      // spawn은 기다릴 수 없어 env가 없으면 뒤에서 읽고 다음 spawn이 쓴다.
+      if (login === undefined) void loginReady();
+      return start(command, args, options, true);
+    }) as ExtensionSpawn,
+    // 앱이 끝나기 전에 동기로 보낸다(비동기 stop을 기다리는 동안 앱이 끝나도 CLI가 남지 않게).
+    stopAll() {
+      for (const kill of [...live]) kill();
+    },
+  };
+}
 
 /** 탭 쪽이 handle 하나에 붙는 listener. */
 type AcpListener = Parameters<TabHandle["attach"]>[0];
@@ -337,6 +508,7 @@ export function register(
   const bundled = app.isPackaged
     ? join(packagedInstall(process.resourcesPath).root, "extensions")
     : join(ctx.here, "..", "extensions", "bundled");
+  const spawner = createSpawner(ctx.dataRoot);
   const clock = systemClock;
   const ids = createIdSource({ clock, random: cryptoRandom });
   const { acp, tab } = createAcp(ids, coding.gui);
@@ -378,7 +550,7 @@ export function register(
         };
       },
     },
-    spawn: nodeSpawn(ctx.dataRoot),
+    spawn: spawner.spawn,
     acp,
     clock,
     ids,
@@ -398,20 +570,34 @@ export function register(
     },
     log: ctx.log,
   });
+  // extension이 activate될 때 login env가 있어야 headless harness도 같은 PATH를 얻는다. sync는 늘 그것을 먼저 기다린다.
+  const syncReady = async () => {
+    await spawner.loginReady();
+    await registry.sync();
+  };
   const sync = () =>
-    void registry
-      .sync()
-      .catch((cause) => ctx.log(`extensions: ${String(cause)}`));
+    void syncReady().catch((cause) => ctx.log(`extensions: ${String(cause)}`));
 
   // 켜졌는지는 sync가 정한다. 탭의 `<harness> gui`와 toggle이 부른다. 이미 켜져 있으면 sync를 건너뛴다: 설정을 바꾸면
   // SettingsChanged가 sync를 돌려 끄고, toggle마다 manifest와 설정과 tool 목록을 다시 읽는 것은 시간만 쓴다.
   coding.bindTabGui({
     async handlers() {
-      if (tab() !== undefined) return tab();
-      await registry
-        .sync()
-        .catch((cause) => ctx.log(`extensions: ${String(cause)}`));
-      return tab();
+      if (tab() === undefined) {
+        await syncReady().catch((cause) =>
+          ctx.log(`extensions: ${String(cause)}`),
+        );
+      }
+      const handlers = tab();
+      // GUI를 열기 앞서 login env를 다시 읽을 기회를 준다(앞서 못 읽었으면).
+      return handlers === undefined
+        ? undefined
+        : {
+            ...handlers,
+            gui: async (request) => {
+              await spawner.loginReady();
+              return handlers.gui(request);
+            },
+          };
     },
     showExtensionSettings: port.showExtensionSettings,
   });
@@ -438,9 +624,9 @@ export function register(
       if (!parsed.ok) return refused("invalid_input");
       const call = parsed.value;
       if (call.op === "list") {
-        await registry
-          .sync()
-          .catch((cause) => ctx.log(`extensions: ${String(cause)}`));
+        await syncReady().catch((cause) =>
+          ctx.log(`extensions: ${String(cause)}`),
+        );
         return { ok: true, value: await registry.list() };
       }
       const done =
@@ -518,6 +704,7 @@ export function register(
       ctx.ipc.removeHandler(EXTENSIONS_CHANNEL);
       clearInterval(watch);
       void registry.stop();
+      spawner.stopAll();
     },
   };
 }

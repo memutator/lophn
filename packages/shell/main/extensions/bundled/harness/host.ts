@@ -1,8 +1,7 @@
 // harness host: harness queue의 입력을 harness의 headless CLI로 실행하고 출력을 session 기록으로 옮긴다.
 // core에는 `ctx.core`로만 닿는다. 흐름과 route 순서는 `protocol/lophn-agent/harness-host.ts`.
-import { dirname, isAbsolute } from "node:path";
-import { prependPath } from "../../../../../base/os/mod.ts";
 import type { Result } from "../../../../../base/result.ts";
+import { redactCredentials } from "../../../../../base/telemetry/log.ts";
 import {
   HARNESS_ADAPTER_OF_RUNTIME,
   HARNESS_ADAPTERS,
@@ -45,18 +44,10 @@ function harnessEnv(
   session: string,
 ): Record<string, string> {
   // LOPHN_SESSION_ID는 CLI가 띄우는 process에도 상속된다. 앱이 process 목록에서 이 session의 process를 찾는 표지다(secret이 아니다).
-  const env: Record<string, string> = {
+  return {
     [AGENT_CREDENTIAL_ENV]: credential,
     LOPHN_SESSION_ID: session,
   };
-  // 개발 실행은 PATH에 `lophn`이 없다. `LOPHN_CLI`(launcher 경로)는 개발 실행은 사람이, packaged는 shell main이 채운다. extension은
-  // electron·설치 위치를 몰라 env로만 받는다.
-  const cli = process.env.LOPHN_CLI;
-  if (cli !== undefined && isAbsolute(cli)) {
-    const path = prependPath(process.env, dirname(cli), process.platform);
-    if (path !== undefined) env[path.name] = path.value;
-  }
-  return env;
 }
 
 const TICK_MS = 1000;
@@ -302,7 +293,7 @@ export function createHarnessHost(
         input,
         turn,
         code === null ? "target_unavailable" : "model_error",
-        `${spec.command} failed: ${why}`,
+        redactCredentials(`${spec.command} failed: ${why}`),
       );
     }
     if (texts === 0) {

@@ -8,6 +8,7 @@ import type {
   ExtensionContext,
   ExtensionSpawn,
 } from "../../../../../protocol/extensions/mod.ts";
+import { redactCredentials } from "../../../../../base/telemetry/log.ts";
 import {
   HARNESS_GUI_ADAPTERS,
   type HarnessGuiAdapter,
@@ -16,86 +17,10 @@ import {
 
 let stopAll: (() => void) | undefined;
 
-const ENV_BEGIN = "<<lophn-env-begin>>";
-const ENV_END = "<<lophn-env-end>>";
-const ENV_WAIT_MS = 5000;
 // TUI를 끄는 데 걸리는 시간의 상한. SIGKILL은 보내지 않는다(대화 기록을 덜 쓴 채 끊지 않는다).
 const EXIT_WAIT_MS = 5000;
-// login shell을 한 번 띄운 값이라 이 process의 것이다. CLI에 물려주면 틀리다.
-const LOGIN_ONLY = new Set(["PWD", "OLDPWD", "SHLVL", "_"]);
-
-// macOS 12 이하의 BSD `env`에는 -0이 없어 darwin은 줄바꿈으로 나뉜 출력을 읽는다. `NAME=`로 시작하지 않는 줄은 앞 값의 이어진 줄이다.
-function splitEnv(text: string, nul: boolean): string[] {
-  if (nul) return text.split("\0");
-  const entries: string[] = [];
-  for (const line of text.replace(/\n$/, "").split("\n")) {
-    if (entries.length > 0 && !/^[A-Za-z_][A-Za-z0-9_]*=/.test(line)) {
-      entries[entries.length - 1] += `\n${line}`;
-    } else {
-      entries.push(line);
-    }
-  }
-  return entries;
-}
-
-/** `env -0`의 출력(표시 사이의 NUL로 나뉜 `NAME=value`)을 읽는다. 표시가 없으면 undefined. darwin은 `env`의 줄바꿈 출력이다. */
-export function parseLoginEnv(
-  out: string,
-  platform: string = process.platform,
-): Record<string, string> | undefined {
-  const start = out.indexOf(ENV_BEGIN);
-  const end = out.indexOf(ENV_END, start);
-  if (start < 0 || end < 0) return undefined;
-  const env: Record<string, string> = {};
-  const body = out.slice(start + ENV_BEGIN.length, end);
-  for (const entry of splitEnv(body, platform !== "darwin")) {
-    const eq = entry.indexOf("=");
-    if (eq <= 0) continue;
-    const name = entry.slice(0, eq);
-    if (!LOGIN_ONLY.has(name)) env[name] = entry.slice(eq + 1);
-  }
-  return Object.keys(env).length === 0 ? undefined : env;
-}
-
-// 데스크톱 메뉴나 autostart로 뜬 앱의 env에는 사람의 shell 설정(nvm의 PATH, rc file에 둔 API key)이 없다. 사람의 login shell에서
-// env 전체를 읽는다. rc file이 tmux나 updater를 띄우지 않게 막고(Emdash), 다른 글을 찍을 수 있어 표시 사이의 값만 쓴다.
-// 못 읽으면 undefined라 shell main의 env를 그대로 쓴다.
-function loginEnv(
-  spawn: ExtensionSpawn,
-): Promise<Record<string, string> | undefined> {
-  return new Promise((resolve) => {
-    const proc = spawn(
-      process.env.SHELL || "/bin/sh",
-      [
-        "-ilc",
-        `printf '%s' '${ENV_BEGIN}'; env${process.platform === "darwin" ? "" : " -0"}; printf '%s' '${ENV_END}'`,
-      ],
-      {
-        env: {
-          DISABLE_AUTO_UPDATE: "true",
-          ZSH_TMUX_AUTOSTART: "false",
-          ZSH_TMUX_AUTOSTARTED: "true",
-        },
-      },
-    );
-    let out = "";
-    let done = false;
-    const finish = (value: Record<string, string> | undefined) => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      resolve(value);
-    };
-    const timer = setTimeout(() => {
-      proc.kill();
-      finish(undefined);
-    }, ENV_WAIT_MS);
-    proc.onStdout((text) => {
-      out += text;
-    });
-    proc.onExit(() => finish(parseLoginEnv(out)));
-  });
-}
+// GUI → TUI에서 CLI의 `stop()`을 기다리는 시간의 상한.
+const STOP_WAIT_MS = 8000;
 
 const EXIT_TIMEOUT = {
   code: "unavailable",
@@ -105,10 +30,16 @@ const EXIT_TIMEOUT = {
 function within<T>(ms: number, work: Promise<T>, otherwise: T): Promise<T> {
   return new Promise((resolve) => {
     const timer = setTimeout(() => resolve(otherwise), ms);
-    void work.then((value) => {
-      clearTimeout(timer);
-      resolve(value);
-    });
+    work.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(otherwise);
+      },
+    );
   });
 }
 
@@ -125,21 +56,16 @@ type Tab = {
 
 export function activate(ctx: ExtensionContext): void {
   const tabs = new Map<string, Tab>();
-  let login: Promise<Record<string, string> | undefined> | undefined;
 
-  // env는 login shell < 탭의 hook env < adapter가 바꾸는 칸 순서다. 탭의 hook env 덕에 GUI가 띄운 CLI의 hook도 같은 탭으로
-  // 와서 GUI turn 동안에도 탭의 상태 점이 맞는다.
-  async function spawnFor(
-    terminal: AcpTerminal | null,
-  ): Promise<ExtensionSpawn> {
-    login ??= loginEnv(ctx.spawn);
-    const env = await login;
-    return (command, args, options) =>
+  // env는 (spawn이 얹는 login shell) < 탭의 hook env < adapter가 바꾸는 칸 순서다. 탭의 hook env 덕에 GUI가 띄운 CLI의 hook도 같은
+  // 탭으로 와서 GUI turn 동안에도 탭의 상태 점이 맞는다.
+  const spawnFor =
+    (terminal: AcpTerminal | null): ExtensionSpawn =>
+    (command, args, options) =>
       ctx.spawn(command, args, {
         ...options,
-        env: { ...env, ...terminal?.env, ...options?.env },
+        env: { ...terminal?.env, ...options?.env },
       });
-  }
 
   function fail(
     session: AcpSessionHandle,
@@ -196,8 +122,6 @@ export function activate(ctx: ExtensionContext): void {
   async function gui(request: AcpTabRequest): Promise<void> {
     const { terminal, harness } = request;
     const adapter = HARNESS_GUI_ADAPTERS[harness];
-    // login shell은 처음 한 번 느리다(rc file). TUI가 끝나길 기다리는 동안 읽어 두어 start가 기다리지 않게 한다.
-    login ??= loginEnv(ctx.spawn);
     const session = ctx.acp.open({
       terminal,
       harness,
@@ -218,41 +142,53 @@ export function activate(ctx: ExtensionContext): void {
       if (tabs.get(terminal.id) === tab) tabs.delete(terminal.id);
       const run = tab.run;
       tab.run = null;
-      void run?.stop();
+      // 닫힌 handle이라 오류를 보일 곳이 없다.
+      run?.stop().catch(() => {});
     });
 
-    // TUI가 foreground에 있으면(TUI → GUI) 먼저 끈다. 한 session을 두 process가 같이 쓰지 않는다.
-    // tracker가 TUI를 떠나면 session id를 잊으므로 `resume`은 요청이 이미 들고 있다.
-    if (terminal.state() !== "shell") {
-      const ended = await within(EXIT_WAIT_MS, adapter.exitTui(terminal), {
-        ok: false as const,
-        error: EXIT_TIMEOUT,
-      });
-      if (!ended.ok) return fail(session, ended.error);
-      if (!(await exited(terminal))) return fail(session, EXIT_TIMEOUT);
-    }
-    if (tab.closed) return;
+    try {
+      // TUI가 foreground에 있으면(TUI → GUI) 먼저 끈다. 한 session을 두 process가 같이 쓰지 않는다.
+      // tracker가 TUI를 떠나면 session id를 잊으므로 `resume`은 요청이 이미 들고 있다.
+      if (terminal.state() !== "shell") {
+        const ended = await within(EXIT_WAIT_MS, adapter.exitTui(terminal), {
+          ok: false as const,
+          error: EXIT_TIMEOUT,
+        });
+        if (!ended.ok) return fail(session, ended.error);
+        if (!(await exited(terminal))) return fail(session, EXIT_TIMEOUT);
+      }
+      if (tab.closed) return;
 
-    const started = await adapter.start({
-      terminal,
-      cwd: terminal.cwd,
-      ...(request.resume === undefined ? {} : { resume: request.resume }),
-      session: {
-        ...session,
-        publish(update) {
-          session.publish(update);
-          if (adapter.handoff === "shared") void followSession(tab);
+      const started = await adapter.start({
+        terminal,
+        cwd: terminal.cwd,
+        ...(request.resume === undefined ? {} : { resume: request.resume }),
+        session: {
+          ...session,
+          publish(update) {
+            session.publish(update);
+            if (adapter.handoff === "shared")
+              void followSession(tab).catch(() => {});
+          },
         },
-      },
-      spawn: await spawnFor(terminal),
-      clock: ctx.clock,
-      ids: ctx.ids,
-    });
-    if (!started.ok) return fail(session, started.error);
-    // 시작하는 동안 handle이 닫혔다.
-    if (tab.closed) return void started.value.stop();
-    tab.run = started.value;
-    tab.seen = started.value.sessionId() ?? tab.seen;
+        spawn: spawnFor(terminal),
+        clock: ctx.clock,
+        ids: ctx.ids,
+      });
+      if (!started.ok) return fail(session, started.error);
+      // 시작하는 동안 handle이 닫혔다.
+      if (tab.closed) return void started.value.stop().catch(() => {});
+      tab.run = started.value;
+      tab.seen = started.value.sessionId() ?? tab.seen;
+    } catch (cause) {
+      // adapter가 던진 것은 예상하지 못한 것이다. handle을 빈 GUI로 두지 않고 turn 오류로 보인다.
+      fail(session, {
+        code: "internal",
+        message: redactCredentials(
+          cause instanceof Error ? cause.message : String(cause),
+        ),
+      });
+    }
   }
 
   async function tui(terminalId: string): Promise<void> {
@@ -264,7 +200,31 @@ export function activate(ctx: ExtensionContext): void {
       tab.run = null;
       let command: string | undefined;
       if (run !== null) {
-        await run.stop();
+        // 앞 process가 끝났는지 모르면 TUI를 띄우지 않는다(같은 session을 둘이 쓰지 않는다).
+        let rejected: unknown;
+        const stopped = await within(
+          STOP_WAIT_MS,
+          run.stop().then(
+            () => true,
+            (cause) => {
+              rejected = cause ?? "stop failed";
+              return false;
+            },
+          ),
+          false,
+        );
+        if (!stopped) {
+          tab.session.close();
+          throw new Error(
+            rejected === undefined
+              ? "The coding agent did not stop in 8 seconds, so the terminal view was not started."
+              : redactCredentials(
+                  rejected instanceof Error
+                    ? rejected.message
+                    : String(rejected),
+                ),
+          );
+        }
         command = run.tuiCommand();
       }
       tab.session.close();

@@ -56,7 +56,7 @@ import {
   SESSIONS,
   type SessionRow,
 } from "../../mock/agents-data.ts";
-import { click, type } from "../../mock/drive.ts";
+import { click, type, wait } from "../../mock/drive.ts";
 import type { FileInit } from "../../mock/project-files/file-data.ts";
 
 type TabKind =
@@ -164,6 +164,8 @@ export interface SidebarSpec {
  * head: 머리 단추가 보인다(머리에 focus). delete: 오른쪽 클릭 menu의 Delete를 눌러 확인이 뜬다.
  * new-file: 폴더를 고르고 New File을 눌러 이름을 쓰는 중이다. new-exists: 이미 있는 이름을 써서 오류가 보인다.
  * rename: F2로 이름을 바꾸는 중이다. move: 파일을 폴더로 끌어 놓아 옮기기 확인이 뜬다.
+ * multi-select: 첫 파일을 누르고 Ctrl/Cmd+클릭으로 둘을 더 골라 셋이 함께 선택된다. cut: 한 줄을 골라 Ctrl+X를
+ * 눌러 잘라낸 줄이 흐려지고 알림이 뜬다. paste: 폴더의 menu에서 Paste를 눌러 붙일 것이 없다는 알림이 뜬다.
  */
 export type ExplorerAct =
   | "head"
@@ -171,7 +173,10 @@ export type ExplorerAct =
   | "new-file"
   | "new-exists"
   | "rename"
-  | "move";
+  | "move"
+  | "multi-select"
+  | "cut"
+  | "paste";
 
 interface SidebarProps extends SidebarSpec {
   readonly onOpenFile: (id: string) => void;
@@ -458,6 +463,58 @@ async function runExplorerAct(
         cancelable: true,
       }),
     );
+  } else if (act === "multi-select") {
+    // 셋째 파일이 든 rubrics 폴더를 먼저 펼친다(폴더 줄을 누른 것과 같은 신호).
+    const folder = await waitFor(fileRow(absolute("eval/rubrics")));
+    if (folder?.getAttribute("aria-expanded") === "false") {
+      folder.click();
+      await wait(30);
+    }
+    // 첫 줄은 보통 click, 나머지는 Ctrl/Cmd+click과 같은 신호다. 줄을 누를 때마다 React가 다시 그린 뒤 다음을 보낸다.
+    const first = `${EXPERIMENTS}/exp-008-query-tools.md`;
+    await click(fileRow(absolute(first)));
+    for (const path of [
+      `${EXPERIMENTS}/exp-012-ftb-quests-021-q8.md`,
+      "eval/rubrics/query-hygiene.json",
+    ]) {
+      const row = await waitFor(fileRow(absolute(path)));
+      if (row === null) return;
+      row.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          cancelable: true,
+          ctrlKey: true,
+        }),
+      );
+      await wait(30);
+    }
+  } else if (act === "cut") {
+    const path = `${EXPERIMENTS}/exp-012-ftb-quests-021-q8.md`;
+    await click(fileRow(absolute(path)));
+    const row = await waitFor(fileRow(absolute(path)));
+    row?.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "x",
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  } else if (act === "paste") {
+    // gallery에는 진짜 clipboard가 없다. 그래서 Ctrl+V 대신 menu의 Paste를 눌러 빈 clipboard 안내만 보인다.
+    const row = await waitFor(fileRow(absolute(EXPERIMENTS)));
+    if (row === null) return;
+    const box = row.getBoundingClientRect();
+    row.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        clientX: box.left + 40,
+        clientY: box.top + 10,
+      }),
+    );
+    await wait(30);
+    await click('[role="menuitem"]', "Paste");
   } else {
     const file = await waitFor(
       fileRow(absolute(`${EXPERIMENTS}/exp-012-ftb-quests-021-q8.md`)),

@@ -10,10 +10,13 @@ import { WorkflowPanel } from "../../../../packages/shell/renderer/workspace/sid
 import { openProject } from "../../../../packages/shell/renderer/desktop/router.ts";
 import {
   LeftSidebarPage,
+  ExplorerActionsMenu,
   ExplorerHead,
   ExplorerMove,
+  ExplorerMultiSelect,
   ExplorerNewExists,
   ExplorerNewFile,
+  ExplorerPasteEmpty,
   ExplorerRename,
   ExplorerRootMenu,
   FileConflict,
@@ -467,6 +470,27 @@ export const projectWorkspaceArea: Area = {
       description:
         "파일이나 폴더를 다른 폴더로 끌어 놓으면 옮기기 전에 한 번 묻는다. 같은 이름이 있는 폴더나 자기 안으로는 옮길 수 없다.",
       render: () => <ExplorerMove />,
+    },
+    {
+      id: "new-explorer-multi-select",
+      title: "Files · 여러 줄 고르기",
+      description:
+        "파일 tree에서 여러 줄을 고른 상태다. 첫 줄을 누르고 Ctrl/Cmd+클릭으로 둘을 더 골라 셋이 함께 선택되고, 마지막으로 고른 줄이 기준(anchor)이라 New File 자리와 focus가 그 줄을 따른다. Copy·Cut·Duplicate는 선택 전체를 대상으로 하고, 그 줄에서 연 menu의 Rename·Delete는 그 줄 하나를 대상으로 한다.",
+      render: () => <ExplorerMultiSelect />,
+    },
+    {
+      id: "new-explorer-actions-menu",
+      title: "Project · file actions with clipboard",
+      description:
+        "파일 행을 Ctrl+X로 잘라 둔 채 오른쪽 클릭 menu를 연 상태다. 위에서부터 New File, New Folder, 그리고 clipboard 묶음의 Cut, Copy, Paste, Duplicate가 서고, 잘라 둔 줄은 선택된 채 tree 아래에 Cut 1 item. 안내가 남는다. Duplicate는 고른 줄을 같은 폴더에 비켜 간 이름의 복사본으로 만든다.",
+      render: () => <ExplorerActionsMenu />,
+    },
+    {
+      id: "new-explorer-paste-empty",
+      title: "Files · paste with nothing to paste",
+      description:
+        "붙여넣을 것이 없을 때다. 폴더 행의 menu에서 Paste를 누르면 tree 아래에 붙일 것이 없다는 한 줄 안내가 뜨고 아무것도 바뀌지 않는다. Ctrl/Cmd+V는 OS clipboard의 경로·이미지를 맡으므로 이 안내를 내지 않는다.",
+      render: () => <ExplorerPasteEmpty />,
     },
     {
       id: "new-organize",

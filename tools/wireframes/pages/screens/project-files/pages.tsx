@@ -238,6 +238,30 @@ export function ExplorerMove() {
   return explorer("move");
 }
 
+/**
+ * 여러 줄 고르기. 첫 줄을 누르고 Ctrl/Cmd+클릭으로 둘을 더 골라 셋이 함께 선택된다. 마지막으로 고른 줄이 기준이라
+ * New File 자리와 focus가 그 줄을 따르고, menu의 Rename·Delete는 그 줄 하나를, Copy·Cut·Duplicate는 선택 전체를 쓴다.
+ */
+export function ExplorerMultiSelect() {
+  return explorer("multi-select");
+}
+
+/**
+ * 파일 행을 Ctrl+X로 잘라 둔 채 오른쪽 클릭 menu를 열었다. New File, New Folder 뒤에 clipboard 묶음의 Cut, Copy,
+ * Paste, Duplicate가 서고 잘라 둔 줄은 선택된 채 tree 아래에 Cut 1 item. 안내가 남는다.
+ */
+export function ExplorerActionsMenu() {
+  return explorer("cut", EXP_OTHER);
+}
+
+/**
+ * 붙여넣을 것이 없을 때. 폴더 행의 menu에서 Paste를 누르면 tree 아래에 붙일 것이 없다는 한 줄 안내가 뜨고 아무것도
+ * 바뀌지 않는다. Ctrl/Cmd+V는 OS clipboard의 경로·이미지를 맡으므로 이 안내를 내지 않는다.
+ */
+export function ExplorerPasteEmpty() {
+  return explorer("paste");
+}
+
 /** Delete를 누르면 화면 가운데 modal이 한 번 묻는다. 파일은 OS 휴지통으로 가서 되살릴 수 있다. */
 export function FileDeleteConfirm() {
   return explorer("delete");

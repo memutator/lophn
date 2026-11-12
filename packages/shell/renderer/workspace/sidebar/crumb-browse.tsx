@@ -54,6 +54,7 @@ export function CrumbBrowse({
           row={row}
           current={row.id === current}
           multiSelected={false}
+          cut={false}
           dropping={false}
           tabStop
           onActivate={activate}

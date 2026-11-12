@@ -136,6 +136,15 @@
   font-weight: var(--font-weight-medium);
 }
 
+/* 잘라낸 행은 흐리게. 고른 행은 그대로 진하게 보인다. */
+.treeRow[data-cut] {
+  opacity: 0.55;
+}
+
+.treeRow[data-cut][data-selected] {
+  opacity: 1;
+}
+
 /* 끌어 놓을 폴더. 루트면 tree 전체를 안쪽 테두리로 보인다. */
 .treeRow[data-drop],
 .tree[data-drop-root] {

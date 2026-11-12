@@ -11,7 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ClipboardPaste, CopyPlus, Scissors } from "lucide-react";
 import { FileIcon, Icon, IconButton } from "@lophn/ui/primitives";
 import { Menu, MenuIcon, type MenuItem, Tooltip } from "@lophn/ui/overlay";
 import { iconPixels, systemClipboard } from "@lophn/ui/shared";
@@ -27,12 +27,14 @@ import { t } from "@lophn/i18n";
 
 import { PATH_DRAG_TYPE } from "../drag.ts";
 import { FileConfirm } from "../file-actions.tsx";
+import { freeName } from "../files/paste-names.ts";
 import type {
   FileOpResult,
   ProjectFolderView,
   WorkspaceSource,
 } from "../source.ts";
 import { checkNewName, checkRename, renameRange } from "./explorer-names.ts";
+import { imageNameOf, pathsFromText } from "./explorer-paste.ts";
 import { NameRow, Row } from "./explorer-row.tsx";
 import {
   type FileRow,
@@ -329,6 +331,19 @@ const NOTHING: Selection = { ids: new Set(), anchor: null };
 
 const only = (id: string): Selection => ({ ids: new Set([id]), anchor: id });
 
+/** 앱 안 clipboard. Explorer 밖으로 나가지 않는다. cut은 붙여넣을 때 옮긴다. */
+interface Clipboard {
+  readonly mode: "copy" | "cut";
+  /** 절대 경로들. 붙여넣을 때마다 같은 것을 다시 쓴다. */
+  readonly paths: readonly string[];
+}
+
+/** 붙여넣기·복사 결과를 tree 아래 한 줄로 알린다. error면 alert다. */
+interface Notice {
+  readonly text: string;
+  readonly error: boolean;
+}
+
 export function Explorer({
   source,
   folders,
@@ -352,6 +367,8 @@ export function Explorer({
   const [draft, setDraft] = useState<Draft | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [folderFailed, setFolderFailed] = useState(false);
+  const [clipboard, setClipboard] = useState<Clipboard | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [menu, setMenu] = useState<{
     target: FileRow | null;
     x: number;
@@ -368,6 +385,9 @@ export function Explorer({
     until: number;
   } | null>(null);
   const typed = useRef({ text: "", at: 0 });
+  // Ctrl/Cmd+V는 focus가 편집 가능한 칸이 아니면 paste 이벤트로 온다. 매 render마다 listener를 다시 달지 않으려고
+  // 처리 함수를 ref에 담아 두고, document listener 하나가 그것을 부른다.
+  const pasteListener = useRef<(event: ClipboardEvent) => void>(() => {});
 
   const rowElement = (id: string) =>
     [
@@ -430,6 +450,16 @@ export function Explorer({
     onFocusAsked?.();
   }, [focusAsked]);
 
+  // paste 이벤트는 tree에 focus가 있을 때만 받는다. 편집기·터미널에 focus가 있으면 절대 가로채지 않는다.
+  useEffect(() => {
+    const onPaste = (event: ClipboardEvent) => {
+      if (!treeRef.current?.contains(document.activeElement)) return;
+      pasteListener.current(event);
+    };
+    document.addEventListener("paste", onPaste, true);
+    return () => document.removeEventListener("paste", onPaste, true);
+  }, []);
+
   if (root === undefined) return null;
 
   const rowOf = (id: string | null) =>
@@ -442,6 +472,202 @@ export function Explorer({
   /** 새로 만들 자리: 고른 폴더, 파일이면 그 파일의 폴더, 아무것도 없으면 루트. */
   const targetFolder = (row: FileRow | null) =>
     row === null ? root.path : row.folder ? row.id : parentOf(row.id);
+
+  // ---- clipboard ----
+
+  /** 복사·잘라내기·복제할 경로: 고른 줄 전부, 없으면 이 줄. 위 폴더에 딸려 가는 줄은 뺀다. */
+  const clipPaths = (row: FileRow | null): string[] => {
+    const chosen = selectedRows().map((item) => item.id);
+    const paths = chosen.length > 0 ? chosen : row === null ? [] : [row.id];
+    return outermost(paths);
+  };
+
+  /** 고른 경로를 앱 clipboard와 OS clipboard(text)에 복사한다. 붙여넣을 것이 없으면 false다. */
+  const copyToClipboard = (row: FileRow | null): boolean => {
+    const paths = clipPaths(row);
+    if (paths.length === 0) return false;
+    setClipboard({ mode: "copy", paths });
+    void systemClipboard.writeText(paths.join("\n"));
+    setNotice({
+      text: t("project-workspace.notice.explorer-copied", {
+        count: paths.length,
+      }),
+      error: false,
+    });
+    return true;
+  };
+
+  // 잘라내기는 앱 안 동작이다. OS clipboard에는 쓰지 않는다.
+  const cutToClipboard = (row: FileRow | null): boolean => {
+    const paths = clipPaths(row);
+    if (paths.length === 0) return false;
+    setClipboard({ mode: "cut", paths });
+    setNotice({
+      text: t("project-workspace.notice.explorer-cut", { count: paths.length }),
+      error: false,
+    });
+    return true;
+  };
+
+  /** 경로마다 대상 폴더에 비켜 간 이름으로 복사하고(cut이면 옮긴다) 만든 경로를 모은다. */
+  const transfer = async (
+    pairs: readonly { readonly from: string; readonly toDir: string }[],
+    mode: "copy" | "cut",
+  ): Promise<{ made: string[]; failed: boolean }> => {
+    const taken = new Map<string, Set<string>>();
+    const made: string[] = [];
+    let failed = false;
+    for (const { from, toDir } of pairs) {
+      let names = taken.get(toDir);
+      if (names === undefined) {
+        names = new Set(
+          (tree.entriesOf(toDir) ?? []).map((entry) => entry.name),
+        );
+        taken.set(toDir, names);
+      }
+      const name = freeName(baseName(from), names, "copy");
+      names.add(name);
+      const to = joinPath(toDir, name);
+      const result =
+        mode === "cut" ? await onMove(from, to) : await source.copy(from, to);
+      if (result.ok) made.push(to);
+      else if (result.code !== "cancelled") failed = true;
+    }
+    return { made, failed };
+  };
+
+  /** 만든 경로를 펼쳐 고르고 붙여넣은 개수(또는 실패)를 알린다. */
+  const finishPaste = (
+    made: readonly string[],
+    toDir: string,
+    failed: boolean,
+  ) => {
+    if (made.length > 0) {
+      if (toDir !== root.path) tree.expand(toDir);
+      tree.refresh();
+      setSelection({ ids: new Set(made), anchor: made.at(-1) ?? null });
+      const last = made.at(-1);
+      if (last !== undefined) show(last, false);
+    }
+    if (failed) {
+      setNotice({
+        text: t("project-workspace.error.explorer-paste-failed"),
+        error: true,
+      });
+    } else if (made.length > 0) {
+      setNotice({
+        text: t("project-workspace.notice.explorer-pasted", {
+          count: made.length,
+        }),
+        error: false,
+      });
+    }
+  };
+
+  /** 앱 clipboard으로 붙여넣기. 대상은 지금 줄의 폴더다. */
+  const pasteClipboard = async (clip: Clipboard) => {
+    const toDir = targetFolder(activeRow);
+    const { made, failed } = await transfer(
+      clip.paths.map((from) => ({ from, toDir })),
+      clip.mode,
+    );
+    // 잘라낸 것은 한 번 붙여넣으면 끝난다. 복사는 남겨 두어 여러 곳에 붙여넣게 한다.
+    if (clip.mode === "cut") setClipboard(null);
+    finishPaste(made, toDir, failed);
+  };
+
+  /** paste 이벤트의 이미지·경로를 대상 폴더에 붙여넣는다. */
+  const pasteData = async (
+    images: readonly File[],
+    paths: readonly string[],
+  ) => {
+    const toDir = targetFolder(activeRow);
+    if (images.length === 0) {
+      const { made, failed } = await transfer(
+        paths.map((from) => ({ from, toDir })),
+        "copy",
+      );
+      finishPaste(made, toDir, failed);
+      return;
+    }
+    const names = new Set(
+      (tree.entriesOf(toDir) ?? []).map((entry) => entry.name),
+    );
+    const made: string[] = [];
+    let failed = false;
+    for (const file of images) {
+      const name = freeName(imageNameOf(file), names, "number");
+      names.add(name);
+      const path = joinPath(toDir, name);
+      const result = await source.writeBytes(
+        path,
+        new Uint8Array(await file.arrayBuffer()),
+      );
+      if (result.ok) made.push(path);
+      else failed = true;
+    }
+    finishPaste(made, toDir, failed);
+  };
+
+  /** 붙일 것이 있으면 그 자리에서 preventDefault·stopPropagation 하고 붙여넣는다. */
+  const receivePaste = (event: {
+    readonly clipboardData: DataTransfer | null;
+    readonly target: EventTarget | null;
+    preventDefault: () => void;
+    stopPropagation: () => void;
+  }) => {
+    const data = event.clipboardData;
+    // tree 안 이름 입력에 붙여넣을 때는 가로채지 않는다.
+    const target = event.target;
+    if (
+      data === null ||
+      (target instanceof HTMLElement &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable))
+    ) {
+      return;
+    }
+    const images = [...data.files].filter((file) =>
+      file.type.startsWith("image/"),
+    );
+    const paths = pathsFromText(data.getData("text/plain"));
+    if (images.length === 0 && paths.length === 0) {
+      setNotice({
+        text: t("project-workspace.error.explorer-paste-unsupported"),
+        error: true,
+      });
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    void pasteData(images, paths);
+  };
+
+  pasteListener.current = receivePaste;
+
+  /** Ctrl/Cmd+D. 고른 것마다 그 줄의 폴더 안에 복사본을 만든다. */
+  const duplicateRows = async (row: FileRow | null) => {
+    const paths = clipPaths(row);
+    if (paths.length === 0) return;
+    const { made, failed } = await transfer(
+      paths.map((from) => ({ from, toDir: parentOf(from) })),
+      "copy",
+    );
+    // 새 복사본이 골라지는 것이 성공의 답이다. 실패만 알린다.
+    if (made.length > 0) {
+      tree.refresh();
+      setSelection({ ids: new Set(made), anchor: made.at(-1) ?? null });
+      const last = made.at(-1);
+      if (last !== undefined) show(last, false);
+    }
+    if (failed) {
+      setNotice({
+        text: t("project-workspace.error.explorer-paste-failed"),
+        error: true,
+      });
+    }
+  };
 
   /** anchor부터 id까지 화면에 보이는 순서로 고른다. */
   const rangeTo = (id: string): Selection => {
@@ -807,6 +1033,9 @@ export function Explorer({
       : path.slice(owner.path.replace(/\/+$/, "").length + 1);
   };
 
+  /** 고른 줄(없으면 이 줄)이 있어야 할 수 있는 menu 항목을 끈다. */
+  const canAct = (target: FileRow | null) => clipPaths(target).length > 0;
+
   const menuItems = (target: FileRow | null): MenuItem[] => [
     {
       id: "new-file",
@@ -817,6 +1046,30 @@ export function Explorer({
       id: "new-folder",
       label: t("project-workspace.button.explorer-new-folder"),
       leading: <MenuIcon icon={workspaceIcons.newFolder} />,
+    },
+    {
+      id: "cut",
+      label: t("project-workspace.button.explorer-cut"),
+      leading: <MenuIcon icon={Scissors} />,
+      separatorBefore: true,
+      disabled: !canAct(target),
+    },
+    {
+      id: "copy",
+      label: t("project-workspace.button.explorer-copy"),
+      leading: <MenuIcon icon={workspaceIcons.copy} />,
+      disabled: !canAct(target),
+    },
+    {
+      id: "paste",
+      label: t("project-workspace.button.explorer-paste"),
+      leading: <MenuIcon icon={ClipboardPaste} />,
+    },
+    {
+      id: "duplicate",
+      label: t("project-workspace.button.explorer-duplicate"),
+      leading: <MenuIcon icon={CopyPlus} />,
+      disabled: !canAct(target),
     },
     {
       id: "reveal",
@@ -874,7 +1127,18 @@ export function Explorer({
     const path = target?.id ?? root.path;
     if (id === "new-file" || id === "new-folder") {
       startCreate(id === "new-file" ? "file" : "folder", target);
-    } else if (id === "reveal") void source.reveal(path);
+    } else if (id === "cut") cutToClipboard(target);
+    else if (id === "copy") copyToClipboard(target);
+    else if (id === "paste") {
+      // 앱 clipboard이 비었으면 붙일 것이 없다. OS clipboard의 경로·이미지는 paste 이벤트로만 받는다.
+      if (clipboard === null) {
+        setNotice({
+          text: t("project-workspace.error.explorer-paste-unsupported"),
+          error: true,
+        });
+      } else void pasteClipboard(clipboard);
+    } else if (id === "duplicate") void duplicateRows(target);
+    else if (id === "reveal") void source.reveal(path);
     else if (id === "open-terminal") onOpenTerminal?.(path);
     else if (id === "copy-path") {
       void systemClipboard.writeText(copyPaths(target).join("\n"));
@@ -904,6 +1168,17 @@ export function Explorer({
         ids: new Set(tree.rows.map((item) => item.id)),
         anchor: tree.rows[0].id,
       });
+    } else if (mod && key.toLowerCase() === "c") {
+      if (!copyToClipboard(row ?? null)) return;
+    } else if (mod && key.toLowerCase() === "x") {
+      if (!cutToClipboard(row ?? null)) return;
+    } else if (mod && key.toLowerCase() === "v") {
+      // 앱 clipboard이 비었으면 paste 이벤트가 OS clipboard의 경로·이미지를 맡는다. 둘이 같은 일을 하지 않는다.
+      if (clipboard === null) return;
+      void pasteClipboard(clipboard);
+    } else if (mod && key.toLowerCase() === "d") {
+      if (clipPaths(row ?? null).length === 0) return;
+      void duplicateRows(row ?? null);
     } else if (
       (key === "Delete" && !event.ctrlKey) ||
       (key === "Backspace" && event.metaKey)
@@ -982,6 +1257,7 @@ export function Explorer({
         row={row}
         current={row.id === current}
         multiSelected={selection.ids.has(row.id)}
+        cut={clipboard?.mode === "cut" && clipboard.paths.includes(row.id)}
         dropping={row.id === dropTarget}
         tabStop={row.id === tabStop}
         onActivate={activate}
@@ -1055,6 +1331,7 @@ export function Explorer({
         }}
         onDragOver={(event) => onDragOver(null, event)}
         onDrop={(event) => onDrop(null, event)}
+        onPaste={(event) => receivePaste(event)}
         onDragLeave={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node)) {
             setDropTarget(null);
@@ -1073,6 +1350,11 @@ export function Explorer({
           {t("project-workspace.error.explorer-action-failed")}
         </PanelEmpty>
       ) : null}
+      {notice === null ? null : (
+        <div role={notice.error ? "alert" : "status"}>
+          <PanelEmpty>{notice.text}</PanelEmpty>
+        </div>
+      )}
       {menu === null ? null : (
         <Menu
           open

@@ -36,6 +36,8 @@ interface RowProps {
   current: boolean;
   /** 이 줄이 선택에 들었는가. */
   multiSelected: boolean;
+  /** 잘라낸 줄이라 흐리게 그린다. */
+  cut: boolean;
   /** 끌어 놓을 대상으로 칠한다. */
   dropping: boolean;
   /** tree에서 Tab이 닿는 줄. 나머지는 화살표로만 간다. */
@@ -57,6 +59,7 @@ export function Row({
   row,
   current,
   multiSelected,
+  cut,
   dropping,
   tabStop,
   onActivate,
@@ -78,6 +81,7 @@ export function Row({
       data-file={row.id}
       data-current={current || undefined}
       data-selected={multiSelected || undefined}
+      data-cut={cut || undefined}
       data-drop={dropping || undefined}
       className={styles.treeRow}
       style={{ paddingLeft: indentOf(row.depth) }}

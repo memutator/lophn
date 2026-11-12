@@ -8,6 +8,7 @@ import {
   finishRewindSummary,
   type ModelChoice,
   modelCallList,
+  type ModelOutcome,
   requestSessionCompact,
   startModelCall,
   type TokenUsage,
@@ -38,6 +39,12 @@ import {
   storeValue,
 } from "../run-loop/blobs.ts";
 import { type CoreCall, commandOf, readOf } from "../run-loop/core-call.ts";
+import {
+  abortableWait,
+  isTransientFailure,
+  MODEL_RETRY_MAX,
+  modelRetryDelayMs,
+} from "../run-loop/retry.ts";
 import { estimatedCost } from "../usage/mod.ts";
 import { readSessionConversation } from "./history.ts";
 
@@ -119,6 +126,8 @@ type CompactorDeps = {
     model: ModelChoice;
     purpose: "organizing";
   }): Promise<Result<ModelBinding>>;
+  // 요약 retry 앞의 대기. 없으면 실제 timer다. 신호가 중단되면 바로 돌아온다.
+  wait?(ms: number, signal: AbortSignal): Promise<"elapsed" | "aborted">;
 };
 
 type Request = {
@@ -200,10 +209,16 @@ const UNKNOWN_COST: CallCost = {
 // 한 걸음이 실패한 이유. 요청을 이 이유로 닫는다.
 class Failure extends Error {
   readonly reason: CompactFailureReason;
+  // 이 시도의 model call과 결과. 일시 실패면 요약을 다시 보낸다.
+  readonly attempt: { call: string; outcome: ModelOutcome } | undefined;
 
-  constructor(reason: CompactFailureReason) {
+  constructor(
+    reason: CompactFailureReason,
+    attempt?: { call: string; outcome: ModelOutcome },
+  ) {
     super(reason);
     this.reason = reason;
+    this.attempt = attempt;
   }
 }
 
@@ -262,6 +277,7 @@ export function createCompactor(
       previous: string | null;
       messages: readonly SessionMessage[];
     },
+    retryOf: string | null,
   ): Promise<{ id: string; text: string }> {
     const base = compactSummaryRequest({ ...input, cap: limit.body });
     const prompt =
@@ -320,9 +336,10 @@ ${IN_TURN_NOTE}`,
       model_use: "organizing" as const,
       agent_hash: null,
       purpose: "conversation_compression" as const,
-      attempt_kind: "initial" as const,
+      attempt_kind:
+        retryOf === null ? ("initial" as const) : ("retry" as const),
       attempt_order: order,
-      retry_of: null,
+      retry_of: retryOf,
       model: binding.call,
       input: inputBlob.value.hash,
       context_basis: basisBlob.value.hash,
@@ -425,7 +442,7 @@ ${IN_TURN_NOTE}`,
       outcome.kind !== "complete" ||
       output.text.trim() === ""
     )
-      throw new Failure("model_failed");
+      throw new Failure("model_failed", { call: id, outcome });
     return { id, text: output.text };
   }
 
@@ -437,7 +454,40 @@ ${IN_TURN_NOTE}`,
     attempt: { order: number },
     input: { previous: string | null; messages: readonly SessionMessage[] },
   ): Promise<{ id: string; text: string }> {
-    const done = await summarizeOnce(request, binding, limit, attempt, input);
+    const wait = deps.wait ?? abortableWait;
+    const signal = request.signal ?? new AbortController().signal;
+    let retryOf: string | null = null;
+    let done: { id: string; text: string } | undefined;
+    for (let retry = 1; done === undefined; retry++) {
+      try {
+        done = await summarizeOnce(
+          request,
+          binding,
+          limit,
+          attempt,
+          input,
+          retryOf,
+        );
+      } catch (error) {
+        // 일시 실패(5xx, 연결 끊김)만 run-loop의 model retry 규칙대로 다시 보낸다. 시도마다 새 model call이다.
+        if (
+          !(error instanceof Failure) ||
+          error.attempt === undefined ||
+          !isTransientFailure(error.attempt.outcome) ||
+          retry > MODEL_RETRY_MAX
+        ) {
+          throw error;
+        }
+        const outcome = error.attempt.outcome;
+        const ms = modelRetryDelayMs(
+          retry,
+          outcome.kind === "failed" ? outcome.retry_at : null,
+          clock.nowMs(),
+        );
+        if ((await wait(ms, signal)) === "aborted") throw error;
+        retryOf = error.attempt.call;
+      }
+    }
     if (summaryBodyTokens(done.text) > limit.body) {
       throw new Failure("summary_too_long");
     }

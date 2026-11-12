@@ -26,9 +26,11 @@ import {
   workspaceSessionRead,
   startTurn,
   textBlocks,
+  toolCallList,
   TURN_BLOB_PURPOSES,
   type TurnLimits,
   type TurnMode,
+  turnList,
   turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { createListSettingsReader } from "../../config/mod.ts";
@@ -239,10 +241,12 @@ type PreparedTurn = {
   session: string;
   begin: BeginTurnInput;
   startTurn(input: BeginTurnInput): Promise<Result<StartTurnResult>>;
-  // StartTurn은 확정됐지만 loop를 이어 가지 못할 때(credential을 못 받음, 입력이 없어짐, loop가 던짐) turn을
-  // failed로 닫는다. loop_threw는 internal, 나머지는 configuration_unavailable이다. 이미 끝났으면 아무것도 하지 않는다.
-  // why는 result blob에 남는다.
-  closeStarted(why: "credential" | "input_gone" | "loop_threw"): Promise<void>;
+  // StartTurn은 확정됐지만 loop를 이어 가지 못할 때(credential을 못 받음, 입력이 없어짐, loop가 던짐, 끝내는 기록이
+  // 실패함) turn을 failed로 닫는다. loop_threw와 finish_failed는 internal, 나머지는 configuration_unavailable이다.
+  // 이미 끝났으면 아무것도 하지 않는다. why는 result blob에 남는다.
+  closeStarted(
+    why: "credential" | "input_gone" | "loop_threw" | "finish_failed",
+  ): Promise<void>;
   // StartTurn이 확정되고 credential을 받은 뒤에 loop 재료를 만든다.
   loop(
     credential: AgentTurnCredential,
@@ -383,6 +387,74 @@ function toolsNotice(
     "This session keeps the tool list above; added tools can be called from a new session.",
   );
   return lines.join("\n");
+}
+
+// 재시작으로 끊긴 turn의 batch는 이력에 없어 다음 turn은 그 call이 돌았는지 모른다. 바로 앞 turn이 restarted로 끝났으면
+// 그 turn이 결과를 확정하지 못한 tool call(core가 uncertain으로 닫았다)을 알린다. 읽지 못하면 알리지 않고 turn을
+// 시작한다. 글은 고정 문구와 tool 이름·id뿐이다.
+const NOTICE_MAX_PAGES = 400;
+
+async function cutOffNotice(
+  machine: CoreCall,
+  session: string,
+): Promise<string[]> {
+  let previous: {
+    id: string;
+    started_at: string;
+    interrupted: boolean;
+  } | null = null;
+  let cursor: string | undefined;
+  for (let page = 0; ; page++) {
+    if (page >= NOTICE_MAX_PAGES) return [];
+    const listed = await readOf(machine, turnList, {
+      session,
+      state: "finished",
+      ...(cursor === undefined ? {} : { cursor }),
+    });
+    if (!listed.ok) return [];
+    for (const turn of listed.value.turns) {
+      if (
+        previous === null ||
+        turn.started_at > previous.started_at ||
+        (turn.started_at === previous.started_at && turn.id > previous.id)
+      ) {
+        previous = {
+          id: turn.id,
+          started_at: turn.started_at,
+          interrupted:
+            turn.outcome?.kind === "interrupted" &&
+            turn.outcome.reason === "restarted",
+        };
+      }
+    }
+    const next = listed.value.next_cursor;
+    if (next === null || next === undefined) break;
+    cursor = next;
+  }
+  if (previous === null || !previous.interrupted) return [];
+  const uncertain: string[] = [];
+  let callCursor: string | undefined;
+  for (let page = 0; ; page++) {
+    if (page >= NOTICE_MAX_PAGES) return [];
+    const listed = await readOf(machine, toolCallList, {
+      turn: previous.id,
+      ...(callCursor === undefined ? {} : { cursor: callCursor }),
+    });
+    if (!listed.ok) return [];
+    for (const call of listed.value.tool_calls) {
+      if (call.outcome?.kind === "uncertain") {
+        uncertain.push(`${call.tool} (${call.id})`);
+      }
+    }
+    const next = listed.value.next_cursor;
+    if (next === null || next === undefined) break;
+    callCursor = next;
+  }
+  return uncertain.length === 0
+    ? []
+    : [
+        `[machine] The previous turn was cut off before it finished. These tool calls may or may not have taken effect: ${uncertain.join(", ")}. Check their results before repeating them.`,
+      ];
 }
 
 function noticeText(body: string): string {
@@ -707,10 +779,12 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       scope.results = placed.value.scope.results;
       const compaction = compactionOf(read.value);
       const memory = await memoryOf(compaction);
-      const notices =
-        m.current.length === 0 || (await keyOf(m.current)) === fixed.key
+      const notices = [
+        ...(m.current.length === 0 || (await keyOf(m.current)) === fixed.key
           ? []
-          : [noticeText(toolsNotice(fixed.definitions, m.current))];
+          : [noticeText(toolsNotice(fixed.definitions, m.current))]),
+        ...(await cutOffNotice(machine, seat.session)),
+      ];
       return ok({
         prompt: {
           workspace_kind_prompt: prompt.value,
@@ -1121,7 +1195,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
               outcome: {
                 kind: "failed",
                 reason:
-                  why === "loop_threw"
+                  why === "loop_threw" || why === "finish_failed"
                     ? "internal"
                     : "configuration_unavailable",
               },

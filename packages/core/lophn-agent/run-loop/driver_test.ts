@@ -8,7 +8,7 @@ import { createTurnSource, createTurnStarter } from "./work.ts";
 const SESSION = "ses_s1";
 
 // loop가 던지는 turn과 정상으로 시작만 하는 turn을 번갈아 만들 수 있는 가짜 재료다.
-function setup() {
+function setup(startLoop?: never) {
   let turns = 0;
   const closed: string[] = [];
   const ended: string[] = [];
@@ -87,6 +87,7 @@ function setup() {
       },
     },
     report: (text) => reported.push(text),
+    ...(startLoop === undefined ? {} : { startLoop }),
   });
   return { driver, closed, ended, reported };
 }
@@ -108,8 +109,36 @@ test("a turn that throws is closed as failed by the driver and the next turn can
   assert.deepEqual(closed, ["trn_1:loop_threw"]);
 });
 
+test("a turn whose finish record failed is closed as failed by the driver and the next turn can start", async () => {
+  let loops = 0;
+  const { driver, closed, ended, reported } = setup((() => ({
+    // 첫 turn만 끝내는 기록이 실패한다. 값으로 돌려줘서 던진 경우의 catch를 지나지 않는다.
+    done: Promise.resolve(
+      ++loops === 1
+        ? {
+            kind: "finish_failed",
+            outcome: { kind: "failed", reason: "internal" },
+            error: { code: "internal", message: "write refused" },
+          }
+        : { kind: "stopped" },
+    ),
+    compactNext: () => false,
+  })) as never);
+  const first = await driver.startNext();
+  const end = await (first as { done: Promise<{ kind: string }> }).done;
+  assert.equal(end.kind, "finish_failed");
+  assert.deepEqual(closed, ["trn_1:finish_failed"]);
+  assert.deepEqual(ended, [SESSION]);
+  assert.equal(reported.length, 1);
+
+  const second = await driver.startNext();
+  assert.equal(second.kind, "started");
+  await (second as { done: Promise<unknown> }).done;
+  assert.deepEqual(closed, ["trn_1:finish_failed"]);
+});
+
 // 모든 turn이 Compact하라고 정하고 끝나는 driver다.
-function compactSetup(compact: (session: string) => Promise<unknown>) {
+function compactSetup(compact: (session: string) => Promise<{ kind: string }>) {
   const queue = createQueue();
   const source = createTurnSource({
     queue,
@@ -166,7 +195,7 @@ test("a session that is compacting does not start a turn but another session sti
   });
   const { driver, put, turnOf, doneOf } = compactSetup((session) => {
     compacting.push(session);
-    return compactDone;
+    return compactDone.then(() => ({ kind: "compacted" }));
   });
 
   // A의 turn이 Compact하라고 정하고 끝난다. 그래도 다음 입력이 오기 전에는 Compact하지 않는다.
@@ -190,4 +219,29 @@ test("a session that is compacting does not start a turn but another session sti
   finishCompact();
   await tick();
   assert.equal(turnOf(await driver.startNext()), "trn_msg_a2");
+});
+
+test("a session whose Compact failed three times in a row is not compacted before its next turn", async () => {
+  const compacting: string[] = [];
+  const { driver, put, turnOf, doneOf } = compactSetup((session) => {
+    compacting.push(session);
+    return Promise.resolve({ kind: "failed" });
+  });
+  put("ses_a", "msg_1");
+  await doneOf(await driver.startNext());
+  // 세 번 이어 실패할 때까지는 turn마다 Compact한다.
+  for (let n = 2; n <= 4; n++) {
+    put("ses_a", `msg_${n}`);
+    assert.equal((await driver.startNext()).kind, "compacting");
+    await tick();
+    const next = await driver.startNext();
+    assert.equal(turnOf(next), `trn_msg_${n}`);
+    await doneOf(next);
+  }
+  // 그 뒤에는 Compact 없이 바로 시작한다.
+  put("ses_a", "msg_5");
+  const fifth = await driver.startNext();
+  assert.equal(turnOf(fifth), "trn_msg_5");
+  await doneOf(fifth);
+  assert.equal(compacting.length, 3);
 });

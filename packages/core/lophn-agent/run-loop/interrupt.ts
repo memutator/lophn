@@ -12,7 +12,14 @@ import { type PublishAgentEvent, publishTurnEnded } from "./turn-events.ts";
 // - `restarted`: lophn을 켤 때 state = running인 turn 전부(꺼지면서 queue와 메모리 기다림도 사라졌다)와,
 //   agent runtime child가 도는 중에 사라졌을 때(`interruptTurns`).
 // - `session_ended`: session을 archive하거나 지울 때 그 session의 turn. workspaces의 `EndDeps`가 같은 tx 안에서 부른다.
+// 그 turn의 requested·started tool call은 결과를 모르므로 uncertain으로 닫고 turn 결과에 unknown_effects로 싣는다(ACP 화면이
+// finished가 아닌 call을 실행 중으로 그린다). 다음 turn은 이 목록을 읽어 model에 알린다.
 // 대기 중이던 권한 요청과 질문의 cancelled 처리는 approvals와 agent-tools가 한다.
+
+// tools의 `toolsCloseStuckSteps`와 같은 값이다.
+const UNCERTAIN_OUTCOME = '{"kind":"uncertain","code":"uncertain"}';
+const UNCERTAIN_RESULT =
+  '{"status":"uncertain","summary":"The call was cut off when its turn ended; its outcome is not confirmed.","content":null,"complete":true,"source":null,"continuation":null,"pending":[]}';
 
 type InterruptReason = "restarted" | "session_ended";
 
@@ -37,7 +44,18 @@ export function interruptRunningTurns(
   for (const row of rows) {
     // 모델이 쓴 본문이 없으므로 machine이 확정한 사실만 결과로 정리한다.
     const outcome = { kind: "interrupted" as const, reason };
-    const facts = { turn: row.id, session: row.session, outcome };
+    const open = tx.sql
+      .all(
+        `select id from tool_calls where turn = ? and state in ('requested', 'started') order by id`,
+        [row.id],
+      )
+      .map((call) => String(call.id));
+    const facts = {
+      turn: row.id,
+      session: row.session,
+      outcome,
+      unknown_effects: open,
+    };
     const result = createHash("sha256")
       .update(canonicalize(facts), "utf8")
       .digest("hex");
@@ -52,6 +70,11 @@ export function interruptRunningTurns(
       null,
     );
     if (!done.ok) return done;
+    tx.sql.run(
+      `update tool_calls set state = 'finished', outcome = ?, result = ?, finished_at = ?, state_seq = state_seq + 1
+       where turn = ? and state in ('requested', 'started')`,
+      [UNCERTAIN_OUTCOME, UNCERTAIN_RESULT, done.value.finished_at, row.id],
+    );
     publishTurnEnded(tx, publish, current, outcome);
   }
   return ok(rows.length);

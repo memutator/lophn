@@ -28,7 +28,7 @@ type DriveDeps = {
   // 이전 대화가 커졌다고 끝난 turn이 정한 session을 그 session의 다음 turn을 시작하기 전에 Compact한다. 기다리지
   // 않고 돈다: 그동안 queue가 그 session을 도는 중으로 잡아 새 turn은 시작되지 않고, 다른 session의 turn 시작은
   // 막지 않는다. 끝나거나 실패하면 session을 푼다.
-  compact?(session: string): Promise<unknown>;
+  compact?(session: string): Promise<{ kind: string }>;
   // turn이 던진 예외와 session을 쉬는 상태로 돌리지 못한 일을 남긴다.
   report?(text: string): void;
   // 시험이 loop 대신 끼운다.
@@ -77,6 +77,20 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
   >();
   // 끝난 turn이 다음 turn 전에 Compact하라고 정한 session. runtime이 다시 뜨면 잊는다.
   const compactBefore = new Set<string>();
+  // session마다 이어서 실패한 Compact 수. 요약 model이 계속 실패하면 turn마다 헛 요약 call이 붙으므로 상한에서 멈춘다.
+  // 메모리에만 둔다: runtime이 다시 뜨면 한 번 더 해 본다.
+  const compactFailures = new Map<string, number>();
+  const COMPACT_FAILURE_MAX = 3;
+  function compactFailed(session: string, why: string): void {
+    const count = (compactFailures.get(session) ?? 0) + 1;
+    compactFailures.set(session, count);
+    deps.report?.(`session ${session} compact failed: ${why}`);
+    if (count === COMPACT_FAILURE_MAX) {
+      deps.report?.(
+        `session ${session} compact failed ${count} times in a row; it is not retried before the next turns`,
+      );
+    }
+  }
   // turn 하나의 입력 길. 시작 입력은 StartTurn 뒤 queue에서 꺼낸 것이다.
   function inputsOf(
     session: Parameters<TurnSource["began"]>[0],
@@ -128,11 +142,17 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
         }
         // 기다리지 않는다: 요약은 model call이라 오래 걸리고 pump는 다른 session의 turn을 시작해야 한다.
         void compact(start.session)
+          .then((result) => {
+            if (result.kind === "failed") {
+              compactFailed(start.session, "the summary did not complete");
+            } else if (result.kind === "compacted") {
+              compactFailures.delete(start.session);
+            }
+          })
           .catch((error) => {
-            deps.report?.(
-              `session ${start.session} compact failed: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
+            compactFailed(
+              start.session,
+              error instanceof Error ? error.message : String(error),
             );
           })
           .finally(() => release(start.session));
@@ -223,6 +243,17 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
         handle,
       });
       const done = handle.done
+        .then(async (end) => {
+          // 끝내는 기록이 실패하면 turns 행이 running으로 남아 새 입력을 StartTurn이 거절한다. failed로 닫는다.
+          // 던진 경우의 catch가 만든 finish_failed는 이미 닫았으므로 이 뒤에 둔다.
+          if (end.kind === "finish_failed") {
+            deps.report?.(
+              `turn ${turn.turn} could not be finished: ${end.error.message}`,
+            );
+            await turn.closeStarted("finish_failed").catch(() => {});
+          }
+          return end;
+        })
         .catch(async (error): Promise<LoopEnd> => {
           // loop가 던졌다. 이 turn을 failed로 닫아 session이 running으로 남지 않게 한다.
           const text = error instanceof Error ? error.message : String(error);
@@ -239,7 +270,11 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
           deps.credentials.end(turn.turn);
           active.delete(turn.turn);
           // session을 풀기 전에 올려야 풀린 session이 표 없이 골라지지 않는다.
-          if (handle.compactNext() && deps.compact !== undefined) {
+          if (
+            handle.compactNext() &&
+            deps.compact !== undefined &&
+            (compactFailures.get(start.session) ?? 0) < COMPACT_FAILURE_MAX
+          ) {
             compactBefore.add(start.session);
           }
           await release(start.session);
@@ -256,6 +291,7 @@ export function createTurnDriver(deps: DriveDeps): TurnDriver {
       deps.credentials.endSession(session);
       deps.preparer.forget(session);
       compactBefore.delete(session);
+      compactFailures.delete(session);
     },
     async revokeProvider(provider) {
       for (const entry of [...active.values()]) {

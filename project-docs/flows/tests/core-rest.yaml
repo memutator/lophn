@@ -458,6 +458,10 @@ files:
     covers: []
     note: "transaction이 corrupt(SQLITE_CORRUPT)를 만나면 unavailable에 원인을 싣고 연결을 fault로 만들어 다음 transaction은 SQL을 돌리지 않는다. 망가진 ledger에 계속 쓰지 않게 하는 규칙이다"
 
+  - path: packages/core/storage/blobs/worker/maintenance_test.ts
+    covers: [blob-maintenance-stop:collected, blob-maintenance-stop:kept]
+    note: "정지 유지보수가 지운 blob과 본문이 없는 blob의 purpose·미참조 기록을 지우고, 본문이 있는 blob의 기록은 남긴다. 사용자 data를 지우는 규칙이라 둔다"
+
   - path: packages/core/storage/migration/data-steps_test.ts
     covers:
       - data-steps-apply:applied

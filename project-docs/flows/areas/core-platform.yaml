@@ -911,8 +911,9 @@ flows:
     steps:
       - "storage wiring의 stopped가 세 정지 조건(새 준비 차단, command 차단, writer 정지)을 본다. 하나라도 거짓이면 아무것도 하지 않고 기록도 남기지 않는다"
       - "조건이 맞으면 정비 child를 띄운다. 입출력은 버린다. 30초를 넘기면 child만 끝낸다. LOPHN_HOME 밖의 ledger 경로는 아무것도 읽지 않고 거절한다"
+      - "본문이 없는 blob의 부속 기록(blobs/purposes, blobs/unreferenced)을 한 번에 2,000개까지 지운다. 본문 stat이 ENOENT일 때만 지우고, 실패는 결과를 바꾸지 않는다"
       - "child가 ledger를 read-only로 열어 blob_refs 전체를 한 snapshot에서 500행씩 읽는다. 읽다 실패하면 아무것도 지우지 않는다"
-      - "collectGarbage가 참조 없는 설치 blob마다 처음 본 시각의 미참조 기록을 남기고, 7일이 지난 것만 지운다. 다시 참조된 것은 기록을 지운다"
+      - "collectGarbage가 참조 없는 설치 blob마다 처음 본 시각의 미참조 기록을 남기고, 7일이 지난 것만 지운다. 본문을 지웠거나 이미 없으면 그 blob의 purpose 기록과 미참조 기록도 지운다. 다시 참조된 것은 기록을 지운다"
       - "trimCapacity가 model_call_body 상한(512MB)을 넘긴 만큼 오래된 것부터 지운다. permanent 종류와 준비 중이거나 유예 안의 blob은 뺀다. 앞서 한 GC 삭제는 용량 정리가 실패해도 남는다"
       - "실패는 logs/maintenance.jsonl에 분류 한 줄만 남긴다. 원문, 경로, hash는 남기지 않는다"
     outcomes:

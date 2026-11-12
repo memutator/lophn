@@ -1,7 +1,9 @@
-// 파일 IPC. sender는 등록된 desktop 창 본문 main frame만 받는다. 쓰기는 글을 싣으므로 64 KiB JSON
-// 상한 대신 schema의 바이트 상한(FILE_TEXT_MAX_BYTES)으로 검사한다. 창 닫기 guard의 알림·답도 여기서 잇는다.
+// 파일 IPC. sender는 등록된 desktop 창 본문 main frame만 받는다. 쓰기는 글을, 바이트 붙여넣기는 바이트를
+// 싣는다. 64 KiB JSON 상한 대신 schema의 바이트 상한(FILE_TEXT_MAX_BYTES·FILE_VIEW_MAX_BYTES)으로 검사한다.
+// 창 닫기 guard의 알림·답도 여기서 잇는다.
 import {
   FILE_CLOSE_ANSWER_CHANNEL,
+  FILE_COPY_CHANNEL,
   FILE_COUNTS_CHANNEL,
   FILE_CREATE_CHANNEL,
   FILE_DELETE_CHANNEL,
@@ -11,8 +13,10 @@ import {
   FILE_RENAME_CHANNEL,
   FILE_REVEAL_CHANNEL,
   FILE_WATCH_CHANNEL,
+  FILE_WRITE_BYTES_CHANNEL,
   FILE_WRITE_CHANNEL,
   fileCloseAnswerSchema,
+  fileCopySchema,
   fileCountsSchema,
   fileCreateSchema,
   fileDeleteSchema,
@@ -22,6 +26,7 @@ import {
   fileRenameSchema,
   fileRevealSchema,
   fileWatchSchema,
+  fileWriteBytesSchema,
   fileWriteSchema,
 } from "../../ipc/files.ts";
 import {
@@ -30,8 +35,8 @@ import {
 } from "../../ipc/instructions.ts";
 import { MEMORY_OPEN_CHANNEL, memoryOpenSchema } from "../../ipc/memory.ts";
 import {
-  checkCaller,
   type ContentsRegistry,
+  checkCaller,
   guardIpc,
   type IpcEvent,
 } from "../desktop/ipc-guard.ts";
@@ -67,6 +72,8 @@ const HANDLED = [
   FILE_RENAME_CHANNEL,
   FILE_DELETE_CHANNEL,
   FILE_CREATE_CHANNEL,
+  FILE_COPY_CHANNEL,
+  FILE_WRITE_BYTES_CHANNEL,
   FILE_REVEAL_CHANNEL,
   FILE_WATCH_CHANNEL,
   INSTRUCTIONS_OPEN_CHANNEL,
@@ -151,6 +158,26 @@ export function registerFilesIpc(ipc: FilesIpcMain, deps: FilesIpcDeps) {
     );
     if (!checked.ok) return reject(checked.error.code);
     return await deps.adapter.create(checked.value);
+  });
+
+  ipc.handle(FILE_COPY_CHANNEL, async (event, input) => {
+    const checked = guardIpc(
+      deps.registry,
+      event as IpcEvent,
+      fileCopySchema,
+      input,
+    );
+    if (!checked.ok) return reject(checked.error.code);
+    return await deps.adapter.copy(checked.value);
+  });
+
+  ipc.handle(FILE_WRITE_BYTES_CHANNEL, async (event, input) => {
+    // 바이트는 JSON 상한(64 KiB)의 대상이 아니므로 schema만 직접 본다.
+    const caller = checkCaller(deps.registry, event as IpcEvent);
+    if (!caller.ok) return reject("forbidden");
+    const parsed = fileWriteBytesSchema.safeParse(input);
+    if (!parsed.success) return reject("invalid_input");
+    return await deps.adapter.writeBytes(parsed.data);
   });
 
   ipc.handle(FILE_REVEAL_CHANNEL, async (event, input) => {

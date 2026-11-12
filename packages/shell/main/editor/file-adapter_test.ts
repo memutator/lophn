@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-
+import { FILE_VIEW_MAX_BYTES } from "../../ipc/files.ts";
 import {
   createFileAdapter,
   type FileAdapterOptions,
@@ -230,6 +230,101 @@ test("옮기기는 같은 이름이 있는 자리와 자기 안을 거절하고 
     });
     assert.equal(moved.ok, true);
     assert.equal(await readFile(join(dir, "two", "b.md"), "utf8"), "one");
+  } finally {
+    await done();
+  }
+});
+
+test("복사와 writeBytes는 이미 있는 대상을 덮지 않는다(사용자 file이 남는다)", async () => {
+  const { dir, adapter, done } = await setup();
+  try {
+    const from = join(dir, "one", "a.md");
+    const to = join(dir, "two", "a.md");
+    await mkdir(join(dir, "one"), { recursive: true });
+    await mkdir(join(dir, "two"));
+    await writeFile(from, "one");
+    await writeFile(to, "two");
+    assert.deepEqual(await adapter.copy({ from, to }), {
+      ok: false,
+      code: "conflict",
+    });
+    assert.equal(await readFile(to, "utf8"), "two");
+
+    // 폴더 복사는 아래 file까지 같이 온다.
+    const tree = join(dir, "tree");
+    await mkdir(join(tree, "inner"), { recursive: true });
+    await writeFile(join(tree, "inner", "x.md"), "x");
+    assert.deepEqual(
+      await adapter.copy({ from: tree, to: join(dir, "deep", "copy") }),
+      {
+        ok: true,
+        value: {},
+      },
+    );
+    assert.equal(
+      await readFile(join(dir, "deep", "copy", "inner", "x.md"), "utf8"),
+      "x",
+    );
+
+    // 이미 있는 폴더도 덮지 않는다.
+    const taken = join(dir, "taken");
+    await mkdir(taken);
+    await writeFile(join(taken, "keep.md"), "keep");
+    assert.deepEqual(await adapter.copy({ from: tree, to: taken }), {
+      ok: false,
+      code: "conflict",
+    });
+    assert.deepEqual(await readdir(taken), ["keep.md"]);
+
+    // writeBytes는 새 file만 만든다.
+    const bytes = new Uint8Array([1, 2, 3]);
+    assert.deepEqual(await adapter.writeBytes({ path: to, bytes }), {
+      ok: false,
+      code: "conflict",
+    });
+    assert.equal(await readFile(to, "utf8"), "two");
+    const fresh = join(dir, "paste", "new.png");
+    assert.deepEqual(await adapter.writeBytes({ path: fresh, bytes }), {
+      ok: true,
+      value: { hash: sha256(bytes) },
+    });
+    assert.deepEqual(new Uint8Array(await readFile(fresh)), bytes);
+  } finally {
+    await done();
+  }
+});
+
+test("writeBytes는 상한을 넘으면 too_large이고 secret 파일을 거절한다", async () => {
+  const { dir, adapter, done } = await setup();
+  try {
+    const big = join(dir, "big.png");
+    assert.deepEqual(
+      await adapter.writeBytes({
+        path: big,
+        bytes: new Uint8Array(FILE_VIEW_MAX_BYTES + 1),
+      }),
+      { ok: false, code: "too_large" },
+    );
+    assert.equal(
+      await stat(big).then(
+        () => true,
+        () => false,
+      ),
+      false,
+    );
+
+    const secrets = join(dir, "root", "secrets.json");
+    assert.deepEqual(
+      await adapter.copy({ from: secrets, to: join(dir, "x") }),
+      {
+        ok: false,
+        code: "forbidden",
+      },
+    );
+    assert.deepEqual(
+      await adapter.writeBytes({ path: secrets, bytes: new Uint8Array([1]) }),
+      { ok: false, code: "forbidden" },
+    );
   } finally {
     await done();
   }

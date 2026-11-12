@@ -3,11 +3,12 @@
 // projects.get, documents.list·get, files.list schema에서 작업대가 읽는 field만
 // 옮긴 것이다. layout 저장·복원은 preload의 lophnLayout이 있을 때만 main 통로를 쓴다.
 // bridge가 없으면 읽지 못함으로 답하고 작업대는 빈 배치로 시작한다.
-import type { FilesApi } from "../../ipc/files.ts";
-import type { CoreSource } from "../desktop/connection/connection.ts";
+
 import { jobList } from "../../../protocol/jobs/jobs.ts";
 import { projectApi } from "../../../protocol/projects/project-api.ts";
+import type { FileReply, FilesApi } from "../../ipc/files.ts";
 import { commandCall } from "../command-call.ts";
+import type { CoreSource } from "../desktop/connection/connection.ts";
 import {
   readProjects,
   windowFolderPicker,
@@ -15,6 +16,7 @@ import {
 import { createLayoutSource } from "../shell/layout-source.ts";
 import { coreAgentsSource } from "./agents/core-source.ts";
 import { coreFileSearchSource } from "./search/core-source.ts";
+import type { RunRecordView } from "./sidebar/run-list.tsx";
 import type {
   FileOpResult,
   FileRow,
@@ -29,7 +31,6 @@ import type {
   WorkflowStartedBy,
   WorkspaceSource,
 } from "./source.ts";
-import type { RunRecordView } from "./sidebar/run-list.tsx";
 
 interface DocumentRow {
   id: string;
@@ -220,7 +221,7 @@ const filesBridge = () => (globalThis as { lophnFiles?: FilesApi }).lophnFiles;
 
 /** main이 디스크에서 직접 하는 파일 일. bridge가 없거나 던지면 unavailable이다. */
 async function fileOp(
-  run: (bridge: FilesApi) => ReturnType<FilesApi["rename"]>,
+  run: (bridge: FilesApi) => Promise<FileReply<unknown>>,
 ): Promise<FileOpResult> {
   const bridge = filesBridge();
   if (!bridge) return { ok: false, code: "unavailable" };
@@ -358,6 +359,9 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
 
     create: (path, kind) => fileOp((bridge) => bridge.create({ path, kind })),
     rename: (from, to) => fileOp((bridge) => bridge.rename({ from, to })),
+    copy: (from, to) => fileOp((bridge) => bridge.copy({ from, to })),
+    writeBytes: (path, bytes) =>
+      fileOp((bridge) => bridge.writeBytes({ path, bytes })),
     trash: (path) => fileOp((bridge) => bridge.delete({ path })),
     reveal: (path) => fileOp((bridge) => bridge.reveal({ path })),
 

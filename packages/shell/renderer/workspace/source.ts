@@ -3,9 +3,9 @@
 // core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
 import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { FileFailure } from "../../ipc/files.ts";
+import type { LayoutSource } from "../shell/layout-source.ts";
 import type { AgentsSource } from "./agents/source.ts";
 import type { FileSearchSource } from "./search/source.ts";
-import type { LayoutSource } from "../shell/layout-source.ts";
 import type { RunRecordView } from "./sidebar/run-list.tsx";
 
 /** 연결 폴더. */
@@ -232,6 +232,10 @@ export interface WorkspaceSource {
   create(path: string, kind: "file" | "folder"): Promise<FileOpResult>;
   /** 이름 바꾸기이자 옮기기. 대상이 있으면 `conflict`, 폴더를 자기 안으로 옮기면 `invalid_input`이다. */
   rename(from: string, to: string): Promise<FileOpResult>;
+  /** 붙여넣기·복제. `to`가 이미 있으면 `conflict`이고 아무것도 덮지 않는다. `to`가 `from` 안이면 `invalid_input`. */
+  copy(from: string, to: string): Promise<FileOpResult>;
+  /** 붙여넣은 바이트(클립보드 이미지)로 새 file만 만든다. 이미 있으면 `conflict`다. */
+  writeBytes(path: string, bytes: Uint8Array): Promise<FileOpResult>;
   /** OS 휴지통으로 보낸다. 휴지통을 못 쓰면 `unavailable`이고 지우지 않는다. */
   trash(path: string): Promise<FileOpResult>;
   /** OS 파일 관리자에서 보인다. */

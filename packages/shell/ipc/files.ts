@@ -11,6 +11,10 @@ export const FILE_WRITE_CHANNEL = "shell:file-write";
 export const FILE_RENAME_CHANNEL = "shell:file-rename";
 export const FILE_DELETE_CHANNEL = "shell:file-delete";
 export const FILE_CREATE_CHANNEL = "shell:file-create";
+/** 붙여넣기·복제. `to`가 이미 있으면 `conflict`이고 아무것도 덮지 않는다. */
+export const FILE_COPY_CHANNEL = "shell:file-copy";
+/** 붙여넣은 바이트(클립보드 이미지)로 새 file만 만든다. */
+export const FILE_WRITE_BYTES_CHANNEL = "shell:file-write-bytes";
 export const FILE_REVEAL_CHANNEL = "shell:file-reveal";
 /** 이 창이 보는 파일 전체 목록을 통째로 바꾼다. 빈 목록이면 watch를 끈다. */
 export const FILE_WATCH_CHANNEL = "shell:file-watch";
@@ -36,6 +40,10 @@ const path = z
   .regex(/^(\/|[A-Za-z]:[\\/])/);
 // 내용의 sha256 hex. 읽을 때 준 hash가 쓸 때의 base_hash다.
 const hash = z.string().regex(/^[0-9a-f]{64}$/);
+// 바이트는 구조가 아니라 이름표(`[object Uint8Array]`)로 알아본다(core.ts의 `bytes`와 같다).
+const bytes = z.custom<Uint8Array>(
+  (value) => Object.prototype.toString.call(value) === "[object Uint8Array]",
+);
 
 export const fileListSchema = z.object({ path }).strict();
 export const fileReadSchema = z.object({ path }).strict();
@@ -62,6 +70,8 @@ export const fileCreateSchema = z
   })
   .strict();
 export const fileRevealSchema = z.object({ path }).strict();
+export const fileCopySchema = z.object({ from: path, to: path }).strict();
+export const fileWriteBytesSchema = z.object({ path, bytes }).strict();
 export const fileWatchSchema = z
   .object({
     paths: z.array(path).max(256),
@@ -135,6 +145,16 @@ export interface FilesApi {
     from: string;
     to: string;
   }): Promise<FileReply<Record<PropertyKey, never>>>;
+  /** `to`가 이미 있으면 `conflict`이고 아무것도 덮어쓰지 않는다. `to`가 `from` 안이면 `invalid_input`. */
+  copy(input: {
+    from: string;
+    to: string;
+  }): Promise<FileReply<Record<PropertyKey, never>>>;
+  /** 붙여넣은 바이트로 새 file만 만든다. 이미 있으면 `conflict`, `FILE_VIEW_MAX_BYTES`를 넘으면 `too_large`. */
+  writeBytes(input: {
+    path: string;
+    bytes: Uint8Array;
+  }): Promise<FileReply<{ hash: string }>>;
   /** OS 휴지통으로 보낸다. 비어 있지 않은 폴더도 된다. 휴지통을 못 쓰면 `unavailable`이고 아무것도 지우지 않는다. */
   delete(input: {
     path: string;

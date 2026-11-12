@@ -1101,6 +1101,28 @@ export function fakeWorkspaceSource(
       target.push({ ...node, name: nameOf(to) });
       return done;
     },
+    copy(from, to) {
+      if (to.startsWith(`${from}/`)) return fail("invalid_input");
+      const source = find(mounts, dirOf(from));
+      const target = find(mounts, dirOf(to));
+      const node = source?.find((item) => item.name === nameOf(from));
+      if (source === undefined || target === undefined || node === undefined) {
+        return fail("not_found");
+      }
+      if (target.some((item) => item.name === nameOf(to))) {
+        return fail("conflict");
+      }
+      target.push(...clone([node]));
+      return done;
+    },
+    writeBytes(path) {
+      const parent = find(mounts, dirOf(path));
+      if (parent === undefined) return fail("not_found");
+      const name = nameOf(path);
+      if (parent.some((item) => item.name === name)) return fail("conflict");
+      parent.push({ name });
+      return done;
+    },
     trash(path) {
       const siblings = find(mounts, dirOf(path));
       const at = siblings?.findIndex((item) => item.name === nameOf(path));

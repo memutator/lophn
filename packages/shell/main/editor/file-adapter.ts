@@ -4,6 +4,7 @@
 // 충돌은 디스크 내용 hash 비교로만 안다(쓰기는 읽을 때 받은 hash를 기대값으로 보낸다).
 import { createHash, randomBytes } from "node:crypto";
 import {
+  cp,
   lstat,
   mkdir,
   open,
@@ -67,6 +68,13 @@ export interface FileAdapter {
     kind: "file" | "folder";
   }): Promise<FileReply<Empty>>;
   rename(input: { from: string; to: string }): Promise<FileReply<Empty>>;
+  /** `to`가 이미 있으면 `conflict`이고 아무것도 덮지 않는다. `to`가 `from` 안이면 `invalid_input`. */
+  copy(input: { from: string; to: string }): Promise<FileReply<Empty>>;
+  /** 붙여넣은 바이트로 새 file만 만든다. 이미 있으면 `conflict`, `FILE_VIEW_MAX_BYTES`를 넘으면 `too_large`. */
+  writeBytes(input: {
+    path: string;
+    bytes: Uint8Array;
+  }): Promise<FileReply<FileWritten>>;
   delete(input: { path: string }): Promise<FileReply<Empty>>;
   reveal(input: { path: string }): Promise<FileReply<Empty>>;
   /** 이 창이 보는 경로 전체를 통째로 바꾼다. 빈 목록이면 끈다. */
@@ -421,6 +429,49 @@ export function createFileAdapter(options: FileAdapterOptions): FileAdapter {
         if (taken && !caseOnly) return fail("conflict");
         await ops.rename(from, to.path);
         return { ok: true, value: {} };
+      });
+    },
+
+    // 붙여넣기·복제. 덮어쓰지 않는다: 대상이 이미 있으면 conflict이고 그 자리 내용은 그대로다.
+    async copy(input) {
+      const to = await accept(input.to);
+      if (!to.ok) return fail(to.code);
+      return await guarded(input.from, async (from) => {
+        await lstat(from);
+        const taken = await lstat(to.path).then(
+          () => true,
+          () => false,
+        );
+        if (taken) return fail("conflict");
+        // 폴더를 자기 안으로 복사할 수 없다.
+        if (inside(await realPath(to.path), await realPath(from))) {
+          return fail("invalid_input");
+        }
+        await mkdir(dirname(to.path), { recursive: true });
+        // file과 폴더를 같이 다룬다. force: false에 errorOnExist: true라 어떤 것도 덮지 않는다.
+        await cp(from, to.path, {
+          recursive: true,
+          errorOnExist: true,
+          force: false,
+        });
+        return { ok: true, value: {} };
+      });
+    },
+
+    // 붙여넣은 바이트(클립보드 이미지)는 새 file만 만든다. 원본이 없으니 임시 file+rename을 쓰지 않는다.
+    async writeBytes(input) {
+      return await guarded(input.path, async (clean) => {
+        if (input.bytes.byteLength > FILE_VIEW_MAX_BYTES) {
+          return fail("too_large");
+        }
+        await mkdir(dirname(clean), { recursive: true });
+        const handle = await open(clean, "wx", 0o644);
+        try {
+          await handle.writeFile(input.bytes);
+        } finally {
+          await handle.close();
+        }
+        return { ok: true, value: { hash: sha256(input.bytes) } };
       });
     },
 

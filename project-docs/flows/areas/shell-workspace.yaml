@@ -2171,6 +2171,34 @@ flows:
     crosses_process: false
     docs: [architecture/workspace-layout.md]
 
+  - id: explorer-select
+    title: "Files panel에서 여러 줄을 고르고 고른 줄 전부에 한 동작을 한다"
+    actor: person
+    entries: [ui:explorer-select]
+    when: "Ctrl/Cmd+클릭, Shift+클릭, Ctrl/Cmd+A, Shift+화살표, 그리고 고른 줄들에 Delete·Copy Path·끌어 옮기기"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/sidebar/explorer.tsx
+      - packages/shell/renderer/workspace/sidebar/explorer-row.tsx
+    steps:
+      - "보통 클릭은 그 줄 하나를 고르고 연다(폴더는 펼친다). Ctrl/Cmd+클릭은 그 줄을 선택에 더하거나 빼고, Shift+클릭은 기준 줄부터의 범위를 고른다. 둘 다 열지 않는다"
+      - "Ctrl/Cmd+A는 보이는 줄 전부, Shift+화살표는 focus를 옮기며 더하거나 뺀다. 접는 동작과 Collapse All은 화면에서 사라진 줄을 선택에서 걷어낸다"
+      - "폴더와 그 안의 줄이 같이 골라지면 폴더만 다룬다"
+      - "Delete는 확인 dialog 하나 뒤에 고른 것마다 휴지통으로 보내고(실패·취소는 그 자리에서 멈추거나 알린다), Copy Path는 경로들을 줄바꿈으로 이어 한 번에 쓴다. 끌어 옮기기는 고른 것마다 옮긴다"
+    outcomes:
+      - id: selected
+        observe: ["screen:new-explorer-root"]
+      - id: trashed
+        observe: ["disk:<path> (OS 휴지통에 있음)", "screen:new-explorer-root"]
+      - id: trash-failed
+        when: "휴지통으로 보내지 못한 것이 하나라도 있다(나머지는 그대로 간다). 실패 문구가 dialog에 남는다"
+        observe: ["disk:<path> (변화 없음)", "screen:new-explorer-root"]
+      - id: save-refused
+        when: "지울 경로(폴더면 아래)의 열린 탭에 저장 안 된 글이 있고 사람이 취소했다. 그 자리에서 멈춘다"
+        observe: ["disk:<path> (변화 없음)"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md]
+
   - id: workspace-switch
     title: "왼쪽 sidebar에서 다른 workspace로 간다"
     actor: person

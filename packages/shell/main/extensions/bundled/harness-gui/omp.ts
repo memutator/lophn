@@ -10,6 +10,7 @@ import { parse } from "yaml";
 import type { Clock } from "../../../../../base/clock.ts";
 import { formatAt } from "../../../../../base/clock.ts";
 import type { IdSource } from "../../../../../base/id.ts";
+import { redactCredentials } from "../../../../../base/telemetry/log.ts";
 import type { AcpInput } from "../../../../../protocol/acp/input.ts";
 import {
   ACP_TOOL_BODY_LIMIT,
@@ -227,6 +228,28 @@ const CATEGORIES: Record<string, AcpToolItem["category"]> = {
 };
 // 끝낼 때 omp가 session을 닫는 시간. 넘으면 SIGTERM이다.
 const EXIT_WAIT_MS = 5000;
+// omp가 ready frame에 알리는 maxReassembledFrameBytes와 같다. 줄 하나와 chunk 조각 전체가 이 크기를 넘으면 버린다.
+const MAX_FRAME_BYTES = 64 * 1024 * 1024;
+const START_WAIT_MS = 30_000;
+const REQUEST_WAIT_MS = 30_000;
+// stop이 omp의 abort와 session id 읽기에 주는 시간. 넘으면 답을 기다리지 않고 stdin을 닫는다.
+const STOP_POLITE_MS = 3000;
+// 일이 끝난 뒤에야 답하는 요청(녹화로 확인: bash는 exitCode와 함께, compact는 compaction 뒤)과 녹화하지 못한 요청은 기한에서 뺀다.
+// `/usage` 같은 명령의 `prompt`도 명령이 끝나야 답한다(녹화: command_output).
+const UNTIMED = new Set([
+  "bash",
+  "compact",
+  "goal",
+  "cancel_subagent",
+  "abort_bash",
+  "set_fast_mode",
+  "set_slow_mode",
+  "set_session_name",
+]);
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+const reason = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
 
 // omp는 handle이 없는 `/이름`을 model에게 글로 보낸다. 18.8.7에서 TUI 전용인 이름(그 별칭 포함)은 보내지 않고 막는다.
 // adapter가 RPC로 하는 `new`, `clear`, `fork`, `branch`, `tree`, `goal`은 여기에 없다.
@@ -334,9 +357,11 @@ const lines = (text: unknown) =>
 const relative = (cwd: string, path: string) =>
   path.startsWith(`${cwd}/`) ? path.slice(cwd.length + 1) : path;
 const errorText = (frame: Frame) =>
-  typeof frame.error === "string"
-    ? frame.error
-    : (frame.error?.message ?? "omp failed");
+  redactCredentials(
+    typeof frame.error === "string"
+      ? frame.error
+      : (frame.error?.message ?? "omp failed"),
+  );
 const cut = (text: string | null) =>
   text !== null && text.length > ACP_TOOL_BODY_LIMIT
     ? text.slice(0, ACP_TOOL_BODY_LIMIT)
@@ -774,7 +799,7 @@ function thread(
         else if (last?.stopReason === "error") {
           endTurn("failed", {
             code: "internal",
-            message: last.errorMessage ?? "omp failed",
+            message: redactCredentials(last.errorMessage ?? "omp failed"),
           });
         } else endTurn("completed");
         return true;
@@ -914,6 +939,9 @@ const start: (io: OmpIo) => Start =
     let stopping = false;
     let restarting: Promise<void> | null = null;
     let stderrTail = "";
+    // stderr 꼬리는 사람이 보는 실패 글에 붙는다.
+    const tail = () =>
+      stderrTail === "" ? "" : `\n${redactCredentials(stderrTail.trim())}`;
     const now = () => clock.now();
     // hidden(rewind)이 숨길 항목을 알아야 해서 낸 갱신을 접어 둔다.
     let acp: AcpState = EMPTY_ACP_STATE;
@@ -938,7 +966,25 @@ const start: (io: OmpIo) => Start =
         return Promise.resolve({ ok: false, error: "omp exited" });
       }
       return new Promise((resolve) => {
-        waiting.set(id, resolve as (reply: Reply<unknown>) => void);
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        waiting.set(id, (reply) => {
+          clearTimeout(timer);
+          resolve(reply as Reply<T>);
+        });
+        const untimed =
+          UNTIMED.has(type) ||
+          (type === "prompt" &&
+            typeof params.message === "string" &&
+            params.message.startsWith("/"));
+        if (!untimed) {
+          timer = setTimeout(() => {
+            waiting.delete(id);
+            resolve({
+              ok: false,
+              error: `omp did not answer ${type} in 30 seconds.`,
+            });
+          }, REQUEST_WAIT_MS);
+        }
         write({ id, type, ...params });
       });
     }
@@ -1008,7 +1054,18 @@ const start: (io: OmpIo) => Start =
 
     // 명령 출력은 터미널 색 escape를 달고 오고 길 수 있다. turn이 없으면 turn 밖 알림이다.
     function info(raw: string, level: "info" | "warning" = "info") {
-      main.notice({ type: "info", text: plain(raw), level });
+      main.notice({
+        type: "info",
+        text: redactCredentials(plain(raw)),
+        level,
+      });
+    }
+    // omp 줄을 읽거나 처리하지 못해 버릴 때. 줄마다 알리면 넘치니 처음 한 번만 낸다.
+    let warnedUnreadable = false;
+    function unreadable(why: string) {
+      if (warnedUnreadable) return;
+      warnedUnreadable = true;
+      info(`omp sent a message lophn could not read: ${why}`, "warning");
     }
     function commandOutput(raw: string) {
       const text = plain(raw);
@@ -1044,17 +1101,26 @@ const start: (io: OmpIo) => Start =
     let started = false;
     let onFrame: (frame: Frame) => void = () => {};
 
-    /** omp를 띄우고 `ready`(또는 끝남)까지 기다릴 Promise를 돌려준다. spawn과 handler 등록은 바로 한다. */
-    function connect(args: string[]): Promise<"ready" | "exit"> {
+    /** omp를 띄우고 `ready`(또는 끝남, 기한)까지 기다릴 Promise를 돌려준다. spawn과 handler 등록은 바로 한다. */
+    function connect(args: string[]): Promise<"ready" | "exit" | "timeout"> {
       const mine = spawn("omp", args, { cwd });
       proc = mine;
       exited = false;
       stderrTail = "";
       let buffer = "";
+      // 넘친 줄을 버리는 중이면 다음 줄바꿈까지 받은 것도 그 줄의 꼬리라 버린다.
+      let skipping = false;
       const chunks = new Map<string, Buffer[]>();
-      let settle: (value: "ready" | "exit") => void = () => {};
-      const first = new Promise<"ready" | "exit">((resolve) => {
-        settle = resolve;
+      let settle: (value: "ready" | "exit" | "timeout") => void = () => {};
+      const first = new Promise<"ready" | "exit" | "timeout">((resolve) => {
+        const wait = setTimeout(() => {
+          mine.kill();
+          resolve("timeout");
+        }, START_WAIT_MS);
+        settle = (value) => {
+          clearTimeout(wait);
+          resolve(value);
+        };
       });
       let done: () => void = () => {};
       gone = new Promise<void>((resolve) => {
@@ -1062,28 +1128,54 @@ const start: (io: OmpIo) => Start =
       });
       function onLine(line: string) {
         if (line.trim() === "") return;
-        let frame: Frame;
+        let parsed: unknown;
         try {
-          frame = JSON.parse(line) as Frame;
+          parsed = JSON.parse(line);
         } catch {
           return;
         }
-        if (frame.type === "ready") {
-          settle("ready");
-        } else if (frame.type === "rpc_chunk") {
-          // v2의 큰 frame. 같은 chunkId의 조각을 순서대로 모아 한 줄로 되돌린다.
-          const parts = chunks.get(frame.chunkId ?? "") ?? [];
-          parts[frame.index ?? 0] = Buffer.from(
-            String(frame.data ?? ""),
-            "base64",
-          );
-          chunks.set(frame.chunkId ?? "", parts);
-          if (parts.filter(Boolean).length === frame.count) {
-            chunks.delete(frame.chunkId ?? "");
-            onLine(Buffer.concat(parts).toString("utf8"));
+        if (!isRecord(parsed)) return unreadable("it is not an object");
+        const frame = parsed as Frame;
+        try {
+          if (frame.type === "ready") {
+            settle("ready");
+          } else if (frame.type === "rpc_chunk") {
+            // v2의 큰 frame. 같은 chunkId의 조각을 순서대로 모아 한 줄로 되돌린다.
+            const { chunkId, count, index } = frame;
+            if (
+              typeof chunkId !== "string" ||
+              chunkId === "" ||
+              !Number.isInteger(count) ||
+              !Number.isInteger(index) ||
+              (count as number) <= 0 ||
+              (index as number) < 0 ||
+              (index as number) >= (count as number)
+            ) {
+              return unreadable("a chunk has a wrong index");
+            }
+            const parts = chunks.get(chunkId) ?? [];
+            parts[index as number] = Buffer.from(
+              String(frame.data ?? ""),
+              "base64",
+            );
+            chunks.set(chunkId, parts);
+            let held = 0;
+            for (const one of chunks.values()) {
+              held = one.reduce((sum, part) => sum + part.length, held);
+            }
+            if (held > MAX_FRAME_BYTES) {
+              chunks.delete(chunkId);
+              return unreadable("a message is too large");
+            }
+            if (parts.filter(Boolean).length === count) {
+              chunks.delete(chunkId);
+              onLine(Buffer.concat(parts).toString("utf8"));
+            }
+          } else {
+            onFrame(frame);
           }
-        } else {
-          onFrame(frame);
+        } catch (error) {
+          unreadable(reason(error));
         }
       }
       mine.onStderr((text) => {
@@ -1098,7 +1190,15 @@ const start: (io: OmpIo) => Start =
         ) {
           const line = buffer.slice(0, at);
           buffer = buffer.slice(at + 1);
-          onLine(line);
+          if (skipping) skipping = false;
+          else if (line.length > MAX_FRAME_BYTES)
+            unreadable("a line is too long");
+          else onLine(line);
+        }
+        if (buffer.length > MAX_FRAME_BYTES) {
+          buffer = "";
+          skipping = true;
+          unreadable("a line is too long");
         }
       });
       mine.onExit((code) => {
@@ -1113,7 +1213,7 @@ const start: (io: OmpIo) => Start =
         main.ensureTurn();
         main.endTurn("failed", {
           code: "unavailable",
-          message: `omp exited${code === null ? "" : ` (code ${code})`}.${stderrTail === "" ? "" : `\n${stderrTail.trim()}`}`,
+          message: `omp exited${code === null ? "" : ` (code ${code})`}.${tail()}`,
         });
       });
       return first;
@@ -1343,9 +1443,24 @@ const start: (io: OmpIo) => Start =
     const publishMeta = () =>
       publish({ type: "session_changed", session: meta() });
 
+    // 못 읽으면 앞에 안 id를 그대로 둔다. TUI로 넘길 때 옛 session이 열릴 수 있어 처음 한 번 알린다.
+    let warnedSession = false;
     async function readState() {
       const reply = await request<State>("get_state");
-      if (!reply.ok) return;
+      if (
+        !reply.ok ||
+        !isRecord(reply.data) ||
+        typeof reply.data.sessionId !== "string"
+      ) {
+        if (!warnedSession) {
+          warnedSession = true;
+          info(
+            "omp did not report its session, so the terminal view may open an earlier session.",
+            "warning",
+          );
+        }
+        return;
+      }
       st = reply.data;
       cliSession = st.sessionId;
       goal = st.goal?.goal ?? null;
@@ -1376,16 +1491,21 @@ const start: (io: OmpIo) => Start =
         "get_available_thinking_levels",
       );
       // 추론하지 않는 model은 ["off"]만 준다. 그 model에서 목록을 비우면 다시 고를 단계를 잃는다.
-      if (reply.ok && reply.data.levels.length > 1) levels = reply.data.levels;
+      const got = reply.ok ? reply.data?.levels : undefined;
+      if (Array.isArray(got) && got.length > 1) levels = got;
     }
     async function readStats() {
       const reply = await request<Stats>("get_session_stats");
-      if (reply.ok) stats = reply.data;
+      if (reply.ok && isRecord(reply.data)) stats = reply.data;
     }
     async function refresh() {
       await Promise.all([readState(), readLevels(), readStats()]);
       publishMeta();
     }
+    // frame handler 안에서는 기다리지 않는다. reject를 받지 않으면 main process가 unhandledRejection으로 꺼진다.
+    const stateFailed = (error: unknown) =>
+      info(`omp did not report its state: ${reason(error)}`, "warning");
+    const refreshInBackground = () => void refresh().catch(stateFailed);
 
     // omp 설정은 읽기만 한다. 없거나 못 읽으면 비어 있는 것으로 본다.
     async function readConfig() {
@@ -1942,7 +2062,7 @@ const start: (io: OmpIo) => Start =
           main.frame(frame);
           if (frame.yielded !== false && frame.isTerminal !== false) {
             hadModelTurn = true;
-            void refresh();
+            refreshInBackground();
           }
           return;
         case "prompt_result": {
@@ -1951,7 +2071,7 @@ const start: (io: OmpIo) => Start =
           if (frame.status === "error") {
             main.endTurn("failed", {
               code: "internal",
-              message: failure?.message ?? "omp failed",
+              message: redactCredentials(failure?.message ?? "omp failed"),
             });
           } else if (frame.status === "aborted") main.endTurn("stopped");
           else if (frame.agentInvoked === false) main.endTurn("completed");
@@ -1963,7 +2083,9 @@ const start: (io: OmpIo) => Start =
           }
           return;
         case "tool_execution_end":
-          if (main.onToolEnd(frame)?.name === "todo") void readState();
+          if (main.onToolEnd(frame)?.name === "todo") {
+            readState().catch(stateFailed);
+          }
           return;
         case "extension_ui_request":
           onUiRequest(frame);
@@ -1974,7 +2096,7 @@ const start: (io: OmpIo) => Start =
           return;
         case "model_changed":
         case "thinking_level_changed":
-          void refresh();
+          refreshInBackground();
           return;
         case "goal_updated":
           goal =
@@ -2031,7 +2153,7 @@ const start: (io: OmpIo) => Start =
               : "Compacted the conversation.",
             failed ? "warning" : "info",
           );
-          void refresh();
+          refreshInBackground();
           return;
         }
         case "retry_fallback_applied":
@@ -2054,13 +2176,13 @@ const start: (io: OmpIo) => Start =
       resumed = false;
       launched = await connect(argsFor(null, null));
     }
-    if (launched === "exit") {
+    if (launched !== "ready") {
       closed = true;
       return {
         ok: false,
         error: {
           code: "unavailable",
-          message: `\`omp\` did not start.${stderrTail === "" ? "" : `\n${stderrTail.trim()}`}`,
+          message: `${launched === "timeout" ? "omp did not get ready in 30 seconds." : "`omp` did not start."}${tail()}`,
         },
       };
     }
@@ -2096,6 +2218,10 @@ const start: (io: OmpIo) => Start =
           );
           return;
         }
+        if (!Array.isArray(page.data?.messages)) {
+          info("Could not read the earlier conversation.", "warning");
+          return;
+        }
         if (page.data.messages.some((msg) => msg.role === "assistant")) {
           hadModelTurn = true;
         }
@@ -2126,7 +2252,7 @@ const start: (io: OmpIo) => Start =
       publishMeta();
       if (resumed) await replayHistory();
       await attachRunning();
-    })();
+    })().catch(stateFailed);
 
     // --- 입력 ---
     async function imagesOf(content: ContentBlock[]) {
@@ -2557,20 +2683,22 @@ const start: (io: OmpIo) => Start =
           const timer = setTimeout(() => proc.kill(), EXIT_WAIT_MS);
           await gone;
           clearTimeout(timer);
+          // stop이 옛 process를 끄는 사이 새것을 띄우면 한 session에 process가 둘이거나 고아가 남는다.
+          if (stopping || closed) return;
           approvalMode = mode;
           let launched = await connect(argsFor(cliSession, mode));
           if (launched === "exit" && cliSession !== null) {
             launched = await connect(argsFor(null, mode));
           }
           const failed =
-            launched === "exit"
+            launched !== "ready"
               ? "omp did not restart."
               : ((await handshake()) ?? "");
           if (failed !== "") {
             main.ensureTurn();
             main.endTurn("failed", {
               code: "unavailable",
-              message: `${failed}${stderrTail === "" ? "" : `\n${stderrTail.trim()}`}`,
+              message: `${failed}${tail()}`,
             });
             return;
           }
@@ -2807,29 +2935,50 @@ const start: (io: OmpIo) => Start =
     }
     session.onInput(
       (message) =>
-        void ready.then(async () => {
-          while (restarting !== null) await restarting;
-          await handle(message);
-        }),
+        void ready
+          .then(async () => {
+            while (restarting !== null) await restarting;
+            await handle(message);
+          })
+          .catch((error) =>
+            info(`${message.type} failed: ${reason(error)}`, "warning"),
+          ),
     );
 
     let stopped: Promise<void> | null = null;
     const run: HarnessGuiRun = {
       stop() {
         stopped ??= (async () => {
-          await ready;
-          while (restarting !== null) await restarting;
-          if (exited) return;
           stopping = true;
-          if (main.turn !== null) await request("abort");
-          // toggle이 이 id로 TUI를 잇는다. branch·fork·`/new` 뒤에는 시작 때와 다르다.
-          await readState();
-          closed = true;
-          // stdin을 닫으면 omp가 session을 닫고(lease를 놓는다) 끝난다. 안 끝나면 SIGTERM이다.
-          proc.end();
-          const timer = setTimeout(() => proc.kill(), EXIT_WAIT_MS);
-          await gone;
-          clearTimeout(timer);
+          // 답 없는 omp가 stop을 붙들지 않게 polite 단계(abort, session id 읽기)는 한 기한에 묶는다.
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          try {
+            await Promise.race([
+              (async () => {
+                await ready;
+                while (restarting !== null) await restarting;
+                if (exited) return;
+                if (main.turn !== null) await request("abort");
+                // toggle이 이 id로 TUI를 잇는다. branch·fork·`/new` 뒤에는 시작 때와 다르다.
+                await readState();
+              })(),
+              new Promise<void>((resolve) => {
+                timer = setTimeout(resolve, STOP_POLITE_MS);
+              }),
+            ]);
+          } catch {
+            // 못 읽어도 끈다. 앞에 안 id로 TUI를 잇는다.
+          } finally {
+            clearTimeout(timer);
+            closed = true;
+            if (!exited) {
+              // stdin을 닫으면 omp가 session을 닫고(lease를 놓는다) 끝난다. 안 끝나면 SIGTERM이다.
+              proc.end();
+              const kill = setTimeout(() => proc.kill(), EXIT_WAIT_MS);
+              await gone;
+              clearTimeout(kill);
+            }
+          }
         })();
         return stopped;
       },

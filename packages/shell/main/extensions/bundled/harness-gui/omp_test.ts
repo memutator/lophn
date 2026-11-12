@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { basename, join } from "node:path";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { manualClock } from "../../../../../base/clock.ts";
@@ -104,6 +104,8 @@ async function setup(
   );
   const sent: Frame[] = [];
   const fakes: Fake[] = [];
+  // 답하지 않을 요청 종류.
+  const silent = new Set<string>();
   const spawnProc = (args: readonly string[]): ExtensionProcess => {
     let out: (text: string) => void = () => {};
     let exit: (code: number | null) => void = () => {};
@@ -120,7 +122,7 @@ async function setup(
         const body = JSON.parse(text) as Frame;
         sent.push(body);
         const type = body.type as string;
-        if (type === "extension_ui_response") return;
+        if (type === "extension_ui_response" || silent.has(type)) return;
         const list = answers.get(type) ?? [];
         const recorded = list.length > 1 ? list.shift() : list[0];
         const reply: Frame =
@@ -195,6 +197,7 @@ async function setup(
   return {
     sent,
     fakes,
+    silent,
     get state() {
       return state;
     },
@@ -680,4 +683,79 @@ test("changing the approval mode ends the old process before the new one takes t
     omp.run.tuiCommand(),
     "omp --resume=01a1aa91-b251-7356-afc3-f1bdf9f99154 --approval-mode=write",
   );
+});
+
+test("a null, array or throwing frame never throws out of the adapter and the next recorded frame is still drawn", async () => {
+  const omp = await setup("text");
+  // 줄 하나가 listener 밖으로 던지면 main process가 꺼진다.
+  omp.emit(null as never);
+  omp.emit([] as never);
+  omp.emit(5 as never);
+  omp.emit({ type: "message_end", message: null });
+  await flush();
+  const warnings = omp.state.items.filter(
+    (item) => item.kind === "notice" && item.notice.type === "info",
+  );
+  assert.equal(warnings.length, 1);
+  await omp.play((frame) => frame.type === "agent_end");
+  assert.ok(omp.state.items.some((item) => item.kind === "message"));
+  assert.equal(omp.state.turn?.phase, "ended");
+});
+
+test("an omp that never sends ready ends start as unavailable after 30 seconds and is killed", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    let killed = false;
+    const proc: ExtensionProcess = {
+      pid: 1,
+      write() {},
+      end() {},
+      kill: () => void (killed = true),
+      onStdout() {},
+      onStderr() {},
+      onExit() {},
+    };
+    const clock = manualClock(Date.UTC(2026, 10, 5));
+    const started = createOmpAdapter({ ...noDisk, home: "/home/test" }).start({
+      terminal: null,
+      cwd: "/work/silent",
+      session: {
+        id: "win_test",
+        publish() {},
+        onInput() {},
+        onClose() {},
+        close() {},
+      },
+      spawn: () => proc,
+      clock,
+      ids: createIdSource({ clock, random: seededRandom(1) }),
+    });
+    mock.timers.tick(30_000);
+    const result = await started;
+    assert.equal(result.ok, false);
+    assert.equal(result.ok ? "" : result.error.code, "unavailable");
+    assert.equal(killed, true);
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("stop ends without rejecting and closes stdin when omp answers neither abort nor get_state", async () => {
+  const omp = await setup("text");
+  await omp.play((frame) => frame.type === "agent_start");
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    omp.silent.add("abort");
+    omp.silent.add("get_state");
+    const stopping = omp.run.stop();
+    await flush();
+    assert.equal(omp.ended, false);
+    mock.timers.tick(3000);
+    await flush();
+    assert.equal(omp.ended, true);
+    omp.exit();
+    await stopping;
+  } finally {
+    mock.timers.reset();
+  }
 });

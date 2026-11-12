@@ -53,11 +53,10 @@ export function CrumbBrowse({
           key={row.id}
           row={row}
           current={row.id === current}
-          selected={false}
+          multiSelected={false}
           dropping={false}
           tabStop
           onActivate={activate}
-          onSelect={noop}
           onMenu={noop}
           onDragStart={(_, event) => event.preventDefault()}
           onDragOver={noop}

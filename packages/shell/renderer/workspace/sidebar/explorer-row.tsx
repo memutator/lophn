@@ -34,14 +34,18 @@ const indentOf = (depth: number) =>
 interface RowProps {
   row: FileRow;
   current: boolean;
-  selected: boolean;
+  /** 이 줄이 선택에 들었는가. */
+  multiSelected: boolean;
   /** 끌어 놓을 대상으로 칠한다. */
   dropping: boolean;
   /** tree에서 Tab이 닿는 줄. 나머지는 화살표로만 간다. */
   tabStop: boolean;
-  /** keep이면 파일을 고정 탭으로 연다(double-click). */
-  onActivate: (row: FileRow, keep?: boolean) => void;
-  onSelect: (row: FileRow) => void;
+  /** keep이면 파일을 고정 탭으로 연다(double-click). modifiers는 누른 modifier key다. */
+  onActivate: (
+    row: FileRow,
+    keep: boolean | undefined,
+    modifiers: { readonly toggle: boolean; readonly range: boolean },
+  ) => void;
   onMenu: (row: FileRow, at: { x: number; y: number }) => void;
   onDragStart: (row: FileRow, event: DragEvent<HTMLDivElement>) => void;
   onDragOver: (row: FileRow, event: DragEvent<HTMLDivElement>) => void;
@@ -52,11 +56,10 @@ interface RowProps {
 export function Row({
   row,
   current,
-  selected,
+  multiSelected,
   dropping,
   tabStop,
   onActivate,
-  onSelect,
   onMenu,
   onDragStart,
   onDragOver,
@@ -68,21 +71,27 @@ export function Row({
       role="treeitem"
       aria-level={row.depth + 1}
       aria-expanded={row.folder ? row.expanded : undefined}
-      aria-selected={selected}
+      aria-selected={multiSelected}
       aria-current={current ? "page" : undefined}
       tabIndex={tabStop ? 0 : -1}
       draggable
       data-file={row.id}
       data-current={current || undefined}
-      data-selected={selected || undefined}
+      data-selected={multiSelected || undefined}
       data-drop={dropping || undefined}
       className={styles.treeRow}
       style={{ paddingLeft: indentOf(row.depth) }}
-      onClick={() => onActivate(row)}
+      onClick={(event) =>
+        onActivate(row, undefined, {
+          toggle: event.metaKey || event.ctrlKey,
+          range: event.shiftKey,
+        })
+      }
       onDoubleClick={() => {
-        if (!row.folder) onActivate(row, true);
+        if (!row.folder) {
+          onActivate(row, true, { toggle: false, range: false });
+        }
       }}
-      onFocus={() => onSelect(row)}
       onContextMenu={(event: MouseEvent) => {
         event.preventDefault();
         event.stopPropagation();

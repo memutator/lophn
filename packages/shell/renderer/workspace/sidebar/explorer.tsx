@@ -1,6 +1,7 @@
 // project sidebar의 Explorer 쪽: 루트 머리(연결 폴더 고르기·더하기·빼기), panel 머리 줄의 단추(새 파일·새 폴더·⋯ 의 Refresh·Collapse All)와
-// 종류 아이콘이 붙은 파일 tree. VS Code Explorer처럼 새 파일·폴더와 이름 바꾸기는 tree 안 입력으로 하고, 지우기는
-// OS 휴지통으로 보내며, 끌어 옮기기와 오른쪽 클릭 menu, 키보드 이동, 열린 탭 자동 드러내기가 있다.
+// 종류 아이콘이 붙은 파일 tree. VS Code Explorer처럼 여러 줄을 고르고(Ctrl/Cmd·Shift), 새 파일·폴더와 이름 바꾸기는
+// tree 안 입력으로 하며, 지우기·경로 복사·끌어 옮기기는 고른 줄 전부에 한다. 지우기는 OS 휴지통으로 보내고,
+// 오른쪽 클릭 menu, 키보드 이동, 열린 탭 자동 드러내기가 있다.
 // 디스크를 바꾸는 일은 source가 하고, 열린 탭을 정리해야 하는 이름 바꾸기·옮기기·지우기는 부르는 쪽(onMove, onTrash)이 한다.
 import {
   type DragEvent,
@@ -72,6 +73,12 @@ export function rootChoices(
 
 const contains = (folder: string, path: string) =>
   path.startsWith(`${folder.replace(/\/+$/, "")}/`);
+
+/** 고른 것 가운데 다른 것 안에 든 줄을 뺀다. 위 폴더를 지우거나 옮기면 그 안도 함께 간다. */
+const outermost = (paths: readonly string[]) =>
+  paths.filter(
+    (path) => !paths.some((other) => other !== path && contains(other, path)),
+  );
 
 const ADD_FOLDER = "add-folder";
 
@@ -261,14 +268,20 @@ type Draft =
 type Dialog =
   | {
       readonly kind: "trash";
-      readonly path: string;
-      readonly folder: boolean;
-      readonly failed: boolean;
+      /** 지울 경로들. 화면에 보이는 순서다. */
+      readonly paths: readonly string[];
+      /** 문구에 쓰는 줄: 마지막으로 고른 줄. */
+      readonly from: FileRow;
+      /** 실패한 것이 있으면 그 이름. */
+      readonly failed: string | null;
     }
   | {
       readonly kind: "move";
-      readonly from: string;
+      /** 놓을 폴더와 옮길 경로들. 화면에 보이는 순서다. */
       readonly toDir: string;
+      readonly paths: readonly string[];
+      /** 문구에 쓰는 이름: 마지막으로 고른 줄, 실패하면 실패한 줄. */
+      readonly from: string;
       readonly error: "exists" | "failed" | null;
     }
   | {
@@ -305,6 +318,17 @@ interface ExplorerProps {
 
 const PENDING_MS = 2000;
 
+/** Explorer의 선택: 고른 줄들과 Shift 범위의 기준 줄. */
+interface Selection {
+  readonly ids: ReadonlySet<string>;
+  /** Shift 범위의 기준 줄. 보통 마지막으로 고른 줄이다. */
+  readonly anchor: string | null;
+}
+
+const NOTHING: Selection = { ids: new Set(), anchor: null };
+
+const only = (id: string): Selection => ({ ids: new Set([id]), anchor: id });
+
 export function Explorer({
   source,
   folders,
@@ -324,7 +348,7 @@ export function Explorer({
   const roots = rootChoices(folders);
   const root = roots.find((item) => item.path === rootPath) ?? roots[0];
   const tree = useFileTree(source, root?.found ? root.path : null);
-  const [selection, setSelection] = useState<string | null>(null);
+  const [selection, setSelection] = useState<Selection>(NOTHING);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [folderFailed, setFolderFailed] = useState(false);
@@ -335,7 +359,7 @@ export function Explorer({
   } | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const treeRef = useRef<HTMLDivElement>(null);
-  const dragging = useRef<string | null>(null);
+  const dragging = useRef<readonly string[] | null>(null);
   // 다음 render에 줄이 생기면 보이게 하고(선택적으로 focus도) 비운다. 줄이 늦게 생겨도 잠시 기다린다.
   // id가 null이면 tab stop 줄이다.
   const goal = useRef<{
@@ -383,7 +407,7 @@ export function Explorer({
       return;
     }
     tree.reveal(current);
-    setSelection(current);
+    setSelection(only(current));
     show(current, false);
   }, [current, root?.path]);
 
@@ -395,14 +419,14 @@ export function Explorer({
       if (owner !== undefined) onRoot(owner.path);
     }
     tree.reveal(reveal.path);
-    setSelection(reveal.path);
+    setSelection(only(reveal.path));
     show(reveal.path, true);
   }, [reveal?.nonce]);
 
   // Ctrl/Cmd+Shift+E. 고른 줄이 없으면 tab stop 줄에 focus한다.
   useEffect(() => {
     if (!focusAsked) return;
-    show(selection ?? current, true);
+    show(selection.anchor ?? current, true);
     onFocusAsked?.();
   }, [focusAsked]);
 
@@ -410,21 +434,95 @@ export function Explorer({
 
   const rowOf = (id: string | null) =>
     tree.rows.find((row) => row.id === id) ?? null;
-  const selectedRow = rowOf(selection);
+  /** 지금 고른 줄들. 화면에 보이는 순서다. */
+  const selectedRows = () =>
+    tree.rows.filter((row) => selection.ids.has(row.id));
+  /** 마지막으로 고른 줄. 새 파일 자리와 Tab이 닿는 줄을 정한다. */
+  const activeRow = rowOf(selection.anchor);
   /** 새로 만들 자리: 고른 폴더, 파일이면 그 파일의 폴더, 아무것도 없으면 루트. */
   const targetFolder = (row: FileRow | null) =>
     row === null ? root.path : row.folder ? row.id : parentOf(row.id);
 
-  const activate = (row: FileRow, keep = false) => {
-    setSelection(row.id);
+  /** anchor부터 id까지 화면에 보이는 순서로 고른다. */
+  const rangeTo = (id: string): Selection => {
+    const from = tree.rows.findIndex((row) => row.id === selection.anchor);
+    const to = tree.rows.findIndex((row) => row.id === id);
+    if (from < 0 || to < 0) return only(id);
+    const [start, end] = from < to ? [from, to] : [to, from];
+    return {
+      ids: new Set(tree.rows.slice(start, end + 1).map((row) => row.id)),
+      anchor: selection.anchor,
+    };
+  };
+
+  /**
+   * 줄을 눌렀을 때. toggle이면 그 줄을 선택에 더하거나 빼고, range면 anchor부터 이 줄까지 고른다.
+   * 그 밖에는 이 줄 하나만 고르고 연다.
+   */
+  const activate = (
+    row: FileRow,
+    keep?: boolean,
+    modifiers: { toggle: boolean; range: boolean } = {
+      toggle: false,
+      range: false,
+    },
+  ) => {
+    if (modifiers.toggle) {
+      const ids = new Set(selection.ids);
+      if (ids.has(row.id)) ids.delete(row.id);
+      else ids.add(row.id);
+      setSelection({ ids, anchor: row.id });
+      return;
+    }
+    if (modifiers.range) {
+      setSelection(rangeTo(row.id));
+      return;
+    }
+    setSelection(only(row.id));
+    // 고른 줄 하나만 남으므로 접히는 폴더 안의 줄은 이미 선택에 없다.
     if (row.folder) tree.toggle(row.id);
     else onOpenFile(row.id, keep);
   };
 
   const focusRow = (row: FileRow | undefined) => {
     if (row === undefined) return;
-    setSelection(row.id);
+    setSelection(only(row.id));
     rowElement(row.id)?.focus();
+  };
+
+  /**
+   * Shift+화살표: focus를 target으로 옮기며 선택에 더한다. anchor 쪽으로 되돌아가는 한 걸음이면
+   * focus를 떠나는 줄을 뺀다.
+   */
+  const extendTo = (target: FileRow | undefined, from: FileRow | undefined) => {
+    if (target === undefined) return false;
+    const anchorAt = tree.rows.findIndex((row) => row.id === selection.anchor);
+    const fromAt = tree.rows.findIndex((row) => row.id === from?.id);
+    const toAt = tree.rows.findIndex((row) => row.id === target.id);
+    const ids = new Set(selection.ids);
+    const back =
+      from !== undefined &&
+      anchorAt >= 0 &&
+      fromAt >= 0 &&
+      Math.abs(toAt - anchorAt) < Math.abs(fromAt - anchorAt);
+    if (back && from !== undefined) ids.delete(from.id);
+    else ids.add(target.id);
+    setSelection({ ids, anchor: selection.anchor ?? from?.id ?? target.id });
+    rowElement(target.id)?.focus();
+    return true;
+  };
+
+  /** 접혀서 tree.rows에서 사라진 줄을 선택에서 뺀다. anchor도 같이 지운다. */
+  const forgetHidden = (shown: (id: string) => boolean) => {
+    if ([...selection.ids].every((id) => shown(id))) return;
+    const ids = new Set([...selection.ids].filter((id) => shown(id)));
+    setSelection({
+      ids,
+      anchor:
+        selection.anchor !== null && ids.has(selection.anchor)
+          ? selection.anchor
+          : null,
+    });
   };
 
   // ---- 새 파일·새 폴더·이름 바꾸기 ----
@@ -458,7 +556,7 @@ export function Explorer({
     }
     tree.reveal(path);
     tree.refresh();
-    setSelection(path);
+    setSelection(only(path));
     // 새 파일은 편집기가 focus를 받는다. 폴더만 tree에서 이어 간다.
     finishDraft(d.kind === "folder" ? path : null);
     if (d.kind === "file") {
@@ -481,7 +579,7 @@ export function Explorer({
     const result = await onMove(d.path, to);
     if (result.ok) {
       tree.refresh();
-      setSelection(to);
+      setSelection(only(to));
       finishDraft(to);
       return null;
     }
@@ -535,7 +633,7 @@ export function Explorer({
             reason === "escape"
               ? d.kind === "rename"
                 ? d.path
-                : selection
+                : selection.anchor
               : null,
           )
         }
@@ -545,92 +643,143 @@ export function Explorer({
 
   // ---- 휴지통 ----
 
-  const askTrash = (row: FileRow) =>
+  const askTrash = (row: FileRow) => {
+    const chosen = selectedRows();
+    const paths = outermost(
+      (chosen.length > 0 ? chosen : [row]).map((item) => item.id),
+    );
+    // 문구에 쓸 줄: 마지막으로 고른 줄, 그 줄이 위 폴더에 딸려 가면 그 폴더.
+    const shown = paths.find(
+      (path) => path === row.id || contains(path, row.id),
+    );
     setDialog({
       kind: "trash",
-      path: row.id,
-      folder: row.folder,
-      failed: false,
+      paths,
+      from: (shown === undefined ? null : rowOf(shown)) ?? row,
+      failed: null,
     });
+  };
 
-  const confirmTrash = async (path: string) => {
-    // 지운 줄 다음(없으면 앞) 줄로 focus를 옮긴다.
-    const at = tree.rows.findIndex((row) => row.id === path);
-    const next = tree.rows[at + 1] ?? tree.rows[at - 1];
-    const result = await onTrash(path);
-    if (result.ok || result.code === "cancelled") {
+  const confirmTrash = async (trash: Extract<Dialog, { kind: "trash" }>) => {
+    // 지운 줄들 다음(없으면 앞) 줄로 focus를 옮긴다.
+    const at = tree.rows.findIndex((row) => row.id === trash.paths.at(-1));
+    const first = tree.rows.findIndex((row) => row.id === trash.paths[0]);
+    const next = tree.rows[at + 1] ?? tree.rows[first - 1];
+    const removed = new Set<string>();
+    let failed: string | null = null;
+    for (const path of trash.paths) {
+      const result = await onTrash(path);
+      if (result.ok) removed.add(path);
+      else if (result.code === "cancelled") break;
+      // 사람이 저장 안 된 탭을 닫지 않기로 하면 남은 것은 그만두고, 실패는 첫 이름으로 알린다.
+      else if (failed === null) failed = nameOf(path);
+    }
+    if (removed.size > 0) tree.refresh();
+    const ids = new Set([...selection.ids].filter((id) => !removed.has(id)));
+    setSelection({
+      ids,
+      anchor:
+        selection.anchor !== null && ids.has(selection.anchor)
+          ? selection.anchor
+          : null,
+    });
+    if (failed !== null) setDialog({ ...trash, failed });
+    else {
       setDialog(null);
-      if (result.ok) {
-        tree.refresh();
-        setSelection(null);
-        if (next !== undefined) show(next.id, true);
-      }
-    } else if (dialog?.kind === "trash") {
-      setDialog({ ...dialog, failed: true });
+      if (removed.size > 0 && next !== undefined) show(next.id, true);
     }
   };
 
   // ---- 끌어 옮기기 ----
 
-  /** 놓을 수 있는 자리인가: 같은 폴더(변화 없음)나 자기 안은 아니다. */
-  const droppable = (from: string | null, toDir: string) =>
-    from !== null &&
-    parentOf(from) !== toDir &&
-    from !== toDir &&
-    !contains(from, toDir);
+  /** 이 줄을 그 폴더로 옮기는 것이 변화를 만드는가: 같은 폴더나 자기 안은 아니다. */
+  const movable = (path: string, toDir: string) =>
+    parentOf(path) !== toDir && path !== toDir && !contains(path, toDir);
 
   const dropDirOf = (row: FileRow | null) => targetFolder(row);
 
   const onDragStart = (row: FileRow, event: DragEvent<HTMLDivElement>) => {
-    dragging.current = row.id;
+    const chosen = selectedRows();
+    const paths = outermost(
+      chosen.length > 1 && chosen.some((item) => item.id === row.id)
+        ? chosen.map((item) => item.id)
+        : [row.id],
+    );
+    dragging.current = paths;
     event.dataTransfer.effectAllowed = "copyMove";
-    event.dataTransfer.setData("text/plain", row.id);
-    if (!row.folder) event.dataTransfer.setData(PATH_DRAG_TYPE, row.id);
+    event.dataTransfer.setData("text/plain", paths.join("\n"));
+    const first = rowOf(paths[0]);
+    if (first !== null && !first.folder) {
+      event.dataTransfer.setData(PATH_DRAG_TYPE, first.id);
+    }
   };
   const onDragOver = (row: FileRow | null, event: DragEvent<HTMLElement>) => {
     // 줄 위에서는 바깥(빈 자리 = 루트)으로 새지 않게 한다.
     if (row !== null) event.stopPropagation();
+    const paths = dragging.current;
     const toDir = dropDirOf(row);
-    if (!droppable(dragging.current, toDir)) return;
+    if (paths === null || !paths.some((path) => movable(path, toDir))) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
     setDropTarget(toDir);
   };
   const onDrop = (row: FileRow | null, event: DragEvent<HTMLElement>) => {
     if (row !== null) event.stopPropagation();
-    const from = dragging.current;
+    const all = dragging.current;
     const toDir = dropDirOf(row);
     dragging.current = null;
     setDropTarget(null);
-    if (!droppable(from, toDir) || from === null) return;
+    if (all === null) return;
+    // 이미 같은 자리에 있는 줄은 옮기지 않고, 다른 것 안에 든 줄은 위 폴더와 함께 간다.
+    const paths = outermost(all.filter((path) => movable(path, toDir)));
+    if (paths.length === 0) return;
     event.preventDefault();
-    const name = from.slice(from.lastIndexOf("/") + 1);
     // 이미 읽은 폴더에 같은 이름이 보이면 묻지 않고 거절한다. 안 읽었으면 main이 거절한다.
-    const exists = tree.entriesOf(toDir)?.some((entry) => entry.name === name);
+    const taken = new Set(
+      (tree.entriesOf(toDir) ?? []).map((entry) => entry.name),
+    );
+    const clash = paths.find((path) => {
+      const name = baseName(path);
+      if (taken.has(name)) return true;
+      taken.add(name);
+      return false;
+    });
     setDialog({
       kind: "move",
-      from,
       toDir,
-      error: exists === true ? "exists" : null,
+      paths,
+      from: clash ?? paths[0],
+      error: clash === undefined ? null : "exists",
     });
   };
 
   const confirmMove = async (d: Extract<Dialog, { kind: "move" }>) => {
-    const to = joinPath(d.toDir, d.from.slice(d.from.lastIndexOf("/") + 1));
-    const result = await onMove(d.from, to);
-    if (result.ok) {
-      setDialog(null);
+    const moved: string[] = [];
+    let failure: {
+      readonly from: string;
+      readonly error: "exists" | "failed";
+    } | null = null;
+    for (const from of d.paths) {
+      const to = joinPath(d.toDir, baseName(from));
+      const result = await onMove(from, to);
+      if (result.ok) moved.push(to);
+      else if (result.code === "cancelled") break;
+      else if (failure === null) {
+        failure = {
+          from,
+          error: result.code === "conflict" ? "exists" : "failed",
+        };
+      }
+    }
+    if (moved.length > 0) {
       if (d.toDir !== root.path) tree.expand(d.toDir);
       tree.refresh();
-      setSelection(to);
-      show(to, false);
-    } else if (result.code === "cancelled") setDialog(null);
-    else {
-      setDialog({
-        ...d,
-        error: result.code === "conflict" ? "exists" : "failed",
-      });
+      setSelection({ ids: new Set(moved), anchor: moved.at(-1) ?? null });
+      const last = moved.at(-1);
+      if (last !== undefined) show(last, false);
     }
+    if (failure !== null) setDialog({ ...d, ...failure });
+    else setDialog(null);
   };
 
   // ---- 연결 폴더 더하기·빼기 ----
@@ -713,15 +862,26 @@ export function Explorer({
         ]),
   ];
 
+  /** 경로 복사 대상: 고른 줄들, 없으면 menu를 연 줄(또는 루트). */
+  const copyPaths = (target: FileRow | null) => {
+    const chosen = selectedRows();
+    return chosen.length > 0
+      ? chosen.map((row) => row.id)
+      : [target?.id ?? root.path];
+  };
+
   const runMenu = (id: string, target: FileRow | null) => {
     const path = target?.id ?? root.path;
     if (id === "new-file" || id === "new-folder") {
       startCreate(id === "new-file" ? "file" : "folder", target);
     } else if (id === "reveal") void source.reveal(path);
     else if (id === "open-terminal") onOpenTerminal?.(path);
-    else if (id === "copy-path") void systemClipboard.writeText(path);
-    else if (id === "copy-relative-path") {
-      void systemClipboard.writeText(relativePath(path));
+    else if (id === "copy-path") {
+      void systemClipboard.writeText(copyPaths(target).join("\n"));
+    } else if (id === "copy-relative-path") {
+      void systemClipboard.writeText(
+        copyPaths(target).map(relativePath).join("\n"),
+      );
     } else if (target !== null && id === "rename") startRename(target);
     else if (target !== null && id === "delete") askTrash(target);
   };
@@ -735,18 +895,36 @@ export function Explorer({
     const at = tree.rows.findIndex((row) => row.id === element?.dataset.file);
     const row = tree.rows[at];
     const key = event.key;
-    if (event.altKey || event.ctrlKey) return;
-    if (key === "Delete" || (key === "Backspace" && event.metaKey)) {
-      if (row !== undefined) askTrash(row);
-      else return;
-    } else if (event.metaKey) return;
+    const mod = event.metaKey || event.ctrlKey;
+    // 처리하지 않는 modifier 조합은 화면 밖으로 흘려보낸다.
+    if (event.altKey) return;
+    if (mod && key.toLowerCase() === "a") {
+      if (tree.rows.length === 0) return;
+      setSelection({
+        ids: new Set(tree.rows.map((item) => item.id)),
+        anchor: tree.rows[0].id,
+      });
+    } else if (
+      (key === "Delete" && !event.ctrlKey) ||
+      (key === "Backspace" && event.metaKey)
+    ) {
+      const target = row ?? selectedRows()[0];
+      if (target === undefined) return;
+      askTrash(target);
+    } else if (mod) return;
     else if (key === "F2") {
       if (row !== undefined) startRename(row);
       else return;
     } else if (key === "ArrowDown") {
-      focusRow(tree.rows[at < 0 ? 0 : at + 1]);
+      if (event.shiftKey) {
+        if (!extendTo(tree.rows[at < 0 ? 0 : at + 1], row)) return;
+      } else focusRow(tree.rows[at < 0 ? 0 : at + 1]);
     } else if (key === "ArrowUp") {
-      focusRow(tree.rows[at < 0 ? tree.rows.length - 1 : at - 1]);
+      if (event.shiftKey) {
+        if (!extendTo(tree.rows[at < 0 ? tree.rows.length - 1 : at - 1], row)) {
+          return;
+        }
+      } else focusRow(tree.rows[at < 0 ? tree.rows.length - 1 : at - 1]);
     } else if (key === "Home") focusRow(tree.rows[0]);
     else if (key === "End") focusRow(tree.rows.at(-1));
     else if (key === "ArrowRight") {
@@ -757,8 +935,10 @@ export function Explorer({
       }
     } else if (key === "ArrowLeft") {
       if (row === undefined) return;
-      if (row.folder && row.expanded) tree.collapse(row.id);
-      else focusRow(rowOf(parentOf(row.id)) ?? undefined);
+      if (row.folder && row.expanded) {
+        forgetHidden((id) => !contains(row.id, id));
+        tree.collapse(row.id);
+      } else focusRow(rowOf(parentOf(row.id)) ?? undefined);
     } else if (key === "Enter" || key === " ") {
       if (row === undefined) return;
       // Enter는 고정 탭, Space는 preview 탭으로 연다.
@@ -790,7 +970,7 @@ export function Explorer({
   const createAt = draft !== null && draft.kind !== "rename" ? draft : null;
   const items: ReactNode[] = [];
   if (createAt?.parent === root.path) items.push(nameRow(createAt, 0));
-  const tabStop = selectedRow?.id ?? tree.rows[0]?.id;
+  const tabStop = activeRow?.id ?? tree.rows[0]?.id;
   for (const row of tree.rows) {
     if (draft?.kind === "rename" && draft.path === row.id) {
       items.push(nameRow(draft, row.depth));
@@ -801,13 +981,13 @@ export function Explorer({
         key={row.id}
         row={row}
         current={row.id === current}
-        selected={row.id === selection}
+        multiSelected={selection.ids.has(row.id)}
         dropping={row.id === dropTarget}
         tabStop={row.id === tabStop}
         onActivate={activate}
-        onSelect={(one) => setSelection(one.id)}
         onMenu={(one, at) => {
-          setSelection(one.id);
+          // 이미 고른 줄이면 선택을 그대로 두고, 아니면 그 줄만 고른다.
+          if (!selection.ids.has(one.id)) setSelection(only(one.id));
           setMenu({ target: one, ...at });
         }}
         onDragStart={onDragStart}
@@ -833,10 +1013,17 @@ export function Explorer({
     <section className={styles.section} data-explorer="">
       <HeadActions
         disabled={!root.found}
-        onNewFile={() => startCreate("file", selectedRow)}
-        onNewFolder={() => startCreate("folder", selectedRow)}
+        onNewFile={() => startCreate("file", activeRow)}
+        onNewFolder={() => startCreate("folder", activeRow)}
         onRefresh={tree.refresh}
-        onCollapseAll={tree.collapseAll}
+        onCollapseAll={() => {
+          // 접으면 루트의 한 단만 남는다.
+          const top = new Set(
+            tree.rows.filter((item) => item.depth === 0).map((item) => item.id),
+          );
+          forgetHidden((id) => top.has(id));
+          tree.collapseAll();
+        }}
       />
       <PanelTitle>
         <RootPicker
@@ -859,11 +1046,11 @@ export function Explorer({
         data-drop-root={dropTarget === root.path || undefined}
         onKeyDown={onKeyDown}
         onClick={(event) => {
-          if (event.target === event.currentTarget) setSelection(null);
+          if (event.target === event.currentTarget) setSelection(NOTHING);
         }}
         onContextMenu={(event) => {
           event.preventDefault();
-          setSelection(null);
+          setSelection(NOTHING);
           setMenu({ target: null, x: event.clientX, y: event.clientY });
         }}
         onDragOver={(event) => onDragOver(null, event)}
@@ -911,29 +1098,29 @@ export function Explorer({
       {trash === null ? null : (
         <FileConfirm
           title={t("project-workspace.title.explorer-delete", {
-            name: nameOf(trash.path),
+            name: nameOf(trash.from.id),
           })}
           text={
-            trash.failed
+            trash.failed !== null
               ? t("project-workspace.error.explorer-trash-failed", {
-                  name: nameOf(trash.path),
+                  name: trash.failed,
                 })
               : t(
-                  trash.folder
+                  trash.from.folder
                     ? "project-workspace.notice.explorer-delete-folder"
                     : "project-workspace.notice.explorer-delete-file",
-                  { name: nameOf(trash.path) },
+                  { name: nameOf(trash.from.id) },
                 )
           }
           confirm={
-            trash.failed
+            trash.failed !== null
               ? null
               : {
                   label: t("project-workspace.button.explorer-trash"),
                   danger: true,
                 }
           }
-          onConfirm={() => void confirmTrash(trash.path)}
+          onConfirm={() => void confirmTrash(trash)}
           onClose={() => setDialog(null)}
         />
       )}

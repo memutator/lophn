@@ -125,7 +125,7 @@
   color: var(--color-text-primary);
 }
 
-/* 오른쪽 클릭 menu가 열린 행과 키보드로 고른 행은 배경으로, 지금 연 파일은 굵은 글자와 왼쪽 표시로 보인다. */
+/* 고른 행은 모두 같은 배경으로, 지금 연 파일은 굵은 글자와 왼쪽 표시로 보인다. anchor 행에는 다른 표시를 더하지 않는다. */
 .treeRow[data-selected] {
   background: var(--color-selection);
   color: var(--color-text-primary);

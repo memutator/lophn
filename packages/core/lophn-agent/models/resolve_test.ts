@@ -143,3 +143,116 @@ test("직접 적은 이름은 받고, 구독 OAuth 계정의 허락 목록 밖 �
     }
   }
 });
+
+// OpenCode Go 정의로 고른 model의 실제 요청은 gateway 규칙을 따른다: 자기 wire의 경로, `x-opencode-session`,
+// 자기 User-Agent, stream=true. session header가 빠지면 gateway가 거절하므로 이 값이 요청마다 있어야 한다.
+test("OpenCode Go 정의는 gateway 경로·session·User-Agent를 실은 요청을 만든다", async () => {
+  const cases = [
+    ["opencode-go-chat", "/chat/completions", "glm-5.3"],
+    ["opencode-go-responses", "/responses", "gpt-6-luna"],
+    ["opencode-go-messages", "/messages", "claude-haiku-5-5"],
+  ] as const;
+  for (const [key, path, model] of cases) {
+    const definition = builtinProviderDefinition(key);
+    assert.ok(definition.ok, key);
+    const provider: ProviderRecord = {
+      id: "pvd_00000000000000000000000000",
+      name: "go",
+      definition: definition.value,
+      endpoint:
+        definition.value.protocols[0] === "anthropic-messages"
+          ? "https://opencode.ai/inference/go/anthropic/v1"
+          : "https://opencode.ai/inference/go/openai/v1",
+      protocol: definition.value.protocols[0]!,
+      credential: {
+        kind: "api_key",
+        secret_ref: { name: "provider.x" },
+        revision: 1,
+        state: "available",
+        unavailable_reason: null,
+        until: null,
+        expires_at: null,
+        logged_in_at: null,
+        refreshed_at: null,
+        model_blocks: [],
+        reported_models: null,
+        account: null,
+      },
+      revision: 1,
+    };
+    const sent: {
+      url: string;
+      headers: Record<string, string>;
+      body: unknown;
+    }[] = [];
+    const resolve = createModelResolver({
+      machine: (route) =>
+        Promise.resolve(
+          route === routePath(providerRead)
+            ? ok({ provider, as_of_seq: "0", next_cursor: null })
+            : route === routePath(userModelInfoRead)
+              ? ok({ seq: "0", items: [], as_of_seq: "0", next_cursor: null })
+              : err({ code: "not_found", message: route }),
+        ),
+      attach: {
+        send: (_input, transmit) => transmit("sk-test"),
+      },
+      catalog: () => Promise.resolve(ok(bundledSnapshot.entries)),
+      // 전송은 transport가 부르는 fetch 하나다. SSE 본문은 이 검사에 필요 없다.
+      fetch: (url, init) => {
+        sent.push({
+          url: String(url),
+          headers: { ...((init?.headers ?? {}) as Record<string, string>) },
+          body: JSON.parse(String(init?.body)),
+        });
+        return Promise.resolve(
+          new Response("data: [DONE]\n\n", {
+            status: 200,
+            headers: { "content-type": "text/event-stream" },
+          }),
+        );
+      },
+    });
+    const bound = await resolve({
+      model: {
+        provider: provider.id,
+        model_name: model,
+        option_values: {},
+      },
+    });
+    assert.ok(bound.ok, JSON.stringify(bound));
+    const signal = new AbortController().signal;
+    const packed = bound.value.pack({
+      system: [],
+      messages: [],
+      tools: [],
+    } as never);
+    await bound.value.invoke(
+      {
+        callId: "mcl_1",
+        turn: "trn_1",
+        session: "ses_1",
+        purpose: "judgment",
+        model: bound.value.call,
+        endpoint: bound.value.endpoint,
+        inputHash: "h",
+        contextBasisHash: "h",
+        body: packed.body as Record<string, unknown>,
+        usageRevision: bound.value.usageRevision,
+      },
+      signal,
+    );
+    const call = sent.at(-1);
+    assert.ok(call !== undefined, key);
+    assert.equal(call.url, `${provider.endpoint}${path}`, key);
+    assert.equal(call.headers["user-agent"], "lophn", key);
+    assert.match(
+      call.headers["x-opencode-session"]!,
+      /^ses_[0-9a-f]{32}$/,
+      key,
+    );
+    // OpenCode Go gateway는 wire와 상관없이 Bearer 하나를 문서에 둔다.
+    assert.equal(call.headers.authorization, "Bearer sk-test", key);
+    assert.equal((call.body as { stream?: boolean }).stream, true, key);
+  }
+});

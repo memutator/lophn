@@ -130,6 +130,10 @@ const API_KEY_MODEL_LISTS = new Set([
   "groq",
   "deepseek",
   "google-gemini",
+  // OpenCode Go는 gateway 목록이 model마다 wire를 알려 준다. 셋이 같은 목록을 읽고 자기 wire만 남긴다.
+  "opencode-go-chat",
+  "opencode-go-responses",
+  "opencode-go-messages",
 ]);
 const OAUTH_MODEL_LISTS = new Set([
   "anthropic",

@@ -5,6 +5,7 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 import { CLAUDE_OAUTH_BETA } from "./adapters/claude-code.ts";
 import { codexModelsHeaders, codexModelsUrl } from "./adapters/codex.ts";
+import { OPENCODE_GO_MODELS_URL } from "./adapters/opencode-go.ts";
 import { builtinProviderDefinition } from "./definitions.ts";
 import type { IssuerFetch } from "./issuer-http.ts";
 import { readAntigravityModels } from "./oauth-antigravity.ts";
@@ -71,6 +72,45 @@ function chatOnly(models: string[] | null): string[] | null {
   return kept.length === 0 ? null : kept;
 }
 
+// gateway가 client를 알아보게 하는 User-Agent다. OpenCode Go는 SDK 기본 User-Agent를 403으로 막는다.
+const OPENCODE_GO_LIST_HEADERS: Readonly<Record<string, string>> = {
+  accept: "application/json",
+  "user-agent": "lophn",
+};
+
+// OpenCode Go 정의 key → 그 정의가 부르는 gateway wire. model 목록은 셋이 같은 OpenAI base 하나에서 읽고
+// 각 model의 `api` 객체가 어느 wire인지 알려 주므로, 그 정의의 wire만 남긴다. gateway의 Anthropic 쪽 목록
+// (`/go/anthropic/v1/models`)은 family를 싣지 않아 셋을 가를 수 없다.
+const OPENCODE_GO_WIRES: Readonly<Record<string, string>> = {
+  "opencode-go-chat": "chat-completions",
+  "opencode-go-responses": "responses",
+  "opencode-go-messages": "messages",
+};
+
+// 이 정의의 wire에 속한 model 이름만 고른다. `api`가 없으면 어느 wire인지 모르므로 버린다.
+function opencodeGoModels(body: string, wire: string): string[] | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return null;
+  }
+  const list = (parsed as { data?: unknown })?.data;
+  if (!Array.isArray(list)) return null;
+  const names = new Set<string>();
+  for (const item of list) {
+    if (typeof item !== "object" || item === null) continue;
+    if (!("id" in item) || typeof item.id !== "string") continue;
+    if (item.id.trim() === "") continue;
+    if (!("api" in item) || typeof item.api !== "object" || item.api === null) {
+      continue;
+    }
+    if (!Object.hasOwn(item.api, wire)) continue;
+    names.add(item.id);
+  }
+  return names.size === 0 ? null : [...names].sort();
+}
+
 // 내장 정의의 목록 읽기. 주소는 정의의 models_endpoint다. Anthropic은 x-api-key·버전 header를 쓰고 page 상한을 올린다.
 async function readBuiltinModels(
   http: IssuerFetch,
@@ -103,8 +143,20 @@ async function readBuiltinModels(
       const models = await readReportedModels(http, endpoint, access);
       return chatOnly(models?.map((id) => id.replace(/^models\//, "")) ?? null);
     }
-    default:
-      return chatOnly(await readReportedModels(http, endpoint, access));
+    default: {
+      const wire = OPENCODE_GO_WIRES[target.definition.key];
+      if (wire === undefined) {
+        return chatOnly(await readReportedModels(http, endpoint, access));
+      }
+      // 셋은 family를 싣는 OpenAI base의 목록 하나를 읽는다. Anthropic base의 목록은 wire를 알려 주지 않는다.
+      const response = await readModelsBody(
+        http,
+        OPENCODE_GO_MODELS_URL,
+        access,
+        OPENCODE_GO_LIST_HEADERS,
+      );
+      return response === null ? null : opencodeGoModels(response, wire);
+    }
   }
 }
 
@@ -123,14 +175,14 @@ export function customModelsEndpoint(
   return `${provider.endpoint.replace(/\/+$/, "")}/models`;
 }
 
-// 어떤 실패든 null이다(발급자 대기열 기한, runtime 없음, 200이 아님, 큰 body). token을 오류나 log에 싣지 않는다.
-// access가 null이면 authorization header 없이 보낸다.
-export async function readReportedModels(
+// 목록 응답 원문이다. 실패·발급자 대기열 기한·runtime 없음·200 아님·던짐은 모두 null이다. token은
+// 요청 header에만 두고 오류나 log에 싣지 않는다. access가 null이면 authorization header 없이 보낸다.
+async function readModelsBody(
   http: IssuerFetch,
   endpoint: string,
   access: string | null,
-  headers: Record<string, string> = { accept: "application/json" },
-): Promise<string[] | null> {
+  headers: Readonly<Record<string, string>> = { accept: "application/json" },
+): Promise<string | null> {
   try {
     const response = await http(endpoint, {
       method: "GET",
@@ -139,12 +191,21 @@ export async function readReportedModels(
         ...(access === null ? {} : { authorization: `Bearer ${access}` }),
       },
     });
-    return response.status === 200
-      ? parseReportedModels(await response.text())
-      : null;
+    return response.status === 200 ? await response.text() : null;
   } catch {
     return null;
   }
+}
+
+// 몸통에서 model 이름을 읽는다. OpenCode Go만 본문을 wire로 거르므로 readModelsBody를 따로 쓴다.
+export async function readReportedModels(
+  http: IssuerFetch,
+  endpoint: string,
+  access: string | null,
+  headers: Record<string, string> = { accept: "application/json" },
+): Promise<string[] | null> {
+  const body = await readModelsBody(http, endpoint, access, headers);
+  return body === null ? null : parseReportedModels(body);
 }
 
 // 이 provider의 model 목록을 읽는 곳이 있는가. Antigravity는 계정 project의 roster(POST)라 project가 있어야 한다.

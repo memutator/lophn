@@ -1,0 +1,28 @@
+id: opencode-go-provider
+version: 0.23.45
+title: OpenCode Go gateway를 provider로 연결해 그 model을 lophn agent에서 고르고 부른다
+modules: [packages/core/lophn-agent, packages/protocol, packages/shell/renderer]
+change: |
+  - 내장 provider 정의 셋을 더했다: `opencode-go-chat`(openai-chat-completions), `opencode-go-responses`(openai-responses), `opencode-go-messages`(anthropic-messages). 셋은 같은 gateway(`https://opencode.ai/inference/go/…`)를 wire만 다르게 부르는 별개 provider이고, Connect는 전과 같이 API key 하나(보호 입력 창)로 한다.
+  - model catalog가 models.dev `opencode-go` 행을 셋으로 가른다. 행의 SDK package(`@ai-sdk/openai`→responses, `@ai-sdk/anthropic`→messages, `@ai-sdk/google`→버림)가 wire를 정하고, package가 없는 행은 family 앞머리(`muse-spark-`·`gpt-`·`grok-`→responses, `minimax-`·`qwen`·`claude-`→messages, 나머지→chat)로 가른다. Gemini generateContent wire는 adapter가 없어 정의도 항목도 없다. 동봉 snapshot에 지금 gateway 목록의 항목 38개를 더했다.
+  - model 목록 읽기는 셋이 gateway의 OpenAI base 목록(`/go/openai/v1/models`) 하나를 읽고 model마다 `api` 객체의 wire로 걸러 `credential.reported_models`에 둔다. anthropic/openai 등 다른 provider의 읽기 경로는 그대로다.
+  - model 호출은 보내기 직전에 gateway 요청으로 다시 만든다(`providers/adapters/opencode-go.ts`): 자기 wire의 경로(`/chat/completions`, `/responses`, `/messages`), `stream: true`, `x-opencode-session`(session에서 만든 `ses_`+32 hex), `User-Agent: lophn`, Messages wire에는 `anthropic-version`. API key는 셋 다 `Authorization: Bearer`다.
+  - Settings의 provider 아이콘은 OpenCode Go 셋에 OpenCode 표지를 쓴다.
+why: |
+  사람이 OpenCode Go 구독으로 lophn agent의 model을 쓰려 했다. gateway는 model마다 wire가 달라(chat 19, responses 5, messages 5, gemini 1) provider 하나로 wire 하나인 지금 구조에 그대로 들어가지 않는다.
+decisions:
+  - text: >-
+      wire마다 정의를 따로 둔다(한 provider에 model별 wire를 저장하지 않는다). 같은 key를 셋에 각각 연결해야 하지만, provider 하나에 wire 하나인 계약, credential 하나, catalog 항목 하나가 그대로 유지되고 schema migration이 필요 없다. 버린 길: provider 하나에 model별 wire를 저장(ledger schema step, credential에 protocol map, resolver 분기).
+    by: agent
+  - text: >-
+      Gemini generateContent wire는 넣지 않는다. lophn에 그 adapter가 없고 model 둘(gemini-4-argon 계열)이 대상이다. 버린 길: Gemini adapter를 이번에 만들기(작업이 adapter 하나와 packer 하나가 더 붙는다).
+    by: agent
+  - text: >-
+      연결은 API key 하나다. Console OAuth device 로그인(opencode-cli client)은 넣지 않는다. Go 문서가 API key를 안내하고, OAuth를 넣으면 로그인·refresh·quota가 함께 온다.
+    by: person
+follow_up: |-
+  실제 OpenCode Go 계정 key로 한 번도 호출하지 못했다(개발 머신의 `~/.local/share/opencode/auth.json` key는 gateway가 401로 거절했다 — 만료이거나 Go 구독이 아닌 계정). 확인할 것: key를 연결한 뒤 (1) 셋의 model 목록이 자기 wire 항목만 담는지, (2) chat·responses·messages 각각 text 한 번과 tool 한 왕복, (3) `x-opencode-session`이 매 요청에 실려 `MissingSessionID`가 나지 않는지, (4) User-Agent 없이 403이던 요청이 `lophn`으로 통과하는지. reasoning_content 재전송 quirk는 넣지 않았으므로 회상 turn이 gateway에서 거절되면 `compat.ts`의 QUIRKS에 `opencode-go-chat`을 더한다.
+checklist:
+  - "해야: Settings > Providers에서 OpenCode Go (Chat)/(Responses)/(Messages) 셋에 같은 Console API key를 각각 연결한다"
+  - Manage models에서 OpenCode Go 묶음 셋이 보이고, 각 묶음에 그 wire의 model만 보이는지 본다
+  - 셋 중 아무 model이나 골라 한 번 답하게 하고, tool을 쓰는 요청도 한 번 해 본다

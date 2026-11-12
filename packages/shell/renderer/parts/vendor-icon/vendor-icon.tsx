@@ -33,8 +33,8 @@ import pi from "./pi.svg";
 import primeAgent from "./prime-agent.svg";
 import qoder from "./qoder.svg";
 import qwen from "./qwen.svg";
-import xai from "./xai.svg";
 import styles from "./vendor-icon.module.css";
+import xai from "./xai.svg";
 
 const RAW_ICONS = {
   claude,
@@ -88,6 +88,8 @@ export function vendorOf(name: string): Vendor | undefined {
   if (key in ICONS) return key as Vendor;
   if (key === "gemini" || key === "google-gemini") return "google";
   if (key === "google-antigravity") return "antigravity";
+  // OpenCode Go 정의 셋(OpenCode Go (Chat) 같은 이름)은 OpenCode 표지를 쓴다.
+  if (key.startsWith("opencode-go")) return "opencode";
   if (key === "hermes-agent") return "hermes";
   if (key === "claude-code") return "claude";
   if (key === "codex") return "openai";

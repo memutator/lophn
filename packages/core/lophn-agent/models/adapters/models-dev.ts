@@ -61,10 +61,43 @@ export async function fetchCatalog(
   return { kind: "received", body, etag: response.etag };
 }
 
+// OpenCode Go gateway는 model마다 wire가 다르고, lophn은 wire마다 provider 정의를 하나 둔다. models.dev 행이
+// 가리키는 SDK package가 wire를 정하고, package가 없는 행은 model family 앞머리로 가른다(mixdog의 표와 같다).
+// Gemini generateContent wire는 lophn에 adapter가 없어 버린다.
+const OPENCODE_GO = {
+  chat: "opencode-go-chat",
+  responses: "opencode-go-responses",
+  messages: "opencode-go-messages",
+} as const;
+const OPENCODE_GO_NPM: Readonly<Record<string, string>> = {
+  "@ai-sdk/openai": OPENCODE_GO.responses,
+  "@ai-sdk/anthropic": OPENCODE_GO.messages,
+};
+const OPENCODE_GO_RESPONSES = /^(?:muse-spark-|gpt-|grok-)/i;
+const OPENCODE_GO_MESSAGES = /^(?:minimax-|qwen|claude-)/i;
+
+function opencodeGoDefinition(model: Json, modelName: string): string | null {
+  const npm = obj(model.provider)?.npm;
+  if (npm === "@ai-sdk/google") return null;
+  if (typeof npm === "string" && OPENCODE_GO_NPM[npm] !== undefined) {
+    return OPENCODE_GO_NPM[npm]!;
+  }
+  if (OPENCODE_GO_RESPONSES.test(modelName)) return OPENCODE_GO.responses;
+  if (OPENCODE_GO_MESSAGES.test(modelName)) return OPENCODE_GO.messages;
+  return OPENCODE_GO.chat;
+}
+
 // models.dev provider id → lophn 내장 provider 정의 key. 표에 없는 provider는 버린다.
 // budget은 thinking 예산 축(anthropic-messages 표만 예산을 번역한다)을 받는 정의다.
+// definition이 함수면 model마다 정의가 다르다.
 const PROVIDERS: Readonly<
-  Record<string, { definition: string; budget: boolean }>
+  Record<
+    string,
+    {
+      definition: string | ((model: Json, name: string) => string | null);
+      budget: boolean;
+    }
+  >
 > = {
   anthropic: { definition: "anthropic", budget: true },
   openai: { definition: "openai", budget: false },
@@ -73,6 +106,7 @@ const PROVIDERS: Readonly<
   groq: { definition: "groq", budget: false },
   deepseek: { definition: "deepseek", budget: false },
   google: { definition: "google-gemini", budget: false },
+  "opencode-go": { definition: opencodeGoDefinition, budget: false },
 };
 
 type Json = Record<string, unknown>;
@@ -231,8 +265,13 @@ export function modelsDevEntries(
         continue;
       const cost = obj(model.cost);
       const rates = cost === undefined ? [] : ratesOf(cost);
+      const definition =
+        typeof target.definition === "function"
+          ? target.definition(model, modelName)
+          : target.definition;
+      if (definition === null) continue;
       const entry = {
-        provider_definition: target.definition,
+        provider_definition: definition,
         model_name: modelName,
         context_limit: context,
         input_limit: positive(limit?.input) ?? context,

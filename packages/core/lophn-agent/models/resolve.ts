@@ -36,6 +36,10 @@ import {
   cloudCodeShape,
 } from "../providers/adapters/cloud-code.ts";
 import { codexShape } from "../providers/adapters/codex.ts";
+import {
+  isOpenCodeGoDefinition,
+  opencodeGoShape,
+} from "../providers/adapters/opencode-go.ts";
 import { secretDestinationOf } from "../../../protocol/secrets/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import {
@@ -161,8 +165,10 @@ export function createModelResolver(deps: ModelResolverDeps) {
         use: { name: credential.secret_ref.name, destination },
         operation: "model.call",
         // OAuth access token은 Bearer다. API key는 protocol이 정한다: Anthropic은 x-api-key, OpenAI 계열은 Bearer다.
+        // OpenCode Go gateway는 wire와 상관없이 Bearer 하나를 문서에 두므로 Messages wire도 Bearer다.
         ...(credential.kind === "api_key" &&
-        provider.protocol === "anthropic-messages"
+        provider.protocol === "anthropic-messages" &&
+        !isOpenCodeGoDefinition(provider.definition.key)
           ? { headerName: "x-api-key", kind: "api_key" as AuthKind }
           : { headerName: "authorization", kind: "bearer" as AuthKind }),
       });
@@ -243,6 +249,11 @@ export function createModelResolver(deps: ModelResolverDeps) {
       });
     }
     const platform = deps.host ?? claudeHostOf(process.platform, process.arch);
+    // OpenCode Go gateway는 대화 header와 자기 User-Agent를 요구한다. wire는 정의가 정한다.
+    const gatewayShape = opencodeGoShape(
+      provider.definition.key,
+      provider.protocol,
+    );
     const invoke = createInvokeModelCall({
       transport: withRequestHeaders(transport, optionHeaders),
       nowMs,
@@ -275,7 +286,9 @@ export function createModelResolver(deps: ModelResolverDeps) {
                   nowMs,
                 }),
               }
-            : {}),
+            : gatewayShape === null
+              ? {}
+              : { shape: gatewayShape }),
     });
     const requestPatch = limits.request_patch;
     const images = limits.input_media.includes("image");

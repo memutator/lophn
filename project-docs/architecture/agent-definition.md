@@ -227,22 +227,24 @@ turn마다 run-loop가 한 번 읽어 그 turn의 판을 고정하고, I/O 없�
     - 맨 아래 "Manage models" 줄이 Manage models 창을 연다. 그 창에서 provider마다, model마다 켜고 끄고 "+ Connect provider"로 연결 창을 연다. 붙이면 그 provider 묶음이 맨 위에 온다. model 행에는 입력 형식 icon과 context가 보인다. custom provider 묶음에는 목록 다시 읽기와 [Add model]이 있고 model 행마다 [Edit]이 있다. 둘 다 model 정보 form을 연다. 저장한 정보는 user 층이라 다시 읽기가 목록을 provider 것으로 바꿔도 그 model이 남는다. 켠 model은 전역 목록 하나(`ReadShownModels`·`ChangeShownModels`, 칸 `provider`·`model_name`)에 적는다. 기본이 끔이라 새 provider와 새 model은 꺼져 나오고 사람이 Manage models에서 켠다.
     - 사람이 model을 고르면(전역 기본, project, session 저장) core가 같은 transaction에서 그 model을 켠 목록에 더한다. 고른 model이 picker에 보여야 하기 때문이다. 전역 기본 model이 없을 때 session이나 project의 model을 처음 고르면 그 선택이 전역 기본으로도 저장된다(다음 대화가 model 없이 실패하지 않게 한다). 전역 기본 model이 없을 때 provider를 붙이면 기본 model 고르기 창이 뜬다. 켠 model이 아직 없으므로 그 창의 picker는 켠 목록과 상관없이 고를 수 있는 model 전부를 보이고(`showAll`) Manage models 줄이 없다.
 
+75. **OpenCode Go는 gateway wire마다 내장 정의 하나이고, 요청은 gateway의 client 규칙을 따른다.** gateway(`https://opencode.ai/inference/go/…`)는 model마다 wire가 다르다(2026-11-12 gateway 목록에서 chat 19, responses 5, messages 5, gemini 1). lophn provider 하나는 wire 하나이므로 정의를 셋(`opencode-go-chat`·`opencode-go-responses`·`opencode-go-messages`)으로 두고, 같은 Console API key를 셋에 각각 연결한다. catalog 항목도 셋으로 갈린다: models.dev `opencode-go` 행의 SDK package(`@ai-sdk/openai`→responses, `@ai-sdk/anthropic`→messages, `@ai-sdk/google`→버림)가 wire를 정하고, package가 없는 행은 family 앞머리(`muse-spark-`·`gpt-`·`grok-`→responses, `minimax-`·`qwen`·`claude-`→messages, 나머지→chat)로 가른다. Gemini generateContent wire는 lophn에 adapter가 없어 정의도 catalog 항목도 없다. model 목록은 셋이 gateway의 OpenAI base 목록(`/go/openai/v1/models`) 하나를 읽고 각 model의 `api` 객체에서 자기 wire만 남긴다(Anthropic base 목록은 wire를 싣지 않는다). 요청은 보내기 직전에 다시 만든다: 자기 wire의 경로(`/chat/completions`, `/responses`, `/messages`), `stream: true`, `x-opencode-session`(session에서 만든 `ses_`+32 hex, session이 없으면 하나로 모음), `User-Agent: lophn`(gateway가 SDK 기본 User-Agent를 403으로 막는다), Messages wire에는 `anthropic-version`. API key는 셋 다 `Authorization: Bearer`다(gateway 문서가 wire와 상관없이 Bearer 하나를 두고, Messages wire도 x-api-key 없이 받는다). 이 값들은 gateway가 공개한 client 규칙이고 1st-party API 계약이 아니다. 실제 계정 key로는 아직 확인하지 못했다.
+
 ### 실패에서 버티기
 
-75. **model 호출 실패는 원인에 맞게 다시 보내고, 끝나면 원인을 말한다.**
+76. **model 호출 실패는 원인에 맞게 다시 보내고, 끝나면 원인을 말한다.**
     - 일시 실패는 2초·4초로 두 번 다시 보내고 ±20% jitter를 섞는다. 연결이 끊긴 실패는 5초·15초·30초로 세 번이다. 서버가 시각을 주면 그 시각을 지킨다.
     - reset 정보가 없는 429는 quota 소진이 아니라 일시 제한이라 다시 보낸다. reset이 30초 이내면 일시 실패, 넘으면 그 시각까지 쓸 수 없는 `quota`다. OpenAI의 `x-ratelimit-reset-*` header와 "try again in" 문구도 읽는다. 정말 소진된 계정에서 요청 둘을 더 쓰는 것이 값이다.
     - `max_tokens`와 "request entity too large"는 context 초과가 아니다(줄여도 풀리지 않는다).
     - provider 밖(본문 만들기, blob 저장) 실패는 model 설정 문제가 아니라 `internal`로 끝난다.
     - 실패 문구는 원인을 말한다: 사용량 한도(402, 429 `configuration_unavailable`), 로그인 거절(401, 403), rate limit(429 model 오류). 저장한 `http_status`로 가르고 [Retry]는 그대로 둔다(결제하거나 key를 고친 사람이 그 자리에서 다시 할 수 있어야 한다).
     - provider가 image 크기·꼴을 거절하면(`image_rejected`) 어느 image인지 알 수 없어 그 turn의 모든 image를 빼고 같은 요청을 한 번만 다시 보낸다(이력에 남는 이미지도 뺀 채다). 요청에 image가 없거나 뺀 뒤에도 거절하면 `model_error`로 끝난다. 거절 문구 목록은 provider 문서에서 안 것이고 fixture로 확인하지 않았다.
-76. **model 응답의 이상은 같은 호출을 되풀이하지 않게 알린다.** 길이 한도로 잘린 응답은 tool을 시작하지 않고 작게 나눠 부르라고 알린다. 글도 tool call도 없는 응답은 한 번 되묻고, 또 비면 turn을 `no_answer`로 끝낸다. 없는 tool 이름을 부르면 고를 수 있는 이름(정렬, 300자 상한)을 답한다. 고정 prompt가 예산을 넘어 막힌 것은 요약으로 풀리지 않으므로 다음 turn 전 Compact를 걸지 않는다.
-77. **같은 tool 호출이 같은 이유로 세 번 바로 이어서 실패하면 네 번째부터 돌리지 않고 방법을 바꾸라고 답한다. 여섯 번이면 turn을 `repeated_tool_failure`로 끝낸다.** 바로 이어진 똑같은 호출만 본다. 성공이 섞이며 진행하는 turn에는 상한이 없다.
-78. **tool 호출의 요청을 기록하지 못했으면 읽기만 돌린다.** 기록 없이 쓰기가 돌면 rewind 기록이 남지 않는다. model 호출도 기록이 이미 실패했으면 보내지 않는다.
-79. **끝나지 못한 turn과 호출을 사실대로 닫는다.** turn의 `FinishTurn`이 실패하면 그 turn을 `internal`로 닫는다(`running`에 남아 새 입력을 막지 않는다). runtime이 다시 뜰 때 끊긴 turn의 열린 tool call은 `uncertain`으로 닫고, 그 session의 다음 turn은 `[machine]` 알림으로 어느 호출이 돌았는지 모른다고 model에게 알린다.
-80. **결과를 모르는 호출은 `uncertain`이다.** `shell.run`이 timeout으로 죽으면 "이미 효과가 났을 수 있다"고 알린다(사람이 Stop한 것은 `failure`). MCP는 보냈는데 답이 없으면 `uncertain`이고, 답이 온 `isError` 본문은 감싸지 않고 실패로 model에게 준다. stdio server process가 죽으면 연결이 알아채고 다음 호출이 다시 연결한다. 답을 받으면 연결의 재시도 횟수를 비운다. extension tool 호출은 5분 기한이 있다.
-81. **`file.grep`·`file.glob`은 Worker에서 돌려 10초에 끊는다.** 끊기면 더 단순한 pattern을 쓰라고 답한다. model이 준 regex가 끝나지 않을 수 있기 때문이다. 4,000자를 넘는 줄은 검사하지 않고 건너뛴 수를 알린다.
-82. **file 쓰기는 원래 file을 망가뜨리지 않는다.** `file.edit`은 BOM과 CRLF를 지키고, UTF-8이 아니거나 NUL이 든 file은 거절한다. 쓰기는 같은 폴더의 임시 file에 쓴 뒤 rename한다(실패해도 원본이 온전하고 mode가 남는다). 쓰기 크기는 10 MiB까지다. 오류 글은 errno별로 원인(권한, 폴더, disk 가득, 읽기 전용, 사용 중)을 말한다. `agent.memory` 쓰기도 같은 길이다.
+77. **model 응답의 이상은 같은 호출을 되풀이하지 않게 알린다.** 길이 한도로 잘린 응답은 tool을 시작하지 않고 작게 나눠 부르라고 알린다. 글도 tool call도 없는 응답은 한 번 되묻고, 또 비면 turn을 `no_answer`로 끝낸다. 없는 tool 이름을 부르면 고를 수 있는 이름(정렬, 300자 상한)을 답한다. 고정 prompt가 예산을 넘어 막힌 것은 요약으로 풀리지 않으므로 다음 turn 전 Compact를 걸지 않는다.
+78. **같은 tool 호출이 같은 이유로 세 번 바로 이어서 실패하면 네 번째부터 돌리지 않고 방법을 바꾸라고 답한다. 여섯 번이면 turn을 `repeated_tool_failure`로 끝낸다.** 바로 이어진 똑같은 호출만 본다. 성공이 섞이며 진행하는 turn에는 상한이 없다.
+79. **tool 호출의 요청을 기록하지 못했으면 읽기만 돌린다.** 기록 없이 쓰기가 돌면 rewind 기록이 남지 않는다. model 호출도 기록이 이미 실패했으면 보내지 않는다.
+80. **끝나지 못한 turn과 호출을 사실대로 닫는다.** turn의 `FinishTurn`이 실패하면 그 turn을 `internal`로 닫는다(`running`에 남아 새 입력을 막지 않는다). runtime이 다시 뜰 때 끊긴 turn의 열린 tool call은 `uncertain`으로 닫고, 그 session의 다음 turn은 `[machine]` 알림으로 어느 호출이 돌았는지 모른다고 model에게 알린다.
+81. **결과를 모르는 호출은 `uncertain`이다.** `shell.run`이 timeout으로 죽으면 "이미 효과가 났을 수 있다"고 알린다(사람이 Stop한 것은 `failure`). MCP는 보냈는데 답이 없으면 `uncertain`이고, 답이 온 `isError` 본문은 감싸지 않고 실패로 model에게 준다. stdio server process가 죽으면 연결이 알아채고 다음 호출이 다시 연결한다. 답을 받으면 연결의 재시도 횟수를 비운다. extension tool 호출은 5분 기한이 있다.
+82. **`file.grep`·`file.glob`은 Worker에서 돌려 10초에 끊는다.** 끊기면 더 단순한 pattern을 쓰라고 답한다. model이 준 regex가 끝나지 않을 수 있기 때문이다. 4,000자를 넘는 줄은 검사하지 않고 건너뛴 수를 알린다.
+83. **file 쓰기는 원래 file을 망가뜨리지 않는다.** `file.edit`은 BOM과 CRLF를 지키고, UTF-8이 아니거나 NUL이 든 file은 거절한다. 쓰기는 같은 폴더의 임시 file에 쓴 뒤 rename한다(실패해도 원본이 온전하고 mode가 남는다). 쓰기 크기는 10 MiB까지다. 오류 글은 errno별로 원인(권한, 폴더, disk 가득, 읽기 전용, 사용 중)을 말한다. `agent.memory` 쓰기도 같은 길이다.
 
 ## 경계와 계약
 

@@ -132,3 +132,56 @@ test("항목 배열 응답은 거절한다", () => {
     true,
   );
 });
+
+// OpenCode Go의 catalog 항목은 model이 답하는 wire의 정의 셋으로 갈린다. models.dev의 SDK package가 wire를
+// 정하고, package가 없는 행은 family 앞머리로 가른다. Gemini wire는 lophn이 부를 길이 없어 항목이 없다.
+test("OpenCode Go 행은 wire마다 정의 셋으로 갈리고 Gemini model은 빠진다", () => {
+  const opencodeGo = {
+    "opencode-go": {
+      models: {
+        "glm-5.3": {
+          tool_call: true,
+          modalities: text,
+          limit: { context: 1000000, output: 131072 },
+        },
+        "gpt-6-luna": {
+          provider: { npm: "@ai-sdk/openai" },
+          tool_call: true,
+          modalities: text,
+          limit: { context: 1050000, output: 128000 },
+        },
+        "claude-haiku-5-5": {
+          provider: { npm: "@ai-sdk/anthropic" },
+          tool_call: true,
+          modalities: text,
+          limit: { context: 1000000, output: 128000 },
+        },
+        // package가 없어도 family 앞머리가 wire를 정한다.
+        "qwen3.8-max": {
+          tool_call: true,
+          modalities: text,
+          limit: { context: 1000000, output: 131072 },
+        },
+        "gemini-4-argon": {
+          provider: { npm: "@ai-sdk/google" },
+          tool_call: true,
+          modalities: text,
+          limit: { context: 1048576, output: 65536 },
+        },
+      },
+    },
+  };
+  const got = modelsDevEntries(opencodeGo, AT);
+  if (!got.ok) throw new Error(got.error.message);
+  assert.deepStrictEqual(
+    (got.value as Record<string, unknown>[]).map(
+      (e) => `${e.provider_definition}/${e.model_name}`,
+    ),
+    [
+      "opencode-go-chat/glm-5.3",
+      "opencode-go-responses/gpt-6-luna",
+      "opencode-go-messages/claude-haiku-5-5",
+      "opencode-go-messages/qwen3.8-max",
+    ],
+  );
+});

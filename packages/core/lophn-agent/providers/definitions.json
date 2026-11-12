@@ -97,6 +97,33 @@
     "revision": "2026-10"
   },
   {
+    "key": "opencode-go-chat",
+    "display_name": "OpenCode Go (Chat)",
+    "protocols": ["openai-chat-completions"],
+    "auth_kinds": ["api_key"],
+    "models_endpoint": "https://opencode.ai/inference/go/openai/v1/models",
+    "oauth": null,
+    "revision": "2026-11"
+  },
+  {
+    "key": "opencode-go-responses",
+    "display_name": "OpenCode Go (Responses)",
+    "protocols": ["openai-responses"],
+    "auth_kinds": ["api_key"],
+    "models_endpoint": "https://opencode.ai/inference/go/openai/v1/models",
+    "oauth": null,
+    "revision": "2026-11"
+  },
+  {
+    "key": "opencode-go-messages",
+    "display_name": "OpenCode Go (Messages)",
+    "protocols": ["anthropic-messages"],
+    "auth_kinds": ["api_key"],
+    "models_endpoint": "https://opencode.ai/inference/go/anthropic/v1/models",
+    "oauth": null,
+    "revision": "2026-11"
+  },
+  {
     "key": "google-gemini",
     "display_name": "Google Gemini",
     "protocols": ["openai-chat-completions"],

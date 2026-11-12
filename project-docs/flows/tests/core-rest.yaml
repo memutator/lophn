@@ -454,6 +454,10 @@ files:
     covers: [agent-credential-issue:issued, agent-credential-issue:invalid_input, credential-end:ended, credential-end:agent-kept]
     note: "credential registry 단위(session·turn 범위 대조, turn 끝 폐기, 앱 credential 종료가 agent 자격을 남김). credential 발급과 종료는 agent-credential-issue·credential-end, HTTP 쪽 결과는 api-request-gate가 맡는다"
 
+  - path: packages/core/storage/ledger/tx_test.ts
+    covers: []
+    note: "transaction이 corrupt(SQLITE_CORRUPT)를 만나면 unavailable에 원인을 싣고 연결을 fault로 만들어 다음 transaction은 SQL을 돌리지 않는다. 망가진 ledger에 계속 쓰지 않게 하는 규칙이다"
+
   - path: packages/core/storage/migration/data-steps_test.ts
     covers:
       - data-steps-apply:applied

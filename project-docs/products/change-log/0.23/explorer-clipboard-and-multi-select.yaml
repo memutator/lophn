@@ -1,5 +1,5 @@
 id: explorer-clipboard-and-multi-select
-version: 0.23.46
+version: 0.23.47
 title: Explorer에서 여러 줄을 고르고 파일을 복사·잘라내기·붙여넣기·복제하며, md 문서에 이미지를 붙여넣는다
 modules: [packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer]
 change: |

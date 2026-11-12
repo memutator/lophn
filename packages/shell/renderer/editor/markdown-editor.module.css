@@ -16,6 +16,15 @@
   min-width: var(--space-0);
 }
 
+/* 붙여넣은 그림을 저장하지 못했을 때 편집기 아래 한 줄. */
+.notice {
+  margin: var(--space-4) var(--space-0) var(--space-0);
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
 .editor :global(.cm-editor) {
   background: transparent;
   color: var(--color-text-primary);

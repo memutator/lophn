@@ -7,6 +7,7 @@ export type EditorFiles = Pick<
   | "read"
   | "readBytes"
   | "write"
+  | "writeBytes"
   | "delete"
   | "watch"
   | "onChanged"
@@ -27,6 +28,7 @@ export function windowEditorFiles(): EditorFiles {
     read: unavailable,
     readBytes: unavailable,
     write: unavailable,
+    writeBytes: unavailable,
     delete: unavailable,
     watch: unavailable,
     onChanged: () => () => {},

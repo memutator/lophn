@@ -1,11 +1,14 @@
-// 파일 하나를 읽는 hook 둘. 글은 창의 편집 session으로 열고, 이미지·pdf는 바이트를 읽어 blob URL로
-// 만든다. 8 MiB를 넘는 글은 편집 session을 열지 못해 읽기용으로만 보인다.
-import { useEffect, useState } from "react";
+// 파일 하나를 읽는 hook 둘과 문서 본문의 그림을 푸는 hook 하나. 글은 창의 편집 session으로 열고,
+// 이미지·pdf는 바이트를 읽어 blob URL로 만든다. 8 MiB를 넘는 글은 편집 session을 열지 못해 읽기용으로만 보인다.
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { FileFailure } from "../../ipc/files.ts";
 import { fileNameOf, isInstructionsFile } from "./model.ts";
 import type { SaveSession } from "./save-state.ts";
 import type { EditorSessions } from "./sessions.ts";
+import type { EditorFiles } from "./source.ts";
+import { folderOf } from "./image-paste.ts";
+import { defaultResolveImage } from "./live-preview.ts";
 
 type TextFile =
   | { readonly kind: "loading" }
@@ -107,4 +110,61 @@ export function useMediaFile(
     };
   }, [sessions, path, attempt]);
   return file;
+}
+
+/**
+ * 문서 본문의 상대 경로 그림을 그 문서 옆 file에서 읽어 blob URL로 만든다. 한 문서에 한 번 읽어
+ * 캐시하고 문서가 닫힐 때(이 hook이 사라질 때) revoke한다. 같은 src에는 같은 문자열을 돌려주고,
+ * 새 url이 생기면 다른 함수를 돌려줘 부른 쪽이 그림 자리를 다시 그리게 한다.
+ */
+export function useDocumentImages(
+  files: EditorFiles,
+  path: string,
+): (src: string) => string | null {
+  const [cache, setCache] = useState<ReadonlyMap<string, string | null>>(
+    () => new Map(),
+  );
+  const pending = useRef(new Set<string>());
+  const urls = useRef(new Set<string>());
+  const dir = folderOf(path);
+
+  useEffect(() => {
+    setCache(new Map());
+    pending.current.clear();
+    return () => {
+      for (const url of urls.current) URL.revokeObjectURL(url);
+      urls.current.clear();
+      pending.current.clear();
+    };
+  }, [files, path]);
+
+  return useCallback(
+    (src: string) => {
+      const direct = defaultResolveImage(src);
+      if (direct !== null) return direct;
+      // `/`로 시작하거나 scheme이 있는 주소(`file:` 등)는 문서 상대 경로가 아니다.
+      if (src.startsWith("/") || /^[A-Za-z][A-Za-z0-9+.-]*:/.test(src)) {
+        return null;
+      }
+      const target = `${dir}/${src}`;
+      const cached = cache.get(target);
+      if (cached !== undefined) return cached;
+      if (!pending.current.has(target)) {
+        pending.current.add(target);
+        void files.readBytes({ path: target }).then((reply) => {
+          const url = reply.ok
+            ? URL.createObjectURL(
+                new Blob([reply.value.bytes as BlobPart], {
+                  type: reply.value.content_type,
+                }),
+              )
+            : null;
+          if (url !== null) urls.current.add(url);
+          setCache((current) => new Map(current).set(target, url));
+        });
+      }
+      return null;
+    },
+    [cache, dir, files],
+  );
 }

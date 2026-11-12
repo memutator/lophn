@@ -20,6 +20,7 @@ import { useSettingsChanged } from "../desktop/connection/events/hooks.tsx";
 import { ConflictCompare } from "./conflict/conflict-compare.tsx";
 import type { DocumentViewProps } from "./document-view.tsx";
 import { FileFrame, FileStatus } from "./file-frame.tsx";
+import { folderOf, pastedImageName } from "./image-paste.ts";
 import type { MarkdownEditorHandle } from "./markdown-editor.tsx";
 import { MarkdownPane } from "./markdown-pane.tsx";
 import { fileKindOf, languageOf, outlineOf, sectionKeyOf } from "./model.ts";
@@ -99,6 +100,7 @@ const HEAD_OFFSET = 8;
 
 function ReadyTextFile({
   path,
+  sessions,
   readingWidth,
   outside = false,
   line,
@@ -287,12 +289,43 @@ function ReadyTextFile({
     session.edit(next);
   };
 
+  // 붙여넣은 그림은 이 문서 옆에 file로 쓰고, 문서에는 상대 경로 링크를 넣는다. 폴더의 지금
+  // 목록을 모르므로 이름이 겹치면(conflict) `image 2.png`처럼 두 번 더 시도한다.
+  const pasteImage = useCallback(
+    async (images: readonly File[]): Promise<readonly string[]> => {
+      const folder = folderOf(path);
+      const links: string[] = [];
+      for (const image of images) {
+        const bytes = new Uint8Array(await image.arrayBuffer());
+        const taken: string[] = [];
+        for (let tries = 0; tries < 3; tries += 1) {
+          const name = pastedImageName(image, taken);
+          if (name === null) break;
+          taken.push(name);
+          const reply = await sessions.files.writeBytes({
+            path: `${folder}/${name}`,
+            bytes,
+          });
+          if (reply.ok) {
+            links.push(`![](./${name})`);
+            break;
+          }
+          if (reply.code !== "conflict") break;
+        }
+      }
+      return links;
+    },
+    [path, sessions],
+  );
+
   let body: ReactNode;
   if (comparing !== null) {
     body = <ConflictCompare disk={comparing} mine={session.text} />;
   } else if (kind === "markdown") {
     body = (
       <MarkdownPane
+        path={path}
+        files={sessions.files}
         text={text}
         label={name}
         width={width}
@@ -300,6 +333,7 @@ function ReadyTextFile({
         editorRef={editorRef}
         onChange={onChange}
         onScroll={onScroll}
+        onPasteImage={pasteImage}
       />
     );
   } else {

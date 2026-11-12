@@ -230,6 +230,10 @@ export function fakeEditorFiles(
       files.set(path, text);
       return Promise.resolve(ok({ hash: hashOf(text) }));
     },
+    // gallery는 디스크가 없다. 붙여넣은 그림은 저장할 수 없다고 답한다.
+    writeBytes() {
+      return Promise.resolve({ ok: false, code: "unavailable" } as const);
+    },
     delete({ path }) {
       files.delete(path);
       return Promise.resolve(ok({}));

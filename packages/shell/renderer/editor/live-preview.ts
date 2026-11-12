@@ -338,10 +338,14 @@ function spanDecorations(
   return out;
 }
 
-/** 이 화면이 직접 불러도 되는 그림 주소: https와 data 그림뿐이다. */
+// 이 화면이 직접 불러도 되는 그림 주소: https와 data 그림뿐이다. 상대 경로는 문서 tab이 연다(그
+// 문서 옆 file을 읽어 blob URL로 바꾼다).
 export function defaultResolveImage(src: string): string | null {
   return /^(https:|data:image\/)/i.test(src) ? src : null;
 }
+
+// 문서 tab이 푼 url은 뒤늦게 생긴다. 그때 이 effect로 그림 자리를 다시 만든다.
+export const refreshImages = StateEffect.define<null>();
 
 // 편집기에 focus가 있을 때만 커서 자리 원문이 보인다. 막 연 편집기나 찾기 줄로
 // 옮긴 편집기는 읽기 화면처럼 보인다.
@@ -377,7 +381,9 @@ function inlinePreview(resolveImage: (src: string) => string | null) {
           update.focusChanged ||
           syntaxTree(update.startState) !== syntaxTree(update.state) ||
           update.transactions.some((transaction) =>
-            transaction.effects.some((effect) => effect.is(setFocused)),
+            transaction.effects.some(
+              (effect) => effect.is(setFocused) || effect.is(refreshImages),
+            ),
           )
         ) {
           this.decorations = this.build(update.view);

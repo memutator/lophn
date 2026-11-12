@@ -121,6 +121,7 @@ export function DocumentPane({
         <ConflictCompare />
       ) : kind === "markdown" ? (
         <MarkdownPane
+          path={path}
           text={text}
           label={path}
           width={width}

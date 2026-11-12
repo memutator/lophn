@@ -480,6 +480,10 @@ files:
     covers: [shell-rule-edit:saved]
     note: "설정 화면에서 shell 규칙 줄 하나를 더할 때 저장 직전에 다시 읽은 값에 그 줄만 더한다. turn-request-decide의 always와 같은 저장이지만 설정 화면 경로는 shell-rule-edit:saved"
 
+  - path: packages/shell/renderer/editor/image-paste_test.ts
+    covers: []
+    note: "붙여넣은 그림의 저장 이름이 MIME 확장자를 따르고, 문서 폴더를 구한다"
+
   - path: packages/shell/renderer/editor/save-state_test.ts
     covers:
       - editor-save:saved

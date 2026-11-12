@@ -25,4 +25,4 @@ lead만 고친다. `tools/status.py failure-hardening build`가 `tasks/*.md`에�
 | `mcp-failures` | tools | 1 | 없음 | merged | tools/mcp-failures | 30ba8d0e7 |  |
 | `tools-file-write` | tools | 1 | 없음 | merged | tools/tools-file-write | 6609815ce |  |
 | `tools-grep` | tools | 1 | 없음 | merged | tools/tools-grep | 30a229f67 |  |
-| `loop-stop` | loop | 2 | loop-turn, provider-failures | todo |  |  |  |
+| `loop-stop` | loop | 2 | loop-turn, provider-failures | running | loop/loop-stop |  |  |

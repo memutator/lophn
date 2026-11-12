@@ -1,64 +1,18 @@
-import type { Dirent } from "node:fs";
-import { readdir, readFile, stat } from "node:fs/promises";
-import { join, relative, sep } from "node:path";
+import { stat } from "node:fs/promises";
+import { join } from "node:path";
+import { Worker } from "node:worker_threads";
 import { ok, type Result } from "../../../../base/mod.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import { continuation } from "../bundles/paging.ts";
 import { fitJson } from "../result.ts";
 import type { ToolContext } from "../tool-context.ts";
 import { fail, fsFail, resolveInWorkspace } from "./scope.ts";
+import type { SearchInput, SearchOutput } from "./search-worker.ts";
 
-const MAX_FILES = 200;
-const MAX_MATCHES = 100;
-const MAX_SCANNED_BYTES = 2 * 1024 * 1024;
-const MAX_LINE_CHARS = 300;
-const SKIPPED = new Set([".git", "node_modules"]);
-
-// `**`, `*`, `?`, `{a,b}`만 푼다. `/`가 없는 pattern은 이름에만 맞춘다.
-function globMatcher(pattern: string): (path: string) => boolean {
-  let source = "";
-  for (let index = 0; index < pattern.length; index += 1) {
-    const char = pattern[index]!;
-    if (char === "*" && pattern[index + 1] === "*") {
-      index += 1;
-      if (pattern[index + 1] === "/") {
-        index += 1;
-        source += "(?:.*/)?";
-      } else source += ".*";
-    } else if (char === "*") source += "[^/]*";
-    else if (char === "?") source += "[^/]";
-    else if (char === "{") source += "(?:";
-    else if (char === "}") source += ")";
-    else if (char === ",") source += "|";
-    else source += char.replace(/[.+^$()|[\]\\]/g, "\\$&");
-  }
-  const regex = new RegExp(`^${source}$`);
-  return pattern.includes("/")
-    ? (path) => regex.test(path)
-    : (path) => regex.test(path.slice(path.lastIndexOf("/") + 1));
-}
-
-// base 아래 파일을 훑는다. 허용 폴더 밖으로 나가는 symlink와 symlink 폴더는 넣지 않는다.
-async function* walk(ctx: ToolContext, dir: string): AsyncGenerator<string> {
-  let entries: Dirent[];
-  try {
-    entries = await readdir(dir, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  entries.sort((a, b) => a.name.localeCompare(b.name));
-  for (const entry of entries) {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      if (!SKIPPED.has(entry.name)) yield* walk(ctx, path);
-    } else if (entry.isFile()) {
-      yield path;
-    } else if (entry.isSymbolicLink()) {
-      const at = await resolveInWorkspace(ctx.scope, path, "read");
-      if (at.ok && (await stat(at.value.path)).isFile()) yield path;
-    }
-  }
-}
+// RegExp가 끝나지 않을 수 있어 훑기는 Worker에서 돌리고 기한에 끊는다.
+const SEARCH_DEADLINE_MS = 10_000;
+// minified 한 줄에 RegExp를 돌리지 않는다.
+const MAX_TESTED_LINE_CHARS = 4_000;
 
 type Base = { dir: string; single: string | null };
 
@@ -80,13 +34,46 @@ async function baseOf(
   }
 }
 
-async function* listed(ctx: ToolContext, base: Base): AsyncGenerator<string> {
-  if (base.single === null) yield* walk(ctx, base.dir);
-  else yield base.single;
-}
-
-function show(base: Base, file: string): string {
-  return relative(base.dir, file).split(sep).join("/");
+// 같은 pattern의 Worker가 끝나기를 기다린다. 어느 길로 끝나든 Worker를 끝낸다.
+function runSearch(
+  input: Omit<SearchInput, "roots" | "maxLine">,
+  ctx: ToolContext,
+): Promise<Result<SearchOutput & { ok: true }>> {
+  const { read, write, base, results } = ctx.scope;
+  const worker = new Worker(new URL("./search-worker.ts", import.meta.url), {
+    workerData: {
+      ...input,
+      maxLine: MAX_TESTED_LINE_CHARS,
+      roots: { read, write, base, results },
+    },
+  });
+  return new Promise((resolve) => {
+    const settle = (result: Result<SearchOutput & { ok: true }>) => {
+      clearTimeout(timer);
+      ctx.signal?.removeEventListener("abort", onAbort);
+      void worker.terminate();
+      resolve(result);
+    };
+    const onAbort = () => settle(fail("unavailable", "the search was stopped"));
+    const timer = setTimeout(
+      () =>
+        settle(
+          fail(
+            "invalid_input",
+            "the search did not finish within 10 seconds; use a simpler pattern or a narrower path or glob",
+          ),
+        ),
+      SEARCH_DEADLINE_MS,
+    );
+    if (ctx.signal?.aborted) return onAbort();
+    ctx.signal?.addEventListener("abort", onAbort);
+    worker.once("message", (out: SearchOutput) =>
+      settle(out.ok ? ok(out) : fail("invalid_input", out.message)),
+    );
+    const failed = () => settle(fail("unavailable", "the search failed"));
+    worker.once("error", failed);
+    worker.once("exit", failed);
+  });
 }
 
 function resultOf(
@@ -116,58 +103,37 @@ export async function globFiles(
 ): Promise<Result<ToolResult>> {
   const base = await baseOf(ctx, input.path);
   if (!base.ok) return base;
-  const match = globMatcher(input.pattern);
-  const files: string[] = [];
-  let more = false;
-  for await (const file of listed(ctx, base.value)) {
-    const name = show(base.value, file);
-    if (!match(name)) continue;
-    if (files.length === MAX_FILES) {
-      more = true;
-      break;
-    }
-    files.push(name);
-  }
-  return ok(resultOf(`${files.length} files match`, "files", files, more));
+  const found = await runSearch(
+    { kind: "glob", pattern: input.pattern, base: base.value },
+    ctx,
+  );
+  if (!found.ok) return found;
+  const { items, more } = found.value;
+  return ok(resultOf(`${items.length} files match`, "files", items, more));
 }
 
 export async function grepFiles(
   input: { pattern: string; path?: string; glob?: string },
   ctx: ToolContext,
 ): Promise<Result<ToolResult>> {
-  let regex: RegExp;
-  try {
-    regex = new RegExp(input.pattern);
-  } catch {
-    return fail("invalid_input", "pattern is not a valid regular expression");
-  }
   const base = await baseOf(ctx, input.path);
   if (!base.ok) return base;
-  const match = input.glob === undefined ? null : globMatcher(input.glob);
-  const found: string[] = [];
-  let more = false;
-  scan: for await (const file of listed(ctx, base.value)) {
-    const name = show(base.value, file);
-    if (match !== null && !match(name)) continue;
-    let text: string;
-    try {
-      const bytes = await readFile(file);
-      if (bytes.length > MAX_SCANNED_BYTES || bytes.includes(0)) continue;
-      text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-    } catch {
-      continue;
-    }
-    const lines = text.split("\n");
-    for (let index = 0; index < lines.length; index += 1) {
-      if (!regex.test(lines[index]!)) continue;
-      if (found.length === MAX_MATCHES) {
-        more = true;
-        break scan;
-      }
-      found.push(
-        `${name}:${index + 1}:${lines[index]!.slice(0, MAX_LINE_CHARS)}`,
-      );
-    }
-  }
-  return ok(resultOf(`${found.length} lines match`, "matches", found, more));
+  const found = await runSearch(
+    {
+      kind: "grep",
+      pattern: input.pattern,
+      glob: input.glob,
+      base: base.value,
+    },
+    ctx,
+  );
+  if (!found.ok) return found;
+  const { items, more, skipped } = found.value;
+  const note =
+    skipped > 0
+      ? ` (${skipped} lines over ${MAX_TESTED_LINE_CHARS} characters were not searched)`
+      : "";
+  return ok(
+    resultOf(`${items.length} lines match${note}`, "matches", items, more),
+  );
 }

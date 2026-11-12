@@ -115,7 +115,7 @@ flows:
         when: 완전한 답으로 끝났다(answer_completed)
       - id: stopped
         observe: [process:agent-runtime]
-        when: "사람 멈춤, session 끝남 또는 restart로 core가 turn을 이미 닫았다(stop 확인). loop는 새 호출을 막고 FinishTurn 없이 끝난다. FinishTurn이 실패했어도 그 사이 멈춤이 왔으면 여기로 간다"
+        when: "사람 멈춤, session 끝남 또는 restart로 core가 turn을 이미 닫았다(stop 확인). loop는 새 호출을 막고 FinishTurn 없이 끝난다. 사람이 멈춘 turn(user_stopped)이면 끝에서 마지막 tool round의 이력을 한 번 남긴다(turn-checkpoint:stopped-history). FinishTurn이 실패했어도 그 사이 멈춤이 왔으면 여기로 간다"
       - id: failed-model-error
         observe: [ledger:turns, ledger:model_calls, event:TurnEnded]
         when: "일시 실패가 아닌 model 실패(400 invalid_request 같은 요청 오류, unknown), 재시도 소진(연결 끊김은 5·15·30초로 세 번, 그 밖은 2·4초로 두 번), partial 응답 3회 연속, 중단 요청 없이 호출이 취소로 돌아왔다, 알 수 없는 실패 code"
@@ -220,9 +220,9 @@ flows:
     code: [packages/core/lophn-agent/run-loop/commands.ts, packages/core/lophn-agent/run-loop/core-ports.ts]
     steps:
       - "machine 자격이 아니면 forbidden이다(requireMachine). loop가 model 호출과 tool 묶음 뒤, 끝내기 전에 시간 값과 이 turn의 이력 blob을 보낸다"
-      - "turn이 없으면 not_found, running이 아니면 conflict다. state_seq가 호출자의 compare와 다르면 conflict다"
-      - "active가 줄었거나 checkpoint 시각이 앞 값보다 이르면 invalid_input으로 거절한다"
-      - "시간 칸을 갱신한다. 이력 hash가 바뀌었으면 옛 이력 참조를 지우고 새 참조 하나만 등록한다(준비 참조가 거절되면 전체 rollback)"
+      - "turn이 없으면 not_found, running이 아니면 conflict다. 단 사람이 멈춘 turn(interrupted, user_stopped)은 이력만 싣는 checkpoint를 받는다(Stop이 행을 먼저 끝내므로 loop가 멈춘 끝에서 마지막 tool round를 남긴다). state_seq가 호출자의 compare와 다르면 conflict다"
+      - "멈춘 turn에 이력이 없으면 invalid_input, 같은 session에 이 turn보다 뒤의 turn이 이미 있으면 conflict다(다음 turn이 옛 이력을 읽었다). 멈춘 turn은 시간 칸을 바꾸지 않는다"
+      - "running turn은 active가 줄었거나 checkpoint 시각이 앞 값보다 이르면 invalid_input으로 거절하고, 아니면 시간 칸을 갱신한다. 이력 hash가 바뀌었으면 옛 이력 참조를 지우고 새 참조 하나만 등록한다(준비 참조가 거절되면 전체 rollback)"
     outcomes:
       - id: running
         observe: [ledger:turns, ledger:blob_refs, response]
@@ -231,10 +231,21 @@ flows:
         code: forbidden
         observe: [response]
         when: machine 자격이 아니다(requireMachine)
+      - id: stopped-history
+        observe: [ledger:blob_refs, response]
+        when: "사람이 멈춘 turn이 마지막 tool round의 이력을 받았다. 응답 state는 finished이고 시간은 그대로다. 멈추기 전에 assistant message가 없었으면 loop가 보내지 않는다"
+      - id: later-turn
+        code: conflict
+        observe: [response]
+        when: 멈춘 turn의 이력 checkpoint인데 같은 session의 뒤 turn이 이미 시작했다. 이력은 바뀌지 않는다
+      - id: history-required
+        code: invalid_input
+        observe: [response]
+        when: 멈춘 turn에 이력 없이 보냈다
       - id: not-running
         code: conflict
         observe: [response]
-        when: turn이 이미 끝나 있다
+        when: turn이 이미 끝나 있다(사람이 멈춘 것이 아니다)
       - id: state-changed
         code: conflict
         observe: [response]
@@ -554,7 +565,7 @@ flows:
       - "요청 body를 지금의 redaction으로 안전화해 저장한 뒤 보낸다. 안전화를 못 끝내면 보내지 않고 turn을 configuration_unavailable로 끝낸다"
       - "호출은 한도 안에서만 시작한다. 시도 수나 무진행 시간이 상한에 닿으면 model을 부르지 않는다"
       - "진행 없는 시간 한도에 닿으면 timer가 호출을 중단한다. 중단 뒤 grace(5초) 안에 답이 없으면 불명확으로 보고 turn을 끝낸다"
-      - "provider 실패를 분류한다. reset 정보가 없는 429는 일시 제한(temporary)이고, reset이 30초 이하면 그 시각의 일시 실패, 넘으면 그 시각까지 쓸 수 없는 quota다(OpenAI의 x-ratelimit-reset-requests·tokens와 \"try again in\" 문구도 reset으로 읽는다). max_tokens나 request entity too large는 context 초과가 아니다. 일시 실패(temporary)만 같은 입력으로 다시 보낸다. 최대 2번이고, 연결 끊김은 3번이다. 대기는 서버가 준 시각을 지키고 없으면 2초, 4초(연결 끊김은 5초, 15초, 30초)에 ±20% jitter를 섞는다"
+      - "provider 실패를 분류한다. reset 정보가 없는 429는 일시 제한(temporary)이고, reset이 30초 이하면 그 시각의 일시 실패, 넘으면 그 시각까지 쓸 수 없는 quota다(OpenAI의 x-ratelimit-reset-requests·tokens와 \"try again in\" 문구도 reset으로 읽는다). max_tokens나 request entity too large는 context 초과가 아니다. provider가 image 크기·꼴을 거절하면(image_rejected) image가 있을 때 한 번만 이 turn의 모든 image를 빼고 같은 요청을 다시 보낸다. 일시 실패(temporary)만 같은 입력으로 다시 보낸다. 최대 2번이고, 연결 끊김은 3번이다. 대기는 서버가 준 시각을 지키고 없으면 2초, 4초(연결 끊김은 5초, 15초, 30초)에 ±20% jitter를 섞는다"
       - "대기 중 멈춤, 새 입력, provider 회수가 오면 retry를 취소한다. 새 입력이면 turn이 다시 조립한다"
       - "partial 응답은 tool을 시작하지 않고 잘림을 기록한다. 3회 연속이면 model_error로 끝낸다. context_exceeded는 turn 안 Compact(최대 2회)나 tool 결과 줄이기로 다시 조립한다"
       - "쓰는 중 글은 알려진 secret을 가려 ModelOutputStreamed로 보낸다. 두 batch에 걸쳐 나뉜 값도 조각이 밖으로 나가지 않는다"
@@ -565,6 +576,9 @@ flows:
       - id: transient-retry
         observe: [ledger:model_calls]
         when: 일시 실패(429 reset 미상, reset 30초 이하 포함) 뒤 같은 입력으로 새 시도를 했다(attempt_kind retry, retry_of 연결)
+      - id: image-rejected
+        observe: [ledger:model_calls]
+        when: "provider가 image를 거절했고 요청에 image가 있다. 어느 image인지 몰라 이 turn의 image를 모두 빼고(이력에 남는 것도 뺀 채다) 한 번 다시 보낸다. 요청에 image가 없거나 뺀 뒤 또 거절하면 다시 보내지 않고 model_error로 끝난다(failed)"
       - id: partial-continue
         observe: [ledger:model_calls]
         when: 잘린 partial 응답을 남기고 잘림 사실을 이력에 붙여 다음 판단으로 간다. 길이 한도로 잘렸으면 나눠 부르라는 말이 붙는다

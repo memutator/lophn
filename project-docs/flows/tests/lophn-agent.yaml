@@ -149,8 +149,8 @@ files:
     note: "loop가 던진 turn과 FinishTurn이 실패한 turn(finish_failed)은 driver가 failed(internal)로 닫고 다음 turn은 시작한다. Compact 중인 session은 turn을 시작하지 않고 다른 session은 시작한다. 한 session의 Compact가 연속 3번 실패하면 다음 turn 전에 더 하지 않는다"
 
   - path: packages/core/lophn-agent/run-loop/harness-turn_test.ts
-    covers: [turn-start:running, turn-finish:completed, turn-finish:already-final, turn-restart:turns-interrupted]
-    note: "harness turn은 한 번만 끝나고, 재시작이 끝나지 않은 turn을 interrupted(restarted)로 닫은 뒤에는 늦은 finish가 결과를 덮지 못한다. 재시작은 그 turn의 끝나지 않은 tool call도 uncertain으로 닫는다"
+    covers: [turn-start:running, turn-finish:completed, turn-finish:already-final, turn-restart:turns-interrupted, turn-checkpoint:stopped-history, turn-checkpoint:later-turn, turn-checkpoint:not-running]
+    note: "harness turn은 한 번만 끝나고, 재시작이 끝나지 않은 turn을 interrupted(restarted)로 닫은 뒤에는 늦은 finish가 결과를 덮지 못한다. 재시작은 그 turn의 끝나지 않은 tool call도 uncertain으로 닫는다. 사람이 멈춘 turn은 같은 session의 다음 turn이 시작하기 전까지 이력만 싣는 checkpoint를 받고 그 뒤나 멈추지 않고 끝난 turn은 conflict다"
 
   - path: packages/core/lophn-agent/run-loop/history_test.ts
     covers: []

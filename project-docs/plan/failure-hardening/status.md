@@ -19,10 +19,10 @@ lead만 고친다. `tools/status.py failure-hardening build`가 `tasks/*.md`에�
 | `provider-failures` | provider | 1 | 없음 | merged | provider/provider-failures | 2ab41e81d |  |
 | `ext-spawn` | shell | 1 | 없음 | running | shell/ext-spawn |  |  |
 | `shell-core-connection` | shell | 1 | 없음 | running | shell/shell-core-connection |  |  |
-| `hooks-install` | term | 1 | 없음 | todo |  |  |  |
+| `hooks-install` | term | 1 | 없음 | running | term/hooks-install |  |  |
 | `term-host` | term | 1 | 없음 | merged | term/term-host | 49d9a5562 |  |
 | `term-supervisor` | term | 1 | 없음 | merged | term/term-supervisor | 53a1b0a9d |  |
-| `mcp-failures` | tools | 1 | 없음 | todo |  |  |  |
-| `tools-file-write` | tools | 1 | 없음 | todo |  |  |  |
+| `mcp-failures` | tools | 1 | 없음 | running | tools/mcp-failures |  |  |
+| `tools-file-write` | tools | 1 | 없음 | running | tools/tools-file-write |  |  |
 | `tools-grep` | tools | 1 | 없음 | merged | tools/tools-grep | 30a229f67 |  |
 | `loop-stop` | loop | 2 | loop-turn, provider-failures | todo |  |  |  |

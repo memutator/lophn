@@ -1,5 +1,5 @@
 id: opencode-go-single-provider
-version: 0.23.51
+version: 0.23.52
 title: OpenCode Go를 provider 하나로 합치고 model마다 catalog가 정한 wire로 부른다
 modules: [packages/core/lophn-agent, packages/core/main, packages/protocol, packages/shell/renderer]
 change: |

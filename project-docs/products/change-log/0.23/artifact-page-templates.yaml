@@ -1,5 +1,5 @@
 id: artifact-page-templates
-version: 0.23.47
+version: 0.23.48
 title: artifact를 쓰는 agent가 모양별 template에서 시작하고 답부터 보인다
 modules: [packages/core/agent-workspaces]
 change: |

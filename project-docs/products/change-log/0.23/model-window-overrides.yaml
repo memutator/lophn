@@ -1,5 +1,5 @@
 id: model-window-overrides
-version: 0.23.47
+version: 0.23.49
 title: 모든 provider의 model 한도를 고치고 Codex window를 API catalog와 분리한다
 modules: [packages/protocol, packages/cli, packages/core/lophn-agent, packages/core/main, packages/core/storage, packages/shell/renderer, packages/design, tools]
 change: |

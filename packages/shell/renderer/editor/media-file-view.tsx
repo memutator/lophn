@@ -1,7 +1,7 @@
 // 이미지·pdf 탭. 보기만 한다. 바이트는 shell main이 읽어 주고 blob URL로 그린다. 저장 상태도
 // 편집 단추도 없다.
 import { useEffect, useState } from "react";
-import { ErrorState, Skeleton } from "@lophn/ui/feedback";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
 
 import type { DocumentViewProps } from "./document-view.tsx";
@@ -25,7 +25,9 @@ export function MediaFileView(props: DocumentViewProps) {
   if (file.kind === "loading") {
     return (
       <FileStatus>
-        <Skeleton shape="line" lines={6} />
+        <Loading loading placeholder={<Skeleton shape="line" lines={6} />}>
+          {null}
+        </Loading>
       </FileStatus>
     );
   }

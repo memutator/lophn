@@ -12,7 +12,7 @@ import {
   useState,
 } from "react";
 import { useReadingWidth } from "@lophn/ui/layout";
-import { ErrorState, Skeleton } from "@lophn/ui/feedback";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
 
 import type { FileFailure } from "../../ipc/files.ts";
@@ -60,9 +60,12 @@ export function TextFileView(props: DocumentViewProps) {
   }, [path]);
 
   if (file.kind === "loading") {
+    // 탭을 오갈 때마다 다시 읽으므로 짧은 읽기에는 아무것도 그리지 않는다(다른 읽기 화면과 같은 300ms 규칙).
     return (
       <FileStatus>
-        <Skeleton shape="line" lines={6} />
+        <Loading loading placeholder={<Skeleton shape="line" lines={6} />}>
+          {null}
+        </Loading>
       </FileStatus>
     );
   }

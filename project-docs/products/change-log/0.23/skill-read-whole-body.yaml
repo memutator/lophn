@@ -1,5 +1,5 @@
 id: skill-read-whole-body
-version: 0.23.48
+version: 0.23.50
 title: skill.read가 긴 skill을 자르지 않고 통째로 준다
 modules: [packages/core/lophn-agent, tools]
 change: |

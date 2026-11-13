@@ -18,7 +18,8 @@
       "!project-docs",
       "!**/dist",
       "!**/release",
-      "!build"
+      "!build",
+      "!reports"
     ]
   },
   "formatter": {

@@ -93,9 +93,9 @@ export interface ManageModelView {
   readonly shown: boolean;
   /** catalog가 아는 입력 media. 모르면 null이다. */
   readonly inputMedia: readonly ModelMedia[] | null;
-  /** catalog가 아는 context 한도. 모르면 null이다. */
+  /** 이 model이 실제로 쓰는 context 한도(사람이 적은 값, provider가 알려 준 값, catalog 순서). 모르면 null이다. */
   readonly contextLimit: number | null;
-  /** 사람이 적은 정보. 없으면 null이다. */
+  /** 사람이 적은 정보. 없으면 null이다. custom provider는 전부, 내장·구독 provider는 한도만 담는다. */
   readonly info: UserModelInfo | null;
 }
 
@@ -107,6 +107,6 @@ export interface ManageProviderView {
   readonly models: readonly ManageModelView[];
   /** model 목록을 다시 읽을 수 있는 provider(custom, 목록을 알려 주는 내장 provider)다. */
   readonly refreshable: boolean;
-  /** model 정보를 적을 수 있는가: custom provider다. catalog에 있는 provider의 model은 읽기만 한다. */
-  readonly editable: boolean;
+  /** custom provider(core의 내장 정의 목록에 없는 정의)다. 정보 전체를 적고 새 model을 더할 수 있다. 내장·구독 provider는 한도만 고치고 model을 더하지 않는다. */
+  readonly custom: boolean;
 }

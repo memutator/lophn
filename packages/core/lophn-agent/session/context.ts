@@ -4,6 +4,7 @@ import {
   MESSAGE_BODY_OWNER_KIND,
   MESSAGE_IMAGE_FIELD,
   type ModelChoice,
+  providerModelLimits,
   type TokenUsage,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { ReadSnapshot } from "../../../protocol/server/mod.ts";
@@ -14,6 +15,7 @@ import {
   withDefaultLimits,
 } from "../models/user-entry.ts";
 import { BYTES_PER_TOKEN, IMAGE_TOKENS } from "../prompt-assembly/mod.ts";
+import { loadProvider } from "../providers/store.ts";
 import type { AgentSessionRow } from "./model.ts";
 
 // `/status`의 창 점유. omp(session-stats.ts getContextBreakdown)와 같은 셈이다: 마지막 판단 call이 provider에게서
@@ -155,38 +157,34 @@ function tailTokens(sql: Sql, session: string, anchor: Anchor): number {
   );
 }
 
-// 지금 고른 model이 그 call의 model과 다르면 다음 call의 한도는 catalog에서 읽는다. resolve.ts와 같은 순서다:
-// 사람이 적은 정보, catalog, 둘 다 없으면 기본 한계.
+// 마지막 call의 한도가 아니라 지금 선택·override·credential의 한도를 쓴다.
 function contextLimit(
   sql: Sql,
   deps: ContextDeps,
   model: ModelChoice,
   anchor: Anchor,
 ): number {
-  if (
-    model.provider === anchor.model.provider &&
-    model.model_name === anchor.model.name
-  ) {
+  const loaded = loadProvider(sql, model.provider);
+  if (!loaded.ok || loaded.value === null)
     return anchor.model.limits.context_limit;
-  }
-  const provider = sql.get(
-    "select definition_key from providers where id = ?",
-    [model.provider],
-  );
-  if (provider === undefined) return anchor.model.limits.context_limit;
-  const definition = String(provider["definition_key"]);
+  const provider = loaded.value;
+  const definition = provider.definition.key;
+  const base = deps
+    .catalog(sql)
+    .find(
+      (candidate) =>
+        candidate.provider_definition === definition &&
+        candidate.model_name === model.model_name,
+    );
   const record = loadUserModel(sql, definition, model.model_name);
   const entry =
-    record !== undefined
-      ? withDefaultLimits(userEntryOf(record))
-      : deps
-          .catalog(sql)
-          .find(
-            (candidate) =>
-              candidate.provider_definition === definition &&
-              candidate.model_name === model.model_name,
-          );
-  return entry?.context_limit ?? UNLISTED_LIMITS.context_limit;
+    record === undefined ? base : withDefaultLimits(userEntryOf(record, base));
+  return (
+    providerModelLimits(provider, model.model_name, entry, record?.info)
+      ?.context_limit ??
+    entry?.context_limit ??
+    UNLISTED_LIMITS.context_limit
+  );
 }
 
 export function contextUsage(

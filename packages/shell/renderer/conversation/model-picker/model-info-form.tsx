@@ -1,6 +1,7 @@
-// custom provider model 하나의 정보를 적는 form. Manage models 창 위에 열리는 Dialog 하나다. [Add model]은 빈 form,
-// 행의 [Edit]은 채운 form(정보가 없으면 이름만 채운다)을 연다. 한도는 비우면 기본값이고 회색 placeholder로 보인다.
-// 가격은 비우면 모름이고 0은 무료다. 저장은 위에서 받은 함수가 하고, 판이 어긋나면(conflict) form 값은 그대로 두고 한 줄만 보인다.
+// model 정보 form. Manage models 창 위에 열리는 Dialog 하나다. custom provider의 model은 정보 전체를 적고([Add model]은 빈 form,
+// 행의 [Edit]은 채운 form), 내장·구독 provider의 model은 한도 셋(context·input·output)만 적는다. 한도는 비우면 그 model이
+// 원래 쓰는 값(provider·catalog)을 따르고 회색 placeholder로만 보인다. 가격은 비우면 모름이고 0은 무료다. 저장은 위에서 받은
+// 함수가 하고, 판이 어긋나면(conflict) form 값은 그대로 두고 한 줄만 보인다.
 import { useState } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { Dialog, Tooltip } from "@lophn/ui/overlay";
@@ -22,6 +23,9 @@ import type { ModelMedia } from "./types.ts";
 const DEFAULT_CONTEXT = 131072;
 const DEFAULT_OUTPUT = 4096;
 
+/** form이 다루는 범위. custom provider의 model은 정보 전체를, 내장·구독 provider의 model은 한도 셋만 적는다. */
+export type ModelInfoMode = "custom" | "limits";
+
 /** 저장·지우기의 결과. conflict는 읽은 뒤 판이 바뀐 것이다. */
 export type ModelInfoOutcome = "saved" | "conflict" | "failed";
 
@@ -30,11 +34,13 @@ export interface ModelInfoFormProps {
   modelName: string | null;
   /** 고칠 model의 지금 정보. 새 model이거나 정보가 없으면 null이다. */
   info: UserModelInfo | null;
+  /** 정보 전체를 적는가(custom), 한도만 적는가(내장·구독). */
+  mode: ModelInfoMode;
   /** form 맨 위에 보일 한 줄(연결한 provider가 목록을 주지 않았다는 안내). */
   lead?: string;
   onClose: () => void;
   onSave: (modelName: string, info: UserModelInfo) => Promise<ModelInfoOutcome>;
-  /** 정보를 지운다. 고칠 때만 있다. */
+  /** 사람이 적은 정보를 지운다. custom은 그 model의 항목을 지우고, 내장·구독은 한도 override를 지워 원래 값을 따르게 한다. 고칠 때만 있다. */
   onRemove: () => Promise<ModelInfoOutcome>;
 }
 
@@ -109,9 +115,10 @@ const priceOf = (value: string): string | null | "invalid" => {
   return /^\d+(\.\d+)?$/.test(trimmed) ? trimmed : "invalid";
 };
 
-/** form 값을 저장할 정보로 옮긴다. 틀린 칸이 있으면 칸별 오류를 돌려준다. */
+/** form 값을 저장할 정보로 옮긴다. 틀린 칸이 있으면 칸별 오류를 돌려준다. 한도만 적는 form은 나머지 칸을 비운다(그 model의 원래 값을 따른다). */
 function infoOf(
   form: FormState,
+  mode: ModelInfoMode,
 ): { info: UserModelInfo } | { problems: Problems } {
   const problems: Problems = {};
   if (form.name.trim() === "") {
@@ -138,16 +145,31 @@ function infoOf(
   const context = limit("context");
   const input = limit("input");
   const output = limit("output");
-  const rates = {
-    input: rate("priceInput"),
-    output: rate("priceOutput"),
-    cache_read: rate("priceCacheRead"),
-    cache_write: rate("priceCacheWrite"),
-  };
-  if (form.effortOn && form.efforts.length === 0) {
+  if (mode === "custom" && form.effortOn && form.efforts.length === 0) {
     problems.effort = t("conversation.error.model-effort-none");
   }
+  const rates = {
+    input: mode === "custom" ? rate("priceInput") : null,
+    output: mode === "custom" ? rate("priceOutput") : null,
+    cache_read: mode === "custom" ? rate("priceCacheRead") : null,
+    cache_write: mode === "custom" ? rate("priceCacheWrite") : null,
+  };
   if (Object.keys(problems).length > 0) return { problems };
+  if (mode === "limits") {
+    // 내장·구독 provider의 model은 catalog와 provider가 정한 나머지를 그대로 쓴다.
+    return {
+      info: {
+        context_limit: context,
+        input_limit: input,
+        output_limit: output,
+        supports_tools: null,
+        input_media: null,
+        output_media: null,
+        effort: null,
+        price: null,
+      },
+    };
+  }
   return {
     info: {
       context_limit: context,
@@ -245,7 +267,7 @@ export function ModelInfoForm(props: ModelInfoFormProps) {
     else setOutcome(result === "conflict" ? result : failed);
   };
   const save = () => {
-    const parsed = infoOf(form);
+    const parsed = infoOf(form, props.mode);
     if ("problems" in parsed) {
       setProblems(parsed.problems);
       return;
@@ -255,6 +277,9 @@ export function ModelInfoForm(props: ModelInfoFormProps) {
       props.onSave(form.name.trim(), parsed.info),
     );
   };
+  // 한도만 적는 form은 수를 부르지 않고 "Automatic"만 보인다: 그 model이 provider와 catalog에서 받는 값은 화면이 정하지 않는다.
+  const limitsOnly = props.mode === "limits";
+  const automatic = t("conversation.label.model-limit-auto");
 
   const number = (
     field: "context" | "input" | "output",
@@ -296,14 +321,28 @@ export function ModelInfoForm(props: ModelInfoFormProps) {
         if (!open) props.onClose();
       }}
       title={
-        editing
-          ? t("conversation.title.edit-model")
-          : t("conversation.title.add-model")
+        !editing
+          ? t("conversation.title.add-model")
+          : limitsOnly
+            ? t("conversation.title.model-limits")
+            : t("conversation.title.edit-model")
       }
       width="wide"
       actions={
         <>
-          {editing ? (
+          {!editing ? null : limitsOnly ? (
+            // 내장·구독 provider의 model은 catalog에 그대로 있으므로 지우는 것이 아니라 사람이 적은 한도를 지운다.
+            props.info === null ? null : (
+              <Button
+                variant="secondary"
+                icon={actionIcons.reset}
+                disabled={busy}
+                onClick={() => void finish("remove-failed", props.onRemove)}
+              >
+                {t("conversation.button.reset-model-limits")}
+              </Button>
+            )
+          ) : (
             <Button
               variant="danger"
               icon={actionIcons.remove}
@@ -312,7 +351,7 @@ export function ModelInfoForm(props: ModelInfoFormProps) {
             >
               {t("conversation.button.remove-model")}
             </Button>
-          ) : null}
+          )}
           <Button variant="secondary" onClick={props.onClose}>
             {t("common.button.cancel")}
           </Button>
@@ -345,139 +384,162 @@ export function ModelInfoForm(props: ModelInfoFormProps) {
           {number(
             "context",
             t("conversation.label.model-context-limit"),
-            String(DEFAULT_CONTEXT),
+            limitsOnly ? automatic : String(DEFAULT_CONTEXT),
           )}
           {number(
             "input",
             t("conversation.label.model-input-limit"),
-            t("conversation.label.model-input-limit-default"),
+            limitsOnly
+              ? automatic
+              : t("conversation.label.model-input-limit-default"),
           )}
           {number(
             "output",
             t("conversation.label.model-output-limit"),
-            String(DEFAULT_OUTPUT),
+            limitsOnly ? automatic : String(DEFAULT_OUTPUT),
           )}
         </div>
-        <p className={styles.note}>{t("conversation.notice.model-limits")}</p>
-        <Switch
-          label={t("conversation.label.model-tools")}
-          checked={form.tools}
-          onCheckedChange={(tools) => set({ tools })}
-        />
-        <MediaToggles
-          label={t("conversation.label.model-input-media")}
-          value={form.inputMedia}
-          onChange={(inputMedia) => set({ inputMedia })}
-        />
-        <MediaToggles
-          label={t("conversation.label.model-output-media")}
-          value={form.outputMedia}
-          onChange={(outputMedia) => set({ outputMedia })}
-        />
-        <p className={styles.note}>{t("conversation.notice.model-media")}</p>
-        <Switch
-          label={t("conversation.label.model-reasoning")}
-          checked={form.effortOn}
-          onCheckedChange={(effortOn) => set({ effortOn })}
-        />
-        {form.effortOn ? (
+        <p className={styles.note}>
+          {limitsOnly
+            ? t("conversation.notice.model-limits-inherit")
+            : t("conversation.notice.model-limits")}
+        </p>
+        {limitsOnly ? null : (
           <>
-            <div className={styles.line}>
+            <Switch
+              label={t("conversation.label.model-tools")}
+              checked={form.tools}
+              onCheckedChange={(tools) => set({ tools })}
+            />
+            <MediaToggles
+              label={t("conversation.label.model-input-media")}
+              value={form.inputMedia}
+              onChange={(inputMedia) => set({ inputMedia })}
+            />
+            <MediaToggles
+              label={t("conversation.label.model-output-media")}
+              value={form.outputMedia}
+              onChange={(outputMedia) => set({ outputMedia })}
+            />
+            <p className={styles.note}>
+              {t("conversation.notice.model-media")}
+            </p>
+            <Switch
+              label={t("conversation.label.model-reasoning")}
+              checked={form.effortOn}
+              onCheckedChange={(effortOn) => set({ effortOn })}
+            />
+            {form.effortOn ? (
+              <>
+                <div className={styles.line}>
+                  <span className={styles.lineLabel}>
+                    {t("conversation.label.model-effort-values")}
+                  </span>
+                  <div
+                    className={styles.chips}
+                    role="group"
+                    aria-label={t("conversation.label.model-effort-values")}
+                  >
+                    {EFFORT_VALUES.map((value) => {
+                      const on = form.efforts.includes(value);
+                      return (
+                        <Button
+                          key={value}
+                          size="sm"
+                          variant={on ? "secondary" : "ghost"}
+                          aria-pressed={on}
+                          onClick={() => {
+                            const efforts = EFFORT_VALUES.filter((item) =>
+                              item === value
+                                ? !on
+                                : form.efforts.includes(item),
+                            );
+                            // 고르지 않은 값을 기본으로 둘 수 없다.
+                            set({
+                              efforts,
+                              effortDefault: efforts.includes(
+                                form.effortDefault as EffortValue,
+                              )
+                                ? form.effortDefault
+                                : "",
+                            });
+                          }}
+                        >
+                          {EFFORT_LABELS[value]}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+                {problems.effort === undefined ? null : (
+                  <p className={styles.error} role="alert">
+                    {problems.effort}
+                  </p>
+                )}
+                <Field label={t("conversation.label.model-effort-default")}>
+                  <Select
+                    value={
+                      form.effortDefault === ""
+                        ? MODEL_DEFAULT
+                        : form.effortDefault
+                    }
+                    onValueChange={(value) =>
+                      set({
+                        effortDefault: value === MODEL_DEFAULT ? "" : value,
+                      })
+                    }
+                    options={[
+                      {
+                        value: MODEL_DEFAULT,
+                        label: t("conversation.label.model-effort-model"),
+                      },
+                      ...form.efforts.map((value) => ({
+                        value,
+                        label: EFFORT_LABELS[value],
+                      })),
+                    ]}
+                  />
+                </Field>
+              </>
+            ) : null}
+            <div
+              className={styles.prices}
+              role="group"
+              aria-label={t("conversation.label.model-prices")}
+            >
               <span className={styles.lineLabel}>
-                {t("conversation.label.model-effort-values")}
+                {t("conversation.label.model-prices")}
               </span>
-              <div
-                className={styles.chips}
-                role="group"
-                aria-label={t("conversation.label.model-effort-values")}
-              >
-                {EFFORT_VALUES.map((value) => {
-                  const on = form.efforts.includes(value);
-                  return (
-                    <Button
-                      key={value}
-                      size="sm"
-                      variant={on ? "secondary" : "ghost"}
-                      aria-pressed={on}
-                      onClick={() => {
-                        const efforts = EFFORT_VALUES.filter((item) =>
-                          item === value ? !on : form.efforts.includes(item),
-                        );
-                        // 고르지 않은 값을 기본으로 둘 수 없다.
-                        set({
-                          efforts,
-                          effortDefault: efforts.includes(
-                            form.effortDefault as EffortValue,
-                          )
-                            ? form.effortDefault
-                            : "",
-                        });
-                      }}
-                    >
-                      {EFFORT_LABELS[value]}
-                    </Button>
-                  );
-                })}
+              <div className={styles.priceFields}>
+                {rate("priceInput", t("conversation.label.model-price-input"))}
+                {rate(
+                  "priceOutput",
+                  t("conversation.label.model-price-output"),
+                )}
+                {rate(
+                  "priceCacheRead",
+                  t("conversation.label.model-price-cache-read"),
+                )}
+                {rate(
+                  "priceCacheWrite",
+                  t("conversation.label.model-price-cache-write"),
+                )}
               </div>
-            </div>
-            {problems.effort === undefined ? null : (
-              <p className={styles.error} role="alert">
-                {problems.effort}
+              <p className={styles.note}>
+                {t("conversation.notice.model-prices")}
               </p>
-            )}
-            <Field label={t("conversation.label.model-effort-default")}>
-              <Select
-                value={
-                  form.effortDefault === "" ? MODEL_DEFAULT : form.effortDefault
-                }
-                onValueChange={(value) =>
-                  set({
-                    effortDefault: value === MODEL_DEFAULT ? "" : value,
-                  })
-                }
-                options={[
-                  {
-                    value: MODEL_DEFAULT,
-                    label: t("conversation.label.model-effort-model"),
-                  },
-                  ...form.efforts.map((value) => ({
-                    value,
-                    label: EFFORT_LABELS[value],
-                  })),
-                ]}
-              />
-            </Field>
+            </div>
           </>
-        ) : null}
-        <div
-          className={styles.prices}
-          role="group"
-          aria-label={t("conversation.label.model-prices")}
-        >
-          <span className={styles.lineLabel}>
-            {t("conversation.label.model-prices")}
-          </span>
-          <div className={styles.priceFields}>
-            {rate("priceInput", t("conversation.label.model-price-input"))}
-            {rate("priceOutput", t("conversation.label.model-price-output"))}
-            {rate(
-              "priceCacheRead",
-              t("conversation.label.model-price-cache-read"),
-            )}
-            {rate(
-              "priceCacheWrite",
-              t("conversation.label.model-price-cache-write"),
-            )}
-          </div>
-          <p className={styles.note}>{t("conversation.notice.model-prices")}</p>
-        </div>
+        )}
         {outcome === null ? null : (
           <p className={styles.error} role="alert" data-model-info-problem="">
             {outcome === "conflict"
               ? t("conversation.error.model-info-conflict")
               : outcome === "save-failed"
                 ? t("conversation.error.model-info-failed")
-                : t("conversation.error.model-info-remove-failed")}
+                : limitsOnly
+                  ? t("conversation.error.model-info-reset-failed")
+                  : t("conversation.error.model-info-remove-failed")}
           </p>
         )}
       </div>

@@ -271,20 +271,30 @@ const CUSTOM_INFO: UserModelRecord = {
 };
 
 // core가 user 정보로 만드는 catalog 항목 중 화면이 읽는 칸만 같은 모양으로 채운다.
-function userEntryOf(record: UserModelRecord): CatalogEntry {
+function userEntryOf(
+  record: UserModelRecord,
+  base?: CatalogEntry,
+): CatalogEntry {
   const { info } = record;
   return {
     provider_definition: record.provider_definition,
     model_name: record.model_name,
-    context_limit: info.context_limit,
-    input_limit: info.input_limit,
-    output_limit: info.output_limit,
-    supports_tools: info.supports_tools,
-    input_media: info.input_media,
-    output_media: info.output_media,
-    options: info.effort === null ? [] : [effortAxisOf(info.effort)],
-    preview: null,
-    deprecated: null,
+    context_limit: info.context_limit ?? base?.context_limit ?? null,
+    input_limit: info.input_limit ?? base?.input_limit ?? null,
+    output_limit: info.output_limit ?? base?.output_limit ?? null,
+    supports_tools: info.supports_tools ?? base?.supports_tools ?? null,
+    input_media:
+      info.input_media ?? (base === undefined ? ["text"] : base.input_media),
+    output_media:
+      info.output_media ?? (base === undefined ? ["text"] : base.output_media),
+    options:
+      info.effort === null
+        ? base === undefined
+          ? []
+          : base.options
+        : [effortAxisOf(info.effort)],
+    preview: base?.preview ?? null,
+    deprecated: base?.deprecated ?? null,
     source: "user",
     source_revision: SAVED_AT,
     checked_at: null,
@@ -776,6 +786,17 @@ export function createFakeAgentsSource(
 
     models(): Promise<ReadResult<ModelsView>> {
       const kind = options.providers ?? "built_in";
+      const base = [...CATALOG, ...OTHER_CATALOG];
+      const typed = userModels.items.map((record) =>
+        userEntryOf(
+          record,
+          base.find(
+            (entry) =>
+              entry.provider_definition === record.provider_definition &&
+              entry.model_name === record.model_name,
+          ),
+        ),
+      );
       const builtIn = (id: string, name: string, definition: string) => ({
         id,
         name,
@@ -783,7 +804,8 @@ export function createFakeAgentsSource(
         kind: "api_key",
         reportedModels: null,
         refreshable: false,
-        editable: false,
+        custom: false,
+        limits: {},
       });
       return Promise.resolve(
         ok({
@@ -808,15 +830,23 @@ export function createFakeAgentsSource(
                       ? ["llama-3.3-70b", "qwen-3-coder"]
                       : null,
                     refreshable: true,
-                    editable: true,
+                    custom: true,
+                    limits: {},
                   },
                 ]
               : []),
           ],
           catalog: [
-            ...CATALOG,
-            ...OTHER_CATALOG,
-            ...userModels.items.map(userEntryOf),
+            ...base.filter(
+              (entry) =>
+                !typed.some(
+                  (override) =>
+                    override.provider_definition ===
+                      entry.provider_definition &&
+                    override.model_name === entry.model_name,
+                ),
+            ),
+            ...typed,
           ],
           shown,
         }),

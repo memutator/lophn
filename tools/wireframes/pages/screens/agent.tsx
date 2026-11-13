@@ -317,7 +317,7 @@ export const agentArea: Area = {
       id: "new-model-info-manage",
       title: "Agent · Manage models, model info",
       description:
-        "내장 provider(Anthropic)와 custom provider(Local server)를 같이 둔 창이다. 모든 줄에 입력 modality icon과 아는 경우 짧은 context(200K, 1M)가 보인다. catalog model은 읽기만 하고, custom provider의 줄에는 [Edit]이, 묶음 아래에는 [Add model]이 있다. 정보를 적은 deepseek-v4.1-flash는 provider가 알려 준 목록에 없어도 줄로 보인다.",
+        "내장 provider(Anthropic)와 custom provider(Local server)를 같이 둔 창이다. 모든 줄에 입력 modality icon과 아는 경우 짧은 context(200K, 1M), [Edit]이 보인다. 내장·구독은 한도 셋만 고치고 custom은 정보 전체와 [Add model]을 연다. 정보를 적은 deepseek-v4.1-flash는 provider가 알려 준 목록에 없어도 줄로 보인다.",
       render: () => <ModelInfoManage />,
     },
     {

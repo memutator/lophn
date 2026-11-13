@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
-import { providerSchemaSteps } from "./schema.ts";
+import {
+  providerReportedModelLimitsSchemaSteps,
+  providerSchemaSteps,
+} from "./schema.ts";
+import { builtinProviderDefinition } from "./definitions.ts";
 import { loadProvider } from "./store.ts";
 
 // 사람의 ledger에 남은 옛 ChatGPT 연결(공식 Sign in with ChatGPT 정의)이 새 판에서 읽히지 않으면 provider 목록과 그
@@ -50,6 +54,7 @@ test("옛 ChatGPT 연결은 새 정의로 옮겨 읽히고 다시 로그인하�
   );
 
   db.exec(providerSchemaSteps[1]!.sql);
+  db.exec(providerReportedModelLimitsSchemaSteps[0]!.sql);
 
   const moved = loadProvider(sql, "pvd_00000000000000000000000001");
   const untouched = loadProvider(sql, "pvd_00000000000000000000000002");
@@ -65,6 +70,7 @@ test("옛 ChatGPT 연결은 새 정의로 옮겨 읽히고 다시 로그인하�
       state: moved.value.credential.state,
       reason: moved.value.credential.unavailable_reason,
       models: moved.value.credential.reported_models,
+      limits: moved.value.credential.reported_model_limits,
     },
     {
       endpoint: "https://chatgpt.com/backend-api/codex",
@@ -72,6 +78,7 @@ test("옛 ChatGPT 연결은 새 정의로 옮겨 읽히고 다시 로그인하�
       state: "revoked",
       reason: "refresh_revoked",
       models: null,
+      limits: undefined,
     },
   );
   assert.deepStrictEqual(
@@ -81,5 +88,46 @@ test("옛 ChatGPT 연결은 새 정의로 옮겨 읽히고 다시 로그인하�
       untouched.value.revision,
     ],
     ["https://api.openai.com/v1", "available", 1],
+  );
+});
+
+// 한도 단계는 옛 row의 model 목록과 판을 건드리지 않고 한도만 비워 둔다. 다음 목록 읽기가 채운다.
+test("한도 단계는 옛 provider의 model 목록·판을 그대로 두고 한도만 비운다", () => {
+  const db = new DatabaseSync(":memory:");
+  db.exec(providerSchemaSteps[0]!.sql);
+  const definition = builtinProviderDefinition("anthropic");
+  assert.ok(definition.ok);
+  const id = "pvd_00000000000000000000000003";
+  db.prepare(
+    `insert into providers (id, name, definition_key, definition, endpoint, protocol, revision)
+     values (?, 'Anthropic', 'anthropic', ?, 'https://api.anthropic.com/v1', 'anthropic-messages', 4)`,
+  ).run(id, JSON.stringify(definition.value));
+  db.prepare(
+    `insert into provider_credentials (provider, kind, secret_name, revision, state, reported_models)
+     values (?, 'api_key', 'provider.00000000000000000000000003', 2, 'available', '["a","b"]')`,
+  ).run(id);
+  const sql = {
+    get: (q: string, p: unknown[]) => db.prepare(q).get(...(p as never[])),
+    all: (q: string, p: unknown[]) => db.prepare(q).all(...(p as never[])),
+    run: (q: string, p: unknown[]) => db.prepare(q).run(...(p as never[])),
+  } as never;
+
+  db.exec(providerReportedModelLimitsSchemaSteps[0]!.sql);
+
+  const loaded = loadProvider(sql, id);
+  assert.ok(loaded.ok && loaded.value !== null);
+  assert.deepStrictEqual(
+    {
+      models: loaded.value.credential.reported_models,
+      limits: loaded.value.credential.reported_model_limits,
+      revision: loaded.value.revision,
+      credentialRevision: loaded.value.credential.revision,
+    },
+    {
+      models: ["a", "b"],
+      limits: undefined,
+      revision: 4,
+      credentialRevision: 2,
+    },
   );
 });

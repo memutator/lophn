@@ -142,7 +142,7 @@ export const ManageModelsConnect = () =>
 const editInfo = () =>
   click(`[data-model="${CUSTOM_INFO_MODEL}"] [data-edit-model]`);
 
-/** 내장(Anthropic)과 custom provider를 같이 둔 Manage models. 줄마다 입력 media icon과 context, custom 줄의 [Edit], 묶음 아래 [Add model]. */
+/** 내장(Anthropic)과 custom provider를 같이 둔 Manage models. 모든 줄의 [Edit], 입력 media icon과 context, custom 묶음의 [Add model]. */
 export const ModelInfoManage = () => manage({ providers: "custom" });
 /** [Add model]을 눌러 연 빈 form. 한도 칸에는 기본값이 회색 placeholder로 보인다. */
 export const ModelInfoAdd = () =>

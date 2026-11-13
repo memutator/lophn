@@ -92,7 +92,8 @@ test("저장한 user 정보는 catalog가 바뀌어도 같은 열쇠의 catalog 
       const read = createCatalogRead({
         readDerived: () => null,
         snapshot: { entries: [catalogEntry(catalogContext)], hash: "h" },
-        userEntries: (s) => loadUserModels(s).items.map(userEntryOf),
+        userEntries: (s) =>
+          loadUserModels(s).items.map((record) => userEntryOf(record)),
       });
       const result = read.handle(
         { sql, as_of_seq: 1 } as unknown as ReadSnapshot,
@@ -211,13 +212,13 @@ test("user 항목의 effort 값은 저장 검사를 통과해 chat 요청의 rea
     const set = await bodyOf();
     assert.deepStrictEqual(set.bound.call.limits.context_limit, 1_000_000);
     assert.deepStrictEqual(set.bound.call.limits.input_limit, 1_000_000);
-    assert.deepStrictEqual(set.body["max_tokens"], 32000);
+    assert.deepStrictEqual(set.body["max_tokens"], 100_000);
   } finally {
     db.close();
   }
 });
 
-test("seq가 낡은 저장과 지움은 쓰지 않고, 내장 정의 key는 거절한다", () => {
+test("seq가 낡은 저장과 지움은 쓰지 않는다", () => {
   const { db, sql, tx, commands } = open();
   try {
     const key = { provider_definition: DEFINITION, model_name: MODEL };
@@ -233,19 +234,6 @@ test("seq가 낡은 저장과 지움은 쓰지 않고, 내장 정의 key는 거�
     assert.ok(!stale.ok);
     assert.deepStrictEqual(stale.error.code, "conflict");
     assert.deepStrictEqual(loadUserModels(sql).items, []);
-
-    const builtin = commands.saveUserInfo.handle(
-      tx,
-      user,
-      {
-        provider_definition: "anthropic",
-        model_name: MODEL,
-        info: info(),
-      },
-      { seq: "0" },
-    );
-    assert.ok(!builtin.ok);
-    assert.deepStrictEqual(builtin.error.code, "invalid_input");
 
     const saved = commands.saveUserInfo.handle(
       tx,

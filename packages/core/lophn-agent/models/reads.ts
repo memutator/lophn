@@ -88,7 +88,17 @@ export function createModelReads(deps: {
     },
     catalog: createCatalogRead({
       readDerived: deps.readDerived,
-      userEntries: (sql) => loadUserModels(sql).items.map(userEntryOf),
+      userEntries: (sql, base) =>
+        loadUserModels(sql).items.map((record) =>
+          userEntryOf(
+            record,
+            base.find(
+              (entry) =>
+                entry.provider_definition === record.provider_definition &&
+                entry.model_name === record.model_name,
+            ),
+          ),
+        ),
       snapshot: bundledSnapshot,
     }),
   };

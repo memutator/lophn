@@ -10,7 +10,7 @@ import {
   codexModelsHeaders,
   codexModelsUrl,
 } from "../../packages/core/lophn-agent/providers/adapters/codex.ts";
-import { parseReportedModels } from "../../packages/core/lophn-agent/providers/reported-models.ts";
+import { parseReportedRoster } from "../../packages/core/lophn-agent/providers/reported-models.ts";
 import {
   loginBegin,
   loginComplete,
@@ -182,7 +182,7 @@ async function diagnose(
     ),
   );
   console.log(`visibility 값 종류: ${[...kinds].join(", ")}`);
-  const names = parseReportedModels(body);
+  const names = parseReportedRoster(body)?.models ?? null;
   console.log(`파서가 보이는 것으로 읽은 model: ${names?.length ?? "null"}개`);
   return names;
 }

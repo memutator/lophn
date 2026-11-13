@@ -11,6 +11,7 @@ import {
   providerDefinitionSchema,
   providerProtocolSchema,
   providerRecordSchema,
+  reportedModelLimitsSchema,
   UNAVAILABLE_REASONS,
 } from "./provider-values.ts";
 
@@ -112,10 +113,20 @@ export const refreshProviderCredentialInputSchema = z
     { message: "refresh stores a new expiry or a safe unavailable state" },
   );
 
-export const recordProviderModelsInputSchema = z.strictObject({
-  provider: idSchema("pvd"),
-  models: z.array(nonblankSchema).min(1).max(2000),
-});
+export const recordProviderModelsInputSchema = z
+  .strictObject({
+    provider: idSchema("pvd"),
+    models: z.array(nonblankSchema).min(1).max(2000),
+    // 목록과 함께 읽은 model별 한도다. 없으면 앞서 저장한 한도를 지운다(목록처럼 통째로 바꾼다).
+    model_limits: reportedModelLimitsSchema.optional(),
+  })
+  .refine(
+    (value) =>
+      Object.keys(value.model_limits ?? {}).every((name) =>
+        value.models.includes(name),
+      ),
+    { message: "model limits name a model that the list does not report" },
+  );
 
 export const refreshProviderModelsInputSchema = z.strictObject({
   provider: idSchema("pvd"),

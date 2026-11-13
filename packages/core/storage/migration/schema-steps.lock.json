@@ -274,5 +274,9 @@
   {
     "id": "jobs.trigger",
     "sha256": "d4bfc211734966f814e73bd13c92710a2e0771121babe8aed170ec90595dd778"
+  },
+  {
+    "id": "lophn-agent.harness-provider.reported-model-limits",
+    "sha256": "94e9dda68118d8bbc4896d16991ca4ae1e34494e97bc64ceb0a0bcd20826addd"
   }
 ]

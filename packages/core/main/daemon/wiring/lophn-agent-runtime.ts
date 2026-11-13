@@ -255,10 +255,14 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
             compare: { revision: provider.revision },
             prepared: [],
           }),
-        recordModels: (provider, models) =>
+        recordModels: (provider, roster) =>
           ctx.writer.command(PROVIDER_REFRESH_CONTEXT, {
             command: recordProviderModels.name,
-            input: { provider: provider.id, models },
+            input: {
+              provider: provider.id,
+              models: roster.models,
+              model_limits: roster.limits,
+            },
             idempotency_key: crypto.randomUUID(),
             compare: { revision: provider.revision },
             prepared: [],

@@ -24,6 +24,7 @@ import {
   workspaceModelChange,
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { PublishedExtension } from "../../../../protocol/lophn-agent/extension-tools.ts";
+import type { ProviderRecord } from "../../../../protocol/lophn-agent/provider-values.ts";
 import { HARNESS_SETTING_KEY } from "../../../../protocol/lophn-agent/harness-host.ts";
 import { refreshProviderModels } from "../../../../protocol/lophn-agent/providers.ts";
 import { LOPHN_AGENT_HANDLE } from "../../../../protocol/lophn-agent/agent-values.ts";
@@ -251,12 +252,8 @@ export function coreAgentsSource(
   };
 
   const providers = async () => {
-    const rows: {
-      id: string;
-      name: string;
-      definition: { key: string };
-      credential: { kind: string; reported_models: string[] | null };
-    }[] = [];
+    // manageProviders가 provider별 한도(Codex의 운영 window 등)를 셀 수 있게 목록 응답을 그대로 담는다.
+    const rows: ProviderRecord[] = [];
     let cursor: string | undefined;
     for (let page = 0; page < PAGE_LIMIT; page += 1) {
       const result = await link.read<{
@@ -589,6 +586,18 @@ export function coreAgentsSource(
     async models() {
       const registered = await providers();
       if (!registered.ok) return registered;
+      // custom provider인지는 내장 정의 목록이 정한다. catalog의 model 유무로 보면 사람이 적은 override가 내장 provider를 custom으로 만든다.
+      const definitions = await link.read<{
+        definitions: { key: string }[];
+      }>("providers", "definitions", {});
+      if (!definitions.ok) return definitions;
+      const builtin: Record<string, true> = {};
+      for (const definition of definitions.value.definitions) {
+        builtin[definition.key] = true;
+      }
+      // 사람이 적은 한도는 그 model의 저장된 정보에만 있다. 못 읽으면 한도 표시만 provider·catalog 기본값을 따른다.
+      const stored = await userModels();
+      const userItems = stored.ok ? stored.value.items : [];
       // catalog는 한 응답 한도를 넘어 cursor로 이어 읽는다.
       const entries: CatalogEntry[] = [];
       let cursor: string | undefined;
@@ -610,7 +619,7 @@ export function coreAgentsSource(
       if (!shown.ok) return shown;
       const view: ModelsView = {
         providers: registered.value.map((provider) =>
-          providerChoiceOf(provider, entries),
+          providerChoiceOf(provider, entries, builtin, userItems),
         ),
         catalog: entries,
         shown: shown.value.items,

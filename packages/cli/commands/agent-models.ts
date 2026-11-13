@@ -5,8 +5,10 @@ import {
   modelCatalogRead,
   optionAxesOf,
   providerRead,
+  providerModelLimits,
   selectableModels,
   shownModelsRead,
+  userModelInfoRead,
 } from "../../protocol/lophn-agent/mod.ts";
 import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import { defineCommand } from "./types.ts";
@@ -20,11 +22,13 @@ export const agentModels = defineCommand({
     "options: null means unknown; [] means no options. A model with unknown options accepts only {}. This reads saved information without contacting model providers or changing which models are enabled.",
   input: z.strictObject({}),
   effect: "read",
-  routes: [shownModelsRead, providerRead, modelCatalogRead],
+  routes: [shownModelsRead, providerRead, modelCatalogRead, userModelInfoRead],
   workspaces: WORKSPACE_KINDS,
   run: async (_input, ctx) => {
     const shown = await ctx.core.read(shownModelsRead, {});
     if (!shown.ok) return shown;
+    const overrides = await ctx.core.read(userModelInfoRead, {});
+    if (!overrides.ok) return overrides;
     const models: Record<string, unknown>[] = [];
     const items = shown.value.shown.items;
     for (const id of new Set(items.map((item) => item.provider))) {
@@ -57,14 +61,20 @@ export const agentModels = defineCommand({
         reported: provider.credential.reported_models,
       })) {
         if (!enabled.has(model_name)) continue;
+        const info = overrides.value.items.find(
+          (item) =>
+            item.provider_definition === provider.definition.key &&
+            item.model_name === model_name,
+        )?.info;
+        const limits = providerModelLimits(provider, model_name, entry, info);
         models.push({
           provider: id,
           provider_name: provider.name,
           model_name,
           options: entry?.options == null ? null : optionAxesOf(entry),
-          context_limit: entry?.context_limit ?? null,
-          input_limit: entry?.input_limit ?? null,
-          output_limit: entry?.output_limit ?? null,
+          context_limit: limits?.context_limit ?? entry?.context_limit ?? null,
+          input_limit: limits?.input_limit ?? entry?.input_limit ?? null,
+          output_limit: limits?.output_limit ?? entry?.output_limit ?? null,
           supports_tools: entry?.supports_tools ?? null,
           input_media: entry?.input_media ?? null,
           output_media: entry?.output_media ?? null,

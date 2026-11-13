@@ -7,22 +7,30 @@ import type { AgentValueLayer } from "../../../../protocol/lophn-agent/agent-def
 import type {
   CatalogEntry,
   ModelChoice,
+  UserModelRecord,
 } from "../../../../protocol/lophn-agent/models.ts";
 import {
   builtinListsModels,
   fitOptionValues,
   optionAxesOf,
   orderPicker,
+  providerModelLimits,
   type SelectableModel,
   selectableModels,
 } from "../../../../protocol/lophn-agent/model-picker.ts";
+import type { ProviderRecord } from "../../../../protocol/lophn-agent/provider-values.ts";
 import type {
   ManageProviderView,
   ModelPickerProps,
   PickerAxisView,
   PickerModelRef,
 } from "../../conversation/model-picker/types.ts";
-import type { ModelsView, ProviderChoice, UserModels } from "./source.ts";
+import type {
+  EffectiveModelLimits,
+  ModelsView,
+  ProviderChoice,
+  UserModels,
+} from "./source.ts";
 import type { ModelLabel } from "./views.ts";
 
 /** picker 하나가 가진 화면 상태. 닫혀 있고 검색이 비어 있는 것이 처음이다. */
@@ -44,33 +52,55 @@ export function modelsOf(
 }
 
 /**
- * catalog에 그 정의의 model이 하나도 없는 provider(custom). catalog를 읽지 못했으면(비었으면) 모든 provider가 그렇게 보이므로
- * 아니라고 말한다. 사람이 적은 항목(user)은 custom 정의에도 생기므로 세지 않는다.
+ * core의 provider 한 줄을 화면이 쓰는 ProviderChoice로 옮긴다. custom인지는 내장 정의 목록(core의 `providers/definitions`)이
+ * 정한다: catalog에 model이 있는지와 무관하므로 사람이 적은 override가 내장 provider를 custom으로 오해하지 않는다.
+ * model마다 그 provider가 적용하는 한도를 같이 센다. 사람이 적은 한도(예: Codex에 적은 922000)를 알려면 그 model의
+ * 저장된 정보를 함께 넘겨야 한다: catalog 항목만으로는 적은 값과 물려받은 값을 구별할 수 없다.
  */
-export function isCustomDefinition(
-  catalog: readonly CatalogEntry[],
-  definition: string,
-) {
-  return (
-    catalog.length > 0 &&
-    !catalog.some(
-      (entry) =>
-        entry.source !== "user" && entry.provider_definition === definition,
-    )
-  );
-}
-
-/** core의 provider 한 줄을 화면이 쓰는 ProviderChoice로 옮긴다. */
 export function providerChoiceOf(
-  provider: {
-    id: string;
-    name: string;
-    definition: { key: string };
-    credential: { kind: string; reported_models: readonly string[] | null };
-  },
+  provider: ProviderRecord,
   catalog: readonly CatalogEntry[],
+  builtin: Readonly<Record<string, true>>,
+  userItems: readonly UserModelRecord[],
 ): ProviderChoice {
-  const custom = isCustomDefinition(catalog, provider.definition.key);
+  const custom = builtin[provider.definition.key] !== true;
+  const limits: Record<string, EffectiveModelLimits> = {};
+  const seen: Record<string, true> = {};
+  const names = [
+    ...catalog
+      .filter((entry) => entry.provider_definition === provider.definition.key)
+      .map((entry) => entry.model_name),
+    ...(provider.credential.reported_models ?? []),
+    ...userItems
+      .filter((item) => item.provider_definition === provider.definition.key)
+      .map((item) => item.model_name),
+  ];
+  for (const modelName of names) {
+    if (seen[modelName] === true) continue;
+    seen[modelName] = true;
+    // catalog 항목의 한도는 product catalog의 기본값이다. 사람이 적은 항목(user)보다 그것을 먼저 본다.
+    const entry =
+      catalog.find(
+        (candidate) =>
+          candidate.source !== "user" &&
+          candidate.provider_definition === provider.definition.key &&
+          candidate.model_name === modelName,
+      ) ??
+      catalog.find(
+        (candidate) =>
+          candidate.provider_definition === provider.definition.key &&
+          candidate.model_name === modelName,
+      ) ??
+      null;
+    const info =
+      userItems.find(
+        (item) =>
+          item.provider_definition === provider.definition.key &&
+          item.model_name === modelName,
+      )?.info ?? null;
+    const value = providerModelLimits(provider, modelName, entry, info);
+    if (value !== null) limits[modelName] = value;
+  }
   return {
     id: provider.id,
     name: provider.name,
@@ -80,7 +110,8 @@ export function providerChoiceOf(
     refreshable:
       custom ||
       builtinListsModels(provider.definition.key, provider.credential.kind),
-    editable: custom,
+    custom,
+    limits,
   };
 }
 
@@ -225,8 +256,8 @@ export function pickerProps(binding: PickerBinding): ModelPickerProps {
 }
 
 /**
- * Manage models 창에 보일 provider 묶음. 연결된 provider마다 고를 수 있는 model(selectableModels)과 켠 여부, catalog가 아는
- * 입력 media·context, 사람이 적은 정보를 싣는다. `first`(방금 연결한 provider)가 있으면 그 묶음이 맨 위다.
+ * Manage models 창에 보일 provider 묶음. 연결된 provider마다 고를 수 있는 model(selectableModels)과 켠 여부, 입력 media,
+ * 실제로 쓰는 context 한도, 사람이 적은 정보를 싣는다. `first`(방금 연결한 provider)가 있으면 그 묶음이 맨 위다.
  */
 export function manageProviders(
   models: ModelsView,
@@ -242,20 +273,30 @@ export function manageProviders(
     (provider): ManageProviderView => ({
       id: provider.id,
       name: provider.name,
-      models: modelsOf(models, provider).map((selectable) => ({
-        modelName: selectable.model_name,
-        shown: shown.has(JSON.stringify([provider.id, selectable.model_name])),
-        inputMedia: selectable.entry?.input_media ?? null,
-        contextLimit: selectable.entry?.context_limit ?? null,
-        info:
+      models: modelsOf(models, provider).map((selectable) => {
+        const info =
           user.items.find(
             (item) =>
               item.provider_definition === provider.definition &&
               item.model_name === selectable.model_name,
-          )?.info ?? null,
-      })),
+          )?.info ?? null;
+        return {
+          modelName: selectable.model_name,
+          shown: shown.has(
+            JSON.stringify([provider.id, selectable.model_name]),
+          ),
+          inputMedia: selectable.entry?.input_media ?? null,
+          // 사람이 적은 값 → provider가 적용하는 값(Codex의 운영 window) → catalog 순서다.
+          contextLimit:
+            info?.context_limit ??
+            provider.limits[selectable.model_name]?.context_limit ??
+            selectable.entry?.context_limit ??
+            null,
+          info,
+        };
+      }),
       refreshable: provider.refreshable,
-      editable: provider.editable,
+      custom: provider.custom,
     }),
   );
   return [

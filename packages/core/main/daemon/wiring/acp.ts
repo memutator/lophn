@@ -23,6 +23,8 @@ import {
 import { sendMessage } from "../../../../protocol/lophn-agent/inputs.ts";
 import {
   modelCatalogRead,
+  removeUserModelInfo,
+  saveUserModelInfo,
   shownModelsRead,
 } from "../../../../protocol/lophn-agent/models.ts";
 import { providerList } from "../../../../protocol/lophn-agent/providers.ts";
@@ -461,6 +463,27 @@ export const acpWiring: WiringFactory = () => {
           async command(who, envelope) {
             const done = await inner.command(who, envelope);
             if (!done.ok) return done;
+            if (
+              envelope.command === saveUserModelInfo.name ||
+              envelope.command === removeUserModelInfo.name
+            ) {
+              const changed = envelope.input as {
+                provider_definition: string;
+                model_name: string;
+              };
+              enqueue(async () => {
+                const affected = sql.all(
+                  `select distinct session from model_calls
+                   where json_extract(call_model, '$.name') = ?
+                     and json_extract(call_model, '$.provider') in
+                       (select id from providers where definition_key = ?)`,
+                  [changed.model_name, changed.provider_definition],
+                );
+                for (const row of affected) {
+                  await publishSessionChange(String(row["session"]), "usage");
+                }
+              });
+            }
             const session = (envelope.input as { session?: unknown }).session;
             if (typeof session !== "string") return done;
             switch (envelope.command) {

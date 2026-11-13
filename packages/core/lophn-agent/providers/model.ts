@@ -26,7 +26,7 @@ function credentialFromRow(
   provider: string,
 ): Result<ProviderCredential | null> {
   const row = sql.all(
-    "select kind, secret_name, revision, state, unavailable_reason, until, expires_at, logged_in_at, refreshed_at, reported_models, account from provider_credentials where provider = ?",
+    "select kind, secret_name, revision, state, unavailable_reason, until, expires_at, logged_in_at, refreshed_at, reported_models, reported_model_limits, account from provider_credentials where provider = ?",
     [provider],
   )[0];
   if (row === undefined) return ok(null);
@@ -34,10 +34,14 @@ function credentialFromRow(
     value === null ? null : String(value);
   const secretName = text(row["secret_name"]);
   let reportedModels: unknown = null;
+  let reportedModelLimits: unknown = null;
   let account: unknown = null;
   try {
     if (row["reported_models"] !== null) {
       reportedModels = JSON.parse(String(row["reported_models"]));
+    }
+    if (row["reported_model_limits"] !== null) {
+      reportedModelLimits = JSON.parse(String(row["reported_model_limits"]));
     }
     if (row["account"] !== null) account = JSON.parse(String(row["account"]));
   } catch {
@@ -60,6 +64,12 @@ function credentialFromRow(
     refreshed_at: text(row["refreshed_at"]),
     model_blocks: modelBlocksFromRow(sql, provider),
     reported_models: reportedModels as ProviderCredential["reported_models"],
+    ...(reportedModelLimits === null
+      ? {}
+      : {
+          reported_model_limits:
+            reportedModelLimits as ProviderCredential["reported_model_limits"],
+        }),
     account: account as ProviderCredential["account"],
   };
   return assertCredential(value);

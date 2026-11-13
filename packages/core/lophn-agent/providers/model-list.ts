@@ -76,8 +76,10 @@ export function withProviderModelList(
       if (!key.ok) return unavailable("the provider key is missing");
       access = key.value;
     }
-    const models = await readProviderModels(deps.http, target, access);
-    if (models === null) return unavailable("could not read the model list");
+    const roster = await readProviderModels(deps.http, target, access);
+    if (roster === null) {
+      return unavailable("could not read the model list");
+    }
     // 기다리는 사이 revision이 바뀌었을 수 있어 저장 직전에 다시 읽는다.
     const latest = await deps.readProvider(ctx, id);
     if (!latest.ok) return latest;
@@ -86,7 +88,11 @@ export function withProviderModelList(
     }
     const recorded = await writer.command(ctx, {
       command: recordProviderModels.name,
-      input: { provider: id, models },
+      input: {
+        provider: id,
+        models: roster.models,
+        model_limits: roster.limits,
+      },
       idempotency_key: deps.newKey(),
       compare: { revision: latest.value.revision },
       prepared: [],

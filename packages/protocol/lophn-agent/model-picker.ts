@@ -1,5 +1,62 @@
-import type { CatalogEntry, OptionAxis } from "./models.ts";
+import type { CatalogEntry, OptionAxis, UserModelInfo } from "./models.ts";
+import type { ProviderRecord } from "./provider-values.ts";
 import { EFFORT_VALUES, OPTION_AXIS_EFFORT } from "./option-axes.ts";
+
+// Codex의 운영 window는 OpenAI API의 전체 window와 다르다. discovery가 없는 동안에도
+// API catalog의 1.05M을 기본으로 쓰지 않는다. 이 두 model의 확장 입력 상한은 omp의 curated policy와 같다.
+const CODEX_EXTENDED_WINDOWS: Readonly<Record<string, number>> = {
+  "gpt-6-astra": 922000,
+  "gpt-6.1-sol": 922000,
+};
+
+export function providerModelLimits(
+  provider: Pick<ProviderRecord, "definition" | "credential">,
+  modelName: string,
+  entry:
+    | Pick<CatalogEntry, "context_limit" | "input_limit" | "output_limit">
+    | null
+    | undefined,
+  info?: Pick<
+    UserModelInfo,
+    "context_limit" | "input_limit" | "output_limit"
+  > | null,
+): { context_limit: number; input_limit: number; output_limit: number } | null {
+  const codex =
+    provider.credential?.kind === "oauth" &&
+    provider.definition.oauth?.product === "chatgpt";
+  if (!codex) {
+    const context = info?.context_limit ?? entry?.context_limit;
+    const input = info?.input_limit ?? entry?.input_limit;
+    const output = info?.output_limit ?? entry?.output_limit;
+    if (context == null || input == null || output == null) return null;
+    return {
+      context_limit: context,
+      input_limit: Math.min(input, context),
+      output_limit: output,
+    };
+  }
+  const reported = provider.credential?.reported_model_limits?.[modelName];
+  const standard = reported?.context_limit ?? 272000;
+  const maximum = Math.max(
+    standard,
+    reported?.max_context_limit ?? 0,
+    CODEX_EXTENDED_WINDOWS[modelName] ?? 0,
+  );
+  const requested = info?.context_limit ?? standard;
+  const context = Math.min(requested, maximum);
+  return {
+    context_limit: context,
+    input_limit: Math.min(
+      info?.input_limit ?? entry?.input_limit ?? context,
+      context,
+    ),
+    output_limit:
+      info?.output_limit ??
+      reported?.output_limit ??
+      entry?.output_limit ??
+      128000,
+  };
+}
 
 // model 선택 화면이 쓰는 순수 규칙이다. 화면(renderer)과 core가
 // 같은 입력에 같은 결과를 얻도록 한 곳에 둔다. 의존성·시각·무작위·IO가 없고 zod를 import하지 않는다.

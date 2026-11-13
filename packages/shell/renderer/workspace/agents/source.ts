@@ -172,6 +172,13 @@ export interface AgentDetail {
   readonly extensions: readonly PublishedExtension[];
 }
 
+/** provider가 이 model에 적용하는 한도(core의 providerModelLimits). context는 Codex처럼 provider가 정한 운영 window다. */
+export interface EffectiveModelLimits {
+  readonly context_limit: number;
+  readonly input_limit: number;
+  readonly output_limit: number;
+}
+
 /** 연결된 provider. definition은 catalog 항목과 맞추는 key다. */
 export interface ProviderChoice {
   readonly id: string;
@@ -183,8 +190,10 @@ export interface ProviderChoice {
   readonly reportedModels: readonly string[] | null;
   /** model 목록을 다시 읽을 수 있는가: custom provider와 목록을 알려 주는 내장 provider다. */
   readonly refreshable: boolean;
-  /** model 정보를 적을 수 있는가: catalog에 그 정의의 model이 하나도 없는 provider(custom)다. catalog를 못 읽었으면 false다. */
-  readonly editable: boolean;
+  /** core의 내장 정의 목록에 없는 provider(custom)인가. custom만 정보 전체를 적고 model을 더한다. */
+  readonly custom: boolean;
+  /** model 이름 → 이 model이 실제로 쓰는 한도. 사람이 적은 값, provider가 알려 준 값, catalog 순서로 정해진다. */
+  readonly limits: Readonly<Record<string, EffectiveModelLimits>>;
 }
 
 export interface ShownModel {

@@ -6,6 +6,7 @@ import {
   entitlementAllows,
   type ModelChoice,
   providerRead,
+  providerModelLimits,
   type ProviderRecord,
   userModelInfoRead,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -48,7 +49,6 @@ import {
   chatPacker,
   cloudCodePacker,
   type ModelBinding,
-  OUTPUT_CAP,
   responsesPacker,
 } from "./binding.ts";
 
@@ -62,19 +62,6 @@ import {
 // 인증 없는 loopback provider는 붙일 값이 없고, API key와 구독 OAuth access token은 core가 감독 pipe로
 // 건네는 값을 인증 transport가 전송 직전에만 붙인다. OAuth token은 core가 건네기 직전에 만료가 가까우면
 // 갱신한다. 값을 받지 못하면 요청을 보내지 않는다.
-
-// Anthropic은 thinking 예산보다 max_tokens가 커야 요청을 받는다. 예산이 있으면 답에 쓸 몫을 그 위에 더한다.
-function anthropicMaxTokens(
-  request_patch: { thinking?: unknown },
-  outputLimit: number,
-): number {
-  const thinking = request_patch.thinking as
-    | { budget_tokens?: unknown }
-    | undefined;
-  const budget =
-    typeof thinking?.budget_tokens === "number" ? thinking.budget_tokens : 0;
-  return Math.min(outputLimit, OUTPUT_CAP + budget);
-}
 
 // option 축을 모르는 model의 자리표시 항목이다(wire 변환이 항목을 읽는다).
 function unlistedEntry(
@@ -176,7 +163,7 @@ export function createModelResolver(deps: ModelResolverDeps) {
 
     const catalog = await deps.catalog();
     if (!catalog.ok) return catalog;
-    // 사람이 적은 정보가 user 층이라 같은 열쇠의 catalog 항목을 이긴다.
+    // override의 미지정 field는 catalog의 option wire·media·가격을 유지한다.
     const typed = await readOf(deps.machine, userModelInfoRead, {});
     if (!typed.ok) return typed;
     const record = typed.value.items.find(
@@ -184,14 +171,30 @@ export function createModelResolver(deps: ModelResolverDeps) {
         item.provider_definition === provider.definition.key &&
         item.model_name === selection.model_name,
     );
+    const base = catalog.value.find(
+      (candidate) =>
+        candidate.provider_definition === provider.definition.key &&
+        candidate.model_name === selection.model_name,
+    );
+    const overridden =
+      record === undefined
+        ? base
+        : withDefaultLimits(userEntryOf(record, base));
+    const effective = providerModelLimits(
+      provider,
+      selection.model_name,
+      overridden,
+      record?.info,
+    );
     const found =
-      record !== undefined
-        ? withDefaultLimits(userEntryOf(record))
-        : catalog.value.find(
-            (candidate) =>
-              candidate.provider_definition === provider.definition.key &&
-              candidate.model_name === selection.model_name,
-          );
+      effective === null
+        ? overridden
+        : {
+            ...(overridden ??
+              unlistedEntry(provider.definition.key, selection)),
+            ...effective,
+            supports_tools: overridden?.supports_tools ?? true,
+          };
     // catalog에 없는 이름은 어느 provider에서든 한계와 option 축을 알 수 없다. 직접 적은 이름은 받고 기본 한계로
     // 돌며 option은 고를 수 없다. 이름이 틀렸으면 provider 호출이 거절한다. 거절하는 것은 구독 계정의 허락 목록
     // 밖 이름뿐이고 resolveSelection의 modelListed가 본다.
@@ -229,7 +232,22 @@ export function createModelResolver(deps: ModelResolverDeps) {
       option_values: resolved.value.option_values,
     });
     if (!wire.ok) return wire;
-    const limits = { ...resolved.value, ...wire.value };
+    // 자동 output은 기존 요청 예산을 유지한다. 명시한 output은 이 기본값으로 다시 자르지 않는다.
+    const thinking = wire.value.request_patch["thinking"] as
+      | { budget_tokens?: unknown }
+      | undefined;
+    const thinkingBudget =
+      provider.protocol === "anthropic-messages" &&
+      typeof thinking?.budget_tokens === "number"
+        ? thinking.budget_tokens
+        : 0;
+    const limits = {
+      ...resolved.value,
+      ...wire.value,
+      output_limit:
+        record?.info.output_limit ??
+        Math.min(resolved.value.output_limit, 32000 + thinkingBudget),
+    };
 
     const optionHeaders = limits.request_headers;
     // Claude 구독 token은 Claude Code client profile로만 보낸다. API key 요청 모양은 그대로다.
@@ -297,7 +315,7 @@ export function createModelResolver(deps: ModelResolverDeps) {
         ? anthropicPacker({
             model: limits.sent_model_name,
             images,
-            maxTokens: anthropicMaxTokens(requestPatch, limits.output_limit),
+            maxTokens: cappedOutput(limits),
             requestPatch,
           })
         : provider.protocol === "openai-responses"

@@ -62,6 +62,7 @@ export const conversation = {
   "conversation.button.queued-remove": "Remove from the queue",
   "conversation.button.remove-attachment": "Remove {name}",
   "conversation.button.remove-model": "Remove model",
+  "conversation.button.reset-model-limits": "Reset limits",
   "conversation.button.refresh-models": "Refresh models",
   "conversation.button.rename": "Rename",
   "conversation.button.resend": "Send again",
@@ -92,6 +93,8 @@ export const conversation = {
     "Couldn't save this model. Try again.",
   "conversation.error.model-info-remove-failed":
     "Couldn't remove this model. Try again.",
+  "conversation.error.model-info-reset-failed":
+    "Couldn't reset this model's limits. Try again.",
   "conversation.error.model-limit-invalid": "Enter a whole number above 0.",
   "conversation.error.model-name-required": "Enter the model name.",
   "conversation.error.model-price-invalid":
@@ -220,6 +223,7 @@ export const conversation = {
   "conversation.label.model-input-media": "Input media",
   "conversation.label.model-layer":
     "Using: {layer, select, session {this conversation} agent {this agent} project {workspace default} other {global default}}",
+  "conversation.label.model-limit-auto": "Automatic",
   "conversation.label.model-list": "Models",
   "conversation.label.model-name": "Model name",
   "conversation.label.model-output-limit": "Output limit",
@@ -445,6 +449,8 @@ export const conversation = {
     "Couldn't draw this diagram. The source is below.",
   "conversation.notice.history-no-match": "No messages match.",
   "conversation.notice.model-limits": "Blank limits use the defaults shown.",
+  "conversation.notice.model-limits-inherit":
+    "Blank limits use what this model already has from its provider. Context is the window the model can use in a session: Codex uses its own default operational window, not the model's maximum.",
   "conversation.notice.model-media":
     "lophn sends only text and images today. Other media are stored and shown.",
   "conversation.notice.model-prices": "Blank means unknown. 0 means free.",
@@ -454,9 +460,9 @@ export const conversation = {
     "{provider} didn't list its models. Add them by name.",
   "conversation.notice.no-model-options": "No options for this model.",
   "conversation.notice.manage-models-lead":
-    "Choose which models appear in the model picker.",
+    "Choose which models appear in the model picker. Edit a model to change its limits.",
   "conversation.notice.no-listed-models":
-    "No models listed yet. Refresh the list, or add a model.",
+    "No models listed for this provider yet.",
   "conversation.notice.no-models": "No models match.",
   "conversation.notice.no-providers": "No providers connected.",
   "conversation.notice.no-shown-models":
@@ -565,6 +571,7 @@ export const conversation = {
   "conversation.title.call-working-with": "Working with {to}",
   "conversation.title.edit-model": "Edit model",
   "conversation.title.manage-models": "Manage models",
+  "conversation.title.model-limits": "Model limits",
   "conversation.title.permissions": "Permissions · {agent}",
   "conversation.title.input-request-app":
     "{agent} asks you to enter a secret for the app {subject}",

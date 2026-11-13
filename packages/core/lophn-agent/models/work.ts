@@ -335,8 +335,11 @@ type CatalogReadDeps = {
   readDerived(sql: ReadSnapshot["sql"], name: string): string | null;
   // 동봉 snapshot과 그 hash다. 정상 파일이 없을 때의 답이다.
   snapshot: { entries: CatalogEntry[]; hash: string };
-  // 사람이 적은 model 정보(user 층)다. 같은 열쇠의 catalog 항목을 이긴다. derived 파일에는 쓰지 않는다.
-  userEntries(sql: ReadSnapshot["sql"]): CatalogEntry[];
+  // user 층은 base의 미지정 field를 따른다. derived file에는 쓰지 않는다.
+  userEntries(
+    sql: ReadSnapshot["sql"],
+    base: readonly CatalogEntry[],
+  ): CatalogEntry[];
 };
 
 // derived 파일을 읽고, 없거나 깨졌으면 동봉 snapshot을 쓴다. catalog 읽기와 저장 검사가 같은 바탕을 본다.
@@ -387,7 +390,7 @@ export function createCatalogRead(
       }
       const { catalog, state } = catalogBase(deps, snapshot.sql);
       // user 층이 같은 열쇠의 항목을 이긴다. 나머지 항목의 순서는 그대로 둔다(cursor가 위치다).
-      const typed = deps.userEntries(snapshot.sql);
+      const typed = deps.userEntries(snapshot.sql, catalog);
       const typedKeys = new Set(
         typed.map(
           (entry) => `${entry.provider_definition}\u0000${entry.model_name}`,

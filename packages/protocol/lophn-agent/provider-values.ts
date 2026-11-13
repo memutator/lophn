@@ -202,6 +202,22 @@ const modelBlockFields = {
 export const modelBlockSchema = z.strictObject(modelBlockFields);
 const modelBlockOutputSchema = z.object(modelBlockFields);
 
+// provider가 model 목록과 함께 알려 준 model별 token 한도다. 값은 그 model에 실제로 보낼 수 있는 수이고,
+// provider가 밝히지 않은 칸은 null이다. catalog의 값이 아니라 그 계정이 보고한 값이다.
+const reportedModelLimitFields = {
+  context_limit: positiveIntegerSchema,
+  max_context_limit: positiveIntegerSchema.nullable(),
+  output_limit: positiveIntegerSchema.nullable(),
+};
+export const reportedModelLimitSchema = z.strictObject(
+  reportedModelLimitFields,
+);
+export const reportedModelLimitsSchema = z.record(
+  nonblankSchema,
+  reportedModelLimitSchema,
+);
+export type ReportedModelLimits = z.infer<typeof reportedModelLimitsSchema>;
+
 export const CREDENTIAL_STATES = [
   "available",
   "rejected",
@@ -241,6 +257,8 @@ const credentialFields = {
   model_blocks: z.array(modelBlockSchema),
   // ChatGPT 계정이 쓸 수 있는 model 이름이다. null은 아직 못 읽었다는 뜻이고 그때는 거르지 않는다.
   reported_models: z.array(nonblankSchema).nullable(),
+  // 목록과 함께 받은 model별 token 한도다. 없으면 provider가 밝히지 않았다는 뜻이다.
+  reported_model_limits: reportedModelLimitsSchema.optional(),
   // 구독 OAuth 연결에만 있다.
   account: providerAccountSchema.nullable(),
 };

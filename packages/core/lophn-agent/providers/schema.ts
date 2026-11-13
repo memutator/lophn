@@ -88,3 +88,14 @@ where kind = 'oauth'
   );`,
   },
 ];
+
+// provider가 model 목록과 함께 알려 준 model별 token 한도를 그대로 저장한다. 옛 row는 null이고, 다음 목록 읽기가
+// 채우거나 지운다. 목록과 따로 두어 model 호출 기록의 credential 판(revision)을 흔들지 않는다.
+// 이미 나간 providerSchemaSteps 가운데에 끼우지 않는다: 조립이 이 단계를 맨 뒤에 등록한다.
+export const providerReportedModelLimitsSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "lophn-agent.harness-provider.reported-model-limits",
+    sql: `
+alter table provider_credentials add column reported_model_limits text;`,
+  },
+];

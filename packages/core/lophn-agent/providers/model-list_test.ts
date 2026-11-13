@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
 import {
+  type ProviderCredential,
   type ProviderRecord,
   refreshProviderModels,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -40,6 +41,13 @@ function custom(): ProviderRecord {
       refreshed_at: null,
       model_blocks: [],
       reported_models: ["old"],
+      reported_model_limits: {
+        old: {
+          context_limit: 1000,
+          max_context_limit: null,
+          output_limit: 100,
+        },
+      },
       account: null,
     },
     revision: 1,
@@ -55,12 +63,20 @@ test("provider 목록 읽기는 실패하면 앞 목록을 남기고 성공하�
     Response.json({ data: [{ id: "b" }, { id: "a" }] });
   const writer = {
     command: (_ctx, envelope) => {
-      const input = envelope.input as { models: string[] };
-      record = {
-        ...record,
-        revision: record.revision + 1,
-        credential: { ...record.credential, reported_models: input.models },
+      const input = envelope.input as {
+        models: string[];
+        model_limits?: ProviderCredential["reported_model_limits"];
       };
+      const credential = {
+        ...record.credential,
+        reported_models: input.models,
+      };
+      // 실제 명령처럼 한도는 통째로 바뀐다: 새 읽기가 한도를 안 실으면 앞의 것을 지운다.
+      delete credential.reported_model_limits;
+      if (Object.keys(input.model_limits ?? {}).length > 0) {
+        credential.reported_model_limits = input.model_limits;
+      }
+      record = { ...record, revision: record.revision + 1, credential };
       return Promise.resolve(
         ok({
           result: { provider: record },
@@ -107,12 +123,25 @@ test("provider 목록 읽기는 실패하면 앞 목록을 남기고 성공하�
     const done = await refresh();
     assert.ok(!done.ok && done.error.code === "unavailable", name);
     assert.deepStrictEqual(record.credential.reported_models, ["old"], name);
+    assert.deepStrictEqual(
+      record.credential.reported_model_limits,
+      {
+        old: {
+          context_limit: 1000,
+          max_context_limit: null,
+          output_limit: 100,
+        },
+      },
+      name,
+    );
   }
 
   answer = () => Response.json({ data: [{ id: "b" }, { id: "a" }] });
   const done = await refresh();
   assert.ok(done.ok);
   assert.deepStrictEqual(record.credential.reported_models, ["a", "b"]);
+  // 이 provider는 한도를 밝히지 않으므로 앞의 한도는 지워진다.
+  assert.equal(record.credential.reported_model_limits, undefined);
   assert.deepStrictEqual(sent.at(-1), {
     url: "http://127.0.0.1:9000/v1/models",
     authorization: "Bearer SECRET-KEY",

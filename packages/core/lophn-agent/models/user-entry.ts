@@ -8,7 +8,10 @@ import { loadUserModel } from "./store.ts";
 
 // 사람이 적은 model 정보를 catalog의 user 층 항목으로 옮긴다. catalog를 읽는 곳 셋(ReadModelCatalog,
 // turn resolver, 저장할 때 검사)이 모두 이 함수를 거치므로 같은 입력에 같은 항목이 나온다.
-export function userEntryOf(record: UserModelRecord): CatalogEntry {
+export function userEntryOf(
+  record: UserModelRecord,
+  base?: CatalogEntry,
+): CatalogEntry {
   const { info } = record;
   const revision = `user@${record.saved_at.slice(0, 10)}`;
   const price = info.price;
@@ -17,21 +20,28 @@ export function userEntryOf(record: UserModelRecord): CatalogEntry {
   return {
     provider_definition: record.provider_definition,
     model_name: record.model_name,
-    context_limit: info.context_limit,
-    input_limit: info.input_limit,
-    output_limit: info.output_limit,
-    supports_tools: info.supports_tools,
-    input_media: info.input_media,
-    output_media: info.output_media,
-    options: info.effort === null ? [] : [effortAxisOf(info.effort)],
-    preview: null,
-    deprecated: null,
+    context_limit: info.context_limit ?? base?.context_limit ?? null,
+    input_limit: info.input_limit ?? base?.input_limit ?? null,
+    output_limit: info.output_limit ?? base?.output_limit ?? null,
+    supports_tools: info.supports_tools ?? base?.supports_tools ?? null,
+    input_media:
+      info.input_media ?? (base === undefined ? ["text"] : base.input_media),
+    output_media:
+      info.output_media ?? (base === undefined ? ["text"] : base.output_media),
+    options:
+      info.effort === null
+        ? base === undefined
+          ? []
+          : base.options
+        : [effortAxisOf(info.effort)],
+    preview: base?.preview ?? null,
+    deprecated: base?.deprecated ?? null,
     source: "user",
     source_revision: revision,
     checked_at: null,
     received_at: null,
     price_basis: !priced
-      ? null
+      ? (base?.price_basis ?? null)
       : {
           currency: "USD",
           rates: [
@@ -80,11 +90,11 @@ export function checkEntryOf(
   definition: string,
   modelName: string,
 ): CatalogEntry | undefined {
-  const record = loadUserModel(sql, definition, modelName);
-  if (record !== undefined) return userEntryOf(record);
-  return base.find(
-    (entry) =>
-      entry.provider_definition === definition &&
-      entry.model_name === modelName,
+  const entry = base.find(
+    (candidate) =>
+      candidate.provider_definition === definition &&
+      candidate.model_name === modelName,
   );
+  const record = loadUserModel(sql, definition, modelName);
+  return record === undefined ? entry : userEntryOf(record, entry);
 }

@@ -136,12 +136,16 @@ export function withProviderLogin(
     const source = { ...target, kind: "oauth", account: tokens.account };
     if (readsModels(source)) {
       void readProviderModels(deps.http, source, tokens.access)
-        .then((models) =>
-          models === null
+        .then((roster) =>
+          roster === null
             ? undefined
             : writer.command(ctx, {
                 command: recordProviderModels.name,
-                input: { provider, models },
+                input: {
+                  provider,
+                  models: roster.models,
+                  model_limits: roster.limits,
+                },
                 idempotency_key: deps.newKey(),
                 compare: { revision: (record as ProviderRecord).revision },
                 prepared: [],

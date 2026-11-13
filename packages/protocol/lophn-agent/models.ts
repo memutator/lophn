@@ -298,9 +298,8 @@ export const shownModelsRead = defineRead({
   errors: [...readErrors],
 });
 
-// 사람이 custom provider model에 적은 정보다. 칸 이름과 모양은 CatalogEntry를 따르고, core가 이것으로
-// source가 "user"인 항목을 만들어 catalog의 user 층에 합친다. null은 "안 적음"이다(한도·tool 지원은 turn이
-// 목록 밖 기본값으로 채우고, effort null은 option 없음, price null은 가격 모름).
+// 사람이 model에 적은 override다. null은 catalog 값을 따른다. catalog에도 값이 없으면
+// 한도·tool 지원은 목록 밖 기본값, media는 text, effort는 option 없음, price는 가격 모름이다.
 const userEffortFields = {
   // 약한 값에서 강한 값 순서다.
   values: z.array(effortValueSchema).min(1),
@@ -342,8 +341,8 @@ const userInfoFields = {
   input_limit: positiveIntegerSchema.nullable(),
   output_limit: positiveIntegerSchema.nullable(),
   supports_tools: z.boolean().nullable(),
-  input_media: modelMediaSchema,
-  output_media: modelMediaSchema,
+  input_media: modelMediaSchema.nullable(),
+  output_media: modelMediaSchema.nullable(),
 };
 const userModelInfoSchema = z.strictObject({
   ...userInfoFields,
@@ -392,7 +391,7 @@ const userModelErrors = [
   "conflict",
 ] as const;
 
-// custom provider model 하나의 정보를 더하거나 고친다. 내장·구독 OAuth 정의의 key는 invalid_input이다.
+// provider 정의와 model 이름별 override다. API key·구독 연결 모두 같은 override를 쓴다.
 export const saveUserModelInfo = defineCommand({
   resource: "user-model-info",
   method: "save",

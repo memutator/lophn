@@ -1,8 +1,9 @@
-// Manage models 창. picker에 보일 model을 켜고 끄고, 새 provider를 붙이는 길이다. 위에서부터 설명 한 줄과
+// Manage models 창. picker에 보일 model을 켜고 끄고, model마다 한도를 고치고, 새 provider를 붙이는 길이다. 위에서부터 설명 한 줄과
 // 오른쪽 위 [Connect provider], 검색칸 하나, provider 묶음이다. 묶음 머리는 vendor 아이콘, provider 이름, provider toggle이고
-// 그 아래 model마다 입력 media icon, context 한도(아는 것만), toggle이 있다. toggle은 줄 오른쪽 끝의 고정 열에 둔다.
-// custom provider 머리에는 [Refresh models]가 있고, 그 묶음 아래 [Add model]과 모든 줄의 [Edit]이 model 정보 form
-// (model-info-form.tsx)을 이 창 위에 연다. catalog에 있는 provider의 model은 읽기만 한다. 자료는 props로 받고 core를 모른다.
+// 그 아래 model마다 입력 media icon, context 한도(아는 것만), [Edit], toggle이 있다. toggle은 줄 오른쪽 끝의 고정 열에 둔다.
+// [Edit]은 연결된 모든 provider의 model에 있고, custom provider는 정보 전체를, 내장·구독 provider는 한도 셋만 고친다
+// (model-info-form.tsx). [Refresh models]는 목록을 알려 주는 provider(custom·일부 내장)에, [Add model]은 custom 묶음에만 있다.
+// 자료는 props로 받고 core를 모른다.
 import { useState } from "react";
 import { Button, Icon } from "@lophn/ui/primitives";
 import { Dialog, Tooltip } from "@lophn/ui/overlay";
@@ -12,7 +13,11 @@ import { t } from "@lophn/i18n";
 
 import type { UserModelInfo } from "../../../../protocol/lophn-agent/models.ts";
 import { actionIcons, commonIcons, modelIcons } from "../../icons/mod.ts";
-import { ModelInfoForm, type ModelInfoOutcome } from "./model-info-form.tsx";
+import {
+  ModelInfoForm,
+  type ModelInfoMode,
+  type ModelInfoOutcome,
+} from "./model-info-form.tsx";
 import { ProviderHeading } from "./model-picker.tsx";
 import styles from "./manage-models.module.css";
 import type { ManageModelView, ManageProviderView } from "./types.ts";
@@ -32,26 +37,27 @@ export interface ManageModelsProps {
   onToggleModel: (provider: string, modelName: string, shown: boolean) => void;
   /** provider toggle. 그 provider의 지금 model 전부를 켜거나(shown) 끈다. */
   onToggleProvider: (provider: string, shown: boolean) => void;
-  /** custom provider의 목록을 다시 읽는다. 성공하면 true다. 실패해도 앞 목록은 그대로다. */
+  /** model 목록을 알려 주는 provider의 목록을 다시 읽는다. 성공하면 true다. 실패해도 앞 목록은 그대로다. */
   onRefresh: (provider: string) => Promise<boolean>;
-  /** custom provider model의 정보를 저장한다. 새 model이면 이름이 새로 생긴다. */
+  /** model의 정보를 저장한다. custom은 전부, 내장·구독은 한도 셋만 담고 나머지 칸은 null이다. 새 model이면 이름이 새로 생긴다. */
   onSaveInfo: (
     provider: string,
     modelName: string,
     info: UserModelInfo,
   ) => Promise<ModelInfoOutcome>;
-  /** custom provider model의 정보를 지운다. */
+  /** 사람이 적은 model 정보를 지운다. 내장·구독 provider에서는 그 model이 catalog에 남고 사람이 적은 한도만 사라진다. */
   onRemoveInfo: (
     provider: string,
     modelName: string,
   ) => Promise<ModelInfoOutcome>;
 }
 
-/** 열려 있는 model 정보 form. modelName이 null이면 새 model이다. */
+/** 열려 있는 model 정보 form. modelName이 null이면 새 model(custom)이다. */
 interface FormTarget {
   readonly provider: string;
   readonly modelName: string | null;
   readonly info: UserModelInfo | null;
+  readonly mode: ModelInfoMode;
   readonly lead?: string;
 }
 
@@ -71,6 +77,8 @@ function shortLimit(limit: number): string {
 
 /** model 줄의 입력 media icon들과 context 한도. 모르는 것은 보이지 않는다. */
 function ModelFacts({ model }: { model: ManageModelView }) {
+  // 사람이 적은 한도가 있으면 그 값이 실제로 쓰는 값이다.
+  const context = model.info?.context_limit ?? model.contextLimit;
   return (
     <>
       {model.inputMedia === null ? null : (
@@ -92,14 +100,14 @@ function ModelFacts({ model }: { model: ManageModelView }) {
           })}
         </span>
       )}
-      {model.contextLimit === null ? null : (
+      {context === null ? null : (
         <Tooltip
           content={t("conversation.label.model-context", {
-            limit: model.contextLimit.toLocaleString("en-US"),
+            limit: context.toLocaleString("en-US"),
           })}
         >
           <span className={styles.context} tabIndex={0}>
-            {shortLimit(model.contextLimit)}
+            {shortLimit(context)}
           </span>
         </Tooltip>
       )}
@@ -166,23 +174,22 @@ function ProviderGroup({
     >
       <span className={styles.name}>{model.modelName}</span>
       <ModelFacts model={model} />
-      {provider.editable ? (
-        <Button
-          size="sm"
-          variant="ghost"
-          icon={actionIcons.edit}
-          data-edit-model=""
-          onClick={() =>
-            onForm({
-              provider: provider.id,
-              modelName: model.modelName,
-              info: model.info,
-            })
-          }
-        >
-          {t("conversation.button.edit-model")}
-        </Button>
-      ) : null}
+      <Button
+        size="sm"
+        variant="ghost"
+        icon={actionIcons.edit}
+        data-edit-model=""
+        onClick={() =>
+          onForm({
+            provider: provider.id,
+            modelName: model.modelName,
+            info: model.info,
+            mode: provider.custom ? "custom" : "limits",
+          })
+        }
+      >
+        {t("conversation.button.edit-model")}
+      </Button>
       <Toggle
         label={model.modelName}
         on={model.shown}
@@ -245,7 +252,7 @@ function ProviderGroup({
           {openOff ? off.map(row) : null}
         </>
       )}
-      {provider.editable && needle === "" ? (
+      {provider.custom && needle === "" ? (
         <div className={styles.addModel} data-manage-section="add-model">
           <p className={styles.note}>{t("conversation.notice.custom-model")}</p>
           <Button
@@ -253,7 +260,12 @@ function ProviderGroup({
             variant="secondary"
             icon={actionIcons.add}
             onClick={() =>
-              onForm({ provider: provider.id, modelName: null, info: null })
+              onForm({
+                provider: provider.id,
+                modelName: null,
+                info: null,
+                mode: "custom",
+              })
             }
           >
             {t("conversation.button.add-model")}
@@ -272,7 +284,7 @@ export function ManageModelsDialog(props: ManageModelsProps) {
   const [form, setForm] = useState<FormTarget | null>(() =>
     props.initialForm === undefined
       ? null
-      : { ...props.initialForm, modelName: null, info: null },
+      : { ...props.initialForm, modelName: null, info: null, mode: "custom" },
   );
   const refresh = async (provider: string) => {
     setBusy(true);
@@ -359,6 +371,7 @@ export function ManageModelsDialog(props: ManageModelsProps) {
         <ModelInfoForm
           modelName={form.modelName}
           info={form.info}
+          mode={form.mode}
           lead={form.lead}
           onClose={() => setForm(null)}
           onSave={(modelName, info) =>

@@ -356,15 +356,30 @@ export function createProviderCommands(): {
         const same = checkRevision(current.value, compare);
         if (!same.ok) return same;
         const models = [...new Set(input.models)].sort();
-        const checked = assertCredential({
+        // 한도는 이름 순으로 저장해 같은 읽기가 같은 JSON이 되게 한다. 없으면 앞서 저장한 한도를 지운다.
+        const limitEntries = Object.entries(input.model_limits ?? {});
+        limitEntries.sort(([left], [right]) =>
+          left < right ? -1 : left > right ? 1 : 0,
+        );
+        const limits = Object.fromEntries(limitEntries);
+        const credential = {
           ...current.value.credential,
           reported_models: models,
-        });
+        };
+        delete credential.reported_model_limits;
+        if (limitEntries.length > 0) {
+          credential.reported_model_limits = limits;
+        }
+        const checked = assertCredential(credential);
         if (!checked.ok) return checked;
         const revision = compare.revision + 1;
         tx.sql.run(
-          "update provider_credentials set reported_models = ? where provider = ?",
-          [JSON.stringify(models), input.provider],
+          "update provider_credentials set reported_models = ?, reported_model_limits = ? where provider = ?",
+          [
+            JSON.stringify(models),
+            limitEntries.length === 0 ? null : JSON.stringify(limits),
+            input.provider,
+          ],
         );
         tx.sql.run(
           "update providers set revision = ? where id = ? and revision = ?",

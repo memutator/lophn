@@ -11,7 +11,10 @@ import {
 import { createFileSecretAttach } from "../../secrets/mod.ts";
 import { runtimeServerOfLayer } from "../extensions/mod.ts";
 import { createSecretDestinations } from "../secret-destinations.ts";
-import { providerSchemaSteps } from "./schema.ts";
+import {
+  providerReportedModelLimitsSchemaSteps,
+  providerSchemaSteps,
+} from "./schema.ts";
 import { providerSecretDestinations } from "./secret-refs.ts";
 
 const VALUE = "sk-live-MARKER-5c1e";
@@ -20,6 +23,7 @@ const VALUE = "sk-live-MARKER-5c1e";
 function setup() {
   const db = new DatabaseSync(":memory:");
   for (const step of providerSchemaSteps) db.exec(step.sql);
+  for (const step of providerReportedModelLimitsSchemaSteps) db.exec(step.sql);
   const provider = (id: string, endpoint: string) =>
     db
       .prepare(

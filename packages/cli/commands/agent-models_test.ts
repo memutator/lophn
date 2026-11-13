@@ -5,6 +5,7 @@ import {
   modelCatalogRead,
   providerRead,
   shownModelsRead,
+  userModelInfoRead,
 } from "../../protocol/lophn-agent/mod.ts";
 import { agentModels } from "./agent-models.ts";
 import type { CommandContext } from "./types.ts";
@@ -62,6 +63,8 @@ test("agent.models는 켠 model의 선택 정보만 내고 provider 계정과 cr
                 : [entry("enabled"), entry("removed")],
             next_cursor: input.cursor === undefined ? "next" : null,
           });
+        if (route.name === userModelInfoRead.name)
+          return ok({ seq: "0", items: [] });
         throw new Error(`unexpected route: ${route.name}`);
       },
     },

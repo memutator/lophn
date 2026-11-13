@@ -130,7 +130,6 @@ test("직접 적은 이름은 받고, 구독 OAuth 계정의 허락 목록 밖 �
     });
     assert.deepStrictEqual(bound.ok, row.accepted, JSON.stringify(bound));
     if (bound.ok) {
-      assert.deepStrictEqual(bound.value.call.limits.context_limit, 131072);
       if (row.listed !== undefined) {
         assert.deepStrictEqual(
           (bound.value.call.catalog_basis as Record<string, string>)

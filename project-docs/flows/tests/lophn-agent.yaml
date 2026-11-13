@@ -81,8 +81,8 @@ files:
     note: "직접 적은 model 이름을 provider 목록과 구독 허락 목록으로 받고 거절하는 resolver 호출. 거절은 turn-pump-start:closed-configuration-unavailable"
 
   - path: packages/core/lophn-agent/models/user-info_test.ts
-    covers: [user-model-info-save:ok, user-model-info-save:conflict, user-model-info-save:invalid_input, user-model-info-remove:conflict, model-catalog-read:ok, model-default-change:ok, model-default-change:invalid_input]
-    note: "사람이 적은 model 정보가 catalog보다 이기고, effort 값과 한도가 chat 요청에 실리며, 낡은 seq 저장·지움과 내장 정의 key를 거절한다"
+    covers: [user-model-info-save:ok, user-model-info-save:conflict, user-model-info-remove:conflict, model-catalog-read:ok, model-default-change:ok, model-default-change:invalid_input]
+    note: "저장한 model 한도가 catalog 갱신에도 남고 effort·명시한 output이 chat 요청에 실리며, 낡은 seq의 저장·지움을 거절한다"
 
   - path: packages/core/lophn-agent/models/work_test.ts
     covers: [model-catalog-read:ok]
@@ -122,19 +122,19 @@ files:
 
   - path: packages/core/lophn-agent/providers/model-list_test.ts
     covers: [provider-models-refresh:refreshed, provider-models-refresh:unavailable, provider-models-refresh:invalid_input, provider-models-record:recorded]
-    note: "provider model 목록 읽기는 실패하면 앞 목록을 남기고 성공하면 바꾼다. key는 요청 header에만, 그 provider 주소로만 간다. 내장 Anthropic은 x-api-key로 읽고 날짜 뺀 alias를 더한다. openrouter는 거절"
+    note: "provider 목록·한도는 실패하면 앞 값을 남기고 성공하면 함께 바꾼다. 한도가 없는 성공 응답은 옛 한도를 지운다. key는 그 provider 주소의 요청 header에만 간다. 내장 Anthropic alias와 openrouter 거절도 본다"
 
   - path: packages/core/lophn-agent/providers/oauth-refresh_test.ts
     covers: [provider-token-refresh:refreshed, provider-token-refresh:revoked, provider-token-refresh:still-valid, provider-token-refresh:unavailable, provider-token-refresh:store-failed, provider-models-record:recorded]
-    note: "회전한 refresh token을 저장하고(저장하지 못하면 메모리에 두고 다음 갱신이 옛 token 대신 그것을 보낸다), invalid_grant면 revoked로 token을 주지 않고(JSON 아닌 400은 revoked가 아니다), 만료가 멀면 아무것도 안 하되 force면 갱신한다. 연결을 기다리는 사이 끊으면 늦은 token을 저장하지 않는다(unavailable은 code를 단정하지 않고 흐름 설명으로 맞춤)"
+    note: "회전 refresh token을 저장하고 저장 실패 때 메모리의 새 token을 먼저 쓰며 invalid_grant만 revoked다. 만료·force·Disconnect 경합과 함께 Codex model 목록·한도의 SQLite 저장, 실패 때 보존, 한도 없는 성공 때 삭제를 본다"
 
   - path: packages/core/lophn-agent/providers/reported-models_test.ts
     covers: []
-    note: "계정 model 목록 응답 해석(순수 함수). 읽지 못하면 null이고 숨긴 항목만 뺀다"
+    note: "계정 model 목록·Codex 기본/확장 context·output 한도 해석(순수 함수). 숨긴 항목과 잘못된 숫자를 빼고 token은 결과에 싣지 않는다"
 
   - path: packages/core/lophn-agent/providers/schema_test.ts
     covers: [ledger-migrate:applied]
-    note: "옛 ChatGPT 연결을 새 정의로 옮기는 ledger step을 직접 실행한다(적용기 경유 아님). 옮긴 연결은 revoked이고 다른 provider는 그대로다"
+    note: "옛 ChatGPT 연결을 새 정의로 옮기면 revoked이고 다른 provider는 그대로다. 한도 column을 더하는 새 step은 기존 목록·revision을 보존하고 한도는 다음 discovery까지 비운다(적용기 경유 아님)"
 
   - path: packages/core/lophn-agent/providers/secret-refs_test.ts
     covers: [secret-attach:forbidden, secret-attach:sent]

@@ -13,7 +13,11 @@ import { chatGptRefreshRequest } from "./oauth-chatgpt.ts";
 import { claudeRefreshRequest } from "./oauth-claude.ts";
 import { antigravityRefreshRequest } from "./oauth-antigravity.ts";
 import { loadProviderTokens, providerTokenNames } from "./oauth-secrets.ts";
-import { readProviderModels, readsModels } from "./reported-models.ts";
+import {
+  readProviderModels,
+  readsModels,
+  type ReportedModelRoster,
+} from "./reported-models.ts";
 
 // 구독 provider의 OAuth access token 갱신이다. agent runtime이 model 호출에 실을 token(`provider.<id>`)을 달라고
 // 할 때 core가 값을 건네기 직전에 부른다(runtime-secret.ts의 providerOAuth hook). 만료가 lead보다 가까우면
@@ -91,7 +95,7 @@ export function createProviderRefresher(deps: {
   // RecordProviderModels를 그 provider의 revision으로 부른다.
   recordModels(
     provider: ProviderRecord,
-    models: string[],
+    roster: ReportedModelRoster,
   ): Promise<Result<unknown>>;
   nowMs(): number;
   leadMs: number;
@@ -135,11 +139,11 @@ export function createProviderRefresher(deps: {
     const read = (async () => {
       const access = deps.secrets.get(providerTokenNames(provider.id).access);
       if (!access.ok) return;
-      const models = await readProviderModels(deps.http, source, access.value);
-      if (models === null) return;
+      const roster = await readProviderModels(deps.http, source, access.value);
+      if (roster === null) return;
       const latest = await deps.readProvider(provider.id);
       if (!latest.ok || latest.value === null) return;
-      await deps.recordModels(latest.value, models);
+      await deps.recordModels(latest.value, roster);
     })()
       .catch(() => {})
       .finally(() => reads.delete(provider.id));

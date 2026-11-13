@@ -17,7 +17,6 @@ import type {
 } from "../../../protocol/server/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import { validateOptionValues } from "./options.ts";
-import { builtinProviderDefinition } from "../providers/mod.ts";
 import {
   bumpShownSeq,
   bumpUserModelsSeq,
@@ -171,13 +170,6 @@ export function createModelCommands(
       handle(tx, ctx, input, compare) {
         const person = requireUser(ctx);
         if (!person.ok) return person;
-        // 내장·구독 OAuth 정의의 catalog를 사람이 덮는 길은 없다. custom 정의의 key만 받는다.
-        if (builtinProviderDefinition(input.provider_definition).ok) {
-          return err({
-            code: "invalid_input",
-            message: "model info can only be saved for a custom provider",
-          });
-        }
         const current = loadUserModels(tx.sql);
         if (current.seq !== compare.seq) return conflict();
         tx.sql.run(

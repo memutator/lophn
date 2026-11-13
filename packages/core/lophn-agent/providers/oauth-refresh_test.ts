@@ -7,7 +7,10 @@ import { createProviderCommands } from "./commands.ts";
 import { builtinProviderDefinition } from "./definitions.ts";
 import { createProviderRefresher } from "./oauth-refresh.ts";
 import { loadProvider } from "./store.ts";
-import { providerSchemaSteps } from "./schema.ts";
+import {
+  providerReportedModelLimitsSchemaSteps,
+  providerSchemaSteps,
+} from "./schema.ts";
 
 const ID = "pvd_00000000000000000000000001";
 const ACCESS = "provider.00000000000000000000000001";
@@ -20,6 +23,7 @@ const at = (ms: number) => new Date(ms).toISOString();
 function setup(expiresAtMs: number, product: "chatgpt" | "claude" = "chatgpt") {
   const db = new DatabaseSync(":memory:");
   for (const step of providerSchemaSteps) db.exec(step.sql);
+  for (const step of providerReportedModelLimitsSchemaSteps) db.exec(step.sql);
   const sql: Sql = {
     run: (query, params) => db.prepare(query).run(...params),
     get: (query, params) => db.prepare(query).get(...params) as never,
@@ -99,12 +103,16 @@ function setup(expiresAtMs: number, product: "chatgpt" | "claude" = "chatgpt") {
           ? Promise.reject(new Error("no runtime"))
           : Promise.resolve(models());
       },
-      recordModels: (provider, list) =>
+      recordModels: (provider, roster) =>
         Promise.resolve(
           commands.recordModels.handle(
             tx,
             { actor: "machine" } as RequestContext,
-            { provider: provider.id, models: list } as never,
+            {
+              provider: provider.id,
+              models: roster.models,
+              model_limits: roster.limits,
+            } as never,
             { revision: provider.revision },
           ),
         ),
@@ -219,25 +227,44 @@ test("갱신은 회전한 refresh token을 저장하고, invalid_grant면 creden
   );
 });
 
-test("갱신하면 계정 model 목록이 저장되고, 읽기가 틀려도 갱신은 성공하며 앞서 저장한 목록이 남는다", async () => {
+test("갱신하면 계정 model 목록과 Codex가 밝힌 한도가 저장되고, 읽기가 틀려도 앞서 저장한 것이 남는다", async () => {
   const token = () =>
     Response.json({ access_token: "A", refresh_token: "R", expires_in: 3600 });
   const listed = () =>
     Response.json({
       models: [
-        { slug: "gpt-5", visibility: "list" },
-        { slug: "gpt-5-pro", visibility: "hide" },
-        { slug: "gpt-5-mini" },
+        {
+          slug: "gpt-5",
+          visibility: "list",
+          context_window: 272000,
+          max_context_window: 400000,
+          max_output_tokens: 128000,
+        },
+        { slug: "gpt-5-pro", visibility: "hide", context_window: 1 },
+        { slug: "gpt-5-mini", context_window: 128000, max_output_tokens: 0 },
       ],
     });
   const kept = ["gpt-5", "gpt-5-mini"];
+  const keptLimits = {
+    "gpt-5": {
+      context_limit: 272000,
+      max_context_limit: 400000,
+      output_limit: 128000,
+    },
+    "gpt-5-mini": {
+      context_limit: 128000,
+      max_context_limit: null,
+      output_limit: null,
+    },
+  };
   const t = setup(NOW + 60_000);
   const first = t.refresher(token(), listed);
   assert.deepStrictEqual(await first.prepareToken(use), ok(undefined));
   await first.idle();
   assert.deepStrictEqual(t.read().credential.reported_models, kept);
+  assert.deepStrictEqual(t.read().credential.reported_model_limits, keptLimits);
 
-  // 다시 갱신할 때 읽기가 던지거나 모양이 틀려도 token은 새로 저장되고 목록은 그대로다.
+  // 다시 갱신할 때 읽기가 던지거나 모양이 틀려도 token은 새로 저장되고 목록·한도는 그대로다.
   for (const broken of [undefined, () => Response.json({ nope: 1 })]) {
     t.secrets.set(ACCESS, "OLD-ACCESS");
     t.expire(NOW + 60_000);
@@ -246,7 +273,22 @@ test("갱신하면 계정 model 목록이 저장되고, 읽기가 틀려도 갱�
     await again.idle();
     assert.deepStrictEqual(t.secrets.get(ACCESS), "A");
     assert.deepStrictEqual(t.read().credential.reported_models, kept);
+    assert.deepStrictEqual(
+      t.read().credential.reported_model_limits,
+      keptLimits,
+    );
   }
+
+  // 성공했지만 한도를 밝히지 않으면 앞서 저장한 한도는 지워진다(목록은 그대로다).
+  t.secrets.set(ACCESS, "OLD-ACCESS");
+  t.expire(NOW + 60_000);
+  const bare = t.refresher(token(), () =>
+    Response.json({ models: [{ slug: "gpt-5" }, { slug: "gpt-5-mini" }] }),
+  );
+  assert.deepStrictEqual(await bare.prepareToken(use), ok(undefined));
+  await bare.idle();
+  assert.deepStrictEqual(t.read().credential.reported_models, kept);
+  assert.equal(t.read().credential.reported_model_limits, undefined);
 });
 
 test("Claude 갱신은 JSON grant를 보내고 refresh token이 안 오면 지금 것을 지키며, 기다리는 동안 끊은 연결은 되살리지 않는다", async () => {

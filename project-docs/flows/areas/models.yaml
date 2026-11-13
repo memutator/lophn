@@ -642,7 +642,7 @@ flows:
       - "shown-models/change가 not_found를 선언하지만 handler는 모르는 provider의 줄을 조용히 빼고 거절하지 않는다. 선언을 고칠 곳이다"
 
   - id: user-model-info-read
-    title: "사람이 적은 custom model 정보를 읽는다"
+    title: "사람이 적은 model override를 읽는다"
     actor: person
     entries: [route:user-model-info/read]
     boundary: [models]
@@ -659,17 +659,17 @@ flows:
     unclear: []
 
   - id: user-model-info-save
-    title: "custom provider model에 사람이 적은 정보를 더하거나 고친다"
+    title: "내장·구독·custom model의 override를 더하거나 고친다"
     actor: person
     entries: [route:user-model-info/save]
     boundary: [models]
     code: [packages/core/lophn-agent/models/commands.ts, packages/core/lophn-agent/models/user-entry.ts]
     steps:
       - "사람이 아니면 forbidden이다(requireUser)"
-      - "내장이나 구독 OAuth 정의의 key는 거절한다. custom 정의의 key만 받는다"
+      - "내장·구독은 한도 셋을, custom은 정보 전체를 같은 (정의 key, model 이름) key로 받는다"
       - "model_user_info_seq가 같은지 본다. 다르면 conflict다"
       - "(정의 key, model 이름) 줄을 넣거나 고치고 seq를 올린다"
-      - "이 정보는 catalog의 user 층으로 합쳐져 목록과 turn 해석에 같은 값으로 보인다"
+      - "미지정 field는 catalog를 따르고 명시한 field만 user 층으로 덮는다. 저장 뒤 해당 model을 썼던 대화의 usage를 갱신한다"
     outcomes:
       - id: ok
         observe: ["ledger:model_user_info", "ledger:model_user_info_seq", "response"]
@@ -681,10 +681,6 @@ flows:
         code: forbidden
         when: "사람이 아닌 actor가 불렀다(handler 맨 앞의 requireUser)"
         observe: ["response"]
-      - id: invalid_input
-        code: invalid_input
-        when: "내장이나 구독 OAuth 정의의 key다"
-        observe: ["response"]
     crosses_process: false
     risk: []
     refs: []
@@ -692,7 +688,7 @@ flows:
     unclear: []
 
   - id: user-model-info-remove
-    title: "custom provider model에 사람이 적은 정보를 지운다"
+    title: "model override를 지워 원래 한도를 따른다"
     actor: person
     entries: [route:user-model-info/remove]
     boundary: [models]
@@ -702,6 +698,7 @@ flows:
       - "model_user_info_seq가 같은지 본다. 다르면 conflict다"
       - "같은 key의 줄을 지운다. 없는 key여도 오류 없이 seq를 올린다"
       - "provider 연결을 끊어도 이 정보는 남아 있다가 여기서만 지워진다"
+      - "내장·구독 model은 catalog에 남고 유효 한도와 해당 대화 usage가 원래 값으로 돌아온다"
     outcomes:
       - id: ok
         observe: ["ledger:model_user_info", "ledger:model_user_info_seq", "response"]
@@ -728,7 +725,7 @@ flows:
     steps:
       - "호출한 actor가 이 route의 actor인지 본다. 아니면 forbidden이다"
       - "derived catalog.json과 catalog-state.json을 읽는다. 없거나 깨졌으면 동봉 snapshot으로 답한다"
-      - "사람이 적은 user 층이 같은 열쇠(정의 key, model 이름)의 항목을 이겨 합친다"
+      - "사람이 적은 user 층의 명시한 field만 같은 key의 catalog 위에 덮고, null은 option wire·media·가격을 포함한 catalog 값을 따른다"
       - "provider와 model 필터를 거친 목록을 행 예산(400행)만큼 잘라 next_cursor로 잇는다"
     outcomes:
       - id: ok
@@ -1027,7 +1024,7 @@ flows:
       - "입력 모양을 본다. 사람인지 본다(route actors). 목록을 읽는 provider인지 본다: 사용자 정의 provider, 내장 API key provider(anthropic, openai, xai, groq, deepseek, google-gemini, OpenCode Go 셋), 구독 계정(Claude, ChatGPT, project 있는 Antigravity). openrouter와 SuperGrok이면 거절한다"
       - "key나 구독 access token을 읽는다. 사용자 정의 provider는 endpoint와 같은 origin으로만, 내장 provider는 정의의 models_endpoint로만 보낸다. 다른 주소나 key가 없으면 unavailable이다. key는 요청 header에만 두고 오류에는 싣지 않는다. Anthropic은 x-api-key(구독은 Bearer와 oauth beta)와 anthropic-version을 쓴다"
       - "목록 주소(사용자 정의는 endpoint/models, 내장은 정의의 models_endpoint, ChatGPT는 Codex 목록, Antigravity는 project roster, OpenCode Go 셋은 gateway의 OpenAI base 목록 하나)를 발급자 요청 대기열(agent runtime)로 보낸다. Anthropic은 날짜 붙은 id의 alias(날짜 뺀 이름)를 더한다. 내장 OpenAI 꼴 목록에서는 embedding·음성·그림 생성 같은 채팅 밖 model을 빼고 Gemini는 models/ 앞붙임을 뗀다. OpenCode Go는 model마다 `api` 객체가 가리키는 wire만 그 정의의 목록으로 남긴다(api가 없거나 Gemini wire면 버린다)이고 요청은 `User-Agent: lophn`과 Bearer key로 보낸다. 200이 아니거나 JSON·목록 모양이 아니거나 visibility가 list인 model이 하나도 없거나 8초 안에 답이 없으면 unavailable이다"
-      - "읽은 뒤 provider를 다시 읽어 최신 revision으로 record-models를 불러 저장한다. 그 사이 revision이 바뀌었으면 conflict다"
+      - "읽은 뒤 provider를 다시 읽어 최신 revision으로 model 이름과 Codex의 기본·확장 context·output 한도를 record-models에 함께 보낸다. 실패하면 앞 목록·한도를 남기고 그 사이 revision이 바뀌었으면 conflict다"
     outcomes:
       - id: refreshed
         observe: ["request:provider-models", "ledger:provider_credentials", "ledger:providers", "response"]
@@ -1061,7 +1058,7 @@ flows:
     code: [packages/core/lophn-agent/providers/commands.ts, packages/core/lophn-agent/providers/reported-models.ts]
     steps:
       - "provider가 없으면 not_found다. revision이 요청과 같은지 본다. 다르면 conflict다. 저장된 provider 줄이 모양이 맞지 않으면 internal이다"
-      - "중복을 없애고 정렬해 reported_models를 바꾸고 provider revision을 올린다. credential revision은 그대로다. 호출 기록이 그 판을 가리키기 때문이다"
+      - "중복을 없애고 정렬해 reported_models와 reported_model_limits를 함께 바꾸고 provider revision을 올린다. 한도가 없는 성공 응답은 옛 한도를 지운다. credential revision은 그대로다"
       - "목록을 읽은 것은 호출하는 쪽(목록 refresh, 로그인, token 갱신)이다. 이 route는 저장만 한다"
     outcomes:
       - id: recorded

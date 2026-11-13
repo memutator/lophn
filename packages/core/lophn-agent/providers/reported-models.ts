@@ -2,6 +2,7 @@ import {
   builtinListsModels,
   type ProviderAccount,
   type ProviderRecord,
+  type ReportedModelLimits,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { CLAUDE_OAUTH_BETA } from "./adapters/claude-code.ts";
 import { codexModelsHeaders, codexModelsUrl } from "./adapters/codex.ts";
@@ -19,12 +20,42 @@ const LISTS = [
 ] as const;
 const VISIBILITY_FIELD = "visibility";
 const VISIBLE = "list";
+// Codex 목록이 model마다 싣는 token 한도다. 밝히지 않은 것은 null로 둔다.
+const CONTEXT_WINDOW_FIELD = "context_window";
+const MAX_CONTEXT_WINDOW_FIELD = "max_context_window";
+const MAX_OUTPUT_TOKENS_FIELD = "max_output_tokens";
 // RecordProviderModels가 받는 개수 상한이다.
 const MODELS_MAX = 2000;
 
+// 한 번의 목록 읽기 결과다. limits는 provider가 그 model에 밝힌 token 한도이고, 밝히지 않은 provider는 빈 객체다.
+export type ReportedModelRoster = {
+  models: string[];
+  limits: ReportedModelLimits;
+};
+
+// 양의 정수만 받는다. 0·음수·소수·문자열·null은 그 값을 모른다는 뜻이라 버린다.
+function positiveInteger(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0
+    ? value
+    : null;
+}
+
+// Codex row 하나의 한도다. context_window가 없으면 그 model의 한도를 모르는 것이므로 싣지 않는다.
+function codexModelLimit(
+  entry: Record<string, unknown>,
+): ReportedModelLimits[string] | null {
+  const context = positiveInteger(entry[CONTEXT_WINDOW_FIELD]);
+  if (context === null) return null;
+  return {
+    context_limit: context,
+    max_context_limit: positiveInteger(entry[MAX_CONTEXT_WINDOW_FIELD]),
+    output_limit: positiveInteger(entry[MAX_OUTPUT_TOKENS_FIELD]),
+  };
+}
+
 // 보이는 id가 하나도 없으면 칸 이름이 틀렸거나 body가 다른 모양이다. 그때는 목록을 모른다고 본다(null):
 // 잘못 읽어서 model을 전부 숨기는 쪽이 못 읽는 쪽보다 나쁘다.
-export function parseReportedModels(body: string): string[] | null {
+export function parseReportedRoster(body: string): ReportedModelRoster | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(body);
@@ -36,6 +67,7 @@ export function parseReportedModels(body: string): string[] | null {
   if (shape === undefined) return null;
   const list = root![shape.list] as unknown[];
   const names = new Set<string>();
+  const limits: ReportedModelLimits = {};
   for (const item of list) {
     if (typeof item !== "object" || item === null) continue;
     const entry = item as Record<string, unknown>;
@@ -44,8 +76,21 @@ export function parseReportedModels(body: string): string[] | null {
     if (typeof id !== "string" || id.trim() === "") continue;
     if (visibility !== undefined && visibility !== VISIBLE) continue;
     names.add(id);
+    // Codex 꼴(models[].slug)만 row에 한도를 싣는다.
+    if (shape.list === "models") {
+      const limit = codexModelLimit(entry);
+      if (limit !== null) limits[id] = limit;
+    }
   }
-  return names.size === 0 ? null : [...names].sort().slice(0, MODELS_MAX);
+  if (names.size === 0) return null;
+  const models = [...names].sort().slice(0, MODELS_MAX);
+  const kept = new Set(models);
+  return {
+    models,
+    limits: Object.fromEntries(
+      Object.entries(limits).filter(([name]) => kept.has(name)),
+    ),
+  };
 }
 
 type ListTarget = Pick<ProviderRecord, "definition" | "endpoint"> & {
@@ -130,23 +175,26 @@ async function readBuiltinModels(
               "anthropic-beta": CLAUDE_OAUTH_BETA,
             }
           : { ...accept, "x-api-key": access };
-      const models = await readReportedModels(
+      const roster = await readReportedRoster(
         http,
         `${endpoint}?limit=1000`,
         null,
         { ...headers, "anthropic-version": ANTHROPIC_VERSION },
       );
-      return models === null ? null : withAliases(models);
+      return roster === null ? null : withAliases(roster.models);
     }
     case "google-gemini": {
       // Gemini의 OpenAI 호환 목록은 id 앞에 `models/`를 붙인다.
-      const models = await readReportedModels(http, endpoint, access);
-      return chatOnly(models?.map((id) => id.replace(/^models\//, "")) ?? null);
+      const roster = await readReportedRoster(http, endpoint, access);
+      return chatOnly(
+        roster?.models.map((id) => id.replace(/^models\//, "")) ?? null,
+      );
     }
     default: {
       const wire = OPENCODE_GO_WIRES[target.definition.key];
       if (wire === undefined) {
-        return chatOnly(await readReportedModels(http, endpoint, access));
+        const roster = await readReportedRoster(http, endpoint, access);
+        return chatOnly(roster?.models ?? null);
       }
       // 셋은 family를 싣는 OpenAI base의 목록 하나를 읽는다. Anthropic base의 목록은 wire를 알려 주지 않는다.
       const response = await readModelsBody(
@@ -197,15 +245,15 @@ async function readModelsBody(
   }
 }
 
-// 몸통에서 model 이름을 읽는다. OpenCode Go만 본문을 wire로 거르므로 readModelsBody를 따로 쓴다.
-export async function readReportedModels(
+// 몸통에서 model 이름과 한도를 읽는다. OpenCode Go만 본문을 wire로 거르므로 readModelsBody를 따로 쓴다.
+export async function readReportedRoster(
   http: IssuerFetch,
   endpoint: string,
   access: string | null,
   headers: Record<string, string> = { accept: "application/json" },
-): Promise<string[] | null> {
+): Promise<ReportedModelRoster | null> {
   const body = await readModelsBody(http, endpoint, access, headers);
-  return body === null ? null : parseReportedModels(body);
+  return body === null ? null : parseReportedRoster(body);
 }
 
 // 이 provider의 model 목록을 읽는 곳이 있는가. Antigravity는 계정 project의 roster(POST)라 project가 있어야 한다.
@@ -222,28 +270,29 @@ export async function readProviderModels(
   http: IssuerFetch,
   target: ListTarget,
   access: string | null,
-): Promise<string[] | null> {
+): Promise<ReportedModelRoster | null> {
   const custom = customModelsEndpoint(target);
-  if (custom !== null) return await readReportedModels(http, custom, access);
+  if (custom !== null) return await readReportedRoster(http, custom, access);
   if (access === null || !readsModels(target)) return null;
-  if (target.kind === "oauth") {
-    const product = target.definition.oauth?.product;
-    if (product === "antigravity") {
-      return await readAntigravityModels(
-        http,
-        target.endpoint,
-        target.account!.project_id!,
-        access,
-      );
-    }
-    if (product === "chatgpt") {
-      return await readReportedModels(
-        http,
-        codexModelsUrl(target.endpoint),
-        access,
-        codexModelsHeaders(target.account),
-      );
-    }
+  const product =
+    target.kind === "oauth" ? target.definition.oauth?.product : undefined;
+  if (product === "antigravity") {
+    const models = await readAntigravityModels(
+      http,
+      target.endpoint,
+      target.account!.project_id!,
+      access,
+    );
+    return models === null ? null : { models, limits: {} };
   }
-  return await readBuiltinModels(http, target, access);
+  if (product === "chatgpt") {
+    return await readReportedRoster(
+      http,
+      codexModelsUrl(target.endpoint),
+      access,
+      codexModelsHeaders(target.account),
+    );
+  }
+  const models = await readBuiltinModels(http, target, access);
+  return models === null ? null : { models, limits: {} };
 }

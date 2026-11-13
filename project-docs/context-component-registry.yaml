@@ -661,6 +661,16 @@ components:
       paths: [packages/core/agent-workspaces/skills/migrate-sdk/, packages/core/apps/packages/vendor.ts]
       note: 메모 file의 꼴이나 지원 소스 목록이 바뀔 때.
 
+  - id: tool-check-skills
+    kind: tool
+    roles: [worker]
+    description: 내장 skill의 SKILL.md와 딸린 .md가 skill reader의 읽기 상한(24 KiB) 안인지 본다. 넘은 SKILL.md는 발견에서 빠지고 딸린 file은 읽히지 않는다. check의 skill size 단계.
+    path: tools/check-skills.ts
+    run: npm run check
+    change_reasons:
+      paths: [packages/core/lophn-agent/extensions/skills.ts]
+      note: skill 읽기 상한이나 내장 skill 자리가 바뀔 때.
+
   - id: tool-dev
     kind: tool
     roles: [worker, designer]

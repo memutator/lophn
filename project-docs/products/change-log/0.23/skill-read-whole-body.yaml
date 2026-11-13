@@ -1,0 +1,17 @@
+id: skill-read-whole-body
+version: 0.23.48
+title: skill.read가 긴 skill을 자르지 않고 통째로 준다
+modules: [packages/core/lophn-agent, tools]
+change: |
+  - `skill.read`가 본문과 딸린 .md를 tool 결과 상한(300줄, JSON 24 KiB)을 걸지 않고 통째로 준다. 크기는 판을 만들 때 24 KiB(`SKILL_BODY_MAX_BYTES`)로 이미 막는다. 전에는 300줄 넘는 본문의 끝을 `omitted_bytes`만 붙여 버렸고 이어 읽을 길이 없었다. 24 KiB에 가까운 본문은 JSON escape로 상한을 넘어 내용 전체가 비었다.
+  - 24 KiB를 넘는 딸린 .md는 "없는 file"(`not_found`)이 아니라 `unavailable` "is larger than 24 KiB ... split it into smaller bundled .md files"로 알린다. 24 KiB를 넘어 발견에서 빠진 SKILL.md의 이유 문장도 딸린 file로 나누라고 적는다.
+  - check에 skill size 단계(`tools/check-skills.ts`)를 더했다. 내장 skill의 SKILL.md와 딸린 .md가 24 KiB를 넘으면 실패한다.
+why: |
+  ledger의 `skill.read` 179번 가운데 11번이 잘렸다. `write-artifact`(322줄)는 annotation 절과 "하지 않는 것"을, `design-app`(345줄)은 process 감시 절의 끝(코드 블록 가운데와 마지막 규칙)을 model이 받지 못했고, 알아채고 대응한 session은 없었다. harness 8개(Claude Code, Codex, OpenCode, pi, omp, Hermes, dsh, Mixdog)를 조사하니 skill 본문을 자르지 않거나 잘랐다고 알리고 나머지를 읽을 길을 줬다. 표시 없이 끝을 잃는 것은 lophn과 Codex의 주입 본문뿐이었다(harness-lab `_report/skill-loading/`).
+decisions:
+  - text: >-
+      skill 본문은 tool 결과 상한에서 뺀다. 버린 길: `skill.read`에 offset·cursor를 더해 나눠 읽게 한다(model이 이어 읽기를 빠뜨릴 수 있고, 지침은 처음부터 끝까지 한 번에 읽혀야 한다. 크기는 만들 때 24 KiB로 막는다).
+    by: agent
+  - text: >-
+      skill 상한은 24 KiB 그대로 둔다. 넘는 skill은 딸린 file로 나누게 한다(Hermes는 24,000자에서 경고, Mixdog은 500줄에서 경고한다).
+    by: agent

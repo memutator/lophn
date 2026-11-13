@@ -53,8 +53,8 @@ files:
     note: "agent 정의 층 서버는 그 agent의 turn 준비에만 연결되고, session 도중 끈 MCP server의 호출은 거절된다. stdio server process가 끝나면 다음 호출이 다시 연결해 실행되고, 보낸 뒤 기한 안에 답이 없는 호출은 uncertain이다"
 
   - path: packages/core/lophn-agent/extensions/skills_test.ts
-    covers: [skill-write-workflow:loaded, skill-write-workflow:not-available, tool-skill-read:read, tool-skill-read:not-enabled, tool-skill-read:not-found, command-list-read:ok]
-    note: "내장 skill은 어느 층에서 꺼도 남고, skill.read는 본문과 딸린 file을 주며 실패 문장에 file 이름을 싣고, 공유 skill은 할당 앱에만 간다. mergeSkillLayers, discoverSkills, readSharedHeads는 순수 helper라 outcome이 없다"
+    covers: [skill-write-workflow:loaded, skill-write-workflow:not-available, tool-skill-read:read, tool-skill-read:not-enabled, tool-skill-read:not-found, tool-skill-read:unreadable, command-list-read:ok]
+    note: "내장 skill은 어느 층에서 꺼도 남고, skill.read는 본문과 딸린 file을 300줄이 넘어도 통째로 주며 실패 문장에 file 이름이나 크기 초과를 싣고, 공유 skill은 할당 앱에만 간다. mergeSkillLayers, discoverSkills, readSharedHeads는 순수 helper라 outcome이 없다"
 
   - path: packages/core/lophn-agent/instructions/read_test.ts
     covers: [instruction-read:ok]

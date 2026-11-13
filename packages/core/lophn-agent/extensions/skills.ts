@@ -421,7 +421,7 @@ export function discoverSkills(
         reason:
           read.value === null
             ? "skill manifest is missing"
-            : "skill manifest is over the read limit",
+            : `skill manifest is larger than ${SKILL_BODY_MAX_BYTES / 1024} KiB; move parts of it into bundled .md files`,
       });
       return;
     }

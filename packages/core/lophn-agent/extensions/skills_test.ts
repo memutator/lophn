@@ -17,6 +17,7 @@ import {
   type SkillSources,
 } from "./skills.ts";
 import { commandSkillsOf, createExtensionRegistry } from "./registry.ts";
+import { SKILL_TOOLS } from "../tools/bundles/skill.ts";
 import type { ProjectLayer } from "./project-settings.ts";
 
 // 끌 수 없는 내장 skill은 어느 층에서 꺼도, 같은 이름의 사람 skill이 있어도 그대로 남는다. 이 규칙이 깨지면 workspace가
@@ -392,13 +393,22 @@ test("내장 skill은 선언한 workspace 종류의 prompt와 `/` 메뉴에만 �
 
 // model은 본문을 읽으려고 `path`를 채워 보낸다. `SKILL.md`가 실제 file인데 실패하면 읽을 길이 없어 같은 값을 되풀이한다.
 // 실패 문장에 그 skill의 딸린 file 이름이 없으면 model은 없는 이름을 다시 추측한다.
+// 상한을 넘은 딸린 file을 "없다"고 답하면 model은 이름을 바꿔 추측하고, skill 주인은 왜 안 읽히는지 모른다.
 test("skill.read는 path가 없거나 SKILL.md면 본문을 주고, 모르는 path의 실패에 딸린 file 이름을 싣는다", async () => {
-  const port = treeOf({
+  const tree = treeOf({
     "/g/one/SKILL.md": skillFile("one", "BODY_ONE"),
     "/g/one/notes.md": "NOTES",
+    "/g/one/big.md": "BIG",
     "/g/one/skipped.txt": "TXT",
     "/g/two/SKILL.md": skillFile("two", "BODY_TWO"),
   });
+  const port: SkillFiles = {
+    ...tree,
+    read: (path, max) =>
+      path === "/g/one/big.md"
+        ? { text: "BIG", complete: false }
+        : tree.read(path, max),
+  };
   const snapshot = await createSkillSnapshot(
     {
       port,
@@ -431,6 +441,10 @@ test("skill.read는 path가 없거나 SKILL.md면 본문을 주고, 모르는 pa
   assert.deepStrictEqual(
     await outcome("one", "design-app.md"),
     "not_found: skill one has no file design-app.md (files: notes.md)",
+  );
+  assert.match(
+    await outcome("one", "big.md"),
+    /^unavailable: skill one file big\.md is larger than 24 KiB/,
   );
   assert.deepStrictEqual(
     await outcome("two", "design-app.md"),
@@ -539,4 +553,20 @@ test("shared skill heads skip undeclared, mismatched and symlinked skills", () =
     heads.map((head) => head.name),
     ["pub"],
   );
+});
+
+// 본문과 딸린 file은 읽을 때 이미 크기 상한 안이다. tool 결과 상한(300줄)으로 다시 자르면 model은 이어 읽을 길 없이
+// 지침의 끝을 잃는다. 345줄짜리 내장 skill이 실제로 그렇게 잘렸다.
+test("skill.read는 긴 본문을 자르지 않고 통째로 준다", async () => {
+  const body = Array.from({ length: 400 }, (_, i) => `line ${i}`).join("\n");
+  const handler = SKILL_TOOLS.find((one) => one.name === "skill.read")?.handler;
+  assert.ok(handler);
+  const ctx = {
+    session: SESSION,
+    skills: { read: () => Promise.resolve(ok(body)) },
+  };
+  const result = await handler({ name: "long" }, ctx as never);
+  assert.ok(result.ok);
+  assert.deepStrictEqual(result.value.content, { text: body });
+  assert.strictEqual(result.value.complete, true);
 });

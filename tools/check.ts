@@ -299,6 +299,11 @@ async function buildSteps(
     name: "sdk notes",
     commands: [["node", "tools/check-sdk-notes.ts"]],
   });
+  // 내장 skill을 늘린 변경은 skill 폴더만 바뀌므로 조건 없이 돈다. 상한을 넘으면 reader가 읽지 못한다.
+  checks.push({
+    name: "skill size",
+    commands: [["node", "tools/check-skills.ts"]],
+  });
 
   for (const p of ALL_PACKAGES.filter((p) => full || run.has(p))) {
     const commands = typeChecks(p);

@@ -63,7 +63,12 @@ type SkillSnapshot = {
   reader: SkillReader;
 };
 
-type Fixed = { body: string; files: Map<string, string> };
+// tooLarge는 크기 상한을 넘어 읽지 않은 딸린 file 이름이다. 없는 file과 다른 이유로 실패를 알린다.
+type Fixed = {
+  body: string;
+  files: Map<string, string>;
+  tooLarge: ReadonlySet<string>;
+};
 
 export async function createSkillSnapshot(
   deps: SkillSnapshotDeps,
@@ -139,6 +144,14 @@ export async function createSkillSnapshot(
       if (bundled === "" || bundled === "." || bundled === SKILL_MANIFEST) {
         return Promise.resolve(ok(one.body));
       }
+      if (one.tooLarge.has(bundled)) {
+        return Promise.resolve(
+          err({
+            code: "unavailable",
+            message: `skill ${name} file ${path} is larger than ${SKILL_BODY_MAX_BYTES / 1024} KiB, so it cannot be read; tell the person the skill must split it into smaller bundled .md files`,
+          }),
+        );
+      }
       const file = one.files.get(bundled);
       return Promise.resolve(
         file === undefined
@@ -173,6 +186,7 @@ function sharedFixed(skill: SharedSkill | undefined): Fixed | null {
   return {
     body,
     files: new Map(skill.files.map((file) => [file.name, file.text])),
+    tooLarge: new Set(),
   };
 }
 
@@ -188,6 +202,7 @@ function readFixed(port: SkillFiles, entry: SkillEntry): Fixed | null {
     const body = bodyOf(manifest.text);
     if (body === null) return null;
     const files = new Map<string, string>();
+    const tooLarge = new Set<string>();
     // SKILL.md는 담지 않는다. 본문은 `body`이고, reader가 그 이름을 본문으로 돌려준다. `files`는 본문 옆에 딸린
     // file만이라 실패 문장의 목록이 곧 model이 고를 수 있는 이름이다.
     for (const name of port.list(entry.bundle_path) ?? []) {
@@ -200,9 +215,11 @@ function readFixed(port: SkillFiles, entry: SkillEntry): Fixed | null {
       const path = joinPath(entry.bundle_path, name);
       if (port.kind(path) !== "file") continue;
       const read = port.read(path, SKILL_BODY_MAX_BYTES);
-      if (read !== null && read.complete) files.set(name, read.text);
+      if (read === null) continue;
+      if (read.complete) files.set(name, read.text);
+      else tooLarge.add(name);
     }
-    return { body, files };
+    return { body, files, tooLarge };
   } catch {
     return null;
   }

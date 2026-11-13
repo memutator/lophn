@@ -199,7 +199,7 @@ person asks for a picture, make it.
 
 ## Drawing nodes with the kit
 
-Follow "Drawing nodes with the kit" in `write-artifact`: how to load the kit,
+Follow "Drawing nodes" in the `write-artifact` file `kit.md`: how to load the kit,
 the `renderGraph` call, the shape of nodes and edges and the rules. A workflow
 artifact adds only the following.
 

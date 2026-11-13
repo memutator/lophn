@@ -1,0 +1,27 @@
+id: artifact-page-templates
+version: 0.23.47
+title: artifact를 쓰는 agent가 모양별 template에서 시작하고 답부터 보인다
+modules: [packages/core/agent-workspaces]
+change: |
+  - 내장 skill `write-artifact`를 나눴다. 본문은 무엇을 보일지만 다룬다: 이미 있는 artifact 목록을 먼저 보고 겹치면 그 page를 고친다, 질문·답·다음 할 일·근거를 먼저 정한다, brief·inbox·explorer 가운데 모양을 고른다, 첫 화면(답, 다음 할 일 셋 이하, 숫자 넷 이하), 분량(절 여섯, 절마다 줄 일곱, brief·inbox data 200 KiB), 말(기계 말 금지, 추정은 숫자 칸과 답에 올리지 않고 근거 한 줄과 함께), 무엇을 비교하나로 고르는 chart, 화면 확인, 사람에게 하는 보고.
+  - 짓는 법(자리, 폴더와 data, sealed view, kit과 자주 쓰는 part의 props, 탭 머리 줄, token, node 그림, 확인 명령, annotation)은 딸린 file `kit.md`로 옮겼다.
+  - 딸린 file `template-brief.md`·`template-inbox.md`·`template-explorer.md`가 kit의 `DashboardFrame`·`StatTile`·`BarChart`·`LineChart`·`Card`·`FilterBar`로 지은 `index.html`과 sample `data/latest.json`을 준다. agent는 `index.html`을 그대로 쓰고 data와 `TEXT` 글만 바꾼다.
+  - 화면 확인: screenshot을 보기 전에는 끝났다고 하지 않는다. console log, `evaluate`로 읽은 글, stub render는 확인으로 치지 않는다. screenshot이 실패하면 다른 browser·local server로 우회하지 않고 보지 못했다고 이유와 함께 알린다.
+  - 요청 때 새로 고치면 지난 data와 견주어 바뀐 것만 알린다.
+  - 본문이 300줄을 넘어 `skill.read`가 끝을 잘랐다(annotation, 하지 않는 것). 다섯 file 모두 한 번에 읽히는 크기다.
+  - `write-workflow`가 가리키던 절 이름("Drawing nodes with the kit", 실제로는 없던 이름)을 `kit.md`의 "Drawing nodes"로 고쳤다.
+why: |
+  한 session이 사람의 요청으로 artifact 여섯을 team session 여섯에 나눠 만들었는데 모두 숫자 칸 줄과 카드 목록이었고, 행 제목에 file path가 나오고 data를 수백 KB씩 쏟았으며, 같은 정보가 세 page에 겹쳤다. 사람은 "너무 구리다"고 했다. skill은 대부분이 짓는 법이었고 무엇을 어떤 모양으로 보일지는 몇 줄뿐이었으며, 예시가 숫자 칸과 목록 하나라 agent가 매번 그것을 본떴다. 다섯은 창이 없어 screenshot을 보지 못했는데 "모두 오류 없이 나온다"로 보고되었다.
+decisions:
+  - text: >-
+      page 모양은 template이 정하고 agent는 data만 채운다. 일관성을 조율하는 lead에서 찾지 않는다: artifact는 병렬로만 만들지 않으므로 session 하나가 혼자 만들어도 같아야 한다. 버린 길: 여러 page를 만들 때 lead가 IA를 먼저 정한다.
+    by: person
+  - text: >-
+      template은 brief, inbox, explorer 셋이다. 이번에 만들어진 page들(진행 현황·맥락 건강 / 결정 대기함 / 결정 기록·프로젝트 문서)이 이 셋으로 나뉘었다. 비교·review는 brief로 덮는다. 더 늘리는 것은 같은 꼴을 두세 번 만든 뒤다.
+    by: agent
+  - text: >-
+      template은 `.md` 안의 code block이다. skill reader는 딸린 `.md`만 읽으므로 HTML file을 따로 둘 수 없다. sample data는 특정 제품(lophn 개발)이 아닌 가게·가계부로 써서 agent가 domain 말로 쓰는 본을 보인다.
+    by: agent
+  - text: >-
+      내장 skill은 앱 agent가 늘 지금 판을 읽으므로 SDK 판과 migrate-sdk 메모는 올리지 않았다.
+    by: agent

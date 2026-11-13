@@ -771,7 +771,7 @@ flows:
     steps:
       - agent가 결과를 화면에 보일 artifact를 쓰기 전에 skill.read로 write-artifact 본문을 읽는다. prompt의 skill 목록에 이름이 있다
       - reader가 발견 목록에서 이름을 찾는다. project나 app이 아니면 선언에 없어 그 turn의 skill 목록에 없어 forbidden으로 막힌다
-      - 본문(artifact 자리, 폴더와 data, sealed view, theme token)을 tool 결과로 준다
+      - 본문(무엇을 보일지, 모양과 template 고르기, 첫 화면·분량·말, 새로 고침, 화면 확인)을 tool 결과로 준다. 짓는 법(artifact 자리, 폴더와 data, sealed view, kit, theme token)은 딸린 kit.md, 모양별 template은 template-brief.md·template-inbox.md·template-explorer.md이고 path로 읽는다
     outcomes:
       - id: loaded
         observe: [response]

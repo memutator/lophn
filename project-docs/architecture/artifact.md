@@ -115,6 +115,8 @@ agent의 결과가 사람에게 가는 길이 대화 글, 파일, 앱 화면뿐�
 - **artifact는 그릇 자리에 있다(agent, 2026-11-03).** 처음에는 domain 폴더(`<data>/domains/<dom>/artifacts/`)에 있었다. domain을 지우며 data step `artifacts.container`가 옮긴다. 그릇마다 domain 이름 순으로 옮기고, 이름이 겹치면 뒤 domain의 것이 `<name>-<domain 이름>`이 된다. 그 이름도 있으면 옮기지 않는다(덮어쓰지 않는다). 같은 step이 그 artifact의 rewind 기록(옛 root `…/domains/<dom>` + `artifacts/<name>/…`와 `…/domains/<dom>/artifacts` + `<name>/…` 두 꼴)을 새 꼴(root `<그릇 자리>/artifacts`, path `<최종 이름>/…`)로 다시 써, 옛 checkpoint를 되돌려도 새 자리의 그 artifact에 쓰게 하고, workspace layout의 artifact 탭도 새 신원으로 다시 쓴다. 옮기기 전에 계획을 다 세우고 기록과 layout을 먼저 써서, 중간에 끊겨 다시 돌아도 같은 이름이 된다.
 - **artifact도 앱처럼 kit 전체와 탭 머리 줄을 쓴다(사람, 2026-11-10).** kit이 node 그림 하나뿐이고 머리 줄 통로가 없어, agent가 header·탭·입력을 손으로 짜 lophn 화면과 다른 page가 나왔다. 머리 줄은 renderer와만 오가는 표시라 봉한 규칙(network, scheme, main 호출 없음)을 바꾸지 않는다. 버린 안: page에 쓸 component만 골라 싣기(고르는 일이 끝나지 않고 앱과 갈라진다).
 - **kit 쓰는 법은 skill `write-artifact` 한 곳에 둔다.** 이유: artifact를 쓰는 모든 agent가 받고, 같은 API 설명이 두 곳에 있으면 갈라진다. workflow에만 걸린 것(static·instance artifact, `data/_instance.json`)은 `write-workflow`에 둔다. (agent)
+- **page의 모양은 skill에 딸린 template이 정한다(2026-11-13).** `write-artifact` 본문은 무엇을 보일지(답을 맨 위에, 다음 할 일, 숫자 넷 이하, 절 여섯·줄 일곱 이하, 기계 말 금지, 추정은 headline에 올리지 않기)만 갖고, agent는 brief·inbox·explorer 세 template 가운데 하나의 `index.html`을 그대로 쓰고 data만 채운다. 짓는 법은 딸린 `kit.md`로 뺐다. 이유: kit만 주고 설계도를 주지 않자 agent마다 예시를 본떠 "숫자 칸 + 카드 목록"을 짓고 data를 쏟았다(한 session이 병렬로 만든 6개가 모두 그랬다). 일관성은 template에서 나와야 session 하나가 혼자 만들어도 같다. 겹침은 workspace 정보의 artifact 목록을 먼저 보고 있는 page를 고치게 해서 줄인다. 버린 안: 여러 page를 만들 때 lead가 IA를 먼저 정한다(병렬로 만들 때만 돕는다, 사람). (agent)
+- **화면을 보지 못했으면 "확인 못 함"이라고 말한다.** console log, `evaluate`로 읽은 글, stub render는 화면 확인으로 치지 않는다. screenshot이 실패하면 우회하지 않고 사람에게 이유와 함께 알린다. 이유: 창이 없어 6개 중 5개가 화면 확인 없이 나갔는데 "모두 오류 없이 나온다"로 보고되었다(이슈 `agent-artifact-tab-needs-mounted-workspace`). (agent)
 
 ## 열린 것
 
@@ -123,4 +125,4 @@ agent의 결과가 사람에게 가는 길이 대화 글, 파일, 앱 화면뿐�
 - artifact 탭의 page는 workspace를 떠나면 놓인다. 머리 줄 통로는 생겼지만 살려 두기 신호는 열지 않았다.
 - sidebar Artifacts 목록은 project에만 있다. 앱의 artifact는 대화 link로만 연다.
 - sidebar 목록은 탭이 그려질 때 한 번 읽고 폴더 변경을 따라가지 않는다(다시 보일 때 읽는다).
-- 탭을 열 때 data를 새로 고치는 길은 없다. page는 `data/`에 쓰인 것만 보이고, 새로 쓰는 것은 agent(사람의 요청이나 job)다. agent는 snapshot, 요청 때 새로 고침(폴더 안 수집 script), job, 앱 넷 가운데 고른다(skill `write-artifact` "Keeping it current"). artifact가 새로 고침 명령을 적어 두고 lophn이 열 때 돌리는 안은 AI가 쓴 코드를 agent 없이 돌리는 새 길이라 정하지 않았다.
+- 탭을 열 때 data를 새로 고치는 길은 없다. page는 `data/`에 쓰인 것만 보이고, 새로 쓰는 것은 agent(사람의 요청이나 job)다. agent는 snapshot, 요청 때 새로 고침(폴더 안 수집 script), job, 앱 넷 가운데 고른다(skill `write-artifact` "Keeping it current"). 요청 때 새로 고치면 지난 data와 견주어 바뀐 것만 알린다. artifact가 새로 고침 명령을 적어 두고 lophn이 열 때 돌리는 안은 AI가 쓴 코드를 agent 없이 돌리는 새 길이라 정하지 않았다.

@@ -263,6 +263,17 @@ export function startChild(
     }
   }
 
+  // fault 난 writer는 다시 쓸 수 없다. session을 끝내야 process가 내려가고 core가 돌던 turn을 닫고
+  // 다시 띄운다. 끝내지 않으면 process는 살아 있는데 아무것도 보내지 못해 turn이 running으로 남는다.
+  function written(writing: Promise<void>): Promise<void> {
+    return writing.catch((error: unknown) => {
+      if (stdout.faulted) {
+        finish(error instanceof Error ? error : new Error(String(error)));
+      }
+      throw error;
+    });
+  }
+
   function sendable(): Error | undefined {
     if (stopped) return new Error("child pipe is closed");
     if (!helloSeen) return new Error("send before hello is not allowed");
@@ -288,7 +299,7 @@ export function startChild(
       }
       const refused = sendable();
       if (refused) return Promise.reject(refused);
-      return stdout.writeJson(childMessageSchema.parse(message));
+      return written(stdout.writeJson(childMessageSchema.parse(message)));
     },
     // byte chunk도 제어 메시지와 같은 hello 경계를 따른다.
     sendBytes(channel, payload) {
@@ -297,7 +308,7 @@ export function startChild(
       if (!Number.isInteger(channel) || channel < 1) {
         return Promise.reject(new Error("byte channel must be nonzero"));
       }
-      return stdout.writeBytes(channel, payload);
+      return written(stdout.writeBytes(channel, payload));
     },
     sendEnd(channel) {
       const refused = sendable();
@@ -305,7 +316,7 @@ export function startChild(
       if (!Number.isInteger(channel) || channel < 1) {
         return Promise.reject(new Error("stream channel must be nonzero"));
       }
-      return stdout.writeEnd(channel);
+      return written(stdout.writeEnd(channel));
     },
     sendAbort(channel) {
       const refused = sendable();
@@ -313,7 +324,7 @@ export function startChild(
       if (!Number.isInteger(channel) || channel < 1) {
         return Promise.reject(new Error("stream channel must be nonzero"));
       }
-      return stdout.writeAbort(channel);
+      return written(stdout.writeAbort(channel));
     },
     prepareBlob: (input) => blob.prepare(input),
     async run() {

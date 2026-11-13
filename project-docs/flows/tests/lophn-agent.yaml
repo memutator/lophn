@@ -176,6 +176,10 @@ files:
     covers: [session-send:ok, session-steer:ok, queued-edit:ok, queued-edit:conflict, queued-move:ok, queued-steer-now:ok, queued-steer-now:conflict, queued-remove:ok, queued-remove:conflict]
     note: "메모리 queue(run-loop)의 순서, 고치기, 옮기기, 지금 올리기와 빼기. 가져간 메시지는 못 고치고, steer는 도는 turn이 있을 때만 올라간다. 흐름의 person outcome과 같은 규칙으로 맞춤"
 
+  - path: packages/core/lophn-agent/run-loop/redact-link_test.ts
+    covers: []
+    note: "수 MB 글을 안전화해도 답을 기다리는 redact_request의 글 합이 상한(4 x 32,768) 안이고 알려진 값은 가려진다(가짜 core 답)"
+
   - path: packages/core/lophn-agent/run-loop/runtime-redaction_test.ts
     covers: [model-call-run:live-secret-held]
     note: "turn 글이 settle될 때 끝에 걸친 secret의 앞부분을 내지 않는다. 값을 모르면 원문을 내지 않는다(순수 함수, fail-closed)"

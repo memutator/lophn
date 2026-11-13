@@ -484,6 +484,10 @@ files:
       - core-boot:ready
     note: 복구본 정리는 정상 기동의 afterReady에서 일어난다(confirmStartup)
 
+  - path: packages/core/supervision/responsiveness/child_test.ts
+    covers: [child-crash-restart:restarted]
+    note: "core가 읽지 않아 쓰기 backlog가 넘치면 child session이 끝난다(onStop 한 번, run 거절). 끝나지 않으면 process가 산 채로 turn이 running으로 남는다"
+
   - path: packages/core/supervision/responsiveness/run_test.ts
     covers: [child-crash-restart:restarted-after-stable]
     note: "ready 뒤 60초를 버틴 child의 실패 수 계산(재기동 횟수 0으로 되돌림). child-crash-restart:restarted-after-stable"

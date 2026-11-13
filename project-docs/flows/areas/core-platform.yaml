@@ -604,6 +604,7 @@ flows:
       - "supervisor는 kind마다 slot 하나를 둔다. child가 ready 전에 끝나거나, ready 뒤 끝나거나, stdout이 깨지거나, stdin 쓰기가 20초를 넘으면 그 기동을 끝낸다"
       - "끝낼 때 group에 stop frame을 보내고 5초 뒤 강제로 끝낸다. 종료가 확인되지 않으면 그 kind를 unavailable로 막는다"
       - "연속 실패가 3회 미만이면 1, 2, 4초 뒤 같은 spec과 hello로 다시 띄운다. ready는 10초 안에 와야 한다. ready 뒤 60초를 버틴 child가 끝나면 실패 수를 0으로 되돌린다"
+      - "child 쪽 쓰기가 fault(쓰기 backlog 넘침, 끊긴 쓰기)면 child가 스스로 session을 끝내고 내려간다. core는 그 끝을 다른 끝과 같이 받아 돌던 turn을 interrupted로 닫고 다시 띄운다"
       - "진행 중이던 요청은 다시 보내지 않는다. 그 기동에 보낸 요청은 onEnd로 끝나 호출자가 실패로 받는다"
       - "한도를 넘기거나 ready 시한, protocol 위반, 종료 미확인, 재기동 대기 실패면 kind를 unavailable로 막는다. 새 child는 띄우지 않는다"
       - "core의 stop이나 updateSpec이 부른 정지는 재기동하지 않고 종료만 확인한다"

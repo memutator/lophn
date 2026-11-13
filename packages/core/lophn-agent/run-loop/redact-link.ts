@@ -21,6 +21,9 @@ export type Redactor = {
 
 const REDACT_OVERLAP = 4_096;
 const REDACT_TIMEOUT_MS = 15_000;
+// 답을 기다리는 요청의 글 합 상한. 이미지가 쌓인 요청 body는 수 MB라 한꺼번에 보내면 감독 pipe의 쓰기
+// backlog 상한을 넘고, 그 pipe는 다시 쓸 수 없게 된다. 답이 온 만큼만 이어 보낸다.
+const REDACT_IN_FLIGHT_UNITS = 4 * REDACT_UNITS_MAX;
 
 type Span = { index: number; length: number };
 type Entry = {
@@ -43,6 +46,24 @@ export function createRedactLink(options: {
   let queue: Entry[] = [];
   let scheduled = false;
   let sequence = 0;
+  const ready: { batch: Entry[]; units: number }[] = [];
+  let inFlight = 0;
+
+  // 상한 안에서 줄 선 batch를 보낸다. 아무것도 기다리지 않으면 상한과 관계없이 하나는 보낸다.
+  function pump(): void {
+    while (ready.length > 0) {
+      const next = ready[0]!;
+      if (inFlight > 0 && inFlight + next.units > REDACT_IN_FLIGHT_UNITS) {
+        return;
+      }
+      ready.shift();
+      inFlight += next.units;
+      void dispatch(next.batch).finally(() => {
+        inFlight -= next.units;
+        pump();
+      });
+    }
+  }
 
   async function dispatch(batch: Entry[]): Promise<void> {
     const id = `redact-${++sequence}`;
@@ -80,14 +101,15 @@ export function createRedactLink(options: {
         (batch.length >= REDACT_WINDOWS_MAX ||
           units + entry.window.length > REDACT_UNITS_MAX)
       ) {
-        void dispatch(batch);
+        ready.push({ batch, units });
         batch = [];
         units = 0;
       }
       batch.push(entry);
       units += entry.window.length;
     }
-    if (batch.length > 0) void dispatch(batch);
+    if (batch.length > 0) ready.push({ batch, units });
+    pump();
   }
 
   function windowSpans(window: string): Promise<Span[] | null> {

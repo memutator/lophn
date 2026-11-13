@@ -1,0 +1,14 @@
+id: agent-runtime-pipe-backlog-stuck
+title: 이미지가 쌓인 session의 model 요청 하나가 agent runtime의 감독 pipe를 망가뜨려 모든 session이 working에서 멈춘다
+kind: bug
+status: fixed
+topic: agent-chat
+modules: [packages/core/lophn-agent, packages/core/supervision]
+now: |
+  model call마다 `run-loop/core-ports.ts`의 `modelAttempt`가 요청 body 전체를 `redactValue`로 안전화하고, `run-loop/redact-link.ts`가 글을 32,768 단위 window로 잘라 `redact_request`로 core에 보냈다. 이때 모든 batch를 한 tick에 감독 pipe에 줄 세웠다. 이미지 base64가 쌓인 body(1.7MB 이상)는 child frame writer의 backlog 상한(`supervision/responsiveness/frames.ts`, 약 2MiB에서 마지막 제어 frame 자리를 뺀 값)을 넘겼고, writer는 영구 fault가 되었다.
+  `supervision/responsiveness/child.ts`는 writer fault를 session 끝으로 보지 않았다. runtime process는 살아 있지만 감독 pipe로 아무것도 보내지 못했다. 그래서 turn 끝 기록("redaction did not finish"), session release("supervision pipe is closed"), queue 읽기가 모두 실패했다. core는 child가 끝난 것을 몰라 다시 띄우지도, 돌던 turn을 닫지도 않았다.
+impact: |
+  사람이 보는 동작: 이미지를 많이 읽은 session 하나 때문에 같은 시각에 돌던 모든 lophn agent session의 turn이 ledger에 running으로 남아 working이 끝나지 않는다. 새 turn도 시작되지 않는다. lophn을 다시 켜야 풀린다.
+closed: |
+  `redact-link.ts`는 답을 기다리는 요청의 글 합을 4 x 32,768 단위로 묶고, 답이 온 만큼 이어 보낸다. `child.ts`는 쓰기가 fault로 거절되면 session을 끝낸다. 그러면 runtime process가 내려가고, core가 돌던 turn을 interrupted로 닫은 뒤 다시 띄운다.
+guard: packages/core/supervision/responsiveness/child_test.ts, packages/core/lophn-agent/run-loop/redact-link_test.ts

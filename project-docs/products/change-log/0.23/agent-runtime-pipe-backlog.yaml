@@ -1,0 +1,14 @@
+id: agent-runtime-pipe-backlog
+version: 0.23.50
+title: 큰 model 요청이 agent runtime을 멈추지 않고, 감독 pipe 쓰기가 깨지면 runtime이 다시 뜬다
+modules: [packages/core/lophn-agent, packages/core/supervision]
+change: |
+  전: model call 전에 요청 body 전체의 redact_request를 한꺼번에 감독 pipe에 줄 세웠다. 이미지가 쌓여 body가 약 1.8MB를 넘으면 child의 쓰기 backlog가 넘쳐 writer가 영구 fault가 되었다. child는 끝나지 않고 살아 있어, 그 runtime의 모든 turn이 running으로 남고 새 turn도 시작하지 않았다.
+  후: redact_request는 답을 기다리는 글 합 4 x 32,768 단위 안에서만 보낸다. child 쪽 쓰기가 fault면 child가 session을 끝내고 내려간다. core는 돌던 turn을 interrupted로 닫고 runtime을 다시 띄운다.
+why: |
+  session 하나의 큰 요청이 같은 runtime의 모든 session을 소리 없이 영구 정지시켰다. 사람은 working만 보고, lophn을 다시 켜기 전에는 풀 길이 없었다.
+decisions:
+  - text: "fault 난 writer는 session 끝으로 다룬다. 버린 길: 같은 child에서 writer만 새로 만들기(fault 순간 끊긴 frame이 있을 수 있어 stream이 어긋난다)."
+    by: agent
+  - text: "redaction은 이미지 base64도 그대로 보내고 흐름만 제어한다. 버린 길: provider body 모양별로 이미지 칸 빼기(provider마다 모양이 달라 규칙이 갈리고, 빠뜨린 모양이 secret을 흘린다)."
+    by: agent

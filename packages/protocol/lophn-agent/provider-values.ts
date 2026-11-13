@@ -20,6 +20,7 @@ export const PROVIDER_PROTOCOLS = [
   "cloud-code-assist",
 ] as const;
 export const providerProtocolSchema = z.enum(PROVIDER_PROTOCOLS);
+export type ProviderProtocol = (typeof PROVIDER_PROTOCOLS)[number];
 
 const PROVIDER_AUTH_KINDS = ["api_key", "oauth", "none"] as const;
 export const providerAuthKindSchema = z.enum(PROVIDER_AUTH_KINDS);

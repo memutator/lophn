@@ -143,26 +143,23 @@ test("직접 적은 이름은 받고, 구독 OAuth 계정의 허락 목록 밖 �
   }
 });
 
-// OpenCode Go 정의로 고른 model의 실제 요청은 gateway 규칙을 따른다: 자기 wire의 경로, `x-opencode-session`,
-// 자기 User-Agent, stream=true. session header가 빠지면 gateway가 거절하므로 이 값이 요청마다 있어야 한다.
-test("OpenCode Go 정의는 gateway 경로·session·User-Agent를 실은 요청을 만든다", async () => {
+// OpenCode Go는 provider 하나이고 model마다 catalog가 정한 native wire로 간다: 그 wire의 경로와 요청 모양,
+// `x-opencode-session`, 자기 User-Agent, stream=true. session header가 빠지면 gateway가 거절한다.
+test("OpenCode Go provider 하나가 model마다 catalog의 wire로 gateway 요청을 만든다", async () => {
   const cases = [
-    ["opencode-go-chat", "/chat/completions", "glm-5.3"],
-    ["opencode-go-responses", "/responses", "gpt-6-luna"],
-    ["opencode-go-messages", "/messages", "claude-haiku-5-5"],
+    ["glm-5.3", "openai-chat-completions", "/openai/v1/chat/completions"],
+    ["gpt-6-luna", "openai-responses", "/openai/v1/responses"],
+    ["claude-haiku-5-5", "anthropic-messages", "/anthropic/v1/messages"],
   ] as const;
-  for (const [key, path, model] of cases) {
-    const definition = builtinProviderDefinition(key);
-    assert.ok(definition.ok, key);
+  const definition = builtinProviderDefinition("opencode-go");
+  assert.ok(definition.ok);
+  for (const [model, protocol, path] of cases) {
     const provider: ProviderRecord = {
       id: "pvd_00000000000000000000000000",
       name: "go",
       definition: definition.value,
-      endpoint:
-        definition.value.protocols[0] === "anthropic-messages"
-          ? "https://opencode.ai/inference/go/anthropic/v1"
-          : "https://opencode.ai/inference/go/openai/v1",
-      protocol: definition.value.protocols[0]!,
+      endpoint: "https://opencode.ai/inference/go/openai/v1",
+      protocol: "openai-chat-completions",
       credential: {
         kind: "api_key",
         secret_ref: { name: "provider.x" },
@@ -220,6 +217,7 @@ test("OpenCode Go 정의는 gateway 경로·session·User-Agent를 실은 요청
       },
     });
     assert.ok(bound.ok, JSON.stringify(bound));
+    assert.equal(bound.value.call.protocol, protocol, model);
     const signal = new AbortController().signal;
     const packed = bound.value.pack({
       system: [],
@@ -242,16 +240,16 @@ test("OpenCode Go 정의는 gateway 경로·session·User-Agent를 실은 요청
       signal,
     );
     const call = sent.at(-1);
-    assert.ok(call !== undefined, key);
-    assert.equal(call.url, `${provider.endpoint}${path}`, key);
-    assert.equal(call.headers["user-agent"], "lophn", key);
+    assert.ok(call !== undefined, model);
+    assert.equal(call.url, `https://opencode.ai/inference/go${path}`, model);
+    assert.equal(call.headers["user-agent"], "lophn", model);
     assert.match(
       call.headers["x-opencode-session"]!,
       /^ses_[0-9a-f]{32}$/,
-      key,
+      model,
     );
     // OpenCode Go gateway는 wire와 상관없이 Bearer 하나를 문서에 둔다.
-    assert.equal(call.headers.authorization, "Bearer sk-test", key);
-    assert.equal((call.body as { stream?: boolean }).stream, true, key);
+    assert.equal(call.headers.authorization, "Bearer sk-test", model);
+    assert.equal((call.body as { stream?: boolean }).stream, true, model);
   }
 });

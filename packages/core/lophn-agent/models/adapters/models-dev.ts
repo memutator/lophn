@@ -7,6 +7,7 @@ import {
   OPTION_AXIS_EFFORT,
   type OptionAxis,
   type PriceRate,
+  type ProviderProtocol,
 } from "../../../../protocol/lophn-agent/mod.ts";
 
 // 공개 catalog 목적지. 응답 해석만이 목적이며 개인 자료를 싣지 않는다.
@@ -61,41 +62,30 @@ export async function fetchCatalog(
   return { kind: "received", body, etag: response.etag };
 }
 
-// OpenCode Go gateway는 model마다 wire가 다르고, lophn은 wire마다 provider 정의를 하나 둔다. models.dev 행이
-// 가리키는 SDK package가 wire를 정하고, package가 없는 행은 model family 앞머리로 가른다(mixdog의 표와 같다).
-// Gemini generateContent wire는 lophn에 adapter가 없어 버린다.
-const OPENCODE_GO = {
-  chat: "opencode-go-chat",
-  responses: "opencode-go-responses",
-  messages: "opencode-go-messages",
-} as const;
-const OPENCODE_GO_NPM: Readonly<Record<string, string>> = {
-  "@ai-sdk/openai": OPENCODE_GO.responses,
-  "@ai-sdk/anthropic": OPENCODE_GO.messages,
+// OpenCode Go gateway는 model마다 native wire가 다르다. models.dev 행의 SDK package가 그 wire를 가리키고, package가
+// 없는 행은 provider 기본 package(`@ai-sdk/openai-compatible`)를 따른다. Gemini generateContent wire는 lophn에
+// adapter가 없어 버린다.
+const OPENCODE_GO_WIRES: Readonly<Record<string, ProviderProtocol>> = {
+  "@ai-sdk/openai-compatible": "openai-chat-completions",
+  "@ai-sdk/openai": "openai-responses",
+  "@ai-sdk/anthropic": "anthropic-messages",
 };
-const OPENCODE_GO_RESPONSES = /^(?:muse-spark-|gpt-|grok-)/i;
-const OPENCODE_GO_MESSAGES = /^(?:minimax-|qwen|claude-)/i;
 
-function opencodeGoDefinition(model: Json, modelName: string): string | null {
-  const npm = obj(model.provider)?.npm;
-  if (npm === "@ai-sdk/google") return null;
-  if (typeof npm === "string" && OPENCODE_GO_NPM[npm] !== undefined) {
-    return OPENCODE_GO_NPM[npm]!;
-  }
-  if (OPENCODE_GO_RESPONSES.test(modelName)) return OPENCODE_GO.responses;
-  if (OPENCODE_GO_MESSAGES.test(modelName)) return OPENCODE_GO.messages;
-  return OPENCODE_GO.chat;
+function opencodeGoWire(provider: Json, model: Json): ProviderProtocol | null {
+  const npm = obj(model.provider)?.npm ?? provider.npm;
+  return typeof npm === "string" ? (OPENCODE_GO_WIRES[npm] ?? null) : null;
 }
 
 // models.dev provider id → lophn 내장 provider 정의 key. 표에 없는 provider는 버린다.
 // budget은 thinking 예산 축(anthropic-messages 표만 예산을 번역한다)을 받는 정의다.
-// definition이 함수면 model마다 정의가 다르다.
+// wire가 있으면 model마다 닿는 wire를 정한다. null이면 그 model을 버린다.
 const PROVIDERS: Readonly<
   Record<
     string,
     {
-      definition: string | ((model: Json, name: string) => string | null);
+      definition: string;
       budget: boolean;
+      wire?: (provider: Json, model: Json) => ProviderProtocol | null;
     }
   >
 > = {
@@ -106,7 +96,11 @@ const PROVIDERS: Readonly<
   groq: { definition: "groq", budget: false },
   deepseek: { definition: "deepseek", budget: false },
   google: { definition: "google-gemini", budget: false },
-  "opencode-go": { definition: opencodeGoDefinition, budget: false },
+  "opencode-go": {
+    definition: "opencode-go",
+    budget: false,
+    wire: opencodeGoWire,
+  },
 };
 
 type Json = Record<string, unknown>;
@@ -246,7 +240,8 @@ export function modelsDevEntries(
   }
   const entries: unknown[] = [];
   for (const [providerId, target] of Object.entries(PROVIDERS)) {
-    const models = obj(obj(root[providerId])?.models) ?? {};
+    const provider = obj(root[providerId]) ?? {};
+    const models = obj(provider.models) ?? {};
     for (const [modelName, value] of Object.entries(models)) {
       const model = obj(value);
       const limit = obj(model?.limit);
@@ -265,14 +260,12 @@ export function modelsDevEntries(
         continue;
       const cost = obj(model.cost);
       const rates = cost === undefined ? [] : ratesOf(cost);
-      const definition =
-        typeof target.definition === "function"
-          ? target.definition(model, modelName)
-          : target.definition;
-      if (definition === null) continue;
+      const wire = target.wire?.(provider, model) ?? null;
+      if (target.wire !== undefined && wire === null) continue;
       const entry = {
-        provider_definition: definition,
+        provider_definition: target.definition,
         model_name: modelName,
+        protocol: wire,
         context_limit: context,
         input_limit: positive(limit?.input) ?? context,
         output_limit: output,

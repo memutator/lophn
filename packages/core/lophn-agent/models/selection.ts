@@ -50,6 +50,7 @@ const EXPLICIT_ENTRY = (
 ): CatalogEntry => ({
   provider_definition: "explicit",
   model_name: modelName,
+  protocol: null,
   context_limit: null,
   input_limit: null,
   output_limit: null,

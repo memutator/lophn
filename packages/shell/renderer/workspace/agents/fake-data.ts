@@ -127,6 +127,7 @@ function entry(
   return {
     provider_definition: "anthropic",
     model_name: name,
+    protocol: null,
     context_limit: contextLimit,
     input_limit: null,
     output_limit: null,

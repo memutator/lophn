@@ -107,9 +107,9 @@ test("계정 model 목록 응답이 틀리면 null이고, 맞으면 숨긴 것�
   assert.deepStrictEqual(entitlementAllows("oauth", ["a"], "b"), false);
 });
 
-// OpenCode Go 셋은 family를 싣는 OpenAI base의 목록 하나에서 자기 wire만 고른다. wire를 모르는 model과
-// Gemini model은 어느 정의에도 들어가지 않는다.
-test("OpenCode Go 목록은 model의 api가 가리키는 wire만 남기고 gateway header를 싣는다", async () => {
+// OpenCode Go 목록은 model마다 native wire를 싣는다. lophn이 부를 수 있는 wire의 model만 남기고, wire를 모르는
+// model과 generateContent만 있는 Gemini model은 뺀다. gateway는 SDK 기본 User-Agent를 막는다.
+test("OpenCode Go 목록은 부를 수 있는 wire의 model만 남기고 gateway header를 싣는다", async () => {
   const body = {
     data: [
       { id: "glm-5.3", api: { "chat-completions": { base_url: "x" } } },
@@ -124,49 +124,30 @@ test("OpenCode Go 목록은 model의 api가 가리키는 wire만 남기고 gatew
     sent.push({ url, headers: new Headers(init.headers) });
     return Promise.resolve(Response.json(body));
   };
-  const cases: [string, string, string[]][] = [
-    ["opencode-go-chat", "openai-chat-completions", ["glm-5.3"]],
-    ["opencode-go-responses", "openai-responses", ["gpt-6-luna"]],
-    ["opencode-go-messages", "anthropic-messages", ["claude-haiku-5-5"]],
-  ];
-  for (const [key, protocol, expected] of cases) {
-    const definition = builtinProviderDefinition(key);
-    assert.ok(definition.ok, key);
-    const got = await readProviderModels(
-      http,
-      {
-        definition: definition.value,
-        endpoint: "https://opencode.ai/inference/go/openai/v1",
-        kind: "api_key",
-        account: null,
-      },
-      "SECRET-KEY",
-    );
-    assert.deepStrictEqual(got, { models: expected, limits: {} }, key);
-    assert.equal(protocol, definition.value.protocols[0], key);
-    assert.deepStrictEqual(sent.at(-1), {
+  const definition = builtinProviderDefinition("opencode-go");
+  assert.ok(definition.ok);
+  const got = await readProviderModels(
+    http,
+    {
+      definition: definition.value,
+      endpoint: "https://opencode.ai/inference/go/openai/v1",
+      kind: "api_key",
+      account: null,
+    },
+    "SECRET-KEY",
+  );
+  assert.deepStrictEqual(got, {
+    models: ["claude-haiku-5-5", "glm-5.3", "gpt-6-luna"],
+    limits: {},
+  });
+  assert.deepStrictEqual(sent, [
+    {
       url: "https://opencode.ai/inference/go/openai/v1/models",
       headers: new Headers({
         accept: "application/json",
         "user-agent": "lophn",
         authorization: "Bearer SECRET-KEY",
       }),
-    });
-  }
-  // api가 없는 model만 있으면 그 wire의 목록을 읽지 못한 것으로 본다.
-  const chat = builtinProviderDefinition("opencode-go-chat");
-  assert.ok(chat.ok);
-  assert.equal(
-    await readProviderModels(
-      () => Promise.resolve(Response.json({ data: [{ id: "mystery" }] })),
-      {
-        definition: chat.value,
-        endpoint: "https://opencode.ai/inference/go/openai/v1",
-        kind: "api_key",
-        account: null,
-      },
-      "k",
-    ),
-    null,
-  );
+    },
+  ]);
 });

@@ -106,7 +106,7 @@ files:
 
   - path: packages/core/lophn-agent/providers/adapters/opencode-go_test.ts
     covers: []
-    note: "OpenCode Go gateway 요청 모양(순수 어댑터). 정의마다 자기 wire 경로·x-opencode-session·User-Agent·stream을 싣고, session이 같으면 같은 대화 값이다"
+    note: "OpenCode Go gateway의 x-opencode-session 값(순수 어댑터). session이 같으면 같은 대화 값이고 session이 없으면 하나로 모은다"
 
   - path: packages/core/lophn-agent/providers/commands_test.ts
     covers: [provider-connect:connected, provider-connect:invalid_input]

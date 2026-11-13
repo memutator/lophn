@@ -1,0 +1,29 @@
+id: opencode-go-single-provider
+version: 0.23.51
+title: OpenCode Go를 provider 하나로 합치고 model마다 catalog가 정한 wire로 부른다
+modules: [packages/core/lophn-agent, packages/core/main, packages/protocol, packages/shell/renderer]
+change: |
+  - 내장 정의 `opencode-go-chat`·`opencode-go-responses`·`opencode-go-messages` 셋을 `opencode-go` 하나로 바꿨다. 정의의 `protocols`가 chat completions·responses·messages를 다 담고, 연결은 API key 한 번이다(provider protocol은 chat, endpoint는 `/go/openai/v1`).
+  - catalog 항목(`CatalogEntry`)에 `protocol`(그 provider에서 model이 닿는 wire, null이면 provider의 protocol)을 더했다. turn resolver는 항목의 wire가 정의의 `protocols`에 있으면 그 wire로 packer·요청 경로·option 번역·`CallModel.protocol`을 정하고, 아니면 provider의 protocol을 쓴다. API key header는 그대로 provider의 protocol이 정한다.
+  - models.dev `opencode-go` 행의 wire는 행의 SDK package, 없으면 provider 기본 package(`@ai-sdk/openai-compatible`→chat)로 정한다. 이름 앞머리로 가르던 규칙은 뺐다(`minimax-m3.1-flash`가 messages로 잘못 가던 것이 chat이 된다). 동봉 snapshot의 모든 항목에 `protocol`을 더했다. 옛 모양의 derived `catalog.json`은 읽히지 않아 snapshot에서 다시 만든 뒤 갱신한다.
+  - gateway model 목록은 `api`에 chat-completions·responses·messages 중 하나가 있는 model을 모두 남긴다.
+  - Messages wire 요청은 provider endpoint의 `/openai/v1`을 `/anthropic/v1`로 바꾼 주소의 `/messages`로 간다.
+  - data step `lophn-agent.opencode-go-single-provider`: 연결된 옛 provider 셋을 하나로 합친다(chat, responses, messages 순으로 먼저 있는 것의 id를 남긴다). 나머지를 가리키던 model 선택·켠 model·agent 정의 file의 `provider:`를 남는 provider로 옮기고, 나머지 provider·credential·secret 값을 지운다. 남는 credential의 model 목록은 비워 다음 읽기가 채운다. 사람이 적은 model 정보는 새 정의 key로 옮긴다.
+why: |
+  OpenCode Go는 구독 하나, key 하나인데 gateway endpoint(wire)마다 provider를 따로 연결해야 했다. 사람이 같은 key를 세 번 넣고 Settings와 model 목록에서 묶음 셋을 봤다. pi·omp·mixdog·hermes는 모두 `opencode-go` provider 하나에 model마다 wire를 둔다.
+decisions:
+  - text: >-
+      model의 wire는 catalog 항목의 `protocol` 칸이 갖는다. 다른 multi-wire gateway도 같은 칸을 쓴다. 버린 길: credential에 gateway 목록의 model별 wire를 저장(ledger schema·credential 계약이 바뀌고 catalog 밖 model만 얻는다), resolver 안의 OpenCode Go 전용 이름 표(models.dev와 따로 놀며 틀린다).
+    by: agent
+  - text: >-
+      catalog에 없는 이름은 provider의 protocol(chat)로 보낸다. gateway 문서가 text model은 다른 API로도 변환되어 답한다고 한다. 버린 길: 이름 앞머리 표를 resolver에 두기.
+    by: agent
+  - text: >-
+      gateway 경로는 공식 문서대로 `/go/openai/v1`·`/go/anthropic/v1`을 쓴다. omp·mixdog은 `/go/v1` 하나를 쓰지만 문서에 없는 경로다.
+    by: agent
+follow_up: |-
+  실제 계정 key로 세 wire를 아직 호출하지 못했다(전 항목 `opencode-go-provider`의 확인 목록 그대로).
+checklist:
+  - Settings > Providers에 OpenCode Go가 하나만 보이고 연결 상태가 그대로인지 본다
+  - Manage models의 OpenCode Go 묶음에 chat·responses·messages model이 함께 보이는지 본다(목록은 다음 읽기 때 다시 채워진다)
+  - gpt-6-luna(responses), claude-haiku-5-5(messages), glm-5.3(chat)을 하나씩 골라 답과 tool 왕복을 본다

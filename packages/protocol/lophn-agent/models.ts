@@ -16,6 +16,7 @@ import {
 } from "./resolved-model.ts";
 import { workspaceKeySchema } from "./mcp-settings.ts";
 import { EFFORT_VALUES, OPTION_AXIS_EFFORT } from "./option-axes.ts";
+import { providerProtocolSchema } from "./provider-values.ts";
 
 const nonblankSchema = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",
@@ -190,6 +191,9 @@ const mediaList = z
 const entryFields = {
   provider_definition: nonblankSchema,
   model_name: nonblankSchema,
+  // 이 provider에서 이 model에 닿는 wire다. null이면 provider의 protocol을 쓴다. gateway 하나가 model마다
+  // 다른 wire로 답할 때(OpenCode Go) catalog가 그 wire를 안다.
+  protocol: providerProtocolSchema.nullable(),
   context_limit: positiveIntegerSchema.nullable(),
   input_limit: positiveIntegerSchema.nullable(),
   output_limit: positiveIntegerSchema.nullable(),

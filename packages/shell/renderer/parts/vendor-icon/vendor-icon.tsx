@@ -88,8 +88,7 @@ export function vendorOf(name: string): Vendor | undefined {
   if (key in ICONS) return key as Vendor;
   if (key === "gemini" || key === "google-gemini") return "google";
   if (key === "google-antigravity") return "antigravity";
-  // OpenCode Go 정의 셋(OpenCode Go (Chat) 같은 이름)은 OpenCode 표지를 쓴다.
-  if (key.startsWith("opencode-go")) return "opencode";
+  if (key === "opencode-go") return "opencode";
   if (key === "hermes-agent") return "hermes";
   if (key === "claude-code") return "claude";
   if (key === "codex") return "openai";

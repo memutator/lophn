@@ -2,6 +2,7 @@
   {
     "provider_definition": "anthropic",
     "model_name": "claude-fable-5",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -71,6 +72,7 @@
   {
     "provider_definition": "anthropic",
     "model_name": "claude-fable-5-1",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -140,6 +142,7 @@
   {
     "provider_definition": "anthropic",
     "model_name": "claude-haiku-4-5",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 64000,
@@ -212,6 +215,7 @@
   {
     "provider_definition": "anthropic",
     "model_name": "claude-haiku-4-5-20251001",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 64000,
@@ -284,6 +288,7 @@
   {
     "provider_definition": "anthropic",
     "model_name": "claude-haiku-5-5",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -363,6 +368,7 @@
   {
     "provider_definition": "anthropic",
     "model_name": "claude-opus-4-5",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 64000,
@@ -422,6 +428,7 @@
   {
     "provider_definition": "anthropic",
     "model_name": "claude-opus-4-5-20251101",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 64000,
@@ -481,6 +488,7 @@
   {
     "provider_definition": "anthropic",
     "model_name": "claude-opus-4-6",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -545,6 +553,7 @@
   {
     "provider_definition": "anthropic",
     "model_name": "claude-opus-4-7",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -614,6 +623,7 @@
   {
     "provider_definition": "anthropic",
     "model_name": "claude-opus-4-8",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -683,6 +693,7 @@
   {
     "provider_definition": "anthropic",
     "model_name": "claude-opus-5",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -752,6 +763,7 @@
   {
     "provider_definition": "anthropic",
     "model_name": "claude-opus-5-5",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -821,6 +833,7 @@
   {
     "provider_definition": "anthropic",
     "model_name": "claude-sonnet-4-5",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 64000,
@@ -893,6 +906,7 @@
   {
     "provider_definition": "anthropic",
     "model_name": "claude-sonnet-4-5-20250929",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 64000,
@@ -965,6 +979,7 @@
   {
     "provider_definition": "anthropic",
     "model_name": "claude-sonnet-4-6",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -1029,6 +1044,7 @@
   {
     "provider_definition": "anthropic",
     "model_name": "claude-sonnet-5",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -1098,6 +1114,7 @@
   {
     "provider_definition": "anthropic",
     "model_name": "claude-sonnet-5-5",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -1167,6 +1184,7 @@
   {
     "provider_definition": "deepseek",
     "model_name": "deepseek-flash",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 393216,
@@ -1226,6 +1244,7 @@
   {
     "provider_definition": "deepseek",
     "model_name": "deepseek-v4-flash",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 393216,
@@ -1285,6 +1304,7 @@
   {
     "provider_definition": "deepseek",
     "model_name": "deepseek-v4-flash-vision-exp",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 393216,
@@ -1344,6 +1364,7 @@
   {
     "provider_definition": "deepseek",
     "model_name": "deepseek-v4-pro",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 393216,
@@ -1403,6 +1424,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "deep-research-max-preview-04-2026",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 65536,
@@ -1448,6 +1470,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "deep-research-preview-04-2026",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 65536,
@@ -1493,6 +1516,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-2.5-computer-use-preview-10-2025",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 64000,
@@ -1538,6 +1562,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-2.5-flash",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -1573,6 +1598,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-2.5-flash-image",
+    "protocol": null,
     "context_limit": 32768,
     "input_limit": 32768,
     "output_limit": 32768,
@@ -1608,6 +1634,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-2.5-flash-lite",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -1643,6 +1670,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-2.5-pro",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -1688,6 +1716,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-3-flash-preview",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -1752,6 +1781,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-3-pro-image",
+    "protocol": null,
     "context_limit": 65536,
     "input_limit": 65536,
     "output_limit": 32768,
@@ -1806,6 +1836,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-3-pro-image-preview",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 32768,
@@ -1841,6 +1872,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-3.1-flash-image",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 32768,
@@ -1895,6 +1927,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-3.1-flash-image-preview",
+    "protocol": null,
     "context_limit": 65536,
     "input_limit": 65536,
     "output_limit": 65536,
@@ -1949,6 +1982,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-3.1-flash-lite",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -2013,6 +2047,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-3.1-flash-lite-image",
+    "protocol": null,
     "context_limit": 65536,
     "input_limit": 65536,
     "output_limit": 4096,
@@ -2067,6 +2102,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-3.1-flash-lite-preview",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -2131,6 +2167,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-3.1-flash-live-preview",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 65536,
@@ -2195,6 +2232,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-3.1-pro-preview",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -2264,6 +2302,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-3.1-pro-preview-customtools",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -2333,6 +2372,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-3.5-flash",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -2397,6 +2437,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-3.5-flash-lite",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -2461,6 +2502,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-3.6-flash",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -2525,6 +2567,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-3.7-flash",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -2584,6 +2627,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-3.8-flash",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -2643,6 +2687,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-4-argon",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 32768,
@@ -2702,6 +2747,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-embedding-001",
+    "protocol": null,
     "context_limit": 2048,
     "input_limit": 2048,
     "output_limit": 1,
@@ -2737,6 +2783,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-embedding-2",
+    "protocol": null,
     "context_limit": 8192,
     "input_limit": 8192,
     "output_limit": 1,
@@ -2772,6 +2819,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-flash-latest",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -2831,6 +2879,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemini-flash-lite-latest",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -2895,6 +2944,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemma-4-26b-a4b-it",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 32768,
@@ -2913,6 +2963,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "gemma-4-31b-it",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 32768,
@@ -2931,6 +2982,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "lyria-3-clip-preview",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -2966,6 +3018,7 @@
   {
     "provider_definition": "google-gemini",
     "model_name": "lyria-3-pro-preview",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -3001,6 +3054,7 @@
   {
     "provider_definition": "groq",
     "model_name": "allam-2-7b",
+    "protocol": null,
     "context_limit": 4096,
     "input_limit": 4096,
     "output_limit": 4096,
@@ -3036,6 +3090,7 @@
   {
     "provider_definition": "groq",
     "model_name": "groq/compound",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 8192,
@@ -3054,6 +3109,7 @@
   {
     "provider_definition": "groq",
     "model_name": "groq/compound-mini",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 8192,
@@ -3072,6 +3128,7 @@
   {
     "provider_definition": "groq",
     "model_name": "llama-3.1-8b-instant",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 131072,
@@ -3107,6 +3164,7 @@
   {
     "provider_definition": "groq",
     "model_name": "llama-3.3-70b-versatile",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 32768,
@@ -3142,6 +3200,7 @@
   {
     "provider_definition": "groq",
     "model_name": "meta-llama/llama-prompt-guard-2-22m",
+    "protocol": null,
     "context_limit": 512,
     "input_limit": 512,
     "output_limit": 512,
@@ -3177,6 +3236,7 @@
   {
     "provider_definition": "groq",
     "model_name": "meta-llama/llama-prompt-guard-2-86m",
+    "protocol": null,
     "context_limit": 512,
     "input_limit": 512,
     "output_limit": 512,
@@ -3212,6 +3272,7 @@
   {
     "provider_definition": "groq",
     "model_name": "openai/gpt-oss-120b",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 65536,
@@ -3271,6 +3332,7 @@
   {
     "provider_definition": "groq",
     "model_name": "openai/gpt-oss-20b",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 65536,
@@ -3330,6 +3392,7 @@
   {
     "provider_definition": "groq",
     "model_name": "openai/gpt-oss-safeguard-20b",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 65536,
@@ -3389,6 +3452,7 @@
   {
     "provider_definition": "groq",
     "model_name": "qwen/qwen3.6-27b",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 16384,
@@ -3438,6 +3502,7 @@
   {
     "provider_definition": "groq",
     "model_name": "qwen/qwen3.8-27b",
+    "protocol": null,
     "context_limit": 131042,
     "input_limit": 131042,
     "output_limit": 16384,
@@ -3502,6 +3567,7 @@
   {
     "provider_definition": "ollama",
     "model_name": "qwen3:8b",
+    "protocol": null,
     "context_limit": 40960,
     "input_limit": 40960,
     "output_limit": 8192,
@@ -3539,6 +3605,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-3.5-turbo",
+    "protocol": null,
     "context_limit": 16385,
     "input_limit": 16385,
     "output_limit": 4096,
@@ -3574,6 +3641,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-4",
+    "protocol": null,
     "context_limit": 8192,
     "input_limit": 8192,
     "output_limit": 8192,
@@ -3609,6 +3677,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-4-turbo",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 4096,
@@ -3644,6 +3713,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-4.1",
+    "protocol": null,
     "context_limit": 1047576,
     "input_limit": 1047576,
     "output_limit": 32768,
@@ -3679,6 +3749,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-4.1-mini",
+    "protocol": null,
     "context_limit": 1047576,
     "input_limit": 1047576,
     "output_limit": 32768,
@@ -3714,6 +3785,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-4.1-nano",
+    "protocol": null,
     "context_limit": 1047576,
     "input_limit": 1047576,
     "output_limit": 32768,
@@ -3749,6 +3821,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-4o",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 16384,
@@ -3784,6 +3857,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-4o-2024-05-13",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 4096,
@@ -3819,6 +3893,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-4o-2024-08-06",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 16384,
@@ -3854,6 +3929,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-4o-2024-11-20",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 16384,
@@ -3889,6 +3965,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-4o-mini",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 16384,
@@ -3924,6 +4001,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -3988,6 +4066,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5-mini",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -4052,6 +4131,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5-nano",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -4116,6 +4196,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5-pro",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 272000,
@@ -4165,6 +4246,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5.1",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -4229,6 +4311,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5.2",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -4298,6 +4381,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5.2-chat-latest",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 16384,
@@ -4347,6 +4431,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5.2-pro",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -4406,6 +4491,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5.3-chat-latest",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 16384,
@@ -4441,6 +4527,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5.3-codex",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -4510,6 +4597,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5.3-codex-spark",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 100000,
     "output_limit": 32000,
@@ -4579,6 +4667,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5.4",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -4658,6 +4747,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5.4-mini",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -4727,6 +4817,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5.4-nano",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -4796,6 +4887,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5.4-pro",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -4865,6 +4957,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5.5",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -4944,6 +5037,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5.5-pro",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -5013,6 +5107,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5.6",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -5097,6 +5192,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5.6-luna",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -5181,6 +5277,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5.6-sol",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -5265,6 +5362,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-5.6-terra",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -5349,6 +5447,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-6-astra",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -5428,6 +5527,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-6-luna",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -5512,6 +5612,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-6-sol",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -5596,6 +5697,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-6.1-sol",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -5675,6 +5777,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-daybreak-blue-latest",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -5759,6 +5862,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-daybreak-red-latest",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -5833,6 +5937,7 @@
   {
     "provider_definition": "openai",
     "model_name": "gpt-realtime-2.1",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 96000,
     "output_limit": 32000,
@@ -5902,6 +6007,7 @@
   {
     "provider_definition": "openai",
     "model_name": "o1",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 100000,
@@ -5961,6 +6067,7 @@
   {
     "provider_definition": "openai",
     "model_name": "o1-pro",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 100000,
@@ -6020,6 +6127,7 @@
   {
     "provider_definition": "openai",
     "model_name": "o3",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 100000,
@@ -6079,6 +6187,7 @@
   {
     "provider_definition": "openai",
     "model_name": "o3-mini",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 100000,
@@ -6138,6 +6247,7 @@
   {
     "provider_definition": "openai",
     "model_name": "o3-pro",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 100000,
@@ -6197,6 +6307,7 @@
   {
     "provider_definition": "openai",
     "model_name": "o4-mini",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 100000,
@@ -6256,6 +6367,7 @@
   {
     "provider_definition": "openai",
     "model_name": "text-embedding-3-large",
+    "protocol": null,
     "context_limit": 8191,
     "input_limit": 8191,
     "output_limit": 3072,
@@ -6291,6 +6403,7 @@
   {
     "provider_definition": "openai",
     "model_name": "text-embedding-3-small",
+    "protocol": null,
     "context_limit": 8191,
     "input_limit": 8191,
     "output_limit": 1536,
@@ -6326,6 +6439,7 @@
   {
     "provider_definition": "openai",
     "model_name": "text-embedding-ada-002",
+    "protocol": null,
     "context_limit": 8192,
     "input_limit": 8192,
     "output_limit": 1536,
@@ -6359,8 +6473,9 @@
     }
   },
   {
-    "provider_definition": "opencode-go-chat",
+    "provider_definition": "opencode-go",
     "model_name": "beam-free",
+    "protocol": "openai-chat-completions",
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 131072,
@@ -6428,8 +6543,9 @@
     }
   },
   {
-    "provider_definition": "opencode-go-chat",
+    "provider_definition": "opencode-go",
     "model_name": "cat-jam-free",
+    "protocol": "openai-chat-completions",
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 131072,
@@ -6497,1070 +6613,9 @@
     }
   },
   {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "deepseek-v4-pro",
-    "context_limit": 1000000,
-    "input_limit": 1000000,
-    "output_limit": 384000,
-    "supports_tools": true,
-    "input_media": ["text"],
-    "output_media": ["text"],
-    "options": [
-      {
-        "id": "effort",
-        "label": "Effort",
-        "values": [
-          {
-            "value": "high",
-            "label": "High",
-            "wire": null
-          },
-          {
-            "value": "maximum",
-            "label": "Max",
-            "wire": null
-          }
-        ],
-        "default_value": null,
-        "budget": null
-      }
-    ],
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0.66",
-          "output": "1.98",
-          "cache_read": "0.022",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "deepseek-v4.1-flash",
-    "context_limit": 1000000,
-    "input_limit": 1000000,
-    "output_limit": 384000,
-    "supports_tools": true,
-    "input_media": ["text", "image"],
-    "output_media": ["text"],
-    "options": [
-      {
-        "id": "effort",
-        "label": "Effort",
-        "values": [
-          {
-            "value": "low",
-            "label": "Low",
-            "wire": null
-          },
-          {
-            "value": "high",
-            "label": "High",
-            "wire": null
-          },
-          {
-            "value": "maximum",
-            "label": "Max",
-            "wire": null
-          }
-        ],
-        "default_value": null,
-        "budget": null
-      }
-    ],
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0.15",
-          "output": "0.6",
-          "cache_read": "0.003",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "glm-5.2",
-    "context_limit": 1000000,
-    "input_limit": 1000000,
-    "output_limit": 131072,
-    "supports_tools": true,
-    "input_media": ["text"],
-    "output_media": ["text"],
-    "options": [
-      {
-        "id": "effort",
-        "label": "Effort",
-        "values": [
-          {
-            "value": "high",
-            "label": "High",
-            "wire": null
-          },
-          {
-            "value": "maximum",
-            "label": "Max",
-            "wire": null
-          }
-        ],
-        "default_value": null,
-        "budget": null
-      }
-    ],
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "1.4",
-          "output": "4.4",
-          "cache_read": "0.26",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "glm-5.3",
-    "context_limit": 1000000,
-    "input_limit": 1000000,
-    "output_limit": 131072,
-    "supports_tools": true,
-    "input_media": ["text"],
-    "output_media": ["text"],
-    "options": [
-      {
-        "id": "effort",
-        "label": "Effort",
-        "values": [
-          {
-            "value": "low",
-            "label": "Low",
-            "wire": null
-          },
-          {
-            "value": "high",
-            "label": "High",
-            "wire": null
-          },
-          {
-            "value": "maximum",
-            "label": "Max",
-            "wire": null
-          }
-        ],
-        "default_value": null,
-        "budget": null
-      }
-    ],
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "1.4",
-          "output": "4.4",
-          "cache_read": "0.26",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "glm-5.3-flash",
-    "context_limit": 1000000,
-    "input_limit": 1000000,
-    "output_limit": 131072,
-    "supports_tools": true,
-    "input_media": ["text", "image", "video"],
-    "output_media": ["text"],
-    "options": [
-      {
-        "id": "effort",
-        "label": "Effort",
-        "values": [
-          {
-            "value": "low",
-            "label": "Low",
-            "wire": null
-          },
-          {
-            "value": "high",
-            "label": "High",
-            "wire": null
-          },
-          {
-            "value": "maximum",
-            "label": "Max",
-            "wire": null
-          }
-        ],
-        "default_value": null,
-        "budget": null
-      }
-    ],
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0.15",
-          "output": "0.5",
-          "cache_read": "0.03",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "hy3",
-    "context_limit": 256000,
-    "input_limit": 192000,
-    "output_limit": 128000,
-    "supports_tools": true,
-    "input_media": ["text"],
-    "output_media": ["text"],
-    "options": [
-      {
-        "id": "effort",
-        "label": "Effort",
-        "values": [
-          {
-            "value": "off",
-            "label": "Off",
-            "wire": null
-          },
-          {
-            "value": "low",
-            "label": "Low",
-            "wire": null
-          },
-          {
-            "value": "high",
-            "label": "High",
-            "wire": null
-          }
-        ],
-        "default_value": null,
-        "budget": null
-      }
-    ],
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0.14",
-          "output": "0.58",
-          "cache_read": "0.035",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "hy4",
-    "context_limit": 1048576,
-    "input_limit": 983010,
-    "output_limit": 65536,
-    "supports_tools": true,
-    "input_media": ["text", "image"],
-    "output_media": ["text"],
-    "options": [
-      {
-        "id": "effort",
-        "label": "Effort",
-        "values": [
-          {
-            "value": "off",
-            "label": "Off",
-            "wire": null
-          },
-          {
-            "value": "high",
-            "label": "High",
-            "wire": null
-          }
-        ],
-        "default_value": null,
-        "budget": null
-      }
-    ],
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0.834",
-          "output": "2.501",
-          "cache_read": "0.042",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "hy4-preview",
-    "context_limit": 1024000,
-    "input_limit": 1024000,
-    "output_limit": 64000,
-    "supports_tools": true,
-    "input_media": ["text"],
-    "output_media": ["text"],
-    "options": [
-      {
-        "id": "effort",
-        "label": "Effort",
-        "values": [
-          {
-            "value": "off",
-            "label": "Off",
-            "wire": null
-          },
-          {
-            "value": "high",
-            "label": "High",
-            "wire": null
-          }
-        ],
-        "default_value": null,
-        "budget": null
-      }
-    ],
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0.834",
-          "output": "2.501",
-          "cache_read": "0.042",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "iceman-contributor-free",
-    "context_limit": 262144,
-    "input_limit": 262144,
-    "output_limit": 131072,
-    "supports_tools": true,
-    "input_media": ["text"],
-    "output_media": ["text"],
-    "options": null,
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0",
-          "output": "0",
-          "cache_read": "0",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "kimi-k2.7-code",
-    "context_limit": 262144,
-    "input_limit": 262144,
-    "output_limit": 262144,
-    "supports_tools": true,
-    "input_media": ["text", "image", "video"],
-    "output_media": ["text"],
-    "options": null,
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0.95",
-          "output": "4",
-          "cache_read": "0.19",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "kimi-k3",
-    "context_limit": 1048576,
-    "input_limit": 1048576,
-    "output_limit": 131072,
-    "supports_tools": true,
-    "input_media": ["text", "image", "video"],
-    "output_media": ["text"],
-    "options": [
-      {
-        "id": "effort",
-        "label": "Effort",
-        "values": [
-          {
-            "value": "maximum",
-            "label": "Max",
-            "wire": null
-          }
-        ],
-        "default_value": null,
-        "budget": null
-      }
-    ],
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "3",
-          "output": "15",
-          "cache_read": "0.3",
-          "cache_write": "3",
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "kimi-k3.1-pro",
-    "context_limit": 1048576,
-    "input_limit": 1048576,
-    "output_limit": 131072,
-    "supports_tools": true,
-    "input_media": ["text", "image", "video"],
-    "output_media": ["text"],
-    "options": [
-      {
-        "id": "effort",
-        "label": "Effort",
-        "values": [
-          {
-            "value": "low",
-            "label": "Low",
-            "wire": null
-          },
-          {
-            "value": "high",
-            "label": "High",
-            "wire": null
-          },
-          {
-            "value": "maximum",
-            "label": "Max",
-            "wire": null
-          }
-        ],
-        "default_value": null,
-        "budget": null
-      }
-    ],
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "2",
-          "output": "10",
-          "cache_read": "0.2",
-          "cache_write": "2",
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "longcat-2.0",
-    "context_limit": 1000000,
-    "input_limit": 1000000,
-    "output_limit": 131072,
-    "supports_tools": true,
-    "input_media": ["text"],
-    "output_media": ["text"],
-    "options": null,
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0.3",
-          "output": "1.2",
-          "cache_read": "0.006",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "longcat-2.5-free",
-    "context_limit": 1000000,
-    "input_limit": 1000000,
-    "output_limit": 262144,
-    "supports_tools": true,
-    "input_media": ["text", "image"],
-    "output_media": ["text"],
-    "options": null,
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0",
-          "output": "0",
-          "cache_read": "0",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "longcat-2.5-preview-free",
-    "context_limit": 1000000,
-    "input_limit": 1000000,
-    "output_limit": 131072,
-    "supports_tools": true,
-    "input_media": ["text", "image"],
-    "output_media": ["text"],
-    "options": null,
-    "preview": false,
-    "deprecated": true,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0",
-          "output": "0",
-          "cache_read": "0",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "mimo-v2.5",
-    "context_limit": 1000000,
-    "input_limit": 1000000,
-    "output_limit": 128000,
-    "supports_tools": true,
-    "input_media": ["text", "image", "audio", "video"],
-    "output_media": ["text"],
-    "options": null,
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0.14",
-          "output": "0.28",
-          "cache_read": "0.0028",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "mimo-v2.5-pro",
-    "context_limit": 1048576,
-    "input_limit": 1048576,
-    "output_limit": 128000,
-    "supports_tools": true,
-    "input_media": ["text"],
-    "output_media": ["text"],
-    "options": null,
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0.435",
-          "output": "0.87",
-          "cache_read": "0.003625",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "mimo-v2.6-flash",
-    "context_limit": 1048576,
-    "input_limit": 1048576,
-    "output_limit": 131072,
-    "supports_tools": true,
-    "input_media": ["text", "image", "audio", "video"],
-    "output_media": ["text"],
-    "options": null,
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0.14",
-          "output": "0.28",
-          "cache_read": "0.0028",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "mimo-v2.6-pro",
-    "context_limit": 1048576,
-    "input_limit": 1048576,
-    "output_limit": 131072,
-    "supports_tools": true,
-    "input_media": ["text", "image", "audio", "video"],
-    "output_media": ["text"],
-    "options": null,
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0.435",
-          "output": "0.87",
-          "cache_read": "0.003625",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "space-bunny",
-    "context_limit": 1048576,
-    "input_limit": 524288,
-    "output_limit": 524288,
-    "supports_tools": true,
-    "input_media": ["text", "image", "video"],
-    "output_media": ["text"],
-    "options": [
-      {
-        "id": "effort",
-        "label": "Effort",
-        "values": [
-          {
-            "value": "low",
-            "label": "Low",
-            "wire": null
-          },
-          {
-            "value": "medium",
-            "label": "Medium",
-            "wire": null
-          },
-          {
-            "value": "high",
-            "label": "High",
-            "wire": null
-          },
-          {
-            "value": "very_high",
-            "label": "XHigh",
-            "wire": null
-          },
-          {
-            "value": "maximum",
-            "label": "Max",
-            "wire": null
-          }
-        ],
-        "default_value": "medium",
-        "budget": null
-      }
-    ],
-    "preview": false,
-    "deprecated": true,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0.15",
-          "output": "0.6",
-          "cache_read": "0.03",
-          "cache_write": "0",
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "step-5-preview",
-    "context_limit": 1000000,
-    "input_limit": 1000000,
-    "output_limit": 65536,
-    "supports_tools": true,
-    "input_media": ["text", "image", "video"],
-    "output_media": ["text"],
-    "options": [
-      {
-        "id": "effort",
-        "label": "Effort",
-        "values": [
-          {
-            "value": "low",
-            "label": "Low",
-            "wire": null
-          },
-          {
-            "value": "medium",
-            "label": "Medium",
-            "wire": null
-          },
-          {
-            "value": "high",
-            "label": "High",
-            "wire": null
-          }
-        ],
-        "default_value": "medium",
-        "budget": null
-      }
-    ],
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "1",
-          "output": "2.7",
-          "cache_read": "0.1",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-chat",
-    "model_name": "step-5-preview-free",
-    "context_limit": 1000000,
-    "input_limit": 1000000,
-    "output_limit": 65536,
-    "supports_tools": true,
-    "input_media": ["text", "image", "video"],
-    "output_media": ["text"],
-    "options": [
-      {
-        "id": "effort",
-        "label": "Effort",
-        "values": [
-          {
-            "value": "low",
-            "label": "Low",
-            "wire": null
-          },
-          {
-            "value": "medium",
-            "label": "Medium",
-            "wire": null
-          },
-          {
-            "value": "high",
-            "label": "High",
-            "wire": null
-          }
-        ],
-        "default_value": "medium",
-        "budget": null
-      }
-    ],
-    "preview": false,
-    "deprecated": true,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0",
-          "output": "0",
-          "cache_read": "0",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-messages",
+    "provider_definition": "opencode-go",
     "model_name": "claude-haiku-5-5",
+    "protocol": "anthropic-messages",
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -7638,389 +6693,9 @@
     }
   },
   {
-    "provider_definition": "opencode-go-messages",
-    "model_name": "minimax-m2.7",
-    "context_limit": 204800,
-    "input_limit": 204800,
-    "output_limit": 131072,
-    "supports_tools": true,
-    "input_media": ["text"],
-    "output_media": ["text"],
-    "options": null,
-    "preview": false,
-    "deprecated": true,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0.3",
-          "output": "1.2",
-          "cache_read": "0.06",
-          "cache_write": "0.375",
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-messages",
-    "model_name": "minimax-m3",
-    "context_limit": 1000000,
-    "input_limit": 1000000,
-    "output_limit": 131072,
-    "supports_tools": true,
-    "input_media": ["text", "image", "video"],
-    "output_media": ["text"],
-    "options": null,
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": 512000,
-          "cache_ttl_ms": null,
-          "input": "0.3",
-          "output": "1.2",
-          "cache_read": "0.06",
-          "cache_write": null,
-          "reasoning": null
-        },
-        {
-          "context_from": 512001,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0.6",
-          "output": "2.4",
-          "cache_read": "0.12",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-messages",
-    "model_name": "minimax-m3.1-flash",
-    "context_limit": 1000000,
-    "input_limit": 1000000,
-    "output_limit": 512000,
-    "supports_tools": true,
-    "input_media": ["text", "image", "video"],
-    "output_media": ["text"],
-    "options": [
-      {
-        "id": "effort",
-        "label": "Effort",
-        "values": [
-          {
-            "value": "low",
-            "label": "Low",
-            "wire": null
-          },
-          {
-            "value": "medium",
-            "label": "Medium",
-            "wire": null
-          },
-          {
-            "value": "high",
-            "label": "High",
-            "wire": null
-          },
-          {
-            "value": "very_high",
-            "label": "XHigh",
-            "wire": null
-          },
-          {
-            "value": "maximum",
-            "label": "Max",
-            "wire": null
-          }
-        ],
-        "default_value": "medium",
-        "budget": null
-      }
-    ],
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0.15",
-          "output": "0.6",
-          "cache_read": "0.015",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-messages",
-    "model_name": "minimax-m3.1-flash-free",
-    "context_limit": 1000000,
-    "input_limit": 1000000,
-    "output_limit": 512000,
-    "supports_tools": true,
-    "input_media": ["text", "image", "video"],
-    "output_media": ["text"],
-    "options": [
-      {
-        "id": "effort",
-        "label": "Effort",
-        "values": [
-          {
-            "value": "low",
-            "label": "Low",
-            "wire": null
-          },
-          {
-            "value": "medium",
-            "label": "Medium",
-            "wire": null
-          },
-          {
-            "value": "high",
-            "label": "High",
-            "wire": null
-          },
-          {
-            "value": "very_high",
-            "label": "XHigh",
-            "wire": null
-          },
-          {
-            "value": "maximum",
-            "label": "Max",
-            "wire": null
-          }
-        ],
-        "default_value": "medium",
-        "budget": null
-      }
-    ],
-    "preview": false,
-    "deprecated": true,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0",
-          "output": "0",
-          "cache_read": "0",
-          "cache_write": null,
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-messages",
-    "model_name": "qwen3.7-plus",
-    "context_limit": 1000000,
-    "input_limit": 1000000,
-    "output_limit": 65536,
-    "supports_tools": true,
-    "input_media": ["text", "image", "video"],
-    "output_media": ["text"],
-    "options": null,
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": 256000,
-          "cache_ttl_ms": null,
-          "input": "0.4",
-          "output": "1.6",
-          "cache_read": "0.04",
-          "cache_write": "0.5",
-          "reasoning": null
-        },
-        {
-          "context_from": 256001,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "1.2",
-          "output": "4.8",
-          "cache_read": "0.12",
-          "cache_write": "1.5",
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-messages",
-    "model_name": "qwen3.8-flash",
-    "context_limit": 1000000,
-    "input_limit": 1000000,
-    "output_limit": 131072,
-    "supports_tools": true,
-    "input_media": ["text", "image", "video"],
-    "output_media": ["text"],
-    "options": [
-      {
-        "id": "effort",
-        "label": "Effort",
-        "values": [
-          {
-            "value": "low",
-            "label": "Low",
-            "wire": null
-          },
-          {
-            "value": "medium",
-            "label": "Medium",
-            "wire": null
-          },
-          {
-            "value": "very_high",
-            "label": "XHigh",
-            "wire": null
-          }
-        ],
-        "default_value": "medium",
-        "budget": null
-      }
-    ],
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "0.15",
-          "output": "0.47",
-          "cache_read": "0.016",
-          "cache_write": "0.2",
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-messages",
-    "model_name": "qwen3.8-max",
-    "context_limit": 1000000,
-    "input_limit": 1000000,
-    "output_limit": 131072,
-    "supports_tools": true,
-    "input_media": ["text", "image", "video"],
-    "output_media": ["text"],
-    "options": [
-      {
-        "id": "effort",
-        "label": "Effort",
-        "values": [
-          {
-            "value": "low",
-            "label": "Low",
-            "wire": null
-          },
-          {
-            "value": "medium",
-            "label": "Medium",
-            "wire": null
-          },
-          {
-            "value": "very_high",
-            "label": "XHigh",
-            "wire": null
-          }
-        ],
-        "default_value": "medium",
-        "budget": null
-      }
-    ],
-    "preview": false,
-    "deprecated": false,
-    "source": "release_snapshot",
-    "source_revision": "models.dev@2026-11-12",
-    "checked_at": "2026-11-12T10:29:42.620Z",
-    "received_at": "2026-11-12T10:29:42.620Z",
-    "price_basis": {
-      "currency": "USD",
-      "rates": [
-        {
-          "context_from": null,
-          "context_through": null,
-          "cache_ttl_ms": null,
-          "input": "2",
-          "output": "6",
-          "cache_read": "0.25",
-          "cache_write": "2.5",
-          "reasoning": null
-        }
-      ],
-      "source": "models.dev",
-      "revision": "models.dev@2026-11-12",
-      "checked_at": "2026-11-12T10:29:42.620Z"
-    }
-  },
-  {
-    "provider_definition": "opencode-go-responses",
+    "provider_definition": "opencode-go",
     "model_name": "crouton-alpha-free",
+    "protocol": "openai-responses",
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 270000,
@@ -8093,8 +6768,299 @@
     }
   },
   {
-    "provider_definition": "opencode-go-responses",
+    "provider_definition": "opencode-go",
+    "model_name": "deepseek-v4-pro",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1000000,
+    "input_limit": 1000000,
+    "output_limit": 384000,
+    "supports_tools": true,
+    "input_media": ["text"],
+    "output_media": ["text"],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          },
+          {
+            "value": "maximum",
+            "label": "Max",
+            "wire": null
+          }
+        ],
+        "default_value": null,
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0.66",
+          "output": "1.98",
+          "cache_read": "0.022",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "deepseek-v4.1-flash",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1000000,
+    "input_limit": 1000000,
+    "output_limit": 384000,
+    "supports_tools": true,
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "low",
+            "label": "Low",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          },
+          {
+            "value": "maximum",
+            "label": "Max",
+            "wire": null
+          }
+        ],
+        "default_value": null,
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0.15",
+          "output": "0.6",
+          "cache_read": "0.003",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "glm-5.2",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1000000,
+    "input_limit": 1000000,
+    "output_limit": 131072,
+    "supports_tools": true,
+    "input_media": ["text"],
+    "output_media": ["text"],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          },
+          {
+            "value": "maximum",
+            "label": "Max",
+            "wire": null
+          }
+        ],
+        "default_value": null,
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "1.4",
+          "output": "4.4",
+          "cache_read": "0.26",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "glm-5.3",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1000000,
+    "input_limit": 1000000,
+    "output_limit": 131072,
+    "supports_tools": true,
+    "input_media": ["text"],
+    "output_media": ["text"],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "low",
+            "label": "Low",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          },
+          {
+            "value": "maximum",
+            "label": "Max",
+            "wire": null
+          }
+        ],
+        "default_value": null,
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "1.4",
+          "output": "4.4",
+          "cache_read": "0.26",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "glm-5.3-flash",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1000000,
+    "input_limit": 1000000,
+    "output_limit": 131072,
+    "supports_tools": true,
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "low",
+            "label": "Low",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          },
+          {
+            "value": "maximum",
+            "label": "Max",
+            "wire": null
+          }
+        ],
+        "default_value": null,
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0.15",
+          "output": "0.5",
+          "cache_read": "0.03",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
     "model_name": "gpt-5.6-luna",
+    "protocol": "openai-responses",
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -8177,8 +7143,9 @@
     }
   },
   {
-    "provider_definition": "opencode-go-responses",
+    "provider_definition": "opencode-go",
     "model_name": "gpt-6-luna",
+    "protocol": "openai-responses",
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -8261,8 +7228,9 @@
     }
   },
   {
-    "provider_definition": "opencode-go-responses",
+    "provider_definition": "opencode-go",
     "model_name": "grok-4.7",
+    "protocol": "openai-responses",
     "context_limit": 500000,
     "input_limit": 500000,
     "output_limit": 500000,
@@ -8335,8 +7303,835 @@
     }
   },
   {
-    "provider_definition": "opencode-go-responses",
+    "provider_definition": "opencode-go",
+    "model_name": "hy3",
+    "protocol": "openai-chat-completions",
+    "context_limit": 256000,
+    "input_limit": 192000,
+    "output_limit": 128000,
+    "supports_tools": true,
+    "input_media": ["text"],
+    "output_media": ["text"],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "off",
+            "label": "Off",
+            "wire": null
+          },
+          {
+            "value": "low",
+            "label": "Low",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          }
+        ],
+        "default_value": null,
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0.14",
+          "output": "0.58",
+          "cache_read": "0.035",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "hy4",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1048576,
+    "input_limit": 983010,
+    "output_limit": 65536,
+    "supports_tools": true,
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "off",
+            "label": "Off",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          }
+        ],
+        "default_value": null,
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0.834",
+          "output": "2.501",
+          "cache_read": "0.042",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "hy4-preview",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1024000,
+    "input_limit": 1024000,
+    "output_limit": 64000,
+    "supports_tools": true,
+    "input_media": ["text"],
+    "output_media": ["text"],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "off",
+            "label": "Off",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          }
+        ],
+        "default_value": null,
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0.834",
+          "output": "2.501",
+          "cache_read": "0.042",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "iceman-contributor-free",
+    "protocol": "openai-chat-completions",
+    "context_limit": 262144,
+    "input_limit": 262144,
+    "output_limit": 131072,
+    "supports_tools": true,
+    "input_media": ["text"],
+    "output_media": ["text"],
+    "options": null,
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0",
+          "output": "0",
+          "cache_read": "0",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "kimi-k2.7-code",
+    "protocol": "openai-chat-completions",
+    "context_limit": 262144,
+    "input_limit": 262144,
+    "output_limit": 262144,
+    "supports_tools": true,
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
+    "options": null,
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0.95",
+          "output": "4",
+          "cache_read": "0.19",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "kimi-k3",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1048576,
+    "input_limit": 1048576,
+    "output_limit": 131072,
+    "supports_tools": true,
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "maximum",
+            "label": "Max",
+            "wire": null
+          }
+        ],
+        "default_value": null,
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "3",
+          "output": "15",
+          "cache_read": "0.3",
+          "cache_write": "3",
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "kimi-k3.1-pro",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1048576,
+    "input_limit": 1048576,
+    "output_limit": 131072,
+    "supports_tools": true,
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "low",
+            "label": "Low",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          },
+          {
+            "value": "maximum",
+            "label": "Max",
+            "wire": null
+          }
+        ],
+        "default_value": null,
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "2",
+          "output": "10",
+          "cache_read": "0.2",
+          "cache_write": "2",
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "longcat-2.0",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1000000,
+    "input_limit": 1000000,
+    "output_limit": 131072,
+    "supports_tools": true,
+    "input_media": ["text"],
+    "output_media": ["text"],
+    "options": null,
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0.3",
+          "output": "1.2",
+          "cache_read": "0.006",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "longcat-2.5-free",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1000000,
+    "input_limit": 1000000,
+    "output_limit": 262144,
+    "supports_tools": true,
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
+    "options": null,
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0",
+          "output": "0",
+          "cache_read": "0",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "longcat-2.5-preview-free",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1000000,
+    "input_limit": 1000000,
+    "output_limit": 131072,
+    "supports_tools": true,
+    "input_media": ["text", "image"],
+    "output_media": ["text"],
+    "options": null,
+    "preview": false,
+    "deprecated": true,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0",
+          "output": "0",
+          "cache_read": "0",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "mimo-v2.5",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1000000,
+    "input_limit": 1000000,
+    "output_limit": 128000,
+    "supports_tools": true,
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
+    "options": null,
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0.14",
+          "output": "0.28",
+          "cache_read": "0.0028",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "mimo-v2.5-pro",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1048576,
+    "input_limit": 1048576,
+    "output_limit": 128000,
+    "supports_tools": true,
+    "input_media": ["text"],
+    "output_media": ["text"],
+    "options": null,
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0.435",
+          "output": "0.87",
+          "cache_read": "0.003625",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "mimo-v2.6-flash",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1048576,
+    "input_limit": 1048576,
+    "output_limit": 131072,
+    "supports_tools": true,
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
+    "options": null,
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0.14",
+          "output": "0.28",
+          "cache_read": "0.0028",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "mimo-v2.6-pro",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1048576,
+    "input_limit": 1048576,
+    "output_limit": 131072,
+    "supports_tools": true,
+    "input_media": ["text", "image", "audio", "video"],
+    "output_media": ["text"],
+    "options": null,
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0.435",
+          "output": "0.87",
+          "cache_read": "0.003625",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "minimax-m2.7",
+    "protocol": "anthropic-messages",
+    "context_limit": 204800,
+    "input_limit": 204800,
+    "output_limit": 131072,
+    "supports_tools": true,
+    "input_media": ["text"],
+    "output_media": ["text"],
+    "options": null,
+    "preview": false,
+    "deprecated": true,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0.3",
+          "output": "1.2",
+          "cache_read": "0.06",
+          "cache_write": "0.375",
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "minimax-m3",
+    "protocol": "anthropic-messages",
+    "context_limit": 1000000,
+    "input_limit": 1000000,
+    "output_limit": 131072,
+    "supports_tools": true,
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
+    "options": null,
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": 512000,
+          "cache_ttl_ms": null,
+          "input": "0.3",
+          "output": "1.2",
+          "cache_read": "0.06",
+          "cache_write": null,
+          "reasoning": null
+        },
+        {
+          "context_from": 512001,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0.6",
+          "output": "2.4",
+          "cache_read": "0.12",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "minimax-m3.1-flash",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1000000,
+    "input_limit": 1000000,
+    "output_limit": 512000,
+    "supports_tools": true,
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "low",
+            "label": "Low",
+            "wire": null
+          },
+          {
+            "value": "medium",
+            "label": "Medium",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          },
+          {
+            "value": "very_high",
+            "label": "XHigh",
+            "wire": null
+          },
+          {
+            "value": "maximum",
+            "label": "Max",
+            "wire": null
+          }
+        ],
+        "default_value": "medium",
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0.15",
+          "output": "0.6",
+          "cache_read": "0.015",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "minimax-m3.1-flash-free",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1000000,
+    "input_limit": 1000000,
+    "output_limit": 512000,
+    "supports_tools": true,
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "low",
+            "label": "Low",
+            "wire": null
+          },
+          {
+            "value": "medium",
+            "label": "Medium",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          },
+          {
+            "value": "very_high",
+            "label": "XHigh",
+            "wire": null
+          },
+          {
+            "value": "maximum",
+            "label": "Max",
+            "wire": null
+          }
+        ],
+        "default_value": "medium",
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": true,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0",
+          "output": "0",
+          "cache_read": "0",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
     "model_name": "muse-spark-1.2-contributor",
+    "protocol": "openai-responses",
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 131072,
@@ -8404,8 +8199,9 @@
     }
   },
   {
-    "provider_definition": "opencode-go-responses",
+    "provider_definition": "opencode-go",
     "model_name": "muse-spark-1.3-contributor",
+    "protocol": "openai-responses",
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 131072,
@@ -8463,6 +8259,362 @@
           "input": "0.1",
           "output": "0.2",
           "cache_read": "0.002",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "qwen3.7-plus",
+    "protocol": "anthropic-messages",
+    "context_limit": 1000000,
+    "input_limit": 1000000,
+    "output_limit": 65536,
+    "supports_tools": true,
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
+    "options": null,
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": 256000,
+          "cache_ttl_ms": null,
+          "input": "0.4",
+          "output": "1.6",
+          "cache_read": "0.04",
+          "cache_write": "0.5",
+          "reasoning": null
+        },
+        {
+          "context_from": 256001,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "1.2",
+          "output": "4.8",
+          "cache_read": "0.12",
+          "cache_write": "1.5",
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "qwen3.8-flash",
+    "protocol": "anthropic-messages",
+    "context_limit": 1000000,
+    "input_limit": 1000000,
+    "output_limit": 131072,
+    "supports_tools": true,
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "low",
+            "label": "Low",
+            "wire": null
+          },
+          {
+            "value": "medium",
+            "label": "Medium",
+            "wire": null
+          },
+          {
+            "value": "very_high",
+            "label": "XHigh",
+            "wire": null
+          }
+        ],
+        "default_value": "medium",
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0.15",
+          "output": "0.47",
+          "cache_read": "0.016",
+          "cache_write": "0.2",
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "qwen3.8-max",
+    "protocol": "anthropic-messages",
+    "context_limit": 1000000,
+    "input_limit": 1000000,
+    "output_limit": 131072,
+    "supports_tools": true,
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "low",
+            "label": "Low",
+            "wire": null
+          },
+          {
+            "value": "medium",
+            "label": "Medium",
+            "wire": null
+          },
+          {
+            "value": "very_high",
+            "label": "XHigh",
+            "wire": null
+          }
+        ],
+        "default_value": "medium",
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "2",
+          "output": "6",
+          "cache_read": "0.25",
+          "cache_write": "2.5",
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "space-bunny",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1048576,
+    "input_limit": 524288,
+    "output_limit": 524288,
+    "supports_tools": true,
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "low",
+            "label": "Low",
+            "wire": null
+          },
+          {
+            "value": "medium",
+            "label": "Medium",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          },
+          {
+            "value": "very_high",
+            "label": "XHigh",
+            "wire": null
+          },
+          {
+            "value": "maximum",
+            "label": "Max",
+            "wire": null
+          }
+        ],
+        "default_value": "medium",
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": true,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0.15",
+          "output": "0.6",
+          "cache_read": "0.03",
+          "cache_write": "0",
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "step-5-preview",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1000000,
+    "input_limit": 1000000,
+    "output_limit": 65536,
+    "supports_tools": true,
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "low",
+            "label": "Low",
+            "wire": null
+          },
+          {
+            "value": "medium",
+            "label": "Medium",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          }
+        ],
+        "default_value": "medium",
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": false,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "1",
+          "output": "2.7",
+          "cache_read": "0.1",
+          "cache_write": null,
+          "reasoning": null
+        }
+      ],
+      "source": "models.dev",
+      "revision": "models.dev@2026-11-12",
+      "checked_at": "2026-11-12T10:29:42.620Z"
+    }
+  },
+  {
+    "provider_definition": "opencode-go",
+    "model_name": "step-5-preview-free",
+    "protocol": "openai-chat-completions",
+    "context_limit": 1000000,
+    "input_limit": 1000000,
+    "output_limit": 65536,
+    "supports_tools": true,
+    "input_media": ["text", "image", "video"],
+    "output_media": ["text"],
+    "options": [
+      {
+        "id": "effort",
+        "label": "Effort",
+        "values": [
+          {
+            "value": "low",
+            "label": "Low",
+            "wire": null
+          },
+          {
+            "value": "medium",
+            "label": "Medium",
+            "wire": null
+          },
+          {
+            "value": "high",
+            "label": "High",
+            "wire": null
+          }
+        ],
+        "default_value": "medium",
+        "budget": null
+      }
+    ],
+    "preview": false,
+    "deprecated": true,
+    "source": "release_snapshot",
+    "source_revision": "models.dev@2026-11-12",
+    "checked_at": "2026-11-12T10:29:42.620Z",
+    "received_at": "2026-11-12T10:29:42.620Z",
+    "price_basis": {
+      "currency": "USD",
+      "rates": [
+        {
+          "context_from": null,
+          "context_through": null,
+          "cache_ttl_ms": null,
+          "input": "0",
+          "output": "0",
+          "cache_read": "0",
           "cache_write": null,
           "reasoning": null
         }
@@ -8475,6 +8627,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "aion-labs/aion-2.0",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 32768,
@@ -8510,6 +8663,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "aion-labs/aion-3.0",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 32768,
@@ -8545,6 +8699,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "aion-labs/aion-3.0-mini",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 32768,
@@ -8580,6 +8735,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "aion-labs/aion-3.5",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 32768,
@@ -8639,6 +8795,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "aion-labs/aion-3.5-mini",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 32768,
@@ -8698,6 +8855,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "aion-labs/aion-rp-llama-3.1-8b",
+    "protocol": null,
     "context_limit": 32768,
     "input_limit": 32768,
     "output_limit": 29491,
@@ -8733,6 +8891,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "amazon/nova-2-lite-v1",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 65535,
@@ -8768,6 +8927,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "amazon/nova-lite-v1",
+    "protocol": null,
     "context_limit": 300000,
     "input_limit": 300000,
     "output_limit": 5120,
@@ -8803,6 +8963,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "amazon/nova-micro-v1",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 5120,
@@ -8838,6 +8999,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "amazon/nova-premier-v1",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 32000,
@@ -8873,6 +9035,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "amazon/nova-pro-v1",
+    "protocol": null,
     "context_limit": 300000,
     "input_limit": 300000,
     "output_limit": 5120,
@@ -8908,6 +9071,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "anthracite-org/magnum-v4-72b",
+    "protocol": null,
     "context_limit": 32768,
     "input_limit": 32768,
     "output_limit": 4096,
@@ -8943,6 +9107,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "anthropic/claude-fable-5",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -9012,6 +9177,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "anthropic/claude-fable-5.1",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -9081,6 +9247,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "anthropic/claude-haiku-4.5",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 64000,
@@ -9116,6 +9283,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "anthropic/claude-haiku-5.5",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -9200,6 +9368,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "anthropic/claude-opus-4.1",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 32000,
@@ -9235,6 +9404,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "anthropic/claude-opus-4.5",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 64000,
@@ -9270,6 +9440,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "anthropic/claude-opus-4.6",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -9349,6 +9520,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "anthropic/claude-opus-4.7",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -9433,6 +9605,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "anthropic/claude-opus-4.8",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -9507,6 +9680,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "anthropic/claude-opus-5",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -9581,6 +9755,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "anthropic/claude-opus-5.5",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -9650,6 +9825,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "anthropic/claude-sonnet-4.5",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 64000,
@@ -9695,6 +9871,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "anthropic/claude-sonnet-4.6",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -9774,6 +9951,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "anthropic/claude-sonnet-5",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -9848,6 +10026,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "anthropic/claude-sonnet-5.5",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -9917,6 +10096,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "arcee-ai/trinity-large-thinking",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 80000,
@@ -9952,6 +10132,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "bytedance-seed/seed-1.6",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 32768,
@@ -9997,6 +10178,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "bytedance-seed/seed-1.6-flash",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 32768,
@@ -10042,6 +10224,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "bytedance-seed/seed-2-1-turbo",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -10077,6 +10260,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "bytedance-seed/seed-2.0-code",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 131072,
@@ -10151,6 +10335,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "bytedance-seed/seed-2.0-lite",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 131072,
@@ -10230,6 +10415,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "bytedance-seed/seed-2.0-mini",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 131072,
@@ -10309,6 +10495,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "bytedance/ui-tars-1.5-7b",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 2048,
@@ -10344,6 +10531,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "cognitivecomputations/dolphin-mistral-24b-venice-edition",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 8192,
@@ -10379,6 +10567,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "cohere/command-a",
+    "protocol": null,
     "context_limit": 256000,
     "input_limit": 256000,
     "output_limit": 8192,
@@ -10414,6 +10603,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "cohere/command-a-plus",
+    "protocol": null,
     "context_limit": 192000,
     "input_limit": 192000,
     "output_limit": 64000,
@@ -10449,6 +10639,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "cohere/command-r-08-2024",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 4000,
@@ -10484,6 +10675,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "cohere/command-r-plus-08-2024",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 4000,
@@ -10519,6 +10711,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "cohere/command-r7b-12-2024",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 4000,
@@ -10554,6 +10747,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "cohere/north-mini-code:free",
+    "protocol": null,
     "context_limit": 256000,
     "input_limit": 256000,
     "output_limit": 64000,
@@ -10589,6 +10783,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "deepseek/deepseek-chat",
+    "protocol": null,
     "context_limit": 163840,
     "input_limit": 163840,
     "output_limit": 16384,
@@ -10624,6 +10819,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "deepseek/deepseek-chat-v3-0324",
+    "protocol": null,
     "context_limit": 163840,
     "input_limit": 163840,
     "output_limit": 115200,
@@ -10659,6 +10855,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "deepseek/deepseek-chat-v3.1",
+    "protocol": null,
     "context_limit": 163840,
     "input_limit": 163840,
     "output_limit": 32768,
@@ -10694,6 +10891,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "deepseek/deepseek-r1",
+    "protocol": null,
     "context_limit": 64000,
     "input_limit": 64000,
     "output_limit": 16000,
@@ -10729,6 +10927,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "deepseek/deepseek-r1-0528",
+    "protocol": null,
     "context_limit": 163840,
     "input_limit": 163840,
     "output_limit": 32768,
@@ -10764,6 +10963,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "deepseek/deepseek-v3.1-terminus",
+    "protocol": null,
     "context_limit": 163840,
     "input_limit": 163840,
     "output_limit": 147456,
@@ -10799,6 +10999,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "deepseek/deepseek-v3.2",
+    "protocol": null,
     "context_limit": 163840,
     "input_limit": 163840,
     "output_limit": 65536,
@@ -10834,6 +11035,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "deepseek/deepseek-v3.2-exp",
+    "protocol": null,
     "context_limit": 163840,
     "input_limit": 163840,
     "output_limit": 147456,
@@ -10869,6 +11071,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "deepseek/deepseek-v4-flash",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 943717,
@@ -10928,6 +11131,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "deepseek/deepseek-v4-flash-0731",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 943718,
@@ -10992,6 +11196,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "deepseek/deepseek-v4-flash-vision-exp",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 262144,
@@ -11056,6 +11261,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "deepseek/deepseek-v4-pro",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 384000,
@@ -11115,6 +11321,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "deepseek/deepseek-v4-pro-0813",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 393216,
@@ -11179,6 +11386,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "deepseek/deepseek-v4.1-flash",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 393216,
@@ -11243,6 +11451,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "dots-studio/dots-3-note-preview:free",
+    "protocol": null,
     "context_limit": 512000,
     "input_limit": 512000,
     "output_limit": 460800,
@@ -11278,6 +11487,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "elorian/glimpse",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 256000,
@@ -11313,6 +11523,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "fireworks/ember-1",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 943718,
@@ -11377,6 +11588,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-2.5-flash",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65535,
@@ -11412,6 +11624,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-2.5-flash-image",
+    "protocol": null,
     "context_limit": 32768,
     "input_limit": 32768,
     "output_limit": 8192,
@@ -11447,6 +11660,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-2.5-flash-lite",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65535,
@@ -11482,6 +11696,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-2.5-pro",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -11527,6 +11742,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-2.5-pro-preview",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -11572,6 +11788,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-3-flash-preview",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -11641,6 +11858,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-3-pro-image",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 32768,
@@ -11676,6 +11894,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-3-pro-image-preview",
+    "protocol": null,
     "context_limit": 65536,
     "input_limit": 65536,
     "output_limit": 32768,
@@ -11711,6 +11930,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-3.1-flash-image",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 32768,
@@ -11770,6 +11990,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-3.1-flash-image-preview",
+    "protocol": null,
     "context_limit": 65536,
     "input_limit": 65536,
     "output_limit": 58982,
@@ -11829,6 +12050,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-3.1-flash-lite",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -11898,6 +12120,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-3.1-flash-lite-image",
+    "protocol": null,
     "context_limit": 65536,
     "input_limit": 65536,
     "output_limit": 58982,
@@ -11957,6 +12180,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-3.1-flash-lite-preview",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -12026,6 +12250,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-3.1-pro-preview",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -12095,6 +12320,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-3.1-pro-preview-customtools",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -12164,6 +12390,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-3.5-flash",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -12228,6 +12455,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-3.5-flash-lite",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -12292,6 +12520,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-3.6-flash",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -12356,6 +12585,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-3.7-flash",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -12415,6 +12645,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-3.8-flash",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -12474,6 +12705,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-4-argon",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -12533,6 +12765,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemini-nano-banana-2.1",
+    "protocol": null,
     "context_limit": 65536,
     "input_limit": 65536,
     "output_limit": 58982,
@@ -12592,6 +12825,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemma-2-27b-it",
+    "protocol": null,
     "context_limit": 8192,
     "input_limit": 8192,
     "output_limit": 2048,
@@ -12627,6 +12861,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemma-3-12b-it",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 16384,
@@ -12662,6 +12897,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemma-3-27b-it",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 117964,
@@ -12697,6 +12933,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemma-3-4b-it",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 16384,
@@ -12732,6 +12969,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemma-4-26b-a4b-it",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -12767,6 +13005,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemma-4-26b-a4b-it:free",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 32768,
@@ -12802,6 +13041,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemma-4-31b-it",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 16384,
@@ -12837,6 +13077,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/gemma-4-31b-it:free",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 32768,
@@ -12872,6 +13113,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/lyria-3-clip-preview",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -12907,6 +13149,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "google/lyria-3-pro-preview",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -12942,6 +13185,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "gryphe/mythomax-l2-13b",
+    "protocol": null,
     "context_limit": 8192,
     "input_limit": 8192,
     "output_limit": 3686,
@@ -12977,6 +13221,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "ibm-granite/granite-4.0-h-micro",
+    "protocol": null,
     "context_limit": 131000,
     "input_limit": 131000,
     "output_limit": 117900,
@@ -13012,6 +13257,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "ibm-granite/granite-4.2-8b",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 117964,
@@ -13071,6 +13317,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "inception/mercury-2",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 50000,
@@ -13135,6 +13382,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "inception/mercury-2.5",
+    "protocol": null,
     "context_limit": 260000,
     "input_limit": 260000,
     "output_limit": 65536,
@@ -13199,6 +13447,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "inclusionai/ling-3.0-flash",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 32768,
@@ -13234,6 +13483,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "inclusionai/ling-3.0-flash-vl",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 32768,
@@ -13269,6 +13519,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "inclusionai/ling-3.1-flash",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -13304,6 +13555,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "inference-net/schematron-v2-small",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 4096,
@@ -13339,6 +13591,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "inference-net/schematron-v2-turbo",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 8192,
@@ -13374,6 +13627,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "liquid/lfm-2.5-2.6b:free",
+    "protocol": null,
     "context_limit": 65536,
     "input_limit": 65536,
     "output_limit": 8192,
@@ -13409,6 +13663,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "liquid/lfm-2.5-24b-a2b",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 8192,
@@ -13444,6 +13699,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mancer/weaver",
+    "protocol": null,
     "context_limit": 8000,
     "input_limit": 8000,
     "output_limit": 6000,
@@ -13479,6 +13735,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "meituan/longcat-2.0",
+    "protocol": null,
     "context_limit": 1048756,
     "input_limit": 1048756,
     "output_limit": 262144,
@@ -13514,6 +13771,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "meta-llama/llama-3.1-70b-instruct",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 16384,
@@ -13549,6 +13807,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "meta-llama/llama-3.1-8b-instruct",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 117964,
@@ -13584,6 +13843,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "meta-llama/llama-3.2-1b-instruct",
+    "protocol": null,
     "context_limit": 60000,
     "input_limit": 60000,
     "output_limit": 54000,
@@ -13619,6 +13879,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "meta-llama/llama-3.2-3b-instruct",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 117964,
@@ -13654,6 +13915,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "meta-llama/llama-3.3-70b-instruct",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 16384,
@@ -13689,6 +13951,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "meta-llama/llama-4-maverick",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 16384,
@@ -13724,6 +13987,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "meta-llama/llama-4-scout",
+    "protocol": null,
     "context_limit": 1310720,
     "input_limit": 1310720,
     "output_limit": 16384,
@@ -13759,6 +14023,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "meta-llama/llama-guard-4-12b",
+    "protocol": null,
     "context_limit": 163840,
     "input_limit": 163840,
     "output_limit": 16384,
@@ -13794,6 +14059,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "meta/muse-glimmer-30b",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 16384,
@@ -13858,6 +14124,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "meta/muse-spark-1.1",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 943718,
@@ -13927,6 +14194,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "meta/muse-spark-1.2",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 943718,
@@ -13996,6 +14264,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "meta/muse-spark-1.2-contributor",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 943718,
@@ -14065,6 +14334,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "meta/muse-spark-1.3",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 943718,
@@ -14139,6 +14409,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "meta/muse-spark-1.3-contributor",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 943718,
@@ -14213,6 +14484,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "meta/muse-spark-open",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 943718,
@@ -14277,6 +14549,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "meta/muse-wonder",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 943718,
@@ -14351,6 +14624,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "microsoft/phi-4",
+    "protocol": null,
     "context_limit": 16384,
     "input_limit": 16384,
     "output_limit": 14745,
@@ -14386,6 +14660,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "microsoft/wizardlm-2-8x22b",
+    "protocol": null,
     "context_limit": 65535,
     "input_limit": 65535,
     "output_limit": 8000,
@@ -14421,6 +14696,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "minimax/minimax-01",
+    "protocol": null,
     "context_limit": 1000192,
     "input_limit": 1000192,
     "output_limit": 40000,
@@ -14456,6 +14732,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "minimax/minimax-m1",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 40000,
@@ -14491,6 +14768,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "minimax/minimax-m2",
+    "protocol": null,
     "context_limit": 204800,
     "input_limit": 204800,
     "output_limit": 131072,
@@ -14526,6 +14804,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "minimax/minimax-m2-her",
+    "protocol": null,
     "context_limit": 65536,
     "input_limit": 65536,
     "output_limit": 2048,
@@ -14561,6 +14840,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "minimax/minimax-m2.1",
+    "protocol": null,
     "context_limit": 204800,
     "input_limit": 204800,
     "output_limit": 131072,
@@ -14596,6 +14876,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "minimax/minimax-m2.5",
+    "protocol": null,
     "context_limit": 204800,
     "input_limit": 204800,
     "output_limit": 32768,
@@ -14631,6 +14912,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "minimax/minimax-m2.7",
+    "protocol": null,
     "context_limit": 204800,
     "input_limit": 204800,
     "output_limit": 131072,
@@ -14666,6 +14948,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "minimax/minimax-m3",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 512000,
@@ -14701,6 +14984,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/codestral-2508",
+    "protocol": null,
     "context_limit": 256000,
     "input_limit": 256000,
     "output_limit": 204800,
@@ -14736,6 +15020,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/devstral-2512",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 209715,
@@ -14771,6 +15056,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/ministral-14b-2512",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 209715,
@@ -14806,6 +15092,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/ministral-3b-2512",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 104857,
@@ -14841,6 +15128,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/ministral-8b-2512",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 209715,
@@ -14876,6 +15164,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/mistral-large",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 102400,
@@ -14911,6 +15200,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/mistral-large-2407",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 104857,
@@ -14946,6 +15236,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/mistral-large-2512",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 209715,
@@ -14981,6 +15272,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/mistral-large-4-0",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 262144,
@@ -15035,6 +15327,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/mistral-medium-3",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 104857,
@@ -15070,6 +15363,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/mistral-medium-3-5",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 209715,
@@ -15124,6 +15418,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/mistral-medium-3.1",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 104857,
@@ -15159,6 +15454,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/mistral-nemo",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 16384,
@@ -15194,6 +15490,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/mistral-saba",
+    "protocol": null,
     "context_limit": 32768,
     "input_limit": 32768,
     "output_limit": 26214,
@@ -15229,6 +15526,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/mistral-small-24b-instruct-2501",
+    "protocol": null,
     "context_limit": 32768,
     "input_limit": 32768,
     "output_limit": 16384,
@@ -15264,6 +15562,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/mistral-small-2603",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 209715,
@@ -15318,6 +15617,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/mistral-small-3.1-24b-instruct",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 102400,
@@ -15353,6 +15653,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/mistral-small-3.2-24b-instruct",
+    "protocol": null,
     "context_limit": 256000,
     "input_limit": 256000,
     "output_limit": 16384,
@@ -15388,6 +15689,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/mixtral-8x22b-instruct",
+    "protocol": null,
     "context_limit": 65536,
     "input_limit": 65536,
     "output_limit": 52428,
@@ -15423,6 +15725,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "mistralai/voxtral-small-24b-2507",
+    "protocol": null,
     "context_limit": 32768,
     "input_limit": 32768,
     "output_limit": 26214,
@@ -15458,6 +15761,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "moondream/moondream3-preview",
+    "protocol": null,
     "context_limit": 32000,
     "input_limit": 32000,
     "output_limit": 4096,
@@ -15493,6 +15797,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "moondream/moondream3.1-9b-a2b",
+    "protocol": null,
     "context_limit": 32000,
     "input_limit": 32000,
     "output_limit": 4096,
@@ -15528,6 +15833,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "moonshotai/kimi-k2",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 98304,
@@ -15563,6 +15869,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "moonshotai/kimi-k2-0905",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 98304,
@@ -15598,6 +15905,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "moonshotai/kimi-k2-thinking",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 98304,
@@ -15633,6 +15941,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "moonshotai/kimi-k2.5",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -15668,6 +15977,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "moonshotai/kimi-k2.6",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -15703,6 +16013,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "moonshotai/kimi-k2.7-code",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -15738,6 +16049,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "moonshotai/kimi-k3",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 943718,
@@ -15802,6 +16114,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "morph/morph-v3-fast",
+    "protocol": null,
     "context_limit": 81920,
     "input_limit": 81920,
     "output_limit": 38000,
@@ -15837,6 +16150,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "morph/morph-v3-large",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 131072,
@@ -15872,6 +16186,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "nex-agi/nex-n2.5-mini",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -15931,6 +16246,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "nex-agi/nex-n2.5-pro",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -15990,6 +16306,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "nousresearch/hermes-3-llama-3.1-405b",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 16384,
@@ -16025,6 +16342,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "nousresearch/hermes-3-llama-3.1-70b",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 16384,
@@ -16060,6 +16378,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "nousresearch/hermes-4-405b",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 117964,
@@ -16095,6 +16414,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "nvidia/nemotron-3-nano-30b-a3b",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -16130,6 +16450,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "protocol": null,
     "context_limit": 256000,
     "input_limit": 256000,
     "output_limit": 65536,
@@ -16165,6 +16486,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "nvidia/nemotron-3-super-120b-a12b",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -16224,6 +16546,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "nvidia/nemotron-3-super-120b-a12b:free",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -16283,6 +16606,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "nvidia/nemotron-3-ultra-550b-a55b",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 182520,
@@ -16342,6 +16666,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 65536,
@@ -16401,6 +16726,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "nvidia/nemotron-3.5-content-safety",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 117964,
@@ -16436,6 +16762,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "nvidia/nemotron-3.5-content-safety:free",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 8192,
@@ -16471,6 +16798,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "nvidia/nemotron-3.5-lightning",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -16506,6 +16834,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "nvidia/nemotron-3.5-lightning:free",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 65536,
@@ -16541,6 +16870,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "nvidia/nemotron-3.5-super-vl",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 235929,
@@ -16576,6 +16906,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "nvidia/nemotron-3.5-super-vl:free",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 131072,
@@ -16611,6 +16942,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-3.5-turbo",
+    "protocol": null,
     "context_limit": 16385,
     "input_limit": 16385,
     "output_limit": 4096,
@@ -16646,6 +16978,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-3.5-turbo-0613",
+    "protocol": null,
     "context_limit": 4095,
     "input_limit": 4095,
     "output_limit": 3685,
@@ -16681,6 +17014,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-3.5-turbo-16k",
+    "protocol": null,
     "context_limit": 16385,
     "input_limit": 16385,
     "output_limit": 4096,
@@ -16716,6 +17050,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-3.5-turbo-instruct",
+    "protocol": null,
     "context_limit": 4095,
     "input_limit": 4095,
     "output_limit": 3685,
@@ -16751,6 +17086,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-4",
+    "protocol": null,
     "context_limit": 8191,
     "input_limit": 8191,
     "output_limit": 4096,
@@ -16786,6 +17122,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-4-turbo",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 4096,
@@ -16821,6 +17158,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-4.1",
+    "protocol": null,
     "context_limit": 1047576,
     "input_limit": 1047576,
     "output_limit": 32768,
@@ -16856,6 +17194,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-4.1-mini",
+    "protocol": null,
     "context_limit": 1047576,
     "input_limit": 1047576,
     "output_limit": 32768,
@@ -16891,6 +17230,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-4.1-nano",
+    "protocol": null,
     "context_limit": 1047576,
     "input_limit": 1047576,
     "output_limit": 32768,
@@ -16926,6 +17266,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-4o",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 16384,
@@ -16961,6 +17302,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-4o-2024-05-13",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 4096,
@@ -16996,6 +17338,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-4o-2024-08-06",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 16384,
@@ -17031,6 +17374,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-4o-2024-11-20",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 16384,
@@ -17066,6 +17410,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-4o-mini",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 16384,
@@ -17101,6 +17446,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-4o-mini-2024-07-18",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 16384,
@@ -17136,6 +17482,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -17200,6 +17547,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5-image",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 400000,
     "output_limit": 128000,
@@ -17235,6 +17583,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5-image-mini",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 400000,
     "output_limit": 128000,
@@ -17270,6 +17619,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5-mini",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -17334,6 +17684,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5-nano",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -17398,6 +17749,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5-pro",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -17447,6 +17799,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.1",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -17511,6 +17864,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.1-codex",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -17570,6 +17924,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.1-codex-max",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -17634,6 +17989,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.1-codex-mini",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -17693,6 +18049,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.2",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -17762,6 +18119,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.2-chat",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 32000,
@@ -17797,6 +18155,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.2-codex",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -17861,6 +18220,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.2-pro",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -17920,6 +18280,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.3-codex",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -17989,6 +18350,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.4",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -18068,6 +18430,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.4-image-2",
+    "protocol": null,
     "context_limit": 272000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -18137,6 +18500,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.4-mini",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -18206,6 +18570,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.4-nano",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 272000,
     "output_limit": 128000,
@@ -18275,6 +18640,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.4-pro",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -18344,6 +18710,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.5",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -18423,6 +18790,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.5-pro",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -18492,6 +18860,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.6-luna",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -18576,6 +18945,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.6-luna-pro",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -18660,6 +19030,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.6-sol",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -18744,6 +19115,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.6-sol-pro",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -18828,6 +19200,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.6-terra",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -18912,6 +19285,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-5.6-terra-pro",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -18996,6 +19370,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-6-astra",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -19075,6 +19450,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-6-astra-pro",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 1050000,
     "output_limit": 128000,
@@ -19154,6 +19530,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-6-luna",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -19238,6 +19615,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-6-luna-pro",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 1050000,
     "output_limit": 128000,
@@ -19322,6 +19700,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-6-sol",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -19406,6 +19785,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-6-sol-pro",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 1050000,
     "output_limit": 128000,
@@ -19490,6 +19870,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-6.1-sol",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 922000,
     "output_limit": 128000,
@@ -19569,6 +19950,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-6.1-sol-pro",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 1050000,
     "output_limit": 128000,
@@ -19648,6 +20030,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-audio",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 16384,
@@ -19683,6 +20066,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-audio-mini",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 16384,
@@ -19718,6 +20102,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-chat-latest",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 400000,
     "output_limit": 128000,
@@ -19753,6 +20138,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-oss-120b",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 65536,
@@ -19812,6 +20198,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-oss-20b",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 32768,
@@ -19871,6 +20258,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/gpt-oss-safeguard-20b",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 65536,
@@ -19930,6 +20318,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/o1",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 100000,
@@ -19965,6 +20354,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/o1-pro",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 100000,
@@ -20000,6 +20390,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/o3",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 100000,
@@ -20035,6 +20426,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/o3-mini",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 100000,
@@ -20070,6 +20462,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/o3-mini-high",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 100000,
@@ -20119,6 +20512,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/o3-pro",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 100000,
@@ -20154,6 +20548,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/o4-mini",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 100000,
@@ -20189,6 +20584,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openai/o4-mini-high",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 100000,
@@ -20238,6 +20634,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openrouter/auto",
+    "protocol": null,
     "context_limit": 2000000,
     "input_limit": 2000000,
     "output_limit": 2000000,
@@ -20256,6 +20653,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openrouter/bodybuilder",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 128000,
@@ -20274,6 +20672,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openrouter/free",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 8000,
@@ -20309,6 +20708,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openrouter/fusion",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -20327,6 +20727,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "openrouter/pareto-code",
+    "protocol": null,
     "context_limit": 2000000,
     "input_limit": 2000000,
     "output_limit": 200000,
@@ -20345,6 +20746,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "perceptron/perceptron-mk1",
+    "protocol": null,
     "context_limit": 32768,
     "input_limit": 32768,
     "output_limit": 8192,
@@ -20380,6 +20782,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "perceptron/perceptron-mk1.5",
+    "protocol": null,
     "context_limit": 36864,
     "input_limit": 36864,
     "output_limit": 8192,
@@ -20449,6 +20852,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "perplexity/sonar",
+    "protocol": null,
     "context_limit": 127072,
     "input_limit": 127072,
     "output_limit": 114364,
@@ -20484,6 +20888,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "perplexity/sonar-deep-research",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 115200,
@@ -20519,6 +20924,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "perplexity/sonar-pro",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 8000,
@@ -20554,6 +20960,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "perplexity/sonar-pro-search",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 8000,
@@ -20589,6 +20996,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "perplexity/sonar-reasoning-pro",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 115200,
@@ -20624,6 +21032,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "poolside/laguna-s-2.1",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 131072,
@@ -20659,6 +21068,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "poolside/laguna-s-2.1:free",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 32768,
@@ -20694,6 +21104,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "poolside/laguna-xs-2.1",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 32768,
@@ -20729,6 +21140,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "poolside/laguna-xs-2.1:free",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 32768,
@@ -20764,6 +21176,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "prism-ml/ternary-bonsai-2-27b",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 32768,
@@ -20823,6 +21236,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen-2.5-72b-instruct",
+    "protocol": null,
     "context_limit": 32768,
     "input_limit": 32768,
     "output_limit": 16384,
@@ -20858,6 +21272,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen-2.5-7b-instruct",
+    "protocol": null,
     "context_limit": 32768,
     "input_limit": 32768,
     "output_limit": 29491,
@@ -20893,6 +21308,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen-2.5-coder-32b-instruct",
+    "protocol": null,
     "context_limit": 32768,
     "input_limit": 32768,
     "output_limit": 29491,
@@ -20928,6 +21344,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen-plus",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 32768,
@@ -20973,6 +21390,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen2.5-vl-72b-instruct",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 115200,
@@ -21008,6 +21426,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3-14b",
+    "protocol": null,
     "context_limit": 40960,
     "input_limit": 40960,
     "output_limit": 16384,
@@ -21043,6 +21462,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3-235b-a22b-2507",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 16384,
@@ -21078,6 +21498,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3-235b-a22b-thinking-2507",
+    "protocol": null,
     "context_limit": 128000,
     "input_limit": 128000,
     "output_limit": 16384,
@@ -21113,6 +21534,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3-30b-a3b",
+    "protocol": null,
     "context_limit": 40960,
     "input_limit": 40960,
     "output_limit": 16384,
@@ -21148,6 +21570,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3-30b-a3b-instruct-2507",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -21183,6 +21606,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3-32b",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 16384,
@@ -21218,6 +21642,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3-coder",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 65536,
@@ -21253,6 +21678,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3-coder-30b-a3b-instruct",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -21288,6 +21714,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3-coder-flash",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 65536,
@@ -21343,6 +21770,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3-coder-next",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -21378,6 +21806,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3-next-80b-a3b-instruct",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 16384,
@@ -21413,6 +21842,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3-next-80b-a3b-thinking",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -21448,6 +21878,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3-vl-235b-a22b-instruct",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 32768,
@@ -21483,6 +21914,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3-vl-30b-a3b-instruct",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 16384,
@@ -21518,6 +21950,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3-vl-30b-a3b-thinking",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -21553,6 +21986,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3-vl-8b-instruct",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -21588,6 +22022,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.5-122b-a10b",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 65536,
@@ -21623,6 +22058,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.5-27b",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 81920,
@@ -21658,6 +22094,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.5-35b-a3b",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 16384,
@@ -21693,6 +22130,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.5-397b-a17b",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -21728,6 +22166,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.5-9b",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 32768,
@@ -21763,6 +22202,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.5-flash-02-23",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 65536,
@@ -21798,6 +22238,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.5-plus-02-15",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 65536,
@@ -21843,6 +22284,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.5-plus-20260420",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 65536,
@@ -21888,6 +22330,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.6-27b",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 65536,
@@ -21923,6 +22366,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.6-35b-a3b",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -21958,6 +22402,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.6-flash",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 65536,
@@ -22003,6 +22448,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.6-plus",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 65536,
@@ -22048,6 +22494,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.7-flash",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 991808,
     "output_limit": 65536,
@@ -22103,6 +22550,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.7-max",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 131072,
@@ -22138,6 +22586,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.7-plus",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 131072,
@@ -22183,6 +22632,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.8-2.4t-a95b",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 131072,
@@ -22242,6 +22692,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.8-27b",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 235929,
@@ -22306,6 +22757,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.8-flash",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 131072,
@@ -22341,6 +22793,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.8-max-0902",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 131072,
@@ -22410,6 +22863,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.8-max-prime",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 131072,
@@ -22479,6 +22933,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "qwen/qwen3.8-omni-flash",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 131072,
@@ -22514,6 +22969,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "reflection/beam-1.0-501b-a23b",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 943718,
@@ -22583,6 +23039,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "rekaai/reka-edge",
+    "protocol": null,
     "context_limit": 16384,
     "input_limit": 16384,
     "output_limit": 14745,
@@ -22618,6 +23075,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "rekaai/reka-flash-3",
+    "protocol": null,
     "context_limit": 65536,
     "input_limit": 65536,
     "output_limit": 58982,
@@ -22653,6 +23111,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "relace/relace-apply-3",
+    "protocol": null,
     "context_limit": 256000,
     "input_limit": 256000,
     "output_limit": 128000,
@@ -22688,6 +23147,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "relace/relace-search",
+    "protocol": null,
     "context_limit": 256000,
     "input_limit": 256000,
     "output_limit": 128000,
@@ -22723,6 +23183,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "sakana/fugu-max",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -22782,6 +23243,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "sakana/fugu-ultra",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -22851,6 +23313,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "sakana/fugu-ultra-v2",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -22920,6 +23383,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "sakana/sakana-namazu",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 65536,
@@ -22974,6 +23438,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "sao10k/l3-lunaris-8b",
+    "protocol": null,
     "context_limit": 8192,
     "input_limit": 8192,
     "output_limit": 7372,
@@ -23009,6 +23474,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "sao10k/l3.1-euryale-70b",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 16384,
@@ -23044,6 +23510,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "sao10k/l3.3-euryale-70b",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 16384,
@@ -23079,6 +23546,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "scaledown/extract",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 900000,
@@ -23114,6 +23582,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "scaledown/summarize",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 4000,
@@ -23149,6 +23618,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "stepfun/step-3.5-flash",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 65536,
@@ -23184,6 +23654,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "stepfun/step-3.7-flash",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 256000,
     "output_limit": 230400,
@@ -23243,6 +23714,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "stepfun/step-5-preview",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1000000,
     "output_limit": 64000,
@@ -23302,6 +23774,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "tencent/hunyuan-a13b-instruct",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 117964,
@@ -23337,6 +23810,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "tencent/hy-mt2-1.8b",
+    "protocol": null,
     "context_limit": 8192,
     "input_limit": 8192,
     "output_limit": 4096,
@@ -23372,6 +23846,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "tencent/hy-mt2-30b-a3b",
+    "protocol": null,
     "context_limit": 8192,
     "input_limit": 8192,
     "output_limit": 4096,
@@ -23407,6 +23882,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "tencent/hy-mt2-7b",
+    "protocol": null,
     "context_limit": 8192,
     "input_limit": 8192,
     "output_limit": 4096,
@@ -23442,6 +23918,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "tencent/hy3",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 192000,
     "output_limit": 128000,
@@ -23501,6 +23978,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "tencent/hy3-preview",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -23560,6 +24038,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "tencent/hy4-preview",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 64000,
@@ -23619,6 +24098,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "thedrummer/cydonia-24b-v4.1",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 117964,
@@ -23654,6 +24134,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "thedrummer/skyfall-36b-v2",
+    "protocol": null,
     "context_limit": 32768,
     "input_limit": 32768,
     "output_limit": 29491,
@@ -23689,6 +24170,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "thedrummer/unslopnemo-12b",
+    "protocol": null,
     "context_limit": 1024000,
     "input_limit": 1024000,
     "output_limit": 819200,
@@ -23724,6 +24206,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "thinkingmachines/inkling",
+    "protocol": null,
     "context_limit": 524288,
     "input_limit": 524288,
     "output_limit": 471859,
@@ -23798,6 +24281,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "thinkingmachines/inkling-small",
+    "protocol": null,
     "context_limit": 524288,
     "input_limit": 524288,
     "output_limit": 262144,
@@ -23872,6 +24356,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "thinkingmachines/inkling-small:free",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 262144,
@@ -23946,6 +24431,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "thinkingmachines/inkling:free",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 262144,
@@ -24020,6 +24506,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "unbiased/pareto-26.9",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 131072,
@@ -24055,6 +24542,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "undi95/remm-slerp-l2-13b",
+    "protocol": null,
     "context_limit": 6144,
     "input_limit": 6144,
     "output_limit": 5529,
@@ -24090,6 +24578,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "upstage/solar-mini4",
+    "protocol": null,
     "context_limit": 524288,
     "input_limit": 524288,
     "output_limit": 131072,
@@ -24169,6 +24658,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "upstage/solar-pro-3",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 117964,
@@ -24238,6 +24728,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "upstage/solar-pro4",
+    "protocol": null,
     "context_limit": 524288,
     "input_limit": 524288,
     "output_limit": 131072,
@@ -24317,6 +24808,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "writer/palmyra-x5",
+    "protocol": null,
     "context_limit": 1040000,
     "input_limit": 1040000,
     "output_limit": 8192,
@@ -24352,6 +24844,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "x-ai/grok-4.20",
+    "protocol": null,
     "context_limit": 2000000,
     "input_limit": 2000000,
     "output_limit": 1800000,
@@ -24397,6 +24890,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "x-ai/grok-4.20-multi-agent",
+    "protocol": null,
     "context_limit": 2000000,
     "input_limit": 2000000,
     "output_limit": 1800000,
@@ -24471,6 +24965,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "x-ai/grok-4.3",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 900000,
@@ -24545,6 +25040,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "x-ai/grok-4.5",
+    "protocol": null,
     "context_limit": 500000,
     "input_limit": 500000,
     "output_limit": 450000,
@@ -24614,6 +25110,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "x-ai/grok-4.6",
+    "protocol": null,
     "context_limit": 500000,
     "input_limit": 500000,
     "output_limit": 450000,
@@ -24688,6 +25185,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "x-ai/grok-4.7",
+    "protocol": null,
     "context_limit": 500000,
     "input_limit": 500000,
     "output_limit": 450000,
@@ -24762,6 +25260,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "x-ai/grok-build-0.1",
+    "protocol": null,
     "context_limit": 256000,
     "input_limit": 256000,
     "output_limit": 230400,
@@ -24807,6 +25306,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "xiaomi/mimo-v2.5",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 1050000,
     "output_limit": 131072,
@@ -24842,6 +25342,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "xiaomi/mimo-v2.5-pro",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 1050000,
     "output_limit": 131072,
@@ -24877,6 +25378,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "xiaomi/mimo-v2.6-flash",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 1050000,
     "output_limit": 131072,
@@ -24912,6 +25414,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "xiaomi/mimo-v2.6-pro",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 1050000,
     "output_limit": 131072,
@@ -24947,6 +25450,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "xiaomi/mimo-v2.6-pro-ultraspeed",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 131072,
@@ -24982,6 +25486,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "xingchen-agi/xing4.0-29b-a4b:free",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 235929,
@@ -25017,6 +25522,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "z-ai/glm-4.5",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 98304,
@@ -25052,6 +25558,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "z-ai/glm-4.5-air",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 98304,
@@ -25087,6 +25594,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "z-ai/glm-4.5v",
+    "protocol": null,
     "context_limit": 65536,
     "input_limit": 65536,
     "output_limit": 16384,
@@ -25122,6 +25630,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "z-ai/glm-4.6",
+    "protocol": null,
     "context_limit": 204800,
     "input_limit": 204800,
     "output_limit": 131072,
@@ -25157,6 +25666,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "z-ai/glm-4.6v",
+    "protocol": null,
     "context_limit": 131072,
     "input_limit": 131072,
     "output_limit": 32768,
@@ -25192,6 +25702,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "z-ai/glm-4.7",
+    "protocol": null,
     "context_limit": 204800,
     "input_limit": 204800,
     "output_limit": 131072,
@@ -25227,6 +25738,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "z-ai/glm-4.7-flash",
+    "protocol": null,
     "context_limit": 200000,
     "input_limit": 200000,
     "output_limit": 117964,
@@ -25262,6 +25774,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "z-ai/glm-5",
+    "protocol": null,
     "context_limit": 204800,
     "input_limit": 204800,
     "output_limit": 131072,
@@ -25297,6 +25810,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "z-ai/glm-5-turbo",
+    "protocol": null,
     "context_limit": 202752,
     "input_limit": 202752,
     "output_limit": 131072,
@@ -25332,6 +25846,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "z-ai/glm-5.1",
+    "protocol": null,
     "context_limit": 204800,
     "input_limit": 204800,
     "output_limit": 128000,
@@ -25367,6 +25882,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "z-ai/glm-5.2",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 943718,
@@ -25426,6 +25942,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "z-ai/glm-5.3",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 943718,
@@ -25485,6 +26002,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "z-ai/glm-5.3-flash",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 131072,
@@ -25544,6 +26062,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "z-ai/glm-5.3-flashx",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 131072,
@@ -25603,6 +26122,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "z-ai/glm-5.3-prime",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 131072,
@@ -25662,6 +26182,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "z-ai/glm-5v-turbo",
+    "protocol": null,
     "context_limit": 202752,
     "input_limit": 202752,
     "output_limit": 131072,
@@ -25697,6 +26218,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~anthropic/claude-fable-latest",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -25766,6 +26288,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~anthropic/claude-haiku-latest",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -25850,6 +26373,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~anthropic/claude-opus-latest",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -25919,6 +26443,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~anthropic/claude-sonnet-latest",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 128000,
@@ -25988,6 +26513,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~deepseek/deepseek-flash-latest",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 943718,
@@ -26052,6 +26578,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~deepseek/deepseek-pro-latest",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 393216,
@@ -26116,6 +26643,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~deepseek/deepseek-v4-flash-latest",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 943718,
@@ -26180,6 +26708,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~google/gemini-flash-latest",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -26239,6 +26768,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~google/gemini-pro-latest",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 65536,
@@ -26308,6 +26838,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~moonshotai/kimi-latest",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 943718,
@@ -26372,6 +26903,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~openai/gpt-astra-latest",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 1050000,
     "output_limit": 128000,
@@ -26451,6 +26983,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~openai/gpt-luna-latest",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 1050000,
     "output_limit": 128000,
@@ -26535,6 +27068,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~openai/gpt-mini-latest",
+    "protocol": null,
     "context_limit": 400000,
     "input_limit": 400000,
     "output_limit": 128000,
@@ -26604,6 +27138,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~openai/gpt-sol-latest",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 1050000,
     "output_limit": 128000,
@@ -26683,6 +27218,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~openai/gpt-terra-latest",
+    "protocol": null,
     "context_limit": 1050000,
     "input_limit": 1050000,
     "output_limit": 128000,
@@ -26767,6 +27303,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~unbiased/pareto-latest",
+    "protocol": null,
     "context_limit": 262144,
     "input_limit": 262144,
     "output_limit": 131072,
@@ -26802,6 +27339,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~x-ai/grok-latest",
+    "protocol": null,
     "context_limit": 500000,
     "input_limit": 500000,
     "output_limit": 450000,
@@ -26876,6 +27414,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~z-ai/glm-flash-latest",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 131072,
@@ -26935,6 +27474,7 @@
   {
     "provider_definition": "openrouter",
     "model_name": "~z-ai/glm-latest",
+    "protocol": null,
     "context_limit": 1048576,
     "input_limit": 1048576,
     "output_limit": 131072,
@@ -26994,6 +27534,7 @@
   {
     "provider_definition": "xai",
     "model_name": "grok-4.20-0309-non-reasoning",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 30000,
@@ -27039,6 +27580,7 @@
   {
     "provider_definition": "xai",
     "model_name": "grok-4.20-0309-reasoning",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 30000,
@@ -27084,6 +27626,7 @@
   {
     "provider_definition": "xai",
     "model_name": "grok-4.20-multi-agent-0309",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 30000,
@@ -27158,6 +27701,7 @@
   {
     "provider_definition": "xai",
     "model_name": "grok-4.3",
+    "protocol": null,
     "context_limit": 1000000,
     "input_limit": 1000000,
     "output_limit": 30000,
@@ -27232,6 +27776,7 @@
   {
     "provider_definition": "xai",
     "model_name": "grok-4.5",
+    "protocol": null,
     "context_limit": 500000,
     "input_limit": 500000,
     "output_limit": 500000,
@@ -27301,6 +27846,7 @@
   {
     "provider_definition": "xai",
     "model_name": "grok-4.6",
+    "protocol": null,
     "context_limit": 500000,
     "input_limit": 500000,
     "output_limit": 500000,
@@ -27375,6 +27921,7 @@
   {
     "provider_definition": "xai",
     "model_name": "grok-4.7",
+    "protocol": null,
     "context_limit": 500000,
     "input_limit": 500000,
     "output_limit": 500000,
@@ -27449,6 +27996,7 @@
   {
     "provider_definition": "xai",
     "model_name": "grok-build-0.1",
+    "protocol": null,
     "context_limit": 256000,
     "input_limit": 256000,
     "output_limit": 256000,

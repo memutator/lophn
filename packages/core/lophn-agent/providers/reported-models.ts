@@ -6,7 +6,10 @@ import {
 } from "../../../protocol/lophn-agent/mod.ts";
 import { CLAUDE_OAUTH_BETA } from "./adapters/claude-code.ts";
 import { codexModelsHeaders, codexModelsUrl } from "./adapters/codex.ts";
-import { OPENCODE_GO_MODELS_URL } from "./adapters/opencode-go.ts";
+import {
+  OPENCODE_GO_CLIENT,
+  OPENCODE_GO_DEFINITION,
+} from "./adapters/opencode-go.ts";
 import { builtinProviderDefinition } from "./definitions.ts";
 import type { IssuerFetch } from "./issuer-http.ts";
 import { readAntigravityModels } from "./oauth-antigravity.ts";
@@ -120,20 +123,14 @@ function chatOnly(models: string[] | null): string[] | null {
 // gateway가 client를 알아보게 하는 User-Agent다. OpenCode Go는 SDK 기본 User-Agent를 403으로 막는다.
 const OPENCODE_GO_LIST_HEADERS: Readonly<Record<string, string>> = {
   accept: "application/json",
-  "user-agent": "lophn",
+  "user-agent": OPENCODE_GO_CLIENT,
 };
 
-// OpenCode Go 정의 key → 그 정의가 부르는 gateway wire. model 목록은 셋이 같은 OpenAI base 하나에서 읽고
-// 각 model의 `api` 객체가 어느 wire인지 알려 주므로, 그 정의의 wire만 남긴다. gateway의 Anthropic 쪽 목록
-// (`/go/anthropic/v1/models`)은 family를 싣지 않아 셋을 가를 수 없다.
-const OPENCODE_GO_WIRES: Readonly<Record<string, string>> = {
-  "opencode-go-chat": "chat-completions",
-  "opencode-go-responses": "responses",
-  "opencode-go-messages": "messages",
-};
+// OpenCode Go 목록(OpenAI base)은 model마다 `api` 객체에 native wire를 싣는다. lophn이 부를 수 있는 wire의 model만
+// 남긴다(generateContent만 있는 Gemini는 뺀다). `api`가 없으면 어느 wire인지 모르므로 버린다.
+const OPENCODE_GO_WIRES = ["chat-completions", "responses", "messages"];
 
-// 이 정의의 wire에 속한 model 이름만 고른다. `api`가 없으면 어느 wire인지 모르므로 버린다.
-function opencodeGoModels(body: string, wire: string): string[] | null {
+function opencodeGoModels(body: string): string[] | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(body);
@@ -150,7 +147,8 @@ function opencodeGoModels(body: string, wire: string): string[] | null {
     if (!("api" in item) || typeof item.api !== "object" || item.api === null) {
       continue;
     }
-    if (!Object.hasOwn(item.api, wire)) continue;
+    const api = item.api;
+    if (!OPENCODE_GO_WIRES.some((wire) => Object.hasOwn(api, wire))) continue;
     names.add(item.id);
   }
   return names.size === 0 ? null : [...names].sort();
@@ -190,20 +188,18 @@ async function readBuiltinModels(
         roster?.models.map((id) => id.replace(/^models\//, "")) ?? null,
       );
     }
-    default: {
-      const wire = OPENCODE_GO_WIRES[target.definition.key];
-      if (wire === undefined) {
-        const roster = await readReportedRoster(http, endpoint, access);
-        return chatOnly(roster?.models ?? null);
-      }
-      // 셋은 family를 싣는 OpenAI base의 목록 하나를 읽는다. Anthropic base의 목록은 wire를 알려 주지 않는다.
-      const response = await readModelsBody(
+    case OPENCODE_GO_DEFINITION: {
+      const body = await readModelsBody(
         http,
-        OPENCODE_GO_MODELS_URL,
+        endpoint,
         access,
         OPENCODE_GO_LIST_HEADERS,
       );
-      return response === null ? null : opencodeGoModels(response, wire);
+      return body === null ? null : opencodeGoModels(body);
+    }
+    default: {
+      const roster = await readReportedRoster(http, endpoint, access);
+      return chatOnly(roster?.models ?? null);
     }
   }
 }
@@ -245,7 +241,7 @@ async function readModelsBody(
   }
 }
 
-// 몸통에서 model 이름과 한도를 읽는다. OpenCode Go만 본문을 wire로 거르므로 readModelsBody를 따로 쓴다.
+// 몸통에서 model 이름과 한도를 읽는다. OpenCode Go는 본문을 wire로 거르므로 readModelsBody를 따로 쓴다.
 export async function readReportedRoster(
   http: IssuerFetch,
   endpoint: string,

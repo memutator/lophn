@@ -20,6 +20,7 @@ export function userEntryOf(
   return {
     provider_definition: record.provider_definition,
     model_name: record.model_name,
+    protocol: base?.protocol ?? null,
     context_limit: info.context_limit ?? base?.context_limit ?? null,
     input_limit: info.input_limit ?? base?.input_limit ?? null,
     output_limit: info.output_limit ?? base?.output_limit ?? null,

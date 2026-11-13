@@ -37,10 +37,7 @@ import {
   cloudCodeShape,
 } from "../providers/adapters/cloud-code.ts";
 import { codexShape } from "../providers/adapters/codex.ts";
-import {
-  isOpenCodeGoDefinition,
-  opencodeGoShape,
-} from "../providers/adapters/opencode-go.ts";
+import { opencodeGoShape } from "../providers/adapters/opencode-go.ts";
 import { secretDestinationOf } from "../../../protocol/secrets/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import {
@@ -71,6 +68,7 @@ function unlistedEntry(
   return {
     provider_definition: definition,
     model_name: selection.model_name,
+    protocol: null,
     context_limit: null,
     input_limit: null,
     output_limit: null,
@@ -151,11 +149,10 @@ export function createModelResolver(deps: ModelResolverDeps) {
         context: {} as never,
         use: { name: credential.secret_ref.name, destination },
         operation: "model.call",
-        // OAuth access token은 Bearer다. API key는 protocol이 정한다: Anthropic은 x-api-key, OpenAI 계열은 Bearer다.
-        // OpenCode Go gateway는 wire와 상관없이 Bearer 하나를 문서에 두므로 Messages wire도 Bearer다.
+        // OAuth access token은 Bearer다. API key는 provider의 protocol이 정한다: Anthropic은 x-api-key, OpenAI 계열은
+        // Bearer다. model마다 wire가 다른 gateway(OpenCode Go)도 key는 provider의 방식 하나로 받는다.
         ...(credential.kind === "api_key" &&
-        provider.protocol === "anthropic-messages" &&
-        !isOpenCodeGoDefinition(provider.definition.key)
+        provider.protocol === "anthropic-messages"
           ? { headerName: "x-api-key", kind: "api_key" as AuthKind }
           : { headerName: "authorization", kind: "bearer" as AuthKind }),
       });
@@ -225,9 +222,15 @@ export function createModelResolver(deps: ModelResolverDeps) {
       unlisted ? UNLISTED_LIMITS : undefined,
     );
     if (!resolved.ok) return resolved;
+    // 닿는 wire는 model이 정한다. catalog 항목이 wire를 모르거나 정의가 받지 않는 wire면 provider의 protocol이다.
+    const protocol =
+      entry.protocol !== null &&
+      provider.definition.protocols.includes(entry.protocol)
+        ? entry.protocol
+        : provider.protocol;
     // default를 채운 option 값을 호출 형식의 표로 옮긴다. 표에 없는 값은 가까운 값으로 바꾸지 않고 실패한다.
     const wire = translateOptions({
-      protocol: provider.protocol,
+      protocol,
       entry,
       option_values: resolved.value.option_values,
     });
@@ -237,7 +240,7 @@ export function createModelResolver(deps: ModelResolverDeps) {
       | { budget_tokens?: unknown }
       | undefined;
     const thinkingBudget =
-      provider.protocol === "anthropic-messages" &&
+      protocol === "anthropic-messages" &&
       typeof thinking?.budget_tokens === "number"
         ? thinking.budget_tokens
         : 0;
@@ -258,7 +261,7 @@ export function createModelResolver(deps: ModelResolverDeps) {
     const codex =
       credential.kind === "oauth" &&
       provider.definition.oauth?.product === "chatgpt";
-    const cloudCode = provider.protocol === "cloud-code-assist";
+    const cloudCode = protocol === "cloud-code-assist";
     const project = credential.account?.project_id ?? null;
     if (cloudCode && project === null) {
       return err({
@@ -267,11 +270,8 @@ export function createModelResolver(deps: ModelResolverDeps) {
       });
     }
     const platform = deps.host ?? claudeHostOf(process.platform, process.arch);
-    // OpenCode Go gateway는 대화 header와 자기 User-Agent를 요구한다. wire는 정의가 정한다.
-    const gatewayShape = opencodeGoShape(
-      provider.definition.key,
-      provider.protocol,
-    );
+    // OpenCode Go gateway는 대화 header와 자기 User-Agent를 요구한다. 경로는 model의 wire가 정한다.
+    const gatewayShape = opencodeGoShape(provider.definition.key, protocol);
     const invoke = createInvokeModelCall({
       transport: withRequestHeaders(transport, optionHeaders),
       nowMs,
@@ -311,21 +311,21 @@ export function createModelResolver(deps: ModelResolverDeps) {
     const requestPatch = limits.request_patch;
     const images = limits.input_media.includes("image");
     const pack =
-      provider.protocol === "anthropic-messages"
+      protocol === "anthropic-messages"
         ? anthropicPacker({
             model: limits.sent_model_name,
             images,
             maxTokens: cappedOutput(limits),
             requestPatch,
           })
-        : provider.protocol === "openai-responses"
+        : protocol === "openai-responses"
           ? responsesPacker({
               model: limits.sent_model_name,
               images,
               maxTokens: cappedOutput(limits),
               requestPatch,
             })
-          : provider.protocol === "cloud-code-assist"
+          : protocol === "cloud-code-assist"
             ? cloudCodePacker({
                 model: limits.sent_model_name,
                 images,
@@ -342,7 +342,7 @@ export function createModelResolver(deps: ModelResolverDeps) {
     const call: CallModel = {
       provider: selection.provider,
       name: selection.model_name,
-      protocol: provider.protocol,
+      protocol,
       credential_revision:
         credential.kind === "none" ? null : credential.revision,
       // 고른 값과 default를 채운 뒤 요청에 실제로 실은 값을 따로 남긴다.

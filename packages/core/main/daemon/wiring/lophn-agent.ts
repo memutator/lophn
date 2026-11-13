@@ -18,6 +18,7 @@ import {
 import { imageReferenced } from "../../../lophn-agent/session/message-images.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { withProviderLogin } from "../../../lophn-agent/providers/login.ts";
+import { opencodeGoMergeStep } from "./opencode-go-merge.ts";
 import { withProviderModelList } from "../../../lophn-agent/providers/model-list.ts";
 import { createIssuerRequests } from "../../../lophn-agent/issuer-requests.ts";
 import { openCallbackListener } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
@@ -65,6 +66,7 @@ export const lophnAgentProviderLoginWiring: WiringFactory = () => {
   let ending: (() => Promise<void>) | undefined;
   return {
     name: "lophn-agent-provider-login",
+    dataSteps: [opencodeGoMergeStep],
     build(ctx) {
       const requests = createIssuerRequests({
         newId: () => crypto.randomUUID(),

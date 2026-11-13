@@ -237,6 +237,10 @@ files:
     covers: [data-steps-apply:applied, domains-retire:folder-kept]
     note: domains 표와 kinds.sqlite를 거두고 file은 남긴다
 
+  - path: packages/core/main/daemon/wiring/opencode-go-merge_test.ts
+    covers: [data-steps-apply:applied, opencode-go-merge:merged]
+    note: OpenCode Go 옛 provider 셋을 하나로 합치고 선택·켠 model·agent 정의·적은 정보를 남는 provider로 옮긴다
+
   - path: packages/core/main/daemon/wiring/extension-tools_test.ts
     covers: [extension-tool-judge:handed-to-host]
     note: "extension handler의 core 호출 자격 범위와 해제. 호출 자격 발급은 extension-tool-judge:handed-to-host"

@@ -1,5 +1,5 @@
 id: agent-runtime-pipe-backlog
-version: 0.23.50
+version: 0.23.51
 title: 큰 model 요청이 agent runtime을 멈추지 않고, 감독 pipe 쓰기가 깨지면 runtime이 다시 뜬다
 modules: [packages/core/lophn-agent, packages/core/supervision]
 change: |

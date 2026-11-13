@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>맥락 건강</title>
+<meta name="description" content="agent가 읽는 지침·skill·문서가 코드와 어긋나 낡은 맥락으로 일할 위험이 어디에 얼마나 있는지 보인다.">
+<link rel="stylesheet" href="/_lophn/kit.css">
+<script src="/_lophn/kit.js"></script>
+<style>
+  body { margin: 0; background: var(--color-surface-base); color: var(--color-text-primary); font-family: var(--font-sans); font-size: var(--type-body-size); line-height: var(--type-body-line); }
+  .page { padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-8); }
+  .areas { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: var(--space-2); }
+  .area { display: flex; align-items: baseline; gap: var(--space-3); padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border-base); border-radius: var(--radius-md); background: var(--color-surface-subtle); cursor: pointer; text-align: left; font: inherit; color: inherit; }
+  .area:hover { border-color: var(--color-text-muted); }
+  .area .n { font-size: var(--type-title-size); line-height: var(--type-title-line); font-variant-numeric: tabular-nums; min-width: 2ch; }
+  .area .t { flex: 1; }
+  .area .hi { color: var(--status-serious-text, var(--status-critical-text)); font-size: var(--type-small-size); white-space: nowrap; }
+  section { display: flex; flex-direction: column; gap: var(--space-3); scroll-margin-top: var(--space-4); }
+  h2 { margin: 0; font-size: var(--type-title-size); line-height: var(--type-title-line); display: flex; gap: var(--space-2); align-items: baseline; }
+  h2 .c { color: var(--color-text-muted); font-weight: normal; }
+  h3 { margin: var(--space-2) 0 0; font-size: var(--type-body-size); color: var(--color-text-secondary); font-weight: 600; }
+  .lead { margin: 0; color: var(--color-text-secondary); }
+  .rows { list-style: none; margin: 0; padding: 0; border: 1px solid var(--color-border-base); border-radius: var(--radius-md); overflow: hidden; }
+  .row { display: grid; grid-template-columns: auto 1fr; gap: var(--space-1) var(--space-3); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--color-border-base); }
+  .row:first-child { border-top: none; }
+  .dot { width: var(--space-2); height: var(--space-2); border-radius: var(--radius-full); margin-top: var(--space-2); }
+  .dot.high { background: var(--status-serious-marker, var(--status-critical-marker)); }
+  .dot.medium { background: var(--status-warning-marker); }
+  .dot.low { background: var(--color-text-muted); }
+  .dot.info { background: var(--status-good-marker); }
+  .title { font-weight: 500; overflow-wrap: anywhere; }
+  .title .tag { color: var(--color-text-muted); font-weight: normal; margin-left: var(--space-2); font-size: var(--type-small-size); }
+  .detail, .note { grid-column: 2; color: var(--color-text-secondary); font-size: var(--type-small-size); line-height: var(--type-small-line); overflow-wrap: anywhere; }
+  .note { color: var(--color-text-muted); }
+  .checks { grid-column: 2; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--type-small-size); }
+  .checks li { display: flex; gap: var(--space-2); }
+  .ok { color: var(--status-good-text); }
+  .no { color: var(--status-critical-text); }
+  .legend { display: flex; flex-wrap: wrap; gap: var(--space-4); color: var(--color-text-muted); font-size: var(--type-small-size); }
+  .legend span { display: inline-flex; align-items: center; gap: var(--space-2); }
+  .legend .dot { margin-top: 0; }
+  details > summary { cursor: pointer; color: var(--color-text-secondary); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const { h, render, useTabHead, ui } = LophnKit;
+const { StatTile, StatRow } = ui.data;
+
+const LEVEL = { high: "위험 큼", medium: "살펴볼 것", low: "작음", info: "막힘" };
+const fmt = (iso) => {
+  const d = new Date(iso);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+
+function Row({ item }) {
+  return h("li", { className: "row" },
+    h("span", { className: `dot ${item.level}`, "aria-label": LEVEL[item.level] }),
+    h("span", { className: "title" }, item.title, item.unsure ? h("span", { className: "tag" }, "확실하지 않음") : null),
+    item.detail ? h("span", { className: "detail" }, item.detail) : null,
+    item.checks && item.checks.length ? h("ul", { className: "checks" }, item.checks.map((c) =>
+      h("li", { key: c.label }, h("span", { className: c.ok ? "ok" : "no" }, c.ok ? "있음" : "없음"), h("span", null, c.label)))) : null,
+    item.note ? h("span", { className: "note" }, item.note) : null);
+}
+
+function Rows({ items }) {
+  return h("ul", { className: "rows" }, items.map((it, i) => h(Row, { key: i, item: it })));
+}
+
+function Group({ g }) {
+  let body;
+  if (g.subOrder) {
+    const subs = g.subOrder.filter((s) => g.items.some((i) => i.sub === s));
+    body = subs.map((s) => {
+      const items = g.items.filter((i) => i.sub === s);
+      const list = h(Rows, { items });
+      return h("div", { key: s },
+        h("h3", null, `${s} ${items.length}`),
+        items.length > 8 ? h("details", null, h("summary", null, `${items.length}개 펼치기`), list) : list);
+    });
+  } else {
+    body = g.items.length ? h(Rows, { items: g.items }) : h("p", { className: "lead" }, "찾은 것이 없다.");
+  }
+  return h("section", { id: g.id },
+    h("h2", null, g.title, h("span", { className: "c" }, String(g.count))),
+    h("p", { className: "lead" }, g.lead),
+    body);
+}
+
+function Page({ data }) {
+  useTabHead({ status: `${fmt(data.collectedAt)} 수집` }, {});
+  const all = data.groups.flatMap((g) => g.items);
+  const total = data.groups.reduce((n, g) => n + g.count, 0);
+  const high = all.filter((i) => i.level === "high").length;
+  const go = (id) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  return h("main", { className: "page" },
+    h("div", null,
+      h(StatRow, null,
+        h(StatTile, { label: "문제", value: total, unit: "건", locale: "ko" }),
+        h(StatTile, { label: "위험 큼", value: high, unit: "건", locale: "ko" }),
+        h(StatTile, { label: "코드보다 뒤처진 조각", value: data.groups[0].count, unit: "개", locale: "ko" }))),
+    h("div", { className: "areas" }, data.groups.map((g) => {
+      const hi = g.items.filter((i) => i.level === "high").length;
+      return h("button", { key: g.id, className: "area", onClick: () => go(g.id) },
+        h("span", { className: "n" }, String(g.count)),
+        h("span", { className: "t" }, g.title),
+        hi ? h("span", { className: "hi" }, `위험 큼 ${hi}`) : null);
+    })),
+    h("div", { className: "legend" }, ["high", "medium", "low", "info"].map((l) =>
+      h("span", { key: l }, h("span", { className: `dot ${l}` }), LEVEL[l]))),
+    data.groups.map((g) => h(Group, { key: g.id, g })));
+}
+
+fetch("data/latest.json").then((r) => r.json())
+  .then((data) => render(document.getElementById("root"), h(Page, { data })));
+</script>
+</body>
+</html>

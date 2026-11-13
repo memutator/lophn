@@ -1,0 +1,164 @@
+{
+  "issue:model-call-body-capacity-not-enforced": {
+    "basis": "fed5cdef7e4a",
+    "priority": "급함",
+    "urgency": "디스크가 매일 늘고 있다",
+    "subject": "model 호출 원문이 용량 상한 없이 쌓임",
+    "question": "지난 model 호출에 보낸 입력 원문을 얼마나 남길까",
+    "why": "512MB 상한이 실제로는 걸리지 않아 원문이 계속 쌓인다. 12일 만에 710MB를 넘었고 하루 16~227MB씩, 한 달이면 2GB 안팎 늘어난다. 지금은 아무 화면도 이 원문을 읽지 않는다. 남길 범위는 \"그때 model이 무엇을 받았나\"를 나중에 다시 볼 수 있느냐의 문제라 사람이 정한다.",
+    "recommend": "512MB 안에서 오래된 것부터 지운다. 대가: 오래된 호출의 원문은 다시 볼 수 없다.",
+    "details": [
+      { "heading": "고를 수 있는 길", "lines": [
+        "512MB 안에서 오래된 것부터 지운다(추천, 일 중간).",
+        "입력 원문을 아예 저장하지 않는다(일 작음). 최근 호출의 원문도 남지 않는다.",
+        "앞 호출과 달라진 부분만 저장한다(일 큼). 공간은 가장 적게 쓴다."
+      ] }
+    ]
+  },
+  "issue:windows-unsigned-blocked-by-smart-app-control": {
+    "basis": "3bcc1b00e9ad",
+    "priority": "급함",
+    "urgency": "일부 Windows PC에서 아예 실행되지 않는다",
+    "subject": "Windows 11 Smart App Control이 서명 안 한 lophn을 막음",
+    "question": "\"서명한 설치 묶음은 만들지 않는다\"를 Windows만이라도 풀까",
+    "why": "Smart App Control이 켜진 Windows 11에서는 설치한 lophn이 아예 뜨지 않는다. 이 기능은 한 번 끄면 Windows를 초기화해야 다시 켤 수 있어, 사용자에게 끄라고 하기 어렵다. 지금은 서명이 비목표로 정해져 있어 사람이 풀어야 한다.",
+    "recommend": "Windows 묶음에 code signing 인증서로 서명한다. 대가: 인증서 비용과 그 secret 관리. 그 전까지는 설치 안내에 이 PC에서는 돌지 않는다고 적는다.",
+    "details": [
+      { "heading": "고를 수 있는 길", "lines": [
+        "code signing 인증서로 서명한다(추천, 일 중간, 인증서 비용).",
+        "서명은 하지 않고, Smart App Control이 켜진 PC에서는 돌지 않는다고 안내만 한다(일 작음)."
+      ] }
+    ]
+  },
+  "plan:ui-overhaul": {
+    "basis": "b335efa2856b",
+    "priority": "급함",
+    "urgency": "사람 확인 없이 이미 main에 들어간 것으로 보인다",
+    "subject": "UI 개편(모든 workspace가 같은 shell 하나를 씀)",
+    "question": "새 shell을 Electron에서 직접 써 보고 6가지가 괜찮은지 확인",
+    "why": "자동 test와 gallery로만 봤고 사람이 실제 앱에서 조작해 본 적이 없다. 계획은 이 확인 뒤에 main에 올린다고 적었지만, 마무리 작업이 이미 main에 있다. 그러니 이 확인은 올리기 전 관문이 아니라 늦어진 검수다.",
+    "recommend": null,
+    "note": "\"이미 main에 있다\"는 저장소 기록으로 본 추정이다. 계획 문서는 아직 \"main에 올리기 전\"이라고 적고 있다.",
+    "details": [
+      { "heading": "직접 볼 것", "lines": [
+        "layout이 저장되고 다시 열 때 그대로 돌아오는지",
+        "창 떼어 내기와 다시 붙이기: 떼기, 붙이기, 닫기, desk를 바꿀 때 숨었다 다시 열리기, 같은 실행의 터미널이 다시 붙는지",
+        "앱·artifact·browser 화면의 아래 모서리가 둥글게 잘리는지, 묶음 안쪽 모서리",
+        "탭을 끌어 웹 화면 위를 지날 때도 놓을 자리가 보이는지, Esc로 취소되는지",
+        "터미널이나 저장 안 한 파일이 있는 desk를 닫을 때 확인 창이 뜨고, 하나를 거절하면 멈추는지",
+        "앱 release를 바꿀 때 앱 화면이 새로 고쳐지는지"
+      ] },
+      { "heading": "알고 남긴 작은 빈칸(이슈로 올리지 않음)", "lines": [
+        "창 떼어 내기는 project만 된다. Home과 앱은 안 된다.",
+        "Home에는 터미널이 없다.",
+        "앱 workspace에 preview를 live로 올리는 화면이 없다.",
+        "desk 닫기가 중간에 멈춰도 알림이 없다.",
+        "지운 desk에서 닫은 탭은 \"닫은 탭 다시 열기\"에 없다.",
+        "칸 이동 단축키가 Linux 작업 공간 전환 키와 겹칠 수 있다.",
+        "탭을 끄는 동안 탭 줄 끝에서 저절로 scroll하지 않는다.",
+        "묶음 통째로 다른 칸에 끌어 놓을 수 없다."
+      ] }
+    ]
+  },
+  "issue:provider-failure-body-not-kept": {
+    "basis": "1a991ad968b4",
+    "priority": "보통",
+    "urgency": null,
+    "subject": "provider 실패의 응답 본문을 남기지 않음",
+    "question": "원인을 모르는 provider 실패일 때만 응답 본문 앞부분(2 KiB 안팎)을 가려서 남길까",
+    "why": "지금은 실패한 응답 본문을 한 글자도 남기지 않아 원인을 찾으려면 사람의 token으로 다시 호출해야 한다. 본문에는 provider가 되돌려 보낸 API key 조각이 섞일 수 있다. secret을 다루는 규칙을 바꾸는 일이라 사람이 정한다.",
+    "recommend": null,
+    "note": "문서에 agent 추천이 없다. 가린(redaction) 뒤의 위험은 이미 남기는 model 출력과 같다고 적혀 있다."
+  },
+  "plan:browser-vault": {
+    "basis": "e198b897bf94",
+    "priority": "보통",
+    "urgency": null,
+    "subject": "browser 로그인 보관함",
+    "question": "작업이 다 끝났는데 계획이 열린 채다. 닫을까",
+    "why": "다섯 작업이 모두 합쳐졌고 변경 기록도 써졌지만 계획 폴더가 남아 있다. 계획 끝에 \"실제 사이트에 한 번 로그인해 봐 달라\"는 사람 확인이 적혀 있는데, 한 기록이 없다.",
+    "recommend": "실제 사이트 로그인을 한 번 해 보고 닫는다.",
+    "note": "변경 기록이 써진 것은 확인했다. 사람이 로그인을 해 봤는지는 확인하지 못했다.",
+    "details": [
+      { "heading": "닫기 전에 사람이 볼 것", "lines": [
+        "Electron에서 실제 사이트 로그인 하나를 저장하고, agent가 그 로그인으로 채우고, 2단계 인증 코드를 한 번 넣는 데까지"
+      ] }
+    ]
+  },
+  "roadmap:standalone-core": {
+    "basis": "02758ab4226f",
+    "priority": "보통",
+    "urgency": null,
+    "subject": "core가 창 없이 혼자 돎",
+    "question": "core가 창 없이 혼자 도는지 사람이 직접 확인",
+    "why": "작업은 끝났고 Linux에서는 자동 test와 손 확인을 마쳤다. 앱을 끈 뒤의 동작과 macOS·Windows는 아직 아무도 실제로 보지 않았다.",
+    "recommend": null,
+    "details": [
+      { "heading": "직접 볼 것", "lines": [
+        "앱을 끈 뒤에도 켜 둔 job이 도는지, 켜 둔 job이 없으면 10분 뒤 core가 끝나는지",
+        "앱을 다시 켜면 돌던 core에 붙는지",
+        "macOS와 Windows에서도 core를 찾는지"
+      ] }
+    ]
+  },
+  "policy": {
+    "basis": "f55f1e1f18db",
+    "priority": "보통",
+    "urgency": null,
+    "subject": "agent가 어디서 무엇을 하는지 정한 정책 문서",
+    "question": "agent가 써 둔 정책 14줄을 정한 것으로 받을까",
+    "why": "agent가 일을 어디로 넘기고 무엇을 스스로 정하는지 적은 줄들인데, 사람이 확인하지 않아 \"제안\"으로 남아 있다. 이미 이 줄대로 일하는 지침이 있어, 받지 않는 줄은 고쳐야 한다.",
+    "recommend": null,
+    "note": "\"이미 이 줄대로 일한다\"는 지침에서 본 것으로, 줄마다 확인하지는 않았다."
+  },
+  "plan:context-cache": {
+    "basis": "f607f1bc8b4e",
+    "priority": "보통",
+    "urgency": null,
+    "subject": "provider prompt cache를 실제로 맞히게 고치기",
+    "question": "실제 provider로 하는 확인 호출 보류를 풀까",
+    "why": "10월 29일에 사람이 실제 provider 호출 확인을 보류했다. 그래서 Claude 구독의 1시간 cache 작업은 서버가 받아 주는지 모르는 채 막혀 있다. 확인은 사람의 계정으로 몇 번 호출하는 일이다.",
+    "recommend": null,
+    "note": "계획의 나머지 작업이 끝났는지는 확인하지 못했다.",
+    "details": [
+      { "heading": "보류가 풀리면 확인할 것", "lines": [
+        "Claude 구독 호출 한 번이 거절 없이 1시간 cache를 만드는지(이게 되어야 합칠 수 있다)",
+        "Anthropic과 OpenAI에서 이어지는 호출이 cache를 실제로 다시 쓰는지(효과를 재는 것이라 나중에 해도 된다)"
+      ] }
+    ]
+  },
+  "issue:workspace-relay-unused-and-disconnected": {
+    "basis": "339c4d2c246a",
+    "priority": "낮음",
+    "urgency": null,
+    "subject": "agent가 사람 화면을 읽는 반쯤 만든 길",
+    "question": "agent가 사람의 지금 화면을 읽는 기능을 만들 계획이 있는가",
+    "why": "그 기능을 위한 길이 반쯤 만들어져 있지만 아무 데도 이어져 있지 않다. 지금 잃는 사람은 없지만 유지 비용이 계속 든다. 지우면 그 기능을 포기하는 것이라 사람이 정한다.",
+    "recommend": "계획이 없으면 지운다."
+  },
+  "memo": {
+    "basis": "ba9027db2b39",
+    "priority": "낮음",
+    "urgency": null,
+    "subject": "Claude Code·Codex 화면에서 본 문제",
+    "question": "harness GUI 메모 8줄을 이슈로 올릴까",
+    "why": "저장소 맨 위에 적어 둔 메모라 아직 맡은 사람이 없다. 이슈로 올리면 원인과 고칠 길이 붙는다.",
+    "recommend": "이슈로 올린다. 줄마다 재현을 붙여야 해서, 맡기기 전에 뜻이 모호한 줄(\"allowed 화면\")은 사람이 한마디 보탠다.",
+    "details": [
+      { "heading": "공통", "lines": [
+        "Claude Code나 Codex에서 사용자 custom command, skill 같은 것을 보여 줄 방법이 없다"
+      ] },
+      { "heading": "Claude Code", "lines": [
+        "composer에 focus가 없을 때 Esc가 안 먹는다",
+        "GUI에서 resume하면 sub agent가 보낸 메시지가 다 뜬다",
+        "자동 권한 분류기가 편집을 막은 것 같다(스크린샷 있음)"
+      ] },
+      { "heading": "Codex", "lines": [
+        "탭을 바꿀 때 GUI 로딩이 매우 오래 걸린다",
+        "사이드 채팅 기능이 필요하다",
+        "allowed 화면",
+        "full access인데도 계속 권한을 묻는다"
+      ] }
+    ]
+  }
+}

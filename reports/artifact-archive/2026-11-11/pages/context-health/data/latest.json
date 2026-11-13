@@ -1,0 +1,484 @@
+{
+  "collectedAt": "2026-11-11T09:03:27.488Z",
+  "commit": "25edb533d 2026-11-11",
+  "groups": [
+    {
+      "id": "stale",
+      "title": "코드보다 뒤처진 조각",
+      "lead": "최근 commit 30개(파일 203개 변경)에서 기대는 코드가 바뀌었는데 같이 고치지 않은 맥락",
+      "items": [
+        {
+          "title": "AGENTS.md",
+          "detail": "모든 작업에 실리는 저장소 지침. 속도, 위협 원칙, 설계 방향, 문서 표, 코드 규칙, 사람에게 묻는 것.",
+          "note": "바뀐 곳: package.json",
+          "sub": "지침",
+          "level": "high"
+        },
+        {
+          "title": "tools/check.ts",
+          "detail": "바뀐 package만 골라 fmt, lint, deps, source, modules, type check, style, kit, shell(fmt, lint, main, main test), test, token 생성물 비교를 돈다. docs(문서 속 path)와 records(이슈·change-log·architecture 문서 꼴)는 늘 돈다. 끝내기 전에 돌린다. 전체는 check:full.",
+          "note": "바뀐 곳: package.json, tools",
+          "sub": "tool",
+          "level": "medium"
+        },
+        {
+          "title": "tools/doctor",
+          "detail": "개발 환경을 스스로 진단한다. Node·npm·git·Electron·sandbox, .env, telemetry env, dependency·binary, dev data root·port, core /readyz, 바깥 연결을 보고, --fix로 안전한 것만 고친다.",
+          "note": "바뀐 곳: package.json, package-lock.json",
+          "sub": "tool",
+          "level": "medium"
+        },
+        {
+          "title": "project-docs/products/AGENT.md",
+          "detail": "lophn 제품 안의 agent와 workspace, workspace마다의 책임, session 사이 call과 사람에게 올림의 정책.",
+          "note": "바뀐 곳: agents, agent-workspaces, router",
+          "sub": "문서",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/boundary-catalog.yaml",
+          "detail": "경계와 공개 계약의 ID. 저장소의 메타데이터 축.",
+          "note": "바뀐 곳: protocol",
+          "sub": "catalog",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/context-component-registry.yaml",
+          "detail": "이 목록.",
+          "note": "바뀐 곳: project-docs, tools",
+          "sub": "catalog",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/architecture/layers.md",
+          "detail": "코드를 어떤 층과 조각으로 나누고 누가 누구를 import해도 되는지의 설계. 규칙이 막으려는 것과 check가 못 막는 곳.",
+          "note": "바뀐 곳: core, lophn-agent, agent-workspaces",
+          "sub": "문서",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/architecture/event.md",
+          "detail": "일어난 일의 세 부류(같은 tx에서 이어 할 일, ledger 기록 event, 메모리 Bus로 화면에 알리는 일)와 Bus·Gateway, 화면이 event를 받는 약속의 설계.",
+          "note": "바뀐 곳: router",
+          "sub": "문서",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/architecture/approval.md",
+          "detail": "\"해도 되나\"를 정하는 설계: 시킨 것이 승낙이고 할당이 허락이라는 원칙, 판정(Gate), 사람에게 묻는 길 하나(turn 안 request), turn mode, shell 규칙, 앱 공유 요청, 팀 자식의 물음.",
+          "note": "바뀐 곳: agent-tools, agent-workspaces",
+          "sub": "문서",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/architecture/testing.md",
+          "detail": "test 층 다섯과 가짜 셋이 무엇을 진짜·가짜로 두는지, 적게 쓰고 깨지면 곤란한 것만 가장 싼 층에서 본다는 원칙과 시간 예산의 설계. 운용은 write-test reference.",
+          "note": "바뀐 곳: app-releases, app-runtime, support, package.json",
+          "sub": "문서",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/architecture/package.md",
+          "detail": "내장 SDK와 사용자 package의 설계: 정확한 판 고정, 읽기 전용 설치 사본·앱 사본, release 봉인, publish 순서, bundle blob 복구, permission 대조.",
+          "note": "바뀐 곳: package-registry, app-releases, packages",
+          "sub": "문서",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/architecture/app-notice.md",
+          "detail": "사람에게 알리는 기록(notices)의 설계: app·program 출처, 휘발·영구, 같은 key 대신하기, 남기는 기간, Inbox 줄과 toast, SDK 갱신 알림과 맡기기.",
+          "note": "바뀐 곳: app-runtime",
+          "sub": "문서",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/architecture/workflow.md",
+          "detail": "workflow(agent step을 넘기는 일, flow code가 도는 일)의 설계: instance와 줄, 넘기기와 step 입력, 켤 때와 멈춤, 쓰기 범위, workflow artifact와 kit, `workflow.check`.",
+          "note": "바뀐 곳: router, agent-workspaces, coding-agent-cli",
+          "sub": "문서",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/architecture/extension.md",
+          "detail": "본체와 따로 켜는 기능 묶음의 설계: manifest 선언, shell main 안에서 `ctx`로만 닿는 경계, 설정으로 켜고 끄고 지우기. 계약은 extension-api.",
+          "note": "바뀐 곳: extensions, extensions.ts",
+          "sub": "문서",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/architecture/annotation.md",
+          "detail": "앱 화면과 artifact 화면에서 본 것을 가리켜 받는 agent에게 전하는 설계: 가리킨 것의 묶음(component 겹, 화면 위치, screenshot), 받는 쪽 고르기, 이미지 읽기.",
+          "note": "바뀐 곳: sdk",
+          "sub": "문서",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/architecture/keybindings.md",
+          "detail": "단축키의 설계: 누른 키를 한 곳이 받아 command id로 바꾸는 길, key context로 겹침을 가리는 규칙, extension·앱의 키, Settings › Keyboard에서 바꾼 키가 창과 main에 덮이는 길.",
+          "note": "바뀐 곳: shell",
+          "sub": "문서",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/architecture/agent-chat.md",
+          "detail": "agent chat 화면이 대화를 보이는 설계: provider delta가 redaction한 live 글로 흐르는 길, 멈춘 글 저장, reasoning·tool 줄, markdown·link 규칙, `/` 명령, composer, subagent 보기.",
+          "note": "바뀐 곳: run-loop, agent-sessions, agent-tools, shell, design",
+          "sub": "문서",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/architecture/acp.md",
+          "detail": "lophn ACP(App Context Protocol)의 설계: 항목, 순번, tool 종류, 갱신, 입력, AgentEvent projection과 core가 채우는 context, reread 조건, redaction이 지나는 길.",
+          "note": "바뀐 곳: agent-sessions, run-loop, shell",
+          "sub": "문서",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/architecture/artifact.md",
+          "detail": "agent가 그릇(project, 앱)에 쓴 정적 HTML을 봉한 view의 탭으로 보는 설계: 봉한 scheme과 file 범위, 목록과 prompt, 대화 link, annotation의 받는 쪽, agent가 탭을 열어 보는 길.",
+          "note": "바뀐 곳: shell, agent-workspaces, agent-sessions, router",
+          "sub": "문서",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/architecture/ui-kit.md",
+          "detail": "범용 kit(@lophn/ui)·전용 부품·app bridge UI를 어디 두고 renderer·사용자 앱·artifact에 어떻게 닿게 하는지, gallery 승인, 앱 SDK 판과 지원 하한을 알리고 옮기는 설계.",
+          "note": "바뀐 곳: design, app-releases, package.json.tmpl",
+          "sub": "문서",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/architecture/appearance.md",
+          "detail": "사람이 고른 색·글꼴·글자 크기·밀도가 token을 덮어쓰는 CSS로 모든 문서(창, overlay, 보호 입력 창, 앱·artifact view)에 같이 닿는 설계와 Custom 글꼴 이름의 경계.",
+          "note": "바뀐 곳: design, shell",
+          "sub": "문서",
+          "level": "low"
+        },
+        {
+          "title": ".claude/skills/harness-gui",
+          "detail": "harness GUI를 고치거나 기능을 더하는 순서(조사, CLI 넷, ACP로, 녹화 규칙), 확인하는 법(gallery, 사람이 하는 실제 앱 확인, 탭 상태), 자주 틀린 곳.",
+          "note": "바뀐 곳: gui.ts",
+          "sub": "skill",
+          "level": "medium"
+        },
+        {
+          "title": "tools/worktree-prep.ts",
+          "detail": "새 worktree가 npm ci 없이 check를 돌게 shell main의 node_modules를 main checkout에서 잇는다.",
+          "note": "바뀐 곳: shell",
+          "sub": "tool",
+          "level": "medium"
+        },
+        {
+          "title": "tests/e2e",
+          "detail": "core E2E. flow마다 core daemon과 child를 띄우고 fake server를 provider로 붙인다. 앱 flow는 template 앱을 제품 길로 띄운다. lead가 새 flow를 10번 연속 돌리고, land.sh가 main에 올리기 전에 돈다. 전체 10분 예산.",
+          "note": "바뀐 곳: models, app-releases, app-runtime, support",
+          "sub": "tool",
+          "level": "medium"
+        },
+        {
+          "title": "tests/live",
+          "detail": "진짜 Anthropic·OpenAI를 부르는 provider live 시험과, live 전용 root(.dev-data/live/home)에 사람이 저장한 ChatGPT 구독 로그인으로 도는 구독 OAuth 시험. 사람이 key를 주거나 login했을 때만 돈다. 둘 다 없으면 이유를 찍고 0으로 끝난다. LOPHN_LIVE_RECORD=1이면 응답만 tests/fixtures/provider/에 쓰고 사람이 diff를 보고 commit한다.",
+          "note": "바뀐 곳: models",
+          "sub": "tool",
+          "level": "medium"
+        },
+        {
+          "title": ".claude/skills/sdk-note",
+          "detail": "SDK 판을 올리거나 앱 agent가 읽는 지침을 바꿀 때 판 정하기, pin 고치기, migrate-sdk 메모와 Instruction diff 쓰기, 지원 하한 정하기.",
+          "note": "바뀐 곳: app",
+          "sub": "skill",
+          "level": "medium"
+        },
+        {
+          "title": ".claude/skills/write-test",
+          "detail": "test를 쓸지 정하는 기준, 모양, check 파이프라인.",
+          "note": "바뀐 곳: package.json",
+          "sub": "skill",
+          "level": "medium"
+        },
+        {
+          "title": "tools/check-deps.ts",
+          "detail": "package 사이 import, core 층 규칙(module → core/main 금지, 바닥 → 위층 금지, harness → role 층·feature module 금지, role 층 ↔ feature module 금지, feature module 방향과 이름 있는 예외), harness 폴더의 feature module protocol import와 role 이름(남은 file 목록), tool 정의 file의 import 범위, extension code의 shell main 내부 import 금지, 의존성 판 고정을 본다. check의 deps 단계.",
+          "note": "바뀐 곳: core, lophn-agent, agent-workspaces",
+          "sub": "tool",
+          "level": "medium"
+        },
+        {
+          "title": "tools/check-sdk-notes.ts",
+          "detail": "내장 SDK와 지원 소스(`@lophn/ui`·`@lophn/i18n`)의 지금 판과 지원 하한(`lophn.supported_from`)마다 `migrate-sdk` skill의 메모 file이 있는지, 메모 이름과 `Previous:` 사슬이 맞는지 본다. 없으면 더할 file 이름을 알려 준다. check의 sdk notes 단계.",
+          "note": "바뀐 곳: migrate-sdk",
+          "sub": "tool",
+          "level": "medium"
+        },
+        {
+          "title": "tools/dev.ts",
+          "detail": "개발용 실행. core와 shell을 같이, core만, 또는 mock source로 shell만 띄운다. data root는 .dev-data/.",
+          "note": "바뀐 곳: core, shell",
+          "sub": "tool",
+          "level": "medium"
+        },
+        {
+          "title": "tools/package/main.ts",
+          "detail": "OS마다 설치 묶음(Linux .deb, macOS dmg, Windows NSIS, --dir은 풀린 앱까지)을 만들고(tools/package/), Linux 설치본을 실제로 확인한다(verify-linux-install.ts).",
+          "note": "바뀐 곳: shell, core, coding-agent-cli",
+          "sub": "tool",
+          "level": "medium"
+        },
+        {
+          "title": "tools/models-snapshot.ts",
+          "detail": "판을 낼 때 models.dev api.json을 실행 때 갱신과 같은 변환(modelsDevEntries)으로 바꿔 동봉 model catalog snapshot을 새로 쓴다. models.dev에 없는 정의의 항목은 옮긴다.",
+          "note": "바뀐 곳: models",
+          "sub": "tool",
+          "level": "medium"
+        },
+        {
+          "title": ".claude/skills/ui-design",
+          "detail": "wireframe gallery(Kit·Screens·Drafts)와 화면 모양을 고치는 절차, component를 어디 두나, 모든 화면의 규칙.",
+          "note": "바뀐 곳: shell, design, wireframes",
+          "sub": "skill",
+          "level": "medium"
+        }
+      ],
+      "subOrder": [
+        "지침",
+        "skill",
+        "tool",
+        "catalog",
+        "문서"
+      ],
+      "count": 33
+    },
+    {
+      "id": "refs",
+      "title": "낡은 참조",
+      "lead": "없어진 파일·명령·worktree를 가리키는 지침과 설정",
+      "items": [
+        {
+          "title": "project-docs/plan/README.md",
+          "detail": "저장소는 npm인데 deno 명령을 씀(deno task check)",
+          "level": "high"
+        },
+        {
+          "title": ".claude/settings.local.json",
+          "detail": "자동 허용이 없어진 대상을 가리킴(merge-nocheck.sh, deno 명령, tests/eval) · 실제 provider 호출 비용 허락 줄이 남음(최대 $50)",
+          "level": "high"
+        },
+        {
+          "title": ".claude/skills/harness-gui/SKILL.md",
+          "detail": "없어진 worktree(perf-stream-lag)",
+          "level": "medium"
+        },
+        {
+          "title": "project-docs/plan/browser-vault/README.md",
+          "detail": "없는 파일·폴더 1개(browser-vault.md)",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/plan/context-cache/README.md",
+          "detail": "없는 파일·폴더 3개(loading.ts, tool.ts, tool_test.ts)",
+          "level": "low"
+        },
+        {
+          "title": "project-docs/plan/ui-overhaul/README.md",
+          "detail": "없는 파일·폴더 1개(ui-overhaul)",
+          "level": "low"
+        }
+      ],
+      "count": 6
+    },
+    {
+      "id": "mistakes",
+      "title": "막는 장치가 이어지지 않은 실수",
+      "lead": "열린 실수 기록마다 다시 막겠다고 한 장치가 실제로 있는지",
+      "items": [
+        {
+          "title": "계획이 본보기와 다른 모양을 정했는데 lead review가 README 대조만 함",
+          "checks": [
+            {
+              "label": "planner-persona skill에 본보기 대조 문장",
+              "ok": false
+            },
+            {
+              "label": "orchestrate review 표에 본보기 대조 칸",
+              "ok": false
+            }
+          ],
+          "state": "missing",
+          "note": "",
+          "level": "high"
+        },
+        {
+          "title": "app command dispatch가 wire 이름이 아닌 이름을 돌려 모든 앱 command 호출이 실패",
+          "checks": [
+            {
+              "label": "wire 이름으로 찾는 test",
+              "ok": true
+            },
+            {
+              "label": "brief 위험 test에 '입력부터 실행기까지 이어 본다'",
+              "ok": false
+            }
+          ],
+          "state": "partial",
+          "note": "",
+          "level": "medium"
+        },
+        {
+          "title": "SDK 판을 올리면서 workspace pin 하나를 빠뜨려 새 `npm ci`가 깨짐",
+          "checks": [
+            {
+              "label": "check deps 단계의 @lophn 판 일치 검사",
+              "ok": false
+            },
+            {
+              "label": "판 올림 끝남에 옛 판 grep(sdk-note skill)",
+              "ok": true
+            }
+          ],
+          "state": "partial",
+          "note": "판 올림 grep은 sdk-note skill의 문장으로 있다. check로 막는다는 부분은 찾지 못했다.",
+          "level": "medium"
+        },
+        {
+          "title": "터미널 탭에서 부르는 `lophn gui`가 개발 앱이 아니라 `~/.lophn`의 앱으로 감",
+          "checks": [
+            {
+              "label": "terminal-agent 문서 '지키는 것' 문장",
+              "ok": true
+            },
+            {
+              "label": "개발 실행이 실제 data root(~/.lophn)면 앱을 띄우지 않음",
+              "ok": false
+            }
+          ],
+          "state": "partial",
+          "note": "문서 문장은 들어갔다. 막는 장치는 찾지 못했지만, gui 요청이 이제 탭으로 바로 가서 data root를 쓰지 않으므로 필요 없어졌을 수도 있다(확실하지 않음).",
+          "level": "medium"
+        },
+        {
+          "title": "tray popup과 앱 sidebar panel이 판 없이 앱 view를 열어 모든 열기가 거절되고 \"Couldn't load\"",
+          "checks": [
+            {
+              "label": "live 열기에 판 필수(schema)",
+              "ok": true
+            },
+            {
+              "label": "orchestrate review 표에 진짜 Electron 확인",
+              "ok": true
+            }
+          ],
+          "state": "done",
+          "note": "막는 장치는 모두 있는데 이슈가 아직 열려 있다.",
+          "level": "info"
+        }
+      ],
+      "count": 4
+    },
+    {
+      "id": "plans",
+      "title": "끝났는데 남은 plan",
+      "lead": "agent가 진행 중인 계획으로 읽을 수 있는 폴더",
+      "items": [
+        {
+          "title": "browser-vault",
+          "detail": "task 5개가 모두 합쳐졌는데 계획 폴더가 남아 있다.",
+          "note": "마지막 변경 2026-11-11",
+          "level": "medium"
+        },
+        {
+          "title": "context-cache",
+          "detail": "상태표가 없어 끝났는지 확실하지 않다 · 없어진 파일·폴더 3개를 가리킨다",
+          "note": "마지막 변경 2026-11-10",
+          "level": "low",
+          "unsure": true
+        },
+        {
+          "title": "ui-overhaul",
+          "detail": "상태표가 없어 끝났는지 확실하지 않다 · 작업 branch(ui/overhaul)가 없어졌다 · 없어진 파일·폴더 1개를 가리킨다",
+          "note": "마지막 변경 2026-11-09",
+          "level": "low",
+          "unsure": true
+        }
+      ],
+      "count": 3
+    },
+    {
+      "id": "size",
+      "title": "너무 커진 문서",
+      "lead": "설계 문서 50 KB, skill·지침 20 KB 이상",
+      "items": [
+        {
+          "title": "project-docs/architecture/agent-definition.md",
+          "size": 109,
+          "sub": "설계 문서",
+          "level": "high",
+          "detail": "109 KB · 읽을 때 대략 37k 글자"
+        },
+        {
+          "title": "project-docs/architecture/workspace-layout.md",
+          "size": 103,
+          "sub": "설계 문서",
+          "level": "high",
+          "detail": "103 KB · 읽을 때 대략 35k 글자"
+        },
+        {
+          "title": "project-docs/architecture/app-call.md",
+          "size": 72,
+          "sub": "설계 문서",
+          "level": "medium",
+          "detail": "72 KB · 읽을 때 대략 25k 글자"
+        },
+        {
+          "title": "project-docs/architecture/terminal-agent.md",
+          "size": 60,
+          "sub": "설계 문서",
+          "level": "medium",
+          "detail": "60 KB · 읽을 때 대략 20k 글자"
+        },
+        {
+          "title": ".claude/skills/harness-gui/reference.md",
+          "size": 32,
+          "sub": "skill",
+          "level": "medium",
+          "detail": "32 KB · 읽을 때 대략 11k 글자"
+        },
+        {
+          "title": ".claude/skills/orchestrate/SKILL.md",
+          "size": 26,
+          "sub": "skill",
+          "level": "medium",
+          "detail": "26 KB · 읽을 때 대략 9k 글자"
+        }
+      ],
+      "count": 6
+    },
+    {
+      "id": "reach",
+      "title": "다른 harness가 못 받는 맥락",
+      "lead": "한 harness 자리에만 있어 다른 agent에게 실리지 않는 맥락",
+      "items": [
+        {
+          "title": "저장소 skill 9개는 Claude Code 자리에만 있다",
+          "detail": "flows, harness-gui, issue, orchestrate, planner-persona, sdk-note, ui-design, wrap-plan, write-test. Codex가 읽는 공용 자리(.agents/skills)는 없다. OpenCode는 이 자리도 읽는다는 조사 기록이 있다.",
+          "level": "high"
+        },
+        {
+          "title": "lophn project의 Skills 폴더가 비어 있다",
+          "detail": "이 project에서 일하는 lophn agent는 위 skill을 하나도 받지 못한다.",
+          "level": "medium"
+        },
+        {
+          "title": "lophn agent용 지침 파일이 저장소에 없다",
+          "detail": "lophn agent는 AGENTS.md 대신 LOPHN.md를 읽는다. 저장소 지침(끝남 기준, 코드 규칙)이 lophn agent에게 실리지 않는다.",
+          "level": "medium"
+        },
+        {
+          "title": "자동 허용 규칙도 Claude Code 설정에만 있다",
+          "detail": "다른 harness는 같은 명령을 다시 묻거나 다른 기준으로 허락한다.",
+          "level": "low"
+        }
+      ],
+      "count": 4
+    }
+  ]
+}

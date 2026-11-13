@@ -1,0 +1,1289 @@
+{
+ "collected_at": "2026-11-11T08:52:31.924Z",
+ "commit": "0c42547f1 2026-11-11T17:05:48+09:00",
+ "roles": [
+  {
+   "id": "all",
+   "description": "이 저장소에서 일하는 모든 agent."
+  },
+  {
+   "id": "planner",
+   "description": "사람과 무엇을 할지 정한다. 제품 범위, 이슈의 결정, 로드맵, change-log의 결정, release notes, context 유지보수."
+  },
+  {
+   "id": "lead",
+   "description": "계획 하나를 task로 나눠 worker에게 맡기고, review해 main에 합치고, 이슈와 상태를 고친다."
+  },
+  {
+   "id": "worker",
+   "description": "task brief 하나를 받아 코드를 고치고 check를 통과시킨다."
+  },
+  {
+   "id": "designer",
+   "description": "wireframe gallery와 화면 모양, 화면 문구를 고친다."
+  }
+ ],
+ "components": [
+  {
+   "id": "agents-md",
+   "kind": "instruction",
+   "roles": [
+    "all"
+   ],
+   "description": "모든 작업에 실리는 저장소 지침. 속도, 위협 원칙, 설계 방향, 문서 표, 코드 규칙, 사람에게 묻는 것.",
+   "path": "AGENTS.md",
+   "folder": false,
+   "bytes": 9160,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "auto-all",
+   "agents_md": null,
+   "worker_prompt": true
+  },
+  {
+   "id": "tool-check",
+   "kind": "tool",
+   "roles": [
+    "all"
+   ],
+   "description": "바뀐 package만 골라 fmt, lint, deps, source, modules, type check, style, kit, shell(fmt, lint, main, main test), test, token 생성물 비교를 돈다. docs(문서 속 path)와 records(이슈·change-log·architecture 문서 꼴)는 늘 돈다. 끝내기 전에 돌린다. 전체는 check:full.",
+   "path": "tools/check.ts",
+   "folder": false,
+   "bytes": 18933,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "tool-doctor",
+   "kind": "tool",
+   "roles": [
+    "all"
+   ],
+   "description": "개발 환경을 스스로 진단한다. Node·npm·git·Electron·sandbox, .env, telemetry env, dependency·binary, dev data root·port, core /readyz, 바깥 연결을 보고, --fix로 안전한 것만 고친다.",
+   "path": "tools/doctor/",
+   "folder": true,
+   "bytes": 49152,
+   "files": 5,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "product",
+   "kind": "doc",
+   "roles": [
+    "planner"
+   ],
+   "description": "lophn이 무엇이고 무엇이 아닌가.",
+   "path": "project-docs/PRODUCT.md",
+   "folder": false,
+   "bytes": 12940,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": "path",
+   "worker_prompt": false
+  },
+  {
+   "id": "agent-policy",
+   "kind": "doc",
+   "roles": [
+    "planner"
+   ],
+   "description": "lophn 제품 안의 agent와 workspace, workspace마다의 책임, session 사이 call과 사람에게 올림의 정책.",
+   "path": "project-docs/products/AGENT.md",
+   "folder": false,
+   "bytes": 38883,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "roadmap",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "아직 계획으로 열지 않은 큰 일. 주제 하나에 md 하나.",
+   "path": "project-docs/products/roadmap/",
+   "folder": true,
+   "bytes": 322278,
+   "files": 26,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": "path",
+   "worker_prompt": false
+  },
+  {
+   "id": "issues",
+   "kind": "record",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "bug, defect, mistake. 이슈 하나가 yaml file 하나(`<id>.yaml`), 닫아도 두고 `status`(open, fixed, kept)만 바꾼다. 칸마다 지금·영향·고치려면·정할 것·정한 것·닫은 것. 목록은 `node tools/records.ts issues`.",
+   "path": "project-docs/issues/",
+   "folder": true,
+   "bytes": 627143,
+   "files": 338,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": "path",
+   "worker_prompt": false
+  },
+  {
+   "id": "changelog",
+   "kind": "record",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "일 하나가 바꾼 동작·계약과 결정을 바뀐 module과 함께 남긴 내부 기록. `<x.y>/<id>.yaml` 항목 하나가 일 하나, 결정은 `by: person | agent`. PATCH 판은 main에 올리는 도구(land.sh, main-merge.sh)가 정하고 branch는 판을 고치지 않는다.",
+   "path": "project-docs/products/change-log/",
+   "folder": true,
+   "bytes": 1063410,
+   "files": 342,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": "path",
+   "worker_prompt": false
+  },
+  {
+   "id": "release-notes",
+   "kind": "record",
+   "roles": [
+    "planner"
+   ],
+   "description": "사람이 읽는 판 요약(영어, 외부용). release(MINOR·MAJOR)할 때 지난 release 뒤 change-log 항목으로 `<x.y.z>.md` 초안을 쓰고 사람이 확인한다.",
+   "path": "project-docs/products/release-notes/",
+   "folder": true,
+   "bytes": 67398,
+   "files": 26,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": "path",
+   "worker_prompt": false
+  },
+  {
+   "id": "boundary-catalog",
+   "kind": "catalog",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "경계와 공개 계약의 ID. 저장소의 메타데이터 축.",
+   "path": "project-docs/boundary-catalog.yaml",
+   "folder": false,
+   "bytes": 16121,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": "path",
+   "worker_prompt": false
+  },
+  {
+   "id": "module-catalog",
+   "kind": "catalog",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "코드 module path ↔ boundary ID.",
+   "path": "project-docs/module-catalog.yaml",
+   "folder": false,
+   "bytes": 6564,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": "path",
+   "worker_prompt": false
+  },
+  {
+   "id": "flow-catalog",
+   "kind": "catalog",
+   "roles": [
+    "planner",
+    "lead",
+    "worker"
+   ],
+   "description": "lophn의 모든 동작. entry(route·CLI·tool·단축키·IPC·SDK·skill·control)를 소유하는 flow와 outcome, journey, 사용자 예(scenario), test file이 덮는 outcome. coverage를 잰다.",
+   "path": "project-docs/flows/",
+   "folder": true,
+   "bytes": 1883871,
+   "files": 35,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": "path",
+   "worker_prompt": false
+  },
+  {
+   "id": "tool-flows",
+   "kind": "tool",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "code에서 entry를 뽑고(entries), flow catalog의 참조와 빠짐, scenario 꼴을 보고(check), coverage를 잰다(report). frames --unused는 catalog가 가리키지 않는 wireframe frame. index는 prompt에 붙일 flow 목록, sample은 review용 표본.",
+   "path": "tools/flows.ts",
+   "folder": false,
+   "bytes": 54954,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": "path",
+   "worker_prompt": false
+  },
+  {
+   "id": "context-component-registry",
+   "kind": "catalog",
+   "roles": [
+    "planner"
+   ],
+   "description": "이 목록.",
+   "path": "project-docs/context-component-registry.yaml",
+   "folder": false,
+   "bytes": 41923,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "tool-check-modules",
+   "kind": "tool",
+   "roles": [
+    "planner"
+   ],
+   "description": "boundary-catalog의 ID·참조·칸과 module-catalog의 path·boundary·빠진 폴더를 본다. check의 modules 단계.",
+   "path": "tools/check-modules.ts",
+   "folder": false,
+   "bytes": 5512,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "tool-records",
+   "kind": "tool",
+   "roles": [
+    "planner",
+    "lead",
+    "worker"
+   ],
+   "description": "issue·change-log yaml의 칸·id·modules·판 규칙(package.json 판의 항목이 있고 더 높은 판은 없다)과 architecture 문서의 꼴(필수 절, code path 금지)을 보고(check), 이슈와 항목의 목록을 낸다(issues, changes). check의 records 단계.",
+   "path": "tools/records.ts",
+   "folder": false,
+   "bytes": 11461,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": "path",
+   "worker_prompt": false
+  },
+  {
+   "id": "tool-install-checklist",
+   "kind": "tool",
+   "roles": [
+    "planner",
+    "lead",
+    "worker"
+   ],
+   "description": "깔린 판과 설치할 판 사이 change-log 항목(`checklist` 칸)과 release notes의 Action needed로 설치 뒤 해야 할 것과 확인할 것의 markdown checklist를 만든다. `npm run package`가 `<out>/install-checklist.md`로도 낸다.",
+   "path": "tools/install-checklist.ts",
+   "folder": false,
+   "bytes": 7112,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "tool-check-docs",
+   "kind": "tool",
+   "roles": [
+    "planner"
+   ],
+   "description": "AGENTS.md, .claude/skills/, project-docs/(change-log, release-notes, issues, plan/, products/roadmap/ 제외)의 backtick 저장소 path와 이 registry의 path·boundary·role이 있는지 본다. check의 docs 단계.",
+   "path": "tools/check-docs.ts",
+   "folder": false,
+   "bytes": 5054,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-layers",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "코드를 어떤 층과 조각으로 나누고 누가 누구를 import해도 되는지의 설계. 규칙이 막으려는 것과 check가 못 막는 곳.",
+   "path": "project-docs/architecture/layers.md",
+   "folder": false,
+   "bytes": 20423,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-event",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "일어난 일의 세 부류(같은 tx에서 이어 할 일, ledger 기록 event, 메모리 Bus로 화면에 알리는 일)와 Bus·Gateway, 화면이 event를 받는 약속의 설계.",
+   "path": "project-docs/architecture/event.md",
+   "folder": false,
+   "bytes": 31417,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-approval",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "\"해도 되나\"를 정하는 설계: 시킨 것이 승낙이고 할당이 허락이라는 원칙, 판정(Gate), 사람에게 묻는 길 하나(turn 안 request), turn mode, shell 규칙, 앱 공유 요청, 팀 자식의 물음.",
+   "path": "project-docs/architecture/approval.md",
+   "folder": false,
+   "bytes": 35767,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-testing",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead",
+    "worker"
+   ],
+   "description": "test 층 다섯과 가짜 셋이 무엇을 진짜·가짜로 두는지, 적게 쓰고 깨지면 곤란한 것만 가장 싼 층에서 본다는 원칙과 시간 예산의 설계. 운용은 write-test reference.",
+   "path": "project-docs/architecture/testing.md",
+   "folder": false,
+   "bytes": 15264,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-activation",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "앱 release를 켜는 순간의 설계: 켜는 계기, 사람에게 묻는 조건, 바꾸는 순서와 실패 때 앱이 반쯤 바뀐 채 남지 않게 되돌리는 약속.",
+   "path": "project-docs/architecture/activation.md",
+   "folder": false,
+   "bytes": 26169,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-agent-call",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "agent 사이의 일 맡기기와 답하기를 하나의 봉투(call)로 푸는 설계: 받는 곳과 답 방식, 기다리지 않는 보낸 쪽, 실패, spawn과 팀 자식의 물음.",
+   "path": "project-docs/architecture/agent-call.md",
+   "folder": false,
+   "bytes": 47972,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-app-call",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "사람, agent, 앱, job, flow가 앱의 operation과 command를 부르는 길의 설계: 같은 판정·기록·직렬화, changeset과 rewind, 앱 log, 공유 skill 읽기.",
+   "path": "project-docs/architecture/app-call.md",
+   "folder": false,
+   "bytes": 72257,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-package",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "내장 SDK와 사용자 package의 설계: 정확한 판 고정, 읽기 전용 설치 사본·앱 사본, release 봉인, publish 순서, bundle blob 복구, permission 대조.",
+   "path": "project-docs/architecture/package.md",
+   "folder": false,
+   "bytes": 20761,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-app-notice",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "사람에게 알리는 기록(notices)의 설계: app·program 출처, 휘발·영구, 같은 key 대신하기, 남기는 기간, Inbox 줄과 toast, SDK 갱신 알림과 맡기기.",
+   "path": "project-docs/architecture/app-notice.md",
+   "folder": false,
+   "bytes": 27382,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-workspace-session",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "agent가 놓이는 workspace(Home, project, 앱)와 session의 설계: 수명, fork·rewind가 가져가는 것, workspace마다의 file 범위와 지침 층, 이미지 묶음.",
+   "path": "project-docs/architecture/workspace-session.md",
+   "folder": false,
+   "bytes": 32672,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-run",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "화면 없이 부르는 agent 호출과 앱 tool 호출(run)의 설계: 기록 한 행, 끝을 아는 법, 취소, 켤 때 복구, CLI와 자격.",
+   "path": "project-docs/architecture/run.md",
+   "folder": false,
+   "bytes": 22492,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-workflow",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "workflow(agent step을 넘기는 일, flow code가 도는 일)의 설계: instance와 줄, 넘기기와 step 입력, 켤 때와 멈춤, 쓰기 범위, workflow artifact와 kit, `workflow.check`.",
+   "path": "project-docs/architecture/workflow.md",
+   "folder": false,
+   "bytes": 35052,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-job",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "정해진 때 도는 일(job)과 scheduler의 설계: 놓친 차례 정책, 겹침, hold, 서머타임, 승인, 켤 때 복구, 사람의 job 화면.",
+   "path": "project-docs/architecture/job.md",
+   "folder": false,
+   "bytes": 40680,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-agent-definition",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "agent 정의와 turn마다의 prompt 조립 설계: 정의·지침·tool·memory·skill·workspace 정보 층, Home·project·앱의 같은 층, model 호출(provider, OAuth, 입력 예산, compaction).",
+   "path": "project-docs/architecture/agent-definition.md",
+   "folder": false,
+   "bytes": 111556,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-coding-agent",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "사람이 쓰는 coding agent(harness)와 lophn을 잇는 설계: CLI 표, 제품 감지와 hook 설치, 공유 skill 사본, harness가 runtime인 lophn agent와 TUI 탭.",
+   "path": "project-docs/architecture/coding-agent.md",
+   "folder": false,
+   "bytes": 43457,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-extension",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "본체와 따로 켜는 기능 묶음의 설계: manifest 선언, shell main 안에서 `ctx`로만 닿는 경계, 설정으로 켜고 끄고 지우기. 계약은 extension-api.",
+   "path": "project-docs/architecture/extension.md",
+   "folder": false,
+   "bytes": 20605,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-harness-gui",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "터미널 탭을 CLI(Claude Code, Codex, OpenCode, omp)의 채팅 화면으로 바꾸고 TUI와 toggle하는 설계: adapter가 CLI 이벤트와 ACP를 옮기는 길, 탭 handle, 지키는 것.",
+   "path": "project-docs/architecture/harness-gui.md",
+   "folder": false,
+   "bytes": 33791,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-terminal-agent",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "사람이 연 터미널 탭 안에서 도는 coding agent와 그 상태를 알아 탭 icon, 점, OS 알림을 내는 층의 설계(lophn session이 아니다).",
+   "path": "project-docs/architecture/terminal-agent.md",
+   "folder": false,
+   "bytes": 61688,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-annotation",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "앱 화면과 artifact 화면에서 본 것을 가리켜 받는 agent에게 전하는 설계: 가리킨 것의 묶음(component 겹, 화면 위치, screenshot), 받는 쪽 고르기, 이미지 읽기.",
+   "path": "project-docs/architecture/annotation.md",
+   "folder": false,
+   "bytes": 19534,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-browser-tab",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "인터넷 page를 여는 browser 탭의 설계: navigation·popup·permission·download 규칙, session과 bookmark, terminal의 link bridge, agent가 연 탭(browser·preview·artifact)을 CDP로 다루는 `lophn browser`.",
+   "path": "project-docs/architecture/browser-tab.md",
+   "folder": false,
+   "bytes": 47287,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-keybindings",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "단축키의 설계: 누른 키를 한 곳이 받아 command id로 바꾸는 길, key context로 겹침을 가리는 규칙, extension·앱의 키, Settings › Keyboard에서 바꾼 키가 창과 main에 덮이는 길.",
+   "path": "project-docs/architecture/keybindings.md",
+   "folder": false,
+   "bytes": 27045,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-platform",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead",
+    "worker"
+   ],
+   "description": "Linux·macOS·Windows에서 다르게 하는 것의 설계: OS 규칙이 모이는 자리, 꺼진 기능, 다른 OS를 확인하는 법, core의 수명(띄우기, 붙기, 끄기, idle-exit, autostart).",
+   "path": "project-docs/architecture/platform.md",
+   "folder": false,
+   "bytes": 36435,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-observability",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "core가 자기 상태를 바깥에 드러내는 설계: 구조화 log·trace·metric과 OTLP, `/healthz`·`/readyz`, 오류 봉투의 trace_id, 자원 snapshot, `npm run doctor`.",
+   "path": "project-docs/architecture/observability.md",
+   "folder": false,
+   "bytes": 20267,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-agent-chat",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "agent chat 화면이 대화를 보이는 설계: provider delta가 redaction한 live 글로 흐르는 길, 멈춘 글 저장, reasoning·tool 줄, markdown·link 규칙, `/` 명령, composer, subagent 보기.",
+   "path": "project-docs/architecture/agent-chat.md",
+   "folder": false,
+   "bytes": 30123,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-acp",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "lophn ACP(App Context Protocol)의 설계: 항목, 순번, tool 종류, 갱신, 입력, AgentEvent projection과 core가 채우는 context, reread 조건, redaction이 지나는 길.",
+   "path": "project-docs/architecture/acp.md",
+   "folder": false,
+   "bytes": 37337,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-artifact",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "agent가 그릇(project, 앱)에 쓴 정적 HTML을 봉한 view의 탭으로 보는 설계: 봉한 scheme과 file 범위, 목록과 prompt, 대화 link, annotation의 받는 쪽, agent가 탭을 열어 보는 길.",
+   "path": "project-docs/architecture/artifact.md",
+   "folder": false,
+   "bytes": 25870,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-workspace-layout",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "workspace 창의 탭 배치와 저장의 설계: desk·split group·floated·detached 모델, `<webview>` 그릇과 native view 층, agent가 연 탭(host queue), 탭을 OS 창으로 떼고 붙이기, layout 파일과 올리기.",
+   "path": "project-docs/architecture/workspace-layout.md",
+   "folder": false,
+   "bytes": 105751,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-ui-kit",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead",
+    "designer"
+   ],
+   "description": "범용 kit(@lophn/ui)·전용 부품·app bridge UI를 어디 두고 renderer·사용자 앱·artifact에 어떻게 닿게 하는지, gallery 승인, 앱 SDK 판과 지원 하한을 알리고 옮기는 설계.",
+   "path": "project-docs/architecture/ui-kit.md",
+   "folder": false,
+   "bytes": 35459,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-appearance",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead",
+    "designer"
+   ],
+   "description": "사람이 고른 색·글꼴·글자 크기·밀도가 token을 덮어쓰는 CSS로 모든 문서(창, overlay, 보호 입력 창, 앱·artifact view)에 같이 닿는 설계와 Custom 글꼴 이름의 경계.",
+   "path": "project-docs/architecture/appearance.md",
+   "folder": false,
+   "bytes": 25936,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "architecture-settings",
+   "kind": "doc",
+   "roles": [
+    "planner",
+    "lead"
+   ],
+   "description": "설정을 한 번 선언하면 Settings 화면, `lophn settings` 명령, home의 lophn agent가 같이 읽고 바꾸는 설계. core의 뜻 검사, locked(사람만 바꾸는 설정), 항목마다 file 하나인 설정 묶음(theme), shell이 설정 사본을 따라 적용하는 길.",
+   "path": "project-docs/architecture/settings.md",
+   "folder": false,
+   "bytes": 12337,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "skill-planner-persona",
+   "kind": "skill",
+   "roles": [
+    "planner"
+   ],
+   "description": "planner의 지침. 사람과 말하기(설명 먼저), 정하기(정할 수 있는 것은 근거로 정함), 계획 열기(roadmap, README, brief, lead 프롬프트), 이슈와 문서에서 지킬 것.",
+   "path": ".claude/skills/planner-persona/",
+   "folder": true,
+   "bytes": 10893,
+   "files": 1,
+   "entry_bytes": 10893,
+   "delivery": "claude-only",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "skill-wrap-plan",
+   "kind": "skill",
+   "roles": [
+    "planner"
+   ],
+   "description": "계획이 land된 뒤 planner가 끝났는지 확인하고, 다시 볼 context 조각을 찾아 고치고, 이슈와 배운 것을 정리하고, 다음 계획으로 넘기는 절차.",
+   "path": ".claude/skills/wrap-plan/",
+   "folder": true,
+   "bytes": 4746,
+   "files": 1,
+   "entry_bytes": 4746,
+   "delivery": "claude-only",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "tool-context-review",
+   "kind": "tool",
+   "roles": [
+    "planner"
+   ],
+   "description": "바뀐 file에서 module-catalog, boundary, registry의 change_reasons를 따라 다시 볼 context 조각을 이유와 함께 뽑는다. 자기 module이 없는 자식 boundary로 넓힌다. 같은 범위에서 이미 고친 조각은 따로 보인다.",
+   "path": "tools/context-review.ts",
+   "folder": false,
+   "bytes": 5719,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "skill-issue",
+   "kind": "skill",
+   "roles": [
+    "lead",
+    "planner"
+   ],
+   "description": "이슈 yaml을 올리고(코드와 대조, 중복 찾기, id·topic·kind), 정하고(이미 정해진 원칙으로 답이 나오나), 닫고(`status`, guard), 회귀를 되살리는 절차.",
+   "path": ".claude/skills/issue/",
+   "folder": true,
+   "bytes": 8541,
+   "files": 1,
+   "entry_bytes": 8541,
+   "delivery": "claude-only",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "skill-orchestrate",
+   "kind": "skill",
+   "roles": [
+    "lead"
+   ],
+   "description": "계획을 worker 여럿에게 나눠 돌리는 lead 절차와 task brief 꼴.",
+   "path": ".claude/skills/orchestrate/",
+   "folder": true,
+   "bytes": 30677,
+   "files": 2,
+   "entry_bytes": 26519,
+   "delivery": "claude-only",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "skill-harness-gui",
+   "kind": "skill",
+   "roles": [
+    "lead",
+    "planner"
+   ],
+   "description": "harness GUI를 고치거나 기능을 더하는 순서(조사, CLI 넷, ACP로, 녹화 규칙), 확인하는 법(gallery, 사람이 하는 실제 앱 확인, 탭 상태), 자주 틀린 곳.",
+   "path": ".claude/skills/harness-gui/",
+   "folder": true,
+   "bytes": 49419,
+   "files": 2,
+   "entry_bytes": 16182,
+   "delivery": "claude-only",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "plan",
+   "kind": "plan",
+   "roles": [
+    "lead"
+   ],
+   "description": "계획 폴더의 꼴. 계획 하나가 project-docs/plan/<계획>/ 하나이고 그 README(목표, 단위, wave, lead가 할 일)와 status.md를 lead가 읽는다.",
+   "path": "project-docs/plan/",
+   "folder": true,
+   "bytes": 44168,
+   "files": 6,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": "path",
+   "worker_prompt": true
+  },
+  {
+   "id": "tool-plan-status",
+   "kind": "tool",
+   "roles": [
+    "lead"
+   ],
+   "description": "계획 하나의 task brief를 읽어 상태 표를 만들고, 띄울 수 있는 task(앞 wave merged, 선행 merged, 이 계획과 다른 계획의 running과 소유 안 겹침)를 고른다. N개를 한 번에 고르는 것은 lead/pick.py.",
+   "path": "project-docs/plan/tools/status.py",
+   "folder": false,
+   "bytes": 5410,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "tool-lead",
+   "kind": "tool",
+   "roles": [
+    "lead"
+   ],
+   "description": "lead worktree 열기(lead.sh, branch plan/<계획>), task worktree 만들기(launch.sh), worker prompt(prompt.py), plan branch로 rebase·check·ff-merge(merge.sh, merge-fix.sh), plan branch를 main에 올리기(land.sh. 무거운 단계는 land lock 아래 check:full과 e2e, 기동, 쓰는 단계는 main lock 아래 rebase·판 정하기·ff), 계획이 아닌 session의 branch를 main에 올리기(main-merge.sh), 둘이 같이 쓰는 함수(main-lib.sh), route 중복 검사와 core 두 번 기동(boot.sh).",
+   "path": "project-docs/plan/tools/lead/",
+   "folder": true,
+   "bytes": 18447,
+   "files": 10,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": "path",
+   "worker_prompt": true
+  },
+  {
+   "id": "tool-worktree-prep",
+   "kind": "tool",
+   "roles": [
+    "lead"
+   ],
+   "description": "새 worktree가 npm ci 없이 check를 돌게 shell main의 node_modules를 main checkout에서 잇는다.",
+   "path": "tools/worktree-prep.ts",
+   "folder": false,
+   "bytes": 2442,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "tool-e2e",
+   "kind": "tool",
+   "roles": [
+    "lead",
+    "worker"
+   ],
+   "description": "core E2E. flow마다 core daemon과 child를 띄우고 fake server를 provider로 붙인다. 앱 flow는 template 앱을 제품 길로 띄운다. lead가 새 flow를 10번 연속 돌리고, land.sh가 main에 올리기 전에 돈다. 전체 10분 예산.",
+   "path": "tests/e2e/",
+   "folder": true,
+   "bytes": 276406,
+   "files": 26,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": true
+  },
+  {
+   "id": "tool-test-live",
+   "kind": "tool",
+   "roles": [
+    "lead"
+   ],
+   "description": "진짜 Anthropic·OpenAI를 부르는 provider live 시험과, live 전용 root(.dev-data/live/home)에 사람이 저장한 ChatGPT 구독 로그인으로 도는 구독 OAuth 시험. 사람이 key를 주거나 login했을 때만 돈다. 둘 다 없으면 이유를 찍고 0으로 끝난다. LOPHN_LIVE_RECORD=1이면 응답만 tests/fixtures/provider/에 쓰고 사람이 diff를 보고 commit한다.",
+   "path": "tests/live/",
+   "folder": true,
+   "bytes": 28139,
+   "files": 8,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "worker-prompt",
+   "kind": "instruction",
+   "roles": [
+    "worker"
+   ],
+   "description": "worker를 띄울 때 넘기는 지시문. 작업 위치, 먼저 읽을 것(AGENTS.md, brief), 소유만 고치기, 계약 고치지 않기, test 기준, core 확인과 PID 다루기, commit 규칙, 보고 꼴. lead가 prompt.py로 찍어 그대로 넘긴다.",
+   "path": "project-docs/plan/tools/lead/prompt.py",
+   "folder": false,
+   "bytes": 5384,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "handed",
+   "agents_md": null,
+   "worker_prompt": null
+  },
+  {
+   "id": "task-brief",
+   "kind": "plan",
+   "roles": [
+    "worker",
+    "lead"
+   ],
+   "description": "worker 하나가 받는 task 하나의 brief. 할 일, 소유, 읽을 것, 계약, 끝남, 보고 꼴. lead가 brief-template대로 쓴다.",
+   "path": "project-docs/plan/",
+   "folder": true,
+   "bytes": 14549,
+   "files": 5,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": "path",
+   "worker_prompt": true
+  },
+  {
+   "id": "skill-sdk-note",
+   "kind": "skill",
+   "roles": [
+    "worker",
+    "lead"
+   ],
+   "description": "SDK 판을 올리거나 앱 agent가 읽는 지침을 바꿀 때 판 정하기, pin 고치기, migrate-sdk 메모와 Instruction diff 쓰기, 지원 하한 정하기.",
+   "path": ".claude/skills/sdk-note/",
+   "folder": true,
+   "bytes": 6786,
+   "files": 1,
+   "entry_bytes": 6786,
+   "delivery": "claude-only",
+   "agents_md": "name",
+   "worker_prompt": false
+  },
+  {
+   "id": "skill-flows",
+   "kind": "skill",
+   "roles": [
+    "worker",
+    "lead",
+    "planner"
+   ],
+   "description": "flow catalog를 고치는 절차. 무엇을 바꾸면 무엇을 고치나, check 실패 고치기, flow·outcome의 흔한 실수, test 고르기, 계획이 끝날 때, 다시 조사하는 절차(survey.md).",
+   "path": ".claude/skills/flows/",
+   "folder": true,
+   "bytes": 10473,
+   "files": 2,
+   "entry_bytes": 6961,
+   "delivery": "claude-only",
+   "agents_md": "name",
+   "worker_prompt": false
+  },
+  {
+   "id": "skill-write-test",
+   "kind": "skill",
+   "roles": [
+    "worker"
+   ],
+   "description": "test를 쓸지 정하는 기준, 모양, check 파이프라인.",
+   "path": ".claude/skills/write-test/",
+   "folder": true,
+   "bytes": 21674,
+   "files": 2,
+   "entry_bytes": 7401,
+   "delivery": "claude-only",
+   "agents_md": null,
+   "worker_prompt": true
+  },
+  {
+   "id": "tool-check-deps",
+   "kind": "tool",
+   "roles": [
+    "worker"
+   ],
+   "description": "package 사이 import, core 층 규칙(module → core/main 금지, 바닥 → 위층 금지, harness → role 층·feature module 금지, role 층 ↔ feature module 금지, feature module 방향과 이름 있는 예외), harness 폴더의 feature module protocol import와 role 이름(남은 file 목록), tool 정의 file의 import 범위, extension code의 shell main 내부 import 금지, 의존성 판 고정을 본다. check의 deps 단계.",
+   "path": "tools/check-deps.ts",
+   "folder": false,
+   "bytes": 19806,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": true
+  },
+  {
+   "id": "tool-check-source",
+   "kind": "tool",
+   "roles": [
+    "worker"
+   ],
+   "description": "주석과 test 이름의 요구 ID, task 번호, TODO·FIXME, 옛 말, core main graph의 bare fetch(`EXTERNAL_FETCH`), shell이 문자열로 부르는 route 가운데 `SHELL_ROUTES`에 없는 것(`SHELL_ROUTE`)을 잡는다. check의 source 단계.",
+   "path": "tools/check-source.ts",
+   "folder": false,
+   "bytes": 14361,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "tool-check-sdk-notes",
+   "kind": "tool",
+   "roles": [
+    "worker"
+   ],
+   "description": "내장 SDK와 지원 소스(`@lophn/ui`·`@lophn/i18n`)의 지금 판과 지원 하한(`lophn.supported_from`)마다 `migrate-sdk` skill의 메모 file이 있는지, 메모 이름과 `Previous:` 사슬이 맞는지 본다. 없으면 더할 file 이름을 알려 준다. check의 sdk notes 단계.",
+   "path": "tools/check-sdk-notes.ts",
+   "folder": false,
+   "bytes": 5576,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "tool-dev",
+   "kind": "tool",
+   "roles": [
+    "worker",
+    "designer"
+   ],
+   "description": "개발용 실행. core와 shell을 같이, core만, 또는 mock source로 shell만 띄운다. data root는 .dev-data/.",
+   "path": "tools/dev.ts",
+   "folder": false,
+   "bytes": 20365,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "tests-support",
+   "kind": "tool",
+   "roles": [
+    "worker"
+   ],
+   "description": "test의 띄우기와 연결. loop(scripted model), wire(녹화 재생 fetch), fake-server(core E2E와 dev의 provider, 함수 대답과 줄), core(daemon을 pipe로 띄우기, session helper, 묻게 하는 shell 명령), gateway(shell의 Gateway 역할), app(template 앱을 App Engineer의 release 길로 띄우기, patch, e2e:deps), fake-oauth(발급자), annotation. flow의 단계는 test file에 쓴다.",
+   "path": "tests/support/",
+   "folder": true,
+   "bytes": 166815,
+   "files": 46,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": "path",
+   "worker_prompt": false
+  },
+  {
+   "id": "tool-move-files",
+   "kind": "tool",
+   "roles": [
+    "worker"
+   ],
+   "description": "mapping대로 파일과 폴더를 옮기고 옮긴 자리를 가리키는 import와 설정 경로를 고친다. 리팩터링에서 module을 옮길 때.",
+   "path": "tools/move-files.ts",
+   "folder": false,
+   "bytes": 30856,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "tool-package",
+   "kind": "tool",
+   "roles": [
+    "worker"
+   ],
+   "description": "OS마다 설치 묶음(Linux .deb, macOS dmg, Windows NSIS, --dir은 풀린 앱까지)을 만들고(tools/package/), Linux 설치본을 실제로 확인한다(verify-linux-install.ts).",
+   "path": "tools/package/main.ts",
+   "folder": false,
+   "bytes": 11282,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "tool-models-snapshot",
+   "kind": "tool",
+   "roles": [
+    "worker"
+   ],
+   "description": "판을 낼 때 models.dev api.json을 실행 때 갱신과 같은 변환(modelsDevEntries)으로 바꿔 동봉 model catalog snapshot을 새로 쓴다. models.dev에 없는 정의의 항목은 옮긴다.",
+   "path": "tools/models-snapshot.ts",
+   "folder": false,
+   "bytes": 1946,
+   "files": 1,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "skill-ui-design",
+   "kind": "skill",
+   "roles": [
+    "designer"
+   ],
+   "description": "wireframe gallery(Kit·Screens·Drafts)와 화면 모양을 고치는 절차, component를 어디 두나, 모든 화면의 규칙.",
+   "path": ".claude/skills/ui-design/",
+   "folder": true,
+   "bytes": 11570,
+   "files": 1,
+   "entry_bytes": 11570,
+   "delivery": "claude-only",
+   "agents_md": null,
+   "worker_prompt": false
+  },
+  {
+   "id": "tool-wireframes",
+   "kind": "tool",
+   "roles": [
+    "designer"
+   ],
+   "description": "wireframe gallery를 build한다. Kit 묶음은 design component를 분류별로, Screens는 renderer 화면을, Drafts는 승인 전 실험을 그린다. 화면 task의 본보기가 여기서 나온다.",
+   "path": "tools/wireframes/",
+   "folder": true,
+   "bytes": 710537,
+   "files": 117,
+   "entry_bytes": null,
+   "delivery": "path",
+   "agents_md": null,
+   "worker_prompt": true
+  }
+ ],
+ "facts": {
+  "claude_md": false,
+  "agents_skills_dir": false,
+  "opencode_skills_dir": false,
+  "lophn_project_skills": 0,
+  "unregistered_claude_skills": []
+ }
+}

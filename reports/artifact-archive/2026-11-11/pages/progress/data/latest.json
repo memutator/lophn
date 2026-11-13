@@ -1,0 +1,1113 @@
+{
+ "collectedAt": "2026-11-11T09:15:42.402Z",
+ "version": "0.23.44",
+ "release": {
+  "version": "0.22.0",
+  "summary": "This release gives each workspace its own lophn agent with a memory, lets agents use browser tabs and app previews, and lets you delete archived apps for good.",
+  "date": "2026-11-09T13:43:25+09:00"
+ },
+ "plans": [
+  {
+   "name": "browser-vault",
+   "goal": "사람이 넣은 site login을 agent가 handle로 browser 탭에 채우게 하고(model은 값을 보지 않는다), agent가 사람에게 login·일회 코드 입력을 요청하게 한다.",
+   "tasks": [
+    {
+     "id": "gmem",
+     "wave": 1,
+     "state": "merged"
+    },
+    {
+     "id": "vault-core",
+     "wave": 1,
+     "state": "merged"
+    },
+    {
+     "id": "vault-fill",
+     "wave": 2,
+     "state": "merged"
+    },
+    {
+     "id": "vault-ui",
+     "wave": 2,
+     "state": "merged"
+    },
+    {
+     "id": "vault-request",
+     "wave": 3,
+     "state": "merged"
+    }
+   ],
+   "notes": [
+    "끝난 뒤 사람의 실제 로그인 확인을 부탁할 차례",
+    "모든 task가 합쳐졌는데 계획 폴더가 남아 있다"
+   ],
+   "lastChanged": "2026-11-11T00:58:47+09:00",
+   "opened": "2026-11-09T16:53:19+09:00",
+   "counts": {
+    "merged": 5,
+    "running": 0,
+    "todo": 0,
+    "blocked": 0,
+    "dropped": 0,
+    "unknown": 0
+   }
+  },
+  {
+   "name": "context-cache",
+   "goal": "provider prompt cache가 실제로 hit하게 요청 모양을 고치고, OpenAI Responses에서도 tool 정의를 늦게 싣는다.",
+   "tasks": [
+    {
+     "id": "cache-tail",
+     "wave": 1,
+     "state": "todo"
+    },
+    {
+     "id": "cache-openai",
+     "wave": 1,
+     "state": "todo"
+    },
+    {
+     "id": "cache-ttl",
+     "wave": 2,
+     "state": "blocked"
+    },
+    {
+     "id": "defer-responses",
+     "wave": 2,
+     "state": "dropped"
+    }
+   ],
+   "notes": [
+    "실제 provider 호출 확인이 보류 중",
+    "task별 상태 기록이 없다"
+   ],
+   "lastChanged": "2026-11-10T14:08:40+09:00",
+   "opened": "2026-10-29T13:37:46+09:00",
+   "counts": {
+    "merged": 0,
+    "running": 0,
+    "todo": 2,
+    "blocked": 1,
+    "dropped": 1,
+    "unknown": 0
+   }
+  },
+  {
+   "name": "ui-overhaul",
+   "goal": "launcher·project·app·settings로 나뉜 공간과 activity bar·pane grid를 지우고, 모든 workspace(Home, project, app)가 같은 shell 하나를 쓰게 한다.",
+   "tasks": [
+    {
+     "id": "uo-design",
+     "wave": 1,
+     "state": "merged"
+    },
+    {
+     "id": "uo-model",
+     "wave": 1,
+     "state": "merged"
+    },
+    {
+     "id": "uo-shell-frame",
+     "wave": 2,
+     "state": "merged"
+    },
+    {
+     "id": "uo-shell-project",
+     "wave": 2,
+     "state": "merged"
+    },
+    {
+     "id": "uo-left",
+     "wave": 3,
+     "state": "merged"
+    },
+    {
+     "id": "uo-right",
+     "wave": 3,
+     "state": "merged"
+    },
+    {
+     "id": "uo-settings",
+     "wave": 3,
+     "state": "merged"
+    },
+    {
+     "id": "uo-tabs",
+     "wave": 3,
+     "state": "merged"
+    },
+    {
+     "id": "uo-home",
+     "wave": 4,
+     "state": "merged"
+    },
+    {
+     "id": "uo-app",
+     "wave": 4,
+     "state": "merged"
+    },
+    {
+     "id": "uo-cleanup",
+     "wave": 5,
+     "state": "merged"
+    },
+    {
+     "id": "uo-fb-frame",
+     "wave": 6,
+     "state": "merged"
+    },
+    {
+     "id": "uo-fb-split",
+     "wave": 6,
+     "state": "merged"
+    },
+    {
+     "id": "uo-fb-overlays",
+     "wave": 6,
+     "state": "merged"
+    },
+    {
+     "id": "uo-fb-tabs",
+     "wave": 6,
+     "state": "merged"
+    },
+    {
+     "id": "uo-fb-quick",
+     "wave": 6,
+     "state": "merged"
+    },
+    {
+     "id": "uo-fb-browser",
+     "wave": 6,
+     "state": "merged"
+    },
+    {
+     "id": "uo-layout",
+     "wave": 6,
+     "state": "merged"
+    },
+    {
+     "id": "uo-fb-heads",
+     "wave": 6,
+     "state": "merged"
+    },
+    {
+     "id": "uo-dnd",
+     "wave": 6,
+     "state": "merged"
+    },
+    {
+     "id": "uo-polish",
+     "wave": 6,
+     "state": "merged"
+    },
+    {
+     "id": "uo-docs",
+     "wave": 7,
+     "state": "running"
+    }
+   ],
+   "notes": [
+    "사람의 실제 앱 확인 대기"
+   ],
+   "lastChanged": "2026-11-09T04:58:54+09:00",
+   "opened": "2026-11-01T00:45:37+09:00",
+   "counts": {
+    "merged": 21,
+    "running": 1,
+    "todo": 0,
+    "blocked": 0,
+    "dropped": 0,
+    "unknown": 0
+   }
+  }
+ ],
+ "changes": {
+  "recentCount": 150,
+  "afterReleaseCount": 68,
+  "perDay": [
+   {
+    "day": "2026-10-29",
+    "count": 0
+   },
+   {
+    "day": "2026-10-30",
+    "count": 42
+   },
+   {
+    "day": "2026-10-31",
+    "count": 25
+   },
+   {
+    "day": "2026-11-01",
+    "count": 7
+   },
+   {
+    "day": "2026-11-02",
+    "count": 7
+   },
+   {
+    "day": "2026-11-03",
+    "count": 8
+   },
+   {
+    "day": "2026-11-04",
+    "count": 6
+   },
+   {
+    "day": "2026-11-05",
+    "count": 0
+   },
+   {
+    "day": "2026-11-06",
+    "count": 0
+   },
+   {
+    "day": "2026-11-07",
+    "count": 56
+   },
+   {
+    "day": "2026-11-08",
+    "count": 12
+   },
+   {
+    "day": "2026-11-09",
+    "count": 33
+   },
+   {
+    "day": "2026-11-10",
+    "count": 19
+   },
+   {
+    "day": "2026-11-11",
+    "count": 24
+   }
+  ],
+  "groups": [
+   {
+    "minor": "0.23",
+    "released": false,
+    "items": [
+     {
+      "title": "앱 command 안내와 실제 CLI 이름을 맞추고 변환 후 이름 충돌을 거절한다",
+      "date": "2026-11-11T18:00:37+09:00",
+      "person": 0
+     },
+     {
+      "title": "agent가 custom provider, MCP server secret, 로그인을 요청하고 값이 빈 실패가 그 자리를 알린다. 화면에는 오류 줄과 MCP server에서 바로 넣는 button이 생긴다",
+      "date": "2026-11-11T16:46:51+09:00",
+      "person": 0
+     },
+     {
+      "title": "lophn ask secret --provider가 늘 not_found였던 것과 agent가 실패 이유를 못 받던 것을 고친다",
+      "date": "2026-11-11T16:46:51+09:00",
+      "person": 0
+     },
+     {
+      "title": "터미널 탭의 process에도 session 표지를 붙이고, GUI 탭을 목록에 채우고, 시작 중 앱의 첫 호출을 받는다",
+      "date": "2026-11-11T16:44:15+09:00",
+      "person": 0
+     },
+     {
+      "title": "이미 있는 session에 보낸 이미지가 대화 줄에 보이고 크게 열린다",
+      "date": "2026-11-11T16:27:36+09:00",
+      "person": 0
+     },
+     {
+      "title": "agent가 사람이 켠 model과 지원 옵션을 조회한다",
+      "date": "2026-11-11T16:26:50+09:00",
+      "person": 0
+     },
+     {
+      "title": "Agent 탭(lophn session)을 layout 파일에 저장하지 않는다. 앱을 다시 켜면 sidebar에서 연다",
+      "date": "2026-11-11T15:59:01+09:00",
+      "person": 1
+     },
+     {
+      "title": "agent의 call과 run이 연 session을 Main desk의 Agent 탭으로 연다",
+      "date": "2026-11-11T15:59:01+09:00",
+      "person": 1
+     },
+     {
+      "title": "대화 화면의 질문·call·edit 줄이 tool 입력을 다시 읽는다",
+      "date": "2026-11-11T15:58:37+09:00",
+      "person": 0
+     },
+     {
+      "title": "Windows에서도 봉인된 앱 bundle 사본이 같은 file을 hardlink로 나눠 쓴다",
+      "date": "2026-11-11T15:53:23+09:00",
+      "person": 0
+     },
+     {
+      "title": "봉인된 앱 bundle 사본이 같은 file을 hardlink로 나눠 쓴다",
+      "date": "2026-11-11T15:46:01+09:00",
+      "person": 0
+     },
+     {
+      "title": "앱 event 발행 기록의 구독자 수와 앱이 멈춘 터미널 session의 상태를 고친다",
+      "date": "2026-11-11T03:11:52+09:00",
+      "person": 0
+     },
+     {
+      "title": "앱이 A2A와 ACP에 선다: agent에게 call을 보내고 답을 받고, session을 열고 끝내고, 보이는 session에 붙는다",
+      "date": "2026-11-11T03:11:52+09:00",
+      "person": 4
+     },
+     {
+      "title": "앱 event: 앱이 선언한 event를 내고 구독한 앱과 화면이 받는다",
+      "date": "2026-11-11T03:11:52+09:00",
+      "person": 2
+     },
+     {
+      "title": "앱 화면이 보낸 사람 메시지에 어느 앱이 보냈는지 이름표를 붙인다",
+      "date": "2026-11-11T03:11:52+09:00",
+      "person": 2
+     },
+     {
+      "title": "event job review 수정: 반복 고리, 같은 앱 tool_run, 앱 event 가시성, 화면 문구",
+      "date": "2026-11-11T03:11:52+09:00",
+      "person": 0
+     },
+     {
+      "title": "event로 도는 job: 앱 event나 core의 session event가 job을 연다",
+      "date": "2026-11-11T03:11:52+09:00",
+      "person": 1
+     },
+     {
+      "title": "session lifecycle: 앱이 agent session 목록·상태를 읽고 멈추고 session.* event를 듣는다",
+      "date": "2026-11-11T03:11:52+09:00",
+      "person": 2
+     },
+     {
+      "title": "SDK 업데이트의 검토와 맡긴 기능의 진행 상태를 ledger가 안다",
+      "date": "2026-11-11T01:24:29+09:00",
+      "person": 3
+     },
+     {
+      "title": "설정을 명령과 home의 lophn agent가 바꾸고, 켜진 창이 바로 따라 바뀐다",
+      "date": "2026-11-11T01:20:59+09:00",
+      "person": 3
+     },
+     {
+      "title": "agent가 provider key와 앱 secret이 필요한 자리를 가리켜 사람에게 넣어 달라고 요청한다",
+      "date": "2026-11-11T01:18:58+09:00",
+      "person": 0
+     },
+     {
+      "title": "Home memory를 전역 memory로 싣고, 사람이 넣은 site login을 agent가 handle로 browser 탭에 채우고, agent가 login 입력을 요청한다",
+      "date": "2026-11-11T01:07:22+09:00",
+      "person": 0
+     },
+     {
+      "title": "앱 이름 바꾸기와 지우기에서 앱을 가리키는 것이 엉뚱한 앱으로 가지 않게 한다",
+      "date": "2026-11-11T00:06:45+09:00",
+      "person": 2
+     },
+     {
+      "title": "색을 모드별 theme과 아무 accent 색으로 고르고, theme file로 색을 덮는다",
+      "date": "2026-11-11T00:02:59+09:00",
+      "person": 3
+     },
+     {
+      "title": "custom agent는 lophn tool과 workspace 정보를 늘 받고, 정의 tools는 명령 이름을 받지 않으며, agent shell 안의 lophn CLI는 바로 멈춘다",
+      "date": "2026-11-10T23:43:41+09:00",
+      "person": 2
+     },
+     {
+      "title": "AI가 지은 session 제목이 실제로 붙는다",
+      "date": "2026-11-10T22:26:19+09:00",
+      "person": 0
+     },
+     {
+      "title": "새 session의 첫 turn이 제목 call 때문에 실패하던 것을 고친다",
+      "date": "2026-11-10T22:06:21+09:00",
+      "person": 0
+     },
+     {
+      "title": "Inbox History의 [Mark all read]를 거르기 줄 아래 오른쪽 끝으로 옮긴다",
+      "date": "2026-11-10T21:51:48+09:00",
+      "person": 0
+     },
+     {
+      "title": "Inbox History 거르기를 kit filter로 바꾸고, 거르기를 열어도 Inbox overlay가 닫히지 않게 한다",
+      "date": "2026-11-10T21:46:42+09:00",
+      "person": 0
+     },
+     {
+      "title": "agent runtime bare를 custom으로 바꾼다",
+      "date": "2026-11-10T21:30:55+09:00",
+      "person": 1
+     },
+     {
+      "title": "Agents 탭과 agent 편집기를 탭으로 나누고 이동·저장 표시를 더하며 명함에 model과 가격을 싣는다",
+      "date": "2026-11-10T21:21:04+09:00",
+      "person": 0
+     },
+     {
+      "title": "터미널 탭이 얻은 session 이름을 기억하고, call로 시작한 session에도 제목이 붙는다",
+      "date": "2026-11-10T21:01:39+09:00",
+      "person": 0
+     },
+     {
+      "title": "agent가 연 browser page는 창이 사는 동안 산다. 창이 없으면 창을 열고 앱이 없으면 앱을 띄운다",
+      "date": "2026-11-10T17:54:34+09:00",
+      "person": 3
+     },
+     {
+      "title": "lophn agent가 오늘 날짜를 알고, session 제목을 model이 짓는다",
+      "date": "2026-11-10T17:54:34+09:00",
+      "person": 0
+     },
+     {
+      "title": "browser·tab 호출이 실패한 이유를 model이 받는다",
+      "date": "2026-11-10T16:10:59+09:00",
+      "person": 0
+     },
+     {
+      "title": "sidebar Artifacts 목록에서 artifact를 지울 수 있다",
+      "date": "2026-11-10T16:07:38+09:00",
+      "person": 1
+     },
+     {
+      "title": "artifact 제목을 사람이 부르는 이름으로 짓는다",
+      "date": "2026-11-10T16:03:20+09:00",
+      "person": 0
+     },
+     {
+      "title": "artifact를 쓰는 agent가 data를 어떻게 새로 둘지 고른다",
+      "date": "2026-11-10T15:44:19+09:00",
+      "person": 0
+     },
+     {
+      "title": "artifact page의 scroll 막대가 lophn 모양이다",
+      "date": "2026-11-10T15:29:40+09:00",
+      "person": 0
+     },
+     {
+      "title": "sidebar와 탭 줄의 session 이름이 그 탭을 그리지 않아도, 창이 다시 떠도 남는다",
+      "date": "2026-11-10T15:12:51+09:00",
+      "person": 0
+     },
+     {
+      "title": "artifact가 앱처럼 kit 전체와 탭 머리 줄을 쓴다",
+      "date": "2026-11-10T14:32:35+09:00",
+      "person": 2
+     },
+     {
+      "title": "eval 체계를 지웠다",
+      "date": "2026-11-10T14:08:40+09:00",
+      "person": 0
+     },
+     {
+      "title": "새 model이 열리면 몇 시간 안에, provider가 알려 주면 바로 고를 수 있게 한다",
+      "date": "2026-11-10T14:04:58+09:00",
+      "person": 0
+     },
+     {
+      "title": "Windows 실기 확인에서 나온 터미널·browser·dev 결함을 고친다",
+      "date": "2026-11-09T17:04:14+09:00",
+      "person": 1
+     },
+     {
+      "title": "main에 쓰는 길을 main lock 하나로 줄 세우고 PATCH 판은 올리는 도구가 정한다",
+      "date": "2026-11-09T18:34:25+09:00",
+      "person": 1
+     },
+     {
+      "title": "lophn이 즐겨찾기 coding agent에게 handoff는 TUI로, 일회성 일은 headless로 넘긴다",
+      "date": "2026-11-09T18:27:07+09:00",
+      "person": 0
+     },
+     {
+      "title": "lophn agent는 사람의 FDE다. 사람에게는 domain 결정만 묻고 결과로 보고한다. run 입력을 <lophn-run>으로 감싼다",
+      "date": "2026-11-09T18:21:39+09:00",
+      "person": 2
+     },
+     {
+      "title": "깔린 판과 설치할 판의 차이로 설치 체크리스트를 만든다",
+      "date": "2026-11-09T18:16:06+09:00",
+      "person": 1
+     },
+     {
+      "title": "agent는 탭의 자리가 아니라 뜻을 말하고, 자리는 open-policy 한 곳이 정한다",
+      "date": "2026-11-09T18:12:52+09:00",
+      "person": 3
+     },
+     {
+      "title": "harness GUI 대화에 붙인 그림이 썸네일로 보이고 누르면 modal로 크게 뜬다",
+      "date": "2026-11-09T18:12:05+09:00",
+      "person": 0
+     },
+     {
+      "title": "main이 세우지 않는 연결 상태 failed·failed-sandbox와 옛 중복 wireframe frame을 지운다",
+      "date": "2026-11-09T18:00:00+09:00",
+      "person": 1
+     },
+     {
+      "title": "사람이 닿는 화면 상태를 wireframe으로 그리고 flow catalog에 잇는다. bare agent 편집기가 깨지던 것을 고친다",
+      "date": "2026-11-09T17:54:54+09:00",
+      "person": 0
+     },
+     {
+      "title": "앱 icon을 lucide 이름(lucide:<이름>)으로 선언한다",
+      "date": "2026-11-09T17:42:55+09:00",
+      "person": 0
+     },
+     {
+      "title": "Agents 탭을 + menu로 열고, 앱 실행을 App details에서 켜고 끄고, Stop lophn 무응답을 알린다",
+      "date": "2026-11-09T17:37:20+09:00",
+      "person": 1
+     },
+     {
+      "title": "release 준비가 title 속성과 목록에 없는 tab-head icon 이름을 거절한다",
+      "date": "2026-11-09T17:37:27+09:00",
+      "person": 0
+     },
+     {
+      "title": "앱 화면이 lophn project 목록을 읽는다(useProjects)",
+      "date": "2026-11-09T17:33:12+09:00",
+      "person": 1
+     },
+     {
+      "title": "flow catalog에 구체적인 사용자 예(scenario)를 더하고, wireframe의 안 쓰는 frame을 보이게 한다",
+      "date": "2026-11-09T17:12:40+09:00",
+      "person": 2
+     },
+     {
+      "title": "agent가 artifact를 탭으로 열어 보고 다룬다",
+      "date": "2026-11-09T16:23:09+09:00",
+      "person": 0
+     },
+     {
+      "title": "lophn을 다시 켜도 layout의 터미널을 다시 띄우지 않는다",
+      "date": "2026-11-09T15:27:01+09:00",
+      "person": 0
+     },
+     {
+      "title": "왼쪽 sidebar의 열린 session을 desk별로 나눈다",
+      "date": "2026-11-09T15:10:59+09:00",
+      "person": 0
+     },
+     {
+      "title": "도는 turn이 대화 화면에서 끝난 것으로 보이던 것을 고친다",
+      "date": "2026-11-09T15:06:51+09:00",
+      "person": 0
+     },
+     {
+      "title": "판을 올린 뒤 터미널 탭이 사용자 rc를 읽는다",
+      "date": "2026-11-09T15:01:42+09:00",
+      "person": 0
+     },
+     {
+      "title": "떠 있는 탭이면 무엇이든 모든 workspace의 전역 float이 된다",
+      "date": "2026-11-09T14:35:16+09:00",
+      "person": 0
+     },
+     {
+      "title": "앱 agent가 publish-package skill을 읽는다",
+      "date": "2026-11-09T14:35:16+09:00",
+      "person": 0
+     },
+     {
+      "title": "pin한 tray popup이 workspace를 옮겨도 다시 그려지지 않는다",
+      "date": "2026-11-09T14:35:16+09:00",
+      "person": 0
+     },
+     {
+      "title": "panel에서 session id를 복사하고, 바깥을 누르면 닫는다",
+      "date": "2026-11-09T14:35:16+09:00",
+      "person": 0
+     },
+     {
+      "title": "설치한 앱에서도 log가 남고, trace 토글과 agent loop span이 생겼다",
+      "date": "2026-11-09T14:21:46+09:00",
+      "person": 1
+     },
+     {
+      "title": "architecture는 설계만, 이슈와 change-log는 항목마다 yaml, release notes는 영어로 나눈다",
+      "date": "2026-11-09T13:45:34+09:00",
+      "person": 7
+     }
+    ]
+   },
+   {
+    "minor": "0.22",
+    "released": true,
+    "items": [
+     {
+      "title": "lophn agent와 harness agent의 tab·browser·ext call이 늘 forbidden이던 것을 고친다",
+      "date": "2026-11-09T13:43:25+09:00",
+      "person": 0
+     },
+     {
+      "title": "agent가 자기가 연 browser 탭과 앱 preview를 보고 다룬다",
+      "date": "2026-11-09T04:34:32+09:00",
+      "person": 5
+     },
+     {
+      "title": "flow catalog: lophn의 모든 동작과 test가 덮는 outcome",
+      "date": "2026-11-09T04:15:04+09:00",
+      "person": 1
+     },
+     {
+      "title": "workspace마다 lophn, 모든 workspace에 같은 설정 층, workspace memory와 agent memory",
+      "date": "2026-11-09T02:43:43+09:00",
+      "person": 2
+     },
+     {
+      "title": "터미널 진단 기록(LOPHN_TERMINAL_TRACE)",
+      "date": "2026-11-09T01:15:32+09:00",
+      "person": 0
+     },
+     {
+      "title": "터미널: 다시 붙은 탭의 mouse, 이모지 폭, TUI 복사를 고친다",
+      "date": "2026-11-09T00:59:22+09:00",
+      "person": 0
+     },
+     {
+      "title": "팀 자식의 질문 카드가 부모가 답한 것으로 보인다",
+      "date": "2026-11-09T00:51:52+09:00",
+      "person": 0
+     },
+     {
+      "title": "harness GUI: 파일 열기, 줄 선 메시지, background subagent, 대화 scroll을 고친다",
+      "date": "2026-11-09T00:26:00+09:00",
+      "person": 0
+     },
+     {
+      "title": "사용자 package(@me) publish·catalog 결함 정리",
+      "date": "2026-11-08T23:53:20+09:00",
+      "person": 3
+     },
+     {
+      "title": "agent가 팀을 늘리고 탭을 연다, shell extension이 agent의 tool을 낸다",
+      "date": "2026-11-08T23:31:51+09:00",
+      "person": 5
+     },
+     {
+      "title": "팀 자식의 질문과 승인이 부모에게 먼저 간다",
+      "date": "2026-11-08T22:31:59+09:00",
+      "person": 0
+     },
+     {
+      "title": "core가 shell 밖에서 스스로 선다",
+      "date": "2026-11-08T20:37:32+09:00",
+      "person": 2
+     },
+     {
+      "title": "Agents 화면이 agent의 workspace 범위를 보이고 고른다",
+      "date": "2026-11-08T20:11:32+09:00",
+      "person": 1
+     },
+     {
+      "title": "단축키: key context, 연속 key, extension·앱 key, harness GUI의 CLI key",
+      "date": "2026-11-08T17:42:47+09:00",
+      "person": 2
+     },
+     {
+      "title": "공통 socket 자리와 Windows hook·browser bridge·PowerShell 시작 층",
+      "date": "2026-11-08T16:22:58+09:00",
+      "person": 1
+     },
+     {
+      "title": "터미널 탭: 새 CLI에서 \"Open as chat\"이 첫 메시지 전까지 막힘",
+      "date": "2026-11-08T14:27:20+09:00",
+      "person": 0
+     },
+     {
+      "title": "Claude GUI: 다시 그린 명령 기록과 사용 한도 warning",
+      "date": "2026-11-08T14:23:40+09:00",
+      "person": 0
+     },
+     {
+      "title": "채팅 화면 성능, Claude steer detach, streaming markdown, 대화 가상화",
+      "date": "2026-11-08T03:14:56+09:00",
+      "person": 0
+     },
+     {
+      "title": "harness GUI: code block 줄바꿈과 shell 단추, steer, 줄 선 메시지 보존, 시간 박자, 탭 이름 깜빡임",
+      "date": "2026-11-08T01:58:07+09:00",
+      "person": 0
+     },
+     {
+      "title": "harness GUI: 입력·streaming 다시 그리기 줄이기, Claude 처음 mode와 model 이름, ! 명령 멈춤",
+      "date": "2026-11-08T00:13:50+09:00",
+      "person": 0
+     },
+     {
+      "title": "harness GUI: 고른 GUI 탭도 '보고 있음', 받은 메시지 chip, ! 출력 정렬",
+      "date": "2026-11-07T23:42:16+09:00",
+      "person": 0
+     },
+     {
+      "title": "harness GUI: 다른 workspace의 탭 이름, 입력 글 유지, ! 명령 줄 접기, shell 단추",
+      "date": "2026-11-07T23:42:16+09:00",
+      "person": 0
+     },
+     {
+      "title": "Settings에서 tray 항목 순서를 바꾼다",
+      "date": "2026-11-07T23:40:51+09:00",
+      "person": 0
+     },
+     {
+      "title": "tray popup 크기를 범위로 선언해 내용에 맞춘다",
+      "date": "2026-11-07T23:16:53+09:00",
+      "person": 1
+     },
+     {
+      "title": "기록이 많은 앱과 긴 대화도 지운다",
+      "date": "2026-11-07T23:07:41+09:00",
+      "person": 0
+     },
+     {
+      "title": "앱이 tray popup 크기를 정한다",
+      "date": "2026-11-07T22:42:16+09:00",
+      "person": 1
+     },
+     {
+      "title": "고정한 pin을 빗금 핀 대신 채운 핀으로 보인다",
+      "date": "2026-11-07T22:42:16+09:00",
+      "person": 0
+     },
+     {
+      "title": "harness GUI: 다시 붙을 때 snapshot, 사용량 복원, 탭 이름, 빈 session, 받은 메시지, bookmark",
+      "date": "2026-11-07T22:35:44+09:00",
+      "person": 1
+     },
+     {
+      "title": "앞 turn의 tool 이력을 다음 turn에 그대로 잇는다",
+      "date": "2026-11-07T22:30:41+09:00",
+      "person": 1
+     },
+     {
+      "title": "app.delete의 \"process가 아직 있나\" 판정을 살아 있는 supervisor로 바로잡는다",
+      "date": "2026-11-07T21:30:01+09:00",
+      "person": 0
+     },
+     {
+      "title": "보관한 앱을 영구히 지운다(app.delete)",
+      "date": "2026-11-07T21:27:28+09:00",
+      "person": 3
+     }
+    ]
+   }
+  ]
+ },
+ "issues": {
+  "open": 68,
+  "total": 338,
+  "byKind": [
+   {
+    "name": "bug",
+    "count": 54
+   },
+   {
+    "name": "defect",
+    "count": 9
+   },
+   {
+    "name": "mistake",
+    "count": 5
+   }
+  ],
+  "byTopic": [
+   {
+    "name": "app-call",
+    "count": 9
+   },
+   {
+    "name": "shell",
+    "count": 9
+   },
+   {
+    "name": "harness-gui",
+    "count": 7
+   },
+   {
+    "name": "workspace-layout",
+    "count": 7
+   },
+   {
+    "name": "platform",
+    "count": 6
+   },
+   {
+    "name": "code-health",
+    "count": 5
+   },
+   {
+    "name": "mistakes",
+    "count": 5
+   },
+   {
+    "name": "agent-definition",
+    "count": 4
+   },
+   {
+    "name": "keybindings",
+    "count": 4
+   },
+   {
+    "name": "coding-agent",
+    "count": 3
+   },
+   {
+    "name": "workspace-session",
+    "count": 2
+   },
+   {
+    "name": "acp",
+    "count": 1
+   },
+   {
+    "name": "activation",
+    "count": 1
+   },
+   {
+    "name": "approval",
+    "count": 1
+   },
+   {
+    "name": "browser-tab",
+    "count": 1
+   },
+   {
+    "name": "extension",
+    "count": 1
+   },
+   {
+    "name": "job",
+    "count": 1
+   },
+   {
+    "name": "workflow",
+    "count": 1
+   }
+  ],
+  "needsPerson": 4,
+  "recent": [
+   {
+    "title": "GC가 blob을 지워도 목적 기록과 미참조 표지 file이 남아 쌓인다",
+    "kind": "defect",
+    "topic": "code-health",
+    "opened": "2026-11-11T17:05:48+09:00",
+    "sure": true,
+    "needsPerson": false
+   },
+   {
+    "title": "model call 본문 blob의 용량 상한(512MB)이 참조된 blob에 걸리지 않아 끝없이 쌓인다",
+    "kind": "bug",
+    "topic": "code-health",
+    "opened": "2026-11-11T17:05:48+09:00",
+    "sure": true,
+    "needsPerson": true
+   },
+   {
+    "title": "Claude GUI에서 SendMessage로 다시 깨운 subagent가 도는 것으로 보이지 않는다",
+    "kind": "bug",
+    "topic": "harness-gui",
+    "opened": "2026-11-10T15:19:11.245Z",
+    "sure": true,
+    "needsPerson": false
+   },
+   {
+    "title": "두 창이 같은 workspace를 mount하면 agent가 연 browser page가 창마다 하나씩 생긴다",
+    "kind": "bug",
+    "topic": "workspace-layout",
+    "opened": "2026-11-10T17:50:47+09:00",
+    "sure": true,
+    "needsPerson": false
+   },
+   {
+    "title": "agent가 연 artifact 탭은 그 workspace를 띄운 창이 있을 때만 열리고 다룰 수 있다",
+    "kind": "bug",
+    "topic": "workspace-layout",
+    "opened": "2026-11-10T15:44:17+09:00",
+    "sure": true,
+    "needsPerson": false
+   },
+   {
+    "title": "PATCH를 올려도 본체 안 extension manifest 판은 그대로라 harness·harness-gui가 멈추고 패키징이 실패한다",
+    "kind": "bug",
+    "topic": "extension",
+    "opened": "2026-11-09T18:37:05+09:00",
+    "sure": true,
+    "needsPerson": false
+   },
+   {
+    "title": "agent가 같은 source 옆에 aside 탭을 거듭 열면 source 칸이 1/8까지 줄어든다",
+    "kind": "bug",
+    "topic": "workspace-layout",
+    "opened": "2026-11-09T18:19:34+09:00",
+    "sure": true,
+    "needsPerson": false
+   },
+   {
+    "title": "desk의 float이 20개면 agent가 연 work·glance 탭이 조용히 버려지고 agent는 열린 줄 안다",
+    "kind": "bug",
+    "topic": "workspace-layout",
+    "opened": "2026-11-09T18:19:34+09:00",
+    "sure": true,
+    "needsPerson": false
+   }
+  ]
+ },
+ "roadmap": [
+  {
+   "title": "agent browser: page 수명을 사람의 화면에서 뗀다",
+   "state": "partial",
+   "line": "단계 4(사람 browser 탭)만 계획으로 열지 않았다.",
+   "lastChanged": "2026-11-10T17:51:34+09:00"
+  },
+  {
+   "title": "agent platform: ACP, A2A, 사람이 정한 agent, third-party harness",
+   "state": "partial",
+   "line": "단계 1~4, 6, 7, 9는 land했다.",
+   "lastChanged": "2026-11-10T21:28:41+09:00"
+  },
+  {
+   "title": "agent surface: agent가 팀을 늘리고 탭을 연다",
+   "state": "done",
+   "line": "단계 0은 계획 agent-scope, 단계 1~3은 계획 agent-surface, 팀 물음(정한 것 11~15)은 계획 agent-team이 만들었다.",
+   "lastChanged": "2026-11-09T16:39:53+09:00"
+  },
+  {
+   "title": "앱 자리: 앱 화면 체계를 고치고, 앱이 shell 화면 자리(sidebar, 전역 float, tray)에 꽂힌다",
+   "state": "done",
+   "line": "계획 app-place로 구현했다.",
+   "lastChanged": "2026-11-09T16:39:53+09:00"
+  },
+  {
+   "title": "앱 SDK: event, session lifecycle, A2A, ACP",
+   "state": "waiting",
+   "line": "정할 것은 남지 않았다.",
+   "lastChanged": "2026-11-11T16:44:15+09:00"
+  },
+  {
+   "title": "app webview: 앱 화면을 native view에서 <webview>로 옮긴다",
+   "state": "done",
+   "line": "남은 것은 \"하지 않는 것\"뿐이다.",
+   "lastChanged": "2026-11-09T16:39:53+09:00"
+  },
+  {
+   "title": "approval: 남은 것",
+   "state": "partial",
+   "line": "2026-10-20 사람이 approval을 다시 설계하라고 했고, 계획 approval-simplify가 그 대부분을 만들었다.",
+   "lastChanged": "2026-11-09T16:39:53+09:00"
+  },
+  {
+   "title": "artifact: 남은 일",
+   "state": "done",
+   "line": "계획 artifact가 artifact model, artifact 탭, prompt 목록과 대화 link, 내장 guide, artifact annotation을 land했다.",
+   "lastChanged": "2026-11-10T16:07:37+09:00"
+  },
+  {
+   "title": "browser tab: workspace pane에서 web page를 연다",
+   "state": "partial",
+   "line": "1단계 browser-tab(browser 탭 kind, <webview> page, popup, session·navigation 규칙, DevTools, bookmark, favicon, Settings Browser pane)과 2단계 browser-bridge가 land했다.",
+   "lastChanged": "2026-11-09T16:39:53+09:00"
+  },
+  {
+   "title": "command surface: lophn agent와 coding agent가 같은 명령을 쓴다",
+   "state": "done",
+   "line": "계획 command-surface로 구현했다.",
+   "lastChanged": "2026-11-10T14:08:40+09:00"
+  },
+  {
+   "title": "config surface: 설정을 한 번 선언하면 화면, CLI, agent가 같이 쓴다",
+   "state": "partial",
+   "line": "순서 1(설정 surface)을 끝냈다.",
+   "lastChanged": "2026-11-11T01:20:34+09:00"
+  },
+  {
+   "title": "harness-config: MCP, skill, 권한, 지침 설정을 일반 harness 꼴로",
+   "state": "partial",
+   "line": "남은 단계는 3(MCP 칸 꼴), 4, 5(권한 규칙 일반화), 7(가져오기)이고, 아직 계획으로 열지 않았다.",
+   "lastChanged": "2026-11-09T16:39:53+09:00"
+  },
+  {
+   "title": "headless와 schedule: 남은 것",
+   "state": "partial",
+   "line": "이 문서에 남은 것은 gdrive 앱으로 끝남 기준을 돌려 보는 것이다.",
+   "lastChanged": "2026-11-09T16:39:53+09:00"
+  },
+  {
+   "title": "inbox 기록과 SDK migration: 남는 알림, 판이 바뀐 앱을 lophn이 옮긴다",
+   "state": "done",
+   "line": "",
+   "lastChanged": "2026-11-07T19:13:30+09:00"
+  },
+  {
+   "title": "keybindings: extension과 앱이 key를 등록하고 shell이 key context를 다룬다",
+   "state": "done",
+   "line": "",
+   "lastChanged": "2026-11-09T16:39:53+09:00"
+  },
+  {
+   "title": "mobile: lophn 모바일 앱과 사용자의 모바일 앱",
+   "state": "idea",
+   "line": "추천은 planner의 것이고 결정이 아니다.",
+   "lastChanged": "2026-11-09T16:39:53+09:00"
+  },
+  {
+   "title": "platform IPC: Windows에서도 hook과 browser bridge가 돈다",
+   "state": "done",
+   "line": "계획 platform-ipc의 세 task를 main에 land했다.",
+   "lastChanged": "2026-11-08T16:49:58+09:00"
+  },
+  {
+   "title": "problem과 ticket 덜어내기: 남은 것은 coding agent 연결의 크기",
+   "state": "partial",
+   "line": "2026-10-20 사람이 problem과 ticket 모델이 너무 빡빡하다며 방향을 냈고, 2026-10-21 \"최대한 덜어낸다\"로 정하고 App Engineer가 앱을 직접 짓기로 했다.",
+   "lastChanged": "2026-11-09T16:39:53+09:00"
+  },
+  {
+   "title": "SDK 업데이트 checkpoint: 검토와 맡긴 일의 상태를 ledger가 안다",
+   "state": "done",
+   "line": "\"사람이 정할 것\" 셋은 사람이 추천안으로 정했다(2026-11-11).",
+   "lastChanged": "2026-11-11T01:24:29+09:00"
+  },
+  {
+   "title": "secret request: agent가 secret이 필요한 자리를 가리켜 사람에게 넣어 달라고 한다",
+   "state": "done",
+   "line": "사람이 정할 것 둘은 추천안으로 진행했다.",
+   "lastChanged": "2026-11-11T16:46:43+09:00"
+  },
+  {
+   "title": "standalone core: core가 shell 밖에서 스스로 선다",
+   "state": "done",
+   "line": "계획 standalone-core의 여섯 task(control, idle, shell, cli, launchers, cleanup)를 main에 land했다.",
+   "lastChanged": "2026-11-09T16:39:53+09:00"
+  },
+  {
+   "title": "subscription-oauth: Claude·Antigravity 구독 provider의 남은 일",
+   "state": "partial",
+   "line": "실제 계정으로는 아직 아무것도 확인하지 않았다.",
+   "lastChanged": "2026-11-09T16:39:53+09:00"
+  },
+  {
+   "title": "theme: 색 theme, 자유 accent, 사용자 override",
+   "state": "done",
+   "line": "",
+   "lastChanged": "2026-11-11T00:02:50+09:00"
+  },
+  {
+   "title": "tool extension: extension이 agent의 tool을 등록한다",
+   "state": "done",
+   "line": "",
+   "lastChanged": "2026-11-10T21:28:41+09:00"
+  },
+  {
+   "title": "Tool lazy loading 공통화",
+   "state": "partial",
+   "line": "남은 native 연결(OpenAI Responses tool_search)은 의 defer-responses다.",
+   "lastChanged": "2026-11-09T16:39:53+09:00"
+  },
+  {
+   "title": "workflow: 남은 것",
+   "state": "partial",
+   "line": "2026-10-20 사람이 방향을 내고 2026-10-22 모양을 다시 정했다.",
+   "lastChanged": "2026-11-09T16:39:53+09:00"
+  }
+ ]
+}

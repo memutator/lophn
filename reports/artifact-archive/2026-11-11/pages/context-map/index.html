@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>역할별 맥락 지도</title>
+<meta name="description" content="planner, lead, worker, designer가 무엇을 읽고 어떤 도구를 돌리는지, 그 맥락을 어느 harness가 실제로 받는지와 무게를 한눈에 본다.">
+<link rel="stylesheet" href="/_lophn/kit.css">
+<script src="/_lophn/kit.js"></script>
+<style>
+  body { margin: 0; background: var(--color-surface-base); color: var(--color-text-primary); font-family: var(--font-sans); font-size: var(--type-body-size); }
+  .page { padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-8); }
+  section { display: flex; flex-direction: column; gap: var(--space-3); }
+  h2 { font-size: var(--type-title-small-size); margin: 0; }
+  h3 { font-size: var(--type-body-size); margin: 0; }
+  .muted { color: var(--color-text-secondary); }
+  .caption { color: var(--color-text-muted); font-size: var(--type-caption-size); }
+  .findings { margin: 0; padding-left: var(--space-5); display: flex; flex-direction: column; gap: var(--space-2); }
+  .findings li.warn::marker { color: var(--status-warning-marker); }
+  .findings li.open::marker { color: var(--color-text-muted); }
+  .graph { width: 100%; min-height: var(--space-12); }
+  .detail { display: grid; grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); gap: var(--space-5); }
+  .group { display: flex; flex-direction: column; gap: var(--space-2); }
+  .rows { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+  .rows li { display: flex; gap: var(--space-3); align-items: baseline; padding: var(--space-1) 0; border-bottom: 1px solid var(--color-border-base); }
+  .rows .name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .rows .size { font-family: var(--font-mono); color: var(--color-text-secondary); white-space: nowrap; }
+  .rows .kind { color: var(--color-text-muted); font-size: var(--type-caption-size); white-space: nowrap; }
+  .tag { font-size: var(--type-caption-size); white-space: nowrap; }
+  .tag.warn { color: var(--status-warning-text); }
+  .tag.good { color: var(--status-good-text); }
+  .role-desc { margin: 0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const { h, render, useState, useEffect, useRef, useTabHead, ui } = LophnKit;
+const { Table, StatusMark } = { ...ui.data, ...ui.feedback };
+const { SegmentedControl } = ui.input;
+const { Tooltip } = ui.overlay;
+
+const ROLES = ["planner", "lead", "worker", "designer"];
+const READ_KINDS = ["doc", "catalog", "record", "plan"];
+const KIND_LABEL = { doc: "doc", catalog: "catalog", record: "record", plan: "plan", tool: "tool", skill: "skill", instruction: "instruction" };
+
+function fmtBytes(b) {
+  if (b >= 1024 * 1024) return (b / 1024 / 1024).toFixed(1) + " MB";
+  if (b >= 100 * 1024) return Math.round(b / 1024) + " KB";
+  return (b / 1024).toFixed(1) + " KB";
+}
+const sum = (list, f = (c) => c.bytes) => list.reduce((a, c) => a + f(c), 0);
+const forRole = (data, role) => data.components.filter((c) => c.roles.includes(role) || c.roles.includes("all"));
+
+// 조각을 실리는 방식으로 나눈다.
+function split(list) {
+  return {
+    always: list.filter((c) => c.kind === "instruction"),
+    skills: list.filter((c) => c.kind === "skill"),
+    read: list.filter((c) => READ_KINDS.includes(c.kind)),
+    tools: list.filter((c) => c.kind === "tool"),
+  };
+}
+
+// 그래프: 역할 → 묶음. 묶음은 실리는 길이 다른 instruction 둘, Claude Code만 받는 skill, kind별 read 묶음, tool.
+const GROUPS = [
+  { id: "g-agents", label: "AGENTS.md", pick: (c) => c.delivery === "auto-all", status: { label: "늘 실림 · 세 harness", tone: "good" } },
+  { id: "g-prompt", label: "worker 지시문", pick: (c) => c.delivery === "handed", status: { label: "lead가 넘김", tone: "good" } },
+  { id: "g-skill", label: "skill", pick: (c) => c.kind === "skill", status: { label: "Claude Code만", tone: "warning" } },
+  { id: "g-doc", label: "doc", pick: (c) => c.kind === "doc", status: { label: "필요할 때 읽음", tone: "neutral" } },
+  { id: "g-catalog", label: "catalog", pick: (c) => c.kind === "catalog", status: { label: "필요할 때 읽음", tone: "neutral" } },
+  { id: "g-record", label: "record", pick: (c) => c.kind === "record", status: { label: "필요할 때 읽음", tone: "neutral" } },
+  { id: "g-plan", label: "plan · brief", pick: (c) => c.kind === "plan", status: { label: "필요할 때 읽음", tone: "neutral" } },
+  { id: "g-tool", label: "tool", pick: (c) => c.kind === "tool", status: { label: "돌림", tone: "neutral" } },
+];
+
+function graphData(data) {
+  const nodes = ROLES.map((r) => {
+    const s = split(forRole(data, r));
+    const loaded = sum(s.always) + sum(s.skills, (c) => c.entry_bytes ?? c.bytes);
+    return { id: "r-" + r, label: r, note: "실리는 글 최대 " + fmtBytes(loaded) };
+  });
+  const edges = [];
+  for (const g of GROUPS) {
+    const members = data.components.filter(g.pick);
+    if (members.length === 0) continue;
+    nodes.push({ id: g.id, label: g.label, status: g.status, note: members.length + "개 · " + fmtBytes(sum(members)) });
+    for (const r of ROLES) {
+      const mine = forRole(data, r).filter(g.pick);
+      if (mine.length === 0) continue;
+      edges.push({ from: "r-" + r, to: g.id, label: g.id === "g-agents" || g.id === "g-prompt" ? undefined : mine.length + "개" });
+    }
+  }
+  return { nodes, edges };
+}
+
+function Graph({ data }) {
+  const ref = useRef(null);
+  useEffect(() => { if (ref.current) LophnKit.renderGraph(ref.current, graphData(data)); }, [data]);
+  return h("div", { ref, className: "graph" });
+}
+
+function Summary({ data }) {
+  const rows = ROLES.map((r) => {
+    const s = split(forRole(data, r));
+    return {
+      role: r,
+      always: sum(s.always) / 1024,
+      skillCount: s.skills.length,
+      skillEntry: sum(s.skills, (c) => c.entry_bytes ?? c.bytes) / 1024,
+      readCount: s.read.length,
+      readBytes: sum(s.read) / 1024,
+      tools: s.tools.length,
+    };
+  });
+  return h(Table, {
+    rows, rowKey: (r) => r.role, now: new Date(data.collected_at), density: "compact",
+    columns: [
+      { id: "role", header: "역할", kind: "text", value: (r) => r.role },
+      { id: "always", header: "늘 실림", unit: "KB", kind: "number", value: (r) => Math.round(r.always * 10) / 10 },
+      { id: "skillCount", header: "skill (Claude Code만)", unit: "개", kind: "number", value: (r) => r.skillCount },
+      { id: "skillEntry", header: "skill 본문", unit: "KB", kind: "number", value: (r) => Math.round(r.skillEntry * 10) / 10 },
+      { id: "readCount", header: "필요할 때 읽음", unit: "개", kind: "number", value: (r) => r.readCount },
+      { id: "readBytes", header: "읽을 거리 전체", unit: "MB", kind: "number", value: (r) => Math.round(r.readBytes / 102.4) / 10 },
+      { id: "tools", header: "돌리는 tool", unit: "개", kind: "number", value: (r) => r.tools },
+    ],
+  });
+}
+
+function Findings({ data }) {
+  const s = (r) => split(forRole(data, r));
+  const skills = data.components.filter((c) => c.kind === "skill");
+  const byName = skills.filter((c) => c.agents_md === "name").map((c) => c.id.replace(/^skill-/, ""));
+  const byPrompt = skills.filter((c) => c.worker_prompt).map((c) => c.id.replace(/^skill-/, ""));
+  const heavy = ROLES.map((r) => ({ r, n: s(r).read.length, b: sum(s(r).read) })).sort((a, b) => b.b - a.b);
+  const f = data.facts;
+  const items = [
+    { tone: "warn", text: `skill ${skills.length}개(${fmtBytes(sum(skills))})는 .claude/skills에만 있다. .agents/skills·.opencode/skills${f.lophn_project_skills === 0 ? "·lophn project skill 폴더" : ""}는 비어 있거나 없어서, Codex는 skill을 받지 못한다.` },
+    { tone: "warn", text: `AGENTS.md는 ${byName.join(", ")} skill을 이름으로만 부르고 경로를 적지 않는다. worker 지시문은 ${byPrompt.join(", ")}를 경로로 가리켜 어느 harness든 읽을 수 있다.` },
+    { tone: "", text: `읽을 거리가 가장 무거운 역할은 ${heavy[0].r}(${heavy[0].n}개, ${fmtBytes(heavy[0].b)}), 다음이 ${heavy[1].r}(${heavy[1].n}개, ${fmtBytes(heavy[1].b)})다. 대부분 flow catalog·change-log·이슈 폴더라 통째로 읽는 일은 없고, 필요한 file만 연다.` },
+    { tone: "", text: `늘 실리는 것은 AGENTS.md 하나(${fmtBytes(sum(data.components.filter((c) => c.delivery === "auto-all")))})이고, worker는 여기에 lead가 넘기는 지시문이 더해진다.` },
+    { tone: "open", text: "확인 못 한 것: OpenCode 문서는 .claude/skills도 찾는다고 적고 있어 OpenCode가 skill을 받을 수도 있다. Claude Code가 AGENTS.md를 읽는 것은 판과 설정에 따라 다르다(CLAUDE.md는 없다). 이 기계에서 harness를 돌려 확인하지 않았다." },
+  ];
+  return h("ul", { className: "findings" }, items.map((it, i) => h("li", { key: i, className: it.tone }, it.text)));
+}
+
+function Rows({ list, showKind, skill }) {
+  if (list.length === 0) return h("p", { className: "caption" }, "없음");
+  const sorted = [...list].sort((a, b) => b.bytes - a.bytes);
+  return h("ul", { className: "rows" }, sorted.map((c) =>
+    h("li", { key: c.id },
+      h(Tooltip, { content: c.description }, h("span", { className: "name", tabIndex: 0 }, c.id)),
+      showKind ? h("span", { className: "kind" }, KIND_LABEL[c.kind]) : null,
+      skill && c.worker_prompt ? h("span", { className: "tag good" }, "지시문이 경로로 가리킴") : null,
+      skill && c.agents_md === "name" ? h("span", { className: "tag warn" }, "AGENTS.md는 이름만") : null,
+      h("span", { className: "size" }, skill && c.entry_bytes != null && c.entry_bytes !== c.bytes
+        ? fmtBytes(c.entry_bytes) + " / " + fmtBytes(c.bytes)
+        : fmtBytes(c.bytes) + (c.files > 1 ? " · " + c.files + " files" : "")))));
+}
+
+function RoleDetail({ data, role }) {
+  const s = split(forRole(data, role));
+  const desc = data.roles.find((r) => r.id === role)?.description;
+  return h("section", null,
+    h("p", { className: "role-desc muted" }, desc),
+    h("div", { className: "detail" },
+      h("div", { className: "group" },
+        h("h3", null, "늘 실리는 것 · ", fmtBytes(sum(s.always))),
+        h(Rows, { list: s.always })),
+      h("div", { className: "group" },
+        h("h3", null, "일에 따라 실리는 것 (skill) · ", s.skills.length, "개"),
+        h(StatusMark, { tone: "warning", label: "Claude Code만 자동으로 받음" }),
+        h(Rows, { list: s.skills, skill: true }),
+        s.skills.some((c) => c.entry_bytes !== c.bytes) ? h("p", { className: "caption" }, "크기는 SKILL.md / 폴더 전체") : null),
+      h("div", { className: "group" },
+        h("h3", null, "필요할 때 읽는 것 · ", s.read.length, "개 · ", fmtBytes(sum(s.read))),
+        h(Rows, { list: s.read, showKind: true })),
+      h("div", { className: "group" },
+        h("h3", null, "돌리는 tool · ", s.tools.length, "개"),
+        h(Rows, { list: s.tools }))));
+}
+
+function Page({ data }) {
+  const [role, setRole] = useState("planner");
+  const at = new Date(data.collected_at).toLocaleString("ko-KR", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+  useTabHead({ status: at + " 수집" });
+  return h("main", { className: "page" },
+    h("section", null, h(Findings, { data })),
+    h("section", null,
+      h("h2", null, "역할 → 조각"),
+      h(Graph, { data }),
+      h("p", { className: "caption" }, "모든 역할 공통(AGENTS.md, check, doctor)은 네 역할에 다 이었다. 선의 숫자는 그 역할이 쓰는 조각 수.")),
+    h("section", null,
+      h("h2", null, "역할별 무게"),
+      h(Summary, { data }),
+      h("p", { className: "caption" }, "skill 본문은 skill을 불렀을 때 실리는 SKILL.md. 읽을 거리 전체는 폴더째 더한 상한이다.")),
+    h("section", null,
+      h("h2", null, "역할별 목록"),
+      h(SegmentedControl, { label: "역할", value: role, onValueChange: setRole, size: "sm", options: ROLES.map((r) => ({ value: r, label: r })) }),
+      h(RoleDetail, { data, role })));
+}
+
+fetch("data/latest.json").then((r) => r.json())
+  .then((data) => render(document.getElementById("root"), h(Page, { data })));
+</script>
+</body>
+</html>

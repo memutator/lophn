@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>진행 현황</title>
+<meta name="description" content="지금 돌고 있는 계획, 최근 바뀐 일, 열린 이슈와 남은 큰 일을 한눈에 봅니다.">
+<link rel="stylesheet" href="/_lophn/kit.css">
+<script src="/_lophn/kit.js"></script>
+<style>
+  body { margin: 0; background: var(--color-surface-base); color: var(--color-text-primary); font-family: var(--font-sans); }
+  .page { padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-8); }
+  h2 { margin: 0 0 var(--space-4); font-size: var(--type-title-small-size); line-height: var(--type-title-small-line); font-weight: 600; }
+  h3 { margin: 0; font-size: var(--type-body-size); line-height: var(--type-body-line); font-weight: 600; }
+  .muted { color: var(--color-text-muted); font-size: var(--type-small-size); line-height: var(--type-small-line); }
+  .secondary { color: var(--color-text-secondary); }
+  .plans { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(22rem, 100%), 1fr)); gap: var(--space-6); }
+  .plan { display: flex; flex-direction: column; gap: var(--space-3); }
+  .plan-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); }
+  .goal { margin: 0; color: var(--color-text-secondary); font-size: var(--type-small-size); line-height: var(--type-small-line); }
+  .bar { display: flex; height: var(--space-2); border-radius: var(--radius-full); overflow: hidden; background: var(--color-surface-muted); }
+  .bar > span { display: block; }
+  .waves { display: flex; flex-direction: column; gap: var(--space-2); }
+  .wave { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
+  .wave-label { color: var(--color-text-muted); font-size: var(--type-caption-size); min-width: 3.5em; }
+  .chip { display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2); border-radius: var(--radius-sm);
+          background: var(--color-surface-subtle); border: var(--border-width, 1px) solid var(--color-border-subtle);
+          font-size: var(--type-caption-size); line-height: var(--type-caption-line); color: var(--color-text-secondary); }
+  .dot { width: var(--space-2); height: var(--space-2); border-radius: var(--radius-full); flex: none; }
+  .notes { display: flex; flex-direction: column; gap: var(--space-1); }
+  .legend { display: flex; gap: var(--space-4); flex-wrap: wrap; }
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(26rem, 100%), 1fr)); gap: var(--space-8); }
+  .rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  .rows li { display: flex; gap: var(--space-3); padding: var(--space-2) 0; border-bottom: var(--border-width, 1px) solid var(--color-border-subtle); align-items: baseline; }
+  .rows li:last-child { border-bottom: none; }
+  .rows .when { flex: none; width: 6.5em; color: var(--color-text-muted); font-size: var(--type-small-size); font-variant-numeric: tabular-nums; }
+  .rows .what { flex: 1; min-width: 0; }
+  .rows .tag { flex: none; color: var(--color-text-muted); font-size: var(--type-caption-size); }
+  .hbars { display: flex; flex-direction: column; gap: var(--space-2); }
+  .hbar { display: grid; grid-template-columns: minmax(6em, 10em) 1fr 2.5em; gap: var(--space-3); align-items: center; font-size: var(--type-small-size); }
+  .hbar .track { height: var(--space-3); background: var(--color-surface-muted); border-radius: var(--radius-xs); overflow: hidden; }
+  .hbar .fill { height: 100%; background: var(--chart-series-0); }
+  .hbar .n { text-align: right; font-variant-numeric: tabular-nums; color: var(--color-text-secondary); }
+  .day-head { margin: var(--space-5) 0 var(--space-1); font-size: var(--type-small-size); font-weight: 600; color: var(--color-text-secondary); }
+  .kinds { display: flex; gap: var(--space-6); flex-wrap: wrap; margin-bottom: var(--space-4); }
+  .kind b { font-size: var(--type-title-size); line-height: var(--type-title-line); font-variant-numeric: tabular-nums; margin-right: var(--space-1); }
+  .road { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-3) 0; border-bottom: var(--border-width, 1px) solid var(--color-border-subtle); }
+  .road:last-child { border-bottom: none; }
+  .section-note { margin: calc(-1 * var(--space-3)) 0 var(--space-4); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const { h, render, useState, useTabHead, ui } = LophnKit;
+const { StatTile, StatRow, BarChart } = ui.data;
+const { Card } = ui.layout;
+const { StatusMark } = ui.feedback;
+const { Tabs, TabList, Tab } = ui.navigation;
+
+const VIEWS = [
+  { id: "summary", label: "요약" },
+  { id: "changes", label: "바뀐 것" },
+  { id: "issues", label: "이슈" },
+  { id: "roadmap", label: "큰 일" },
+];
+const TZ = "Asia/Seoul";
+const fmtDay = (iso) => new Date(iso).toLocaleDateString("ko-KR", { timeZone: TZ, month: "long", day: "numeric" });
+const fmtWhen = (iso) => new Date(iso).toLocaleString("ko-KR", { timeZone: TZ, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+const dayKey = (iso) => new Date(iso).toLocaleDateString("sv-SE", { timeZone: TZ });
+
+const STATE = {
+  merged: { label: "합침", color: "var(--status-good-marker)" },
+  running: { label: "진행", color: "var(--chart-series-0)" },
+  todo: { label: "대기", color: "var(--status-neutral-marker)" },
+  blocked: { label: "보류", color: "var(--status-warning-marker)" },
+  dropped: { label: "안 함", color: "var(--color-border-strong)" },
+};
+const KIND = { bug: "bug", defect: "defect", mistake: "mistake" };
+const ROAD = {
+  partial: "남은 일이 있음",
+  waiting: "아직 시작 전",
+  idea: "생각 중",
+  done: "끝남",
+};
+
+function Dot({ state }) {
+  return h("span", { className: "dot", style: { background: STATE[state].color } });
+}
+
+function PlanCard({ plan }) {
+  const live = plan.tasks.filter((t) => t.state !== "dropped");
+  const waves = [...new Set(plan.tasks.map((t) => t.wave))].sort((a, b) => a - b);
+  const c = plan.counts;
+  const total = live.length || 1;
+  const tone = c.running ? "good" : c.blocked ? "warning" : c.merged === live.length ? "good" : "neutral";
+  const headline = c.merged === live.length && live.length ? "모두 합침"
+    : c.running ? `${c.running}건 진행 중`
+    : c.blocked ? `${c.blocked}건 보류` : "시작 전";
+  return h(Card, null,
+    h("div", { className: "plan" },
+      h("div", { className: "plan-head" },
+        h("h3", null, plan.name),
+        h(StatusMark, { tone, label: headline })),
+      h("p", { className: "goal" }, plan.goal),
+      h("div", { className: "bar", role: "img", "aria-label": `task ${live.length}건 중 합침 ${c.merged}` },
+        ["merged", "running", "blocked", "todo"].map((s) => c[s]
+          ? h("span", { key: s, style: { width: `${(c[s] / total) * 100}%`, background: STATE[s].color } }) : null)),
+      h("div", { className: "muted" },
+        `task ${live.length}건 · 합침 ${c.merged} · 진행 ${c.running} · 대기 ${c.todo}` + (c.blocked ? ` · 보류 ${c.blocked}` : "") + (c.dropped ? ` · 안 함 ${c.dropped}` : "")),
+      h("div", { className: "waves" },
+        waves.map((w) => h("div", { className: "wave", key: w },
+          h("span", { className: "wave-label" }, `wave ${w}`),
+          plan.tasks.filter((t) => t.wave === w).map((t) =>
+            h("span", { className: "chip", key: t.id }, h(Dot, { state: t.state }), t.id))))),
+      plan.notes.length ? h("div", { className: "notes" },
+        plan.notes.map((n) => h(StatusMark, { key: n, tone: "warning", label: n }))) : null,
+      h("div", { className: "muted" }, `마지막 기록 ${fmtDay(plan.lastChanged)}`)));
+}
+
+function Legend() {
+  return h("div", { className: "legend muted" },
+    Object.keys(STATE).map((s) => h("span", { key: s, className: "chip" }, h(Dot, { state: s }), STATE[s].label)));
+}
+
+function ChangeRows({ items }) {
+  return h("ul", { className: "rows" }, items.map((i, n) =>
+    h("li", { key: n },
+      h("span", { className: "when" }, i.date ? fmtWhen(i.date) : "—"),
+      h("span", { className: "what" }, i.title))));
+}
+
+function IssueRows({ items }) {
+  return h("ul", { className: "rows" }, items.map((i, n) =>
+    h("li", { key: n },
+      h("span", { className: "when" }, fmtDay(i.opened)),
+      h("span", { className: "what" }, i.title),
+      h("span", { className: "tag" }, `${KIND[i.kind] ?? i.kind} · ${i.topic}`))));
+}
+
+function HBars({ rows, max }) {
+  const top = max ?? Math.max(...rows.map((r) => r.count), 1);
+  return h("div", { className: "hbars" }, rows.map((r) =>
+    h("div", { className: "hbar", key: r.name },
+      h("span", { className: "secondary" }, r.name),
+      h("div", { className: "track" }, h("div", { className: "fill", style: { width: `${(r.count / top) * 100}%` } })),
+      h("span", { className: "n" }, r.count))));
+}
+
+function Summary({ d }) {
+  const recentChanges = d.changes.groups.flatMap((g) => g.items).filter((i) => i.date)
+    .sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
+  return h(LophnKit.React.Fragment, null,
+    h("section", null,
+      h("h2", null, "진행 중인 계획"),
+      h("div", { className: "plans" }, d.plans.map((p) => h(PlanCard, { key: p.name, plan: p }))),
+      h("div", { style: { marginTop: "var(--space-3)" } }, h(Legend))),
+    h("div", { className: "two" },
+      h("section", null,
+        h("h2", null, "최근 바뀐 것"),
+        h(ChangeRows, { items: recentChanges })),
+      h("section", null,
+        h("h2", null, "최근 열린 이슈"),
+        h(IssueRows, { items: d.issues.recent.slice(0, 8) }))));
+}
+
+function Changes({ d }) {
+  const days = d.changes.perDay;
+  const noop = () => {};
+  return h(LophnKit.React.Fragment, null,
+    h("section", null,
+      h("h2", null, "날마다 바뀐 일 (최근 14일)"),
+      h(BarChart, {
+        categories: days.map((x) => x.day.slice(5).replace("-", "/")),
+        series: [{ key: "changes", label: "바뀐 일", values: days.map((x) => x.count) }],
+        xLabel: "날", locale: "ko", timeZone: TZ,
+        onRetry: noop, empty: { message: "이 기간에 바뀐 일이 없습니다.", action: { label: "닫기", onSelect: noop } },
+      })),
+    d.changes.groups.map((g) => {
+      const byDay = new Map();
+      for (const i of g.items) {
+        const k = i.date ? dayKey(i.date) : "날짜 모름";
+        if (!byDay.has(k)) byDay.set(k, []);
+        byDay.get(k).push(i);
+      }
+      return h("section", { key: g.minor },
+        h("h2", null, `${g.minor} 판 · ${g.items.length}건`),
+        h("p", { className: "muted section-note" }, g.released ? `${d.release.version} release에 들어갔습니다.` : `${d.release.version} release 뒤로 쌓인 일입니다. 아직 release하지 않았습니다.`),
+        [...byDay].map(([k, items]) => h("div", { key: k },
+          h("div", { className: "day-head" }, k === "날짜 모름" ? k : `${fmtDay(items[0].date)} · ${items.length}건`),
+          h(ChangeRows, { items }))));
+    }));
+}
+
+function Issues({ d }) {
+  const i = d.issues;
+  return h(LophnKit.React.Fragment, null,
+    h("section", null,
+      h("h2", null, "종류별"),
+      h("div", { className: "kinds" }, i.byKind.map((k) =>
+        h("span", { className: "kind", key: k.name }, h("b", null, k.count), h("span", { className: "secondary" }, KIND[k.name] ?? k.name)))),
+      i.needsPerson ? h(StatusMark, { tone: "warning", label: `사람이 정할 것이 남은 이슈 ${i.needsPerson}건` }) : null),
+    h("div", { className: "two" },
+      h("section", null,
+        h("h2", null, "주제별 열린 이슈"),
+        h(HBars, { rows: i.byTopic })),
+      h("section", null,
+        h("h2", null, "최근 열린 것"),
+        h(IssueRows, { items: i.recent }))));
+}
+
+function Roadmap({ d }) {
+  const order = ["partial", "waiting", "idea", "done"];
+  return h(LophnKit.React.Fragment, null, order.map((s) => {
+    const items = d.roadmap.filter((r) => r.state === s);
+    if (!items.length) return null;
+    return h("section", { key: s },
+      h("h2", null, `${ROAD[s]} · ${items.length}`),
+      items.map((r) => h("div", { className: "road", key: r.title },
+        h("h3", null, r.title),
+        r.line ? h("span", { className: "muted" }, r.line) : null)));
+  }));
+}
+
+function Page({ d }) {
+  const [view, setView] = useState("summary");
+  const inHead = useTabHead(
+    { status: `${fmtWhen(d.collectedAt)} 수집`, tabs: { items: VIEWS, selected: view } },
+    { onTab: setView });
+  const openPlans = d.plans.length;
+  const running = d.plans.reduce((n, p) => n + p.counts.running, 0);
+  return h("main", { className: "page" },
+    inHead ? null : h(Tabs, { value: view, onValueChange: setView },
+      h(TabList, null, VIEWS.map((v) => h(Tab, { key: v.id, value: v.id, size: "sm" }, v.label)))),
+    h(StatRow, null,
+      h(StatTile, { label: running ? `열린 계획 (진행 중 task ${running})` : "열린 계획", value: openPlans, unit: "개", locale: "ko" }),
+      h(StatTile, { label: "열린 이슈", value: d.issues.open, unit: "건", locale: "ko" }),
+      h(StatTile, { label: "최근 7일 바뀐 일", value: d.changes.recentCount, unit: "건", locale: "ko" }),
+      h(StatTile, { label: `${d.release.version} release 뒤 쌓인 일`, value: d.changes.afterReleaseCount, unit: "건", locale: "ko" })),
+    view === "summary" ? h(Summary, { d })
+      : view === "changes" ? h(Changes, { d })
+      : view === "issues" ? h(Issues, { d })
+      : h(Roadmap, { d }));
+}
+
+fetch("data/latest.json").then((r) => r.json())
+  .then((d) => render(document.getElementById("root"), h(Page, { d })));
+</script>
+</body>
+</html>

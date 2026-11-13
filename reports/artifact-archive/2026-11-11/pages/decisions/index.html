@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>결정 대기함</title>
+<meta name="description" content="lophn 개발에서 사람이 지금 정하거나 직접 확인해야 할 것이 몇 건이고, 왜 막혀 있고, agent가 무엇을 추천하는지 한 화면에서 본다.">
+<link rel="stylesheet" href="/_lophn/kit.css">
+<script src="/_lophn/kit.js"></script>
+<style>
+  body { margin: 0; background: var(--color-surface-base); color: var(--color-text-primary); font-family: var(--font-sans); font-size: var(--type-body-size); line-height: var(--type-body-line); }
+  .page { padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-6); }
+  .summary { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-8); align-items: baseline; }
+  .big { font-size: var(--type-display-size); line-height: var(--type-display-line); font-weight: 600; }
+  .sub { color: var(--color-text-secondary); }
+  .kinds { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); color: var(--color-text-secondary); }
+  .group { display: flex; flex-direction: column; gap: var(--space-2); }
+  .group h2 { margin: 0; font-size: var(--type-title-small-size); line-height: var(--type-title-small-line); font-weight: 600; display: flex; gap: var(--space-2); align-items: center; }
+  .group h2 .n { color: var(--color-text-muted); font-weight: 400; }
+  .row { border: 1px solid var(--color-border-base); border-radius: var(--radius-md); background: var(--color-surface-subtle); padding: var(--space-4); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+  .top { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); align-items: baseline; justify-content: space-between; }
+  .q { font-weight: 600; font-size: var(--type-title-small-size); line-height: var(--type-title-small-line); }
+  .meta { display: flex; gap: var(--space-3); color: var(--color-text-muted); font-size: var(--type-small-size); line-height: var(--type-small-line); white-space: nowrap; }
+  .subject { color: var(--color-text-secondary); font-size: var(--type-small-size); line-height: var(--type-small-line); }
+  .lbl { color: var(--color-text-muted); font-size: var(--type-small-size); margin-right: var(--space-2); }
+  .rec { border-left: 2px solid var(--status-good-marker); padding-left: var(--space-3); }
+  .rec.none { border-left-color: var(--color-border-base); color: var(--color-text-muted); }
+  .urg { color: var(--status-critical-text); font-size: var(--type-small-size); }
+  .note { color: var(--status-warning-text); font-size: var(--type-small-size); line-height: var(--type-small-line); }
+  details summary { cursor: pointer; color: var(--color-link); font-size: var(--type-small-size); }
+  details .dh { margin: var(--space-3) 0 var(--space-1); color: var(--color-text-secondary); font-size: var(--type-small-size); font-weight: 600; }
+  details ul { margin: 0; padding-left: var(--space-5); }
+  details li { margin: var(--space-1) 0; }
+  @media (min-width: 900px) {
+    .row { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); column-gap: var(--space-6); }
+    .row > .top, .row > .subject, .row > details, .row > .note { grid-column: 1 / -1; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  const { h, render, useTabHead, ui } = LophnKit;
+  const { StatusMark } = ui.feedback;
+  const GROUPS = [
+    { id: "급함", label: "먼저 볼 것", tone: "critical" },
+    { id: "보통", label: "정할 것", tone: "warning" },
+    { id: "낮음", label: "급하지 않음", tone: "neutral" },
+  ];
+  const KIND_ORDER = ["이슈", "정책 제안", "계획 확인", "메모"];
+
+  function asOf(iso) {
+    const d = new Date(iso);
+    const p = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+    return `${p} 수집`;
+  }
+
+  function Item({ it }) {
+    const hasDetails = it.details && it.details.length > 0;
+    return h("article", { className: "row" },
+      h("div", { className: "top" },
+        h("div", { className: "q" }, it.question),
+        h("div", { className: "meta" }, h("span", null, it.kind))),
+      it.subject ? h("div", { className: "subject" }, it.subject) : null,
+      h("div", null,
+        it.urgency ? h("div", { className: "urg" }, it.urgency) : null,
+        h("span", { className: "lbl" }, "막힌 이유"), it.why),
+      h("div", { className: it.recommend ? "rec" : "rec none" },
+        h("span", { className: "lbl" }, "agent 추천"), it.recommend || "추천 없음, 사람이 정한다"),
+      it.stale ? h("div", { className: "note" }, "원문이 바뀌어 아래 글은 다시 요약되지 않은 원문 그대로다.") : null,
+      it.note ? h("div", { className: "note" }, it.note) : null,
+      hasDetails ? h("details", null,
+        h("summary", null, "자세히"),
+        it.details.map((d, i) => h("div", { key: i },
+          h("div", { className: "dh" }, d.heading),
+          h("ul", null, d.lines.map((l, j) => h("li", { key: j }, l)))))) : null);
+  }
+
+  function Page({ data }) {
+    useTabHead({ status: asOf(data.collectedAt) }, {});
+    const byKind = KIND_ORDER.map((k) => [k, data.items.filter((i) => i.kind === k).length]).filter(([, n]) => n);
+    return h("main", { className: "page" },
+      h("section", { className: "summary" },
+        h("div", null, h("span", { className: "big" }, data.counts.total), h("span", { className: "sub" }, " 건이 사람을 기다린다")),
+        data.counts.urgent ? h(StatusMark, { tone: "critical", label: `먼저 볼 것 ${data.counts.urgent}건` }) : null,
+        h("div", { className: "kinds" }, byKind.map(([k, n]) => h("span", { key: k }, `${k} ${n}`)))),
+      GROUPS.map((g) => {
+        const rows = data.items.filter((i) => i.priority === g.id);
+        if (!rows.length) return null;
+        return h("section", { key: g.id, className: "group" },
+          h("h2", null, h(StatusMark, { tone: g.tone, label: g.label }), h("span", { className: "n" }, rows.length)),
+          rows.map((it) => h(Item, { key: it.key, it })));
+      }));
+  }
+
+  fetch("data/latest.json").then((r) => r.json())
+    .then((data) => render(document.getElementById("root"), h(Page, { data })));
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 import { ERROR_CODES, type ErrorCode } from "../../base/mod.ts";
 import { z } from "zod";
-import type { RouteChange } from "../events/changes.ts";
+import type { ChangeName, RouteChange } from "../events/changes.ts";
 
 export const ACTOR_KINDS = ["user", "agent", "app", "machine"] as const;
 
@@ -42,7 +42,17 @@ type RouteBase<K extends RouteKind, I extends z.ZodType, O> = {
   // 이 route가 성공하면 바꾸는 것. command·upload는 반드시 적고 memory는 상태를 바꾸는 것만 적는다.
   // core가 commit 뒤(memory·upload는 handler 성공 뒤) `StateChanged`로 낸다.
   changes?: readonly RouteChange[];
+  // read·memory route가 기대는 것. 화면은 이 이름의 `StateChanged`가 오면 다시 읽는다.
+  reads?: readonly RouteRead[];
 };
+
+// read route의 `reads` 항목. 이름만 적으면 그 이름 전체에 기댄다. id는 입력에서 뽑고 null이면 전체다.
+// method 꼴이라 입력 type이 다른 route 정의도 한 목록(Route)에 든다.
+export type RouteRead<I = unknown> =
+  | ChangeName
+  | { name: ChangeName; id(input: I): string | null };
+
+type Reads<I extends z.ZodType> = readonly RouteRead<z.output<I>>[];
 
 // 선언하는 쪽의 입력·결과 type으로 id를 뽑는다.
 type Changes<I extends z.ZodType, O extends z.ZodType> = readonly RouteChange<
@@ -163,7 +173,7 @@ export function defineRead<I extends z.ZodType, O extends z.ZodType>(
   options: Omit<
     DefineOptions<I, O>,
     "confirmation" | "binding" | "confirmation_kind"
-  >,
+  > & { reads?: Reads<I> },
 ): ReadRoute<I, O> {
   return define("read", options);
 }
@@ -185,7 +195,7 @@ export function defineMemory<I extends z.ZodType, O extends z.ZodType>(
   options: Omit<
     DefineOptions<I, O>,
     "confirmation" | "binding" | "confirmation_kind"
-  > & { changes?: Changes<I, O> },
+  > & { changes?: Changes<I, O>; reads?: Reads<I> },
 ): MemoryRoute<I, O> {
   const given = options as DefineOptions<I, O>;
   if (

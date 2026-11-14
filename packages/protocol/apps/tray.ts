@@ -55,6 +55,7 @@ export const appTrayList = defineMemory({
   name: "app_tray.list",
   input: z.strictObject({}),
   output: z.object({ values: z.array(trayValueSchema) }),
+  reads: ["tray"],
   actors: ["user"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });

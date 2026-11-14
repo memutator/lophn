@@ -92,6 +92,7 @@ export const shareRequestList = defineRead({
   name: "share_requests.list",
   input: z.strictObject({}),
   output: withReadCommon(z.object({ requests: z.array(shareRequestSchema) })),
+  reads: ["share_requests"],
   actors: ["user", "machine"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });

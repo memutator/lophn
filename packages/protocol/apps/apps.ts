@@ -238,6 +238,7 @@ export const appList = defineRead({
   name: "app.list",
   input: appListInputSchema,
   output: withReadCommon(z.object({ apps: z.array(appSchema) })),
+  reads: ["apps"],
   actors: readActors,
   errors: readErrors,
 });
@@ -247,6 +248,7 @@ export const appGet = defineRead({
   name: "app.get",
   input: appInputSchema,
   output: withReadCommon(z.object({ app: appSchema })),
+  reads: [{ name: "apps", id: (input) => input.app }],
   actors: readActors,
   errors: readErrors,
 });

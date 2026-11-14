@@ -74,6 +74,7 @@ export const appRewindPlan = defineRead({
   name: "app.rewind_plan",
   input: z.strictObject(rewindTargetFields),
   output: withReadCommon(z.object({ plan: rewindPlanSchema })),
+  reads: [{ name: "app_activity", id: (input) => input.app }],
   actors: ["user"],
   errors: [
     "invalid_input",
@@ -115,6 +116,7 @@ export const appRewinds = defineRead({
   name: "app.rewinds",
   input: appRewindsInputSchema,
   output: withReadCommon(z.object({ rewinds: z.array(rewindSchema) })),
+  reads: [{ name: "app_activity", id: (input) => input.app }],
   actors: ["user", "agent", "machine"],
   errors: [
     "invalid_input",

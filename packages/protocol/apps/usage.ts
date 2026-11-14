@@ -30,6 +30,7 @@ export const appUsage = defineRead({
   name: "app.usage",
   input: z.strictObject({ app: appIdSchema.optional() }),
   output: withReadCommon(z.object({ uses: z.array(appToolUseSchema) })),
+  reads: [{ name: "app_activity", id: (input) => input.app ?? null }],
   actors: ["user", "machine", "agent"],
   errors: readErrors,
 });

@@ -33,6 +33,7 @@ export const secretStatus = defineMemory({
   name: "SecretStatus",
   input: z.strictObject({ names: z.array(secretNameSchema).optional() }),
   output: z.strictObject({ secrets: z.array(secretFileStatusSchema) }),
+  reads: ["secrets"],
   actors: ["user", "agent", "app", "machine"],
   errors,
 });

@@ -130,6 +130,7 @@ export const appTools = defineRead({
   name: "app.tools",
   input: appInputSchema.extend({ release: releaseIdSchema.optional() }),
   output: appDeclarationOutputSchema,
+  reads: [{ name: "releases", id: (input) => input.app }],
   actors: ["user", "agent", "app", "machine"],
   errors: [
     "invalid_input",
@@ -154,6 +155,10 @@ export const appIcon = defineRead({
   name: "app.icon",
   input: appInputSchema,
   output: z.object({ icon: appIconSchema.nullable(), uploaded: z.boolean() }),
+  reads: [
+    { name: "apps", id: (input) => input.app },
+    { name: "releases", id: (input) => input.app },
+  ],
   actors: ["user"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });
@@ -179,6 +184,7 @@ export const appSkills = defineRead({
       }),
     ),
   }),
+  reads: ["releases"],
   actors: ["user", "machine"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });
@@ -209,6 +215,7 @@ export const appToolIndex = defineRead({
   name: "app.tool_index",
   input: z.strictObject({ app: appIdSchema.optional() }),
   output: withReadCommon(z.object({ apps: z.array(appToolIndexEntrySchema) })),
+  reads: [{ name: "releases", id: (input) => input.app ?? null }],
   actors: ["user", "agent"],
   errors: [
     "invalid_input",

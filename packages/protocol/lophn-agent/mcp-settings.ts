@@ -237,6 +237,7 @@ export const mcpAuthState = defineMemory({
   name: "ReadMcpAuthState",
   input: mcpAuthStateInputSchema,
   output: mcpAuthStateOutputSchema,
+  reads: ["extension_settings", "secrets"],
   actors: ["user"],
   errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
 });
@@ -300,6 +301,7 @@ export const mcpToolsList = defineMemory({
     agent: agentIdSchema.nullable(),
   }),
   output: z.strictObject({ servers: z.array(mcpToolServerSchema) }),
+  reads: ["extension_settings"],
   actors: ["user"],
   errors: ["unauthorized", "forbidden", "invalid_input", "unavailable"],
 });
@@ -397,6 +399,7 @@ export const workspaceExtensionSettingsRead = defineRead({
       hash: sha256Schema.nullable(),
     }),
   ),
+  reads: ["extension_settings"],
   actors: ["user", "machine"],
   errors: [...readErrors],
 });

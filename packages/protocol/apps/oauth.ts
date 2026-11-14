@@ -121,6 +121,7 @@ export const appsOAuthState = defineMemory({
       }),
     ),
   }),
+  reads: ["secrets"],
   actors: ["user"],
   errors: ["invalid_input", "not_found", "unavailable"],
 });

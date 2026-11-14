@@ -234,6 +234,7 @@ export const noticesList = defineRead({
     limit: z.number().int().min(1).max(NOTICE_LIST_LIMIT_MAX).optional(),
   }),
   output: withReadCommon(z.object({ notices: z.array(noticeSchema) })),
+  reads: ["notices"],
   actors: ["user", "machine"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });
@@ -245,6 +246,7 @@ export const noticesOpen = defineRead({
   name: "notices.open",
   input: z.strictObject({}),
   output: withReadCommon(z.object({ notices: z.array(noticeSchema) })),
+  reads: ["notices"],
   actors: ["user", "machine"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });

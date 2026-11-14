@@ -84,6 +84,7 @@ export const activationConsents = defineRead({
       consents: z.array(activationConsentSchema),
     }),
   ),
+  reads: ["activation_consents"],
   actors: ["user", "machine"],
   errors: [
     "invalid_input",

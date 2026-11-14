@@ -113,6 +113,7 @@ export const agentList = defineRead({
   name: "ListAgents",
   input: z.strictObject({ workspace: workspaceSchema.optional() }),
   output: withReadCommon(z.object({ agents: z.array(agentRowSchema) })),
+  reads: ["agents", "models"],
   actors: readActors,
   errors: [...readErrors],
 });
@@ -138,6 +139,7 @@ export const agentRead = defineRead({
       issues: z.array(agentDefinitionIssueSchema),
     }),
   ),
+  reads: [{ name: "agents", id: (input) => input.agent }, "models"],
   actors: readActors,
   errors: [...readErrors],
 });
@@ -188,6 +190,7 @@ export const agentCard = defineRead({
     workspace: workspaceSchema.optional(),
   }),
   output: withReadCommon(z.object({ card: agentCardSchema })),
+  reads: ["agents", "models"],
   actors: readActors,
   errors: [...readErrors],
 });
@@ -199,6 +202,7 @@ export const agentCards = defineRead({
   name: "ListAgentCards",
   input: z.strictObject({ workspace: workspaceSchema }),
   output: withReadCommon(z.object({ cards: z.array(agentCardSchema) })),
+  reads: ["agents", "models"],
   actors: ["machine"],
   errors: [...readErrors],
 });

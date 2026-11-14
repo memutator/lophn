@@ -139,6 +139,7 @@ export const workflowInstanceRead = defineRead({
       lines: z.array(workflowLineSchema),
     }),
   ),
+  reads: [{ name: "workflow_instances", id: (input) => input.instance }],
   actors: ["user", "agent", "machine"],
   errors: [...readErrors],
 });
@@ -159,6 +160,7 @@ export const workflowInstanceList = defineRead({
       instances: z.array(workflowInstanceSummarySchema),
     }),
   ),
+  reads: ["workflow_instances"],
   actors: ["user", "agent"],
   errors: [...readErrors],
 });

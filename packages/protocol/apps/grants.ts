@@ -79,6 +79,7 @@ export const appGrantsList = defineRead({
   name: "app_grants.list",
   input: grantsListInputSchema,
   output: withReadCommon(z.object({ grants: z.array(appGrantSchema) })),
+  reads: [{ name: "app_grants", id: (input) => input.app ?? null }],
   actors: readActors,
   errors: readErrors,
 });

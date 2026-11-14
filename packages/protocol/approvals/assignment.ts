@@ -64,6 +64,7 @@ export const assignmentGet = defineRead({
       revision: assignmentRevisionSchema,
     }),
   ),
+  reads: [{ name: "agents", id: (input) => input.agent }],
   actors: ["user", "machine"],
   errors: [...readErrors],
 });

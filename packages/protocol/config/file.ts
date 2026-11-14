@@ -106,6 +106,7 @@ export const settingsList = defineMemory({
   name: "SettingsList",
   input: settingsListInputSchema,
   output: settingsListOutputSchema,
+  reads: ["settings"],
   actors: ["user", "agent", "app", "machine"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });

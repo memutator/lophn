@@ -335,6 +335,7 @@ export const activationsQueue = defineRead({
       entries: z.array(activationQueueEntrySchema),
     }),
   ),
+  reads: [{ name: "releases", id: (input) => input.app ?? null }],
   actors: ["user", "agent", "machine"],
   errors: readErrors,
 });
@@ -346,6 +347,7 @@ export const activationsCompare = defineRead({
   name: "activations.compare",
   input: z.strictObject({ release: releaseIdSchema }),
   output: withReadCommon(z.object({ comparison: activationComparisonSchema })),
+  reads: ["releases"],
   actors: readActors,
   errors: readErrors,
 });
@@ -356,6 +358,7 @@ export const releasesListRecords = defineRead({
   name: "releases.list_records",
   input: releasesListInputSchema,
   output: withReadCommon(z.object({ releases: z.array(releaseRecordSchema) })),
+  reads: [{ name: "releases", id: (input) => input.app ?? null }],
   actors: readActors,
   errors: readErrors,
 });
@@ -366,6 +369,7 @@ export const releasesGetRecord = defineRead({
   name: "releases.get_record",
   input: releasesGetInputSchema,
   output: withReadCommon(z.object({ release: releaseRecordSchema.nullable() })),
+  reads: ["releases"],
   actors: readActors,
   errors: readErrors,
 });

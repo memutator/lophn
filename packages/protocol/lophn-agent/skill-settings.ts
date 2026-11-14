@@ -114,6 +114,7 @@ export const skillsRead = defineRead({
       skills_off: z.array(z.string()),
     }),
   ),
+  reads: ["settings"],
   actors: ["user", "machine"],
   errors: [
     "invalid_input",

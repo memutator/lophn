@@ -218,6 +218,7 @@ export const annotationsGet = defineRead({
   name: "annotations.get",
   input: annotationsGetInputSchema,
   output: annotationsGetOutputSchema,
+  reads: ["annotations"],
   actors: ["user", "agent"],
   errors: [
     "invalid_input",

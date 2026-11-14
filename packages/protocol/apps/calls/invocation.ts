@@ -120,6 +120,7 @@ export const appInvocations = defineRead({
   name: "app.invocations",
   input: appInvocationsInputSchema,
   output: appInvocationsOutputSchema,
+  reads: [{ name: "app_activity", id: (input) => input.app ?? null }],
   actors: readActors,
   errors: readErrors,
 });
@@ -138,6 +139,7 @@ export const appInvocation = defineRead({
   name: "app.invocation",
   input: appInvocationInputSchema,
   output: appInvocationOutputSchema,
+  reads: ["app_activity"],
   actors: readActors,
   errors: readErrors,
 });

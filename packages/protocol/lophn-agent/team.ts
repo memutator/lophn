@@ -115,6 +115,7 @@ export const teamRead = defineRead({
       children: z.array(teamMemberSchema),
     }),
   ),
+  reads: ["sessions"],
   actors: ["agent"],
   errors: [...readErrors],
 });

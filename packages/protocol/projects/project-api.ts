@@ -160,6 +160,7 @@ export const projectApi = {
     input: projectRefInputSchema,
     // ledger read는 as_of_seq를 붙여 read 공통 모양으로 검사한다(app.icon은 API read라 감싸지 않는다).
     output: withReadCommon(iconReadOutputSchema),
+    reads: [{ name: "projects", id: (input) => input.project }],
     actors: ["user"],
     errors: ["invalid_input", "unauthorized", "forbidden", "not_found"],
   }),
@@ -175,6 +176,7 @@ export const projectApi = {
     output: withReadCommon(
       z.object({ projects: z.array(projectRecordSchema) }),
     ),
+    reads: ["projects"],
     actors: readers,
     errors: [
       "invalid_input",
@@ -190,6 +192,7 @@ export const projectApi = {
     name: "project.get",
     input: projectRefInputSchema,
     output: withReadCommon(z.object({ project: projectRecordSchema })),
+    reads: [{ name: "projects", id: (input) => input.project }],
     actors: readers,
     errors: [
       "invalid_input",
@@ -210,6 +213,7 @@ export const projectApi = {
         folder_path: absolutePathSchema,
       }),
     ),
+    reads: ["projects"],
     actors: ["user"],
     errors: readErrors,
   }),

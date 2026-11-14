@@ -299,6 +299,7 @@ export const shownModelsRead = defineRead({
   name: "ReadShownModels",
   input: z.strictObject({}),
   output: withReadCommon(z.object({ shown: shownModelsOutputSchema })),
+  reads: ["models"],
   actors: readActors,
   errors: [...readErrors],
 });
@@ -427,6 +428,7 @@ export const userModelInfoRead = defineRead({
   name: "ReadUserModelInfo",
   input: z.strictObject({}),
   output: withReadCommon(z.object(userModelsOutputFields)),
+  reads: ["models"],
   actors: readActors,
   errors: [...readErrors],
 });
@@ -447,6 +449,7 @@ export const modelCatalogRead = defineRead({
       entries: z.array(catalogEntryOutputSchema),
     }),
   ),
+  reads: ["models", "providers"],
   actors: readActors,
   errors: [...readErrors],
 });
@@ -461,6 +464,7 @@ export const modelDefaultRead = defineRead({
   name: "ReadModelDefault",
   input: z.strictObject({}),
   output: withReadCommon(z.object({ default: modelDefaultOutputSchema })),
+  reads: ["models"],
   actors: readActors,
   errors: [...readErrors],
 });
@@ -489,6 +493,7 @@ export const workspaceModelRead = defineRead({
   name: "ReadWorkspaceModel",
   input: z.strictObject({ workspace: workspaceKeySchema }),
   output: withReadCommon(z.object({ model: modelDefaultOutputSchema })),
+  reads: ["models"],
   actors: readActors,
   errors: [...readErrors, "not_found"],
 });

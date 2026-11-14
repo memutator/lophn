@@ -137,6 +137,7 @@ export const workspaceSessionRead = defineRead({
   name: "ReadSession",
   input: z.strictObject({ session: idSchema("ses") }),
   output: withReadCommon(z.object({ session: workspaceSessionSchema })),
+  reads: [{ name: "sessions", id: (input) => input.session }],
   actors: ["user", "agent", "machine"],
   errors: [...readErrors],
 });
@@ -154,6 +155,7 @@ export const workspaceSessionList = defineRead({
   output: withReadCommon(
     z.object({ sessions: z.array(workspaceSessionListItemSchema) }),
   ),
+  reads: ["sessions"],
   actors: ["user", "agent", "machine"],
   errors: [...readErrors],
 });

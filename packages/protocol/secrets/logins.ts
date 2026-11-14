@@ -45,6 +45,7 @@ export const loginsList = defineMemory({
   name: "LoginsList",
   input: z.strictObject({ origin: loginOriginSchema.optional() }),
   output: z.array(loginView),
+  reads: ["logins"],
   actors: ["user", "agent"],
   errors: ["invalid_input", "unavailable"],
 });

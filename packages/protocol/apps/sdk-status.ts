@@ -79,6 +79,7 @@ export const appSdkStatus = defineRead({
   name: "app.sdk_status",
   input: z.strictObject({ app: appIdSchema.optional() }),
   output: z.object({ apps: z.array(appSdkStatusSchema) }),
+  reads: [{ name: "apps", id: (input) => input.app ?? null }],
   actors: ["user", "machine", "agent"],
   errors: [
     "invalid_input",

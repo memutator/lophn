@@ -191,6 +191,7 @@ export const jobList = defineRead({
   name: "job.list",
   input: z.strictObject({ cursor: readCursorSchema.optional() }),
   output: withReadCommon(z.object({ jobs: z.array(jobRecordSchema) })),
+  reads: ["jobs"],
   actors: ["agent", "user"],
   errors: [...readErrors],
 });
@@ -202,6 +203,7 @@ export const jobRunList = defineRead({
   name: "job_run.list",
   input: z.strictObject({ ...jobRef, cursor: readCursorSchema.optional() }),
   output: withReadCommon(z.object({ job_runs: z.array(jobRunRecordSchema) })),
+  reads: [{ name: "jobs", id: (input) => input.job }],
   actors: ["user"],
   errors: [...readErrors],
 });
@@ -212,6 +214,7 @@ export const jobHolds = defineRead({
   name: "job.holds",
   input: z.strictObject({}),
   output: withReadCommon(z.object({ holds: z.array(jobTurnSchema) })),
+  reads: ["jobs"],
   actors: ["user"],
   errors: [...readErrors],
 });
@@ -223,6 +226,7 @@ export const jobPending = defineRead({
   name: "job.pending",
   input: z.strictObject({}),
   output: withReadCommon(z.object({ jobs: z.array(jobRecordSchema) })),
+  reads: ["jobs"],
   actors: ["user"],
   errors: [...readErrors],
 });

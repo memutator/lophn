@@ -141,6 +141,7 @@ export const providerRead = defineRead({
   name: "ReadProvider",
   input: providerReadInputSchema,
   output: withReadCommon(providerOutput),
+  reads: ["providers"],
   actors: readActors,
   errors: [...readErrors],
 });
@@ -153,6 +154,7 @@ export const providerList = defineRead({
   output: withReadCommon(
     z.object({ providers: z.array(providerRecordSchema) }),
   ),
+  reads: ["providers"],
   actors: readActors,
   errors: [...readErrors],
 });

@@ -172,6 +172,7 @@ export const runRead = defineRead({
   name: "ReadRun",
   input: z.strictObject(runRef),
   output: withReadCommon(z.object({ run: runRecordSchema })),
+  reads: [{ name: "runs", id: (input) => input.run }],
   actors: ["user"],
   errors: [...readErrors],
 });
@@ -191,6 +192,7 @@ export const runList = defineRead({
     cursor: readCursorSchema.optional(),
   }),
   output: withReadCommon(z.object({ runs: z.array(runRecordSchema) })),
+  reads: ["runs"],
   actors: ["user"],
   errors: [...readErrors],
 });

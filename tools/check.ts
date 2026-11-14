@@ -299,6 +299,11 @@ async function buildSteps(
     name: "sdk notes",
     commands: [["node", "tools/check-sdk-notes.ts"]],
   });
+  // read route의 `reads`가 아무도 내지 않는 이름에 기대면 화면이 다시 읽지 못한다. 빠르니 조건 없이 돈다.
+  checks.push({
+    name: "reads",
+    commands: [["node", "tools/check-reads.ts"]],
+  });
   // 내장 skill을 늘린 변경은 skill 폴더만 바뀌므로 조건 없이 돈다. 상한을 넘으면 reader가 읽지 못한다.
   checks.push({
     name: "skill size",

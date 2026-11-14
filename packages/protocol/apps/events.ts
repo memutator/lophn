@@ -90,6 +90,7 @@ export const appEventPublications = defineRead({
   output: withReadCommon(
     z.object({ publications: z.array(eventPublicationSchema) }),
   ),
+  reads: [{ name: "releases", id: (input) => input.app }],
   actors: ["user", "agent", "machine"],
   errors: [
     "invalid_input",

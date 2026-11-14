@@ -188,6 +188,7 @@ export const packagesList = defineRead({
   name: "packages.list",
   input: packagesListInputSchema,
   output: packagesListOutputSchema,
+  reads: ["packages"],
   actors: readActors,
   errors: readErrors,
 });
@@ -208,6 +209,7 @@ export const packagesVersions = defineRead({
   name: "packages.versions",
   input: packagesVersionsInputSchema,
   output: packagesVersionsOutputSchema,
+  reads: ["packages"],
   actors: readActors,
   errors: readErrors,
 });
@@ -254,6 +256,7 @@ export const packagesUsage = defineRead({
   name: "packages.usage",
   input: packagesUsageInputSchema,
   output: packagesUsageOutputSchema,
+  reads: ["packages", "releases"],
   actors: readActors,
   errors: readErrors,
 });

@@ -31,3 +31,10 @@ agent, project, 앱 목록과 session 이름을 공통 읽기로 옮긴다.
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴.
+
+## lead가 더함
+
+- wave 3의 셋(`sync-lists`, `sync-app-detail`, `sync-settings`)이 같이 돈다. route 정의(`changes`, `reads`)는 고치지 않는다. 빠졌거나 틀린 `changes`·`reads`는 "계약 바꾸기 요청"에 적으면 lead가 plan branch에 작은 commit으로 고치고 알린다.
+- 화면이 `useCoreRead`로 바뀌면 gallery page가 그 route의 답을 fake source(`createFakeSource`의 route 답, `sync-read`가 더함)로 준다. 추가 소유: 옮긴 화면만 그리는 `tools/wireframes/`의 page·mock file. 다른 wave 3 task의 화면도 그리는 file(`tools/wireframes/mock/mock-desktop.tsx`, `shell-data.tsx`, `pages/screens/project-window.tsx` 같은 것)은 고치지 않는다. 답은 새 file `tools/wireframes/mock/core-answers/sync-lists.ts`에 두고 어디에 끼울지를 보고의 "등록할 것"에 적는다.
+- 끝나기 전에 `npm run wireframes`와 `node tools/wireframes/smoke.ts`가 통과하고, 옮긴 화면의 gallery page가 옮기기 전처럼 채워져 보인다(빈 목록이나 failed가 아니다).
+- 화면이 지금 기능마다의 `source.ts`·`core-source.ts`를 거쳐 읽으면, 그 읽기를 `useCoreRead`로 바꾸고 쓰는 곳이 없어진 source 함수와 그 fake는 지운다. 쓰기(command 호출)는 그대로 둔다.

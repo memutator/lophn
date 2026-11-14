@@ -22,6 +22,7 @@ export {
   type CommitAction,
   createAfterCommitCollector,
   requestPrincipal,
+  STATE_CHANGED_TOPIC,
   withAfterCommit,
 } from "./after-commit.ts";
 export {

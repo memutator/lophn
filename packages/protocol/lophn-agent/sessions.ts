@@ -143,6 +143,7 @@ export const renameSession = defineCommand({
   resource: "sessions",
   method: "rename",
   name: "RenameSession",
+  changes: [{ name: "sessions", id: (_input, output) => output.id }],
   input: renameSessionInputSchema,
   output: z.object({
     id: idSchema("ses"),
@@ -160,6 +161,7 @@ export const setSessionAiTitle = defineCommand({
   resource: "sessions",
   method: "ai-title",
   name: "SetSessionAiTitle",
+  changes: [{ name: "sessions", id: (_input, output) => output.id }],
   input: z.strictObject({
     session: idSchema("ses"),
     expected: sessionTitleSchema,
@@ -180,6 +182,7 @@ export const archiveSession = defineCommand({
   resource: "sessions",
   method: "archive",
   name: "ArchiveSession",
+  changes: [{ name: "sessions", id: (_input, output) => output.id }],
   input: archiveSessionInputSchema,
   output: z.object({
     id: idSchema("ses"),
@@ -197,6 +200,7 @@ export const deleteSession = defineCommand({
   resource: "sessions",
   method: "delete",
   name: "DeleteSession",
+  changes: [{ name: "sessions", id: (_input, output) => output.id }],
   input: deleteSessionInputSchema,
   output: z.object({
     id: idSchema("ses"),
@@ -217,6 +221,7 @@ export const forkSession = defineCommand({
   resource: "sessions",
   method: "fork",
   name: "ForkSession",
+  changes: [{ name: "sessions", id: (_input, output) => output.id }],
   input: forkSessionInputSchema,
   output: z.object({
     id: idSchema("ses"),
@@ -237,6 +242,7 @@ export const requestSessionCompact = defineCommand({
   resource: "sessions",
   method: "request-compact",
   name: "RequestSessionCompact",
+  changes: [],
   input: requestSessionCompactInputSchema,
   output: z.object({
     id: idSchema("ses"),
@@ -254,6 +260,7 @@ export const compactSession = defineCommand({
   resource: "sessions",
   method: "compact",
   name: "CompactSession",
+  changes: [],
   input: compactSessionInputSchema,
   output: z.object({
     id: idSchema("ses"),
@@ -269,6 +276,7 @@ export const failSessionCompact = defineCommand({
   resource: "sessions",
   method: "fail-compact",
   name: "FailSessionCompact",
+  changes: [],
   input: failSessionCompactInputSchema,
   output: z.object({
     id: idSchema("ses"),
@@ -284,6 +292,7 @@ export const changeSessionModel = defineCommand({
   resource: "sessions",
   method: "change-model",
   name: "ChangeSessionModel",
+  changes: [],
   input: changeSessionModelInputSchema,
   output: z.object({
     id: idSchema("ses"),
@@ -299,6 +308,7 @@ export const changeSessionSkip = defineCommand({
   resource: "sessions",
   method: "change-skip",
   name: "ChangeSessionSkip",
+  changes: [],
   input: z.strictObject({ session: idSchema("ses"), skip: z.boolean() }),
   output: z.object({
     id: idSchema("ses"),

@@ -2078,6 +2078,34 @@ flows:
     risk: [permission]
     docs: [architecture/workspace-session.md]
 
+  - id: state-changed
+    title: "상태를 바꾼 route가 선언한 changes를 commit 뒤 StateChanged 하나로 낸다"
+    actor: system
+    entries: [system:state-changed]
+    boundary: [storage, events, event-stream]
+    code:
+      - packages/protocol/events/changes.ts
+      - packages/core/storage/ledger/after-commit.ts
+      - packages/core/storage/ledger/writer-worker.ts
+      - packages/core/main/daemon/wiring/state-changes.ts
+      - packages/core/server/dispatch.ts
+    steps:
+      - "writer Worker는 command handler가 성공할 때마다(다른 command 안에서 tx.call로 돈 것 포함) 그 route의 changes를 입력·결과로 풀어 모은다"
+      - "tx가 commit되고 재전달이 아니면 모은 것을 결과에 실어 main thread로 보낸다. 되돌아간 tx의 것은 버린다"
+      - "main thread는 같은 {name, id}를 한 번만 실어 StateChanged 하나로 Bus에 낸다. 내기가 실패해도 command는 실패하지 않는다"
+      - "memory route와 upload는 handler가 성공하면 dispatch가 그 route의 changes를 같은 함수로 낸다"
+    outcomes:
+      - id: published
+        observe: ["event:StateChanged"]
+      - id: nothing-declared
+        observe: []
+        when: "돈 command의 changes가 모두 빈 목록이다(대화 command 등). event를 내지 않는다"
+      - id: rolled-back
+        observe: []
+        when: "tx가 되돌아갔거나 재전달이다. 모은 선언을 버리고 event를 내지 않는다"
+    crosses_process: false
+    docs: [architecture/event.md]
+
 ignore:
   - {entry: "route:events/list", reason: "core에 handler가 없다(reads에 등록이 없어 부르면 read unavailable). ROUTES와 agent runtime 허용 목록에만 있다. 옛 ledger event 읽기 잔재로 보이니 지울지 사람이 정한다"}
   - {entry: "route:messages/list", reason: "handler가 없다. registry.ts가 ROUTES에서 뺐고 agent runtime 허용 목록에만 있다. 옛 읽기 잔재"}

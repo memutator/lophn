@@ -123,6 +123,7 @@ export const receiveMessage = defineCommand({
   resource: "messages",
   method: "receive",
   name: "ReceiveMessage",
+  changes: [],
   input: receiveMessageInputSchema,
   compare: receiveMessageCompareSchema,
   output: messageCommandOutputSchema,
@@ -142,6 +143,7 @@ export const recordMessage = defineCommand({
   resource: "messages",
   method: "record",
   name: "RecordMessage",
+  changes: [],
   input: recordMessageInputSchema,
   output: z.object({ message: idSchema("msg"), state_seq: seqSchema }),
   actors: ["agent", "machine"],
@@ -230,6 +232,7 @@ export const editQueuedMessage = defineCommand({
   resource: "messages",
   method: "edit_queued",
   name: "EditQueuedMessage",
+  changes: [],
   input: z.strictObject({
     session: idSchema("ses"),
     message: idSchema("msg"),
@@ -251,6 +254,7 @@ export const moveQueuedMessage = defineCommand({
   resource: "messages",
   method: "move_queued",
   name: "MoveQueuedMessage",
+  changes: [],
   input: z.strictObject({
     session: idSchema("ses"),
     message: idSchema("msg"),

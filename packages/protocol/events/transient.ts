@@ -6,6 +6,7 @@ import { workflowNameSchema } from "../workflows/values.ts";
 import { acpUpdatedPayloadSchema } from "../acp/routes.ts";
 import { noticeSchema } from "../apps/notice.ts";
 import { jsonValueSchema } from "../base/json-values.ts";
+import { CHANGE_NAMES } from "./changes.ts";
 
 // 남지 않는 event는 session 밖에서 화면만 알면 되는 일이다. 메모리로만 흐르고 Ledger에 쓰지 않는다.
 // 놓쳐도 그 대상은 표에 남아 있어 snapshot으로 맞춘다.
@@ -185,6 +186,22 @@ const acpUpdated = defineTransientEvent("AcpUpdated", {
   payload: acpUpdatedPayloadSchema,
 });
 
+// 상태를 바꾸는 route(와 route 밖에서 상태를 바꾸는 core)가 commit 뒤 낸다. 내용은 싣지 않는다. 화면은 자기가 읽는
+// 이름이 있으면 다시 읽는다. id가 null이면 그 이름 전체다. 같은 {name, id}는 한 번만 싣는다.
+const stateChanged = defineTransientEvent("StateChanged", {
+  subject: z.null(),
+  payload: z.strictObject({
+    changes: z
+      .array(
+        z.strictObject({
+          name: z.enum(CHANGE_NAMES),
+          id: z.string().min(1).nullable(),
+        }),
+      )
+      .min(1),
+  }),
+});
+
 export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(acpUpdated).extend({
     session: idSchema("ses"),
@@ -204,4 +221,5 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(appEventPublished),
   transientEventEnvelopeSchema(workflowInstanceChanged),
   transientEventEnvelopeSchema(jobChanged),
+  transientEventEnvelopeSchema(stateChanged),
 ]);

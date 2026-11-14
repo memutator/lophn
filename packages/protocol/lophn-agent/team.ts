@@ -56,6 +56,7 @@ export const teamSpawn = defineCommand({
   resource: "team",
   method: "spawn",
   name: "SpawnTeamMember",
+  changes: ["sessions"],
   input: z.strictObject({
     agent: z.string().min(1),
     workspace: workspaceNameSchema.optional(),
@@ -76,6 +77,7 @@ export const teamEnd = defineCommand({
   resource: "team",
   method: "end",
   name: "EndTeamMember",
+  changes: ["sessions"],
   input: z.strictObject({ session: idSchema("ses") }),
   output: z.object({ ended: z.array(idSchema("ses")) }),
   compare: z.strictObject({}),

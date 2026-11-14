@@ -84,6 +84,7 @@ export const turnRequestDecide = defineMemory({
   resource: "turn_requests",
   method: "decide",
   name: "DecideTurnRequest",
+  changes: [],
   input: z.strictObject({
     session: idSchema("ses"),
     request: idSchema("apr"),

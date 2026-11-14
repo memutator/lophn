@@ -34,6 +34,7 @@ export const sendMessage = defineCommand({
   resource: "messages",
   method: "send",
   name: "SendMessage",
+  changes: [],
   input: sendMessageInputSchema,
   output: z.object({ message: idSchema("msg"), state_seq: seqSchema }),
   compare: z.strictObject({}),
@@ -54,6 +55,7 @@ export const recordShellMessage = defineCommand({
   resource: "messages",
   method: "shell",
   name: "RecordShellMessage",
+  changes: [],
   input: z.strictObject({
     id: idSchema("msg"),
     session: idSchema("ses"),
@@ -131,6 +133,7 @@ export const steerQueuedNow = defineMemory({
   resource: "session_inputs",
   method: "steer_now",
   name: "SteerQueuedNow",
+  changes: [],
   input: queuedInputSchema,
   output: z.strictObject({ message: idSchema("msg") }),
   actors: ["user"],
@@ -142,6 +145,7 @@ export const removeQueued = defineMemory({
   resource: "session_inputs",
   method: "remove",
   name: "RemoveQueued",
+  changes: [],
   input: queuedInputSchema,
   output: z.strictObject({ message: idSchema("msg") }),
   actors: ["user"],
@@ -153,6 +157,7 @@ export const editQueued = defineMemory({
   resource: "session_inputs",
   method: "edit",
   name: "EditQueued",
+  changes: [],
   input: z.strictObject({
     session: idSchema("ses"),
     message: idSchema("msg"),
@@ -168,6 +173,7 @@ export const moveQueued = defineMemory({
   resource: "session_inputs",
   method: "move",
   name: "MoveQueued",
+  changes: [],
   input: z.strictObject({
     session: idSchema("ses"),
     message: idSchema("msg"),

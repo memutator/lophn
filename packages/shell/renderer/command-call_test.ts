@@ -15,6 +15,7 @@ const base = {
   output: z.object({}),
   actors: ["user"],
   errors: ["invalid_input"],
+  changes: [],
 } as const;
 const plain = defineCommand({ ...base, method: "plain", name: "Plain" });
 const compared = defineCommand({

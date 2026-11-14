@@ -132,6 +132,7 @@ export const callReply = defineCommand({
   resource: "calls",
   method: "reply",
   name: "ReplyCall",
+  changes: [],
   input: z.strictObject({
     call: idSchema("cal"),
     body: contentBlocksSchema,
@@ -148,6 +149,7 @@ export const callCancel = defineCommand({
   resource: "calls",
   method: "cancel",
   name: "CancelCall",
+  changes: [],
   input: z.strictObject({
     call: idSchema("cal"),
     reason: z.string().min(1).optional(),
@@ -240,6 +242,7 @@ export const agentCallSend = defineCommand({
   resource: "calls",
   method: "send",
   name: "SendCall",
+  changes: [],
   input: z.strictObject({
     to: callAddressInputSchema,
     reply: callReplySchema,

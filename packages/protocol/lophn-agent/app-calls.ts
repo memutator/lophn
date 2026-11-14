@@ -59,6 +59,7 @@ export const appCallsSend = defineMemory({
   resource: "app_calls",
   method: "send",
   name: "app_calls.send",
+  changes: [],
   input: z.strictObject({
     ...onBehalf,
     // agent의 handle(앱 workspace에서 보이는 것)과 선택 workspace, 또는 보이는 session. workspace를 빼면 그 앱 workspace다.
@@ -92,6 +93,7 @@ export const appCallsCancel = defineMemory({
   resource: "app_calls",
   method: "cancel",
   name: "app_calls.cancel",
+  changes: [],
   input: z.strictObject({
     ...onBehalf,
     call: idSchema("cal"),

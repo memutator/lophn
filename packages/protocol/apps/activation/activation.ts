@@ -102,6 +102,7 @@ export const releaseRecord = defineCommand({
   resource: "releases",
   method: "record",
   name: "release.record",
+  changes: [{ name: "releases", id: (input) => input.app }],
   input: z.strictObject({
     app: appIdSchema,
     commit: z.string().regex(/^[0-9a-f]{40}$/),
@@ -194,6 +195,7 @@ export const activationStart = defineCommand({
   resource: "activations",
   method: "start",
   name: "activation.start",
+  changes: ["releases"],
   input: z.strictObject({
     release: releaseIdSchema,
     key: idempotencyKeySchema,
@@ -210,6 +212,7 @@ export const activationRecordBackup = defineCommand({
   resource: "activations",
   method: "record_backup",
   name: "activation.record_backup",
+  changes: ["releases"],
   input: z.strictObject({
     release: releaseIdSchema,
     attempt: activationAttemptIdSchema,
@@ -228,6 +231,7 @@ export const activationRecordDataChange = defineCommand({
   resource: "activations",
   method: "record_data_change",
   name: "activation.record_data_change",
+  changes: ["releases"],
   input: z.strictObject({ result: activationDataResultSchema }),
   output: accepted,
   actors: machine,
@@ -238,6 +242,7 @@ export const activationRecordDataRestore = defineCommand({
   resource: "activations",
   method: "record_data_restore",
   name: "activation.record_data_restore",
+  changes: ["releases"],
   input: z.strictObject({
     result: activationDataResultSchema,
     backup_hash: sha256Schema,
@@ -252,6 +257,7 @@ export const activationComplete = defineCommand({
   resource: "activations",
   method: "complete",
   name: "activation.complete",
+  changes: ["releases", "apps", "app_grants"],
   input: z.strictObject({
     release: releaseIdSchema,
     attempt: activationAttemptIdSchema,
@@ -270,6 +276,7 @@ export const activationFail = defineCommand({
   resource: "activations",
   method: "fail",
   name: "activation.fail",
+  changes: ["releases"],
   input: z.strictObject({
     release: releaseIdSchema,
     attempt: activationAttemptIdSchema,
@@ -287,6 +294,7 @@ export const activationReport = defineCommand({
   resource: "activations",
   method: "report",
   name: "activation.report",
+  changes: [],
   input: z.strictObject({ release: releaseIdSchema }),
   output: z.object({ delivered: z.boolean() }),
   actors: machine,
@@ -298,6 +306,7 @@ export const activationActivatePrevious = defineCommand({
   resource: "activations",
   method: "activate_previous",
   name: "activation.activate_previous",
+  changes: ["releases", "apps", "app_grants"],
   input: z.strictObject({
     release: releaseIdSchema,
     key: idempotencyKeySchema,

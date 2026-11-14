@@ -102,6 +102,7 @@ export const appCallTool = defineMemory({
   resource: "apps",
   method: "call_tool",
   name: "app.call_tool",
+  changes: [{ name: "app_activity", id: (input) => input.target.app }],
   input: toolCallInputSchema,
   output: toolCallOutputSchema,
   actors: ["user", "agent", "app"],

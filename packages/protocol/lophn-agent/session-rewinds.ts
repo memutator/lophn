@@ -186,6 +186,7 @@ export const sessionRewind = defineCommand({
   resource: "rewind",
   method: "apply",
   name: "Rewind",
+  changes: [],
   input: sessionRewindInputSchema,
   output: rewindHeaderOutput,
   compare: sessionRewindCompareSchema,

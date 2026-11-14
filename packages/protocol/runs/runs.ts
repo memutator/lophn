@@ -144,6 +144,7 @@ export const runStart = defineMemory({
   resource: "runs",
   method: "start",
   name: "StartRun",
+  changes: [],
   input: startRunInputSchema,
   output: z.object({ run: runRecordSchema }),
   actors: ["user"],
@@ -225,6 +226,7 @@ export const runCancel = defineMemory({
   resource: "runs",
   method: "cancel",
   name: "CancelRun",
+  changes: [],
   input: z.strictObject(runRef),
   output: z.object({ run: runRecordSchema }),
   actors: ["user"],
@@ -241,6 +243,7 @@ export const runCreate = defineCommand({
   resource: "runs",
   method: "create",
   name: "CreateRun",
+  changes: [{ name: "runs", id: (input) => input.id }],
   input: z
     .strictObject({
       id: idSchema("run"),
@@ -264,6 +267,7 @@ export const runSettle = defineCommand({
   resource: "runs",
   method: "settle",
   name: "SettleRun",
+  changes: [{ name: "runs", id: (input) => input.run }],
   input: z
     .strictObject({
       ...runRef,

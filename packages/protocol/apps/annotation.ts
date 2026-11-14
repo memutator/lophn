@@ -137,6 +137,7 @@ export const annotationUploadScreenshot = defineUpload({
   resource: "annotations",
   method: "upload_screenshot",
   name: "annotation.upload_screenshot",
+  changes: [],
   input: z.strictObject({
     blob_hash: sha256Schema,
     bytes: z.number().int().min(1).max(ANNOTATION_SCREENSHOT_MAX_BYTES),
@@ -194,6 +195,7 @@ export const annotationSend = defineMemory({
   resource: "annotations",
   method: "send",
   name: "annotation.send",
+  changes: ["annotations"],
   input: annotationSendInputSchema,
   output: annotationSendOutputSchema,
   actors: ["user"],

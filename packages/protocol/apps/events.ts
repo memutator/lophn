@@ -56,6 +56,7 @@ export const appEventPublish = defineMemory({
   resource: "app_events",
   method: "publish",
   name: "app_events.publish",
+  changes: [],
   input: publishInputSchema,
   output: eventPublishOutputSchema,
   actors: ["app"],

@@ -70,6 +70,7 @@ export const harnessStartTurn = defineMemory({
   resource: "harness",
   method: "start_turn",
   name: "HarnessStartTurn",
+  changes: [],
   input: z.strictObject({
     session: idSchema("ses"),
     input_message: idSchema("msg"),
@@ -93,6 +94,7 @@ export const harnessRecord = defineMemory({
   resource: "harness",
   method: "record",
   name: "HarnessRecord",
+  changes: [],
   input: z.strictObject({
     session: idSchema("ses"),
     turn: idSchema("trn"),
@@ -110,6 +112,7 @@ export const harnessFinishTurn = defineMemory({
   resource: "harness",
   method: "finish_turn",
   name: "HarnessFinishTurn",
+  changes: [],
   input: z.strictObject({
     turn: idSchema("trn"),
     outcome: turnOutcomeSchema.refine((value) => value.kind !== "interrupted", {
@@ -126,6 +129,7 @@ export const harnessSetExternalId = defineMemory({
   resource: "harness",
   method: "set_external_id",
   name: "HarnessSetExternalId",
+  changes: [],
   input: z.strictObject({
     session: idSchema("ses"),
     external_session_id: z.string().min(1).max(256),
@@ -140,6 +144,7 @@ export const bindHarnessSession = defineCommand({
   resource: "harness",
   method: "bind_session",
   name: "BindHarnessSession",
+  changes: [],
   input: z.strictObject({
     session: idSchema("ses"),
     external_session_id: z.string().min(1).max(256),

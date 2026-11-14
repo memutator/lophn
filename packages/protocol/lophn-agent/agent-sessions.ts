@@ -90,6 +90,7 @@ export const workspaceSessionOpen = defineCommand({
   resource: "sessions",
   method: "open",
   name: "OpenSession",
+  changes: [{ name: "sessions", id: (_input, output) => output.id }],
   input: z.strictObject({
     id: idSchema("ses"),
     agent: agentIdSchema,
@@ -112,6 +113,7 @@ export const workspaceSessionAppOpen = defineCommand({
   resource: "sessions",
   method: "app-open",
   name: "OpenAppSession",
+  changes: [{ name: "sessions", id: (_input, output) => output.id }],
   input: z.strictObject({
     id: idSchema("ses"),
     agent: agentIdSchema,

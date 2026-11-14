@@ -53,6 +53,7 @@ export const loginsSave = defineMemory({
   resource: "logins",
   method: "save",
   name: "LoginsSave",
+  changes: [{ name: "logins", id: (_input, output) => output.id }],
   input: z.strictObject({
     id: loginIdSchema.optional(),
     label: loginSchema.shape.label,
@@ -69,6 +70,7 @@ export const loginsDelete = defineMemory({
   resource: "logins",
   method: "delete",
   name: "LoginsDelete",
+  changes: [{ name: "logins", id: (input) => input.id }],
   input: z.strictObject({ id: loginIdSchema }),
   output: z.strictObject({ id: loginIdSchema }),
   actors: ["user"],

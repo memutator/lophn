@@ -43,6 +43,7 @@ export const issuerRequestTake = defineMemory({
   resource: "issuer-requests",
   method: "take",
   name: "TakeIssuerRequest",
+  changes: [],
   input: z.strictObject({}),
   // 보낼 요청이 없으면 null이다. 가져간 요청은 runtime이 답하거나 기한이 지날 때까지 core가 기다린다.
   output: z.object({ request: issuerRequestSchema.nullable() }),
@@ -61,6 +62,7 @@ export const issuerRequestDone = defineMemory({
   resource: "issuer-requests",
   method: "done",
   name: "FinishIssuerRequest",
+  changes: [],
   input: z.strictObject({
     id: z.string().min(1).max(64),
     // 발급자에 닿지 못했으면 null이다.

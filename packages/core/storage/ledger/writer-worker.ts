@@ -24,7 +24,10 @@ if (!opened.ok) {
   const registration = await assembleWriter(boot, connection);
   const commands = new Map<string, CommandDefinition>();
   for (const definition of registration.commands) {
-    commands.set(definition.route.name, definition);
+    commands.set(
+      definition.route.name,
+      registration.afterCommit.declared(definition),
+    );
   }
   const deps = {
     clock: registration.clock,
@@ -200,19 +203,10 @@ async function handle(
   }
   try {
     registration.noteRequest(data.ctx);
-    registration.afterCommit.reset();
-    const body = await executeCommand(
-      connection,
-      deps,
-      commands,
-      data.ctx,
-      data.envelope,
-    );
     // 확정된 새 command의 commit 뒤 할 일만 main으로 돌려준다. 되돌아간 tx의 것은 버린다.
-    if (body.ok && !body.value.replayed) {
-      const actions = registration.afterCommit.take();
-      if (actions.length > 0) body.value.after_commit = actions;
-    } else registration.afterCommit.reset();
+    const body = await registration.afterCommit.run(() =>
+      executeCommand(connection, deps, commands, data.ctx, data.envelope),
+    );
     port.postMessage({ id: data.id, op: "command", body });
   } catch {
     port.postMessage({

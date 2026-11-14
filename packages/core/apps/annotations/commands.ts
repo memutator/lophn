@@ -21,6 +21,7 @@ export const annotationPersist = defineCommand({
   resource: "annotations",
   method: "persist",
   name: "AnnotationPersist",
+  changes: ["annotations"],
   input: z.strictObject({
     target: annotationTargetSchema,
     annotations: z
@@ -41,6 +42,7 @@ export const annotationDiscard = defineCommand({
   resource: "annotations",
   method: "discard",
   name: "AnnotationDiscard",
+  changes: ["annotations"],
   input: z.strictObject({ batch: annotationBatchIdSchema }),
   output: z.object({}),
   compare: noCompare,
@@ -52,6 +54,7 @@ export const annotationAddRefs = defineCommand({
   resource: "annotations",
   method: "add_refs",
   name: "AnnotationAddRefs",
+  changes: ["annotations"],
   input: z.strictObject({
     annotations: z.array(annotationIdSchema).min(1).max(ANNOTATION_BATCH_MAX),
     owner_kind: z.literal("session_message"),
@@ -67,6 +70,7 @@ export const annotationSweep = defineCommand({
   resource: "annotations",
   method: "sweep",
   name: "AnnotationSweep",
+  changes: ["annotations"],
   input: z.strictObject({}),
   output: z.object({ removed: z.number().int() }),
   compare: noCompare,

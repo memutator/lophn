@@ -65,6 +65,7 @@ export const appLogViewError = defineMemory({
   resource: "apps",
   method: "log_view_error",
   name: "app.log_view_error",
+  changes: [],
   input: z.strictObject({
     app: appIdSchema,
     release: releaseIdSchema.nullable(),

@@ -49,6 +49,7 @@ export const workflowStart = defineMemory({
   resource: "workflows",
   method: "start",
   name: "StartWorkflow",
+  changes: [],
   input: z.strictObject({
     workflow: workflowKeySchema,
     text: z.string().min(1),
@@ -79,6 +80,7 @@ export const workflowReport = defineMemory({
   resource: "workflows",
   method: "report",
   name: "ReportWorkflow",
+  changes: [],
   input: z.strictObject({
     ...instanceRef,
     step: stepNameSchema,
@@ -99,6 +101,7 @@ export const workflowEdit = defineMemory({
   resource: "workflows",
   method: "edit",
   name: "EditWorkflow",
+  changes: [],
   input: workflowEditInputSchema,
   output: z.object({
     line: seqSchema,
@@ -112,6 +115,7 @@ export const workflowStop = defineMemory({
   resource: "workflows",
   method: "stop",
   name: "StopWorkflow",
+  changes: [],
   input: z.strictObject(instanceRef),
   output: z.object({ instance: workflowInstanceSchema }),
   actors: ["user"],

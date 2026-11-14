@@ -52,6 +52,7 @@ export const appsOAuthClientSet = defineMemory({
   resource: "apps",
   method: "oauth_client_set",
   name: "apps.oauth_client_set",
+  changes: [{ name: "secrets", id: (input) => input.name }],
   input: z.strictObject({
     ...target,
     client_id: z.string().regex(/^[^\s\p{Cc}]{1,200}$/u),
@@ -65,6 +66,7 @@ export const appsOAuthBegin = defineMemory({
   resource: "apps",
   method: "oauth_begin",
   name: "apps.oauth_begin",
+  changes: [{ name: "secrets", id: (input) => input.name }],
   input: z.strictObject(target),
   // 사람이 OS browser로 열 authorize URL이다.
   output: z.strictObject({ url: z.string() }),
@@ -82,6 +84,7 @@ export const appsOAuthCancel = defineMemory({
   resource: "apps",
   method: "oauth_cancel",
   name: "apps.oauth_cancel",
+  changes: [{ name: "secrets", id: (input) => input.name }],
   input: z.strictObject(target),
   output: z.strictObject({ cancelled: z.boolean() }),
   actors: ["user"],
@@ -93,6 +96,7 @@ export const appsOAuthSignOut = defineMemory({
   resource: "apps",
   method: "oauth_sign_out",
   name: "apps.oauth_sign_out",
+  changes: [{ name: "secrets", id: (input) => input.name }],
   input: z.strictObject(target),
   output: z.strictObject({ signed_out: z.literal(true) }),
   actors: ["user"],

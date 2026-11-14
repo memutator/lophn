@@ -155,6 +155,7 @@ export const inputRequestAsk = defineMemory({
   resource: "input_request",
   method: "ask",
   name: "InputRequestAsk",
+  changes: [],
   input: z.discriminatedUnion("kind", [
     z.strictObject({
       kind: z.literal("login"),
@@ -191,6 +192,7 @@ export const inputRequestCancel = defineMemory({
   resource: "input_request",
   method: "cancel",
   name: "InputRequestCancel",
+  changes: [],
   input: z.strictObject(target),
   output: z.strictObject({}),
   actors: ["user"],
@@ -202,6 +204,7 @@ export const inputRequestHold = defineMemory({
   resource: "input_request",
   method: "hold",
   name: "InputRequestHold",
+  changes: [],
   input: z.strictObject({ ...target, value: z.string().min(1).max(1000) }),
   output: z.strictObject({}),
   actors: ["user"],
@@ -214,6 +217,7 @@ export const inputRequestDone = defineMemory({
   resource: "input_request",
   method: "done",
   name: "InputRequestDone",
+  changes: [],
   input: z.strictObject({
     ...target,
     result: z.union([

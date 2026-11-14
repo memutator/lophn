@@ -18,6 +18,11 @@ import {
   UPLOAD_INPUT_HEADER,
   type UploadRoute,
 } from "../../protocol/base/mod.ts";
+import {
+  publishStateChanged,
+  resolveChanges,
+} from "../../protocol/events/changes.ts";
+import type { Bus } from "../events/ports.ts";
 import type { CommandEnvelope, Writer } from "../storage/ledger/mod.ts";
 import type { CredentialRegistry } from "./identity/mod.ts";
 import {
@@ -121,6 +126,8 @@ export type DispatchDeps = {
   ) => Promise<HttpResult>;
   // handler가 던진 것을 경계에서 internal로 바꾸기 전에 받는다. 응답에는 원문이 나가지 않는다.
   onThrown?: (thrown: unknown) => void;
+  // memory·upload route가 성공하면 그 route의 `changes`를 `StateChanged`로 낸다. command는 writer가 commit 뒤 낸다.
+  bus?: Pick<Bus, "publish">;
 };
 
 type HttpResult =
@@ -332,6 +339,7 @@ async function upload(
   if (!output.success) {
     return rejected(asInternalError(new Error("upload output")));
   }
+  changed(deps, route, input.data, output.data);
   return { status: 200, json: output.data };
 }
 
@@ -467,7 +475,22 @@ async function memory(
   }
   const result = await handler(ctx, parsed.data, credential);
   if (!result.ok) return rejected(result.error);
+  changed(deps, route, parsed.data, result.value);
   return { status: 200, json: result.value };
+}
+
+function changed(
+  deps: DispatchDeps,
+  route: Route,
+  input: unknown,
+  output: unknown,
+): void {
+  if (!deps.bus || !route.changes?.length) return;
+  publishStateChanged(
+    deps.bus,
+    deps.clock.now(),
+    resolveChanges(route.changes, input, output),
+  );
 }
 
 // file route 입력은 confirmation을 선언하지 않는다. 요청 본문의 별도 field로만 받고

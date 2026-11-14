@@ -45,6 +45,7 @@ export const acpItemsAllocate = defineCommand({
   resource: "acp",
   method: "allocate",
   name: "AllocateAcpItems",
+  changes: [],
   input: z.strictObject({
     session: idSchema("ses"),
     items: z
@@ -73,6 +74,7 @@ export const acpSend = defineMemory({
   resource: "acp",
   method: "send",
   name: "AcpSend",
+  changes: [],
   input: acpInputSchema,
   // fork가 새 session을 열면 그 id다.
   output: z.strictObject({ session: idSchema("ses").optional() }),

@@ -118,6 +118,7 @@ export async function startApiServer(
     fileStreams: options.fileStreams,
     uploads: options.uploads,
     confirmation: options.confirmation,
+    bus: options.bus,
     bodyLimit: options.bodyLimit,
     bodyTimeoutMs: BODY_TIMEOUT_MS,
     jsonMaxBytes: RPC_JSON_MAX_BYTES,

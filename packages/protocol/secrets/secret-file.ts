@@ -43,6 +43,7 @@ export const secretPut = defineUpload({
   resource: "secrets",
   method: "put",
   name: "SecretPut",
+  changes: [{ name: "secrets", id: (input) => input.name }],
   input: z.strictObject({
     name: secretNameSchema,
     bytes: z.number().int().min(1).max(SECRET_INPUT_MAX_BYTES),
@@ -57,6 +58,7 @@ export const secretDelete = defineMemory({
   resource: "secrets",
   method: "delete",
   name: "SecretDelete",
+  changes: [{ name: "secrets", id: (input) => input.name }],
   input: z.strictObject({ name: secretNameSchema }),
   output: secretFileStatusSchema,
   actors: ["user"],

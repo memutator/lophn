@@ -42,6 +42,7 @@ export const appTraySet = defineMemory({
   resource: "app_tray",
   method: "set",
   name: "app_tray.set",
+  changes: ["tray"],
   input: trayInputSchema,
   output: z.object({ set: z.literal(true) }),
   actors: ["app"],

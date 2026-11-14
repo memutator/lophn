@@ -104,6 +104,7 @@ export const appSdkDecide = defineCommand({
   resource: "apps",
   method: "sdk_decide",
   name: "app.sdk_decide",
+  changes: [{ name: "apps", id: (input) => input.app }],
   input: z.strictObject({
     app: appIdSchema,
     decision: sdkDecisionSchema,
@@ -130,6 +131,7 @@ export const appSdkReviewRecord = defineCommand({
   resource: "apps",
   method: "sdk_review_record",
   name: "app.sdk_review_record",
+  changes: [{ name: "apps", id: (input) => input.app }],
   input: z.strictObject({
     app: appIdSchema,
     session: idSchema("ses"),
@@ -161,6 +163,7 @@ export const appSdkFeature = defineCommand({
   resource: "apps",
   method: "sdk_feature",
   name: "app.sdk_feature",
+  changes: ["apps"],
   input: z.strictObject({
     feature: idSchema("sdf"),
     state: z.enum(["done", "changed", "skipped"]),

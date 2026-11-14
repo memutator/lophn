@@ -103,6 +103,7 @@ export const askAnswer = defineMemory({
   resource: "ask",
   method: "answer",
   name: "AnswerAskQuestions",
+  changes: [],
   input: z.strictObject({
     ...askTarget,
     answers: z.array(askAnswerSchema).min(1).max(ASK_QUESTION_MAX),
@@ -119,6 +120,7 @@ export const askWait = defineMemory({
   resource: "ask",
   method: "wait",
   name: "WaitAskQuestions",
+  changes: [],
   input: z.strictObject({
     ...askTarget,
     turn: idSchema("trn"),

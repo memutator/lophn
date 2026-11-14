@@ -63,6 +63,7 @@ export const workflowInstanceCreate = defineCommand({
   resource: "workflow_instances",
   method: "create",
   name: "CreateWorkflowInstance",
+  changes: [{ name: "workflow_instances", id: (input) => input.id }],
   input: z.strictObject({
     id: idSchema("wfi"),
     project: idSchema("prj"),
@@ -119,6 +120,7 @@ export const workflowInstanceApply = defineCommand({
   resource: "workflow_instances",
   method: "apply",
   name: "ApplyWorkflowChange",
+  changes: [{ name: "workflow_instances", id: (input) => input.instance }],
   input: z.strictObject({
     instance: idSchema("wfi"),
     change: changeSchema,

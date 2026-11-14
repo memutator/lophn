@@ -90,6 +90,7 @@ export const appRewind = defineMemory({
   resource: "apps",
   method: "rewind",
   name: "app.rewind",
+  changes: [{ name: "app_activity", id: (input) => input.app }],
   input: z.strictObject(rewindTargetFields),
   output: rewindSchema,
   actors: ["user"],

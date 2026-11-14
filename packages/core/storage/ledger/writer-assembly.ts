@@ -64,7 +64,7 @@ export async function assembleWriter(
     // 테스트의 manual clock은 writer가 공유하지 못한다. core가 민 시각을 알린다.
     noteTime(nowMs: number): void;
     onTx(tx: Tx | undefined): void;
-    // command 하나마다 reset하고 확정된 새 command 뒤에 take한다.
+    // command 하나를 run으로 돌리고 확정된 새 command의 결과에만 모은 것을 싣는다.
     afterCommit: ReturnType<typeof createAfterCommitCollector>;
   }
 > {

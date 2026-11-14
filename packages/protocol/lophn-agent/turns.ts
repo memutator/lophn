@@ -72,6 +72,7 @@ export const startTurn = defineCommand({
   resource: "turns",
   method: "start",
   name: "StartTurn",
+  changes: [],
   input: startTurnInputSchema,
   output: z.object({
     id: idSchema("trn"),
@@ -88,6 +89,7 @@ export const checkpointTurn = defineCommand({
   resource: "turns",
   method: "checkpoint",
   name: "CheckpointTurn",
+  changes: [],
   input: checkpointTurnInputSchema,
   output: z.object({
     id: idSchema("trn"),
@@ -111,6 +113,7 @@ export const finishTurn = defineCommand({
   resource: "turns",
   method: "finish",
   name: "FinishTurn",
+  changes: [],
   input: finishTurnInputSchema,
   output: z.object({
     id: idSchema("trn"),
@@ -135,6 +138,7 @@ export const stopTurn = defineCommand({
   resource: "turns",
   method: "stop",
   name: "StopTurn",
+  changes: [],
   input: stopTurnInputSchema,
   output: z.object({
     id: idSchema("trn"),
@@ -162,6 +166,7 @@ export const interruptTurns = defineCommand({
   resource: "turns",
   method: "interrupt",
   name: "InterruptTurns",
+  changes: [],
   input: z.strictObject({}),
   output: z.object({ interrupted: z.number().int() }),
   actors: ["machine"],

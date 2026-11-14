@@ -11,6 +11,7 @@ export const messageRemoveQueued = defineCommand({
   resource: "messages",
   method: "remove_queued",
   name: "RemoveQueuedMessage",
+  changes: [],
   input: z.strictObject({
     session: idSchema("ses"),
     message: idSchema("msg"),

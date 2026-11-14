@@ -136,6 +136,7 @@ export const appSessionsStop = defineMemory({
   resource: "app_sessions",
   method: "stop",
   name: "app_sessions.stop",
+  changes: [],
   input: z.strictObject({ ...onBehalf, session: sessionRefSchema }),
   output: z.object({ stopped: z.boolean() }),
   actors: ["app", "user"],
@@ -149,6 +150,7 @@ export const appSessionsOpen = defineMemory({
   resource: "app_sessions",
   method: "open",
   name: "app_sessions.open",
+  changes: [{ name: "sessions", id: (_input, output) => output.session }],
   input: z.strictObject({
     app: idSchema("app"),
     agent: z.string().min(1),
@@ -166,6 +168,7 @@ export const appSessionsEnd = defineMemory({
   resource: "app_sessions",
   method: "end",
   name: "app_sessions.end",
+  changes: [{ name: "sessions", id: (input) => input.session }],
   input: z.strictObject({ app: idSchema("app"), session: idSchema("ses") }),
   output: z.object({ ended: z.boolean() }),
   actors: ["user"],
@@ -177,6 +180,7 @@ export const terminalSessionsReport = defineMemory({
   resource: "terminal_sessions",
   method: "report",
   name: "terminal_sessions.report",
+  changes: [],
   input: z.strictObject({
     sessions: z.array(terminalSessionReportSchema).max(64),
   }),

@@ -35,6 +35,7 @@ export const callsRecover = defineCommand({
   resource: "calls",
   method: "recover",
   name: "RecoverCalls",
+  changes: [],
   input: z.strictObject({
     // 보낸 session에 이유를 돌려줄 글의 blob이 준비됐는지.
     notify: z.boolean(),
@@ -51,6 +52,7 @@ export const callsAutoReply = defineCommand({
   resource: "calls",
   method: "auto-reply",
   name: "AutoReplyCall",
+  changes: [],
   input: z.strictObject({
     session: idSchema("ses"),
     call: idSchema("cal"),
@@ -70,6 +72,7 @@ export const callsAskOpen = defineCommand({
   resource: "calls",
   method: "ask-open",
   name: "OpenAskCall",
+  changes: [],
   input: z.strictObject({
     from: idSchema("ses"),
     to: idSchema("ses"),
@@ -94,6 +97,7 @@ export const callsAskWithdraw = defineCommand({
   resource: "calls",
   method: "ask-withdraw",
   name: "WithdrawAskCall",
+  changes: [],
   input: z.strictObject({ call: idSchema("cal"), session: idSchema("ses") }),
   output: z.object({ call: idSchema("cal"), state: callStateSchema }),
   compare: z.strictObject({}),
@@ -108,6 +112,7 @@ export const callsAppSend = defineCommand({
   resource: "calls",
   method: "app-send",
   name: "SendAppCall",
+  changes: [],
   input: z.strictObject({
     app: idSchema("app"),
     to: callAddressInputSchema,
@@ -139,6 +144,7 @@ export const callsAppCancel = defineCommand({
   resource: "calls",
   method: "app-cancel",
   name: "CancelAppCall",
+  changes: [],
   input: z.strictObject({
     app: idSchema("app"),
     call: idSchema("cal"),

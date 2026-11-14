@@ -46,6 +46,7 @@ import { diagnosticsWiring } from "./wiring/diagnostics.ts";
 import { domainsRetireWiring } from "./wiring/domains-retire.ts";
 import { lophnSplitWiring } from "./wiring/lophn-split.ts";
 import { eventsWiring } from "./wiring/events.ts";
+import { stateChangesWiring } from "./wiring/state-changes.ts";
 import { flowsWiring } from "./wiring/flows.ts";
 import { idleWiring } from "./wiring/idle.ts";
 import { jobsWiring } from "./wiring/jobs.ts";
@@ -155,6 +156,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   sdkInstallWiring,
   secretsWiring,
   eventsWiring,
+  stateChangesWiring,
   projectsWiring,
   lophnAgentSessionWiring,
   lophnAgentWiring,

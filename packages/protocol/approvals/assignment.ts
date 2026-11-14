@@ -72,6 +72,7 @@ export const assignmentSet = defineCommand({
   resource: "agent_assignments",
   method: "set",
   name: "SetAgentAssignment",
+  changes: [{ name: "agents", id: (input) => input.agent }],
   input: z.strictObject({ agent: agentIdSchema, entries: entriesSchema }),
   compare: z.strictObject({ revision: assignmentRevisionSchema }),
   output: z.object({

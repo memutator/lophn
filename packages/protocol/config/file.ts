@@ -113,6 +113,7 @@ export const settingsUpdate = defineMemory({
   resource: "settings",
   method: "update",
   name: "SettingsUpdate",
+  changes: ["settings"],
   input: settingsUpdateInputSchema,
   output: settingsUpdateOutputSchema,
   // agent는 locked가 아닌 설정만 바꾼다(handler가 거른다). 어느 agent가 닿는지는 credential 상한(명령의 workspaces)이 정한다.

@@ -1,5 +1,6 @@
 import { ERROR_CODES, type ErrorCode } from "../../base/mod.ts";
 import { z } from "zod";
+import type { RouteChange } from "../events/changes.ts";
 
 export const ACTOR_KINDS = ["user", "agent", "app", "machine"] as const;
 
@@ -38,7 +39,16 @@ type RouteBase<K extends RouteKind, I extends z.ZodType, O> = {
   confirmation?: "required";
   binding?: readonly string[];
   confirmation_kind?: ConfirmationKind;
+  // 이 route가 성공하면 바꾸는 것. command·upload는 반드시 적고 memory는 상태를 바꾸는 것만 적는다.
+  // core가 commit 뒤(memory·upload는 handler 성공 뒤) `StateChanged`로 낸다.
+  changes?: readonly RouteChange[];
 };
+
+// 선언하는 쪽의 입력·결과 type으로 id를 뽑는다.
+type Changes<I extends z.ZodType, O extends z.ZodType> = readonly RouteChange<
+  z.output<I>,
+  z.output<O>
+>[];
 
 export type CommandRoute<
   I extends z.ZodType = z.ZodType,
@@ -135,7 +145,10 @@ export function defineCommand<
   O extends z.ZodType,
   C extends z.ZodType = z.ZodObject<Record<string, never>>,
 >(
-  options: Omit<DefineOptions<I, O>, "compare"> & { compare?: C },
+  options: Omit<DefineOptions<I, O>, "compare"> & {
+    compare?: C;
+    changes: Changes<I, O>;
+  },
 ): Omit<
   CommandRoute<I, O>,
   "compare" | "confirmation" | "binding" | "confirmation_kind"
@@ -172,7 +185,7 @@ export function defineMemory<I extends z.ZodType, O extends z.ZodType>(
   options: Omit<
     DefineOptions<I, O>,
     "confirmation" | "binding" | "confirmation_kind"
-  >,
+  > & { changes?: Changes<I, O> },
 ): MemoryRoute<I, O> {
   const given = options as DefineOptions<I, O>;
   if (
@@ -191,7 +204,7 @@ export function defineUpload<I extends z.ZodType, O extends z.ZodType>(
   options: Omit<
     DefineOptions<I, O>,
     "compare" | "confirmation" | "binding" | "confirmation_kind"
-  > & { max_bytes: number },
+  > & { max_bytes: number; changes: Changes<I, O> },
 ): UploadRoute<I, O> {
   const { max_bytes, ...rest } = options;
   const given = options as DefineOptions<I, O>;

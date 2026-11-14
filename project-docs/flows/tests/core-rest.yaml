@@ -459,6 +459,10 @@ files:
     covers: [agent-credential-issue:issued, agent-credential-issue:invalid_input, credential-end:ended, credential-end:agent-kept]
     note: "credential registry 단위(session·turn 범위 대조, turn 끝 폐기, 앱 credential 종료가 agent 자격을 남김). credential 발급과 종료는 agent-credential-issue·credential-end, HTTP 쪽 결과는 api-request-gate가 맡는다"
 
+  - path: packages/core/storage/ledger/after-commit_test.ts
+    covers: [state-changed:published, state-changed:rolled-back]
+    note: "tx.call로 돈 command의 changes도 commit 결과에 실리고, 되돌아간 tx의 changes는 다음 commit에 섞이지 않는다. collector와 tx.call dispatch를 직접 쓴다(Worker 없이)"
+
   - path: packages/core/storage/ledger/tx_test.ts
     covers: []
     note: "transaction이 corrupt(SQLITE_CORRUPT)를 만나면 unavailable에 원인을 싣고 연결을 fault로 만들어 다음 transaction은 SQL을 돌리지 않는다. 망가진 ledger에 계속 쓰지 않게 하는 규칙이다"

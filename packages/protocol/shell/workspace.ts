@@ -100,6 +100,7 @@ const workspacePublish = defineMemory({
   resource: "workspace",
   method: "publish",
   name: "workspace.publish",
+  changes: [],
   input: z.strictObject({
     window_ref: windowRefSchema,
     generation: generationSchema,
@@ -116,6 +117,7 @@ const workspaceBind = defineMemory({
   resource: "workspace",
   method: "bind",
   name: "workspace.bind",
+  changes: [],
   input: z.strictObject({
     session: sessionIdSchema,
     window_ref: windowRefSchema,
@@ -129,6 +131,7 @@ const workspaceUnpublish = defineMemory({
   resource: "workspace",
   method: "unpublish",
   name: "workspace.unpublish",
+  changes: [],
   input: z.strictObject({ window_ref: windowRefSchema }),
   output: z.object({}),
   actors: ["user"],

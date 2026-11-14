@@ -43,6 +43,7 @@ export const messageImageUpload = defineUpload({
   resource: "message-images",
   method: "upload",
   name: "UploadMessageImage",
+  changes: [],
   input: z.strictObject({
     content_type: messageImageTypeSchema,
     bytes: z.number().int().min(1).max(MESSAGE_IMAGE_MAX_BYTES),
@@ -59,6 +60,7 @@ export const messageImagePrepare = defineMemory({
   resource: "message-images",
   method: "prepare",
   name: "PrepareMessageImage",
+  changes: [],
   input: z.strictObject({
     data_base64: z
       .string()

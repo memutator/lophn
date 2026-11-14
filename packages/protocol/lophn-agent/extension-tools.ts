@@ -49,6 +49,7 @@ export const extensionToolsPublish = defineMemory({
   resource: "extension_tools",
   method: "publish",
   name: "PublishExtensionTools",
+  changes: [],
   input: catalogSchema,
   output: z.strictObject({}),
   actors: ["user"],
@@ -72,6 +73,7 @@ export const extensionToolsCall = defineMemory({
   resource: "extension_tools",
   method: "call",
   name: "CallExtensionTool",
+  changes: [],
   input: z.strictObject({ name: z.string().min(1).max(200), input: z.json() }),
   output: z.strictObject({
     content: z.array(extensionToolContentSchema).max(64),

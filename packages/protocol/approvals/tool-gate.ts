@@ -36,6 +36,7 @@ export const toolGateCheck = defineMemory({
   resource: "tool_gate",
   method: "check",
   name: "CheckToolGate",
+  changes: [],
   input: toolGateInputSchema,
   output: toolGateResultSchema,
   actors: ["agent"],

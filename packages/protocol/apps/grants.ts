@@ -88,6 +88,7 @@ export const appGrantRevoke = defineCommand({
   resource: "app_grants",
   method: "revoke",
   name: "app_grants.revoke",
+  changes: [{ name: "app_grants", id: (_input, output) => output.grant.app }],
   input: z.strictObject({
     grant: grantIdSchema,
     reason: z.string().min(1).optional(),

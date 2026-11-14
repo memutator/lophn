@@ -57,6 +57,7 @@ export const shareRequestOpen = defineCommand({
   resource: "share_requests",
   method: "open",
   name: "share_request.open",
+  changes: [{ name: "share_requests", id: (_input, output) => output.app }],
   input: z
     .strictObject({
       agents: z.array(agentIdSchema).max(20),
@@ -77,6 +78,7 @@ export const shareRequestDecide = defineCommand({
   resource: "share_requests",
   method: "decide",
   name: "share_request.decide",
+  changes: [{ name: "share_requests", id: (input) => input.app }, "agents"],
   input: z.strictObject({ app: appIdSchema, choice: choiceSchema }),
   compare: z.strictObject({ requested_at: atSchema }),
   output: z.object({ app: appIdSchema, outcome: choiceSchema }),

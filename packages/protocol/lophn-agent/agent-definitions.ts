@@ -207,6 +207,7 @@ export const agentCreate = defineCommand({
   resource: "agents",
   method: "create",
   name: "CreateAgent",
+  changes: [{ name: "agents", id: (_input, output) => output.agent }],
   input: z.strictObject({
     // 생략하면 core가 새로 정한다(명령 표의 `agent create`).
     id: idSchema("agt").optional(),
@@ -221,6 +222,7 @@ export const agentChange = defineCommand({
   resource: "agents",
   method: "change",
   name: "ChangeAgent",
+  changes: [{ name: "agents", id: (input) => input.agent }],
   input: z.strictObject({
     agent: agentIdSchema,
     definition: agentDefinitionSchema,
@@ -235,6 +237,7 @@ export const agentDelete = defineCommand({
   resource: "agents",
   method: "delete",
   name: "DeleteAgent",
+  changes: [{ name: "agents", id: (input) => input.agent }],
   input: z.strictObject({ agent: agentIdSchema }),
   output: z.object({ agent: agentIdSchema, hash: sha256Schema }),
   compare: existingCompareSchema,
@@ -247,6 +250,7 @@ export const agentProfileImageUpload = defineUpload({
   resource: "profile-images",
   method: "upload",
   name: "UploadProfileImage",
+  changes: [{ name: "agents", id: (input) => input.agent }],
   input: z.strictObject({
     agent: agentIdSchema,
     content_type: agentProfileImageTypeSchema,

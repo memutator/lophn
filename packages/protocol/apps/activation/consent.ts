@@ -42,6 +42,12 @@ export const activationConsent = defineCommand({
   resource: "activations",
   method: "consent",
   name: "activation.consent",
+  changes: [
+    { name: "activation_consents", id: (input) => input.release },
+    "releases",
+    "share_requests",
+    "agents",
+  ],
   input: z.strictObject({
     release: releaseIdSchema,
     choice: choiceSchema,
@@ -58,6 +64,7 @@ export const activationAskConsent = defineCommand({
   resource: "activations",
   method: "ask_consent",
   name: "activation.ask_consent",
+  changes: [{ name: "activation_consents", id: (input) => input.release }],
   input: z.strictObject({
     release: releaseIdSchema,
     comparison: activationComparisonSchema,

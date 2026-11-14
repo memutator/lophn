@@ -135,6 +135,7 @@ export const mcpAuthBegin = defineMemory({
   resource: "agent-mcp-auth",
   method: "begin",
   name: "BeginMcpAuth",
+  changes: ["extension_settings"],
   input: mcpAuthBeginInputSchema,
   output: mcpAuthBeginOutputSchema,
   actors: ["user"],
@@ -169,6 +170,7 @@ export const mcpAuthComplete = defineMemory({
   resource: "agent-mcp-auth",
   method: "complete",
   name: "CompleteMcpAuth",
+  changes: ["extension_settings"],
   input: mcpAuthCompleteInputSchema,
   output: mcpAuthCompleteOutputSchema,
   actors: ["user"],
@@ -256,6 +258,7 @@ export const mcpAuthCancel = defineMemory({
   resource: "agent-mcp-auth",
   method: "cancel",
   name: "CancelMcpAuth",
+  changes: ["extension_settings"],
   input: mcpAuthCancelInputSchema,
   output: mcpAuthCancelOutputSchema,
   actors: ["user"],
@@ -308,6 +311,7 @@ export const mcpToolsRequestTake = defineMemory({
   resource: "agent-mcp-tools",
   method: "request-take",
   name: "TakeMcpToolsRequest",
+  changes: [],
   input: z.strictObject({}),
   output: z.strictObject({
     request: z
@@ -326,6 +330,7 @@ export const mcpToolsRequestDone = defineMemory({
   resource: "agent-mcp-tools",
   method: "request-done",
   name: "FinishMcpToolsRequest",
+  changes: [],
   input: z.strictObject({
     id: z.string().min(1).max(64),
     servers: z.array(mcpToolServerSchema).max(64),
@@ -400,6 +405,7 @@ export const workspaceExtensionSettingsChange = defineCommand({
   resource: "workspace-extension-settings",
   method: "change",
   name: "ChangeWorkspaceExtensionSettings",
+  changes: ["extension_settings"],
   input: z.strictObject({
     workspace: workspaceKeySchema,
     mcp_servers: workspaceServersSchema,

@@ -265,6 +265,7 @@ export const recordRewindFile = defineCommand({
   resource: "rewind",
   method: "record-file",
   name: "RecordRewindFile",
+  changes: [],
   input: recordRewindFileInputSchema,
   output: recordRewindFileOutputSchema,
   actors: ["machine"],
@@ -278,6 +279,7 @@ export const stageRewindFile = defineMemory({
   resource: "rewind",
   method: "stage-file",
   name: "StageRewindFile",
+  changes: [],
   input: z.strictObject({
     session: idSchema("ses"),
     turn: idSchema("trn"),
@@ -297,6 +299,7 @@ export const recordRewindWrite = defineMemory({
   resource: "rewind",
   method: "record-write",
   name: "RecordRewindWrite",
+  changes: [],
   input: recordRewindFileInputSchema,
   output: recordRewindFileOutputSchema,
   actors: ["agent"],
@@ -320,6 +323,7 @@ export const amendRevertInstall = defineCommand({
   resource: "rewind",
   method: "amend-install",
   name: "AmendRevertInstall",
+  changes: [],
   input: amendRevertInstallInputSchema,
   output: rewindHeaderOutput,
   actors: ["machine"],
@@ -332,6 +336,7 @@ export const recordRewindApps = defineCommand({
   resource: "rewind",
   method: "record-apps",
   name: "RecordRewindApps",
+  changes: [],
   input: z.strictObject({
     revert: idSchema("rwd"),
     apps: z.array(rewindAppRequestSchema).min(1),
@@ -374,6 +379,7 @@ export const requestRewindSummary = defineMemory({
   resource: "rewind",
   method: "summary-request",
   name: "RequestRewindSummary",
+  changes: [],
   input: z.strictObject({
     session: idSchema("ses"),
     // 요약을 시작할 입력 메시지(checkpoint). 숨긴 구간 안이거나 checkpoint가 아니면 거절한다.
@@ -398,6 +404,7 @@ export const takeRewindSummaryRequest = defineMemory({
   resource: "rewind",
   method: "summary-take",
   name: "TakeRewindSummaryRequest",
+  changes: [],
   input: z.strictObject({}),
   // 요약할 요청이 없으면 null이다. 가져간 요청은 다시 나오지 않는다.
   output: z.object({
@@ -418,6 +425,7 @@ export const finishRewindSummary = defineMemory({
   resource: "rewind",
   method: "summary-done",
   name: "FinishRewindSummary",
+  changes: [],
   input: z.strictObject({
     id: summaryRequestIdSchema,
     result: z.discriminatedUnion("kind", [

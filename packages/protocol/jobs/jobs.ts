@@ -101,6 +101,7 @@ export const jobCreate = defineCommand({
   resource: "jobs",
   method: "create",
   name: "job.create",
+  changes: [{ name: "jobs", id: (_input, output) => output.job.id }],
   // 때는 `every`(주기)와 `trigger`(event) 가운데 정확히 하나다. 칸 사이 검사는 core가 본다(`at`은 주기만, event job은 missed_policy가 뜻이 없다).
   input: z.strictObject({
     title: jobTitleSchema,
@@ -127,6 +128,7 @@ export const jobUpdate = defineCommand({
   resource: "jobs",
   method: "update",
   name: "job.update",
+  changes: [{ name: "jobs", id: (input) => input.job }],
   input: z.strictObject({
     ...jobRef,
     title: jobTitleSchema.optional(),
@@ -154,6 +156,7 @@ export const jobApprove = defineCommand({
   resource: "jobs",
   method: "approve",
   name: "job.approve",
+  changes: [{ name: "jobs", id: (input) => input.job }],
   input: z.strictObject({ ...jobRef, choice: z.enum(["approve", "reject"]) }),
   output: z.object({ job: jobRecordSchema.nullable() }),
   compare: z.strictObject({}),
@@ -165,6 +168,7 @@ export const jobDelete = defineCommand({
   resource: "jobs",
   method: "delete",
   name: "job.delete",
+  changes: [{ name: "jobs", id: (input) => input.job }],
   input: z.strictObject(jobRef),
   output: z.object({ job: jobIdSchema }),
   compare: z.strictObject({}),
@@ -227,6 +231,7 @@ export const jobDecideHold = defineCommand({
   resource: "jobs",
   method: "decide_hold",
   name: "job.decide_hold",
+  changes: [{ name: "jobs", id: (_input, output) => output.job_run.job }],
   input: z.strictObject({
     ...jobRunRef,
     choice: z.enum(["run_now", "skip"]),
@@ -242,6 +247,7 @@ export const jobClaimDue = defineCommand({
   resource: "jobs",
   method: "claim_due",
   name: "job.claim_due",
+  changes: ["jobs"],
   input: z.strictObject({ startup: z.boolean() }),
   output: z.object({
     start: z.array(jobTurnSchema),
@@ -278,6 +284,7 @@ export const jobRunStarted = defineCommand({
   resource: "job_runs",
   method: "started",
   name: "job_run.started",
+  changes: [{ name: "jobs", id: (_input, output) => output.job_run.job }],
   input: z.strictObject({
     ...jobRunRef,
     run: idSchema("run").nullable(),
@@ -300,6 +307,7 @@ export const jobRunEnded = defineCommand({
   resource: "job_runs",
   method: "ended",
   name: "job_run.ended",
+  changes: [{ name: "jobs", id: (_input, output) => output.job_run.job }],
   input: z.strictObject({
     ...jobRunRef,
     state: z.enum(["done", "failed", "cancelled"]),
@@ -323,6 +331,7 @@ export const jobFireEvent = defineCommand({
   resource: "jobs",
   method: "fire_event",
   name: "job.fire_event",
+  changes: ["jobs"],
   input: z.strictObject({
     // 앱이 낸 event면 그 앱 id, core가 낸 event면 `lophn`.
     publisher: z.string().min(1),

@@ -279,6 +279,7 @@ export const hostTake = defineMemory({
   resource: "host",
   method: "take",
   name: "HostTake",
+  changes: [],
   input: z.strictObject({
     workspaces: z.array(hostWorkspaceSchema).max(64),
     // 지금 TUI 탭(`tabs/open`의 tui)이 열려 있는 session 전부다. 매 take가 hold의 heartbeat다.
@@ -307,6 +308,7 @@ export const hostDone = defineMemory({
   resource: "host",
   method: "done",
   name: "HostDone",
+  changes: [],
   input: z.strictObject({
     id: idSchema("hrq"),
     result: z.enum(["done", "retry"]),
@@ -322,6 +324,7 @@ export const hostReport = defineMemory({
   resource: "host",
   method: "report",
   name: "HostReport",
+  changes: [],
   input: z.strictObject({
     tab: idSchema("tab"),
     state: z.union([browserTabStateSchema, z.literal("closed")]),
@@ -352,6 +355,7 @@ export const tabsOpen = defineMemory({
   resource: "tabs",
   method: "open",
   name: "OpenTab",
+  changes: [],
   input: z.strictObject({
     target: z.union([...sharedTargets, codingOpenSchema]),
     relation: tabRelationSchema.optional(),
@@ -368,6 +372,7 @@ export const tabsClose = defineMemory({
   resource: "tabs",
   method: "close",
   name: "CloseTab",
+  changes: [],
   input: z.strictObject({ tab: idSchema("tab") }),
   output: acceptedSchema,
   actors: ["agent", "user"],
@@ -415,6 +420,7 @@ export const browserAct = defineMemory({
   resource: "browser",
   method: "act",
   name: "BrowserAct",
+  changes: [],
   // browserActSchema의 칸을 펴 둔 것이다. core가 type별로 다시 검사한다.
   input: z.strictObject({
     ...browserTabInput,
@@ -445,6 +451,7 @@ export const browserNavigate = defineMemory({
   resource: "browser",
   method: "navigate",
   name: "BrowserNavigate",
+  changes: [],
   input: z.strictObject({
     ...browserTabInput,
     url: z.string().min(1).max(8192),
@@ -475,6 +482,7 @@ export const browserEvaluate = defineMemory({
   resource: "browser",
   method: "evaluate",
   name: "BrowserEvaluate",
+  changes: [],
   input: z.strictObject({
     ...browserTabInput,
     expression: z.string().min(1).max(65_536),
@@ -503,6 +511,7 @@ export const browserWait = defineMemory({
   resource: "browser",
   method: "wait",
   name: "BrowserWait",
+  changes: [],
   input: z.strictObject({
     ...browserTabInput,
     text: z.string().min(1).max(1_000).optional(),
@@ -520,6 +529,7 @@ export const tabsShow = defineMemory({
   resource: "tabs",
   method: "show",
   name: "ShowTab",
+  changes: [],
   input: z.strictObject({ tab: idSchema("tab") }),
   output: acceptedSchema,
   actors: ["agent", "user"],

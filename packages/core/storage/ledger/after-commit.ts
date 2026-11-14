@@ -1,7 +1,9 @@
-import type { Logger } from "../../../base/mod.ts";
+import type { Logger, LophnError, Result } from "../../../base/mod.ts";
 import { definePort } from "../../../protocol/base/mod.ts";
+import { resolveChanges } from "../../../protocol/events/changes.ts";
+import type { CommandDefinition } from "../../../protocol/server/mod.ts";
 import { defineTxPort, type TxPortRegistration } from "./tx-ports.ts";
-import type { Writer } from "./writer.ts";
+import type { CommandSuccess, Writer } from "./writer.ts";
 
 // command handler는 writer Worker에서 돌고 queue와 Bus는 main thread에 있다. 그래서 handler는
 // queue에 넣기와 agent event 내기를 "commit 뒤 할 일"로 모아 두고, `CommandSuccess`에 실려 main으로
@@ -16,7 +18,10 @@ interface AfterCommit {
 
 export const afterCommit = definePort<AfterCommit>("ledger.after-commit");
 
-// Worker가 command 하나를 돌릴 때마다 reset하고, 성공한 새 command 뒤에만 take한다.
+// route 정의의 `changes`를 푼 목록(StateChange[])을 싣는 topic이다. main thread가 `StateChanged` 하나로 낸다.
+export const STATE_CHANGED_TOPIC = "ledger.state-changed";
+
+// Worker는 command 하나를 run으로 돌린다. 모은 것은 확정된 새 command의 결과에만 실린다.
 export function createAfterCommitCollector() {
   let pending: CommitAction[] = [];
   const registration: TxPortRegistration = defineTxPort(afterCommit, () => ({
@@ -24,15 +29,41 @@ export function createAfterCommitCollector() {
       pending.push({ topic, data });
     },
   }));
+  // handler가 성공하면 그 route의 `changes`를 입력·결과로 풀어 쌓는다. `tx.call`도 같은 표의 handle을 부르므로
+  // 다른 command 안에서 돈 command의 것도 쌓인다. tx가 되돌아가면 run이 reset으로 버린다.
+  function declared(definition: CommandDefinition): CommandDefinition {
+    const changes = definition.route.changes;
+    if (changes === undefined || changes.length === 0) return definition;
+    return {
+      ...definition,
+      handle(tx, ctx, input, compare) {
+        const raw = definition.handle(tx, ctx, input, compare);
+        const result = raw as { ok?: unknown; value?: unknown } | null;
+        if (typeof result === "object" && result?.ok === true) {
+          pending.push({
+            topic: STATE_CHANGED_TOPIC,
+            data: resolveChanges(changes, input, result.value),
+          });
+        }
+        return raw;
+      },
+    };
+  }
   return {
     registration,
-    reset() {
+    declared,
+    // command 하나를 돌린다. 확정된 새 command의 결과에만 모은 것을 싣는다. 되돌아간 tx와 재전달은 버린다.
+    async run(
+      execute: () => Promise<Result<CommandSuccess, LophnError>>,
+    ): Promise<Result<CommandSuccess, LophnError>> {
       pending = [];
-    },
-    take(): CommitAction[] {
+      const body = await execute();
       const taken = pending;
       pending = [];
-      return taken;
+      if (body.ok && !body.value.replayed && taken.length > 0) {
+        body.value.after_commit = taken;
+      }
+      return body;
     },
   };
 }

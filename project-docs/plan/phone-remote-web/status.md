@@ -4,8 +4,8 @@ lead만 고친다. `tools/status.py phone-remote-web build`가 `tasks/*.md`에�
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `touch-density` | design | 1 | 없음 | todo |  |  |  |
-| `remote-bytes` | remote | 1 | 없음 | todo |  |  |  |
+| `touch-density` | design | 1 | 없음 | merged | design/touch-density | e638b5551 |  |
+| `remote-bytes` | remote | 1 | 없음 | running | remote/remote-bytes |  |  |
 | `remote-web-base` | web | 2 | remote-bytes, touch-density | todo |  |  |  |
 | `remote-ui-bundle` | remote | 3 | remote-web-base | todo |  |  |  |
 | `remote-web-chat` | web | 3 | remote-web-base | todo |  |  |  |

@@ -1,0 +1,36 @@
+id: phone-shell
+version: 0.23.60
+title: Android 폰 앱 껍데기가 QR로 pairing하고 core에 붙어 core가 내려준 remote 화면을 hash 확인 뒤 띄운다
+modules: [mobile]
+checked: [boundary-catalog]
+change: |
+  - 저장소 맨 위에 `mobile/`을 더했다. root npm workspace 밖의 Expo project(SDK 58, React Native 0.88, dev build)이고 자기 `package.json`과 lock을 가진다. `npm run check` 밖이라 `cd mobile && npm run typecheck && npm test`로 본다. Metro가 `@lophn/protocol/remote/client`를 source로 읽는다. Android 앱 id는 임시로 `dev.lophn.mobile`이다.
+  - pairing: QR을 찍거나 내용을 붙여 넣으면 컴퓨터의 key 앞 8글자와 주소를 보이고 사람이 누를 때 pairing한다. `pair` frame에 폰 이름, OS, 화면 크기, DPR을 싣는다. 기기 key 쌍과 컴퓨터 목록은 `expo-secure-store`(이 기기에서만, 잠금이 풀렸을 때만)에 둔다. 컴퓨터 목록에서 상태(붙음, 닿지 않음, 끊김·다시 pairing)를 보고 지운다.
+  - 연결: 주소 후보를 같이 걸어 먼저 된 것을 쓰고, 끊기면 1초에서 30초 backoff로 다시 붙는다. 붙을 때마다 마지막 `watch`를 다시 보낸다. 앱이 뒤로 가면 멈추고 앞으로 오면 살아 있는지 본 뒤 바로 다시 붙는다. `closed(credential_revoked)`를 받으면 "다시 pairing"으로 표시한다.
+  - bundle cache: 붙을 때 `remote_ui/manifest`를 읽고 새 hash면 file마다 `remote_ui/file`로 받아 sha256을 대조한다. 모두 맞을 때만 그 bundle로 바꾸고 바로 앞 것 하나만 남긴다. core에 닿지 않으면 마지막 bundle을 띄운다.
+  - WebView: 자체 Expo module이 `https://remote.lophn.invalid/`의 GET만 cache 폴더의 file로 답하고 그 밖은 막는다. 응답 CSP는 `connect-src 'none'`, `worker-src 'none'`, `frame-src 'none'`이다. 다른 origin 이동, 새 창, download, 권한 요청을 거절하고 사람이 누른 http(s) link만 OS browser로 연다. render process가 죽으면 다시 띄운다. 사진 고르기(`<input type=file>`)를 Android의 file 고르기로 잇는다.
+  - bridge: document 시작 때 `globalThis.lophnRemote`(`CoreSource`)를 넣는다. page에서 오는 message는 `call`, `watch`, `state`만 받고 다른 것은 버린다. upload는 `{input, base64}`로, file 답은 `{bytes, contentType}`으로 바꾼다.
+  - 화면은 safe area 안에 그리고 keyboard가 올라오면 그만큼 올린다.
+why: |
+  mobile roadmap 단계 2의 폰 쪽이다. remote 화면(계획 `phone-remote-web`)을 실제 폰에서 쓰려면 key를 지키고 연결을 이어 가는 껍데기가 있어야 한다. 화면은 core가 내려주므로 껍데기는 얇게 두고, page가 껍데기와 core 밖의 아무것에도 닿지 못하게 막는다.
+decisions:
+  - text: >-
+      폰 껍데기를 root workspace 밖의 `mobile/`에 자기 lock을 가진 Expo project로 둔다. React Native 의존 tree가 Electron 설치와 `npm run check`에 섞이지 않는다. 대가로 `mobile/`의 type 검사와 test는 따로 돌린다.
+    by: agent
+  - text: >-
+      Android WebView origin은 가로챈 https 가짜 host `https://remote.lophn.invalid/`다. 버린 길: custom scheme `lophn-app://`(module, CSS, font는 읽히지만 secure context가 아니라 `crypto.randomUUID`가 없고 bridge의 origin 규칙을 걸 수 없다). iOS는 custom scheme으로 간다.
+    by: agent
+  - text: >-
+      앞으로 온 앱은 열린 연결에 `watch`를 다시 보내 3초 안의 `ready`로 살아 있는지 본다. background에서 소리 없이 죽은 socket은 close가 오지 않기 때문이다. 멀쩡한 연결은 `stale`로 깜빡이지 않는다.
+    by: agent
+  - text: >-
+      폰에서 컴퓨터를 지우면 폰의 기록만 지운다. 컴퓨터 쪽 기기 끊기는 사람 자격 route라 desktop에서 한다.
+    by: agent
+follow_up: |
+  - iOS 껍데기: Mac이나 cloud 빌드와 Apple Developer 계정이 준비된 뒤 계획을 따로 연다. spike의 조사(`WKURLSchemeHandler`, ATS, local network 허락)는 `reports/mobile-spike.md`에 있다.
+  - 폰이 꺼져 있는 동안 컴퓨터에서 끊으면 폰은 "닿지 않음"을 끝없이 보인다(이슈 `remote-revoked-offline-looks-unreachable`).
+  - 실제 카메라로 QR 찍기, release build, 화면 잠금, cutout 있는 화면, 새 bundle로 바꾸기를 앱을 켠 채로 해 보기는 아직 실제로 보지 않았다.
+  - foreground에서 소리 없이 죽은 socket은 OS가 close를 알릴 때까지 모른다(주기 ping 없음).
+checklist:
+  - "Android 폰에 dev build를 깔고(`mobile/README.md`), desktop의 기기 화면에서 낸 QR을 찍어 pairing한 뒤 session 목록, 대화 보내기, 승인 답하기, 사진 붙이기가 되는지 본다"
+  - "앱을 뒤로 보냈다 앞으로 오거나 Wi-Fi를 껐다 켜도 다시 붙는지, desktop에서 기기를 끊으면 폰이 \"다시 pairing\"을 보이는지 본다"

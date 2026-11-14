@@ -23,8 +23,6 @@ export interface RemotePairingCode {
 }
 
 export interface RemoteSettingsSource {
-  /** core 연결 상태를 듣는다. 준비되면 화면이 다시 읽는다. 해제는 반환 함수다. */
-  watch(listener: (state: { readonly state: string }) => void): () => void;
   /** 설정 `remote.enabled`. */
   enabled(): Promise<SourceResult<boolean>>;
   setEnabled(on: boolean): Promise<SourceResult<null>>;

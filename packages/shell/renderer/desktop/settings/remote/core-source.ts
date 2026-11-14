@@ -21,8 +21,6 @@ export function coreRemoteSource(
   random: () => string = () => crypto.randomUUID(),
 ): RemoteSettingsSource {
   return {
-    watch: (listener) => core.subscribe(listener),
-
     async enabled() {
       const read = await readEffective(core, [ENABLED_KEY]);
       return read.ok

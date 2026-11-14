@@ -1511,7 +1511,7 @@ flows:
     code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/listener.ts, packages/core/remote/host-key.ts, packages/core/main/daemon/wiring/idle.ts]
     docs: [architecture/platform.md]
     steps:
-      - "기동 때와 SettingsChanged에 remote.enabled·remote.port가 들 때 remote wiring이 listener를 맞춘다. 맞추기는 하나씩 돈다"
+      - "기동 때와 StateChanged(settings)의 id가 remote.enabled·remote.port(또는 null)일 때 remote wiring이 listener를 맞춘다. 맞추기는 하나씩 돈다"
       - "켜져 있으면 `<root>/remote/host-key.json`(0600)을 읽거나 없으면 만들고, 모든 interface의 remote.port에 WebSocket listener(path /remote)를 연다"
       - "꺼지거나 port가 바뀌면 붙은 연결에 closed(shutdown)을 보내고 listener를 닫는다. 꺼져 있으면 loopback 밖 listener가 없다"
       - "켜져 있는 동안 idle-exit는 일이 있는 것으로 센다"
@@ -1563,7 +1563,7 @@ flows:
         when: "없는 route다"
         observe: ["response"]
       - id: watch-ready
-        observe: ["response", "event:SettingsChanged"]
+        observe: ["response", "event:StateChanged"]
       - id: slow-consumer
         when: "보내지 못한 byte가 Gateway 한도를 넘었다"
         observe: ["response"]

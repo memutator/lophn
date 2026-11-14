@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { manualClock, ok, seededRandom } from "../../base/mod.ts";
-import { routePath, type Route } from "../../protocol/base/mod.ts";
+import { type Route, routePath } from "../../protocol/base/mod.ts";
 import { ROUTES } from "../../protocol/registry.ts";
 import {
   connectRemote,
   generateKeyPair,
   type KeyPair,
   REMOTE_ALLOWED_ROUTES,
-  type RemoteClientFrame,
   type RemoteClientChannel,
+  type RemoteClientFrame,
   type RemoteServerFrame,
   remoteKeyText,
 } from "../../protocol/remote/mod.ts";
@@ -206,10 +206,10 @@ test("등록되지 않은 key의 연결은 pair 말고 아무 frame도 통하지
       c.phone.send(frame);
       await settle();
       s.bus.publish({
-        type: "SettingsChanged",
+        type: "StateChanged",
         subject: null,
         at: s.clock.now(),
-        payload: { keys: [] },
+        payload: { changes: [{ name: "settings", id: null }] },
       });
       await settle();
       assert.deepEqual(s.reached, []);

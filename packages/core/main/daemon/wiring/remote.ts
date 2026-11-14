@@ -36,13 +36,13 @@ import {
   type RemoteHost,
   type RemoteListener,
 } from "../../../remote/mod.ts";
+import { systemTimers } from "../../../runs/mod.ts";
 import { RouteRegistry } from "../../../server/mod.ts";
 import {
   type ReaderRegistration,
   withAfterCommit,
 } from "../../../storage/ledger/mod.ts";
 import { createAdmission } from "../../../supervision/responsiveness/mod.ts";
-import { systemTimers } from "../../../runs/mod.ts";
 import type { WiringContext, WiringFactory } from "./context.ts";
 
 // 기기를 등록하고 마지막 연결을 적고 key로 찾는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
@@ -271,12 +271,19 @@ export const remoteWiring: WiringFactory = () => {
       });
     },
     async start(ctx) {
-      unsubscribe = ctx.bus.subscribe([{ types: ["SettingsChanged"] }], {
+      unsubscribe = ctx.bus.subscribe([{ types: ["StateChanged"] }], {
         send(event) {
-          const keys = (event.payload as { keys: string[] }).keys;
+          const changes = (
+            event.payload as { changes: { name: string; id: string | null }[] }
+          ).changes;
           if (
-            keys.includes(remoteEnabledSetting.key) ||
-            keys.includes(remotePortSetting.key)
+            changes.some(
+              (change) =>
+                change.name === "settings" &&
+                (change.id === null ||
+                  change.id === remoteEnabledSetting.key ||
+                  change.id === remotePortSetting.key),
+            )
           ) {
             reconciling = reconciling.then(() => reconcile(ctx));
           }

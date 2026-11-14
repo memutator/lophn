@@ -50,10 +50,6 @@ export function fakeRemote(options: FakeRemoteOptions = {}) {
   const missing = (): Promise<SourceResult<null>> =>
     Promise.resolve({ ok: false, code: "not_found" });
   const source: RemoteSettingsSource = {
-    watch(listener) {
-      listener({ state: "ready" });
-      return () => {};
-    },
     enabled: () => ok(enabled),
     setEnabled(on) {
       enabled = on;

@@ -1,13 +1,14 @@
 // Settings › Remote. 폰 연결(`remote.enabled`)을 켜고, QR로 폰을 pairing하고, pairing한 폰을 관리한다.
-// 기기가 바뀌어도 core가 알리지 않아서 QR이 보이는 동안만 기기 목록을 2초마다 다시 읽고, 새 폰이 보이면 QR을 닫는다.
-import { useCallback, useEffect, useState } from "react";
-import { Button } from "@lophn/ui/primitives";
+// 기기가 바뀌면(`remote_devices`) 목록을 다시 읽고, QR이 보이는 동안 새 폰이 보이면 QR을 닫는다.
+
+import { t } from "@lophn/i18n";
 import { Switch } from "@lophn/ui/input";
 import { Toast } from "@lophn/ui/overlay";
-import { t } from "@lophn/i18n";
+import { Button } from "@lophn/ui/primitives";
+import { useCallback, useEffect, useState } from "react";
 
 import { actionIcons } from "../../../icons/mod.ts";
-import { useReload } from "../use-reload.ts";
+import { useStateChanged } from "../../connection/core-read.ts";
 import styles from "../settings.module.css";
 import { RemoteDeviceRows } from "./device-rows.tsx";
 import { QrCode } from "./qr-code.tsx";
@@ -33,7 +34,6 @@ type Pairing =
 
 const START_TRIES = 5;
 const START_WAIT_MS = 1000;
-const POLL_MS = 2000;
 
 const delay = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -64,28 +64,24 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
     });
     void loadDevices();
   }, [source, loadDevices]);
-  useReload(source, load);
+  useStateChanged(["settings", "remote_devices"], load);
 
-  // QR이 보이는 동안 남은 시간을 1초마다, 기기 목록을 2초마다 본다. code가 끝나면 목록은 그만 읽는다.
+  // QR이 보이는 동안 남은 시간을 1초마다 센다.
   useEffect(() => {
     if (pairing.state !== "shown") return;
-    const expires = Date.parse(pairing.code.expiresAt);
     const tick = setInterval(() => setNow(Date.now()), 1000);
-    const poll = setInterval(() => {
-      if (Date.now() >= expires) return;
-      void loadDevices().then((read) => {
-        if (!read.ok) return;
-        const fresh = read.value.find((one) => !pairing.known.has(one.id));
-        if (fresh === undefined) return;
-        setPairing({ state: "idle" });
-        setPaired(fresh.name);
-      });
-    }, POLL_MS);
-    return () => {
-      clearInterval(tick);
-      clearInterval(poll);
-    };
-  }, [pairing, loadDevices]);
+    return () => clearInterval(tick);
+  }, [pairing]);
+
+  // QR이 보이는 동안 다시 읽은 목록에 새 기기가 있으면 pairing이 끝난 것이다.
+  useEffect(() => {
+    if (pairing.state !== "shown" || devices === null || devices === "failed")
+      return;
+    const fresh = devices.find((one) => !pairing.known.has(one.id));
+    if (fresh === undefined) return;
+    setPairing({ state: "idle" });
+    setPaired(fresh.name);
+  }, [pairing, devices]);
 
   async function choose(on: boolean): Promise<void> {
     const saved = await source.setEnabled(on);

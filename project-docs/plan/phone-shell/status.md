@@ -7,4 +7,4 @@ lead만 고친다. `tools/status.py phone-shell build`가 `tasks/*.md`에서 id,
 | `mobile-spike` | mobile | 1 | 없음 | merged | mobile/mobile-spike | f7434718d |  |
 | `mobile-pairing` | mobile | 2 | mobile-spike | merged | mobile/mobile-pairing | ffcf8ecc0 |  |
 | `mobile-webview` | mobile | 2 | mobile-spike | merged | mobile/mobile-webview | 1f9f53493 |  |
-| `mobile-remote` | mobile | 3 | mobile-pairing, mobile-webview | todo |  |  |  |
+| `mobile-remote` | mobile | 3 | mobile-pairing, mobile-webview | running | mobile/mobile-remote |  |  |

@@ -7,6 +7,6 @@ lead만 고친다. `tools/status.py screen-sync build`가 `tasks/*.md`에서 id,
 | `sync-core` | sync | 1 | 없음 | merged | sync/sync-core | d88489c4a |  |
 | `sync-read` | sync | 2 | sync-core | merged | sync/sync-read | 50103295a |  |
 | `sync-app-detail` | sync | 3 | sync-read | running | sync/sync-app-detail |  |  |
-| `sync-lists` | sync | 3 | sync-read | running | sync/sync-lists |  |  |
+| `sync-lists` | sync | 3 | sync-read | merged | sync/sync-lists | 4de7ca9f5 |  |
 | `sync-settings` | sync | 3 | sync-read | running | sync/sync-settings |  |  |
 | `sync-fold` | sync | 4 | sync-lists, sync-app-detail, sync-settings | todo |  |  |  |

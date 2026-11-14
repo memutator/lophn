@@ -1,52 +1,53 @@
 // 진짜 Desktop 화면을 mock 데이터로 그린다. 조립은 packages/shell/renderer/desktop/entry.tsx의 mock
 // 갈래와 같다. entry는 import하면 바로 mount하므로 이 gallery가 같은 조립을 따로 둔다. 앱 코드는
 // 고치지 않고, preload가 없는 일반 browser에 없는 통로(터미널 PTY, overlay)만 여기서 채운다.
-import { useMemo } from "react";
 
+import { useMemo } from "react";
 import {
   appTrayList,
   type TrayTone,
 } from "../../../packages/protocol/apps/tray.ts";
-import { Desktop } from "../../../packages/shell/renderer/desktop/main.tsx";
+import type { LophnShellAnnotateApi } from "../../../packages/shell/ipc/annotation.ts";
+import type { LophnArtifactApi } from "../../../packages/shell/ipc/artifact.ts";
+import type { LophnBrowserApi } from "../../../packages/shell/ipc/browser.ts";
+import type {
+  DetachedTaken,
+  LophnDetachedApi,
+} from "../../../packages/shell/ipc/detached.ts";
+import type { AppDetailSource } from "../../../packages/shell/renderer/app-frame/app-detail/source.ts";
+import { AppViewsProvider } from "../../../packages/shell/renderer/app-frame/app-views.tsx";
+import {
+  AnnotateApiProvider,
+  ArtifactApiProvider,
+} from "../../../packages/shell/renderer/artifact/artifact-api.tsx";
+import { BrowserApiProvider } from "../../../packages/shell/renderer/browser/browser-api.tsx";
+import { DraftStore } from "../../../packages/shell/renderer/conversation/drafts.ts";
+import { ConversationProvider } from "../../../packages/shell/renderer/conversation/window-deps.tsx";
+import type { CoreSource } from "../../../packages/shell/renderer/desktop/connection/connection.ts";
+import { createEventClient } from "../../../packages/shell/renderer/desktop/connection/events/client.ts";
+import { EventsProvider } from "../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
+import { PROJECT_GROCERY } from "../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
 import {
   type DevMock,
   devMock,
 } from "../../../packages/shell/renderer/desktop/dev-mock/mod.ts";
-import { PROJECT_GROCERY } from "../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
-import type { AppDetailSource } from "../../../packages/shell/renderer/app-frame/app-detail/source.ts";
 import type { JobsSource } from "../../../packages/shell/renderer/desktop/jobs/source.ts";
-import type { WorkspaceSource } from "../../../packages/shell/renderer/workspace/source.ts";
-import type { CoreSource } from "../../../packages/shell/renderer/desktop/connection/connection.ts";
+import { Desktop } from "../../../packages/shell/renderer/desktop/main.tsx";
 import {
   HOME,
   openDetached,
   openSettings,
   type Route,
 } from "../../../packages/shell/renderer/desktop/router.ts";
+import type { SettingsPane } from "../../../packages/shell/renderer/desktop/settings/model.ts";
+import { QuickPrefsProvider } from "../../../packages/shell/renderer/desktop/settings/quick-launch/store.tsx";
 import { MAIN_DESK } from "../../../packages/shell/renderer/shell/desk-model.ts";
 import { createLayoutSource } from "../../../packages/shell/renderer/shell/layout-source.ts";
-import type { SettingsPane } from "../../../packages/shell/renderer/desktop/settings/model.ts";
-import { createEventClient } from "../../../packages/shell/renderer/desktop/connection/events/client.ts";
-import { EventsProvider } from "../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
-import { AppViewsProvider } from "../../../packages/shell/renderer/app-frame/app-views.tsx";
-import { QuickPrefsProvider } from "../../../packages/shell/renderer/desktop/settings/quick-launch/store.tsx";
-import { BrowserApiProvider } from "../../../packages/shell/renderer/browser/browser-api.tsx";
-import {
-  AnnotateApiProvider,
-  ArtifactApiProvider,
-} from "../../../packages/shell/renderer/artifact/artifact-api.tsx";
-import type { LophnArtifactApi } from "../../../packages/shell/ipc/artifact.ts";
-import type { LophnShellAnnotateApi } from "../../../packages/shell/ipc/annotation.ts";
-import type { LophnBrowserApi } from "../../../packages/shell/ipc/browser.ts";
-import type {
-  DetachedTaken,
-  LophnDetachedApi,
-} from "../../../packages/shell/ipc/detached.ts";
-import { ConversationProvider } from "../../../packages/shell/renderer/conversation/window-deps.tsx";
-import { DraftStore } from "../../../packages/shell/renderer/conversation/drafts.ts";
-import { TerminalStore } from "../../../packages/shell/renderer/terminal/store.ts";
 import { TerminalDisplays } from "../../../packages/shell/renderer/terminal/displays.ts";
+import { TerminalStore } from "../../../packages/shell/renderer/terminal/store.ts";
 import { createXtermView } from "../../../packages/shell/renderer/terminal/xterm-view.ts";
+import type { WorkspaceSource } from "../../../packages/shell/renderer/workspace/source.ts";
+import { withSyncLists } from "./core-answers/sync-lists.ts";
 import { fakeTerminal } from "./fake-terminal.ts";
 // 터미널 탭이 쓰는 xterm 기본 배치.
 import "@xterm/xterm/css/xterm.css";
@@ -368,28 +369,37 @@ export function MockDesktop(props: MockDesktopProps) {
             transfer: null,
           },
     );
+    const projects =
+      emptyHome === true
+        ? {
+            ...mock.projects,
+            list: () => Promise.resolve({ ok: true as const, value: [] }),
+          }
+        : mock.projects;
+    const apps =
+      emptyHome === true
+        ? {
+            ...mock.apps,
+            list: () => Promise.resolve({ ok: true as const, value: [] }),
+          }
+        : mock.apps;
     return {
       mock,
       detached,
-      projects:
-        emptyHome === true
-          ? {
-              ...mock.projects,
-              list: () => Promise.resolve({ ok: true as const, value: [] }),
-            }
-          : mock.projects,
-      apps:
-        emptyHome === true
-          ? {
-              ...mock.apps,
-              list: () => Promise.resolve({ ok: true as const, value: [] }),
-            }
-          : mock.apps,
+      projects,
+      apps,
       workspace,
       terminal,
       conversation: { drafts: new DraftStore() },
       events: createEventClient(
-        withTrayValues(props.events?.(mock.events) ?? mock.events, props.tray),
+        withSyncLists(
+          withTrayValues(
+            props.events?.(mock.events) ?? mock.events,
+            props.tray,
+          ),
+          projects,
+          apps,
+        ),
       ),
       settingsPanels: mock.settingsPanels,
     };

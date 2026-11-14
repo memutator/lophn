@@ -1,5 +1,5 @@
 id: bundled-extension-version
-version: 0.23.58
+version: 0.23.59
 title: 본체 안 extension이 따로 판을 갖지 않아 PATCH가 올라도 harness agent와 터미널 GUI가 멈추지 않는다
 modules: [packages/protocol, packages/shell/main, packages/shell/ipc, packages/shell/renderer, packages/design]
 change: |

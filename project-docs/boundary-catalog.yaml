@@ -198,6 +198,12 @@ elements:
       - protocol
       - design
 
+  - id: mobile
+    kind: application
+    description: 사람이 폰에 까는 앱 껍데기. pairing, 기기 key 보관, core 연결, core가 내려준 remote 화면 bundle을 hash 확인 뒤 cache해 WebView로 띄우기.
+    depends_on:
+      - protocol
+
   - id: app
     kind: extension
     description: 사용자가 만든 앱 하나.
@@ -255,6 +261,7 @@ interfaces:
     used_by:
       - person
       - shell
+      - mobile
 
   - id: acp
     kind: interface

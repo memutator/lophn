@@ -63,6 +63,8 @@ type Common = { phone: KeyPair; dial: Dial; random: RandomSource };
 
 const BACKOFF_MIN_MS = 1000;
 const BACKOFF_MAX_MS = 30_000;
+// How long a resumed channel has to answer the re-sent watch before it counts as dead.
+const PROBE_MS = 3000;
 
 // Dials every address at once and keeps the first that finishes the handshake; the rest are closed.
 export function openFirst(
@@ -122,6 +124,7 @@ export function createConnection(
   let stopped = false;
   let failures = 0;
   let cancelRetry: (() => void) | undefined;
+  let cancelProbe: (() => void) | undefined;
   // Last conditions the screen asked for. Sent again on every new channel; `[]` still gets a `ready` back.
   let watching: WatchConditions = [];
   let nextId = 0;
@@ -164,9 +167,10 @@ export function createConnection(
     opened.send({ type: "watch", conditions: watching });
   }
 
-  function dropped(closed: RemoteClientChannel) {
-    if (channel !== closed) return;
+  function lose() {
     channel = undefined;
+    cancelProbe?.();
+    cancelProbe = undefined;
     for (const [id, resolve] of pending) {
       pending.delete(id);
       resolve({
@@ -174,9 +178,26 @@ export function createConnection(
         error: { code: "unavailable", message: "connection closed" },
       });
     }
-    if (stopped) return;
-    setState({ state: "stale", confirmedAt: state.confirmedAt });
+    if (!stopped) setState({ state: "stale", confirmedAt: state.confirmedAt });
+  }
+
+  function dropped(closed: RemoteClientChannel) {
+    if (channel !== closed) return;
+    lose();
     retry();
+  }
+
+  // After the background the socket may have died without a close event. The core answers a watch with `ready`;
+  // if that does not come in time, drop the channel and connect again now instead of waiting for a backoff.
+  function probe(current: RemoteClientChannel) {
+    current.send({ type: "watch", conditions: watching });
+    cancelProbe = deps.wait(PROBE_MS, () => {
+      cancelProbe = undefined;
+      if (channel !== current) return;
+      lose();
+      current.close();
+      void connect();
+    });
   }
 
   function received(frame: RemoteServerFrame) {
@@ -190,6 +211,8 @@ export function createConnection(
           : { ok: false, error: frame.error },
       );
     } else if (frame.type === "ready") {
+      cancelProbe?.();
+      cancelProbe = undefined;
       failures = 0;
       setState({ state: "ready", confirmedAt: deps.now() });
       emit({ kind: "ready" });
@@ -249,7 +272,8 @@ export function createConnection(
       failures = 0;
       cancelRetry?.();
       cancelRetry = undefined;
-      void connect();
+      if (channel && !cancelProbe) probe(channel);
+      else void connect();
     },
     close() {
       stopped = true;

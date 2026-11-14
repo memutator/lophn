@@ -48,10 +48,13 @@ function pipe(): [RemoteTransport, RemoteTransport] {
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
-test("after a drop the connection reconnects and sends the last watch again", async () => {
+test("after a drop or a dead resume the connection reconnects and sends the last watch again", async () => {
   const core = generateKeyPair(cryptoRandom);
-  const servers: { channel: RemoteServerChannel; frames: RemoteClientFrame[] }[] =
-    [];
+  const servers: {
+    channel: RemoteServerChannel;
+    frames: RemoteClientFrame[];
+    answer: boolean;
+  }[] = [];
   const dial = async () => {
     const [phoneSide, coreSide] = pipe();
     void acceptRemote({
@@ -61,11 +64,17 @@ test("after a drop the connection reconnects and sends the last watch again", as
       random: cryptoRandom,
     }).then((opened) => {
       assert.ok(opened.ok);
-      const server = { channel: opened.value, frames: [] as RemoteClientFrame[] };
+      const server = {
+        channel: opened.value,
+        frames: [] as RemoteClientFrame[],
+        answer: true,
+      };
       servers.push(server);
       opened.value.onFrame((frame) => {
         server.frames.push(frame);
-        if (frame.type === "watch") opened.value.send({ type: "ready" });
+        if (frame.type === "watch" && server.answer) {
+          opened.value.send({ type: "ready" });
+        }
       });
     });
     return phoneSide;
@@ -102,6 +111,16 @@ test("after a drop the connection reconnects and sends the last watch again", as
 
   assert.equal(servers.length, 2);
   assert.deepEqual(servers[1]?.frames, [{ type: "watch", conditions }]);
+  assert.equal(connection.current().state, "ready");
+
+  // Back from the background on a socket that no longer answers: connect again without a backoff.
+  if (servers[1]) servers[1].answer = false;
+  connection.resume();
+  await settle();
+  retries.at(-1)?.();
+  await settle();
+  assert.equal(servers.length, 3);
+  assert.deepEqual(servers[2]?.frames, [{ type: "watch", conditions }]);
   assert.equal(connection.current().state, "ready");
   connection.close();
 });

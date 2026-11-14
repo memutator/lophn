@@ -38,9 +38,16 @@ adb -s emulator-5554 emu kill                                     # 끝낼 때
 - emulator에서 이 machine은 `10.0.2.2`다.
 - 첫 gradle build는 NDK·CMake를 `~/Android/Sdk`에 받아 몇 분 걸린다.
 
-## spike 화면
+## pairing
 
-지금 `App.tsx`는 spike 화면이다(결과: `reports/mobile-spike.md`). Metro를 띄울 때 `EXPO_PUBLIC_LOPHN_QR`에 core `pairing/start`의 JSON을 넣으면 그 code로 pair하고 다시 붙어 read route 하나를 부른다. `EXPO_PUBLIC_LOPHN_ADDRESS`(기본 `10.0.2.2`)가 QR의 주소 대신 쓰인다. `modules/lophn-webview`는 module의 assets에 든 시험 page를 내주는 spike module이고, 뒤 task가 cache의 bundle을 내주는 module로 바꾼다.
+처음 열면 pairing 화면이다. QR을 `expo-camera`로 찍거나 core `pairing/start`의 JSON을 붙여 넣고, 보이는 key 앞 글자와 주소를 확인한 뒤 Pair를 누른다. 기기 key 쌍과 pairing한 컴퓨터 목록은 `expo-secure-store`(이 기기에서만, 잠금이 풀렸을 때만)에 둔다.
+
+- emulator에서 pairing: 붙여 넣기 칸을 누르고 `adb -s <emulator> shell "input text '<pairing/start JSON에서 expires_at을 뺀 것>'"`. emulator에는 camera 장면이 없다.
+- `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS`(dev build에서만): Metro를 띄울 때 주면 이 주소를 QR의 주소들과 같이 걸어 먼저 붙는 것을 쓴다. 저장하지는 않는다. emulator는 이 machine에 `10.0.2.2`로 닿는데 QR에는 LAN 주소가 들기 때문이다. 예: `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS=10.0.2.2 npx expo start --dev-client --port 8199`.
+
+## WebView
+
+component는 `src/webview/LophnWebView.tsx`이고 native view는 `modules/lophn-webview`에 있다. origin은 `https://remote.lophn.invalid/`이고 `root` 폴더의 file만 내주며, CSP는 `connect-src 'none'`이다. 손으로 보는 test page는 `src/webview/test-page/`에 있고 APK에 들지 않는다. 보려면 `adb shell run-as dev.lophn.mobile`로 `/data/data/dev.lophn.mobile/files/<dir>`에 복사하고 그 path를 `root`로 넘긴다.
 
 ## 정해 둔 것
 

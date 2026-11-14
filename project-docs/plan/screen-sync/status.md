@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py screen-sync build`가 `tasks/*.md`에서 id,
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `sync-core` | sync | 1 | 없음 | running | sync/sync-core |  |  |
+| `sync-core` | sync | 1 | 없음 | merged | sync/sync-core | d88489c4a |  |
 | `sync-read` | sync | 2 | sync-core | todo |  |  |  |
 | `sync-app-detail` | sync | 3 | sync-read | todo |  |  |  |
 | `sync-lists` | sync | 3 | sync-read | todo |  |  |  |

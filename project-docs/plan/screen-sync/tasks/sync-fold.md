@@ -38,3 +38,8 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴.
+
+## lead가 더함
+
+- 설정 store(`packages/core/config/store.ts`의 `publish`)가 route(`settings/update`), file watch, core 안 정리(`apps/delete`) 모두에서 바뀐 key를 안다. 그래서 store가 key마다 `{name: "settings", id: <key>}`로 낸다. `settings/update`의 `changes: ["settings"]`(id null)는 지운다(store와 겹쳐 두 번 난다). `sync-read`가 만든 check가 "route 밖에서 내는 이름"을 모르면 그 check에 `settings`를 route 밖 이름으로 더한다(추가 소유: 그 check file의 그 목록).
+- shell main의 `SettingsChanged` 넷이 key prefix로 거르던 것은 `StateChanged`의 `settings` id로 거른다. id가 null이면 모든 key로 본다.

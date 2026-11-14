@@ -1,4 +1,4 @@
-// History(영구 기록) 읽기. 정본은 core의 `notices.list`다. 탭을 열 때와 거르기가 바뀔 때 첫 page를 읽고, [Load more]가 cursor로 잇는다.
+// History(영구 기록) 읽기. 정본은 core의 `notices.list`다. 붙을 때(ready)와 거르기가 바뀔 때 첫 page를 읽고, [Load more]가 cursor로 잇는다.
 // 새 영구 줄(NoticePosted)과 (다시) 붙음(ready)은 첫 page를 다시 읽고, 읽음(NoticeRead)은 있는 줄만 고친다.
 import { type DateRange, parseDay, resolveRange } from "@lophn/ui/input";
 import { useCallback, useEffect, useState } from "react";
@@ -137,7 +137,9 @@ export function useHistory(filter: HistoryFilter): History {
   const [tick, setTick] = useState(0);
   const { app, project, type, query, range } = filter;
 
+  // 첫 읽기는 구독의 첫 ready(mount 때 온다)가 연다. 그 뒤로는 거르기가 바뀌거나 tick이 오를 때 읽는다.
   useEffect(() => {
+    if (tick === 0) return;
     let live = true;
     setState({ status: "loading" });
     void readPage(core, { app, project, type, query, range }, null).then(

@@ -20,10 +20,8 @@ import type {
   RequestContext,
   Tx,
 } from "../../protocol/server/mod.ts";
-import { afterCommit } from "../storage/ledger/after-commit.ts";
 import {
-  JOBS_CHANGED_TOPIC,
-  type JobsChangedData,
+  jobsChanged,
   jobEventPolicyPort,
   jobTargetsPort,
   jobZonePort,
@@ -43,11 +41,6 @@ function fail(
   message: string,
 ): Result<never> {
   return err({ code, message });
-}
-
-function changed(tx: Tx, job: string): void {
-  const data: JobsChangedData = { job: job as Id<"job">, job_run: null };
-  tx.port(afterCommit).push(JOBS_CHANGED_TOPIC, data);
 }
 
 // at은 d 단위 주기에만 둔다.
@@ -219,7 +212,7 @@ export function eraseJobsOfApp(tx: Tx, app: string): void {
     .map((row) => String(row["id"]));
   for (const id of ids) {
     deleteJob(tx.sql, id);
-    changed(tx, id);
+    jobsChanged(tx);
   }
 }
 
@@ -289,7 +282,7 @@ export function createJobCommands(): {
           enabled: input.enabled ?? true,
           created_at: tx.now(),
         });
-        changed(tx, id);
+        jobsChanged(tx);
         const job = loadJob(tx.sql, id);
         return job.ok ? ok({ job: job.value! }) : job;
       },
@@ -337,7 +330,7 @@ export function createJobCommands(): {
                 : job.next_due_at,
           updated_at: now,
         });
-        changed(tx, job.id);
+        jobsChanged(tx);
         const updated = loadJob(tx.sql, job.id);
         return updated.ok ? ok({ job: updated.value! }) : updated;
       },
@@ -352,7 +345,7 @@ export function createJobCommands(): {
         if (job.approved_at !== null) {
           return fail("conflict", "job is already approved");
         }
-        changed(tx, job.id);
+        jobsChanged(tx);
         if (input.choice === "reject") {
           deleteJob(tx.sql, job.id);
           return ok({ job: null });
@@ -384,7 +377,7 @@ export function createJobCommands(): {
         const owned = loadOwned(tx, ctx, input.job);
         if (!owned.ok) return owned;
         deleteJob(tx.sql, input.job);
-        changed(tx, input.job);
+        jobsChanged(tx);
         return ok({ job: input.job });
       },
     },

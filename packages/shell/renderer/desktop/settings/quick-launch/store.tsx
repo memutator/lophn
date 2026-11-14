@@ -1,11 +1,10 @@
 // 창마다 하나인 빠른 실행 전역 값. Settings 화면과 workspace 창이 같이 읽고 쓴다. 쓰기는 먼저 화면에 반영하고
-// core에 보낸 뒤 거절되면 다시 읽는다. 밖에서 바꾼 값(다른 창, `lophn settings set`, agent)은 설정이 바뀌었다는
-// event와 창에 focus가 돌아올 때 다시 읽는다.
+// core에 보낸 뒤 거절되면 다시 읽는다. 처음 값과 밖에서 바꾼 값(다른 창, `lophn settings set`, agent)은 연결 ready와
+// 설정이 바뀌었다는 event에 다시 읽는다.
 import {
   createContext,
   type ReactNode,
   useContext,
-  useEffect,
   useMemo,
   useSyncExternalStore,
 } from "react";
@@ -21,8 +20,6 @@ export interface QuickPrefsStore {
   snapshot(): QuickPrefs;
   subscribe(listener: () => void): () => void;
   set<K extends keyof QuickPrefs>(key: K, value: QuickPrefs[K]): void;
-  /** 처음 읽기와 다시 읽기를 건다. 해제는 반환 함수다. */
-  start(): () => void;
   /** core에서 다시 읽는다. */
   reload(): void;
 }
@@ -60,17 +57,6 @@ export function createQuickPrefsStore(
       });
     },
     reload,
-    start() {
-      const off = source.watch((state) => {
-        if (state.state === "ready") reload();
-      });
-      const onFocus = () => reload();
-      window.addEventListener("focus", onFocus);
-      return () => {
-        off();
-        window.removeEventListener("focus", onFocus);
-      };
-    },
   };
 }
 
@@ -87,7 +73,6 @@ export function QuickPrefsProvider({
     () => (source === undefined ? null : createQuickPrefsStore(source)),
     [source],
   );
-  useEffect(() => store?.start(), [store]);
   useStateChanged(["settings"], () => store?.reload());
   return (
     <QuickPrefsContext.Provider value={store}>

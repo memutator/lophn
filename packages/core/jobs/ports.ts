@@ -1,6 +1,7 @@
 import type { Clock, Logger, Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/mod.ts";
 import { definePort } from "../../protocol/base/mod.ts";
+import { afterCommit } from "../storage/ledger/after-commit.ts";
 import type {
   JobRecord,
   JobRunRecord,
@@ -10,6 +11,7 @@ import type {
   AgentAddress,
   AgentAtWorkspace,
 } from "../../protocol/lophn-agent/mod.ts";
+import type { Tx } from "../../protocol/server/mod.ts";
 
 // 시각은 Clock으로 읽고 timer는 이 port로 받는다. 테스트는 가짜를 꽂는다.
 export type JobTimers = {
@@ -49,12 +51,12 @@ export type JobEventPolicy = {
 };
 export const jobEventPolicyPort = definePort<JobEventPolicy>("jobs.events");
 
-// job command가 commit 뒤 할 일로 싣는다.
+// job이나 job run을 바꾼 command가 commit 뒤 할 일로 싣는다. wiring이 이 topic으로 scheduler를 깨운다.
+// 바뀐 것이 없으면 싣지 않는다(깨운 scheduler가 차례를 가져가고 다시 깨우는 고리를 끊는다).
 export const JOBS_CHANGED_TOPIC = "jobs.changed";
-export type JobsChangedData = {
-  job: Id<"job">;
-  job_run: Id<"jbr"> | null;
-};
+export function jobsChanged(tx: Tx): void {
+  tx.port(afterCommit).push(JOBS_CHANGED_TOPIC, null);
+}
 
 export type JobSchedulerStore = {
   claimDue(

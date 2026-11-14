@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import { type Id, parseActor } from "../../protocol/base/mod.ts";
+import { parseActor } from "../../protocol/base/mod.ts";
 import {
   jobClaimDue,
   jobDecideHold,
@@ -13,12 +13,7 @@ import type {
   RequestContext,
   Tx,
 } from "../../protocol/server/mod.ts";
-import { afterCommit } from "../storage/ledger/after-commit.ts";
-import {
-  JOBS_CHANGED_TOPIC,
-  type JobsChangedData,
-  jobZonePort,
-} from "./ports.ts";
+import { jobsChanged, jobZonePort } from "./ports.ts";
 import { jobRunFromRow } from "./rows.ts";
 import { dueTurns } from "./schedule.ts";
 import {
@@ -39,27 +34,10 @@ function fail(
 const notMachine = (ctx: RequestContext) =>
   parseActor(ctx.actor)?.kind !== "machine";
 
-// 바뀐 job마다 한 번 싣는다. wiring이 이 topic으로 scheduler를 깨우므로 바뀐 것이 없으면 싣지 않는다.
-function announce(tx: Tx, touched: Map<string, string | null>): void {
-  for (const [job, jobRun] of touched) {
-    const data: JobsChangedData = {
-      job: job as Id<"job">,
-      job_run: jobRun as Id<"jbr"> | null,
-    };
-    tx.port(afterCommit).push(JOBS_CHANGED_TOPIC, data);
-  }
-}
-
-type Touched = Map<string, string | null>;
-
 // 켤 때 남은 도는 줄을 interrupted로 닫는다. workflow_start의 running 줄은 instance가 lophn 없이도 돌므로 둔다.
 // queued인데 claimed_at이 있는 줄은 started를 적었는지 알 길이 없어 action과 상관없이 닫는다.
 // 닫은 job마다 닫은 줄의 due_at 가운데 가장 큰 것을 돌려준다.
-function closeLeftovers(
-  tx: Tx,
-  now: string,
-  touched: Touched,
-): Result<Map<string, string>> {
+function closeLeftovers(tx: Tx, now: string): Result<Map<string, string>> {
   const closed = new Map<string, string>();
   const rows = tx.sql.all(
     `SELECT * FROM job_runs
@@ -87,7 +65,7 @@ function closeLeftovers(
     if (before === undefined || before < run.value.due_at) {
       closed.set(run.value.job, run.value.due_at);
     }
-    touched.set(run.value.job, run.value.id);
+    jobsChanged(tx);
   }
   return ok(closed);
 }
@@ -98,7 +76,6 @@ function queuedRun(
   dueAt: string,
   missed: number,
   now: string,
-  touched: Touched,
 ): void {
   const id = tx.newId("jbr");
   insertJobRun(tx.sql, {
@@ -122,7 +99,7 @@ function queuedRun(
       ended_at: now,
     });
   }
-  touched.set(job, id);
+  jobsChanged(tx);
 }
 
 // 켜진 채 이만큼 넘게 늦게 처리한 차례는 켤 때와 같이 놓친 차례다(컴퓨터가 잠든 사이 timer가 늦은 경우).
@@ -136,7 +113,6 @@ function turnFor(
   closed: Map<string, string>,
   now: string,
   zone: string,
-  touched: Touched,
 ): Result<void> {
   const loaded = loadJob(tx.sql, id);
   if (!loaded.ok) return loaded;
@@ -174,7 +150,7 @@ function turnFor(
       created_at: now,
     });
     replaceJobRun(tx.sql, skipped, { ended_at: now });
-    touched.set(id, skipped);
+    jobsChanged(tx);
   } else if (missedNow && job.missed_policy === "hold") {
     const held = tx.sql.get(
       "SELECT id, missed_count FROM job_runs WHERE job = ? AND state = 'held'",
@@ -191,20 +167,20 @@ function turnFor(
         reason: null,
         created_at: now,
       });
-      touched.set(id, created);
+      jobsChanged(tx);
     } else {
       replaceJobRun(tx.sql, held.id as string, {
         due_at: dueAt,
         missed_count: Number(held.missed_count) + missed,
       });
-      touched.set(id, held.id as string);
+      jobsChanged(tx);
     }
   } else {
-    queuedRun(tx, id, dueAt, missed, now, touched);
+    queuedRun(tx, id, dueAt, missed, now);
   }
   if (turns !== null) {
     setNextDue(tx.sql, id, turns.next);
-    if (!touched.has(id)) touched.set(id, null);
+    jobsChanged(tx);
   }
   return ok(undefined);
 }
@@ -250,10 +226,9 @@ export function createDueCommands(): {
         }
         const now = tx.now();
         const zone = tx.port(jobZonePort).zone();
-        const touched: Touched = new Map();
         let closed = new Map<string, string>();
         if (input.startup) {
-          const result = closeLeftovers(tx, now, touched);
+          const result = closeLeftovers(tx, now);
           if (!result.ok) return result;
           closed = result.value;
         }
@@ -269,15 +244,7 @@ export function createDueCommands(): {
           ...closed.keys(),
         ]);
         for (const id of [...ids].sort()) {
-          const turn = turnFor(
-            tx,
-            id,
-            input.startup,
-            closed,
-            now,
-            zone,
-            touched,
-          );
+          const turn = turnFor(tx, id, input.startup, closed, now, zone);
           if (!turn.ok) return turn;
         }
         const start = handOut(tx, now);
@@ -286,7 +253,6 @@ export function createDueCommands(): {
           "SELECT min(next_due_at) AS next FROM jobs WHERE enabled = 1",
           [],
         );
-        announce(tx, touched);
         return ok({
           start: start.value,
           next_due_at: (next?.next as string | null | undefined) ?? null,
@@ -314,7 +280,7 @@ export function createDueCommands(): {
           session: input.session,
           started_at: tx.now(),
         });
-        announce(tx, new Map([[current.value.job, input.job_run]]));
+        jobsChanged(tx);
         return reload(tx, input.job_run);
       },
     },
@@ -340,7 +306,7 @@ export function createDueCommands(): {
           ended_at: tx.now(),
           reason: input.reason,
         });
-        announce(tx, new Map([[current.value.job, input.job_run]]));
+        jobsChanged(tx);
         return reload(tx, input.job_run);
       },
     },
@@ -377,7 +343,7 @@ export function createDueCommands(): {
           }
           replaceJobRun(tx.sql, hold.id, { state: "queued" });
         }
-        announce(tx, new Map([[hold.job, hold.id]]));
+        jobsChanged(tx);
         return reload(tx, hold.id);
       },
     },

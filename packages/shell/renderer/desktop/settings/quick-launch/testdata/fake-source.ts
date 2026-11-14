@@ -10,10 +10,6 @@ export function memoryQuickPrefsSource(
 ): QuickPrefsSource {
   let value = initial;
   return {
-    watch(listener) {
-      listener({ state: "ready" });
-      return () => {};
-    },
     read: () => Promise.resolve({ ok: true, value }),
     write(key, next) {
       value = { ...value, [key]: next };

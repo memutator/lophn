@@ -43,8 +43,6 @@ export interface SidebarPanelPick {
 }
 
 export interface QuickPrefsSource {
-  /** core 연결 상태를 듣는다. 준비되면 다시 읽는다. 해제는 반환 함수다. */
-  watch(listener: (state: { readonly state: string }) => void): () => void;
   read(): Promise<SourceResult<QuickPrefs>>;
   write<K extends keyof QuickPrefs>(
     key: K,

@@ -23,7 +23,6 @@ const KEYS = {
 
 export function coreQuickPrefsSource(core: CoreSource): QuickPrefsSource {
   return {
-    watch: (listener) => core.subscribe(listener),
     async read() {
       const read = await readEffective(core, Object.values(KEYS));
       if (!read.ok) return read;

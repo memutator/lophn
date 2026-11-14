@@ -12,12 +12,7 @@ import type {
   RequestContext,
   Tx,
 } from "../../protocol/server/mod.ts";
-import { afterCommit } from "../storage/ledger/after-commit.ts";
-import {
-  JOBS_CHANGED_TOPIC,
-  type JobsChangedData,
-  jobEventPolicyPort,
-} from "./ports.ts";
+import { jobsChanged, jobEventPolicyPort } from "./ports.ts";
 import { loadJob, insertJobRun, noteFired, noteSkipped } from "./store.ts";
 
 const UNIT_MS = { m: 60_000, h: 3_600_000, d: 86_400_000 } as const;
@@ -50,7 +45,6 @@ function consider(
     } | null;
   },
   now: string,
-  touched: Map<string, string | null>,
 ): "fired" | "skipped" | "ignored" {
   const trigger = job.trigger!;
   if (trigger.app === null) {
@@ -93,7 +87,6 @@ function consider(
   );
   if (open !== undefined) {
     noteSkipped(tx.sql, job.id, now, "busy");
-    touched.set(job.id, null);
     return "skipped";
   }
   if (
@@ -102,7 +95,6 @@ function consider(
       intervalMs(trigger.min_interval)
   ) {
     noteSkipped(tx.sql, job.id, now, "too_soon");
-    touched.set(job.id, null);
     return "skipped";
   }
   const id = tx.newId("jbr");
@@ -117,7 +109,6 @@ function consider(
     event,
   });
   noteFired(tx.sql, job.id, now);
-  touched.set(job.id, id);
   return "fired";
 }
 
@@ -150,7 +141,6 @@ export function createEventCommands(): {
         );
         let fired = 0;
         let skipped = 0;
-        const touched = new Map<string, string | null>();
         for (const row of rows) {
           const job = loadJob(tx.sql, String(row["id"]));
           if (!job.ok) return job;
@@ -167,18 +157,11 @@ export function createEventCommands(): {
             event,
             { chain: input.chain, session: input.session },
             now,
-            touched,
           );
           if (outcome === "fired") fired += 1;
           else if (outcome === "skipped") skipped += 1;
         }
-        for (const [job, jobRun] of touched) {
-          const data: JobsChangedData = {
-            job: job as Id<"job">,
-            job_run: jobRun as Id<"jbr"> | null,
-          };
-          tx.port(afterCommit).push(JOBS_CHANGED_TOPIC, data);
-        }
+        if (fired + skipped > 0) jobsChanged(tx);
         return ok({ fired, skipped });
       },
     },

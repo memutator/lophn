@@ -1,0 +1,41 @@
+id: phone-remote-web
+version: 0.23.57
+title: core가 폰에 remote 화면(session 목록, 대화, Inbox) web bundle을 내려주고 기기가 대화를 보내고 멈추고 답할 수 있다
+modules: [packages/protocol, packages/core/remote, packages/core/main, packages/core/server, packages/core/apps, packages/shell/renderer, packages/design, tools]
+checked: [boundary-catalog]
+change: |
+  - renderer build에 entry `remote`를 더했다(`dist/remote/`). 폰 폭의 화면 셋: workspace마다 묶은 session 목록(상태 점, 기다리는 것 수), Inbox(desktop `waiting/`의 page와 card), 대화(`AgentView`의 폰 host). 아래 탭 둘이고 화면 위에 연결 상태 한 줄이 있다. page는 `globalThis.lophnRemote`(`CoreSource`)만 쓰고, 없으면 "폰 앱에서 연다"는 글만 보인다.
+  - 개발 build에는 QR 내용을 붙여 넣어 pairing하고 `@lophn/protocol/remote/client`로 core에 직접 붙는 bridge가 든다(key는 `localStorage`). prod build에는 들지 않는다.
+  - 대화의 폰 host: 끌어 놓기와 OS path, 찾기 줄, thread index와 bookmark, 단축키 안내, mode(skip) 바꾸기, 설정·권한 화면으로 가는 길이 없고 [+]는 사진을 고른다. secret 입력 요청 card는 "Enter this on your computer."만 보인다. 머리는 대화 bar 한 줄이고 앞에 뒤로 단추가 있다. 가상 keyboard가 올라오면 입력칸이 따라 올라가게 했다(실제 폰에서는 아직 보지 않았다).
+  - 대화 화면이 desktop 전용 module을 import하지 않게 끊었다. mermaid, 앱 card, 링크 열기, provider key 입력은 host member `desktop`으로 넘기고, sign-in은 `coreAgentTabSourceFactory`의 의존으로 받는다. `ViewBar`와 card 머리, 줄 비교, path 끌기를 공통 자리로 옮겼다. 쓰이지 않던 host member `showUsage`·`closeTab`을 지웠다. desktop 대화 화면은 그대로다(gallery 101 page를 전후로 비교했다).
+  - 기기 route 목록을 넓혔다: session·agent·project·앱 목록과 상세, turn·메시지 본문·검색, call 읽기와 취소, rewind 미리보기, provider 읽기, 입력 요청 읽기와 취소, session 열기와 archive, 대화 조작(보내기, 멈추기, 대기열 넷, model 바꾸기, 이름, fork, compact, rewind), 대화 이미지 읽기와 올리기, `remote_ui/manifest|file`. `sessions/delete`, `sessions/change-skip`, secret, provider·설정 쓰기, `devices/*`, `pairing/*`, `host/*`는 여전히 `forbidden`이다.
+  - 기기 `call`이 file route의 답을 `{content_type, base64}`(한 file 8 MiB까지)로, upload route의 body를 `{input, base64}`로 싣는다. 기기가 부른 memory·upload route도 성공 뒤 `StateChanged`를 낸다(전에는 내지 않아 폰에서 한 일을 desktop 화면이 따라오지 못했다).
+  - route `remote_ui/manifest`(`{hash, files: [{path, hash, size}]}`, bundle이 없으면 `unavailable`)와 `remote_ui/file`(`{path}`)을 더했다. 설치 묶음은 `platform/remote-ui/`에 두고 core가 자기 source 기준으로 찾는다. manifest는 기동 때 한 번 계산한다. bundle 폴더 밖(`..`, 절대 path, 밖을 가리키는 symlink, 폴더)은 내주지 않고, 앱 화면 file과 같은 규칙(`serveFileUnder`)을 쓴다.
+  - `npm run dev:core`가 core 전에 renderer를 build한다(core가 기동 때 remote bundle을 읽는다).
+  - 폰이 import하는 좁은 입구 `@lophn/protocol/remote/client`(연결, frame type, key, `REMOTE_PATH`, QR 해석 schema)를 더했다. route 정의와 기기 route 목록은 끌고 오지 않는다.
+  - UI kit에 density `touch`를 더했다(control sm 44·md 48·lg 52px, menu·tree 행 44px, 본문 16px). remote 화면이 늘 이것으로 그린다. Settings의 밀도 고르기에는 없다.
+  - `tools/remote-client.ts`에 file route 하나를 받아 저장하는 `file` 명령을 더했고, `pair --qr`가 `pairing/start`의 답을 그대로 받는다.
+why: |
+  mobile roadmap 단계 2의 web 쪽이다. 폰에서 일을 이어 가려면 desktop과 같은 대화가 있어야 하고, 대화 해석을 두 벌로 만들지 않으려고 desktop renderer를 폰 host로 쓴다. 화면을 core가 내려주면 화면을 고칠 때 폰 앱을 다시 build하지 않는다. 폰 껍데기는 계획 `phone-shell`이다.
+decisions:
+  - text: >-
+      page는 `CoreSource` 모양 bridge(`globalThis.lophnRemote`)만 쓰고 연결, 다시 붙기, `watch` 다시 보내기는 껍데기가 한다. byte는 frame 종류를 늘리지 않고 `call` 안에 base64로 싣는다.
+    by: agent
+  - text: >-
+      폰은 일하는 창이라 대화를 이어 가는 쓰기(보내기, 멈추기, 대기열, model, 이름, fork, compact, rewind)를 기기 목록에 넣는다. `acp/send`는 안의 route를 기기 자격으로 부르므로 그 route들이 목록에 따로 있어야 한다. 되돌릴 수 없는 `sessions/delete`와 agent가 묻지 않고 돌게 하는 `sessions/change-skip`은 뺀다.
+    by: agent
+  - text: >-
+      desktop 전용 조각은 host member `desktop`(`DesktopParts`)으로 넘긴다. 동적 import로 미뤄도 bundler가 그 chunk를 폰 bundle에 싣기 때문이다. 폰 bundle에서 mermaid, editor, xterm, workspace visual이 빠져 약 20 MB에서 8.9 MB(최소화 전)가 됐다.
+    by: agent
+  - text: >-
+      remote 화면 bundle의 manifest는 core 기동 때 한 번 계산한다. 설치본의 bundle은 판이 바뀔 때만 바뀐다.
+    by: agent
+follow_up: |
+  - `@lophn/protocol/remote/client`는 route 정의를 끌지 않지만 frame이 Gateway frame을 통해 bus event schema 전체를 끈다. 폰 껍데기 bundle이 이것을 import하면 그만큼 커진다. 좁히려면 frame과 event schema를 나눠야 한다(계획 `phone-shell`에서 본다). 이 입구의 import graph를 지키는 check는 없다.
+  - 폰의 뒤로 가기·history와 화면 안 길(메모리 상태)을 아직 잇지 않았다. 폰 Inbox의 "앱 열기" notice는 아무것도 하지 않는다(폰에 앱 공간이 없다).
+  - 390px에서 대화 bar의 session 제목이 compact·⋯ 단추와 줄을 나눠 짧게 잘린다.
+  - `npm run dev`와 `npm run package`는 이 계획과 상관없이 이슈 `bundled-extension-version-drift`(본체 안 extension manifest 판 0.23.54)로 shell main build에서 멈춘다.
+checklist:
+  - "desktop browser에서 개발용 remote 화면을 열어(`npm run dev:core` 뒤 renderer `dist/remote`를 띄우고) Settings › Remote의 QR 내용으로 pairing하고, session 목록과 Inbox가 보이는지, 대화를 열어 보내고 멈추고 승인과 질문에 답하는지 본다"
+  - "desktop 대화 화면(agent 탭과 terminal GUI)이 전과 같은지, mermaid diagram과 앱 card, 링크 열기, provider key 넣기가 그대로 되는지 본다"
+  - "설치본을 만들 수 있게 된 뒤 `platform/remote-ui/`에 remote 화면이 들어 있고 `remote_ui/manifest`가 답하는지 본다"

@@ -8,4 +8,4 @@ lead만 고친다. `tools/status.py phone-remote-web build`가 `tasks/*.md`에�
 | `remote-bytes` | remote | 1 | 없음 | merged | remote/remote-bytes | f67046281 |  |
 | `remote-web-base` | web | 2 | remote-bytes, touch-density | merged | web/remote-web-base | f42e446bb |  |
 | `remote-ui-bundle` | remote | 3 | remote-web-base | merged | remote/remote-ui-bundle | 9b342147e |  |
-| `remote-web-chat` | web | 3 | remote-web-base | running | web/remote-web-chat |  |  |
+| `remote-web-chat` | web | 3 | remote-web-base | merged | web/remote-web-chat | f0e113c0a |  |

@@ -294,7 +294,7 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 
 0. 화면 갱신(`roadmap/screen-sync.md`). 단계 1과 나란히 간다.
 1. core: 기기 등록, pairing, 폰 연결(암호화, route 목록), Settings의 기기 화면. 폰 없이 Node client로 확인한다. **끝남**(계획 `remote-core`, 2026-11-14, change-log `remote-core`). 기기가 바뀔 때 event는 화면 갱신(단계 0)의 `changes`가 맡는다.
-2. 폰 껍데기(iOS, Android)와 remote 화면: lophn agent의 session 목록, 대화, 승인과 질문 답하기.
+2. 폰 껍데기(iOS, Android)와 remote 화면: lophn agent의 session 목록, 대화, 승인과 질문 답하기. remote 화면(web bundle, core가 내려주기, 개발용 bridge)은 **끝남**(계획 `phone-remote-web`, 2026-11-15, change-log `phone-remote-web`, `architecture/remote.md`). 폰 껍데기는 계획 `phone-shell`이다.
 3. push와 알림 정하기(host의 보고, `unseen`).
 4. coding agent: desktop의 harness GUI 대화를 폰에서 다룬다.
 5. remote 앱: 컴퓨터에서 도는 앱의 화면을 폰에 띄운다(`phone` 자리, view binding, 기기 지침, touch token).

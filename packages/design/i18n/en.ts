@@ -9,6 +9,7 @@ import { conversation } from "./catalog/conversation.ts";
 import { data } from "./catalog/data.ts";
 import { leftSidebar } from "./catalog/left-sidebar.ts";
 import { project } from "./catalog/project.ts";
+import { remote } from "./catalog/remote.ts";
 import { shell } from "./catalog/shell.ts";
 import { workflow } from "./catalog/workflow.ts";
 import { workspace } from "./catalog/workspace.ts";
@@ -24,6 +25,7 @@ export const en = {
   ...data,
   ...leftSidebar,
   ...project,
+  ...remote,
   ...shell,
   ...workflow,
   ...workspace,

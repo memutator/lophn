@@ -18,6 +18,21 @@ const helloFrameSchema = z.strictObject({
 
 const frameIdSchema = z.string().min(1).max(64);
 
+// 폰은 `ws://<address>:<port>/remote`로 붙는다.
+export const REMOTE_PATH = "/remote";
+
+// 공개 key의 글자 꼴(base64url, 32 bytes). `remoteKeyText`가 만든다.
+export const keyTextSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
+
+// QR에 싣는 것. 폰은 addresses를 차례로 `ws://<address>:<port>/remote`로 붙어 보고, key로 core를 확인하고, code로 pairing한다.
+export const remotePairingSchema = z.strictObject({
+  addresses: z.array(z.string().min(1)).max(16),
+  port: z.number().int().min(1).max(65535),
+  key: keyTextSchema,
+  code: z.string().min(1).max(128),
+});
+export type RemotePairing = z.infer<typeof remotePairingSchema>;
+
 // 화면 칸은 설정 `shell.devices` 항목과 같은 범위다. 등록한 기기가 그 자리에 들어간다(기기 id `device`는 core가 단다. 폰은 보내지 못한다).
 export const remoteDeviceSchema = z.strictObject({
   name: z.string().min(1).max(40),

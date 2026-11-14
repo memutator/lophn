@@ -13,11 +13,14 @@ export {
   REMOTE_PROLOGUE,
   REMOTE_PROTOCOL_MIN_VERSION,
   REMOTE_PROTOCOL_VERSION,
+  REMOTE_PATH,
   type RemoteClientFrame,
   type RemoteHello,
+  type RemotePairing,
   type RemoteServerFrame,
   remoteClientFrameSchema,
   remoteDeviceSchema,
+  remotePairingSchema,
   remoteServerFrameSchema,
 } from "./frames.ts";
 export {
@@ -35,9 +38,6 @@ export {
   devicesRevoke,
   devicesSetPrimary,
   pairingStart,
-  REMOTE_PATH,
   type RemoteDevice,
-  type RemotePairing,
   remotePairedSchema,
-  remotePairingSchema,
 } from "./routes.ts";

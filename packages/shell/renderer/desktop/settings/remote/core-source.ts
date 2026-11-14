@@ -4,8 +4,8 @@ import {
   devicesRevoke,
   devicesSetPrimary,
   type RemoteDevice as ListedDevice,
-  type RemotePairing,
 } from "../../../../../protocol/remote/routes.ts";
+import type { RemotePairing } from "../../../../../protocol/remote/frames.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { call, command } from "../core-call.ts";
 import { chooseSetting, readEffective } from "../declared.ts";

@@ -3,22 +3,13 @@ import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
 import { atSchema } from "../base/values.ts";
-import { remoteDeviceSchema } from "./frames.ts";
+import {
+  keyTextSchema,
+  remoteDeviceSchema,
+  remotePairingSchema,
+} from "./frames.ts";
 
-// 폰은 `ws://<address>:<port>/remote`로 붙는다.
-export const REMOTE_PATH = "/remote";
-
-const keyTextSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 const deviceIdSchema = idSchema("dev");
-
-// QR에 싣는 것. 폰은 addresses를 차례로 `ws://<address>:<port>/remote`로 붙어 보고, key로 core를 확인하고, code로 pairing한다.
-export const remotePairingSchema = z.strictObject({
-  addresses: z.array(z.string().min(1)).max(16),
-  port: z.number().int().min(1).max(65535),
-  key: keyTextSchema,
-  code: z.string().min(1).max(128),
-});
-export type RemotePairing = z.infer<typeof remotePairingSchema>;
 
 // 새 code를 만들고 앞 code를 무효로 한다. remote listener가 꺼져 있으면 unavailable이다.
 export const pairingStart = defineMemory({

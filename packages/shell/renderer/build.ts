@@ -7,7 +7,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const screens = ["desktop", "overlay", "secret-input"];
+// remote는 phone 화면 bundle이다(phone 껍데기가 내려받아 연다).
+const screens = ["desktop", "overlay", "secret-input", "remote"];
 
 // CSS Modules는 local-css, 나머지 CSS는 css, woff2는 file로 읽고 svg는 currentColor가 둘레 글자 색을
 // 따르게 inline으로 그린다. artifact kit은 봉한 scheme이 kit.js·kit.css 둘만 주므로 글꼴도 CSS 안에 싣는다.
@@ -76,10 +77,9 @@ async function build(outdir = join(here, "dist")): Promise<void> {
     force: true,
   });
   // 화면 chunk도 hash 이름이라 다시 묶으면 옛 chunk가 쌓인다.
-  await rm(join(outdir, "desktop", "chunks"), {
-    recursive: true,
-    force: true,
-  });
+  for (const name of screens) {
+    await rm(join(outdir, name, "chunks"), { recursive: true, force: true });
+  }
   for (const entry of entries) {
     await esbuild.build({
       absWorkingDir: here,

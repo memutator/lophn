@@ -197,6 +197,7 @@ export const remoteWiring: WiringFactory = () => {
           memory: ctx.runtime.memory.handlers,
           fileStreams: ctx.fileStreams,
           uploads: ctx.uploads,
+          bus: ctx.bus,
           admission,
           onThrown: (thrown) => logError(ctx, "handler_threw", thrown),
         }),

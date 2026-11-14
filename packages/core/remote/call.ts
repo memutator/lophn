@@ -87,6 +87,7 @@ type RemoteCallDeps = Pick<
   | "fileStreams"
   | "uploads"
   | "onThrown"
+  | "bus"
 > & {
   registry: CredentialRegistry;
   routes: RouteRegistry;
@@ -124,6 +125,8 @@ export function createRemoteCall(deps: RemoteCallDeps): RemoteCall {
           };
     },
     onThrown: deps.onThrown,
+    // 폰에서 한 일(memory·upload route)도 desktop 화면이 StateChanged로 다시 읽게 한다. HTTP API와 같다.
+    bus: deps.bus,
   };
   return async (credential, call) => {
     const path = `/${call.resource}/${call.method}`;

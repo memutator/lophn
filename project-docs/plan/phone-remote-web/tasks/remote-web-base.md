@@ -39,3 +39,7 @@ remote 화면의 entry와 bridge, 화면 틀, session 목록, Inbox를 만든다
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 부르려는데 기기 목록에 없던 route를 "계약 바꾸기 요청"에 적는다.
+
+## 추가 소유 (lead가 더함)
+
+- `packages/protocol/remote/{client,routes,mod}.ts`: `REMOTE_PATH`와 `remotePairingSchema`(QR 해석)를 `client.ts`가 내놓도록 옮기는 것만. `client.ts`의 import graph에 `routes.ts`와 `allowlist.ts`가 들지 않게 둔다(옮긴 것은 `noise.ts`나 `frames.ts` 같은 곳으로).

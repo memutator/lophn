@@ -20,6 +20,7 @@
     "./problems/sdk-problem": "./problems/sdk-problem.ts",
     "./projects": "./projects/mod.ts",
     "./registry": "./registry.ts",
+    "./remote": "./remote/mod.ts",
     "./secrets": "./secrets/mod.ts",
     "./server": "./server/mod.ts",
     "./shell": "./shell/mod.ts",
@@ -29,6 +30,9 @@
   },
   "dependencies": {
     "@lophn/base": "0.0.0",
+    "@noble/ciphers": "2.4.0",
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
     "zod": "4.6.5"
   }
 }

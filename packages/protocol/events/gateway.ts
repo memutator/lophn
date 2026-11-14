@@ -17,7 +17,7 @@ const gatewayWatchFrameSchema = z.strictObject({
   conditions: z.array(eventConditionSchema),
 });
 
-const gatewayClientFrameSchema = gatewayWatchFrameSchema;
+export const gatewayClientFrameSchema = gatewayWatchFrameSchema;
 type GatewayClientFrame = z.infer<typeof gatewayClientFrameSchema>;
 
 // 조건이 적용됐고 이제부터 맞는 event가 온다. renderer는 이 frame을 받은 뒤 snapshot을 읽는다.

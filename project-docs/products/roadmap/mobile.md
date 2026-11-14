@@ -256,6 +256,30 @@ client가 둘일 때 부딪치는 곳:
 - **컴퓨터가 있어야 되는 것은 그대로다.** agent, 다른 앱의 command, job, secret을 쓰는 요청은 컴퓨터에 닿을 때만 된다. 앱은 닿지 않을 때 그 기능이 `unavailable`임을 다룬다.
 - lophn의 remote 화면(session, 대화, 승인)은 컴퓨터의 것을 보는 화면이라 컴퓨터가 있어야 한다.
 
+spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-spike.md`). 폰 도구 없이 문서 조사와 Node에서 돌려 본 것이다.
+
+| 질문 | 판정 | 근거 |
+|---|---|---|
+| SDK만 쓰는 backend를 한 file로 bundle해 폰 JavaScript engine에서 돌리기 | 조건부 | 본보기 앱이 esbuild로 20 KB 한 file이 된다. Node 내장 module 다섯(`async_hooks`, `sqlite`, `path`, `process`, `fs`)을 끌어온다. 이를 host가 주는 것으로 바꾸면 Node API 없는 `vm` context에서 handler 등록, migration, 읽기·쓰기, changeset까지 돈다. `async_hooks` 없이 호출 context를 지키려면 폰 host가 호출을 하나씩 돌린다. Hermes 자체에서는 아직 안 돌렸다 |
+| iOS·Android SQLite에서 session extension | 된다 | expo-sqlite(SDK 58)가 `SQLITE_ENABLE_SESSION`으로 SQLite를 빌드하고 `SQLiteSession`(changeset 만들기·적용·뒤집기)을 낸다. 다만 적용이 늘 REPLACE이고 conflict handler를 받지 않는다 |
+| 폰용 Node(nodejs-mobile) | 안 된다(지금) | 최신이 v18.20.4(2024-10)라 `node:sqlite`가 없다. Node 22·24 PR은 열린 채다. iOS는 JIT 없는 V8이다 |
+| changeset 충돌을 "나중에 고친 것이 이긴다"로, 정수 id | 조건부 | conflict handler는 충돌 종류만 받아 어느 쪽이 나중인지 모른다. 적용 전에 changeset을 읽어 지는 변경을 걸러 내고 REPLACE로 적용하면 두 사본이 같아진다(expo-sqlite의 고정 REPLACE에서도). 정수 primary key는 두 사본이 같은 id를 만들어 어떤 규칙으로도 row 하나를 잃는다. text id만 된다 |
+
+판정에서 나온 방향(단계 6을 열 때 정한다):
+- 폰용 앱의 backend는 폰 껍데기 안에서 앱마다 따로 띄운 Hermes runtime에서 돈다. 껍데기의 주 runtime에서 돌리지 않는다(AI가 쓴 코드가 기기 key와 껍데기의 native module에 닿는다). host가 그 runtime에 handler port(호출을 하나씩), SQLite driver(session 켬), `crypto.subtle.digest`를 준다. bundle은 SDK의 `lophn-phone` export 조건으로 짓는다.
+- 맞추기는 changeset을 주고받고 "나중이 이긴다"를 적용 전 거르기로 푼다. "나중"은 runtime이 write마다 changeset에서 채우는 숨은 row-clock 표(hybrid logical clock)로 알아 앱이 `updated_at` 칸을 두지 않아도 된다.
+- 폰용 앱의 table은 text id만 쓴다. release 검사가 `INTEGER PRIMARY KEY`와 `AUTOINCREMENT`를 거절한다(`packages/protocol/apps/activation/migration-sql.ts`의 primary key 검사 옆).
+- SDK: cap-tool과 cap-problem의 Node 전용 부분을 조건부 export 뒤로 옮긴다. cap-store의 `Store.db`를 SDK가 정한 interface로 좁히고 DB와 session을 host가 주는 driver로 연다. migration SQL을 text로 bundle에 넣는다(앱 template과 SDK guide, `sdk-note`).
+- release 검사: 폰 bundle에 `node:` import가 남으면 실패한다. bundle을 빈 `vm` context에서 불러 선언한 handler가 다 등록되는지 본다.
+- 버린 길: nodejs-mobile. 숨은 WebView(SQLite가 비동기라 SDK의 동기 DB API와 맞지 않는다). 호출 context를 handler 인자로 넘기기, AsyncContext polyfill. expo-sqlite의 고정 REPLACE를 그대로 쓰기. 기기마다 정수 id 범위를 나누기.
+
+남은 확인(폰 도구나 사람의 허락이 든다):
+1. bundle을 Hermes로 compile해 돌리기. Linux에서 폰 없이 되지만 npm의 `hermesc`를 받아 돌려야 한다.
+2. expo-sqlite의 JSI module이 두 번째 Hermes runtime(react-native-runtimes, react-native-sandbox)에서 도는지. 안 되면 작은 JSI SQLite binding을 짓는다.
+3. 실제 기기에서 expo-sqlite session으로 `node:sqlite`와 changeset을 양방향으로 적용하기.
+4. App Store 위험: 지침 2.5.2(내려받은 코드로 앱 기능을 바꾸기)와 4.7.2(내려받은 코드에 native API를 내주기는 Apple의 사전 허락). 사람과 정한다.
+5. Android dev build에서 껍데기, 두 번째 runtime, SQLite를 더한 앱 크기와 시작 시간.
+
 
 ### 알림과 push
 
@@ -279,7 +303,7 @@ client가 둘일 때 부딪치는 곳:
 8. raw 터미널 보기와 간단한 입력.
 9. 실제 폰의 browser-use.
 
-단계 6은 폰에서 backend를 실제로 돌릴 수 있는지에 달려 있다. 그 확인(spike)은 단계 1~2와 나란히 먼저 한다. 안 되면 단계 6의 방향을 다시 잡는다.
+단계 6은 폰에서 backend를 실제로 돌릴 수 있는지에 달려 있다. spike(계획 `remote-core`)가 Node 위에서는 길을 찾았고 판정은 위 "폰에서 혼자 도는 앱"에 있다. 그 절의 남은 확인, 특히 Hermes와 두 번째 runtime의 SQLite, App Store 위험은 단계 6을 열기 전에 한다.
 
 ## 사람이 정할 것
 

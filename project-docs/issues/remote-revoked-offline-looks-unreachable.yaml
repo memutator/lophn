@@ -1,0 +1,13 @@
+id: remote-revoked-offline-looks-unreachable
+title: 꺼져 있는 동안 끊긴 폰은 "다시 pairing"이 아니라 "닿지 않음"을 끝없이 보인다
+kind: bug
+status: open
+topic: platform
+modules: [packages/core/remote]
+now: |
+  core는 등록되지 않은 key로 붙은 연결을 `createRemoteHost`(`packages/core/remote/host.ts`)의 `unpaired()`로 받는다. 첫 frame이 `pair`가 아니면 `closed` frame 없이 `channel.close()`만 한다. 폰이 연결된 동안 끊으면 `revoked`가 `closed(credential_revoked)`를 보내 폰이 "끊김, 다시 pairing"을 보인다. 하지만 폰이 꺼져 있거나 닿지 않을 때 컴퓨터에서 기기를 끊으면, 다음에 붙을 때 폰은 이유 없이 닫힌 연결만 본다. 폰(`mobile/src/connection/connection.ts`)은 이것을 끊긴 연결로 보고 backoff로 다시 붙기를 되풀이한다.
+impact: |
+  컴퓨터에서 끊은 폰의 사람은 "닿지 않음, 다시 시도"만 보고 왜 안 붙는지 모른다. 다시 pairing해야 한다는 것을 알 길이 없고, 폰은 30초마다 헛되이 붙는다.
+fix: |
+  - 작음(추천): `unpaired()`에서 첫 frame이 `pair`가 아니면 닫기 전에 `closed(credential_revoked)`를 보낸다. 폰은 이미 그 이유를 "다시 pairing"으로 보인다. 등록 안 된 key에게 "등록 안 됨"을 알리는 것이라 새로 드러나는 것은 없다.
+  - 작음: 폰이 `ready` 전에 닫힌 연결을 끊김으로 본다. core가 꺼지는 중이거나 handshake 뒤 다른 이유로 닫혀도 "다시 pairing"으로 보여 틀린다.

@@ -5,6 +5,6 @@ lead만 고친다. `tools/status.py phone-shell build`가 `tasks/*.md`에서 id,
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `mobile-spike` | mobile | 1 | 없음 | merged | mobile/mobile-spike | f7434718d |  |
-| `mobile-pairing` | mobile | 2 | mobile-spike | running | mobile/mobile-pairing |  |  |
-| `mobile-webview` | mobile | 2 | mobile-spike | running | mobile/mobile-webview |  |  |
+| `mobile-pairing` | mobile | 2 | mobile-spike | merged | mobile/mobile-pairing | ffcf8ecc0 |  |
+| `mobile-webview` | mobile | 2 | mobile-spike | merged | mobile/mobile-webview | 1f9f53493 |  |
 | `mobile-remote` | mobile | 3 | mobile-pairing, mobile-webview | todo |  |  |  |

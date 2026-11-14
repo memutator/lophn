@@ -1,13 +1,8 @@
 // Agents 탭의 본문 전체. 목록(AgentsTab)과 같은 탭 안에서 여는 editor(AgentEditor)를 source에 잇고, 위쪽 ← →로 목록과
 // 이 탭에서 연 agent들 사이를 오간다(브라우저처럼). ← →는 card 머리 줄에 올리고, card 밖에서만 스스로 그린다. 읽기와 설정 바꾸기는 여기서 쥐고, 바꾸지 못했다는 알림은 탭 위쪽 toast다.
 // 이동 기록과 저장하지 않은 편집은 창이 쥔 탭 상태(`AgentsTabs`)에 있어서 다른 탭에 다녀와도 남는다.
-import {
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+// 목록과 workspace 층은 core의 변경 알림으로 다시 읽는다: 이 탭의 쓰기도, 다른 창이나 CLI의 쓰기도 같은 길로 온다.
+import { type ReactElement, useEffect, useRef, useState } from "react";
 import { ErrorState, Skeleton } from "@lophn/ui/feedback";
 import { Toast } from "@lophn/ui/overlay";
 import { IconButton } from "@lophn/ui/primitives";
@@ -16,13 +11,15 @@ import { t } from "@lophn/i18n";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import { useCommands } from "../../commands/react.tsx";
 import { useCardHead } from "../../shell/card-head.tsx";
+import { useFollowedRead } from "../../shell/use-left-sidebar.ts";
 import { commonIcons } from "../../icons/mod.ts";
 import { codingFaceOf } from "./coding-face.ts";
 import { AgentsTab } from "./agents-tab.tsx";
 import { AgentEditor } from "./editor/agent-editor.tsx";
 import type { Ready } from "./editor/editor-model.ts";
 import styles from "./agents-tab.module.css";
-import type { AgentsOverview, AgentsSource, ModelsView } from "./source.ts";
+import type { AgentsSource } from "./source.ts";
+import { useAgentModels } from "./use-agent-models.ts";
 import {
   agentOfPlace,
   AgentsTabs,
@@ -58,14 +55,7 @@ interface AgentsPageProps {
   askLeave: (name: string) => Promise<boolean>;
   /** Skills·MCP servers의 [Add …]. 등록 form은 Settings가 갖고 있다. */
   onAddExtension: () => void;
-  /** 목록이나 정의가 바뀌었다. sidebar의 Agents 묶음이 다시 읽는다. */
-  onChanged: () => void;
 }
-
-type Loaded =
-  | { readonly kind: "loading" }
-  | { readonly kind: "failed" }
-  | { readonly kind: "ready"; readonly value: AgentsOverview };
 
 const placeKey = (place: Place): string =>
   place.kind === "list"
@@ -83,36 +73,24 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
   latest.current = history;
   const place = here(history);
   const agent = agentOfPlace(place);
-  const [overview, setOverview] = useState<Loaded>({ kind: "loading" });
-  const [models, setModels] = useState<ModelsView | null>(null);
-  const [reloads, setReloads] = useState(0);
+  // agent 목록, 지침·memory 파일, model, skill, MCP와 그 로그인을 엮는 source 읽기라 route 하나로 끝나지 않는다.
+  // 이름은 그 읽기가 닿는 것 모두다(Home 목록의 workspace 이름과 앱 source 연결은 projects·apps).
+  const { loaded: overview, reload } = useFollowedRead(
+    () => source.overview(workspace),
+    [
+      "agents",
+      "models",
+      "settings",
+      "extension_settings",
+      "secrets",
+      "projects",
+      "apps",
+    ],
+    workspace,
+  );
+  const models = useAgentModels(source);
   const [failed, setFailed] = useState(false);
   const root = useRef<HTMLDivElement>(null);
-
-  const reload = useCallback(() => setReloads((count) => count + 1), []);
-
-  useEffect(() => {
-    let live = true;
-    void source.overview(workspace).then((result) => {
-      if (!live) return;
-      setOverview(
-        result.ok ? { kind: "ready", value: result.value } : { kind: "failed" },
-      );
-    });
-    return () => {
-      live = false;
-    };
-  }, [source, workspace, reloads]);
-
-  useEffect(() => {
-    let live = true;
-    void source.models().then((result) => {
-      if (live) setModels(result.ok ? result.value : null);
-    });
-    return () => {
-      live = false;
-    };
-  }, [source]);
 
   // 열린 agent나 목록으로 가면 키(Ctrl+S, Alt+←)가 이 탭에서 닿도록 focus를 이 탭에 둔다. 다른 곳에 있던 focus는 뺏지 않는다.
   useEffect(() => {
@@ -163,7 +141,7 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
 
   const openAgent = (assignment: string) => {
     const row =
-      overview.kind === "ready"
+      overview.state === "ready"
         ? overview.value.agents.find((one) => one.assignment === assignment)
         : undefined;
     go(
@@ -199,7 +177,6 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
   const gone = () => {
     const current = here(latest.current);
     go(open(forget(latest.current, current), LIST));
-    reload();
   };
   const saved = (assignment: string) =>
     go(replace(latest.current, { kind: "agent", agent: assignment }));
@@ -207,7 +184,7 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
   const body = (): ReactElement => {
     // Home 목록에서 연 범위 agent는 그 agent의 workspace로 연다(탭에는 agent id만 남아 목록에서 찾는다).
     const home = workspace === "home";
-    if (home && agent !== null && overview.kind === "loading") {
+    if (home && agent !== null && overview.state === "loading") {
       return (
         <div className={styles.fill} data-agents-page="loading">
           <Skeleton shape="line" lines={6} />
@@ -216,7 +193,7 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
     }
     if (place.kind !== "list") {
       const own =
-        home && agent !== null && overview.kind === "ready"
+        home && agent !== null && overview.state === "ready"
           ? overview.value.agents.find((row) => row.assignment === agent)
           : undefined;
       const draft = tabs.get(tabKey)?.draft;
@@ -242,41 +219,31 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
           onDone={toList}
           onGone={gone}
           onSaved={saved}
-          onChanged={() => {
-            props.onChanged();
-            reload();
-          }}
         />
       );
     }
 
-    if (overview.kind === "loading") {
+    if (overview.state === "loading") {
       return (
         <div className={styles.fill} data-agents-page="loading">
           <Skeleton shape="line" lines={6} />
         </div>
       );
     }
-    if (overview.kind === "failed") {
+    if (overview.state === "failed") {
       return (
         <div className={styles.fill} data-agents-page="failed">
           <ErrorState
             target={t("project-workspace.label.agents-target")}
-            onRetry={() => {
-              setOverview({ kind: "loading" });
-              reload();
-            }}
+            onRetry={reload}
           />
         </div>
       );
     }
 
-    // 설정을 바꾸는 명령 하나. 성공하면 다시 읽고 실패하면 바뀌지 않았다고 알린다.
+    // 설정을 바꾸는 명령 하나. 실패하면 바뀌지 않았다고 알린다. 바뀐 값은 변경 알림으로 다시 읽는다.
     const change = (run: () => Promise<{ ok: boolean }>) => {
-      void run().then((result) => {
-        setFailed(!result.ok);
-        reload();
-      });
+      void run().then((result) => setFailed(!result.ok));
     };
 
     return (

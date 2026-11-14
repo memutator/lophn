@@ -1,12 +1,15 @@
 // project settings 탭 본문. General(이름·목적·폴더, Workspaces panel 상세 dialog와 같은 form), Quick launch(왼쪽 sidebar 아래 단추의 순서),
 // App panels(단추로 고정할 앱 panel) 세 구역이다. 빠른 실행은 전역 값(Settings › Quick launch)을 따르거나 이 project만의 값을 둔다.
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { t } from "@lophn/i18n";
 import { ErrorState, Skeleton } from "@lophn/ui/feedback";
 import { Switch } from "@lophn/ui/input";
 
+import { projectApi } from "../../../../protocol/projects/project-api.ts";
+import { useCoreRead } from "../../desktop/connection/core-read.ts";
 import { useQuickPrefs } from "../../desktop/settings/quick-launch/store.tsx";
 import type { QuickCommand, WorkspaceQuick } from "../../shell/desk-model.ts";
+import { projectItemOf } from "../../shell/use-left-sidebar.ts";
 import {
   AppPanelList,
   QuickCommandList,
@@ -15,10 +18,7 @@ import {
 } from "./quick-launch-editor.tsx";
 
 import { ProjectForm } from "../../desktop/workspaces/projects/project-form.tsx";
-import type {
-  ProjectItem,
-  ProjectsSource,
-} from "../../desktop/workspaces/projects/source.ts";
+import type { ProjectsSource } from "../../desktop/workspaces/projects/source.ts";
 import styles from "./project-settings-page.module.css";
 
 export interface ProjectSettingsPageProps {
@@ -38,11 +38,6 @@ export interface ProjectSettingsPageProps {
   readonly iconField?: ReactNode;
 }
 
-type Loaded =
-  | { readonly kind: "loading" }
-  | { readonly kind: "failed" }
-  | { readonly kind: "ready"; readonly project: ProjectItem };
-
 function GeneralSection({
   projectId,
   projects,
@@ -54,66 +49,40 @@ function GeneralSection({
   onProjectChanged: () => void;
   iconField?: ReactNode;
 }) {
-  const [loaded, setLoaded] = useState<Loaded>({ kind: "loading" });
+  // 저장한 값은 core의 변경 알림으로 다시 읽는다. 다른 창이나 CLI가 고친 것도 같은 길로 온다.
+  const { loaded, reload } = useCoreRead(projectApi.get, {
+    project: projectId,
+  });
   const [saved, setSaved] = useState(false);
 
-  const load = useCallback(async () => {
-    const read = await projects.list();
-    const found = read.ok
-      ? read.value.find((item) => item.id === projectId)
-      : undefined;
-    setLoaded(
-      found === undefined
-        ? { kind: "failed" }
-        : { kind: "ready", project: found },
-    );
-  }, [projects, projectId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const replace = (project: ProjectItem) => {
-    setLoaded({ kind: "ready", project });
-    onProjectChanged();
-  };
-
-  let body: ReactNode;
-  if (loaded.kind === "loading") body = <Skeleton lines={4} />;
-  else if (loaded.kind === "failed") {
-    body = (
+  if (loaded.state === "loading") return <Skeleton lines={4} />;
+  if (loaded.state === "failed") {
+    return (
       <ErrorState
         target={t("project-settings.label.project-target")}
-        onRetry={() => {
-          setLoaded({ kind: "loading" });
-          void load();
-        }}
-      />
-    );
-  } else {
-    body = (
-      <ProjectForm
-        // 저장하거나 다른 창이 고치면 revision이 바뀌어 초안이 새 값에서 다시 시작한다.
-        key={`${loaded.project.id}:${loaded.project.revision}`}
-        source={projects}
-        project={loaded.project}
-        saved={saved}
-        iconField={iconField}
-        onChanged={(next) => {
-          setSaved(true);
-          replace(next);
-        }}
-        onLatest={() => void load()}
-        onRelocate={async (project, folder) => {
-          const result = await projects.relocate(project, folder);
-          if (!result.ok) return false;
-          if (result.value !== null) replace(result.value);
-          return true;
-        }}
+        onRetry={reload}
       />
     );
   }
-  return body;
+  const project = projectItemOf(loaded.value.project);
+  return (
+    <ProjectForm
+      // 저장하거나 다른 창이 고치면 revision이 바뀌어 초안이 새 값에서 다시 시작한다.
+      key={`${project.id}:${project.revision}`}
+      source={projects}
+      project={project}
+      saved={saved}
+      iconField={iconField}
+      onChanged={() => {
+        setSaved(true);
+        onProjectChanged();
+      }}
+      onLatest={reload}
+      onRelocate={async (target, folder) =>
+        (await projects.relocate(target, folder)).ok
+      }
+    />
+  );
 }
 
 export function ProjectSettingsPage(props: ProjectSettingsPageProps) {

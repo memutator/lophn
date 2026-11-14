@@ -1,17 +1,17 @@
 // Home의 오른쪽 sidebar Workspaces panel. 옛 launcher가 하던 일을 맡는다: project와 앱 목록, 보관한 것 되살리기, project 등록, 새 앱.
-// project·앱 목록은 이 panel이 `ProjectsSource`·`AppsSource`에서 읽고 쓰며, 누른 줄은 callback으로 알린다.
+// project·앱 목록은 core 읽기로 따라가고(다른 창·CLI가 바꿔도 다시 읽는다), 쓰기는 `ProjectsSource`·`AppsSource`로 한다. 누른 줄은 callback으로 알린다.
 import type { LucideIcon } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { t } from "@lophn/i18n";
 import { IconButton } from "@lophn/ui/primitives";
 import { ErrorState, Skeleton } from "@lophn/ui/feedback";
 import { Menu, MenuIcon, Tooltip } from "@lophn/ui/overlay";
 
 import { AppWorkspaceMark } from "../app-frame/app-icon.tsx";
-import { sortApps } from "../apps/model.ts";
+import { useAppList } from "../apps/app-list.ts";
 import type { AppRow, AppsSource, PublishedPackage } from "../apps/source.ts";
 import { CreateAppDialog } from "../desktop/workspaces/create-app-dialog.tsx";
-import { missingFolder, type Loaded } from "../desktop/workspaces/model.ts";
+import { missingFolder } from "../desktop/workspaces/model.ts";
 import { ProjectDetailDialog } from "../desktop/workspaces/projects/project-detail.tsx";
 import type {
   ProjectItem,
@@ -29,6 +29,7 @@ import {
 } from "./panel-rows.tsx";
 import { DeleteAppDialog } from "./delete-app-dialog.tsx";
 import { RightSidebar } from "./right-sidebar.tsx";
+import { useProjectList } from "./use-left-sidebar.ts";
 
 export interface WorkspacesPanelProps {
   /** project 목록·등록·보관·폴더 다시 잡기·detail 통로. 없으면 Projects 구역을 두지 않는다. */
@@ -43,8 +44,6 @@ export interface WorkspacesPanelProps {
   onNewApp: (app: string) => void;
   /** 새 project id. 테스트가 고정한다. */
   newProjectId?: () => string;
-  /** core가 다시 준비될 때마다 올라가는 수. 바뀌면 목록을 다시 읽는다. */
-  reads?: number;
 }
 
 type RowMenu = readonly { id: string; label: string; icon: LucideIcon }[];
@@ -88,7 +87,7 @@ function Body({
   onRetry,
   children,
 }: {
-  state: Loaded<unknown>;
+  state: { readonly state: "loading" | "failed" | "ready" };
   items: readonly unknown[];
   target: string;
   empty: string;
@@ -115,15 +114,10 @@ export function WorkspacesPanel({
   onApp,
   onNewApp,
   newProjectId,
-  reads = 0,
 }: WorkspacesPanelProps) {
   // 보관한 것까지 모두 읽고 화면에서 가른다.
-  const [cards, setCards] = useState<Loaded<ProjectItem>>(
-    projects ? { state: "loading" } : { state: "ready", items: [] },
-  );
-  const [rows, setRows] = useState<Loaded<AppRow>>(
-    apps ? { state: "loading" } : { state: "ready", items: [] },
-  );
+  const cards = useProjectList();
+  const rows = useAppList();
   const [registering, setRegistering] = useState(false);
   const [creatingApp, setCreatingApp] = useState(false);
   const [detail, setDetail] = useState<string | null>(null);
@@ -147,57 +141,12 @@ export function WorkspacesPanel({
     });
   };
 
-  const loadProjects = useCallback(async () => {
-    if (!projects) return;
-    const read = await projects.list();
-    setCards(
-      read.ok ? { state: "ready", items: read.value } : { state: "failed" },
-    );
-  }, [projects]);
+  // 쓴 결과는 core의 변경 알림으로 목록에 돌아온다. 실패는 대개 다른 창이 먼저 고친 것이라 그 알림이 이미 최신을 읽었다.
+  const setProjectArchived = (project: ProjectItem, archived: boolean) =>
+    void projects?.setArchived(project, archived);
 
-  const loadApps = useCallback(async () => {
-    if (!apps) return;
-    const read = await apps.list();
-    setRows(
-      read.ok
-        ? { state: "ready", items: sortApps(read.value) }
-        : { state: "failed" },
-    );
-  }, [apps]);
-
-  useEffect(() => {
-    void loadProjects();
-    void loadApps();
-  }, [loadProjects, loadApps, reads]);
-
-  const replaceProject = (project: ProjectItem) =>
-    setCards((current) =>
-      current.state === "ready"
-        ? {
-            state: "ready",
-            items: current.items.map((item) =>
-              item.id === project.id ? project : item,
-            ),
-          }
-        : current,
-    );
-
-  // 쓰기가 실패하면(대개 다른 창이 먼저 고쳤다) 최신을 다시 읽는다.
-  const setProjectArchived = async (
-    project: ProjectItem,
-    archived: boolean,
-  ) => {
-    if (!projects) return;
-    const result = await projects.setArchived(project, archived);
-    if (result.ok) replaceProject(result.value);
-    else void loadProjects();
-  };
-
-  const setAppArchived = async (app: AppRow, archived: boolean) => {
-    if (!apps) return;
-    await apps.setArchived(app, archived);
-    await loadApps();
-  };
+  const setAppArchived = (app: AppRow, archived: boolean) =>
+    void apps?.setArchived(app, archived);
 
   const deleteApp = async () => {
     if (!apps || deleting === null) return;
@@ -206,10 +155,9 @@ export function WorkspacesPanel({
     const result = await apps.deleteApp(row);
     if (result.ok) {
       setDeleting(null);
-      await loadApps();
       return;
     }
-    // 앱 process가 아직 멈추는 중이면 잠시 뒤 다시 하면 된다. 그 밖의 실패는 다른 창이 먼저 바꿨을 수 있어 최신을 읽는다.
+    // 앱 process가 아직 멈추는 중이면 잠시 뒤 다시 하면 된다.
     setDeleting({
       row,
       busy: false,
@@ -220,7 +168,6 @@ export function WorkspacesPanel({
         { name: row.name },
       ),
     });
-    if (result.code !== "unavailable") void loadApps();
   };
 
   const relocate = async (
@@ -229,13 +176,11 @@ export function WorkspacesPanel({
   ): Promise<boolean> => {
     if (!projects) return false;
     const result = await projects.relocate(project, folder);
-    if (!result.ok) return false;
-    if (result.value !== null) replaceProject(result.value);
-    return true;
+    return result.ok;
   };
 
-  const projectItems = cards.state === "ready" ? cards.items : [];
-  const appItems = rows.state === "ready" ? rows.items : [];
+  const projectItems = cards.loaded.state === "ready" ? cards.loaded.value : [];
+  const appItems = rows.loaded.state === "ready" ? rows.loaded.value : [];
   const activeProjects = projectItems.filter((item) => !item.archived);
   const activeApps = appItems.filter((item) => !item.archived);
   const archivedProjects = projectItems.filter((item) => item.archived);
@@ -287,7 +232,7 @@ export function WorkspacesPanel({
               if (id === "details") setDetail(card.id);
               else if (id === "relocate" && missing !== undefined)
                 void relocate(card, missing.path);
-              else void setProjectArchived(card, true);
+              else setProjectArchived(card, true);
             }}
           />
         }
@@ -314,7 +259,7 @@ export function WorkspacesPanel({
         <RowMenuButton
           name={row.name}
           items={[ARCHIVE()]}
-          onSelect={() => void setAppArchived(row, true)}
+          onSelect={() => setAppArchived(row, true)}
         />
       }
       onClick={() => onApp(row.id)}
@@ -383,14 +328,11 @@ export function WorkspacesPanel({
           }
         >
           <Body
-            state={cards}
+            state={cards.loaded}
             items={activeProjects}
             target={t("home.label.projects")}
             empty={t("home.empty.no-projects")}
-            onRetry={() => {
-              setCards({ state: "loading" });
-              void loadProjects();
-            }}
+            onRetry={cards.reload}
           >
             <PanelRows label={t("home.heading.projects")}>
               {activeProjects.map(projectRow)}
@@ -416,14 +358,11 @@ export function WorkspacesPanel({
           }
         >
           <Body
-            state={rows}
+            state={rows.loaded}
             items={activeApps}
             target={t("home.label.apps")}
             empty={t("home.empty.no-apps")}
-            onRetry={() => {
-              setRows({ state: "loading" });
-              void loadApps();
-            }}
+            onRetry={rows.reload}
           >
             <PanelRows label={t("home.heading.apps")}>
               {activeApps.map(appRowOf)}
@@ -441,11 +380,8 @@ export function WorkspacesPanel({
         >
           <PanelRows label={t("home.heading.archived")}>
             {archivedProjects.map((item) =>
-              archivedRow(
-                "project",
-                item.id,
-                item.title,
-                () => void setProjectArchived(item, false),
+              archivedRow("project", item.id, item.title, () =>
+                setProjectArchived(item, false),
               ),
             )}
             {archivedApps.map((item) =>
@@ -453,7 +389,7 @@ export function WorkspacesPanel({
                 "app",
                 item.id,
                 item.name,
-                () => void setAppArchived(item, false),
+                () => setAppArchived(item, false),
                 () => askDelete(item),
               ),
             )}
@@ -466,18 +402,15 @@ export function WorkspacesPanel({
           source={projects}
           newProjectId={newProjectId}
           onClose={() => setRegistering(false)}
-          onRegistered={() => {
-            setRegistering(false);
-            void loadProjects();
-          }}
+          onRegistered={() => setRegistering(false)}
         />
       ) : null}
       {projects && detailed ? (
         <ProjectDetailDialog
           source={projects}
           project={detailed}
-          onChanged={replaceProject}
-          onLatest={() => void loadProjects()}
+          onChanged={() => {}}
+          onLatest={cards.reload}
           onRelocate={relocate}
           onClose={() => setDetail(null)}
         />

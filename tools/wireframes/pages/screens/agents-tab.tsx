@@ -1,7 +1,11 @@
 // workspace(project, Home, 앱)의 Agents 탭과 agent 설정 탭. 화면은 renderer의 workspace/agents가 그리고, 여기서는 project 창(ProjectApp)이
 // 부르는 이름으로 fake source에 이어 준다. 정의는 project 폴더가 아니라 lophn에 저장된다.
-import { useMemo } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
+import { CHANGE_NAMES } from "../../../../packages/protocol/events/changes.ts";
+import { createEventClient } from "../../../../packages/shell/renderer/desktop/connection/events/client.ts";
+import { createFakeSource } from "../../../../packages/shell/renderer/desktop/connection/events/fake-source.ts";
+import { EventsProvider } from "../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import { AgentsPage } from "../../../../packages/shell/renderer/workspace/agents/agents-page.tsx";
 import { AgentsTabs } from "../../../../packages/shell/renderer/workspace/agents/tab-state.ts";
 import { AgentEditor } from "../../../../packages/shell/renderer/workspace/agents/editor/agent-editor.tsx";
@@ -43,6 +47,35 @@ export function agentTab(id: string): TabSpec {
 
 const noop = () => {};
 
+/**
+ * 화면은 core의 변경 알림으로 다시 읽는다. fake agents source가 바뀌면 모든 이름의 `StateChanged`를 흘려 그 길을 따른다.
+ */
+export function FakeAgentEvents({
+  source,
+  children,
+}: {
+  source: ReturnType<typeof createFakeAgentsSource>;
+  children: ReactNode;
+}) {
+  const [fake] = useState(() => createFakeSource());
+  const [client] = useState(() => createEventClient(fake));
+  useEffect(
+    () =>
+      source.changed(() =>
+        fake.emitEvent({
+          type: "StateChanged",
+          subject: null,
+          at: new Date().toISOString(),
+          payload: {
+            changes: CHANGE_NAMES.map((name) => ({ name, id: null })),
+          },
+        }),
+      ),
+    [source, fake],
+  );
+  return <EventsProvider client={client}>{children}</EventsProvider>;
+}
+
 /** workspace의 Agents 탭. 카드의 [Open]은 같은 탭 안에서 editor로 바뀌고 위쪽 ← →가 목록과 연 agent 사이를 오간다. */
 export function AgentsBody({
   at = "project",
@@ -58,18 +91,19 @@ export function AgentsBody({
   const tabs = useMemo(() => new AgentsTabs(), []);
   useDrive(() => runSteps(steps));
   return (
-    <AgentsPage
-      workspace={AT[at].workspace}
-      workspaceName={AT[at].name}
-      source={source}
-      tabKey="agents"
-      tabs={tabs}
-      agent={null}
-      onAgent={noop}
-      askLeave={() => Promise.resolve(true)}
-      onAddExtension={noop}
-      onChanged={noop}
-    />
+    <FakeAgentEvents source={source}>
+      <AgentsPage
+        workspace={AT[at].workspace}
+        workspaceName={AT[at].name}
+        source={source}
+        tabKey="agents"
+        tabs={tabs}
+        agent={null}
+        onAgent={noop}
+        askLeave={() => Promise.resolve(true)}
+        onAddExtension={noop}
+      />
+    </FakeAgentEvents>
   );
 }
 
@@ -92,15 +126,16 @@ export function AgentSettingsEditor({
   const source = useMemo(() => createFakeAgentsSource(options), []);
   useDrive(() => runSteps(steps));
   return (
-    <div>
-      <AgentEditor
-        source={source}
-        workspace={AT[workspace].workspace}
-        workspaceName={AT[workspace].name}
-        agent={id === "new" ? null : id}
-        onDone={onDone}
-        onChanged={noop}
-      />
-    </div>
+    <FakeAgentEvents source={source}>
+      <div>
+        <AgentEditor
+          source={source}
+          workspace={AT[workspace].workspace}
+          workspaceName={AT[workspace].name}
+          agent={id === "new" ? null : id}
+          onDone={onDone}
+        />
+      </div>
+    </FakeAgentEvents>
   );
 }

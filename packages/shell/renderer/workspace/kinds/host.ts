@@ -30,8 +30,6 @@ interface DocumentSlice {
 /** Agents 탭이 작업대와 나누는 것. 통로(source)가 없으면 host.agents는 null이다. */
 export interface AgentsSlice {
   readonly source: AgentsSource;
-  /** 목록이나 정의가 바뀌었다. sidebar의 Agents 묶음이 다시 읽는다. */
-  changed(): void;
   /** Settings의 Tools and skills로 간다(skill·MCP 등록이 있는 곳). */
   openExtensions(): void;
   /** 탭마다의 이동 기록과 저장하지 않은 편집. 탭 줄의 저장 안 됨 표시와 닫기 확인이 같은 곳을 본다. */

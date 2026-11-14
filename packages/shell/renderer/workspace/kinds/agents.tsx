@@ -120,7 +120,6 @@ export const agentsKind: TabKindDef = {
             }))
           }
           onAddExtension={agents.openExtensions}
-          onChanged={agents.changed}
         />
       </PaddedTab>
     );

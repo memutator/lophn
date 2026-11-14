@@ -166,9 +166,9 @@ export interface WorkspaceLeftSidebarProps {
 export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   const { workspace: current, projects, apps } = props;
   const projectId = current.kind === "project" ? current.id : null;
-  const list = useSidebarWorkspaceList(projects, apps);
+  const list = useSidebarWorkspaceList();
   const { sessions } = useSessions();
-  const { known, reload: reloadKnown } = props.sessionTitles;
+  const { known } = props.sessionTitles;
   const workspaceRefs = useMemo(
     (): WorkspaceRef[] => [
       { kind: "home" },
@@ -427,16 +427,12 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     if (item.kind === "terminal")
       renameTerminalAt(workspace.ref, item.ref, title);
     else if (item.kind === "session") {
-      void sourceOf(item.ref)
-        ?.act(item.ref, {
-          type: "rename",
-          session: item.ref,
-          key: newId("rename"),
-          title,
-        })
-        .then((result) => {
-          if (result.ok) reloadKnown();
-        });
+      void sourceOf(item.ref)?.act(item.ref, {
+        type: "rename",
+        session: item.ref,
+        key: newId("rename"),
+        title,
+      });
     }
   };
   // Stop은 session을 current에서 내린다: 도는 turn을 멈추고 탭을 닫는다. 멈추지 못하면 탭을 남긴다.
@@ -520,7 +516,6 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
           onClose={() => setRegistering(false)}
           onRegistered={(created) => {
             setRegistering(false);
-            list.reload();
             props.onWorkspace({ kind: "project", id: created.id });
           }}
         />
@@ -532,7 +527,6 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
           onClose={() => setCreating(false)}
           onCreated={(created) => {
             setCreating(false);
-            list.reload();
             props.onNewApp(created.id);
           }}
         />

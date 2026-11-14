@@ -16,13 +16,9 @@ import { actionIcons } from "../../../icons/mod.ts";
 import { useCommands } from "../../../commands/react.tsx";
 import { Avatar, type AvatarProfile } from "../../../parts/avatar/avatar.tsx";
 import { codingFaceOf } from "../coding-face.ts";
+import { useAgentModels } from "../use-agent-models.ts";
 import type { Face } from "../tab-state.ts";
-import type {
-  AgentDraft,
-  AgentsSource,
-  GrantsView,
-  ModelsView,
-} from "../source.ts";
+import type { AgentDraft, AgentsSource, GrantsView } from "../source.ts";
 import type { McpLogin, McpRow, McpSecret, McpStatus } from "../views.ts";
 import {
   type EditorTab,
@@ -83,8 +79,6 @@ interface AgentEditorProps {
   readonly onGone?: () => void;
   /** 새 agent를 처음 저장했다. 이 editor는 그 agent로 이어진다. */
   readonly onSaved?: (assignment: string) => void;
-  /** 목록이나 정의가 바뀌었다. */
-  readonly onChanged: () => void;
   /** 탭을 떠났다 돌아온 editor가 이어 받을 저장하지 않은 편집. */
   readonly restore?: Ready | null;
   /** 편집 값이 바뀔 때마다 알린다. 부르는 쪽이 저장하지 않은 편집과 탭 줄의 얼굴을 쥔다. */
@@ -133,7 +127,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   const [state, setState] = useState<Loaded>(
     props.restore ?? { kind: "loading" },
   );
-  const [models, setModels] = useState<ModelsView | null>(null);
+  const models = useAgentModels(source);
   const [tab, setTab] = useState<EditorTab>("general");
   const [notice, setNotice] = useState<Notice | null>(null);
   const [grants, setGrants] = useState<GrantsLoaded>({ kind: "loading" });
@@ -145,16 +139,6 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   const [signingIn, setSigningIn] = useState<readonly string[]>([]);
   // 탭을 떠났다 돌아왔으면 읽지 않고 그 편집에서 이어 간다. 한 번만 쓴다.
   const restored = useRef(props.restore ?? null);
-
-  useEffect(() => {
-    let live = true;
-    void source.models().then((result) => {
-      if (live) setModels(result.ok ? result.value : null);
-    });
-    return () => {
-      live = false;
-    };
-  }, [source]);
 
   useEffect(() => {
     if (restored.current !== null) {
@@ -271,7 +255,6 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
       .then((result) => {
         if (result.ok) {
           setNotice(null);
-          props.onChanged();
           // 새 agent는 id가 생겼으니 그 agent로 이어진다. 저장된 agent는 파일을 다시 읽어 hash와 명함을 맞춘다.
           if (detail.assignment === null)
             props.onSaved?.(result.value.assignment);
@@ -335,7 +318,6 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
           });
           return;
         }
-        props.onChanged();
         (props.onGone ?? props.onDone)();
       });
   };

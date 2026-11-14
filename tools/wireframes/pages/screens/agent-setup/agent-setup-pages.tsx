@@ -23,6 +23,7 @@ import {
   AgentSettingsEditor,
   AgentsBody,
   type AgentsAt,
+  FakeAgentEvents,
   agentTab,
 } from "../agents-tab.tsx";
 import { ProjectApp } from "../project-app.tsx";
@@ -99,18 +100,19 @@ export const HomeAgentsOpenScopedPage = () => {
     ...AGENTS_TAB_SPEC,
     title: "Home · Agents",
     body: (
-      <AgentsPage
-        workspace="home"
-        workspaceName="Home"
-        source={source}
-        tabKey="agents"
-        tabs={tabs}
-        agent={agent}
-        onAgent={setAgent}
-        askLeave={() => Promise.resolve(true)}
-        onAddExtension={() => {}}
-        onChanged={() => {}}
-      />
+      <FakeAgentEvents source={source}>
+        <AgentsPage
+          workspace="home"
+          workspaceName="Home"
+          source={source}
+          tabKey="agents"
+          tabs={tabs}
+          agent={agent}
+          onAgent={setAgent}
+          askLeave={() => Promise.resolve(true)}
+          onAddExtension={() => {}}
+        />
+      </FakeAgentEvents>
     ),
   });
 };

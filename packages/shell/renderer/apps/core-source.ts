@@ -34,7 +34,10 @@ async function call<T>(
   return { ok: true, value: reply.value as T };
 }
 
-function rowOf(value: AppValue, releaseNumber: number | null = null): AppRow {
+export function rowOf(
+  value: AppValue,
+  releaseNumber: number | null = null,
+): AppRow {
   return {
     id: value.id,
     name: value.name,

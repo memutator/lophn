@@ -147,7 +147,6 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
       ? null
       : {
           source: agentsSource,
-          changed: sidebarAgents.reload,
           openExtensions: () => onSettings("tools"),
           tabs: agentTabs,
           faceOf: (assignment) => {

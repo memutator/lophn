@@ -2,6 +2,9 @@
 // 비워 두고 panel만 실제 WorkspacesPanel로 그린다. Jobs 칸은 project의 Jobs panel을 그대로 보인다.
 import { useMemo, useState } from "react";
 import { galleryApps } from "../../../../../packages/shell/renderer/apps/testdata/fake-apps.ts";
+import { createEventClient } from "../../../../../packages/shell/renderer/desktop/connection/events/client.ts";
+import { createFakeSource } from "../../../../../packages/shell/renderer/desktop/connection/events/fake-source.ts";
+import { EventsProvider } from "../../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
 import {
   fakeProjects,
   MISSING_FOLDER,
@@ -17,6 +20,7 @@ import {
   type Step,
   useDrive,
 } from "../../../mock/drive.ts";
+import { withSyncLists } from "../../../mock/core-answers/sync-lists.ts";
 import { PageLeftSidebar, PageProjectPanel } from "../project-window.tsx";
 
 const PANELS = [
@@ -46,6 +50,11 @@ export function WorkspacesScene({
     [],
   );
   const apps = useMemo(() => galleryApps({ deleteCode }).source, [deleteCode]);
+  // panel은 목록을 core 읽기로 받는다. 쓰기를 맡는 fake의 값이 읽기의 답이다.
+  const client = useMemo(
+    () => createEventClient(withSyncLists(createFakeSource(), projects, apps)),
+    [projects, apps],
+  );
   useDrive(() => runSteps(steps));
   return (
     <ShellFrame
@@ -60,13 +69,15 @@ export function WorkspacesScene({
       leftSidebar={<PageLeftSidebar onOpenFile={noop} onAgent={noop} />}
       rightSidebar={
         panel === "workspaces" ? (
-          <WorkspacesPanel
-            projects={projects}
-            apps={apps}
-            onProject={noop}
-            onApp={noop}
-            onNewApp={noop}
-          />
+          <EventsProvider client={client}>
+            <WorkspacesPanel
+              projects={projects}
+              apps={apps}
+              onProject={noop}
+              onApp={noop}
+              onNewApp={noop}
+            />
+          </EventsProvider>
         ) : (
           <PageProjectPanel tab="jobs" onOpenFile={noop} onAgent={noop} />
         )

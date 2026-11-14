@@ -2169,7 +2169,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   }, [terminalVersion, terminal, windowTabs]);
 
   // Inbox 줄이 id 대신 쓰는 workspace 이름.
-  const inboxWorkspaces = useSidebarWorkspaceList(props.projects, props.apps);
+  const inboxWorkspaces = useSidebarWorkspaceList();
   const inboxNames = useMemo<InboxNames>(
     () => ({
       projects: new Map(

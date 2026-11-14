@@ -288,9 +288,8 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     ) {
       return;
     }
-    // 칸이 같은 파일을 탭으로 열지 않게 여기서 멈춘다.
+    // 멈추지 않고 올려 보낸다. 칸은 defaultPrevented를 보고 탭으로 열지 않고 강조를 끈다.
     event.preventDefault();
-    event.stopPropagation();
     event.dataTransfer.dropEffect = "copy";
     setDropping(true);
   };
@@ -301,7 +300,6 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
     const files = [...event.dataTransfer.files];
     if (path === "" && files.length === 0) return;
     event.preventDefault();
-    event.stopPropagation();
     if (path === "") attachFiles(files);
     else void attachPath(path);
   };

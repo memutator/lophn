@@ -160,6 +160,11 @@ export function ContentCard({
       className={styles.card}
       data-drop={dropping || undefined}
       onDragOver={(event) => {
+        // 안쪽(prompt 칸)이 받은 drag는 칸의 drop이 아니다.
+        if (event.defaultPrevented) {
+          setDropping(false);
+          return;
+        }
         if (!onDropPath || !event.dataTransfer.types.includes(PATH_DRAG_TYPE)) {
           return;
         }
@@ -174,6 +179,7 @@ export function ContentCard({
       }}
       onDrop={(event) => {
         setDropping(false);
+        if (event.defaultPrevented) return;
         const path = event.dataTransfer.getData(PATH_DRAG_TYPE);
         if (!onDropPath || path === "") return;
         event.preventDefault();

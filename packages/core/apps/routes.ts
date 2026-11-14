@@ -22,10 +22,11 @@ import {
 } from "../../protocol/server/mod.ts";
 import type { IdSource } from "../../base/mod.ts";
 import type { Clock } from "../../base/mod.ts";
-import type {
-  FileStreamHandler,
-  MemoryHandler,
-  ReadHandler,
+import {
+  bytesFileStream,
+  type FileStreamHandler,
+  type MemoryHandler,
+  type ReadHandler,
 } from "../server/mod.ts";
 import { createTargetAuthorizer, type Writer } from "../storage/ledger/mod.ts";
 import { authorizeApp, loadApp, loadApps } from "./registration/mod.ts";
@@ -116,22 +117,12 @@ export function mainRead(
     );
 }
 
-// `app.screen_file`. media type 형식은 `type/subtype`만 받으므로 매개변수(charset)는 뗀다.
+// `app.screen_file`.
 export function screenFileStream(deps: ScreenFileDeps): FileStreamHandler {
   return async (_ctx, input) => {
     const served = await serveScreenFile(deps, input as AppScreenFileInput);
     if (!served.ok) return served;
-    const { bytes, contentType } = served.value;
-    return ok({
-      contentType: contentType.split(";")[0].trim(),
-      length: bytes.byteLength,
-      body: new ReadableStream<Uint8Array>({
-        start(controller) {
-          controller.enqueue(bytes);
-          controller.close();
-        },
-      }),
-    });
+    return ok(bytesFileStream(served.value.bytes, served.value.contentType));
   };
 }
 

@@ -123,7 +123,9 @@ if (!values.state) fail("--state <file> is required");
 
 if (command === "pair") {
   if (!values.qr) fail("--qr '<json>' is required");
-  const qr = remotePairingSchema.parse(JSON.parse(values.qr));
+  // pairing/start 답을 그대로 받는다. QR에 싣지 않는 끝 시각은 버린다.
+  const { expires_at: _expires, ...qrValue } = JSON.parse(values.qr);
+  const qr = remotePairingSchema.parse(qrValue);
   const phone = generateKeyPair(cryptoRandom);
   const state: State = {
     addresses: qr.addresses,

@@ -5,7 +5,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ok, type Result } from "../../base/mod.ts";
-import type { FileStreamHandler } from "../server/mod.ts";
+import { bytesFileStream, type FileStreamHandler } from "../server/mod.ts";
 
 // 설치본은 platform/, 개발은 저장소 root다.
 const ROOT = fileURLToPath(new URL("../../..", import.meta.url));
@@ -57,7 +57,7 @@ export async function loadRemoteUi(
   return undefined;
 }
 
-// `remote_ui.file`. media type 형식은 `type/subtype`만 받으므로 매개변수(charset)는 뗀다.
+// `remote_ui.file`.
 export function remoteUiFileStream(
   serve: (
     path: string,
@@ -66,16 +66,6 @@ export function remoteUiFileStream(
   return async (_ctx, input) => {
     const served = await serve((input as { path: string }).path);
     if (!served.ok) return served;
-    const { bytes, contentType } = served.value;
-    return ok({
-      contentType: contentType.split(";")[0].trim(),
-      length: bytes.byteLength,
-      body: new ReadableStream<Uint8Array>({
-        start(controller) {
-          controller.enqueue(bytes);
-          controller.close();
-        },
-      }),
-    });
+    return ok(bytesFileStream(served.value.bytes, served.value.contentType));
   };
 }

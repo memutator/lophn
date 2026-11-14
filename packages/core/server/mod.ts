@@ -1,4 +1,5 @@
 export {
+  bytesFileStream,
   type DispatchDeps,
   dispatchHttp,
   type FileHandler,

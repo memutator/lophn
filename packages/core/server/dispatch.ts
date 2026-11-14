@@ -81,6 +81,23 @@ type FileStream = {
   body: ReadableStream<Uint8Array>;
 };
 
+// 메모리에 다 읽은 file 하나의 stream 답. media type 형식은 `type/subtype`만 받으므로 매개변수(charset)는 뗀다.
+export function bytesFileStream(
+  bytes: Uint8Array,
+  contentType: string,
+): FileStream {
+  return {
+    contentType: contentType.split(";")[0].trim(),
+    length: bytes.byteLength,
+    body: new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(bytes);
+        controller.close();
+      },
+    }),
+  };
+}
+
 export type FileStreamHandler = (
   ctx: AuthenticatedContext,
   input: unknown,

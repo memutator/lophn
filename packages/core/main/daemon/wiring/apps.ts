@@ -6,6 +6,7 @@ import {
   type Result,
 } from "../../../../base/mod.ts";
 import type { PermissionScope } from "../../../../protocol/apps/declaration/mod.ts";
+import { publishStateChanged } from "../../../../protocol/events/changes.ts";
 import {
   type AppGrant,
   appGrantsList,
@@ -180,6 +181,10 @@ export const appsWiring: WiringFactory = () => {
         declared: (app) => Promise.resolve(declaredOAuth(ctx, app)),
         nowMs: () => ctx.clock.nowMs(),
         random: ctx.random,
+        changed: (name) =>
+          publishStateChanged(ctx.bus, ctx.clock.now(), [
+            { name: "secrets", id: name },
+          ]),
       });
       oauth = appOAuth;
       const machine = () => {
@@ -264,6 +269,10 @@ export const appsWiring: WiringFactory = () => {
         sql: link.sql,
         transaction: link.transaction,
         blobs,
+        changed: (app) =>
+          publishStateChanged(ctx.bus, ctx.clock.now(), [
+            { name: "app_activity", id: app },
+          ]),
       });
       invocations = ledger;
 

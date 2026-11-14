@@ -48,6 +48,7 @@ async function run(reply: IssuerReply | "throws", expiresInMs: number) {
   ]);
   const clock = manualClock(NOW);
   const app = createAppOAuth({
+    changed: () => {},
     secrets: {
       get: (name) =>
         store.has(name)

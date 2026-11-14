@@ -43,6 +43,8 @@ export type AppOAuthDeps = {
   random?: RandomSource;
   waitMs?: number;
   deadline?: AuthDeadline;
+  // route 밖에서 sign-in이 끝나면(token 저장이나 실패) 부른다. 화면이 oauth_state를 다시 읽게 알린다.
+  changed(name: string): void;
 };
 
 export type AppOAuth = {
@@ -162,7 +164,10 @@ export function createAppOAuth(deps: AppOAuthDeps): AppOAuth {
     });
     if (!begun.ok) return begun;
     // 사람이 돌아오기를 기다리지 않는다. 결과는 oauth_state가 report로 보인다.
-    void oauth.complete(server).catch(() => {});
+    void oauth
+      .complete(server)
+      .catch(() => {})
+      .finally(() => deps.changed(found.value.name));
     return ok({ url: begun.value.url });
   };
 

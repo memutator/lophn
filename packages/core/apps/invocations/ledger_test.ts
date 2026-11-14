@@ -64,6 +64,7 @@ function setup() {
   } as unknown as Tx;
   const ledger = createInvocationLedger({
     sql,
+    changed: () => {},
     transaction<T>(fn: (tx: Tx) => Result<T>): Result<T> {
       db.exec("begin immediate");
       const done = fn(tx);

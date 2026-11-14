@@ -41,6 +41,8 @@ type InvocationLedgerDeps = {
   // ledger 쓰기 transaction 하나. 돌려준 값이 err이면 rollback한다.
   transaction<T>(fn: (tx: Tx) => Result<T>): Result<T>;
   blobs: ChangesetBlobs;
+  // 행을 쓴 transaction이 commit된 뒤 부른다. 화면(앱 Activity·Rewind)이 다시 읽게 알린다.
+  changed(app: string): void;
 };
 
 function oneChunk(bytes: Uint8Array): ReadableStream<Uint8Array> {
@@ -84,6 +86,11 @@ export function createInvocationLedger(
     return ok(bytes);
   }
 
+  function committed<T extends { app: string }>(result: Result<T>): Result<T> {
+    if (result.ok) deps.changed(result.value.app);
+    return result;
+  }
+
   return {
     begin(input) {
       if (input.started_at === null) {
@@ -104,13 +111,16 @@ export function createInvocationLedger(
       if (!row.success) {
         return err({ code: "invalid_input", message: "invalid invocation" });
       }
-      return deps.transaction((tx) => {
-        const known = loadInvocation(tx.sql, row.data.id);
-        if (!known.ok) return known;
-        if (known.value !== null) return conflict("invocation already exists");
-        insertInvocation(tx, row.data);
-        return ok(row.data);
-      });
+      return committed(
+        deps.transaction((tx) => {
+          const known = loadInvocation(tx.sql, row.data.id);
+          if (!known.ok) return known;
+          if (known.value !== null)
+            return conflict("invocation already exists");
+          insertInvocation(tx, row.data);
+          return ok(row.data);
+        }),
+      );
     },
 
     async finish(id, result) {
@@ -195,7 +205,7 @@ export function createInvocationLedger(
       };
       let closed = close(prepared, dropped);
       if (!closed.ok && registerFailed) closed = close(null, "unavailable");
-      return closed;
+      return committed(closed);
     },
 
     recordOnce(input) {
@@ -212,14 +222,16 @@ export function createInvocationLedger(
       if (!sized.ok) return Promise.resolve(sized);
       const row = { ...parsed.data, summary };
       return Promise.resolve(
-        deps.transaction((tx) => {
-          const known = loadInvocation(tx.sql, row.id);
-          if (!known.ok) return known;
-          if (known.value !== null)
-            return conflict("invocation already exists");
-          insertInvocation(tx, row);
-          return ok(row);
-        }),
+        committed(
+          deps.transaction((tx) => {
+            const known = loadInvocation(tx.sql, row.id);
+            if (!known.ok) return known;
+            if (known.value !== null)
+              return conflict("invocation already exists");
+            insertInvocation(tx, row);
+            return ok(row);
+          }),
+        ),
       );
     },
 

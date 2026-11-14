@@ -115,7 +115,7 @@ spawn된 session(`spawned_by` 있음)의 `ask` tool(질문)과 shell 규칙 `ask
 3. MCP tool은 판정이 늘 `run`을 낸다(할당 줄이 없다). 막는 곳은 연결 쪽 call이다. 부를 때마다 전역·workspace 층 server 설정을 다시 읽어 꺼진 server(`mcp_off`)나 읽기 실패면 `unavailable`로 거절한다. 도는 turn 안에서 끈 server도 바로 막힌다. agent 정의 층의 `off`는 turn 시작 때 읽은 값이라 다음 turn부터 막힌다.
 4. `deny`는 어느 mode에서나 막는다. skip은 묻지 않는 것이지 금지를 푸는 것이 아니다.
 5. `ask`는 attended에서만 묻는다. unattended와 skip에서는 `run`이 된다. 팀 자식(`spawned_by` 있음, skip 꺼짐)은 예외다: mode와 상관없이 묻고 그 물음은 부모에게 간다. skip이 먼저다.
-6. 사람의 결정은 사람 자격만 받는다(`turn_requests/decide`의 actors와 handler가 한 번 더 본다). agent, 앱, MCP server가 스스로 허락하면 판정이 의미 없다. 팀 자식의 request는 부모가 이번 한 번만 풀고, 사람의 결정 route는 그 request를 `not_found`로 거절한다.
+6. 사람의 결정은 사람 자격만 받는다(`turn_requests/decide`의 actors와 handler가 한 번 더 본다). pairing한 폰도 사람 자격(actor user, principal `device:<id>`)이라 승인, 질문, 동의, job hold에 답한다. agent, 앱, MCP server가 스스로 허락하면 판정이 의미 없다. 팀 자식의 request는 부모가 이번 한 번만 풀고, 사람의 결정 route는 그 request를 `not_found`로 거절한다.
 7. agent는 자기 할당을 넓히지 못한다. 할당 쓰기(`assignment.set`)는 사람만 하고 읽기(`assignment.get`)는 사람과 machine뿐이다. agent 정의를 만들고 고치는 tool(`agent.create`, `agent.update`)은 `mcp_servers`, `skip`, `apps`, `permissions`를 입력으로 받지 않는다. 앱 공유 요청도 agent가 여는 것은 요청뿐이고 `apps`를 더하는 것은 사람의 승인이다.
 8. 판정이 읽는 할당은 call 때마다 정의 파일에서 읽는다. 앱 호출 경로와 사용 관계도 같은 읽기다. 없는 앱 slug와 active 선언에 없는 command는 읽을 때 빠진다.
 9. 선언(앱 선언의 효과, MCP `readOnlyHint`)은 믿는다.
@@ -165,6 +165,12 @@ event (남지 않는다. commit 뒤 Bus)
 - 공유 요청은 `share_requests` 표(schema step `approvals.share_requests`)에 앱마다 한 줄이다.
 - turn request와 질문 대기는 core main thread 메모리에 있고 ledger에 쓰지 않는다(durable queue가 되는 것을 막는다).
 
+폰(기기) 자격
+- pairing한 기기의 연결은 actor user, principal `device:<id>`, conditions `{process: "remote"}`인 자격 하나를 받는다. scope는 `packages/protocol/remote/allowlist.ts`의 route 목록뿐이고, remote 연결의 `call`이 dispatch 전에 실제 route 이름으로 `authorize`해 목록 밖은 `forbidden`이다(HTTP dispatch는 read·memory route에 scope를 보지 않아 이 검사가 경계다).
+- 목록은 대화와 Inbox가 쓰는 것이다: session 목록과 snapshot, `acp/snapshot|draft|send`, `ask/read|answer`, `turn_requests/decide`, notice 읽기·열기·읽음·치우기, activation 동의, job hold와 대기 job 승인, 공유 요청 목록과 결정. secret, provider, 설정 쓰기, 기기와 pairing, 앱 지우기, `host/*`는 없다. 관리는 desktop에서만 한다.
+- 기기를 끊으면(`devices/revoke`, 사람만) 표에서 지우고 그 자격을 거두고 연결을 `closed(credential_revoked)`로 바로 닫는다. 같은 key로 다시 붙으면 등록되지 않은 key라 `pair`만 받는다.
+- 사람 결정 handle은 기기 자격으로 등록하지 못한다(shell capability가 없다). 폰에서는 secret을 넣지 않는다.
+
 사람 결정 handle
 - 보호 입력 창(secret 입력 등)에서 사람이 고른 결정을 core에 묶는 1회용 참조다. 창, 대상, 내용 기준, 허용 결정, 기한(발급 뒤 120초와 대상 기한 중 이른 것)에 묶인다. 원문은 core 메모리에만 있고 ledger·event·log에 쓰지 않는다.
 - shell capability로만 등록한다. capability는 control `connect {client: shell}`의 응답에만 실리고 shell main 메모리에만 있다(argv, env, file, renderer, log로 내지 않는다). shell main은 Gateway handshake의 `x-lophn-shell-capability`로 자기 수명을 묶고, core는 그 Gateway가 끝나면 capability와 소비하지 않은 handle을 버린다. HTTP user token, agent·worker credential, route, CLI(`client: cli`)에는 등록 길이 없다.
@@ -197,6 +203,7 @@ event (남지 않는다. commit 뒤 Bus)
 - CLI의 `--dangerously-skip-permissions`는 두지 않는다. CLI가 여는 run은 처음부터 unattended라 묻지 않는다. (agent)
 - 사람 결정 handle은 shell capability로만 등록한다. 이유: HTTP token은 renderer와 앱 view, CLI를 쓰는 terminal agent까지 같은 값이 퍼지고 agent·worker credential은 agent의 것이라 그 자격으로 등록하면 agent가 사람의 결정을 흉내 낼 수 있다. 그래서 사람만 쓰는 창을 가진 shell main에만 주는 다른 자격을 둔다. 경계는 control socket 자리(같은 사용자, 0700 폴더, named pipe)이고 OS peer 신원은 보지 않는다. 같은 사용자의 process는 이미 `secrets.json`을 읽을 수 있어(`architecture/agent-definition.md`의 secret 저장소, `architecture/platform.md`의 data root) peer 검증이 더 막는 것이 없고 세 OS native addon이 든다. (agent)
 - 판정이 읽는 할당을 call 때마다 읽는 것과 MCP 연결 call이 server 설정을 다시 읽는 것은 사람이 거둔 권한이 바로 거둬지게 하려는 것이다. 버린 안: server를 끄는 바뀜마다 연결을 끊기(바뀜을 알리는 길을 새로 둬야 한다). (agent)
+- 폰의 자격은 사람과 같은 actor user이되 route를 목록으로 좁힌다. principal을 기기마다 두어 입장 한도와 command 결과를 shell과 나누지 않는다. 이유: 폰은 일하는 창이고(보기, 말하기, 답하기) 관리는 desktop에 남긴다. 신원은 bearer token이 아니라 handshake로 받은 공개 key다. 버린 안: 폰용 actor 종류를 새로 두기(사람의 결정 route가 모두 그 종류를 받아야 하고 뜻이 같은 사람이다). (agent, 사람이 추천을 받음 2026-11-14)
 - turn request와 질문 대기를 메모리 route로 두는 것은 의도다. ledger 표로 옮기면 durable queue가 되고, 재시작이 기다리던 turn을 끊는 것은 의도다. (agent)
 
 ## 열린 것

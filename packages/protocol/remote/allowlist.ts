@@ -34,6 +34,13 @@ import {
 import { askAnswer, askRead } from "../lophn-agent/ask-tool.ts";
 import { agentCallRead, callCancel } from "../lophn-agent/calls.ts";
 import {
+  editQueued,
+  moveQueued,
+  removeQueued,
+  sendMessage,
+  steerQueuedNow,
+} from "../lophn-agent/inputs.ts";
+import {
   inputRequestCancel,
   inputRequestRead,
 } from "../lophn-agent/input-request.ts";
@@ -45,15 +52,26 @@ import { messageSearch } from "../lophn-agent/message-search.ts";
 import { messageBody } from "../lophn-agent/messages.ts";
 import { providerRead } from "../lophn-agent/providers.ts";
 import { receivedMessageRead } from "../lophn-agent/received-messages.ts";
-import { sessionRewindPreview } from "../lophn-agent/session-rewinds.ts";
-import { archiveSession } from "../lophn-agent/sessions.ts";
+import {
+  sessionRewind,
+  sessionRewindPreview,
+} from "../lophn-agent/session-rewinds.ts";
+import {
+  archiveSession,
+  changeSessionModel,
+  forkSession,
+  renameSession,
+  requestSessionCompact,
+} from "../lophn-agent/sessions.ts";
 import { turnBodyView, turnList, turnRead } from "../lophn-agent/turn-reads.ts";
+import { stopTurn } from "../lophn-agent/turns.ts";
 import { projectApi } from "../projects/project-api.ts";
 import { remoteUiFile, remoteUiManifest } from "./routes.ts";
 
 // 등록한 기기가 부를 수 있는 route의 전부다. 기기 자격의 scope가 이 이름들이고, 밖의 route는 `forbidden`이다.
 // 폰은 일하는 창이다: session 목록, 대화, Inbox가 읽는 것과 일을 이어 가는 쓰기만 둔다.
-// secret, provider·설정 쓰기, 기기와 pairing, 앱 지우기, `host/*`, `sessions/delete`(되돌릴 수 없다)는 넣지 않는다.
+// secret, provider·설정 쓰기, 기기와 pairing, 앱 지우기, `host/*`, `sessions/delete`(되돌릴 수 없다), `sessions/change-skip`(사람에게
+// 묻지 않고 돌게 하는 권한 설정이다)은 넣지 않는다. `acp/send`는 안의 route를 기기 자격으로 부르므로 대화 조작 route도 여기 있어야 한다.
 // 모두 user가 부를 수 있는 route여야 한다(아니면 core가 기기 자격을 만들지 못한다).
 // file·upload route의 bytes는 `call`에서 base64로 싣는다(core/remote/call.ts). 폰은 화면 bundle도 이 목록의 route로 받는다.
 export const REMOTE_ALLOWED_ROUTES = [
@@ -84,6 +102,17 @@ export const REMOTE_ALLOWED_ROUTES = [
   messageSearch,
   agentCallRead,
   callCancel,
+  sendMessage,
+  stopTurn,
+  steerQueuedNow,
+  removeQueued,
+  editQueued,
+  moveQueued,
+  changeSessionModel,
+  renameSession,
+  forkSession,
+  requestSessionCompact,
+  sessionRewind,
   sessionRewindPreview,
   appRewindPlan,
   inputRequestRead,

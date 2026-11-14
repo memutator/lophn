@@ -17,7 +17,10 @@ import {
   loginComplete,
   refreshProviderModels,
 } from "../../protocol/lophn-agent/providers.ts";
-import { deleteSession } from "../../protocol/lophn-agent/sessions.ts";
+import {
+  changeSessionSkip,
+  deleteSession,
+} from "../../protocol/lophn-agent/sessions.ts";
 import { ROUTES } from "../../protocol/registry.ts";
 import {
   connectRemote,
@@ -130,6 +133,7 @@ function setup() {
   // 목록 밖이어야 하는 route도 등록한다. 등록되지 않으면 forbidden이 아니라 not_found가 된다.
   const outside: Route[] = [
     deleteSession,
+    changeSessionSkip,
     appsSecretValue,
     connectProvider,
     disconnectProvider,
@@ -429,6 +433,7 @@ test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·설정
   const c = await s.connect(key);
   const outside = [
     "sessions/delete",
+    "sessions/change-skip",
     "secrets/status",
     "secrets/put",
     "secrets/delete",

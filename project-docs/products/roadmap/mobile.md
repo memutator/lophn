@@ -1,9 +1,9 @@
 # mobile: lophn 모바일 앱과 사용자의 모바일 앱
 
-상태: **개념 정리만 했다.** 2026-11-08 사람이 방향을 냈고 planner가 대화를 정리했다. 사람이 더 고민하기로 해서 아래 "열린 질문"은 정하지 않았다. 추천은 planner의 것이고 결정이 아니다. 계획으로 열기 전에 사람과 다시 정하고, "지금 코드"는 그때 worker 조사로 채운다.
-2026-11-14: 지금 코드와 remote 비교를 조사해 아래 "지금 코드", "비교에서 더 본 것"에 넣었다. 설계는 사람과 논의 중이다.
-배경 문서: `project-docs/architecture/{platform,app-call,terminal-agent,app-notice}.md`, `project-docs/products/roadmap/{agent-surface,tool-extension,browser-tab,app-preview}.md`. 비교: `../harness-lab/_report/remote-control/`(README와 `t3code.md`, `paseo.md`, `orca.md`, `happy.md`, `omp.md`).
+상태: **설계안.** 2026-11-08 사람이 방향을 냈고 planner가 대화를 정리했다. 2026-11-14 planner가 지금 코드와 remote 비교를 조사해 설계안을 냈다. 사람이 정할 것 다섯이 남았다(아래 "사람이 정할 것"). 설계안과 추천은 planner의 것이고 결정이 아니다. 계획으로 열기 전에 사람이 정한다.
+배경 문서: `project-docs/architecture/{platform,app-call,terminal-agent,app-notice,event,approval,acp,harness-gui,browser-tab}.md`, `project-docs/products/roadmap/{agent-surface,tool-extension,standalone-core,app-sdk,screen-sync}.md`. 비교: `../harness-lab/_report/remote-control/`(README와 `omp.md`, `t3code.md`, `open-code.md`, `paseo.md`, `happy.md`, `orca.md`, `mixdog.md`).
 browser use(desktop의 browser 탭·앱 preview·기기 emulation)는 계획 `browser-use`가 했다(changelog 0.22.0, `architecture/browser-tab.md`). 실제 폰의 앱을 다루는 것은 이 로드맵에 남는다. 아래 "browser-use와 닿는 곳".
+먼저 할 일: 화면 갱신(`roadmap/screen-sync.md`). 폰 화면을 그 공통 읽기 위에 짓는다.
 
 ## 사람의 말 (원문)
 
@@ -26,7 +26,20 @@ browser use(desktop의 browser 탭·앱 preview·기기 emulation)는 계획 `br
 > 반응형이 그니까 여러 머신에서도 동작하는 그런 걸 포기하고 (대가가 없음 사용자 자신이 쓰는거기 때문에) 생산성과 최적화를 확보하는 그런 느낌인거지
 > 그리고 remote는 단순하게 우리 lophn 이제 터미널이랑 그런 것들을 조작할 수 있게하는 것 뿐만 아니라 앱 간의 통신이나 이벤트 발행이나 그런 것도 가능해야할 듯? core가 server 역할을 할 수도 있는거고 사실 모바일 앱이 서버 역할을 할 수도 있게 되는거기도 하고
 
+2026-11-14:
+
+> mobile 로드맵 읽고 와봐 이제 구체적으로 설계 좀 들어가자
+
+> 그리고 remote에 관려해서는 ../harness-lab/_report/ 에서 리모트 보고서도 참고하고
+
+> 그리고 reactor를 만드는 것도 좋아보여 왜냐하면 이제는 이벤트 발행하고 shell에서 렌더링이 바뀌어야하는 경우가 앞으로 더 늘어날 것 같거든
+> 모바일 앱도 있고, loph도 cli로 이제 더 많은 그런 기능에 대한 접근을 열 생각이라서
+
+마지막 말은 `roadmap/screen-sync.md`가 받는다.
+
 ## 개념
+
+2026-11-08에 정리한 것이다. 그 뒤의 설계는 아래 "설계안"이다.
 
 ```
  사람의 폰                                    사람의 컴퓨터
@@ -64,15 +77,6 @@ browser use(desktop의 browser 탭·앱 preview·기기 emulation)는 계획 `br
 - 전송 보호(TLS나 E2EE)와 기기 인증(token)을 나눈다.
 - push에는 대화 내용을 넣지 않고 상태(질문 대기, 끝남)와 deep link만 넣는다.
 - lophn에 가장 가까운 꼴은 omp다. desktop 앱이 HTTPS·WS listener를 직접 열고, self-signed TLS, QR `#pair=<code>`, 일회용 300초 code를 쓰며 relay가 없다.
-
-## 지금 lophn과 닿는 곳 (문서로 확인한 것)
-
-- core API는 loopback HTTP·WebSocket이다. token은 control socket `connect`로만 받고, control socket은 filesystem 권한이 인증 경계다(`architecture/platform.md` control socket). 폰은 이 길로 붙지 못하므로 remote listener와 기기 인증을 새로 둔다.
-- 일도 client도 없이 10분이 지나면 core가 끝난다(`platform.md` idle-exit). 폰은 꺼진 core를 띄우지 못한다.
-- 앱 화면의 operation은 page가 core를 직접 부르지 않고 shell main이 대신 부른다(아래 "지금 코드"의 앱 화면 hosting). 폰 host는 그 일을 다시 하거나 그 logic이 core로 옮겨져야 한다. 앱 process는 core가 띄우는 Node process다.
-- 터미널은 core가 아니라 shell의 `terminal-host`에 있다(`architecture/terminal-agent.md`). 원격 터미널은 shell이 떠 있을 때만 있고 core에서 shell로 한 번 더 넘겨야 한다.
-- 앱 event는 2026-11-11에 열었다. 저장하지 않고 그 순간 켜져 있는 구독 앱과 열린 앱 화면만 받는다(`architecture/event.md`의 "앱 event"). 화면 쪽 거르기는 shell main이 한다.
-- `PRODUCT.md` "하지 않는 것"에 "원격, 여러 사람용 서비스"가 있다. 이 roadmap은 그 줄과 부딪친다.
 
 ## browser-use와 닿는 곳
 
@@ -140,28 +144,131 @@ client가 둘일 때 부딪치는 곳:
 - **터미널.** Orca는 raw PTY frame과 scrollback snapshot이고 stream마다 seq가 있다. 크기는 마지막에 만진 client가 갖는다(Paseo).
 - **폰 권한.** 넓게 준 쪽(Orca, mixdog, OpenCode)이 보고서의 경고 대상이다. omp는 좁다(고르기, 보내기, 끊기, 답하기).
 
-## 열린 질문 (사람이 고민 중)
+## 설계안 (2026-11-14, planner)
 
-각 질문 끝의 추천은 planner의 것이다.
+사람이 정하지 않았다. 아래 "사람이 정할 것"과 "추천대로 가려는 것"이 정해지면 정한 것으로 옮긴다.
 
-1. **remote 망.** direct(LAN, Tailscale)만 할까, relay를 둘까? 비교 다섯 중 relay가 없는 것은 omp뿐이고 이유는 집 밖 접속이다. relay를 둔다면 Paseo 꼴(desktop이 밖으로 연결을 열고 relay는 내용을 모르는 E2EE)이 가장 싸다. 추천: direct만. 대가는 집 밖에서 Tailscale이 필요한 것.
-2. **push.** native push(APNs·FCM)는 key를 가진 서버가 보낸다. lophn 서버 없이 가려면 Expo Push 같은 바깥 서비스에 기댄다(Paseo). omp의 Web Push는 PWA라서 서버가 없다. 추천: 바깥 push 서비스.
-3. **폰이 server일 때 폰에서 도는 것.**
-   - (가) 폰 기능(위치, 카메라, 알림, 위젯 갱신)만 command로 내놓는다.
-   - (나) 사용자 앱 backend도 폰에서 돌아 desktop 없이도 된다.
-   - 추천: (가). (나)는 폰에 Node를 실어야 하고(nodejs-mobile 등, 판이 늦고 iOS는 JIT 없음) `app.sqlite`, invocation, changeset, rewind를 두 기기에서 맞춰야 한다.
-   - 폰은 연결을 받지 못한다(NAT, iOS background socket 끊김). 그래서 폰이 core로 연결을 열어 두고 그 위로 양쪽 요청이 오간다. 폰이 background면 desktop은 폰을 부르지 못하고, 깨우는 길은 OS가 제한하는 silent push뿐이다.
-4. **앱 event.** 닫힘(2026-11-11). 저장하지 않는 앱 event를 열었다(`architecture/event.md`). 남는 것은 폰에 띄운 앱 화면이 그 event를 받는 길이다.
-5. **폰의 권한.** 비교한 쪽은 대개 거의 전부를 준다(T3 기본 scope, Paseo owner, Orca 넓은 allowlist). 추천: 사람 권한 전부. 단 secret 보기·고치기와 remote 설정(기기 추가·끊기)은 desktop에서만.
-6. **core 깨어 있기.** remote가 켜져 있으면 idle-exit가 core를 끝내지 않게 할까? 추천: 그렇다. PC 잠자기는 OS 설정에 맡긴다.
-7. **`PRODUCT.md` 고치기.** 추천 문구: "여러 사람용 서비스는 하지 않는다. 한 사람이 자기 폰에서 자기 컴퓨터에 붙는 것은 한다."
+### 원칙: 폰은 두 번째 host다
 
-## 순서 (생각)
+지금 core에는 host가 desktop shell 하나다. shell은 core와 세 가지를 한다.
 
-browser-use(desktop: browser 탭, 사용자 앱, preview mobile emulation) → lophn 모바일 앱(remote, host, 위젯) → 모바일 browser-use(실제 폰). 열린 질문이 정해지면 단계로 다시 쓴다.
+1. 사람 자격으로 route를 부르고 event를 받는다(session 목록, 대화, 승인 답하기).
+2. core가 시키는 일을 받아 한다(host queue: 탭 열기, browser 호출).
+3. 앱 화면을 띄운다.
 
-## 하지 않는 것 (지금 기운 것)
+폰도 이 셋을 network 너머에서 똑같이 한다. remote 전용 API를 새로 만들지 않고, host가 core에 붙는 길을 하나 더 연다.
+
+```
+            ┌─────────────── core (원본) ───────────────┐
+            │ route · event · host에 보내는 요청 · 기기 등록 │
+            └───▲─────────────────────────────▲────────┘
+      loopback  │                             │  LAN, Tailscale
+        desktop shell                        폰
+        띄우는 것: 앱 화면                     띄우는 것: 앱 화면, remote 화면
+        내놓는 것: 터미널, browser 탭,         내놓는 것: 위젯, 위치, 카메라
+                  harness GUI
+```
+
+따라 나오는 것:
+
+- **폰이 컴퓨터를 다루는 것**은 1이다. lophn agent의 session, 대화, 승인은 core에 있어 desktop 앱을 꺼도 된다.
+- **폰이 server가 되는 것**은 2다. core(agent, 앱)가 폰이 내놓는 것을 부른다. 비교한 일곱에는 이 방향이 없고 lophn에는 host queue가 있다. host queue는 host가 하나라고 가정하므로 host를 가려 보내게 고친다.
+- **터미널과 harness GUI 대화**는 desktop shell이 내놓는 것을 폰이 core를 거쳐 쓴다. core와 shell main 사이에 stream 길이 새로 든다. desktop 앱이 떠 있어야 된다(창은 닫아도 된다). Quit하면 PTY가 죽는 것은 지금과 같다. 폰이 터미널을 청하는데 shell이 없으면 core가 앱을 띄운다(지금 browser 탭을 열 때 띄우는 길, `architecture/platform.md`의 "core가 shell을 띄운다").
+- **앱 사이 통신과 event**는 이미 core에 있다(앱 command 호출, 앱 event). 폰에 띄운 앱 화면도 같은 길로 받는다.
+
+### remote protocol
+
+- **연결.** 폰이 core로 WebSocket 하나를 건다. 그 위로 넷이 오간다: 폰의 route 호출(지금 route와 dispatch를 그대로 쓰고 실어 나르는 길만 다르다), core의 event(Gateway의 `watch`, `ready`, `event` 그대로), core가 폰에 보내는 요청과 그 답, stream(터미널 bytes, 앱 화면 asset). 누가 연결을 걸었는지와 무관한 양방향 메시지 줄이라 relay를 나중에 더해도 protocol이 같다(Paseo의 꼴).
+- **listener.** remote를 켰을 때만 core가 loopback 밖 listener를 연다. 지금 listener의 loopback 검사(`Host`, `Origin`)는 그대로 둔다.
+- **암호화.** TLS 인증서를 쓰지 않고 연결 안에서 암호화한다. core가 오래 쓰는 key 쌍을 갖고, QR에 공개 key를 실어 폰이 그 key만 믿는다. 폰도 key 쌍을 만들어 등록하고 연결마다 서로의 key로 handshake한다(Noise). bearer token을 두지 않는다. 이유: self-signed TLS는 폰에서 계속 걸리고(omp), 연결 안 암호화는 direct와 relay가 같은 protocol이 된다(Orca).
+- **pairing이 기기 등록이다.** desktop Settings의 기기 화면에서 QR을 띄운다. QR에는 core의 주소 후보(LAN, Tailscale), 공개 key, 1회용 code(128-bit, 300초, 메모리에만 두고 새 code가 옛 code를 무효로 한다)가 든다. 폰이 scan하면 자기 공개 key, 이름, OS, 화면 크기, DPR을 보내고 core가 기기로 등록한다. 틀린 code는 횟수를 제한한다. 기기 목록에서 이름을 바꾸고 끊는다. 끊으면 그 기기의 연결을 바로 닫는다. 폰에서 연결을 지우면 core의 등록도 지운다(Orca는 폰에서만 지워 host에 남는다).
+- **기기 정보가 가는 곳.** 등록된 화면 정보가 설정 `shell.devices`(preview emulation, `--device`)의 자리를 채우고, 앱 agent 지침이 그 기기를 말한다(`sdk-note`의 일).
+- **동기화는 새로 만들지 않는다.** 지금 화면의 약속(구독, `ready`, snapshot, event. 끊기면 처음부터)을 그대로 쓴다(`architecture/event.md` 지키는 것 19~20). 폰이 background에서 돌아오면 다시 구독하고 snapshot을 읽는다. seq와 replay를 더하지 않는다. 쓰기는 이미 있는 멱등 key(`acp/send`의 `key`, command의 `idempotency_key`)로 끊겨도 두 번 가지 않는다. `acp/snapshot`은 paging이 없다. 긴 session에서 폰이 무거우면 그때 나눈다.
+- **권한.** 폰 자격은 actor user이되 부를 수 있는 route를 목록으로 좁힌다(shell main이 renderer에 하는 것과 같다). 목록은 폰 화면이 쓰는 route에서 시작한다. principal을 기기마다 따로 두어 admission 한도를 shell과 나누지 않는다.
+- **판 차이.** 껍데기는 스토어 판이고 화면과 core는 같은 판이다. 연결할 때 protocol 판과 capability를 주고받고 protocol 하한을 둔다(Orca).
+- **폰의 연결 수명.** background로 가면 socket이 끊긴다고 본다. 돌아오면 다시 붙어 처음부터 맞춘다. core에 닿지 않으면 닿지 않는다고 보인다. offline cache는 두지 않는다.
+
+### 폰 앱의 모양
+
+얇은 native 껍데기와 core가 내려주는 web 화면으로 나눈다.
+
+- **껍데기(native):** 연결과 암호화, 기기 key 보관(Keychain, Keystore), QR, push, 위젯, WebView 띄우기, 폰 기능 command.
+- **화면(web):** remote 화면(session 목록, 대화, Inbox)과 사용자 앱. core가 hash로 봉인한 bundle을 내려주고 폰이 hash를 확인해 cache한다(Orca의 꼴). page는 network를 직접 쓰지 못하고 bridge로만 core에 닿으며 기기 key를 보지 못한다.
+- remote 화면은 desktop renderer의 component를 같이 쓴다. `AgentView`는 `AgentTabSource`로 data를 받아 source만 더하면 된다. 화면 갱신은 `roadmap/screen-sync.md`의 공통 읽기를 쓴다.
+- 껍데기 stack의 추천은 Expo(React Native)다. protocol과 암호화 코드를 core와 같은 TypeScript로 쓰고 Node에서 test한다. 비교한 폰 앱 다섯 가운데 넷이 Expo다.
+
+얻는 것: 화면을 고쳐도 폰 앱 빌드와 스토어를 거치지 않는다. 화면과 core가 늘 같은 판이다. 대화 화면을 다시 만들지 않는다.
+잃는 것: scroll, keyboard, gesture의 느낌이 native 화면만 못하다.
+
+### 사용자 앱을 폰에 띄우기
+
+- **`phone` 자리.** 앱 선언의 `screens[].places`에 `phone`을 더한다. 그 자리를 선언한 screen이 있는 앱만 폰에 보인다. 앱 하나가 desktop 화면과 폰 화면을 같이 갖고 backend와 data는 하나다.
+- **등록한 기기에 맞춘다.** 폰 화면은 등록한 기기의 크기와 DPR에 맞춰 그리고 반응형을 만들지 않는다. 앱 agent 지침(`design-app`, SDK guide, template)에 기기와 touch 규칙(누르는 곳 44px 이상, hover에 기대지 않기)을 더한다. UI kit에 touch용 크기 token을 두고 폰 host가 지금 appearance CSS를 넣는 길로 건다.
+- **view binding을 core로 옮긴다.** 지금 shell main이 하는 일(view가 어느 앱과 release인지, 부를 수 있는 operation, event 거르기, release가 바뀌면 다시 bind)을 core가 하고, host는 WebView와 view id를 잇고 bridge 호출을 core로 넘기기만 한다. host 둘이 같은 logic을 따로 들지 않게 한다. page가 다른 앱인 척하지 못하게 하는 것(WebView와 view id 잇기)은 host에 남는다.
+- **bridge.** 폰은 `lophnApp`의 member 가운데 desktop 전용(`commands`, `setTabHead`, `setKeepAlive`)을 뺀 것을 준다.
+- **위젯.** 앱이 SDK로 위젯 내용(정해진 component)을 data로 내고 native가 그린다. 지금 tray 값(`app_tray.set`, `AppTrayChanged`)과 같은 꼴이다.
+- **홈 화면 아이콘.** Android는 pinned shortcut, iOS는 단축어다.
+- **폰 기능.** 앱 backend와 agent가 폰의 기능(위치, 카메라)을 core를 거쳐 부른다. grant를 거친다. 폰이 닿지 않으면 `unavailable`이다. 쓰는 예가 생길 때 기능 하나씩 연다.
+
+### 알림과 push
+
+- core가 push를 보낸다. 계기는 사람을 기다리는 상태로 새로 넘어간 것(승인, 질문, 동의, job hold), 오래 돈 turn의 끝, 앱의 `notify()`다. 글에는 상태와 제목만 넣고 대화 내용을 넣지 않는다. 누르면 그 session이나 앱으로 간다.
+- 누구에게 알릴지는 core가 host들의 보고로 정한다. host가 "사람이 무엇을 보고 있다"를 core에 알리고, 보고 있는 host가 있으면 push를 보내지 않는다. desktop의 toast와 OS 알림을 가르는 것은 지금처럼 shell의 정책이다.
+- `unseen` 점을 core로 옮긴다. 폰에서 읽으면 desktop의 점도 꺼진다.
+
+## 단계
+
+화면 갱신(`roadmap/screen-sync.md`)이 먼저다. 단계 1과 나란히 갈 수 있다.
+
+1. core: 기기 등록, pairing, 폰 연결(암호화, route 목록), Settings의 기기 화면. 폰 없이 Node client로 확인한다.
+2. 폰 껍데기와 remote 화면: lophn agent의 session 목록, 대화, 승인과 질문 답하기. desktop 앱 없이 된다.
+3. push와 알림 정하기(host의 보고, `unseen`).
+4. coding agent: 터미널과 harness GUI 대화를 폰에서 다룬다(core와 shell main 사이 stream, 터미널 입력과 크기의 주인).
+5. 사용자 앱을 폰에 띄운다(`phone` 자리, view binding, 기기 지침, touch token).
+6. 위젯, 홈 화면 아이콘, 폰 기능 command.
+7. 실제 폰의 browser-use.
+
+4와 5의 순서는 사람이 정한다(아래 5).
+
+## 사람이 정할 것
+
+1. **원칙.** "폰은 두 번째 host다"로 가나. 터미널을 shell에 둔 채 core가 잇는 것까지 포함이다. 다른 안: terminal-host를 core 밑으로 옮겨 Quit 뒤에도 PTY를 살린다. mobile과 따로 정할 수 있는 큰 구조 변경이다.
+2. **폰 기종.** 먼저 맞출 기기가 iPhone인가 Android인가. iPhone은 빌드에 Mac이나 cloud 빌드가 필요하고 push에 유료 Apple Developer 계정(연 $99)이 필요하다. Android는 Linux에서 바로 빌드하고 push가 무료다.
+3. **폰 앱의 모양.** 추천: 얇은 껍데기(Expo)와 core가 내려주는 web 화면. 다른 안: 화면까지 RN native로 만든다(느낌이 좋지만 대화 화면을 다시 만들고 화면을 고칠 때마다 폰 앱을 빌드한다). native 앱 없이 폰 browser만 쓴다(위젯, 폰 기능, 앱 host가 안 된다).
+4. **망과 push.** 추천: 망은 direct만(집 LAN과 Tailscale), push는 Expo Push. 잃는 것: 집 밖에서는 Tailscale이 필요하다. push는 Expo에 기대고 Expo가 알림 글(상태와 제목)을 본다. 다른 안: relay를 둔다(Paseo 꼴의 상태 없는 전달자라도 lophn이 서버를 돌린다). 자기 push gateway를 돌린다. push를 두지 않는다.
+5. **순서.** 단계 4(coding agent)와 5(사용자 앱) 가운데 무엇이 먼저인가. 추천: 4. 사람이 "주로 remote"라고 했고, 5는 SDK 선언과 앱 agent 지침이 같이 바뀌는 더 큰 일이다.
+
+## 추천대로 가려는 것
+
+사람이 반대하지 않으면 계획을 열 때 정한 것으로 옮긴다. 괄호는 2026-11-08의 열린 질문 번호다.
+
+- **폰이 server일 때 폰에서 도는 것(3).** 폰 기능만 command로 내놓는다. 사용자 앱 backend는 컴퓨터에서만 돈다. 폰에 Node를 싣고 `app.sqlite`, invocation, changeset, rewind를 두 기기에서 맞추는 것은 하지 않는다. 폰은 연결을 받지 못하므로(NAT, iOS background socket 끊김) 폰이 core로 연 연결 위로 양쪽 요청이 오간다. 폰이 background면 core는 폰을 부르지 못한다.
+- **앱 event(4).** 닫힘(2026-11-11). 저장하지 않는 앱 event를 열었다(`architecture/event.md`). 폰에 띄운 앱 화면은 view binding을 core로 옮기면 같은 길로 받는다.
+- **폰의 권한(5).** 폰은 일하는 창이다: 보기, 말하기, 답하기(승인, 질문, 동의), 앱 쓰기. 관리(secret, provider 설정, 기기 추가와 끊기, 앱 지우기)는 desktop에서만 한다. secret 넣기는 지금도 shell의 보호 입력 창만 한다(`architecture/approval.md`의 사람 결정 handle).
+- **core 깨어 있기(6).** 등록된 기기가 있으면 idle-exit로 끝나지 않는다. 폰은 꺼진 core를 띄우지 못하기 때문이다. 로그인 때 core를 띄우는 것은 지금 autostart가 한다. PC 잠자기는 OS 설정에 맡긴다.
+- **`PRODUCT.md`(7).** "원격, 여러 사람용 서비스"를 "여러 사람용 서비스는 하지 않는다. 한 사람이 자기 폰에서 자기 컴퓨터에 붙는 것은 한다."로 고친다.
+- **폰용 앱 화면.** `phone` 자리를 선언한 앱만 폰에 보인다. 지금 `tab` screen을 좁게 보이는 길은 두지 않는다.
+
+## 하지 않는 것
 
 - 사용자 앱을 native app으로 빌드하기(Xcode, 서명, 스토어).
 - 사용자 앱의 반응형, 등록하지 않은 기기 지원.
 - 여러 사람이 쓰는 서비스, 다른 사람과 session 공유.
+- 폰에서 사용자 앱 backend 돌리기, core에 닿지 않을 때 쓰기.
+- event의 seq와 replay.
+- 폰에서 secret 넣기와 기기 관리.
+- terminal-host를 core 밑으로 옮기기. 따로 정한다.
+- PC를 깨우거나 잠자지 않게 하기.
+
+## 같이 고칠 문서
+
+- `PRODUCT.md` 5절 "하지 않는 것".
+- `architecture/platform.md`: 비목표 "원격 머신이나 다른 OS 사용자가 core에 붙는 길", listener, idle-exit.
+- `architecture/event.md`: Gateway가 받는 principal.
+- `architecture/approval.md`: 폰 자격과 사람의 결정.
+- `architecture/app-call.md`, `workspace-layout.md`: view binding.
+- `architecture/app-notice.md`, `terminal-agent.md`: 알림 정하기, `unseen`.
+- `architecture/terminal-agent.md`, `harness-gui.md`: core와 shell main 사이 stream, 터미널 입력과 크기의 주인.
+- `architecture/browser-tab.md`: 기기 등록과 `shell.devices`.
+- SDK guide, `design-app`, 앱 template: `phone` 자리와 기기 지침(`sdk-note`).
+- `boundary-catalog.yaml`, `module-catalog.yaml`: remote 연결과 기기 등록의 경계.

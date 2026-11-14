@@ -1,6 +1,7 @@
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
-import { AppState, StyleSheet, Text, View } from "react-native";
+import { AppState, Button, StyleSheet, Text, View } from "react-native";
+import { forgetBundles } from "./src/bundle/files.ts";
 import {
   type Connection,
   type ConnectionState,
@@ -16,6 +17,7 @@ import {
   saveComputers,
 } from "./src/pairing/store.ts";
 import type { KeyPair } from "./src/remote.ts";
+import { RemoteScreen } from "./src/remote/remote-screen.tsx";
 import { ComputersScreen } from "./src/screens/computers-screen.tsx";
 import { PairScreen } from "./src/screens/pair-screen.tsx";
 
@@ -31,6 +33,9 @@ export default function App() {
   const [computers, setComputers] = useState<Computer[]>();
   const [states, setStates] = useState<Record<string, ConnectionState>>({});
   const [pairing, setPairing] = useState(false);
+  const [managing, setManaging] = useState(false);
+  // Key of the computer whose remote screen is open; the first paired one until the person picks another.
+  const [open, setOpen] = useState<string>();
   const connections = useRef(new Map<string, Connection>());
 
   useEffect(() => {
@@ -104,6 +109,7 @@ export default function App() {
     );
   }
 
+  const shown = computers.find((c) => c.key === open) ?? computers[0];
   return (
     <View style={styles.container}>
       {pairing || computers.length === 0 ? (
@@ -124,17 +130,33 @@ export default function App() {
               computer,
             ]);
             setPairing(false);
+            setManaging(false);
+            setOpen(computer.key);
             return undefined;
           }}
         />
+      ) : managing || !shown ? (
+        <>
+          <ComputersScreen
+            computers={computers}
+            states={states}
+            onAdd={() => setPairing(true)}
+            onRemove={(computer) => {
+              forgetBundles(computer.key);
+              update(computers.filter((c) => c.key !== computer.key));
+            }}
+          />
+          {shown && <Button title="Back" onPress={() => setManaging(false)} />}
+        </>
       ) : (
-        <ComputersScreen
+        <RemoteScreen
+          key={shown.key}
+          computer={shown}
           computers={computers}
-          states={states}
-          onAdd={() => setPairing(true)}
-          onRemove={(computer) =>
-            update(computers.filter((c) => c.key !== computer.key))
-          }
+          connection={connections.current.get(shown.key)}
+          state={states[shown.key]}
+          onOpen={(computer) => setOpen(computer.key)}
+          onManage={() => setManaging(true)}
         />
       )}
       <StatusBar style="auto" />

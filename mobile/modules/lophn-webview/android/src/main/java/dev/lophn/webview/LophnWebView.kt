@@ -8,6 +8,7 @@ import android.webkit.ConsoleMessage
 import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
 import android.webkit.RenderProcessGoneDetail
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -63,6 +64,22 @@ class LophnWebView(context: Context, appContext: AppContext) : ExpoView(context,
       }
 
       override fun onPermissionRequest(request: PermissionRequest) = request.deny()
+
+      // `<input type=file>` (photo attach in the conversation). The system picker hands the page only what the person picks.
+      override fun onShowFileChooser(
+        view: WebView,
+        callback: ValueCallback<Array<Uri>>,
+        params: WebChromeClient.FileChooserParams,
+      ): Boolean {
+        val module = appContext.registry.getModule<LophnWebViewModule>()
+        val activity = appContext.currentActivity
+        if (module == null || activity == null) return false
+        module.chooser?.onReceiveValue(null)
+        module.chooser = callback
+        return runCatching { activity.startActivityForResult(params.createIntent(), LophnWebViewModule.CHOOSE_FILE) }
+          .onFailure { module.chooser = null }
+          .isSuccess
+      }
 
       override fun onGeolocationPermissionsShowPrompt(origin: String, callback: GeolocationPermissions.Callback) =
         callback.invoke(origin, false, false)

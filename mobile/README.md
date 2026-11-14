@@ -45,9 +45,28 @@ adb -s emulator-5554 emu kill                                     # 끝낼 때
 - emulator에서 pairing: 붙여 넣기 칸을 누르고 `adb -s <emulator> shell "input text '<pairing/start JSON에서 expires_at을 뺀 것>'"`. emulator에는 camera 장면이 없다.
 - `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS`(dev build에서만): Metro를 띄울 때 주면 이 주소를 QR의 주소들과 같이 걸어 먼저 붙는 것을 쓴다. 저장하지는 않는다. emulator는 이 machine에 `10.0.2.2`로 닿는데 QR에는 LAN 주소가 들기 때문이다. 예: `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS=10.0.2.2 npx expo start --dev-client --port 8199`.
 
-## WebView
+## 연결
 
-component는 `src/webview/LophnWebView.tsx`이고 native view는 `modules/lophn-webview`에 있다. origin은 `https://remote.lophn.invalid/`이고 `root` 폴더의 file만 내주며, CSP는 `connect-src 'none'`이다. 손으로 보는 test page는 `src/webview/test-page/`에 있고 APK에 들지 않는다. 보려면 `adb shell run-as dev.lophn.mobile`로 `/data/data/dev.lophn.mobile/files/<dir>`에 복사하고 그 path를 `root`로 넘긴다.
+`src/connection/connection.ts`가 컴퓨터마다 연결 하나를 연다(`createConnection`). QR의 주소를 같이 걸어 먼저 handshake가 서는 것을 쓰고, 끊기면 backoff로 다시 붙고, 앱이 앞으로 오면 바로 붙거나 열린 연결을 `watch`로 확인한다. 붙을 때마다 마지막 `watch`를 다시 보낸다. 모양은 desktop의 `CoreSource`(상태 `starting`·`ready`·`stale`)다.
+
+## remote 화면
+
+컴퓨터 목록 대신 고른 컴퓨터(처음엔 첫 컴퓨터)의 remote 화면이 열린다. 위의 얇은 native 줄로 컴퓨터를 바꾸거나 목록(`Computers`)으로 간다.
+
+- **bundle cache**(`src/bundle/`): 연결이 `ready`가 될 때마다 `remote_ui/manifest`를 읽는다. 그 hash의 폴더가 없으면 file을 하나씩 `remote_ui/file`(base64)로 받아 `staging/`에 쓰고 hash를 확인한 뒤, 다 맞으면 `staging/`을 hash 이름으로 바꾼다. 하나라도 틀리면 그 bundle은 버린다. 자리는 앱 file 폴더의 `remote-ui/<컴퓨터 key>/`이고, `current`가 화면에 띄우는 bundle을 적는다. 새 bundle이 확인되면 바꿔 띄우고 옛 bundle은 하나만 남긴다. 컴퓨터를 지우면 그 폴더도 지운다.
+- **닿지 않을 때**: 마지막 bundle을 띄운 채 page가 연결 상태(`stale`)를 보인다. bundle이 하나도 없으면 native 화면이 "Cannot reach this computer."를 보인다.
+- **WebView**(`src/webview/`, native view는 `modules/lophn-webview`): origin `https://remote.lophn.invalid/`, 지금 bundle 폴더의 file만 내주고 다른 요청은 막는다. CSP는 `connect-src 'none'`이다. page의 `<input type=file>`은 Android의 file 고르기를 연다(대화의 사진 붙이기).
+- **bridge**(`src/webview/bridge.ts`, `src/remote/link.ts`): native view가 page에 `globalThis.lophnRemote`(`CoreSource` 모양)를 넣는다. page가 보내는 `call`·`watch`를 연결로 넘기고, 답과 event, 연결 상태를 page로 보낸다. native는 page가 처음 보낸 message(document 시작 때의 `state`) 뒤에야 page에 보낼 수 있어서, 상태와 event는 그 `state` 요청부터 흘린다. upload bytes와 file 답은 base64로 오간다.
+
+손으로 보는 test page는 `src/webview/test-page/`에 있고 APK에 들지 않는다. 보려면 `adb shell run-as dev.lophn.mobile`로 `/data/data/dev.lophn.mobile/files/<dir>`에 복사하고 그 path를 `root`로 넘긴다.
+
+### emulator에서 remote 화면 띄우기
+
+1. 저장소 root에서 `node packages/shell/renderer/build.ts`로 `dist/remote`를 만들고 개발 core(`npm run dev:core`)를 띄운다.
+2. core에서 `remote.enabled`를 켜고 `pairing/start`의 JSON을 받는다(`tools/remote-dev.ts`가 하는 것과 같다).
+3. `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS=10.0.2.2`로 Metro를 띄우고 위 "pairing"대로 붙인다. 붙으면 bundle을 받아 remote 화면이 열린다.
+
+같은 화면을 폰 없이 browser로 보려면 `npm run dev:remote`(저장소 root)를 쓴다.
 
 ## 정해 둔 것
 

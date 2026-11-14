@@ -1,6 +1,6 @@
 # mobile: lophn 모바일 앱과 사용자의 모바일 앱
 
-상태: **설계안.** 2026-11-08 사람이 방향을 냈고 planner가 대화를 정리했다. 2026-11-14 planner가 지금 코드와 remote 비교를 조사해 설계안을 냈다. 사람이 정할 것 다섯이 남았다(아래 "사람이 정할 것"). 설계안과 추천은 planner의 것이고 결정이 아니다. 계획으로 열기 전에 사람이 정한다.
+상태: **설계안.** 2026-11-08 사람이 방향을 냈고 planner가 대화를 정리했다. 2026-11-14 planner가 지금 코드와 remote 비교를 조사해 설계안을 냈다. 사람이 정할 것 넷이 남았다(아래 "사람이 정할 것"). 설계안과 추천은 planner의 것이고 결정이 아니다. 계획으로 열기 전에 사람이 정한다.
 배경 문서: `project-docs/architecture/{platform,app-call,terminal-agent,app-notice,event,approval,acp,harness-gui,browser-tab}.md`, `project-docs/products/roadmap/{agent-surface,tool-extension,standalone-core,app-sdk,screen-sync}.md`. 비교: `../harness-lab/_report/remote-control/`(README와 `omp.md`, `t3code.md`, `open-code.md`, `paseo.md`, `happy.md`, `orca.md`, `mixdog.md`).
 browser use(desktop의 browser 탭·앱 preview·기기 emulation)는 계획 `browser-use`가 했다(changelog 0.22.0, `architecture/browser-tab.md`). 실제 폰의 앱을 다루는 것은 이 로드맵에 남는다. 아래 "browser-use와 닿는 곳".
 먼저 할 일: 화면 갱신(`roadmap/screen-sync.md`). 폰 화면을 그 공통 읽기 위에 짓는다.
@@ -233,7 +233,7 @@ client가 둘일 때 부딪치는 곳:
 ## 사람이 정할 것
 
 1. **원칙.** "폰은 두 번째 host다"로 가나. 터미널을 shell에 둔 채 core가 잇는 것까지 포함이다. 다른 안: terminal-host를 core 밑으로 옮겨 Quit 뒤에도 PTY를 살린다. mobile과 따로 정할 수 있는 큰 구조 변경이다.
-2. **폰 기종.** 먼저 맞출 기기가 iPhone인가 Android인가. iPhone은 빌드에 Mac이나 cloud 빌드가 필요하고 push에 유료 Apple Developer 계정(연 $99)이 필요하다. Android는 Linux에서 바로 빌드하고 push가 무료다.
+2. **폰 기종.** 정할 것이 아니다. 쓰는 사람마다 폰이 달라 iOS와 Android를 둘 다 낸다(Expo 하나로 짓는다). 개발은 Linux에서 바로 빌드되는 Android로 먼저 확인한다. iOS는 빌드에 Mac이나 cloud 빌드가, push와 배포에 Apple Developer 계정(연 $99)이 든다. 이 비용은 lophn 쪽이 지고 쓰는 사람이 지지 않는다.
 3. **폰 앱의 모양.** 추천: 얇은 껍데기(Expo)와 core가 내려주는 web 화면. 다른 안: 화면까지 RN native로 만든다(느낌이 좋지만 대화 화면을 다시 만들고 화면을 고칠 때마다 폰 앱을 빌드한다). native 앱 없이 폰 browser만 쓴다(위젯, 폰 기능, 앱 host가 안 된다).
 4. **망과 push.** 추천: 망은 direct만(집 LAN과 Tailscale), push는 Expo Push. 잃는 것: 집 밖에서는 Tailscale이 필요하다. push는 Expo에 기대고 Expo가 알림 글(상태와 제목)을 본다. 다른 안: relay를 둔다(Paseo 꼴의 상태 없는 전달자라도 lophn이 서버를 돌린다). 자기 push gateway를 돌린다. push를 두지 않는다.
 5. **순서.** 단계 4(coding agent)와 5(사용자 앱) 가운데 무엇이 먼저인가. 추천: 4. 사람이 "주로 remote"라고 했고, 5는 SDK 선언과 앱 agent 지침이 같이 바뀌는 더 큰 일이다.

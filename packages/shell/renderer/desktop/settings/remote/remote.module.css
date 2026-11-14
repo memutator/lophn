@@ -1,0 +1,6 @@
+/* pairing code의 QR. 줄 안에서 남은 시간과 안내 위에 선다. */
+.qr {
+  width: var(--layout-container-card);
+  height: var(--layout-container-card);
+  border-radius: var(--radius-md);
+}

@@ -12,6 +12,7 @@ import { fakeDiagnostics } from "../settings/diagnostics/testdata/fake-source.ts
 import { fakeAppearance } from "../settings/appearance/testdata/fake-source.ts";
 import { fakeBrowserSettings } from "../settings/browser/testdata/fake-source.ts";
 import { fakeKeyboard } from "../settings/keyboard/testdata/fake-source.ts";
+import { fakeRemote } from "../settings/remote/testdata/fake-source.ts";
 import {
   fakeShellRules,
   SAMPLE_SHELL_RULES,
@@ -48,6 +49,7 @@ export function mockSettingsPanels(): SettingsPanels {
     coding: fakeConnections().source,
     browser: fakeBrowserSettings().source,
     keyboard: fakeKeyboard().source,
+    remote: fakeRemote().source,
   };
 }
 

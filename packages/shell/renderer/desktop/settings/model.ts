@@ -12,6 +12,7 @@ export type SettingsPane =
   | "general"
   | "appearance"
   | "browser"
+  | "remote"
   | "keyboard"
   | "quick-launch"
   | "providers"
@@ -57,6 +58,11 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
         id: "browser",
         label: "settings.label.tab-browser",
         icon: settingsIcons.browser,
+      },
+      {
+        id: "remote",
+        label: "settings.label.tab-remote",
+        icon: settingsIcons.remote,
       },
       {
         id: "keyboard",

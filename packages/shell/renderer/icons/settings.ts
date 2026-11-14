@@ -9,6 +9,7 @@ import {
   Rocket,
   ShieldCheck,
   SlidersHorizontal,
+  Smartphone,
   SquareTerminal,
   Wrench,
 } from "lucide-react";
@@ -18,6 +19,7 @@ export const settingsIcons = {
   general: SlidersHorizontal,
   appearance: Palette,
   browser: Globe,
+  remote: Smartphone,
   keyboard: Keyboard,
   quickLaunch: Rocket,
   providers: Plug,

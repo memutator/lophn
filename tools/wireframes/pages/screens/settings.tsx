@@ -37,6 +37,10 @@ import {
   SettingsDiagnostics,
   SettingsGeneral,
   SettingsKeyboard,
+  SettingsRemote,
+  SettingsRemoteOff,
+  SettingsRemotePairing,
+  SettingsRemoteRevoke,
   SettingsKeyboardApps,
   SettingsKeyboardChanged,
   SettingsKeyboardConflicts,
@@ -223,6 +227,34 @@ export const settingsArea: Area = {
       description:
         "browser 탭의 Bookmarks 목록과 Browsing data 구역이다. [Clear browsing data]는 모든 browser 탭이 같이 쓰는 로그인과 site data, cache를 지운다.",
       render: () => <SettingsBrowser />,
+    },
+    {
+      id: "settings-remote",
+      title: "Settings · Remote",
+      description:
+        "폰 연결을 켜는 Switch와 Add a phone, Phones 구역이다. 폰마다 OS와 마지막 연결, 기준 표시와 [Rename]·[Make primary]·[Unpair]가 있다.",
+      render: () => <SettingsRemote />,
+    },
+    {
+      id: "settings-remote-off",
+      title: "Settings · Remote · off",
+      description:
+        "폰 연결이 꺼진 상태다. QR과 폰 목록 대신 켜라는 안내 한 줄만 있다.",
+      render: () => <SettingsRemoteOff />,
+    },
+    {
+      id: "settings-remote-pairing",
+      title: "Settings · Remote · pairing",
+      description:
+        "[Add phone]을 눌러 QR이 열렸다. 남은 시간(5분에서 줄어든다)과 [New code]가 있고, 새 폰이 pairing되면 QR이 닫히고 목록에 선다.",
+      render: () => <SettingsRemotePairing />,
+    },
+    {
+      id: "settings-remote-revoke",
+      title: "Settings · Remote · unpair",
+      description:
+        "[Unpair]를 눌러 확인 dialog가 열렸다. 끊은 폰은 새 code로 다시 pairing해야 붙는다.",
+      render: () => <SettingsRemoteRevoke />,
     },
     {
       id: "settings-keyboard",

@@ -313,3 +313,25 @@ export const SettingsExtensionRemove = () => (
     ]}
   />
 );
+
+/** Settings › Remote: 폰 연결이 켜져 있고 폰 둘(iPhone 16은 기준)이 pairing되어 있다. */
+export const SettingsRemote = () => <SettingsFrame pane="remote" />;
+
+/** Settings › Remote: 폰 연결이 꺼져 있어 QR과 목록 대신 안내 한 줄만 있다. */
+export const SettingsRemoteOff = () => (
+  <SettingsFrame pane="remote" remote={{ enabled: false }} />
+);
+
+/** Settings › Remote: [Add phone]을 눌러 QR과 남은 시간, [New code]가 보인다. */
+export const SettingsRemotePairing = () => (
+  <SettingsFrame
+    pane="remote"
+    remote={{ devices: [] }}
+    steps={[() => click("[data-remote-pair]")]}
+  />
+);
+
+/** Settings › Remote: Pixel 9의 [Unpair]를 눌러 확인 dialog가 열렸다. */
+export const SettingsRemoteRevoke = () => (
+  <SettingsFrame pane="remote" steps={[() => click("[data-remote-revoke]")]} />
+);

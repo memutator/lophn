@@ -160,6 +160,11 @@ export const workspaceSettings = {
   "settings.button.key-take": "Replace",
   "settings.button.key-search-by-key": "Search by pressing keys",
   "settings.button.keys-reset-all": "Reset all shortcuts",
+  "settings.button.remote-make-primary": "Make primary",
+  "settings.button.remote-new-code": "New code",
+  "settings.button.remote-pair": "Add phone",
+  "settings.button.remote-rename": "Rename",
+  "settings.button.remote-revoke": "Unpair",
   "settings.button.remove-entry": "Remove {item}",
   "settings.button.reset-default": "Reset to default",
   "settings.button.revoke": "Revoke",
@@ -200,6 +205,12 @@ export const workspaceSettings = {
   "settings.error.key-reserved":
     "lophn or your OS already uses this key for something else.",
   "settings.error.key-unsupported": "That key can't be used for a shortcut.",
+  "settings.error.remote-device-failed":
+    "Could not change the phone. Try again.",
+  "settings.error.remote-devices-failed": "Could not read paired phones.",
+  "settings.error.remote-load-failed":
+    "Could not read the phone connection setting.",
+  "settings.error.remote-pair-failed": "Could not make a pairing code.",
   "settings.error.value-invalid":
     "That value isn't accepted. Nothing was saved, and the setting keeps its value.",
   "settings.error.value-not-saved":
@@ -226,6 +237,8 @@ export const workspaceSettings = {
   "settings.heading.quick-buttons": "Buttons",
   "settings.heading.quick-sidebar-panels": "Sidebar panels",
   "settings.heading.quick-tray": "Tray",
+  "settings.heading.remote-devices": "Phones",
+  "settings.heading.remote-pair": "Add a phone",
   "settings.heading.shell-rules-built-in": "Built in",
   "settings.heading.shell-rules-project": "Project: {name}",
   "settings.heading.shell-rules-global": "Global",
@@ -243,6 +256,8 @@ export const workspaceSettings = {
     "Shortcuts for tabs, the split, and the sidebar. Changes apply on this computer's system only, as soon as you press the new key.",
   "settings.intro.quick-launch":
     "The buttons at the bottom of the left sidebar. Hover Terminal, Browser or App to open a favorite coding agent, a bookmark or an app panel directly. A project can keep its own buttons in Project settings.",
+  "settings.intro.remote":
+    "Use lophn from your phone. The phone connects to this computer over your local network.",
   "settings.intro.shell-rules":
     "Before lophn runs a command for an agent, it checks these rules. Deny blocks the command, Ask waits for your answer, and Allow lets it run. The last matching rule wins, and project rules come after global rules. A command that matches no rule runs. In a pattern, * matches any text.",
   "settings.label.accent": "Accent",
@@ -261,9 +276,32 @@ export const workspaceSettings = {
   "settings.label.mode-light": "Light",
   "settings.label.mode-system": "System",
   "settings.label.open-themes-folder": "Open folder",
+  "settings.label.remote-device-name": "Name",
+  "settings.label.remote-enabled": "Allow phone connections",
+  "settings.label.remote-expires": "Code expires in {time}",
+  "settings.label.remote-last-connected": "Last connected {time}",
+  "settings.label.remote-never-connected": "Never connected",
+  "settings.label.remote-primary": "Primary",
+  "settings.label.remote-qr": "Pairing code",
+  "settings.label.tab-remote": "Remote",
   "settings.label.theme-file": "{name} (file)",
   "settings.label.theme-not-found": "{name} (not found)",
   "settings.label.themes-folder": "Themes folder",
+  "settings.note.remote-enabled":
+    "While on, lophn listens for paired phones on every network interface and keeps running when idle.",
+  "settings.note.remote-pair":
+    "Show a code and scan it with the lophn phone app.",
+  "settings.note.remote-revoke":
+    "{name} disconnects now. To use it again, pair it with a new code.",
+  "settings.note.remote-scan":
+    "Scan this code with the lophn phone app. The phone must be on the same network as this computer. A new code replaces this one.",
+  "settings.notice.remote-devices-empty": "No phones paired yet.",
+  "settings.notice.remote-expired":
+    "This code expired. Make a new code to pair a phone.",
+  "settings.notice.remote-off":
+    "Turn on phone connections to pair a phone and see paired phones.",
+  "settings.notice.remote-paired": "{name} is paired.",
+  "settings.notice.remote-starting": "Starting phone connections…",
   "settings.reason.theme-bad_id":
     "the file name can only use lowercase letters, digits, and -.",
   "settings.reason.theme-bad_shape":
@@ -691,5 +729,6 @@ export const workspaceSettings = {
     "This deletes the files {name} wrote on this computer. Files you put in its folder stay.",
   "settings.title.extension-remove": "Remove {name}?",
   "settings.title.not-set": "{name} is not set",
+  "settings.title.remote-revoke": "Unpair {name}?",
   "settings.title.screen": "Settings",
 } as const;

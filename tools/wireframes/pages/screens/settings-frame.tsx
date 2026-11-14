@@ -22,6 +22,8 @@ import type {
   LinkValues,
   LoginRow,
 } from "../../../../packages/shell/renderer/desktop/settings/browser/source.ts";
+import { fakeRemote } from "../../../../packages/shell/renderer/desktop/settings/remote/testdata/fake-source.ts";
+import type { RemoteDevice } from "../../../../packages/shell/renderer/desktop/settings/remote/source.ts";
 import { fakeKeyboard } from "../../../../packages/shell/renderer/desktop/settings/keyboard/testdata/fake-source.ts";
 import type { StoredKeybindings } from "../../../../packages/shell/renderer/desktop/settings/keyboard/source.ts";
 import { CUSTOM_PROVIDER } from "../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
@@ -50,6 +52,11 @@ interface SettingsFrameProps {
     /** Logins 구역의 login. 안 쓰면 비어 있다. */
     readonly logins?: LoginRow[];
   };
+  /** Remote 항목. 안 쓰면 켜져 있고 폰 둘이 pairing되어 있다. */
+  readonly remote?: {
+    readonly enabled?: boolean;
+    readonly devices?: RemoteDevice[];
+  };
   /** Keyboard 항목의 저장된 키. 안 쓰면 바꾼 키가 없다. */
   readonly keyboard?: StoredKeybindings;
   /** Extensions 항목에 가짜 `lophnExtensions` 통로와 `extensions.<id>.enabled` 선언을 끼운다. */
@@ -71,6 +78,7 @@ export function SettingsFrame({
   browser,
   customList,
   keyboard,
+  remote,
   extensions = false,
   steps = [],
 }: SettingsFrameProps = {}) {
@@ -104,6 +112,7 @@ export function SettingsFrame({
       ...(keyboard === undefined
         ? {}
         : { keyboard: fakeKeyboard({ value: keyboard }).source }),
+      ...(remote === undefined ? {} : { remote: fakeRemote(remote).source }),
       // 같은 id의 custom provider를 두 fake가 알아야 연결 뒤 목록 읽기가 그 provider를 찾는다.
       ...(customList === undefined
         ? {}
@@ -129,6 +138,7 @@ export function SettingsFrame({
       browser,
       customList,
       keyboard,
+      remote,
     ],
   );
   useDrive(() => runSteps(steps));

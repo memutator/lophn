@@ -1,5 +1,5 @@
 id: overlay-max-height-resize-loop
-version: 0.23.54
+version: 0.23.55
 title: 화면 밖으로 넘치는 menu·popover·select가 소수 배율 화면에서 매 frame 다시 재던 loop를 멈춘다
 modules: [packages/design, tools]
 change: |

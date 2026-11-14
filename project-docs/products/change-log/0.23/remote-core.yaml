@@ -1,5 +1,5 @@
 id: remote-core
-version: 0.23.54
+version: 0.23.55
 title: pairing한 폰이 암호화된 연결 하나로 core에 붙어 대화와 Inbox route를 부르고 event를 받는다
 modules: [packages/protocol, packages/core/remote, packages/core/main, packages/core/server, packages/core/config, packages/shell/main, packages/shell/renderer, packages/design, tools]
 change: |

@@ -14,7 +14,7 @@ export const remote = {
   "remote.label.tabs": "Screens",
   "remote.label.untitled": "Untitled session",
   "remote.label.waiting-count": "{count} waiting",
-  "remote.notice.chat-pending": "The conversation view is not ready yet.",
+  "remote.notice.input-request-on-computer": "Enter this on your computer.",
   "remote.notice.no-bridge": "Open this screen in the lophn phone app.",
   "remote.notice.no-sessions": "No open sessions.",
   "remote.notice.pair":

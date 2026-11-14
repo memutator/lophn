@@ -171,7 +171,7 @@ export const remoteArea: Area = {
       id: "remote-chat",
       title: "Remote · conversation",
       description:
-        "목록에서 session을 누르면 대화로 들어간다. 머리에 뒤로 단추, 제목, agent 이름이 있고 아래 탭은 숨는다. 본문은 대화 component가 채울 자리다.",
+        "목록에서 session을 누르면 대화로 들어간다. desktop Agent 화면을 폰 host로 그리고 아래 탭은 숨는다. 머리 줄은 뒤로 단추, agent, session 제목(switcher)과 보기 상세·⋯ menu다. 끌어 놓기, 찾기 줄, thread index, 단축키 안내, mode 단추는 없고 [+]는 사진을 고른다. gallery의 fake는 목록의 session id를 몰라 그 agent의 새 session으로 열린다.",
       render: () => <Phone steps={[() => click("[data-session]")]} />,
     },
   ],

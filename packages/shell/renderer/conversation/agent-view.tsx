@@ -155,6 +155,8 @@ interface AgentViewProps {
   onSessionTitle?: (title: string | null) => void;
   /** header 오른쪽 끝(Compact 우측)에 놓을 조각. */
   trailing?: ReactNode;
+  /** header 왼쪽 끝(agent 이름 앞)에 놓을 조각. phone의 뒤로 단추다. card 머리 줄에는 올리지 않는다. */
+  leading?: ReactNode;
   /** header ⋯ menu 끝에 더할 항목(터미널 탭의 "Open in terminal"). */
   extraMenu?: {
     readonly items: readonly MenuItem[];
@@ -891,6 +893,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   );
   const queued = thread?.queued ?? [];
   const modeReady =
+    !props.phone &&
     session !== null &&
     !readOnly &&
     caps.mode &&
@@ -1166,6 +1169,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         }}
         onChanged={() => void refresh()}
         trailing={props.trailing}
+        leading={props.leading}
         capabilities={caps}
         title={meta?.title ?? null}
         child={childId === null ? null : { info: childInfo, now }}
@@ -1505,11 +1509,11 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             keys={keys}
             focusSignal={focusSignal}
             source={source}
-            meta={
-              meta === null || host.openAgentSettings !== undefined
-                ? meta
-                : withoutSettingsCommands(meta)
-            }
+            meta={withoutCommands(
+              meta,
+              host.openAgentSettings === undefined,
+              props.phone === true,
+            )}
             capabilities={caps}
             history={history}
             onChooseModel={async (model, options) => {
@@ -1542,6 +1546,8 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             permissionSummary={agent.permissionSummary}
             permissions={permissions}
             mode={
+              // phone은 mode를 바꾸지 않는다: Skip은 묻지 않고 돌게 하는 일이라 기기에 허락하지 않는다.
+              props.phone ||
               session === null ||
               readOnly ||
               !caps.mode ||
@@ -1622,12 +1628,22 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   );
 }
 
-/** Settings › Agents로 가는 길이 없는 창은 `/skills`·`/mcp`를 `/` 창에 보이지 않는다. */
-function withoutSettingsCommands(meta: AcpSessionMeta): AcpSessionMeta {
+/**
+ * 이 창에서 열 수 없는 명령을 `/` 창에 보이지 않는다. Settings › Agents로 가는 길이 없으면 `/skills`·`/mcp`, phone이면
+ * `/mode`(묻지 않고 돌게 바꾸는 일은 기기에 허락하지 않는다)다.
+ */
+function withoutCommands(
+  meta: AcpSessionMeta | null,
+  noSettings: boolean,
+  phone: boolean,
+): AcpSessionMeta | null {
+  if (meta === null || (!noSettings && !phone)) return meta;
   return {
     ...meta,
     commands: meta.commands.filter(
-      (one) => one.opens !== "mcp" && one.opens !== "skills",
+      (one) =>
+        !(noSettings && (one.opens === "mcp" || one.opens === "skills")) &&
+        !(phone && one.opens === "mode"),
     ),
   };
 }

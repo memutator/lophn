@@ -2,6 +2,9 @@
 // Agents, 파일, 터미널, artifact)으로 가는 host member는 주지 않아 그 항목이 빠진다. 다른 session(fork, call을 받은 쪽,
 // 첫 말로 만든 새 session)은 틀의 대화로 옮겨 간다.
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { t } from "@lophn/i18n";
+import { IconButton } from "@lophn/ui/primitives";
+import { commonIcons } from "../../icons/common.ts";
 import { coreAgentTabSourceFactory } from "../../conversation/agent-tab-core-source.ts";
 import {
   AgentView,
@@ -29,6 +32,7 @@ function RemoteChat({
   agent,
   workspace,
   onOpenSession,
+  onBack,
   drafts,
   sources,
 }: RemoteChatProps & {
@@ -73,6 +77,14 @@ function RemoteChat({
         }
         host={host}
         phone
+        leading={
+          <IconButton
+            icon={commonIcons.back}
+            label={t("remote.button.back")}
+            size="sm"
+            onClick={onBack}
+          />
+        }
       />
     </div>
   );

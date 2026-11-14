@@ -10,13 +10,12 @@ import {
 } from "react";
 import { APPEARANCE_DEFAULTS, appearanceCss } from "@lophn/ui";
 import { t } from "@lophn/i18n";
-import { Icon, IconButton } from "@lophn/ui/primitives";
+import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { appList } from "../../../protocol/apps/apps.ts";
 import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 import { projectApi } from "../../../protocol/projects/project-api.ts";
 import { notificationsIcon } from "../icons/chrome.ts";
-import { commonIcons } from "../icons/common.ts";
 import { conversationIcons } from "../icons/conversation.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import { useConnection } from "../desktop/connection/connection.tsx";
@@ -38,8 +37,8 @@ import { SessionList, useSessionGroups } from "./session-list.tsx";
 import styles from "./remote.module.css";
 
 /**
- * 대화 자리에 꽂는 component의 props. 머리(뒤로, 제목, agent 이름)는 틀이 그리고 component는 그 아래 남은 높이를 채운다.
- * 자리는 scroll하지 않는 flex column이라 component가 자기 scroll(대화 줄)과 아래에 붙는 입력 칸을 정한다.
+ * 대화 자리에 꽂는 component의 props. 자리는 아래 탭 없는 화면 전체이고 scroll하지 않는 flex column이라 component가 머리(뒤로,
+ * agent, 제목), 자기 scroll(대화 줄), 아래에 붙는 입력 칸을 정한다. 제목은 대화가 읽은 것이 가장 새로워 머리도 대화가 그린다.
  */
 export interface RemoteChatProps {
   readonly session: string;
@@ -48,6 +47,8 @@ export interface RemoteChatProps {
   readonly workspace: SessionEntry["workspace"];
   /** 다른 session으로 옮겨 간다(대화 안의 session link 등). 뒤로는 이 대화를 연 화면이다. */
   readonly onOpenSession: (session: string) => void;
+  /** 이 대화를 연 화면(목록이나 Inbox)으로 돌아간다. */
+  readonly onBack: () => void;
 }
 
 export type RemoteRoute =
@@ -192,34 +193,17 @@ function Frame({
   let body;
   if (route.screen === "chat") {
     const entry = sessions.find((one) => one.session === route.session);
-    const row = groups
-      .flatMap((group) => group.rows)
-      .find((one) => one.session === route.session);
     body = (
-      <>
-        <header className={styles.head}>
-          <IconButton
-            icon={commonIcons.back}
-            label={t("remote.button.back")}
-            onClick={() => setRoute({ screen: route.back })}
-          />
-          <h1 className={styles.headTitle}>
-            {row?.title ?? t("remote.label.untitled")}
-          </h1>
-          {row?.agentName ? (
-            <span className={styles.headSub}>{row.agentName}</span>
-          ) : null}
-        </header>
-        <main className={styles.chat}>
-          <Chat
-            key={route.session}
-            session={route.session}
-            agent={entry?.agent ?? null}
-            workspace={entry?.workspace ?? null}
-            onOpenSession={open}
-          />
-        </main>
-      </>
+      <main className={styles.chat}>
+        <Chat
+          key={route.session}
+          session={route.session}
+          agent={entry?.agent ?? null}
+          workspace={entry?.workspace ?? null}
+          onOpenSession={open}
+          onBack={() => setRoute({ screen: route.back })}
+        />
+      </main>
     );
   } else if (route.screen === "inbox") {
     body = (
@@ -245,15 +229,6 @@ function Frame({
         )}
       </div>
     </InboxNamesProvider>
-  );
-}
-
-/** 대화 component가 오기 전의 자리. */
-export function ChatPlaceholder(_props: RemoteChatProps) {
-  return (
-    <div className={styles.center}>
-      <p className={styles.headSub}>{t("remote.notice.chat-pending")}</p>
-    </div>
   );
 }
 

@@ -187,6 +187,7 @@ export function ApprovalCard({
       ) : null}
       <footer
         className={styles.foot}
+        data-approval-foot=""
         data-many={choices.length > 3 || undefined}
       >
         <p className={failed ? `${styles.note} ${styles.error}` : styles.note}>

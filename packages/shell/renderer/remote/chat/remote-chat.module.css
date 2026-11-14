@@ -11,3 +11,8 @@
 .chat kbd {
   display: none;
 }
+
+/* 390px 폭에서 승인 카드의 안내가 단추 사이 좁은 기둥이 되지 않게 단추 줄 위로 올린다. */
+.chat [data-approval-foot] > p {
+  flex-basis: 100%;
+}

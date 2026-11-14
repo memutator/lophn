@@ -214,6 +214,29 @@ client가 둘일 때 부딪치는 곳:
 - **홈 화면 아이콘.** Android는 pinned shortcut, iOS는 단축어다.
 - **폰 기능.** 앱 backend와 agent가 폰의 기능(위치, 카메라)을 core를 거쳐 부른다. grant를 거친다. 폰이 닿지 않으면 `unavailable`이다. 쓰는 예가 생길 때 기능 하나씩 연다.
 
+### 폰에서 혼자 도는 앱 (사람, 2026-11-14)
+
+사람의 말: "화면을 컴퓨터가 내려준다는 게 무슨 말인데 자체적인 앱처럼 동작할 수도 있어야지. 예를 들어서 현재 내가 캘린더 앱이 있는데 그걸 모바일/데스크탑 버전으로 하나의 앱으로 만들고 데이터도 동기화되고 그런 거 아니야? 화면을 컴퓨터가 열려있을 때만 보여준다고? 말이 돼 그게?"
+
+요구: 앱 하나가 desktop 화면과 폰 화면을 갖고, 폰에서는 컴퓨터 없이 읽고 쓰며, data가 두 기기 사이에 맞춰진다. 위 설계안의 "backend는 컴퓨터에서만 돈다"를 버린다.
+
+지금 코드(2026-11-14 조사):
+- backend는 Node로 그대로 도는 `.ts`다. bundle 단계가 없고 `node_modules`를 통째로 싣는다(`packages/core/apps/releases/bundle/modules.ts`). handler는 Node 내장 module과 npm package를 아무것이나 쓸 수 있고 막는 장치가 없다(`packages/core/apps/runtime/processes/spawn.ts:1`).
+- data는 `@lophn/cap-store`가 `node:sqlite`의 handle을 그대로 내주고 앱이 SQL을 직접 쓴다(`packages/sdk/cap-store/store.ts:51`). schema와 migration은 앱의 것이다.
+- write마다 changeset(SQLite session의 row 단위 변경, primary key 기준)을 뜬다(`packages/sdk/cap-store/connection.ts:68-84`). rewind가 이것을 뒤집어 쓴다. 다른 사본에 적용할 수 있는 꼴이지만 충돌 규칙, 기기 id, 순서가 없고 충돌 하나에 전체가 되돌아간다. 다음 activation 뒤에 지운다.
+- row의 id는 앱이 정한다. sample은 `integer primary key`라 두 기기가 같은 id를 만든다.
+- 효과 선언(`read`, `write`, `external`)을 core가 믿고 쓴다. read는 기록하지 않는다.
+- network와 secret은 core의 broker를 거치고 secret 값은 core에만 있다. agent, 다른 앱의 command, event도 core를 거친다.
+
+방향(planner 추천, 폰 runtime은 확인 전):
+- **폰에서 도는 backend는 SDK만 쓴다.** 폰용이라고 선언한 앱은 handler가 Node 내장 module을 쓰지 않고 SDK의 data API로만 읽고 쓴다. release 준비가 그 backend를 한 file로 bundle해 폰의 JavaScript engine과 폰의 SQLite로 돌린다. 버린 안: 폰에 Node를 싣는다(폰용 Node는 판이 늦어 지금 쓰는 `node:sqlite`와 session 기능이 있는지 확인이 필요하고 iOS는 JIT가 없다).
+- **changeset을 맞추는 단위로 쓴다.** 두 기기가 write마다 changeset을 남기고, 닿았을 때 주고받아 적용한다. 쓰는 사람이 하나라 같은 row를 양쪽에서 고친 경우만 충돌이고 나중에 고친 것이 이긴다.
+- **id는 기기가 달라도 겹치지 않아야 한다.** 폰용 앱의 table은 정수 자동 증가 id를 쓰지 못한다. release 검사가 잡는다.
+- **판을 같이 올린다.** 폰은 컴퓨터와 같은 release일 때만 맞춘다. 새 release는 폰이 받아 migration을 돌린 뒤에 맞춘다.
+- **컴퓨터가 있어야 되는 것은 그대로다.** agent, 다른 앱의 command, job, secret을 쓰는 요청은 컴퓨터에 닿을 때만 된다. 앱은 닿지 않을 때 그 기능이 `unavailable`임을 다룬다.
+- lophn의 remote 화면(session, 대화, 승인)은 컴퓨터의 것을 보는 화면이라 컴퓨터가 있어야 한다.
+
+
 ### 알림과 push
 
 - core가 push를 보낸다. 계기는 사람을 기다리는 상태로 새로 넘어간 것(승인, 질문, 동의, job hold), 오래 돈 turn의 끝, 앱의 `notify()`다. 글에는 상태와 제목만 넣고 대화 내용을 넣지 않는다. 누르면 그 session이나 앱으로 간다.
@@ -249,7 +272,7 @@ client가 둘일 때 부딪치는 곳:
 
 사람이 반대하지 않으면 계획을 열 때 정한 것으로 옮긴다. 괄호는 2026-11-08의 열린 질문 번호다.
 
-- **폰이 server일 때 폰에서 도는 것(3).** 폰 기능만 command로 내놓는다. 사용자 앱 backend는 컴퓨터에서만 돈다. 폰에 Node를 싣고 `app.sqlite`, invocation, changeset, rewind를 두 기기에서 맞추는 것은 하지 않는다. 폰은 연결을 받지 못하므로(NAT, iOS background socket 끊김) 폰이 core로 연 연결 위로 양쪽 요청이 오간다. 폰이 background면 core는 폰을 부르지 못한다.
+- **폰이 server일 때 폰에서 도는 것(3).** 뒤집혔다(사람, 2026-11-14). 사용자 앱은 컴퓨터가 꺼져 있어도 폰에서 혼자 돌아야 한다. 아래 "폰에서 혼자 도는 앱".
 - **앱 event(4).** 닫힘(2026-11-11). 저장하지 않는 앱 event를 열었다(`architecture/event.md`). 폰에 띄운 앱 화면은 view binding을 core로 옮기면 같은 길로 받는다.
 - **폰의 권한(5).** 폰은 일하는 창이다: 보기, 말하기, 답하기(승인, 질문, 동의), 앱 쓰기. 관리(secret, provider 설정, 기기 추가와 끊기, 앱 지우기)는 desktop에서만 한다. secret 넣기는 지금도 shell의 보호 입력 창만 한다(`architecture/approval.md`의 사람 결정 handle).
 - **core 깨어 있기(6).** Settings의 Remote access가 켜져 있으면(바깥 listener가 열려 있으면) idle-exit로 끝나지 않는다. 폰은 꺼진 core를 띄우지 못하기 때문이다. 조건을 "등록된 기기가 있음"으로 두지 않는다. pairing은 한 번 하면 지우지 않아 idle-exit가 사실상 없어진다. 사람이 `Stop lophn`을 누르면 remote가 켜져 있어도 core가 끝난다. 로그인 때 core를 띄우는 것은 지금 autostart가 한다. PC 잠자기는 OS 설정에 맡긴다.
@@ -261,7 +284,7 @@ client가 둘일 때 부딪치는 곳:
 - 사용자 앱을 native app으로 빌드하기(Xcode, 서명, 스토어).
 - 사용자 앱의 반응형, 등록하지 않은 기기 지원.
 - 여러 사람이 쓰는 서비스, 다른 사람과 session 공유.
-- 폰에서 사용자 앱 backend 돌리기, core에 닿지 않을 때 쓰기.
+- 컴퓨터가 꺼져 있을 때 폰에서 agent 부르기, 다른 앱의 command 부르기, job, secret을 쓰는 요청.
 - event의 seq와 replay.
 - 폰에서 secret 넣기와 기기 관리.
 - terminal-host를 core 밑으로 옮기기. 따로 정한다.

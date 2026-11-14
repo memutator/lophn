@@ -1,4 +1,4 @@
-// 폰이 붙는 remote 연결: listener, pairing, 기기 표, 기기 자격과 call.
+// 폰이 붙는 remote 연결: listener, pairing, 기기 표, 기기 자격과 call, 폰에 내려주는 화면 bundle.
 export {
   createDeviceCredentials,
   createRemoteCall,
@@ -22,3 +22,4 @@ export {
 } from "./host.ts";
 export { openRemoteListener, type RemoteListener } from "./listener.ts";
 export { createPairingCodes, type PairingCodes } from "./pairing.ts";
+export { loadRemoteUi, remoteUiFileStream } from "./ui-bundle.ts";

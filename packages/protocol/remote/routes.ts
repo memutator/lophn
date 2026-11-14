@@ -1,8 +1,13 @@
 import { z } from "zod";
 import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
-import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
-import { atSchema } from "../base/values.ts";
+import {
+  defineCommand,
+  defineFile,
+  defineMemory,
+  defineRead,
+} from "../base/route.ts";
+import { atSchema, sha256Schema } from "../base/values.ts";
 import {
   keyTextSchema,
   remoteDeviceSchema,
@@ -108,3 +113,37 @@ export const devicesConnected = defineCommand({
 
 // 폰의 `pair`가 맞았을 때 같은 id의 `result` value다.
 export const remotePairedSchema = z.strictObject({ device: deviceIdSchema });
+
+// remote 화면 bundle의 file 목록이다. 기기는 이것으로 받은 사본이 지금 core의 bundle과 같은지 본다.
+// `hash`는 file마다 `<path> <hash>` 줄을 path 순으로 이은 글의 sha256이다. core가 기동 뒤 한 번 계산하고 core가 사는 동안
+// 바뀌지 않아 `reads`가 없다. bundle이 없으면 unavailable이다.
+export const remoteUiManifest = defineMemory({
+  resource: "remote_ui",
+  method: "manifest",
+  name: "remote_ui.manifest",
+  input: z.strictObject({}),
+  output: z.object({
+    hash: sha256Schema,
+    files: z.array(
+      z.object({
+        path: z.string(),
+        hash: sha256Schema,
+        size: z.number().int().nonnegative(),
+      }),
+    ),
+  }),
+  actors: ["user"],
+  errors: ["invalid_input", "forbidden", "unavailable"],
+});
+
+// remote 화면 bundle의 file 하나다. path는 bundle 폴더 아래 `/` 꼴 상대 경로다. 폴더 밖과 없는 file은 not_found다.
+export const remoteUiFile = defineFile({
+  resource: "remote_ui",
+  method: "file",
+  name: "remote_ui.file",
+  input: z.strictObject({ path: z.string().min(1) }),
+  // 실제 Content-Type은 file 형식이다. 선언은 fallback이다.
+  contentType: "application/octet-stream",
+  actors: ["user"],
+  errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
+});

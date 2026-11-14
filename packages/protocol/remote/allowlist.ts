@@ -49,12 +49,13 @@ import { sessionRewindPreview } from "../lophn-agent/session-rewinds.ts";
 import { archiveSession } from "../lophn-agent/sessions.ts";
 import { turnBodyView, turnList, turnRead } from "../lophn-agent/turn-reads.ts";
 import { projectApi } from "../projects/project-api.ts";
+import { remoteUiFile, remoteUiManifest } from "./routes.ts";
 
 // 등록한 기기가 부를 수 있는 route의 전부다. 기기 자격의 scope가 이 이름들이고, 밖의 route는 `forbidden`이다.
 // 폰은 일하는 창이다: session 목록, 대화, Inbox가 읽는 것과 일을 이어 가는 쓰기만 둔다.
 // secret, provider·설정 쓰기, 기기와 pairing, 앱 지우기, `host/*`, `sessions/delete`(되돌릴 수 없다)는 넣지 않는다.
 // 모두 user가 부를 수 있는 route여야 한다(아니면 core가 기기 자격을 만들지 못한다).
-// file·upload route의 bytes는 `call`에서 base64로 싣는다(core/remote/call.ts).
+// file·upload route의 bytes는 `call`에서 base64로 싣는다(core/remote/call.ts). 폰은 화면 bundle도 이 목록의 route로 받는다.
 export const REMOTE_ALLOWED_ROUTES = [
   // session 목록
   workspaceSessionList,
@@ -103,6 +104,9 @@ export const REMOTE_ALLOWED_ROUTES = [
   jobApprove,
   shareRequestList,
   shareRequestDecide,
+  // 화면 bundle
+  remoteUiManifest,
+  remoteUiFile,
 ] as const;
 
 // 등록한 기기의 `watch`가 받을 수 있는 event type의 전부다. 기기가 건 조건과 상관없이 core가 이 밖은 보내지 않는다.

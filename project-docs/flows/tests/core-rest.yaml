@@ -264,6 +264,13 @@ files:
       - input-request-ask:conflict
     note: "createSecretSlots 직접 호출. provider·custom provider 자리는 home session만, 앱 자리는 그 앱과 home session만 청한다(그 밖은 forbidden). MCP 자리는 session이 닿는 층(home은 전역·Home·자기 정의, project·앱은 자기 정의와 자기 workspace)의 server만 풀리고 다른 층·다른 workspace의 server는 not_found, 같은 이름은 agent 층이 이긴다. 모르는 정의와 허락받지 않은 secret 이름, 청할 것이 없는 server는 not_found, 로그인 없는 정의의 sign_in·http가 아닌 custom 주소·내장과 겹치는 custom 이름·청할 것이 여럿인 server의 part 누락은 invalid_input, 이미 연결된 provider에 로그인과 앱 OAuth client id 없음은 conflict다. secret 이름과 목적지는 정의·grant·설정에서 나오고(agent가 이름을 정하지 못한다), key와 로그인을 둘 다 가진 provider는 기본이 key다. card에 뜨는 것과 결과 stored·signed_in은 covers 밖"
 
+  - path: packages/core/main/daemon/wiring/remote_test.ts
+    covers:
+      - remote-ui-file:ok
+      - remote-ui-file:invalid_input
+      - remote-ui-file:not_found
+    note: "`..`, 절대 경로, `%2e%2e`, 밖을 가리키는 file·폴더 symlink, 폴더 자체, 안의 폴더, 없는 file을 임시 폴더로 본다. 밖 file 내용이 답에 들지 않는다"
+
   - path: packages/core/main/daemon/wiring/host-queue_test.ts
     covers:
       - host-preview-tab-open:accepted

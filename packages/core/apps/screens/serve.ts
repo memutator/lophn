@@ -19,7 +19,7 @@ export type ScreenFileDeps = {
 type ScreenFile = { bytes: Uint8Array; contentType: string };
 
 const notFound = () =>
-  err({ code: "not_found" as const, message: "screen file not found" });
+  err({ code: "not_found" as const, message: "file not found" });
 
 function badScreen(screen: string): boolean {
   return (
@@ -46,19 +46,28 @@ export async function serveScreenFile(
   if (badScreen(screen)) {
     return err({ code: "invalid_input", message: "invalid screen" });
   }
-  if (badPath(path)) {
-    return err({ code: "invalid_input", message: "invalid screen file path" });
-  }
-
   const bundle = deps.bundles.dir(input.target);
   if (!bundle.ok) return bundle;
 
   const root = bundle.value.replace(/\/+$/, "");
-  const screenRoot = await deps.realPath(`${root}/screens/${screen}`);
-  if (screenRoot === null) return notFound();
-  const file = await deps.realPath(`${screenRoot}/${path}`);
+  return serveFileUnder(deps, `${root}/screens/${screen}`, path);
+}
+
+// `dir` 아래 file 하나를 읽어 준다. remote 화면 bundle도 이것을 쓴다(core/main이 끼운다).
+// 폴더 밖(`..`, 절대 경로, 밖을 가리키는 symlink), 폴더, 너무 큰 file은 없는 file과 같은 not_found다.
+export async function serveFileUnder(
+  deps: Pick<ScreenFileDeps, "readFile" | "realPath" | "maxBytes">,
+  dir: string,
+  path: string,
+): Promise<Result<ScreenFile>> {
+  if (badPath(path)) {
+    return err({ code: "invalid_input", message: "invalid file path" });
+  }
+  const dirRoot = await deps.realPath(dir);
+  if (dirRoot === null) return notFound();
+  const file = await deps.realPath(`${dirRoot}/${path}`);
   // realpath는 OS 구분자로 잇는다(Windows는 `\`).
-  if (file === null || !file.startsWith(`${screenRoot}${sep}`)) {
+  if (file === null || !file.startsWith(`${dirRoot}${sep}`)) {
     return notFound();
   }
 

@@ -40,4 +40,6 @@ export {
   pairingStart,
   type RemoteDevice,
   remotePairedSchema,
+  remoteUiFile,
+  remoteUiManifest,
 } from "./routes.ts";

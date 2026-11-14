@@ -11,8 +11,11 @@ import {
   pairingStart,
   type RemoteDevice,
   remoteKeyText,
+  remoteUiFile,
+  remoteUiManifest,
 } from "../../../../protocol/remote/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import { createFileReads, serveFileUnder } from "../../../apps/screens/mod.ts";
 import {
   devicesSetting,
   remoteEnabledSetting,
@@ -34,12 +37,14 @@ import {
   type RemoteDevices,
   type RemoteHost,
   type RemoteListener,
+  loadRemoteUi,
+  remoteUiFileStream,
   screensPaired,
   screensRenamed,
   screensRevoked,
 } from "../../../remote/mod.ts";
 import { systemTimers } from "../../../runs/mod.ts";
-import { RouteRegistry } from "../../../server/mod.ts";
+import { type FileStreamHandler, RouteRegistry } from "../../../server/mod.ts";
 import {
   type ReaderRegistration,
   withAfterCommit,
@@ -69,8 +74,15 @@ export function createCoreRegistration() {
   return {
     commands: DEVICES_COMMANDS,
     reads: [devicesListRead],
-    memoryRoutes: [pairingStart],
+    memoryRoutes: [pairingStart, remoteUiManifest],
+    files: [remoteUiFile],
   };
+}
+
+// 화면 bundle 폴더 `dir` 아래 file만 내준다. 폴더 밖을 막는 규칙과 content type 표는 앱 화면 file과 같은 것이다.
+export function remoteUiFiles(dir: string): FileStreamHandler {
+  const reads = createFileReads();
+  return remoteUiFileStream((path) => serveFileUnder(reads, dir, path));
 }
 
 export function createReaderRegistration(): ReaderRegistration {
@@ -223,8 +235,13 @@ export const remoteWiring: WiringFactory = () => {
       { name: devicesConnected.name, actors: ["machine"], kind: "command" },
     ],
     records: () => [REMOTE_CONTEXT],
-    build(ctx) {
+    async build(ctx) {
       codes = createPairingCodes({ clock: ctx.clock, random: ctx.random });
+      const ui = await loadRemoteUi();
+      const noUi = err({
+        code: "unavailable" as const,
+        message: "remote ui bundle is not built",
+      });
       const start = async () => {
         if (listener === undefined || hostKey === undefined) {
           return err({
@@ -243,7 +260,13 @@ export const remoteWiring: WiringFactory = () => {
         });
       };
       return ok({
-        memory: [[key(pairingStart), start]],
+        memory: [
+          [key(pairingStart), start],
+          [key(remoteUiManifest), () => (ui ? ok(ui.manifest) : noUi)],
+        ],
+        fileStreams: [
+          [key(remoteUiFile), ui ? remoteUiFiles(ui.dir) : async () => noUi],
+        ],
         writer: (inner) =>
           withAfterCommit(
             inner,

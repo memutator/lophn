@@ -6,8 +6,14 @@ export function createScreenFileDeps(
   bundles: BundleLocator,
   maxBytes?: number,
 ): ScreenFileDeps {
+  return { bundles, ...createFileReads(maxBytes) };
+}
+
+// 폴더 아래 file 읽기(serveFileUnder)의 node fs 구현이다.
+export function createFileReads(
+  maxBytes?: number,
+): Omit<ScreenFileDeps, "bundles"> {
   return {
-    bundles,
     maxBytes,
     async realPath(path) {
       try {

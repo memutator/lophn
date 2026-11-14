@@ -9,6 +9,7 @@ change: |
   - `JobChanged`, `WorkflowInstanceChanged`, `AppTrayChanged`, `SettingsChanged`를 지우고 `StateChanged`로 합쳤다. 설정은 바뀐 key가 id다.
   - supervisor가 preview 자식이 ready가 되거나 끝나면 machine route `apps/record_preview`로 core에 알린다.
   - 화면의 공통 읽기 `useCoreRead(route, input)`: route의 `reads`에 맞는 변경이나 다시 붙음에 다시 읽고, 겹친 다시 읽기는 하나로 합치고, 끊기면 옛 값을 stale로 둔다. agent·project·앱 목록, session 이름, 앱 상세(run, access, versions, activity, rewind), preview 탭, 설정 panel, provider·model, sign-in이 이 길로 읽는다. polling 여섯 곳과 창 focus 다시 읽기, `useRead`, `useReload`, 종류마다의 hook을 지웠다.
+  - 함께 land한 remote의 기기 command는 `remote_devices`를 내고, Settings › Remote는 pairing code가 보이는 동안 기기 목록을 2초마다 읽던 것을 그 변경으로 바꿨다. remote wiring은 `settings` 변경의 id(`remote.enabled`, `remote.port`)로 listener를 맞춘다.
   - check에 `reads` 단계: read route가 기대는 이름을 내는 곳이 하나도 없으면 실패한다.
   - provider 연결은 쓰기 직전에 provider 목록을 다시 읽어 이미 이어진 정의면 아무것도 쓰지 않고 `conflict`를 낸다(`provider-id-overwrite`의 renderer 쪽).
   - gallery fake source가 어느 read·memory route에든 답을 줄 수 있다(`fakeAnswer`). wireframes smoke는 ResizeObserver loop 알림을 오류로 세지 않는다.

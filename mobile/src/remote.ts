@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 // Stand-in for `packages/protocol/remote/client.ts` (plan phone-remote-web) until it reaches main.
 // Same export names, so the swap is one line: `export * from "../../packages/protocol/remote/client.ts";`
 export {
@@ -21,12 +23,13 @@ export {
 // On main these live in routes.ts, which pulls the route definitions; client.ts moves them next to frames and noise.
 export const REMOTE_PATH = "/remote";
 
-export type RemotePairing = {
-  addresses: string[];
-  port: number;
-  key: string;
-  code: string;
-};
+export const remotePairingSchema = z.strictObject({
+  addresses: z.array(z.string().min(1)).max(16),
+  port: z.number().int().min(1).max(65535),
+  key: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+  code: z.string().min(1).max(128),
+});
+export type RemotePairing = z.infer<typeof remotePairingSchema>;
 
 export function remoteKeyText(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes))

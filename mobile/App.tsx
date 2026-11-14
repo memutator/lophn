@@ -1,36 +1,142 @@
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { hermesChecks, pairAndCall } from "./src/spike.ts";
+import { useEffect, useRef, useState } from "react";
+import { AppState, StyleSheet, Text, View } from "react-native";
+import {
+  type Connection,
+  type ConnectionState,
+  createConnection,
+} from "./src/connection/connection.ts";
+import { dialSocket } from "./src/connection/socket.ts";
+import { pair } from "./src/pairing/pair.ts";
+import {
+  type Computer,
+  deviceKey,
+  loadComputers,
+  random,
+  saveComputers,
+} from "./src/pairing/store.ts";
+import type { KeyPair } from "./src/remote.ts";
+import { ComputersScreen } from "./src/screens/computers-screen.tsx";
+import { PairScreen } from "./src/screens/pair-screen.tsx";
 
-// Spike screen. The QR JSON comes from `EXPO_PUBLIC_LOPHN_QR` when Metro starts; the emulator reaches the host at 10.0.2.2.
-const QR = process.env.EXPO_PUBLIC_LOPHN_QR;
-const ADDRESS = process.env.EXPO_PUBLIC_LOPHN_ADDRESS ?? "10.0.2.2";
+// Dev only: the emulator reaches the host at 10.0.2.2, not at the LAN address the QR carries. Raced with the QR's addresses.
+const DEV_ADDRESS = __DEV__
+  ? process.env.EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS
+  : undefined;
+const withDev = (addresses: string[]) =>
+  DEV_ADDRESS ? [...addresses, DEV_ADDRESS] : addresses;
 
 export default function App() {
-  const [lines, setLines] = useState<string[]>([]);
-  const log = (line: string) => {
-    console.log(`spike ${line}`);
-    setLines((all) => [...all, line]);
-  };
+  const [phone, setPhone] = useState<KeyPair>();
+  const [computers, setComputers] = useState<Computer[]>();
+  const [states, setStates] = useState<Record<string, ConnectionState>>({});
+  const [pairing, setPairing] = useState(false);
+  const connections = useRef(new Map<string, Connection>());
 
   useEffect(() => {
-    for (const line of hermesChecks()) log(line);
-    if (!QR) return log("no EXPO_PUBLIC_LOPHN_QR, skipping pairing");
-    pairAndCall(JSON.parse(QR), ADDRESS, log).catch((e: Error) =>
-      log(`remote FAIL ${e.message}`),
-    );
+    void Promise.all([deviceKey(), loadComputers()]).then(([key, saved]) => {
+      setPhone(key);
+      setComputers(saved);
+    });
   }, []);
+
+  const update = (next: Computer[]) => {
+    setComputers(next);
+    void saveComputers(next);
+  };
+
+  // One connection per paired computer that is not revoked; closed when the computer leaves the list.
+  useEffect(() => {
+    if (!phone || !computers) return;
+    const live = connections.current;
+    const wanted = new Set(
+      computers.filter((c) => !c.revoked).map((c) => c.key),
+    );
+    for (const [key, connection] of live) {
+      if (wanted.has(key)) continue;
+      connection.close();
+      live.delete(key);
+    }
+    for (const computer of computers) {
+      if (computer.revoked || live.has(computer.key)) continue;
+      const connection = createConnection({
+        endpoint: { ...computer, addresses: withDev(computer.addresses) },
+        phone,
+        dial: dialSocket,
+        random,
+        now: Date.now,
+        wait: (ms, fn) => {
+          const timer = setTimeout(fn, ms);
+          return () => clearTimeout(timer);
+        },
+        onRevoked: () =>
+          setComputers((all) => {
+            const next = (all ?? []).map((c) =>
+              c.key === computer.key ? { ...c, revoked: true } : c,
+            );
+            void saveComputers(next);
+            return next;
+          }),
+      });
+      live.set(computer.key, connection);
+      const show = (state: ConnectionState) =>
+        setStates((all) => ({ ...all, [computer.key]: state }));
+      show(connection.current());
+      connection.subscribe(show);
+    }
+  }, [phone, computers]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      for (const connection of connections.current.values()) {
+        if (state === "active") connection.resume();
+        else connection.pause();
+      }
+    });
+    return () => subscription.remove();
+  }, []);
+
+  if (!phone || !computers) {
+    return (
+      <View style={styles.container}>
+        <Text>Loading…</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.log}>
-        {lines.map((line, i) => (
-          <Text key={i} style={styles.line}>
-            {line}
-          </Text>
-        ))}
-      </ScrollView>
+      {pairing || computers.length === 0 ? (
+        <PairScreen
+          onCancel={computers.length ? () => setPairing(false) : undefined}
+          onPair={async (qr) => {
+            const result = await pair(
+              { ...qr, addresses: withDev(qr.addresses) },
+              { phone, dial: dialSocket },
+            );
+            if (!result.ok) return result.message;
+            // Store the QR's own addresses; the dev address is added again at connect time.
+            const computer = { ...result.computer, addresses: qr.addresses };
+            connections.current.get(computer.key)?.close();
+            connections.current.delete(computer.key);
+            update([
+              ...computers.filter((c) => c.key !== computer.key),
+              computer,
+            ]);
+            setPairing(false);
+            return undefined;
+          }}
+        />
+      ) : (
+        <ComputersScreen
+          computers={computers}
+          states={states}
+          onAdd={() => setPairing(true)}
+          onRemove={(computer) =>
+            update(computers.filter((c) => c.key !== computer.key))
+          }
+        />
+      )}
       <StatusBar style="auto" />
     </View>
   );
@@ -38,6 +144,4 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, paddingTop: 40, backgroundColor: "#fff" },
-  log: { flex: 1, paddingHorizontal: 8 },
-  line: { fontSize: 11, fontFamily: "monospace" },
 });

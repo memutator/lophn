@@ -19,7 +19,19 @@
     "plugins": [
       [
         "expo-build-properties",
-        { "android": { "usesCleartextTraffic": true } }
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "lophn scans the pairing QR code shown on your computer.",
+          "recordAudioAndroid": false
+        }
       ]
     ]
   }

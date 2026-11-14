@@ -5,6 +5,6 @@ lead만 고친다. `tools/status.py remote-core build`가 `tasks/*.md`에서 id,
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `remote-channel` | remote | 1 | 없음 | merged | remote/remote-channel | 7549a454a |  |
-| `phone-runtime-spike` | spike | 1 | 없음 | running | spike/phone-runtime-spike |  |  |
-| `remote-devices` | remote | 2 | remote-channel | todo |  |  |  |
+| `phone-runtime-spike` | spike | 1 | 없음 | merged | spike/phone-runtime-spike | 4ac401228 |  |
+| `remote-devices` | remote | 2 | remote-channel | running | remote/remote-devices |  |  |
 | `remote-settings` | remote | 3 | remote-devices | todo |  |  |  |

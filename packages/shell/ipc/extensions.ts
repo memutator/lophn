@@ -18,7 +18,6 @@ export type ExtensionStatus =
   | "off"
   | "on"
   | "invalid"
-  | "incompatible"
   | "no_setting"
   | "failed";
 
@@ -27,7 +26,6 @@ export interface ExtensionView {
   readonly id: string;
   readonly name: string;
   readonly description: string;
-  readonly version: string;
   readonly status: ExtensionStatus;
   /** 문제가 있을 때 이유. */
   readonly reason?: string;

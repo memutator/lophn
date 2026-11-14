@@ -14,8 +14,6 @@ export function statusText(view: ExtensionView): string {
           ? "settings.label.extension-off"
           : "settings.label.extension-not-installed",
       );
-    case "incompatible":
-      return t("settings.label.extension-version-mismatch");
     default:
       return t("settings.label.extension-problem");
   }

@@ -1,0 +1,14 @@
+id: bundled-extension-version
+version: 0.23.58
+title: 본체 안 extension이 따로 판을 갖지 않아 PATCH가 올라도 harness agent와 터미널 GUI가 멈추지 않는다
+modules: [packages/protocol, packages/shell/main, packages/shell/ipc, packages/shell/renderer, packages/design]
+change: |
+  - extension manifest에서 `version`을 지웠다. registry는 판을 보지 않고 상태 `incompatible`이 없어졌다(상태는 off, on, invalid, no_setting, failed 다섯).
+  - shell main build의 extension 판 검사를 지웠다. 0.23.58에서 manifest 판(0.23.54)이 제품 판과 달라 `npm run dev`와 `npm run package`가 shell main build에서 멈추던 것이 풀렸다.
+  - Settings › System › Extensions에서 판 줄("Version …")과 "Version mismatch" 상태를 지웠다.
+why: |
+  제품 판은 root `package.json` 하나인데 PATCH를 올리는 도구는 manifest를 몰라서 manifest 판이 두 번 뒤처졌다. 그때마다 개발 판에서 harness agent와 터미널 GUI가 incompatible로 말없이 멈추거나 build가 멈췄다. 같이 build되는 본체 안 extension에는 판 비교가 지키는 것이 없다.
+decisions:
+  - text: >-
+      본체 안 extension은 판을 갖지 않는다. 따로 받는 extension package가 생기면 그때 그 package의 판과 지원 범위를 정한다. 버린 안: PATCH 도구가 manifest 판도 같이 올리기(같은 값을 두 곳에 두는 일이 남는다).
+    by: agent

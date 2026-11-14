@@ -18,7 +18,6 @@ import {
   type ExtensionToolHandler,
   extensionManifestSchema,
   extensionSettingKey,
-  extensionVersionError,
   parseExtensionCommand,
 } from "../../../protocol/extensions/mod.ts";
 
@@ -49,7 +48,6 @@ export type ExtensionStatus =
   | "off"
   | "on"
   | "invalid"
-  | "incompatible"
   | "no_setting"
   | "failed";
 
@@ -57,7 +55,6 @@ export type ExtensionInfo = {
   id: string;
   name: string;
   description: string;
-  version: string;
   provides: string[];
   status: ExtensionStatus;
   /** 문제가 있을 때 이유. */
@@ -73,7 +70,6 @@ export type RegistryDeps = {
   roots: readonly string[];
   /** `<dataRoot>/extensions/<id>/`에 표시 file과 extension이 쓴 file이 선다. */
   dataRoot: string;
-  productVersion: string;
   files: ExtensionFiles;
   /** entry file의 절대 경로를 load한다. 꺼진 extension에는 부르지 않는다. */
   load(path: string): Promise<unknown>;
@@ -283,19 +279,16 @@ export function createExtensionRegistry(deps: RegistryDeps) {
         problem.set(id, { status: "invalid", reason: found.invalid ?? "" });
         continue;
       }
-      const versionError = extensionVersionError(manifest, deps.productVersion);
       const enabled = await deps.settings.get(extensionSettingKey(id));
       // 읽지 못한 때(core 불안정)는 켜진 것을 끄지 않는다.
       if (!enabled.ok) continue;
       const bad: { status: ExtensionStatus; reason: string } | undefined =
-        versionError !== null
-          ? { status: "incompatible", reason: versionError }
-          : enabled.value === undefined
-            ? {
-                status: "no_setting",
-                reason: `setting ${extensionSettingKey(id)} is not declared`,
-              }
-            : undefined;
+        enabled.value === undefined
+          ? {
+              status: "no_setting",
+              reason: `setting ${extensionSettingKey(id)} is not declared`,
+            }
+          : undefined;
       if (bad === undefined && enabled.value === true) {
         if (!active.has(id)) await activate({ ...found, manifest });
         continue;
@@ -306,9 +299,7 @@ export function createExtensionRegistry(deps: RegistryDeps) {
     }
     // core는 manifest를 읽지 못하므로 sync마다 판이 맞는 manifest의 tool을 통째로 올린다(켜진 것과 꺼진 것 상관없이).
     const tools: PublishedTools[] = discovered.flatMap(({ manifest }) =>
-      manifest !== undefined &&
-      extensionVersionError(manifest, deps.productVersion) === null &&
-      manifest.contributes.tools.length > 0
+      manifest !== undefined && manifest.contributes.tools.length > 0
         ? [
             {
               id: manifest.id,
@@ -343,7 +334,6 @@ export function createExtensionRegistry(deps: RegistryDeps) {
           id: found.id,
           name: found.manifest?.name ?? found.id,
           description: found.manifest?.description ?? "",
-          version: found.manifest?.version ?? "",
           provides: found.manifest?.provides ?? [],
           status,
           ...(bad ? { reason: bad.reason } : {}),

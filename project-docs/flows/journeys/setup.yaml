@@ -491,7 +491,7 @@ journeys:
     goal: activate가 실패하면 목록에 failed와 이유가 보이고 다른 extension은 그대로 돈다
     steps:
       - {do: "[Turn on]을 누른다", flow: settings-update:changed}
-      - {do: "activate가 던져 deactivate를 부른다. 목록에 failed와 이유가 보인다(판이 다르면 incompatible로 보이고 켜지지 않는다는 별도 갈래다)", flow: extension-sync:failed}
+      - {do: "activate가 던져 deactivate를 부른다. 목록에 failed와 이유가 보인다", flow: extension-sync:failed}
 
   - id: window-open-new
     title: 새 창을 열고 한 창을 닫는다

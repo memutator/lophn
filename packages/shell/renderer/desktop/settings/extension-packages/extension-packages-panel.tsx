@@ -143,11 +143,6 @@ export function ExtensionPackagesPanel({
                   <div className={styles.lineMain}>
                     <span className={styles.lineName}>{view.name}</span>
                     <p className={styles.lineHelp}>{view.description}</p>
-                    <span className={styles.caption}>
-                      {t("settings.label.extension-version", {
-                        version: view.version,
-                      })}
-                    </span>
                     {view.reason === undefined ? null : (
                       <span className={styles.caption}>{view.reason}</span>
                     )}

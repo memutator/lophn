@@ -355,8 +355,6 @@ export const workspaceSettings = {
   "settings.label.extension-on": "On",
   "settings.label.extension-problem": "Problem",
   "settings.label.extension-target": "your extensions",
-  "settings.label.extension-version": "Version {version}",
-  "settings.label.extension-version-mismatch": "Version mismatch",
   "settings.label.coding-target": "your coding agents",
   "settings.label.coding-version": "Version {version}",
   "settings.label.coding-version-unknown": "Version unknown",

@@ -2,7 +2,6 @@
   "id": "echo-tool",
   "name": "Echo tool",
   "description": "Test fixture: one tool that echoes its input.",
-  "version": "0.0.0",
   "entry": "index.cjs",
   "provides": ["echo tool"],
   "contributes": {

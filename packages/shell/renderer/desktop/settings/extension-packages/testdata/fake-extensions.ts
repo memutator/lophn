@@ -14,7 +14,6 @@ export const SAMPLE_EXTENSIONS: readonly ExtensionView[] = [
     name: "Harness GUI",
     description:
       "Shows a terminal tab running Claude Code, Codex, OpenCode or omp as a lophn chat screen with `<harness> gui`.",
-    version: "0.23.0",
     status: "on",
     installed: true,
   },
@@ -23,7 +22,6 @@ export const SAMPLE_EXTENSIONS: readonly ExtensionView[] = [
     name: "Harness agents",
     description:
       "Runs Claude Code, Codex and OpenCode as lophn agents with their headless commands.",
-    version: "0.23.0",
     status: "off",
     installed: true,
   },
@@ -31,7 +29,6 @@ export const SAMPLE_EXTENSIONS: readonly ExtensionView[] = [
     id: "demo",
     name: "Demo",
     description: "Adds a sample command to the palette.",
-    version: "0.1.0",
     status: "off",
     installed: false,
   },

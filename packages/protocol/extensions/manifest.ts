@@ -103,8 +103,6 @@ export const extensionManifestSchema = z
     id: z.string().regex(EXTENSION_ID).max(64),
     name: z.string().min(1).max(80),
     description: z.string().max(500),
-    /** 제품 판(root package.json의 version)과 같아야 켠다. */
-    version: z.string().min(1).max(32),
     /** 폴더 안 상대 경로. 따로 빌드한 CJS file이고, 폴더 밖을 가리키지 못한다. */
     entry: z
       .string()
@@ -145,16 +143,6 @@ export const extensionManifestSchema = z
     });
   });
 export type ExtensionManifest = z.infer<typeof extensionManifestSchema>;
-
-/** 판이 제품 판과 다르면 오류 문구, 같으면 null. */
-export function extensionVersionError(
-  manifest: Pick<ExtensionManifest, "version">,
-  productVersion: string,
-): string | null {
-  return manifest.version === productVersion
-    ? null
-    : `extension version ${manifest.version} is not the product version ${productVersion}`;
-}
 
 export type ExtensionProcess = {
   readonly pid: number | undefined;

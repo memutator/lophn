@@ -45,17 +45,11 @@ const nodeFiles: ExtensionFiles = {
 test("the echo-tool fixture is published as ext__echo-tool__echo and its handler answers", async () => {
   const dataRoot = await mkdtemp(join(tmpdir(), "echo-tool-"));
   try {
-    const version = (
-      JSON.parse(await readFile(`${ROOT}/echo-tool/manifest.json`, "utf8")) as {
-        version: string;
-      }
-    ).version;
     const published: PublishedTools[][] = [];
     const clock = manualClock(0);
     const registry = createExtensionRegistry({
       roots: [ROOT],
       dataRoot,
-      productVersion: version,
       files: nodeFiles,
       load: (path) => import(path),
       settings: {

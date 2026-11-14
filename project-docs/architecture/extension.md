@@ -19,7 +19,7 @@ extension은 lophn 본체와 따로 켜는 기능 묶음이다. 대다수에게 
 
 ## 모델
 
-extension 하나는 폴더 하나다. 폴더 이름이 id(`[a-z][a-z0-9-]*`)이고 그 안 `manifest.json`이 `{id, name, description, version, entry, provides, contributes}`다.
+extension 하나는 폴더 하나다. 폴더 이름이 id(`[a-z][a-z0-9-]*`)이고 그 안 `manifest.json`이 `{id, name, description, entry, provides, contributes}`다.
 
 - `entry`: 폴더 안 상대 경로(따로 빌드한 CJS file). 폴더 밖을 가리키지 못한다. `activate(ctx)`와 `deactivate()`를 낸다.
 - `provides`: 들어 있는 것의 이름들. 설정 화면에 보인다.
@@ -28,18 +28,17 @@ extension 하나는 폴더 하나다. 폴더 이름이 id(`[a-z][a-z0-9-]*`)이�
   - `keybindings`: `{command, key: {other, mac?}, context?}`. `command`는 그 id나 내장 command id(harness-gui의 `agent.*`)다. `mac`이 없으면 `other`와 같다. key 글은 한 타나 공백으로 이은 두 타다([keybindings.md](keybindings.md)).
   - `tools`: `{name, description, inputSchema(object), effect(read|write|external)}`. schema는 정적이다. `name`은 `[a-z][a-z0-9_]*`이고 `__`가 없으며 extension 안에서 하나다. model에 보이는 이름은 `ext__<extension id>__<name>`이고 64자를 넘으면 manifest가 `invalid`다.
 
-상태는 목록(IPC `list`)이 보이는 여섯이다.
+상태는 목록(IPC `list`)이 보이는 다섯이다.
 
 | 상태 | 뜻 |
 |---|---|
 | `off` | 꺼져 있다. code를 load하지 않았다 |
 | `on` | 켜져 있고 activate가 끝났다 |
 | `invalid` | manifest가 JSON이 아니거나 꼴이 틀리거나 id가 폴더 이름과 다르다 |
-| `incompatible` | manifest `version`이 제품 판과 글자가 다르다 |
 | `no_setting` | core에 `extensions.<id>.enabled` 선언이 없다 |
 | `failed` | entry가 `activate`·`deactivate`를 내지 않거나 `activate`가 던졌다 |
 
-각 줄은 이름, 설명, 판, `installed`(표시 file이 있는가), 문제가 있으면 이유를 가지고, 켜진 것은 `contributes`도 싣는다.
+각 줄은 이름, 설명, `installed`(표시 file이 있는가), 문제가 있으면 이유를 가지고, 켜진 것은 `contributes`도 싣는다.
 
 흐름은 이렇다.
 
@@ -77,7 +76,7 @@ agent(lophn runtime의 ext__<id>__<tool> 또는 harness의 `lophn ext call`)
 ## 지키는 것
 
 1. **extension 하나는 폴더 하나다.** 폴더 이름이 id이고 manifest의 `id`와 같아야 한다. 다르거나 꼴이 틀리면 `invalid`로 보이고 켜지 않는다. `entry`는 폴더 밖을 가리키지 못한다.
-2. **판은 제품 판과 같아야 켠다.** 제품 판은 packaged면 앱의 판, 개발이면 root `package.json`의 `version`이다. manifest `version`이 글자까지 같지 않으면 `incompatible`이고 load하지 않는다. 본체 안 extension은 build가 이 판 검사를 먼저 해 어긋나면 멈춘다(말없이 멈추는 extension을 막는다).
+2. **extension은 따로 판을 갖지 않는다.** 지금 extension은 본체 안 것뿐이고 제품과 같이 build되므로 제품 판이 곧 그 판이다. manifest에 판 칸이 없고 registry는 판을 보지 않는다.
 3. **켜기는 사람이 설정으로만 한다.** 설정 key는 `extensions.<id>.enabled`(boolean, 기본 false)다. core는 manifest를 읽지 못하므로 id마다 선언이 core 설정에 정적으로 한 줄씩 있다(지금 `extensions.harness.enabled`, `extensions.harness-gui.enabled`). 선언이 없는 id는 `no_setting`이고 켜지 않는다. `settings/update`는 user 자격만 쓸 수 있어 agent가 켜지 못한다.
 4. **registry는 manifest가 든 폴더 목록(roots)만 읽는다.** 지금 roots는 본체 안 폴더 하나다(개발은 shell main 안 bundled 폴더, packaged는 설치 root의 `extensions/`). 본체 안 extension은 shell main bundle과 따로 extension마다 CJS file 하나로 build되고, packaging은 manifest와 build 결과만 설치 root로 옮긴다. 따로 받는 package가 오면 roots에 `<data>/extensions/`를 더하면 된다. 같은 id가 두 root에 있으면 앞 root의 것이다.
 5. **code는 켜진 것만, shell main bundle 밖에서 load한다.** 꺼진 extension은 manifest만 읽힌다. entry가 `activate`·`deactivate`를 내지 않거나 `activate`가 던지면 `failed`이고(던졌으면 `deactivate`를 한 번 부른다) 다른 extension은 그대로 돈다.
@@ -132,6 +131,8 @@ agent(lophn runtime의 ext__<id>__<tool> 또는 harness의 `lophn ext call`)
 - **shell main이 tool 목록을 core에 올리고 core는 메모리에만 둔다.** core가 manifest를 읽지 못한다. (사람이 확인)
 - **Gate 판정은 tool 정의가 아니라 호출 route 한 곳에서 한다.** lophn runtime과 harness CLI가 같은 길을 거친다. (agent)
 - **browser use는 extension tool이 아니라 CLI + skill로 갔다.** lophn agent, harness agent, 터미널의 coding agent가 같은 구현을 쓰게 하려는 것이다. (사람)
+
+- 본체 안 extension의 manifest에서 판을 지우고 제품 판과의 비교(`incompatible`, build 검사)도 지웠다. 이유: 판은 root `package.json` 하나인데 PATCH를 올리는 도구는 manifest를 모르니 판이 두 번(0.23.9, 0.23.57) 뒤처졌고, 그때마다 harness agent와 터미널 GUI가 말없이 멈추거나 `npm run dev`·packaging이 build에서 멈췄다. 같이 build되는 extension에는 판 비교가 지키는 것이 없다. 따로 받는 package가 오면 그때 그 package의 판과 지원 범위를 정한다. 버린 안: 도구가 PATCH 때 manifest 판도 올리기(같은 값을 두 곳에 두는 일이 남는다). (agent, 2026-11-15)
 
 ## 열린 것
 

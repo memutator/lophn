@@ -1,6 +1,5 @@
 // extension registry를 shell main에 올린다. 켜진 extension만 load하고, core가 준비되면 한 번, 설정이 바뀔 때마다 맞춘다.
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
 import {
   mkdir,
   readdir,
@@ -503,7 +502,6 @@ export function register(
   port: { showExtensionSettings(): void },
   coding: Pick<Coding, "gui" | "bindTabGui">,
 ): Registered & ExtensionTools {
-  const repoRoot = join(ctx.here, "..", "..", "..", "..");
   // packaged는 설치 root의 extensions/다(tools/package/main.ts가 채운다).
   const bundled = app.isPackaged
     ? join(packagedInstall(process.resourcesPath).root, "extensions")
@@ -517,10 +515,6 @@ export function register(
   const registry = createExtensionRegistry({
     roots: [bundled],
     dataRoot: ctx.dataRoot,
-    productVersion: app.isPackaged
-      ? app.getVersion()
-      : JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8"))
-          .version,
     files: nodeFiles,
     load: (path) => Promise.resolve(require(path)),
     core: {

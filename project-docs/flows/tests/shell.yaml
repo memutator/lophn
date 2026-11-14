@@ -308,7 +308,6 @@ files:
     covers:
       - extension-sync:loaded
       - extension-sync:off
-      - extension-sync:incompatible
       - extension-sync:no-setting
       - extension-remove:removed
       - extension-remove:conflict

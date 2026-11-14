@@ -13,7 +13,6 @@ import {
 
 const BUNDLED = "/app/bundled";
 const DATA = "/data";
-const VERSION = "1.2.3";
 
 // file Map 위의 대역이다. 폴더는 file path의 앞부분이고 비지 않은 폴더는 지워지지 않는다.
 function memory(files: Map<string, string>): ExtensionFiles {
@@ -52,12 +51,11 @@ const ECHO = {
   effect: "read",
 };
 
-function manifest(id: string, version = VERSION, tools: unknown[] = []) {
+function manifest(id: string, tools: unknown[] = []) {
   return JSON.stringify({
     id,
     name: id,
     description: "",
-    version,
     entry: "index.cjs",
     provides: [],
     contributes: { tools },
@@ -96,7 +94,6 @@ function setup(manifests: Record<string, string>) {
   const registry = createExtensionRegistry({
     roots: [BUNDLED],
     dataRoot: DATA,
-    productVersion: VERSION,
     files: memory(files),
     load: (path) => {
       loaded.push(path);
@@ -167,13 +164,11 @@ test("켰다가 끄고 지우면 data root가 처음과 같고 사람 file과 �
   assert.deepEqual(t.files, first);
 });
 
-test("판이 다르거나 설정 선언이 없으면 켜지 않고, 꺼진 extension은 load하지 않는다", async () => {
+test("설정 선언이 없으면 켜지 않고, 꺼진 extension은 load하지 않는다", async () => {
   const t = setup({
     demo: manifest("demo"),
-    old: manifest("old", "0.0.1"),
     stray: manifest("stray"),
   });
-  t.settings.set("extensions.old.enabled", true);
   t.settings.set("extensions.stray.enabled", undefined);
   await t.registry.sync();
 
@@ -183,7 +178,6 @@ test("판이 다르거나 설정 선언이 없으면 켜지 않고, 꺼진 exten
   );
   assert.deepEqual(status, {
     demo: "off",
-    old: "incompatible",
     stray: "no_setting",
   });
   assert.deepEqual(
@@ -191,7 +185,7 @@ test("판이 다르거나 설정 선언이 없으면 켜지 않고, 꺼진 exten
     [],
   );
 
-  // 판이 맞고 선언된 demo만 켜진다.
+  // 선언된 demo만 켜진다.
   t.settings.set("extensions.demo.enabled", true);
   await t.registry.sync();
   assert.deepEqual(t.loaded, [`${BUNDLED}/demo/index.cjs`]);
@@ -199,8 +193,7 @@ test("판이 다르거나 설정 선언이 없으면 켜지 않고, 꺼진 exten
 
 test("tool handler는 켜진 동안만 불리고, core에 올리는 목록은 켜진 것과 꺼진 것을 가리지 않는다", async () => {
   const t = setup({
-    demo: manifest("demo", VERSION, [ECHO]),
-    old: manifest("old", "0.0.1", [ECHO]),
+    demo: manifest("demo", [ECHO]),
     plain: manifest("plain"),
   });
   const call = {
@@ -208,7 +201,7 @@ test("tool handler는 켜진 동안만 불리고, core에 올리는 목록은 �
     workspace: { kind: "home" as const },
   } as never;
 
-  // 꺼져 있다: handler가 없고, 목록에는 판이 맞고 tool이 있는 demo만 있다.
+  // 꺼져 있다: handler가 없고, 목록에는 tool이 있는 demo만 있다.
   await t.registry.sync();
   const off = await t.registry.callTool("demo", "echo", {}, call);
   assert.ok(!off.ok && off.error.code === "not_found");

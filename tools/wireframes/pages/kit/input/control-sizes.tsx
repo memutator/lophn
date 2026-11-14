@@ -1,10 +1,37 @@
-// 앱 화면 예: 같은 줄의 조작을 sm(28px)·md(32px)·lg(36px) 한 크기로 맞춘다.
+// 앱 화면 예: 같은 줄의 조작을 sm(28px)·md(32px)·lg(36px) 한 크기로 맞춘다. 마지막 줄은 phone 화면의
+// touch density로 그린 md다.
+import type { CSSProperties } from "react";
 import { Search } from "lucide-react";
+import { appearancePresets } from "@lophn/ui";
 import { Checkbox, Field, Input, Select, Switch } from "@lophn/ui/input";
 import { Button, IconButton, Kbd } from "@lophn/ui/primitives";
 import type { ControlSize } from "@lophn/ui/shared";
 
-const SIZES: readonly ControlSize[] = ["sm", "md", "lg"];
+const ROWS: readonly {
+  id: string;
+  size: ControlSize;
+  style?: CSSProperties;
+}[] = [
+  { id: "sm", size: "sm" },
+  { id: "md", size: "md" },
+  { id: "lg", size: "lg" },
+  {
+    id: "touch",
+    size: "md",
+    style: tokenVars(appearancePresets.density.touch),
+  },
+];
+
+// appearanceCss는 html:root 전체를 덮는다. 한 줄만 touch로 그리려고 같은 token 덮어쓰기를 그 줄의 CSS 변수로 둔다.
+function tokenVars(override: object, prefix = "-"): CSSProperties {
+  const vars: Record<string, string> = {};
+  for (const [key, value] of Object.entries(override)) {
+    const name = `${prefix}-${key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
+    if (typeof value === "object") Object.assign(vars, tokenVars(value, name));
+    else vars[name] = String(value);
+  }
+  return vars as CSSProperties;
+}
 
 // 앱이 자기 catalog에서 가져오는 문구 자리다.
 const TEXT = {
@@ -27,11 +54,12 @@ export function ControlSizes() {
         gap: "var(--space-8)",
       }}
     >
-      {SIZES.map((size) => (
+      {ROWS.map(({ id, size, style }) => (
         <div
-          key={size}
-          data-row={size}
+          key={id}
+          data-row={id}
           style={{
+            ...style,
             display: "flex",
             flexWrap: "wrap",
             alignItems: "flex-end",

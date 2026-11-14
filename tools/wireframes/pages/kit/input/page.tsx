@@ -464,7 +464,7 @@ export function KitInput() {
       </Section>
       <Section
         title="control-sizes"
-        note="sm·md·lg 높이의 Button·Input·Select를 같은 줄에 맞춘다."
+        note="sm·md·lg 높이의 Button·Input·Select를 같은 줄에 맞춘다. 마지막 줄은 touch density(phone)의 md다."
       >
         <Example>
           <div className={kit.panel}>

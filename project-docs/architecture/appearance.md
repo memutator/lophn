@@ -72,9 +72,10 @@ preset은 token과 같은 경로 모양이라 CSS 변수 이름이 token과 같�
 | `shell.code_font`, `shell.code_font_custom`, `shell.code_font_weight` | jetbrains-mono, system, custom / 100~900(400) | `font.mono`, `font.weight.mono`(`code`·`pre`·`.mono`, 코드 편집기, xterm) |
 | `shell.reading_font`, `shell.reading_font_custom`, `shell.reading_font_weight` | ui, serif, custom / 100~900(400) | `font.reading`(문서·대화 본문: design `Markdown`, markdown 편집기), `font.weight.reading`. ui는 `font.sans`와 그 굵기를 따른다. serif는 글꼴을 싣지 않고 OS serif stack이다 |
 | `shell.text_size` | default, small, large | `type.*.size·line`(비율 0.92, 1.12) |
-| `shell.density` | comfortable, compact | `control`, `field.gap`, `menu.row`, `tree.row`, `palette.item`, `layout.panePadding`, `tab.contentGap` |
+| `shell.density` | comfortable, compact, touch | `control`, `field.gap`, `menu.row`, `tree.row`, `palette.item`, `layout.panePadding`, `tab.contentGap`. touch는 `type.body`(16px)도 덮는다 |
 | `shell.reading_width` | narrow, default, wide | CSS가 아니다. 문서가 따로 읽는다 |
 
+- `touch`는 폰 remote 화면의 밀도다: control 높이 44px 이상(sm 44, md 48, lg 52), menu·tree 행 44px, palette 항목 48px, 본문 16px(그보다 작으면 폰 browser가 입력 칸 focus 때 화면을 키운다). remote 화면이 늘 이 값으로 그린다. Settings의 밀도 고르기에는 없고 설정 schema는 `DENSITIES`를 읽어 받기는 한다.
 - `color.surface.shell`은 창 바탕(sidebar·title bar 뒤)이고 content card는 `surface.base`다.
 - 모서리 `radius`는 xs 6, sm 8, md 10, lg 14, xl 20, full 9999px이고 preset이나 theme으로 바뀌지 않는다. Dialog·Sheet·Palette는 xl, 떠 있는 표면(FloatPanel·Menu·Popover·Toast)은 lg, Tooltip·입력·Button은 md, SegmentedControl은 full이다.
 - accent를 따르는 것: 고른 tab의 강조선(`TabStrip`의 focus 칸, design `Tabs`의 밑줄), primary Button·Switch·badge, focus ring, 고른 행의 selection 바탕.

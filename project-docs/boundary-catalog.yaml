@@ -247,13 +247,14 @@ interfaces:
 
   - id: remote-protocol
     kind: interface
-    description: 폰과 core 사이의 연결. Noise IK handshake, 암호화한 record, JSON frame(hello, pair, call, result, watch와 Gateway frame), 기기가 부를 수 있는 route 목록.
+    description: 폰과 core 사이의 연결. Noise IK handshake, 암호화한 record, JSON frame(hello, pair, call, result, watch와 Gateway frame), 기기가 부를 수 있는 route 목록, call에 base64로 싣는 file·upload bytes, core가 내려주는 remote 화면 bundle(`remote_ui/manifest|file`). 폰 쪽은 좁은 입구 `@lophn/protocol/remote/client`만 import한다.
     interface_type: protocol
     defined_by: protocol
     provided_by:
       - remote
     used_by:
       - person
+      - shell
 
   - id: acp
     kind: interface

@@ -167,7 +167,9 @@ event (남지 않는다. commit 뒤 Bus)
 
 폰(기기) 자격
 - pairing한 기기의 연결은 actor user, principal `device:<id>`, conditions `{process: "remote"}`인 자격 하나를 받는다. scope는 protocol의 remote route 목록(`REMOTE_ALLOWED_ROUTES`)뿐이고, remote 연결의 `call`이 dispatch 전에 실제 route 이름으로 `authorize`해 목록 밖은 `forbidden`이다(HTTP dispatch는 read·memory route에 scope를 보지 않아 이 검사가 경계다). `watch`로 받는 event도 종류 목록(`REMOTE_ALLOWED_EVENTS`)으로 좁힌다(`architecture/event.md`). route는 좁혔는데 event가 열려 있으면 목록에 없는 앱의 event 내용까지 폰에 간다.
-- 목록은 대화와 Inbox가 쓰는 것이다: session 목록과 snapshot, `acp/snapshot|draft|send`, `ask/read|answer`, `turn_requests/decide`, notice 읽기·열기·읽음·치우기, activation 동의, job hold와 대기 job 승인, 공유 요청 목록과 결정. secret, provider, 설정 쓰기, 기기와 pairing, 앱 지우기, `host/*`는 없다. 관리는 desktop에서만 한다.
+- 목록은 폰의 session 목록, 대화, Inbox가 쓰는 것이다. 읽기: session·agent·project·앱 목록과 상세, turn·메시지 본문·검색, call, rewind 미리보기, provider 읽기, 입력 요청, 대화 이미지, remote 화면 bundle(`remote_ui/manifest|file`). 쓰기: `acp/snapshot|draft|send`와 그 안에서 부르는 대화 조작(보내기, 멈추기, 대기열 조작, model 바꾸기, 이름, fork, compact, rewind), session 열기와 archive, call 취소, 입력 요청 취소, 이미지 올리기, `ask/read|answer`, `turn_requests/decide`, notice 읽기·열기·읽음·치우기, activation 동의, job hold와 대기 job 승인, 공유 요청 목록과 결정. `acp/send`는 안의 route를 기기 자격으로 부르므로 대화 조작 route가 목록에 따로 있어야 한다.
+- 목록에 없는 것: secret, provider·설정 쓰기, 기기와 pairing, 앱 지우기, `host/*`, `sessions/delete`(되돌릴 수 없다), `sessions/change-skip`(agent가 사람에게 묻지 않고 돌게 하는 권한 설정이다). 관리는 desktop에서만 한다.
+- frame은 JSON뿐이라 file route의 답은 `{content_type, base64}`(한 file 8 MiB까지), upload route의 body는 `{input, base64}`이고 크기 한도는 그 route의 것이다. 기기가 부른 memory·upload route도 HTTP와 같이 성공 뒤 `StateChanged`를 내서 desktop 화면이 따라온다.
 - 기기를 끊으면(`devices/revoke`, 사람만) 표에서 지우고 그 자격을 거두고 연결을 `closed(credential_revoked)`로 바로 닫는다. 같은 key로 다시 붙으면 등록되지 않은 key라 `pair`만 받는다. 붙는 중(key를 찾은 뒤 자격을 받기 전)에 끊으면 끊기가 그 연결을 아직 모르므로, 연결이 자격을 받은 뒤 key를 다시 찾아 없으면 자격을 거두고 닫는다.
 - 사람 결정 handle은 기기 자격으로 등록하지 못한다(shell capability가 없다). 폰에서는 secret을 넣지 않는다.
 
@@ -204,6 +206,7 @@ event (남지 않는다. commit 뒤 Bus)
 - 사람 결정 handle은 shell capability로만 등록한다. 이유: HTTP token은 renderer와 앱 view, CLI를 쓰는 terminal agent까지 같은 값이 퍼지고 agent·worker credential은 agent의 것이라 그 자격으로 등록하면 agent가 사람의 결정을 흉내 낼 수 있다. 그래서 사람만 쓰는 창을 가진 shell main에만 주는 다른 자격을 둔다. 경계는 control socket 자리(같은 사용자, 0700 폴더, named pipe)이고 OS peer 신원은 보지 않는다. 같은 사용자의 process는 이미 `secrets.json`을 읽을 수 있어(`architecture/agent-definition.md`의 secret 저장소, `architecture/platform.md`의 data root) peer 검증이 더 막는 것이 없고 세 OS native addon이 든다. (agent)
 - 판정이 읽는 할당을 call 때마다 읽는 것과 MCP 연결 call이 server 설정을 다시 읽는 것은 사람이 거둔 권한이 바로 거둬지게 하려는 것이다. 버린 안: server를 끄는 바뀜마다 연결을 끊기(바뀜을 알리는 길을 새로 둬야 한다). (agent)
 - 폰의 자격은 사람과 같은 actor user이되 route를 목록으로 좁힌다. principal을 기기마다 두어 입장 한도와 command 결과를 shell과 나누지 않는다. 이유: 폰은 일하는 창이고(보기, 말하기, 답하기) 관리는 desktop에 남긴다. 신원은 bearer token이 아니라 handshake로 받은 공개 key다. 버린 안: 폰용 actor 종류를 새로 두기(사람의 결정 route가 모두 그 종류를 받아야 하고 뜻이 같은 사람이다). (agent, 사람이 추천을 받음 2026-11-14)
+- 폰은 일하는 창이라 대화를 이어 가는 쓰기(보내기, 멈추기, 대기열, model, 이름, fork, compact, rewind)는 넣고, 되돌릴 수 없는 `sessions/delete`와 agent의 자율을 넓히는 skip 켜기는 뺀다. 이유: skip은 권한 설정과 같은 무게이고 desktop에서 정한다. 버린 안: 대화 조작을 `acp/send` 하나로 열기(안의 route 이름으로 보지 않으면 목록이 경계 노릇을 못 한다). (agent, 2026-11-15)
 - turn request와 질문 대기를 메모리 route로 두는 것은 의도다. ledger 표로 옮기면 durable queue가 되고, 재시작이 기다리던 turn을 끊는 것은 의도다. (agent)
 
 ## 열린 것

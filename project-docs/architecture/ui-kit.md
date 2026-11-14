@@ -29,7 +29,7 @@ lophn이 내놓는 범용 UI component(kit, package `@lophn/ui`)가 lophn 화면
 ```
 design (package @lophn/ui)       범용 kit. 사용자 앱도 그대로 쓸 만한 것만
   token → 생성된 CSS 변수·이름 표
-  appearance preset              사람이 고르는 색·글꼴·크기·밀도를 token 덮어쓰기 CSS로
+  appearance preset              사람이 고르는 색·글꼴·크기·밀도를 token 덮어쓰기 CSS로(밀도 touch는 폰 remote 화면의 것)
   분류 8개                        primitives, input, layout, navigation, data, feedback, overlay, reading
   _shared                        분류에 안 드는 지원 export
   i18n (package @lophn/i18n)     문구 catalog와 t(), locale별 translator. @formatjs/intl 위의 얇은 층

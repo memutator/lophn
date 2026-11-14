@@ -13,7 +13,11 @@ import {
   appMessagesSchemaSteps,
   sessionOpenerSchemaSteps,
 } from "../../../lophn-agent/session/opener-schema.ts";
-import { providerReportedModelLimitsSchemaSteps } from "../../../lophn-agent/providers/mod.ts";
+import {
+  providerOpencodeGoGeminiSchemaSteps,
+  providerReportedModelLimitsSchemaSteps,
+} from "../../../lophn-agent/providers/mod.ts";
+import { modelCallsAnyProtocolSchemaSteps } from "../../../lophn-agent/usage/mod.ts";
 import { appSenderSchemaSteps } from "../../../router/app-sender-schema.ts";
 import { readdir, rm } from "node:fs/promises";
 import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
@@ -110,6 +114,8 @@ export const domainsRetireWiring: WiringFactory = () => ({
     ...sessionOpenerSchemaSteps,
     ...jobTriggerSchemaSteps,
     ...providerReportedModelLimitsSchemaSteps,
+    ...modelCallsAnyProtocolSchemaSteps,
+    ...providerOpencodeGoGeminiSchemaSteps,
   ],
   dataSteps: [domainsRetireStep],
 });

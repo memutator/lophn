@@ -127,8 +127,13 @@ const OPENCODE_GO_LIST_HEADERS: Readonly<Record<string, string>> = {
 };
 
 // OpenCode Go 목록(OpenAI base)은 model마다 `api` 객체에 native wire를 싣는다. lophn이 부를 수 있는 wire의 model만
-// 남긴다(generateContent만 있는 Gemini는 뺀다). `api`가 없으면 어느 wire인지 모르므로 버린다.
-const OPENCODE_GO_WIRES = ["chat-completions", "responses", "messages"];
+// 남긴다. `api`가 없으면 어느 wire인지 모르므로 버린다.
+const OPENCODE_GO_WIRES = [
+  "chat-completions",
+  "responses",
+  "messages",
+  "generate-content",
+];
 
 function opencodeGoModels(body: string): string[] | null {
   let parsed: unknown;

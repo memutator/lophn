@@ -376,3 +376,19 @@ export function cloudCodePacker(input: {
     };
   };
 }
+
+// Gemini API generateContent 번역. 이력·tool·thought signature 처리는 Cloud Code와 같은 Google contents/parts다.
+// toolConfig는 싣지 않는다: Cloud Code profile의 VALIDATED 대신 Gemini API 기본(AUTO)을 쓴다. model 이름은 경로에
+// 들어가므로 shape가 싣는다. output 상한은 Cloud Code와 같은 이유로 싣지 않는다.
+export function geminiPacker(input: {
+  model: string;
+  images: boolean;
+  requestPatch?: JsonObject;
+}): WirePacker {
+  const google = cloudCodePacker(input);
+  return (request: PromptRequest) => {
+    const packed = google(request);
+    const { toolConfig: _, ...body } = packed.body as Record<string, unknown>;
+    return { ...packed, body };
+  };
+}

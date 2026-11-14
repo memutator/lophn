@@ -1,0 +1,26 @@
+id: opencode-go-gemini
+version: 0.23.52
+title: OpenCode Go의 Gemini model(Argon)을 Gemini API wire로 부른다
+modules: [packages/core/lophn-agent, packages/core/main, packages/protocol]
+change: |
+  - provider protocol에 `gemini-generate-content`(Gemini API `models/<model>:streamGenerateContent?alt=sse`)를 더했다. 본문은 Antigravity와 같은 Google contents/parts packer를 쓰되 envelope와 toolConfig(VALIDATED)를 싣지 않고, 응답은 같은 GenerateContentResponse collector(서명·usage·finishReason 판정)로 읽는다. effort는 같은 thinkingLevel 표다. 이 wire는 model 이름이 경로에 들어가 shape 없이는 보내지 않는다.
+  - OpenCode Go 정의의 `protocols`에 이 wire를 더했다. models.dev의 `@ai-sdk/google` 행(gemini-4-argon, gemini-4-argon-contributor)이 catalog 항목이 되고, gateway 목록의 `generate-content` model도 남는다. 요청은 `/go/google/v1beta/models/<model>:streamGenerateContent?alt=sse`로 가고 body에 stream을 싣지 않는다. 동봉 snapshot의 OpenCode Go 행을 오늘 models.dev로 다시 만들었다(Argon 둘 추가).
+  - ledger step `lophn-agent.harness-usage.model-calls-any-protocol`: model_calls를 다시 짜 protocol 값 목록 검사를 빈 값 검사로 바꿨다. 처음 표는 wire 셋만 받아 Antigravity(`cloud-code-assist`) call도 적지 못했다. 행·index·trigger·보완 연결은 그대로다.
+  - ledger step `lophn-agent.harness-provider.opencode-go-gemini`: 연결된 OpenCode Go provider에 저장된 정의의 `protocols`를 새 정의와 맞춘다.
+why: |
+  OpenCode Go 구독의 Gemini model(Argon)이 목록에 없었다. gateway가 Argon을 generateContent로만 native하게 내고, 다른 API로 보내면 변환을 거쳐 thinking과 tool call 서명이 이어지지 않을 수 있다. 사람이 native wire를 골랐다.
+decisions:
+  - text: >-
+      Argon은 변환 없이 Gemini API wire로 보낸다. 버린 길: chat completions로 보내 gateway 변환에 맡기기(바로 되지만 thought signature와 tool 왕복이 깨질 수 있다).
+    by: person
+  - text: >-
+      model_calls.protocol은 값 목록으로 검사하지 않는다. 쓰는 쪽이 CallModel schema로 검사하고, wire를 더할 때마다 기록 표를 다시 짜지 않는다. 버린 길: 목록에 두 값을 더해 다시 짜기(다음 wire에서 또 짠다).
+    by: agent
+  - text: >-
+      Gemini wire의 tool 호출은 toolConfig 없이 Gemini API 기본(AUTO)이다. Cloud Code profile의 VALIDATED는 Antigravity client 값이라 옮기지 않았다.
+    by: agent
+follow_up: |-
+  실제 계정 key로 Argon을 아직 호출하지 못했다. 확인할 것: text 한 번, tool 한 왕복(두 번째 요청에 thought signature가 실려 거절되지 않는지), effort low/high.
+checklist:
+  - Manage models의 OpenCode Go 묶음에 Gemini 4 Argon이 보이는지 본다(목록을 한 번 새로 읽는다)
+  - gemini-4-argon을 골라 답 한 번과 tool을 쓰는 요청 한 번을 해 본다

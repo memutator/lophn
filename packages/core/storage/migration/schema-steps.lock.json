@@ -278,5 +278,13 @@
   {
     "id": "lophn-agent.harness-provider.reported-model-limits",
     "sha256": "94e9dda68118d8bbc4896d16991ca4ae1e34494e97bc64ceb0a0bcd20826addd"
+  },
+  {
+    "id": "lophn-agent.harness-usage.model-calls-any-protocol",
+    "sha256": "61ff02b664dccd1ee92e840cedec7d044822ea324b59052caeb34c96ad3741de"
+  },
+  {
+    "id": "lophn-agent.harness-provider.opencode-go-gemini",
+    "sha256": "1a4a6c5c3958caaa5dd727dfaeefef2755f7fe962ca775b45430d3ccfd6c630f"
   }
 ]

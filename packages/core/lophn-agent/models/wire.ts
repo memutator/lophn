@@ -105,15 +105,15 @@ const chatEffort: EffortPiece = (value) => {
   return name === undefined ? undefined : { reasoning_effort: name };
 };
 
-// Cloud Code Assist는 thinkingLevel로 effort를 싣는다. 끄기와 그 밖의 값은 model마다 달라 표에 두지 않는다.
-const CLOUD_CODE_LEVELS: Readonly<Record<string, string>> = {
+// Google wire(Cloud Code Assist, Gemini API)는 thinkingLevel로 effort를 싣는다. 끄기와 그 밖의 값은 model마다 달라 표에 두지 않는다.
+const GOOGLE_LEVELS: Readonly<Record<string, string>> = {
   low: "LOW",
   medium: "MEDIUM",
   high: "HIGH",
 };
 
-const cloudCodeEffort: EffortPiece = (value) => {
-  const level = lookup(CLOUD_CODE_LEVELS, value);
+const googleEffort: EffortPiece = (value) => {
+  const level = lookup(GOOGLE_LEVELS, value);
   if (level === undefined) return undefined;
   const piece: JsonObject = {
     generationConfig: {
@@ -127,7 +127,8 @@ const EFFORT_TABLES: Readonly<Record<WireProtocol, EffortPiece>> = {
   "anthropic-messages": messagesEffort,
   "openai-responses": responsesEffort,
   "openai-chat-completions": chatEffort,
-  "cloud-code-assist": cloudCodeEffort,
+  "cloud-code-assist": googleEffort,
+  "gemini-generate-content": googleEffort,
 };
 
 function isJsonObject(value: JsonValue): value is JsonObject {

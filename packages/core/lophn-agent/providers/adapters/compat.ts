@@ -79,14 +79,18 @@ export function verifyStateFree(input: {
   protocol:
     | "openai-responses"
     | "openai-chat-completions"
-    | "cloud-code-assist";
+    | "cloud-code-assist"
+    | "gemini-generate-content";
   // 이번 요청에 재전송 대상 opaque 상태가 있었는가.
   pendingReasoning: boolean;
   reasoningRequired: boolean;
 }): StateFreeVerdict {
   if (!input.pendingReasoning) return { continuable: true, adjustment: "none" };
-  // Cloud Code는 thought signature를 이력에 싣지 않는다. 다음 call은 서명 없이 이어 간다.
-  if (input.protocol === "cloud-code-assist") {
+  // Google wire는 thought signature를 tool call에 실어 돌려보내고, 없으면 서명 검사를 건너뛰는 표시로 이어 간다.
+  if (
+    input.protocol === "cloud-code-assist" ||
+    input.protocol === "gemini-generate-content"
+  ) {
     return { continuable: true, adjustment: "none" };
   }
   if (input.protocol === "openai-responses") {

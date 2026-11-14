@@ -186,3 +186,88 @@ export function assertCall(record: unknown): Result<ModelCallRecord> {
   }
   return ok(parsed.data);
 }
+
+// model_calls.protocol의 값 목록 검사를 거둔다. 처음 표는 wire 셋만 받아 Antigravity(`cloud-code-assist`)와 Gemini API
+// (`gemini-generate-content`) call을 적지 못했다. 값은 쓰는 쪽이 CallModel schema로 검사하므로 표는 빈 값만 막는다.
+// model_call_supplements가 `on delete restrict`로 걸려 있어 FK를 끄고 다시 짠다(`foreignKeys: "off"`). index 일곱과 trigger
+// 하나를 지금 모양 그대로 다시 만들고 행은 열 이름으로 옮긴다. 낸 step 목록의 끝에 붙어야 해서 WIRINGS 맨 뒤
+// wiring(domains-retire)의 schemaStepsAfterTeams에서 잇는다.
+const MODEL_CALLS_COLUMNS = `id, turn, session, model_use, agent_hash, purpose, attempt_kind, attempt_order, retry_of, provider, credential_revision, model_name, protocol, call_model, input, context_basis, output, state, state_seq, started_seq, started_at, finished_at, duration_ms, first_output_ms, outcome, usage, cost`;
+
+export const modelCallsAnyProtocolSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "lophn-agent.harness-usage.model-calls-any-protocol",
+    foreignKeys: "off",
+    sql: `
+create table model_calls_new (
+  id text primary key,
+  turn text,
+  session text,
+  model_use text check (model_use in ('judgment', 'organizing')),
+  agent_hash text check (agent_hash is null or length(agent_hash) = 64),
+  purpose text not null check (purpose in ('judgment', 'title_summary', 'conversation_compression')),
+  attempt_kind text not null check (attempt_kind in ('initial', 'retry')),
+  attempt_order integer not null check (attempt_order >= 1),
+  retry_of text references model_calls (id) on delete restrict,
+  provider text not null,
+  credential_revision integer,
+  model_name text not null check (length(trim(model_name)) > 0),
+  protocol text not null check (length(trim(protocol)) > 0),
+  call_model text not null check (json_valid(call_model)),
+  input text not null,
+  context_basis text not null,
+  output text,
+  state text not null check (state in ('started', 'finished')),
+  state_seq integer not null check (state_seq >= 0),
+  started_seq integer not null check (started_seq >= 0),
+  started_at text not null,
+  finished_at text,
+  duration_ms integer,
+  first_output_ms integer,
+  outcome text check (outcome is null or json_valid(outcome)),
+  usage text not null check (json_valid(usage)),
+  cost text not null check (json_valid(cost)),
+  check (
+    (turn is not null and session is not null and model_use is not null and agent_hash is not null) or
+    (turn is null and session is not null and model_use is 'organizing' and agent_hash is null and purpose = 'conversation_compression')
+  ),
+  check (
+    (attempt_kind = 'retry') = (retry_of is not null)
+  ),
+  check (
+    (state = 'finished') = (finished_at is not null and outcome is not null)
+  ),
+  check (output is null or state = 'finished'),
+  check (
+    (duration_ms is null or duration_ms >= 0) and
+    (first_output_ms is null or first_output_ms >= 0)
+  )
+) strict;
+insert into model_calls_new (${MODEL_CALLS_COLUMNS})
+select ${MODEL_CALLS_COLUMNS} from model_calls;
+drop table model_calls;
+alter table model_calls_new rename to model_calls;
+create unique index model_calls_turn_attempt
+  on model_calls (turn, attempt_order) where turn is not null;
+create unique index model_calls_session_attempt
+  on model_calls (session, attempt_order) where turn is null and session is not null;
+create index model_calls_turn_state on model_calls (turn, state);
+create index model_calls_session_started on model_calls (session, started_at);
+create index model_calls_model_use_purpose_started
+  on model_calls (model_use, purpose, started_at);
+create index model_calls_provider_model_started
+  on model_calls (provider, model_name, started_at);
+create index model_calls_retry_of on model_calls (retry_of);
+create trigger model_calls_no_delete
+before delete on model_calls
+when not exists (
+  select 1 from turns where id = old.turn and session is not null and state = 'finished'
+) and not (
+  old.turn is null and old.session is not null and
+  not exists (select 1 from turns where session = old.session and state <> 'finished')
+)
+begin
+  select raise(abort, 'model call records are kept');
+end;`,
+  },
+];

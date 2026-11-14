@@ -55,12 +55,13 @@ import type {
   ModelOutputDelta,
 } from "./work.ts";
 
-const PATHS = {
+// shape 없이 보낼 때의 경로다. Gemini wire는 model 이름이 경로에 들어가 shape만 주소를 만든다.
+const PATHS: Partial<Record<ModelCallInput["model"]["protocol"], string>> = {
   "anthropic-messages": "/messages",
   "openai-responses": "/responses",
   "openai-chat-completions": "/chat/completions",
   "cloud-code-assist": "/v1internal:streamGenerateContent?alt=sse",
-} as const;
+};
 
 const ANTHROPIC_VERSION = "2023-06-01";
 
@@ -206,7 +207,11 @@ function collectorFor(
       },
     };
   }
-  if (protocol === "cloud-code-assist") {
+  // Gemini API frame은 Cloud Code frame에서 `response` 겉봉만 없는 같은 GenerateContentResponse다.
+  if (
+    protocol === "cloud-code-assist" ||
+    protocol === "gemini-generate-content"
+  ) {
     const out = createCloudCodeStreamResult();
     return {
       push: pushInto(
@@ -361,13 +366,13 @@ async function invoke(
       session: input.session,
       body: input.body,
     }) ?? null;
-  if (deps.shape !== undefined && shaped === null) {
+  const path = PATHS[input.model.protocol];
+  if ((deps.shape !== undefined || path === undefined) && shaped === null) {
     return err({ code: "internal", message: "요청 본문을 만들지 못했다" });
   }
   idle.touch();
   const sent = await deps.transport.send({
-    url:
-      shaped?.url ?? joinEndpoint(input.endpoint, PATHS[input.model.protocol]),
+    url: shaped?.url ?? joinEndpoint(input.endpoint, path!),
     method: "POST",
     headers: shaped?.headers ?? headers,
     body: shaped?.body ?? JSON.stringify({ ...input.body, stream: true }),

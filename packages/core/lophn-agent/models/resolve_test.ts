@@ -144,12 +144,18 @@ test("직접 적은 이름은 받고, 구독 OAuth 계정의 허락 목록 밖 �
 });
 
 // OpenCode Go는 provider 하나이고 model마다 catalog가 정한 native wire로 간다: 그 wire의 경로와 요청 모양,
-// `x-opencode-session`, 자기 User-Agent, stream=true. session header가 빠지면 gateway가 거절한다.
+// `x-opencode-session`, 자기 User-Agent. OpenAI·Anthropic wire는 body의 stream=true, Gemini는 경로가 stream을 고른다.
+// session header가 빠지면 gateway가 거절한다.
 test("OpenCode Go provider 하나가 model마다 catalog의 wire로 gateway 요청을 만든다", async () => {
   const cases = [
     ["glm-5.3", "openai-chat-completions", "/openai/v1/chat/completions"],
     ["gpt-6-luna", "openai-responses", "/openai/v1/responses"],
     ["claude-haiku-5-5", "anthropic-messages", "/anthropic/v1/messages"],
+    [
+      "gemini-4-argon",
+      "gemini-generate-content",
+      "/google/v1beta/models/gemini-4-argon:streamGenerateContent?alt=sse",
+    ],
   ] as const;
   const definition = builtinProviderDefinition("opencode-go");
   assert.ok(definition.ok);
@@ -250,6 +256,12 @@ test("OpenCode Go provider 하나가 model마다 catalog의 wire로 gateway 요�
     );
     // OpenCode Go gateway는 wire와 상관없이 Bearer 하나를 문서에 둔다.
     assert.equal(call.headers.authorization, "Bearer sk-test", model);
-    assert.equal((call.body as { stream?: boolean }).stream, true, model);
+    const body = call.body as { stream?: boolean; contents?: unknown };
+    if (protocol === "gemini-generate-content") {
+      assert.equal(body.stream, undefined, model);
+      assert.ok(Array.isArray(body.contents), model);
+    } else {
+      assert.equal(body.stream, true, model);
+    }
   }
 });

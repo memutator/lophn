@@ -230,7 +230,8 @@ export function framesFromBatch(
     | "anthropic-messages"
     | "openai-responses"
     | "openai-chat-completions"
-    | "cloud-code-assist",
+    | "cloud-code-assist"
+    | "gemini-generate-content",
   text: string | null,
 ): SseFrame[] | null {
   if (text === null) return null;
@@ -240,7 +241,12 @@ export function framesFromBatch(
   } catch {
     return null;
   }
-  if (protocol === "cloud-code-assist") return cloudCodeFrames(parsed);
+  if (
+    protocol === "cloud-code-assist" ||
+    protocol === "gemini-generate-content"
+  ) {
+    return cloudCodeFrames(parsed);
+  }
   const root = object(parsed);
   if (root === null) return null;
   if (protocol === "anthropic-messages") return messagesFrames(root);

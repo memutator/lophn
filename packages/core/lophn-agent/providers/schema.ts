@@ -99,3 +99,20 @@ export const providerReportedModelLimitsSchemaSteps: readonly SchemaStep[] = [
 alter table provider_credentials add column reported_model_limits text;`,
   },
 ];
+
+// OpenCode Go 정의에 Gemini API wire를 더했다. provider row는 연결할 때의 정의를 담으므로 저장된 정의의 protocols를
+// 새 내장 정의와 맞춘다. 그래야 turn이 Gemini model을 그 wire로 부른다. 낸 step 목록의 끝에 붙는다(domains-retire).
+export const providerOpencodeGoGeminiSchemaSteps: readonly SchemaStep[] = [
+  {
+    id: "lophn-agent.harness-provider.opencode-go-gemini",
+    sql: `
+update providers
+set definition = json_set(
+      definition,
+      '$.protocols',
+      json('["openai-chat-completions","openai-responses","anthropic-messages","gemini-generate-content"]')
+    ),
+    revision = revision + 1
+where definition_key = 'opencode-go';`,
+  },
+];

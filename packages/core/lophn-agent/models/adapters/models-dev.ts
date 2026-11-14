@@ -63,12 +63,12 @@ export async function fetchCatalog(
 }
 
 // OpenCode Go gateway는 model마다 native wire가 다르다. models.dev 행의 SDK package가 그 wire를 가리키고, package가
-// 없는 행은 provider 기본 package(`@ai-sdk/openai-compatible`)를 따른다. Gemini generateContent wire는 lophn에
-// adapter가 없어 버린다.
+// 없는 행은 provider 기본 package(`@ai-sdk/openai-compatible`)를 따른다. 모르는 package의 행은 버린다.
 const OPENCODE_GO_WIRES: Readonly<Record<string, ProviderProtocol>> = {
   "@ai-sdk/openai-compatible": "openai-chat-completions",
   "@ai-sdk/openai": "openai-responses",
   "@ai-sdk/anthropic": "anthropic-messages",
+  "@ai-sdk/google": "gemini-generate-content",
 };
 
 function opencodeGoWire(provider: Json, model: Json): ProviderProtocol | null {

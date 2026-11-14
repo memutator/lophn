@@ -18,6 +18,8 @@ export const PROVIDER_PROTOCOLS = [
   "openai-chat-completions",
   // Google Cloud Code Assist의 `v1internal:streamGenerateContent`다. Antigravity 구독 계정만 쓴다.
   "cloud-code-assist",
+  // Gemini API의 `models/<model>:streamGenerateContent`다. 지금은 OpenCode Go gateway의 Gemini model만 쓴다.
+  "gemini-generate-content",
 ] as const;
 export const providerProtocolSchema = z.enum(PROVIDER_PROTOCOLS);
 export type ProviderProtocol = (typeof PROVIDER_PROTOCOLS)[number];

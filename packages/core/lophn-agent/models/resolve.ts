@@ -45,6 +45,7 @@ import {
   cappedOutput,
   chatPacker,
   cloudCodePacker,
+  geminiPacker,
   type ModelBinding,
   responsesPacker,
 } from "./binding.ts";
@@ -271,7 +272,11 @@ export function createModelResolver(deps: ModelResolverDeps) {
     }
     const platform = deps.host ?? claudeHostOf(process.platform, process.arch);
     // OpenCode Go gateway는 대화 header와 자기 User-Agent를 요구한다. 경로는 model의 wire가 정한다.
-    const gatewayShape = opencodeGoShape(provider.definition.key, protocol);
+    const gatewayShape = opencodeGoShape(
+      provider.definition.key,
+      protocol,
+      limits.sent_model_name,
+    );
     const invoke = createInvokeModelCall({
       transport: withRequestHeaders(transport, optionHeaders),
       nowMs,
@@ -331,13 +336,19 @@ export function createModelResolver(deps: ModelResolverDeps) {
                 images,
                 requestPatch,
               })
-            : chatPacker({
-                model: limits.sent_model_name,
-                images,
-                maxTokens: cappedOutput(limits),
-                provider: provider.definition.key,
-                requestPatch,
-              });
+            : protocol === "gemini-generate-content"
+              ? geminiPacker({
+                  model: limits.sent_model_name,
+                  images,
+                  requestPatch,
+                })
+              : chatPacker({
+                  model: limits.sent_model_name,
+                  images,
+                  maxTokens: cappedOutput(limits),
+                  provider: provider.definition.key,
+                  requestPatch,
+                });
 
     const call: CallModel = {
       provider: selection.provider,

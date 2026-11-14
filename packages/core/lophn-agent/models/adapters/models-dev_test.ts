@@ -134,8 +134,8 @@ test("항목 배열 응답은 거절한다", () => {
 });
 
 // OpenCode Go 항목은 정의 하나이고 model마다 native wire를 싣는다. 행의 SDK package가 wire를 정하고, package가 없는
-// 행은 provider 기본 package를 따른다(이름이 minimax-여도 chat이다). Gemini wire는 lophn이 부를 길이 없어 빠진다.
-test("OpenCode Go 행은 정의 하나에 model마다 wire를 싣고 Gemini model은 빠진다", () => {
+// 행은 provider 기본 package를 따른다(이름이 minimax-여도 chat이다). Gemini는 generateContent wire다.
+test("OpenCode Go 행은 정의 하나에 model마다 wire를 싣는다", () => {
   const model = {
     tool_call: true,
     modalities: text,
@@ -167,6 +167,7 @@ test("OpenCode Go 행은 정의 하나에 model마다 wire를 싣고 Gemini mode
       "opencode-go/minimax-m3.1-flash/openai-chat-completions",
       "opencode-go/gpt-6-luna/openai-responses",
       "opencode-go/claude-haiku-5-5/anthropic-messages",
+      "opencode-go/gemini-4-argon/gemini-generate-content",
     ],
   );
 });

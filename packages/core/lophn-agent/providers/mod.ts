@@ -1,4 +1,5 @@
 export {
+  providerOpencodeGoGeminiSchemaSteps,
   providerReportedModelLimitsSchemaSteps,
   providerSchemaSteps,
 } from "./schema.ts";

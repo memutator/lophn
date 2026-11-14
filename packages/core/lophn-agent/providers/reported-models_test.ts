@@ -107,8 +107,8 @@ test("계정 model 목록 응답이 틀리면 null이고, 맞으면 숨긴 것�
   assert.deepStrictEqual(entitlementAllows("oauth", ["a"], "b"), false);
 });
 
-// OpenCode Go 목록은 model마다 native wire를 싣는다. lophn이 부를 수 있는 wire의 model만 남기고, wire를 모르는
-// model과 generateContent만 있는 Gemini model은 뺀다. gateway는 SDK 기본 User-Agent를 막는다.
+// OpenCode Go 목록은 model마다 native wire를 싣는다. lophn이 부를 수 있는 wire의 model만 남기고 wire를 모르는
+// model은 뺀다. gateway는 SDK 기본 User-Agent를 막는다.
 test("OpenCode Go 목록은 부를 수 있는 wire의 model만 남기고 gateway header를 싣는다", async () => {
   const body = {
     data: [
@@ -117,6 +117,7 @@ test("OpenCode Go 목록은 부를 수 있는 wire의 model만 남기고 gateway
       { id: "claude-haiku-5-5", api: { messages: { base_url: "x" } } },
       { id: "gemini-4-argon", api: { "generate-content": { base_url: "x" } } },
       { id: "mystery" },
+      { id: "speech", api: { audio: { base_url: "x" } } },
     ],
   };
   const sent: { url: string; headers: Headers }[] = [];
@@ -137,7 +138,7 @@ test("OpenCode Go 목록은 부를 수 있는 wire의 model만 남기고 gateway
     "SECRET-KEY",
   );
   assert.deepStrictEqual(got, {
-    models: ["claude-haiku-5-5", "glm-5.3", "gpt-6-luna"],
+    models: ["claude-haiku-5-5", "gemini-4-argon", "glm-5.3", "gpt-6-luna"],
     limits: {},
   });
   assert.deepStrictEqual(sent, [

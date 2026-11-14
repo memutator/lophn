@@ -10,8 +10,16 @@ class LophnWebViewModule : Module() {
     View(LophnWebView::class) {
       Events("onMessage")
 
-      Prop("origin") { view: LophnWebView, origin: String ->
-        view.load(origin)
+      Prop("root") { view: LophnWebView, root: String ->
+        view.root = root
+      }
+
+      Prop("entry") { view: LophnWebView, entry: String ->
+        view.entry = entry
+      }
+
+      OnViewDidUpdateProps { view: LophnWebView ->
+        view.load()
       }
 
       AsyncFunction("postMessage") { view: LophnWebView, data: String ->

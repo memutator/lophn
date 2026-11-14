@@ -3,12 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="connect-src 'none'">
 <link rel="stylesheet" href="style.css">
 <script type="module" src="main.js"></script>
 </head>
 <body>
-<h1 class="probe">spike page</h1>
+<!-- Manual check page for the native view. No <meta> CSP: the view's response header must do it. -->
+<h1 class="probe">lophn webview test</h1>
+<a id="outside-link" href="https://example.com/" target="_blank">outside link (tap: OS browser)</a>
 <pre id="out">module did not run</pre>
 <img id="outside" alt="">
 </body>

@@ -1,6 +1,7 @@
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
-import { AppState, Button, StyleSheet, Text, View } from "react-native";
+import { AppState, Button, StyleSheet, Text } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { forgetBundles } from "./src/bundle/files.ts";
 import {
   type Connection,
@@ -29,6 +30,14 @@ const withDev = (addresses: string[]) =>
   DEV_ADDRESS ? [...addresses, DEV_ADDRESS] : addresses;
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <Shell />
+    </SafeAreaProvider>
+  );
+}
+
+function Shell() {
   const [phone, setPhone] = useState<KeyPair>();
   const [computers, setComputers] = useState<Computer[]>();
   const [states, setStates] = useState<Record<string, ConnectionState>>({});
@@ -103,15 +112,15 @@ export default function App() {
 
   if (!phone || !computers) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <Text>Loading…</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   const shown = computers.find((c) => c.key === open) ?? computers[0];
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {pairing || computers.length === 0 ? (
         <PairScreen
           onCancel={computers.length ? () => setPairing(false) : undefined}
@@ -160,10 +169,11 @@ export default function App() {
         />
       )}
       <StatusBar style="auto" />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: 40, backgroundColor: "#fff" },
+  // Every native screen and the WebView sit inside the status bar, gesture bar and cutouts, so the page needs no insets.
+  container: { flex: 1, backgroundColor: "#fff" },
 });

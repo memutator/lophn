@@ -35,6 +35,7 @@ adb -s emulator-5554 emu kill                                     # 끝낼 때
 ```
 
 - native code(`modules/`, `app.json`, 의존성)를 바꾸면 prebuild와 gradle을 다시 돈다. JS만 바꾸면 Metro가 다시 읽는다.
+- `CI=1`로 띄운 Metro는 file을 지켜보지 않는다. JS를 바꾸면 Metro를 다시 띄운다.
 - emulator에서 이 machine은 `10.0.2.2`다.
 - 첫 gradle build는 NDK·CMake를 `~/Android/Sdk`에 받아 몇 분 걸린다.
 

@@ -30,7 +30,6 @@ export function mockApps(): AppsSource {
       }),
       appRow(APP_EXPENSES, "Expense log", { archived: true }),
     ],
-    runs: { [APP_BUDGET]: "running", [APP_PLANNER]: "stopped" },
     screen: "home",
   }).source;
 }

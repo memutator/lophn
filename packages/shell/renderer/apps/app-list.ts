@@ -1,8 +1,7 @@
 // 앱 목록 읽기. 보관한 앱까지 모두 읽고, 켜진 release의 번호를 붙여 런처 순서로 둔다.
 import { useMemo } from "react";
-
-import { appList } from "../../../protocol/apps/apps.ts";
 import { releasesListRecords } from "../../../protocol/apps/activation/activation.ts";
+import { appList } from "../../../protocol/apps/apps.ts";
 import {
   type Loaded,
   type ReadHandle,

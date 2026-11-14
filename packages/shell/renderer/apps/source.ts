@@ -1,5 +1,5 @@
 // apps 화면과 앱 공간이 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은
-// core-source.ts만 안다. 모양은 protocol(apps.list·get·runtime·archive·unarchive)에서 이
+// core-source.ts만 안다. 모양은 protocol(apps.list·get·archive·unarchive)에서 이
 // 화면이 쓰는 field만 옮긴 것이다.
 import type { SourceResult } from "../source-result.ts";
 
@@ -30,17 +30,11 @@ export interface PublishedPackage {
   readonly users: number;
 }
 
-/** supervisor가 본 실행 상태. 과거 기록으로 running이라 하지 않는다. */
-export type RunState = "preparing" | "stopped" | "running" | "unavailable";
-
 export interface AppsSource {
-  /** core 연결 상태를 듣는다. 준비되면 화면이 다시 읽는다. 해제는 반환 함수다. */
-  watch(listener: (state: { readonly state: string }) => void): () => void;
   /** 보관한 앱까지 모두. */
   list(): Promise<SourceResult<readonly AppRow[]>>;
   /** 없는 앱·범위 밖 앱은 null이다. */
   get(app: string): Promise<SourceResult<AppRow | null>>;
-  runtime(app: string): Promise<SourceResult<RunState>>;
   /** 앱을 등록한다. slug가 다른 앱과 겹치면 `conflict`다. */
   create(draft: AppDraft): Promise<SourceResult<AppRow>>;
   /** 보관하면 실행도 끈다. 꺼내도 사람이 허용하기 전에는 시작하지 않는다. */

@@ -1,16 +1,17 @@
 // AppsSource를 main의 core 통로로 만든다. 응답은 main의 contract client가 route output
 // schema로 이미 검사했다. 아래 모양은 그 schema에서 이 화면이 읽는 field만 옮긴 것이다.
+
+import { appSlugOf } from "../../../protocol/apps/app-slug.ts";
 import {
   appArchive,
   appCreate,
   appDelete,
   appUnarchive,
 } from "../../../protocol/apps/apps.ts";
-import { appSlugOf } from "../../../protocol/apps/app-slug.ts";
 import type { CoreCall } from "../../ipc/core.ts";
 import { commandBody } from "../command-call.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
-import type { AppRow, AppsSource, RunState, SourceResult } from "./source.ts";
+import type { AppRow, AppsSource, SourceResult } from "./source.ts";
 
 interface AppValue {
   id: string;
@@ -71,8 +72,6 @@ export function coreAppsSource(core: CoreSource): AppsSource {
   const withNumber = async (value: AppValue) =>
     rowOf(value, await numberOf(value.active_release));
   return {
-    watch: (listener) => core.subscribe(listener),
-
     async list() {
       const rows: AppRow[] = [];
       let cursor: string | undefined;
@@ -97,16 +96,6 @@ export function coreAppsSource(core: CoreSource): AppsSource {
         return result.code === "not_found" ? { ok: true, value: null } : result;
       }
       return { ok: true, value: await withNumber(result.value.app) };
-    },
-
-    async runtime(app) {
-      const result = await call<{ state: { state: RunState } }>(
-        core,
-        "read",
-        "runtime",
-        { app },
-      );
-      return result.ok ? { ok: true, value: result.value.state.state } : result;
     },
 
     async create(draft) {

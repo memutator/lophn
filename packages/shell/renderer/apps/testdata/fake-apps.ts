@@ -4,7 +4,6 @@ import type {
   AppRow,
   AppsSource,
   PublishedPackage,
-  RunState,
   SourceResult,
 } from "../source.ts";
 
@@ -27,7 +26,6 @@ export function appRow(
 
 interface FakeAppsOptions {
   rows?: readonly AppRow[];
-  runs?: Readonly<Record<string, RunState>>;
   /** 앱 공간이 여는 화면. 없으면 unavailable이다. */
   screen?: string;
   listFails?: boolean;
@@ -45,10 +43,6 @@ export function fakeApps(options: FakeAppsOptions = {}) {
   let rows = [...(options.rows ?? [])];
   const calls: unknown[][] = [];
   const source: AppsSource = {
-    watch(listener) {
-      listener({ state: "ready" });
-      return () => {};
-    },
     list() {
       calls.push(["list"]);
       return Promise.resolve(
@@ -63,13 +57,6 @@ export function fakeApps(options: FakeAppsOptions = {}) {
         ok: true,
         value: rows.find((row) => row.id === app) ?? null,
       });
-    },
-    runtime(app) {
-      calls.push(["runtime", app]);
-      const run = options.runs?.[app];
-      return Promise.resolve(
-        run ? { ok: true, value: run } : { ok: false, code: "unavailable" },
-      );
     },
     create(draft) {
       calls.push(["create", draft.name, draft.description]);
@@ -141,11 +128,5 @@ export function galleryApps(options: Pick<FakeAppsOptions, "deleteCode"> = {}) {
     ],
     // 보관한 앱이 낸 package. 지우기 확인이 남는 것으로 보인다.
     published: { [habit]: [{ name: "@me/streaks", users: 2 }] },
-    runs: {
-      [grocery]: "running",
-      [planner]: "stopped",
-      [reading]: "running",
-      [report]: "unavailable",
-    },
   });
 }

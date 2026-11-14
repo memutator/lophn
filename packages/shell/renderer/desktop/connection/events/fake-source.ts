@@ -22,7 +22,36 @@ import {
   type Notice,
   noticesOpen,
 } from "../../../../../protocol/apps/notice.ts";
+import type { z } from "zod";
+import type {
+  MemoryRoute,
+  ReadRoute,
+} from "../../../../../protocol/base/route.ts";
 import type { ConnectionState, CoreSource } from "../connection.ts";
+
+/** route 하나의 답. gallery가 `fakeAnswer`로 만들어 snapshot의 answers에 넣는다. */
+export interface FakeAnswer {
+  readonly route: {
+    readonly kind: string;
+    readonly resource: string;
+    readonly method: string;
+  };
+  answer(input: unknown): unknown;
+}
+
+/** read·memory route의 답. 값이거나 입력을 받아 값을 내는 함수다. */
+export function fakeAnswer<I extends z.ZodType, O extends z.ZodType>(
+  route: ReadRoute<I, O> | MemoryRoute<I, O>,
+  value: z.output<O> | ((input: z.output<I>) => z.output<O>),
+): FakeAnswer {
+  return {
+    route,
+    answer: (input) =>
+      typeof value === "function"
+        ? (value as (input: z.output<I>) => z.output<O>)(input as z.output<I>)
+        : value,
+  };
+}
 import { matchesCondition } from "./client.ts";
 
 /** 다시 붙을 때 read가 돌려줄 지금 상태. */
@@ -31,6 +60,8 @@ interface FakeSnapshot {
   readonly consents: readonly ActivationConsent[];
   readonly shares?: readonly ShareRequest[];
   readonly notices?: readonly Notice[];
+  /** 위 넷 밖의 read·memory route 답. 같은 route가 여럿이면 앞의 것이다. */
+  readonly answers?: readonly FakeAnswer[];
 }
 
 export interface FakeSource extends CoreSource {
@@ -86,9 +117,17 @@ export function createFakeSource(initial: FakeSnapshot = EMPTY): FakeSource {
         ok: false,
         error: { code: "unavailable", message: "fake gateway" },
       };
-      if (state.state !== "ready" || input.kind !== "read") {
-        return Promise.resolve(unavailable);
+      if (state.state !== "ready") return Promise.resolve(unavailable);
+      const found = snapshot.answers?.find(
+        ({ route }) =>
+          route.kind === input.kind &&
+          route.resource === input.resource &&
+          route.method === input.method,
+      );
+      if (found) {
+        return Promise.resolve({ ok: true, value: found.answer(input.body) });
       }
+      if (input.kind !== "read") return Promise.resolve(unavailable);
       if (
         input.resource === sessionSnapshotsList.resource &&
         input.method === sessionSnapshotsList.method

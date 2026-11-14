@@ -266,18 +266,20 @@ client가 둘일 때 부딪치는 곳:
 
 ## 단계
 
-화면 갱신(`roadmap/screen-sync.md`)이 먼저다. 단계 1과 나란히 갈 수 있다.
+다 한다(사람, 2026-11-14). 순서는 planner가 정했다. 앞의 것이 뒤의 것의 바탕이라 이 순서다.
 
+0. 화면 갱신(`roadmap/screen-sync.md`). 단계 1과 나란히 간다.
 1. core: 기기 등록, pairing, 폰 연결(암호화, route 목록), Settings의 기기 화면. 폰 없이 Node client로 확인한다.
-2. 폰 껍데기와 remote 화면: lophn agent의 session 목록, 대화, 승인과 질문 답하기. desktop 앱 없이 된다.
+2. 폰 껍데기(iOS, Android)와 remote 화면: lophn agent의 session 목록, 대화, 승인과 질문 답하기.
 3. push와 알림 정하기(host의 보고, `unseen`).
-4. coding agent: desktop의 harness GUI 대화를 폰에서 다룬다(shell main이 handle을 core로 올리기, shell main의 연결을 양방향으로, 터미널 agent 상태 보고).
-5. 사용자 앱을 폰에 띄운다(`phone` 자리, view binding, 기기 지침, touch token).
-6. 위젯, 홈 화면 아이콘, 폰 기능 command.
-7. raw 터미널 보기와 간단한 입력(입력과 크기의 주인).
-8. 실제 폰의 browser-use.
+4. coding agent: desktop의 harness GUI 대화를 폰에서 다룬다.
+5. remote 앱: 컴퓨터에서 도는 앱의 화면을 폰에 띄운다(`phone` 자리, view binding, 기기 지침, touch token).
+6. sync 앱과 독립 앱: 폰에서 backend와 data가 돈다(SDK의 길 셋, 폰 runtime, changeset으로 맞추기).
+7. 위젯, 홈 화면 아이콘, 폰 기능 command.
+8. raw 터미널 보기와 간단한 입력.
+9. 실제 폰의 browser-use.
 
-4와 5의 순서는 사람이 정한다(아래 5).
+단계 6은 폰에서 backend를 실제로 돌릴 수 있는지에 달려 있다. 그 확인(spike)은 단계 1~2와 나란히 먼저 한다. 안 되면 단계 6의 방향을 다시 잡는다.
 
 ## 사람이 정할 것
 
@@ -285,7 +287,7 @@ client가 둘일 때 부딪치는 곳:
 2. **폰 기종.** 정할 것이 아니다. 쓰는 사람마다 폰이 달라 iOS와 Android를 둘 다 낸다(Expo 하나로 짓는다). 개발은 Linux에서 바로 빌드되는 Android로 먼저 확인한다. iOS는 빌드에 Mac이나 cloud 빌드가, push와 배포에 Apple Developer 계정(연 $99)이 든다. 이 비용은 lophn 쪽이 지고 쓰는 사람이 지지 않는다.
 3. **폰 앱의 모양.** 추천: 얇은 껍데기(Expo)와 core가 내려주는 web 화면. 다른 안: 화면까지 RN native로 만든다(느낌이 좋지만 대화 화면을 다시 만들고 화면을 고칠 때마다 폰 앱을 빌드한다). native 앱 없이 폰 browser만 쓴다(위젯, 폰 기능, 앱 host가 안 된다).
 4. **망과 push.** 추천: 망은 direct만(집 LAN과 Tailscale), push는 Expo Push. 잃는 것: 집 밖에서는 Tailscale이 필요하다. push는 Expo에 기대고 Expo가 알림 글(상태와 제목)을 본다. 다른 안: relay를 둔다(Paseo 꼴의 상태 없는 전달자라도 lophn이 서버를 돌린다). 자기 push gateway를 돌린다. push를 두지 않는다.
-5. **순서.** 단계 4(coding agent)와 5(사용자 앱) 가운데 무엇이 먼저인가. 추천: 4. 사람이 "주로 remote"라고 했고, 5는 SDK 선언과 앱 agent 지침이 같이 바뀌는 더 큰 일이다.
+5. **순서.** 정했다. 다 하고(사람), 순서는 위 "단계"다(agent).
 6. **TUI로 도는 session을 폰이 열 때.** 추천: GUI로 바꿀지 묻고, 바꾸면 desktop도 GUI로 바뀐다. 다른 안: 말없이 바꾼다(desktop에서 쓰던 TUI가 예고 없이 끊긴다). 이미 GUI인 session만 폰에 보인다(TUI로 쓰는 사람은 폰에서 못 본다).
 
 ## 추천대로 가려는 것

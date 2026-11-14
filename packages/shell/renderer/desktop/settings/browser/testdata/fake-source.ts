@@ -1,5 +1,13 @@
-// Browser 항목의 가짜 통로. shell을 부르지 않고 부른 일을 calls에 둔다.
+// Browser 항목의 가짜 통로. shell을 부르지 않고 부른 일을 calls에 둔다. link 열 곳과 기기는 가짜 core의 설정이고
+// login은 가짜 core의 `logins/list` 답이다.
 import type { Bookmark } from "../../../../../ipc/browser.ts";
+import {
+  loginSecretName,
+  loginsList,
+} from "../../../../../../protocol/secrets/logins.ts";
+import { fakeAnswer } from "../../../connection/events/fake-source.ts";
+import { type FakeCore, fakeCore } from "../../testdata/fake-core.ts";
+import { DEVICES_KEY, LINK_ROWS } from "../model.ts";
 import type {
   BrowserSettingsSource,
   Device,
@@ -27,6 +35,8 @@ interface FakeBrowserSettingsOptions {
   logins?: LoginRow[];
   /** 보호 입력 창을 닫는 결과. 없으면 값을 넣는다. */
   secretResult?: "stored" | "cancelled";
+  /** 값을 둘 가짜 core. 없으면 새로 만든다. */
+  core?: FakeCore;
 }
 
 const sample = (n: number, title: string, url: string): Bookmark => ({
@@ -43,13 +53,26 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
     sample(2, "MDN Web Docs", "https://developer.mozilla.org/"),
     sample(3, "Example", "https://example.com/"),
   ];
-  let links: LinkValues = {
+  const core = options.core ?? fakeCore();
+  const links: LinkValues = {
     web_links: "browser_tab",
     local_links: "browser_tab",
     ...options.links,
   };
-  let devices: readonly Device[] = options.devices ?? [];
+  for (const row of LINK_ROWS) core.set(row.settingKey, links[row.id]);
+  core.set(DEVICES_KEY, options.devices ?? []);
   let logins: readonly LoginRow[] = options.logins ?? [];
+  const passwords = () => {
+    for (const login of logins) {
+      core.secret(loginSecretName(login.id, "password"), login.password);
+    }
+  };
+  passwords();
+  core.answers.push(
+    fakeAnswer(loginsList, () =>
+      logins.map(({ password: _password, ...login }) => login),
+    ),
+  );
   const listeners = new Set<() => void>();
   const changed = () => listeners.forEach((listener) => listener());
   const refused = (code: string): Promise<SourceResult<null>> =>
@@ -94,19 +117,12 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
       changed();
       return Promise.resolve({ ok: true, value: null });
     },
-    links() {
-      calls.push(["links"]);
-      return Promise.resolve({ ok: true, value: links });
-    },
     chooseLink(id, value) {
       calls.push(["chooseLink", id, value]);
       if (options.linkCode) return refused(options.linkCode);
-      links = { ...links, [id]: value };
+      core.set(LINK_ROWS.find((row) => row.id === id)!.settingKey, value);
+      core.changed("settings");
       return Promise.resolve({ ok: true, value: null });
-    },
-    devices() {
-      calls.push(["devices"]);
-      return Promise.resolve({ ok: true, value: devices });
     },
     saveDevices(list) {
       calls.push(["saveDevices", list]);
@@ -114,12 +130,9 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
       if (new Set(list.map((d) => d.name)).size !== list.length) {
         return refused("invalid_value");
       }
-      devices = list;
+      core.set(DEVICES_KEY, list);
+      core.changed("settings");
       return Promise.resolve({ ok: true, value: null });
-    },
-    logins() {
-      calls.push(["logins"]);
-      return Promise.resolve({ ok: true, value: logins });
     },
     saveLogin(input) {
       calls.push(["saveLogin", input]);
@@ -136,11 +149,13 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
               },
             ]
           : logins.map((l) => (l.id === id ? { ...l, ...form } : l));
+      core.changed("logins");
       return Promise.resolve({ ok: true, value: null });
     },
     deleteLogin(id) {
       calls.push(["deleteLogin", id]);
       logins = logins.filter((l) => l.id !== id);
+      core.changed("logins");
       return Promise.resolve({ ok: true, value: null });
     },
     enterLoginSecret(login, field) {
@@ -150,6 +165,8 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
         logins = logins.map((l) =>
           l.id === login.id ? { ...l, [field]: true } : l,
         );
+        passwords();
+        core.changed("logins", "secrets");
       }
       return Promise.resolve({ ok: true, value: result });
     },
@@ -158,5 +175,5 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
       return () => listeners.delete(listener);
     },
   };
-  return { source, calls };
+  return { source, calls, core };
 }

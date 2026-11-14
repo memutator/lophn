@@ -1,15 +1,18 @@
 // Settings › Browser의 Devices 구역. preview 탭이 흉내 낼 기기(이름, 크기, DPR, OS)를 더하고 고치고 지운다.
 // 목록은 설정 `shell.devices` 하나라 바꿀 때마다 목록 전체를 저장한다. 범위와 이름 겹침은 core의 선언이 거절한다.
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Field, Input, Select } from "@lophn/ui/input";
 import { t } from "@lophn/i18n";
 import { actionIcons } from "../../../icons/mod.ts";
 
+import { settingsList } from "../../../../../protocol/config/file.ts";
+import { useCoreRead } from "../../connection/core-read.ts";
+import { effectiveOf } from "../declared.ts";
 import styles from "../settings.module.css";
+import { DEVICES_KEY } from "./model.ts";
 import type { BrowserSettingsSource, Device, DeviceOs } from "./source.ts";
-
-type Loaded = readonly Device[] | "failed" | null;
+import { devicesOf } from "./window-source.ts";
 
 interface Form {
   name: string;
@@ -49,27 +52,29 @@ const osLabel = (os: DeviceOs) =>
     : t("settings.label.device-android");
 
 export function DeviceRows({ source }: { source: BrowserSettingsSource }) {
-  const [loaded, setLoaded] = useState<Loaded>(null);
+  const { loaded } = useCoreRead(settingsList, { keys: [DEVICES_KEY] });
+  const read = useMemo(
+    () =>
+      loaded.state === "ready" ? devicesOf(effectiveOf(loaded.value)) : null,
+    [loaded],
+  );
+  // 저장한 목록은 다음에 읽은 값이 올 때까지 그대로 보인다.
+  const [saved, setSaved] = useState<readonly Device[] | null>(null);
+  useEffect(() => setSaved(null), [read]);
   // 고치는 줄의 index. 새로 더하는 줄은 목록 길이다.
   const [editing, setEditing] = useState<number | null>(null);
   const [form, setForm] = useState<Form>(NEW_DEVICE);
   const [error, setError] = useState(false);
 
-  useEffect(() => {
-    void source
-      .devices()
-      .then((read) => setLoaded(read.ok ? read.value : "failed"));
-  }, [source]);
-
-  if (loaded === null) return null;
-  if (loaded === "failed") {
+  if (loaded.state === "loading") return null;
+  if (loaded.state === "failed") {
     return (
       <p className={styles.notice} data-devices="failed">
         {t("settings.error.devices-load-failed")}
       </p>
     );
   }
-  const list = loaded;
+  const list = saved ?? read!;
 
   function open(index: number, next: Form): void {
     setForm(next);
@@ -78,9 +83,9 @@ export function DeviceRows({ source }: { source: BrowserSettingsSource }) {
   }
 
   async function save(next: readonly Device[]): Promise<boolean> {
-    const saved = await source.saveDevices(next);
-    if (saved.ok) setLoaded(next);
-    return saved.ok;
+    const done = await source.saveDevices(next);
+    if (done.ok) setSaved(next);
+    return done.ok;
   }
 
   async function submit(): Promise<void> {

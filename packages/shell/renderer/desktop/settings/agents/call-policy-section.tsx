@@ -4,20 +4,21 @@
 import { Field, Select } from "@lophn/ui/input";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
+import { appList } from "../../../../../protocol/apps/apps.ts";
+import { settingsList } from "../../../../../protocol/config/file.ts";
+import { CALL_POLICY_SETTING_KEY } from "../../../../../protocol/lophn-agent/call-policy.ts";
+import { agentList } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
+import { projectApi } from "../../../../../protocol/projects/project-api.ts";
 import { actionIcons } from "../../../icons/mod.ts";
+import { useCoreRead } from "../../connection/core-read.ts";
+import { effectiveOf } from "../declared.ts";
 import styles from "../settings.module.css";
+import { callPolicyViewOf } from "./core-source.ts";
 import type {
   CallPolicyChange,
   CallPolicySource,
-  CallPolicyView,
   CallRule,
   CallRuleList,
   PrivateWorkspaces,
@@ -33,22 +34,36 @@ export function CallPolicySection({
 }: {
   source: CallPolicySource;
 }): ReactNode {
-  const [view, setView] = useState<CallPolicyView | null>(null);
+  // 정책과 고를 값(project, 앱, agent)은 다른 창이나 agent가 바꿔도 따라간다.
+  const setting = useCoreRead(settingsList, {
+    keys: [CALL_POLICY_SETTING_KEY],
+  });
+  const projects = useCoreRead(projectApi.list, { status: "active" });
+  const apps = useCoreRead(appList, { status: "active" });
+  const agents = useCoreRead(agentList, {});
+  const view = useMemo(
+    () =>
+      setting.loaded.state === "ready" &&
+      projects.loaded.state === "ready" &&
+      apps.loaded.state === "ready" &&
+      agents.loaded.state === "ready"
+        ? callPolicyViewOf(
+            effectiveOf(setting.loaded.value).get(CALL_POLICY_SETTING_KEY),
+            projects.loaded.value.projects,
+            apps.loaded.value.apps,
+            agents.loaded.value.agents,
+          )
+        : null,
+    [setting.loaded, projects.loaded, apps.loaded, agents.loaded],
+  );
   const [failed, setFailed] = useState(false);
   const alive = useRef(true);
-
-  const load = useCallback(() => {
-    void source.read().then((read) => {
-      if (alive.current && read.ok) setView(read.value);
-    });
-  }, [source]);
   useEffect(() => {
     alive.current = true;
-    load();
     return () => {
       alive.current = false;
     };
-  }, [load]);
+  }, []);
 
   if (view === null) return null;
 
@@ -63,7 +78,6 @@ export function CallPolicySection({
     const saved = await source.write(next);
     if (!alive.current) return;
     if (!saved.ok) setFailed(true);
-    load();
   }
 
   return (

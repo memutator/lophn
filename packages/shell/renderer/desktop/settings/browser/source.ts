@@ -1,4 +1,5 @@
-// Browser 항목이 읽고 쓰는 통로. 화면은 이 interface만 보고 shell IPC(`window.lophnBrowser`)는 window-source.ts만 안다.
+// Browser 항목이 읽고 쓰는 통로. shell IPC(`window.lophnBrowser`)는 window-source.ts만 안다. link 열 곳·기기·login은
+// 화면이 core를 useCoreRead로 읽는다.
 import type { BookmarkList } from "../../../../ipc/browser.ts";
 import type { SourceResult } from "../source.ts";
 
@@ -43,17 +44,11 @@ export interface BrowserSettingsSource {
     url: string;
   }): Promise<SourceResult<null>>;
   removeBookmark(id: string): Promise<SourceResult<null>>;
-  /** terminal에서 연 주소와 Ctrl/Cmd-click한 link를 열 곳. core 선언 설정이다. */
-  links(): Promise<SourceResult<LinkValues>>;
-  /** 한 줄의 값을 정한다. 거절되면 code가 이유다. */
+  /** terminal에서 연 주소와 Ctrl/Cmd-click한 link를 열 곳(core 선언 설정)의 한 줄을 정한다. 거절되면 code가 이유다. */
   chooseLink(id: LinkId, value: LinkWhere): Promise<SourceResult<null>>;
-  /** 등록한 기기들. core 선언 설정이다. */
-  devices(): Promise<SourceResult<readonly Device[]>>;
-  /** 목록 전체를 바꾼다. 이름이 겹치거나 범위 밖이면 거절되고 code가 이유다. */
+  /** 등록한 기기들(core 선언 설정)의 목록 전체를 바꾼다. 이름이 겹치거나 범위 밖이면 거절되고 code가 이유다. */
   saveDevices(list: readonly Device[]): Promise<SourceResult<null>>;
-  /** 저장된 login. 값은 없고 password·TOTP가 있는지만 안다. */
-  logins(): Promise<SourceResult<readonly LoginRow[]>>;
-  /** id가 없으면 새로 만든다. */
+  /** login을 저장한다. id가 없으면 새로 만든다. */
   saveLogin(input: LoginForm & { id?: string }): Promise<SourceResult<null>>;
   deleteLogin(id: string): Promise<SourceResult<null>>;
   /** 보호 입력 창을 열고 닫힐 때까지 기다린다. `stored`면 값이 올라가 있다. 값은 이 통로를 지나지 않는다. */

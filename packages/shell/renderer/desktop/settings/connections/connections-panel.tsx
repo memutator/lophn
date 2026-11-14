@@ -1,6 +1,6 @@
 // Settings › Coding agents. 제품마다 즐겨찾기(맨 왼쪽), 실행 파일, version, turn 끝 신호, hook, 실행 명령어를 보인다. 연결 만들기·범위·
 // 이름·회수와 doctor 단계는 없다. 감지는 사람이 [Detect again]을 누를 때만 다시 한다. 즐겨찾기와 명령어는 빠른 실행 전역 값이다.
-import { useCallback, useId, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   harnessVendorOf,
   VendorIcon,
@@ -13,8 +13,14 @@ import { t } from "@lophn/i18n";
 import { HARNESS_ADAPTERS } from "../../../../../protocol/coding-agent/harness-adapter.ts";
 import type { HarnessId } from "../../../../../protocol/coding-agent/harness-id.ts";
 import { actionIcons, browserIcons } from "../../../icons/mod.ts";
+import {
+  SHARED_APPS_SETTING_KEY,
+  sharedAppsSettingSchema,
+} from "../../../../../protocol/approvals/share-request.ts";
+import { settingsList } from "../../../../../protocol/config/file.ts";
+import { useCoreRead } from "../../connection/core-read.ts";
+import { effectiveOf } from "../declared.ts";
 import { useQuickPrefs } from "../quick-launch/store.tsx";
-import { useReload } from "../use-reload.ts";
 import styles from "../settings.module.css";
 import {
   discoveryText,
@@ -73,7 +79,17 @@ export function CodingConnectionsPanel({
   const [hooks, setHooks] = useState<readonly HarnessHookView[]>([]);
   const [changing, setChanging] = useState<HarnessName | null>(null);
   const [hookFailed, setHookFailed] = useState<HookAction | null>(null);
-  const [shared, setShared] = useState<readonly string[]>([]);
+  // 공유 요청 승인과 다른 창도 이 목록을 바꾼다. 못 읽었거나 모양이 틀리면 비어 보인다.
+  const { loaded: sharedRead } = useCoreRead(settingsList, {
+    keys: [SHARED_APPS_SETTING_KEY],
+  });
+  const shared = useMemo(() => {
+    if (sharedRead.state !== "ready") return [];
+    const parsed = sharedAppsSettingSchema.safeParse(
+      effectiveOf(sharedRead.value).get(SHARED_APPS_SETTING_KEY),
+    );
+    return parsed.success ? parsed.data : [];
+  }, [sharedRead]);
   const [unshareFailed, setUnshareFailed] = useState(false);
   const [query, setQuery] = useState("");
   const { prefs, set } = useQuickPrefs();
@@ -105,11 +121,9 @@ export function CodingConnectionsPanel({
     void source.hookStatus().then((read) => {
       if (read.ok) setHooks(read.value);
     });
-    void source.sharedApps().then((read) => {
-      if (read.ok) setShared(read.value);
-    });
   }, [source]);
-  useReload(source, load);
+  // 감지 결과와 hook 상태는 core가 아니라 main IPC라 변경 알림이 없다. 열 때 읽고 사람이 바꾼 뒤 다시 읽는다.
+  useEffect(load, [load]);
 
   async function detectAgain(): Promise<void> {
     setDetecting(true);
@@ -141,8 +155,6 @@ export function CodingConnectionsPanel({
   async function unshare(slug: string): Promise<void> {
     const done = await source.unshareApp(slug);
     setUnshareFailed(!done.ok);
-    const read = await source.sharedApps();
-    if (read.ok) setShared(read.value);
   }
 
   if (loaded.state === "failed") {

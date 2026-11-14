@@ -52,7 +52,7 @@ import type {
   WindowOutcome,
 } from "./settings-source.ts";
 
-interface ProviderValue {
+export interface ProviderValue {
   id: string;
   name: string;
   endpoint: string;
@@ -85,7 +85,8 @@ const PRODUCTS: Readonly<Record<string, string>> = {
   antigravity: "Google Antigravity",
 };
 
-function providerOf(value: ProviderValue): ProviderRow {
+/** `providers/list`의 provider 하나를 화면의 줄로. */
+export function providerOf(value: ProviderValue): ProviderRow {
   return {
     id: value.id,
     name: value.name,
@@ -109,6 +110,27 @@ function definitionRowOf(value: BuiltinDefinition): ProviderDefinitionRow {
         : { product: PRODUCTS[value.oauth.product] ?? value.display_name },
     custom: false,
   };
+}
+
+/** 아직 연결하지 않은 내장 정의와 Custom provider 줄. 연결된 provider가 쓰는 정의는 이미 연결된 것이다. */
+export function availableOf(
+  providers: readonly { definition: { key: string } }[],
+  definitions: readonly BuiltinDefinition[],
+): ProviderDefinitionRow[] {
+  const used = new Set(providers.map((row) => row.definition.key));
+  return [
+    ...definitions
+      .filter((definition) => !used.has(definition.key))
+      .map(definitionRowOf),
+    {
+      key: CUSTOM,
+      name: t("settings.title.custom-provider"),
+      hint: t("settings.label.custom-provider-hint"),
+      ways: ["api_key"],
+      signIn: null,
+      custom: true,
+    },
+  ];
 }
 
 /** API base. 내장 정의의 model 목록 주소는 base 바로 아래 한 칸이다(`<base>/models`, Cloud Code는 `<base>/v1internal:fetchAvailableModels`). */
@@ -192,12 +214,23 @@ export function coreProviderSettingsSource(
    * 다시 쓸 수 있게 한다(provider 도메인 Disconnect). 이 창이 본 연결과 연결하려 만든 ID를 쥔다.
    */
   const ids = new Map<string, string>();
-  function idFor(definition: string): string {
+
+  /**
+   * 연결할 provider id. 값(key·token)을 쓰기 전에 목록을 새로 읽어, 그 정의가 이미 연결돼 있으면(다른 창이 먼저
+   * 이었거나 이 창의 목록이 낡았다) conflict로 끝낸다. 연결된 provider의 값 자리를 덮지 않으려는 것이다.
+   */
+  async function freshId(definition: string): Promise<SourceResult<string>> {
+    const read = await listProviders(core);
+    if (!read.ok) return read;
+    for (const value of read.value) ids.set(value.definition.key, value.id);
+    if (read.value.some((value) => value.definition.key === definition)) {
+      return { ok: false, code: "conflict" };
+    }
     const known = ids.get(definition);
-    if (known !== undefined) return known;
+    if (known !== undefined) return { ok: true, value: known };
     const fresh = providerId();
     ids.set(definition, fresh);
-    return fresh;
+    return { ok: true, value: fresh };
   }
 
   function listDefinitions(): Promise<
@@ -250,7 +283,7 @@ export function coreProviderSettingsSource(
   }
 
   /** 구독 계정으로 로그인한다. 주소와 protocol은 내장 정의에서 온다. */
-  function signIn(
+  async function signIn(
     definition: BuiltinDefinition,
     progress: SignInProgress | undefined,
   ): Promise<WindowOutcome> {
@@ -260,12 +293,14 @@ export function coreProviderSettingsSource(
       base !== null && definition.oauth?.product === "chatgpt"
         ? { ...base, endpoint: definition.oauth.inference_endpoint }
         : base;
-    if (route === null) return Promise.resolve(UNAVAILABLE);
+    if (route === null) return UNAVAILABLE;
+    const id = await freshId(definition.key);
+    if (!id.ok) return id;
     return signInProvider(
       core,
       { openLink, random, wait },
       {
-        provider: idFor(definition.key),
+        provider: id.value,
         name: definition.display_name,
         definition,
         ...route,
@@ -277,30 +312,7 @@ export function coreProviderSettingsSource(
   return {
     async connected() {
       const read = await listProviders(core);
-      if (!read.ok) return read;
-      for (const value of read.value) ids.set(value.definition.key, value.id);
-      return { ok: true, value: read.value.map(providerOf) };
-    },
-
-    async available() {
-      const providers = await listProviders(core);
-      if (!providers.ok) return providers;
-      const defined = await listDefinitions();
-      if (!defined.ok) return defined;
-      // 연결된 provider가 쓰는 정의는 이미 연결된 것이다.
-      const used = new Set(providers.value.map((row) => row.definition.key));
-      const rows: ProviderDefinitionRow[] = defined.value.definitions
-        .filter((definition) => !used.has(definition.key))
-        .map(definitionRowOf);
-      rows.push({
-        key: CUSTOM,
-        name: t("settings.title.custom-provider"),
-        hint: t("settings.label.custom-provider-hint"),
-        ways: ["api_key"],
-        signIn: null,
-        custom: true,
-      });
-      return { ok: true, value: rows };
+      return read.ok ? { ok: true, value: read.value.map(providerOf) } : read;
     },
 
     // 끊기는 화면 안 Dialog가 한 번 물은 뒤 부른다. 결정은 shell main이 정본을 다시 읽어 묶은 handle로 싣는다.
@@ -350,8 +362,10 @@ export function coreProviderSettingsSource(
       if (way === "oauth") return await signIn(found, progress);
       const route = routeOf(found);
       if (route === null) return UNAVAILABLE;
+      const id = await freshId(found.key);
+      if (!id.ok) return id;
       return connectWithKey({
-        id: idFor(found.key),
+        id: id.value,
         name: found.display_name,
         definition: found,
         ...route,
@@ -371,9 +385,10 @@ export function coreProviderSettingsSource(
         protocol: input.protocol,
         withKey: input.withKey,
       });
-      const id = idFor(input.id);
+      const id = await freshId(input.id);
+      if (!id.ok) return id;
       const connect = {
-        id,
+        id: id.value,
         name: input.name,
         definition,
         endpoint: base,

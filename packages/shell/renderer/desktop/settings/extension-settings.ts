@@ -1,9 +1,8 @@
-// 확장 설정(skill 폴더·MCP server 목록)을 settings route로 읽고 바꾸는 부분. Agents 통로
-// (agents/core-source.ts)가 쓴다. 모양은 contract
+// 확장 설정(skill 폴더·MCP server 목록)과 그 server의 credential·로그인 상태를 푸는 부분. Tools and skills 화면이
+// useCoreRead로 읽은 답을 풀고, Agents 통로(agents/core-source.ts)가 쓰기 직전에 다시 읽는다. 모양은 contract
 // (`lophn-agent.extensions.skill_folders`·`lophn-agent.extensions.mcp_servers` 설정 정의)에서
 // 이 화면이 읽는 field만 옮긴 것이다. credential 값은 어디에도 없고 보관 이름과 저장 여부만 있다.
 import type { CoreSource } from "../connection/connection.ts";
-import { call } from "./core-call.ts";
 import { chooseSetting, readEffective } from "./declared.ts";
 import type {
   ServerAuth,
@@ -34,7 +33,7 @@ export interface McpServerValue {
   };
 }
 
-interface ExtensionSettings {
+export interface ExtensionSettings {
   readonly folders: readonly string[];
   readonly servers: readonly McpServerValue[];
 }
@@ -69,69 +68,64 @@ function signsIn(server: McpServerValue): boolean {
 }
 
 /**
- * 켜진 OAuth server의 로그인 상태를 이름과 자리(이 목록은 전역 server뿐이라 null)로 한 번에 묻는다. 끝난
- * 세션의 기억이 아니라 core가 지금 쥔 상태(진행 중·보관한 token이 설정과 맞는지·마지막 실패)다. OAuth server가
- * 없으면 묻지 않고, 읽지 못하면 null이다. token 값도 token 이름도 묻지 않는다.
+ * 켜진 OAuth server의 로그인 상태를 묻는 `agent-mcp-auth/state` 입력. 이 목록은 전역 server뿐이라 자리는 null이다.
+ * token 값도 token 이름도 묻지 않는다.
  */
-export async function authStates(
-  core: CoreSource,
-  servers: readonly McpServerValue[],
-): Promise<Map<string, AuthStateValue> | null> {
-  const asked = servers.filter(signsIn);
-  if (asked.length === 0) return new Map();
-  const read = await call<{
-    servers: {
-      name: string;
-      state: AuthStateValue["state"];
-      reason: ServerSignInReason | null;
-    }[];
-  }>(core, "memory", "agent-mcp-auth", "state", {
-    servers: asked.map((server) => ({
-      name: server.name,
-      workspace: null,
-      agent: null,
-    })),
-  });
-  if (!read.ok) return null;
+export function authStateInput(servers: readonly McpServerValue[]): {
+  servers: { name: string; workspace: null; agent: null }[];
+} {
+  return {
+    servers: servers
+      .filter(signsIn)
+      .map((server) => ({ name: server.name, workspace: null, agent: null })),
+  };
+}
+
+/** 로그인 상태 답을 이름으로 찾게 한다. 끝난 세션의 기억이 아니라 core가 지금 쥔 상태다. */
+export function authStatesOf(value: {
+  servers: readonly {
+    name: string;
+    state: AuthStateValue["state"];
+    reason: ServerSignInReason | null;
+  }[];
+}): Map<string, AuthStateValue> {
   return new Map(
-    read.value.servers.map((entry) => [
+    value.servers.map((entry) => [
       entry.name,
       { state: entry.state, reason: entry.reason },
     ]),
   );
 }
 
-/** 이름별 credential 저장 여부. 읽지 못하면 null이다. 값은 읽지 않는다. */
-export async function secretStates(
-  core: CoreSource,
+/** `secrets/status`(이름 없이 읽은 것)의 답에서 이름별 credential 저장 여부. 값은 읽지 않는다. */
+export function secretStatesOf(
   names: readonly string[],
-): Promise<Map<string, "set" | "missing"> | null> {
-  if (names.length === 0) return new Map();
-  const read = await call<{
-    secrets: { name: string; configured: boolean }[];
-  }>(core, "memory", "secrets", "status", { names });
-  if (!read.ok) return null;
+  value: { secrets: readonly { name: string; configured: boolean }[] },
+): Map<string, "set" | "missing"> {
+  const set = new Set(
+    value.secrets.filter((one) => one.configured).map((one) => one.name),
+  );
   return new Map(
-    read.value.secrets.map((status) => [
-      status.name,
-      status.configured ? "set" : "missing",
-    ]),
+    names.map((name) => [name, set.has(name) ? "set" : "missing"]),
   );
 }
 
-/** 확장 설정 두 줄을 `settings/list` 한 번으로 읽는다. */
+/** key마다의 지금 값에서 확장 설정 두 줄. */
+export function extensionSettingsOf(
+  read: ReadonlyMap<string, unknown>,
+): ExtensionSettings {
+  const folders = read.get(SKILL_FOLDERS);
+  const servers = read.get(MCP_SERVERS);
+  return {
+    folders: Array.isArray(folders) ? (folders as string[]) : [],
+    servers: Array.isArray(servers) ? (servers as McpServerValue[]) : [],
+  };
+}
+
+/** 쓰기 직전에 확장 설정 두 줄을 `settings/list` 한 번으로 다시 읽는다. */
 export async function readExtensionSettings(
   core: CoreSource,
 ): Promise<SourceResult<ExtensionSettings>> {
   const got = await readEffective(core, [SKILL_FOLDERS, MCP_SERVERS]);
-  if (!got.ok) return got;
-  const folders = got.value.get(SKILL_FOLDERS);
-  const servers = got.value.get(MCP_SERVERS);
-  return {
-    ok: true,
-    value: {
-      folders: Array.isArray(folders) ? (folders as string[]) : [],
-      servers: Array.isArray(servers) ? (servers as McpServerValue[]) : [],
-    },
-  };
+  return got.ok ? { ok: true, value: extensionSettingsOf(got.value) } : got;
 }

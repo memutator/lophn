@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { Dialog } from "@lophn/ui/overlay";
@@ -9,10 +9,14 @@ import {
   type ManageModelsApi,
   useManageModels,
 } from "../../../conversation/model-picker/manage-context.ts";
+import { providerList } from "../../../../../protocol/lophn-agent/providers.ts";
+import { useCoreRead } from "../../connection/core-read.ts";
+import { mapLoaded } from "../loaded.ts";
 import { wayLabel } from "../model.ts";
-import { AvailableList, type Loaded, useAvailable } from "./available-list.tsx";
+import { AvailableList, useAvailable } from "./available-list.tsx";
 import { ConnectDialog } from "./connect-dialog.tsx";
 import { type ListedModels, useAfterConnect } from "./connect-host.tsx";
+import { providerOf } from "./core-source.ts";
 import { ProviderName } from "./provider-name.tsx";
 import type {
   ProviderDefinitionRow,
@@ -31,14 +35,14 @@ interface ProviderListProps {
 // 연다(connect-dialog.tsx). [Disconnect]는 화면 안 Dialog로 한 번 묻는다. custom provider를 붙이면 model 목록을 읽은 결과
 // ("N개 찾음" 또는 "목록 없음")가 그 줄 아래에 남고 [Manage models]나 [Add model]이 그 창을 연다.
 export function ProviderList({ source }: ProviderListProps): ReactNode {
-  const [connected, setConnected] = useState<Loaded<ProviderRow>>({
-    state: "loading",
-  });
-  const {
-    available,
-    load: loadAvailable,
-    retry: retryAvailable,
-  } = useAvailable(source);
+  // 다른 창이나 core가 이은·끊은 provider도 바로 보인다. 다시 읽다 실패해도 보이던 목록은 그대로다.
+  const providers = useCoreRead(providerList, {});
+  const connected = useMemo(
+    () =>
+      mapLoaded(providers.loaded, (listed) => listed.providers.map(providerOf)),
+    [providers.loaded],
+  );
+  const { available, retry: retryAvailable } = useAvailable();
   const [failed, setFailed] = useState(false);
   const [target, setTarget] = useState<ProviderDefinitionRow | null>(null);
   const [leaving, setLeaving] = useState<ProviderRow | null>(null);
@@ -49,36 +53,12 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
     {},
   );
 
-  // 다시 읽다 실패해도 이미 보이는 목록은 지우지 않는다(처음 읽기만 실패를 보인다).
-  const loadConnected = useCallback(async (): Promise<void> => {
-    const read = await source.connected();
-    setConnected((previous) =>
-      read.ok
-        ? { state: "ready", rows: read.value }
-        : previous.state === "ready"
-          ? previous
-          : { state: "failed" },
-    );
-  }, [source]);
-  const reload = useCallback((): void => {
-    void loadConnected();
-    void loadAvailable();
-  }, [loadConnected, loadAvailable]);
-
-  // 보호 창은 닫혀도 결과가 이 화면으로 오지 않으므로 사람이 창에서 돌아오면 다시 읽는다.
-  useEffect(() => {
-    reload();
-    globalThis.addEventListener?.("focus", reload);
-    return () => globalThis.removeEventListener?.("focus", reload);
-  }, [reload]);
-
   async function disconnect(row: ProviderRow): Promise<void> {
     setLeaving(null);
     setFailed(false);
     setListed(({ [row.id]: _, ...rest }) => rest);
     const done = await source.disconnect(row.id);
     if (!done.ok) setFailed(true);
-    reload();
   }
 
   return (
@@ -92,23 +72,20 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
         {connected.state === "failed" ? (
           <ErrorState
             target={t("settings.label.providers-target")}
-            onRetry={() => {
-              setConnected({ state: "loading" });
-              void loadConnected();
-            }}
+            onRetry={providers.reload}
           />
         ) : (
           <Loading
             loading={connected.state === "loading"}
             placeholder={<Skeleton lines={3} />}
           >
-            {connected.state === "ready" && connected.rows.length === 0 ? (
+            {connected.state === "ready" && connected.value.length === 0 ? (
               <p className={styles.empty}>
                 {t("settings.notice.none-connected")}
               </p>
             ) : (
               <ul className={styles.group}>
-                {(connected.state === "ready" ? connected.rows : []).map(
+                {(connected.state === "ready" ? connected.value : []).map(
                   (row) => (
                     <ConnectedItem
                       key={row.id}
@@ -144,10 +121,9 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
         definition={target}
         onClose={() => setTarget(null)}
         onConnected={() => {
-          reload();
           afterConnect(
             connected.state === "ready"
-              ? connected.rows.map((row) => row.id)
+              ? connected.value.map((row) => row.id)
               : [],
             (id, result) => setListed((now) => ({ ...now, [id]: result })),
           );

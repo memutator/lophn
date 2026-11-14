@@ -14,13 +14,7 @@ function fakeCore(stored: { value: ShellRulesSetting }) {
   const updates: unknown[] = [];
   const core: CoreSource = {
     subscribe: () => () => {},
-    call: ({ resource, method, body }) => {
-      if (resource === "projects") {
-        return Promise.resolve({
-          ok: true,
-          value: { projects: [], next_cursor: null },
-        });
-      }
+    call: ({ method, body }) => {
       if (method === "list") {
         return Promise.resolve({
           ok: true,
@@ -59,7 +53,6 @@ test("규칙 하나를 더하면 저장 직전에 다시 읽은 값에 그 줄�
   const source = coreShellRulesSource(core);
 
   // 화면이 연 뒤에 `always`가 전역과 같은 project, 다른 project에 줄을 더한다.
-  await source.read();
   stored.value = {
     global: [{ pattern: "git push *", action: "allow" }],
     projects: {

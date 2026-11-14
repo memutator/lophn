@@ -1,46 +1,41 @@
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useMemo } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { Dialog } from "@lophn/ui/overlay";
 import { actionIcons } from "../../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
+import {
+  providerDefinitions,
+  providerList,
+} from "../../../../../protocol/lophn-agent/providers.ts";
+import { type Loaded, useCoreRead } from "../../connection/core-read.ts";
+import { bothLoaded } from "../loaded.ts";
+import { availableOf } from "./core-source.ts";
 import { ProviderName } from "./provider-name.tsx";
-import type {
-  ProviderDefinitionRow,
-  ProviderSettingsSource,
-} from "./settings-source.ts";
+import type { ProviderDefinitionRow } from "./settings-source.ts";
 import styles from "./provider-list.module.css";
 
-export type Loaded<Row> =
-  | { readonly state: "loading" }
-  | { readonly state: "failed" }
-  | { readonly state: "ready"; readonly rows: readonly Row[] };
-
-/** Add a provider 목록을 읽는다. 다시 읽다 실패해도 이미 보이는 목록은 지우지 않는다(처음 읽기만 실패를 보인다). */
-export function useAvailable(source: ProviderSettingsSource) {
-  const [available, setAvailable] = useState<Loaded<ProviderDefinitionRow>>({
-    state: "loading",
-  });
-  const load = useCallback(async (): Promise<void> => {
-    const read = await source.available();
-    setAvailable((previous) =>
-      read.ok
-        ? { state: "ready", rows: read.value }
-        : previous.state === "ready"
-          ? previous
-          : { state: "failed" },
-    );
-  }, [source]);
-  const retry = useCallback((): void => {
-    setAvailable({ state: "loading" });
-    void load();
-  }, [load]);
-  return { available, load, retry };
+/** Add a provider 목록. 연결된 provider가 바뀌면(다른 창에서도) 다시 읽는다. */
+export function useAvailable() {
+  const providers = useCoreRead(providerList, {});
+  const definitions = useCoreRead(providerDefinitions, {});
+  const available = useMemo(
+    () =>
+      bothLoaded(providers.loaded, definitions.loaded, (listed, defined) =>
+        availableOf(listed.providers, defined.definitions),
+      ),
+    [providers.loaded, definitions.loaded],
+  );
+  const retry = () => {
+    providers.reload();
+    definitions.reload();
+  };
+  return { available, retry };
 }
 
 interface AvailableListProps {
-  available: Loaded<ProviderDefinitionRow>;
+  available: Loaded<readonly ProviderDefinitionRow[]>;
   onRetry: () => void;
   onChoose: (definition: ProviderDefinitionRow) => void;
 }
@@ -65,7 +60,7 @@ export function AvailableList({
       placeholder={<Skeleton lines={3} />}
     >
       <ul className={styles.group}>
-        {(available.state === "ready" ? available.rows : []).map(
+        {(available.state === "ready" ? available.value : []).map(
           (definition) => (
             <li
               key={definition.key}
@@ -97,21 +92,16 @@ export function AvailableList({
 }
 
 interface ConnectProviderDialogProps {
-  source: ProviderSettingsSource;
   onChoose: (definition: ProviderDefinitionRow) => void;
   onClose: () => void;
 }
 
 /** 정의를 고르는 대화창. 열려 있는 동안만 mount한다. 고르면 다음 대화창(ConnectDialog)은 부른 쪽이 연다. */
 export function ConnectProviderDialog({
-  source,
   onChoose,
   onClose,
 }: ConnectProviderDialogProps): ReactNode {
-  const { available, load, retry } = useAvailable(source);
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const { available, retry } = useAvailable();
   return (
     <Dialog
       open

@@ -1,16 +1,18 @@
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { modelDefaultRead } from "../../../../../protocol/lophn-agent/models.ts";
 import { InstructionsEditor } from "../../../workspace/agents/editor/instructions-editor.tsx";
 import { DefaultModelField } from "../../../workspace/agents/editor/model-field.tsx";
 import type { ModelsView } from "../../../workspace/agents/source.ts";
+import { useCoreRead } from "../../connection/core-read.ts";
 import styles from "./agents.module.css";
 import { CallPolicySection } from "./call-policy-section.tsx";
 import type {
   AgentsSettingsSource,
-  AgentsSettingsView,
+  InstructionsFile,
   ModelChoice,
 } from "./settings-source.ts";
 
@@ -22,71 +24,67 @@ interface AgentsPanelProps {
 // 지침(LOPHN.md), 호출 정책이다. 지침은 이 자리에서 [Edit]으로 고친다. agent별 기본 model은 이 화면에 없고,
 // lophn은 workspace마다 있어 그 workspace의 Agents 탭에서 고친다. Skills와 MCP server는 Tools and skills에 있다.
 
-type Loaded =
-  | { readonly state: "loading" }
-  | { readonly state: "failed" }
-  | {
-      readonly state: "ready";
-      readonly view: AgentsSettingsView;
-      readonly models: ModelsView | null;
-    };
+/** 지침은 core가 아니라 main file 통로라 열 때 한 번 읽는다. 못 읽으면 빈 칸으로 보인다. */
+const NO_INSTRUCTIONS: InstructionsFile = { text: "", hash: null };
 
 export function AgentsPanel({ source }: AgentsPanelProps): ReactNode {
-  const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
+  // 기본 model은 다른 창이나 agent가 바꿔도 따라간다. model 목록(picker)도 같은 `models` 변경에 다시 읽는다.
+  const { loaded, reload } = useCoreRead(modelDefaultRead, {});
+  const [models, setModels] = useState<ModelsView | null>(null);
+  const [instructions, setInstructions] = useState<InstructionsFile | null>(
+    null,
+  );
   // 실패는 그 칸 바로 아래에 보인다. 화면 위쪽 한 줄은 무엇이 안 됐는지 말하지 못한다.
   const [failed, setFailed] = useState(false);
-  // 고른 model은 저장이 끝나기 전에도 바로 보인다. 저장하지 못하면 읽은 값으로 돌아간다.
+  // 고른 model은 저장이 끝나기 전에도 바로 보인다. 다음에 읽은 값이 오면 그 값을 보인다.
   const [picked, setPicked] = useState<ModelChoice | null>(null);
   const alive = useRef(true);
-
-  const load = useCallback(() => {
-    void Promise.all([source.read(), source.editor.models()]).then(
-      ([read, models]) => {
-        if (!alive.current) return;
-        // 다시 읽다 실패해도 보이던 값은 그대로 둔다. 처음 읽기만 읽지 못했다고 보인다.
-        setLoaded((was) =>
-          read.ok
-            ? {
-                state: "ready",
-                view: read.value,
-                models: models.ok ? models.value : null,
-              }
-            : was.state === "ready"
-              ? was
-              : { state: "failed" },
-        );
-        if (read.ok) setPicked(null);
-      },
-    );
-  }, [source]);
   useEffect(() => {
     alive.current = true;
-    load();
     return () => {
       alive.current = false;
     };
-  }, [load]);
+  }, []);
+
+  useEffect(() => {
+    void source.readInstructions().then((read) => {
+      if (alive.current)
+        setInstructions(read.ok ? read.value : NO_INSTRUCTIONS);
+    });
+  }, [source]);
+  const value = loaded.state === "ready" ? loaded.value : null;
+  useEffect(() => {
+    if (value === null) return;
+    setPicked(null);
+    void source.editor.models().then((read) => {
+      if (alive.current && read.ok) setModels(read.value);
+    });
+  }, [source, value]);
+  const view = useMemo(
+    () =>
+      value === null || instructions === null
+        ? null
+        : {
+            defaultModel: value.default as ModelChoice | null,
+            instructions,
+          },
+    [value, instructions],
+  );
 
   if (loaded.state === "failed") {
     return (
-      <ErrorState
-        target={t("settings.label.agents-target")}
-        onRetry={() => {
-          setLoaded({ state: "loading" });
-          load();
-        }}
-      />
+      <ErrorState target={t("settings.label.agents-target")} onRetry={reload} />
     );
   }
-  const view = loaded.state === "ready" ? loaded.view : null;
-  const models = loaded.state === "ready" ? loaded.models : null;
 
   async function changeModel(choice: ModelChoice): Promise<void> {
     setFailed(false);
     const done = await source.changeDefaultModel(choice);
     if (!alive.current) return;
-    if (!done.ok) setFailed(true);
-    load();
+    if (!done.ok) {
+      setFailed(true);
+      setPicked(null);
+    }
   }
 
   const chosen = picked ?? view?.defaultModel ?? null;

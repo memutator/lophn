@@ -119,8 +119,8 @@ export function ConnectProviderHost({
       onConnected?: (providerId: string | null, notice?: string) => void,
       notice?: string,
     ): Promise<void> => {
-      const view = await agents.read();
-      if (view.ok && view.value.defaultModel === null) {
+      const chosen = await agents.readDefaultModel();
+      if (chosen.ok && chosen.value === null) {
         // 대화창과 picker가 한꺼번에 뜨지 않게 대화창이 닫힌 뒤에 알린다. 한 줄은 이 대화창이 보인다.
         afterDefault.current = () => onConnected?.(id);
         setDefaultNotice(notice ?? null);
@@ -216,7 +216,6 @@ export function ConnectProviderHost({
         </ManageModelsHost>
         {choosing ? (
           <ConnectProviderDialog
-            source={providers}
             onChoose={(definition) => {
               setChoosing(false);
               setTarget(definition);

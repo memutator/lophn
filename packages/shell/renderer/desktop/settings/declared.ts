@@ -1,5 +1,8 @@
-// 선언한 설정을 읽고 바꾸는 core 부르기(`settings/list`, `settings/update`). General·Appearance·
-// Coding agents의 기본 실행 옵션이 같이 쓴다. 틀린 값은 오류가 아니라 rejected로 온다.
+// 선언한 설정의 `settings/list` 답 풀기와 바꾸기(`settings/update`). 화면은 `settings/list`를 useCoreRead로 읽고
+// 이 file의 함수로 푼다. 틀린 값은 오류가 아니라 rejected로 온다.
+import type { z } from "zod";
+
+import type { settingsList } from "../../../../protocol/config/file.ts";
 import type { CoreSource } from "../connection/connection.ts";
 import { call } from "./core-call.ts";
 import type {
@@ -10,38 +13,25 @@ import type {
   SourceResult,
 } from "./source.ts";
 
-interface ListValue {
-  settings: {
-    key: string;
-    type: Record<string, unknown>;
-    default?: unknown;
-    chosen?: unknown;
-  }[];
+type ListValue = z.output<typeof settingsList.output>;
+
+/** `settings/list`의 답을 화면의 설정 항목으로 옮긴다. */
+export function entriesOf(value: ListValue): SettingEntry[] {
+  return value.settings.map((entry) => ({
+    key: entry.key,
+    type: entry.type,
+    hasDefault: "default" in entry,
+    defaultValue: entry.default,
+    hasChosen: "chosen" in entry,
+    chosen: entry.chosen,
+  }));
 }
 
-export async function listSettings(
-  core: CoreSource,
-  keys?: readonly string[],
-): Promise<SourceResult<SettingEntry[]>> {
-  const read = await call<ListValue>(
-    core,
-    "memory",
-    "settings",
-    "list",
-    keys === undefined ? {} : { keys },
+/** `settings/list`의 답에서 key마다 지금 값. 선언에 없는 key는 빠진다. */
+export function effectiveOf(value: ListValue): Map<string, unknown> {
+  return new Map(
+    entriesOf(value).map((entry) => [entry.key, effectiveValue(entry)]),
   );
-  if (!read.ok) return read;
-  return {
-    ok: true,
-    value: read.value.settings.map((entry) => ({
-      key: entry.key,
-      type: entry.type,
-      hasDefault: "default" in entry,
-      defaultValue: entry.default,
-      hasChosen: "chosen" in entry,
-      chosen: entry.chosen,
-    })),
-  };
 }
 
 export function updateSettings(
@@ -62,16 +52,10 @@ export interface SettingFolderView {
   }[];
 }
 
-export async function readFolder(
-  core: CoreSource,
-  key: string,
-): Promise<SourceResult<SettingFolderView>> {
-  const read = await call<{
-    folders?: (SettingFolderView & { key: string })[];
-  }>(core, "memory", "settings", "list", { keys: [key] });
-  if (!read.ok) return read;
-  const folder = read.value.folders?.find((one) => one.key === key);
-  return { ok: true, value: folder ?? { entries: [], unreadable: [] } };
+/** `settings/list`의 답에서 한 묶음. 묶음이 없으면 빈 것이다. */
+export function folderOf(value: ListValue, key: string): SettingFolderView {
+  const folder = value.folders.find((one) => one.key === key);
+  return folder ?? { entries: [], unreadable: [] };
 }
 
 /** 사람이 정한 값이 있으면 그 값, 없으면 선언의 기본값이다. 둘 다 없으면 undefined다. */
@@ -93,17 +77,13 @@ export async function chooseSetting(
     : { ok: false, code: rejection.reason satisfies SettingRejectReason };
 }
 
-/** 정한 key들의 현재 값. 선언에 없는 key는 빠진다. */
+/** 쓰기 직전에 정한 key들의 현재 값을 다시 읽는다. 화면이 쥔 값으로 통째로 쓰면 그 사이 바뀐 것을 잃는다. */
 export async function readEffective(
   core: CoreSource,
   keys: readonly string[],
 ): Promise<SourceResult<Map<string, unknown>>> {
-  const listed = await listSettings(core, keys);
-  if (!listed.ok) return listed;
-  return {
-    ok: true,
-    value: new Map(
-      listed.value.map((entry) => [entry.key, effectiveValue(entry)]),
-    ),
-  };
+  const read = await call<ListValue>(core, "memory", "settings", "list", {
+    keys,
+  });
+  return read.ok ? { ok: true, value: effectiveOf(read.value) } : read;
 }

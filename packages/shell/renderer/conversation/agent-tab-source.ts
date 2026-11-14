@@ -21,6 +21,7 @@ import type {
   SignInRequestView,
 } from "../../../protocol/lophn-agent/input-request.ts";
 import type { SignInProgress } from "../desktop/settings/sign-in.ts";
+import type { EventClient } from "../desktop/connection/events/client.ts";
 import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { RewindReason } from "../../../protocol/lophn-agent/session-rewinds.ts";
 import type {
@@ -692,6 +693,8 @@ export interface AgentTabSource {
     session: string;
     toolCall: string;
     view: SignInRequestView;
+    /** 앱 로그인이 끝남을 듣는 창의 event 연결. EventsProvider 밖(gallery)이면 null이고 앱 로그인은 unavailable이다. */
+    events: EventClient | null;
     progress: SignInProgress;
   }): Promise<SourceResult<void>>;
   /** 끝나지 않은 call을 취소한다. */

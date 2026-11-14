@@ -10,6 +10,7 @@ import {
   type SignInRequestView,
 } from "../../../protocol/lophn-agent/input-request.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
+import type { EventClient } from "../desktop/connection/events/client.ts";
 import { windowLinkOpener } from "../desktop/settings/core-call.ts";
 import {
   signInApp,
@@ -58,7 +59,11 @@ const random = () => crypto.randomUUID().slice(0, 8);
 export async function signInInputRequest(
   core: CoreSource,
   env: Env,
-  input: Target & { view: SignInRequestView; progress: SignInProgress },
+  input: Target & {
+    view: SignInRequestView;
+    events: EventClient | null;
+    progress: SignInProgress;
+  },
 ): Promise<SourceResult<void>> {
   const { target } = input.view;
   const { signal } = input.progress;
@@ -68,7 +73,16 @@ export async function signInInputRequest(
   if (target.type === "provider") {
     outcome = await signInProvider(core, flow, target.login, input.progress);
   } else if (target.type === "app") {
-    outcome = await signInApp(core, flow, target.app, target.name, signal);
+    outcome =
+      input.events === null
+        ? { ok: false, code: "unavailable" }
+        : await signInApp(
+            input.events,
+            openLink,
+            target.app,
+            target.name,
+            signal,
+          );
   } else {
     const link = createLink(core, random);
     const server = {

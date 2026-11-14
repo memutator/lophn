@@ -1,4 +1,6 @@
-// Coding agents 화면의 가짜 통로. main·core를 부르지 않고 부른 것을 기록한다.
+// Coding agents 화면의 가짜 통로. main을 부르지 않고 부른 것을 기록한다. 공유 목록은 가짜 core의 설정에 둔다.
+import { SHARED_APPS_SETTING_KEY } from "../../../../../../protocol/approvals/share-request.ts";
+import { type FakeCore, fakeCore } from "../../testdata/fake-core.ts";
 import type {
   CodingConnectionsSource,
   HarnessHookView,
@@ -82,10 +84,13 @@ interface FakeConnectionsOptions {
   hooks?: SourceResult<readonly HarnessHookView[]>;
   harnesses?: SourceResult<readonly HarnessSettingsView[]>;
   refresh?: SourceResult<readonly HarnessSettingsView[]>;
+  /** 공유 목록을 둘 가짜 core. 없으면 새로 만든다. */
+  core?: FakeCore;
 }
 
 interface FakeConnections {
   readonly source: CodingConnectionsSource;
+  readonly core: FakeCore;
   readonly calls: {
     harnesses: number;
     refresh: number;
@@ -107,14 +112,12 @@ export function fakeConnections(
     uninstalled: [],
     unshared: [],
   };
+  const core = options.core ?? fakeCore();
   let shared = [...(options.shared ?? ["grocery-list", "trip-notes"])];
+  core.set(SHARED_APPS_SETTING_KEY, shared);
   let hooks =
     options.hooks?.ok === false ? [] : [...(options.hooks?.value ?? HOOKS)];
   const source: CodingConnectionsSource = {
-    watch(listener) {
-      listener({ state: "ready" });
-      return () => {};
-    },
     harnesses() {
       calls.harnesses += 1;
       return Promise.resolve(
@@ -133,12 +136,11 @@ export function fakeConnections(
           : { ok: true, value: hooks },
       );
     },
-    sharedApps() {
-      return Promise.resolve({ ok: true, value: shared });
-    },
     unshareApp(slug) {
       calls.unshared.push(slug);
       shared = shared.filter((one) => one !== slug);
+      core.set(SHARED_APPS_SETTING_KEY, shared);
+      core.changed("settings");
       return Promise.resolve({ ok: true, value: null });
     },
     installHooks(id) {
@@ -162,5 +164,5 @@ export function fakeConnections(
       return Promise.resolve({ ok: true, value: done });
     },
   };
-  return { source, calls };
+  return { source, calls, core };
 }

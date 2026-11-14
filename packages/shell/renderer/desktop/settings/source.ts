@@ -1,6 +1,5 @@
-// settings 화면의 선언한 설정이 읽고 쓰는 통로. 화면은 이 interface만 보고 core
-// route 이름은 core-source.ts만 안다. 모양은 protocol(settings)에서 이 화면이 쓰는 field만
-// 옮긴 것이다. Providers와 Agents 자리는 각자의 통로(providers/settings-source.ts,
+// settings 화면의 선언한 설정을 쓰는 통로와 화면이 같이 쓰는 모양. 쓰기 route 이름은 core-source.ts만 안다.
+// 모양은 protocol(settings)에서 이 화면이 쓰는 field만 옮긴 것이다. Providers와 Agents 자리는 각자의 통로(providers/settings-source.ts,
 // agents/settings-source.ts)를 쓴다. 이 파일의 provider 연결 모양은 Providers 통로가 같이 쓴다.
 // secret 값은 이 통로에 없다. credential은 보호 창이 받고 그 창을 여는 일은 각자의 통로가 한다.
 import type { SourceResult } from "../../source-result.ts";
@@ -99,12 +98,10 @@ export type ServerSignInReason =
   | "expired"
   | "store_failed";
 
+/** 선언한 설정을 바꾸는 통로. 읽기는 화면이 `settings/list`를 useCoreRead로 한다. */
 export interface SettingsSource {
-  /** core 연결 상태를 듣는다. 준비되면 화면이 다시 읽는다. 해제는 반환 함수다. */
+  /** core 연결 상태를 듣는다. 해제는 반환 함수다. */
   watch(listener: (state: { readonly state: string }) => void): () => void;
-
-  /** 요소가 선언한 설정 항목과 사람이 정한 값. General이 그대로 그린다. */
-  declared(): Promise<SourceResult<readonly SettingEntry[]>>;
   /** 설정을 바꾼다. 틀린 값은 오류가 아니라 rejected에 이유와 함께 온다. */
   update(
     changes: readonly SettingChange[],

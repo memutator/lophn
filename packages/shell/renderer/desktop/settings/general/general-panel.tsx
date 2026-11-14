@@ -1,7 +1,7 @@
 // Settings › General. 요소가 선언한 설정 항목을 타입(불리언, 숫자 범위, 선택지, 목록)대로 보고 바꾼다.
 // 사람이 정한 값만 저장하고 기본값과 나눠 보인다. 틀린 값은 거절 이유를 줄 아래에 보이고 저장된 값은
 // 그대로다. 필수 설정이 비어 있으면 panel 위쪽 toast가 알린다.
-import { type KeyboardEvent, useCallback, useState } from "react";
+import { type KeyboardEvent, useState } from "react";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import { Field, Input, Select, Switch } from "@lophn/ui/input";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
@@ -11,8 +11,10 @@ import { t } from "@lophn/i18n";
 
 import { actionIcons, connectionFailedIcon } from "../../../icons/mod.ts";
 import type { SettingsPane } from "../model.ts";
+import { settingsList } from "../../../../../protocol/config/file.ts";
+import { useCoreRead } from "../../connection/core-read.ts";
+import { entriesOf as settingEntriesOf } from "../declared.ts";
 import type { SettingChange, SettingEntry, SettingsSource } from "../source.ts";
-import { useReload } from "../use-reload.ts";
 import styles from "../settings.module.css";
 import {
   choiceLabel,
@@ -37,38 +39,21 @@ interface GeneralPanelProps {
   onPane: (pane: SettingsPane) => void;
 }
 
-type Loaded =
-  | { readonly state: "loading" }
-  | { readonly state: "failed" }
-  | { readonly state: "ready"; readonly entries: readonly SettingEntry[] };
-
 // 안내가 화면에 남은 채로 보이도록 시간이 가지 않는 timer를 준다.
 const NO_TIMER = { set: () => 0, clear: () => {} };
 
 type Save = (change: SettingChange) => Promise<string | null>;
 
 export function GeneralPanel({ source, onPane }: GeneralPanelProps) {
-  const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
+  const { loaded, reload } = useCoreRead(settingsList, {});
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
 
-  const load = useCallback(() => {
-    void source.declared().then((declared) => {
-      setLoaded(
-        declared.ok
-          ? { state: "ready", entries: declared.value }
-          : { state: "failed" },
-      );
-    });
-  }, [source]);
-  useReload(source, load);
-
-  // 저장하면 거절 이유 글을, 저장됐으면 null을 돌려준다. 저장된 값은 다시 읽어 보인다.
+  // 저장하면 거절 이유 글을, 저장됐으면 null을 돌려준다. 저장된 값은 core가 낸 변경으로 다시 읽어 보인다.
   const save: Save = async (change) => {
     const result = await source.update([change]);
     if (!result.ok) return t("settings.error.value-not-saved");
     const rejection = result.value.rejected[0];
     if (rejection !== undefined) return rejectionText(rejection.reason);
-    load();
     return null;
   };
 
@@ -76,14 +61,12 @@ export function GeneralPanel({ source, onPane }: GeneralPanelProps) {
     return (
       <ErrorState
         target={t("settings.label.general-target")}
-        onRetry={() => {
-          setLoaded({ state: "loading" });
-          load();
-        }}
+        onRetry={reload}
       />
     );
   }
-  const entries = loaded.state === "ready" ? loaded.entries : [];
+  const entries =
+    loaded.state === "ready" ? settingEntriesOf(loaded.value) : [];
   const groups = groupEntries(entries);
   const missing = entries.find(
     (entry) => isRequiredEmpty(entry) && !closed.has(entry.key),

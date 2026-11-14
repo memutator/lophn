@@ -1,25 +1,31 @@
 // Settings › Browser의 Links 구역. web link와 local link를 열 곳(Browser tab | System browser)을 고른다.
 // 고르면 바로 저장하고, 저장하지 못하면 앞의 값으로 돌아간다.
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Select } from "@lophn/ui/input";
 import { t } from "@lophn/i18n";
 
+import { settingsList } from "../../../../../protocol/config/file.ts";
+import { useCoreRead } from "../../connection/core-read.ts";
+import { effectiveOf } from "../declared.ts";
 import { NamedControl } from "../general/named-control.tsx";
 import styles from "../settings.module.css";
 import { LINK_ROWS } from "./model.ts";
 import type { BrowserSettingsSource, LinkId, LinkValues } from "./source.ts";
+import { linkValuesOf } from "./window-source.ts";
 
-type Loaded = LinkValues | "failed" | null;
+const LINK_KEYS = LINK_ROWS.map((row) => row.settingKey);
 
 export function LinkRows({ source }: { source: BrowserSettingsSource }) {
-  const [loaded, setLoaded] = useState<Loaded>(null);
+  const { loaded } = useCoreRead(settingsList, { keys: LINK_KEYS });
+  const read = useMemo(
+    () =>
+      loaded.state === "ready" ? linkValuesOf(effectiveOf(loaded.value)) : null,
+    [loaded],
+  );
+  // 고른 값은 저장이 끝나기 전에도 보인다. 다음에 읽은 값에는 저장한 것이 들어 있다.
+  const [picked, setPicked] = useState<LinkValues | null>(null);
+  useEffect(() => setPicked(null), [read]);
   const [notSaved, setNotSaved] = useState(false);
-
-  useEffect(() => {
-    void source
-      .links()
-      .then((read) => setLoaded(read.ok ? read.value : "failed"));
-  }, [source]);
 
   async function choose(
     values: LinkValues,
@@ -27,22 +33,22 @@ export function LinkRows({ source }: { source: BrowserSettingsSource }) {
     value: LinkValues[LinkId],
   ): Promise<void> {
     setNotSaved(false);
-    setLoaded({ ...values, [id]: value });
+    setPicked({ ...values, [id]: value });
     const saved = await source.chooseLink(id, value);
     if (saved.ok) return;
-    setLoaded(values);
+    setPicked(null);
     setNotSaved(true);
   }
 
-  if (loaded === null) return null;
-  if (loaded === "failed") {
+  if (loaded.state === "loading") return null;
+  if (loaded.state === "failed") {
     return (
       <p className={styles.notice} data-links="failed">
         {t("settings.error.links-load-failed")}
       </p>
     );
   }
-  const values = loaded;
+  const values = picked ?? read!;
   return (
     <>
       <ul className={styles.lines} data-links="ok">

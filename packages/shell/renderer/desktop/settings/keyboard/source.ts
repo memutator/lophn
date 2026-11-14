@@ -1,5 +1,5 @@
-// Settings › Keyboard가 읽고 쓰는 통로. 값은 선언 설정 `shell.keybindings`다. 화면은 이 interface만 보고
-// core route 이름은 core-source.ts만 안다.
+// Settings › Keyboard가 쓰는 통로. 값은 선언 설정 `shell.keybindings`다. 화면은 `settings/list`를 useCoreRead로
+// 읽고, read는 창에 덮는 쪽(main.tsx)이 쓴다.
 import type {
   KeyOverrides,
   KeyPlatform,
@@ -12,7 +12,7 @@ export type StoredKeybindings = Readonly<
 >;
 
 export interface KeyboardSource {
-  /** core 연결 상태를 듣는다. 준비되면 다시 읽는다. 해제는 반환 함수다. */
+  /** core 연결 상태를 듣는다. 준비되면 창에 덮는 쪽이 다시 읽는다. 해제는 반환 함수다. */
   watch(listener: (state: { readonly state: string }) => void): () => void;
   read(): Promise<SourceResult<StoredKeybindings>>;
   write(value: StoredKeybindings): Promise<SourceResult<null>>;

@@ -3,8 +3,8 @@
 // keybinding service와 main에 덮는다. 번호 줄(n번째 탭, split의 n번째 쪽)은 modifier 하나를 받아 모든 번호에 붙인다.
 import {
   type KeyboardEvent,
-  useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -36,7 +36,9 @@ import {
 import { actionIcons, settingsIcons } from "../../../icons/mod.ts";
 import { panelChoices } from "../../../workspace/app-panel-tab.tsx";
 import { useAppPanelApps } from "../../../workspace/project-settings/quick-launch-editor.tsx";
-import { useReload } from "../use-reload.ts";
+import { settingsList } from "../../../../../protocol/config/file.ts";
+import { useCoreRead } from "../../connection/core-read.ts";
+import { effectiveOf } from "../declared.ts";
 import styles from "../settings.module.css";
 import {
   appRows,
@@ -60,15 +62,11 @@ import {
   withKeys,
   withoutPlatform,
 } from "./model.ts";
+import { KEYBINDINGS_KEY, storedOf } from "./core-source.ts";
 import type { KeyboardSource, StoredKeybindings } from "./source.ts";
 
 const NO_KEYMAP: readonly KeymapEntry[] = [];
 const noSubscribe = () => () => {};
-
-type Loaded =
-  | { readonly state: "loading" }
-  | { readonly state: "failed" }
-  | { readonly state: "ready"; readonly stored: StoredKeybindings };
 
 const MODIFIERS: Readonly<Record<KeyPlatform, string>> = {
   mac: "⌘, ⌃, or ⌥",
@@ -117,7 +115,18 @@ function rowKeyText(row: KeyRow, platform: KeyPlatform): string {
 export function KeyboardPanel({ source }: { source: KeyboardSource }) {
   const commands = useWindowCommands();
   const platform: KeyPlatform = commands?.platform ?? "other";
-  const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
+  const { loaded, reload } = useCoreRead(settingsList, {
+    keys: [KEYBINDINGS_KEY],
+  });
+  const read = useMemo(
+    () =>
+      loaded.state === "ready" ? storedOf(effectiveOf(loaded.value)) : null,
+    [loaded],
+  );
+  // 바꾼 키는 저장이 끝나기 전에도 바로 보이고 창에 덮인다. 다음에 읽은 값에는 저장한 것이 들어 있다.
+  const [picked, setPicked] = useState<StoredKeybindings | null>(null);
+  useEffect(() => setPicked(null), [read]);
+  const stored = picked ?? read;
   const [query, setQuery] = useState("");
   // 키로 찾기. 켜면 검색 칸이 누른 키를 받고 그 키를 쓰는 줄만 보인다.
   const [byKey, setByKey] = useState(false);
@@ -147,43 +156,24 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
     () => commands?.keymap() ?? NO_KEYMAP,
   );
 
-  const load = useCallback(() => {
-    void source.read().then((read) => {
-      if (!read.ok) {
-        setLoaded((prev) =>
-          prev.state === "ready" ? prev : { state: "failed" },
-        );
-        return;
-      }
-      setLoaded({ state: "ready", stored: read.value });
-      commands?.setOverrides(read.value[platform] ?? {});
-    });
-  }, [source, commands, platform]);
-  useReload(source, load);
+  useEffect(() => {
+    if (stored !== null) commands?.setOverrides(stored[platform] ?? {});
+  }, [stored, commands, platform]);
 
-  async function save(prev: StoredKeybindings, next: StoredKeybindings) {
+  async function save(next: StoredKeybindings) {
     setNotSaved(false);
-    setLoaded({ state: "ready", stored: next });
-    commands?.setOverrides(next[platform] ?? {});
+    setPicked(next);
     const saved = await source.write(next);
     if (saved.ok) return;
-    setLoaded({ state: "ready", stored: prev });
-    commands?.setOverrides(prev[platform] ?? {});
+    setPicked(null);
     setNotSaved(true);
   }
 
   if (loaded.state === "failed") {
     return (
-      <ErrorState
-        target={t("settings.label.tab-keyboard")}
-        onRetry={() => {
-          setLoaded({ state: "loading" });
-          load();
-        }}
-      />
+      <ErrorState target={t("settings.label.tab-keyboard")} onRetry={reload} />
     );
   }
-  const stored = loaded.state === "ready" ? loaded.stored : null;
   const overrides = stored?.[platform] ?? {};
   const extra = contributedBindings(contributions, platform, overrides);
   const defaults = contributedDefaults(contributions, platform);
@@ -297,7 +287,7 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
       return;
     }
     stop();
-    void save(current, withKeys(current, platform, keys, defaults));
+    void save(withKeys(current, platform, keys, defaults));
   }
 
   function capture(
@@ -318,7 +308,7 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
         row.kind === "single"
           ? { [row.id]: [] }
           : numberedKeys(row.ids, row.numbers, null);
-      return void save(current, withKeys(current, platform, cleared, defaults));
+      return void save(withKeys(current, platform, cleared, defaults));
     }
     const text = chordOfInput({
       key: event.key,
@@ -428,7 +418,6 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
                   const keys = taking.keys;
                   setTaking(null);
                   void save(
-                    stored,
                     withKeys(
                       stored,
                       platform,
@@ -496,10 +485,7 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
                 data-key-reset={id}
                 aria-label={t("settings.button.key-reset", { name: row.name })}
                 onClick={() =>
-                  void save(
-                    stored,
-                    withKeys(stored, platform, resetKeys, defaults),
-                  )
+                  void save(withKeys(stored, platform, resetKeys, defaults))
                 }
               >
                 {t("settings.button.reset-default")}
@@ -512,10 +498,7 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
                 data-key-clear={id}
                 aria-label={t("settings.button.key-clear", { name: row.name })}
                 onClick={() =>
-                  void save(
-                    stored,
-                    withKeys(stored, platform, clearKeys, defaults),
-                  )
+                  void save(withKeys(stored, platform, clearKeys, defaults))
                 }
               >
                 {t("settings.button.key-clear-visible")}
@@ -641,9 +624,7 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
                 <Button
                   icon={actionIcons.reset}
                   data-keys-reset-all=""
-                  onClick={() =>
-                    void save(stored, withoutPlatform(stored, platform))
-                  }
+                  onClick={() => void save(withoutPlatform(stored, platform))}
                 >
                   {t("settings.button.keys-reset-all")}
                 </Button>

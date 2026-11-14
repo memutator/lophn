@@ -1,21 +1,31 @@
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
 
-import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
+import { settingsList } from "../../../../../protocol/config/file.ts";
+import {
+  type McpServer,
+  mcpAuthState,
+} from "../../../../../protocol/lophn-agent/mcp-settings.ts";
+import { skillsRead } from "../../../../../protocol/lophn-agent/skill-settings.ts";
+import { secretStatus } from "../../../../../protocol/secrets/secret-file.ts";
 import { actionIcons } from "../../../icons/mod.ts";
+import { useCoreRead } from "../../connection/core-read.ts";
+import { effectiveOf } from "../declared.ts";
+import {
+  authStateInput,
+  authStatesOf,
+  extensionSettingsOf,
+  MCP_SERVERS,
+  secretStatesOf,
+  SKILL_FOLDERS,
+} from "../extension-settings.ts";
+import { extensionsViewOf, serverSecretNames } from "../agents/core-source.ts";
 import { ServerForm } from "../../../workspace/agents/editor/server-form.tsx";
 import { McpList, SkillList } from "../../../workspace/agents/editor/parts.tsx";
 import type {
   AgentsSettingsSource,
-  ExtensionsView,
   McpRow,
   SourceResult,
 } from "../agents/settings-source.ts";
@@ -28,11 +38,6 @@ interface ExtensionsPanelProps {
 // Settings › Tools and skills. 전역 층의 skill과 MCP server다. 줄마다 켬·끔 토글이 오른쪽 끝에 있고 층 표시는 없다.
 // server를 더하는 form은 agent 설정 화면의 것과 같다. key나 token 값은 이 화면이 받지 않고 보호 입력이 받는다.
 // 같은 이름은 project나 agent 층이 덮는다.
-
-type Loaded =
-  | { readonly state: "loading" }
-  | { readonly state: "failed" }
-  | { readonly state: "ready"; readonly view: ExtensionsView };
 
 type Notice =
   | { readonly kind: "added"; readonly name: string }
@@ -51,54 +56,64 @@ function noticeText(notice: Notice): string {
 }
 
 export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
-  const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
+  // skill 목록, server 설정, credential 저장 여부, 로그인 상태를 따로 읽는다. 다른 창이나 agent가 바꾸거나 browser
+  // 로그인이 끝나도 따라간다. 상태를 읽지 못하면 그 칸만 모른다고 본다.
+  const skills = useCoreRead(skillsRead, {});
+  const settings = useCoreRead(settingsList, {
+    keys: [SKILL_FOLDERS, MCP_SERVERS],
+  });
+  const servers = useMemo(
+    () =>
+      settings.loaded.state === "ready"
+        ? extensionSettingsOf(effectiveOf(settings.loaded.value)).servers
+        : [],
+    [settings.loaded],
+  );
+  const secrets = useCoreRead(secretStatus, {});
+  const logins = useCoreRead(mcpAuthState, authStateInput(servers));
+  const view = useMemo(
+    () =>
+      skills.loaded.state !== "ready" || settings.loaded.state === "loading"
+        ? null
+        : extensionsViewOf(
+            skills.loaded.value.skills,
+            servers,
+            secrets.loaded.state === "ready"
+              ? secretStatesOf(serverSecretNames(servers), secrets.loaded.value)
+              : null,
+            logins.loaded.state === "ready"
+              ? authStatesOf(logins.loaded.value)
+              : null,
+          ),
+    [skills.loaded, settings.loaded, servers, secrets.loaded, logins.loaded],
+  );
   const [notice, setNotice] = useState<Notice | null>(null);
   const [adding, setAdding] = useState(false);
   // 이 화면이 시작해 아직 callback을 기다리는 로그인이다.
   const [signingIn, setSigningIn] = useState<readonly string[]>([]);
   const alive = useRef(true);
-
-  const load = useCallback(() => {
-    void source.readExtensions().then((result) => {
-      if (!alive.current) return;
-      // 다시 읽다 실패해도 보이던 값은 그대로 둔다. 처음 읽기만 읽지 못했다고 보인다.
-      setLoaded((was) =>
-        result.ok
-          ? { state: "ready", view: result.value }
-          : was.state === "ready"
-            ? was
-            : { state: "failed" },
-      );
-    });
-  }, [source]);
   useEffect(() => {
     alive.current = true;
-    load();
     return () => {
       alive.current = false;
     };
-  }, [load]);
+  }, []);
 
-  if (loaded.state === "failed") {
+  if (skills.loaded.state === "failed") {
     return (
       <ErrorState
         target={t("settings.label.extensions-target")}
-        onRetry={() => {
-          setLoaded({ state: "loading" });
-          load();
-        }}
+        onRetry={skills.reload}
       />
     );
   }
-  const view = loaded.state === "ready" ? loaded.view : null;
 
-  // 한 번 부르고 실패하면 알린다. 값이 바뀌었을 수 있으니 어느 쪽이든 다시 읽는다.
+  // 한 번 부르고 실패하면 알린다. 바뀐 값은 core가 낸 변경으로 다시 읽힌다.
   async function act(call: () => Promise<SourceResult<null>>): Promise<void> {
     setNotice(null);
     const done = await call();
     if (!alive.current) return;
     if (!done.ok) setNotice({ kind: "failed" });
-    load();
   }
 
   async function signIn(row: McpRow): Promise<void> {
@@ -108,14 +123,12 @@ export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
     if (!alive.current) return;
     setSigningIn((was) => was.filter((one) => one !== row.name));
     if (!done.ok) setNotice({ kind: "failed" });
-    load();
   }
 
   async function cancelSignIn(row: McpRow): Promise<void> {
     await source.cancelServerSignIn(row);
     if (!alive.current) return;
     setSigningIn((was) => was.filter((one) => one !== row.name));
-    load();
   }
 
   async function add(server: McpServer): Promise<void> {
@@ -128,7 +141,6 @@ export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
         ? { kind: "added", name: server.name }
         : { kind: "server-failed", name: server.name },
     );
-    load();
   }
 
   return (

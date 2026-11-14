@@ -1,9 +1,12 @@
-// Appearance 화면의 가짜 통로. core를 부르지 않고 고른 것을 메모리에 둔다. 고른 모양은 이 문서에 바로 넣는다(paint.ts).
+// Appearance 화면의 가짜 통로. 값과 theme file은 가짜 core의 설정에 두고 고른 것도 거기 쓴다. 고른 모양은 이 문서에 바로 넣는다(paint.ts).
 import { loadThemes, parseAppearance, type ThemeFile } from "@lophn/ui";
 
-import { APPEARANCE_DEFAULTS } from "../model.ts";
+import { THEMES_SETTING_KEY } from "../../../../../ipc/appearance.ts";
+import { type FakeCore, fakeCore } from "../../testdata/fake-core.ts";
+import { APPEARANCE_DEFAULTS, settingKeyOf } from "../model.ts";
 import { paintAppearance } from "./paint.ts";
 import type {
+  AppearanceId,
   AppearanceSource,
   AppearanceValues,
   InstalledFont,
@@ -38,11 +41,12 @@ interface FakeAppearanceOptions {
   values?: Partial<AppearanceValues>;
   /** 고르기가 거절되는 code. 없으면 저장된다. */
   chooseCode?: string;
-  readFails?: boolean;
   /** 설치된 글꼴. 없으면 FAKE_FONTS다. */
   fonts?: readonly InstalledFont[];
   /** theme file. 없으면 FAKE_THEME_FILES다. */
   themeFiles?: readonly ThemeFile[];
+  /** 값을 둘 가짜 core. 없으면 새로 만든다. */
+  core?: FakeCore;
 }
 
 /** 견본 theme file. 하나는 내장 theme을 조금 바꾼 것이고, 하나는 대비가 모자라고, 하나는 읽을 수 없다. */
@@ -68,12 +72,36 @@ export const FAKE_THEME_FILES: readonly ThemeFile[] = [
 
 export function fakeAppearance(options: FakeAppearanceOptions = {}) {
   const calls: unknown[][] = [];
+  const core = options.core ?? fakeCore();
   let values: AppearanceValues = { ...APPEARANCE_DEFAULTS, ...options.values };
-  const themes = loadThemes(options.themeFiles ?? FAKE_THEME_FILES);
+  const files = options.themeFiles ?? FAKE_THEME_FILES;
+  const themes = loadThemes(files);
+  for (const [id, value] of Object.entries(values)) {
+    core.set(settingKeyOf(id as AppearanceId), value);
+  }
+  // core는 JSON으로 읽은 file만 항목으로 주고 읽지 못한 file은 이유와 함께 준다.
+  core.folder(THEMES_SETTING_KEY, {
+    entries: files.flatMap((file) => {
+      try {
+        return [{ id: file.id, value: JSON.parse(file.text) as unknown }];
+      } catch {
+        return [];
+      }
+    }),
+    unreadable: files.flatMap((file) => {
+      try {
+        JSON.parse(file.text);
+        return [];
+      } catch {
+        return [{ name: file.id, reason: "not_json" as const }];
+      }
+    }),
+  });
   const paint = () => {
     const appearance = parseAppearance(values);
     if (appearance !== undefined) paintAppearance(appearance, themes.list);
   };
+  paint();
   const source: AppearanceSource = {
     watch(listener) {
       listener({ state: "ready" });
@@ -81,12 +109,7 @@ export function fakeAppearance(options: FakeAppearanceOptions = {}) {
     },
     values() {
       calls.push(["values"]);
-      if (!options.readFails) paint();
-      return Promise.resolve(
-        options.readFails
-          ? { ok: false, code: "unavailable" }
-          : { ok: true, value: values },
-      );
+      return Promise.resolve({ ok: true, value: values });
     },
     choose(id, value) {
       calls.push(["choose", id, value]);
@@ -94,18 +117,17 @@ export function fakeAppearance(options: FakeAppearanceOptions = {}) {
         return Promise.resolve({ ok: false, code: options.chooseCode });
       }
       values = { ...values, [id]: value };
+      core.set(settingKeyOf(id), value);
+      core.changed("settings");
       paint();
       return Promise.resolve({ ok: true, value: null });
     },
     fonts() {
       return Promise.resolve(options.fonts ?? FAKE_FONTS);
     },
-    themes() {
-      return Promise.resolve(themes);
-    },
     openThemesFolder() {
       calls.push(["openThemesFolder"]);
     },
   };
-  return { source, calls };
+  return { source, calls, core };
 }

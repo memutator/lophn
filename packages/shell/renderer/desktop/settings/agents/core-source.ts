@@ -1,13 +1,14 @@
 // AgentsSettingsSource를 main의 core 통로로 만든다. 응답은 main의 contract client가 route output schema로 이미
 // 검사했다. 아래 모양은 그 schema에서 이 화면이 읽는 field만 옮긴 것이다. credential 값은 이 파일을 지나지 않고
-// 보관 이름과 저장 여부만 묻는다.
+// 보관 이름과 저장 여부만 묻는다. 화면의 읽기(기본 model, 호출 정책, skill·MCP server 목록)는 useCoreRead로 하고
+// 이 file의 *ViewOf 함수로 푼다.
 //
-// - 전역 기본 model: model-default 읽기와 바꾸기.
+// - 전역 기본 model: model-default 바꾸기. 연결 뒤 흐름(connect-host)은 한 번 읽는다.
 // - model picker: Agents 탭과 같은 AgentsSource(workspace/agents)의 model 읽기다.
 // - 모든 project의 LOPHN.md: 경로는 shell main(`instructions.open`)이 알려 주고 읽기·쓰기는 main file 통로다.
 //   Agents 화면이 그 자리에서 고친다.
 // - [Add server]로 Tools and skills 자리로 옮기는 일도 settings 화면이 감싸 주므로 addServer는 unavailable이다.
-// - 전역 skill 목록: skills/read(project·app 없이 읽으면 내장과 전역 층). 끄고 켜기는 skills_off 설정을 settings apply로 바꾼다.
+// - 전역 skill 목록: skills/read(project·app 없이 읽으면 내장과 전역 층). 끄고 켜기는 skills_off 설정을 settings/update로 바꾼다.
 import { t } from "@lophn/i18n";
 import {
   CALL_POLICY_SETTING_KEY,
@@ -35,11 +36,8 @@ import { createLink } from "../../../workspace/agents/core-link.ts";
 import type { InstructionsApi } from "../../../../ipc/instructions.ts";
 import type { FilesApi } from "../../../../ipc/files.ts";
 import type { CoreSource } from "../../connection/connection.ts";
-import {
-  readProjects,
-  windowFolderPicker,
-} from "../../workspaces/projects/core-source.ts";
-import { chooseSetting, readEffective } from "../declared.ts";
+import { windowFolderPicker } from "../../workspaces/projects/core-source.ts";
+import { chooseSetting } from "../declared.ts";
 import type { OpenExternalApi } from "../../../../ipc/open-external.ts";
 import type { SecretInputOpenApi } from "../../../../ipc/secret-input.ts";
 import {
@@ -51,19 +49,20 @@ import {
 } from "../core-call.ts";
 import {
   applySetting,
-  authStates,
   type AuthStateValue,
   MCP_SERVERS,
   type McpServerValue,
   readExtensionSettings,
   secretOf,
-  secretStates,
   SKILL_FOLDERS,
 } from "../extension-settings.ts";
 import type {
   AgentsSettingsSource,
+  CallPolicyChange,
   CallPolicySource,
+  CallPolicyView,
   CallRule,
+  ExtensionsView,
   McpRow,
   SourceResult,
 } from "./settings-source.ts";
@@ -71,7 +70,7 @@ import type {
 interface SkillValue {
   name: string;
   description: string;
-  source: "builtin" | "global";
+  source: string;
   enabled: boolean;
 }
 
@@ -119,98 +118,143 @@ const workspaceOfKey = (key: string): CallWorkspace =>
         id: key.slice(key.indexOf(":") + 1),
       } as CallWorkspace);
 
+/**
+ * 저장된 정책과 보관하지 않은 project·앱, agent 목록으로 화면의 고를 값과 줄을 만든다. 정책 모양이 틀리면
+ * null이다.
+ */
+export function callPolicyViewOf(
+  stored: unknown,
+  projects: readonly { id: string; title: string }[],
+  apps: readonly { id: string; name: string }[],
+  agents: readonly { agent: string; name: string }[],
+): CallPolicyView | null {
+  const policy = callPolicySchema.safeParse(stored);
+  if (!policy.success) return null;
+  const containers = [
+    ...projects.map((one) => ({
+      value: `project:${one.id}`,
+      label: one.title,
+    })),
+    ...apps.map((one) => ({ value: `app:${one.id}`, label: one.name })),
+  ];
+  const workspaceLabels = new Map([
+    ["home", t("settings.label.call-home")],
+    ...containers.map((one): [string, string] => [one.value, one.label]),
+  ]);
+  return {
+    private: {
+      options: containers,
+      chosen: policy.data.private.map(workspaceKey),
+    },
+    workspaces: {
+      options: [
+        { value: "home", label: t("settings.label.call-home") },
+        ...containers,
+      ],
+      rules: policy.data.workspaces.map((rule) => ({
+        from: workspaceKey(rule.from),
+        to: workspaceKey(rule.to),
+        allow: rule.allow,
+      })),
+    },
+    agents: {
+      // lophn은 workspace마다 하나라 이름이 같다. 어느 workspace의 것인지 붙여 가른다.
+      options: agents.map((one) => ({
+        value: one.agent,
+        label: isLophn(one.agent)
+          ? t("agents.label.settings-lophn-in", {
+              agent: one.name,
+              workspace:
+                workspaceLabels.get(
+                  workspaceKey(workspaceOfLophn(one.agent) ?? { kind: "home" }),
+                ) ?? "",
+            })
+          : one.name,
+      })),
+      rules: policy.data.agents,
+    },
+  };
+}
+
 function callPolicySource(core: CoreSource): CallPolicySource {
   return {
-    async read() {
-      const value = await readEffective(core, [CALL_POLICY_SETTING_KEY]);
-      if (!value.ok) return value;
-      const policy = callPolicySchema.safeParse(
-        value.value.get(CALL_POLICY_SETTING_KEY),
-      );
-      if (!policy.success) return { ok: false, code: "internal" };
-      const projects = await readProjects(core, "active");
-      if (!projects.ok) return projects;
-      const apps = await call<{ apps: { id: string; name: string }[] }>(
-        core,
-        "read",
-        "apps",
-        "list",
-        { status: "active" },
-      );
-      if (!apps.ok) return apps;
-      const agents = await call<{ agents: { agent: string; name: string }[] }>(
-        core,
-        "read",
-        "agents",
-        "list",
-        {},
-      );
-      if (!agents.ok) return agents;
-      const containers = [
-        ...projects.value.map((one) => ({
-          value: `project:${one.id}`,
-          label: one.title,
-        })),
-        ...apps.value.apps.map((one) => ({
-          value: `app:${one.id}`,
-          label: one.name,
-        })),
-      ];
-      const workspaceLabels = new Map([
-        ["home", t("settings.label.call-home")],
-        ...containers.map((one): [string, string] => [one.value, one.label]),
-      ]);
-      return {
-        ok: true,
-        value: {
-          private: {
-            options: containers,
-            chosen: policy.data.private.map(workspaceKey),
-          },
-          workspaces: {
-            options: [
-              { value: "home", label: t("settings.label.call-home") },
-              ...containers,
-            ],
-            rules: policy.data.workspaces.map((rule) => ({
-              from: workspaceKey(rule.from),
-              to: workspaceKey(rule.to),
-              allow: rule.allow,
-            })),
-          },
-          agents: {
-            // lophn은 workspace마다 하나라 이름이 같다. 어느 workspace의 것인지 붙여 가른다.
-            options: agents.value.agents.map((one) => ({
-              value: one.agent,
-              label: isLophn(one.agent)
-                ? t("agents.label.settings-lophn-in", {
-                    agent: one.name,
-                    workspace:
-                      workspaceLabels.get(
-                        workspaceKey(
-                          workspaceOfLophn(one.agent) ?? { kind: "home" },
-                        ),
-                      ) ?? "",
-                  })
-                : one.name,
-            })),
-            rules: policy.data.agents,
-          },
-        },
-      };
-    },
-
     write: (next) =>
-      chooseSetting(core, CALL_POLICY_SETTING_KEY, {
-        private: next.private.map(workspaceOfKey),
-        workspaces: next.workspaces.map((rule: CallRule) => ({
-          from: workspaceOfKey(rule.from),
-          to: workspaceOfKey(rule.to),
-          allow: rule.allow,
-        })),
-        agents: next.agents,
-      }),
+      chooseSetting(core, CALL_POLICY_SETTING_KEY, callPolicyValueOf(next)),
   };
+}
+
+/** 화면이 고친 정책을 설정 값의 모양으로 되돌린다. */
+export function callPolicyValueOf(next: CallPolicyChange): unknown {
+  return {
+    private: next.private.map(workspaceOfKey),
+    workspaces: next.workspaces.map((rule: CallRule) => ({
+      from: workspaceOfKey(rule.from),
+      to: workspaceOfKey(rule.to),
+      allow: rule.allow,
+    })),
+    agents: next.agents,
+  };
+}
+
+/**
+ * Tools and skills의 전역 층. skill 목록과 MCP server 설정에 credential 저장 여부(states)와 OAuth 로그인 상태(logins)를
+ * 붙인다. 상태를 읽지 못했으면 null이고 그 server는 로그인했다고 말하지 않는다.
+ */
+export function extensionsViewOf(
+  skills: readonly SkillValue[],
+  servers: readonly McpServerValue[],
+  states: ReadonlyMap<string, "set" | "missing"> | null,
+  logins: ReadonlyMap<string, AuthStateValue> | null,
+): ExtensionsView {
+  return {
+    skills: skills.map((skill) => ({
+      name: skill.name,
+      detail: skill.description,
+      layer: "global" as const,
+      on: skill.enabled,
+      builtIn: skill.source === "builtin",
+    })),
+    servers: servers.map((server): McpRow => {
+      const auth =
+        server.transport === "http" && server.http?.auth.kind === "oauth2"
+          ? server.http.auth
+          : null;
+      const login = logins?.get(server.name);
+      const secrets = secretsOf(server, (name) => {
+        const state = states?.get(name);
+        return state === undefined ? null : state === "set";
+      });
+      return {
+        name: server.name,
+        detail: detailOf(server),
+        layer: "global" as const,
+        on: server.enabled,
+        status: statusOf(server, states, logins),
+        ...(auth === null
+          ? {}
+          : {
+              login: {
+                workspace: null,
+                agent: null,
+                client_id: auth.client_id ?? "",
+                scopes: auth.scopes ?? [],
+                state: login?.state ?? ("none" as const),
+                reason: login?.reason ?? null,
+              },
+            }),
+        ...(secrets.length === 0 ? {} : { secrets }),
+      };
+    }),
+  };
+}
+
+/** server들의 credential 이름. 저장 여부를 이 이름으로 본다. */
+export function serverSecretNames(
+  servers: readonly McpServerValue[],
+): string[] {
+  return servers.flatMap((server) =>
+    secretsOf(server).map((secret) => secret.name),
+  );
 }
 
 interface AgentsDeps {
@@ -251,19 +295,9 @@ export function coreAgentsSettingsSource(
     editor,
     callPolicy: callPolicySource(core),
 
-    async read() {
-      // core reader는 한 사람의 동시 읽기 수를 제한하므로 하나씩 읽는다.
+    async readDefaultModel() {
       const model = await readGlobalModel(link);
-      if (!model.ok) return { ok: false, code: model.message };
-      // 지침은 못 읽으면 빈 칸으로 보인다. 고쳐 저장하면 hash가 맞지 않아 conflict로 막힌다.
-      const file = await readInstructions(instructions, files, global);
-      return {
-        ok: true,
-        value: {
-          defaultModel: model.value,
-          instructions: file.ok ? file.value : { text: "", hash: null },
-        },
-      };
+      return model.ok ? model : { ok: false, code: model.message };
     },
 
     async changeDefaultModel(choice) {
@@ -284,70 +318,6 @@ export function coreAgentsSettingsSource(
       ),
 
     addServer: () => Promise.resolve(UNAVAILABLE),
-
-    async readExtensions() {
-      const skills = await call<{ skills: SkillValue[] }>(
-        core,
-        "read",
-        "skills",
-        "read",
-        {},
-      );
-      if (!skills.ok) return skills;
-      // 설정을 못 읽으면 server 칸만 비운다.
-      const extensions = await readExtensionSettings(core);
-      const serverValues = extensions.ok ? extensions.value.servers : [];
-      const states = await secretStates(
-        core,
-        serverValues.flatMap((server) =>
-          secretsOf(server).map((secret) => secret.name),
-        ),
-      );
-      const logins = await authStates(core, serverValues);
-      return {
-        ok: true,
-        value: {
-          skills: skills.value.skills.map((skill) => ({
-            name: skill.name,
-            detail: skill.description,
-            layer: "global" as const,
-            on: skill.enabled,
-            builtIn: skill.source === "builtin",
-          })),
-          servers: serverValues.map((server): McpRow => {
-            const auth =
-              server.transport === "http" && server.http?.auth.kind === "oauth2"
-                ? server.http.auth
-                : null;
-            const login = logins?.get(server.name);
-            const secrets = secretsOf(server, (name) => {
-              const state = states?.get(name);
-              return state === undefined ? null : state === "set";
-            });
-            return {
-              name: server.name,
-              detail: detailOf(server),
-              layer: "global" as const,
-              on: server.enabled,
-              status: statusOf(server, states, logins),
-              ...(auth === null
-                ? {}
-                : {
-                    login: {
-                      workspace: null,
-                      agent: null,
-                      client_id: auth.client_id ?? "",
-                      scopes: auth.scopes ?? [],
-                      state: login?.state ?? ("none" as const),
-                      reason: login?.reason ?? null,
-                    },
-                  }),
-              ...(secrets.length === 0 ? {} : { secrets }),
-            };
-          }),
-        },
-      };
-    },
 
     async addSkill() {
       if (picker === undefined) return UNAVAILABLE;

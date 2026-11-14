@@ -7,6 +7,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -23,9 +24,12 @@ import type { ThemeProblem, Themes } from "@lophn/ui";
 import { VisuallyHidden } from "@lophn/ui/shared";
 import { type MessageKey, t } from "@lophn/i18n";
 
+import { THEMES_SETTING_KEY } from "../../../../ipc/appearance.ts";
+import { settingsList } from "../../../../../protocol/config/file.ts";
+import { useCoreRead } from "../../connection/core-read.ts";
+import { effectiveOf, folderOf } from "../declared.ts";
 import { NamedControl } from "../general/named-control.tsx";
 import { useQuickPrefs } from "../quick-launch/store.tsx";
-import { useReload } from "../use-reload.ts";
 import styles from "../settings.module.css";
 import {
   accentSwatch,
@@ -39,6 +43,11 @@ import {
   themeProblemsOf,
   weightsOf,
 } from "./model.ts";
+import {
+  APPEARANCE_KEYS,
+  appearanceValuesOf,
+  themesOf,
+} from "./core-source.ts";
 import type {
   AppearanceId,
   AppearanceSource,
@@ -49,11 +58,6 @@ import type {
 interface AppearancePanelProps {
   source: AppearanceSource;
 }
-
-type Loaded =
-  | { readonly state: "loading" }
-  | { readonly state: "failed" }
-  | { readonly state: "ready"; readonly values: AppearanceValues };
 
 /** 굵기 칸. 줄 이름은 글꼴 칸이 가지므로 이 칸의 이름은 보이지 않게 단다. */
 function WeightSelect({
@@ -90,7 +94,9 @@ function WeightSelect({
 }
 
 export function AppearancePanel({ source }: AppearancePanelProps) {
-  const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
+  const { loaded, reload } = useCoreRead(settingsList, {
+    keys: [...APPEARANCE_KEYS],
+  });
   const [failed, setFailed] = useState(false);
   const { prefs, set: setPrefs } = useQuickPrefs();
   // 설치된 글꼴. 읽기 전에는 null이고, 빈 목록이면 글꼴 칸을 열 때(사람이 누른 때) 다시 읽는다.
@@ -99,33 +105,39 @@ export function AppearancePanel({ source }: AppearancePanelProps) {
     void source.fonts().then(setFonts);
   }, [source]);
   useEffect(loadFonts, [loadFonts]);
-  // 고를 수 있는 theme. theme file이 바뀌면 설정이 바뀐 것이라 값과 같이 다시 읽는다.
-  const [themes, setThemes] = useState<Themes | null>(null);
 
-  // 여러 줄을 차례로 쓰는 동안에는 값을 다시 읽지 않는다. 쓸 때마다 오는 설정 event가 아직 쓰지 않은 줄을
-  // 옛 값으로 되돌려 보이지 않게 한다.
+  // 읽은 값과 고를 수 있는 theme. theme file이 바뀌면 설정이 바뀐 것이라 값과 같이 다시 읽힌다.
+  const read = useMemo(
+    () =>
+      loaded.state === "ready"
+        ? {
+            values: appearanceValuesOf(effectiveOf(loaded.value)),
+            themes: themesOf(folderOf(loaded.value, THEMES_SETTING_KEY)),
+          }
+        : null,
+    [loaded],
+  );
+  // 고른 값은 저장이 끝나기 전에도 바로 보인다. 여러 줄을 차례로 쓰는 동안 온 읽기는 아직 쓰지 않은 줄이 옛 값이라
+  // 고른 값을 지우지 않는다. 다 쓴 뒤 온 읽기에는 쓴 값이 들어 있다.
+  const [picked, setPicked] = useState<Partial<AppearanceValues>>({});
   const saving = useRef(0);
-  const load = useCallback(() => {
-    void source.themes().then(setThemes);
-    if (saving.current > 0) return;
-    void source.values().then((read) => {
-      if (saving.current > 0) return;
-      if (read.ok) applyAppearance(read.value);
-      setLoaded(
-        read.ok ? { state: "ready", values: read.value } : { state: "failed" },
-      );
-    });
-  }, [source]);
-  useReload(source, load);
+  useEffect(() => {
+    if (saving.current === 0) setPicked({});
+  }, [read]);
+  const values = useMemo(
+    () => (read === null ? null : { ...read.values, ...picked }),
+    [read, picked],
+  );
+  useEffect(() => {
+    if (values !== null) applyAppearance(values);
+  }, [values]);
+  const themes = read?.themes ?? null;
 
   async function choose(
-    values: AppearanceValues,
     changes: readonly (readonly [AppearanceId, string])[],
   ): Promise<void> {
     setFailed(false);
-    const next = { ...values, ...Object.fromEntries(changes) };
-    setLoaded({ state: "ready", values: next });
-    applyAppearance(next);
+    setPicked((was) => ({ ...was, ...Object.fromEntries(changes) }));
     // 글꼴 이름을 먼저, 그 이름을 쓰는 값을 나중에 둔다.
     saving.current += 1;
     let ok = true;
@@ -135,23 +147,20 @@ export function AppearancePanel({ source }: AppearancePanelProps) {
     }
     saving.current -= 1;
     if (ok) return;
-    // 저장하지 못했으면 저장된 값을 다시 읽어 그 모양으로 돌아간다.
+    // 저장하지 못했으면 저장된 값으로 돌아간다.
     setFailed(true);
-    load();
+    setPicked({});
+    reload();
   }
 
   if (loaded.state === "failed") {
     return (
       <ErrorState
         target={t("settings.label.appearance-target")}
-        onRetry={() => {
-          setLoaded({ state: "loading" });
-          load();
-        }}
+        onRetry={reload}
       />
     );
   }
-  const values = loaded.state === "ready" ? loaded.values : null;
   return (
     <div data-appearance="">
       <h1 className={styles.paneTitle}>{t("settings.label.tab-appearance")}</h1>
@@ -186,9 +195,7 @@ export function AppearancePanel({ source }: AppearancePanelProps) {
                                   loadFonts();
                                 }
                               }}
-                              onChoose={(changes) =>
-                                void choose(values, changes)
-                              }
+                              onChoose={(changes) => void choose(changes)}
                             />
                           ) : row.control === "theme" ? (
                             <ThemeControl
@@ -197,7 +204,7 @@ export function AppearancePanel({ source }: AppearancePanelProps) {
                               themes={themes}
                               provide={provide}
                               onChoose={(value) =>
-                                void choose(values, [[row.id, value]])
+                                void choose([[row.id, value]])
                               }
                             />
                           ) : (
@@ -219,7 +226,7 @@ export function AppearancePanel({ source }: AppearancePanelProps) {
                                   }}
                                   value={values[row.id]}
                                   onValueChange={(value) =>
-                                    void choose(values, [[row.id, value]])
+                                    void choose([[row.id, value]])
                                   }
                                 />
                               ) : (
@@ -230,7 +237,7 @@ export function AppearancePanel({ source }: AppearancePanelProps) {
                                   }))}
                                   value={values[row.id]}
                                   onValueChange={(value) =>
-                                    void choose(values, [[row.id, value]])
+                                    void choose([[row.id, value]])
                                   }
                                 />
                               ),

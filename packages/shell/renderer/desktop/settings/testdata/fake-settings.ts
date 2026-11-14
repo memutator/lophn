@@ -1,12 +1,12 @@
-// settings 화면 테스트의 가짜 통로. core를 부르지 않고 부른 것을 모두 기록한다. secret 값은 이
-// 통로에 없다: 보호 창 열기는 이름만 기록한다.
+// settings 화면의 가짜 통로. 선언은 가짜 core(fake-core.ts)에 두고 화면은 그 `settings/list` 답을 읽는다.
+// 쓰기는 부른 것을 기록하고 가짜 core를 바꾼다.
 import type {
   SettingEntry,
   SettingRejectReason,
   SettingsSource,
   SettingsUpdateResult,
-  SourceResult,
 } from "../source.ts";
+import { type FakeCore, fakeCore } from "./fake-core.ts";
 
 /**
  * 선언한 설정 하나. 기본값을 주면 기본값이 있는 설정이고, 사람이 정한 값(chosen)을 주면 정한 설정이다.
@@ -62,27 +62,20 @@ export const SAMPLE_DECLARED: readonly SettingEntry[] = [
 interface FakeSettingsOptions {
   /** 선언한 설정. 없으면 대표 선언이다. */
   declared?: readonly SettingEntry[];
-  /** 읽기가 실패하는지. */
-  declaredFail?: boolean;
   /** 설정을 바꿀 때 거절되는 key와 이유. 거절되면 아무것도 저장하지 않는다. */
   rejects?: Readonly<Record<string, SettingRejectReason>>;
+  /** 선언을 둘 가짜 core. 없으면 새로 만든다. */
+  core?: FakeCore;
 }
 
 export function fakeSettings(options: FakeSettingsOptions = {}) {
   const calls: unknown[][] = [];
-  let entries: readonly SettingEntry[] = options.declared ?? SAMPLE_DECLARED;
-  const failed = <T>(code: string): Promise<SourceResult<T>> =>
-    Promise.resolve({ ok: false, code });
+  const core = options.core ?? fakeCore();
+  core.declare(options.declared ?? SAMPLE_DECLARED);
   const source: SettingsSource = {
     watch(listener) {
       listener({ state: "ready" });
       return () => {};
-    },
-    declared() {
-      calls.push(["declared"]);
-      return options.declaredFail
-        ? failed("unavailable")
-        : Promise.resolve({ ok: true, value: entries });
     },
     update(changes) {
       calls.push(["update", changes]);
@@ -95,16 +88,14 @@ export function fakeSettings(options: FakeSettingsOptions = {}) {
           ? { changed: [], rejected }
           : { changed: changes.map((change) => change.key), rejected: [] };
       if (rejected.length === 0) {
-        entries = entries.map((entry) => {
-          const change = changes.find((one) => one.key === entry.key);
-          if (change === undefined) return entry;
-          return change.action === "set"
-            ? { ...entry, hasChosen: true, chosen: change.value }
-            : { ...entry, hasChosen: false, chosen: undefined };
-        });
+        for (const change of changes) {
+          if (change.action === "set") core.set(change.key, change.value);
+          else core.unset(change.key);
+        }
+        core.changed("settings");
       }
       return Promise.resolve({ ok: true, value: result });
     },
   };
-  return { source, calls };
+  return { source, calls, core };
 }

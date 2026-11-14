@@ -2,16 +2,18 @@
 // [Install]은 표시 file을 두고, [Turn on]·[Turn off]는 설정 `extensions.<id>.enabled`를 바꾸고,
 // [Remove]는 확인 dialog 뒤에 extension이 쓴 file만 지운다. 켜져 있으면 지울 수 없어 먼저 끄라고 알린다.
 // 이름이 비슷한 Tools and skills(lophn agent의 skill 폴더·MCP server)와 다르다.
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton, StatusMark } from "@lophn/ui/feedback";
 import { Dialog } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 
 import type { ExtensionView } from "../../../../ipc/extensions.ts";
+import { settingsList } from "../../../../../protocol/config/file.ts";
 import { actionIcons } from "../../../icons/mod.ts";
+import { useCoreRead } from "../../connection/core-read.ts";
+import { effectiveOf } from "../declared.ts";
 import type { SettingsSource } from "../source.ts";
-import { useReload } from "../use-reload.ts";
 import styles from "../settings.module.css";
 import { windowExtensionsApi } from "./core-source.ts";
 import { enabledKey, statusText, statusTone } from "./model.ts";
@@ -20,50 +22,47 @@ interface ExtensionPackagesPanelProps {
   source: SettingsSource;
 }
 
-type Loaded =
+type Listed =
   | { readonly state: "loading" }
   | { readonly state: "failed" }
-  | {
-      readonly state: "ready";
-      readonly views: readonly ExtensionView[];
-      /** 선언된 `extensions.<id>.enabled`의 값. 선언이 없는 id는 빠진다. */
-      readonly enabled: ReadonlyMap<string, boolean>;
-    };
+  | { readonly state: "ready"; readonly views: readonly ExtensionView[] };
 
 export function ExtensionPackagesPanel({
   source,
 }: ExtensionPackagesPanelProps) {
   const api = useMemo(windowExtensionsApi, []);
-  const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
+  // 켜짐은 설정 `extensions.<id>.enabled`다. 목록의 상태(on·off)도 main이 그 설정을 따라 바꾸므로 설정을 다시
+  // 읽을 때마다 목록도 다시 읽는다.
+  const { loaded: settings } = useCoreRead(settingsList, {});
+  const [listed, setListed] = useState<Listed>({ state: "loading" });
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<ExtensionView | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
 
-  const load = useCallback(() => {
+  const list = useCallback(() => {
     if (api === undefined) {
-      setLoaded({ state: "failed" });
+      setListed({ state: "failed" });
       return;
     }
-    void Promise.all([api.list(), source.declared()]).then(
-      ([list, declared]) => {
-        setLoaded((was) => {
-          if (!list.ok)
-            return was.state === "ready" ? was : { state: "failed" };
-          const enabled = new Map<string, boolean>();
-          if (declared.ok) {
-            for (const entry of declared.value) {
-              enabled.set(
-                entry.key,
-                (entry.hasChosen ? entry.chosen : entry.defaultValue) === true,
-              );
-            }
-          }
-          return { state: "ready", views: list.value, enabled };
-        });
-      },
-    );
-  }, [api, source]);
-  useReload(source, load);
+    void api.list().then((read) => {
+      setListed((was) =>
+        read.ok
+          ? { state: "ready", views: read.value }
+          : was.state === "ready"
+            ? was
+            : { state: "failed" },
+      );
+    });
+  }, [api]);
+  useEffect(list, [list, settings]);
+  const enabled = useMemo(() => {
+    const values =
+      settings.state === "ready" ? effectiveOf(settings.value) : new Map();
+    return (id: string): boolean | undefined => {
+      const value = values.get(enabledKey(id));
+      return value === undefined ? undefined : value === true;
+    };
+  }, [settings]);
 
   async function run(
     view: ExtensionView,
@@ -80,7 +79,8 @@ export function ExtensionPackagesPanel({
           : t("settings.error.extension-action", { name: view.name }),
       );
     }
-    load();
+    // 설치·지우기는 main의 file 일이라 core가 알리지 않는다.
+    list();
   }
 
   const turn = (view: ExtensionView, on: boolean) =>
@@ -99,18 +99,18 @@ export function ExtensionPackagesPanel({
       return done.ok ? { ok: true } : { ok: false, code: done.error.code };
     });
 
-  if (loaded.state === "failed") {
+  if (listed.state === "failed") {
     return (
       <ErrorState
         target={t("settings.label.extension-target")}
         onRetry={() => {
-          setLoaded({ state: "loading" });
-          load();
+          setListed({ state: "loading" });
+          list();
         }}
       />
     );
   }
-  const views = loaded.state === "ready" ? loaded.views : [];
+  const views = listed.state === "ready" ? listed.views : [];
   return (
     <div data-extension-packages="">
       <h1 className={styles.paneTitle}>
@@ -123,7 +123,7 @@ export function ExtensionPackagesPanel({
         </p>
       )}
       <Loading
-        loading={loaded.state === "loading"}
+        loading={listed.state === "loading"}
         placeholder={<Skeleton lines={3} />}
       >
         {views.length === 0 ? (
@@ -133,10 +133,7 @@ export function ExtensionPackagesPanel({
         ) : (
           <ul className={styles.lines}>
             {views.map((view) => {
-              const enabled =
-                loaded.state === "ready"
-                  ? loaded.enabled.get(enabledKey(view.id))
-                  : undefined;
+              const on = enabled(view.id);
               return (
                 <li
                   key={view.id}
@@ -176,7 +173,7 @@ export function ExtensionPackagesPanel({
                           {t("settings.button.extension-install")}
                         </Button>
                       ) : null}
-                      {view.installed && enabled === false ? (
+                      {view.installed && on === false ? (
                         <Button
                           disabled={busy}
                           data-action="turn-on"
@@ -185,7 +182,7 @@ export function ExtensionPackagesPanel({
                           {t("settings.button.extension-turn-on")}
                         </Button>
                       ) : null}
-                      {enabled === true ? (
+                      {on === true ? (
                         <Button
                           disabled={busy}
                           data-action="turn-off"
@@ -201,7 +198,7 @@ export function ExtensionPackagesPanel({
                           disabled={busy}
                           data-action="remove"
                           onClick={() =>
-                            enabled === true
+                            on === true
                               ? setProblem(
                                   t("settings.error.extension-turn-off-first", {
                                     name: view.name,

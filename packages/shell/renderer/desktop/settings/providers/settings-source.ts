@@ -53,11 +53,10 @@ export interface CustomProviderInput {
   readonly withKey: boolean;
 }
 
+/** 화면의 provider 목록과 Add a provider 목록은 `providers/list`·`providers/definitions`를 useCoreRead로 읽는다. */
 export interface ProviderSettingsSource {
-  /** 연결된(등록된) provider. */
+  /** 연결된(등록된) provider. 연결이 끝난 뒤 새 provider를 찾는 흐름(connect-host)이 한 번 읽는다. */
   connected(): Promise<SourceResult<readonly ProviderRow[]>>;
-  /** 아직 연결하지 않은 정의. 사람이 보는 순서로 온다. */
-  available(): Promise<SourceResult<readonly ProviderDefinitionRow[]>>;
   /**
    * 연결을 끊는다. provider와 연결(credential)을 함께 지운다. 화면이 Dialog로 사람에게 한 번 묻고 부르며,
    * 그 결정은 source가 결정 handle로 core에 싣는다.

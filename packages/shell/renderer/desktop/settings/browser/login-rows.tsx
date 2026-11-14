@@ -1,16 +1,19 @@
 // Settings › Browser의 Logins 구역. site login(label, origin, username, note)을 더하고 고치고 지우고,
 // password와 TOTP seed는 보호 입력 창으로 넣는다. 값은 이 화면에 없고 있는지만 안다.
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Dialog } from "@lophn/ui/overlay";
 import { Field, Input } from "@lophn/ui/input";
 import { t } from "@lophn/i18n";
 import { actionIcons } from "../../../icons/mod.ts";
 
+import { loginsList } from "../../../../../protocol/secrets/logins.ts";
+import { secretStatus } from "../../../../../protocol/secrets/secret-file.ts";
+import { useCoreRead } from "../../connection/core-read.ts";
+import { bothLoaded } from "../loaded.ts";
 import styles from "../settings.module.css";
 import type { BrowserSettingsSource, LoginForm, LoginRow } from "./source.ts";
-
-type Loaded = readonly LoginRow[] | "failed" | null;
+import { loginRowsOf } from "./window-source.ts";
 
 const EMPTY: LoginForm = { label: "", origin: "", username: "", note: "" };
 
@@ -23,7 +26,12 @@ function originOf(input: string): string | null {
 }
 
 export function LoginRows({ source }: { source: BrowserSettingsSource }) {
-  const [loaded, setLoaded] = useState<Loaded>(null);
+  const logins = useCoreRead(loginsList, {});
+  const secrets = useCoreRead(secretStatus, {});
+  const loaded = useMemo(
+    () => bothLoaded(logins.loaded, secrets.loaded, loginRowsOf),
+    [logins.loaded, secrets.loaded],
+  );
   // 고치는 줄의 id. 새로 더하는 줄은 "new"다.
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<LoginForm>(EMPTY);
@@ -31,22 +39,15 @@ export function LoginRows({ source }: { source: BrowserSettingsSource }) {
   const [deleting, setDeleting] = useState<LoginRow | null>(null);
   const [failed, setFailed] = useState(false);
 
-  const load = useCallback(() => {
-    void source
-      .logins()
-      .then((read) => setLoaded(read.ok ? read.value : "failed"));
-  }, [source]);
-  useEffect(load, [load]);
-
-  if (loaded === null) return null;
-  if (loaded === "failed") {
+  if (loaded.state === "loading") return null;
+  if (loaded.state === "failed") {
     return (
       <p className={styles.notice} data-logins="failed">
         {t("settings.error.logins-load-failed")}
       </p>
     );
   }
-  const list = loaded;
+  const list: readonly LoginRow[] = loaded.value;
 
   function open(id: string, next: LoginForm): void {
     setForm(next);
@@ -64,10 +65,8 @@ export function LoginRows({ source }: { source: BrowserSettingsSource }) {
       username: form.username,
       note: form.note,
     });
-    if (saved.ok) {
-      setEditing(null);
-      load();
-    } else setError(saved.code === "invalid_input" ? "invalid" : "failed");
+    if (saved.ok) setEditing(null);
+    else setError(saved.code === "invalid_input" ? "invalid" : "failed");
   }
 
   async function enter(
@@ -76,14 +75,12 @@ export function LoginRows({ source }: { source: BrowserSettingsSource }) {
   ): Promise<void> {
     const done = await source.enterLoginSecret(login, field);
     setFailed(!done.ok);
-    if (done.ok && done.value === "stored") load();
   }
 
   async function remove(login: LoginRow): Promise<void> {
     setDeleting(null);
     const done = await source.deleteLogin(login.id);
     setFailed(!done.ok);
-    load();
   }
 
   const set = (patch: Partial<LoginForm>) => setForm({ ...form, ...patch });

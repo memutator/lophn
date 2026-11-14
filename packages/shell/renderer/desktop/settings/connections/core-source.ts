@@ -74,10 +74,6 @@ export function coreCodingConnectionsSource(
   }
 
   return {
-    watch: (listener) => deps.core.subscribe(listener),
-
-    sharedApps: readShared,
-
     async unshareApp(slug) {
       const current = await readShared();
       if (!current.ok) return current;

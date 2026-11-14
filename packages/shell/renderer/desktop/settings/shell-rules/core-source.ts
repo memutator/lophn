@@ -1,4 +1,5 @@
-// ShellRulesSource를 선언 설정(`approvals.shell_rules`)의 읽기·쓰기로 만든다.
+// ShellRulesSource를 선언 설정(`approvals.shell_rules`)의 쓰기로 만든다. 화면은 설정과 project 목록을 useCoreRead로
+// 읽고 shellRulesViewOf로 푼다.
 // `settings/update`에 compare가 없고 화면을 연 사이 `always`가 같은 값에 줄을 더하므로, 바꿀 때마다 저장 직전에
 // 값을 다시 읽어 한 줄만 고치고 값 전체를 쓴다. 화면이 쥔 값을 통째로 쓰면 그 줄을 잃는다.
 import {
@@ -7,10 +8,36 @@ import {
   shellRulesSettingSchema,
 } from "../../../../../protocol/approvals/shell-rules.ts";
 import type { CoreSource } from "../../connection/connection.ts";
-import { readProjects } from "../../workspaces/projects/core-source.ts";
 import { chooseSetting, readEffective } from "../declared.ts";
 import { withAction, withAdded, withRemoved } from "./model.ts";
-import type { ShellRulesSource, SourceResult } from "./source.ts";
+import type {
+  ShellRulesSource,
+  ShellRulesView,
+  SourceResult,
+} from "./source.ts";
+
+/** 저장된 값과 project 목록으로 화면의 층을 만든다. 설정에만 남은 project는 이름이 id다. 모르는 값은 null이다. */
+export function shellRulesViewOf(
+  stored: unknown,
+  projects: readonly { readonly id: string; readonly title: string }[],
+): ShellRulesView | null {
+  // 모르는 값을 지어내지 않는다.
+  const parsed = shellRulesSettingSchema.safeParse(stored);
+  if (!parsed.success) return null;
+  const value = parsed.data;
+  const named = new Map(projects.map((one) => [one.id, one.title]));
+  const ids = [...new Set([...named.keys(), ...Object.keys(value.projects)])];
+  return {
+    global: value.global,
+    projects: ids
+      .map((id) => ({
+        id,
+        name: named.get(id) ?? id,
+        rules: value.projects[id] ?? [],
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
 
 export function coreShellRulesSource(core: CoreSource): ShellRulesSource {
   async function readValue(): Promise<SourceResult<ShellRulesSetting>> {
@@ -34,27 +61,6 @@ export function coreShellRulesSource(core: CoreSource): ShellRulesSource {
   }
 
   return {
-    watch: (listener) => core.subscribe(listener),
-
-    async read() {
-      const value = await readValue();
-      if (!value.ok) return value;
-      const listed = await readProjects(core);
-      if (!listed.ok) return listed;
-      const named = new Map(listed.value.map((one) => [one.id, one.title]));
-      const ids = [
-        ...new Set([...named.keys(), ...Object.keys(value.value.projects)]),
-      ];
-      const projects = ids
-        .map((id) => ({
-          id,
-          name: named.get(id) ?? id,
-          rules: value.value.projects[id] ?? [],
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name));
-      return { ok: true, value: { global: value.value.global, projects } };
-    },
-
     add: (layer, rule) => change((value) => withAdded(value, layer, rule)),
     remove: (layer, index) =>
       change((value) => withRemoved(value, layer, index)),

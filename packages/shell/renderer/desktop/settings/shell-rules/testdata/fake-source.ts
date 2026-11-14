@@ -1,9 +1,11 @@
-// Shell rules 화면의 가짜 통로. core를 부르지 않고 규칙을 메모리에 둔다.
+// Shell rules 화면의 가짜 통로. 규칙은 가짜 core의 설정에 두고 project 이름은 가짜 core의 project 목록이다.
 import {
   DEFAULT_SHELL_RULES_SETTING,
+  SHELL_RULES_SETTING_KEY,
   type ShellRulesSetting,
 } from "../../../../../../protocol/approvals/shell-rules.ts";
-import { PROJECT_GROCERY, PROJECT_OFFICE } from "../../../dev-mock/ids.ts";
+import { PROJECT_GROCERY } from "../../../dev-mock/ids.ts";
+import { type FakeCore, fakeCore } from "../../testdata/fake-core.ts";
 import { withAction, withAdded, withRemoved } from "../model.ts";
 import type { ShellRulesSource } from "../source.ts";
 
@@ -11,13 +13,9 @@ interface FakeShellRulesOptions {
   value?: ShellRulesSetting;
   /** 쓰기가 거절되는 code. 없으면 저장된다. */
   saveCode?: string;
-  readFails?: boolean;
+  /** 규칙을 둘 가짜 core. 없으면 새로 만든다. */
+  core?: FakeCore;
 }
-
-const PROJECT_NAMES: Readonly<Record<string, string>> = {
-  [PROJECT_GROCERY]: "Grocery budget",
-  [PROJECT_OFFICE]: "Home office",
-};
 
 /** 화면 확인용 대표 값: `always`가 더한 꼴의 allow와 사람이 쓴 ask, project 하나의 allow. */
 export const SAMPLE_SHELL_RULES: ShellRulesSetting = {
@@ -32,44 +30,19 @@ export const SAMPLE_SHELL_RULES: ShellRulesSetting = {
 
 export function fakeShellRules(options: FakeShellRulesOptions = {}) {
   const calls: unknown[][] = [];
+  const core = options.core ?? fakeCore();
   let value = options.value ?? DEFAULT_SHELL_RULES_SETTING;
+  core.set(SHELL_RULES_SETTING_KEY, value);
   function save(next: ShellRulesSetting) {
     if (options.saveCode) {
       return Promise.resolve({ ok: false as const, code: options.saveCode });
     }
     value = next;
+    core.set(SHELL_RULES_SETTING_KEY, next);
+    core.changed("settings");
     return Promise.resolve({ ok: true as const, value: null });
   }
   const source: ShellRulesSource = {
-    watch(listener) {
-      listener({ state: "ready" });
-      return () => {};
-    },
-    read() {
-      calls.push(["read"]);
-      if (options.readFails) {
-        return Promise.resolve({ ok: false, code: "unavailable" });
-      }
-      const ids = [
-        ...new Set([
-          ...Object.keys(PROJECT_NAMES),
-          ...Object.keys(value.projects),
-        ]),
-      ];
-      return Promise.resolve({
-        ok: true,
-        value: {
-          global: value.global,
-          projects: ids
-            .map((id) => ({
-              id,
-              name: PROJECT_NAMES[id] ?? id,
-              rules: value.projects[id] ?? [],
-            }))
-            .sort((a, b) => a.name.localeCompare(b.name)),
-        },
-      });
-    },
     add(layer, rule) {
       calls.push(["add", layer, rule]);
       return save(withAdded(value, layer, rule));
@@ -83,5 +56,5 @@ export function fakeShellRules(options: FakeShellRulesOptions = {}) {
       return save(withAction(value, layer, index, action));
     },
   };
-  return { source, calls };
+  return { source, calls, core };
 }

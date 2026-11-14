@@ -1,33 +1,25 @@
-// Settings 틀. 화면은 renderer의 실제 SettingsSpace가 그린다. source는 모두 dev-mock의 fake다. 필수 설정이 빈
-// 상태는 fake의 설정이고, 열린 dialog 같은 모양은 mount 뒤에 사람이 하듯이 눌러 만든다.
+// Settings 틀. 화면은 renderer의 실제 SettingsSpace가 그린다. 화면이 읽는 route는 가짜 core(core-answers)가 답하고
+// 통로는 그 core를 나눠 쓰는 fake다. 필수 설정이 빈 상태는 fake의 설정이고, 열린 dialog 같은 모양은 mount 뒤에 사람이
+// 하듯이 눌러 만든다.
 import { useMemo, useState } from "react";
-
+import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
+import { AppViewsProvider } from "../../../../packages/shell/renderer/app-frame/app-views.tsx";
 import { createEventClient } from "../../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { EventsProvider } from "../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
-import { createFakeWaiting } from "../../../../packages/shell/renderer/desktop/connection/waiting/fake-source.ts";
 import { devMock } from "../../../../packages/shell/renderer/desktop/dev-mock/mod.ts";
-import { AppViewsProvider } from "../../../../packages/shell/renderer/app-frame/app-views.tsx";
-import { SettingsSpace } from "../../../../packages/shell/renderer/desktop/settings/settings-space.tsx";
-import type { SettingsPane } from "../../../../packages/shell/renderer/desktop/settings/model.ts";
-import { fakeAppearance } from "../../../../packages/shell/renderer/desktop/settings/appearance/testdata/fake-source.ts";
 import type { AppearanceValues } from "../../../../packages/shell/renderer/desktop/settings/appearance/source.ts";
-import { fakeAgents } from "../../../../packages/shell/renderer/desktop/settings/agents/testdata/fake-agents.ts";
-import { fakeProviders } from "../../../../packages/shell/renderer/desktop/settings/providers/testdata/fake-providers.ts";
-import { fakeSettings } from "../../../../packages/shell/renderer/desktop/settings/testdata/fake-settings.ts";
-import { fakeExtensions } from "../../../../packages/shell/renderer/desktop/settings/extension-packages/testdata/fake-extensions.ts";
-import { fakeBrowserSettings } from "../../../../packages/shell/renderer/desktop/settings/browser/testdata/fake-source.ts";
-import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
 import type {
   Device,
   LinkValues,
   LoginRow,
 } from "../../../../packages/shell/renderer/desktop/settings/browser/source.ts";
-import { fakeRemote } from "../../../../packages/shell/renderer/desktop/settings/remote/testdata/fake-source.ts";
-import type { RemoteDevice } from "../../../../packages/shell/renderer/desktop/settings/remote/source.ts";
-import { fakeKeyboard } from "../../../../packages/shell/renderer/desktop/settings/keyboard/testdata/fake-source.ts";
 import type { StoredKeybindings } from "../../../../packages/shell/renderer/desktop/settings/keyboard/source.ts";
-import { CUSTOM_PROVIDER } from "../../../../packages/shell/renderer/workspace/agents/fake-source.ts";
+import type { SettingsPane } from "../../../../packages/shell/renderer/desktop/settings/model.ts";
+import type { RemoteDevice } from "../../../../packages/shell/renderer/desktop/settings/remote/source.ts";
+import { fakeRemote } from "../../../../packages/shell/renderer/desktop/settings/remote/testdata/fake-source.ts";
+import { SettingsSpace } from "../../../../packages/shell/renderer/desktop/settings/settings-space.tsx";
 import { GalleryConnectHost } from "../../mock/connect-host.tsx";
+import { settingsCore } from "../../mock/core-answers/sync-settings.ts";
 import { runSteps, type Step, useDrive } from "../../mock/drive.ts";
 
 interface SettingsFrameProps {
@@ -83,64 +75,25 @@ export function SettingsFrame({
   steps = [],
 }: SettingsFrameProps = {}) {
   const mock = useMemo(() => devMock("?mock")!, []);
-  const [client] = useState(() => createEventClient(createFakeWaiting([])));
-  // mock의 settings에는 필수 설정이 빈 항목이 하나 있어 General 위에 toast가 뜬다.
-  const settings = useMemo(() => {
-    if (requiredEmpty) return mock.settings;
-    if (!extensions) return fakeSettings().source;
-    // Extensions 화면은 preload 통로를 window에서 읽는다. gallery는 창 하나에 frame 하나라 전역에 꽂아도 겹치지 않는다.
-    const fake = fakeExtensions();
-    (globalThis as { lophnExtensions?: unknown }).lophnExtensions = fake.api;
-    return fakeSettings({ declared: fake.settings }).source;
-  }, [mock, requiredEmpty, extensions]);
-  // host가 Settings 화면과 같은 provider·기본 model source를 읽어야 연결 뒤에 새 provider를 찾는다.
-  const panels = useMemo(
-    () => ({
-      ...mock.settingsPanels,
-      ...(appearance === undefined
-        ? {}
-        : { appearance: fakeAppearance({ values: appearance }).source }),
-      ...(providers === undefined
-        ? {}
-        : { providers: fakeProviders({ preset: providers }).source }),
-      ...(noDefaultModel
-        ? { agents: fakeAgents({ noDefaultModel }).source }
-        : {}),
-      ...(browser === undefined
-        ? {}
-        : { browser: fakeBrowserSettings(browser).source }),
-      ...(keyboard === undefined
-        ? {}
-        : { keyboard: fakeKeyboard({ value: keyboard }).source }),
-      ...(remote === undefined ? {} : { remote: fakeRemote(remote).source }),
-      // 같은 id의 custom provider를 두 fake가 알아야 연결 뒤 목록 읽기가 그 provider를 찾는다.
-      ...(customList === undefined
-        ? {}
-        : {
-            providers: fakeProviders({
-              preset: providers,
-              customId: CUSTOM_PROVIDER,
-            }).source,
-            agents: fakeAgents({
-              editor: {
-                providers: "custom",
-                customListed: false,
-                refreshFails: customList === "empty",
-              },
-            }).source,
-          }),
-    }),
-    [
-      mock,
+  // frame 하나에 가짜 core 하나. 항목의 통로와 event client가 같은 core를 본다.
+  const [wiring] = useState(() => {
+    const made = settingsCore({
+      requiredEmpty,
       appearance,
       providers,
       noDefaultModel,
       browser,
-      customList,
       keyboard,
-      remote,
-    ],
-  );
+      extensions,
+      customList,
+    });
+    return {
+      ...made,
+      panels: { ...made.panels, remote: fakeRemote(remote).source },
+      client: createEventClient(made.source),
+    };
+  });
+  const { client, settings, panels } = wiring;
   useDrive(() => runSteps(steps));
   return (
     <EventsProvider client={client}>

@@ -1,35 +1,37 @@
 // Settings › Shell rules. 명령을 돌리기 전에 보는 규칙을 제품 기본(읽기만), 전역, project별로 보고
 // 고친다. 줄마다 바로 저장하고, 저장하지 못하면 그 줄에 오류를 보인다. pattern은 고치지 않고 지우고 다시 더한다.
-import { useCallback, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { Field, Input, Select } from "@lophn/ui/input";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
 
-import { PRODUCT_SHELL_RULES } from "../../../../../protocol/approvals/shell-rules.ts";
+import {
+  PRODUCT_SHELL_RULES,
+  SHELL_RULES_SETTING_KEY,
+} from "../../../../../protocol/approvals/shell-rules.ts";
+import { settingsList } from "../../../../../protocol/config/file.ts";
+import { projectApi } from "../../../../../protocol/projects/project-api.ts";
 import { actionIcons } from "../../../icons/mod.ts";
+import { useCoreRead } from "../../connection/core-read.ts";
+import { effectiveOf } from "../declared.ts";
 import { NamedControl } from "../general/named-control.tsx";
-import { useReload } from "../use-reload.ts";
+import { bothLoaded } from "../loaded.ts";
 import styles from "../settings.module.css";
 import own from "./shell-rules.module.css";
+import { shellRulesViewOf } from "./core-source.ts";
 import { ACTION_OPTIONS } from "./model.ts";
 import type {
   ShellRule,
   ShellRuleAction,
   ShellRuleLayer,
   ShellRulesSource,
-  ShellRulesView,
   SourceResult,
 } from "./source.ts";
 
 interface ShellRulesPanelProps {
   source: ShellRulesSource;
 }
-
-type Loaded =
-  | { readonly state: "loading" }
-  | { readonly state: "failed" }
-  | { readonly state: "ready"; readonly view: ShellRulesView };
 
 const layerKey = (layer: ShellRuleLayer) =>
   layer.kind === "global" ? "global" : layer.project;
@@ -38,20 +40,24 @@ const actionOptions = () =>
   ACTION_OPTIONS.map((one) => ({ value: one.value, label: t(one.label) }));
 
 export function ShellRulesPanel({ source }: ShellRulesPanelProps) {
-  const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
+  const setting = useCoreRead(settingsList, {
+    keys: [SHELL_RULES_SETTING_KEY],
+  });
+  const projects = useCoreRead(projectApi.list, {});
+  const loaded = useMemo(
+    () =>
+      bothLoaded(setting.loaded, projects.loaded, (value, listed) =>
+        shellRulesViewOf(
+          effectiveOf(value).get(SHELL_RULES_SETTING_KEY),
+          listed.projects,
+        ),
+      ),
+    [setting.loaded, projects.loaded],
+  );
   // 저장하지 못한 줄: `<층>:<줄 번호>` 또는 더하기 줄 `<층>:add`.
   const [failed, setFailed] = useState<string | null>(null);
 
-  const load = useCallback(() => {
-    void source.read().then((read) => {
-      setLoaded(
-        read.ok ? { state: "ready", view: read.value } : { state: "failed" },
-      );
-    });
-  }, [source]);
-  useReload(source, load);
-
-  // 성공해도 실패해도 다시 읽는다. 실패하면 화면은 저장된 값으로 돌아간다.
+  // 저장한 값은 core가 낸 변경으로 다시 읽어 보인다. 실패하면 화면은 읽은 값 그대로다.
   async function save(
     where: string,
     saving: Promise<SourceResult<null>>,
@@ -59,22 +65,24 @@ export function ShellRulesPanel({ source }: ShellRulesPanelProps) {
     setFailed(null);
     const saved = await saving;
     if (!saved.ok) setFailed(where);
-    load();
     return saved.ok;
   }
 
-  if (loaded.state === "failed") {
+  if (
+    loaded.state === "failed" ||
+    (loaded.state === "ready" && loaded.value === null)
+  ) {
     return (
       <ErrorState
         target={t("settings.label.shell-rules-target")}
         onRetry={() => {
-          setLoaded({ state: "loading" });
-          load();
+          setting.reload();
+          projects.reload();
         }}
       />
     );
   }
-  const view = loaded.state === "ready" ? loaded.view : null;
+  const view = loaded.state === "ready" ? loaded.value : null;
   const section = (
     layer: ShellRuleLayer,
     title: string,

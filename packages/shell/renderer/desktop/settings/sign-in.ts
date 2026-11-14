@@ -4,6 +4,7 @@
 import type { z } from "zod";
 
 import type { OpenExternalApi } from "../../../ipc/open-external.ts";
+import { appsOAuthState } from "../../../../protocol/apps/oauth.ts";
 import type { loginBeginInputSchema } from "../../../../protocol/lophn-agent/provider-inputs.ts";
 import {
   loginBegin,
@@ -13,6 +14,8 @@ import {
 import type { SourceResult } from "../../source-result.ts";
 import { call, command } from "./core-call.ts";
 import type { CoreSource } from "../connection/connection.ts";
+import { followCoreRead } from "../connection/core-read.ts";
+import type { EventClient } from "../connection/events/client.ts";
 
 /** 구독 로그인의 진행. 흐름이 browser를 연 뒤 started를 한 번 부르고, signal이 끊기면 로그인을 그만둔다. */
 export interface SignInProgress {
@@ -143,31 +146,58 @@ export async function beginAppSignIn(
   return UNAVAILABLE;
 }
 
-const APP_POLL_MS = 2000;
-
-/** 앱 OAuth 로그인이 끝날 때까지 상태를 본다. core가 callback을 받아 token을 저장한다. signal이 끊기면 그만둔다. */
+/**
+ * 앱 OAuth 로그인이 끝날 때까지 상태를 따라간다. core가 callback을 받아 token을 저장하고 `secrets` 변경을 내면
+ * 상태를 다시 읽는다. signal이 끊기면 그만둔다.
+ */
 export async function signInApp(
-  core: CoreSource,
-  deps: SignInDeps,
+  events: EventClient,
+  openLink: SignInDeps["openLink"],
   app: string,
   name: string,
   signal: AbortSignal,
 ): Promise<SourceResult<null>> {
-  const begun = await beginAppSignIn(core, deps.openLink, app, name);
+  const core = events.core;
+  const begun = await beginAppSignIn(core, openLink, app, name);
   if (!begun.ok) return begun;
-  for (;;) {
-    await deps.wait(APP_POLL_MS, signal);
-    if (signal.aborted) {
-      await call(core, "memory", "apps", "oauth_cancel", { app, name });
-      return { ok: false, code: "cancelled" };
-    }
-    const state = await call<{
-      secrets: { name: string; state: string }[];
-    }>(core, "memory", "apps", "oauth_state", { app });
-    if (!state.ok) return state;
-    const mine = state.value.secrets.find((line) => line.name === name);
-    if (mine?.state === "signed_in") return { ok: true, value: null };
-    if (mine?.state !== "in_progress")
-      return { ok: false, code: "unavailable" };
-  }
+  const outcome = await new Promise<SourceResult<null> | "cancelled">(
+    (resolve) => {
+      let done = false;
+      let follow: { stop(): void } | null = null;
+      const finish = (result: SourceResult<null> | "cancelled") => {
+        if (done) return;
+        done = true;
+        follow?.stop();
+        signal.removeEventListener("abort", abort);
+        resolve(result);
+      };
+      const abort = () => finish("cancelled");
+      signal.addEventListener("abort", abort, { once: true });
+      if (signal.aborted) abort();
+      follow = followCoreRead<z.output<typeof appsOAuthState.output>>(
+        events,
+        appsOAuthState,
+        { app },
+        (loaded) => {
+          if (loaded.state === "loading" || done) return;
+          if (loaded.state === "failed") {
+            finish({ ok: false, code: "unavailable" });
+          } else {
+            const mine = loaded.value.secrets.find(
+              (line) => line.name === name,
+            );
+            if (mine?.state === "signed_in") finish({ ok: true, value: null });
+            else if (mine?.state !== "in_progress") {
+              finish({ ok: false, code: "unavailable" });
+            }
+          }
+        },
+        () => new Date(),
+      );
+      if (done) follow.stop();
+    },
+  );
+  if (outcome !== "cancelled") return outcome;
+  await call(core, "memory", "apps", "oauth_cancel", { app, name });
+  return { ok: false, code: "cancelled" };
 }

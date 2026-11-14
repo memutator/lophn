@@ -14,6 +14,7 @@ import type {
   SecretInputRequestOpen,
 } from "../../../ipc/secret-input.ts";
 import type { AgentTabSource } from "../agent-tab-source.ts";
+import { useOptionalEventClient } from "../../desktop/connection/events/hooks.tsx";
 import styles from "./input-request-card.module.css";
 
 /**
@@ -78,6 +79,7 @@ export function InputRequestCard({
 }: InputRequestCardProps) {
   const [view, setView] = useState<InputRequestView | null>(null);
   const [busy, setBusy] = useState(false);
+  const events = useOptionalEventClient();
   const [failed, setFailed] = useState(false);
   // 로그인을 돌리는 중이면 그만둘 신호와 device code다.
   const [signing, setSigning] = useState<{ code: string | null } | null>(null);
@@ -108,6 +110,7 @@ export function InputRequestCard({
       session,
       toolCall,
       view: request,
+      events,
       progress: {
         signal: controller.signal,
         started: (info) => setSigning({ code: info.userCode }),

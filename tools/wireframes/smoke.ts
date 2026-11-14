@@ -99,8 +99,11 @@ async function run(dir: string): Promise<number> {
       webPreferences: { offscreen: true, backgroundThrottling: false },
     });
     const errors: string[] = [];
+    // 앞 page의 console 메시지는 다음 page를 여는 중에도 늦게 닿는다. 그 page 몫으로 세지 않는다.
+    let previous: string | undefined;
     win.webContents.on("console-message", (event) => {
-      if (event.level === "error") errors.push(event.message);
+      if (event.level === "error" && event.frame?.url !== previous)
+        errors.push(event.message);
     });
     win.webContents.on("render-process-gone", (_event, details) => {
       errors.push(`render process gone: ${details.reason}`);
@@ -109,6 +112,7 @@ async function run(dir: string): Promise<number> {
       win.webContents.executeJavaScript(code) as Promise<T>;
     const open = async (query: string) => {
       errors.length = 0;
+      previous = win.webContents.getURL();
       await win.webContents.loadURL(`${origin}/index.html${query}`);
     };
     // root가 찰 때까지 기다린다. 끝내 비면 render 오류로 React가 root를 비운 것이다.

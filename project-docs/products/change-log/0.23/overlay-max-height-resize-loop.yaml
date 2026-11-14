@@ -1,0 +1,14 @@
+id: overlay-max-height-resize-loop
+version: 0.23.54
+title: 화면 밖으로 넘치는 menu·popover·select가 소수 배율 화면에서 매 frame 다시 재던 loop를 멈춘다
+modules: [packages/design, tools]
+change: |
+  - Menu, Popover, Select, SearchSelect의 max-height가 Radix가 준 available-height를 1px 단위로 내린 값이 됐다. 예전에는 소수 그대로 썼다.
+  - 1.5배 같은 소수 배율 화면에서 창 아래로 넘치는 menu(예: Explorer 폴더 행 menu)는 높이가 351.33과 351.32 사이를 매 frame 오가며 floating-ui가 계속 다시 재고 "ResizeObserver loop completed with undelivered notifications"를 냈다. 이제 첫 배치 뒤 멈춘다.
+  - wireframes smoke가 앞 page의 늦은 console 오류를 다음 page의 실패로 세던 것을 고쳤다.
+why: |
+  wireframes smoke가 main에서 new-organize-folder와 new-document-tab-info로 늘 실패했다. 앞의 것이 진짜 loop였고 뒤의 것은 같은 창에서 앞 page가 늦게 낸 오류였다.
+decisions:
+  - text: >-
+      CSS의 max-height를 round(down, …, var(--border-width))로 고정한다. 버린 길: smoke에서 "ResizeObserver loop" 메시지 무시(실제 매 frame 다시 재는 loop가 남는다), Radix·floating-ui의 size middleware 바꾸기(밖 library를 덧대야 한다).
+    by: agent

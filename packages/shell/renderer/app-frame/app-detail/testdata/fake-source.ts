@@ -1,25 +1,48 @@
-// app-detail의 가짜 통로. core를 부르지 않고 부른 것을 기록한다. Orders 앱의 release r5~r7, 바깥 자원,
-// 호출 기록이 들어 있다. 적용 중·적용 실패·거두기 정리 중·rewind 각 단계는 인자로 고른다.
+// app-detail의 가짜 core. 쓰기는 AppDetailSource로 받아 상태를 바꾼 뒤 그 route의 `changes`를 알린다.
+// 읽기는 같은 상태를 protocol 모양의 route 답(`answers`)으로 준다. Orders 앱의 release r5~r7, 바깥 자원,
+// 호출 기록이 들어 있다. 적용 중·적용 실패·rewind 각 단계는 인자로 고른다.
+import type { z } from "zod";
+
+import {
+  activationsCompare,
+  activationsQueue,
+  type AppGrant,
+  appGet,
+  appGrantsList,
+  type AppInvocation,
+  appInvocations,
+  appRewindPlan,
+  appRuntime,
+  appSdkStatus,
+  appsOAuthState,
+  type AppToolCaller,
+  type Notice,
+  noticesList,
+  type ReleaseRecord,
+  releasesGetRecord,
+  releasesListRecords,
+  type RewindPlan,
+} from "../../../../../protocol/apps/mod.ts";
+import type { StateChange } from "../../../../../protocol/events/changes.ts";
+import {
+  appIcon,
+  appTools,
+} from "../../../../../protocol/apps/declaration/read.ts";
+import { agentRead } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
+import { workspaceSessionRead } from "../../../../../protocol/lophn-agent/agent-sessions.ts";
+import { secretStatus } from "../../../../../protocol/secrets/secret-file.ts";
+import {
+  type FakeAnswer,
+  fakeAnswer,
+} from "../../../desktop/connection/events/fake-source.ts";
 import type {
-  AccessView,
-  ActivityRow,
   AppDetailSource,
-  AppNoticeRow,
-  AppToolRow,
-  Caller,
   OAuthReason,
-  ReleaseCard,
-  ReleaseChanges,
-  ResourceRow,
-  RewindItem,
-  RewindPlanView,
   RewindResult,
-  RunView,
   SecretInfo,
-  SourceResult,
-  VersionView,
 } from "../source.ts";
 
+const MAIN = "app_01h455vb4pex5v6nkc6gd5fd01";
 const CUSTOMERS = "app_01h455vb4pex5v6nkc6gd5fd02";
 const INVENTORY = "app_01h455vb4pex5v6nkc6gd5fd03";
 
@@ -27,21 +50,13 @@ const R7 = "rel_01h455vb4pex5v6nkc6gd5fd07";
 const R6 = "rel_01h455vb4pex5v6nkc6gd5fd06";
 const R5 = "rel_01h455vb4pex5v6nkc6gd5fd05";
 const R8 = "rel_01h455vb4pex5v6nkc6gd5fd08";
+const CUSTOMERS_R12 = "rel_01h455vb4pex5v6nkc6gd5fd12";
 
-const release = (
-  id: string,
-  number: number,
-  commit: string,
-  dataSchema: number,
-  appliedAt: string,
-  replacedAt: string | null,
-): ReleaseCard => ({ id, number, commit, dataSchema, appliedAt, replacedAt });
+const ANALYST = "agt_01h455vb4pex5v6nkc6gd5fd09";
+const ANALYST_SESSION = "ses_01h455vb4pex5v6nkc6gd5fd01";
 
-const RELEASES: readonly ReleaseCard[] = [
-  release(R7, 7, "3f9a1c2", 4, "2026-10-15T13:58:00", null),
-  release(R6, 6, "b81e7d0", 4, "2026-10-12T10:05:00", "2026-10-15T13:58:00"),
-  release(R5, 5, "9d04ac1", 3, "2026-10-08T09:40:00", "2026-10-12T10:05:00"),
-];
+const COMMON = { as_of_seq: "0", next_cursor: null } as const;
+const HASH = "0".repeat(64);
 
 type ActivationFake = "applied" | "applying" | "failed";
 /** Access 탭의 secret 줄들. 없으면 plain secret 하나(SHIPBOB_API_KEY, 값 있음)다. */
@@ -57,16 +72,8 @@ type RewindFake = "applied" | "conflict" | "pending";
 interface FakeOptions {
   /** Version 탭이 보이는 상태. 기본은 applied. */
   activation?: ActivationFake;
-  /** 거두기 정리. pending이면 요청 뒤 정리 중으로 남고 finishCleanup()으로 끝낸다. */
-  cleanup?: "pending" | "done";
-  /** rewind 결과. pending이면 도는 중으로 남고 finishRewind()로 끝낸다. */
+  /** rewind 결과. pending이면 도는 중으로 끝나지 않는다. */
   rewind?: RewindFake;
-  /** rewind 계획에 결과 모르는 write가 있어 시작할 수 없다. */
-  rewindBlocked?: boolean;
-  /** 거두기를 이미 요청해 정리 중인 grant. */
-  revoking?: readonly string[];
-  /** 이 이름의 읽기는 실패한다. */
-  failing?: readonly string[];
   /** Access 탭의 secret 줄들. */
   secrets?: SecretsFake;
   /** 실행 상태. 기본은 running. halted는 켜진 채 crash loop로 멈춘 것이다. */
@@ -75,11 +82,11 @@ interface FakeOptions {
   names?: Readonly<Record<string, string>>;
 }
 
-export const GRANT_HOST = "grt_01h455vb4pex5v6nkc6gd5fd01";
-export const GRANT_SECRET = "grt_01h455vb4pex5v6nkc6gd5fd02";
+const GRANT_HOST = "grt_01h455vb4pex5v6nkc6gd5fd01";
+const GRANT_SECRET = "grt_01h455vb4pex5v6nkc6gd5fd02";
 const GRANT_FILE = "grt_01h455vb4pex5v6nkc6gd5fd03";
 const GRANT_LOOKUP = "grt_01h455vb4pex5v6nkc6gd5fd04";
-export const GRANT_RESERVE = "grt_01h455vb4pex5v6nkc6gd5fd05";
+const GRANT_RESERVE = "grt_01h455vb4pex5v6nkc6gd5fd05";
 
 const drive = {
   authorizeHost: "accounts.google.com",
@@ -148,130 +155,126 @@ const SECRETS: Record<SecretsFake, readonly (readonly [string, SecretInfo])[]> =
     ),
   };
 
-const YOU: Caller = { kind: "person" };
-const ANALYST: Caller = {
+const YOU: AppToolCaller = { kind: "person", view_session: "view_1" };
+const BY_ANALYST: AppToolCaller = {
   kind: "agent",
-  agent: "agt_01h455vb4pex5v6nkc6gd5fd09",
-  name: "Order analyst",
-  session: "ses_01h455vb4pex5v6nkc6gd5fd01",
-  title: "Weekly order digest",
+  session: ANALYST_SESSION,
   turn: "trn_01h455vb4pex5v6nkc6gd5fd03",
-  toolCall: "call_7f3a",
+  tool_call: "call_7f3a",
 };
 
-function row(
+function call(
   id: string,
   at: string,
-  caller: Caller,
+  caller: AppToolCaller | null,
   tool: string | null,
-  effect: ActivityRow["effect"],
-  state: ActivityRow["state"],
-  result: string,
-  more: Partial<ActivityRow> = {},
-): ActivityRow {
+  effect: AppInvocation["effect"],
+  status: AppInvocation["status"],
+  message: string,
+  more: Partial<AppInvocation> = {},
+): AppInvocation {
+  const waiting = status === "running";
   return {
     id,
-    at,
+    app: MAIN,
+    release: R7,
+    mode: "live",
+    operation:
+      tool === null
+        ? { kind: "start", reason: "activation" }
+        : { kind: "operation", name: tool },
     caller,
-    tool,
-    kind: tool === null ? "start" : "call",
     effect,
-    state,
-    undone: false,
-    releaseNumber: 7,
-    earlier: false,
-    inputHash: tool === null ? null : "sha256:41c9e07b",
-    result,
+    status,
+    started_at: waiting ? null : at,
+    finished_at: waiting ? null : at,
+    input_hash: tool === null ? null : "sha256:41c9e07b",
+    summary: { message },
+    detail_hash: null,
+    changeset: null,
+    reverted_by: null,
     ...more,
   };
 }
 
-const NOTICES: readonly AppNoticeRow[] = [
-  {
-    id: "ntc_1",
-    kind: "release_failed",
-    title: "Release r8 of Orders failed",
-    body: "The app is back on release r7.",
-    at: "2026-10-15T14:40:00",
-    unread: true,
-  },
-  {
-    id: "ntc_2",
-    kind: "release_activated",
-    title: "Release r7 of Orders is active",
-    body: "",
-    at: "2026-10-14T09:12:00",
-    unread: false,
-  },
-];
+const UNDONE = { reverted_by: "rwd_01h455vb4pex5v6nkc6gd5fd01" };
 
-const ACTIVITY: readonly ActivityRow[] = [
-  row(
+const CALLS: readonly AppInvocation[] = [
+  call(
     "inv_41",
     "2026-10-15T14:41:00",
-    { kind: "app", app: CUSTOMERS, appName: "Customers", releaseNumber: 12 },
+    {
+      kind: "app",
+      app: CUSTOMERS,
+      release: CUSTOMERS_R12,
+      parent_invocation: null,
+    },
     "orders.attachNote",
     "write",
-    "waiting",
+    "running",
     "Waiting behind the running write",
   ),
-  row(
+  call(
     "inv_39",
     "2026-10-15T14:39:00",
     YOU,
     "orders.create",
     "write",
-    "done",
+    "succeeded",
     "Created order 1043",
   ),
-  row(
+  call(
     "inv_38",
     "2026-10-15T14:38:00",
-    { kind: "program" },
+    {
+      kind: "program",
+      job: "job_01h455vb4pex5v6nkc6gd5fd01",
+      job_run: "jbr_01h455vb4pex5v6nkc6gd5fd01",
+    },
     "orders.exportToSheet",
     "external",
-    "done",
+    "succeeded",
     "Sent 31 rows to the Orders digest sheet",
   ),
-  row(
+  call(
     "inv_36",
     "2026-10-15T14:36:00",
-    ANALYST,
+    BY_ANALYST,
     "orders.refund",
     "write",
     "unknown",
     "Result unknown. lophn stopped during the call",
   ),
-  row(
+  call(
     "inv_32",
     "2026-10-15T14:32:00",
     YOU,
     "orders.markShipped",
     "write",
-    "done",
+    "succeeded",
     "Order 1042 marked shipped",
   ),
-  row(
+  call(
     "inv_22",
     "2026-10-15T14:22:00",
     YOU,
     "orders.markShipped",
     "write",
-    "done",
+    "succeeded",
     "Order 1041 marked shipped",
-    { undone: true },
+    UNDONE,
   ),
-  row(
+  call(
     "inv_20",
     "2026-10-15T14:20:00",
-    ANALYST,
+    BY_ANALYST,
     "orders.cancel",
     "write",
-    "done",
+    "succeeded",
     "Order 1040 cancelled",
-    { undone: true },
+    UNDONE,
   ),
-  row(
+  call(
     "inv_11",
     "2026-10-15T14:11:00",
     YOU,
@@ -280,362 +283,491 @@ const ACTIVITY: readonly ActivityRow[] = [
     "failed",
     "Failed: the query timed out",
   ),
-  row(
+  call(
     "inv_05",
     "2026-10-15T13:58:00",
-    { kind: "start", reason: "activation" },
+    null,
     null,
     "write",
-    "done",
+    "succeeded",
     "Seeded 3 carriers",
   ),
-  row(
+  call(
     "inv_r6",
     "2026-10-15T13:20:00",
     YOU,
     "orders.markShipped",
     "write",
-    "done",
+    "succeeded",
     "Order 1039 marked shipped",
-    { releaseNumber: 6, earlier: true },
+    { release: R6 },
+  ),
+];
+
+const notice = (
+  id: string,
+  kind: Notice["kind"],
+  title: string,
+  body: string,
+  at: string,
+  read: string | null,
+): Notice => ({
+  id,
+  source: "program",
+  app: MAIN,
+  app_name: "Orders",
+  project: null,
+  kind,
+  key: null,
+  title,
+  body,
+  persistent: true,
+  action: null,
+  created_at: at,
+  read_at: read,
+});
+
+const NOTICES: readonly Notice[] = [
+  notice(
+    "ntc_1",
+    "release_failed",
+    "Release r8 of Orders failed",
+    "The app is back on release r7.",
+    "2026-10-15T14:40:00",
+    null,
+  ),
+  notice(
+    "ntc_2",
+    "release_activated",
+    "Release r7 of Orders is active",
+    "",
+    "2026-10-14T09:12:00",
+    "2026-10-14T09:13:00",
   ),
 ];
 
 const REWIND_FROM = "inv_32";
 
-function planItem(
-  source: ActivityRow,
-  outcome: RewindItem["outcome"],
-  running = false,
-): RewindItem {
+const SDKS = [
+  {
+    sdk: "@lophn/declaration",
+    pinned: "3.0.0",
+    current: "4.0.0",
+    level: "required",
+  },
+  {
+    sdk: "@lophn/app-ui",
+    pinned: "2.2.0",
+    current: "2.6.0",
+    level: "available",
+  },
+  {
+    sdk: "@lophn/cap-store",
+    pinned: "1.0.0",
+    current: "1.0.0",
+    level: "current",
+  },
+] as const;
+
+function release(
+  id: string,
+  number: number,
+  commit: string,
+  dataSchema: number,
+  activatedAt: string | null,
+): ReleaseRecord {
   return {
-    invocation: source.id,
-    at: source.at ?? "",
-    tool: source.tool,
-    kind: source.kind,
-    effect: source.effect,
-    caller: source.caller,
-    outcome,
-    running,
+    id,
+    app: id === CUSTOMERS_R12 ? CUSTOMERS : MAIN,
+    number,
+    code_commit: commit.padEnd(40, "0"),
+    bundle_hash: HASH,
+    declaration_hash: HASH,
+    data_schema: dataSchema,
+    data_changes: [],
+    created_by: "user",
+    created_at: activatedAt ?? "2026-10-15T15:00:00",
+    status: "superseded",
+    activation: null,
+    activated_at: activatedAt,
+    failure: null,
   };
 }
 
-const changesTo = (fromNumber: number): ReleaseChanges => ({
-  fromNumber,
-  toNumber: fromNumber + 1,
-  first: false,
-  addedResources: ["api.shipbob.com"],
-  addedTools: [
-    {
-      app: INVENTORY,
-      appName: "Inventory",
-      tool: "stock.reserve",
-    },
-  ],
-  lossSteps: [
-    {
-      from: 4,
-      to: 5,
-      loss: [{ kind: "drop_column", table: "orders", column: "legacy_note" }],
-    },
-  ],
+const RELEASES: readonly ReleaseRecord[] = [
+  release(R7, 7, "3f9a1c2", 4, "2026-10-15T13:58:00"),
+  release(R6, 6, "b81e7d0", 4, "2026-10-12T10:05:00"),
+  release(R5, 5, "9d04ac1", 3, "2026-10-08T09:40:00"),
+];
+
+/** 앱 기록의 나머지 칸. */
+const appRecord = (
+  id: string,
+  name: string,
+): z.output<typeof appGet.output>["app"] => ({
+  id,
+  slug: name.toLowerCase(),
+  name,
+  description: "",
+  planning_version: null,
+  source_path: null,
+  folders: [],
+  active_release: null,
+  revision: "1",
+  run_enabled: true,
+  status: "active",
 });
 
+/** 이름·제목만 쓰는 읽기의 답. 나머지 칸은 화면이 보지 않는다. */
+const partial = <T>(value: unknown) => value as T;
+
 export function fakeDetail(options: FakeOptions = {}) {
-  const calls: unknown[][] = [];
-  const failing = new Set(options.failing ?? []);
   const nameOf = (app: string, fallback: string) =>
     options.names?.[app] ?? fallback;
+  const listeners = new Set<(changes: StateChange[]) => void>();
+  const changed = (...changes: StateChange[]) => {
+    for (const listener of [...listeners]) listener(changes);
+  };
   let activeId = R7;
-  const revoked = new Set<string>();
-  const requested = new Set(options.revoking ?? []);
-  let finishRewindWith: ((result: RewindResult) => void) | null = null;
   let rewinding = false;
   // source 밖에 이은 폴더. Add는 늘 같은 경로 하나를 더한다.
   let folders: readonly string[] = ["/home/me/notes/orders"];
-  // 올린 icon의 data URL. 없으면 앱이 선언한 icon이 없는 기본 표식이다.
-  let uploadedIcon: string | null = null;
+  // 올린 icon. 없으면 앱이 선언한 icon이 없는 기본 표식이다.
+  let uploadedIcon: { content_type: string; data: string } | null = null;
+  // 끄면 stopped, 켜면 running으로 바로 간다. halted에서 껐다 켜도 같다(실제는 10분 창이 지나야 다시 돈다).
+  let runEnabled = (options.run ?? "running") !== "stopped";
+  let runState: "running" | "stopped" | "halted" = options.run ?? "running";
 
-  const reply = <T>(name: string, value: T): Promise<SourceResult<T>> => {
-    calls.push([name]);
-    return Promise.resolve(
-      failing.has(name)
-        ? { ok: false, code: "unavailable" }
-        : { ok: true, value },
-    );
-  };
-
-  const acted = <T>(name: string, value: T): Promise<SourceResult<T>> =>
-    Promise.resolve(
-      failing.has(name)
-        ? { ok: false, code: "unavailable" }
-        : { ok: true, value },
-    );
-
-  const versionsView = (): VersionView => {
+  const records = (): ReleaseRecord[] => {
     const activation = options.activation ?? "applied";
-    const active = RELEASES.find((item) => item.id === activeId) ?? null;
-    return {
-      active: active === null ? null : { ...active, replacedAt: null },
-      sdks: [
-        {
-          sdk: "@lophn/declaration",
-          pinned: "3.0.0",
-          current: "4.0.0",
-          level: "required",
-        },
-        {
-          sdk: "@lophn/app-ui",
-          pinned: "2.2.0",
-          current: "2.6.0",
-          level: "available",
-        },
-        {
-          sdk: "@lophn/cap-store",
-          pinned: "1.0.0",
-          current: "1.0.0",
-          level: "current",
-        },
-      ],
-      applying:
-        activation === "applying"
-          ? {
-              id: R8,
-              number: 8,
-              phase: "running",
-              steps: [
-                { key: "hold", state: "done", count: 2 },
-                { key: "drain", state: "now", count: null },
-                { key: "stop", state: "wait", count: null },
-                { key: "migrate", state: "wait", count: 2 },
-                { key: "start", state: "wait", count: null },
-              ],
-            }
-          : null,
-      failed:
-        activation === "failed"
-          ? {
-              id: R8,
-              number: 8,
-              triedAt: "2026-10-15T15:07:00",
-              reason:
-                "Migration step 2 of 2 failed: NOT NULL constraint failed on orders.carrier. The database was restored from the backup.",
-            }
-          : null,
-      earlier: RELEASES.filter(
-        (item) => item.id !== activeId && item.number < 7,
-      ),
+    const own = RELEASES.map(
+      (item): ReleaseRecord => ({
+        ...item,
+        status: item.id === activeId ? "active" : "superseded",
+      }),
+    );
+    if (activation === "applied") return own;
+    const attempt = {
+      attempt: "act_01h455vb4pex5v6nkc6gd5fd01",
+      previous_release: R7,
+      backup_hash: null,
+      data_change_invocation: null,
+      started_at: "2026-10-15T15:07:00",
     };
+    return [
+      {
+        ...release(R8, 8, "c42d9e1", 5, null),
+        status: activation === "applying" ? "activating" : "failed",
+        activation: attempt,
+        failure:
+          activation === "failed"
+            ? {
+                code: "migration_failed",
+                summary:
+                  "Migration step 2 of 2 failed: NOT NULL constraint failed on orders.carrier. The database was restored from the backup.",
+                restored: true,
+              }
+            : null,
+      },
+      ...own,
+    ];
   };
 
-  const accessView = (): AccessView => {
-    const resource = (
-      grant: string,
-      kind: ResourceRow["kind"],
-      name: string,
-      grantedAt: string,
-      secret?: SecretInfo,
-    ): ResourceRow => ({
-      grant,
-      kind,
-      name,
-      grantedAt,
-      revoking: requested.has(grant) && !revoked.has(grant),
-      revoked: revoked.has(grant),
-      ...(secret === undefined ? {} : { secret }),
+  const grants = (): AppGrant[] => {
+    const grant = (
+      id: string,
+      scope: AppGrant["scope"],
+      at = "2026-10-15T13:58:00",
+    ): AppGrant => ({
+      id,
+      app: MAIN,
+      scope,
+      status: "active",
+      created_at: at,
+      revoked_at: null,
     });
     const secrets =
       options.secrets === undefined
-        ? [
-            resource(
-              GRANT_SECRET,
-              "secret",
-              "SHIPBOB_API_KEY",
-              "2026-10-15T13:58:00",
-              plain(true),
-            ),
-          ]
+        ? [grant(GRANT_SECRET, { kind: "secret.use", name: "SHIPBOB_API_KEY" })]
         : SECRETS[options.secrets].map(([name, info], index) =>
-            resource(
+            grant(
               index === 0
                 ? GRANT_SECRET
                 : `grt_01h455vb4pex5v6nkc6gd5fe${index}`,
-              "secret",
-              name,
-              "2026-10-15T13:58:00",
-              info,
+              {
+                kind: "secret.use",
+                name,
+                ...(info.oauth === null
+                  ? {}
+                  : {
+                      oauth: {
+                        authorization_endpoint: `https://${info.oauth.authorizeHost}/authorize`,
+                        token_endpoint: `https://${info.oauth.authorizeHost}/token`,
+                        scopes: [...info.oauth.scopes],
+                      },
+                    }),
+              },
             ),
           );
-    const appTool = (
-      grant: string,
-      app: string,
-      appName: string,
-      tool: string,
-      effect: "read" | "write",
-    ): AppToolRow => ({
-      grant,
-      app,
-      appName,
-      tools: [{ tool, effect }],
-      grantedAt: "2026-10-15T13:58:00",
-      revoking: requested.has(grant) && !revoked.has(grant),
-      revoked: revoked.has(grant),
-    });
-    return {
-      appName: "Orders",
-      resources: [
-        resource(
-          GRANT_HOST,
-          "network",
-          "api.shipbob.com:443",
-          "2026-10-15T13:58:00",
-        ),
-        ...secrets,
-        resource(
-          GRANT_FILE,
-          "file-write",
-          "~/Documents/orders-export",
-          "2026-10-12T10:05:00",
-        ),
-      ],
-      appTools: [
-        appTool(
-          GRANT_LOOKUP,
-          CUSTOMERS,
-          nameOf(CUSTOMERS, "Customers"),
-          "customers.lookup",
-          "read",
-        ),
-        appTool(
-          GRANT_RESERVE,
-          INVENTORY,
-          nameOf(INVENTORY, "Inventory"),
-          "stock.reserve",
-          "write",
-        ),
-      ],
-    };
-  };
-
-  const plan = (): RewindPlanView => {
-    const byId = new Map(ACTIVITY.map((item) => [item.id, item]));
-    const get = (id: string) => byId.get(id)!;
-    const items: RewindItem[] = [
-      planItem(get("inv_39"), "undone"),
-      planItem(get("inv_38"), "stays", rewinding),
-      ...(options.rewindBlocked ? [planItem(get("inv_36"), "cannot")] : []),
-      planItem(get(REWIND_FROM), "undone"),
+    return [
+      grant(GRANT_HOST, {
+        kind: "net.fetch",
+        host: "api.shipbob.com",
+        port: 443,
+      }),
+      ...secrets,
+      grant(
+        GRANT_FILE,
+        {
+          kind: "fs.write",
+          path: "~/Documents/orders-export",
+          recursive: true,
+        },
+        "2026-10-12T10:05:00",
+      ),
+      grant(GRANT_LOOKUP, {
+        kind: "app.call",
+        app: CUSTOMERS,
+        app_tools: ["customers.lookup"],
+      }),
+      grant(GRANT_RESERVE, {
+        kind: "app.call",
+        app: INVENTORY,
+        app_tools: ["stock.reserve"],
+      }),
     ];
+  };
+
+  const secretInfos = (): readonly (readonly [string, SecretInfo])[] =>
+    options.secrets === undefined
+      ? [["SHIPBOB_API_KEY", plain(true)]]
+      : SECRETS[options.secrets];
+
+  const plan = (): RewindPlan => {
+    const byId = new Map(CALLS.map((item) => [item.id, item]));
+    const item = (
+      id: string,
+      outcome: "undone" | "stays",
+      running = false,
+    ): RewindPlan["items"][number] => {
+      const source = byId.get(id)!;
+      return {
+        invocation: source.id,
+        started_at: source.started_at ?? "",
+        operation: source.operation,
+        caller: source.caller,
+        effect: source.effect,
+        reverts_db: outcome === "undone",
+        external: outcome === "stays",
+        running,
+      };
+    };
     return {
-      from: REWIND_FROM,
-      items,
-      blocked: options.rewindBlocked ? { invocation: "inv_36" } : null,
+      app: MAIN,
+      release: activeId,
+      from_invocation: REWIND_FROM,
+      items: [
+        item("inv_39", "undone"),
+        item("inv_38", "stays", rewinding),
+        item(REWIND_FROM, "undone"),
+      ],
+      blocked: null,
     };
   };
 
-  // 끄면 stopped, 켜면 running으로 바로 간다. halted에서 껐다 켜도 같다(실제는 10분 창이 지나야 다시 돈다).
-  let run: RunView = {
-    enabled: (options.run ?? "running") !== "stopped",
-    state: options.run ?? "running",
+  const otherApps: Record<string, string> = {
+    [CUSTOMERS]: nameOf(CUSTOMERS, "Customers"),
+    [INVENTORY]: nameOf(INVENTORY, "Inventory"),
   };
+
+  const answers: readonly FakeAnswer[] = [
+    fakeAnswer(appGet, ({ app }) => ({
+      ...COMMON,
+      app:
+        app in otherApps
+          ? appRecord(app, otherApps[app]!)
+          : {
+              ...appRecord(app, "Orders"),
+              folders: folders.map((path) => ({ path, description: "" })),
+              active_release: activeId,
+              run_enabled: runEnabled,
+            },
+    })),
+    fakeAnswer(appRuntime, ({ app }) => ({
+      ...COMMON,
+      app,
+      state:
+        runState === "halted"
+          ? {
+              state: "unavailable" as const,
+              termination_pending: false,
+              reason: { code: "crash_loop", summary: "The app kept crashing" },
+            }
+          : { state: runState, termination_pending: false },
+      observation: null,
+      observed_at: null,
+    })),
+    fakeAnswer(appIcon, () => ({
+      icon: uploadedIcon as z.output<typeof appIcon.output>["icon"],
+      uploaded: uploadedIcon !== null,
+    })),
+    fakeAnswer(releasesListRecords, () => ({
+      ...COMMON,
+      releases: records(),
+    })),
+    fakeAnswer(releasesGetRecord, ({ release: id }) => ({
+      ...COMMON,
+      release:
+        id === CUSTOMERS_R12
+          ? release(CUSTOMERS_R12, 12, "77aa01c", 2, "2026-10-01T09:00:00")
+          : (records().find((item) => item.id === id) ?? null),
+    })),
+    fakeAnswer(activationsQueue, () => ({
+      ...COMMON,
+      entries:
+        (options.activation ?? "applied") === "applying"
+          ? [
+              {
+                app: MAIN,
+                release: R8,
+                phase: "running" as const,
+                step: "drain" as const,
+                held_calls: 2,
+                migration_steps: 2,
+              },
+            ]
+          : [],
+    })),
+    fakeAnswer(activationsCompare, ({ release: id }) => ({
+      ...COMMON,
+      // 활성 release는 그 release가 적용될 때의 비교다.
+      comparison: {
+        previous_release: id === R8 ? R7 : R6,
+        first: false,
+        added_resources: ["api.shipbob.com"],
+        added_tools: [{ app: INVENTORY, tool: "stock.reserve" }],
+        loss_steps: [
+          {
+            from: 4,
+            to: 5,
+            loss: [
+              {
+                kind: "drop_column" as const,
+                table: "orders",
+                column: "legacy_note",
+              },
+            ],
+          },
+        ],
+      },
+    })),
+    fakeAnswer(appSdkStatus, () => ({
+      ...COMMON,
+      apps: [
+        {
+          app: MAIN,
+          name: "Orders",
+          release: activeId,
+          sdks: SDKS.map((sdk) => ({
+            ...sdk,
+            supported_from: null,
+            notes: [],
+            unreviewed: [],
+          })),
+          review: null,
+        },
+      ],
+    })),
+    fakeAnswer(appGrantsList, () => ({ ...COMMON, grants: grants() })),
+    fakeAnswer(secretStatus, () => ({
+      secrets: secretInfos()
+        .filter(([, info]) => info.configured)
+        .map(([name]) => ({ name, configured: true })),
+    })),
+    fakeAnswer(appsOAuthState, () => ({
+      secrets: secretInfos().flatMap(([name, info]) =>
+        info.oauth === null
+          ? []
+          : [
+              {
+                name,
+                client_id: info.oauth.clientId,
+                client_secret_set: info.oauth.clientSecretSet,
+                state: info.oauth.state,
+                reason: info.oauth.reason,
+              },
+            ],
+      ),
+    })),
+    fakeAnswer(appTools, ({ app }) =>
+      partial({
+        tools:
+          app === CUSTOMERS
+            ? [{ name: "customers.lookup", effect: "read" }]
+            : [{ name: "stock.reserve", effect: "write" }],
+      }),
+    ),
+    fakeAnswer(appInvocations, () => ({ ...COMMON, invocations: [...CALLS] })),
+    fakeAnswer(noticesList, () => ({ ...COMMON, notices: [...NOTICES] })),
+    fakeAnswer(appRewindPlan, () => ({ ...COMMON, plan: plan() })),
+    fakeAnswer(workspaceSessionRead, () =>
+      partial({
+        ...COMMON,
+        session: { agent: ANALYST, title: "Weekly order digest" },
+      }),
+    ),
+    fakeAnswer(agentRead, () =>
+      partial({ ...COMMON, effective: { name: { value: "Order analyst" } } }),
+    ),
+  ];
 
   const source: AppDetailSource = {
-    run: () => reply("run", run),
-    setRun: (_app, enabled) => {
-      calls.push(["setRun", enabled]);
-      if (failing.has("setRun")) {
-        return Promise.resolve({ ok: false, code: "conflict" });
-      }
-      run = { enabled, state: enabled ? "running" : "stopped" };
+    setRun: (app, enabled) => {
+      runEnabled = enabled;
+      runState = enabled ? "running" : "stopped";
+      changed({ name: "apps", id: app }, { name: "app_runtime", id: app });
       return Promise.resolve({ ok: true, value: true });
     },
-    icon: () =>
-      reply("icon", { src: uploadedIcon, uploaded: uploadedIcon !== null }),
-    setIcon: (_app, icon) => {
-      calls.push(["setIcon", icon?.type ?? null]);
-      if (failing.has("setIcon")) {
-        return Promise.resolve({ ok: false, code: "invalid_input" });
-      }
+    setIcon: (app, icon) => {
       uploadedIcon =
         icon === null
           ? null
-          : `data:${icon.type};base64,${btoa(String.fromCharCode(...icon.bytes))}`;
+          : {
+              content_type: icon.type,
+              data: btoa(String.fromCharCode(...icon.bytes)),
+            };
+      changed({ name: "apps", id: app });
       return Promise.resolve({ ok: true, value: true });
     },
-    folders: () => reply("folders", folders),
-    addFolder: () => {
+    addFolder: (app) => {
       const path = "/home/me/shared/carriers";
-      if (folders.includes(path)) return reply("addFolder", null);
-      folders = [...folders, path];
-      return reply("addFolder", folders);
+      if (!folders.includes(path)) {
+        folders = [...folders, path];
+        changed({ name: "apps", id: app });
+      }
+      return Promise.resolve({ ok: true, value: true });
     },
-    removeFolder: (_app, path) => {
+    removeFolder: (app, path) => {
       folders = folders.filter((folder) => folder !== path);
-      return reply("removeFolder", folders);
-    },
-    versions: () => reply("versions", versionsView()),
-    changes: (id) => {
-      calls.push(["changes", id]);
-      // 활성 release는 그 release가 적용될 때의 비교다.
-      return reply("changes", changesTo(id === R8 ? 7 : 6));
+      changed({ name: "apps", id: app });
+      return Promise.resolve({ ok: true, value: true });
     },
     rollback: (id) => {
-      calls.push(["rollback", id]);
-      if (failing.has("rollback")) {
-        return Promise.resolve({ ok: false, code: "conflict" });
-      }
       activeId = id;
+      changed({ name: "releases", id: null }, { name: "apps", id: null });
       return Promise.resolve({ ok: true, value: true });
     },
-    access: () => reply("access", accessView()),
-    revoke: (grant) => {
-      calls.push(["revoke", grant]);
-      if (failing.has("revoke")) {
-        return Promise.resolve({ ok: false, code: "unavailable" });
-      }
-      requested.add(grant);
-      if ((options.cleanup ?? "pending") === "done") revoked.add(grant);
-      return Promise.resolve({ ok: true, value: true });
-    },
-    setSecretValue: (name, subject) => {
-      calls.push(["setSecretValue", name, subject]);
-      return acted("setSecretValue", "stored" as const);
-    },
-    removeSecretValue: (name) => {
-      calls.push(["removeSecretValue", name]);
-      return acted("removeSecretValue", true as const);
-    },
-    setOAuthClientId: (app, name, clientId) => {
-      calls.push(["setOAuthClientId", app, name, clientId]);
-      return acted("setOAuthClientId", true as const);
-    },
-    setOAuthClientSecret: (name, subject) => {
-      calls.push(["setOAuthClientSecret", name, subject]);
-      return acted("setOAuthClientSecret", "stored" as const);
-    },
-    signIn: (app, name) => {
-      calls.push(["signIn", app, name]);
-      return acted("signIn", true as const);
-    },
-    cancelSignIn: (app, name) => {
-      calls.push(["cancelSignIn", app, name]);
-      return acted("cancelSignIn", true as const);
-    },
-    signOut: (app, name) => {
-      calls.push(["signOut", app, name]);
-      return acted("signOut", true as const);
-    },
-    activity: () =>
-      reply("activity", {
-        rows: ACTIVITY,
-        notices: NOTICES,
-      }),
-    rewindPlan: (_app, from) => {
-      calls.push(["rewindPlan", from]);
-      return reply("rewindPlan", plan());
-    },
-    rewind: (_app, from) => {
-      calls.push(["rewind", from]);
+    // 정리는 끝나지 않아 접수한 grant는 정리 중으로 남는다.
+    revoke: () => Promise.resolve({ ok: true, value: true }),
+    // 값·sign-in은 보호 창과 browser 몫이라 gallery에서는 받기만 한다.
+    setSecretValue: () => Promise.resolve({ ok: true, value: "stored" }),
+    removeSecretValue: () => Promise.resolve({ ok: true, value: true }),
+    setOAuthClientId: () => Promise.resolve({ ok: true, value: true }),
+    setOAuthClientSecret: () => Promise.resolve({ ok: true, value: "stored" }),
+    signIn: () => Promise.resolve({ ok: true, value: true }),
+    cancelSignIn: () => Promise.resolve({ ok: true, value: true }),
+    signOut: () => Promise.resolve({ ok: true, value: true }),
+    rewind: (app) => {
       const mode = options.rewind ?? "applied";
       const result: RewindResult =
         mode === "conflict"
@@ -649,41 +781,19 @@ export function fakeDetail(options: FakeOptions = {}) {
         return Promise.resolve({ ok: true, value: result });
       }
       rewinding = true;
-      return new Promise((resolve) => {
-        finishRewindWith = (done) => {
-          rewinding = false;
-          resolve({ ok: true, value: done });
-        };
-      });
-    },
-    rewindProgress: () =>
-      reply("rewindProgress", {
-        running: rewinding
-          ? [
-              {
-                invocation: "inv_38",
-                tool: "orders.exportToSheet",
-                at: "2026-10-15T14:38:00",
-              },
-            ]
-          : [],
-      }),
-    stopPreview: (app, preview) => {
-      calls.push(["stopPreview", app, preview.nonce]);
-      return Promise.resolve();
+      changed({ name: "app_activity", id: app });
+      return new Promise(() => {});
     },
   };
 
   return {
     source,
-    calls,
-    /** 거두기 요청한 grant의 정리를 끝낸다. */
-    finishCleanup: () => {
-      for (const grant of requested) revoked.add(grant);
+    /** 위 상태를 읽는 route 답. */
+    answers,
+    /** 쓰기가 바꾼 것. gallery가 `StateChanged`로 흘린다. */
+    onChanged(listener: (changes: StateChange[]) => void): () => void {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
-    /** pending으로 둔 rewind를 끝낸다. */
-    finishRewind: (
-      result: RewindResult = { status: "applied", reason: null },
-    ) => finishRewindWith?.(result),
   };
 }

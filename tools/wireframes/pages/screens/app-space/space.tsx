@@ -13,9 +13,6 @@ import {
 import type { AnnotateState } from "../../../../../packages/shell/ipc/annotation.ts";
 import {
   fakeDetail,
-  GRANT_HOST,
-  GRANT_RESERVE,
-  GRANT_SECRET,
   type SecretsFake,
 } from "../../../../../packages/shell/renderer/app-frame/app-detail/testdata/fake-source.ts";
 import {
@@ -27,6 +24,10 @@ import type { CoreSource } from "../../../../../packages/shell/renderer/desktop/
 import { APP_BUDGET } from "../../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
 import { openApp } from "../../../../../packages/shell/renderer/desktop/router.ts";
 import { fixedRuns } from "../../../mock/scenarios/orders-shop.ts";
+import {
+  answering,
+  runAnswers,
+} from "../../../mock/core-answers/sync-app-detail.ts";
 import {
   OrdersView,
   type ViewMarks,
@@ -53,8 +54,8 @@ interface AppWorkspaceProps {
   readonly version?: ActivationState;
   /** App details 위쪽 Run 절의 상태. 없으면 running이다. */
   readonly run?: "running" | "stopped" | "halted";
-  /** Access 탭에서 이미 거두기를 요청한 항목. */
-  readonly revoking?: readonly string[];
+  /** Access 탭에서 [Revoke]를 누른 항목. 정리는 끝나지 않는다. */
+  readonly revoking?: readonly ("host" | "secret" | "reserve")[];
   /** Access 탭의 secret 줄들. 없으면 plain secret 하나다. */
   readonly secrets?: SecretsFake;
   readonly activity?: {
@@ -82,11 +83,11 @@ interface AppWorkspaceProps {
 }
 
 const APP = APP_BUDGET;
-const GRANTS: Record<string, string> = {
-  host: GRANT_HOST,
-  secret: GRANT_SECRET,
-  reserve: GRANT_RESERVE,
-};
+const REVOKE = {
+  host: '[data-resource="network"] [data-revoke-button]',
+  secret: "[data-secret] [data-revoke-button]",
+  reserve: "[data-tool-grant] [data-revoke-button]",
+} as const;
 const TAB_LABEL = {
   version: "app-detail.label.tab-version",
   access: "app-detail.label.tab-access",
@@ -214,8 +215,23 @@ export function AppSpace(props: AppWorkspaceProps = {}) {
       props.preview === "device",
   );
   const [annotating, setAnnotating] = useState<AnnotateState | null>(null);
-  const fakes = useMemo(
-    () => ({
+  const fakes = useMemo(() => {
+    const detail = fakeDetail({
+      ...(props.version === undefined ? {} : { activation: props.version }),
+      ...(props.run === undefined ? {} : { run: props.run }),
+      ...(props.secrets === undefined ? {} : { secrets: props.secrets }),
+      rewind:
+        props.activity?.rewind === "running"
+          ? "pending"
+          : props.activity?.rewind === "conflict"
+            ? "conflict"
+            : "applied",
+    });
+    const answered = answering(
+      [...detail.answers, ...runAnswers(APP, props.runs === "empty")],
+      detail.onChanged,
+    );
+    return {
       annotate: fakeAnnotate({
         items: (props.annotate?.items ?? []).map((item) => ({
           n: item.n,
@@ -224,28 +240,10 @@ export function AppSpace(props: AppWorkspaceProps = {}) {
           note: item.memo,
         })),
       }),
-      detail: fakeDetail({
-        ...(props.version === undefined ? {} : { activation: props.version }),
-        ...(props.run === undefined ? {} : { run: props.run }),
-        ...(props.secrets === undefined ? {} : { secrets: props.secrets }),
-        ...(props.revoking === undefined
-          ? {}
-          : { revoking: props.revoking.map((id) => GRANTS[id] ?? id) }),
-        rewind:
-          props.activity?.rewind === "running"
-            ? "pending"
-            : props.activity?.rewind === "conflict"
-              ? "conflict"
-              : "applied",
-      }).source,
-      runs: () =>
-        Promise.resolve({
-          ok: true as const,
-          value: props.runs === "empty" ? [] : fixedRuns(APP),
-        }),
-    }),
-    [],
-  );
+      detail: detail.source,
+      events: (source: CoreSource) => answered(withRunSessions(source)),
+    };
+  }, []);
   useEffect(() => fakes.annotate.subscribeState(setAnnotating), [fakes]);
   // preview 한 개가 돌고 있다. [Stop]이 멈춘다.
   const preview = useMemo<PreviewSource>(() => {
@@ -283,6 +281,9 @@ export function AppSpace(props: AppWorkspaceProps = {}) {
     const { ops, activity } = props;
     if (ops !== undefined) {
       await press('[data-app-detail] [role="tab"]', t(TAB_LABEL[ops]));
+      for (const row of props.revoking ?? []) {
+        await click(REVOKE[row], undefined, row === "reserve" ? -1 : 0);
+      }
       if (activity?.open) {
         const call = CALL_ID[activity.open] ?? activity.open;
         await click(`[data-invocation="${call}"] button`);
@@ -322,8 +323,7 @@ export function AppSpace(props: AppWorkspaceProps = {}) {
         panes={panes}
         appDetail={fakes.detail}
         annotate={fakes.annotate}
-        runs={fakes.runs}
-        events={withRunSessions}
+        events={fakes.events}
       />
       {region === null
         ? null

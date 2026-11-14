@@ -1,16 +1,14 @@
 // App details의 Run 절. 앱 실행 허용(run_enabled)을 켜고 끄는 곳이다. 끄면 앱 process가 멈추고, 켜면 채택한 release가
 // 다시 뜬다. crash loop로 멈춘 앱은 켜진 채라 껐다 켜야 하고, 켜면 종료 기록(crash 창)을 비워 다시 띄운다.
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Switch } from "@lophn/ui/input";
 import { t } from "@lophn/i18n";
 
 import { Loadable } from "./loadable.tsx";
 import { PaneToast } from "./parts.tsx";
+import { useRunView } from "./reads.ts";
 import type { AppDetailSource, RunState } from "./source.ts";
-import { useRead } from "./use-read.ts";
 import styles from "./app-section.module.css";
-
-const POLL_MS = 3000;
 
 const LABEL: Record<RunState, () => string> = {
   running: () => t("app-detail.label.run-running"),
@@ -38,19 +36,12 @@ export function RunSection({
   now: () => Date;
 }) {
   const [failed, setFailed] = useState<boolean | null>(null);
-  const [polling, setPolling] = useState(false);
-  const read = useRead(() => source.run(app), [app, source], {
-    pollMs: polling ? POLL_MS : undefined,
-    now,
-  });
-  const state = read.loaded.state === "ready" ? read.loaded.value.state : null;
-  // 켰는데 아직 답하지 않는 동안만 다시 읽는다.
-  useEffect(() => setPolling(state === "unavailable"), [state]);
+  // 앱 process가 뜨고 멈추는 것은 app_runtime 변경으로 다시 읽는다.
+  const read = useRunView(app);
 
   const change = async (enabled: boolean) => {
     const reply = await source.setRun(app, enabled);
     setFailed(reply.ok ? null : enabled);
-    read.reload();
   };
 
   return (

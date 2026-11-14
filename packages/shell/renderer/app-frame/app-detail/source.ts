@@ -1,12 +1,9 @@
-// app-detail이 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은 core-source.ts만
-// 안다. 모양은 protocol의 activation(release 기록·선언 비교)·app grant·app invocation·rewind에서
-// 이 화면이 쓰는 field만 옮긴 것이다.
+// app-detail의 화면 값과 쓰기 통로. 읽기는 reads.ts가 route에서 이 모양으로 옮기고, 쓰기는 이 interface만 보고
+// core route 이름은 core-source.ts만 안다. 모양은 protocol의 activation(release 기록·선언 비교)·app grant·
+// app invocation·rewind에서 이 화면이 쓰는 field만 옮긴 것이다.
 
 import type { NoticeKind } from "../../../../protocol/apps/notice.ts";
-import type {
-  IconFile,
-  IconView,
-} from "../../parts/icon-upload/icon-reader.ts";
+import type { IconFile } from "../../parts/icon-upload/icon-reader.ts";
 import type { SourceResult } from "../../source-result.ts";
 
 export type { SourceResult };
@@ -137,8 +134,6 @@ export interface ResourceRow {
   /** 경로, host:port, secret 이름. 값은 없다. */
   readonly name: string;
   readonly grantedAt: string;
-  /** 거두기가 접수돼 정리 중이다. */
-  readonly revoking: boolean;
   /** 정리까지 끝나 거둬졌다. */
   readonly revoked: boolean;
   /** kind가 secret일 때만 있다. */
@@ -156,8 +151,6 @@ export interface AppToolRow {
     readonly effect: Effect | null;
   }[];
   readonly grantedAt: string;
-  /** 거두기가 접수돼 정리 중이다. */
-  readonly revoking: boolean;
   /** 정리까지 끝나 거둬졌다. */
   readonly revoked: boolean;
 }
@@ -262,24 +255,10 @@ export interface RewindPlanView {
   readonly blocked: { readonly invocation: string } | null;
 }
 
-interface RewindProgress {
-  /** 끝나기를 기다리는 호출. */
-  readonly running: readonly {
-    readonly invocation: string;
-    readonly tool: string | null;
-    readonly at: string;
-  }[];
-}
-
 export interface RewindResult {
   readonly status: "applied" | "cancelled";
   /** 취소 이유. 성공이면 null이다. */
   readonly reason: string | null;
-}
-
-/** 앱 공간이 연 preview. 닫을 때 nonce로 가리킨다. */
-interface StartedPreview {
-  readonly nonce: string;
 }
 
 /** 실행 상태. halted는 crash loop로 자동 재시작이 멈춘 것이다. preparing은 채택한 release가 아직 없다. */
@@ -297,32 +276,19 @@ export interface RunView {
 }
 
 export interface AppDetailSource {
-  /** 실행 허용과 지금 실행 상태. */
-  run(app: string): Promise<SourceResult<RunView>>;
   /** 실행 허용을 켜거나 끈다. 끄면 앱 process가 멈추고, 보관된 앱은 켤 수 없다(conflict). */
   setRun(app: string, enabled: boolean): Promise<SourceResult<true>>;
-  /** 앱 icon. 사람이 올린 것이 선언한 것보다 앞선다. 읽을 때마다 core에서 새로 읽는다. */
-  icon(app: string): Promise<SourceResult<IconView>>;
   /** 올린 icon을 정한다. null이면 올린 것을 지워 선언한 icon(없으면 첫 글자 표식)으로 돌아간다. */
   setIcon(app: string, icon: IconFile | null): Promise<SourceResult<true>>;
 
-  /** 앱 source 밖에 이은 폴더(agent의 file 범위에 들어간다). */
-  folders(app: string): Promise<SourceResult<readonly string[]>>;
-  /** OS 선택기로 폴더를 하나 더한다. 사람이 선택기를 닫으면 value가 null이다. */
-  addFolder(app: string): Promise<SourceResult<readonly string[] | null>>;
+  /** OS 선택기로 앱 source 밖 폴더(agent의 file 범위에 들어간다)를 하나 더한다. 선택기를 닫으면 아무 일 없다. */
+  addFolder(app: string): Promise<SourceResult<true>>;
   /** 이은 폴더 하나를 뺀다. 디스크의 폴더는 그대로다. */
-  removeFolder(
-    app: string,
-    path: string,
-  ): Promise<SourceResult<readonly string[]>>;
+  removeFolder(app: string, path: string): Promise<SourceResult<true>>;
 
-  versions(app: string): Promise<SourceResult<VersionView>>;
-  /** 이 release를 지금 활성 release와 견준 늘어난 선언과 손실 단계. */
-  changes(release: string): Promise<SourceResult<ReleaseChanges>>;
   /** 이전 release로 돌아간다. 사람만 한다. migration이 없다. */
   rollback(release: string): Promise<SourceResult<true>>;
 
-  access(app: string): Promise<SourceResult<AccessView>>;
   /** 바깥 자원이나 다른 앱 tool을 거둔다. 요청 접수까지다. 정리는 읽기로 본다. */
   revoke(grant: string): Promise<SourceResult<true>>;
   /** 보호 입력 창으로 secret 값을 넣는다. 값은 이 안을 지나지 않는다. */
@@ -342,22 +308,12 @@ export interface AppDetailSource {
     name: string,
     subject: string,
   ): Promise<SourceResult<"stored" | "cancelled">>;
-  /** sign-in 주소를 OS browser로 연다. 끝나기는 기다리지 않고, 화면이 access()를 다시 읽어 본다. */
+  /** sign-in 주소를 OS browser로 연다. 끝나기는 기다리지 않고, 끝나면 secrets 변경으로 화면이 다시 읽는다. */
   signIn(app: string, name: string): Promise<SourceResult<true>>;
   cancelSignIn(app: string, name: string): Promise<SourceResult<true>>;
   /** 앱 OAuth token 셋을 지운다. client id와 client secret은 남는다. */
   signOut(app: string, name: string): Promise<SourceResult<true>>;
 
-  activity(app: string): Promise<SourceResult<ActivityView>>;
-  rewindPlan(app: string, from: string): Promise<SourceResult<RewindPlanView>>;
   /** 끝날 때까지 돌아오지 않는다(새 호출 멈춤, 도는 호출 기다림, 되돌림). */
   rewind(app: string, from: string): Promise<SourceResult<RewindResult>>;
-  /** rewind가 도는 동안 어느 호출을 기다리는지. */
-  rewindProgress(
-    app: string,
-    from: string,
-  ): Promise<SourceResult<RewindProgress>>;
-
-  /** 앱 공간이 열어 둔 preview를 닫는다. */
-  stopPreview(app: string, preview: StartedPreview): Promise<void>;
 }

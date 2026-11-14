@@ -2532,13 +2532,8 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   };
 
   // 앱 workspace 오른쪽 Logs panel의 이 앱 run 기록.
-  const readRuns = useCallback(
-    () => source.runs({ workspace: { app: appId ?? "" } }),
-    [source, appId],
-  );
   const runRows = useAppRuns(
-    isApp ? readRuns : undefined,
-    appId ?? "",
+    isApp ? (appId ?? "") : null,
     sidebarAgents.agents,
     agentViewSource,
     isApp && rightOpen,

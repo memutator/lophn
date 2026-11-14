@@ -8,13 +8,13 @@ import { t } from "@lophn/i18n";
 import { Loadable } from "../loadable.tsx";
 import { dateTime, releaseName, stepText } from "../model.ts";
 import { Facts, Mono, Note, PaneToast, Section } from "../parts.tsx";
+import { useReleaseChanges, useVersionView } from "../reads.ts";
 import type {
   AppDetailSource,
   ReleaseCard,
   SdkRow,
   VersionView,
 } from "../source.ts";
-import { useRead } from "../use-read.ts";
 import styles from "../app-detail.module.css";
 import { Changes, hasChanges } from "./changes.tsx";
 import { actionIcons } from "../../../icons/mod.ts";
@@ -24,8 +24,6 @@ interface VersionsTabProps {
   source: AppDetailSource;
   now: () => Date;
 }
-
-const POLL_MS = 2000;
 
 interface ToastState {
   readonly title: string;
@@ -37,17 +35,9 @@ export function VersionsTab({ app, source, now }: VersionsTabProps) {
   // 돌아가기를 접수한 release. 활성이 될 때까지 기다린다.
   const [pending, setPending] = useState<ReleaseCard | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
-  const [polling, setPolling] = useState(false);
-  const read = useRead(() => source.versions(app), [app, source], {
-    pollMs: polling ? POLL_MS : undefined,
-    now,
-  });
+  // activation 단계와 돌아가기는 releases 변경으로 다시 읽는다.
+  const read = useVersionView(app);
   const value = read.loaded.state === "ready" ? read.loaded.value : null;
-  const busy = value?.applying != null;
-
-  useEffect(() => {
-    setPolling(pending !== null || busy);
-  }, [pending, busy]);
 
   useEffect(() => {
     if (pending === null || value === null) return;
@@ -66,7 +56,6 @@ export function VersionsTab({ app, source, now }: VersionsTabProps) {
     const reply = await source.rollback(release.id);
     if (reply.ok) {
       setPending(release);
-      read.reload();
     } else {
       setToast({
         title: t("app-detail.error.go-back-failed", {
@@ -95,8 +84,6 @@ export function VersionsTab({ app, source, now }: VersionsTabProps) {
         {(view) => (
           <VersionBody
             view={view}
-            source={source}
-            now={now}
             pending={pending}
             onGoBack={(release) => void goBack(release)}
           />
@@ -108,14 +95,10 @@ export function VersionsTab({ app, source, now }: VersionsTabProps) {
 
 function VersionBody({
   view,
-  source,
-  now,
   pending,
   onGoBack,
 }: {
   view: VersionView;
-  source: AppDetailSource;
-  now: () => Date;
   pending: ReleaseCard | null;
   onGoBack: (release: ReleaseCard) => void;
 }) {
@@ -258,10 +241,8 @@ function VersionBody({
       {target === null ? null : (
         <ChangesSection
           key={target.id}
-          source={source}
           release={target.id}
           always={target !== active}
-          now={now}
         />
       )}
       <Earlier
@@ -276,22 +257,16 @@ function VersionBody({
 
 /** 늘어난 선언과 손실 단계. 지금 활성 release면 보일 것이 있을 때만 둔다. */
 function ChangesSection({
-  source,
   release,
   always,
-  now,
 }: {
-  source: AppDetailSource;
   release: string;
   always: boolean;
-  now: () => Date;
 }) {
-  const read = useRead(() => source.changes(release), [source, release], {
-    now,
-  });
+  const read = useReleaseChanges(release);
   if (read.loaded.state !== "ready") return null;
   const changes = read.loaded.value;
-  if (!always && !hasChanges(changes)) return null;
+  if (changes === null || (!always && !hasChanges(changes))) return null;
   return <Changes changes={changes} />;
 }
 

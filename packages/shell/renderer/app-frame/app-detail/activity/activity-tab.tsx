@@ -21,7 +21,7 @@ import type {
   AppDetailSource,
   Caller,
 } from "../source.ts";
-import { useRead } from "../use-read.ts";
+import { useActivityView } from "../reads.ts";
 import styles from "../app-detail.module.css";
 import { RewindPanel } from "./rewind-panel.tsx";
 import { actionIcons } from "../../../icons/mod.ts";
@@ -61,7 +61,6 @@ export function ActivityTab({
     <div className={styles.tab} data-tab-body="activity">
       <ActivityList
         app={app}
-        source={source}
         now={now}
         open={open}
         onOpen={setOpen}
@@ -208,7 +207,6 @@ function Detail({
 
 function ActivityList({
   app,
-  source,
   now,
   open,
   onOpen,
@@ -216,14 +214,14 @@ function ActivityList({
   onOpenSession,
 }: {
   app: string;
-  source: AppDetailSource;
   now: () => Date;
   open: string | null;
   onOpen: (id: string | null) => void;
   onRewind: (id: string) => void;
   onOpenSession?: (session: string) => void;
 }) {
-  const read = useRead(() => source.activity(app), [app, source], { now });
+  // 호출이 시작하고 끝날 때마다 invocation ledger가 내는 app_activity 변경으로 다시 읽는다.
+  const read = useActivityView(app);
   return (
     <Loadable
       read={read}

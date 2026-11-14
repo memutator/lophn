@@ -1,12 +1,18 @@
-// 앱 workspace의 Logs 목록 줄. run 기록(`AppSpace.runs`)에서 이 앱의 것만 남겨 줄로 옮긴다: 이 앱의 tool run과
+// 앱 workspace의 Logs 목록 줄. run 기록(`runs/list`)에서 이 앱의 것만 남겨 줄로 옮긴다: 이 앱의 tool run과
 // 이 앱 workspace에서 돈 agent run(그 agent가 앱 agent select에 있을 때). 다른 workspace의 run은 그 workspace 몫이다.
-// run event가 계약에 없어서, 목록을 열 때와 열려 있는 동안 session 상태(`useSessions()`)가 바뀔 때마다 다시 읽는다.
+// 목록이 열려 있는 동안 runs·jobs 변경으로 다시 읽는다.
 import { useEffect, useMemo, useState } from "react";
 import { t } from "@lophn/i18n";
+import type { z } from "zod";
 
+import { jobList } from "../../../protocol/jobs/jobs.ts";
+import { runList } from "../../../protocol/runs/runs.ts";
 import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts";
-import { useSessions } from "../desktop/connection/events/hooks.tsx";
-import type { ReadResult } from "../workspace/source.ts";
+import { followCoreRead } from "../desktop/connection/core-read.ts";
+import {
+  useEventClient,
+  useSessions,
+} from "../desktop/connection/events/hooks.tsx";
 import { lophnSessionDot } from "../parts/agent-session/lophn.ts";
 import type { PanelSession } from "../workspace/sidebar/panel-types.ts";
 import type { RunRecordView, RunRow } from "../workspace/sidebar/run-list.tsx";
@@ -19,66 +25,113 @@ interface AppSpaceAgent {
   readonly profile: AvatarProfile;
 }
 
-interface Loaded {
-  readonly records: readonly RunRecordView[];
-  /** session id → 대화 source가 읽어 준 제목과 마지막 활동 시각(epoch ms). */
-  readonly known: ReadonlyMap<
-    string,
-    { readonly title: string | null; readonly at: number }
-  >;
-}
+type RawRun = z.output<typeof runList.output>["runs"][number];
 
-const NOTHING: Loaded = { records: [], known: new Map() };
+/** session id → 대화 source가 읽어 준 제목과 마지막 활동 시각(epoch ms). */
+type Known = ReadonlyMap<
+  string,
+  { readonly title: string | null; readonly at: number }
+>;
 
 export function useAppRuns(
-  read: (() => Promise<ReadResult<readonly RunRecordView[]>>) | undefined,
-  app: string,
+  /** 앱 workspace가 아니면 null이고 읽지 않는다. */
+  app: string | null,
   agents: readonly AppSpaceAgent[],
   agentViewSource: AgentTabSourceFactory | undefined,
   /** run 목록이 열려 있는가. 닫혀 있으면 읽지 않는다. */
   active: boolean,
 ): readonly RunRow[] {
   const { sessions } = useSessions();
-  // unseen 같은 다른 칸이 바뀐 것에는 다시 읽지 않는다. 상태와 끝남만 run이 바뀌었을 수 있다는 신호다.
-  const sessionStates = sessions
-    .map((one) => `${one.session}:${one.state}:${one.ended}`)
-    .join();
-  const [loaded, setLoaded] = useState<Loaded>(NOTHING);
+  const client = useEventClient();
+  // 못 읽으면 빈 목록이다(`useAppAgents`가 실패를 무시하는 것과 같다).
+  const [runs, setRuns] = useState<readonly RawRun[]>([]);
+  const [titles, setTitles] = useState<ReadonlyMap<string, string>>(new Map());
+  const [known, setKnown] = useState<Known>(new Map());
+
   useEffect(() => {
-    if (read === undefined || !active) return;
+    if (app === null || !active) return;
+    const now = () => new Date();
+    const followed = [
+      followCoreRead<z.output<typeof runList.output>>(
+        client,
+        runList,
+        { workspace: { app } },
+        (loaded) => {
+          if (loaded.state === "ready") setRuns(loaded.value.runs);
+        },
+        now,
+      ),
+      followCoreRead<z.output<typeof jobList.output>>(
+        client,
+        jobList,
+        {},
+        (loaded) => {
+          if (loaded.state !== "ready") return;
+          setTitles(
+            new Map(loaded.value.jobs.map((job) => [job.id, job.title])),
+          );
+        },
+        now,
+      ),
+    ];
+    return () => {
+      for (const one of followed) one.stop();
+    };
+  }, [client, app, active]);
+
+  // session 제목은 run 목록이 바뀔 때(새 run, 끝난 run) 그 agent들의 session 목록에서 다시 읽는다.
+  useEffect(() => {
+    if (app === null || !active || agentViewSource === undefined) return;
     let live = true;
     void (async () => {
-      const result = await read();
-      // 실패하면 빈 목록이다(`useAppAgents`가 실패를 무시하는 것과 같다).
-      const records = result.ok ? result.value : [];
-      const known = new Map<string, { title: string | null; at: number }>();
-      if (agentViewSource !== undefined) {
-        await Promise.all(
-          agents.map(async (agent) => {
-            const sessionsRead = await agentViewSource({
-              assignment: agent.assignment,
-              workspace: { kind: "app", id: app },
-            }).sessions();
-            if (!sessionsRead.ok) return;
-            for (const entry of sessionsRead.value) {
-              known.set(entry.id, {
-                title: entry.title,
-                at: Date.parse(entry.activeAt) || 0,
-              });
-            }
-          }),
-        );
-      }
-      if (live) setLoaded({ records, known });
+      const found = new Map<string, { title: string | null; at: number }>();
+      await Promise.all(
+        agents.map(async (agent) => {
+          const sessionsRead = await agentViewSource({
+            assignment: agent.assignment,
+            workspace: { kind: "app", id: app },
+          }).sessions();
+          if (!sessionsRead.ok) return;
+          for (const entry of sessionsRead.value) {
+            found.set(entry.id, {
+              title: entry.title,
+              at: Date.parse(entry.activeAt) || 0,
+            });
+          }
+        }),
+      );
+      if (live) setKnown(found);
     })();
     return () => {
       live = false;
     };
-  }, [read, active, app, agents, agentViewSource, sessionStates]);
+  }, [runs, active, app, agents, agentViewSource]);
+
+  const records = useMemo(
+    () =>
+      runs.map((run): RunRecordView => {
+        const title = run.job === null ? undefined : titles.get(run.job);
+        return {
+          id: run.id,
+          kind: run.kind,
+          target: run.target,
+          session: run.session,
+          session_opened: run.session_opened,
+          state: run.state,
+          created_at: run.created_at,
+          job:
+            run.job === null || title === undefined
+              ? null
+              : { id: run.job, title },
+        };
+      }),
+    [runs, titles],
+  );
 
   return useMemo(() => {
+    if (app === null) return [];
     const byId = new Map(agents.map((agent) => [agent.assignment, agent]));
-    return [...loaded.records]
+    return [...records]
       .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
       .flatMap((record): RunRow[] => {
         const at = Date.parse(record.created_at);
@@ -112,23 +165,23 @@ export function useAppRuns(
             at,
             session:
               record.session_opened && record.session !== null
-                ? panelSessionOf(record.session, agent, at, loaded, sessions)
+                ? panelSessionOf(record.session, agent, at, known, sessions)
                 : null,
           },
         ];
       });
-  }, [loaded, sessions, agents, app]);
+  }, [records, known, sessions, agents, app]);
 }
 
 function panelSessionOf(
   id: string,
   agent: AppSpaceAgent,
   runAt: number,
-  loaded: Loaded,
+  known: Known,
   sessions: ReturnType<typeof useSessions>["sessions"],
 ): PanelSession {
   const entry = sessions.find((item) => item.session === id);
-  const read = loaded.known.get(id);
+  const read = known.get(id);
   return {
     id,
     title: read?.title ?? t("conversation.label.session-untitled"),

@@ -2,7 +2,7 @@
 // [Revoke]는 확인 창 없이 바로 요청을 접수한다. 거두기는 요청 접수(새 호출 즉시 막힘)와 실제 정리
 // (이전 process 종료 확인 뒤 새 범위로 다시 시작)를 나눠 보인다. secret 줄은 값 넣기와 OAuth sign-in도
 // 여기서 한다(값은 보호된 입력 창이 받고 화면은 보지 않는다).
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
@@ -10,8 +10,8 @@ import { t } from "@lophn/i18n";
 import { Loadable } from "../loadable.tsx";
 import { resourceDetail, resourceKindText } from "../model.ts";
 import { EffectPill, Mono, Note, PaneToast, Pill, Section } from "../parts.tsx";
+import { useAccessView } from "../reads.ts";
 import type { AccessView, AppDetailSource, SourceResult } from "../source.ts";
-import { useRead } from "../use-read.ts";
 import { type SecretActions, SecretRow } from "./secret-row.tsx";
 import styles from "../app-detail.module.css";
 import { actionIcons } from "../../../icons/mod.ts";
@@ -21,9 +21,6 @@ interface AccessTabProps {
   source: AppDetailSource;
   now: () => Date;
 }
-
-// 정리가 끝났는지, sign-in이 돌아왔는지 보려고 다시 읽는 간격.
-const POLL_MS = 2000;
 
 type Problem = "revoke" | "secret" | "remove" | "sign-in";
 
@@ -40,39 +37,22 @@ export function AccessTab({ app, source, now }: AccessTabProps) {
   // 이 화면에서 거두기를 접수한 grant.
   const [requested, setRequested] = useState<ReadonlySet<string>>(new Set());
   const [problem, setProblem] = useState<Problem | null>(null);
-  const [polling, setPolling] = useState(false);
-  const read = useRead(() => source.access(app), [app, source], {
-    // 정리가 끝났는지(grant가 revoked가 됐는지), sign-in이 끝났는지 보려는 동안만 다시 읽는다.
-    pollMs: polling ? POLL_MS : undefined,
-    now,
-  });
-  const value = read.loaded.state === "ready" ? read.loaded.value : null;
-  const cleaning = value !== null && stillCleaning(value, requested);
-  const waiting =
-    value !== null &&
-    value.resources.some((row) => row.secret?.oauth?.state === "in_progress");
-  useEffect(() => setPolling(cleaning || waiting), [cleaning, waiting]);
+  // grant 정리(revoked)는 app_grants, 값 넣기와 sign-in은 secrets 변경으로 다시 읽는다.
+  const read = useAccessView(app);
 
   async function revoke(grant: string): Promise<void> {
     setProblem(null);
     const reply = await source.revoke(grant);
-    if (reply.ok) {
-      setRequested((now) => new Set(now).add(grant));
-      read.reload();
-    } else {
-      setProblem("revoke");
-    }
+    if (reply.ok) setRequested((now) => new Set(now).add(grant));
+    else setProblem("revoke");
   }
 
-  /** stored(또는 값 없는 성공)면 다시 읽고, 창을 닫았으면(cancelled) 아무 일 없다. */
   async function change(
     reply: Promise<SourceResult<true | "stored" | "cancelled">>,
     fail: Problem,
   ): Promise<void> {
     setProblem(null);
-    const result = await reply;
-    if (!result.ok) setProblem(fail);
-    else if (result.value !== "cancelled") read.reload();
+    if (!(await reply).ok) setProblem(fail);
   }
 
   return (
@@ -127,15 +107,9 @@ export function AccessTab({ app, source, now }: AccessTabProps) {
 
 type Row = AccessView["resources"][number] | AccessView["appTools"][number];
 
-/** 이 화면이 접수했거나 core가 정리 중이라고 한 grant. */
+/** 이 화면에서 거두기를 접수한 grant. core는 정리 중을 따로 읽게 하지 않는다. */
 const asked = (row: Row, requested: ReadonlySet<string>) =>
-  requested.has(row.grant) || row.revoking;
-
-function stillCleaning(view: AccessView, requested: ReadonlySet<string>) {
-  return [...view.resources, ...view.appTools].some(
-    (row) => asked(row, requested) && !row.revoked,
-  );
-}
+  requested.has(row.grant);
 
 type RevokeStage = "requested" | "cleaned";
 

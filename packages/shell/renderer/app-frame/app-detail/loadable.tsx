@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { ErrorState, Loading, Skeleton, StaleNote } from "@lophn/ui/feedback";
 
 import styles from "./app-detail.module.css";
-import type { ReadHandle } from "./use-read.ts";
+import type { ReadHandle } from "../../desktop/connection/core-read.ts";
 
 interface LoadableProps<T> {
   read: ReadHandle<T>;

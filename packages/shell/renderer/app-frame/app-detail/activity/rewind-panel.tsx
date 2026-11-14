@@ -1,6 +1,7 @@
 // 앱 rewind panel. Activity 탭 안에서 같은 탭 본문을 갈아 끼우고 확인 창이 아니다. 고른 호출부터
 // 최신까지 함께 되돌아갈 목록을 보이고, 사람이 [Rewind <앱 이름>]을 눌러야 시작한다. 진행과 결과도
-// 같은 panel에서 본다. 그 앱을 쓴 모두의 변경이 함께 사라지고 다시 되돌릴 수 없다.
+// 같은 panel에서 본다. 그 앱을 쓴 모두의 변경이 함께 사라지고 다시 되돌릴 수 없다. 진행(어느 호출을 기다리는지)은
+// 계획 읽기의 running이고, 도는 호출이 끝나면 app_activity 변경으로 다시 읽는다.
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
@@ -9,13 +10,14 @@ import { t } from "@lophn/i18n";
 import { Loadable } from "../loadable.tsx";
 import { callerText, callName, callTime, outcomeText } from "../model.ts";
 import { EffectPill, Mono, Note, PaneToast, Section } from "../parts.tsx";
+import type { ReadHandle } from "../../../desktop/connection/core-read.ts";
+import { useRewindPlan } from "../reads.ts";
 import type {
   AppDetailSource,
   RewindItem,
   RewindOutcome,
   RewindPlanView,
 } from "../source.ts";
-import { useRead } from "../use-read.ts";
 import styles from "../app-detail.module.css";
 import { actionIcons } from "../../../icons/mod.ts";
 
@@ -30,8 +32,6 @@ interface RewindPanelProps {
   now: () => Date;
   onBack: () => void;
 }
-
-const POLL_MS = 1500;
 
 /** 읽기 호출은 목록에 없다. */
 const changing = (items: readonly RewindItem[]) =>
@@ -55,21 +55,26 @@ export function RewindPanel({
   now,
   onBack,
 }: RewindPanelProps) {
-  const plan = useRead(
-    () => source.rewindPlan(app, from),
-    [app, from, source],
-    {
-      now,
-    },
-  );
+  const live = useRewindPlan(app, from);
   const [stage, setStage] = useState<RewindStage>("confirm");
   const [reason, setReason] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  // 끝난 rewind는 고른 호출을 되돌려 계획을 더 읽을 수 없다. 끝날 때의 목록을 그대로 둔다.
+  const [ended, setEnded] = useState<RewindPlanView | null>(null);
+  const plan: ReadHandle<RewindPlanView> =
+    ended === null
+      ? live
+      : {
+          loaded: { state: "ready", value: ended, staleSince: null },
+          reload: live.reload,
+        };
 
   function start(): void {
     setFailed(false);
     setStage("running");
+    const before = live.loaded.state === "ready" ? live.loaded.value : null;
     void source.rewind(app, from).then((reply) => {
+      if (reply.ok || reply.code === "conflict") setEnded(before);
       if (reply.ok) {
         setReason(reply.value.reason);
         setStage(reply.value.status === "applied" ? "done" : "conflict");
@@ -100,10 +105,8 @@ export function RewindPanel({
         {(view) => (
           <PanelBody
             view={view}
-            app={app}
             name={name}
             from={from}
-            source={source}
             now={now}
             stage={stage}
             reason={reason}
@@ -118,10 +121,8 @@ export function RewindPanel({
 
 function PanelBody({
   view,
-  app,
   name,
   from,
-  source,
   now,
   stage,
   reason,
@@ -129,10 +130,8 @@ function PanelBody({
   onBack,
 }: {
   view: RewindPlanView;
-  app: string;
   name: string;
   from: string;
-  source: AppDetailSource;
   now: () => Date;
   stage: RewindStage;
   reason: string | null;
@@ -186,7 +185,7 @@ function PanelBody({
       ) : null}
 
       {stage === "running" ? (
-        <Progress app={app} from={from} name={name} source={source} now={now} />
+        <Progress items={view.items} name={name} now={now} />
       ) : null}
 
       {stage === "done" ? (
@@ -278,26 +277,16 @@ function PanelBody({
 
 /** 도는 동안: 새 호출 멈춤, 도는 호출 기다림(어느 호출인지), 한 번에 되돌림. */
 function Progress({
-  app,
-  from,
+  items,
   name,
-  source,
   now,
 }: {
-  app: string;
-  from: string;
+  items: readonly RewindItem[];
   name: string;
-  source: AppDetailSource;
   now: () => Date;
 }) {
-  const read = useRead(
-    () => source.rewindProgress(app, from),
-    [app, from, source],
-    { pollMs: POLL_MS, now },
-  );
-  const running =
-    read.loaded.state === "ready" ? read.loaded.value.running : null;
-  const draining = running === null || running.length > 0;
+  const running = items.filter((item) => item.running);
+  const draining = running.length > 0;
   return (
     <Section title={t("app-detail.heading.progress")}>
       <ol className={styles.steps} data-rewind-progress="">
@@ -308,7 +297,7 @@ function Progress({
         <li className={`${styles.step} ${draining ? "" : styles.stepDone}`}>
           <span aria-hidden="true">{draining ? "…" : "✓"}</span>
           <span>
-            {running === null || running.length === 0
+            {running.length === 0
               ? t("app-detail.label.rewind-drain")
               : t("app-detail.label.rewind-drain-calls", {
                   count: running.length,

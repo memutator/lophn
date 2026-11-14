@@ -1,10 +1,11 @@
 // App details의 Folders 절. 앱 source 밖에 이은 폴더 목록이다. 이 앱 workspace의 agent가 이 폴더들을 file tool로
 // 읽고 쓴다. 줄 끝 단추가 폴더를 앱에서 빼고(디스크는 그대로), Add folder가 OS 선택기로 폴더를 더한다.
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";
 
 import { actionIcons } from "../../icons/mod.ts";
+import { useFolders } from "./reads.ts";
 import type { AppDetailSource } from "./source.ts";
 import styles from "./app-section.module.css";
 
@@ -15,31 +16,18 @@ export function FoldersSection({
   app: string;
   source: AppDetailSource;
 }) {
-  const [folders, setFolders] = useState<readonly string[] | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let live = true;
-    void source.folders(app).then((read) => {
-      if (!live) return;
-      setFailed(!read.ok);
-      if (read.ok) setFolders(read.value);
-    });
-    return () => {
-      live = false;
-    };
-  }, [app, source]);
+  const read = useFolders(app).loaded;
+  const folders = read.state === "ready" ? read.value : null;
+  // 더하기·빼기가 실패했다. 목록은 apps 변경으로 다시 읽는다.
+  const [changeFailed, setChangeFailed] = useState(false);
+  const failed = changeFailed || read.state === "failed";
 
   const add = async () => {
-    const result = await source.addFolder(app);
-    setFailed(!result.ok);
-    if (result.ok && result.value !== null) setFolders(result.value);
+    setChangeFailed(!(await source.addFolder(app)).ok);
   };
 
   const remove = async (path: string) => {
-    const result = await source.removeFolder(app, path);
-    setFailed(!result.ok);
-    if (result.ok) setFolders(result.value);
+    setChangeFailed(!(await source.removeFolder(app, path)).ok);
   };
 
   return (

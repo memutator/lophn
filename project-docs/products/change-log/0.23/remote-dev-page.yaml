@@ -1,0 +1,9 @@
+id: remote-dev-page
+version: 0.23.59
+title: npm run dev:remote가 개발 core에 pairing한 remote 화면 주소를 찍어 폰 앱 없이 browser로 연다
+modules: [packages/shell/renderer, tools]
+change: |
+  - `npm run dev:remote`(`tools/remote-dev.ts`)를 더했다. 떠 있는 개발 core(`npm run dev`나 `npm run dev:core`, `.dev-data`)에 사람 자격으로 붙어 `remote.enabled`를 켜고 `remote.port`를 47432로 두고, pairing code를 받아 renderer의 개발 build `dist/remote`를 port 5174로 내주고, code를 실은 주소(이 컴퓨터와 같은 network의 폰)를 찍는다.
+  - 개발용 remote 화면이 주소의 `#pair=<QR 내용>`을 읽어 열자마자 pairing하고 주소에서 지운다. 다시 열면 저장한 pairing으로 붙는다.
+why: |
+  Settings › Remote는 QR을 그림으로만 보여서, 폰 앱이 없는 지금 사람이 remote 화면을 실제 core로 볼 길이 없었다.

@@ -21,6 +21,7 @@
     "test:live:login": "node tests/live/login.ts",
     "dev": "node tools/dev.ts dev",
     "dev:core": "node tools/dev.ts dev:core",
+    "dev:remote": "node tools/remote-dev.ts",
     "dev:mock": "node tools/dev.ts dev:mock",
     "doctor": "node tools/doctor/main.ts",
     "wireframes": "node tools/wireframes/build.ts",

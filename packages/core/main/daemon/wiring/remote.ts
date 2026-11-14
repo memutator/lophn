@@ -10,7 +10,6 @@ import {
   devicesRegister,
   pairingStart,
   type RemoteDevice,
-  remoteDeviceSchema,
   remoteKeyText,
 } from "../../../../protocol/remote/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
@@ -35,6 +34,9 @@ import {
   type RemoteDevices,
   type RemoteHost,
   type RemoteListener,
+  screensPaired,
+  screensRenamed,
+  screensRevoked,
 } from "../../../remote/mod.ts";
 import { systemTimers } from "../../../runs/mod.ts";
 import { RouteRegistry } from "../../../server/mod.ts";
@@ -58,7 +60,7 @@ const REMOTE_CONTEXT: AuthenticatedContext = {
   credential_ref: REMOTE_PRINCIPAL,
 };
 
-type Screen = z.infer<typeof remoteDeviceSchema>;
+type Screen = z.infer<typeof devicesSetting.type>[number];
 
 const key = (route: { resource: string; method: string }) =>
   `${route.resource}/${route.method}`;
@@ -121,7 +123,7 @@ export const remoteWiring: WiringFactory = () => {
       .then((done) => (done.ok ? ok(done.value.result) : done));
   }
 
-  // 설정 `shell.devices`를 고친다. preview 기기 고르기와 `--device`가 같은 이름으로 본다.
+  // 설정 `shell.devices`를 고친다. preview 기기 고르기와 `--device`가 이름으로 본다. 기기의 항목은 `device`로 찾는다.
   function editScreens(ctx: WiringContext, edit: (list: Screen[]) => Screen[]) {
     const list = ctx.settings.get(devicesSetting) ?? [];
     const written = ctx.settingsUpdate([
@@ -148,11 +150,9 @@ export const remoteWiring: WiringFactory = () => {
         const done = await command(ctx, devicesRegister.name, input);
         if (!done.ok) return done;
         const { public_key: _key, ...screen } = input;
-        editScreens(ctx, (list) => [
-          ...list.filter((each) => each.name !== screen.name),
-          screen,
-        ]);
-        return ok(done.value as { id: string });
+        const { id } = done.value as { id: string };
+        editScreens(ctx, (list) => screensPaired(list, id, screen));
+        return ok({ id });
       },
       connected(id) {
         void command(ctx, devicesConnected.name, { id }).then((done) => {
@@ -250,18 +250,10 @@ export const remoteWiring: WiringFactory = () => {
                 const change = action.data as DevicesChange;
                 if (change.type === "revoked") {
                   host?.revoked(change.id);
-                  editScreens(ctx, (list) =>
-                    list.filter((each) => each.name !== change.name),
-                  );
+                  editScreens(ctx, (list) => screensRevoked(list, change.id));
                 } else {
                   editScreens(ctx, (list) =>
-                    list
-                      .filter((each) => each.name !== change.to)
-                      .map((each) =>
-                        each.name === change.from
-                          ? { ...each, name: change.to }
-                          : each,
-                      ),
+                    screensRenamed(list, change.id, change.name),
                   );
                 }
               }

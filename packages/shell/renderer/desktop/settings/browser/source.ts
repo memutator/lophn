@@ -18,6 +18,8 @@ export interface Device {
   readonly height: number;
   readonly dpr: number;
   readonly os: DeviceOs;
+  /** phone pairing이 넣은 항목의 기기 id. 고쳐도 남긴다(core가 이 칸으로 그 기기의 항목을 찾는다). */
+  readonly device?: string;
 }
 
 /** 사람이 고치는 login 한 줄. password·TOTP 유무만 알고 값은 모른다. */

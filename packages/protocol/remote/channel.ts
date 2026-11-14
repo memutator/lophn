@@ -48,6 +48,8 @@ export type RemoteChannel<Out, In> = {
   onFrame(handler: (frame: In) => void): void;
   onClose(handler: () => void): void;
   close(): void;
+  // 받는 frame의 상한을 바꾼다. 상대가 누구인지 안 뒤에 올린다(REMOTE_FRAME_MAX_BYTES까지).
+  setMaxFrameBytes(bytes: number): void;
 };
 
 export type RemoteClientChannel = RemoteChannel<
@@ -59,7 +61,7 @@ export type RemoteServerChannel = RemoteChannel<
   RemoteClientFrame
 >;
 
-// 상대가 이보다 큰 frame을 보내면 끊는다. 메모리를 상대가 정하지 못하게 하는 상한이다.
+// 받는 frame 상한의 기본값이자 보내는 frame의 상한이다. 상대가 더 큰 frame을 보내면 끊는다. 메모리를 상대가 정하지 못하게 하는 상한이다.
 export const REMOTE_FRAME_MAX_BYTES = 16 * 1024 * 1024;
 
 // record 하나의 평문은 `last(1) || data`다. 큰 frame은 record 여럿으로 나누고 마지막 record만 last가 1이다.
@@ -75,6 +77,8 @@ type Options = {
   staticKey: KeyPair;
   capabilities: string[];
   random: RandomSource;
+  // 받는 frame의 상한. 없으면 REMOTE_FRAME_MAX_BYTES다. handshake 직후부터 건다.
+  maxFrameBytes?: number;
 };
 
 // 폰 쪽. remoteStatic은 QR로 받은 core의 공개 key이고, 다른 key의 core와는 handshake가 서지 않는다.
@@ -128,6 +132,10 @@ function open<Out, In extends { type: string }>(
   let closed = false;
   let chunks: Uint8Array[] = [];
   let chunkBytes = 0;
+  let maxFrameBytes = Math.min(
+    options.maxFrameBytes ?? REMOTE_FRAME_MAX_BYTES,
+    REMOTE_FRAME_MAX_BYTES,
+  );
   let handler: ((frame: In) => void) | undefined;
   const queued: In[] = [];
   const closeHandlers: (() => void)[] = [];
@@ -168,7 +176,7 @@ function open<Out, In extends { type: string }>(
     const last = plain[0];
     if (last !== 0 && last !== 1) throw new Error("bad record flag");
     chunkBytes += plain.length - 1;
-    if (chunkBytes > REMOTE_FRAME_MAX_BYTES) throw new Error("frame too large");
+    if (chunkBytes > maxFrameBytes) throw new Error("frame too large");
     chunks.push(plain.subarray(1));
     if (last === 0) return undefined;
     const whole = new Uint8Array(chunkBytes);
@@ -214,10 +222,15 @@ function open<Out, In extends { type: string }>(
       handler = next;
       for (const frame of queued.splice(0)) next(frame);
     },
+    // 이미 닫혔으면 바로 부른다. 닫힘을 놓친 owner가 자리를 붙잡지 않게.
     onClose(next) {
-      closeHandlers.push(next);
+      if (closed) next();
+      else closeHandlers.push(next);
     },
     close: () => close(),
+    setMaxFrameBytes(bytes) {
+      maxFrameBytes = Math.min(bytes, REMOTE_FRAME_MAX_BYTES);
+    },
   };
 
   transport.onClose(() => close());

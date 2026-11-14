@@ -10,6 +10,9 @@ export {
   DEVICES_TOPIC,
   type DevicesChange,
   devicesListRead,
+  screensPaired,
+  screensRenamed,
+  screensRevoked,
 } from "./devices.ts";
 export { loadHostKey } from "./host-key.ts";
 export {

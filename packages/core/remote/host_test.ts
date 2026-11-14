@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import type { z } from "zod";
 import { manualClock, ok, seededRandom } from "../../base/mod.ts";
 import { type Route, routePath } from "../../protocol/base/mod.ts";
 import { ROUTES } from "../../protocol/registry.ts";
@@ -8,11 +9,13 @@ import {
   generateKeyPair,
   type KeyPair,
   REMOTE_ALLOWED_ROUTES,
+  remoteClientFrameSchema,
   type RemoteClientChannel,
   type RemoteClientFrame,
   type RemoteServerFrame,
   remoteKeyText,
 } from "../../protocol/remote/mod.ts";
+import { devicesSetting } from "../config/shell-settings.ts";
 import { createBus } from "../events/mod.ts";
 import {
   CredentialRegistry,
@@ -22,7 +25,15 @@ import type { MemoryHandler } from "../server/mod.ts";
 import { RouteRegistry } from "../server/mod.ts";
 import { createAdmission } from "../supervision/responsiveness/mod.ts";
 import { createDeviceCredentials, createRemoteCall } from "./call.ts";
-import { createRemoteHost, PAIRING_TRIES, type RemoteSocket } from "./host.ts";
+import { screensPaired, screensRenamed, screensRevoked } from "./devices.ts";
+import {
+  createRemoteHost,
+  PAIRING_TRIES,
+  REMOTE_PAIRING_MS,
+  REMOTE_UNATTACHED_MAX,
+  type RemoteHost,
+  type RemoteSocket,
+} from "./host.ts";
 import { createPairingCodes, PAIRING_CODE_MS } from "./pairing.ts";
 
 // 메모리 안에서 폰과 core를 잇는다. 실제 socket처럼 다음 microtask에 전한다.
@@ -32,10 +43,14 @@ function wire() {
     core: { message: (_: Uint8Array) => {}, close: () => {} },
   };
   const closed = { phone: false, core: false };
+  // 각 쪽에 닿은 message(Noise record) 수.
+  const delivered = { phone: 0, core: 0 };
   const end = (self: "phone" | "core", other: "phone" | "core") => ({
     send(bytes: Uint8Array) {
       queueMicrotask(() => {
-        if (!closed[other]) handlers[other].message(bytes);
+        if (closed[other]) return;
+        delivered[other] += 1;
+        handlers[other].message(bytes);
       });
     },
     close() {
@@ -55,7 +70,11 @@ function wire() {
     },
     bufferedAmount: () => 0,
   });
-  return { phone: end("phone", "core"), core: end("core", "phone") };
+  return {
+    phone: end("phone", "core"),
+    core: end("core", "phone"),
+    delivered,
+  };
 }
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 5));
@@ -108,15 +127,26 @@ function setup() {
   const admission = createAdmission();
   const bus = createBus();
   const codes = createPairingCodes({ clock, random });
-  const host = createRemoteHost({
+  const timers = new Map<number, { run: () => void; ms: number }>();
+  let nextTimer = 0;
+  // 기기 표를 읽은 뒤 답을 돌려주기 전에 부른다. 그 사이 기기를 끊는 test가 건다.
+  const hooks: { afterFind?: (key: string) => void } = {};
+  const host: RemoteHost = createRemoteHost({
     staticKey: coreKey,
     random,
-    timers: { set: () => undefined, clear: () => undefined },
+    timers: {
+      set(run, ms) {
+        timers.set(nextTimer, { run, ms });
+        return nextTimer++;
+      },
+      clear: (handle) => void timers.delete(handle as number),
+    },
     bus,
     pairing: codes,
     devices: {
       find: async (key) => {
         const id = table.get(key);
+        hooks.afterFind?.(key);
         return ok(id === undefined ? undefined : { id });
       },
       register: async (input) => {
@@ -152,16 +182,20 @@ function setup() {
     admission,
   });
 
-  async function connect(phoneKey: KeyPair) {
+  function open(phoneKey: KeyPair) {
     const w = wire();
     void host.accept(w.core as RemoteSocket);
-    const opened = await connectRemote({
+    return connectRemote({
       transport: w.phone,
       staticKey: phoneKey,
       remoteStatic: coreKey.publicKey,
       capabilities: [],
       random,
-    });
+    }).then((opened) => ({ opened, delivered: w.delivered }));
+  }
+
+  async function connect(phoneKey: KeyPair) {
+    const { opened, delivered } = await open(phoneKey);
     assert.ok(opened.ok);
     const phone: RemoteClientChannel = opened.value;
     const frames: RemoteServerFrame[] = [];
@@ -170,7 +204,16 @@ function setup() {
     phone.onClose(() => {
       closed = true;
     });
-    return { phone, frames, closed: () => closed };
+    return { phone, frames, closed: () => closed, delivered };
+  }
+
+  // 그 길이로 건 timer를 모두 끝낸다.
+  function fire(ms: number) {
+    for (const [handle, timer] of [...timers]) {
+      if (timer.ms !== ms) continue;
+      timers.delete(handle);
+      timer.run();
+    }
   }
 
   function register(phoneKey: KeyPair): string {
@@ -179,7 +222,20 @@ function setup() {
     return id;
   }
 
-  return { host, codes, clock, bus, table, reached, connect, register, random };
+  return {
+    host,
+    codes,
+    clock,
+    bus,
+    table,
+    reached,
+    hooks,
+    open,
+    connect,
+    register,
+    fire,
+    random,
+  };
 }
 
 const results = (frames: RemoteServerFrame[]) =>
@@ -344,5 +400,147 @@ test("끊은 기기는 연결이 닫히고 같은 key로는 pair만 받는다", 
   assert.deepEqual(
     results(repaired.frames).map((frame) => [frame.id, frame.ok]),
     [["p", true]],
+  );
+});
+
+test("기기의 watch는 types 없이 걸어도 REMOTE_ALLOWED_EVENTS 밖의 event(앱 event)를 받지 않는다", async () => {
+  const s = setup();
+  const key = generateKeyPair(s.random);
+  s.register(key);
+  const c = await s.connect(key);
+  c.phone.send({ type: "watch", conditions: [{}] });
+  await settle();
+  s.bus.publish({
+    type: "AppEventPublished",
+    subject: null,
+    at: s.clock.now(),
+    payload: { source: "lophn", event: "x", payload: {}, audience: null },
+  });
+  s.bus.publish({
+    type: "NoticeClosed",
+    subject: null,
+    at: s.clock.now(),
+    payload: { id: `ntc_0${"1".repeat(25)}` },
+  });
+  await settle();
+  assert.deepEqual(
+    c.frames.map((frame) =>
+      frame.type === "event" ? frame.event.type : frame.type,
+    ),
+    ["ready", "NoticeClosed"],
+  );
+});
+
+test("붙지 않은 연결은 한도를 넘으면 바로 닫히고, pairing 시간이 지나면 닫혀 자리를 내준다", async () => {
+  const s = setup();
+  const idle = [];
+  for (let i = 0; i < REMOTE_UNATTACHED_MAX; i++) {
+    idle.push(await s.connect(generateKeyPair(s.random)));
+  }
+  const refused = await s.open(generateKeyPair(s.random));
+  assert.equal(refused.opened.ok, false);
+
+  s.fire(REMOTE_PAIRING_MS);
+  await settle();
+  assert.ok(idle.every((c) => c.closed()));
+  const next = await s.connect(generateKeyPair(s.random));
+  assert.equal(next.closed(), false);
+});
+
+test("붙기 전의 큰 frame은 다 받기 전에 연결을 닫고, 붙은 기기의 큰 frame은 받는다", async () => {
+  const s = setup();
+  const big = (id: string): RemoteClientFrame => ({
+    type: "call",
+    id,
+    resource: "turn_requests",
+    method: "decide",
+    body: { ...decideBody, pad: "x".repeat(100 * 1024) },
+  });
+  const stranger = await s.connect(generateKeyPair(s.random));
+  const before = stranger.delivered.core;
+  stranger.phone.send(big("s"));
+  await settle();
+  assert.equal(stranger.closed(), true);
+  // 64 KiB record 둘로 가는 frame이다. 첫 record에서 끊는다.
+  assert.equal(stranger.delivered.core - before, 1);
+
+  const key = generateKeyPair(s.random);
+  s.register(key);
+  const device = await s.connect(key);
+  device.phone.send(big("d"));
+  await settle();
+  assert.equal(device.closed(), false);
+  assert.deepEqual(
+    results(device.frames).map((frame) => frame.id),
+    ["d"],
+  );
+});
+
+test("기기를 찾은 뒤 자격을 받기 전에 끊으면 연결이 닫히고 frame이 dispatch되지 않는다", async () => {
+  const s = setup();
+  const key = generateKeyPair(s.random);
+  const id = s.register(key);
+  // 표를 읽은 뒤 답이 오기 전에 devices.revoke가 commit되고 wiring이 host.revoked를 부른다.
+  s.hooks.afterFind = (found) => {
+    s.hooks.afterFind = undefined;
+    s.table.delete(found);
+    s.host.revoked(id);
+  };
+  const { opened } = await s.open(key);
+  assert.ok(opened.ok);
+  const frames: RemoteServerFrame[] = [];
+  let closed = false;
+  opened.value.onFrame((frame) => frames.push(frame));
+  opened.value.onClose(() => {
+    closed = true;
+  });
+  opened.value.send({
+    type: "call",
+    id: "c",
+    resource: "turn_requests",
+    method: "decide",
+    body: decideBody,
+  });
+  await settle();
+  assert.equal(closed, true);
+  assert.deepEqual(results(frames), []);
+  assert.deepEqual(s.reached, []);
+});
+
+test("같은 이름의 기기는 shell.devices 항목을 따로 갖고, 끊거나 이름을 바꾸면 그 기기의 항목만 바뀐다", () => {
+  const iphone = {
+    name: "iPhone",
+    os: "ios",
+    width: 390,
+    height: 844,
+    dpr: 3,
+  } as const;
+  const [a, b] = [deviceId(1), deviceId(2)];
+  // 사람이 넣은 항목은 device가 없다.
+  let list: z.infer<typeof devicesSetting.type> = [iphone];
+  list = screensPaired(list, a, iphone);
+  list = screensPaired(list, b, iphone);
+  assert.deepEqual(
+    list.map((each) => [each.name, each.device]),
+    [
+      ["iPhone", undefined],
+      ["iPhone 2", a],
+      ["iPhone 3", b],
+    ],
+  );
+  list = screensRevoked(list, a);
+  list = screensRenamed(list, b, "iPhone");
+  assert.deepEqual(list, [iphone, { ...iphone, name: "iPhone 2", device: b }]);
+  assert.ok(devicesSetting.type.safeParse(list).success);
+  // 항목의 device는 core만 단다. 폰의 pair frame은 그 칸을 받지 않는다.
+  assert.equal(
+    remoteClientFrameSchema.safeParse({
+      type: "pair",
+      id: "p",
+      code: "c",
+      ...iphone,
+      device: a,
+    }).success,
+    false,
   );
 });

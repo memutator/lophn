@@ -32,7 +32,12 @@ type GatewaySession = {
 export function createGatewaySession(
   socket: GatewaySocket,
   bus: Bus,
+  options: {
+    // 있으면 이 type의 event만 보낸다. client가 건 조건(types가 없어도)보다 앞선다.
+    events?: readonly string[];
+  } = {},
 ): GatewaySession {
+  const allowed = options.events && new Set<string>(options.events);
   let unsubscribe: (() => void) | undefined;
   let done = false;
 
@@ -70,7 +75,7 @@ export function createGatewaySession(
       release();
       unsubscribe = bus.subscribe(frame.value.conditions, {
         send(event) {
-          if (done) return;
+          if (done || (allowed && !allowed.has(event.type))) return;
           write({ type: "event", event });
           if (socket.bufferedAmount() > GATEWAY_BUFFER_LIMIT) {
             terminate(GATEWAY_CLOSE_SLOW_CONSUMER, "slow_consumer");

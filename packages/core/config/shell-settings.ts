@@ -32,6 +32,7 @@ import {
   type SettingsView,
 } from "../../protocol/config/mod.ts";
 import { extensionSettingKey } from "../../protocol/extensions/mod.ts";
+import { idSchema } from "../../protocol/base/ids.ts";
 import { remoteDeviceSchema } from "../../protocol/remote/frames.ts";
 import {
   bindingId,
@@ -384,17 +385,18 @@ const taskbarSetting = declareSetting({
 });
 
 // 사람이 등록한 기기. preview 탭이 이 크기·DPR로 emulation하고 `tab open --preview --device <name>`이 이름으로 찾는다.
-// remote pairing이 등록한 폰도 같은 항목으로 든다. 그래서 항목 모양은 remote의 기기 schema 하나다.
+// remote pairing이 등록한 폰도 같은 항목으로 든다. 그래서 항목 모양은 remote의 기기 schema에 `device`(기기 id)를 더한 것이다.
+// remote는 `device`가 그 기기인 항목만 고치고 지운다. 사람이 넣은 항목(`device`가 없다)은 건드리지 않는다.
 // 크기 범위는 shell main의 emulation 입력 검사(packages/shell/ipc/surface.ts)와 같아야 한다(shell은 core를 import하지 못한다).
 export const devicesSetting = declareSetting({
   key: "shell.devices",
   type: z
-    .array(remoteDeviceSchema)
+    .array(remoteDeviceSchema.extend({ device: idSchema("dev").optional() }))
     .max(32)
     .refine((list) => new Set(list.map((d) => d.name)).size === list.length),
   default: [],
   description:
-    "Devices for app previews: each has a name, a viewport size in CSS px, a pixel ratio and an OS. `lophn tab open --preview <app> --device <name>` and the preview tab use them. Names are unique.",
+    "Devices for app previews: each has a name, a viewport size in CSS px, a pixel ratio and an OS. `lophn tab open --preview <app> --device <name>` and the preview tab use them. Names are unique. Entries added by phone pairing also carry `device`, the paired device id; renaming or removing that device changes only its entry.",
 });
 
 // 폰이 붙는 remote listener. 켜면 core가 모든 interface의 이 port에서 듣고, 켜 있는 동안 idle-exit로 끝나지 않는다.

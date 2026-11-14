@@ -14,6 +14,7 @@ import {
   noticesList,
   noticesOpen,
 } from "../apps/notice.ts";
+import type { BusEvent } from "../events/bus.ts";
 import { sessionSnapshotsList } from "../events/snapshot.ts";
 import {
   jobApprove,
@@ -51,3 +52,29 @@ export const REMOTE_ALLOWED_ROUTES = [
   shareRequestList,
   shareRequestDecide,
 ] as const;
+
+// 등록한 기기의 `watch`가 받을 수 있는 event type의 전부다. 기기가 건 조건과 상관없이 core가 이 밖은 보내지 않는다.
+// 위 route로 그리는 대화와 Inbox 화면이 듣는 것이다: session 목록의 상태, 대화의 ACP 갱신, 대기 줄(물음, 동의, 공유 요청, 알림, job).
+// 앱 event(`AppEventPublished`, 앱이 정한 payload), 설정, 앱 설치·지우기·화면, workflow는 넣지 않는다.
+export const REMOTE_ALLOWED_EVENTS = [
+  // 대화
+  "SessionStarted",
+  "SessionEnded",
+  "TurnStarted",
+  "TurnEnded",
+  "TurnRequestOpened",
+  "TurnRequestClosed",
+  "QuestionAsked",
+  "QuestionResolved",
+  "AcpUpdated",
+  // Inbox
+  "ActivationConsentRequested",
+  "ActivationConsentClosed",
+  "ShareRequestOpened",
+  "ShareRequestClosed",
+  "NoticePosted",
+  "NoticeClosed",
+  "NoticeRead",
+  // 화면 갱신의 공통 event. 바뀐 대상 이름과 id만 싣고 내용은 없다. Inbox가 job hold 등을 이것으로 다시 읽는다.
+  "StateChanged",
+] as const satisfies readonly BusEvent["type"][];

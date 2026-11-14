@@ -3,7 +3,7 @@
 //   node tools/remote-client.ts pair --state <file> --qr '<pairing/start가 준 JSON>' [--address <host>] [--name <name>]
 //   node tools/remote-client.ts call --state <file> <resource>/<method> ['<body JSON>'] [--watch <초>] [--address <host>]
 // pair는 이 client의 key와 core 정보를 --state file에 남긴다. call은 그 key로 다시 붙어 route 하나를 부르고,
-// --watch를 주면 그 동안 모든 event를 찍는다. 주소는 QR의 후보를 차례로 붙어 보고, --address가 있으면 그것만 쓴다.
+// --watch를 주면 그 동안 기기가 받을 수 있는 모든 event(REMOTE_ALLOWED_EVENTS)를 찍는다. 주소는 QR의 후보를 차례로 붙어 보고, --address가 있으면 그것만 쓴다.
 import { readFileSync, writeFileSync } from "node:fs";
 import process from "node:process";
 import { parseArgs } from "node:util";

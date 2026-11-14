@@ -9,6 +9,8 @@ import {
 import {
   acceptRemote,
   type KeyPair,
+  REMOTE_ALLOWED_EVENTS,
+  REMOTE_FRAME_MAX_BYTES,
   type RemoteClientFrame,
   type RemoteServerChannel,
   type RemoteTransport,
@@ -27,6 +29,12 @@ import type { PairingCodes } from "./pairing.ts";
 export const REMOTE_HANDSHAKE_MS = 10_000;
 // 틀린 pairing code는 연결마다 이만큼이다. 넘으면 연결을 닫는다.
 export const PAIRING_TRIES = 5;
+// 등록되지 않은 key가 channel이 열린 뒤 이 안에 pairing을 끝내지 않으면 닫는다. LAN의 아무나 연결을 붙잡지 못하게.
+export const REMOTE_PAIRING_MS = 60_000;
+// 기기로 붙지 않은 연결(handshake 중과 pairing 전)은 동시에 이만큼이다. 넘는 socket은 받자마자 닫는다.
+export const REMOTE_UNATTACHED_MAX = 8;
+// 기기로 붙기 전에 받는 frame의 상한이다. `pair` frame은 작다. 붙은 뒤에는 REMOTE_FRAME_MAX_BYTES다.
+export const REMOTE_UNATTACHED_FRAME_MAX_BYTES = 4 * 1024;
 
 // 실제 WebSocket은 보내지 못한 byte 수를 안다. Gateway와 같은 한도로 느린 연결을 끊는 데 쓴다.
 export type RemoteSocket = RemoteTransport & { bufferedAmount(): number };
@@ -78,17 +86,29 @@ type Connection = {
 
 export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
   const connections = new Set<Connection>();
+  let unattached = 0;
 
-  async function serve(channel: RemoteServerChannel, socket: RemoteSocket) {
+  async function serve(
+    channel: RemoteServerChannel,
+    socket: RemoteSocket,
+    // 기기로 붙었다. 붙지 않은 연결 수에서 뺀다.
+    attached: () => void,
+  ) {
     let closed = false;
     const cleanups: (() => void)[] = [];
     const connection: Connection = { channel };
+    const publicKey = remoteKeyText(channel.peer.publicKey);
     connections.add(connection);
     channel.onClose(() => {
       closed = true;
       connections.delete(connection);
       for (const cleanup of cleanups.splice(0)) cleanup();
     });
+    const pairingTimer = deps.timers.set(
+      () => channel.close(),
+      REMOTE_PAIRING_MS,
+    );
+    cleanups.push(() => deps.timers.clear(pairingTimer));
 
     // 기기 자격으로 붙인다. frame을 받을 함수를 돌려준다. 붙지 못하면 연결을 닫고 undefined다.
     async function attach(
@@ -97,7 +117,17 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
       // 자격을 받는 사이 기기를 끊으면 revoked가 이 연결을 닫도록 먼저 적는다.
       connection.device = device;
       const credential = await deps.credentials.get(device);
-      if (!credential.ok || closed) {
+      if (!credential.ok) {
+        channel.close();
+        return undefined;
+      }
+      // 찾은 뒤 connection.device를 적기 전에 기기를 끊었으면 revoked가 이 연결을 보지 못했다. 자격을 받은 뒤 다시 찾아
+      // 없으면 그 자격을 거둔다. 기기마다 자격을 한 번 쓰는 cache가 끊은 기기의 자격을 내주지 않게 한다.
+      const still = await deps.devices.find(publicKey);
+      if (still.ok && still.value?.id !== device) {
+        deps.credentials.revoke(device);
+      }
+      if (!still.ok || still.value?.id !== device || closed) {
         channel.close();
         return undefined;
       }
@@ -113,12 +143,16 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
           bufferedAmount: () => socket.bufferedAmount(),
         },
         deps.bus,
+        { events: REMOTE_ALLOWED_EVENTS },
       );
       cleanups.push(() => {
         session.closed();
         slot.value.release();
       });
       connection.session = session;
+      deps.timers.clear(pairingTimer);
+      channel.setMaxFrameBytes(REMOTE_FRAME_MAX_BYTES);
+      attached();
       deps.devices.connected(device);
       return (frame) => {
         if (frame.type === "call") {
@@ -185,7 +219,7 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
         width: frame.width,
         height: frame.height,
         dpr: frame.dpr,
-        public_key: remoteKeyText(channel.peer.publicKey),
+        public_key: publicKey,
       });
       if (!registered.ok) {
         channel.send({
@@ -209,10 +243,10 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
     }
 
     // frame은 onFrame을 걸 때까지 channel에 모여 있다. 기기를 찾은 뒤에 건다.
-    const found = await deps.devices.find(
-      remoteKeyText(channel.peer.publicKey),
-    );
+    const found = await deps.devices.find(publicKey);
     if (!found.ok) return channel.close();
+    // 등록된 key는 붙기 전에도 큰 frame을 보낼 수 있다. 붙는 사이 온 frame이 상한에 걸려 끊기지 않게 여기서 올린다.
+    if (found.value) channel.setMaxFrameBytes(REMOTE_FRAME_MAX_BYTES);
     let receive = found.value ? await attach(found.value.id) : undefined;
     if (found.value && !receive) return;
     // pairing 중의 frame은 차례로 본다. `pair`의 답을 기다리지 않고 온 frame도 붙은 뒤의 규칙으로 본다.
@@ -231,17 +265,27 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
 
   return {
     async accept(socket) {
+      if (unattached >= REMOTE_UNATTACHED_MAX) return socket.close();
+      unattached += 1;
+      let counted = true;
+      const release = () => {
+        if (!counted) return;
+        counted = false;
+        unattached -= 1;
+      };
       const timer = deps.timers.set(() => socket.close(), REMOTE_HANDSHAKE_MS);
       const opened = await acceptRemote({
         transport: socket,
         staticKey: deps.staticKey,
         capabilities: [],
         random: deps.random,
+        maxFrameBytes: REMOTE_UNATTACHED_FRAME_MAX_BYTES,
       });
       deps.timers.clear(timer);
-      if (!opened.ok) return;
+      if (!opened.ok) return release();
+      opened.value.onClose(release);
       try {
-        await serve(opened.value, socket);
+        await serve(opened.value, socket, release);
       } catch (thrown) {
         deps.logger?.error({
           component: "remote",

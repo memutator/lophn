@@ -93,7 +93,7 @@ export function DeviceRows({ source }: { source: BrowserSettingsSource }) {
     const next =
       editing === list.length
         ? [...list, device]
-        : list.map((d, i) => (i === editing ? device : d));
+        : list.map((d, i) => (i === editing ? { ...d, ...device } : d));
     if (await save(next)) setEditing(null);
     else setError(true);
   }

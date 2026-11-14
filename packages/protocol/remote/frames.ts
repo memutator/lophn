@@ -18,7 +18,7 @@ const helloFrameSchema = z.strictObject({
 
 const frameIdSchema = z.string().min(1).max(64);
 
-// 화면 칸은 설정 `shell.devices` 항목과 같은 범위다. 등록한 기기가 그 자리에 그대로 들어간다.
+// 화면 칸은 설정 `shell.devices` 항목과 같은 범위다. 등록한 기기가 그 자리에 들어간다(기기 id `device`는 core가 단다. 폰은 보내지 못한다).
 export const remoteDeviceSchema = z.strictObject({
   name: z.string().min(1).max(40),
   os: z.enum(["ios", "android"]),

@@ -68,7 +68,7 @@ export const devicesList = defineRead({
   errors: ["invalid_input", "forbidden", "unavailable"],
 });
 
-// 같은 이름은 설정 `shell.devices`의 항목 이름도 바꾼다.
+// 설정 `shell.devices`에서 이 기기의 항목(`device`가 이 id) 이름도 바꾼다. 다른 항목과 겹치면 뒤에 " 2"…를 붙인다.
 export const devicesRename = defineCommand({
   resource: "devices",
   method: "rename",

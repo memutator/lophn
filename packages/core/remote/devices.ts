@@ -8,6 +8,7 @@ import {
   devicesRevoke,
   devicesSetPrimary,
   type RemoteDevice,
+  remoteDeviceSchema,
 } from "../../protocol/remote/mod.ts";
 import type {
   CommandDefinition,
@@ -41,8 +42,54 @@ create table devices (
 // commit 뒤 main thread가 할 일(설정 `shell.devices` 고치기, 연결 닫기). 설정과 연결은 writer Worker 밖에 있다.
 export const DEVICES_TOPIC = "remote.devices";
 export type DevicesChange =
-  | { type: "renamed"; id: string; from: string; to: string }
-  | { type: "revoked"; id: string; name: string };
+  | { type: "renamed"; id: string; name: string }
+  | { type: "revoked"; id: string };
+
+// 설정 `shell.devices`의 항목. pairing이 넣은 항목만 `device`(기기 id)가 있다.
+type Screen = { name: string; device?: string };
+
+// 이름은 항목 사이에서 겹치지 않아야 한다. 겹치면 " 2", " 3"…을 붙이고 이름 상한을 넘지 않게 앞을 줄인다.
+function uniqueName(name: string, list: readonly Screen[]): string {
+  const taken = new Set(list.map((each) => each.name));
+  if (!taken.has(name)) return name;
+  const max = remoteDeviceSchema.shape.name.maxLength ?? name.length;
+  for (let n = 2; ; n++) {
+    const suffix = ` ${n}`;
+    const candidate = name.slice(0, max - suffix.length) + suffix;
+    if (!taken.has(candidate)) return candidate;
+  }
+}
+
+// pairing한 기기의 항목을 더한다. 같은 이름의 다른 항목(다른 폰, 사람이 넣은 항목)은 그대로 두고 새 항목 이름을 바꾼다.
+export function screensPaired<T extends Screen>(
+  list: readonly T[],
+  device: string,
+  screen: T,
+): T[] {
+  const others = list.filter((each) => each.device !== device);
+  return [
+    ...others,
+    { ...screen, name: uniqueName(screen.name, others), device },
+  ];
+}
+
+export function screensRenamed<T extends Screen>(
+  list: readonly T[],
+  device: string,
+  name: string,
+): T[] {
+  const others = list.filter((each) => each.device !== device);
+  return list.map((each) =>
+    each.device === device ? { ...each, name: uniqueName(name, others) } : each,
+  );
+}
+
+export function screensRevoked<T extends Screen>(
+  list: readonly T[],
+  device: string,
+): T[] {
+  return list.filter((each) => each.device !== device);
+}
 
 function rowOf(row: Record<string, unknown>): RemoteDevice {
   return {
@@ -122,12 +169,7 @@ const rename: CommandDefinition<typeof devicesRename> = {
       input.name,
       input.id,
     ]);
-    push(tx, {
-      type: "renamed",
-      id: input.id,
-      from: found.value.name,
-      to: input.name,
-    });
+    push(tx, { type: "renamed", id: input.id, name: input.name });
     return ok({ id: input.id });
   },
 };
@@ -138,7 +180,7 @@ const revoke: CommandDefinition<typeof devicesRevoke> = {
     const found = load(tx.sql, input.id);
     if (!found.ok) return found;
     tx.sql.run("delete from devices where id = ?", [input.id]);
-    push(tx, { type: "revoked", id: input.id, name: found.value.name });
+    push(tx, { type: "revoked", id: input.id });
     return ok({ id: input.id });
   },
 };

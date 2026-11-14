@@ -1,6 +1,7 @@
 # mobile: lophn 모바일 앱과 사용자의 모바일 앱
 
 상태: **개념 정리만 했다.** 2026-11-08 사람이 방향을 냈고 planner가 대화를 정리했다. 사람이 더 고민하기로 해서 아래 "열린 질문"은 정하지 않았다. 추천은 planner의 것이고 결정이 아니다. 계획으로 열기 전에 사람과 다시 정하고, "지금 코드"는 그때 worker 조사로 채운다.
+2026-11-14: 지금 코드와 remote 비교를 조사해 아래 "지금 코드", "비교에서 더 본 것"에 넣었다. 설계는 사람과 논의 중이다.
 배경 문서: `project-docs/architecture/{platform,app-call,terminal-agent,app-notice}.md`, `project-docs/products/roadmap/{agent-surface,tool-extension,browser-tab,app-preview}.md`. 비교: `../harness-lab/_report/remote-control/`(README와 `t3code.md`, `paseo.md`, `orca.md`, `happy.md`, `omp.md`).
 browser use(desktop의 browser 탭·앱 preview·기기 emulation)는 계획 `browser-use`가 했다(changelog 0.22.0, `architecture/browser-tab.md`). 실제 폰의 앱을 다루는 것은 이 로드맵에 남는다. 아래 "browser-use와 닿는 곳".
 
@@ -68,9 +69,9 @@ browser use(desktop의 browser 탭·앱 preview·기기 emulation)는 계획 `br
 
 - core API는 loopback HTTP·WebSocket이다. token은 control socket `connect`로만 받고, control socket은 filesystem 권한이 인증 경계다(`architecture/platform.md` control socket). 폰은 이 길로 붙지 못하므로 remote listener와 기기 인증을 새로 둔다.
 - 일도 client도 없이 10분이 지나면 core가 끝난다(`platform.md` idle-exit). 폰은 꺼진 core를 띄우지 못한다.
-- 앱 화면의 operation은 core API(`app.call_tool`)로 간다(`architecture/app-call.md`의 모델 "호출의 흐름"). 그래서 폰에 띄운 앱도 core API에 닿으면 지금 길로 돈다. 앱 process는 core가 띄우는 Node process다.
+- 앱 화면의 operation은 page가 core를 직접 부르지 않고 shell main이 대신 부른다(아래 "지금 코드"의 앱 화면 hosting). 폰 host는 그 일을 다시 하거나 그 logic이 core로 옮겨져야 한다. 앱 process는 core가 띄우는 Node process다.
 - 터미널은 core가 아니라 shell의 `terminal-host`에 있다(`architecture/terminal-agent.md`). 원격 터미널은 shell이 떠 있을 때만 있고 core에서 shell로 한 번 더 넘겨야 한다.
-- 앱 event 발행·구독은 일부러 열지 않았다(`architecture/app-notice.md`: 반응을 믿으려면 저장, 구독자 cursor, 재시도, 멱등 key가 다시 필요하다).
+- 앱 event는 2026-11-11에 열었다. 저장하지 않고 그 순간 켜져 있는 구독 앱과 열린 앱 화면만 받는다(`architecture/event.md`의 "앱 event"). 화면 쪽 거르기는 shell main이 한다.
 - `PRODUCT.md` "하지 않는 것"에 "원격, 여러 사람용 서비스"가 있다. 이 roadmap은 그 줄과 부딪친다.
 
 ## browser-use와 닿는 곳
@@ -80,6 +81,64 @@ browser use(desktop의 browser 탭·앱 preview·기기 emulation)는 계획 `br
 - preview 탭과 등록한 기기의 emulation은 있다(설정 `shell.devices`, `architecture/browser-tab.md`).
 - 실제 폰의 앱을 agent가 다루는 것(옛 browser-use 로드맵 단계 5)은 이 로드맵의 일이다. Android WebView는 CDP로 원격 디버깅이 되고 iOS WKWebView는 Web Inspector다. T3 Code와 Orca는 desktop browser 화면을 `Page.startScreencast`로 폰에 흘려 보이고 폰에서 take control도 한다(`../harness-lab/_report/browser-use/{t3code,orca}.md`).
 - emulation은 진짜 폰이 아니다(iOS WKWebView는 WebKit). 실제 폰 확인은 remote가 선 뒤다.
+
+## 지금 코드 (2026-11-14 조사, main, 제품 판 0.23.52)
+
+### core API와 자격
+
+- listener는 한 쌍이다. `127.0.0.1`과 `::1`의 같은 port(기본 7431)에 HTTP `POST /<resource>/<method>`와 WebSocket `GET /gateway`를 연다(`packages/core/server/server.ts:448-456`). 원격 bind 설정, TLS, pairing, device token 코드는 없다.
+- 문 앞 검사(`packages/core/server/request.ts:64-130`): `Host`가 loopback 셋이 아니면 `invalid_input`, `Origin` header가 있으면 `forbidden`, 그다음 `Authorization: Bearer`.
+- route는 344개다(command 130, read 104, memory 103, upload 4, file 3). actor ceiling에 user가 든 것이 243개, user만인 것이 129개다. 사람 token의 scope는 그 243개 전부다(`packages/core/server/control/handler.ts:40`).
+- 사람 token은 control socket `connect {client: cli|shell}`로만 나오고 만료가 없다. core는 token의 SHA-256만 메모리에 둔다(`packages/core/server/identity/registry.ts`). 사람 자격의 principal은 모두 `"user"`라 admission 한도(HTTP 16, Gateway 4)를 shell과 CLI가 같이 쓴다(`packages/core/supervision/responsiveness/admission.ts`).
+- renderer는 core를 직접 부르지 않는다. IPC `shell:core-call` → shell main → core HTTP이고, main이 renderer가 부를 route를 allowlist로 좁힌다(`packages/shell/main/desktop/core/allowlist.ts`).
+- Gateway는 `watch {conditions}` → `ready` → `event`다. seq, replay, ack가 없고 끊기면 다시 watch하고 snapshot을 다시 읽는다(`packages/protocol/events/gateway.ts`). 느린 client는 buffer 1 MiB에서 끊는다. Gateway actor는 user뿐이다.
+- 대화는 `acp/snapshot {session}`(전체, paging 없음)과 `AcpUpdated`(24종)다. item마다 session 안 seq가 있고 어긋나면 `reread`다. 쓰기는 `acp/send` 하나(send, stop, answer, decide)이고 `key`로 멱등이다.
+- core → shell 요청은 host queue다. core 메모리에 쌓고 shell main이 `host/take`를 long-poll로 가져간다(`packages/protocol/lophn-agent/host-queue.ts`). 종류는 탭 열기·닫기·보이기, extension tool 호출, browser 호출, `terminal_interrupt`다. host는 하나라고 가정한다.
+- idle-exit는 일도 client도 없이 600초다(`packages/core/main/daemon/idle.ts`). client는 진행 중 HTTP 요청과 Gateway socket이다.
+
+### 기능마다 누가 갖고 있나
+
+| 기능 | 정본 | core API로 닿나 | shell 없이 |
+|---|---|---|---|
+| lophn agent의 session, 대화, 보내기 | core ledger와 agent-runtime child | 됨(`workspaceSessionList`, `session_snapshots/list`, `acp/*`) | 됨 |
+| harness agent session | core ledger. turn은 shell main의 harness extension이 돌린다 | 읽기는 됨 | turn이 돌지 않는다 |
+| 터미널의 coding agent(TUI) 상태 | shell main tracker(hook socket) | shell이 5초마다 report한 줄만 `app_sessions/list`에 있다. shell이 떨어지면 3초 안에 사라진다 | 안 됨 |
+| harness GUI 대화 | shell main 메모리의 handle(`AcpState`) | 안 됨(IPC `harness-gui:tab-*`) | 안 됨 |
+| 승인과 질문 | core 메모리(turn request, ask). harness GUI의 card는 shell main | 됨(`turn_requests/decide`, `ask/answer`. actor user, 창에 묶이지 않고 먼저 온 답이 이긴다) | 됨(core가 다시 뜨면 사라진다) |
+| 터미널 | `packages/shell/terminal-host`(shell main의 stdio child, node-pty, headless xterm scrollback 10,000) | 안 됨(host queue의 `terminal_interrupt`, `tab_open`뿐) | 안 됨(Quit하면 PTY가 죽는다) |
+| 탭 layout | shell main file과 renderer | 안 됨 | 안 됨 |
+| notice | core ledger `notices`. toast, OS 알림, `unseen` 점은 shell main 메모리 | 표는 됨 | 표만 |
+| secret, 설정 | core file | 됨(secret 넣기는 shell의 보호 입력 창만) | 됨 |
+
+client가 둘일 때 부딪치는 곳:
+- 터미널 입력은 그 터미널을 focus한 webContents 하나만 받는다(`TerminalFocusTable`, `packages/shell/main/terminal/controller.ts`). PTY 크기는 하나다.
+- `unseen` 점과 알림을 누를지는 desktop 창이 보이는지로 정한다(`packages/shell/main/notice/rule.ts`). 폰에서 봐도 desktop의 점은 남는다.
+- session 상태를 접는 곳이 둘이다(renderer `sessions-store.ts`, core `packages/core/lophn-agent/session/lifecycle.ts`).
+
+### 앱 화면 hosting
+
+- 앱 화면은 `lophn-app://app-<ulid>/<screen>/index.html`에서 뜬다. shell main의 protocol handler가 core file route `apps/screen_file`에서 bytes를 받아 준다(`packages/shell/main/app-frame/app-protocol.ts:186`). bundle은 release 준비 때 core가 esbuild로 짓고 `<data root>/apps/<app_id>/bundles/<bundle_hash>/screens/<screen>/`에 봉인한다. dev server는 없다.
+- page는 자격이 없다. preload bridge `lophnApp`(member 13)을 부르고, shell main이 IPC sender로 앱을 정해 사람 token으로 core를 부른다. page가 꼭 필요로 하는 것은 `callOperation` 하나다.
+- shell main이 하는 일(`packages/shell/main/app-frame/`, 약 5.4k줄): view ↔ `{app, release, bundle hash, process nonce}` binding, asset 주기, 선언한 operation만 통과, 앱 event를 release의 구독으로 거르기, `AppViewChanged`에 다시 bind, CSP와 network 정책.
+- SDK와 UI kit은 창이 아니라 container 폭으로 배치한다(`useContainerSpace`: 320 아래 `card`, 640 아래 `panel`). Electron API를 쓰지 않는다. touch에는 작다: button 28~36px, 본문 14px, hover로만 드러나는 것(`CodeBlock` 복사 button, tooltip).
+- 설정 `shell.devices`(`{name, width, height, dpr, os}`, 32개까지)는 preview 탭의 기기 고르기와 `lophn tab open --preview --device`만 읽는다. 앱 agent 지침(SDK guide, `design-app`, template)은 등록한 기기를 말하지 않는다.
+- 대화 화면 `AgentView`는 `AgentTabSource`(`packages/shell/renderer/conversation/agent-tab-source.ts:599`)로 data를 받고 Electron에 묶이지 않는다. wireframe gallery가 fake source로 browser에서 그린다.
+
+## 비교에서 더 본 것 (2026-11-14)
+
+`../harness-lab/_report/remote-control/`의 열하나 가운데 폰 client가 있는 일곱(omp, T3 Code, OpenCode, Paseo, Happy, Orca, mixdog)을 다시 읽었다.
+
+- **pairing.** 128-bit 1회용 code, 300초, 기기마다 자격, host는 hash만 저장, 기기마다 끊기로 모인다(omp). QR에 host 공개 key를 실어 pin한다(Orca, Paseo). 따라 하지 않을 것: 만료 없는 offer(Paseo), 계정 하나의 token(Happy), 비밀번호 하나(OpenCode).
+- **전송.** omp는 self-signed TLS인데 폰 browser에서 PWA 설치와 Web Push가 막힌다. Orca는 direct를 평문 `ws://`로 열고 그 위에 X25519 E2EE를 올려 direct와 relay가 같은 protocol이다. Paseo는 relay에만 Noise NK를 쓰고 direct는 평문이라 비밀번호가 샌다.
+- **relay.** Paseo의 relay는 상태 없는 전달자(메모리 buffer 200 frame)이고 daemon이 밖으로 건다. Happy는 계정, session, 메시지를 저장하는 중앙 서버다.
+- **동기화.** 모두 snapshot과 증분이다. seq를 들고 잇는 것은 T3(`afterSequence`), Paseo, Happy이고, omp와 Orca의 agent session은 전체를 다시 받는다.
+- **push.** omp는 host가 Web Push를 직접 보낸다(신뢰된 인증서가 필요하다). Paseo는 daemon이 Expo Push를 직접 불러 relay 없이 된다. Orca, T3, mixdog, Happy는 자기 gateway가 APNs·FCM key를 쥔다. 본문에 대화를 넣지 않는 것이 공통이고(Paseo만 220자), 사람이 보고 있으면 보내지 않는다.
+- **host → 폰 요청.** 일곱 모두 없다. push뿐이다.
+- **폰 UI.** T3, Paseo, Happy는 RN native다. Orca는 desktop이 내려주는 web bundle을 hash 확인 뒤 cache해 WebView로 띄우고, device token은 native 저장소에만 두며 page의 network를 막는다. mixdog는 relay가 UI를 서빙하고 검증이 없어 relay가 JS를 바꾸면 E2EE가 뚫린다.
+- **판 차이.** 껍데기와 host의 판이 따로 논다. Orca는 연결 뒤 capability를 주고받고 protocol 하한을 둔다.
+- **폰 lifecycle.** background 30초쯤 뒤 socket을 닫고, 돌아오면 probe하고 다시 구독해 snapshot을 받는다.
+- **터미널.** Orca는 raw PTY frame과 scrollback snapshot이고 stream마다 seq가 있다. 크기는 마지막에 만진 client가 갖는다(Paseo).
+- **폰 권한.** 넓게 준 쪽(Orca, mixdog, OpenCode)이 보고서의 경고 대상이다. omp는 좁다(고르기, 보내기, 끊기, 답하기).
 
 ## 열린 질문 (사람이 고민 중)
 
@@ -92,7 +151,7 @@ browser use(desktop의 browser 탭·앱 preview·기기 emulation)는 계획 `br
    - (나) 사용자 앱 backend도 폰에서 돌아 desktop 없이도 된다.
    - 추천: (가). (나)는 폰에 Node를 실어야 하고(nodejs-mobile 등, 판이 늦고 iOS는 JIT 없음) `app.sqlite`, invocation, changeset, rewind를 두 기기에서 맞춰야 한다.
    - 폰은 연결을 받지 못한다(NAT, iOS background socket 끊김). 그래서 폰이 core로 연결을 열어 두고 그 위로 양쪽 요청이 오간다. 폰이 background면 desktop은 폰을 부르지 못하고, 깨우는 길은 OS가 제한하는 silent push뿐이다.
-4. **앱 event를 다시 열까.** 연다면 저장, 구독자 cursor, 멱등 처리를 처음부터 둔다(폰은 자주 끊긴다). 추천: 앱 사이 통신은 지금 command 호출로 하고, event는 쓰는 예가 생기면 연다.
+4. **앱 event.** 닫힘(2026-11-11). 저장하지 않는 앱 event를 열었다(`architecture/event.md`). 남는 것은 폰에 띄운 앱 화면이 그 event를 받는 길이다.
 5. **폰의 권한.** 비교한 쪽은 대개 거의 전부를 준다(T3 기본 scope, Paseo owner, Orca 넓은 allowlist). 추천: 사람 권한 전부. 단 secret 보기·고치기와 remote 설정(기기 추가·끊기)은 desktop에서만.
 6. **core 깨어 있기.** remote가 켜져 있으면 idle-exit가 core를 끝내지 않게 할까? 추천: 그렇다. PC 잠자기는 OS 설정에 맡긴다.
 7. **`PRODUCT.md` 고치기.** 추천 문구: "여러 사람용 서비스는 하지 않는다. 한 사람이 자기 폰에서 자기 컴퓨터에 붙는 것은 한다."

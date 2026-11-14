@@ -16,7 +16,7 @@
 - **key.** 기기 key 쌍은 `expo-secure-store`에 둔다(이 기기에서만, 잠금이 풀렸을 때만). page는 key를 보지 못한다. (agent)
 - **화면은 native가 아니다.** native 화면은 pairing(QR, 붙여 넣기), 연결 상태, 컴퓨터 목록뿐이다. 나머지는 WebView의 remote 화면이다. (agent)
 - **WebView.** 기본 `react-native-webview`가 아니라 자체 Expo module이다. Android는 `WebView`와 `shouldInterceptRequest`로 cache의 bundle만 내주고 다른 요청은 모두 막는다. page의 CSP는 `connect-src 'none'`이다. bridge는 message만 오간다(native 기능을 page에 내놓지 않는다). (agent, Orca의 꼴. App Store 심사 2.5.2와 4.7을 생각해 bridge를 좁게 둔다)
-- **origin.** 추천은 `lophn-app://remote/`다. Android에서 custom scheme으로 ES module과 CSS가 안 되면 가로챈 https 가짜 host로 간다. spike가 정한다. (agent)
+- **origin.** Android는 가로챈 https 가짜 host `https://remote.lophn.invalid/`다. custom scheme도 ES module, CSS, font는 읽혔지만 secure context가 아니라 `crypto.randomUUID`·`crypto.subtle`이 없고 bridge(`addWebMessageListener`)의 origin 규칙을 못 건다. iOS는 `WKURLSchemeHandler`가 http(s)를 못 받아 custom scheme으로 간다. page는 상대 path만 써서 둘에서 같다. (agent, spike `reports/mobile-spike.md`)
 - **bundle cache.** `remote_ui/manifest`의 hash로 폴더를 나눠 저장하고 file마다 hash를 확인한다. 받는 중에는 앞의 것을 보이고, 다 받고 확인되면 바꾼다. core에 닿지 않으면 마지막 것을 띄우고 "닿지 않음"을 보인다. (agent)
 - **연결.** QR의 주소를 같이 걸어 먼저 되는 것을 쓴다. 끊기면 backoff로 다시 붙고, 앱이 앞으로 오면 바로 다시 붙는다. 붙을 때마다 `watch`를 다시 보낸다. (agent)
 
@@ -30,6 +30,8 @@
 | 3 | `mobile-remote` | `mobile-pairing`, `mobile-webview` | bundle 받기와 cache, bridge를 연결에 잇기, remote 화면 띄우기 |
 
 `mobile-remote`는 계획 `phone-remote-web`이 land된 뒤에 띄운다(`remote_ui/*` route와 `dist/remote`가 있어야 한다).
+
+중간 land: wave 1(`mobile-spike`) 뒤에 한 번 land한다. `phone-remote-web`이 main에 land되어(0.23.58) plan branch가 그 `client.ts`와 `remote_ui/*`를 받아야 wave 3이 그 위에서 갈라진다.
 
 ## 위험 test (task brief에 있다)
 

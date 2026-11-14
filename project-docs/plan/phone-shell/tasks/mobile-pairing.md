@@ -6,7 +6,8 @@
 - 선행: mobile-spike.
 - 소유(이 task만 고친다):
   - `mobile/src/connection/`, `mobile/src/pairing/`, `mobile/src/screens/`
-  - `mobile/app.json`, `mobile/package.json`
+  - `mobile/app.json`, `mobile/package.json`, `mobile/package-lock.json`
+  - 추가 소유: `mobile/App.tsx`, `mobile/src/spike.ts`(지운다), `mobile/src/remote.ts`
 - 읽을 것:
   - 계획 README "정한 것", `reports/mobile-spike.md`
   - `tools/remote-client.ts`, `packages/protocol/remote/{channel,frames}.ts`
@@ -23,6 +24,11 @@
 4. 연결: 주소 후보를 같이 걸어 먼저 handshake가 된 것을 쓴다. 끊기면 backoff(1초에서 30초)로 다시 붙는다. 앱이 뒤로 가면 다시 붙기를 멈추고 앞으로 오면 바로 붙는다. 붙을 때마다 마지막 `watch`를 다시 보낸다. `closed(credential_revoked)`를 받으면 그 컴퓨터를 "끊김, 다시 pairing"으로 표시한다.
 5. 연결을 `CoreSource` 모양으로 내놓는다. 상태는 `starting`, `ready`, `stale`이다.
 6. 연결 logic은 전송을 인자로 받아 Node에서 test한다.
+
+7. (lead가 더함) spike 화면(`App.tsx`의 WebView 둘, `src/spike.ts`)을 지우고 `App.tsx`를 pairing 화면과 컴퓨터 목록으로 바꾼다. WebView 자리는 mobile-remote가 채운다.
+8. (lead가 더함) `RandomSource`는 `expo-crypto`의 `getRandomValues`로 만든다. `packages/base`의 `cryptoRandom`은 Hermes에 전역 crypto가 없어 안 된다(spike 보고).
+9. (lead가 더함) `@lophn/protocol/remote/client`는 이 branch에 아직 없다(main에는 land됐다). spike가 만든 대역 `mobile/src/remote.ts`를 거쳐 import한다. 대역을 client.ts로 바꾸는 것은 mobile-remote가 한다.
+10. (lead가 더함) mobile-webview가 dependency를 더해 달라고 하면 lead가 알린다. 그 밖에 `package.json`을 고치는 것은 이 task뿐이다.
 
 ## 끝남
 

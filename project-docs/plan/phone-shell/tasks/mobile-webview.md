@@ -23,6 +23,10 @@ cache의 bundle만 내주고 다른 요청을 막는 WebView와, page와 껍데�
 4. WebView의 process가 죽으면 다시 띄운다.
 5. iOS 쪽 file은 만들지 않는다.
 
+6. (lead가 더함) origin은 `https://remote.lophn.invalid/`다(spike가 정함. custom scheme은 secure context가 아니어서 `crypto.randomUUID`가 없고, `addWebMessageListener`의 origin 규칙을 걸 수 없다). bridge의 origin 규칙은 그 origin 하나다.
+7. (lead가 더함) WebSocket은 `shouldInterceptRequest`에 오지 않는다. CSP `connect-src 'none'`이 막는다. Service Worker 요청 막기(`ServiceWorkerController`)는 spike가 못 봤다. 등록을 막거나 SW 요청도 같은 규칙으로 막고, emulator에서 확인해 보고에 적는다.
+8. (lead가 더함) spike의 시험 page(`modules/lophn-webview/android/src/main/assets/spike/`)는 이 task의 시험 page로 바꾸거나 지운다. emulator에서 시험 page를 띄우려고 `mobile/App.tsx`를 잠시 고쳐도 되지만 commit하지 않는다(`App.tsx`는 mobile-pairing 소유다). `mobile/package.json`에 dependency가 필요하면 고치지 말고 보고에 요청으로 적는다.
+
 ## 끝남
 
 - `mobile/`의 type 검사와 test가 통과한다.

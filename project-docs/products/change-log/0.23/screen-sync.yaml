@@ -1,5 +1,5 @@
 id: screen-sync
-version: 0.23.54
+version: 0.23.56
 title: 상태를 바꾸는 route가 바꾸는 것을 선언하고 core가 commit 뒤 StateChanged 하나를 내어 열린 화면이 다시 읽는다
 modules: [packages/protocol, packages/core/apps, packages/core/config, packages/core/jobs, packages/core/workflows, packages/core/main, packages/core/server, packages/core/storage, packages/shell/main, packages/shell/renderer, tools]
 checked: [boundary-catalog]

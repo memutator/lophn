@@ -38,8 +38,14 @@ export function CallPolicySection({
   const setting = useCoreRead(settingsList, {
     keys: [CALL_POLICY_SETTING_KEY],
   });
-  const projects = useCoreRead(projectApi.list, { status: "active" });
-  const apps = useCoreRead(appList, { status: "active" });
+  const projects = useCoreRead(projectApi.list, {
+    status: "active",
+    limit: Number.MAX_SAFE_INTEGER,
+  });
+  const apps = useCoreRead(appList, {
+    status: "active",
+    limit: Number.MAX_SAFE_INTEGER,
+  });
   const agents = useCoreRead(agentList, {});
   const view = useMemo(
     () =>

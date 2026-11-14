@@ -43,7 +43,9 @@ export function ShellRulesPanel({ source }: ShellRulesPanelProps) {
   const setting = useCoreRead(settingsList, {
     keys: [SHELL_RULES_SETTING_KEY],
   });
-  const projects = useCoreRead(projectApi.list, {});
+  const projects = useCoreRead(projectApi.list, {
+    limit: Number.MAX_SAFE_INTEGER,
+  });
   const loaded = useMemo(
     () =>
       bothLoaded(setting.loaded, projects.loaded, (value, listed) =>

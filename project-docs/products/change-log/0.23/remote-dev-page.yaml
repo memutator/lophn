@@ -1,5 +1,5 @@
 id: remote-dev-page
-version: 0.23.59
+version: 0.23.60
 title: npm run dev:remote가 개발 core에 pairing한 remote 화면 주소를 찍어 폰 앱 없이 browser로 연다
 modules: [packages/shell/renderer, tools]
 change: |

@@ -1,5 +1,5 @@
 id: remote-hardening
-version: 0.23.56
+version: 0.23.57
 title: 폰 연결이 받는 event를 좁히고, pairing 전 연결과 끊기·같은 이름 기기의 빈 곳을 막는다
 modules: [packages/protocol, packages/core/remote, packages/core/events, packages/core/config, packages/shell/renderer]
 change: |

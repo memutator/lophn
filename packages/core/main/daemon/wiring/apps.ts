@@ -328,7 +328,7 @@ export const appsWiring: WiringFactory = () => {
         newId: () => ids.newId("rwd") as Id<"rwd">,
       });
       const rewindReads = createRewindReads({ rewind });
-      // tray 값은 메모리에만 있다. 바뀌면 열린 창이 다시 읽게 Bus로 알린다.
+      // tray 값은 메모리에만 있다. 바뀐 것은 `app_tray.set`의 `changes`가 알린다.
       const tray = createTray({
         clock: ctx.clock,
         appStatus(app) {
@@ -336,14 +336,6 @@ export const appsWiring: WiringFactory = () => {
           return loaded.ok && loaded.value !== null
             ? loaded.value.status
             : null;
-        },
-        changed(app, at) {
-          ctx.peek.bus?.publish({
-            type: "AppTrayChanged",
-            subject: app,
-            at,
-            payload: { app },
-          } as BusEvent);
         },
       });
       // 앱 event: 전달(구독 앱의 handler를 앱 호출 경로로 부른다)과 앱의 발행. 발행 기록은 invocation과 같이 짧은 연결로 쓴다.

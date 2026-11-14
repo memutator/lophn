@@ -9,10 +9,8 @@ import { lophnIdAt } from "../agents/agent-key.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
 import type { AppsSource } from "../../apps/source.ts";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
-import {
-  useSessions,
-  useWorkflowChanges,
-} from "../../desktop/connection/events/hooks.tsx";
+import { useFollowedRead } from "../../desktop/connection/core-read.ts";
+import { useSessions } from "../../desktop/connection/events/hooks.tsx";
 import type { JobsSource } from "../../desktop/jobs/source.ts";
 import { CreateAppDialog } from "../../desktop/workspaces/create-app-dialog.tsx";
 import type { ProjectsSource } from "../../desktop/workspaces/projects/source.ts";
@@ -69,30 +67,33 @@ function useHumanTurnWorkflows(
 ): readonly string[] {
   // workspace를 옮기면 창의 마지막 값에서 시작한다.
   const [all, setAll] = useRemembered("workflows");
-  const [reads, setReads] = useState(0);
-  useEffect(() => {
-    if (project === null) return;
-    let live = true;
-    void source
-      .workflowInstances({ project, state: "running" })
-      .then((read) => {
-        if (!live || !read.ok) return;
-        const names = [
-          ...new Set(
-            read.value
-              .filter((item) => item.current?.human_turn === true)
-              .map((item) => item.workflow),
-          ),
-        ];
-        setAll((now) => new Map(now).set(project, names));
+  // 값에 project를 실어 project를 옮긴 직후 앞 project의 값이 새 project 자리에 들지 않게 한다.
+  const read = useFollowedRead(
+    async () => {
+      if (project === null) return { ok: true as const, value: null };
+      const listed = await source.workflowInstances({
+        project,
+        state: "running",
       });
-    return () => {
-      live = false;
-    };
-  }, [source, project, reads, setAll]);
-  useWorkflowChanges((_instance, payload) => {
-    if (payload.project === project) setReads((count) => count + 1);
-  });
+      return listed.ok
+        ? { ok: true as const, value: { project, items: listed.value } }
+        : listed;
+    },
+    ["workflow_instances"],
+    project ?? "",
+  ).loaded;
+  useEffect(() => {
+    if (read.state !== "ready" || read.value === null) return;
+    const { project: at, items } = read.value;
+    const names = [
+      ...new Set(
+        items
+          .filter((item) => item.current?.human_turn === true)
+          .map((item) => item.workflow),
+      ),
+    ];
+    setAll((now) => new Map(now).set(at, names));
+  }, [read, setAll]);
   return (project === null ? undefined : all.get(project)) ?? NO_WORKFLOWS;
 }
 

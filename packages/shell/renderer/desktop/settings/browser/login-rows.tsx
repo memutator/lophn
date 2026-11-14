@@ -1,6 +1,6 @@
 // Settings › Browser의 Logins 구역. site login(label, origin, username, note)을 더하고 고치고 지우고,
 // password와 TOTP seed는 보호 입력 창으로 넣는다. 값은 이 화면에 없고 있는지만 안다.
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { Dialog } from "@lophn/ui/overlay";
 import { Field, Input } from "@lophn/ui/input";
@@ -9,8 +9,11 @@ import { actionIcons } from "../../../icons/mod.ts";
 
 import { loginsList } from "../../../../../protocol/secrets/logins.ts";
 import { secretStatus } from "../../../../../protocol/secrets/secret-file.ts";
-import { useCoreRead } from "../../connection/core-read.ts";
-import { bothLoaded } from "../loaded.ts";
+import {
+  readRoute,
+  readsOf,
+  useFollowedRead,
+} from "../../connection/core-read.ts";
 import styles from "../settings.module.css";
 import type { BrowserSettingsSource, LoginForm, LoginRow } from "./source.ts";
 import { loginRowsOf } from "./window-source.ts";
@@ -26,12 +29,19 @@ function originOf(input: string): string | null {
 }
 
 export function LoginRows({ source }: { source: BrowserSettingsSource }) {
-  const logins = useCoreRead(loginsList, {});
-  const secrets = useCoreRead(secretStatus, {});
-  const loaded = useMemo(
-    () => bothLoaded(logins.loaded, secrets.loaded, loginRowsOf),
-    [logins.loaded, secrets.loaded],
-  );
+  const loaded = useFollowedRead<readonly LoginRow[]>(
+    async (core) => {
+      const [logins, secrets] = await Promise.all([
+        readRoute(core, loginsList, {}),
+        readRoute(core, secretStatus, {}),
+      ]);
+      return logins.ok && secrets.ok
+        ? { ok: true as const, value: loginRowsOf(logins.value, secrets.value) }
+        : { ok: false as const };
+    },
+    [...readsOf(loginsList, {}), ...readsOf(secretStatus, {})],
+    "",
+  ).loaded;
   // 고치는 줄의 id. 새로 더하는 줄은 "new"다.
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<LoginForm>(EMPTY);

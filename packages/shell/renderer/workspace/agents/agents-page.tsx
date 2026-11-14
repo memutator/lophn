@@ -11,7 +11,7 @@ import { t } from "@lophn/i18n";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import { useCommands } from "../../commands/react.tsx";
 import { useCardHead } from "../../shell/card-head.tsx";
-import { useFollowedRead } from "../../shell/use-left-sidebar.ts";
+import { useFollowedRead } from "../../desktop/connection/core-read.ts";
 import { commonIcons } from "../../icons/mod.ts";
 import { codingFaceOf } from "./coding-face.ts";
 import { AgentsTab } from "./agents-tab.tsx";

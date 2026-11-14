@@ -2,7 +2,6 @@ import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { atSchema } from "../base/values.ts";
 import { eventTypeSchema } from "../base/event.ts";
-import { workflowNameSchema } from "../workflows/values.ts";
 import { acpUpdatedPayloadSchema } from "../acp/routes.ts";
 import { noticeSchema } from "../apps/notice.ts";
 import { jsonValueSchema } from "../base/json-values.ts";
@@ -56,12 +55,6 @@ const appViewChanged = defineTransientEvent("AppViewChanged", {
 const appRemoved = defineTransientEvent("AppRemoved", {
   subject: idSchema("app"),
   payload: z.strictObject({}),
-});
-
-// core가 설정 파일 바뀜을 보고 낸다. 쓰는 요소가 값을 다시 읽는 신호다.
-const settingsChanged = defineTransientEvent("SettingsChanged", {
-  subject: z.null(),
-  payload: z.strictObject({ keys: z.array(z.string().min(1)) }),
 });
 
 // crash loop 기록이 commit된 뒤 core가 낸다. 사람에게 앱이 멈췄다고 알리는 toast만 듣는다.
@@ -138,12 +131,6 @@ const noticeRead = defineTransientEvent("NoticeRead", {
   payload: z.strictObject({ id: idSchema("ntc"), read_at: atSchema }),
 });
 
-// 앱의 tray 값이 바뀌거나 지워진 뒤 낸다. 값은 core 메모리에만 있어 화면은 `app_tray/list`로 다시 읽는다.
-const appTrayChanged = defineTransientEvent("AppTrayChanged", {
-  subject: idSchema("app"),
-  payload: z.strictObject({ app: idSchema("app") }),
-});
-
 // 앱(또는 core)이 event를 낸 뒤 낸다. 열린 앱 화면 가운데 구독을 선언한 화면이 받는다. 앱 process의 구독자는 core가 앱 호출로 직접
 // 부르므로 이 event를 거치지 않는다. subject는 발행한 앱이고 core가 낸 event(`source` `lophn`)면 null이다.
 // payload는 발행 앱이 선언한 schema를 통과한 값이다(저장하지 않는다).
@@ -157,26 +144,6 @@ const appEventPublished = defineTransientEvent("AppEventPublished", {
     // 이 앱들의 화면만 받는다. null이면 구독을 선언한 모든 화면이다(core가 내는 event는 앱이 볼 수 있는 것만 싣는다).
     audience: z.array(idSchema("app")).nullable(),
   }),
-});
-
-// instance 행이나 줄이 바뀐 command가 commit된 뒤 한 번 낸다. 화면과 artifact view가 다시 읽으라는 신호다.
-// CLI로 낸 report는 session event가 없어 화면이 알 길이 이것뿐이다. 정의 file이 바뀐 것은 알리지 않는다.
-const workflowInstanceChanged = defineTransientEvent(
-  "WorkflowInstanceChanged",
-  {
-    subject: idSchema("wfi"),
-    payload: z.strictObject({
-      project: idSchema("prj"),
-      workflow: workflowNameSchema,
-    }),
-  },
-);
-
-// job이나 job run이 바뀐 command가 commit된 뒤 낸다. 대기 목록과 job 화면이 다시 읽으라는 신호다.
-// run과 instance 줄은 지금의 session event와 WorkflowInstanceChanged 때 다시 읽으므로 따로 알리지 않는다.
-const jobChanged = defineTransientEvent("JobChanged", {
-  subject: idSchema("job"),
-  payload: z.strictObject({ job_run: idSchema("jbr").nullable() }),
 });
 
 // ACP 갱신 하나. envelope의 session이 구독 조건(`{session}`)에 걸린다. 화면은 그 session의 갱신을 `reduceAcp`로 접는다.
@@ -208,7 +175,6 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   }),
   transientEventEnvelopeSchema(appViewChanged),
   transientEventEnvelopeSchema(appRemoved),
-  transientEventEnvelopeSchema(settingsChanged),
   transientEventEnvelopeSchema(appRestartHalted),
   transientEventEnvelopeSchema(activationConsentRequested),
   transientEventEnvelopeSchema(activationConsentClosed),
@@ -217,9 +183,6 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(noticePosted),
   transientEventEnvelopeSchema(noticeClosed),
   transientEventEnvelopeSchema(noticeRead),
-  transientEventEnvelopeSchema(appTrayChanged),
   transientEventEnvelopeSchema(appEventPublished),
-  transientEventEnvelopeSchema(workflowInstanceChanged),
-  transientEventEnvelopeSchema(jobChanged),
   transientEventEnvelopeSchema(stateChanged),
 ]);

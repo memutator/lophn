@@ -1,5 +1,5 @@
-// 화면이 core를 읽는 공통 길. route의 `reads`에 맞는 `StateChanged`나 ready가 오면 다시 읽는다.
-// 끊기면 옛 값을 stale로 두고, 다시 붙어 ready가 오면 읽어 맞춘다.
+// 화면이 core를 읽는 공통 길. 읽기가 기대는 변경(`{name, id}` 목록)에 맞는 `StateChanged`나 ready가 오면 다시 읽는다.
+// 끊기면 옛 값을 stale로 두고, 다시 붙어 ready가 오면 읽어 맞춘다. route 하나든 여러 route를 엮은 읽기든 같은 길이다.
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { z } from "zod";
 
@@ -8,9 +8,14 @@ import type {
   ReadRoute,
   RouteRead,
 } from "../../../../protocol/base/route.ts";
+import type {
+  ChangeName,
+  StateChange,
+} from "../../../../protocol/events/changes.ts";
 import type { BusEvent } from "../../../../protocol/events/mod.ts";
+import type { CoreSource } from "./connection.ts";
 import type { EventClient } from "./events/client.ts";
-import { useEventClient } from "./events/hooks.tsx";
+import { useEventClient, useOptionalEventClient } from "./events/hooks.tsx";
 import { syncOnReady } from "./events/store.ts";
 
 export type Loaded<T> =
@@ -28,34 +33,64 @@ export interface ReadHandle<T> {
   reload(): void;
 }
 
+export type Read<T> = Promise<
+  { readonly ok: true; readonly value: T } | { readonly ok: false }
+>;
+
 type CoreReadRoute = ReadRoute | MemoryRoute;
 
-/** 일치 규칙: 이름이 같고, event의 id나 읽기의 id가 null이거나 둘이 같다. */
-export function readsChanged(
-  reads: readonly RouteRead[] | undefined,
+/** 따라갈 변경. 이름만 적으면 그 이름 전체다. */
+export type Watched = readonly (ChangeName | StateChange)[];
+
+/** route의 `reads`를 그 입력으로 푼다. id가 null이면 그 이름 전체를 따라간다. */
+export function readsOf(
+  route: { readonly reads?: readonly RouteRead[] },
   input: unknown,
-  event: BusEvent,
-): boolean {
-  if (event.type !== "StateChanged" || !reads) return false;
-  return reads.some((read) => {
-    const name = typeof read === "string" ? read : read.name;
-    const id = typeof read === "string" ? null : read.id(input);
+): StateChange[] {
+  return (route.reads ?? []).map((read) =>
+    typeof read === "string"
+      ? { name: read, id: null }
+      : { name: read.name, id: read.id(input) },
+  );
+}
+
+/** 일치 규칙: 이름이 같고, event의 id나 따라가는 id가 null이거나 둘이 같다. */
+export function readsChanged(watched: Watched, event: BusEvent): boolean {
+  if (event.type !== "StateChanged") return false;
+  return watched.some((item) => {
+    const read = typeof item === "string" ? { name: item, id: null } : item;
     return event.payload.changes.some(
       (change) =>
-        change.name === name &&
-        (change.id === null || id === null || change.id === id),
+        change.name === read.name &&
+        (change.id === null || read.id === null || change.id === read.id),
     );
   });
 }
 
+export async function readRoute<R extends CoreReadRoute>(
+  core: CoreSource,
+  route: R,
+  input: z.input<R["input"]>,
+): Read<z.output<R["output"]>> {
+  const reply = await core.call({
+    kind: route.kind,
+    resource: route.resource,
+    method: route.method,
+    body: input,
+  });
+  return reply.ok
+    ? { ok: true, value: reply.value as z.output<R["output"]> }
+    : { ok: false };
+}
+
 /**
- * route를 읽고 따라간다. 읽는 중에 맞는 변경이 여럿 와도 읽기가 끝난 뒤 한 번만 다시 읽는다.
+ * read를 부르고 따라간다. 읽는 중에 맞는 변경이 여럿 와도 읽기가 끝난 뒤 한 번만 다시 읽는다.
  * 반환의 stop이 구독을 푼다.
  */
-export function followCoreRead<T>(
+export function followRead<T>(
   client: EventClient,
-  route: CoreReadRoute,
-  input: unknown,
+  read: (core: CoreSource) => Read<T>,
+  watched: Watched,
   onLoaded: (loaded: Loaded<T>) => void,
   now: () => Date,
 ): { reload(): void; stop(): void } {
@@ -75,13 +110,10 @@ export function followCoreRead<T>(
 
   const handle = syncOnReady<T>({
     async read() {
-      const reply = await client.core.call({
-        kind: route.kind,
-        resource: route.resource,
-        method: route.method,
-        body: input,
-      });
-      if (reply.ok) return reply.value as T;
+      const result = await read(client.core).catch(
+        () => ({ ok: false }) as const,
+      );
+      if (result.ok) return result.value;
       if (last === null) show({ state: "failed" });
       else stale();
       return null;
@@ -91,7 +123,7 @@ export function followCoreRead<T>(
       show({ state: "ready", value, staleSince: null });
     },
     apply(event) {
-      if (readsChanged(route.reads, input, event)) again();
+      if (readsChanged(watched, event)) again();
     },
     onStatus(status) {
       reading = status === "syncing";
@@ -124,27 +156,47 @@ export function followCoreRead<T>(
   };
 }
 
+/** route 하나를 따라간다(hook 밖에서 쓰는 쪽). */
+export function followCoreRead<T>(
+  client: EventClient,
+  route: CoreReadRoute,
+  input: unknown,
+  onLoaded: (loaded: Loaded<T>) => void,
+  now: () => Date,
+): { reload(): void; stop(): void } {
+  return followRead(
+    client,
+    (core) => readRoute(core, route, input as never) as Read<T>,
+    readsOf(route, input),
+    onLoaded,
+    now,
+  );
+}
+
 /**
- * read route 하나를 읽고 `reads`에 맞는 변경과 다시 붙음에 다시 읽는다. input은 값으로 비교한다.
+ * read를 읽고 watched에 맞는 변경과 다시 붙음에 다시 읽는다. route 하나로 끝나지 않는 읽기(여러 route를 엮거나
+ * page를 끝까지 모으는 것)는 read 안에서 `readRoute`를 여럿 부르고 watched에 각 route의 `readsOf`를 모은다.
+ * 하나라도 처음 읽기가 실패하면 failed다. key가 바뀌면 처음부터 다시 읽는다. read는 마지막으로 준 것을 부른다.
  * EventsProvider 안에서만 쓴다.
  */
-export function useCoreRead<R extends CoreReadRoute>(
-  route: R,
-  input: z.input<R["input"]>,
-): ReadHandle<z.output<R["output"]>> {
+export function useFollowedRead<T>(
+  read: (core: CoreSource) => Read<T>,
+  watched: Watched,
+  key: string,
+): ReadHandle<T> {
   const client = useEventClient();
-  const [loaded, setLoaded] = useState<Loaded<z.output<R["output"]>>>({
-    state: "loading",
-  });
+  const latest = useRef(read);
+  latest.current = read;
+  const [loaded, setLoaded] = useState<Loaded<T>>({ state: "loading" });
   const follower = useRef<{ reload(): void } | null>(null);
-  const key = JSON.stringify(input ?? null);
+  const watchKey = JSON.stringify(watched);
 
   useEffect(() => {
     setLoaded({ state: "loading" });
-    const follow = followCoreRead<z.output<R["output"]>>(
+    const follow = followRead<T>(
       client,
-      route,
-      JSON.parse(key),
+      (core) => latest.current(core),
+      JSON.parse(watchKey) as Watched,
       setLoaded,
       () => new Date(),
     );
@@ -153,8 +205,48 @@ export function useCoreRead<R extends CoreReadRoute>(
       follower.current = null;
       follow.stop();
     };
-  }, [client, route, key]);
+  }, [client, key, watchKey]);
 
   const reload = useCallback(() => follower.current?.reload(), []);
   return { loaded, reload };
+}
+
+/**
+ * read route 하나를 읽고 `reads`에 맞는 변경과 다시 붙음에 다시 읽는다. input은 값으로 비교한다.
+ * EventsProvider 안에서만 쓴다.
+ */
+export function useCoreRead<R extends CoreReadRoute>(
+  route: R,
+  input: z.input<R["input"]>,
+): ReadHandle<z.output<R["output"]>> {
+  return useFollowedRead(
+    (core) => readRoute(core, route, input),
+    readsOf(route, input),
+    `${route.kind}:${route.resource}/${route.method}:${JSON.stringify(input ?? null)}`,
+  );
+}
+
+/**
+ * 값을 store에 두는 쪽(설정을 적용하는 자리)이 쓴다. ready와 watched에 맞는 변경에 listener를 부른다.
+ * EventsProvider 밖(event가 없는 화면)에서는 아무것도 하지 않는다.
+ */
+export function useStateChanged(watched: Watched, listener: () => void): void {
+  const client = useOptionalEventClient();
+  const latest = useRef(listener);
+  latest.current = listener;
+  const watchKey = JSON.stringify(watched);
+  useEffect(() => {
+    if (client === null) return;
+    const follow = followRead(
+      client,
+      () => {
+        latest.current();
+        return Promise.resolve({ ok: true, value: null });
+      },
+      JSON.parse(watchKey) as Watched,
+      () => {},
+      () => new Date(),
+    );
+    return () => follow.stop();
+  }, [client, watchKey]);
 }

@@ -1,7 +1,7 @@
-// app-detail이 core를 읽는 hook. route마다 `useCoreRead`로 읽어 그 route의 `reads`에 맞는 변경이 오면 다시 읽고,
-// 이 화면이 쓰는 모양(source.ts의 view type)으로 옮긴다. 호출 기록과 grant에 나온 다른 앱·agent·session 이름은
-// 목록마다 수가 달라 route로 따라가지 않고, 목록을 다시 읽을 때 한 번씩 읽는다.
-import { useEffect, useRef, useState } from "react";
+// app-detail이 core를 읽는 hook. 화면 값마다 route 여럿을 `useFollowedRead` 하나로 읽어 그 route들의 `reads`에 맞는
+// 변경이 오면 다시 읽고, 이 화면이 쓰는 모양(source.ts의 view type)으로 옮긴다. 호출 기록과 grant에 나온 다른 앱·agent·session
+// 이름은 목록마다 수가 달라 route로 따라가지 않고, 목록을 다시 읽을 때 한 번씩 읽는다.
+
 import type { z } from "zod";
 
 import {
@@ -30,15 +30,15 @@ import {
 } from "../../../../protocol/apps/declaration/read.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
-import type { ReadRoute } from "../../../../protocol/base/route.ts";
 import { secretStatus } from "../../../../protocol/secrets/secret-file.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
 import {
-  type Loaded,
   type ReadHandle,
+  readRoute,
+  readsOf,
   useCoreRead,
+  useFollowedRead,
 } from "../../desktop/connection/core-read.ts";
-import { useEventClient } from "../../desktop/connection/events/hooks.tsx";
 import {
   iconViewOf,
   type IconView,
@@ -71,90 +71,9 @@ const GRANT_LIMIT = 200;
 const ACTIVITY_LIMIT = 100;
 const NOTICE_LIMIT = 20;
 
-// ---- 읽기 묶기 ----
-
-type Values<R> = {
-  [K in keyof R]: R[K] extends ReadHandle<infer V> ? V : never;
-};
-
-/**
- * 여러 읽기를 화면 값 하나로 묶는다. 하나라도 처음 읽기가 실패하면 failed, 다 읽기 전에는 loading이다.
- * build가 이름을 더 읽는 동안은 앞 값을 그대로 둔다. stale이면 가장 이른 확인 시각을 보인다.
- */
-function useJoin<R extends readonly ReadHandle<unknown>[], T>(
-  reads: readonly [...R],
-  build: (...values: Values<R>) => T | Promise<T>,
-): ReadHandle<T> {
-  const states = reads.map((read) => read.loaded);
-  const ready = states.every((state) => state.state === "ready");
-  const [built, setBuilt] = useState<{ value: T } | null>(null);
-  const builder = useRef(build);
-  builder.current = build;
-
-  useEffect(() => {
-    if (!ready) return;
-    let live = true;
-    const values = states.map((state) =>
-      state.state === "ready" ? state.value : undefined,
-    ) as Values<R>;
-    void Promise.resolve(builder.current(...values)).then((value) => {
-      if (live) setBuilt({ value });
-    });
-    return () => {
-      live = false;
-    };
-    // 값이 바뀐 읽기가 있을 때만 다시 만든다. 읽기 수는 hook마다 고정이다.
-  }, [
-    ready,
-    ...states.map((state) => (state.state === "ready" ? state.value : null)),
-  ]);
-
-  let loaded: Loaded<T>;
-  if (built !== null) {
-    const stale = states
-      .flatMap((state) =>
-        state.state === "ready" && state.staleSince !== null
-          ? [state.staleSince]
-          : [],
-      )
-      .sort((a, b) => a.getTime() - b.getTime())[0];
-    loaded = { state: "ready", value: built.value, staleSince: stale ?? null };
-  } else if (states.some((state) => state.state === "failed")) {
-    loaded = { state: "failed" };
-  } else {
-    loaded = { state: "loading" };
-  }
-  return {
-    loaded,
-    reload: () => {
-      for (const read of reads) read.reload();
-    },
-  };
-}
-
-/** 못 읽어도 화면을 막지 않는 읽기. 실패는 null 값이다. */
-function optional<T>(read: ReadHandle<T>): ReadHandle<T | null> {
-  return read.loaded.state === "failed"
-    ? {
-        loaded: { state: "ready", value: null, staleSince: null },
-        reload: read.reload,
-      }
-    : read;
-}
-
-async function readOnce<R extends ReadRoute>(
-  core: CoreSource,
-  route: R,
-  input: z.input<R["input"]>,
-): Promise<z.output<R["output"]> | null> {
-  const reply = await core.call({
-    kind: route.kind,
-    resource: route.resource,
-    method: route.method,
-    body: input,
-  });
-  return reply.ok ? (reply.value as z.output<R["output"]>) : null;
-}
+// 못 읽어도 화면을 막지 않는 읽기의 값. 실패는 null이다.
+const valueOr = <T>(read: { ok: true; value: T } | { ok: false }) =>
+  read.ok ? read.value : null;
 
 /** 목록에 나온 이름들을 build 한 번 안에서 한 번만 읽는다. 못 읽으면 이름 없이 보인다. */
 function lookups(core: CoreSource) {
@@ -171,18 +90,21 @@ function lookups(core: CoreSource) {
     appName: (app: string) =>
       once(
         `app:${app}`,
-        async () => (await readOnce(core, appGet, { app }))?.app.name ?? null,
+        async () =>
+          valueOr(await readRoute(core, appGet, { app }))?.app.name ?? null,
       ),
     releaseNumber: (release: string) =>
       once(
         `release:${release}`,
         async () =>
-          (await readOnce(core, releasesGetRecord, { release }))?.release
-            ?.number ?? null,
+          valueOr(await readRoute(core, releasesGetRecord, { release }))
+            ?.release?.number ?? null,
       ),
     session: (session: string) =>
       once(`session:${session}`, async () => {
-        const read = await readOnce(core, workspaceSessionRead, { session });
+        const read = valueOr(
+          await readRoute(core, workspaceSessionRead, { session }),
+        );
         return read === null
           ? null
           : { agent: read.session.agent, title: read.session.title };
@@ -192,12 +114,12 @@ function lookups(core: CoreSource) {
       once(
         `agent:${agent}`,
         async () =>
-          (await readOnce(core, agentRead, { agent }))?.effective.name.value ??
-          null,
+          valueOr(await readRoute(core, agentRead, { agent }))?.effective.name
+            .value ?? null,
       ),
     tools: (app: string) =>
       once(`tools:${app}`, async () => {
-        const read = await readOnce(core, appTools, { app });
+        const read = valueOr(await readRoute(core, appTools, { app }));
         return new Map<string, Effect>(
           read === null
             ? []
@@ -209,24 +131,28 @@ function lookups(core: CoreSource) {
 
 type Names = ReturnType<typeof lookups>;
 
-function useNames(): () => Names {
-  const core = useEventClient().core;
-  return () => lookups(core);
-}
-
 // ---- Run, Icon, Folders ----
 
 export function useRunView(app: string): ReadHandle<RunView> {
-  return useJoin(
-    [useCoreRead(appGet, { app }), useCoreRead(appRuntime, { app })],
-    (found, runtime) => {
-      const { state, reason } = runtime.state;
+  return useFollowedRead<RunView>(
+    async (core) => {
+      const [found, runtime] = await Promise.all([
+        readRoute(core, appGet, { app }),
+        readRoute(core, appRuntime, { app }),
+      ]);
+      if (!found.ok || !runtime.ok) return { ok: false };
+      const { state, reason } = runtime.value.state;
       const shown: RunState =
         state === "unavailable" && reason?.code === "crash_loop"
           ? "halted"
           : (state as RunState);
-      return { enabled: found.app.run_enabled, state: shown };
+      return {
+        ok: true,
+        value: { enabled: found.value.app.run_enabled, state: shown },
+      };
     },
+    [...readsOf(appGet, { app }), ...readsOf(appRuntime, { app })],
+    app,
   );
 }
 
@@ -236,8 +162,18 @@ export function useIconView(app: string): IconView | null {
 }
 
 export function useFolders(app: string): ReadHandle<readonly string[]> {
-  return useJoin([useCoreRead(appGet, { app })], (found) =>
-    found.app.folders.map((folder) => folder.path),
+  return useFollowedRead<readonly string[]>(
+    async (core) => {
+      const found = await readRoute(core, appGet, { app });
+      return found.ok
+        ? {
+            ok: true,
+            value: found.value.app.folders.map((folder) => folder.path),
+          }
+        : found;
+    },
+    readsOf(appGet, { app }),
+    app,
   );
 }
 
@@ -337,26 +273,39 @@ function versionView(
 }
 
 export function useVersionView(app: string): ReadHandle<VersionView> {
-  return useJoin(
+  const releasesInput = { app, limit: RELEASE_LIMIT };
+  return useFollowedRead<VersionView>(
+    async (core) => {
+      const [releases, found, queue, sdk] = await Promise.all([
+        readRoute(core, releasesListRecords, releasesInput),
+        readRoute(core, appGet, { app }),
+        readRoute(core, activationsQueue, { app }),
+        readRoute(core, appSdkStatus, { app }),
+      ]);
+      if (!releases.ok || !found.ok || !queue.ok) return { ok: false };
+      return {
+        ok: true,
+        value: versionView(
+          releases.value.releases,
+          found.value.app.active_release,
+          queue.value.entries,
+          // SDK 상태를 못 읽어도 release 화면은 보인다.
+          valueOr(sdk)?.apps[0]?.sdks.map((entry) => ({
+            sdk: entry.sdk,
+            pinned: entry.pinned,
+            current: entry.current,
+            level: entry.level,
+          })) ?? [],
+        ),
+      };
+    },
     [
-      useCoreRead(releasesListRecords, { app, limit: RELEASE_LIMIT }),
-      useCoreRead(appGet, { app }),
-      useCoreRead(activationsQueue, { app }),
-      // SDK 상태를 못 읽어도 release 화면은 보인다.
-      optional(useCoreRead(appSdkStatus, { app })),
+      ...readsOf(releasesListRecords, releasesInput),
+      ...readsOf(appGet, { app }),
+      ...readsOf(activationsQueue, { app }),
+      ...readsOf(appSdkStatus, { app }),
     ],
-    (releases, found, queue, sdk) =>
-      versionView(
-        releases.releases,
-        found.app.active_release,
-        queue.entries,
-        sdk?.apps[0]?.sdks.map((entry) => ({
-          sdk: entry.sdk,
-          pinned: entry.pinned,
-          current: entry.current,
-          level: entry.level,
-        })) ?? [],
-      ),
+    app,
   );
 }
 
@@ -364,45 +313,61 @@ export function useVersionView(app: string): ReadHandle<VersionView> {
 export function useReleaseChanges(
   release: string,
 ): ReadHandle<ReleaseChanges | null> {
-  const names = useNames();
-  return useJoin(
-    [
-      useCoreRead(activationsCompare, { release }),
-      useCoreRead(releasesGetRecord, { release }),
-    ],
-    async (compared, record) => {
-      if (record.release === null) return null;
-      const comparison = compared.comparison;
-      const lookup = names();
-      const fromNumber =
-        comparison.previous_release === null
-          ? null
-          : await lookup.releaseNumber(comparison.previous_release);
-      const addedTools = await Promise.all(
-        comparison.added_tools.map(async (item) => ({
-          app: item.app,
-          appName: await lookup.appName(item.app),
-          tool: item.tool,
-        })),
-      );
+  return useFollowedRead<ReleaseChanges | null>(
+    async (core) => {
+      const [compared, record] = await Promise.all([
+        readRoute(core, activationsCompare, { release }),
+        readRoute(core, releasesGetRecord, { release }),
+      ]);
+      if (!compared.ok || !record.ok) return { ok: false };
       return {
-        fromNumber,
-        toNumber: record.release.number,
-        first: comparison.first,
-        addedResources: comparison.added_resources,
-        addedTools,
-        lossSteps: comparison.loss_steps.map((step) => ({
-          from: step.from,
-          to: step.to,
-          loss: step.loss.map((loss) => ({
-            kind: loss.kind,
-            table: loss.table,
-            column: loss.column ?? null,
-          })),
-        })),
+        ok: true,
+        value: await releaseChanges(core, compared.value, record.value),
       };
     },
+    [
+      ...readsOf(activationsCompare, { release }),
+      ...readsOf(releasesGetRecord, { release }),
+    ],
+    release,
   );
+}
+
+async function releaseChanges(
+  core: CoreSource,
+  compared: z.output<typeof activationsCompare.output>,
+  record: z.output<typeof releasesGetRecord.output>,
+): Promise<ReleaseChanges | null> {
+  if (record.release === null) return null;
+  const comparison = compared.comparison;
+  const lookup = lookups(core);
+  const fromNumber =
+    comparison.previous_release === null
+      ? null
+      : await lookup.releaseNumber(comparison.previous_release);
+  const addedTools = await Promise.all(
+    comparison.added_tools.map(async (item) => ({
+      app: item.app,
+      appName: await lookup.appName(item.app),
+      tool: item.tool,
+    })),
+  );
+  return {
+    fromNumber,
+    toNumber: record.release.number,
+    first: comparison.first,
+    addedResources: comparison.added_resources,
+    addedTools,
+    lossSteps: comparison.loss_steps.map((step) => ({
+      from: step.from,
+      to: step.to,
+      loss: step.loss.map((loss) => ({
+        kind: loss.kind,
+        table: loss.table,
+        column: loss.column ?? null,
+      })),
+    })),
+  };
 }
 
 // ---- Access ----
@@ -464,18 +429,25 @@ function resourceOf(grant: AppGrant, secret?: SecretInfo): ResourceRow | null {
 }
 
 export function useAccessView(app: string): ReadHandle<AccessView> {
-  const names = useNames();
-  return useJoin(
-    [
-      useCoreRead(appGrantsList, { app, limit: GRANT_LIMIT }),
-      // 이름을 주지 않으면 값이 든 secret 이름을 모두 준다. grant를 읽기 전에 물을 수 있다.
-      useCoreRead(secretStatus, {}),
-      // OAuth secret이 없는 앱도 읽는다. 못 읽으면 sign-in 줄이 처음 상태로 보인다.
-      optional(useCoreRead(appsOAuthState, { app })),
-      useCoreRead(appGet, { app }),
-    ],
-    async (listed, status, oauth, found) => {
-      const lookup = names();
+  const grantsInput = { app, limit: GRANT_LIMIT };
+  return useFollowedRead<AccessView>(
+    async (core) => {
+      const [listedRead, statusRead, oauthRead, foundRead] = await Promise.all([
+        readRoute(core, appGrantsList, grantsInput),
+        // 이름을 주지 않으면 값이 든 secret 이름을 모두 준다. grant를 읽기 전에 물을 수 있다.
+        readRoute(core, secretStatus, {}),
+        // OAuth secret이 없는 앱도 읽는다. 못 읽으면 sign-in 줄이 처음 상태로 보인다.
+        readRoute(core, appsOAuthState, { app }),
+        readRoute(core, appGet, { app }),
+      ]);
+      if (!listedRead.ok || !statusRead.ok || !foundRead.ok) {
+        return { ok: false };
+      }
+      const listed = listedRead.value;
+      const status = statusRead.value;
+      const oauth = valueOr(oauthRead);
+      const found = foundRead.value;
+      const lookup = lookups(core);
       const configured = new Set(
         status.secrets
           .filter((item) => item.configured)
@@ -518,8 +490,18 @@ export function useAccessView(app: string): ReadHandle<AccessView> {
           revoked: grant.status === "revoked",
         });
       }
-      return { appName: found.app.name, resources, appTools };
+      return {
+        ok: true,
+        value: { appName: found.app.name, resources, appTools },
+      };
     },
+    [
+      ...readsOf(appGrantsList, grantsInput),
+      ...readsOf(secretStatus, {}),
+      ...readsOf(appsOAuthState, { app }),
+      ...readsOf(appGet, { app }),
+    ],
+    app,
   );
 }
 
@@ -613,23 +595,29 @@ const nameOf = (operation: AppInvocation["operation"]) =>
     : null;
 
 export function useActivityView(app: string): ReadHandle<ActivityView> {
-  const names = useNames();
-  return useJoin(
-    [
-      useCoreRead(appInvocations, { app, mode: "live", limit: ACTIVITY_LIMIT }),
+  const invocationsInput = {
+    app,
+    mode: "live" as const,
+    limit: ACTIVITY_LIMIT,
+  };
+  const releasesInput = { app, limit: RELEASE_LIMIT };
+  const noticesInput = { app, persistent: true, limit: NOTICE_LIMIT };
+  return useFollowedRead<ActivityView>(
+    async (core) => {
+      const [invocationsRead, releasesRead, foundRead, historyRead] =
+        await Promise.all([
+          readRoute(core, appInvocations, invocationsInput),
+          readRoute(core, releasesListRecords, releasesInput),
+          readRoute(core, appGet, { app }),
+          readRoute(core, noticesList, noticesInput),
+        ]);
+      if (!invocationsRead.ok || !foundRead.ok) return { ok: false };
+      const invocations = invocationsRead.value;
       // release 번호를 못 읽어도 호출 기록은 보인다.
-      optional(useCoreRead(releasesListRecords, { app, limit: RELEASE_LIMIT })),
-      useCoreRead(appGet, { app }),
+      const releases = valueOr(releasesRead);
+      const found = foundRead.value;
       // 영구 기록을 못 읽어도 호출 기록은 보이게 비운다.
-      optional(
-        useCoreRead(noticesList, {
-          app,
-          persistent: true,
-          limit: NOTICE_LIMIT,
-        }),
-      ),
-    ],
-    async (invocations, releases, found, history) => {
+      const history = valueOr(historyRead);
       const active = found.app.active_release;
       const numbers = new Map(
         (releases?.releases ?? []).map((release) => [
@@ -637,7 +625,7 @@ export function useActivityView(app: string): ReadHandle<ActivityView> {
           release.number,
         ]),
       );
-      const lookup = names();
+      const lookup = lookups(core);
       const rows: ActivityRow[] = await Promise.all(
         invocations.invocations.map(async (invocation) => ({
           id: invocation.id,
@@ -676,8 +664,15 @@ export function useActivityView(app: string): ReadHandle<ActivityView> {
         at: row.created_at,
         unread: row.read_at === null,
       }));
-      return { rows, notices };
+      return { ok: true, value: { rows, notices } };
     },
+    [
+      ...readsOf(appInvocations, invocationsInput),
+      ...readsOf(releasesListRecords, releasesInput),
+      ...readsOf(appGet, { app }),
+      ...readsOf(noticesList, noticesInput),
+    ],
+    app,
   );
 }
 
@@ -693,11 +688,13 @@ export function useRewindPlan(
   app: string,
   from: string,
 ): ReadHandle<RewindPlanView> {
-  const names = useNames();
-  return useJoin(
-    [useCoreRead(appRewindPlan, { app, from_invocation: from })],
-    async ({ plan }) => {
-      const lookup = names();
+  const input = { app, from_invocation: from };
+  return useFollowedRead<RewindPlanView>(
+    async (core) => {
+      const read = await readRoute(core, appRewindPlan, input);
+      if (!read.ok) return read;
+      const { plan } = read.value;
+      const lookup = lookups(core);
       const items: RewindItem[] = await Promise.all(
         plan.items.map(async (item) => ({
           invocation: item.invocation,
@@ -716,13 +713,18 @@ export function useRewindPlan(
       );
       items.sort((a, b) => b.at.localeCompare(a.at));
       return {
-        from,
-        items,
-        blocked:
-          plan.blocked === null
-            ? null
-            : { invocation: plan.blocked.invocation },
+        ok: true,
+        value: {
+          from,
+          items,
+          blocked:
+            plan.blocked === null
+              ? null
+              : { invocation: plan.blocked.invocation },
+        },
       };
     },
+    readsOf(appRewindPlan, input),
+    `${app}\0${from}`,
   );
 }

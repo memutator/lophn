@@ -16,13 +16,11 @@ import {
 import { createLayoutSource } from "../shell/layout-source.ts";
 import { coreAgentsSource } from "./agents/core-source.ts";
 import { coreFileSearchSource } from "./search/core-source.ts";
-import type { RunRecordView } from "./sidebar/run-list.tsx";
 import type {
   FileOpResult,
   FileRow,
   ProjectView,
   ReadResult,
-  RunFilter,
   WorkflowEntryView,
   WorkflowInstanceFilter,
   WorkflowInstanceSummaryView,
@@ -52,11 +50,6 @@ interface ProjectGetValue {
 
 /** core가 주는 started_by. 제목은 화면이 `job.list`로 붙인다. */
 type RawStartedBy = { kind: "user" } | { kind: "job"; job: string };
-
-interface RunListValue {
-  runs: (Omit<RunRecordView, "job"> & { job: string | null })[];
-  next_cursor: string | null;
-}
 
 interface WorkflowListValue {
   workflows: (Omit<WorkflowEntryView, "invalid"> & {
@@ -364,43 +357,6 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
       fileOp((bridge) => bridge.writeBytes({ path, bytes })),
     trash: (path) => fileOp((bridge) => bridge.delete({ path })),
     reveal: (path) => fileOp((bridge) => bridge.reveal({ path })),
-
-    async runs(filter: RunFilter) {
-      const read = await collect<RunListValue["runs"][number]>(
-        core,
-        "runs",
-        "list",
-        { ...filter },
-        (value) => {
-          const page = value as RunListValue;
-          return { items: page.runs, next: page.next_cursor };
-        },
-      );
-      if (!read.ok) return read;
-      const titles = await titlesFor(
-        core,
-        read.value.map((run) => run.job),
-      );
-      return {
-        ok: true as const,
-        value: read.value.map((run): RunRecordView => {
-          const title = run.job === null ? undefined : titles.get(run.job);
-          return {
-            id: run.id,
-            kind: run.kind,
-            target: run.target,
-            session: run.session,
-            session_opened: run.session_opened,
-            state: run.state,
-            created_at: run.created_at,
-            job:
-              run.job === null || title === undefined
-                ? null
-                : { id: run.job, title },
-          };
-        }),
-      };
-    },
 
     async workflows(id) {
       const reply = await core.call({

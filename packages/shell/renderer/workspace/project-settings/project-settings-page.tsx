@@ -9,7 +9,7 @@ import { projectApi } from "../../../../protocol/projects/project-api.ts";
 import { useCoreRead } from "../../desktop/connection/core-read.ts";
 import { useQuickPrefs } from "../../desktop/settings/quick-launch/store.tsx";
 import type { QuickCommand, WorkspaceQuick } from "../../shell/desk-model.ts";
-import { projectItemOf } from "../../shell/use-left-sidebar.ts";
+import { projectItemOf } from "../../desktop/workspaces/projects/core-source.ts";
 import {
   AppPanelList,
   QuickCommandList,

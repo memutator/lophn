@@ -110,11 +110,11 @@ export const settingsList = defineMemory({
   actors: ["user", "agent", "app", "machine"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });
+// `changes`를 적지 않는다. 설정 store가 바뀐 key마다 `StateChanged`를 내므로 적으면 두 번 난다.
 export const settingsUpdate = defineMemory({
   resource: "settings",
   method: "update",
   name: "SettingsUpdate",
-  changes: ["settings"],
   input: settingsUpdateInputSchema,
   output: settingsUpdateOutputSchema,
   // agent는 locked가 아닌 설정만 바꾼다(handler가 거른다). 어느 agent가 닿는지는 credential 상한(명령의 workspaces)이 정한다.

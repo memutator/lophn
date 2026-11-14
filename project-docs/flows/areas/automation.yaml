@@ -17,10 +17,10 @@ flows:
       - "담당을 못 풀면 넘기지 않고 not_handed 줄만 남긴다. instance는 running 그대로다"
     outcomes:
       - id: handed
-        observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:StateChanged, response]
       - id: not-handed
         when: "instance는 만들었지만 첫 step을 넘기지 못함(unknown_participant, no_with, unresolved)"
-        observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:StateChanged, response]
       - id: not_found
         code: not_found
         when: "project, workflow 폴더, step 이름이 없음"
@@ -52,10 +52,10 @@ flows:
       - "띄우지 못하면 program_exited 줄(code null, 이유)을 남기고 instance를 ended로 닫는다. 끝은 workflow-flow-exit가 맡는다"
     outcomes:
       - id: running
-        observe: [ledger:workflow_instances, ledger:workflow_lines, "process:flow-host", event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_instances, ledger:workflow_lines, "process:flow-host", event:StateChanged, response]
       - id: launch-failed
         when: "process를 띄우지 못함(flow host가 없음, agent 이름을 못 풀음, SDK 설치 사본이나 link가 없음, log 폴더 준비 실패, spawn 실패, start를 쓰지 못함). 응답은 ended인 instance다"
-        observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response, screen:workflow-start-failed]
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:StateChanged, response, screen:workflow-start-failed]
       - id: invalid_input
         code: invalid_input
         when: "flow kind인데 step을 줌"
@@ -92,13 +92,13 @@ flows:
       - "Router가 err를 주면 tx 전체가 되돌아가 줄도 행도 남지 않는다"
     outcomes:
       - id: handed
-        observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:StateChanged, response]
       - id: not-handed
         when: "handoff가 있으나 담당을 못 풀거나 Router가 실패로 돌려줌(not_handed 줄)"
-        observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:StateChanged, response]
       - id: recorded
         when: "flow kind(handoff가 null). 넘기지 않는 started만 남는다"
-        observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:StateChanged, response]
       - id: conflict
         code: conflict
         when: "instance id가 이미 있음"
@@ -135,19 +135,19 @@ flows:
     outcomes:
       - id: handed
         when: "next가 step이고 그 담당에게 넘김"
-        observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_lines, ledger:workflow_instances, event:StateChanged, response]
       - id: not-handed
         when: "next step의 담당을 못 풀음(unknown_participant, no_with, unresolved)"
-        observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_lines, ledger:workflow_instances, event:StateChanged, response]
       - id: recorded
         when: "next가 없는 진행 글. 상태와 current는 그대로"
-        observe: [ledger:workflow_lines, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_lines, event:StateChanged, response]
       - id: ended
         when: "next가 end. running이었으면 ended로 닫힌다"
-        observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_lines, ledger:workflow_instances, event:StateChanged, response]
       - id: after-stop
         when: "instance가 stopped. 줄만 남고 handed는 null"
-        observe: [ledger:workflow_lines, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_lines, event:StateChanged, response]
       - id: not_found
         code: not_found
         when: "instance가 없음"
@@ -184,16 +184,16 @@ flows:
       - "edit 줄에 누가 어떤 입력으로 고쳤는지 남는다(by, detail)"
     outcomes:
       - id: edited
-        observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_lines, ledger:workflow_instances, event:StateChanged, response]
       - id: ended
         when: "op가 end. running이었으면 ended 줄을 남긴다"
-        observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_lines, ledger:workflow_instances, event:StateChanged, response]
       - id: handed
         when: "hand_now로 step 메시지를 넘김"
-        observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_lines, ledger:workflow_instances, event:StateChanged, response]
       - id: not-handed
         when: "hand_now의 step 담당을 못 풀음"
-        observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_lines, ledger:workflow_instances, event:StateChanged, response]
       - id: conflict
         code: conflict
         when: "instance가 stopped이거나 add_step의 이름이 이미 있음, 또는 state_seq가 3번 다시 읽어도 어긋남"
@@ -228,7 +228,7 @@ flows:
       - "멈춘 뒤 늦게 온 report와 program_exited는 줄만 남고 다시 running이 되지 않는다"
     outcomes:
       - id: stopped
-        observe: [ledger:workflow_instances, ledger:workflow_lines, ledger:runs, "process:flow-host", event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_instances, ledger:workflow_lines, ledger:runs, "process:flow-host", event:StateChanged, response]
       - id: conflict
         code: conflict
         when: "이미 stopped, 또는 state_seq가 3번 다시 읽어도 어긋남"
@@ -344,17 +344,17 @@ flows:
       - "machine 자격만 받는다. state_seq가 읽은 값과 다르면 conflict로 되돌린다(service가 다시 읽어 최대 3번 건다)"
       - "change(report, edit, stop, lophn_restarted, program_exited, flow_restarted)대로 줄을 쓰고 상태를 옮긴다. stopped면 넘기지 않는다"
       - "handoff가 있으면 Router에 넣고 handed나 not_handed 줄을 남긴다. Router가 err를 주면 tx 전체를 되돌린다"
-      - "commit 뒤 WorkflowInstanceChanged를 한 번 낸다"
+      - "commit 뒤 StateChanged(workflow_instances)를 한 번 낸다"
     outcomes:
       - id: applied
         when: "줄과 상태만 쓰고 넘기지 않음"
-        observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:StateChanged, response]
       - id: handed
         when: "넘김 성공"
-        observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:StateChanged, response]
       - id: not-handed
         when: "넘기려 했지만 담당을 풀지 못함"
-        observe: [ledger:workflow_instances, ledger:workflow_lines, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:StateChanged, response]
       - id: conflict
         code: conflict
         when: "state_seq가 바뀌었거나 stopped인데 edit·stop을 요청함"
@@ -393,9 +393,9 @@ flows:
       - "같은 step에 이미 lophn_restarted나 report가 있으면 다시 남기지 않는다. 상태와 current는 바꾸지 않는다"
     outcomes:
       - id: flow-closed
-        observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged]
+        observe: [ledger:workflow_lines, ledger:workflow_instances, event:StateChanged]
       - id: step-lost
-        observe: [ledger:workflow_lines, event:WorkflowInstanceChanged]
+        observe: [ledger:workflow_lines, event:StateChanged]
       - id: kept
         when: "turn이 끝났거나 도는 중이거나 이미 기록됨. 넘긴 줄이 없거나 step 메시지를 session에서 찾지 못해도 줄을 남기지 않는다"
         observe: [ledger:workflow_lines]
@@ -507,13 +507,13 @@ flows:
       - "step 이름이 선언에 있는지는 보지 않는다. 성공 응답은 result가 null이다"
     outcomes:
       - id: recorded
-        observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_lines, ledger:workflow_instances, event:StateChanged, response]
       - id: ended
         when: "next가 end이고 running이었음"
-        observe: [ledger:workflow_lines, ledger:workflow_instances, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_lines, ledger:workflow_instances, event:StateChanged, response]
       - id: late
         when: "instance가 stopped나 ended. 줄만 남는다"
-        observe: [ledger:workflow_lines, event:WorkflowInstanceChanged, response]
+        observe: [ledger:workflow_lines, event:StateChanged, response]
       - id: invalid_input
         code: invalid_input
         when: "report 칸이 틀림(step, text 8 KiB 초과 등). process는 살아 있음"
@@ -555,10 +555,10 @@ flows:
     outcomes:
       - id: ended
         when: "instance가 running. program_exited 줄을 남기고 ended로 닫는다"
-        observe: [ledger:workflow_lines, ledger:workflow_instances, ledger:runs, event:WorkflowInstanceChanged, "disk:flows/<instance>.log"]
+        observe: [ledger:workflow_lines, ledger:workflow_instances, ledger:runs, event:StateChanged, "disk:flows/<instance>.log"]
       - id: after-stop
         when: "instance가 이미 stopped나 ended. program_exited 줄만 남고 상태는 그대로"
-        observe: [ledger:workflow_lines, event:WorkflowInstanceChanged]
+        observe: [ledger:workflow_lines, event:StateChanged]
       - id: record-failed
         when: "program_exited 쓰기가 실패함(state_seq 3번 어긋남 등). 줄도 끝도 없이 running으로 남고 log에 program_exited failed가 남는다. 다음 켤 때 workflow-restart가 닫는다"
         observe: [ledger:workflow_instances, "disk:flows/<instance>.log"]
@@ -980,7 +980,7 @@ flows:
       - "job 행을 approved_at 없이 만든다. 다음 차례는 잡지 않는다(사람이 승인해야 돈다. event job은 승인해도 next_due_at이 늘 null이다)"
     outcomes:
       - id: created
-        observe: [ledger:jobs, event:JobChanged, response]
+        observe: [ledger:jobs, event:StateChanged, response]
       - id: invalid_input
         code: invalid_input
         when: "at이 d 단위 주기가 아님, schema를 읽을 수 없음, 때가 둘이거나 없음, event job에 at, 앱이 선언하지 않은 event나 쓸 수 없는 lophn event"
@@ -1017,7 +1017,7 @@ flows:
       - "승인 전 job이면 next_due_at은 null로 둔다. 할 일(action)은 바꾸지 못한다"
     outcomes:
       - id: updated
-        observe: [ledger:jobs, event:JobChanged, response, screen:jobs-tab-edit]
+        observe: [ledger:jobs, event:StateChanged, response, screen:jobs-tab-edit]
       - id: invalid_input
         code: invalid_input
         when: "at이 있는데 every가 d 단위가 아님, event job에 every나 at"
@@ -1053,10 +1053,10 @@ flows:
       - "agent는 자기가 만든 job만 지운다. 사람은 Jobs 탭에서 모든 job을 지운다"
       - "job 행과 그 job의 job run 기록을 같은 tx에서 지운다(FK 없이 command가 두 표를 지운다)"
       - "도는 run이나 instance는 끝까지 돈다. 지운 job이 남긴 run과 instance는 제목 없이 id만 보인다"
-      - "JobChanged를 낸다"
+      - "StateChanged(jobs)를 낸다"
     outcomes:
       - id: deleted
-        observe: [ledger:jobs, ledger:job_runs, event:JobChanged, response, screen:jobs-tab-delete]
+        observe: [ledger:jobs, ledger:job_runs, event:StateChanged, response, screen:jobs-tab-delete]
       - id: not_found
         code: not_found
         when: "job이 없거나 다른 agent가 만든 job"
@@ -1086,13 +1086,13 @@ flows:
       - "approved_at이 이미 있으면 conflict로 거절한다(승인도 거절도 한 번뿐)"
       - "approve면 approved_at을 적고, 켜져 있으면 지금부터 센 첫 차례를 next_due_at에 잡는다. 기다린 동안은 놓친 것으로 치지 않는다"
       - "reject면 job을 지운다. 응답의 job은 null이다"
-      - "JobChanged를 낸다"
+      - "StateChanged(jobs)를 낸다"
     outcomes:
       - id: approved
-        observe: [ledger:jobs, event:JobChanged, response]
+        observe: [ledger:jobs, event:StateChanged, response]
       - id: rejected
         when: "choice가 reject. job을 지운다"
-        observe: [ledger:jobs, event:JobChanged, response]
+        observe: [ledger:jobs, event:StateChanged, response]
       - id: conflict
         code: conflict
         when: "이미 승인된 job"
@@ -1142,7 +1142,7 @@ flows:
     steps:
       - "job.pending은 approved_at이 없는 job을 오래된 것부터 준다"
       - "job.holds는 held 줄을 그 job과 함께 준다"
-      - "화면은 둘을 같이 읽어 맞추고 JobChanged를 받으면 다시 읽는다"
+      - "화면은 둘을 같이 읽어 맞추고 StateChanged(jobs)를 받으면 다시 읽는다"
     outcomes:
       - id: ok
         observe: [response, screen:waiting-job-hold-kinds]
@@ -1190,12 +1190,12 @@ flows:
       - "held가 아닌 줄이면 conflict. 승인 전 job이거나 같은 job이 이미 도는 중이어도 conflict이고 줄은 held로 남는다"
       - "Skip이면 줄을 skipped(person)로 닫는다"
       - "Start now면 줄을 queued로 돌려 scheduler를 깨운다. 다음 바퀴가 시작한다(job-timer)"
-      - "JobChanged를 낸다"
+      - "StateChanged(jobs)를 낸다"
     outcomes:
       - id: run-now
-        observe: [ledger:job_runs, event:JobChanged, response]
+        observe: [ledger:job_runs, event:StateChanged, response]
       - id: skipped
-        observe: [ledger:job_runs, event:JobChanged, response]
+        observe: [ledger:job_runs, event:StateChanged, response]
       - id: conflict
         code: conflict
         when: "held 줄이 아니거나, 승인 전 job이거나, 같은 job이 도는 중"
@@ -1229,19 +1229,19 @@ flows:
     outcomes:
       - id: queued
         when: "차례가 queued 줄이 됨. 놓친 차례면 missed_count가 찬다"
-        observe: [ledger:job_runs, event:JobChanged, response]
+        observe: [ledger:job_runs, event:StateChanged, response]
       - id: skipped-overlap
         when: "앞 차례가 아직 돎"
-        observe: [ledger:job_runs, event:JobChanged, response]
+        observe: [ledger:job_runs, event:StateChanged, response]
       - id: held
         when: "놓친 차례 + hold 정책. 대기 목록에 card가 뜸"
-        observe: [ledger:job_runs, event:JobChanged, response]
+        observe: [ledger:job_runs, event:StateChanged, response]
       - id: held-again
         when: "이미 held 줄이 있어 같은 줄에 접음"
-        observe: [ledger:job_runs, event:JobChanged, response]
+        observe: [ledger:job_runs, event:StateChanged, response]
       - id: superseded
         when: "queued 줄이 생기면서 기다리던 held 줄을 닫음"
-        observe: [ledger:job_runs, event:JobChanged, response]
+        observe: [ledger:job_runs, event:StateChanged, response]
       - id: not-due
         when: "차례가 아직 안 왔거나, job이 꺼져 있거나, 승인 전이라 줄을 만들지 않음"
         observe: [response]
@@ -1272,7 +1272,7 @@ flows:
     outcomes:
       - id: fired
         when: "차례를 열었다(queued 줄)"
-        observe: [ledger:job_runs, ledger:jobs, event:JobChanged, response]
+        observe: [ledger:job_runs, ledger:jobs, event:StateChanged, response]
       - id: skipped-busy
         when: "앞 차례가 아직 돎. 건너뛰고 센다"
         observe: [ledger:jobs, response]
@@ -1306,9 +1306,9 @@ flows:
       - "꺼진 사이 온 차례는 모두 놓친 차례다. run 정책이면 한 번 돌리고(missed_count), hold 정책이면 held card를 올린다"
     outcomes:
       - id: interrupted
-        observe: [ledger:job_runs, event:JobChanged]
+        observe: [ledger:job_runs, event:StateChanged]
       - id: missed-counted
-        observe: [ledger:job_runs, event:JobChanged]
+        observe: [ledger:job_runs, event:StateChanged]
       - id: claim-failed
         when: "claim_due가 실패함. scheduler가 log:jobs에 남기고 60초 뒤 다시 한다. 성공할 때까지 다시 startup 바퀴다"
         observe: ["log:jobs"]
@@ -1332,10 +1332,10 @@ flows:
       - "다음 차례 시각에 timer를 건다(최소 1초, 최대 1분)"
     outcomes:
       - id: started
-        observe: [ledger:job_runs, ledger:runs, ledger:workflow_instances, ledger:workflow_lines, event:JobChanged, event:WorkflowInstanceChanged]
+        observe: [ledger:job_runs, ledger:runs, ledger:workflow_instances, ledger:workflow_lines, event:StateChanged]
       - id: failed
         when: "시작하지 못함(이름이 안 풀림, run 시작 실패, workflow 시작 conflict 등). job_run.ended로 failed를 적는다"
-        observe: [ledger:job_runs, event:JobChanged]
+        observe: [ledger:job_runs, event:StateChanged]
       - id: claim-failed
         when: "claim_due가 실패해 60초 뒤 다시 한다"
         observe: ["log:jobs"]
@@ -1357,7 +1357,7 @@ flows:
       - "running으로 바꾸고 run, instance, session id와 started_at을 적는다"
     outcomes:
       - id: running
-        observe: [ledger:job_runs, event:JobChanged, response]
+        observe: [ledger:job_runs, event:StateChanged, response]
       - id: conflict
         code: conflict
         when: "job run이 queued가 아님"
@@ -1388,11 +1388,11 @@ flows:
       - "입력의 state로 닫고 ended_at을 적는다. reason은 호출한 쪽이 준 값을 그대로 적는다(시작 실패의 `<code>: <message>`)"
     outcomes:
       - id: done
-        observe: [ledger:job_runs, event:JobChanged, response]
+        observe: [ledger:job_runs, event:StateChanged, response]
       - id: failed
-        observe: [ledger:job_runs, event:JobChanged, response]
+        observe: [ledger:job_runs, event:StateChanged, response]
       - id: cancelled
-        observe: [ledger:job_runs, event:JobChanged, response]
+        observe: [ledger:job_runs, event:StateChanged, response]
       - id: conflict
         code: conflict
         when: "job run이 이미 닫힘"
@@ -1435,13 +1435,13 @@ flows:
         observe: ["log:jobs"]
       - id: done
         when: "run이 done으로 끝남, 또는 workflow instance가 ended"
-        observe: [ledger:job_runs, event:JobChanged]
+        observe: [ledger:job_runs, event:StateChanged]
       - id: failed
         when: "run이 failed로 끝남. job run에는 reason을 적지 않고 run 기록에 error가 남는다"
-        observe: [ledger:job_runs, event:JobChanged]
+        observe: [ledger:job_runs, event:StateChanged]
       - id: cancelled
         when: "run이 cancelled로 끝남, 또는 workflow instance가 stopped"
-        observe: [ledger:job_runs, event:JobChanged]
+        observe: [ledger:job_runs, event:StateChanged]
       - id: left-open
         when: "WaitRun이 오류를 주거나(run이 없음 등) lophn이 꺼지는 중이라 기다림을 멈춤. 줄은 그대로 두고 다음 켤 때 job-startup이 닫는다"
         observe: [ledger:job_runs]

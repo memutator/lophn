@@ -22,12 +22,7 @@ import { catalogSource } from "../palette/core-catalog.ts";
 import type { SettingsPanels } from "../settings/settings-screen.tsx";
 import type { ProjectIconsDeps } from "../../parts/project-icon/project-icon.tsx";
 import type { SettingsSource } from "../settings/source.ts";
-import {
-  mockApps,
-  mockJobs,
-  mockSettings,
-  mockSettingsPanels,
-} from "./admin.ts";
+import { mockApps, mockJobs, mockSettingsScreen } from "./admin.ts";
 import type { JobsSource } from "../jobs/source.ts";
 import { mockAgentTabSource } from "./agent.ts";
 import { installMockGlobalFloats } from "./global-floats.ts";
@@ -83,6 +78,8 @@ export function devMock(
   const projects = mockProjects();
   const apps = mockApps();
   const agents = createFakeAgentsSource();
+  const settings = mockSettingsScreen();
+  const detail = mockAppDetail();
   installMockGlobalFloats();
   return {
     core: mockCore(),
@@ -118,17 +115,17 @@ export function devMock(
     catalog: catalogSource(projects, apps),
     projects,
     apps,
-    settings: mockSettings(),
-    settingsPanels: mockSettingsPanels(),
+    settings: settings.settings,
+    settingsPanels: settings.panels,
     quickPrefs: memoryQuickPrefsSource(),
     jobs: mockJobs(),
-    appDetail: mockAppDetail(),
+    appDetail: detail.source,
     views,
     annotate: fakeAnnotate(),
     appViews: mockAppViews(views),
     projectIcons: mockProjectIcons(),
     browser: fakeBrowserApi().api,
     agentViewSource: mockAgentTabSource(agents),
-    events: mockEvents(),
+    events: mockEvents(settings, detail),
   };
 }

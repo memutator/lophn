@@ -33,8 +33,6 @@ export interface InstalledFont {
 
 /** Appearance 화면은 값과 theme을 `settings/list`로 읽는다. values는 창 전체에 적용하는 쪽(main.tsx)이 쓴다. */
 export interface AppearanceSource {
-  /** core 연결 상태를 듣는다. 준비되면 적용하는 쪽이 다시 읽는다. 해제는 반환 함수다. */
-  watch(listener: (state: { readonly state: string }) => void): () => void;
   values(): Promise<SourceResult<AppearanceValues>>;
   /** 한 줄의 값을 정한다. 틀린 값이면 code가 거절 이유다. */
   choose(id: AppearanceId, value: string): Promise<SourceResult<null>>;

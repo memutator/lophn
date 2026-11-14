@@ -282,10 +282,6 @@ export function fakeJobs(options: Partial<FakeJobsOptions> = {}) {
     return Promise.resolve({ ok: true as const, value: null });
   };
   const source: JobsSource = {
-    watch(listener) {
-      listener({ state: "ready" });
-      return () => {};
-    },
     list() {
       calls.push(["list"]);
       return Promise.resolve({ ok: true, value: { jobs, names } });

@@ -1165,7 +1165,7 @@ flows:
       - "artifact는 폴더 전체를, 사람의 .html은 그 폴더 바로 아래만 감시한다"
       - "바뀐 것이 들어오면 150ms 동안 모아 한 번 reloadIgnoringCache 한다"
       - "health가 ok인 view만 다시 load한다. 깨진 view는 Try again으로만 살아난다"
-      - "workflow instance view는 WorkflowInstanceChanged를 받은 뒤 그 instance를 여는 guest만 다시 load한다"
+      - "workflow instance view는 StateChanged(workflow_instances)를 받은 뒤 그 instance를 여는 guest만 다시 load한다"
     outcomes:
       - id: reloaded
         observe: ["screen:artifact-tab"]

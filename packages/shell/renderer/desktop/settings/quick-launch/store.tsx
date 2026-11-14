@@ -10,7 +10,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { useSettingsChanged } from "../../connection/events/hooks.tsx";
+import { useStateChanged } from "../../connection/core-read.ts";
 import {
   DEFAULT_QUICK_PREFS,
   type QuickPrefs,
@@ -88,7 +88,7 @@ export function QuickPrefsProvider({
     [source],
   );
   useEffect(() => store?.start(), [store]);
-  useSettingsChanged(() => store?.reload());
+  useStateChanged(["settings"], () => store?.reload());
   return (
     <QuickPrefsContext.Provider value={store}>
       {children}

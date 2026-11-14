@@ -1,4 +1,5 @@
 import { err, ok } from "../../../../base/mod.ts";
+import { publishStateChanged } from "../../../../protocol/events/changes.ts";
 import { DIAGNOSTICS_TRACE_SETTING_KEY } from "../../../../protocol/diagnostics/trace.ts";
 import {
   settingsList,
@@ -51,12 +52,12 @@ export const configWiring: WiringFactory = () => {
         publish: (keys) => {
           // trace 설정은 log 기록기가 바로 따라야 해서 Bus 구독이 아니라 바뀐 자리에서 적용한다.
           if (keys.includes(DIAGNOSTICS_TRACE_SETTING_KEY)) applyTrace();
-          ctx.bus.publish({
-            type: "SettingsChanged",
-            subject: null,
-            at: ctx.clock.now(),
-            payload: { keys },
-          });
+          // route(`settings/update`), file watch, core 안 정리 모두 store를 거치므로 여기 한 곳에서 key마다 낸다.
+          publishStateChanged(
+            ctx.bus,
+            ctx.clock.now(),
+            keys.map((key) => ({ name: "settings", id: key })),
+          );
         },
         log: (message) =>
           ctx.telemetry.logger.warn({

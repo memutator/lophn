@@ -1,8 +1,7 @@
 // 왼쪽 sidebar가 읽는 값. workspace 목록(project와 app)과 session의 제목·시각이다.
 // session store는 제목과 시각을 싣지 않아 agent × workspace마다 대화 source의 session 목록에서 읽는다.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import type { ChangeName } from "../../../protocol/events/changes.ts";
 import { projectApi } from "../../../protocol/projects/project-api.ts";
 import { useAppList } from "../apps/app-list.ts";
 import type { AppRow } from "../apps/source.ts";
@@ -10,12 +9,11 @@ import type { AgentTabSourceFactory } from "../conversation/agent-tab-source.ts"
 import {
   type Loaded,
   type ReadHandle,
-  readsChanged,
   useCoreRead,
+  useFollowedRead,
 } from "../desktop/connection/core-read.ts";
-import { useEventClient } from "../desktop/connection/events/hooks.tsx";
 import type { SessionEntry } from "../desktop/connection/events/sessions-store.ts";
-import { syncOnReady } from "../desktop/connection/events/store.ts";
+import { projectItemOf } from "../desktop/workspaces/projects/core-source.ts";
 import type { ProjectItem } from "../desktop/workspaces/projects/source.ts";
 import { sessionOf } from "../workspace/agent/tab-fields.ts";
 import { harnessOf } from "../workspace/kinds/terminal.tsx";
@@ -34,88 +32,6 @@ import {
 import { sessionTitlesKey } from "./session-titles.ts";
 import { useRemembered } from "./sidebar-memory.tsx";
 
-type Read<T> = Promise<
-  { readonly ok: true; readonly value: T } | { readonly ok: false }
->;
-
-/**
- * route 하나로 끝나지 않는 읽기(여러 route를 엮거나 page를 끝까지 모으는 것)를 `useCoreRead`와 같은 규칙으로 따라간다:
- * ready와 이름이 맞는 `StateChanged`에 다시 읽고, 읽는 중에 온 것은 끝난 뒤 한 번만 다시 읽고, 끊기면 옛 값을 stale로 둔다.
- * key가 바뀌면 처음부터 다시 읽는다. EventsProvider 안에서만 쓴다.
- */
-export function useFollowedRead<T>(
-  read: () => Read<T>,
-  reads: readonly ChangeName[],
-  key: string,
-): ReadHandle<T> {
-  const client = useEventClient();
-  const latest = useRef(read);
-  latest.current = read;
-  const [loaded, setLoaded] = useState<Loaded<T>>({ state: "loading" });
-  const follower = useRef<(() => void) | null>(null);
-  const names = reads.join();
-
-  useEffect(() => {
-    const watched = names.split(",") as ChangeName[];
-    let last: { value: T; at: Date } | null = null;
-    let reading = false;
-    let dirty = false;
-    let stopped = false;
-    setLoaded({ state: "loading" });
-    const show = (next: Loaded<T>) => {
-      if (!stopped) setLoaded(next);
-    };
-    const stale = () => {
-      if (last !== null) {
-        show({ state: "ready", value: last.value, staleSince: last.at });
-      }
-    };
-    const handle = syncOnReady<T>({
-      async read() {
-        const result = await latest.current();
-        if (result.ok) return result.value;
-        if (last === null) show({ state: "failed" });
-        else stale();
-        return null;
-      },
-      replace(value) {
-        last = { value, at: new Date() };
-        show({ state: "ready", value, staleSince: null });
-      },
-      apply(event) {
-        if (readsChanged(watched, null, event)) again();
-      },
-      onStatus(status) {
-        reading = status === "syncing";
-        if (status === "synced") flush();
-        if (status === "disconnected") {
-          dirty = false;
-          stale();
-        }
-      },
-    });
-    function flush() {
-      if (!dirty || stopped) return;
-      dirty = false;
-      handle({ kind: "ready" });
-    }
-    function again() {
-      dirty = true;
-      if (!reading) flush();
-    }
-    follower.current = again;
-    const unsubscribe = client.subscribe({ types: ["StateChanged"] }, handle);
-    return () => {
-      stopped = true;
-      follower.current = null;
-      unsubscribe();
-    };
-  }, [client, key, names]);
-
-  const reload = useCallback(() => follower.current?.(), []);
-  return { loaded, reload };
-}
-
 // 목록 한 번에 모두 읽는다. 쓰는 화면이 보관한 것까지 가른다.
 const ALL = { limit: Number.MAX_SAFE_INTEGER };
 
@@ -133,33 +49,6 @@ export function useProjectList(): ReadHandle<readonly ProjectItem[]> {
     [read.loaded],
   );
   return { loaded, reload: read.reload };
-}
-
-/** project route의 기록을 화면 값으로 옮긴다. */
-export function projectItemOf(value: {
-  readonly id: string;
-  readonly title: string;
-  readonly purpose: string;
-  readonly revision: string;
-  readonly status: "active" | "archived";
-  readonly folders: readonly {
-    readonly path: string;
-    readonly description: string;
-    readonly found: boolean;
-  }[];
-}): ProjectItem {
-  return {
-    id: value.id,
-    title: value.title,
-    purpose: value.purpose,
-    revision: value.revision,
-    archived: value.status === "archived",
-    folders: value.folders.map((folder) => ({
-      path: folder.path,
-      description: folder.description,
-      found: folder.found,
-    })),
-  };
 }
 
 /** 보관하지 않은 project와 앱. 순서는 런처와 같다. 읽기 전에는 창의 마지막 값이다. */

@@ -10,7 +10,7 @@ import {
 // 앱 tray 값. 앱 process가 `@lophn/cap-notify`의 setTray로 내는 짧은 글과 tone이다. core는 앱마다 마지막 값을 메모리에만
 // 두고(lophn을 다시 켜면 사라진다. 앱이 시작할 때 다시 낸다) 저장하지 않는다. 앱은 입력에 없다. 앱 자식 credential이 고정한 앱이다.
 // 권한(`notify.send` grant)은 broker가 요청마다 판정하고, 이 route는 그 뒤에서 값만 바꾼다.
-// 남지 않는 event(`packages/protocol/events/transient.ts`): AppTrayChanged { app }.
+// 값이 바뀌면 `app_tray.set`의 `changes`대로 `StateChanged` `tray`가 난다.
 
 export const TRAY_TEXT_MAX = 16;
 export const trayToneSchema = z.enum(["neutral", "good", "warn", "bad"]);

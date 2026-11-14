@@ -193,8 +193,8 @@ flows:
       - "agent에게는 home workspace에서만 있는 명령이다. 다른 workspace의 agent는 credential 상한에 settings/update가 없다"
     outcomes:
       - id: changed
-        when: "값이 바뀌었다. 켜진 shell이 SettingsChanged를 받아 따라 적용한다"
-        observe: ["response", "event:SettingsChanged"]
+        when: "값이 바뀌었다. 켜진 shell이 StateChanged(settings)를 받아 따라 적용한다"
+        observe: ["response", "event:StateChanged"]
       - id: unchanged
         when: "같은 값을 set했거나 고른 값이 없는 설정을 unset했다"
         observe: ["response"]

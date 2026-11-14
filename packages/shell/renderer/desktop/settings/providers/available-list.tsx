@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from "react";
+import type { ReactNode } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { Dialog } from "@lophn/ui/overlay";
@@ -9,8 +9,12 @@ import {
   providerDefinitions,
   providerList,
 } from "../../../../../protocol/lophn-agent/providers.ts";
-import { type Loaded, useCoreRead } from "../../connection/core-read.ts";
-import { bothLoaded } from "../loaded.ts";
+import {
+  type Loaded,
+  readRoute,
+  readsOf,
+  useFollowedRead,
+} from "../../connection/core-read.ts";
 import { availableOf } from "./core-source.ts";
 import { ProviderName } from "./provider-name.tsx";
 import type { ProviderDefinitionRow } from "./settings-source.ts";
@@ -18,19 +22,27 @@ import styles from "./provider-list.module.css";
 
 /** Add a provider 목록. 연결된 provider가 바뀌면(다른 창에서도) 다시 읽는다. */
 export function useAvailable() {
-  const providers = useCoreRead(providerList, {});
-  const definitions = useCoreRead(providerDefinitions, {});
-  const available = useMemo(
-    () =>
-      bothLoaded(providers.loaded, definitions.loaded, (listed, defined) =>
-        availableOf(listed.providers, defined.definitions),
-      ),
-    [providers.loaded, definitions.loaded],
+  const { loaded: available, reload: retry } = useFollowedRead<
+    readonly ProviderDefinitionRow[]
+  >(
+    async (core) => {
+      const [listed, defined] = await Promise.all([
+        readRoute(core, providerList, {}),
+        readRoute(core, providerDefinitions, {}),
+      ]);
+      return listed.ok && defined.ok
+        ? {
+            ok: true as const,
+            value: availableOf(
+              listed.value.providers,
+              defined.value.definitions,
+            ),
+          }
+        : { ok: false as const };
+    },
+    [...readsOf(providerList, {}), ...readsOf(providerDefinitions, {})],
+    "",
   );
-  const retry = () => {
-    providers.reload();
-    definitions.reload();
-  };
   return { available, retry };
 }
 

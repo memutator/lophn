@@ -18,7 +18,6 @@ export type {
 export { createWorkflowReads } from "./reads.ts";
 export { workflowsNoHarnessKindSteps, workflowsSchemaSteps } from "./schema.ts";
 export { runningInstances } from "./store.ts";
-export { WORKFLOW_CHANGED_TOPIC } from "./commands.ts";
 export {
   createLedgerRegistration,
   createReaderRegistration,

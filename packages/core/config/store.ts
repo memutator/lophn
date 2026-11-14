@@ -82,7 +82,7 @@ export function createSettingsStore(options: {
   /** data root 폴더. 파일은 `<root>/settings.json`이다. */
   root: string;
   registry: SettingsRegistry;
-  /** 값이 달라진 key 목록을 알린다(Bus의 SettingsChanged). */
+  /** 값이 달라진 key 목록을 알린다(Bus의 `StateChanged` `settings`, id는 key). */
   publish: (keys: string[]) => void;
   log: (message: string) => void;
   timer?: SettingsTimer;

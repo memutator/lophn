@@ -45,7 +45,8 @@ const PAGE_LIMIT = 20;
 const NAME_ATTEMPTS = 5;
 const SLUG_MAX = 63;
 
-function projectItemOf(value: ProjectValue): ProjectItem {
+/** project route의 기록을 화면 값으로 옮긴다. */
+export function projectItemOf(value: ProjectValue): ProjectItem {
   return {
     id: value.id,
     title: value.title,

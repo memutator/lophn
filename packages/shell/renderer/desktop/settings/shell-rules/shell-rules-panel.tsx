@@ -1,6 +1,6 @@
 // Settings › Shell rules. 명령을 돌리기 전에 보는 규칙을 제품 기본(읽기만), 전역, project별로 보고
 // 고친다. 줄마다 바로 저장하고, 저장하지 못하면 그 줄에 오류를 보인다. pattern은 고치지 않고 지우고 다시 더한다.
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { Field, Input, Select } from "@lophn/ui/input";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
@@ -13,10 +13,13 @@ import {
 import { settingsList } from "../../../../../protocol/config/file.ts";
 import { projectApi } from "../../../../../protocol/projects/project-api.ts";
 import { actionIcons } from "../../../icons/mod.ts";
-import { useCoreRead } from "../../connection/core-read.ts";
+import {
+  readRoute,
+  readsOf,
+  useFollowedRead,
+} from "../../connection/core-read.ts";
 import { effectiveOf } from "../declared.ts";
 import { NamedControl } from "../general/named-control.tsx";
-import { bothLoaded } from "../loaded.ts";
 import styles from "../settings.module.css";
 import own from "./shell-rules.module.css";
 import { shellRulesViewOf } from "./core-source.ts";
@@ -39,22 +42,33 @@ const layerKey = (layer: ShellRuleLayer) =>
 const actionOptions = () =>
   ACTION_OPTIONS.map((one) => ({ value: one.value, label: t(one.label) }));
 
+const SETTING = { keys: [SHELL_RULES_SETTING_KEY] };
+const ALL_PROJECTS = { limit: Number.MAX_SAFE_INTEGER };
+
 export function ShellRulesPanel({ source }: ShellRulesPanelProps) {
-  const setting = useCoreRead(settingsList, {
-    keys: [SHELL_RULES_SETTING_KEY],
-  });
-  const projects = useCoreRead(projectApi.list, {
-    limit: Number.MAX_SAFE_INTEGER,
-  });
-  const loaded = useMemo(
-    () =>
-      bothLoaded(setting.loaded, projects.loaded, (value, listed) =>
-        shellRulesViewOf(
-          effectiveOf(value).get(SHELL_RULES_SETTING_KEY),
-          listed.projects,
-        ),
-      ),
-    [setting.loaded, projects.loaded],
+  const { loaded, reload } = useFollowedRead<
+    ReturnType<typeof shellRulesViewOf>
+  >(
+    async (core) => {
+      const [setting, projects] = await Promise.all([
+        readRoute(core, settingsList, SETTING),
+        readRoute(core, projectApi.list, ALL_PROJECTS),
+      ]);
+      return setting.ok && projects.ok
+        ? {
+            ok: true as const,
+            value: shellRulesViewOf(
+              effectiveOf(setting.value).get(SHELL_RULES_SETTING_KEY),
+              projects.value.projects,
+            ),
+          }
+        : { ok: false as const };
+    },
+    [
+      ...readsOf(settingsList, SETTING),
+      ...readsOf(projectApi.list, ALL_PROJECTS),
+    ],
+    "",
   );
   // 저장하지 못한 줄: `<층>:<줄 번호>` 또는 더하기 줄 `<층>:add`.
   const [failed, setFailed] = useState<string | null>(null);
@@ -77,10 +91,7 @@ export function ShellRulesPanel({ source }: ShellRulesPanelProps) {
     return (
       <ErrorState
         target={t("settings.label.shell-rules-target")}
-        onRetry={() => {
-          setting.reload();
-          projects.reload();
-        }}
+        onRetry={reload}
       />
     );
   }

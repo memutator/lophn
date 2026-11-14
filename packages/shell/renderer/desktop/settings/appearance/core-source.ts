@@ -74,8 +74,6 @@ export function coreAppearanceSource(
   appearance: AppearanceApi | undefined,
 ): AppearanceSource {
   return {
-    watch: (listener) => core.subscribe(listener),
-
     async values() {
       const read = await readEffective(core, APPEARANCE_KEYS);
       return read.ok

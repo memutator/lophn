@@ -21,8 +21,8 @@ import type { CoreSource } from "../../../../../packages/shell/renderer/desktop/
 import { APP_BUDGET } from "../../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
 import { openApp } from "../../../../../packages/shell/renderer/desktop/router.ts";
 import { fixedRuns } from "../../../mock/scenarios/orders-shop.ts";
+import { answering } from "../../../../../packages/shell/renderer/desktop/connection/events/fake-source.ts";
 import {
-  answering,
   fakePreview,
   runAnswers,
 } from "../../../mock/core-answers/sync-app-detail.ts";

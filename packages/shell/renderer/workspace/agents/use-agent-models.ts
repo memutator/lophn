@@ -1,5 +1,5 @@
 // model picker가 고르는 목록(provider, catalog, 켠 model). provider·model이 바뀌면 다시 읽는다.
-import { useFollowedRead } from "../../shell/use-left-sidebar.ts";
+import { useFollowedRead } from "../../desktop/connection/core-read.ts";
 import type { AgentsSource, ModelsView } from "./source.ts";
 
 /** 아직 못 읽었거나 읽지 못하면 null이다. */

@@ -16,10 +16,6 @@ export function fakeKeyboard(options: FakeKeyboardOptions = {}) {
   let value: StoredKeybindings = options.value ?? {};
   core.set(KEYBINDINGS_KEY, value);
   const source: KeyboardSource = {
-    watch(listener) {
-      listener({ state: "ready" });
-      return () => {};
-    },
     read: () => Promise.resolve({ ok: true, value }),
     write(next) {
       if (options.writeCode) {

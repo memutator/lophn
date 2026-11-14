@@ -102,8 +102,8 @@ const WAITING_CONDITION: EventCondition = {
     "NoticePosted",
     "NoticeClosed",
     "NoticeRead",
-    // session이 없는 event라 session 조건과 섞지 않고 types에만 건다.
-    "JobChanged",
+    // session이 없는 event라 session 조건과 섞지 않고 types에만 건다. job의 hold와 승인 대기는 `jobs` 변경에 다시 읽는다.
+    "StateChanged",
   ],
 };
 
@@ -342,9 +342,11 @@ export function createWaitingStore(
         notices.delete(event.payload.id);
         publish();
         return;
-      case "JobChanged":
+      case "StateChanged":
         // 어느 줄이 바뀌었는지 event에 없다. hold와 승인 대기를 다시 읽어 맞추고, 그 읽기가 publish한다.
-        void refreshJobs();
+        if (event.payload.changes.some((change) => change.name === "jobs")) {
+          void refreshJobs();
+        }
         return;
       default:
         return;

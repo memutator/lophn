@@ -1,19 +1,18 @@
 // Jobs 탭 본문. 모든 workspace의 job을 한곳에 모아 보이고, 켜고 끄기, 제목·주기·놓친 차례 정책
 // 고치기, 지우기, 줄마다 기록 펴기를 한다. job을 만드는 단추는 없다(agent가 만든다).
 // 쓰기는 바로 보내고, 성공해도 실패해도 목록을 다시 읽는다. 저장하지 못하면 탭 위쪽 toast로 알린다.
-import { useCallback, useRef, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { Dialog, Toast } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 import { actionIcons } from "../../icons/mod.ts";
 
-import { useJobChanges } from "../connection/events/hooks.tsx";
-import { useReload } from "../settings/use-reload.ts";
+import { useFollowedRead } from "../connection/core-read.ts";
 import { EditDialog } from "./edit-dialog.tsx";
 import { type History, JobLine } from "./job-line.tsx";
 import styles from "./jobs.module.css";
-import type { JobNames, JobsSource, JobView, SourceResult } from "./source.ts";
+import type { JobsSource, JobView, SourceResult } from "./source.ts";
 
 interface JobsPageProps {
   source: JobsSource;
@@ -21,64 +20,46 @@ interface JobsPageProps {
   onOpenProject: (project: string) => void;
 }
 
-type Loaded =
-  | { readonly state: "loading" }
-  | { readonly state: "failed" }
-  | {
-      readonly state: "ready";
-      readonly jobs: readonly JobView[];
-      readonly names: JobNames;
-    };
+/** 펼친 job의 기록. 그 job이 바뀌면(`jobs` 변경의 그 id) 다시 읽는다. */
+function OpenHistory({
+  source,
+  job,
+  children,
+}: {
+  source: JobsSource;
+  job: string;
+  children: (history: History) => ReactNode;
+}) {
+  const { loaded } = useFollowedRead(
+    () => source.runs(job),
+    [{ name: "jobs", id: job }],
+    job,
+  );
+  return children(loaded.state === "ready" ? loaded.value : loaded.state);
+}
 
 export function JobsPage({
   source,
   onOpenSession,
   onOpenProject,
 }: JobsPageProps) {
-  const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
-  const [histories, setHistories] = useState<Readonly<Record<string, History>>>(
-    {},
+  // 이름은 project·앱·agent 목록에서 푼다.
+  const { loaded, reload: load } = useFollowedRead(
+    () => source.list(),
+    ["jobs", "projects", "apps", "agents"],
+    "",
   );
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
   const [editing, setEditing] = useState<JobView | null>(null);
   const [deleting, setDeleting] = useState<JobView | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const loadRuns = useCallback(
-    (job: string) => {
-      void source.runs(job).then((read) => {
-        setHistories((now) =>
-          job in now ? { ...now, [job]: read.ok ? read.value : "failed" } : now,
-        );
-      });
-    },
-    [source],
-  );
-
-  const load = useCallback(() => {
-    void source.list().then((read) => {
-      setLoaded(
-        read.ok ? { state: "ready", ...read.value } : { state: "failed" },
-      );
+  const toggle = (job: string) =>
+    setOpen((now) => {
+      const next = new Set(now);
+      if (!next.delete(job)) next.add(job);
+      return next;
     });
-  }, [source]);
-  useReload(source, load);
-
-  // 열려 있는 job의 기록도 같이 다시 읽는다. 끊긴 사이 놓친 것은 처음 읽을 때와 다시 열 때 맞춘다.
-  const openJobs = useRef<string[]>([]);
-  openJobs.current = Object.keys(histories);
-  useJobChanges(() => {
-    load();
-    openJobs.current.forEach(loadRuns);
-  });
-
-  const toggle = (job: string) => {
-    if (job in histories) {
-      setHistories(({ [job]: _closed, ...rest }) => rest);
-      return;
-    }
-    setHistories((now) => ({ ...now, [job]: "loading" }));
-    loadRuns(job);
-  };
 
   // 성공해도 실패해도 다시 읽는다. not_found는 agent가 먼저 지운 것이라 알리지 않고 줄이 사라지게 둔다.
   async function write(sending: Promise<SourceResult<null>>, failure: string) {
@@ -88,18 +69,26 @@ export function JobsPage({
   }
 
   if (loaded.state === "failed") {
-    return (
-      <ErrorState
-        target={t("jobs.label.target")}
-        onRetry={() => {
-          setLoaded({ state: "loading" });
-          load();
-        }}
-      />
-    );
+    return <ErrorState target={t("jobs.label.target")} onRetry={load} />;
   }
-  const jobs = loaded.state === "ready" ? loaded.jobs : [];
-  const names = loaded.state === "ready" ? loaded.names : null;
+  const jobs = loaded.state === "ready" ? loaded.value.jobs : [];
+  const names = loaded.state === "ready" ? loaded.value.names : null;
+  const line = (job: JobView, history: History | undefined) => (
+    <JobLine
+      key={job.id}
+      job={job}
+      names={names!}
+      history={history}
+      onToggle={() => toggle(job.id)}
+      onEnabled={(enabled) =>
+        void write(source.setEnabled(job.id, enabled), t("jobs.error.save"))
+      }
+      onEdit={() => setEditing(job)}
+      onDelete={() => setDeleting(job)}
+      onOpenSession={onOpenSession}
+      onOpenProject={onOpenProject}
+    />
+  );
   return (
     <div className={styles.page} data-jobs="">
       <h1 className={styles.pageTitle}>{t("jobs.label.sidebar-tab")}</h1>
@@ -116,25 +105,15 @@ export function JobsPage({
               {t("jobs.empty.list")}
             </li>
           ) : (
-            jobs.map((job) => (
-              <JobLine
-                key={job.id}
-                job={job}
-                names={names!}
-                history={histories[job.id]}
-                onToggle={() => toggle(job.id)}
-                onEnabled={(enabled) =>
-                  void write(
-                    source.setEnabled(job.id, enabled),
-                    t("jobs.error.save"),
-                  )
-                }
-                onEdit={() => setEditing(job)}
-                onDelete={() => setDeleting(job)}
-                onOpenSession={onOpenSession}
-                onOpenProject={onOpenProject}
-              />
-            ))
+            jobs.map((job) =>
+              open.has(job.id) ? (
+                <OpenHistory key={job.id} source={source} job={job.id}>
+                  {(history) => line(job, history)}
+                </OpenHistory>
+              ) : (
+                line(job, undefined)
+              ),
+            )
           )}
         </ul>
       </Loading>

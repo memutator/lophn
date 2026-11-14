@@ -251,13 +251,13 @@ flows:
       - "앱 process의 setTray·clearTray는 broker가 notify.send grant와 live 자식을 먼저 본다(broker는 이 entry 밖)"
       - "core가 자격의 app을 본다. 없으면 not_found, 보관됐으면 conflict"
       - "text가 null이면 그 앱의 값을 지우고, 아니면 text·tone(기본 neutral)·시각으로 바꾼다. 메모리에만 둔다"
-      - "값이 바뀌었으니 AppTrayChanged { app }을 낸다(지우기도 낸다)"
+      - "값이 바뀌었으니 route의 changes대로 StateChanged(tray)가 난다(지우기도 난다)"
     outcomes:
       - id: set
-        observe: [event:AppTrayChanged, response]
+        observe: [event:StateChanged, response]
       - id: cleared
         when: "text가 null이라 그 앱의 값을 지웠다"
-        observe: [event:AppTrayChanged, response]
+        observe: [event:StateChanged, response]
       - id: not-found
         code: not_found
         when: "자격의 앱이 등록부에 없다"
@@ -298,7 +298,7 @@ flows:
     unclear:
       - "app_tray/list가 선언한 unavailable은 handler가 내지 않는다. 메모리 Map을 읽을 뿐 ledger·reader를 거치지 않는다(선언을 고칠 곳)"
       - "shell.tray_off와 shell.tray_order를 쓰는 설정 route는 models(config) area의 entry다. 이 flow는 읽기만 본다"
-      - "renderer가 AppTrayChanged와 ready에서 스스로 읽으므로 사람 click이 아니라 actor를 shell로 두었다. pre는 AND라 값이 있어야 하는 게 아니어서 뺐다"
+      - "renderer가 StateChanged(tray)와 ready에서 스스로 읽으므로 사람 click이 아니라 actor를 shell로 두었다. pre는 AND라 값이 있어야 하는 게 아니어서 뺐다"
 
   # ---- annotation: core route ----
   - id: annotation-persist

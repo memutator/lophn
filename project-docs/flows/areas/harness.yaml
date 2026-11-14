@@ -2106,7 +2106,7 @@ flows:
       - packages/shell/main/desktop/wiring/coding.ts
     steps:
       - "renderer가 모은 진단 event(이름, mode, 좌표, 개수)를 최대 500개 보낸다"
-      - "main이 core 설정 diagnostics.trace를 읽는다(SettingsChanged가 오면 다시 읽는다). 읽지 못하면 꺼진 것으로 본다"
+      - "main이 core 설정 diagnostics.trace를 읽는다(StateChanged(settings)가 오면 다시 읽는다). 읽지 못하면 꺼진 것으로 본다"
       - "켜져 있으면 main이 창 번호와 함께 logs/terminal-trace.jsonl에 덧붙인다. 10 MiB를 넘기 전에 terminal-trace.1.jsonl로 넘기고 둘만 남긴다. 쓰기 실패는 버린다"
       - "꺼져 있으면 아무것도 쓰지 않고 false를 돌려줘 renderer가 5초 동안 모으지 않는다. 그 뒤 다시 묻는다"
       - "친 글과 출력 내용은 싣지 않는다(비밀번호와 token이 지나간다)"

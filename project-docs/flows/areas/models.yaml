@@ -43,10 +43,10 @@ flows:
       - "쓰기 직전에 settings.json을 다시 읽는다. 못 읽거나 JSON이 아니면 unavailable이다. 그 raw object에서 바뀐 key만 덮는다. 선언을 지운 key나 모르는 key는 파일에 남는다. 항목 변경이 닿는 folder도 다시 읽는다"
       - "쓰려는 항목과 같은 이름의 file이 이미 있는데 읽지 못한 것이거나(JSON이 깨졌다 등) 대소문자만 다른 이름이면 거절한다. 256 KB를 넘는 항목도 거절한다. 변경을 모두 얹은 값으로 뜻 검사를 한다(없는 theme id, 모드가 다른 theme, 쓸 수 없는 theme, 모르는 단축키 id와 chord, 글꼴 이름). 하나라도 거절이면 아무것도 쓰지 않고 이유(message)와 함께 rejected로 돌려준다"
       - "쓰는 순서는 항목 쓰기, settings.json, 항목 지우기다. 항목은 `<root>/<folder>/<id>.json`을 임시 file과 rename으로 쓰고, unset은 그 file 하나를 지운다. settings.json은 덮은 내용이 파일과 같으면 쓰지 않고, 다르면 같은 폴더의 임시 파일(0600)에 쓰고 rename한다. 실패하면 unavailable이다"
-      - "값이 실제로 바뀐 key가 있을 때만 SettingsChanged를 낸다. 쓰되 알릴 것(theme의 버린 색, 모자란 대비)은 notes로 돌려준다"
+      - "값이 실제로 바뀐 key가 있을 때만 StateChanged(settings)를 낸다. 쓰되 알릴 것(theme의 버린 색, 모자란 대비)은 notes로 돌려준다"
     outcomes:
       - id: changed
-        observe: ["disk:<root>/settings.json", "disk:<root>/themes/<id>.json", "event:SettingsChanged", "response"]
+        observe: ["disk:<root>/settings.json", "disk:<root>/themes/<id>.json", "event:StateChanged", "response"]
         when: "선언에 맞는 값이 실제로 바뀐 key가 있다. event는 바뀐 key 목록을 싣는다. 항목을 쓰거나 지웠으면 그 file만 바뀐다. notes가 같이 올 수 있다"
       - id: unchanged
         when: "바꿀 값이 지금 값과 같다(없는 key를 unset한 것 포함). 파일을 쓰지 않는다"
@@ -90,19 +90,19 @@ flows:
       - "start에서 폴더 watch를 건다. 못 걸면 log만 남기고 신호를 받지 않는다"
       - "settings.json 신호는 100ms 묶음으로 한 번 다시 읽는다. 못 읽으면 log만 남기고 이전 값을 둔다. JSON이 깨졌거나 object가 아니면 이전 값을 두고 log만 남긴다"
       - "내용이 마지막으로 읽거나 쓴 것과 같으면 무시한다. 자기 쓰기가 여기다"
-      - "내용이 달라졌으면 선언에 맞는 값을 chosen과 견줘 값이 바뀐 key만 SettingsChanged로 낸다. 바뀐 key가 없으면 아무것도 내지 않는다"
+      - "내용이 달라졌으면 선언에 맞는 값을 chosen과 견줘 값이 바뀐 key만 StateChanged(settings)로 낸다. 바뀐 key가 없으면 아무것도 내지 않는다"
       - "folder 설정의 folder(`<root>/themes/`)는 없으면 만들고 `*.json`을 모두 읽는다. 이름이 id 규칙에 안 맞는 file, 256 KB를 넘는 file, JSON이 아닌 file, 모양이 틀린 file은 항목이 되지 않고 읽지 못한 file로 남는다. 고치거나 지우지 않는다"
-      - "그 folder의 신호도 100ms 묶음으로 다시 읽어, 달라진 항목의 key(`shell.themes.<id>`)를 SettingsChanged로 낸다. 읽지 못한 file 목록이 달라지면 folder key를 낸다"
+      - "그 folder의 신호도 100ms 묶음으로 다시 읽어, 달라진 항목의 key(`shell.themes.<id>`)를 StateChanged(settings)로 낸다. 읽지 못한 file 목록이 달라지면 folder key를 낸다"
     outcomes:
       - id: loaded
         when: "기동 때 읽어 chosen을 맞췄다. 밖으로 내는 것은 없다"
         observe: []
       - id: changed
         when: "watch가 읽은 내용에서 선언에 맞는 chosen 값이 바뀐 key가 있다"
-        observe: ["event:SettingsChanged"]
+        observe: ["event:StateChanged"]
       - id: entry-changed
         when: "folder의 file이 생기거나 바뀌거나 없어져 항목이 달라졌다(사람이 둔 file 포함). 읽지 못한 file 목록만 달라져도 folder key로 알린다"
-        observe: ["event:SettingsChanged"]
+        observe: ["event:StateChanged"]
       - id: same-text
         when: "읽은 내용이 마지막으로 읽거나 쓴 내용과 같다(자기 쓰기 포함). folder는 항목이 그대로다"
         observe: []

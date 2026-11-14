@@ -1,5 +1,5 @@
 // History(영구 기록) 읽기. 정본은 core의 `notices.list`다. 탭을 열 때와 거르기가 바뀔 때 첫 page를 읽고, [Load more]가 cursor로 잇는다.
-// 새 영구 줄(NoticePosted)은 첫 page를 다시 읽고, 읽음(NoticeRead)은 있는 줄만 고친다.
+// 새 영구 줄(NoticePosted)과 (다시) 붙음(ready)은 첫 page를 다시 읽고, 읽음(NoticeRead)은 있는 줄만 고친다.
 import { type DateRange, parseDay, resolveRange } from "@lophn/ui/input";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -158,6 +158,8 @@ export function useHistory(filter: HistoryFilter): History {
   useEffect(
     () =>
       client.subscribe({ types: ["NoticePosted", "NoticeRead"] }, (message) => {
+        // 다시 붙었다. 끊긴 동안 놓친 줄이 있을 수 있어 첫 page부터 다시 읽는다.
+        if (message.kind === "ready") setTick((n) => n + 1);
         if (message.kind !== "event") return;
         const event = message.event;
         if (event.type === "NoticePosted") {

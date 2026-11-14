@@ -103,10 +103,6 @@ export function fakeAppearance(options: FakeAppearanceOptions = {}) {
   };
   paint();
   const source: AppearanceSource = {
-    watch(listener) {
-      listener({ state: "ready" });
-      return () => {};
-    },
     values() {
       calls.push(["values"]);
       return Promise.resolve({ ok: true, value: values });

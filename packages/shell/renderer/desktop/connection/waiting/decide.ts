@@ -137,7 +137,7 @@ export async function decideWaiting(
 }
 
 /**
- * job의 놓친 차례를 정한다. 항목은 JobChanged 뒤 다시 읽을 때 빠진다. key는 누를 때마다 새로 만든다:
+ * job의 놓친 차례를 정한다. 항목은 `jobs` 변경 뒤 다시 읽을 때 빠진다. key는 누를 때마다 새로 만든다:
  * 같은 key는 core가 이전 결과를 돌려줘서, conflict로 막힌 뒤 앞 차례가 끝나고 다시 눌러도 옛 conflict가 온다.
  */
 export async function decideJobHold(
@@ -163,7 +163,7 @@ export async function decideJobHold(
     : UNAVAILABLE;
 }
 
-/** job 등록을 승인하거나 거절한다(거절은 job을 지운다). 항목은 JobChanged 뒤 다시 읽을 때 빠진다. */
+/** job 등록을 승인하거나 거절한다(거절은 job을 지운다). 항목은 `jobs` 변경 뒤 다시 읽을 때 빠진다. */
 export async function decideJobApproval(
   core: CoreSource,
   entry: WaitingEntry & { kind: "job_approval" },

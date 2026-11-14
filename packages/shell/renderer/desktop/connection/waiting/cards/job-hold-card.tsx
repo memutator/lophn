@@ -1,4 +1,4 @@
-// job이 놓친 차례. [Start now]나 [Skip]으로 정한다. 정한 항목은 JobChanged 뒤 목록을 다시 읽을 때 빠진다.
+// job이 놓친 차례. [Start now]나 [Skip]으로 정한다. 정한 항목은 `jobs` 변경 뒤 목록을 다시 읽을 때 빠진다.
 // 앞 차례가 아직 돌면 [Start now]가 conflict로 막히고 card는 남는다.
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";

@@ -1,12 +1,10 @@
 // 작업대가 읽는 통로. projects get·문서 목록 read 결과와
 // layout 저장·복원만 담는다.
 // core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
-import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { FileFailure } from "../../ipc/files.ts";
 import type { LayoutSource } from "../shell/layout-source.ts";
 import type { AgentsSource } from "./agents/source.ts";
 import type { FileSearchSource } from "./search/source.ts";
-import type { RunRecordView } from "./sidebar/run-list.tsx";
 
 /** 연결 폴더. */
 export interface ProjectFolderView {
@@ -41,12 +39,6 @@ export interface FileRow {
 export type FileOpResult =
   | { readonly ok: true }
   | { readonly ok: false; readonly code: FileFailure };
-
-/** `runs/list`의 거르기 칸. 같은 이름의 `ListRuns` 입력으로 간다. */
-export interface RunFilter {
-  readonly workspace?: { readonly project: string } | { readonly app: string };
-  readonly agent?: AgentId;
-}
 
 /** `workflows` 목록의 한 줄. 틀린 선언도 `invalid`로 남겨 자리를 잃지 않게 한다. workflow-shell의 desk selector도 읽는다. */
 export interface WorkflowEntryView {
@@ -254,8 +246,6 @@ export interface WorkspaceSource {
   readonly agentsSource?: AgentsSource;
   /** project 키워드 검색 통로. 없으면 Search 탭과 여는 길을 두지 않는다. */
   readonly searchSource?: FileSearchSource;
-  /** run 기록, 새것이 앞. project sidebar와 앱 공간이 읽는다. */
-  runs(filter: RunFilter): Promise<ReadResult<readonly RunRecordView[]>>;
   /** workflow 정의 목록. 틀린 선언도 이유와 함께 담긴다. 읽기 실패를 빈 목록으로 돌려주지 않는다. */
   workflows(project: string): Promise<ReadResult<readonly WorkflowEntryView[]>>;
   /** workflow instance 목록, 새것이 앞. */

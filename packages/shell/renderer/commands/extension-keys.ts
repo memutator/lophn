@@ -121,14 +121,16 @@ export function mountExtensionKeys(deps: {
 
   void load();
   const stop = deps.events?.subscribe(
-    { types: ["SettingsChanged"] },
+    { types: ["StateChanged"] },
     (message) => {
       if (
         message.kind === "ready" ||
         (message.kind === "event" &&
-          message.event.type === "SettingsChanged" &&
-          message.event.payload.keys.some((key) =>
-            key.startsWith("extensions."),
+          message.event.type === "StateChanged" &&
+          message.event.payload.changes.some(
+            (change) =>
+              change.name === "settings" &&
+              (change.id === null || change.id.startsWith("extensions.")),
           ))
       ) {
         void load();

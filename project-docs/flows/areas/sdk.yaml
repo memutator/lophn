@@ -189,10 +189,10 @@ flows:
     outcomes:
       - id: set
         when: "setTray로 값을 바꿨다"
-        observe: ["event:AppTrayChanged", "response"]
+        observe: ["event:StateChanged", "response"]
       - id: cleared
         when: "clearTray로 값을 지웠다"
-        observe: ["event:AppTrayChanged", "response"]
+        observe: ["event:StateChanged", "response"]
       - id: stand-in
         when: "preview나 test라 값을 바꾸지 않고 돌아왔다"
         observe: ["response"]

@@ -100,8 +100,6 @@ export type ServerSignInReason =
 
 /** 선언한 설정을 바꾸는 통로. 읽기는 화면이 `settings/list`를 useCoreRead로 한다. */
 export interface SettingsSource {
-  /** core 연결 상태를 듣는다. 해제는 반환 함수다. */
-  watch(listener: (state: { readonly state: string }) => void): () => void;
   /** 설정을 바꾼다. 틀린 값은 오류가 아니라 rejected에 이유와 함께 온다. */
   update(
     changes: readonly SettingChange[],

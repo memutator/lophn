@@ -1,17 +1,19 @@
 // Settings 화면 전체의 가짜 통로 묶음. 항목마다의 가짜 통로가 가짜 core 하나를 나눠 써서 쓰기가 같은 답을 바꾸고
 // StateChanged를 낸다. 쓰는 쪽(gallery, dev mock)은 core.answers로 fake Gateway를 만들고 core.attach로 잇는다.
 import type { Bookmark } from "../../../../ipc/browser.ts";
-import { fakeDiagnostics } from "../diagnostics/testdata/fake-source.ts";
+import { CUSTOM_PROVIDER } from "../../../workspace/agents/fake-source.ts";
 import { fakeAgents } from "../agents/testdata/fake-agents.ts";
 import type { AppearanceValues } from "../appearance/source.ts";
 import { fakeAppearance } from "../appearance/testdata/fake-source.ts";
 import type { Device, LinkValues, LoginRow } from "../browser/source.ts";
 import { fakeBrowserSettings } from "../browser/testdata/fake-source.ts";
 import { fakeConnections } from "../connections/testdata/fake-source.ts";
+import { fakeDiagnostics } from "../diagnostics/testdata/fake-source.ts";
 import { fakeExtensions } from "../extension-packages/testdata/fake-extensions.ts";
 import type { StoredKeybindings } from "../keyboard/source.ts";
 import { fakeKeyboard } from "../keyboard/testdata/fake-source.ts";
 import { fakeProviders } from "../providers/testdata/fake-providers.ts";
+import { fakeRemote } from "../remote/testdata/fake-source.ts";
 import type { SettingsPanels } from "../settings-screen.tsx";
 import {
   fakeShellRules,
@@ -20,7 +22,6 @@ import {
 import type { SettingsSource } from "../source.ts";
 import { type FakeCore, fakeCore } from "./fake-core.ts";
 import { declared, fakeSettings, SAMPLE_DECLARED } from "./fake-settings.ts";
-import { CUSTOM_PROVIDER } from "../../../workspace/agents/fake-source.ts";
 
 export interface FakeSettingsScreenOptions {
   /** 값이 비어 있는 필수 설정이 하나 있어 General 위에 안내가 뜬다. */
@@ -102,6 +103,7 @@ export function fakeSettingsScreen(
     coding: fakeConnections({ core }).source,
     browser: fakeBrowserSettings({ core, ...options.browser }).source,
     keyboard: fakeKeyboard({ core, value: options.keyboard }).source,
+    remote: fakeRemote().source,
   };
   return { core, settings, panels };
 }

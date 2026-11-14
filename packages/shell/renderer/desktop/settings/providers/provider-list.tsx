@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { Dialog } from "@lophn/ui/overlay";
@@ -10,8 +10,11 @@ import {
   useManageModels,
 } from "../../../conversation/model-picker/manage-context.ts";
 import { providerList } from "../../../../../protocol/lophn-agent/providers.ts";
-import { useCoreRead } from "../../connection/core-read.ts";
-import { mapLoaded } from "../loaded.ts";
+import {
+  readRoute,
+  readsOf,
+  useFollowedRead,
+} from "../../connection/core-read.ts";
 import { wayLabel } from "../model.ts";
 import { AvailableList, useAvailable } from "./available-list.tsx";
 import { ConnectDialog } from "./connect-dialog.tsx";
@@ -36,11 +39,15 @@ interface ProviderListProps {
 // ("N개 찾음" 또는 "목록 없음")가 그 줄 아래에 남고 [Manage models]나 [Add model]이 그 창을 연다.
 export function ProviderList({ source }: ProviderListProps): ReactNode {
   // 다른 창이나 core가 이은·끊은 provider도 바로 보인다. 다시 읽다 실패해도 보이던 목록은 그대로다.
-  const providers = useCoreRead(providerList, {});
-  const connected = useMemo(
-    () =>
-      mapLoaded(providers.loaded, (listed) => listed.providers.map(providerOf)),
-    [providers.loaded],
+  const { loaded: connected, reload: reloadConnected } = useFollowedRead(
+    async (core) => {
+      const listed = await readRoute(core, providerList, {});
+      return listed.ok
+        ? { ok: true as const, value: listed.value.providers.map(providerOf) }
+        : listed;
+    },
+    readsOf(providerList, {}),
+    "",
   );
   const { available, retry: retryAvailable } = useAvailable();
   const [failed, setFailed] = useState(false);
@@ -72,7 +79,7 @@ export function ProviderList({ source }: ProviderListProps): ReactNode {
         {connected.state === "failed" ? (
           <ErrorState
             target={t("settings.label.providers-target")}
-            onRetry={providers.reload}
+            onRetry={reloadConnected}
           />
         ) : (
           <Loading

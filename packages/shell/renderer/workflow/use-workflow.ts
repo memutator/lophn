@@ -1,9 +1,9 @@
 // workflow 탭이 source에서 읽고 쓰는 곳. 정의는 열릴 때와 [Refresh]에서, instance 목록과 고른 instance는 처음과
-// `WorkflowInstanceChanged`가 올 때와 시작·멈춤이 끝난 뒤에 다시 읽는다. 읽는 동안 앞 값을 두고, 읽기 실패는 앞 값을 지우지 않고 알린다.
+// `workflow_instances` 변경이 올 때와 시작·멈춤이 끝난 뒤에 다시 읽는다. 읽는 동안 앞 값을 두고, 읽기 실패는 앞 값을 지우지 않고 알린다.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { t } from "@lophn/i18n";
 
-import { useWorkflowChanges } from "../desktop/connection/events/hooks.tsx";
+import { useFollowedRead } from "../desktop/connection/core-read.ts";
 import type {
   WorkflowEntryView,
   WorkflowInstanceDetailView,
@@ -52,13 +52,8 @@ export function useWorkflow({
   const [definitions, setDefinitions] = useState<Definitions>({
     state: "loading",
   });
-  const [instances, setInstances] = useState<
-    readonly WorkflowInstanceSummaryView[] | null
-  >(null);
-  const [detail, setDetail] = useState<WorkflowInstanceDetailView | null>(null);
   const [notice, setNotice] = useState<WorkflowNotice | null>(null);
   const [definitionReads, setDefinitionReads] = useState(0);
-  const [reads, setReads] = useState(0);
   const haveDefinitions = useRef(false);
 
   const unreadable = useCallback(
@@ -91,38 +86,34 @@ export function useWorkflow({
     };
   }, [source, project, workflow, definitionReads, unreadable]);
 
+  // instance 이름은 project·workflow를 싣지 않아 어느 instance가 바뀌어도 목록을 다시 읽는다.
+  const instancesRead = useFollowedRead(
+    () => source.workflowInstances({ project, workflow }),
+    ["workflow_instances"],
+    `${project}\0${workflow}`,
+  );
+  const detailRead = useFollowedRead(
+    () =>
+      instance === null
+        ? Promise.resolve({ ok: true as const, value: null })
+        : source.workflowInstance(instance),
+    [{ name: "workflow_instances", id: instance }],
+    instance ?? "",
+  );
+  const failed =
+    instancesRead.loaded.state === "failed" ||
+    detailRead.loaded.state === "failed";
   useEffect(() => {
-    let live = true;
-    void source.workflowInstances({ project, workflow }).then((result) => {
-      if (!live) return;
-      if (result.ok) setInstances(result.value);
-      else unreadable(t("workflow.error.instances-failed"));
-    });
-    return () => {
-      live = false;
-    };
-  }, [source, project, workflow, reads, unreadable]);
-
-  useEffect(() => {
-    if (instance === null) return;
-    let live = true;
-    void source.workflowInstance(instance).then((result) => {
-      if (!live) return;
-      if (result.ok) setDetail(result.value);
-      else unreadable(t("workflow.error.instances-failed"));
-    });
-    return () => {
-      live = false;
-    };
-  }, [source, instance, reads, unreadable]);
-
-  useWorkflowChanges((changed, payload) => {
-    if (
-      (payload.project === project && payload.workflow === workflow) ||
-      changed === instance
-    )
-      setReads((count) => count + 1);
-  });
+    if (failed) unreadable(t("workflow.error.instances-failed"));
+  }, [failed, unreadable]);
+  const instances =
+    instancesRead.loaded.state === "ready" ? instancesRead.loaded.value : null;
+  const detail =
+    detailRead.loaded.state === "ready" ? detailRead.loaded.value : null;
+  const reload = () => {
+    instancesRead.reload();
+    detailRead.reload();
+  };
 
   const entry = definitions.state === "ready" ? definitions.entry : null;
   return {
@@ -135,7 +126,7 @@ export function useWorkflow({
     closeNotice: () => setNotice(null),
     refresh() {
       setDefinitionReads((count) => count + 1);
-      setReads((count) => count + 1);
+      reload();
     },
     async start(text, step) {
       if (entry === null) return false;
@@ -152,7 +143,7 @@ export function useWorkflow({
         return false;
       }
       setNotice(null);
-      setReads((count) => count + 1);
+      instancesRead.reload();
       onInstance(result.value.instance);
       return true;
     },
@@ -165,7 +156,7 @@ export function useWorkflow({
             body: t("workflow.error.stop-failed"),
           });
         }
-        setReads((count) => count + 1);
+        reload();
       });
     },
   };

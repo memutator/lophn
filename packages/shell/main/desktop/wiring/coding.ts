@@ -41,7 +41,12 @@ import {
 import { lophnCliPath } from "../paths.ts";
 import { createAgentWiring } from "./agent.ts";
 import { createBridgeWiring } from "./bridge.ts";
-import type { CallResult, Registered, ShellContext } from "./context.ts";
+import {
+  type CallResult,
+  changedIds,
+  type Registered,
+  type ShellContext,
+} from "./context.ts";
 import { type AppSessions, createNoticeWiring } from "./notice.ts";
 
 type CallSession = {
@@ -270,14 +275,15 @@ export function register(ctx: ShellContext, appSessions: AppSessions): Coding {
   const mockFolder =
     process.env.LOPHN_DEV_MOCK === "1" ? join(dataRoot, "mock-terminal") : null;
   // 터미널 진단 기록. 간헐적인 mouse·화면 문제는 재현이 어려워, Settings › Diagnostics의 trace를 켰을 때만 남긴다.
-  // 켬 여부는 core 설정을 처음 쓸 때 읽어 두고, 바뀌었다는 알림(SettingsChanged)이 오면 다시 읽는다. core를 읽지 못하면 꺼진 것으로 보고 다음에 다시 읽는다.
+  // 켬 여부는 core 설정을 처음 쓸 때 읽어 두고, 바뀌었다는 알림(`StateChanged`의 `settings`)이 오면 다시 읽는다. core를 읽지 못하면 꺼진 것으로 보고 다음에 다시 읽는다.
   const traceFile = createTraceFile(join(dataRoot, "logs"));
   let traceOn: boolean | undefined;
-  ctx.relay.conditions.push({ types: ["SettingsChanged"] });
+  ctx.relay.conditions.push({ types: ["StateChanged"] });
   ctx.relay.events.push((event) => {
     if (
-      event.type === "SettingsChanged" &&
-      event.payload.keys.includes(DIAGNOSTICS_TRACE_SETTING_KEY)
+      changedIds(event, "settings").some(
+        (key) => key === null || key === DIAGNOSTICS_TRACE_SETTING_KEY,
+      )
     ) {
       traceOn = undefined;
     }

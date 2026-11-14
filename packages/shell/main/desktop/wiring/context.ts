@@ -4,6 +4,7 @@ import { app, type BrowserWindow, ipcMain } from "electron";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
+import type { ChangeName } from "../../../../protocol/events/changes.ts";
 import type {
   BusEvent,
   EventCondition,
@@ -62,6 +63,18 @@ export type CoreRelay = {
   /** renderer로 가지 않는 main 전용 frame. 영역이 자기 type만 골라 쓴다. */
   frames: Array<(frame: { type: string }) => void>;
 };
+
+/** event가 `StateChanged`이고 그 이름의 변경이 있으면 바뀐 id들이다(null은 그 이름 전체). 아니면 빈 목록이다. */
+export function changedIds(
+  event: BusEvent,
+  name: ChangeName,
+): (string | null)[] {
+  return event.type === "StateChanged"
+    ? event.payload.changes
+        .filter((change) => change.name === name)
+        .map((change) => change.id)
+    : [];
+}
 
 /** 창이 열리고 닫힐 때 영역이 덧붙이는 반응. */
 type WindowHooks = {
@@ -166,10 +179,10 @@ export function createShellContext(): ShellContext {
   const settings = createShellSettings(() =>
     coreInternal("memory", "settings", "list", {}),
   );
-  relay.conditions.push({ types: ["SettingsChanged"] });
+  relay.conditions.push({ types: ["StateChanged"] });
   relay.ready.push(() => settings.refresh());
   relay.events.push((event) => {
-    if (event.type === "SettingsChanged") settings.refresh();
+    if (changedIds(event, "settings").length > 0) settings.refresh();
   });
 
   const windowStates = createWindowStateStore(dataRoot);

@@ -33,7 +33,6 @@ export function storedOf(
 
 export function coreKeyboardSource(core: CoreSource): KeyboardSource {
   return {
-    watch: (listener) => core.subscribe(listener),
     async read() {
       const read = await readEffective(core, [KEYBINDINGS_KEY]);
       return read.ok ? { ok: true, value: storedOf(read.value) } : read;

@@ -71,7 +71,7 @@ import { cliEnv, type TabGui, type TabHandle } from "../../terminal/gui.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import { packagedInstall } from "../paths.ts";
 import type { Coding } from "./coding.ts";
-import type { Registered, ShellContext } from "./context.ts";
+import { changedIds, type Registered, type ShellContext } from "./context.ts";
 
 const nodeFiles: ExtensionFiles = {
   read: (path) => readFile(path, "utf8").catch(() => null),
@@ -579,7 +579,7 @@ export function register(
     void syncReady().catch((cause) => ctx.log(`extensions: ${String(cause)}`));
 
   // 켜졌는지는 sync가 정한다. 탭의 `<harness> gui`와 toggle이 부른다. 이미 켜져 있으면 sync를 건너뛴다: 설정을 바꾸면
-  // SettingsChanged가 sync를 돌려 끄고, toggle마다 manifest와 설정과 tool 목록을 다시 읽는 것은 시간만 쓴다.
+  // 설정 변경(`StateChanged`의 `settings`)이 sync를 돌려 끄고, toggle마다 manifest와 설정과 tool 목록을 다시 읽는 것은 시간만 쓴다.
   coding.bindTabGui({
     async handlers() {
       if (tab() === undefined) {
@@ -639,11 +639,12 @@ export function register(
     },
   );
 
-  ctx.relay.conditions.push({ types: ["SettingsChanged"] });
+  ctx.relay.conditions.push({ types: ["StateChanged"] });
   ctx.relay.events.push((event) => {
     if (
-      event.type === "SettingsChanged" &&
-      event.payload.keys.some((key) => key.startsWith("extensions."))
+      changedIds(event, "settings").some(
+        (key) => key === null || key.startsWith("extensions."),
+      )
     ) {
       sync();
     }

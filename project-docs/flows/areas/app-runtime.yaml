@@ -1869,14 +1869,14 @@ flows:
       - "앱의 notify나 setTray가 broker의 notify/send나 notify/tray에 보낸다. 입력 모양을 먼저 검사한다(schema)."
       - "운영 자식이고 release가 지금 release와 같아야 한다. 현재 선언 ∩ grant에 notify.send가 있어야 한다. 아니면 forbidden이다. 현재 범위를 읽지 못하면 access-unavailable이다."
       - "알림은 core notices.post를, tray는 app_tray.set을 그 자식의 app credential로 부른다. 앱은 내용만 정하고 앱 이름은 자식 연결이 정한다. tray는 notify.send 허락을 같이 쓴다."
-      - "같은 key의 알림은 기존 것을 바꾸고 안 읽음으로 되돌린다. 앱마다 상한을 넘으면 가장 오래된 알림을 지우고 NoticeClosed를 보낸다. tray 값이 null이면 tray를 비운다. AppTrayChanged는 둘 다 보낸다(tray 값은 메모리에만 있다)."
+      - "같은 key의 알림은 기존 것을 바꾸고 안 읽음으로 되돌린다. 앱마다 상한을 넘으면 가장 오래된 알림을 지우고 NoticeClosed를 보낸다. tray 값이 null이면 tray를 비운다. StateChanged(tray)는 둘 다 보낸다(tray 값은 메모리에만 있다)."
       - "받는 쪽은 사람뿐이다. agent나 core 로직에 사실을 보내는 길이 아니다."
     outcomes:
       - id: notified
         observe: ["event:NoticePosted", "ledger:notices"]
       - id: tray-set
         when: "tray 값을 정하거나 지움(null)"
-        observe: ["event:AppTrayChanged"]
+        observe: ["event:StateChanged"]
       - id: refused
         code: forbidden
         when: "notify.send 허락이 없음, 운영 자식이 아님(preview나 release 없음), 자식 release가 현재 release와 다름, active release가 없음, 현재 범위를 모름"

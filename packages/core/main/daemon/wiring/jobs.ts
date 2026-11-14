@@ -18,7 +18,6 @@ import {
   JOBS_CHANGED_TOPIC,
   type JobSchedulerStore,
   type JobStarter,
-  type JobsChangedData,
 } from "../../../jobs/mod.ts";
 import { createJobScheduler } from "../../../jobs/scheduler.ts";
 import { type RunOrigin, systemTimers } from "../../../runs/mod.ts";
@@ -283,23 +282,14 @@ export const jobsWiring: WiringFactory = () => {
 
       return ok({
         // job을 만들거나 켜거나 hold를 결정하면 다음 차례 시각이 바뀌므로 timer를 다시 건다.
+        // 화면에 알리는 것은 job command의 `changes`(`jobs`)다.
         writer: (inner) =>
           withAfterCommit(
             inner,
             (actions) => {
-              let changed = false;
-              for (const action of actions) {
-                if (action.topic !== JOBS_CHANGED_TOPIC) continue;
-                const data = action.data as JobsChangedData;
-                changed = true;
-                ctx.bus.publish({
-                  type: "JobChanged",
-                  subject: data.job,
-                  at: ctx.clock.now(),
-                  payload: { job_run: data.job_run },
-                });
-              }
-              if (changed) {
+              if (
+                actions.some((action) => action.topic === JOBS_CHANGED_TOPIC)
+              ) {
                 void refreshTriggers();
                 built.wake();
               }

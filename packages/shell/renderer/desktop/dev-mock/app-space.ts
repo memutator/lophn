@@ -2,7 +2,6 @@
 // 화면은 main의 view 대신 창의 <webview> 그릇이 그린다. mock 창에는 앱 page가 없으므로 state의 src는
 // about:blank이고, webviewTag가 없는 환경에서는 그릇이 빈 자리(div)를 그린다.
 import { fakeDetail } from "../../app-frame/app-detail/testdata/fake-source.ts";
-import type { AppDetailSource } from "../../app-frame/app-detail/source.ts";
 import type {
   AppFrameViewState,
   LophnShellViewsApi,
@@ -10,10 +9,11 @@ import type {
 import type { AppViewsDeps } from "../../app-frame/app-views.tsx";
 import { APP_BUDGET, APP_PLANNER } from "./ids.ts";
 
-export function mockAppDetail(): AppDetailSource {
+/** 앱 상세. 화면이 읽는 route의 답(answers)은 mock event 연결이 받는다. */
+export function mockAppDetail(): ReturnType<typeof fakeDetail> {
   return fakeDetail({
     names: { [APP_PLANNER]: "Meal planner", [APP_BUDGET]: "Grocery budget" },
-  }).source;
+  });
 }
 
 /** 가짜 앱 view. 열면 running으로 답하고 state를 민다. 앱 프로세스는 없고 아무 core·파일에도 닿지 않는다. */

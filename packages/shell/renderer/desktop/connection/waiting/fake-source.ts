@@ -755,10 +755,10 @@ export function createFakeWaiting(
         if (!job) return fail("not_found");
         pending = pending.filter((one) => one !== job);
         emitEvent(base, {
-          type: "JobChanged",
-          subject: job.id,
+          type: "StateChanged",
+          subject: null,
           at: at(),
-          payload: { job_run: null },
+          payload: { changes: [{ name: "jobs", id: job.id }] },
         });
         return ok({
           job:
@@ -774,10 +774,10 @@ export function createFakeWaiting(
         }
         holds = holds.filter((h) => h !== hold);
         emitEvent(base, {
-          type: "JobChanged",
-          subject: hold.job.id,
+          type: "StateChanged",
+          subject: null,
           at: at(),
-          payload: { job_run: hold.job_run.id },
+          payload: { changes: [{ name: "jobs", id: hold.job.id }] },
         });
         return ok({ job_run: hold.job_run });
       }

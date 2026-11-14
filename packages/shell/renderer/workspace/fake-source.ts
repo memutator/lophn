@@ -5,7 +5,6 @@ import {
   fakeWorkspaceLayoutBridge,
 } from "../shell/layout-source.ts";
 import { fakeFileSearchSource } from "./search/fake-source.ts";
-import type { RunRecordView } from "./sidebar/run-list.tsx";
 import type {
   FolderEntry,
   ProjectFolderView,
@@ -950,8 +949,6 @@ interface FakeWorkspaceOptions {
   readonly missing?: readonly string[];
   /** 읽기에 실패하는 폴더 경로. */
   readonly failing?: readonly string[];
-  /** run 기록. 거르지 않고 그대로 돌려준다. 기본은 빈 목록이다. */
-  readonly runs?: readonly RunRecordView[];
   /** workflow 정의 목록. project와 상관없이 그대로 돌려준다. 기본은 FAKE_WORKFLOWS다. */
   readonly workflows?: readonly WorkflowEntryView[];
   /** workflow instance. 새것이 앞. 기본은 FAKE_WORKFLOW_INSTANCES다. */
@@ -1133,7 +1130,6 @@ export function fakeWorkspaceSource(
       return done;
     },
     reveal: () => done,
-    runs: () => Promise.resolve({ ok: true, value: options.runs ?? [] }),
     workflows: () =>
       Promise.resolve({ ok: true, value: options.workflows ?? FAKE_WORKFLOWS }),
     workflowInstances: (filter) =>

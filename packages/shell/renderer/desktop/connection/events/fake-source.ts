@@ -27,6 +27,7 @@ import type {
   MemoryRoute,
   ReadRoute,
 } from "../../../../../protocol/base/route.ts";
+import type { StateChange } from "../../../../../protocol/events/changes.ts";
 import type { ConnectionState, CoreSource } from "../connection.ts";
 
 /** route 하나의 답. gallery가 `fakeAnswer`로 만들어 snapshot의 answers에 넣는다. */
@@ -197,4 +198,50 @@ export function createFakeSource(initial: FakeSnapshot = EMPTY): FakeSource {
     },
     watched: () => conditions,
   };
+}
+
+/** fake 쓰기가 바뀐 것을 알리는 구독. 해제는 반환 함수다. */
+export type StateChanges = (
+  listener: (changes: StateChange[]) => void,
+) => () => void;
+
+/** answers를 먼저 보고 없으면 원래 연결로 간다. changes가 알리는 것은 `StateChanged`로 흘린다. */
+export function answering(
+  answers: readonly FakeAnswer[],
+  ...changes: StateChanges[]
+): (source: CoreSource) => CoreSource {
+  return (source) => ({
+    ...source,
+    call(input) {
+      const found = answers.find(
+        ({ route }) =>
+          route.kind === input.kind &&
+          route.resource === input.resource &&
+          route.method === input.method,
+      );
+      return found
+        ? Promise.resolve({ ok: true, value: found.answer(input.body) })
+        : source.call(input);
+    },
+    onEvent(listener: (message: CoreEventMessage) => void) {
+      const stopInner = source.onEvent?.(listener) ?? (() => {});
+      const stops = changes.map((subscribe) =>
+        subscribe((list) =>
+          listener({
+            kind: "event",
+            event: {
+              type: "StateChanged",
+              subject: null,
+              at: new Date().toISOString(),
+              payload: { changes: list },
+            },
+          }),
+        ),
+      );
+      return () => {
+        stopInner();
+        for (const stop of stops) stop();
+      };
+    },
+  });
 }

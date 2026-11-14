@@ -1,5 +1,5 @@
 // agent가 만든 job의 등록 승인. 한 번 승인하면 그 job은 정한 주기로 사람 없이 돈다. [Reject]는 job을 지운다.
-// 정한 항목은 JobChanged 뒤 목록을 다시 읽을 때 빠진다.
+// 정한 항목은 `jobs` 변경 뒤 목록을 다시 읽을 때 빠진다.
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { t } from "@lophn/i18n";

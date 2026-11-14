@@ -48,7 +48,7 @@ import { createTitleScanner } from "../../terminal/agent/osc-title.ts";
 import type { GuiTabSession } from "../../terminal/gui.ts";
 import type { Supervisor } from "../../terminal/supervisor.ts";
 import { lophnCliPath } from "../paths.ts";
-import type { ShellContext } from "./context.ts";
+import { changedIds, type ShellContext } from "./context.ts";
 import type { NoticeWiring } from "./notice.ts";
 
 export function createAgentWiring(options: {
@@ -279,16 +279,17 @@ export function createAgentWiring(options: {
   // 공유 skill 사본은 lophn 기동 때, activation 뒤, 설정이 바뀔 때 맞춘다. 앱 view의 activation 신호는 앱을 가리지 않으므로
   // 공유한 앱이 아닌 activation에도 돌지만 사본이 같으면 아무것도 쓰지 않는다.
   const skillSync = createSkillSync({ runCli: options.cli, log: ctx.log });
-  ctx.relay.conditions.push({ types: ["AppViewChanged", "SettingsChanged"] });
+  ctx.relay.conditions.push({ types: ["AppViewChanged", "StateChanged"] });
   ctx.relay.events.push((event) => {
-    if (event.type === "SettingsChanged") {
-      const { keys } = event.payload;
-      if (
-        keys.includes(SHARED_APPS_SETTING_KEY) ||
-        keys.includes(HARNESS_SETTING_KEY)
-      ) {
-        skillSync.request();
-      }
+    if (
+      changedIds(event, "settings").some(
+        (key) =>
+          key === null ||
+          key === SHARED_APPS_SETTING_KEY ||
+          key === HARNESS_SETTING_KEY,
+      )
+    ) {
+      skillSync.request();
     } else if (
       event.type === "AppViewChanged" &&
       event.payload.reason === "activation"

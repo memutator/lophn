@@ -12,8 +12,6 @@ export type TrayDeps = {
   clock: Clock;
   // 그 앱이 있고 active인가. null이면 없는 앱이다.
   appStatus(app: string): "active" | "archived" | null;
-  // 값이 바뀌었다는 신호를 Bus로 낸다.
-  changed(app: string, at: string): void;
 };
 
 export function createTray(deps: TrayDeps): {
@@ -48,7 +46,6 @@ export function createTray(deps: TrayDeps): {
           at: at as TrayValue["at"],
         });
       }
-      deps.changed(actor.id, at);
       return ok({ set: true });
     },
     list() {

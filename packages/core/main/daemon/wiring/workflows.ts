@@ -32,12 +32,10 @@ import {
   type CommandEnvelope,
   type KnownSecretMatch,
   type Writer,
-  withAfterCommit,
 } from "../../../storage/ledger/mod.ts";
 import {
   createWorkflowService,
   runningInstances,
-  WORKFLOW_CHANGED_TOPIC,
   workflowsNoHarnessKindSteps,
   type WorkflowFlows,
 } from "../../../workflows/mod.ts";
@@ -393,36 +391,10 @@ export const workflowsWiring: WiringFactory = () => {
 
       return ok({
         writer: (inner) =>
-          withStepText(
-            withAfterCommit(
-              inner,
-              (actions) => {
-                // 다른 topic은 router의 applier가 따로 본다.
-                for (const action of actions) {
-                  if (action.topic !== WORKFLOW_CHANGED_TOPIC) continue;
-                  const changed = action.data as {
-                    instance: Id<"wfi">;
-                    project: Id<"prj">;
-                    workflow: string;
-                  };
-                  ctx.bus.publish({
-                    type: "WorkflowInstanceChanged",
-                    subject: changed.instance,
-                    at: ctx.clock.now(),
-                    payload: {
-                      project: changed.project,
-                      workflow: changed.workflow,
-                    },
-                  });
-                }
-              },
-              ctx.telemetry.logger,
-            ),
-            {
-              relay: () => ctx.bodyPrepare,
-              known: () => ctx.knownSecrets,
-            },
-          ),
+          withStepText(inner, {
+            relay: () => ctx.bodyPrepare,
+            known: () => ctx.knownSecrets,
+          }),
         memory: [
           [
             route(workflowList),

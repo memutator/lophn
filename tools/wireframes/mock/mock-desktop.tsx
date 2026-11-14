@@ -118,8 +118,6 @@ interface MockDesktopProps {
   readonly jobs?: JobsSource;
   /** 앱 workspace의 App details 탭을 여는 통로. page가 fake(`fakeDetail`)로 정한다. 없으면 dev mock 것이다. */
   readonly appDetail?: AppDetailSource;
-  /** 앱 workspace의 Logs가 읽는 run 기록. 없으면 dev mock 것이다. */
-  readonly runs?: WorkspaceSource["runs"];
   /** 이 연결로 event를 읽는다(Logs의 run session 상태). */
   readonly events?: (events: CoreSource) => CoreSource;
   /** 이 core 연결 상태를 고정한다(시작 실패 화면). */
@@ -329,7 +327,6 @@ export function MockDesktop(props: MockDesktopProps) {
         : layoutOf([{ tabs: homeTabs, selected: homeTabs[0]?.key ?? "" }], []);
     const workspace: WorkspaceSource = {
       ...mock.workspace,
-      ...(props.runs === undefined ? {} : { runs: props.runs }),
       ...(panes === undefined && homeLayout === undefined
         ? {}
         : {
@@ -410,7 +407,6 @@ export function MockDesktop(props: MockDesktopProps) {
     emptyHome,
     homeTabs,
     detachedTab,
-    props.runs,
     props.events,
     props.tray,
   ]);

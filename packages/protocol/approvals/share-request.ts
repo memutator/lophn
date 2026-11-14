@@ -12,7 +12,7 @@ import { appIdSchema, slugSchema } from "../projects/values.ts";
 // 요청은 ledger 표에 남아 turn과 재시작을 넘는다. 앱마다 열린 요청은 하나이고 새 요청이 옛 것을 대신한다.
 // 남지 않는 event(`packages/protocol/events/transient.ts`): ShareRequestOpened { app, app_name },
 //   ShareRequestClosed { app, outcome: "approve" | "reject" }.
-// 설정이 바뀌면 SettingsChanged의 keys에 SHARED_APPS_SETTING_KEY가 실린다. coding agent 쪽 사본이 그 신호를 듣는다.
+// 설정이 바뀌면 `StateChanged`의 `settings` id로 SHARED_APPS_SETTING_KEY가 실린다. coding agent 쪽 사본이 그 신호를 듣는다.
 
 // coding agent에게 준 앱 slug 목록. 사람이 승인할 때만 더한다.
 export const SHARED_APPS_SETTING_KEY = "coding-agent.shared_apps";

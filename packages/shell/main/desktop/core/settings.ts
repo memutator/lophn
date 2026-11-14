@@ -1,4 +1,4 @@
-// core 설정(`settings/list`)의 살아 있는 사본. core가 준비되면 전체를 읽고, 설정이 바뀌었다는 event(SettingsChanged)가
+// core 설정(`settings/list`)의 살아 있는 사본. core가 준비되면 전체를 읽고, 설정이 바뀌었다는 event(`StateChanged`의 `settings`)가
 // 오면 다시 읽는다. 누가 바꿨는지 가리지 않는다: Settings 화면, `lophn settings set`, agent, 손으로 고친 file이 같은 길로 온다.
 // 설정을 화면에 적용하는 영역은 `watch`로 듣고 `get`으로 읽는다. 설정마다 IPC를 두지 않는다.
 import type {

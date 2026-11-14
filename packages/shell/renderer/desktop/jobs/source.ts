@@ -99,8 +99,6 @@ export interface JobPatch {
 }
 
 export interface JobsSource {
-  /** core 연결 상태를 듣는다. 준비되면 화면이 다시 읽는다. 해제는 반환 함수다. */
-  watch(listener: (state: { readonly state: string }) => void): () => void;
   list(): Promise<
     SourceResult<{
       readonly jobs: readonly JobView[];

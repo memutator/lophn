@@ -73,10 +73,6 @@ export function fakeSettings(options: FakeSettingsOptions = {}) {
   const core = options.core ?? fakeCore();
   core.declare(options.declared ?? SAMPLE_DECLARED);
   const source: SettingsSource = {
-    watch(listener) {
-      listener({ state: "ready" });
-      return () => {};
-    },
     update(changes) {
       calls.push(["update", changes]);
       const rejected = changes.flatMap((change) => {

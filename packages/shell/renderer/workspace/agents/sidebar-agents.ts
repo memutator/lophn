@@ -6,7 +6,7 @@ import {
   isLophn,
   lophnIdOf,
 } from "../../../../protocol/lophn-agent/workspaces.ts";
-import { useFollowedRead } from "../../shell/use-left-sidebar.ts";
+import { useFollowedRead } from "../../desktop/connection/core-read.ts";
 import { useRemembered } from "../../shell/sidebar-memory.tsx";
 import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import type { SidebarAgent } from "../sidebar/sidebar-agent.ts";

@@ -33,11 +33,11 @@ function acpUpdated(session: string): BusEvent {
     payload: { session, update: { type: "session_reset" } },
   } as BusEvent;
 }
-const settingsChanged = {
-  type: "SettingsChanged",
+const stateChanged = {
+  type: "StateChanged",
   subject: null,
   at: "2026-10-16T00:00:00.000Z",
-  payload: { keys: ["a"] },
+  payload: { changes: [{ name: "settings", id: "a" }] },
 } as BusEvent;
 
 function fakeSocket() {
@@ -65,13 +65,13 @@ test("느린 구독자는 끊기고 다시 붙으면 snapshot부터 다시 읽�
   session.receive(
     JSON.stringify({
       type: "watch",
-      conditions: [{ session: SES_A }, { types: ["SettingsChanged"] }],
+      conditions: [{ session: SES_A }, { types: ["StateChanged"] }],
     }),
   );
   // ready가 먼저 오고, 조건에 맞는 event만 한 번씩 온다(두 조건에 다 맞아도 한 번).
   bus.publish(turnStarted(SES_A));
   bus.publish(turnStarted(SES_B));
-  bus.publish(settingsChanged);
+  bus.publish(stateChanged);
   // 남지 않는 AcpUpdated도 envelope의 session으로 걸러진다.
   bus.publish(acpUpdated(SES_A));
   bus.publish(acpUpdated(SES_B));

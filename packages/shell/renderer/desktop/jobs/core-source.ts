@@ -59,8 +59,6 @@ export function coreJobsSource(core: CoreSource): JobsSource {
   }
 
   return {
-    watch: (listener) => core.subscribe(listener),
-
     async list() {
       const jobs = await readAll<JobView>(core, jobList, {}, "jobs");
       if (!jobs.ok) return jobs;

@@ -18,7 +18,6 @@ import {
   type WorkflowState,
 } from "../../protocol/workflows/mod.ts";
 import { FAILURE_TEXTS, type Router, routerFor } from "../router/mod.ts";
-import { afterCommit } from "../storage/ledger/after-commit.ts";
 import type { NewLine } from "./rows.ts";
 import {
   appendLine,
@@ -27,9 +26,6 @@ import {
   loadInstance,
   updateInstance,
 } from "./store.ts";
-
-// 이 topic을 Bus event WorkflowInstanceChanged로 바꾸는 것은 wf-service의 wiring이다.
-export const WORKFLOW_CHANGED_TOPIC = "workflows.changed";
 
 function fail(
   code: "forbidden" | "not_found" | "conflict",
@@ -196,11 +192,6 @@ export function createWorkflowCommands(
     const loaded = loadInstance(tx.sql, scope.instance);
     if (!loaded.ok) return loaded;
     const instance = loaded.value!;
-    tx.port(afterCommit).push(WORKFLOW_CHANGED_TOPIC, {
-      instance: instance.id,
-      project: instance.project,
-      workflow: instance.workflow,
-    });
     return ok(instance);
   }
 

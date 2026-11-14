@@ -32,7 +32,7 @@ import { sealArtifactSession } from "../../artifact/session.ts";
 import { nodeArtifactFs, resolveSource } from "../../artifact/source.ts";
 import { watchFolder } from "../../artifact/watch.ts";
 import type { BrowserWiring } from "./browser.ts";
-import type { Registered, ShellContext } from "./context.ts";
+import { changedIds, type Registered, type ShellContext } from "./context.ts";
 
 export type ArtifactWiring = Registered & {
   views: ArtifactViews;
@@ -205,11 +205,11 @@ export function register(
 
   ctx.windowHooks.closed.push(({ ref }) => views.closeWindow(ref));
   // CLI로 낸 report는 session event가 없어 이 event가 view가 알 유일한 길이다. 이 event는 남지 않고
-  // 놓친 view는 다시 열 때 다시 읽는다.
-  ctx.relay.conditions.push({ types: ["WorkflowInstanceChanged"] });
+  // 놓친 view는 다시 열 때 다시 읽는다. instance command는 늘 id를 싣는다.
+  ctx.relay.conditions.push({ types: ["StateChanged"] });
   ctx.relay.events.push((event) => {
-    if (event.type === "WorkflowInstanceChanged") {
-      views.reloadInstance(event.subject);
+    for (const instance of changedIds(event, "workflow_instances")) {
+      if (instance !== null) views.reloadInstance(instance);
     }
   });
 

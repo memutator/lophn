@@ -7,8 +7,6 @@ import type { SettingsSource } from "./source.ts";
 
 export function coreSettingsSource(core: CoreSource): SettingsSource {
   return {
-    watch: (listener) => core.subscribe(listener),
-
     update: (changes) => updateSettings(core, changes),
   };
 }

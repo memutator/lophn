@@ -182,7 +182,7 @@ client가 둘일 때 부딪치는 곳:
             ┌─────────────── core (원본) ───────────────┐
             │ route · event · host에 보내는 요청 · 기기 등록 │
             └───▲─────────────────────────────▲────────┘
-      loopback  │                             │  LAN, Tailscale
+      loopback  │                             │  LAN, relay
         desktop shell                        폰
         띄우는 것: 앱 화면                     띄우는 것: 앱 화면, remote 화면
         내놓는 것: 터미널, browser 탭,         내놓는 것: 위젯, 위치, 카메라
@@ -265,7 +265,7 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 | 폰용 Node(nodejs-mobile) | 안 된다(지금) | 최신이 v18.20.4(2024-10)라 `node:sqlite`가 없다. Node 22·24 PR은 열린 채다. iOS는 JIT 없는 V8이다 |
 | changeset 충돌을 "나중에 고친 것이 이긴다"로, 정수 id | 조건부 | conflict handler는 충돌 종류만 받아 어느 쪽이 나중인지 모른다. 적용 전에 changeset을 읽어 지는 변경을 걸러 내고 REPLACE로 적용하면 두 사본이 같아진다(expo-sqlite의 고정 REPLACE에서도). 정수 primary key는 두 사본이 같은 id를 만들어 어떤 규칙으로도 row 하나를 잃는다. text id만 된다 |
 
-판정에서 나온 방향(단계 6을 열 때 정한다):
+판정에서 나온 방향(단계 7을 열 때 정한다):
 - 폰용 앱의 backend는 폰 껍데기 안에서 앱마다 따로 띄운 Hermes runtime에서 돈다. 껍데기의 주 runtime에서 돌리지 않는다(AI가 쓴 코드가 기기 key와 껍데기의 native module에 닿는다). host가 그 runtime에 handler port(호출을 하나씩), SQLite driver(session 켬), `crypto.subtle.digest`를 준다. bundle은 SDK의 `lophn-phone` export 조건으로 짓는다.
 - 맞추기는 changeset을 주고받고 "나중이 이긴다"를 적용 전 거르기로 푼다. "나중"은 runtime이 write마다 changeset에서 채우는 숨은 row-clock 표(hybrid logical clock)로 알아 앱이 `updated_at` 칸을 두지 않아도 된다.
 - 폰용 앱의 table은 text id만 쓴다. release 검사가 `INTEGER PRIMARY KEY`와 `AUTOINCREMENT`를 거절한다(`packages/protocol/apps/activation/migration-sql.ts`의 primary key 검사 옆).
@@ -295,22 +295,24 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 0. 화면 갱신(`roadmap/screen-sync.md`). 단계 1과 나란히 간다.
 1. core: 기기 등록, pairing, 폰 연결(암호화, route 목록), Settings의 기기 화면. 폰 없이 Node client로 확인한다. **끝남**(계획 `remote-core`, 2026-11-14, change-log `remote-core`). 기기가 바뀔 때 event는 화면 갱신(단계 0)의 `changes`가 맡는다.
 2. 폰 껍데기(iOS, Android)와 remote 화면: lophn agent의 session 목록, 대화, 승인과 질문 답하기. remote 화면(web bundle, core가 내려주기, 개발용 bridge)은 **끝남**(계획 `phone-remote-web`, 2026-11-15, change-log `phone-remote-web`, `architecture/remote.md`). Android 폰 껍데기(pairing, key 보관, 연결, bundle cache, WebView)는 **끝남**(계획 `phone-shell`, 2026-11-15, change-log `phone-shell`, `mobile/`). iOS 껍데기는 Mac이나 cloud 빌드와 Apple Developer 계정이 준비된 뒤 계획을 따로 연다(spike의 조사는 `reports/mobile-spike.md`).
-3. push와 알림 정하기(host의 보고, `unseen`).
-4. coding agent: desktop의 harness GUI 대화를 폰에서 다룬다.
-5. remote 앱: 컴퓨터에서 도는 앱의 화면을 폰에 띄운다(`phone` 자리, view binding, 기기 지침, touch token).
-6. sync 앱과 독립 앱: 폰에서 backend와 data가 돈다(SDK의 길 셋, 폰 runtime, changeset으로 맞추기).
-7. 위젯, 홈 화면 아이콘, 폰 기능 command.
-8. raw 터미널 보기와 간단한 입력.
-9. 실제 폰의 browser-use.
+3. relay: 폰과 core가 다른 network에서도 만난다(계획 `remote-relay`). remote와 sync 앱이 같은 연결을 쓴다.
+4. push와 알림 정하기(host의 보고, `unseen`).
+5. coding agent: desktop의 harness GUI 대화를 폰에서 다룬다.
+6. remote 앱: 컴퓨터에서 도는 앱의 화면을 폰에 띄운다(`phone` 자리, view binding, 기기 지침, touch token).
+7. sync 앱과 독립 앱: 폰에서 backend와 data가 돈다(SDK의 길 셋, 폰 runtime, changeset으로 맞추기).
+8. 위젯, 홈 화면 아이콘, 폰 기능 command.
+9. raw 터미널 보기와 간단한 입력.
+10. 실제 폰의 browser-use.
 
-단계 6은 폰에서 backend를 실제로 돌릴 수 있는지에 달려 있다. spike(계획 `remote-core`)가 Node 위에서는 길을 찾았고 판정은 위 "폰에서 혼자 도는 앱"에 있다. 그 절의 남은 확인, 특히 Hermes와 두 번째 runtime의 SQLite, App Store 위험은 단계 6을 열기 전에 한다.
+단계 7은 폰에서 backend를 실제로 돌릴 수 있는지에 달려 있다. spike(계획 `remote-core`)가 Node 위에서는 길을 찾았고 판정은 위 "폰에서 혼자 도는 앱"에 있다. 그 절의 남은 확인, 특히 Hermes와 두 번째 runtime의 SQLite, App Store 위험은 단계 7을 열기 전에 한다.
 
 ## 사람이 정할 것
 
 1. **원칙.** "폰은 두 번째 host다"로 가나. 터미널을 shell에 둔 채 core가 잇는 것까지 포함이다. 다른 안: terminal-host를 core 밑으로 옮겨 Quit 뒤에도 PTY를 살린다. mobile과 따로 정할 수 있는 큰 구조 변경이다.
 2. **폰 기종.** 정할 것이 아니다. 쓰는 사람마다 폰이 달라 iOS와 Android를 둘 다 낸다(Expo 하나로 짓는다). 개발은 Linux에서 바로 빌드되는 Android로 먼저 확인한다. iOS는 빌드에 Mac이나 cloud 빌드가, push와 배포에 Apple Developer 계정(연 $99)이 든다. 이 비용은 lophn 쪽이 지고 쓰는 사람이 지지 않는다.
 3. **폰 앱의 모양.** 추천: 얇은 껍데기(Expo)와 core가 내려주는 web 화면. 다른 안: 화면까지 RN native로 만든다(느낌이 좋지만 대화 화면을 다시 만들고 화면을 고칠 때마다 폰 앱을 빌드한다). native 앱 없이 폰 browser만 쓴다(위젯, 폰 기능, 앱 host가 안 된다).
-4. **망과 push.** 추천: 망은 direct만(집 LAN과 Tailscale), push는 Expo Push. 잃는 것: 집 밖에서는 Tailscale이 필요하다. push는 Expo에 기대고 Expo가 알림 글(상태와 제목)을 본다. 다른 안: relay를 둔다(Paseo 꼴의 상태 없는 전달자라도 lophn이 서버를 돌린다). 자기 push gateway를 돌린다. push를 두지 않는다.
+4. **망.** 정했다(사람, 2026-11-15): lophn이 relay를 둔다. 폰과 core가 어느 network에 있든 relay로 만나고, 같은 LAN이면 direct가 먼저 붙는다. relay는 내용을 보지 못하는 전달자다(Paseo 꼴). 이유: 다른 network에서 붙지 못하면 remote의 의미가 없고, 폰에서 혼자 도는 sync 앱도 "core에 닿으면 맞춘다"가 같은 연결 위에 선다. 앞서 추천한 "direct만(LAN과 Tailscale)"은 비교한 제품 대부분이 relay나 tunnel을 기본으로 둔 것을 서버 운영 비용보다 가볍게 본 틀린 추천이었다. 컴퓨터가 꺼져 있는 동안 sync 변경을 relay가 암호문으로 맡아 둘지는 sync 앱(단계 7)을 열 때 정한다.
+   **push.** 추천: Expo Push. 잃는 것: push는 Expo에 기대고 Expo가 알림 글(상태와 제목)을 본다. 다른 안: 자기 push gateway를 돌린다. push를 두지 않는다.
 5. **순서.** 정했다. 다 하고(사람), 순서는 위 "단계"다(agent).
 6. **TUI로 도는 session을 폰이 열 때.** 추천: GUI로 바꿀지 묻고, 바꾸면 desktop도 GUI로 바뀐다. 다른 안: 말없이 바꾼다(desktop에서 쓰던 TUI가 예고 없이 끊긴다). 이미 GUI인 session만 폰에 보인다(TUI로 쓰는 사람은 폰에서 못 본다).
 

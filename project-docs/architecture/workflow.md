@@ -41,7 +41,7 @@ workflow는 사람과 agent가 step을 넘기며 도는 일(`kind: agent`)이거
  CreateWorkflowInstance | ApplyWorkflowChange   (machine 자격만, 한 transaction)
    │  instance 행 고치기, 줄 남기기, 넘길 곳이 있으면 Router에 step 입력을 넣기 ─▶ 받는 session
    │  결과를 handed | not_handed 줄로
-   └ commit 뒤 WorkflowInstanceChanged (남지 않는 event) ─▶ 화면과 artifact view가 다시 읽는다
+   └ commit 뒤 StateChanged(workflow_instances) (남지 않는 event) ─▶ 화면과 artifact view가 다시 읽는다
  켤 때: router가 돌던 turn을 닫은 뒤 reconcile (넘긴 step을 잃었으면 lophn_restarted 줄, 도는 flow는 닫는다)
 
  flow: start ─ instance 만들기(넘기기 없음) ─ flow host가 process를 띄운다 (instance마다 하나)
@@ -82,7 +82,7 @@ instance와 줄
 13. `ended`는 누가 그렇게 말했다는 기록일 뿐이다(report의 `next: end`나 edit의 `end`). `running`이었을 때만 `ended` 줄과 끝난 시각을 쓴다. 그 뒤 report나 `hand_now`가 실제로 넘기면(`handed`) 다시 `running`이 되고 끝난 시각이 비워진다. 넘기지 못했으면 `ended` 그대로다.
 14. `stopped`는 사람이 멈춘 것이다(`StopWorkflow`, actor user). 멈춘 instance에는 넘기지 않고 고치기와 다시 멈추기를 `conflict`로 거절한다. report는 줄만 남기고 `handed: null`이다. 늦게 온 report를 잃지 않는다.
 15. 줄의 `by`는 부른 자격의 session이 있으면 그 agent, 없으면 user다. flow code가 낸 report는 `program`이다. `started` 줄만 `started_by`(사람 또는 job)를 그대로 싣는다. `handed`·`not_handed`·`ended`·`lophn_restarted`·`program_exited`는 lophn이다. seq는 instance 안에서 1부터 잇는다.
-16. 한 command는 instance 행을 한 번 고치고(`state_seq`가 한 번 오른다) commit 뒤 `WorkflowInstanceChanged`를 한 번 낸다. 쓰는 쪽은 읽은 `state_seq`로 compare를 걸고, `conflict`면 다시 읽어 `state_seq`가 바뀌었을 때만 최대 3번 건다. 안 바뀌었으면 진짜 conflict다.
+16. 한 command는 instance 행을 한 번 고치고(`state_seq`가 한 번 오른다) commit 뒤 `workflow_instances` 변경(`StateChanged`)을 한 번 낸다. 쓰는 쪽은 읽은 `state_seq`로 compare를 걸고, `conflict`면 다시 읽어 `state_seq`가 바뀌었을 때만 최대 3번 건다. 안 바뀌었으면 진짜 conflict다.
 17. `ReadWorkflowInstance`는 instance, step마다 가장 나중 report(`last_reports`), 줄 200개씩(`cursor`)을 준다. machine 자격도 받는다. `ListWorkflowInstances`는 project(와 workflow, state)로 거르고 새것이 앞이며 50개씩, 줄마다 마지막 줄을 붙인다.
 
 report와 고치기
@@ -145,7 +145,7 @@ route(memory)
 - 모든 workspace 종류의 제품 규칙이 step tag의 뜻과 report하는 법을 말한다. agent는 instance 상태를 늘 받지 않고 고칠 일이 있을 때 `workflow.get`으로 읽는다.
 
 event와 저장
-- `WorkflowInstanceChanged`: 남지 않는 event. 놓친 화면은 다시 읽는다(`architecture/event.md`).
+- `StateChanged`의 `workflow_instances`(id는 instance): 남지 않는 event. 놓친 화면은 다시 읽는다(`architecture/event.md`).
 - 저장: `workflow_instances`, `workflow_lines`(고치지도 지우지도 않는 trigger), step 입력의 `messages` 열(`step_instance`, `step_name`). 정의는 `<data>/projects/<prj>/workflows/<name>/`, flow의 stderr log는 `<data>/flows/<instance>.log`.
 - 선언의 `agent`·`participants`의 agent는 handle이다. 내부 id가 아니다.
 
@@ -155,15 +155,15 @@ flow 통로
 artifact
 - workflow artifact는 봉한 view로 연다(`architecture/artifact.md`). source는 `{kind: workflow, project, workflow, view: static | instance, instance?}`이고 root는 그 project의 `workflows/` 안이어야 한다(realpath). instance view는 instance마다 host가 달라 origin이 갈린다.
 - 봉한 scheme이 가상 file을 준다. instance view의 `data/_instance.json`(`ReadWorkflowInstance`를 끝까지 읽은 `{instance, last_reports, lines}`, 4 MiB가 넘거나 못 읽으면 503)과, 모든 artifact view에 있는 `_lophn/kit.js`·`_lophn/kit.css`다.
-- `WorkflowInstanceChanged`가 오면 그 instance를 여는 view만 다시 load한다.
+- `workflow_instances` 변경이 오면 그 instance를 여는 view만 다시 load한다.
 - kit은 전역 `LophnKit.renderGraph(element, {nodes, edges})`를 내고 node에 `status`(label, tone)와 `note`를 받는다. 상태 값의 뜻은 component가 모르고 artifact가 정한다(`architecture/ui-kit.md`).
 
 화면
 - workflow 하나가 탭 하나다(kind `workflow`, key `workflow:<name>`, 필드 `{workflow, instance?}`). 탭 안에서 instance를 고르고, 고른 instance는 layout에 남는다.
 - 탭 머리는 이름, kind, 도는 instance 수, [Start], static artifact가 있으면 [Open artifact]다. 틀린 선언과 flow code가 없는 flow는 이유 한 줄을 보이고 시작하지 못한다. flow의 [Start] dialog는 입력 글만 받는다(첫 step을 고르지 않는다). instance 목록은 새것이 앞이고 job이 시작한 instance 줄은 시작한 쪽으로 job 제목을 보인다(지운 job이면 제목 없이 "Job"). 고른 instance의 머리도 같다. 제목은 읽는 쪽이 `job.list`로 붙인다.
 - 고른 instance는 step마다 상태, 마지막 report 글, 그 step의 줄을 보이고, step 없는 줄(`ended`, `stopped`, `program_exited`, step 없는 `edit`과 `lophn_restarted`)은 머리에 둔다. `program_exited`는 끝 code(신호면 "stopped before it finished")와 stderr 끝 줄을 code block으로 보인다. flow의 report는 "Program"이 낸 것으로 보이고 flow step에는 담당 글이 없다. `not_handed`와 `lophn_restarted`는 그 step 줄 안에 이유 한 줄이다. 사람 차례면 받은 agent와 [Open conversation](가장 나중 `handed` 줄의 `receiver` session)을, running이면 [Stop]을(되돌릴 수 없어 danger), instance artifact가 있으면 [Open instance artifact]를 둔다. graph는 그리지 않는다.
-- 정의는 탭이 열릴 때와 [Refresh]에서 읽는다. instance 목록과 고른 instance는 처음, `WorkflowInstanceChanged`가 올 때, 시작·멈춤 뒤에 다시 읽는다. 끊긴 사이 놓친 것은 다시 열거나 [Refresh]로 맞춘다.
-- project 창 오른쪽 sidebar의 panel icon tab에 Workflows 항목이 있다. panel은 project의 workflow 목록(이름, 도는 instance 수, 틀린 선언 표시)이고 줄을 누르면 그 workflow의 탭을 연다. panel은 열려 있는 동안 열릴 때와 `WorkflowInstanceChanged` 때 읽는다.
+- 정의는 탭이 열릴 때와 [Refresh]에서 읽는다. instance 목록과 고른 instance는 처음, `workflow_instances` 변경이 올 때, 시작·멈춤 뒤에 다시 읽는다. 끊긴 사이 놓친 것은 다시 열거나 [Refresh]로 맞춘다.
+- project 창 오른쪽 sidebar의 panel icon tab에 Workflows 항목이 있다. panel은 project의 workflow 목록(이름, 도는 instance 수, 틀린 선언 표시)이고 줄을 누르면 그 workflow의 탭을 연다. panel은 열려 있는 동안 열릴 때와 `workflow_instances` 변경 때 읽는다.
 
 ## 결정
 

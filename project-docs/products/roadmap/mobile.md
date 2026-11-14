@@ -230,7 +230,7 @@ client가 둘일 때 부딪치는 곳:
   - 신원은 host가 붙인다. native host(Electron main, 폰 껍데기)가 WebView와 view id의 표를 쥐고 bridge 호출에 view id를 붙여 core를 부른다. page(AI가 짠 코드)가 낸 값은 신원으로 믿지 않는다. 지금 page는 URL query로 `view_session`을 보고 신원은 IPC sender가 보증한다(`architecture/app-call.md` 지키는 것 4).
   - core가 그 host에 어느 앱과 release의 view가 열려 있는지 알므로, 그 host가 구독한 앱 event만 내려보낸다.
 - **bridge.** 폰은 `lophnApp`의 member 가운데 desktop 전용(`commands`, `setTabHead`, `setKeepAlive`)을 뺀 것을 준다.
-- **위젯.** 앱이 SDK로 위젯 내용(정해진 component)을 data로 내고 native가 그린다. 지금 tray 값(`app_tray.set`, `AppTrayChanged`)과 같은 꼴이다.
+- **위젯.** 앱이 SDK로 위젯 내용(정해진 component)을 data로 내고 native가 그린다. 지금 tray 값(`app_tray.set`, `StateChanged`의 `tray`)과 같은 꼴이다.
 - **홈 화면 아이콘.** Android는 pinned shortcut, iOS는 단축어다.
 - **폰 기능.** 앱 backend와 agent가 폰의 기능(위치, 카메라)을 core를 거쳐 부른다. grant를 거친다. 폰이 닿지 않으면 `unavailable`이다. 쓰는 예가 생길 때 기능 하나씩 연다.
 

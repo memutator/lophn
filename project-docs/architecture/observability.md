@@ -84,7 +84,7 @@ base는 node를 모른다(id, traceparent, logger, tracer, meter, OTLP JSON 인�
 
 - core의 file 기록기가 debug log와 span 줄까지 받는다(꺼져 있으면 info부터). child는 늘 debug·span 줄을 stderr로 내고 core가 relay 때 이 설정으로 거른다.
 - shell main이 터미널 trace(`<data root>/logs/terminal-trace.jsonl`)를 쓴다. 10 MiB를 넘기 전에 `terminal-trace.1.jsonl`로 넘겨 둘만 남긴다. 자세한 것은 terminal-agent.md.
-- 앱을 다시 띄울 필요가 없다. core는 설정 값이 바뀌었다는 알림(settings.json을 손으로 고친 경우 포함)을 받는 자리에서 바로 trace를 바꾼다. shell main은 설정을 처음 쓸 때 읽어 두고 `SettingsChanged`가 오면 다시 읽는다. renderer는 main이 꺼져 있다고 답하면 5초 동안 모으지 않다가 다시 묻는다.
+- 앱을 다시 띄울 필요가 없다. core는 설정 값이 바뀌었다는 알림(settings.json을 손으로 고친 경우 포함)을 받는 자리에서 바로 trace를 바꾼다. shell main은 설정을 처음 쓸 때 읽어 두고 `settings` 변경(`StateChanged`)이 오면 다시 읽는다. renderer는 main이 꺼져 있다고 답하면 5초 동안 모으지 않다가 다시 묻는다.
 - 싣는 것은 이벤트 이름, id, 시간, 크기 같은 숫자뿐이다. 친 글, 터미널 출력, prompt, model 답은 어느 쪽에도 싣지 않는다.
 
 ### agent loop span

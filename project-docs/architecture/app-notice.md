@@ -114,9 +114,9 @@ Inbox는 탭 둘이다.
  앱 process: setTray({ text, tone? }) / clearTray()
    │ broker /_lophn/broker/notify/tray   (live 자식인가, 선언 ∩ grant에 notify.send가 있나 → 아니면 forbidden)
    ▼
- core app_tray.set (memory route, actor app) → 앱마다 마지막 값 하나를 memory에 둔다 → AppTrayChanged { app }
+ core app_tray.set (memory route, actor app) → 앱마다 마지막 값 하나를 memory에 둔다 → StateChanged(tray)
    ▼ Gateway
- renderer: AppTrayChanged와 ready 때 app_tray.list(actor user)로 다시 읽어, 설치된 앱의 `tray` 자리 화면 항목에 글과 tone을 붙인다
+ renderer: tray 변경(StateChanged)과 ready 때 app_tray.list(actor user)로 다시 읽어, 설치된 앱의 `tray` 자리 화면 항목에 글과 tone을 붙인다
 ```
 
 - 값은 저장하지 않는다. core를 다시 켜면 비고, 앱 process가 시작할 때 다시 낸다. 앱 process는 오래 살아 timer로 값을 바꿀 수 있다. 보관한 앱이나 없는 앱의 `set`은 거절하고 `list`는 보관한 앱의 값을 뺀다.
@@ -144,7 +144,7 @@ Inbox는 탭 둘이다.
   - `notices.list`: 필터 `source`·`app`·`project`·`kind`·`persistent`·`unread`·`query`(title·body 부분 일치)·`since`·`until`(`created_at` 기간. since 포함, until 미포함, ISO 시각)·`cursor`·`limit`(≤200, 기본 50). 최근 것이 먼저이고 보관한 앱의 줄도 읽힌다.
   - `notices.open`: 안 읽은 줄 전부(휘발 + 안 읽은 영구). Inbox가 쓴다. 보관한 앱의 줄은 뺀다.
   - `notices.mark_read`: 영구 줄을 읽음으로. 휘발·이미 읽은·없는 id는 건너뛰고 오류가 아니다.
-- **event(남지 않는다)**: `NoticePosted`(줄 한 건), `NoticeClosed { id }`, `NoticeRead { id, read_at }`, `AppTrayChanged { app }`.
+- **event(남지 않는다)**: `NoticePosted`(줄 한 건), `NoticeClosed { id }`, `NoticeRead { id, read_at }`. tray 값이 바뀌면 `StateChanged`의 `tray`(`architecture/event.md`).
 - **SDK**: `@lophn/cap-notify`. `notify({ title, body?, key?, persistent? })`(1.2.0부터 persistent. 기본은 휘발), `setTray`·`clearTray`(1.1.0부터). broker 경로는 `/_lophn/broker/notify/send`와 `/_lophn/broker/notify/tray`다.
 - **grant**: `notify.send`(scope 없음). Access 탭에 "notifications" 줄로 보이고 거둘 수 있다.
 - **ledger**: 표 `notices`, 표 `core_meta`(`product_version`, `sdk_versions`). step `apps.notices.unified`는 앱 팀 목록이 아니라 `notices` wiring에 있다(낸 때 step 목록의 끝에 붙어야 했다). 그 뒤에 낸 step은 이 wiring이 아니라 WIRINGS 맨 뒤 wiring에 붙는다.

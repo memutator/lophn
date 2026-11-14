@@ -21,7 +21,7 @@ lophn은 사람이 오래 읽고 쓰는 앱이라 색과 글꼴을 자기 취향
 ```
 Settings › Appearance, lophn settings set, agent
   고르면 선언 설정 shell.*에 저장 (core가 값을 검사한다)
-        │ SettingsChanged
+        │ settings 변경
         ▼
 main (core 설정의 사본: shell.* 값과 shell.themes 항목)
   1. 값을 다시 검사한다 (목록 밖 값이면 지금 모양을 둔다)
@@ -118,7 +118,7 @@ html[data-theme="dark"] { dark 값 }
 
 ## 경계와 계약
 
-- IPC channel `shell:themes-folder`(`lophnAppearance.openThemesFolder`): main이 themes 폴더를 OS 파일 관리자로 연다. desktop 창 본문만 부른다. appearance 값과 theme 목록을 나르는 IPC는 없다. 둘 다 core 설정에서 읽는다(route `settings/list`, event `SettingsChanged`).
+- IPC channel `shell:themes-folder`(`lophnAppearance.openThemesFolder`): main이 themes 폴더를 OS 파일 관리자로 연다. desktop 창 본문만 부른다. appearance 값과 theme 목록을 나르는 IPC는 없다. 둘 다 core 설정에서 읽는다(route `settings/list`, event `settings` 변경(`StateChanged`)).
 - theme file: `<data root>/themes/<id>.json`(위 "theme"). 설정 묶음 `shell.themes`의 항목이고 core가 폴더를 만들고 지켜본다. boundary-catalog의 `shell`, `design-api`, `config`에 걸친다.
 - 설정 key(core 선언 설정): `shell.mode`, `shell.light_theme`, `shell.dark_theme`, `shell.accent`, `shell.font`, `shell.font_custom`, `shell.font_weight`, `shell.code_font`, `shell.code_font_custom`, `shell.code_font_weight`, `shell.reading_font`, `shell.reading_font_custom`, `shell.reading_font_weight`, `shell.text_size`, `shell.density`, `shell.reading_width`(CSS가 아님). 모두 기본 값이 있고 없으면 기본으로 읽힌다. `*_custom`은 core가 길이(64)와 글꼴 이름 규칙을 검사한다. theme id는 core가 있는 theme인지와 그 모드의 것인지를 보고, accent는 `theme`이나 `#rrggbb`만 받는다.
 - 문서 scheme: `lophn-shell://`, `lophn-app://`, `lophn-artifact://`만 CSS를 받는다. `lophn-app://`만 `data-lophn-locale`을 받는다.

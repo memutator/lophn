@@ -29,14 +29,14 @@ lophn의 설정을 한 번 선언하면 Settings 화면, `lophn settings` 명령
    ▼
 core ── 저장: <data root>/settings.json  (사람이 고른 값만)
    │        <data root>/<folder>/<id>.json  (항목마다 file 하나인 설정 묶음)
-   │   읽기: settings/list   쓰기: settings/update   알림: SettingsChanged
+   │   읽기: settings/list   쓰기: settings/update   알림: StateChanged(settings, id = key)
    │
    ├── Settings 화면 ─┐
    ├── lophn settings get|set|unset ─┤ 같은 route
    └── home의 lophn agent (같은 명령) ─┘
    │
    ▼
-shell ── core 설정의 사본을 두고 SettingsChanged마다 다시 읽어 화면에 적용한다
+shell ── core 설정의 사본을 두고 settings 변경마다 다시 읽어 화면에 적용한다
 ```
 
 - **값과 검사.** 값의 모양(type, 범위, 고를 수 있는 값)과 뜻(있는 theme인가, 그 모드의 theme인가, 읽을 수 있는 단축키인가, 글꼴 이름으로 쓸 수 있는 글자인가)을 core가 본다. 뜻 검사는 이번 변경을 모두 얹은 뒤의 값을 본다. 그래서 theme을 만들고 그 theme을 고르는 것을 한 번에 보낼 수 있다. 뜻 검사는 바꿀 때만 돈다. 손으로 고친 file을 읽을 때는 모양만 보고, 뜻이 틀린 값(지운 theme의 id)은 shell이 기본값으로 그린다.
@@ -44,7 +44,7 @@ shell ── core 설정의 사본을 두고 SettingsChanged마다 다시 읽어
 - **항목마다 file 하나인 설정 묶음.** 색 theme이 이것이다. 항목의 key는 `<묶음 key>.<id>`(`shell.themes.<id>`)이고 file은 `<data root>/themes/<id>.json`이다. 같은 route와 같은 명령으로 쓰고 지운다. 사람이 그 folder에 file을 직접 두어도 같은 항목이다. core가 folder를 만들고 지켜본다. 읽지 못한 file(이름이 id 규칙에 안 맞음, 256 KB 초과, JSON 아님, 모양 틀림)은 항목이 되지 않고 이유와 함께 목록에 남는다.
 - **규칙의 자리.** 설정의 뜻을 아는 규칙은 core와 shell이 같이 쓰는 곳에 하나만 있다. 모양(theme, 글꼴 이름, 고를 수 있는 값)은 design의 순수 계산이고 단축키 표와 문법은 protocol이다. shell은 CSS를 만들 때 같은 규칙으로 한 번 더 본다(`appearance.md`의 지키는 것 3).
 - **명령.** `lophn settings get [key]`는 목록(값과 한 줄 설명)이나 설정 하나(설명 전체, 값, 기본값, JSON Schema)를 보인다. `settings set <key> <value>`와 `settings unset <key>`가 바꾼다. 설정마다 명령을 두지 않는다. 답은 바꾸기 전 값(`previous`)을 싣는다.
-- **shell의 사본.** shell main은 core가 붙으면 설정 전체를 읽고, SettingsChanged가 오거나 다시 붙으면 다시 읽는다. 설정을 적용하는 곳(모양 CSS, main이 먼저 받는 단축키)은 이 사본을 듣는다. 창은 같은 event로 자기가 그리는 설정(모드, 단축키, 빠른 실행, 읽기 폭, 열려 있는 Settings 화면)을 다시 읽는다. 값을 창에서 main으로 보내는 통로는 없다.
+- **shell의 사본.** shell main은 core가 붙으면 설정 전체를 읽고, `settings` 변경(`StateChanged`)이 오거나 다시 붙으면 다시 읽는다. 설정을 적용하는 곳(모양 CSS, main이 먼저 받는 단축키)은 이 사본을 듣는다. 창은 같은 event로 자기가 그리는 설정(모드, 단축키, 빠른 실행, 읽기 폭, 열려 있는 Settings 화면)을 다시 읽는다. 값을 창에서 main으로 보내는 통로는 없다.
 - **shell이 꺼져 있을 때.** 값은 저장되고 다음에 켤 때 적용된다. 설정을 바꾸려고 shell을 띄우지 않는다.
 
 ## 지키는 것
@@ -55,7 +55,7 @@ shell ── core 설정의 사본을 두고 SettingsChanged마다 다시 읽어
 4. 설정을 쓰는 명령은 home workspace의 agent에게만 있다(home의 lophn과 그 밖의 home agent, workspace 없이 도는 harness session). project와 app workspace의 agent는 credential 상한에 `settings/update`가 없다.
 5. 항목 file을 쓰고 지우는 것은 그 항목의 file 하나만이다. 사람이 둔 다른 file과 읽지 못한 file은 고치거나 지우지 않는다. 쓰려는 id의 file이 이미 있는데 읽지 못했거나(JSON이 깨졌다 등) 대소문자만 다른 이름의 file이 있으면 거절한다. folder를 읽지 못하면 쓰지 않는다. 쓰기는 임시 file에 쓰고 rename한다.
 6. 한 번의 변경에서 쓰는 순서는 항목 쓰기, `settings.json`, 항목 지우기다. 중간에 file을 쓰지 못해 멈춰도 `settings.json`이 없는 항목을 가리키지 않는다. 거절은 아무것도 쓰지 않지만 file 쓰기 실패는 그 앞에 쓴 것이 남는다.
-7. 켜진 shell은 SettingsChanged로만 설정을 따른다. 누가 바꿨는지 가리지 않는다. Settings 화면이 바꾼 값도 같은 길로 적용된다.
+7. 켜진 shell은 `settings` 변경으로만 설정을 따른다. 누가 바꿨는지 가리지 않는다. Settings 화면이 바꾼 값도 같은 길로 적용된다.
 8. 설정의 뜻을 아는 규칙은 한 곳에 있고 core와 shell이 같은 것을 쓴다.
 9. 선언에는 설명이 있어야 한다. 설명이 없는 선언은 core가 시작할 때 거절한다. agent는 설명으로 설정을 찾는다.
 
@@ -63,7 +63,7 @@ shell ── core 설정의 사본을 두고 SettingsChanged마다 다시 읽어
 
 - route `settings/list`(user, agent, app, machine): `settings`(key, description, locked, type, default, chosen)와 `folders`(key, description, folder, type, entries, unreadable). `keys`를 주면 그 key의 것만 온다.
 - route `settings/update`(user, agent): `changes`(set, unset). 답은 `changed`, `rejected`(key, reason, message), `notes`(key, message)다. reason은 `unknown_key`, `wrong_type`, `out_of_range`, `invalid_value`, `locked`다. rejected가 비어 있지 않으면 아무것도 쓰지 않은 것이다.
-- event `SettingsChanged`(`keys`): 값이 달라진 key다. 항목은 `<묶음 key>.<id>`이고, 읽지 못한 file 목록만 달라지면 묶음 key다. core가 쓴 것과 손으로 고친 file을 같이 알린다.
+- event `StateChanged`의 `settings`: id가 값이 달라진 key다(key마다 하나, null이면 모든 key). 항목은 `<묶음 key>.<id>`이고, 읽지 못한 file 목록만 달라지면 묶음 key다. core가 쓴 것과 손으로 고친 file을 같이 알린다.
 - 명령 `settings.get`(모든 workspace), `settings.set`·`settings.unset`(home). 오류 code는 `not_found`(없는 key), `forbidden`(locked), `invalid_input`(거절된 값, JSON이 아닌 값), `unavailable`이다.
 - 저장: `<data root>/settings.json`(key 전체 이름을 쓰는 평평한 object, 사람이 고른 값만), `<data root>/themes/<id>.json`(theme 하나. 모양은 `appearance.md`).
 - 설정 묶음: `shell.themes`(folder `themes`). 항목 id는 소문자·숫자·`-`로 1~64자다.

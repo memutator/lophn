@@ -1,6 +1,6 @@
 # event
 
-core 안에서 일어난 일은 세 부류로 갈린다. program이나 agent가 꼭 이어서 움직여야 하는 일(꺼졌다 켜져도 그 움직임이 빠지면 안 된다), 나중에 읽으려고 남겨 두는 기록, 화면이 알기만 하면 되는 일이다. 첫째는 그 일을 아는 command가 상태 변경과 같은 tx에서 하고 event를 거치지 않는다. 둘째는 같은 tx에서 `events` 표(Ledger)에 남긴다. 셋째는 메모리 Bus로 흘려 화면이 구독해 받는다. 이 구분과 별개로 앱이 "일이 일어났다"고 다른 앱에 알리는 길(앱 event)이 있다. 일이 일어난 뒤의 알림이고 한 번만 전달하며 저장하지 않는다. 이 문서는 이 구분과 Bus·Gateway, 화면이 event를 받는 약속, 앱 event를 다룬다.
+core 안에서 일어난 일은 세 부류로 갈린다. program이나 agent가 꼭 이어서 움직여야 하는 일(꺼졌다 켜져도 그 움직임이 빠지면 안 된다), 나중에 읽으려고 남겨 두는 기록, 화면이 알기만 하면 되는 일이다. 첫째는 그 일을 아는 command가 상태 변경과 같은 tx에서 하고 event를 거치지 않는다. 둘째는 같은 tx에서 `events` 표(Ledger)에 남긴다. 셋째는 메모리 Bus로 흘려 화면이 구독해 받는다. 상태를 바꾸는 route는 무엇을 바꾸는지 선언하고, core가 commit 뒤 그 선언을 `StateChanged` 하나로 내어 누가 바꿨든(다른 창, CLI, agent, scheduler) 열린 화면이 다시 읽는다. 이 구분과 별개로 앱이 "일이 일어났다"고 다른 앱에 알리는 길(앱 event)이 있다. 일이 일어난 뒤의 알림이고 한 번만 전달하며 저장하지 않는다. 이 문서는 이 구분과 Bus·Gateway, 화면이 event를 받는 약속, 앱 event를 다룬다.
 
 ## 문제
 
@@ -10,7 +10,7 @@ core 안에서 일어난 일은 세 부류로 갈린다. program이나 agent가 
 
 - 목표: 뒤에 꼭 움직여야 하는 일은 어떤 경우에도 빠지지 않는다. 화면은 붙거나 다시 붙을 때 정본에서 자기 상태를 다시 맞출 수 있다. 되돌아간 tx의 일을 화면이 보지 않는다.
 - 목표: 앱 하나가 낸 사실(사용량 한도에 닿음)을 여러 앱이 듣는다. 발행과 구독이 어느 쪽도 상대의 답을 기다리지 않고, 놓친 것을 믿게 하는 장치를 만들지 않는다. 발행과 거기서 나온 호출을 한 trace로 읽을 수 있다.
-- 비목표: event에 반응하는 장치(Reactor)와 domain event. lophn 사용자에게 hook(시작 전에 막기)을 여는 것. 앱이 자기 업무 사실을 lophn에 밀어 넣어 core가 반응하게 하는 길(push). program이 event를 듣고 agent session을 스스로 여는 것(사람이 승인한 job이 event로 도는 것은 이 선 안이다). 앱 event의 저장, 구독자 cursor, 재시도, 멱등 key. agent event의 저장과 replay. (event로 도는 job은 2026-11-11에 열었다: 아래 "앱 event"의 안 구독자) "어느 대상이 바뀜"을 알리는 일반 change notification. 이유는 모두 "결정"에 있다.
+- 비목표: event에 반응하는 장치(Reactor)와 domain event. lophn 사용자에게 hook(시작 전에 막기)을 여는 것. 앱이 자기 업무 사실을 lophn에 밀어 넣어 core가 반응하게 하는 길(push). program이 event를 듣고 agent session을 스스로 여는 것(사람이 승인한 job이 event로 도는 것은 이 선 안이다). 앱 event의 저장, 구독자 cursor, 재시도, 멱등 key. agent event의 저장과 replay. (event로 도는 job은 2026-11-11에 열었다: 아래 "앱 event"의 안 구독자) event를 듣고 core가 일하는 것(`StateChanged`는 화면만 듣는다). 바뀐 내용을 event에 실어 화면이 읽지 않고 고치게 하는 것. 이유는 모두 "결정"에 있다.
 
 ## 모델
 
@@ -41,8 +41,9 @@ agent event
 - 팀 자식의 물음은 부모가 푸는 것이라 request와 `TurnRequestOpened`·`QuestionAsked`, snapshot의 질문 항목에 `to_parent`가 붙고 대기 목록과 알림이 그것으로 거른다.
 
 남지 않는 event
-- session 밖에서 화면만 알면 되는 일이다. 메모리뿐이다. session이 없어 `subject`가 앱·release·instance·job이거나 null이다. `AcpUpdated`만 envelope에 `session`이 있어 session 조건에 걸린다.
-- 종류: `AppViewChanged`(activation·grant·rewind 뒤 열린 앱 view를 다시 그리라는 신호), `AppRemoved`, `SettingsChanged`, `AppRestartHalted`, `ActivationConsentRequested`·`ActivationConsentClosed`, `ShareRequestOpened`·`ShareRequestClosed`, `NoticePosted`·`NoticeClosed`·`NoticeRead`, `AppTrayChanged`, `WorkflowInstanceChanged`, `JobChanged`, `AppEventPublished`, `AcpUpdated`.
+- session 밖에서 화면만 알면 되는 일이다. 메모리뿐이다. session이 없어 `subject`가 앱·release거나 null이다. `AcpUpdated`만 envelope에 `session`이 있어 session 조건에 걸린다.
+- 종류: `AppViewChanged`(activation·grant·rewind 뒤 열린 앱 view를 다시 그리라는 신호), `AppRemoved`, `StateChanged`, `AppRestartHalted`, `ActivationConsentRequested`·`ActivationConsentClosed`, `ShareRequestOpened`·`ShareRequestClosed`, `NoticePosted`·`NoticeClosed`·`NoticeRead`, `AppEventPublished`, `AcpUpdated`.
+- `StateChanged`는 "이 대상이 바뀌었으니 다시 읽어라"뿐이다. payload는 `{changes: [{name, id}]}`이고 내용을 싣지 않는다. `name`은 화면이 읽는 단위의 닫힌 목록(`CHANGE_NAMES`: agents, projects, apps, app_runtime, app_grants, app_activity, releases, sessions, jobs, workflow_instances, settings, tray, secrets, providers, models 등)이고 `id`는 그 단위 안의 대상(앱, job, session, 설정 key, secret 이름)이거나 null(단위 전체)이다.
 - `AppEventPublished`는 앱(또는 core)이 event를 낸 뒤 열린 앱 화면이 받게 하는 신호다(subject는 발행 앱, core면 null. payload는 `{source, event, payload}`). 저장하지 않는다.
 - 쓸 수 있는 type은 이 두 집합(agent event, 남지 않는 event)뿐이고 이름은 서로 겹치지 않는다. Bus에는 둘만 오른다.
 
@@ -94,12 +95,12 @@ Bus
 남지 않는 event를 내는 때
 15. 앱 재시작 멈춤(`AppRestartHalted`)은 crash loop로 멈춘 기록(`AppUnavailable`)을 commit한 뒤 낸다. 사람에게 toast만 띄우는 일이다. 놓쳐도 앱 상태가 지금 상태를 보여 준다.
 16. 사람에게 한 알림(앱이 cap-notify로 한 것과 core가 남긴 기록)은 `notices` 표에 쓴 command가 commit된 뒤 `NoticePosted`(payload가 줄 한 건)를 낸다. 휘발 줄이 표에서 빠지면 `NoticeClosed`, 영구 기록을 읽음으로 바꾸면 `NoticeRead`다. 받는 곳은 Inbox와 shell main의 toast·OS 알림뿐이고 반응하는 곳은 없다. 놓친 화면은 열 때 표를 다시 읽는다(`architecture/app-notice.md`).
-17. job이나 job run을 바꾼 command가 commit되면 `JobChanged`(subject job, payload `job_run`)를 한 번 낸다. 받는 곳은 대기 목록(hold card)과 job 화면과 Jobs 탭·overlay와 project 창 오른쪽 sidebar의 Jobs panel이고, 받으면 다시 읽는다. 같은 commit 뒤에 scheduler도 깨워 timer를 다시 건다. 놓친 화면은 열 때 다시 읽고 정본은 표다(`architecture/job.md`).
-18. workflow instance의 행이나 줄을 바꾼 command가 commit되면 `WorkflowInstanceChanged`(subject instance, payload project와 workflow)를 한 번 낸다. CLI로 낸 report는 session event가 없어 사람 화면과 instance artifact view가 알 길이 이것뿐이다. 받으면 다시 읽고, 놓친 화면은 열 때 다시 읽는다. 정의 file이 바뀐 것은 알리지 않는다(`architecture/workflow.md`).
+17. 상태를 바꾸는 route는 무엇을 바꾸는지 route 정의의 `changes`에 적는다. command와 upload는 필수라 적지 않으면 build가 서지 않고, memory route는 상태를 바꾸는 것만 적는다. 대화(session, turn, message, tool call)처럼 agent event와 `AcpUpdated`가 이미 알리는 것은 빈 목록이다. command는 writer Worker가 그 tx에서 돈 command(`tx.call`로 다른 command 안에서 돈 것 포함)의 선언을 입력·결과로 풀어 모으고 commit된 결과에 실어, main thread가 `StateChanged` 하나로 낸다(같은 `{name, id}`는 한 번). 되돌아간 tx와 replay된 결과는 싣지 않는다. memory route와 upload는 입구가 handler 성공 뒤에 낸다.
+18. route를 거치지 않고 core가 화면이 읽는 상태를 바꾸는 곳은 같은 내는 함수를 부른다: 설정 store(route, file watch, core 안 정리 모두 바뀐 key마다 `settings`), job scheduler, 앱 호출 기록(모든 호출의 시작·끝에 `app_activity`), 앱 OAuth 로그인 끝(`secrets`), preview의 시작·ready·끝(`app_runtime`, ready·끝은 supervisor가 `apps/record_preview`로 알린다), activation 진행(`releases`). core는 `StateChanged`를 듣고 일하지 않는다. job command 뒤 scheduler를 깨우는 것은 그 command의 commit 뒤 할 일로 따로 한다.
 
 agent event와 화면
 19. agent event는 저장하지 않고 replay하지 않는다. 대화의 정본은 session 기록이고, 놓친 화면은 snapshot을 다시 읽는다. 쓰는 중인 글과 도는 turn의 active는 core 메모리에만 있고 ACP snapshot이 싣는다. `writing_streamed`의 offset이 snapshot의 글 길이와 맞지 않으면 `reread`가 서고 화면이 snapshot을 다시 읽는다.
-20. 화면은 조건을 걸고 `ready`를 받은 뒤에 snapshot을 읽는다. 읽고 나서 걸면 그 사이 event를 놓친다. 끊긴 연결은 replay 없이 처음부터 다시 맞춘다.
+20. 화면은 조건을 걸고 `ready`를 받은 뒤에 snapshot을 읽는다. 읽고 나서 걸면 그 사이 event를 놓친다. 끊긴 연결은 replay 없이 처음부터 다시 맞춘다. 화면이 core 상태를 읽는 공통 길은 하나다(`useCoreRead`). read route 정의의 `reads`가 그 읽기가 기대는 이름(과 입력에서 뽑은 id)이고, 이름이 같고 어느 쪽 id가 null이거나 둘이 같은 `StateChanged`나 `ready`가 오면 다시 읽는다. 읽는 동안 온 것은 끝난 뒤 한 번만 다시 읽는다. 끊기면 옛 값을 stale로 둔다. check가 "`reads`의 이름을 내는 곳이 하나도 없다"를 잡는다. 내용을 접는 store(session 목록, Inbox, 대화)는 이 길을 쓰지 않고 내용 있는 event를 접는다.
 21. 서버는 `watch` frame마다 받은 차례로 `ready` 하나를 답한다. shell main은 그 차례로 짝지어, 한 창이 조건을 바꿔 건 `watch`의 `ready`는 그 창에만 보내고 새로 붙은 연결의 `ready`만 모든 창에 보낸다. 창 안에서도 그 `watch`를 걸 때 아직 `ready`를 못 받은 구독자만 다시 읽는다. 기존 구독자는 서버가 동기로 다시 구독해 event를 잃지 않는다. tab 하나를 열고 닫을 때마다 모든 창이 snapshot을 다시 읽던 것을 막는다.
 22. session을 건 조건은 session이 없는 event(남지 않는 event)와 맞지 않는다. 그런 event는 종류 조건으로만 받는다. 섞어 쓰면 전역 대기 목록이 조용히 빈다. `AcpUpdated`는 subject가 null이지만 envelope의 session이 조건에 걸린다.
 23. 구독 조건은 "어느 session의, 어떤 종류"다. 조건 여럿은 OR이고 같은 event는 연결 하나에 한 번만 간다. 조건 없는 구독은 아무 event도 받지 않는다.
@@ -131,14 +132,17 @@ boundary: `events`(commit 뒤 agent event와 남지 않는 event를 화면에 �
 - 읽기: `events/list`(`after_seq`, 필터 `types`·`subjects`, `limit`; 응답에 `scanned_through_seq`, `head_seq`; actor user·agent·app·machine). `session_snapshots/list`(`sessions` 생략하면 열린 session 전부, 없는 id는 뺀다; actor user). 대화 상태는 `AcpSnapshot`.
 - 기록 event의 모양: `seq`, `type`, `subject`, `actor`, `turn`, `payload`, `at`. agent event의 모양: `session`, `type`, `at`, `payload`. 남지 않는 event의 모양: `type`, `subject`, `at`, `payload`.
 - type 이름은 `<Entity><과거형 동사>` PascalCase다.
-- 주요 payload: `ModelOutputStreamed {turn, model_call, kind: text|reasoning, offset, text}`(offset은 같은 model_call·kind에서 앞서 낸 글의 UTF-16 길이이고 redaction을 거친 글로 센다. 다른 model_call의 조각이 오면 앞 model 호출의 쓰는 중인 글을 버린다). `TurnEnded`의 `active_ms`(사람 기다림을 뺀 일한 시간). `NoticePosted`의 payload는 notice 행 한 건. `JobChanged {job_run | null}`. `WorkflowInstanceChanged {project, workflow}`. `AppRestartHalted {app_name, release, crashes}`.
+- 주요 payload: `ModelOutputStreamed {turn, model_call, kind: text|reasoning, offset, text}`(offset은 같은 model_call·kind에서 앞서 낸 글의 UTF-16 길이이고 redaction을 거친 글로 센다. 다른 model_call의 조각이 오면 앞 model 호출의 쓰는 중인 글을 버린다). `TurnEnded`의 `active_ms`(사람 기다림을 뺀 일한 시간). `NoticePosted`의 payload는 notice 행 한 건. `StateChanged {changes: [{name, id: string | null}]}`(하나 이상). `AppRestartHalted {app_name, release, crashes}`.
 - session snapshot 한 건: `session`, `agent`, `workspace`, `state`, `turn_requests`, `questions {group, turn, tool_call, to_parent}`. 질문 내용은 싣지 않고 질문 read가 준다.
 - `events` 표의 저장 모양과 immutable 보장은 storage의 ledger가 맡는다.
 
 ## 결정
 
 - 반응할 domain event를 모두 지우고 Reactor(cursor, 멱등 key, backoff, 5초 poll)도 지웠다. 반응이 필요한 10개 안팎을 domain event로 남겼으나 그 일도 아는 command가 같은 tx에서 하게 되었고, 마지막 반응(맡긴 coding session의 끝)도 command가 같은 tx에서 call을 닫게 되어 반응할 event 없이 장치만 남았다. 같은 사실을 두 길이 알리게 하는 문제도 있었다. 버린 안: Reactor 유지, lophn 사용자에게 hook을 여는 것. 상태는 각 module의 표가 정본이다. (agent)
-- 일반 change notification(어느 대상이 바뀜)은 두지 않았다. 받을 화면이 없다. 열린 앱 view를 다시 그리는 것과 workflow instance, job을 다시 읽는 것만 남지 않는 event로 둔다. workflow는 session 밖(CLI)에서도 바뀌고 job도 scheduler가 바꾸어 session event로 알 수 없다.
+- 일반 change notification(`StateChanged`)을 둔다. 전에는 "받을 화면이 없다"며 두지 않고 job, workflow instance, 설정, tray만 종류마다 "다시 읽어라" event를 두었다. 이제 화면이 는다(창 둘, 폰). 바꾸는 쪽도 는다(CLI, agent, scheduler, 앱). 기능마다 손으로 단 event는 상태를 바꾸는 route 절반 가까이에서 빠져 있었다. 그래서 그 넷을 `StateChanged` 하나로 합쳤다. 화면 갱신만 하고 core는 듣지 않아 옛 Reactor의 짐(저장, cursor, 재시도)이 돌아오지 않는다. (사람이 방향을 냄, 2026-11-14. 모양은 agent)
+- 선언은 handler가 아니라 route 정의에 둔다. 이유: 내는 것을 잊지 못하게 type으로 막고, 화면 쪽이 같은 계약에서 읽기의 기댐(`reads`)을 읽는다. 버린 안: handler마다 event를 내기(지금까지의 방식), route의 `resource`를 그대로 대상으로 쓰기(다른 resource를 바꾸는 command와 여러 표를 모아 읽는 read가 많다). (agent)
+- `StateChanged`에 내용을 싣지 않는다. 실으면 event마다 schema와 접는 코드가 생겨 손으로 다는 것으로 돌아간다. 잃는 것은 줄 하나가 바뀌어도 그 읽기를 통째로 다시 하는 것이고, 한 사람이 쓰는 양에서는 문제가 아니다. 잦은 것(대화)은 내용 있는 event를 그대로 쓴다. (agent)
+- 열린 앱 view를 다시 bind하라는 `AppViewChanged`, shell의 정리 신호 `AppRemoved`, 내용을 싣는 event, toast 계기는 `StateChanged`로 합치지 않았다. 다시 읽기가 아니라 다른 일을 시킨다. (agent)
 - agent event를 저장하는 안은 버렸다. 조사한 harness(Claude Code, Codex, OpenCode, Hermes 등)와 paseo 모두 대화는 session 기록이 정본이고 event는 흘리는 신호다. seq와 replay는 비용만 든다. 대신 snapshot에 대기 중인 요청까지 담아, 늦게 붙은 화면도 답을 기다리는 요청을 본다.
 - agent event 집합은 여러 harness의 lifecycle을 나란히 놓고 공통분모로 골랐다. 그때 함께 쓰던 coding session 층은 지웠고(`architecture/coding-agent.md`) 지금은 lophn session만 낸다. model 호출의 시작·끝은 event로 두지 않고 쓰는 중인 글만 흐른다.
 - 맡긴 coding session의 끝은 새 event 없이 그 끝을 아는 command가 같은 tx에서 call을 닫는다. 줄에서 띄우지 못한 call은 `failed`고, 켤 때는 Router의 복구가 닫는다. (agent)

@@ -45,7 +45,7 @@ extension 하나는 폴더 하나다. 폴더 이름이 id(`[a-z][a-z0-9-]*`)이�
 
 ```
 shell main 기동 ─ core ready(연결 session이 바뀔 때마다) ─▶ sync
-SettingsChanged(keys에 extensions.*) ───────────────────▶ sync
+settings 변경(id가 extensions.*) ───────────────────▶ sync
 sync
   ─▶ roots의 <root>/<id>/manifest.json을 읽는다(code는 읽지 않는다)
   ─▶ 판 검사 · 설정 extensions.<id>.enabled 읽기(core settings/list)
@@ -53,7 +53,7 @@ sync
   ─▶ 꺼졌으면: 켜져 있던 것만 deactivate()
   ─▶ 판이 맞는 manifest의 tool 전부를 core에 올린다(extension_tools/publish)
 Settings › System › Extensions ─ IPC shell:extensions(list|install|remove|run) ─▶ registry
-  켜기·끄기는 IPC가 아니라 설정 쓰기(extensions.<id>.enabled) ─▶ SettingsChanged ─▶ sync
+  켜기·끄기는 IPC가 아니라 설정 쓰기(extensions.<id>.enabled) ─▶ settings 변경 ─▶ sync
 install ─▶ 표시 file만 둔다(다시 해도 같다)
 remove  ─▶ 꺼져 있을 때만 표시 file에 적힌 file과 표시 file, 비게 된 폴더를 지운다
 앱 끝 ─▶ 켜진 것을 모두 deactivate()

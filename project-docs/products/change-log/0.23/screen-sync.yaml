@@ -1,0 +1,39 @@
+id: screen-sync
+version: 0.23.54
+title: 상태를 바꾸는 route가 바꾸는 것을 선언하고 core가 commit 뒤 StateChanged 하나를 내어 열린 화면이 다시 읽는다
+modules: [packages/protocol, packages/core/apps, packages/core/config, packages/core/jobs, packages/core/workflows, packages/core/main, packages/core/server, packages/core/storage, packages/shell/main, packages/shell/renderer, tools]
+checked: [boundary-catalog]
+change: |
+  - route 정의에 `changes`(상태를 바꾸는 route: command·upload 필수, memory는 바꾸는 것만)와 `reads`(read route)가 생겼다. 항목은 이름이거나 `{name, id(input, output)}`다. 이름은 닫힌 목록 `CHANGE_NAMES`(`packages/protocol/events/changes.ts`)이고 화면이 읽는 단위다.
+  - 남지 않는 event `StateChanged {changes: [{name, id}]}`를 더했다. command는 writer Worker가 그 tx에서 돈 command(`tx.call` 포함)의 선언을 모아 commit된 결과에 싣고 main thread가 낸다. 되돌아간 tx와 replay는 싣지 않는다. memory route와 upload는 입구가 handler 성공 뒤에 낸다. route 밖에서 상태를 바꾸는 곳(설정 store, job scheduler, 앱 호출 기록, 앱 OAuth 로그인 끝, preview, activation 진행)은 같은 함수 `publishStateChanged`를 부른다.
+  - `JobChanged`, `WorkflowInstanceChanged`, `AppTrayChanged`, `SettingsChanged`를 지우고 `StateChanged`로 합쳤다. 설정은 바뀐 key가 id다.
+  - supervisor가 preview 자식이 ready가 되거나 끝나면 machine route `apps/record_preview`로 core에 알린다.
+  - 화면의 공통 읽기 `useCoreRead(route, input)`: route의 `reads`에 맞는 변경이나 다시 붙음에 다시 읽고, 겹친 다시 읽기는 하나로 합치고, 끊기면 옛 값을 stale로 둔다. agent·project·앱 목록, session 이름, 앱 상세(run, access, versions, activity, rewind), preview 탭, 설정 panel, provider·model, sign-in이 이 길로 읽는다. polling 여섯 곳과 창 focus 다시 읽기, `useRead`, `useReload`, 종류마다의 hook을 지웠다.
+  - check에 `reads` 단계: read route가 기대는 이름을 내는 곳이 하나도 없으면 실패한다.
+  - provider 연결은 쓰기 직전에 provider 목록을 다시 읽어 이미 이어진 정의면 아무것도 쓰지 않고 `conflict`를 낸다(`provider-id-overwrite`의 renderer 쪽).
+  - gallery fake source가 어느 read·memory route에든 답을 줄 수 있다(`fakeAnswer`). wireframes smoke는 ResizeObserver loop 알림을 오류로 세지 않는다.
+why: |
+  화면이 는다(창 둘, 폰). 화면 밖에서 바꾸는 쪽도 는다(CLI, agent, scheduler). 지금까지는 "바뀌었으니 다시 읽어라"를 기능마다 손으로 달았고, 상태를 바꾸는 route 절반 가까이가 아무것도 내지 않았다. 그래서 다른 창이나 CLI가 바꾼 것을 화면을 다시 열 때까지 몰랐고, 앱 상세와 sign-in은 polling으로 때웠다. 사람은 이것을 "reactor"로 말했고 planner가 화면 갱신으로 읽었다(roadmap `screen-sync`).
+decisions:
+  - text: >-
+      "reactor"는 화면 갱신이다. 저장, replay, core가 event를 듣고 일하는 것은 없다. 옛 Reactor의 짐(cursor, 멱등 key, 재시도)이 돌아오지 않는다.
+    by: person
+  - text: >-
+      선언은 handler가 아니라 route 정의에 두고 command·upload는 type으로 필수다. 버린 안: handler마다 event 내기(빠뜨린다), route의 resource를 대상으로 쓰기(다른 resource를 바꾸는 command와 여러 표를 모아 읽는 read가 많다).
+    by: agent
+  - text: >-
+      event에 내용을 싣지 않고 이름과 id만 싣는다. 대화처럼 agent event와 `AcpUpdated`가 이미 알리는 route는 빈 목록이다. skill과 workflow 정의는 disk의 file이라 이름을 두지 않았다(skill 켜기는 설정 `skills_off`라 `settings`).
+    by: agent
+  - text: >-
+      앱 호출 기록은 route가 아니라 invocation 기록의 시작·끝에서 `app_activity`를 낸다. agent·job·event가 부른 호출이 HTTP route를 거치지 않아서다. preview의 ready·끝은 core가 supervisor를 polling하지 않고 supervisor(preview 자식의 부모)가 알린다.
+    by: agent
+  - text: >-
+      내용을 접는 store(session 목록, Inbox, 대화)는 공통 읽기로 옮기지 않았다. `AppViewChanged`, `AppRemoved`, 내용을 싣는 event, toast 계기는 합치지 않았다.
+    by: agent
+follow_up: |
+  - 앱 화면(SDK `useOperation`)의 자동 다시 읽기는 roadmap `screen-sync`에 남았다.
+  - `provider-id-overwrite`는 core 쪽 셋(거의 같은 순간의 두 연결, `login.complete`가 connect 전에 token을 씀, 끊기의 best-effort 정리)이 남아 열려 있다.
+checklist:
+  - 창 둘을 띄워 한 창에서 project 이름을 바꾸면 다른 창의 sidebar와 Workspaces panel이 바뀌는지 본다
+  - CLI로 agent를 만들거나 지우면 열려 있는 Agents 탭과 sidebar의 agent 목록에 바로 보이는지 본다
+  - 앱 상세의 Run, Access, Versions, Activity와 preview 탭이 polling 없이 따라오는지 본다(앱을 켜고 끄기, agent가 앱 tool 부르기, release 적용)

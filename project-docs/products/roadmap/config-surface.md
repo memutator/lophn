@@ -69,7 +69,7 @@ core는 모양만 본다. 뜻은 shell과 design이 안다.
 
 ### 켜져 있는 shell은 밖에서 바뀐 설정을 모른다
 
-- core는 설정이 바뀌면 `SettingsChanged`(`{keys}`)를 낸다. 화면이 쓴 것도, `settings.json`을 손으로 고친 것도 낸다(`packages/core/config/store.ts`가 folder를 본다).
+- core는 설정이 바뀌면 `settings` 변경(`StateChanged`, id는 key)을 낸다. 화면이 쓴 것도, `settings.json`을 손으로 고친 것도 낸다(`packages/core/config/store.ts`가 folder를 본다).
 - 이 event를 받는 곳은 extension 켜기·끄기, shared apps, trace뿐이다(`main/desktop/wiring/extensions.ts:442`, `agent.ts:224`, `coding.ts:267`, `renderer/commands/extension-keys.ts:120`).
 - appearance, 단축키, quick launch는 다른 길이다: renderer가 core에서 값을 읽어 main에 IPC로 민다(`shell:appearance`, `shell:keybindings`). 다시 읽는 때는 core 연결이 `ready`가 될 때와 그 Settings 화면이 열려 있을 때뿐이다(`renderer/desktop/main.tsx:299-322`, `settings/use-reload.ts`).
 - 그래서 `shell.dark_theme`을 밖에서 바꾸면, 켜져 있는 shell은 core에 다시 붙거나 사람이 Settings › Appearance를 열 때까지 옛 theme이다.
@@ -105,7 +105,7 @@ core는 모양만 본다. 뜻은 shell과 design이 안다.
 - **저장과 검사는 core.** 뜻 검사까지 core가 하고, 틀리면 바꾼 쪽이 그 자리에서 이유를 받는다. shell이 손으로 한 벌 더 적은 규칙은 없어진다.
 - **바꾸는 길은 하나.** Settings 화면, `lophn settings set`, agent가 같은 route를 부른다. 설정을 더해도 명령과 route가 늘지 않는다.
 - **agent가 읽는 설명도 선언에서 나온다.** `lophn settings get`이 key, 뜻, 고를 수 있는 값, 바꿀 수 있는지를 보인다. 설정을 더해도 agent 지침을 고치지 않는다. 지침은 "`settings get`으로 찾아라"만 말한다.
-- **shell은 설정의 살아 있는 사본 하나를 둔다.** main과 renderer가 key를 구독하고(core의 `SettingsChanged`), 값이 바뀌면 누가 바꿨든 적용한다. 설정마다 IPC channel을 짓지 않는다.
+- **shell은 설정의 살아 있는 사본 하나를 둔다.** main과 renderer가 key를 구독하고(core의 `settings` 변경(`StateChanged`)), 값이 바뀌면 누가 바꿨든 적용한다. 설정마다 IPC channel을 짓지 않는다.
 - **file로 저장되는 값도 같은 surface다.** theme처럼 항목마다 file 하나인 것(`themes/<id>.json`)은 "값이 folder에 저장되는 설정"으로 선언한다. core가 읽고, 검사하고, watch하고, 같은 route와 같은 event로 내놓는다. theme을 위한 route와 명령 묶음을 따로 만들지 않는다. 사람이 folder에 file을 손으로 두는 길은 그대로다.
 
 ### 기반의 시험: 하나를 더할 때 고치는 곳

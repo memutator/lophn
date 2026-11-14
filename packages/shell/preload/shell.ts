@@ -46,7 +46,11 @@ contextBridge.exposeInMainWorld(
     ? Object.freeze({
         ...createShellApi(ipcRenderer, role),
         // secret 값을 받는 보호 입력 창 열기. 값은 이 창을 지나지 않는다.
-        openSecretInput: createSecretInputOpener(ipcRenderer),
+        openSecretInput: createSecretInputOpener(ipcRenderer, (open) => {
+          const root = document.documentElement;
+          if (open) root.dataset.secretModal = "";
+          else delete root.dataset.secretModal;
+        }),
         // 창 없는 사람 결정의 handle. main이 정본을 core에서 다시 읽고 handle만 돌려준다.
         async requestDecisionHandle(
           request: DecisionHandleRequest,

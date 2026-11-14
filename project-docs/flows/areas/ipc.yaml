@@ -472,6 +472,7 @@ links:
   - {entry: "ipc:secret-input:display", flow: secret-input}
   - {entry: "ipc:secret-input:submit", flow: secret-input}
   - {entry: "ipc:secret-input:cancel", flow: secret-input}
+  - {entry: "ipc:secret-input:fit", flow: secret-input}
   - {entry: "ipc:shell:decision-handle", flow: decision-handle-issue}
   # harness, 터미널 agent, coding hook
   - {entry: "ipc:harness-gui:tab-opened", flow: harness-gui-open}

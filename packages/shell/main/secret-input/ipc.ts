@@ -4,10 +4,12 @@
 import {
   SECRET_INPUT_CANCEL_CHANNEL,
   SECRET_INPUT_DISPLAY_CHANNEL,
+  SECRET_INPUT_FIT_CHANNEL,
   SECRET_INPUT_OPEN_CHANNEL,
   SECRET_INPUT_SUBMIT_CHANNEL,
   type SecretInputDisplay,
   type SecretInputOpenReply,
+  secretInputFitSchema,
   secretInputOpenSchema,
   type SecretInputSubmitReply,
   secretInputSubmitSchema,
@@ -182,8 +184,6 @@ export function registerSecretInputIpc(
           parent,
           preload: deps.preload,
           packaged: deps.packaged,
-          // save 창은 칸이 넷이라 더 길다.
-          tall: request?.kind === "login" && request.mode === "save",
           ...(deps.headless === undefined ? {} : { headless: deps.headless }),
           // 사람이 창을 닫으면 그만둔 것이다.
           onClosed: () => done("cancelled"),
@@ -252,6 +252,15 @@ export function registerSecretInputIpc(
     one.done("cancelled");
     return Promise.resolve({});
   });
+
+  ipc.handle(SECRET_INPUT_FIT_CHANNEL, (event, input) => {
+    const one = activeOf(event);
+    if (one === null) return Promise.reject(new Error("forbidden"));
+    const parsed = secretInputFitSchema.safeParse(input);
+    if (!parsed.success) return Promise.reject(new Error("invalid_input"));
+    one.opened.fit(parsed.data.height);
+    return Promise.resolve({});
+  });
 }
 
 export function removeSecretInputIpc(ipc: SecretInputIpc): void {
@@ -260,6 +269,7 @@ export function removeSecretInputIpc(ipc: SecretInputIpc): void {
     SECRET_INPUT_DISPLAY_CHANNEL,
     SECRET_INPUT_SUBMIT_CHANNEL,
     SECRET_INPUT_CANCEL_CHANNEL,
+    SECRET_INPUT_FIT_CHANNEL,
   ])
     ipc.removeHandler(channel);
 }

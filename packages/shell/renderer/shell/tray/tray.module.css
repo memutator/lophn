@@ -57,6 +57,12 @@
   app-region: no-drag;
 }
 
+/* 내용 크기를 기다리는 동안. 그리기는 해야 앱 page가 크기를 잰다. */
+.popup[data-waiting] {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .popup[data-side="above"] {
   bottom: calc(var(--space-10) + var(--space-4));
 }

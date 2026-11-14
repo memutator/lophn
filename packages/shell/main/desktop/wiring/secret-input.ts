@@ -125,6 +125,12 @@ export function register(ctx: ShellContext, typeOnce: OnceTyper): Registered {
           const [width = 0, height = 0] = window.getContentSize();
           return { width, height };
         },
+        onFocus: (listener) => {
+          window.on("focus", listener);
+          return () => {
+            if (!window.isDestroyed()) window.off("focus", listener);
+          };
+        },
       };
     },
     core: () => core.session(),

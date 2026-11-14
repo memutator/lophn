@@ -66,7 +66,7 @@
   line-height: var(--type-small-line);
 }
 
-/* 대화 줄과 그 위에 하나만 여는 panel(rewind·권한) 층. `/status`는 여기가 아니라 composer 위에 뜬다. */
+/* 대화 줄과 그 위에 하나만 여는 panel(권한·자식 대화) 층. `/status`는 여기가 아니라 composer 위에 뜬다. */
 .stage {
   position: relative;
   display: flex;

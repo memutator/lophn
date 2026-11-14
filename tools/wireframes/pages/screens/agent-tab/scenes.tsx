@@ -86,7 +86,7 @@ export const ContextFullScene = () => (
     }}
   />
 );
-/** rewind: 내 메시지에서 그 시점으로 되돌리는 panel이 대화 화면 안에 열린다. 앱은 앱마다 고른다. */
+/** rewind: 내 메시지에서 그 시점으로 되돌리는 dialog가 대화 위에 뜬다(뒤의 대화가 보인다). 앱은 앱마다 고른다. */
 export const RewindScene = () => <Scene sub="rewind" />;
 /** `/permissions`: 그 agent에 할당한 앱과 앱마다 뺀 tool, MCP server는 설정한 곳을 가리키는 한 줄. */
 export const PermissionsScene = () => (

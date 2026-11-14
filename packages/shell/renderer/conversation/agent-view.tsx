@@ -1,5 +1,5 @@
 // Agent 화면: 한 agent의 한 session을 보이는 탭 본문. 위에서 아래로 header, 대화 줄, composer 위의 질문·승인 카드와
-// "다음 turn" 줄, composer를 부품 그대로 묶는다. rewind·권한은 대화 위에 하나만 여는 panel 층이다. core와는
+// "다음 turn" 줄, composer를 부품 그대로 묶는다. 권한·자식 대화는 대화 위에 하나만 여는 panel 층이고, rewind는 대화가 보이는 modal dialog다. core와는
 // AgentTabSource로만 말하고 탭을 열고 닫는 일, 파일과 설정으로 가는 일은 host가 한다.
 
 import { formatRelativeTime, t } from "@lophn/i18n";
@@ -1251,7 +1251,9 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             </ThreadIndexContext.Provider>
           </FillShellProvider>
         </RunCodeProvider>
-        {layer === null || layer.kind === "status" ? null : (
+        {layer === null ||
+        layer.kind === "status" ||
+        layer.kind === "rewind" ? null : (
           <div
             className={styles.layer}
             data-panel-layer={layer.kind}
@@ -1303,29 +1305,6 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
                 />
               </ChildView>
             ) : null}
-            {layer.kind === "rewind" && session !== null ? (
-              <RewindPanel
-                source={source}
-                withFiles={caps.rewind_files}
-                rewind={(choice: RewindChoice) =>
-                  act(session, {
-                    type: "rewind",
-                    session,
-                    key: actKey("rewind"),
-                    message: layer.message,
-                    files: choice.files,
-                    apps: [...choice.apps],
-                  })
-                }
-                session={session}
-                message={layer.message}
-                excerpt={excerptOf(
-                  messages.find((item) => item.id === layer.message)?.parts,
-                )}
-                onClose={() => setLayer(null)}
-                onRewound={() => rewound(layer.message)}
-              />
-            ) : null}
             {layer.kind === "permissions" && permissions !== null ? (
               <PermissionsView
                 agent={agent.name}
@@ -1336,6 +1315,30 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             ) : null}
           </div>
         )}
+        {/* rewind는 대화를 덮지 않는 modal dialog다. 뒤의 대화가 보인다. */}
+        {layer?.kind === "rewind" && session !== null ? (
+          <RewindPanel
+            source={source}
+            withFiles={caps.rewind_files}
+            rewind={(choice: RewindChoice) =>
+              act(session, {
+                type: "rewind",
+                session,
+                key: actKey("rewind"),
+                message: layer.message,
+                files: choice.files,
+                apps: [...choice.apps],
+              })
+            }
+            session={session}
+            message={layer.message}
+            excerpt={excerptOf(
+              messages.find((item) => item.id === layer.message)?.parts,
+            )}
+            onClose={() => setLayer(null)}
+            onRewound={() => rewound(layer.message)}
+          />
+        ) : null}
       </div>
       <div className={styles.bottom}>
         {approval === null || session === null ? null : approval.subject
@@ -1557,7 +1560,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
               return result.ok;
             }}
             onDraft={(patch) => drafts.save(key, patch)}
-            onLoadPermissions={() => void loadPermissions()}
+            onLoadPermissions={loadPermissions}
             onEditPermissions={host.openPermissions}
             onSend={(delivery) => void send(delivery)}
             onShell={(command) => void runShell(command)}

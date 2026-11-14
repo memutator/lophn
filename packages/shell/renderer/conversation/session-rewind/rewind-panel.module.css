@@ -1,100 +1,30 @@
-/* 대화 화면 안 rewind panel. 두 열(대화와 파일 | 앱)과 아래 요약·단추. 위치는 부르는 쪽 층이 잡는다. */
-.panel {
-  box-sizing: border-box;
+/* 대화 위 rewind dialog의 본문. 틀(제목, 단추 줄, 크기)은 Dialog가 정한다. */
+.body {
   display: flex;
   flex-direction: column;
-  width: 100%;
-  max-width: calc(var(--dialog-width-wide) + var(--dialog-width-default) / 2);
-  max-height: 100%;
-  border: var(--border-width) solid var(--color-border-base);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface-base);
-  color: var(--color-text-primary);
-  font-family: var(--font-sans);
+  gap: var(--space-4);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
-  box-shadow: var(--shadow-popover);
-  overflow: hidden;
 }
 
-.head {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-5);
-  border-bottom: var(--border-width) solid var(--color-border-subtle);
-}
-
-.title {
-  font-weight: var(--font-weight-semibold);
-}
-
-.cols {
-  display: grid;
-  grid-template-columns: 1fr 1.25fr;
-  min-height: var(--space-0);
-  overflow: auto;
-}
-
-.col {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  min-width: var(--space-0);
-  min-height: var(--space-0);
-  padding: var(--space-5);
-  overflow: auto;
-}
-
-.col + .col {
-  border-left: var(--border-width) solid var(--color-border-subtle);
-}
-
-.foot {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-5) var(--space-4);
-  border-top: var(--border-width) solid var(--color-border-subtle);
-}
-
-.summary {
-  flex: 1;
-  min-width: var(--space-0);
-  color: var(--color-text-muted);
-}
-
-.error {
-  margin: var(--space-0);
-  color: var(--status-critical-text);
-}
-
+/* 고른 메시지. 길면 두 줄로 자른다: 어느 메시지인지 알아보면 된다. */
 .quote {
+  display: -webkit-box;
   margin: var(--space-0);
   padding: var(--space-3) var(--space-5);
   border-left: var(--border-focus-width) solid var(--color-border-strong);
   background: var(--color-surface-subtle);
   color: var(--color-text-secondary);
+  overflow: hidden;
   overflow-wrap: anywhere;
-}
-
-.group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.groupHead {
-  margin: var(--space-0);
-  font-weight: var(--font-weight-semibold);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .text {
   margin: var(--space-0);
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
 }
 
 .muted {
@@ -104,24 +34,44 @@
   line-height: var(--type-caption-line);
 }
 
-.app {
+.error {
+  margin: var(--space-0);
+  color: var(--status-critical-text);
+}
+
+.choices {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4) var(--space-5);
-  border: var(--border-width) solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  gap: var(--space-3);
 }
 
-.app[data-on] {
-  border-color: var(--color-ink-background);
+.choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
-.sub {
-  margin: var(--space-2) var(--space-0) var(--space-0);
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.toggle {
+  flex: none;
+  padding: var(--space-0);
+  border: none;
+  background: none;
   color: var(--color-text-muted);
+  font: inherit;
   font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
+  cursor: pointer;
+}
+
+.toggle:hover {
+  color: var(--color-text-primary);
+  text-decoration: underline;
 }
 
 .list {
@@ -129,9 +79,32 @@
   flex-direction: column;
   gap: var(--space-1);
   margin: var(--space-0);
-  padding: var(--space-0) var(--space-0) var(--space-0) var(--space-5);
+  padding: var(--space-0);
   list-style: none;
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
   overflow-wrap: anywhere;
+}
+
+/* checkbox 글 자리에 맞춰 들인 보조 글과 펼친 목록. */
+.sub,
+.detail {
+  margin: var(--space-0) var(--space-0) var(--space-0) var(--space-8);
+}
+
+.sub {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: calc(var(--space-12) * 4);
+  overflow: auto;
 }
 
 .mono {

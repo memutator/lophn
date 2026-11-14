@@ -245,7 +245,7 @@ export const AgentShellRun = ShellRunScene;
 export const AgentShellMode = ShellModeScene;
 /** 끝나기를 기다리는 shell 줄. */
 export const AgentShellPending = ShellPendingScene;
-/** rewind panel. */
+/** rewind dialog. */
 export const AgentRewind = RewindScene;
 /** 도는 편집과 call: 일반 tool 줄이 아니라 편집 카드와 call 블록으로 보인다. */
 export const AgentToolRunning = ToolRunningScene;

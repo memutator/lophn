@@ -106,7 +106,7 @@ secret
 33. `draft_set`은 `key`가 새 값일 때 한 번 composer를 그 글로 채운다(사람이 이미 친 글은 덮지 않는다. 화면을 처음 열 때 이미 있던 key는 채우지 않는다). OpenCode `/undo`가 쓴다.
 34. thread index: 본 대화(subagent 보기는 아니다) 왼쪽에 사람 메시지(top-level, 숨긴 구간과 대기열은 뺀다) 하나에 눈금 하나인 rail을 둔다. 사람 메시지가 4개 이상이고 왼쪽 여백이 48px 이상일 때만 그린다. 눈금에 pointer를 올리면 popover card(오른쪽에 열고 focus를 가져가지 않는다)가 그 메시지 첫 줄, 다음 사람 메시지 전 마지막 agent 답 2줄, bookmark 단추를 보인다. 누르기·끌기·Alt+↑/↓로 그 turn에 간다. 가는 곳은 DOM이 아니라 잰 높이와 추정으로 셈하므로 아직 그리지 않은 줄에도 간다.
 35. 대화는 가상화한다. 화면에서 600px 안의 줄과 끝 줄 셋(흐르는 꼬리, 보내는 말, Working)만 그리고 나머지는 높이만큼의 빈 칸이다. 높이는 줄 key마다 재서 기억하고 안 잰 줄은 잰 줄의 평균으로 둔다. 끝에 있으면 끝을 따라가고, 위로 올려 읽는 중에는 화면 맨 위 줄을 기준으로 높이가 바뀐 만큼 scroll 위치를 맞춰 읽던 자리가 움직이지 않는다. 읽던 자리는 draft store의 `scroll`(`{row, offset}`)로 남는다. 찾기 막대가 열린 동안은 모든 줄을 그린다. 화면 밖으로 나간 줄의 안 상태(펼친 tool 본문 등)는 남지 않는다. 사람이 보내면 따라가기를 켜고 맨 아래로 간다("최신으로"와 같은 길).
-36. key scroll은 command `agent.scroll-page-up`·`agent.scroll-page-down`·`agent.scroll-top`·`agent.scroll-bottom`(context `agentView`, 기본 PageUp·PageDown·Ctrl+Home·Ctrl+End)이고 입력칸에 focus가 있어도 대화가 scroll한다. 층(rewind·자식 대화·권한)이 열려 있으면 그 층이 key를 받는다. 위로 가면 따라가기가 꺼지고 아래로 맨 아래 여유에 닿으면 켜진다.
+36. key scroll은 command `agent.scroll-page-up`·`agent.scroll-page-down`·`agent.scroll-top`·`agent.scroll-bottom`(context `agentView`, 기본 PageUp·PageDown·Ctrl+Home·Ctrl+End)이고 입력칸에 focus가 있어도 대화가 scroll한다. 층(자식 대화·권한)이나 rewind dialog가 열려 있으면 그쪽이 key를 받는다. 위로 가면 따라가기가 꺼지고 아래로 맨 아래 여유에 닿으면 켜진다.
 37. 글 조각은 store가 약 40ms로 묶어 알리고, 흐르는 글은 끝난 덩어리(memo)와 꼬리로 나눠 그린다. 흐르는 꼬리는 덜 쓴 표·제목·목록 표시·link를 감추고 parse 결과를 cache한다. 자라는 code block은 새 줄만 칠하고 끝난 결과를 cache한다. 긴 대화 비용은 측정했다(200 turn 대화의 main thread 바쁜 시간 78.8초→7.2초(CPU 4배 느리게), 15초 streaming 50ms 넘는 frame 42→0).
 
 ## 경계와 계약

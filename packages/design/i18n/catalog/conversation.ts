@@ -72,6 +72,8 @@ export const conversation = {
   "conversation.button.rewind-go": "Rewind",
   "conversation.button.run-in-terminal": "Run in terminal",
   "conversation.button.rewind-here": "Rewind to here",
+  "conversation.button.rewind-hide-files": "Hide files",
+  "conversation.button.rewind-show-files": "Show files",
   "conversation.button.save": "Save",
   "conversation.button.send": "Send",
   "conversation.button.send-now": "Send now",
@@ -286,15 +288,12 @@ export const conversation = {
     "{count, plural, one {# write has} other {# writes have}} an unknown result and cannot be undone",
   "conversation.label.rewind-app-writes":
     "{count, plural, one {# write} other {# writes}} by this session after this message",
-  "conversation.label.rewind-apps-head":
-    "Apps this session wrote to after this message",
   "conversation.label.rewind-caller-event": "App event",
   "conversation.label.rewind-caller-flow": "Workflow",
   "conversation.label.rewind-caller-person": "You",
   "conversation.label.rewind-caller-program": "Job",
-  "conversation.label.rewind-conversation": "Conversation",
   "conversation.label.rewind-files":
-    "Also restore files changed with file tools",
+    "{count, plural, one {Also restore # file} other {Also restore # files}} changed with file tools",
   "conversation.label.rewind-hidden":
     "Rewound here · {count, plural, one {# message} other {# messages}} hidden",
   "conversation.label.rewind-item-answer": "An answer you gave",
@@ -306,10 +305,6 @@ export const conversation = {
     "Also goes back, though this session did not do it",
   "conversation.label.rewind-outside": "Stays as it is, outside lophn",
   "conversation.label.rewind-quote": "Rewind to this message",
-  "conversation.label.rewind-summary-apps": "Conversation, files and {apps}",
-  "conversation.label.rewind-summary-files": "Conversation and files only",
-  "conversation.label.rewind-summary-messages": "Conversation only",
-  "conversation.label.rewind-summary-messages-apps": "Conversation and {apps}",
   "conversation.label.rewind-write-unknown": "Result unknown",
   "conversation.label.find": "Find in conversation",
   "conversation.label.find-count": "{current, number}/{total, number}",
@@ -501,10 +496,6 @@ export const conversation = {
     "A checked app goes back to this message, including changes others made since. Unchecked apps stay as they are.",
   "conversation.notice.rewind-conversation":
     "Messages after this one are removed from the conversation.",
-  "conversation.notice.rewind-no-apps":
-    "This session did not write to any app after this message.",
-  "conversation.notice.rewind-no-files":
-    "No files were changed with file tools after this message.",
   "conversation.notice.rewind-shell-files":
     "Files changed through the shell are not restored.",
   "conversation.notice.rewind-steer":

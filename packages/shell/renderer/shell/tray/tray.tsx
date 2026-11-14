@@ -138,12 +138,15 @@ function PopupBody({
 function Popup({
   open,
   place,
+  waiting,
   onPin,
   onClose,
   onContent,
 }: {
   open: TrayOpen;
   place: PopupPlace;
+  /** 내용 크기를 기다린다. 자리는 잡고 보이지 않는다. */
+  waiting: boolean;
   onPin: (pinned: boolean) => void;
   onClose: () => void;
   /** 앱 page가 알린 내용 크기에 머리 줄을 더한 popup 전체의 내용 크기. 범위로 선언한 쪽이 이것을 따른다. */
@@ -200,6 +203,7 @@ function Popup({
       aria-label={item.title}
       data-tray-popup={item.key}
       data-side={side}
+      data-waiting={waiting ? "" : undefined}
       style={place}
     >
       <div ref={headRow} className={styles.head}>
@@ -230,15 +234,37 @@ function Popup({
   );
 }
 
+/** 범위로 선언한 쪽이 있으면 popup 크기가 앱 page가 알린 내용 크기를 따른다. */
+function followsContent(size: PopupSize | undefined): boolean {
+  return (
+    (size?.width !== undefined && typeof size.width !== "number") ||
+    (size?.height !== undefined && typeof size.height !== "number")
+  );
+}
+
+/** 내용 크기를 기다리는 가장 긴 시간. 앱이 크기를 알리지 않아도 popup은 뜬다. */
+const CONTENT_WAIT_MS = 600;
+
 /** 창의 열린 tray popup. Desktop이 workspace 밖에 한 번 놓아 workspace를 옮겨도 다시 mount되지 않는다. */
 export function TrayPopupLayer({ memory }: { memory: TrayMemory }) {
   const open = useTrayOpen(memory);
   const key = open?.item.key ?? null;
-  // 열린 항목의 앱 page가 알린 내용 크기. 다른 항목을 열면 버린다.
-  const [content, setContent] = useState<{
-    key: string;
-    size: PopupContent;
-  } | null>(null);
+  // 항목마다 앱 page가 마지막으로 알린 내용 크기. 다시 열면 기본 크기로 떴다가 줄지 않고 처음부터 그 크기로 뜬다.
+  const [contents, setContents] = useState<ReadonlyMap<string, PopupContent>>(
+    () => new Map(),
+  );
+  // 처음 여는 항목은 내용 크기가 올 때까지 보이지 않게 둔다(기본 크기로 그렸다가 줄어드는 것을 보이지 않는다).
+  const [waited, setWaited] = useState<string | null>(null);
+  const waiting =
+    open !== null &&
+    followsContent(open.item.size) &&
+    !contents.has(open.item.key) &&
+    waited !== open.item.key;
+  useEffect(() => {
+    if (!waiting || key === null) return;
+    const timer = setTimeout(() => setWaited(key), CONTENT_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [waiting, key]);
   const [width, setWidth] = useState(() => window.innerWidth);
   useEffect(() => {
     const resize = () => setWidth(window.innerWidth);
@@ -248,13 +274,12 @@ export function TrayPopupLayer({ memory }: { memory: TrayMemory }) {
   const onContent = useCallback(
     (size: PopupContent) => {
       if (key === null) return;
-      setContent((was) =>
-        was?.key === key &&
-        was.size.width === size.width &&
-        was.size.height === size.height
-          ? was
-          : { key, size },
-      );
+      setContents((was) => {
+        const known = was.get(key);
+        if (known?.width === size.width && known.height === size.height)
+          return was;
+        return new Map(was).set(key, size);
+      });
     },
     [key],
   );
@@ -264,13 +289,14 @@ export function TrayPopupLayer({ memory }: { memory: TrayMemory }) {
     { right: open.right },
     { width },
     open.item.size,
-    content?.key === open.item.key ? content.size : undefined,
+    contents.get(open.item.key),
   );
   return (
     <Popup
       key={open.item.key}
       open={open}
       place={place}
+      waiting={waiting}
       onPin={(pinned) => {
         const now = memory.get();
         if (now !== null) memory.set({ ...now, pinned });

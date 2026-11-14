@@ -15,8 +15,11 @@ interface SecretInputOpenTransport {
  */
 export function createSecretInputOpener(
   transport: SecretInputOpenTransport,
+  /** 보호 창이 열려 있는 동안 true. 부모 창이 입력을 받지 못하는 것을 화면에 보인다(scrim). */
+  modal: (open: boolean) => void = () => {},
 ): SecretInputOpenApi["open"] {
   return async (input: SecretInputOpen) => {
+    modal(true);
     try {
       return (await transport.invoke(
         SECRET_INPUT_OPEN_CHANNEL,
@@ -24,6 +27,8 @@ export function createSecretInputOpener(
       )) as SecretInputOpenReply;
     } catch {
       return { ok: false, code: "unavailable" };
+    } finally {
+      modal(false);
     }
   };
 }

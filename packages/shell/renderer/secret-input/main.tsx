@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type {
   SecretInputApi,
@@ -16,10 +16,25 @@ type Bridge = { lophnSecretInput?: SecretInputApi };
 export function SecretInputApp() {
   const api = (globalThis as unknown as Bridge).lophnSecretInput;
   const [display, setDisplay] = useState<SecretInputDisplay | null>(null);
+  const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     void api?.getDisplay().then(setDisplay, () => setDisplay(null));
   }, [api]);
+  // 창 높이는 그린 내용이 정한다(오류 줄이 서면 늘어난다). main은 처음 높이를 받고서야 창을 보인다.
+  useEffect(() => {
+    const node = box.current;
+    if (api === undefined || node === null) return;
+    const observer = new ResizeObserver(() => {
+      void api.fit(Math.ceil(node.getBoundingClientRect().height));
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [api, display]);
   if (api === undefined || display === null) return null;
+  return <div ref={box}>{body(api, display)}</div>;
+}
+
+function body(api: SecretInputApi, display: SecretInputDisplay) {
   if (display.request !== undefined) {
     return (
       <LoginRequestForm

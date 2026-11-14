@@ -147,8 +147,8 @@ interface AgentComposerProps {
   onDraft: (
     patch: Partial<Pick<Draft, "text" | "selection" | "attachments">>,
   ) => void;
-  /** 권한 요약을 열었다. host가 `permissions`를 읽는다. */
-  onLoadPermissions: () => void;
+  /** 권한 요약을 연다. host가 `permissions`를 읽고 읽었는지 답한다. */
+  onLoadPermissions: () => Promise<boolean>;
   /** 권한 보기의 [Edit in Agents]. */
   onEditPermissions: () => void;
   /** 글이나 chip을 보낸다. 일하는 중이면 다음 turn을 기다리는 줄이 된다(`next_turn`). `steer`는 도는 turn에 든다. */
@@ -655,8 +655,17 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
           <Popover
             open={permissionsOpen}
             onOpenChange={(next) => {
-              setPermissionsOpen(next);
-              if (next) props.onLoadPermissions();
+              if (!next) return setPermissionsOpen(false);
+              // 처음에는 다 읽은 뒤 연다. 빈 면으로 열면 아래 좁은 자리에 붙어 그 높이로 잘리고, 다음에 열 때는
+              // 다 찬 면이라 위로 뒤집혀 뜬다. 읽은 적이 있으면 바로 열고 새로 읽는다.
+              if (props.permissions !== null) {
+                setPermissionsOpen(true);
+                void props.onLoadPermissions();
+                return;
+              }
+              void props.onLoadPermissions().then((ok) => {
+                if (ok) setPermissionsOpen(true);
+              });
             }}
             placement="beside"
             trigger={

@@ -45,7 +45,18 @@ samp,
   z-index: var(--z-backdrop);
 }
 
-:root:is([data-overlay-modal], [data-page-modal], [data-tab-dragging]) * {
+/* secret 보호 창(별도 child 창)이 열린 동안 이 창은 입력을 받지 못한다. 창 전체를 덮어 그것을 보인다. */
+:root[data-secret-modal] body::after {
+  content: "";
+  position: fixed;
+  inset: var(--space-0);
+  height: auto;
+  background: var(--floating-backdrop);
+  pointer-events: none;
+  z-index: var(--z-tooltip);
+}
+
+:root:is([data-overlay-modal], [data-page-modal], [data-secret-modal], [data-tab-dragging]) * {
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }

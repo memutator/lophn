@@ -394,7 +394,7 @@ export const agentArea: Area = {
       id: "new-agent-rewind",
       title: "Agent · rewind",
       description:
-        "내 메시지에서 그 시점으로 되돌리는 대화 안 panel이다. 대화와 file tool로 바꾼 파일은 기본으로 함께 되돌리고, 앱은 앱마다 고른다. write 목록, 함께 되돌아갈 다른 변경, 되돌아가지 않는 external 효과, 결과를 모르는 write를 보인다.",
+        "내 메시지에서 그 시점으로 되돌리는 dialog다. 대화 위 작은 modal이라 뒤의 대화가 보인다. 대화와 file tool로 바꾼 파일은 기본으로 함께 되돌리고(경로는 Show files로 펼친다), 앱은 앱마다 고른다. 앱을 켜면 write 목록, 함께 되돌아갈 다른 변경, 되돌아가지 않는 external 효과, 결과를 모르는 write를 보인다.",
       render: () => <AgentRewind />,
     },
     {

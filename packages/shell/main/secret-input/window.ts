@@ -14,9 +14,9 @@ const SECRET_INPUT_URL = "lophn-shell://secret-input/index.html";
 
 /** 표시 최대폭. 좁은 부모는 창 안에 맞춘다. */
 const SECRET_INPUT_MAX_WIDTH = 480;
-const SECRET_INPUT_HEIGHT = 420;
-/** login 저장 요청 창은 칸이 넷이다. */
-const SECRET_INPUT_TALL_HEIGHT = 620;
+/** 내용 높이를 받기 전 숨긴 창의 높이. 받으면 내용에 맞춘다(`fit`). */
+const SECRET_INPUT_FIRST_HEIGHT = 320;
+const SECRET_INPUT_MIN_HEIGHT = 160;
 const CHROME = 48;
 
 interface SecretInputWindowConfig {
@@ -38,6 +38,8 @@ export interface ParentWindow {
   /** 앱 전용 창이어도 보호 창을 앞으로 가져오기 위해 부모를 먼저 올린다. */
   focus(): void;
   getContentSize(): { width: number; height: number };
+  /** 부모가 focus를 얻으면 부른다. 끊는 함수를 돌려준다. */
+  onFocus(listener: () => void): () => void;
 }
 
 interface SecretInputContents {
@@ -60,6 +62,9 @@ export interface SecretInputBrowserWindow {
   focus(): void;
   close(): void;
   isDestroyed(): boolean;
+  isVisible(): boolean;
+  getContentSize(): number[];
+  setContentSize(width: number, height: number): void;
   on(event: "closed" | "unresponsive", listener: () => void): void;
 }
 
@@ -113,30 +118,23 @@ export interface OpenedSecretInput {
   readonly window: SecretInputBrowserWindow;
   /** 앱 webContents에 건 입력 차단을 푼다. view는 숨기지 않았다. */
   releaseInputBlock(): void;
+  /** 페이지가 그린 내용 높이로 창을 맞춘다. 처음이면 창을 보인다(크기가 맞기 전에는 보이지 않는다). */
+  fit(height: number): void;
 }
 
 let serial = 0;
 
 /** 부모보다 넓지 않게, 최대 480px. */
-function secretInputSize(
-  parent: { width: number; height: number },
-  tall: boolean,
-): {
-  width: number;
-  height: number;
-} {
-  const width = Math.max(
-    320,
-    Math.min(SECRET_INPUT_MAX_WIDTH, parent.width - CHROME),
+function secretInputWidth(parent: { width: number }): number {
+  return Math.max(320, Math.min(SECRET_INPUT_MAX_WIDTH, parent.width - CHROME));
+}
+
+/** 내용 높이를 부모 안으로 맞춘다. 부모보다 길면 창 안에서 scroll한다. */
+function fitHeight(content: number, parent: { height: number }): number {
+  return Math.max(
+    SECRET_INPUT_MIN_HEIGHT,
+    Math.min(content, parent.height - CHROME),
   );
-  const height = Math.max(
-    240,
-    Math.min(
-      tall ? SECRET_INPUT_TALL_HEIGHT : SECRET_INPUT_HEIGHT,
-      parent.height - CHROME,
-    ),
-  );
-  return { width, height };
 }
 
 function secretInputConfig(input: {
@@ -144,16 +142,15 @@ function secretInputConfig(input: {
   preload: string;
   packaged: boolean;
   partition: string;
-  tall: boolean;
   headless?: HeadlessMode;
 }): SecretInputWindowConfig {
-  const size = secretInputSize(input.parent.getContentSize(), input.tall);
+  const parent = input.parent.getContentSize();
   return surfaceOptions(
     {
       parent: input.parent,
       modal: true,
-      width: size.width,
-      height: size.height,
+      width: secretInputWidth(parent),
+      height: fitHeight(SECRET_INPUT_FIRST_HEIGHT, parent),
       show: false,
       frame: false,
       autoHideMenuBar: true,
@@ -176,7 +173,6 @@ export function openSecretInputWindow(input: {
   parent: ParentWindow;
   preload: string;
   packaged: boolean;
-  tall?: boolean;
   /** 개발 확인 전용 headless. 켜지면 offscreen으로 만들고 앞에 띄우지 않는다. */
   headless?: HeadlessMode;
   onClosed: () => void;
@@ -193,25 +189,41 @@ export function openSecretInputWindow(input: {
       preload: input.preload,
       packaged: input.packaged,
       partition,
-      tall: input.tall ?? false,
       headless,
     }),
   );
   hardenContents(window.webContents, input.onCrashed);
   const release = blockAppInput(input.host.appContents(input.parent.id));
+  // 부모는 입력을 받지 못한다. 그 부모를 누르면 WM이 부모를 올려 보호 창이 뒤로 숨고 창은 멈춘 것처럼 보이므로,
+  // 보호 창을 다시 앞으로 가져온다.
+  const stopFocus = input.parent.onFocus(() => {
+    if (!window.isDestroyed() && window.isVisible()) {
+      focusSurface(window, headless);
+    }
+  });
   window.on("closed", () => {
+    stopFocus();
     release();
     input.onClosed();
   });
   window.on("unresponsive", input.onCrashed);
   // 앱 전용 창에서 요청해도 보호 창을 앞으로 가져온다.
   focusSurface(input.parent, headless);
-  void window.loadURL(SECRET_INPUT_URL).then(() => {
-    if (!window.isDestroyed()) {
+  void window.loadURL(SECRET_INPUT_URL);
+  let shown = false;
+  const fit = (height: number) => {
+    if (window.isDestroyed()) return;
+    const [width = 0] = window.getContentSize();
+    window.setContentSize(
+      width,
+      fitHeight(height, input.parent.getContentSize()),
+    );
+    if (!shown) {
+      shown = true;
       reveal(window, headless);
     }
-  });
-  return { windowId, partition, window, releaseInputBlock: release };
+  };
+  return { windowId, partition, window, releaseInputBlock: release, fit };
 }
 
 function hardenSession(session: SecretInputSession): void {

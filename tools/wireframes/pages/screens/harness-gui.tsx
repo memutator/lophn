@@ -1354,7 +1354,7 @@ export const harnessGuiArea: Area = {
       id: "harness-gui-rewind",
       title: "Harness GUI · rewind",
       description:
-        "내 메시지의 Rewind to here를 눌러 연 rewind panel이다. harness(Claude)는 adapter가 알려 준 되돌아갈 파일(src/upload.ts, src/upload.test.ts)을 미리 보이고, 기본으로 함께 되돌린다. harness에는 앱 write가 없어 앱 절은 비어 있다. 바뀐 파일이 없는 시점은 No files were changed 한 줄이다.",
+        "내 메시지의 Rewind to here를 눌러 연 rewind dialog다. 대화 위 작은 modal이라 뒤의 대화가 보인다. harness(Claude)는 adapter가 알려 준 되돌아갈 파일 수를 'Also restore 2 files' 한 줄로 보이고 기본으로 함께 되돌린다. 경로(src/upload.ts, src/upload.test.ts)는 Show files로 펼친다. harness에는 앱 write가 없어 앱 줄은 없다. 바뀐 파일이 없는 시점은 대화만 되돌린다.",
       render: () => (
         <TerminalTabGui
           approval={null}

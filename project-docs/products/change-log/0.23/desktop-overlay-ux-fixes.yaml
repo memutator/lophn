@@ -1,0 +1,21 @@
+id: desktop-overlay-ux-fixes
+version: 0.23.51
+title: "rewind를 대화가 보이는 dialog로 바꾸고, secret 입력 창·tray popup·composer의 앱 할당 popover가 뜨는 모양을 고친다"
+modules: [packages/shell/renderer, packages/shell/main, packages/shell/preload, packages/shell/ipc]
+checked: []
+change: |
+  - rewind: 전에는 대화 화면을 불투명하게 덮는 두 열 panel(대화·파일 | 앱)과 요약 줄이었다. 이제 대화 위 작은 modal dialog(scrim 뒤로 대화가 보인다)다. 메시지 인용은 두 줄로 자르고, 파일은 "Also restore N files" checkbox 한 줄에 경로는 Show files로 펼친다. 앱은 앱마다 checkbox 한 줄이고 켜면 write 목록을 보인다. 요약 줄과 "바꾼 파일 없음/앱 없음" 줄은 뺐다(되돌릴 것이 없으면 그 줄이 서지 않는다).
+  - secret 보호 입력 창: 전에는 높이 420px(login 저장 620px) 고정이라 내용 아래가 비었다. 이제 창을 숨긴 채 열고 페이지가 새 IPC `secret-input:fit`으로 알린 내용 높이에 맞춘 뒤 보인다. 열린 동안 부모 창 전체에 scrim을 덮고, 부모가 focus를 얻으면(사람이 부모를 눌렀다) 보호 창을 다시 앞으로 가져온다. 전에는 부모를 누르면 보호 창이 부모 뒤로 숨어 닫힌 것처럼 보이는데 부모는 입력을 받지 않았다.
+  - tray popup: 범위 크기 popup은 앱 page가 내용 크기를 알릴 때까지 기본 높이 480px로 떴다가 줄었다. 이제 항목마다 마지막 내용 크기를 창 메모리에 두어 다시 열면 그 크기로 뜨고, 처음 열 때는 크기가 올 때까지(길어야 0.6초) 보이지 않게 그린다.
+  - composer의 "N apps assigned" popover: 전에는 열면서 권한을 읽어 처음에는 빈 면으로 열렸다. 빈 면은 아래 좁은 자리에 붙고 그 높이로 잘렸고, 다음에 열면 이미 읽은 다 찬 면이라 위로 떴다. 이제 처음에는 다 읽은 뒤 열고(읽기에 실패하면 열지 않는다), 읽은 적이 있으면 바로 열고 새로 읽는다.
+why: 사람이 쓰면서 어색하다고 본 네 곳이다. rewind는 대화를 가려 어느 시점인지 맥락을 잃었고, 나머지는 창·popup이 크기나 자리를 바꾸며 출렁였다.
+decisions:
+  - text: "rewind는 Claude Code desktop·t3code·Orca처럼 대화가 보이는 가운데 dialog로 한다. 버린 길: 메시지에 붙는 menu만으로 바로 되돌리기(Paseo; 앱별 선택과 파일 목록을 둘 자리가 없다)."
+    by: agent
+  - text: "secret 입력은 별도 child modal 창을 유지한다. 버린 길: 부모 창 안 WebContentsView overlay(크기·scrim은 쉬워지나, 열린 동안 붙는 앱·browser view가 그 위를 덮을 수 있어 보호 창 경계가 약해진다)."
+    by: agent
+checklist:
+  - 대화에서 Rewind to here를 열면 뒤의 대화가 보이는 작은 dialog가 뜨는지 본다
+  - provider key 입력 창 아래에 빈 자리가 없는지, 열린 동안 lophn 창이 어두워지고 lophn 창을 눌러도 입력 창이 앞에 남는지 본다
+  - 대화 아래 "N apps assigned"를 처음 눌러도 두 번째와 같은 자리(위)에 다 찬 목록으로 뜨는지 본다
+  - tray 항목을 바꿔 열 때 popup이 커졌다 줄지 않고 바로 제 크기로 뜨는지 본다

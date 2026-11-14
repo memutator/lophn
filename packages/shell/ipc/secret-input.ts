@@ -11,6 +11,8 @@ export const SECRET_INPUT_DISPLAY_CHANNEL = "secret-input:display";
 export const SECRET_INPUT_SUBMIT_CHANNEL = "secret-input:submit";
 /** 보호 창 → main: 그만둔다. */
 export const SECRET_INPUT_CANCEL_CHANNEL = "secret-input:cancel";
+/** 보호 창 → main: 그린 내용의 높이. main이 창을 그 높이로 맞추고, 처음 받으면 창을 보인다. */
+export const SECRET_INPUT_FIT_CHANNEL = "secret-input:fit";
 
 /** protocol/secrets의 SECRET_INPUT_MAX_BYTES와 같은 값. */
 export const SECRET_INPUT_MAX_BYTES = 64 * 1024;
@@ -80,6 +82,10 @@ export const secretInputSubmitSchema = z.union([
     .strict(),
 ]);
 
+export const secretInputFitSchema = z
+  .object({ height: z.number().int().min(1).max(4096) })
+  .strict();
+
 export type SecretInputOpen = SecretInputNameOpen;
 export type SecretInputSubmit = z.infer<typeof secretInputSubmitSchema>;
 export type SecretInputPurpose = z.infer<typeof purpose>;
@@ -117,4 +123,5 @@ export interface SecretInputApi {
   getDisplay(): Promise<SecretInputDisplay>;
   submit(input: SecretInputSubmit): Promise<SecretInputSubmitReply>;
   cancel(): Promise<Record<PropertyKey, never>>;
+  fit(height: number): Promise<Record<PropertyKey, never>>;
 }

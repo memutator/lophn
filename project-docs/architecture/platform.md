@@ -61,7 +61,7 @@ OS마다 다른 순수 규칙은 base의 OS 층 한 곳에 있다. base는 node 
 ### 폰이 붙는 listener
 
 - 설정 `remote.enabled`(기본 꺼짐, 사람만 바꾼다)가 켜져 있는 동안만 core가 따로 WebSocket listener를 연다. port는 설정 `remote.port`(기본 7432), 모든 interface, path `/remote`, binary message만 받는다. 설정이 바뀌면 열고 닫는다. 꺼져 있으면 loopback 밖 listener가 없다. API listener(loopback, `Host`·`Origin` 검사)는 그대로다.
-- TLS 대신 연결 안에서 암호화한다(`Noise_IK_25519_ChaChaPoly_SHA256`, prologue `lophn-remote/1`). core의 key 쌍은 `<data root>/remote/host-key.json`(0600)에 listener를 처음 열 때 만든다. 폰은 QR로 core의 공개 key를 받아 그 key만 믿고, core는 handshake에서 폰의 공개 key를 받는다. 이 key가 기기 신원이고 bearer token은 없다. handshake와 hello가 10초 안에 끝나지 않은 연결은 닫는다.
+- TLS 대신 연결 안에서 암호화한다(`Noise_IK_25519_ChaChaPoly_SHA256`, prologue `lophn-remote/1`). core의 key 쌍은 `<data root>/remote/host-key.json`(0600)에 listener를 처음 열 때 만든다. 폰은 QR로 core의 공개 key를 받아 그 key만 믿고, core는 handshake에서 폰의 공개 key를 받는다. 이 key가 기기 신원이고 bearer token은 없다. handshake와 hello가 10초 안에 끝나지 않은 연결은 닫는다. 기기로 붙지 않은 연결(handshake 중과 pairing 전)은 동시에 8개까지이고 넘는 socket은 받자마자 닫는다. 등록되지 않은 key는 60초 안에 pairing해야 하고, key가 기기 표에 있기 전까지 frame은 4 KiB까지다. 같은 network의 누구든 연결을 붙잡아 core의 메모리와 자리를 쓰지 못하게 하려는 것이다.
 - 받은 key가 ledger의 기기 표에 있으면 그 기기로 붙고, 없으면 `pair` frame만 받는다. pairing code는 `pairing/start`가 만들고 메모리에만 둔다(128-bit, 300초, 한 번, 새 code가 옛 code를 무효로 한다). 틀린 code는 연결마다 5번이다. 자격과 route 목록은 `architecture/approval.md`, frame은 계약 `remote-protocol`이다.
 
 ### core가 죽었을 때

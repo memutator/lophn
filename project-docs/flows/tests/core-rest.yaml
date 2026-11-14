@@ -525,6 +525,10 @@ files:
   - path: packages/core/remote/host_test.ts
     covers:
       - remote-connection:unpaired-refused
+      - remote-connection:unattached-full
+      - remote-connection:pairing-timeout
+      - remote-connection:frame-too-large
+      - remote-connection:revoked-while-attaching
       - remote-connection:call-ok
       - remote-connection:call-forbidden
       - remote-pair:paired

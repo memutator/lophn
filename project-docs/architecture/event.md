@@ -123,7 +123,7 @@ agent event와 화면
 
 boundary: `events`(commit 뒤 agent event와 남지 않는 event를 화면에 내는 Bus와 Gateway), `event-stream`(core가 확정한 event의 stream).
 
-- Gateway: WebSocket, subprotocol `lophn.gateway.1`. 받는 principal은 사람 token(shell main)이다. replay도 ack도 없다. pairing한 폰은 remote 연결 안에서 같은 frame(`watch`, `ready`, `event`, `closed`)을 같은 Bus 구독과 느린 구독자 한도로 받는다. principal은 `device:<id>`이고 구독 조건은 사람 token과 같다(event를 기기 route 목록으로 거르지 않는다).
+- Gateway: WebSocket, subprotocol `lophn.gateway.1`. 받는 principal은 사람 token(shell main)이다. replay도 ack도 없다. pairing한 폰은 remote 연결 안에서 같은 frame(`watch`, `ready`, `event`, `closed`)을 같은 Bus 구독과 느린 구독자 한도로 받는다. principal은 `device:<id>`이고 구독 조건의 모양은 사람 token과 같다. 다만 core가 기기에는 event 종류 목록(`REMOTE_ALLOWED_EVENTS`: session·turn의 시작과 끝, turn request·질문·activation 동의·공유 요청의 열림과 닫힘, `AcpUpdated`, notice, 화면 갱신의 `StateChanged`)의 type만 보낸다. 조건에 types가 없어도 같다. 앱 event(`AppEventPublished`)와 설정·앱 설치 event는 폰에 가지 않는다.
   - client frame은 `watch {conditions}` 하나다. 연결 안에서 다시 보내면 조건을 통째로 바꾼다. 잘못된 frame은 `closed` 없이 끊는다.
   - server frame은 `ready`(조건이 적용됐다), `event {event}`, `closed {reason}`(`slow_consumer` | `credential_revoked` | `shutdown`)다. 느린 구독자는 `closed` 뒤 1013으로 끊는다.
 - 구독 조건: `{session?, types?}`. 생략한 칸은 제한하지 않는다. event가 맞으려면 (session이 없거나 event의 session과 같고) 그리고 (types가 없거나 event의 type이 들어 있다).

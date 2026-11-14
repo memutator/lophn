@@ -131,7 +131,7 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 
 **저장 file.** `<dataRoot>/shell/bookmarks.json`(0600, 폴더 0700, atomic write, version과 알려진 칸만). run 폴더(`shell-<pid>/`)는 앱이 도는 동안만 있는 shim·socket 자리다.
 
-**설정 key.** `shell.browser.web_links`·`shell.browser.local_links`(`browser_tab` | `system_browser`, 기본 `browser_tab`). `shell.devices`(사람이 등록한 기기: 이름, 크기, DPR, OS `ios|android`, 32개까지, 기본 `[]`).
+**설정 key.** `shell.browser.web_links`·`shell.browser.local_links`(`browser_tab` | `system_browser`, 기본 `browser_tab`). `shell.devices`(preview 기기: 이름, 크기, DPR, OS `ios|android`, 32개까지, 기본 `[]`). 사람이 넣은 항목과 pairing한 폰의 항목이 같이 있다. 폰의 항목은 `device`(기기 id)를 달고 remote가 그 id로만 바꾸고 지운다. 이름이 겹치면 pairing이 숫자를 붙인다. `device`가 없는 항목은 remote가 건드리지 않는다.
 
 **terminal bridge protocol.** 요청 `{v:1,key,url}` 한 줄 → 답 `{"result":"pane"|"declined"}` 한 줄. env `BROWSER`, `LPN_BROWSER_BRIDGE={"socket","key"}`. ack 대기 1500ms, shim 접속 한도 3000ms.
 

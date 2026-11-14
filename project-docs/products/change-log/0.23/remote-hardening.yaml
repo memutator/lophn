@@ -1,0 +1,21 @@
+id: remote-hardening
+version: 0.23.56
+title: 폰 연결이 받는 event를 좁히고, pairing 전 연결과 끊기·같은 이름 기기의 빈 곳을 막는다
+modules: [packages/protocol, packages/core/remote, packages/core/events, packages/core/config, packages/shell/renderer]
+change: |
+  - 기기 연결의 `watch`는 `REMOTE_ALLOWED_EVENTS`(session·turn 시작과 끝, turn request·질문·activation 동의·공유 요청의 열림과 닫힘, `AcpUpdated`, notice, 화면 갱신의 `StateChanged`)의 type만 받는다. 조건에 types가 없어도 같다. 예전에는 `AppEventPublished`를 포함해 모든 event를 받았다.
+  - 기기로 붙지 않은 연결(handshake 중과 pairing 전)은 동시에 8개까지이고 넘는 socket은 바로 닫는다. 등록되지 않은 key는 60초 안에 pairing해야 하고, key가 기기 표에 있기 전까지 frame은 4 KiB까지다. 예전에는 제한이 없어 연결마다 16 MiB를 쓰게 할 수 있었다.
+  - 연결이 자격을 받은 뒤 key를 다시 찾아, 그 사이 끊긴 기기면 자격을 거두고 닫는다. 예전에는 끊기와 다시 붙기가 겹치면 끊은 기기가 붙어 있을 수 있었다.
+  - `shell.devices` 항목에 선택 칸 `device`(기기 id)가 생겼다. pairing은 `device`를 단 항목을 더하고 이름이 겹치면 " 2"부터 붙인다. 이름 바꾸기와 끊기는 `device`가 맞는 항목만 고친다. 사람이 넣은 항목은 건드리지 않는다. Settings › Browser에서 기기를 고쳐도 `device`가 남는다. 예전에는 이름이 같은 폰이나 사람이 넣은 기기가 서로를 덮거나 지웠다.
+why: |
+  remote-core review에서 사람이 찾은 네 가지다. route는 좁혔는데 event가 열려 있었고, LAN의 누구든 연결을 붙잡을 수 있었고, "끊으면 바로 닫힌다"는 약속에 틈이 있었고, 이름으로 묶은 화면 정보가 서로를 지웠다.
+decisions:
+  - text: >-
+      event 종류 목록은 route 목록 옆에 두고 core가 Gateway session의 Bus 구독에서 거른다. 목록은 대화·Inbox 화면이 지금 구독하는 type이다.
+    by: person
+  - text: >-
+      pairing 전 제한은 동시 8개, 60초, frame 4 KiB다. 등록된 key는 기기 표에서 찾자마자 frame 상한을 올린다(붙는 사이 온 큰 frame이 끊기지 않게). 잃는 것: LAN에서 놀고 있는 socket 8개가 진짜 폰의 다시 붙기를 최대 70초 막을 수 있다.
+    by: agent
+  - text: >-
+      `shell.devices`의 폰 항목을 이름이 아니라 기기 id로 묶는다. 선택 칸이라 옛 `settings.json`이 그대로 읽혀 data step이 없다.
+    by: agent

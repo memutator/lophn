@@ -1,7 +1,6 @@
-// 파일 탭의 머리 조각. card 안이면 FileFrame이 이 조각들을 card 머리 줄(shell/card-head.tsx)에 올리고
+// 파일 탭의 머리 조각. card 안이면 FileFrame이 이 조각들을 card 머리 줄(parts/card-head)에 올리고
 // (파일 정보·저장 상태·Info는 ⋯ 앞, Delete는 ⋯ 메뉴 맨 위), card 밖(floated 패널, detached 창)이면 ViewBar
-// 한 줄에 그린다. 경로는 card의 breadcrumb에 있다.
-import type { ReactNode } from "react";
+// (parts/view-bar) 한 줄에 그린다. 경로는 card의 breadcrumb에 있다.
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
 import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
@@ -10,21 +9,6 @@ import { t } from "@lophn/i18n";
 import { editorIcons, workspaceIcons } from "../icons/mod.ts";
 import type { SaveState } from "./save-state.ts";
 import styles from "./view-bar.module.css";
-
-interface ViewBarProps {
-  /** 왼쪽 한 줄. */
-  lead: ReactNode;
-  children?: ReactNode;
-}
-
-export function ViewBar({ lead, children }: ViewBarProps) {
-  return (
-    <div className={styles.bar} data-view-bar="">
-      <div className={styles.lead}>{lead}</div>
-      <div className={styles.actions}>{children}</div>
-    </div>
-  );
-}
 
 interface FileMetaProps {
   outside: boolean;

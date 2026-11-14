@@ -7,10 +7,9 @@ import {
   allItems,
   createFakeWaiting,
 } from "../../../../packages/shell/renderer/desktop/connection/waiting/fake-source.ts";
-import {
-  ChatPlaceholder,
-  RemoteApp,
-} from "../../../../packages/shell/renderer/remote/remote-app.tsx";
+import { createFakeAgentTabSource } from "../../../../packages/shell/renderer/conversation/agent-tab-fake-source.ts";
+import { remoteChat } from "../../../../packages/shell/renderer/remote/chat/remote-chat.tsx";
+import { RemoteApp } from "../../../../packages/shell/renderer/remote/remote-app.tsx";
 import { click, runSteps, type Step, useDrive } from "../../mock/drive.ts";
 import type { Area } from "../types.ts";
 
@@ -124,6 +123,9 @@ function remoteFake(): CoreSource {
   };
 }
 
+// 대화는 fake agent source로 그린다. 목록의 session은 fake가 모르는 id라 그 agent의 새 session으로 열린다.
+const chat = remoteChat(() => createFakeAgentTabSource());
+
 // 폰 폭 기둥. 화면 root는 absolute라 이 상자를 채운다.
 function Phone({ steps = [] }: { steps?: readonly Step[] }) {
   const [source] = useState(remoteFake);
@@ -139,7 +141,7 @@ function Phone({ steps = [] }: { steps?: readonly Step[] }) {
       }}
     >
       <div style={{ position: "relative", width: "390px" }}>
-        <RemoteApp source={source} chat={ChatPlaceholder} />
+        <RemoteApp source={source} chat={chat} />
       </div>
     </div>
   );

@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { DiffMark } from "@lophn/ui/reading";
 import { t } from "@lophn/i18n";
 
-import { compareLines } from "./compare.ts";
+import { compareLines } from "../../line-diff.ts";
 import styles from "./conflict-compare.module.css";
 
 interface ConflictCompareProps {

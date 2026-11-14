@@ -23,8 +23,8 @@ import { cancelCallOf, readCallState } from "./agent-tab-core-source-calls.ts";
 import {
   cancelInputRequest,
   readInputRequest,
-  signInInputRequest,
 } from "./agent-tab-core-source-request.ts";
+import type { signInInputRequest } from "./agent-tab-core-source-sign-in.ts";
 import {
   answerQuestions,
   editQueuedMessage,
@@ -60,6 +60,8 @@ import {
 interface AgentCoreDeps {
   /** 지금 시각(ms). */
   readonly now?: () => number;
+  /** sign_in 입력 요청의 로그인 흐름. desktop 창만 준다. 없으면 source에 로그인이 없다(phone). */
+  readonly signIn?: typeof signInInputRequest;
 }
 
 export function coreAgentTabSourceFactory(
@@ -80,6 +82,7 @@ function createSource(
   const memo = createBodiesMemo();
   const faceCache = createFaceCache(env);
   const images = createImageSource(core);
+  const { signIn } = deps;
 
   return {
     agent: () => readFace(env, faceCache),
@@ -115,7 +118,8 @@ function createSource(
     answerQuestions: (input) => answerQuestions(env, input),
     readInputRequest: (input) => readInputRequest(env, input),
     cancelInputRequest: (input) => cancelInputRequest(env, input),
-    signInInputRequest: (input) => signInInputRequest(core, env, input),
+    signInInputRequest:
+      signIn === undefined ? undefined : (input) => signIn(core, env, input),
     cancelCall: (call) => cancelCallOf(env, call),
 
     async openSession({ id }): Promise<SourceResult<void>> {

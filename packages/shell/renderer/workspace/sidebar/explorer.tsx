@@ -25,7 +25,7 @@ import { PanelEmpty } from "../../shell/panel-rows.tsx";
 import { PanelActions, PanelTitle } from "../../shell/right-sidebar.tsx";
 import { t } from "@lophn/i18n";
 
-import { PATH_DRAG_TYPE } from "../drag.ts";
+import { PATH_DRAG_TYPE } from "../../path-drag.ts";
 import { FileConfirm } from "../file-actions.tsx";
 import { freeName } from "../files/paste-names.ts";
 import type {

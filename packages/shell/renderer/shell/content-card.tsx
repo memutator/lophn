@@ -17,12 +17,12 @@ import { Menu, Popover } from "@lophn/ui/overlay";
 
 import { useKeyLabel } from "../commands/react.tsx";
 import { shellIcons } from "../icons/mod.ts";
-import { PATH_DRAG_TYPE } from "../workspace/drag.ts";
+import { PATH_DRAG_TYPE } from "../path-drag.ts";
 import {
   CardHeadContext,
   type CardHeadSetter,
   type CardHeadSpec,
-} from "./card-head.tsx";
+} from "../parts/card-head/card-head.tsx";
 import styles from "./content-card.module.css";
 import { useTabDrag } from "./tab-drag.tsx";
 import {

@@ -6,7 +6,7 @@ import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 
 import { actionIcons, editorIcons } from "../../icons/mod.ts";
-import type { ArtifactsSlice } from "../../workspace/kinds/host.ts";
+import type { ArtifactsSlice } from "../message-list/artifact-text.tsx";
 import type { ApprovalSubject } from "../agent-tab-source.ts";
 import { ChatMarkdown } from "../message-list/chat-markdown.tsx";
 import { useFold } from "../thread/fold-toggle.tsx";

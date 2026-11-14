@@ -7,10 +7,10 @@ import { Tooltip } from "@lophn/ui/overlay";
 import { conversationIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
-import { VisualBlock } from "../../workspace/visuals/block-frame.tsx";
 import type { DeliveryAction } from "../delivery-state.ts";
 import type { BodyPart } from "../agent-tab-source.ts";
-import type { ArtifactsSlice } from "../../workspace/kinds/host.ts";
+import { useDesktopParts } from "../desktop-parts.ts";
+import type { ArtifactsSlice } from "./artifact-text.tsx";
 import { ArtifactText } from "./artifact-text.tsx";
 import { ChatMarkdown } from "./chat-markdown.tsx";
 import { MessageAttachments } from "./message-attachments.tsx";
@@ -42,6 +42,7 @@ export const MessageBody = memo(function MessageBody({
   plain,
   reasoning,
 }: MessageBodyProps): ReactElement {
+  const desktop = useDesktopParts();
   // 이미지와 링크는 한 줄로 모아 글 위에 보이고, 앱 카드는 본문 순서 그대로 글 사이 자리에 그린다.
   const images = parts.flatMap((part) =>
     part.kind === "image" ? [part.blob] : [],
@@ -84,18 +85,17 @@ export const MessageBody = memo(function MessageBody({
               </div>
             );
           case "app_card":
-            return (
-              <VisualBlock
+            // 앱 카드는 webview라 desktop 창만 그린다.
+            return desktop === null ? (
+              <p key={index} className={styles.appCard} data-visual-app-card="">
+                {t("conversation.notice.visual-app-card")}
+              </p>
+            ) : (
+              <desktop.AppCard
                 key={index}
                 message={message}
-                block={`card-${index}`}
-                card={{
-                  app: part.app,
-                  release: null,
-                  view: part.view,
-                  ...(part.params === undefined ? {} : { params: part.params }),
-                }}
-                title={part.view}
+                index={index}
+                part={part}
               />
             );
           case "reasoning":

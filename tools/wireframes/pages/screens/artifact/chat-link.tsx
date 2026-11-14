@@ -9,7 +9,7 @@ import {
 } from "../../../../../packages/shell/renderer/conversation/message-list/agent-turn.tsx";
 import { MessageBody } from "../../../../../packages/shell/renderer/conversation/message-list/message-body.tsx";
 import type { BodyPart } from "../../../../../packages/shell/renderer/conversation/agent-tab-source.ts";
-import type { ArtifactsSlice } from "../../../../../packages/shell/renderer/workspace/kinds/host.ts";
+import type { ArtifactsSlice } from "../../../../../packages/shell/renderer/conversation/message-list/artifact-text.tsx";
 import { PROJECT_GROCERY } from "../../../mock/mock-desktop.tsx";
 import { ARTIFACTS } from "../../../mock/artifact/data.ts";
 import { find, useDrive, wait } from "../../../mock/drive.ts";

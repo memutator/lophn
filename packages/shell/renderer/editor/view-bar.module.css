@@ -1,28 +1,4 @@
-/* card 밖(floated 패널, detached 창)에서 탭 안 맨 위에 그리는 얇은 view bar. card 안에서는 card 머리 줄이 대신한다. */
-.bar {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  box-sizing: border-box;
-  height: var(--control-md-height);
-  padding: var(--space-0) var(--space-4) var(--space-0)
-    var(--layout-pane-padding-wide);
-}
-
-.lead {
-  min-width: var(--space-0);
-}
-
-.actions {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-1);
-  margin-left: auto;
-}
-
+/* 파일 탭 view bar의 조각(파일 정보, 저장 상태). bar 자체는 parts/view-bar다. */
 .meta {
   display: flex;
   flex: none;

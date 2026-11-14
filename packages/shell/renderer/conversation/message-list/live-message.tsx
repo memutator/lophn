@@ -2,7 +2,7 @@
 // 알리는 쪽(acp-updates-store의 STREAM_PUBLISH_MS)이 정한다. 닫히지 않은 code fence는 그릴 때만 닫아 code block으로 보인다.
 // reasoning이 있으면 글 위에 reasoning 줄을 두고, 아직 글이 없으면 그 줄만 그린다.
 import { memo, useEffect, useReducer, useRef } from "react";
-import type { ArtifactsSlice } from "../../workspace/kinds/host.ts";
+import type { ArtifactsSlice } from "./artifact-text.tsx";
 import type { AcpWriting } from "../../../../protocol/acp/mod.ts";
 import { Said } from "./agent-turn.tsx";
 import { ChatMarkdown } from "./chat-markdown.tsx";

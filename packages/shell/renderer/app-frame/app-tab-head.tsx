@@ -1,4 +1,4 @@
-// 앱 page가 올린 탭 머리 줄(ipc/app-tab-head.ts)을 이 화면이 선 card 칸의 머리 줄(shell/card-head.tsx)에 그린다.
+// 앱 page가 올린 탭 머리 줄(ipc/app-tab-head.ts)을 이 화면이 선 card 칸의 머리 줄(parts/card-head)에 그린다.
 // 앱은 글과 id만 보내고 그리는 것은 shell component다. 누르면 그 id를 page로 돌려보낸다. card 밖(floated 패널,
 // detached 창, 세션 카드)이면 그리지 않고 page에 shown=false를 알려 앱이 스스로 그리게 한다.
 // tray popup과 sidebar panel은 card가 아니지만 자기 머리 줄을 가져, CardHeadContext를 직접 달고(useHeadSlot, HeadSlotScope)
@@ -22,7 +22,7 @@ import {
   CardHeadContext,
   type CardHeadSetter,
   type CardHeadSpec,
-} from "../shell/card-head.tsx";
+} from "../parts/card-head/card-head.tsx";
 import { actionIcons, shellIcons } from "../icons/mod.ts";
 import type { WebviewHost } from "./webview-host.tsx";
 import styles from "./app-tab-head.module.css";

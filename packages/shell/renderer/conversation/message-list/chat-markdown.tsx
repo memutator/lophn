@@ -6,13 +6,12 @@ import { Markdown } from "@lophn/ui/reading";
 import { t } from "@lophn/i18n";
 
 import { conversationIcons, workspaceIcons } from "../../icons/mod.ts";
-import { MermaidBlock } from "./mermaid-block.tsx";
 import { runnable, shellInput, useFillShell, useRunCode } from "./run-code.ts";
 import styles from "./chat-markdown.module.css";
 
 import { artifactMentions } from "../../../../protocol/projects/artifact.ts";
-import { windowLinkOpener } from "../../desktop/settings/core-call.ts";
-import type { ArtifactsSlice } from "../../workspace/kinds/host.ts";
+import { useDesktopParts } from "../desktop-parts.ts";
+import type { ArtifactsSlice } from "./artifact-text.tsx";
 import {
   ArtifactLink,
   artifactPieces,
@@ -41,7 +40,8 @@ export function ChatMarkdown({
   streaming,
 }: ChatMarkdownProps): ReactElement {
   useArtifactReload(text, artifacts);
-  const open = windowLinkOpener();
+  const desktop = useDesktopParts();
+  const open = desktop?.linkOpener();
   const run = useRunCode();
   const fillShell = useFillShell();
   const renderText =
@@ -75,8 +75,10 @@ export function ChatMarkdown({
         onOpenLink={open === undefined ? undefined : (href) => void open(href)}
         renderText={renderText}
         renderCode={(code, language) =>
-          language?.toLowerCase() === "mermaid" && code !== openFence ? (
-            <MermaidBlock code={code} />
+          desktop !== null &&
+          language?.toLowerCase() === "mermaid" &&
+          code !== openFence ? (
+            <desktop.Diagram code={code} />
           ) : undefined
         }
         codeAction={(code, language) => {

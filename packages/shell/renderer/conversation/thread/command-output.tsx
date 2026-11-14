@@ -5,7 +5,7 @@ import { CodeBlock } from "@lophn/ui/reading";
 
 import { clockTime } from "../agent-view-model.ts";
 import { ChatMarkdown } from "../message-list/chat-markdown.tsx";
-import type { ArtifactsSlice } from "../../workspace/kinds/host.ts";
+import type { ArtifactsSlice } from "../message-list/artifact-text.tsx";
 import { useFold } from "./fold-toggle.tsx";
 import styles from "./thread.module.css";
 

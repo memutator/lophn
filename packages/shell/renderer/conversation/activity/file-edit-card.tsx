@@ -6,7 +6,7 @@ import { type DiffLine, DiffView } from "@lophn/ui/reading";
 import { t } from "@lophn/i18n";
 
 import { actionIcons, conversationIcons } from "../../icons/mod.ts";
-import { compareLines } from "../../editor/conflict/compare.ts";
+import { compareLines } from "../../line-diff.ts";
 import type { AgentTabSource } from "../agent-tab-source.ts";
 import type { ToolCallState } from "./model.ts";
 import { ToolStateMark } from "./tool-state-mark.tsx";

@@ -8,7 +8,7 @@ import type { TerminalRuntime } from "../../ipc/terminal.ts";
 import { useWindowCommands } from "../commands/react.tsx";
 import type { Disposable } from "../commands/registry.ts";
 import { conversationIcons } from "../icons/mod.ts";
-import { useCardHead } from "../shell/card-head.tsx";
+import { useCardHead } from "../parts/card-head/card-head.tsx";
 import type { TerminalDeps } from "./deps.ts";
 import { ExitBanner } from "./exit-banner.tsx";
 import {

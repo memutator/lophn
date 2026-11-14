@@ -4,6 +4,7 @@
 // 여는 길(sidebar 줄·activity bar 아래쪽 바로 가기·새 탭 menu·Ask)은 모두 openAgent 하나를 부른다.
 
 import type { AgentViewHost } from "../../conversation/agent-view.tsx";
+import { desktopParts } from "../../conversation/desktop-parts-impl.tsx";
 import type { Draft } from "../../conversation/drafts.ts";
 import { useReportVisible } from "../../conversation/report-visible.ts";
 import { runToastAction } from "../../desktop/connection/toasts/toast-actions.ts";
@@ -145,11 +146,8 @@ function viewHost(
       openAgent(host, { agent, name: tab.title, session }),
     // 이 project의 session이면 그 탭, 아니면 그 session의 창으로 간다(toast의 [Open]과 같은 길).
     openSession: (session) => runToastAction({ kind: "session", session }),
-    // 사용량 화면은 이 화면의 몫이 아니라 아직 길이 없다.
-    showUsage: () => {},
-    // 탭만 닫는다. session은 그대로 남는다.
-    closeTab: () => host.removeTab(tab.key),
     openConnections: slice.openConnections,
+    desktop: desktopParts,
   };
 }
 

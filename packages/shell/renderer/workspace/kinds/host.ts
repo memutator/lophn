@@ -18,8 +18,7 @@ import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.
 import type { DraftStore } from "../../conversation/drafts.ts";
 import type { ReadPosition } from "./kind.ts";
 import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
-import type { ArtifactListItem } from "../../../ipc/artifact.ts";
-import type { ArtifactWorkspace } from "../../../../protocol/projects/artifact.ts";
+import type { ArtifactsSlice } from "../../conversation/message-list/artifact-text.tsx";
 import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
 
 /** 파일 탭이 작업대와 나누는 상태. */
@@ -69,15 +68,6 @@ export interface AgentViewSlice {
   titled(session: string, title: string): void;
   /** 이 창 workspace(project나 앱)의 artifact. 대화 글의 path를 link로 그리고 누르면 artifact 탭을 연다. */
   readonly artifacts: ArtifactsSlice;
-}
-
-export interface ArtifactsSlice {
-  /** 목록의 그릇. Home이면 null이고 link가 없다. */
-  readonly workspace: ArtifactWorkspace | null;
-  readonly items: readonly ArtifactListItem[];
-  open(name: string): void;
-  /** 목록을 다시 읽는다. agent가 방금 만든 artifact를 알아보려고 쓴다. */
-  reload(): void;
 }
 
 /** project settings 탭이 작업대와 나누는 것. project 창이 아니면 host.projectSettings는 null이다. */

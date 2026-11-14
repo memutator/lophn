@@ -1,14 +1,10 @@
 // provider 오류 줄의 [Enter key]가 하는 일. 이 session의 model이 속한 provider를 알면 Settings › Providers가
 // 연결된 provider의 key를 넣을 때 여는 것과 같은 보호 입력 창을 열고(저장 길은 창이 한다), 모르면 Settings › Providers로 간다.
+// 보호 입력 창이 없는 창(phone)도 Settings로 가는 길뿐이다.
 import { useEffect, useState } from "react";
 
 import type { AcpSessionMeta } from "../../../../protocol/acp/mod.ts";
 import type { AgentTabSource } from "../agent-tab-source.ts";
-import {
-  enterSecret,
-  providerSecretName,
-  windowSecretInputOpener,
-} from "../../desktop/settings/core-call.ts";
 
 export interface ProviderKeyFix {
   /** 창이 key를 받을 provider의 이름. null이면 provider를 모르고 Settings › Providers로 간다. */
@@ -53,19 +49,12 @@ export function providerKeyFix(
   provider: { id: string; name: string } | null,
   authKind: string | null,
   openConnections: (() => void) | undefined,
+  enterKey: ((provider: { id: string; name: string }) => void) | undefined,
 ): ProviderKeyFix | undefined {
-  if (provider === null || authKind !== "api_key") {
+  if (provider === null || authKind !== "api_key" || enterKey === undefined) {
     return openConnections === undefined
       ? undefined
       : { name: null, run: openConnections };
   }
-  return {
-    name: provider.name,
-    run: () =>
-      void enterSecret(windowSecretInputOpener(), {
-        name: providerSecretName(provider.id),
-        purpose: "provider",
-        subject: provider.name,
-      }),
-  };
+  return { name: provider.name, run: () => enterKey(provider) };
 }

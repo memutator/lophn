@@ -1,5 +1,5 @@
 // browser 탭의 머리: 뒤로·앞으로·새로 고침, 주소 칸, 별, bookmark menu, [Open in browser], DevTools menu.
-// card 안이면 이것을 card 머리 줄에 올린다(shell/card-head.tsx). ← → ⟳는 card의 nav, 주소 칸이 경로 자리,
+// card 안이면 이것을 card 머리 줄에 올린다(parts/card-head). ← → ⟳는 card의 nav, 주소 칸이 경로 자리,
 // 별·bookmark·Open in browser가 ⋯ 앞, DevTools(Inspector, 열려 있으면 자리 고르기와 닫기)가 ⋯ 메뉴의 맨 위 묶음이다.
 // card 밖(floated 탭, detached 창)이면 탭 본문 위에 줄로 그리고 DevTools menu는 그 줄의 ⋮다. 아이콘은 icons/browser.ts만 쓴다.
 // Ctrl/Cmd+D는 focus가 page에 있으면 main이 event로 보내고(`bookmarkKey`), 머리에 있으면 여기서 받는다.
@@ -20,7 +20,7 @@ import type { DevtoolsPlace } from "../workspace/kinds/browser-devtools.tsx";
 import { currentPlatform } from "../desktop/top-bar/platform.ts";
 import type { AgentControl } from "../workspace/use-surface-requests.ts";
 import { browserIcons } from "../icons/mod.ts";
-import { useCardHead } from "../shell/card-head.tsx";
+import { useCardHead } from "../parts/card-head/card-head.tsx";
 import { BookmarkMenu } from "./bookmark-menu.tsx";
 import { BookmarkStar } from "./bookmark-star.tsx";
 import { useInDetachedWindow } from "./detached-window.ts";

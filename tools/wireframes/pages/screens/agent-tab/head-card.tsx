@@ -11,7 +11,7 @@ import {
 import {
   CardHeadContext,
   type CardHeadSpec,
-} from "../../../../../packages/shell/renderer/shell/card-head.tsx";
+} from "../../../../../packages/shell/renderer/parts/card-head/card-head.tsx";
 
 export function HeadCard({ children }: { children: ReactNode }) {
   const [head, setHead] = useState<CardHeadSpec | null>(null);

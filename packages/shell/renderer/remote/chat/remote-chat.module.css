@@ -1,0 +1,13 @@
+/* 틀의 대화 자리를 채운다. 대화 줄은 AgentView가 scroll하고 아래 padding은 가상 keyboard가 덮는 높이다. */
+.chat {
+  box-sizing: border-box;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: var(--space-0);
+}
+
+/* phone에는 keyboard가 없어 단추의 단축키 안내를 숨긴다. */
+.chat kbd {
+  display: none;
+}

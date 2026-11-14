@@ -5,7 +5,8 @@ import { t } from "@lophn/i18n";
 import "@lophn/ui/tokens.css";
 import "@lophn/ui/base.css";
 import type { CoreSource } from "../desktop/connection/connection.ts";
-import { ChatPlaceholder, RemoteApp } from "./remote-app.tsx";
+import { RemoteApp } from "./remote-app.tsx";
+import { remoteChat } from "./chat/remote-chat.tsx";
 import styles from "./remote.module.css";
 
 declare global {
@@ -23,13 +24,14 @@ const Dev =
     ? (await import("./dev/dev-remote.tsx")).DevRemote
     : null;
 
+const chat = remoteChat();
 const root = document.getElementById("root");
 if (root) {
   createRoot(root).render(
     bridge !== undefined ? (
-      <RemoteApp source={bridge} chat={ChatPlaceholder} />
+      <RemoteApp source={bridge} chat={chat} />
     ) : Dev !== null ? (
-      <Dev chat={ChatPlaceholder} />
+      <Dev chat={chat} />
     ) : (
       <div className={styles.center}>
         <p>{t("remote.notice.no-bridge")}</p>

@@ -159,3 +159,14 @@ button.reasoningHead:hover {
 .hoverAction {
   color: var(--color-text-muted);
 }
+
+/* 앱 카드를 그리지 못하는 창(phone)의 안내 한 줄. */
+.appCard {
+  margin: var(--space-0);
+  padding: var(--space-4);
+  border: var(--border-width) dashed var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}

@@ -20,14 +20,9 @@ import {
 import { type FileKind, fileNameOf } from "./model.ts";
 import { NoticeToast } from "./notices.tsx";
 import type { SaveState } from "./save-state.ts";
-import { useCardHead } from "../shell/card-head.tsx";
-import {
-  FileActions,
-  FileMenu,
-  FileMeta,
-  fileMenuItems,
-  ViewBar,
-} from "./view-bar.tsx";
+import { useCardHead } from "../parts/card-head/card-head.tsx";
+import { FileActions, FileMenu, FileMeta, fileMenuItems } from "./view-bar.tsx";
+import { ViewBar } from "../parts/view-bar/view-bar.tsx";
 import styles from "./file-frame.module.css";
 import { actionIcons } from "../icons/mod.ts";
 

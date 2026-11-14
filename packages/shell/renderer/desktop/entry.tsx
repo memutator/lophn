@@ -41,6 +41,7 @@ import { createEventClient } from "./connection/events/client.ts";
 import { EventsProvider } from "./connection/events/hooks.tsx";
 import { ConversationProvider } from "../conversation/window-deps.tsx";
 import { coreAgentTabSourceFactory } from "../conversation/agent-tab-core-source.ts";
+import { signInInputRequest } from "../conversation/agent-tab-core-source-sign-in.ts";
 import { DraftStore } from "../conversation/drafts.ts";
 import { coreWorkspaceSource } from "../workspace/core-source.ts";
 import { coreAppsSource } from "../apps/core-source.ts";
@@ -143,7 +144,8 @@ const workspace = bench?.source ?? coreWorkspaceSource(core);
 const conversation = { drafts: new DraftStore() };
 // Agent 탭과 앱 공간의 Agent 칸이 agent마다 통로를 얻는 함수.
 const agentViewSource =
-  mock?.agentViewSource ?? coreAgentTabSourceFactory(core);
+  mock?.agentViewSource ??
+  coreAgentTabSourceFactory(core, { signIn: signInInputRequest });
 // main이 띄우는 앱 전용 창의 hash. `#app-window=<app>/<release>/<screen>`이고 각 부분은
 // encodeURIComponent된 값이다.
 function appWindowRoute(value: string): Route | undefined {

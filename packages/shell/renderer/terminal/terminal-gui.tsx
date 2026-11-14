@@ -34,6 +34,7 @@ import type {
 } from "../../ipc/harness-gui.ts";
 import { guiAgentTabSource } from "../conversation/agent-tab-gui-source.ts";
 import { AgentView, type AgentViewHost } from "../conversation/agent-view.tsx";
+import { desktopParts } from "../conversation/desktop-parts-impl.tsx";
 import { DraftStore } from "../conversation/drafts.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import { EventsProvider } from "../desktop/connection/events/hooks.tsx";
@@ -458,8 +459,7 @@ export function TerminalGui({
                 openPermissions: NOWHERE,
                 openAgentSettings: NOWHERE,
                 openForked: NOWHERE,
-                showUsage: NOWHERE,
-                closeTab: NOWHERE,
+                desktop: desktopParts,
                 ...host,
               }}
               now={now}

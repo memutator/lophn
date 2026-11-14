@@ -13,8 +13,8 @@ interface PermissionsViewProps {
   permissions: PermissionsData;
   /** panel을 닫는다. popover 안에서는 두지 않는다. */
   onClose?: () => void;
-  /** [Edit in Agents]. host가 Agents 화면을 연다. */
-  onEdit: () => void;
+  /** [Edit in Agents]. host가 Agents 화면을 연다. 없는 창(phone)에는 단추가 없다. */
+  onEdit?: () => void;
   /** popover 안에서는 제목줄과 바깥 테두리를 줄인다. */
   popover?: boolean;
 }
@@ -78,9 +78,11 @@ export function PermissionsView({
         <p className={styles.note}>
           {t("conversation.notice.permissions-edited-in-agents")}
         </p>
-        <Button size="sm" icon={actionIcons.edit} onClick={onEdit}>
-          {t("conversation.button.permissions-edit")}
-        </Button>
+        {onEdit === undefined ? null : (
+          <Button size="sm" icon={actionIcons.edit} onClick={onEdit}>
+            {t("conversation.button.permissions-edit")}
+          </Button>
+        )}
       </footer>
     </section>
   );

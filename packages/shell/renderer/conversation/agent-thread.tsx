@@ -66,7 +66,7 @@ import { ShellRun } from "./thread/shell-run.tsx";
 import { ProviderError } from "./thread/provider-error.tsx";
 import type { ProviderKeyFix } from "./thread/provider-key.ts";
 import { ReceivedMessage } from "./thread/received-message.tsx";
-import type { ArtifactsSlice } from "../workspace/kinds/host.ts";
+import type { ArtifactsSlice } from "./message-list/artifact-text.tsx";
 import turns from "./message-list/turns.module.css";
 import styles from "./agent-view.module.css";
 

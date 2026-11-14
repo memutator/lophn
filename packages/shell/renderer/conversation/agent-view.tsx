@@ -27,7 +27,6 @@ import {
 } from "../../../protocol/lophn-agent/content-block.ts";
 import { actionIcons } from "../icons/mod.ts";
 import { newId } from "../prefixed-id.ts";
-import type { ArtifactsSlice } from "../workspace/kinds/host.ts";
 import {
   type AgentTabData,
   useAgentTabData,
@@ -64,6 +63,8 @@ import {
   textOfParts,
 } from "./agent-view-model.ts";
 import { ToolDetailsContext } from "./activity/tool-line.tsx";
+import { type DesktopParts, DesktopPartsProvider } from "./desktop-parts.ts";
+import type { ArtifactsSlice } from "./message-list/artifact-text.tsx";
 import { useThreadBookmarks } from "./thread-index/bookmarks.ts";
 import { ThreadIndexContext } from "./thread-index/context.ts";
 import { threadIndexOf } from "./thread-index/model.ts";
@@ -110,7 +111,7 @@ import { StatusView } from "./status-view/status-view.tsx";
 import { createLayoutCache, layoutOf } from "./thread-layout.ts";
 import { windowPathOf, windowReadImage } from "./window-paths.ts";
 
-/** Agent 화면이 자기 밖에 맡기는 일: 탭·파일·설정으로 가는 길. */
+/** Agent 화면이 자기 밖에 맡기는 일: 탭·파일·설정으로 가는 길. 없는 길은 그리로 가는 단추와 명령이 빠진다(phone). */
 export interface AgentViewHost {
   /** 편집 카드의 [Open]이 그 파일(프로젝트 안 경로)의 탭을 연다. */
   openFile?: (path: string) => void;
@@ -118,19 +119,18 @@ export interface AgentViewHost {
   runCommand?: ((command: string) => void) | null;
   /** 글 안 artifact path의 link. 없는 창은 글 그대로 그린다. */
   artifacts?: ArtifactsSlice;
-  /** 권한 요약과 `/permissions`가 Agents 화면의 Permissions로 간다. */
-  openPermissions: () => void;
+  /** 권한 요약과 `/permissions`의 [Edit]가 Agents 화면의 Permissions로 간다. */
+  openPermissions?: () => void;
   /** `/skills`·`/mcp`가 Settings › Agents로 간다. */
-  openAgentSettings: (target: "skills" | "mcp") => void;
+  openAgentSettings?: (target: "skills" | "mcp") => void;
   /** Fork가 만든 session을 같은 agent의 새 탭(앱 공간에서는 같은 칸)으로 연다. */
   openForked: (session: string) => void;
   /** 다른 session(맡긴 call을 받은 session, 보낸 쪽 session)을 그 session의 창에서 연다. */
   openSession?: (session: string) => void;
-  showUsage: () => void;
-  /** 탭·칸만 닫는다. session은 그대로 남는다. */
-  closeTab: () => void;
   /** 설정의 연결 자리로 간다. */
   openConnections?: () => void;
+  /** desktop 창만 가진 조각(diagram, 앱 카드, 링크 열기, provider key 입력). phone은 주지 않는다. */
+  desktop?: DesktopParts;
 }
 
 interface AgentViewProps {
@@ -145,6 +145,11 @@ interface AgentViewProps {
   host: AgentViewHost;
   /** 대화가 비어 있는 동안 입력칸에 보이는 첫 안내. */
   hint?: string;
+  /**
+   * phone 화면이다. 끌어 놓기와 OS 경로, 찾기 줄, thread index와 bookmark, secret 입력 창이 없고 [+]는 사진을 고른다.
+   * 단축키 안내는 phone 틀이 CSS로 숨긴다.
+   */
+  phone?: boolean;
   now?: () => number;
   /** 지금 보는 session의 제목. 새 session이거나 제목이 없으면 null이다. 탭 제목이 따라간다. */
   onSessionTitle?: (title: string | null) => void;
@@ -349,9 +354,21 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   const failedProvider = providerOfModel(meta);
   const authKind = useProviderAuthKind(source, failedProvider?.id ?? null);
   const providerKey = useMemo(
-    () => providerKeyFix(failedProvider, authKind, host.openConnections),
+    () =>
+      providerKeyFix(
+        failedProvider,
+        authKind,
+        host.openConnections,
+        host.desktop?.enterProviderKey,
+      ),
     // meta는 갱신마다 새 객체라 값(id, 이름)으로만 다시 만든다. AgentThread가 memo다.
-    [failedProvider?.id, failedProvider?.name, authKind, host.openConnections],
+    [
+      failedProvider?.id,
+      failedProvider?.name,
+      authKind,
+      host.openConnections,
+      host.desktop,
+    ],
   );
   // thread index: harness는 CLI 자신의 session id가 bookmark의 session key이고 lophn은 session id다.
   const harness = meta?.harness ?? null;
@@ -800,11 +817,11 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         },
         mcp: () => {
           clear();
-          host.openAgentSettings("mcp");
+          host.openAgentSettings?.("mcp");
         },
         skills: () => {
           clear();
-          host.openAgentSettings("skills");
+          host.openAgentSettings?.("skills");
         },
         rewind: () => {
           clear();
@@ -1201,7 +1218,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         </p>
       )}
       <div className={styles.stage} ref={stage}>
-        {find.open ? (
+        {find.open && !props.phone ? (
           <ConversationFindBar
             query={find.query}
             onQuery={find.setQuery}
@@ -1214,7 +1231,9 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         ) : null}
         <RunCodeProvider value={host.runCommand ?? null}>
           <FillShellProvider value={fillShell}>
-            <ThreadIndexContext.Provider value={threadIndex}>
+            <ThreadIndexContext.Provider
+              value={props.phone ? null : threadIndex}
+            >
               <AgentThread
                 key={key}
                 agent={agent}
@@ -1236,7 +1255,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
                 source={source}
                 providerKey={providerKey}
                 initialScroll={draft.scroll}
-                renderAll={find.open}
+                renderAll={find.open && !props.phone}
                 rewindOpen={layer?.kind === "rewind" ? layer.message : null}
                 {...threadHandlers}
                 onStopShell={
@@ -1389,8 +1408,14 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             session={session}
             toolCall={asked.toolCall}
             source={source}
-            onEnter={() =>
-              openInputRequestWindow({ session, tool_call: asked.toolCall })
+            onEnter={
+              props.phone
+                ? undefined
+                : () =>
+                    openInputRequestWindow({
+                      session,
+                      tool_call: asked.toolCall,
+                    })
             }
           />
         ) : null}
@@ -1480,7 +1505,11 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             keys={keys}
             focusSignal={focusSignal}
             source={source}
-            meta={meta}
+            meta={
+              meta === null || host.openAgentSettings !== undefined
+                ? meta
+                : withoutSettingsCommands(meta)
+            }
             capabilities={caps}
             history={history}
             onChooseModel={async (model, options) => {
@@ -1500,8 +1529,9 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             session={session}
             agentName={agent.name}
             draft={draft}
-            pathOf={windowPathOf()}
-            readImage={windowReadImage()}
+            phone={props.phone}
+            pathOf={props.phone ? undefined : windowPathOf()}
+            readImage={props.phone ? undefined : windowReadImage()}
             working={active !== null}
             locked={locked}
             tooLong={!fitsMessage(draft.text)}
@@ -1584,10 +1614,22 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   );
   // 전체 펼치기 값은 tool 줄만 읽는다. 그 값이 바뀌어도 대화의 나머지는 다시 그리지 않는다.
   return (
-    <ToolDetailsContext.Provider value={details}>
-      {view}
-    </ToolDetailsContext.Provider>
+    <DesktopPartsProvider value={host.desktop ?? null}>
+      <ToolDetailsContext.Provider value={details}>
+        {view}
+      </ToolDetailsContext.Provider>
+    </DesktopPartsProvider>
   );
+}
+
+/** Settings › Agents로 가는 길이 없는 창은 `/skills`·`/mcp`를 `/` 창에 보이지 않는다. */
+function withoutSettingsCommands(meta: AcpSessionMeta): AcpSessionMeta {
+  return {
+    ...meta,
+    commands: meta.commands.filter(
+      (one) => one.opens !== "mcp" && one.opens !== "skills",
+    ),
+  };
 }
 
 /** 부르는 순간의 최신 함수를 부르는, 늘 같은 함수. */

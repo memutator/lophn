@@ -11,6 +11,7 @@ import {
 } from "../../../../packages/shell/renderer/conversation/agent-tab-fake-source.ts";
 import type { AcpUsage } from "../../../../packages/protocol/acp/mod.ts";
 import { AgentView } from "../../../../packages/shell/renderer/conversation/agent-view.tsx";
+import { desktopParts } from "../../../../packages/shell/renderer/conversation/desktop-parts-impl.tsx";
 import { DraftStore } from "../../../../packages/shell/renderer/conversation/drafts.ts";
 import { createEventClient } from "../../../../packages/shell/renderer/desktop/connection/events/client.ts";
 import { createFakeSource } from "../../../../packages/shell/renderer/desktop/connection/events/fake-source.ts";
@@ -253,8 +254,7 @@ export function Conversation({
           openAgentSettings: () => {},
           openForked: setSession,
           openSession: () => {},
-          showUsage: () => {},
-          closeTab: () => {},
+          desktop: desktopParts,
         }}
         now={now}
       />

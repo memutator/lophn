@@ -29,7 +29,7 @@ import type { ViewKeeps } from "../app-frame/view-keeps.ts";
 import { useBrowserOverlay } from "../browser/browser-api.tsx";
 import { AgentControlBar } from "../browser/browser-chrome.tsx";
 import { useAgentControl } from "../workspace/use-surface-requests.ts";
-import { CardHeadContext } from "../shell/card-head.tsx";
+import { CardHeadContext } from "../parts/card-head/card-head.tsx";
 import { fileNameOf } from "../editor/model.ts";
 import { artifactIcons, editorIcons } from "../icons/mod.ts";
 import { useAnnotateApi, useArtifactApi } from "./artifact-api.tsx";

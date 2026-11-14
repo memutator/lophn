@@ -1,4 +1,4 @@
-// Agent 탭의 agent header. card 안이면 card 머리 줄(shell/card-head.tsx)에 올린다: 가운데 칸(경로 자리)이
+// Agent 탭의 agent header. card 안이면 card 머리 줄(parts/card-head)에 올린다: 가운데 칸(경로 자리)이
 // "[avatar] 이름 · session 제목 ▾"(session switcher), ⋯ 앞에 "Archived" 표시와 보기 상세 menu, Rename·Fork·Archive는
 // 탭 ⋯ 메뉴의 맨 위 묶음이다. card 밖(floated 패널, detached 창)이면 본문 위 view bar 한 줄에 그리고 더보기 menu가
 // 그 줄에 있다. 더보기 menu는 열린 session이면 Rename·Fork·Archive, archive한 session이면 Fork뿐이다(기록만 읽고 입력칸이 없다).
@@ -18,8 +18,8 @@ import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
 import { conversationIcons, editorIcons } from "../../icons/mod.ts";
 import { type MessageKey, t } from "@lophn/i18n";
 
-import { ViewBar } from "../../editor/view-bar.tsx";
-import { useCardHead } from "../../shell/card-head.tsx";
+import { ViewBar } from "../../parts/view-bar/view-bar.tsx";
+import { useCardHead } from "../../parts/card-head/card-head.tsx";
 import { elapsedText, useSecondTick } from "../activity/elapsed.ts";
 import type { ViewDetail } from "../activity/model.ts";
 import { SubagentMark } from "../activity/subagent-row.tsx";

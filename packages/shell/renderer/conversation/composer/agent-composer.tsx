@@ -23,7 +23,7 @@ import {
   conversationIcons,
   workspaceIcons,
 } from "../../icons/mod.ts";
-import { PATH_DRAG_TYPE } from "../../workspace/drag.ts";
+import { PATH_DRAG_TYPE } from "../../path-drag.ts";
 import type {
   AcpCapabilities,
   AcpChoice,
@@ -112,6 +112,8 @@ interface AgentComposerProps {
   pathOf?: (file: File) => string | null;
   /** Explorer에서 끌어 온 이미지 파일을 읽는다. 없거나 읽지 못하면 경로 chip으로 붙는다. */
   readImage?: (path: string) => Promise<File | null>;
+  /** phone이다. 끌어 놓기를 받지 않고 [+]는 사진을 고른다. */
+  phone?: boolean;
   /** 일하는 중이다(turn이 돌거나 질문·승인을 기다림). 보낸 글은 다음 turn을 기다리고 [Stop]이 보인다. */
   working: boolean;
   /** 보내는 중이거나 결과를 모르는 말이 있으면 글을 고치지 못한다. */
@@ -149,8 +151,8 @@ interface AgentComposerProps {
   ) => void;
   /** 권한 요약을 연다. host가 `permissions`를 읽고 읽었는지 답한다. */
   onLoadPermissions: () => Promise<boolean>;
-  /** 권한 보기의 [Edit in Agents]. */
-  onEditPermissions: () => void;
+  /** 권한 보기의 [Edit in Agents]. 없으면 단추가 없다. */
+  onEditPermissions?: () => void;
   /** 글이나 chip을 보낸다. 일하는 중이면 다음 turn을 기다리는 줄이 된다(`next_turn`). `steer`는 도는 turn에 든다. */
   onSend: (delivery: Delivery) => void;
   /** shell mode(`!`)에서 보냈다. 앞 `!`와 앞뒤 빈칸을 뗀 명령이다. */
@@ -283,6 +285,7 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
   const dragOver = (event: DragEvent<HTMLElement>) => {
     const types = event.dataTransfer.types;
     if (
+      props.phone ||
       locked ||
       (!types.includes(PATH_DRAG_TYPE) && !types.includes("Files"))
     ) {
@@ -588,6 +591,7 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
               type="file"
               multiple
               hidden
+              accept={props.phone ? "image/*" : undefined}
               onChange={(event) => {
                 attachFiles([...(event.currentTarget.files ?? [])]);
                 event.currentTarget.value = "";

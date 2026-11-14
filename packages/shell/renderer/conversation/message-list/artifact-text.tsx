@@ -6,13 +6,24 @@ import { Tooltip } from "@lophn/ui/overlay";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 
+import type { ArtifactListItem } from "../../../ipc/artifact.ts";
 import {
   ARTIFACTS_FOLDER,
+  type ArtifactWorkspace,
   artifactMentions,
 } from "../../../../protocol/projects/artifact.ts";
 import { artifactIcons } from "../../icons/mod.ts";
-import type { ArtifactsSlice } from "../../workspace/kinds/host.ts";
 import styles from "./message-body.module.css";
+
+/** 창 workspace(project나 앱)의 artifact. 대화 글의 path를 link로 그리고 누르면 artifact 탭을 연다. */
+export interface ArtifactsSlice {
+  /** 목록의 그릇. Home이면 null이고 link가 없다. */
+  readonly workspace: ArtifactWorkspace | null;
+  readonly items: readonly ArtifactListItem[];
+  open(name: string): void;
+  /** 목록을 다시 읽는다. agent가 방금 만든 artifact를 알아보려고 쓴다. */
+  reload(): void;
+}
 
 const NAMED = new RegExp(
   `(?:^|/)(?:projects|apps)/([a-z]+_[0-9a-z]+)/${ARTIFACTS_FOLDER}/([a-z][a-z0-9-]*)`,

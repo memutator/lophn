@@ -90,6 +90,13 @@ type PreviewLauncherDeps = {
     launch: PreviewLaunch,
     credential: string,
   ) => (() => void) | undefined;
+  // 자식이 ready가 됐거나(open까지 마침) 시작에 실패했거나 뜻하지 않게 끝났다. supervisor가 core에 알린다.
+  changed: (
+    app: string,
+    nonce: string,
+    state: "ready" | "exited",
+    reason?: { code: string; summary: string },
+  ) => void;
   wait: (ms: number) => Promise<void>;
   readyTimeoutMs?: number;
   stopGraceMs?: number;
@@ -208,6 +215,7 @@ export function createPreviewLauncher(
   ): Promise<void> {
     entry.reason = reason;
     await terminate(entry);
+    deps.changed(entry.launch.app, entry.launch.nonce, "exited", reason);
   }
 
   async function launchEntry(entry: Entry): Promise<void> {
@@ -346,6 +354,7 @@ export function createPreviewLauncher(
     }
     entry.probed = true;
     entry.opened = true;
+    deps.changed(launch.app, launch.nonce, "ready");
   }
 
   function onExit(entry: Entry, child: AppChild): void {
@@ -356,6 +365,7 @@ export function createPreviewLauncher(
     };
     entry.probed = false;
     entry.opened = false;
+    deps.changed(entry.launch.app, entry.launch.nonce, "exited", entry.reason);
     // group 전체 종료를 확인한다. 확인하지 못하면 자식을 놓지 않는다.
     void child.terminate().then((confirmed) => {
       if (!confirmed || entry.child !== child) return;

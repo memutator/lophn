@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { atSchema } from "../base/values.ts";
-import { defineRead } from "../base/route.ts";
+import { defineMemory, defineRead } from "../base/route.ts";
 import {
   appIdSchema,
   processNonceSchema,
@@ -79,6 +79,8 @@ export const previewsGet = defineRead({
   name: "previews.get",
   input: previewsGetInputSchema,
   output: previewsGetOutputSchema,
+  // preview가 뜨고 ready가 되고 끝나면 core가 app_runtime 변경을 낸다(apps/record_preview, preview service).
+  reads: [{ name: "app_runtime", id: (input) => input.app }],
   actors: readActors,
   errors: readErrors,
 });
@@ -98,8 +100,27 @@ export const previewsStop = defineRead({
   errors: readErrors,
 });
 
+// supervisor(preview 자식의 부모)가 그 자식이 ready가 됐거나 끝났다고 알린다. core는 관측을 supervisor에서
+// 읽으므로 따로 담지 않고, 화면이 previews.get을 다시 읽게 변경만 낸다. 지금 preview가 아닌 nonce는 recorded가 false다.
+export const appRecordPreview = defineMemory({
+  resource: "apps",
+  method: "record_preview",
+  name: "app.record_preview",
+  changes: [{ name: "app_runtime", id: (input) => input.app }],
+  input: z.strictObject({
+    app: appIdSchema,
+    process_nonce: processNonceSchema,
+    state: z.enum(["ready", "exited"]),
+    reason: runtimeReasonSchema.optional(),
+  }),
+  output: z.object({ recorded: z.boolean() }),
+  actors: ["machine"],
+  errors: ["invalid_input", "forbidden"],
+});
+
 export const PREVIEW_ROUTES = [
   previewsStart,
   previewsGet,
   previewsStop,
+  appRecordPreview,
 ] as const;

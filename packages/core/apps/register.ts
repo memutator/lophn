@@ -9,6 +9,7 @@ import {
   appCallTool,
   appEventPublish,
   appLogViewError,
+  appRecordPreview,
   appRegistrationLookup,
   appRewind,
   appRewindPlan,
@@ -254,6 +255,8 @@ export function createLedgerRegistration(
       appEventPublish,
       appRewind,
       appLogViewError,
+      // handler는 wiring/apps.ts가 붙인다.
+      appRecordPreview,
       // handler는 wiring/apps.ts가 붙인다.
       appsSecretValue,
       appsOAuthClientSet,

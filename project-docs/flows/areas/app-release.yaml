@@ -1157,6 +1157,40 @@ flows:
     refs: [A8]
     docs: [architecture/app-call.md]
 
+  - id: preview-record
+    title: supervisor가 preview 자식이 ready가 됐거나 끝났다고 알린다
+    actor: system
+    entries: [route:apps/record_preview]
+    pre: [preview-start:started]
+    boundary: [app-runtime]
+    code:
+      - packages/core/apps/preview/launcher.ts
+      - packages/core/main/app-supervisor/record.ts
+      - packages/core/main/daemon/wiring/apps.ts
+    steps:
+      - "supervisor launcher가 preview 자식의 open까지 마치면 ready, 시작에 실패하거나 뜻하지 않게 끝나면 exited를 machine credential로 보낸다. 보내기 실패는 버린다"
+      - "core는 관측을 supervisor에서 읽으므로 담지 않는다. nonce가 지금 preview면 recorded가 true, 지난 preview면 false다"
+      - "어느 쪽이든 app_runtime(그 앱) 변경을 내어 화면이 previews/get을 다시 읽는다"
+    outcomes:
+      - id: recorded
+        when: "지금 preview의 nonce다"
+        observe: [response, "event:StateChanged"]
+      - id: stale
+        when: "지난 preview의 nonce다. recorded가 false다"
+        observe: [response, "event:StateChanged"]
+      - id: forbidden
+        code: forbidden
+        when: "machine이 아닌 actor"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력이 schema에 맞지 않음"
+        observe: [response]
+    crosses_process: true
+    risk: []
+    refs: [A8]
+    docs: [architecture/app-call.md]
+
   - id: preview-discard-stale
     title: core 시작 때 지난 실행의 preview 영역을 지운다
     actor: system

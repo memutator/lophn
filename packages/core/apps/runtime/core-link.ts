@@ -33,9 +33,17 @@ export type RuntimeRecord =
       process_nonce?: string;
       started_at?: string;
       reason: { code: string; summary: string };
+    }
+  | {
+      method: "record_preview";
+      app: string;
+      process_nonce: string;
+      state: "ready" | "exited";
+      reason?: { code: string; summary: string };
     };
 
 export type CoreLink = {
-  // machine credential로 /apps/<method>를 부른다. run_enabled는 건드리지 않는다.
+  // machine credential로 /apps/<method>를 부른다. run_enabled는 건드리지 않는다. record_preview는 memory route라
+  // 입력만 보내고 state는 보낸 state다.
   record(record: RuntimeRecord): Promise<Result<{ state: string }>>;
 };

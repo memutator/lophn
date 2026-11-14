@@ -103,7 +103,7 @@ import {
   previewScopeFromBundle,
   previewServicesFor,
 } from "./preview-broker.ts";
-import { readRecordState, recordInput } from "./record.ts";
+import { readRecordState, recordBody } from "./record.ts";
 import { createSecretDelivery, registeredByCore } from "./secret-delivery.ts";
 
 // control socket 요청(probe·open·close·shutdown)의 응답 한도와 기한이다. 호출·적용은 relay가 따로 쥔다.
@@ -505,17 +505,15 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     async record(record) {
       let response: { status: number; body: unknown };
       try {
-        response = await io.post(`apps/${record.method}`, hello.credential, {
-          input: recordInput(record),
-          idempotency_key: crypto.randomUUID(),
-          // record_*는 관측 사실이라 비교 기준이 없다. envelope는 빈 compare를 요구한다.
-          compare: {},
-          prepared: [],
-        });
+        response = await io.post(
+          `apps/${record.method}`,
+          hello.credential,
+          recordBody(record),
+        );
       } catch {
         return err({ code: "unavailable", message: "core is unreachable" });
       }
-      return readRecordState(response);
+      return readRecordState(record, response);
     },
   };
 
@@ -847,6 +845,15 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       return answered.ok && answered.value.status === 200;
     },
     requestStop: (child, socket) => stopChild(child, socket),
+    // 보내기 실패는 버린다. 관측은 core가 previews.get 때 supervisor에서 읽으므로 화면이 다음에 다시 읽을 때 맞는다.
+    changed: (app, nonce, state, reason) =>
+      void core.record({
+        method: "record_preview",
+        app,
+        process_nonce: nonce,
+        state,
+        ...(reason === undefined ? {} : { reason }),
+      }),
     wait: io.wait,
     ...(io.readyTimeoutMs === undefined
       ? {}

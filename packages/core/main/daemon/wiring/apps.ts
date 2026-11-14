@@ -121,6 +121,7 @@ import {
 } from "../../../apps/events/mod.ts";
 import { createTray } from "../../../apps/tray/mod.ts";
 import { appEventPublish } from "../../../../protocol/apps/events.ts";
+import { appRecordPreview } from "../../../../protocol/apps/previews.ts";
 import { appTrayList, appTraySet } from "../../../../protocol/apps/tray.ts";
 import { APP_RESTART_HALTED_TOPIC } from "../../../apps/runtime/commands.ts";
 import { viewErrorLogHandler } from "../../../apps/runtime/view-errors.ts";
@@ -235,6 +236,10 @@ export const appsWiring: WiringFactory = () => {
           bundles: createCopyPreviewBundles({
             dataRoot: ctx.root.path,
           }),
+          changed: (app) =>
+            publishStateChanged(ctx.bus, ctx.clock.now(), [
+              { name: "app_runtime", id: app },
+            ]),
         },
       });
       control = appsControl;
@@ -541,6 +546,22 @@ export const appsWiring: WiringFactory = () => {
             },
           ],
           ["apps/rewind", rewindHandler(rewind, link.sql)],
+          // 변경(app_runtime)은 dispatch가 route의 `changes`로 낸다. 지난 preview의 알림은 recorded false다.
+          [
+            `${appRecordPreview.resource}/${appRecordPreview.method}`,
+            (_who, body) => {
+              const input = body as { app: string; process_nonce: string };
+              return Promise.resolve(
+                ok({
+                  recorded:
+                    appsControl.previews.bundleHashOf(
+                      input.app,
+                      input.process_nonce,
+                    ) !== null,
+                }),
+              );
+            },
+          ],
           [`${appTraySet.resource}/${appTraySet.method}`, tray.set],
           [`${appTrayList.resource}/${appTrayList.method}`, tray.list],
           [

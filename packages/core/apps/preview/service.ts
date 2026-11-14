@@ -83,6 +83,8 @@ type PreviewServiceDeps = {
   // 없으면 시작은 unavailable이다(준비된 bundle을 열 방법이 없다).
   bundles?: PreviewBundles;
   releases?: PreviewReleases;
+  // 그 앱의 preview가 생기거나 없어졌다. 화면이 previews.get을 다시 읽게 app_runtime 변경을 낸다.
+  changed: (app: string) => void;
   // check가 ready를 보는 간격 사이에 기다린다. 기본은 setTimeout이다.
   wait?: (ms: number) => Promise<void>;
 };
@@ -212,6 +214,7 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
   async function forget(app: string, nonce: string): Promise<void> {
     if (live.get(app)?.nonce === nonce) live.delete(app);
     await deps.area.discard(app, nonce);
+    deps.changed(app);
   }
 
   // 같은 앱의 앞 preview를 닫고 영역을 만들어 bundle을 띄운다. start와 check가 같이 쓴다.
@@ -257,6 +260,7 @@ export function createPreviewService(deps: PreviewServiceDeps): PreviewService {
       declared: { operations: bundle.operations, commands: bundle.commands },
       bundle_hash: bundleHash,
     });
+    deps.changed(app);
     return ok(nonce);
   }
 

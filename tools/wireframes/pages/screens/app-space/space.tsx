@@ -15,10 +15,7 @@ import {
   fakeDetail,
   type SecretsFake,
 } from "../../../../../packages/shell/renderer/app-frame/app-detail/testdata/fake-source.ts";
-import {
-  type PreviewSource,
-  PreviewSourceProvider,
-} from "../../../../../packages/shell/renderer/workspace/app-preview-tab.tsx";
+import { PreviewSourceProvider } from "../../../../../packages/shell/renderer/workspace/app-preview-tab.tsx";
 import { fakeAnnotate } from "../../../../../packages/shell/renderer/app-frame/testdata/fake-annotate.ts";
 import type { CoreSource } from "../../../../../packages/shell/renderer/desktop/connection/connection.ts";
 import { APP_BUDGET } from "../../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
@@ -26,6 +23,7 @@ import { openApp } from "../../../../../packages/shell/renderer/desktop/router.t
 import { fixedRuns } from "../../../mock/scenarios/orders-shop.ts";
 import {
   answering,
+  fakePreview,
   runAnswers,
 } from "../../../mock/core-answers/sync-app-detail.ts";
 import {
@@ -227,9 +225,20 @@ export function AppSpace(props: AppWorkspaceProps = {}) {
             ? "conflict"
             : "applied",
     });
+    // preview가 돌고 있다. [Stop]이 멈춘다.
+    const preview = fakePreview(
+      props.preview !== undefined,
+      PREVIEW_RELEASE,
+      DEVICES,
+    );
     const answered = answering(
-      [...detail.answers, ...runAnswers(APP, props.runs === "empty")],
+      [
+        ...detail.answers,
+        ...runAnswers(APP, props.runs === "empty"),
+        ...preview.answers,
+      ],
       detail.onChanged,
+      preview.onChanged,
     );
     return {
       annotate: fakeAnnotate({
@@ -241,26 +250,11 @@ export function AppSpace(props: AppWorkspaceProps = {}) {
         })),
       }),
       detail: detail.source,
+      preview: preview.source,
       events: (source: CoreSource) => answered(withRunSessions(source)),
     };
   }, []);
   useEffect(() => fakes.annotate.subscribeState(setAnnotating), [fakes]);
-  // preview 한 개가 돌고 있다. [Stop]이 멈춘다.
-  const preview = useMemo<PreviewSource>(() => {
-    let running = true;
-    return {
-      current: () =>
-        Promise.resolve(
-          running ? { nonce: "pv1", release: PREVIEW_RELEASE } : null,
-        ),
-      devices: () => Promise.resolve(DEVICES),
-      stop: () => {
-        running = false;
-        return Promise.resolve();
-      },
-    };
-  }, []);
-
   const layout = props.layout ?? "screen";
   const panes = useMemo(
     () =>
@@ -317,7 +311,7 @@ export function AppSpace(props: AppWorkspaceProps = {}) {
   });
 
   return (
-    <PreviewSourceProvider value={props.preview === undefined ? null : preview}>
+    <PreviewSourceProvider value={fakes.preview}>
       <MockDesktop
         route={openApp(APP)}
         panes={panes}

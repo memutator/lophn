@@ -10,6 +10,7 @@
 //   3. 이전 release로 돌아가기 요청(`activation_requests`)과 사람이 허락한 동의 줄(`activation_consents`)을 sweep이 읽어 시작한다.
 // Bus·호출 접수(drain)·changeset은 다른 module의 port라 조립이 `attach`로 늦게 끼운다.
 import { type FileHandle, mkdir, open } from "node:fs/promises";
+import { publishStateChanged } from "../../../../protocol/events/changes.ts";
 
 import {
   type Clock,
@@ -149,7 +150,13 @@ function unavailable(message: string): Result<never> {
 }
 
 export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
-  const queue = createActivationQueue();
+  const queue = createActivationQueue((app) => {
+    if (late !== undefined) {
+      publishStateChanged(late.bus, deps.clock.now(), [
+        { name: "releases", id: app },
+      ]);
+    }
+  });
   let late: ActivationLate | undefined;
   // record_backup이 싣는 보호 blob 준비 결과. 준비한 시도 안에서만 쓴다.
   const preparedBackups = new Map<string, PreparedBlob>();

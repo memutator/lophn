@@ -14,7 +14,8 @@ export type QueueEntry = {
   approved: string | null;
 };
 
-export function createActivationQueue() {
+// changed는 화면이 읽는 줄(단계, 끝남)이 바뀌었을 때 앱마다 부른다. 메모리 상태라 command의 `changes`가 덮지 않는다.
+export function createActivationQueue(changed: (app: string) => void) {
   const entries = new Map<string, QueueEntry>();
   // 앱마다 돌고 있는 job 하나.
   const jobs = new Map<string, Promise<void>>();
@@ -44,6 +45,7 @@ export function createActivationQueue() {
         } finally {
           entries.delete(release);
           jobs.delete(app);
+          changed(app);
         }
       })();
       jobs.set(app, run);
@@ -60,6 +62,7 @@ export function createActivationQueue() {
           entry.migrationSteps = patch.migrationSteps;
         }
       }
+      changed(app);
     },
     // 그 앱에 도는 job. 없으면 undefined다.
     running(app: string): Promise<void> | undefined {

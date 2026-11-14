@@ -1,7 +1,15 @@
 // app_preview 탭. 그 앱에서 지금 돌고 있는 preview를 앱 view(mode preview)로 보인다. 앱마다 탭 하나이고 지금 preview를 따라간다:
-// 2초마다 `previews.get`을 읽어 process가 바뀌면 view를 새로 열고, 없어지면 "돌고 있는 preview 없음"을 보인다.
+// `previews.get`을 읽고 preview가 뜨고 ready가 되고 끝날 때(app_runtime 변경) 다시 읽어, process가 바뀌면 view를 새로 열고
+// 없어지면 "돌고 있는 preview 없음"을 보인다.
 // Annotate는 앱 화면 탭과 같은 길(use-tab-annotate.tsx)이고, 보낸 annotation은 release 대신 preview의 bundle hash를 싣는다.
-import { createContext, useContext, useEffect, useId, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+} from "react";
 import { Button } from "@lophn/ui/primitives";
 import { FieldContext, Select } from "@lophn/ui/input";
 import { Toast } from "@lophn/ui/overlay";
@@ -17,13 +25,14 @@ import {
   windowCoreSource,
 } from "../desktop/connection/connection.ts";
 import type { AppFrameViewState } from "../../ipc/app-frame.ts";
+import { previewsGet } from "../../../protocol/apps/previews.ts";
+import { useCoreRead } from "../desktop/connection/core-read.ts";
 import type { AgentViewSlice } from "./kinds/host.ts";
 import { AgentControlBar } from "../browser/browser-chrome.tsx";
 import { surfaceApi, useAgentControl } from "./use-surface-requests.ts";
 import { useTabAnnotate } from "./use-tab-annotate.tsx";
 import styles from "./app-preview-tab.module.css";
 
-const POLL_MS = 2000;
 const DEVICES_KEY = "shell.devices";
 // Select의 값은 비어 있을 수 없어 Desktop에 이 값을 준다.
 const DESKTOP = "::desktop";
@@ -44,8 +53,6 @@ export interface PreviewDevice {
 }
 
 export interface PreviewSource {
-  /** 그 앱에서 ready인 preview. 없으면 null이고, 못 읽으면 undefined다. */
-  current(app: string): Promise<RunningPreview | null | undefined>;
   /** 등록한 기기들. 못 읽으면 빈 목록이다. */
   devices(): Promise<readonly PreviewDevice[]>;
   stop(app: string, nonce: string): Promise<void>;
@@ -53,27 +60,6 @@ export interface PreviewSource {
 
 export function corePreviewSource(core: CoreSource): PreviewSource {
   return {
-    async current(app) {
-      const reply = await core.call({
-        kind: "read",
-        resource: "previews",
-        method: "get",
-        body: { app },
-      });
-      if (!reply.ok) return undefined;
-      const observation = (
-        reply.value as {
-          observation: {
-            process_nonce: string;
-            release: string | null;
-            ready: boolean;
-          } | null;
-        }
-      ).observation;
-      return observation === null || !observation.ready
-        ? null
-        : { nonce: observation.process_nonce, release: observation.release };
-    },
     async devices() {
       const reply = await core.call({
         kind: "memory",
@@ -113,38 +99,27 @@ function usePreviewSource(): PreviewSource {
   return windowSource;
 }
 
-/** 그 앱의 preview를 따라간다. undefined는 아직 읽기 전이다. */
+/** 그 앱의 preview를 따라간다. undefined는 아직 읽기 전이다. ready가 아닌 preview는 없는 것(null)으로 본다. */
 export function useRunningPreview(app: string): {
   preview: RunningPreview | null | undefined;
   stop(): void;
 } {
   const source = usePreviewSource();
-  const [preview, setPreview] = useState<RunningPreview | null | undefined>();
-  const [again, setAgain] = useState(0);
-  useEffect(() => {
-    let live = true;
-    const read = () =>
-      void source.current(app).then((next) => {
-        if (!live || next === undefined) return;
-        // 같은 process면 state를 바꾸지 않아 view를 다시 열지 않는다.
-        setPreview((last) =>
-          last?.nonce === next?.nonce && last?.release === next?.release
-            ? last
-            : next,
-        );
-      });
-    read();
-    const timer = setInterval(read, POLL_MS);
-    return () => {
-      live = false;
-      clearInterval(timer);
-    };
-  }, [source, app, again]);
+  const read = useCoreRead(previewsGet, { app }).loaded;
+  const observation =
+    read.state === "ready" ? read.value.observation : undefined;
+  const nonce = observation?.ready ? observation.process_nonce : null;
+  const release = observation?.ready ? observation.release : null;
+  // 같은 process면 같은 값을 돌려 view를 다시 열지 않는다.
+  const preview = useMemo(
+    () => (nonce === null ? null : { nonce, release }),
+    [nonce, release],
+  );
   return {
-    preview,
+    preview: observation === undefined ? undefined : preview,
     stop() {
-      if (preview === null || preview === undefined) return;
-      void source.stop(app, preview.nonce).then(() => setAgain((n) => n + 1));
+      // 멈춘 preview는 core가 app_runtime 변경을 내어 위 읽기가 따라간다.
+      if (preview !== null) void source.stop(app, preview.nonce);
     },
   };
 }

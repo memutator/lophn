@@ -278,6 +278,7 @@ type AppsControlDeps = {
     bundles?: PreviewBundles;
     releases?: PreviewReleases;
     nonce?: () => string;
+    changed: (app: string) => void;
   };
 };
 
@@ -432,6 +433,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
     ? createPreviewService({
         clock: deps.clock,
         nonce: deps.previews.nonce ?? (() => crypto.randomUUID()),
+        changed: deps.previews.changed,
         supervisor: {
           start: (launch) => client.previewStart(launch),
           observe: (app, nonce) => client.previewObserve(app, nonce),

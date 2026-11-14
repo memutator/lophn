@@ -34,3 +34,8 @@ core가 remote 화면 bundle을 hash와 함께 기기에 내주게 한다.
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴.
+
+## 추가 (lead가 더함)
+
+- 위험 test는 `..`, 절대 path, URL로 감싼 `%2e%2e`, bundle 밖을 가리키는 symlink, 폴더 자체, 없는 file을 다 본다. 앞의 넷은 bundle 밖 file 내용이 답에 들지 않아야 한다.
+- 개발 bridge(`packages/shell/renderer/remote/dev/bridge.ts`)의 file 답은 `{content_type, base64}`를 `{bytes, contentType}`로 바꾼다. 같은 꼴을 쓴다.

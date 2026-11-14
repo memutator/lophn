@@ -33,3 +33,9 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴.
+
+## 추가 소유 (lead가 더함)
+
+- `packages/shell/renderer/remote/entry.tsx`와 `tools/wireframes/pages/screens/remote.tsx`: `ChatPlaceholder`를 대화 component로 바꾸는 줄만. 대화 자리의 props는 `RemoteChatProps { session, agent, workspace, onOpenSession }`(`remote/remote-app.tsx`)이고 틀이 머리(뒤로, 제목, agent 이름)를 그리며 자리는 스크롤하지 않는 flex 열이다.
+- desktop 쪽 file(`editor/`, `workspace/`, `shell/`, `desktop/`)은 조각을 `conversation/`이나 공통 자리로 옮길 때 import 줄을 고치는 것만. 동작은 바꾸지 않는다.
+- `remote-web-base`가 남긴 bundle 무게: `waiting/` card가 `@lophn/ui/reading` barrel로 KaTeX를 끌고, `notice-action.ts`가 `conversation/agent-tab-core-source.ts`를 끈다. 대화가 쓰는 것은 남기되 쓰지 않는 무게면 같이 끊는다(`waiting/`의 import 줄도 위와 같은 범위로 고쳐도 된다).

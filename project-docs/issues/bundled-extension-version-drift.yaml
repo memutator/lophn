@@ -5,7 +5,7 @@ status: open
 topic: extension
 modules: [packages/shell/main, packages/protocol]
 now: |
-  `packages/shell/main/extensions/bundled/{harness,harness-gui}/manifest.json`의 `version`은 손으로 root `package.json` 판과 맞춘다. registry(`extensionVersionError`)는 판이 정확히 같아야 켜고, 다르면 incompatible로 두어 말없이 멈춘다. shell main build(`checkExtensionVersions`)도 다르면 실패한다. 0.23.0 뒤 PATCH(0.23.1~0.23.9)마다 root 판만 올라가 manifest는 0.23.0에 남았고, 0.23.9에서 `npm run package`가 실패해 알았다(2026-11-09, manifest를 손으로 0.23.9로 맞췄다).
+  `packages/shell/main/extensions/bundled/{harness,harness-gui}/manifest.json`의 `version`은 손으로 root `package.json` 판과 맞춘다. registry(`extensionVersionError`)는 판이 정확히 같아야 켜고, 다르면 incompatible로 두어 말없이 멈춘다. shell main build(`checkExtensionVersions`)도 다르면 실패한다. 0.23.0 뒤 PATCH(0.23.1~0.23.9)마다 root 판만 올라가 manifest는 0.23.0에 남았고, 0.23.9에서 `npm run package`가 실패해 알았다(2026-11-09, manifest를 손으로 0.23.9로 맞췄다). 0.23.57에서 다시 생겼다: manifest는 0.23.54에 남아 `npm run dev`가 shell main build에서 멈춘다(2026-11-15, 계획 phone-remote-web의 worker가 `npm run dev:core`로 돌아갔다).
 impact: |
   PATCH를 올린 개발 판(`npm run dev`)에서 harness agent(headless coding agent)와 터미널 탭 GUI가 incompatible로 돌지 않는다. 다음 PATCH에서도 같은 일이 되풀이되고 패키징이 막힌다.
 fix: |

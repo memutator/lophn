@@ -166,7 +166,7 @@ event (남지 않는다. commit 뒤 Bus)
 - turn request와 질문 대기는 core main thread 메모리에 있고 ledger에 쓰지 않는다(durable queue가 되는 것을 막는다).
 
 폰(기기) 자격
-- pairing한 기기의 연결은 actor user, principal `device:<id>`, conditions `{process: "remote"}`인 자격 하나를 받는다. scope는 `packages/protocol/remote/allowlist.ts`의 route 목록뿐이고, remote 연결의 `call`이 dispatch 전에 실제 route 이름으로 `authorize`해 목록 밖은 `forbidden`이다(HTTP dispatch는 read·memory route에 scope를 보지 않아 이 검사가 경계다).
+- pairing한 기기의 연결은 actor user, principal `device:<id>`, conditions `{process: "remote"}`인 자격 하나를 받는다. scope는 protocol의 remote route 목록(`REMOTE_ALLOWED_ROUTES`)뿐이고, remote 연결의 `call`이 dispatch 전에 실제 route 이름으로 `authorize`해 목록 밖은 `forbidden`이다(HTTP dispatch는 read·memory route에 scope를 보지 않아 이 검사가 경계다).
 - 목록은 대화와 Inbox가 쓰는 것이다: session 목록과 snapshot, `acp/snapshot|draft|send`, `ask/read|answer`, `turn_requests/decide`, notice 읽기·열기·읽음·치우기, activation 동의, job hold와 대기 job 승인, 공유 요청 목록과 결정. secret, provider, 설정 쓰기, 기기와 pairing, 앱 지우기, `host/*`는 없다. 관리는 desktop에서만 한다.
 - 기기를 끊으면(`devices/revoke`, 사람만) 표에서 지우고 그 자격을 거두고 연결을 `closed(credential_revoked)`로 바로 닫는다. 같은 key로 다시 붙으면 등록되지 않은 key라 `pair`만 받는다.
 - 사람 결정 handle은 기기 자격으로 등록하지 못한다(shell capability가 없다). 폰에서는 secret을 넣지 않는다.

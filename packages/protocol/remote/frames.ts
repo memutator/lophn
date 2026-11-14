@@ -34,7 +34,7 @@ const pairFrameSchema = remoteDeviceSchema.extend({
   code: z.string().min(1).max(128),
 });
 
-// route 하나를 부른다. body는 그 route의 input이고 core의 route dispatch가 검사한다.
+// route 하나를 부른다. body는 HTTP API의 요청 body와 같다(command면 `{input, idempotency_key, …}` envelope). core의 route dispatch가 검사한다.
 const callFrameSchema = z.strictObject({
   type: z.literal("call"),
   id: frameIdSchema,

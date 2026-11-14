@@ -40,6 +40,7 @@ const ID_PREFIXES = {
   sdf: "SdkFeature",
   tab: "Tab",
   hrq: "HostRequest",
+  dev: "Device",
 } as const;
 
 export type IdPrefix = keyof typeof ID_PREFIXES;

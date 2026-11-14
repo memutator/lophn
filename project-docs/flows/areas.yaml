@@ -298,12 +298,15 @@ areas:
       - packages/protocol/diagnostics/
       - packages/protocol/client/
       - packages/protocol/supervision/
+      - packages/protocol/remote/
       - packages/core/server/
+      - packages/core/remote/
     owns:
       - core 기동, data root, instance lock, 실행 metadata
       - ledger schema step과 data step 적용(기동 거절 포함)
       - control socket과 ensureCore(붙기, 띄우기, 멈추기)
       - user token, credential, identity
+      - remote listener, pairing, 기기 연결과 그 자격
       - child process 감독과 crash 진단
       - health, readiness, log, telemetry, 자원 snapshot
       - 설치와 update

@@ -517,3 +517,14 @@ files:
     covers:
       - app-call-send:accepted
     note: "앱 보낸 쪽 ledger step이 messages(FK 자식 checkpoints·reverts가 on delete restrict)와 agent_calls를 다시 짜도 행·index·trigger·FK가 그대로인지 파일 ledger로 본다"
+
+  - path: packages/core/remote/host_test.ts
+    covers:
+      - remote-connection:unpaired-refused
+      - remote-connection:call-ok
+      - remote-connection:call-forbidden
+      - remote-pair:paired
+      - remote-pair:wrong-code
+      - remote-pair:too-many-tries
+      - devices-revoke:ok
+    note: "메모리 전송으로 실제 connectRemote client를 core 연결 logic에 붙인다. 기기 표만 가짜다"

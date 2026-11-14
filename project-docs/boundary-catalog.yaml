@@ -130,6 +130,10 @@ elements:
         kind: component
         description: core daemon의 입구.
 
+      - id: remote
+        kind: component
+        description: pairing한 폰이 붙는 암호화된 바깥 listener, 기기 표와 pairing, 기기 자격과 route 목록.
+
       - id: supervision
         kind: component
         description: core가 띄우는 child process의 감독.
@@ -240,6 +244,16 @@ interfaces:
       - server
     used_by:
       - shell
+
+  - id: remote-protocol
+    kind: interface
+    description: 폰과 core 사이의 연결. Noise IK handshake, 암호화한 record, JSON frame(hello, pair, call, result, watch와 Gateway frame), 기기가 부를 수 있는 route 목록.
+    interface_type: protocol
+    defined_by: protocol
+    provided_by:
+      - remote
+    used_by:
+      - person
 
   - id: acp
     kind: interface

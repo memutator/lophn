@@ -15,7 +15,7 @@ import {
   type CredentialScope,
   credentialScopeSchema,
 } from "../../../protocol/server/mod.ts";
-import { parseActor } from "../../../protocol/base/mod.ts";
+import { idSchema, parseActor } from "../../../protocol/base/mod.ts";
 import {
   authorize,
   conditionsMatch,
@@ -69,6 +69,13 @@ function invalid(): Result<never> {
     code: "invalid_input",
     message: "invalid credential scope or kind",
   });
+}
+
+function devicePrincipal(principal: string): boolean {
+  return (
+    principal.startsWith("device:") &&
+    idSchema("dev").safeParse(principal.slice("device:".length)).success
+  );
 }
 
 // app 발급은 actor 문자열의 kind가 app이다. app:<id> actor가 아니다.
@@ -151,9 +158,11 @@ export class CredentialRegistry {
         context.scope.targets.app !== context.conditions.app
       )
         return invalid();
+      // 사람 token은 principal `user`이고, pairing한 기기는 `device:<id>`라 입장 한도와 command 결과를 따로 갖는다.
       if (
         kind === "user" &&
-        (input.principal !== "user" || !context.conditions.process)
+        ((input.principal !== "user" && !devicePrincipal(input.principal)) ||
+          !context.conditions.process)
       )
         return invalid();
       if (

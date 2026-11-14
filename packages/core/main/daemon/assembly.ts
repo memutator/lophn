@@ -66,6 +66,10 @@ import {
   lophnAgentDefinitions,
 } from "./wiring/lophn-agent-team.ts";
 import { projectsWiring } from "./wiring/projects.ts";
+import {
+  createCoreRegistration as createRemoteRegistration,
+  remoteWiring,
+} from "./wiring/remote.ts";
 import { routerWiring } from "./wiring/router.ts";
 import { createCoreRegistration as createRouterRegistration } from "./wiring/router-registration.ts";
 import { runsWiring } from "./wiring/runs.ts";
@@ -101,6 +105,7 @@ export const TEAMS = [
   { createCoreRegistration: createShareRequestsRegistration },
   { createCoreRegistration: createAcpRegistration },
   { createCoreRegistration: createAppsDeleteRegistration },
+  { createCoreRegistration: createRemoteRegistration },
 ];
 
 // writer·reader Worker가 다시 import할 등록 파일.
@@ -128,6 +133,7 @@ export const TEAM_MODULES = [
   new URL("./wiring/share-requests.ts", import.meta.url).href,
   new URL("./wiring/acp-registration.ts", import.meta.url).href,
   new URL("./wiring/apps-delete.ts", import.meta.url).href,
+  new URL("./wiring/remote.ts", import.meta.url).href,
 ];
 
 // module마다의 wiring. 순서가 뜻을 가진다.
@@ -204,4 +210,6 @@ export const WIRINGS: readonly WiringFactory[] = [
   lophnSplitWiring,
   // data step이 마지막이어야 한다. 앞선 옮기기 step이 다 끝난 뒤에 domains 표와 폴더를 거둔다.
   domainsRetireWiring,
+  // 기기 표의 ledger step이 낸 step 목록의 맨 끝이다(schema-steps.lock.json). data step은 없다.
+  remoteWiring,
 ];

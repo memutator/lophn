@@ -21,3 +21,20 @@ export {
   remoteServerFrameSchema,
 } from "./frames.ts";
 export { generateKeyPair, type KeyPair } from "./noise.ts";
+export { REMOTE_ALLOWED_ROUTES } from "./allowlist.ts";
+export {
+  devicesConnected,
+  devicesList,
+  devicesRegister,
+  devicesRename,
+  devicesRevoke,
+  devicesSetPrimary,
+  pairingStart,
+  REMOTE_PATH,
+  type RemoteDevice,
+  type RemotePairing,
+  remoteKeyBytes,
+  remoteKeyText,
+  remotePairedSchema,
+  remotePairingSchema,
+} from "./routes.ts";

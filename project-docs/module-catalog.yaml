@@ -93,6 +93,9 @@ modules:
   - path: packages/core/server
     boundary: server
 
+  - path: packages/core/remote
+    boundary: remote
+
   - path: packages/core/storage
     boundary: storage
 

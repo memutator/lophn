@@ -286,5 +286,9 @@
   {
     "id": "lophn-agent.harness-provider.opencode-go-gemini",
     "sha256": "1a4a6c5c3958caaa5dd727dfaeefef2755f7fe962ca775b45430d3ccfd6c630f"
+  },
+  {
+    "id": "remote.devices",
+    "sha256": "d47bd1676e46da72f2b3e0d8212264243759dd9a08d2f0ff3aa38b9748f34625"
   }
 ]

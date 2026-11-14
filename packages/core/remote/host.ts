@@ -1,0 +1,272 @@
+// remote 연결 하나하나를 맡는다. handshake로 받은 공개 key가 등록된 기기면 그 기기 자격으로 `call`·`watch`를 받고,
+// 아니면 `pair`만 받는다. listener(WebSocket)는 이 file을 모르고 전송 하나씩 넘긴다. test는 메모리 전송을 넘긴다.
+import {
+  err,
+  type Logger,
+  type RandomSource,
+  type Result,
+} from "../../base/mod.ts";
+import {
+  acceptRemote,
+  type KeyPair,
+  type RemoteClientFrame,
+  type RemoteServerChannel,
+  type RemoteTransport,
+  remoteKeyText,
+} from "../../protocol/remote/mod.ts";
+import { type Bus, createGatewaySession } from "../events/mod.ts";
+import type { Admission } from "../supervision/responsiveness/mod.ts";
+import {
+  type DeviceCredentials,
+  devicePrincipal,
+  type RemoteCall,
+} from "./call.ts";
+import type { PairingCodes } from "./pairing.ts";
+
+// handshake와 hello가 이 안에 끝나지 않은 연결은 닫는다. 말 없는 socket이 자리를 붙잡지 못하게.
+export const REMOTE_HANDSHAKE_MS = 10_000;
+// 틀린 pairing code는 연결마다 이만큼이다. 넘으면 연결을 닫는다.
+export const PAIRING_TRIES = 5;
+
+// 실제 WebSocket은 보내지 못한 byte 수를 안다. Gateway와 같은 한도로 느린 연결을 끊는 데 쓴다.
+export type RemoteSocket = RemoteTransport & { bufferedAmount(): number };
+
+export type RemoteTimers = {
+  set(run: () => void, ms: number): unknown;
+  clear(handle: unknown): void;
+};
+
+type PairInput = Extract<RemoteClientFrame, { type: "pair" }>;
+
+// 기기 표. production은 ledger의 devices command·read다.
+export type RemoteDevices = {
+  find(publicKey: string): Promise<Result<{ id: string } | undefined>>;
+  register(
+    input: Omit<PairInput, "type" | "id" | "code"> & { public_key: string },
+  ): Promise<Result<{ id: string }>>;
+  // 마지막 연결 시각. 실패는 연결을 막지 않는다.
+  connected(id: string): void;
+};
+
+export type RemoteHostDeps = {
+  staticKey: KeyPair;
+  random: RandomSource;
+  timers: RemoteTimers;
+  bus: Bus;
+  pairing: PairingCodes;
+  devices: RemoteDevices;
+  credentials: DeviceCredentials;
+  call: RemoteCall;
+  admission: Admission;
+  logger?: Logger;
+};
+
+export type RemoteHost = {
+  accept(socket: RemoteSocket): Promise<void>;
+  // 기기를 끊었다(표에서 지운 뒤). 자격을 거두고 그 기기의 연결을 모두 닫는다.
+  revoked(id: string): void;
+  // `closed(shutdown)`을 보내고 모든 연결을 닫는다.
+  shutdown(): void;
+};
+
+type Connection = {
+  channel: RemoteServerChannel;
+  device?: string;
+  // 붙은 기기의 Gateway session. 내려갈 때 `closed(shutdown)`을 보낸다.
+  session?: { shutdown(): void };
+};
+
+export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
+  const connections = new Set<Connection>();
+
+  async function serve(channel: RemoteServerChannel, socket: RemoteSocket) {
+    let closed = false;
+    const cleanups: (() => void)[] = [];
+    const connection: Connection = { channel };
+    connections.add(connection);
+    channel.onClose(() => {
+      closed = true;
+      connections.delete(connection);
+      for (const cleanup of cleanups.splice(0)) cleanup();
+    });
+
+    // 기기 자격으로 붙인다. frame을 받을 함수를 돌려준다. 붙지 못하면 연결을 닫고 undefined다.
+    async function attach(
+      device: string,
+    ): Promise<((frame: RemoteClientFrame) => void) | undefined> {
+      // 자격을 받는 사이 기기를 끊으면 revoked가 이 연결을 닫도록 먼저 적는다.
+      connection.device = device;
+      const credential = await deps.credentials.get(device);
+      if (!credential.ok || closed) {
+        channel.close();
+        return undefined;
+      }
+      const slot = deps.admission.enterEvent(devicePrincipal(device));
+      if (!slot.ok) {
+        channel.close();
+        return undefined;
+      }
+      const session = createGatewaySession(
+        {
+          send: (text) => void channel.send(JSON.parse(text)),
+          close: () => channel.close(),
+          bufferedAmount: () => socket.bufferedAmount(),
+        },
+        deps.bus,
+      );
+      cleanups.push(() => {
+        session.closed();
+        slot.value.release();
+      });
+      connection.session = session;
+      deps.devices.connected(device);
+      return (frame) => {
+        if (frame.type === "call") {
+          void deps
+            .call(credential.value, frame)
+            .catch(
+              (): Result<unknown> =>
+                err({ code: "internal", message: "internal error" }),
+            )
+            .then((result) =>
+              channel.send(
+                result.ok
+                  ? {
+                      type: "result",
+                      id: frame.id,
+                      ok: true,
+                      value: result.value,
+                    }
+                  : {
+                      type: "result",
+                      id: frame.id,
+                      ok: false,
+                      error: {
+                        code: result.error.code,
+                        message: result.error.message,
+                      },
+                    },
+              ),
+            );
+        } else if (frame.type === "watch") {
+          session.receive(JSON.stringify(frame));
+        } else {
+          channel.close();
+        }
+      };
+    }
+
+    let tries = 0;
+    // 등록되지 않은 key: `pair` 말고는 연결을 닫는다. 맞으면 기기를 등록하고 그 자리에서 붙인다.
+    async function unpaired(
+      frame: RemoteClientFrame,
+    ): Promise<((frame: RemoteClientFrame) => void) | undefined> {
+      if (frame.type !== "pair") {
+        channel.close();
+        return undefined;
+      }
+      if (!deps.pairing.take(frame.code)) {
+        tries += 1;
+        channel.send({
+          type: "result",
+          id: frame.id,
+          ok: false,
+          error: {
+            code: "unauthorized",
+            message: "pairing code is wrong or expired",
+          },
+        });
+        if (tries >= PAIRING_TRIES) channel.close();
+        return undefined;
+      }
+      const registered = await deps.devices.register({
+        name: frame.name,
+        os: frame.os,
+        width: frame.width,
+        height: frame.height,
+        dpr: frame.dpr,
+        public_key: remoteKeyText(channel.peer.publicKey),
+      });
+      if (!registered.ok) {
+        channel.send({
+          type: "result",
+          id: frame.id,
+          ok: false,
+          error: registered.error,
+        });
+        return undefined;
+      }
+      const receive = await attach(registered.value.id);
+      if (receive) {
+        channel.send({
+          type: "result",
+          id: frame.id,
+          ok: true,
+          value: { device: registered.value.id },
+        });
+      }
+      return receive;
+    }
+
+    // frame은 onFrame을 걸 때까지 channel에 모여 있다. 기기를 찾은 뒤에 건다.
+    const found = await deps.devices.find(
+      remoteKeyText(channel.peer.publicKey),
+    );
+    if (!found.ok) return channel.close();
+    let receive = found.value ? await attach(found.value.id) : undefined;
+    if (found.value && !receive) return;
+    // pairing 중의 frame은 차례로 본다. `pair`의 답을 기다리지 않고 온 frame도 붙은 뒤의 규칙으로 본다.
+    let pending = Promise.resolve();
+    channel.onFrame((frame) => {
+      if (receive) return receive(frame);
+      pending = pending
+        .then(async () => {
+          if (closed) return;
+          if (receive) return receive(frame);
+          receive = await unpaired(frame);
+        })
+        .catch(() => channel.close());
+    });
+  }
+
+  return {
+    async accept(socket) {
+      const timer = deps.timers.set(() => socket.close(), REMOTE_HANDSHAKE_MS);
+      const opened = await acceptRemote({
+        transport: socket,
+        staticKey: deps.staticKey,
+        capabilities: [],
+        random: deps.random,
+      });
+      deps.timers.clear(timer);
+      if (!opened.ok) return;
+      try {
+        await serve(opened.value, socket);
+      } catch (thrown) {
+        deps.logger?.error({
+          component: "remote",
+          event: "connection_failed",
+          fields: { message: String(thrown) },
+        });
+        opened.value.close();
+      }
+    },
+    revoked(id) {
+      deps.credentials.revoke(id);
+      for (const connection of [...connections]) {
+        if (connection.device !== id) continue;
+        connection.channel.send({
+          type: "closed",
+          reason: "credential_revoked",
+        });
+        connection.channel.close();
+      }
+    },
+    shutdown() {
+      for (const connection of [...connections]) {
+        if (connection.session) connection.session.shutdown();
+        else connection.channel.close();
+      }
+    },
+  };
+}

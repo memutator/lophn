@@ -32,6 +32,7 @@ import {
   type SettingsView,
 } from "../../protocol/config/mod.ts";
 import { extensionSettingKey } from "../../protocol/extensions/mod.ts";
+import { remoteDeviceSchema } from "../../protocol/remote/frames.ts";
 import {
   bindingId,
   isChordText,
@@ -383,24 +384,37 @@ const taskbarSetting = declareSetting({
 });
 
 // 사람이 등록한 기기. preview 탭이 이 크기·DPR로 emulation하고 `tab open --preview --device <name>`이 이름으로 찾는다.
+// remote pairing이 등록한 폰도 같은 항목으로 든다. 그래서 항목 모양은 remote의 기기 schema 하나다.
 // 크기 범위는 shell main의 emulation 입력 검사(packages/shell/ipc/surface.ts)와 같아야 한다(shell은 core를 import하지 못한다).
 export const devicesSetting = declareSetting({
   key: "shell.devices",
   type: z
-    .array(
-      z.object({
-        name: z.string().min(1).max(40),
-        width: z.number().int().min(200).max(2000),
-        height: z.number().int().min(200).max(3000),
-        dpr: z.number().min(1).max(4),
-        os: z.enum(["ios", "android"]),
-      }),
-    )
+    .array(remoteDeviceSchema)
     .max(32)
     .refine((list) => new Set(list.map((d) => d.name)).size === list.length),
   default: [],
   description:
     "Devices for app previews: each has a name, a viewport size in CSS px, a pixel ratio and an OS. `lophn tab open --preview <app> --device <name>` and the preview tab use them. Names are unique.",
+});
+
+// 폰이 붙는 remote listener. 켜면 core가 모든 interface의 이 port에서 듣고, 켜 있는 동안 idle-exit로 끝나지 않는다.
+// 집 밖 network에 port를 여는 일이라 사람만 바꾼다.
+export const remoteEnabledSetting = declareSetting({
+  key: "remote.enabled",
+  type: z.boolean(),
+  default: false,
+  description:
+    "Lets paired phones connect to this computer. When on, lophn listens on `remote.port` on every network interface and does not exit when idle.",
+  locked: true,
+});
+
+export const remotePortSetting = declareSetting({
+  key: "remote.port",
+  type: z.number().int().min(1024).max(65535),
+  default: 7432,
+  description:
+    "The port the phone connection listens on when `remote.enabled` is on.",
+  locked: true,
 });
 
 // 설치된 앱의 `sidebar` 자리 화면은 선언하면 오른쪽 sidebar에 panel로 나온다. 사람이 끈 것만 여기에 쌓인다.
@@ -497,6 +511,8 @@ export const shellSettings = [
   codingAgentsSetting,
   taskbarSetting,
   devicesSetting,
+  remoteEnabledSetting,
+  remotePortSetting,
   sidebarPanelsOffSetting,
   trayOffSetting,
   trayOrderSetting,

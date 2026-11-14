@@ -4,6 +4,7 @@ import { runActivity } from "../../../../protocol/runs/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { workflowInstanceActivity } from "../../../../protocol/workflows/mod.ts";
 import { systemTimers } from "../../../runs/mod.ts";
+import { remoteEnabledSetting } from "../../../config/shell-settings.ts";
 import {
   createIdleMonitor,
   type IdleActivity,
@@ -38,7 +39,7 @@ const ACTIVITY_READS = [
 const route = (r: { resource: string; method: string }) =>
   `${r.resource}/${r.method}`;
 
-// module별 activity read, 도는 lophn agent turn, server의 client 수를 합쳐 idle-exit를 건다. ready 뒤에 세기 시작하고,
+// module별 activity read, 도는 lophn agent turn, 켜 둔 remote 연결, server의 client 수를 합쳐 idle-exit를 건다. ready 뒤에 세기 시작하고,
 // idle-exit는 core.ts의 shutdown barrier를 그대로 쓴다.
 export const idleWiring: WiringFactory = () => {
   let monitor: IdleMonitor | undefined;
@@ -53,6 +54,8 @@ export const idleWiring: WiringFactory = () => {
         (await ctx.runtime.reads.get(route(r))!(IDLE_CONTEXT, {})) as Result<T>;
       const activity: IdleActivity = {
         async busy() {
+          // 폰이 붙을 수 있게 켜 둔 동안은 끝나지 않는다. 끄는 것은 사람이 한다(`Stop lophn`).
+          if (ctx.settings.get(remoteEnabledSetting) === true) return ok(true);
           // 도는 lophn agent turn은 ledger의 activity가 아니라 core 메모리의 queue가 정본이다.
           if (ctx.queue.anyRunning()) return ok(true);
           for (const each of ACTIVITY_READS) {

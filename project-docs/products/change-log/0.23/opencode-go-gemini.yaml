@@ -1,5 +1,5 @@
 id: opencode-go-gemini
-version: 0.23.52
+version: 0.23.54
 title: OpenCode Go의 Gemini model(Argon)을 Gemini API wire로 부른다
 modules: [packages/core/lophn-agent, packages/core/main, packages/protocol]
 change: |

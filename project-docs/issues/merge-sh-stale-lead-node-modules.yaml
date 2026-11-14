@@ -1,0 +1,12 @@
+id: merge-sh-stale-lead-node-modules
+title: 의존성을 더한 task를 합치면 merge.sh가 lead worktree의 옛 node_modules로 check:full을 돌다 멈춘다
+kind: defect
+status: open
+topic: planning
+modules: [tools]
+now: |
+  `project-docs/plan/tools/lead/merge.sh`는 task branch를 plan branch로 ff-merge한 뒤 lead worktree에서 `npm run check:full`을 돈다. `package-lock.json`이 바뀌었는지 보지 않고 `npm ci`를 하지 않는다(land.sh는 `main-lib.sh`의 `deps`로 한다). 계획 `remote-core`에서 `@noble/*`를 더한 remote-channel과 `uqr`를 더한 remote-settings가 둘 다 `STOP: plan branch full check failed`로 멈췄다(`check protocol`, `wireframes smoke`). rebase 뒤 lockfile이 바뀐 task worktree(phone-runtime-spike)도 같은 이유로 worktree check에서 멈췄다.
+impact: |
+  merge가 이미 ff된 상태로 멈춰 lead가 원인을 찾고 `npm ci`와 `tools/worktree-prep.ts`(npm ci가 Electron binary를 지운다)를 손으로 돈 뒤 merge.sh를 다시 돈다. 한 번에 check:full 한 바퀴(수 분)가 버려진다.
+fix: |
+  추천: merge.sh가 rebase 뒤 task worktree에서, ff 뒤 lead worktree에서 merge 전후 `package-lock.json`이 다르면 `npm ci`와 `node tools/worktree-prep.ts <worktree>`를 돈다. `main-lib.sh`의 `deps`를 부르고 Electron binary를 다시 받는다(몇 줄).

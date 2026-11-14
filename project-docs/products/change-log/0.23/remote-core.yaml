@@ -1,0 +1,30 @@
+id: remote-core
+version: 0.23.54
+title: pairing한 폰이 암호화된 연결 하나로 core에 붙어 대화와 Inbox route를 부르고 event를 받는다
+modules: [packages/protocol, packages/core/remote, packages/core/main, packages/core/server, packages/core/config, packages/shell/main, packages/shell/renderer, packages/design, tools]
+change: |
+  - 설정 `remote.enabled`(기본 꺼짐)와 `remote.port`(기본 7432)를 더했다. 켜면 core가 모든 interface의 그 port, path `/remote`에 WebSocket listener를 따로 연다. 끄면 닫는다. 켜 있는 동안 idle-exit하지 않는다. loopback API listener는 그대로다.
+  - 연결은 `Noise_IK_25519_ChaChaPoly_SHA256`(prologue `lophn-remote/1`)으로 암호화한다. core의 key 쌍은 `<data root>/remote/host-key.json`(0600)이다. record가 바뀌거나 빠지거나 순서가 바뀌면 받는 쪽이 끊는다. handshake 뒤 frame은 `hello`, `pair`, `call`/`result`, Gateway의 `watch`/`ready`/`event`/`closed`다.
+  - 기기 신원은 handshake에서 받은 공개 key다. ledger 표 `devices`(schema step `remote.devices`)와 route `pairing/start`, `devices/list|rename|revoke|set_primary`를 더했다. pairing code는 128-bit, 300초, 한 번, 메모리에만 있고 새 code가 옛 code를 무효로 한다. 틀린 code는 연결마다 5번이다. pairing한 폰의 화면 정보가 `shell.devices`에 든다.
+  - 기기 연결의 자격은 actor user, principal `device:<id>`이고 대화와 Inbox route 20개(`REMOTE_ALLOWED_ROUTES`)만 부른다. 밖의 것은 `forbidden`이다. 기기를 끊으면 그 연결을 바로 닫고 같은 key는 `pair`만 받는다.
+  - Settings에 Remote 화면을 더했다: 켜기, QR(남은 시간, 새 code), 폰 목록(이름 바꾸기, 기준으로, 확인 뒤 끊기).
+  - 개발용 `tools/remote-client.ts`가 QR 내용으로 pairing하고 다시 붙어 route를 부르고 event를 받는다.
+  - 계획 안에서 main의 wireframes smoke 실패를 고친 것은 항목 `overlay-max-height-resize-loop`에 있다.
+why: |
+  mobile roadmap 단계 1이다. 폰 앱이 붙을 바탕(기기 등록, 암호화, 좁힌 자격)을 폰 앱 없이 먼저 짓고 Node client로 확인한다.
+decisions:
+  - text: >-
+      TLS 대신 연결 안 Noise IK로 암호화하고 bearer token 없이 공개 key를 기기 신원으로 쓴다. 암호는 @noble/curves·ciphers·hashes 2.4.0이고 Noise는 spec rev 34대로 짧게 직접 짰다(cacophony test vector와 byte까지 같다). 폰 JavaScript engine에서 같은 코드가 돌게 Node 내장 module을 쓰지 않는다.
+    by: agent
+  - text: >-
+      기기는 actor user이되 route를 목록으로 좁힌다. 목록은 대화와 Inbox가 쓰는 것이고 secret, provider, 설정 쓰기, 기기와 pairing, 앱 지우기, `host/*`는 없다. HTTP dispatch는 read·memory route에 scope를 보지 않아 remote call 경로가 실제 route 이름으로 authorize한다.
+    by: person
+  - text: >-
+      `remote.enabled`가 켜져 있으면 idle-exit하지 않는다. 조건을 "등록된 기기가 있음"으로 두지 않는다.
+    by: person
+  - text: >-
+      공개 key의 글꼴은 padding 없는 base64url 하나다(QR, 기기 표, `host-key.json`). 기기가 바뀔 때 event는 아직 없어 Settings의 QR 화면이 떠 있는 동안만 2초마다 기기 목록을 다시 읽는다.
+    by: agent
+checklist:
+  - "Settings › Remote를 켜고 QR이 뜨는지, 끄면 안내 한 줄만 남는지 본다"
+  - "다른 기기에서 `node tools/remote-client.ts`로 QR 내용을 넣어 pairing하고 다시 붙어 route 하나를 부르고, Settings에서 끊으면 연결이 닫히는지 본다"

@@ -1,7 +1,10 @@
 // 기기 연결의 자격과 `call`. 기기는 actor user, principal `device:<id>`이고 scope는 REMOTE_ALLOWED_ROUTES뿐이다.
-// `call`은 HTTP API와 같은 dispatchHttp를 그 자격으로 탄다.
+// `call`은 HTTP API와 같은 dispatchHttp를 그 자격으로 탄다. frame은 JSON뿐이라 file·upload route의 bytes는 base64로 싣는다.
 import { err, type ErrorCode, ok, type Result } from "../../base/mod.ts";
-import { RPC_JSON_MAX_BYTES } from "../../protocol/base/mod.ts";
+import {
+  RPC_JSON_MAX_BYTES,
+  UPLOAD_INPUT_HEADER,
+} from "../../protocol/base/mod.ts";
 import { REMOTE_ALLOWED_ROUTES } from "../../protocol/remote/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import { authorize, type CredentialRegistry } from "../server/identity/mod.ts";
@@ -67,6 +70,9 @@ export function createDeviceCredentials(deps: {
   };
 }
 
+// file route가 기기에 내주는 한 file의 상한이다. base64로 4/3배가 되어도 frame 하나(REMOTE_FRAME_MAX_BYTES, 16 MiB)에 든다.
+export const REMOTE_FILE_MAX_BYTES = 8 * 1024 * 1024;
+
 export type RemoteCall = (
   credential: DeviceCredential,
   call: { resource: string; method: string; body: unknown },
@@ -74,7 +80,13 @@ export type RemoteCall = (
 
 type RemoteCallDeps = Pick<
   DispatchDeps,
-  "clock" | "writer" | "reads" | "memory" | "onThrown"
+  | "clock"
+  | "writer"
+  | "reads"
+  | "memory"
+  | "fileStreams"
+  | "uploads"
+  | "onThrown"
 > & {
   registry: CredentialRegistry;
   routes: RouteRegistry;
@@ -91,6 +103,8 @@ export function createRemoteCall(deps: RemoteCallDeps): RemoteCall {
     writer: deps.writer,
     reads: deps.reads,
     memory: deps.memory,
+    fileStreams: deps.fileStreams,
+    uploads: deps.uploads,
     bodyTimeoutMs: BODY_TIMEOUT_MS,
     jsonMaxBytes: RPC_JSON_MAX_BYTES,
     admitCommand: async (ctx, _name, work) => {
@@ -122,23 +136,35 @@ export function createRemoteCall(deps: RemoteCallDeps): RemoteCall {
     const arrival = deps.admission.enterHttp(current.value.principal);
     if (!arrival.ok) return arrival;
     try {
-      const request = new Request(`http://remote${path}`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${credential.token}`,
-        },
-        body: JSON.stringify(call.body ?? {}),
-      });
+      const request =
+        entry.route.kind === "upload"
+          ? uploadRequest(path, credential.token, call.body)
+          : new Request(`http://remote${path}`, {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                authorization: `Bearer ${credential.token}`,
+              },
+              body: JSON.stringify(call.body ?? {}),
+            });
+      if (!request) {
+        return err({
+          code: "invalid_input",
+          message: "upload body is {input, base64}",
+        });
+      }
       const result = await dispatchHttp(
         request,
         entry,
         current.value,
         dispatch,
       );
+      if ("stream" in result) return await fileAnswer(result);
       if (!("json" in result)) {
-        // file·upload route는 목록에 없다. 바이트 응답은 frame으로 싣지 않는다.
-        return err({ code: "invalid_input", message: "route is not JSON" });
+        return ok({
+          content_type: result.contentType,
+          base64: Buffer.from(result.bytes).toString("base64"),
+        });
       }
       if (result.status === 200) return ok(result.json);
       const { error } = result.json as {
@@ -149,4 +175,51 @@ export function createRemoteCall(deps: RemoteCallDeps): RemoteCall {
       arrival.value.release();
     }
   };
+}
+
+// upload route: body `{input, base64}`를 HTTP upload 요청(input은 header, bytes는 body)으로 바꾼다. 한도는 dispatch가 route의
+// max_bytes로 본다.
+function uploadRequest(
+  path: string,
+  token: string,
+  body: unknown,
+): Request | undefined {
+  const { input, base64 } = (body ?? {}) as {
+    input?: unknown;
+    base64?: unknown;
+  };
+  if (typeof base64 !== "string") return undefined;
+  const bytes = Buffer.from(base64, "base64");
+  return new Request(`http://remote${path}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/octet-stream",
+      "content-length": String(bytes.byteLength),
+      authorization: `Bearer ${token}`,
+      [UPLOAD_INPUT_HEADER]: Buffer.from(JSON.stringify(input ?? {})).toString(
+        "base64url",
+      ),
+    },
+    body: bytes,
+  });
+}
+
+// file route의 답(stream)을 `{content_type, base64}`로 모은다.
+async function fileAnswer(file: {
+  stream: ReadableStream<Uint8Array>;
+  length: number;
+  contentType: string;
+}): Promise<Result<{ content_type: string; base64: string }>> {
+  if (file.length > REMOTE_FILE_MAX_BYTES) {
+    await file.stream.cancel().catch(() => undefined);
+    return err({
+      code: "invalid_input",
+      message: `file exceeds the ${REMOTE_FILE_MAX_BYTES} byte limit`,
+    });
+  }
+  const bytes = Buffer.from(await new Response(file.stream).arrayBuffer());
+  return ok({
+    content_type: file.contentType,
+    base64: bytes.toString("base64"),
+  });
 }

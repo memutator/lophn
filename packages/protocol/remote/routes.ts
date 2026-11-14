@@ -5,22 +5,6 @@ import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
 import { atSchema } from "../base/values.ts";
 import { remoteDeviceSchema } from "./frames.ts";
 
-// 공개 key의 글자 꼴은 base64url(패딩 없음) 하나다. QR, 기기 표, `devices/list`가 같은 글자를 쓴다.
-// 폰의 JavaScript engine에서도 돌아서 Buffer를 쓰지 않는다.
-export function remoteKeyText(bytes: Uint8Array): string {
-  return btoa(String.fromCharCode(...bytes))
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replaceAll("=", "");
-}
-
-// 32 bytes가 아니거나 꼴이 틀리면 undefined다.
-export function remoteKeyBytes(text: string): Uint8Array | undefined {
-  if (!/^[A-Za-z0-9_-]{43}$/.test(text)) return undefined;
-  const binary = atob(text.replaceAll("-", "+").replaceAll("_", "/") + "=");
-  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
-}
-
 // 폰은 `ws://<address>:<port>/remote`로 붙는다.
 export const REMOTE_PATH = "/remote";
 

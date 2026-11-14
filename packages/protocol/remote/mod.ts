@@ -20,7 +20,12 @@ export {
   remoteDeviceSchema,
   remoteServerFrameSchema,
 } from "./frames.ts";
-export { generateKeyPair, type KeyPair } from "./noise.ts";
+export {
+  generateKeyPair,
+  type KeyPair,
+  remoteKeyBytes,
+  remoteKeyText,
+} from "./noise.ts";
 export { REMOTE_ALLOWED_EVENTS, REMOTE_ALLOWED_ROUTES } from "./allowlist.ts";
 export {
   devicesConnected,
@@ -33,8 +38,6 @@ export {
   REMOTE_PATH,
   type RemoteDevice,
   type RemotePairing,
-  remoteKeyBytes,
-  remoteKeyText,
   remotePairedSchema,
   remotePairingSchema,
 } from "./routes.ts";

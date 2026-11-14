@@ -21,6 +21,7 @@
     "./projects": "./projects/mod.ts",
     "./registry": "./registry.ts",
     "./remote": "./remote/mod.ts",
+    "./remote/client": "./remote/client.ts",
     "./secrets": "./secrets/mod.ts",
     "./server": "./server/mod.ts",
     "./shell": "./shell/mod.ts",

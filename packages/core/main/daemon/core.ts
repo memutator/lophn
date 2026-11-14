@@ -433,6 +433,14 @@ async function open(
       message: `memory route와 handler가 맞지 않는다: ${unmatched.join(", ")}`,
     });
   }
+  ctx.provide(
+    "uploads",
+    merged((built) => built.uploads),
+  );
+  ctx.provide(
+    "fileStreams",
+    merged((built) => built.fileStreams),
+  );
   health = createHealth({
     service: SERVICE_NAME,
     clock,
@@ -456,9 +464,9 @@ async function open(
       // 팀 route의 resource/method가 겹치면 RouteRegistry가 거절한다.
       registry: routes,
       // 바이트 body route. 제출 파일은 blob 준비 중계로 바로 흐른다.
-      uploads: merged((built) => built.uploads),
+      uploads: ctx.uploads,
       // 큰 파일을 core 메모리에 모으지 않고 창 단위로 흘리는 file route.
-      fileStreams: merged((built) => built.fileStreams),
+      fileStreams: ctx.fileStreams,
       logger: telemetry.logger,
       telemetry,
       health,

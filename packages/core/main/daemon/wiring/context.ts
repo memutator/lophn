@@ -225,6 +225,9 @@ type Late = {
   // OAuth 발급자 요청 대기열이다. provider 로그인 wiring이 내고 MCP OAuth와 provider 갱신이 같이 쓴다.
   issuerRequests: IssuerRequests;
   server: ApiServer;
+  // 모든 wiring의 bytes route handler. API server와 기기 `call`(remote)이 같은 것을 쓴다.
+  uploads: ReadonlyMap<string, UploadHandler>;
+  fileStreams: ReadonlyMap<string, FileStreamHandler>;
   shutdown: () => Promise<void>;
   // config가 낸다. 선언 목록은 assembly.ts가 각 단위의 선언을 모아 넣는다.
   settings: SettingsReader;
@@ -305,6 +308,8 @@ const LATE_KEYS: Record<keyof Late, true> = {
   mcpAuthControl: true,
   issuerRequests: true,
   server: true,
+  uploads: true,
+  fileStreams: true,
   shutdown: true,
   settings: true,
   settingDeclarations: true,

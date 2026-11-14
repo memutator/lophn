@@ -3,9 +3,30 @@ import { test } from "node:test";
 import type { z } from "zod";
 import { manualClock, ok, seededRandom } from "../../base/mod.ts";
 import { type Route, routePath } from "../../protocol/base/mod.ts";
+import { appsSecretValue } from "../../protocol/apps/secret-use.ts";
+import {
+  hostDone,
+  hostReport,
+  hostTake,
+} from "../../protocol/lophn-agent/host-queue.ts";
+import {
+  connectProvider,
+  disconnectProvider,
+  loginBegin,
+  loginCancel,
+  loginComplete,
+  refreshProviderModels,
+} from "../../protocol/lophn-agent/providers.ts";
+import { deleteSession } from "../../protocol/lophn-agent/sessions.ts";
 import { ROUTES } from "../../protocol/registry.ts";
 import {
   connectRemote,
+  devicesConnected,
+  devicesList,
+  devicesRegister,
+  devicesRename,
+  devicesRevoke,
+  devicesSetPrimary,
   generateKeyPair,
   type KeyPair,
   REMOTE_ALLOWED_ROUTES,
@@ -13,6 +34,7 @@ import {
   type RemoteClientChannel,
   type RemoteClientFrame,
   type RemoteServerFrame,
+  pairingStart,
   remoteKeyText,
 } from "../../protocol/remote/mod.ts";
 import { devicesSetting } from "../config/shell-settings.ts";
@@ -21,7 +43,11 @@ import {
   CredentialRegistry,
   type OperationPolicy,
 } from "../server/identity/mod.ts";
-import type { MemoryHandler } from "../server/mod.ts";
+import type {
+  FileStreamHandler,
+  MemoryHandler,
+  UploadHandler,
+} from "../server/mod.ts";
 import { RouteRegistry } from "../server/mod.ts";
 import { createAdmission } from "../supervision/responsiveness/mod.ts";
 import { createDeviceCredentials, createRemoteCall } from "./call.ts";
@@ -101,7 +127,28 @@ function setup() {
   let next = 1;
   const reached: string[] = [];
   const allRoutes = new Map<string, Route>();
-  for (const route of [...ROUTES, ...REMOTE_ALLOWED_ROUTES]) {
+  // 목록 밖이어야 하는 route도 등록한다. 등록되지 않으면 forbidden이 아니라 not_found가 된다.
+  const outside: Route[] = [
+    deleteSession,
+    appsSecretValue,
+    connectProvider,
+    disconnectProvider,
+    loginBegin,
+    loginCancel,
+    loginComplete,
+    refreshProviderModels,
+    devicesList,
+    devicesRename,
+    devicesRevoke,
+    devicesSetPrimary,
+    devicesRegister,
+    devicesConnected,
+    pairingStart,
+    hostTake,
+    hostReport,
+    hostDone,
+  ];
+  for (const route of [...ROUTES, ...REMOTE_ALLOWED_ROUTES, ...outside]) {
     allRoutes.set(routePath(route), route);
   }
   // 사람 token 상한과 같다(wiring/server.ts): user가 부를 수 있는 route 전부다.
@@ -118,6 +165,19 @@ function setup() {
     clock,
     operations,
   });
+  // 기기가 올린 bytes와 input. image upload handler가 받은 그대로다.
+  const uploaded: { input: unknown; bytes: number[] }[] = [];
+  const upload: UploadHandler = async (_ctx, input, body) => {
+    const bytes = new Uint8Array(await new Response(body.bytes).arrayBuffer());
+    uploaded.push({ input, bytes: [...bytes] });
+    return ok({ blob: "a".repeat(64) });
+  };
+  const image: FileStreamHandler = async () =>
+    ok({
+      contentType: "image/png",
+      length: 4,
+      body: new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47])).body!,
+    });
   const reach =
     (name: string, value: unknown): MemoryHandler =>
     () => {
@@ -177,6 +237,8 @@ function setup() {
           reach("settings/update", { changed: [], rejected: [] }),
         ],
       ]),
+      fileStreams: new Map([["message-images/read", image]]),
+      uploads: new Map([["message-images/upload", upload]]),
       admission,
     }),
     admission,
@@ -229,6 +291,7 @@ function setup() {
     bus,
     table,
     reached,
+    uploaded,
     hooks,
     open,
     connect,
@@ -357,6 +420,93 @@ test("기기는 route 목록 밖의 route를 forbidden으로 받고 handler에 �
   );
   assert.equal(byId.inside?.ok, true);
   assert.deepEqual(s.reached, ["turn_requests/decide"]);
+});
+
+test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·설정 쓰기, devices/*, pairing/*, host/*는 forbidden이다", async () => {
+  const s = setup();
+  const key = generateKeyPair(s.random);
+  s.register(key);
+  const c = await s.connect(key);
+  const outside = [
+    "sessions/delete",
+    "secrets/status",
+    "secrets/put",
+    "secrets/delete",
+    "logins/list",
+    "logins/save",
+    "logins/delete",
+    "logins/release",
+    "apps/secret_value",
+    "providers/connect",
+    "providers/disconnect",
+    "providers/login-begin",
+    "providers/login-cancel",
+    "providers/login-complete",
+    "providers/refresh-models",
+    "settings/update",
+    "devices/list",
+    "devices/rename",
+    "devices/revoke",
+    "devices/set_primary",
+    "devices/register",
+    "devices/connected",
+    "pairing/start",
+    "host/take",
+    "host/report",
+    "host/done",
+  ];
+  for (const path of outside) {
+    const [resource, method] = path.split("/");
+    c.phone.send({ type: "call", id: path, resource, method, body: {} });
+  }
+  await settle();
+  assert.deepEqual(
+    results(c.frames).map((frame) => [
+      frame.id,
+      frame.ok ? "ok" : frame.error.code,
+    ]),
+    outside.map((path) => [path, "forbidden"]),
+  );
+  assert.deepEqual(s.reached, []);
+});
+
+test("기기의 upload는 base64를 같은 bytes로 넘기고, file route는 {content_type, base64}로 답한다", async () => {
+  const s = setup();
+  const key = generateKeyPair(s.random);
+  s.register(key);
+  const c = await s.connect(key);
+  const input = { content_type: "image/png", bytes: 3 };
+  c.phone.send({
+    type: "call",
+    id: "up",
+    resource: "message-images",
+    method: "upload",
+    body: { input, base64: Buffer.from([0, 255, 7]).toString("base64") },
+  });
+  c.phone.send({
+    type: "call",
+    id: "read",
+    resource: "message-images",
+    method: "read",
+    body: { session: decideBody.session, image: "a".repeat(64) },
+  });
+  await settle();
+  assert.deepEqual(s.uploaded, [{ input, bytes: [0, 255, 7] }]);
+  const byId = Object.fromEntries(
+    results(c.frames).map((frame) => [frame.id, frame]),
+  );
+  assert.deepEqual(byId.up, {
+    type: "result",
+    id: "up",
+    ok: true,
+    value: { blob: "a".repeat(64) },
+  });
+  assert.deepEqual(byId.read, {
+    type: "result",
+    id: "read",
+    ok: true,
+    value: { content_type: "image/png", base64: "iVBORw==" },
+  });
 });
 
 test("끊은 기기는 연결이 닫히고 같은 key로는 pair만 받는다", async () => {

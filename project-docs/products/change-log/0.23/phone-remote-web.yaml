@@ -1,5 +1,5 @@
 id: phone-remote-web
-version: 0.23.57
+version: 0.23.58
 title: core가 폰에 remote 화면(session 목록, 대화, Inbox) web bundle을 내려주고 기기가 대화를 보내고 멈추고 답할 수 있다
 modules: [packages/protocol, packages/core/remote, packages/core/main, packages/core/server, packages/core/apps, packages/shell/renderer, packages/design, tools]
 checked: [boundary-catalog]

@@ -1,0 +1,19 @@
+{
+  "name": "@lophn/ui-native",
+  "version": "0.1.0",
+  "type": "module",
+  "lophn": {
+    "supported_from": "0.1.0"
+  },
+  "exports": "./mod.ts",
+  "peerDependencies": {
+    "@lezer/markdown": "1.7.2",
+    "expo-clipboard": "58.0.4",
+    "lucide-react-native": "1.73.0",
+    "react": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-keyboard-controller": "1.22.7",
+    "react-native-safe-area-context": "5.11.1",
+    "react-native-svg": "15.16.0"
+  }
+}

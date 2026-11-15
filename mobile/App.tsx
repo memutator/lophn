@@ -1,7 +1,8 @@
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
 import { AppState, Button, StyleSheet, Text } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { UiProvider } from "@lophn/ui-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { forgetBundles } from "./src/bundle/files.ts";
 import {
   type Connection,
@@ -19,6 +20,7 @@ import {
 } from "./src/pairing/store.ts";
 import type { KeyPair } from "./src/remote.ts";
 import { RemoteScreen } from "./src/remote/remote-screen.tsx";
+import { Gallery } from "./src/gallery/gallery.tsx";
 import { ComputersScreen } from "./src/screens/computers-screen.tsx";
 import { PairScreen } from "./src/screens/pair-screen.tsx";
 
@@ -31,9 +33,9 @@ const withDev = (addresses: string[]) =>
 
 export default function App() {
   return (
-    <SafeAreaProvider>
+    <UiProvider>
       <Shell />
-    </SafeAreaProvider>
+    </UiProvider>
   );
 }
 
@@ -43,6 +45,10 @@ function Shell() {
   const [states, setStates] = useState<Record<string, ConnectionState>>({});
   const [pairing, setPairing] = useState(false);
   const [managing, setManaging] = useState(false);
+  // Dev only: the phone UI kit drawn with made-up data. Start Metro with EXPO_PUBLIC_LOPHN_GALLERY=1 to open straight into it.
+  const [gallery, setGallery] = useState(
+    __DEV__ && process.env.EXPO_PUBLIC_LOPHN_GALLERY === "1",
+  );
   // Key of the computer whose remote screen is open; the first paired one until the person picks another.
   const [open, setOpen] = useState<string>();
   const connections = useRef(new Map<string, Connection>());
@@ -110,6 +116,7 @@ function Shell() {
     return () => subscription.remove();
   }, []);
 
+  if (gallery) return <Gallery onExit={() => setGallery(false)} />;
   if (!phone || !computers) {
     return (
       <SafeAreaView style={styles.container}>
@@ -156,6 +163,9 @@ function Shell() {
             }}
           />
           {shown && <Button title="Back" onPress={() => setManaging(false)} />}
+          {__DEV__ && (
+            <Button title="UI kit gallery" onPress={() => setGallery(true)} />
+          )}
         </>
       ) : (
         <RemoteScreen

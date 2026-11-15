@@ -98,5 +98,22 @@
         "useIterableCallbackReturn": "off"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["packages/design/native/**"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noReactNativeRawText": {
+              "level": "error",
+              "options": {
+                "skip": ["Button"]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

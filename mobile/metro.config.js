@@ -6,7 +6,10 @@ const { getDefaultConfig } = require("expo/metro-config");
 const packages = path.resolve(__dirname, "../packages");
 const config = getDefaultConfig(__dirname);
 config.watchFolders = [packages];
+// The phone UI kit is an SDK part that lives next to the desktop kit; the app imports it by its package name.
+const uiNative = path.join(packages, "design/native/mod.ts");
 config.resolver.resolveRequest = (context, name, platform) => {
+  if (name === "@lophn/ui-native") return { type: "sourceFile", filePath: uiNative };
   const bare = !name.startsWith(".") && !path.isAbsolute(name);
   const fromPackages = context.originModulePath.startsWith(`${packages}/`);
   return context.resolveRequest(

@@ -33,6 +33,9 @@
           "recordAudioAndroid": false
         }
       ]
-    ]
+    ],
+    "experiments": {
+      "tsconfigPaths": false
+    }
   }
 }

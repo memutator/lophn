@@ -5,6 +5,6 @@
     "jsx": "react-jsx"
   },
   "include": ["**/*.ts", "**/*.tsx"],
-  // i18n은 자기 tsconfig로 따로 검사한다.
-  "exclude": ["i18n"]
+  // i18n은 자기 tsconfig로 따로 검사한다. native(폰 UI kit)는 React Native type이 있는 mobile/의 tsconfig가 검사한다.
+  "exclude": ["i18n", "native"]
 }

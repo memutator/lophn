@@ -90,7 +90,7 @@ const compact: TokenOverride = {
  * touch: 손가락으로 누르는 phone 화면. control은 44px 이상이고 목록·menu·tree 행도 그만큼 키운다. 본문 글자는
  * 16px이다(그보다 작으면 phone browser가 입력 칸에 focus할 때 화면을 확대한다). Settings에서 고르는 값이 아니다.
  */
-const touch: TokenOverride = {
+const touch = {
   type: { body: { size: "16px", line: "24px" } },
   control: {
     sm: { height: "44px", padX: "12px" },
@@ -102,7 +102,7 @@ const touch: TokenOverride = {
   menu: { row: "44px" },
   tree: { row: "44px" },
   palette: { item: "48px" },
-};
+} satisfies TokenOverride;
 
 /** 기본이 아닌 preset 이름과 token 덮어쓰기. 기본은 `{}`라서 아무것도 덮지 않는다. */
 export const appearancePresets = {

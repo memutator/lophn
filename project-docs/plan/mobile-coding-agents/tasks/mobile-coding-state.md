@@ -26,6 +26,7 @@ core가 shell main이 올린 coding session(harness GUI handle)의 ACP 상태를
   - 다른 계획: `project-docs/plan/mobile-push/tasks/mobile-attention-core.md`가 `wiring/session-lifecycle.ts`를 읽고 `terminal_sessions/signal`을 `protocol/attention/`에 짓는다. 이 task의 `report` 칸 추가(`view`, `handoff`, `foreground`)와 겹치지 않는다
 - 계약:
   - 쓰는 것: `hostFrameSchema`의 `coding_report`, `coding_sync`, `coding_closed`와 요청 `coding_input`, `coding_switch`(wave 1이 정했다), `reduceAcp`
+  - `coding_input`의 `payload.input`은 protocol에서 `z.record`로만 본다(cycle 때문). core는 `acp/send`가 이미 `acpInputSchema`로 본 입력만 실어 보내고, shell 쪽(`mobile-coding-shell`)이 받을 때 다시 parse한다
   - 내놓는 것(뒤 task들이 기댄다):
     - `TerminalSessionReport`(`session-lifecycle.ts`)에 칸 셋: `view: "gui"|"tui"`, `handoff: "restart"|"shared"|null`(handle이 없으면 null), `foreground: boolean`(그 터미널의 foreground가 coding agent TUI인가). `SessionInfo.terminal`에는 더하지 않는다(앱 목록이 보지 않는다)
     - session id helper: `guiSessionId(terminalRef: string): string`(`ses_<ULID>`)을 `packages/protocol/lophn-agent/session-tag.ts`로 옮긴다. renderer의 `model.ts`가 지니고 있던 것이다. renderer는 그것을 import한다(옛 정의는 지운다)

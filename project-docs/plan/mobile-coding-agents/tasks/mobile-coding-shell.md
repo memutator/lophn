@@ -20,6 +20,7 @@ shell main이 harness GUI handle의 상태를 core에 올리고(`coding_sync`, `
   - 다른 계획(먼저 읽는다): `project-docs/plan/mobile-push/tasks/mobile-attention-desktop.md`가 `wiring/agent.ts`와 `tracker.ts`를 고친다(`terminal_sessions/signal` 보내기와 `unseen` 지우기). 이 task가 `agent.ts`의 터미널 보고(`reportToCore`)를 먼저 연결로 옮기고, 그쪽이 이 결과 위에서 `signal`을 더한다(README "정한 것"). `agent.ts`가 이미 그쪽 변경을 받았으면 그것을 지우지 않고 그 위에서 고친다
 - 계약:
   - 쓰는 것: 위 frame과 요청. `coding_input`의 답은 handle이 있으면 content `ok`, 없으면 error `not_found`. `coding_switch`의 답은 content `ok` 또는 error(`conflict`는 이미 그 view, `unavailable`+`details.reason: "extension_off"`는 harness-gui가 꺼짐, `not_found`는 터미널 없음, `invalid_input`+`details.reason`은 `no_session`·`not_running`, 그 밖의 실패는 `unavailable`+`details.reason: "failed"`, Windows는 `unavailable`+`details.reason: "unsupported_os"`)
+  - `coding_input`의 `payload.input`은 protocol에서 `z.record`로만 본다(`packages/protocol/host-link`가 acp를 import하면 cycle이 된다). 받는 쪽인 이 task가 handle에 넘기기 전에 `acpInputSchema`로 parse하고, 실패하면 error `invalid_input`으로 답한다
   - 내놓는 것: 없음(밖으로 내놓는 계약이 없다. `acp/snapshot`이 이 상태를 낸다)
 
 ## 할 일

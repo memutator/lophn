@@ -37,7 +37,7 @@ export interface ViewBinding {
 export interface ViewEntry {
   owner: string;
   view: string;
-  /** 처음 받은 인자 그대로. 같은 (owner, view)의 다시 열기는 이것과 같아야 한다. */
+  /** 처음 받은 인자 그대로. 같은 (owner, view)의 다시 열기는 이것과 같아야 한다(card가 아닌 live view의 release는 빼고 본다). */
   args: ViewArgs;
   binding: ViewBinding;
   /** 선언의 params schema를 통과한 값. 주지 않았으면 null. */
@@ -215,6 +215,16 @@ export function createViewTable(ports: AppViewsPorts) {
     return entry.args.place === "card" ? entry.binding.release : null;
   }
 
+  // 다시 열기에서 같은 view인지 볼 인자. card가 아닌 live view의 release는 열 때의 전제(그 release가 돌기를 기대한다)이고
+  // view는 그 뒤 도는 release를 따르므로 신원이 아니다. card와 preview는 release까지 같아야 한다.
+  function identityOf(args: ViewArgs): string {
+    return canonicalize(
+      args.mode === "live" && args.place !== "card"
+        ? { ...args, release: null }
+        : args,
+    );
+  }
+
   function apply(entry: ViewEntry, bound: Bound): void {
     entry.binding = bound.binding;
     entry.subscriptions =
@@ -268,7 +278,7 @@ export function createViewTable(ports: AppViewsPorts) {
       const existing = entries.get(key);
       if (existing !== undefined) {
         // 같은 인자의 다시 열기(resume)는 지금 binding을 다시 읽어 돌려준다.
-        if (canonicalize(existing.args) !== canonicalize(args)) {
+        if (identityOf(existing.args) !== identityOf(args)) {
           return err({
             code: "conflict",
             message: "the view is open with other arguments",
@@ -288,10 +298,7 @@ export function createViewTable(ports: AppViewsPorts) {
       const params = checkScreen(args, bound.value.declaration);
       if (!params.ok) return params;
       const raced = entries.get(key);
-      if (
-        raced !== undefined &&
-        canonicalize(raced.args) !== canonicalize(args)
-      ) {
+      if (raced !== undefined && identityOf(raced.args) !== identityOf(args)) {
         return err({
           code: "conflict",
           message: "the view is open with other arguments",

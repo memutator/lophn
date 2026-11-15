@@ -42,7 +42,9 @@ files:
       - app-view-reopen:reopened
       - app-view-reopen:conflict
       - app-view-reopen:invalid-input
-    note: "view 열기의 src와 guest 신원 묶기, core가 정규화한 params만 화면 주소로 감, crash 뒤 reopen 세대 교체, 건강한 view의 reopen 거절, 다른 창의 reopen 거절, 창을 닫으면 core view도 닫음"
+      - app-view-refresh:remounted
+      - app-view-refresh:unavailable
+    note: "view 열기의 src와 guest 신원 묶기, core가 정규화한 params만 화면 주소로 감, crash 뒤 reopen 세대 교체, 건강한 view의 reopen 거절, 다른 창의 reopen 거절, 창을 닫으면 core view도 닫음, core가 view를 잃은 뒤 새 release면 card가 아닌 view는 따라가고 card는 unavailable"
 
   - path: packages/shell/main/artifact/delete_test.ts
     covers:

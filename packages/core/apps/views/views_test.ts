@@ -424,3 +424,49 @@ test("params가 그 화면 선언의 schema에 맞지 않거나 자리가 선언
     }),
   );
 });
+
+// host는 다시 열 때 release를 비워 보낸다. 이것이 conflict면 release가 바뀐 뒤 화면이 모두 쓸 수 없게 된다.
+test("card가 아닌 live view의 다시 열기는 다른 release나 null이어도 지금 binding을 돌려주고, card는 처음 release를 지킨다", async () => {
+  const world = fakeWorld();
+  const views = createAppViews(world.ports);
+  assert.equal(
+    (await views.open("user", liveOpen("view-tab", { release: REL_1 }))).ok,
+    true,
+  );
+  assert.equal(
+    (
+      await views.open(
+        "user",
+        liveOpen("view-card", { release: REL_1, place: "card" }),
+      )
+    ).ok,
+    true,
+  );
+  world.state.running = REL_2;
+  const current = ok({
+    view: "view-tab",
+    release: REL_2,
+    bundle_hash: HASH_2,
+    process_nonce: `live-${REL_2}`,
+    params: null,
+  });
+  for (const release of [REL_1, null]) {
+    assert.deepStrictEqual(
+      await views.open("user", liveOpen("view-tab", { release })),
+      current,
+    );
+  }
+  // 신원(화면)이 다르면 여전히 conflict다.
+  const other = await views.open(
+    "user",
+    liveOpen("view-tab", { screen: "detail", place: "panel" }),
+  );
+  assert.equal(!other.ok && other.error.code, "conflict");
+  for (const release of [REL_1, null]) {
+    const card = await views.open(
+      "user",
+      liveOpen("view-card", { release, place: "card" }),
+    );
+    assert.equal(!card.ok && card.error.code, "conflict");
+  }
+});

@@ -667,7 +667,7 @@ flows:
     code: [packages/shell/main/app-frame/registry.ts, packages/shell/main/app-frame/binding.ts, packages/shell/main/desktop/wiring/app-views.ts, packages/core/apps/views/table.ts]
     steps:
       - "core의 view 표가 release 채택이나 되돌리기(AppViewChanged) 뒤 그 앱의 view를 다시 묶고 view마다 AppViewEvent rebound나 lost를 낸다(view-table-events)"
-      - "shell main이 그 view를 처음 연 요청 그대로 app_views/open을 다시 보내(resume) 지금 binding을 받고 grant host를 다시 읽는다. card 자리는 만든 때 release에 고정된다(core가 정한다)"
+      - "shell main이 그 view를 처음 연 요청으로 app_views/open을 다시 보내(resume) 지금 binding을 받고 grant host를 다시 읽는다. card가 아닌 live view는 release를 비워 보내 core가 view를 잃었어도 지금 도는 release로 열리고, card와 preview는 처음 release 그대로다(card는 만든 때 release에 고정)"
       - "core에 다시 붙었을 때(core가 다시 떴으면 표가 비어 있다)와 core가 그 view를 모른다고 답한 operation 호출 뒤에도 같은 resume을 한다"
       - "연결이 같으면 running으로 둔다. 바뀌었으면 새 process에 다시 붙이고(remount) 상태를 창에 민다"
       - "다시 묶지 못하면(card의 release가 바뀌어 conflict가 나는 것도 포함) unavailable로 둔다"
@@ -682,8 +682,6 @@ flows:
         observe: [screen:app-space]
     crosses_process: true
     docs: [architecture/activation.md, architecture/app-call.md]
-    unclear:
-      - "core가 다시 떴거나 view를 표에서 내보낸 뒤 앱이 다른 release를 채택했으면, 처음 요청의 release가 맞지 않아 card가 아닌 view도 conflict로 unavailable이 된다(core는 표에 없는 view를 새로 열 때 준 release를 지킨다)"
 
   # ---- ui: 사람의 화면 조작 가운데 main·core로 건너가는 것 ----
   - id: annotate-pick
@@ -1261,7 +1259,7 @@ flows:
       - "앱이 없으면 not_found, 보관했으면 unavailable이다. live는 지금 ready인 live process에, preview는 지금 ready인 preview process에 묶는다. 없으면 unavailable이다"
       - "release를 주면 그 process의 release와 같아야 한다(아니면 conflict). live에서 null이면 지금 도는 release를 따른다"
       - "선언을 읽을 수 있으면(live, release 있는 preview) 화면이 선언에 있고 자리가 그 화면의 places에 들어야 한다. params는 그 화면의 params schema로 검사해 정규화한다. release 없는 preview는 화면 검사를 건너뛰고 params를 받지 않는다"
-      - "같은 (owner, view)를 같은 인자로 다시 보내면 새로 열지 않고 지금 process로 다시 묶어 돌려준다(card는 묶인 release가 지금과 다르면 conflict). 인자가 다르면 conflict다"
+      - "같은 (owner, view)를 같은 인자로 다시 보내면 새로 열지 않고 지금 process로 다시 묶어 돌려준다(card는 묶인 release가 지금과 다르면 conflict). 인자가 다르면 conflict다. card가 아닌 live view의 release는 열 때의 전제라 다시 열기에서 견주지 않는다(다른 release나 null도 지금 binding)"
       - "owner마다 64개까지다. 새 view가 넘치면 가장 오래 쓰지 않은 view를 표에서 내보내고 AppViewEvent(lost, evicted)를 낸다"
     outcomes:
       - id: opened
@@ -1283,7 +1281,7 @@ flows:
         observe: [response]
       - id: conflict
         code: conflict
-        when: "준 release가 지금 process의 release와 다르다, card view를 다시 열 때 도는 release가 묶인 release와 다르다, 또는 같은 view id를 다른 인자로 열었다"
+        when: "새 view에 준 release가 지금 process의 release와 다르다, card view를 다시 열 때 도는 release가 묶인 release와 다르다, 또는 같은 view id를 다른 인자로 열었다(card가 아닌 live view의 release는 빼고 본다)"
         observe: [response]
       - id: invalid-input
         code: invalid_input

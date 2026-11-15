@@ -20,28 +20,40 @@ const OPEN = {
   place: "tab",
 } as const;
 
-// fake core의 view 표. open은 받은 release에 묶고, params는 core가 정규화한 값(기본값 `page: 1`을 채운다)을 돌려준다.
-// 받은 요청은 `calls`에 남는다.
+const NEWER = "rel_00000000000000000000000002";
+
+// fake core의 view 표. view를 기억하지 않는다(core가 view를 잃은 뒤와 같다). open은 지금 도는 release에 묶고, 준 release가
+// 그것과 다르면 conflict다. params는 core가 정규화한 값(기본값 `page: 1`을 채운다)을 돌려준다. 받은 요청은 `calls`에 남는다.
 function fakeCore() {
   const calls: { method: string; body: Record<string, unknown> }[] = [];
+  const state = { running: RELEASE };
   const call: CoreCaller = async (_kind, resource, method, body) => {
     assert.equal(resource, "app_views");
     const input = body as Record<string, unknown>;
     calls.push({ method, body: input });
     if (method === "close") return { ok: true, value: { closed: true } };
+    if (input.release !== null && input.release !== state.running) {
+      return {
+        ok: false,
+        error: {
+          code: "conflict",
+          message: "the app now runs another release",
+        },
+      };
+    }
     const params = input.params as Record<string, unknown> | undefined;
     return {
       ok: true,
       value: {
         view: input.view,
-        release: input.release ?? RELEASE,
-        bundle_hash: HASH,
+        release: state.running,
+        bundle_hash: state.running === RELEASE ? HASH : "b".repeat(64),
         process_nonce: "nonce",
         params: params === undefined ? null : { ...params, page: 1 },
       },
     };
   };
-  return { call, calls };
+  return { call, calls, state };
 }
 
 // fake 창·guest. guest id는 실제 Electron처럼 그 webContents id를 그대로 쓴다.
@@ -93,7 +105,7 @@ function createFrame() {
     },
     clock: { nowMs: () => 0 },
   });
-  return { frame, health, destroyed, calls: core.calls };
+  return { frame, health, destroyed, calls: core.calls, core: core.state };
 }
 
 test("open은 src를 내고, acceptGuest는 그 창의 그 src만 한 번 받는다", async () => {
@@ -212,4 +224,28 @@ test("core가 정규화한 params만 화면 주소로 간다", async () => {
     id: "prj_1",
     folders: ["/work/a"],
   });
+});
+
+// 앱이 새 release를 채택한 뒤 core가 view를 잃으면(core 재시작, 내보냄) 처음 요청의 release로는 다시 열 수 없다.
+test("core가 view를 잃은 뒤 앱이 새 release를 돌리면, card가 아닌 view는 새 release로 다시 열리고 card는 제 release를 지킨다", async () => {
+  const { frame, core } = createFrame();
+  const tab = await frame.open(WINDOW, OPEN);
+  const card = await frame.open(
+    WINDOW,
+    { ...OPEN, place: "card" },
+    { message: "msg", block: "block" },
+  );
+  if (!tab.ok || !card.ok) return assert.fail("views did not open");
+  core.running = NEWER;
+  frame.viewEvent({ view: tab.value.view_session, kind: "lost" });
+  frame.viewEvent({ view: card.value.view_session, kind: "lost" });
+  await frame.refresh();
+
+  const tabState = frame.state(tab.value.view_session);
+  assert.equal(tabState?.release, NEWER);
+  assert.equal(tabState?.connectionState, "running");
+  assert.notEqual(tabState?.src, tab.value.src);
+  const cardState = frame.state(card.value.view_session);
+  assert.equal(cardState?.release, RELEASE);
+  assert.equal(cardState?.connectionState, "unavailable");
 });

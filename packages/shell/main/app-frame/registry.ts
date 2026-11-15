@@ -87,7 +87,7 @@ interface AppFrameDeps {
 
 interface Entry extends Bound {
   view_session: string;
-  /** core `app_views/open`에 처음 보낸 요청 그대로. 다시 묶기(resume)는 같은 요청이어야 한다. */
+  /** core `app_views/open`에 처음 보낸 요청 그대로. 다시 묶기(resume)는 이것으로 보낸다. */
   request: OpenRequest;
   /** 화면 세대. mount마다 오르고 진단 기록·sender 신원에 쓴다. */
   generation: number;
@@ -267,9 +267,13 @@ export function createAppFrame(deps: AppFrameDeps) {
     if (entry.refreshing !== undefined) return entry.refreshing;
     const generation = entry.generation;
     entry.refreshing = (async () => {
-      // 같은 요청으로 core에 다시 묶는다. 세션 카드는 만든 때의 release에 고정되고(다른 release면 묶음을 잃는다),
-      // 다른 자리는 지금 채택된 release를 따른다. 이 규칙은 core의 view 표가 쥔다.
-      const next = await bindView(deps.call, deps.connector, entry.request);
+      // 같은 요청으로 core에 다시 묶는다. 세션 카드와 preview는 처음 release 그대로다(카드는 다른 release면 묶음을 잃는다).
+      // 카드가 아닌 live view는 release 없이 보내 core가 view를 잃었어도 지금 채택된 release로 다시 연다.
+      const request =
+        entry.request.mode === "live" && entry.request.place !== "card"
+          ? { ...entry.request, release: null }
+          : entry.request;
+      const next = await bindView(deps.call, deps.connector, request);
       // 그 사이 닫히거나 교체됐으면 늦은 결과를 붙이지 않는다.
       if (
         entries.get(entry.view_session) !== entry ||

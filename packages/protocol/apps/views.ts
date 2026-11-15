@@ -39,7 +39,9 @@ export const appViewsOpenInputSchema = z.strictObject({
   view: appViewIdSchema,
   mode: z.enum(["live", "preview"]),
   app: appIdSchema,
-  // live에서 null이면 지금 도는 release를 따른다. preview에서 null이면 어떤 preview든 받는다.
+  // live에서 값은 처음 열 때의 전제다: 그 release가 돌고 있어야 한다(아니면 conflict). card가 아닌 live view는 그 뒤 도는
+  // release를 따르고, 이미 연 view를 다시 열 때는 이 값을 보지 않는다. null이면 지금 도는 release에 묶는다. card와 preview는
+  // 다시 열 때도 처음 값과 같아야 한다. preview에서 null이면 어떤 preview든 받는다.
   release: releaseIdSchema.nullable(),
   screen: nonBlank,
   place: nonBlank,

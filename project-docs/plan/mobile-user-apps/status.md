@@ -12,7 +12,7 @@ lead만 고친다. `tools/status.py mobile-user-apps build`가 `tasks/*.md`에�
 | `mobile-build-phone` | phone-screen | 3 | mobile-phone-contract, mobile-place-decl | merged | phone-screen/mobile-build-phone | def945466 |  |
 | `mobile-phone-changed-notice` | phone-screen | 4 | mobile-phone-target, mobile-place-decl | merged | phone-screen/mobile-phone-changed-notice | d7088a955 |  |
 | `mobile-phone-reads` | phone-screen | 4 | mobile-phone-contract, mobile-build-phone | merged | phone-screen/mobile-phone-reads | 532c040d0 |  |
-| `mobile-sdk-kit` | phone-sdk | 5 | mobile-build-phone, mobile-phone-contract | running | phone-sdk/mobile-sdk-kit |  |  |
+| `mobile-sdk-kit` | phone-sdk | 5 | mobile-build-phone, mobile-phone-contract | merged | phone-sdk/mobile-sdk-kit | e465e53a0 |  |
 | `mobile-sdk-phone-hooks` | phone-sdk | 5 | mobile-sdk-kit, mobile-phone-contract | todo |  |  |  |
 | `mobile-phone-guest` | phone-host | 6 | mobile-phone-contract, mobile-sdk-kit, mobile-sdk-phone-hooks, mobile-build-phone | todo |  |  |  |
 | `mobile-remote-gate` | phone-host | 6 | mobile-views-core, mobile-phone-reads, mobile-phone-contract | todo |  |  |  |

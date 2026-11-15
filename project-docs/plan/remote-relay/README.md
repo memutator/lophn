@@ -11,7 +11,8 @@
 - **연결 id가 data socket의 자격이다.** relay가 증명된 control socket에만 무작위 128-bit 연결 id를 주고, data socket은 그 id로만 붙는다. (agent)
 - **relay 주소는 설정 `remote.relay`(URL)다.** 비어 있으면 relay를 쓰지 않는다. 기본값은 lophn relay를 띄운 뒤 넣는다. QR(`pairing/start`)에 relay 주소를 싣고 폰은 그것을 컴퓨터마다 저장한다. 이미 pairing한 폰은 한 번 다시 pairing한다. (agent: 지금 pairing한 폰은 사람의 dev build 하나뿐이다)
 - **폰은 direct 주소들과 relay를 같이 건다.** 먼저 handshake가 된 것을 쓴다(지금 `openFirst`). (agent)
-- **relay는 저장소의 `packages/relay`(Node, `ws`)다.** protocol만 import한다. 띄울 곳은 사람이 정한다(아래). (agent)
+- **relay는 저장소의 `packages/relay`(Node, `ws`)다.** protocol만 import한다. (agent)
+- **relay는 Fly.io에 띄운다.** app `lophn-relay`, 주소 `wss://lophn-relay.fly.dev`, TLS는 Fly가 끝낸다. 배포 file(Dockerfile, `fly.toml`)은 `relay-server`가 만들고 배포는 사람의 계정으로 lead가 사람에게 물은 뒤 한다. 띄운 뒤 `remote.relay` 기본값을 그 주소로 둔다. (사람, 2026-11-15)
 - **Settings › Remote가 relay 상태를 한 줄로 보인다.** "어디서든 붙을 수 있음" / "relay에 닿지 않음" / relay 꺼짐. (agent: 사람이 밖에서 붙을 수 있는지 컴퓨터에서 알아야 한다)
 
 ## 계약 (lead가 wave 1 전에 commit한다)
@@ -43,4 +44,4 @@
 - merge마다 `npm run check`, `mobile/`을 고쳤으면 `cd mobile && npm run typecheck && npm test`.
 - 셋이 merge되면 손으로 끝까지 본다: 개발 relay(`npm run dev:relay`) + 개발 core(`remote.relay`를 그 주소로) + emulator. emulator의 direct 주소를 막고(QR 주소만, `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS` 없이) relay로만 붙어 session 목록이 뜨는지 본다.
 - 끝나면: `architecture/remote.md`와 `platform.md`(relay의 모델, 지키는 것, 결정), `boundary-catalog.yaml`(element `relay`, `remote-protocol`의 provided_by)과 `module-catalog.yaml`(`packages/relay`), change-log, roadmap `mobile.md` 단계 3을 끝남으로.
-- 사람에게: relay를 어디에 띄울지(계정과 비용). 띄운 뒤 `remote.relay` 기본값을 넣고, 실제 폰을 LTE로 두고 붙는지 확인을 부탁한다.
+- 사람에게: Fly.io 배포를 물은 뒤 배포하고 `remote.relay` 기본값을 넣는다. 실제 폰을 LTE로 두고 붙는지 확인을 부탁한다.

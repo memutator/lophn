@@ -1,4 +1,4 @@
-# phone-kit
+# mobile-kit
 
 폰 UI kit `@lophn/ui-native`(`packages/design/native`)를 wireframe의 조각과 똑같이 그려지게 다시 짓고, 폰 dev build의 gallery에서 조각과 예시 화면을 보인다.
 
@@ -33,7 +33,7 @@
    - 얼굴: mascot(`character.tsx`의 path와 색을 react-native-svg로)은 lophn 것이므로 kit이 아니라 `packages/mobile/src/parts`에 간다(wave 2). kit의 조각은 얼굴 자리를 `ReactNode`로 받는다. gallery에서는 `packages/mobile/src/gallery` 안에 임시로 그려 쓴다.
 3. 첫 판의 조각 가운데 wireframe에 없는 것(아래 TabBar 등)은 지운다.
 4. gallery(`packages/mobile/src/gallery`)를 다시 쓴다: (가) 조각마다 상태별 견본, (나) kit으로 조립한 예시 화면: Welcome, Home, Sidebar가 열린 모습, Session 넷(Answer, Working, Approval, Question), 한 일 sheet, Inbox Now, 앱 화면(Orders), Settings. data는 wireframe의 것을 쓴다. light·dark를 gallery 안에서 바꾼다.
-5. emulator(port 5562, Metro 8202)에서 gallery의 page마다 그림을 찍어 `.dev-data/phone-kit/shots/`에 둔다(light 전부, dark는 Home·Session Approval·Sidebar). wireframe 그림과 나란히 놓고 어긋난 곳(간격, 글자 크기와 굵기, 색, 반지름, 줄바꿈)을 고친 뒤의 그림이어야 한다.
+5. emulator(port 5562, Metro 8202)에서 gallery의 page마다 그림을 찍어 `.dev-data/mobile-kit/shots/`에 둔다(light 전부, dark는 Home·Session Approval·Sidebar). wireframe 그림과 나란히 놓고 어긋난 곳(간격, 글자 크기와 굵기, 색, 반지름, 줄바꿈)을 고친 뒤의 그림이어야 한다.
 
 ## 끝남
 

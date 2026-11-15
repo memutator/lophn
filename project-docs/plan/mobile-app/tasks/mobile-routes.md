@@ -1,4 +1,4 @@
-# phone-routes
+# mobile-routes
 
 새 폰 화면(Jobs, Agents, project의 file·workflow, 검색, model 고르기, session 이름 바꾸기·보관, 새 session, 앱 workspace의 실행 기록)이 부를 route와 event를 폰 allowlist에 더한다.
 

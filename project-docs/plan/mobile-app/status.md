@@ -1,0 +1,17 @@
+# 상태
+
+lead만 고친다. `tools/status.py mobile-app build`가 `tasks/*.md`에서 id, 단위, wave, 선행을 다시 읽어 표를 만들고, 상태, branch, commit, 기록 칸은 그대로 둔다.
+
+| id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
+|---|---|---|---|---|---|---|---|
+| `mobile-kit` | design-native | 1 | 없음 | merged | design-native/phone-kit | cd7edc692 |  |
+| `mobile-data` | mobile-data | 1 | 없음 | merged | mobile-data/phone-data | df4394a23 |  |
+| `mobile-routes` | remote-routes | 1 | 없음 | merged | remote-routes/phone-routes | 07854024a |  |
+| `mobile-files` | core-files | 2 | mobile-routes | todo |  |  |  |
+| `mobile-frame` | mobile-app | 2 | mobile-kit, mobile-data | todo |  |  |  |
+| `mobile-home` | mobile-app | 3 | mobile-frame | todo |  |  |  |
+| `mobile-inbox` | mobile-app | 3 | mobile-frame | todo |  |  |  |
+| `mobile-ops` | mobile-app | 3 | mobile-frame, mobile-routes | todo |  |  |  |
+| `mobile-places` | mobile-app | 3 | mobile-frame, mobile-routes, mobile-files | todo |  |  |  |
+| `mobile-session` | mobile-app | 3 | mobile-frame, mobile-routes | todo |  |  |  |
+| `mobile-web-removal` | remote-web | 3 | mobile-frame | todo |  |  |  |

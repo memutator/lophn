@@ -1,9 +1,9 @@
-# phone-frame
+# mobile-frame
 
 폰 앱의 뼈대를 처음부터 다시 쓴다: 앱 root, 화면 이동(sidebar와 stack, 넓은 화면의 고정 sidebar), sidebar, 연결 흐름(Welcome부터 Paired까지와 실패), 컴퓨터 고르기, 설정. 옛 폰 화면과 WebView 길을 `packages/mobile/`에서 지운다.
 
 - 단위: mobile-app (wave 2)
-- 선행: phone-kit, phone-data
+- 선행: mobile-kit, mobile-data
 - 소유(이 task만 고친다):
   - `packages/mobile/App.tsx`
   - `packages/mobile/index.ts`
@@ -43,7 +43,7 @@
 5. Computers sheet(상태, 길, 기다리는 수, 고르기, Pair another computer)와 Settings(Computers 목록, 컴퓨터 상세와 Remove, This phone의 이름, Appearance: theme과 글자 크기, About)를 짓는다. Notifications는 짓지 않는다.
 6. `packages/mobile/src/parts`에 `Face`와 표식을 짓는다. mascot은 `character.tsx`의 path·색·눈 위치를 그대로 react-native-svg로 옮긴다. vendor 아이콘은 `packages/shell/renderer/parts/vendor-icon/`의 svg를 그대로 쓴다(사본을 만들지 않고 Metro가 읽게 한다. 안 되면 필요한 것만 생성 단계 없이 옮기는 가장 단순한 길을 고르고 보고한다).
 7. 옛것을 지운다: `packages/mobile/src/screens/{pair-screen,computers-screen}.tsx`, `packages/mobile/src/remote`, `packages/mobile/src/webview`, `packages/mobile/src/bundle`, `packages/mobile/modules/lophn-webview`, 그것들의 test와 `app.json`·`package.json`의 흔적. kit gallery는 dev에서 Settings 맨 아래 줄로 들어가게 둔다.
-8. emulator(port 5564, Metro 8204)에서 sample 컴퓨터로 화면마다 그림을 찍어 `.dev-data/phone-frame/shots/`에 둔다(연결 흐름 7장, sidebar, Computers, Settings 셋, 가로로 넓힌 화면 한 장, dark 둘). 개발 core(`tools/remote-dev.ts`)에 실제로 pairing해 Welcome에서 Home 자리까지 가는 것을 한 번 확인한다.
+8. emulator(port 5564, Metro 8204)에서 sample 컴퓨터로 화면마다 그림을 찍어 `.dev-data/mobile-frame/shots/`에 둔다(연결 흐름 7장, sidebar, Computers, Settings 셋, 가로로 넓힌 화면 한 장, dark 둘). 개발 core(`tools/remote-dev.ts`)에 실제로 pairing해 Welcome에서 Home 자리까지 가는 것을 한 번 확인한다.
 
 ## 끝남
 

@@ -3,7 +3,7 @@
 project 폴더의 file 목록과 글 file 읽기를 core route로 짓고 폰 자격에 연다. 폰의 project 화면이 Files 탭과 문서 읽기에 쓴다.
 
 - 단위: core-files (wave 2)
-- 선행: phone-routes
+- 선행: mobile-routes
 - 소유(이 task만 고친다):
   - `packages/protocol/projects/project-files.ts`
   - `packages/core/projects/files`

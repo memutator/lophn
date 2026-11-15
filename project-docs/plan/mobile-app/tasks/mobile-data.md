@@ -1,4 +1,4 @@
-# phone-data
+# mobile-data
 
 폰의 data 층을 짓는다: 붙인 컴퓨터와 그 연결의 store, 컴퓨터마다 화면이 읽는 것(workspace와 session, Inbox, 대화)을 desktop과 같은 로직으로 내는 hook, core 없이 화면을 그리게 하는 sample 컴퓨터.
 
@@ -46,7 +46,7 @@
 
 - `cd packages/mobile && npm run typecheck && npm test`, root `npm run check:full`, `node packages/shell/renderer/build.ts`가 통과한다.
 - 위험 test: "지운 컴퓨터는 연결이 닫히고 저장에서 빠진다", "revoked가 된 컴퓨터는 다시 붙지 않는다"(이미 있으면 store로 옮긴 뒤에도 통과), "sample 컴퓨터는 dev build가 아니면 목록에 없다"
-- Metro가 `packages/mobile/src/data/mod.ts`를 bundle한다: `cd packages/mobile && npx expo export --platform android --output-dir .dev-data/phone-data/export`가 된다(끝나면 그 폴더는 지운다). 이 확인을 위해 `packages/mobile/index.ts`나 `App.tsx`를 고치지 않는다. 임시 entry는 `.dev-data/phone-data/` 아래에 두고 commit하지 않는다.
+- Metro가 `packages/mobile/src/data/mod.ts`를 bundle한다: `cd packages/mobile && npx expo export --platform android --output-dir .dev-data/mobile-data/export`가 된다(끝나면 그 폴더는 지운다). 이 확인을 위해 `packages/mobile/index.ts`나 `App.tsx`를 고치지 않는다. 임시 entry는 `.dev-data/mobile-data/` 아래에 두고 commit하지 않는다.
 - 남지 않음: `grep -rn "vendor-icon" packages/shell/renderer/conversation/agent-tab-core-source*.ts`가 0줄이다.
 
 ## 보고

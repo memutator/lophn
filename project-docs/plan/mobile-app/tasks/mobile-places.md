@@ -1,16 +1,16 @@
-# phone-places
+# mobile-places
 
 project workspace 화면(Sessions, Workflows와 내 차례, Files와 문서 읽기)과 앱 workspace 화면을 짓는다.
 
 - 단위: mobile-app (wave 3)
-- 선행: phone-frame, phone-routes, mobile-files
+- 선행: mobile-frame, mobile-routes, mobile-files
 - 소유(이 task만 고친다):
   - `packages/mobile/src/screens/workspace`
   - `packages/mobile/src/data/places.ts`
   - `packages/design/i18n/catalog/mobile-places.ts`
 - 읽을 것:
   - 기준: `tools/wireframes/drafts/phone/workspace.tsx` 전부, `apps.tsx`의 `AppMenu`와 `Activity`. 그림: `/home/pyosechang/projects/lophn/screenshot/phone-wireframes/{6-project-workspace,3-apps}.png`
-  - route: `phone-routes`의 보고(계획 status와 lead가 알려 주는 표), `packages/protocol/remote/allowlist.ts`
+  - route: `mobile-routes`의 보고(계획 status와 lead가 알려 주는 표), `packages/protocol/remote/allowlist.ts`
   - desktop의 같은 화면: workflow 탭과 file 탐색기의 source(`packages/shell/renderer/`에서 route 이름으로 찾는다), `project-docs/architecture/workflow.md`
   - kit과 뼈대: `packages/design/native/mod.ts`, `packages/mobile/src/app/nav.ts`, `packages/mobile/src/parts`, `packages/mobile/src/data/mod.ts`
   - 계획 `README.md`의 "정한 것"과 "돌리기 전에", `packages/mobile/README.md`
@@ -21,12 +21,12 @@ project workspace 화면(Sessions, Workflows와 내 차례, Files와 문서 읽�
 
 ## 할 일
 
-1. project workspace: 위 줄(sidebar 단추, 이름, +는 새 session)과 탭 Sessions·Workflows·Files·Jobs. Sessions는 worktree 묶음과 Recent, 맨 아래 입력 칸으로 이 project의 새 session을 연다. Jobs 탭은 `phone-ops`의 화면이 생기기 전이라 이 project의 job 목록을 읽기만 보인다.
+1. project workspace: 위 줄(sidebar 단추, 이름, +는 새 session)과 탭 Sessions·Workflows·Files·Jobs. Sessions는 worktree 묶음과 Recent, 맨 아래 입력 칸으로 이 project의 새 session을 연다. Jobs 탭은 `mobile-ops`의 화면이 생기기 전이라 이 project의 job 목록을 읽기만 보인다.
 2. Workflows: 정의마다 Start와 instance 목록(내 차례가 노랗다). instance 화면: 제목, 상태, 내 차례면 Open the conversation이 맨 위, step 줄, Open the report, Stop this run.
 3. Files: 폴더를 훑고 글 file은 읽기 화면(Markdown은 reading 모양, 그 밖의 글은 mono)으로 연다. 아래 입력 칸은 이 file을 가리키는 새 session을 연다. 읽기만이다. route는 `mobile-files`가 지은 `project_files/list`와 `project_files/read`다. 글이 아니거나 큰 file은 '컴퓨터에서 연다'고 보인다.
 4. 앱 workspace: 앱의 폰 화면을 띄우는 것은 다음 계획이다. 지금은 위 줄(표식과 이름)과 탭 Sessions·Activity, 그리고 release 한 줄, 맨 아래 입력 칸(`Ask lophn to change this app`: 이 앱 workspace의 새 session)을 둔다. Activity는 wireframe `Activity`처럼 실행과 실패를 보인다.
 
-마지막으로 emulator(port 5572, Metro 8212)에 lead가 지어 둔 dev build `/tmp/lophn-phone-app-x86_64.apk`를 깔고(native module을 더하지 않는다) sample 컴퓨터로 화면마다 그림을 찍어 `.dev-data/phone-places/shots/`에 둔다(light 전부, dark 둘). 개발 core(`tools/remote-dev.ts`)에 pairing해 실제 data로 한 번씩 동작을 확인하고, 못 본 것은 "확인 못 함"으로 적는다.
+마지막으로 emulator(port 5572, Metro 8212)에 lead가 지어 둔 dev build `/tmp/lophn-mobile-app-x86_64.apk`를 깔고(native module을 더하지 않는다) sample 컴퓨터로 화면마다 그림을 찍어 `.dev-data/mobile-places/shots/`에 둔다(light 전부, dark 둘). 개발 core(`tools/remote-dev.ts`)에 pairing해 실제 data로 한 번씩 동작을 확인하고, 못 본 것은 "확인 못 함"으로 적는다.
 
 ## 끝남
 

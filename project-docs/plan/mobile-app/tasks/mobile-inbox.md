@@ -1,9 +1,9 @@
-# phone-inbox
+# mobile-inbox
 
 Inbox(Now, 앱 새 판 살펴보기, History, 빈 상태)를 wireframe대로 짓는다.
 
 - 단위: mobile-app (wave 3)
-- 선행: phone-frame
+- 선행: mobile-frame
 - 소유(이 task만 고친다):
   - `packages/mobile/src/screens/inbox`
   - `packages/design/i18n/catalog/mobile-inbox.ts`
@@ -24,7 +24,7 @@ Inbox(Now, 앱 새 판 살펴보기, History, 빈 상태)를 wireframe대로 짓
 3. History: 내가 답한 기록, 찾기와 종류 거르기.
 4. 빈 상태. 그리고 컴퓨터가 offline이면 마지막으로 본 항목을 흐리게 두고 답하기 단추를 잠근다.
 
-마지막으로 emulator(port 5570, Metro 8210)에 lead가 지어 둔 dev build `/tmp/lophn-phone-app-x86_64.apk`를 깔고(native module을 더하지 않는다) sample 컴퓨터로 화면마다 그림을 찍어 `.dev-data/phone-inbox/shots/`에 둔다(light 전부, dark 둘). 개발 core(`tools/remote-dev.ts`)에 pairing해 실제 data로 한 번씩 동작을 확인하고, 못 본 것은 "확인 못 함"으로 적는다.
+마지막으로 emulator(port 5570, Metro 8210)에 lead가 지어 둔 dev build `/tmp/lophn-mobile-app-x86_64.apk`를 깔고(native module을 더하지 않는다) sample 컴퓨터로 화면마다 그림을 찍어 `.dev-data/mobile-inbox/shots/`에 둔다(light 전부, dark 둘). 개발 core(`tools/remote-dev.ts`)에 pairing해 실제 data로 한 번씩 동작을 확인하고, 못 본 것은 "확인 못 함"으로 적는다.
 
 ## 끝남
 

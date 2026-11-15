@@ -1,9 +1,9 @@
-# phone-ops
+# mobile-ops
 
 Jobs(목록, 상세)와 Agents(목록, 상세)를 wireframe대로 짓는다.
 
 - 단위: mobile-app (wave 3)
-- 선행: phone-frame, phone-routes
+- 선행: mobile-frame, mobile-routes
 - 소유(이 task만 고친다):
   - `packages/mobile/src/screens/jobs`
   - `packages/mobile/src/screens/agents`
@@ -11,7 +11,7 @@ Jobs(목록, 상세)와 Agents(목록, 상세)를 wireframe대로 짓는다.
   - `packages/design/i18n/catalog/mobile-ops.ts`
 - 읽을 것:
   - 기준: `tools/wireframes/drafts/phone/more.tsx`의 `Jobs`, `JobDetail`, `Agents`, `AgentDetail`과 caption. 그림: `/home/pyosechang/projects/lophn/screenshot/phone-wireframes/7-jobs-and-agents.png`
-  - route: `phone-routes`의 보고, `packages/protocol/remote/allowlist.ts`
+  - route: `mobile-routes`의 보고, `packages/protocol/remote/allowlist.ts`
   - desktop의 같은 화면: Jobs 탭과 Agents 탭의 source(`packages/shell/renderer/`에서 route 이름으로 찾는다), `project-docs/architecture/job.md`
   - kit과 뼈대: `packages/design/native/mod.ts`, `packages/mobile/src/app/nav.ts`, `packages/mobile/src/parts`, `packages/mobile/src/data/mod.ts`
   - 계획 `README.md`의 "정한 것"과 "돌리기 전에", `packages/mobile/README.md`
@@ -26,7 +26,7 @@ Jobs(목록, 상세)와 Agents(목록, 상세)를 wireframe대로 짓는다.
 2. Agents: lophn agent(얼굴, 이름, Built-in tag, 어디서 일하는지, model)와 coding agent 묶음. 상세: 설명, model, 쓸 수 있는 skill 수(MCP 수는 보이지 않는다), 최근 session, New session(그 agent로 새 session 화면을 연다). 고치기는 없다.
 3. 컴퓨터가 offline이면 마지막으로 읽은 것을 흐리게 보이고 스위치와 단추를 잠근다.
 
-마지막으로 emulator(port 5574, Metro 8214)에 lead가 지어 둔 dev build `/tmp/lophn-phone-app-x86_64.apk`를 깔고(native module을 더하지 않는다) sample 컴퓨터로 화면마다 그림을 찍어 `.dev-data/phone-ops/shots/`에 둔다(light 전부, dark 둘). 개발 core(`tools/remote-dev.ts`)에 pairing해 실제 data로 한 번씩 동작을 확인하고, 못 본 것은 "확인 못 함"으로 적는다.
+마지막으로 emulator(port 5574, Metro 8214)에 lead가 지어 둔 dev build `/tmp/lophn-mobile-app-x86_64.apk`를 깔고(native module을 더하지 않는다) sample 컴퓨터로 화면마다 그림을 찍어 `.dev-data/mobile-ops/shots/`에 둔다(light 전부, dark 둘). 개발 core(`tools/remote-dev.ts`)에 pairing해 실제 data로 한 번씩 동작을 확인하고, 못 본 것은 "확인 못 함"으로 적는다.
 
 ## 끝남
 

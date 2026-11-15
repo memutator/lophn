@@ -1,9 +1,9 @@
-# phone-session
+# mobile-session
 
 대화 화면과 거기서 열리는 것(한 일 sheet, diff, 첨부, model, session menu, 새 session, agent 고르기)을 wireframe대로 짓는다.
 
 - 단위: mobile-app (wave 3)
-- 선행: phone-frame, phone-routes
+- 선행: mobile-frame, mobile-routes
 - 소유(이 task만 고친다):
   - `packages/mobile/src/screens/session`
   - `packages/design/i18n/catalog/mobile-session.ts`
@@ -26,7 +26,7 @@
 4. 새 session: workspace와 agent를 고르고 첫 말을 보내면 그 대화로 간다. agent 고르기 sheet는 그 workspace에서 일할 수 있는 agent만 보인다. coding agent는 이 계획에서 열지 않으니 목록에 두지 않는다.
 5. coding agent의 session을 열면 thread를 읽기만 보이고 입력 칸 자리에 '이 session은 컴퓨터에서 이어 간다'는 한 줄을 둔다(다루기는 다음 계획).
 
-마지막으로 emulator(port 5568, Metro 8208)에 lead가 지어 둔 dev build `/tmp/lophn-phone-app-x86_64.apk`를 깔고(native module을 더하지 않는다) sample 컴퓨터로 화면마다 그림을 찍어 `.dev-data/phone-session/shots/`에 둔다(light 전부, dark 둘). 개발 core(`tools/remote-dev.ts`)에 pairing해 실제 data로 한 번씩 동작을 확인하고, 못 본 것은 "확인 못 함"으로 적는다.
+마지막으로 emulator(port 5568, Metro 8208)에 lead가 지어 둔 dev build `/tmp/lophn-mobile-app-x86_64.apk`를 깔고(native module을 더하지 않는다) sample 컴퓨터로 화면마다 그림을 찍어 `.dev-data/mobile-session/shots/`에 둔다(light 전부, dark 둘). 개발 core(`tools/remote-dev.ts`)에 pairing해 실제 data로 한 번씩 동작을 확인하고, 못 본 것은 "확인 못 함"으로 적는다.
 
 ## 끝남
 

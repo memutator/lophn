@@ -46,6 +46,12 @@
       ],
       "@lophn/ui-native": [
         "../packages/design/native/mod.ts"
+      ],
+      "@lophn/i18n": [
+        "../packages/design/i18n/mod.ts"
+      ],
+      "@formatjs/intl": [
+        "./node_modules/@formatjs/intl"
       ]
     }
   }

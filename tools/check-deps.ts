@@ -20,12 +20,14 @@ type Violation = {
   message: string;
 };
 // build는 `.deb` 준비가 낸 source 사본이다(gitignore). 옛 판 사본이 지금 workspace와 다를 수 있다.
+// mobile은 root workspace 밖의 Expo project다. import는 Metro가 풀고(`@lophn/ui-native` alias) 자기 typecheck가 본다.
 const EXCLUDED = new Set([
   "node_modules",
   ".claude",
   ".dev-data",
   "dist",
   "build",
+  "mobile",
 ]);
 
 // package가 import해도 되는 다른 package. 자기 package 안은 늘 된다.

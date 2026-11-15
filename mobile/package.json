@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@expo-google-fonts/jetbrains-mono": "0.4.1",
+    "@formatjs/intl": "6.1.2",
     "@lezer/markdown": "1.7.2",
     "@noble/ciphers": "2.4.0",
     "@noble/curves": "2.4.0",

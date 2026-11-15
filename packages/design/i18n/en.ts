@@ -8,6 +8,13 @@ import { common } from "./catalog/common.ts";
 import { conversation } from "./catalog/conversation.ts";
 import { data } from "./catalog/data.ts";
 import { leftSidebar } from "./catalog/left-sidebar.ts";
+import { mobileApp } from "./catalog/mobile-app.ts";
+import { mobileHome } from "./catalog/mobile-home.ts";
+import { mobileInbox } from "./catalog/mobile-inbox.ts";
+import { mobileKit } from "./catalog/mobile-kit.ts";
+import { mobileOps } from "./catalog/mobile-ops.ts";
+import { mobilePlaces } from "./catalog/mobile-places.ts";
+import { mobileSession } from "./catalog/mobile-session.ts";
 import { project } from "./catalog/project.ts";
 import { remote } from "./catalog/remote.ts";
 import { shell } from "./catalog/shell.ts";
@@ -24,6 +31,13 @@ export const en = {
   ...conversation,
   ...data,
   ...leftSidebar,
+  ...mobileKit,
+  ...mobileApp,
+  ...mobileHome,
+  ...mobileSession,
+  ...mobileInbox,
+  ...mobilePlaces,
+  ...mobileOps,
   ...project,
   ...remote,
   ...shell,

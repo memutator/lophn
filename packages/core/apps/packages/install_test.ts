@@ -8,7 +8,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { sha256Hex } from "../../../base/mod.ts";
@@ -74,6 +74,16 @@ async function tinyPackages(dir: string) {
     '{"name":"@lophn/i18n","version":"1.0.0"}',
   );
   await put("design/i18n/mod.ts", "export {};\n");
+  // 폰 kit 사본이 vendor/로 담는 design file도 있어야 한다.
+  await put(
+    "design/native/package.json",
+    '{"name":"@lophn/ui-native","version":"1.0.0"}',
+  );
+  await put("design/native/mod.ts", "export {};\n");
+  await put("design/tokens.ts", "export {};\n");
+  for (const file of ["model", "stream", "parse", "cache", "text", "url"]) {
+    await put(`design/components/reading/markdown/${file}.ts`, "export {};\n");
+  }
 }
 
 test("설치 사본은 읽기 전용이고 다시 깔면 같고 소스가 바뀌면 새 byte로 바뀐다", async () => {
@@ -86,7 +96,7 @@ test("설치 사본은 읽기 전용이고 다시 깔면 같고 소스가 바뀌
     assert.ok(first.ok);
     assert.deepStrictEqual(
       first.value.map((item) => item.name),
-      ["@lophn/demo", "@lophn/ui", "@lophn/i18n"],
+      ["@lophn/demo", "@lophn/ui", "@lophn/i18n", "@lophn/ui-native"],
     );
     // 판 폴더(`sdk/<이름>/<판>`)부터 아래가 사본이다. 위 두 단은 새 판을 놓으려고 쓸 수 있다.
     const copies = first.value.map((item) => item.install_path);
@@ -174,6 +184,54 @@ test("깐 declaration·cap-store·cap-problem·agent 사본이 repo 없이 impor
       );
       assert.ok(Object.keys(copy).length > 0, name);
     }
+  });
+});
+
+// 사본 안 상대 import(`./`·`../`)가 사본 밖을 가리키면 앱 build가 사본만 가지고는 풀지 못한다.
+async function danglingImports(copy: string): Promise<string[]> {
+  const dangling: string[] = [];
+  const specifier =
+    /^\s*(?:import|export)\b[^"';]*?from\s*"(\.{1,2}\/[^"]+)"/gm;
+  async function visit(directory: string) {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await visit(path);
+        continue;
+      }
+      if (!/\.(?:ts|tsx)$/.test(entry.name)) continue;
+      for (const match of (await readFile(path, "utf8")).matchAll(specifier)) {
+        const target = resolve(directory, match[1] as string);
+        const inside = target.startsWith(`${copy}${sep}`);
+        if (!inside || !(await stat(target).catch(() => null))?.isFile()) {
+          dangling.push(`${path.slice(copy.length + 1)} -> ${match[1]}`);
+        }
+      }
+    }
+  }
+  await visit(copy);
+  return dangling;
+}
+
+test("모든 SDK 사본은 자기 완결이고 @lophn/ui 사본에는 폰 kit이 들지 않는다", async () => {
+  await withTemp(async (dataRoot) => {
+    const installed = await installSdkCopies({
+      dataRoot,
+      packagesRoot: REPO_PACKAGES,
+    });
+    assert.ok(installed.ok);
+    for (const item of installed.value) {
+      assert.deepStrictEqual(
+        await danglingImports(item.install_path),
+        [],
+        item.name,
+      );
+    }
+    const names = installed.value.map((item) => item.name);
+    assert.ok(names.includes("@lophn/ui-native"));
+    const ui = installed.value.find((item) => item.name === "@lophn/ui");
+    assert.ok(ui);
+    assert.ok(!(await stat(join(ui.install_path, "native")).catch(() => null)));
   });
 });
 

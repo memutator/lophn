@@ -1226,7 +1226,7 @@ flows:
       - packages/core/apps/packages/install.ts
       - packages/core/apps/packages/restore.ts
     steps:
-      - "build 때 packages/sdk 아래 package.json이 있는 폴더마다 판을 data root의 sdk 아래에 푼다. 하나라도 실패하면 build가 멈추고 core는 뜨지 않는다. node·npm shim과 앱 template 설치도 build에서 같이 돈다"
+      - "build 때 packages/sdk 아래 package.json이 있는 폴더와 지원 소스(`@lophn/ui`·`@lophn/i18n`·폰 kit `@lophn/ui-native`)마다 판을 data root의 sdk 아래에 푼다(`@lophn/ui` 사본에는 폰 kit이 들지 않고, 폰 kit 사본은 밖 source를 vendor/로 담아 자기 완결이다). 하나라도 실패하면 build가 멈추고 core는 뜨지 않는다. node·npm shim과 앱 template 설치도 build에서 같이 돈다"
       - "start 때 catalog의 @me 판을 읽는다. 읽지 못하면 start가 멈춘다"
       - "catalog의 @me 판마다 설치 사본과 bundle blob이 맞는지 본다. blob은 I/O worker를 거쳐 읽는다"
       - "사본이 없거나 다르면 blob에서 다시 쓴다. blob이 없으면 사본 byte가 bundle_hash와 맞을 때만 blob을 다시 붙인다. 주인 앱이 없는 판은 붙이지 않는다"

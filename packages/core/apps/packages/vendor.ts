@@ -102,19 +102,47 @@ const AGENT: VendorRule = {
   },
 };
 
+// @lophn/ui-native: 폰 kit이 packages/design 쪽에서 가져오는 것은 token 표(theme.tsx)·type과 markdown 모델이다. 모델은 DOM이 없는
+// 같은 parse이고(desktop `@lophn/ui`도 쓴다) cache.ts·parse.ts가 다시 가져오는 text.ts·url.ts까지 닫힌 집합이다.
+// `@lezer/markdown`은 사본의 peer로 앱이 깐다.
+const MARKDOWN_MODEL = ["model", "stream", "parse", "cache", "text", "url"];
+const UI_NATIVE: VendorRule = {
+  files: {
+    "design/tokens.ts": "vendor/design/tokens.ts",
+    ...Object.fromEntries(
+      MARKDOWN_MODEL.map((file) => [
+        `design/components/reading/markdown/${file}.ts`,
+        `vendor/design/components/reading/markdown/${file}.ts`,
+      ]),
+    ),
+  },
+  rewrite: {
+    "../tokens.ts": "vendor/design/tokens.ts",
+    "../../tokens.ts": "vendor/design/tokens.ts",
+    ...Object.fromEntries(
+      ["model", "stream", "parse", "cache"].map((file) => [
+        `../../components/reading/markdown/${file}.ts`,
+        `vendor/design/components/reading/markdown/${file}.ts`,
+      ]),
+    ),
+  },
+};
+
 const VENDOR_RULES: Readonly<Record<string, VendorRule>> = {
   "@lophn/agent": AGENT,
   "@lophn/declaration": DECLARATION,
   "@lophn/cap-problem": CAP_PROBLEM,
   "@lophn/cap-store": CAP_STORE,
+  "@lophn/ui-native": UI_NATIVE,
 };
 
 // catalog에 올리지 않는 지원 소스. 공용 UI package가 import하는 `@lophn/ui`·`@lophn/i18n`이고
 // 이름·판은 source 폴더의 package.json에서 읽는다. skip은 사본에 넣지 않을 경로 구간이다.
 export const SUPPORT_SOURCES: readonly { source: string; skip: string[] }[] = [
-  // i18n은 별도 package이고 style-check는 repo 검사 도구다.
-  { source: "design", skip: ["i18n", "style-check"] },
+  // i18n은 별도 package이고 style-check는 repo 검사 도구다. native는 폰 kit(@lophn/ui-native)이라 `@lophn/ui` 사본에 섞지 않는다.
+  { source: "design", skip: ["i18n", "style-check", "native"] },
   { source: "design/i18n", skip: [] },
+  { source: "design/native", skip: [] },
 ];
 
 // 사본에 test와 testdata는 들 이유가 없다. 폴더 경로는 끝에 `/`가 붙어 들어온다.

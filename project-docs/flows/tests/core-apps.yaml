@@ -54,7 +54,7 @@ files:
 
   - path: packages/core/apps/packages/install_test.ts
     covers: [builtin-sdk-install:installed, builtin-sdk-install:build-failed]
-    note: "SDK 사본 설치: 읽기 전용, 같은 입력 재설치는 같음, 소스 변경은 새 byte로 반영, SDK 사본 의존을 file: 상대 경로로 바꿈, 범위 의존은 거절해 build를 멈춤, repo 없이 import됨. prepareCopyFiles(폴더 package.json의 name·판 검사)는 순수 함수라 covers 밖"
+    note: "SDK 사본 설치: 읽기 전용, 같은 입력 재설치는 같음, 소스 변경은 새 byte로 반영, SDK 사본 의존을 file: 상대 경로로 바꿈, 범위 의존은 거절해 build를 멈춤, repo 없이 import됨, 모든 사본(폰 kit `@lophn/ui-native` 포함)의 상대 import가 사본 안에서 풀리고 `@lophn/ui` 사본에 폰 kit이 들지 않음. prepareCopyFiles(폴더 package.json의 name·판 검사)는 순수 함수라 covers 밖"
 
   - path: packages/core/apps/packages/restore_test.ts
     covers: [builtin-sdk-install:restored, builtin-sdk-install:attached, builtin-sdk-install:skipped]

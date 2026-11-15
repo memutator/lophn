@@ -297,7 +297,7 @@ export const workspaceSettings = {
   "settings.note.remote-revoke":
     "{name} disconnects now. To use it again, pair it with a new code.",
   "settings.note.remote-scan":
-    "Scan this code with the lophn phone app. The phone must be on the same network as this computer. A new code replaces this one.",
+    "Scan this code with the lophn phone app. A new code replaces this one.",
   "settings.notice.remote-devices-empty": "No phones paired yet.",
   "settings.notice.remote-expired":
     "This code expired. Make a new code to pair a phone.",

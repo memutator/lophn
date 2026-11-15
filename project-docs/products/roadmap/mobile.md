@@ -324,6 +324,25 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 
 단계 7은 폰에서 backend를 실제로 돌릴 수 있는지에 달려 있다. spike(계획 `remote-core`)가 Node 위에서는 길을 찾았고 판정은 위 "폰에서 혼자 도는 앱"에 있다. 그 절의 남은 확인, 특히 Hermes와 두 번째 runtime의 SQLite, App Store 위험은 단계 7을 열기 전에 한다.
 
+## 진행 (2026-11-15부터, planner와 lead가 같은 session)
+
+사람의 말(2026-11-15): "10까지 그냥 계획 다 열고 병렬로 진행할 수 있는 것들은 하고 너가 알아서 다 진행해 너가 planner, leader 동시에 맡는다"
+
+- worker는 `sonnet-high`로 띄운다(사람). worker와의 대화는 영어다.
+- 사람에게 묻는 것은 그대로다: push, 실제 model provider 호출, `~/.lophn` 바꾸기, 도구 설치, emulator를 띄우는 자동 E2E 새로 만들기. 여기에 바깥 계정이나 key가 드는 일(push의 Expo·Firebase 등)과 실제 폰에 build 깔기를 더한다. 사람의 실제 폰(adb serial `R3CT90K6G2X`)에는 명령을 보내지 않는다.
+- 순서를 바꿨다(planner): 단계 6(사용자 앱)을 4와 5보다 앞에 둔다. lophn agent가 사람의 모바일 앱을 짓는 것이 제품의 핵심이다(사람: "lophn agent가 lophn mobile app 만드는 건?").
+- 폰 앱 폴더는 `packages/mobile`로 옮기고(사람 승인), 이름은 phone이 아니라 mobile을 쓴다(사람). 계획 `phone-app`의 wave 1이 끝나면 lead가 바꾼다.
+
+| 단계 | 계획 | 상태 |
+|---|---|---|
+| 2 | `mobile-app`(지금 `phone-app`) | 진행 중. wireframe은 사람이 승인(gallery Drafts › Phone app) |
+| 6 | `mobile-user-apps` | 여는 중. spike `reports/mobile-program/app-screens-spike.md`, 조사 `reports/mobile-program/app-place-survey.md` |
+| 4 | `mobile-push` | 여는 중. 조사 `reports/mobile-program/push-survey.md`. 실제 배달에는 사람의 Expo·Firebase 계정이 든다 |
+| 5, 9 | `mobile-coding-agents` | 여는 중. 조사 `reports/mobile-program/coding-agent-relay-survey.md`(harness GUI와 터미널을 core로 잇기) |
+| 7 | `mobile-local-apps` | 6의 spike 판정 뒤에 연다(폰 runtime의 남은 확인 포함) |
+| 8 | `mobile-widgets` | 6 뒤에 연다 |
+| 10 | `mobile-browser-use` | 6 뒤에 연다 |
+
 ## 사람이 정할 것
 
 1. **원칙.** "폰은 두 번째 host다"로 가나. 터미널을 shell에 둔 채 core가 잇는 것까지 포함이다. 다른 안: terminal-host를 core 밑으로 옮겨 Quit 뒤에도 PTY를 살린다. mobile과 따로 정할 수 있는 큰 구조 변경이다.

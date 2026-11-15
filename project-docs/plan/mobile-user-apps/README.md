@@ -38,6 +38,7 @@
   - desktop preview의 bridge는 새로 만들지 않는다. preview 화면은 desktop 앱 view와 같은 preload의 `lophnApp`을 쓰고 `place`가 `phone`일 뿐이다(`mobile-shell-views`가 core binding을 쓰게 한 덕분이고 core가 preview operation을 판정한다).
   - 폰 앱의 일을 둘로 나눴다. native/보안 쪽 `mobile-phone-guest`(opus high)와 앱 목록·앱 화면·cache·상태 쪽 `mobile-phone-apps`(sonnet). 한 session에 다 끝나지 않는 크기이고 위험이 앞의 것에 몰려 있다.
   - 기준 폰 notice(`mobile-phone-changed-notice`)는 core와 desktop Inbox만 고친다. 폰 Inbox는 desktop과 같은 notice 코드를 쓴다.
+  - (lead, `mobile-phone-contract` review) 화면이 import할 수 있는 module 목록(`PHONE_HOST_MODULES`)에서 `react-native-reanimated`를 뺐다. kit이 쓰지 않고 화면은 React Native의 `Animated`를 쓴다. guest의 허용 목록과 preview의 web 대체가 하나 준다. 폰 앱 자신의 의존은 그대로다.
 - worker는 `sonnet-high`로 띄운다(사람). 위에서 opus high로 정한 둘은 예외다(planner, 2026-11-15).
 - (agent) survey와 다르게 정한 것:
   - `@lophn/app-ui`도 판을 올린다(2.15.0). 이 SDK가 `@lophn/declaration`을 정확한 판으로 의존해(`packages/sdk/app-ui/package.json`) declaration만 올리면 `npm ci`가 깨진다. survey는 "bump 없음"이라 했다.

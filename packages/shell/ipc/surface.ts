@@ -1,4 +1,4 @@
-// core의 host queue 요청(agent가 연 탭)을 창에 잇는 경계. main이 core에서 가져온 요청을 그 workspace를 보이는 창에 push하고,
+// core의 host queue 요청(agent가 연 탭)을 창에 잇는 경계. main이 core에서 `/host-link`로 받은 요청을 그 workspace를 보이는 창에 push하고,
 // renderer는 탭을 연 뒤에만 ack한다. 창은 자기가 보이는 workspace와 host 탭의 browser 상태·닫힘·view session(bind)을 main에 알린다.
 // agent가 browser·preview 탭을 다루는 동안의 take control 상태는 main이 push하고, 사람이 가져오기·돌려주기를 main에 보낸다.
 // main·preload·renderer가 함께 부르므로 import는 zod와 type뿐이다.

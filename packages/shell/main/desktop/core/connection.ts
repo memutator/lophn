@@ -90,6 +90,8 @@ export interface CoreConnection {
   readonly state: ConnectionState;
   /** 준비된 인증 read·command session. 준비 전에는 null이다. */
   session(): CoreSession | null;
+  /** `/host-link`를 열 port와 사람 token header. 준비 전에는 null이다. */
+  hostLinkTarget(): { apiPort: number; headers: Record<string, string> } | null;
   /** 닫힌 창(webContents id)의 구독 조건과 그 창의 미소비 handle을 버린다. */
   forget(owner: number, windowId?: string): void;
   /** shell이 끝난다. 연결과 Gateway만 정리하고 core는 그대로 둔다. */
@@ -155,7 +157,12 @@ export function startCoreConnection(
   // renderer들이 건 조건. Gateway가 붙기 전에 온 것도 여기 남았다가 붙을 때 건다.
   const watching = new Map<number, unknown[]>();
   let attached:
-    | { session: CoreSession; capability: string; gateway: Gateway }
+    | {
+        session: CoreSession;
+        capability: string;
+        gateway: Gateway;
+        userToken: string;
+      }
     | undefined;
   // 다시 붙을 때마다 올려 낮은 generation의 늦은 socket callback을 거른다.
   let generation = 0;
@@ -269,7 +276,7 @@ export function startCoreConnection(
         },
       },
     });
-    attached = { session, capability, gateway };
+    attached = { session, capability, gateway, userToken: core.user_token };
     shutdownSeen = false;
     state.state = "ready";
     state.confirmedAt = null;
@@ -399,6 +406,15 @@ export function startCoreConnection(
     },
     session() {
       return attached?.session ?? null;
+    },
+    // core의 `/host-link`는 shell capability를 보지 않으므로 사람 token만 싣는다.
+    hostLinkTarget() {
+      return attached === undefined
+        ? null
+        : {
+            apiPort: attached.session.apiPort,
+            headers: { Authorization: `Bearer ${attached.userToken}` },
+          };
     },
     forget(owner, windowId) {
       watching.delete(owner);

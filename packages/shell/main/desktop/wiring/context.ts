@@ -13,6 +13,8 @@ import { electronOverlays } from "../../app-frame/electron-overlay.ts";
 import { createAppConnector } from "../../app-frame/app-connection.ts";
 import { CloseGuards } from "../../editor/close-guard.ts";
 import type { CoreConnection } from "../core/connection.ts";
+import { createHostLink, type HostLink } from "../core/host-link.ts";
+import { nodeSockets } from "../core/node-io.ts";
 import { createShellSettings, type ShellSettings } from "../core/settings.ts";
 import { type HeadlessMode, readHeadless } from "../headless.ts";
 import { packagedInstall, resolveDataRoot } from "../paths.ts";
@@ -105,6 +107,8 @@ export type ShellContext = {
     method: string,
     body: unknown,
   ): Promise<CallResult>;
+  /** core의 `/host-link` 연결. core가 시킬 일(`request`)을 받고 답·보고·상태를 올린다. */
+  hostLink: HostLink;
   /** core 설정의 살아 있는 사본. 설정을 적용하는 영역이 듣는다. */
   settings: ShellSettings;
   ipc: Ipc;
@@ -176,6 +180,14 @@ export function createShellContext(): ShellContext {
         });
   };
 
+  // Gateway가 (다시) 붙으면 core가 새로 떴을 수 있다. 연결은 그때 처음 열고, 대상이 바뀌었으면 다시 연다.
+  const hostLink = createHostLink({
+    target: () => core.hostLinkTarget(),
+    sockets: nodeSockets(),
+    log,
+  });
+  relay.ready.push(() => hostLink.refresh());
+
   const settings = createShellSettings(() =>
     coreInternal("memory", "settings", "list", {}),
   );
@@ -203,6 +215,7 @@ export function createShellContext(): ShellContext {
     log,
     core,
     coreInternal,
+    hostLink,
     settings,
     ipc: {
       handle: (channel, listener) => ipcMain.handle(channel, listener as never),
@@ -252,6 +265,7 @@ export function createShellContext(): ShellContext {
       if (stopped) return;
       stopped = true;
       for (const area of [...ctx.registered].reverse()) area.stop();
+      hostLink.stop();
       overlays.dispose();
     },
   };

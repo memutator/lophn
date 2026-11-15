@@ -1192,20 +1192,22 @@ flows:
       - "extension 종료(stop) 때 실행 중 turn은 target-unavailable로 finish한다. 설정이 꺼진 뒤의 finish는 core가 conflict로 거절할 수 있다"
 
   - id: host-queue-poll
-    title: shell main이 host 요청을 쉬지 않고 가져가 창에 열거나 extension tool·browser 호출을 돌린다
+    title: shell main이 /host-link로 받은 host 요청을 창에 열거나 extension tool·browser 호출을 돌린다
     actor: shell
     entries: [system:host-queue-poll]
-    uses: [host-request-take:request, host-request-take:none, host-request-done:done, host-request-done:retry]
+    uses: [host-link:open, host-link:closed]
     boundary: [host-queue-interface, shell]
     code:
+      - packages/shell/main/desktop/core/host-link.ts
       - packages/shell/main/desktop/wiring/surface.ts
       - packages/shell/ipc/surface.ts
     steps:
-      - "host/take를 쉬지 않고 이어 부른다(core가 요청이 올 때까지 최대 5초 잡아 둔다). 보이는 workspace와 TUI 목록을 싣는다. 답을 받자마자 다시 부른다"
-      - "tool_call이면 extension tool을, browser_call이면 browser driver를 따로 돌리고 기다리지 않는다. 끝나면 done에 결과를 싣는다"
-      - "탭 요청이면 그 workspace를 보이는 창 가운데 focus를 가장 최근에 받은 하나에만 push하고 창의 ack를 1.5초 기다린다(두 창이 같은 탭을 열지 않는다). browser 탭 열기는 보이는 창이 없으면 가장 최근 일반 창에 보내고, 일반 창이 하나도 없으면 focus 없이 하나 연다(desktop-window-open-inactive). browser 탭 닫기는 page를 가진 창에 보낸다"
-      - "ack가 오면 done. browser 탭 열기는 ack 뒤 page가 붙는(bind) 때 done으로 core에 답한다(page를 둘 창이 닫히면 오류로 답한다). 창이 없거나 ack가 없으면 retry로 done하고 1초 쉰 뒤 다시 가져간다. 창을 끝내 만들지 못한 browser 탭 열기는 retry가 아니라 unavailable로 답한다"
-      - "요청이 없으면(null) 바로 다시 부른다. take가 실패해도 1초 쉰 뒤 다시 부른다"
+      - "Gateway가 처음 ready가 되면 사람 token으로 /host-link를 열고 hello에 보이는 workspace와 TUI 목록을 싣는다. 끊기면 1초에서 30초까지 두 배씩 늘려 다시 붙고 hello부터 다시 보낸다. core가 다시 떠 주소나 token이 바뀌면 Gateway ready 때 새 값으로 바로 붙는다"
+      - "보이는 workspace와 TUI 목록을 창이 알릴 때와 1초마다 보고, 바뀌었으면 visible을 보낸다"
+      - "request가 오면 종류마다 단 처리기로 돌린다. tool_call이면 extension tool을, browser_call이면 browser driver를, terminal_interrupt이면 터미널의 끊기 key를 따로 돌리고 끝나면 결과를 response에 싣는다. 처리기가 없는 종류는 unavailable로 답한다"
+      - "탭 요청은 받은 차례로 하나씩 그 workspace를 보이는 창 가운데 focus를 가장 최근에 받은 하나에만 push하고 창의 ack를 1.5초 기다린다(두 창이 같은 탭을 열지 않는다). browser 탭 열기는 보이는 창이 없으면 가장 최근 일반 창에 보내고, 일반 창이 하나도 없으면 focus 없이 하나 연다(desktop-window-open-inactive). browser 탭 닫기는 page를 가진 창에 보낸다"
+      - "ack가 오면 response done. browser 탭 열기는 ack 뒤 page가 붙는(bind) 때 done으로 core에 답한다(page를 둘 창이 닫히면 오류로 답한다). 창이 없거나 ack가 없으면 1초 쉰 뒤 retry로 답한다(core가 바로 다시 밀지 않게). 창을 끝내 만들지 못한 browser 탭 열기는 retry가 아니라 unavailable로 답한다"
+      - "창이 알린 host 탭의 browser 상태와 닫힘은 report frame으로 올린다. 연결이 끊긴 동안의 답과 보고는 버린다(core가 결과 요청을 이미 unavailable로 끝냈고 탭 요청은 다시 민다)"
     outcomes:
       - id: offered
         observe: [screen:project-terminal]
@@ -1219,16 +1221,16 @@ flows:
         when: "browser 탭 열기에 받을 창을 만들지 못했거나 page를 둘 창이 답하기 전에 닫혔다. unavailable과 고정 문장으로 done한다"
         observe: [response]
       - id: tool-call
-        when: "tool_call 요청이다. extension tool을 따로 돌리고 끝나면 done에 결과를 싣는다"
+        when: "tool_call 요청이다. extension tool을 따로 돌리고 끝나면 response에 결과를 싣는다"
         observe: [response]
       - id: browser-call
-        when: "browser_call 요청이다. browser driver(browser-call-run)를 따로 돌리고 끝나면 done에 결과를 싣는다"
+        when: "browser_call 요청이다. browser driver(browser-call-run)를 따로 돌리고 끝나면 response에 결과를 싣는다"
         observe: [response]
-      - id: idle
-        when: "take가 요청을 주지 않았다(5초 기다림이 끝났거나 core가 멈춤). 바로 다시 부른다"
+      - id: unhandled
+        when: "이 shell에 처리기가 없는 종류의 요청이다(coding_*, terminal_stream, terminal_input). unavailable로 답한다"
         observe: [response]
-      - id: take-failed
-        when: "host/take가 실패해 답이 없다. 1초 쉰 뒤 다시 부른다"
+      - id: reconnect
+        when: "연결이 열리지 않았거나 끊겼다. 1초에서 30초까지 두 배씩 늘려 다시 붙는다. 끊긴 연결로 받은 요청의 답은 보내지 않는다"
         observe: [response]
     crosses_process: true
     docs: [architecture/coding-agent.md, architecture/workspace-layout.md]

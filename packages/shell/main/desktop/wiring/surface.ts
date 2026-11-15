@@ -1,7 +1,7 @@
-// core의 host queue를 가져와 그 workspace를 보이는 창에 push한다(agent가 연 탭). 단 browser 탭(`--url`)은 그 workspace를 보이는 창이
-// 없으면 가장 최근 일반 창이 page를 만들어 두고(일반 창이 하나도 없으면 focus 없이 하나 연다), page가 붙을 때(bind) core에 답한다. core가 시킬 일을 담는 queue는
-// 메모리에 있고(`protocol/lophn-agent/host-queue.ts`), 여기가 `host/take`를 쉬지 않고 이어 불러(long-poll) 가져간다. 창을 앞으로 가져오거나
-// focus하지 않는다(알림의 `reveal()`과 다르다): agent가 연 탭은 사람이 하던 일을 끊지 않는다.
+// core의 host queue가 `/host-link` 연결(`ctx.hostLink`)로 미는 요청을 받아 그 workspace를 보이는 창에 push한다(agent가 연 탭). 단 browser 탭(`--url`)은
+// 그 workspace를 보이는 창이 없으면 가장 최근 일반 창이 page를 만들어 두고(일반 창이 하나도 없으면 focus 없이 하나 연다), page가 붙을 때(bind) core에 답한다.
+// core가 시킬 일을 담는 queue는 메모리에 있고(`protocol/lophn-agent/host-queue.ts`), 여기는 보이는 workspace와 TUI 목록이 바뀔 때 `visible`로 알린다.
+// 창을 앞으로 가져오거나 focus하지 않는다(알림의 `reveal()`과 다르다): agent가 연 탭은 사람이 하던 일을 끊지 않는다.
 // `browser_call`은 browser·preview·artifact 탭의 page에 CDP로 돌린다(browser/agent/). 창이 탭의 view session을 bind로 알리고,
 // agent가 다루는 탭의 take control 상태(사람이 가져왔는가)를 이 메모리가 든다. core는 모른다.
 // preview 탭이 기기를 고르면 창이 emulate로 알리고, 같은 debugger를 driver와 나눠 그 view에 건다(browser/agent/emulation.ts).
@@ -34,6 +34,10 @@ import {
 } from "../../browser/agent/driver.ts";
 import { createEmulation } from "../../browser/agent/emulation.ts";
 import { electronLookup } from "../../browser/agent/electron-page.ts";
+import type {
+  HostRequest,
+  HostToolOutput,
+} from "../../../../protocol/lophn-agent/host-queue.ts";
 import type { AppFrameService } from "../../app-frame/registry.ts";
 import type { ArtifactViews } from "../../artifact/registry.ts";
 import type { HarnessTui } from "../../terminal/harness-tui.ts";
@@ -42,43 +46,30 @@ import type { Registered, ShellContext } from "./context.ts";
 import { recentWindow } from "./desktop-window.ts";
 import type { ExtensionTools } from "./extensions.ts";
 
-// take가 실패하거나 창이 탭 요청을 받지 못했을 때 다시 가져가기 전에 쉬는 시간이다.
+// 창이 탭 요청을 받지 못했을 때 retry로 답하기 전에 쉬는 시간이다. core는 retry를 맨 뒤로 돌려 다음 밀기(1초마다, 새 요청이
+// 들어오면 바로)에 다시 보내므로, 여기서 쉬지 않으면 받지 못할 창에 곧바로 다시 보낼 수 있다.
 const RETRY_MS = 1000;
+// 보이는 workspace와 TUI 목록이 바뀌었는지 보는 간격이다. 창 detach와 TUI가 떠나는 일은 다른 wiring에서 일어나 들을 곳이 없다.
+const VISIBLE_MS = 1000;
 // 창이 탭을 열고 ack하는 기한이다. 넘으면 retry로 되돌려 RETRY_MS 뒤 다시 보낸다.
 const ACK_TIMEOUT_MS = 1500;
 // 창이 없어 browser 탭 열기가 새로 연 창마저 만들지 못했을 때 agent가 받는 문장이다(원인, 다음 할 일, 되풀이가 통하는지).
 const NO_WINDOW =
   "No lophn window could be opened, so the browser page cannot be created. Retrying may help once; if it fails again, tell the person.";
 // page가 붙었다(bind)고 core의 browser 탭 열기에 답하는 결과다.
-const BIND_OK = { content: [{ type: "text", text: "opened" }] };
+const BIND_OK: HostToolOutput = { content: [{ type: "text", text: "opened" }] };
 // page를 둘 창이 열기에 답하기 전에 닫혔다.
 const WINDOW_CLOSED =
   "The lophn window that was to hold the browser page was closed, so the tab was not opened. Try `lophn tab open` once more; if it fails again, tell the person.";
 
 type Workspace = NonNullable<SurfaceWorkspace["workspace"]>;
-// tab 요청은 workspace가 있고, extension tool 호출(`tool_call`)과 browser 호출(`browser_call`)은 workspace를 가리지 않아 payload만 있다.
-type Request =
-  | {
-      id: string;
-      kind: "tab_open" | "tab_close" | "tab_show";
-      workspace: Workspace;
-      payload: { tab: string; target?: Record<string, unknown> };
-    }
-  | {
-      id: string;
-      kind: "tool_call";
-      payload: Parameters<ExtensionTools["run"]>[0];
-    }
-  | {
-      id: string;
-      kind: "browser_call";
-      payload: Parameters<BrowserDriver["run"]>[0];
-    }
-  | {
-      id: string;
-      kind: "terminal_interrupt";
-      payload: { terminal_ref: string };
-    };
+// 창에 보내는 탭 요청이다. target은 열기에만 있다.
+type TabRequest = {
+  id: string;
+  kind: "tab_open" | "tab_close" | "tab_show";
+  workspace: Workspace;
+  payload: { tab: string; target?: Record<string, unknown> };
+};
 
 const sameWorkspace = (a: Workspace, b: Workspace) =>
   a.kind === b.kind && (a.kind === "home" || a.id === (b as typeof a).id);
@@ -143,16 +134,14 @@ export function register(
       const request = opening.get(tab);
       if (request !== undefined) {
         opening.delete(tab);
-        void done(request, {
+        done(request, {
           error: { code: "unavailable", message: WINDOW_CLOSED },
         });
       } else {
-        void ctx.coreInternal("memory", "host", "report", {
-          tab,
-          state: "closed",
-        });
+        ctx.hostLink.send({ type: "report", tab, state: "closed" });
       }
     }
+    syncVisible();
   });
 
   ctx.ipc.handle(
@@ -163,6 +152,7 @@ export function register(
       if (!parsed.ok) return;
       if (parsed.value.workspace === null) shown.delete(event.sender.id);
       else shown.set(event.sender.id, parsed.value.workspace);
+      syncVisible();
     },
   );
   ctx.ipc.handle(SURFACE_ACK_CHANNEL, (event: IpcEvent, input: unknown) => {
@@ -170,46 +160,45 @@ export function register(
     const parsed = checkInput(surfaceAckSchema, input);
     if (parsed.ok) pending.get(parsed.value.request)?.(parsed.value.opened);
   });
-  ctx.ipc.handle(
-    SURFACE_REPORT_CHANNEL,
-    async (event: IpcEvent, input: unknown) => {
-      if (!checkCaller(registry, event).ok) return;
-      const parsed = checkInput(surfaceReportSchema, input);
-      if (!parsed.ok) return;
-      if ("bind" in parsed.value) {
-        const { tab, view_session } = parsed.value.bind;
-        const before = bound.get(tab);
-        bound.set(tab, { window: event.sender.id, view_session });
-        const host = hostBrowser.get(tab);
-        if (host !== undefined && regular(event.sender.id) !== undefined) {
-          host.window = event.sender.id;
-        }
-        releaseOld(tab, before, event.sender.id);
-        const request = opening.get(tab);
-        if (request !== undefined) {
-          opening.delete(tab);
-          void done(request, BIND_OK);
-        }
-        // 창이 다시 mount했거나 다른 창으로 옮겨 왔으면 지금 상태를 다시 준다.
-        const now = control.current(tab);
-        if (now !== undefined) pushControl(tab, now);
-        return;
+  ctx.ipc.handle(SURFACE_REPORT_CHANNEL, (event: IpcEvent, input: unknown) => {
+    if (!checkCaller(registry, event).ok) return;
+    const parsed = checkInput(surfaceReportSchema, input);
+    if (!parsed.ok) return;
+    if ("bind" in parsed.value) {
+      const { tab, view_session } = parsed.value.bind;
+      const before = bound.get(tab);
+      bound.set(tab, { window: event.sender.id, view_session });
+      const host = hostBrowser.get(tab);
+      if (host !== undefined && regular(event.sender.id) !== undefined) {
+        host.window = event.sender.id;
       }
-      if ("tui" in parsed.value) {
-        const { tab, session, terminal_ref } = parsed.value.tui;
-        if (terminal_ref === undefined) tui.open(tab, session, event.sender.id);
-        else tui.bind(tab, terminal_ref);
-        return;
+      releaseOld(tab, before, event.sender.id);
+      const request = opening.get(tab);
+      if (request !== undefined) {
+        opening.delete(tab);
+        done(request, BIND_OK);
       }
-      if (parsed.value.state === "closed") {
-        tui.release(parsed.value.tab);
-        hostBrowser.delete(parsed.value.tab);
-        bound.delete(parsed.value.tab);
-        control.forget(parsed.value.tab);
-      }
-      await ctx.coreInternal("memory", "host", "report", parsed.value);
-    },
-  );
+      // 창이 다시 mount했거나 다른 창으로 옮겨 왔으면 지금 상태를 다시 준다.
+      const now = control.current(tab);
+      if (now !== undefined) pushControl(tab, now);
+      return;
+    }
+    if ("tui" in parsed.value) {
+      const { tab, session, terminal_ref } = parsed.value.tui;
+      if (terminal_ref === undefined) tui.open(tab, session, event.sender.id);
+      else tui.bind(tab, terminal_ref);
+      syncVisible();
+      return;
+    }
+    if (parsed.value.state === "closed") {
+      tui.release(parsed.value.tab);
+      hostBrowser.delete(parsed.value.tab);
+      bound.delete(parsed.value.tab);
+      control.forget(parsed.value.tab);
+      syncVisible();
+    }
+    ctx.hostLink.send({ type: "report", ...parsed.value });
+  });
 
   ctx.ipc.handle(SURFACE_TAKE_CHANNEL, (event: IpcEvent, input: unknown) => {
     if (!checkCaller(registry, event).ok) return;
@@ -314,7 +303,7 @@ export function register(
 
   // browser 탭의 page는 어느 workspace를 띄운 창이든 산다. 그 workspace를 띄운 창이 없으면 가장 최근 창이 받는다.
   // browser 탭의 닫기는 page를 가진 창이 먼저고, bind 전이면 열기를 보낸 창이다.
-  function windowFor(request: Extract<Request, { workspace: Workspace }>) {
+  function windowFor(request: TabRequest) {
     const { tab, target } = request.payload;
     const host = hostBrowser.get(tab);
     return (
@@ -329,7 +318,7 @@ export function register(
   }
 
   function offer(
-    request: Extract<Request, { workspace: Workspace }>,
+    request: TabRequest,
     payload: unknown,
     window: NonNullable<ReturnType<typeof windowFor>>,
   ): Promise<boolean> {
@@ -354,117 +343,112 @@ export function register(
     control.forget(tab);
   }
 
-  const done = (id: string, output?: unknown) =>
-    ctx.coreInternal("memory", "host", "done", {
+  // 이 연결로 끝난 요청을 core에 답한다. 끊겨 있으면 버린다: 결과 요청은 core가 이미 끝냈고 탭 요청은 다시 온다.
+  const done = (id: string, output?: HostToolOutput) =>
+    ctx.hostLink.send({
+      type: "response",
       id,
       result: "done",
       ...(output === undefined ? {} : { output }),
     });
 
-  // take가 기다리는 동안 다음 요청이 오면 바로 답이 오므로 답을 받자마자 다시 부른다.
+  // `take`가 매번 싣던 것을 바뀔 때만 보낸다. 같은 값이면 연결이 보내지 않는다.
+  function syncVisible(): void {
+    ctx.hostLink.visible({
+      workspaces: visibleWorkspaces(),
+      tui: tui.sessions(),
+    });
+  }
+  syncVisible();
+  const visibleTimer = setInterval(syncVisible, VISIBLE_MS);
+
+  // handler가 오래 걸려도 탭 요청을 막지 않게 따로 돈다. 돌려준 결과를 연결이 response에 싣는다.
+  ctx.hostLink.onRequest("tool_call", (payload) => tools.run(payload));
+  ctx.hostLink.onRequest("terminal_interrupt", async (payload) => {
+    // 앱이 멈춘 session이 터미널 탭의 coding agent다. 그 harness의 끊기 key를 친다.
+    const result = await interruptTerminal(payload.terminal_ref);
+    return result.ok
+      ? { content: [{ type: "text", text: "interrupted" }] }
+      : ({
+          error: { code: result.code, message: result.message },
+        } as HostToolOutput);
+  });
+  ctx.hostLink.onRequest("browser_call", (payload) => {
+    // 호출마다 그 page를 가진 창에 알려 쓴 때를 센다(상한을 넘으면 오래 안 쓴 page부터 놓는다).
+    const now = control.current(payload.tab);
+    if (now !== undefined) pushControl(payload.tab, now);
+    return driver.run(payload);
+  });
+
+  // 탭 요청은 받은 차례로 하나씩 연다(옛 take loop와 같다). 창 하나를 새로 열거나 ack를 기다리는 동안 다음 요청은 기다린다.
+  let tabs: Promise<void> = Promise.resolve();
   let stopped = false;
   let retry: ReturnType<typeof setTimeout> | undefined;
   const rest = () =>
     new Promise<void>((resolve) => {
       retry = setTimeout(resolve, RETRY_MS);
     });
-  async function loop() {
-    while (!stopped) {
-      // 늘 부른다: take가 shell이 붙어 있다는 표시(tool 호출을 받을 수 있다는 뜻)이고 hold의 heartbeat다.
-      const reply = await ctx.coreInternal("memory", "host", "take", {
-        workspaces: visibleWorkspaces(),
-        tui: tui.sessions(),
-      });
-      if (!reply.ok) {
-        await rest();
-        continue;
-      }
-      const request = (reply.value as { request: Request | null }).request;
-      if (request === null) continue;
-      // handler가 오래 걸려도 탭 요청을 막지 않게 따로 돈다. 끝나면 결과를 done에 싣는다.
-      if (request.kind === "tool_call") {
-        void tools
-          .run(request.payload)
-          .then((output) => done(request.id, output));
-        continue;
-      }
-      if (request.kind === "terminal_interrupt") {
-        // 앱이 멈춘 session이 터미널 탭의 coding agent다. 그 harness의 끊기 key를 친다.
-        void interruptTerminal(request.payload.terminal_ref).then((result) =>
-          done(
-            request.id,
-            result.ok
-              ? { content: [{ type: "text", text: "interrupted" }] }
-              : { error: { code: result.code, message: result.message } },
-          ),
-        );
-        continue;
-      }
-      if (request.kind === "browser_call") {
-        // 호출마다 그 page를 가진 창에 알려 쓴 때를 센다(상한을 넘으면 오래 안 쓴 page부터 놓는다).
-        const now = control.current(request.payload.tab);
-        if (now !== undefined) pushControl(request.payload.tab, now);
-        void driver
-          .run(request.payload)
-          .then((output) => done(request.id, output));
-        continue;
-      }
-      const browserOpen =
-        request.kind === "tab_open" &&
-        "browser" in (request.payload.target ?? {});
-      const { tab } = request.payload;
-      // page를 둘 창이 하나도 없으면 focus 없이 하나 연다. 창이 아직 받을 준비가 안 됐으면 아래 ack 기한과 retry가 기다린다.
-      const target =
-        windowFor(request) ??
-        (browserOpen
-          ? await ctx.desktop.openInactive().catch(() => undefined)
-          : undefined);
-      if (target === undefined) {
-        if (browserOpen) {
-          // 창을 만들지 못했다. core가 기다리지 않고 이유를 agent에게 돌려주게 한다.
-          void done(request.id, {
-            error: { code: "unavailable", message: NO_WINDOW },
-          });
-          continue;
-        }
-        // 창과 함께 page가 사라졌으면 닫을 것이 없다.
-        if (request.kind === "tab_close") {
-          forgetTab(tab);
-          await done(request.id);
-          continue;
-        }
-      }
-      if (target === undefined) {
-        await ctx.coreInternal("memory", "host", "done", {
-          id: request.id,
-          result: "retry",
-        });
-        await rest();
-        continue;
-      }
+  const queueTab = (_: unknown, request: HostRequest) => {
+    tabs = tabs.then(() =>
+      stopped ? undefined : openTab(request as TabRequest),
+    );
+    return Promise.resolve(null);
+  };
+  ctx.hostLink.onRequest("tab_open", queueTab);
+  ctx.hostLink.onRequest("tab_close", queueTab);
+  ctx.hostLink.onRequest("tab_show", queueTab);
+
+  async function openTab(request: TabRequest): Promise<void> {
+    const browserOpen =
+      request.kind === "tab_open" &&
+      "browser" in (request.payload.target ?? {});
+    const { tab } = request.payload;
+    // page를 둘 창이 하나도 없으면 focus 없이 하나 연다. 창이 아직 받을 준비가 안 됐으면 아래 ack 기한과 retry가 기다린다.
+    const target =
+      windowFor(request) ??
+      (browserOpen
+        ? await ctx.desktop.openInactive().catch(() => undefined)
+        : undefined);
+    if (target === undefined) {
       if (browserOpen) {
-        hostBrowser.set(tab, {
-          workspace: request.workspace,
-          window: target.webContents.id,
+        // 창을 만들지 못했다. core가 기다리지 않고 이유를 agent에게 돌려주게 한다.
+        done(request.id, {
+          error: { code: "unavailable", message: NO_WINDOW },
         });
+        return;
       }
-      const opened = await offer(request, { request }, target);
-      if (opened && request.kind === "tab_close") forgetTab(tab);
-      if (opened && browserOpen) {
-        // 창이 page를 만들겠다고 답했다. page가 붙어 bind가 오면 core에 알린다.
-        if (bound.has(tab)) await done(request.id, BIND_OK);
-        else opening.set(tab, request.id);
-        continue;
+      // 창과 함께 page가 사라졌으면 닫을 것이 없다.
+      if (request.kind === "tab_close") {
+        forgetTab(tab);
+        done(request.id);
+        return;
       }
-      await ctx.coreInternal("memory", "host", "done", {
-        id: request.id,
-        result: opened ? "done" : "retry",
-      });
-      // 받지 못한 요청을 바로 다시 가져가지 않는다.
-      if (!opened) await rest();
+      await rest();
+      ctx.hostLink.send({ type: "response", id: request.id, result: "retry" });
+      return;
     }
+    if (browserOpen) {
+      hostBrowser.set(tab, {
+        workspace: request.workspace,
+        window: target.webContents.id,
+      });
+    }
+    const opened = await offer(request, { request }, target);
+    if (opened && request.kind === "tab_close") forgetTab(tab);
+    if (opened && browserOpen) {
+      // 창이 page를 만들겠다고 답했다. page가 붙어 bind가 오면 core에 알린다.
+      if (bound.has(tab)) done(request.id, BIND_OK);
+      else opening.set(tab, request.id);
+      return;
+    }
+    // 받지 못한 요청을 바로 다시 받지 않는다.
+    if (!opened) await rest();
+    ctx.hostLink.send({
+      type: "response",
+      id: request.id,
+      result: opened ? "done" : "retry",
+    });
   }
-  void loop();
 
   return {
     // 보호 입력 창의 한 번 넣기가 쓴다(secret-input wiring).
@@ -472,6 +456,7 @@ export function register(
     stop() {
       stopped = true;
       clearTimeout(retry);
+      clearInterval(visibleTimer);
       ctx.ipc.removeHandler(SURFACE_WORKSPACE_CHANNEL);
       ctx.ipc.removeHandler(SURFACE_ACK_CHANNEL);
       ctx.ipc.removeHandler(SURFACE_REPORT_CHANNEL);

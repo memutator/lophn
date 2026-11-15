@@ -6,6 +6,6 @@ lead만 고친다. `tools/status.py mobile-push build`가 `tasks/*.md`에서 id,
 |---|---|---|---|---|---|---|---|
 | `mobile-attention-core` | mobile-attention | 1 | 없음 | merged | mobile-attention/mobile-attention-core | f76a3b28e |  |
 | `mobile-push-send` | mobile-push | 1 | 없음 | merged | mobile-push/mobile-push-send | b00185aab |  |
-| `mobile-attention-desktop` | mobile-attention | 2 | mobile-attention-core | running | mobile-attention/mobile-attention-desktop |  |  |
+| `mobile-attention-desktop` | mobile-attention | 2 | mobile-attention-core | merged | mobile-attention/mobile-attention-desktop | ceecd6e65 |  |
 | `mobile-push-device` | mobile-push | 3 | mobile-attention-core, mobile-push-send, mobile-attention-desktop | todo |  |  |  |
 | `mobile-push-phone` | mobile-push | 3 | mobile-push-device | todo |  |  |  |

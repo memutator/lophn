@@ -298,5 +298,9 @@
   {
     "id": "remote.devices.terminal_input",
     "sha256": "93026f2c96b483654543bd312b0b7acbbcb68870027e8a3b48615b3948789edd"
+  },
+  {
+    "id": "apps.sync-log",
+    "sha256": "621e97d8714164391d8b8759b7a8eb8a621b0aff49a085b92a63b4ae44ab096b"
   }
 ]

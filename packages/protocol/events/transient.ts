@@ -52,6 +52,15 @@ const appViewChanged = defineTransientEvent("AppViewChanged", {
   }),
 });
 
+// sync 앱의 sync log에 줄이 생겼다(컴퓨터의 write, 폰에서 온 변경, rewind, '다시 snapshot'). 폰이 `app_sync/pull`한다.
+const appSyncChanged = defineTransientEvent("AppSyncChanged", {
+  subject: idSchema("app"),
+  payload: z.strictObject({
+    release: idSchema("rel"),
+    seq: z.number().int().nonnegative(),
+  }),
+});
+
 // 앱을 영구히 지운 command(app.delete)가 commit된 뒤 낸다. 지운 앱을 가리키던 shell 쪽 자리(browser 저장소, layout, 전역 float)를 정리한다.
 const appRemoved = defineTransientEvent("AppRemoved", {
   subject: idSchema("app"),
@@ -203,6 +212,7 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   }),
   transientEventEnvelopeSchema(appViewChanged),
   transientEventEnvelopeSchema(appRemoved),
+  transientEventEnvelopeSchema(appSyncChanged),
   transientEventEnvelopeSchema(appRestartHalted),
   transientEventEnvelopeSchema(activationConsentRequested),
   transientEventEnvelopeSchema(activationConsentClosed),

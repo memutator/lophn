@@ -118,7 +118,7 @@ export function forgetMovedColumns(db: SyncDb): void {
 /**
  * sync 앱 process가 시작할 때 한 번. 숨은 표를 만들고(node는 처음 한 번만 적힌다), 칸이 바뀐 표의 column clock을
  * 지우고, 앱 시작(등록 code)이 DB를 바꿨으면 그 changeset을 찍는다. 시작 code는 transaction으로 감싸지 않아 그
- * 변경과 clock은 따로 commit된다.
+ * 변경과 clock은 따로 commit된다. `startHlc`는 그 찍은 clock이다: ready 통보에 실어 core가 sync log에 남긴다.
  */
 export function openSyncStore(input: {
   database: NodeDatabase;
@@ -126,7 +126,7 @@ export function openSyncStore(input: {
   record: Recorder;
   nowMs: () => number;
   startChangeset: Uint8Array | null;
-}): SyncStore {
+}): SyncStore & { startHlc: bigint | null } {
   const db = nodeSyncDb(input.database);
   const sync: SyncStore = {
     db,
@@ -134,12 +134,14 @@ export function openSyncStore(input: {
     record: input.record,
     nowMs: input.nowMs,
   };
-  inTransaction(db, () => {
+  const startHlc = inTransaction(db, () => {
     ensureSyncTables(db, input.node);
     forgetMovedColumns(db);
-    if (input.startChangeset !== null) stamp(sync, input.startChangeset);
+    return input.startChangeset === null
+      ? null
+      : stamp(sync, input.startChangeset);
   });
-  return sync;
+  return { ...sync, startHlc };
 }
 
 export type SyncedWrite<T> = {

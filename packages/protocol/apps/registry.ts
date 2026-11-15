@@ -71,6 +71,7 @@ import {
 import { appPhoneScreens, appPhoneTarget } from "./phone.ts";
 import { appUsage } from "./usage.ts";
 import { APP_VIEW_ROUTES } from "./views.ts";
+import { APP_SYNC_ROUTES } from "./app-sync.ts";
 
 export const ROUTES = [
   appCreate,
@@ -132,4 +133,5 @@ export const ROUTES = [
   ...PREVIEW_ROUTES,
   ...RELEASE_ROUTES,
   ...APP_VIEW_ROUTES,
+  ...APP_SYNC_ROUTES,
 ] as const;

@@ -280,6 +280,21 @@ test("부른 쪽 종류가 credential과 다르거나 모르는 부모 invocatio
         { actor: "user" },
       ),
     ],
+    // 화면이 폰 기기에서 맞춰진 변경이라고 주장(그 invocation은 core만 만든다)
+    [
+      "person claims device",
+      t.path.call(
+        {
+          ...person(a, "w.one"),
+          caller: {
+            kind: "person",
+            view_session: "v1",
+            device: ids.newId("dev") as Id<"dev">,
+          },
+        },
+        { actor: "user" },
+      ),
+    ],
     // 사람·agent credential로 program이라고 주장, program 자격이 다른 job_run의 본문을 보냄
     [
       "person claims program",

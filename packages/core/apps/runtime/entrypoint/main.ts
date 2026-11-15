@@ -123,6 +123,7 @@ async function main(deps: MainDeps): Promise<void> {
     throw error;
   }
   const startChangeset = started.state.store.end();
+  let startHlc: bigint | null = null;
   // sync 앱은 앱 code가 cap-store를 실은 뒤 그 연결에 sync 표를 건다. DB를 쓰지 않는 앱(migration이 없거나
   // cap-store를 싣지 않음)은 sync 일을 하지 않는다.
   if (
@@ -132,13 +133,15 @@ async function main(deps: MainDeps): Promise<void> {
   ) {
     const database = started.state.store.database();
     if (database !== null) {
-      started.state.sync = openSyncStore({
+      const sync = openSyncStore({
         database: database as NodeDatabase,
         node: ids.newId("node"),
         record: started.state.store,
         nowMs: () => clock.nowMs(),
         startChangeset,
       });
+      started.state.sync = sync;
+      startHlc = sync.startHlc;
     }
   }
   // supervisor는 control socket이 열려야 준비를 확인하고 그때 ready 통보의 changeset을 읽는다. 그래서
@@ -146,7 +149,7 @@ async function main(deps: MainDeps): Promise<void> {
   // 사라지므로 시작을 실패로 본다.
   if (
     startChangeset !== null &&
-    !(await publishReady(started.state, startChangeset))
+    !(await publishReady(started.state, startChangeset, startHlc))
   ) {
     throw new Error("ready notice was refused");
   }

@@ -79,8 +79,10 @@ export type SupervisorDeps = {
     desired: DesiredApp;
     nonce: string;
   }) => Promise<string> | string;
-  // 앱 시작이 DB를 바꿨을 때 앱 process가 broker `ready`로 보낸 changeset(base64). 시작 사실에 싣는다.
-  startChangeset?: (processNonce: string) => string | undefined;
+  // 앱 시작이 DB를 바꿨을 때 앱 process가 broker `ready`로 보낸 changeset(base64)과 sync 앱이면 그 clock. 시작 사실에 싣는다.
+  startChangeset?: (
+    processNonce: string,
+  ) => { changeset: string; hlc: string | null } | undefined;
   spawn: (request: SpawnRequest) => Promise<AppChild>;
   probe: (
     child: AppChild,
@@ -511,7 +513,8 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
       },
       ...(startChangeset === undefined
         ? {}
-        : { start_changeset: startChangeset }),
+        : { start_changeset: startChangeset.changeset }),
+      ...(startChangeset?.hlc == null ? {} : { start_hlc: startChangeset.hlc }),
     });
     return true;
   }

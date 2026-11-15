@@ -16,8 +16,9 @@ export type RuntimeRecord =
         process_nonce: string;
         connection_ok: true;
       };
-      // 앱 시작이 DB를 바꿨을 때 앱 process가 ready로 보낸 changeset(base64).
+      // 앱 시작이 DB를 바꿨을 때 앱 process가 ready로 보낸 changeset(base64)과 sync 앱이면 그 clock.
       start_changeset?: string;
+      start_hlc?: string;
     }
   | {
       method: "record_stopped";

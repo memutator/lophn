@@ -302,11 +302,17 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
   const redact = lineRedactor(knownSecrets);
 
   // 앱 시작이 DB를 바꿨을 때 앱 process가 broker `ready`로 보낸 changeset이다. 시작 사실에 싣는다.
-  const startChangesets = new Map<string, string>();
+  const startChangesets = new Map<
+    string,
+    { changeset: string; hlc: string | null }
+  >();
   const ready: ReadyReceiver = {
     ready(child, notice) {
       if (child.mode !== "live" || notice.startChangeset === null) return;
-      startChangesets.set(child.processNonce, notice.startChangeset);
+      startChangesets.set(child.processNonce, {
+        changeset: notice.startChangeset,
+        hlc: notice.startHlc,
+      });
     },
   };
 

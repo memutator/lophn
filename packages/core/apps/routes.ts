@@ -52,6 +52,7 @@ import { type AppSkillsDeps, readAppSkills } from "./screens/skills.ts";
 import { appPhoneScreens } from "../../protocol/apps/phone.ts";
 import { type PhoneScreensDeps, readPhoneScreens } from "./phone/screens.ts";
 import { appSdkStatus } from "../../protocol/apps/sdk-status.ts";
+import type { SyncRecorder } from "./sync/log.ts";
 import type {
   AppRewind,
   AppToolCallPath,
@@ -342,6 +343,8 @@ export function withStartInvocation(
     sql: Pick<Sql, "get">;
     clock: Clock;
     ids: IdSource;
+    // sync 앱이면 시작의 변경도 그 clock(`start_hlc`)과 함께 sync log에 남는다.
+    sync?: Pick<SyncRecorder, "written">;
   },
 ): Writer {
   function lastStartedRelease(app: string): string | null {
@@ -367,7 +370,12 @@ export function withStartInvocation(
       if (!done.ok || done.value.first_seq === null || !input.success) {
         return done;
       }
-      const { app, attestation, start_changeset: changeset } = input.data;
+      const {
+        app,
+        attestation,
+        start_changeset: changeset,
+        start_hlc: hlc,
+      } = input.data;
       if (
         typeof changeset !== "string" ||
         changeset === "" ||
@@ -390,13 +398,17 @@ export function withStartInvocation(
         input_hash: null,
       });
       if (begun.ok) {
-        await deps.ledger.finish(id, {
+        const bytes = new Uint8Array(Buffer.from(changeset, "base64"));
+        const finished = await deps.ledger.finish(id, {
           status: "succeeded",
           finished_at: deps.clock.now(),
           summary: {},
           detail_hash: null,
-          changeset: new Uint8Array(Buffer.from(changeset, "base64")),
+          changeset: bytes,
         });
+        if (finished.ok) {
+          await deps.sync?.written(finished.value, hlc ?? undefined, bytes);
+        }
       }
       return done;
     },

@@ -65,14 +65,16 @@ export function startRuntime(deps: {
   return { start: parsed, state };
 }
 
-// 앱 시작이 DB를 바꿨으면 그 changeset을 ready 통보에 싣는다.
+// 앱 시작이 DB를 바꿨으면 그 changeset을, sync 앱이면 그것에 찍은 clock도 ready 통보에 싣는다.
 export async function publishReady(
   state: RuntimeState,
   startChangeset: Uint8Array | null,
+  startHlc: bigint | null,
 ): Promise<boolean> {
   const response = await state.broker.ready(
     attestation(state),
     encodeChangeset(startChangeset),
+    startHlc === null ? null : String(startHlc),
   );
   return response.status === 200;
 }

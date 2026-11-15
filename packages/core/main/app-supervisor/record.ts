@@ -35,6 +35,9 @@ function recordInput(
       ...(record.start_changeset === undefined
         ? {}
         : { start_changeset: record.start_changeset }),
+      ...(record.start_hlc === undefined
+        ? {}
+        : { start_hlc: record.start_hlc }),
     };
   }
   if (record.method === "record_stopped") {

@@ -125,6 +125,12 @@ export const appRecordStartedInputSchema = z
     ),
     // 앱 시작이 DB를 바꿨을 때의 changeset(base64). 앱 시작 invocation에 붙는다.
     start_changeset: z.string().nullable().optional(),
+    // sync 앱이면 그 변경과 같이 commit된 clock(십진 문자열). sync log에 같이 남는다.
+    start_hlc: z
+      .string()
+      .regex(/^(0|[1-9][0-9]{0,18})$/)
+      .nullable()
+      .optional(),
   })
   .refine(
     (value) =>

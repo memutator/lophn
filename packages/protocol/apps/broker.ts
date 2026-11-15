@@ -26,8 +26,13 @@ const childFields = {
 export const brokerReadyInputSchema = z.strictObject({
   ...childFields,
   attestation: readyAttestationInputSchema,
-  // 앱 시작이 DB를 바꿨을 때의 changeset(base64).
+  // 앱 시작이 DB를 바꿨을 때의 changeset(base64)과, sync 앱이면 그것에 찍은 clock(십진 문자열).
   start_changeset: z.string().nullable().optional(),
+  start_hlc: z
+    .string()
+    .regex(/^(0|[1-9][0-9]{0,18})$/)
+    .nullable()
+    .optional(),
 });
 
 // 후행 기록 전달. 기록 사실의 정본은 invocation 전달 contract다.

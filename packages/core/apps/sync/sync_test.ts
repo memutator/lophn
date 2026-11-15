@@ -1,0 +1,679 @@
+import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { test } from "node:test";
+// 앱 bundle이 싣는 cap-store처럼 전역 STORE_HOOKS를 설치한다. runtime은 그 hook으로 앱과 같은 연결을 쓴다.
+import {
+  closeConnection,
+  openConnection,
+} from "../../../sdk/cap-store/connection.node.ts";
+import {
+  createIdSource,
+  err,
+  manualClock,
+  ok,
+  type Result,
+  seededRandom,
+} from "../../../base/mod.ts";
+import {
+  adoptSnapshot,
+  applyIncoming,
+  dumpData,
+  openClock,
+  stampLocal,
+  type SyncDb,
+} from "../../../protocol/apps/sync/mod.ts";
+import { readChangeset } from "../../../protocol/apps/sync/changeset.ts";
+import { nodeSyncDb } from "../../../protocol/apps/sync/node-db.ts";
+import type { ProcessCallResponse } from "../../../protocol/apps/calls/mod.ts";
+import type { Id } from "../../../protocol/base/ids.ts";
+import type { Sql, Tx } from "../../../protocol/server/mod.ts";
+import { LEDGER_SCHEMA_STEPS } from "../../storage/ledger/schema.ts";
+import { applyMigrations } from "../../storage/migration/migrations.ts";
+import { createAppCalls } from "../calls/service.ts";
+import { createInvocationLedger } from "../invocations/ledger.ts";
+import { invocationsSchemaSteps } from "../invocations/schema.ts";
+import type { AppProcessLink } from "../ports.ts";
+import { createAppRewind } from "../rewind/run.ts";
+import { rewindSchemaSteps } from "../rewind/schema.ts";
+import {
+  handleApply,
+  handleSnapshot,
+  handleSyncApply,
+} from "../runtime/entrypoint/apply.ts";
+import { createStoreAccess } from "../runtime/entrypoint/cap-host.ts";
+import { handleCall } from "../runtime/entrypoint/invoke.ts";
+import { createRuntimeState } from "../runtime/entrypoint/state.ts";
+import { openSyncStore, syncedWrite } from "../runtime/entrypoint/sync.ts";
+import { ensureAppToolPort } from "../runtime/entrypoint/tool-port.ts";
+import { createSyncLog } from "./log.ts";
+import { SYNC_LOG_SCHEMA_STEPS } from "./schema.ts";
+import { createAppSync } from "./service.ts";
+import { createSnapshots } from "./snapshots.ts";
+
+const START = Date.parse("2026-11-16T00:00:00.000Z");
+const clock = manualClock(START);
+const ids = createIdSource({ clock, random: seededRandom(11) });
+const APP = ids.newId("app") as Id<"app">;
+const REL = ids.newId("rel") as Id<"rel">;
+
+// 앱 code의 write handler. 지금 test의 앱 DB에 받은 SQL을 돈다.
+let appDb: DatabaseSync | null = null;
+ensureAppToolPort().register({
+  name: "run_sql",
+  handle: (input) => {
+    appDb!.exec((input as { sql: string }).sql);
+    return null;
+  },
+});
+
+const encode = (value: unknown) =>
+  new TextEncoder().encode(JSON.stringify(value));
+
+function reply<T>(done: { status: number; body: unknown }): Result<T> {
+  if (done.status === 200) return ok(done.body as T);
+  const error = (done.body as { error: { code: "conflict"; message: string } })
+    .error;
+  return err(error);
+}
+
+// 컴퓨터 한 대: 앱 process(같은 thread의 runtime handler)와 진짜 SQLite ledger 위의 invocation·sync log·호출 길.
+function computer() {
+  const dir = mkdtempSync(join(tmpdir(), "lophn-app-sync-"));
+  const file = join(dir, "app.sqlite");
+  const raw = openConnection(file);
+  raw.exec("create table item (id text primary key, title text, done integer)");
+  appDb = raw;
+  const store = createStoreAccess();
+  const state = createRuntimeState({
+    identity: {
+      app: APP,
+      release: REL,
+      bundleHash: "hash",
+      mode: "live",
+      processNonce: "nonce",
+    },
+    declaration: {
+      operations: [{ name: "run_sql", effect: "write" }],
+      commands: [],
+    } as never,
+    broker: {} as never,
+    store,
+    dataSchema: 1,
+    controlSocket: "socket",
+  });
+  state.ready = true;
+  state.accepting = true;
+  state.sync = openSyncStore({
+    database: store.database() as DatabaseSync,
+    node: "computer",
+    record: store,
+    nowMs: () => clock.nowMs(),
+    startChangeset: null,
+  });
+
+  const ledgerDb = new DatabaseSync(":memory:");
+  // events(registered_seq의 근원)와 blob_refs만 쓴다.
+  const ledgerSteps = LEDGER_SCHEMA_STEPS.filter((step) =>
+    ["common-tables", "erase-windows", "blob-refs"].includes(step.id),
+  );
+  for (const step of [
+    ...ledgerSteps,
+    ...invocationsSchemaSteps,
+    ...rewindSchemaSteps,
+    ...SYNC_LOG_SCHEMA_STEPS,
+  ]) {
+    ledgerDb.exec(step.sql);
+  }
+  const sql: Sql = {
+    run: (text, params) => ledgerDb.prepare(text).run(...params),
+    get: (text, params) => ledgerDb.prepare(text).get(...params) as never,
+    all: (text, params) => ledgerDb.prepare(text).all(...params) as never,
+  };
+  const tx = {
+    sql,
+    now: () => clock.now(),
+    registerBlobRef: (ref: {
+      owner_kind: string;
+      owner_key: string;
+      field: string;
+      registered_seq: string;
+      source: { blob: { hash: string; size_bytes: number } };
+    }) => {
+      sql.run(
+        `insert into blob_refs (owner_kind, owner_key, field, hash, size_bytes, registered_seq)
+         values (?, ?, ?, ?, ?, ?)`,
+        [
+          ref.owner_kind,
+          ref.owner_key,
+          ref.field,
+          ref.source.blob.hash,
+          ref.source.blob.size_bytes,
+          BigInt(ref.registered_seq),
+        ],
+      );
+      return ok({} as never);
+    },
+  } as unknown as Tx;
+  function transaction<T>(fn: (tx: Tx) => Result<T>): Result<T> {
+    ledgerDb.exec("begin immediate");
+    const done = fn(tx);
+    ledgerDb.exec(done.ok ? "commit" : "rollback");
+    return done;
+  }
+  const stored = new Map<string, Uint8Array>();
+  const blobs = {
+    async prepare(stream: ReadableStream<Uint8Array>) {
+      const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+      const hash = createHash("sha256").update(bytes).digest("hex");
+      stored.set(hash, bytes);
+      return ok({
+        preparation: "prep",
+        principal: "machine:test",
+        purpose: "app_changeset",
+        hash,
+        size_bytes: bytes.length,
+      });
+    },
+    read(hash: string, offset: number, length: number) {
+      const bytes = stored.get(hash)!;
+      return Promise.resolve(
+        ok({
+          hash,
+          sizeBytes: bytes.length,
+          bytes: bytes.slice(offset, offset + length),
+        }),
+      );
+    },
+  };
+  const ledger = createInvocationLedger({
+    sql,
+    transaction,
+    blobs,
+    changed: () => {},
+  });
+
+  // snapshot을 뜨기 직전에 멈춰 둘 수 있다.
+  const hold: { reached?: () => void; gate?: Promise<void> } = {};
+  const link: AppProcessLink = {
+    async call(_target, request) {
+      const done = await handleCall(state, encode(request));
+      return { sent: true, response: done.body as ProcessCallResponse };
+    },
+    apply: async (_app, request) =>
+      reply(await handleApply(state, encode(request))),
+    syncApply: async (_app, request) =>
+      reply(await handleSyncApply(state, encode(request))),
+    async snapshot(_app, request) {
+      hold.reached?.();
+      await hold.gate;
+      return reply(await handleSnapshot(state, encode({ path: request.path })));
+    },
+  };
+
+  const activeRelease = () => ok(REL);
+  const isSync = () => true;
+  const log = createSyncLog({
+    sql,
+    transaction,
+    blobs,
+    ledger,
+    activeRelease,
+    isSync,
+    now: () => clock.now(),
+    changed: () => {},
+  });
+  const calls = createAppCalls({
+    callers: { agentToolCall: () => ok(null) },
+    lookup: {
+      find: () => ok({ release: REL, effect: "write", public: true }),
+      findPreview: () => Promise.resolve(ok(null)),
+    },
+    apps: { activeRelease, archived: () => ok(false) },
+    ledger,
+    link,
+    assignmentOf: () => err({ code: "internal", message: "unused" }),
+    appGrantsOf: () =>
+      Promise.resolve(err({ code: "internal", message: "unused" })),
+    clock,
+    ids,
+    sync: log,
+  });
+  const appSync = createAppSync({
+    log,
+    phone: calls.phone,
+    activeRelease,
+    isSync,
+  });
+  const snapshots = createSnapshots({
+    dataRoot: dir,
+    log,
+    exclusive: calls.phone.exclusive,
+    link,
+    activeRelease,
+    isSync,
+    clock,
+    ids,
+    later: () => {},
+  });
+  const rewind = createAppRewind({
+    ledger,
+    link,
+    intake: calls.intake,
+    signal: { changed: () => {} },
+    sql,
+    activeRelease,
+    now: () => clock.now() as never,
+    newId: () => ids.newId("rwd") as Id<"rwd">,
+    sync: log,
+  });
+
+  async function write(text: string) {
+    clock.advance(1000);
+    const done = await calls.path.call(
+      {
+        target: { mode: "live", app: APP, release: null },
+        kind: "operation",
+        name: "run_sql",
+        input: { sql: text },
+        caller: { kind: "person", view_session: "view" },
+      },
+      { actor: "user" },
+    );
+    assert.ok(done.ok && done.value.outcome.status === "succeeded");
+    return done.value.invocation as Id<"inv">;
+  }
+
+  // 폰 한 대: snapshot을 받아 사본을 열고, 자기 write를 찍고, push·pull한다.
+  async function phone(name: string) {
+    const device = ids.newId("dev") as Id<"dev">;
+    const principal = `device:${device}`;
+    const replica = { db: null as unknown as SyncDb, cursor: 0 };
+
+    async function adopt(snapshot: {
+      snapshot: string;
+      size: number;
+      seq: number;
+    }) {
+      const bytes = new Uint8Array(snapshot.size);
+      let offset = 0;
+      while (offset < snapshot.size) {
+        const part = await snapshots.read(principal, {
+          snapshot: snapshot.snapshot,
+          offset,
+          length: 1024 * 1024,
+        });
+        assert.ok(part.ok);
+        bytes.set(part.value, offset);
+        offset += part.value.length;
+      }
+      const path = join(dir, `${name}-${snapshot.seq}.sqlite`);
+      writeFileSync(path, bytes);
+      const opened = new DatabaseSync(path);
+      opened.exec("pragma foreign_keys = off");
+      replica.db = nodeSyncDb(opened);
+      adoptSnapshot(replica.db, {
+        node: name,
+        cursor: String(snapshot.seq),
+        release: REL,
+      });
+      replica.cursor = snapshot.seq;
+    }
+
+    async function resnapshot() {
+      const taken = await snapshots.take(principal, { app: APP });
+      assert.ok(taken.ok);
+      await adopt(taken.value);
+    }
+
+    await resnapshot();
+    return {
+      device,
+      principal,
+      replica,
+      adopt,
+      resnapshot,
+      dump: () => dumpData(replica.db),
+      // 폰 앱의 write 하나: session으로 뜬 changeset을 폰 clock으로 찍는다.
+      write(atMs: number, text: string) {
+        const db = replica.db;
+        db.exec("begin immediate");
+        const session = db.session();
+        db.exec(text);
+        const changeset = session.changeset();
+        session.close();
+        const hlc = openClock(db).next(atMs);
+        assert.ok(stampLocal(db, changeset, hlc).ok);
+        db.exec("commit");
+        return {
+          id: ids.newId("chg").slice("chg_".length),
+          operation: "edit",
+          started_at: new Date(atMs).toISOString(),
+          hlc: String(hlc),
+          changeset: Buffer.from(changeset).toString("base64"),
+        };
+      },
+      push(changes: { id: string; hlc: string; changeset: string }[]) {
+        return appSync.push(principal, {
+          app: APP,
+          release: REL,
+          changes: changes as never,
+        });
+      },
+      async pull() {
+        const pulled = await appSync.pull(principal, {
+          app: APP,
+          release: REL,
+          after: replica.cursor,
+        });
+        assert.ok(pulled.ok);
+        const db = replica.db;
+        db.exec("begin immediate");
+        const applied = applyIncoming(
+          db,
+          pulled.value.changes.map((change) => ({
+            hlc: BigInt(change.hlc),
+            changeset: new Uint8Array(Buffer.from(change.changeset, "base64")),
+          })),
+          openClock(db),
+          clock.nowMs(),
+        );
+        db.exec(applied.ok ? "commit" : "rollback");
+        assert.ok(applied.ok);
+        replica.cursor = pulled.value.next;
+        return pulled.value;
+      },
+    };
+  }
+
+  const logRows = () =>
+    sql.all("select * from app_sync_log order by seq", []).map((row) => ({
+      ...row,
+    }));
+
+  return {
+    raw,
+    state,
+    sql,
+    ledger,
+    log,
+    calls,
+    snapshots,
+    rewind,
+    hold,
+    write,
+    phone,
+    logRows,
+    dump: () => dumpData(state.sync!.db),
+    close: () => closeConnection(file),
+  };
+}
+
+// 지우면 다시 보낸 push가 앱 DB에 두 번 적용되고 Activity에 같은 변경이 둘 남거나, 다른 폰이 컴퓨터가 실제로
+// 바꾼 것(effective)만 받아 clock이 어긋난다.
+test("같은 변경 id를 두 번 push하면 invocation 하나와 log 줄 하나만 생기고 둘째는 duplicate와 같은 seq를 받는다. invocation의 changeset은 effective이고 다른 폰은 원래 changeset을 받는다", async () => {
+  const pc = computer();
+  try {
+    await pc.write("insert into item values ('a', 'milk', 0)");
+    const phoneA = await pc.phone("a");
+    const phoneB = await pc.phone("b");
+
+    // 폰이 먼저 title과 done을 고치고, 컴퓨터가 더 늦게 title을 고친다.
+    const change = phoneA.write(
+      clock.nowMs() + 10,
+      "update item set title = 'milk P', done = 1 where id = 'a'",
+    );
+    await pc.write("update item set title = 'milk C' where id = 'a'");
+
+    const first = await phoneA.push([change]);
+    const again = await phoneA.push([change]);
+    assert.ok(first.ok && again.ok);
+    assert.equal(first.value.results[0]!.status, "applied");
+    assert.deepEqual(again.value.results[0], {
+      id: change.id,
+      status: "duplicate",
+      seq: first.value.results[0]!.seq,
+    });
+
+    const fromPhone = pc.ledger.list({ app: APP, release: REL, mode: "live" });
+    assert.ok(fromPhone.ok);
+    const invocations = fromPhone.value.filter(
+      (one) => one.caller?.kind === "person" && one.caller.device !== undefined,
+    );
+    assert.equal(invocations.length, 1);
+    assert.deepEqual(invocations[0]!.caller, {
+      kind: "person",
+      view_session: change.id,
+      device: phoneA.device,
+    });
+    assert.equal(invocations[0]!.started_at, change.started_at);
+    assert.equal(
+      pc.logRows().filter((row) => row["device"] === phoneA.device).length,
+      1,
+    );
+
+    // invocation의 changeset은 컴퓨터에서 실제로 바뀐 done뿐이다(title은 컴퓨터가 더 늦게 썼다).
+    const effective = await pc.ledger.changesetOf(
+      invocations[0]!.id as Id<"inv">,
+    );
+    assert.ok(effective.ok && effective.value !== null);
+    const read = readChangeset(effective.value);
+    assert.ok(read.ok);
+    assert.deepEqual(
+      read.value.map((one) => one.new),
+      [[undefined, undefined, BigInt(1)]],
+    );
+
+    // 다른 폰은 폰 A가 보낸 원래 changeset과 hlc를 받는다.
+    const pulled = await phoneB.pull();
+    const relayed = pulled.changes.find((one) => one.origin === "device");
+    assert.deepEqual(
+      relayed && { hlc: relayed.hlc, changeset: relayed.changeset },
+      { hlc: change.hlc, changeset: change.changeset },
+    );
+    await phoneA.pull();
+    assert.equal(phoneB.dump(), pc.dump());
+    assert.equal(phoneA.dump(), pc.dump());
+    assert.match(pc.dump(), /'a'\|'milk C'\|1/);
+  } finally {
+    pc.close();
+  }
+});
+
+// 지우면 폰에서 온 변경을 되돌려도 다른 폰에는 옛 clock이 남아 되돌림이 그 폰에서 지거나 아예 가지 않는다.
+test("폰 변경을 덮는 rewind는 sync 전의 row로 돌리고 rewind log 줄을 남기며, 그 줄은 이미 그 변경을 받은 다른 폰의 pull에서 이긴다", async () => {
+  const pc = computer();
+  try {
+    await pc.write("insert into item values ('a', 'milk', 0)");
+    const before = pc.dump();
+    const phoneA = await pc.phone("a");
+    const phoneB = await pc.phone("b");
+
+    const change = phoneA.write(
+      clock.nowMs() + 10,
+      "update item set title = 'milk P' where id = 'a'",
+    );
+    const pushed = await phoneA.push([change]);
+    assert.ok(pushed.ok && pushed.value.results[0]!.status === "applied");
+    await phoneB.pull();
+    assert.match(phoneB.dump(), /'milk P'/);
+
+    // 폰에서 온 invocation도 다른 live write처럼 rewind 범위에 든다.
+    const listed = pc.ledger.list({ app: APP, release: REL, mode: "live" });
+    assert.ok(listed.ok);
+    const fromPhone = listed.value.find(
+      (one) => one.caller?.kind === "person" && one.caller.device !== undefined,
+    )!;
+    const rewound = await pc.rewind.apply(
+      APP,
+      fromPhone.id as Id<"inv">,
+      "user",
+    );
+    assert.ok(rewound.ok && rewound.value.status === "applied");
+    assert.deepEqual(rewound.value.invocations, [fromPhone.id]);
+    assert.equal(pc.dump(), before);
+
+    const pulledB = await phoneB.pull();
+    assert.deepEqual(
+      pulledB.changes.map((one) => one.origin),
+      ["rewind"],
+    );
+    await phoneA.pull();
+    assert.equal(phoneB.dump(), before);
+    assert.equal(phoneA.dump(), before);
+  } finally {
+    pc.close();
+  }
+});
+
+// 지우면 snapshot을 뜨는 사이에 든 write가 사본에도 들고 seq 뒤에도 남거나, 어느 쪽에도 없어 그 폰이 영영 받지 못한다.
+test("snapshot은 그 seq와 맞는다: 뜨는 동안 온 push와 write는 snapshot 뒤에만 들고, seq N의 snapshot에 N 뒤의 pull을 적용하면 컴퓨터 DB와 같다", async () => {
+  const pc = computer();
+  try {
+    await pc.write("insert into item values ('a', 'milk', 0)");
+    const phoneB = await pc.phone("b");
+    const late = await pc.phone("c");
+
+    let open!: () => void;
+    pc.hold.gate = new Promise((resolve) => (open = resolve));
+    const reached = new Promise<void>((resolve) => (pc.hold.reached = resolve));
+    const taking = pc.snapshots.take(late.principal, { app: APP });
+    await reached;
+    pc.hold.reached = undefined;
+    const pushing = phoneB.push([
+      phoneB.write(
+        clock.nowMs() + 10,
+        "update item set done = 1 where id = 'a'",
+      ),
+    ]);
+    const writing = pc.write("insert into item values ('b', 'eggs', 0)");
+    await new Promise((resolve) => setImmediate(resolve));
+    open();
+    const [taken, pushed] = await Promise.all([taking, pushing, writing]);
+    assert.ok(taken.ok && pushed.ok);
+    assert.ok(pushed.value.results[0]!.seq > taken.value.seq);
+
+    await late.adopt(taken.value);
+    assert.doesNotMatch(late.dump(), /eggs|'milk'\|1/);
+    await late.pull();
+    assert.equal(late.dump(), pc.dump());
+    assert.match(pc.dump(), /'a'\|'milk'\|1\n'b'\|'eggs'\|0/);
+  } finally {
+    pc.close();
+  }
+});
+
+// 지우면 core가 앱 commit과 log 줄 사이에서 죽은 변경이 어느 폰에도 가지 않아 두 기기가 조용히 갈라진다.
+test("log 줄 없이 끝난 컴퓨터 write는 core가 다시 뜰 때 채워져 폰이 다음 pull에서 새 snapshot으로 받는다", async () => {
+  const pc = computer();
+  try {
+    await pc.write("insert into item values ('a', 'milk', 0)");
+    const phone = await pc.phone("a");
+
+    // 앱은 commit했고 invocation도 끝났지만 core가 log 줄을 쓰기 전에 죽었다.
+    const sync = pc.state.sync!;
+    const done = await syncedWrite(sync, () =>
+      Promise.resolve(pc.raw.exec("update item set title = 'milk C'")),
+    );
+    assert.ok(done.ok);
+    const id = ids.newId("inv") as Id<"inv">;
+    assert.ok(
+      pc.ledger.begin({
+        id,
+        app: APP,
+        release: REL,
+        mode: "live",
+        operation: { kind: "operation", name: "run_sql" },
+        caller: { kind: "person", view_session: "view" },
+        effect: "write",
+        input_hash: null,
+        started_at: clock.now(),
+      }).ok,
+    );
+    assert.ok(
+      (
+        await pc.ledger.finish(id, {
+          status: "succeeded",
+          finished_at: clock.now(),
+          summary: {},
+          detail_hash: null,
+          changeset: done.value.changeset,
+        })
+      ).ok,
+    );
+    assert.equal((await phone.pull()).snapshot_needed, false);
+
+    const filled = await pc.log.backfill(APP);
+    assert.ok(filled.ok && filled.value === 1);
+    const again = await pc.log.backfill(APP);
+    assert.ok(again.ok && again.value === 0);
+
+    assert.equal((await phone.pull()).snapshot_needed, true);
+    await phone.resnapshot();
+    assert.equal((await phone.pull()).snapshot_needed, false);
+    assert.equal(phone.dump(), pc.dump());
+    assert.match(pc.dump(), /'milk C'/);
+  } finally {
+    pc.close();
+  }
+});
+
+// 표마다 행 전체(schema 이력 표는 빼고). 새 step이 더하는 표도 뺀다.
+function dumpTables(db: DatabaseSync): [string, string[]][] {
+  return db
+    .prepare(
+      "select name from sqlite_master where type = 'table' and name not in ('app_sync_log', 'schema_migrations') and name not glob 'sqlite_*' order by name",
+    )
+    .all()
+    .map((row) => String(row["name"]))
+    .map((table) => [
+      table,
+      db
+        .prepare(`select * from "${table}" order by rowid`)
+        .all()
+        .map((row) =>
+          JSON.stringify(row, (_key, value: unknown) =>
+            typeof value === "bigint" ? String(value) : value,
+          ),
+        ),
+    ]);
+}
+
+// 지우면 새 step이 기존 표를 고치거나 지워 사람이 쓰던 ledger의 기록이 사라진다.
+test("schema step apps.sync-log가 기존 ledger에 걸려도 다른 표의 행이 그대로다", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lophn-sync-step-"));
+  const path = join(dir, "ledger.sqlite");
+  const before = [
+    ...LEDGER_SCHEMA_STEPS,
+    ...invocationsSchemaSteps,
+    ...rewindSchemaSteps,
+  ];
+  assert.ok((await applyMigrations(path, before, { clock })).ok);
+  const db = new DatabaseSync(path);
+  db.exec(`
+    insert into blob_refs (owner_kind, owner_key, field, hash, size_bytes, registered_seq)
+      values ('app_invocation', 'inv_1', 'changeset', '${"a".repeat(64)}', 3, 0);
+    insert into app_rewinds (id, app, release, from_invocation, requested_by, status, invocations, started_at)
+      values ('rwd_1', 'app_1', 'rel_1', 'inv_1', 'user', 'applying', '[]', '2026-11-16T00:00:00.000Z');
+  `);
+  const kept = dumpTables(db);
+  db.close();
+
+  const applied = await applyMigrations(
+    path,
+    [...before, ...SYNC_LOG_SCHEMA_STEPS],
+    { clock },
+  );
+  assert.deepEqual(applied.ok && applied.value, 1);
+  const after = new DatabaseSync(path);
+  assert.deepEqual(dumpTables(after), kept);
+  assert.equal(
+    after.prepare("select count(*) as n from app_sync_log").get()!["n"],
+    0,
+  );
+  after.close();
+});

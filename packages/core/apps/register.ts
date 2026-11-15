@@ -84,6 +84,13 @@ import {
   appTraySet,
   packagesGuideBody,
 } from "../../protocol/apps/mod.ts";
+import {
+  appSyncPull,
+  appSyncPush,
+  appSyncSnapshot,
+  appSyncSnapshotFile,
+} from "../../protocol/apps/app-sync.ts";
+import { SYNC_LOG_BLOB_FIELDS } from "./sync/schema.ts";
 import type {
   ReaderRegistration,
   TxPortRegistration,
@@ -119,7 +126,8 @@ function unattachedRead<
     | typeof appIcon
     | typeof appSkills
     | typeof appPhoneScreens
-    | typeof appSdkStatus,
+    | typeof appSdkStatus
+    | typeof appSyncPull,
 >(route: R) {
   return {
     route,
@@ -162,6 +170,7 @@ export function createLedgerRegistration(
       PACKAGE_GUIDE_BLOB_FIELD,
       PACKAGE_BUNDLE_BLOB_FIELD,
       ...INVOCATION_BLOB_FIELDS,
+      ...SYNC_LOG_BLOB_FIELDS,
     ],
     // `/previews/*`는 supervisor 통로가 생긴 core가 apps 제어(apps-control)에서 service로 덮는다.
     // 덮기 전과 통로가 없는 등록(harness)은 unavailable이다(apps/preview).
@@ -175,6 +184,7 @@ export function createLedgerRegistration(
       // 파일과 앱 process 관측을 읽어서 core 조립이 handler로 덮는다.
       unattachedRead(appPhoneScreens),
       unattachedRead(appSdkStatus),
+      unattachedRead(appSyncPull),
       // 도는 줄은 core 메모리라 core 조립(apps control)이 driver가 읽는 줄로 덮는다.
       createActivationQueueRead({
         entries: () =>
@@ -280,9 +290,12 @@ export function createLedgerRegistration(
       releaseActivate,
       // handler는 wiring/apps.ts가 붙인다(core의 view 표).
       ...APP_VIEW_ROUTES,
+      // 폰 sync. handler는 wiring/apps.ts가 붙인다.
+      appSyncPush,
+      appSyncSnapshot,
     ],
     // 앱 화면의 byte는 core가 UI bundle 사본에서 흘려 준다.
-    files: [appScreenFile],
+    files: [appScreenFile, appSyncSnapshotFile],
     blobPurposes: INVOCATION_BLOB_PURPOSES,
     // coding-agent connection의 app scope 검사와 documents의 자리 해석은 같은 Tx의
     // 존재 조회를 쓴다. TargetAuthorization은 tx.ts가 주입하므로 여기 등록하지 않는다.

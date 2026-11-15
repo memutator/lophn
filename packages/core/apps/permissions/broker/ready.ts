@@ -6,7 +6,10 @@ import { invalid } from "./access.ts";
 import type { BrokerChild } from "./invocations.ts";
 
 export interface ReadyReceiver {
-  ready(child: BrokerChild, notice: { startChangeset: string | null }): void;
+  ready(
+    child: BrokerChild,
+    notice: { startChangeset: string | null; startHlc: string | null },
+  ): void;
 }
 
 export type ReadyService = {
@@ -22,6 +25,7 @@ export function createReadyService(deps: {
       if (!parsed.success) return invalid("ready input is invalid");
       deps.receiver.ready(child, {
         startChangeset: parsed.data.start_changeset ?? null,
+        startHlc: parsed.data.start_hlc ?? null,
       });
       return ok({ accepted: true });
     },

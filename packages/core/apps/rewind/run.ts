@@ -11,6 +11,7 @@ import type {
   AppViewSignal,
   InvocationLedger,
 } from "../ports.ts";
+import type { SyncRecorder } from "../sync/log.ts";
 import { rewindPlan } from "./plan.ts";
 import {
   finishRewind,
@@ -36,6 +37,8 @@ export type RewindDeps = {
   now(): At;
   newId(): Id<"rwd">;
   graceMs?: number;
+  // sync 앱이면 rewind가 실제로 바꾼 것을 sync log에 남겨 폰이 받는다.
+  sync?: Pick<SyncRecorder, "rewound">;
 };
 
 export function createAppRewind(deps: RewindDeps): AppRewind {
@@ -96,6 +99,16 @@ export function createAppRewind(deps: RewindDeps): AppRewind {
       }
       if (applied.value.status === "conflict") {
         return cancel(id, "conflict", applied.value.message);
+      }
+      // 새 clock이 찍혀 폰이 이미 받은 것을 이긴다.
+      const { effective, hlc } = applied.value;
+      if (effective && hlc !== undefined) {
+        await deps.sync?.rewound(
+          app,
+          plan.value.release as Id<"rel">,
+          new Uint8Array(Buffer.from(effective, "base64")),
+          hlc,
+        );
       }
     }
 

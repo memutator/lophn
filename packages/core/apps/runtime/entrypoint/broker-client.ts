@@ -36,11 +36,16 @@ export function createBrokerClient(deps: {
   return {
     // cap-host port의 `post`다. 신원(process_nonce·mode)은 연결이 붙이고 본문은 그 위에 얹힌다.
     post,
-    // 앱 시작이 DB를 바꿨으면 그 changeset(base64)을 싣는다.
-    ready(attestation: unknown, startChangeset: string | null) {
+    // 앱 시작이 DB를 바꿨으면 그 changeset(base64)을, sync 앱이면 그것에 찍은 clock도 싣는다.
+    ready(
+      attestation: unknown,
+      startChangeset: string | null,
+      startHlc: string | null,
+    ) {
       return post(BROKER_PATHS.ready, {
         attestation,
         ...(startChangeset === null ? {} : { start_changeset: startChangeset }),
+        ...(startHlc === null ? {} : { start_hlc: startHlc }),
       });
     },
     // 다른 앱 호출. 부른 쪽은 core가 정한다.

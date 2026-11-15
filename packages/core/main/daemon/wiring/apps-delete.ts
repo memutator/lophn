@@ -29,6 +29,7 @@ import {
 } from "../../../config/shell-settings.ts";
 import { sweepBundleFiles } from "../../../apps/releases/bundle/share.ts";
 import { eraseJobsOfApp } from "../../../jobs/commands.ts";
+import { eraseSyncLog } from "../../../apps/sync/log.ts";
 import {
   agentSlotOf,
   createAgentStore,
@@ -109,6 +110,9 @@ function eraseRemnants(
 
   eraseJobsOfApp(tx, app.id);
   eraseShareRequest(tx, app.id);
+  // 폰 sync log. 임시 snapshot file은 앱 폴더 아래라 commit 뒤 폴더와 같이 지워진다.
+  const synced = eraseSyncLog(tx, app.id);
+  if (!synced.ok) return synced;
   return ok({ sessions });
 }
 

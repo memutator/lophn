@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import {
   type Clock,
   err,
@@ -23,6 +24,7 @@ import type {
   InvocationLedger,
 } from "../ports.ts";
 import { CALL_BODY_MAX_BYTES } from "../runtime/entrypoint/limits.ts";
+import type { PhoneChange, SyncRecorder } from "../sync/log.ts";
 import { type CallAuth, type VerifiedCaller, verifyCaller } from "./caller.ts";
 import { callAllowed, type CallGateDeps } from "./gate.ts";
 import {
@@ -60,6 +62,22 @@ export type AppCallsDeps = CallGateDeps & {
   clock: Clock;
   ids: IdSource;
   timers?: Timers;
+  // sync 앱의 sync log. 없으면 폰에서 온 변경을 받지 않는다.
+  sync?: SyncRecorder;
+};
+
+// 폰에서 온 변경 하나를 컴퓨터에 적용하는 입력. operation과 started_at은 폰이 준 그대로 invocation에 남는다.
+export type PhoneApply = {
+  app: Id<"app">;
+  release: Id<"rel">;
+  operation: string;
+  started_at: string;
+  change: PhoneChange;
+};
+
+export type PhoneApplied = {
+  status: "applied" | "duplicate" | "skipped";
+  seq: number;
 };
 
 const DENIAL_MESSAGES: Record<ToolDenial["code"], string> = {
@@ -90,6 +108,12 @@ export function createAppCalls(deps: AppCallsDeps): {
   intake: AppIntake & {
     flight(id: Id<"inv">): Flight | undefined;
     chainApps(parent: Id<"inv"> | null): Id<"app">[];
+  };
+  // 폰 sync가 이 앱의 write 줄과 접수를 같이 쓴다(`apps/sync`).
+  phone: {
+    apply(input: PhoneApply): Promise<Result<PhoneApplied>>;
+    // 접수가 열리기를 기다린 뒤 write 줄을 쥔 채 work를 돈다. 줄이 정리되면(abandon) null이다.
+    exclusive<T>(app: Id<"app">, work: () => Promise<T>): Promise<T | null>;
   };
 } {
   const queue = createWriteQueue();
@@ -158,6 +182,10 @@ export function createAppCalls(deps: AppCallsDeps): {
       if (input.target.mode === "live") {
         return forbidden("this credential calls previews only");
       }
+    }
+    // 기기가 붙은 person은 폰 변경을 맞출 때 core만 만든다.
+    if (input.caller.kind === "person" && input.caller.device !== undefined) {
+      return forbidden("a call cannot claim a device");
     }
     const verified = verifyCaller(input, auth, {
       callers: deps.callers,
@@ -372,14 +400,20 @@ export function createAppCalls(deps: AppCallsDeps): {
 
       const settled = settleResponse(sent.response);
       if (record) {
+        const changeset = decodeChangeset(sent.response);
         const closed = await deps.ledger.finish(base.id, {
           status: settled.status,
           finished_at: deps.clock.now(),
           summary: settled.summary,
           detail_hash: null,
-          changeset: decodeChangeset(sent.response),
+          changeset,
         });
         if (!closed.ok) return closed;
+        // 같은 write 줄 안이라 sync log의 순서가 앱 DB에 적용된 순서와 같다.
+        if (sent.response === null) await deps.sync?.unknown(closed.value);
+        else {
+          await deps.sync?.written(closed.value, sent.response.hlc, changeset);
+        }
         return ok({ invocation: base.id, outcome: settled.outcome });
       }
       // 성공한 읽기는 기록을 남기지 않는다.
@@ -423,6 +457,7 @@ export function createAppCalls(deps: AppCallsDeps): {
             changeset: null,
           });
     if (!closed.ok) return closed;
+    if (base.effect !== "read") await deps.sync?.unknown(closed.value);
     return ok({ invocation: base.id, outcome: settled.outcome });
   }
 
@@ -444,5 +479,149 @@ export function createAppCalls(deps: AppCallsDeps): {
     return ok({ invocation: base.id, outcome: settled.outcome });
   }
 
-  return { path: { call }, intake };
+  async function exclusive<T>(
+    app: Id<"app">,
+    work: () => Promise<T>,
+  ): Promise<T | null> {
+    await intake.admit(app);
+    const release = await queue.acquire(app);
+    if (release === null) return null;
+    try {
+      return await work();
+    } finally {
+      release();
+    }
+  }
+
+  // 폰에서 온 변경 하나: write 줄을 잡고 → invocation 시작 → 앱 process가 칸 단위 last-write-wins로 적용 → effective
+  // changeset으로 닫기 → sync log 줄. 도는 호출로 접수에 들어 rewind·activation이 끝나기를 기다린다.
+  async function applyPhone(input: PhoneApply): Promise<Result<PhoneApplied>> {
+    if (deps.sync === undefined) {
+      return err({ code: "unavailable", message: "sync is not attached" });
+    }
+    const sync: SyncRecorder = deps.sync;
+    const { app, release, change } = input;
+    await intake.admit(app);
+    const base: CallRecordBase = {
+      id: deps.ids.newId("inv") as Id<"inv">,
+      app,
+      release,
+      mode: "live",
+      operation: { kind: "operation", name: input.operation },
+      caller: {
+        kind: "person",
+        view_session: change.id,
+        device: change.device,
+      },
+      effect: "write",
+      input_hash: null,
+    };
+    // 폰의 시각이 컴퓨터보다 앞서 있어도 시작이 끝보다 늦게 남지 않는다.
+    const finishedAt = () => {
+      const now = deps.clock.now();
+      return now < input.started_at ? input.started_at : now;
+    };
+    const unavailable = (): Result<never> =>
+      err({ code: "unavailable", message: "the app is not running" });
+    let sent = false;
+    let abandoned = false;
+    let forced!: (result: Result<PhoneApplied>) => void;
+    const forcedResult = new Promise<Result<PhoneApplied>>((resolve) => {
+      forced = resolve;
+    });
+    const flight: Flight = {
+      id: base.id,
+      app,
+      release,
+      mode: "live",
+      parent: null,
+      async abandon() {
+        abandoned = true;
+        if (sent) await closeUnknown(base, input.started_at);
+        forced(unavailable());
+      },
+    };
+
+    async function work(): Promise<Result<PhoneApplied> | null> {
+      const lane = await queue.acquire(app);
+      if (lane === null || abandoned) return null;
+      try {
+        const active = deps.apps.activeRelease(app);
+        if (!active.ok) return active;
+        if (active.value !== release) {
+          return err({
+            code: "conflict",
+            message: "the release is not active",
+            details: { active_release: active.value },
+          });
+        }
+        const known = sync.duplicate(change.device, change.id);
+        if (!known.ok) return known;
+        if (known.value !== null) {
+          return ok({ status: "duplicate", seq: known.value });
+        }
+        const begun = deps.ledger.begin({
+          ...base,
+          started_at: input.started_at,
+        });
+        if (!begun.ok) return begun;
+        sent = true;
+        const applied = await deps.link.syncApply(app, {
+          change: {
+            hlc: change.hlc,
+            changeset: Buffer.from(change.changeset).toString("base64"),
+          },
+        });
+        if (abandoned) return null;
+        if (!applied.ok || applied.value.status === "not_sync") {
+          const error = applied.ok
+            ? {
+                code: "invalid_input" as const,
+                message: "the app does not run on the phone",
+              }
+            : applied.error;
+          const closed = await deps.ledger.finish(base.id, {
+            status: "failed",
+            finished_at: finishedAt(),
+            summary: { outcome: "failed", error_code: error.code },
+            detail_hash: null,
+            changeset: null,
+          });
+          if (!closed.ok) return closed;
+          return err(error);
+        }
+        const outcome = applied.value;
+        const effective =
+          outcome.status === "applied" && outcome.effective !== null
+            ? new Uint8Array(Buffer.from(outcome.effective, "base64"))
+            : null;
+        const closed = await deps.ledger.finish(base.id, {
+          status: outcome.status === "applied" ? "succeeded" : "failed",
+          finished_at: finishedAt(),
+          summary:
+            outcome.status === "applied"
+              ? { outcome: "succeeded" }
+              : { outcome: "failed", error_code: "skipped" },
+          detail_hash: null,
+          changeset: effective,
+        });
+        if (!closed.ok) return closed;
+        const logged = await sync.phone(closed.value, change, outcome.status);
+        if (!logged.ok) return logged;
+        return ok({ status: outcome.status, seq: logged.value });
+      } finally {
+        lane();
+      }
+    }
+
+    intake.enter(flight);
+    try {
+      const done = await Promise.race([work(), forcedResult]);
+      return done === null ? await forcedResult : done;
+    } finally {
+      intake.leave(base.id);
+    }
+  }
+
+  return { path: { call }, intake, phone: { apply: applyPhone, exclusive } };
 }

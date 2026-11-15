@@ -79,6 +79,7 @@ import type {
 import {
   loadApp,
   loadAppIcon,
+  loadApps,
   SOURCE_FOLDER_CONTEXT,
   withSourceFolder,
 } from "../../../apps/registration/mod.ts";
@@ -135,6 +136,13 @@ import { viewErrorLogHandler } from "../../../apps/runtime/view-errors.ts";
 import { createScreenFileDeps } from "../../../apps/screens/mod.ts";
 import { createAppSkillsDeps } from "../../../apps/screens/skills.ts";
 import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
+import { createSyncLog, type SyncLog } from "../../../apps/sync/log.ts";
+import { appSyncRoutes, syncAppOf } from "../../../apps/sync/routes.ts";
+import { createAppSync } from "../../../apps/sync/service.ts";
+import {
+  createSnapshots,
+  type Snapshots,
+} from "../../../apps/sync/snapshots.ts";
 import { CRASH_LOCATIONS } from "../../../diagnostics/mod.ts";
 import { openCallbackListener } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
 import { createCallerDirectory } from "../../../lophn-agent/session/caller-directory.ts";
@@ -162,6 +170,8 @@ export const appsWiring: WiringFactory = () => {
   let views: AppViews | undefined;
   let unsubscribeViews: (() => void) | undefined;
   let unsubscribePhoneChanged: (() => void) | undefined;
+  let syncLog: SyncLog | undefined;
+  let snapshots: Snapshots | undefined;
   return {
     name: "apps",
     restartOwners: [observeInvocations, observeReleaseActivations],
@@ -294,7 +304,26 @@ export const appsWiring: WiringFactory = () => {
       const callers: CallerDirectory = createCallerDirectory(link.sql);
       ctx.provide("callerDirectory", callers);
       const states = appStatesOf(link.sql);
-      const { path, intake } = createAppCalls({
+      // sync 앱(runs_on에 phone)의 sync log. 컴퓨터의 write·rewind·폰 변경이 순서대로 남고 폰이 pull한다.
+      const isSync = syncAppOf(link.sql);
+      const sync = createSyncLog({
+        sql: link.sql,
+        transaction: link.transaction,
+        blobs,
+        ledger,
+        activeRelease: states.activeRelease,
+        isSync,
+        now: () => ctx.clock.now(),
+        changed: (app, release, seq) =>
+          ctx.peek.bus?.publish({
+            type: "AppSyncChanged",
+            subject: app as Id<"app">,
+            at: ctx.clock.now(),
+            payload: { release: release as Id<"rel">, seq },
+          }),
+      });
+      syncLog = sync;
+      const { path, intake, phone } = createAppCalls({
         callers,
         lookup: appToolLookupOf(link.sql, appsControl.previews),
         apps: states,
@@ -312,6 +341,7 @@ export const appsWiring: WiringFactory = () => {
         },
         clock: ctx.clock,
         ids,
+        sync,
       });
       ctx.provide("appCallPath", path);
       // 앱 화면의 view 표(`app_views/*`). 메모리에만 있다. 앱 event와 다시 묶음은 `AppViewEvent`로 owner의 Gateway에 간다.
@@ -376,6 +406,26 @@ export const appsWiring: WiringFactory = () => {
         },
       });
       ctx.provide("appViews", views);
+      const snapshotStore = createSnapshots({
+        dataRoot: ctx.root.path,
+        log: sync,
+        exclusive: phone.exclusive,
+        link: appsControl.link,
+        activeRelease: states.activeRelease,
+        isSync,
+        clock: ctx.clock,
+        ids,
+      });
+      snapshots = snapshotStore;
+      const syncRoutes = appSyncRoutes(
+        createAppSync({
+          log: sync,
+          phone,
+          activeRelease: states.activeRelease,
+          isSync,
+        }),
+        snapshotStore,
+      );
       // 앱 rewind가 끝나면 열린 앱 view가 다시 그리게 알린다. 칸이 비어 있으면 Bus로 낸다.
       const signal: AppViewSignal = {
         changed(app, reason) {
@@ -398,6 +448,7 @@ export const appsWiring: WiringFactory = () => {
         activeRelease: states.activeRelease,
         now: () => ctx.clock.now() as At,
         newId: () => ids.newId("rwd") as Id<"rwd">,
+        sync,
       });
       const rewindReads = createRewindReads({ rewind });
       // tray 값은 메모리에만 있다. 바뀐 것은 `app_tray.set`의 `changes`가 알린다.
@@ -519,11 +570,14 @@ export const appsWiring: WiringFactory = () => {
           },
           heldCalls: (app) => intake.heldCount(app as Id<"app">),
           invocations: {
-            pruneChangesets: (app, keepRelease) =>
-              ledger.pruneChangesets(
+            async pruneChangesets(app, keepRelease) {
+              await sync.prune(app as Id<"app">, keepRelease as Id<"rel">);
+              await sync.backfill(app as Id<"app">);
+              return await ledger.pruneChangesets(
                 app as Id<"app">,
                 keepRelease as Id<"rel">,
-              ),
+              );
+            },
           },
         });
       }
@@ -571,7 +625,7 @@ export const appsWiring: WiringFactory = () => {
                     ids,
                   }),
                 ),
-                { ledger, sql: link.sql, clock: ctx.clock, ids },
+                { ledger, sql: link.sql, clock: ctx.clock, ids, sync },
               ),
               // 다른 topic은 router·coding wiring의 applier가 따로 본다.
               (actions) => {
@@ -611,6 +665,7 @@ export const appsWiring: WiringFactory = () => {
             },
           ],
           ["apps/rewind", rewindHandler(rewind, link.sql)],
+          ...syncRoutes.memory,
           // 변경(app_runtime)은 dispatch가 route의 `changes`로 낸다. 지난 preview의 알림은 recorded false다.
           [
             `${appRecordPreview.resource}/${appRecordPreview.method}`,
@@ -703,11 +758,15 @@ export const appsWiring: WiringFactory = () => {
         ],
         fileStreams: [
           ["apps/screen_file", screenFileStream(createScreenFileDeps(locator))],
+          ...syncRoutes.files,
         ],
         reads(reads) {
           appsControl.overlayReads(reads);
           reads.set("apps/rewind_plan", mainRead(rewindReads.plan, link.sql));
           reads.set("apps/rewinds", mainRead(rewindReads.list, link.sql));
+          for (const [route, handler] of syncRoutes.reads) {
+            reads.set(route, handler);
+          }
           reads.set(
             "apps/icon",
             appIconRead({
@@ -759,7 +818,13 @@ export const appsWiring: WiringFactory = () => {
       }
       if (write !== undefined) {
         closeInterruptedRewinds({ sql: write.sql, now });
+        // 앞선 core가 앱의 commit과 sync log 줄 사이에서 끝났으면 그 변경을 폰이 받지 못한다. 그 자리를 '다시 snapshot'으로 채운다.
+        const apps = loadApps(write.sql, undefined);
+        for (const app of apps.ok ? apps.value : []) {
+          await syncLog?.backfill(app.id as Id<"app">);
+        }
       }
+      await snapshots?.clean();
       // apps/supervisor. 앱 프로세스 감독이다. machine credential과 서명 검증 공개 key를 hello에
       // 싣고, 자식 앱이 쓸 app credential은 supervisor의 요청마다 발급한다. 띄우지 못해도 core는
       // 계속 선다: supervisor 관측이 없는 상태(unavailable)로 답한다.

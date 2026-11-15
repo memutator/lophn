@@ -1,5 +1,5 @@
 import { createContext, type ReactNode, useContext } from "react";
-import { Platform, type TextStyle, useColorScheme } from "react-native";
+import { type TextStyle, useColorScheme } from "react-native";
 import { appearancePresets } from "../presets.ts";
 import { type StatusTone, type Themed, tokens } from "../tokens.ts";
 
@@ -19,15 +19,16 @@ export type TypeName =
 const px = (value: string) => Number.parseFloat(value);
 const touch = appearancePresets.density.touch;
 
-function control(size: ControlSize) {
-  const base = tokens.control[size];
-  const over = touch.control[size];
-  return {
-    height: px(over.height),
-    padX: px(over.padX),
-    icon: px("icon" in over ? over.icon : base.icon),
-  };
-}
+// What a control looks like. Smaller ones still take presses on the full 44px target (see `touch`), so the
+// drawn height can stay as quiet as on desktop.
+const CONTROL: Record<
+  ControlSize,
+  { height: number; padX: number; icon: number; text: number }
+> = {
+  sm: { height: 32, padX: 10, icon: 14, text: 14 },
+  md: { height: 40, padX: 14, icon: 16, text: 15 },
+  lg: { height: 48, padX: 18, icon: 18, text: 16 },
+};
 
 function build(scheme: Scheme) {
   const pick = (value: Themed) => value[scheme];
@@ -91,22 +92,19 @@ function build(scheme: Scheme) {
     },
     // Body is the touch preset's 16/24. Small and caption step up one px from desktop so they stay readable at arm's length.
     type: {
-      caption: { fontSize: 13, lineHeight: 18 },
+      caption: { fontSize: 12, lineHeight: 16 },
       small: { fontSize: 14, lineHeight: 20 },
       body: {
         fontSize: px(touch.type.body.size),
         lineHeight: px(touch.type.body.line),
       },
       reading: { fontSize: 16, lineHeight: 26 },
-      titleSmall: type("titleSmall"),
+      titleSmall: { fontSize: 17, lineHeight: 24 },
       title: type("title"),
       display: type("display"),
     } satisfies Record<TypeName, { fontSize: number; lineHeight: number }>,
-    font: {
-      // The desktop fonts ship as woff2 only; the phone uses the system face until they are bundled.
-      mono: Platform.select({ ios: "Menlo", default: "monospace" }),
-      weight,
-    },
+    // The same two families as desktop. The host app embeds them under these names.
+    font: { sans: "Pretendard", mono: "JetBrainsMono", weight },
     space: tokens.space.map(px),
     radius: {
       xs: px(tokens.radius.xs),
@@ -116,7 +114,7 @@ function build(scheme: Scheme) {
       xl: px(tokens.radius.xl),
       full: 9999,
     },
-    control: { sm: control("sm"), md: control("md"), lg: control("lg") },
+    control: CONTROL,
     /** Smallest side of anything a finger presses. */
     touch: 44,
     row: px(touch.menu.row),

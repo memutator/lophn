@@ -32,6 +32,45 @@
           "cameraPermission": "lophn scans the pairing QR code shown on your computer.",
           "recordAudioAndroid": false
         }
+      ],
+      [
+        "expo-font",
+        {
+          "android": {
+            "fonts": [
+              {
+                "fontFamily": "Pretendard",
+                "fontDefinitions": [
+                  {
+                    "path": "node_modules/pretendard/dist/public/static/alternative/Pretendard-Regular.ttf",
+                    "weight": 400
+                  },
+                  {
+                    "path": "node_modules/pretendard/dist/public/static/alternative/Pretendard-Medium.ttf",
+                    "weight": 500
+                  },
+                  {
+                    "path": "node_modules/pretendard/dist/public/static/alternative/Pretendard-SemiBold.ttf",
+                    "weight": 600
+                  }
+                ]
+              },
+              {
+                "fontFamily": "JetBrainsMono",
+                "fontDefinitions": [
+                  {
+                    "path": "node_modules/@expo-google-fonts/jetbrains-mono/400Regular/JetBrainsMono_400Regular.ttf",
+                    "weight": 400
+                  },
+                  {
+                    "path": "node_modules/@expo-google-fonts/jetbrains-mono/500Medium/JetBrainsMono_500Medium.ttf",
+                    "weight": 500
+                  }
+                ]
+              }
+            ]
+          }
+        }
       ]
     ],
     "experiments": {

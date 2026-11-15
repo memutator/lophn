@@ -9,7 +9,7 @@
 // 사람이 LOPHN_LIVE_PROVIDER=1을 두면 fake를 띄우지도 연결하지도 않는다.
 // Ctrl+C와 SIGTERM에 띄운 프로세스를 정리한다.
 //
-// shell main은 renderer bundle(packages/shell/renderer/build.ts)을 읽는다. `dev:core`도 core가 폰에 내주는 remote 화면 때문에 renderer를 build한다. `dev`와 `dev:mock`은
+// shell main은 renderer bundle(packages/shell/renderer/build.ts)을 읽는다. `dev`와 `dev:mock`은
 // renderer와 shell main을 build한 뒤(옛 화면이 뜨지 않게) electron을 `npm run` 없이 바로 띄운다. `dev:mock`은 shell을 mock 주소(`?mock`)로 열어 renderer가 모든 화면을 메모리 가짜 데이터로
 // 채운다. 그래서 fake를 띄우지 않고, 데이터 root는 매번 새로 만드는 .dev-data/mock이다. 터미널 탭만
 // 진짜 PTY다. core가 mock project의 폴더를 모르므로 shell main이 데이터 root의 mock-terminal 폴더에서 연다.
@@ -487,17 +487,6 @@ async function launch(
     group.add(child);
     await exitStatus(child);
     return { ok: true };
-  }
-
-  // core가 폰에 내주는 remote 화면 bundle(renderer dist/remote)을 기동 때 한 번 읽으므로 그 전에 build한다.
-  const built = spawn(planRendererBuild(options.root), "build");
-  group.add(built);
-  if (!(await exitStatus(built)).success) {
-    console.error(
-      `npm run ${mode}: renderer build가 실패했다. remote 화면 없이 띄우지 않는다.`,
-    );
-    group.stop();
-    return { ok: false };
   }
 
   // dev:core는 인자의 --port=<n>을 그대로 core에 흘려 보낸다.

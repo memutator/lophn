@@ -1,5 +1,5 @@
 // release.activate가 사람의 동의를 기다린다고 답한 자리의 카드. 동의 자체는 Inbox에서 한다(창이 여는 자리: desktop은 대기 panel,
-// phone은 Inbox 탭).
+// 폰 앱은 Inbox 탭).
 // 기다리는지는 대기 목록에 그 release 줄이 있는지로 읽는다. 닫힌 뒤 허락인지 거절인지는 알려 하지 않는다.
 import type { ReactElement } from "react";
 import { Button } from "@lophn/ui/primitives";

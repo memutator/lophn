@@ -1,5 +1,5 @@
 // desktop 창만 가진 대화의 조각. mermaid diagram과 앱 카드(webview)는 큰 library와 desktop 통로를 끌고, 링크 열기와 provider key
-// 입력은 preload 통로다. Agent 화면은 host가 준 것만 쓰고 이 file을 import하지 않아 phone bundle에 들지 않는다. 없는 창(phone)에서
+// 입력은 preload 통로다. Agent 화면은 host가 준 것만 쓰고 이 file을 import하지 않는다. 없는 창에서
 // diagram은 code로, 앱 카드는 안내 한 줄로, 링크는 Markdown 기본으로 남고 provider key 단추는 없다.
 import { type ComponentType, createContext, useContext } from "react";
 
@@ -25,7 +25,7 @@ const DesktopPartsContext = createContext<DesktopParts | null>(null);
 
 export const DesktopPartsProvider = DesktopPartsContext.Provider;
 
-/** Agent 화면 밖(gallery의 본문 조각)이나 phone이면 null이다. */
+/** Agent 화면 밖(gallery의 본문 조각)이면 null이다. */
 export function useDesktopParts(): DesktopParts | null {
   return useContext(DesktopPartsContext);
 }

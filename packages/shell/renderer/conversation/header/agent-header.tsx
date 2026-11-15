@@ -107,8 +107,6 @@ interface AgentHeaderProps {
   onChanged: () => void;
   /** menu 오른쪽 끝에 더할 조각 (예: home full mode controller). */
   trailing?: ReactNode;
-  /** view bar 왼쪽 끝에 놓을 조각(phone의 뒤로 단추). card 머리 줄에는 올리지 않는다. */
-  leading?: ReactNode;
   /** 열린 subagent 대화. null이면 이 session 자신의 머리다. */
   child?: HeaderChild | null;
   /** 있으면 머리 ←/→를 이 기록이 맡는다. 없으면 창 기록이다. */
@@ -473,10 +471,7 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
                 onClick={nav.onBack}
               />
             )}
-            <div className={styles.lead}>
-              {props.leading}
-              {lead}
-            </div>
+            <div className={styles.lead}>{lead}</div>
           </>
         }
       >

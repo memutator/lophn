@@ -63,7 +63,7 @@ import {
 interface AgentCoreDeps {
   /** 지금 시각(ms). */
   readonly now?: () => number;
-  /** sign_in 입력 요청의 로그인 흐름. desktop 창만 준다. 없으면 source에 로그인이 없다(phone). */
+  /** sign_in 입력 요청의 로그인 흐름. desktop 창만 준다. 없으면 source에 로그인이 없다(폰 앱). */
   // `typeof signInInputRequest`로 쓰지 않는다: 그 file은 desktop 창 code까지 끌고 와 폰의 data 층이 type 검사에서 따라간다.
   readonly signIn?: (
     core: CoreSource,

@@ -112,8 +112,6 @@ interface AgentComposerProps {
   pathOf?: (file: File) => string | null;
   /** Explorer에서 끌어 온 이미지 파일을 읽는다. 없거나 읽지 못하면 경로 chip으로 붙는다. */
   readImage?: (path: string) => Promise<File | null>;
-  /** phone이다. 끌어 놓기를 받지 않고 [+]는 사진을 고른다. */
-  phone?: boolean;
   /** 일하는 중이다(turn이 돌거나 질문·승인을 기다림). 보낸 글은 다음 turn을 기다리고 [Stop]이 보인다. */
   working: boolean;
   /** 보내는 중이거나 결과를 모르는 말이 있으면 글을 고치지 못한다. */
@@ -285,7 +283,6 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
   const dragOver = (event: DragEvent<HTMLElement>) => {
     const types = event.dataTransfer.types;
     if (
-      props.phone ||
       locked ||
       (!types.includes(PATH_DRAG_TYPE) && !types.includes("Files"))
     ) {
@@ -591,7 +588,6 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
               type="file"
               multiple
               hidden
-              accept={props.phone ? "image/*" : undefined}
               onChange={(event) => {
                 attachFiles([...(event.currentTarget.files ?? [])]);
                 event.currentTarget.value = "";

@@ -1,6 +1,6 @@
 // agent의 sign_in 입력 요청을 끝내는 로그인 흐름. 흐름은 Settings·앱 상세와 같은 것(settings/sign-in.ts, signInMcpServer)이고
 // 무엇에 로그인하는지는 core가 요청에서 읽어 준 view의 target이다(agent가 적은 글이 아니다). browser 로그인과 desktop 설정 통로를
-// 끌어 desktop 창만 factory에 준다(`coreAgentTabSourceFactory`의 `signIn`). 없는 창(phone)의 source에는 로그인이 없다.
+// 끌어 desktop 창만 factory에 준다(`coreAgentTabSourceFactory`의 `signIn`). 주지 않는 창(폰 앱)의 source에는 로그인이 없다.
 import { ERROR_CODES } from "../../../base/mod.ts";
 import {
   inputRequestDone,

@@ -111,7 +111,7 @@ import { StatusView } from "./status-view/status-view.tsx";
 import { createLayoutCache, layoutOf } from "./thread-layout.ts";
 import { windowPathOf, windowReadImage } from "./window-paths.ts";
 
-/** Agent 화면이 자기 밖에 맡기는 일: 탭·파일·설정으로 가는 길. 없는 길은 그리로 가는 단추와 명령이 빠진다(phone). */
+/** Agent 화면이 자기 밖에 맡기는 일: 탭·파일·설정으로 가는 길. 없는 길은 그리로 가는 단추와 명령이 빠진다. */
 export interface AgentViewHost {
   /** 편집 카드의 [Open]이 그 파일(프로젝트 안 경로)의 탭을 연다. */
   openFile?: (path: string) => void;
@@ -129,7 +129,7 @@ export interface AgentViewHost {
   openSession?: (session: string) => void;
   /** 설정의 연결 자리로 간다. */
   openConnections?: () => void;
-  /** desktop 창만 가진 조각(diagram, 앱 카드, 링크 열기, provider key 입력). phone은 주지 않는다. */
+  /** desktop 창만 가진 조각(diagram, 앱 카드, 링크 열기, provider key 입력). 없으면 그 조각이 빠진다. */
   desktop?: DesktopParts;
 }
 
@@ -145,18 +145,11 @@ interface AgentViewProps {
   host: AgentViewHost;
   /** 대화가 비어 있는 동안 입력칸에 보이는 첫 안내. */
   hint?: string;
-  /**
-   * phone 화면이다. 끌어 놓기와 OS 경로, 찾기 줄, thread index와 bookmark, secret 입력 창이 없고 [+]는 사진을 고른다.
-   * 단축키 안내는 phone 틀이 CSS로 숨긴다.
-   */
-  phone?: boolean;
   now?: () => number;
   /** 지금 보는 session의 제목. 새 session이거나 제목이 없으면 null이다. 탭 제목이 따라간다. */
   onSessionTitle?: (title: string | null) => void;
   /** header 오른쪽 끝(Compact 우측)에 놓을 조각. */
   trailing?: ReactNode;
-  /** header 왼쪽 끝(agent 이름 앞)에 놓을 조각. phone의 뒤로 단추다. card 머리 줄에는 올리지 않는다. */
-  leading?: ReactNode;
   /** header ⋯ menu 끝에 더할 항목(터미널 탭의 "Open in terminal"). */
   extraMenu?: {
     readonly items: readonly MenuItem[];
@@ -893,7 +886,6 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   );
   const queued = thread?.queued ?? [];
   const modeReady =
-    !props.phone &&
     session !== null &&
     !readOnly &&
     caps.mode &&
@@ -1169,7 +1161,6 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         }}
         onChanged={() => void refresh()}
         trailing={props.trailing}
-        leading={props.leading}
         capabilities={caps}
         title={meta?.title ?? null}
         child={childId === null ? null : { info: childInfo, now }}
@@ -1222,7 +1213,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         </p>
       )}
       <div className={styles.stage} ref={stage}>
-        {find.open && !props.phone ? (
+        {find.open ? (
           <ConversationFindBar
             query={find.query}
             onQuery={find.setQuery}
@@ -1235,9 +1226,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         ) : null}
         <RunCodeProvider value={host.runCommand ?? null}>
           <FillShellProvider value={fillShell}>
-            <ThreadIndexContext.Provider
-              value={props.phone ? null : threadIndex}
-            >
+            <ThreadIndexContext.Provider value={threadIndex}>
               <AgentThread
                 key={key}
                 agent={agent}
@@ -1259,7 +1248,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
                 source={source}
                 providerKey={providerKey}
                 initialScroll={draft.scroll}
-                renderAll={find.open && !props.phone}
+                renderAll={find.open}
                 rewindOpen={layer?.kind === "rewind" ? layer.message : null}
                 {...threadHandlers}
                 onStopShell={
@@ -1412,14 +1401,11 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             session={session}
             toolCall={asked.toolCall}
             source={source}
-            onEnter={
-              props.phone
-                ? undefined
-                : () =>
-                    openInputRequestWindow({
-                      session,
-                      tool_call: asked.toolCall,
-                    })
+            onEnter={() =>
+              openInputRequestWindow({
+                session,
+                tool_call: asked.toolCall,
+              })
             }
           />
         ) : null}
@@ -1509,11 +1495,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             keys={keys}
             focusSignal={focusSignal}
             source={source}
-            meta={withoutCommands(
-              meta,
-              host.openAgentSettings === undefined,
-              props.phone === true,
-            )}
+            meta={withoutCommands(meta, host.openAgentSettings === undefined)}
             capabilities={caps}
             history={history}
             onChooseModel={async (model, options) => {
@@ -1533,9 +1515,8 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             session={session}
             agentName={agent.name}
             draft={draft}
-            phone={props.phone}
-            pathOf={props.phone ? undefined : windowPathOf()}
-            readImage={props.phone ? undefined : windowReadImage()}
+            pathOf={windowPathOf()}
+            readImage={windowReadImage()}
             working={active !== null}
             locked={locked}
             tooLong={!fitsMessage(draft.text)}
@@ -1546,8 +1527,6 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             permissionSummary={agent.permissionSummary}
             permissions={permissions}
             mode={
-              // phone은 mode를 바꾸지 않는다: Skip은 묻지 않고 돌게 하는 일이라 기기에 허락하지 않는다.
-              props.phone ||
               session === null ||
               readOnly ||
               !caps.mode ||
@@ -1628,22 +1607,16 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   );
 }
 
-/**
- * 이 창에서 열 수 없는 명령을 `/` 창에 보이지 않는다. Settings › Agents로 가는 길이 없으면 `/skills`·`/mcp`, phone이면
- * `/mode`(묻지 않고 돌게 바꾸는 일은 기기에 허락하지 않는다)다.
- */
+/** 이 창에서 열 수 없는 명령을 `/` 창에 보이지 않는다. Settings › Agents로 가는 길이 없으면 `/skills`·`/mcp`다. */
 function withoutCommands(
   meta: AcpSessionMeta | null,
   noSettings: boolean,
-  phone: boolean,
 ): AcpSessionMeta | null {
-  if (meta === null || (!noSettings && !phone)) return meta;
+  if (meta === null || !noSettings) return meta;
   return {
     ...meta,
     commands: meta.commands.filter(
-      (one) =>
-        !(noSettings && (one.opens === "mcp" || one.opens === "skills")) &&
-        !(phone && one.opens === "mode"),
+      (one) => !(one.opens === "mcp" || one.opens === "skills"),
     ),
   };
 }

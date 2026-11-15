@@ -1,6 +1,6 @@
 // provider 오류 줄의 [Enter key]가 하는 일. 이 session의 model이 속한 provider를 알면 Settings › Providers가
 // 연결된 provider의 key를 넣을 때 여는 것과 같은 보호 입력 창을 열고(저장 길은 창이 한다), 모르면 Settings › Providers로 간다.
-// 보호 입력 창이 없는 창(phone)도 Settings로 가는 길뿐이다.
+// 보호 입력 창이 없는 창도 Settings로 가는 길뿐이다.
 import { useEffect, useState } from "react";
 
 import type { AcpSessionMeta } from "../../../../protocol/acp/mod.ts";

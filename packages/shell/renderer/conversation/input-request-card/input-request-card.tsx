@@ -46,8 +46,8 @@ interface InputRequestCardProps {
     AgentTabSource,
     "readInputRequest" | "cancelInputRequest" | "signInInputRequest"
   >;
-  /** 보호 창을 열고 닫힐 때까지 기다린다. 열지 못하면 false다. 없으면 이 창(phone)에서는 넣지 못해 무엇을 묻는지와 컴퓨터에서 넣으라는 글만 보인다. */
-  onEnter?: () => Promise<boolean>;
+  /** 보호 창을 열고 닫힐 때까지 기다린다. 열지 못하면 false다. */
+  onEnter: () => Promise<boolean>;
 }
 
 function titleOf(view: InputRequestView, agent: string): string {
@@ -94,19 +94,6 @@ export function InputRequestCard({
     };
   }, [source, session, toolCall]);
   if (view === null) return null;
-  if (onEnter === undefined) {
-    return (
-      <section
-        className={styles.card}
-        aria-label={t("conversation.label.input-request-card", { agent })}
-      >
-        <span className={styles.title}>{titleOf(view, agent)}</span>
-        <p className={styles.note}>
-          {t("remote.notice.input-request-on-computer")}
-        </p>
-      </section>
-    );
-  }
   const enter = async () => {
     setBusy(true);
     setFailed(false);

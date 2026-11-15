@@ -2,8 +2,13 @@
 // packages/core/apps를 import하지 않아서 두 쪽이 같은 symbol과 모양으로 맞춘다(packages/sdk/cap-net/host.ts).
 // 자식 credential과 process nonce는 이 port 안에만 있고 앱 코드와 SDK는 보지 못한다. 이 port가 없으면
 // capability는 unavailable이다.
-import { createHash } from "node:crypto";
 import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
+import { readdirSync, readFileSync } from "node:fs";
+import {
+  type Migration,
+  migrationOfSql,
+} from "../../../../protocol/apps/activation/migration-sql.ts";
 import { canonicalJson } from "../../../../protocol/apps/declaration/mod.ts";
 import type { JsonValue } from "../../../../protocol/apps/declaration/mod.ts";
 import type { InvocationContext } from "../../invocations/context.ts";
@@ -69,7 +74,10 @@ type CapHostPort = {
   mode: "live" | "preview";
   // cap-store가 읽는 앱 data 영역(시작 입력의 data_path)이다.
   dataPath: string;
-  store: { recording(): boolean };
+  store: {
+    recording(): boolean;
+    migrations(): { target: number; steps: Migration[] };
+  };
   post(
     path: string,
     body: Record<string, unknown>,
@@ -99,17 +107,48 @@ function aborted(signal: AbortSignal): Error {
     : new DOMException("The operation was aborted", "AbortError");
 }
 
+// bundle의 `migrations/<from>-<to>.sql`을 단계로 읽는다. 앱이 `store.migrate()`를 인자 없이 부를 때(preview) 쓴다.
+// target은 bundle의 data schema(가장 큰 `to`)다. live는 schema를 바꾸지 않으므로 이미 target이다.
+export function bundleMigrations(
+  bundleDir: string,
+  target: number,
+): { target: number; steps: Migration[] } {
+  const steps: Migration[] = [];
+  let names: string[] = [];
+  try {
+    names = readdirSync(`${bundleDir}/migrations`);
+  } catch {
+    // migrations 폴더가 없으면 DB를 쓰지 않는 앱이다.
+  }
+  for (const name of names) {
+    const match = /^(\d+)-(\d+)\.sql$/.exec(name);
+    if (!match) continue;
+    const step = migrationOfSql(
+      Number(match[1]),
+      Number(match[2]),
+      readFileSync(`${bundleDir}/migrations/${name}`, "utf8"),
+    );
+    if (!step.ok) throw new Error(`${name}: ${step.error.message}`);
+    steps.push(step.value);
+  }
+  return { target, steps };
+}
+
 export function createCapHost(deps: {
   mode: CapHostPort["mode"];
   dataPath: string;
   store: StoreAccess;
+  migrations(): { target: number; steps: Migration[] };
   post(path: string, body: unknown): Promise<BrokerResponse>;
   current(): InvocationContext | null;
 }): CapHostPort {
   return {
     mode: deps.mode,
     dataPath: deps.dataPath,
-    store: { recording: () => deps.store.recording() },
+    store: {
+      recording: () => deps.store.recording(),
+      migrations: () => deps.migrations(),
+    },
     post(path, body, options) {
       const signal = options?.signal;
       if (signal?.aborted) return Promise.reject(aborted(signal));

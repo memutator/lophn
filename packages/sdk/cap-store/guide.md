@@ -14,11 +14,19 @@ import { openStore } from "@lophn/cap-store";
 
 - `openStore({ path?, host?, now? })` — 기본은 `<data 영역>/app.sqlite`이다.
   `Store`를 돌려준다. 앱 data는 앱 DB 하나라서 process 안의 연결도 하나이고,
-  `openStore`를 다시 불러도 같은 연결이다.
-- `store.db` — 앱 자신의 `node:sqlite` `DatabaseSync`. SQL은 앱이 쓴다.
+  `openStore`를 다시 불러도 같은 연결이다. 앱이 폰에서 돌 때는 host가 DB를 열어 준다.
+- `store.db` — 앱 자신의 DB(`StoreDb`)다. SQL은 앱이 쓴다. `exec(sql)`과
+  `prepare(sql)`의 `get(...params)`, `all(...params)`, `run(...params)`만 있다.
+  params는 `null | number | bigint | string | Uint8Array`를 위치 순서로 넘긴다
+  (`@name` 같은 이름 붙인 params와 Node 전용 method는 없다. 앱이 폰에서도 도는 길이
+  막히지 않게 하려는 것이다). `run`은 `{ changes, lastInsertRowid }`를 돌려준다.
 - `store.schema()` — 지금 schema 번호. migration을 적용한 적이 없으면 0이다.
+- `store.migrate()` — release의 `migrations/<from>-<to>.sql`을 현재 schema에서
+  최신까지 적용한다. 앱의 schema를 맞추는 보통의 길이다. 파일을 직접 읽지 않는다.
+  lophn이 돌릴 때는 lophn이 단계를 주고, 앱 test는 앱 폴더(지금 폴더)의
+  `migrations/*.sql`을 읽는다.
 - `store.migrate(steps, { target? })` — `{ from, to, sql, loss }`
-  단계(`Migration`)를 현재 schema에서 target까지 연속 경로로 적용한다. 단계마다
+  단계(`Migration`)를 직접 줄 때다. 현재 schema에서 target까지 연속 경로로 적용한다. 단계마다
   한 transaction이고 실패한 단계는 rollback한다. 단계에서 새로 만든 표에 PRIMARY
   KEY가 없으면 그 단계가 `invalid_input`으로 실패한다(write의 변경은 SQLite
   session이 changeset으로 뜨는데 session은 PRIMARY KEY 없는 표의 변경을 기록하지
@@ -29,12 +37,17 @@ import { openStore } from "@lophn/cap-store";
 - `migrationOfSql(from, to, sql)` — 단계 파일의 SQL에서 `Migration`을 만든다.
   파일 맨 위 `-- loss: drop_table 표`, `-- loss: drop_column 표.열`,
   `-- loss: narrow_type 표.열` 줄이 손실 선언이다.
-- `store.transaction(work)` — 동기 작업 하나를 한 transaction으로 묶는다.
+- `store.transaction(work)` — 동기 작업 하나를 한 transaction으로 묶는다. 던지면
+  이 작업만 rollback한다. 겹쳐 불러도 된다. SQL로 `BEGIN`/`COMMIT`을 직접 쓰지
+  않는다: 폰과 sync 앱에서는 호출 하나가 이미 transaction 안에서 돈다.
+- `newId(prefix?)` — 기기가 달라도 겹치지 않는 text id다(ULID 꼴이라 만든 시각
+  순으로 정렬된다). 두 기기에서 쓰는 앱의 표는 `integer primary key`의 자동
+  번호 대신 `text primary key`에 이 id를 넣는다.
 - write·external tool과 앱 시작이 도는 동안의 변경은 runtime이 SDK 훅으로
   changeset을 떠서 core에 넘긴다. 앱 code가 따로 할 일은 없다. 모든 표에 PRIMARY
   KEY를 둔다.
 - DB를 열지 못하면 `CapabilityError`(`unavailable`)다.
-- type: `Store`, `Migration`, `OpenStoreOptions`, `CapabilityError`
+- type: `Store`, `StoreDb`, `StoreStatement`, `Migration`, `OpenStoreOptions`, `CapabilityError`
 
 ## 요구 permission
 
@@ -47,10 +60,16 @@ import { openStore } from "@lophn/cap-store";
 ## 예제
 
 ```ts
-import { openStore } from "@lophn/cap-store";
+import { newId, openStore } from "@lophn/cap-store";
 
 const store = openStore();
-store.db.prepare("insert into todo (title) values (?)").run("우유 사기");
+await store.migrate();
+store.transaction((db) => {
+  db.prepare("insert into todo (id, title) values (?, ?)").run(
+    newId("tdo"),
+    "우유 사기",
+  );
+});
 ```
 
 ## version 정책

@@ -1,11 +1,16 @@
 {
   "name": "@lophn/cap-problem",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "lophn": {
     "supported_from": "1.0.0"
   },
-  "exports": "./mod.ts",
+  "exports": {
+    ".": {
+      "lophn-phone": "./mod.phone.ts",
+      "default": "./mod.ts"
+    }
+  },
   "dependencies": {
     "@lophn/protocol": "0.0.0"
   }

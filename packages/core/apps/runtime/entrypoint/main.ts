@@ -85,6 +85,7 @@ async function main(deps: MainDeps): Promise<void> {
     line,
     declaration: deps.declaration,
     broker: deps.broker,
+    bundleDir: bundleDirectory(deps.appModule),
     dataSchema: deps.dataSchema,
   });
   started.state.reportCaught = (error, invocation) => {

@@ -173,7 +173,11 @@ files:
 
   - path: packages/sdk/cap-store/changeset_test.ts
     covers: [app-rewind-apply:cancelled-conflict, sdk-store-open:migration-invalid]
-    note: "쓰기 구간 changeset 캡처(lophn_data_schema 표는 뺀다)는 outcome이 없다. changeset 충돌이면 하나도 적용하지 않고, PRIMARY KEY 없는 migration은 rollback한다"
+    note: "쓰기 구간 changeset 캡처(lophn_data_schema와 lophn_sync_* 표는 뺀다)는 outcome이 없다. changeset 충돌이면 하나도(바깥 transaction 안에서도) 적용하지 않고, PRIMARY KEY 없는 migration은 rollback한다. transaction은 SAVEPOINT라 겹쳐도 되고, host가 준 DB와 host의 migration으로 인자 없는 migrate가 돈다"
+
+  - path: packages/sdk/cap-store/phone-bundle_test.ts
+    covers: []
+    note: "cap-store·cap-tool·cap-problem을 lophn-phone 조건으로 묶으면 node: import가 남지 않는다(폰 backend는 Node 내장 module이 없다). outcome이 없다"
 
   - path: tests/support/fake-oauth/issuer_test.ts
     covers: []

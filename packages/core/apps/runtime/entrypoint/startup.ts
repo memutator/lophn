@@ -3,6 +3,7 @@ import type { AppDeclaration } from "../../../../protocol/apps/declaration/mod.t
 import { type AppStart, parseAppStart } from "./start-input.ts";
 import { type BrokerTransport, createBrokerClient } from "./broker-client.ts";
 import {
+  bundleMigrations,
   createCapHost,
   createStoreAccess,
   encodeChangeset,
@@ -21,6 +22,8 @@ export function startRuntime(deps: {
   line: string;
   declaration: AppDeclaration;
   broker: BrokerTransport;
+  // 사본 root다. `migrations/`가 이 안에 있고 dataSchema는 그 가장 큰 target이다.
+  bundleDir: string;
   dataSchema: number;
 }): Started {
   const parsed = parseAppStart(deps.line);
@@ -52,6 +55,7 @@ export function startRuntime(deps: {
       mode: parsed.mode,
       dataPath: parsed.data_path,
       store,
+      migrations: () => bundleMigrations(deps.bundleDir, deps.dataSchema),
       post: (path, body) => state.broker.post(path, body),
       current: () => ensureAppToolPort().current(),
     }),

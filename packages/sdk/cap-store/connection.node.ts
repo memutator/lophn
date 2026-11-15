@@ -4,6 +4,8 @@
 
 import { resolve } from "node:path";
 import { DatabaseSync, type Session } from "node:sqlite";
+import { DEFAULT_DATABASE_FILE, SCHEMA_TABLE } from "./store.ts";
+import { inSavepoint, type StoreDb } from "./db.ts";
 import { CapabilityError } from "./errors.ts";
 import {
   type ApplyOutcome,
@@ -12,9 +14,9 @@ import {
   type StoreHooks,
 } from "./host.ts";
 
-// data worker가 activation 때 같은 파일을 연다. 이름을 바꾸면 그쪽도 같이 바꾼다.
-export const DEFAULT_DATABASE_FILE = "app.sqlite";
-export const SCHEMA_TABLE = "lophn_data_schema";
+// host의 sync 표다. schema 표와 같이 앱 data가 아니므로 session이 변경을 담지 않는다(담으면 clock이 rewind와
+// sync로 퍼진다).
+const SYNC_TABLE_PREFIX = "lophn_sync_";
 
 type Connection = { db: DatabaseSync; sessions: Map<string, Session> };
 
@@ -64,12 +66,13 @@ function attach(connection: Connection): void {
     .all(SCHEMA_TABLE);
   for (const row of rows) {
     const name = String(row["name"]);
+    if (name.startsWith(SYNC_TABLE_PREFIX)) continue;
     if (connection.sessions.has(name)) continue;
     connection.sessions.set(name, connection.db.createSession({ table: name }));
   }
 }
 
-export function attachNewTables(db: DatabaseSync): void {
+export function attachNewTables(db: StoreDb): void {
   if (!recording && !readHost()?.store?.recording()) return;
   for (const connection of connections.values()) {
     if (connection.db === db) attach(connection);
@@ -112,13 +115,7 @@ function current(): Connection | undefined {
   return connections.get(file);
 }
 
-function rollback(db: DatabaseSync): void {
-  try {
-    db.exec("rollback");
-  } catch {
-    // 이미 끝난 transaction이다.
-  }
-}
+class Conflict extends Error {}
 
 export const hooks: StoreHooks = {
   beginChangeset() {
@@ -148,26 +145,28 @@ export const hooks: StoreHooks = {
     }
     const { db } = connection;
     try {
-      db.exec("begin immediate");
-      for (const changeset of changesets) {
-        // 충돌이면 false를 돌려주고 그 changeset은 적용되지 않는다.
-        if (!db.applyChangeset(changeset)) {
-          rollback(db);
-          return {
-            ok: false,
-            message: "a changeset conflicts with the current data",
-          };
+      // 바깥에 transaction이 열려 있어도 되도록 SAVEPOINT로 묶는다.
+      inSavepoint(db, () => {
+        for (const changeset of changesets) {
+          // 충돌이면 false를 돌려주고 그 changeset은 적용되지 않는다.
+          if (!db.applyChangeset(changeset)) throw new Conflict();
         }
-      }
-      db.exec("commit");
+      });
       return { ok: true };
     } catch (error) {
-      rollback(db);
       return {
         ok: false,
-        message: error instanceof Error ? error.message : "apply failed",
+        message:
+          error instanceof Conflict
+            ? "a changeset conflicts with the current data"
+            : error instanceof Error
+              ? error.message
+              : "apply failed",
       };
     }
+  },
+  database() {
+    return current()?.db ?? null;
   },
 };
 

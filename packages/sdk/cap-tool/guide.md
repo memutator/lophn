@@ -90,6 +90,10 @@ write·external handler가 도는 동안 SDK가 앱 DB 변경을 changeset으로
 돌려준다(rewind가 쓴다). 앱은 `@lophn/cap-store`가 주는 DB 연결 하나만 쓴다.
 read handler는 DB를 바꾸지 않는다고 선언을 믿는다.
 
+앱 backend가 폰에서 돌 때도 같은 API이고, 호출은 하나씩 돈다. 폰에서는 다른 앱 호출
+(`connectCommands`)과 event 발행·구독(`publish`, `subscribe`)이 `unavailable`로 끝난다.
+handler가 `node:` module을 import하면 폰에서 뜨지 않는다.
+
 ## 요구 permission
 
 handler 등록과 문맥 전달, event 발행·구독은 요구 permission이 없다(event는 발행 앱이 선언해 내놓는 것이다). `connectCommands`는 import만으로

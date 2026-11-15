@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { MIGRATION_PRIMARY_KEY_REQUIRED } from "../../protocol/apps/activation/migration-sql.ts";
-import { hooks } from "./connection.ts";
+import { hooks } from "./connection.node.ts";
+import type { StoreDb } from "./db.ts";
 import { CapabilityError } from "./errors.ts";
-import { openStore, type Store } from "./store.ts";
+import type { Store } from "./store.ts";
+import { openStore } from "./store.node.ts";
 
 const TODO = "create table todo (id integer primary key, title text not null)";
 
@@ -35,7 +37,7 @@ function changesetOf(seed: string, change: string): Uint8Array {
   return changeset;
 }
 
-function titles(db: DatabaseSync): string[] {
+function titles(db: StoreDb): string[] {
   return db
     .prepare("select title from todo order by id")
     .all()
@@ -122,4 +124,94 @@ test("PRIMARY KEY 없는 표를 만드는 migration은 실패하고 그 단계�
   } finally {
     store.close();
   }
+});
+
+test("lophn_sync_ 표와 schema 표의 변경은 changeset에 담기지 않는다", async () => {
+  await withStore(TODO_STEP, (store) => {
+    store.db.exec(
+      "create table lophn_sync_clock (id integer primary key, v text)",
+    );
+    hooks.beginChangeset();
+    store.db.exec("insert into todo (title) values ('milk')");
+    store.db.exec("insert into lophn_sync_clock values (1, 'tick')");
+    const changeset = hooks.endChangeset();
+
+    const other = new DatabaseSync(":memory:");
+    other.exec(TODO);
+    other.exec(
+      "create table lophn_sync_clock (id integer primary key, v text)",
+    );
+    assert.deepStrictEqual(other.applyChangeset(changeset!), true);
+    assert.deepStrictEqual(titles(other), ["milk"]);
+    assert.deepStrictEqual(
+      other.prepare("select count(*) as n from lophn_sync_clock").get()!["n"],
+      0,
+    );
+    other.close();
+  });
+});
+
+test("transaction은 바깥 transaction 안에서도 자기 몫만 rollback하고 commit한다", async () => {
+  await withStore(TODO_STEP, (store) => {
+    const { db } = store;
+    db.exec("begin");
+    store.transaction(() => db.exec("insert into todo (title) values ('a')"));
+    assert.throws(() =>
+      store.transaction(() => {
+        db.exec("insert into todo (title) values ('b')");
+        throw new Error("fail");
+      }),
+    );
+    // 안쪽이 겹쳐도 된다.
+    store.transaction(() =>
+      store.transaction(() => db.exec("insert into todo (title) values ('c')")),
+    );
+    db.exec("commit");
+    assert.deepStrictEqual(titles(db), ["a", "c"]);
+
+    // 바깥이 rollback하면 안쪽에서 commit한 것도 사라진다.
+    db.exec("begin");
+    store.transaction(() => db.exec("insert into todo (title) values ('d')"));
+    db.exec("rollback");
+    assert.deepStrictEqual(titles(db), ["a", "c"]);
+  });
+});
+
+test("applyChangesets는 바깥 transaction 안에서도 충돌이면 하나도 적용하지 않는다", async () => {
+  await withStore(TODO_STEP, (store) => {
+    store.db.exec("insert into todo (id, title) values (1, 'a')");
+    const insert = changesetOf(
+      "insert into todo values (1, 'a')",
+      "insert into todo values (2, 'b')",
+    );
+    const stale = changesetOf(
+      "insert into todo values (1, 'x')",
+      "update todo set title = 'y' where id = 1",
+    );
+    store.db.exec("begin");
+    assert.deepStrictEqual(hooks.applyChangesets([insert, stale]).ok, false);
+    assert.deepStrictEqual(hooks.applyChangesets([insert]).ok, true);
+    store.db.exec("commit");
+    assert.deepStrictEqual(titles(store.db), ["a", "b"]);
+  });
+});
+
+test("host가 준 DB로 열고 인자 없는 migrate는 host의 migration을 쓴다", async () => {
+  const raw = new DatabaseSync(":memory:");
+  const host = (mode: "preview" | "live") => ({
+    mode,
+    dataPath: "",
+    store: {
+      recording: () => false,
+      open: () => raw,
+      migrations: () => ({ target: 1, steps: TODO_STEP }),
+    },
+  });
+  const store = openStore({ host: host("preview") });
+  assert.deepStrictEqual(await store.migrate(), 1);
+  store.db.prepare("insert into todo (title) values (?)").run("milk");
+  assert.deepStrictEqual(titles(raw), ["milk"]);
+  // live는 schema가 이미 target이면 아무것도 하지 않는다.
+  assert.deepStrictEqual(await openStore({ host: host("live") }).migrate(), 1);
+  raw.close();
 });

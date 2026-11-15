@@ -219,7 +219,7 @@ flows:
     entries: [sdk:cap-problem/createExceptionObserver]
     uses: [app-broker-problem:written, app-broker-problem:invalid-input]
     boundary: [sdk-api, app-capability, child-supervision-protocol]
-    code: [packages/sdk/cap-problem/exception-observer.ts, packages/sdk/cap-problem/deliver.ts]
+    code: [packages/sdk/cap-problem/exception-observer.ts, packages/sdk/cap-problem/observer.ts, packages/sdk/cap-problem/deliver.ts]
     steps:
       - "앱 entry가 app code를 읽기 전에 observer를 설치한다. process의 uncaughtException과 unhandledRejection을 받는다"
       - "예외마다 report id, 시각, 오류 이름(비면 UnknownError), 글, stack, 현재 호출 id를 담은 입력을 만든다"
@@ -293,12 +293,14 @@ flows:
     actor: app
     entries: [sdk:cap-store/openStore]
     boundary: [sdk-api, app-data]
-    code: [packages/sdk/cap-store/store.ts, packages/sdk/cap-store/connection.ts]
+    code: [packages/sdk/cap-store/store.ts, packages/sdk/cap-store/store.node.ts, packages/sdk/cap-store/connection.node.ts]
     steps:
-      - "경로를 주지 않으면 host의 data 영역 app.sqlite를 연다. host가 없으면 unavailable이다. 연결은 process마다 파일당 하나다"
+      - "경로를 주지 않으면 host의 data 영역 app.sqlite를 연다. host가 DB를 주면(`store.open`) 그것을 쓴다. host가 없으면 unavailable이다. 연결은 process마다 파일당 하나다"
       - "DB를 열지 못하면 unavailable이다. WAL, foreign key, busy timeout을 켠다"
-      - "runtime이 쓰기 구간을 시작했으면 표마다 SQLite session을 걸어 변경을 changeset으로 뜬다. 응답에 싣는 것은 app-command-call이 한다"
+      - "runtime이 쓰기 구간을 시작했으면 표마다 SQLite session을 걸어 변경을 changeset으로 뜬다. schema 표와 `lophn_sync_*` 표는 걸지 않는다. 응답에 싣는 것은 app-command-call이 한다"
+      - "transaction과 changeset 적용은 SAVEPOINT라 바깥 transaction 안에서도 자기 몫만 rollback·commit한다"
       - "migrate는 live에서 forbidden이다. 운영 schema는 activation의 data worker(migrateAppDatabase)가 backup을 뜬 뒤 같은 단계 파일로 바꾼다(activation-data-change-record). 릴리스 준비의 migration 검사도 같은 worker가 돈다"
+      - "단계를 주지 않으면 host의 release migration(`store.migrations`)을, host가 없으면 지금 폴더의 `migrations/*.sql`을 쓴다. live에서 schema가 이미 target이면 아무것도 하지 않는다"
       - "preview나 test에서는 현재 schema에서 목표까지 이어지는 단계를 단계마다 transaction으로 적용하고 lophn_data_schema를 갱신한다. 끊기거나, 뒤로 가거나, 갈라지거나, 새 표에 PRIMARY KEY가 없거나, 단계가 실패하면 invalid_input이다(실패는 rollback)"
     outcomes:
       - id: opened
@@ -374,7 +376,7 @@ flows:
     entries: [sdk:cap-tool/handle]
     uses: [app-supervisor-reconcile:start-failed, app-child-exit:restarted]
     boundary: [sdk-api, app-spi]
-    code: [packages/sdk/cap-tool/handlers.ts, packages/sdk/cap-tool/context.ts]
+    code: [packages/sdk/cap-tool/handlers.ts, packages/sdk/cap-tool/port.node.ts, packages/sdk/cap-tool/context.ts]
     steps:
       - "앱 code가 load될 때 handle(이름, 함수)을 부른다. 같은 process에 port가 이미 있으면 그 registry를 쓴다"
       - "같은 이름이 이미 있으면 Error(handler already registered)를 던진다. 앱 load가 실패하면 자식이 준비되지 못한다"
@@ -560,6 +562,7 @@ ignore:
   - {entry: "sdk:cap-store/CAP_HOST", reason: "host port의 symbol 상수다. 같은 port를 cap-net, cap-notify, cap-secret도 읽는다"}
   - {entry: "sdk:cap-store/CapabilityError", reason: "오류 class다. 동작이 없다"}
   - {entry: "sdk:cap-store/DEFAULT_DATABASE_FILE", reason: "기본 DB 파일 이름 상수다. data worker도 같은 파일을 연다(sdk-store-open)"}
+  - {entry: "sdk:cap-store/newId", reason: "기기가 달라도 겹치지 않는 ULID 꼴 id를 만드는 순수 helper다. core가 해석하지 않는다"}
   - {entry: "sdk:cap-store/SCHEMA_TABLE", reason: "schema 번호 표 이름 상수다. data worker도 같은 표를 쓴다"}
   - {entry: "sdk:cap-store/STORE_HOOKS", reason: "changeset 훅의 전역 symbol이다. connection.ts가 훅을 달고 runtime(entrypoint/cap-host.ts)이 부른다. 흐름은 app-command-call(write의 changeset)과 app-rewind-apply(되돌림 적용)가 본다"}
   - {entry: "sdk:cap-store/migrationOfSql", reason: "정본 migration-sql.ts의 재내보내기다. `-- loss:` 머리를 읽는 파서이고, 손실 선언의 판정은 activation 흐름(activation-ask-consent)이 같은 파서로 한다"}

@@ -7,6 +7,11 @@ export type Member = {
   exports?: string | Record<string, string>;
 };
 
+// package.json의 exports다. 조건부 export(`{".": {"lophn-phone": ..., "default": ...}}`)는 Node가 읽는 `default`로 본다.
+export type PackageConfig = Omit<Member, "directory" | "exports"> & {
+  exports?: string | Record<string, string | Record<string, string>>;
+};
+
 // check가 다루는 path는 OS와 상관없이 `/` 꼴이다. Windows의 `C:\x`는 `C:/x`가 된다.
 export function normalize(path: string): string {
   const slashed = path.replaceAll("\\", "/");
@@ -62,7 +67,7 @@ export async function readMembers(
     if (errorCode(error) !== "ENOENT") throw error;
   }
   const member = workspaceMatcher(workspace);
-  const configs = new Map<string, Omit<Member, "directory">>();
+  const configs = new Map<string, PackageConfig>();
   for (const file of files.filter((file) => file.endsWith("/package.json"))) {
     if (!member(directory(file))) continue;
     configs.set(file, JSON.parse(await readFile(`${root}/${file}`, "utf8")));
@@ -86,7 +91,7 @@ function workspaceMatcher(workspace: string[]): (directory: string) => boolean {
 // 이미 읽은 설정으로 member를 만든다. configs는 package.json 경로 → 내용이다.
 export function membersOf(
   workspace: string[],
-  configs: Map<string, Omit<Member, "directory">>,
+  configs: Map<string, PackageConfig>,
 ): Member[] {
   const member = workspaceMatcher(workspace);
   const members: Member[] = [];
@@ -95,7 +100,15 @@ export function membersOf(
     members.push({
       directory: directory(file),
       name: config.name,
-      exports: config.exports,
+      exports:
+        typeof config.exports === "object"
+          ? Object.fromEntries(
+              Object.entries(config.exports).map(([key, value]) => [
+                key,
+                typeof value === "string" ? value : value["default"],
+              ]),
+            )
+          : config.exports,
     });
   }
   return members;

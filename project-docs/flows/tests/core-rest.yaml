@@ -38,6 +38,18 @@ files:
     covers: [workspace-file-scope:app, workspace-info:full]
     note: "앱 workspace의 쓰기 범위(workspace-file-scope:app)와 workspace 정보 text(workspace-info:full)"
 
+  - path: packages/core/attention/decide_test.ts
+    covers: []
+    note: "push를 어느 기기에 보낼지 정하는 표(앞에 있는 desktop, 90초가 지난 보고, idle 한도, 앞에 있는 폰은 자기에게만, 꺼진 설정 칸)와 to_parent·app이 연 session의 turn 끝이 계기가 되지 않는 규칙. Bus로 도는 판정이라 입구 flow가 없다"
+
+  - path: packages/core/attention/message_test.ts
+    covers: []
+    note: "push 글과 data 어디에도 마지막 답, shell 명령, 질문 글, 앱 notice body가 없다. Bus로 도는 판정이라 입구 flow가 없다"
+
+  - path: packages/core/attention/unseen_test.ts
+    covers: [presence-report:recorded, unseen-dismiss:dismissed, unseen-dismiss:nothing-to-dismiss]
+    note: "unseen은 앞에 있는 host가 보고 있지 않을 때만 서고, 다른 host가 새로 보면 꺼지고, 승인·질문 대기와 app이 연 session의 끝으로는 서지 않는다(core 판정 함수를 직접 부른다)"
+
   - path: packages/core/approvals/approvals_test.ts
     covers:
       - turn-request-decide:forbidden

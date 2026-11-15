@@ -28,6 +28,7 @@ areas:
       - packages/protocol/lophn-agent/session-lifecycle.ts
       - packages/protocol/lophn-agent/app-calls.ts
       - packages/protocol/lophn-agent/commands.ts
+      - packages/protocol/attention/
     owns:
       - session 열기, 닫기, archive, 이름
       - 메시지 넣기와 queue, steer(turn이 도는 중의 메시지), router가 받는 session을 고르기
@@ -35,12 +36,14 @@ areas:
       - Gateway 연결과 event 전달(commit 뒤 event, 남지 않는 event)
       - 이미지 첨부, 메시지 검색, slash command 목록
       - thread bookmark
+      - 주의(attention): host가 보고한 presence, 못 본 turn 끝(unseen), 터미널 signal
     read:
       - architecture/acp.md
       - architecture/agent-chat.md
       - architecture/event.md
       - architecture/workspace-session.md
       - packages/core/lophn-agent/session/
+      - packages/core/attention/
       - packages/core/router/
       - packages/core/events/
       - packages/shell/renderer/conversation/

@@ -1827,6 +1827,86 @@ flows:
     crosses_process: false
     docs: [architecture/terminal-agent.md, architecture/workspace-session.md]
 
+  # ---------- 주의: host가 보고한 presence와 못 본 turn 끝(unseen) ----------
+
+  - id: presence-report
+    title: "desktop이나 폰이 지금 앞에서 무엇을 보는지 core에 알린다"
+    actor: person
+    entries: [route:presence/report]
+    boundary: [attention, core-api]
+    code: [packages/core/attention/presence.ts, packages/core/attention/mod.ts, packages/core/main/daemon/wiring/attention.ts]
+    steps:
+      - "보고한 쪽은 입력이 아니라 자격(principal)이 정한다: shell main은 사람 자격, 폰은 device:<id>. 보고(focused, idle_ms, 보고 중인 session 최대 32)로 그 쪽의 이전 보고를 바꾼다(메모리뿐, 표가 없다)"
+      - "90초가 지난 보고는 없는 것이다(죽은 desktop이 push를 막지 않게). desktop은 focused이고 idle이 120초 아래일 때, 폰은 focused일 때 앞에 있다"
+      - "앞에 있는 host가 새로 보는 session의 unseen을 끈다(StateChanged unseen)"
+    outcomes:
+      - id: recorded
+        observe: [response, event:StateChanged]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력이 schema에 맞지 않는다(looking이 32개를 넘음, idle_ms가 음수, session 참조 모양 오류)"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/app-notice.md]
+
+  - id: unseen-list
+    title: "못 본 turn 끝(finished·failed) 목록을 읽는다"
+    actor: person
+    entries: [route:unseen/list]
+    boundary: [attention, core-api]
+    code: [packages/core/attention/unseen.ts, packages/core/main/daemon/wiring/attention.ts]
+    steps:
+      - "메모리의 못 본 session(session, finished 또는 failed, 시각)을 돌려준다. 승인·질문 대기는 들지 않는다"
+    outcomes:
+      - id: ok
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/app-notice.md]
+
+  - id: unseen-dismiss
+    title: "못 본 turn 끝을 사람이 지운다(보는 것과 같은 효과)"
+    actor: person
+    entries: [route:unseen/dismiss]
+    boundary: [attention, core-api]
+    code: [packages/core/attention/unseen.ts, packages/core/main/daemon/wiring/attention.ts]
+    steps:
+      - "그 session이 못 본 목록에 있으면 지우고 StateChanged unseen을 낸다. 다음 turn 시작과 session 끝도 같이 지운다"
+    outcomes:
+      - id: dismissed
+        observe: [response, event:StateChanged]
+      - id: nothing-to-dismiss
+        when: "그 session이 목록에 없다(dismissed가 false)"
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "session 참조가 ses_ 또는 term: 모양이 아니다"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/app-notice.md]
+
+  - id: terminal-sessions-signal
+    title: "shell main이 터미널 coding agent의 계기(대기, 끝, 실패)를 core에 알린다"
+    actor: shell
+    entries: [route:terminal_sessions/signal]
+    boundary: [attention, core-api]
+    code: [packages/core/attention/mod.ts, packages/core/attention/triggers.ts, packages/core/main/daemon/wiring/attention.ts]
+    steps:
+      - "사람 token(shell main)만 부른다. report가 목록이라면 이 route는 순간이다: tracker의 debounce 뒤 한 번씩 보낸다"
+      - "waiting이면 그 터미널의 unseen을 끄고 push 계기(needs_you)가 된다. finished·failed이면 보고 있는 present host가 없을 때 unseen을 세우고, active_ms가 60초 이상이면 push 계기(long_finish)가 된다"
+    outcomes:
+      - id: signaled
+        observe: [response, event:StateChanged]
+      - id: forbidden
+        code: forbidden
+        when: "사람 token이 아닌 자격이 부른다"
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력이 schema에 맞지 않는다"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/terminal-agent.md]
+
   # ---------- 앱이 A2A의 한쪽이 된다(call 보내기, 답 받기, session 열기·끝내기) ----------
 
   - id: app-call-send

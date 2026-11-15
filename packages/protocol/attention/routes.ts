@@ -29,12 +29,12 @@ const unseenItemSchema = z.strictObject({
   at: atSchema,
 });
 
-// `StateChanged{unseen, id: session}`이 서고 꺼질 때 core가 route 밖에서 낸다. tools/check-reads.ts의 route 밖 목록에 "unseen"이 들어가면
-// 이 route에 `reads: ["unseen"]`을 단다(화면이 그 신호로 다시 읽는다).
+// `StateChanged{unseen, id: session}`은 서고 꺼질 때 core가 route 밖에서 낸다.
 export const unseenList = defineMemory({
   resource: "unseen",
   method: "list",
   name: "unseen.list",
+  reads: ["unseen"],
   input: z.strictObject({}),
   output: z.strictObject({ items: z.array(unseenItemSchema) }),
   actors: ["user"],

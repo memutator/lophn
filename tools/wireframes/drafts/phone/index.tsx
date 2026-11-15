@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import type { Area, Page } from "../../pages/types.ts";
 import { AppsFlow } from "./apps.tsx";
+import { CodingFlow } from "./coding.tsx";
 import { InboxFlow } from "./inbox.tsx";
 import { Board } from "./kit.tsx";
 import { OpsFlow, SettingsFlow, WideFlow } from "./more.tsx";
@@ -92,6 +93,14 @@ const FLOWS: readonly FlowPage[] = [
       "600보다 넓은 화면(편 접는 폰, tablet)에서는 sidebar가 늘 열려 두 칸이 된다.",
     height: 1000,
     render: () => <WideFlow />,
+  },
+  {
+    id: "phone-coding",
+    title: "Phone · 10 Coding agents and terminal",
+    description:
+      "컴퓨터의 coding agent를 폰에서 다룬다. project의 coding session 묶음, 앱 깨우기, 승인, 터미널 session을 채팅으로 바꾸기, 새 coding session과 이어 가기, 터미널 화면.",
+    height: rows(12),
+    render: () => <CodingFlow />,
   },
 ];
 

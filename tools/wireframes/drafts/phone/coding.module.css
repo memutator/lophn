@@ -1,0 +1,60 @@
+/* The terminal view of the phone drafts: styled rows on the tab's own background, and the key bar under them. */
+
+.term {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 6px 12px;
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 19px;
+  font-variant-ligatures: none;
+  white-space: pre;
+}
+
+/* Fit width: an 80-column screen shrinks to the phone's width. */
+.term[data-fit] {
+  font-size: 7.6px;
+  line-height: 11px;
+}
+
+/* Where the horizontal scroll stands at 100%. */
+.hScroll {
+  position: absolute;
+  bottom: 4px;
+  left: 12px;
+  width: 58%;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--color-border-strong);
+}
+
+.cursor {
+  background: var(--color-text-primary);
+  color: var(--color-surface-base);
+}
+
+.keys {
+  display: flex;
+  flex: none;
+  gap: 5px;
+  padding: 6px 12px 8px;
+}
+
+.key {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 6px;
+  border: 1px solid var(--color-border-base);
+  border-radius: 8px;
+  background: var(--color-surface-base);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+}

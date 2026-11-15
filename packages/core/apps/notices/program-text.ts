@@ -1,5 +1,7 @@
 import type { NoticeRecordInput } from "../../../protocol/apps/notice.ts";
 
+const apps = (count: number) => `${count} ${count === 1 ? "app" : "apps"}`;
+
 // program 줄의 글은 여기 template과 매개변수로만 만든다. 앱이 쓴 글이 program 줄에 들어가지 않게 하려고
 // command 입력에 title·body를 두지 않았다. 매개변수는 짧은 식별자와 core가 정한 이유 코드다(protocol/apps/notice.ts).
 export function programNoticeText(input: NoticeRecordInput): {
@@ -50,10 +52,13 @@ export function programNoticeText(input: NoticeRecordInput): {
         title: "An app stopped an agent turn",
         body: `The running turn of ${input.params.title ?? input.params.session} was stopped.`,
       };
+    case "phone_changed":
+      return {
+        title: "Your phone changed",
+        body: `${apps(input.params.apps)} ${input.params.apps === 1 ? "has a phone screen" : "have phone screens"} drawn for the old phone. Ask lophn to redraw them.`,
+      };
     case "sdk_update_needed": {
       const { required, available } = input.params;
-      const apps = (count: number) =>
-        `${count} ${count === 1 ? "app" : "apps"}`;
       // 앞 문장이 "N apps"를 썼으면 뒤는 수만 쓴다("3 apps must update, 2 can use ...").
       const parts = [
         required > 0 ? `${apps(required)} must update` : "",

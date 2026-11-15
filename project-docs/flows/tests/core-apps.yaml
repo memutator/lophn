@@ -207,6 +207,10 @@ files:
     covers: [app-phone-target-read:found, app-phone-target-read:no-device]
     note: "기준 기기(is_primary)의 name, os, width, height, dpr만 싣고 id와 공개 key는 싣지 않음. 기기가 없으면 device는 null"
 
+  - path: packages/core/apps/phone/changed_test.ts
+    covers: [phone-changed-notice:noticed, phone-changed-notice:not-noticed]
+    note: "기준 기기 id가 바뀔 때만(remote_devices가 아닌 변경과 같은 id는 알리지 않음), 새 기준이 있고 폰 화면 앱이 있을 때만 phone_changed를 남김. 기준을 지운 것은 알리지 않고 그 뒤 다른 기기가 기준이 되면 알림"
+
   - path: packages/core/apps/usage/users_test.ts
     covers: [app-usage-read:listed, app-command-call:denied-gate-blocked]
     note: "사용 관계는 project session의 호출만 세고 home과 앱 자신의 workspace 호출은 안 셈. 두 번째 test는 callAllowed gate를 직접 불러 앱 workspace agent가 자기 앱 command를 할당 없이 부르고 다른 앱은 할당이 있어야 함을 단정. gate 판정을 단정하므로 app-command-call:denied-gate-blocked"

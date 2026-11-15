@@ -85,6 +85,7 @@ import {
 import { ACTIVATION_CONSENT_TOPIC } from "../../../apps/releases/activation/consents.ts";
 import { createCopyPreviewBundles } from "../../../apps/releases/activation/desired.ts";
 import { observeReleaseActivations } from "../../../apps/releases/activation/recovery.ts";
+import { startPhoneChangedWatch } from "../../../apps/phone/changed.ts";
 import { releaseFacts } from "../../../apps/releases/mod.ts";
 import { loadActiveDeclaration } from "../../../apps/releases/store.ts";
 import {
@@ -159,6 +160,7 @@ export const appsWiring: WiringFactory = () => {
   let oauth: AppOAuth | undefined;
   let views: AppViews | undefined;
   let unsubscribeViews: (() => void) | undefined;
+  let unsubscribePhoneChanged: (() => void) | undefined;
   return {
     name: "apps",
     restartOwners: [observeInvocations, observeReleaseActivations],
@@ -847,6 +849,19 @@ export const appsWiring: WiringFactory = () => {
         }
       }
       appsControl.start();
+      if (write !== undefined) {
+        unsubscribePhoneChanged = startPhoneChangedWatch({
+          bus: ctx.bus,
+          sql: write.sql,
+          record: ctx.noticeRecorder,
+          warn: (message) =>
+            ctx.telemetry.logger.warn({
+              component: "apps/phone",
+              event: "phone_changed_notice_failed",
+              fields: { message },
+            }),
+        });
+      }
       const table = views;
       if (table !== undefined) {
         unsubscribeViews = ctx.bus.subscribe(
@@ -875,6 +890,8 @@ export const appsWiring: WiringFactory = () => {
     closeIntake() {
       unsubscribeViews?.();
       unsubscribeViews = undefined;
+      unsubscribePhoneChanged?.();
+      unsubscribePhoneChanged = undefined;
     },
     // 앱 supervisor가 앱 자식을 정지하기 전에 질의 통로를 닫는다.
     closeChildren() {

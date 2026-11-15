@@ -51,7 +51,7 @@ flows:
     code: [packages/core/apps/notices/commands.ts, packages/core/apps/notices/program-text.ts, packages/core/main/daemon/wiring/notices.ts]
     steps:
       - "core 안 wiring이 ctx.noticeRecorder로 부른다(machine:notice-recorder 자격, 쓰기 층을 지난다). release·data·runtime command는 자기 tx 안에서 recordProgramNotice를 부르며 이 entry 밖이다"
-      - "kind와 app의 짝을 본다. lophn_updated와 sdk_update_needed는 app이 없어야 하고 나머지는 app이 있어야 한다"
+      - "kind와 app의 짝을 본다. lophn_updated와 sdk_update_needed와 phone_changed는 app이 없어야 하고 나머지는 app이 있어야 한다"
       - "app이 있으면 등록부에서 찾는다. 없으면 not_found"
       - "program-text.ts의 template과 매개변수로 글을 만들어 영구 줄로 쓴다(같은 key면 대신한다)"
       - "commit 뒤 NoticePosted를 낸다. program 줄은 지우지 못한다(trigger)"
@@ -549,7 +549,7 @@ flows:
     steps:
       - "relay가 NoticePosted를 Gateway로 받는다"
       - "읽음 표시(read_at)가 있는 줄은 버린다"
-      - "program 줄은 release_failed·release_rolled_back·app_unavailable·app_data_restored·sdk_update_needed만 띄운다. 나머지(켜짐, migration 적용, lophn 업데이트)는 Inbox에만 남는다"
+      - "program 줄은 release_failed·release_rolled_back·app_unavailable·app_data_restored·sdk_update_needed·session_stopped_by_app·phone_changed만 띄운다. 나머지(켜짐, migration 적용, lophn 업데이트)는 Inbox에만 남는다"
       - "routeNotice: 보고 있으면 없음, focus를 가진 lophn 창이 있으면 toast, 없으면 OS 알림이다. 앱 줄과 Inbox 목표는 보고 있다고 보지 않는다"
       - "누르면 앱 공간(app)이나 Inbox(inbox)를 연다(notice-reveal)"
     outcomes:
@@ -565,6 +565,33 @@ flows:
     docs: [architecture/app-notice.md]
     unclear:
       - "OS 알림의 observe를 어느 frame으로 둘지 정하지 못했다(OS 밖이라 event만 둔다)"
+
+  - id: phone-changed-notice
+    title: 기준 폰이 바뀌면 폰 화면이 있는 앱 수를 한 줄로 알린다
+    actor: system
+    entries: [system:phone-changed-notice]
+    uses: [route:notices/record]
+    boundary: [apps, events]
+    code: [packages/core/apps/phone/changed.ts, packages/core/main/daemon/wiring/apps.ts]
+    steps:
+      - "core가 켜질 때 기준 기기(devices의 is_primary) id를 메모리에 적고 Bus의 StateChanged를 구독한다"
+      - "remote_devices가 든 StateChanged마다 기준 id를 다시 읽어 마지막으로 본 id와 견준다. 이름 바꾸기와 연결 시각 갱신은 id가 같아 알리지 않는다"
+      - "id가 바뀌었고 새 기준이 있으면(없던 기기에서 처음 생김, 지운 뒤 다른 기기가 기준이 됨 포함) 폰 화면(places에 phone)을 가진 활성 앱 수를 센다"
+      - "수가 1 이상이면 ctx.noticeRecorder로 phone_changed 줄(앱 없음, key phone_changed)을 남긴다. 다시 그리지는 않는다"
+    outcomes:
+      - id: noticed
+        when: "기준 폰이 바뀌었고 폰 화면이 있는 앱이 하나 이상이다"
+        observe: [ledger:notices, event:NoticePosted]
+      - id: not-noticed
+        when: "기준 id가 그대로이거나 기준이 없어졌거나 폰 화면이 있는 앱이 없다"
+        observe: [ledger:notices]
+      - id: record-failed
+        when: "notices.record가 실패했다. core는 멈추지 않고 log만 남긴다"
+        observe: [log:apps/phone phone_changed_notice_failed]
+    crosses_process: false
+    docs: [architecture/app-notice.md]
+    unclear:
+      - "마지막으로 본 id는 메모리에만 둔다. core가 꺼진 사이의 기준 변경은 알리지 못하지만 pairing은 core가 켜져 있어야 한다"
 
   - id: session-notice
     title: lophn session의 끝과 사람의 물음을 알린다

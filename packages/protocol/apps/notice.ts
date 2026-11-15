@@ -45,6 +45,7 @@ export const PROGRAM_NOTICE_KINDS = [
   "lophn_updated",
   "sdk_update_needed",
   "session_stopped_by_app",
+  "phone_changed",
 ] as const;
 export const programNoticeKindSchema = z.enum(PROGRAM_NOTICE_KINDS);
 export type ProgramNoticeKind = z.infer<typeof programNoticeKindSchema>;
@@ -121,7 +122,7 @@ function variant<K extends ProgramNoticeKind, P extends z.ZodRawShape>(
   return z.strictObject({
     kind: z.literal(kind),
     params: z.strictObject(params),
-    // lophn_updated와 sdk_update_needed 말고는 앱이 있어야 한다(command가 본다).
+    // 앱 없는 kind(lophn_updated·sdk_update_needed·phone_changed) 말고는 앱이 있어야 한다(command가 본다).
     app: appIdSchema.optional(),
     project: projectIdSchema.optional(),
     key: noticeKeySchema.optional(),
@@ -148,6 +149,8 @@ export const noticeRecordInputSchema = z.discriminatedUnion("kind", [
     required: z.number().int().min(0).max(9999),
     available: z.number().int().min(0).max(9999),
   }),
+  // 기준 폰이 바뀌었다. apps: 폰 화면이 있는 활성 앱 수(옛 폰 크기로 그린 화면이라 다시 그려야 한다).
+  variant("phone_changed", { apps: z.number().int().min(1).max(9999) }),
 ]);
 export type NoticeRecordInput = z.infer<typeof noticeRecordInputSchema>;
 

@@ -37,7 +37,7 @@
 | `action` | nullable JSON. 줄을 누르면 할 일 |
 | `created_at`, `read_at` | `read_at`은 nullable(안 읽음) |
 
-- **program kind**: `release_activated`, `release_failed`, `release_rolled_back`, `app_unavailable`, `app_data_migrated`, `app_data_restored`, `lophn_updated`, `sdk_update_needed`. 앞의 여섯은 앱이 있고 `lophn_updated`·`sdk_update_needed`는 앱이 없다. kind 목록은 계약(protocol의 schema)이 정하고 표에는 CHECK를 걸지 않아 종류를 더해도 표를 다시 짜지 않는다.
+- **program kind**: `release_activated`, `release_failed`, `release_rolled_back`, `app_unavailable`, `app_data_migrated`, `app_data_restored`, `lophn_updated`, `sdk_update_needed`, `session_stopped_by_app`, `phone_changed`. `lophn_updated`·`sdk_update_needed`·`phone_changed`는 앱이 없고 나머지는 앱이 있다. kind 목록은 계약(protocol의 schema)이 정하고 표에는 CHECK를 걸지 않아 종류를 더해도 표를 다시 짜지 않는다.
 - **action**: 지금은 `{kind: "open_home_skill", skill, args}` 하나다. 화면은 종류로만 그리고 실행한다. app 줄은 action이 없다(앱이 home skill을 열 수 없다).
 - **key와 대신하기**: 같은 `(source, app, key)`는 줄 하나다(key가 있을 때. 앱 없는 program 줄끼리도 같다). 새로 오면 그 줄의 내용·시각·`persistent`·`action`을 바꾸고 안 읽음으로 되돌린다(id 그대로). 영구 줄이 읽음이었어도 안 읽음으로 돌아온다.
 - **수명**: program 줄은 늘 영구이고 DB trigger가 지우기를 막는다. 앱 줄만 command가 지운다. 앱 줄은 휘발과 영구를 따로 세어 앱마다 휘발 50개, 영구 200개까지이고 넘으면 오래된 것부터 지운다. 앱을 보관하면 그 앱의 휘발 줄이 지워지고 영구 줄은 남는다(보관한 앱의 줄도 `notices.list`로 읽히고 Inbox의 열린 목록에서는 빠진다). 앱을 영구히 지우면(`app.delete`) 그 앱의 app 줄은 영구 줄까지 지워지고 program 줄은 trigger 때문에 남는다.
@@ -53,9 +53,12 @@
 | `app_unavailable` | 앱이 사용 불가가 됨(시작 실패, crash loop, 예기치 않은 종료, activation의 복원 실패·종료 확인 불가). 같은 사실의 재전송은 쓰지 않는다 | `app_unavailable`(앱마다 한 줄. 되풀이되면 그 줄을 안 읽음으로 되돌린다) |
 | `app_data_migrated`, `app_data_restored` | 앱 data migration이 적용됨, 백업에서 복원됨. 복원은 새로 기록할 때만 | 없음 |
 | `lophn_updated` | 제품 판이 바뀐 기동(아래 "제품 판 marker") | 없음 |
+| `phone_changed` | 사람의 기준 폰이 바뀜(새 pairing이나 기준 바꾸기. `devices`의 `is_primary` 기기 id가 core가 마지막으로 본 id와 달라짐, 지운 뒤 다른 기기가 기준이 된 것 포함. 이름 바꾸기와 연결 갱신은 id가 같아 알리지 않는다). 폰 화면(`places`에 `phone`)을 가진 활성 앱이 하나 이상일 때만 앱 없는 줄 하나 | `phone_changed`(되풀이를 한 줄로 합친다) |
 | `sdk_update_needed` | 제품 판이나 설치된 SDK 판이 바뀐 기동의 SDK 감지(`architecture/ui-kit.md`의 "SDK 상태 read"와 "SDK 업데이트 감지와 맡기기"). 필수 SDK가 있거나 아직 검토하지 않은 SDK 메모(`unreviewed`)가 있는 앱이 하나라도 있을 때 앱 없는 줄 하나 | `sdk_update_needed`(다음 기동이 개수를 새로 쓰고 안 읽음으로 되돌린다) |
 
 `sdk_update_needed`의 params는 `{required, available}`(옮겨야 하는 앱 수, 필수는 아니지만 home이 아직 검토하지 않은 새 메모가 있는 앱 수)이고 글은 "SDK updates for your apps" / "3 apps must update, 2 can use new SDK features."이다. action은 `open_home_skill` `update-apps` + 빈 args(전체)다. 앱마다 줄을 만들지 않는 것은 각 앱을 두고 갈지 올릴지(그리고 새 SDK 기능을 쓸지) 숲으로 보는 일이 사람이 아니라 home lophn의 몫이기 때문이다. 앱마다 있던 옛 `sdk_update_needed` 줄(앱 있음)은 program 줄이라 지울 수 없어 남고 단추도 그대로 동작한다.
+
+`phone_changed`의 params는 `{apps}`(폰 화면이 있는 활성 앱 수)이고 글은 "Your phone changed" / "2 apps have phone screens drawn for the old phone. Ask lophn to redraw them."이다. action은 없다. 알리기만 하고 자동으로 다시 그리지 않는다(옛 폰 크기로 그린 화면을 새 크기로 다시 그리는 일은 사람이 lophn에게 맡긴다). core 안에서 Bus의 `remote_devices` `StateChanged`를 보고 `noticeRecorder`로 쓴다. 마지막으로 본 기준 id는 메모리에만 둔다(core가 시작할 때 지금 값). pairing은 core가 켜져 있어야 하므로 꺼진 사이의 변경은 없다.
 
 release·data·runtime command는 상태를 바꾸는 자기 transaction 안에서 줄을 쓴다. 상태 변경과 줄이 한 commit이라 한쪽만 남지 않고, 응답을 잃은 재전송이 줄을 늘리지 않는다. 이미 commit된 뒤 core 안 다른 곳이 쓸 때는 core 안 machine 자격(`machine:notice-recorder`)으로 `notices.record`를 부른다. 그 길은 transaction 안에서 부르면 안 된다(쓰기 층을 따로 지난다).
 
@@ -133,7 +136,7 @@ Inbox는 탭 둘이다.
 6. program 기록은 상태를 바꾸는 command와 같은 transaction에서 쓴다. 상태만 바뀌고 줄이 없거나 줄만 있는 일이 없고, 재전송이 줄을 늘리지 않는다.
 7. 남기는 기간: program 줄은 지우지 않는다. 앱이 영구로 남긴 줄은 앱마다 최근 200개, 휘발 줄은 앱마다 50개다. 고장 난 앱이 표를 끝없이 키우지 못하게 한다.
 8. 정본은 표다. 줄은 사람이 지우거나(휘발) 상한에 밀리거나 앱이 보관될 때까지(휘발) 재시작을 넘어 남는다. toast는 shell 정책이라 놓친 것을 다시 띄우지 않는다.
-9. toast·OS 알림 규칙: app 줄은 모두 띄운다. program 줄은 사람이 알아야 하는 `release_failed`·`release_rolled_back`·`app_unavailable`·`app_data_restored`·`sdk_update_needed`만 띄우고 `release_activated`·`app_data_migrated`·`lophn_updated`는 Inbox에만 남긴다. 앱 없는 줄은 `sdk_update_needed`만 띄우고(`lophn_updated`는 Inbox에만) 누르면 Inbox를 연다.
+9. toast·OS 알림 규칙: app 줄은 모두 띄운다. program 줄은 사람이 알아야 하는 `release_failed`·`release_rolled_back`·`app_unavailable`·`app_data_restored`·`sdk_update_needed`·`session_stopped_by_app`·`phone_changed`만 띄우고 `release_activated`·`app_data_migrated`·`lophn_updated`는 Inbox에만 남긴다. 앱 없는 줄은 `sdk_update_needed`·`phone_changed`만 띄우고(`lophn_updated`는 Inbox에만) 누르면 Inbox를 연다.
 10. 기동 중에 쓴 줄은 toast가 뜨지 않는다. core가 `ready`를 내기 전에 쓴 줄이라 shell이 아직 connect하지 못했고 event 구독이 없다(놓친 알림은 다시 띄우지 않는다). shell 없이 도는 core(앱을 Quit한 뒤, CLI나 autostart가 띄운 core)가 쓴 줄도 같다. 그 줄은 배지와 History로만 보인다.
 11. `kind`·`action`이 가리키는 일은 사람이 단추를 눌러야 시작된다. program이 session을 스스로 열지 않는다.
 12. tray 값은 저장하지 않는다. 알림과 달리 재시작 뒤 다시 내는 것은 앱 몫이다.
@@ -165,7 +168,7 @@ Inbox는 탭 둘이다.
 - program 줄의 글은 core의 template으로 고정한다. 이유: 앱이 쓴 글이 lophn의 기록처럼 보이는 일을 막는다. (agent)
 - 안 읽은 영구 기록도 sidebar 배지에 센다. 이유: 알림의 목적은 사람이 알게 하는 것이고, SDK 업데이트 같은 놓치면 안 되는 program 기록이 배지에 없어 사람이 몰랐다. 처음에는 "기록은 나중에 찾는 것이고 급한 것은 toast가 맡는다"며 세지 않았으나 뒤집었다. 버린 안: 줄마다 단추를 두고 배지에서 빼는 것. (사람, 2026-11-07)
 - SDK 업데이트 줄은 앱 없이 하나다. 필수와 가능을 한 줄에 세고, 가능만 있어도 쓴다(앱 상세 Version 탭과 별개로 새 기능을 채택할지 판단하게 하려는 것). 가능은 "새 판이 있는 앱"이 아니라 "검토하지 않은 새 메모가 있는 앱"이다: home이 그대로 두기로 한 앱이 판이 바뀔 때마다 계속 세어지지 않는다(2026-11-11). 이유: 각 앱을 두고 갈지 올릴지, 새 기능을 쓸지 숲으로 보는 일은 사람이 아니라 home lophn의 몫이다. 사람은 SDK 변화가 무엇을 깨고 무엇을 가능하게 했는지 판단하지 못한다. 줄마다 [Ask lophn]이 있으면 home을 거칠 이유가 없다. 버린 안: 앱마다 줄과 단추(0.20.0 첫 모양). 새 kind를 만들지 않고 `sdk_update_needed`를 앱 없이 다시 썼다. (줄 하나·home이 숲을 봄·배지: 사람, 2026-11-07. 가능만 있어도 쓴다: 사람. kind 재사용과 필수·가능 한 줄: agent)
-- 앱 없는 program 줄 중 `sdk_update_needed`만 toast로 띄운다. (agent)
+- 앱 없는 program 줄 중 `sdk_update_needed`와 `phone_changed`만 toast로 띄운다. (agent)
 - tray 값은 새 SDK package·permission 없이 `@lophn/cap-notify`와 `notify.send`로 내고 core는 memory에만 둔다. 이유: tray 값도 앱이 사람에게 보이는 것이고, 앱 process가 오래 살아 timer로 값을 다시 낼 수 있어 저장이 필요 없다. 새 permission kind를 두지 않았다. (agent)
 - tray는 OS tray가 아니라 lophn 창 안의 것이다. 앱·sidebar panel·전역 float처럼 앱이 채우고 lophn은 자리만 준다. (사람)
 - tray 항목은 켜는 쪽이 아니라 끄는 쪽(`shell.tray_off`)을 저장한다. 이유: 새로 설치한 앱이 목록 갱신 없이 바로 나온다. 옛 켠 목록(`shell.tray`)은 끈 목록의 보수로 옮기지 않고 지웠다(설치된 앱 전체를 알 수 없는 data step에서 보수를 만들 수 없다). (사람. 지움: agent)

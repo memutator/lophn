@@ -97,6 +97,7 @@ export const data = {
   "waiting.label.kind-release-rolled-back": "Release rolled back",
   "waiting.label.kind-sdk-update-needed": "SDK update needed",
   "waiting.label.kind-session-stopped-by-app": "App stopped a session",
+  "waiting.label.kind-phone-changed": "Phone changed",
   "waiting.label.tab-history": "History",
   "waiting.label.tab-history-unread": "History ({count})",
   "waiting.label.tab-now": "Now",

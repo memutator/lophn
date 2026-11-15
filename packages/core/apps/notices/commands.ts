@@ -157,13 +157,15 @@ function trimApp(
 }
 
 // 다른 command가 자기 transaction 안에서 program 기록을 남기는 길이다. 상태 변경과 같이 commit되어 한 번만 남는다.
-// 글(title·body)은 template과 매개변수로만 만든다. `lophn_updated`만 앱이 없고 나머지는 있는 앱이어야 한다.
+// 글(title·body)은 template과 매개변수로만 만든다. `lophn_updated`·`sdk_update_needed`·`phone_changed`만 앱이 없고 나머지는 있는 앱이어야 한다.
 export function recordProgramNotice(
   tx: Pick<Tx, "sql" | "now" | "newId" | "port">,
   input: NoticeRecordInput,
 ): Result<{ id: Notice["id"] }> {
   const appless =
-    input.kind === "lophn_updated" || input.kind === "sdk_update_needed";
+    input.kind === "lophn_updated" ||
+    input.kind === "sdk_update_needed" ||
+    input.kind === "phone_changed";
   if (appless !== (input.app === undefined)) {
     return err({
       code: "invalid_input",

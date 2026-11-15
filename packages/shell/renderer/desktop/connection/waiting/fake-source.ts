@@ -413,6 +413,14 @@ export const HISTORY_NOTICES = (): readonly Notice[] => [
     app_name: null,
     read_at: ago(4200),
   }),
+  notice(9, 5800, {
+    kind: "phone_changed",
+    app: null,
+    app_name: null,
+    title: "Your phone changed",
+    body: "2 apps have phone screens drawn for the old phone. Ask lophn to redraw them.",
+    read_at: ago(5700),
+  }),
 ];
 
 type Item =

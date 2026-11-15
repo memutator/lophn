@@ -339,7 +339,7 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 | 6 | `mobile-user-apps` | 진행 중(task 15개). `phone` 자리, 기준 폰 읽기, core의 view 표, 폰 화면 계약이 합쳐졌다. spike `reports/mobile-program/app-screens-spike.md`, 조사 `reports/mobile-program/app-place-survey.md`. 폰 앱을 고치는 뒤쪽 wave는 `mobile-app` land 뒤 |
 | 4 | `mobile-push` | core의 주의(attention), push 보내기, desktop의 보고가 합쳐졌다. 폰 쪽 둘은 `mobile-app` land 뒤. 조사 `reports/mobile-program/push-survey.md`. 실제 배달에는 사람의 Expo·Firebase 계정이 든다 |
 | 5, 9 | `mobile-coding-agents` | 진행 중. core의 `/host-link`가 합쳐졌다. 조사 `reports/mobile-program/coding-agent-relay-survey.md` |
-| 7 | `mobile-local-apps` | 조사 끝남(`reports/mobile-program/local-apps-survey.md`). spike(guest runtime 안의 SQLite, changeset 양방향) 뒤에 brief를 쓴다. 결과는 `reports/mobile-program/local-apps-spike.md` |
+| 7 | `mobile-local-apps` | 열림(task 13개). spike가 통과했다(폰의 guest runtime 안에서 앱 backend와 자체 SQLite module이 돌고, changeset이 양방향으로 맞는다. debug와 release build. `reports/mobile-program/local-apps-spike.md`). 조사 `reports/mobile-program/local-apps-survey.md`. sync core와 SDK 변경이 돌고 있다. 폰 쪽은 `mobile-app`과 `mobile-user-apps`의 land 뒤 |
 | 8 | `mobile-widgets` | 열림(task 16개). 위젯 값 계약, 폰 요청 길 계약, wireframe(gallery Drafts › Phone · 11)이 끝났다. 조사 `reports/mobile-program/widgets-survey.md`. 나머지는 앞 계획들의 land와 위젯 native spike 뒤 |
 | 10 | `mobile-browser-use` | 열림(task 9개). spike가 통과했다(폰 앱의 native module이 사용자 앱 화면을 읽고, 찍고, 누르고, 입력하고, 스크롤한다. debug와 release build. `reports/mobile-program/drive-spike.md`). 조사 `reports/mobile-program/browser-use-survey.md`. 모든 task가 `mobile-app`, `mobile-user-apps`, `mobile-widgets`의 land 뒤 |
 
@@ -351,6 +351,7 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 - **단계 8.** 폰 기능은 앱 backend의 길만 먼저 연다(새 SDK part `@lophn/cap-phone`, permission `phone.use {capability}`, activation 동의 card에서 앱마다 한 번). 첫 기능은 `location.get`이다. agent가 부르는 길과 다른 기능은 쓰는 예가 생길 때 연다. 폰 앱이 앞에 없으면 `unavailable`이고 push로 깨우지 않는다. 위젯은 선언(`widgets`)하고 값은 정해진 component 넷(text, stat, progress, list)의 data다. 새로 고침은 best effort이고 위젯은 받은 시각을 늘 보인다.
 - **단계 10.** agent는 폰의 preview 화면만 다룬다(desktop과 같은 규칙: live 화면은 사람의 실제 data라 다루지 않는다). 사람이 폰에서 그 앱의 "Preview from lophn"을 열어야 시작되고, 폰 앱이 앞에 있고 화면이 켜져 있어야 한다. 읽기와 입력은 폰 앱의 native 층이 한다. Accessibility service와 adb는 쓰지 않는다(Play 정책, cable). `lophn tab`·`lophn browser`의 대상이 하나 느는 것이고 도구를 새로 만들지 않는다.
 - **단계 7.** 선언의 `runs_on` 하나로 remote(`computer`), sync(`computer`, `phone`), standalone(`phone`)을 가른다. 폰의 backend는 그 앱 화면의 guest runtime 안에서 돈다. computer가 hub이고 relay는 변경을 맡아 두지 않는다. 충돌은 column 단위로 나중 것이 이기고 delete가 이긴다(row 단위는 서로 다른 column을 고친 두 사본이 갈라진다. 위 "폰에서 혼자 도는 앱"의 row 단위 서술을 이것이 바꾼다). 폰에서 한 write는 computer에 닿을 때 invocation으로 기록되어 Activity와 rewind에 든다. migration은 app bundle에 넣지 않고 host가 release의 migration file을 돌린다. standalone 앱은 폰에 "Only on this phone · not backed up"으로 보인다. Android를 먼저 한다.
+  - spike 뒤 바뀐 것: 폰의 SQLite는 expo-sqlite가 아니라 작은 자체 module이다(guest 안의 expo-sqlite는 다른 file을 붙여 읽을 수 있고 `globalThis.expo`로 SecureStore 같은 Expo module에 닿는다). 충돌 시각 표는 줄마다 하나에 바뀐 column만 따로 적는다(column마다 적으면 data의 1.84배). delete는 더 나중일 때만 적용한다(지웠다 다시 넣은 줄이 한쪽에서만 지워진다). 폰 backend bundle은 plain JS다(보통 크기 backend는 첫 호출까지 55~139 ms).
 
 ## 사람이 정할 것
 

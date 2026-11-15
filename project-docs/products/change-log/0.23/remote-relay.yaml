@@ -1,0 +1,38 @@
+id: remote-relay
+version: 0.23.60
+title: 폰과 core가 다른 network에 있어도 lophn relay로 만나 remote 화면을 쓴다
+modules: [packages/protocol, packages/core/remote, packages/core/main, packages/core/config, packages/shell/renderer, packages/design, packages/relay, mobile, tools]
+checked: [boundary-catalog]
+change: |
+  - relay package(`packages/relay`)를 더했다. Node `ws` server이고 Fly.io app `lophn-relay`(도쿄, machine 1대)에서 돈다. core의 control socket이 key를 증명하면 그 key의 자리를 주고, 폰이 그 key로 붙으면 무작위 128-bit 연결 id를 core에 알린다. core가 그 id로 data socket을 열면 둘 사이 binary message를 그대로 넘긴다. 내용은 폰과 core 사이 Noise가 지켜 relay는 보지 못한다. 한도: core마다 폰 16, 붙기 전 message 16, 증명과 data socket을 기다리는 10초, 받는 쪽이 1 MiB 넘게 밀리면 그 짝을 닫는다. `npm run dev:relay`가 개발 relay를 띄운다.
+  - 계약(`remote-protocol`): relay path(`/v1/host`, `/v1/data`, `/v1/phone`), control frame(`challenge`, `proof`, `ready`, `connected`, `gone`), key 증명(`HMAC-SHA256(X25519(core secret, relay 임시 key), nonce)`), QR(`pairing/start`)의 `relay` 칸, 사람만 부르는 memory route `remote_relay/status`.
+  - core: 설정 `remote.relay`(기본 `wss://lophn-relay.fly.dev`, 비우면 relay를 쓰지 않는다, 사람만 바꾼다)를 더했다. `remote.enabled`가 켜져 있으면 relay에 control socket을 걸어 증명하고, 폰 연결마다 data socket을 열어 listener의 연결과 같이 remote host에 넘긴다. listener와 따로 돌아 listener port를 못 열어도 relay는 돈다. 끊기면 1초에서 30초 backoff로 다시 건다. `pairing/start`는 listener도 relay도 없을 때만 `unavailable`이다.
+  - Settings › Remote가 relay 상태를 한 줄로 보인다("Reachable from anywhere through the relay" / "Can't reach the relay").
+  - 폰 앱: QR의 relay 주소를 컴퓨터마다 저장하고, 붙을 때 direct 주소들과 relay를 같이 걸어 먼저 handshake가 된 것을 쓴다. 확인 화면에 relay host를 보인다.
+  - `npm run dev:remote`는 개발 core의 `remote.relay`를 비워 실제 relay에 붙지 않는다.
+why: |
+  remote는 폰이 다른 network(LTE, 회사 Wi-Fi)에서 컴퓨터에 붙어야 의미가 있다. 앞서 roadmap은 "direct만(LAN과 Tailscale)"을 추천했는데, 비교한 제품 대부분이 relay나 tunnel을 기본으로 두었고 폰에서 혼자 도는 sync 앱도 같은 연결 위에 선다. 사람이 relay를 두기로 정했다.
+decisions:
+  - text: >-
+      lophn이 relay를 둔다. relay는 상태 없는 전달자이고 core가 밖으로 건다(Paseo v2 꼴: control socket과 폰 연결마다의 data socket). 버린 길: direct만(LAN과 Tailscale), core마다 tunnel 서비스, UPnP만. 같은 LAN이면 direct가 먼저 붙는다.
+    by: person
+  - text: >-
+      relay는 Fly.io에 띄운다(app `lophn-relay`, 도쿄). machine은 1대다. relay가 core 자리를 process 메모리에만 두어 2대면 core와 폰이 만나지 못한다.
+    by: person
+  - text: >-
+      core는 relay에 static key를 증명한다. 증명이 없으면 인터넷의 누구든 그 core의 자리를 잡아 폰을 끊을 수 있다. data socket의 자격은 증명된 control socket에만 주는 무작위 연결 id다.
+    by: agent
+  - text: >-
+      relay 코드는 본체 저장소에 둔다. relay는 core, 폰과 같은 protocol을 써서 한 commit에서 같이 고쳐야 하고, 보안은 끝과 끝 사이 Noise가 지켜 코드가 공개돼도 약해지지 않는다(Paseo, Orca, Happy, mixdog도 relay 코드를 공개한다). 배포 token은 저장소에 두지 않는다.
+    by: agent
+  - text: >-
+      relay를 더하기 전에 pairing한 폰은 한 번 다시 pairing한다. relay 주소는 QR로만 받는다.
+    by: agent
+follow_up: |
+  - IP마다의 연결 수, 전송량 한도와 남용을 볼 log가 없다(이슈 `relay-abuse-limits`).
+  - 컴퓨터가 꺼진 동안 sync 변경을 relay가 암호문으로 맡아 둘지는 sync 앱 단계에서 정한다(roadmap `mobile.md` 단계 7). 한 사람의 lophn 여럿은 roadmap `multi-machine.md`.
+  - relay 배포는 사람이 `fly deploy`(`packages/relay/README.md`)로 한다. 자동 배포는 없다.
+checklist:
+  - "해야: 폰 앱을 한 번 다시 pairing한다(relay 주소가 QR로 들어온다)"
+  - "Settings › Remote에 \"Reachable from anywhere through the relay\"가 보이는지 본다"
+  - "폰의 Wi-Fi를 끄고 LTE로 두어도 컴퓨터에 붙어 session 목록과 대화가 되는지 본다"

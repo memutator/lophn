@@ -419,7 +419,8 @@ export const remotePortSetting = declareSetting({
   locked: true,
 });
 
-// 폰이 다른 network에서 붙는 relay. 비어 있으면 relay를 쓰지 않는다. 밖의 server에 core를 거는 일이라 사람만 바꾼다.
+// 폰이 다른 network에서 붙는 relay. 기본은 lophn이 Fly.io에 띄운 relay다. 비우면 relay를 쓰지 않는다.
+// 밖의 server에 core를 거는 일이라 사람만 바꾼다.
 export const remoteRelaySetting = declareSetting({
   key: "remote.relay",
   type: z.union([
@@ -429,7 +430,7 @@ export const remoteRelaySetting = declareSetting({
       .url()
       .regex(/^wss?:\/\/.*[^/]$/),
   ]),
-  default: "",
+  default: "wss://lophn-relay.fly.dev",
   description:
     "The relay (`wss://host`, no trailing slash) that lets paired phones reach this computer from another network when `remote.enabled` is on. Empty means no relay.",
   locked: true,

@@ -112,6 +112,8 @@ const updated = await core.call(settingsUpdate, {
   changes: [
     { key: "remote.enabled", action: "set", value: true },
     { key: "remote.port", action: "set", value: REMOTE_PORT },
+    // 개발 core는 lophn이 띄운 실제 relay에 붙지 않는다. browser는 direct로 붙는다.
+    { key: "remote.relay", action: "set", value: "" },
   ],
 });
 if (!updated.ok) fail(`remote를 켜지 못했다: ${updated.error.message}`);

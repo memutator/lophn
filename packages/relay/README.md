@@ -28,7 +28,13 @@ fly deploy . --config packages/relay/fly.toml \
   --ignorefile packages/relay/Dockerfile.dockerignore
 ```
 
-TLS는 Fly가 끝낸다. core 설정 `remote.relay`는 `wss://lophn-relay.fly.dev`다.
+TLS는 Fly가 끝낸다. core 설정 `remote.relay`의 기본값이 `wss://lophn-relay.fly.dev`다.
+
+machine은 늘 1대다. relay는 어느 core가 붙어 있는지를 그 process 메모리에만 들고 있어서, 2대면 core와 폰이 다른 machine에 붙어 만나지 못한다. 첫 deploy는 Fly가 2대를 띄우므로 한 번 줄인다:
+
+```sh
+fly scale count 1 -a lophn-relay
+```
 
 local에서 image만 볼 때:
 

@@ -388,8 +388,8 @@ function JobApprovalItem({
   const nav = useNav();
   const view = cardOf(entry, names);
   const answering = useAnswering();
-  const answer = (choice: "approve" | "reject") =>
-    answering.send(() => inbox.jobApproval(entry, choice));
+  const approve = () =>
+    answering.send(() => inbox.jobApproval(entry, "approve"));
   const disabled = locked || answering.busy;
   const { job } = entry;
   const when =
@@ -418,14 +418,11 @@ function JobApprovalItem({
       error={answering.error}
     >
       <Buttons>
-        <Button size="sm" disabled={disabled} onPress={() => answer("reject")}>
-          {t("waiting.button.reject-job")}
-        </Button>
         <Button
           size="sm"
           variant="primary"
           disabled={disabled}
-          onPress={() => answer("approve")}
+          onPress={approve}
         >
           {t("waiting.button.approve-job")}
         </Button>

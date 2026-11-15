@@ -1,0 +1,6 @@
+*
+!packages/base
+!packages/protocol
+!packages/relay
+**/node_modules
+**/*_test.ts

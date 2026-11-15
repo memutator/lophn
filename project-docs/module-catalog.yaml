@@ -19,6 +19,10 @@ modules:
     boundary: protocol
     notes: 구현을 두지 않는다. 의존 없는 순수 함수를 shell과 core가 같이 써야 할 때만 예외다(shell은 core를 import할 수 없고 protocol은 된다). acp/의 reduceAcp와 events/acp-project.ts의 acpUpdatesOf가 그 예다.
 
+  - path: packages/relay
+    boundary: relay
+    notes: 저장소에서 짓지만 사람의 기계가 아니라 인터넷의 서버에서 돈다. protocol과 base만 import한다.
+
   - path: packages/cli
     boundary: coding-agent-cli
 

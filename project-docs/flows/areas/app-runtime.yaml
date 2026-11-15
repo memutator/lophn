@@ -1278,19 +1278,35 @@ flows:
     actor: person
     entries: [route:apps/phone_screens]
     boundary: [app-runtime]
-    code: [packages/protocol/apps/phone.ts, packages/protocol/apps/phone-screen.ts]
+    code: [packages/core/apps/phone/screens.ts, packages/core/apps/routes.ts, packages/core/main/daemon/wiring/apps.ts, packages/protocol/apps/phone.ts, packages/protocol/apps/phone-screen.ts]
     docs: [architecture/remote.md]
     steps:
-      - "활성 release가 있는 보관하지 않은 앱마다 phone.json이 있는 화면을 싣는다. 화면마다 app, 앱 이름, icon, screen, label, params, release, bundle_hash, manifest, running을 낸다."
-      - "running은 그 release의 앱 process가 지금 live로 도는가다."
+      - "메인 스레드 handler가 보관하지 않은 앱마다 active release 선언의 화면 가운데 places가 phone 하나인 것을 고른다. active release가 없는 앱과 phone 화면이 없는 앱은 싣지 않는다."
+      - "화면마다 bundle 사본의 screens/<key>/phone.json을 읽어 phoneManifestSchema로 검사한다. 화면 폴더나 file이 bundle의 screens 폴더 밖(`..`, 밖을 가리키는 symlink)이면 없는 file이다. manifest가 없거나 틀린 화면은 오류 없이 뺀다."
+      - "화면마다 app, 앱 이름, 선언의 icon(lucide 이름이나 null), screen, label, params, release, bundle_hash(release 기록), manifest, running을 낸다."
+      - "running은 supervisor가 지금 관측한 live process가 그 release이고 ready이며 요청을 받는가다. 관측을 못 하면 false다."
       - "폰은 manifest를 `phoneCanRun`으로 자기 판과 맞춰 열지 말지 정하고, 화면 byte는 `apps/screen_file`(phone.js)로 받는다."
     outcomes:
       - id: listed
+        when: "읽힌 화면 목록(빈 목록도)을 돌려줬다. 빠진 앱·화면이 있어도 오류가 아니다"
         observe: [response]
-    crosses_process: false
-    declared_only: [invalid_input, forbidden, unavailable]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력이 빈 객체가 아님"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "앱 목록이나 active 선언을 읽지 못함(store가 낸 internal 그대로)"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor 종류가 아니거나 credential scope에 이 operation이 없다(dispatch)"
+        observe: [response]
+    crosses_process: true
+    risk: [sandbox]
+    declared_only: [unavailable]
     unclear:
-      - "route 정의만 있고 handler는 아직 없다(mobile-phone-reads가 짓는다). 그때까지 부르면 unavailable이다. handler가 서면 outcome과 declared_only를 handler에 맞춰 다시 쓴다."
+      - "protocol이 unavailable을 선언하지만 조립된 handler는 store 오류를 internal로 돌려주고 supervisor 관측 실패는 running false로 삼킨다. unavailable은 handler가 붙기 전(등록 때 unattachedRead)에만 난다"
 
   - id: app-sdk-decide
     title: "home lophn이 앱 하나의 SDK 업데이트 결정을 기록하고 update면 그 앱의 lophn에게 같은 동작으로 맡긴다"

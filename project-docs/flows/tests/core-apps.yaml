@@ -215,6 +215,10 @@ files:
     covers: [app-phone-target-read:found, app-phone-target-read:no-device]
     note: "기준 기기(is_primary)의 name, os, width, height, dpr만 싣고 id와 공개 key는 싣지 않음. 기기가 없으면 device는 null"
 
+  - path: packages/core/apps/phone/screens_test.ts
+    covers: [app-phone-screens-list:listed]
+    note: "보관한 앱, active release가 없는 앱, phone 화면이 없는 앱, bundle의 screens 폴더 밖을 가리키는 manifest(`..` key, 밖을 가리키는 symlink)와 틀린 manifest는 싣지 않고, 맞는 화면만 앱 순서로 싣고 running을 앱마다 다르게 냄"
+
   - path: packages/core/apps/phone/changed_test.ts
     covers: [phone-changed-notice:noticed, phone-changed-notice:not-noticed]
     note: "기준 기기 id가 바뀔 때만(remote_devices가 아닌 변경과 같은 id는 알리지 않음), 새 기준이 있고 폰 화면 앱이 있을 때만 phone_changed를 남김. 기준을 지운 것은 알리지 않고 그 뒤 다른 기기가 기준이 되면 알림"

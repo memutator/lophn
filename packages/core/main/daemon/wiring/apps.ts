@@ -103,6 +103,7 @@ import {
   callToolHandler,
   iconPathOf,
   mainRead,
+  phoneScreensRead,
   rewindHandler,
   screenFileStream,
   withStartInvocation,
@@ -718,6 +719,26 @@ export const appsWiring: WiringFactory = () => {
           reads.set(
             "apps/skills",
             appSkillsRead(createAppSkillsDeps(locator), link.sql),
+          );
+          reads.set(
+            "apps/phone_screens",
+            phoneScreensRead(
+              {
+                ...createScreenFileDeps(locator),
+                async running(app, release) {
+                  const observed = await appsControl.client.observe(app);
+                  return (
+                    observed.ok &&
+                    observed.value !== null &&
+                    observed.value.mode === "live" &&
+                    observed.value.release === release &&
+                    observed.value.ready &&
+                    observed.value.accepting
+                  );
+                },
+              },
+              link.sql,
+            ),
           );
           // 안내 원문만 읽는 좁은 route다. apps 등록이 route를 선언하고(handler 없음) blob 바이트 통로를 가진 이
           // 조립이 handler를 붙인다. coding credential에 일반 blobs/read를 열지 않는다.

@@ -62,6 +62,7 @@ import { loadActiveDeclaration, releaseFacts } from "./releases/store.ts";
 import { createRuntimeCommands } from "./runtime/commands.ts";
 import { createRuntimeReads } from "./runtime/reads.ts";
 import { phoneTargetRead } from "./phone/target.ts";
+import { appPhoneScreens } from "../../protocol/apps/phone.ts";
 import {
   PACKAGE_BUNDLE_BLOB_FIELD,
   PACKAGE_GUIDE_BLOB_FIELD,
@@ -117,6 +118,7 @@ function unattachedRead<
     | typeof appRewinds
     | typeof appIcon
     | typeof appSkills
+    | typeof appPhoneScreens
     | typeof appSdkStatus,
 >(route: R) {
   return {
@@ -170,6 +172,8 @@ export function createLedgerRegistration(
       // 파일을 읽어야 해서 core 조립이 handler로 덮는다.
       unattachedRead(appIcon),
       unattachedRead(appSkills),
+      // 파일과 앱 process 관측을 읽어서 core 조립이 handler로 덮는다.
+      unattachedRead(appPhoneScreens),
       unattachedRead(appSdkStatus),
       // 도는 줄은 core 메모리라 core 조립(apps control)이 driver가 읽는 줄로 덮는다.
       createActivationQueueRead({

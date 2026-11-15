@@ -49,6 +49,8 @@ import {
   appSkills,
 } from "../../protocol/apps/declaration/read.ts";
 import { type AppSkillsDeps, readAppSkills } from "./screens/skills.ts";
+import { appPhoneScreens } from "../../protocol/apps/phone.ts";
+import { type PhoneScreensDeps, readPhoneScreens } from "./phone/screens.ts";
 import { appSdkStatus } from "../../protocol/apps/sdk-status.ts";
 import type {
   AppRewind,
@@ -179,6 +181,24 @@ export function appSkillsRead(
       }
     }
     return ok({ skills });
+  };
+}
+
+// `app.phone_screens`. 파일과 앱 process 관측을 읽으므로 메인 스레드 read다. 폰(사람)만 부른다.
+export function phoneScreensRead(
+  deps: PhoneScreensDeps,
+  sql: Pick<Sql, "get" | "all">,
+): ReadHandler {
+  return async (_ctx, input) => {
+    if (!appPhoneScreens.input.safeParse(input).success) {
+      return err({
+        code: "invalid_input",
+        message: "invalid phone screens input",
+      });
+    }
+    const as_of_seq = headSeq(sql);
+    const read = await readPhoneScreens(deps, sql);
+    return read.ok ? ok({ ...read.value, as_of_seq, next_cursor: null }) : read;
   };
 }
 

@@ -35,6 +35,8 @@ export function createGatewaySession(
   options: {
     // 있으면 이 type의 event만 보낸다. client가 건 조건(types가 없어도)보다 앞선다.
     events?: readonly string[];
+    // 이 연결 credential의 principal. `AppViewEvent`는 payload의 owner가 이것과 같을 때만 보낸다. 없으면 보내지 않는다.
+    owner?: string;
   } = {},
 ): GatewaySession {
   const allowed = options.events && new Set<string>(options.events);
@@ -76,6 +78,13 @@ export function createGatewaySession(
       unsubscribe = bus.subscribe(frame.value.conditions, {
         send(event) {
           if (done || (allowed && !allowed.has(event.type))) return;
+          if (
+            event.type === "AppViewEvent" &&
+            (options.owner === undefined ||
+              event.payload.owner !== options.owner)
+          ) {
+            return;
+          }
           write({ type: "event", event });
           if (socket.bufferedAmount() > GATEWAY_BUFFER_LIMIT) {
             terminate(GATEWAY_CLOSE_SLOW_CONSUMER, "slow_consumer");

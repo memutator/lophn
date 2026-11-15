@@ -109,3 +109,37 @@ test("느린 구독자는 끊기고 다시 붙으면 snapshot부터 다시 읽�
   assert.deepStrictEqual(bad.sent, []);
   assert.deepStrictEqual(bad.closed, [1008]);
 });
+
+// 앱 view의 event는 그 view를 연 credential(owner)의 연결에만 간다. 다른 사람·기기의 화면 event가 새면 안 된다.
+test("AppViewEvent는 같은 owner의 session에만 가고 owner를 주지 않은 session에는 가지 않는다", () => {
+  const bus = createBus();
+  const watch = JSON.stringify({
+    type: "watch",
+    conditions: [{ types: ["AppViewEvent"] }],
+  });
+  const mine = fakeSocket();
+  const other = fakeSocket();
+  const none = fakeSocket();
+  createGatewaySession(mine.socket, bus, { owner: "user" }).receive(watch);
+  createGatewaySession(other.socket, bus, { owner: "device:phone" }).receive(
+    watch,
+  );
+  createGatewaySession(none.socket, bus).receive(watch);
+  bus.publish({
+    type: "AppViewEvent",
+    subject: "app_00000000000000000000000001",
+    at: "2026-10-16T00:00:00.000Z",
+    payload: {
+      owner: "user",
+      view: "view-0001",
+      kind: "lost",
+      reason: "app_stopped",
+    },
+  } as BusEvent);
+  assert.deepStrictEqual(
+    mine.sent.map((frame) => (frame as { type: string }).type),
+    ["ready", "event"],
+  );
+  assert.deepStrictEqual(other.sent, [{ type: "ready" }]);
+  assert.deepStrictEqual(none.sent, [{ type: "ready" }]);
+});

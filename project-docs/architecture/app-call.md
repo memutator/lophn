@@ -106,7 +106,7 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
 1. 모든 tool 호출은 core를 지난다. 화면에서 앱으로, 앱에서 앱으로 가는 직통 통로를 두지 않는다. 막기, 기록, write 줄이 core 한 곳에 있어야 changeset이 빠지지 않는다.
 2. 부른 쪽은 호출 본문이 주장하는 대로 믿지 않고 core가 확인한다. credential의 종류와 caller 종류가 맞아야 하고, agent는 지금 도는 turn의 tool call이어야 하고, 앱은 활성 release이면서 부모 invocation이 지금 도는 호출이어야 하고, program은 본문의 job과 job run이, flow는 본문의 instance가, event는 본문의 발행자·event·publication·trace id·부모 invocation이 core가 만든 자격과 같아야 한다. 끝난 turn이나 꺼진 판의 호출이 섞이면 막기와 기록이 틀린다. agent, 앱, program, flow, event는 늘 live 활성 release만 부른다.
 3. tool 호출은 부른 workspace를 싣지 않는다. 어느 workspace가 불렀는지는 부른 session의 workspace로 안다. 앱 코드가 호출자별로 data를 나누는 관례는 core가 지키지 못하므로 호출에 범위를 싣지 않는다.
-4. operation은 사람(화면)과 그 앱 workspace session의 preview만 부른다. agent, 다른 앱, job, flow가 operation을 부르면 handler에 보내기 전에 `denied(gate_blocked)`다. 화면용 저수준 동작이 agent 계약(할당, 결과 크기)에 묶이지 않게 하려는 것이다.
+4. operation은 사람(화면)과 그 앱 workspace session의 preview만 부른다. agent, 다른 앱, job, flow가 operation을 부르면 handler에 보내기 전에 `denied(gate_blocked)`다. 화면용 저수준 동작이 agent 계약(할당, 결과 크기)에 묶이지 않게 하려는 것이다. 화면의 호출은 core의 view 표(`app_views.call`)를 지나고, 그 view에 묶인 release(preview는 preview bundle)의 선언에 있는 operation만 부른다. command, 구독 handler, 다른 앱의 이름은 호출 경로까지 가지 않고 같은 `forbidden`(operation is not available)이다. 호출 대상(앱, release, preview nonce)과 caller(`{kind: person, view_session: <view id>}`)는 표의 binding에서만 온다.
 5. 호출 경로는 묻지 않고 막기만 한다. 판정 자리는 write 줄 앞이다. 막히면 `denied(gate_blocked)`다.
    - agent의 호출은 그 agent의 지금 할당을 `judge`로 본다(할당 안 된 앱, 뺀 tool이면 막는다). 사람에게 묻는 자리는 run-loop tool gate 하나다(`architecture/approval.md`). agent의 호출이 여기 닿았으면 물을 것은 이미 물었다.
    - 앱의 호출은 부른 앱의 active grant 가운데 `app.call`이 그 대상 앱의 그 tool을 덮는지 본다. 앱이 앱을 부르는 것은 activation 때 사람이 grant로 허락한 것이라 묻지 않는다.
@@ -172,9 +172,14 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
 
 1. 화면이 열릴 때 자리·인자·workspace가 정해지고 열려 있는 동안 바뀌지 않는다(dock·float·전역 float는 모두 `panel`이라 자리가 바뀌는 경우가 없다).
    - view 열기 입력은 `place`와 선택 `params`, `workspace`(`{kind: project | home | app, id, folders}`)를 싣고, `card`는 `place`가 `card`일 때만 있다. live 열기는 release 판이 필수이고 preview만 판이 null일 수 있다. 판 없이 live를 여는 호출은 입력 type에서 막히고, main도 같은 규칙으로 거절한다.
-   - shell main이 `params`를 그 release 선언의 그 화면 `params` schema로 다시 검사한다. `params`를 받지 않는 화면에 인자를 주거나 schema에 맞지 않으면 `invalid_input`이다. 값은 화면의 주소 query(`place`, `params`, `workspace`)로만 가고 core로 넘기지 않는다.
+   - core의 view 표(`app_views.open`)가 `params`를 그 release 선언의 그 화면 `params` schema로 검사해 정규화한다. `params`를 받지 않는 화면에 인자를 주거나 schema에 맞지 않으면 `invalid_input`이다. 선언을 읽을 수 있으면(live, release 있는 preview) 화면이 선언에 있고 자리가 그 화면의 `places`에 들어야 한다. 값은 화면의 주소 query(`place`, `params`, `workspace`)로 간다.
    - 화면은 preload의 `lophnApp.place`(`{place, params, workspace}`)를 읽고 SDK의 `usePlace()`가 그것을 감싼다. query가 없거나 틀리면 `place`가 null이고 `params`는 `{}`다. 전역 float는 workspace를 주지 않아 `workspace`가 null이다.
 2. agent의 `visual.show {app, view, params?}`도 `params`를 받는다. `view`는 `card` 자리를 가진 화면이어야 하고(아니면 `not_found`) `params`는 그 화면의 schema로 검사해 맞지 않으면 `invalid_input`이다. 통과한 값은 message의 `app_card` part와 ACP의 `AcpCard`에 `params`로 실려 카드 view의 인자가 된다.
+3. view binding은 core의 view 표다(`app_views.open|call|close`, 메모리에만 있다). view 하나가 어느 앱·release·process(bundle hash, process nonce)에 묶였는지, 어떤 operation을 부를 수 있는지, 어떤 앱 event를 받는지를 core가 정한다. desktop과 폰 host가 같은 표를 쓴다.
+   - 신원은 host가 붙인 view id와 요청 credential의 principal(owner. shell main과 CLI는 `user`, 폰은 `device:<id>`)이다. 표의 key는 (owner, view)이고 다른 owner의 view는 없는 view와 같다. 화면 page가 낸 값은 신원이 아니다.
+   - live view는 지금 도는 release를 따르고 card view는 묶인 release에 고정된다. 같은 인자로 다시 열면 지금 binding을 다시 읽어 돌려준다(host가 끊겼다 돌아올 때). owner마다 64개이고 넘치면 가장 오래 쓰지 않은 view를 내보낸다. core가 shell보다 오래 살아 옛 view가 남기 때문이다.
+   - release가 바뀌면(`AppViewChanged`) 표가 그 앱의 view를 다시 묶어 `AppViewEvent`(`rebound`나 `lost`)를 내고, 앱 event는 묶인 release가 구독을 선언한 live view에만 `AppViewEvent`(`event`)로 간다. `AppViewEvent`는 view를 연 owner의 Gateway 연결에만 간다(`architecture/event.md`).
+   - 지금은 shell main의 view registry(`app:call-operation`, `app:event`, 다시 묶기)가 아직 같은 일을 한다. shell이 core 표로 옮길 때(`mobile-shell-views`) 이 문서의 shell 쪽 줄도 맞춘다.
 
 ### 앱 화면의 agent session
 
@@ -237,7 +242,7 @@ project별 data를 다루는 앱은 project를 따로 만들지 않고 lophn pro
 - core 경계: route `app.call_tool`이 호출 경로의 입구다. program, flow, event 자격은 route로는 열 수 없고 core 안 연산만 만든다(event는 발행을 받은 core의 전달). 앱 process와는 `child-supervision-protocol`(supervisor가 길만 이어 준다)로 이야기한다.
 - caller 본문은 여섯 종류다: `{kind: person, view_session}`, agent(도는 turn과 tool call), 앱(부모 invocation), `{kind: program, job, job_run}`, `{kind: flow, instance}`, `{kind: event, publisher, event, publication, trace_id, chain, parent_invocation}`(publisher는 앱 id나 `lophn`).
 - 호출 결과의 막힘 code는 `denied(gate_blocked)`(막기), `denied(call_loop)`(같은 앱이 사슬에 다시 나옴), `denied(call_too_deep)`(깊이 한도), `denied(app_archived)`(보관한 앱. 사람 화면에만 이대로 가고 agent에게는 `not_found`)다. 결과 모름은 `unknown`, 보내기 전에 막힌 것은 `unavailable`이다.
-- route와 tool 이름: `app.call_tool`, `app.tool_index`, `app.usage`, `app.skills`, `app.status`, `app.invocations`, `app.event_publications`(발행 기록, CLI `lophn app event-publications`), `app_events.publish`(앱 process → core), `app_sessions.list|status|stop`(앱 → core), `terminal_sessions.report`(shell main → core), `app.logs`(`apps/logs`), `app.log_view_error`(shell main → core), `app.delete`, `app.create`, `release.prepare`(결과의 `removed_public_tools`, `removed_public_skills`), `declaration.check`, `package.publish`, `apps.apply`(rewind 적용), `apps.secret_value`, `apps.oauth_sign_out`, `apps/oauth_state`, `preview.call`, `visual.show`.
+- route와 tool 이름: `app.call_tool`, `app_views.open|call|close`(앱 화면 host → core의 view 표), `app.tool_index`, `app.usage`, `app.skills`, `app.status`, `app.invocations`, `app.event_publications`(발행 기록, CLI `lophn app event-publications`), `app_events.publish`(앱 process → core), `app_sessions.list|status|stop`(앱 → core), `terminal_sessions.report`(shell main → core), `app.logs`(`apps/logs`), `app.log_view_error`(shell main → core), `app.delete`, `app.create`, `release.prepare`(결과의 `removed_public_tools`, `removed_public_skills`), `declaration.check`, `package.publish`, `apps.apply`(rewind 적용), `apps.secret_value`, `apps.oauth_sign_out`, `apps/oauth_state`, `preview.call`, `visual.show`.
 - 선언: `operations[]`, `commands[]`, `skills[]`, 화면 `{key, label, path, places, params?, tray?}`, `permissions`, `sdk_dependencies`, `secret.use`(`oauth`), `fs.read|fs.write`. 정본 json은 비었거나 없는 칸을 두지 않는다.
 - 화면 bridge: `lophnApp.callOperation`(SDK의 `useOperation`, `OperationButton`), `lophnApp.place`, `lophnApp.agent`(`open`, `snapshot`, `onUpdate`, `send`), `lophnApp.events`(`subscribe`, SDK의 `useEvent`), `lophnApp.sessions`(`list`, `status`, `stop`, SDK의 `useSessions`), `lophnApp.setKeepAlive`. 화면 주소 query는 `place`, `params`, `workspace`다. 앱 화면의 agent 입력은 `send`·`stop`·`answer`·`rename`만 허용된다.
 - 저장: `<data root>/apps/<app>/`(source 저장소, bundle, data DB, `logs/app.log`·`app.log.1`, preview). log 줄 모양은 `{ at, invocation, text }`. 앱 source의 `.lophn/skills/<name>/SKILL.md`. OAuth 값은 `app-oauth.<이름>.*` secret 항목.
@@ -297,7 +302,6 @@ project별 data를 다루는 앱은 project를 따로 만들지 않고 lophn pro
 
 - core를 다시 켜면 앱 OAuth sign-in 실패 이유가 사라진다. 실패 이유는 메모리에만 있어 refresh가 거절된 뒤 core가 다시 뜨면 Access 탭이 "Not signed in"만 보인다. 동작(앱은 `conflict`를 받는다)은 같고 이유 글만 잃는다. 추천은 실패 이유를 `app-oauth.<이름>.meta`에 남기는 것이다.
 - 앱 e2e 여섯(앱 tool 호출, activation, 앱 data rewind, 앱 재시작)이 test 앱에 patch를 얹지 못하고 시작에서 실패한다. 이 길이 깨져도 land가 잡지 못한다.
-- preview 화면은 operation을 부르지 못한다. core는 person의 preview 호출을 받지만 shell main이 preview view의 선언을 읽지 못해 `unavailable`이다. 사람이 preview에서 화면을 눌러 operation을 확인할 길이 없다.
 - `@me` package가 다른 `@me`에 기대면 그 권한을 따라가지 않는다. publish와 release 준비가 직접 적은 의존만 본다. 소비 앱은 `net.fetch` 없이 release가 뜨고 실행 중 broker에서 거절된다.
 - 기동 옮기기가 옛 `@me` 판에 bundle blob을 못 붙일 수 있다. `package.json`을 다시 쓴 모양이 원래와 다르면 hash가 달라 blob을 붙이지 못하고 기동마다 건너뜀만 남긴다. 설치 사본이 유일한 byte로 남는다.
 - 앱이 떠 있는 동안 grant를 거두면 계속 `unavailable`이다. 마지막 process 사실이 `AppStarted`면 거두기를 거절하는데 process를 멈추는 쪽이 없어, 앱을 쓰는 중에는 외부 net·secret·앱 호출 권한을 거둘 수 없다. 중요한 쪽이다: 권한 경계에서 사람이 한 결정이 반영되지 않는다.

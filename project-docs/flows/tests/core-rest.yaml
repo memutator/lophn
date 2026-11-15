@@ -102,7 +102,8 @@ files:
       - gateway-stream:ok
       - gateway-stream:slow-consumer
       - gateway-stream:bad-frame
-    note: "잘못된 watch 조건의 1008 close는 gateway-stream:bad-frame"
+      - view-table-events:other-owner
+    note: "잘못된 watch 조건의 1008 close는 gateway-stream:bad-frame. AppViewEvent는 같은 owner의 session에만 가는 것은 view-table-events:other-owner"
 
   - path: packages/core/host-queue/hold_test.ts
     covers:

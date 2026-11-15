@@ -70,6 +70,7 @@ import {
 } from "./sdk-status.ts";
 import { appPhoneTarget } from "./phone.ts";
 import { appUsage } from "./usage.ts";
+import { APP_VIEW_ROUTES } from "./views.ts";
 
 export const ROUTES = [
   appCreate,
@@ -129,4 +130,5 @@ export const ROUTES = [
   activationConsents,
   ...PREVIEW_ROUTES,
   ...RELEASE_ROUTES,
+  ...APP_VIEW_ROUTES,
 ] as const;

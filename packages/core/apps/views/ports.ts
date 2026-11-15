@@ -1,0 +1,43 @@
+import type { Result } from "../../../base/mod.ts";
+import type {
+  InputSchema,
+  SubscriptionDeclaration,
+} from "../../../protocol/apps/declaration/mod.ts";
+import type { AppViewEventPayload } from "../../../protocol/apps/views.ts";
+import type { AppToolCallPath, AppToolLookup } from "../ports.ts";
+
+// view 표가 기대는 port. 구현은 `core/main/daemon/wiring/apps.ts`가 끼운다.
+
+/** 그 release의 고정 선언 가운데 view 표가 쓰는 것. */
+export interface ReleaseView {
+  bundle_hash: string;
+  screens: readonly {
+    key: string;
+    places: readonly string[];
+    params?: InputSchema;
+  }[];
+  subscriptions: readonly SubscriptionDeclaration[];
+}
+
+export interface AppViewsPorts {
+  /** 앱이 없으면 null. */
+  appStatus(app: string): Result<"active" | "archived" | null>;
+  /** 지금 ready인 live process. 없거나 ready가 아니면 null. */
+  live(
+    app: string,
+  ): Promise<Result<{ release: string; process_nonce: string } | null>>;
+  /** 지금 ready인 preview process. 없거나 ready가 아니면 null. */
+  preview(app: string): Promise<
+    Result<{
+      release: string | null;
+      bundle_hash: string;
+      process_nonce: string;
+    } | null>
+  >;
+  /** 그 앱의 release 선언. 없는 release·다른 앱의 release는 null. */
+  release(app: string, release: string): Result<ReleaseView | null>;
+  lookup: Pick<AppToolLookup, "find" | "findPreview">;
+  path: AppToolCallPath;
+  /** `AppViewEvent` 하나를 Bus로 낸다. */
+  publish(app: string, payload: AppViewEventPayload): void;
+}

@@ -118,7 +118,7 @@ export function refuseSocket(socket: Duplex, reason: RequestFailure): void {
 
 export function attachSession(
   socket: WebSocket,
-  _ctx: AuthenticatedContext,
+  ctx: AuthenticatedContext,
   deps: SocketDeps,
 ): void {
   const session = createGatewaySession(
@@ -136,6 +136,8 @@ export function attachSession(
       bufferedAmount: () => socket.bufferedAmount,
     },
     deps.bus,
+    // 사람 token 연결의 principal. 그 owner가 연 앱 view의 `AppViewEvent`만 받는다.
+    { owner: ctx.principal },
   );
   const remove = deps.frames?.add(session);
   let ended = false;

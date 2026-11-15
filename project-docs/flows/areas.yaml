@@ -235,9 +235,11 @@ areas:
       - packages/protocol/apps/notice.ts
       - packages/protocol/apps/tray.ts
       - packages/protocol/apps/annotation.ts
+      - packages/protocol/apps/views.ts
       - packages/core/apps/annotations/
     owns:
       - 앱 화면 탭과 앱 창(app frame), 앱 단축키
+      - 앱 화면의 view binding(core의 view 표, app_views route와 AppViewEvent)
       - notice(사람에게 알리기)
       - tray
       - annotation(screenshot 올리기와 앱 workspace agent에게 전하기)
@@ -245,6 +247,7 @@ areas:
       - architecture/annotation.md
       - architecture/app-notice.md
       - packages/core/apps/annotations/
+      - packages/core/apps/views/
       - packages/shell/main/app-frame/
       - packages/shell/renderer/app-frame/
       - packages/shell/renderer/apps/

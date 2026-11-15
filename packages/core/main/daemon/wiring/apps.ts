@@ -120,6 +120,11 @@ import {
   createEventPublisher,
 } from "../../../apps/events/mod.ts";
 import { createTray } from "../../../apps/tray/mod.ts";
+import {
+  type AppViews,
+  appViewHandlers,
+  createAppViews,
+} from "../../../apps/views/mod.ts";
 import { appEventPublish } from "../../../../protocol/apps/events.ts";
 import { appRecordPreview } from "../../../../protocol/apps/previews.ts";
 import { appTrayList, appTraySet } from "../../../../protocol/apps/tray.ts";
@@ -152,6 +157,8 @@ export const appsWiring: WiringFactory = () => {
   let write: WriteLink | undefined;
   let invocations: InvocationLedger | undefined;
   let oauth: AppOAuth | undefined;
+  let views: AppViews | undefined;
+  let unsubscribeViews: (() => void) | undefined;
   return {
     name: "apps",
     restartOwners: [observeInvocations, observeReleaseActivations],
@@ -304,6 +311,67 @@ export const appsWiring: WiringFactory = () => {
         ids,
       });
       ctx.provide("appCallPath", path);
+      // 앱 화면의 view 표(`app_views/*`). 메모리에만 있다. 앱 event와 다시 묶음은 `AppViewEvent`로 owner의 Gateway에 간다.
+      views = createAppViews({
+        appStatus(app) {
+          const loaded = loadApp(link.sql, app);
+          if (!loaded.ok) return loaded;
+          if (loaded.value === null) return ok(null);
+          return ok(loaded.value.status === "archived" ? "archived" : "active");
+        },
+        async live(app) {
+          const observed = await appsControl.client.observe(app);
+          if (!observed.ok) return observed;
+          const value = observed.value;
+          return ok(
+            value !== null &&
+              value.mode === "live" &&
+              value.ready &&
+              value.release !== null &&
+              value.process_nonce !== ""
+              ? {
+                  release: value.release as Id<"rel">,
+                  process_nonce: value.process_nonce,
+                }
+              : null,
+          );
+        },
+        // preview service는 release를 쥐지 않는다. release는 그 process의 관측이 싣는다.
+        async preview(app) {
+          const current = await appsControl.previews.current(app);
+          if (!current.ok) return current;
+          if (current.value === null || !current.value.ready) return ok(null);
+          const nonce = current.value.process_nonce;
+          const observed = await appsControl.client.previewObserve(app, nonce);
+          if (!observed.ok) return observed;
+          if (observed.value === null || !observed.value.ready) return ok(null);
+          return ok({
+            release: observed.value.release as Id<"rel"> | null,
+            bundle_hash: current.value.bundle_hash,
+            process_nonce: nonce,
+          });
+        },
+        release(app, release) {
+          const loaded = loadActiveDeclaration(link.sql, app, release);
+          if (!loaded.ok) return loaded;
+          if (loaded.value === null) return ok(null);
+          return ok({
+            bundle_hash: loaded.value.release.bundle_hash,
+            screens: loaded.value.declaration.screens,
+            subscriptions: loaded.value.declaration.subscriptions ?? [],
+          });
+        },
+        lookup: appToolLookupOf(link.sql, appsControl.previews),
+        path,
+        publish(app, payload) {
+          ctx.peek.bus?.publish({
+            type: "AppViewEvent",
+            subject: app,
+            at: ctx.clock.now(),
+            payload,
+          } as BusEvent);
+        },
+      });
       // 앱 rewind가 끝나면 열린 앱 view가 다시 그리게 알린다. 칸이 비어 있으면 Bus로 낸다.
       const signal: AppViewSignal = {
         changed(app, reason) {
@@ -523,6 +591,7 @@ export const appsWiring: WiringFactory = () => {
           ),
         memory: [
           ...appOAuth.handlers,
+          ...appViewHandlers(views),
           [
             "apps/call_tool",
             async (who, body) => {
@@ -778,7 +847,34 @@ export const appsWiring: WiringFactory = () => {
         }
       }
       appsControl.start();
+      const table = views;
+      if (table !== undefined) {
+        unsubscribeViews = ctx.bus.subscribe(
+          [{ types: ["AppViewChanged", "AppEventPublished"] }],
+          {
+            send(event) {
+              if (event.type === "AppViewChanged") {
+                // 다시 묶기가 실패해도 core가 죽지 않게 남기기만 한다. view는 다음 변경이나 다시 열기로 맞춘다.
+                void table.changed(event.subject).catch((error: unknown) =>
+                  ctx.telemetry.logger.warn({
+                    component: "apps/views",
+                    event: "rebind_failed",
+                    fields: { app: event.subject, message: String(error) },
+                  }),
+                );
+              } else if (event.type === "AppEventPublished") {
+                table.published(event.payload);
+              }
+            },
+            close() {},
+          },
+        );
+      }
       return ok(undefined);
+    },
+    closeIntake() {
+      unsubscribeViews?.();
+      unsubscribeViews = undefined;
     },
     // 앱 supervisor가 앱 자식을 정지하기 전에 질의 통로를 닫는다.
     closeChildren() {

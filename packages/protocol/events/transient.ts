@@ -4,6 +4,7 @@ import { atSchema } from "../base/values.ts";
 import { eventTypeSchema } from "../base/event.ts";
 import { acpUpdatedPayloadSchema } from "../acp/routes.ts";
 import { noticeSchema } from "../apps/notice.ts";
+import { appViewEventPayloadSchema } from "../apps/views.ts";
 import { jsonValueSchema } from "../base/json-values.ts";
 import { CHANGE_NAMES } from "./changes.ts";
 
@@ -157,6 +158,13 @@ const appEventPublished = defineTransientEvent("AppEventPublished", {
   }),
 });
 
+// core의 view 표(`app_views/*`)가 view 하나에 낸다. subject는 그 view의 앱이다. 묶인 release가 구독한 앱 event(`event`),
+// 다시 묶음(`rebound`), 묶지 못함(`lost`)이다. Gateway는 payload의 owner가 그 session의 owner일 때만 보낸다.
+const appViewEvent = defineTransientEvent("AppViewEvent", {
+  subject: idSchema("app"),
+  payload: appViewEventPayloadSchema,
+});
+
 // ACP 갱신 하나. envelope의 session이 구독 조건(`{session}`)에 걸린다. 화면은 그 session의 갱신을 `reduceAcp`로 접는다.
 // payload의 session은 앱 화면으로 가는 IPC 값(`{session, update}`)이 그대로 쓴다.
 const acpUpdated = defineTransientEvent("AcpUpdated", {
@@ -196,5 +204,6 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(noticeClosed),
   transientEventEnvelopeSchema(noticeRead),
   transientEventEnvelopeSchema(appEventPublished),
+  transientEventEnvelopeSchema(appViewEvent),
   transientEventEnvelopeSchema(stateChanged),
 ]);

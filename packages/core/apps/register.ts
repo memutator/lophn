@@ -21,6 +21,7 @@ import {
   appsOAuthSignOut,
   appsOAuthState,
   appsSecretValue,
+  APP_VIEW_ROUTES,
   declarationCheck,
   packagePublish,
   packagesBuiltin,
@@ -273,6 +274,8 @@ export function createLedgerRegistration(
       // core가 writer 앞(`withReleasePreparation`)에서 처리하므로 route만 등록한다.
       releasePrepare,
       releaseActivate,
+      // handler는 wiring/apps.ts가 붙인다(core의 view 표).
+      ...APP_VIEW_ROUTES,
     ],
     // 앱 화면의 byte는 core가 UI bundle 사본에서 흘려 준다.
     files: [appScreenFile],

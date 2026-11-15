@@ -42,9 +42,10 @@ agent event
 
 남지 않는 event
 - session 밖에서 화면만 알면 되는 일이다. 메모리뿐이다. session이 없어 `subject`가 앱·release거나 null이다. `AcpUpdated`만 envelope에 `session`이 있어 session 조건에 걸린다.
-- 종류: `AppViewChanged`(activation·grant·rewind 뒤 열린 앱 view를 다시 그리라는 신호), `AppRemoved`, `StateChanged`, `AppRestartHalted`, `ActivationConsentRequested`·`ActivationConsentClosed`, `ShareRequestOpened`·`ShareRequestClosed`, `NoticePosted`·`NoticeClosed`·`NoticeRead`, `AppEventPublished`, `AcpUpdated`.
+- 종류: `AppViewChanged`(activation·grant·rewind 뒤 열린 앱 view를 다시 그리라는 신호), `AppRemoved`, `StateChanged`, `AppRestartHalted`, `ActivationConsentRequested`·`ActivationConsentClosed`, `ShareRequestOpened`·`ShareRequestClosed`, `NoticePosted`·`NoticeClosed`·`NoticeRead`, `AppEventPublished`, `AppViewEvent`, `AcpUpdated`.
 - `StateChanged`는 "이 대상이 바뀌었으니 다시 읽어라"뿐이다. payload는 `{changes: [{name, id}]}`이고 내용을 싣지 않는다. `name`은 화면이 읽는 단위의 닫힌 목록(`CHANGE_NAMES`: agents, projects, apps, app_runtime, app_grants, app_activity, releases, sessions, jobs, workflow_instances, settings, tray, secrets, providers, models 등)이고 `id`는 그 단위 안의 대상(앱, job, session, 설정 key, secret 이름)이거나 null(단위 전체)이다.
 - `AppEventPublished`는 앱(또는 core)이 event를 낸 뒤 열린 앱 화면이 받게 하는 신호다(subject는 발행 앱, core면 null. payload는 `{source, event, payload}`). 저장하지 않는다.
+- `AppViewEvent`는 core의 view 표(`architecture/app-call.md`의 "앱 화면")가 view 하나에 내는 신호다. subject는 그 view의 앱이고 payload는 `{owner, view}`와 `kind`로 가르는 셋 중 하나다: `event`(묶인 release가 구독을 선언한 앱 event, `{source, event, payload}`), `rebound`(`AppViewChanged` 뒤 다시 묶음, `{release, bundle_hash, process_nonce}`. binding이 그대로여도 낸다), `lost`(다시 묶지 못함, `reason`: `app_stopped`, `app_archived`, `conflict`, `evicted`). 저장하지 않는다.
 - 쓸 수 있는 type은 이 두 집합(agent event, 남지 않는 event)뿐이고 이름은 서로 겹치지 않는다. Bus에는 둘만 오른다.
 
 session snapshot
@@ -61,7 +62,8 @@ session snapshot
    · 구독을 선언한(source = 발행 앱의 slug) active 앱 가운데 지금 그 release로 떠서 받는 앱을 모은다
    · 발행 기록 한 줄(누가, 어느 event, 언제, trace id, 켜져 있던 구독자 수 reachable, 닿지 못한 수 unreachable, 고리·깊이로 넘기지 않은 수 refused. payload 없음)
    ├▶ 구독 앱마다: 앱 호출 경로의 호출 하나(caller event). 구독 handler를 부르고 기다리지 않는다
-   └▶ Bus: AppEventPublished ─ Gateway ─ shell main ─▶ 구독을 선언한 열린 앱 화면(useEvent)
+   └▶ Bus: AppEventPublished ─┬ Gateway ─ shell main ─▶ 구독을 선언한 열린 앱 화면(useEvent)
+                              └ core view 표 ─ AppViewEvent(event) ─ Gateway(owner) ─▶ 그 view의 host
 ```
 
 - 앱은 선언에 낼 event(이름, 설명, payload schema)와 들을 event(source, 이름)를 적는다. source는 발행 앱의 slug이거나 core가 내는 event의 `lophn`이다. 구독에 사람 허락은 없다. event는 발행 앱이 내놓겠다고 선언한 것이다.
@@ -103,7 +105,7 @@ agent event와 화면
 20. 화면은 조건을 걸고 `ready`를 받은 뒤에 snapshot을 읽는다. 읽고 나서 걸면 그 사이 event를 놓친다. 끊긴 연결은 replay 없이 처음부터 다시 맞춘다. 화면이 core 상태를 읽는 공통 길은 하나다(`useCoreRead`). read route 정의의 `reads`가 그 읽기가 기대는 이름(과 입력에서 뽑은 id)이고, 이름이 같고 어느 쪽 id가 null이거나 둘이 같은 `StateChanged`나 `ready`가 오면 다시 읽는다. 읽는 동안 온 것은 끝난 뒤 한 번만 다시 읽는다. 끊기면 옛 값을 stale로 둔다. check가 "`reads`의 이름을 내는 곳이 하나도 없다"를 잡는다. 내용을 접는 store(session 목록, Inbox, 대화)는 이 길을 쓰지 않고 내용 있는 event를 접는다.
 21. 서버는 `watch` frame마다 받은 차례로 `ready` 하나를 답한다. shell main은 그 차례로 짝지어, 한 창이 조건을 바꿔 건 `watch`의 `ready`는 그 창에만 보내고 새로 붙은 연결의 `ready`만 모든 창에 보낸다. 창 안에서도 그 `watch`를 걸 때 아직 `ready`를 못 받은 구독자만 다시 읽는다. 기존 구독자는 서버가 동기로 다시 구독해 event를 잃지 않는다. tab 하나를 열고 닫을 때마다 모든 창이 snapshot을 다시 읽던 것을 막는다.
 22. session을 건 조건은 session이 없는 event(남지 않는 event)와 맞지 않는다. 그런 event는 종류 조건으로만 받는다. 섞어 쓰면 전역 대기 목록이 조용히 빈다. `AcpUpdated`는 subject가 null이지만 envelope의 session이 조건에 걸린다.
-23. 구독 조건은 "어느 session의, 어떤 종류"다. 조건 여럿은 OR이고 같은 event는 연결 하나에 한 번만 간다. 조건 없는 구독은 아무 event도 받지 않는다.
+23. 구독 조건은 "어느 session의, 어떤 종류"다. 조건 여럿은 OR이고 같은 event는 연결 하나에 한 번만 간다. 조건 없는 구독은 아무 event도 받지 않는다. `AppViewEvent`는 조건과 따로 payload의 owner가 그 연결의 owner(사람 token 연결은 credential의 principal)일 때만 간다. owner를 받지 않은 연결에는 가지 않는다. view는 그것을 연 사람·기기의 것이라 다른 연결이 그 화면의 앱 event와 binding을 보면 안 된다.
 24. core는 toast를 모르고 toast는 shell의 정책이다. 끊긴 사이 놓친 toast는 다시 띄우지 않는다. 앱 멈춤(`AppRestartHalted`)·activation 동의 요청·앱 공유 요청의 toast는 renderer가 남지 않는 event를 듣고 띄운다. agent의 turn 끝·권한 물음·질문 알림은 renderer가 아니라 shell main이 같은 event를 듣고 터미널 agent와 같은 규칙으로 toast나 OS 알림을 정한다(`architecture/terminal-agent.md`).
 25. 사람 화면에 가는 것은 앱 화면과 agent 결과(대화)뿐이다. call의 진행은 agent끼리의 일이라 화면의 대상이 아니다.
 26. 꺼졌다 켜지면 돌던 turn은 interrupted로 닫고 그 turn의 turn 안 request와 질문은 cancelled다. activation 동의 대기는 apps의 표에 남는다(`architecture/activation.md`).
@@ -123,7 +125,7 @@ agent event와 화면
 
 boundary: `events`(commit 뒤 agent event와 남지 않는 event를 화면에 내는 Bus와 Gateway), `event-stream`(core가 확정한 event의 stream).
 
-- Gateway: WebSocket, subprotocol `lophn.gateway.1`. 받는 principal은 사람 token(shell main)이다. replay도 ack도 없다. pairing한 폰은 remote 연결 안에서 같은 frame(`watch`, `ready`, `event`, `closed`)을 같은 Bus 구독과 느린 구독자 한도로 받는다. principal은 `device:<id>`이고 구독 조건의 모양은 사람 token과 같다. 다만 core가 기기에는 event 종류 목록(`REMOTE_ALLOWED_EVENTS`: session·turn의 시작과 끝, turn request·질문·activation 동의·공유 요청의 열림과 닫힘, `AcpUpdated`, notice, 화면 갱신의 `StateChanged`)의 type만 보낸다. 조건에 types가 없어도 같다. 앱 event(`AppEventPublished`)와 설정·앱 설치 event는 폰에 가지 않는다.
+- Gateway: WebSocket, subprotocol `lophn.gateway.1`. 받는 principal은 사람 token(shell main)이다. `AppViewEvent`는 연결의 owner(principal)가 연 view의 것만 받는다. replay도 ack도 없다. pairing한 폰은 remote 연결 안에서 같은 frame(`watch`, `ready`, `event`, `closed`)을 같은 Bus 구독과 느린 구독자 한도로 받는다. principal은 `device:<id>`이고 구독 조건의 모양은 사람 token과 같다. 다만 core가 기기에는 event 종류 목록(`REMOTE_ALLOWED_EVENTS`: session·turn의 시작과 끝, turn request·질문·activation 동의·공유 요청의 열림과 닫힘, `AcpUpdated`, notice, 화면 갱신의 `StateChanged`)의 type만 보낸다. 조건에 types가 없어도 같다. 앱 event(`AppEventPublished`)와 설정·앱 설치 event는 폰에 가지 않는다.
   - client frame은 `watch {conditions}` 하나다. 연결 안에서 다시 보내면 조건을 통째로 바꾼다. 잘못된 frame은 `closed` 없이 끊는다.
   - server frame은 `ready`(조건이 적용됐다), `event {event}`, `closed {reason}`(`slow_consumer` | `credential_revoked` | `shutdown`)다. 느린 구독자는 `closed` 뒤 1013으로 끊는다.
 - 구독 조건: `{session?, types?}`. 생략한 칸은 제한하지 않는다. event가 맞으려면 (session이 없거나 event의 session과 같고) 그리고 (types가 없거나 event의 type이 들어 있다).

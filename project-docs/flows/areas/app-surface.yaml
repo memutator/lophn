@@ -1217,6 +1217,147 @@ flows:
     crosses_process: true
     docs: [architecture/app-call.md]
 
+  # ---- 앱 view binding: core의 view 표(메모리) ----
+  - id: view-table-open
+    title: host가 앱 화면(view) 하나를 core의 view 표에 묶거나 다시 묶는다
+    actor: shell
+    entries: [route:app_views/open]
+    boundary: [apps, app-runtime, core-api]
+    code: [packages/core/apps/views/table.ts, packages/core/apps/views/mod.ts, packages/protocol/apps/views.ts, packages/core/main/daemon/wiring/apps.ts]
+    steps:
+      - "owner는 요청 credential의 principal이다(shell main과 CLI는 user, 폰은 device:<id>). 표의 key는 (owner, view)이고 view id는 host가 만든다"
+      - "앱이 없으면 not_found, 보관했으면 unavailable이다. live는 지금 ready인 live process에, preview는 지금 ready인 preview process에 묶는다. 없으면 unavailable이다"
+      - "release를 주면 그 process의 release와 같아야 한다(아니면 conflict). live에서 null이면 지금 도는 release를 따른다"
+      - "선언을 읽을 수 있으면(live, release 있는 preview) 화면이 선언에 있고 자리가 그 화면의 places에 들어야 한다. params는 그 화면의 params schema로 검사해 정규화한다. release 없는 preview는 화면 검사를 건너뛰고 params를 받지 않는다"
+      - "같은 (owner, view)를 같은 인자로 다시 보내면 새로 열지 않고 지금 process로 다시 묶어 돌려준다(card는 묶인 release가 지금과 다르면 conflict). 인자가 다르면 conflict다"
+      - "owner마다 64개까지다. 새 view가 넘치면 가장 오래 쓰지 않은 view를 표에서 내보내고 AppViewEvent(lost, evicted)를 낸다"
+    outcomes:
+      - id: opened
+        when: "새 view를 묶었다. release, bundle hash, process nonce, 정규화한 params를 돌려준다"
+        observe: [response]
+      - id: resumed
+        when: "같은 인자의 다시 열기. 지금 binding을 다시 읽어 돌려준다(묶음을 잃었던 view도 되살아난다)"
+        observe: [response]
+      - id: evicted
+        when: "owner의 view가 64개라 가장 오래 쓰지 않은 view를 내보내고 새 view를 묶었다"
+        observe: [event:AppViewEvent, response]
+      - id: not-found
+        code: not_found
+        when: "앱이 없다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "앱을 보관했다, ready인 live·preview process가 없다, 도는 release의 선언을 읽지 못했다, 또는 release 없는 preview에 params를 줬다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "준 release가 지금 process의 release와 다르다, card view를 다시 열 때 도는 release가 묶인 release와 다르다, 또는 같은 view id를 다른 인자로 열었다"
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "화면이 선언에 없다, 자리가 그 화면의 places에 없다, params가 화면의 schema에 맞지 않거나 schema 없는 화면에 값을 줬다, 또는 입력 모양이 틀렸다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor(user)가 아니거나 credential scope에 operation이 없다(dispatch)"
+        observe: [response]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/app-call.md]
+    unclear:
+      - "shell main의 옛 view registry가 아직 같은 일을 한다. core 표로 옮기는 것은 뒤의 task(mobile-shell-views)다"
+
+  - id: view-table-call
+    title: host가 view의 binding으로 operation 하나를 부른다
+    actor: shell
+    entries: [route:app_views/call]
+    uses: [app-operation-call:succeeded, app-operation-call:failed, app-operation-call:unknown]
+    boundary: [apps, app-runtime, core-api]
+    code: [packages/core/apps/views/call.ts, packages/core/apps/views/mod.ts, packages/protocol/apps/views.ts]
+    steps:
+      - "(owner, view)가 표에 없으면 not_found다. 다른 owner의 view도 같다"
+      - "operation(비지 않음, 앞뒤 공백·제어 문자·* 없음)과 input(JSON 왕복이 같고 64 KiB 이하)을 검사한다. 틀리면 invalid_input이다"
+      - "묶인 release(preview는 preview bundle)의 선언에서 operation을 찾는다. 없으면(command 이름, 구독 handler, 다른 앱의 이름) core 호출 없이 outcome forbidden이다"
+      - "apps/call_tool 경로를 kind operation, caller {person, view_session: view id}로 부른다. 대상(앱, release 또는 preview nonce)은 표의 binding에서만 온다"
+      - "결과를 outcome으로 옮긴다. 앱이 낸 오류는 앱의 code와 message 그대로, denied는 그 이유대로, 결과 모름과 큰 결과는 unavailable이다"
+    outcomes:
+      - id: succeeded
+        when: "앱이 값을 돌려줬다. outcome ok"
+        observe: [response]
+      - id: app-failed
+        when: "outcome이 실패다: 앱 handler의 오류, 호출 경로의 denied, 결과 모름, 8 MiB를 넘는 결과, 또는 묶음을 잃은 view"
+        observe: [response]
+      - id: not-declared
+        when: "묶인 선언에 없는 operation이다. outcome forbidden(operation is not available)이고 호출 경로까지 가지 않는다"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "그 owner의 view가 표에 없다(닫았거나 내보냈거나 다른 owner의 view)"
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "operation 이름이나 input이 규칙에 맞지 않는다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor(user)가 아니거나 credential scope에 operation이 없다(dispatch)"
+        observe: [response]
+    crosses_process: true
+    risk: [permission]
+    declared_only: [unavailable]
+    docs: [architecture/app-call.md]
+    unclear:
+      - "선언한 unavailable은 route 오류로 나지 않는다. 앱을 쓸 수 없으면 outcome 안의 unavailable이다(선언을 고칠 곳)"
+
+  - id: view-table-close
+    title: host가 view 하나를 표에서 지운다
+    actor: shell
+    entries: [route:app_views/close]
+    boundary: [apps, core-api]
+    code: [packages/core/apps/views/mod.ts, packages/core/apps/views/table.ts]
+    steps:
+      - "(owner, view)를 표에서 지운다. 없는 view와 다른 owner의 view는 closed false다(있는지 새지 않는다)"
+    outcomes:
+      - id: closed
+        observe: [response]
+      - id: not-open
+        when: "그 owner의 view가 없다. closed false"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/app-call.md]
+
+  - id: view-table-events
+    title: core가 앱 event와 다시 묶음을 view마다 AppViewEvent로 그 owner의 Gateway에 보낸다
+    actor: system
+    entries: [system:view-table-events]
+    uses: [system:gateway-stream]
+    boundary: [apps, event-stream, events]
+    code: [packages/core/apps/views/events.ts, packages/core/apps/views/table.ts, packages/core/events/gateway.ts, packages/core/server/socket.ts, packages/core/main/daemon/wiring/apps.ts]
+    steps:
+      - "apps wiring이 Bus의 AppEventPublished와 AppViewChanged를 듣는다"
+      - "AppEventPublished: audience에 앱이 들고 묶인 release가 (source, event) 구독을 선언한 live view마다 AppViewEvent(event)를 낸다. preview view와 묶음을 잃은 view는 받지 않는다"
+      - "AppViewChanged: 그 앱의 모든 view를 다시 묶는다. card가 아닌 view는 도는 release를 따르고 card는 묶인 release 그대로다. 묶이면 rebound(binding이 그대로여도), 못 묶으면 lost(app_stopped, app_archived, conflict)를 내고 view는 표에 남는다"
+      - "Gateway session은 payload의 owner가 그 연결의 owner(사람 token은 principal)일 때만 AppViewEvent를 보낸다. owner 없는 session에는 보내지 않는다"
+    outcomes:
+      - id: event-delivered
+        when: "구독을 선언한 live view에 앱 event를 보냈다"
+        observe: [event:AppViewEvent]
+      - id: not-subscribed
+        when: "audience 밖, 구독을 선언하지 않은 release, preview view, 묶음을 잃은 view. 보내지 않는다"
+        observe: []
+      - id: rebound
+        when: "AppViewChanged 뒤 다시 묶었다"
+        observe: [event:AppViewEvent]
+      - id: lost
+        when: "다시 묶지 못했다(앱이 안 돈다, 보관했다, card의 release가 더는 돌지 않는다)"
+        observe: [event:AppViewEvent]
+      - id: other-owner
+        when: "Gateway session의 owner가 payload의 owner와 다르거나 session에 owner가 없다. 그 연결에는 가지 않는다"
+        observe: []
+    crosses_process: false
+    risk: [permission]
+    docs: [architecture/app-call.md, architecture/event.md]
+
   - id: app-event-view-deliver
     title: 열려 있는 앱 화면이 구독을 선언한 앱 event를 받는다
     actor: app

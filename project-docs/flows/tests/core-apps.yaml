@@ -32,6 +32,10 @@ files:
     covers: []
     note: "publicCommandsOf 순수 함수: 명함의 command 목록에서 비공개 command와 deny로 뺀 command를 싣지 않음"
 
+  - path: packages/core/apps/views/views_test.ts
+    covers: [view-table-call:succeeded, view-table-call:not-declared, view-table-call:not-found, view-table-close:closed, view-table-close:not-open, view-table-open:opened, view-table-open:evicted, view-table-open:invalid-input, view-table-events:event-delivered, view-table-events:not-subscribed, view-table-events:rebound, view-table-events:lost]
+    note: "view 호출은 묶인 선언의 operation만 binding의 대상(release·preview nonce)과 caller로 부른다(command·다른 앱·구독 handler 이름은 같은 forbidden outcome이고 호출 경로까지 가지 않음, preview 포함). 다른 owner의 view는 없는 view와 같다. 앱 event는 구독·audience에 맞는 live view에만, card는 release를 따르지 않고 lost(conflict), owner당 64개를 넘으면 가장 오래 안 쓴 view가 evicted. params·자리 검사. port는 가짜"
+
   - path: packages/core/apps/notices/commands_test.ts
     covers: [notice-post:posted, notice-record:recorded, notice-record:forbidden, notice-dismiss:removed, notice-dismiss:marked-read, notice-dismiss:forbidden, notice-mark-read:forbidden, notice-version-observe:changed, notice-version-observe:unchanged]
     note: "앱은 자기 앱 app 줄만 쓰고 program 줄·다른 앱 줄·지우기·읽음을 못 함, 영구 줄 지우기는 읽음으로만 남고 program 줄은 DB에서 못 지움, 보존 상한, 판이 바뀐 기동의 lophn_updated 한 번, SDK 판만 바뀐 경우. app_notices 옮기기는 schema step이라 covers 밖. clearAppNotices는 app-archive 단계를 직접 불러 app-archive:archived를 covers하지 않음"

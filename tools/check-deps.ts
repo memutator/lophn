@@ -119,6 +119,8 @@ const PORTABLE_TEST_IMPORTS: ReadonlySet<string> = new Set([
   "node:test",
   "node:assert/strict",
 ]);
+// sync core의 test는 SyncDb의 Node driver(node:sqlite) 위에서 replica 수렴을 본다. 제품 file은 driver를 인자로 받는다.
+const SYNC_CORE_TESTS = "packages/protocol/apps/sync/";
 
 function numberedName(segment: string): boolean {
   const name = segment.replace(/\.[^.]+$/, "").replace(/_test$/, "");
@@ -379,7 +381,10 @@ export async function checkRepo(root: string): Promise<Violation[]> {
           `workspace exports로 해석할 수 없음: ${specifier}`,
         );
       }
-      const testImport = test && PORTABLE_TEST_IMPORTS.has(specifier);
+      const testImport =
+        test &&
+        (PORTABLE_TEST_IMPORTS.has(specifier) ||
+          (file.startsWith(SYNC_CORE_TESTS) && specifier === "node:sqlite"));
       if (
         portable &&
         !testImport &&

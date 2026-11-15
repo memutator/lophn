@@ -32,9 +32,7 @@ import {
   agentCreate,
   agentDelete,
 } from "../../protocol/lophn-agent/agent-definitions.ts";
-import {
-  tabsOpen,
-} from "../../protocol/lophn-agent/host-queue.ts";
+import { tabsOpen } from "../../protocol/lophn-agent/host-queue.ts";
 import {
   changeShownModels,
   modelDefaultChange,
@@ -233,7 +231,7 @@ function setup() {
     devicesClearPush,
     devicesPushTargets,
     pairingStart,
-          agentCreate,
+    agentCreate,
     agentChange,
     agentDelete,
     jobCreate,

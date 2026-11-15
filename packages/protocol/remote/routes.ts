@@ -16,7 +16,7 @@ import {
 
 const deviceIdSchema = idSchema("dev");
 
-// 새 code를 만들고 앞 code를 무효로 한다. remote listener가 꺼져 있으면 unavailable이다.
+// 새 code를 만들고 앞 code를 무효로 한다. remote listener도 relay도 떠 있지 않으면 unavailable이다.
 export const pairingStart = defineMemory({
   resource: "pairing",
   method: "start",

@@ -544,6 +544,10 @@ files:
       - remote-listener:relay-retry
     note: "메모리 socket으로 relay client가 challenge에 relay가 같은 값으로 얻는 proof로 답하고, connected마다 data socket을 열어 host에 넘기고, 끊기면 1초·2초 뒤 다시 거는지 본다"
 
+  - path: packages/core/attention/push/mod_test.ts
+    covers: []
+    note: "push를 담당하는 flow가 아직 없다. remote.push가 비면 fetch를 부르지 않는지, DeviceNotRegistered가 ticket과 receipt 단계 모두 token으로 알려지는지, 네트워크 실패와 500이 던지지 않고 dropped인지 메모리 fake로 본다"
+
   - path: packages/core/remote/host_test.ts
     covers:
       - remote-connection:unpaired-refused

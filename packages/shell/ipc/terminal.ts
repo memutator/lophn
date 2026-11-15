@@ -332,6 +332,46 @@ export type TerminalSnapshotReply = {
   output: TerminalOutput[];
 };
 
+/**
+ * 화면 한 줄. `protocol/host-link`의 `terminalLineSchema`와 같은 모양이다. 그 file은 이 package의 type check
+ * (noUncheckedIndexedAccess)가 통과하지 못하는 protocol file을 끌어와 import하지 않는다. 다르면 frame을 보내는
+ * `wiring/terminal-view.ts`의 type check가 잡는다. 색은 `#rrggbb`이거나 palette 번호 `p0`~`p255`다.
+ */
+export type TerminalLine = {
+  runs: {
+    text: string;
+    fg?: string;
+    bg?: string;
+    bold?: boolean;
+    dim?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+    inverse?: boolean;
+    /** 두 칸을 차지하는 글자(CJK, emoji)의 run이다. */
+    wide?: boolean;
+  }[];
+  /** 이 줄이 다음 줄로 이어진다(자동 줄바꿈). */
+  wrapped: boolean;
+};
+
+/**
+ * host가 들고 있는 화면을 서식 run의 줄로 읽은 것(폰의 터미널 보기). lines는 viewport 전체(rows줄)이고 scrollback은
+ * 그 위 scrollback의 마지막 tail줄이다. seq는 이 화면이 담은 마지막 출력이다.
+ */
+export type TerminalScreen = {
+  seq: number;
+  columns: number;
+  rows: number;
+  cursor: { x: number; y: number; hidden: boolean };
+  scrollback: TerminalLine[];
+  lines: TerminalLine[];
+};
+export type TerminalScreenReply = {
+  ok: true;
+  runtime: TerminalRuntime;
+  screen: TerminalScreen & { generation: number };
+};
+
 /** IPC 경계의 결과. main의 guard 거절은 error다. */
 export type TerminalCall<T> =
   | { ok: true; value: T }

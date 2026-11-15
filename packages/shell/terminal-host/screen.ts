@@ -8,6 +8,7 @@
 import serialize from "@xterm/addon-serialize/lib/addon-serialize.js";
 import unicode11 from "@xterm/addon-unicode11/lib/addon-unicode11.js";
 import headless from "@xterm/headless";
+import type { TerminalLine, TerminalScreen } from "../ipc/terminal.ts";
 
 /** renderer xterm의 scrollback과 같다. 그보다 오래된 줄은 보이는 화면에도 없다. */
 const SCROLLBACK = 10_000;
@@ -113,10 +114,120 @@ export class Screen {
     });
   }
 
+  /**
+   * 지금까지 push한 출력을 모두 파싱한 화면을 서식 run의 줄로 준다(폰의 터미널 보기). viewport 전체와 그 위
+   * scrollback의 마지막 tail줄이다. seq를 맞추는 방법은 `snapshot()`과 같다. 닫힌 화면이면 null이다.
+   */
+  screen(tail: number): Promise<TerminalScreen | null> {
+    const seq = this.#seq;
+    if (this.#disposed) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      this.#term.write("", () => {
+        if (this.#disposed) return resolve(null);
+        const term = this.#term;
+        const buffer = term.buffer.active;
+        const cell = buffer.getNullCell();
+        const read = (from: number, to: number) => {
+          const lines: TerminalLine[] = [];
+          for (let y = from; y < to; y++) {
+            const line = buffer.getLine(y);
+            lines.push({
+              runs: line ? runsOf(line, term.cols, cell) : [],
+              // xterm은 이어지는 쪽(아래 줄)에 표시한다. 계약은 이어 주는 쪽(위 줄)에 둔다.
+              wrapped: buffer.getLine(y + 1)?.isWrapped ?? false,
+            });
+          }
+          return lines;
+        };
+        const base = buffer.baseY;
+        resolve({
+          seq,
+          columns: term.cols,
+          rows: term.rows,
+          cursor: {
+            // 줄 끝까지 쓴 줄(wrap 대기)에서는 cursorX가 columns다.
+            x: Math.min(buffer.cursorX, term.cols - 1),
+            y: buffer.cursorY,
+            hidden: this.#cursorHidden,
+          },
+          scrollback: read(Math.max(0, base - tail), base),
+          lines: read(base, base + term.rows),
+        });
+      });
+    });
+  }
+
   /** 닫힌 탭은 힙에 출력을 남기지 않는다. */
   dispose(): void {
     if (this.#disposed) return;
     this.#disposed = true;
     this.#term.dispose();
   }
+}
+
+type Run = TerminalLine["runs"][number];
+const FLAGS = [
+  "bold",
+  "dim",
+  "italic",
+  "underline",
+  "inverse",
+  "wide",
+] as const;
+
+function colorOf(rgb: boolean, palette: boolean, value: number) {
+  if (rgb) return `#${value.toString(16).padStart(6, "0")}`;
+  if (palette) return `p${value}`;
+  return undefined;
+}
+
+/** 서식이 같은 칸을 이은 run들. 줄 끝의 빈 칸(글자도 배경도 없는 것)은 버려 빈 줄은 run이 없다. */
+function runsOf(
+  line: headless.IBufferLine,
+  columns: number,
+  cell: headless.IBufferCell,
+): Run[] {
+  const runs: Run[] = [];
+  let key = "";
+  // 마지막으로 보이는 칸까지의 run 수와 그 run의 글 길이. 그 뒤 빈 칸을 잘라 낸다.
+  let keepRuns = 0;
+  let keepLength = 0;
+  for (let x = 0; x < columns; x++) {
+    if (!line.getCell(x, cell)) break;
+    const width = cell.getWidth();
+    // 폭 2 글자의 뒤 칸이다. 글자는 앞 칸이 갖는다.
+    if (width === 0) continue;
+    const chars = cell.getChars();
+    const fg = colorOf(cell.isFgRGB(), cell.isFgPalette(), cell.getFgColor());
+    const bg = colorOf(cell.isBgRGB(), cell.isBgPalette(), cell.getBgColor());
+    const flags = [
+      cell.isBold(),
+      cell.isDim(),
+      cell.isItalic(),
+      cell.isUnderline(),
+      cell.isInverse(),
+      width === 2,
+    ].map(Boolean);
+    const next = `${fg}|${bg}|${flags.join()}`;
+    if (runs.length === 0 || next !== key) {
+      const run: Run = { text: "" };
+      if (fg !== undefined) run.fg = fg;
+      if (bg !== undefined) run.bg = bg;
+      FLAGS.forEach((name, i) => {
+        if (flags[i]) run[name] = true;
+      });
+      runs.push(run);
+      key = next;
+    }
+    const run = runs.at(-1)!;
+    run.text += chars || " ";
+    if (chars !== "" || bg !== undefined || run.inverse) {
+      keepRuns = runs.length;
+      keepLength = run.text.length;
+    }
+  }
+  runs.length = keepRuns;
+  if (keepRuns > 0)
+    runs[keepRuns - 1]!.text = runs[keepRuns - 1]!.text.slice(0, keepLength);
+  return runs;
 }

@@ -7,6 +7,7 @@ import type {
   TerminalReply,
   TerminalRuntime,
   TerminalOutput,
+  TerminalScreenReply,
   TerminalSnapshotReply,
 } from "../ipc/terminal.ts";
 import type { IdSource } from "../../base/id.ts";
@@ -71,7 +72,9 @@ export type HostRequest =
     }
   | { id: string; type: "close"; terminal_ref: string; generation: number }
   | { id: string; type: "restart"; terminal_ref: string; generation: number }
-  | { id: string; type: "snapshot"; terminal_ref: string; after_seq?: number };
+  | { id: string; type: "snapshot"; terminal_ref: string; after_seq?: number }
+  /** 지금 화면을 서식 run의 줄로 읽는다(폰의 터미널 보기). tail은 viewport 위 scrollback 줄 수다. */
+  | { id: string; type: "screen"; terminal_ref: string; tail: number };
 
 type HostDeps = {
   ids: IdSource;
@@ -108,7 +111,9 @@ export type ForegroundChange = {
 
 type Host = {
   /** 요청 하나의 예외는 그 요청의 host_lost 답이 된다. close·restart는 child 종료를 기다린다. */
-  handle(request: HostRequest): Promise<TerminalReply | TerminalSnapshotReply>;
+  handle(
+    request: HostRequest,
+  ): Promise<TerminalReply | TerminalSnapshotReply | TerminalScreenReply>;
   sessions(): readonly TerminalRuntime[];
   /** 살아 있는 shell 터미널 중 foreground argv가 지난번과 달라진 것만 돌려준다. */
   foregroundChanges(): ForegroundChange[];
@@ -267,8 +272,21 @@ function createHost(deps: HostDeps): Host {
   ):
     | TerminalReply
     | TerminalSnapshotReply
-    | Promise<TerminalReply | TerminalSnapshotReply> {
+    | Promise<TerminalReply | TerminalSnapshotReply | TerminalScreenReply> {
     if (request.type === "open") return start(undefined, request);
+    if (request.type === "screen") {
+      const session = sessions.get(request.terminal_ref);
+      if (!session) return reject("host_lost", "terminal is gone");
+      return session.screen.screen(request.tail).then((screen) =>
+        screen === null
+          ? reject("host_lost", "terminal is gone")
+          : {
+              ok: true as const,
+              runtime: { ...session.runtime },
+              screen: { ...screen, generation: session.runtime.generation },
+            },
+      );
+    }
     if (request.type === "snapshot") {
       const session = sessions.get(request.terminal_ref);
       if (!session) return reject("host_lost", "terminal is gone");

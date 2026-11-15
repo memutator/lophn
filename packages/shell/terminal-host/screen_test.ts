@@ -51,3 +51,33 @@ test("다시 붙은 화면은 TUI가 고른 mouse 인코딩과 커서 숨김을 
   assert.ok(!off.includes("\x1b[?25l"));
   screen.dispose();
 });
+
+test("폰에 주는 화면은 서식이 같은 칸을 run으로 묶고 폭 2 글자와 자동 줄바꿈을 표시한다", async () => {
+  const screen = new Screen(12, 3);
+  screen.push("old 1\r\nold 2\r\n");
+  screen.push("\x1b[1;31mERR\x1b[0m ok \x1b[38;2;16;32;48m한글\x1b[0m\r\n");
+  const last = screen.push("abcdefghijklm\r\n\x1b[44m  \x1b[0m");
+  const dump = await screen.screen(1);
+  assert.ok(dump);
+  assert.equal(dump.seq, last);
+  assert.deepEqual([dump.columns, dump.rows], [12, 3]);
+  // viewport 위 scrollback의 마지막 한 줄만 온다.
+  assert.deepEqual(dump.scrollback, [
+    {
+      runs: [
+        { text: "ERR", fg: "p1", bold: true },
+        { text: " ok " },
+        { text: "한글", fg: "#102030", wide: true },
+      ],
+      wrapped: false,
+    },
+  ]);
+  assert.deepEqual(dump.lines, [
+    { runs: [{ text: "abcdefghijkl" }], wrapped: true },
+    { runs: [{ text: "m" }], wrapped: false },
+    { runs: [{ text: "  ", bg: "p4" }], wrapped: false },
+  ]);
+  assert.deepEqual(dump.cursor, { x: 2, y: 2, hidden: false });
+  screen.dispose();
+  assert.equal(await screen.screen(0), null);
+});

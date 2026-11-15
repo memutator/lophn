@@ -23,7 +23,7 @@ import {
   createHarnessTui,
   type HarnessTui,
 } from "../../terminal/harness-tui.ts";
-import { createTerminalIpc } from "../../terminal/ipc.ts";
+import { createTerminalIpc, type TerminalIpc } from "../../terminal/ipc.ts";
 import { createTraceFile } from "../../terminal/trace-file.ts";
 import { DIAGNOSTICS_TRACE_SETTING_KEY } from "../../../../protocol/diagnostics/trace.ts";
 import { TerminalOutputs } from "../../terminal/output.ts";
@@ -110,6 +110,9 @@ export type Coding = Registered & {
   /** agent가 `--tui`로 연 TUI 탭의 session 표. surface wiring이 묶고 extension `harness`가 읽는다. */
   tui: HarnessTui;
   bindTabGui(port: TabGuiPort): void;
+  /** 폰의 터미널 보기(`wiring/terminal-view.ts`)가 쓰는 main의 입력 길, 화면 읽기, 사람 입력 알림. */
+  terminalIpc: Pick<TerminalIpc, "typeInto" | "screen">;
+  humanInput(terminalRef: string, text: string): void;
   /** 터미널 탭의 coding agent를 그 harness의 끊기 key로 끊는다(core가 앱의 session stop을 넘긴다). key가 없는 harness는 unavailable이다. */
   interrupt(
     terminalRef: string,
@@ -499,6 +502,9 @@ export function register(ctx: ShellContext, appSessions: AppSessions): Coding {
     bindTabGui(port) {
       tabPort = port;
     },
+    terminalIpc,
+    humanInput: (terminalRef, text) =>
+      agent.tracker.humanInput(terminalRef, text),
     async interrupt(terminalRef) {
       const runtime = terminals
         .runtimes()

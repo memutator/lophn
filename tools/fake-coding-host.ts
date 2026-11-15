@@ -2,11 +2,13 @@
 // 실행: node tools/fake-coding-host.ts [--project prj_…]  (먼저 `npm run dev:core`가 떠 있어야 한다. Ctrl+C로 끝낸다)
 // 개발 core(.dev-data)에 사람 자격으로 붙어 coding session 둘을 올린다: chat(GUI)으로 도는 Claude Code(도는 turn과 승인 card)와
 // 터미널(TUI)로 도는 Codex. `coding_input`을 받으면 `send`는 사람 말 하나를 더하고 `decide`는 card를 닫는다. `coding_switch`를
-// 받으면 view를 바꿔 다시 올린다. 그 밖의 요청(탭, tool, browser)은 `unavailable`로 답한다. project를 주지 않으면 첫 project다.
+// 받으면 view를 바꿔 다시 올린다. `terminal_stream`을 받으면 그 터미널의 canned 화면(색 있는 줄 몇 개와 입력 줄)을 올리고,
+// `terminal_input`을 받으면 그 글을 입력 줄에 더해 다시 올린다. 그 밖의 요청(탭, tool, browser)은 `unavailable`로 답한다.
+// project를 주지 않으면 첫 project다.
 import { join } from "node:path";
 import process from "node:process";
-import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
 import { WebSocket } from "ws";
 import { cliDial } from "../packages/cli/connection/client/node.ts";
 import {
@@ -28,6 +30,7 @@ import {
   HOST_LINK_SUBPROTOCOL,
   type HostFrame,
   hostFrameSchema,
+  type TerminalLine,
 } from "../packages/protocol/host-link/mod.ts";
 import type { HostToolOutput } from "../packages/protocol/lophn-agent/host-queue.ts";
 import type { TerminalSessionReport } from "../packages/protocol/lophn-agent/session-lifecycle.ts";
@@ -150,12 +153,82 @@ function cannedSessions(project: string): Fake[] {
 }
 const sessionOf = (fake: Fake) => guiSessionId(fake.report.terminal_ref);
 
+const SCREEN_COLUMNS = 80;
+const SCREEN_ROWS = 8;
+const SCROLLBACK: TerminalLine[] = [1, 2, 3].map((n) => ({
+  runs: [{ text: `$ make step-${n}`, fg: "p8" }],
+  wrapped: false,
+}));
+const BLANK: TerminalLine = { runs: [], wrapped: false };
+
+// 제어 글자는 `^C`처럼 보이게 한다. 화면에 그대로 두면 줄이 깨진다.
+const visible = (text: string) =>
+  [...text]
+    .map((char) => {
+      const code = char.codePointAt(0)!;
+      if (code === 0x7f) return "^?";
+      return code < 0x20 ? `^${String.fromCharCode(code + 64)}` : char;
+    })
+    .join("");
+
+type FakeTerminal = { typed: string; seq: number; tail: number | null };
+
 // 가짜 host 하나. `send`로 frame을 올리고 core의 `request` frame을 `request`로 받는다. 연결과 상관없어 core 없이도 돌려 볼 수 있다.
 export function fakeCodingHost(
   project: string,
   send: (frame: HostFrame) => void,
 ) {
   const fakes = cannedSessions(project);
+  // 터미널마다 폰이 친 글과 화면 seq. tail이 null이면 보는 폰이 없다.
+  const terminals = new Map<string, FakeTerminal>(
+    fakes.map((fake) => [
+      fake.report.terminal_ref,
+      { typed: "", seq: 0, tail: null },
+    ]),
+  );
+
+  function screen(ref: string, terminal: FakeTerminal) {
+    if (terminal.tail === null) return;
+    terminal.seq += 1;
+    const prompt = `› ${visible(terminal.typed)}`;
+    const lines: TerminalLine[] = [
+      {
+        runs: [
+          { text: ">_ ", fg: "p6", bold: true },
+          { text: "fake terminal ", bold: true },
+          { text: ref, fg: "p8" },
+        ],
+        wrapped: false,
+      },
+      BLANK,
+      {
+        runs: [{ text: "✓", fg: "p2" }, { text: " tests passed (12)" }],
+        wrapped: false,
+      },
+      {
+        runs: [{ text: "✗", fg: "#ff5f5f" }, { text: " lint: 1 warning" }],
+        wrapped: false,
+      },
+      BLANK,
+      { runs: [{ text: prompt }], wrapped: false },
+    ];
+    while (lines.length < SCREEN_ROWS) lines.push(BLANK);
+    send({
+      type: "terminal_screen",
+      terminal_ref: ref,
+      generation: 1,
+      seq: terminal.seq,
+      columns: SCREEN_COLUMNS,
+      rows: SCREEN_ROWS,
+      cursor: {
+        x: Math.min([...prompt].length, SCREEN_COLUMNS - 1),
+        y: 5,
+        hidden: false,
+      },
+      scrollback: terminal.tail === 0 ? [] : SCROLLBACK.slice(-terminal.tail),
+      lines,
+    });
+  }
 
   function report() {
     send({ type: "coding_report", sessions: fakes.map((fake) => fake.report) });
@@ -265,6 +338,26 @@ export function fakeCodingHost(
         return input(request.payload.input);
       case "coding_switch":
         return switchView(request.payload.terminal_ref, request.payload.to);
+      case "terminal_stream": {
+        const { terminal_ref: ref, on, tail } = request.payload;
+        const terminal = terminals.get(ref);
+        if (terminal === undefined)
+          return failed("not_found", "no such terminal");
+        terminal.tail = on ? tail : null;
+        screen(ref, terminal);
+        console.log(`fake-coding-host: ${ref} stream ${on ? "on" : "off"}`);
+        return done("ok");
+      }
+      case "terminal_input": {
+        const { terminal_ref: ref, text } = request.payload;
+        const terminal = terminals.get(ref);
+        if (terminal === undefined)
+          return failed("not_found", "no such terminal");
+        terminal.typed += text;
+        screen(ref, terminal);
+        console.log(`fake-coding-host: ${ref} typed ${JSON.stringify(text)}`);
+        return done("ok");
+      }
       default:
         return failed("unavailable", `fake host does not do ${request.kind}`);
     }
@@ -275,6 +368,8 @@ export function fakeCodingHost(
       fakes.map((fake) => ({ session: sessionOf(fake), ...fake.report })),
     // 연결이 열렸다. 연결을 열 때마다 처음부터 다시 보낸다.
     open() {
+      // core가 살아 있는 lease마다 `terminal_stream`을 다시 보낸다. 그 전에는 화면을 올리지 않는다.
+      for (const terminal of terminals.values()) terminal.tail = null;
       send({ type: "hello", version: 1, workspaces: [], tui: [] });
       report();
       for (const fake of fakes) snapshot(fake);

@@ -18,6 +18,7 @@ import {
   type TerminalResize,
   type TerminalResume,
   type TerminalRuntime,
+  type TerminalScreenReply,
   type TerminalSnapshot,
   type TerminalSnapshotReply,
   type TerminalTraceEvent,
@@ -111,6 +112,11 @@ export type TerminalIpc = {
     generation: number,
     text: string,
   ): Promise<void>;
+  /** host가 들고 있는 화면을 서식 run의 줄로 읽는다(폰의 터미널 보기). 터미널이 없거나 닫혔으면 null이다. */
+  screen(
+    terminalRef: string,
+    tail: number,
+  ): Promise<TerminalScreenReply["screen"] | null>;
   /** foreground process group에 signal을 보낸다(host가 Linux에서만 한다). foreground가 shell이면 아무 일도 없다. */
   signalForeground(
     terminalRef: string,
@@ -233,6 +239,14 @@ export function createTerminalIpc(deps: {
 
   return {
     typeInto,
+    async screen(terminalRef, tail) {
+      const reply = (await deps.host.request({
+        type: "screen",
+        terminal_ref: terminalRef,
+        tail,
+      })) as TerminalScreenReply | TerminalReply;
+      return reply.ok && "screen" in reply ? reply.screen : null;
+    },
     async signalForeground(terminalRef, generation, signal) {
       const reply = await deps.host.request({
         type: "signal",

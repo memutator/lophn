@@ -375,6 +375,10 @@ files:
     covers: [terminal-open:host-lost]
     note: "pipe에서 읽은 줄 나누기 순수 함수. 조각 사이에 갈린 UTF-8과 큰 JSON 한 줄을 보존한다. host child가 exit 없이 error를 내도 앱이 던지지 않고 기다리던 요청이 host_lost로 끝나며, 10초 안에 답이 없는 요청은 host_lost로 끝나고 늦은 답은 무시한다"
 
+  - path: packages/shell/main/terminal/terminal-view_test.ts
+    covers: [terminal-view-host:streamed, terminal-view-host:not_found]
+    note: "폰이 보는 터미널의 화면은 켤 때 한 번, 출력이 이어지면 250ms마다 하나로 묶고 마지막 출력 뒤 한 번은 꼭 보낸다. 켜지 않았거나 연결이 없거나 연결이 다시 열린 뒤 core가 다시 켜기 전에는 보내지 않는다"
+
   - path: packages/shell/main/thread-bookmarks/store_test.ts
     covers: [thread-bookmark-list:ok, thread-bookmark-list:unavailable, thread-bookmark-set:ok, thread-bookmark-set:unavailable]
     note: "thread bookmark 저장소. 깨진 파일은 set이 덮어쓰지 못하고(data-loss), session별로 켜고 끈다, 같이 부른 set 둘 다 남는다. thread-bookmark-list·thread-bookmark-set"
@@ -581,5 +585,5 @@ files:
     note: "bash·zsh 시작 층 file이 없으면 원래 login shell로 띄워 사용자 rc를 읽는다. 판을 올릴 때 옛 supervisor가 run 폴더를 지워 bash 탭이 rc를 하나도 읽지 않았다"
 
   - path: packages/shell/terminal-host/screen_test.ts
-    covers: [terminal-snapshot:screen]
-    note: "다시 붙은 터미널 화면(headless screen)이 처음 쓴 history와 mouse 인코딩, 커서 숨김을 되살린다. 터미널 다시 붙이기는 terminal-snapshot:screen"
+    covers: [terminal-snapshot:screen, terminal-view-host:streamed]
+    note: "다시 붙은 터미널 화면(headless screen)이 처음 쓴 history와 mouse 인코딩, 커서 숨김을 되살린다. 터미널 다시 붙이기는 terminal-snapshot:screen. 폰에 주는 화면은 색·굵게·폭 2 글자·자동 줄바꿈이 run에 맞게 나온다"

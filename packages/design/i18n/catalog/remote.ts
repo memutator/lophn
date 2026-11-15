@@ -1,22 +1,3 @@
 export const remote = {
-  "remote.button.back": "Back",
-  "remote.button.pair": "Pair",
-  "remote.connection.connecting": "Connecting to your computer…",
-  "remote.connection.disconnected": "Disconnected. Reconnecting…",
-  "remote.error.pair-failed": "Pairing failed: {reason}",
-  "remote.error.pair-invalid": "This is not pairing text.",
-  "remote.heading.pair": "Pair this browser",
-  "remote.heading.sessions": "Sessions",
-  "remote.label.home": "Home",
-  "remote.label.pairing-text": "Pairing text",
-  "remote.label.tab-inbox": "Inbox",
-  "remote.label.tab-sessions": "Sessions",
-  "remote.label.tabs": "Screens",
-  "remote.label.untitled": "Untitled session",
-  "remote.label.waiting-count": "{count} waiting",
   "remote.notice.input-request-on-computer": "Enter this on your computer.",
-  "remote.notice.no-bridge": "Open this screen in the lophn phone app.",
-  "remote.notice.no-sessions": "No open sessions.",
-  "remote.notice.pair":
-    "Paste the pairing text from Settings › Remote on your computer. This screen is only in development builds.",
 } as const;

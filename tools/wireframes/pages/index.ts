@@ -29,7 +29,6 @@ import { homeArea } from "./screens/home.tsx";
 import { overlaysArea } from "./screens/overlays.tsx";
 import { projectWorkspaceArea } from "./screens/project-workspace.tsx";
 import { questionsArea } from "./screens/questions.tsx";
-import { remoteArea } from "./screens/remote.tsx";
 import { settingsArea } from "./screens/settings.tsx";
 import { shellArea } from "./screens/shell.tsx";
 import { workflowArea } from "./screens/workflow.tsx";
@@ -74,7 +73,6 @@ const ALL_GROUPS: readonly Group[] = [
       workflowArea,
       settingsArea,
       questionsArea,
-      remoteArea,
     ],
   },
   {

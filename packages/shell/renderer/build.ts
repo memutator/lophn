@@ -7,8 +7,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-// remote는 phone 화면 bundle이다(phone 껍데기가 내려받아 연다).
-const screens = ["desktop", "overlay", "secret-input", "remote"];
+const screens = ["desktop", "overlay", "secret-input"];
 
 // CSS Modules는 local-css, 나머지 CSS는 css, woff2는 file로 읽고 svg는 currentColor가 둘레 글자 색을
 // 따르게 inline으로 그린다. artifact kit은 봉한 scheme이 kit.js·kit.css 둘만 주므로 글꼴도 CSS 안에 싣는다.

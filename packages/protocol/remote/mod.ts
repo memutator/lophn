@@ -61,6 +61,4 @@ export {
   type RemoteDevice,
   remotePairedSchema,
   remoteRelayStatus,
-  remoteUiFile,
-  remoteUiManifest,
 } from "./routes.ts";

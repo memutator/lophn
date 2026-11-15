@@ -11,7 +11,6 @@
 //   platform/    packages source, npm production node_modules/
 //   extensions/  본체 안 extension(manifest.json과 빌드한 dist/)
 //   desktop/     빌드된 desktop 화면
-//   platform/remote-ui/  빌드된 remote 화면(core가 폰에 내준다)
 //   skills/      coding agent skill 배포 원본
 import { type SpawnOptions, spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
@@ -194,14 +193,7 @@ async function stageExtensions(bundle: string) {
 
 async function stageContent(bundle: string) {
   const dist = join(repo, "packages", "shell", "renderer", "dist");
-  // remote 화면 bundle은 core가 폰에 내준다. core가 자기 source 기준으로 platform/ 아래에서 찾는다(core/remote/ui-bundle.ts).
-  await cp(dist, join(bundle, "desktop"), {
-    recursive: true,
-    filter: (source) => relative(dist, source).split(sep)[0] !== "remote",
-  });
-  await cp(join(dist, "remote"), join(bundle, "platform", "remote-ui"), {
-    recursive: true,
-  });
+  await cp(dist, join(bundle, "desktop"), { recursive: true });
   // skill 배포 원본(coding-agent/guides). 원본이 아직 없으면 빈 폴더를 둔다.
   const skills = join(bundle, "skills");
   await mkdir(skills, { recursive: true });

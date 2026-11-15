@@ -95,7 +95,6 @@ import {
   workflowStart,
   workflowStop,
 } from "../workflows/routes.ts";
-import { remoteUiFile, remoteUiManifest } from "./routes.ts";
 
 // 등록한 기기가 부를 수 있는 route의 전부다. 기기 자격의 scope가 이 이름들이고, 밖의 route는 `forbidden`이다.
 // 폰은 일하는 창이다: 보고, 말하고, 답하고, 켜고 끄고, 시작하는 route만 둔다.
@@ -193,9 +192,6 @@ export const REMOTE_ALLOWED_ROUTES = [
   appRuntime,
   releasesListRecords,
   releasesGetRecord,
-  // 화면 bundle
-  remoteUiManifest,
-  remoteUiFile,
 ] as const;
 
 // 등록한 기기의 `watch`가 받을 수 있는 event type의 전부다. 기기가 건 조건과 상관없이 core가 이 밖은 보내지 않는다.

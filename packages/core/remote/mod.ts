@@ -22,4 +22,3 @@ export {
 } from "./host.ts";
 export { openRemoteListener, type RemoteListener } from "./listener.ts";
 export { createPairingCodes, type PairingCodes } from "./pairing.ts";
-export { loadRemoteUi, remoteUiFileStream } from "./ui-bundle.ts";

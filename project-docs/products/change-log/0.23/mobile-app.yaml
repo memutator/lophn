@@ -1,5 +1,5 @@
 id: mobile-app
-version: 0.23.61
+version: 0.23.62
 title: 폰 앱 화면을 폰 UI kit으로 지은 native React Native 화면으로 다시 짓고, 컴퓨터가 화면을 내려주던 길을 지운다
 modules: [packages/protocol, packages/core/remote, packages/core/main, packages/core/projects, packages/mobile, packages/design, packages/design/native, packages/shell/renderer, tools]
 checked: [boundary-catalog]

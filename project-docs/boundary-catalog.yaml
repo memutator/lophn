@@ -198,6 +198,12 @@ elements:
       - protocol
       - design
 
+  - id: relay
+    kind: application
+    description: 폰과 core가 다른 network에 있어도 만나게 하는 lophn relay. core의 control socket이 key를 증명하면 폰 연결마다 data socket을 이어 binary message를 그대로 넘긴다. 내용은 보지 못한다.
+    depends_on:
+      - protocol
+
   - id: mobile
     kind: application
     description: 사람이 폰에 까는 앱 껍데기. pairing, 기기 key 보관, core 연결, core가 내려준 remote 화면 bundle을 hash 확인 뒤 cache해 WebView로 띄우기.
@@ -258,6 +264,7 @@ interfaces:
     defined_by: protocol
     provided_by:
       - remote
+      - relay
     used_by:
       - person
       - shell

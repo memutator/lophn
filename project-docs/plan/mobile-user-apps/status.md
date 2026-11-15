@@ -9,7 +9,7 @@ lead만 고친다. `tools/status.py mobile-user-apps build`가 `tasks/*.md`에�
 | `mobile-views-core` | app-views | 1 | 없음 | merged | app-views/mobile-views-core | a463b4036 |  |
 | `mobile-shell-views` | app-views | 2 | mobile-views-core, mobile-place-decl | merged | app-views/mobile-shell-views | e46a20145 |  |
 | `mobile-phone-contract` | phone-screen | 2 | mobile-phone-target | merged | phone-screen/mobile-phone-contract | 395081091 |  |
-| `mobile-build-phone` | phone-screen | 3 | mobile-phone-contract, mobile-place-decl | running | phone-screen/mobile-build-phone |  |  |
+| `mobile-build-phone` | phone-screen | 3 | mobile-phone-contract, mobile-place-decl | merged | phone-screen/mobile-build-phone | def945466 |  |
 | `mobile-phone-changed-notice` | phone-screen | 4 | mobile-phone-target, mobile-place-decl | merged | phone-screen/mobile-phone-changed-notice | d7088a955 |  |
 | `mobile-phone-reads` | phone-screen | 4 | mobile-phone-contract, mobile-build-phone | todo |  |  |  |
 | `mobile-sdk-kit` | phone-sdk | 5 | mobile-build-phone, mobile-phone-contract | todo |  |  |  |

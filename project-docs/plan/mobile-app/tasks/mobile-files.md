@@ -32,6 +32,8 @@ project 폴더의 file 목록과 글 file 읽기를 core route로 짓고 폰 자
 - 위험 test: "project 폴더 밖 path(`..`, 절대 path, 밖을 가리키는 symlink)는 목록도 읽기도 거절한다", "1 MiB를 넘는 file은 잘려 오고 `truncated`가 참이다"
 - 지우거나 쓰는 route는 없다(읽기 둘뿐).
 
+- flows catalog: 이 task가 더하거나 지우는 route, CLI 명령, IPC channel, test file의 줄은 이 task가 project-docs/flows 에서 고친다(자기 줄만. 꼴은 `.claude/skills/flows/SKILL.md`). `node tools/flows.ts check`가 통과해야 한다.
+
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: 두 route의 입력·출력 예 하나씩, 등록할 것, flows catalog에서 lead가 고칠 것.

@@ -40,6 +40,8 @@
 - 위험 test: 없음(지운 것의 test는 같이 지운다. 폰 자격의 route 목록 test는 남는다)
 - 남지 않음: `grep -rn "remote_ui\|ui-bundle\|renderer/remote" packages tools tests --include=*.ts --include=*.tsx --include=*.json`이 0줄이다.
 
+- flows catalog: 이 task가 더하거나 지우는 route, CLI 명령, IPC channel, test file의 줄은 이 task가 project-docs/flows 에서 고친다(자기 줄만. 꼴은 `.claude/skills/flows/SKILL.md`). `node tools/flows.ts check`가 통과해야 한다.
+
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: 지운 file 목록, 등록할 것(`tools/wireframes/pages/index.ts`, flows), desktop에 남긴 `phone` 갈래가 있으면 그 자리.

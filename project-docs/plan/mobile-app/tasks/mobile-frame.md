@@ -52,6 +52,8 @@
 - 남지 않음: `grep -rn "webview\|WebView\|remote_ui\|bundle/cache" packages/mobile/src packages/mobile/App.tsx packages/mobile/app.json packages/mobile/package.json`가 0줄이다.
 - 그림이 wireframe과 같은 구조·크기·색이다(lead가 대조한다).
 
+- flows catalog: 이 task가 더하거나 지우는 route, CLI 명령, IPC channel, test file의 줄은 이 task가 project-docs/flows 에서 고친다(자기 줄만. 꼴은 `.claude/skills/flows/SKILL.md`). `node tools/flows.ts check`가 통과해야 한다.
+
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: `nav.ts`의 갈 곳 목록, 영역 자리 file 목록, 더한 의존성과 판, 그림 목록, dev build를 짓는 데 바뀐 것.

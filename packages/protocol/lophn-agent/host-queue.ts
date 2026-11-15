@@ -239,10 +239,16 @@ const codingSwitchPayloadSchema = z.strictObject({
   to: z.enum(["gui", "tui"]),
 });
 // project에 coding session을 새로 열거나 저장된 session을 되살린다. 답은 JSON `{"terminal_ref":"…"}` 글 하나다.
+// resume의 session은 되살리는 ledger session이고 cli_session은 그 CLI session id다(ledger만 알아 core가 싣는다).
 const codingOpenPayloadSchema = z.strictObject({
   project: idSchema("prj"),
   harness: z.string().min(1).max(64),
-  resume: z.strictObject({ session: idSchema("ses") }).optional(),
+  resume: z
+    .strictObject({
+      session: idSchema("ses"),
+      cli_session: z.string().regex(/^[A-Za-z0-9._-]{1,200}$/),
+    })
+    .optional(),
 });
 // 그 터미널의 화면을 `terminal_screen` frame으로 밀어 올리기를 켜고 끈다. tail은 viewport 위 scrollback 줄 수다.
 const terminalStreamPayloadSchema = z.strictObject({

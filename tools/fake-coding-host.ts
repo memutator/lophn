@@ -333,10 +333,10 @@ export function fakeCodingHost(
     return done("ok");
   }
 
-  // 새 터미널에 그 harness의 빈 GUI session을 연다. resume이면 ledger session을 이어 연 것으로 친다(CLI id는 모른다).
+  // 새 터미널에 그 harness의 빈 GUI session을 연다. resume이면 그 CLI session을 이어 연 것으로 친다.
   function openSession(
     harness: string,
-    resume: string | undefined,
+    resume: { session: string; cli_session: string } | undefined,
   ): HostToolOutput {
     const ref = `trm_01${String(fakes.length).padStart(24, "0")}`;
     const fake: Fake = {
@@ -345,8 +345,8 @@ export function fakeCodingHost(
         project: project as never,
         harness,
         state: "idle",
-        cli_session: null,
-        title: resume === undefined ? null : `Continued ${resume}`,
+        cli_session: resume?.cli_session ?? null,
+        title: resume === undefined ? null : `Continued ${resume.session}`,
         cwd: null,
         shell_pid: null,
         view: "gui",
@@ -367,10 +367,7 @@ export function fakeCodingHost(
   function answer(request: CoreFrame): HostToolOutput {
     switch (request.kind) {
       case "coding_open":
-        return openSession(
-          request.payload.harness,
-          request.payload.resume?.session,
-        );
+        return openSession(request.payload.harness, request.payload.resume);
       case "coding_input":
         return input(request.payload.input);
       case "coding_switch":

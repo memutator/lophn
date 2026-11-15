@@ -17,6 +17,9 @@ type Entry = {
 
 export function createHarnessTui(deps: HarnessTuiDeps) {
   const tabs = new Map<string, Entry>();
+  // 폰이 `coding_open`의 resume으로 연 GUI가 쥔 ledger session(key는 그 열기 하나). 같은 hold다: 그 CLI가 도는 동안 headless turn이
+  // 같은 CLI session에 둘째 process를 띄우지 않는다.
+  const guis = new Map<string, string>();
 
   function release(tab: string): void {
     tabs.get(tab)?.stop?.();
@@ -44,9 +47,19 @@ export function createHarnessTui(deps: HarnessTuiDeps) {
         if (entry.owner === owner) release(tab);
       }
     },
-    /** 지금 TUI 탭이 열려 있는 session. */
+    /** resume으로 연 GUI가 그 ledger session을 쥔다. 여는 동안부터 handle이 닫힐 때까지다. */
+    holdGui(key: string, session: string): void {
+      guis.set(key, session);
+    },
+    releaseGui(key: string): void {
+      guis.delete(key);
+    },
+    /** 지금 hold해야 하는 session: TUI 탭이 열려 있거나 resume으로 연 GUI가 쥔 것. */
     sessions: (): string[] => [
-      ...new Set([...tabs.values()].map((entry) => entry.session)),
+      ...new Set([
+        ...[...tabs.values()].map((entry) => entry.session),
+        ...guis.values(),
+      ]),
     ],
   };
 }

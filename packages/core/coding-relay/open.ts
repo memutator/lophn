@@ -11,8 +11,15 @@ const OPEN_KEYS_MAX = 200;
 
 type OpenRequest = {
   kind: "coding_open";
-  payload: { project: string; harness: string; resume?: { session: string } };
+  payload: {
+    project: string;
+    harness: string;
+    resume?: { session: string; cli_session: string };
+  };
 };
+
+// shell이 터미널에 `--resume <id>`로 치는 글자다(`coding_open` payload와 같은 규칙).
+const CLI_SESSION = /^[A-Za-z0-9._-]{1,200}$/;
 
 export type CodingOpenDeps = {
   // 연결 요청(`HostQueue.callCoding`). 연결이 없거나 닫히거나 기한(60초)이 지나면 unavailable이다.
@@ -58,7 +65,7 @@ export function createCodingOpen(deps: CodingOpenDeps) {
     project: string;
     harness: string;
     resume: { session: string };
-  }): Result<{ session: string }> {
+  }): Result<{ session: string; cli_session: string }> {
     const row = deps.session(input.resume.session);
     if (row === undefined || row.project !== input.project) {
       return err({
@@ -78,11 +85,11 @@ export function createCodingOpen(deps: CodingOpenDeps) {
         message: `This session belongs to ${row.harness}, not ${input.harness}.`,
       });
     }
-    if (row.cli_session === null) {
+    if (row.cli_session === null || !CLI_SESSION.test(row.cli_session)) {
       return err({
         code: "invalid_input",
         message:
-          "This session has not run yet, so there is nothing to continue.",
+          "This session has no saved CLI session to continue (it has not run yet).",
       });
     }
     const cli = row.cli_session;
@@ -97,7 +104,9 @@ export function createCodingOpen(deps: CodingOpenDeps) {
       });
     }
     const held = deps.hold(input.resume.session);
-    return held.ok ? ok(input.resume) : held;
+    return held.ok
+      ? ok({ session: input.resume.session, cli_session: cli })
+      : held;
   }
 
   async function send(input: {
@@ -111,7 +120,7 @@ export function createCodingOpen(deps: CodingOpenDeps) {
         message: `${input.harness} cannot open as chat; use one of: claude, codex, opencode, omp.`,
       });
     }
-    let resume: { session: string } | undefined;
+    let resume: { session: string; cli_session: string } | undefined;
     if (input.resume !== undefined) {
       const found = resumable({ ...input, resume: input.resume });
       if (!found.ok) return found;

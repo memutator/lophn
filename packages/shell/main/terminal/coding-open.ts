@@ -1,11 +1,12 @@
 // 폰이 연 coding session(core의 `coding_open`)을 desktop에 연다. 그 project를 보이는 창에 coding 탭 열기를 넣어 새 터미널이
 // `<harness> gui`(되살리면 `--resume <id>`)를 치게 하고(사람이 친 것과 같은 길: hook → `gui.request` → extension이 handle을 연다),
-// 그 project의 터미널에 그 harness의 새 handle이 생길 때까지 기다린다. Electron을 모르고 deps로만 일한다.
+// 그 project의 터미널에 그 harness의 새 handle이 생길 때까지 기다린다. 되살리면 그 ledger session을 handle이 닫힐 때까지
+// hold해 headless turn이 같은 CLI session에 둘째 process를 띄우지 않게 한다. Electron을 모르고 deps로만 일한다.
 import {
   type GuiHarness,
   isGuiHarness,
 } from "../../../protocol/extensions/mod.ts";
-import type { TabGui } from "./gui.ts";
+import type { TabGui, TabHandle } from "./gui.ts";
 
 // core가 연결 요청을 60초 기다린다. 그보다 먼저 답해야 이유가 폰에 닿는다.
 const OPEN_WAIT_MS = 55_000;
@@ -21,6 +22,9 @@ export type CodingOpenDeps = {
     resume: string | null;
   }): Promise<boolean>;
   after(ms: number, run: () => void): () => void;
+  /** resume이면 그 ledger session을 TUI 탭처럼 hold한다(`HarnessTui.holdGui`). 여는 동안부터 handle이 닫힐 때까지다. */
+  hold(key: string, session: string): void;
+  release(key: string): void;
 };
 
 export type CodingOpenResult =
@@ -32,11 +36,12 @@ export type CodingOpenResult =
     };
 
 export function createCodingOpen(deps: CodingOpenDeps) {
+  let opens = 0;
   return async function open(input: {
     project: string;
     harness: string;
-    /** 이어 열 CLI session id. */
-    resume?: string;
+    /** 이어 열 ledger session과 그 CLI session id. */
+    resume?: { session: string; cli_session: string };
   }): Promise<CodingOpenResult> {
     const { project, harness, resume } = input;
     if (!isGuiHarness(harness)) {
@@ -49,7 +54,9 @@ export function createCodingOpen(deps: CodingOpenDeps) {
     // 한 CLI session에 process 둘을 띄우지 않는다.
     if (
       resume !== undefined &&
-      deps.gui.tabSessions().some((one) => one.cli_session === resume)
+      deps.gui
+        .tabSessions()
+        .some((one) => one.cli_session === resume.cli_session)
     ) {
       return {
         ok: false,
@@ -60,8 +67,8 @@ export function createCodingOpen(deps: CodingOpenDeps) {
     // 탭 열기 전에 듣는다. 이미 handle이 있던 터미널(구독할 때 한 번씩 받는다)은 새것이 아니다.
     const known = new Set<string>();
     let replaying = true;
-    let settle: (terminalRef: string | null) => void = () => {};
-    const started = new Promise<string | null>((resolve) => {
+    let settle: (handle: TabHandle | null) => void = () => {};
+    const started = new Promise<TabHandle | null>((resolve) => {
       settle = resolve;
     });
     const off = deps.gui.onHandle((handle) => {
@@ -74,16 +81,20 @@ export function createCodingOpen(deps: CodingOpenDeps) {
         !known.has(handle.terminal) &&
         deps.projectOf(handle.terminal) === project
       ) {
-        settle(handle.terminal);
+        settle(handle);
       }
     });
     replaying = false;
     const cancel = deps.after(OPEN_WAIT_MS, () => settle(null));
+    // core가 건 30초 예약이 끝나기 전에, 탭이 열리기 전부터 쥔다. 실패하면 놓고 성공하면 handle이 닫힐 때 놓는다.
+    const key = `open-${++opens}`;
+    if (resume !== undefined) deps.hold(key, resume.session);
+    let holding = false;
     try {
       const opened = await deps.openTab({
         project,
         harness,
-        resume: resume ?? null,
+        resume: resume?.cli_session ?? null,
       });
       if (!opened) {
         return {
@@ -93,17 +104,28 @@ export function createCodingOpen(deps: CodingOpenDeps) {
             "No lophn window on the computer shows this project, so the terminal tab was not opened. Open the project on the computer.",
         };
       }
-      const terminalRef = await started;
-      return terminalRef === null
-        ? {
-            ok: false,
-            code: "unavailable",
-            message: "The coding agent did not start in chat view in time.",
-          }
-        : { ok: true, terminal_ref: terminalRef };
+      const handle = await started;
+      if (handle === null) {
+        return {
+          ok: false,
+          code: "unavailable",
+          message: "The coding agent did not start in chat view in time.",
+        };
+      }
+      if (resume !== undefined) {
+        holding = true;
+        // 이미 닫혔으면 attach가 바로 closed를 부른다.
+        handle.attach({
+          snapshot: () => {},
+          update: () => {},
+          closed: () => deps.release(key),
+        });
+      }
+      return { ok: true, terminal_ref: handle.terminal };
     } finally {
       off();
       cancel();
+      if (!holding) deps.release(key);
     }
   };
 }

@@ -12,13 +12,9 @@ import { createCodingRelay } from "../../terminal/coding-relay.ts";
 import type { Coding } from "./coding.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
-// `coding_open`의 resume은 ledger session id뿐이고 그 CLI session id는 core만 안다. 요청이 CLI id를 싣기 전까지 되살리지 못한다.
-const RESUME_UNSUPPORTED =
-  "Continuing a saved session as chat is not available yet. Open it in the terminal on the computer.";
-
 export function register(
   ctx: ShellContext,
-  coding: Pick<Coding, "gui" | "terminals" | "openTab">,
+  coding: Pick<Coding, "gui" | "terminals" | "openTab" | "tui">,
 ): Registered {
   const after = (ms: number, run: () => void) => {
     const timer = setTimeout(run, ms);
@@ -48,6 +44,8 @@ export function register(
         },
       }),
     after,
+    hold: (key, session) => coding.tui.holdGui(key, session),
+    release: (key) => coding.tui.releaseGui(key),
   });
   ctx.hostLink.onRequest(
     "coding_open",
@@ -60,12 +58,10 @@ export function register(
           },
         };
       }
-      if (payload.resume !== undefined) {
-        return { error: { code: "unavailable", message: RESUME_UNSUPPORTED } };
-      }
       const done = await open({
         project: payload.project,
         harness: payload.harness,
+        ...(payload.resume === undefined ? {} : { resume: payload.resume }),
       });
       return done.ok
         ? {

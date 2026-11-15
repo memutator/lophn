@@ -293,16 +293,25 @@ export function useSurfaceRequests(args: Args): void {
         return;
       }
       if ("coding" in target) {
-        const { handoff } = request.payload;
+        const { handoff, resume } = request.payload;
         const { harness } = target.coding;
+        // handoff가 없으면 폰이 연 coding session이다: 터미널이 사람이 치는 것과 같은 `<harness> gui`를 친다. 치는 글이라 id는
+        // shell 함수가 받는 글자만 싣는다.
+        const resumeId = resume?.external_session;
         const command =
-          handoff === null || !(harness in HARNESS_ADAPTERS)
-            ? null
-            : handoffCommand(
-                coding.current.commands,
-                harness as HarnessId,
-                handoff.file,
-              );
+          handoff === null
+            ? harness in HARNESS_ADAPTERS &&
+              (resumeId === undefined ||
+                /^[A-Za-z0-9._-]{1,200}$/.test(resumeId))
+              ? `${harness} gui${resumeId === undefined ? "" : ` --resume ${resumeId}`}`
+              : null
+            : !(harness in HARNESS_ADAPTERS)
+              ? null
+              : handoffCommand(
+                  coding.current.commands,
+                  harness as HarnessId,
+                  handoff.file,
+                );
         if (command === null || host().props.terminal === undefined) return;
         if (openTerminal(host(), { command, open }) !== null) done();
         return;

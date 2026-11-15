@@ -1,0 +1,14 @@
+id: phone-conversation-lacks-fork-rewind-subagent
+title: 폰의 대화에서 fork, rewind, subagent session 열기를 할 수 없다
+kind: bug
+status: open
+topic: remote
+modules: [packages/mobile]
+now: |
+  폰의 route 목록(`REMOTE_ALLOWED_ROUTES`)에는 대화 조작의 fork와 rewind가 들어 있다(`architecture/approval.md`). 그러나 폰 대화 화면(`packages/mobile/src/screens/session/`)에는 그 단추도 `/` 명령도 없다. rewind로 숨은 구간은 읽기 줄로만 보이고(`thread.tsx`), subagent 줄(`Subagent`)은 눌러도 아무 데도 가지 않는 한 줄이다.
+impact: |
+  폰에서 session을 되돌리거나 갈라 새 session으로 이어 가지 못하고, 팀 자식 session의 대화를 열어 보지 못한다. desktop으로 가야 한다. 폰의 권한 모델(말하기, 답하기)은 이 조작을 허용하는데 화면이 없는 것이다.
+fix: |
+  - 중간: subagent 줄을 누르면 그 session의 대화로 간다(`Place`의 session을 그대로 쓴다). 가장 작고 쓸 일이 많다(추천).
+  - 중간: 메시지 menu에 fork를 더한다. 새 session을 열고 이어 가는 길은 이미 있다.
+  - 큼: rewind는 미리보기(file 되돌리기 포함)와 확인이 필요해 화면이 따로 든다. 쓰는 예를 보고 연다.

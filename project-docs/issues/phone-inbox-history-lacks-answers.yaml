@@ -1,0 +1,15 @@
+id: phone-inbox-history-lacks-answers
+title: 폰 Inbox의 History가 "내가 답한 것"이 아니라 notice 목록이다
+kind: bug
+status: open
+topic: remote
+modules: [packages/mobile]
+now: |
+  승인 wireframe의 History는 "Search what you answered"이고 줄이 "Allowed once · Run a command", "Denied · …", "Answered · …"처럼 사람이 한 답이다(`tools/wireframes/drafts/phone/inbox.tsx`). 지은 화면(`packages/mobile/src/screens/inbox/history.tsx`)은 desktop Inbox의 History와 같은 `useInboxHistory`(영구 notice 목록)를 그린다. 답한 승인과 질문은 core 메모리의 request(`turn_requests`)가 닫히면 사라져 읽을 길이 없다.
+impact: |
+  폰에서 허락·거절·답한 기록을 되돌아보지 못한다. 실수로 눌렀거나 무엇을 허락했는지 확인할 수 없다. desktop도 같다.
+fix: |
+  - 큼(추천 보류): core가 닫힌 request의 결과(허락, 거절과 이유, 답)를 ledger에 남기고 읽는 route를 둔다. 사용자 data의 새 모양이라 migration과 보존 기간을 정해야 한다.
+  - 작음: wireframe의 History를 notice 목록에 맞춰 고친다(Search what you answered와 filter 문구를 notice용으로).
+decide: |
+  답한 기록을 남기고 desktop과 폰이 같이 보일 것인가, 아니면 History를 notice 목록으로 두고 wireframe을 고칠 것인가.

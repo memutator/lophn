@@ -431,3 +431,5 @@ journey_groups:
     title: project 일(폴더, 문서, artifact, browser, 터미널과 coding agent, harness GUI, desk와 탭)
   - id: agent-automation
     title: agent 만들기와 할당, call과 team, 승인, workflow, job, run, session rewind
+  - id: phone
+    title: 폰 앱(pairing, 승인·질문 답하기, project file 읽기, job 켜고 끄기, 컴퓨터 지우고 다시 pairing)

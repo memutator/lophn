@@ -204,11 +204,18 @@ elements:
     depends_on:
       - protocol
 
+  - id: design-native
+    kind: library
+    description: 폰 앱의 React Native UI kit(`@lophn/ui-native`). desktop kit과 같은 token과 문구 catalog를 쓴다. 아직 SDK part가 아니다.
+    depends_on:
+      - design
+
   - id: mobile
     kind: application
-    description: 사람이 폰에 까는 앱 껍데기. pairing, 기기 key 보관, core 연결, core가 내려준 remote 화면 bundle을 hash 확인 뒤 cache해 WebView로 띄우기.
+    description: 사람이 폰에 까는 lophn 앱. pairing, 기기 key 보관, core 연결, 폰 kit으로 짠 native 화면(sidebar 뼈대, Home, Inbox, 대화, Jobs, Agents, workspace, Settings)과 그 data 층. 화면은 컴퓨터가 내려주지 않는다.
     depends_on:
       - protocol
+      - design-native
 
   - id: app
     kind: extension
@@ -259,7 +266,7 @@ interfaces:
 
   - id: remote-protocol
     kind: interface
-    description: 폰과 core 사이의 연결. Noise IK handshake, 암호화한 record, JSON frame(hello, pair, call, result, watch와 Gateway frame), 기기가 부를 수 있는 route 목록, call에 base64로 싣는 file·upload bytes, core가 내려주는 remote 화면 bundle(`remote_ui/manifest|file`). 폰 쪽은 좁은 입구 `@lophn/protocol/remote/client`만 import한다.
+    description: 폰과 core 사이의 연결. Noise IK handshake, 암호화한 record, JSON frame(hello, pair, call, result, watch와 Gateway frame), 기기가 부를 수 있는 route 목록(자기 등록을 지우는 `devices/unpair`, project의 `project_files/list|read` 포함), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
     interface_type: protocol
     defined_by: protocol
     provided_by:

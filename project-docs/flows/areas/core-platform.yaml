@@ -1549,7 +1549,7 @@ flows:
       - "연결마다 Noise IK responder handshake와 hello를 한다. 10초 안에 끝나지 않으면 닫는다. 기기로 붙기 전에는 frame이 4 KiB까지다"
       - "받은 공개 key(base64url)를 devices/list로 찾는다. 없으면 pair 말고 어떤 frame이 와도 연결을 닫고, 60초 안에 pairing하지 못해도 닫는다(remote-pair). 있으면 frame 상한을 16 MiB로 올리고 첫 frame을 기다린다. pair면 다시 pairing(remote-pair)이고 그 밖이면 그 기기로 붙인다"
       - "등록된 기기면 actor user, principal device:<id>, scope가 REMOTE_ALLOWED_ROUTES인 자격을 core 한 번에 하나 발급해 ledger에 기록한다. 발급 뒤 key를 다시 찾아 그 사이 끊긴 기기면 자격을 거두고 닫는다. devices/connected로 마지막 연결 시각을 적는다. event 연결 한도는 principal마다다"
-      - "call은 자격을 다시 보고 scope로 거른 뒤 HTTP와 같은 dispatchHttp를 탄다. 입장 한도는 remote만의 것이고 principal마다 선다"
+      - "call은 자격을 다시 보고 scope로 거른 뒤 HTTP와 같은 dispatchHttp를 탄다. 기기의 jobs/update는 job과 enabled만 받는다(켜고 끄기). 다른 field가 하나라도 있으면 forbidden이다. 입장 한도는 remote만의 것이고 principal마다 선다"
       - "frame은 JSON뿐이라 bytes는 base64로 싣는다. upload route는 body {input, base64}를 HTTP upload 요청으로 바꾸고(한도는 route의 max_bytes), file route의 답은 {content_type, base64}다. file은 8 MiB까지다"
       - "watch는 Gateway session과 같은 Bus 구독이되 REMOTE_ALLOWED_EVENTS의 type만 보낸다(조건에 types가 없어도). 느린 연결은 Gateway와 같은 한도로 closed(slow_consumer)를 받고 닫힌다"
     outcomes:
@@ -1575,7 +1575,7 @@ flows:
         observe: ["response"]
       - id: call-forbidden
         code: forbidden
-        when: "route가 REMOTE_ALLOWED_ROUTES 밖이다(사람 token이 부를 수 있는 route여도)"
+        when: "route가 REMOTE_ALLOWED_ROUTES 밖이다(사람 token이 부를 수 있는 route여도). 또는 기기의 jobs/update가 job과 enabled 밖의 field를 싣는다"
         observe: ["response"]
       - id: call-unauthorized
         code: unauthorized

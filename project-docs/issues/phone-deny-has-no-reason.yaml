@@ -1,0 +1,13 @@
+id: phone-deny-has-no-reason
+title: 폰에서 승인을 거절(Deny)할 때 이유를 쓰지 못한다
+kind: bug
+status: open
+topic: remote
+modules: [packages/mobile]
+now: |
+  desktop의 승인 card는 거절에 이유 한 줄을 실어 보내고(`packages/shell/renderer/desktop/connection/waiting/decide.ts`의 `decideWaiting(..., reason)`) core는 그 이유를 기다리던 call의 결과 `the person rejected this tool call: <이유>`로 agent에게 준다. 폰은 Inbox의 Now(`packages/mobile/src/screens/inbox/now.tsx`의 `PermissionItem`)와 대화의 승인 card(`packages/mobile/src/screens/session/ask.tsx`) 모두 `reject`만 보내고 이유 칸이 없다.
+impact: |
+  폰에서 거절한 사람은 agent에게 왜 안 되는지 말하지 못한다. agent는 이유 없는 거절을 받아 같은 호출을 되풀이하거나 다른 길을 헤맨다. 이유를 주려면 desktop으로 가거나 따로 메시지를 보내야 한다.
+fix: |
+  - 작음(추천): Deny를 누르면 한 줄 입력(선택)이 열리고 보내기에서 `reason`을 실어 `decideWaiting`에 넘긴다. wireframe의 History 줄이 "Denied · … “not on main”"으로 이유를 보이므로 그 모양과 맞는다. 입력 sheet의 모양은 `ui-design` skill대로 wireframe을 먼저 고친다.
+  - 작음: 폰에는 이유를 두지 않기로 하고 문서에 적는다. 거절이 빠르지만 agent가 이유를 모른다.

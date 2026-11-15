@@ -193,7 +193,7 @@ client가 둘일 때 부딪치는 곳:
             └───▲─────────────────────────────▲────────┘
       loopback  │                             │  LAN, relay
         desktop shell                        폰
-        띄우는 것: 앱 화면                     띄우는 것: 앱 화면, remote 화면
+        띄우는 것: 앱 화면                     띄우는 것: 앱 화면, lophn의 native 화면
         내놓는 것: 터미널, browser 탭,         내놓는 것: 위젯, 위치, 카메라
                   harness GUI
 ```
@@ -221,11 +221,11 @@ client가 둘일 때 부딪치는 곳:
 
 ### 폰 앱의 모양 (사람, 2026-11-15)
 
-정했다. 화면은 폰 앱 안에 React Native로 들어 있고 컴퓨터가 화면을 내려주지 않는다. 화면을 이루는 component는 SDK의 **폰 UI kit**으로 내고, lophn의 폰 화면과 사용자 앱의 폰 화면이 같은 kit을 쓴다. desktop에서 `@lophn/ui`를 shell과 사용자 앱이 같이 쓰는 것과 같은 흐름이다.
+정했고 단계 2에서 지었다(계획 `mobile-app`). 화면은 폰 앱 안에 React Native로 들어 있고 컴퓨터가 화면을 내려주지 않는다. 화면을 이루는 component는 SDK의 **폰 UI kit**으로 내고, lophn의 폰 화면과 사용자 앱의 폰 화면이 같은 kit을 쓴다. desktop에서 `@lophn/ui`를 shell과 사용자 앱이 같이 쓰는 것과 같은 흐름이다.
 
 - **폰 UI kit(SDK part, React Native).** `@lophn/ui`의 폰 짝이다. 기본 조각(button, text, icon, input, list, sheet, 상태 표시, markdown과 code block)과 대화 조각(message list, composer, tool call 줄, 승인 card, 질문 card)을 낸다. token과 theme은 `packages/design`이 만든 값을 같이 쓴다(색, 글자, 간격이 desktop과 한 벌이다). touch 크기(누르는 곳 44px 이상)와 폰 gesture는 kit이 갖는다. SDK part로 등록하므로 판, `lophn.supported_from`, `migrate-sdk` 메모가 따른다(`sdk-note`).
 - **lophn의 폰 화면.** 컴퓨터 목록, pairing, session 목록, 대화, Inbox를 kit으로 조립한다. 화면 아래의 로직(연결과 암호화, protocol, 대화 data를 접는 코드)은 desktop과 같은 TypeScript를 쓴다. 화면만 따로다.
-- **지우는 것.** 컴퓨터가 화면을 내려주는 길 전부: remote 화면 web bundle과 그 route(`remote_ui/manifest`, `remote_ui/file`), 폰의 bundle cache와 hash 검사, 자체 WebView module, bridge.
+- **지운 것(끝남, 계획 `mobile-app`).** 컴퓨터가 화면을 내려주는 길 전부: remote 화면 web bundle과 그 route(`remote_ui/manifest`, `remote_ui/file`), 폰의 bundle cache와 hash 검사, 자체 WebView module, bridge.
 - **사용자 앱의 폰 화면.** 앱 agent가 같은 kit으로 React Native 화면을 쓴다. 폰 앱이 그 화면 bundle을 받아 돌린다. 앱마다 빌드·서명·스토어를 거치지 않고 고치면 바로 반영되는 것은 그대로다. AI가 쓴 화면 코드는 껍데기의 기기 key와 native module에 닿지 않게 따로 띄운 runtime에서 돈다(폰에서 도는 backend와 같은 규칙, 아래 "폰에서 혼자 도는 앱"). 쓸 수 있는 폰 기능은 kit과 SDK가 연 만큼이다.
   - 확인 전이다. 받은 RN 화면을 격리해 돌리는 길(두 번째 runtime, react-native-sandbox)은 단계 6을 열기 전에 spike한다. 안 되면 같은 kit을 react-native-web으로 WebView에 그린다. kit을 RN의 기본 component 위에 써 두면 두 길이 다 열려 있어, kit과 lophn 화면을 먼저 만들어도 버리는 것이 없다.
   - desktop의 preview 탭은 폰 화면을 react-native-web으로 그려 보인다(추천, 같은 spike에서 확인).
@@ -311,8 +311,8 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 
 0. 화면 갱신(`roadmap/screen-sync.md`). 단계 1과 나란히 간다.
 1. core: 기기 등록, pairing, 폰 연결(암호화, route 목록), Settings의 기기 화면. 폰 없이 Node client로 확인한다. **끝남**(계획 `remote-core`, 2026-11-14, change-log `remote-core`). 기기가 바뀔 때 event는 화면 갱신(단계 0)의 `changes`가 맡는다.
-2. 폰 껍데기(iOS, Android)와 remote 화면: lophn agent의 session 목록, 대화, 승인과 질문 답하기. remote 화면(web bundle, core가 내려주기, 개발용 bridge)은 **끝남**(계획 `phone-remote-web`, 2026-11-15, change-log `phone-remote-web`, `architecture/remote.md`). Android 폰 껍데기(pairing, key 보관, 연결, bundle cache, WebView)는 **끝남**(계획 `phone-shell`, 2026-11-15, change-log `phone-shell`, `mobile/`). iOS 껍데기는 Mac이나 cloud 빌드와 Apple Developer 계정이 준비된 뒤 계획을 따로 연다(spike의 조사는 `reports/mobile-spike.md`).
-   - **다시 한다(사람, 2026-11-15).** 폰 UI kit(SDK part)을 만들고 lophn의 폰 화면(session 목록, 대화, Inbox, 승인과 질문)을 그 kit으로 폰 앱 안에 짓는다. 컴퓨터가 화면을 내려주는 길(web bundle, cache, WebView, bridge)을 지운다. 화면 설계(wireframe)를 사람이 본 뒤 연다.
+2. 폰 껍데기(iOS, Android)와 폰 화면: lophn agent의 session 목록, 대화, 승인과 질문 답하기. 처음에 만든 remote web 화면(web bundle, core가 내려주기, 개발용 bridge. 계획 `phone-remote-web`, 2026-11-15)은 아래 다시 한 일로 지웠다. Android 폰 껍데기(pairing, key 보관, 연결, bundle cache, WebView)는 만들었다가(계획 `phone-shell`, 2026-11-15, change-log `phone-shell`) 아래 다시 한 일로 bundle cache와 WebView를 지웠다. 폰 앱은 `packages/mobile`이다. iOS 껍데기는 Mac이나 cloud 빌드와 Apple Developer 계정이 준비된 뒤 계획을 따로 연다(spike의 조사는 `reports/mobile-spike.md`).
+   - **다시 했다(사람, 2026-11-15). 끝남**(계획 `mobile-app`, change-log `mobile-app`, `architecture/remote.md`·`ui-kit.md`). 폰 UI kit(`@lophn/ui-native`)을 만들고 lophn의 폰 화면(Home, Search, Inbox, 대화와 승인·질문, 새 session, project와 앱 workspace, Jobs, Agents, Settings, pairing)을 그 kit으로 폰 앱(`packages/mobile`) 안에 지었다. 컴퓨터가 화면을 내려주는 길(web bundle, cache, WebView, bridge, `remote_ui` route)을 지웠다. 폰에 아직 없는 것은 이슈와 change-log에 있다. 실제 폰에서 써 보기는 뒤 단계다. kit을 SDK part로 올리는 일은 단계 6(계획 `mobile-user-apps`)이 한다.
 3. relay: 폰과 core가 다른 network에서도 만난다. remote와 sync 앱이 같은 연결을 쓴다. **끝남**(계획 `remote-relay`, 2026-11-15, change-log `remote-relay`, relay는 Fly.io `wss://lophn-relay.fly.dev`). IP마다의 남용 한도는 이슈 `relay-abuse-limits`.
 4. push와 알림 정하기(host의 보고, `unseen`).
 5. coding agent: desktop의 harness GUI 대화를 폰에서 다룬다.
@@ -396,5 +396,4 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 - `architecture/harness-gui.md`, `acp.md`, `terminal-agent.md`: handle을 core로 올리기, host의 표와 양방향 연결, 터미널 agent 상태 보고.
 - `architecture/browser-tab.md`: 기기 등록과 `shell.devices`.
 - SDK guide, `design-app`, 앱 template: `phone` 자리와 기기 지침, 폰 UI kit(`sdk-note`).
-- `architecture/remote.md`: 폰 껍데기 model(bundle, WebView, bridge)을 native 화면으로.
 - `boundary-catalog.yaml`, `module-catalog.yaml`: remote 연결과 기기 등록의 경계.

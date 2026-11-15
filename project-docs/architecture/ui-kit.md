@@ -1,6 +1,6 @@
 # ui-kit
 
-lophn이 내놓는 범용 UI component(kit, package `@lophn/ui`)가 lophn 화면(renderer), 사용자 앱, 봉한 artifact view에 어떻게 닿는지, 사람이 그것을 어디서 보고 승인하는지, 앱이 고정한 SDK 판이 바뀔 때 어떻게 알리고 옮기는지를 다룬다. 흐름은 token → kit → renderer·사용자 앱·artifact → gallery다. Boundary는 `design`(library), `design-api`(공개 API), `sdk-api`, `app-releases`다.
+lophn이 내놓는 범용 UI component(kit, package `@lophn/ui`)가 lophn 화면(renderer), 사용자 앱, 봉한 artifact view에 어떻게 닿는지, 사람이 그것을 어디서 보고 승인하는지, 앱이 고정한 SDK 판이 바뀔 때 어떻게 알리고 옮기는지를 다룬다. 흐름은 token → kit → renderer·사용자 앱·artifact → gallery다. 폰 앱의 React Native kit(`@lophn/ui-native`)은 같은 token에서 나오고 "폰 UI kit" 절이 다룬다. Boundary는 `design`(library), `design-native`(library), `design-api`(공개 API), `sdk-api`, `app-releases`다.
 
 ## 문제
 
@@ -29,7 +29,7 @@ lophn이 내놓는 범용 UI component(kit, package `@lophn/ui`)가 lophn 화면
 ```
 design (package @lophn/ui)       범용 kit. 사용자 앱도 그대로 쓸 만한 것만
   token → 생성된 CSS 변수·이름 표
-  appearance preset              사람이 고르는 색·글꼴·크기·밀도를 token 덮어쓰기 CSS로(밀도 touch는 폰 remote 화면의 것)
+  appearance preset              사람이 고르는 색·글꼴·크기·밀도를 token 덮어쓰기 CSS로(밀도 touch는 손가락 크기의 preset이고 지금 gallery만 쓴다)
   분류 8개                        primitives, input, layout, navigation, data, feedback, overlay, reading
   _shared                        분류에 안 드는 지원 export
   i18n (package @lophn/i18n)     문구 catalog와 t(), locale별 translator. @formatjs/intl 위의 얇은 층
@@ -40,6 +40,7 @@ design (package @lophn/ui)       범용 kit. 사용자 앱도 그대로 쓸 만�
 app-ui (package @lophn/app-ui)   앱 bridge를 쓰는 UI만: tool 호출 단추, 호출 hook, place hook, 오류 경계
 artifact kit                     판 고정 browser build 하나. 전역 LophnKit 하나(kit 전체, React, 머리 줄 hook)
 gallery                          사람이 보고 승인하는 곳. 실제 component를 import만 한다
+ui-native (package @lophn/ui-native)  폰 앱의 React Native kit. 같은 token과 i18n catalog를 쓴다
 ```
 
 component는 분류 폴더 하나 안에 있고(tsx, module CSS, 보조 file), 분류마다 공개 목록 file이 하나 있다. 그 목록의 `export { … } from` 문 하나가 component 하나(와 그 Props type)이고, 값을 내보내는 문마다 바로 윗줄에 "언제 쓰나" 한 줄(`// …`)이 있다. 비슷한 것과 갈리는 지점을 쓴다(Popover와 Menu, Dialog와 Sheet, Table과 DataTable). 이 줄들이 kit의 목록이고, agent는 분류 이름 8개로 찾아 들어가 그 목록을 읽는다.
@@ -54,6 +55,18 @@ component는 분류 폴더 하나 안에 있고(tsx, module CSS, 보조 file), �
 | lophn만의 뜻(session, agent, harness·provider, 대기 질문)이 이름이나 동작에 박힘 | renderer(parts 또는 그 화면 폴더) | Avatar(agent character SVG와 profile 표시), VendorIcon, TabStrip(점이 session 상태), model picker |
 | lophn과의 약속(tool 호출 `lophnApp.callTool`, 열린 자리·인자·workspace `lophnApp.place`, `lophn:render-error` event)을 앎 | `@lophn/app-ui` | ToolButton, useTool, usePlace, AppErrorBoundary |
 | 쓰는 곳이 gallery뿐 | 두지 않는다 | (지운 것: Chip, AuthorMark, LauncherFrame, OverviewFrame) |
+
+### 폰 UI kit
+
+폰 앱(`remote.md`)의 화면 조각이다. React Native는 DOM이 없어 `@lophn/ui`를 그대로 쓰지 못하므로 같은 뜻의 component를 따로 둔다(package `@lophn/ui-native`, boundary `design-native`). 사람이 승인한 phone wireframe(gallery Drafts › Phone app)의 구조와 숫자를 옮긴 것이고, 폰 앱 안의 gallery가 지어낸 data로 모든 조각을 light·dark로 그린다(dev build에서만 열린다).
+
+- token은 desktop과 같은 것을 쓴다(색, 글 크기, 간격). 폰 kit이 token을 따로 갖지 않는다. 그래서 theme(light, dark)가 desktop과 같은 뜻이다.
+- 글 배율은 `UiProvider`와 `ThemeProvider`가 받는 값 하나(small 0.92, default 1, large 1.12)다. kit의 글과 글 크기를 token에서 읽는 조각이 줄 높이까지 곱한다. 화면은 따로 고치지 않는다. 고정 크기 상자 안의 글처럼 배율을 피해야 하는 곳만 `useTheme`의 `textScale`로 나눈다.
+- 문구는 직접 쓰지 않고 `@lophn/i18n`의 key로 쓴다. desktop에 있는 문장은 그 key를 쓰고 폰에만 있는 문장은 `mobile.`로 시작하는 key다(catalog 폴더 안 `mobile-<영역>` file). kit이 모르는 것(agent 얼굴, vendor icon)은 ReactNode로 받는다.
+- 묻는 card(`QuestionCard`)는 여러 답을 고르는 질문도 받는다. 대화와 Inbox가 같은 card를 쓴다.
+- 분류 폴더(primitives, input, layout, navigation, feedback, overlay, reading, conversation)는 `@lophn/ui`와 다르다. check `kit`는 이 폴더를 건너뛰고 폰 앱의 type 검사가 본다. React Native의 `<Text>` 밖 글자는 Biome 규칙(`noReactNativeRawText`)이 막는다.
+- Metro는 alias로, tsc는 `paths`로 이 package를 찾는다.
+- 폰 kit은 아직 SDK part가 아니다. 사용자 앱이 이 kit을 쓰게 하고 SDK 판과 `migrate-sdk` 메모로 올리는 일은 계획 `mobile-user-apps`가 한다.
 
 ### chart와 GraphDiagram
 

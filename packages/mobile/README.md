@@ -10,11 +10,11 @@ protocol 코드는 복사하지 않는다. Metro가 `packages/protocol/remote`�
 
 | 명령 | 무엇 |
 |---|---|
-| `npm install` | 의존성. 판은 정확히 고정했다(`~`·`^` 없음) |
+| `npm ci` | 의존성. lock대로 깐다. 판은 정확히 고정했다(`~`·`^` 없음). 새 의존을 더할 때만 `npm install` |
 | `npm run typecheck` | `tsc --noEmit`. 앱 code와 앱이 import하는 `packages/` source까지 본다 |
 | `npm test` | `node --test "src/**/*.test.ts"`. React Native를 import하지 않는 순수 logic(연결, 컴퓨터 store)만 test한다. node가 `packages/` source를 읽을 때 bare import는 root `node_modules`에서 찾으므로 root `npm install`이 되어 있어야 한다 |
 
-merge 때 `npm run typecheck`와 `npm test`를 돌린다.
+폰 앱을 고쳤으면 `npm ci && npm run typecheck && npm test`를 돌린다. root `npm install`도 되어 있어야 한다(위 `npm test` 참고).
 
 ## 폰 UI kit과 gallery
 
@@ -45,24 +45,43 @@ adb -s emulator-5554 emu kill                                     # 끝낼 때
 - `CI=1`로 띄운 Metro는 file을 지켜보지 않는다. JS를 바꾸면 Metro를 다시 띄운다.
 - emulator에서 이 machine은 `10.0.2.2`다.
 - 첫 gradle build는 NDK·CMake를 `~/Android/Sdk`에 받아 몇 분 걸린다.
-- prebuild가 만드는 `gradle.properties`의 Metaspace 512m로는 Kotlin 컴파일이 `OutOfMemoryError: Metaspace`로 멈출 수 있다. 그때는 `"-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1536m"`를 붙인다.
+- prebuild가 만드는 `gradle.properties`의 Metaspace 512m로는 Kotlin 컴파일이 `OutOfMemoryError: Metaspace`로 멈출 수 있다. 여럿이 같이 지을 때 안전한 flag: `./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --no-daemon -Pkotlin.compiler.execution.strategy=in-process "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1536m" --max-workers=3`.
+
+## emulator 규칙
+
+AVD `lophn-phone` 하나를 여럿이 쓴다.
+
+- `-read-only -port <내 port>`로 자기 instance를 띄운다. 모든 adb 명령에 `-s emulator-<내 port>`를 붙인다. 끝나면 `adb -s emulator-<내 port> emu kill`로 끈다.
+- Metro도 자기 port를 쓴다(`--port`). `CI=1`로 띄운 Metro는 file을 지켜보지 않는다.
+- 사람의 실제 폰에는 어떤 adb 명령도 보내지 않는다(serial을 늘 지정한다). 실제 폰에 새 build를 까는 것은 사람에게 묻는다.
+- 프로세스를 `pkill`이나 `killall`로 끄지 않는다. 띄운 것은 자기가 끈다.
+- 개발 core는 위 "개발 core와 pairing"의 것을 쓴다. 사람의 `~/.lophn`과 실제 relay(`wss://lophn-relay.fly.dev`)를 쓰지 않는다.
 
 ## 화면 이동
 
 React Navigation 7(native stack과 drawer)이다. 아래 tab bar는 없다. 앱이 더 쓰는 native module은 `react-native-screens`, `react-native-gesture-handler`(drawer), `expo-camera`다.
 
 - root stack(`src/app/root.tsx`): 컴퓨터가 하나도 없으면 연결 흐름(`src/screens/start/`: Welcome, Scan, Pairing, Paired, 실패 둘, Enter a pairing code sheet)에서 시작하고, 있으면 frame이다. 마지막 컴퓨터를 지우면 Welcome으로 돌아간다.
-- frame(`src/app/frame.tsx`): 왼쪽 drawer가 sidebar(`src/app/sidebar.tsx`)이고 옆이 place의 stack이다. 폭 600 이상이면 sidebar가 늘 열려 있고 stack은 그 옆 card에 들며, 화면은 menu 단추를 두지 않는다. sidebar에서 고르면 stack이 [Home, 그 곳]으로 바뀌고, 화면 안에서 연 곳은 stack에 쌓인다.
+- frame(`src/app/frame.tsx`): 왼쪽 drawer가 sidebar(`src/app/sidebar.tsx`)이고 옆이 place의 stack이다. 폭 600 이상에 높이 480 이상이면 sidebar가 늘 열려 있고 stack은 그 옆 card에 들며, 화면은 menu 단추를 두지 않는다. 가로로 든 폰은 폭이 넘어도 낮아서 drawer로 둔다. sidebar에서 고르면 stack이 [Home, 그 곳]으로 바뀌고, 화면 안에서 연 곳은 stack에 쌓인다.
 - 갈 곳은 `src/app/nav.ts`의 `Place` 하나로 말한다. 화면은 `useNav()`의 `open(place)`, `back()`, `openSidebar()`, `openComputers()`와 `menuButton`(top-level 화면의 TopBar에 펼친다)을 쓴다. place마다 화면은 `src/app/routes.tsx`에 등록되어 있고, 그 화면은 `src/screens/<영역>/index.tsx`가 export하며 place를 `place` prop으로 받는다.
 - 얼굴과 workspace 표식은 `src/parts/`다. vendor 아이콘은 desktop의 svg(`packages/shell/renderer/parts/vendor-icon/`)를 사본 없이 쓴다: Metro가 `.svg`를 글로 읽는다(`src/parts/svg-text-transformer.js`).
-- 화면을 core 없이 보려면 Metro를 `EXPO_PUBLIC_LOPHN_SAMPLE=1`로 띄운다(dev build에서만). 지어낸 data의 sample 컴퓨터가 목록에 든다.
+- 화면을 core 없이 보려면 Metro를 `EXPO_PUBLIC_LOPHN_SAMPLE=1`로 띄운다(dev build에서만). 지어낸 data의 sample 컴퓨터가 목록에 든다(`src/data/sample.ts`). 저장하지 않고 하는 일은 메모리만 바꾼다. 화면 모양은 sample로, 동작은 아래 개발 core로 본다.
+- 화면 아래의 data 층(`src/data/`)은 desktop의 event client, Inbox store, 대화 source를 그대로 쓴다. 화면은 `src/data/mod.ts`의 hook만 import하고 연결을 만지지 않는다. desktop의 순수 logic만 가져오고 DOM file은 가져오지 않는다. 문구는 `@lophn/i18n`의 key다(폰에만 있는 것은 `mobile.`로 시작). Hermes에 없는 `Intl` 일부는 `src/app/intl.ts`의 영어 대체다.
 
 ## pairing
 
-처음 열면 Welcome이다. Scan the code로 camera 권한을 묻고 QR(core `pairing/start`의 JSON)을 `expo-camera`로 읽거나, Enter a pairing code instead로 그 JSON을 붙여 넣는다. Pairing 화면이 pair를 보내고 첫 연결이 열리기를 기다린 뒤 Paired에서 이 폰에서 부를 컴퓨터 이름을 확인시킨다. 지난 code는 Code expired, 닿지 않으면 Cannot reach 화면이다. 기기 key 쌍과 pairing한 컴퓨터 목록은 `expo-secure-store`(이 기기에서만, 잠금이 풀렸을 때만)에 둔다. 모양(theme, 글자 크기) 설정도 같은 곳에 둔다.
+처음 열면 Welcome이다. Scan the code로 camera 권한을 묻고 QR(core `pairing/start`의 JSON)을 `expo-camera`로 읽거나, Enter a pairing code instead로 그 JSON을 붙여 넣는다(desktop Settings › Remote의 QR 아래 "Show as text"가 그 글이다). Pairing 화면이 pair를 보내고 첫 연결이 열리기를 기다린 뒤 Paired에서 이 폰에서 부를 컴퓨터 이름("Shown as")을 확인시킨다. 지난 code는 Code expired, 닿지 않으면 Cannot reach 화면이다. 기기 key 쌍과 pairing한 컴퓨터 목록은 `expo-secure-store`(이 기기에서만, 잠금이 풀렸을 때만)에 둔다. 모양(theme, 글자 크기) 설정도 같은 곳에 둔다.
 
-- emulator에서 pairing: Enter a pairing code instead를 누르고 칸에 `adb -s <emulator> shell "input text '<pairing/start JSON에서 expires_at을 뺀 것>'"`. emulator에는 camera 장면이 없다.
-- `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS`(dev build에서만): Metro를 띄울 때 주면 이 주소를 QR의 주소들과 같이 걸어 먼저 붙는 것을 쓴다. 저장하지는 않는다. emulator는 이 machine에 `10.0.2.2`로 닿는데 QR에는 LAN 주소가 들기 때문이다. 예: `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS=10.0.2.2 npx expo start --dev-client --port 8199`.
+컴퓨터를 지우면(Settings) 그 컴퓨터에 붙어 있을 때 컴퓨터의 등록도 `devices/unpair`로 지운다. 닿지 않으면 폰만 잊고, 다음에 같은 컴퓨터와 pairing하면 컴퓨터가 옛 등록을 새 등록으로 바꾼다. 마지막 컴퓨터를 지우면 Welcome으로 돌아간다.
+
+### 개발 core와 pairing
+
+개발 core는 사람의 `~/.lophn`이 아니라 `.dev-data/`를 쓴다. 실제 relay에는 붙지 않는다.
+
+1. 저장소 root에서 개발 core를 띄운다: `npm run dev:core`(창 없이 core만. 창까지는 `npm run dev`).
+2. 다른 터미널에서 `npm run dev:remote`. 개발 core의 remote를 켜고(port 47432) pairing text를 찍는다. code는 5분, 한 번이다. 다시 받으려면 다시 띄운다.
+3. 폰이나 emulator에서 Enter a pairing code instead를 열어 그 글을 붙여 넣는다. emulator에서는 `adb -s emulator-<port> shell "input text '<pairing text에서 expires_at을 뺀 것>'"`(`</dev/null`을 붙여 스크립트에서 돌린다). emulator에는 camera 장면이 없다.
+4. emulator는 이 machine에 `10.0.2.2`로 닿는데 QR에는 LAN 주소가 들기 때문에 Metro를 `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS=10.0.2.2`로 띄운다(dev build에서만. 이 주소를 QR의 주소들과 같이 걸어 먼저 붙는 것을 쓰고, 저장하지는 않는다). 예: `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS=10.0.2.2 npx expo start --dev-client --port 8199`.
 
 ## 연결
 
@@ -75,4 +94,4 @@ QR에 relay 주소(`relay`)가 있으면 컴퓨터 기록에 저장하고, 주�
 - Android `applicationId`: `dev.lophn.mobile`(임시).
 - `android.usesCleartextTraffic: true`(`expo-build-properties`): core 주소가 LAN의 아무 IP라 domain으로 좁힐 수 없다. 연결은 Noise로 암호화한다.
 - `android.allowBackup: false`.
-- `orientation: default`: 가로로 돌리면 폭 600을 넘어 sidebar가 늘 열린 두 칸이 된다(wireframe 9 Wide screens).
+- `orientation: default`: 접은 폰이나 tablet처럼 폭 600 이상에 높이 480 이상이면 sidebar가 늘 열린 두 칸이 된다(wireframe 9 Wide screens). 가로로 든 폰은 낮아서 drawer 그대로다.

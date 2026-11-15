@@ -1,0 +1,12 @@
+id: phone-copies-desktop-pure-helpers
+title: 폰 화면이 desktop의 순수 helper 다섯을 DOM file에서 못 가져와 베껴 쓴다
+kind: defect
+status: open
+topic: remote
+modules: [packages/mobile, packages/shell/renderer]
+now: |
+  폰이 desktop의 file을 import하면 그 file이 끌어오는 DOM kit과 desktop 탭 type까지 폰의 typecheck가 읽는다. 순수 규칙이 그런 file 안에 있으면 폰이 같은 규칙을 다시 쓴다. 지금 남은 것: 걸린 시간 글(`duration`, desktop `conversation/activity/worked-for.tsx`, 폰 `screens/session/parts.tsx`), turn 실패 이유 표(desktop `provider-error.tsx`, 폰 `screens/session/thread.tsx`의 `FAILED_TEXT`), tool 줄의 입력·출력 글(desktop `activity/tool-line.tsx`, 폰 `screens/session/sheets.tsx`), 입력 요청 card의 제목(desktop `input-request-card.tsx`, 폰 `screens/session/ask.tsx`), 파일 수정의 diff 규칙(desktop `activity/file-edit-card.tsx`, 폰 `screens/session/diff.tsx`). workflow 규칙과 line diff는 깨끗한 file로 옮겨 둘이 쓴다.
+impact: |
+  desktop의 규칙을 고치면 폰이 따로 틀어진다(실패 이유 하나를 더하면 폰은 이유를 모른다). 개발 비용이고 사람이 보는 동작은 아직 같다.
+fix: |
+  - 작음(추천): 하나씩 순수 부분을 import가 깨끗한 `.ts`로 옮겨 desktop과 폰이 같이 쓴다(이미 workflow 규칙과 line diff가 그렇게 했다). 실패 이유 표와 `duration`부터. desktop의 동작과 export 이름은 그대로 둔다.

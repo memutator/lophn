@@ -1,0 +1,12 @@
+id: phone-project-first-folder-only
+title: 폴더가 여럿인 project는 폰에서 첫 폴더의 file만 보이고 file 검색이 폴더를 가리지 않는다
+kind: bug
+status: open
+topic: remote
+modules: [packages/mobile]
+now: |
+  `project_files/list`, `project_files/read`, `projects/search`는 선택 input `folder`(등록 폴더 하나)를 받고 없으면 project의 첫 폴더다. 폰의 `useProjectFiles`와 `useProjectFile`(`packages/mobile/src/data/places.ts`), 검색(`packages/mobile/src/data/search.ts`)은 `folder`를 싣지 않는다.
+impact: |
+  등록 폴더가 둘 이상인 project에서 폰은 첫 폴더만 연다. 나머지 폴더의 file은 열 수도 검색 결과로 볼 수도 없다. 검색 결과가 다른 폴더의 같은 상대 path를 첫 폴더의 것으로 연다.
+fix: |
+  - 작음(추천): project 상세의 폴더 목록이 둘 이상이면 Files의 맨 위에 폴더 고르기를 두고 고른 폴더를 세 읽기에 넘긴다. 검색 결과는 `folder_path`를 `Place`의 file에 실어 같은 폴더를 연다.

@@ -1,0 +1,39 @@
+group: phone
+journeys:
+  - id: phone-pair
+    title: "사람이 폰을 컴퓨터에 pairing한다"
+    actor: person
+    goal: "컴퓨터의 QR이나 글로 폰이 pairing해 Home에서 컴퓨터의 session 목록을 본다"
+    steps:
+      - {do: "desktop Settings › Remote에서 QR과 \"Show as text\"를 연다. 새 1회용 code가 만들어진다", screen: settings-remote-pairing, flow: remote-pairing-start:ok}
+      - {do: "폰의 Welcome에서 QR을 찍거나 글을 붙여 넣는다. 폰이 pair로 code와 폰 이름을 보내 기기로 등록된다", screen: phone-start, flow: remote-pair:paired}
+      - {do: "폰이 이름을 확인한 뒤 Home으로 간다. 연결이 기기 자격으로 붙고 watch의 ready를 받는다", screen: phone-shell, flow: remote-connection:watch-ready}
+      - {do: "desktop의 기기 목록에 그 폰이 보인다", screen: settings-remote, flow: devices-list:ok}
+
+  - id: phone-answer
+    title: "사람이 폰에서 승인과 질문에 답하고 메시지를 보낸다"
+    actor: person
+    goal: "자리를 비운 사람이 폰의 Inbox에서 대기 중인 일에 답하고 대화에 그림 한 장과 함께 메시지를 보낸다"
+    steps:
+      - {do: "Inbox의 Now에서 대기 중인 shell 규칙 승인을 한 번만(once) 허락한다", screen: phone-inbox, flow: turn-request-decide:once}
+      - {do: "질문 card에 답한다", screen: phone-inbox, flow: ask-answer:answered}
+      - {do: "대화 화면에서 사진을 고르면 올라가 blob이 된다", screen: phone-session, flow: message-image-upload:ok}
+      - {do: "메시지를 보낸다", screen: phone-session, flow: session-send:ok}
+
+  - id: phone-read-and-toggle
+    title: "사람이 폰에서 project의 file을 읽고 job을 켜고 끈다"
+    actor: person
+    goal: "폰에서 project 폴더의 글 file을 읽고 job의 켜고 끄기만 바꾼다"
+    steps:
+      - {do: "project workspace의 Files에서 폴더 목록을 연다", screen: phone-workspace, flow: project-files-list:ok}
+      - {do: "글 file을 연다. 앞 1 MiB만 온다", screen: phone-workspace, flow: project-files-read:ok}
+      - {do: "Jobs 목록을 읽는다", screen: phone-ops, flow: job-list:ok}
+      - {do: "job을 끈다. 폰의 jobs/update는 job과 enabled만 받는다", screen: phone-ops, flow: job-update:updated}
+
+  - id: phone-remove-and-repair
+    title: "사람이 폰에서 컴퓨터를 지우고 다시 pairing한다"
+    actor: person
+    goal: "폰에서 컴퓨터를 지워도 같은 컴퓨터와 다시 pairing이 된다"
+    steps:
+      - {do: "Settings에서 컴퓨터를 지운다. 컴퓨터에 닿으면 폰이 자기 등록을 지운다", screen: phone-settings, flow: devices-unpair:ok}
+      - {do: "컴퓨터에 닿지 않을 때 지웠다면 컴퓨터는 폰의 key를 계속 안다. 새 code로 pairing하면 옛 등록이 새 등록으로 바뀐다", screen: phone-start, flow: remote-pair:re-paired}

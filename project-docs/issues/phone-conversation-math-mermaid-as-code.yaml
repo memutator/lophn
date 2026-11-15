@@ -1,0 +1,16 @@
+id: phone-conversation-math-mermaid-as-code
+title: 폰의 대화에서 수식과 mermaid diagram이 그림이 아니라 code box로 보인다
+kind: bug
+status: open
+topic: remote
+modules: [packages/design/native]
+now: |
+  폰 kit의 Markdown(`packages/design/native/reading/markdown.tsx`)은 수식 node(`math`)를 `CodeBlock`(language `math`)로, mermaid fence를 일반 code box로 그린다. desktop은 KaTeX로 수식을, mermaid로 diagram을 그린다. React Native에는 둘을 그리는 길이 없고 폰 kit은 WebView를 쓰지 않는다.
+impact: |
+  agent가 수식이나 diagram으로 답하면 폰에서는 원문 source가 보인다. 읽을 수는 있지만 그림이 필요한 설명(구조도, 흐름도, 수식)은 폰에서 뜻이 줄어든다.
+fix: |
+  - 큼: 수식은 `react-native-svg`로 직접 그리거나 격리한 WebView에서 KaTeX를 돌린다. mermaid는 WebView에서 돌려 그림으로 받는다. WebView는 폰 앱이 지운 길이고 보안 경계(page가 연결과 key에 닿지 않기)를 다시 정해야 한다.
+  - 중간: 컴퓨터가 그림(SVG나 PNG)으로 만들어 보내는 길. core에 render 길이 없다.
+  - 없음(추천): 폰에서 수식과 diagram을 얼마나 보게 되는지 써 보고 정한다. 그때까지 code box로 둔다.
+decide: |
+  폰에서 수식과 diagram을 그림으로 봐야 하는가. 필요하면 격리한 WebView를 다시 들이는 비용(보안 경계)이 든다.

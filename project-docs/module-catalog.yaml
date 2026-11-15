@@ -33,6 +33,10 @@ modules:
     boundary: design
     notes: lophn 화면 문구는 직접 쓰지 않고 i18n message key로 쓴다(i18n/).
 
+  - path: packages/design/native
+    boundary: design-native
+    notes: 폰 앱의 React Native kit(`@lophn/ui-native`). token과 i18n catalog는 packages/design의 것을 읽는다. Metro alias와 packages/mobile의 tsconfig `paths`로 풀리고, `npm run check`의 kit 단계는 이 폴더를 보지 않는다(폰 앱의 typecheck가 본다).
+
   - path: packages/sdk
     boundary: sdk
 
@@ -125,7 +129,7 @@ modules:
 
   - path: packages/mobile
     boundary: mobile
-    notes: root npm workspace 밖의 Expo project다(자기 package.json과 lock). `npm run check` 밖이라 `cd packages/mobile; npm run typecheck; npm test`로 본다. protocol은 Metro가 `packages/protocol/remote/client.ts` source를 읽는다.
+    notes: root npm workspace 밖의 Expo project다(자기 package.json과 lock). `npm run check` 밖이라 `cd packages/mobile; npm run typecheck; npm test`로 본다. Metro가 packages/ 아래 protocol, design(kit과 i18n), desktop renderer의 순수 `.ts`를 source로 읽는다. check의 deps는 이 폴더를 보지 않는다.
 
   - path: tools
     boundary: null

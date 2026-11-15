@@ -211,6 +211,47 @@ flows:
     crosses_process: true
     docs: [architecture/app-notice.md]
 
+  # ---------- cap-phone ----------
+
+  - id: sdk-phone-location
+    title: "앱이 사람의 기준 폰에서 위치를 한 번 읽는다"
+    actor: app
+    entries: [sdk:cap-phone/getLocation, sdk:cap-phone/createPhoneClient]
+    uses: [phone-request:ok, phone-request:forbidden]
+    boundary: [sdk-api, app-capability, child-supervision-protocol]
+    code: [packages/sdk/cap-phone/phone.ts, packages/sdk/cap-phone/errors.ts]
+    steps:
+      - "accuracy가 low, balanced, high 가운데 하나인지, maxAgeMs가 0~300000의 정수인지 본다. 틀리면 broker 전에 invalid_input이다"
+      - "live가 아니면(preview, test) 폰에 닿지 않으므로 broker를 부르지 않고 서울시청의 고정 위치에 standIn: true를 붙여 돌려준다"
+      - "broker의 phone/request에 capability location.get과 입력(accuracy, max_age_ms)을 보낸다. 닿지 못하면 unavailable이다"
+      - "broker가 200이 아니면 fromBroker로 옮긴다. details.reason은 error.reason으로 올라온다(unavailable의 여섯 이유, forbidden의 os_permission_denied). grant가 없는 forbidden은 permission phone.use와 scope를 싣는다"
+      - "200이면 {lat, lon, accuracy_m, at}를 {lat, lon, accuracyM, at}로 바꿔 돌려준다. 모양이 맞지 않으면 internal이다"
+    outcomes:
+      - id: located
+        when: "폰이 위치를 답했다"
+        observe: ["response"]
+      - id: stand-in
+        when: "preview나 test라 폰에 닿지 않고 고정 위치를 돌려줬다"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "accuracy나 maxAgeMs가 맞지 않는다"
+        observe: ["response"]
+      - id: refused
+        code: forbidden
+        when: "broker가 phone.use를 거절했다(grant 없음), 또는 폰이 OS 위치 권한을 거절했다(reason os_permission_denied)"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "앱 process 밖이라 host가 없다, broker에 닿지 못했다, 또는 폰에 닿지 못했다(reason no_phone, phone_unreachable, unsupported, phone_in_background, location_off, timeout)"
+        observe: ["response"]
+      - id: bad-reply
+        code: internal
+        when: "폰의 답이 위치 모양이 아니다"
+        observe: ["response"]
+    crosses_process: true
+    docs: [architecture/remote.md]
+
   # ---------- cap-problem ----------
 
   - id: sdk-exception-report
@@ -555,6 +596,10 @@ ignore:
   - {entry: "sdk:cap-notify/CapabilityError", reason: "오류 class다. 동작이 없다"}
   - {entry: "sdk:cap-notify/REQUIRED_PERMISSIONS", reason: "상수다. release 준비가 검사한다"}
   - {entry: "sdk:cap-notify/checkDeclaration", reason: "SDK 쪽 선언 검사 사본이다. 실제 판정은 release 준비(release-prepare의 failed-release)다"}
+  - {entry: "sdk:cap-phone/CAP_HOST", reason: "host port의 symbol 상수다. 값을 세우는 쪽은 앱 child의 runtime이다"}
+  - {entry: "sdk:cap-phone/CapabilityError", reason: "오류 class다. 동작이 없다"}
+  - {entry: "sdk:cap-phone/REQUIRED_PERMISSIONS", reason: "상수다. release 준비가 검사한다"}
+  - {entry: "sdk:cap-phone/checkDeclaration", reason: "SDK 쪽 선언 검사 사본이다. 실제 판정은 release 준비(release-prepare의 failed-release)다"}
   - {entry: "sdk:cap-secret/CAP_HOST", reason: "host port의 symbol 상수다. 값을 세우는 쪽은 앱 child의 runtime이다"}
   - {entry: "sdk:cap-secret/CapabilityError", reason: "오류 class다. 동작이 없다"}
   - {entry: "sdk:cap-secret/REQUIRED_PERMISSIONS", reason: "상수다. release 준비가 검사한다"}

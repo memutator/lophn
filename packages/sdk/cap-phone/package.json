@@ -1,0 +1,9 @@
+{
+  "name": "@lophn/cap-phone",
+  "version": "1.0.0",
+  "type": "module",
+  "lophn": {
+    "supported_from": "1.0.0"
+  },
+  "exports": "./mod.ts"
+}

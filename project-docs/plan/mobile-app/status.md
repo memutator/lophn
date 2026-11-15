@@ -9,10 +9,10 @@ lead만 고친다. `tools/status.py mobile-app build`가 `tasks/*.md`에서 id, 
 | `mobile-routes` | remote-routes | 1 | 없음 | merged | remote-routes/phone-routes | 07854024a |  |
 | `mobile-files` | core-files | 2 | mobile-routes | merged | core-files/mobile-files | 88081b6ed |  |
 | `mobile-frame` | mobile-app | 2 | mobile-kit, mobile-data | merged | mobile-app/mobile-frame | 7873d1cbc |  |
-| `mobile-frame-fixes` | mobile-app | 3 | mobile-frame | todo |  |  |  |
-| `mobile-home` | mobile-app | 3 | mobile-frame | todo |  |  |  |
-| `mobile-inbox` | mobile-app | 3 | mobile-frame | todo |  |  |  |
+| `mobile-frame-fixes` | mobile-app | 3 | mobile-frame | running | mobile-app/mobile-frame-fixes |  |  |
+| `mobile-home` | mobile-app | 3 | mobile-frame | running | mobile-app/mobile-home |  |  |
+| `mobile-inbox` | mobile-app | 3 | mobile-frame | running | mobile-app/mobile-inbox |  |  |
 | `mobile-ops` | mobile-app | 3 | mobile-frame, mobile-routes | todo |  |  |  |
 | `mobile-places` | mobile-app | 3 | mobile-frame, mobile-routes, mobile-files | todo |  |  |  |
-| `mobile-session` | mobile-app | 3 | mobile-frame, mobile-routes | todo |  |  |  |
-| `mobile-web-removal` | remote-web | 3 | mobile-frame | todo |  |  |  |
+| `mobile-session` | mobile-app | 3 | mobile-frame, mobile-routes | running | mobile-app/mobile-session |  |  |
+| `mobile-web-removal` | remote-web | 3 | mobile-frame | running | remote-web/mobile-web-removal |  |  |

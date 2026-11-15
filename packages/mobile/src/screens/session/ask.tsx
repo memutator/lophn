@@ -121,7 +121,8 @@ function Approval({
 }
 
 /**
- * The agent's questions, one at a time. Each is answered by picking an option, writing one's own, or skipped with the
+ * The agent's questions, one at a time. Each is answered by picking an option (or several, when the question allows),
+ * writing one's own, or skipped with the
  * arrow; the last one sends them all. Sending a plain message instead also ends them (the placeholder says so).
  */
 function Questions({
@@ -157,10 +158,18 @@ function Questions({
     setFailed(!done);
   };
   const chosen = answers[at];
+  const labels = question.options.map((option) => option.label);
+  // An answer is the labels picked, in option order, then the person's own words.
   const initial =
-    chosen === null || chosen === undefined
+    chosen === null || chosen === undefined || chosen.status !== "answered"
       ? undefined
-      : question.options.findIndex((option) => option.label === chosen.answer[0]);
+      : {
+          choices: chosen.answer.flatMap((one) => {
+            const index = labels.indexOf(one);
+            return index === -1 ? [] : [index];
+          }),
+          text: chosen.answer.find((one) => !labels.includes(one)) ?? null,
+        };
   return (
     <View>
       <QuestionCard
@@ -177,13 +186,17 @@ function Questions({
         onSkip={() =>
           void next({ question: question.question, status: "unanswered", answer: [] })
         }
-        initial={initial === -1 ? undefined : initial}
+        multi={question.multiSelect}
+        initial={initial}
         nextLabel={last ? t("conversation.button.question-submit") : t("conversation.button.question-next")}
         onNext={(picked) =>
           void next({
             question: question.question,
             status: "answered",
-            answer: "choice" in picked ? [question.options[picked.choice]!.label] : [picked.text],
+            answer: [
+              ...picked.choices.map((index) => labels[index]!),
+              ...(picked.text === null ? [] : [picked.text]),
+            ],
           })
         }
       />

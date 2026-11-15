@@ -205,3 +205,18 @@ export function workspacesOf(input: {
     ),
   ];
 }
+
+/** A session's row and the workspace it is listed in, or undefined when the list does not have it. */
+export function sessionIn(
+  workspaces: readonly WorkspaceView[],
+  session: string | null,
+): { row: SessionRow; workspace: WorkspaceView } | undefined {
+  for (const workspace of workspaces) {
+    const row = [
+      ...workspace.groups.flatMap((group) => group.rows),
+      ...workspace.recent,
+    ].find((one) => one.id === session);
+    if (row !== undefined) return { row, workspace };
+  }
+  return undefined;
+}

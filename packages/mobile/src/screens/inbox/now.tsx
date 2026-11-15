@@ -10,13 +10,15 @@ import {
   cardOf,
   type Inbox,
   type Notice,
+  sessionIn,
   useInbox,
   useNames,
+  useWorkspaces,
   type WaitingEntry,
+  type WorkspaceView,
 } from "../../data/mod.ts";
-import { Character, LOPHN } from "../../parts/mod.ts";
+import { ago, Character, DIM, LOPHN } from "../../parts/mod.ts";
 import { Asker, Buttons, Item, useAnswering } from "./item.tsx";
-import { ago } from "./time.ts";
 import {
   type AskQuestion,
   intervalText,
@@ -39,6 +41,7 @@ type Kind<K extends WaitingEntry["kind"]> = WaitingEntry & { kind: K };
 interface Shared {
   readonly inbox: Inbox;
   readonly names: Names;
+  readonly workspaces: readonly WorkspaceView[];
   /** The computer is not reachable: answers cannot go. */
   readonly locked: boolean;
 }
@@ -47,10 +50,11 @@ interface Shared {
 export function Now({ locked }: { locked: boolean }) {
   const inbox = useInbox();
   const names = useNames();
+  const workspaces = useWorkspaces();
   if (inbox.entries.length === 0 && inbox.notices.length === 0) return null;
-  const shared = { inbox, names, locked };
+  const shared = { inbox, names, workspaces, locked };
   return (
-    <View style={{ opacity: locked ? 0.5 : 1 }}>
+    <View style={{ opacity: locked ? DIM : 1 }}>
       {GROUPS.map((group) => {
         const rows = inbox.entries.filter((entry) =>
           (group.kinds as readonly string[]).includes(entry.kind),
@@ -96,6 +100,23 @@ function EntryItem({ entry, ...shared }: { entry: WaitingEntry } & Shared) {
   }
 }
 
+/** Who asks, in which session, where: the session's own name as the sidebar says it, else the card model's line. */
+function metaOf(
+  entry: WaitingEntry,
+  view: CardView,
+  workspaces: readonly WorkspaceView[],
+): string {
+  const found = sessionIn(workspaces, entry.session);
+  if (found === undefined) return view.meta;
+  return [
+    found.row.who?.name,
+    found.row.title ?? t("left-sidebar.label.untitled"),
+    found.workspace.name ?? t("left-sidebar.label.home"),
+  ]
+    .filter((part) => part !== undefined)
+    .join(" · ");
+}
+
 function useSessionTitle(entry: WaitingEntry) {
   const nav = useNav();
   const { session, agent, workspace } = entry;
@@ -137,6 +158,7 @@ function PermissionItem({
   entry,
   inbox,
   names,
+  workspaces,
   locked,
 }: { entry: Kind<"permission"> } & Shared) {
   const view = cardOf(entry, names);
@@ -152,7 +174,7 @@ function PermissionItem({
       onTitle={openSession}
       age={ago(entry.receivedAt, Date.now())}
       text={view.description}
-      meta={view.meta}
+      meta={metaOf(entry, view, workspaces)}
       error={answering.error}
     >
       <Facts facts={view.facts} />
@@ -195,6 +217,7 @@ function QuestionItem({
   entry,
   inbox,
   names,
+  workspaces,
   locked,
 }: { entry: Kind<"question"> } & Shared) {
   const view = cardOf(entry, names);
@@ -232,7 +255,7 @@ function QuestionItem({
       onTitle={openSession}
       age={ago(entry.receivedAt, Date.now())}
       text={text}
-      meta={view.meta}
+      meta={metaOf(entry, view, workspaces)}
       error={answering.error}
     >
       <Buttons>
@@ -271,6 +294,7 @@ function QuestionItem({
 function ActivationItem({
   entry,
   names,
+  workspaces,
 }: { entry: Kind<"activation"> } & Shared) {
   const nav = useNav();
   const view = cardOf(entry, names);
@@ -282,7 +306,7 @@ function ActivationItem({
       onTitle={review}
       age={ago(entry.receivedAt, Date.now())}
       text={view.description}
-      meta={view.meta}
+      meta={metaOf(entry, view, workspaces)}
     >
       <Buttons>
         <Button size="sm" trailingIcon={ChevronRight} onPress={review}>
@@ -297,6 +321,7 @@ function ShareItem({
   entry,
   inbox,
   names,
+  workspaces,
   locked,
 }: { entry: Kind<"share"> } & Shared) {
   const nav = useNav();
@@ -319,7 +344,7 @@ function ShareItem({
       text={[view.description, entry.request.reason]
         .filter((part) => part !== "")
         .join(" ")}
-      meta={view.meta}
+      meta={metaOf(entry, view, workspaces)}
       error={answering.error}
     >
       <Buttons>
@@ -343,6 +368,7 @@ function JobHoldItem({
   entry,
   inbox,
   names,
+  workspaces,
   locked,
 }: { entry: Kind<"job_hold"> } & Shared) {
   const nav = useNav();
@@ -383,6 +409,7 @@ function JobApprovalItem({
   entry,
   inbox,
   names,
+  workspaces,
   locked,
 }: { entry: Kind<"job_approval"> } & Shared) {
   const nav = useNav();

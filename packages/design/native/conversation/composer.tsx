@@ -88,8 +88,9 @@ export function Composer({
           cursorColor={theme.color.text.primary}
           selectionColor={theme.color.ink.soft}
           style={{
-            minHeight: 24,
-            maxHeight: 144,
+            // One line to six, at the text size.
+            minHeight: 24 * theme.textScale,
+            maxHeight: 144 * theme.textScale,
             padding: 0,
             paddingHorizontal: 10,
             marginBottom: 10,

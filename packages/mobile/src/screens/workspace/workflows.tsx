@@ -39,7 +39,7 @@ import {
   type WorkflowDefinition,
   type WorkflowDetail,
   type WorkflowRunSummary,
-} from "../../data/places.ts";
+} from "../../data/mod.ts";
 import {
   notHandedKey,
   participantText,
@@ -50,8 +50,9 @@ import {
   type StepShown,
   stepRows,
   turnOf,
-} from "./workflow-model.ts";
-import { Empty, Failed, when } from "./common.tsx";
+} from "../../../../shell/renderer/workflow/rules.ts";
+import { ago, DIM, EmptyNote, OfflineBanner, useLocked } from "../../parts/mod.ts";
+import { Failed, when } from "./common.tsx";
 
 const firstLine = (text: string) => text.trim().split("\n")[0] ?? "";
 
@@ -148,7 +149,7 @@ function InstanceRow({
               live && instance.current !== null
                 ? t("workflow.label.at-step", { step: instance.current.step })
                 : null,
-              when(instance.finished_at ?? instance.created_at),
+              ago(instance.finished_at ?? instance.created_at),
             ]
               .filter((part) => part !== null)
               .join(" · ")}
@@ -163,13 +164,14 @@ function InstanceRow({
 
 export function WorkflowsTab({ project }: { project: string }) {
   const nav = useNav();
+  const locked = useLocked();
   const flows = useWorkflows(project);
   const [starting, setStarting] = useState<WorkflowDefinition | null>(null);
   if (flows.loaded.state === "loading") return null;
   if (flows.loaded.state === "failed") return <Failed onRetry={flows.reload} />;
   const { definitions, instances } = flows.loaded.value;
   if (definitions.length === 0) {
-    return <Empty>{t("workflow.empty.sidebar")}</Empty>;
+    return <EmptyNote>{t("workflow.empty.sidebar")}</EmptyNote>;
   }
   const open = (instance: WorkflowRunSummary) =>
     nav.open({ name: "workflow-run", project, run: instance.id });
@@ -206,7 +208,7 @@ export function WorkflowsTab({ project }: { project: string }) {
                   size="sm"
                   variant={at === 0 ? "primary" : "secondary"}
                   icon={Play}
-                  disabled={!entry.startable}
+                  disabled={!entry.startable || locked}
                   onPress={() => setStarting(entry)}
                 >
                   {t("workflow.button.start")}
@@ -384,6 +386,7 @@ function Run({
   onStop: () => Promise<boolean>;
 }) {
   const nav = useNav();
+  const locked = useLocked();
   const projectName = useProjectName(project);
   const [report, setReport] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -423,14 +426,20 @@ function Run({
               {t("mobile.places.workflow.open-report")}
             </Button>
             {instance.state === "running" && (
-              <Button block icon={Square} onPress={() => setConfirm(true)}>
+              <Button
+                block
+                icon={Square}
+                disabled={locked}
+                onPress={() => setConfirm(true)}
+              >
                 {t("mobile.places.workflow.stop")}
               </Button>
             )}
           </View>
         }
       >
-        <View style={{ paddingHorizontal: 20, paddingTop: 6 }}>
+        <OfflineBanner note={t("mobile.offline.note")} />
+        <View style={{ paddingHorizontal: 20, paddingTop: 6, opacity: locked ? DIM : 1 }}>
           <Text variant="heading" weight="semibold">
             {instance.input}
           </Text>

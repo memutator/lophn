@@ -373,7 +373,9 @@ function Body({ parts }: { parts: readonly BodyPart[] }) {
       case "app_card":
         nodes.push(
           <Line key={at} icon={LayoutGrid}>
-            {t("mobile.session.label.app-card", { app: apps.get(part.app) ?? part.app })}
+            {apps.has(part.app)
+              ? t("mobile.session.label.app-card", { app: apps.get(part.app)! })
+              : t("mobile.session.label.app-card-unknown")}
           </Line>,
         );
         break;

@@ -1,4 +1,5 @@
 import type { RandomSource } from "../../../base/mod.ts";
+import { eventConditionSchema } from "../../../protocol/events/bus.ts";
 import {
   connectRemote,
   type KeyPair,
@@ -279,8 +280,12 @@ export function createConnection(
       return new Promise((resolve) => pending.set(id, resolve));
     },
     watch(conditions) {
-      watching = conditions;
-      channel?.send({ type: "watch", conditions });
+      // The core closes the channel on a condition it cannot parse (a session id that is not one), and every new channel
+      // sends the last watch again, so one bad condition kept the phone offline for good. It is left out instead.
+      watching = conditions.filter(
+        (one) => eventConditionSchema.safeParse(one).success,
+      );
+      channel?.send({ type: "watch", conditions: watching });
       return Promise.resolve();
     },
     onEvent(listener) {

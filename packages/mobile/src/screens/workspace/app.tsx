@@ -14,6 +14,7 @@ import {
   TopBar,
 } from "@lophn/ui-native";
 import { History, Info, ScrollText } from "lucide-react-native";
+import { View } from "react-native";
 import { Fragment, useState } from "react";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
 import {
@@ -26,9 +27,9 @@ import {
   useAppActivity,
   useAppRelease,
   useSessionTarget,
-} from "../../data/places.ts";
-import { WorkspaceMark } from "../../parts/mod.ts";
-import { AskBar, Empty, Failed, when } from "./common.tsx";
+} from "../../data/mod.ts";
+import { ago, DIM, EmptyNote, OfflineBanner, useLocked, WorkspaceMark } from "../../parts/mod.ts";
+import { AskBar, Failed, when } from "./common.tsx";
 import { SessionList } from "./sessions.tsx";
 
 const humanize = (tool: string) => {
@@ -85,7 +86,7 @@ export function ActivityList({ app }: { app: string }) {
   if (activity.loaded.state !== "ready") return null;
   const runs = activity.loaded.value;
   if (runs.length === 0) {
-    return <Empty>{t("mobile.places.activity.empty")}</Empty>;
+    return <EmptyNote>{t("mobile.places.activity.empty")}</EmptyNote>;
   }
   let last = "";
   return (
@@ -107,11 +108,11 @@ export function ActivityList({ app }: { app: string }) {
               }
               sub={
                 run.tool === null
-                  ? when(run.at)
+                  ? ago(run.at)
                   : t("mobile.places.activity.sub", {
                       tool: run.tool,
                       by: run.job ? "job" : "other",
-                      when: when(run.at),
+                      when: ago(run.at),
                     })
               }
               end={
@@ -147,6 +148,7 @@ function ReleaseRow({ app }: { app: string }) {
 
 export function AppWorkspace({ view }: { view: WorkspaceView }) {
   const nav = useNav();
+  const locked = useLocked();
   const [tab, setTab] = useState(0);
   const name = view.name ?? view.key;
   return (
@@ -176,12 +178,15 @@ export function AppWorkspace({ view }: { view: WorkspaceView }) {
         />
       }
     >
-      <ReleaseRow app={view.key} />
-      {tab === 0 ? (
-        <SessionList view={view} />
-      ) : (
-        <ActivityList app={view.key} />
-      )}
+      <OfflineBanner note={t("mobile.offline.note")} />
+      <View style={{ opacity: locked ? DIM : 1 }}>
+        <ReleaseRow app={view.key} />
+        {tab === 0 ? (
+          <SessionList view={view} />
+        ) : (
+          <ActivityList app={view.key} />
+        )}
+      </View>
     </Screen>
   );
 }
@@ -193,6 +198,7 @@ export function AppActivityScreen({
   place: PlaceOf<"app-activity">;
 }) {
   const nav = useNav();
+  const locked = useLocked();
   const name =
     useWorkspaces().find((one) => one.key === place.app)?.name ?? place.app;
   return (
@@ -207,7 +213,10 @@ export function AppActivityScreen({
       }
       scroll
     >
-      <ActivityList app={place.app} />
+      <OfflineBanner note={t("mobile.offline.note")} />
+      <View style={{ opacity: locked ? DIM : 1 }}>
+        <ActivityList app={place.app} />
+      </View>
     </Screen>
   );
 }

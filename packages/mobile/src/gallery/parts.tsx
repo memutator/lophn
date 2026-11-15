@@ -568,6 +568,14 @@ export function ConversationPage({ onBack }: { onBack: () => void }) {
           nextLabel="Send"
           onNext={noop}
         />
+        <QuestionCard
+          title="lophn is asking"
+          multi
+          question="Which reports should the summary cover?"
+          options={[{ label: "Weekly", sub: "docs/reports" }, { label: "Regressions" }, { label: "Scenario runs" }]}
+          initial={{ choices: [0, 1], text: null }}
+          onNext={noop}
+        />
         <SecretCard
           title="lophn needs a secret"
           secret="PAYMENTS_KEY → api.payments.example"

@@ -127,3 +127,55 @@ test("after a drop or a dead resume the connection reconnects and sends the last
   assert.equal(connection.current().state, "ready");
   connection.close();
 });
+
+test("a watch with a session id the core would reject sends no such condition, and the connection comes back after the core closes it", async () => {
+  const core = generateKeyPair(cryptoRandom);
+  const servers: { channel: RemoteServerChannel; frames: RemoteClientFrame[] }[] = [];
+  const dial = async () => {
+    const [phoneSide, coreSide] = pipe();
+    void acceptRemote({
+      transport: coreSide,
+      staticKey: core,
+      capabilities: [],
+      random: cryptoRandom,
+    }).then((opened) => {
+      assert.ok(opened.ok);
+      const server = { channel: opened.value, frames: [] as RemoteClientFrame[] };
+      servers.push(server);
+      opened.value.onFrame((frame) => {
+        server.frames.push(frame);
+        if (frame.type === "watch") opened.value.send({ type: "ready" });
+      });
+    });
+    return phoneSide;
+  };
+  const retries: (() => void)[] = [];
+  const connection = createConnection({
+    endpoint: { addresses: ["10.0.0.1"], port: 7432, key: remoteKeyText(core.publicKey) },
+    phone: generateKeyPair(cryptoRandom),
+    dial,
+    random: cryptoRandom,
+    now: () => 1,
+    wait: (_ms, fn) => {
+      retries.push(fn);
+      return () => {};
+    },
+    onRevoked: () => {},
+  });
+  await settle();
+  const good = { session: "ses_01m7dp1jqw47d55vdyzxv5wd0x" };
+  await connection.watch([good, { session: "" }]);
+  await settle();
+  // The core parses every frame with this schema and closes the channel on one it cannot read.
+  assert.deepEqual(servers[0]?.frames.at(-1), { type: "watch", conditions: [good] });
+  assert.equal(connection.current().state, "ready");
+
+  servers[0]?.channel.close();
+  await settle();
+  retries.at(-1)?.();
+  await settle();
+  assert.equal(servers.length, 2);
+  assert.deepEqual(servers[1]?.frames, [{ type: "watch", conditions: [good] }]);
+  assert.equal(connection.current().state, "ready");
+  connection.close();
+});

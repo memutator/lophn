@@ -11,6 +11,7 @@ import {
 } from "react";
 import { AppState } from "react-native";
 import { appList } from "../../../protocol/apps/apps.ts";
+import { idSchema } from "../../../protocol/base/ids.ts";
 import { agentRead } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import { workspaceSessionList } from "../../../protocol/lophn-agent/agent-sessions.ts";
 import type { AskAnswer } from "../../../protocol/lophn-agent/ask-tool.ts";
@@ -364,10 +365,22 @@ function useSource({ agent, workspace }: Omit<ConversationTarget, "session">) {
   );
 }
 
+const SESSION_ID = idSchema("ses");
+
+// What a conversation reads when its session id is not one: every read and action answers not_found without a call, so
+// a bad id never reaches the core (the watch side is dropped by the connection).
+const NO_SESSION = new Proxy({} as AgentTabSource, {
+  get: (_target, key) =>
+    key === "changed" || key === "draft"
+      ? undefined
+      : () => Promise.resolve({ ok: false, code: "not_found" }),
+});
+
 /** One session's conversation: the desktop Agent tab's view (thread, live text, pending, queued) and its actions. */
 export function useConversation(target: ConversationTarget): Conversation {
   const { session } = target;
-  const source = useSource(target);
+  const real = useSource(target);
+  const source = SESSION_ID.safeParse(session).success ? real : NO_SESSION;
   const data = useAgentTabData(source, session);
   const approval = data.thread?.pending.approval ?? null;
   const asked = data.thread?.pending.questions ?? null;

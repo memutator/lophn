@@ -4,7 +4,6 @@ import { t } from "@lophn/i18n";
 import {
   Badge,
   ComputerPicker,
-  type DotTone,
   IconButton,
   NavRow,
   SessionRow,
@@ -37,16 +36,9 @@ import {
   useWorkspaces,
   type WorkspaceView,
 } from "../data/mod.ts";
-import { Character, Face, LOPHN, WorkspaceMark } from "../parts/mod.ts";
+import { Character, Face, LOPHN, SESSION_DOT, WorkspaceMark } from "../parts/mod.ts";
 import { stateOf } from "./computer-state.ts";
 import { FrameContext, type Place, paramsOf } from "./nav.ts";
-
-const DOT: Record<SessionStatus, DotTone | undefined> = {
-  waiting: "warning",
-  working: "good",
-  failed: "critical",
-  idle: undefined,
-};
 
 type Shown = { name: string; params?: Record<string, unknown> };
 
@@ -232,7 +224,7 @@ function Workspace({
               key={row.id}
               face={<Face profile={row.who?.profile ?? LOPHN} size={20} />}
               title={row.title ?? t("left-sidebar.label.untitled")}
-              tone={DOT[row.status]}
+              tone={SESSION_DOT[row.status]}
               on={on === `session:${row.id}`}
               onPress={() =>
                 show({

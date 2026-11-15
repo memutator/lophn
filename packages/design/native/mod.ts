@@ -168,7 +168,7 @@ export {
 export { Fact, type FactProps } from "./conversation/ask.tsx";
 // A permission request: Deny, Always allow, Allow once.
 export { ApprovalCard, type ApprovalCardProps } from "./conversation/ask.tsx";
-// A question: pick an option or write an answer, one at a time.
+// A question: pick an option (or several) or write an answer, one at a time.
 export {
   type QuestionAnswer,
   QuestionCard,

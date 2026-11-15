@@ -32,6 +32,9 @@ export interface SheetProps {
   children: ReactNode;
 }
 
+// On a wide screen the sheet keeps a phone's width and rises in the middle instead of spanning the screen.
+const SHEET_WIDTH = 560;
+
 // Past this drag distance or speed, letting go closes the sheet.
 const CLOSE_DISTANCE = 120;
 const CLOSE_SPEED = 0.8;
@@ -130,6 +133,9 @@ export function Sheet({
       >
         <Animated.View
           style={{
+            width: "100%",
+            maxWidth: SHEET_WIDTH,
+            alignSelf: "center",
             maxHeight: height * 0.92,
             backgroundColor: theme.color.surface.base,
             borderTopLeftRadius: 28,

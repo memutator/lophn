@@ -4,15 +4,17 @@ import { t } from "@lophn/i18n";
 import { Icon, IconButton, Row, Screen, Tabs, TopBar } from "@lophn/ui-native";
 import { Clock, FolderOpen, Plus } from "lucide-react-native";
 import { useState } from "react";
-import type { Workspace } from "../../data/mod.ts";
-import { useProjectJobs } from "../../data/places.ts";
+import { View } from "react-native";
 import { useNav } from "../../app/nav.ts";
-import type { WorkspaceView } from "../../data/mod.ts";
+import { DIM, EmptyNote, OfflineBanner, useLocked } from "../../parts/mod.ts";
 import {
   nextText,
+  useProjectJobs,
   whenOf,
-} from "../../../../shell/renderer/desktop/jobs/model.ts";
-import { AskBar, Empty, Failed } from "./common.tsx";
+  type Workspace,
+  type WorkspaceView,
+} from "../../data/mod.ts";
+import { AskBar, Failed } from "./common.tsx";
 import { FilesTab } from "./files.tsx";
 import { SessionList } from "./sessions.tsx";
 import { WorkflowsTab } from "./workflows.tsx";
@@ -30,7 +32,7 @@ function JobsTab({ project }: { project: string }) {
   if (jobs.loaded.state === "failed") return <Failed onRetry={jobs.reload} />;
   if (jobs.loaded.state !== "ready") return null;
   if (jobs.loaded.value.length === 0) {
-    return <Empty>{t("mobile.places.jobs.empty")}</Empty>;
+    return <EmptyNote>{t("mobile.places.jobs.empty")}</EmptyNote>;
   }
   const now = new Date();
   return (
@@ -49,6 +51,7 @@ function JobsTab({ project }: { project: string }) {
 
 export function ProjectWorkspace({ view }: { view: WorkspaceView }) {
   const nav = useNav();
+  const locked = useLocked();
   const [tab, setTab] = useState(0);
   // The folder the Files tab is in, kept here so leaving a file comes back to it.
   const [folder, setFolder] = useState("");
@@ -84,17 +87,20 @@ export function ProjectWorkspace({ view }: { view: WorkspaceView }) {
         ) : undefined
       }
     >
-      {tab === 0 && <SessionList view={view} />}
-      {tab === 1 && <WorkflowsTab project={project} />}
-      {tab === 2 && (
-        <FilesTab
-          project={project}
-          name={name}
-          path={folder}
-          onPath={setFolder}
-        />
-      )}
-      {tab === 3 && <JobsTab project={project} />}
+      <OfflineBanner note={t("mobile.offline.note")} />
+      <View style={{ opacity: locked ? DIM : 1 }}>
+        {tab === 0 && <SessionList view={view} />}
+        {tab === 1 && <WorkflowsTab project={project} />}
+        {tab === 2 && (
+          <FilesTab
+            project={project}
+            name={name}
+            path={folder}
+            onPath={setFolder}
+          />
+        )}
+        {tab === 3 && <JobsTab project={project} />}
+      </View>
     </Screen>
   );
 }

@@ -24,9 +24,8 @@ import { type AgentId, lophnIdOf, type Workspace } from "../../../../protocol/lo
 import { useModelPicker } from "../../../../shell/renderer/conversation/use-model-picker.ts";
 import { newId } from "../../../../shell/renderer/prefixed-id.ts";
 import { type PlaceOf, paramsOf, useNav } from "../../app/nav.ts";
-import { useConversation, useWorkspaces, type WorkspaceView } from "../../data/mod.ts";
-import { Face, LOPHN, WorkspaceMark } from "../../parts/mod.ts";
-import { type AgentChoice, useAgentChoices } from "./data.ts";
+import { type AgentChoice, useAgentChoices, useConversation, useWorkspaces, type WorkspaceView } from "../../data/mod.ts";
+import { Face, LOPHN, useUnreachable, WorkspaceMark } from "../../parts/mod.ts";
 import { ModelSheet } from "./sheets.tsx";
 
 const sameWorkspace = (a: Workspace | null, b: Workspace | null) =>
@@ -56,10 +55,11 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
   const nav = useNav();
   const navigation = useNavigation();
   const workspaces = useWorkspaces();
+  const unreachable = useUnreachable();
   const [workspace, setWorkspace] = useState<Workspace | null>(place.workspace ?? null);
   const [agent, setAgent] = useState<AgentId>(place.agent ?? lophnIdOf(place.workspace ?? null));
   const [sheet, setSheet] = useState<"workspace" | "agent" | "model" | null>(null);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(place.text ?? "");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const [pending, setPending] = useState<{ model: string; options: Record<string, string> } | null>(null);
@@ -150,10 +150,10 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
             value={draft}
             onChangeText={setDraft}
             onSend={() => void start()}
-            placeholder={t("mobile.session.placeholder.new")}
-            disabled={busy}
+            placeholder={unreachable ?? t("mobile.session.placeholder.new")}
+            disabled={busy || unreachable !== null}
             chips={
-              meta === null || !meta.capabilities.model ? undefined : (
+              unreachable !== null || meta === null || !meta.capabilities.model ? undefined : (
                 <Chip onPress={() => setSheet("model")}>{picker.currentLabel}</Chip>
               )
             }

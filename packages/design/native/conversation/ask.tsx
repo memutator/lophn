@@ -11,7 +11,7 @@ import {
 import { type ReactNode, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import { Pre } from "../feedback/display.tsx";
-import { Radio } from "../input/choice.tsx";
+import { Checkbox, Radio } from "../input/choice.tsx";
 import { Button } from "../primitives/button.tsx";
 import { Icon } from "../primitives/icon.tsx";
 import { Text } from "../primitives/text.tsx";
@@ -140,32 +140,37 @@ export interface QuestionOption {
   sub?: string;
 }
 
-export type QuestionAnswer = { choice: number } | { text: string };
+/** The options picked (by index, in option order) and the person's own answer, if they wrote one. */
+export interface QuestionAnswer {
+  choices: readonly number[];
+  text: string | null;
+}
 
 export interface QuestionCardProps {
   /** lophn is asking */
   title: string;
   question: string;
   options: readonly QuestionOption[];
+  /** Any number of options can be picked, and one's own answer besides them. */
+  multi?: boolean;
   /** Which question of how many, when there are several. */
   at?: number;
   of?: number;
   onPrev?: () => void;
   onSkip?: () => void;
-  /** First choice picked before the person touches anything. */
-  initial?: number;
+  /** What is picked before the person touches anything (coming back to an answered question). */
+  initial?: QuestionAnswer;
   /** Next on all but the last question, then Send. */
   nextLabel?: string;
   onNext: (answer: QuestionAnswer) => void;
 }
 
-const OTHER = -1;
-
-// A question the agent asks, one at a time: pick an option or write an answer.
+// A question the agent asks, one at a time: pick an option (or several) or write an answer.
 export function QuestionCard({
   title,
   question,
   options,
+  multi = false,
   at,
   of,
   onPrev,
@@ -175,10 +180,32 @@ export function QuestionCard({
   onNext,
 }: QuestionCardProps) {
   const theme = useTheme();
-  const [choice, setChoice] = useState<number | undefined>(initial);
-  const [text, setText] = useState("");
-  const ready =
-    choice !== undefined && (choice !== OTHER || text.trim() !== "");
+  const [choices, setChoices] = useState<readonly number[]>(
+    initial?.choices ?? [],
+  );
+  const [other, setOther] = useState(
+    initial !== undefined && initial.text !== null,
+  );
+  const [text, setText] = useState(initial?.text ?? "");
+  const pick = (index: number) => {
+    if (!multi) {
+      setChoices([index]);
+      setOther(false);
+    } else {
+      setChoices((now) =>
+        now.includes(index)
+          ? now.filter((one) => one !== index)
+          : [...now, index].sort((a, b) => a - b),
+      );
+    }
+  };
+  const pickOther = () => {
+    if (!multi) {
+      setChoices([]);
+      setOther(true);
+    } else setOther((now) => !now);
+  };
+  const ready = (choices.length > 0 || other) && (!other || text.trim() !== "");
   return (
     <AskCard>
       <View
@@ -224,12 +251,18 @@ export function QuestionCard({
       <Text weight="semibold" style={{ marginTop: 10, lineHeight: 22 }}>
         {question}
       </Text>
+      {multi && (
+        <Text variant="note" tone="muted" style={{ marginTop: 2 }}>
+          {t("conversation.label.question-pick-any")}
+        </Text>
+      )}
       <View style={{ gap: 6, marginTop: 10 }}>
         {options.map((option, index) => (
           <Option
             key={option.label}
-            on={choice === index}
-            onPress={() => setChoice(index)}
+            multi={multi}
+            on={choices.includes(index)}
+            onPress={() => pick(index)}
           >
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text
@@ -247,8 +280,8 @@ export function QuestionCard({
             </View>
           </Option>
         ))}
-        <Option on={choice === OTHER} onPress={() => setChoice(OTHER)}>
-          {choice === OTHER ? (
+        <Option multi={multi} on={other} onPress={pickOther}>
+          {other ? (
             <TextInput
               value={text}
               onChangeText={setText}
@@ -285,11 +318,7 @@ export function QuestionCard({
           variant="primary"
           trailingIcon={ChevronRight}
           disabled={!ready}
-          onPress={() =>
-            choice === OTHER
-              ? onNext({ text: text.trim() })
-              : onNext({ choice: choice ?? 0 })
-          }
+          onPress={() => onNext({ choices, text: other ? text.trim() : null })}
         >
           {nextLabel}
         </Button>
@@ -299,10 +328,12 @@ export function QuestionCard({
 }
 
 function Option({
+  multi,
   on,
   onPress,
   children,
 }: {
+  multi: boolean;
   on: boolean;
   onPress: () => void;
   children: ReactNode;
@@ -310,7 +341,7 @@ function Option({
   const theme = useTheme();
   return (
     <Pressable
-      accessibilityRole="radio"
+      accessibilityRole={multi ? "checkbox" : "radio"}
       accessibilityState={{ checked: on }}
       onPress={onPress}
       style={{
@@ -325,7 +356,7 @@ function Option({
         backgroundColor: theme.color.surface.muted,
       }}
     >
-      <Radio on={on} />
+      {multi ? <Checkbox on={on} /> : <Radio on={on} />}
       {children}
     </Pressable>
   );

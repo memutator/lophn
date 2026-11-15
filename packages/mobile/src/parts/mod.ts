@@ -7,3 +7,7 @@ export {
   VendorIcon,
 } from "./face.tsx";
 export { WorkspaceMark } from "./workspace-mark.tsx";
+export { ago } from "./ago.ts";
+export { DIM, OfflineBanner, useLocked, useUnreachable } from "./offline.tsx";
+export { EmptyNote, EmptyScreen } from "./empty.tsx";
+export { SESSION_DOT } from "./session-dot.ts";

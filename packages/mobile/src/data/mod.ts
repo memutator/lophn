@@ -1,4 +1,4 @@
-// The phone's data layer. Screens import only this file; they never touch a connection.
+// The phone's data layer. Screens import their reads only from this file; they never touch a connection.
 import "./crypto.ts";
 
 export type { AcpState } from "../../../protocol/acp/mod.ts";
@@ -67,6 +67,10 @@ export {
 } from "./attach.ts";
 export type { ComputerData, SampleConversation } from "./link.ts";
 export { createPhoneComputers } from "./phone.ts";
+export * from "./ops.ts";
+export * from "./places.ts";
+export * from "./search.ts";
+export { sessionIn } from "./workspaces.ts";
 export type {
   SessionGroup,
   SessionRow,

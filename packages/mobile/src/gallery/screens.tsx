@@ -524,7 +524,7 @@ export function QuestionScreen() {
             { label: "eval/reports/", sub: "Inside the eval folder" },
             { label: "A new file each week", sub: "Named by date, no fixed folder" },
           ]}
-          initial={0}
+          initial={{ choices: [0], text: null }}
           onNext={noop}
         />
       }

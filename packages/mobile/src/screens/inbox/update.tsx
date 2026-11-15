@@ -14,11 +14,11 @@ import type { ReactNode } from "react";
 import { View } from "react-native";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
 import {
-  useCurrentComputer,
   useInbox,
   useNames,
   cardOf,
 } from "../../data/mod.ts";
+import { DIM, OfflineBanner, useLocked } from "../../parts/mod.ts";
 import { useAnswering } from "./item.tsx";
 
 function Line({ kind, children }: { kind: string; children: string }) {
@@ -51,12 +51,11 @@ export function AppUpdateScreen({ place }: { place: PlaceOf<"app-update"> }) {
   const nav = useNav();
   const inbox = useInbox();
   const names = useNames();
-  const computer = useCurrentComputer();
   const answering = useAnswering();
   const entry = inbox.entries.find(
     (one) => one.kind === "activation" && one.id === place.id,
   );
-  const locked = computer?.status !== "connected";
+  const locked = useLocked();
   const top = (
     <TopBar
       left="back"
@@ -121,6 +120,8 @@ export function AppUpdateScreen({ place }: { place: PlaceOf<"app-update"> }) {
         </View>
       }
     >
+      <OfflineBanner note={t("mobile.inbox.offline.text")} />
+      <View style={{ opacity: locked ? DIM : 1 }}>
       <View
         style={{
           flexDirection: "row",
@@ -207,6 +208,7 @@ export function AppUpdateScreen({ place }: { place: PlaceOf<"app-update"> }) {
       >
         {t("waiting.notice.activation-fine")}
       </Text>
+      </View>
     </Screen>
   );
 }

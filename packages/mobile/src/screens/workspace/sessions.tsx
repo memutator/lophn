@@ -1,6 +1,6 @@
 // A workspace's sessions: grouped by worktree, then Recent. The sessions tab of a project and of an app.
 import { t } from "@lophn/i18n";
-import { type DotTone, Dot, Label, Row } from "@lophn/ui-native";
+import { Dot, Label, Row } from "@lophn/ui-native";
 import { Fragment } from "react";
 import { lophnIdOf } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { useNav } from "../../app/nav.ts";
@@ -9,15 +9,8 @@ import {
   type SessionStatus,
   type WorkspaceView,
 } from "../../data/mod.ts";
-import { Face, LOPHN } from "../../parts/mod.ts";
-import { Empty, when } from "./common.tsx";
+import { ago, EmptyNote, Face, LOPHN, SESSION_DOT } from "../../parts/mod.ts";
 
-const DOT: Record<SessionStatus, DotTone | undefined> = {
-  waiting: "warning",
-  working: "good",
-  failed: "critical",
-  idle: undefined,
-};
 
 function subOf(row: SessionRow): string {
   switch (row.status) {
@@ -32,11 +25,11 @@ function subOf(row: SessionRow): string {
     case "working":
       return row.at === 0
         ? t("conversation.label.status-working")
-        : t("mobile.places.session.working", { when: when(row.at) });
+        : t("mobile.places.session.working", { when: ago(row.at) });
     default:
       return row.at === 0
         ? t("app-detail.label.state-done")
-        : t("mobile.places.session.done", { when: when(row.at) });
+        : t("mobile.places.session.done", { when: ago(row.at) });
   }
 }
 
@@ -51,7 +44,7 @@ export function SessionList({ view }: { view: WorkspaceView }) {
       workspace: row.workspace,
     });
   if (view.groups.length === 0 && view.recent.length === 0) {
-    return <Empty>{t("mobile.places.session.empty")}</Empty>;
+    return <EmptyNote>{t("mobile.places.session.empty")}</EmptyNote>;
   }
   return (
     <>
@@ -64,7 +57,7 @@ export function SessionList({ view }: { view: WorkspaceView }) {
               lead={<Face profile={row.who?.profile ?? LOPHN} size={24} />}
               title={row.title ?? t("left-sidebar.label.untitled")}
               sub={subOf(row)}
-              end={<Dot tone={DOT[row.status]} />}
+              end={<Dot tone={SESSION_DOT[row.status]} />}
               onPress={() => open(row)}
             />
           ))}
@@ -81,7 +74,7 @@ export function SessionList({ view }: { view: WorkspaceView }) {
               dim
               lead={<Face profile={row.who?.profile ?? LOPHN} size={24} />}
               title={row.title ?? t("left-sidebar.label.untitled")}
-              sub={row.at === 0 ? undefined : when(row.at)}
+              sub={row.at === 0 ? undefined : ago(row.at)}
               onPress={() => open(row)}
             />
           ))}

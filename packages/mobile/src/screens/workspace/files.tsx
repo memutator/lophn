@@ -27,8 +27,9 @@ import {
   type ProjectFileEntry,
   useProjectFile,
   useProjectFiles,
-} from "../../data/places.ts";
-import { AskBar, Empty, Failed, when } from "./common.tsx";
+} from "../../data/mod.ts";
+import { ago, EmptyNote, OfflineBanner } from "../../parts/mod.ts";
+import { AskBar, Failed } from "./common.tsx";
 
 const join = (folder: string, name: string) =>
   folder === "" ? name : `${folder}/${name}`;
@@ -110,14 +111,14 @@ export function FilesTab({
       {files.loaded.state === "failed" && <Failed onRetry={files.reload} />}
       {files.loaded.state === "ready" &&
         (files.loaded.value.length === 0 ? (
-          <Empty>{t("mobile.places.files.empty")}</Empty>
+          <EmptyNote>{t("mobile.places.files.empty")}</EmptyNote>
         ) : (
           files.loaded.value.map((entry) => (
             <Row
               key={entry.name}
               lead={<Icon icon={entry.kind === "folder" ? Folder : FileText} />}
               title={entry.name}
-              sub={when(entry.modified_at)}
+              sub={ago(entry.modified_at)}
               end={
                 entry.kind === "folder" ? (
                   <Icon icon={ChevronRight} size={16} />
@@ -167,6 +168,7 @@ export function FileScreen({ place }: { place: PlaceOf<"file"> }) {
         />
       }
     >
+      <OfflineBanner note={t("mobile.offline.note")} />
       {file.loaded.state === "failed" && <Failed onRetry={file.reload} />}
       {read?.kind === "not-text" && (
         <View style={{ alignItems: "center", gap: 12, padding: 32 }}>

@@ -1,23 +1,10 @@
 // Home while the computer cannot be reached (tools/wireframes/drafts/phone/shell.tsx Offline): what is said, the apps dimmed,
 // and the sessions as they were the last time the phone heard from it.
-import { t } from "@lophn/i18n";
-import { Banner, Button, Dot, type DotTone, Label, Row } from "@lophn/ui-native";
-import { RefreshCw, WifiOff } from "lucide-react-native";
-import {
-  type ComputerItem,
-  type SessionRow,
-  type WorkspaceView,
-} from "../../data/mod.ts";
-import { Face, LOPHN } from "../../parts/mod.ts";
-import { ago } from "./ago.ts";
+import { formatRelativeTime, t } from "@lophn/i18n";
+import { Dot, Label, Row } from "@lophn/ui-native";
+import type { SessionRow, WorkspaceView } from "../../data/mod.ts";
+import { Face, LOPHN, OfflineBanner, SESSION_DOT } from "../../parts/mod.ts";
 import { Apps } from "./apps.tsx";
-
-const DOT: Record<SessionRow["status"], DotTone | undefined> = {
-  waiting: "warning",
-  working: "good",
-  failed: "critical",
-  idle: undefined,
-};
 
 function wasOf(row: SessionRow) {
   if (row.status === "working") return t("mobile.home.row.was-working");
@@ -31,18 +18,14 @@ function wasOf(row: SessionRow) {
 }
 
 export function OfflineBody({
-  computer,
   apps,
   workspaces,
   leftAt,
-  onRetry,
 }: {
-  computer: ComputerItem;
   apps: readonly WorkspaceView[];
   workspaces: readonly WorkspaceView[];
   /** When the phone last heard from it, if it did while this screen was up. */
   leftAt: number | null;
-  onRetry: () => void;
 }) {
   const now = Date.now();
   const rows = workspaces
@@ -55,38 +38,10 @@ export function OfflineBody({
       ? t("mobile.home.heading.last-known")
       : minutes < 1
         ? t("mobile.home.heading.last-seen-now")
-        : t("mobile.home.heading.last-seen", { time: ago(leftAt, now) });
-  const revoked = computer.status === "revoked";
+        : t("mobile.home.heading.last-seen", { time: formatRelativeTime(new Date(leftAt), new Date(now)) });
   return (
     <>
-      <Banner
-        icon={WifiOff}
-        title={
-          revoked
-            ? t("mobile.computer.status.revoked")
-            : t(
-                computer.status === "connecting"
-                  ? "mobile.home.banner.connecting"
-                  : "mobile.home.banner.offline",
-                { name: computer.name },
-              )
-        }
-        action={
-          computer.status === "offline" ? (
-            <Button size="sm" icon={RefreshCw} onPress={onRetry}>
-              {t("common.button.retry")}
-            </Button>
-          ) : undefined
-        }
-      >
-        {revoked
-          ? undefined
-          : t(
-              computer.status === "connecting"
-                ? "mobile.home.note.connecting"
-                : "mobile.home.note.offline",
-            )}
-      </Banner>
+      <OfflineBanner note={t("mobile.home.note.offline")} />
       {apps.length > 0 && (
         <>
           <Label>{t("common.heading.apps")}</Label>
@@ -103,7 +58,7 @@ export function OfflineBody({
               lead={<Face profile={row.who?.profile ?? LOPHN} />}
               title={row.title ?? t("left-sidebar.label.untitled")}
               sub={wasOf(row)}
-              end={<Dot tone={DOT[row.status]} />}
+              end={<Dot tone={SESSION_DOT[row.status]} />}
             />
           ))}
         </>

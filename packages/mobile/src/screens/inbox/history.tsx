@@ -28,7 +28,7 @@ import {
   useInboxHistory,
   useStartSession,
 } from "../../data/mod.ts";
-import { ago } from "./time.ts";
+import { ago } from "../../parts/mod.ts";
 import { KIND_LABEL } from "./waiting.ts";
 
 const SOURCES = ["all", "app", "program"] as const;

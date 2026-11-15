@@ -1,10 +1,8 @@
 // What the Jobs and Agents screens read. Jobs go through the desktop's Jobs source (names, runs, switch) and its wording
-// (model.ts); agents are the core's agent list and card. On the sample computer the same calls are answered from made-up
-// jobs and agents below, kept in memory, because the sample's own fake core (sample.ts) knows neither.
+// (model.ts); agents are the core's agent list and card.
 import { useMemo } from "react";
 import type { Modality } from "../../../protocol/lophn-agent/agent-values.ts";
 import {
-  type AgentCard,
   type AgentRow,
   agentCard,
   agentList,
@@ -14,17 +12,19 @@ import {
   isCodingBuiltin,
   isLophn,
   LOPHN_HOME_ID,
+  lophnIdOf,
   type Workspace,
 } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { CoreSource } from "../../../shell/renderer/desktop/connection/connection.ts";
+import type { AgentProfile } from "../../../shell/renderer/conversation/agent-tab-source.ts";
 import {
   type Loaded,
   readRoute,
   readsOf,
+  useCoreRead,
   useFollowedRead,
 } from "../../../shell/renderer/desktop/connection/core-read.ts";
 import { useEventClient } from "../../../shell/renderer/desktop/connection/events/hooks.tsx";
-import { JOB_HOLD_AGENT } from "../../../shell/renderer/desktop/connection/waiting/fake-source.ts";
 import { coreJobsSource } from "../../../shell/renderer/desktop/jobs/core-source.ts";
 import type {
   JobNames,
@@ -36,7 +36,6 @@ import {
   useCurrentComputer,
   useInbox,
   useNames,
-  useSampleConversation,
   useWorkspaces,
   type ConversationTarget,
 } from "./hooks.tsx";
@@ -50,50 +49,13 @@ export {
   MISSED_OPTIONS,
   nextText,
   runText,
-  runWhen,
   sourceGoneText,
   STATE,
   whenOf,
   whenText,
 } from "../../../shell/renderer/desktop/jobs/model.ts";
 
-// Hermes (the dev build) has neither Intl.PluralRules, which every ICU `plural` in the catalog needs, nor
-// Intl.RelativeTimeFormat, which `formatRelativeTime` ("21 hours ago") builds on. English only, like the catalog. Any
-// screen with a plural needs them; whichever loads first gives them.
-const scope = Intl as { PluralRules?: unknown; RelativeTimeFormat?: unknown };
-scope.PluralRules ??= class {
-  select(n: number): string {
-    return n === 1 ? "one" : "other";
-  }
-};
-scope.RelativeTimeFormat ??= class {
-  format(value: number, unit: string): string {
-    const near: Record<string, [string, string, string]> = {
-      day: ["yesterday", "today", "tomorrow"],
-      week: ["last week", "this week", "next week"],
-      month: ["last month", "this month", "next month"],
-      year: ["last year", "this year", "next year"],
-      hour: ["", "this hour", ""],
-      minute: ["", "this minute", ""],
-      second: ["", "now", ""],
-    };
-    const word =
-      Math.abs(value) <= 1 ? near[unit]?.[Math.sign(value) + 1] : undefined;
-    if (word) return word;
-    const n = Math.abs(value);
-    const span = `${n} ${unit}${n === 1 ? "" : "s"}`;
-    return value < 0 ? `${span} ago` : `in ${span}`;
-  }
-};
-
-function useOpsCore(): CoreSource {
-  const client = useEventClient();
-  const sample = useSampleConversation() !== null;
-  return useMemo(
-    () => (sample ? sampleOps(client.core) : client.core),
-    [client, sample],
-  );
-}
+const useOpsCore = (): CoreSource => useEventClient().core;
 
 // What each computer's screens last read, so a screen opened while the computer is away (or still reading) shows that
 // instead of nothing. Weak, so a removed computer takes its memory with it.
@@ -337,257 +299,51 @@ export function useAgentSessions(): ReadonlyMap<
   }, [workspaces]);
 }
 
-// ---- the sample computer's jobs and agents
+// ---- who can start a session in a workspace
 
-// The ids sample.ts gives its project, apps and Experiment planner, so sessions and names line up with these.
-const PHRONER = "prj_01h455vb4pex5v6nkc6gd5f001";
-const ORDERS = "app_01h455vb4pex5v6nkc6gd5fd01";
-const PLANNER = "agt_01h455vb4pex5v6nkc6gd5p001";
-const EVAL = "agt_01h455vb4pex5v6nkc6gd5p002";
-const BUDGET = "agt_01h455vb4pex5v6nkc6gd5p003";
-
-const ago = (hours: number) =>
-  new Date(Date.now() - hours * 3_600_000).toISOString();
-
-const profile = (shape: string, color: string) => ({
-  kind: "character",
-  shape,
-  color,
-});
-const agentRow = (
-  agent: string,
-  name: string,
-  look: ReturnType<typeof profile>,
-  extra: Record<string, unknown>,
-) => ({
-  agent,
-  handle: name.toLowerCase().replace(/\W+/g, "-"),
-  name,
-  workspace: null,
-  profile: look,
-  model: { provider: "pvd_sample", model_name: "Sonnet 5.5", source: "global" },
-  issues: [],
-  counts: { skills: 5, mcp: 2 },
-  ...extra,
-});
-
-function sampleJobs(): JobView[] {
-  const held = JOB_HOLD_AGENT().job as JobView;
-  const base = {
-    trigger: null,
-    fired_count: 0,
-    skipped_count: 0,
-    last_fired_at: null,
-    last_skipped_at: null,
-    last_skip_reason: null,
-    source_gone: false,
-    missed_policy: "run",
-    enabled: true,
-    approved_at: ago(24 * 30),
-    at: null,
-    every: null,
-  } as const;
-  return [
-    {
-      ...held,
-      action: {
-        kind: "agent_run",
-        agent: LOPHN_HOME_ID,
-        agent_workspace: null,
-        prompt:
-          "Summarize yesterday’s finished tasks and list the open questions for today.",
-      },
-      next_due_at: ago(-3),
-    },
-    {
-      ...base,
-      id: "job_sample_usage",
-      title: "Wrap up at the usage limit",
-      creator: { agent: BUDGET, workspace: { kind: "app", id: ORDERS } },
-      trigger: {
-        source: "orders",
-        event: "usage.limit",
-        min_interval: "5m",
-        pass_event: false,
-      },
-      fired_count: 3,
-      last_fired_at: ago(2),
-      action: {
-        kind: "agent_run",
-        agent: BUDGET,
-        agent_workspace: { kind: "app", id: ORDERS },
-        prompt: "Wrap up the open work and write down where you stopped.",
-      },
-      next_due_at: null,
-      last_run: {
-        job_run: "jbr_s1",
-        state: "done",
-        due_at: ago(2),
-        started_at: ago(2),
-      },
-    },
-    {
-      ...base,
-      id: "job_sample_weekly",
-      title: "Weekly review",
-      creator: { agent: LOPHN_HOME_ID, workspace: null },
-      every: "7d",
-      at: "10:00",
-      action: {
-        kind: "workflow_start",
-        project: PHRONER,
-        workflow: "weekly-review",
-      },
-      next_due_at: ago(-24 * 4),
-      last_run: {
-        job_run: "jbr_s2",
-        state: "done",
-        due_at: ago(72),
-        started_at: ago(72),
-      },
-    },
-    {
-      ...base,
-      id: "job_sample_export",
-      title: "Export orders nightly",
-      creator: { agent: LOPHN_HOME_ID, workspace: null },
-      every: "1d",
-      at: "02:00",
-      enabled: false,
-      action: { kind: "tool_run", app: ORDERS, tool: "orders.export_csv" },
-      next_due_at: null,
-      last_run: {
-        job_run: "jbr_s3",
-        state: "done",
-        due_at: ago(24 * 6),
-        started_at: ago(24 * 6),
-      },
-    },
-  ] as JobView[];
+export interface AgentChoice {
+  readonly agent: AgentId;
+  readonly name: string;
+  readonly profile: AgentProfile;
+  /** Bound to one project or app; false when it works in every workspace. */
+  readonly scoped: boolean;
 }
 
-function sampleRuns(job: JobView): JobRunView[] {
-  const run = (
-    n: number,
-    state: JobRunView["state"],
-    hours: number,
-    extra: Partial<JobRunView> = {},
-  ): JobRunView => ({
-    id: `jbr_sample_${job.id}_${n}`,
-    due_at: ago(hours),
-    missed_count: 0,
-    state,
-    reason: null,
-    instance: null,
-    session: null,
-    started_at: state === "held" || state === "skipped" ? null : ago(hours),
-    ...extra,
-  });
-  return job.last_run?.state === "held"
-    ? [
-        run(0, "held", 9),
-        run(1, "done", 21, { session: "ses_01h455vb4pex5v6nkc6gd5p001" }),
-        run(2, "done", 45),
-        run(3, "skipped", 72, { reason: "person", missed_count: 1 }),
-      ]
-    : [run(1, "done", 24 * 3)];
-}
+const sameWorkspace = (
+  a: { kind: string; id: string } | null,
+  b: Workspace | null,
+) => (a === null ? b === null : b !== null && a.kind === b.kind && a.id === b.id);
 
-const SAMPLE_OPS = new WeakMap<CoreSource, CoreSource>();
-
-function sampleOps(inner: CoreSource): CoreSource {
-  const found = SAMPLE_OPS.get(inner);
-  if (found !== undefined) return found;
-  const jobs = sampleJobs();
-  const reply = (value: unknown) =>
-    Promise.resolve({ ok: true as const, value });
-  const COMMON = { as_of_seq: "0", next_cursor: null };
-  const core: CoreSource = {
-    ...inner,
-    subscribe: inner.subscribe.bind(inner),
-    call(input) {
-      const key = `${input.resource}/${input.method}`;
-      // A read's body is its input; a command's body wraps it as `input`.
-      const body = (input.body ?? {}) as {
-        job?: string;
-        input?: { job: string; enabled?: boolean };
-      };
-      switch (key) {
-        case "jobs/list":
-          return reply({ ...COMMON, jobs });
-        case "job_runs/list": {
-          const job = jobs.find((one) => one.id === body.job);
-          return reply({
-            ...COMMON,
-            job_runs: job === undefined ? [] : sampleRuns(job),
-          });
-        }
-        case "jobs/update": {
-          const at = jobs.findIndex((one) => one.id === body.input?.job);
-          const job = jobs[at];
-          if (job === undefined) {
-            return Promise.resolve({
-              ok: false as const,
-              error: { code: "not_found", message: "sample" },
-            });
-          }
-          const enabled = body.input?.enabled ?? job.enabled;
-          jobs[at] = {
-            ...job,
-            enabled,
-            next_due_at: enabled ? ago(-6) : null,
-          };
-          return reply({ job: jobs[at] });
-        }
-        case "agents/list":
-          return reply({
-            ...COMMON,
-            agents: [
-              agentRow(LOPHN_HOME_ID, "lophn", profile("square", "coral"), {
-                handle: "lophn",
-              }),
-              agentRow(EVAL, "Eval analyst", profile("pear", "lavender"), {}),
-              agentRow(
-                PLANNER,
-                "Experiment planner",
-                profile("round", "blue"),
-                {
-                  workspace: { kind: "project", id: PHRONER },
-                  description:
-                    "Plans the next eval experiment from the findings, cheapest first, and writes the plan where the runner picks it up.",
-                },
-              ),
-              agentRow(BUDGET, "Budget reviewer", profile("arch", "sage"), {
-                workspace: { kind: "app", id: ORDERS },
-              }),
-              agentRow(
-                "coding_claude",
-                "Claude Code",
-                profile("square", "coral"),
-                {
-                  model: null,
-                  counts: { skills: null, mcp: null },
-                  handle: "claude",
-                },
-              ),
-              agentRow("coding_codex", "Codex", profile("square", "coral"), {
-                model: null,
-                counts: { skills: null, mcp: null },
-                handle: "codex",
-              }),
-            ],
-          });
-        case "agents/card":
-          return reply({
-            card: {
-              modality: { input: ["text", "image", "file"], output: ["text"] },
-            } satisfies Pick<AgentCard, "modality">,
-          });
-        default:
-          return inner.call(input);
-      }
-    },
-  };
-  SAMPLE_OPS.set(inner, core);
-  return core;
+/**
+ * The lophn agents that can work in this workspace: its own lophn first, then the global agents and the ones scoped to
+ * it. Coding agents are left out; the phone does not run them yet.
+ */
+export function useAgentChoices(
+  workspace: Workspace | null,
+): readonly AgentChoice[] {
+  const read = useCoreRead(
+    agentList,
+    workspace === null ? {} : { workspace },
+  ).loaded;
+  return useMemo(() => {
+    if (read.state !== "ready") return [];
+    const own = lophnIdOf(workspace);
+    return read.value.agents
+      .filter((row) =>
+        isLophn(row.agent)
+          ? row.agent === own
+          : !isCodingBuiltin(row.agent) &&
+            (row.workspace === null || sameWorkspace(row.workspace, workspace)),
+      )
+      .map((row) => ({
+        agent: row.agent,
+        name: row.name,
+        profile:
+          row.profile.kind === "character"
+            ? row.profile
+            : { kind: "initial" as const, text: row.name.slice(0, 1) },
+        scoped: row.workspace !== null,
+      }))
+      .sort((a, b) => Number(b.agent === own) - Number(a.agent === own));
+  }, [read, workspace]);
 }

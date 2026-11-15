@@ -12,10 +12,10 @@ import {
   type useNames,
   type WaitingEntry,
   type Who,
+  sessionIn,
   type WorkspaceView,
 } from "../../data/mod.ts";
-import { Face, LOPHN } from "../../parts/mod.ts";
-import { ago } from "./ago.ts";
+import { ago, Face, LOPHN } from "../../parts/mod.ts";
 
 /** How many cards Home shows; the rest are one tap away under Inbox. */
 export const NEEDS_SHOWN = 2;
@@ -62,11 +62,7 @@ export function NeedsYou({
     <>
       {entries.map((entry) => {
         const view = cardOf(entry, names);
-        const found = workspaces.flatMap((workspace) =>
-          [...workspace.groups.flatMap((group) => group.rows), ...workspace.recent]
-            .filter((row) => row.id === entry.session)
-            .map((row) => ({ row, workspace })),
-        )[0];
+        const found = sessionIn(workspaces, entry.session);
         // The session's own name and place, as the sidebar says them; the card model's line is for the desktop.
         const meta =
           found === undefined
@@ -81,7 +77,7 @@ export function NeedsYou({
           <Head
             who={found?.row.who ?? null}
             title={view.title}
-            age={ago(Date.parse(entry.receivedAt), Date.now())}
+            age={ago(entry.receivedAt)}
           />
         );
         if (entry.kind === "permission" && view.choices.includes("once")) {

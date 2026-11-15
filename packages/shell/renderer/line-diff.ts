@@ -1,6 +1,13 @@
-// 충돌 해결 화면의 줄 비교. 옛 쪽은 디스크(또는 최신 판), 새 쪽은 편집기 초안이다.
+// 두 글의 줄 비교(충돌 해결 화면, 편집 card, 폰의 diff 화면). 옛 쪽은 디스크(또는 최신 판), 새 쪽은 편집기 초안이다.
 // 앞뒤 같은 줄을 떼고 가운데만 LCS로 맞춘다. 가운데가 너무 크면 통째로 지우고 더한 것으로 본다.
-import type { DiffLine } from "@lophn/ui/reading";
+// 줄 type은 DOM kit의 `DiffLine`과 같은 모양을 여기 둔다. kit을 import하면 폰의 typecheck가 DOM kit을 끌어온다.
+
+interface DiffLine {
+  readonly kind: "same" | "add" | "delete";
+  readonly oldNumber?: number;
+  readonly newNumber?: number;
+  readonly text: string;
+}
 
 /** 가운데 LCS 표의 칸 상한. 넘으면 통째 바꿈으로 보인다. */
 const CELL_LIMIT = 4_000_000;

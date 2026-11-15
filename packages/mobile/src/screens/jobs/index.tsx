@@ -25,17 +25,16 @@ import {
   MISSED_OPTIONS,
   nextText,
   runText,
-  runWhen,
   sourceGoneText,
   STATE,
   useJobRuns,
   useJobs,
   whenOf,
   whenText,
-} from "../../data/ops.ts";
-import { FactRow, Foot, OfflineBanner, ReadFailed } from "./parts.tsx";
+} from "../../data/mod.ts";
+import { ago, DIM, EmptyNote, OfflineBanner } from "../../parts/mod.ts";
+import { FactRow, Foot, ReadFailed } from "./parts.tsx";
 
-const DIM = 0.45;
 
 // Who made the job, and where: "Budget reviewer · Orders". Home's lophn is just "lophn".
 function madeBy(creator: JobView["creator"], names: JobNames): string {
@@ -152,8 +151,8 @@ export function JobsScreen(_: { place: PlaceOf<"jobs"> }) {
       top={<TopBar {...nav.menuButton} title={t("left-sidebar.button.jobs")} />}
       scroll
     >
-      {locked && <OfflineBanner />}
-      <View style={{ opacity: locked ? DIM : 1, marginTop: locked ? 12 : 0 }}>
+      <OfflineBanner note={t("mobile.offline.note")} />
+      <View style={{ opacity: locked ? DIM : 1 }}>
         {loaded.state === "failed" && (
           <ReadFailed target={t("jobs.label.target")} onRetry={jobs.reload} />
         )}
@@ -176,12 +175,9 @@ export function JobsScreen(_: { place: PlaceOf<"jobs"> }) {
               </Text>
             )}
             {loaded.value.jobs.length === 0 && (
-              <Text
-                tone="muted"
-                style={{ marginHorizontal: 20, marginTop: 12 }}
-              >
-                {t("jobs.empty.all")} {t("jobs.empty.sidebar-ask")}
-              </Text>
+              <EmptyNote>
+                {`${t("jobs.empty.all")} ${t("jobs.empty.sidebar-ask")}`}
+              </EmptyNote>
             )}
             {loaded.value.jobs.map((job, at) => (
               <View key={job.id}>
@@ -291,8 +287,8 @@ export function JobScreen({ place }: { place: PlaceOf<"job"> }) {
         )
       }
     >
-      {locked && <OfflineBanner />}
-      <View style={{ opacity: locked ? DIM : 1, marginTop: locked ? 12 : 0 }}>
+      <OfflineBanner note={t("mobile.offline.note")} />
+      <View style={{ opacity: locked ? DIM : 1 }}>
         {loaded.state === "failed" && (
           <ReadFailed target={t("jobs.label.target")} onRetry={jobs.reload} />
         )}
@@ -317,9 +313,11 @@ export function JobScreen({ place }: { place: PlaceOf<"job"> }) {
                   : "mobile.ops.job.label-activity",
               )}
             >
-              {found.next_due_at !== null
+              {/* A value on its own, not inside a sentence: "In 3 hours". */}
+              {(found.next_due_at !== null
                 ? whenText(found.next_due_at, now)
-                : nextText(found, now)}
+                : nextText(found, now)
+              ).replace(/^./, (first) => first.toUpperCase())}
             </FactRow>
             <FactRow label={t("mobile.ops.job.label-does")}>
               {found.action.kind === "agent_run"
@@ -362,9 +360,7 @@ export function JobScreen({ place }: { place: PlaceOf<"job"> }) {
           </Text>
         )}
         {runs.state === "ready" && runs.value.length === 0 && (
-          <Text variant="note" tone="muted" style={{ marginHorizontal: 20 }}>
-            {t("jobs.note.no-history")}
-          </Text>
+          <EmptyNote>{t("jobs.note.no-history")}</EmptyNote>
         )}
         {runs.state === "ready" &&
           runs.value.map((run) => {
@@ -376,7 +372,7 @@ export function JobScreen({ place }: { place: PlaceOf<"job"> }) {
                 lead={<Icon icon={STATUS_ICONS[tone]} tone={tone} />}
                 title={t(STATE[run.state].label)}
                 sub={runText(run)}
-                end={runWhen(run, now)}
+                end={ago(run.started_at ?? run.due_at)}
                 onPress={target === null ? undefined : () => nav.open(target)}
               />
             );

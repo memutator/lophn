@@ -43,6 +43,8 @@ export type Place =
       readonly name: "new-session";
       readonly workspace?: Workspace | null;
       readonly agent?: AgentId;
+      /** What was already typed in the box that led here. */
+      readonly text?: string;
     }
   | { readonly name: "settings" }
   | { readonly name: "computer"; readonly key: string }

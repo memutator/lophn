@@ -25,7 +25,4 @@ export const mobileOps = {
   "mobile.ops.job.last": "{state} {time}",
   "mobile.ops.job.on-computer": "Jobs are edited and deleted on the computer.",
   "mobile.ops.job.when-next": "{when} · {next}",
-  "mobile.ops.offline.body":
-    "This is what was last read. Switches and buttons wait until it is back.",
-  "mobile.ops.offline.title": "{computer} is offline",
 };

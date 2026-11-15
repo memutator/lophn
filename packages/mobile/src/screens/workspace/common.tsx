@@ -1,15 +1,15 @@
-// Pieces the project and app workspace screens share: relative times, a retry line, and the box at the bottom that opens
+// Pieces the project and app workspace screens share: a sentence's relative time, a retry line, and the box at the bottom that opens
 // a new session in the workspace.
 import { formatRelativeTime, t } from "@lophn/i18n";
-import "./intl-polyfills.ts";
 import { Button, Chip, Composer, Text } from "@lophn/ui-native";
 import { useState } from "react";
 import { View } from "react-native";
 import { LOPHN_AGENT_NAME } from "../../../../protocol/lophn-agent/agent-values.ts";
 import { useNav } from "../../app/nav.ts";
 import { useStartSession, type Workspace } from "../../data/mod.ts";
-import { Face, LOPHN } from "../../parts/mod.ts";
+import { Face, LOPHN, useUnreachable } from "../../parts/mod.ts";
 
+/** How long ago inside a sentence (Went live 2 days ago); lists and meta lines use the short `ago`. */
 export const when = (at: string | number): string =>
   formatRelativeTime(new Date(at), new Date());
 
@@ -25,17 +25,10 @@ export function Failed({ onRetry }: { onRetry: () => void }) {
   );
 }
 
-export function Empty({ children }: { children: string }) {
-  return (
-    <View style={{ padding: 20 }}>
-      <Text tone="muted">{children}</Text>
-    </View>
-  );
-}
 
 /**
  * The message box at the bottom of a workspace screen: sending opens a new session in the workspace with its lophn and
- * goes to it. The agent chip leads to the new-session screen, where another agent can be picked.
+ * goes to it. The agent chip leads to the new-session screen, where another agent can be picked; what was typed goes along.
  */
 export function AskBar({
   workspace,
@@ -49,6 +42,7 @@ export function AskBar({
 }) {
   const nav = useNav();
   const start = useStartSession();
+  const unreachable = useUnreachable();
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -80,15 +74,23 @@ export function AskBar({
         value={text}
         onChangeText={setText}
         onSend={() => void send()}
-        placeholder={placeholder}
-        disabled={sending}
+        placeholder={unreachable ?? placeholder}
+        disabled={sending || unreachable !== null}
         chips={
-          <Chip
-            lead={<Face profile={LOPHN} size={18} />}
-            onPress={() => nav.open({ name: "new-session", workspace })}
-          >
-            {LOPHN_AGENT_NAME}
-          </Chip>
+          unreachable !== null ? undefined : (
+            <Chip
+              lead={<Face profile={LOPHN} size={18} />}
+              onPress={() =>
+                nav.open({
+                  name: "new-session",
+                  workspace,
+                  ...(text.trim() === "" ? {} : { text: wrap(text.trim()) }),
+                })
+              }
+            >
+              {LOPHN_AGENT_NAME}
+            </Chip>
+          )
         }
       />
     </View>

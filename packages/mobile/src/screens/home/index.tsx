@@ -20,14 +20,13 @@ import { stateOf } from "../../app/computer-state.ts";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
 import {
   type SessionStatus,
-  useComputers,
   useCurrentComputer,
   useInbox,
   useNames,
   useWorkspaces,
+  type WorkspaceView,
 } from "../../data/mod.ts";
-import { Face, LOPHN } from "../../parts/mod.ts";
-import { ago } from "./ago.ts";
+import { ago, EmptyScreen, Face, LOPHN, SESSION_DOT } from "../../parts/mod.ts";
 import { Apps } from "./apps.tsx";
 import { HomeComposer } from "./compose.tsx";
 import { frontOf, NeedsYou } from "./needs.tsx";
@@ -36,7 +35,6 @@ import { OfflineBody } from "./offline.tsx";
 export function HomeScreen(_: { place: PlaceOf<"home"> }) {
   const nav = useNav();
   const computer = useCurrentComputer();
-  const { retry } = useComputers();
   const workspaces = useWorkspaces();
   const names = useNames();
   const inbox = useInbox();
@@ -52,6 +50,10 @@ export function HomeScreen(_: { place: PlaceOf<"home"> }) {
   }, [status]);
 
   const apps = workspaces.filter((workspace) => workspace.kind === "app");
+  const working = workingOf(workspaces);
+  const shown = online || computer === null;
+  const empty =
+    shown && inbox.count === 0 && apps.length === 0 && working.length === 0;
   const state = computer === null ? null : stateOf(computer);
   const name = computer?.name ?? "";
 
@@ -75,7 +77,7 @@ export function HomeScreen(_: { place: PlaceOf<"home"> }) {
           }
         />
       }
-      scroll
+      scroll={!empty}
       footer={
         <HomeComposer
           workspaces={workspaces}
@@ -89,42 +91,28 @@ export function HomeScreen(_: { place: PlaceOf<"home"> }) {
         failed ? <Toast>{t("waiting.notice.action-failed")}</Toast> : undefined
       }
     >
-      {online || computer === null ? (
+      {empty ? (
+        <EmptyScreen title={t("waiting.notice.empty")}>
+          {t("mobile.home.empty.caption")}
+        </EmptyScreen>
+      ) : shown ? (
         <Online
           apps={apps}
+          working={working}
           workspaces={workspaces}
           inbox={inbox}
           names={names}
         />
       ) : (
-        <OfflineBody
-          computer={computer}
-          apps={apps}
-          workspaces={workspaces}
-          leftAt={leftAt}
-          onRetry={retry}
-        />
+        <OfflineBody apps={apps} workspaces={workspaces} leftAt={leftAt} />
       )}
     </Screen>
   );
 }
 
-const DOT: Partial<Record<SessionStatus, "good">> = { working: "good" };
-
-function Online({
-  apps,
-  workspaces,
-  inbox,
-  names,
-}: {
-  apps: ReturnType<typeof useWorkspaces>;
-  workspaces: ReturnType<typeof useWorkspaces>;
-  inbox: ReturnType<typeof useInbox>;
-  names: ReturnType<typeof useNames>;
-}) {
-  const nav = useNav();
-  const now = Date.now();
-  const working = workspaces
+/** Every session working now, newest first, with its workspace. */
+function workingOf(workspaces: readonly WorkspaceView[]) {
+  return workspaces
     .flatMap((workspace) =>
       workspace.groups
         .flatMap((group) => group.rows)
@@ -132,25 +120,23 @@ function Online({
         .map((row) => ({ row, workspace })),
     )
     .sort((a, b) => b.row.at - a.row.at);
-  if (inbox.count === 0 && apps.length === 0 && working.length === 0) {
-    return (
-      <View
-        style={{
-          alignItems: "center",
-          paddingTop: 120,
-          paddingHorizontal: 40,
-          gap: 6,
-        }}
-      >
-        <Text weight="medium" align="center">
-          {t("waiting.notice.empty")}
-        </Text>
-        <Text variant="detail" tone="muted" align="center">
-          {t("mobile.home.empty.caption")}
-        </Text>
-      </View>
-    );
-  }
+}
+
+function Online({
+  apps,
+  working,
+  workspaces,
+  inbox,
+  names,
+}: {
+  apps: readonly WorkspaceView[];
+  working: ReturnType<typeof workingOf>;
+  workspaces: readonly WorkspaceView[];
+  inbox: ReturnType<typeof useInbox>;
+  names: ReturnType<typeof useNames>;
+}) {
+  const nav = useNav();
+  const now = Date.now();
   return (
     <>
       {inbox.count > 0 && (
@@ -209,7 +195,7 @@ function Online({
               ]
                 .filter((part) => part !== undefined)
                 .join(" · ")}
-              end={<Dot tone={DOT[row.status]} />}
+              end={<Dot tone={SESSION_DOT[row.status]} />}
               onPress={() =>
                 nav.open({
                   name: "session",

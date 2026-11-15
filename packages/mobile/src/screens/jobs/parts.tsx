@@ -1,10 +1,8 @@
-// Pieces Jobs and Agents share: a labelled fact line, the offline banner, the quiet closing note, a read that failed.
+// Pieces Jobs and Agents share: a labelled fact line, the quiet closing note, a read that failed.
 import { t } from "@lophn/i18n";
-import { Banner, Button, Text } from "@lophn/ui-native";
-import { WifiOff } from "lucide-react-native";
+import { Button, Text } from "@lophn/ui-native";
 import type { ReactNode } from "react";
 import { View } from "react-native";
-import { useCurrentComputer } from "../../data/mod.ts";
 
 /** One labelled fact of a job or an agent: the wireframe's Fact, a quiet label and the value beside it. */
 export function FactRow({
@@ -39,19 +37,6 @@ export function FactRow({
         )}
       </View>
     </View>
-  );
-}
-
-/** Said at the top when the computer does not answer: what shows below was last read, and it cannot be changed. */
-export function OfflineBanner() {
-  const computer = useCurrentComputer();
-  return (
-    <Banner
-      icon={WifiOff}
-      title={t("mobile.ops.offline.title", { computer: computer?.name ?? "" })}
-    >
-      {t("mobile.ops.offline.body")}
-    </Banner>
   );
 }
 

@@ -22,6 +22,15 @@ export interface ScreenProps {
   children?: ReactNode;
 }
 
+// On a wide screen (a tablet, a phone on its side) the body and the footer stop at a width that still reads well and
+// stand in the middle; the top bar spans the whole screen (wireframe 9 Wide screens).
+const READING_WIDTH = 680;
+const column = {
+  width: "100%",
+  maxWidth: READING_WIDTH,
+  alignSelf: "center",
+} as const;
+
 // One screen. It owns the safe-area insets so nothing sits under the status bar or the gesture bar.
 export function Screen({
   tone = "base",
@@ -52,6 +61,7 @@ export function Screen({
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{
+            ...column,
             paddingBottom: footer === undefined ? insets.bottom + 16 : 8,
           }}
           keyboardShouldPersistTaps="handled"
@@ -59,10 +69,12 @@ export function Screen({
           {children}
         </ScrollView>
       ) : (
-        <View style={{ flex: 1, minHeight: 0 }}>{children}</View>
+        <View style={{ flex: 1, minHeight: 0, ...column }}>{children}</View>
       )}
       {footer !== undefined && (
-        <View style={{ paddingBottom: insets.bottom }}>{footer}</View>
+        <View style={{ paddingBottom: insets.bottom, ...column }}>
+          {footer}
+        </View>
       )}
       {over}
     </KeyboardAvoidingView>

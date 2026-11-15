@@ -126,7 +126,11 @@ export function Face({ profile, size = 24 }: { profile: Profile; size?: number }
           <Text
             weight="medium"
             tone="secondary"
-            style={{ fontSize: size * 0.5, lineHeight: size * 0.6 }}
+            // The box keeps its size at every text size, so its letter does too (Text scales what it is given).
+            style={{
+              fontSize: (size * 0.5) / theme.textScale,
+              lineHeight: (size * 0.6) / theme.textScale,
+            }}
           >
             {profile.text}
           </Text>

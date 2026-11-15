@@ -7,6 +7,7 @@ export const mobileSession = {
   "mobile.session.label.agent-lophn": "Built-in · plans and hands work on",
   "mobile.session.label.agent-only-in": "Only in {workspace}",
   "mobile.session.label.app-card": "A card from {app}",
+  "mobile.session.label.app-card-unknown": "A card from an app",
   "mobile.session.label.attach-camera": "Camera",
   "mobile.session.label.attach-camera-off":
     "Camera is off for lophn. Open Settings to allow it.",

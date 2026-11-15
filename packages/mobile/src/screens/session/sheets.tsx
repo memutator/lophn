@@ -49,10 +49,9 @@ import {
   contextPercent,
 } from "../../../../shell/renderer/conversation/status-view/status-summary.ts";
 import { vendorOf } from "../../../../shell/renderer/parts/vendor-icon/vendors.ts";
-import type { Candidate } from "../../data/mod.ts";
+import { type Candidate, useProjectFiles } from "../../data/mod.ts";
 import { Face, type Profile, VendorIcon } from "../../parts/mod.ts";
 import { AttachPicks } from "./attach.tsx";
-import { useProjectFiles } from "./data.ts";
 import { elapsedText, toolIcon } from "./parts.tsx";
 
 const pad = { paddingHorizontal: 20 } as const;
@@ -272,7 +271,8 @@ export function FilesSheet({
   onPick: (path: string) => void;
 }) {
   const [path, setPath] = useState("");
-  const entries = useProjectFiles(project, path);
+  const files = useProjectFiles(project, path).loaded;
+  const entries = files.state === "ready" ? files.value : [];
   const up = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
   return (
     <Sheet open={open} onClose={onClose} title={path === "" ? name : path}>

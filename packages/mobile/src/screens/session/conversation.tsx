@@ -47,7 +47,7 @@ import {
   useWorkspaces,
   type WorkspaceView,
 } from "../../data/mod.ts";
-import { Face, LOPHN, type Profile } from "../../parts/mod.ts";
+import { DIM, Face, LOPHN, OfflineBanner, type Profile, useUnreachable } from "../../parts/mod.ts";
 import { Pending } from "./ask.tsx";
 import { attachedAbove, useAttachments } from "./attach.tsx";
 import { duration, useTick } from "./parts.tsx";
@@ -374,12 +374,14 @@ export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
   const modeLabel = meta?.modes.find((mode) => mode.id === meta.mode)?.label ?? null;
   const project = target.workspace?.kind === "project" ? target.workspace.id : null;
 
+  const unreachable = useUnreachable();
   const placeholder =
-    asked !== null
+    unreachable ??
+    (asked !== null
       ? t("mobile.session.placeholder.reply-instead")
       : active?.phase === "working"
         ? t("mobile.session.placeholder.queue")
-        : t("mobile.session.placeholder.reply");
+        : t("mobile.session.placeholder.reply"));
 
   const lead = (
     <Pressable
@@ -400,7 +402,10 @@ export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
     </ReadOnlyLine>
   ) : (
     <>
-      <Pending conversation={conversation} session={session} agent={who.name} computer={computer} />
+      {/* While the computer is away an answer cannot go: the cards stay in view, dimmed and locked. */}
+      <View pointerEvents={unreachable === null ? "auto" : "none"} style={{ opacity: unreachable === null ? 1 : DIM }}>
+        <Pending conversation={conversation} session={session} agent={who.name} computer={computer} />
+      </View>
       <Composer
         value={draft}
         onChangeText={setDraft}
@@ -411,9 +416,9 @@ export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
         working={active?.phase === "working"}
         onStop={() => void conversation.stop()}
         onAttach={() => setSheet({ kind: "attach" })}
-        disabled={conversation.connection === "reconnecting" || outgoing?.phase === "sending" || attachments.uploading}
+        disabled={unreachable !== null || conversation.connection === "reconnecting" || outgoing?.phase === "sending" || attachments.uploading}
         chips={
-          caps.model && meta !== null ? (
+          caps.model && meta !== null && unreachable === null ? (
             <Chip onPress={() => setSheet({ kind: "model" })}>{picker.currentLabel}</Chip>
           ) : undefined
         }
@@ -425,6 +430,7 @@ export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
     <ThreadContext value={actions}>
       <Screen
         top={
+          <>
           <TopBar
             {...nav.menuButton}
             lead={lead}
@@ -438,6 +444,8 @@ export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
               />
             }
           />
+          <OfflineBanner note={t("mobile.offline.note")} />
+          </>
         }
         footer={footer}
       >

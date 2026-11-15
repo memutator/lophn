@@ -1,6 +1,6 @@
 // Agents and one agent (tools/wireframes/drafts/phone/more.tsx Agents, AgentDetail). The phone shows them and opens a new
 // session with one; creating and editing stay on the computer.
-import { formatRelativeTime, t } from "@lophn/i18n";
+import { t } from "@lophn/i18n";
 import {
   Button,
   Label,
@@ -22,11 +22,10 @@ import {
   useAgents,
   useAgentSessions,
   useAgentTakes,
-} from "../../data/ops.ts";
-import { Face } from "../../parts/mod.ts";
-import { FactRow, Foot, OfflineBanner, ReadFailed } from "../jobs/parts.tsx";
+} from "../../data/mod.ts";
+import { ago, DIM, EmptyNote, Face, OfflineBanner } from "../../parts/mod.ts";
+import { FactRow, Foot, ReadFailed } from "../jobs/parts.tsx";
 
-const DIM = 0.45;
 const NEXT = <Icon icon={ChevronRight} size={16} />;
 
 function scopeText(agent: AgentItem): string {
@@ -104,8 +103,8 @@ export function AgentsScreen(_: { place: PlaceOf<"agents"> }) {
       }
       scroll
     >
-      {locked && <OfflineBanner />}
-      <View style={{ opacity: locked ? DIM : 1, marginTop: locked ? 12 : 0 }}>
+      <OfflineBanner note={t("mobile.offline.note")} />
+      <View style={{ opacity: locked ? DIM : 1 }}>
         {loaded.state === "failed" && (
           <ReadFailed
             target={t("project-workspace.label.agents-target")}
@@ -143,7 +142,6 @@ export function AgentScreen({ place }: { place: PlaceOf<"agent"> }) {
   // A coding agent is the person's own product; what it takes in is not lophn's to say.
   const takes = useAgentTakes(agent?.coding ? undefined : agent);
   const recent = (useAgentSessions().get(place.id) ?? []).slice(0, 5);
-  const now = new Date();
   const works: ReactNode =
     agent === undefined
       ? null
@@ -172,6 +170,8 @@ export function AgentScreen({ place }: { place: PlaceOf<"agent"> }) {
               paddingBottom: 10,
             }}
           >
+            {/* A coding agent's sessions are opened on the computer; the phone only reads them for now. */}
+            {!agent.coding && (
             <Button
               variant="primary"
               size="lg"
@@ -189,13 +189,14 @@ export function AgentScreen({ place }: { place: PlaceOf<"agent"> }) {
             >
               {t("conversation.button.session-new")}
             </Button>
+            )}
             <Foot>{t("mobile.ops.agent.on-computer")}</Foot>
           </View>
         )
       }
     >
-      {locked && <OfflineBanner />}
-      <View style={{ opacity: locked ? DIM : 1, marginTop: locked ? 12 : 0 }}>
+      <OfflineBanner note={t("mobile.offline.note")} />
+      <View style={{ opacity: locked ? DIM : 1 }}>
         {loaded.state === "failed" && (
           <ReadFailed
             target={t("project-workspace.label.agents-target")}
@@ -251,13 +252,7 @@ export function AgentScreen({ place }: { place: PlaceOf<"agent"> }) {
             )}
             <Label>{t("mobile.ops.agent.recent")}</Label>
             {recent.length === 0 && (
-              <Text
-                variant="note"
-                tone="muted"
-                style={{ marginHorizontal: 20 }}
-              >
-                {t("mobile.ops.agent.no-sessions")}
-              </Text>
+              <EmptyNote>{t("mobile.ops.agent.no-sessions")}</EmptyNote>
             )}
             {recent.map((one) => (
               <Row
@@ -267,7 +262,7 @@ export function AgentScreen({ place }: { place: PlaceOf<"agent"> }) {
                 sub={t("mobile.ops.agent.session-line", {
                   workspace:
                     one.workspaceName ?? t("agents.label.workspace-home"),
-                  time: formatRelativeTime(new Date(one.at), now),
+                  time: ago(one.at),
                 })}
                 onPress={() => nav.open({ name: "session", ...one.target })}
               />

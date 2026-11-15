@@ -13,14 +13,16 @@ scope.Segmenter ??= class {
   }
 };
 
-// Hermes also has no Intl.RelativeTimeFormat and no Intl.PluralRules. The desktop card model words an age with the first
-// (formatRelativeTime) and every count ("4 new declarations") with ICU plurals, which need the second. These are the English
-// of what it asks for.
+// Hermes also has no Intl.RelativeTimeFormat and no Intl.PluralRules. formatRelativeTime ("2 hours ago") builds on the
+// first and every ICU plural in the catalog ("4 new declarations", "Every # days") needs the second. These are the English
+// of what lophn asks for; no catalog sentence uses ordinals. Every stand-in for Intl lives here, loaded before anything else.
 const english = Intl as { RelativeTimeFormat?: unknown; PluralRules?: unknown };
 
 const NEAR: Record<string, Record<number, string>> = {
   second: { 0: "now" },
   day: { "-1": "yesterday", 0: "today", 1: "tomorrow" },
+  month: { "-1": "last month", 1: "next month" },
+  year: { "-1": "last year", 1: "next year" },
 };
 
 // `numeric: "auto"`, the only form formatRelativeTime asks for.

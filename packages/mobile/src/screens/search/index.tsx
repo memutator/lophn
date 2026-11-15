@@ -3,7 +3,6 @@
 import { t } from "@lophn/i18n";
 import {
   Dot,
-  type DotTone,
   Icon,
   IconButton,
   Input,
@@ -26,15 +25,8 @@ import { View } from "react-native";
 import { lophnIdOf } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
 import type { SessionStatus } from "../../data/mod.ts";
-import { type WorkflowHit, useSearch } from "../../data/search.ts";
-import { Face, LOPHN } from "../../parts/mod.ts";
-
-const SESSION_DOT: Record<SessionStatus, DotTone | undefined> = {
-  waiting: "warning",
-  working: "good",
-  failed: "critical",
-  idle: undefined,
-};
+import { type WorkflowHit, useSearch } from "../../data/mod.ts";
+import { Face, LOPHN, OfflineBanner, SESSION_DOT } from "../../parts/mod.ts";
 
 const WORKFLOW_STATE = {
   human: "workflow.label.state-human",
@@ -104,6 +96,7 @@ export function SearchScreen(_: { place: PlaceOf<"search"> }) {
       }
       scroll
     >
+      <OfflineBanner note={t("mobile.offline.note")} />
       {found.sessions.length > 0 && (
         <>
           <Label>{t("mobile.frame.label.sessions")}</Label>

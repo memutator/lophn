@@ -1,6 +1,10 @@
 // Words only the mobile app shows: the mobile app frame: start and pairing, sidebar, computers, settings. A sentence the desktop already has is not repeated here;
 // the mobile screen uses the desktop key. Keys start with `mobile.`.
 export const mobileApp = {
+  "mobile.age.days": "{count}d",
+  "mobile.age.hours": "{count}h",
+  "mobile.age.minutes": "{count}m",
+  "mobile.age.now": "now",
   "mobile.computer.button.pair-another": "Pair another computer",
   "mobile.computer.button.remove": "Remove this computer",
   "mobile.computer.heading.computers": "Computers",
@@ -24,6 +28,12 @@ export const mobileApp = {
   "mobile.computer.status.revoked": "Removed by the computer",
   "mobile.frame.label.brand": "lophn",
   "mobile.frame.label.sessions": "Sessions",
+  "mobile.offline.note":
+    "This is what was last read. Changes wait until it is back.",
+  "mobile.offline.note-connecting":
+    "The connection is opening. Sessions and apps show up as soon as it is ready.",
+  "mobile.offline.title": "{name} is offline",
+  "mobile.offline.title-connecting": "Connecting to {name}…",
   "mobile.settings.button.gallery": "UI kit gallery",
   "mobile.settings.heading.about": "About",
   "mobile.settings.heading.phone": "This phone",

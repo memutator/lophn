@@ -38,9 +38,23 @@ import type { RoutedHook } from "./agent/ingress.ts";
 
 // browser bridge와 같다. 탭을 가진 창이 이 안에 ack하지 않으면 handle을 닫는다.
 const ACK_TIMEOUT_MS = 1500;
-// 한 handle의 update를 모아 창에 한 번에 보내는 간격. resume 재생처럼 한꺼번에 오는 update가 한 번에 그려지고, 글 delta도
+// 한 handle의 update를 모아 창(과 core)에 한 번에 보내는 간격. resume 재생처럼 한꺼번에 오는 update가 한 번에 그려지고, 글 delta도
 // 프레임 하나에 하나로 줄어든다.
 const UPDATE_BATCH_MS = 20;
+
+/**
+ * handle이 없는 터미널의 TUI를 GUI로 넘길 때의 handoff. harness-gui adapter 표(`HARNESS_GUI_ADAPTERS`)와 같아야 한다.
+ * shell main은 꺼질 수 있는 extension의 code를 import하지 않으므로 값만 둔다. handle이 있으면 `handle.handoff`가 진실이다.
+ */
+export const GUI_HANDOFF: Readonly<Record<GuiHarness, HarnessGuiHandoff>> = {
+  claude: "restart",
+  omp: "restart",
+  codex: "shared",
+  opencode: "shared",
+};
+
+/** toggle을 누가 시작했나. phone은 core가 연결로 넘긴 `coding_switch`다. 창의 ack를 기다리지 않는다. */
+export type ToggleSource = "desktop" | "phone";
 
 export type TabHandlers = Parameters<ExtensionAcp["onTab"]>[0];
 
@@ -123,6 +137,8 @@ type Tab = {
   attached: Map<number, () => void>;
   /** 마지막으로 창에 알린 view. 저장본에서 다시 만들어진 탭이 `current`로 되찾는다. */
   view: "gui" | "tui";
+  /** adapter가 실패한 turn으로 보인 마지막 오류. 폰이 연 GUI가 시작하지 못했을 때 답에 싣는다. */
+  failure: string | null;
 };
 
 /** GUI 탭의 CLI session. 상태는 ACP 상태에서 읽는다: 도는 turn은 running, 사람이 답할 것이 있으면 waiting. */
@@ -130,6 +146,7 @@ export type GuiTabSession = {
   terminal_ref: string;
   harness: string;
   view: "gui" | "tui";
+  handoff: HarnessGuiHandoff;
   title: string | null;
   cli_session: string | null;
   state: "running" | "waiting" | "idle" | "unknown";
@@ -151,17 +168,19 @@ const SESSION_CHANGING: ReadonlySet<string> = new Set([
 export type TabGui = {
   /** 탭에서 친 `<harness> gui`(hook socket). */
   request(hook: RoutedHook): Promise<void>;
-  /** extension이 탭에 묶인 handle을 열었다. 그 탭을 가진 창이 ack하면 GUI view가 된다. */
+  /** extension이 탭에 묶인 handle을 열었다. 그 탭을 가진 창이 ack하면 GUI view가 된다(폰이 연 것은 바로 GUI view다). */
   opened(handle: TabHandle): void;
+  /** handle이 열릴 때마다 부른다. 이미 열린 handle도 바로 한 번씩 받는다. 닫힘은 `handle.attach`의 `closed`로 안다. */
+  onHandle(listener: (handle: TabHandle) => void): () => void;
   ack(request: string): void;
   /** 그 탭의 GUI가 도는 일. 없으면 null. */
   running(
     terminalRef: string,
   ): Promise<{ turn: boolean; tasks: number } | null>;
-  toggle(input: {
-    terminal_ref: string;
-    to: "gui" | "tui";
-  }): Promise<HarnessGuiTabToggleReply>;
+  toggle(
+    input: { terminal_ref: string; to: "gui" | "tui" },
+    source?: ToggleSource,
+  ): Promise<HarnessGuiTabToggleReply>;
   /** handle의 탭에서 도는 CLI의 지난 session. handle이 없거나 못 주면 빈 배열. */
   sessions(handle: string): Promise<HarnessGuiSessionEntry[]>;
   /** handle의 탭에서 그 메시지로 rewind하면 되돌아갈 file. 없으면 null. */
@@ -198,6 +217,9 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
   const byHandle = new Map<string, Tab>();
   // handle이 아직 없는 사이(extension이 시작하는 중)의 같은 터미널 요청을 하나로 만든다.
   const opening = new Set<string>();
+  // 폰이 GUI를 여는 중인 터미널. extension이 그 사이 연 handle은 창의 ack를 기다리지 않는다.
+  const phoneOpening = new Set<string>();
+  const handleListeners = new Set<(handle: TabHandle) => void>();
 
   const broadcast = (channel: string, payload: unknown) => {
     for (const window of deps.windows()) window.send(channel, payload);
@@ -206,6 +228,8 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
     const tab = byTerminal.get(change.terminal_ref);
     if (tab !== undefined) tab.view = change.view;
     broadcast(HARNESS_GUI_TAB_VIEW_CHANNEL, change);
+    // 앱과 폰이 보는 터미널 session 목록에 view가 실린다.
+    deps.changed?.();
   };
 
   function terminalOf(
@@ -255,6 +279,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
     harness: GuiHarness,
     cwd: string,
     resume: string | undefined,
+    source: ToggleSource,
   ): Promise<HarnessGuiTabToggleReply> {
     if (byTerminal.has(terminalRef)) {
       view({ terminal_ref: terminalRef, view: "gui" });
@@ -265,21 +290,39 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
     try {
       const handlers = await deps.handlers();
       if (handlers === undefined) {
-        deps.showExtensionSettings();
-        return { ok: false, reason: "failed", message: "harness-gui is off" };
+        // 폰에서 시작한 일로 desktop에 창이 이유 없이 뜨지 않는다.
+        if (source === "desktop") deps.showExtensionSettings();
+        return {
+          ok: false,
+          reason: "extension_off",
+          message: "harness-gui is off",
+        };
       }
       const request: AcpTabRequest = {
         terminal: terminalOf(terminalRef, harness, cwd),
         harness,
         ...(resume === undefined ? {} : { resume }),
       };
+      if (source === "phone") phoneOpening.add(terminalRef);
       await handlers.gui(request);
-      return { ok: true };
+      if (source === "desktop") return { ok: true };
+      // extension은 TUI를 먼저 끄고 adapter를 시작한다. 어느 쪽이 실패해도 handle은 실패한 turn을 보이며 남는데(desktop은 그
+      // 화면을 사람이 본다), 폰에는 볼 창이 없을 수 있다. run이 없으면 handle을 닫아 탭을 TUI(끄지 못했으면 그 TUI 그대로)로
+      // 두고 failed로 답한다.
+      if ((await handlers.running(terminalRef)) !== null) return { ok: true };
+      const tab = byTerminal.get(terminalRef);
+      tab?.handle.close();
+      return {
+        ok: false,
+        reason: "failed",
+        message: tab?.failure ?? "The coding agent did not start in chat view.",
+      };
     } catch (cause) {
       deps.log(`gui: open failed: ${String(cause)}`);
       return { ok: false, reason: "failed", message: String(cause) };
     } finally {
       opening.delete(terminalRef);
+      phoneOpening.delete(terminalRef);
     }
   }
 
@@ -299,6 +342,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
         hook.harness,
         payload.data.cwd,
         payload.data.resume,
+        "desktop",
       );
     },
 
@@ -315,16 +359,20 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
       const tab: Tab = {
         handle,
         generation: runtime.generation,
-        waiting: {
-          request,
-          // 탭을 가진 창이 없다. handle을 닫아 CLI가 남지 않게 한다.
-          cancel: deps.after(ACK_TIMEOUT_MS, () => {
-            tab.waiting = null;
-            handle.close();
-          }),
-        },
+        // 폰이 연 것은 탭을 가진 창이 없어도 GUI view로 둔다. 창이 탭을 다시 그리면 `current`(tab-current)로 되찾는다.
+        waiting: phoneOpening.has(handle.terminal)
+          ? null
+          : {
+              request,
+              // 탭을 가진 창이 없다. handle을 닫아 CLI가 남지 않게 한다.
+              cancel: deps.after(ACK_TIMEOUT_MS, () => {
+                tab.waiting = null;
+                handle.close();
+              }),
+            },
         attached: new Map(),
         view: "gui",
+        failure: null,
       };
       byTerminal.set(handle.terminal, tab);
       byHandle.set(handle.id, tab);
@@ -333,6 +381,9 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
       handle.attach({
         snapshot: () => {},
         update: (update) => {
+          if (update.type === "turn_ended" && update.error !== null) {
+            tab.failure = update.error.message;
+          }
           if (SESSION_CHANGING.has(update.type)) deps.changed?.();
         },
         closed() {
@@ -352,6 +403,13 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
         handoff: handle.handoff,
       };
       broadcast(HARNESS_GUI_TAB_OPENED_CHANNEL, open);
+      for (const listener of handleListeners) listener(handle);
+    },
+
+    onHandle(listener) {
+      handleListeners.add(listener);
+      for (const tab of byHandle.values()) listener(tab.handle);
+      return () => void handleListeners.delete(listener);
     },
 
     ack(request) {
@@ -384,7 +442,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
       );
     },
 
-    async toggle({ terminal_ref: terminalRef, to }) {
+    async toggle({ terminal_ref: terminalRef, to }, source = "desktop") {
       const tab = byTerminal.get(terminalRef);
       if (to === "gui") {
         // shared 대화는 handle이 그대로 있어 view만 바꾼다.
@@ -418,6 +476,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
           tui.harness,
           tui.cwd ?? runtime.cwd,
           tui.session,
+          source,
         );
       }
       if (tab === undefined) {
@@ -458,6 +517,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
           terminal_ref: tab.handle.terminal,
           harness: tab.handle.harness,
           view: tab.view,
+          handoff: tab.handle.handoff,
           title: state.session?.title ?? null,
           cli_session: state.session?.cli_session ?? null,
           state:
@@ -477,24 +537,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
       if (tab === undefined) return null;
       // 다시 로드된 창은 snapshot부터 다시 받는다.
       tab.attached.get(sender.id)?.();
-      // snapshot은 붙는 즉시 따로 보내고, 이어지는 update는 모아 한 message로 보낸다. 그래서 snapshot이 늘 먼저 닿는다.
-      let pending: AcpUpdate[] = [];
-      let cancelFlush: (() => void) | null = null;
-      const flush = () => {
-        cancelFlush = null;
-        const updates = pending;
-        pending = [];
-        if (sender.alive()) {
-          sender.send(HARNESS_GUI_TAB_UPDATE_CHANNEL, {
-            handle: handleId,
-            updates,
-          });
-        } else {
-          tab.attached.get(sender.id)?.();
-          tab.attached.delete(sender.id);
-        }
-      };
-      const stop = tab.handle.attach({
+      const stop = attachBatched(tab.handle, deps.after, {
         snapshot(snapshot) {
           if (!sender.alive()) return;
           sender.send(HARNESS_GUI_TAB_UPDATE_CHANNEL, {
@@ -503,18 +546,20 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
             updates: [],
           });
         },
-        update(update) {
-          pending.push(update);
-          cancelFlush ??= deps.after(UPDATE_BATCH_MS, flush);
+        updates(updates) {
+          if (sender.alive()) {
+            sender.send(HARNESS_GUI_TAB_UPDATE_CHANNEL, {
+              handle: handleId,
+              updates,
+            });
+          } else {
+            tab.attached.get(sender.id)?.();
+            tab.attached.delete(sender.id);
+          }
         },
         closed: () => {},
       });
-      tab.attached.set(sender.id, () => {
-        stop();
-        cancelFlush?.();
-        cancelFlush = null;
-        pending = [];
-      });
+      tab.attached.set(sender.id, stop);
       return { harness: tab.handle.harness, cwd: tab.handle.cwd };
     },
 
@@ -558,6 +603,49 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
     stop() {
       for (const tab of [...byHandle.values()]) tab.handle.close();
     },
+  };
+}
+
+/**
+ * handle에 붙어 snapshot은 붙는 즉시 따로 넘기고, 이어지는 update는 `UPDATE_BATCH_MS` 동안 모아 배열 하나로 넘긴다. 그래서
+ * snapshot이 늘 먼저 닿는다. 창(`connect`)과 core relay(`coding-relay.ts`)가 같이 쓴다. 닫히면 모으던 update는 버린다.
+ */
+export function attachBatched(
+  handle: TabHandle,
+  after: TabGuiDeps["after"],
+  sink: {
+    snapshot(state: AcpState): void;
+    updates(updates: AcpUpdate[]): void;
+    closed(): void;
+  },
+): () => void {
+  let pending: AcpUpdate[] = [];
+  let cancelFlush: (() => void) | null = null;
+  const drop = () => {
+    cancelFlush?.();
+    cancelFlush = null;
+    pending = [];
+  };
+  const flush = () => {
+    cancelFlush = null;
+    const updates = pending;
+    pending = [];
+    sink.updates(updates);
+  };
+  const stop = handle.attach({
+    snapshot: (state) => sink.snapshot(state),
+    update(update) {
+      pending.push(update);
+      cancelFlush ??= after(UPDATE_BATCH_MS, flush);
+    },
+    closed() {
+      drop();
+      sink.closed();
+    },
+  });
+  return () => {
+    stop();
+    drop();
   };
 }
 

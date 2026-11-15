@@ -364,8 +364,18 @@ files:
     covers:
       - harness-gui-open:opened
       - harness-gui-open:ignored
+      - harness-gui-open:ack-timeout
       - harness-gui-cli-env:spawned
-    note: "lophn-gui 요청은 그 key의 터미널에만 handle을 연다. 모르는 key, 상대 경로 cwd, id에 쓸 수 없는 글자는 무시. CLI env에서 상위 session 표지는 빼고 provider key와 hook env는 남긴다(env 규칙은 harness-gui-cli-env:spawned)"
+      - coding-session-switch:unavailable
+    note: "lophn-gui 요청은 그 key의 터미널에만 handle을 연다. 모르는 key, 상대 경로 cwd, id에 쓸 수 없는 글자는 무시. CLI env에서 상위 session 표지는 빼고 provider key와 hook env는 남긴다(env 규칙은 harness-gui-cli-env:spawned). 폰이 시작한 GUI 전환은 ack 없이 GUI로 남고(desktop은 ack가 없으면 닫힌다), TUI를 끄지 못하면 handle을 닫아 failed이며 PTY에 아무것도 치지 않는다"
+
+  - path: packages/shell/main/terminal/coding-relay_test.ts
+    covers:
+      - coding-relay-sync:folded
+      - coding-session-input:sent
+      - coding-session-input:not_found
+      - coding-session-input:invalid_input
+    note: "shell main 쪽 relay. handle은 snapshot부터 올라가고 끊긴 사이 update는 쌓지 않으며 연결이 다시 열리면 snapshot부터 다시, 닫히면 coding_closed. coding_input은 ACP 입력 schema로 읽어 그 session의 handle에만 넘긴다"
 
   - path: packages/shell/main/terminal/output_test.ts
     covers: [terminal-output:pushed, terminal-output:not-watched]

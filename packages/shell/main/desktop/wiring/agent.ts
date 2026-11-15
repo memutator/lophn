@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { basename, dirname } from "node:path";
 import { SHARED_APPS_SETTING_KEY } from "../../../../protocol/approvals/mod.ts";
+import { isGuiHarness } from "../../../../protocol/extensions/mod.ts";
 import { HARNESS_SETTING_KEY } from "../../../../protocol/lophn-agent/harness-host.ts";
 import { terminalSessionId } from "../../../../protocol/lophn-agent/session-tag.ts";
 import {
@@ -47,7 +48,7 @@ import {
   createAgentTracker,
 } from "../../terminal/agent/tracker.ts";
 import { createTitleScanner } from "../../terminal/agent/osc-title.ts";
-import type { GuiTabSession } from "../../terminal/gui.ts";
+import { GUI_HANDOFF, type GuiTabSession } from "../../terminal/gui.ts";
 import type { Supervisor } from "../../terminal/supervisor.ts";
 import { lophnCliPath } from "../paths.ts";
 import { changedIds, type ShellContext } from "./context.ts";
@@ -107,8 +108,8 @@ export function createAgentWiring(options: {
     reportToCore();
   }
 
-  // core에 지금 터미널 coding agent의 집합을 통째로 알린다(session lifecycle의 terminal session). 바뀔 때 보내고, 집합이 비어 있지 않으면
-  // 주기적으로도 다시 보낸다: core는 메모리에만 두므로 core가 다시 떴을 때 이 주기가 채워 준다. 빈 집합은 core가 잃을 것이 없어 다시 보내지 않는다.
+  // core에 지금 터미널 coding agent의 집합을 `/host-link`의 `coding_report`로 통째로 알린다(session lifecycle의 terminal session, 폰의
+  // coding session 목록). 바뀔 때 보내고, 연결이 (다시) 열릴 때마다 다시 보낸다: core는 연결이 열려 있는 동안만 표를 든다.
   let reported = "";
   // GUI 탭(harness-gui)은 coding wiring이 나중에 꽂는다. GUI가 띄운 CLI는 foreground TUI가 아니고 hook이 안 닿을 수 있어
   // tracker가 모르는 채로 목록에서 빠지므로, GUI 탭이 있는 터미널은 handle이 아는 값(title, CLI session, turn 상태)으로 채운다.
@@ -129,6 +130,7 @@ export function createAgentWiring(options: {
       ) {
         return [];
       }
+      const foreground = agent?.foreground === true;
       return [
         {
           terminal_ref: runtime.terminal_ref,
@@ -141,24 +143,28 @@ export function createAgentWiring(options: {
             (guided ? tab.title : null) ?? agent?.title ?? agent?.name ?? null,
           cwd: runtime.cwd_at_start,
           shell_pid: runtime.shell_pid ?? null,
+          view: tab?.view ?? "tui",
+          // handle이 있으면 그 adapter의 것, 없으면 foreground TUI를 GUI로 넘길 때의 것이다.
+          handoff:
+            tab?.handoff ??
+            (foreground && isGuiHarness(agent?.harness)
+              ? GUI_HANDOFF[agent.harness]
+              : null),
+          foreground,
         },
       ];
     });
     const key = JSON.stringify(sessions);
     if (key === reported) return;
-    reported = key;
-    void ctx
-      .coreInternal("memory", "terminal_sessions", "report", { sessions })
-      .then((reply) => {
-        if (!reply.ok) reported = "";
-      });
+    // 연결이 없으면 보내지 못한 것으로 둔다. 다시 열리면 onOpen이 보낸다.
+    reported = ctx.hostLink.send({ type: "coding_report", sessions })
+      ? key
+      : "";
   }
-  const reporting = setInterval(() => {
-    if (reported === "[]") return;
+  ctx.hostLink.onOpen(() => {
     reported = "";
     reportToCore();
-  }, 5000);
-  reporting.unref?.();
+  });
 
   // 터미널이 끝나면 지운다.
   const tabNames = new Map<string, string>();
@@ -409,7 +415,6 @@ export function createAgentWiring(options: {
     stop() {
       stopped = true;
       clearInterval(startup);
-      clearInterval(reporting);
       void server.then((started) => started?.stop()).catch(() => {});
     },
   };

@@ -3,9 +3,18 @@ import { test } from "node:test";
 
 import { terminalHookLineSchema } from "../../../protocol/coding-agent/terminal-hook.ts";
 import type { AcpTabRequest } from "../../../protocol/extensions/mod.ts";
-import { type AcpState, EMPTY_ACP_STATE } from "../../../protocol/acp/mod.ts";
+import {
+  type AcpState,
+  type AcpUpdate,
+  EMPTY_ACP_STATE,
+} from "../../../protocol/acp/mod.ts";
 import { createHookIngress } from "./agent/ingress.ts";
-import { cliEnv, createTabGui, type TabHandle } from "./gui.ts";
+import {
+  cliEnv,
+  createTabGui,
+  type TabHandle,
+  type ToggleSource,
+} from "./gui.ts";
 
 const KEY_A = "a".repeat(64);
 const KEY_B = "b".repeat(64);
@@ -142,6 +151,7 @@ test("GUI 탭의 session은 ACP 상태의 제목, CLI session, turn 단계로 �
       terminal_ref: "trm_a",
       harness: "claude",
       view: "gui",
+      handoff: "restart",
       title: "Fix the build",
       cli_session: "abc-1",
       state: "running",
@@ -210,3 +220,139 @@ test("CLI env에서 상위 session 표지는 빠지고 provider key와 탭의 ho
     assert.equal(marker in env, false, marker);
   }
 });
+
+// 폰이 연 GUI는 볼 창이 없을 수 있다. 창의 ack를 기다리면 1.5초 뒤 handle이 닫혀 폰의 전환이 늘 실패한다. 반대로 TUI를 끄지 못했는데
+// GUI가 시작된 것처럼 두면 한 CLI session에 process 둘이 뜰 수 있다(harness-gui 불변식 6).
+test("폰이 시작한 GUI 전환은 ack 없이 GUI로 남고, TUI를 끄지 못하면 handle을 닫아 failed로 끝나며 TUI는 그대로다", async () => {
+  const timers: (() => void)[] = [];
+  const typed: string[] = [];
+  let tuiAlive = true;
+  let exitFails = false;
+  let started = false;
+  const handles: { handle: TabHandle; closed: () => boolean }[] = [];
+  const gui = createTabGui({
+    handlers: () =>
+      Promise.resolve({
+        // extension의 길: handle을 열고, foreground TUI를 끈 뒤에야 adapter를 시작한다. 실패는 handle의 실패한 turn이다.
+        gui(request) {
+          const opened = liveHandle(request.terminal.id, handles.length);
+          handles.push(opened);
+          gui.opened(opened.handle);
+          if (exitFails) {
+            opened.publish({
+              type: "turn_ended",
+              turn: `trn_01${"c".repeat(24)}`,
+              at: "2026-11-15T00:00:00.000Z",
+              outcome: "failed",
+              active_ms: null,
+              error: { code: "unavailable", message: "did not exit" },
+              messages: [],
+              seq: 1,
+            });
+            return;
+          }
+          tuiAlive = false;
+          started = true;
+        },
+        tui: () => {},
+        running: () => (started ? { turn: false, tasks: 0 } : null),
+        sessions: () => Promise.resolve([]),
+        rewindPreview: () => Promise.resolve(null),
+      }),
+    showExtensionSettings: () => {},
+    windows: () => [],
+    ids: { request: () => "req_1" },
+    after: (_ms, run) => {
+      timers.push(run);
+      return () => {};
+    },
+    terminals: {
+      runtime: () => ({ cwd: "/work", generation: 1 }),
+      hookEnv: () => ({}),
+      tui: () =>
+        tuiAlive
+          ? {
+              harness: "claude",
+              state: "running",
+              session: "abc-1",
+              cwd: "/work",
+            }
+          : null,
+      type: (_ref, text) => {
+        typed.push(text);
+        return Promise.resolve();
+      },
+      signal: () => Promise.resolve(),
+      onForegroundExit: () => () => {},
+    },
+    writeImage: () => Promise.resolve("/tmp/x"),
+    readImage: () => Promise.resolve(null),
+    log: () => {},
+  });
+  const fireTimers = () => {
+    for (const run of timers.splice(0)) run();
+  };
+  const toggle = (source: ToggleSource) =>
+    gui.toggle({ terminal_ref: "trm_a", to: "gui" }, source);
+
+  // desktop은 그대로다: 탭을 가진 창이 ack하지 않으면 handle을 닫는다.
+  assert.deepEqual(await toggle("desktop"), { ok: true });
+  fireTimers();
+  assert.equal(handles[0]?.closed(), true);
+
+  tuiAlive = true;
+  started = false;
+  assert.deepEqual(await toggle("phone"), { ok: true });
+  fireTimers();
+  assert.equal(handles[1]?.closed(), false);
+  assert.equal(gui.current("trm_a")?.view, "gui");
+  handles[1]?.handle.close();
+
+  tuiAlive = true;
+  started = false;
+  exitFails = true;
+  assert.deepEqual(await toggle("phone"), {
+    ok: false,
+    reason: "failed",
+    message: "did not exit",
+  });
+  assert.equal(handles[2]?.closed(), true);
+  assert.equal(gui.current("trm_a"), null);
+  assert.equal(tuiAlive, true);
+  assert.deepEqual(typed, []);
+});
+
+function liveHandle(terminal: string, n: number) {
+  let closed = false;
+  const listeners = new Set<Parameters<TabHandle["attach"]>[0]>();
+  const handle: TabHandle = {
+    id: `win_${n}`,
+    terminal,
+    harness: "claude",
+    handoff: "restart",
+    cwd: "/work",
+    state: () => EMPTY_ACP_STATE,
+    attach(listener) {
+      if (closed) {
+        listener.closed();
+        return () => {};
+      }
+      listener.snapshot(EMPTY_ACP_STATE);
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
+    input: () => {},
+    close() {
+      if (closed) return;
+      closed = true;
+      for (const listener of [...listeners]) listener.closed();
+    },
+  };
+  return {
+    handle,
+    closed: () => closed,
+    publish(update: AcpUpdate) {
+      for (const listener of listeners) listener.update(update);
+    },
+  };
+}

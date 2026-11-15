@@ -92,8 +92,12 @@ export type HarnessGuiTabToggleReply =
   | { readonly ok: true }
   | {
       readonly ok: false;
-      /** `no_session`은 TUI의 session id를 아직 모른다(hook이 안 왔다). */
-      readonly reason: "no_session" | "not_running" | "failed";
+      /** `no_session`은 TUI의 session id를 아직 모른다(hook이 안 왔다). `extension_off`는 harness-gui가 꺼져 있다. */
+      readonly reason:
+        | "no_session"
+        | "not_running"
+        | "extension_off"
+        | "failed";
       readonly message: string;
     };
 

@@ -52,3 +52,10 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: 그림 목록, wireframe과 다르게 한 곳과 이유, 실제 core로 확인한 것과 못 한 것, `nav.ts`에 더한 갈 곳, 입구 줄을 고친 file 목록.
+
+## lead가 더함 (단계 10 spike `reports/mobile-program/drive-spike.md`가 release build에서 본 것, 2026-11-15)
+
+- release build(R8)는 sandbox library의 class를 지워 guest가 mount될 때 앱 전체가 죽는다. keep 규칙 `-keep class io.callstack.rnsandbox.** { *; }`를 build에 넣는다(spike의 `mobile/guest/proguard-sandbox.pro`. prebuild가 다시 써도 남는 자리에 둔다).
+- guest 위에 화면 전체를 덮는 형제 view를 두지 않는다. library의 `SandboxWindowCallback`이 그것을 guest를 가리는 overlay로 보아 손가락 입력을 host로 돌려 guest가 받지 못한다. 개발 build(dev client)에서는 dev menu의 전체 화면 view 때문에 손가락 입력이 guest에 닿지 않으니, 손가락 입력 확인은 release build에서 한다.
+- 같은 view id(origin)로 guest를 다시 mount하면 옛 runtime과 옛 bundle이 그대로 쓰인다. 새 bundle을 띄울 때는 runtime을 버리고 새로 만든다(또는 mount마다 다른 origin).
+- guest가 읽을 bundle file이 없으면 앱 전체가 죽는다. mount 전에 file이 있는지 host가 확인하고 없으면 오류 상태를 보인다.

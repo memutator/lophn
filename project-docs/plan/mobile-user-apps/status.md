@@ -7,8 +7,8 @@ lead만 고친다. `tools/status.py mobile-user-apps build`가 `tasks/*.md`에�
 | `mobile-phone-target` | app-place | 1 | 없음 | merged | app-place/mobile-phone-target | 7c678c889 |  |
 | `mobile-place-decl` | app-place | 1 | 없음 | merged | app-place/mobile-place-decl | cf5bbecfa |  |
 | `mobile-views-core` | app-views | 1 | 없음 | merged | app-views/mobile-views-core | a463b4036 |  |
-| `mobile-shell-views` | app-views | 2 | mobile-views-core, mobile-place-decl | todo |  |  |  |
-| `mobile-phone-contract` | phone-screen | 2 | mobile-phone-target | todo |  |  |  |
+| `mobile-shell-views` | app-views | 2 | mobile-views-core, mobile-place-decl | running | app-views/mobile-shell-views |  |  |
+| `mobile-phone-contract` | phone-screen | 2 | mobile-phone-target | running | phone-screen/mobile-phone-contract |  |  |
 | `mobile-build-phone` | phone-screen | 3 | mobile-phone-contract, mobile-place-decl | todo |  |  |  |
 | `mobile-phone-changed-notice` | phone-screen | 4 | mobile-phone-target, mobile-place-decl | todo |  |  |  |
 | `mobile-phone-reads` | phone-screen | 4 | mobile-phone-contract, mobile-build-phone | todo |  |  |  |

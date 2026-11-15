@@ -1,0 +1,392 @@
+/* Widgets and the home screen of the phone drafts. 1 px here is 1 dp: a launcher cell is 73 dp, a widget is
+   73n - 16 dp wide and 130 dp tall (2 cells). The widget draws only what the app's data says, on its own surface. */
+
+/* ── launcher (Android draws all of this) ──────────── */
+
+.launcher {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 49px;
+}
+
+.date {
+  flex: none;
+  padding: 14px 0 12px;
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-text-secondary);
+}
+
+.cell {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+/* A cell of the grid: the widget sits inset by 8 dp. */
+.slotWide {
+  width: 292px;
+  height: 146px;
+}
+
+.slotSmall {
+  width: 146px;
+  height: 146px;
+}
+
+.slots {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  width: 292px;
+}
+
+.icons {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(4, 73px);
+}
+
+.icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 0 8px;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.icon[data-dim] {
+  opacity: 0.4;
+}
+
+.dock {
+  display: grid;
+  flex: none;
+  grid-template-columns: repeat(4, 73px);
+  margin: 0 -49px;
+  padding: 8px 49px 6px;
+}
+
+.tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: var(--color-surface-base);
+}
+
+/* A toast the launcher draws, not lophn. */
+.osToast {
+  position: absolute;
+  right: 28px;
+  bottom: 120px;
+  left: 28px;
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: var(--color-text-primary);
+  color: var(--color-surface-base);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+}
+
+/* ── widget ────────────────────────────────────────── */
+
+.widget {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 4px;
+  width: 130px;
+  height: 130px;
+  overflow: hidden;
+  padding: 10px 12px;
+  border-radius: 22px;
+  background: var(--color-surface-base);
+  box-shadow: 0 0 0 1px var(--color-border-base);
+}
+
+.widget[data-size="wide"] {
+  width: 276px;
+}
+
+.head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 18px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.headText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.refresh {
+  display: inline-flex;
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+/* The rows are stacked from the top. What does not fit is cut at the footer, with no ellipsis. */
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.widget[data-dim] .body {
+  opacity: 0.4;
+}
+
+.foot {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.title {
+  flex: none;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.text {
+  flex: none;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.caption {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.stat {
+  display: flex;
+  flex: none;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.statValue {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 26px;
+  letter-spacing: -0.02em;
+}
+
+.statLabel {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.progress {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+}
+
+.fill {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-ink-background);
+}
+
+.list {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.item {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.itemText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.trail {
+  flex: none;
+  color: var(--color-text-secondary);
+}
+
+/* A tone colours the text of its node. neutral is the default text colour. */
+.tone[data-tone="good"],
+.tone[data-tone="good"] .trail {
+  color: var(--status-good-text);
+}
+
+.tone[data-tone="warn"],
+.tone[data-tone="warn"] .trail {
+  color: var(--status-warning-text);
+}
+
+.tone[data-tone="bad"],
+.tone[data-tone="bad"] .trail {
+  color: var(--status-critical-text);
+}
+
+.fill[data-tone="good"] {
+  background: var(--status-good-marker);
+}
+
+.fill[data-tone="warn"] {
+  background: var(--status-warning-marker);
+}
+
+.fill[data-tone="bad"] {
+  background: var(--status-critical-marker);
+}
+
+/* The widget has no value to draw: one centred line. */
+.empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* ── Choose a widget ───────────────────────────────── */
+
+.pick {
+  flex: none;
+  margin: 4px 20px 10px 64px;
+}
+
+.pickWide {
+  margin-left: 20px;
+}
+
+.pickLabel {
+  padding: 0 2px 4px;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+/* The widget's value now: the first rows, drawn the way the widget draws them. */
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-base);
+  border-radius: 14px;
+  background: var(--color-surface-base);
+}
+
+.appHead {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px 4px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+/* ── what Android draws ────────────────────────────── */
+
+.os {
+  border: 1px dashed var(--color-border-strong);
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+}
+
+.osDialog {
+  position: absolute;
+  right: 28px;
+  left: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 20px 18px;
+  border-radius: 28px;
+}
+
+.osTitle {
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 24px;
+}
+
+.osOption {
+  padding: 11px 16px;
+  border: 1px solid var(--color-border-base);
+  border-radius: 999px;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+}
+
+.osActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.osAction {
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.osAction[data-on] {
+  background: var(--color-ink-background);
+  color: var(--color-ink-text);
+}
+
+.osRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}

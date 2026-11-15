@@ -10,6 +10,7 @@ import { OpsFlow, SettingsFlow, WideFlow } from "./more.tsx";
 import { SessionFlow } from "./session.tsx";
 import { ShellFlow } from "./shell.tsx";
 import { StartFlow } from "./start.tsx";
+import { WidgetsFlow } from "./widgets.tsx";
 import { WorkspaceFlow } from "./workspace.tsx";
 
 interface FlowPage {
@@ -101,6 +102,14 @@ const FLOWS: readonly FlowPage[] = [
       "컴퓨터의 coding agent를 폰에서 다룬다. project의 coding session 묶음, 앱 깨우기, 승인, 터미널 session을 채팅으로 바꾸기, 새 coding session과 이어 가기, 터미널 화면.",
     height: rows(12),
     render: () => <CodingFlow />,
+  },
+  {
+    id: "phone-widgets",
+    title: "Phone · 11 Widgets and home screen",
+    description:
+      "내 앱이 폰의 Home 화면에 놓이는 길. 위젯(작은 것, 넓은 것, 상태), Choose a widget, 앱 menu의 Add widget과 Add to Home screen, 아이콘, 폰 위치 동의.",
+    height: rows(14),
+    render: () => <WidgetsFlow />,
   },
 ];
 

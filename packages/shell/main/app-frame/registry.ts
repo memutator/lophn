@@ -1,9 +1,10 @@
-// 앱 view registry. `appFrame.open/close/reopen`의 main service다. view가 보는 앱 process는
-// main이 core 읽기로 알아 view에 묶는다. 페이지는 자기가 어느 앱인지 모른다.
+// 앱 view registry. `appFrame.open/close/reopen`의 main service다. view id는 main이 정해 core의 view 표
+// (`app_views/open`)에 열고, 그 view가 보는 앱 process는 core가 정한다. 페이지는 자기가 어느 앱인지 모른다.
 // 화면은 shell renderer의 `<webview>` guest다: 이 모듈은 view마다 지금 `src`와 붙은 guest 하나를
 // 쥐고, 붙이기 판정(acceptGuest)과 신원 묶기(bindGuest)만 한다. 위치·보임은 renderer CSS다.
 // view가 있다는 것만으로 권한이 생기지 않는다: view는 자기 대상의 화면 byte만 받는다.
-// operation은 `app:call-operation`(app-call.ts)이 이 view의 신원으로만 부른다.
+// operation은 `app:call-operation`(app-call.ts)이 이 view의 id로만 부른다.
+import { APP_EVENT_CHANNEL } from "../../ipc/app-events.ts";
 import {
   appEntryUrl,
   type ProtocolView,
@@ -12,12 +13,12 @@ import {
 } from "./app-protocol.ts";
 import {
   type AppConnector,
-  type ConnectTarget,
+  type CoreCaller,
   failure,
   type Outcome,
 } from "./app-connection.ts";
 import type { ViewDiagnostics, ViewEvent } from "./diagnostics.ts";
-import { bindTarget } from "./binding.ts";
+import { bindView, type OpenRequest } from "./binding.ts";
 import { nextHealth, reopenable, type ViewHealth } from "./crash.ts";
 import { navigationAllowed } from "./network-policy.ts";
 import type { AnnotateViewPort } from "../../ipc/annotation.ts";
@@ -39,7 +40,6 @@ import {
   type GuestContents,
   sameConnection,
   stateOf as state,
-  targetOf,
   type ViewListing,
 } from "./view-model.ts";
 
@@ -55,19 +55,27 @@ export type {
 } from "./view-model.ts";
 export { checkOpen } from "./view-model.ts";
 
+/**
+ * core의 `AppViewEvent` payload 중 registry가 쓰는 것. main tsc가 protocol을 읽지 못해 구조로 받는다. core가 owner로
+ * 걸러 이 shell이 연 view의 것만 온다.
+ */
+export type AppViewSignal =
+  | {
+      view: string;
+      kind: "event";
+      source: string;
+      event: string;
+      payload: unknown;
+    }
+  | { view: string; kind: "rebound" | "lost" };
+
 interface AppFrameDeps {
-  connector: Pick<AppConnector, "connect" | "hosts" | "screenParams">;
+  /** core 통로. view 표(`app_views/open|close`)를 부른다. */
+  call: CoreCaller;
+  connector: Pick<AppConnector, "hosts">;
   views: AppViewHost;
   sessionHandle(partition: string): AppSessionHandle;
   upstream: Upstream;
-  /**
-   * 화면 선언의 params schema(없으면 null)로 인자를 검사하고 정규화한 값을 낸다(protocol의
-   * `validateInput`). main tsc가 그 파일을 읽지 못해 wiring이 넘긴다.
-   */
-  validateParams(
-    schema: unknown,
-    params: unknown,
-  ): { ok: true; value: unknown } | { ok: false };
   /** loopback에서 막을 플랫폼 port. */
   platformPorts(): readonly number[];
   diagnostics: ViewDiagnostics;
@@ -79,6 +87,8 @@ interface AppFrameDeps {
 
 interface Entry extends Bound {
   view_session: string;
+  /** core `app_views/open`에 처음 보낸 요청 그대로. 다시 묶기(resume)는 같은 요청이어야 한다. */
+  request: OpenRequest;
   /** 화면 세대. mount마다 오르고 진단 기록·sender 신원에 쓴다. */
   generation: number;
   token: string;
@@ -176,15 +186,9 @@ export function createAppFrame(deps: AppFrameDeps) {
         };
       },
       upstream: deps.upstream,
-      stale(view_session) {
-        const entry = entries.get(view_session);
-        if (entry !== undefined) void refreshEntry(entry);
-      },
+      stale: resume,
     },
   });
-
-  const bind = (target: ConnectTarget, followRelease: boolean) =>
-    bindTarget(deps.connector, target, followRelease);
 
   function pushState(entry: Entry): void {
     deps.onState?.(entry.window, state(entry));
@@ -263,9 +267,9 @@ export function createAppFrame(deps: AppFrameDeps) {
     if (entry.refreshing !== undefined) return entry.refreshing;
     const generation = entry.generation;
     entry.refreshing = (async () => {
-      // 세션 카드는 만든 때의 release에 고정된다. 다른 release로 바꿔 열지 않고 묶음을 잃는다.
-      // 다른 자리는 지금 채택된 release를 따른다.
-      const next = await bind(entry.target, entry.target.place !== "card");
+      // 같은 요청으로 core에 다시 묶는다. 세션 카드는 만든 때의 release에 고정되고(다른 release면 묶음을 잃는다),
+      // 다른 자리는 지금 채택된 release를 따른다. 이 규칙은 core의 view 표가 쥔다.
+      const next = await bindView(deps.call, deps.connector, entry.request);
       // 그 사이 닫히거나 교체됐으면 늦은 결과를 붙이지 않는다.
       if (
         entries.get(entry.view_session) !== entry ||
@@ -290,6 +294,18 @@ export function createAppFrame(deps: AppFrameDeps) {
     return entry.refreshing;
   }
 
+  function resume(view_session: string): void {
+    const entry = entries.get(view_session);
+    if (entry !== undefined) void refreshEntry(entry);
+  }
+
+  // core 표의 view를 닫는다. 기다리지 않고 실패도 무시한다(core가 다시 뜨면 표는 어차피 비어 있다).
+  function closeCore(view: string): void {
+    void deps
+      .call("memory", "app_views", "close", { view })
+      .catch(() => undefined);
+  }
+
   /** view를 폐기한다. 없는 view는 아무것도 하지 않는다. persist partition의 앱 저장은 남는다. */
   function close(view_session: string): void {
     const entry = entries.get(view_session);
@@ -297,6 +313,7 @@ export function createAppFrame(deps: AppFrameDeps) {
     entries.delete(view_session);
     unmount(entry);
     record(entry, "disposed");
+    closeCore(view_session);
   }
 
   // 만든 때의 guest·generation을 고정한다. 그 사이 교체·폐기되면 `current()`가 false다.
@@ -334,12 +351,13 @@ export function createAppFrame(deps: AppFrameDeps) {
   }
 
   return {
-    /** 연결을 얻어 view에 묶는다. 화면 src는 renderer가 붙인다. */
+    /** core에 view를 열어 묶는다. 화면 src는 renderer가 붙인다. */
     async open(
       window: string,
       value: unknown,
       card?: CardDisplay,
     ): Promise<Outcome<AppFrameViewState>> {
+      // IPC 입력은 renderer가 보낸 것이라 모양을 한 번 본다. 선언과 params 검사는 core가 한다.
       const input = checkOpen(value);
       if (
         input === undefined ||
@@ -350,34 +368,30 @@ export function createAppFrame(deps: AppFrameDeps) {
       if (!deps.views.hasWindow(window)) {
         return failure("invalid_input", "window is not open");
       }
-      const bound = await bind(targetOf(input), false);
-      if (!bound.ok) return bound;
-      // 인자는 그 화면 선언의 params schema로만 받는다. 선언이 없으면 인자도 받지 않는다.
-      if (input.params !== undefined) {
-        const release = bound.value.target.release;
-        if (release === null) {
-          return failure("unavailable", "the screen declaration is unknown");
-        }
-        const declared = await deps.connector.screenParams(
-          input.app,
-          release,
-          input.screen,
-        );
-        if (!declared.ok) return declared;
-        const checked = deps.validateParams(declared.value, input.params);
-        if (!checked.ok) {
-          return failure("invalid_input", "params do not match the screen");
-        }
-        bound.value.target.params = (checked.value ?? {}) as NonNullable<
-          typeof input.params
-        >;
-      }
-      if (!deps.views.hasWindow(window)) {
-        return failure("invalid_input", "window is not open");
+      const request: OpenRequest = {
+        view: deps.ids.viewSession(),
+        mode: input.mode,
+        app: input.app,
+        release: input.release,
+        screen: input.screen,
+        place: input.place,
+        ...(input.params === undefined ? {} : { params: input.params }),
+        ...(input.workspace === undefined
+          ? {}
+          : { workspace: input.workspace }),
+      };
+      const bound = await bindView(deps.call, deps.connector, request);
+      // core에 열렸지만 쓰지 못하는 view(host를 못 읽음, 그 사이 창이 닫힘)는 core 표에서도 닫는다.
+      if (!bound.ok || !deps.views.hasWindow(window)) {
+        closeCore(request.view);
+        return bound.ok
+          ? failure("invalid_input", "window is not open")
+          : bound;
       }
       const entry: Entry = {
         ...bound.value,
-        view_session: deps.ids.viewSession(),
+        request,
+        view_session: request.view,
         token: "",
         window,
         src: "",
@@ -481,23 +495,6 @@ export function createAppFrame(deps: AppFrameDeps) {
       return boundViewOf(entry);
     },
 
-    /** page가 붙어 있는 live view(release에 묶인 것). 앱 event를 받을 수 있는 view다. */
-    liveViews(): { view_session: string; app: string; release: string }[] {
-      return [...entries.values()].flatMap((entry) =>
-        entry.contents !== undefined &&
-        entry.target.mode === "live" &&
-        entry.target.release !== null
-          ? [
-              {
-                view_session: entry.view_session,
-                app: entry.target.app,
-                release: entry.target.release,
-              },
-            ]
-          : [],
-      );
-    },
-
     /** annotate가 쓰는 view 입구. 없는 view는 undefined다. */
     annotateView(view_session: string): AnnotateViewPort | undefined {
       const entry = entries.get(view_session);
@@ -519,7 +516,7 @@ export function createAppFrame(deps: AppFrameDeps) {
 
     /**
      * 연결과 grant를 다시 읽는다. release·프로세스·bundle·host가 바뀐 view는 다시 연다.
-     * app을 주지 않으면 모든 view다(앱을 싣지 않는 event).
+     * app을 주지 않으면 모든 view다(core에 다시 붙었을 때).
      */
     async refresh(app?: string): Promise<void> {
       await Promise.all(
@@ -527,6 +524,27 @@ export function createAppFrame(deps: AppFrameDeps) {
           .filter((entry) => app === undefined || entry.target.app === app)
           .map(refreshEntry),
       );
+    },
+
+    /** core에 그 view를 다시 묶는다(core가 그 view를 모를 때). 없는 view는 아무것도 하지 않는다. */
+    resume,
+
+    /**
+     * core의 `AppViewEvent` 하나. 앱 event는 그 view의 page로 보내고(page가 아직 안 붙었으면 버린다), 다시 묶였거나
+     * 묶음을 잃었으면 같은 요청으로 다시 묶어 본다. 모르는 view의 것은 버린다.
+     */
+    viewEvent(payload: AppViewSignal): void {
+      const entry = entries.get(payload.view);
+      if (entry === undefined) return;
+      if (payload.kind === "event") {
+        entry.contents?.send(APP_EVENT_CHANNEL, {
+          source: payload.source,
+          event: payload.event,
+          payload: payload.payload,
+        });
+        return;
+      }
+      void refreshEntry(entry);
     },
 
     /** 그 창에 열린 view의 참조. 앱 화면 내용·DOM·캡처는 싣지 않는다. */

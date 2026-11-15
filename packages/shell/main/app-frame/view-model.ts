@@ -134,7 +134,7 @@ function plainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-// 모양만 본다. params 값은 선언의 params schema가 registry에서 다시 검사한다.
+// 모양만 본다. params 값은 core가 화면 선언의 params schema로 검사한다.
 function checkWorkspace(value: unknown): value is PlaceWorkspace {
   if (!plainObject(value)) return false;
   return (
@@ -238,17 +238,5 @@ export function boundViewOf(entry: ViewEntry): BoundView {
     generation: entry.generation,
     target: { ...entry.target },
     binding: entry.binding,
-  };
-}
-
-export function targetOf(input: AppFrameOpen): ConnectTarget {
-  return {
-    app: input.app,
-    mode: input.mode,
-    release: input.release,
-    screen: input.screen,
-    place: input.place,
-    ...(input.params === undefined ? {} : { params: input.params }),
-    ...(input.workspace === undefined ? {} : { workspace: input.workspace }),
   };
 }

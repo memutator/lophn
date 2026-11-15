@@ -44,7 +44,7 @@ agent event
 - session 밖에서 화면만 알면 되는 일이다. 메모리뿐이다. session이 없어 `subject`가 앱·release거나 null이다. `AcpUpdated`만 envelope에 `session`이 있어 session 조건에 걸린다.
 - 종류: `AppViewChanged`(activation·grant·rewind 뒤 열린 앱 view를 다시 그리라는 신호), `AppRemoved`, `StateChanged`, `AppRestartHalted`, `ActivationConsentRequested`·`ActivationConsentClosed`, `ShareRequestOpened`·`ShareRequestClosed`, `NoticePosted`·`NoticeClosed`·`NoticeRead`, `AppEventPublished`, `AppViewEvent`, `AcpUpdated`.
 - `StateChanged`는 "이 대상이 바뀌었으니 다시 읽어라"뿐이다. payload는 `{changes: [{name, id}]}`이고 내용을 싣지 않는다. `name`은 화면이 읽는 단위의 닫힌 목록(`CHANGE_NAMES`: agents, projects, apps, app_runtime, app_grants, app_activity, releases, sessions, jobs, workflow_instances, settings, tray, secrets, providers, models 등)이고 `id`는 그 단위 안의 대상(앱, job, session, 설정 key, secret 이름)이거나 null(단위 전체)이다.
-- `AppEventPublished`는 앱(또는 core)이 event를 낸 뒤 열린 앱 화면이 받게 하는 신호다(subject는 발행 앱, core면 null. payload는 `{source, event, payload}`). 저장하지 않는다.
+- `AppEventPublished`는 앱(또는 core)이 event를 낸 뒤 열린 앱 화면이 받게 하는 신호다(subject는 발행 앱, core면 null. payload는 `{source, event, payload}`). core의 view 표만 듣고 `AppViewEvent`로 바꿔 view를 연 host에 보낸다. 저장하지 않는다.
 - `AppViewEvent`는 core의 view 표(`architecture/app-call.md`의 "앱 화면")가 view 하나에 내는 신호다. subject는 그 view의 앱이고 payload는 `{owner, view}`와 `kind`로 가르는 셋 중 하나다: `event`(묶인 release가 구독을 선언한 앱 event, `{source, event, payload}`), `rebound`(`AppViewChanged` 뒤 다시 묶음, `{release, bundle_hash, process_nonce}`. binding이 그대로여도 낸다), `lost`(다시 묶지 못함, `reason`: `app_stopped`, `app_archived`, `conflict`, `evicted`). 저장하지 않는다.
 - 쓸 수 있는 type은 이 두 집합(agent event, 남지 않는 event)뿐이고 이름은 서로 겹치지 않는다. Bus에는 둘만 오른다.
 
@@ -62,8 +62,7 @@ session snapshot
    · 구독을 선언한(source = 발행 앱의 slug) active 앱 가운데 지금 그 release로 떠서 받는 앱을 모은다
    · 발행 기록 한 줄(누가, 어느 event, 언제, trace id, 켜져 있던 구독자 수 reachable, 닿지 못한 수 unreachable, 고리·깊이로 넘기지 않은 수 refused. payload 없음)
    ├▶ 구독 앱마다: 앱 호출 경로의 호출 하나(caller event). 구독 handler를 부르고 기다리지 않는다
-   └▶ Bus: AppEventPublished ─┬ Gateway ─ shell main ─▶ 구독을 선언한 열린 앱 화면(useEvent)
-                              └ core view 표 ─ AppViewEvent(event) ─ Gateway(owner) ─▶ 그 view의 host
+   └▶ Bus: AppEventPublished ─ core view 표 ─ AppViewEvent(event, owner 거르기) ─ Gateway(owner) ─ shell main ─▶ 그 view의 화면(useEvent)
 ```
 
 - 앱은 선언에 낼 event(이름, 설명, payload schema)와 들을 event(source, 이름)를 적는다. source는 발행 앱의 slug이거나 core가 내는 event의 `lophn`이다. 구독에 사람 허락은 없다. event는 발행 앱이 내놓겠다고 선언한 것이다.

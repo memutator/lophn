@@ -6,8 +6,6 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { appLogViewError } from "../../../../protocol/apps/mod.ts";
-import { validateInput } from "../../../../protocol/apps/declaration/schema.ts";
-import type { InputSchema } from "../../../../protocol/apps/declaration/types.ts";
 import {
   VIEW_STATE_CHANNEL,
   type AppViewOpen,
@@ -81,17 +79,16 @@ export function register(
     windowOfRef,
   } = ctx;
 
-  // 앱 view registry. 연결은 core 앱 통로로 main이 얻고, 화면은 renderer의 `<webview>`다.
+  // 앱 view registry. view의 binding은 core의 view 표가 쥐고, 화면은 renderer의 `<webview>`다.
   const appViews = electronAppViews({
     windowOf: (ref) => windowOfRef(ref),
     packaged: app.isPackaged,
     headless,
   });
   const appFrame = createAppFrame({
+    call: coreInternal,
     connector: ctx.appConnector,
     views: appViews.views,
-    validateParams: (schema, params) =>
-      validateInput(schema as InputSchema | null, params),
     sessionHandle: appViews.sessionHandle,
     // 화면 byte는 core의 file route `app.screen_file`이 내준다.
     upstream: createCoreUpstream((input, signal) => {
@@ -296,12 +293,14 @@ export function register(
     }),
   );
 
-  // activation·grant·rewind가 끝나 앱 view가 바뀌었다는 event가 오면 그 앱의 옛 view와 연결을 버리고
-  // 다시 연다. 이 event는 남지 않는다.
-  ctx.relay.conditions.push({ types: ["AppViewChanged"] });
+  // core의 view 표가 이 shell이 연 view마다 내는 event. 앱 event는 그 화면으로 가고, 다시 묶였거나(activation·grant·
+  // rewind) 묶음을 잃은 view는 다시 묶는다. 이 event는 남지 않는다.
+  ctx.relay.conditions.push({ types: ["AppViewEvent"] });
   ctx.relay.events.push((event) => {
-    if (event.type === "AppViewChanged") void appFrame.refresh(event.subject);
+    if (event.type === "AppViewEvent") appFrame.viewEvent(event.payload);
   });
+  // core에 다시 붙었다. core가 다시 떴으면 view 표가 비어 있으니 열린 view를 같은 요청으로 다시 연다.
+  ctx.relay.ready.push(() => void appFrame.refresh());
   // 앱이 영구히 지워지면 그 앱의 browser 저장소(cookie, localStorage, IndexedDB, cache)도 비운다. 보관한 앱이라 열린 view는 이미 없다.
   ctx.relay.conditions.push({ types: ["AppRemoved"] });
   ctx.relay.events.push((event) => {

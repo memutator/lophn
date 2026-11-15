@@ -663,10 +663,12 @@ flows:
     actor: system
     entries: [system:app-view-refresh]
     boundary: [shell, apps]
-    code: [packages/shell/main/app-frame/registry.ts, packages/shell/main/desktop/wiring/app-views.ts, packages/core/main/daemon/wiring/apps.ts]
+    uses: [route:app_views/open, system:view-table-events]
+    code: [packages/shell/main/app-frame/registry.ts, packages/shell/main/app-frame/binding.ts, packages/shell/main/desktop/wiring/app-views.ts, packages/core/apps/views/table.ts]
     steps:
-      - "core가 release 채택이나 되돌리기로 앱 연결이 바뀌면 AppViewChanged { app }을 Bus로 낸다"
-      - "shell main이 그 앱의 열린 view마다 연결을 다시 묶는다(card 자리는 만든 때 release에 고정)"
+      - "core의 view 표가 release 채택이나 되돌리기(AppViewChanged) 뒤 그 앱의 view를 다시 묶고 view마다 AppViewEvent rebound나 lost를 낸다(view-table-events)"
+      - "shell main이 그 view를 처음 연 요청 그대로 app_views/open을 다시 보내(resume) 지금 binding을 받고 grant host를 다시 읽는다. card 자리는 만든 때 release에 고정된다(core가 정한다)"
+      - "core에 다시 붙었을 때(core가 다시 떴으면 표가 비어 있다)와 core가 그 view를 모른다고 답한 operation 호출 뒤에도 같은 resume을 한다"
       - "연결이 같으면 running으로 둔다. 바뀌었으면 새 process에 다시 붙이고(remount) 상태를 창에 민다"
       - "다시 묶지 못하면(card의 release가 바뀌어 conflict가 나는 것도 포함) unavailable로 둔다"
     outcomes:
@@ -676,10 +678,12 @@ flows:
         observe: [screen:app-space]
       - id: unavailable
         code: unavailable
-        when: "다시 묶지 못했다(앱 process가 없거나 기록을 읽지 못함, card의 release가 바뀌어 맞지 않음)"
+        when: "다시 묶지 못했다(앱 process가 없거나 기록을 읽지 못함, card의 release가 바뀌어 맞지 않음, grant host를 읽지 못함)"
         observe: [screen:app-space]
     crosses_process: true
-    docs: [architecture/activation.md]
+    docs: [architecture/activation.md, architecture/app-call.md]
+    unclear:
+      - "core가 다시 떴거나 view를 표에서 내보낸 뒤 앱이 다른 release를 채택했으면, 처음 요청의 release가 맞지 않아 card가 아닌 view도 conflict로 unavailable이 된다(core는 표에 없는 view를 새로 열 때 준 release를 지킨다)"
 
   # ---- ui: 사람의 화면 조작 가운데 main·core로 건너가는 것 ----
   - id: annotate-pick
@@ -922,13 +926,13 @@ flows:
     title: 앱 화면(tab·panel·card·sidebar·tray 자리)을 열어 webview를 붙인다
     actor: person
     entries: []
-    uses: [ipc:shell:view-open-app, ipc:shell:view-state]
+    uses: [ipc:shell:view-open-app, ipc:shell:view-state, route:app_views/open, route:app_views/close]
     boundary: [shell, app-runtime]
     code: [packages/shell/main/app-frame/view-ipc.ts, packages/shell/main/app-frame/registry.ts, packages/shell/main/app-frame/binding.ts, packages/shell/main/app-frame/electron-app-frame.ts, packages/shell/main/app-frame/network-policy.ts, packages/shell/renderer/app-frame/webview-host.tsx]
     steps:
       - "renderer가 shell:view-open-app을 보낸다. view-ipc가 sender가 살아 있는 desktop 창 본문인지, 입력이 schema에 맞는지 본다(sender를 먼저 본다)"
-      - "registry가 창이 열려 있는지 보고 앱 연결을 묶는다(release·mode, 화면 선언 hosts). core의 invalid_input·forbidden·conflict는 그대로 돌려주고 나머지 연결 실패는 unavailable이다"
-      - "화면 params가 있으면 그 화면 선언의 schema로만 검사한다"
+      - "registry가 요청 모양을 한 번 보고 창이 열려 있는지 본 뒤 view id를 정해 core app_views/open으로 묶는다(view-table-open). 화면·자리·params 검사와 release·process는 core가 정하고, 정규화한 params만 화면 주소로 간다. core의 invalid_input·forbidden·conflict는 그대로 돌려주고 나머지(not_found 포함)는 unavailable이다"
+      - "registry가 grant host를 읽는다. 읽지 못했거나 그 사이 창이 닫혔으면 방금 연 core view를 닫고 실패를 돌려준다"
       - "view entry를 만들고 renderer가 <webview>를 붙인다. guest가 붙을 때 acceptGuest가 1회용으로 받아 partition을 붙인다"
       - "session 정책: 새 window 열기 거부, 권한 요청 거부, lophn-app scheme과 자기 host 밖의 network 요청 차단(network-policy)"
       - "상태(view_session·연결·health)를 shell:view-state로 창에 보낸다"
@@ -937,7 +941,7 @@ flows:
         observe: [response, screen:app-space]
       - id: invalid-input
         code: invalid_input
-        when: "입력 schema나 view 요청 모양이 맞지 않다, 창이 열려 있지 않다, params가 화면 선언과 맞지 않다, 화면이 선언에 없다, 또는 core가 invalid_input을 돌려줬다"
+        when: "입력 schema나 view 요청 모양이 맞지 않다, 창이 열려 있지 않다, 또는 core가 invalid_input을 돌려줬다(params가 화면 선언과 맞지 않다, 화면이 선언에 없다, 자리가 화면의 places에 없다)"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -949,7 +953,7 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "화면 선언을 읽지 못했다(release를 모른다), preview나 앱 process가 돌지 않는다, release 기록을 읽지 못했다, 그 밖의 core 실패(core가 준비되지 않은 것 포함)"
+        when: "core가 unavailable·not_found를 돌려줬다(release 없는 preview에 params를 줬다, preview나 앱 process가 돌지 않는다, 앱이 없거나 보관했다), grant host를 읽지 못했다, 그 밖의 core 실패(core가 준비되지 않은 것 포함)"
         observe: [response]
     crosses_process: true
     risk: [sandbox]
@@ -959,13 +963,14 @@ flows:
     title: 앱 화면을 닫는다(webview를 내리고 registry에서 뺀다)
     actor: person
     entries: []
-    uses: [ipc:shell:view-close]
+    uses: [ipc:shell:view-close, route:app_views/close]
     boundary: [shell, app-runtime]
     code: [packages/shell/main/desktop/wiring/app-views.ts, packages/shell/main/app-frame/registry.ts]
     steps:
       - "renderer가 shell:view-close로 view_session을 보낸다. view-ipc guard가 sender와 입력 schema를 먼저 본다"
       - "그 창의 앱 view인지 본다. artifact view면 artifact 쪽에서 닫는다"
       - "앱 view면 registry에서 빼고 webview를 unmount한다. partition의 앱 저장은 남는다"
+      - "core app_views/close로 view 표에서도 지운다. 기다리지 않고 실패는 무시한다(창을 닫을 때와 shell이 멈출 때도 같다)"
     outcomes:
       - id: closed
         observe: [response, screen:app-space]
@@ -1291,8 +1296,6 @@ flows:
     crosses_process: true
     risk: [permission]
     docs: [architecture/app-call.md]
-    unclear:
-      - "shell main의 옛 view registry가 아직 같은 일을 한다. core 표로 옮기는 것은 뒤의 task(mobile-shell-views)다"
 
   - id: view-table-call
     title: host가 view의 binding으로 operation 하나를 부른다
@@ -1389,13 +1392,12 @@ flows:
     title: 열려 있는 앱 화면이 구독을 선언한 앱 event를 받는다
     actor: app
     entries: []
-    uses: [ipc:app:event, sdk:app-ui/useEvent, route:apps/tools]
+    uses: [ipc:app:event, sdk:app-ui/useEvent, system:view-table-events]
     boundary: [shell, app-runtime]
-    code: [packages/shell/main/app-frame/app-events.ts, packages/shell/main/desktop/wiring/app-calls.ts, packages/shell/preload/app-tool.ts, packages/sdk/app-ui/use-event.ts]
+    code: [packages/core/apps/views/events.ts, packages/shell/main/app-frame/registry.ts, packages/shell/main/desktop/wiring/app-views.ts, packages/shell/preload/app-tool.ts, packages/sdk/app-ui/use-event.ts]
     steps:
-      - "shell main이 core의 AppEventPublished를 듣는다(조건 types AppEventPublished). 이 event는 저장하지 않고 놓친 것은 다시 오지 않는다."
-      - "page가 붙어 있는 live view마다 그 view가 묶인 release의 선언(apps.tools의 subscriptions)을 읽는다. 선언은 release마다 고정이라 한 번 읽어 둔다. 못 읽으면 기억하지 않고 다음 event에 다시 읽는다."
-      - "(source, event)를 구독으로 선언한 view의 page에만 app:event로 보낸다. 선언하지 않은 화면에는 listener를 달아도 오지 않는다."
+      - "core의 view 표가 AppEventPublished를 받아 audience에 들고 묶인 release가 (source, event) 구독을 선언한 live view마다 AppViewEvent(event)를 그 view를 연 owner의 Gateway에만 낸다(view-table-events). 이 event는 저장하지 않고 놓친 것은 다시 오지 않는다."
+      - "shell main이 AppViewEvent를 듣고(조건 types AppViewEvent) 그 view의 page에 app:event로 {source, event, payload}를 보낸다. 모르는 view이거나 page가 아직 안 붙었으면 버린다. 선언하지 않은 화면에는 listener를 달아도 오지 않는다."
       - "preload가 (source, event)별 listener(useEvent)에 나눠 준다. 한 listener의 오류가 다른 listener를 막지 않는다."
     outcomes:
       - id: delivered
@@ -1405,7 +1407,7 @@ flows:
         when: "화면의 release가 그 (source, event)를 구독으로 선언하지 않았다. 보내지 않는다"
         observe: []
       - id: no-view
-        when: "열린 live 화면이 없거나 page가 이미 없다. 아무 일도 없다"
+        when: "열린 live 화면이 없거나 page가 이미 없다(shell이 모르는 view, page가 안 붙은 view). 아무 일도 없다"
         observe: []
     crosses_process: false
     docs: [architecture/app-call.md, architecture/event.md]

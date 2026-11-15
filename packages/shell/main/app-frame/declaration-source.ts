@@ -1,8 +1,5 @@
-// 앱 view의 고정 선언을 core의 `apps/tools`로 읽는다. 읽는 release는 view가 묶인 것이라
-// 지금 active release가 달라도 view가 보는 선언 그대로다. release 없는 preview는 이 read로 알 수
-// 없어 unavailable이다.
+// 앱 전용 창의 screen을 release의 선언(core의 `apps/tools`)에서 읽는다.
 import { type CallResult, failure, type Outcome } from "./app-connection.ts";
-import type { AppDeclaration, DeclarationSource } from "./app-call.ts";
 
 type DeclarationRead = (app: string, release: string) => Promise<CallResult>;
 
@@ -25,35 +22,6 @@ async function readDeclaration(
     return failure("conflict", "the app version changed");
   }
   return { ok: true, value: declaration };
-}
-
-export function createDeclarationSource(
-  read: DeclarationRead,
-): DeclarationSource {
-  return async (view): Promise<Outcome<AppDeclaration>> => {
-    if (view.mode !== "live" || view.release === null) {
-      return failure("unavailable", "declaration is not available");
-    }
-    const found = await readDeclaration(read, view.app, view.release);
-    if (!found.ok) return found;
-    const operations = found.value.operations;
-    if (!Array.isArray(operations)) {
-      return failure("unavailable", "declaration is not available");
-    }
-    return {
-      ok: true,
-      value: {
-        operations: operations.map((item) => {
-          const operation = record(item) ?? {};
-          return {
-            name: String(operation.name),
-            title: String(operation.title),
-            effect: operation.effect as "read" | "write" | "external",
-          };
-        }),
-      },
-    };
-  };
 }
 
 /** release의 전용 창 screen. 선언에 `tab` 자리로 적힌 첫 screen이다. */

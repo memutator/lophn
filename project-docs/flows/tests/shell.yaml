@@ -31,13 +31,6 @@ files:
       - app-agent-send:forbidden
     note: "앱 view는 core가 보인다고 한 session(터미널 탭 제외)만 읽고 보낸다. send·stop·answer·rename만 넘기고 decide·run_shell·rewind는 core 전에 forbidden"
 
-  - path: packages/shell/main/app-frame/app-call_test.ts
-    covers:
-      - app-operation-call:succeeded
-      - app-operation-call:invalid-input
-      - app-operation-call:denied-not-declared
-    note: "app-runtime 영역의 app-operation-call이다. 모르는 field는 invalid_input, 선언에 없는 operation은 core 호출 없이 forbidden(denied-not-declared)"
-
   - path: packages/shell/main/app-frame/overlay-security_test.ts
     covers: [shell-session-policy:granted, shell-session-policy:denied]
     note: "shell 기본 session 권한 판정(clipboard write만 main frame shell 페이지에 허용). shell-session-policy:granted·denied"
@@ -45,12 +38,11 @@ files:
   - path: packages/shell/main/app-frame/registry_test.ts
     covers:
       - app-view-open:opened
-      - app-view-open:invalid-input
       - app-view-crash:crashed
       - app-view-reopen:reopened
       - app-view-reopen:conflict
       - app-view-reopen:invalid-input
-    note: "view 열기의 src와 guest 신원 묶기, params schema 거절, crash 뒤 reopen 세대 교체, 건강한 view의 reopen 거절, 다른 창의 reopen 거절"
+    note: "view 열기의 src와 guest 신원 묶기, core가 정규화한 params만 화면 주소로 감, crash 뒤 reopen 세대 교체, 건강한 view의 reopen 거절, 다른 창의 reopen 거절, 창을 닫으면 core view도 닫음"
 
   - path: packages/shell/main/artifact/delete_test.ts
     covers:

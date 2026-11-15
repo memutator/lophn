@@ -898,16 +898,18 @@ flows:
   - id: app-operation-call
     title: "앱 화면이 operation을 부른다"
     actor: person
-    uses: [route:apps/call_tool]
-    when: "kind가 operation이고 대상이 운영 앱(live)일 때. 사람이 연 화면의 호출이다"
+    uses: [route:app_views/call, route:apps/call_tool]
+    when: "kind가 operation이고 사람이 연 화면(live 또는 preview)의 호출이다"
     pre: [route:releases/activate]
     boundary: [app-runtime, core-api]
-    code: [packages/core/apps/calls/service.ts, packages/core/apps/calls/gate.ts, packages/shell/main/app-frame/app-call.ts]
+    code: [packages/core/apps/calls/service.ts, packages/core/apps/calls/gate.ts, packages/core/apps/views/call.ts, packages/shell/main/app-frame/app-call.ts]
     steps:
-      - "shell main이 페이지가 보낸 {operation, input}을 검사한다. 필드 두 개만, operation 이름(빈 값, 앞뒤 공백, 제어 문자, 와일드카드 없음), JSON 값만 받고 64 KiB 이하다. 어긋나면 core에 보내지 않는다."
-      - "shell main이 그 view의 고정 선언을 읽는다(live는 활성 release 선언, preview는 읽지 못해 unavailable). 선언을 읽지 못하면 unavailable이다. 선언의 operation에 없으면(command 이름 포함, 이 앱 밖 포함) forbidden이다."
-      - "shell main이 사람 자격으로 app.call_tool(kind operation)을 보낸다. 대상은 view에서 정한 mode, app, release(또는 preview nonce)다. 사람의 호출은 Gate를 거치지 않는다."
-      - "core의 답을 페이지 code로 옮긴다. 앱 handler의 실패는 앱이 정한 code와 message를 그대로 싣는다. core 호출이 오류로 끝나거나 끊기면 invalid_input은 invalid_input, forbidden·unauthorized는 forbidden, 그 밖은 unavailable이다(쓰기는 result unknown)."
+      - "shell main이 페이지가 보낸 값에서 operation과 input만 꺼낸다. 객체가 아니거나 다른 칸이 있으면 core에 보내지 않는다. 신원은 IPC를 보낸 view의 id 하나다."
+      - "shell main이 core app_views/call {view, operation, input}을 보낸다. core가 operation 이름(빈 값, 앞뒤 공백, 제어 문자, 와일드카드 없음)과 input(JSON 값, 64 KiB 이하)을 본다(view-table-call)."
+      - "core가 view에 묶인 release(preview는 preview bundle)의 선언에서 operation을 찾는다. 없으면(command 이름 포함, 이 앱 밖 포함) forbidden이다."
+      - "core가 사람 자격으로 app.call_tool(kind operation)을 부른다. 대상은 view 표의 mode, app, release(또는 preview nonce)다. 사람의 호출은 Gate를 거치지 않는다."
+      - "core의 답을 페이지 code로 옮긴다. 앱 handler의 실패는 앱이 정한 code와 message를 그대로 싣는다. 호출 경로가 오류로 끝나거나 끊기면 invalid_input은 invalid_input, forbidden·unauthorized는 forbidden, 그 밖은 unavailable이다(쓰기는 result unknown)."
+      - "core가 view를 모르면(core 재시작, 표에서 내보냄) shell main이 unavailable로 답하고 같은 요청으로 view를 다시 묶는다(app-view-refresh)."
       - "결과가 operation 상한(CALL_RESULT_MAX_BYTES에서 1 KiB를 뺀 값)을 넘으면 unavailable로 바꾼다. invocation은 succeeded로 남는다."
     outcomes:
       - id: succeeded
@@ -929,7 +931,7 @@ flows:
         observe: [response, "ledger:invocations"]
       - id: denied-not-declared
         code: forbidden
-        when: "core가 활성 release의 operation 선언에서 찾지 못함(shell의 선언 검사를 통과한 뒤라 드묾)"
+        when: "call_tool이 활성 release의 operation 선언에서 찾지 못함(view 표의 선언 검사를 통과한 뒤라 드묾)"
         observe: [response]
       - id: denied-app-archived
         code: unavailable
@@ -937,7 +939,7 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "view의 고정 선언에 없는 operation(command 이름 포함, 이 앱 밖 포함)이라 core에 보내지 않음"
+        when: "view에 묶인 선언에 없는 operation(command 이름 포함, 이 앱 밖 포함)이라 호출 경로에 보내지 않음"
         observe: [response]
       - id: core-refused
         code: forbidden
@@ -945,15 +947,15 @@ flows:
         observe: [response]
       - id: invalid-input
         code: invalid_input
-        when: "화면이 보낸 호출 모양이 맞지 않음(필드, operation 이름, 64 KiB 초과, JSON이 아닌 값), 또는 core가 본문 상한을 넘는다고 거절함"
+        when: "화면이 보낸 호출 모양이 맞지 않음(객체가 아님, 다른 칸, operation 이름, 64 KiB 초과, JSON이 아닌 값), 또는 core가 본문 상한을 넘는다고 거절함"
         observe: [response]
       - id: declaration-unavailable
         code: unavailable
-        when: "view의 선언을 읽지 못함(preview 대상 포함)"
+        when: "view에 묶인 선언을 읽지 못함, 또는 view가 묶음을 잃음(앱 중지, 보관)"
         observe: [response]
       - id: core-call-failed
         code: unavailable
-        when: "core 호출이 그 밖의 오류로 끝나거나 끊김(쓰기는 result unknown), 또는 core 답이 맞지 않음(app response did not match)"
+        when: "호출 경로가 그 밖의 오류로 끝나거나 끊김(쓰기는 result unknown), core 답이 맞지 않음(app response did not match), 또는 core가 그 view를 모름(다시 묶는다)"
         observe: [response]
       - id: result-too-large
         code: unavailable
@@ -964,9 +966,8 @@ flows:
     refs: [P12]
     docs: [architecture/app-call.md]
     unclear:
-      - "preview 화면의 operation 호출은 shell main의 declaration-source가 live 선언만 읽어 unavailable이다(이슈 preview-screen-cannot-call-operation). 이 flow는 live만 다룬다."
       - "앱이 낸 failed의 code는 앱이 정한 문자열이 그대로 페이지에 간다(process-wire의 error code는 z.string). 일곱 code 밖일 수 있다."
-      - "shell의 coreFailure가 conflict를 'app view가 바뀜'으로 옮기지만 call_tool은 conflict를 내지 않는다. 그래서 이 flow에 conflict 갈래는 없다."
+      - "view 표의 coreFailure가 conflict를 'app view가 바뀜'으로 옮기지만 call_tool은 conflict를 내지 않는다. 그래서 이 flow에 conflict 갈래는 없다."
 
   - id: app-broker-apps-call
     title: "앱이 다른 앱의 command를 broker로 부른다"

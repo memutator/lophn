@@ -97,7 +97,7 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
 
 ### 화면과 agent session
 
-앱 화면은 preload의 `lophnApp`으로 shell main에 닿는다. 화면이 열릴 때 자리, 인자, workspace가 정해지고 열려 있는 동안 바뀌지 않는다. 화면이 앱 workspace의 agent session과 이야기하는 길(`lophnApp.agent`)은 ACP를 지나고, 앱 화면이 보낸 것은 operation처럼 "그 앱을 쓰는 사람의 메시지"로 core에 간다.
+앱 화면은 preload의 `lophnApp`으로 host(desktop은 shell main)에 닿는다. host는 화면마다 view id를 붙여 core의 view 표에 열고, operation 호출과 앱 event는 그 view id로만 core를 지난다. 어느 앱·release에 묶였는지, 무엇을 부를 수 있는지는 core가 정한다. 화면이 열릴 때 자리, 인자, workspace가 정해지고 열려 있는 동안 바뀌지 않는다. 화면이 앱 workspace의 agent session과 이야기하는 길(`lophnApp.agent`)은 ACP를 지나고, 앱 화면이 보낸 것은 operation처럼 "그 앱을 쓰는 사람의 메시지"로 core에 간다.
 
 ## 지키는 것
 
@@ -171,7 +171,7 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
 ### 앱 화면
 
 1. 화면이 열릴 때 자리·인자·workspace가 정해지고 열려 있는 동안 바뀌지 않는다(dock·float·전역 float는 모두 `panel`이라 자리가 바뀌는 경우가 없다).
-   - view 열기 입력은 `place`와 선택 `params`, `workspace`(`{kind: project | home | app, id, folders}`)를 싣고, `card`는 `place`가 `card`일 때만 있다. live 열기는 release 판이 필수이고 preview만 판이 null일 수 있다. 판 없이 live를 여는 호출은 입력 type에서 막히고, main도 같은 규칙으로 거절한다.
+   - view 열기 입력은 `place`와 선택 `params`, `workspace`(`{kind: project | home | app, id, folders}`)를 싣고, `card`는 `place`가 `card`일 때만 있다. live 열기는 release 판이 필수이고 preview만 판이 null일 수 있다. 판 없이 live를 여는 호출은 입력 type에서 막히고, shell main도 IPC 입력의 모양을 같은 규칙으로 한 번 본다(선언과 `params` 검사는 core가 한다).
    - core의 view 표(`app_views.open`)가 `params`를 그 release 선언의 그 화면 `params` schema로 검사해 정규화한다. `params`를 받지 않는 화면에 인자를 주거나 schema에 맞지 않으면 `invalid_input`이다. 선언을 읽을 수 있으면(live, release 있는 preview) 화면이 선언에 있고 자리가 그 화면의 `places`에 들어야 한다. 값은 화면의 주소 query(`place`, `params`, `workspace`)로 간다.
    - 화면은 preload의 `lophnApp.place`(`{place, params, workspace}`)를 읽고 SDK의 `usePlace()`가 그것을 감싼다. query가 없거나 틀리면 `place`가 null이고 `params`는 `{}`다. 전역 float는 workspace를 주지 않아 `workspace`가 null이다.
 2. agent의 `visual.show {app, view, params?}`도 `params`를 받는다. `view`는 `card` 자리를 가진 화면이어야 하고(아니면 `not_found`) `params`는 그 화면의 schema로 검사해 맞지 않으면 `invalid_input`이다. 통과한 값은 message의 `app_card` part와 ACP의 `AcpCard`에 `params`로 실려 카드 view의 인자가 된다.
@@ -179,7 +179,7 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
    - 신원은 host가 붙인 view id와 요청 credential의 principal(owner. shell main과 CLI는 `user`, 폰은 `device:<id>`)이다. 표의 key는 (owner, view)이고 다른 owner의 view는 없는 view와 같다. 화면 page가 낸 값은 신원이 아니다.
    - live view는 지금 도는 release를 따르고 card view는 묶인 release에 고정된다. 같은 인자로 다시 열면 지금 binding을 다시 읽어 돌려준다(host가 끊겼다 돌아올 때). owner마다 64개이고 넘치면 가장 오래 쓰지 않은 view를 내보낸다. core가 shell보다 오래 살아 옛 view가 남기 때문이다.
    - release가 바뀌면(`AppViewChanged`) 표가 그 앱의 view를 다시 묶어 `AppViewEvent`(`rebound`나 `lost`)를 내고, 앱 event는 묶인 release가 구독을 선언한 live view에만 `AppViewEvent`(`event`)로 간다. `AppViewEvent`는 view를 연 owner의 Gateway 연결에만 간다(`architecture/event.md`).
-   - 지금은 shell main의 view registry(`app:call-operation`, `app:event`, 다시 묶기)가 아직 같은 일을 한다. shell이 core 표로 옮길 때(`mobile-shell-views`) 이 문서의 shell 쪽 줄도 맞춘다.
+   - shell main은 host다. view id를 정해 열고, 처음 보낸 열기 요청을 쥐었다가 다시 묶을 때(`rebound`·`lost`를 받았을 때, core에 다시 붙었을 때, core가 view를 모른다고 답했을 때) 같은 요청을 다시 보낸다. `app:call-operation`은 page 값에서 `{operation, input}`만 꺼내 그 view id로 `app_views.call`에 넘기고, `app:event`는 받은 `AppViewEvent`(`event`)를 그 view의 page에 옮긴다. 화면의 바깥 host(CSP)와 화면 byte는 shell main이 그 binding으로 정한다.
 
 ### 앱 화면의 agent session
 

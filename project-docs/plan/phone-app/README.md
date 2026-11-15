@@ -17,7 +17,8 @@
 - lophn 폰 앱은 어느 폰에서나 맞아야 한다. 등록한 기기에 맞추는 것은 lophn agent가 짓는 사용자 앱의 규칙이다(사람). 폭 320~430에서 늘고 주는 layout으로 짓는다.
 - 폰의 권한: 보기, 말하기, 답하기(승인·질문·앱 update), 켜고 끄기, 지금 돌리기, 새 session. 만들기·고치기·지우기(agent, job), secret, provider, model 관리는 컴퓨터에서 한다(roadmap "추천대로 가려는 것"의 폰의 권한을 사람이 wireframe으로 승인).
 - 화면 이동은 React Navigation(native stack과 drawer)으로 한다. 넓은 화면의 고정 sidebar가 들어 있고 비교한 폰 앱이 쓰는 표준이다(agent).
-- 폰 화면 문구는 지금은 영어를 코드에 바로 쓴다. i18n catalog는 두 번째 언어가 생길 때 옮긴다(agent. catalog를 여러 worker가 같이 고치면 충돌이 몰린다).
+- 폰 화면 문구는 desktop과 같은 i18n catalog(`@lophn/i18n`)에서 온다(사람, 2026-11-15). desktop에 이미 있는 문장은 그 key를 그대로 쓰고, 폰에만 있는 문장만 새 key(`mobile.`으로 시작)로 더한다. 충돌을 피하려고 task마다 자기 catalog file(`packages/design/i18n/catalog/mobile-<영역>.ts`, lead가 빈 file로 만들어 `en.ts`에 올려 두었다)만 고친다.
+- core에 route가 없어 wireframe에서 뺀 것(`phone-routes` 보고): 아무 job이나 지금 돌리기(놓친 차례의 Start now만 남는다), 컴퓨터 화면에 session 띄우기, 보관 풀기, agent 상세의 MCP 수. project file 목록과 읽기는 route를 새로 짓는다(`mobile-files`).
 - kit은 react-native-web이나 다른 runtime을 지금 고려하지 않는다. 사용자 앱이 kit을 쓰는 길은 단계 6의 spike가 정한다(roadmap).
 - 화면을 core 없이 확인하도록 data 층이 지어낸 data를 내는 sample 컴퓨터를 둔다(dev build에서만, wireframe의 예시 data). 화면 worker는 sample로 모양을, 개발 core로 동작을 본다(agent).
 - worker는 opus 5.5 medium으로 띄운다(사람).
@@ -29,6 +30,7 @@
 | 1 | `phone-kit` | 폰 UI kit을 wireframe의 조각대로 다시 짓고 gallery로 보인다 |
 | 1 | `phone-data` | 컴퓨터·연결 store와 workspace·Inbox·대화 data를 desktop 로직으로 내고 sample 컴퓨터를 둔다 |
 | 1 | `phone-routes` | 새 화면이 부를 route를 폰 allowlist에 더한다 |
+| 2 | `mobile-files` | project의 file 목록과 글 file 읽기 route를 core에 짓고 폰에 연다 |
 | 2 | `phone-frame` | 앱 root, 화면 이동, sidebar, 연결 흐름, 컴퓨터 고르기, 설정. 옛 폰 화면과 WebView를 지운다 |
 | 3 | `phone-home` | Home, 컴퓨터 offline, 검색 |
 | 3 | `phone-session` | 대화와 그 sheet들, diff, 새 session |

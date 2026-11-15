@@ -19,6 +19,7 @@
   - `mobile/src/webview`
   - `mobile/src/bundle`
   - `mobile/modules`
+  - `packages/design/i18n/catalog/mobile-app.ts`
 - 읽을 것:
   - 기준: `tools/wireframes/drafts/phone/start.tsx`(연결 흐름 7장), `shell.tsx`(sidebar, Computers sheet), `more.tsx`의 `SettingsFlow`와 `WideFlow`, `phone.module.css`. 그림: `/home/pyosechang/projects/lophn/screenshot/phone-wireframes/{1-start-and-pair,2-home-and-sidebar,8-settings,9-wide-screens}.png`
   - kit: `packages/design/native/mod.ts`(export마다 윗줄이 쓰임새), kit gallery `mobile/src/gallery`
@@ -27,6 +28,7 @@
   - 계획 `README.md`의 "정한 것"과 "돌리기 전에", `mobile/README.md`
 - 계약:
   - 쓰는 것: `@lophn/ui-native`, `mobile/src/data/mod.ts`
+  - 문구: `@lophn/i18n`의 `t()`로 쓴다. desktop catalog(`packages/design/i18n/catalog/*.ts`)에 같은 문장이 있으면 그 key를 쓰고, 없을 때만 자기 catalog file에 `mobile.`으로 시작하는 key를 더한다. 문장 조각을 이어 붙이지 않는다(ICU 한 문장). 지어낸 예시 data는 그대로 둔다.
   - 내놓는 것(wave 3의 화면 task가 기댄다):
     - `mobile/src/app/nav.ts`: 갈 곳의 type(`home`, `inbox`, `jobs`, `job(id)`, `agents`, `agent(id)`, `workspace(id)`, `session(id)`, `new-session(workspace?)`, `search`, `settings` 등)과 `useNav()`(`open(place)`, `back()`, `openSidebar()`)
     - 화면 자리: `mobile/src/screens/<영역>/index.tsx`가 그 영역의 화면 component를 export한다. 이 task가 `home`, `session`, `inbox`, `workspace`, `jobs`, `agents`, `search` 영역의 자리를 제목만 있는 빈 화면으로 만들어 두고, wave 3의 task는 자기 영역 폴더만 고친다(등록 file을 건드리지 않는다)

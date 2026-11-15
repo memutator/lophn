@@ -7,6 +7,7 @@
 - 소유(이 task만 고친다):
   - `packages/design/native`
   - `mobile/src/gallery`
+  - `packages/design/i18n/catalog/mobile-kit.ts`
 - 읽을 것:
   - 기준: `tools/wireframes/drafts/phone/phone.module.css`(숫자와 색), `tools/wireframes/drafts/phone/kit.tsx`(조각과 prop), 화면 file `start.tsx`, `shell.tsx`, `apps.tsx`, `session.tsx`, `inbox.tsx`, `workspace.tsx`, `more.tsx`. 그림: `/home/pyosechang/projects/lophn/screenshot/phone-wireframes/*.png`
   - 지금 kit(첫 판, 모양이 wireframe과 다르다): `packages/design/native/mod.ts`와 그 폴더, `mobile/src/gallery/gallery.tsx`
@@ -16,6 +17,7 @@
   - 비교 조사(목록과 keyboard): `/home/pyosechang/projects/lophn/reports/phone-native-ui/{t3code,paseo,happy}.md`
 - 계약:
   - 쓰는 것: `packages/design/tokens.ts`, `packages/design/components/reading/markdown/{parse,model,stream,cache}.ts`(같은 parse 결과를 그린다)
+  - 문구: kit이 스스로 보이거나 읽어 주는 말(Back, Close, Copy code 같은 것)은 `@lophn/i18n`의 `t()`로 쓴다. desktop catalog에 같은 문장이 있으면 그 key를 쓰고, 없을 때만 `mobile-kit.ts`에 `mobile.kit.`으로 시작하는 key를 더한다.
   - 내놓는 것: `@lophn/ui-native`의 export. wave 2, 3의 화면이 이것만으로 wireframe 화면을 조립한다. 이름은 뜻이 같은 것은 desktop `@lophn/ui`와 맞추고(Button, IconButton, Icon, Text, Card, Sheet, Tabs, SegmentedControl, Switch, Checkbox, Field, Input, Badge, Markdown, CodeBlock), 폰에만 있는 것은 뜻대로 짓는다. export마다 윗줄에 "언제 쓰나" 한 줄을 단다(`mod.ts`).
 
 ## 할 일

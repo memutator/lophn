@@ -17,6 +17,7 @@
   - `tools/package/main.ts`
   - `tools/wireframes/pages/screens/remote.tsx`
   - `packages/shell/renderer/build.ts`
+  - `packages/design/i18n/catalog/remote.ts`
 - 읽을 것:
   - 지울 목록: `/home/pyosechang/projects/lophn/reports/phone-native-ui/lophn-inventory.md`의 B 끝(이 길만을 위해 있는 file·route·module). `mobile/` 쪽은 `phone-frame`이 이미 지웠다
   - architecture: `project-docs/architecture/remote.md`(폰 껍데기 model과 지키는 것 6~9. lead가 계획 끝에 고친다)
@@ -29,7 +30,8 @@
 
 1. route `remote_ui/manifest`, `remote_ui/file`과 그 handler(`packages/core/remote/ui-bundle.ts`), wiring, allowlist의 bundle 묶음, protocol export를 지운다. method 문자열로도 grep한다.
 2. `packages/shell/renderer/remote/`(폰 web 화면)와 그 build 입구(`packages/shell/renderer/build.ts`의 remote entry, `tools/package/main.ts`가 싣는 `dist/remote`)를 지운다. desktop 대화 화면의 `phone` 갈래(`AgentView`의 phone flag와 그것만 쓰던 문구 key `remote.*`)는 쓰는 곳이 없어지면 지우고, 남는 곳이 있으면 보고한다.
-3. gallery의 `Phone remote` 영역(`tools/wireframes/pages/screens/remote.tsx`)을 지운다. `pages/index.ts`의 등록 줄은 lead가 뺀다(보고의 "등록할 것").
+3. 옛 폰 web 화면만 쓰던 문구 key(`packages/design/i18n/catalog/remote.ts`의 `remote.*`)를 지운다. 쓰는 곳이 남은 key는 남기고 보고한다(file을 통째로 지우게 되면 `en.ts`의 등록 줄은 lead가 뺀다).
+4. gallery의 `Phone remote` 영역(`tools/wireframes/pages/screens/remote.tsx`)을 지운다. `pages/index.ts`의 등록 줄은 lead가 뺀다(보고의 "등록할 것").
 4. 지운 route와 test를 가리키는 flows catalog 줄은 lead가 고친다(보고에 목록).
 
 ## 끝남

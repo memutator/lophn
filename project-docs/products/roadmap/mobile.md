@@ -331,14 +331,14 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 - worker는 보통 `sonnet-high`로, 어려운 task(구조를 바꾸는 것, 대화 화면처럼 복잡한 화면)는 opus high로 띄운다(사람, 2026-11-15). 메모리는 넉넉하니 나란히 돌릴 수 있는 것은 아끼지 않고 띄운다(사람). worker와의 대화는 영어다.
 - 사람에게 묻는 것은 그대로다: push, 실제 model provider 호출, `~/.lophn` 바꾸기, 도구 설치, emulator를 띄우는 자동 E2E 새로 만들기. 여기에 바깥 계정이나 key가 드는 일(push의 Expo·Firebase 등)과 실제 폰에 build 깔기를 더한다. 사람의 실제 폰(adb serial `R3CT90K6G2X`)에는 명령을 보내지 않는다.
 - 순서를 바꿨다(planner): 단계 6(사용자 앱)을 4와 5보다 앞에 둔다. lophn agent가 사람의 모바일 앱을 짓는 것이 제품의 핵심이다(사람: "lophn agent가 lophn mobile app 만드는 건?").
-- 폰 앱 폴더는 `packages/mobile`로 옮기고(사람 승인), 이름은 phone이 아니라 mobile을 쓴다(사람). 계획 `phone-app`의 wave 1이 끝나면 lead가 바꾼다.
+- 폰 앱 폴더는 `packages/mobile`이고(사람 승인, 계획 branch에서 옮김), 이름은 phone이 아니라 mobile을 쓴다(사람).
 
 | 단계 | 계획 | 상태 |
 |---|---|---|
-| 2 | `mobile-app`(지금 `phone-app`) | 진행 중. wireframe은 사람이 승인(gallery Drafts › Phone app) |
-| 6 | `mobile-user-apps` | 여는 중. spike `reports/mobile-program/app-screens-spike.md`, 조사 `reports/mobile-program/app-place-survey.md` |
-| 4 | `mobile-push` | 여는 중. 조사 `reports/mobile-program/push-survey.md`. 실제 배달에는 사람의 Expo·Firebase 계정이 든다 |
-| 5, 9 | `mobile-coding-agents` | 여는 중. 조사 `reports/mobile-program/coding-agent-relay-survey.md`(harness GUI와 터미널을 core로 잇기) |
+| 2 | `mobile-app` | 진행 중. wireframe은 사람이 승인(gallery Drafts › Phone app). wave 1(kit, data, route)이 끝났고 폰 앱 폴더를 `packages/mobile`로 옮겼다 |
+| 6 | `mobile-user-apps` | 열림(wave 1 진행. spike 판정 뒤 나머지 brief). spike `reports/mobile-program/app-screens-spike.md`, 조사 `reports/mobile-program/app-place-survey.md` |
+| 4 | `mobile-push` | 열림(wave 1 진행). 조사 `reports/mobile-program/push-survey.md`. 실제 배달에는 사람의 Expo·Firebase 계정이 든다 |
+| 5, 9 | `mobile-coding-agents` | 열림. 조사 `reports/mobile-program/coding-agent-relay-survey.md`(harness GUI와 터미널을 core로 잇기) |
 | 7 | `mobile-local-apps` | 6의 spike 판정 뒤에 연다(폰 runtime의 남은 확인 포함) |
 | 8 | `mobile-widgets` | 6 뒤에 연다 |
 | 10 | `mobile-browser-use` | 6 뒤에 연다 |

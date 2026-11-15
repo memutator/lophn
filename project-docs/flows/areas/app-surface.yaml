@@ -345,6 +345,27 @@ flows:
     unclear:
       - "handler는 core task가 붙인다. 지금은 계약만 있다"
 
+  - id: phone-request
+    title: 앱 backend가 core를 거쳐 사람의 기준 폰에 기능 하나를 묻는다
+    actor: app
+    entries: [route:app_phone/request]
+    boundary: [apps, core-api]
+    code: [packages/protocol/apps/phone-request.ts]
+    steps:
+      - "broker가 선언과 grant(phone.use, 범위 capability)를 본 뒤 앱 자식 credential로 부른다. core가 기준 폰에 묻고 답을 그대로 돌려준다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch)"
+        observe: [response]
+    crosses_process: false
+    declared_only: [invalid_input, not_found, conflict, unavailable]
+    docs: [architecture/remote.md]
+    unclear:
+      - "handler와 폰으로 가는 길은 뒤 task(mobile-phone-link, mobile-phone-use-grant)가 붙인다. 지금은 계약만 있다"
+
   # ---- annotation: core route ----
   - id: annotation-persist
     title: 사람이 보낸 annotation 묶음을 저장한다(send 파이프라인이 core 안에서 부른다)

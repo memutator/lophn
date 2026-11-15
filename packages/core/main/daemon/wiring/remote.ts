@@ -2,6 +2,7 @@
 // relay에도 건다. 둘은 따로 돈다(port를 못 열어도 relay는 돈다). 꺼지면 둘 다 닫는다.
 // 기기 표(devices)의 command·read는 writer·reader Worker가 이 file을 팀 등록 file로 import해 얻는다.
 // 표를 만드는 ledger step은 낸 step 목록의 끝에 붙어야 해서(schema-steps.lock.json) 이 wiring의 schemaStepsAfterTeams에 둔다.
+// 기기마다 터미널 입력 허락(`ctx.terminalInputGrant`)도 기기 표를 아는 여기서 채운다.
 import { networkInterfaces } from "node:os";
 import type { z } from "zod";
 import { err, formatAt, ok, type Result } from "../../../../base/mod.ts";
@@ -48,6 +49,7 @@ import {
   screensRevoked,
 } from "../../../remote/mod.ts";
 import { devicePrincipal } from "../../../remote/call.ts";
+import { createTerminalInputGrants } from "../../../remote/devices.ts";
 import {
   openRelayWebSocket,
   type RelayClient,
@@ -124,6 +126,8 @@ export const remoteWiring: WiringFactory = () => {
   let codes: PairingCodes;
   // remote 연결만의 한도다. 기기는 principal마다 따로 서고 사람 token(loopback API)의 자리를 쓰지 않는다.
   const admission = createAdmission();
+  // 기기마다 터미널 입력 허락(`ctx.terminalInputGrant`). build에서 표를 읽어 채우고 commit 뒤 바뀜으로 고친다.
+  const grants = createTerminalInputGrants();
 
   function logError(ctx: WiringContext, event: string, thrown: unknown) {
     ctx.telemetry.logger.error({
@@ -162,16 +166,26 @@ export const remoteWiring: WiringFactory = () => {
     }
   }
 
+  async function listDevices(
+    ctx: WiringContext,
+  ): Promise<Result<RemoteDevice[]>> {
+    const read = await ctx.runtime.reads.get(key(devicesList))!(
+      REMOTE_CONTEXT,
+      {},
+    );
+    return read.ok
+      ? ok((read.value as { devices: RemoteDevice[] }).devices)
+      : read;
+  }
+
   function devicesOf(ctx: WiringContext): RemoteDevices {
     return {
       async find(publicKey) {
-        const read = await ctx.runtime.reads.get(key(devicesList))!(
-          REMOTE_CONTEXT,
-          {},
+        const listed = await listDevices(ctx);
+        if (!listed.ok) return listed;
+        const found = listed.value.find(
+          (each) => each.public_key === publicKey,
         );
-        if (!read.ok) return read;
-        const { devices } = read.value as { devices: RemoteDevice[] };
-        const found = devices.find((each) => each.public_key === publicKey);
         return ok(found ? { id: found.id } : undefined);
       },
       async register(input) {
@@ -316,6 +330,11 @@ export const remoteWiring: WiringFactory = () => {
         send: (message) => sender!.send(message),
         host: () => hostText ?? "",
       });
+      // API가 열리기 전에 읽는다. 그 뒤의 바뀜은 아래 writer가 commit 뒤에 고친다.
+      const listed = await listDevices(ctx);
+      if (!listed.ok) return listed;
+      grants.load(listed.value);
+      ctx.provide("terminalInputGrant", grants.granted);
       const start = async () => {
         if (
           hostKey === undefined ||
@@ -354,10 +373,11 @@ export const remoteWiring: WiringFactory = () => {
               for (const action of actions) {
                 if (action.topic !== DEVICES_TOPIC) continue;
                 const change = action.data as DevicesChange;
+                grants.apply(change);
                 if (change.type === "revoked") {
                   host?.revoked(change.id);
                   editScreens(ctx, (list) => screensRevoked(list, change.id));
-                } else {
+                } else if (change.type === "renamed") {
                   editScreens(ctx, (list) =>
                     screensRenamed(list, change.id, change.name),
                   );

@@ -491,6 +491,10 @@ files:
     covers: [terminal-view-input:forbidden]
     note: "terminalInputGrant 칸이 채워지지 않았으면 입력은 어떤 principal이든 forbidden이고 host에 요청이 나가지 않는다"
 
+  - path: packages/core/main/daemon/wiring/remote_test.ts
+    covers: [devices-set-terminal-input:ok, devices-set-terminal-input:forbidden, devices-set-terminal-input:not_found, devices-revoke:ok]
+    note: "폰 기기 자격의 devices/set_terminal_input은 실제 call 길(기기 자격 scope)에서 forbidden이고 writer에 닿지 않는다. 메모리 sqlite의 devices.ts command를 remote wiring의 writer 층으로 돌려, terminal_input이 기본 꺼짐이고 켠 기기의 device:<id>만 terminalInputGrant가 true이며 끄거나 끊으면 command가 답할 때 이미 false인지 본다(기동 전 켜 둔 기기는 build가 읽는다)"
+
   - path: packages/core/server/host-link_test.ts
     covers: [host-link:unauthorized, host-link:forbidden, host-link:closed]
     note: "upgrade는 메모리 socket으로 server.ts의 acceptUpgrade를 지난다(server를 띄우지 않는다)"

@@ -1699,7 +1699,7 @@ flows:
     boundary: [core-api, storage]
     code: [packages/core/remote/devices.ts]
     steps:
-      - "devices 표를 만든 순서로 읽어 이름, os, 화면, 공개 key, 만든 때, 마지막 연결, 기준 여부를 준다"
+      - "devices 표를 만든 순서로 읽어 이름, os, 화면, 공개 key, 만든 때, 마지막 연결, 기준 여부, 터미널 입력 허락(terminal_input)을 준다"
     outcomes:
       - id: ok
         observe: ["response"]
@@ -1895,6 +1895,32 @@ flows:
         when: "writer를 쓸 수 없다"
         observe: ["response"]
     crosses_process: false
+
+  - id: devices-set-terminal-input
+    title: "사람이 컴퓨터에서 기기마다 터미널 입력을 켜고 끈다"
+    actor: person
+    entries: [route:devices/set_terminal_input]
+    boundary: [core-api, storage]
+    code: [packages/core/remote/devices.ts, packages/core/main/daemon/wiring/remote.ts, packages/shell/renderer/desktop/settings/remote/device-rows.tsx]
+    steps:
+      - "Settings › Remote의 기기 줄 스위치가 부른다. 기기의 terminal_input을 바꾼다(기본 꺼짐). 같은 값이면 아무것도 쓰지 않는다"
+      - "commit 뒤 command가 답하기 전에 main thread의 허락 사본(terminalInputGrant)을 고친다. 끄면 그 기기의 다음 terminal_view/input부터 forbidden이다. 기기를 끊거나(devices-revoke, devices-unpair) 같은 key로 다시 pairing하면 옛 기기의 허락도 사라지고 새 등록은 꺼짐이다"
+    outcomes:
+      - id: ok
+        observe: ["ledger:devices", "response"]
+      - id: not_found
+        code: not_found
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "user 아닌 actor거나 기기 자격이다(route 목록 밖). 폰은 자기 터미널 입력을 켜지 못한다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "writer를 쓸 수 없다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [permission]
 
 links: []
 ignore: []

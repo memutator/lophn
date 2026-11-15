@@ -287,6 +287,7 @@ export const workspaceSettings = {
   "settings.label.remote-relay-connected":
     "Reachable from anywhere through the relay",
   "settings.label.remote-relay-unreachable": "Can't reach the relay",
+  "settings.label.remote-terminal-input": "Allow typing in terminals",
   "settings.label.tab-remote": "Remote",
   "settings.label.theme-file": "{name} (file)",
   "settings.label.theme-not-found": "{name} (not found)",
@@ -299,6 +300,8 @@ export const workspaceSettings = {
     "{name} disconnects now. To use it again, pair it with a new code.",
   "settings.note.remote-scan":
     "Scan this code with the lophn phone app. A new code replaces this one.",
+  "settings.note.remote-terminal-input":
+    "Off by default; while on, anyone holding this phone can type into coding agent terminals on this computer and run commands as you.",
   "settings.notice.remote-devices-empty": "No phones paired yet.",
   "settings.notice.remote-expired":
     "This code expired. Make a new code to pair a phone.",

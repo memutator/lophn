@@ -11,6 +11,7 @@ import {
   devicesRevoke,
   devicesSetPrimary,
   devicesSetPush,
+  devicesSetTerminalInput,
   devicesUnpair,
   type RemoteDevice,
   remoteDeviceSchema,
@@ -49,13 +50,18 @@ create table devices (
 alter table devices add column push_token text;
 alter table devices add column push_prefs text not null default '{}';`,
   },
+  {
+    id: "remote.devices.terminal_input",
+    sql: `alter table devices add column terminal_input integer not null default 0 check (terminal_input in (0, 1));`,
+  },
 ];
 
 // commit 뒤 main thread가 할 일(설정 `shell.devices` 고치기, 연결 닫기). 설정과 연결은 writer Worker 밖에 있다.
 export const DEVICES_TOPIC = "remote.devices";
 export type DevicesChange =
   | { type: "renamed"; id: string; name: string }
-  | { type: "revoked"; id: string };
+  | { type: "revoked"; id: string }
+  | { type: "terminal_input"; id: string; on: boolean };
 
 // 설정 `shell.devices`의 항목. pairing이 넣은 항목만 `device`(기기 id)가 있다.
 type Screen = { name: string; device?: string };
@@ -103,6 +109,32 @@ export function screensRevoked<T extends Screen>(
   return list.filter((each) => each.device !== device);
 }
 
+// 기기 자격의 principal은 `device:<id>`다(call.ts devicePrincipal). unpair는 그 id 말고는 지울 길이 없다.
+const DEVICE_PRINCIPAL = "device:";
+
+// 터미널에 칠 수 있는 기기의 메모리 사본. terminal view가 입력마다 동기로 묻는다. main thread가 기동 때 표를 읽어 채우고
+// commit 뒤 바뀜(DevicesChange)으로 고친다. 끄거나 끊은 command가 답하기 전에 고쳐지므로 다음 입력부터 거절이다.
+export function createTerminalInputGrants() {
+  const on = new Set<string>();
+  return {
+    load(devices: readonly RemoteDevice[]) {
+      on.clear();
+      for (const device of devices)
+        if (device.terminal_input) on.add(device.id);
+    },
+    apply(change: DevicesChange) {
+      if (change.type === "revoked") on.delete(change.id);
+      else if (change.type === "terminal_input") {
+        if (change.on) on.add(change.id);
+        else on.delete(change.id);
+      }
+    },
+    granted: (principal: string): boolean =>
+      principal.startsWith(DEVICE_PRINCIPAL) &&
+      on.has(principal.slice(DEVICE_PRINCIPAL.length)),
+  };
+}
+
 function rowOf(row: Record<string, unknown>): RemoteDevice {
   return {
     id: row.id as RemoteDevice["id"],
@@ -115,6 +147,7 @@ function rowOf(row: Record<string, unknown>): RemoteDevice {
     created_at: row.created_at as string,
     last_connected_at: (row.last_connected_at as string | null) ?? null,
     primary: Number(row.is_primary) === 1,
+    terminal_input: Number(row.terminal_input) === 1,
   };
 }
 
@@ -200,9 +233,6 @@ const revoke: CommandDefinition<typeof devicesRevoke> = {
   },
 };
 
-// 기기 자격의 principal은 `device:<id>`다(call.ts devicePrincipal). 그 id 말고는 지울 길이 없다.
-const DEVICE_PRINCIPAL = "device:";
-
 const unpair: CommandDefinition<typeof devicesUnpair> = {
   route: devicesUnpair,
   handle(tx, ctx, _input) {
@@ -253,6 +283,21 @@ const clearPush: CommandDefinition<typeof devicesClearPush> = {
   },
 };
 
+const setTerminalInput: CommandDefinition<typeof devicesSetTerminalInput> = {
+  route: devicesSetTerminalInput,
+  handle(tx, _ctx, input) {
+    const found = load(tx.sql, input.id);
+    if (!found.ok) return found;
+    if (found.value.terminal_input === input.on) return ok({ id: input.id });
+    tx.sql.run("update devices set terminal_input = ? where id = ?", [
+      input.on ? 1 : 0,
+      input.id,
+    ]);
+    push(tx, { type: "terminal_input", id: input.id, on: input.on });
+    return ok({ id: input.id });
+  },
+};
+
 const setPrimary: CommandDefinition<typeof devicesSetPrimary> = {
   route: devicesSetPrimary,
   handle(tx, _ctx, input) {
@@ -275,6 +320,7 @@ export const DEVICES_COMMANDS = [
   setPush,
   clearPush,
   setPrimary,
+  setTerminalInput,
 ] as const;
 
 export const devicesListRead: ReadDefinition<typeof devicesList> = {

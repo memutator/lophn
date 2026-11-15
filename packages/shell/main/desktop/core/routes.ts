@@ -10,6 +10,7 @@ import {
   devicesRename,
   devicesRevoke,
   devicesSetPrimary,
+  devicesSetTerminalInput,
   pairingStart,
 } from "../../../../protocol/remote/routes.ts";
 import type { Route } from "../../../../protocol/base/mod.ts";
@@ -26,6 +27,7 @@ export const SHELL_ROUTES: readonly Route[] = [
   devicesRename as Route,
   devicesRevoke as Route,
   devicesSetPrimary as Route,
+  devicesSetTerminalInput as Route,
 ];
 
 const BY_NAME = new Map<string, Route>();

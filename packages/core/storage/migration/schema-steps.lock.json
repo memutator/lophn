@@ -294,5 +294,9 @@
   {
     "id": "remote.devices.push",
     "sha256": "68f397db23aac9849749b39be12b4dcbe8cc2fcdab43513386d8a9ab8f1374ba"
+  },
+  {
+    "id": "remote.devices.terminal_input",
+    "sha256": "93026f2c96b483654543bd312b0b7acbbcb68870027e8a3b48615b3948789edd"
   }
 ]

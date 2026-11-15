@@ -12,6 +12,8 @@ export interface RemoteDevice {
   readonly lastConnectedAt: string | null;
   /** 기준 기기. 하나뿐이다. */
   readonly primary: boolean;
+  /** 이 폰이 coding agent 터미널에 칠 수 있는가. 기본 꺼짐이고 사람이 여기서만 켠다. */
+  readonly terminalInput: boolean;
 }
 
 /** 새 pairing code. */
@@ -41,4 +43,5 @@ export interface RemoteSettingsSource {
   /** 기기를 지운다. 그 폰은 바로 끊기고 다시 pairing해야 붙는다. */
   revoke(id: string): Promise<SourceResult<null>>;
   setPrimary(id: string): Promise<SourceResult<null>>;
+  setTerminalInput(id: string, on: boolean): Promise<SourceResult<null>>;
 }

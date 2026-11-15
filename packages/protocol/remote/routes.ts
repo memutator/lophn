@@ -43,6 +43,8 @@ const deviceSchema = remoteDeviceSchema.extend({
   created_at: atSchema,
   last_connected_at: atSchema.nullable(),
   primary: z.boolean(),
+  // 이 기기가 coding agent 터미널에 칠 수 있는가. 기본 꺼짐이고 사람이 컴퓨터에서만 켠다(devices/set_terminal_input).
+  terminal_input: z.boolean(),
 });
 export type RemoteDevice = z.infer<typeof deviceSchema>;
 
@@ -104,6 +106,19 @@ export const devicesSetPrimary = defineCommand({
   name: "devices.set_primary",
   changes: [{ name: "remote_devices", id: (_input, output) => output.id }],
   input: z.strictObject({ id: deviceIdSchema }),
+  output: z.object({ id: deviceIdSchema }),
+  actors: ["user"],
+  errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
+});
+
+// 기기가 터미널에 치는 것을 켜고 끈다. 사람(desktop)만 부른다: 기기 자격은 이 route가 목록(REMOTE_ALLOWED_ROUTES)에 없어
+// forbidden이다. 끄면 그 기기의 다음 입력부터 거절이다.
+export const devicesSetTerminalInput = defineCommand({
+  resource: "devices",
+  method: "set_terminal_input",
+  name: "devices.set_terminal_input",
+  changes: [{ name: "remote_devices", id: (_input, output) => output.id }],
+  input: z.strictObject({ id: deviceIdSchema, on: z.boolean() }),
   output: z.object({ id: deviceIdSchema }),
   actors: ["user"],
   errors: ["invalid_input", "forbidden", "not_found", "unavailable"],

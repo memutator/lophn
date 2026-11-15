@@ -22,6 +22,7 @@ function sampleDevices(now: number): RemoteDevice[] {
       os: "android",
       lastConnectedAt: new Date(now - 26 * HOUR).toISOString(),
       primary: false,
+      terminalInput: false,
     },
     {
       id: "dev_01jd0000000000000000000002",
@@ -29,6 +30,7 @@ function sampleDevices(now: number): RemoteDevice[] {
       os: "ios",
       lastConnectedAt: new Date(now - 2 * HOUR).toISOString(),
       primary: true,
+      terminalInput: true,
     },
   ];
 }
@@ -81,6 +83,13 @@ export function fakeRemote(options: FakeRemoteOptions = {}) {
     setPrimary(id) {
       if (!devices.some((d) => d.id === id)) return missing();
       devices = devices.map((d) => ({ ...d, primary: d.id === id }));
+      return ok(null);
+    },
+    setTerminalInput(id, on) {
+      if (!devices.some((d) => d.id === id)) return missing();
+      devices = devices.map((d) =>
+        d.id === id ? { ...d, terminalInput: on } : d,
+      );
       return ok(null);
     },
   };

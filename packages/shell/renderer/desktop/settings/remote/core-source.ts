@@ -3,6 +3,7 @@ import {
   devicesRename,
   devicesRevoke,
   devicesSetPrimary,
+  devicesSetTerminalInput,
   type RemoteDevice as ListedDevice,
 } from "../../../../../protocol/remote/routes.ts";
 import type { RemotePairing } from "../../../../../protocol/remote/frames.ts";
@@ -81,6 +82,7 @@ export function coreRemoteSource(
           os: device.os,
           lastConnectedAt: device.last_connected_at,
           primary: device.primary,
+          terminalInput: device.terminal_input,
         })),
       };
     },
@@ -109,6 +111,15 @@ export function coreRemoteSource(
           input: { id },
           compare: {},
           key: `device-primary-${random()}`,
+        }),
+      ),
+
+    setTerminalInput: async (id, on) =>
+      done(
+        await command(core, devicesSetTerminalInput, {
+          input: { id, on },
+          compare: {},
+          key: `device-terminal-input-${random()}`,
         }),
       ),
   };

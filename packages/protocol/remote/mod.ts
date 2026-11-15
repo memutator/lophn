@@ -60,6 +60,7 @@ export {
   devicesRevoke,
   devicesSetPrimary,
   devicesSetPush,
+  devicesSetTerminalInput,
   devicesUnpair,
   pairingStart,
   type RemoteDevice,

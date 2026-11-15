@@ -1,8 +1,9 @@
-// Settings › Remote의 Phones 구역. pairing한 폰마다 이름, OS, 마지막 연결, 기준 표시와 [Rename]·[Make primary]·[Unpair]다.
-// 끊으면 그 폰은 다시 pairing해야 붙으므로 먼저 한 번 묻는다.
+// Settings › Remote의 Phones 구역. pairing한 폰마다 이름, OS, 마지막 연결, 기준 표시, 터미널 입력 스위치와
+// [Rename]·[Make primary]·[Unpair]다. 끊으면 그 폰은 다시 pairing해야 붙으므로 먼저 한 번 묻는다. 터미널 입력은 그 줄에서
+// 바로 되돌릴 수 있어 켤 때 묻지 않는다.
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
-import { Field, Input } from "@lophn/ui/input";
+import { Field, Input, Switch } from "@lophn/ui/input";
 import { Dialog } from "@lophn/ui/overlay";
 import { formatRelativeTime, t } from "@lophn/i18n";
 
@@ -142,6 +143,18 @@ export function RemoteDeviceRows({
                 <span className={styles.lineHelp}>{detailText(device)}</span>
               </div>
               <div className={styles.lineControl}>
+                <div data-remote-terminal-input={String(device.terminalInput)}>
+                  <Switch
+                    label={t("settings.label.remote-terminal-input")}
+                    checked={device.terminalInput}
+                    onCheckedChange={(on) =>
+                      void act(source.setTerminalInput(device.id, on))
+                    }
+                  />
+                  <p className={styles.lineHelp}>
+                    {t("settings.note.remote-terminal-input")}
+                  </p>
+                </div>
                 <div className={styles.actions}>
                   <Button
                     icon={actionIcons.edit}

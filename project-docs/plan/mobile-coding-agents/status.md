@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py mobile-coding-agents build`가 `tasks/*.md`�
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `mobile-coding-wireframes` | coding-phone | 1 | 없음 | running | coding-phone/mobile-coding-wireframes |  |  |
+| `mobile-coding-wireframes` | coding-phone | 1 | 없음 | merged | coding-phone/mobile-coding-wireframes | a7f10d5ac |  |
 | `mobile-host-link` | host-link | 1 | 없음 | running | host-link/mobile-host-link |  |  |
 | `mobile-coding-state` | coding-relay | 2 | mobile-host-link | todo |  |  |  |
 | `mobile-host-link-shell` | host-link | 2 | mobile-host-link | todo |  |  |  |

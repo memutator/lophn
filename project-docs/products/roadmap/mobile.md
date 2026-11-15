@@ -335,13 +335,22 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 
 | 단계 | 계획 | 상태 |
 |---|---|---|
-| 2 | `mobile-app` | 진행 중. wireframe은 사람이 승인(gallery Drafts › Phone app). wave 1(kit, data, route)이 끝났고 폰 앱 폴더를 `packages/mobile`로 옮겼다 |
-| 6 | `mobile-user-apps` | 열림(wave 1 진행. spike 판정 뒤 나머지 brief). spike `reports/mobile-program/app-screens-spike.md`, 조사 `reports/mobile-program/app-place-survey.md` |
-| 4 | `mobile-push` | 열림(wave 1 진행). 조사 `reports/mobile-program/push-survey.md`. 실제 배달에는 사람의 Expo·Firebase 계정이 든다 |
-| 5, 9 | `mobile-coding-agents` | 열림. 조사 `reports/mobile-program/coding-agent-relay-survey.md`(harness GUI와 터미널을 core로 잇기) |
-| 7 | `mobile-local-apps` | 6의 spike 판정 뒤에 연다(폰 runtime의 남은 확인 포함) |
-| 8 | `mobile-widgets` | 6 뒤에 연다 |
-| 10 | `mobile-browser-use` | 6 뒤에 연다 |
+| 2 | `mobile-app` | 진행 중. wireframe은 사람이 승인(gallery Drafts › Phone app). wave 1(kit, data, route)이 끝났고 폰 앱 폴더를 `packages/mobile`로 옮겼다. wave 2(`mobile-frame`)가 돌고 있다 |
+| 6 | `mobile-user-apps` | 진행 중(task 15개). `phone` 자리, 기준 폰 읽기, core의 view 표, 폰 화면 계약이 합쳐졌다. spike `reports/mobile-program/app-screens-spike.md`, 조사 `reports/mobile-program/app-place-survey.md`. 폰 앱을 고치는 뒤쪽 wave는 `mobile-app` land 뒤 |
+| 4 | `mobile-push` | core의 주의(attention), push 보내기, desktop의 보고가 합쳐졌다. 폰 쪽 둘은 `mobile-app` land 뒤. 조사 `reports/mobile-program/push-survey.md`. 실제 배달에는 사람의 Expo·Firebase 계정이 든다 |
+| 5, 9 | `mobile-coding-agents` | 진행 중. core의 `/host-link`가 합쳐졌다. 조사 `reports/mobile-program/coding-agent-relay-survey.md` |
+| 7 | `mobile-local-apps` | 조사 끝남(`reports/mobile-program/local-apps-survey.md`). spike(guest runtime 안의 SQLite, changeset 양방향) 뒤에 brief를 쓴다. 결과는 `reports/mobile-program/local-apps-spike.md` |
+| 8 | `mobile-widgets` | 조사 끝남(`reports/mobile-program/widgets-survey.md`). 계획을 여는 중 |
+| 10 | `mobile-browser-use` | 조사 끝남(`reports/mobile-program/browser-use-survey.md`). spike(폰 앱이 guest 화면을 읽고 누를 수 있나) 뒤에 brief를 쓴다. 결과는 `reports/mobile-program/drive-spike.md` |
+
+### 조사 뒤 planner가 정한 것 (2026-11-15)
+
+사람이 반대하면 바꾼다. 근거와 버린 안은 각 조사 보고서에 있다.
+
+- **core가 폰에 묻는 길은 하나다.** remote channel에 `request`·`response` frame을 더하고 core에 `PhoneLink`를 둔다. 폰 기능(단계 8)과 폰 화면 다루기(단계 10)가 같이 쓴다. desktop의 `/host-link`와 같은 모양이고 폰은 두 번째 host다.
+- **단계 8.** 폰 기능은 앱 backend의 길만 먼저 연다(새 SDK part `@lophn/cap-phone`, permission `phone.use {capability}`, activation 동의 card에서 앱마다 한 번). 첫 기능은 `location.get`이다. agent가 부르는 길과 다른 기능은 쓰는 예가 생길 때 연다. 폰 앱이 앞에 없으면 `unavailable`이고 push로 깨우지 않는다. 위젯은 선언(`widgets`)하고 값은 정해진 component 넷(text, stat, progress, list)의 data다. 새로 고침은 best effort이고 위젯은 받은 시각을 늘 보인다.
+- **단계 10.** agent는 폰의 preview 화면만 다룬다(desktop과 같은 규칙: live 화면은 사람의 실제 data라 다루지 않는다). 사람이 폰에서 그 앱의 "Preview from lophn"을 열어야 시작되고, 폰 앱이 앞에 있고 화면이 켜져 있어야 한다. 읽기와 입력은 폰 앱의 native 층이 한다. Accessibility service와 adb는 쓰지 않는다(Play 정책, cable). `lophn tab`·`lophn browser`의 대상이 하나 느는 것이고 도구를 새로 만들지 않는다.
+- **단계 7.** 선언의 `runs_on` 하나로 remote(`computer`), sync(`computer`, `phone`), standalone(`phone`)을 가른다. 폰의 backend는 그 앱 화면의 guest runtime 안에서 돈다. computer가 hub이고 relay는 변경을 맡아 두지 않는다. 충돌은 column 단위로 나중 것이 이기고 delete가 이긴다(row 단위는 서로 다른 column을 고친 두 사본이 갈라진다. 위 "폰에서 혼자 도는 앱"의 row 단위 서술을 이것이 바꾼다). 폰에서 한 write는 computer에 닿을 때 invocation으로 기록되어 Activity와 rewind에 든다. migration은 app bundle에 넣지 않고 host가 release의 migration file을 돌린다. standalone 앱은 폰에 "Only on this phone · not backed up"으로 보인다. Android를 먼저 한다.
 
 ## 사람이 정할 것
 

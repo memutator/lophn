@@ -18,4 +18,4 @@ lead만 고친다. `tools/status.py mobile-app build`가 `tasks/*.md`에서 id, 
 | `mobile-web-removal` | remote-web | 3 | mobile-frame | merged | remote-web/mobile-web-removal | a631fd6c3 |  |
 | `mobile-attach` | mobile-app | 4 | mobile-session | merged | mobile-app/mobile-attach | 8933dfe38 |  |
 | `mobile-polish` | mobile-app | 4 | mobile-home, mobile-session, mobile-inbox, mobile-places, mobile-ops, mobile-frame-fixes, mobile-web-removal | merged | mobile-app/mobile-polish | c2c59c176 |  |
-| `mobile-docs` | mobile-app | 5 | mobile-polish, mobile-attach | running | mobile-app/mobile-docs |  |  |
+| `mobile-docs` | mobile-app | 5 | mobile-polish, mobile-attach | merged | mobile-app/mobile-docs | ba017c920 |  |

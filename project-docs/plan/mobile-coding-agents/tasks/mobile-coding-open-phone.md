@@ -35,3 +35,9 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: 그림 목록, wireframe과 다르게 한 곳과 이유, fake host로 확인한 것과 못 한 것(실제 desktop에서 창 없이 열기는 확인 못 함).
+
+## lead가 더함 (`mobile-coding-open-host` 보고, 2026-11-15)
+
+- 앱을 깨운 뒤(`coding_sessions/wake`가 `attached`) 목록은 비어 있다. 터미널은 앱이 꺼질 때 끝나기 때문이다. 줄이 생기기를 기다리지 않고 "lophn is running on the computer. No coding sessions are open."을 보이고 그 자리에서 New session과 Continue as chat을 준다.
+- `coding_sessions/open`의 `harness`는 GUI adapter id(`claude`, `codex`, `opencode`, `omp`)다. `coding_sessions/list`의 `harness`와 같다.
+- 컴퓨터에 그 project를 보이는 창이 없으면 open이 `unavailable`("Open the project on the computer")로 온다. 그 문장을 그대로 보인다.

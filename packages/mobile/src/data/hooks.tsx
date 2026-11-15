@@ -12,6 +12,10 @@ import {
 import { AppState } from "react-native";
 import { appList } from "../../../protocol/apps/apps.ts";
 import { idSchema } from "../../../protocol/base/ids.ts";
+import {
+  type CodingSession,
+  codingSessionsList,
+} from "../../../protocol/coding-agent/relay.ts";
 import { agentRead } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import { workspaceSessionList } from "../../../protocol/lophn-agent/agent-sessions.ts";
 import type { AskAnswer } from "../../../protocol/lophn-agent/ask-tool.ts";
@@ -63,6 +67,7 @@ import {
 import { markNoticesRead } from "../../../shell/renderer/desktop/connection/waiting/history.ts";
 import type { InboxNames } from "../../../shell/renderer/desktop/connection/waiting/names.ts";
 import { newId } from "../../../shell/renderer/prefixed-id.ts";
+import type { CodingActions, CodingTarget } from "./coding.ts";
 import type { ComputerItem, Computers, ComputersState } from "./computers.ts";
 import { type ComputerData, dataOf, type SampleConversation } from "./link.ts";
 import { type Known, type WorkspaceView, workspacesOf } from "./workspaces.ts";
@@ -353,16 +358,25 @@ export interface Conversation extends AgentTabData {
   answer(answers: readonly QuestionAnswer[]): Promise<SourceResult<void>>;
 }
 
-function useSource({ agent, workspace }: Omit<ConversationTarget, "session">) {
-  const { sources } = useData().data;
-  return useMemo(
+function useSource(target: ConversationTarget | CodingTarget): AgentTabSource {
+  const { sources, coding } = useData().data;
+  const lophn = "agent" in target ? target : null;
+  const chat = "coding" in target ? target : null;
+  const lophnSource = useMemo(
     () =>
-      sources({
-        assignment: agent,
-        workspace: workspace ?? { kind: "global", id: "" },
-      }),
-    [sources, agent, workspace?.kind, workspace?.id],
+      lophn === null
+        ? null
+        : sources({
+            assignment: lophn.agent,
+            workspace: lophn.workspace ?? { kind: "global", id: "" },
+          }),
+    [sources, lophn?.agent, lophn?.workspace?.kind, lophn?.workspace?.id],
   );
+  const codingSource = useMemo(
+    () => (chat === null ? null : coding.source(chat)),
+    [coding, chat?.session, chat?.coding.harness, chat?.coding.cwd],
+  );
+  return (lophnSource ?? codingSource)!;
 }
 
 const SESSION_ID = idSchema("ses");
@@ -377,13 +391,16 @@ const NO_SESSION = new Proxy({} as AgentTabSource, {
 });
 
 /** One session's conversation: the desktop Agent tab's view (thread, live text, pending, queued) and its actions. */
-export function useConversation(target: ConversationTarget): Conversation {
+export function useConversation(
+  target: ConversationTarget | CodingTarget,
+): Conversation {
   const { session } = target;
   const real = useSource(target);
   const source = SESSION_ID.safeParse(session).success ? real : NO_SESSION;
   const data = useAgentTabData(source, session);
   const approval = data.thread?.pending.approval ?? null;
   const asked = data.thread?.pending.questions ?? null;
+  const turn = data.thread?.turn?.phase === "ended" ? null : (data.thread?.turn ?? null);
   const send = useCallback(
     (text: string, delivery: Delivery = "next_turn") => {
       const message = newId("msg");
@@ -401,7 +418,13 @@ export function useConversation(target: ConversationTarget): Conversation {
     ...data,
     source,
     send,
-    stop: () => source.stopSession(session),
+    // A coding session has no session to stop on the core; its running turn is stopped by id.
+    stop: () =>
+      "coding" in target
+        ? turn === null
+          ? Promise.resolve({ ok: true, value: undefined })
+          : source.stop(turn.id, newId("stop"))
+        : source.stopSession(session),
     decide: (choice, reason) =>
       approval === null
         ? Promise.resolve({ ok: false, code: "not_found" })
@@ -420,6 +443,45 @@ export function useConversation(target: ConversationTarget): Conversation {
             answers,
           }),
   };
+}
+
+export interface CodingSessionsView {
+  /** Whether the computer's lophn app is connected; null until the first read. */
+  readonly shell: "attached" | "absent" | null;
+  readonly sessions: CodingSession[];
+  readonly status: "loading" | "ready" | "failed";
+}
+
+const LOADING_CODING: CodingSessionsView = {
+  shell: null,
+  sessions: [],
+  status: "loading",
+};
+
+/** The computer's coding sessions (of one project when given). Read again when the list changes and after a reconnect. */
+export function useCodingSessions(project?: string): CodingSessionsView {
+  const { loaded } = useCoreRead(
+    codingSessionsList,
+    project === undefined ? {} : { project: project as `prj_${string}` },
+  );
+  return useMemo(
+    () =>
+      loaded.state === "ready"
+        ? {
+            shell: loaded.value.shell,
+            sessions: loaded.value.sessions,
+            status: "ready",
+          }
+        : loaded.state === "failed"
+          ? { ...LOADING_CODING, status: "failed" }
+          : LOADING_CODING,
+    [loaded],
+  );
+}
+
+/** What the computer's coding sessions can be told to do: switch view, wake the computer's app, open one. */
+export function useCodingActions(): CodingActions {
+  return useData().data.coding;
 }
 
 /**

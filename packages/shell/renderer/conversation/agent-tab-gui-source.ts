@@ -11,14 +11,14 @@ import type {
 } from "../../../protocol/acp/mod.ts";
 import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
 import { lophnIdOf } from "../../../protocol/lophn-agent/workspaces.ts";
-import { harnessVendorOf } from "../parts/vendor-icon/vendor-icon.tsx";
 import type {
   HarnessGuiInfo,
   HarnessGuiRewindPreview,
   HarnessGuiSessionEntry,
 } from "../../ipc/harness-gui.ts";
-import { rewindPointsOf } from "./agent-view-model.ts";
+import { harnessVendorOf } from "../parts/vendor-icon/vendors.ts";
 import type { AgentFace, AgentTabSource } from "./agent-tab-source.ts";
+import { rewindPointsOf } from "./agent-view-model.ts";
 
 interface GuiSourceDeps {
   readonly info: HarnessGuiInfo;

@@ -12,6 +12,7 @@ import {
 import { createWaitingStore } from "../../../shell/renderer/desktop/connection/events/waiting-store.ts";
 import type { Connection } from "../connection/connection.ts";
 import { unpair } from "../pairing/unpair.ts";
+import { type Coding, codingOf } from "./coding.ts";
 import type { Link, LinkState } from "./computers.ts";
 import { remoteImages } from "./images.ts";
 
@@ -23,6 +24,8 @@ export interface ComputerData {
   // Kept for every computer, not only the one on screen, so the computer list can show what waits on each.
   readonly waiting: WaitingStore;
   readonly sources: AgentTabSourceFactory;
+  /** The computer's coding sessions: the conversation source of a chat-view one and the actions on them. */
+  readonly coding: Coding;
   /**
    * The desk (the desktop sidebar's worktree group) a session sits in. Desks live in the desktop window's layout, which the
    * phone cannot read, so a real computer has none and its sessions form one group.
@@ -50,7 +53,7 @@ export function dataOf(
     null,
   );
   return {
-    data: { core, client, waiting, sources },
+    data: { core, client, waiting, sources, coding: codingOf(client) },
     stop: waiting.start(),
   };
 }

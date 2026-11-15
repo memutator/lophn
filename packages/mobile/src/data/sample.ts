@@ -17,7 +17,8 @@ import {
   JOB_HOLD_AGENT,
   SHELL_COMMAND,
 } from "../../../shell/renderer/desktop/connection/waiting/fake-source.ts";
-import type { SessionSnapshot } from "../../../protocol/events/mod.ts";
+import type { CodingSession } from "../../../protocol/coding-agent/relay.ts";
+import type { BusEvent, SessionSnapshot } from "../../../protocol/events/mod.ts";
 import type { CharacterProfile } from "../../../protocol/lophn-agent/agent-values.ts";
 import {
   type AgentId,
@@ -569,9 +570,71 @@ function placeRoutes(): Record<string, Answer> {
   };
 }
 
+/**
+ * The computer's coding sessions, in memory: a Claude Code chat waiting on an approval and a Codex session in its
+ * terminal (the wireframe's). Switching and opening change the list the way the core would, and tell the list to
+ * read again. The chat is the conversation fake's harness scene, read-only (a message sent goes nowhere).
+ */
+function codingRoutes(changed: () => void): Record<string, Answer> {
+  const row = (n: number, harness: string, label: string, view: "gui" | "tui", title: string, minutes: number): CodingSession => ({
+    session: id("ses", n),
+    terminal: `trm_sample${n}`,
+    harness,
+    label,
+    project: PHRONER.id,
+    cwd: "/Users/mina/phroner",
+    title,
+    state: view === "gui" ? "waiting" : "running",
+    view,
+    handoff: "restart",
+    cli_session: `cli-sample-${n}`,
+    last_active_at: ago(minutes),
+    switch: null,
+  });
+  const list = [
+    row(21, "claude", "Claude Code", "gui", "Fix flaky retry in the scenario runner", 2),
+    row(22, "codex", "Codex", "tui", "Split the eval board loader", 9),
+  ];
+  const find = (body: Record<string, unknown>) => list.find((one) => one.session === body.session);
+  return {
+    "coding_sessions/list": (body) => ({
+      shell: "attached",
+      sessions: list.filter((one) => body.project === undefined || one.project === body.project),
+    }),
+    "coding_sessions/switch_plan": (body) => {
+      const found = find(body);
+      return found === undefined
+        ? undefined
+        : {
+            to: found.view === "gui" ? "tui" : "gui",
+            stops: { turn: found.state !== "idle", tasks: 0, queued: 0 },
+            blocked: null,
+          };
+    },
+    "coding_sessions/switch": (body) => {
+      const found = find(body);
+      if (found === undefined) return undefined;
+      const to = body.to as "gui" | "tui";
+      list[list.indexOf(found)] = { ...found, view: to, state: to === "gui" ? "waiting" : "running" };
+      changed();
+      return { ok: true };
+    },
+    "coding_sessions/open": (body) => {
+      const session = id("ses", 30 + list.length);
+      list.unshift({ ...row(30 + list.length, String(body.harness), body.harness === "codex" ? "Codex" : "Claude Code", "gui", "New session", 0), session, state: "idle" });
+      changed();
+      return { session };
+    },
+    "coding_sessions/wake": () => ({ shell: "attached" }),
+    "acp/send": () => ({}),
+  };
+}
+
 /** The fake Gateway plus the reads every screen makes: projects, apps, sessions, agents, and what the place screens read. */
 function sampleCore(): CoreSource {
   const fake = inbox();
+  // A coding session's chat is the conversation fake's harness scene with an approval waiting.
+  const codingConversation = createFakeAgentTabSource({ scene: "approval-scopes" });
   const snapshots: SessionSnapshot[] = SESSIONS.map((one) => ({
     session: one.id,
     agent: one.agent,
@@ -580,8 +643,17 @@ function sampleCore(): CoreSource {
     turn_requests: [],
     questions: [],
   }));
+  const coding = codingRoutes(() =>
+    fake.emitEvent({
+      type: "StateChanged",
+      subject: null,
+      at: new Date().toISOString(),
+      payload: { changes: [{ name: "coding_sessions", id: null }] },
+    } as BusEvent),
+  );
   const reads: Record<string, Answer> = {
     ...placeRoutes(),
+    ...coding,
     "projects/list": () => ({
       ...COMMON,
       projects: [
@@ -672,6 +744,12 @@ function sampleCore(): CoreSource {
             ],
           },
         };
+      }
+      if (key === "acp/snapshot") {
+        const state = await codingConversation.acp(SESSION_MAIN);
+        return state.ok
+          ? { ok: true, value: shifted(state.value, Date.now() - FAKE_NOW) }
+          : { ok: false, error: { code: "not_found", message: "sample" } };
       }
       const read = reads[key];
       if (read === undefined) return fake.call(input);

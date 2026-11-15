@@ -28,6 +28,13 @@ import {
 import { appPhoneScreens } from "../apps/phone.ts";
 import { appRuntime } from "../apps/runtime.ts";
 import { appViewsCall, appViewsClose, appViewsOpen } from "../apps/views.ts";
+import {
+  codingSessionsList,
+  codingSessionsOpen,
+  codingSessionsSwitch,
+  codingSessionsSwitchPlan,
+  codingSessionsWake,
+} from "../coding-agent/relay.ts";
 import type { BusEvent } from "../events/bus.ts";
 import { sessionSnapshotsList } from "../events/snapshot.ts";
 import {
@@ -106,6 +113,9 @@ import { devicesSetPush, devicesUnpair } from "./routes.ts";
 // 만들기·고치기·지우기(agent, job, 앱, project, workflow 정의), secret, provider·model 관리, 설정 쓰기, 기기와 pairing(자기 등록을 지우는
 // `devices/unpair`와 자기 push 설정 `devices/set_push`만 둔다),
 // `tabs/*`, `sessions/delete`(되돌릴 수 없다), `sessions/change-skip`(사람에게 묻지 않고 돌게 하는 권한 설정이다)은 넣지 않는다.
+// 컴퓨터의 coding agent(`coding_sessions/*`)는 폰이 목록을 보고 view를 바꾸고 새로 열고 컴퓨터의 앱을 깨운다. 폰이 시작한 switch도
+// `confirmed: true`가 있어야 하고(도는 turn이 끊긴다), 터미널 입력은 `host/*`·`terminal_sessions/*`가 아니라 따로 등록한 터미널 입력
+// 기기(`devices/set_terminal_input`)의 일이라 여기 없다.
 // `jobs/update`는 켜고 끄기(`enabled`)만 받는다(core/remote/call.ts). `acp/send`는 안의 route를 기기 자격으로 부르므로 대화 조작 route도 여기 있어야 한다.
 // 모두 user가 부를 수 있는 route여야 한다(아니면 core가 기기 자격을 만들지 못한다).
 // file·upload route의 bytes는 `call`에서 base64로 싣는다(core/remote/call.ts). 폰은 화면 bundle도 이 목록의 route로 받는다.
@@ -128,6 +138,12 @@ export const REMOTE_ALLOWED_ROUTES = [
   appIcon,
   // 새 session: 그 workspace에서 일할 수 있는 agent
   agentList,
+  // 컴퓨터의 coding agent: 목록, view 바꾸기(미리 보기와 바꾸기), 새로 열기, 앱 깨우기. 대화는 아래 `acp/*`다
+  codingSessionsList,
+  codingSessionsSwitchPlan,
+  codingSessionsSwitch,
+  codingSessionsOpen,
+  codingSessionsWake,
   // 대화
   acpSnapshot,
   acpDraft,

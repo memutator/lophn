@@ -41,14 +41,19 @@ export type {
   ComputerStatus,
   Computers,
 } from "./computers.ts";
+export type { CodingActions, CodingTarget } from "./coding.ts";
+export type { CodingSession } from "../../../protocol/coding-agent/relay.ts";
 export {
   type ComputersView,
+  type CodingSessionsView,
   type Conversation,
   type ConversationTarget,
   DataProvider,
   type Inbox,
   useComputers,
   useConversation,
+  useCodingActions,
+  useCodingSessions,
   useCurrentComputer,
   useInbox,
   useNames,

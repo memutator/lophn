@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py mobile-user-apps build`가 `tasks/*.md`에�
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `mobile-phone-target` | app-place | 1 | 없음 | todo |  |  |  |
-| `mobile-place-decl` | app-place | 1 | 없음 | todo |  |  |  |
-| `mobile-views-core` | app-views | 1 | 없음 | todo |  |  |  |
+| `mobile-phone-target` | app-place | 1 | 없음 | running | app-place/mobile-phone-target |  |  |
+| `mobile-place-decl` | app-place | 1 | 없음 | running | app-place/mobile-place-decl |  |  |
+| `mobile-views-core` | app-views | 1 | 없음 | running | app-views/mobile-views-core |  |  |
 | `mobile-shell-views` | app-views | 2 | mobile-views-core, mobile-place-decl | todo |  |  |  |

@@ -1272,6 +1272,25 @@ flows:
     crosses_process: false
     declared_only: [invalid_input, forbidden, unavailable]
 
+  - id: app-phone-screens-list
+    title: "폰이 받을 앱 화면 목록(manifest와 running)을 읽는다"
+    actor: person
+    entries: [route:apps/phone_screens]
+    boundary: [app-runtime]
+    code: [packages/protocol/apps/phone.ts, packages/protocol/apps/phone-screen.ts]
+    docs: [architecture/remote.md]
+    steps:
+      - "활성 release가 있는 보관하지 않은 앱마다 phone.json이 있는 화면을 싣는다. 화면마다 app, 앱 이름, icon, screen, label, params, release, bundle_hash, manifest, running을 낸다."
+      - "running은 그 release의 앱 process가 지금 live로 도는가다."
+      - "폰은 manifest를 `phoneCanRun`으로 자기 판과 맞춰 열지 말지 정하고, 화면 byte는 `apps/screen_file`(phone.js)로 받는다."
+    outcomes:
+      - id: listed
+        observe: [response]
+    crosses_process: false
+    declared_only: [invalid_input, forbidden, unavailable]
+    unclear:
+      - "route 정의만 있고 handler는 아직 없다(mobile-phone-reads가 짓는다). 그때까지 부르면 unavailable이다. handler가 서면 outcome과 declared_only를 handler에 맞춰 다시 쓴다."
+
   - id: app-sdk-decide
     title: "home lophn이 앱 하나의 SDK 업데이트 결정을 기록하고 update면 그 앱의 lophn에게 같은 동작으로 맡긴다"
     actor: agent

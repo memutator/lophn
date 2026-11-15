@@ -131,6 +131,10 @@ files:
     covers: [declaration-check:passed, declaration-check:errors]
     note: 앱 선언 검증기. 이름 규칙, 중복, icon 경로·lucide 이름 거절과 정규형. events·subscriptions는 비면 칸이 없고 구독 handler 이름(on.<source>.<event>)이 operation·command와 겹치면 거절한다. 선언 ID와 입력 이름은 보존하고 CLI command·flag가 겹치면 slug 없이도 거절한다. 검사 결과 passed와 errors를 정한다
 
+  - path: packages/protocol/apps/phone-screen_test.ts
+    covers: []
+    note: 폰이 화면 manifest를 열지 정하는 phoneCanRun(폰보다 새 base·kit·모르는 module은 phone_too_old, 옛 major는 screen_too_old, 같은 major의 옛 판은 ok)과 guest 메시지 schema(64 KiB 넘는 call input, 모르는 칸 거절)
+
   - path: packages/protocol/coding-agent/headless/headless_test.ts
     covers: [harness-turn-run:configuration-unavailable]
     note: headless 출력 parser(helper)와 권한 표. deny를 옮길 수 없는 harness는 null이고 그때 configuration-unavailable이다. 전부 허락 flag가 없는 것도 본다

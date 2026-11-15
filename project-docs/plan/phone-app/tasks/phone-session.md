@@ -22,7 +22,7 @@
 
 1. 대화: 위 줄(sidebar 단추, 얼굴, agent 이름과 session 제목, ⋯), thread(desktop `ThreadEntry`의 종류를 빠짐없이 그린다: 내 말과 delivery note, agent 글, 한 일 줄, 고친 file card, subagent·call 줄, 승인·질문의 지난 결과 줄, turn 끝, provider 오류와 Retry, info 줄, shell 실행. wireframe에 없는 종류는 가장 가까운 줄 모양으로 그리고 보고한다), 오는 글(live), Working 줄, 입력 칸 위의 기다림 card(승인의 고르기는 source가 주는 것 그대로, 질문 넘기기와 직접 쓰기, secret·login은 '컴퓨터에서 넣으라'는 안내), 입력 칸(문구는 상태를 따른다: Reply…, Queue a message…, Describe a task…, 일하는 중이고 빈 칸이면 멈춤).
 2. 목록: 최신을 따라가고, 읽으려고 올리면 따라가기를 멈추고 최신으로 가기 단추가 뜬다. keyboard가 올라와도 마지막 글이 가리지 않는다. 긴 대화에서 버벅이지 않는다(줄 component를 memo한다).
-3. sheet와 딸린 화면: 한 일 상세(tool의 입력과 출력은 열 때 읽는다), diff, 첨부(사진첩과 camera는 expo의 image picker가 필요하면 더하지 말고 '등록할 것'으로 보고하고 file 고르기 줄만 둔다. workspace의 file 가리키기와 명령·skill은 route가 있을 때만), model과 effort(`phone-routes`가 route를 열었을 때. 없으면 chip만 보이고 누르지 못한다), session menu(Rename, Permissions 보기, Context, Archive. Show on computer는 core에 route가 없어 두지 않는다).
+3. sheet와 딸린 화면: 한 일 상세(tool의 입력과 출력은 열 때 읽는다), diff, 첨부(사진첩과 camera는 expo의 image picker가 필요하면 더하지 말고 '등록할 것'으로 보고하고 file 고르기 줄만 둔다. workspace의 file 가리키기와 명령·skill은 route가 있을 때만), model과 effort(대화 snapshot의 meta가 model 묶음과 effort 축을 준다. 바꾸기는 `acp/send`의 `set_model`이다. desktop 대화의 picker와 같은 길), session menu(Rename, Permissions 보기, Context, Archive. Show on computer는 core에 route가 없어 두지 않는다).
 4. 새 session: workspace와 agent를 고르고 첫 말을 보내면 그 대화로 간다. agent 고르기 sheet는 그 workspace에서 일할 수 있는 agent만 보인다. coding agent는 이 계획에서 열지 않으니 목록에 두지 않는다.
 5. coding agent의 session을 열면 thread를 읽기만 보이고 입력 칸 자리에 '이 session은 컴퓨터에서 이어 간다'는 한 줄을 둔다(다루기는 다음 계획).
 

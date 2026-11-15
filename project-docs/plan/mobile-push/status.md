@@ -8,4 +8,4 @@ lead만 고친다. `tools/status.py mobile-push build`가 `tasks/*.md`에서 id,
 | `mobile-push-send` | mobile-push | 1 | 없음 | merged | mobile-push/mobile-push-send | b00185aab |  |
 | `mobile-attention-desktop` | mobile-attention | 2 | mobile-attention-core | merged | mobile-attention/mobile-attention-desktop | ceecd6e65 |  |
 | `mobile-push-device` | mobile-push | 3 | mobile-attention-core, mobile-push-send, mobile-attention-desktop | merged | mobile-push/mobile-push-device | 1d31d76d6 |  |
-| `mobile-push-phone` | mobile-push | 3 | mobile-push-device | todo |  |  |  |
+| `mobile-push-phone` | mobile-push | 3 | mobile-push-device | running | mobile-push/mobile-push-phone |  |  |

@@ -13,7 +13,10 @@
   - `packages/mobile/app.json`
   - `packages/mobile/README.md`
   - `packages/design/i18n/catalog/mobile-notifications.ts`
-  - (lead가 `mobile-app`이 land된 뒤 채운다) Paired 화면 file, Settings 목록 화면 file, 앱 root가 provider를 올리는 file. 이 file들은 이 task가 필요한 줄만 고친다
+  - `packages/mobile/src/screens/start/pairing.tsx`(Paired 화면: 알림을 묻는 카드와 두 단추를 더하는 만큼만)
+  - `packages/mobile/src/screens/settings/index.tsx`(Settings 목록의 Notifications 줄과 그 화면으로 가는 길만)
+  - `packages/mobile/App.tsx`(provider를 올리는 줄만)
+  - `packages/mobile/src/app/nav.ts`와 `routes.tsx`(Notifications 화면의 자리 하나를 더하는 만큼만)
 - 읽을 것:
   - 기준(화면): `tools/wireframes/drafts/phone/start.tsx`의 `Paired`(알림 묻는 카드와 두 단추 `Turn on notifications`·`Not now`), `more.tsx`의 `Notifications`(스위치 일곱)와 Settings 목록의 `Notifications` 줄(값 `On`), 그림 `/home/pyosechang/projects/lophn/screenshot/phone-wireframes/{1-start-and-pair,8-settings}.png`. `inbox.tsx`의 `Lock`은 OS가 그리는 알림이라 짓지 않는다(글은 core가 정한다)
   - 조사: `/home/pyosechang/projects/lophn/reports/mobile-program/push-survey.md`의 3.5, 3.7, 8(Expo 폰 쪽 사실), 7(알려지지 않은 것: SDK 58에서 cold start 알림 누름을 읽는 API는 설치한 판의 문서로 확인한다)

@@ -53,7 +53,7 @@ import type { TabHost } from "../workspace/kinds/host.ts";
 import { focusTabBody } from "../workspace/focus-tab.ts";
 import type { TerminalDeps } from "./deps.ts";
 import { blocksText } from "../../../protocol/lophn-agent/content-block.ts";
-import { guiSessionId } from "./model.ts";
+import { guiSessionId } from "../../../protocol/lophn-agent/session-tag.ts";
 import { useGuiRequests } from "./use-gui-requests.ts";
 
 // ---- 탭 fields ----

@@ -76,6 +76,10 @@ modules:
     boundary: core
     notes: core가 shell에 시킬 일(탭 열기·닫기)의 메모리 queue와 agent가 연 탭의 표. 다른 module을 import하지 않고 base와 protocol만 쓴다. handler는 core/main의 wiring/host-queue.ts가 붙인다.
 
+  - path: packages/core/coding-relay
+    boundary: core
+    notes: shell main(host)이 `/host-link`로 올린 터미널 coding agent 보고와 GUI handle의 ACP 상태 사본(redaction, 접기, keyed 입력 dedupe, 끊김 뒤 비우기). 다른 module을 import하지 않고 base와 protocol만 쓴다. host 요청·Bus·redactor는 ports.ts이고 wiring/coding-relay.ts가 끼운다.
+
   - path: packages/core/projects
     boundary: projects
 

@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { idSchema } from "../../../protocol/base/ids.ts";
-import { guiSessionId, terminalName } from "./model.ts";
+import { guiSessionId } from "../../../protocol/lophn-agent/session-tag.ts";
+import { terminalName } from "./model.ts";
 
 // 여러 번 고친 bug: 이름의 출처(GUI 제목, 터미널 제목)가 잠깐 사라진 순간 탭이 자동 이름(project 이름)으로 떨어지고,
 // 그 순간의 저장이 기억해 둔 이름까지 지웠다.

@@ -83,6 +83,12 @@ export const terminalSessionReportSchema = z.strictObject({
   title: z.string().nullable(),
   cwd: z.string().nullable(),
   shell_pid: z.number().int().positive().nullable(),
+  // 탭이 지금 보이는 것: GUI 대화(gui)나 터미널 화면(tui).
+  view: z.enum(["gui", "tui"]),
+  // GUI로 넘길 때 CLI를 다시 띄우나(restart) 같은 대화를 나눠 보나(shared). GUI가 되지 않는 harness나 handle도 TUI도 없으면 null.
+  handoff: z.enum(["restart", "shared"]).nullable(),
+  // 그 터미널의 foreground가 coding agent TUI다.
+  foreground: z.boolean(),
 });
 export type TerminalSessionReport = z.infer<typeof terminalSessionReportSchema>;
 

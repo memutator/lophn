@@ -1,6 +1,7 @@
 // session lifecycle: 앱에 주는 session 목록·상태·멈추기와 core가 낸 `session.*` event(발행자 `lophn`)다.
 // 상태 파생은 lophn-agent/session/state.ts 한 곳이고, 여기는 그 사실을 모으는 port(메모리의 대기 요청·질문, ledger, call 정책, host queue)를
-// 꽂고 앱 event 전달(`ctx.eventDelivery`)에 잇는다. 터미널 coding agent는 shell main이 `terminal_sessions.report`로 알린 집합이다.
+// 꽂고 앱 event 전달(`ctx.eventDelivery`)에 잇는다. 터미널 coding agent는 shell main이 `/host-link`의 `coding_report`(옛 길
+// `terminal_sessions.report`)로 알린 집합이다. 같은 집합을 coding relay(`ctx.codingRelay`)에도 넘겨 폰의 coding session 목록이 된다.
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import type { Workspace } from "../../../../protocol/lophn-agent/workspaces.ts";
@@ -21,6 +22,7 @@ import {
   appSessionsStatus,
   appSessionsStop,
   terminalSessionsReport,
+  type TerminalSessionReport,
 } from "../../../../protocol/lophn-agent/session-lifecycle.ts";
 import { HARNESS_ADAPTER_OF_RUNTIME } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import { sessionStatusRead } from "../../../../protocol/lophn-agent/session-status.ts";
@@ -81,11 +83,15 @@ const APP_SESSIONS_OPEN_CONTEXT: AuthenticatedContext = {
 
 // shell이 떨어졌는지 보는 간격이다.
 const SWEEP_MS = 3000;
+// `/host-link`가 닫힌 뒤 터미널 표를 비우기 전에 기다리는 시간이다. 그 안에 다시 붙은 host는 보고를 다시 보내 표가 이어진다.
+// long-poll host의 유예(host queue의 ATTACHED_MS)와 같다.
+const LINK_GRACE_MS = 3000;
 
 export const sessionLifecycleWiring: WiringFactory = () => {
   let connection: LedgerConnection | undefined;
   let unsubscribe: (() => void) | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
+  let graceTimer: ReturnType<typeof setTimeout> | undefined;
   return {
     name: "session-lifecycle",
     records: () => [
@@ -101,6 +107,12 @@ export const sessionLifecycleWiring: WiringFactory = () => {
       const workspace = workspaceDepsOf(sql);
       const policy = (): CallPolicy =>
         ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY;
+      // 연결이 마지막으로 닫힌 때. 그 뒤 LINK_GRACE_MS 동안은 붙어 있는 것으로 본다.
+      let linkClosedAt: number | null = null;
+      const shellAttached = () =>
+        ctx.hostQueue.attached() ||
+        (linkClosedAt !== null &&
+          ctx.clock.nowMs() - linkClosedAt < LINK_GRACE_MS);
 
       const lifecycle = createSessionLifecycle({
         sql,
@@ -144,7 +156,7 @@ export const sessionLifecycleWiring: WiringFactory = () => {
             });
         },
         anySubscriber: () => ctx.eventDelivery.hasSubscribers("lophn"),
-        shellAttached: () => ctx.hostQueue.attached(),
+        shellAttached,
         async interruptTerminal(tab) {
           const called = ctx.hostQueue.callTerminalInterrupt({
             terminal_ref: tab,
@@ -192,7 +204,24 @@ export const sessionLifecycleWiring: WiringFactory = () => {
           close() {},
         },
       );
-      timer = setInterval(() => lifecycle.sweep(), SWEEP_MS);
+      const report = (sessions: readonly TerminalSessionReport[]) => {
+        lifecycle.reportTerminals(sessions);
+        ctx.codingRelay.reported(sessions);
+      };
+      // shell이 떨어졌으면 터미널 표와 coding relay를 같이 비운다.
+      const sweep = () => {
+        if (shellAttached()) return;
+        lifecycle.sweep();
+        ctx.codingRelay.clear();
+      };
+      timer = setInterval(sweep, SWEEP_MS);
+      ctx.hostLink.onFrame("coding_report", (frame) => report(frame.sessions));
+      ctx.hostLink.onClose(() => {
+        linkClosedAt = ctx.clock.nowMs();
+        clearTimeout(graceTimer);
+        graceTimer = setTimeout(sweep, LINK_GRACE_MS);
+        graceTimer.unref?.();
+      });
 
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       const sessionCommand = async (
@@ -361,9 +390,7 @@ export const sessionLifecycleWiring: WiringFactory = () => {
                   message: "only shell main reports terminal sessions",
                 });
               }
-              lifecycle.reportTerminals(
-                (body as { sessions: never[] }).sessions,
-              );
+              report((body as { sessions: TerminalSessionReport[] }).sessions);
               return ok({});
             },
           ],
@@ -375,6 +402,8 @@ export const sessionLifecycleWiring: WiringFactory = () => {
       unsubscribe = undefined;
       if (timer !== undefined) clearInterval(timer);
       timer = undefined;
+      clearTimeout(graceTimer);
+      graceTimer = undefined;
       connection?.close();
       connection = undefined;
     },

@@ -66,6 +66,7 @@ import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
 import type { AppViews } from "../../../apps/views/mod.ts";
 import type { Queue } from "../../../lophn-agent/run-loop/queue.ts";
 import type { HarnessHold, HostQueue } from "../../../host-queue/mod.ts";
+import type { CodingRelay } from "../../../coding-relay/mod.ts";
 import type { SecretStore } from "../../../secrets/mod.ts";
 import type { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
@@ -269,6 +270,8 @@ type Late = {
   hostQueue: HostQueue;
   // host-queue wiring이 낸다. shell main과의 `/host-link` 연결이다. 다른 wiring이 coding·터미널 frame을 받는다.
   hostLink: HostLink;
+  // coding-relay wiring이 낸다. host가 올린 터미널 coding agent 목록과 GUI 대화 사본이다. acp·session-lifecycle·터미널 보기가 쓴다.
+  codingRelay: CodingRelay;
   // harness wiring이 낸다. host-queue wiring이 `tabs/open`의 tui에서 부른다(판정과 hold).
   harnessHold: HarnessHold;
   // approvals가 낸다. 답 없는 질문의 기다림(메모리).
@@ -341,6 +344,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   queue: true,
   hostQueue: true,
   hostLink: true,
+  codingRelay: true,
   harnessHold: true,
   questionWaits: true,
   liveTurns: true,

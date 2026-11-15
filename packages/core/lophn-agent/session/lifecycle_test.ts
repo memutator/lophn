@@ -58,6 +58,9 @@ function setup() {
     title: null,
     cwd: null,
     shell_pid: 123,
+    view: "tui" as const,
+    handoff: null,
+    foreground: true,
   });
   lifecycle.reportTerminals([
     report(OPEN, "t-open"),

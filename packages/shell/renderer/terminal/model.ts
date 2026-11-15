@@ -247,12 +247,3 @@ export function terminalName(input: {
         : next,
   };
 }
-
-/**
- * GUI 화면이 쓰는 session id. 터미널 탭의 `trm_<ULID>`에서 만들어 toggle로 handle(`win_<ULID>`)이 바뀌어도 같고, 탭을
- * 오가도 쳐 둔 글이 남는다. ACP 입력이 session을 `ses_<ULID>`로 검사하므로 ULID만 옮긴다(`ses_trm_…`이면 main이 모든
- * 입력을 거절한다).
- */
-export function guiSessionId(id: string): string {
-  return `ses_${id.slice(id.indexOf("_") + 1)}`;
-}

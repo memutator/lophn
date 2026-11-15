@@ -8,3 +8,12 @@ export const TERMINAL_SESSION_PREFIX = "term:";
 export function terminalSessionId(terminalRef: string): string {
   return `${TERMINAL_SESSION_PREFIX}${terminalRef}`;
 }
+
+/**
+ * 터미널 탭의 coding agent 대화(GUI 화면, 폰의 coding session)가 쓰는 ACP session id. 탭의 `trm_<ULID>`에서 만들어 toggle로
+ * handle(`win_<ULID>`)이 바뀌어도 같다. ACP 입력이 session을 `ses_<ULID>`로 검사하므로 ULID만 옮긴다(`ses_trm_…`이면 모든
+ * 입력이 거절된다). shell이 이 id를 정하고 core는 만들지 않는다. ledger에는 이 id의 행이 없다.
+ */
+export function guiSessionId(terminalRef: string): string {
+  return `ses_${terminalRef.slice(terminalRef.indexOf("_") + 1)}`;
+}

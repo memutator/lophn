@@ -45,6 +45,8 @@ emulator 규칙: AVD `lophn-phone`, `-read-only -memory 2048 -port 5580`, 모든
 - 소유 밖 file은 위 허락한 줄 말고 고치지 않았다.
 - 남지 않음: 없음(지우는 것이 없다).
 
+- flows catalog: 이 task가 더하거나 지우는 route, CLI 명령, IPC channel, test file의 줄은 이 task가 project-docs/flows 에서 고친다(자기 줄만. 꼴은 `.claude/skills/flows/SKILL.md`). `node tools/flows.ts check`가 통과해야 한다.
+
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: 더한 의존성과 판, 그림 목록, wireframe과 다르게 한 곳과 이유, 실제 core로 확인한 것과 못 한 것(특히 cold start 알림 누름과 실제 FCM 배달), 고친 남의 file의 줄, 사람이 계정을 만든 뒤 lead가 해야 할 한 줄(`app.json`의 `extra.eas.projectId`, `android.googleServicesFile`).

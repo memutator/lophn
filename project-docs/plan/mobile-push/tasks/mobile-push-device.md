@@ -47,6 +47,8 @@
 - subprocess, 서버, 브라우저를 띄우는 test와 E2E는 새로 만들지 않는다(기존 `host_test.ts`의 메모리 전송 꼴로 쓴다).
 - 남지 않음: 없음(지우는 것이 없다).
 
+- flows catalog: 이 task가 더하거나 지우는 route, CLI 명령, IPC channel, test file의 줄은 이 task가 project-docs/flows 에서 고친다(자기 줄만. 꼴은 `.claude/skills/flows/SKILL.md`). `node tools/flows.ts check`가 통과해야 한다.
+
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: 새 step의 id와 hash, 세 route의 입력·출력 예, `bindPush`로 이은 것, 개발 core에서 확인한 것(fake가 받은 글 한 줄)과 못 한 것, lead가 고칠 목록(`architecture/remote.md`의 폰 route 목록과 devices 열, `flows`).

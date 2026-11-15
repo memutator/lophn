@@ -42,6 +42,8 @@ desktop(shell main과 renderer)을 core의 주의 모양에 붙인다: shell mai
 - 위험 test: 없음(`tracker`의 기존 test를 새 `signal` 호출로 옮겨 "자식 틈에서는 finished를 내지 않고 debounce 뒤 한 번만 낸다"가 그대로 지켜지는지 본다. 새로 쓰는 test는 두지 않는다).
 - 남지 않음: `grep -rn "NOTICE_UNSEEN\|UnseenSession\|onUnseen\|notice:unseen\|notice-unseen" packages tools tests`가 0줄이고 `grep -rn "unseen" packages/shell/main`에는 core의 `unseen`을 말하는 주석 말고 남은 목록·flag가 없다.
 
+- flows catalog: 이 task가 더하거나 지우는 route, CLI 명령, IPC channel, test file의 줄은 이 task가 project-docs/flows 에서 고친다(자기 줄만. 꼴은 `.claude/skills/flows/SKILL.md`). `node tools/flows.ts check`가 통과해야 한다.
+
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: 지운 IPC channel과 export 목록, presence 보고를 보내는 시점 목록, Finished 줄의 이름·얼굴·제목을 어디서 가져오게 했는지, core를 띄워 확인한 것과 못 한 것(shell을 띄우지 않았다면 그렇게 쓴다), lead가 고칠 목록(`flows`의 IPC·test file, `architecture/app-notice.md`·`terminal-agent.md`).

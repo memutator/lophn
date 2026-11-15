@@ -134,6 +134,10 @@ elements:
         kind: component
         description: pairing한 폰이 붙는 암호화된 바깥 listener, 기기 표와 pairing, 기기 자격과 route 목록.
 
+      - id: attention
+        kind: component
+        description: host(desktop, 폰)가 보고한 presence로 못 본 turn 끝(`unseen`)을 들고, 사람을 기다리는 일이 새로 생기거나 오래 돈 turn이 끝나면 기기마다 push가 필요한지 정하고 글을 만든다. 기기 목록과 보내기는 port다.
+
       - id: supervision
         kind: component
         description: core가 띄우는 child process의 감독.

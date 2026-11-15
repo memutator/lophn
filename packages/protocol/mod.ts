@@ -11,6 +11,7 @@ export * as workflows from "./workflows/mod.ts";
 export * as jobs from "./jobs/mod.ts";
 export * as shell from "./shell/mod.ts";
 
+import { ROUTES as attentionRoutes } from "./attention/mod.ts";
 import { ROUTES as appsRoutes } from "./apps/mod.ts";
 import { ROUTES as lophnAgentRoutes } from "./lophn-agent/mod.ts";
 import { ROUTES as codingAgentRoutes } from "./coding-agent/mod.ts";
@@ -31,4 +32,5 @@ export const ALL_ROUTES = [
   ...codingAgentRoutes,
   ...appsRoutes,
   ...lophnAgentRoutes,
+  ...attentionRoutes,
 ];

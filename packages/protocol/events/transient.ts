@@ -103,6 +103,17 @@ const shareRequestOpened = defineTransientEvent("ShareRequestOpened", {
   }),
 });
 
+// job의 놓친 차례가 새 held 줄로 commit된 뒤 낸다(이미 있는 held 줄이 갱신될 때는 내지 않는다). subject는 job이다.
+// 사람이 [Start now]를 정하길 기다리는 일이라 push의 계기가 된다. Inbox는 `StateChanged{jobs}`로 다시 읽으므로 폰 allowlist에는 없다.
+const jobHeld = defineTransientEvent("JobHeld", {
+  subject: idSchema("job"),
+  payload: z.strictObject({
+    job: idSchema("job"),
+    run: idSchema("jbr"),
+    job_title: z.string().min(1),
+  }),
+});
+
 // 사람이 정해 앱 공유 요청이 닫힌 뒤 낸다.
 const shareRequestClosed = defineTransientEvent("ShareRequestClosed", {
   subject: idSchema("app"),
@@ -180,6 +191,7 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(activationConsentClosed),
   transientEventEnvelopeSchema(shareRequestOpened),
   transientEventEnvelopeSchema(shareRequestClosed),
+  transientEventEnvelopeSchema(jobHeld),
   transientEventEnvelopeSchema(noticePosted),
   transientEventEnvelopeSchema(noticeClosed),
   transientEventEnvelopeSchema(noticeRead),

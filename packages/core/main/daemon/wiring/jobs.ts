@@ -9,12 +9,14 @@ import {
   jobRunOpen,
   jobRunStarted,
 } from "../../../../protocol/jobs/mod.ts";
+import type { BusEvent } from "../../../../protocol/events/mod.ts";
 import type {
   AuthenticatedContext,
   Output,
 } from "../../../../protocol/server/mod.ts";
 import { workflowInstanceRead } from "../../../../protocol/workflows/mod.ts";
 import {
+  JOB_HELD_TOPIC,
   JOBS_CHANGED_TOPIC,
   type JobSchedulerStore,
   type JobStarter,
@@ -287,6 +289,11 @@ export const jobsWiring: WiringFactory = () => {
           withAfterCommit(
             inner,
             (actions) => {
+              for (const action of actions) {
+                if (action.topic === JOB_HELD_TOPIC) {
+                  ctx.peek.bus?.publish(action.data as BusEvent);
+                }
+              }
               if (
                 actions.some((action) => action.topic === JOBS_CHANGED_TOPIC)
               ) {

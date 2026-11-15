@@ -27,6 +27,10 @@ import { harnessWiring } from "./wiring/harness.ts";
 import { extensionToolsWiring } from "./wiring/extension-tools.ts";
 import { hostQueueWiring } from "./wiring/host-queue.ts";
 import { inputRequestWiring } from "./wiring/input-request.ts";
+import {
+  attentionWiring,
+  createCoreRegistration as createAttentionRegistration,
+} from "./wiring/attention.ts";
 import { appsWiring } from "./wiring/apps.ts";
 import { noticesWiring } from "./wiring/notices.ts";
 import { bundleFileSharingWiring } from "./wiring/bundle-file-sharing.ts";
@@ -106,6 +110,7 @@ export const TEAMS = [
   { createCoreRegistration: createShareRequestsRegistration },
   { createCoreRegistration: createAcpRegistration },
   { createCoreRegistration: createAppsDeleteRegistration },
+  { createCoreRegistration: createAttentionRegistration },
   { createCoreRegistration: createRemoteRegistration },
 ];
 
@@ -134,6 +139,7 @@ export const TEAM_MODULES = [
   new URL("./wiring/share-requests.ts", import.meta.url).href,
   new URL("./wiring/acp-registration.ts", import.meta.url).href,
   new URL("./wiring/apps-delete.ts", import.meta.url).href,
+  new URL("./wiring/attention.ts", import.meta.url).href,
   new URL("./wiring/remote.ts", import.meta.url).href,
 ];
 
@@ -201,6 +207,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   lophnAgentRuntimeWiring,
   sessionSnapshotsWiring,
   sessionLifecycleWiring,
+  attentionWiring,
   appCallsWiring,
   acpWiring,
   idleWiring,

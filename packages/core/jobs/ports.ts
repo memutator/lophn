@@ -58,6 +58,21 @@ export function jobsChanged(tx: Tx): void {
   tx.port(afterCommit).push(JOBS_CHANGED_TOPIC, null);
 }
 
+// 놓친 차례가 새 held 줄로 commit된 뒤 낼 `JobHeld`를 싣는 topic이다. wiring이 Bus로 낸다.
+// 이미 있는 held 줄이 갱신될 때는 싣지 않는다(사람은 이미 알고 있다).
+export const JOB_HELD_TOPIC = "job_held";
+export function jobHeld(
+  tx: Pick<Tx, "port" | "now">,
+  held: { job: string; run: string; job_title: string },
+): void {
+  tx.port(afterCommit).push(JOB_HELD_TOPIC, {
+    type: "JobHeld",
+    subject: held.job,
+    at: tx.now(),
+    payload: held,
+  });
+}
+
 export type JobSchedulerStore = {
   claimDue(
     startup: boolean,

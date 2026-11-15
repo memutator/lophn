@@ -26,6 +26,7 @@ export const CHANGE_NAMES = [
   "models",
   "extension_settings",
   "remote_devices",
+  "unseen",
 ] as const;
 
 export type ChangeName = (typeof CHANGE_NAMES)[number];

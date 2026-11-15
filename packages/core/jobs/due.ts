@@ -13,7 +13,7 @@ import type {
   RequestContext,
   Tx,
 } from "../../protocol/server/mod.ts";
-import { jobsChanged, jobZonePort } from "./ports.ts";
+import { jobHeld, jobsChanged, jobZonePort } from "./ports.ts";
 import { jobRunFromRow } from "./rows.ts";
 import { dueTurns } from "./schedule.ts";
 import {
@@ -167,6 +167,7 @@ function turnFor(
         reason: null,
         created_at: now,
       });
+      jobHeld(tx, { job: id, run: created, job_title: job.title });
       jobsChanged(tx);
     } else {
       replaceJobRun(tx.sql, held.id as string, {

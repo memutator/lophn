@@ -1,6 +1,7 @@
 // The frame every place lives in: the sidebar as a drawer from the left edge, and a stack of places beside it.
-// 600 wide or more (an unfolded phone, a tablet, landscape) the sidebar stays open and the stack sits in a card beside
-// it (tools/wireframes/drafts/phone/more.tsx WideFlow). No tab bar.
+// 600 wide or more (an unfolded phone, a tablet) the sidebar stays open and the stack sits in a card beside it
+// (tools/wireframes/drafts/phone/more.tsx WideFlow). A phone held sideways is wide but too short for that: the
+// sidebar would show two rows of workspaces and the screen half a card, so it keeps the drawer. No tab bar.
 import { useTheme } from "@lophn/ui-native";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import {
@@ -21,6 +22,7 @@ const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
 
 const WIDE = 600;
+const TALL = 480;
 
 function Places() {
   return (
@@ -42,8 +44,8 @@ export function Frame({
 }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const wide = width >= WIDE;
+  const { width, height } = useWindowDimensions();
+  const wide = width >= WIDE && height >= TALL;
   const [picking, setPicking] = useState(false);
   const stack = useRef<NavigationProp<ParamListBase> | null>(null);
   const frame = useMemo<FrameValue>(

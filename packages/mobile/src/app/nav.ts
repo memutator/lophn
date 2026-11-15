@@ -58,7 +58,7 @@ export type PlaceName = Place["name"];
 export type PlaceOf<N extends PlaceName> = Extract<Place, { name: N }>;
 
 export interface Frame {
-  /** 600 wide or more: the sidebar stays open beside the screen, and screens drop their menu button. */
+  /** 600 wide or more and tall enough: the sidebar stays open beside the screen, and screens drop their menu button. */
   readonly wide: boolean;
   openComputers(): void;
   /** The frame's stack, kept by its screens, so the sidebar and the computer picker can replace what it shows. */

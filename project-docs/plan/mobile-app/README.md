@@ -38,6 +38,7 @@
 | 3 | `mobile-places` | project workspace(session, workflow, file)와 앱 workspace |
 | 3 | `mobile-ops` | Jobs와 Agents |
 | 3 | `mobile-web-removal` | core·renderer·tools의 web 화면 길을 지운다 |
+| 3 | `mobile-frame-fixes` | `mobile-frame` 보고에 남은 것: Text size가 실제로 듣기(kit의 글 배율), 지운 컴퓨터와 다시 pairing, desktop의 pairing code 글로 보기, About의 판 (lead가 더함) |
 
 ## 돌리기 전에
 

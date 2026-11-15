@@ -56,3 +56,7 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: route 넷의 최종 모양, `app_sync_log`의 SQL과 lock 항목, push 하나에 걸리는 시간(변경 1, 256개), 폰이 알아야 할 오류 갈래(`conflict`일 때 폰이 할 일), core가 죽을 때의 빈틈.
+
+## lead가 더함 (2026-11-15)
+
+- core가 앱의 commit과 sync log 줄 사이에서 죽으면 그 변경이 폰에 가지 않는 빈틈을 이슈로만 남기지 않는다. 사람의 data가 두 기기에서 갈라지는 길이라 이 task에서 닫는다: core가 뜰 때(와 sync 앱이 활성화될 때) 활성 release의 live invocation 가운데 changeset이 있고 log 줄이 없는 것을 찾아 invocation 순서대로 log 줄을 채운다. 위험 test 하나(log 줄 없이 끝난 write가 다시 뜬 뒤 pull에 나온다). 이것이 순서나 hlc 때문에 안 되면 왜 안 되는지와 남는 경우를 보고한다.

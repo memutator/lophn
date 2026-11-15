@@ -20,6 +20,7 @@ export const CHANGE_NAMES = [
   "workflow_instances",
   "settings",
   "tray",
+  "widgets",
   "secrets",
   "logins",
   "providers",

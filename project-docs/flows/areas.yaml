@@ -236,6 +236,7 @@ areas:
     entries:
       - packages/protocol/apps/notice.ts
       - packages/protocol/apps/tray.ts
+      - packages/protocol/apps/widget.ts
       - packages/protocol/apps/annotation.ts
       - packages/protocol/apps/views.ts
       - packages/core/apps/annotations/

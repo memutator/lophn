@@ -300,6 +300,51 @@ flows:
       - "shell.tray_off와 shell.tray_order를 쓰는 설정 route는 models(config) area의 entry다. 이 flow는 읽기만 본다"
       - "renderer가 StateChanged(tray)와 ready에서 스스로 읽으므로 사람 click이 아니라 actor를 shell로 두었다. pre는 AND라 값이 있어야 하는 게 아니어서 뺐다"
 
+  # ---- widgets: core route (메모리 값, 저장하지 않는다) ----
+  - id: widget-set
+    title: 앱이 자기 위젯 하나의 값(정해진 node 넷으로 된 data)을 바꾸거나 지운다
+    actor: app
+    entries: [route:app_widget/set]
+    boundary: [apps, app-capability, core-api, events]
+    code: [packages/protocol/apps/widget.ts]
+    steps:
+      - "입력은 위젯 key와 값(또는 null)이다. 값은 widgetValueSchema가 4 KiB, node kind, 글 길이, progress 범위, rows·items 수를 먼저 검사한다"
+      - "값이 null이면 그 앱의 그 위젯 값을 지우고, 아니면 메모리에만 둔다"
+      - "값이 바뀌었으니 route의 changes대로 StateChanged(widgets)가 난다"
+    outcomes:
+      - id: set
+        observe: [event:StateChanged, response]
+      - id: forbidden
+        code: forbidden
+        when: "app 자격이 아니다"
+        observe: [response]
+    crosses_process: false
+    declared_only: [not_found, conflict]
+    docs: [architecture/app-notice.md]
+    unclear:
+      - "handler(선언하지 않은 key 거절, 없는 앱·보관한 앱)는 core task가 붙인다. 지금은 계약만 있다"
+
+  - id: widget-read
+    title: 설치된 앱들이 선언한 위젯과 값의 목록을 읽는다
+    actor: person
+    entries: [route:app_widgets/list]
+    boundary: [apps, core-api]
+    code: [packages/protocol/apps/widget.ts]
+    steps:
+      - "active 앱의 active release가 선언한 위젯마다 한 줄이다. 값이 아직 없으면 value와 at이 null이다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch)"
+        observe: [response]
+    crosses_process: false
+    declared_only: [unauthorized, unavailable]
+    docs: [architecture/app-notice.md]
+    unclear:
+      - "handler는 core task가 붙인다. 지금은 계약만 있다"
+
   # ---- annotation: core route ----
   - id: annotation-persist
     title: 사람이 보낸 annotation 묶음을 저장한다(send 파이프라인이 core 안에서 부른다)

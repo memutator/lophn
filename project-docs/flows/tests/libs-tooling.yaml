@@ -141,6 +141,9 @@ files:
   - path: packages/protocol/apps/sync/reexpress_test.ts
     covers: []
     note: "release가 바뀔 때 안 보낸 폰 변경을 이름으로 새 snapshot 위에 다시 쓰고 지운 표·칸의 변경만 버리며 push 뒤 두 사본이 같다. host migrator가 실패하면(단계 오류, PK 없는 표, hash 다름) DB와 outbox가 그대로다"
+  - path: packages/protocol/apps/widget_test.ts
+    covers: []
+    note: 앱 위젯 값(widgetValueSchema)의 경계. 4 KiB를 넘는 값, 모르는 node kind, 길이를 넘는 글, 범위 밖 progress, 줄 수 밖의 rows·items를 거절한다. 폰의 native 위젯에 닿기 전 검사다
 
   - path: packages/protocol/coding-agent/headless/headless_test.ts
     covers: [harness-turn-run:configuration-unavailable]

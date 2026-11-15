@@ -55,3 +55,7 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: JS API 최종 모양, 5번 probe 표(debug와 release), 숫자, SQLite source를 어디서 왜 가져왔는지, spike와 다르게 한 곳, lead가 지을 dev build에 바뀐 것(lead가 wave 5 이후 worker에게 알릴 APK).
+
+## lead가 더함 (`mobile-sync-core` 결과, 2026-11-15)
+
+- sync core의 driver interface는 `packages/protocol/apps/sync/db.ts`의 `SyncDb`·`SyncSession`이다(값 규칙이 file 머리에 있다: 정수는 text로 cast해 읽으니 number든 bigint든 된다, 빈 blob은 NULL이 아니라 빈 blob이다). 이 module의 host 쪽 연결이 그 interface를 채운다. spike가 찾은 '빈 blob이 NULL로 온다'가 다시 생기지 않는지 test한다.

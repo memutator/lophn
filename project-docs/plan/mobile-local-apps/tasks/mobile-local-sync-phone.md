@@ -55,3 +55,10 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: 9번 표, 숫자(설치 시간, 1,000 변경 push·pull 시간), `local-apps.ts`가 내놓는 것, `mobile-local-screens`가 보일 상태와 그 뜻, 폰 앱 폴더의 꼴.
+
+## lead가 더함 (`mobile-sync-core` 결과, 2026-11-15)
+
+- sync core가 내놓은 것은 `packages/protocol/apps/sync/mod.ts`다(`ensureSyncTables(db, node)`, `openClock`, `stampLocal`, `stampOutbox`, `applyRemote`, `applyIncoming`, `adoptSnapshot`, `reexpress({old, migrated, snapshot})`, `migrate`, `dumpData`, `dumpClocks`, `readOutbox`). HLC는 63 bit 정수 하나이고 JS에서는 늘 bigint다. `applyRemote`·`applyIncoming`은 transaction을 열지 않는다: 부르는 쪽이 `pragma foreign_keys = off`를 먼저 하고 transaction을 열고, 오류 result면 rollback한다. outbox는 commit 순서(rowid)로 읽고 찍는다.
+- **다른 기기에는 원래 changeset과 hlc를 보낸다.** 값이 같은 update나 없는 줄의 delete는 clock만 움직이고 session changeset에 남지 않는다. 폰에서 온 변경을 적용한 뒤의 effective changeset만 sync log에 실으면 다른 폰의 clock이 컴퓨터와 어긋나고, 시계가 어긋난 기기가 있으면 나중에 data가 갈라진다. 그래서 sync log가 가리키는 것은 폰이 보낸 원래 changeset과 그 hlc이고, effective changeset은 그 invocation의 기록(Activity와 rewind)에만 쓴다. 컴퓨터 자신의 write는 원래 것이 곧 effective다.
+- **적용이 제약에 걸려도 맞추기가 멈추면 안 된다.** 폰에서 도는 앱은 release 검사가 PK 밖의 UNIQUE와 CHECK를 거절한다(`mobile-local-build`). 그래도 적용 중 제약 오류가 나면 그 변경 하나만 건너뛰고 앱의 problem으로 기록한 뒤 나머지를 이어 간다. 같은 batch를 끝없이 되돌리지 않는다. 건너뛴 변경이 있었다는 것은 응답과 log에 남는다.
+- `reexpress`는 old DB(backup)도 받는다(changeset은 column 자리로 적혀 옛 column 이름이 든다). 먼저 outbox를 모두 찍고(`stampOutbox`), snapshot DB에 `adoptSnapshot`을 한 뒤에 부른다. 다시 쓴 changeset이 비면 outbox에 넣지 않는다.

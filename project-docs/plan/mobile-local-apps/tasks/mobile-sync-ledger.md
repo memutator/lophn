@@ -60,3 +60,9 @@
 ## lead가 더함 (2026-11-15)
 
 - core가 앱의 commit과 sync log 줄 사이에서 죽으면 그 변경이 폰에 가지 않는 빈틈을 이슈로만 남기지 않는다. 사람의 data가 두 기기에서 갈라지는 길이라 이 task에서 닫는다: core가 뜰 때(와 sync 앱이 활성화될 때) 활성 release의 live invocation 가운데 changeset이 있고 log 줄이 없는 것을 찾아 invocation 순서대로 log 줄을 채운다. 위험 test 하나(log 줄 없이 끝난 write가 다시 뜬 뒤 pull에 나온다). 이것이 순서나 hlc 때문에 안 되면 왜 안 되는지와 남는 경우를 보고한다.
+
+## lead가 더함 (`mobile-sync-core` 결과, 2026-11-15)
+
+- sync core가 내놓은 것은 `packages/protocol/apps/sync/mod.ts`다(`ensureSyncTables(db, node)`, `openClock`, `stampLocal`, `stampOutbox`, `applyRemote`, `applyIncoming`, `adoptSnapshot`, `reexpress({old, migrated, snapshot})`, `migrate`, `dumpData`, `dumpClocks`, `readOutbox`). HLC는 63 bit 정수 하나이고 JS에서는 늘 bigint다. `applyRemote`·`applyIncoming`은 transaction을 열지 않는다: 부르는 쪽이 `pragma foreign_keys = off`를 먼저 하고 transaction을 열고, 오류 result면 rollback한다. outbox는 commit 순서(rowid)로 읽고 찍는다.
+- **다른 기기에는 원래 changeset과 hlc를 보낸다.** 값이 같은 update나 없는 줄의 delete는 clock만 움직이고 session changeset에 남지 않는다. 폰에서 온 변경을 적용한 뒤의 effective changeset만 sync log에 실으면 다른 폰의 clock이 컴퓨터와 어긋나고, 시계가 어긋난 기기가 있으면 나중에 data가 갈라진다. 그래서 sync log가 가리키는 것은 폰이 보낸 원래 changeset과 그 hlc이고, effective changeset은 그 invocation의 기록(Activity와 rewind)에만 쓴다. 컴퓨터 자신의 write는 원래 것이 곧 effective다.
+- **적용이 제약에 걸려도 맞추기가 멈추면 안 된다.** 폰에서 도는 앱은 release 검사가 PK 밖의 UNIQUE와 CHECK를 거절한다(`mobile-local-build`). 그래도 적용 중 제약 오류가 나면 그 변경 하나만 건너뛰고 앱의 problem으로 기록한 뒤 나머지를 이어 간다. 같은 batch를 끝없이 되돌리지 않는다. 건너뛴 변경이 있었다는 것은 응답과 log에 남는다.

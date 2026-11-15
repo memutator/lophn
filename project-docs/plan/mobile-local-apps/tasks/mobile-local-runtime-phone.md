@@ -54,3 +54,7 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: 6번 표(debug와 release), 숫자, 셋을 싣는 길로 고른 것과 이유, `mobile-local-sync-phone`이 `GuestScreen`을 쓰는 법(props, `onLocalChange`, external이 host로 오는 모양).
+
+## lead가 더함 (`mobile-sync-core` 결과, 2026-11-15)
+
+- sync core가 내놓은 것은 `packages/protocol/apps/sync/mod.ts`다(`ensureSyncTables(db, node)`, `openClock`, `stampLocal`, `stampOutbox`, `applyRemote`, `applyIncoming`, `adoptSnapshot`, `reexpress({old, migrated, snapshot})`, `migrate`, `dumpData`, `dumpClocks`, `readOutbox`). HLC는 63 bit 정수 하나이고 JS에서는 늘 bigint다. `applyRemote`·`applyIncoming`은 transaction을 열지 않는다: 부르는 쪽이 `pragma foreign_keys = off`를 먼저 하고 transaction을 열고, 오류 result면 rollback한다. outbox는 commit 순서(rowid)로 읽고 찍는다.

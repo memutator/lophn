@@ -38,3 +38,7 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: 더한 절의 요약, 동작과 지침이 어긋나 보인 곳.
+
+## lead가 더함 (`mobile-sync-core` 결과, 2026-11-15)
+
+- 지침에 더할 것: 폰에서 도는 앱의 table은 PK 밖의 UNIQUE와 CHECK를 쓰지 못한다(규칙은 handler에서 지키거나 그 값을 PK에 넣는다). column 이름 바꾸기는 지우고 새로 만든 것으로 취급되어 보내지 않은 폰의 변경을 잃는다. PK 값을 바꾸는 migration은 보내지 않은 폰의 변경을 잃는다. 같은 값으로 고치는 write와 없는 줄 지우기도 clock을 움직인다(문제는 아니고 알아 둘 것).

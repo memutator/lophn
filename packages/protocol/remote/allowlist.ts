@@ -82,6 +82,10 @@ import { skillsRead } from "../lophn-agent/skill-settings.ts";
 import { turnBodyView, turnList, turnRead } from "../lophn-agent/turn-reads.ts";
 import { stopTurn } from "../lophn-agent/turns.ts";
 import { projectApi } from "../projects/project-api.ts";
+import {
+  projectFilesList,
+  projectFilesRead,
+} from "../projects/project-files.ts";
 import { projectSearch } from "../projects/project-search.ts";
 import { runList, runRead } from "../runs/runs.ts";
 import {
@@ -171,13 +175,15 @@ export const REMOTE_ALLOWED_ROUTES = [
   jobList,
   jobRunList,
   jobUpdate,
-  // project workspace: workflow와 file 내용 검색
+  // project workspace: workflow, file 내용 검색, file 목록과 글 읽기
   workflowList,
   workflowInstanceList,
   workflowInstanceRead,
   workflowStart,
   workflowStop,
   projectSearch,
+  projectFilesList,
+  projectFilesRead,
   // 앱 workspace: 실행 기록과 판
   runList,
   runRead,

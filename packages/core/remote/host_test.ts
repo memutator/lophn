@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 import type { z } from "zod";
 import { manualClock, ok, seededRandom } from "../../base/mod.ts";
@@ -56,6 +59,10 @@ import {
 } from "../../protocol/remote/mod.ts";
 import { workflowEdit } from "../../protocol/workflows/routes.ts";
 import { devicesSetting } from "../config/shell-settings.ts";
+import {
+  projectFilesListRead,
+  projectFilesReadRead,
+} from "../projects/files/mod.ts";
 import { createBus } from "../events/mod.ts";
 import {
   CredentialRegistry,
@@ -134,6 +141,33 @@ const decideBody = {
   session: `ses_0${"1".repeat(25)}`,
   request: `apr_0${"1".repeat(25)}`,
   choice: { kind: "once" },
+};
+
+// project 하나에 폴더 하나(root)만 있는 가짜 snapshot. 폴더 밖에는 secret.txt가 있고 root 안의 link가 가리킨다.
+const projectId = `prj_0${"1".repeat(25)}`;
+const filesBase = mkdtempSync(join(tmpdir(), "lophn-remote-files-"));
+mkdirSync(join(filesBase, "root"));
+writeFileSync(join(filesBase, "root", "a.md"), "# a");
+writeFileSync(join(filesBase, "secret.txt"), "secret");
+symlinkSync(join(filesBase, "secret.txt"), join(filesBase, "root", "link.md"));
+const projectFolder = {
+  snapshot: <T>(read: (sql: never, seq: string) => T): T =>
+    read(
+      {
+        get: () => ({
+          id: projectId,
+          name: "p",
+          title: "p",
+          purpose: "",
+          revision: "1",
+          status: "active",
+        }),
+        all: () => [
+          { position: 0, path: join(filesBase, "root"), description: "" },
+        ],
+      } as never,
+      "1",
+    ),
 };
 
 // 기기 표만 가짜다. 자격, scope, route dispatch, Gateway 구독은 production code다.
@@ -257,7 +291,16 @@ function setup() {
       registry,
       routes: new RouteRegistry([...allRoutes.values()]),
       clock,
-      reads: new Map(),
+      reads: new Map([
+        [
+          "project_files/list",
+          projectFilesListRead(projectFolder).handle as never,
+        ],
+        [
+          "project_files/read",
+          projectFilesReadRead(projectFolder).handle as never,
+        ],
+      ]),
       memory: new Map([
         [
           "turn_requests/decide",
@@ -522,6 +565,45 @@ test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model�
     outside.map((path) => [path, "forbidden"]),
   );
   assert.deepEqual(s.reached, []);
+});
+
+test("기기가 project file route를 불러도 등록 폴더 밖 path(.., 밖을 가리키는 symlink)는 invalid_input이다", async () => {
+  const s = setup();
+  const key = generateKeyPair(s.random);
+  s.register(key);
+  const c = await s.connect(key);
+  const calls = [
+    ["project_files/read", { path: "a.md" }],
+    ["project_files/read", { path: "../secret.txt" }],
+    ["project_files/read", { path: "link.md" }],
+    ["project_files/list", { path: "/" }],
+  ] as const;
+  for (const [path, input] of calls) {
+    const [resource, method] = path.split("/");
+    c.phone.send({
+      type: "call",
+      id: `${path}:${input.path}`,
+      resource,
+      method,
+      body: { project: projectId, ...input },
+    });
+  }
+  // 실제 file을 읽으므로 고정 대기 대신 4개가 올 때까지 기다린다.
+  while (results(c.frames).length < calls.length) await settle();
+  assert.deepEqual(
+    Object.fromEntries(
+      results(c.frames).map((frame) => [
+        frame.id,
+        frame.ok ? "ok" : frame.error.code,
+      ]),
+    ),
+    {
+      "project_files/read:a.md": "ok",
+      "project_files/read:../secret.txt": "invalid_input",
+      "project_files/read:link.md": "invalid_input",
+      "project_files/list:/": "invalid_input",
+    },
+  );
 });
 
 test("기기의 upload는 base64를 같은 bytes로 넘기고, file route는 {content_type, base64}로 답한다", async () => {

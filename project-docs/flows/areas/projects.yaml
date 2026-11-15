@@ -363,6 +363,77 @@ flows:
     crosses_process: false
     risk: [sandbox]
 
+  - id: project-files-list
+    title: "project 등록 폴더 안의 폴더 하나의 목록을 읽는다(폰의 Files 탭)"
+    actor: person
+    entries: [route:project_files/list]
+    pre: [project-register:ok]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/files/mod.ts
+      - packages/core/projects/registry/rules.ts
+    steps:
+      - "project를 ledger snapshot에서 읽는다. 없으면 not_found로 거절한다"
+      - "folder(없으면 첫 등록 폴더)가 등록 폴더가 아니면 invalid_input으로 거절한다"
+      - "path를 realpath로 풀어 등록 폴더 밖이면 invalid_input으로 거절한다. 밖을 가리키는 symlink 항목은 목록에서 뺀다"
+      - "폴더가 먼저, 이름 순으로 낸다. .git과 node_modules는 내지 않는다. 쓰기는 없다"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "project id, 등록 폴더, path 중 하나가 없다"
+        observe: ["response"]
+      - id: outside
+        code: invalid_input
+        when: "path가 `..`·절대 path이거나 symlink로 등록 폴더 밖을 가리키거나 폴더가 아니다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "ledger snapshot을 열 수 없다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor 종류가 아니거나 credential scope에 이 operation이 없다(dispatch)"
+        observe: ["response"]
+    crosses_process: false
+    risk: [sandbox]
+
+  - id: project-files-read
+    title: "project 등록 폴더 안의 글 file 하나를 읽는다(폰의 문서 읽기)"
+    actor: person
+    entries: [route:project_files/read]
+    pre: [project-register:ok]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/files/mod.ts
+      - packages/core/projects/registry/rules.ts
+    steps:
+      - "project와 등록 폴더를 project-files-list와 같이 찾고 path가 폴더 밖이면 invalid_input으로 거절한다"
+      - "앞 1 MiB만 읽는다. 넘으면 UTF-8 글자 경계에서 자르고 truncated를 참으로 한다"
+      - "앞 8KB에 NUL이 있거나 UTF-8이 아니면 invalid_input으로 거절한다. 쓰기는 없다"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "project id, 등록 폴더, path 중 하나가 없다"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "path가 폴더 밖이거나 file이 아니거나 UTF-8 글이 아니다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "ledger snapshot을 열 수 없다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor 종류가 아니거나 credential scope에 이 operation이 없다(dispatch)"
+        observe: ["response"]
+    crosses_process: false
+    risk: [sandbox]
+
   # ---- blob (storage) ----
 
   - id: blob-read

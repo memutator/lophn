@@ -375,6 +375,10 @@ files:
       - project-unarchive:unarchived
     note: 보관해도 폴더 파일은 그대로다
 
+  - path: packages/core/projects/files/files_test.ts
+    covers: [project-files-list:outside, project-files-read:ok, project-files-read:invalid-input]
+    note: 등록 폴더 밖 path(.., 절대 path, symlink)는 목록도 읽기도 거절, 1 MiB 넘으면 글자 경계에서 잘림
+
   - path: packages/core/projects/search/search_test.ts
     covers: [project-search:ok]
     note: gitignore, symlink 밖 제외, NFC와 대소문자, 페이지 나눔

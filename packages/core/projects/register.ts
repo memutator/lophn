@@ -7,6 +7,7 @@ import { createFolderResolver } from "./registry/folder-resolver.ts";
 import { folderResolverPort } from "./registry/ports.ts";
 import { createProjectReads } from "./registry/reads.ts";
 import { projectsSchemaSteps } from "./registry/schema.ts";
+import { projectFilesListRead, projectFilesReadRead } from "./files/mod.ts";
 import { projectSearchRead } from "./search/mod.ts";
 
 type LedgerRegistration = {
@@ -48,6 +49,8 @@ export function createLedgerRegistration(
     ],
     reads: [reads.list, reads.get, reads.resolve, reads.icon],
     apiReads: [
+      projectFilesListRead(environment.projectSearch ?? UNATTACHED_SEARCH),
+      projectFilesReadRead(environment.projectSearch ?? UNATTACHED_SEARCH),
       projectSearchRead({
         ...(environment.projectSearch ?? UNATTACHED_SEARCH),
         exists: (path) => folders.exists(path),

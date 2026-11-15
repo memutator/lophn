@@ -6,8 +6,7 @@ import {
   OctagonAlert,
   TriangleAlert,
 } from "lucide-react-native";
-import { useEffect, useRef } from "react";
-import { Animated, Easing, View } from "react-native";
+import { View } from "react-native";
 import type { StatusTone } from "../../tokens.ts";
 import { Icon } from "../primitives/icon.tsx";
 import { Text } from "../primitives/text.tsx";
@@ -22,72 +21,34 @@ export const STATUS_ICONS: Record<StatusTone, LucideIcon> = {
   neutral: CircleDashed,
 };
 
-export interface StatusMarkProps {
-  tone: StatusTone;
-  /** The state's name. Shape and words tell it apart without color. */
-  label: string;
+export type DotTone = "warning" | "good" | "critical" | "off";
+
+export interface DotProps {
+  /** warning: waits on the person. good: working or connected. critical: failed. off: offline. None: idle. */
+  tone?: DotTone;
 }
 
-export function StatusMark({ tone, label }: StatusMarkProps) {
+export function Dot({ tone }: DotProps) {
   const theme = useTheme();
+  if (tone === "off")
+    return (
+      <View
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: 999,
+          borderWidth: 1.5,
+          borderColor: theme.color.text.muted,
+        }}
+      />
+    );
   return (
     <View
       style={{
-        flexDirection: "row",
-        alignItems: "center",
-        gap: theme.space[2],
-      }}
-    >
-      <Icon icon={STATUS_ICONS[tone]} size="small" tone={tone} />
-      <Text variant="small" tone={tone} weight="medium">
-        {label}
-      </Text>
-    </View>
-  );
-}
-
-export interface StatusDotProps {
-  tone: StatusTone;
-  /** Breathes: something is running right now. */
-  pulse?: boolean;
-}
-
-// The small mark in front of a row. A row with a dot also says its state in words.
-export function StatusDot({ tone, pulse }: StatusDotProps) {
-  const theme = useTheme();
-  const opacity = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    if (!pulse) {
-      opacity.setValue(1);
-      return;
-    }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 0.3,
-          duration: 800,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 800,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [pulse, opacity]);
-  return (
-    <Animated.View
-      style={{
-        width: 10,
-        height: 10,
-        borderRadius: theme.radius.full,
-        backgroundColor: theme.color.status[tone].marker,
-        opacity,
+        width: 8,
+        height: 8,
+        borderRadius: 999,
+        backgroundColor: theme.color.status[tone ?? "neutral"].marker,
       }}
     />
   );
@@ -104,10 +65,10 @@ export function Badge({ count }: BadgeProps) {
   return (
     <View
       style={{
-        minWidth: 22,
-        height: 22,
-        paddingHorizontal: theme.space[3],
-        borderRadius: theme.radius.full,
+        minWidth: 20,
+        height: 20,
+        paddingHorizontal: 6,
+        borderRadius: 999,
         backgroundColor: theme.color.ink.background,
         alignItems: "center",
         justifyContent: "center",
@@ -115,6 +76,48 @@ export function Badge({ count }: BadgeProps) {
     >
       <Text variant="caption" weight="semibold" tone="inverse">
         {count > 99 ? "99+" : String(count)}
+      </Text>
+    </View>
+  );
+}
+
+export interface TagProps {
+  children: string;
+}
+
+// A short quiet word next to a name: Built-in, Paused, Release 8.
+export function Tag({ children }: TagProps) {
+  const theme = useTheme();
+  return (
+    <View
+      style={{
+        height: 20,
+        paddingHorizontal: 7,
+        borderRadius: 999,
+        backgroundColor: theme.color.surface.muted,
+        justifyContent: "center",
+      }}
+    >
+      <Text variant="caption" weight="medium" tone="secondary">
+        {children}
+      </Text>
+    </View>
+  );
+}
+
+export interface StatusMarkProps {
+  tone: StatusTone;
+  /** The state's name. Shape and words tell it apart without color. */
+  label: string;
+}
+
+// A state said with its icon and word: Connected, Failed.
+export function StatusMark({ tone, label }: StatusMarkProps) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+      <Icon icon={STATUS_ICONS[tone]} size={16} tone={tone} />
+      <Text variant="small" weight="medium" tone={tone}>
+        {label}
       </Text>
     </View>
   );

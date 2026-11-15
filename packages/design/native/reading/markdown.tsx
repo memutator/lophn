@@ -22,7 +22,7 @@ export interface MarkdownProps {
   source: string;
   /** The tail of text still being written. Hides endings that would redraw differently once more arrives and skips the parse cache. The caller closes an open code fence first. */
   streaming?: boolean;
-  /** reading (default): document body 16/26. chat: conversation text 16/24 with tighter gaps. */
+  /** chat: an agent's answer, 16/25 with 8 between blocks. reading (default): a document, 16/26 with headings. */
   variant?: "reading" | "chat";
   /** Opens a link. Defaults to the phone's browser. */
   onOpenLink?: (href: string) => void;
@@ -30,12 +30,10 @@ export interface MarkdownProps {
 
 interface Look {
   theme: Theme;
+  chat: boolean;
   base: TextStyle;
-  gap: number;
   open: (href: string) => void;
 }
-
-const TABLE_CELL = 148;
 
 function inlines(look: Look, nodes: readonly Inline[]): ReactNode {
   const { theme } = look;
@@ -69,8 +67,8 @@ function inlines(look: Look, nodes: readonly Inline[]): ReactNode {
             key={key}
             style={{
               fontFamily: theme.font.mono,
-              fontSize: (look.base.fontSize ?? 16) - 2,
-              backgroundColor: theme.color.surface.muted,
+              fontWeight: "400",
+              fontSize: Math.round((look.base.fontSize ?? 16) * 0.86),
             }}
           >
             {node.kind === "code" ? node.text : node.tex}
@@ -122,84 +120,86 @@ function listItem(look: Look, item: ListItem, marker: string, key: number) {
   const { theme } = look;
   const Box = item.task ? SquareCheck : Square;
   return (
-    <View key={key} style={{ flexDirection: "row", gap: theme.space[4] }}>
-      {item.task === undefined ? (
-        <NativeText
-          style={[
-            look.base,
-            { color: theme.color.text.muted, minWidth: 16, textAlign: "right" },
-          ]}
-        >
-          {marker}
-        </NativeText>
-      ) : (
-        <View
-          style={{
-            height: look.base.lineHeight,
-            justifyContent: "center",
-          }}
-        >
-          <Box
-            size={theme.icon.small}
-            strokeWidth={theme.icon.stroke}
-            color={theme.color.text.muted}
-          />
-        </View>
-      )}
-      <View style={{ flex: 1, minWidth: 0, gap: theme.space[2] }}>
-        {blocks(look, item.children)}
+    <View key={key} style={{ flexDirection: "row" }}>
+      <View
+        style={{
+          width: 20,
+          height: look.base.lineHeight,
+          justifyContent: "center",
+        }}
+      >
+        {item.task === undefined ? (
+          <NativeText style={[look.base, { paddingLeft: 4 }]}>
+            {marker}
+          </NativeText>
+        ) : (
+          <Box size={16} strokeWidth={1.6} color={theme.color.text.muted} />
+        )}
+      </View>
+      <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+        {blocks(look, item.children, true)}
       </View>
     </View>
   );
 }
 
-function blocks(look: Look, nodes: readonly Block[]): ReactNode {
+// Space between two blocks: a flat gap in chat; in a document the larger of the first's space below and the
+// second's space above, as CSS margins collapse (heading 1: 8 below, other headings 18 above and 6 below, others 10 below).
+function between(look: Look, before: Block, node: Block): number {
+  if (look.chat) return 8;
+  const below = before.kind === "heading" ? (before.level === 1 ? 8 : 6) : 10;
+  const aboveNext = node.kind === "heading" ? 18 : 0;
+  return Math.max(below, aboveNext);
+}
+
+function blocks(look: Look, nodes: readonly Block[], tight = false): ReactNode {
   const { theme } = look;
   return nodes.map((node, index) => {
     const key = index;
+    const before = nodes[index - 1];
+    const top =
+      before === undefined ? 0 : tight ? 4 : between(look, before, node);
+    let body: ReactNode;
     switch (node.kind) {
       case "heading": {
-        const size =
+        const size: TextStyle =
           node.level === 1
-            ? theme.type.title
+            ? { fontSize: 24, lineHeight: 32, letterSpacing: -0.48 }
             : node.level === 2
               ? { fontSize: 18, lineHeight: 26 }
-              : look.base;
-        return (
-          <Fragment key={key}>
-            {paragraph(look, node.children, {
-              ...size,
-              fontWeight: "600",
-              marginTop: index === 0 ? 0 : theme.space[2],
-            })}
-          </Fragment>
-        );
+              : {};
+        body = paragraph(look, node.children, { ...size, fontWeight: "600" });
+        break;
       }
       case "paragraph":
-        return <Fragment key={key}>{paragraph(look, node.children)}</Fragment>;
-      case "math":
-        return <CodeBlock key={key} code={node.tex} language="math" />;
-      case "code":
-        return (
-          <CodeBlock key={key} code={node.text} language={node.language} />
+        body = paragraph(
+          look,
+          node.children,
+          look.chat ? undefined : { lineHeight: 26 },
         );
+        break;
+      case "math":
+        body = <CodeBlock code={node.tex} language="math" />;
+        break;
+      case "code":
+        body = <CodeBlock code={node.text} language={node.language} />;
+        break;
       case "quote":
-        return (
+        body = (
           <View
-            key={key}
             style={{
               borderLeftWidth: 2,
               borderLeftColor: theme.color.border.strong,
-              paddingLeft: theme.space[5],
-              gap: look.gap,
+              paddingLeft: 12,
             }}
           >
             {blocks(look, node.children)}
           </View>
         );
+        break;
       case "list":
-        return (
-          <View key={key} style={{ gap: theme.space[2] }}>
+        body = (
+          <View style={{ gap: 4 }}>
             {node.items.map((item, at) =>
               listItem(
                 look,
@@ -210,62 +210,52 @@ function blocks(look: Look, nodes: readonly Block[]): ReactNode {
             )}
           </View>
         );
+        break;
       case "rule":
-        return (
+        body = (
           <View
-            key={key}
             style={{ height: 1, backgroundColor: theme.color.border.base }}
           />
         );
+        break;
       case "html":
-        return (
-          <Fragment key={key}>
-            {paragraph(look, [{ kind: "text", text: node.text }], {
-              fontFamily: theme.font.mono,
-              fontSize: 13,
-            })}
-          </Fragment>
-        );
-      // Native has no table layout. Fixed-width cells in a sideways scroll keep columns aligned.
+        body = paragraph(look, [{ kind: "text", text: node.text }], {
+          fontFamily: theme.font.mono,
+          fontSize: 13,
+        });
+        break;
+      // Native has no table layout. Cells share the width and scroll sideways once they reach their minimum.
       default:
-        return (
-          <ScrollView
-            key={key}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-          >
-            <View
-              style={{
-                borderWidth: 1,
-                borderColor: theme.color.border.subtle,
-                borderRadius: theme.radius.sm,
-                overflow: "hidden",
-              }}
-            >
+        body = (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={{ minWidth: "100%" }}>
               {[node.header, ...node.rows].map((row, at) => (
                 <View
                   key={at}
                   style={{
                     flexDirection: "row",
-                    backgroundColor:
-                      at === 0 ? theme.color.surface.subtle : undefined,
-                    borderTopWidth: at === 0 ? 0 : 1,
-                    borderTopColor: theme.color.border.subtle,
+                    borderBottomWidth: 1,
+                    borderBottomColor: theme.color.border.subtle,
                   }}
                 >
                   {row.map((cell, column) => (
                     <View
                       key={column}
                       style={{
-                        width: TABLE_CELL,
-                        paddingHorizontal: theme.space[5],
-                        paddingVertical: theme.space[4],
+                        flex: 1,
+                        minWidth: 96,
+                        paddingVertical: 8,
+                        paddingHorizontal: 10,
                       }}
                     >
                       {paragraph(look, cell, {
                         fontSize: 14,
                         lineHeight: 20,
-                        fontWeight: at === 0 ? "600" : "400",
+                        fontWeight: at === 0 ? "500" : "400",
+                        color:
+                          at === 0
+                            ? theme.color.text.secondary
+                            : theme.color.text.primary,
                         textAlign: node.align[column],
                       })}
                     </View>
@@ -276,6 +266,11 @@ function blocks(look: Look, nodes: readonly Block[]): ReactNode {
           </ScrollView>
         );
     }
+    return (
+      <View key={key} style={{ marginTop: top }}>
+        {body}
+      </View>
+    );
   });
 }
 
@@ -294,15 +289,16 @@ export function Markdown({
         : parseCached(source),
     [source, streaming],
   );
-  const chat = variant === "chat";
   const look: Look = {
     theme,
+    chat: variant === "chat",
     base: {
-      ...(chat ? theme.type.body : theme.type.reading),
+      fontFamily: theme.font.sans,
+      fontSize: 16,
+      lineHeight: variant === "chat" ? 25 : 26,
       color: theme.color.text.primary,
     },
-    gap: chat ? theme.space[4] : theme.space[5],
     open: onOpenLink ?? ((href) => void Linking.openURL(href)),
   };
-  return <View style={{ gap: look.gap }}>{blocks(look, document.blocks)}</View>;
+  return <View>{blocks(look, document.blocks)}</View>;
 }

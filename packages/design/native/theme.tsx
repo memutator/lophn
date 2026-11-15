@@ -1,50 +1,47 @@
 import { createContext, type ReactNode, useContext } from "react";
-import { type TextStyle, useColorScheme } from "react-native";
-import { appearancePresets } from "../presets.ts";
+import { useColorScheme } from "react-native";
 import { type StatusTone, type Themed, tokens } from "../tokens.ts";
 
 export type Scheme = keyof Themed;
-/** Index into the shared space scale: 0, 2, 4, 6, 8, 12, 16, 20, 24, 32, 40, 48, 64. */
-export type Space = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
-export type ControlSize = "sm" | "md" | "lg";
-export type TypeName =
-  | "caption"
-  | "small"
-  | "body"
-  | "reading"
-  | "titleSmall"
-  | "title"
-  | "display";
 
-const px = (value: string) => Number.parseFloat(value);
-const touch = appearancePresets.density.touch;
+// The phone's type steps. Sizes and line heights come from the approved phone wireframes
+// (tools/wireframes/drafts/phone/phone.module.css), which draw the desktop tokens at arm's length.
+const TYPE = {
+  /** 12/16: times, meta lines, the line under a title. */
+  caption: { fontSize: 12, lineHeight: 16 },
+  /** 13/18: a row's second line, section labels, row ends. */
+  small: { fontSize: 13, lineHeight: 18 },
+  /** 13/19: quiet notes under a card's title. */
+  note: { fontSize: 13, lineHeight: 19 },
+  /** 14/20: compact controls and dense cards. */
+  detail: { fontSize: 14, lineHeight: 20 },
+  /** 15/22: sidebar rows, links, steps. */
+  control: { fontSize: 15, lineHeight: 22 },
+  /** 16/24: the phone's body text. */
+  body: { fontSize: 16, lineHeight: 24 },
+  /** 16/25: an agent's answer in a conversation. */
+  reading: { fontSize: 16, lineHeight: 25 },
+  /** 17/24: the top bar's title. */
+  title: { fontSize: 17, lineHeight: 24, letterSpacing: -0.17 },
+  /** 18/26: a sheet's title, a second-level heading. */
+  heading: { fontSize: 18, lineHeight: 26, letterSpacing: -0.18 },
+  /** 24/32: the first heading of a page. */
+  h1: { fontSize: 24, lineHeight: 32, letterSpacing: -0.48 },
+  /** 28/36: a welcome screen's line. */
+  hero: { fontSize: 28, lineHeight: 36, letterSpacing: -0.56 },
+  /** 30/38: a stat's number. */
+  stat: { fontSize: 30, lineHeight: 38, letterSpacing: -0.6 },
+} as const;
 
-// What a control looks like. Smaller ones still take presses on the full 44px target (see `touch`), so the
-// drawn height can stay as quiet as on desktop.
-const CONTROL: Record<
-  ControlSize,
-  { height: number; padX: number; icon: number; text: number }
-> = {
-  sm: { height: 32, padX: 10, icon: 14, text: 14 },
-  md: { height: 40, padX: 14, icon: 16, text: 15 },
-  lg: { height: 48, padX: 18, icon: 18, text: 16 },
-};
+export type TypeName = keyof typeof TYPE;
 
 function build(scheme: Scheme) {
   const pick = (value: Themed) => value[scheme];
   const { color } = tokens;
-  const type = (name: Exclude<TypeName, "body" | "small" | "caption">) => ({
-    fontSize: px(tokens.type[name].size),
-    lineHeight: px(tokens.type[name].line),
-  });
   const status = (tone: StatusTone) => ({
     marker: pick(tokens.status[tone].marker),
     text: pick(tokens.status[tone].text),
   });
-  const weight: Record<
-    "regular" | "medium" | "semibold",
-    TextStyle["fontWeight"]
-  > = { regular: "400", medium: "500", semibold: "600" };
   return {
     scheme,
     color: {
@@ -53,6 +50,7 @@ function build(scheme: Scheme) {
         base: pick(color.surface.base),
         subtle: pick(color.surface.subtle),
         muted: pick(color.surface.muted),
+        shell: pick(color.surface.shell),
       },
       border: {
         subtle: pick(color.border.subtle),
@@ -72,6 +70,7 @@ function build(scheme: Scheme) {
         soft: pick(color.ink.soft),
       },
       link: pick(color.link),
+      focus: pick(color.focus),
       danger: {
         background: pick(color.danger.background),
         text: pick(color.danger.text),
@@ -84,46 +83,26 @@ function build(scheme: Scheme) {
         critical: status("critical"),
         neutral: status("neutral"),
       },
+      chart: tokens.chart.series.map((series) => pick(series)),
       diff: {
         addLine: pick(tokens.diff.addLine),
         deleteLine: pick(tokens.diff.deleteLine),
       },
-      backdrop: scheme === "dark" ? "rgba(0,0,0,0.6)" : "rgba(26,26,24,0.32)",
+      scrim: "rgba(15,15,14,0.38)",
     },
-    // Body is the touch preset's 16/24. Small and caption step up one px from desktop so they stay readable at arm's length.
-    type: {
-      caption: { fontSize: 12, lineHeight: 16 },
-      small: { fontSize: 14, lineHeight: 20 },
-      body: {
-        fontSize: px(touch.type.body.size),
-        lineHeight: px(touch.type.body.line),
-      },
-      reading: { fontSize: 16, lineHeight: 26 },
-      titleSmall: { fontSize: 17, lineHeight: 24 },
-      title: type("title"),
-      display: type("display"),
-    } satisfies Record<TypeName, { fontSize: number; lineHeight: number }>,
-    // The same two families as desktop. The host app embeds them under these names.
-    font: { sans: "Pretendard", mono: "JetBrainsMono", weight },
-    space: tokens.space.map(px),
-    radius: {
-      xs: px(tokens.radius.xs),
-      sm: px(tokens.radius.sm),
-      md: px(tokens.radius.md),
-      lg: px(tokens.radius.lg),
-      xl: px(tokens.radius.xl),
-      full: 9999,
+    shadow: {
+      popover: pick(tokens.shadow.popover),
+      sheet: "0 -12px 40px rgba(15,15,14,0.16)",
+      drawer: "12px 0 40px rgba(15,15,14,0.14)",
+      fab: "0 8px 20px rgba(15,15,14,0.24)",
+      lift: "0 1px 2px rgba(15,15,14,0.12)",
+      composer: "0 2px 8px rgba(15,15,14,0.04)",
     },
-    control: CONTROL,
+    type: TYPE,
+    // The same two families as desktop. The host app embeds them under these names, weights 400, 500 and 600.
+    font: { sans: "Pretendard", mono: "JetBrainsMono" },
     /** Smallest side of anything a finger presses. */
     touch: 44,
-    row: px(touch.menu.row),
-    icon: { small: 16, base: 20, large: 24, stroke: tokens.icon.stroke },
-    motion: {
-      short: px(tokens.motion.duration.short),
-      medium: px(tokens.motion.duration.medium),
-      long: px(tokens.motion.duration.long),
-    },
   };
 }
 
@@ -152,4 +131,22 @@ export function useTheme(): Theme {
   const theme = useContext(ThemeContext);
   if (theme === undefined) throw new Error("useTheme needs a ThemeProvider");
   return theme;
+}
+
+// The color text and icons take when they name none, like CSS currentColor: a row's end, a button's label.
+const InkContext = createContext<string | undefined>(undefined);
+
+export function Ink({
+  color,
+  children,
+}: {
+  color: string;
+  children: ReactNode;
+}) {
+  return <InkContext value={color}>{children}</InkContext>;
+}
+
+export function useInk(): string {
+  const theme = useTheme();
+  return useContext(InkContext) ?? theme.color.text.primary;
 }

@@ -1,291 +1,191 @@
-import {
-  Check,
-  ChevronDown,
-  ChevronRight,
-  type LucideIcon,
-  X,
-} from "lucide-react-native";
-import { type ReactNode, useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Animated,
-  Easing,
-  Pressable,
-  View,
-} from "react-native";
-import type { StatusTone } from "../../tokens.ts";
+import { t } from "@lophn/i18n";
+import { ChevronRight, CircleX, Copy, FilePen } from "lucide-react-native";
+import type { ReactNode } from "react";
+import { Pressable, View } from "react-native";
+import { Dot } from "../feedback/status.tsx";
 import { Icon } from "../primitives/icon.tsx";
 import { Text } from "../primitives/text.tsx";
-import { useTheme } from "../theme.tsx";
+import { Ink, useTheme } from "../theme.tsx";
 
-export type ActivityState = "running" | "done" | "failed";
-
-export interface ToolLineProps {
-  /** What kind of work: a file, a search, a command. */
-  icon: LucideIcon;
-  /** What it did, in a few words: "Read 3 files", "Ran npm test". */
-  title: string;
-  /** The target, in mono: a path, a command. */
-  detail?: string;
-  state: ActivityState;
-  /** Opens the input and output, usually in a sheet. */
+export interface ActProps {
+  /** What the agent did, folded into one line: Read 2 files · Searched 1 time. */
+  children: string;
+  /** Opens the steps in a sheet. */
   onPress?: () => void;
 }
 
-// One line per piece of work. The details stay out of the thread until asked for.
-export function ToolLine({
-  icon,
-  title,
-  detail,
-  state,
-  onPress,
-}: ToolLineProps) {
+// A folded line of what the agent did. Pressing it shows the steps.
+export function Act({ children, onPress }: ActProps) {
   const theme = useTheme();
   return (
     <Pressable
-      accessibilityRole={onPress ? "button" : undefined}
-      disabled={!onPress}
+      accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => ({
-        minHeight: 36,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: theme.space[4],
-        opacity: pressed ? 0.6 : 1,
-      })}
+      style={{ flexDirection: "row", alignItems: "center", gap: 3 }}
     >
-      <Icon icon={icon} size="small" tone="muted" />
-      <Text variant="small" tone="secondary" numberOfLines={1}>
-        {title}
-      </Text>
-      {detail !== undefined && (
-        <Text variant="caption" tone="muted" mono numberOfLines={1} grow>
-          {detail}
-        </Text>
-      )}
-      {detail === undefined && <View style={{ flex: 1 }} />}
-      {state === "running" && (
-        <ActivityIndicator size="small" color={theme.color.text.muted} />
-      )}
-      {state === "failed" && <Icon icon={X} size="small" tone="critical" />}
-      {state === "done" && onPress && (
-        <Icon icon={ChevronRight} size="small" tone="muted" />
-      )}
-    </Pressable>
-  );
-}
-
-export interface FoldProps {
-  /** The closed line: "Worked for 2m 14s", "Thought", "12 steps". */
-  label: string;
-  defaultOpen?: boolean;
-  children: ReactNode;
-}
-
-// A finished stretch of work folds into one line so the answer is what the person sees first.
-export function Fold({ label, defaultOpen = false, children }: FoldProps) {
-  const theme = useTheme();
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        onPress={() => setOpen(!open)}
-        style={({ pressed }) => ({
-          minHeight: 36,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: theme.space[2],
-          opacity: pressed ? 0.6 : 1,
-        })}
-      >
-        <Text variant="small" tone="muted">
-          {label}
-        </Text>
-        <Icon
-          icon={open ? ChevronDown : ChevronRight}
-          size="small"
-          tone="muted"
-        />
-      </Pressable>
-      {open && (
-        <View
-          style={{
-            paddingLeft: theme.space[5],
-            borderLeftWidth: 1,
-            borderLeftColor: theme.color.border.base,
-          }}
-        >
+      <Ink color={theme.color.text.muted}>
+        <Text variant="detail" numberOfLines={1} style={{ flexShrink: 1 }}>
           {children}
-        </View>
-      )}
-    </View>
-  );
-}
-
-export interface WorkingRowProps {
-  /** What the agent is doing now: "Working", "Waiting for your answer". */
-  label: string;
-}
-
-// The live end of the thread while a turn runs.
-export function WorkingRow({ label }: WorkingRowProps) {
-  const theme = useTheme();
-  const opacity = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, {
-          toValue: 0.35,
-          duration: 800,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 800,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [opacity]);
-  return (
-    <Animated.View
-      accessibilityRole="progressbar"
-      style={{
-        minHeight: 36,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: theme.space[4],
-        opacity,
-      }}
-    >
-      <View
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: theme.radius.full,
-          backgroundColor: theme.color.text.muted,
-        }}
-      />
-      <Text variant="small" tone="muted">
-        {label}
-      </Text>
-    </Animated.View>
-  );
-}
-
-export interface ThreadNoteAction {
-  label: string;
-  onPress: () => void;
-}
-
-export interface ThreadNoteProps {
-  /** neutral: something happened (compacted, retried). warning and critical: the turn hit a problem. good: a decision went through. */
-  tone?: StatusTone;
-  text: string;
-  action?: ThreadNoteAction;
-}
-
-// A line in the thread that is not anyone's message: an error, a decision, a notice.
-export function ThreadNote({
-  tone = "neutral",
-  text,
-  action,
-}: ThreadNoteProps) {
-  const theme = useTheme();
-  const quiet = tone === "neutral";
-  return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        gap: theme.space[4],
-        minHeight: 36,
-      }}
-    >
-      {tone === "good" && <Icon icon={Check} size="small" tone="good" />}
-      {(tone === "critical" || tone === "serious") && (
-        <Icon icon={X} size="small" tone={tone} />
-      )}
-      <Text variant="small" tone={quiet ? "muted" : tone} grow>
-        {text}
-      </Text>
-      {action && (
-        <Text
-          variant="small"
-          weight="medium"
-          tone="link"
-          onPress={action.onPress}
-        >
-          {action.label}
         </Text>
-      )}
-    </View>
+        <Icon icon={ChevronRight} size={15} />
+      </Ink>
+    </Pressable>
   );
 }
 
 export interface EditCardProps {
-  /** The file, shortened from the left when it does not fit. */
   path: string;
-  added: number;
-  removed: number;
-  state: ActivityState;
+  add: number;
+  del: number;
   /** Opens the diff. */
   onPress?: () => void;
 }
 
-export function EditCard({
-  path,
-  added,
-  removed,
-  state,
-  onPress,
-}: EditCardProps) {
+// A file the agent changed, with its added and removed line counts.
+export function EditCard({ path, add, del, onPress }: EditCardProps) {
   const theme = useTheme();
   return (
     <Pressable
-      accessibilityRole={onPress ? "button" : undefined}
-      disabled={!onPress}
+      accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => ({
-        minHeight: theme.touch,
         flexDirection: "row",
         alignItems: "center",
-        gap: theme.space[4],
-        paddingHorizontal: theme.space[5],
-        borderRadius: theme.radius.md,
+        gap: 8,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
         borderWidth: 1,
-        borderColor: theme.color.border.subtle,
-        backgroundColor: pressed
-          ? theme.color.surface.muted
-          : theme.color.surface.base,
+        borderColor: theme.color.border.base,
+        borderRadius: 14,
+        backgroundColor: pressed ? theme.color.surface.subtle : "transparent",
       })}
     >
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Text variant="small" mono numberOfLines={1}>
-          {path}
-        </Text>
-      </View>
-      {state === "running" ? (
-        <ActivityIndicator size="small" color={theme.color.text.muted} />
-      ) : state === "failed" ? (
-        <Icon icon={X} size="small" tone="critical" />
-      ) : (
-        <>
-          <Text variant="caption" tone="good" mono>
-            +{added}
-          </Text>
-          <Text variant="caption" tone="critical" mono>
-            -{removed}
-          </Text>
-        </>
-      )}
-      {onPress && <Icon icon={ChevronRight} size="small" tone="muted" />}
+      <Icon icon={FilePen} size={17} tone="muted" />
+      <Text
+        mono
+        numberOfLines={1}
+        grow
+        style={{ fontSize: 12, lineHeight: 20 }}
+      >
+        {path}
+      </Text>
+      <Text mono tone="good" style={{ fontSize: 12, lineHeight: 20 }}>
+        {`+${add}`}
+      </Text>
+      <Text mono tone="critical" style={{ fontSize: 12, lineHeight: 20 }}>
+        {`−${del}`}
+      </Text>
+      <Icon icon={ChevronRight} size={15} tone="muted" />
     </Pressable>
+  );
+}
+
+export interface WorkingProps {
+  /** good: working. warning: waiting on the person. */
+  tone?: "good" | "warning";
+  children: string;
+}
+
+// The line under the last turn while the session runs or waits.
+export function Working({ tone = "good", children }: WorkingProps) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <Dot tone={tone} />
+      <Text variant="detail" tone="muted">
+        {children}
+      </Text>
+    </View>
+  );
+}
+
+export interface ErrorLineProps {
+  children: string;
+  /** A small button at the end (Retry). */
+  action?: ReactNode;
+}
+
+// A turn that stopped on an error, in one line with a way to go on.
+export function ErrorLine({ children, action }: ErrorLineProps) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+      <View style={{ marginTop: 1 }}>
+        <Icon icon={CircleX} size={17} tone="critical" />
+      </View>
+      <Text variant="detail" tone="secondary" grow>
+        {children}
+      </Text>
+      {action}
+    </View>
+  );
+}
+
+export interface MetaProps {
+  /** Worked for 1m 12s · 6:41 PM */
+  children: string;
+  onCopy?: () => void;
+}
+
+// The quiet line that ends a turn.
+export function Meta({ children, onCopy }: MetaProps) {
+  const theme = useTheme();
+  return (
+    <Ink color={theme.color.text.muted}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <Text variant="caption">{children}</Text>
+        {onCopy && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("common.button.copy")}
+            hitSlop={12}
+            onPress={onCopy}
+          >
+            <Icon icon={Copy} size={15} />
+          </Pressable>
+        )}
+      </View>
+    </Ink>
+  );
+}
+
+export interface DiffLineProps {
+  no: string;
+  text: string;
+  kind?: "add" | "del";
+}
+
+// One line of a file's diff.
+export function DiffLine({ no, text, kind }: DiffLineProps) {
+  const theme = useTheme();
+  const mark = kind === "add" ? "+ " : kind === "del" ? "− " : "  ";
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        gap: 10,
+        paddingHorizontal: 16,
+        backgroundColor:
+          kind === "add"
+            ? theme.color.diff.addLine
+            : kind === "del"
+              ? theme.color.diff.deleteLine
+              : "transparent",
+      }}
+    >
+      <Text
+        mono
+        tone="muted"
+        align="right"
+        style={{ width: 22, fontSize: 12.5, lineHeight: 21 }}
+      >
+        {no}
+      </Text>
+      <Text
+        mono
+        numberOfLines={1}
+        style={{ flex: 1, fontSize: 12.5, lineHeight: 21 }}
+      >
+        {mark + text}
+      </Text>
+    </View>
   );
 }

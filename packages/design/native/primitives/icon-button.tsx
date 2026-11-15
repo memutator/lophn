@@ -1,31 +1,34 @@
 import type { LucideIcon } from "lucide-react-native";
-import { Pressable } from "react-native";
+import { Pressable, View } from "react-native";
 import { useTheme } from "../theme.tsx";
 import { Icon } from "./icon.tsx";
-import type { TextTone } from "./text.tsx";
 
 export interface IconButtonProps {
   icon: LucideIcon;
   /** Read by the screen reader; an icon alone has no name. */
   label: string;
-  /** filled: a round ink button (send, stop). plain: the icon alone. */
-  variant?: "plain" | "filled";
-  tone?: TextTone;
+  /** muted: a quieter action next to a title. camera: on the dark camera screen. */
+  tone?: "primary" | "muted" | "camera";
+  /** A small mark: something waits behind this button. */
+  dot?: boolean;
+  /** Icon side. 22 in a top bar, 20 or 18 for quieter ones. */
+  size?: number;
   disabled?: boolean;
-  onPress: () => void;
+  onPress?: () => void;
 }
 
-// The pressable area is always the 44px touch size, whatever the icon size.
+// Always a 44 round touch target, whatever the icon size.
 export function IconButton({
   icon,
   label,
-  variant = "plain",
   tone = "primary",
+  dot,
+  size = 22,
   disabled,
   onPress,
 }: IconButtonProps) {
   const theme = useTheme();
-  const filled = variant === "filled";
+  const camera = tone === "camera";
   return (
     <Pressable
       accessibilityRole="button"
@@ -34,17 +37,13 @@ export function IconButton({
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => ({
-        width: theme.touch,
-        height: theme.touch,
-        borderRadius: theme.radius.full,
+        width: 44,
+        height: 44,
+        borderRadius: 999,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: filled
-          ? disabled
-            ? theme.color.surface.muted
-            : pressed
-              ? theme.color.ink.pressed
-              : theme.color.ink.background
+        backgroundColor: camera
+          ? "rgba(255,255,255,0.14)"
           : pressed
             ? theme.color.surface.muted
             : "transparent",
@@ -52,8 +51,32 @@ export function IconButton({
     >
       <Icon
         icon={icon}
-        tone={disabled ? "disabled" : filled ? "inverse" : tone}
+        size={size}
+        color={
+          disabled
+            ? theme.color.text.disabled
+            : camera
+              ? "#f3f3f0"
+              : tone === "muted"
+                ? theme.color.text.secondary
+                : theme.color.text.primary
+        }
       />
+      {dot && (
+        <View
+          style={{
+            position: "absolute",
+            top: 9,
+            right: 9,
+            width: 13,
+            height: 13,
+            borderRadius: 999,
+            borderWidth: 2,
+            borderColor: theme.color.surface.base,
+            backgroundColor: theme.color.status.warning.marker,
+          }}
+        />
+      )}
     </Pressable>
   );
 }

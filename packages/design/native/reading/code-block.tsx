@@ -1,7 +1,8 @@
+import { t } from "@lophn/i18n";
 import * as Clipboard from "expo-clipboard";
 import { Check, Copy } from "lucide-react-native";
 import { useEffect, useState } from "react";
-import { Text as NativeText, Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { Icon } from "../primitives/icon.tsx";
 import { Text } from "../primitives/text.tsx";
 import { useTheme } from "../theme.tsx";
@@ -25,11 +26,10 @@ export function CodeBlock({ code, language }: CodeBlockProps) {
   return (
     <View
       style={{
-        borderRadius: theme.radius.md,
-        borderWidth: 1,
-        borderColor: theme.color.border.subtle,
+        paddingTop: 8,
+        paddingBottom: 12,
+        borderRadius: 14,
         backgroundColor: theme.color.surface.subtle,
-        overflow: "hidden",
       }}
     >
       <View
@@ -37,47 +37,38 @@ export function CodeBlock({ code, language }: CodeBlockProps) {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          paddingLeft: theme.space[5],
+          marginBottom: 4,
+          paddingHorizontal: 14,
         }}
       >
-        <Text variant="caption" tone="muted" mono>
+        <Text variant="caption" tone="muted">
           {language ?? ""}
         </Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={copied ? "Copied" : "Copy code"}
-          hitSlop={8}
+          accessibilityLabel={t(
+            copied ? "common.label.copied" : "common.button.copy-code",
+          )}
+          hitSlop={12}
           onPress={() => {
             void Clipboard.setStringAsync(code).then(() => setCopied(true));
-          }}
-          style={{
-            width: 36,
-            height: 32,
-            alignItems: "center",
-            justifyContent: "center",
           }}
         >
           <Icon
             icon={copied ? Check : Copy}
-            size="small"
+            size={15}
             tone={copied ? "good" : "muted"}
           />
         </Pressable>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <NativeText
-          selectable
-          style={{
-            fontFamily: theme.font.mono,
-            fontSize: 13,
-            lineHeight: 20,
-            color: theme.color.text.primary,
-            paddingHorizontal: theme.space[5],
-            paddingBottom: theme.space[5],
-          }}
-        >
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 14 }}
+      >
+        <Text mono selectable style={{ fontSize: 13, lineHeight: 20 }}>
           {code.replace(/\n$/, "")}
-        </NativeText>
+        </Text>
       </ScrollView>
     </View>
   );

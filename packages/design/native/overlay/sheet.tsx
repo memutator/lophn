@@ -1,4 +1,5 @@
-import type { LucideIcon } from "lucide-react-native";
+import { t } from "@lophn/i18n";
+import { Check as CheckIcon, type LucideIcon } from "lucide-react-native";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
@@ -11,16 +12,23 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Row } from "../layout/list.tsx";
 import { Icon } from "../primitives/icon.tsx";
 import { Text } from "../primitives/text.tsx";
-import { useTheme } from "../theme.tsx";
+import { Ink, useTheme } from "../theme.tsx";
 
 export interface SheetProps {
   open: boolean;
-  /** Backdrop press, back button and dragging the sheet down all ask to close. */
+  /** The scrim, the back button and dragging the sheet down all ask to close. */
   onClose: () => void;
   title?: string;
+  /** A face or a mark before the title; with it the head is larger and `sub` sits under the title. */
+  lead?: ReactNode;
+  sub?: string;
+  /** At the end of the title line: a small button. */
+  end?: ReactNode;
   children: ReactNode;
 }
 
@@ -28,8 +36,16 @@ export interface SheetProps {
 const CLOSE_DISTANCE = 120;
 const CLOSE_SPEED = 0.8;
 
-// The phone's popover, menu and dialog: it rises from the bottom edge where the thumb is.
-export function Sheet({ open, onClose, title, children }: SheetProps) {
+// The phone's popover, menu and dialog: it rises from the bottom edge where the thumb is, and above the keyboard.
+export function Sheet({
+  open,
+  onClose,
+  title,
+  lead,
+  sub,
+  end,
+  children,
+}: SheetProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
@@ -44,7 +60,7 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
       drag.setValue(0);
       Animated.timing(shown, {
         toValue: 1,
-        duration: theme.motion.long,
+        duration: 240,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }).start();
@@ -52,13 +68,13 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
     }
     Animated.timing(shown, {
       toValue: 0,
-      duration: theme.motion.medium,
+      duration: 180,
       easing: Easing.in(Easing.cubic),
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (finished) setMounted(false);
     });
-  }, [open, shown, drag, theme.motion]);
+  }, [open, shown, drag]);
 
   const pan = useMemo(
     () =>
@@ -98,60 +114,95 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
       <Animated.View
         style={[
           StyleSheet.absoluteFill,
-          { backgroundColor: theme.color.backdrop, opacity: shown },
+          { backgroundColor: theme.color.scrim, opacity: shown },
         ]}
       >
         <Pressable
-          accessibilityLabel="Close"
+          accessibilityLabel={t("common.button.close")}
           style={StyleSheet.absoluteFill}
           onPress={onClose}
         />
       </Animated.View>
-      <Animated.View
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          maxHeight: height * 0.9,
-          backgroundColor: theme.color.surface.base,
-          borderTopLeftRadius: theme.radius.xl,
-          borderTopRightRadius: theme.radius.xl,
-          paddingBottom: insets.bottom + theme.space[4],
-          transform: [{ translateY }],
-        }}
+      <KeyboardAvoidingView
+        behavior="padding"
+        pointerEvents="box-none"
+        style={{ flex: 1, justifyContent: "flex-end" }}
       >
-        <View
-          {...pan.panHandlers}
+        <Animated.View
           style={{
-            alignItems: "center",
-            paddingTop: theme.space[4],
-            paddingBottom: theme.space[5],
-            gap: theme.space[5],
+            maxHeight: height * 0.92,
+            backgroundColor: theme.color.surface.base,
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28,
+            boxShadow: theme.shadow.sheet,
+            paddingBottom: Math.max(insets.bottom, 26),
+            transform: [{ translateY }],
           }}
         >
-          <View
-            style={{
-              width: 36,
-              height: 4,
-              borderRadius: theme.radius.full,
-              backgroundColor: theme.color.border.strong,
-            }}
-          />
-          {title !== undefined && (
-            <Text variant="titleSmall" numberOfLines={1}>
-              {title}
-            </Text>
-          )}
-        </View>
-        <ScrollView
-          bounces={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: theme.space[6] }}
-        >
-          {children}
-        </ScrollView>
-      </Animated.View>
+          <View {...pan.panHandlers}>
+            <View
+              style={{
+                alignSelf: "center",
+                width: 36,
+                height: 4,
+                marginTop: 8,
+                marginBottom: 2,
+                borderRadius: 999,
+                backgroundColor: theme.color.border.strong,
+              }}
+            />
+            {lead !== undefined ? (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 12,
+                  paddingTop: 10,
+                  paddingBottom: 12,
+                  paddingHorizontal: 20,
+                }}
+              >
+                {lead}
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  {title !== undefined && (
+                    <Text variant="heading" weight="semibold" numberOfLines={1}>
+                      {title}
+                    </Text>
+                  )}
+                  {sub !== undefined && (
+                    <Text variant="note" tone="muted" numberOfLines={1}>
+                      {sub}
+                    </Text>
+                  )}
+                </View>
+                {end}
+              </View>
+            ) : (
+              title !== undefined && (
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    paddingTop: 10,
+                    paddingBottom: 8,
+                    paddingHorizontal: 20,
+                  }}
+                >
+                  <Text variant="heading" weight="semibold" numberOfLines={1}>
+                    {title}
+                  </Text>
+                  {end}
+                </View>
+              )
+            )}
+          </View>
+          <ScrollView bounces={false} keyboardShouldPersistTaps="handled">
+            {children}
+          </ScrollView>
+        </Animated.View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -159,10 +210,16 @@ export function Sheet({ open, onClose, title, children }: SheetProps) {
 export interface MenuItem {
   label: string;
   icon?: LucideIcon;
+  /** A quieter line under the label. */
+  sub?: string;
+  /** The current value at the end ("Ask when needed"). */
+  end?: string;
   /** A destructive choice (delete, disconnect). */
   danger?: boolean;
   /** Marks the current choice in a pick-one menu. */
   selected?: boolean;
+  /** Starts a group: a hairline above it. */
+  apart?: boolean;
   onSelect: () => void;
 }
 
@@ -170,47 +227,53 @@ export interface MenuProps {
   open: boolean;
   onClose: () => void;
   title?: string;
+  lead?: ReactNode;
+  sub?: string;
   items: readonly MenuItem[];
 }
 
 // A list of actions in a sheet. Choosing one closes it.
-export function Menu({ open, onClose, title, items }: MenuProps) {
+export function Menu({ open, onClose, title, lead, sub, items }: MenuProps) {
   const theme = useTheme();
   return (
-    <Sheet open={open} onClose={onClose} title={title}>
+    <Sheet open={open} onClose={onClose} title={title} lead={lead} sub={sub}>
       {items.map((item) => (
-        <Pressable
-          key={item.label}
-          accessibilityRole="menuitem"
-          accessibilityState={{ selected: item.selected }}
-          onPress={() => {
-            onClose();
-            item.onSelect();
-          }}
-          style={({ pressed }) => ({
-            minHeight: theme.control.md.height,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: theme.space[5],
-            paddingHorizontal: theme.space[4],
-            borderRadius: theme.radius.md,
-            backgroundColor:
-              pressed || item.selected
-                ? theme.color.surface.muted
-                : "transparent",
-          })}
-        >
-          {item.icon && (
-            <Icon
-              icon={item.icon}
-              tone={item.danger ? "danger" : "secondary"}
+        <View key={item.label}>
+          {item.apart && (
+            <View
+              style={{
+                height: 1,
+                marginVertical: 6,
+                marginHorizontal: 20,
+                backgroundColor: theme.color.border.subtle,
+              }}
             />
           )}
-          <Text tone={item.danger ? "danger" : "primary"} grow>
-            {item.label}
-          </Text>
-        </Pressable>
+          <Ink
+            color={
+              item.danger
+                ? theme.color.status.critical.text
+                : theme.color.text.primary
+            }
+          >
+            <Row
+              lead={item.icon && <Icon icon={item.icon} />}
+              title={item.label}
+              sub={item.sub}
+              end={item.end ?? (item.selected ? <SelectedMark /> : undefined)}
+              onPress={() => {
+                onClose();
+                item.onSelect();
+              }}
+            />
+          </Ink>
+        </View>
       ))}
     </Sheet>
   );
+}
+
+function SelectedMark() {
+  const theme = useTheme();
+  return <Icon icon={CheckIcon} color={theme.color.text.primary} />;
 }

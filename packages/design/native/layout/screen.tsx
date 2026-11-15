@@ -1,4 +1,5 @@
-import { ChevronLeft } from "lucide-react-native";
+import { t } from "@lophn/i18n";
+import { ChevronLeft, PanelLeft, X } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { ScrollView, StatusBar, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
@@ -8,28 +9,26 @@ import { Text } from "../primitives/text.tsx";
 import { useTheme } from "../theme.tsx";
 
 export interface ScreenProps {
-  title: string;
-  /** One quiet line under the title: where this is, or its state. */
-  subtitle?: string;
-  /** Shows the back arrow. */
-  onBack?: () => void;
-  /** Icon buttons at the end of the header. */
-  actions?: ReactNode;
-  /** Scrolls the body. Leave off when the body is its own list. */
+  /** base: most screens. floor: an app or a settings list of grouped cards. shell: behind the sidebar. */
+  tone?: "base" | "floor" | "shell";
+  /** The TopBar. Stays above the body. */
+  top?: ReactNode;
+  /** Scrolls the body. Leave off when the body is its own list (a MessageList). */
   scroll?: boolean;
-  /** Stays at the bottom above the home indicator: a composer, a main action. */
+  /** Stays at the bottom above the home indicator and rides up on the keyboard: a composer, a main action. */
   footer?: ReactNode;
-  children: ReactNode;
+  /** Drawn over the whole screen: a toast, a floating button. */
+  over?: ReactNode;
+  children?: ReactNode;
 }
 
-// One screen: header, body, optional footer. It owns the safe-area insets so the body never sits under the status bar or the gesture bar.
+// One screen. It owns the safe-area insets so nothing sits under the status bar or the gesture bar.
 export function Screen({
-  title,
-  subtitle,
-  onBack,
-  actions,
+  tone = "base",
+  top,
   scroll,
   footer,
+  over,
   children,
 }: ScreenProps) {
   const theme = useTheme();
@@ -37,60 +36,136 @@ export function Screen({
   return (
     <KeyboardAvoidingView
       behavior="padding"
-      // The footer keeps its bottom inset; lifting by that much less puts its content flush on the keyboard.
+      // The footer keeps its bottom inset; lifting by that much less puts it flush on the keyboard.
       keyboardVerticalOffset={footer === undefined ? 0 : -insets.bottom}
       style={{
         flex: 1,
-        backgroundColor: theme.color.surface.floor,
+        backgroundColor: theme.color.surface[tone],
         paddingTop: insets.top,
       }}
     >
       <StatusBar
         barStyle={theme.scheme === "dark" ? "light-content" : "dark-content"}
       />
-      <View
-        style={{
-          minHeight: 52,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.color.border.subtle,
-          flexDirection: "row",
-          alignItems: "center",
-          paddingLeft: onBack ? theme.space[2] : theme.space[6],
-          paddingRight: theme.space[2],
-          gap: theme.space[2],
-        }}
-      >
-        {onBack && (
-          <IconButton icon={ChevronLeft} label="Back" onPress={onBack} />
-        )}
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text variant="titleSmall" numberOfLines={1}>
-            {title}
-          </Text>
-          {subtitle !== undefined && (
-            <Text variant="caption" tone="muted" numberOfLines={1}>
-              {subtitle}
-            </Text>
-          )}
-        </View>
-        {actions}
-      </View>
+      {top}
       {scroll ? (
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{
-            paddingBottom: footer ? 0 : insets.bottom + theme.space[6],
+            paddingBottom: footer === undefined ? insets.bottom + 16 : 8,
           }}
           keyboardShouldPersistTaps="handled"
         >
           {children}
         </ScrollView>
       ) : (
-        <View style={{ flex: 1 }}>{children}</View>
+        <View style={{ flex: 1, minHeight: 0 }}>{children}</View>
       )}
       {footer !== undefined && (
         <View style={{ paddingBottom: insets.bottom }}>{footer}</View>
       )}
+      {over}
     </KeyboardAvoidingView>
+  );
+}
+
+export interface TopBarProps {
+  /** menu: opens the sidebar (every top-level place). back: a place inside a place. close: a full-screen step. */
+  left?: "menu" | "back" | "close" | "none";
+  onLeft?: () => void;
+  /** Marks the menu button: something waits in the sidebar. */
+  menuDot?: boolean;
+  /** Before the title: an agent's face, an app's mark. */
+  lead?: ReactNode;
+  title: string;
+  /** Quieter text on the same line: the session's name after the agent's. */
+  sub?: string;
+  /** A small line under the title. */
+  under?: string;
+  /** Icon buttons or a chip at the end. */
+  right?: ReactNode;
+}
+
+const LEFT = { menu: PanelLeft, back: ChevronLeft, close: X } as const;
+const LEFT_LABEL = {
+  menu: "mobile.kit.button.open-sidebar",
+  back: "common.button.back",
+  close: "common.button.close",
+} as const;
+
+export function TopBar({
+  left = "menu",
+  onLeft,
+  menuDot,
+  lead,
+  title,
+  sub,
+  under,
+  right,
+}: TopBarProps) {
+  return (
+    <View
+      style={{
+        height: 52,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 2,
+        paddingHorizontal: 8,
+      }}
+    >
+      {left !== "none" && (
+        <IconButton
+          icon={LEFT[left]}
+          label={t(LEFT_LABEL[left])}
+          size={left === "back" ? 24 : 22}
+          dot={left === "menu" && menuDot}
+          onPress={onLeft}
+        />
+      )}
+      <View
+        style={{
+          flex: 1,
+          minWidth: 0,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 8,
+          paddingLeft: left === "none" ? 12 : 4,
+          paddingRight: 4,
+        }}
+      >
+        {lead}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <View style={{ flexDirection: "row", gap: 6, minWidth: 0 }}>
+            <Text
+              variant="title"
+              weight="semibold"
+              numberOfLines={1}
+              style={{
+                flexShrink: sub === undefined ? 1 : 0,
+                maxWidth: "100%",
+              }}
+            >
+              {title}
+            </Text>
+            {sub !== undefined && (
+              <Text
+                variant="title"
+                tone="muted"
+                numberOfLines={1}
+                style={{ flexShrink: 1, letterSpacing: 0 }}
+              >
+                {`· ${sub}`}
+              </Text>
+            )}
+          </View>
+          {under !== undefined && (
+            <Text variant="caption" tone="muted" numberOfLines={1}>
+              {under}
+            </Text>
+          )}
+        </View>
+      </View>
+      {right}
+    </View>
   );
 }

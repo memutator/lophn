@@ -6,6 +6,9 @@
     "supported_from": "0.1.0"
   },
   "exports": "./mod.ts",
+  "dependencies": {
+    "@lophn/i18n": "1.0.0"
+  },
   "peerDependencies": {
     "@lezer/markdown": "1.7.2",
     "expo-clipboard": "58.0.4",

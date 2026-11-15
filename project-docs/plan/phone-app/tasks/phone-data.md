@@ -17,6 +17,7 @@
   - `packages/shell/renderer/conversation/agent-tab-core-source-sessions.ts`
   - `packages/shell/renderer/workspace/agents/coding-face.ts`
   - `packages/shell/renderer/prefixed-id.ts`
+  - 추가 소유: `packages/shell/renderer/parts/vendor-icon/vendor-icon.tsx`와 `packages/shell/renderer/parts/vendor-icon/vendors.ts`(vendor 이름 표를 아이콘에서 가르는 만큼만), `packages/shell/renderer/conversation/agent-tab-source.ts`(React Native에서 import되게 하는 만큼만)
 - 읽을 것:
   - 조사: `/home/pyosechang/projects/lophn/reports/phone-native-ui/lophn-inventory.md`의 A.4(대화 data 길), B(지금 폰 web 화면이 core에 붙는 법과 allowlist), D(session 목록과 Inbox의 data)
   - architecture: `project-docs/architecture/remote.md`, `acp.md`, `event.md`

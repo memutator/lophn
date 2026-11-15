@@ -21,7 +21,7 @@
 - core에 route가 없어 wireframe에서 뺀 것(`phone-routes` 보고): 아무 job이나 지금 돌리기(놓친 차례의 Start now만 남는다), 컴퓨터 화면에 session 띄우기, 보관 풀기, agent 상세의 MCP 수. project file 목록과 읽기는 route를 새로 짓는다(`mobile-files`).
 - kit은 react-native-web이나 다른 runtime을 지금 고려하지 않는다. 사용자 앱이 kit을 쓰는 길은 단계 6의 spike가 정한다(roadmap).
 - 화면을 core 없이 확인하도록 data 층이 지어낸 data를 내는 sample 컴퓨터를 둔다(dev build에서만, wireframe의 예시 data). 화면 worker는 sample로 모양을, 개발 core로 동작을 본다(agent).
-- worker는 opus 5.5 medium으로 띄운다(사람).
+- worker는 `sonnet-high`로 띄운다(사람, 2026-11-15. 처음의 opus 5.5 medium에서 바꿈).
 
 ## task
 

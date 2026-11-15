@@ -40,3 +40,4 @@ export * from "./calls/mod.ts";
 export * from "./activation/mod.ts";
 export * from "./sdk-status.ts";
 export * from "./usage.ts";
+export * from "./phone.ts";

@@ -199,6 +199,10 @@ files:
     covers: [app-sdk-review-record:recorded, app-sdk-review-record:forbidden, app-sdk-feature:reported, app-sdk-feature:not-found]
     note: "call이 거절된 update는 review도 feature도 남기지 않고, 받아들여지면 review와 open feature가 남는다. 앱 workspace의 agent는 다른 앱의 기능 결과를 쓰지 못하고(forbidden이나 not_found) 자기 앱의 것은 쓴다. 거절 갈래는 Router가 내는 forbidden"
 
+  - path: packages/core/apps/phone/target_test.ts
+    covers: [app-phone-target-read:found, app-phone-target-read:no-device]
+    note: "기준 기기(is_primary)의 name, os, width, height, dpr만 싣고 id와 공개 key는 싣지 않음. 기기가 없으면 device는 null"
+
   - path: packages/core/apps/usage/users_test.ts
     covers: [app-usage-read:listed, app-command-call:denied-gate-blocked]
     note: "사용 관계는 project session의 호출만 세고 home과 앱 자신의 workspace 호출은 안 셈. 두 번째 test는 callAllowed gate를 직접 불러 앱 workspace agent가 자기 앱 command를 할당 없이 부르고 다른 앱은 할당이 있어야 함을 단정. gate 판정을 단정하므로 app-command-call:denied-gate-blocked"

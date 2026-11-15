@@ -213,6 +213,7 @@ areas:
       - packages/protocol/apps/grants.ts
       - packages/protocol/apps/secret-use.ts
       - packages/protocol/apps/usage.ts
+      - packages/protocol/apps/phone.ts
       - packages/protocol/apps/app-log.ts
       - packages/protocol/apps/sdk-status.ts
     owns:

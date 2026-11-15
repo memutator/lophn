@@ -1,4 +1,4 @@
-// `lophn app read|tools|create|link-source|status|sdk-status|sdk-decide|sdk-feature|logs|invocations|event-publications`, `lophn declaration check`: 앱을 찾고 만들고 진단하는 명령이다.
+// `lophn app read|tools|create|link-source|status|phone-target|sdk-status|sdk-decide|sdk-feature|logs|invocations|event-publications`, `lophn declaration check`: 앱을 찾고 만들고 진단하는 명령이다.
 // 다른 앱의 비공개 command를 숨기는 일은 `app.tool_index` route가 부른 쪽 credential을 보고 한다. 여기서는 부르기만 한다.
 import { resolve } from "node:path";
 import { z } from "zod";
@@ -13,6 +13,7 @@ import {
   appList,
   appLogs,
   appLogsReadInputSchema,
+  appPhoneTarget,
   appRuntime,
   appSdkDecide,
   appSdkFeature,
@@ -219,6 +220,30 @@ const status = defineCommand({
   },
 });
 
+const phoneTarget = defineCommand({
+  name: "app.phone_target",
+  summary: "Read the person's primary phone to draw phone screens for",
+  description:
+    "Read the person's primary phone (the one they paired most recently, or chose as primary): name, os, width, height and dpr. This is the device you draw a phone screen for: draw to this size, do not build a responsive layout. width and height are the whole phone screen in CSS px, so the height usable below lophn's top bar is smaller. dpr is the pixel ratio. If device is null no phone is paired: before you draw a phone screen, tell the person to pair their phone. When the person changes phones (pairing a new one makes it the primary), a phone screen drawn for the old size must be drawn again.",
+  input: z.strictObject({}),
+  effect: "read",
+  routes: [appPhoneTarget],
+  workspaces: ["home", "app"],
+  run: async (input, ctx) => {
+    const read = await ctx.core.read(appPhoneTarget, input);
+    if (!read.ok) return read;
+    const { body } = readBody(read.value);
+    const { device } = body;
+    return ok({
+      summary:
+        device === null
+          ? "no phone is registered"
+          : `${device.name} ${device.os} ${device.width}x${device.height} @${device.dpr}x`,
+      content: body,
+    });
+  },
+});
+
 const sdkStatus = defineCommand({
   name: "app.sdk_status",
   summary: "Read which SDK versions an app uses and which are out of date",
@@ -361,6 +386,7 @@ export const APP_COMMANDS = [
   linkSource,
   check,
   status,
+  phoneTarget,
   sdkStatus,
   sdkDecide,
   sdkFeature,

@@ -1253,6 +1253,25 @@ flows:
       - "route가 unavailable을 선언하지만 handler는 내지 않는다. 메인 스레드 sql read라 reader unavailable이 없고, 범위 판정 실패는 목록에서 빠지거나 not_found로 가려진다. 선언을 고칠 곳이다."
       - "bundle 파일 읽기의 예외(readdir·readFile, status.ts)는 Result가 아니라 throw로 올라간다. 어떤 code로 보이는지 확인이 필요하다."
 
+  - id: app-phone-target-read
+    title: "agent가 사람의 기준 폰(primary)의 이름, OS, 크기, DPR을 읽는다"
+    actor: agent
+    entries: [route:apps/phone_target]
+    boundary: [app-runtime]
+    code: [packages/core/apps/phone/target.ts]
+    docs: [architecture/remote.md]
+    steps:
+      - "devices 표에서 is_primary인 기기의 name, os, width, height, dpr만 읽는다. 기기 id와 공개 key는 싣지 않는다(agent가 기기 key를 보지 못하게 앱 쪽에 좁은 읽기를 둔다)."
+      - "agent는 이 크기(CSS px, 폰 화면 전체)에 맞춰 폰 화면을 그린다. 기기가 없으면 사람에게 폰을 pairing하라고 말한다."
+    outcomes:
+      - id: found
+        observe: [response]
+      - id: no-device
+        when: "pairing한 기기가 없다(device는 null)"
+        observe: [response]
+    crosses_process: false
+    declared_only: [invalid_input, forbidden, unavailable]
+
   - id: app-sdk-decide
     title: "home lophn이 앱 하나의 SDK 업데이트 결정을 기록하고 update면 그 앱의 lophn에게 같은 동작으로 맡긴다"
     actor: agent

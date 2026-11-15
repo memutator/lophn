@@ -68,6 +68,7 @@ import {
   appSdkReviewRecord,
   appSdkStatus,
 } from "./sdk-status.ts";
+import { appPhoneTarget } from "./phone.ts";
 import { appUsage } from "./usage.ts";
 
 export const ROUTES = [
@@ -111,6 +112,7 @@ export const ROUTES = [
   appsOAuthSignOut,
   appsOAuthState,
   appUsage,
+  appPhoneTarget,
   appSdkStatus,
   appSdkDecide,
   appSdkReviewRecord,

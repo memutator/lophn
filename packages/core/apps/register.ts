@@ -60,6 +60,7 @@ import { releasesSchemaSteps } from "./releases/schema.ts";
 import { loadActiveDeclaration, releaseFacts } from "./releases/store.ts";
 import { createRuntimeCommands } from "./runtime/commands.ts";
 import { createRuntimeReads } from "./runtime/reads.ts";
+import { phoneTargetRead } from "./phone/target.ts";
 import {
   PACKAGE_BUNDLE_BLOB_FIELD,
   PACKAGE_GUIDE_BLOB_FIELD,
@@ -243,6 +244,7 @@ export function createLedgerRegistration(
       sdkReads.list,
       sdkReads.versions,
       sdkReads.usage,
+      phoneTargetRead,
     ],
     // 앱 호출과 rewind는 앱 process를 기다리는 core 메모리 route다. ledger queue를 거치지 않고, 기록은
     // invocations·rewind module이 자기 쓰기로 남긴다.
@@ -321,6 +323,7 @@ export function createReaderRegistration(): ReaderRegistration {
       sdkReads.list,
       sdkReads.versions,
       sdkReads.usage,
+      phoneTargetRead,
     ],
     // 선언 port의 고정 값이다. grants.list의 표시 자료가 같은 key로 읽는다.
     ports: new Map<unknown, unknown>([[currentFacts, releaseFacts]]),

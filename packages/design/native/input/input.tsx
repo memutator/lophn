@@ -3,7 +3,7 @@ import { type ReactNode, useState } from "react";
 import { TextInput, type TextInputProps, View } from "react-native";
 import { Icon } from "../primitives/icon.tsx";
 import { Text } from "../primitives/text.tsx";
-import { useTheme } from "../theme.tsx";
+import { scaleText, useTheme } from "../theme.tsx";
 
 export interface InputProps {
   value: string;
@@ -78,8 +78,7 @@ export function Input({
           minWidth: 0,
           paddingVertical: 0,
           fontFamily: theme.font.sans,
-          fontSize: 16,
-          lineHeight: 24,
+          ...scaleText(theme, { fontSize: 16, lineHeight: 24 }),
           color: theme.color.text.primary,
         }}
       />

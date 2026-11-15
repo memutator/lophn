@@ -36,7 +36,6 @@ import {
 } from "lucide-react-native";
 import { type ReactNode, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
-import app from "../../../app.json";
 import {
   type TextSize,
   type ThemeChoice,
@@ -101,6 +100,9 @@ const SIZE_LABEL = {
   large: "settings.label.size-large",
 } as const;
 
+// The product version (the root package.json), put in by metro.config.js when the app is bundled.
+const VERSION = process.env.EXPO_PUBLIC_LOPHN_VERSION ?? "";
+
 // The name this phone was paired under; computers list it so in Settings › Remote.
 const PHONE_NAME = (Platform.constants as { Model?: string }).Model ?? "";
 
@@ -160,7 +162,7 @@ export function SettingsScreen(_: { place: PlaceOf<"settings"> }) {
         <Row
           lead={<Lead icon={Info} />}
           title={t("mobile.settings.label.app")}
-          end={<Value>{app.expo.version}</Value>}
+          end={<Value>{VERSION}</Value>}
         />
       </Group>
       {__DEV__ && (

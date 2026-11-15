@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { Icon } from "../primitives/icon.tsx";
 import { Text } from "../primitives/text.tsx";
-import { Ink, useTheme } from "../theme.tsx";
+import { Ink, scaleText, useTheme } from "../theme.tsx";
 
 export interface ComposerProps {
   value: string;
@@ -91,8 +91,7 @@ export function Composer({
             paddingHorizontal: 10,
             marginBottom: 10,
             fontFamily: theme.font.sans,
-            fontSize: 16,
-            lineHeight: 24,
+            ...scaleText(theme, { fontSize: 16, lineHeight: 24 }),
             color: theme.color.text.primary,
             textAlignVertical: "top",
           }}

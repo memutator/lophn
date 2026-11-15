@@ -545,6 +545,10 @@ files:
       - remote-pair:paired
       - remote-pair:wrong-code
       - remote-pair:too-many-tries
+      - remote-pair:re-paired
+      - devices-unpair:ok
+      - devices-unpair:forbidden
+      - devices-unpair:not_found
       - devices-revoke:ok
       - devices-rename:ok
-    note: "메모리 전송으로 실제 connectRemote client를 core 연결 logic에 붙인다. 기기 표와 timer만 가짜다. 기기 watch의 event 거르기, 붙지 않은 연결의 수·시간·frame 크기 한도, 찾기와 자격 사이 끊기, 넓힌 route 목록 밖(sessions/delete, secret, provider·설정 쓰기, devices·pairing·host)의 forbidden, 같은 이름 기기의 shell.devices 항목(devices.ts의 순수 함수)도 본다"
+    note: "메모리 전송으로 실제 connectRemote client를 core 연결 logic에 붙인다. 기기 표와 timer만 가짜다. 기기 watch의 event 거르기, 붙지 않은 연결의 수·시간·frame 크기 한도, 찾기와 자격 사이 끊기, 넓힌 route 목록 밖(sessions/delete, secret, provider·설정 쓰기, devices·pairing·host)의 forbidden, 같은 이름 기기의 shell.devices 항목(devices.ts의 순수 함수)도 본다. devices/unpair와 devices/register의 같은 key 바꾸기는 메모리 sqlite에 devices.ts command를 바로 부른다"

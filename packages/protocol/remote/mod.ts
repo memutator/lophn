@@ -57,6 +57,7 @@ export {
   devicesRename,
   devicesRevoke,
   devicesSetPrimary,
+  devicesUnpair,
   pairingStart,
   type RemoteDevice,
   remotePairedSchema,

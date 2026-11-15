@@ -15,7 +15,7 @@ import { Radio } from "../input/choice.tsx";
 import { Button } from "../primitives/button.tsx";
 import { Icon } from "../primitives/icon.tsx";
 import { Text } from "../primitives/text.tsx";
-import { Ink, useTheme } from "../theme.tsx";
+import { Ink, scaleText, useTheme } from "../theme.tsx";
 
 export interface AskCardProps {
   children: ReactNode;
@@ -263,8 +263,7 @@ export function QuestionCard({
                 flex: 1,
                 padding: 0,
                 fontFamily: theme.font.sans,
-                fontSize: 15,
-                lineHeight: 20,
+                ...scaleText(theme, { fontSize: 15, lineHeight: 20 }),
                 color: theme.color.text.primary,
               }}
             />

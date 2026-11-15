@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import type { z } from "zod";
 import { manualClock, ok, seededRandom } from "../../base/mod.ts";
@@ -73,10 +74,19 @@ import type {
   MemoryHandler,
   UploadHandler,
 } from "../server/mod.ts";
+import type { Tx } from "../../protocol/server/mod.ts";
+import { createSql } from "../storage/ledger/sqlite.ts";
 import { RouteRegistry } from "../server/mod.ts";
 import { createAdmission } from "../supervision/responsiveness/mod.ts";
 import { createDeviceCredentials, createRemoteCall } from "./call.ts";
-import { screensPaired, screensRenamed, screensRevoked } from "./devices.ts";
+import {
+  DEVICES_COMMANDS,
+  DEVICES_SCHEMA_STEPS,
+  type DevicesChange,
+  screensPaired,
+  screensRenamed,
+  screensRevoked,
+} from "./devices.ts";
 import {
   createRemoteHost,
   PAIRING_TRIES,
@@ -829,4 +839,97 @@ test("같은 이름의 기기는 shell.devices 항목을 따로 갖고, 끊거�
     }).success,
     false,
   );
+});
+
+test("등록된 key의 pair는 맞는 code일 때만 새 등록으로 붙고, 틀린 code는 옛 등록을 그대로 둔다", async () => {
+  const s = setup();
+  const key = generateKeyPair(s.random);
+  const old = s.register(key);
+  const code = s.codes.start().code;
+  const c = await s.connect(key);
+  c.phone.send({ type: "pair", id: "wrong", code: "wrong", ...screen });
+  await settle();
+  assert.equal(s.table.get(remoteKeyText(key.publicKey)), old);
+
+  c.phone.send({ type: "pair", id: "right", code, ...screen });
+  c.phone.send({
+    type: "call",
+    id: "c",
+    resource: "turn_requests",
+    method: "decide",
+    body: decideBody,
+  });
+  await settle();
+  const fresh = s.table.get(remoteKeyText(key.publicKey));
+  assert.notEqual(fresh, old);
+  assert.deepEqual(
+    results(c.frames).map((frame) =>
+      frame.ok ? [frame.id, frame.value] : [frame.id, frame.error.code],
+    ),
+    [
+      ["wrong", "unauthorized"],
+      ["right", { device: fresh }],
+      ["c", { outcome: { outcome: "allow", scope: "once" } }],
+    ],
+  );
+});
+
+test("devices/unpair는 부른 기기 자기 등록만 지우고, devices/register는 같은 key의 옛 등록을 새 등록으로 바꾼다", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    for (const step of DEVICES_SCHEMA_STEPS) db.exec(step.sql);
+    const sql = createSql(db, () => true);
+    const changes: DevicesChange[] = [];
+    let n = 0;
+    const tx = {
+      sql,
+      now: () => "2026-11-15T00:00:00.000Z",
+      newId: () => deviceId(++n),
+      port: () => ({
+        push: (_topic: string, change: DevicesChange) => changes.push(change),
+      }),
+    } as unknown as Tx;
+    const command = (method: string) =>
+      DEVICES_COMMANDS.find((each) => each.route.method === method)!;
+    const as = (principal: string) => ({ principal, actor: "user" }) as never;
+    const register = (publicKey: KeyPair) =>
+      command("register").handle(
+        tx,
+        { principal: "machine:remote", actor: "machine" } as never,
+        { ...screen, public_key: remoteKeyText(publicKey.publicKey) } as never,
+        {} as never,
+      );
+    const unpair = (principal: string) =>
+      command("unpair").handle(tx, as(principal), {} as never, {} as never);
+    const ids = () =>
+      sql.all("select id from devices order by id", []).map((row) => row.id);
+    const code = (result: { ok: boolean; error?: { code: string } }) =>
+      result.ok ? "ok" : result.error!.code;
+
+    const random = seededRandom(3);
+    const [phoneA, phoneB] = [generateKeyPair(random), generateKeyPair(random)];
+    const [a, b] = [deviceId(1), deviceId(2)];
+    assert.equal(code(register(phoneA)), "ok");
+    assert.equal(code(register(phoneB)), "ok");
+
+    // 사람(desktop)과 machine 자격은 기기가 아니다. 지울 등록이 없다.
+    assert.equal(code(unpair("user:local")), "forbidden");
+    assert.equal(code(unpair("machine:remote")), "forbidden");
+    assert.deepEqual(ids(), [a, b]);
+
+    assert.deepEqual(unpair(`device:${a}`), { ok: true, value: { id: a } });
+    assert.deepEqual(ids(), [b]);
+    assert.deepEqual(changes, [{ type: "revoked", id: a }]);
+    assert.equal(code(unpair(`device:${a}`)), "not_found");
+    assert.deepEqual(ids(), [b]);
+
+    changes.length = 0;
+    const again = register(phoneB);
+    assert.ok(again.ok);
+    assert.notEqual(again.value.id, b);
+    assert.deepEqual(ids(), [again.value.id]);
+    assert.deepEqual(changes, [{ type: "revoked", id: b }]);
+  } finally {
+    db.close();
+  }
 });

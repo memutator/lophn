@@ -4,14 +4,16 @@
 import { t } from "@lophn/i18n";
 import { Switch } from "@lophn/ui/input";
 import { Toast } from "@lophn/ui/overlay";
-import { Button } from "@lophn/ui/primitives";
+import { Button, CopyButton } from "@lophn/ui/primitives";
+import { systemClipboard } from "@lophn/ui/shared";
 import { useCallback, useEffect, useState } from "react";
 
-import { actionIcons } from "../../../icons/mod.ts";
+import { actionIcons, modalityIcons } from "../../../icons/mod.ts";
 import { useStateChanged } from "../../connection/core-read.ts";
 import styles from "../settings.module.css";
 import { RemoteDeviceRows } from "./device-rows.tsx";
 import { QrCode } from "./qr-code.tsx";
+import remoteStyles from "./remote.module.css";
 import type {
   RemoteDevice,
   RemotePairingCode,
@@ -54,6 +56,8 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
   const [paired, setPaired] = useState<string | null>(null);
   const [toggleFailed, setToggleFailed] = useState(false);
   const [relay, setRelay] = useState<RemoteRelayStatus | null>(null);
+  // 카메라를 못 쓰는 폰은 QR에 든 글을 붙여 넣는다. 한 번 펼치면 새 code에도 펼친 채다.
+  const [asText, setAsText] = useState(false);
 
   const loadDevices = useCallback(async () => {
     const read = await source.devices();
@@ -287,6 +291,29 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
                   <span className={styles.lineHelp}>
                     {t("settings.note.remote-scan")}
                   </span>
+                  {asText ? (
+                    <div className={remoteStyles.asText}>
+                      <code className={remoteStyles.text} data-remote-text="">
+                        {pairing.code.qr}
+                      </code>
+                      <CopyButton
+                        text={pairing.code.qr}
+                        label={t("common.button.copy")}
+                        clipboard={systemClipboard}
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <Button
+                        size="sm"
+                        icon={modalityIcons.text}
+                        data-remote-show-text=""
+                        onClick={() => setAsText(true)}
+                      >
+                        {t("settings.button.remote-show-text")}
+                      </Button>
+                    </div>
+                  )}
                 </>
               ) : (
                 <span className={styles.notice} data-remote-expired="">

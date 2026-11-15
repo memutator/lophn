@@ -95,10 +95,12 @@ import {
   workflowStart,
   workflowStop,
 } from "../workflows/routes.ts";
+import { devicesUnpair } from "./routes.ts";
 
 // 등록한 기기가 부를 수 있는 route의 전부다. 기기 자격의 scope가 이 이름들이고, 밖의 route는 `forbidden`이다.
 // 폰은 일하는 창이다: 보고, 말하고, 답하고, 켜고 끄고, 시작하는 route만 둔다.
-// 만들기·고치기·지우기(agent, job, 앱, project, workflow 정의), secret, provider·model 관리, 설정 쓰기, 기기와 pairing, `host/*`,
+// 만들기·고치기·지우기(agent, job, 앱, project, workflow 정의), secret, provider·model 관리, 설정 쓰기, 기기와 pairing(자기 등록을 지우는
+// `devices/unpair` 하나만 둔다), `host/*`,
 // `tabs/*`, `sessions/delete`(되돌릴 수 없다), `sessions/change-skip`(사람에게 묻지 않고 돌게 하는 권한 설정이다)은 넣지 않는다.
 // `jobs/update`는 켜고 끄기(`enabled`)만 받는다(core/remote/call.ts). `acp/send`는 안의 route를 기기 자격으로 부르므로 대화 조작 route도 여기 있어야 한다.
 // 모두 user가 부를 수 있는 route여야 한다(아니면 core가 기기 자격을 만들지 못한다).
@@ -192,6 +194,8 @@ export const REMOTE_ALLOWED_ROUTES = [
   appRuntime,
   releasesListRecords,
   releasesGetRecord,
+  // 폰이 이 컴퓨터를 지울 때 자기 등록을 지운다
+  devicesUnpair,
 ] as const;
 
 // 등록한 기기의 `watch`가 받을 수 있는 event type의 전부다. 기기가 건 조건과 상관없이 core가 이 밖은 보내지 않는다.

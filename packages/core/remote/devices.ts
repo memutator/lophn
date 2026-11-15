@@ -7,6 +7,7 @@ import {
   devicesRename,
   devicesRevoke,
   devicesSetPrimary,
+  devicesUnpair,
   type RemoteDevice,
   remoteDeviceSchema,
 } from "../../protocol/remote/mod.ts";
@@ -120,12 +121,11 @@ function push(tx: Pick<Tx, "port">, change: DevicesChange): void {
 const register: CommandDefinition<typeof devicesRegister> = {
   route: devicesRegister,
   handle(tx, _ctx, input) {
+    // host가 맞는 pairing code를 본 뒤에만 부른다. 같은 key의 옛 등록은 폰이 잊은 것이라 끊고 새 등록으로 바꾼다.
     const taken = tx.sql.get("select id from devices where public_key = ?", [
       input.public_key,
     ]);
-    if (taken !== undefined) {
-      return err({ code: "conflict", message: "device key already paired" });
-    }
+    if (taken !== undefined) remove(tx, taken.id as string);
     const id = tx.newId("dev");
     tx.sql.run("update devices set is_primary = 0 where is_primary = 1", []);
     tx.sql.run(
@@ -174,14 +174,38 @@ const rename: CommandDefinition<typeof devicesRename> = {
   },
 };
 
+function remove(tx: Pick<Tx, "sql" | "port">, id: string): void {
+  tx.sql.run("delete from devices where id = ?", [id]);
+  push(tx, { type: "revoked", id });
+}
+
 const revoke: CommandDefinition<typeof devicesRevoke> = {
   route: devicesRevoke,
   handle(tx, _ctx, input) {
     const found = load(tx.sql, input.id);
     if (!found.ok) return found;
-    tx.sql.run("delete from devices where id = ?", [input.id]);
-    push(tx, { type: "revoked", id: input.id });
+    remove(tx, input.id);
     return ok({ id: input.id });
+  },
+};
+
+// 기기 자격의 principal은 `device:<id>`다(call.ts devicePrincipal). 그 id 말고는 지울 길이 없다.
+const DEVICE_PRINCIPAL = "device:";
+
+const unpair: CommandDefinition<typeof devicesUnpair> = {
+  route: devicesUnpair,
+  handle(tx, ctx, _input) {
+    if (!ctx.principal.startsWith(DEVICE_PRINCIPAL)) {
+      return err({
+        code: "forbidden",
+        message: "only a paired device removes its own registration",
+      });
+    }
+    const id = ctx.principal.slice(DEVICE_PRINCIPAL.length);
+    const found = load(tx.sql, id);
+    if (!found.ok) return found;
+    remove(tx, id);
+    return ok({ id: found.value.id });
   },
 };
 
@@ -203,6 +227,7 @@ export const DEVICES_COMMANDS = [
   connected,
   rename,
   revoke,
+  unpair,
   setPrimary,
 ] as const;
 

@@ -165,6 +165,7 @@ export const workspaceSettings = {
   "settings.button.remote-pair": "Add phone",
   "settings.button.remote-rename": "Rename",
   "settings.button.remote-revoke": "Unpair",
+  "settings.button.remote-show-text": "Show as text",
   "settings.button.remove-entry": "Remove {item}",
   "settings.button.reset-default": "Reset to default",
   "settings.button.revoke": "Revoke",

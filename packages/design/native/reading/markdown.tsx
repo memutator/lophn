@@ -15,7 +15,7 @@ import type {
 } from "../../components/reading/markdown/model.ts";
 import { parseMarkdown } from "../../components/reading/markdown/parse.ts";
 import { presentStreamingTail } from "../../components/reading/markdown/stream.ts";
-import { type Theme, useTheme } from "../theme.tsx";
+import { scaleText, type Theme, useTheme } from "../theme.tsx";
 import { CodeBlock } from "./code-block.tsx";
 
 export interface MarkdownProps {
@@ -110,7 +110,10 @@ function inlines(look: Look, nodes: readonly Inline[]): ReactNode {
 
 function paragraph(look: Look, children: readonly Inline[], style?: TextStyle) {
   return (
-    <NativeText selectable style={[look.base, style]}>
+    <NativeText
+      selectable
+      style={[look.base, style && scaleText(look.theme, style)]}
+    >
       {inlines(look, children)}
     </NativeText>
   );
@@ -292,12 +295,12 @@ export function Markdown({
   const look: Look = {
     theme,
     chat: variant === "chat",
-    base: {
+    base: scaleText(theme, {
       fontFamily: theme.font.sans,
       fontSize: 16,
       lineHeight: variant === "chat" ? 25 : 26,
       color: theme.color.text.primary,
-    },
+    }),
     open: onOpenLink ?? ((href) => void Linking.openURL(href)),
   };
   return <View>{blocks(look, document.blocks)}</View>;

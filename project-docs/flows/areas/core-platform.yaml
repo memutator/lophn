@@ -1547,7 +1547,7 @@ flows:
     steps:
       - "기기로 붙지 않은 연결(handshake 중과 pairing 전)이 이미 8개면 새 socket을 받자마자 닫는다"
       - "연결마다 Noise IK responder handshake와 hello를 한다. 10초 안에 끝나지 않으면 닫는다. 기기로 붙기 전에는 frame이 4 KiB까지다"
-      - "받은 공개 key(base64url)를 devices/list로 찾는다. 없으면 pair 말고 어떤 frame이 와도 연결을 닫고, 60초 안에 pairing하지 못해도 닫는다(remote-pair). 있으면 frame 상한을 16 MiB로 올린다"
+      - "받은 공개 key(base64url)를 devices/list로 찾는다. 없으면 pair 말고 어떤 frame이 와도 연결을 닫고, 60초 안에 pairing하지 못해도 닫는다(remote-pair). 있으면 frame 상한을 16 MiB로 올리고 첫 frame을 기다린다. pair면 다시 pairing(remote-pair)이고 그 밖이면 그 기기로 붙인다"
       - "등록된 기기면 actor user, principal device:<id>, scope가 REMOTE_ALLOWED_ROUTES인 자격을 core 한 번에 하나 발급해 ledger에 기록한다. 발급 뒤 key를 다시 찾아 그 사이 끊긴 기기면 자격을 거두고 닫는다. devices/connected로 마지막 연결 시각을 적는다. event 연결 한도는 principal마다다"
       - "call은 자격을 다시 보고 scope로 거른 뒤 HTTP와 같은 dispatchHttp를 탄다. 입장 한도는 remote만의 것이고 principal마다 선다"
       - "frame은 JSON뿐이라 bytes는 base64로 싣는다. upload route는 body {input, base64}를 HTTP upload 요청으로 바꾸고(한도는 route의 max_bytes), file route의 답은 {content_type, base64}다. file은 8 MiB까지다"
@@ -1620,9 +1620,9 @@ flows:
     code: [packages/core/remote/host.ts, packages/core/remote/pairing.ts, packages/core/remote/devices.ts, packages/core/main/daemon/wiring/remote.ts]
     docs: [architecture/approval.md]
     steps:
-      - "등록되지 않은 key의 연결이 pair {code, name, os, width, height, dpr}를 보낸다"
+      - "등록되지 않은 key의 연결이, 또는 등록된 key의 연결이 첫 frame으로 pair {code, name, os, width, height, dpr}를 보낸다"
       - "code가 지금 code와 같고 300초 안이면 쓴다(한 번만). 틀리면 unauthorized result이고 연결마다 5번째 틀리면 연결을 닫는다"
-      - "core 안 machine 자격이 devices/register로 기기를 등록한다. 새 기기가 기준이 되고 다른 기기의 기준은 내린다"
+      - "core 안 machine 자격이 devices/register로 기기를 등록한다. 같은 key의 옛 등록이 있으면 지우고(commit 뒤 devices-revoke와 같이 그 기기의 자격과 연결, shell.devices 항목을 거둔다) 새 등록으로 바꾼다. 새 기기가 기준이 되고 다른 기기의 기준은 내린다"
       - "설정 shell.devices에 device(기기 id)를 단 항목을 더한다. 이름이 다른 항목과 겹치면 \" 2\", \" 3\"을 붙인다. device가 없는 항목(사람이 넣은 것)은 건드리지 않는다"
       - "그 연결을 바로 기기로 붙이고 같은 id의 result {device}로 답한다"
     outcomes:
@@ -1635,10 +1635,9 @@ flows:
       - id: too-many-tries
         when: "한 연결에서 5번 틀렸다"
         observe: ["response"]
-      - id: conflict
-        code: conflict
-        when: "같은 공개 key가 이미 등록돼 있다"
-        observe: ["response"]
+      - id: re-paired
+        when: "등록된 key가 맞는 code로 pair했다. 옛 등록은 새 id의 등록으로 바뀐다. code가 틀리면 wrong-code이고 옛 등록은 그대로다"
+        observe: ["ledger:devices", "disk:<root>/settings.json", "response"]
       - id: unavailable
         code: unavailable
         when: "ledger writer를 쓸 수 없다"
@@ -1755,6 +1754,34 @@ flows:
       - id: forbidden
         code: forbidden
         when: "user 아닌 actor거나 기기 자격이다(route 목록 밖)"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "writer를 쓸 수 없다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [permission]
+
+  - id: devices-unpair
+    title: "폰이 컴퓨터를 지울 때 자기 등록을 지운다"
+    actor: system
+    entries: [route:devices/unpair]
+    boundary: [core, storage]
+    code: [packages/core/remote/devices.ts, packages/core/main/daemon/wiring/remote.ts, packages/mobile/src/pairing/unpair.ts, packages/mobile/src/data/computers.ts]
+    steps:
+      - "폰에서 Remove를 누를 때 그 컴퓨터에 붙어 있으면 기기 자격으로 부른다. 닿지 않으면 폰만 잊고, 다음 pairing이 옛 등록을 바꾼다(remote-pair)"
+      - "자격의 principal device:<id>의 행만 지운다. input에 id가 없어 다른 기기는 지울 수 없다"
+      - "commit 뒤 devices-revoke와 같이 자격을 거두고 그 기기의 연결에 closed(credential_revoked)를 보내고 닫는다. 설정 shell.devices에서 그 기기의 항목을 뺀다"
+    outcomes:
+      - id: ok
+        observe: ["ledger:devices", "disk:<root>/settings.json", "response"]
+      - id: forbidden
+        code: forbidden
+        when: "기기 자격이 아니다(사람 token, machine)"
+        observe: ["response"]
+      - id: not_found
+        code: not_found
+        when: "그 기기의 행이 이미 없다"
         observe: ["response"]
       - id: unavailable
         code: unavailable

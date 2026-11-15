@@ -21,6 +21,8 @@ export interface Link<D> {
   subscribe(listener: () => void): () => void;
   pause(): void;
   resume(): void;
+  // Asks the computer to drop this phone's registration. Absent on the sample computer.
+  unpair?(): Promise<void>;
   close(): void;
 }
 
@@ -202,6 +204,14 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
     },
     remove(key) {
       if (key === sample?.key) return;
+      // A connected computer drops this phone from its list before the link closes. One that is not reached keeps the
+      // old registration until the phone pairs with it again, which replaces it.
+      const entry = links.get(key);
+      if (entry?.link.unpair && entry.link.state().status === "connected") {
+        links.delete(key);
+        entry.stop();
+        void entry.link.unpair().finally(() => entry.link.close());
+      }
       update(saved.filter((c) => c.key !== key));
     },
     rename(key, name) {

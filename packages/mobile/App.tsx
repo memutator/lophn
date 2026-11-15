@@ -18,6 +18,7 @@ export default function App() {
         {(appearance) => (
           <UiProvider
             scheme={appearance.theme === "system" ? undefined : appearance.theme}
+            textSize={appearance.textSize}
           >
             {gallery ? (
               <Gallery onExit={() => setGallery(false)} />

@@ -2,10 +2,17 @@ import type { ReactNode } from "react";
 import {
   Text as NativeText,
   type StyleProp,
+  StyleSheet,
   type TextStyle,
 } from "react-native";
 import type { StatusTone } from "../../tokens.ts";
-import { type Theme, type TypeName, useInk, useTheme } from "../theme.tsx";
+import {
+  scaleText,
+  type Theme,
+  type TypeName,
+  useInk,
+  useTheme,
+} from "../theme.tsx";
 
 export type TextTone =
   | "primary"
@@ -84,7 +91,10 @@ export function Text({
           textAlign: align,
         },
         grow && { flex: 1, minWidth: 0 },
-        style,
+        // A size a caller sets (a button's line, an avatar's letter) follows the text size like the steps do.
+        theme.textScale === 1
+          ? style
+          : scaleText(theme, StyleSheet.flatten(style) ?? {}),
       ]}
     >
       {children}

@@ -14,7 +14,7 @@ export const mobileApp = {
   "mobile.computer.note.relay":
     "The relay only passes sealed messages along. It cannot read them.",
   "mobile.computer.note.remove":
-    "This phone forgets the computer. To take this phone off the computer’s list, unpair it in Settings › Remote there.",
+    "Also takes this phone off the computer’s list. If the computer can’t be reached now, pairing with it again replaces the old entry.",
   "mobile.computer.path.direct": "Same network",
   "mobile.computer.path.relay": "Through the relay",
   "mobile.computer.status.connecting": "Connecting…",
@@ -56,7 +56,6 @@ export const mobileApp = {
     "Use your apps, talk to your agents and answer what they ask, wherever you are.",
   "mobile.start.label.scan-path": "Settings › Remote › Add a phone",
   "mobile.start.label.settings-remote": "Settings › Remote",
-  "mobile.start.label.show-as-text": "Show as text",
   "mobile.start.note.encrypted":
     "End-to-end encrypted. Only this phone and your computer can read what passes between them.",
   "mobile.start.note.enter-code":

@@ -4,6 +4,8 @@ const path = require("node:path");
 const { getDefaultConfig } = require("expo/metro-config");
 
 const packages = path.resolve(__dirname, "..");
+// The product has one version, the root package.json's. Settings › About shows it; the file itself is outside Metro's folders.
+process.env.EXPO_PUBLIC_LOPHN_VERSION = require("../../package.json").version;
 const config = getDefaultConfig(__dirname);
 config.watchFolders = [packages];
 // The vendor icons are the desktop's .svg files, read as text (src/parts/svg-text-transformer.js).

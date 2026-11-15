@@ -40,7 +40,7 @@ export function EnterCodeSheet({
         <Rich
           id="mobile.start.note.enter-code"
           name="button"
-          value={t("mobile.start.label.show-as-text")}
+          value={t("settings.button.remote-show-text")}
           variant="note"
           tone="muted"
         />

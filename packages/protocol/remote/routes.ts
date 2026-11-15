@@ -84,6 +84,18 @@ export const devicesRevoke = defineCommand({
   errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
 });
 
+// 폰이 이 컴퓨터를 지울 때 부른다. 부른 기기 자기 등록만 지운다(id를 받지 않는다). 기기 자격이 아니면 forbidden이다.
+export const devicesUnpair = defineCommand({
+  resource: "devices",
+  method: "unpair",
+  name: "devices.unpair",
+  changes: [{ name: "remote_devices", id: (_input, output) => output.id }],
+  input: z.strictObject({}),
+  output: z.object({ id: deviceIdSchema }),
+  actors: ["user"],
+  errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
+});
+
 // 기준 기기는 하나다. 다른 기기의 기준을 내린다.
 export const devicesSetPrimary = defineCommand({
   resource: "devices",
@@ -97,6 +109,7 @@ export const devicesSetPrimary = defineCommand({
 });
 
 // pairing이 맞은 기기를 등록한다. core 안 machine 자격만 낸다. 새 기기가 기준이 된다.
+// 같은 key의 옛 등록(폰이 이 컴퓨터를 지웠는데 컴퓨터는 몰랐다)은 지우고 새 등록으로 바꾼다.
 export const devicesRegister = defineCommand({
   resource: "devices",
   method: "register",
@@ -105,7 +118,7 @@ export const devicesRegister = defineCommand({
   input: remoteDeviceSchema.extend({ public_key: keyTextSchema }),
   output: z.object({ id: deviceIdSchema }),
   actors: ["machine"],
-  errors: ["invalid_input", "forbidden", "conflict", "unavailable"],
+  errors: ["invalid_input", "forbidden", "unavailable"],
 });
 
 // 기기가 붙은 때를 적는다. core 안 machine 자격만 낸다.

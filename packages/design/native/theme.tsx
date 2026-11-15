@@ -34,8 +34,42 @@ const TYPE = {
 } as const;
 
 export type TypeName = keyof typeof TYPE;
+type TypeStep = {
+  fontSize: number;
+  lineHeight: number;
+  letterSpacing?: number;
+};
 
-function build(scheme: Scheme) {
+// The text size a person picks for the whole app. Small and Large are desktop's two ratios (packages/design/presets.ts).
+const TEXT_SCALE = { small: 0.92, default: 1, large: 1.12 } as const;
+export type TextSize = keyof typeof TEXT_SCALE;
+
+function scaleStep<T extends Partial<TypeStep>>(step: T, scale: number): T {
+  if (scale === 1) return step;
+  return {
+    ...step,
+    ...(step.fontSize !== undefined && {
+      fontSize: Math.round(step.fontSize * scale),
+    }),
+    ...(step.lineHeight !== undefined && {
+      lineHeight: Math.round(step.lineHeight * scale),
+    }),
+    ...(step.letterSpacing !== undefined && {
+      letterSpacing: step.letterSpacing * scale,
+    }),
+  };
+}
+
+/** A part that sets its own font size or line height passes them through this, so they follow the text size. */
+export function scaleText<T extends Partial<TypeStep>>(
+  theme: Theme,
+  style: T,
+): T {
+  return scaleStep(style, theme.textScale);
+}
+
+function build(scheme: Scheme, textSize: TextSize) {
+  const textScale = TEXT_SCALE[textSize];
   const pick = (value: Themed) => value[scheme];
   const { color } = tokens;
   const status = (tone: StatusTone) => ({
@@ -98,7 +132,13 @@ function build(scheme: Scheme) {
       lift: "0 1px 2px rgba(15,15,14,0.12)",
       composer: "0 2px 8px rgba(15,15,14,0.04)",
     },
-    type: TYPE,
+    type: Object.fromEntries(
+      Object.entries(TYPE).map(([name, step]) => [
+        name,
+        scaleStep<TypeStep>(step, textScale),
+      ]),
+    ) as Record<TypeName, TypeStep>,
+    textScale,
     // The same two families as desktop. The host app embeds them under these names, weights 400, 500 and 600.
     font: { sans: "Pretendard", mono: "JetBrainsMono" },
     /** Smallest side of anything a finger presses. */
@@ -108,9 +148,20 @@ function build(scheme: Scheme) {
 
 export type Theme = ReturnType<typeof build>;
 
+const built = new Map<string, Theme>();
+function themeOf(scheme: Scheme, textSize: TextSize): Theme {
+  const key = `${scheme} ${textSize}`;
+  let theme = built.get(key);
+  if (theme === undefined) {
+    theme = build(scheme, textSize);
+    built.set(key, theme);
+  }
+  return theme;
+}
+
 export const themes: Record<Scheme, Theme> = {
-  light: build("light"),
-  dark: build("dark"),
+  light: themeOf("light", "default"),
+  dark: themeOf("dark", "default"),
 };
 
 const ThemeContext = createContext<Theme | undefined>(undefined);
@@ -118,12 +169,21 @@ const ThemeContext = createContext<Theme | undefined>(undefined);
 export interface ThemeProviderProps {
   /** Follows the phone's light or dark setting when omitted. */
   scheme?: Scheme;
+  /** Scales every text step and every size a part sets on its text. Default when omitted. */
+  textSize?: TextSize;
   children: ReactNode;
 }
 
-export function ThemeProvider({ scheme, children }: ThemeProviderProps) {
+export function ThemeProvider({
+  scheme,
+  textSize = "default",
+  children,
+}: ThemeProviderProps) {
   const system = useColorScheme();
-  const theme = themes[scheme ?? (system === "dark" ? "dark" : "light")];
+  const theme = themeOf(
+    scheme ?? (system === "dark" ? "dark" : "light"),
+    textSize,
+  );
   return <ThemeContext value={theme}>{children}</ThemeContext>;
 }
 

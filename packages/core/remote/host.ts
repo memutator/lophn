@@ -1,5 +1,5 @@
-// remote 연결 하나하나를 맡는다. handshake로 받은 공개 key가 등록된 기기면 그 기기 자격으로 `call`·`watch`를 받고,
-// 아니면 `pair`만 받는다. listener(WebSocket)는 이 file을 모르고 전송 하나씩 넘긴다. test는 메모리 전송을 넘긴다.
+// remote 연결 하나하나를 맡는다. handshake로 받은 공개 key가 등록된 기기면 그 기기 자격으로 `call`·`watch`를 받고
+// (첫 frame이 `pair`면 다시 pairing이다), 아니면 `pair`만 받는다. listener(WebSocket)는 이 file을 모르고 전송 하나씩 넘긴다. test는 메모리 전송을 넘긴다.
 import {
   err,
   type Logger,
@@ -191,7 +191,8 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
     }
 
     let tries = 0;
-    // 등록되지 않은 key: `pair` 말고는 연결을 닫는다. 맞으면 기기를 등록하고 그 자리에서 붙인다.
+    // 등록되지 않은 key와 다시 pairing하는 등록된 key: `pair` 말고는 연결을 닫는다. 맞으면 기기를 등록하고(같은 key의 옛 등록은
+    // devices.register가 바꾼다) 그 자리에서 붙인다. 틀리면 옛 등록은 그대로다.
     async function unpaired(
       frame: RemoteClientFrame,
     ): Promise<((frame: RemoteClientFrame) => void) | undefined> {
@@ -245,11 +246,12 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
     // frame은 onFrame을 걸 때까지 channel에 모여 있다. 기기를 찾은 뒤에 건다.
     const found = await deps.devices.find(publicKey);
     if (!found.ok) return channel.close();
+    const known = found.value?.id;
     // 등록된 key는 붙기 전에도 큰 frame을 보낼 수 있다. 붙는 사이 온 frame이 상한에 걸려 끊기지 않게 여기서 올린다.
-    if (found.value) channel.setMaxFrameBytes(REMOTE_FRAME_MAX_BYTES);
-    let receive = found.value ? await attach(found.value.id) : undefined;
-    if (found.value && !receive) return;
-    // pairing 중의 frame은 차례로 본다. `pair`의 답을 기다리지 않고 온 frame도 붙은 뒤의 규칙으로 본다.
+    if (known !== undefined) channel.setMaxFrameBytes(REMOTE_FRAME_MAX_BYTES);
+    let receive: ((frame: RemoteClientFrame) => void) | undefined;
+    // frame은 차례로 본다. `pair`의 답이나 붙기를 기다리지 않고 온 frame도 붙은 뒤의 규칙으로 본다.
+    // 등록된 key는 첫 frame이 `pair`가 아니면 그 기기로 붙는다. `pair`면 폰이 이 컴퓨터를 잊고 다시 pairing하는 것이다.
     let pending = Promise.resolve();
     channel.onFrame((frame) => {
       if (receive) return receive(frame);
@@ -257,6 +259,10 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
         .then(async () => {
           if (closed) return;
           if (receive) return receive(frame);
+          if (known !== undefined && frame.type !== "pair") {
+            receive = await attach(known);
+            return receive?.(frame);
+          }
           receive = await unpaired(frame);
         })
         .catch(() => channel.close());

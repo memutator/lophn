@@ -10,7 +10,7 @@ lead만 고친다. `tools/status.py mobile-app build`가 `tasks/*.md`에서 id, 
 | `mobile-files` | core-files | 2 | mobile-routes | merged | core-files/mobile-files | 88081b6ed |  |
 | `mobile-frame` | mobile-app | 2 | mobile-kit, mobile-data | merged | mobile-app/mobile-frame | 7873d1cbc |  |
 | `mobile-frame-fixes` | mobile-app | 3 | mobile-frame | running | mobile-app/mobile-frame-fixes |  |  |
-| `mobile-home` | mobile-app | 3 | mobile-frame | running | mobile-app/mobile-home |  |  |
+| `mobile-home` | mobile-app | 3 | mobile-frame | merged | mobile-app/mobile-home | facbfd489 |  |
 | `mobile-inbox` | mobile-app | 3 | mobile-frame | merged | mobile-app/mobile-inbox | 4d94c2ff6 |  |
 | `mobile-ops` | mobile-app | 3 | mobile-frame, mobile-routes | running | mobile-app/mobile-ops |  |  |
 | `mobile-places` | mobile-app | 3 | mobile-frame, mobile-routes, mobile-files | running | mobile-app/mobile-places |  |  |

@@ -69,3 +69,9 @@
 - guest 위에 화면 전체를 덮는 형제 view를 두지 않는다. library의 `SandboxWindowCallback`이 그것을 guest를 가리는 overlay로 보아 손가락 입력을 host로 돌려 guest가 받지 못한다. 개발 build(dev client)에서는 dev menu의 전체 화면 view 때문에 손가락 입력이 guest에 닿지 않으니, 손가락 입력 확인은 release build에서 한다.
 - 같은 view id(origin)로 guest를 다시 mount하면 옛 runtime과 옛 bundle이 그대로 쓰인다. 새 bundle을 띄울 때는 runtime을 버리고 새로 만든다(또는 mount마다 다른 origin).
 - guest가 읽을 bundle file이 없으면 앱 전체가 죽는다. mount 전에 file이 있는지 host가 확인하고 없으면 오류 상태를 보인다.
+
+## lead가 더함 (단계 7 spike `reports/mobile-program/local-apps-spike.md`가 본 것, 2026-11-15)
+
+- guest가 한 frame에 메시지 여럿을 보내면 host에 하나로 합쳐져 온다. 단계 6 spike의 "첫 메시지가 떨어진다"가 이것이다. 한 줄 patch로 고쳐진다(그 spike의 patch를 본다: `/home/pyosechang/projects/lophn-worktrees/spike-local-apps/mobile/guest/`). `ready`를 되풀이해 보내는 것으로 덮지 말고 patch를 넣는다.
+- 같은 origin으로 다시 mount하면 죽었다(단계 10 spike는 옛 runtime이 다시 쓰인다고 봤다). mount마다 runtime을 새로 만들거나 origin을 다르게 준다.
+- **손가락 입력.** 단계 7 spike는 guest의 단추가 debug와 release 모두에서 눌리지 않는다고 봤고(원인은 보지 않았다), 단계 10 spike는 release에서는 눌린다고 봤다(debug는 dev menu의 전체 화면 view가 가린다). 이 task가 release build에서 `adb -s emulator-<port> shell input tap`으로 guest의 단추가 눌리는지 확인하고, 안 눌리면 원인을 찾아 고친다. 손가락으로 못 쓰는 화면은 끝난 것이 아니다.

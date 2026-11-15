@@ -12,7 +12,7 @@ lead만 고친다. `tools/status.py mobile-app build`가 `tasks/*.md`에서 id, 
 | `mobile-frame-fixes` | mobile-app | 3 | mobile-frame | running | mobile-app/mobile-frame-fixes |  |  |
 | `mobile-home` | mobile-app | 3 | mobile-frame | running | mobile-app/mobile-home |  |  |
 | `mobile-inbox` | mobile-app | 3 | mobile-frame | running | mobile-app/mobile-inbox |  |  |
-| `mobile-ops` | mobile-app | 3 | mobile-frame, mobile-routes | todo |  |  |  |
-| `mobile-places` | mobile-app | 3 | mobile-frame, mobile-routes, mobile-files | todo |  |  |  |
+| `mobile-ops` | mobile-app | 3 | mobile-frame, mobile-routes | running | mobile-app/mobile-ops |  |  |
+| `mobile-places` | mobile-app | 3 | mobile-frame, mobile-routes, mobile-files | running | mobile-app/mobile-places |  |  |
 | `mobile-session` | mobile-app | 3 | mobile-frame, mobile-routes | running | mobile-app/mobile-session |  |  |
 | `mobile-web-removal` | remote-web | 3 | mobile-frame | running | remote-web/mobile-web-removal |  |  |

@@ -8,7 +8,7 @@ lead만 고친다. `tools/status.py mobile-widgets build`가 `tasks/*.md`에서 
 | `mobile-widget-wireframes` | widget-design | 1 | 없음 | merged | widget-design/mobile-widget-wireframes | 41d072928 |  |
 | `mobile-widget-spike` | widget-spike | 1 | 없음 | running | spike/widgets |  |  |
 | `mobile-widget-contract` | widgets | 1 | 없음 | merged | widgets/mobile-widget-contract | e8a53a8a2 |  |
-| `mobile-cap-phone` | phone-use | 2 | mobile-phone-link-contract | running | phone-use/mobile-cap-phone |  |  |
+| `mobile-cap-phone` | phone-use | 2 | mobile-phone-link-contract | merged | phone-use/mobile-cap-phone | be7c592cf |  |
 | `mobile-widgets-decl` | widgets | 2 | 없음 | todo |  |  |  |
 | `mobile-open-target` | open-target | 3 | 없음 | todo |  |  |  |
 | `mobile-widget-core` | widgets | 3 | mobile-widget-contract, mobile-widgets-decl | todo |  |  |  |

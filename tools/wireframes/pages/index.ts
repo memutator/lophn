@@ -9,6 +9,7 @@
 // Export panel, Documents 화면, 앱 상세 Issues, Report a problem dialog, Waiting · reaction approval,
 // Settings › Reactions, Agent · recap.
 import { draftsArea } from "../drafts/index.tsx";
+import { phoneArea } from "../drafts/phone/index.tsx";
 import { appUiArea } from "./kit/app-ui/index.tsx";
 import { dataArea } from "./kit/data/index.tsx";
 import { feedbackArea } from "./kit/feedback/index.tsx";
@@ -82,7 +83,7 @@ const ALL_GROUPS: readonly Group[] = [
     summary:
       "승인 전 실험. 아직 renderer에 같은 component가 없어 gallery 안에서만 그린다.",
     inline: false,
-    areas: [draftsArea],
+    areas: [phoneArea, draftsArea],
   },
 ];
 

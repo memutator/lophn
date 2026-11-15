@@ -8,6 +8,8 @@ export interface Page {
   /** 한두 문장. 한국어로 쓴다. */
   readonly description: string;
   readonly render: () => ReactNode;
+  /** frame 높이(px). 폰 화면 여러 장을 줄지어 그리는 board처럼 기본 800보다 긴 page만 준다. */
+  readonly height?: number;
 }
 
 /** 영역 하나는 파일 하나가 자기 page 목록과 그리는 함수를 같이 낸다. */

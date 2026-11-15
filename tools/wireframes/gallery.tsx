@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
-
-import { GROUPS, locate, type Located, pageById } from "./pages/index.ts";
-import type { Page } from "./pages/types.ts";
+import { useEffect, useRef, useState } from "react";
 import styles from "./gallery.module.css";
+import { GROUPS, type Located, locate, pageById } from "./pages/index.ts";
+import type { Page } from "./pages/types.ts";
 
 /** frame의 고정 데스크톱 크기. 좁은 창에서는 이 크기 그대로 줄여서 보인다. */
 const FRAME_WIDTH = 1280;
@@ -235,6 +234,7 @@ function Frame({ page, theme }: { page: Page; theme: Theme }) {
   }, []);
   // 칸이 1280보다 넓으면 더 넓은 데스크톱으로 그리고, 좁으면 1280 그대로 줄여서 보인다.
   const frameWidth = Math.max(FRAME_WIDTH, width);
+  const frameHeight = page.height ?? FRAME_HEIGHT;
   const scale = width / frameWidth;
   // 주소에 query만 써서 같은 경로(하위 경로에 올려도 맞다)의 index.html이 frame 모양으로 뜬다.
   const appearance = new URLSearchParams(location.search).get("appearance");
@@ -247,7 +247,7 @@ function Frame({ page, theme }: { page: Page; theme: Theme }) {
     <div
       ref={box}
       className={styles.frameBox}
-      style={{ height: FRAME_HEIGHT * scale }}
+      style={{ height: frameHeight * scale }}
     >
       <iframe
         key={source}
@@ -256,7 +256,7 @@ function Frame({ page, theme }: { page: Page; theme: Theme }) {
         src={source}
         style={{
           width: frameWidth,
-          height: FRAME_HEIGHT,
+          height: frameHeight,
           transform: `scale(${scale})`,
         }}
       />

@@ -8,3 +8,14 @@ lead만 고친다. `tools/status.py mobile-user-apps build`가 `tasks/*.md`에�
 | `mobile-place-decl` | app-place | 1 | 없음 | merged | app-place/mobile-place-decl | cf5bbecfa |  |
 | `mobile-views-core` | app-views | 1 | 없음 | running | app-views/mobile-views-core |  |  |
 | `mobile-shell-views` | app-views | 2 | mobile-views-core, mobile-place-decl | todo |  |  |  |
+| `mobile-phone-contract` | phone-screen | 2 | mobile-phone-target | todo |  |  |  |
+| `mobile-build-phone` | phone-screen | 3 | mobile-phone-contract, mobile-place-decl | todo |  |  |  |
+| `mobile-phone-changed-notice` | phone-screen | 4 | mobile-phone-target, mobile-place-decl | todo |  |  |  |
+| `mobile-phone-reads` | phone-screen | 4 | mobile-phone-contract, mobile-build-phone | todo |  |  |  |
+| `mobile-sdk-kit` | phone-sdk | 5 | mobile-build-phone, mobile-phone-contract | todo |  |  |  |
+| `mobile-sdk-phone-hooks` | phone-sdk | 5 | mobile-sdk-kit, mobile-phone-contract | todo |  |  |  |
+| `mobile-phone-guest` | phone-host | 6 | mobile-phone-contract, mobile-sdk-kit, mobile-sdk-phone-hooks, mobile-build-phone | todo |  |  |  |
+| `mobile-remote-gate` | phone-host | 6 | mobile-views-core, mobile-phone-reads, mobile-phone-contract | todo |  |  |  |
+| `mobile-preview-phone` | phone-screen | 6 | mobile-build-phone, mobile-shell-views, mobile-sdk-kit, mobile-sdk-phone-hooks, mobile-phone-target | todo |  |  |  |
+| `mobile-agent-guidance` | app-guidance | 7 | mobile-preview-phone, mobile-sdk-kit, mobile-sdk-phone-hooks, mobile-build-phone, mobile-place-decl, mobile-phone-target | todo |  |  |  |
+| `mobile-phone-apps` | phone-host | 7 | mobile-phone-guest, mobile-remote-gate, mobile-phone-reads | todo |  |  |  |

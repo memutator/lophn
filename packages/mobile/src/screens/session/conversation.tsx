@@ -1,0 +1,513 @@
+// A session: the conversation with an agent (tools/wireframes/drafts/phone/session.tsx). The desktop conversation's
+// values (thread, live text, pending, queued) come from `useConversation`; this screen lays them out for the phone: the
+// thread follows the newest text, what waits on the person docks above the composer, and the composer's words follow the
+// state (Reply…, Queue a message…, Reply instead…). A coding agent's session is read here and continued on the computer.
+import { t } from "@lophn/i18n";
+import {
+  Chip,
+  Composer,
+  Icon,
+  IconButton,
+  MessageList,
+  Screen,
+  Text,
+  TopBar,
+  Working,
+} from "@lophn/ui-native";
+import { Ellipsis, Monitor } from "lucide-react-native";
+import { useCallback, useMemo, useState } from "react";
+import { Pressable, View } from "react-native";
+import type { AcpCommand, AcpCommandOpens } from "../../../../protocol/acp/mod.ts";
+import { textBlocks } from "../../../../protocol/lophn-agent/content-block.ts";
+import { isCodingBuiltin } from "../../../../protocol/lophn-agent/workspaces.ts";
+import type { ToolCallView } from "../../../../shell/renderer/conversation/activity/model.ts";
+import type {
+  PermissionsView,
+  QueuedView,
+} from "../../../../shell/renderer/conversation/agent-tab-source.ts";
+import { capabilitiesOf, clockOf } from "../../../../shell/renderer/conversation/agent-view-model.ts";
+import {
+  afterReply,
+  type Outgoing,
+  startSend,
+  waitsInQueue,
+} from "../../../../shell/renderer/conversation/delivery-state.ts";
+import { useModelPicker } from "../../../../shell/renderer/conversation/use-model-picker.ts";
+import { newId } from "../../../../shell/renderer/prefixed-id.ts";
+import { type PlaceOf, useNav } from "../../app/nav.ts";
+import {
+  type ConversationTarget,
+  type SampleConversation,
+  type SessionRow,
+  useConversation,
+  useCurrentComputer,
+  useNames,
+  useSampleConversation,
+  useWorkspaces,
+  type WorkspaceView,
+} from "../../data/mod.ts";
+import { Face, LOPHN, type Profile } from "../../parts/mod.ts";
+import { Pending } from "./ask.tsx";
+import { duration, useTick } from "./parts.tsx";
+import {
+  AttachSheet,
+  CommandsSheet,
+  ContextSheet,
+  contextLine,
+  FilesSheet,
+  ModelSheet,
+  PermissionsSheet,
+  QueuedMenu,
+  RenameSheet,
+  SessionMenu,
+  StepsSheet,
+  ThoughtSheet,
+} from "./sheets.tsx";
+import { Row, rowsOf, type ThreadActions, ThreadContext, type ThreadRow } from "./thread.tsx";
+
+type SheetState =
+  | { readonly kind: "steps"; readonly calls: readonly ToolCallView[]; readonly output: string | null }
+  | { readonly kind: "thought"; readonly text: string }
+  | { readonly kind: "queued"; readonly queued: QueuedView }
+  | { readonly kind: "permissions"; readonly view: PermissionsView | null }
+  | {
+      readonly kind: "attach" | "files" | "commands" | "model" | "menu" | "rename" | "context";
+    };
+
+// Commands the phone can carry out from the list: run as they are, or opened in one of this screen's sheets.
+const OPENS: ReadonlySet<AcpCommandOpens | null> = new Set([
+  null,
+  "model",
+  "effort",
+  "permissions",
+  "context",
+  "status",
+  "usage",
+  "rename",
+  "archive",
+  "compact",
+]);
+
+// Long-pressing the face on the sample computer steps through the four states the sample conversation can show.
+const SAMPLE_STATES: readonly SampleConversation[] = ["done", "working", "approval", "question"];
+
+const actKey = (prefix: string) => newId(prefix);
+
+/** The session's row in the workspace list: who runs it (the sidebar's face), its title, and its desk. */
+function rowOf(
+  workspaces: readonly WorkspaceView[],
+  session: string,
+): { row: SessionRow; workspace: WorkspaceView; desk: string | null } | null {
+  for (const workspace of workspaces) {
+    for (const group of workspace.groups) {
+      const row = group.rows.find((one) => one.id === session);
+      if (row !== undefined) return { row, workspace, desk: group.label };
+    }
+    const row = workspace.recent.find((one) => one.id === session);
+    if (row !== undefined) return { row, workspace, desk: null };
+  }
+  return null;
+}
+
+/** The working line under the last turn: what the agent waits for, or how long it has worked. */
+function WorkingLine({
+  waiting,
+  clock,
+}: {
+  waiting: "approval" | "answer" | undefined;
+  clock: { activeMs: number; at: number } | null;
+}) {
+  const [start] = useState(Date.now);
+  useTick(waiting === undefined);
+  if (waiting !== undefined) {
+    return (
+      <Working tone="warning">
+        {t(waiting === "approval" ? "conversation.label.status-waiting-approval" : "conversation.label.status-waiting-answer")}
+      </Working>
+    );
+  }
+  const elapsed = Math.max(0, clock === null ? Date.now() - start : clock.activeMs + Date.now() - clock.at);
+  // Like the desktop's working row: a time only after 3 seconds, so short work does not flicker a number.
+  return (
+    <Working>
+      {elapsed >= 3000
+        ? t("mobile.session.label.working-for", { duration: duration(elapsed) })
+        : t("conversation.label.status-working")}
+    </Working>
+  );
+}
+
+/** Instead of the composer: a line saying where this session goes on. */
+function ReadOnlyLine({ children }: { children: string }) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+      }}
+    >
+      <Icon icon={Monitor} size={16} tone="muted" />
+      <Text variant="detail" tone="muted" align="center" style={{ flexShrink: 1 }}>
+        {children}
+      </Text>
+    </View>
+  );
+}
+
+export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
+  const target = useMemo<ConversationTarget>(
+    () => ({ session: place.session, agent: place.agent, workspace: place.workspace }),
+    [place.session, place.agent, place.workspace],
+  );
+  const conversation = useConversation(target);
+  const nav = useNav();
+  const { session } = target;
+  const { source, thread } = conversation;
+  const computer = useCurrentComputer()?.name ?? "";
+  const found = rowOf(useWorkspaces(), session);
+  const names = useNames();
+  const sample = useSampleConversation();
+  const [sampleAt, setSampleAt] = useState(2);
+
+  const face = conversation.agent ?? null;
+  const who: { name: string; profile: Profile } = found?.row.who ??
+    (face === null ? { name: "", profile: LOPHN } : { name: face.name, profile: face.profile });
+  const entry = conversation.sessions.find((one) => one.id === session);
+  const title =
+    thread?.session?.title ?? found?.row.title ?? entry?.title ?? t("left-sidebar.label.untitled");
+  const meta = thread?.session ?? null;
+  const caps = capabilitiesOf(meta);
+  const coding = isCodingBuiltin(target.agent);
+  const archived = entry?.archived === true;
+  const readOnly = coding || archived;
+
+  const turn = thread?.turn ?? null;
+  const active = turn !== null && turn.phase !== "ended" ? turn : null;
+  const approval = thread?.pending.approval ?? null;
+  const asked = thread?.pending.questions ?? null;
+  const waiting: "approval" | "answer" | undefined =
+    active?.phase === "waiting" ? (approval !== null ? "approval" : "answer") : undefined;
+
+  const [draft, setDraft] = useState("");
+  const [outgoing, setOutgoing] = useState<Outgoing | null>(null);
+  const [sheet, setSheet] = useState<SheetState | null>(null);
+  const close = useCallback(() => setSheet(null), []);
+
+  // ---- sending
+
+  const deliver = useCallback(
+    async (message: Outgoing) => {
+      setOutgoing(message);
+      const reply = await source.send({
+        session,
+        id: message.id,
+        key: message.key,
+        content: message.content,
+        delivery: message.delivery,
+      });
+      const next = afterReply(message, reply.ok ? { ok: true } : { ok: false, code: reply.code });
+      setOutgoing(next);
+      // Not taken: the words go back in the box to send again.
+      if (next.phase === "not_sent") setDraft(textOfOutgoing(next));
+    },
+    [source, session],
+  );
+
+  const commands = (meta?.commands ?? []).filter((command) => OPENS.has(command.opens));
+
+  const run = (command: AcpCommand, argument: string) =>
+    void source.act(session, { type: "run_command", session, key: actKey("cmd"), name: command.name, argument });
+
+  const send = () => {
+    const text = draft.trim();
+    if (text === "") return;
+    // `/name argument` runs a command the source lists, as the desktop composer does.
+    const slash = /^\/(\S+)\s*([\s\S]*)$/.exec(text);
+    const command = slash === null ? undefined : commands.find((one) => one.name === slash[1] && one.opens === null);
+    setDraft("");
+    if (command !== undefined) {
+      run(command, slash![2]!.trim());
+      return;
+    }
+    const id = newId("msg");
+    void deliver(
+      startSend({
+        id,
+        key: `session-messages-send-${id}`,
+        content: textBlocks(text),
+        delivery: "next_turn",
+        queued: active !== null,
+      }),
+    );
+  };
+
+  const pickCommand = (command: AcpCommand) => {
+    switch (command.opens) {
+      case null:
+        if (command.argument_hint === null) {
+          setSheet(null);
+          run(command, "");
+        } else {
+          setDraft(`/${command.name} `);
+          setSheet(null);
+        }
+        return;
+      case "model":
+      case "effort":
+        setSheet({ kind: "model" });
+        return;
+      case "permissions":
+        void openPermissions();
+        return;
+      case "rename":
+        setSheet({ kind: "rename" });
+        return;
+      case "archive":
+        setSheet(null);
+        void archive();
+        return;
+      case "compact":
+        setSheet(null);
+        void source.act(session, { type: "compact", session, key: actKey("compact") });
+        return;
+      default:
+        setSheet({ kind: "context" });
+    }
+  };
+
+  const openPermissions = async () => {
+    setSheet({ kind: "permissions", view: null });
+    const read = await source.permissions(session);
+    if (read.ok) setSheet((open) => (open?.kind === "permissions" ? { kind: "permissions", view: read.value } : open));
+  };
+
+  const archive = async () => {
+    const done = await source.archiveSession(session);
+    if (done.ok) nav.back();
+  };
+
+  const picker = useModelPicker({
+    meta,
+    effort: caps.effort,
+    session,
+    onChoose: async (model, options) =>
+      (await source.act(session, { type: "set_model", session, key: actKey("model"), model, options })).ok,
+    onProblem: () => {},
+    canUseRole: false,
+    onUseRole: async () => false,
+  }).props;
+
+  // ---- rows
+
+  const entries = thread?.entries ?? null;
+  const live = thread?.live ?? null;
+  const settled = useMemo(() => (entries === null ? [] : rowsOf(entries, null)), [entries]);
+  const rows = useMemo<readonly ThreadRow[]>(() => {
+    const all: ThreadRow[] =
+      live === null ? [...settled] : entries === null ? [] : rowsOf(entries, live);
+    const known = (id: string) =>
+      entries?.some((one) => one.id === id || (one.kind === "hidden" && one.entries.some((inner) => inner.id === id))) ??
+      false;
+    if (outgoing !== null && !waitsInQueue(outgoing) && !known(outgoing.id)) {
+      all.push({ kind: "outgoing", id: outgoing.id, outgoing });
+    }
+    for (const queued of thread?.queued ?? []) all.push({ kind: "queued", id: queued.id, queued });
+    return all;
+  }, [settled, entries, live, outgoing, thread?.queued]);
+
+  const sending = outgoing?.phase === "sending" || outgoing?.phase === "accepted";
+  const working = active !== null || (sending && rows.at(-1)?.kind === "outgoing");
+
+  // One value for the whole list: rows redraw only when what they show changes (the agent's face, read-only, Retry).
+  const canRetry = caps.retry;
+  const apps = names.apps;
+  const whoKey = `${who.name}\0${JSON.stringify(who.profile)}`;
+  const actions = useMemo<ThreadActions>(
+    () => ({
+      session,
+      source,
+      agent: who,
+      readOnly,
+      canRetry,
+      apps,
+      openSteps: (calls, output = null) => setSheet({ kind: "steps", calls, output }),
+      openThought: (text) => setSheet({ kind: "thought", text }),
+      openDiff: (entryId) => nav.open({ name: "diff", session: target, entry: entryId }),
+      openQueued: (queued) => setSheet({ kind: "queued", queued }),
+      resend: (message) => void deliver({ ...message, phase: "sending", checked: false }),
+    }),
+    // `who` is a new object on every read of the workspace list; its name and face are what rows show.
+    [session, source, whoKey, readOnly, canRetry, apps, nav, target, deliver],
+  );
+
+  // ---- top and bottom
+
+  const workspaceName =
+    face?.workspace?.name ?? found?.workspace.name ?? t("left-sidebar.label.home");
+  const where =
+    found?.desk == null
+      ? t("mobile.session.label.where", { agent: who.name, workspace: workspaceName })
+      : t("mobile.session.label.where-desk", { agent: who.name, workspace: workspaceName, desk: found.desk });
+  const modeLabel = meta?.modes.find((mode) => mode.id === meta.mode)?.label ?? null;
+  const project = target.workspace?.kind === "project" ? target.workspace.id : null;
+
+  const placeholder =
+    asked !== null
+      ? t("mobile.session.placeholder.reply-instead")
+      : active?.phase === "working"
+        ? t("mobile.session.placeholder.queue")
+        : t("mobile.session.placeholder.reply");
+
+  const lead = (
+    <Pressable
+      disabled={sample === null}
+      onLongPress={() => {
+        const next = (sampleAt + 1) % SAMPLE_STATES.length;
+        setSampleAt(next);
+        sample?.(SAMPLE_STATES[next]!);
+      }}
+    >
+      <Face profile={who.profile} size={26} />
+    </Pressable>
+  );
+
+  const footer = readOnly ? (
+    <ReadOnlyLine>
+      {coding ? t("mobile.session.notice.coding-on-computer", { computer }) : t("conversation.notice.session-archived")}
+    </ReadOnlyLine>
+  ) : (
+    <>
+      <Pending conversation={conversation} session={session} agent={who.name} computer={computer} />
+      <Composer
+        value={draft}
+        onChangeText={setDraft}
+        onSend={send}
+        placeholder={placeholder}
+        working={active?.phase === "working"}
+        onStop={() => void conversation.stop()}
+        onAttach={() => setSheet({ kind: "attach" })}
+        disabled={conversation.connection === "reconnecting" || outgoing?.phase === "sending"}
+        chips={
+          caps.model && meta !== null ? (
+            <Chip onPress={() => setSheet({ kind: "model" })}>{picker.currentLabel}</Chip>
+          ) : undefined
+        }
+      />
+    </>
+  );
+
+  return (
+    <ThreadContext value={actions}>
+      <Screen
+        top={
+          <TopBar
+            {...nav.menuButton}
+            lead={lead}
+            title={who.name}
+            sub={title}
+            right={
+              <IconButton
+                icon={Ellipsis}
+                label={t("conversation.label.more-actions")}
+                onPress={() => setSheet({ kind: "menu" })}
+              />
+            }
+          />
+        }
+        footer={footer}
+      >
+        {thread !== null && rows.length === 0 && !readOnly && (
+          <Text variant="small" tone="muted" align="center" style={{ position: "absolute", bottom: 16, left: 24, right: 24 }}>
+            {t("conversation.empty.no-messages")}
+          </Text>
+        )}
+        <MessageList
+          items={rows}
+          keyOf={(row) => row.id}
+          renderItem={(row) => <Row row={row} />}
+          tail={
+            working && !readOnly ? (
+              <WorkingLine waiting={waiting} clock={clockOf(active)} />
+            ) : undefined
+          }
+        />
+      </Screen>
+
+      <StepsSheet
+        agent={who.name}
+        calls={sheet?.kind === "steps" ? sheet.calls : null}
+        output={sheet?.kind === "steps" ? sheet.output : null}
+        readBody={source.toolCallBody}
+        onClose={close}
+      />
+      <ThoughtSheet text={sheet?.kind === "thought" ? sheet.text : null} onClose={close} />
+      <AttachSheet
+        open={sheet?.kind === "attach"}
+        onClose={close}
+        agent={who.name}
+        workspace={project === null ? null : { name: workspaceName }}
+        onFile={project === null ? null : () => setSheet({ kind: "files" })}
+        onCommands={caps.commands && commands.length > 0 ? () => setSheet({ kind: "commands" }) : null}
+      />
+      {project !== null && (
+        <FilesSheet
+          project={project}
+          name={workspaceName}
+          open={sheet?.kind === "files"}
+          onClose={close}
+          onPick={(path) => {
+            setDraft((text) => (text === "" || text.endsWith(" ") ? `${text}${path} ` : `${text} ${path} `));
+            setSheet(null);
+          }}
+        />
+      )}
+      <CommandsSheet commands={commands} open={sheet?.kind === "commands"} onClose={close} onPick={pickCommand} />
+      <ModelSheet picker={picker} open={sheet?.kind === "model"} onClose={close} />
+      <SessionMenu
+        open={sheet?.kind === "menu"}
+        onClose={close}
+        profile={who.profile}
+        title={title}
+        where={where}
+        mode={modeLabel}
+        context={contextLine(meta)}
+        canRename={caps.rename && !readOnly}
+        onRename={() => setSheet({ kind: "rename" })}
+        onPermissions={() => void openPermissions()}
+        onContext={() => setSheet({ kind: "context" })}
+        onArchive={caps.sessions && !archived ? () => void archive() : null}
+      />
+      <RenameSheet
+        open={sheet?.kind === "rename"}
+        title={title}
+        onClose={close}
+        onSave={(next) => {
+          setSheet(null);
+          void source.act(session, { type: "rename", session, key: actKey("rename"), title: next });
+        }}
+      />
+      <PermissionsSheet
+        open={sheet?.kind === "permissions"}
+        agent={who.name}
+        mode={modeLabel}
+        view={sheet?.kind === "permissions" ? sheet.view : null}
+        onClose={close}
+      />
+      <ContextSheet open={sheet?.kind === "context"} meta={meta} onClose={close} />
+      <QueuedMenu
+        queued={sheet?.kind === "queued" ? sheet.queued : null}
+        onClose={close}
+        onSendNow={caps.steer ? (queued) => void source.sendQueuedNow(queued.id) : null}
+        onRemove={(queued) => void source.removeQueued(queued.id)}
+      />
+    </ThreadContext>
+  );
+}
+
+function textOfOutgoing(outgoing: Outgoing): string {
+  return outgoing.content.flatMap((block) => (block.type === "text" ? [block.text] : [])).join("\n");
+}

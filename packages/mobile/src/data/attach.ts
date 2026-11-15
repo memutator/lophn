@@ -10,9 +10,6 @@ import type { AgentTabSource, SourceResult } from "../../../shell/renderer/conve
 
 type ImageType = keyof typeof MESSAGE_IMAGE_TYPES;
 
-/** The types `message-images/upload` takes, for a file picker's filter. */
-export const ATTACH_TYPES = Object.keys(MESSAGE_IMAGE_TYPES) as ImageType[];
-
 /** The upload's size limit in megabytes, for the words that tell it. */
 export const ATTACH_MAX_MB = MESSAGE_IMAGE_MAX_BYTES / (1024 * 1024);
 
@@ -24,7 +21,7 @@ export interface Attached {
   readonly bytes: Uint8Array;
 }
 
-/** What a picker or the recent photos hand over. `size` and `mimeType` are only there when the picker knows them. */
+/** What a picker hands over. `size` and `mimeType` are only there when the picker knows them. */
 export interface Candidate {
   readonly uri: string;
   readonly name: string;

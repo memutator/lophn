@@ -1,17 +1,14 @@
-// Adding pictures to a message: the rows of the "Add to the message" sheet (recent photos, Photos, Camera, Files) and the
+// Adding pictures to a message: the rows of the "Add to the message" sheet (Photos, Camera) and the
 // small line above the composer with what was chosen. Only pictures the core takes can be sent (data/attach.ts).
 import { t } from "@lophn/i18n";
 import { Icon, Row, Text, Thumb, useTheme } from "@lophn/ui-native";
-import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
-import * as MediaLibrary from "expo-media-library/legacy";
-import { Camera, Image as ImageIcon, Paperclip, X } from "lucide-react-native";
+import { Camera, Image as ImageIcon, X } from "lucide-react-native";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import { Image, Linking, Pressable, ScrollView, View } from "react-native";
+import { Linking, Pressable, View } from "react-native";
 import type { ContentBlock } from "../../../../protocol/lophn-agent/content-block.ts";
 import {
   ATTACH_MAX_MB,
-  ATTACH_TYPES,
   type AgentTabSource,
   type Attached,
   type Candidate,
@@ -21,8 +18,7 @@ import {
   withAttached,
 } from "../../data/mod.ts";
 
-const RECENT = 5;
-// Library photos and camera shots are re-encoded as JPEG; a modern phone's original often passes the upload limit.
+// Photos and camera shots are re-encoded as JPEG; a modern phone's original often passes the upload limit.
 const QUALITY = 0.8;
 
 // ---- pickers
@@ -49,39 +45,6 @@ const pickPhotos = async () =>
 
 const takePhoto = async () => candidatesOf(await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: QUALITY }));
 
-async function pickFiles(): Promise<Candidate[]> {
-  const result = await DocumentPicker.getDocumentAsync({ type: ATTACH_TYPES, multiple: true });
-  if (result.canceled) return [];
-  return result.assets.map((asset) => ({
-    uri: asset.uri,
-    name: asset.name,
-    size: asset.size,
-    mimeType: asset.mimeType,
-  }));
-}
-
-/** The latest photos when the person has allowed it. Nothing is asked again after a no. */
-function useRecent(open: boolean, locked: boolean): MediaLibrary.Asset[] {
-  const [recent, setRecent] = useState<MediaLibrary.Asset[]>([]);
-  useEffect(() => {
-    if (!open || locked) return;
-    let live = true;
-    void (async () => {
-      let permission = await MediaLibrary.getPermissionsAsync(false, ["photo"]);
-      if (!permission.granted && permission.canAskAgain) {
-        permission = await MediaLibrary.requestPermissionsAsync(false, ["photo"]);
-      }
-      if (!permission.granted) return;
-      const page = await MediaLibrary.getAssetsAsync({ first: RECENT, mediaType: "photo", sortBy: "creationTime" });
-      if (live) setRecent(page.assets);
-    })().catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, [open, locked]);
-  return recent;
-}
-
 // ---- the sheet's rows
 
 export function AttachPicks({
@@ -98,8 +61,6 @@ export function AttachPicks({
   onClose: () => void;
   onPicked: (picked: Candidate[]) => void;
 }) {
-  const theme = useTheme();
-  const recent = useRecent(open, locked);
   const [cameraOff, setCameraOff] = useState(false);
   useEffect(() => {
     if (!open) return;
@@ -132,32 +93,6 @@ export function AttachPicks({
   const offline = locked ? t("mobile.session.label.attach-offline", { computer }) : undefined;
   return (
     <>
-      {!locked && recent.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
-          <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 20, paddingTop: 2, paddingBottom: 10 }}>
-            {recent.map((asset) => (
-              <Pressable
-                key={asset.id}
-                accessibilityRole="button"
-                accessibilityLabel={t("mobile.session.label.attach-recent", { name: asset.filename })}
-                onPress={() => {
-                  onClose();
-                  onPicked([{ uri: asset.uri, name: asset.filename }]);
-                }}
-                style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 12,
-                  overflow: "hidden",
-                  backgroundColor: theme.color.surface.muted,
-                }}
-              >
-                <Image source={{ uri: asset.uri }} style={{ width: 56, height: 56 }} />
-              </Pressable>
-            ))}
-          </View>
-        </ScrollView>
-      )}
       <Row
         lead={<Icon icon={ImageIcon} />}
         title={t("mobile.session.label.attach-photos")}
@@ -173,14 +108,6 @@ export function AttachPicks({
         dim={locked}
         wrap
         {...(locked ? {} : { onPress: () => void camera() })}
-      />
-      <Row
-        lead={<Icon icon={Paperclip} />}
-        title={t("mobile.session.label.attach-files")}
-        sub={offline ?? t("mobile.session.label.attach-files-sub")}
-        dim={locked}
-        wrap
-        {...(locked ? {} : { onPress: () => choose(pickFiles) })}
       />
     </>
   );

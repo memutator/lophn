@@ -10,12 +10,9 @@ export const mobileSession = {
   "mobile.session.label.attach-camera": "Camera",
   "mobile.session.label.attach-camera-off":
     "Camera is off for lophn. Open Settings to allow it.",
-  "mobile.session.label.attach-files": "Files",
-  "mobile.session.label.attach-files-sub": "PNG, JPEG, GIF or WebP",
   "mobile.session.label.attach-offline":
     "{computer} is offline. Add pictures once it is back.",
   "mobile.session.label.attach-photos": "Photos",
-  "mobile.session.label.attach-recent": "Add {name}",
   "mobile.session.label.attach-uploading": "Uploading…",
   "mobile.session.label.commands": "Commands and skills",
   "mobile.session.label.commands-sub": "Or type / in the message",

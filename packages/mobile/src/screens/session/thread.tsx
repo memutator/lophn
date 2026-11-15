@@ -286,11 +286,13 @@ function ReceivedMessage({ message }: { message: ThreadMessage }) {
 
 function OutgoingMessage({ outgoing }: { outgoing: Outgoing }) {
   const { resend } = useActions();
-  const text = textOfParts(partsOfContent(outgoing.content));
+  const parts = partsOfContent(outgoing.content);
+  const text = textOfParts(parts);
   const failed = outgoing.phase === "not_sent" || outgoing.phase === "unconfirmed";
   return (
     <View style={{ gap: 6, opacity: outgoing.phase === "sending" ? 0.6 : 1 }}>
-      <UserBubble>{text}</UserBubble>
+      <Attached parts={parts} />
+      {text !== "" && <UserBubble>{text}</UserBubble>}
       {failed && (
         <View style={{ alignItems: "flex-end", gap: 6 }}>
           <Text variant="caption" tone="critical" align="right">

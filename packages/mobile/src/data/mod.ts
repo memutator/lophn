@@ -58,7 +58,6 @@ export {
 } from "./hooks.tsx";
 export {
   ATTACH_MAX_MB,
-  ATTACH_TYPES,
   type Attached,
   type Candidate,
   readCandidates,

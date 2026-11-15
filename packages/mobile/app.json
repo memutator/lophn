@@ -42,17 +42,6 @@
         }
       ],
       [
-        "expo-media-library",
-        {
-          "photosPermission": "lophn shows your latest photos so you can add one to a message.",
-          "savePhotosPermission": false,
-          "granularPermissions": [
-            "photo"
-          ]
-        }
-      ],
-      "expo-document-picker",
-      [
         "expo-font",
         {
           "android": {

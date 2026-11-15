@@ -234,7 +234,7 @@ export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
   const send = async () => {
     const text = draft.trim();
     const pictures = attachments.items;
-    if (text === "" || attachments.uploading) return;
+    if ((text === "" && pictures.length === 0) || attachments.uploading) return;
     // `/name argument` runs a command the source lists, as the desktop composer does.
     const slash = /^\/(\S+)\s*([\s\S]*)$/.exec(text);
     const command =
@@ -257,7 +257,7 @@ export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
       startSend({
         id,
         key: `session-messages-send-${id}`,
-        content: [...textBlocks(text), ...uploaded],
+        content: [...(text === "" ? [] : textBlocks(text)), ...uploaded],
         delivery: "next_turn",
         queued: active !== null,
       }),
@@ -406,6 +406,7 @@ export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
         onChangeText={setDraft}
         onSend={() => void send()}
         above={attachedAbove(attachments)}
+        canSend={attachments.items.length > 0}
         placeholder={placeholder}
         working={active?.phase === "working"}
         onStop={() => void conversation.stop()}

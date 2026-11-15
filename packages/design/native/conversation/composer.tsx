@@ -29,6 +29,8 @@ export interface ComposerProps {
   above?: ReactNode;
   /** Nothing can be sent now (the computer is offline). */
   disabled?: boolean;
+  /** There is something to send besides the text (pictures attached), so an empty text can still be sent. */
+  canSend?: boolean;
 }
 
 // The bottom of a conversation. Put it in a Screen's footer so it rides on the keyboard.
@@ -43,9 +45,10 @@ export function Composer({
   chips,
   above,
   disabled,
+  canSend,
 }: ComposerProps) {
   const theme = useTheme();
-  const empty = value.trim() === "";
+  const empty = value.trim() === "" && !canSend;
   const stop = working && empty && onStop !== undefined;
   const off = !stop && (disabled || empty);
   return (

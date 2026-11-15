@@ -1,5 +1,5 @@
 id: remote-relay
-version: 0.23.60
+version: 0.23.61
 title: 폰과 core가 다른 network에 있어도 lophn relay로 만나 remote 화면을 쓴다
 modules: [packages/protocol, packages/core/remote, packages/core/main, packages/core/config, packages/shell/renderer, packages/design, packages/relay, mobile, tools]
 checked: [boundary-catalog]

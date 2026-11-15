@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py phone-app build`가 `tasks/*.md`에서 id, �
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `phone-kit` | design-native | 1 | 없음 | running | design-native/phone-kit |  |  |
+| `phone-kit` | design-native | 1 | 없음 | merged | design-native/phone-kit | cd7edc692 |  |
 | `phone-data` | mobile-data | 1 | 없음 | merged | mobile-data/phone-data | df4394a23 |  |
 | `phone-routes` | remote-routes | 1 | 없음 | merged | remote-routes/phone-routes | 07854024a |  |
 | `mobile-files` | core-files | 2 | phone-routes | todo |  |  |  |

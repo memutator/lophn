@@ -6,7 +6,7 @@ lead만 고친다. `tools/status.py mobile-local-apps build`가 `tasks/*.md`에�
 |---|---|---|---|---|---|---|---|
 | `mobile-local-sdk` | sdk | 1 | 없음 | merged | sdk/mobile-local-sdk | 4e56c9a2e |  |
 | `mobile-sync-core` | sync | 1 | 없음 | running | sync/mobile-sync-core |  |  |
-| `mobile-local-build` | phone-backend | 2 | mobile-local-sdk | todo |  |  |  |
+| `mobile-local-build` | phone-backend | 2 | mobile-local-sdk | running | phone-backend/mobile-local-build |  |  |
 | `mobile-sync-runtime` | sync | 2 | mobile-sync-core, mobile-local-sdk | todo |  |  |  |
 | `mobile-sync-ledger` | sync | 3 | mobile-sync-runtime, mobile-sync-core | todo |  |  |  |
 | `mobile-local-db-native` | phone-host | 4 | 없음 | todo |  |  |  |

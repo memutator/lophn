@@ -1,6 +1,6 @@
 // 앱 view preload bridge `lophnApp`의 place 부분의 SDK 쪽 사본(protocol/shell/app-bridge-types.ts).
 
-export type Place = "tab" | "panel" | "card" | "sidebar" | "tray";
+export type Place = "tab" | "panel" | "card" | "sidebar" | "tray" | "phone";
 
 export type PlaceJson =
   | null

@@ -33,7 +33,14 @@ export function wordsOf(name: string): string[] {
   return name.split(".").map(kebab);
 }
 
-const PLACES: readonly unknown[] = ["tab", "panel", "card", "sidebar", "tray"];
+const PLACES: readonly unknown[] = [
+  "tab",
+  "panel",
+  "card",
+  "sidebar",
+  "tray",
+  "phone",
+];
 // tray popup 크기의 범위(px). 창이 더 작으면 shell이 창 안으로 줄인다.
 const TRAY_SIZE = {
   width: { min: 240, max: 720 },
@@ -140,6 +147,11 @@ export function validateLayers(
     }
     if (new Set(item.places).size !== item.places.length) {
       return invalid("screen places are duplicated");
+    }
+    if (item.places.includes("phone") && item.places.length > 1) {
+      return invalid(
+        `screen ${item.key}: phone is its own place; it cannot be combined with tab, panel, card, sidebar or tray`,
+      );
     }
     let params: InputSchema | undefined;
     if (Object.hasOwn(item, "params")) {

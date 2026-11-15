@@ -102,7 +102,14 @@ export interface ViewListing {
 
 const APP_ID = /^app_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
 const RELEASE_ID = /^rel_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
-const PLACES: readonly string[] = ["tab", "panel", "card", "sidebar", "tray"];
+const PLACES: readonly string[] = [
+  "tab",
+  "panel",
+  "card",
+  "sidebar",
+  "tray",
+  "phone",
+];
 const MODES: readonly string[] = ["live", "preview"];
 const SAFE_TEXT = (value: unknown): value is string =>
   typeof value === "string" &&

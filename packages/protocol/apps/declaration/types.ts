@@ -20,7 +20,8 @@ export type ValidationResult<T> =
 
 // 화면이 열리는 자리. tab은 앱 workspace와 앱 창, panel은 project dock·float와 전역 float,
 // card는 대화, sidebar는 오른쪽 sidebar, tray는 작업 표시줄 tray popup이다.
-export type Place = "tab" | "panel" | "card" | "sidebar" | "tray";
+// phone은 폰 앱이 그리는 React Native 화면이고 다른 자리와 같이 쓰지 못한다.
+export type Place = "tab" | "panel" | "card" | "sidebar" | "tray" | "phone";
 
 export type ToolEffect = "read" | "write" | "external";
 

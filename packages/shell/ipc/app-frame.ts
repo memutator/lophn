@@ -13,7 +13,7 @@ const screenKey = z
   .min(1)
   .refine((value) => value.trim().length > 0 && noControl(value));
 const mode = z.enum(["live", "preview"]);
-const place = z.enum(["tab", "panel", "card", "sidebar", "tray"]);
+const place = z.enum(["tab", "panel", "card", "sidebar", "tray", "phone"]);
 
 export const VIEW_OPEN_APP_CHANNEL = "shell:view-open-app";
 export const VIEW_BOUNDS_CHANNEL = "shell:view-bounds";

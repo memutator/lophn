@@ -43,7 +43,9 @@ const appDeclarationScreenSchema = z.object({
   key: z.string().min(1),
   label: z.string().min(1),
   path: z.string().min(1),
-  places: z.array(z.enum(["tab", "panel", "card", "sidebar", "tray"])).min(1),
+  places: z
+    .array(z.enum(["tab", "panel", "card", "sidebar", "tray", "phone"]))
+    .min(1),
   // 정규 InputSchema. 없으면 인자가 없는 화면이다.
   params: jsonValueSchema.optional(),
   // tray popup의 크기(px). 없는 쪽은 lophn 기본값이다.

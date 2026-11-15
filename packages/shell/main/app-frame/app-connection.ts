@@ -43,7 +43,7 @@ export function failure(
 }
 
 export type ViewMode = "live" | "preview";
-export type Place = "tab" | "panel" | "card" | "sidebar" | "tray";
+export type Place = "tab" | "panel" | "card" | "sidebar" | "tray" | "phone";
 
 /** 화면이 열린 workspace. 앱 화면은 URL query로 받는다. */
 export interface PlaceWorkspace {

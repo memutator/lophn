@@ -102,7 +102,7 @@ async function result(
   } as Result<never>;
 }
 
-const PLACES = ["tab", "panel", "card", "sidebar", "tray"] as const;
+const PLACES = ["tab", "panel", "card", "sidebar", "tray", "phone"] as const;
 
 function parsed(search: URLSearchParams, name: string): unknown {
   const text = search.get(name);

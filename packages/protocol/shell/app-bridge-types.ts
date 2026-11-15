@@ -168,7 +168,7 @@ export type AppPlaceWorkspace = {
  * lophn이 준 값이 틀리면 place는 null이고 params는 `{}`, workspace는 null이다.
  */
 export type AppPlace = {
-  place: "tab" | "panel" | "card" | "sidebar" | "tray" | null;
+  place: "tab" | "panel" | "card" | "sidebar" | "tray" | "phone" | null;
   params: { [key: string]: Json };
   workspace: AppPlaceWorkspace | null;
 };

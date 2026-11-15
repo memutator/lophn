@@ -11,7 +11,7 @@
 ## 목표와 비목표
 
 - 목표: desktop renderer의 대화(`AgentView`), Inbox(`waiting/`), event 층, 공통 읽기(`useCoreRead`)를 폰 host로 그대로 쓴다. 화면 bundle은 core가 내려주고 hash로 바뀐 것만 받게 한다. 폰 없이 desktop browser에서 실제 core에 붙어 화면을 확인한다.
-- 비목표: iOS 껍데기(Mac이나 cloud 빌드가 준비된 뒤), push, harness GUI 중계, 사용자 앱 화면, relay. 폰에서 secret 넣기(보호 입력 창은 desktop의 것이다). 폰에서 skip 켜기와 session 지우기.
+- 비목표: iOS 껍데기(Mac이나 cloud 빌드가 준비된 뒤), push, harness GUI 중계, 사용자 앱 화면. 폰에서 secret 넣기(보호 입력 창은 desktop의 것이다). 폰에서 skip 켜기와 session 지우기.
 
 ## 모델
 
@@ -34,7 +34,7 @@ remote bundle (renderer entry `remote`, dist/remote)
 - **화면 bundle 내려주기.** renderer build의 entry `remote`가 `dist/remote/`(`index.html`, `remote.js|css`, `chunks/`, 글꼴)를 낸다. 설치본은 `platform/remote-ui/`에 두고 core가 자기 source 기준으로 찾는다(없으면 개발 자리 renderer `dist/remote`). core는 기동 때 한 번 file마다 sha256과 크기, 전체 hash(path와 file hash를 path 순으로 이은 것의 sha256)를 계산해 둔다. 폰 껍데기는 `remote_ui/manifest`로 hash를 보고 바뀐 file만 `remote_ui/file`로 받는다.
 - **폰 껍데기.** `mobile/`은 root npm workspace 밖의 Expo project(SDK 58, dev build)다. Metro가 `@lophn/protocol/remote/client`를 source로 읽고, 그 안의 bare import(zod, `@noble/*`)는 `mobile/node_modules`에서 푼다. native 화면은 pairing(QR 찍기, 붙여 넣기, 확인 뒤 pairing), 컴퓨터 목록, 컴퓨터 바꾸는 얇은 bar와 bundle이 없을 때의 안내뿐이고 나머지는 WebView의 remote 화면이다.
   - **key.** 기기 key 쌍은 한 번 만들어 `expo-secure-store`(이 기기에서만, 잠금이 풀렸을 때만)에 둔다. 컴퓨터 목록(주소 후보, port, core key, 기기 id, 끊김 표시)도 같은 곳이다. 무작위는 `expo-crypto`의 `getRandomValues`다(Hermes에는 전역 crypto가 없다). page는 key를 보지 못한다.
-  - **연결.** 주소 후보를 같이 걸어 먼저 handshake가 된 것을 쓴다. 붙을 때마다 마지막 `watch`(없으면 `[]`)를 보내고 core의 `ready`로 `ready`가 된다. 끊기면 1초에서 30초 backoff로 다시 붙는다. 앱이 뒤로 가면 다시 붙기를 멈추고, 앞으로 오면 열린 연결에 `watch`를 다시 보내 3초 안에 `ready`가 없으면 버리고 바로 다시 붙는다. `closed(credential_revoked)`를 받으면 그 컴퓨터를 "다시 pairing"으로 표시하고 멈춘다.
+  - **연결.** QR의 direct 주소 후보와 relay(QR에 있으면)를 같이 걸어 먼저 handshake가 된 것을 쓴다. relay 길은 바이트만 넘기므로 handshake와 그 뒤는 direct와 같다. relay를 더하기 전에 pairing한 폰은 한 번 다시 pairing해야 relay 주소를 안다. 붙을 때마다 마지막 `watch`(없으면 `[]`)를 보내고 core의 `ready`로 `ready`가 된다. 끊기면 1초에서 30초 backoff로 다시 붙는다. 앱이 뒤로 가면 다시 붙기를 멈추고, 앞으로 오면 열린 연결에 `watch`를 다시 보내 3초 안에 `ready`가 없으면 버리고 바로 다시 붙는다. `closed(credential_revoked)`를 받으면 그 컴퓨터를 "다시 pairing"으로 표시하고 멈춘다.
   - **bundle cache.** `ready`가 아닌 상태에서 `ready`가 될 때마다 `remote_ui/manifest`를 읽는다. 그 hash의 폴더가 없으면 file마다 `remote_ui/file`로 받아 임시 폴더에 쓰고 sha256을 manifest와 대조한다. 하나라도 틀리면 그 bundle을 버린다. 다 맞으면 hash 이름의 폴더로 옮기고 `current`를 바꾼다. 지금 것과 바로 앞 것만 남긴다. core에 닿지 않으면 마지막 bundle을 띄우고 page가 연결 상태를 보인다.
   - **WebView.** 자체 Expo module이다. origin은 `https://remote.lophn.invalid/`이고 `shouldInterceptRequest`가 그 origin의 GET만 `root` 폴더의 file로 답한다(폴더 밖 path, symlink, 표에 없는 확장자는 404, origin 밖과 다른 method는 403). 응답 CSP는 `connect-src 'none'`, `worker-src 'none'`, `frame-src 'none'`이다. 다른 origin으로 가는 이동, 새 창, download, 권한 요청을 거절하고, 사람이 누른 http(s) link만 OS browser로 연다. render process가 죽으면 다시 띄운다. `<input type=file>`은 Android의 file 고르기로 잇는다.
   - **bridge.** document 시작 때 넣는 script가 `globalThis.lophnRemote`(`CoreSource`)를 만들고 `addWebMessageListener`(origin 규칙은 그 origin 하나)로 JSON message만 오간다. page → 껍데기는 `call`, `watch`, `state` 셋뿐이고 다른 것은 버린다. 껍데기 → page는 `reply`, `event`, `state`다. page는 시작 때 `state`를 보내고 껍데기는 그때 지금 상태로 답한다. native 기능을 page에 내놓지 않는다.
@@ -50,6 +50,7 @@ remote bundle (renderer entry `remote`, dist/remote)
 6. 폰 껍데기는 hash가 manifest와 맞지 않는 file을 cache에 들이지 않고 화면에 쓰지 않는다. bundle은 모든 file이 맞았을 때만 `current`가 된다.
 7. 폰 WebView의 page는 자기 origin의 cache file 말고 아무것에도 닿지 않는다(응답 CSP `connect-src 'none'`과 요청 가로채기 둘 다). bridge는 `call`, `watch`, `state` 말고는 받지 않는다.
 8. 기기 key는 폰의 보안 저장소에만 있고 page에 가지 않는다.
+9. relay는 증명하지 못한 control socket에 폰 연결을 잇지 않고, 폰 연결 둘의 message는 서로의 data socket으로 가지 않는다. relay는 내용을 보지 못한다(Noise는 폰과 core 사이에서 끝난다).
 
 ## 경계와 계약
 

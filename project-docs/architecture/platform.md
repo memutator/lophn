@@ -11,7 +11,7 @@ lophn이 Linux x64, macOS arm64, Windows x64에서 무엇을 다르게 하는가
 ## 목표와 비목표
 
 - 목표: OS마다 다른 규칙을 순수 규칙 한 곳에 모으고, 그 밖 module은 OS 전역을 읽지 않는다. 세 OS에서 core를 띄우고 child tree를 끄고 data root를 열 수 있다. Windows에서 꺼진 기능은 꺼진 것이 드러난다. core는 shell과 수명이 따로이고 shell·CLI 어느 쪽에서나 띄우고 붙고 끌 수 있다.
-- 비목표: 서명한 설치 묶음, 자동 업데이트 channel. 앱 실행 sandbox의 OS별 대체(sandbox는 `architecture/layers.md`와 앱 문서가 맡는다). OS service(systemd, launchd agent, Windows service·scheduled task) 등록. Windows keychain·DPAPI 같은 OS 비밀 저장소. core가 crash했을 때 core 쪽에서 다시 띄우는 감독. 다른 컴퓨터나 다른 OS 사용자가 core에 붙는 길. 한 사람이 pairing한 자기 폰이 붙는 길은 있다(아래 "폰이 붙는 listener").
+- 비목표: 서명한 설치 묶음, 자동 업데이트 channel. 앱 실행 sandbox의 OS별 대체(sandbox는 `architecture/layers.md`와 앱 문서가 맡는다). OS service(systemd, launchd agent, Windows service·scheduled task) 등록. Windows keychain·DPAPI 같은 OS 비밀 저장소. core가 crash했을 때 core 쪽에서 다시 띄우는 감독. 다른 컴퓨터나 다른 OS 사용자가 core에 붙는 길. 한 사람이 pairing한 자기 폰이 붙는 길은 있다(아래 "폰이 붙는 listener"와 "relay").
 
 ## 모델
 
@@ -63,6 +63,13 @@ OS마다 다른 순수 규칙은 base의 OS 층 한 곳에 있다. base는 node 
 - 설정 `remote.enabled`(기본 꺼짐, 사람만 바꾼다)가 켜져 있는 동안만 core가 따로 WebSocket listener를 연다. port는 설정 `remote.port`(기본 7432), 모든 interface, path `/remote`, binary message만 받는다. 설정이 바뀌면 열고 닫는다. 꺼져 있으면 loopback 밖 listener가 없다. API listener(loopback, `Host`·`Origin` 검사)는 그대로다.
 - TLS 대신 연결 안에서 암호화한다(`Noise_IK_25519_ChaChaPoly_SHA256`, prologue `lophn-remote/1`). core의 key 쌍은 `<data root>/remote/host-key.json`(0600)에 listener를 처음 열 때 만든다. 폰은 QR로 core의 공개 key를 받아 그 key만 믿고, core는 handshake에서 폰의 공개 key를 받는다. 이 key가 기기 신원이고 bearer token은 없다. handshake와 hello가 10초 안에 끝나지 않은 연결은 닫는다. 기기로 붙지 않은 연결(handshake 중과 pairing 전)은 동시에 8개까지이고 넘는 socket은 받자마자 닫는다. 등록되지 않은 key는 60초 안에 pairing해야 하고, key가 기기 표에 있기 전까지 frame은 4 KiB까지다. 같은 network의 누구든 연결을 붙잡아 core의 메모리와 자리를 쓰지 못하게 하려는 것이다.
 - 받은 key가 ledger의 기기 표에 있으면 그 기기로 붙고, 없으면 `pair` frame만 받는다. pairing code는 `pairing/start`가 만들고 메모리에만 둔다(128-bit, 300초, 한 번, 새 code가 옛 code를 무효로 한다). 틀린 code는 연결마다 5번이다. 자격과 route 목록은 `architecture/approval.md`, frame은 계약 `remote-protocol`이다.
+
+### relay
+
+- 폰과 core가 다른 network에 있으면 lophn relay로 만난다. 설정 `remote.relay`(relay 주소, 기본 빈 값, 사람만 바꾼다)가 있고 `remote.enabled`가 켜져 있으면 core가 relay에 control socket 하나를 밖으로 건다. listener와 따로 돌아 listener port를 못 열어도 relay는 돈다. 끊기면 1초에서 30초 backoff로 다시 걸고, 20초마다 ping하고 60초 받은 것이 없으면 끊는다.
+- core는 relay에 자기 static key를 증명한다: relay가 임시 X25519 key와 nonce를 보내면 core가 두 key의 DH로 만든 HMAC을 돌려준다. relay는 증명된 control socket에만 그 key의 자리를 주고, 같은 key가 다시 증명하면 옛 자리와 그 폰 연결을 닫는다.
+- 폰이 relay에 그 core key로 붙으면 relay가 무작위 128-bit 연결 id를 control로 알리고, core가 그 id로 data socket을 열어 listener의 연결과 같이 remote host에 넘긴다. 그 뒤는 listener로 붙은 폰과 같다(Noise handshake, 기기 자격, route 목록). relay는 binary message를 그대로 넘기고 내용을 보지 못한다.
+- relay는 저장소의 relay package이고 Fly.io에서 돈다. 한도: core마다 폰 연결 16, data socket이 붙기 전 든 message 16, 증명과 data socket을 기다리는 10초, 받는 쪽이 1 MiB 넘게 밀리면 그 짝을 닫는다. `pairing/start`의 QR에 relay 주소가 실리고, 상태는 `remote_relay/status`(사람만)로 본다.
 
 ### core가 죽었을 때
 
@@ -197,6 +204,7 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 - `Stop lophn`에서 control stop이 답하지 않으면 shell은 그래도 끝나되 먼저 native message box로 core가 남아 있을 수 있다고 알린다. 이유: 끝난 뒤에는 알릴 화면이 없어 사람이 앱과 job이 계속 돈다는 것을 모른다. 버린 안: 끝내지 않고 재시도(답이 없는 core를 두고 shell만 붙들게 된다). (agent)
 - core를 shell과 떼어 "끄고 바로 켜면 lophn이 안 뜬다"는 경쟁(shell이 먼저 끝나고 옛 core가 lock을 쥔 채 조금 더 살아 새 core가 `start_failed`로 멈춤)이 사라졌다. 새 shell은 identify에 답하는 core에 붙거나, 끝나는 중이면 기다린다. (해결된 이슈)
 
+- 폰과 core가 다른 network에 있으면 lophn이 띄운 relay로 만난다. relay는 상태 없는 전달자이고 core가 밖으로 건다(Paseo의 꼴). core는 relay에 key를 증명한다. 이유: 다른 network에서 붙지 못하면 remote의 의미가 없고, 폰에서 혼자 도는 sync 앱도 같은 연결 위에 선다. 증명이 없으면 인터넷의 누구든 그 core의 자리를 잡아 폰을 끊는다. 버린 안: direct만(LAN과 Tailscale), core마다 tunnel 서비스. (사람, 2026-11-15)
 - 폰은 API listener가 아니라 따로 연 listener로 붙고 TLS 대신 Noise로 암호화한다. 이유: loopback 검사를 그대로 두면 지금 화면과 CLI의 경계가 바뀌지 않는다. self-signed TLS는 폰에서 계속 걸리고, 연결 안 암호화는 뒤에 relay를 더해도 protocol이 같다. `remote.enabled`가 켜져 있으면 idle-exit하지 않는다. 폰은 꺼진 core를 띄우지 못하기 때문이다. 조건을 "등록된 기기가 있음"으로 두지 않는다(한 번 pairing하면 idle-exit가 사실상 없어진다). (agent, 사람이 추천을 받음 2026-11-14)
 
 ## 열린 것

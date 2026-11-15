@@ -6,7 +6,9 @@
 // 않는다. tests/support/fake-server를 고정 port(기본 7499, LOPHN_DEV_FAKE_PORT)로 띄우고,
 // 앱을 띄우기 전에 core를 한 번 띄워 그 주소를 providers/connect로 연결해 둔 뒤 닫는다. 연결은
 // ledger에 남으므로 뒤에 뜨는 core가 시작할 때부터 쓴다. CLI와 shell은 control identify·connect로 붙는다.
-// 사람이 LOPHN_LIVE_PROVIDER=1을 두면 fake를 띄우지도 연결하지도 않는다.
+// 사람이 LOPHN_LIVE_PROVIDER=1을 두면 fake provider를 띄우지도 연결하지도 않는다.
+// fake push server(tests/support/fake-push, 고정 port 기본 7498, LOPHN_DEV_PUSH_PORT)는 그래도 띄우고,
+// core를 띄우기 전에 settings.json의 remote.push를 그 주소로 적어 개발 core가 실제 Expo를 부르지 않게 한다.
 // Ctrl+C와 SIGTERM에 띄운 프로세스를 정리한다.
 //
 // shell main은 renderer bundle(packages/shell/renderer/build.ts)을 읽는다. `dev`와 `dev:mock`은
@@ -46,6 +48,10 @@ import { providerList } from "../packages/protocol/lophn-agent/mod.ts";
 import { connectFakeProvider } from "../tests/support/core/human.ts";
 import { bootCore } from "../tests/support/core/mod.ts";
 import { processesOf } from "../tests/support/core/process.ts";
+import {
+  type FakePush,
+  startFakePush,
+} from "../tests/support/fake-push/mod.ts";
 import { createFakeHandler } from "../tests/support/fake-server/mod.ts";
 
 type SpawnPlan = {
@@ -62,10 +68,12 @@ type Purpose = "core" | "shell" | "build";
 const LOPHN_HOME = "LOPHN_HOME";
 const LIVE = "LOPHN_LIVE_PROVIDER";
 const FAKE_PORT = "LOPHN_DEV_FAKE_PORT";
+const PUSH_PORT = "LOPHN_DEV_PUSH_PORT";
 // core는 Temporal을 쓰는데 기계의 node에는 없다. production과 같은 Electron의 Node로 띄운다.
 const ELECTRON = createRequire(import.meta.url)("electron") as string;
 // provider의 endpoint가 ledger에 남으므로 port가 실행마다 바뀌면 안 된다.
 const DEFAULT_FAKE_PORT = 7499;
+const DEFAULT_PUSH_PORT = 7498;
 
 /**
  * 개발 데이터 root. 저장소 밖으로 가지 않는다: 항상 <root>/.dev-data.
@@ -120,6 +128,52 @@ async function startDevFake(portText: string | undefined) {
       await server.shutdown();
     },
   };
+}
+
+/** 개발 core가 실제 Expo Push를 부르지 않게 하는 fake push server. 받은 글마다 한 줄을 찍는다. */
+async function startDevPush(portText: string | undefined): Promise<FakePush> {
+  const port =
+    portText === undefined || portText === ""
+      ? DEFAULT_PUSH_PORT
+      : Number(portText);
+  try {
+    return await startFakePush({
+      port,
+      onMessage(message) {
+        const one = message as {
+          title?: string;
+          body?: string;
+          data?: unknown;
+        };
+        console.log(
+          `push: ${one.title} | ${one.body ?? ""} | ${JSON.stringify(one.data)}`,
+        );
+      },
+    });
+  } catch (error) {
+    if (errorCode(error) === "EADDRINUSE") {
+      throw new Error(
+        `port ${port}을 이미 쓰고 있다. 다른 npm run dev가 떠 있는지 보고, 다른 port는 ${PUSH_PORT}로 정한다`,
+      );
+    }
+    throw error;
+  }
+}
+
+// core를 띄우기 전에 settings.json의 remote.push를 fake 주소로 적는다(있는 값은 덮는다).
+// 이미 도는 core가 있으면 그 core의 설정을 그대로 둔다.
+async function plantFakePush(dataRoot: string, pushUrl: string): Promise<void> {
+  const running = coreControl(dataRoot);
+  if (running !== undefined && (await controlIdentify(running)).ok) return;
+  const settingsPath = `${dataRoot}/settings.json`;
+  let settings: Record<string, unknown> = {};
+  try {
+    settings = JSON.parse(await readFile(settingsPath, "utf8"));
+  } catch (error) {
+    if (errorCode(error) !== "ENOENT") throw error;
+  }
+  settings["remote.push"] = pushUrl;
+  await writeFile(settingsPath, JSON.stringify(settings), { mode: 0o600 });
 }
 
 // 그 data root의 core control에 한 줄 보낼 deps. socket 자리를 못 구하면 undefined(그런 core도 뜰 수 없다).
@@ -433,6 +487,22 @@ async function launch(
       }`,
     );
     return { ok: false };
+  }
+
+  if (mode !== "dev:mock") {
+    try {
+      const push = await startDevPush(parentEnv[PUSH_PORT]);
+      closers.push(push.close);
+      await plantFakePush(dataRoot, push.url);
+    } catch (error) {
+      console.error(
+        `npm run ${mode}: fake push server를 붙이지 못했다: ${
+          error instanceof Error ? error.message : error
+        }`,
+      );
+      group.stop();
+      return { ok: false };
+    }
   }
 
   if (mode !== "dev:mock" && parentEnv[LIVE] !== "1") {

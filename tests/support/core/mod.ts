@@ -153,7 +153,12 @@ async function writeSettings(
     if (errorCode(error) !== "ENOENT") throw error;
   }
   // 선언 안 된 key가 하나라도 있으면 file 전체가 거절된다. models.dev 요청은 끈다.
-  const body = { "lophn-agent.model.catalog_auto_update": false, ...settings };
+  // test의 core가 실제 Expo Push를 부르지 않게 push를 끈다.
+  const body = {
+    "lophn-agent.model.catalog_auto_update": false,
+    "remote.push": "",
+    ...settings,
+  };
   await writeFile(path, JSON.stringify(body), { mode: 0o600 });
 }
 

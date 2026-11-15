@@ -436,6 +436,23 @@ export const remoteRelaySetting = declareSetting({
   locked: true,
 });
 
+// 폰 알림(push)을 보내는 Expo Push 주소. 비우면 push를 끈다. Expo가 아닌 곳을 가리키면 글(제목과 상태 문장)이
+// 그곳으로 가므로 사람만 바꾼다. 영수증 주소는 끝의 `/send`를 `/getReceipts`로 바꿔 만든다.
+export const remotePushSetting = declareSetting({
+  key: "remote.push",
+  type: z.union([
+    z.literal(""),
+    z
+      .string()
+      .url()
+      .regex(/^https?:\/\//),
+  ]),
+  default: "https://exp.host/--/api/v2/push/send",
+  description:
+    "The Expo Push send URL that phone notifications go through. Empty turns push off. If you point it anywhere other than Expo, the notification text (the title and the status sentence) is sent there.",
+  locked: true,
+});
+
 // 설치된 앱의 `sidebar` 자리 화면은 선언하면 오른쪽 sidebar에 panel로 나온다. 사람이 끈 것만 여기에 쌓인다.
 export const sidebarPanelsOffSetting = declareSetting({
   key: "shell.sidebar_panels_off",
@@ -533,6 +550,7 @@ export const shellSettings = [
   remoteEnabledSetting,
   remotePortSetting,
   remoteRelaySetting,
+  remotePushSetting,
   sidebarPanelsOffSetting,
   trayOffSetting,
   trayOrderSetting,

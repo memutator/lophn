@@ -5,6 +5,6 @@
     "jsx": "react-jsx"
   },
   "include": ["**/*.ts", "**/*.tsx"],
-  // flow SDK는 flow worker가 자기 모양으로 옮긴다.
-  "exclude": ["flow"]
+  // flow SDK는 flow worker가 자기 모양으로 옮긴다. app-ui-native는 폰 화면용이라 React Native type이 있는 packages/mobile/의 tsconfig로 본다.
+  "exclude": ["flow", "app-ui-native"]
 }

@@ -305,6 +305,12 @@ const PROTOCOL_CYCLE_EXCEPTIONS = new Set([
   "packages/protocol/extensions/acp-session.ts\0../acp/state.ts",
 ]);
 
+// 폰 kit `@lophn/ui-native`(packages/design/native)는 root workspace의 member가 아니다(packages/mobile의 Metro alias와 설치 사본으로 풀린다).
+// 폰 화면용 SDK part가 kit의 Button·Text를 쓰는 import만 workspace로 풀리지 않아도 된다.
+const UNRESOLVED_WORKSPACE_IMPORTS = new Set([
+  "packages/sdk/app-ui-native/operation-button.tsx\0@lophn/ui-native",
+]);
+
 export async function checkRepo(root: string): Promise<Violation[]> {
   root = normalize(resolve(root));
   const { files, paths } = await walk(root);
@@ -361,7 +367,11 @@ export async function checkRepo(root: string): Promise<Violation[]> {
         : specifier.startsWith("@lophn/")
           ? resolveWorkspace(specifier, members)
           : undefined;
-      if (specifier.startsWith("@lophn/") && !target) {
+      if (
+        specifier.startsWith("@lophn/") &&
+        !target &&
+        !UNRESOLVED_WORKSPACE_IMPORTS.has(`${file}\0${specifier}`)
+      ) {
         add(
           file,
           line,

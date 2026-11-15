@@ -1,0 +1,27 @@
+{
+  "name": "@lophn/app-ui-native",
+  "version": "1.0.0",
+  "type": "module",
+  "lophn": {
+    "supported_from": "1.0.0"
+  },
+  "exports": "./mod.ts",
+  "dependencies": {
+    "@lophn/declaration": "4.6.0",
+    "@lophn/i18n": "1.0.0",
+    "@types/react": "19.3.0",
+    "react": "19.3.0"
+  },
+  "peerDependencies": {
+    "@lophn/ui-native": "0.1.0",
+    "react-native": "0.88.1"
+  },
+  "peerDependenciesMeta": {
+    "@lophn/ui-native": {
+      "optional": true
+    },
+    "react-native": {
+      "optional": true
+    }
+  }
+}

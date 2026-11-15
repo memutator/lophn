@@ -23,6 +23,7 @@ export const mobileApp = {
   "mobile.computer.status.relay": "Connected · through the relay",
   "mobile.computer.status.revoked": "Removed by the computer",
   "mobile.frame.label.brand": "lophn",
+  "mobile.frame.label.sessions": "Sessions",
   "mobile.settings.button.gallery": "UI kit gallery",
   "mobile.settings.heading.about": "About",
   "mobile.settings.heading.phone": "This phone",

@@ -106,7 +106,7 @@ export function SearchScreen(_: { place: PlaceOf<"search"> }) {
     >
       {found.sessions.length > 0 && (
         <>
-          <Label>{t("remote.heading.sessions")}</Label>
+          <Label>{t("mobile.frame.label.sessions")}</Label>
           {found.sessions.map(({ row, workspaceName }) => (
             <Row
               key={row.id}

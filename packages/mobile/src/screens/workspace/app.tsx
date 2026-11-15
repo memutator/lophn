@@ -160,7 +160,7 @@ export function AppWorkspace({ view }: { view: WorkspaceView }) {
           />
           <Tabs
             items={[
-              t("remote.label.tab-sessions"),
+              t("mobile.frame.label.sessions"),
               t("app-detail.label.tab-activity"),
             ]}
             on={tab}

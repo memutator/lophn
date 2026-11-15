@@ -18,7 +18,7 @@ import { SessionList } from "./sessions.tsx";
 import { WorkflowsTab } from "./workflows.tsx";
 
 const TABS = [
-  "remote.label.tab-sessions",
+  "mobile.frame.label.sessions",
   "workflow.heading.list",
   "project-workspace.label.sidebar-tab-explorer",
   "jobs.label.sidebar-tab",

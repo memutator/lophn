@@ -57,3 +57,7 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: 고른 판 셋과 이유(main에 무엇이 있었나), pin을 고친 file 목록, 거절 메시지 예.
+
+## lead가 더함 (`mobile-sync-runtime` 결과, 2026-11-15)
+
+- 앱이 폰에서 도는지는 지금 `packages/core/apps/runtime/entrypoint/sync.ts`의 `runsOnPhone`이 선언의 `runs_on`을 type 없이 읽는다. `mobile-local-decl`이 이 줄을 type 있는 읽기로 바꾼다.

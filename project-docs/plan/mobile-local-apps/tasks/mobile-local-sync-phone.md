@@ -62,3 +62,7 @@
 - **다른 기기에는 원래 changeset과 hlc를 보낸다.** 값이 같은 update나 없는 줄의 delete는 clock만 움직이고 session changeset에 남지 않는다. 폰에서 온 변경을 적용한 뒤의 effective changeset만 sync log에 실으면 다른 폰의 clock이 컴퓨터와 어긋나고, 시계가 어긋난 기기가 있으면 나중에 data가 갈라진다. 그래서 sync log가 가리키는 것은 폰이 보낸 원래 changeset과 그 hlc이고, effective changeset은 그 invocation의 기록(Activity와 rewind)에만 쓴다. 컴퓨터 자신의 write는 원래 것이 곧 effective다.
 - **적용이 제약에 걸려도 맞추기가 멈추면 안 된다.** 폰에서 도는 앱은 release 검사가 PK 밖의 UNIQUE와 CHECK를 거절한다(`mobile-local-build`). 그래도 적용 중 제약 오류가 나면 그 변경 하나만 건너뛰고 앱의 problem으로 기록한 뒤 나머지를 이어 간다. 같은 batch를 끝없이 되돌리지 않는다. 건너뛴 변경이 있었다는 것은 응답과 log에 남는다.
 - `reexpress`는 old DB(backup)도 받는다(changeset은 column 자리로 적혀 옛 column 이름이 든다). 먼저 outbox를 모두 찍고(`stampOutbox`), snapshot DB에 `adoptSnapshot`을 한 뒤에 부른다. 다시 쓴 changeset이 비면 outbox에 넣지 않는다.
+
+## lead가 더함 (`mobile-sync-runtime` 결과, 2026-11-15)
+
+- pull이 '다시 snapshot'을 알리면(너무 큰 변경이 컴퓨터에 있었다) release가 바뀔 때와 같은 길로 새 snapshot을 받고 보내지 않은 변경을 그 위에 다시 얹는다. push 응답의 건너뛴 변경은 outbox에서 지운다.

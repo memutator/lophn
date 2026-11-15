@@ -11,7 +11,7 @@ lead만 고친다. `tools/status.py mobile-user-apps build`가 `tasks/*.md`에�
 | `mobile-phone-contract` | phone-screen | 2 | mobile-phone-target | merged | phone-screen/mobile-phone-contract | 395081091 |  |
 | `mobile-build-phone` | phone-screen | 3 | mobile-phone-contract, mobile-place-decl | merged | phone-screen/mobile-build-phone | def945466 |  |
 | `mobile-phone-changed-notice` | phone-screen | 4 | mobile-phone-target, mobile-place-decl | merged | phone-screen/mobile-phone-changed-notice | d7088a955 |  |
-| `mobile-phone-reads` | phone-screen | 4 | mobile-phone-contract, mobile-build-phone | todo |  |  |  |
+| `mobile-phone-reads` | phone-screen | 4 | mobile-phone-contract, mobile-build-phone | running | phone-screen/mobile-phone-reads |  |  |
 | `mobile-sdk-kit` | phone-sdk | 5 | mobile-build-phone, mobile-phone-contract | todo |  |  |  |
 | `mobile-sdk-phone-hooks` | phone-sdk | 5 | mobile-sdk-kit, mobile-phone-contract | todo |  |  |  |
 | `mobile-phone-guest` | phone-host | 6 | mobile-phone-contract, mobile-sdk-kit, mobile-sdk-phone-hooks, mobile-build-phone | todo |  |  |  |

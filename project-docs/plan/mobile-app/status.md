@@ -7,8 +7,8 @@ lead만 고친다. `tools/status.py mobile-app build`가 `tasks/*.md`에서 id, 
 | `mobile-kit` | design-native | 1 | 없음 | merged | design-native/phone-kit | cd7edc692 |  |
 | `mobile-data` | mobile-data | 1 | 없음 | merged | mobile-data/phone-data | df4394a23 |  |
 | `mobile-routes` | remote-routes | 1 | 없음 | merged | remote-routes/phone-routes | 07854024a |  |
-| `mobile-files` | core-files | 2 | mobile-routes | todo |  |  |  |
-| `mobile-frame` | mobile-app | 2 | mobile-kit, mobile-data | todo |  |  |  |
+| `mobile-files` | core-files | 2 | mobile-routes | running | core-files/mobile-files |  |  |
+| `mobile-frame` | mobile-app | 2 | mobile-kit, mobile-data | running | mobile-app/mobile-frame |  |  |
 | `mobile-home` | mobile-app | 3 | mobile-frame | todo |  |  |  |
 | `mobile-inbox` | mobile-app | 3 | mobile-frame | todo |  |  |  |
 | `mobile-ops` | mobile-app | 3 | mobile-frame, mobile-routes | todo |  |  |  |

@@ -567,26 +567,25 @@ flows:
       - "OS 알림의 observe를 어느 frame으로 둘지 정하지 못했다(OS 밖이라 event만 둔다)"
 
   - id: session-notice
-    title: lophn session의 끝과 사람의 물음을 알리고 못 본 표시를 둔다
+    title: lophn session의 끝과 사람의 물음을 알린다
     actor: system
     entries: [system:session-notice]
     boundary: [shell, agent-sessions]
     code: [packages/shell/main/notice/rule.ts, packages/shell/main/desktop/wiring/notice.ts]
     steps:
       - "relay가 TurnStarted·TurnEnded·TurnRequestOpened·QuestionAsked·SessionEnded를 session마다 순서대로 건넨다"
-      - "TurnStarted와 SessionEnded는 그 session의 못 본 표시를 지운다"
       - "TurnEnded는 outcome이 completed면 finished, failed면 failed다. 그 밖은 알리지 않는다. 앱 화면이 연 session의 turn 끝도 알리지 않는다"
       - "TurnRequestOpened와 QuestionAsked는 permission이다. 팀 자식의 것은 부모가 풀므로 알리지 않는다"
-      - "사람이 그 session을 보고 있으면 알리지 않는다. 아니면 toast나 OS 알림을 띄우고, finished·failed는 못 본 표시를 두어 NOTICE_UNSEEN으로 창에 보낸다. 읽기나 알림이 던지면 그 event는 버린다"
+      - "사람이 그 session을 보고 있으면 알리지 않는다. 아니면 toast나 OS 알림을 띄운다. 못 본 표시(unseen)는 core가 든다. 읽기나 알림이 던지면 그 event는 버린다"
     outcomes:
       - id: notified
-        when: "focus 창에 toast를 보냈다. finished·failed는 못 본 표시를 두고, permission(승인·질문)은 못 본 표시 없이 알린다"
+        when: "focus 창에 toast를 보냈다"
         observe: [screen:new-waiting-toasts]
       - id: os-notified
-        when: "focus를 가진 toast 가능한 창이 없어 OS 알림을 띄웠다(headless이거나 OS 알림을 지원하지 않으면 실제로는 안 뜬다). 못 본 표시는 notified와 같다"
+        when: "focus를 가진 toast 가능한 창이 없어 OS 알림을 띄웠다(headless이거나 OS 알림을 지원하지 않으면 실제로는 안 뜬다)"
         observe: []
       - id: looking
-        when: "사람이 그 session을 focus 창에서 보고 있다(알리지 않고 못 본 표시도 찍지 않는다)"
+        when: "사람이 그 session을 focus 창에서 보고 있다(알리지 않는다)"
         observe: [screen:new-waiting-toasts]
       - id: app-session
         when: "앱 화면이 연 session의 turn 끝이다(완료·실패만 거른다. 승인·질문은 알린다)"
@@ -597,9 +596,6 @@ flows:
       - id: unknown-session
         when: "session의 agent를 읽지 못했다(알림 없이 끝난다)"
         observe: [screen:new-waiting-toasts]
-      - id: unseen-cleared
-        when: "TurnStarted나 SessionEnded다. 그 session의 못 본 표시를 지운다"
-        observe: []
       - id: turn-other
         when: "TurnEnded인데 outcome이 completed도 failed도 아니다(사람이 끊은 turn 등)"
         observe: [screen:new-waiting-toasts]
@@ -609,7 +605,6 @@ flows:
     crosses_process: true
     docs: [architecture/event.md]
     unclear:
-      - "못 본 표시를 보여 주는 화면 frame id가 없어 observe는 toast 쪽만 두었다"
       - "OS 알림은 frame도 event도 없어 os-notified의 observe를 비웠다"
 
   - id: app-view-crash
@@ -827,7 +822,6 @@ flows:
       - "target의 탭을 가진 창을 고른다(없으면 마지막 focus 창, detached 창은 건너뜀)"
       - "창을 복원하고 앞으로 가져온 뒤 renderer에 NOTICE_REVEAL(session·app·inbox)을 보낸다. terminal이면 TERMINAL_REVEAL을 보낸다"
       - "창이 하나도 없으면 desktop 창만 띄우고 탭은 고르지 않는다"
-      - "ipc로 왔으면 sessions.recheck로 보고 있는 session의 못 본 표시를 지운다"
     outcomes:
       - id: revealed
         when: "target이 inbox면 Inbox, app이면 앱 공간, session이면 그 대화를 연다. terminal 목표면 terminal 탭을 고른다"
@@ -844,37 +838,58 @@ flows:
       - "app target의 observe는 screen:app-space가 맞지만 한 outcome에 target별 frame을 다 적지 못해 inbox 하나만 적었다"
       - "terminal 목표인데 project를 찾지 못하면 아무것도 보내지 않는다(terminal area 소관)"
 
-  - id: notice-unseen
-    title: 보이는 session과 못 본 turn 끝을 맞추고 알림 panel의 지우기를 받는다
-    actor: person
+  - id: notice-presence
+    title: desktop이 보고 있는 것(창 focus, idle, 보이는 session·터미널)을 core에 알린다
+    actor: system
     entries: []
-    uses: [ipc:shell:notice-visible, ipc:shell:notice-unseen-get, ipc:shell:notice-dismiss, ipc:shell:notice-unseen]
-    boundary: [shell, agent-sessions]
-    code: [packages/shell/main/notice/rule.ts, packages/shell/main/desktop/wiring/notice.ts]
+    uses: [ipc:shell:notice-visible, ipc:shell:terminal-focus, route:presence/report]
+    boundary: [shell, attention]
+    code: [packages/shell/main/notice/presence.ts, packages/shell/main/desktop/wiring/notice.ts]
     steps:
-      - "renderer가 보이는 session이나 앱 view를 shell:notice-visible로 알린다(창마다 개수를 센다). 보이게 되면 recheck로 그 session의 못 본 표시를 지운다"
-      - "renderer가 shell:notice-unseen-get으로 못 본 목록을 읽는다. caller가 등록된 창이 아니면 빈 목록이다"
-      - "알림 panel에서 session을 지우면(shell:notice-dismiss, session 쪽) 탭을 보지 않아도 못 본 표시를 지운다. terminal 쪽은 terminal area 몫이다"
-      - "못 본 목록이 바뀌면 main이 shell:notice-unseen으로 모든 창에 보낸다"
+      - "renderer가 보이는 session이나 앱 view를 shell:notice-visible로 알린다(창마다 개수를 센다). 고른 터미널 탭은 terminal-focus가 focus 표에 적는다"
+      - "창 focus·blur·닫힘, notice-visible, 터미널 focus·blur 때 focus를 가진 lophn 창, OS idle 시간, 그 창에 보이는 session과 고른 터미널(term:<탭>)을 모은다. 앱 view는 싣지 않는다"
+      - "focus와 보이는 것이 지난 보고와 같으면 보내지 않는다(idle은 바뀜 판단에서 뺀다). 30초마다, core가 다시 붙었을 때는 늘 보낸다"
+      - "presence/report로 보낸다. 실패는 다음 주기가 메운다. headless면 보내지 않는다"
     outcomes:
-      - id: listed
-        observe: [response]
-      - id: seen
-        when: "보이게 된 session의 못 본 표시가 지워졌다(목록이 바뀌면 published가 따른다)"
+      - id: reported
+        when: "보고를 보냈다. core가 새로 보는 session의 못 본 끝(unseen)을 끄면 창의 점과 Finished 줄이 빠진다"
         observe: []
-      - id: dismissed
-        when: "알림 panel에서 session을 지웠다(session 쪽만이다. app·inbox 목표는 아무것도 하지 않는다)"
+      - id: unchanged
+        when: "바뀐 것이 없어 보내지 않았다"
         observe: []
-      - id: published
-        when: "못 본 목록이 바뀌어 모든 창에 shell:notice-unseen으로 보냈다"
+      - id: headless
+        when: "headless라 보내지 않았다"
         observe: []
       - id: ignored
-        when: "caller가 등록된 창이 아니거나 입력이 맞지 않는다(응답은 빈 값이거나 없다)"
-        observe: [response]
+        when: "notice-visible caller가 등록된 창이 아니거나 입력이 맞지 않는다(응답 없이 버린다)"
+        observe: []
     crosses_process: true
     docs: [architecture/app-notice.md]
-    unclear:
-      - "못 본 표시의 화면 frame id가 없어 seen·dismissed·published는 observe를 비웠다. 단정은 rule.ts 단위로 둘 수 있다"
+
+  - id: notice-unseen
+    title: 창이 core의 못 본 turn 끝을 읽어 탭 점과 Finished 줄을 그리고 알림 panel의 지우기를 core에 보낸다
+    actor: person
+    entries: []
+    uses: [route:unseen/list, route:unseen/dismiss]
+    boundary: [shell, attention]
+    code:
+      - packages/shell/renderer/desktop/connection/events/unseen-store.ts
+      - packages/shell/renderer/desktop/connection/waiting/finished.ts
+    steps:
+      - "창이 연결될 때와 StateChanged unseen마다 unseen/list를 읽는다. lophn session은 session store의 점, 터미널(term:<탭>)은 탭 store의 점이 된다"
+      - "Finished 줄의 이름·얼굴·제목은 창이 아는 값이다: 터미널은 runtime의 harness와 탭 이름(쉬는 agent만), lophn session은 agent 정의와 session 이름을 읽는다(읽기 전에는 lophn·Agent와 이름 없음)"
+      - "알림 panel의 [x]는 unseen/dismiss를 부른다. core가 끄면 StateChanged unseen으로 줄이 빠진다"
+    outcomes:
+      - id: listed
+        observe: [screen:new-waiting-finished]
+      - id: dismissed
+        when: "Finished 줄을 지웠다(app·inbox 목표는 아무것도 하지 않는다)"
+        observe: [screen:new-waiting-finished]
+      - id: read-failed
+        when: "unseen/list를 읽지 못했다. 지금 값을 둔다"
+        observe: []
+    crosses_process: true
+    docs: [architecture/app-notice.md]
 
   - id: app-view-open
     title: 앱 화면(tab·panel·card·sidebar·tray 자리)을 열어 webview를 붙인다

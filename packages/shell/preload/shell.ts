@@ -95,7 +95,7 @@ if (role === "shell") {
     "lophnThreadBookmarks",
     createThreadBookmarksApi(ipcRenderer),
   );
-  // 알림 toast와 Agent 탭의 보임·못 본 상태. 어디에 알릴지는 main이 정한다.
+  // 알림 toast와 Agent 탭의 보임. 어디에 알릴지는 main이 정한다.
   contextBridge.exposeInMainWorld("lophnNotice", createNoticeApi(ipcRenderer));
   // core가 시킨 탭 열기·닫기(agent가 연 탭)와 보이는 workspace, host 탭의 browser 상태. 어느 창에 보낼지는 main이 정한다.
   contextBridge.exposeInMainWorld(

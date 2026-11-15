@@ -108,8 +108,8 @@ function trackerFor(pushed: string[]) {
     runtimeOf: () => runtime,
     publish: (rt) =>
       pushed.push(`${rt.agent?.harness ?? "-"}:${rt.agent?.state ?? "none"}`),
-    looking: () => true,
-    notify: () => false,
+    notify: () => {},
+    signal: () => {},
     ...fakeClock(),
   });
 }
@@ -152,8 +152,8 @@ test("the terminal's OSC title is read from PTY output across chunk splits and r
     signalOf: () => null,
     runtimeOf: () => runtime,
     publish: (rt) => titles.push(rt.agent?.screen_title),
-    looking: () => true,
-    notify: () => false,
+    notify: () => {},
+    signal: () => {},
     ...fakeClock(),
   });
   // agent가 뜨기 전의 제목도 터미널의 것이라 기억한다(TUI는 foreground로 알아보기 전에 첫 제목을 낸다).
@@ -214,8 +214,8 @@ test("TurnStarted가 다른 session id를 싣고 오면 session을 바꾸고 제
         session: rt.agent?.session ?? null,
         title: rt.agent?.title ?? null,
       }),
-    looking: () => true,
-    notify: () => false,
+    notify: () => {},
+    signal: () => {},
     ...fakeClock(),
   });
   tracker.hook("t", "claude", "UserPromptSubmit", {
@@ -253,7 +253,7 @@ test("키로 내린 뒤 tool이 끝났다는 hook이 오면 running으로 돌아
 function childTracker() {
   const clock = fakeClock();
   const states: string[] = [];
-  const notices: string[] = [];
+  const signals: string[] = [];
   const runtime = { terminal_ref: "t", state: "running" } as TerminalRuntime;
   const tracker = createAgentTracker({
     harnessOfProcess: () => null,
@@ -261,36 +261,33 @@ function childTracker() {
     signalOf: (_harness, _event, payload) => payload as AgentSignal,
     runtimeOf: () => runtime,
     publish: (rt) => states.push(rt.agent?.state ?? "none"),
-    looking: () => false,
-    notify: (notice) => {
-      notices.push(`${notice.kind}:${notice.body ?? ""}`);
-      return true;
-    },
+    notify: () => {},
+    signal: (info) => signals.push(info.kind),
     ...clock,
   });
   const send = (signal: AgentSignal) =>
     tracker.hook("t", "claude", "e", signal);
-  return { tracker, clock, states, notices, send };
+  return { tracker, clock, states, signals, send };
 }
 
 test("Stop while a subagent runs stays running without a finished notice, and the last child ending notifies once", () => {
-  const { clock, states, notices, send } = childTracker();
+  const { clock, states, signals, send } = childTracker();
   send({ type: "TurnStarted" });
   send({ type: "ChildStarted", child: "a1" });
   send({ type: "ChildStarted", child: "a2" });
   send({ type: "TurnEnded", message: "done", children: ["a1", "a2"] });
   clock.advance(5000);
   assert.equal(states.at(-1), "running");
-  assert.deepEqual(notices, []);
+  assert.deepEqual(signals, []);
   send({ type: "ChildEnded", child: "a1" });
   clock.advance(5000);
-  assert.deepEqual(notices, []);
+  assert.deepEqual(signals, []);
   send({ type: "ChildEnded", child: "a2" });
   assert.equal(states.at(-1), "idle"); // 상태는 바로 내려가고 알림만 늦다
-  assert.deepEqual(notices, []);
+  assert.deepEqual(signals, []);
   clock.advance(1500);
   clock.advance(60_000);
-  assert.deepEqual(notices, ["finished:done"]);
+  assert.deepEqual(signals, ["finished"]);
 
   // Stop의 목록은 snapshot이다. 먼저 끝난 child를 늦게 온 Stop이 다시 싣고 와도 다음 Stop이 지운다.
   send({ type: "TurnStarted" });
@@ -302,24 +299,24 @@ test("Stop while a subagent runs stays running without a finished notice, and th
   send({ type: "TurnEnded", message: "last", children: [] });
   assert.equal(states.at(-1), "idle");
   clock.advance(1500);
-  assert.deepEqual(notices, ["finished:done", "finished:last"]);
+  assert.deepEqual(signals, ["finished", "finished"]);
 });
 
 test("a TurnStarted within 1.5s of Stop cancels the finished notice", () => {
-  const { clock, notices, send } = childTracker();
+  const { clock, signals, send } = childTracker();
   send({ type: "TurnStarted" });
   send({ type: "TurnEnded", message: "first" });
   clock.advance(1000);
   send({ type: "TurnStarted" });
   clock.advance(5000);
-  assert.deepEqual(notices, []);
+  assert.deepEqual(signals, []);
   send({ type: "TurnEnded", message: "second" });
   clock.advance(1500);
-  assert.deepEqual(notices, ["finished:second"]);
+  assert.deepEqual(signals, ["finished"]);
 });
 
 test("a child tool hook resolves the permission wait, and a child with no signal for 10 minutes is dropped", () => {
-  const { clock, states, notices, send } = childTracker();
+  const { clock, states, signals, send } = childTracker();
   send({ type: "TurnStarted" });
   send({ type: "ChildStarted", child: "a1" });
   send({ type: "PermissionRequested" });
@@ -329,9 +326,9 @@ test("a child tool hook resolves the permission wait, and a child with no signal
   send({ type: "TurnEnded", message: "done" });
   clock.advance(9 * 60_000);
   assert.equal(states.at(-1), "running");
-  assert.deepEqual(notices, ["permission:"]);
+  assert.deepEqual(signals, ["waiting"]);
   clock.advance(60_000);
   assert.equal(states.at(-1), "idle");
   clock.advance(1500);
-  assert.deepEqual(notices, ["permission:", "finished:done"]);
+  assert.deepEqual(signals, ["waiting", "finished"]);
 });

@@ -61,10 +61,19 @@ export type AgentTrackerDeps = {
   now(): number;
   /** ms 뒤에 fn을 한 번 부르고, 부르는 것을 취소하는 함수를 돌려준다. */
   after(ms: number, fn: () => void): () => void;
-  /** 사람이 그 탭을 보고 있다(그 탭을 고른 창에 OS focus가 있다). */
-  looking(terminalRef: string): boolean;
-  /** 알린다. 보고 있지 않아 알렸으면 true다(toast든 OS 알림이든 어디에 띄울지는 부르는 쪽이 정한다). */
-  notify(notice: AgentNotice): boolean;
+  /** 알린다. 보고 있으면 띄우지 않는 것, toast든 OS 알림이든 어디에 띄울지는 부르는 쪽이 정한다. */
+  notify(notice: AgentNotice): void;
+  /**
+   * core에 계기를 알린다(`terminal_sessions/signal`). 못 본 끝과 push는 core가 정한다. `active_ms`는 turn이 running이 된
+   * 때부터 끝까지에서 권한 물음을 기다린 시간을 뺀 것이고, 모르면(시작을 못 들었거나 waiting) null이다.
+   */
+  signal(info: {
+    terminal_ref: string;
+    harness: string;
+    title: string | null;
+    kind: "waiting" | "finished" | "failed";
+    active_ms: number | null;
+  }): void;
   /** 사람 터미널에서 foreground로 harness를 처음 알아봤다. 설치를 물을 때다. */
   identified?(harness: string, terminalRef: string): void;
   /** session id를 아는 터미널에서 hook이 왔다. 저장은 부르는 쪽이 정한다. */
@@ -99,8 +108,12 @@ type Entry = {
   /** hook payload가 알려 준 harness의 작업 폴더. 탭의 TUI를 GUI로 넘길 때 쓴다. */
   cwd: string | null;
   running: boolean;
-  /** 대기 중인 권한 물음 수. */
+  /** 대기 중인 권한 물음 수. 0과 0 아님 사이를 오갈 때는 `setWaiting`으로 바꾼다(기다린 시간을 센다). */
   waiting: number;
+  /** 이 turn이 running이 된 시각. 끝을 알리거나 끊기면 비운다. 시작을 못 들었으면 null이다. */
+  startedAt: number | null;
+  /** 이 turn에서 권한 물음을 기다린 시간의 합. 기다리는 동안은 기다리기 시작한 시각을 미리 뺀 값이다. */
+  waited: number;
   /** main turn이 끝나도 도는 child(subagent)의 id → 그 child의 신호를 마지막으로 들은 시각. */
   children: Map<string, number>;
   /** main turn이 끝나 보낼 차례를 기다리는 알림. child가 남았거나 다시 running이면 아직 보내지 않는다. */
@@ -109,7 +122,6 @@ type Entry = {
   sweepTimer: (() => void) | null;
   /** idle이 된 뒤 FINISH_DELAY_MS를 기다리는 알림 timer. */
   finishTimer: (() => void) | null;
-  unseen: boolean;
   /** 사람이 친 끊기 key로 내렸다. 끝 신호가 아니라 짐작이라, 뒤에 tool이 끝났다는 hook이 오면 되돌린다. */
   guessed: boolean;
   /** 이 터미널의 program이 마지막으로 낸 제목(상태 글리프를 뗀 것). agent가 오가도 터미널의 것이라 남는다. */
@@ -133,7 +145,8 @@ const fresh = (
   | "cwd"
   | "running"
   | "waiting"
-  | "unseen"
+  | "startedAt"
+  | "waited"
   | "guessed"
 > => ({
   harness,
@@ -146,7 +159,8 @@ const fresh = (
   cwd: null,
   running: false,
   waiting: 0,
-  unseen: false,
+  startedAt: null,
+  waited: 0,
   guessed: false,
 });
 
@@ -163,7 +177,6 @@ function agentOf(entry: Entry): TerminalAgent | undefined {
   return {
     harness: entry.harness,
     state,
-    unseen: entry.unseen,
     hooked: entry.hooked,
     ...(entry.fixed ? { foreground: true as const } : {}),
     ...(entry.session === null ? {} : { session: entry.session }),
@@ -185,10 +198,6 @@ export type AgentTracker = {
   screenTitle(terminalRef: string, title: string): void;
   /** 사람이 친 입력. Esc·Ctrl-C로 도는 turn을 끊으면 상태를 모르게 둔다. */
   humanInput(terminalRef: string, text: string): void;
-  /** 그 탭이 focus를 받았다. 못 본 것이 있었으면 지운다. */
-  tabFocused(terminalRef: string): void;
-  /** 창이 focus를 받았다. 이미 골라 둔 탭의 못 본 것을 지운다. */
-  windowFocused(): void;
   /** 터미널이 끝났다. */
   gone(terminalRef: string): void;
   /**
@@ -218,6 +227,12 @@ const KEY_TEXT = { escape: "\x1b", "ctrl-c": "\x03" } as const;
 export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
   const entries = new Map<string, Entry>();
   const exitListeners = new Map<string, Set<() => void>>();
+
+  function setWaiting(entry: Entry, waiting: number): void {
+    if (entry.waiting === 0 && waiting > 0) entry.waited -= deps.now();
+    else if (entry.waiting > 0 && waiting === 0) entry.waited += deps.now();
+    entry.waiting = waiting;
+  }
 
   function tuiLeft(ref: string): void {
     for (const listener of [...(exitListeners.get(ref) ?? [])]) listener();
@@ -305,13 +320,10 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       if (entry.finishTimer !== null) {
         entry.finishTimer();
         entry.finishTimer = null;
-        entry.unseen = false;
       }
       return;
     }
     if (entry.pending === null || entry.finishTimer !== null) return;
-    // 못 본 표시는 바로 켜고 알림만 늦춘다.
-    if (!deps.looking(ref)) entry.unseen = true;
     entry.finishTimer = deps.after(FINISH_DELAY_MS, () => {
       entry.finishTimer = null;
       const { pending } = entry;
@@ -329,14 +341,23 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
     body?: string,
   ): void {
     if (entry.harness === null) return;
-    // 보고 있으면 알릴 것이 없다.
-    if (deps.looking(ref)) return;
-    entry.unseen = deps.notify({
+    let active_ms: number | null = null;
+    if (kind !== "permission") {
+      active_ms =
+        entry.startedAt === null
+          ? null
+          : Math.max(0, deps.now() - entry.startedAt - entry.waited);
+      entry.startedAt = null;
+      entry.waited = 0;
+    }
+    deps.signal({
       terminal_ref: ref,
       harness: entry.harness,
-      kind,
-      body,
+      title: entry.title ?? entry.name,
+      kind: kind === "permission" ? "waiting" : kind,
+      active_ms,
     });
+    deps.notify({ terminal_ref: ref, harness: entry.harness, kind, body });
   }
 
   return {
@@ -397,6 +418,8 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       switch (signal.type) {
         case "SessionStarted":
           drop(entry);
+          entry.startedAt = null;
+          entry.waited = 0;
           break;
         case "TurnStarted":
           entry.pending = null;
@@ -404,12 +427,13 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
             entry.title = signal.prompt;
           }
           entry.running = true;
-          entry.unseen = false;
+          // 끝 알림을 기다리던 중(child 사이의 틈)이면 같은 turn이 이어진다.
+          entry.startedAt ??= deps.now();
           entry.guessed = false;
           break;
         case "TurnEnded":
           entry.running = false;
-          entry.waiting = 0;
+          setWaiting(entry, 0);
           entry.guessed = false;
           // 목록은 전체 snapshot이다. 먼저 끝난 child의 id를 늦게 온 Stop이 되살려도 다음 Stop이 바로잡는다.
           if (signal.children !== undefined) {
@@ -424,9 +448,13 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
                   kind: signal.outcome === "failed" ? "failed" : "finished",
                   body: signal.message,
                 };
+          if (entry.pending === null) {
+            entry.startedAt = null;
+            entry.waited = 0;
+          }
           break;
         case "PermissionRequested":
-          entry.waiting += 1;
+          setWaiting(entry, entry.waiting + 1);
           notify(
             ref,
             entry,
@@ -438,7 +466,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
         case "ChildStarted":
           // 한 물음을 두 event로 알리는 harness가 있어 하나씩 줄이면 센 수가 남아 waiting이 풀리지 않는다.
           // subagent의 권한 물음은 허락한 뒤 그 subagent의 tool hook(ChildStarted)이 와서 풀린다.
-          entry.waiting = 0;
+          setWaiting(entry, 0);
           if (signal.type === "ChildStarted" && signal.child !== undefined) {
             entry.children.set(signal.child, deps.now());
           }
@@ -455,6 +483,8 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
           drop(entry);
           entry.running = false;
           entry.waiting = 0;
+          entry.startedAt = null;
+          entry.waited = 0;
           entry.guessed = false;
           entry.heard = false;
           break;
@@ -494,24 +524,10 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       }
       drop(entry);
       entry.running = false;
-      entry.waiting = 0;
+      setWaiting(entry, 0);
       entry.heard = false;
       entry.guessed = true;
       push(ref, entry);
-    },
-    tabFocused(ref) {
-      const entry = entries.get(ref);
-      if (entry === undefined || !entry.unseen) return;
-      entry.unseen = false;
-      push(ref, entry);
-    },
-    windowFocused() {
-      for (const [ref, entry] of entries) {
-        if (entry.unseen && deps.looking(ref)) {
-          entry.unseen = false;
-          push(ref, entry);
-        }
-      }
     },
     gone(ref) {
       const entry = entries.get(ref);
@@ -522,8 +538,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       if (wasTui) tuiLeft(ref);
       exitListeners.delete(ref);
       // 끝난 runtime은 그 터미널을 구독한 창에만 간다. agent를 알린 적이 있으면 모든 창에 agent가 빠진 runtime을
-      // 보낸다. 안 그러면 구독하지 않은 창(다른 workspace, 다른 창)의 Finished 줄이 남고, main에 entry가 없어 그 줄의
-      // [x]도 지우지 못한다.
+      // 보낸다. 안 그러면 구독하지 않은 창(다른 workspace, 다른 창)의 Finished 줄이 남는다.
       if (entry.pushed === "null") return;
       const runtime = deps.runtimeOf(ref);
       if (runtime !== undefined) deps.publish(decorate(runtime));

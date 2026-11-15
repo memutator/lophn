@@ -946,7 +946,6 @@ const REWOUND: readonly AcpUpdate[] = [
 const CLAUDE_TUI: TerminalAgent = {
   harness: "claude",
   state: "idle",
-  unseen: false,
   hooked: true,
   foreground: true,
   session: "9f2c7d1e-5b1a-4c58-8a3e-0d6b7f2a41c9",

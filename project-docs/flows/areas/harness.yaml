@@ -1369,10 +1369,10 @@ flows:
     docs: [architecture/terminal-agent.md]
 
   - id: terminal-agent-notice
-    title: 터미널 탭의 turn 끝과 권한 물음을 알릴지 정하고 toast나 OS 알림을 낸다
+    title: 터미널 탭의 turn 끝과 권한 물음을 core에 알리고 toast나 OS 알림을 낸다
     actor: shell
     entries: [system:terminal-agent-notice]
-    uses: [ipc:shell:terminal-reveal]
+    uses: [ipc:shell:terminal-reveal, route:terminal_sessions/signal]
     boundary: [shell]
     code:
       - packages/shell/main/desktop/wiring/agent.ts
@@ -1380,12 +1380,16 @@ flows:
       - packages/shell/main/terminal/agent/tracker.ts
     steps:
       - "tracker가 turn 끝(완료나 실패)이나 권한 물음을 알리면 판정한다. 사람이 끊은 turn, /clear, compact는 알리지 않는다"
-      - "그 탭이 focus를 가진 창에서 보이는 탭이면 알리지 않는다"
       - "turn 끝은 idle이 되고 1.5초 기다린다. child가 남았으면 보내지 않는다. 그사이 running이나 waiting이 되면 취소한다"
+      - "core에 terminal_sessions/signal(권한 물음은 waiting, 끝은 finished·failed와 active_ms: running부터 끝까지에서 물음을 기다린 시간을 뺀 것)을 보낸다. 제목은 terminal_sessions/report와 같다. 못 본 끝과 push는 core가 정한다"
+      - "그 탭이 focus를 가진 창에서 보이는 탭이면 띄우지 않는다"
       - "lophn 창에 focus가 있는데 그 탭이 안 보이면 그 창의 toast, 어느 창에도 focus가 없으면 OS 알림이다. 누르면 탭이 있는 창을 앞으로 가져와 탭을 고른다"
       - "알림 본문은 hook payload가 준 마지막 답이나 오류 글, 권한 물음의 요약만 쓴다. transcript는 읽지 않는다"
-      - "알림을 낸 탭은 못 본 것(unseen)으로 남아 Finished 줄이 생긴다. 탭을 고르거나 focus를 받으면 지운다"
+      - "보지 않던 탭의 끝은 core가 못 본 것(unseen)으로 두어 Finished 줄이 생긴다. 탭을 고르거나 창이 focus를 받으면 presence 보고로 core가 지운다"
     outcomes:
+      - id: signaled
+        when: "core에 계기를 알렸다(보고 있어도 알린다)"
+        observe: []
       - id: toast
         observe: [screen:new-waiting-toasts, screen:new-waiting-finished]
       - id: os-notification
@@ -1994,8 +1998,9 @@ flows:
       - packages/shell/main/terminal/ipc.ts
     steps:
       - "탭이 focus를 받거나 잃을 때 renderer가 terminal-focus를 보낸다. host로는 보내지 않는다"
-      - "focus를 받으면 focus 표에 이 창과 그 터미널 generation을 적고, 그 탭의 coding agent 알림(unseen)을 지운다"
+      - "focus를 받으면 focus 표에 이 창과 그 터미널 generation을 적는다"
       - "잃으면 표에서 뺀다. 이후 입력 검사가 이 창의 입력을 거절한다"
+      - "둘 다 보고 있는 것이 바뀐 것이라 core에 presence를 다시 알린다(notice-presence)"
     outcomes:
       - id: focused
         observe: [response]

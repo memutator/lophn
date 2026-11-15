@@ -31,6 +31,12 @@ export interface TerminalEntry {
   readonly restored?: number;
 }
 
+/** 탭의 coding agent. main이 알린 것에 core의 못 본 끝(`unseen`, `term:<탭>`)을 더한 것이다. */
+export type TabAgent = TerminalAgent & {
+  /** 사람이 그 탭을 보지 않는 사이 turn이 끝났다. */
+  readonly unseen: boolean;
+};
+
 const STORAGE_KEY = "lophn.terminal.tabs";
 
 interface Persisted {
@@ -52,7 +58,9 @@ export class TerminalStore {
   readonly #selectors = new Set<(key: string) => void>();
   // 터미널 안에서 도는 coding agent. 탭 key가 아니라 terminal_ref로 둔다. main의 push가 탭 항목보다
   // 먼저 올 수 있고, 탭을 옮겨도 PTY 참조는 같다.
-  readonly #agents = new Map<string, TerminalAgent>();
+  readonly #agents = new Map<string, TabAgent>();
+  // 못 본 끝이 있는 terminal_ref. 창의 event 연결(EventsProvider)이 넣는다.
+  #unseen: ReadonlySet<string> = new Set();
   #version = 0;
   readonly #storage: RefStorage | null;
 
@@ -95,7 +103,7 @@ export class TerminalStore {
   }
 
   /** 탭의 터미널 안에서 도는 coding agent. 없으면 undefined다. */
-  agentOf(key: string): TerminalAgent | undefined {
+  agentOf(key: string): TabAgent | undefined {
     const ref = this.#entries.get(key)?.terminalRef;
     return ref == null ? undefined : this.#agents.get(ref);
   }
@@ -107,13 +115,34 @@ export class TerminalStore {
 
   /** main이 보낸 runtime(push, open·snapshot 답)의 agent를 반영한다. 같으면 아무것도 하지 않는다. */
   noteRuntime(runtime: TerminalRuntime): void {
-    const before = this.#agents.get(runtime.terminal_ref);
-    const next = runtime.agent;
+    const ref = runtime.terminal_ref;
+    const before = this.#agents.get(ref);
+    const next =
+      runtime.agent === undefined
+        ? undefined
+        : { ...runtime.agent, unseen: this.#unseen.has(ref) };
     // 칸을 골라 비교하면 새 칸(foreground, name)이 빠져, hook 뒤에 온 foreground 알림을 버리고 GUI 전환을 막았다.
     // main(tracker)이 agent를 같은 순서로 만들어 JSON으로 비교한다.
     if (JSON.stringify(before) === JSON.stringify(next)) return;
-    if (next === undefined) this.#agents.delete(runtime.terminal_ref);
-    else this.#agents.set(runtime.terminal_ref, next);
+    if (next === undefined) this.#agents.delete(ref);
+    else this.#agents.set(ref, next);
+    this.#agentsChanged();
+  }
+
+  /** core의 못 본 끝이 바뀌었다. 못 본 끝이 있는 terminal_ref 모두다. */
+  noteUnseen(terminalRefs: ReadonlySet<string>): void {
+    this.#unseen = terminalRefs;
+    let changed = false;
+    for (const [ref, agent] of this.#agents) {
+      const unseen = terminalRefs.has(ref);
+      if (agent.unseen === unseen) continue;
+      this.#agents.set(ref, { ...agent, unseen });
+      changed = true;
+    }
+    if (changed) this.#agentsChanged();
+  }
+
+  #agentsChanged(): void {
     this.#version += 1;
     for (const listener of this.#listeners) listener();
   }

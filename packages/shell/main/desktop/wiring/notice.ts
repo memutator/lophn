@@ -2,7 +2,8 @@
 // 사람에게 한 알림(NoticePosted: 앱이 한 것과 program이 남긴 기록)이 같은 규칙(notice/rule.ts)으로 이리 온다: 보고 있으면 없음,
 // lophn 창에 focus가 있으면 그 창의 toast, 없으면 OS 알림. 누르면 그 탭(앱 알림은 그 앱 공간)이 있는 창을
 // 앞으로 가져오고 고른다. toast를 받는 창은 하나뿐이라 창이 여럿이어도 한 번만 뜬다.
-import { BrowserWindow, Notification } from "electron";
+// 무엇을 보고 있는지(창 focus, idle, 보이는 session·터미널)는 core에도 알린다(presence). 못 본 turn 끝(`unseen`)은 core가 든다.
+import { BrowserWindow, Notification, powerMonitor } from "electron";
 
 import type {
   Notice as NoticeRow,
@@ -12,30 +13,29 @@ import { sessionSnapshotsList } from "../../../../protocol/events/mod.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
+import { terminalSessionId } from "../../../../protocol/lophn-agent/session-tag.ts";
 import { askRead } from "../../../../protocol/lophn-agent/ask-tool.ts";
 import { messageBody } from "../../../../protocol/lophn-agent/messages.ts";
 import {
-  NOTICE_DISMISS_CHANNEL,
   NOTICE_OPEN_CHANNEL,
   NOTICE_REVEAL_CHANNEL,
   NOTICE_TOAST_CHANNEL,
-  NOTICE_UNSEEN_CHANNEL,
-  NOTICE_UNSEEN_GET_CHANNEL,
   NOTICE_VISIBLE_CHANNEL,
   type NoticeTarget,
   noticeTargetSchema,
   noticeVisibleSchema,
-  type UnseenSession,
 } from "../../../ipc/notice.ts";
 import type { AvatarFace, OverlayLead } from "../../../ipc/overlay.ts";
 import { TERMINAL_REVEAL_CHANNEL } from "../../../ipc/terminal.ts";
 import { excerpt } from "../../notice/excerpt.ts";
+import { createPresenceReporter } from "../../notice/presence.ts";
 import {
   createSessionNotices,
   routeNotice,
   type SessionEvent,
   type SessionNotice,
   SessionVisibility,
+  type SessionWho,
 } from "../../notice/rule.ts";
 import type { TerminalFocusTable } from "../../terminal/controller.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
@@ -99,10 +99,10 @@ function titleOf(kind: keyof typeof TITLES, agent: string, workspace?: string) {
 }
 
 export type NoticeWiring = Registered & {
-  /** 그 탭이 focus를 가진 lophn 창에 보인다. */
-  looking(target: NoticeTarget): boolean;
   /** 알린다. 알렸으면(보고 있지 않았으면) true다. */
   show(notice: Notice): boolean;
+  /** 고른 터미널 탭이 바뀌었다. 보고 있는 것을 core에 다시 알린다. */
+  terminalFocusChanged(): void;
 };
 
 /** 앱 화면이 붙은 session을 쥔 view. main의 앱 agent service가 안다. 앱이 연 session인지는 core가 안다(`opened_by_app`). */
@@ -116,8 +116,8 @@ export function createNoticeWiring(
   appSessions: AppSessions,
   // 그 터미널이 속한 project. 터미널을 모르면 undefined다.
   projectOf: (terminalRef: string) => string | undefined,
-  // 터미널 coding agent의 못 본 표시를 끈다. tracker는 이 wiring 뒤에 생겨 함수로 받는다.
-  dismissTerminal: (terminalRef: string) => void,
+  // 지금 살아 있는 터미널. 보고 있는 터미널을 고를 때 쓴다.
+  terminalRefs: () => string[],
 ): NoticeWiring {
   const visibility = new SessionVisibility();
   // 창마다 보이는 앱 화면(view_session). 같은 표 type을 session 대신 view_session으로 쓴다.
@@ -130,6 +130,7 @@ export function createNoticeWiring(
     return window !== null && ctx.windows.has(window) ? window : undefined;
   }
 
+  // 그 탭이 focus를 가진 lophn 창에 보인다.
   function looking(target: NoticeTarget): boolean {
     const window = focusedWindow();
     if (window === undefined) return false;
@@ -262,7 +263,7 @@ export function createNoticeWiring(
   }
 
   // 누구의 어느 session인지. agent 이름·profile은 사람이 바꿀 수 있고 session 이름도 바뀌어서 알릴 때마다 읽는다.
-  async function who(session: string): Promise<UnseenSession | null> {
+  async function who(session: string): Promise<SessionWho | null> {
     const snapshots = await read("read", sessionSnapshotsList, {
       sessions: [session],
     });
@@ -333,14 +334,6 @@ export function createNoticeWiring(
     return excerpt(asked?.questions[0].question);
   }
 
-  function publishUnseen(sessions: UnseenSession[]): void {
-    for (const window of ctx.windows) {
-      if (!window.isDestroyed()) {
-        window.webContents.send(NOTICE_UNSEEN_CHANNEL, sessions);
-      }
-    }
-  }
-
   const sessions = createSessionNotices({
     who,
     bodyOf,
@@ -357,8 +350,38 @@ export function createNoticeWiring(
         lead: { kind: "avatar", profile: notice.who.profile },
         target: { kind: "session", session: notice.who.session },
       }),
-    publish: publishUnseen,
   });
+
+  // focus를 가진 lophn 창에 보이는 session과 고른 터미널. 앱 화면(view_session)은 싣지 않는다: 앱 화면이 쥔 session은
+  // 앱이 연 것이라 core가 못 본 끝을 세우지 않는다.
+  const presence = createPresenceReporter({
+    view() {
+      const window = focusedWindow();
+      if (window === undefined) return { focused: false, looking: [] };
+      const contents = window.webContents.id;
+      return {
+        focused: true,
+        looking: [
+          ...visibility.visibleIn(contents),
+          ...terminalRefs()
+            .filter((ref) => focus.focused(contents, ref))
+            .map(terminalSessionId),
+        ],
+      };
+    },
+    idleMs: () => powerMonitor.getSystemIdleTime() * 1000,
+    send(report) {
+      // headless는 사람이 앞에 없다.
+      if (ctx.headless.headless) return;
+      void ctx.coreInternal("memory", "presence", "report", report);
+    },
+    every(ms, fn) {
+      const timer = setInterval(fn, ms);
+      timer.unref?.();
+      return () => clearInterval(timer);
+    },
+  });
+  ctx.relay.ready.push(() => presence.report());
 
   ctx.relay.conditions.push({
     types: [
@@ -393,12 +416,14 @@ export function createNoticeWiring(
         : { kind: "app", app: posted.app },
     );
   });
-  ctx.windowHooks.created.push((window) =>
-    window.on("focus", () => sessions.recheck()),
-  );
+  ctx.windowHooks.created.push((window) => {
+    window.on("focus", () => presence.changed());
+    window.on("blur", () => presence.changed());
+  });
   ctx.windowHooks.closed.push(({ contentsId }) => {
     visibility.forget(contentsId);
     viewVisibility.forget(contentsId);
+    presence.changed();
   });
 
   const registry = ctx.overlays.overlayRegistry();
@@ -419,38 +444,22 @@ export function createNoticeWiring(
         parsed.value.visible,
       );
     }
-    if (parsed.value.visible) sessions.recheck();
+    presence.changed();
   });
   ctx.ipc.handle(NOTICE_OPEN_CHANNEL, (event: IpcEvent, input: unknown) => {
     if (!checkCaller(registry, event).ok) return;
     const parsed = checkInput(noticeTargetSchema, input);
     if (!parsed.ok) return;
     reveal(parsed.value);
-    // 이미 보이는 탭을 고르면 visible이 다시 오지 않고, 이미 focus를 가진 창이면 focus event도 없다.
-    sessions.recheck();
   });
-  ctx.ipc.handle(NOTICE_DISMISS_CHANNEL, (event: IpcEvent, input: unknown) => {
-    if (!checkCaller(registry, event).ok) return;
-    const parsed = checkInput(noticeTargetSchema, input);
-    if (!parsed.ok) return;
-    if (parsed.value.kind === "terminal") {
-      dismissTerminal(parsed.value.terminal_ref);
-    } else if (parsed.value.kind === "session") {
-      sessions.dismiss(parsed.value.session);
-    }
-  });
-  ctx.ipc.handle(NOTICE_UNSEEN_GET_CHANNEL, (event: IpcEvent) =>
-    checkCaller(registry, event).ok ? sessions.unseen() : [],
-  );
 
   return {
-    looking,
     show,
+    terminalFocusChanged: () => presence.changed(),
     stop() {
+      presence.stop();
       ctx.ipc.removeHandler(NOTICE_VISIBLE_CHANNEL);
       ctx.ipc.removeHandler(NOTICE_OPEN_CHANNEL);
-      ctx.ipc.removeHandler(NOTICE_DISMISS_CHANNEL);
-      ctx.ipc.removeHandler(NOTICE_UNSEEN_GET_CHANNEL);
     },
   };
 }

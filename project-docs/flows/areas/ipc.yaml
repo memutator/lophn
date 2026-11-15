@@ -391,10 +391,7 @@ links:
   - {entry: "ipc:shell:annotate-remove", flow: annotate-remove}
   - {entry: "ipc:shell:annotate-send", flow: annotate-send}
   # notice
-  - {entry: "ipc:shell:notice-visible", flow: notice-unseen}
-  - {entry: "ipc:shell:notice-unseen-get", flow: notice-unseen}
-  - {entry: "ipc:shell:notice-unseen", flow: notice-unseen}
-  - {entry: "ipc:shell:notice-dismiss", flow: notice-unseen}
+  - {entry: "ipc:shell:notice-visible", flow: notice-presence}
   - {entry: "ipc:shell:notice-open", flow: notice-reveal}
   - {entry: "ipc:shell:notice-reveal", flow: notice-reveal}
   - {entry: "ipc:shell:notice-toast", flow: notice-alert}

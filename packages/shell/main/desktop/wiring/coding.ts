@@ -233,8 +233,7 @@ export function register(ctx: ShellContext, appSessions: AppSessions): Coding {
     appSessions,
     (ref) =>
       terminals.runtimes().find((item) => item.terminal_ref === ref)?.project,
-    // 탭을 본 것과 같다: 못 본 표시만 끄고 상태는 그대로다.
-    (ref) => agent.tracker.tabFocused(ref),
+    () => terminals.runtimes().map((item) => item.terminal_ref),
   );
   // 탭 GUI는 tracker와 터미널 IPC가 선 뒤에 만든다. hook socket이 먼저 서므로 그 사이에 온 줄은 버린다.
   let tabGui: TabGui | undefined;
@@ -333,6 +332,7 @@ export function register(ctx: ShellContext, appSessions: AppSessions): Coding {
     shellInit: agent.shellInit,
     cliPath: agent.cliPath,
     agent: agent.tracker,
+    focusChanged: notice.terminalFocusChanged,
     tabName: agent.setTabName,
     agents: () =>
       terminals

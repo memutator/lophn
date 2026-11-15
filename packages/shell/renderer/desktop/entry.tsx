@@ -264,7 +264,7 @@ mount(
               <AnnotateApiProvider value={annotate}>
                 <BrowserOverlayProvider value={bridges.lophnShell ?? null}>
                   <ConversationProvider deps={conversation}>
-                    <EventsProvider client={events}>
+                    <EventsProvider client={events} terminals={terminal.store}>
                       <QuickPrefsProvider source={quickPrefs}>
                         <Desktop
                           source={core}

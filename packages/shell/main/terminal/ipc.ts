@@ -160,8 +160,10 @@ export function createTerminalIpc(deps: {
   shellInit?: () => string | null;
   /** 새 터미널 PATH에 더할 CLI 폴더. hook 길과 무관하게 줘서 hook socket이 꺼진 Windows도 `lophn`을 친다. */
   cliPath?: () => Record<string, string>;
-  /** 터미널 안 coding agent 상태. runtime 답에 agent를 싣고, 사람의 입력·focus를 알린다. */
-  agent?: Pick<AgentTracker, "decorate" | "humanInput" | "tabFocused">;
+  /** 터미널 안 coding agent 상태. runtime 답에 agent를 싣고, 사람의 입력을 알린다. */
+  agent?: Pick<AgentTracker, "decorate" | "humanInput">;
+  /** 고른 터미널 탭이 바뀌었다(보고 있는 것을 core에 알린다). */
+  focusChanged?: () => void;
   /** 탭 줄에 보이는 이름을 적는다. */
   tabName?: (terminalRef: string, name: string) => void;
   /** 지금 coding agent가 도는 터미널의 runtime(agent를 실은 것). */
@@ -412,10 +414,10 @@ export function createTerminalIpc(deps: {
       const value = parsed.value;
       if (value.focused) {
         deps.focus.focus(event.sender.id, value.terminal_ref, value.generation);
-        deps.agent?.tabFocused(value.terminal_ref);
       } else {
         deps.focus.blur(event.sender.id, value.terminal_ref);
       }
+      deps.focusChanged?.();
       return Promise.resolve({ ok: true, value: null });
     },
     tabName: (event, input) => {

@@ -1,5 +1,6 @@
 // 터미널 안에서 도는 coding agent를 따라가는 길을 앱에 올린다. harness hook의 socket, foreground
-// process argv와 hook으로 상태를 따라가는 tracker, 못 본 turn 끝·권한 물음의 알림(notice.ts가 어디에 띄울지 정한다)이다.
+// process argv와 hook으로 상태를 따라가는 tracker, turn 끝·권한 물음의 알림(notice.ts가 어디에 띄울지 정한다)과 core에 알리는 계기
+// (`terminal_sessions/signal`. 못 본 끝과 push는 core가 정한다)다.
 // socket은 browser bridge가 확정한 per-run 폴더의 hook endpoint에 선다. 어느 단계든 실패하면 hook 없이 뜬다(foreground만 쓴다).
 import { app } from "electron";
 import { randomBytes } from "node:crypto";
@@ -53,7 +54,7 @@ import type { NoticeWiring } from "./notice.ts";
 
 export function createAgentWiring(options: {
   ctx: ShellContext;
-  notice: Pick<NoticeWiring, "looking" | "show">;
+  notice: Pick<NoticeWiring, "show">;
   run: Promise<ShellRun | null>;
   terminals: Pick<Supervisor, "on" | "runtimes">;
   /** 사람 터미널이 harness를 처음 알아봤다. hook 설치를 물을 때다. */
@@ -161,7 +162,7 @@ export function createAgentWiring(options: {
   // 터미널이 끝나면 지운다.
   const tabNames = new Map<string, string>();
 
-  function notify(notice_: AgentNotice): boolean {
+  function notify(notice_: AgentNotice): void {
     const runtime = terminals
       .runtimes()
       .find((item) => item.terminal_ref === notice_.terminal_ref);
@@ -170,7 +171,7 @@ export function createAgentWiring(options: {
         ? HARNESS_ADAPTERS[notice_.harness as HarnessId].label
         : notice_.harness;
     const workspace = basename(runtime?.cwd_at_start ?? "");
-    return notice.show({
+    notice.show({
       kind: notice_.kind,
       agent: tabNames.get(notice_.terminal_ref) ?? label,
       workspace: workspace === "" ? undefined : workspace,
@@ -214,8 +215,17 @@ export function createAgentWiring(options: {
       const timer = setTimeout(fn, ms);
       return () => clearTimeout(timer);
     },
-    looking: (ref) => notice.looking({ kind: "terminal", terminal_ref: ref }),
     notify,
+    // 제목은 `reportToCore`와 같다: GUI view의 탭은 handle의 제목이 먼저고, 아니면 tracker의 제목·이름이다.
+    signal(info) {
+      const tab = guiTabs().find(
+        (item) => item.terminal_ref === info.terminal_ref,
+      );
+      void ctx.coreInternal("memory", "terminal_sessions", "signal", {
+        ...info,
+        title: (tab?.view === "gui" ? tab.title : null) ?? info.title,
+      });
+    },
     identified: options.identified,
     sessionSeen(info) {
       const runtime = terminals
@@ -272,10 +282,6 @@ export function createAgentWiring(options: {
       }
     },
   });
-  ctx.windowHooks.created.push((window) =>
-    window.on("focus", () => tracker.windowFocused()),
-  );
-
   // 공유 skill 사본은 lophn 기동 때, activation 뒤, 설정이 바뀔 때 맞춘다. 앱 view의 activation 신호는 앱을 가리지 않으므로
   // 공유한 앱이 아닌 activation에도 돌지만 사본이 같으면 아무것도 쓰지 않는다.
   const skillSync = createSkillSync({ runCli: options.cli, log: ctx.log });

@@ -6,7 +6,7 @@ import { activityDot, type AgentSessionActivity } from "./agent-session.tsx";
 export function lophnActivity(entry: SessionEntry): AgentSessionActivity {
   return {
     state: entry.state,
-    unseen: entry.unseen !== null,
+    unseen: entry.unseen,
     ended: entry.ended !== null,
   };
 }

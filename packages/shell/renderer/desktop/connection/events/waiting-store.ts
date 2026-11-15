@@ -16,6 +16,7 @@ import type {
 } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import type { z } from "zod";
 import type { TerminalApi, TerminalRuntime } from "../../../../ipc/terminal.ts";
+import { terminalSessionId } from "../../../../../protocol/lophn-agent/session-tag.ts";
 import type { EventClient } from "./client.ts";
 import {
   readActivationConsents,
@@ -26,6 +27,7 @@ import {
   readShareRequests,
 } from "./snapshots.ts";
 import { createValueStore, syncOnReady } from "./store.ts";
+import type { UnseenStore } from "./unseen-store.ts";
 
 type Workspace = z.infer<typeof workspaceOutputSchema>;
 
@@ -127,6 +129,7 @@ export function createWaitingStore(
   client: EventClient,
   now: () => string,
   terminals: Pick<TerminalApi, "onRuntime"> | null,
+  unseen: Pick<UnseenStore, "get" | "subscribe"> | null = null,
 ): WaitingStore {
   const state = createValueStore<WaitingState>({
     entries: [],
@@ -136,8 +139,9 @@ export function createWaitingStore(
     historyUnread: 0,
   });
   let entries = new Map<string, WaitingEntry>();
-  // main이 push하는 runtime에서만 안다. 창이 뜨기 전에 끝난 turn은 다음 push 때 보인다.
-  const finished = new Map<string, FinishedTerminal>();
+  // turn이 끝나 쉬는(idle) 터미널 agent. main이 push하는 runtime에서만 안다. 창이 뜨기 전에 끝난 turn은 다음 push 때
+  // 보인다. 그중 core에 못 본 끝(`term:<탭>`)이 있는 것이 Finished 줄이다.
+  const idle = new Map<string, FinishedTerminal>();
   // 안 읽은 줄 전부(휘발과 영구). 같은 key의 알림은 id가 같아 새 내용이 대신한다.
   let notices = new Map<string, Notice>();
   // session의 agent와 workspace는 SessionStarted와 snapshot에 실려 온다.
@@ -176,7 +180,11 @@ export function createWaitingStore(
     state.set({
       entries: list,
       count: list.length,
-      finished: [...finished.values()],
+      finished: [...idle.values()].filter(
+        (terminal) =>
+          unseen?.get().marks.has(terminalSessionId(terminal.terminalRef)) ??
+          false,
+      ),
       notices: [...notices.values()]
         .filter((one) => !one.persistent)
         .sort((a, b) =>
@@ -193,22 +201,22 @@ export function createWaitingStore(
     });
   }
 
-  // 탭 점이 finished인 때와 같다: turn이 끝났고(idle) 사람이 아직 보지 않았다. unseen은 main이 지운다.
-  function noteFinished(runtime: TerminalRuntime) {
+  // 탭 점이 finished인 때와 같다: turn이 끝났고(idle) 사람이 아직 보지 않았다(core의 unseen).
+  function noteIdle(runtime: TerminalRuntime) {
     const agent = runtime.agent;
     const ref = runtime.terminal_ref;
-    if (agent?.state === "idle" && agent.unseen) {
+    if (agent?.state === "idle") {
       const next = {
         terminalRef: ref,
         harness: agent.harness,
         title: runtime.tab_name ?? folderName(runtime.cwd_at_start),
       };
-      const before = finished.get(ref);
+      const before = idle.get(ref);
       if (before?.harness === next.harness && before.title === next.title) {
         return;
       }
-      finished.set(ref, next);
-    } else if (!finished.delete(ref)) return;
+      idle.set(ref, next);
+    } else if (!idle.delete(ref)) return;
     publish();
   }
 
@@ -470,14 +478,16 @@ export function createWaitingStore(
     subscribe: state.subscribe,
     start() {
       const stopRuntime = terminals?.onRuntime((runtime) => {
-        noteFinished(runtime);
+        noteIdle(runtime);
       });
+      const stopUnseen = unseen?.subscribe(publish);
       const stopEvents = client.subscribe(
         WAITING_CONDITION,
         syncOnReady({ read: readAll, replace, apply }),
       );
       return () => {
         stopRuntime?.();
+        stopUnseen?.();
         stopEvents();
       };
     },

@@ -34,7 +34,6 @@ test("foreground나 이름만 바뀐 agent push도 반영한다", () => {
   const hooked: TerminalAgent = {
     harness: "claude",
     state: "idle",
-    unseen: false,
     hooked: true,
     session: "s1",
   };

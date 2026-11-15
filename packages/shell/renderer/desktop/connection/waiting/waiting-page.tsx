@@ -2,9 +2,9 @@
 import { useEffect } from "react";
 
 import type { LophnNoticeApi } from "../../../../ipc/notice.ts";
-import { useWaiting } from "../events/hooks.tsx";
+import { useDismissUnseen, useWaiting } from "../events/hooks.tsx";
 import { runToastAction } from "../toasts/toast-actions.ts";
-import { useFinished } from "./finished.ts";
+import { unseenRefOf, useFinished } from "./finished.ts";
 import { useSettled } from "./settled.ts";
 import { WaitingPanel } from "./waiting-panel.tsx";
 
@@ -22,6 +22,7 @@ export function WaitingPage({
 }) {
   const { entries, notices, historyUnread } = useWaiting();
   const finished = useFinished();
+  const dismissUnseen = useDismissUnseen();
   const settled = useSettled(entries);
   const { clear } = settled;
   useEffect(() => {
@@ -37,7 +38,10 @@ export function WaitingPage({
       historyUnread={historyUnread}
       onOpenSession={onOpenSession}
       onShowFinished={(target) => notice()?.open(target)}
-      onDismissFinished={(target) => void notice()?.dismiss(target)}
+      onDismissFinished={(target) => {
+        const ref = unseenRefOf(target);
+        if (ref !== null) dismissUnseen(ref);
+      }}
       onOpenApp={(app) =>
         runToastAction({ kind: "session", session: null, app })
       }

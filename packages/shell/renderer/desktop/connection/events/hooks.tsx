@@ -8,8 +8,8 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import type { LophnNoticeApi } from "../../../../ipc/notice.ts";
 import type { TerminalApi } from "../../../../ipc/terminal.ts";
+import { TERMINAL_SESSION_PREFIX } from "../../../../../protocol/lophn-agent/session-tag.ts";
 import type { EventClient } from "./client.ts";
 import {
   type AcpUpdatesState,
@@ -17,12 +17,14 @@ import {
   NO_ACP_UPDATES,
 } from "./acp-updates-store.ts";
 import { createSessionsStore, type SessionsState } from "./sessions-store.ts";
+import { createUnseenStore, type UnseenState } from "./unseen-store.ts";
 import { createWaitingStore, type WaitingState } from "./waiting-store.ts";
 
 interface Stores {
   readonly client: EventClient;
   readonly waiting: ReturnType<typeof createWaitingStore>;
   readonly sessions: ReturnType<typeof createSessionsStore>;
+  readonly unseen: ReturnType<typeof createUnseenStore>;
   readonly acpUpdates: ReturnType<typeof createAcpUpdatesStore>;
 }
 
@@ -34,34 +36,51 @@ function useStores(): Stores {
   return stores;
 }
 
+/** 창의 터미널 탭 store. 탭 점이 쓰도록 못 본 터미널(`term:<탭>`의 탭)을 넣어 준다. */
+export interface UnseenTerminals {
+  noteUnseen(terminalRefs: ReadonlySet<string>): void;
+}
+
 /** 창마다 한 번 마운트한다. */
 export function EventsProvider({
   client,
+  terminals,
   children,
 }: {
   client: EventClient;
+  terminals?: UnseenTerminals;
   children: ReactNode;
 }) {
-  const stores = useMemo<Stores>(
-    () => ({
+  const stores = useMemo<Stores>(() => {
+    const unseen = createUnseenStore(client);
+    return {
       client,
       waiting: createWaitingStore(
         client,
         () => new Date().toISOString(),
         (globalThis as { lophnTerminal?: TerminalApi }).lophnTerminal ?? null,
+        unseen,
       ),
-      sessions: createSessionsStore(
-        client,
-        (globalThis as { lophnNotice?: LophnNoticeApi }).lophnNotice ?? null,
-      ),
+      sessions: createSessionsStore(client, unseen),
+      unseen,
       acpUpdates: createAcpUpdatesStore(client),
-    }),
-    [client],
-  );
+    };
+  }, [client]);
   useEffect(() => {
-    const stops = [stores.waiting.start(), stores.sessions.start()];
+    const stops = [
+      stores.waiting.start(),
+      stores.sessions.start(),
+      stores.unseen.start(),
+    ];
     return () => stops.forEach((stop) => stop());
   }, [stores]);
+  useEffect(() => {
+    if (terminals === undefined) return;
+    const note = () =>
+      terminals.noteUnseen(unseenTerminalRefs(stores.unseen.get()));
+    note();
+    return stores.unseen.subscribe(note);
+  }, [stores, terminals]);
   return (
     <EventsContext.Provider value={stores}>{children}</EventsContext.Provider>
   );
@@ -75,6 +94,26 @@ export function useWaiting(): WaitingState {
 export function useSessions(): SessionsState {
   const { sessions } = useStores();
   return useSyncExternalStore(sessions.subscribe, sessions.get);
+}
+
+export function useUnseen(): UnseenState {
+  const { unseen } = useStores();
+  return useSyncExternalStore(unseen.subscribe, unseen.get);
+}
+
+/** 못 본 끝을 열지 않고 지운다(알림 panel의 Finished 줄 [x]). */
+export function useDismissUnseen(): (session: string) => void {
+  return useStores().unseen.dismiss;
+}
+
+function unseenTerminalRefs(state: UnseenState): ReadonlySet<string> {
+  const refs = new Set<string>();
+  for (const session of state.marks.keys()) {
+    if (session.startsWith(TERMINAL_SESSION_PREFIX)) {
+      refs.add(session.slice(TERMINAL_SESSION_PREFIX.length));
+    }
+  }
+  return refs;
 }
 
 export function useAcpUpdates(session: string): AcpUpdatesState {

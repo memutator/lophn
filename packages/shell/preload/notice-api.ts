@@ -2,14 +2,10 @@
 import {
   type LophnNoticeApi,
   type NoticeReveal,
-  NOTICE_DISMISS_CHANNEL,
   NOTICE_OPEN_CHANNEL,
   NOTICE_REVEAL_CHANNEL,
   NOTICE_TOAST_CHANNEL,
-  NOTICE_UNSEEN_CHANNEL,
-  NOTICE_UNSEEN_GET_CHANNEL,
   NOTICE_VISIBLE_CHANNEL,
-  type UnseenSession,
 } from "../ipc/notice.ts";
 
 interface NoticeTransport {
@@ -48,21 +44,6 @@ export function createNoticeApi(transport: NoticeTransport): LophnNoticeApi {
     open: async (target) => {
       await transport.invoke(NOTICE_OPEN_CHANNEL, target).catch(() => {});
     },
-    dismiss: async (target) => {
-      await transport.invoke(NOTICE_DISMISS_CHANNEL, target).catch(() => {});
-    },
-    unseen: async () => {
-      const sessions = await transport
-        .invoke(NOTICE_UNSEEN_GET_CHANNEL)
-        .catch(() => []);
-      return Array.isArray(sessions) ? (sessions as UnseenSession[]) : [];
-    },
-    onUnseen: (listener) =>
-      listen(
-        NOTICE_UNSEEN_CHANNEL,
-        (payload): payload is UnseenSession[] => Array.isArray(payload),
-        listener,
-      ),
     onToast: (listener) =>
       listen(
         NOTICE_TOAST_CHANNEL,

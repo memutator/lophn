@@ -233,8 +233,6 @@ export type TerminalAgent = {
   harness: string;
   /** 첫 hook 전이거나 사람이 Esc·Ctrl-C로 끊은 뒤는 unknown이다. */
   state: "running" | "waiting" | "idle" | "unknown";
-  /** 사람이 그 탭을 보지 않는 사이 turn이 끝났거나 물음이 왔다. 그 탭을 고르면 지워진다. */
-  unseen: boolean;
   /** 이 harness의 hook을 한 번이라도 들었다. 끊어서 state가 unknown이 돼도 남는다. */
   hooked: boolean;
   /** 이 harness의 TUI가 PTY foreground에서 돈다(hook만 들은 것이 아니다). GUI가 띄운 CLI의 hook은 이것이 없다. */

@@ -1,8 +1,8 @@
-// main이 정한 알림(toast)과 Agent 탭의 못 본 상태를 창에 잇는 경계. 터미널 탭은 terminal 채널의
-// focus·reveal을 그대로 쓰고 여기는 lophn Agent session과 알림 toast만 다룬다.
+// main이 정한 알림(toast)과 보이는 Agent 탭을 창에 잇는 경계. 터미널 탭은 terminal 채널의
+// focus·reveal을 그대로 쓰고 여기는 lophn Agent session과 알림 toast만 다룬다. 못 본 turn 끝은 core가 든다(`unseen`).
 // main·preload·renderer가 함께 부르므로 import는 zod와 type뿐이다.
 import { z } from "zod";
-import type { AvatarFace, OverlayLead } from "./overlay.ts";
+import type { OverlayLead } from "./overlay.ts";
 
 const ULID = "[0-7][0-9a-hjkmnp-tv-z]{25}";
 const session = z.string().regex(new RegExp(`^ses_${ULID}$`));
@@ -40,16 +40,6 @@ export const noticeVisibleSchema = z.union([
 export type NoticeTarget = z.infer<typeof noticeTargetSchema>;
 export type NoticeVisible = z.infer<typeof noticeVisibleSchema>;
 
-/** 못 본 turn 끝이 있는 lophn Agent session. 알림 panel의 Finished 줄이 그릴 것까지 main이 읽어 함께 보낸다. */
-export type UnseenSession = {
-  session: string;
-  /** agent의 이름과 얼굴(알림을 낼 때 읽은 값). */
-  agent: string;
-  profile: AvatarFace;
-  /** 그 Agent 탭의 session 이름. 아직 이름이 없으면 없다. */
-  title?: string;
-};
-
 /** 창이 focus를 가졌는데 그 탭이 안 보일 때 main이 그 창에 띄우라고 보내는 toast. */
 export type NoticeToast = {
   id: string;
@@ -73,12 +63,6 @@ export interface LophnNoticeApi {
   visible(input: NoticeVisible): Promise<void>;
   /** toast를 눌렀다. 그 탭이 있는 창을 앞으로 가져오고 탭을 고르는 것은 main이 한다. */
   open(target: NoticeTarget): Promise<void>;
-  /** 알림 panel의 Finished 줄을 열지 않고 지운다. 그 탭을 본 것과 같게 못 본 표시만 끈다. */
-  dismiss(target: NoticeTarget): Promise<void>;
-  /** 지금 못 본 turn 끝이 있는 session. */
-  unseen(): Promise<UnseenSession[]>;
-  /** 못 본 session 목록이 바뀔 때마다 통째로 온다. 구독 해지를 돌려준다. */
-  onUnseen(listener: (sessions: UnseenSession[]) => void): () => void;
   onToast(listener: (toast: NoticeToast) => void): () => void;
   /** main이 그 Agent session 탭이나 앱 공간을 열라고 보낸다(알림 누름). */
   onReveal(listener: (reveal: NoticeReveal) => void): () => void;
@@ -86,8 +70,5 @@ export interface LophnNoticeApi {
 
 export const NOTICE_VISIBLE_CHANNEL = "shell:notice-visible";
 export const NOTICE_OPEN_CHANNEL = "shell:notice-open";
-export const NOTICE_DISMISS_CHANNEL = "shell:notice-dismiss";
-export const NOTICE_UNSEEN_GET_CHANNEL = "shell:notice-unseen-get";
-export const NOTICE_UNSEEN_CHANNEL = "shell:notice-unseen";
 export const NOTICE_TOAST_CHANNEL = "shell:notice-toast";
 export const NOTICE_REVEAL_CHANNEL = "shell:notice-reveal";

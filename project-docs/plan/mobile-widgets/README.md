@@ -37,6 +37,8 @@
   - 옛 폰은 `request`를 받지 않는다. core는 폰이 `hello.capabilities`에 적은 kind만 묻는다. 그래서 `REMOTE_PROTOCOL_VERSION`을 올리지 않는다.
 - worker는 `sonnet-high`로 띄운다. 어려운 task(`mobile-widget-spike`, `mobile-widget-native`, `mobile-shortcut-native`, `mobile-phone-link`)는 opus high다(planner). brief 머리에 적었다.
 
+- (lead, spike 판정 2026-11-16) 가정대로 간다: 자체 Kotlin module, JS 없이 cache로 그리기, headless JS로 새로 하기, configure와 placeholder 둘 다, 아이콘은 JS에서 그림으로. 바뀐 것: 새로 하기는 broadcast 안에서 ReactHost를 띄운다(service가 아니다), configure는 답을 기다린다, pin은 id를 돌려주지 못해 native가 binding을 적는다, shortcut은 위젯 module에 같이 둔다. 받아들인 것(고칠 수 없다): 강제 종료된 앱의 위젯은 누를 때까지 회색으로 가려진다, Pixel Launcher는 지워진 앱 아이콘에 자기 글을 보인다. 숫자와 코드는 `reports/mobile-program/widget-spike.md`.
+
 ## task
 
 | wave | id | 한 줄 |

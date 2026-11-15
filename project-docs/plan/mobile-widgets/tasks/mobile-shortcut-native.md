@@ -45,3 +45,12 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: 아이콘 그림 길과 세 모양의 결과, 더한 의존성과 판, launcher마다 다를 수 있는 동작(본 것과 못 본 것), 그림 목록.
+
+## lead가 더함 (spike 판정 `reports/mobile-program/widget-spike.md`, 2026-11-16)
+
+가정은 맞고 다섯 곳이 바뀐다. 보고서의 "Different from the assumptions", "Changes for the four native briefs", "Kotlin worth moving"를 먼저 읽는다. 이 brief의 본문과 다르면 아래가 맞다. spike의 코드는 `/home/pyosechang/projects/lophn-worktrees/spike-widgets`(branch `spike/widgets`)에 있다(읽기만).
+
+- 아이콘은 화면 밖에 mount한 `<Svg>`의 `toDataURL` 192 px로 만든다(svg는 `parse`, lucide는 `import * as Lucide`와 `G` translate, png·webp는 그대로). 그 뒤 `createWithAdaptiveBitmap`(108/72 여백)으로 launcher 모양을 채운다. mount된 RN tree가 필요하니 앱이 앞에 있을 때 한다.
+- 이미 pin된 id로 다시 부르면 창 없이 바로 true가 온다. `pinnedIds()`를 먼저 보고 "Add to Home screen" 줄을 감추거나 이미 있다고 말한다.
+- disable한 아이콘을 누를 때의 글은 launcher가 정한다(Pixel Launcher는 우리 글이 아니라 "Shortcut isn't available"을 보인다). 글을 test하지 않고 본 것을 보고한다.
+- 둘째 Kotlin module을 만들지 않고 `lophn-widgets` module에 넣는다(`mobile-widget-native`가 자리를 만든다).

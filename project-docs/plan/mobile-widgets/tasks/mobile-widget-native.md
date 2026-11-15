@@ -47,3 +47,15 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: 더한 의존성과 판, manifest에 더한 것, 앱이 죽은 채 새로 하기의 걸린 시간(3번), 놓기 길(configure, placeholder, `requestPin`)마다 된 것, 그림 목록, dev build를 짓는 데 바뀐 것.
+
+## lead가 더함 (spike 판정 `reports/mobile-program/widget-spike.md`, 2026-11-16)
+
+가정은 맞고 다섯 곳이 바뀐다. 보고서의 "Different from the assumptions", "Changes for the four native briefs", "Kotlin worth moving"를 먼저 읽는다. 이 brief의 본문과 다르면 아래가 맞다. spike의 코드는 `/home/pyosechang/projects/lophn-worktrees/spike-widgets`(branch `spike/widgets`)에 있다(읽기만).
+
+- 배경 새로 하기는 RN의 `HeadlessJsTaskService`가 아니라 위젯 broadcast 안에서 `goAsync` 아래 `ReactHost`를 그 process에서 띄워 `HeadlessJsTaskContext.startTask`로 돈다(Android 12 이상이 배경에서 service 시작을 거절한다). service, `WAKE_LOCK`, WorkManager가 없다. provider는 `exported="false"`.
+- 두 provider 모두 `widgetFeatures="reconfigurable"`이고 `configuration_optional`을 주지 않는다(launcher가 늘 고르는 화면을 연다). configure activity는 RN 화면의 답을 기다린다(hold). 답 없이 다시 resume되면 OK로 끝낸다. module 함수 `finishConfigure(id, ok)`를 둔다.
+- `requestPin`은 boolean(창을 띄웠는지)만 돌려준다. 취소하면 아무것도 오지 않아 id를 약속할 수 없다. binding은 native의 callback receiver(mutable PendingIntent)가 extras로 적는다.
+- `onUpdate`가 provider마다 와서 연달아 두세 번 온다. 한 번의 새로 하기로 합친다. progress 색은 API 31 이상은 `setColorStateList`, 아래는 tone마다 layout.
+- 죽은 채 새로 하기는 release build(`assembleRelease`)에서 확인한다(dev client로는 안 된다). `am force-stop` 뒤에는 Android가 위젯을 회색 card로 가리고 한 번 누를 때까지 아무것도 새로 하지 않는다. 고칠 수 없는 Android의 규칙이니 결함이 아니라 본 것으로 적는다.
+- 이 launcher의 2x2 칸은 세로에서 약 172x224 dp로 wireframe의 130x130보다 크다. layout은 위에 붙이고 넘치면 자른다.
+- shortcut(pin, disable, enable)을 이 module에 같이 둔다(Kotlin module 하나, prebuild 한 번). `mobile-shortcut-native`는 둘째 module을 만들지 않는다.

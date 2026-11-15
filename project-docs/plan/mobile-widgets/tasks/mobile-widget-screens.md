@@ -39,3 +39,9 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: 더한 i18n key 목록, 넘길 줄 목록, 그림 목록, `requestPin`이 id를 준 경우와 안 준 경우에 본 것.
+
+## lead가 더함 (spike 판정 `reports/mobile-program/widget-spike.md`, 2026-11-16)
+
+가정은 맞고 다섯 곳이 바뀐다. 보고서의 "Different from the assumptions", "Changes for the four native briefs", "Kotlin worth moving"를 먼저 읽는다. 이 brief의 본문과 다르면 아래가 맞다. spike의 코드는 `/home/pyosechang/projects/lophn-worktrees/spike-widgets`(branch `spike/widgets`)에 있다(읽기만).
+
+- "Choose a widget"이 `from=configure`로 열렸으면 고르거나 닫을 때 `finishConfigure(id, true|false)`를 부른다(native가 앱을 뒤로 보낸다). 아니면 `bindWidget`과 다시 그리기만 한다. 앱 menu의 "Add widget"은 `requestPin`이 true면 더 보일 것이 없다(위젯이 묶인 채 나타난다).

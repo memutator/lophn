@@ -44,3 +44,9 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: cache file 예 하나(ok, stale, gone 세 위젯), `WidgetNative`의 모양(native task가 그대로 구현한다), 더한 i18n key 목록.
+
+## lead가 더함 (spike 판정 `reports/mobile-program/widget-spike.md`, 2026-11-16)
+
+가정은 맞고 다섯 곳이 바뀐다. 보고서의 "Different from the assumptions", "Changes for the four native briefs", "Kotlin worth moving"를 먼저 읽는다. 이 brief의 본문과 다르면 아래가 맞다. spike의 코드는 `/home/pyosechang/projects/lophn-worktrees/spike-widgets`(branch `spike/widgets`)에 있다(읽기만).
+
+- 배경 새로 하기 함수는 끝나면 native에 끝났다고 알리고(task의 promise가 풀린다), 겹친 호출을 하나로 합치고, 앱이 떠 있으면 살아 있는 연결을 쓰고 아니면 한 번 붙어 한 번 부르고 닫는다(주소 중복을 걷고 컴퓨터마다 8초쯤). React tree가 필요한 것을 import하지 않는다(SecureStore는 headless에서 된다). 꼬리의 시각은 마지막으로 가져온 시각이다. 죽은 process에서 약 1초가 걸리고 그 가운데 0.7초가 Noise handshake다.

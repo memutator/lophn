@@ -67,6 +67,7 @@ import type { AppViews } from "../../../apps/views/mod.ts";
 import type { Queue } from "../../../lophn-agent/run-loop/queue.ts";
 import type { HarnessHold, HostQueue } from "../../../host-queue/mod.ts";
 import type { CodingRelay } from "../../../coding-relay/mod.ts";
+import type { TerminalView } from "../../../terminal-view/mod.ts";
 import type { SecretStore } from "../../../secrets/mod.ts";
 import type { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
 import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
@@ -272,6 +273,11 @@ type Late = {
   hostLink: HostLink;
   // coding-relay wiring이 낸다. host가 올린 터미널 coding agent 목록과 GUI 대화 사본이다. acp·session-lifecycle·터미널 보기가 쓴다.
   codingRelay: CodingRelay;
+  // terminal-view wiring이 낸다. 폰이 보는 coding session 터미널의 최신 화면과 보는 principal의 lease다.
+  terminalView: TerminalView;
+  // 폰이 터미널에 글을 칠 수 있는 principal인지 정한다. 기기마다의 허락을 아는 쪽이 채우고, 채워지지 않았으면 입력은 늘 forbidden이다.
+  // `ctx.peek`로만 읽는다.
+  terminalInputGrant: (principal: string) => boolean;
   // harness wiring이 낸다. host-queue wiring이 `tabs/open`의 tui에서 부른다(판정과 hold).
   harnessHold: HarnessHold;
   // approvals가 낸다. 답 없는 질문의 기다림(메모리).
@@ -345,6 +351,8 @@ const LATE_KEYS: Record<keyof Late, true> = {
   hostQueue: true,
   hostLink: true,
   codingRelay: true,
+  terminalView: true,
+  terminalInputGrant: true,
   harnessHold: true,
   questionWaits: true,
   liveTurns: true,

@@ -1,5 +1,6 @@
 import { acpDraft, acpSend, acpSnapshot } from "./acp/routes.ts";
 import { CODING_RELAY_ROUTES } from "./coding-agent/relay.ts";
+import { TERMINAL_VIEW_ROUTES } from "./coding-agent/terminal-view.ts";
 import { eventsList } from "./events/events.ts";
 import { sessionSnapshotsList } from "./events/snapshot.ts";
 import {
@@ -28,6 +29,7 @@ export const ROUTES = [
   acpDraft,
   acpSend,
   ...CODING_RELAY_ROUTES,
+  ...TERMINAL_VIEW_ROUTES,
   ...BLOB_ROUTES,
   ...DIAGNOSTIC_ROUTES,
   ...SETTINGS_FILE_ROUTES,

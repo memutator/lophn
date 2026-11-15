@@ -188,6 +188,15 @@ const stateChanged = defineTransientEvent("StateChanged", {
   }),
 });
 
+// 보는 중인 터미널의 화면이 바뀐 뒤 낸다. 내용은 싣지 않고 폰이 `terminal_view/snapshot`을 다시 읽는다. subject는 `terminal:<터미널 탭 참조>`다.
+const terminalScreenChanged = defineTransientEvent("TerminalScreenChanged", {
+  subject: z.string().regex(/^terminal:.+$/),
+  payload: z.strictObject({
+    terminal: z.string().min(1),
+    seq: z.number().int().min(0),
+  }),
+});
+
 export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(acpUpdated).extend({
     session: idSchema("ses"),
@@ -206,4 +215,5 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(appEventPublished),
   transientEventEnvelopeSchema(appViewEvent),
   transientEventEnvelopeSchema(stateChanged),
+  transientEventEnvelopeSchema(terminalScreenChanged),
 ]);

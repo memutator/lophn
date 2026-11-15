@@ -80,6 +80,10 @@ modules:
     boundary: core
     notes: shell main(host)이 `/host-link`로 올린 터미널 coding agent 보고와 GUI handle의 ACP 상태 사본(redaction, 접기, keyed 입력 dedupe, 끊김 뒤 비우기). 다른 module을 import하지 않고 base와 protocol만 쓴다. host 요청·Bus·redactor는 ports.ts이고 wiring/coding-relay.ts가 끼운다.
 
+  - path: packages/core/terminal-view
+    boundary: core
+    notes: 폰이 보는 coding session 터미널의 최신 화면(메모리), 보는 principal의 lease(30초), 입력 key 기억. 다른 module을 import하지 않고 base와 protocol만 쓴다. host 요청·Bus·입력 허락은 view.ts의 deps이고 wiring/terminal-view.ts가 끼운다.
+
   - path: packages/core/projects
     boundary: projects
 

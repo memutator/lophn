@@ -84,6 +84,7 @@ import { serverWiring } from "./wiring/server.ts";
 import { appCallsWiring } from "./wiring/app-calls.ts";
 import { sessionLifecycleWiring } from "./wiring/session-lifecycle.ts";
 import { codingRelayWiring } from "./wiring/coding-relay.ts";
+import { terminalViewWiring } from "./wiring/terminal-view.ts";
 import { sessionSnapshotsWiring } from "./wiring/session-snapshots.ts";
 import { settingDeclarationsWiring } from "./wiring/setting-declarations.ts";
 import { agentHandleWiring } from "./wiring/agent-handle.ts";
@@ -210,6 +211,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   sessionLifecycleWiring,
   attentionWiring,
   codingRelayWiring,
+  terminalViewWiring,
   appCallsWiring,
   acpWiring,
   idleWiring,

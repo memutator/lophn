@@ -1736,6 +1736,136 @@ flows:
     risk: [data-loss]
     docs: [architecture/harness-gui.md, architecture/acp.md]
 
+  # ---- 폰의 raw 터미널 화면: host가 밀어 올린 최신 화면을 core가 들고 폰이 읽는다 ----
+  - id: terminal-view-screen
+    title: core가 보는 중인 터미널의 최신 화면을 메모리에 두고 바뀌었다고 알린다
+    actor: shell
+    entries: [system:terminal-view-screen]
+    uses: [system:host-link]
+    boundary: [host-queue-interface]
+    code:
+      - packages/core/terminal-view/view.ts
+      - packages/core/main/daemon/wiring/terminal-view.ts
+    steps:
+      - "host가 terminal_screen frame을 올리면 그 터미널에 lease가 있고 coding session 목록에 있을 때만 최신 화면으로 바꾼다(옛 것을 대신한다). 그렇지 않으면 버린다"
+      - "화면을 두면 TerminalScreenChanged {terminal, seq}를 subject terminal:<ref>로 Bus에 낸다. 화면 내용은 싣지 않고 폰이 terminal_view/snapshot을 다시 읽는다"
+      - "터미널이 coding session 목록에서 빠지면(연결이 닫히고 유예가 지나 목록이 비는 것 포함) 그 터미널의 화면과 lease와 입력 key를 지운다"
+      - "마지막 lease가 끝나면 화면을 지운다. lease는 5초마다 기한(30초)을 본다"
+    outcomes:
+      - id: changed
+        observe: [event:TerminalScreenChanged]
+      - id: dropped
+        when: "lease가 없거나 목록에 없는 터미널의 화면이다"
+    crosses_process: false
+    risk: [secret]
+    docs: [architecture/remote.md, architecture/terminal-agent.md]
+
+  - id: terminal-view-watch
+    title: 폰이 coding session 터미널을 보겠다고 lease를 켜고 갱신하고 끈다
+    actor: person
+    entries: [route:terminal_view/watch]
+    uses: [system:host-link]
+    boundary: [host-queue-interface]
+    code:
+      - packages/core/terminal-view/view.ts
+      - packages/core/main/daemon/wiring/terminal-view.ts
+      - packages/protocol/coding-agent/terminal-view.ts
+    steps:
+      - "on이면 이 principal과 터미널의 lease를 30초로 만들거나 갱신한다(폰이 10초마다 같은 호출을 한다). tail은 viewport 위 scrollback 줄 수로 0~500이고 없으면 100이다. 터미널이 coding session 목록에 없으면 not_found다"
+      - "터미널마다 lease가 하나라도 있으면 host에 terminal_stream {on: true, tail: lease들의 tail 최대}를 보낸다. host가 아는 값이 같으면 다시 보내지 않는다. 진행 중이면 끝난 뒤 다시 맞춘다"
+      - "host에 닿지 않아도 lease는 남고 호출은 unavailable이다. 연결이 다시 열리면 살아 있는 lease마다 terminal_stream을 다시 보낸다"
+      - "off이거나 기한이 지나 마지막 lease가 끝나면 terminal_stream {on: false}를 보낸다. host의 not_found·invalid_input·conflict는 그대로, 그 밖의 code는 unavailable로 준다"
+    outcomes:
+      - id: watching
+        observe: [request:shell, response]
+      - id: stopped
+        when: "on이 false이거나 lease 기한이 지났다"
+        observe: [request:shell, response]
+      - id: not_found
+        code: not_found
+        when: "터미널이 coding session 목록에 없다, 또는 host가 그 터미널을 못 찾았다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "연결이 없거나 답 전에 닫혔거나 기한(5초)이 지났다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/remote.md, architecture/terminal-agent.md]
+
+  - id: terminal-view-snapshot
+    title: 폰이 보는 중인 터미널의 지금 화면과 입력 가능 여부를 읽는다
+    actor: person
+    entries: [route:terminal_view/snapshot]
+    boundary: [host-queue-interface]
+    code:
+      - packages/core/terminal-view/view.ts
+      - packages/core/main/daemon/wiring/terminal-view.ts
+      - packages/protocol/coding-agent/terminal-view.ts
+    steps:
+      - "화면은 host가 올린 최신 것 그대로다(generation, seq, columns, rows, cursor, scrollback, lines). input은 부른 principal이 이 터미널에 칠 수 있는가(terminalInputGrant)이고 그 칸이 채워지지 않았으면 false다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "터미널이 coding session 목록에 없다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "아직 화면이 오지 않았다(watch 직후)"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+    crosses_process: false
+    risk: [secret]
+    docs: [architecture/remote.md, architecture/terminal-agent.md]
+
+  - id: terminal-view-input
+    title: 입력을 허락받은 기기만 폰에서 coding session 터미널에 글을 친다
+    actor: person
+    entries: [route:terminal_view/input]
+    uses: [system:host-link]
+    boundary: [host-queue-interface]
+    code:
+      - packages/core/terminal-view/view.ts
+      - packages/core/main/daemon/wiring/terminal-view.ts
+      - packages/protocol/coding-agent/terminal-view.ts
+    steps:
+      - "terminalInputGrant(principal)이 true를 돌려준 principal만 부를 수 있다. 칸이 채워지지 않았거나 false면 forbidden이고 host에 아무것도 가지 않는다"
+      - "터미널이 coding session 목록에 없으면 not_found다. 같은 key는 터미널마다 200개를 기억해 다시 보내면 host에 가지 않고 처음 답을 준다. 실패한 시도는 잊는다"
+      - "연결로 terminal_input {terminal_ref, text}를 보내고 host의 답이 성공이면 성공이다. host의 not_found·invalid_input·conflict는 그대로, 그 밖의 code는 unavailable로 준다"
+    outcomes:
+      - id: sent
+        observe: [request:shell, response]
+      - id: deduplicated
+        when: "같은 key를 다시 보냈다(host에 다시 가지 않는다)"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "입력을 허락받지 않은 principal이다, 또는 사람 자격(actor user)이 아니다"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "터미널이 coding session 목록에 없다, 또는 host가 그 터미널을 못 찾았다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "연결이 없거나 답 전에 닫혔거나 기한(5초)이 지났다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "host가 입력을 거절했다"
+        observe: [response]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/remote.md, architecture/terminal-agent.md]
+
   # ---- lophn CLI의 local 명령: 감지, hook 설치, skill 사본 ----
   - id: harness-detect
     title: 이 컴퓨터의 harness 실행 파일을 찾는다(refresh면 version도 읽는다)

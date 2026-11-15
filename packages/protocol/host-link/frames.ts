@@ -3,6 +3,10 @@ import { err, ok, type Result } from "../../base/mod.ts";
 import { acpStateSchema, acpUpdateSchema } from "../acp/state.ts";
 import { idSchema } from "../base/ids.ts";
 import {
+  type TerminalLine,
+  terminalLineSchema,
+} from "../coding-agent/terminal-view.ts";
+import {
   browserTabStateSchema,
   type HostRequest,
   hostToolOutputSchema,
@@ -25,31 +29,8 @@ export const HOST_LINK_CLOSE_INVALID = 1008;
 
 const LIST_MAX = 64;
 
-// `#rrggbb`이거나 xterm 256색 palette 번호(`p0`~`p255`)다.
-const terminalColorSchema = z
-  .string()
-  .regex(/^(#[0-9a-fA-F]{6}|p(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9]))$/);
-
-// 같은 모양이 이어지는 글 한 토막이다. 없는 칸은 기본(색 없음, 꺼짐)이다.
-const terminalRunSchema = z.strictObject({
-  text: z.string(),
-  fg: terminalColorSchema.optional(),
-  bg: terminalColorSchema.optional(),
-  bold: z.boolean().optional(),
-  dim: z.boolean().optional(),
-  italic: z.boolean().optional(),
-  underline: z.boolean().optional(),
-  inverse: z.boolean().optional(),
-  // 두 칸을 차지하는 글자(CJK, emoji)의 토막이다.
-  wide: z.boolean().optional(),
-});
-
-export const terminalLineSchema = z.strictObject({
-  runs: z.array(terminalRunSchema),
-  // 이 줄이 다음 줄로 이어진다(자동 줄바꿈). 폰이 줄을 다시 접을 때 쓴다.
-  wrapped: z.boolean(),
-});
-export type TerminalLine = z.infer<typeof terminalLineSchema>;
+// 줄 모양은 폰이 읽는 route(`coding-agent/terminal-view.ts`)와 같아 거기서 가져온다(host-link가 coding-agent를 import하는 쪽이 순환이 아니다).
+export { type TerminalLine, terminalLineSchema };
 
 const visibleFields = {
   // host가 지금 그리는 workspace들이다. 그 workspace의 탭 요청만 이 host에 간다.

@@ -29,4 +29,5 @@ export {
 } from "./hook-signal.ts";
 export { ROUTES } from "./registry.ts";
 export * from "./relay.ts";
+export * from "./terminal-view.ts";
 export * from "./terminal-hook.ts";

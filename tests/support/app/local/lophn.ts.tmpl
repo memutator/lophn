@@ -1,0 +1,21 @@
+import { defineApp } from "@lophn/declaration";
+
+// build와 load 검사를 보는 작은 앱이다: 표 하나(text id), operation 셋(read, write, external).
+export default defineApp({
+  name: "Local items",
+  description: "Keep a short list of items on the phone.",
+  screens: [],
+  operations: [
+    { name: "list_items", title: "List items", effect: "read" },
+    { name: "add_item", title: "Add item", effect: "write" },
+    { name: "send_report", title: "Send report", effect: "external" },
+  ],
+  commands: [],
+  permissions: [],
+  app_connections: [],
+  sdk_dependencies: [
+    { name: "@lophn/declaration", version: "4.5.1" },
+    { name: "@lophn/cap-tool", version: "2.2.0" },
+    { name: "@lophn/cap-store", version: "2.0.0" },
+  ],
+});

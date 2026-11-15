@@ -36,6 +36,7 @@ export * from "./package-routes.ts";
 export * from "./previews.ts";
 export * from "./views.ts";
 export * from "./releases.ts";
+export * from "./phone-backend.ts";
 export * from "./annotation.ts";
 export * from "./calls/mod.ts";
 export * from "./activation/mod.ts";

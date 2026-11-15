@@ -340,8 +340,8 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 | 4 | `mobile-push` | core의 주의(attention), push 보내기, desktop의 보고가 합쳐졌다. 폰 쪽 둘은 `mobile-app` land 뒤. 조사 `reports/mobile-program/push-survey.md`. 실제 배달에는 사람의 Expo·Firebase 계정이 든다 |
 | 5, 9 | `mobile-coding-agents` | 진행 중. core의 `/host-link`가 합쳐졌다. 조사 `reports/mobile-program/coding-agent-relay-survey.md` |
 | 7 | `mobile-local-apps` | 조사 끝남(`reports/mobile-program/local-apps-survey.md`). spike(guest runtime 안의 SQLite, changeset 양방향) 뒤에 brief를 쓴다. 결과는 `reports/mobile-program/local-apps-spike.md` |
-| 8 | `mobile-widgets` | 조사 끝남(`reports/mobile-program/widgets-survey.md`). 계획을 여는 중 |
-| 10 | `mobile-browser-use` | 조사 끝남(`reports/mobile-program/browser-use-survey.md`). spike(폰 앱이 guest 화면을 읽고 누를 수 있나) 뒤에 brief를 쓴다. 결과는 `reports/mobile-program/drive-spike.md` |
+| 8 | `mobile-widgets` | 열림(task 16개). 위젯 값 계약, 폰 요청 길 계약, wireframe(gallery Drafts › Phone · 11)이 끝났다. 조사 `reports/mobile-program/widgets-survey.md`. 나머지는 앞 계획들의 land와 위젯 native spike 뒤 |
+| 10 | `mobile-browser-use` | 열림(task 9개). spike가 통과했다(폰 앱의 native module이 사용자 앱 화면을 읽고, 찍고, 누르고, 입력하고, 스크롤한다. debug와 release build. `reports/mobile-program/drive-spike.md`). 조사 `reports/mobile-program/browser-use-survey.md`. 모든 task가 `mobile-app`, `mobile-user-apps`, `mobile-widgets`의 land 뒤 |
 
 ### 조사 뒤 planner가 정한 것 (2026-11-15)
 

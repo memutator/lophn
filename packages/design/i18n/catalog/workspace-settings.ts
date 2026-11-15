@@ -283,6 +283,9 @@ export const workspaceSettings = {
   "settings.label.remote-never-connected": "Never connected",
   "settings.label.remote-primary": "Primary",
   "settings.label.remote-qr": "Pairing code",
+  "settings.label.remote-relay-connected":
+    "Reachable from anywhere through the relay",
+  "settings.label.remote-relay-unreachable": "Can't reach the relay",
   "settings.label.tab-remote": "Remote",
   "settings.label.theme-file": "{name} (file)",
   "settings.label.theme-not-found": "{name} (not found)",

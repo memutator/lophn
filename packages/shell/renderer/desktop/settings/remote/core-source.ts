@@ -9,7 +9,11 @@ import type { RemotePairing } from "../../../../../protocol/remote/frames.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { call, command } from "../core-call.ts";
 import { chooseSetting, readEffective } from "../declared.ts";
-import type { RemoteSettingsSource, SourceResult } from "./source.ts";
+import type {
+  RemoteRelayStatus,
+  RemoteSettingsSource,
+  SourceResult,
+} from "./source.ts";
 
 const ENABLED_KEY = "remote.enabled";
 
@@ -39,9 +43,15 @@ export function coreRemoteSource(
         {},
       );
       if (!started.ok) return started;
-      // QR은 `remotePairingSchema`(strict)가 읽는 네 칸만 싣는다. 끝나는 때는 폰이 쓰지 않는다.
-      const { addresses, port, key, code } = started.value;
-      const pairing: RemotePairing = { addresses, port, key, code };
+      // QR은 `remotePairingSchema`(strict)가 읽는 칸만 싣는다. 끝나는 때는 폰이 쓰지 않는다.
+      const { addresses, port, key, code, relay } = started.value;
+      const pairing: RemotePairing = {
+        addresses,
+        port,
+        key,
+        code,
+        ...(relay === undefined ? {} : { relay }),
+      };
       return {
         ok: true,
         value: {
@@ -50,6 +60,9 @@ export function coreRemoteSource(
         },
       };
     },
+
+    relayStatus: () =>
+      call<RemoteRelayStatus>(core, "memory", "remote_relay", "status", {}),
 
     async devices() {
       const read = await call<{ devices: ListedDevice[] }>(

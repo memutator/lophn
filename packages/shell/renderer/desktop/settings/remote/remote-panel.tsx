@@ -15,6 +15,7 @@ import { QrCode } from "./qr-code.tsx";
 import type {
   RemoteDevice,
   RemotePairingCode,
+  RemoteRelayStatus,
   RemoteSettingsSource,
 } from "./source.ts";
 
@@ -33,6 +34,8 @@ type Pairing =
     };
 
 const START_TRIES = 5;
+// relay 상태는 event가 없는 memory route라 켜 있는 동안 이 간격으로 다시 읽는다.
+const RELAY_POLL_MS = 5000;
 const START_WAIT_MS = 1000;
 
 const delay = (ms: number) =>
@@ -50,6 +53,7 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
   const [now, setNow] = useState(() => Date.now());
   const [paired, setPaired] = useState<string | null>(null);
   const [toggleFailed, setToggleFailed] = useState(false);
+  const [relay, setRelay] = useState<RemoteRelayStatus | null>(null);
 
   const loadDevices = useCallback(async () => {
     const read = await source.devices();
@@ -65,6 +69,17 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
     void loadDevices();
   }, [source, loadDevices]);
   useStateChanged(["settings", "remote_devices"], load);
+
+  useEffect(() => {
+    if (enabled !== true) return;
+    const read = () =>
+      void source.relayStatus().then((status) => {
+        setRelay(status.ok ? status.value : null);
+      });
+    read();
+    const poll = setInterval(read, RELAY_POLL_MS);
+    return () => clearInterval(poll);
+  }, [source, enabled]);
 
   // QR이 보이는 동안 남은 시간을 1초마다 센다.
   useEffect(() => {
@@ -149,6 +164,23 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
                 />
               </div>
             </li>
+            {enabled && relay !== null && relay.url !== null ? (
+              <li className={styles.line} data-remote-row="relay">
+                <div className={styles.lineMain}>
+                  <span
+                    className={styles.lineName}
+                    data-remote-relay={relay.state}
+                  >
+                    {t(
+                      relay.state === "connected"
+                        ? "settings.label.remote-relay-connected"
+                        : "settings.label.remote-relay-unreachable",
+                    )}
+                  </span>
+                  <span className={styles.lineHelp}>{relay.url}</span>
+                </div>
+              </li>
+            ) : null}
           </ul>
           {toggleFailed ? (
             <p className={styles.rejected} role="alert">

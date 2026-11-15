@@ -1,4 +1,5 @@
-// 폰이 붙는 remote 연결의 조립. 설정 `remote.enabled`가 켜지면 `remote.port`에 listener를 열고 꺼지면 닫는다.
+// 폰이 붙는 remote 연결의 조립. 설정 `remote.enabled`가 켜지면 `remote.port`에 listener를 열고, `remote.relay`가 있으면
+// relay에도 건다. 둘은 따로 돈다(port를 못 열어도 relay는 돈다). 꺼지면 둘 다 닫는다.
 // 기기 표(devices)의 command·read는 writer·reader Worker가 이 file을 팀 등록 file로 import해 얻는다.
 // 표를 만드는 ledger step은 낸 step 목록의 끝에 붙어야 해서(schema-steps.lock.json) 이 wiring의 schemaStepsAfterTeams에 둔다.
 import { networkInterfaces } from "node:os";
@@ -11,6 +12,7 @@ import {
   pairingStart,
   type RemoteDevice,
   remoteKeyText,
+  remoteRelayStatus,
   remoteUiFile,
   remoteUiManifest,
 } from "../../../../protocol/remote/mod.ts";
@@ -20,6 +22,7 @@ import {
   devicesSetting,
   remoteEnabledSetting,
   remotePortSetting,
+  remoteRelaySetting,
 } from "../../../config/shell-settings.ts";
 import {
   createDeviceCredentials,
@@ -43,6 +46,11 @@ import {
   screensRenamed,
   screensRevoked,
 } from "../../../remote/mod.ts";
+import {
+  openRelayWebSocket,
+  type RelayClient,
+  startRelayClient,
+} from "../../../remote/relay-client.ts";
 import { systemTimers } from "../../../runs/mod.ts";
 import { type FileStreamHandler, RouteRegistry } from "../../../server/mod.ts";
 import {
@@ -74,7 +82,7 @@ export function createCoreRegistration() {
   return {
     commands: DEVICES_COMMANDS,
     reads: [devicesListRead],
-    memoryRoutes: [pairingStart, remoteUiManifest],
+    memoryRoutes: [pairingStart, remoteRelayStatus, remoteUiManifest],
     files: [remoteUiFile],
   };
 }
@@ -100,6 +108,7 @@ function lanAddresses(): string[] {
 
 export const remoteWiring: WiringFactory = () => {
   let listener: RemoteListener | undefined;
+  let relay: RelayClient | undefined;
   let host: RemoteHost | undefined;
   let hostKey: ReturnType<typeof loadHostKey> | undefined;
   let unsubscribe: (() => void) | undefined;
@@ -176,54 +185,77 @@ export const remoteWiring: WiringFactory = () => {
   }
 
   async function reconcile(ctx: WiringContext): Promise<void> {
-    const want = ctx.settings.get(remoteEnabledSetting)
-      ? ctx.settings.get(remotePortSetting)
+    const enabled = ctx.settings.get(remoteEnabledSetting) === true;
+    const port = enabled ? ctx.settings.get(remotePortSetting) : undefined;
+    const relayUrl = enabled
+      ? ctx.settings.get(remoteRelaySetting) || undefined
       : undefined;
-    if (listener !== undefined && listener.port === want) return;
-    if (listener !== undefined) {
-      host?.shutdown();
+    // 꺼질 때는 붙은 연결에 closed(shutdown)을 보내고 닫는다.
+    if (!enabled) host?.shutdown();
+    if (listener !== undefined && listener.port !== port) {
       await listener.close();
       listener = undefined;
     }
-    if (want === undefined) return;
+    if (relay !== undefined && relay.url !== relayUrl) {
+      relay.close();
+      relay = undefined;
+    }
+    if (!enabled) return;
+    let staticKey: Awaited<ReturnType<typeof loadHostKey>>;
     try {
       hostKey ??= loadHostKey(`${ctx.root.path}/remote`, ctx.random);
-      const staticKey = await hostKey;
-      host ??= createRemoteHost({
-        staticKey,
-        random: ctx.random,
-        timers: systemTimers,
-        bus: ctx.bus,
-        pairing: codes,
-        devices: devicesOf(ctx),
-        credentials: createDeviceCredentials({
-          registry: ctx.registry,
-          record: (context) => ctx.runtime.record(context),
-        }),
-        call: createRemoteCall({
-          registry: ctx.registry,
-          routes: new RouteRegistry(ctx.allRoutes),
-          clock: ctx.clock,
-          writer: ctx.writer,
-          reads: ctx.runtime.reads,
-          memory: ctx.runtime.memory.handlers,
-          fileStreams: ctx.fileStreams,
-          uploads: ctx.uploads,
-          bus: ctx.bus,
-          admission,
-          onThrown: (thrown) => logError(ctx, "handler_threw", thrown),
-        }),
-        admission,
-        logger: ctx.telemetry.logger,
-      });
-      const accept = host.accept;
-      listener = await openRemoteListener({
-        port: want,
-        accept: (socket) => void accept(socket),
-      });
+      staticKey = await hostKey;
     } catch (thrown) {
       hostKey = undefined;
       logError(ctx, "listener_failed", thrown);
+      return;
+    }
+    host ??= createRemoteHost({
+      staticKey,
+      random: ctx.random,
+      timers: systemTimers,
+      bus: ctx.bus,
+      pairing: codes,
+      devices: devicesOf(ctx),
+      credentials: createDeviceCredentials({
+        registry: ctx.registry,
+        record: (context) => ctx.runtime.record(context),
+      }),
+      call: createRemoteCall({
+        registry: ctx.registry,
+        routes: new RouteRegistry(ctx.allRoutes),
+        clock: ctx.clock,
+        writer: ctx.writer,
+        reads: ctx.runtime.reads,
+        memory: ctx.runtime.memory.handlers,
+        fileStreams: ctx.fileStreams,
+        uploads: ctx.uploads,
+        bus: ctx.bus,
+        admission,
+        onThrown: (thrown) => logError(ctx, "handler_threw", thrown),
+      }),
+      admission,
+      logger: ctx.telemetry.logger,
+    });
+    const accept = host.accept;
+    if (relayUrl !== undefined && relay === undefined) {
+      relay = startRelayClient({
+        url: relayUrl,
+        staticKey,
+        open: openRelayWebSocket,
+        timers: systemTimers,
+        accept: (socket) => void accept(socket),
+      });
+    }
+    if (port !== undefined && listener === undefined) {
+      try {
+        listener = await openRemoteListener({
+          port,
+          accept: (socket) => void accept(socket),
+        });
+      } catch (thrown) {
+        logError(ctx, "listener_failed", thrown);
+      }
     }
   }
 
@@ -243,7 +275,10 @@ export const remoteWiring: WiringFactory = () => {
         message: "remote ui bundle is not built",
       });
       const start = async () => {
-        if (listener === undefined || hostKey === undefined) {
+        if (
+          hostKey === undefined ||
+          (listener === undefined && relay === undefined)
+        ) {
           return err({
             code: "unavailable" as const,
             message: "remote is off",
@@ -253,15 +288,22 @@ export const remoteWiring: WiringFactory = () => {
         const code = codes.start();
         return ok({
           addresses: lanAddresses(),
-          port: listener.port,
+          port: listener?.port ?? ctx.settings.get(remotePortSetting),
           key: remoteKeyText(staticKey.publicKey),
           code: code.code,
+          ...(relay ? { relay: relay.url } : {}),
           expires_at: formatAt(code.expiresAt),
         });
       };
+      const relayStatus = () =>
+        ok({
+          url: ctx.settings.get(remoteRelaySetting) || null,
+          state: relay?.state() ?? ("off" as const),
+        });
       return ok({
         memory: [
           [key(pairingStart), start],
+          [key(remoteRelayStatus), relayStatus],
           [key(remoteUiManifest), () => (ui ? ok(ui.manifest) : noUi)],
         ],
         fileStreams: [
@@ -300,7 +342,8 @@ export const remoteWiring: WiringFactory = () => {
                 change.name === "settings" &&
                 (change.id === null ||
                   change.id === remoteEnabledSetting.key ||
-                  change.id === remotePortSetting.key),
+                  change.id === remotePortSetting.key ||
+                  change.id === remoteRelaySetting.key),
             )
           ) {
             reconciling = reconciling.then(() => reconcile(ctx));
@@ -318,6 +361,8 @@ export const remoteWiring: WiringFactory = () => {
       host?.shutdown();
       await listener?.close();
       listener = undefined;
+      relay?.close();
+      relay = undefined;
     },
   };
 };

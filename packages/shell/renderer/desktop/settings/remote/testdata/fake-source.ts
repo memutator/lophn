@@ -62,6 +62,11 @@ export function fakeRemote(options: FakeRemoteOptions = {}) {
             expiresAt: new Date(Date.now() + 300_000).toISOString(),
           })
         : Promise.resolve({ ok: false, code: "unavailable" }),
+    relayStatus: () =>
+      ok({
+        url: "wss://relay.example",
+        state: enabled ? ("connected" as const) : ("off" as const),
+      }),
     devices: () => ok(devices),
     rename(id, name) {
       if (!devices.some((d) => d.id === id)) return missing();

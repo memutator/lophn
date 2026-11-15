@@ -22,12 +22,19 @@ export interface RemotePairingCode {
   readonly expiresAt: string;
 }
 
+/** relay 연결. `url`이 null이면 relay 설정이 없다. 붙지 못했거나 붙는 중이면 `connecting`이다. */
+export interface RemoteRelayStatus {
+  readonly url: string | null;
+  readonly state: "off" | "connecting" | "connected";
+}
+
 export interface RemoteSettingsSource {
   /** 설정 `remote.enabled`. */
   enabled(): Promise<SourceResult<boolean>>;
   setEnabled(on: boolean): Promise<SourceResult<null>>;
-  /** 새 code를 만든다. 앞 code는 무효가 된다. listener가 아직 열리지 않았으면 `unavailable`이다. */
+  /** 새 code를 만든다. 앞 code는 무효가 된다. listener도 relay 연결도 아직 없으면 `unavailable`이다. */
   startPairing(): Promise<SourceResult<RemotePairingCode>>;
+  relayStatus(): Promise<SourceResult<RemoteRelayStatus>>;
   /** pairing한 폰들. 만든 순서다. */
   devices(): Promise<SourceResult<readonly RemoteDevice[]>>;
   rename(id: string, name: string): Promise<SourceResult<null>>;

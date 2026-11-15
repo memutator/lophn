@@ -419,6 +419,22 @@ export const remotePortSetting = declareSetting({
   locked: true,
 });
 
+// 폰이 다른 network에서 붙는 relay. 비어 있으면 relay를 쓰지 않는다. 밖의 server에 core를 거는 일이라 사람만 바꾼다.
+export const remoteRelaySetting = declareSetting({
+  key: "remote.relay",
+  type: z.union([
+    z.literal(""),
+    z
+      .string()
+      .url()
+      .regex(/^wss?:\/\/.*[^/]$/),
+  ]),
+  default: "",
+  description:
+    "The relay (`wss://host`, no trailing slash) that lets paired phones reach this computer from another network when `remote.enabled` is on. Empty means no relay.",
+  locked: true,
+});
+
 // 설치된 앱의 `sidebar` 자리 화면은 선언하면 오른쪽 sidebar에 panel로 나온다. 사람이 끈 것만 여기에 쌓인다.
 export const sidebarPanelsOffSetting = declareSetting({
   key: "shell.sidebar_panels_off",
@@ -515,6 +531,7 @@ export const shellSettings = [
   devicesSetting,
   remoteEnabledSetting,
   remotePortSetting,
+  remoteRelaySetting,
   sidebarPanelsOffSetting,
   trayOffSetting,
   trayOrderSetting,

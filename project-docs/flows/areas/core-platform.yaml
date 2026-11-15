@@ -1504,16 +1504,19 @@ flows:
     risk: [data-loss]
 
   - id: remote-listener
-    title: "설정 remote.enabled를 따라 폰이 붙는 listener를 열고 닫는다"
+    title: "설정 remote.enabled를 따라 폰이 붙는 listener와 relay 연결을 열고 닫는다"
     actor: system
     entries: [system:remote-listener]
     boundary: [core, server]
-    code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/listener.ts, packages/core/remote/host-key.ts, packages/core/main/daemon/wiring/idle.ts]
+    code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/listener.ts, packages/core/remote/relay-client.ts, packages/core/remote/host-key.ts, packages/core/main/daemon/wiring/idle.ts]
     docs: [architecture/platform.md]
     steps:
-      - "기동 때와 StateChanged(settings)의 id가 remote.enabled·remote.port(또는 null)일 때 remote wiring이 listener를 맞춘다. 맞추기는 하나씩 돈다"
+      - "기동 때와 StateChanged(settings)의 id가 remote.enabled·remote.port·remote.relay(또는 null)일 때 remote wiring이 listener와 relay 연결을 맞춘다. 맞추기는 하나씩 돈다"
       - "켜져 있으면 `<root>/remote/host-key.json`(0600)을 읽거나 없으면 만들고, 모든 interface의 remote.port에 WebSocket listener(path /remote)를 연다"
-      - "꺼지거나 port가 바뀌면 붙은 연결에 closed(shutdown)을 보내고 listener를 닫는다. 꺼져 있으면 loopback 밖 listener가 없다"
+      - "켜져 있고 remote.relay가 비어 있지 않으면 relay의 /v1/host?key=<core key>에 control socket을 건다. challenge에 core static key로 만든 proof로 답하고 ready를 받으면 connected다. listener를 열지 못해도 relay는 따로 돈다"
+      - "relay가 connected {conn}을 알리면 /v1/data?conn=<conn>에 data socket을 열어 listener의 연결과 같이 remote-connection에 넘긴다"
+      - "control socket이 끊기면 1초에서 두 배씩 30초까지 기다렸다 다시 건다. control socket은 20초마다 ping하고 60초 동안 아무것도 오지 않으면 끊는다"
+      - "꺼지면 붙은 연결에 closed(shutdown)을 보내고 listener와 relay 연결을 닫는다. port나 relay가 바뀌면 그것만 다시 연다. 꺼져 있으면 loopback 밖 listener와 relay 연결이 없다"
       - "켜져 있는 동안 idle-exit는 일이 있는 것으로 센다"
     outcomes:
       - id: listening
@@ -1521,6 +1524,12 @@ flows:
       - id: closed
         when: "remote.enabled가 꺼졌거나 port가 바뀌어 다시 연다"
         observe: ["process:listener 없음"]
+      - id: relay-connected
+        when: "remote.relay가 있고 relay가 core key 증명을 받았다. 폰 연결마다 data socket을 연다"
+        observe: ["response"]
+      - id: relay-retry
+        when: "relay에 닿지 못했거나 control socket이 끊겼다. remote_relay/status가 connecting이다"
+        observe: ["response"]
       - id: open-failed
         when: "host key file을 못 읽거나 port를 열지 못했다. core는 그대로 돈다"
         observe: ["log:remote listener_failed"]
@@ -1648,13 +1657,13 @@ flows:
     code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/pairing.ts]
     steps:
       - "새 1회용 code(128-bit, 300초, 메모리에만)를 만들고 앞 code를 무효로 한다"
-      - "loopback과 link-local이 아닌 interface 주소, remote.port, core 공개 key(base64url), code, 끝 시각을 돌려준다"
+      - "loopback과 link-local이 아닌 interface 주소, remote.port, core 공개 key(base64url), code, 끝 시각을 돌려준다. relay 연결을 걸었으면 relay 주소(설정 remote.relay)도 싣는다"
     outcomes:
       - id: ok
         observe: ["response"]
       - id: unavailable
         code: unavailable
-        when: "remote listener가 열려 있지 않다(remote.enabled가 꺼졌거나 열기에 실패했다)"
+        when: "remote listener도 relay 연결도 없다(remote.enabled가 꺼졌거나 host key를 못 읽었거나, listener를 열지 못했고 relay 설정이 없다)"
         observe: ["response"]
       - id: forbidden
         code: forbidden
@@ -1670,7 +1679,7 @@ flows:
     boundary: [core-api, server]
     code: [packages/core/main/daemon/wiring/remote.ts]
     steps:
-      - "설정 remote.relay의 주소와 relay control socket 상태(off, connecting, connected)를 돌려준다"
+      - "설정 remote.relay의 주소(비었으면 null)와 relay control socket 상태를 돌려준다. remote가 꺼졌거나 relay 설정이 없으면 off, 증명을 받기 전이나 다시 거는 중이면 connecting, ready를 받았으면 connected다"
     outcomes:
       - id: ok
         observe: ["response"]

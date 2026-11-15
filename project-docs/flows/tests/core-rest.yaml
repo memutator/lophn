@@ -529,6 +529,12 @@ files:
       - app-call-send:accepted
     note: "앱 보낸 쪽 ledger step이 messages(FK 자식 checkpoints·reverts가 on delete restrict)와 agent_calls를 다시 짜도 행·index·trigger·FK가 그대로인지 파일 ledger로 본다"
 
+  - path: packages/core/remote/relay-client_test.ts
+    covers:
+      - remote-listener:relay-connected
+      - remote-listener:relay-retry
+    note: "메모리 socket으로 relay client가 challenge에 relay가 같은 값으로 얻는 proof로 답하고, connected마다 data socket을 열어 host에 넘기고, 끊기면 1초·2초 뒤 다시 거는지 본다"
+
   - path: packages/core/remote/host_test.ts
     covers:
       - remote-connection:unpaired-refused

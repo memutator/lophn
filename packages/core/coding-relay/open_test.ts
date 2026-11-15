@@ -1,0 +1,64 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { ok, type Result } from "../../base/mod.ts";
+import { type CodingOpenDeps, createCodingOpen } from "./open.ts";
+
+const PROJECT = `prj_${"0".repeat(26)}`;
+const LEDGER = `ses_${"1".repeat(26)}`;
+const TERMINAL = `trm_${"2".repeat(26)}`;
+
+function setup(listed: { harness: string; cli_session: string | null }[]) {
+  const calls: unknown[] = [];
+  const holds: string[] = [];
+  const deps: CodingOpenDeps = {
+    call(request) {
+      calls.push(request);
+      return Promise.resolve(
+        ok([
+          { type: "text", text: JSON.stringify({ terminal_ref: TERMINAL }) },
+        ]) as Result<unknown>,
+      );
+    },
+    session: (session) =>
+      session === LEDGER
+        ? { project: PROJECT, harness: "claude", cli_session: "cli-1" }
+        : undefined,
+    listed: () => listed,
+    hold(session) {
+      holds.push(session);
+      return ok({});
+    },
+    attached: () => true,
+  };
+  return { opener: createCodingOpen(deps), calls, holds };
+}
+
+// 한 CLI session에 process 둘이 붙으면 대화 기록이 엇갈려 망가진다.
+test("이미 다른 탭에서 도는 CLI session을 resume으로 열면 conflict이고 host에 열기가 나가지 않는다", async () => {
+  const { opener, calls, holds } = setup([
+    { harness: "claude", cli_session: "cli-1" },
+  ]);
+  const done = await opener.open({
+    project: PROJECT,
+    harness: "claude",
+    resume: { session: LEDGER },
+    key: "k1",
+  });
+  assert.equal(done.ok, false);
+  assert.equal(!done.ok && done.error.code, "conflict");
+  assert.deepEqual(calls, []);
+  assert.deepEqual(holds, []);
+});
+
+// 폰은 다시 붙은 뒤 같은 key로 다시 보낸다. 컴퓨터에 터미널 탭이 둘 생기면 안 된다.
+test("같은 key의 open은 host에 한 번만 가고 같은 session을 돌려준다", async () => {
+  const { opener, calls } = setup([]);
+  const input = { project: PROJECT, harness: "codex", key: "k2" };
+  const [first, second] = await Promise.all([
+    opener.open(input),
+    opener.open(input),
+  ]);
+  assert.deepEqual(first, ok({ session: `ses_${"2".repeat(26)}` }));
+  assert.deepEqual(second, first);
+  assert.equal(calls.length, 1);
+});

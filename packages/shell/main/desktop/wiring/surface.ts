@@ -40,8 +40,8 @@ import type {
 } from "../../../../protocol/lophn-agent/host-queue.ts";
 import type { AppFrameService } from "../../app-frame/registry.ts";
 import type { ArtifactViews } from "../../artifact/registry.ts";
-import type { HarnessTui } from "../../terminal/harness-tui.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
+import type { Coding } from "./coding.ts";
 import type { Registered, ShellContext } from "./context.ts";
 import { recentWindow } from "./desktop-window.ts";
 import type { ExtensionTools } from "./extensions.ts";
@@ -53,6 +53,9 @@ const RETRY_MS = 1000;
 const VISIBLE_MS = 1000;
 // 창이 탭을 열고 ack하는 기한이다. 넘으면 retry로 되돌려 RETRY_MS 뒤 다시 보낸다.
 const ACK_TIMEOUT_MS = 1500;
+// focus 없이 새로 연 창이 layout을 읽고 보이는 workspace를 알리기까지 기다리는 기한과 간격이다.
+const WINDOW_READY_MS = 15_000;
+const WINDOW_POLL_MS = 250;
 // 창이 없어 browser 탭 열기가 새로 연 창마저 만들지 못했을 때 agent가 받는 문장이다(원인, 다음 할 일, 되풀이가 통하는지).
 const NO_WINDOW =
   "No lophn window could be opened, so the browser page cannot be created. Retrying may help once; if it fails again, tell the person.";
@@ -76,7 +79,7 @@ const sameWorkspace = (a: Workspace, b: Workspace) =>
 
 export function register(
   ctx: ShellContext,
-  tui: HarnessTui,
+  coding: Pick<Coding, "tui" | "bindTabOpen">,
   tools: ExtensionTools,
   appFrame: Pick<AppFrameService, "senderView">,
   artifacts: Pick<ArtifactViews, "guestId">,
@@ -85,6 +88,7 @@ export function register(
   ) => Promise<{ ok: true } | { ok: false; code: string; message: string }>,
 ): Registered & Pick<BrowserDriver, "typeOnce"> {
   const registry = ctx.overlays.overlayRegistry();
+  const { tui } = coding;
   // 창(webContents id)이 보이는 workspace.
   const shown = new Map<number, Workspace>();
   const pending = new Map<string, (opened: boolean) => void>();
@@ -397,6 +401,34 @@ export function register(
   ctx.hostLink.onRequest("tab_open", queueTab);
   ctx.hostLink.onRequest("tab_close", queueTab);
   ctx.hostLink.onRequest("tab_show", queueTab);
+
+  // 새로 연 창이 그 workspace를 보일 때까지 기다린다. 마지막 workspace로 뜨므로 다른 workspace면 기한까지 없다.
+  async function shownWithin(workspace: Workspace) {
+    for (let waited = 0; waited < WINDOW_READY_MS; waited += WINDOW_POLL_MS) {
+      const found = windowOf(workspace);
+      if (found !== undefined || stopped) return found;
+      await new Promise((resolve) => setTimeout(resolve, WINDOW_POLL_MS));
+    }
+    return windowOf(workspace);
+  }
+
+  // shell main이 안쪽에서 넣는 탭 열기다(폰이 연 coding session, `terminal/coding-open.ts`). core의 탭 요청과 한 차례로 열고, core가
+  // 모르는 탭이라 core에 답하지 않고 retry도 없다. 그 workspace를 보이는 창이 없고 일반 창이 하나도 없으면 focus 없이 하나 연다.
+  coding.bindTabOpen((request) => {
+    const opened = tabs.then(async () => {
+      if (stopped) return false;
+      let target = windowOf(request.workspace);
+      if (target === undefined && recentWindow(ctx) === undefined) {
+        await ctx.desktop.openInactive().catch(() => undefined);
+        target = await shownWithin(request.workspace);
+      }
+      return target === undefined
+        ? false
+        : offer(request as TabRequest, { request }, target);
+    });
+    tabs = opened.then(() => undefined);
+    return opened;
+  });
 
   async function openTab(request: TabRequest): Promise<void> {
     const browserOpen =

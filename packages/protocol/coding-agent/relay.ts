@@ -101,8 +101,44 @@ export const codingSessionsSwitch = defineMemory({
   errors,
 });
 
+// project에 coding session을 컴퓨터의 새 터미널 탭에서 GUI(chat)로 연다. harness는 GUI가 되는 coding agent(`HARNESS_ADAPTERS`의 id:
+// claude, codex, opencode, omp)이고 아니면 invalid_input이다. resume은 그 project의 harness agent ledger session이고 그 CLI session을
+// 이어 연다: 없거나 다른 project면 not_found, harness agent session이 아니거나 harness가 다르거나 CLI session id가 없으면
+// invalid_input, 그 CLI session이 이미 터미널에서 돌거나(목록에 있다) TUI로 열려 있거나 headless turn이 돌면 conflict다.
+// 연결이 없으면 unavailable이다(폰은 `wake`를 먼저 부른다). 성공하면 연 터미널의 session(`ses_<터미널 ULID>`)이다. 같은 key는 한 번만 연다.
+export const codingSessionsOpen = defineMemory({
+  resource: "coding_sessions",
+  method: "open",
+  name: "CodingSessionsOpen",
+  changes: ["coding_sessions"],
+  input: z.strictObject({
+    project: idSchema("prj"),
+    harness: z.string().min(1).max(64),
+    resume: z.strictObject({ session: idSchema("ses") }).optional(),
+    key: z.string().min(1).max(200),
+  }),
+  output: z.strictObject({ session: idSchema("ses") }),
+  actors: ["user"],
+  errors,
+});
+
+// 컴퓨터의 lophn 앱을 띄운다. 이미 붙어 있으면 attached, 띄우기 시작했으면 starting이고 폰은 `list`의 shell이 attached가 되길
+// 기다린다. 띄울 길이 없거나(앱이 띄운 core가 아니다) 앞선 실패 뒤 쉬는 중이면 unavailable이다.
+export const codingSessionsWake = defineMemory({
+  resource: "coding_sessions",
+  method: "wake",
+  name: "CodingSessionsWake",
+  changes: [],
+  input: z.strictObject({}),
+  output: z.strictObject({ shell: z.enum(["attached", "starting"]) }),
+  actors: ["user"],
+  errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
+});
+
 export const CODING_RELAY_ROUTES = [
   codingSessionsList,
   codingSessionsSwitchPlan,
   codingSessionsSwitch,
+  codingSessionsOpen,
+  codingSessionsWake,
 ] as const;

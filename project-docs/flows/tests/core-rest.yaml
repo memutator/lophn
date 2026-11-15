@@ -476,6 +476,10 @@ files:
     covers: [coding-session-input:deduplicated, coding-session-input:unavailable, coding-session-switch:unavailable, coding-relay-sync:cleared]
     note: "같은 id·key의 send는 host에 한 번만 간다(새 snapshot 뒤에도). 연결이 닫히면 진행 중 coding_switch와 입력이 unavailable로 끝나고, 비운 뒤에는 목록·사본이 없고 입력은 not_found다"
 
+  - path: packages/core/coding-relay/open_test.ts
+    covers: [coding-session-open:conflict, coding-session-open:deduplicated]
+    note: "resume할 CLI session이 host 목록에 있으면 conflict이고 hold도 host 요청도 없다. 같은 key의 open은 host에 한 번만 간다"
+
   - path: packages/core/main/daemon/wiring/coding-relay_test.ts
     covers: [coding-relay-sync:folded, coding-session-switch:invalid_input, coding-session-switch:forbidden, coding-session-switch:switched]
     note: "host가 올린 snapshot·갱신 안의 알려진 secret(tool body, 메시지 글)은 사본과 AcpUpdated에서 가려진다. switch는 confirmed: true 없이 invalid_input이고 agent 자격은 forbidden이며 둘 다 host에 요청이 나가지 않는다"

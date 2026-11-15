@@ -1,14 +1,27 @@
 // coding relay: shell main이 `/host-link`로 올린 GUI handle의 ACP 상태(`coding_sync`, `coding_closed`)를 relay에 넣고
-// `coding_sessions/{list,switch_plan,switch}`를 낸다. 터미널 보고(`coding_report`)와 연결이 끊긴 뒤의 비우기는 session lifecycle
+// `coding_sessions/{list,switch_plan,switch,open,wake}`를 낸다. 터미널 보고(`coding_report`)와 연결이 끊긴 뒤의 비우기는 session lifecycle
 // wiring이 표와 함께 relay에 넘긴다. `acp/snapshot`·`acp/send`의 분기는 acp wiring이 `ctx.codingRelay`로 한다.
 import process from "node:process";
 import { ok } from "../../../../base/mod.ts";
+import { describeThrown } from "../../../../base/telemetry/mod.ts";
+import { HARNESS_ADAPTER_OF_RUNTIME } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import {
   codingSessionsList,
+  codingSessionsOpen,
   codingSessionsSwitch,
   codingSessionsSwitchPlan,
+  codingSessionsWake,
 } from "../../../../protocol/coding-agent/relay.ts";
-import { createCodingRelay } from "../../../coding-relay/mod.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
+import {
+  createCodingOpen,
+  createCodingRelay,
+} from "../../../coding-relay/mod.ts";
+import {
+  loadSession,
+  workspaceOf,
+} from "../../../lophn-agent/session/model.ts";
+import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import type { KnownSecretMatch } from "../../../storage/ledger/mod.ts";
 import { redactDeep } from "./acp-build.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
@@ -60,6 +73,45 @@ export const codingRelayWiring: WiringFactory = () => ({
   },
   build(ctx) {
     const relay = ctx.codingRelay;
+    const queue = ctx.hostQueue;
+    const { launchShell } = ctx.options;
+    const opener = createCodingOpen({
+      call: (request) => queue.callCoding(request),
+      session(session) {
+        const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+          loadSession(lookup, session),
+        );
+        if (!found.ok || found.value === undefined) return undefined;
+        const row = found.value;
+        const where = workspaceOf(row);
+        return {
+          project: where?.kind === "project" ? where.id : null,
+          harness:
+            row.harness === null
+              ? null
+              : HARNESS_ADAPTER_OF_RUNTIME[row.harness],
+          cli_session: row.harness_session,
+        };
+      },
+      listed: () => relay.list(),
+      hold: (session) => ctx.harnessHold.open(session as Id<"ses">),
+      attached: () => queue.attached(),
+      ...(launchShell === undefined
+        ? {}
+        : {
+            startShell: () =>
+              queue.startShell((failed) =>
+                launchShell(ctx.root.path, (thrown) => {
+                  ctx.telemetry.logger.warn({
+                    component: "coding-relay",
+                    event: "shell_launch_failed",
+                    fields: describeThrown(thrown),
+                  });
+                  failed();
+                }),
+              ),
+          }),
+    });
     ctx.hostLink.onFrame("coding_sync", (frame) => relay.sync(frame));
     ctx.hostLink.onFrame("coding_closed", (frame) =>
       relay.closed(frame.session),
@@ -75,6 +127,19 @@ export const codingRelayWiring: WiringFactory = () => ({
               input as { session: string; to: "gui" | "tui"; key: string },
             ),
         ],
+        [
+          key(codingSessionsOpen),
+          (_who, input) =>
+            opener.open(
+              input as {
+                project: string;
+                harness: string;
+                resume?: { session: string };
+                key: string;
+              },
+            ),
+        ],
+        [key(codingSessionsWake), () => opener.wake()],
       ],
       reads: (reads) =>
         reads

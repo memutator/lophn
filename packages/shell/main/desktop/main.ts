@@ -126,7 +126,7 @@ function startDesktop(): void {
   const surfaceHost = add(
     surface.register(
       ctx,
-      terminals.tui,
+      terminals,
       extensionHost,
       views.appFrame,
       artifacts.views,

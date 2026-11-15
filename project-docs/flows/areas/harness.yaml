@@ -1706,6 +1706,92 @@ flows:
     risk: [permission]
     docs: [architecture/harness-gui.md]
 
+  - id: coding-session-open
+    title: 폰이 컴퓨터의 project에 coding session을 새 터미널 탭의 chat으로 연다
+    actor: person
+    entries: [route:coding_sessions/open]
+    uses: [system:host-link]
+    boundary: [host-queue-interface, host-queue-core]
+    code:
+      - packages/core/coding-relay/open.ts
+      - packages/core/main/daemon/wiring/coding-relay.ts
+      - packages/shell/main/terminal/coding-open.ts
+      - packages/shell/main/desktop/wiring/coding-relay.ts
+      - packages/shell/main/desktop/wiring/surface.ts
+    steps:
+      - "같은 key는 한 번만 연다(보내는 중이거나 성공한 것의 답을 준다. 실패한 key는 잊는다). 사람 자격만 부른다"
+      - "harness가 GUI가 되는 coding agent(claude, codex, opencode, omp)가 아니면 invalid_input이다"
+      - "resume이면 ledger session이 없거나 그 project의 것이 아니면 not_found, harness agent session이 아니거나 harness가 다르거나 CLI session id가 없으면 invalid_input, host 목록에 같은 CLI session이 있으면 conflict다. 그 뒤 TUI hold를 건다: TUI로 열려 있거나 headless turn이 돌면 conflict다"
+      - "연결로 coding_open {project, harness, resume?}를 보내고 답(60초)의 terminal_ref를 ses_<터미널 ULID>로 옮긴다. 성공하면 StateChanged {coding_sessions}가 나간다"
+      - "shell main은 Windows면 unavailable이다. resume은 요청에 CLI session id가 없어 unavailable로 답한다. 아니면 그 project를 보이는 창에 coding 탭 열기(펴진 float)를 넣는다. 그 workspace를 보이는 창이 없고 일반 창도 없으면 focus 없이 하나 열고 그 창이 workspace를 알릴 때까지(15초) 기다린다"
+      - "창이 탭을 열지 못하면 unavailable이다. 열면 그 project 터미널에 그 harness의 새 GUI handle이 생길 때까지(55초) 기다려 그 터미널로 답하고, 기한이 지나면 unavailable이다"
+    outcomes:
+      - id: opened
+        observe: [request:shell, event:StateChanged, response]
+      - id: deduplicated
+        when: "같은 key를 다시 보냈다(host에 다시 가지 않는다)"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력 schema가 틀렸다, GUI가 되지 않는 harness다, 또는 resume session이 harness agent session이 아니거나 harness가 다르거나 CLI session id가 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "resume session이 ledger에 없거나 그 project의 것이 아니다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "그 CLI session이 이미 컴퓨터의 터미널에서 돈다, TUI로 열려 있다, 또는 headless turn이 돈다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "연결이 없다, 답 전에 닫혔다, 기한이 지났다, Windows다, resume이다(shell), 그 project를 보이는 창이 없다, 또는 GUI가 기한 안에 시작하지 않았다"
+        observe: [response]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/harness-gui.md]
+    unclear:
+      - "새 창은 마지막 workspace로 뜬다. 그것이 그 project가 아니거나 다른 workspace를 보이는 창만 있으면 탭을 열지 못한다"
+      - "renderer는 handoff가 없는 coding 탭 열기를 아직 받지 않는다(ack하지 않는다). 받기 전까지 shell은 unavailable로 답한다"
+
+  - id: coding-session-wake
+    title: 폰이 컴퓨터의 lophn 앱을 띄운다
+    actor: person
+    entries: [route:coding_sessions/wake]
+    boundary: [host-queue-core]
+    code:
+      - packages/core/coding-relay/open.ts
+      - packages/core/main/daemon/wiring/coding-relay.ts
+      - packages/core/host-queue/queue.ts
+      - packages/core/main/daemon/shell-launcher.ts
+    steps:
+      - "shell이 붙어 있으면 attached다. 아니면 queue.startShell로 앱을 focus 없는 창으로 띄우고 starting이다. 폰은 coding_sessions/list의 shell이 attached가 되길 기다린다"
+      - "띄울 길이 없거나(앱이 띄운 core가 아니다), 앞선 실패 뒤 5분 안이거나, 띄우자마자 실패하면 unavailable이다"
+      - "새로 뜬 앱에는 PTY가 없어(앱과 함께 죽었다) 목록이 비어 있다. 열기와 함께일 때만 쓸모 있다"
+    outcomes:
+      - id: attached
+        observe: [response]
+      - id: starting
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "띄울 길이 없다, 앞선 실패 뒤 쉬는 중이다, 또는 띄우자마자 실패했다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력 schema가 틀렸다(빈 객체가 아니다)"
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/platform.md]
+
   - id: coding-session-input
     title: 폰이 coding session의 대화를 읽고 입력을 컴퓨터의 CLI에 넘긴다
     actor: person

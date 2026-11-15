@@ -26,6 +26,7 @@ import {
 import { createTerminalIpc, type TerminalIpc } from "../../terminal/ipc.ts";
 import { createTraceFile } from "../../terminal/trace-file.ts";
 import { DIAGNOSTICS_TRACE_SETTING_KEY } from "../../../../protocol/diagnostics/trace.ts";
+import type { HostRequest } from "../../../../protocol/lophn-agent/host-queue.ts";
 import { TerminalOutputs } from "../../terminal/output.ts";
 import { createSupervisor, spawnNodeHost } from "../../terminal/supervisor.ts";
 import {
@@ -103,6 +104,9 @@ export type TabGuiPort = Pick<
   "handlers" | "showExtensionSettings"
 >;
 
+/** 창 요청 길에 shell main이 안쪽에서 넣는 탭 열기다(`wiring/surface.ts`). */
+export type TabOpenRequest = Extract<HostRequest, { kind: "tab_open" }>;
+
 /** 뒤 영역(종료 흐름)이 쓰는 터미널 supervisor와, extension이 탭을 GUI로 바꾸는 길. */
 export type Coding = Registered & {
   terminals: ReturnType<typeof createSupervisor>;
@@ -110,6 +114,9 @@ export type Coding = Registered & {
   /** agent가 `--tui`로 연 TUI 탭의 session 표. surface wiring이 묶고 extension `harness`가 읽는다. */
   tui: HarnessTui;
   bindTabGui(port: TabGuiPort): void;
+  /** 창이 그 탭을 열었다고 답하면 true다. surface 영역이 터미널 영역보다 늦게 서므로 그 영역이 `bindTabOpen`으로 건다. */
+  openTab(request: TabOpenRequest): Promise<boolean>;
+  bindTabOpen(open: (request: TabOpenRequest) => Promise<boolean>): void;
   /** 폰의 터미널 보기(`wiring/terminal-view.ts`)가 쓰는 main의 입력 길, 화면 읽기, 사람 입력 알림. */
   terminalIpc: Pick<TerminalIpc, "typeInto" | "screen">;
   humanInput(terminalRef: string, text: string): void;
@@ -383,6 +390,7 @@ export function register(ctx: ShellContext, appSessions: AppSessions): Coding {
   });
   registerTerminalIpc(ipc, terminalIpc);
   let tabPort: TabGuiPort | undefined;
+  let tabOpen: ((request: TabOpenRequest) => Promise<boolean>) | undefined;
   let reportGuiTabs: () => void = () => {};
   const gui = createTabGui({
     changed: () => reportGuiTabs(),
@@ -501,6 +509,10 @@ export function register(ctx: ShellContext, appSessions: AppSessions): Coding {
     tui,
     bindTabGui(port) {
       tabPort = port;
+    },
+    openTab: (request) => tabOpen?.(request) ?? Promise.resolve(false),
+    bindTabOpen(open) {
+      tabOpen = open;
     },
     terminalIpc,
     humanInput: (terminalRef, text) =>

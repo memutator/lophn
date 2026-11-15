@@ -369,6 +369,10 @@ files:
       - coding-session-switch:unavailable
     note: "lophn-gui 요청은 그 key의 터미널에만 handle을 연다. 모르는 key, 상대 경로 cwd, id에 쓸 수 없는 글자는 무시. CLI env에서 상위 session 표지는 빼고 provider key와 hook env는 남긴다(env 규칙은 harness-gui-cli-env:spawned). 폰이 시작한 GUI 전환은 ack 없이 GUI로 남고(desktop은 ack가 없으면 닫힌다), TUI를 끄지 못하면 handle을 닫아 failed이며 PTY에 아무것도 치지 않는다"
 
+  - path: packages/shell/main/terminal/coding-open_test.ts
+    covers: [coding-session-open:conflict, coding-session-open:opened]
+    note: "shell main 쪽 열기. 이미 GUI 탭에서 도는 CLI session의 resume은 conflict이고 탭을 열지 않는다. 탭을 연 뒤 그 project에 새로 생긴 handle의 터미널로 답하고 이미 있던 handle은 보지 않는다"
+
   - path: packages/shell/main/terminal/coding-relay_test.ts
     covers:
       - coding-relay-sync:folded

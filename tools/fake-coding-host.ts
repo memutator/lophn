@@ -2,7 +2,8 @@
 // 실행: node tools/fake-coding-host.ts [--project prj_…]  (먼저 `npm run dev:core`가 떠 있어야 한다. Ctrl+C로 끝낸다)
 // 개발 core(.dev-data)에 사람 자격으로 붙어 coding session 둘을 올린다: chat(GUI)으로 도는 Claude Code(도는 turn과 승인 card)와
 // 터미널(TUI)로 도는 Codex. `coding_input`을 받으면 `send`는 사람 말 하나를 더하고 `decide`는 card를 닫는다. `coding_switch`를
-// 받으면 view를 바꿔 다시 올린다. `terminal_stream`을 받으면 그 터미널의 canned 화면(색 있는 줄 몇 개와 입력 줄)을 올리고,
+// 받으면 view를 바꿔 다시 올린다. `coding_open`을 받으면 그 harness의 빈 GUI session 하나를 새 터미널로 더해 올리고 그 터미널로
+// 답한다. `terminal_stream`을 받으면 그 터미널의 canned 화면(색 있는 줄 몇 개와 입력 줄)을 올리고,
 // `terminal_input`을 받으면 그 글을 입력 줄에 더해 다시 올린다. 그 밖의 요청(탭, tool, browser)은 `unavailable`로 답한다.
 // project를 주지 않으면 첫 project다.
 import { join } from "node:path";
@@ -332,8 +333,44 @@ export function fakeCodingHost(
     return done("ok");
   }
 
+  // 새 터미널에 그 harness의 빈 GUI session을 연다. resume이면 ledger session을 이어 연 것으로 친다(CLI id는 모른다).
+  function openSession(
+    harness: string,
+    resume: string | undefined,
+  ): HostToolOutput {
+    const ref = `trm_01${String(fakes.length).padStart(24, "0")}`;
+    const fake: Fake = {
+      report: {
+        terminal_ref: ref,
+        project: project as never,
+        harness,
+        state: "idle",
+        cli_session: null,
+        title: resume === undefined ? null : `Continued ${resume}`,
+        cwd: null,
+        shell_pid: null,
+        view: "gui",
+        handoff:
+          harness === "codex" || harness === "opencode" ? "shared" : "restart",
+        foreground: false,
+      },
+      state: plainState(),
+    };
+    fakes.push(fake);
+    terminals.set(ref, { typed: "", seq: 0, tail: null });
+    report();
+    snapshot(fake);
+    console.log(`fake-coding-host: opened ${harness} in ${ref}`);
+    return done(JSON.stringify({ terminal_ref: ref }));
+  }
+
   function answer(request: CoreFrame): HostToolOutput {
     switch (request.kind) {
+      case "coding_open":
+        return openSession(
+          request.payload.harness,
+          request.payload.resume?.session,
+        );
       case "coding_input":
         return input(request.payload.input);
       case "coding_switch":

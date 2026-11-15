@@ -50,3 +50,10 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: 새 지침 절의 목차, 6번 손 확인(따라 하다 막힌 곳과 고친 곳), Instruction diff를 만든 명령, 알려진 한계(예: `preview start`의 자동 탭이 폰 화면 앱에서 여는 화면).
+
+## lead가 더함 (`mobile-build-phone` 결과, 2026-11-15)
+
+- 설치 비용은 안 A로 정해졌다: 폰 화면이 있는 앱은 `@lophn/ui-native`, `@lophn/app-ui-native`와 kit의 peer(`react-native`, `react-native-svg`, `react-native-safe-area-context`, `react-native-keyboard-controller`, `expo-clipboard`, `lucide-react-native`)와 `react-native-web`을 모두 **`devDependencies`**에 둔다. 준비가 폰 화면을 지은 뒤 `npm prune --omit=dev --ignore-scripts`를 돌려 bundle에서 뺀다(prune 뒤 51 MB, 5,440 file. 안 하면 471 MB, 45,890 file로 bundle 한도 256 MiB와 file 10,000개를 넘는다). kit을 `dependencies`에 두면 npm이 peer를 production으로 깔아 prune 뒤에도 남고(459 MB), 준비가 한 줄 오류로 거절한다.
+- `react-native-web`은 preview build가 쓴다. kit의 `peerDependencies`에 올리거나 지침이 `devDependencies`에 더하라고 말한다(둘 중 하나로 정하고 guide·메모·지침이 같은 말을 한다).
+- 앱 template의 `scripts/build-ui.ts.tmpl`(앱 안의 `npm run build`)은 아직 화면 dir마다 `main.tsx`를 기대해 `phone.tsx`만 있는 dir에서 실패한다. 이 task가 폰 화면 dir을 건너뛰게 고친다(폰 화면의 build는 준비가 한다).
+- 준비의 오류 글은 `file:line:col: reason` 한 줄씩이다. 화면 dir에는 `main.tsx`와 `phone.tsx` 가운데 하나만 있어야 하고, 폰 화면의 선언 `path`는 `/screens/<key>/index.html`이다. 폰 화면이 import할 수 없는 것(`react-dom`, `@lophn/ui`, `@lophn/app-ui`, 목록 밖의 `react-native*`·`expo*`, host module의 sub-path, node 내장)을 지침에 적는다.

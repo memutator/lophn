@@ -44,3 +44,8 @@
 ## 보고
 
 `.claude/skills/orchestrate/brief-template.md`의 "보고" 꼴. 더해서: vendor 규칙이 담은 file 목록, 사본 크기, guide의 절 목록, `mobile-build-phone`의 설치 안을 따라 `package.json`에서 바꾼 것.
+
+## lead가 더함 (`mobile-build-phone` 결과, 2026-11-15)
+
+- 설치 비용은 안 A로 정해졌다: 폰 화면이 있는 앱은 `@lophn/ui-native`, `@lophn/app-ui-native`와 kit의 peer(`react-native`, `react-native-svg`, `react-native-safe-area-context`, `react-native-keyboard-controller`, `expo-clipboard`, `lucide-react-native`)와 `react-native-web`을 모두 **`devDependencies`**에 둔다. 준비가 폰 화면을 지은 뒤 `npm prune --omit=dev --ignore-scripts`를 돌려 bundle에서 뺀다(prune 뒤 51 MB, 5,440 file. 안 하면 471 MB, 45,890 file로 bundle 한도 256 MiB와 file 10,000개를 넘는다). kit을 `dependencies`에 두면 npm이 peer를 production으로 깔아 prune 뒤에도 남고(459 MB), 준비가 한 줄 오류로 거절한다.
+- `react-native-web`은 preview build가 쓴다. kit의 `peerDependencies`에 올리거나 지침이 `devDependencies`에 더하라고 말한다(둘 중 하나로 정하고 guide·메모·지침이 같은 말을 한다).

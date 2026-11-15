@@ -289,8 +289,8 @@ journeys:
     refs: [G4]
     steps:
       - {do: "agent가 lophn tab open <url>로 browser 탭을 요청한다", flow: host-browser-tab-open:opened}
-      - {do: "shell main이 쉬지 않고 가져가는 take로 곧바로 창에 탭을 연다", screen: browser-tab, flow: host-queue-poll:offered}
-      - {do: "shell이 탭의 url, title, loading 상태를 알린다", flow: host-tab-report:state}
+      - {do: "shell main이 /host-link로 받아 곧바로 창에 탭을 연다", screen: browser-tab, flow: host-queue-poll:offered}
+      - {do: "shell이 탭의 url, title, loading 상태를 알린다", flow: host-link:tab-state}
       - {do: "agent가 lophn browser read로 자기 탭의 상태를 읽는다", flow: host-browser-read:state}
       - {do: "agent가 lophn browser snapshot으로 page의 접근성 tree를 읽는다", flow: host-browser-inspect:ok}
       - {do: "agent가 browser act로 ref를 눌러 page를 다루고 browser wait로 결과를 기다린다", flow: host-browser-act:ok}

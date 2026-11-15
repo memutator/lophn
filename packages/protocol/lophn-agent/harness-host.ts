@@ -14,7 +14,7 @@ import { turnOutcomeSchema } from "./turn-values.ts";
 // 모든 route는 runtime이 harness인 session이 아니면 `forbidden`이다.
 //
 // TUI 탭이 열린 session(`tabs/open`의 tui, `host-queue.ts`)은 그 CLI session에 process 둘이 쓰지 않게 hold된다. Take는 hold된
-// session의 입력을 건너뛰고 StartTurn은 `conflict`다. hold는 임대이고 shell main이 `host/take`로 갱신한다.
+// session의 입력을 건너뛰고 StartTurn은 `conflict`다. hold는 임대이고 shell main이 `/host-link`로 알린 TUI 목록이 갱신한다.
 //
 // 한 turn의 순서: Take(다음 입력을 본다) → StartTurn(입력을 꺼내 turn을 시작) → Record(메시지, 여러 번)
 // → FinishTurn. TurnEnded는 turn마다 한 번이다. 재시작하면 끝나지 않은 turn은 interrupted(restarted)로 끝나

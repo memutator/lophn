@@ -74,7 +74,7 @@ export const ROUTES = [
   ...ASK_ROUTES,
   // shell main의 harness host가 부르는 memory route와 그것이 쓰는 machine command다.
   ...HARNESS_HOST_ROUTES,
-  // core 메모리 host queue: shell main이 가져가는 host/*와 agent의 tabs/*, browser/read.
+  // core 메모리 host queue를 agent와 사람에게 여는 tabs/*, browser/*.
   ...HOST_QUEUE_MEMORY_ROUTES,
   // 사람에게 login 저장·한 번 넣기를 요청하는 agent 입구와, card·보호 창이 부르는 route.
   ...INPUT_REQUEST_ROUTES,

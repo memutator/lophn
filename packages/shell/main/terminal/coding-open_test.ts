@@ -29,6 +29,7 @@ function setup(sessions: GuiTabSession[]) {
   const opened: unknown[] = [];
   const created = fakeHandle(NEW);
   const tui = createHarnessTui({ onForegroundExit: () => () => {} });
+  const ends = new Map<string, () => void>();
   const open = createCodingOpen({
     gui: {
       onHandle(listener) {
@@ -50,8 +51,16 @@ function setup(sessions: GuiTabSession[]) {
     after: () => () => {},
     hold: (key, session) => tui.holdGui(key, session),
     release: (key) => tui.releaseGui(key),
+    onTerminalEnd: (terminalRef, run) => void ends.set(terminalRef, run),
   });
-  return { open, opened, listeners, tui, close: created.close };
+  return {
+    open,
+    opened,
+    listeners,
+    tui,
+    close: created.close,
+    end: (terminalRef: string) => ends.get(terminalRef)?.(),
+  };
 }
 
 // 한 CLI session에 process 둘이 붙으면 대화 기록이 엇갈려 망가진다.
@@ -88,9 +97,10 @@ test("탭을 연 뒤 그 project에 새로 생긴 handle의 터미널을 돌려�
   assert.equal(listeners.size, 0);
 });
 
-// hold가 없으면 headless turn이 GUI가 쥔 CLI session에 둘째 process를 띄운다.
-test("resume으로 연 handle이 살아 있는 동안 그 ledger session이 hold 목록에 있고 닫히면 빠진다", async () => {
-  const { open, opened, tui, close } = setup([]);
+// hold가 없으면 headless turn이 GUI가 쥔 CLI session에 둘째 process를 띄운다. 채팅을 터미널로 바꾸면 handle은 닫혀도
+// 같은 CLI session을 그 터미널의 TUI가 이어 쓴다.
+test("resume으로 연 session은 handle이 닫혀도 터미널이 살아 있으면 hold 목록에 있고 터미널이 끝나면 빠진다", async () => {
+  const { open, opened, tui, close, end } = setup([]);
   const done = await open({
     project: PROJECT,
     harness: "claude",
@@ -102,5 +112,7 @@ test("resume으로 연 handle이 살아 있는 동안 그 ledger session이 hold
   ]);
   assert.deepEqual(tui.sessions(), [LEDGER]);
   close();
+  assert.deepEqual(tui.sessions(), [LEDGER]);
+  end(NEW);
   assert.deepEqual(tui.sessions(), []);
 });

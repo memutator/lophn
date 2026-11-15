@@ -89,7 +89,7 @@ test("자격이 없거나 사람 자격이 아니거나 Origin이 다른 upgrade
   });
   const link = createHostLink({ queue, heartbeat: () => {} });
   const admission = createAdmission();
-  const hostLink = createHostLinkUpgrade({ link, admission });
+  const hostLink = createHostLinkUpgrade({ link });
   t.after(() => hostLink.shutdown());
   const upgrade = async (headers: Record<string, string>) => {
     const raw = rawSocket();
@@ -210,8 +210,29 @@ test("연결이 닫히면 진행 중인 tool_call·browser_call·coding_* 요청
     assert.equal(!result.ok && result.error.code, "unavailable");
   }
   // 빌린 기한(10초)을 기다리지 않고 다음 host가 바로 가져간다. 거둔 호출은 다시 나가지 않는다.
-  const again = queue.take([HOME]);
-  assert.equal(again?.id, opened.id);
-  assert.equal(again?.kind === "tab_open" && again.payload.tab, tab);
-  assert.equal(queue.take([HOME]), null);
+  const again: CoreFrame[] = [];
+  link
+    .attach({
+      send: (text) => again.push(JSON.parse(text)),
+      close: () => {},
+      bufferedAmount: () => 0,
+    })
+    .receive(
+      JSON.stringify({
+        type: "hello",
+        version: 1,
+        workspaces: [HOME],
+        tui: [],
+      }),
+    );
+  assert.deepStrictEqual(
+    again.map((frame) => [frame.type, frame.id]),
+    [["request", opened.id]],
+  );
+  assert.equal(
+    again[0]?.type === "request" &&
+      again[0].kind === "tab_open" &&
+      again[0].payload.tab,
+    tab,
+  );
 });

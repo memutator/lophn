@@ -181,25 +181,10 @@ export const appSessionsEnd = defineMemory({
   errors,
 });
 
-// shell main이 터미널 coding agent의 지금 집합을 알린다(통째로 바꾼다). 호출이 곧 shell이 붙어 있다는 표시라 끊기면 core가 비운다.
-export const terminalSessionsReport = defineMemory({
-  resource: "terminal_sessions",
-  method: "report",
-  name: "terminal_sessions.report",
-  changes: [],
-  input: z.strictObject({
-    sessions: z.array(terminalSessionReportSchema).max(64),
-  }),
-  output: z.strictObject({}),
-  actors: ["user"],
-  errors,
-});
-
 export const SESSION_LIFECYCLE_ROUTES = [
   appSessionsList,
   appSessionsStatus,
   appSessionsStop,
   appSessionsOpen,
   appSessionsEnd,
-  terminalSessionsReport,
 ] as const;

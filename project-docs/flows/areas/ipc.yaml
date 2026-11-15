@@ -456,7 +456,7 @@ links:
   - {entry: "ipc:shell:surface-request", flow: agent-tab-request}
   - {entry: "ipc:shell:surface-ack", flow: agent-tab-request}
   - {entry: "ipc:shell:surface-workspace", flow: agent-tab-request}
-  - {entry: "ipc:shell:surface-report", flow: host-tab-report}
+  - {entry: "ipc:shell:surface-report", flow: host-link}
   - {entry: "ipc:shell:surface-control", flow: browser-tab-control}
   - {entry: "ipc:shell:surface-take", flow: browser-tab-control}
   - {entry: "ipc:shell:surface-emulate", flow: preview-tab-emulate}

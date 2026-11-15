@@ -46,6 +46,23 @@ export function register(
     after,
     hold: (key, session) => coding.tui.holdGui(key, session),
     release: (key) => coding.tui.releaseGui(key),
+    onTerminalEnd: (terminalRef, run) => {
+      const off = coding.terminals.on({
+        runtime(runtime) {
+          if (
+            runtime.terminal_ref === terminalRef &&
+            (runtime.state === "exited" || runtime.state === "unknown")
+          ) {
+            off();
+            run();
+          }
+        },
+        hostLost() {
+          off();
+          run();
+        },
+      });
+    },
   });
   ctx.hostLink.onRequest(
     "coding_open",

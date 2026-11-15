@@ -7,11 +7,10 @@ import { artifactNameSchema } from "../projects/values.ts";
 import { loginIdSchema } from "../secrets/logins.ts";
 import { workspaceSchema } from "./workspaces.ts";
 
-// core 메모리의 host queue다. core가 shell에 시킬 일(탭 열기·닫기, extension tool 호출, browser 호출)을 담고, shell main이
-// `host/take`를 이어 불러(long-poll) 가져가 그 workspace를 보이는 창에 push한다(harness queue와 같은 꼴: core 메모리 + shell main이 가져감).
+// core 메모리의 host queue다. core가 shell에 시킬 일(탭 열기·닫기, extension tool 호출, browser 호출)을 담고, shell main이 붙은
+// `/host-link` 연결(`protocol/host-link/frames.ts`)로 받아 그 workspace를 보이는 창에 push한다. 답과 탭 상태도 그 연결로 온다.
 // shell이 없거나 그 workspace를 보이는 창이 없으면 요청은 대기하고, core가 다시 뜨면 사라진다.
 //
-// host/*는 shell main이 사람 token(actor user)으로만 부르고 renderer 통로에는 없다.
 // tabs/*와 browser/*는 agent session이나 사람 token이 `lophn tab`·`lophn browser` 명령으로 부른다. 부른 session은 자격의
 // session 조건에서 읽고 입력으로 받지 않는다. 탭의 주인은 그 session이고, 사람 token은 모두 같은 주인 "person"이다.
 
@@ -177,9 +176,6 @@ export const BROWSER_WAIT_MAX_MS = 25_000;
 export const BROWSER_CALL_MS = 30_000;
 // core가 extension tool 호출의 답을 기다리는 기한이다. 넘으면 거두고 `unavailable`이다.
 export const EXTENSION_TOOL_CALL_MS = 5 * 60_000;
-// `host/take`가 요청을 기다리는 시간이다. 매 take가 TUI hold의 heartbeat이고 hold 갱신이 10초(`BEAT_MS`)라 그보다 짧아야 한다.
-export const HOST_TAKE_WAIT_MS = 5_000;
-
 // core가 browser를 쓰려고 shell(앱)을 띄우는 약속이다. 앱의 실행 intent와, 그 길을 켜 달라고 core를 띄운 쪽(shell main, CLI)이
 // core env에 주는 표시다. test·boot처럼 사람이 아닌 쪽이 띄운 core는 이 표시가 없어 shell을 띄우지 않는다.
 export const AGENT_WINDOW_INTENT = "--agent-window";
@@ -210,7 +206,7 @@ export const browserActionSchema = z.discriminatedUnion("kind", [
 ]);
 export type BrowserAction = z.infer<typeof browserActionSchema>;
 
-// browser 탭을 CDP로 다루는 호출이다. `tool_call`처럼 workspace 칸이 없고 아무 shell main이 가져간다. 결과는 `host/done`의 output이다.
+// browser 탭을 CDP로 다루는 호출이다. `tool_call`처럼 workspace 칸이 없고 아무 shell main이 가져간다. 결과는 연결의 `response` output이다.
 const browserCallPayloadSchema = z.strictObject({
   tab: idSchema("tab"),
   view: z.enum(["browser", "preview", "artifact"]),
@@ -218,13 +214,13 @@ const browserCallPayloadSchema = z.strictObject({
 });
 
 // 터미널 탭의 coding agent CLI를 끊는다(그 harness의 끊기 key를 친다). 앱이 터미널 session을 멈출 때 core가 넣는다. workspace 칸이 없고 아무
-// shell main이 가져간다. key가 없는 harness나 없는 탭은 `host/done`의 error(unavailable·not_found)로 답한다.
+// shell main이 가져간다. key가 없는 harness나 없는 탭은 `response`의 error(unavailable·not_found)로 답한다.
 const terminalInterruptPayloadSchema = z.strictObject({
   terminal_ref: z.string().min(1),
 });
 
-// 아래 다섯은 `/host-link`로 붙은 host만 받는다(long-poll `host/take`는 내주지 않는다). workspace 칸이 없고 아무 host가 가져가며,
-// 답은 `response`의 output이다. 연결이 끊기면 `unavailable`로 끝난다.
+// 아래 다섯은 연결이 있을 때만 넣는다. 연결이 없을 때 대기하지 않고 연결이 끊기면 `unavailable`로 끝난다(`LINK_REQUEST_KINDS`).
+// workspace 칸이 없고 답은 `response`의 output이다.
 // coding session(GUI handle)에 입력 하나를 넘긴다. handle이 없으면 error `not_found`다.
 // input은 `AcpInput`(`protocol/acp/input.ts`)이다. acp가 lophn-agent를 import해 여기서 그 schema를 쓰면 순환이라 모양만 보고,
 // core는 이미 검사한 입력만 넣고 받는 host가 `acpInputSchema`로 다시 검사한다.
@@ -324,7 +320,7 @@ export const hostRequestSchema = z.discriminatedUnion("kind", [
 ]);
 export type HostRequest = z.infer<typeof hostRequestSchema>;
 
-// 연결로 붙은 host만 받는 요청 종류다.
+// 연결이 없으면 대기하지 않는 요청 종류다.
 export const LINK_REQUEST_KINDS = [
   "coding_input",
   "coding_switch",
@@ -342,28 +338,7 @@ export const browserTabStateSchema = z.strictObject({
 });
 export type BrowserTabState = z.infer<typeof browserTabStateSchema>;
 
-// 그 workspace들의 가장 오래된, 빌려 가지 않은 요청 하나를 빌려 준다. 있으면 바로, 없으면 요청이 들어올 때까지 기다리다
-// `HOST_TAKE_WAIT_MS` 뒤 null이다(long-poll). core가 멈출 때도 null로 끝난다. workspaces가 비어도 부른다:
-// 부르는 것이 shell이 붙어 있다는 표시(tool 호출의 `unavailable` 판정)이고 tui의 heartbeat다. `tool_call`·`browser_call` 요청은
-// workspaces와 상관없이 아무 호출자에게 간다. `LINK_REQUEST_KINDS`는 take로 내주지 않는다.
-// `/host-link`(`protocol/host-link/frames.ts`)가 같은 queue를 연결 위로 내준다. 빌려 간 요청은 done이 오거나 빌린 기한이 지나면 다시 대기한다. 단 `tool_call`·`browser_call`은 기한이 없다: 오래 돌 수 있고 두 번
-// 실행하면 안 된다. shell이 떨어지면 부른 쪽이 `unavailable`로 끝내고 요청을 거둔다.
-export const hostTake = defineMemory({
-  resource: "host",
-  method: "take",
-  name: "HostTake",
-  changes: [],
-  input: z.strictObject({
-    workspaces: z.array(hostWorkspaceSchema).max(64),
-    // 지금 TUI 탭(`tabs/open`의 tui)이 열려 있는 session 전부다. 매 take가 hold의 heartbeat다.
-    tui: z.array(idSchema("ses")).max(64),
-  }),
-  output: z.strictObject({ request: hostRequestSchema.nullable() }),
-  actors: ["user"],
-  errors,
-});
-
-// extension handler나 browser 호출의 결과다. 결과를 기다리는 요청(`tool_call`·`browser_call`·`terminal_interrupt`·연결 요청)의 done에만 싣는다.
+// extension handler나 browser 호출의 결과다. 결과를 기다리는 요청(`tool_call`·`browser_call`·`terminal_interrupt`·연결 요청)의 `response`에만 싣는다.
 export const hostToolOutputSchema = z.union([
   z.strictObject({ content: z.array(extensionToolContentSchema).max(64) }),
   z.strictObject({
@@ -375,37 +350,6 @@ export const hostToolOutputSchema = z.union([
   }),
 ]);
 export type HostToolOutput = z.infer<typeof hostToolOutputSchema>;
-
-// `retry`면 창이 받지 못한 것이라 요청은 다시 대기한다.
-export const hostDone = defineMemory({
-  resource: "host",
-  method: "done",
-  name: "HostDone",
-  changes: [],
-  input: z.strictObject({
-    id: idSchema("hrq"),
-    result: z.enum(["done", "retry"]),
-    output: hostToolOutputSchema.optional(),
-  }),
-  output: z.strictObject({}),
-  actors: ["user"],
-  errors,
-});
-
-// host 탭의 browser 상태나 닫힘이다. 닫힌 탭은 표에서 빠진다.
-export const hostReport = defineMemory({
-  resource: "host",
-  method: "report",
-  name: "HostReport",
-  changes: [],
-  input: z.strictObject({
-    tab: idSchema("tab"),
-    state: z.union([browserTabStateSchema, z.literal("closed")]),
-  }),
-  output: z.strictObject({}),
-  actors: ["user"],
-  errors,
-});
 
 const acceptedSchema = z.strictObject({
   tab: idSchema("tab"),
@@ -610,9 +554,6 @@ export const tabsShow = defineMemory({
 });
 
 export const HOST_QUEUE_MEMORY_ROUTES = [
-  hostTake,
-  hostDone,
-  hostReport,
   tabsOpen,
   tabsClose,
   tabsShow,

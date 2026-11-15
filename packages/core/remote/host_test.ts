@@ -33,9 +33,6 @@ import {
   agentDelete,
 } from "../../protocol/lophn-agent/agent-definitions.ts";
 import {
-  hostDone,
-  hostReport,
-  hostTake,
   tabsOpen,
 } from "../../protocol/lophn-agent/host-queue.ts";
 import {
@@ -236,10 +233,7 @@ function setup() {
     devicesClearPush,
     devicesPushTargets,
     pairingStart,
-    hostTake,
-    hostReport,
-    hostDone,
-    agentCreate,
+          agentCreate,
     agentChange,
     agentDelete,
     jobCreate,
@@ -608,7 +602,7 @@ test("기기는 route 목록 밖의 route를 forbidden으로 받고 handler에 �
   assert.deepEqual(s.reached, ["turn_requests/decide"]);
 });
 
-test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model·설정 쓰기, devices/*, pairing/*, host/*, agent·job·앱·project·workflow 만들기·고치기·지우기, 앱 직접 호출·grant·release·rewind·log 쓰기는 forbidden이고, 폰 화면 route는 통과한다", async () => {
+test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model·설정 쓰기, devices/*, pairing/*, agent·job·앱·project·workflow 만들기·고치기·지우기, 앱 직접 호출·grant·release·rewind·log 쓰기는 forbidden이고, 폰 화면 route는 통과한다", async () => {
   const s = setup();
   const key = generateKeyPair(s.random);
   s.register(key);
@@ -640,9 +634,6 @@ test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model�
     "devices/clear_push",
     "devices/push_targets",
     "pairing/start",
-    "host/take",
-    "host/report",
-    "host/done",
     "agents/create",
     "agents/change",
     "agents/delete",

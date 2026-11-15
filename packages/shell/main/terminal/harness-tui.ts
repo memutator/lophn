@@ -1,6 +1,6 @@
 // agent가 `lophn tab open --session --tui`로 연 TUI 탭의 표다(tab → lophn session). 탭이 창에 생긴 순간부터 그 session은 hold되어야
-// 하므로(탭이 열린 동안 headless turn이 시작하지 않는다) 터미널이 아직 안 열렸어도 든다. surface wiring이 매 take에 이 목록을 실어
-// core의 hold를 이어 간다. 풀리는 때는 탭이 닫혔을 때, 창이 닫혔을 때, 또는 CLI가 foreground에 보인 뒤 떠났을 때다
+// 하므로(탭이 열린 동안 headless turn이 시작하지 않는다) 터미널이 아직 안 열렸어도 든다. surface wiring이 이 목록을 `/host-link`의
+// `visible`에 실어 core의 hold를 이어 간다. 풀리는 때는 탭이 닫혔을 때, 창이 닫혔을 때, 또는 CLI가 foreground에 보인 뒤 떠났을 때다
 // (CLI가 끝내 안 떠도 사람이 탭을 닫을 때까지 풀지 않는다: 오류는 터미널에 보인다).
 // Electron도 core도 모르고 deps로만 일한다.
 export type HarnessTuiDeps = {
@@ -17,7 +17,7 @@ type Entry = {
 
 export function createHarnessTui(deps: HarnessTuiDeps) {
   const tabs = new Map<string, Entry>();
-  // 폰이 `coding_open`의 resume으로 연 GUI가 쥔 ledger session(key는 그 열기 하나). 같은 hold다: 그 CLI가 도는 동안 headless turn이
+  // 폰이 `coding_open`의 resume으로 연 터미널이 쥔 ledger session(key는 그 열기 하나). 같은 hold다: 그 CLI가 도는 동안 headless turn이
   // 같은 CLI session에 둘째 process를 띄우지 않는다.
   const guis = new Map<string, string>();
 
@@ -47,7 +47,7 @@ export function createHarnessTui(deps: HarnessTuiDeps) {
         if (entry.owner === owner) release(tab);
       }
     },
-    /** resume으로 연 GUI가 그 ledger session을 쥔다. 여는 동안부터 handle이 닫힐 때까지다. */
+    /** resume으로 연 GUI가 그 ledger session을 쥔다. 여는 동안부터 그 터미널이 끝날 때까지다(GUI를 터미널로 바꿔도 쥔다). */
     holdGui(key: string, session: string): void {
       guis.set(key, session);
     },

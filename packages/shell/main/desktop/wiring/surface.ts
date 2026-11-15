@@ -356,7 +356,7 @@ export function register(
       ...(output === undefined ? {} : { output }),
     });
 
-  // `take`가 매번 싣던 것을 바뀔 때만 보낸다. 같은 값이면 연결이 보내지 않는다.
+  // 보이는 workspace와 TUI 목록을 바뀔 때만 보낸다. 같은 값이면 연결이 보내지 않는다.
   function syncVisible(): void {
     ctx.hostLink.visible({
       workspaces: visibleWorkspaces(),
@@ -384,7 +384,7 @@ export function register(
     return driver.run(payload);
   });
 
-  // 탭 요청은 받은 차례로 하나씩 연다(옛 take loop와 같다). 창 하나를 새로 열거나 ack를 기다리는 동안 다음 요청은 기다린다.
+  // 탭 요청은 받은 차례로 하나씩 연다. 창 하나를 새로 열거나 ack를 기다리는 동안 다음 요청은 기다린다.
   let tabs: Promise<void> = Promise.resolve();
   let stopped = false;
   let retry: ReturnType<typeof setTimeout> | undefined;

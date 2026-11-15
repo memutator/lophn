@@ -371,7 +371,7 @@ files:
 
   - path: packages/shell/main/terminal/coding-open_test.ts
     covers: [coding-session-open:conflict, coding-session-open:opened]
-    note: "shell main 쪽 열기. 이미 GUI 탭에서 도는 CLI session의 resume은 conflict이고 탭을 열지 않는다. 탭을 연 뒤 그 project에 새로 생긴 handle의 터미널로 답하고 이미 있던 handle은 보지 않는다. resume으로 연 handle이 살아 있는 동안 그 ledger session이 hold 목록에 있고 닫히면 빠진다"
+    note: "shell main 쪽 열기. 이미 GUI 탭에서 도는 CLI session의 resume은 conflict이고 탭을 열지 않는다. 탭을 연 뒤 그 project에 새로 생긴 handle의 터미널로 답하고 이미 있던 handle은 보지 않는다. resume으로 연 ledger session은 handle이 닫혀도(채팅을 터미널로 바꿈) 그 터미널이 살아 있으면 hold 목록에 있고 터미널이 끝나면 빠진다"
 
   - path: packages/shell/main/terminal/coding-relay_test.ts
     covers:

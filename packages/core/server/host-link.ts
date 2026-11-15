@@ -21,7 +21,6 @@ import {
 } from "../../protocol/host-link/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import type { HostQueueService } from "../host-queue/mod.ts";
-import type { Admission } from "../supervision/responsiveness/mod.ts";
 import { failure } from "./request.ts";
 import { refuseSocket } from "./socket.ts";
 
@@ -221,7 +220,7 @@ export function createHostLink(deps: {
 }
 
 export type HostLinkUpgrade = {
-  // Host·Origin·Bearer gate를 지난 upgrade를 받는다. 사람 자격, GET, subprotocol, 연결 한도를 본다.
+  // Host·Origin·Bearer gate를 지난 upgrade를 받는다. 사람 자격, GET, subprotocol을 본다.
   accept(
     request: IncomingMessage,
     socket: Duplex,
@@ -234,7 +233,6 @@ export type HostLinkUpgrade = {
 
 export function createHostLinkUpgrade(deps: {
   link: HostLink;
-  admission: Admission;
 }): HostLinkUpgrade {
   const server = new WebSocketServer({
     noServer: true,
@@ -271,10 +269,7 @@ export function createHostLinkUpgrade(deps: {
           }),
         );
       }
-      // Gateway와 같은 event 연결 한도다.
-      const entered = deps.admission.enterEvent(context.principal);
-      if (!entered.ok) return refuseSocket(socket, failure(entered.error));
-      socket.once("close", () => entered.value.release());
+      // event 연결 한도(사람 token의 Gateway·CLI watch 몫)를 쓰지 않는다. 연결은 한 번에 하나라 새 연결이 옛 연결을 닫는다(`attach`).
       server.handleUpgrade(request, socket, head, (ws) => {
         arrivals += 1;
         const peer = deps.link.attach({

@@ -1,4 +1,4 @@
-// core의 `browser_call` 요청을 실제 탭에 돌리는 port다. surface가 요청을 가져와 여기에 넘기고 결과를 `host/done`에 싣는다.
+// core의 `browser_call` 요청을 실제 탭에 돌리는 port다. surface가 `/host-link`로 받은 요청을 여기에 넘기고 결과를 연결의 `response`에 싣는다.
 // 탭의 page에는 `webContents.debugger`(CDP)로 붙는다. 마우스·키는 CDP `Input.*`만 쓴다: webContents의 입력 주입 API는 webview guest에 닿지 않는다.
 import { ERROR_CODES } from "../../../../base/mod.ts";
 import type {

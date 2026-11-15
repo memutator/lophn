@@ -21,9 +21,6 @@ import {
   browserScreenshot,
   browserSnapshot,
   browserWait,
-  hostDone,
-  hostReport,
-  hostTake,
   type HostWorkspace,
   tabsClose,
   tabsOpen,
@@ -55,7 +52,7 @@ import { createHostLink, type MemoryHandler } from "../../../server/mod.ts";
 import { createLoginStore } from "../../../secrets/mod.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
-// core 메모리의 host queue를 shell main(`/host-link` 연결과 옛 host/*)과 agent·사람(tabs/*, browser/*)에 연다. 흐름은
+// core 메모리의 host queue를 shell main(`/host-link` 연결)과 agent·사람(tabs/*, browser/*)에 연다. 흐름은
 // `protocol/lophn-agent/host-queue.ts`. 뒤 task가 쓰는 port는 `ctx.hostQueue`와 `ctx.hostLink`다.
 const key = (route: { resource: string; method: string }) =>
   `${route.resource}/${route.method}`;
@@ -348,7 +345,7 @@ export function createTabHandlers(deps: TabDeps) {
 
   // 기다리는 browser 호출과 browser 탭 열기. core가 멈추기 전에 끝낸다.
   const inflight = new Set<() => void>();
-  // 요청의 결과를 기다리며 기한과 shell이 떨어짐을 1초마다 본다. shell을 띄우며 기다리는 열기는 take 사이가 벌어져도(창을 만드는 동안)
+  // 요청의 결과를 기다리며 기한과 shell이 떨어짐을 1초마다 본다. shell을 띄우며 기다리는 열기는 아직 붙지 않았어도(창을 만드는 동안)
   // 떨어짐으로 보지 않고 30초 기한에 맡긴다.
   const settled = async (
     id: Id<"hrq">,
@@ -551,7 +548,6 @@ export function createTabHandlers(deps: TabDeps) {
 }
 
 export const hostQueueWiring: WiringFactory = () => {
-  let queue: HostQueueService | undefined;
   let tabs: ReturnType<typeof createTabHandlers> | undefined;
   return {
     name: "host-queue",
@@ -560,7 +556,6 @@ export const hostQueueWiring: WiringFactory = () => {
         clock: ctx.clock,
         ids: createIdSource({ clock: ctx.clock, random: ctx.random }),
       });
-      queue = made;
       ctx.provide("hostQueue", made);
       ctx.provide(
         "hostLink",
@@ -572,11 +567,6 @@ export const hostQueueWiring: WiringFactory = () => {
       );
       const { launchShell } = ctx.options;
 
-      // shell main은 사람 token으로 부른다.
-      const shell = (who: AuthenticatedContext): Result<void> =>
-        who.actor === "user"
-          ? ok(undefined)
-          : err({ code: "forbidden", message: "only the shell host" });
       const sessionRow = (session: string) => {
         const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
           loadSession(lookup, session),
@@ -630,33 +620,8 @@ export const hostQueueWiring: WiringFactory = () => {
       });
       tabs = handlers;
 
-      const take: MemoryHandler = async (who, body) => {
-        const allowed = shell(who);
-        if (!allowed.ok) return allowed;
-        const input = hostTake.input.parse(body);
-        ctx.harnessHold.heartbeat(input.tui as Id<"ses">[]);
-        return ok({ request: await made.wait(input.workspaces) });
-      };
-      const done: MemoryHandler = (who, body) => {
-        const allowed = shell(who);
-        if (!allowed.ok) return allowed;
-        const input = hostDone.input.parse(body);
-        made.done(input.id as Id<"hrq">, input.result, input.output);
-        return ok({});
-      };
-      const report: MemoryHandler = (who, body) => {
-        const allowed = shell(who);
-        if (!allowed.ok) return allowed;
-        const input = hostReport.input.parse(body);
-        made.report(input.tab as Id<"tab">, input.state);
-        return ok({});
-      };
-
       return ok({
         memory: [
-          [key(hostTake), take],
-          [key(hostDone), done],
-          [key(hostReport), report],
           [key(tabsOpen), handlers.open],
           [key(tabsClose), handlers.close],
           [key(tabsShow), handlers.show],
@@ -671,9 +636,8 @@ export const hostQueueWiring: WiringFactory = () => {
         ],
       });
     },
-    // 기다리는 take와 browser 호출은 서버가 멈추기 전에 끝낸다.
+    // 기다리는 browser 호출은 서버가 멈추기 전에 끝낸다.
     closeIntake() {
-      queue?.releaseTakers();
       tabs?.abandonCalls();
     },
   };

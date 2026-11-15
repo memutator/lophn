@@ -10,8 +10,16 @@ import {
   seededRandom,
 } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
+import type {
+  HostRequest,
+  HostWorkspace,
+} from "../../../../protocol/lophn-agent/host-queue.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import { createHostQueue, fileHandoffs } from "../../../host-queue/mod.ts";
+import {
+  createHostQueue,
+  fileHandoffs,
+  type HostQueueService,
+} from "../../../host-queue/mod.ts";
 import type { AgentSessionRow } from "../../../lophn-agent/session/model.ts";
 import { createTabHandlers } from "./host-queue.ts";
 
@@ -78,6 +86,25 @@ function setup(
   return { clock, queue, ...handlers };
 }
 const target = { target: { preview: { app: APP } } };
+
+// `/host-link` 연결 하나를 붙이고 queue가 밀어 준 요청을 받은 차례로 꺼낸다. `arrive`는 handler가 비동기로 넣는 요청을 기다린다.
+function connect(
+  queue: HostQueueService,
+  workspaces: readonly HostWorkspace[] = [],
+) {
+  const sent: HostRequest[] = [];
+  const link = queue.connect((request) => sent.push(request));
+  link.visible(workspaces);
+  return {
+    link,
+    next: () => sent.shift() ?? null,
+    async arrive(): Promise<HostRequest> {
+      while (sent.length === 0) await new Promise(setImmediate);
+      return sent.shift()!;
+    },
+  };
+}
+const PROJECT_1 = { kind: "project", id: id("prj", 1) } as HostWorkspace;
 const code = (reply: { ok: boolean }) =>
   reply.ok
     ? "ok"
@@ -85,10 +112,11 @@ const code = (reply: { ok: boolean }) =>
 
 test("preview 탭은 그 앱 workspace의 session과 사람만 연다", async () => {
   const { queue, open } = setup(true);
+  const host = connect(queue, [{ kind: "app", id: APP as never }]);
   for (const n of [2, 3, 4]) {
     assert.equal(code(await open(agent(n), target)), "not_found");
   }
-  assert.equal(queue.take([{ kind: "app", id: APP as never }]), null);
+  assert.equal(host.next(), null);
   assert.equal(code(await open(agent(1), target)), "ok");
   assert.equal(code(await open(person, target)), "ok");
   // 사람 token은 session 탭을 열지 못한다.
@@ -120,27 +148,27 @@ const browser = { target: { browser: { url: "https://example.com" } } };
 const message = (reply: unknown) =>
   (reply as { error: { message: string } }).error.message;
 
-// browser 탭은 사람이 그 workspace를 띄우지 않아도(take의 workspaces가 비어도) 열려야 하고, page를 못 만들면 표에 탭이 남으면 안 된다.
+// browser 탭은 사람이 그 workspace를 띄우지 않아도(연결이 알린 workspaces가 비어도) 열려야 하고, page를 못 만들면 표에 탭이 남으면 안 된다.
 // 남으면 agent가 없는 page에 호출을 되풀이한다.
 test("browser tab open은 workspace를 띄운 창 없이도 shell에 가고, 기한 안에 답이 없으면 unavailable이며 탭이 남지 않는다", async () => {
   const { clock, queue, open } = setup(true);
-  queue.take([]);
+  const host = connect(queue);
   const slow = open(agent(1), browser);
-  const lent = queue.take([]);
-  assert.equal(lent?.kind, "tab_open");
+  const lent = await host.arrive();
+  assert.equal(lent.kind, "tab_open");
   const tab = (lent as { payload: { tab: string } }).payload.tab;
   clock.advance(10_001);
   queue.expire();
   const reply = await slow;
   assert.equal(code(reply), "unavailable");
   assert.equal(queue.read(tab as never, id("ses", 1) as never).ok, false);
-  // 늦게 온 done은 무시되고, 늦게 만들어졌을지 모르는 page를 닫으라는 요청이 나간다.
-  queue.done(lent!.id as never, "done");
-  assert.equal(queue.take([])?.kind, "tab_close");
+  // 늦게 만들어졌을지 모르는 page를 닫으라는 요청이 나가고, 늦게 온 done은 무시된다.
+  assert.equal(host.next()?.kind, "tab_close");
+  queue.done(lent.id as never, "done");
 
   const quick = open(agent(1), browser);
-  const next = queue.take([]);
-  queue.done(next!.id as never, "done", {
+  const next = await host.arrive();
+  queue.done(next.id as never, "done", {
     content: [{ type: "text", text: "bound" }],
   });
   assert.equal(code(await quick), "ok");
@@ -155,8 +183,9 @@ test("shell이 없으면 browser tab open이 shell을 한 번만 띄우고 붙�
   const second = open(agent(1), browser);
   assert.equal(launches, 1);
   const bound = { content: [{ type: "text" as const, text: "bound" }] };
+  const host = connect(queue);
   for (let n = 0; n < 2; n++) {
-    queue.done(queue.take([])!.id as never, "done", bound);
+    queue.done((await host.arrive()).id as never, "done", bound);
   }
   assert.equal(code(await first), "ok");
   assert.equal(code(await second), "ok");
@@ -195,17 +224,17 @@ test("shell이 30초 안에 붙지 않거나 띄우다 실패하면 열기가 un
   assert.equal(launches, 2);
   fail!();
   assert.match(message(await spawning), /could not be started/);
-  // 사람이 앱을 열어 shell이 붙으면 풀리고 열린다.
+  // 사람이 앱을 열어 shell이 붙으면 풀리고 열린다. 받는 shell이 없었던 실패한 열기들의 닫기 요청은 쌓이지 않았다.
   clock.advance(1_000);
-  queue.take([]);
+  const host = connect(queue);
+  assert.equal(host.next(), null);
   const again = open(agent(1), browser);
-  queue.done(queue.take([])!.id as never, "done", {
+  queue.done((await host.arrive()).id as never, "done", {
     content: [{ type: "text", text: "bound" }],
   });
   assert.equal(code(await again), "ok");
   assert.equal(launches, 2);
-  // 받는 shell이 없었던 실패한 열기들의 닫기 요청은 쌓이지 않았다.
-  assert.equal(queue.take([]), null);
+  assert.equal(host.next(), null);
 
   const without = setup(true);
   const refused = await without.open(agent(1), browser);
@@ -216,11 +245,11 @@ test("shell이 30초 안에 붙지 않거나 띄우다 실패하면 열기가 un
 // 남의 탭을 보거나 조작하면 다른 session의 로그인 page를 읽는다. 주인 대조가 shell 가용 판정보다 앞서야 not_found가 먼저 나간다.
 // 없는 탭과 남의 탭은 같은 문장이어야 남의 탭이 있는지 새지 않는다.
 test("browser 호출은 연 쪽만 하고, 남이나 사람이 연 탭은 없는 탭과 같은 not_found 문장이다", async () => {
-  const { clock, queue, open, snapshot, act } = setup(true);
-  queue.take([]);
+  const { queue, open, snapshot, act } = setup(true);
+  const host = connect(queue);
   const openedBy = async (who: AuthenticatedContext) => {
     const pending = open(who, browser);
-    queue.done(queue.take([])!.id as never, "done", {
+    queue.done((await host.arrive()).id as never, "done", {
       content: [{ type: "text", text: "bound" }],
     });
     return pending;
@@ -245,7 +274,7 @@ test("browser 호출은 연 쪽만 하고, 남이나 사람이 연 탭은 없는
     "not_found",
   );
   // 앱이 끝나 shell이 없으면 browser 탭의 page는 사라진 것이라 탭을 표에서 빼고 같은 not_found 문장을 준다.
-  clock.advance(3_001);
+  host.link.close();
   assert.equal(
     message(await snapshot(agent(1), { tab: agentTab })),
     message(gone),
@@ -257,6 +286,7 @@ test("browser 호출은 연 쪽만 하고, 남이나 사람이 연 탭은 없는
 // artifact는 그 그릇 workspace의 것만 연다. 깨지면 다른 project·앱의 agent가 남의 artifact를 사람 화면에 띄우고 읽는다.
 test("artifact 탭은 자기 workspace의 있는 artifact만 열고, artifact마다 하나다", async () => {
   const { queue, open } = setup(true);
+  const host = connect(queue, [PROJECT_1]);
   const report = { target: { artifact: { name: "report" } } };
   // 앱 workspace의 session에게는 그 이름의 artifact가 없다. home은 artifact가 없다.
   assert.equal(code(await open(agent(1), report)), "not_found");
@@ -268,8 +298,7 @@ test("artifact 탭은 자기 workspace의 있는 artifact만 열고, artifact마
   const first = await open(agent(3), report);
   assert.ok(first.ok);
   const tab = (first.value as { tab: string }).tab;
-  const request = queue.take([{ kind: "project", id: id("prj", 1) as never }]);
-  assert.equal(request?.kind, "tab_open");
+  assert.equal(host.next()?.kind, "tab_open");
   const again = await open(person, {
     ...report,
     workspace: { kind: "project", id: id("prj", 1) },
@@ -283,6 +312,7 @@ test("coding handoff는 사람 token, project가 아닌 session, 즐겨찾기에
   const root = await mkdtemp(join(tmpdir(), "lophn-handoff-"));
   try {
     const { queue, open } = setup(true, root);
+    const host = connect(queue, [PROJECT_1]);
     const coding = (harness: string) => ({
       target: { coding: { harness, handoff: "text" } },
     });
@@ -296,10 +326,7 @@ test("coding handoff는 사람 token, project가 아닌 session, 즐겨찾기에
     assert.match(JSON.stringify(unknown), /claude/);
     assert.equal(code(await open(agent(3), coding("pi"))), "invalid_input");
     assert.deepEqual(await readdir(root), []);
-    assert.equal(
-      queue.take([{ kind: "project", id: id("prj", 1) as never }]),
-      null,
-    );
+    assert.equal(host.next(), null);
   } finally {
     await rm(root, { recursive: true });
   }
@@ -309,6 +336,7 @@ test("받은 handoff는 data root handoffs/에 0600으로 쓰이고 tab_open pay
   const root = await mkdtemp(join(tmpdir(), "lophn-handoff-"));
   try {
     const { queue, open } = setup(true, root);
+    const host = connect(queue, [PROJECT_1]);
     const text = "goal: fix the login\nnext: run it";
     const opened = await open(agent(3), {
       target: { coding: { harness: "claude", handoff: text } },
@@ -319,9 +347,7 @@ test("받은 handoff는 data root handoffs/에 0600으로 쓰이고 tab_open pay
     assert.equal(await readFile(file, "utf8"), text);
     assert.equal((await stat(file)).mode & 0o777, 0o600);
     assert.equal((await stat(join(root, "handoffs"))).mode & 0o777, 0o700);
-    const request = queue.take([
-      { kind: "project", id: id("prj", 1) as never },
-    ]);
+    const request = host.next();
     assert.equal(request?.kind, "tab_open");
     assert.ok(!JSON.stringify(request).includes("login"));
     assert.deepEqual(
@@ -336,9 +362,9 @@ test("받은 handoff는 data root handoffs/에 0600으로 쓰이고 tab_open pay
 // 값이 queue 항목이나 결과에 실리면 ledger·log·agent에 비밀번호가 남는다. username만 metadata의 글로 `fill`이 된다.
 test("fill_login의 queue 항목에는 login id만 있고, 결과와 page 글에서 알려진 값은 지워진다", async () => {
   const { queue, open, act, snapshot } = setup(true);
-  queue.take([]);
+  const host = connect(queue);
   const opening = open(agent(1), browser);
-  queue.done(queue.take([])!.id as never, "done", {
+  queue.done((await host.arrive()).id as never, "done", {
     content: [{ type: "text", text: "bound" }],
   });
   const opened = await opening;
@@ -359,10 +385,10 @@ test("fill_login의 queue 항목에는 login id만 있고, 결과와 page 글에
 
   const calls: unknown[] = [];
   const answer = async (reply: ReturnType<typeof act>, text: string) => {
-    const request = await queue.wait([{ kind: "home" }]);
-    assert.equal(request?.kind, "browser_call");
-    calls.push(request!.payload);
-    queue.done(request!.id as Id<"hrq">, "done", {
+    const request = await host.arrive();
+    assert.equal(request.kind, "browser_call");
+    calls.push(request.payload);
+    queue.done(request.id as Id<"hrq">, "done", {
       content: [{ type: "text", text }],
     });
     return (await reply) as { ok: boolean; value: unknown };

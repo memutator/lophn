@@ -11,7 +11,6 @@ import {
   BROWSER_CALL_MS,
   EXTENSION_TOOL_CALL_MS,
   type BrowserTabState,
-  HOST_TAKE_WAIT_MS,
   type HostRequest,
   type HostTabTarget,
   type HostToolOutput,
@@ -22,10 +21,8 @@ import {
 } from "../../protocol/lophn-agent/host-queue.ts";
 
 // core 메모리의 host queue와 agent가 연 탭의 표다. 꺼지면 사라진다.
-// host는 두 길로 붙는다: `/host-link` 연결(`connect`, queue가 요청을 바로 밀어 준다)과 long-poll `take`(옛 길, 지울 것이다).
-// 연결이 열려 있거나, 기다리는 take가 있거나 마지막 take가 끝난 지 ATTACHED_MS 안이면 shell이 붙어 있다고 본다.
-// 빌려 간 요청은 shell main이 죽어 done이 오지 않아도 BORROW_MS 뒤 다시 대기한다. 연결로 빌려 간 것은 연결이 닫히면 바로 다시 대기한다.
-const ATTACHED_MS = 3_000;
+// host는 `/host-link` 연결(`connect`)로 붙고 queue가 닿는 요청을 바로 밀어 준다. 연결이 열려 있으면 shell이 붙어 있다.
+// 빌려 간 탭 요청은 done이 오지 않으면 BORROW_MS 뒤 다시 나가고, 연결이 닫히면 바로 다시 대기한다.
 const BORROW_MS = 10_000;
 // browser 탭을 열 때 shell이 page를 만들었다고 알릴 때까지 기다리는 기한이다. 넘으면 거두고 `unavailable`이다.
 // shell이 없어 띄워야 했던 열기는 앱 시작과 창 열기까지 걸려 START_WAIT_MS 하나로 끝낸다. 한 번 띄운 뒤 그 시간 안에는 다시 띄우지 않는다.
@@ -116,7 +113,7 @@ export type HostQueue = {
   startShell(launch: (failed: () => void) => void): boolean;
   // 아직 쓰지 않은 탭 id다. file을 먼저 쓰고 `openTab({tab})`으로 여는 쪽이 받는다.
   newTabId(): Id<"tab">;
-  // 연결이 열려 있거나, 기다리는 take가 있거나 마지막 take가 끝난 지 3초 안이다.
+  // `/host-link` 연결이 열려 있다.
   attached(): boolean;
 };
 
@@ -201,12 +198,6 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       starting: boolean;
     }
   >();
-  // 요청을 기다리며 걸려 있는 take.
-  const takers = new Set<{
-    workspaces: readonly HostWorkspace[];
-    finish(request: HostRequest | null): void;
-  }>();
-  let lastTakeMs: number | null = null;
   // 열린 `/host-link` 연결이다. 한 번에 하나다. lent는 그 연결로 빌려 주고 아직 done이 오지 않은 요청이다.
   let link: {
     workspaces: readonly HostWorkspace[];
@@ -223,15 +214,11 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     found?.resolve(result);
   }
 
-  // 그 workspace들이 닿는, 빌려 가지 않은 가장 오래된 요청을 빌려 준다. 연결 요청은 연결에만 빌려 준다.
-  function lend(
-    workspaces: readonly HostWorkspace[],
-    viaLink = false,
-  ): HostRequest | null {
+  // 그 workspace들이 닿는, 빌려 가지 않은 가장 오래된 요청을 빌려 준다.
+  function lend(workspaces: readonly HostWorkspace[]): HostRequest | null {
     const now = deps.clock.nowMs();
     const found = pending.find(
       (entry) =>
-        (viaLink || !linkOnly(entry.request)) &&
         (entry.borrowedAt === null ||
           (!isCall(entry.request) && now - entry.borrowedAt > BORROW_MS)) &&
         (entry.anywhere ||
@@ -287,26 +274,12 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     }
   }
 
-  const attached = () =>
-    link !== null ||
-    takers.size > 0 ||
-    (lastTakeMs !== null && deps.clock.nowMs() - lastTakeMs <= ATTACHED_MS);
+  const attached = () => link !== null;
 
-  function take(workspaces: readonly HostWorkspace[]): HostRequest | null {
-    lastTakeMs = deps.clock.nowMs();
-    launchedAt = null;
-    failedAt = null;
-    return lend(workspaces);
-  }
-
-  // 호출은 workspace를 가리지 않고 아무 take가 가져간다. browser 탭의 page는 그 workspace가 안 보여도 창 단위로 살아서
+  // 호출은 workspace를 가리지 않고 연결이 가져간다. browser 탭의 page는 그 workspace가 안 보여도 창 단위로 살아서
   // 열기(isCall)와 닫기(close가 anywhere를 준다)도 그렇다.
   function enqueue(request: HostRequest, anywhere = isCall(request)): void {
     pending.push({ request, borrowedAt: null, anywhere });
-    for (const taker of [...takers]) {
-      const lent = lend(taker.workspaces);
-      if (lent !== null) taker.finish(lent);
-    }
     pushLink();
     if (pending.length > PENDING_MAX) {
       const [dropped] = pending.splice(0, 1);
@@ -318,7 +291,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
   function pushLink(): void {
     const current = link;
     while (current !== null && link === current) {
-      const lent = lend(current.workspaces, true);
+      const lent = lend(current.workspaces);
       if (lent === null) return;
       current.lent.add(lent.id as Id<"hrq">);
       current.send(lent);
@@ -578,35 +551,12 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       // launch가 바로 실패했으면 startFailed가 비웠다.
       return launchedAt !== null;
     },
-    // 있으면 바로, 없으면 요청이 들어올 때까지 기다리다 HOST_TAKE_WAIT_MS 뒤 null이다. 기다리는 동안 attached다.
-    wait(workspaces: readonly HostWorkspace[]): Promise<HostRequest | null> {
-      const found = take(workspaces);
-      if (found !== null) return Promise.resolve(found);
-      return new Promise((resolve) => {
-        const timer = setTimeout(() => taker.finish(null), HOST_TAKE_WAIT_MS);
-        const taker = {
-          workspaces,
-          finish(request: HostRequest | null) {
-            if (!takers.delete(taker)) return;
-            clearTimeout(timer);
-            lastTakeMs = deps.clock.nowMs();
-            resolve(request);
-          },
-        };
-        takers.add(taker);
-      });
-    },
-    // 기다리는 take를 null로 끝낸다. core가 멈출 때 부른다.
-    releaseTakers(): void {
-      for (const taker of [...takers]) taker.finish(null);
-    },
     newTabId: () => deps.ids.newId("tab") as Id<"tab">,
     openTab: (input: OpenInput) => place(input, false).tab,
     openAndWait(input: OpenInput) {
       const placed = place(input, true);
       return { tab: placed.tab, ...placed.sent! };
     },
-    take,
     done,
     // renderer가 host 탭의 상태나 닫힘을 알린다. 모르는 탭은 무시한다.
     report(tab: Id<"tab">, state: BrowserTabState | "closed"): void {

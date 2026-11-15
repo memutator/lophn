@@ -1,6 +1,6 @@
 // 폰이 연 coding session(core의 `coding_open`)을 desktop에 연다. 그 project를 보이는 창에 coding 탭 열기를 넣어 새 터미널이
 // `<harness> gui`(되살리면 `--resume <id>`)를 치게 하고(사람이 친 것과 같은 길: hook → `gui.request` → extension이 handle을 연다),
-// 그 project의 터미널에 그 harness의 새 handle이 생길 때까지 기다린다. 되살리면 그 ledger session을 handle이 닫힐 때까지
+// 그 project의 터미널에 그 harness의 새 handle이 생길 때까지 기다린다. 되살리면 그 ledger session을 그 터미널이 끝날 때까지
 // hold해 headless turn이 같은 CLI session에 둘째 process를 띄우지 않게 한다. Electron을 모르고 deps로만 일한다.
 import {
   type GuiHarness,
@@ -22,9 +22,11 @@ export type CodingOpenDeps = {
     resume: string | null;
   }): Promise<boolean>;
   after(ms: number, run: () => void): () => void;
-  /** resume이면 그 ledger session을 TUI 탭처럼 hold한다(`HarnessTui.holdGui`). 여는 동안부터 handle이 닫힐 때까지다. */
+  /** resume이면 그 ledger session을 TUI 탭처럼 hold한다(`HarnessTui.holdGui`). 여는 동안부터 그 터미널이 끝날 때까지다. */
   hold(key: string, session: string): void;
   release(key: string): void;
+  /** 그 터미널이 끝나면(process가 끝났거나 terminal host가 사라졌다) 한 번 부른다. */
+  onTerminalEnd(terminalRef: string, run: () => void): void;
 };
 
 export type CodingOpenResult =
@@ -86,7 +88,7 @@ export function createCodingOpen(deps: CodingOpenDeps) {
     });
     replaying = false;
     const cancel = deps.after(OPEN_WAIT_MS, () => settle(null));
-    // core가 건 30초 예약이 끝나기 전에, 탭이 열리기 전부터 쥔다. 실패하면 놓고 성공하면 handle이 닫힐 때 놓는다.
+    // core가 건 30초 예약이 끝나기 전에, 탭이 열리기 전부터 쥔다. 실패하면 놓고 성공하면 그 터미널이 끝날 때 놓는다.
     const key = `open-${++opens}`;
     if (resume !== undefined) deps.hold(key, resume.session);
     let holding = false;
@@ -114,12 +116,8 @@ export function createCodingOpen(deps: CodingOpenDeps) {
       }
       if (resume !== undefined) {
         holding = true;
-        // 이미 닫혔으면 attach가 바로 closed를 부른다.
-        handle.attach({
-          snapshot: () => {},
-          update: () => {},
-          closed: () => deps.release(key),
-        });
+        // handle이 닫혀도 놓지 않는다: 사람이 채팅을 터미널로 바꾸면 handle은 닫히고 같은 CLI session을 그 터미널의 TUI가 이어 쓴다.
+        deps.onTerminalEnd(handle.terminal, () => deps.release(key));
       }
       return { ok: true, terminal_ref: handle.terminal };
     } finally {

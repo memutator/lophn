@@ -333,7 +333,7 @@ export async function startApiServer(
   }
 
   const gateway = createGatewayUpgrade();
-  const hostLink = createHostLinkUpgrade({ link: options.hostLink, admission });
+  const hostLink = createHostLinkUpgrade({ link: options.hostLink });
   const upgrade: ServeUpgradeHandler = (request, socket, head) => {
     // 거절 write까지 실패하면 알릴 길이 없다. process는 죽이지 않는다.
     void acceptUpgrade(

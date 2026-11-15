@@ -228,74 +228,6 @@ flows:
     docs: [architecture/coding-agent.md]
 
   # ---- host queue: core 메모리의 host 요청과 agent가 연 탭 ----
-  - id: host-request-take
-    title: shell main이 보이는 workspace의 host 요청 하나를 빌린다(요청이 올 때까지 기다린다)
-    actor: shell
-    entries: [route:host/take]
-    boundary: [host-queue-interface, host-queue-core]
-    code:
-      - packages/core/main/daemon/wiring/host-queue.ts
-      - packages/core/host-queue/queue.ts
-      - packages/core/host-queue/hold.ts
-      - packages/shell/main/desktop/wiring/surface.ts
-    steps:
-      - "shell main의 surface loop가 보이는 workspace 목록과 TUI 탭 session 목록을 싣고 take를 쉬지 않고 이어 부른다(long-poll)"
-      - "매 take가 heartbeat다. TUI hold를 갱신한다. 기다리는 take가 있거나 마지막 take가 끝난 지 3초 안이면 shell이 붙어 있다(attached)고 본다"
-      - "보이는 workspace의 가장 오래된 대기 요청 하나를 빌려 주고 빌린 시각을 적는다. 없으면 요청이 들어올 때까지 최대 5초 기다린다(기다리는 동안 attached다)"
-      - "빌린 요청은 done이 없으면 10초 뒤 다시 대기한다. 결과를 기다리는 요청(tool_call, browser_call, terminal_interrupt, browser tab_open)은 다시 내놓지 않는다. take가 오면 shell이 새로 붙었으므로 shell을 띄우려던 시도의 기록(시작한 때, 실패한 때)을 지운다"
-      - "tool_call, browser_call, terminal_interrupt(앱이 멈춘 터미널 탭의 coding agent를 끊는 요청)은 workspace와 상관없이 아무 shell이나 가져간다. browser 탭의 tab_open과 tab_close도 그렇다(page가 창 단위로 살아 그 workspace를 보이는 창이 없어도 열고 닫는다). 결과를 기다리는 요청(browser_call, browser tab_open)은 두 번 실행하면 안 되어 done이 없어도 다시 내놓지 않는다. 5초 안에 요청이 없거나 core가 멈추면 request가 null이다"
-    outcomes:
-      - id: request
-        observe: [response]
-      - id: none
-        when: "기다린 5초 안에 요청이 없었거나 core가 멈춰 기다림이 풀렸다"
-        observe: [response]
-      - id: forbidden
-        code: forbidden
-        when: "사람 token(shell main)이 아닌 자격이 부른다"
-        observe: [response]
-    crosses_process: false
-    risk: [secret]
-    docs: [architecture/coding-agent.md, architecture/workspace-layout.md]
-    unclear:
-      - "tool_call 요청 payload에 credential이 실려 shell로 간다. 이 credential을 실제로 누가 받는지는 extension-tools 쪽 flow가 정한다"
-
-  - id: host-request-done
-    title: shell이 끝낸 host 요청을 떼고, 못 연 요청은 다시 대기시킨다
-    actor: shell
-    entries: [route:host/done]
-    pre: [host-request-take:request]
-    boundary: [host-queue-interface, host-queue-core]
-    code:
-      - packages/core/host-queue/queue.ts
-      - packages/core/main/daemon/wiring/host-queue.ts
-    steps:
-      - "shell이 요청 id와 결과(done 또는 retry)를 보낸다. 없는 id면 아무것도 하지 않는다"
-      - "retry면 그 요청을 빌림 해제하고 맨 뒤로 보낸다. 앞 요청이 뒤를 막지 않게 한다"
-      - "done이고 tool_call, browser_call, terminal_interrupt이면 output을 그 호출을 기다리던 쪽(extension tool 호출, browser/* route, 앱의 session stop)에 넘긴다(content는 성공, error는 실패)"
-      - "그 호출인데 output이 없으면 기다리던 쪽은 unavailable로 끝난다"
-    outcomes:
-      - id: done
-        when: "빌린 요청을 끝냈다. tool_call이나 browser_call이면 output을 기다리던 호출에 넘긴다. 다른 종류면 요청을 지운다"
-        observe: [response]
-      - id: retry
-        when: "shell이 창에 열지 못했다. 요청을 빌림 해제하고 맨 뒤로 보낸다"
-        observe: [response]
-      - id: unknown
-        when: "그 id의 요청이 없다(이미 끝났거나 거둬졌다). 아무것도 하지 않고 ok다"
-        observe: [response]
-      - id: tool-no-output
-        when: "tool_call이나 browser_call인데 output이 없다. 기다리던 호출은 unavailable로 끝난다(turns 쪽 flow, host-browser-* flow가 본다)"
-        observe: [response]
-      - id: forbidden
-        code: forbidden
-        when: "사람 token(shell main)이 아닌 자격이 부른다"
-        observe: [response]
-    crosses_process: false
-    docs: [architecture/coding-agent.md]
-    unclear:
-      - "tool_call 결과를 기다리는 extension tool 호출 flow는 turns 쪽에 있다. 여기서는 done 쪽만 적었다"
-
   - id: host-link
     title: shell main이 /host-link로 붙어 host 요청을 받고 답·보고·coding·터미널 frame을 올린다
     actor: shell
@@ -308,17 +240,29 @@ flows:
       - packages/core/main/daemon/wiring/host-queue.ts
       - packages/protocol/host-link/frames.ts
     steps:
-      - "shell main이 GET /host-link(subprotocol lophn.host-link.1)로 upgrade를 건다. Gateway와 같은 gate다: 헤더가 한도를 넘거나 host가 허용되지 않으면 invalid_input, 자격이 없으면 unauthorized, Origin이 있으면 forbidden이다"
-      - "사람 자격(actor user)이 아니면 forbidden, GET이 아니거나 subprotocol이 없으면 invalid_input, event 연결 한도(전체 32, principal당 4)를 넘으면 unavailable로 거절한다. 연결은 한 번에 하나라 새 연결이 오면 옛 연결을 닫는다(아래 닫힘과 같다)"
-      - "첫 frame은 hello {version 1, workspaces, tui}다. 받으면 queue가 그 연결에 붙고(attached) 보이는 workspace에 닿는 대기 요청을 request frame으로 바로 밀며, 새 요청도 들어오는 대로 민다. tool_call·browser_call·terminal_interrupt·coding_*·terminal_stream·terminal_input은 workspace 없이 간다. coding_*·terminal_stream·terminal_input은 연결로만 가고 host/take는 내주지 않는다"
-      - "연결이 열린 동안 1초마다 기한이 지난 호출을 거두고, 다시 대기한 요청(retry, 빌린 지 10초가 지난 탭 요청)을 다시 밀고, 마지막 tui 목록으로 TUI hold를 갱신한다"
-      - "visible은 보이는 workspace와 tui 목록을 바꾼다. response는 host/done과 같이 요청을 끝내거나(done) 다시 대기시킨다(retry). report는 host/report와 같이 탭 상태를 적는다. coding_report·coding_sync·coding_closed·terminal_screen은 onFrame으로 단 wiring에 넘긴다"
+      - "shell main이 GET /host-link(subprotocol lophn.host-link.1)로 upgrade를 건다. Gateway와 같은 gate다: 헤더가 한도를 넘거나 host가 허용되지 않으면 invalid_input, 자격이 없으면 unauthorized, Origin이 있으면 forbidden이다. 사람 자격(actor user)이 아니면 forbidden, GET이 아니거나 subprotocol이 없으면 invalid_input으로 거절한다. event 연결 한도(사람 token의 Gateway·CLI watch 몫)는 쓰지 않는다. 연결은 한 번에 하나라 새 연결이 오면 옛 연결을 닫는다(아래 닫힘과 같다)"
+      - "첫 frame은 hello {version 1, workspaces, tui}다. 받으면 queue가 그 연결에 붙고(attached. 연결이 열려 있는 동안만이다) 보이는 workspace에 닿는 대기 요청을 request frame으로 바로 밀며, 새 요청도 들어오는 대로 민다. 붙으면 shell을 띄우려던 시도의 기록(시작한 때, 실패한 때)을 지운다. tool_call·browser_call·terminal_interrupt·coding_*·terminal_stream·terminal_input은 workspace 없이 간다. browser 탭의 tab_open과 tab_close도 그렇다(page가 창 단위로 살아 그 workspace를 보이는 창이 없어도 열고 닫는다). coding_*·terminal_stream·terminal_input은 연결이 없으면 넣지 않고 바로 unavailable이다"
+      - "연결이 열린 동안 1초마다 기한이 지난 호출을 거두고, 다시 대기한 요청(retry, 빌린 지 10초가 지난 탭 요청)을 다시 밀고, 마지막 tui 목록으로 TUI hold를 갱신한다. 결과를 기다리는 요청(tool_call, browser_call, terminal_interrupt, browser tab_open, 연결 요청)은 두 번 실행하면 안 되어 다시 밀지 않는다"
+      - "visible은 보이는 workspace와 tui 목록을 바꾼다. response는 요청을 끝내거나(done) 맨 뒤로 보내 다시 대기시킨다(retry). done이면 결과를 기다리던 쪽(extension tool 호출, browser/* route, 앱의 session stop, coding route)에 output을 넘기고(content는 성공, error는 실패), output이 없으면 그쪽은 unavailable로 끝난다. 없는 id면 아무것도 하지 않는다. 연결이 닫히면 그 연결로 빌려 간 결과 요청(tool_call, browser_call, browser tab_open, terminal_interrupt)과 모든 연결 요청을 unavailable로 거두고, 빌려 간 탭 요청은 바로 다시 대기시키고, onClose 처리기를 부른다. TUI hold 갱신이 멈춰 10초 뒤 풀린다. server가 내려갈 때 1001로 닫는다"
+      - "report는 host 탭의 browser 상태(url, title, loading)를 적거나, closed면 탭을 표에서 뺀다(이후 browser/*는 not_found). closed는 사람이 탭을 닫거나 browser 탭의 page가 상한(창마다 12개)이나 page를 든 창의 닫힘으로 없어졌을 때 온다. 모르는 탭이면 아무것도 하지 않는다"
+      - "coding_report·coding_sync·coding_closed·terminal_screen은 onFrame으로 단 wiring에 넘긴다"
       - "frame이 JSON이 아니거나 schema에 맞지 않거나, 첫 frame이 hello가 아니거나 hello가 다시 오거나, binary frame이면 1008로 닫는다. 16 MiB를 넘는 frame은 ws가 1009로 닫는다. 보내는 버퍼가 1 MiB를 넘으면 1013으로 닫는다"
-      - "연결이 닫히면 그 연결로 빌려 간 결과 요청(tool_call, browser_call, browser tab_open, terminal_interrupt)과 모든 연결 요청을 unavailable로 거두고, 빌려 간 탭 요청은 바로 다시 대기시키고, onClose 처리기를 부른다. TUI hold 갱신이 멈춰 10초 뒤 풀린다. server가 내려갈 때 1001로 닫는다"
     outcomes:
       - id: open
         when: "hello를 받아 queue가 연결에 붙었다"
         observe: [request:shell]
+      - id: done
+        when: "response done을 받아 요청을 끝냈다. 결과를 기다리던 호출에는 output을 넘긴다(output이 없으면 unavailable)"
+        observe: [response]
+      - id: retry
+        when: "response retry를 받았다(창이 열지 못했다). 요청을 맨 뒤로 보내 다음 tick에 다시 민다"
+        observe: [response]
+      - id: tab-state
+        when: "report로 표에 있는 탭의 browser 상태를 적었다"
+        observe: [response]
+      - id: tab-closed
+        when: "report closed로 탭을 표에서 뺐다"
+        observe: [response]
       - id: invalid_input
         code: invalid_input
         when: "헤더가 한도를 넘었다, host가 허용되지 않았다, GET이 아니다, 또는 subprotocol이 없다"
@@ -331,10 +275,6 @@ flows:
         code: forbidden
         when: "Origin이 있다, 또는 사람 자격(actor user)이 아니다"
         observe: [response]
-      - id: unavailable
-        code: unavailable
-        when: "event 연결 한도(전체 32, principal당 4)를 넘었다"
-        observe: [response]
       - id: bad-frame
         when: "frame이 틀렸거나 순서가 틀려(hello 앞의 다른 frame, 두 번째 hello) 1008로 닫았다"
         observe: [response]
@@ -343,40 +283,9 @@ flows:
         observe: [response]
     crosses_process: false
     risk: [permission, secret]
-    docs: [architecture/coding-agent.md]
+    docs: [architecture/coding-agent.md, architecture/browser-tab.md]
     unclear:
-      - "host/take(옛 길)와 연결이 동시에 붙으면 두 길이 같은 queue에서 빌려 가고, TUI hold는 두 쪽의 tui 목록을 번갈아 받는다. mobile-host-link-cleanup이 옛 길을 지운다"
-
-  - id: host-tab-report
-    title: shell이 알려 준 host 탭의 browser 상태나 닫힘을 기록한다
-    actor: shell
-    entries: [route:host/report]
-    pre: [host-tab-open:accepted]
-    boundary: [host-queue-interface, host-queue-core]
-    code:
-      - packages/core/host-queue/queue.ts
-      - packages/core/main/daemon/wiring/host-queue.ts
-    steps:
-      - "renderer가 host 탭의 url, title, loading을 shell main에 알리면 shell main이 부른다"
-      - "탭이 표에 있으면 browser 상태를 저장한다"
-      - "closed면 탭을 표에서 뺀다. 이후 browser/read와 browser/*는 not_found다. closed는 사람이 탭을 닫거나 layout에서 사라졌을 때뿐 아니라 browser 탭의 page가 상한(창마다 12개)이나 page를 든 창의 닫힘으로 없어졌을 때도 온다"
-      - "모르는 탭이면 아무것도 하지 않고 ok다"
-    outcomes:
-      - id: state
-        when: "탭이 표에 있고 browser 상태(url, title, loading)를 저장했다"
-        observe: [response]
-      - id: closed
-        when: "closed를 받았다(사람이 닫음, page가 상한으로 놓임, page를 든 창이 닫힘). 탭을 표에서 뺀다(표에 없었어도 ok다)"
-        observe: [response]
-      - id: unknown
-        when: "표에 없는 탭이고 closed가 아니다. 아무것도 하지 않고 ok다"
-        observe: [response]
-      - id: forbidden
-        code: forbidden
-        when: "사람 token(shell main)이 아닌 자격이 부른다"
-        observe: [response]
-    crosses_process: false
-    docs: [architecture/browser-tab.md]
+      - "tool_call 요청 payload에 credential이 실려 shell로 간다. 이 credential을 실제로 누가 받는지는 extension-tools 쪽 flow가 정한다"
 
   - id: host-tab-open
     title: agent나 사람 token이 session 탭을 열어 달라고 요청한다
@@ -394,7 +303,7 @@ flows:
       - "agent면 자격의 session 행을 읽는다. 없으면 not_found, session 자격이 없으면 forbidden"
       - "같은 workspace의 열린 session인지 본다. 아니면 not_found"
       - "탭 표에 주인을 적고 tab_open 요청을 host queue에 넣는다. workspace는 agent면 부른 session의 것(home이면 home), 사람 token이면 입력의 workspace(없으면 home)다. --as로 말한 relation(peer, stage, aside, work, glance)을 요청에 그대로 싣는다(말하지 않으면 null). 자리는 core가 정하지 않고 renderer가 relation과 target으로 정한다"
-      - "기다리지 않고 tab id와 accepted를 돌려준다. 실제 탭은 shell host take가 가져가 연다. 그 workspace를 보이는 창이 없으면 요청은 기다린다"
+      - "기다리지 않고 tab id와 accepted를 돌려준다. 실제 탭은 shell main이 /host-link로 받아 연다. 그 workspace를 보이는 창이 없으면 요청은 기다린다"
     outcomes:
       - id: accepted
         observe: [response]
@@ -417,7 +326,7 @@ flows:
   - id: host-browser-tab-open
     title: agent나 사람 token이 browser 탭(--url)을 열어 달라고 요청하고 page가 붙을 때까지 기다린다
     actor: agent
-    uses: [route:tabs/open, host-shell-launch:launched, desktop-window-open-inactive:opened, host-request-take:request, host-request-done:done]
+    uses: [route:tabs/open, host-shell-launch:launched, desktop-window-open-inactive:opened, host-link:open, host-link:done]
     when: "target이 browser일 때(`lophn tab open --url`)"
     boundary: [host-queue-interface, host-queue-core, shell]
     code:
@@ -428,7 +337,7 @@ flows:
       - packages/shell/renderer/app-frame/workspace-views.tsx
     steps:
       - "agent면 자격의 session 행을 읽는다(없으면 not_found, session 자격이 없으면 forbidden). 사람 token의 주인은 person이다. url이 http나 https가 아니면 invalid_input"
-      - "shell이 붙어 있지 않으면(기다리는 take도 없고 마지막 take가 3초 전보다 앞) 앱을 띄운다(host-shell-launch). 띄울 길이 없으면 바로 unavailable이다. 띄우는 시도가 쉬는 중이거나 바로 실패해도 unavailable이다"
+      - "shell이 붙어 있지 않으면(/host-link 연결이 없으면) 앱을 띄운다(host-shell-launch). 띄울 길이 없으면 바로 unavailable이다. 띄우는 시도가 쉬는 중이거나 바로 실패해도 unavailable이다"
       - "탭 표에 주인과 workspace(agent면 그 session의 것, 사람 token이면 입력의 workspace나 home)를 적고 tab_open 요청을 넣는다. 요청은 workspace를 가리지 않고 아무 shell main이 가져간다"
       - "shell main은 그 workspace를 보이는 창(가장 최근에 focus를 받은 것), 없으면 가장 최근 일반 창에 보낸다. 일반 창이 하나도 없으면 focus 없이 하나 연다(desktop-window-open-inactive)"
       - "창이 그 workspace를 mount하고 있으면 평소처럼 자리를 정해 탭을 연다. mount하지 않았으면 그 workspace의 pool에 page만 숨은 항목으로 만들고 자리는 다음 mount로 미룬다(agent-browser-page-host). 어느 쪽이든 ack한다"
@@ -495,8 +404,8 @@ flows:
       - "launcher는 그 core를 띄운 쪽(shell main의 core 감독, CLI의 detached 시작)이 환경 LOPHN_LAUNCH_SHELL=1을 준 core에만 있다. test, boot, E2E가 띄운 core에는 없다. 설치본이 아닌 개발 저장소에서 shell entry를 build하지 않았으면 없다"
       - "browser 탭 열기가 shell 없이 오면 queue가 launcher를 부른다. 이미 시도 중이고 30초가 안 지났으면 부르지 않고 그 시도를 같이 기다린다. 앞선 실패 뒤 5분 안이면 부르지 않고 실패로 답한다"
       - "launcher가 core의 platform 배치에서 명령을 만든다(설치본은 core를 띄운 Electron 실행 file, 개발은 build한 shell entry 추가). ELECTRON_RUN_AS_NODE를 빼고 `--home <data root> --agent-window`를 붙여 detached로 띄우고 놓는다"
-      - "spawn이 던지거나 error event가 오면 로그를 한 줄 남기고 기다리던 열기를 바로 끝낸다. 띄운 뒤의 일은 알 길이 없어 shell이 붙는지(take)로 본다. 30초 안에 붙지 않으면 시도가 실패다"
-      - "shell이 붙으면(take) 시도와 실패 기록을 지운다"
+      - "spawn이 던지거나 error event가 오면 로그를 한 줄 남기고 기다리던 열기를 바로 끝낸다. 띄운 뒤의 일은 알 길이 없어 shell이 /host-link로 붙는지로 본다. 30초 안에 붙지 않으면 시도가 실패다"
+      - "shell이 /host-link로 붙으면 시도와 실패 기록을 지운다"
     outcomes:
       - id: launched
         when: "launcher가 앱을 띄웠다(처음 시도이거나 앞 시도가 끝났다)"
@@ -700,7 +609,7 @@ flows:
       - "agent 자격의 session이나 사람 token이 부른다. 사람 token의 주인은 모두 person이다"
       - "탭이 없으면 not_found. 주인이 다른 탭(다른 session이 연 탭, agent가 연 탭을 사람이, 사람이 연 탭을 agent가)이면 forbidden"
       - "탭을 표에서 빼고 tab_close 요청을 그 탭의 workspace로 넣는다. browser 탭의 닫기는 workspace를 가리지 않고 아무 shell이 가져가고, shell main이 그 page를 가진 창(bind 전이면 열기를 보낸 창)에 보낸다"
-      - "화면에서 닫는 것은 shell host take가 가져가 한다. 터미널 탭을 닫으면 PTY도 닫힌다"
+      - "화면에서 닫는 것은 shell main이 /host-link로 받아 한다. 터미널 탭을 닫으면 PTY도 닫힌다"
     outcomes:
       - id: accepted
         observe: [response]
@@ -727,7 +636,7 @@ flows:
     steps:
       - "agent 자격의 session이나 사람 token이 부른다. 사람 token의 주인은 모두 person이다"
       - "탭이 없으면 not_found. 주인이 다른 탭이면 forbidden"
-      - "탭은 표에 그대로 두고 tab_show 요청을 그 탭의 workspace로 넣는다. 접힌 float을 그 자리에서 펴는 것은 shell host take가 가져가 하고, float이 아니거나 이미 펴져 있으면 할 일이 없다"
+      - "탭은 표에 그대로 두고 tab_show 요청을 그 탭의 workspace로 넣는다. 접힌 float을 그 자리에서 펴는 것은 shell main이 /host-link로 받아 하고, float이 아니거나 이미 펴져 있으면 할 일이 없다"
     outcomes:
       - id: accepted
         observe: [response]
@@ -746,7 +655,7 @@ flows:
     title: agent나 사람 token이 자기가 연 browser 탭의 url, title, loading을 읽는다
     actor: agent
     entries: [route:browser/read]
-    pre: [host-tab-report:state]
+    pre: [host-link:tab-state]
     boundary: [host-queue-interface, host-queue-core]
     code:
       - packages/core/host-queue/queue.ts
@@ -779,7 +688,7 @@ flows:
     title: agent나 사람 token이 자기가 연 browser·preview·artifact 탭의 접근성 tree, screenshot, console 줄을 읽는다
     actor: agent
     entries: [route:browser/snapshot, route:browser/screenshot, route:browser/logs]
-    uses: [host-request-take:request, host-request-done:done, system:browser-call-run]
+    uses: [host-link:open, host-link:done, system:browser-call-run]
     pre: [host-tab-open:accepted]
     boundary: [host-queue-interface, host-queue-core, shell]
     code:
@@ -789,7 +698,7 @@ flows:
       - packages/shell/main/browser/agent/driver.ts
     steps:
       - "agent 자격의 session이나 사람 token이 부른다. 남이 연 탭이거나 없는 탭이거나 session·agent 탭이면 not_found다(주인 대조가 shell 판정보다 앞선다)"
-      - "shell이 붙어 있지 않으면(기다리는 take도 없고 마지막 take가 3초 전보다 앞) unavailable이다"
+      - "shell이 붙어 있지 않으면(/host-link 연결이 없으면) unavailable이다"
       - "browser_call 요청을 queue에 넣고 shell main의 결과를 기다린다. 1초마다 shell이 떨어졌는지와 30초 기한을 본다"
       - "shell이 done에 실은 결과의 글 조각은 caller에 가기 전에 core의 known-value redaction을 거친다(act, navigate, evaluate, wait도 같다). 알려진 값을 아직 다 모르면 unavailable이다. 그 뒤 모양으로 펴 돌려준다: snapshot과 logs는 글, screenshot은 PNG 하나. 모양이 맞지 않으면 internal"
       - "shell 쪽 실패(탭이 창에 없음, DevTools 열림, page 무응답)는 browser-call-run의 code 그대로다"
@@ -825,7 +734,7 @@ flows:
     title: agent나 사람 token이 자기가 연 탭에서 text나 url이 맞기를 기다린다
     actor: agent
     entries: [route:browser/wait]
-    uses: [host-request-take:request, host-request-done:done, system:browser-call-run]
+    uses: [host-link:open, host-link:done, system:browser-call-run]
     pre: [host-tab-open:accepted]
     boundary: [host-queue-interface, host-queue-core, shell]
     code:
@@ -871,7 +780,7 @@ flows:
     title: agent나 사람 token이 자기가 연 탭에서 조작하거나 이동하거나 script를 돌린다
     actor: agent
     entries: [route:browser/act, route:browser/navigate, route:browser/evaluate]
-    uses: [host-request-take:request, host-request-done:done, system:browser-call-run]
+    uses: [host-link:open, host-link:done, system:browser-call-run]
     pre: [host-tab-open:accepted]
     boundary: [host-queue-interface, host-queue-core, shell]
     code:
@@ -924,7 +833,7 @@ flows:
     title: agent가 탭의 입력 칸(login)이나 secret 자리(provider key, custom provider, 앱 secret, MCP server)나 로그인 자리를 가리켜 사람에게 값을 넣거나 로그인해 달라고 요청하고 끝날 때까지 기다린다
     actor: agent
     entries: [route:input_request/ask]
-    uses: [host-request-take:request, host-request-done:done, system:browser-call-run]
+    uses: [host-link:open, host-link:done, system:browser-call-run]
     pre: [host-tab-open:accepted]
     boundary: [host-queue-interface, host-queue-core, shell, secrets]
     code:
@@ -1070,7 +979,7 @@ flows:
     title: shell main이 browser_call을 그 탭의 page에 CDP로 돌려 결과를 done에 싣는다
     actor: shell
     entries: [system:browser-call-run]
-    uses: [host-request-take:request, host-request-done:done]
+    uses: [host-link:open, host-link:done]
     boundary: [shell, host-queue-interface]
     code:
       - packages/shell/main/browser/agent/driver.ts
@@ -1081,7 +990,7 @@ flows:
       - packages/shell/main/desktop/wiring/surface.ts
       - packages/shell/main/desktop/core/connection.ts
     steps:
-      - "take가 browser_call을 주면 창에 보내지 않고 shell main이 따로 돌린다. 끝나면 결과나 오류를 done에 싣는다. 호출마다 그 page를 가진 창에 알려 쓴 때를 센다(창마다 12개 상한에서 오래 쓰지 않은 것부터 놓는다)"
+      - "/host-link가 browser_call을 주면 창에 보내지 않고 shell main이 따로 돌린다. 끝나면 결과나 오류를 response에 싣는다. 호출마다 그 page를 가진 창에 알려 쓴 때를 센다(창마다 12개 상한에서 오래 쓰지 않은 것부터 놓는다)"
       - "창이 bind로 알린 view session에서 page를 찾는다. host browser 탭은 그 workspace가 mount되지 않아도 창 단위로 bind한다. browser 탭은 browser partition의 webview guest, preview 탭은 mode가 preview인 앱 view, artifact 탭은 artifact view registry에 붙은 guest다. 앱 live view는 어떤 경우에도 고르지 않는다. 없으면 unavailable"
       - "그 탭을 agent가 다루는 중으로 적는다. 사람이 take control 중이면 act, navigate, evaluate는 conflict이고 읽기(snapshot, screenshot, logs, wait)는 된다"
       - "DevTools가 열려 있거나 다른 debugger가 붙어 있으면 붙지 않고 conflict다. 붙으면 DOM, Accessibility 등 domain을 켠다"
@@ -1241,7 +1150,7 @@ flows:
     title: TUI 탭이 열린 harness session의 hold를 연장하거나 푼다
     actor: system
     entries: [system:harness-tui-hold]
-    uses: [harness-tui-open:accepted, host-request-take:none]
+    uses: [harness-tui-open:accepted, host-link:open]
     boundary: [harness-host-core, host-queue-core]
     code:
       - packages/core/host-queue/hold.ts
@@ -1249,8 +1158,9 @@ flows:
       - packages/shell/main/terminal/harness-tui.ts
     steps:
       - "tabs/open의 tui 판정을 통과하면 그 자리에서 30초 예약한다(첫 heartbeat까지의 틈)"
-      - "shell main이 매 take에 실어 주는 TUI 탭 session 목록이 heartbeat다. 목록에 실린 session은 10초로 연장한다"
+      - "shell main이 /host-link의 hello·visible에 실은 TUI 탭 session 목록을 core가 연결이 열린 동안 1초마다 heartbeat로 넣는다. 목록에 실린 session은 10초로 연장한다. 연결이 닫히면 갱신이 멈춰 10초 뒤 풀린다"
       - "한 번 목록에 실렸던 session이 빠지면 바로 푼다. 탭 닫힘, 창 닫힘, CLI가 foreground를 떠남이 여기서 드러난다"
+      - "폰이 resume으로 되살린 coding session(coding-session-open)도 같은 목록에 든다. 그 터미널이 끝날 때(process가 끝났거나 terminal host가 사라졌다) 빠진다. 사람이 그 채팅을 터미널로 바꿔 GUI handle이 닫혀도 같은 CLI session을 TUI가 이어 쓰므로 빠지지 않는다"
       - "한 번도 실리지 않은 session은 30초 뒤 만료된다"
       - "hold된 동안 harness/take는 그 session을 건너뛰고 harness/start_turn은 conflict다"
     outcomes:
@@ -1726,7 +1636,7 @@ flows:
       - "resume이면 ledger session이 없거나 그 project의 것이 아니면 not_found, harness agent session이 아니거나 harness가 다르거나 CLI session id가 없으면 invalid_input, host 목록에 같은 CLI session이 있으면 conflict다. 그 뒤 TUI hold를 건다: TUI로 열려 있거나 headless turn이 돌면 conflict다"
       - "연결로 coding_open {project, harness, resume?: {session, cli_session}}을 보내고 답(60초)의 terminal_ref를 ses_<터미널 ULID>로 옮긴다. 성공하면 StateChanged {coding_sessions}가 나간다"
       - "shell main은 Windows면 unavailable, 그 CLI session이 이미 GUI 탭에서 돌면 conflict다. resume이면 그 ledger session을 TUI 탭과 같은 hold 목록(/host-link visible의 tui)에 넣는다. 그 project를 보이는 창에 coding 탭 열기(펴진 float, handoff 없음)를 넣으면 창이 새 터미널에 <harness> gui(resume이면 --resume <cli_session>)를 친다. 그 workspace를 보이는 창이 없고 일반 창도 없으면 focus 없이 하나 열고 그 창이 workspace를 알릴 때까지(15초) 기다린다"
-      - "창이 탭을 열지 못하면 unavailable이다. 열면 그 project 터미널에 그 harness의 새 GUI handle이 생길 때까지(55초) 기다려 그 터미널로 답하고, 기한이 지나면 unavailable이다. resume의 hold는 실패하면 바로, 성공하면 그 handle이 닫힐 때 풀린다"
+      - "창이 탭을 열지 못하면 unavailable이다. 열면 그 project 터미널에 그 harness의 새 GUI handle이 생길 때까지(55초) 기다려 그 터미널로 답하고, 기한이 지나면 unavailable이다. resume의 hold는 실패하면 바로, 성공하면 그 터미널이 끝날 때 풀린다(채팅을 터미널로 바꿔 handle이 닫혀도 잡혀 있다)"
     outcomes:
       - id: opened
         observe: [request:shell, event:StateChanged, response]

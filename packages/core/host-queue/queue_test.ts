@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createIdSource, manualClock, seededRandom } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
-import { createHostQueue } from "./queue.ts";
+import type {
+  HostRequest,
+  HostWorkspace,
+} from "../../protocol/lophn-agent/host-queue.ts";
+import { createHostQueue, type HostQueueService } from "./queue.ts";
 
 const OWNER = "ses_owner" as Id<"ses">;
 const OTHER = "ses_other" as Id<"ses">;
@@ -12,6 +16,17 @@ function setup() {
   const clock = manualClock(1_700_000_000_000);
   const ids = createIdSource({ clock, random: seededRandom(1) });
   return { clock, queue: createHostQueue({ clock, ids }) };
+}
+
+// `/host-link` 연결 하나를 붙이고 queue가 밀어 준 요청을 받은 차례로 꺼낸다.
+function connect(
+  queue: HostQueueService,
+  workspaces: readonly HostWorkspace[] = [],
+) {
+  const sent: HostRequest[] = [];
+  const link = queue.connect((request) => sent.push(request));
+  link.visible(workspaces);
+  return { link, next: () => sent.shift() ?? null };
 }
 
 test("다른 session이 연 탭은 닫지도 펴지도 읽지도 못한다", () => {
@@ -41,10 +56,11 @@ test("다른 session이 연 탭은 닫지도 펴지도 읽지도 못한다", () 
 
   // 연 session이 펴면 그 tab의 workspace로 tab_show가 나간다.
   assert.equal(queue.show(tab, OWNER).ok, true);
-  const lent = queue.take([HOME]);
+  const host = connect(queue, [HOME]);
+  const lent = host.next();
   assert.equal(lent?.kind, "tab_open");
   queue.done(lent!.id as Id<"hrq">, "done");
-  const shown = queue.take([HOME]);
+  const shown = host.next();
   assert.deepStrictEqual(shown?.kind === "tab_show" ? shown.payload : null, {
     tab,
   });
@@ -67,32 +83,32 @@ test("이미 열린 preview 탭에 기기를 주면 같은 탭 id로 tab_open이
       relation: null,
       source: OWNER,
     });
+  const host = connect(queue, [{ kind: "app", id: APP }]);
   const tab = open(null);
-  queue.done(queue.take([{ kind: "app", id: APP }])!.id as Id<"hrq">, "done");
+  queue.done(host.next()!.id as Id<"hrq">, "done");
   assert.equal(open(null), tab);
-  assert.equal(queue.take([{ kind: "app", id: APP }]), null);
+  assert.equal(host.next(), null);
   assert.equal(open("iPhone"), tab);
-  const again = queue.take([{ kind: "app", id: APP }])!;
+  const again = host.next()!;
   assert.equal(again.kind === "tab_open" && again.payload.tab === tab, true);
 });
 
-test("retry한 요청은 뒤로 가서 다음 요청을 막지 않는다", () => {
+// 창이 받지 못한(retry) 탭 요청이 다시 나가지 않으면 그 탭은 열리지 않는다.
+test("retry한 요청은 다음 pump에 다시 나간다", () => {
   const { queue } = setup();
-  const open = (url: string) =>
-    queue.openTab({
-      owner: OWNER,
-      workspace: HOME,
-      target: { browser: { url } },
-      relation: null,
-      source: OWNER,
-    });
-  open("https://a.example");
-  open("https://b.example");
-
-  const first = queue.take([HOME])!;
+  const host = connect(queue, [HOME]);
+  queue.openTab({
+    owner: OWNER,
+    workspace: HOME,
+    target: { session: OWNER },
+    relation: null,
+    source: OWNER,
+  });
+  const first = host.next()!;
   queue.done(first.id as Id<"hrq">, "retry");
-  const next = queue.take([HOME])!;
-  assert.notEqual(next.id, first.id);
+  assert.equal(host.next(), null);
+  host.link.pump();
+  assert.equal(host.next()?.id, first.id);
 });
 
 // 같은 호출을 두 번 실행하면 extension handler의 효과(탭 조작, 결제 같은 외부 일)가 겹친다.
@@ -107,11 +123,12 @@ test("tool_call은 workspace 없이 가져가고, 빌려 간 뒤 기한이 지�
     credential: "token",
   });
 
+  const host = connect(queue);
   const first = queue.callTool(payload("a"));
-  const taken = queue.take([]);
-  assert.equal(taken?.id, first.id);
+  assert.equal(host.next()?.id, first.id);
   clock.advance(60_000);
-  assert.equal(queue.take([]), null, "a borrowed tool call is not lent twice");
+  host.link.pump();
+  assert.equal(host.next(), null, "a borrowed tool call is not lent twice");
 
   queue.done(first.id, "done", {
     content: [{ type: "text", text: "ok" }],
@@ -119,16 +136,18 @@ test("tool_call은 workspace 없이 가져가고, 빌려 간 뒤 기한이 지�
   const done = await first.result;
   assert.ok(done.ok && done.value[0]?.type === "text");
 
-  // shell이 떨어져 부른 쪽이 거두면 unavailable로 끝나고 다시 가져갈 수 없다.
+  // 부른 쪽이 거두면 unavailable로 끝나고 다시 나가지 않는다.
   const second = queue.callTool(payload("b"));
+  assert.equal(host.next()?.id, second.id);
   queue.abandon(second.id);
   const gone = await second.result;
   assert.ok(!gone.ok && gone.error.code === "unavailable");
-  assert.equal(queue.take([]), null);
+  host.link.pump();
+  assert.equal(host.next(), null);
 
   // 빌려 간 뒤 답이 없으면 5분 뒤 거두고, 늦은 done은 무시된다.
   const third = queue.callTool(payload("c"));
-  assert.equal(queue.take([])?.id, third.id);
+  assert.equal(host.next()?.id, third.id);
   clock.advance(299_000);
   queue.expire();
   clock.advance(2_000);
@@ -142,12 +161,13 @@ test("tool_call은 workspace 없이 가져가고, 빌려 간 뒤 기한이 지�
 // 기한을 넘은 browser 호출이 pending에 남으면 shell이 오래 뒤 낡은 click을 실행한다.
 test("기한을 넘은 browser_call은 unavailable로 끝나고 pending에서 빠지며 늦은 done은 무시된다", async () => {
   const { clock, queue } = setup();
+  const host = connect(queue);
   const call = queue.callBrowser({
     tab: "tab_x" as Id<"tab">,
     view: "browser",
     action: { kind: "snapshot" },
   });
-  assert.equal(queue.take([])?.id, call.id);
+  assert.equal(host.next()?.id, call.id);
   clock.advance(29_000);
   queue.expire();
   clock.advance(2_000);
@@ -156,27 +176,7 @@ test("기한을 넘은 browser_call은 unavailable로 끝나고 pending에서 �
   const late = await call.result;
   assert.ok(!late.ok && late.error.code === "unavailable");
   assert.match(late.error.message, /timed out/);
-  assert.equal(queue.take([]), null);
+  host.link.pump();
+  assert.equal(host.next(), null);
   queue.done(call.id, "done", { content: [{ type: "text", text: "late" }] });
-});
-
-test("take가 기다리는 동안은 attached이고 기다림이 끝난 뒤 3초가 지나면 아니다", async () => {
-  const { clock, queue } = setup();
-  assert.equal(queue.attached(), false);
-  const waited = queue.wait([HOME]);
-  clock.advance(60_000);
-  assert.equal(queue.attached(), true);
-
-  // 요청이 들어오면 기다리던 take가 바로 받는다.
-  queue.openTab({
-    owner: OWNER,
-    workspace: HOME,
-    target: { browser: { url: "https://example.com" } },
-    relation: null,
-    source: OWNER,
-  });
-  assert.equal((await waited)?.kind, "tab_open");
-  assert.equal(queue.attached(), true);
-  clock.advance(3_001);
-  assert.equal(queue.attached(), false);
 });

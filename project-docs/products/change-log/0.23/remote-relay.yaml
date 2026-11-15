@@ -1,7 +1,7 @@
 id: remote-relay
 version: 0.23.61
 title: 폰과 core가 다른 network에 있어도 lophn relay로 만나 remote 화면을 쓴다
-modules: [packages/protocol, packages/core/remote, packages/core/main, packages/core/config, packages/shell/renderer, packages/design, packages/relay, mobile, tools]
+modules: [packages/protocol, packages/core/remote, packages/core/main, packages/core/config, packages/shell/renderer, packages/design, packages/relay, packages/mobile, tools]
 checked: [boundary-catalog]
 change: |
   - relay package(`packages/relay`)를 더했다. Node `ws` server이고 Fly.io app `lophn-relay`(도쿄, machine 1대)에서 돈다. core의 control socket이 key를 증명하면 그 key의 자리를 주고, 폰이 그 key로 붙으면 무작위 128-bit 연결 id를 core에 알린다. core가 그 id로 data socket을 열면 둘 사이 binary message를 그대로 넘긴다. 내용은 폰과 core 사이 Noise가 지켜 relay는 보지 못한다. 한도: core마다 폰 16, 붙기 전 message 16, 증명과 data socket을 기다리는 10초, 받는 쪽이 1 MiB 넘게 밀리면 그 짝을 닫는다. `npm run dev:relay`가 개발 relay를 띄운다.

@@ -19,7 +19,7 @@
   - `packages/shell/renderer/build.ts`
   - `packages/design/i18n/catalog/remote.ts`
 - 읽을 것:
-  - 지울 목록: `/home/pyosechang/projects/lophn/reports/phone-native-ui/lophn-inventory.md`의 B 끝(이 길만을 위해 있는 file·route·module). `mobile/` 쪽은 `phone-frame`이 이미 지웠다
+  - 지울 목록: `/home/pyosechang/projects/lophn/reports/phone-native-ui/lophn-inventory.md`의 B 끝(이 길만을 위해 있는 file·route·module). `packages/mobile/` 쪽은 `phone-frame`이 이미 지웠다
   - architecture: `project-docs/architecture/remote.md`(폰 껍데기 model과 지키는 것 6~9. lead가 계획 끝에 고친다)
   - `tools/remote-dev.ts`는 폰 개발에 계속 쓴다: 개발 core를 remote로 띄우는 부분은 남기고 web 화면 build와 serve만 뺀다
 - 계약:

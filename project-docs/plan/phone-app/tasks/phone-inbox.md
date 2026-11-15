@@ -5,15 +5,15 @@ Inbox(Now, 앱 새 판 살펴보기, History, 빈 상태)를 wireframe대로 짓
 - 단위: mobile-app (wave 3)
 - 선행: phone-frame
 - 소유(이 task만 고친다):
-  - `mobile/src/screens/inbox`
+  - `packages/mobile/src/screens/inbox`
   - `packages/design/i18n/catalog/mobile-inbox.ts`
 - 읽을 것:
   - 기준: `tools/wireframes/drafts/phone/inbox.tsx`의 `Now`, `Update`, `History`, `Empty`와 caption(`Lock`은 짓지 않는다). 그림: `/home/pyosechang/projects/lophn/screenshot/phone-wireframes/5-inbox.png`
   - desktop의 같은 화면: `packages/shell/renderer/desktop/connection/waiting/`(항목의 종류와 답하는 법), 조사 `/home/pyosechang/projects/lophn/reports/phone-native-ui/lophn-inventory.md`의 D
-  - kit과 뼈대: `packages/design/native/mod.ts`, `mobile/src/app/nav.ts`, `mobile/src/parts`, `mobile/src/data/mod.ts`
-  - 계획 `README.md`의 "정한 것"과 "돌리기 전에", `mobile/README.md`
+  - kit과 뼈대: `packages/design/native/mod.ts`, `packages/mobile/src/app/nav.ts`, `packages/mobile/src/parts`, `packages/mobile/src/data/mod.ts`
+  - 계획 `README.md`의 "정한 것"과 "돌리기 전에", `packages/mobile/README.md`
 - 계약:
-  - 쓰는 것: `@lophn/ui-native`, `useNav()`, `mobile/src/data/mod.ts`. kit에 없는 조각이 필요하면 자기 영역 폴더에 두고 보고한다(kit은 고치지 않는다). data에 없는 읽기가 필요하면 자기 소유의 data file에 더한다.
+  - 쓰는 것: `@lophn/ui-native`, `useNav()`, `packages/mobile/src/data/mod.ts`. kit에 없는 조각이 필요하면 자기 영역 폴더에 두고 보고한다(kit은 고치지 않는다). data에 없는 읽기가 필요하면 자기 소유의 data file에 더한다.
   - 문구: `@lophn/i18n`의 `t()`로 쓴다. desktop catalog(`packages/design/i18n/catalog/*.ts`)에 같은 문장이 있으면 그 key를 쓰고, 없을 때만 자기 catalog file에 `mobile.`으로 시작하는 key를 더한다. 문장 조각을 이어 붙이지 않는다(ICU 한 문장). 지어낸 예시 data는 그대로 둔다.
   - 내놓는 것: 자기 영역의 `index.tsx`가 export하는 화면
 
@@ -28,7 +28,7 @@ Inbox(Now, 앱 새 판 살펴보기, History, 빈 상태)를 wireframe대로 짓
 
 ## 끝남
 
-- `cd mobile && npm run typecheck && npm test`와 root `npm run check:full`이 통과한다.
+- `cd packages/mobile && npm run typecheck && npm test`와 root `npm run check:full`이 통과한다.
 - 위험 test: 없음
 - 그림이 wireframe과 같은 구조·크기·색이다(lead가 대조한다).
 - 소유 밖 file을 고치지 않았다.

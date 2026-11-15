@@ -1,7 +1,7 @@
 id: phone-shell
 version: 0.23.60
 title: Android 폰 앱 껍데기가 QR로 pairing하고 core에 붙어 core가 내려준 remote 화면을 hash 확인 뒤 띄운다
-modules: [mobile]
+modules: [packages/mobile]
 checked: [boundary-catalog]
 change: |
   - 저장소 맨 위에 `mobile/`을 더했다. root npm workspace 밖의 Expo project(SDK 58, React Native 0.88, dev build)이고 자기 `package.json`과 lock을 가진다. `npm run check` 밖이라 `cd mobile && npm run typecheck && npm test`로 본다. Metro가 `@lophn/protocol/remote/client`를 source로 읽는다. Android 앱 id는 임시로 `dev.lophn.mobile`이다.

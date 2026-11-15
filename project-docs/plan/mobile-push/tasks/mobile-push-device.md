@@ -2,7 +2,7 @@
 
 기기(폰)의 push token과 알림 설정을 core에 두고, 폰이 자기 것만 고칠 수 있는 길(`devices/set_push`)과 폰이 부를 `presence/report`를 allowlist에 더하고, 기기 목록과 보내기를 `mobile-attention-core`의 주의 모양에 잇는다(`bindPush`). 연결이 끊긴 기기의 보고를 지운다. 이로써 core가 실제로 push를 보내는 길이 닫힌다(fake push server까지).
 
-**시작 조건: 계획 `phone-app`이 main에 올라가 있어야 한다.** 이 task는 그 계획이 쓰는 `packages/core/remote/**`, 폰 allowlist, `wiring/remote.ts`를 고친다. lead가 확인한 뒤에만 띄운다.
+**시작 조건: 계획 `mobile-app`이 main에 올라가 있어야 한다.** 이 task는 그 계획이 쓰는 `packages/core/remote/**`, 폰 allowlist, `wiring/remote.ts`를 고친다. lead가 확인한 뒤에만 띄운다.
 
 - 단위: mobile-push (wave 3)
 - 선행: mobile-attention-core, mobile-push-send, mobile-attention-desktop

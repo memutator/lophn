@@ -1,13 +1,13 @@
 # mobile-push: 폰이 사람을 기다리는 일을 알리고, 누구에게 알릴지 core가 정한다
 
 - 목표: core가 "사람이 지금 무엇을 보고 있나"를 host(desktop, 폰)의 보고로 알고, 사람을 기다리는 일(승인, 질문, 동의, job hold), 오래 돈 turn의 끝, 앱의 `notify()`가 생기면 보고 있지 않은 폰에 Expo Push를 직접 보낸다. `unseen` 점도 core가 든다(폰에서 읽으면 desktop 점도 꺼진다). 폰은 알림 허락을 묻고, Settings › Notifications로 고르고, 알림을 누르면 그 session으로 간다. 실제 배달은 사람의 Expo·Firebase 계정이 있어야 해서 마지막에 사람이 하고, 그 전까지는 모두 fake push server로 확인한다.
-- 재료: `project-docs/products/roadmap/mobile.md`("알림과 push", 단계 4), 조사 `/home/pyosechang/projects/lophn/reports/mobile-program/push-survey.md`, `project-docs/architecture/{app-notice,remote,terminal-agent,event}.md`, wireframe `tools/wireframes/drafts/phone/{start.tsx(Paired), more.tsx(Notifications), inbox.tsx(Lock)}`(그림 `/home/pyosechang/projects/lophn/screenshot/phone-wireframes/`), 실행 중인 계획 `phone-app`(폰 앱을 native로 다시 짓는다. 이 계획의 폰 task는 그것이 main에 올라간 뒤에 선다).
+- 재료: `project-docs/products/roadmap/mobile.md`("알림과 push", 단계 4), 조사 `/home/pyosechang/projects/lophn/reports/mobile-program/push-survey.md`, `project-docs/architecture/{app-notice,remote,terminal-agent,event}.md`, wireframe `tools/wireframes/drafts/phone/{start.tsx(Paired), more.tsx(Notifications), inbox.tsx(Lock)}`(그림 `/home/pyosechang/projects/lophn/screenshot/phone-wireframes/`), 실행 중인 계획 `mobile-app`(폰 앱을 native로 다시 짓는다. 이 계획의 폰 task는 그것이 main에 올라간 뒤에 선다).
 - 범위 밖: iOS(APNs, Apple 계정), 암호화한 push(native 확장이 글을 푸는 길), 폰의 알림 목록 화면, 코딩 agent session을 폰에서 여는 화면(단계 5. 터미널 session의 push는 가지만 누르면 Inbox로 간다), 알림 묶기·지연 같은 다듬기, lophn gateway.
 - 단위: `mobile-attention`(core의 "주의" 모양: 보고, 알릴 자리와 대상, `unseen`, desktop 쪽 보고), `mobile-push`(보내는 길, 기기의 token·설정, 폰 화면). 소유 path는 brief가 정한다.
 - 순서:
-  - wave 1: `mobile-attention-core`와 `mobile-push-send`를 나란히. 둘은 서로 기대지 않고(결합은 brief에 적은 type 모양뿐), 지금 돌고 있는 `phone-app`과도 path가 겹치지 않아 지금 띄울 수 있다.
-  - wave 2: `mobile-attention-desktop`. shell main이 보고하고 `unseen`을 core에서 읽는다. `phone-app`과 path가 겹치지 않는다.
-  - wave 3: `mobile-push-device`, 이어서 `mobile-push-phone`. **둘 다 `phone-app`이 main에 올라간 뒤에 띄운다.** `mobile-push-device`가 `packages/core/remote/**`와 폰 allowlist를, `mobile-push-phone`이 폰 앱(`packages/mobile`)의 Paired·Settings 화면과 native build를 고치는데, 모두 `phone-app`이 쓰는 path다. `phone-app`이 land되기 전에는 wave 3를 띄우지 않는다.
+  - wave 1: `mobile-attention-core`와 `mobile-push-send`를 나란히. 둘은 서로 기대지 않고(결합은 brief에 적은 type 모양뿐), 지금 돌고 있는 `mobile-app`과도 path가 겹치지 않아 지금 띄울 수 있다.
+  - wave 2: `mobile-attention-desktop`. shell main이 보고하고 `unseen`을 core에서 읽는다. `mobile-app`과 path가 겹치지 않는다.
+  - wave 3: `mobile-push-device`, 이어서 `mobile-push-phone`. **둘 다 `mobile-app`이 main에 올라간 뒤에 띄운다.** `mobile-push-device`가 `packages/core/remote/**`와 폰 allowlist를, `mobile-push-phone`이 폰 앱(`packages/mobile`)의 Paired·Settings 화면과 native build를 고치는데, 모두 `mobile-app`이 쓰는 path다. `mobile-app`이 land되기 전에는 wave 3를 띄우지 않는다.
   - land는 계획 끝에 한 번. 그 뒤 사람이 계정을 만들어 실제 배달을 확인한다("사람이 할 것").
 
 ## 정한 것
@@ -35,8 +35,8 @@
 
 ## 돌리기 전에
 
-- wave 1은 지금 띄워도 된다(`phone-app`과 path가 겹치지 않는다. 겹칠 수 있는 공유 줄은 brief가 한 줄씩 허락하고 보고하게 했다: `assembly.ts`, `context.ts`, `protocol/mod.ts`, catalog. lead가 `phone-app`·다른 계획의 branch와 합칠 때 두 쪽을 다 남긴다).
-- wave 3 전에 lead가 한다: (1) `phone-app`이 main에 올라가 `packages/mobile`이 있는지 확인한다. (2) `packages/design/i18n/catalog/mobile-notifications.ts`를 빈 file로 만들어 `packages/design/i18n/en.ts`에 올린다(`phone-app`이 한 것과 같은 길). (3) `mobile-push-phone` brief의 "소유"에 Paired 화면 file과 Settings 화면 file의 실제 path를 채운다(`phone-frame` 보고에 있다. 지금은 아직 없어 자리만 두었다).
+- wave 1은 지금 띄워도 된다(`mobile-app`과 path가 겹치지 않는다. 겹칠 수 있는 공유 줄은 brief가 한 줄씩 허락하고 보고하게 했다: `assembly.ts`, `context.ts`, `protocol/mod.ts`, catalog. lead가 `mobile-app`·다른 계획의 branch와 합칠 때 두 쪽을 다 남긴다).
+- wave 3 전에 lead가 한다: (1) `mobile-app`이 main에 올라가 `packages/mobile`이 있는지 확인한다. (2) `packages/design/i18n/catalog/mobile-notifications.ts`를 빈 file로 만들어 `packages/design/i18n/en.ts`에 올린다(`mobile-app`이 한 것과 같은 길). (3) `mobile-push-phone` brief의 "소유"에 Paired 화면 file과 Settings 화면 file의 실제 path를 채운다(`mobile-frame` 보고에 있다. 지금은 아직 없어 자리만 두었다).
 - 폰 emulator: `mobile-push-phone`만 쓴다. port 5580, Metro 8220. 사람의 실제 폰(serial `R3CT90K6G2X`)에는 어떤 명령도 보내지 않는다. 폰 개발의 core는 `npm run dev:core`(fake push server가 같이 뜬다)와 `packages/mobile/README.md`의 pairing 길을 쓴다. 사람의 `~/.lophn`, 실제 relay, 실제 Expo endpoint를 쓰지 않는다.
 - fake push server는 폰에 알림을 그리지 못한다(Expo의 일이다). `mobile-push-phone`은 fake가 받은 글을 core에서 확인하고, 폰에서는 같은 `data`를 가진 local 알림으로 누르기 이동을 확인한다.
 

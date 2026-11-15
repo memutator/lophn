@@ -17,6 +17,7 @@ import {
   type AgentTarget,
   createEnv,
   createGate,
+  type Env,
   type Gate,
 } from "./agent-tab-core-source-env.ts";
 import { cancelCallOf, readCallState } from "./agent-tab-core-source-calls.ts";
@@ -24,7 +25,6 @@ import {
   cancelInputRequest,
   readInputRequest,
 } from "./agent-tab-core-source-request.ts";
-import type { signInInputRequest } from "./agent-tab-core-source-sign-in.ts";
 import {
   answerQuestions,
   editQueuedMessage,
@@ -36,7 +36,10 @@ import {
   stopSessionOf,
   stopTurnOf,
 } from "./agent-tab-core-source-commands.ts";
-import { createImageSource } from "./agent-tab-core-source-images.ts";
+import {
+  createImageSource,
+  type ImageSource,
+} from "./agent-tab-core-source-images.ts";
 import { searchMessages } from "./agent-tab-core-source-search.ts";
 import {
   previewRewind,
@@ -61,7 +64,14 @@ interface AgentCoreDeps {
   /** 지금 시각(ms). */
   readonly now?: () => number;
   /** sign_in 입력 요청의 로그인 흐름. desktop 창만 준다. 없으면 source에 로그인이 없다(phone). */
-  readonly signIn?: typeof signInInputRequest;
+  // `typeof signInInputRequest`로 쓰지 않는다: 그 file은 desktop 창 code까지 끌고 와 폰의 data 층이 type 검사에서 따라간다.
+  readonly signIn?: (
+    core: CoreSource,
+    env: Env,
+    input: Parameters<NonNullable<AgentTabSource["signInInputRequest"]>>[0],
+  ) => Promise<SourceResult<void>>;
+  /** 이미지 올리기와 그림 주소. 없으면 Blob과 blob URL로 한다(desktop 창). blob URL이 없는 폰은 자기 것을 준다. */
+  readonly images?: (core: CoreSource) => ImageSource;
 }
 
 export function coreAgentTabSourceFactory(
@@ -81,7 +91,7 @@ function createSource(
   const env = createEnv(core, target, deps.now ?? Date.now, gate);
   const memo = createBodiesMemo();
   const faceCache = createFaceCache(env);
-  const images = createImageSource(core);
+  const images = (deps.images ?? createImageSource)(core);
   const { signIn } = deps;
 
   return {

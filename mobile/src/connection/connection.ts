@@ -47,7 +47,12 @@ export type CoreSource = {
   onEvent(listener: (message: CoreEventMessage) => void): () => void;
 };
 
+// Which way the open channel goes: straight to one of the computer's addresses, or through its relay.
+export type ConnectionPath = "direct" | "relay";
+
 export type Connection = CoreSource & {
+  // Path of the open channel; null while not connected.
+  path(): ConnectionPath | null;
   // App went to the background: stop retrying. The open socket is left to the OS.
   pause(): void;
   // App came back: connect now if not connected.
@@ -72,18 +77,27 @@ const BACKOFF_MAX_MS = 30_000;
 // How long a resumed channel has to answer the re-sent watch before it counts as dead.
 const PROBE_MS = 3000;
 
+type Opened = { channel: RemoteClientChannel; path: ConnectionPath };
+
 // Dials every address and the relay at once and keeps the first that finishes the handshake; the rest are closed.
 // The relay only passes bytes, so the Noise handshake is the same on every path.
 export function openFirst(
   endpoint: Endpoint,
   deps: Common,
-): Promise<RemoteClientChannel | undefined> {
+): Promise<Opened | undefined> {
   const remoteStatic = remoteKeyBytes(endpoint.key);
-  const urls = endpoint.addresses.map((address) => {
-    const host = address.includes(":") ? `[${address}]` : address;
-    return `ws://${host}:${endpoint.port}${REMOTE_PATH}`;
-  });
-  if (endpoint.relay) urls.push(relayPhoneUrl(endpoint.relay, endpoint.key));
+  const urls: { url: string; path: ConnectionPath }[] = endpoint.addresses.map(
+    (address) => ({
+      url: `ws://${address.includes(":") ? `[${address}]` : address}:${endpoint.port}${REMOTE_PATH}`,
+      path: "direct",
+    }),
+  );
+  if (endpoint.relay) {
+    urls.push({
+      url: relayPhoneUrl(endpoint.relay, endpoint.key),
+      path: "relay",
+    });
+  }
   if (!remoteStatic || urls.length === 0) return Promise.resolve(undefined);
   const open = async (url: string) => {
     const transport = await deps.dial(url).catch(() => undefined);
@@ -100,12 +114,12 @@ export function openFirst(
   return new Promise((resolve) => {
     let left = urls.length;
     let won = false;
-    for (const url of urls) {
+    for (const { url, path } of urls) {
       void open(url).then((channel) => {
         left -= 1;
         if (channel && !won) {
           won = true;
-          resolve(channel);
+          resolve({ channel, path });
         } else {
           channel?.close();
           if (left === 0 && !won) resolve(undefined);
@@ -126,6 +140,7 @@ export function createConnection(
 ): Connection {
   let state: ConnectionState = { state: "starting", confirmedAt: null };
   let channel: RemoteClientChannel | undefined;
+  let path: ConnectionPath | null = null;
   let connecting = false;
   let active = true;
   let stopped = false;
@@ -167,15 +182,17 @@ export function createConnection(
       setState({ state: "stale", confirmedAt: state.confirmedAt });
       return retry();
     }
-    if (stopped) return opened.close();
-    channel = opened;
-    opened.onClose(() => dropped(opened));
-    opened.onFrame(received);
-    opened.send({ type: "watch", conditions: watching });
+    if (stopped) return opened.channel.close();
+    channel = opened.channel;
+    path = opened.path;
+    channel.onClose(() => dropped(opened.channel));
+    channel.onFrame(received);
+    channel.send({ type: "watch", conditions: watching });
   }
 
   function lose() {
     channel = undefined;
+    path = null;
     cancelProbe?.();
     cancelProbe = undefined;
     for (const [id, resolve] of pending) {
@@ -242,6 +259,7 @@ export function createConnection(
       return () => stateListeners.delete(listener);
     },
     current: () => state,
+    path: () => path,
     call(input) {
       if (!channel) {
         return Promise.resolve({

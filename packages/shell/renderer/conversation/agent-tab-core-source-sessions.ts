@@ -25,7 +25,6 @@ import { codingFaceOf } from "../workspace/agents/coding-face.ts";
 import {
   dropValue,
   type Env,
-  keyTag,
   type Memo,
   memo,
 } from "./agent-tab-core-source-env.ts";

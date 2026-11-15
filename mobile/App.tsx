@@ -136,7 +136,7 @@ function Shell() {
               { ...qr, addresses: withDev(qr.addresses) },
               { phone, dial: dialSocket },
             );
-            if (!result.ok) return result.message;
+            if (!result.ok) return result.failure.kind;
             // Store the QR's own addresses; the dev address is added again at connect time.
             const computer = { ...result.computer, addresses: qr.addresses };
             connections.current.get(computer.key)?.close();

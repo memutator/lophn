@@ -31,25 +31,37 @@ function thisDevice() {
   };
 }
 
+// Why pairing failed. Screens say it in words; `refused` carries the core's error code (an expired or used code is `not_found`).
+export type PairFailure =
+  | { kind: "unreachable" }
+  | { kind: "closed" }
+  | { kind: "refused"; code: string };
+
 // Connects to the first address (or the relay) that answers and sends `pair` with the one-time code.
 export async function pair(
   qr: RemotePairing,
   deps: { phone: KeyPair; dial: Dial },
-): Promise<{ ok: true; computer: Computer } | { ok: false; message: string }> {
-  const channel = await openFirst(qr, { ...deps, random });
-  if (!channel) return { ok: false, message: "No address answered." };
+): Promise<
+  { ok: true; computer: Computer } | { ok: false; failure: PairFailure }
+> {
+  const opened = await openFirst(qr, { ...deps, random });
+  if (!opened) return { ok: false, failure: { kind: "unreachable" } };
+  const { channel } = opened;
   const answer = new Promise<
-    { ok: true; device: string } | { ok: false; message: string }
+    { ok: true; device: string } | { ok: false; failure: PairFailure }
   >((resolve) => {
     channel.onClose(() =>
-      resolve({ ok: false, message: "The computer closed the connection." }),
+      resolve({ ok: false, failure: { kind: "closed" } }),
     );
     channel.onFrame((frame) => {
       if (frame.type !== "result" || frame.id !== "pair") return;
       resolve(
         frame.ok
           ? { ok: true, device: (frame.value as { device: string }).device }
-          : { ok: false, message: frame.error.message },
+          : {
+              ok: false,
+              failure: { kind: "refused", code: frame.error.code },
+            },
       );
     });
   });

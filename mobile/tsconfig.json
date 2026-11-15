@@ -52,6 +52,9 @@
       ],
       "@formatjs/intl": [
         "./node_modules/@formatjs/intl"
+      ],
+      "@lophn/ui/input": [
+        "../packages/design/components/input/filter/range.ts"
       ]
     }
   }

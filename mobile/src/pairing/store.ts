@@ -12,7 +12,12 @@ import {
 export const random = { fill: (bytes: Uint8Array) => getRandomValues(bytes) };
 
 // A paired computer. `key` (the core's public key) is its identity: pairing the same computer again replaces the entry.
-export type Computer = Endpoint & { device: string; revoked: boolean };
+// `name` is what the person called it on this phone; the core does not send its own name.
+export type Computer = Endpoint & {
+  device: string;
+  revoked: boolean;
+  name?: string;
+};
 
 const options = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,

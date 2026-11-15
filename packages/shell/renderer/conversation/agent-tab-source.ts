@@ -34,7 +34,7 @@ import type {
   AcpTask,
   AcpWriting,
 } from "../../../protocol/acp/mod.ts";
-import type { Vendor } from "../parts/vendor-icon/vendor-icon.tsx";
+import type { Vendor } from "../parts/vendor-icon/vendors.ts";
 import type { ToolCallState, ToolCallView } from "./activity/model.ts";
 
 export type SourceResult<T> =

@@ -1,7 +1,7 @@
 id: preview-screen-cannot-call-operation
 title: preview 화면은 operation을 부르지 못한다
 kind: bug
-status: open
+status: fixed
 topic: app-call
 modules: [packages/shell/main, packages/core/apps]
 now: |
@@ -10,3 +10,6 @@ impact: |
   앱을 짓는 쪽이 preview에서 화면을 눌러 operation을 확인하지 못한다. agent는 `preview.call`로 부르지만 사람은 화면으로 확인할 길이 없다.
 fix: |
   `declaration-source.ts`가 preview bundle의 선언도 읽고 호출 대상을 `{mode: "preview", app, process_nonce}`로 보낸다. 작다.
+closed: |
+  화면의 호출이 core의 `app_views/call`로 간다. core의 view 표가 preview view를 preview bundle의 선언으로 판정해 부른다. shell main은 선언을 읽지 않는다(`declaration-source.ts`의 live 전용 읽기를 지웠다).
+guard: packages/core/apps/views/views_test.ts (preview view의 operation 호출)

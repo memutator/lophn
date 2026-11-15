@@ -36,7 +36,7 @@ import { OfflineBody } from "./offline.tsx";
 export function HomeScreen(_: { place: PlaceOf<"home"> }) {
   const nav = useNav();
   const computer = useCurrentComputer();
-  const { select } = useComputers();
+  const { retry } = useComputers();
   const workspaces = useWorkspaces();
   const names = useNames();
   const inbox = useInbox();
@@ -85,7 +85,9 @@ export function HomeScreen(_: { place: PlaceOf<"home"> }) {
           onFailed={setFailed}
         />
       }
-      over={failed ? <Toast>{t("waiting.notice.action-failed")}</Toast> : undefined}
+      over={
+        failed ? <Toast>{t("waiting.notice.action-failed")}</Toast> : undefined
+      }
     >
       {online || computer === null ? (
         <Online
@@ -100,8 +102,7 @@ export function HomeScreen(_: { place: PlaceOf<"home"> }) {
           apps={apps}
           workspaces={workspaces}
           leftAt={leftAt}
-          // The computers store retries on its own; choosing the computer again is what the phone can ask of it today.
-          onRetry={() => select(computer.key)}
+          onRetry={retry}
         />
       )}
     </Screen>
@@ -131,6 +132,25 @@ function Online({
         .map((row) => ({ row, workspace })),
     )
     .sort((a, b) => b.row.at - a.row.at);
+  if (inbox.count === 0 && apps.length === 0 && working.length === 0) {
+    return (
+      <View
+        style={{
+          alignItems: "center",
+          paddingTop: 120,
+          paddingHorizontal: 40,
+          gap: 6,
+        }}
+      >
+        <Text weight="medium" align="center">
+          {t("waiting.notice.empty")}
+        </Text>
+        <Text variant="detail" tone="muted" align="center">
+          {t("mobile.home.empty.caption")}
+        </Text>
+      </View>
+    );
+  }
   return (
     <>
       {inbox.count > 0 && (

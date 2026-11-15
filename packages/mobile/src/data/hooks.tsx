@@ -126,6 +126,8 @@ export interface ComputersView extends ComputersState {
   add: Computers<ComputerData>["add"];
   remove(key: string): void;
   rename(key: string, name: string): void;
+  /** Dials a computer that is not connected right now instead of waiting for the next backoff. */
+  retry(): void;
 }
 
 export function useComputers(): ComputersView {
@@ -137,6 +139,7 @@ export function useComputers(): ComputersView {
     add: computers.add,
     remove: computers.remove,
     rename: computers.rename,
+    retry: computers.resume,
   };
 }
 

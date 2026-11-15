@@ -16,7 +16,6 @@ import {
 } from "../../data/mod.ts";
 import { Face, LOPHN } from "../../parts/mod.ts";
 import { ago } from "./ago.ts";
-import "./relative-time.ts";
 
 /** How many cards Home shows; the rest are one tap away under Inbox. */
 export const NEEDS_SHOWN = 2;

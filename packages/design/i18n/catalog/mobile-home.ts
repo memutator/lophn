@@ -4,6 +4,7 @@ export const mobileHome = {
   "mobile.home.banner.connecting": "Connecting to {name}…",
   "mobile.home.banner.offline": "{name} is offline",
   "mobile.home.button.inbox-count": "Inbox · {count}",
+  "mobile.home.empty.caption": "Ask lophn below to start something.",
   "mobile.home.heading.last-known": "Last known",
   "mobile.home.heading.last-seen": "Last seen {time} ago",
   "mobile.home.heading.last-seen-now": "Last seen just now",

@@ -1,5 +1,5 @@
 // release 준비가 앱 source(commit에 든 .tsx/.jsx/.ts/.js)에서 보는, 빌드(esbuild)가 못 잡는 실수 둘.
-// 1. 소문자 JSX 요소의 `title=` 속성: 브라우저 기본 tooltip이 뜬다. `Tooltip`(`@lophn/ui/overlay`)을 쓴다.
+// 1. 소문자 JSX 요소의 `title=` 속성: 브라우저 기본 tooltip이 뜬다. `Tooltip`(`@lophn/ui/overlay`)을 쓴다. 폰 화면은 보지 않는다.
 // 2. `useTabHead`의 `actions` 항목에서 목록에 없는 `icon` 이름: shell이 조용히 버린다.
 // JS parser가 없어서(typescript 7은 JS AST API가 없다) 가볍게 훑는다. 놓치는 쪽은 괜찮고 잘못 잡는 쪽은 release를 막으므로
 // 모양이 분명하지 않으면 그냥 넘어간다.
@@ -168,10 +168,18 @@ function tabHeadIcons(path: string, text: string): string[] {
 export function checkAppSource(files: readonly SourceFile[]): string | null {
   const found: string[] = [];
   const decoder = new TextDecoder();
+  // 폰 화면(`src/screens/<key>/phone.tsx`)의 dir은 React Native라 browser tooltip이 없다. tab-head 검사는
+  // `@lophn/app-ui`를 가져오는 file만 보는데 폰 화면 build가 그 import를 막으므로 따로 뺄 것이 없다.
+  const phoneDirs = files
+    .filter((file) => /^src\/screens\/[^/]+\/phone\.tsx$/.test(file.path))
+    .map((file) => file.path.slice(0, -"phone.tsx".length));
   for (const file of files) {
     if (!isAppSource(file.path)) continue;
     const text = blankComments(decoder.decode(file.bytes));
-    if (/\.[jt]sx$/.test(file.path))
+    if (
+      /\.[jt]sx$/.test(file.path) &&
+      !phoneDirs.some((dir) => file.path.startsWith(dir))
+    )
       found.push(...titleAttributes(file.path, text));
     found.push(...tabHeadIcons(file.path, text));
   }

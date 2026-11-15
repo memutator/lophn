@@ -26,8 +26,8 @@ import {
   gitCommandRunner,
 } from "./git-extract.ts";
 import { type LimitFailure, usageCounter } from "./limits.ts";
-import { checkAppSource } from "./source-checks.ts";
 import { LUCIDE_ICON_NAMES } from "./lucide-names.ts";
+import { checkAppSource } from "./source-checks.ts";
 
 // `app.icon`이 읽는 상한과 같다.
 const ICON_MAX_BYTES = 64 * 1024;
@@ -51,7 +51,8 @@ export type PrepareReleaseInput = {
   entrypoint: string;
   declarationSource: string;
   screens: readonly { path: string; bytes: Uint8Array }[];
-  // 화면 build가 JS 말고 만든 자원(index.html·CSS·글꼴). 그대로 bundle에 담고 runtime이 screens/ 아래에서 내준다.
+  // 화면 build가 main.js 말고 만든 자원(index.html·CSS·글꼴, 폰 화면의 phone.js·phone.json·preview.js). 그대로
+  // bundle에 담고 runtime이 screens/ 아래에서 내준다.
   assets?: readonly { path: string; bytes: Uint8Array }[];
   // bundle에 담은 정확한 의존 전부(manifest.dependencies가 된다).
   dependencies: BundleManifest["dependencies"];
@@ -155,10 +156,14 @@ export async function prepareRelease(
   if (countedFiles) return fromLimit(countedFiles);
   if (deps.cancelled?.()) return fail("cancelled");
 
-  const built = await buildScreens({
-    screens: input.screens,
-    dependencies: input.uiDependencies,
-  });
+  // 폰 화면만 가진 앱은 main.js 화면이 없다. 폰 화면의 file은 assets로 그대로 담는다.
+  const built =
+    input.screens.length === 0
+      ? ok({ files: [] })
+      : await buildScreens({
+          screens: input.screens,
+          dependencies: input.uiDependencies,
+        });
   if (!built.ok) return fail(built.error.reason, built.error.code);
   const declaration = await extractDeclaration(
     input.declarationSource,

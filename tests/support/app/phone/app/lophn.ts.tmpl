@@ -1,0 +1,20 @@
+export default {
+  name: "Phone fixture",
+  description: "An app with one phone screen.",
+  screens: [
+    {
+      key: "home",
+      label: "Home",
+      path: "/screens/home/index.html",
+      places: ["phone"],
+    },
+  ],
+  operations: [],
+  commands: [],
+  permissions: [],
+  app_connections: [],
+  sdk_dependencies: [
+    { name: "@lophn/ui-native", version: "0.1.0" },
+    { name: "@lophn/app-ui-native", version: "0.1.0" },
+  ],
+};

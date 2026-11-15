@@ -1,8 +1,8 @@
 // 연결된 source의 commit 하나에서 봉인 bundle까지 준비한다.
 // release worker 안에서 돈다: commit을 staging에 풀고, package.json이 거는 SDK 사본을 staging의
-// `.lophn/sdk`에 채우고, npm으로 의존을 받고, 선언 값을 평가하고, 앱의 화면 build를 직접 돌리고, 받아 둔
-// node_modules를 bundle 파일로 읽어 `prepareRelease`에 넘긴다. 운영 process는 network 없이 bundle 안 사본만
-// 읽는다. staging은 끝나면 늘 지운다.
+// `.lophn/sdk`에 채우고, npm으로 의존을 받고, 선언 값을 평가하고, 앱의 화면 build를 직접 돌리고(폰 화면이 있으면
+// build에만 쓴 devDependencies를 뺀다), 받아 둔 node_modules를 bundle 파일로 읽어 `prepareRelease`에 넘긴다.
+// 운영 process는 network 없이 bundle 안 사본만 읽는다. staging은 끝나면 늘 지운다.
 import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import {
@@ -33,8 +33,8 @@ import {
   type PackageManifest,
 } from "../bundle/dependencies.ts";
 import { readModules, readSdkCopies } from "../bundle/modules.ts";
-import { makeTreeWritable } from "../bundle/seal.ts";
 import { runtimeEntry } from "../bundle/runtime-entry.ts";
+import { makeTreeWritable } from "../bundle/seal.ts";
 import { FIXED_UI_DEPENDENCIES } from "../ui-build/build.ts";
 import { childEnvironment } from "./environment.ts";
 import {
@@ -158,7 +158,8 @@ const APP_BUILD = fileURLToPath(
 );
 const PACKAGES_URL = new URL("../../../../", import.meta.url).href;
 
-// 화면 build 결과(dist/screens/<key>/)를 bundle 입력으로 읽는다. 진입 JS는 화면, 나머지는 자원이다.
+// 화면 build 결과(dist/screens/<key>/)를 bundle 입력으로 읽는다. desktop 화면의 main.js는 화면이고 나머지(폰 화면의
+// phone.js·phone.json·preview.js 등)는 자원이다.
 async function readBuiltScreens(staging: string): Promise<{
   screens: { path: string; bytes: Uint8Array }[];
   assets: { path: string; bytes: Uint8Array }[];
@@ -182,6 +183,59 @@ async function readBuiltScreens(staging: string): Promise<{
   const byPath = (a: { path: string }, b: { path: string }) =>
     a.path < b.path ? -1 : 1;
   return { screens: screens.sort(byPath), assets: assets.sort(byPath) };
+}
+
+const PHONE_MANIFEST = /^screens\/([^/]+)\/phone\.json$/;
+// build에만 쓰는 폰 화면 package. dependencies에 있으면 prune이 빼지 못해 bundle 상한을 넘는다.
+const PHONE_BUILD_PACKAGE =
+  /^(@lophn\/(ui-native|app-ui-native)|react-native(-.*)?|@react-native\/.*|expo(-.*)?|@expo\/.*|lucide-react-native)$/;
+
+// 선언의 폰 화면(`places: ["phone"]`)과 build가 지은 폰 화면(`screens/<key>/phone.json`)이 양쪽으로 맞는지 본다.
+// 문제가 없으면 null, 있으면 agent가 읽고 고칠 한 줄이다. 선언의 다른 모양 오류는 뒤의 선언 검사가 알린다.
+function phoneScreenProblem(
+  declarationJson: string,
+  assets: readonly { path: string }[],
+  manifest: PackageManifest,
+): string | null {
+  let declared: { key: string; path: unknown }[] = [];
+  try {
+    const screens = (JSON.parse(declarationJson) as { screens?: unknown })
+      .screens;
+    if (Array.isArray(screens)) {
+      declared = screens.filter(
+        (screen) =>
+          Array.isArray(screen?.places) && screen.places.includes("phone"),
+      );
+    }
+  } catch {
+    // 선언 검사가 알린다.
+  }
+  const built = assets.flatMap(
+    (file) => PHONE_MANIFEST.exec(file.path)?.slice(1, 2) ?? [],
+  );
+  for (const screen of declared) {
+    const path = `/screens/${screen.key}/index.html`;
+    if (screen.path !== path) {
+      return `The phone screen ${screen.key} must have path ${path}.`;
+    }
+    if (!built.includes(screen.key)) {
+      return `The phone screen ${screen.key} has no src/screens/${screen.key}/phone.tsx. Write the screen there or remove it from lophn.ts.`;
+    }
+  }
+  for (const key of built) {
+    if (!declared.some((screen) => screen.key === key)) {
+      return `src/screens/${key}/phone.tsx is not a declared phone screen. Declare a screen with key ${key}, places ["phone"] and path /screens/${key}/index.html in lophn.ts, or remove the file.`;
+    }
+  }
+  if (built.length > 0) {
+    const misplaced = Object.keys(manifest.dependencies ?? {}).filter((name) =>
+      PHONE_BUILD_PACKAGE.test(name),
+    );
+    if (misplaced.length > 0) {
+      return `${misplaced.join(", ")} must be in devDependencies, not dependencies. Phone screen packages are only for building the screen, and release ships only dependencies.`;
+    }
+  }
+  return null;
 }
 
 export async function prepareFromSource(
@@ -301,7 +355,35 @@ export async function prepareFromSource(
       );
     }
     const screens = await readBuiltScreens(staging);
+    const phoneProblem = phoneScreenProblem(
+      evaluated.stdout,
+      screens.assets,
+      manifest as PackageManifest,
+    );
+    if (phoneProblem !== null) return fail(phoneProblem);
     if (aborted()) return fail("cancelled");
+
+    // 폰 화면의 kit과 그 peer(react-native 등)는 build에만 쓰는 devDependencies다. 그대로 담으면 bundle 상한
+    // (byte·file 수)을 넘으므로 build 뒤 sealed node_modules에서 뺀다. 폰 화면이 없는 앱은 그대로 둔다.
+    if (screens.assets.some((file) => PHONE_MANIFEST.test(file.path))) {
+      const pruned = await runChild(
+        npmCommand(["prune", "--omit=dev", "--ignore-scripts"]),
+        {
+          cwd: staging,
+          signal: deps.signal,
+          limitMs,
+          env: childEnvironment(`${staging}/.tmp`),
+        },
+      );
+      if (pruned === "aborted") return fail("cancelled");
+      if (pruned === "timeout") return fail("elapsed_ms");
+      if (pruned.code !== 0) {
+        return fail(
+          childHead("dependency_prune_failed", pruned.stderr, staging),
+          "unavailable",
+        );
+      }
+    }
 
     const modules = await readModules(staging);
     if (!modules.ok) return fail(modules.error.reason, "unavailable");

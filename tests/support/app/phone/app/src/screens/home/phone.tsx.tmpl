@@ -1,0 +1,12 @@
+import { useLophnApp } from "@lophn/app-ui-native";
+import { Screen } from "@lophn/ui-native";
+import { Text } from "react-native";
+
+export default function Home() {
+  const app = useLophnApp();
+  return (
+    <Screen>
+      <Text>{app.place.place}</Text>
+    </Screen>
+  );
+}

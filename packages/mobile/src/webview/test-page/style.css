@@ -1,7 +1,0 @@
-@font-face {
-  font-family: "TestMono";
-  src: url("mono.woff2") format("woff2");
-}
-body { font-family: sans-serif; font-size: 12px; margin: 8px; }
-.probe { color: rgb(1, 2, 3); font-family: "TestMono"; font-size: 16px; }
-#outside-link { display: block; font-size: 24px; padding: 24px; background: #eef; }

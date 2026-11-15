@@ -6,6 +6,10 @@ const { getDefaultConfig } = require("expo/metro-config");
 const packages = path.resolve(__dirname, "..");
 const config = getDefaultConfig(__dirname);
 config.watchFolders = [packages];
+// The vendor icons are the desktop's .svg files, read as text (src/parts/svg-text-transformer.js).
+config.transformer.babelTransformerPath = path.join(__dirname, "src/parts/svg-text-transformer.js");
+config.resolver.assetExts = config.resolver.assetExts.filter((ext) => ext !== "svg");
+config.resolver.sourceExts = [...config.resolver.sourceExts, "svg"];
 // The phone UI kit is an SDK part that lives next to the desktop kit; the app imports it by its package name.
 const uiNative = path.join(packages, "design/native/mod.ts");
 // The same message catalog as the desktop.

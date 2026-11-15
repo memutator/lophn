@@ -16,3 +16,5 @@ lead만 고친다. `tools/status.py mobile-app build`가 `tasks/*.md`에서 id, 
 | `mobile-places` | mobile-app | 3 | mobile-frame, mobile-routes, mobile-files | merged | mobile-app/mobile-places | e074f0030 |  |
 | `mobile-session` | mobile-app | 3 | mobile-frame, mobile-routes | merged | mobile-app/mobile-session | eb5235e2e |  |
 | `mobile-web-removal` | remote-web | 3 | mobile-frame | merged | remote-web/mobile-web-removal | a631fd6c3 |  |
+| `mobile-attach` | mobile-app | 4 | mobile-session | todo |  |  |  |
+| `mobile-polish` | mobile-app | 4 | mobile-home, mobile-session, mobile-inbox, mobile-places, mobile-ops, mobile-frame-fixes, mobile-web-removal | todo |  |  |  |

@@ -33,6 +33,9 @@ export function PairScreen(props: {
         <Text>
           Address: {qr.addresses.join(", ")} port {qr.port}
         </Text>
+        {qr.relay ? (
+          <Text>Relay: {qr.relay.replace(/^wss?:\/\//, "").split("/")[0]}</Text>
+        ) : null}
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <View style={styles.row}>
           <Button

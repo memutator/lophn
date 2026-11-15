@@ -31,7 +31,7 @@ function thisDevice() {
   };
 }
 
-// Connects to the first address that answers and sends `pair` with the one-time code.
+// Connects to the first address (or the relay) that answers and sends `pair` with the one-time code.
 export async function pair(
   qr: RemotePairing,
   deps: { phone: KeyPair; dial: Dial },
@@ -63,6 +63,7 @@ export async function pair(
       addresses: qr.addresses,
       port: qr.port,
       key: qr.key,
+      relay: qr.relay,
       device: done.device,
       revoked: false,
     },

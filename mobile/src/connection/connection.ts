@@ -7,6 +7,7 @@ import {
   type RemoteClientFrame,
   type RemoteServerFrame,
   type RemoteTransport,
+  relayPhoneUrl,
   remoteKeyBytes,
 } from "../remote.ts";
 
@@ -54,8 +55,13 @@ export type Connection = CoreSource & {
   close(): void;
 };
 
-// Where a paired computer listens. `key` is the core's public key text from the QR.
-export type Endpoint = { addresses: string[]; port: number; key: string };
+// Where a paired computer listens. `key` is the core's public key text from the QR; `relay` is its relay, if it has one.
+export type Endpoint = {
+  addresses: string[];
+  port: number;
+  key: string;
+  relay?: string;
+};
 
 export type Dial = (url: string) => Promise<RemoteTransport>;
 
@@ -66,20 +72,21 @@ const BACKOFF_MAX_MS = 30_000;
 // How long a resumed channel has to answer the re-sent watch before it counts as dead.
 const PROBE_MS = 3000;
 
-// Dials every address at once and keeps the first that finishes the handshake; the rest are closed.
+// Dials every address and the relay at once and keeps the first that finishes the handshake; the rest are closed.
+// The relay only passes bytes, so the Noise handshake is the same on every path.
 export function openFirst(
   endpoint: Endpoint,
   deps: Common,
 ): Promise<RemoteClientChannel | undefined> {
   const remoteStatic = remoteKeyBytes(endpoint.key);
-  if (!remoteStatic || endpoint.addresses.length === 0) {
-    return Promise.resolve(undefined);
-  }
-  const open = async (address: string) => {
+  const urls = endpoint.addresses.map((address) => {
     const host = address.includes(":") ? `[${address}]` : address;
-    const transport = await deps
-      .dial(`ws://${host}:${endpoint.port}${REMOTE_PATH}`)
-      .catch(() => undefined);
+    return `ws://${host}:${endpoint.port}${REMOTE_PATH}`;
+  });
+  if (endpoint.relay) urls.push(relayPhoneUrl(endpoint.relay, endpoint.key));
+  if (!remoteStatic || urls.length === 0) return Promise.resolve(undefined);
+  const open = async (url: string) => {
+    const transport = await deps.dial(url).catch(() => undefined);
     if (!transport) return undefined;
     const channel = await connectRemote({
       transport,
@@ -91,10 +98,10 @@ export function openFirst(
     return channel.ok ? channel.value : undefined;
   };
   return new Promise((resolve) => {
-    let left = endpoint.addresses.length;
+    let left = urls.length;
     let won = false;
-    for (const address of endpoint.addresses) {
-      void open(address).then((channel) => {
+    for (const url of urls) {
+      void open(url).then((channel) => {
         left -= 1;
         if (channel && !won) {
           won = true;

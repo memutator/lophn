@@ -55,7 +55,9 @@ test("after a drop or a dead resume the connection reconnects and sends the last
     frames: RemoteClientFrame[];
     answer: boolean;
   }[] = [];
-  const dial = async () => {
+  // The relay is down here: the direct address alone must keep the connection going.
+  const dial = async (url: string) => {
+    if (url.startsWith("wss://")) throw new Error("relay unreachable");
     const [phoneSide, coreSide] = pipe();
     void acceptRemote({
       transport: coreSide,
@@ -85,6 +87,7 @@ test("after a drop or a dead resume the connection reconnects and sends the last
       addresses: ["10.0.0.1"],
       port: 7432,
       key: remoteKeyText(core.publicKey),
+      relay: "wss://relay.test",
     },
     phone: generateKeyPair(cryptoRandom),
     dial,

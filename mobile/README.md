@@ -41,7 +41,7 @@ adb -s emulator-5554 emu kill                                     # 끝낼 때
 
 ## pairing
 
-처음 열면 pairing 화면이다. QR을 `expo-camera`로 찍거나 core `pairing/start`의 JSON을 붙여 넣고, 보이는 key 앞 글자와 주소를 확인한 뒤 Pair를 누른다. 기기 key 쌍과 pairing한 컴퓨터 목록은 `expo-secure-store`(이 기기에서만, 잠금이 풀렸을 때만)에 둔다.
+처음 열면 pairing 화면이다. QR을 `expo-camera`로 찍거나 core `pairing/start`의 JSON을 붙여 넣고, 보이는 key 앞 글자와 주소(relay가 있으면 그 host)를 확인한 뒤 Pair를 누른다. 기기 key 쌍과 pairing한 컴퓨터 목록은 `expo-secure-store`(이 기기에서만, 잠금이 풀렸을 때만)에 둔다.
 
 - emulator에서 pairing: 붙여 넣기 칸을 누르고 `adb -s <emulator> shell "input text '<pairing/start JSON에서 expires_at을 뺀 것>'"`. emulator에는 camera 장면이 없다.
 - `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS`(dev build에서만): Metro를 띄울 때 주면 이 주소를 QR의 주소들과 같이 걸어 먼저 붙는 것을 쓴다. 저장하지는 않는다. emulator는 이 machine에 `10.0.2.2`로 닿는데 QR에는 LAN 주소가 들기 때문이다. 예: `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS=10.0.2.2 npx expo start --dev-client --port 8199`.
@@ -49,6 +49,8 @@ adb -s emulator-5554 emu kill                                     # 끝낼 때
 ## 연결
 
 `src/connection/connection.ts`가 컴퓨터마다 연결 하나를 연다(`createConnection`). QR의 주소를 같이 걸어 먼저 handshake가 서는 것을 쓰고, 끊기면 backoff로 다시 붙고, 앱이 앞으로 오면 바로 붙거나 열린 연결을 `watch`로 확인한다. 붙을 때마다 마지막 `watch`를 다시 보낸다. 모양은 desktop의 `CoreSource`(상태 `starting`·`ready`·`stale`)다.
+
+QR에 relay 주소(`relay`)가 있으면 컴퓨터 기록에 저장하고, 주소들과 같이 `<relay>/v1/phone?key=<core key>`도 건다. relay는 바이트만 넘기므로 handshake는 같고, 먼저 서는 길을 쓴다. relay가 생기기 전에 pairing한 폰은 relay를 모르므로 한 번 다시 pairing한다.
 
 ## remote 화면
 

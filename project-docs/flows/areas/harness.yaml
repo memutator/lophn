@@ -1372,7 +1372,7 @@ flows:
     title: 터미널 탭의 turn 끝과 권한 물음을 core에 알리고 toast나 OS 알림을 낸다
     actor: shell
     entries: [system:terminal-agent-notice]
-    uses: [ipc:shell:terminal-reveal, route:terminal_sessions/signal]
+    uses: [ipc:shell:terminal-reveal, route:terminal_sessions/signal, route:unseen/dismiss]
     boundary: [shell]
     code:
       - packages/shell/main/desktop/wiring/agent.ts
@@ -1385,10 +1385,13 @@ flows:
       - "그 탭이 focus를 가진 창에서 보이는 탭이면 띄우지 않는다"
       - "lophn 창에 focus가 있는데 그 탭이 안 보이면 그 창의 toast, 어느 창에도 focus가 없으면 OS 알림이다. 누르면 탭이 있는 창을 앞으로 가져와 탭을 고른다"
       - "알림 본문은 hook payload가 준 마지막 답이나 오류 글, 권한 물음의 요약만 쓴다. transcript는 읽지 않는다"
-      - "보지 않던 탭의 끝은 core가 못 본 것(unseen)으로 두어 Finished 줄이 생긴다. 탭을 고르거나 창이 focus를 받으면 presence 보고로 core가 지운다"
+      - "보지 않던 탭의 끝은 core가 못 본 것(unseen)으로 두어 Finished 줄이 생긴다. 탭을 고르거나 창이 focus를 받으면 presence 보고로 core가 지운다. core는 터미널의 turn 시작과 끝남을 모르므로 새 turn이 시작하거나(끝 알림을 기다리던 중 이어진 turn은 아니다) 터미널이 끝나면 shell이 unseen/dismiss로 지운다(실패는 버린다)"
     outcomes:
       - id: signaled
         when: "core에 계기를 알렸다(보고 있어도 알린다)"
+        observe: []
+      - id: mark-dismissed
+        when: "새 turn이 시작했거나 터미널이 끝나 core에 그 터미널의 못 본 끝을 지우라고 보냈다"
         observe: []
       - id: toast
         observe: [screen:new-waiting-toasts, screen:new-waiting-finished]

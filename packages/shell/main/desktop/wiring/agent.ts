@@ -8,6 +8,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { basename, dirname } from "node:path";
 import { SHARED_APPS_SETTING_KEY } from "../../../../protocol/approvals/mod.ts";
 import { HARNESS_SETTING_KEY } from "../../../../protocol/lophn-agent/harness-host.ts";
+import { terminalSessionId } from "../../../../protocol/lophn-agent/session-tag.ts";
 import {
   HARNESS_ADAPTERS,
   type HarnessId,
@@ -224,6 +225,11 @@ export function createAgentWiring(options: {
       void ctx.coreInternal("memory", "terminal_sessions", "signal", {
         ...info,
         title: (tab?.view === "gui" ? tab.title : null) ?? info.title,
+      });
+    },
+    dismiss(ref) {
+      void ctx.coreInternal("memory", "unseen", "dismiss", {
+        session: terminalSessionId(ref),
       });
     },
     identified: options.identified,

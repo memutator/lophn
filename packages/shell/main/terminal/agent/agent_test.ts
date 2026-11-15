@@ -110,6 +110,7 @@ function trackerFor(pushed: string[]) {
       pushed.push(`${rt.agent?.harness ?? "-"}:${rt.agent?.state ?? "none"}`),
     notify: () => {},
     signal: () => {},
+    dismiss: () => {},
     ...fakeClock(),
   });
 }
@@ -154,6 +155,7 @@ test("the terminal's OSC title is read from PTY output across chunk splits and r
     publish: (rt) => titles.push(rt.agent?.screen_title),
     notify: () => {},
     signal: () => {},
+    dismiss: () => {},
     ...fakeClock(),
   });
   // agent가 뜨기 전의 제목도 터미널의 것이라 기억한다(TUI는 foreground로 알아보기 전에 첫 제목을 낸다).
@@ -216,6 +218,7 @@ test("TurnStarted가 다른 session id를 싣고 오면 session을 바꾸고 제
       }),
     notify: () => {},
     signal: () => {},
+    dismiss: () => {},
     ...fakeClock(),
   });
   tracker.hook("t", "claude", "UserPromptSubmit", {
@@ -254,6 +257,7 @@ function childTracker() {
   const clock = fakeClock();
   const states: string[] = [];
   const signals: string[] = [];
+  const dismissed: string[] = [];
   const runtime = { terminal_ref: "t", state: "running" } as TerminalRuntime;
   const tracker = createAgentTracker({
     harnessOfProcess: () => null,
@@ -263,11 +267,12 @@ function childTracker() {
     publish: (rt) => states.push(rt.agent?.state ?? "none"),
     notify: () => {},
     signal: (info) => signals.push(info.kind),
+    dismiss: (ref) => dismissed.push(ref),
     ...clock,
   });
   const send = (signal: AgentSignal) =>
     tracker.hook("t", "claude", "e", signal);
-  return { tracker, clock, states, signals, send };
+  return { tracker, clock, states, signals, dismissed, send };
 }
 
 test("Stop while a subagent runs stays running without a finished notice, and the last child ending notifies once", () => {
@@ -331,4 +336,18 @@ test("a child tool hook resolves the permission wait, and a child with no signal
   assert.equal(states.at(-1), "idle");
   clock.advance(1500);
   assert.deepEqual(signals, ["waiting", "finished"]);
+});
+
+test("a new turn after a finished signal dismisses the terminal's unseen mark, a turn continued inside the finish delay does not", () => {
+  const { clock, signals, dismissed, send } = childTracker();
+  send({ type: "TurnStarted" });
+  send({ type: "TurnEnded", message: "first" });
+  clock.advance(1000);
+  send({ type: "TurnStarted" }); // child 사이의 틈: 같은 turn
+  assert.deepEqual(dismissed, ["t"]);
+  send({ type: "TurnEnded", message: "first" });
+  clock.advance(1500);
+  assert.deepEqual(signals, ["finished"]);
+  send({ type: "TurnStarted" });
+  assert.deepEqual(dismissed, ["t", "t"]);
 });

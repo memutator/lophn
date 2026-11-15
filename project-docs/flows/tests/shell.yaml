@@ -343,6 +343,7 @@ files:
       - terminal-agent-track:unknown
       - terminal-agent-track:ignored
       - terminal-agent-notice:signaled
+      - terminal-agent-notice:mark-dismissed
       - terminal-agent-notice:cancelled
     note: "hook 줄 ingress(모르는 key, 틀린 줄, 크기 초과는 버림)와 coding agent 상태 tracker. Esc·Ctrl-C로 unknown, 다른 harness hook은 탭을 안 바꿈, 1.5초 안의 TurnStarted는 완료 알림을 취소, subagent가 끝나야 알림"
 

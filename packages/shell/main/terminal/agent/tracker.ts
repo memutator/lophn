@@ -74,6 +74,11 @@ export type AgentTrackerDeps = {
     kind: "waiting" | "finished" | "failed";
     active_ms: number | null;
   }): void;
+  /**
+   * 그 터미널의 core 못 본 끝(`term:<탭>`)을 지운다. 새 turn이 시작했거나 터미널이 끝났다. core는 터미널의 turn 시작과
+   * 끝남을 모르므로 shell이 알린다.
+   */
+  dismiss(terminalRef: string): void;
   /** 사람 터미널에서 foreground로 harness를 처음 알아봤다. 설치를 물을 때다. */
   identified?(harness: string, terminalRef: string): void;
   /** session id를 아는 터미널에서 hook이 왔다. 저장은 부르는 쪽이 정한다. */
@@ -427,8 +432,11 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
             entry.title = signal.prompt;
           }
           entry.running = true;
-          // 끝 알림을 기다리던 중(child 사이의 틈)이면 같은 turn이 이어진다.
-          entry.startedAt ??= deps.now();
+          // 끝 알림을 기다리던 중(child 사이의 틈)이면 같은 turn이 이어진다. 새 turn이면 앞 turn의 못 본 끝을 지운다.
+          if (entry.startedAt === null) {
+            entry.startedAt = deps.now();
+            deps.dismiss(ref);
+          }
           entry.guessed = false;
           break;
         case "TurnEnded":
@@ -535,6 +543,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       const wasTui = entry.fixed && entry.harness !== null;
       drop(entry);
       entries.delete(ref);
+      deps.dismiss(ref);
       if (wasTui) tuiLeft(ref);
       exitListeners.delete(ref);
       // 끝난 runtime은 그 터미널을 구독한 창에만 간다. agent를 알린 적이 있으면 모든 창에 agent가 빠진 runtime을

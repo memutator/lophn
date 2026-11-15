@@ -4,7 +4,7 @@
 
 - 단위: coding-phone (wave 8)
 - 선행: mobile-coding-open-host, mobile-terminal-phone, mobile-coding-phone-screens
-- 소유(이 task만 고친다). 아래 path는 `phone-app` brief에서 예상한 이름이다. land된 실제 path를 먼저 확인한다(README "돌리기 전에"):
+- 소유(이 task만 고친다). 아래 path는 `mobile-app` brief에서 예상한 이름이다. land된 실제 path를 먼저 확인한다(README "돌리기 전에"):
   - `packages/mobile/src/screens/coding`(`open*` 새 file들과, 목록의 깨우기·`Continue as chat` 단추, 새 session sheet의 coding 묶음을 꽂는 만큼만)
   - `packages/mobile/src/screens/session`(새 session 화면의 agent 고르기에 coding 묶음을 꽂는 만큼만)
   - `packages/mobile/src/data/coding.ts`(`useCodingActions`의 `open`·`wake` 흐름에 필요한 만큼만)
@@ -12,7 +12,7 @@
 - 읽을 것:
   - 기준: `tools/wireframes/drafts/phone/coding.tsx`의 새 coding session, Continue as chat, 앱 안 떠 있음 화면과 caption(`mobile-coding-wireframes`)
   - 이 계획 `README.md`의 "정한 것"(깨우기는 명시적 단추로만, 되살리기는 ledger의 coding session에 한한다, 앱을 깨워도 목록은 비어 있고 열기와 함께일 때만 쓸모 있다)
-  - core 계약: `coding_sessions/open`·`wake`의 입력과 오류(`mobile-coding-open-host` 보고), `useCodingActions`(`mobile-coding-phone-data`)
+  - core 계약: `coding_sessions/open`·`wake`의 입력과 오류(`mobile-coding-open-host` 보고), `useCodingActions`(`mobile-coding-mobile-data`)
   - 폰의 뼈대: `packages/design/native/mod.ts`, `packages/mobile/src/app/nav.ts`, `packages/mobile/src/data/mod.ts`
 - 계약:
   - 쓰는 것: `useCodingActions().open`·`wake`, `useCodingSessions`(`shell` 상태가 `attached`로 바뀌길 기다린다)

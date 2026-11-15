@@ -4,7 +4,7 @@
 
 - 단위: terminal-view (wave 7)
 - 선행: mobile-terminal-core, mobile-terminal-shell, mobile-terminal-device-grant, mobile-coding-phone-screens
-- 소유(이 task만 고친다). 아래 `packages/mobile/...` path는 `phone-app` brief에서 예상한 이름이다. land된 실제 path를 먼저 확인한다(README "돌리기 전에"):
+- 소유(이 task만 고친다). 아래 `packages/mobile/...` path는 `mobile-app` brief에서 예상한 이름이다. land된 실제 path를 먼저 확인한다(README "돌리기 전에"):
   - `packages/protocol/remote/allowlist.ts`
   - `packages/mobile/src/screens/terminal`(새 폴더 전체)
   - `packages/mobile/src/data/terminal.ts`(새 file)와 `terminal.test.ts`(새 file), `packages/mobile/src/data/mod.ts`(내보내기)

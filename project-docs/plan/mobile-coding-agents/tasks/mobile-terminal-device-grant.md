@@ -23,7 +23,7 @@
   - 내놓는 것:
     - ledger step `remote.devices.terminal_input`: `alter table devices add column terminal_input integer not null default 0 check (terminal_input in (0, 1))`
     - `devices/list`의 기기 줄에 `terminal_input: boolean`
-    - `devices/set_terminal_input` command `{id: dev, on: boolean}` -> `{id}`, actor `user`, `changes: [{name: "remote_devices", id}]`, 오류 `invalid_input|forbidden|not_found|unavailable`. 폰 자격은 이 route가 목록에 없어 `forbidden`이다(`mobile-coding-phone-data`·`mobile-terminal-phone`이 allowlist에 더하지 않는다). `devices/rename`처럼 사람(desktop)만 부른다
+    - `devices/set_terminal_input` command `{id: dev, on: boolean}` -> `{id}`, actor `user`, `changes: [{name: "remote_devices", id}]`, 오류 `invalid_input|forbidden|not_found|unavailable`. 폰 자격은 이 route가 목록에 없어 `forbidden`이다(`mobile-coding-mobile-data`·`mobile-terminal-phone`이 allowlist에 더하지 않는다). `devices/rename`처럼 사람(desktop)만 부른다
     - `ctx.terminalInputGrant(principal)`: principal이 `device:<id>`이고 그 기기의 `terminal_input`이 켜져 있으면 true, 그 밖(꺼짐, 끊긴 기기, 기기가 아닌 principal)은 false. 끄거나 기기를 끊으면 다음 입력부터 거절이다(메모리 사본을 `StateChanged{remote_devices}`로 다시 읽거나 호출 때 읽는다. 오래된 값으로 입력이 통과하지 않게 한다)
 
 ## 할 일

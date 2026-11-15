@@ -1,15 +1,15 @@
 # mobile-coding-agents: 컴퓨터의 coding agent를 폰에서 다루고, 터미널을 폰에서 본다
 
 - 목표: desktop에서 도는 Claude Code, Codex, OpenCode, omp의 harness GUI 대화를 폰이 lophn agent와 같은 대화 화면과 승인·질문 card로 보고 말하고 답하게 한다(roadmap 단계 5). 이를 위해 shell main과 core 사이의 연결을 한쪽 long-poll(`host/take`)에서 양방향 연결(`/host-link`)로 바꾸고, shell main이 GUI 상태를 core에 올려 core가 메모리 사본으로 기존 ACP 길(`acp/snapshot`, `acp/send`, `AcpUpdated`)을 그대로 낸다. 마지막 wave에서 폰이 coding session을 새로 열고 잠든 desktop 앱을 깨운다. 그 연결 위에 raw 터미널 보기와 허락받은 기기의 입력을 더한다(단계 9).
-- 재료: `project-docs/products/roadmap/mobile.md`(단계 5, 9, 사람이 정할 것 6), 조사 `/home/pyosechang/projects/lophn/reports/mobile-program/coding-agent-relay-survey.md`, `project-docs/architecture/{harness-gui,acp,remote,terminal-agent,coding-agent,platform}.md`, `project-docs/boundary-catalog.yaml`의 `host-queue-interface`, wireframe `tools/wireframes/drafts/phone/session.tsx`의 `Coding`(그림 `/home/pyosechang/projects/lophn/screenshot/phone-wireframes/4-session.png`), 같이 도는 계획 `phone-app`(폰 앱을 native로 다시 짓는다)과 `mobile-push`.
+- 재료: `project-docs/products/roadmap/mobile.md`(단계 5, 9, 사람이 정할 것 6), 조사 `/home/pyosechang/projects/lophn/reports/mobile-program/coding-agent-relay-survey.md`, `project-docs/architecture/{harness-gui,acp,remote,terminal-agent,coding-agent,platform}.md`, `project-docs/boundary-catalog.yaml`의 `host-queue-interface`, wireframe `tools/wireframes/drafts/phone/session.tsx`의 `Coding`(그림 `/home/pyosechang/projects/lophn/screenshot/phone-wireframes/4-session.png`), 같이 도는 계획 `mobile-app`(폰 앱을 native로 다시 짓는다)과 `mobile-push`.
 - 범위 밖: 터미널의 resize(폰은 PTY 크기를 바꾸지 않는다), WebView terminal(xterm.js), 모든 터미널 탭 목록(보는 것은 coding session의 터미널뿐), 폰에서 이미지 붙이기와 rewind 미리보기, headless harness agent(`coding_*` agent, `claude -p`)의 승인 card, 터미널 PTY를 core로 옮기기, iOS, GUI를 띄우지 못하는 Windows의 switch.
 - 단위: `host-link`(shell main과 core의 양방향 연결), `coding-relay`(coding session 중계), `terminal-view`(raw 터미널), `coding-phone`(폰 화면과 data). 소유 path는 brief가 정한다.
 - 순서:
   - wave 1: `mobile-host-link`(frame schema, core의 `/host-link`, queue를 연결 위로)와 `mobile-coding-wireframes`(새 폰 화면의 wireframe). 지금 띄운다.
   - wave 2: `mobile-coding-state`(core의 사본과 route)와 `mobile-host-link-shell`(shell main을 연결로 옮긴다). 둘 다 frame schema에 기대어 wave 1 뒤다. 지금 띄운다.
   - wave 3: `mobile-coding-shell`(handle을 올리고, 입력과 switch를 받는다), `mobile-terminal-core`, `mobile-terminal-shell`. 지금 띄운다.
-  - wave 4: `mobile-coding-open-host`(core·shell의 열기와 깨우기). `wiring/coding.ts`를 `mobile-terminal-shell` 뒤에 고치므로 wave 4다. `phone-app`과 상관없어 지금 띄운다.
-  - wave 5~8은 `phone-app`이 main에 올라간 뒤에 띄운다(`packages/core/remote/**`, 폰 allowlist, `packages/mobile/**`를 고친다): wave 5 `mobile-coding-phone-data`, `mobile-terminal-device-grant`, `mobile-host-link-cleanup`(옛 route를 지우면 `core/remote/host_test.ts`가 깨져 그 file을 고쳐야 해서 여기다). wave 6 `mobile-coding-phone-screens`. wave 7 `mobile-terminal-phone`. wave 8 `mobile-coding-open-phone`.
+  - wave 4: `mobile-coding-open-host`(core·shell의 열기와 깨우기). `wiring/coding.ts`를 `mobile-terminal-shell` 뒤에 고치므로 wave 4다. `mobile-app`과 상관없어 지금 띄운다.
+  - wave 5~8은 `mobile-app`이 main에 올라간 뒤에 띄운다(`packages/core/remote/**`, 폰 allowlist, `packages/mobile/**`를 고친다): wave 5 `mobile-coding-mobile-data`, `mobile-terminal-device-grant`, `mobile-host-link-cleanup`(옛 route를 지우면 `core/remote/host_test.ts`가 깨져 그 file을 고쳐야 해서 여기다). wave 6 `mobile-coding-phone-screens`. wave 7 `mobile-terminal-phone`. wave 8 `mobile-coding-open-phone`.
   - land는 계획 끝에 한 번.
 
 ## 정한 것
@@ -18,7 +18,7 @@
 - coding session은 shell main이 소유한다(handle, adapter, CLI). core는 올라온 ACP 상태를 메모리에 접어 두고 기존 `acp/snapshot`, `acp/send`, `AcpUpdated`를 바꾸지 않고 낸다. 이유: 폰이 lophn agent와 같은 대화 화면과 card를 쓰고, snapshot과 event의 순서가 core 한 곳에서 정해진다. session id는 desktop과 같은 `ses_<터미널 탭 ULID>`이고 ledger에는 행이 없다(harness-gui의 non-goal 유지).
 - 터미널 TUI로 도는 session은 사람이 폰에서 확인한 뒤에만 GUI session이 된다. 확인 문구는 "도는 turn이 끊기고 desktop 탭도 chat 화면으로 바뀐다"를 말한다. route는 `confirmed: true`가 없으면 거절한다(`invalid_input`). 이유: 되돌릴 수 없는 중단이고 desktop 화면이 바뀌는 일이라 조용히 하지 않는다.
 - coding session을 폰에서 새로 열고 되살리는 것과 desktop 앱 깨우기는 viewing·answering이 된 뒤의 wave(4와 8)에 둔다. 앱을 깨워도 PTY는 앱과 함께 죽어 있으므로 깨우기만으로는 목록이 비어 있고 열기와 함께일 때만 쓸모 있다. 깨우기는 폰의 명시적 단추(Start lophn on the computer)로만 한다. 되살리기는 ledger에 있는 coding session(`tabs/open`의 `tui` target이 쓰는 CLI session id)에 한한다(agent가 정함. CLI 자신의 지난 session 목록은 adapter마다 달라 이 계획에서 열지 않는다).
-- headless coding agent(`agents/list`의 `coding_*`, `claude -p`)는 폰의 새 session 목록에 두지 않는다. 승인 card가 없고(모르는 것은 CLI가 거절) 앱이 떠 있을 때만 돈다. `phone-app`의 `phone-session`이 이미 목록에서 빼고 읽기만 보인다. 이 계획은 그것을 바꾸지 않는다.
+- headless coding agent(`agents/list`의 `coding_*`, `claude -p`)는 폰의 새 session 목록에 두지 않는다. 승인 card가 없고(모르는 것은 CLI가 거절) 앱이 떠 있을 때만 돈다. `mobile-app`의 `mobile-session`이 이미 목록에서 빼고 읽기만 보인다. 이 계획은 그것을 바꾸지 않는다.
 - raw 터미널(단계 9)은 기본이 보기만이다. 폰에서 터미널에 치는 것은 원격 shell이라 기기마다 컴퓨터의 Settings › Remote 스위치를 사람이 켰을 때만 되고 기본은 꺼짐이다(`mobile-terminal-device-grant`). 폰은 PTY 크기를 바꾸지 않는다. 이유: 폰 하나가 desktop 창의 크기와 입력 focus를 흔들면 안 된다.
 - 폰의 터미널 화면은 먼저 React Native의 styled text row로 그린다. WebView terminal은 그 길이 못 쓸 때만 더한다(`mobile-terminal-phone` 보고에 근거를 남긴다). 이유: native module 없이 되고 새 dev build가 필요 없다.
 - 보는 터미널은 coding session의 터미널(`coding_sessions/list`에 나오는 것)뿐이다(agent가 정함). 모든 터미널 탭을 core에 알리는 새 보고를 만들지 않으려는 것이다.
@@ -38,7 +38,7 @@
 | 3 | `mobile-terminal-core` | `terminal_view/{snapshot,watch,input}` route, `TerminalScreenChanged` event, viewer lease |
 | 3 | `mobile-terminal-shell` | terminal-host의 화면 dump, 보는 동안만 제한해 밀어 올리기, 입력을 main의 입력 길로 |
 | 4 | `mobile-coding-open-host` | `coding_sessions/{open,wake}`와 shell의 `coding_open`(새 coding session 열기, 저장된 session 되살리기) |
-| 5 | `mobile-coding-phone-data` | 폰 data(`useCodingSessions`, coding 대화 source, switch)와 allowlist 줄 |
+| 5 | `mobile-coding-mobile-data` | 폰 data(`useCodingSessions`, coding 대화 source, switch)와 allowlist 줄 |
 | 5 | `mobile-terminal-device-grant` | 기기마다 터미널 입력 허락(ledger 칸, route, Settings › Remote 스위치) |
 | 5 | `mobile-host-link-cleanup` | `host/take`·`done`·`report`와 `terminal_sessions/report`와 queue의 임시 이중 길을 지운다 |
 | 6 | `mobile-coding-phone-screens` | 대화의 coding session, project workspace의 coding 목록, switch sheet |
@@ -47,10 +47,10 @@
 
 ## 돌리기 전에
 
-- wave 1~4는 `phone-app`과 path가 겹치지 않아 지금 띄워도 된다(`mobile-host-link-cleanup`은 `core/remote/host_test.ts` 때문에 wave 5다). `phone-app` 쪽이 건드리는 `packages/protocol/remote/allowlist.ts`, `packages/core/remote/**`, `packages/mobile/**`, `packages/design/native/**`, `tools/remote-dev.ts`는 wave 5 전에는 이 계획이 열지 않는다(wave 4까지). wave 5 전에 lead가 한다: (1) `phone-app`이 main에 올라가 `packages/mobile`이 있는지 확인한다. (2) `packages/design/i18n/catalog/mobile-coding.ts`를 빈 file로 만들어 `packages/design/i18n/en.ts`에 올린다. (3) 폰 task brief의 "소유"에 있는 `packages/mobile/...` path는 `phone-app` brief에서 예상한 이름이다. land된 실제 path(화면 폴더, `data` 폴더, `nav.ts`)로 고친다.
+- wave 1~4는 `mobile-app`과 path가 겹치지 않아 지금 띄워도 된다(`mobile-host-link-cleanup`은 `core/remote/host_test.ts` 때문에 wave 5다). `mobile-app` 쪽이 건드리는 `packages/protocol/remote/allowlist.ts`, `packages/core/remote/**`, `packages/mobile/**`, `packages/design/native/**`, `tools/remote-dev.ts`는 wave 5 전에는 이 계획이 열지 않는다(wave 4까지). wave 5 전에 lead가 한다: (1) `mobile-app`이 main에 올라가 `packages/mobile`이 있는지 확인한다. (2) `packages/design/i18n/catalog/mobile-coding.ts`를 빈 file로 만들어 `packages/design/i18n/en.ts`에 올린다. (3) 폰 task brief의 "소유"에 있는 `packages/mobile/...` path는 `mobile-app` brief에서 예상한 이름이다. land된 실제 path(화면 폴더, `data` 폴더, `nav.ts`)로 고친다.
 - `mobile-coding-phone-screens` 전에 사람이 wireframe(`mobile-coding-wireframes`가 낸 gallery Drafts › Phone app의 coding·terminal flow)를 보고 승인한다(roadmap: 화면 설계를 사람이 본 뒤 연다). 승인 전에 wave 6~8을 띄우지 않는다. wave 5의 data task는 화면이 아니라 승인 없이 돈다.
 - wave 3까지는 shell을 띄우지 않고 확인한다. core에서는 `tools/fake-coding-host.ts`(`mobile-coding-state`가 짓는다)가 fake shell main으로 `/host-link`에 붙어 canned coding session과 터미널 화면을 올린다. 실제 Electron shell을 띄우는 일은 사람에게 묻는다. 사람의 `~/.lophn`, 실제 relay, 실제 model provider를 쓰지 않는다(개발 core는 `npm run dev:core`).
-- emulator: 폰 task만 쓴다. `mobile-coding-phone-screens` port 5590·Metro 8230, `mobile-terminal-phone` port 5592·Metro 8232, `mobile-coding-open-phone` port 5594·Metro 8234(`mobile-push-phone`은 5580·8220). 각 task는 `-read-only -memory 2048 -port <port>`로 띄우고 모든 adb 명령에 `-s emulator-<port>`를 붙이고 끝나면 `adb -s emulator-<port> emu kill`로 끈다. 사람의 실제 폰(serial `R3CT90K6G2X`)에는 어떤 명령도 보내지 않는다. 폰 build는 `phone-app`의 lead가 지어 둔 dev build를 쓴다(이 계획은 native module을 더하지 않는다).
+- emulator: 폰 task만 쓴다. `mobile-coding-phone-screens` port 5590·Metro 8230, `mobile-terminal-phone` port 5592·Metro 8232, `mobile-coding-open-phone` port 5594·Metro 8234(`mobile-push-phone`은 5580·8220). 각 task는 `-read-only -memory 2048 -port <port>`로 띄우고 모든 adb 명령에 `-s emulator-<port>`를 붙이고 끝나면 `adb -s emulator-<port> emu kill`로 끈다. 사람의 실제 폰(serial `R3CT90K6G2X`)에는 어떤 명령도 보내지 않는다. 폰 build는 `mobile-app`의 lead가 지어 둔 dev build를 쓴다(이 계획은 native module을 더하지 않는다).
 - `flows` catalog: route·event·test file을 더하고 지우는 task는 같은 변경에서 `project-docs/flows/`를 고친다(`flows` skill, check가 잡는다). 같은 wave의 두 task가 같은 yaml(`tests/shell.yaml` 등)에 줄을 더할 수 있다. 줄 단위이고 lead가 merge에서 합친다.
 - `schema-steps.lock.json`과 `devices` ledger step: `mobile-terminal-device-grant`(이 계획)와 `mobile-push-device`(`mobile-push`)가 둘 다 `DEVICES_SCHEMA_STEPS` 끝과 lock 끝에 step을 더한다. 늦게 merge하는 쪽이 앞 쪽 뒤로 붙인다. 이미 낸 step의 SQL은 고치지 않는다.
 

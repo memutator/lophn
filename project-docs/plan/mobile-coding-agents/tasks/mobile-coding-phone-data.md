@@ -1,19 +1,19 @@
-# mobile-coding-phone-data
+# mobile-coding-mobile-data
 
 폰의 data 층에 coding session을 더한다: 컴퓨터의 coding session 목록(`useCodingSessions`), relay된 대화를 lophn agent와 같은 `AgentTabSource` view로 내는 길(`codingSource`), view 전환(switch)·열기·깨우기 행동, sample 컴퓨터의 coding session. 폰 allowlist에 `coding_sessions/*` route를 더한다. 화면은 그리지 않는다.
 
 - 단위: coding-phone (wave 5)
 - 선행: mobile-coding-state, mobile-coding-shell, mobile-coding-open-host
-- 소유(이 task만 고친다). 아래 `packages/mobile/...` path는 `phone-app` brief에서 예상한 이름이다. land된 실제 path를 먼저 확인한다(README "돌리기 전에"):
+- 소유(이 task만 고친다). 아래 `packages/mobile/...` path는 `mobile-app` brief에서 예상한 이름이다. land된 실제 path를 먼저 확인한다(README "돌리기 전에"):
   - `packages/protocol/remote/allowlist.ts`
   - `packages/mobile/src/data/coding.ts`(새 file)와 `coding.test.ts`(새 file)
   - `packages/mobile/src/data/mod.ts`(내보내기)
   - `packages/mobile/src/data/hooks.tsx`(`useConversation`이 coding session을 받게 하는 만큼만)
   - `packages/mobile/src/data/link.ts`와 `sample.ts`(sample 컴퓨터의 coding session)
-  - `packages/shell/renderer/conversation/agent-tab-gui-source.ts`(React Native에서 import되게 하는 만큼만. `phone-app`의 `phone-data`가 `agent-tab-core-source.ts`에 한 것과 같은 방식으로 vendor 아이콘과 browser 전용 부분을 가른다. 동작은 그대로)
+  - `packages/shell/renderer/conversation/agent-tab-gui-source.ts`(React Native에서 import되게 하는 만큼만. `mobile-app`의 `mobile-data`가 `agent-tab-core-source.ts`에 한 것과 같은 방식으로 vendor 아이콘과 browser 전용 부분을 가른다. 동작은 그대로)
 - 한 줄씩 허락(공유 file. 한 줄만 더하고 "넘길 줄"에 적는다): `project-docs/flows/`의 area file와 `tests/*.yaml` 줄
 - 읽을 것:
-  - 조사: `/home/pyosechang/projects/lophn/reports/mobile-program/coding-agent-relay-survey.md`의 2(설계 4), 3(마지막 "phone-app plan과의 interface"), 7(4번: capability와 `readFace`)
+  - 조사: `/home/pyosechang/projects/lophn/reports/mobile-program/coding-agent-relay-survey.md`의 2(설계 4), 3(마지막 "mobile-app plan과의 interface"), 7(4번: capability와 `readFace`)
   - architecture: `project-docs/architecture/remote.md`("지키는 것": 폰 자격의 route 목록), `harness-gui.md`, `acp.md`
   - 이 계획이 먼저 낸 것: `packages/protocol/coding-agent/relay.ts`(`coding_sessions/{list,switch_plan,switch,open,wake}`의 모양과 오류), `acp/snapshot`·`acp/send`의 relay 분기, `StateChanged{coding_sessions}`와 `AcpUpdated`(`mobile-coding-state`·`mobile-coding-open-host` 보고)
   - 본보기: `packages/shell/renderer/conversation/agent-tab-gui-source.ts`(`guiAgentTabSource`. 상태는 `feed`, 쓰기는 `input`. 폰은 `feed`를 `acp/snapshot`과 `AcpUpdated`로, `input`을 `acp/send`로 채운다), `packages/shell/renderer/terminal/terminal-gui.tsx`의 `createGuiFeed`(snapshot에 update를 `reduceAcp`로 접는 모양. 놓친 update를 `reread`로 다시 읽는 규칙은 `packages/shell/renderer/conversation/agent-tab-data.ts`), 폰 쪽 `packages/mobile/src/data/{hooks.tsx,link.ts,workspaces.ts}`(`useConversation`, `dataOf`, `coreAgentTabSourceFactory`), wireframe `tools/wireframes/drafts/phone/coding.tsx`(`mobile-coding-wireframes`)
@@ -28,7 +28,7 @@
 
 ## 할 일
 
-1. `agent-tab-gui-source.ts`가 React Native에서 import되는지 본다(`phone-data`의 `typecheck`와 test 경로). 막히면 vendor 아이콘과 browser API 부분만 가른다.
+1. `agent-tab-gui-source.ts`가 React Native에서 import되는지 본다(`mobile-data`의 `typecheck`와 test 경로). 막히면 vendor 아이콘과 browser API 부분만 가른다.
 2. `data/coding.ts`: `codingFeed(core, session)`(snapshot과 update를 접은 상태와 `changed`), `codingSource`(`guiAgentTabSource`에 feed와 `input = acp/send`를 꽂는다), `useCodingSessions`, `useCodingActions`. `hooks.tsx`의 `useConversation`이 coding 갈래를 `codingSource`로 만든다. coding session의 agent 얼굴은 harness 이름과 vendor 아이콘이다(`guiAgentTabSource`가 이미 만든다).
 3. allowlist 줄. 그 file에 두는 설명 주석(폰이 못 부르는 route 이유)에 `coding_sessions`의 "폰이 시작한 switch도 `confirmed: true`가 있어야 한다"는 것과 터미널 입력은 별도 장치라는 것을 한 줄 쓴다.
 4. sample 컴퓨터에 coding session을 더하고 `coding.test.ts`(Node test): feed가 snapshot 뒤 update를 접는다, switch가 `confirmed: true`를 싣는다.

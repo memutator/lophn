@@ -1,5 +1,6 @@
 // relay 본체: socket 층과 떨어진 잇는 logic. 폰과 core 사이 binary message를 보지 않고 그대로 넘긴다.
 // 시각과 무작위는 인자로 받아 메모리 socket으로 test한다.
+import { timingSafeEqual } from "node:crypto";
 import type { RandomSource } from "../base/mod.ts";
 import { generateKeyPair, remoteKeyText } from "../protocol/remote/noise.ts";
 import {
@@ -25,6 +26,8 @@ export type RelaySocket = {
   onMessage(handler: (data: Uint8Array | string) => void): void;
   onPong(handler: () => void): void;
   onClose(handler: () => void): void;
+  // 보내지 못하고 쌓인 byte 수.
+  bufferedAmount(): number;
 };
 
 export type RelayTimers = {
@@ -55,6 +58,8 @@ type Phone = {
 
 const NONCE_BYTES = 32;
 const CONN_BYTES = 16;
+// 받는 쪽이 이만큼 밀려 있으면 더 쌓지 않고 짝을 닫는다. 느린 상대가 relay의 memory를 붙잡지 못하게.
+export const RELAY_BUFFER_MAX_BYTES = 1024 * 1024;
 // ping을 이만큼 연달아 받지 못하면 control socket을 닫는다.
 const MISSED_PINGS = RELAY_IDLE_TIMEOUT_MS / RELAY_PING_MS;
 
@@ -86,6 +91,11 @@ export function createRelay(deps: {
     phone.data?.close();
     if (!phone.host.closed)
       sendControl(phone.host, { type: "gone", conn: phone.conn });
+  }
+
+  function forward(phone: Phone, to: RelaySocket, data: Uint8Array): void {
+    if (to.bufferedAmount() > RELAY_BUFFER_MAX_BYTES) return endPhone(phone);
+    to.send(data);
   }
 
   function endHost(key: string, host: Host): void {
@@ -127,7 +137,7 @@ export function createRelay(deps: {
         return endHost(key, host);
       }
       const proof = hostToRelaySchema.safeParse(json);
-      if (!proof.success || proof.data.mac !== expected)
+      if (!proof.success || !sameText(proof.data.mac, expected))
         return endHost(key, host);
       proven = true;
       deps.timers.clear(timer);
@@ -166,7 +176,7 @@ export function createRelay(deps: {
     host.phones.add(phone);
     socket.onMessage((data) => {
       if (typeof data === "string") return endPhone(phone);
-      if (phone.data) return phone.data.send(data);
+      if (phone.data) return forward(phone, phone.data, data);
       phone.pending.push(data);
       if (phone.pending.length > RELAY_PENDING_MESSAGES) endPhone(phone);
     });
@@ -179,11 +189,11 @@ export function createRelay(deps: {
     if (!phone || phone.data) return socket.close();
     phone.data = socket;
     deps.timers.clear(phone.timer);
-    for (const message of phone.pending) socket.send(message);
+    for (const message of phone.pending) forward(phone, socket, message);
     phone.pending = [];
     socket.onMessage((data) => {
       if (typeof data === "string") return endPhone(phone);
-      phone.socket.send(data);
+      forward(phone, phone.socket, data);
     });
     socket.onClose(() => endPhone(phone));
   }
@@ -199,4 +209,11 @@ export function createRelay(deps: {
       socket.close();
     },
   };
+}
+
+// 인터넷의 아무나 자기 key로 증명을 시도할 수 있어서 MAC은 일정한 시간에 비교한다.
+function sameText(a: string, b: string): boolean {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
 }

@@ -59,6 +59,7 @@ export function openRelayServer(options: {
         onClose(handler) {
           ws.on("close", handler);
         },
+        bufferedAmount: () => ws.bufferedAmount,
       });
     });
   });

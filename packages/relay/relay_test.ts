@@ -13,7 +13,11 @@ import {
   relayProof,
   relayToHostSchema,
 } from "../protocol/remote/relay.ts";
-import { createRelay, type RelaySocket } from "./relay.ts";
+import {
+  createRelay,
+  RELAY_BUFFER_MAX_BYTES,
+  type RelaySocket,
+} from "./relay.ts";
 
 // relay 쪽 socket 하나와 그 상대 끝. 상대가 보낸 것은 receive, relay가 보낸 것은 sent에 쌓인다.
 function memorySocket() {
@@ -22,7 +26,7 @@ function memorySocket() {
     message?: (data: Uint8Array | string) => void;
     close?: () => void;
   } = {};
-  const end = { sent, closed: false };
+  const end = { sent, closed: false, buffered: 0 };
   const socket: RelaySocket = {
     send: (data) => void sent.push(data),
     ping: () => undefined,
@@ -34,6 +38,7 @@ function memorySocket() {
     onMessage: (handler) => void (handlers.message = handler),
     onPong: () => undefined,
     onClose: (handler) => void (handlers.close = handler),
+    bufferedAmount: () => end.buffered,
   };
   return {
     socket,
@@ -137,4 +142,11 @@ test("폰 연결 둘의 message가 서로의 data socket으로 가지 않는다"
   assert.deepEqual(dataB.end.sent, [Uint8Array.of(0xb1), Uint8Array.of(0xb2)]);
   assert.deepEqual(phoneA.end.sent, [Uint8Array.of(0xa3)]);
   assert.deepEqual(phoneB.end.sent, [Uint8Array.of(0xb3)]);
+
+  // 밀린 data socket에는 더 쌓지 않고 그 짝만 닫는다.
+  dataA.end.buffered = RELAY_BUFFER_MAX_BYTES + 1;
+  phoneA.receive(Uint8Array.of(0xa4));
+  assert.equal(dataA.end.sent.length, 2);
+  assert.equal(phoneA.end.closed, true);
+  assert.equal(phoneB.end.closed, false);
 });

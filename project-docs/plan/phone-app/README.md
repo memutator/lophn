@@ -47,6 +47,8 @@
 
 ## lead가 할 일
 
+- **wave 1이 끝나면 바로(사람, 2026-11-15):** (1) 계획과 task 이름을 `mobile-app`, `mobile-*`로 바꾼다(계획 폴더, plan branch와 lead worktree, 남은 task의 id와 brief, change-log 이름. 사람: "이름이 phone-app이 뭐야 mobile-app도 아니고"). (2) 폰 앱 폴더를 `mobile/`에서 `packages/mobile`로 옮긴다(사람이 승인). root `package.json`의 workspace 목록에서 그 폴더를 빼 독립 npm project로 남기고, Metro 설정의 경로, `tools/check-deps.ts`의 제외, `AGENTS.md`의 mobile 줄, catalog와 문서의 path, 남은 brief의 path를 고친다. wave 2는 그 뒤에 띄운다.
+
 - merge 때마다: `cd mobile && npm run typecheck && npm test`(root check 밖), 화면 task는 worker가 남긴 emulator 그림(`.dev-data/<id>/shots/`)을 wireframe 그림과 대조한다. 어긋나면 같은 worker에게 돌려보낸다.
 - wave 2 뒤: plan branch에서 dev build(x86_64)를 한 번 지어 `/tmp/lophn-phone-app-x86_64.apk`에 두고 wave 3 worker에게 알린다(wave 3는 native module을 더하지 않는다).
 - 끝에: `architecture/remote.md`(폰 껍데기 model을 native 화면으로), `architecture/ui-kit.md`(폰 kit), `boundary-catalog.yaml`·`module-catalog.yaml`(`packages/design/native`, `mobile`), `project-docs/flows/`(지운 route와 test), roadmap `mobile.md` 단계 2, `mobile/README.md`, `AGENTS.md`의 mobile 줄, change-log `0.23/phone-app.yaml`, `sdk-note`(kit을 SDK part로 올릴 때의 메모는 사용자 앱이 쓰게 되는 단계에서 쓴다는 것을 change-log에 적는다). 실제 폰에 새 build를 까는 것은 사람에게 묻는다.

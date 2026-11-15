@@ -47,10 +47,17 @@ import { type ServeHandle, type ServeUpgradeHandler, serve } from "./serve.ts";
 import {
   acceptSocket,
   createGatewayUpgrade,
+  type GatewayUpgrade,
   gatewayAllowed,
   refuseSocket,
 } from "./socket.ts";
 import type { ShellCapabilities } from "./control/capability.ts";
+import {
+  createHostLinkUpgrade,
+  type HostLink,
+  type HostLinkUpgrade,
+} from "./host-link.ts";
+import { HOST_LINK_PATH } from "../../protocol/host-link/mod.ts";
 
 // core entry가 조립한다. core entry·data root·시작 순서는 여기 없다.
 export type ApiServerOptions = {
@@ -74,6 +81,8 @@ export type ApiServerOptions = {
   // Gateway handshake가 보인 shell capability. 그 연결의 종료가 그 shell의 종료다.
   // 없으면 capability를 보인 연결을 거절한다.
   shellCapabilities?: ShellCapabilities;
+  // `/host-link`로 붙는 shell main과의 연결(`ctx.hostLink`).
+  hostLink: HostLink;
   bodyLimit?: DispatchDeps["bodyLimit"];
   // 무인증 실패·Origin 거부의 제한된 안전 log. ledger event는 만들지 않는다.
   logger?: Logger;
@@ -323,128 +332,26 @@ export async function startApiServer(
     return Response.json(ready.body, { status: ready.status });
   }
 
-  // upgrade는 respond를 거치지 않는다. HTTP와 같은 순서로 gate를 본다.
-  async function acceptUpgrade(
-    request: IncomingMessage,
-    socket: Duplex,
-    head: Buffer,
-  ): Promise<void> {
-    try {
-      if (rawHeaderBytes(request) > MAX_HEADER_BYTES) {
-        return refuseSocket(
-          socket,
-          failure({ code: "invalid_input", message: "headers exceed limit" }),
-        );
-      }
-      const url = upgradeUrl(request);
-      if (url === undefined) {
-        return refuseSocket(
-          socket,
-          failure({ code: "invalid_input", message: "host not allowed" }),
-        );
-      }
-      const origin = request.headers.origin ?? null;
-      const decision = await gateRequest(
-        {
-          url: url.href,
-          origin,
-          authorization: request.headers.authorization ?? null,
-          port,
-        },
-        options.credentials,
-      );
-      if (!decision.ok) {
-        // 무인증·Origin 거부는 안전 log만. ledger event는 없다.
-        options.logger?.warn({
-          component: "api",
-          event: origin !== null ? "origin_rejected" : "auth_rejected",
-        });
-        return refuseSocket(socket, decision.failure);
-      }
-      if (!isSubscribePath(url.pathname)) {
-        return refuseSocket(
-          socket,
-          failure({ code: "not_found", message: "route not found" }),
-        );
-      }
-      if (!options.bus) {
-        return refuseSocket(
-          socket,
-          failure({ code: "unavailable", message: "gateway unavailable" }),
-        );
-      }
-      // 자격은 연결 때 한 번 본다.
-      if (!gatewayAllowed(decision.context)) {
-        return refuseSocket(
-          socket,
-          failure({
-            code: "forbidden",
-            message: "gateway not allowed for this credential",
-          }),
-        );
-      }
-      // shell main은 자기 수명을 이 capability로 묶는다. HTTP user token만 가진 Gateway는 이 값을 모른다.
-      const shellCapability = request.headers["x-lophn-shell-capability"];
-      const shell =
-        typeof shellCapability === "string" && shellCapability.length > 0
-          ? shellCapability
-          : undefined;
-      if (
-        shell !== undefined &&
-        !(options.shellCapabilities?.has(shell) ?? false)
-      ) {
-        return refuseSocket(
-          socket,
-          failure({
-            code: "forbidden",
-            message: "shell capability is not valid",
-          }),
-        );
-      }
-      // event 연결 한도(32·principal당 4)는 upgrade 전에 결정한다. queue 없다.
-      const connection = admission.enterEvent(decision.context.principal);
-      if (!connection.ok) {
-        return refuseSocket(socket, failure(connection.error));
-      }
-      const accepted = acceptSocket(request);
-      if (!accepted.ok) {
-        connection.value.release();
-        return refuseSocket(socket, accepted.failure);
-      }
-      gateway.accept(request, socket, head, decision.context, {
-        bus: options.bus,
-        frames: options.gateway,
-        onClose: () => {
-          connection.value.release();
-          // capability를 검증한 그 Gateway가 끝났다. 그 shell의 handle과 view relay를 버린다.
-          if (shell !== undefined) options.shellCapabilities?.end(shell);
-        },
-      });
-    } catch {
-      // 경계 밖 throw는 stack·원문 없이 internal이다.
-      refuseSocket(
-        socket,
-        failure({ code: "internal", message: "internal error" }),
-      );
-    }
-  }
-
-  // adapter가 request URL을 만들 때와 같은 규칙이다. gateRequest의 Host 검사가 이 URL을 본다.
-  function upgradeUrl(request: IncomingMessage): URL | undefined {
-    try {
-      return new URL(
-        request.url ?? "/",
-        `http://${request.headers.host ?? "localhost"}`,
-      );
-    } catch {
-      return undefined;
-    }
-  }
-
   const gateway = createGatewayUpgrade();
+  const hostLink = createHostLinkUpgrade({ link: options.hostLink, admission });
   const upgrade: ServeUpgradeHandler = (request, socket, head) => {
     // 거절 write까지 실패하면 알릴 길이 없다. process는 죽이지 않는다.
-    void acceptUpgrade(request, socket, head).catch(() => undefined);
+    void acceptUpgrade(
+      {
+        credentials: options.credentials,
+        port,
+        admission,
+        logger: options.logger,
+        bus: options.bus,
+        frames: options.gateway,
+        shellCapabilities: options.shellCapabilities,
+        gateway,
+        hostLink,
+      },
+      request,
+      socket,
+      head,
+    ).catch(() => undefined);
   };
   const v4 = await serve(
     { port: requested, hostname: LOOPBACK[0], upgrade },
@@ -460,6 +367,7 @@ export async function startApiServer(
   } catch (thrown) {
     // v4가 먼저 듣는 사이 붙은 upgraded socket이 있으면 v4.shutdown()이 끝나지 않는다.
     gateway.shutdown();
+    hostLink.shutdown();
     await v4.shutdown().catch(() => undefined);
     throw thrown;
   }
@@ -469,19 +377,159 @@ export async function startApiServer(
       const v4Activity = v4.activity();
       const v6Activity = v6?.activity() ?? { active: 0, arrivals: 0 };
       const gatewayActivity = gateway.activity();
+      const hostLinkActivity = hostLink.activity();
       return {
-        clients: v4Activity.active + v6Activity.active + gatewayActivity.active,
+        clients:
+          v4Activity.active +
+          v6Activity.active +
+          gatewayActivity.active +
+          hostLinkActivity.active,
         arrivals:
-          v4Activity.arrivals + v6Activity.arrivals + gatewayActivity.arrivals,
+          v4Activity.arrivals +
+          v6Activity.arrivals +
+          gatewayActivity.arrivals +
+          hostLinkActivity.arrivals,
       };
     },
     stop: async () => {
       // 내려간다는 frame을 먼저 보낸다. 남은 upgraded socket은 server.close()가 닫지 않아 여기서 끊는다.
       options.gateway?.shutdown();
       gateway.shutdown();
+      hostLink.shutdown();
       await Promise.all([v4.shutdown(), v6?.shutdown()]);
     },
   };
+}
+
+type UpgradeDeps = {
+  credentials: CredentialRegistry;
+  port: number;
+  admission: Admission;
+  logger?: Logger;
+  bus?: Bus;
+  frames?: GatewayFrames;
+  shellCapabilities?: ShellCapabilities;
+  gateway: GatewayUpgrade;
+  hostLink: HostLinkUpgrade;
+};
+
+// upgrade는 respond를 거치지 않는다. HTTP와 같은 순서로 gate를 본다. `/host-link`와 Gateway가 같은 gate를 지난다.
+export async function acceptUpgrade(
+  deps: UpgradeDeps,
+  request: IncomingMessage,
+  socket: Duplex,
+  head: Buffer,
+): Promise<void> {
+  try {
+    if (rawHeaderBytes(request) > MAX_HEADER_BYTES) {
+      return refuseSocket(
+        socket,
+        failure({ code: "invalid_input", message: "headers exceed limit" }),
+      );
+    }
+    const url = upgradeUrl(request);
+    if (url === undefined) {
+      return refuseSocket(
+        socket,
+        failure({ code: "invalid_input", message: "host not allowed" }),
+      );
+    }
+    const origin = request.headers.origin ?? null;
+    const decision = await gateRequest(
+      {
+        url: url.href,
+        origin,
+        authorization: request.headers.authorization ?? null,
+        port: deps.port,
+      },
+      deps.credentials,
+    );
+    if (!decision.ok) {
+      // 무인증·Origin 거부는 안전 log만. ledger event는 없다.
+      deps.logger?.warn({
+        component: "api",
+        event: origin !== null ? "origin_rejected" : "auth_rejected",
+      });
+      return refuseSocket(socket, decision.failure);
+    }
+    if (url.pathname === HOST_LINK_PATH) {
+      return deps.hostLink.accept(request, socket, head, decision.context);
+    }
+    if (!isSubscribePath(url.pathname)) {
+      return refuseSocket(
+        socket,
+        failure({ code: "not_found", message: "route not found" }),
+      );
+    }
+    if (!deps.bus) {
+      return refuseSocket(
+        socket,
+        failure({ code: "unavailable", message: "gateway unavailable" }),
+      );
+    }
+    // 자격은 연결 때 한 번 본다.
+    if (!gatewayAllowed(decision.context)) {
+      return refuseSocket(
+        socket,
+        failure({
+          code: "forbidden",
+          message: "gateway not allowed for this credential",
+        }),
+      );
+    }
+    // shell main은 자기 수명을 이 capability로 묶는다. HTTP user token만 가진 Gateway는 이 값을 모른다.
+    const shellCapability = request.headers["x-lophn-shell-capability"];
+    const shell =
+      typeof shellCapability === "string" && shellCapability.length > 0
+        ? shellCapability
+        : undefined;
+    if (shell !== undefined && !(deps.shellCapabilities?.has(shell) ?? false)) {
+      return refuseSocket(
+        socket,
+        failure({
+          code: "forbidden",
+          message: "shell capability is not valid",
+        }),
+      );
+    }
+    // event 연결 한도(32·principal당 4)는 upgrade 전에 결정한다. queue 없다.
+    const connection = deps.admission.enterEvent(decision.context.principal);
+    if (!connection.ok) {
+      return refuseSocket(socket, failure(connection.error));
+    }
+    const accepted = acceptSocket(request);
+    if (!accepted.ok) {
+      connection.value.release();
+      return refuseSocket(socket, accepted.failure);
+    }
+    deps.gateway.accept(request, socket, head, decision.context, {
+      bus: deps.bus,
+      frames: deps.frames,
+      onClose: () => {
+        connection.value.release();
+        // capability를 검증한 그 Gateway가 끝났다. 그 shell의 handle과 view relay를 버린다.
+        if (shell !== undefined) deps.shellCapabilities?.end(shell);
+      },
+    });
+  } catch {
+    // 경계 밖 throw는 stack·원문 없이 internal이다.
+    refuseSocket(
+      socket,
+      failure({ code: "internal", message: "internal error" }),
+    );
+  }
+}
+
+// adapter가 request URL을 만들 때와 같은 규칙이다. gateRequest의 Host 검사가 이 URL을 본다.
+function upgradeUrl(request: IncomingMessage): URL | undefined {
+  try {
+    return new URL(
+      request.url ?? "/",
+      `http://${request.headers.host ?? "localhost"}`,
+    );
+  } catch {
+    return undefined;
+  }
 }
 
 const STREAM_IDLE_MS = 60_000;

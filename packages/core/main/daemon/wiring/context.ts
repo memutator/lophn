@@ -19,6 +19,7 @@ import type {
 import type {
   ApiServer,
   FileStreamHandler,
+  HostLink,
   MemoryHandler,
   ReadHandler,
   UploadHandler,
@@ -266,6 +267,8 @@ type Late = {
   queue: Queue;
   // host-queue wiring이 낸다. core가 shell에 시킬 일(탭 열기·닫기)의 메모리 queue다. 뒤 task가 쓴다.
   hostQueue: HostQueue;
+  // host-queue wiring이 낸다. shell main과의 `/host-link` 연결이다. 다른 wiring이 coding·터미널 frame을 받는다.
+  hostLink: HostLink;
   // harness wiring이 낸다. host-queue wiring이 `tabs/open`의 tui에서 부른다(판정과 hold).
   harnessHold: HarnessHold;
   // approvals가 낸다. 답 없는 질문의 기다림(메모리).
@@ -337,6 +340,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   annotationDelivery: true,
   queue: true,
   hostQueue: true,
+  hostLink: true,
   harnessHold: true,
   questionWaits: true,
   liveTurns: true,

@@ -223,6 +223,38 @@ const terminalInterruptPayloadSchema = z.strictObject({
   terminal_ref: z.string().min(1),
 });
 
+// 아래 다섯은 `/host-link`로 붙은 host만 받는다(long-poll `host/take`는 내주지 않는다). workspace 칸이 없고 아무 host가 가져가며,
+// 답은 `response`의 output이다. 연결이 끊기면 `unavailable`로 끝난다.
+// coding session(GUI handle)에 입력 하나를 넘긴다. handle이 없으면 error `not_found`다.
+// input은 `AcpInput`(`protocol/acp/input.ts`)이다. acp가 lophn-agent를 import해 여기서 그 schema를 쓰면 순환이라 모양만 보고,
+// core는 이미 검사한 입력만 넣고 받는 host가 `acpInputSchema`로 다시 검사한다.
+const codingInputPayloadSchema = z.strictObject({
+  session: idSchema("ses"),
+  input: z.record(z.string(), z.unknown()),
+});
+// 터미널 탭의 coding agent를 GUI와 TUI 사이에서 바꾼다. 실패는 error의 `details.reason`
+// (`no_session|not_running|extension_off|unsupported_os|failed`)이다.
+const codingSwitchPayloadSchema = z.strictObject({
+  terminal_ref: z.string().min(1),
+  to: z.enum(["gui", "tui"]),
+});
+// project에 coding session을 새로 열거나 저장된 session을 되살린다. 답은 JSON `{"terminal_ref":"…"}` 글 하나다.
+const codingOpenPayloadSchema = z.strictObject({
+  project: idSchema("prj"),
+  harness: z.string().min(1).max(64),
+  resume: z.strictObject({ session: idSchema("ses") }).optional(),
+});
+// 그 터미널의 화면을 `terminal_screen` frame으로 밀어 올리기를 켜고 끈다. tail은 viewport 위 scrollback 줄 수다.
+const terminalStreamPayloadSchema = z.strictObject({
+  terminal_ref: z.string().min(1),
+  on: z.boolean(),
+  tail: z.number().int().min(0).max(500),
+});
+const terminalInputPayloadSchema = z.strictObject({
+  terminal_ref: z.string().min(1),
+  text: z.string().min(1).max(8192),
+});
+
 export const hostRequestSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     id: idSchema("hrq"),
@@ -258,8 +290,43 @@ export const hostRequestSchema = z.discriminatedUnion("kind", [
     kind: z.literal("terminal_interrupt"),
     payload: terminalInterruptPayloadSchema,
   }),
+  z.strictObject({
+    id: idSchema("hrq"),
+    kind: z.literal("coding_input"),
+    payload: codingInputPayloadSchema,
+  }),
+  z.strictObject({
+    id: idSchema("hrq"),
+    kind: z.literal("coding_switch"),
+    payload: codingSwitchPayloadSchema,
+  }),
+  z.strictObject({
+    id: idSchema("hrq"),
+    kind: z.literal("coding_open"),
+    payload: codingOpenPayloadSchema,
+  }),
+  z.strictObject({
+    id: idSchema("hrq"),
+    kind: z.literal("terminal_stream"),
+    payload: terminalStreamPayloadSchema,
+  }),
+  z.strictObject({
+    id: idSchema("hrq"),
+    kind: z.literal("terminal_input"),
+    payload: terminalInputPayloadSchema,
+  }),
 ]);
 export type HostRequest = z.infer<typeof hostRequestSchema>;
+
+// 연결로 붙은 host만 받는 요청 종류다.
+export const LINK_REQUEST_KINDS = [
+  "coding_input",
+  "coding_switch",
+  "coding_open",
+  "terminal_stream",
+  "terminal_input",
+] as const;
+export type LinkRequestKind = (typeof LINK_REQUEST_KINDS)[number];
 
 // browser 탭의 마지막 상태다. renderer가 host 탭만 알려 준다.
 export const browserTabStateSchema = z.strictObject({
@@ -272,8 +339,8 @@ export type BrowserTabState = z.infer<typeof browserTabStateSchema>;
 // 그 workspace들의 가장 오래된, 빌려 가지 않은 요청 하나를 빌려 준다. 있으면 바로, 없으면 요청이 들어올 때까지 기다리다
 // `HOST_TAKE_WAIT_MS` 뒤 null이다(long-poll). core가 멈출 때도 null로 끝난다. workspaces가 비어도 부른다:
 // 부르는 것이 shell이 붙어 있다는 표시(tool 호출의 `unavailable` 판정)이고 tui의 heartbeat다. `tool_call`·`browser_call` 요청은
-// workspaces와 상관없이 아무 호출자에게 간다.
-// 빌려 간 요청은 done이 오거나 빌린 기한이 지나면 다시 대기한다. 단 `tool_call`·`browser_call`은 기한이 없다: 오래 돌 수 있고 두 번
+// workspaces와 상관없이 아무 호출자에게 간다. `LINK_REQUEST_KINDS`는 take로 내주지 않는다.
+// `/host-link`(`protocol/host-link/frames.ts`)가 같은 queue를 연결 위로 내준다. 빌려 간 요청은 done이 오거나 빌린 기한이 지나면 다시 대기한다. 단 `tool_call`·`browser_call`은 기한이 없다: 오래 돌 수 있고 두 번
 // 실행하면 안 된다. shell이 떨어지면 부른 쪽이 `unavailable`로 끝내고 요청을 거둔다.
 export const hostTake = defineMemory({
   resource: "host",
@@ -290,7 +357,7 @@ export const hostTake = defineMemory({
   errors,
 });
 
-// extension handler나 browser 호출의 결과다. `tool_call`·`browser_call` 요청의 done에만 싣는다.
+// extension handler나 browser 호출의 결과다. 결과를 기다리는 요청(`tool_call`·`browser_call`·`terminal_interrupt`·연결 요청)의 done에만 싣는다.
 export const hostToolOutputSchema = z.union([
   z.strictObject({ content: z.array(extensionToolContentSchema).max(64) }),
   z.strictObject({

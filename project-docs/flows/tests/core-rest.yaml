@@ -472,6 +472,10 @@ files:
       - confirmation-handle-register:forbidden
       - control-connect:ok
 
+  - path: packages/core/server/host-link_test.ts
+    covers: [host-link:unauthorized, host-link:forbidden, host-link:closed]
+    note: "upgrade는 메모리 socket으로 server.ts의 acceptUpgrade를 지난다(server를 띄우지 않는다)"
+
   - path: packages/core/server/identity/registry_test.ts
     covers: [agent-credential-issue:issued, agent-credential-issue:invalid_input, credential-end:ended, credential-end:agent-kept]
     note: "credential registry 단위(session·turn 범위 대조, turn 끝 폐기, 앱 credential 종료가 agent 자격을 남김). credential 발급과 종료는 agent-credential-issue·credential-end, HTTP 쪽 결과는 api-request-gate가 맡는다"

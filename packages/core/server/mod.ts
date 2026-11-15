@@ -21,6 +21,12 @@ export {
   type RequestFailure,
 } from "./request.ts";
 export {
+  createHostLink,
+  type HostLink,
+  type HostLinkSocket,
+  type RelayedFrameType,
+} from "./host-link.ts";
+export {
   isCommandRoute,
   isFileRoute,
   isMemoryRoute,

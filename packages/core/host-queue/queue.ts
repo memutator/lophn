@@ -16,12 +16,15 @@ import {
   type HostTabTarget,
   type HostToolOutput,
   type HostWorkspace,
+  LINK_REQUEST_KINDS,
+  type LinkRequestKind,
   type TabRelation,
 } from "../../protocol/lophn-agent/host-queue.ts";
 
 // core 메모리의 host queue와 agent가 연 탭의 표다. 꺼지면 사라진다.
-// shell main이 `take`를 이어 부르므로(long-poll) 기다리는 take가 있거나 마지막 take가 끝난 지 ATTACHED_MS 안이면 shell이 붙어 있다고 본다.
-// 빌려 간 요청은 shell main이 죽어 done이 오지 않아도 BORROW_MS 뒤 다시 대기한다.
+// host는 두 길로 붙는다: `/host-link` 연결(`connect`, queue가 요청을 바로 밀어 준다)과 long-poll `take`(옛 길, 지울 것이다).
+// 연결이 열려 있거나, 기다리는 take가 있거나 마지막 take가 끝난 지 ATTACHED_MS 안이면 shell이 붙어 있다고 본다.
+// 빌려 간 요청은 shell main이 죽어 done이 오지 않아도 BORROW_MS 뒤 다시 대기한다. 연결로 빌려 간 것은 연결이 닫히면 바로 다시 대기한다.
 const ATTACHED_MS = 3_000;
 const BORROW_MS = 10_000;
 // browser 탭을 열 때 shell이 page를 만들었다고 알릴 때까지 기다리는 기한이다. 넘으면 거두고 `unavailable`이다.
@@ -59,6 +62,13 @@ type TerminalInterruptPayload = Extract<
   { kind: "terminal_interrupt" }
 >["payload"];
 type CallResult = Result<ExtensionToolContent[]>;
+// 연결로만 가는 요청이다. id는 queue가 붙인다.
+export type LinkRequest = {
+  [K in LinkRequestKind]: {
+    kind: K;
+    payload: Extract<HostRequest, { kind: K }>["payload"];
+  };
+}[LinkRequestKind];
 
 // 뒤 task(surf-team, ext-tools)가 쓰는 port다.
 export type HostQueue = {
@@ -78,6 +88,9 @@ export type HostQueue = {
     id: Id<"hrq">;
     result: Promise<CallResult>;
   };
+  // 연결로만 가는 요청(coding session, 터미널 보기)을 넣고 host의 답을 기다린다. 연결이 없거나, 닫히거나,
+  // 기한(LINK_CALL_MS)이 지나면 `unavailable`이다.
+  callCoding(request: LinkRequest): Promise<CallResult>;
   abandon(id: Id<"hrq">, message?: string): void;
   // 기한이 지난 호출(extension tool, browser 등)을 거둔다. 부른 쪽이 주기로 부른다.
   expire(): void;
@@ -103,7 +116,7 @@ export type HostQueue = {
   startShell(launch: (failed: () => void) => void): boolean;
   // 아직 쓰지 않은 탭 id다. file을 먼저 쓰고 `openTab({tab})`으로 여는 쪽이 받는다.
   newTabId(): Id<"tab">;
-  // 기다리는 take가 있거나 마지막 take가 끝난 지 3초 안이다.
+  // 연결이 열려 있거나, 기다리는 take가 있거나 마지막 take가 끝난 지 3초 안이다.
   attached(): boolean;
 };
 
@@ -123,12 +136,16 @@ type OpenInput = {
 const sameWorkspace = (a: HostWorkspace, b: HostWorkspace) =>
   a.kind === b.kind && (a.kind === "home" || a.id === (b as typeof a).id);
 
+const linkOnly = (request: HostRequest) =>
+  (LINK_REQUEST_KINDS as readonly string[]).includes(request.kind);
+
 // 결과를 기다리는 요청이다. 빌려 가면 done이 올 때까지 다시 내놓지 않는다(두 번 실행하면 안 된다). tool_call·browser_call과,
-// browser 탭의 tab_open(page 만들기를 기다린다)이다.
+// browser 탭의 tab_open(page 만들기를 기다린다), 연결 요청이다.
 const isCall = (request: HostRequest) =>
   request.kind === "tool_call" ||
   request.kind === "browser_call" ||
   request.kind === "terminal_interrupt" ||
+  linkOnly(request) ||
   (request.kind === "tab_open" && "browser" in request.payload.target);
 
 const unavailable = (message: string) =>
@@ -137,6 +154,17 @@ const unavailable = (message: string) =>
 // browser·tab 호출의 이 문장들은 model이 그대로 받는다(work.ts). 원인, 다음 할 일, 되풀이가 통하는지를 적는다.
 // 터미널 끊기 요청의 기한이다. key를 치는 일이라 짧다.
 const TERMINAL_INTERRUPT_MS = 10_000;
+// 연결 요청마다 host의 답을 기다리는 기한이다. switch와 open은 CLI를 끝내고 다시 띄우는 일이라 길다.
+export const LINK_CALL_MS: Record<LinkRequestKind, number> = {
+  coding_input: 10_000,
+  coding_switch: 60_000,
+  coding_open: 60_000,
+  terminal_stream: 5_000,
+  terminal_input: 5_000,
+};
+const LINK_ABSENT = "The lophn app on the computer is not connected.";
+const LINK_LOST = "The lophn app disconnected before it answered.";
+const LINK_TIMED_OUT = "The lophn app did not answer in time.";
 export const SHELL_NOT_ATTACHED =
   "The lophn app is not connected, so there is no browser to use. Retrying does not help until a person opens the lophn app; tell the person.";
 const QUEUE_FULL =
@@ -179,6 +207,12 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     finish(request: HostRequest | null): void;
   }>();
   let lastTakeMs: number | null = null;
+  // 열린 `/host-link` 연결이다. 한 번에 하나다. lent는 그 연결로 빌려 주고 아직 done이 오지 않은 요청이다.
+  let link: {
+    workspaces: readonly HostWorkspace[];
+    send(request: HostRequest): void;
+    lent: Set<Id<"hrq">>;
+  } | null = null;
   // 마지막으로 shell을 띄운 때(붙으면 null)와 띄우기가 실패한 때(붙으면 null).
   let launchedAt: number | null = null;
   let failedAt: number | null = null;
@@ -189,11 +223,15 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     found?.resolve(result);
   }
 
-  // 그 workspace들이 닿는, 빌려 가지 않은 가장 오래된 요청을 빌려 준다.
-  function lend(workspaces: readonly HostWorkspace[]): HostRequest | null {
+  // 그 workspace들이 닿는, 빌려 가지 않은 가장 오래된 요청을 빌려 준다. 연결 요청은 연결에만 빌려 준다.
+  function lend(
+    workspaces: readonly HostWorkspace[],
+    viaLink = false,
+  ): HostRequest | null {
     const now = deps.clock.nowMs();
     const found = pending.find(
       (entry) =>
+        (viaLink || !linkOnly(entry.request)) &&
         (entry.borrowedAt === null ||
           (!isCall(entry.request) && now - entry.borrowedAt > BORROW_MS)) &&
         (entry.anywhere ||
@@ -228,6 +266,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
   }
 
   function abandon(id: Id<"hrq">, message = SHELL_LOST) {
+    link?.lent.delete(id);
     const at = pending.findIndex((entry) => entry.request.id === id);
     if (at >= 0) {
       const [entry] = pending.splice(at, 1);
@@ -249,6 +288,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
   }
 
   const attached = () =>
+    link !== null ||
     takers.size > 0 ||
     (lastTakeMs !== null && deps.clock.nowMs() - lastTakeMs <= ATTACHED_MS);
 
@@ -267,9 +307,40 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       const lent = lend(taker.workspaces);
       if (lent !== null) taker.finish(lent);
     }
+    pushLink();
     if (pending.length > PENDING_MAX) {
       const [dropped] = pending.splice(0, 1);
       settle(dropped!.request.id as Id<"hrq">, unavailable(QUEUE_FULL));
+    }
+  }
+
+  // 연결이 닿는 요청을 모두 밀어 준다. send가 연결을 닫을 수 있어 매번 같은 연결인지 본다.
+  function pushLink(): void {
+    const current = link;
+    while (current !== null && link === current) {
+      const lent = lend(current.workspaces, true);
+      if (lent === null) return;
+      current.lent.add(lent.id as Id<"hrq">);
+      current.send(lent);
+    }
+  }
+
+  // 연결이 닫혔다. 그 연결로 빌려 간 결과 요청은 실행됐는지 모르니 거두고(두 번 실행하면 안 된다), 탭 요청은 다시 대기한다.
+  // 연결 요청은 받을 host가 없어 모두 거둔다.
+  function unlink(current: NonNullable<typeof link>): void {
+    if (link !== current) return;
+    link = null;
+    for (const id of current.lent) {
+      const entry = pending.find((found) => found.request.id === id);
+      if (entry === undefined) continue;
+      if (isCall(entry.request)) {
+        abandon(id, linkOnly(entry.request) ? LINK_LOST : SHELL_LOST);
+      } else entry.borrowedAt = null;
+    }
+    for (const entry of [...pending]) {
+      if (linkOnly(entry.request)) {
+        abandon(entry.request.id as Id<"hrq">, LINK_LOST);
+      }
     }
   }
 
@@ -387,6 +458,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     result: "done" | "retry",
     output?: HostToolOutput,
   ): void {
+    link?.lent.delete(id);
     const at = pending.findIndex((entry) => entry.request.id === id);
     if (at < 0) return;
     const [entry] = pending.splice(at, 1);
@@ -433,6 +505,38 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
         () =>
           "The lophn app did not answer in time, so the terminal was not interrupted.",
       );
+    },
+    callCoding(request: LinkRequest): Promise<CallResult> {
+      if (link === null) return Promise.resolve(unavailable(LINK_ABSENT));
+      const id = deps.ids.newId("hrq") as Id<"hrq">;
+      return call(
+        { id, ...request } as HostRequest,
+        deps.clock.nowMs() + LINK_CALL_MS[request.kind],
+        () => LINK_TIMED_OUT,
+      ).result;
+    },
+    // `/host-link` 연결 하나가 열렸다. 그 동안 닿는 요청을 send로 바로 밀어 준다. 옛 연결이 있으면 먼저 닫힌 것으로 본다.
+    // `visible`이 그리는 workspace를 바꾸고, `pump`는 다시 대기한 요청(retry, 빌린 기한이 지난 탭 요청)을 밀어 준다(부른 쪽이 주기로).
+    connect(send: (request: HostRequest) => void) {
+      if (link !== null) unlink(link);
+      const current: NonNullable<typeof link> = {
+        workspaces: [],
+        send,
+        lent: new Set(),
+      };
+      link = current;
+      launchedAt = null;
+      failedAt = null;
+      return {
+        visible(workspaces: readonly HostWorkspace[]): void {
+          current.workspaces = workspaces;
+          if (link === current) pushLink();
+        },
+        pump(): void {
+          if (link === current) pushLink();
+        },
+        close: () => unlink(current),
+      };
     },
     abandon,
     // 기한이 지난 호출을 거둔다. 부른 쪽이 주기로 부른다.

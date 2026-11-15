@@ -296,6 +296,57 @@ flows:
     unclear:
       - "tool_call 결과를 기다리는 extension tool 호출 flow는 turns 쪽에 있다. 여기서는 done 쪽만 적었다"
 
+  - id: host-link
+    title: shell main이 /host-link로 붙어 host 요청을 받고 답·보고·coding·터미널 frame을 올린다
+    actor: shell
+    entries: [system:host-link]
+    boundary: [host-queue-interface, host-queue-core, server]
+    code:
+      - packages/core/server/server.ts
+      - packages/core/server/host-link.ts
+      - packages/core/host-queue/queue.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
+      - packages/protocol/host-link/frames.ts
+    steps:
+      - "shell main이 GET /host-link(subprotocol lophn.host-link.1)로 upgrade를 건다. Gateway와 같은 gate다: 헤더가 한도를 넘거나 host가 허용되지 않으면 invalid_input, 자격이 없으면 unauthorized, Origin이 있으면 forbidden이다"
+      - "사람 자격(actor user)이 아니면 forbidden, GET이 아니거나 subprotocol이 없으면 invalid_input, event 연결 한도(전체 32, principal당 4)를 넘으면 unavailable로 거절한다. 연결은 한 번에 하나라 새 연결이 오면 옛 연결을 닫는다(아래 닫힘과 같다)"
+      - "첫 frame은 hello {version 1, workspaces, tui}다. 받으면 queue가 그 연결에 붙고(attached) 보이는 workspace에 닿는 대기 요청을 request frame으로 바로 밀며, 새 요청도 들어오는 대로 민다. tool_call·browser_call·terminal_interrupt·coding_*·terminal_stream·terminal_input은 workspace 없이 간다. coding_*·terminal_stream·terminal_input은 연결로만 가고 host/take는 내주지 않는다"
+      - "연결이 열린 동안 1초마다 기한이 지난 호출을 거두고, 다시 대기한 요청(retry, 빌린 지 10초가 지난 탭 요청)을 다시 밀고, 마지막 tui 목록으로 TUI hold를 갱신한다"
+      - "visible은 보이는 workspace와 tui 목록을 바꾼다. response는 host/done과 같이 요청을 끝내거나(done) 다시 대기시킨다(retry). report는 host/report와 같이 탭 상태를 적는다. coding_report·coding_sync·coding_closed·terminal_screen은 onFrame으로 단 wiring에 넘긴다"
+      - "frame이 JSON이 아니거나 schema에 맞지 않거나, 첫 frame이 hello가 아니거나 hello가 다시 오거나, binary frame이면 1008로 닫는다. 16 MiB를 넘는 frame은 ws가 1009로 닫는다. 보내는 버퍼가 1 MiB를 넘으면 1013으로 닫는다"
+      - "연결이 닫히면 그 연결로 빌려 간 결과 요청(tool_call, browser_call, browser tab_open, terminal_interrupt)과 모든 연결 요청을 unavailable로 거두고, 빌려 간 탭 요청은 바로 다시 대기시키고, onClose 처리기를 부른다. TUI hold 갱신이 멈춰 10초 뒤 풀린다. server가 내려갈 때 1001로 닫는다"
+    outcomes:
+      - id: open
+        when: "hello를 받아 queue가 연결에 붙었다"
+        observe: [request:shell]
+      - id: invalid_input
+        code: invalid_input
+        when: "헤더가 한도를 넘었다, host가 허용되지 않았다, GET이 아니다, 또는 subprotocol이 없다"
+        observe: [response]
+      - id: unauthorized
+        code: unauthorized
+        when: "인증 자격(bearer)이 없거나 맞지 않아 gate에서 거절했다"
+        observe: [response, log:api]
+      - id: forbidden
+        code: forbidden
+        when: "Origin이 있다, 또는 사람 자격(actor user)이 아니다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "event 연결 한도(전체 32, principal당 4)를 넘었다"
+        observe: [response]
+      - id: bad-frame
+        when: "frame이 틀렸거나 순서가 틀려(hello 앞의 다른 frame, 두 번째 hello) 1008로 닫았다"
+        observe: [response]
+      - id: closed
+        when: "연결이 닫혔다(끊김, 새 연결, 느린 host, 내려감). 그 연결로 나간 결과 요청과 연결 요청은 unavailable로 끝나고 빌려 간 탭 요청은 다시 대기한다"
+        observe: [response]
+    crosses_process: false
+    risk: [permission, secret]
+    docs: [architecture/coding-agent.md]
+    unclear:
+      - "host/take(옛 길)와 연결이 동시에 붙으면 두 길이 같은 queue에서 빌려 가고, TUI hold는 두 쪽의 tui 목록을 번갈아 받는다. mobile-host-link-cleanup이 옛 길을 지운다"
+
   - id: host-tab-report
     title: shell이 알려 준 host 탭의 browser 상태나 닫힘을 기록한다
     actor: shell

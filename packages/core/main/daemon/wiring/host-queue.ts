@@ -51,12 +51,12 @@ import {
   workspaceOf,
 } from "../../../lophn-agent/session/model.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
-import type { MemoryHandler } from "../../../server/mod.ts";
+import { createHostLink, type MemoryHandler } from "../../../server/mod.ts";
 import { createLoginStore } from "../../../secrets/mod.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
-// core 메모리의 host queue를 shell main(host/*)과 agent·사람(tabs/*, browser/*)에 연다. 흐름은
-// `protocol/lophn-agent/host-queue.ts`. 뒤 task가 쓰는 port는 `ctx.hostQueue`다.
+// core 메모리의 host queue를 shell main(`/host-link` 연결과 옛 host/*)과 agent·사람(tabs/*, browser/*)에 연다. 흐름은
+// `protocol/lophn-agent/host-queue.ts`. 뒤 task가 쓰는 port는 `ctx.hostQueue`와 `ctx.hostLink`다.
 const key = (route: { resource: string; method: string }) =>
   `${route.resource}/${route.method}`;
 
@@ -562,6 +562,14 @@ export const hostQueueWiring: WiringFactory = () => {
       });
       queue = made;
       ctx.provide("hostQueue", made);
+      ctx.provide(
+        "hostLink",
+        createHostLink({
+          queue: made,
+          heartbeat: (tui) => ctx.harnessHold.heartbeat(tui),
+          logger: ctx.telemetry.logger,
+        }),
+      );
       const { launchShell } = ctx.options;
 
       // shell main은 사람 token으로 부른다.

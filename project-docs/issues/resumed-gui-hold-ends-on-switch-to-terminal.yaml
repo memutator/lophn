@@ -1,0 +1,12 @@
+id: resumed-gui-hold-ends-on-switch-to-terminal
+title: 폰이 되살린 coding session을 터미널로 바꾸면 그 session의 hold가 풀린다
+kind: defect
+status: open
+topic: harness-gui
+modules: [packages/shell/main]
+now: |
+  폰이 `coding_sessions/open`으로 옛 coding session을 채팅(GUI)으로 되살리면 shell main이 그 ledger session을 잡아 둔다(`packages/shell/main/terminal/harness-tui.ts`의 `holdGui`, `coding-open.ts`). 잡기는 GUI handle이 닫힐 때 풀린다. 사람이 그 채팅을 터미널(TUI)로 바꾸면(claude, omp는 같은 CLI session을 TUI가 이어 쓴다) handle이 닫혀 잡기가 풀리는데, 그 터미널은 `--tui`로 연 탭이 아니라 hold 목록에 들지 않는다.
+impact: |
+  그 뒤 같은 ledger session의 headless turn이 시작되면 CLI session 하나에 process가 둘 붙는다(`architecture/harness-gui.md` 지키는 것 6). 폰에서 되살린 뒤 desktop에서 터미널로 바꾼 session에만 생긴다.
+fix: |
+  잡기를 handle이 아니라 그 터미널이 끝날 때 푼다(터미널이 그 CLI session을 쓰는 동안은 잡혀 있다). 작다. `mobile-host-link-cleanup`이 같은 file을 고치니 그 task에서 한다.

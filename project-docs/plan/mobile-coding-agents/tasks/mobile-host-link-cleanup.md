@@ -34,6 +34,7 @@
 4. flows catalog에서 지운 입구와 그 flow, test file을 맞춘다.
 5. (lead가 더함) `mobile-host-link-shell` 보고가 남긴 줄을 고친다. 아직 take를 말하는 주석: `packages/shell/main/browser/agent/driver.ts:1`(`host/done`), `packages/shell/main/terminal/harness-tui.ts:2-3`("매 take에"), core의 `packages/core/host-queue/{queue,hold}.ts`, `packages/protocol/lophn-agent/{host-queue,harness-host}.ts`. flows에서 아직 take를 말하는 곳: `journeys/project-work.yaml`의 "take로", `areas/harness.yaml`의 `host-request-take`·`harness-tui-hold`·`host-link` flow의 `unclear` 줄과 `uses: [host-request-take:request, host-request-done:done]` 목록들, `areas/sessions.yaml`의 같은 `uses`. 이 줄들의 path는 이 task의 추가 소유다.
 6. (lead가 더함) `/host-link` 연결이 event 연결의 사람 token 한도(principal마다 4개. `packages/core/server/server.ts`의 `admission`)를 같이 쓴다. shell 하나가 Gateway와 host link로 둘을 써서 사람의 CLI watch 몫이 하나 줄었다. host link는 그 한도에서 빼고 자기 한도(한 번에 하나)만 본다. `packages/core/server/host-link.ts`와 `server.ts`의 그 줄은 이 task의 추가 소유다.
+7. (lead가 더함) 이슈 `resumed-gui-hold-ends-on-switch-to-terminal`: 폰이 되살린 coding session의 hold(`packages/shell/main/terminal/harness-tui.ts`의 `holdGui`·`releaseGui`, `coding-open.ts`)를 GUI handle이 닫힐 때가 아니라 그 터미널이 끝날 때 푼다. 사람이 그 채팅을 터미널로 바꿔도 잡혀 있어야 한다. test 하나(되살린 handle을 닫아도 터미널이 살아 있으면 잡혀 있고, 터미널이 끝나면 풀린다). 이 두 file은 이 task의 추가 소유다.
 
 ## 끝남
 

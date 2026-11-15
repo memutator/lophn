@@ -6,6 +6,7 @@ core와 폰을 잇는 relay를 `packages/relay`에 만든다. 내용을 보지 �
 - 선행: 없음
 - 소유(이 task만 고친다):
   - `packages/relay/`(새 package)
+  - 추가 소유: `project-docs/module-catalog.yaml`의 `packages/relay` 항목 하나(boundary `relay`는 lead가 넣어 두었다. notes: "저장소에서 짓지만 사람의 기계가 아니라 인터넷의 서버에서 돈다. protocol만 import한다."), root `package-lock.json`의 새 workspace 항목(`npm install`이 쓰는 것만), `tools/check-deps.ts`에 relay 규칙이 꼭 필요하면 그 몇 줄
 - 읽을 것:
   - 계획 README "정한 것"과 "계약"
   - `packages/protocol/remote/relay.ts`(lead가 commit한 계약), `packages/protocol/remote/noise.ts`의 `NOISE_MAX_MESSAGE_BYTES`

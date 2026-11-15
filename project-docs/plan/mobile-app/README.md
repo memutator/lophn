@@ -41,6 +41,7 @@
 | 3 | `mobile-frame-fixes` | `mobile-frame` 보고에 남은 것: Text size가 실제로 듣기(kit의 글 배율), 지운 컴퓨터와 다시 pairing, desktop의 pairing code 글로 보기, About의 판 (lead가 더함) |
 | 4 | `mobile-polish` | wave 3의 화면들을 한 번 전체로 맞춘다: 같은 조각 합치기, 표기 통일, 연결이 죽는 결함, 여러 답 질문, 넓은 폭, wireframe 전체 대조 (opus high. lead가 더함) |
 | 4 | `mobile-attach` | 대화의 첨부(사진, 카메라, 파일). native module 둘과 새 dev build (lead가 더함) |
+| 5 | `mobile-docs` | 계획을 닫는 문서: architecture, catalog, flows, roadmap, change-log, 이슈, README (lead가 더함) |
 
 ## 돌리기 전에
 

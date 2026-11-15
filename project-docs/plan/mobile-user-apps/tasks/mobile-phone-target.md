@@ -19,7 +19,7 @@ lophn agent가 사람의 기준 폰(pairing으로 등록한 기기 가운데 `pr
   - architecture: `project-docs/architecture/remote.md`(기기 등록, `shell.devices`), `browser-tab.md`(기기 emulation)
   - roadmap: `project-docs/products/roadmap/mobile.md`의 "기기 정보가 가는 곳", "등록한 기기에 맞춘다"
 - 계약:
-  - 쓰는 것: `devices` 표를 읽는다(읽기만). 이 task는 `packages/core/remote`와 `packages/protocol/remote`를 고치지 않는다(`phone-app`과 `mobile-push`가 소유한다)
+  - 쓰는 것: `devices` 표를 읽는다(읽기만). 이 task는 `packages/core/remote`와 `packages/protocol/remote`를 고치지 않는다(`mobile-app`과 `mobile-push`가 소유한다)
   - 내놓는 것:
     - route `apps/phone_target`(`name: "app.phone_target"`, read, actors `user`·`agent`, 오류 `invalid_input`·`forbidden`·`unavailable`): 입력 `{}`(strict), 출력 `{device: {name: string, os: "ios"|"android", width: number, height: number, dpr: number} | null}`에 read 공통 칸(`withReadCommon`). 기준 기기가 없으면 `device: null`. 기기 id와 공개 key는 내지 않는다
     - CLI `lophn app phone-target`(command `app.phone_target`, effect read, workspaces `home`·`app`)

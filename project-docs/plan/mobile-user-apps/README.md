@@ -5,9 +5,9 @@
 - 범위 밖: 폰에서 backend가 도는 앱(단계 7), 위젯·홈 화면 아이콘·폰 기능(단계 8), iOS, 폰 화면의 실제 폰 확인(단계 10. 이 계획의 확인은 desktop preview까지), 폰 화면을 desktop 탭에 띄우기(roadmap은 desktop에 web 화면을 둔다).
 - 단위: `app-place`(선언의 `phone` 자리, agent가 읽는 기준 폰), `app-views`(view binding을 core로, shell main을 그 위로), 그리고 spike 뒤에 열리는 `phone-screen`(빌드, 읽기, desktop preview), `phone-sdk`(kit과 hook을 SDK part로), `phone-host`(폰 쪽 gate와 host), `app-guidance`(agent 지침). 소유 path는 brief가 정한다.
 - 순서:
-  - wave 1: `mobile-place-decl`, `mobile-views-core`, `mobile-phone-target`을 나란히. 서로 기대지 않고 `phone-app`의 path와도 겹치지 않아 지금 띄운다.
+  - wave 1: `mobile-place-decl`, `mobile-views-core`, `mobile-phone-target`을 나란히. 서로 기대지 않고 `mobile-app`의 path와도 겹치지 않아 지금 띄운다.
   - wave 2: `mobile-shell-views`(shell main이 core의 view binding을 쓰게 하고 옛 로직을 지운다. `mobile-views-core`, `mobile-place-decl` 뒤). 지금 brief가 있는 것은 여기까지다.
-  - 이어서(spike 판정 뒤 brief를 쓴다): 빌드 길(`mobile-build-phone`, wave 2), 읽기·preview(wave 3), SDK part(wave 3, `phone-app`이 main에 올라간 뒤), 폰 gate·notice(wave 4), 폰 host와 agent 지침(wave 5).
+  - 이어서(spike 판정 뒤 brief를 쓴다): 빌드 길(`mobile-build-phone`, wave 2), 읽기·preview(wave 3), SDK part(wave 3, `mobile-app`이 main에 올라간 뒤), 폰 gate·notice(wave 4), 폰 host와 agent 지침(wave 5).
   - land는 계획 끝에 한 번. 그래서 SDK 판 4.6.0과 app-ui 2.15.0은 land 전까지 어느 앱에도 가지 않고, 뒤 task가 같은 판 안에서 guide와 메모를 고칠 수 있다.
 
 ## 정한 것
@@ -37,16 +37,16 @@
 | 2 | `mobile-build-phone` | 폰 화면 빌드 길: source 규약, bundle과 manifest, desktop preview용 web 진입, 선언과 어긋남 검사. **spike 판정 뒤 brief를 쓴다** |
 | 3 | `mobile-phone-reads` | 폰이 받을 화면 목록을 한 번에 내는 `apps/phone_screens`. **spike 판정 뒤 brief를 쓴다** |
 | 3 | `mobile-preview-phone` | `lophn tab open --preview <app> --screen <key>`가 폰 화면을 기준 폰 틀로 연다. **spike 판정 뒤 brief를 쓴다** |
-| 3 | `mobile-sdk-kit` | 폰 kit(`packages/design/native`)을 SDK part로 등록(vendor 규칙, guide, 메모). **spike 판정 뒤 brief를 쓴다. `phone-app`이 land된 뒤** |
+| 3 | `mobile-sdk-kit` | 폰 kit(`packages/design/native`)을 SDK part로 등록(vendor 규칙, guide, 메모). **spike 판정 뒤 brief를 쓴다. `mobile-app`이 land된 뒤** |
 | 3 | `mobile-sdk-phone-hooks` | `@lophn/app-ui-native`(`useOperation`·`useEvent`·`usePlace`와 RN 단추, 오류 경계). **spike 판정 뒤 brief를 쓴다** |
-| 4 | `mobile-remote-gate` | 폰 gate: 기기 owner로 `AppViewEvent`를 내려 보내기, allowlist, 연결이 닫히면 view 지우기. **spike 판정 뒤 brief를 쓴다. `phone-app`이 land된 뒤** |
-| 4 | `mobile-phone-changed-notice` | 기준 폰이 바뀌면 폰 화면이 있는 앱 수를 알리는 notice. **brief는 `phone-app`이 land된 뒤에 쓴다**(notice 종류와 폰 Inbox가 걸린다) |
-| 5 | `mobile-phone-host` | 폰 앱의 앱 목록, 앱 화면(top bar, runtime, bridge), bundle cache, "컴퓨터 필요"·"새 판" 상태. **spike 판정 뒤 brief를 쓴다. `phone-app`이 land된 뒤** |
+| 4 | `mobile-remote-gate` | 폰 gate: 기기 owner로 `AppViewEvent`를 내려 보내기, allowlist, 연결이 닫히면 view 지우기. **spike 판정 뒤 brief를 쓴다. `mobile-app`이 land된 뒤** |
+| 4 | `mobile-phone-changed-notice` | 기준 폰이 바뀌면 폰 화면이 있는 앱 수를 알리는 notice. **brief는 `mobile-app`이 land된 뒤에 쓴다**(notice 종류와 폰 Inbox가 걸린다) |
+| 5 | `mobile-phone-host` | 폰 앱의 앱 목록, 앱 화면(top bar, runtime, bridge), bundle cache, "컴퓨터 필요"·"새 판" 상태. **spike 판정 뒤 brief를 쓴다. `mobile-app`이 land된 뒤** |
 | 5 | `mobile-agent-guidance` | `design-app`의 "Phone screens", `AGENTS.md.tmpl`, template test와 sample, app prompt, `migrate-sdk` Instruction diff. **spike 판정 뒤 brief를 쓴다** |
 
 ## 돌리기 전에
 
-- wave 1은 지금 띄운다. `phone-app`이 쓰는 path(`mobile/`, `packages/design/native`, `protocol/remote/allowlist.ts`, `core/remote`)를 건드리지 않는다.
+- wave 1은 지금 띄운다. `mobile-app`이 쓰는 path(`mobile/`, `packages/design/native`, `protocol/remote/allowlist.ts`, `core/remote`)를 건드리지 않는다.
 - 다른 계획과 같은 file을 만지는 곳(lead가 합칠 때 두 쪽을 다 남긴다):
   - `packages/protocol/events/transient.ts`: `mobile-views-core`가 event 하나를 더한다. `mobile-push`의 `mobile-attention-core`(wave 1)가 이 file을 소유하고 `mobile-coding-agents`의 `mobile-terminal-core`(wave 4)도 event를 더한다. 모두 더하기만이라 먼저 merge된 쪽에 나중 쪽이 rebase한다.
   - `package-lock.json`(`mobile-place-decl`의 workspace 판 줄). 충돌하면 lead가 `npm install --package-lock-only`로 다시 만든다.
@@ -55,7 +55,7 @@
 - `mobile-coding-agents`와 겹쳐 순서가 정해지는 것(그 계획의 폴더는 이 계획을 쓸 때 아직 없었다. 열리면 `grep`으로 다시 확인한다):
   - `mobile-host-link-shell`(shell main `desktop/wiring/{context,surface}.ts`)은 `mobile-shell-views`와 file이 겹치지 않는다. `mobile-shell-views`는 `context.ts`를 고치지 않고 `ctx.appConnector`라는 이름을 slim한 채로 둔다.
   - 뒤의 `mobile-preview-phone`은 `protocol/lophn-agent/host-queue.ts`와 `core/main/daemon/wiring/host-queue.ts`를 고치는데 `mobile-host-link`가 같은 file을 소유한다. `mobile-host-link`가 먼저 merge된 뒤에 띄운다.
-- `mobile-push`와 겹쳐 순서가 정해지는 것: `mobile-push-device`가 `packages/core/remote/**`, `protocol/remote/{routes,allowlist}.ts`, `wiring/remote.ts`를 소유하고 `mobile-push-phone`이 폰 앱을 고친다. 뒤의 `mobile-remote-gate`와 `mobile-phone-host`가 같은 path를 쓰므로 `phone-app`과 `mobile-push-device`가 merge된 뒤에 띄운다. `mobile-shell-views`는 `mobile-attention-desktop`이 소유한 `wiring/agent.ts`와 `desktop/core/allowlist.ts`를 고치지 않는다.
+- `mobile-push`와 겹쳐 순서가 정해지는 것: `mobile-push-device`가 `packages/core/remote/**`, `protocol/remote/{routes,allowlist}.ts`, `wiring/remote.ts`를 소유하고 `mobile-push-phone`이 폰 앱을 고친다. 뒤의 `mobile-remote-gate`와 `mobile-phone-host`가 같은 path를 쓰므로 `mobile-app`과 `mobile-push-device`가 merge된 뒤에 띄운다. `mobile-shell-views`는 `mobile-attention-desktop`이 소유한 `wiring/agent.ts`와 `desktop/core/allowlist.ts`를 고치지 않는다.
 - ledger schema step과 새 core wiring은 이 계획의 wave 1~2에 없다(메모리 route와 읽기뿐). 생기면 lead가 등록한다.
 - emulator는 wave 1~2에 쓰지 않는다.
 - spike 보고서(`/home/pyosechang/projects/lophn/reports/mobile-program/app-screens-spike.md`)가 나오면 lead가 읽고, 표의 "brief를 쓴다" task를 쓰게 planner에게 넘긴다(번들 형식, kit과 React를 앱 화면에 주는 길, bridge, react-native-web 가능 여부가 정한다. react-native-web이 안 되면 preview 길과 kit의 web shim task가 바뀐다).

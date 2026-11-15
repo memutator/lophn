@@ -12,7 +12,7 @@ lead만 고친다. `tools/status.py mobile-coding-agents build`가 `tasks/*.md`�
 | `mobile-terminal-core` | terminal-view | 3 | mobile-coding-state, mobile-host-link | merged | terminal-view/mobile-terminal-core | 8c4c3838f |  |
 | `mobile-terminal-shell` | terminal-view | 3 | mobile-host-link-shell | merged | terminal-view/mobile-terminal-shell | fb83aa101 |  |
 | `mobile-coding-open-host` | coding-relay | 4 | mobile-coding-shell, mobile-terminal-shell | merged | coding-relay/mobile-coding-open-host | c2bdf3581 |  |
-| `mobile-coding-phone-data` | coding-phone | 5 | mobile-coding-state, mobile-coding-shell, mobile-coding-open-host | running | coding-phone/mobile-coding-phone-data |  |  |
+| `mobile-coding-phone-data` | coding-phone | 5 | mobile-coding-state, mobile-coding-shell, mobile-coding-open-host | merged | coding-phone/mobile-coding-phone-data | 53d3bae5a |  |
 | `mobile-host-link-cleanup` | host-link | 5 | mobile-host-link-shell, mobile-coding-shell, mobile-coding-state | merged | host-link/mobile-host-link-cleanup | 5e85bdaf4 |  |
 | `mobile-terminal-device-grant` | terminal-view | 5 | mobile-terminal-core | merged | terminal-view/mobile-terminal-device-grant | 77ba62755 |  |
 | `mobile-coding-phone-screens` | coding-phone | 6 | mobile-coding-wireframes | todo |  |  |  |

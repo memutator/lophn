@@ -19,7 +19,6 @@ export const PHONE_HOST_MODULES = [
   "react-native",
   "react-native-svg",
   "react-native-safe-area-context",
-  "react-native-reanimated",
   "lucide-react-native",
   "@lophn/ui-native",
   "@lophn/app-ui-native",

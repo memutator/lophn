@@ -24,6 +24,8 @@ type StoreHooks = {
   beginChangeset(): void;
   endChangeset(): Uint8Array | null;
   applyChangesets(changesets: readonly Uint8Array[]): ApplyOutcome;
+  // cap-store 2.0.0부터. 앱 DB 연결(node:sqlite `DatabaseSync`)이고 아직 열리지 않았으면 연다.
+  database?(): unknown;
 };
 
 // runtime이 쓰는 앱 DB의 changeset 접근이다. 앱 시작처럼 SDK가 load되기 전에 session 구간이 시작될 수
@@ -33,6 +35,9 @@ export type StoreAccess = {
   begin(): void;
   end(): Uint8Array | null;
   apply(changesets: readonly Uint8Array[]): ApplyOutcome;
+  // sync 일이 앱과 같은 연결에서 돌도록 cap-store의 연결을 연다. cap-store를 싣지 않았거나 그 판이 이 hook을
+  // 모르면 null이다.
+  database(): unknown;
 };
 
 export function createStoreAccess(): StoreAccess {
@@ -59,6 +64,7 @@ export function createStoreAccess(): StoreAccess {
         ? { ok: true }
         : { ok: false, message: "app database is not available" };
     },
+    database: () => hooks()?.database?.() ?? null,
   };
 }
 

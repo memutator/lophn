@@ -184,6 +184,10 @@ files:
     covers: [app-command-call:result-too-large]
     note: "앱 child의 handleCall: operation 결과는 256 KiB를 넘어도 나가고 같은 크기의 command 결과는 error 응답. child 응답만 단정하고 core 쪽 outcome은 단정하지 않음. command 결과 상한 초과는 app-command-call:result-too-large"
 
+  - path: packages/core/apps/runtime/entrypoint/sync_test.ts
+    covers: []
+    note: "sync 앱(runs_on에 phone)의 컴퓨터 app process: write는 handler가 던져도 data와 clock이 한 transaction으로 commit되고 commit 전에 끊기면 둘 다 없음, apps.sync_apply의 effective는 실제로 바뀐 칸만 담고 더 새 컴퓨터 칸을 덮지 않음, 제약에 걸린 폰 변경 하나는 건너뛰고 다음은 적용, 칸을 지운 migration 뒤 column clock을 지워 두 사본이 같아짐. 이 동작을 부르는 route(app_sync/*)는 아직 없어 covers 밖"
+
   - path: packages/core/apps/runtime/observations/log-file_test.ts
     covers: [app-log-write:written, app-log-write:rotated]
     note: "stdout 줄은 redaction 뒤에 300자로 잘려 JSON Lines로 붙고 알려진 secret은 파일에 안 남음, 8 MiB를 넘으면 app.log를 app.log.1로 옮기고 오래된 줄부터 버리며 크기 상한을 지킴"

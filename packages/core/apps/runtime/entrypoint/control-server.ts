@@ -1,9 +1,9 @@
 // control socket의 앱 쪽 구현. supervisor만 이 socket을 부르므로 서명·Authorization 검사가 없다.
 import process from "node:process";
-import { handleApply } from "./apply.ts";
+import { handleApply, handleSnapshot, handleSyncApply } from "./apply.ts";
 import { handleControl } from "./control.ts";
 import { type HttpHandler, jsonResponse, serveUnix } from "./http.ts";
-import { handleCall } from "./invoke.ts";
+import { handleCall, type InvokeResult } from "./invoke.ts";
 import { CONTROL_PATHS, PROCESS_PATHS } from "./limits.ts";
 import type { RuntimeState } from "./state.ts";
 
@@ -29,6 +29,17 @@ function exitWhenIdle(
 
 const CONTROLS: readonly string[] = Object.values(CONTROL_PATHS);
 
+// 본문을 그대로 넘기는 경로. 나머지(CONTROL_PATHS)는 JSON으로 읽어 handleControl이 본다.
+const BODY_HANDLERS = new Map<
+  string,
+  (state: RuntimeState, raw: Uint8Array) => Promise<InvokeResult>
+>([
+  [PROCESS_PATHS.call, handleCall],
+  [PROCESS_PATHS.apply, handleApply],
+  [PROCESS_PATHS.sync_apply, handleSyncApply],
+  [PROCESS_PATHS.snapshot, handleSnapshot],
+]);
+
 export function startControlServer(
   state: RuntimeState,
   options: { exit?: (code: number) => void } = {},
@@ -36,10 +47,8 @@ export function startControlServer(
   const exit = options.exit ?? ((code: number) => process.exit(code));
   let exiting = false;
   const handler: HttpHandler = async (request) => {
-    const known =
-      request.path === PROCESS_PATHS.call ||
-      request.path === PROCESS_PATHS.apply ||
-      CONTROLS.includes(request.path);
+    const direct = BODY_HANDLERS.get(request.path);
+    const known = direct !== undefined || CONTROLS.includes(request.path);
     if (!known) {
       return jsonResponse(404, {
         error: { code: "not_found", message: "unknown path" },
@@ -50,12 +59,8 @@ export function startControlServer(
         error: { code: "invalid_input", message: "control is POST" },
       });
     }
-    if (request.path === PROCESS_PATHS.call) {
-      const result = await handleCall(state, request.body);
-      return jsonResponse(result.status, result.body);
-    }
-    if (request.path === PROCESS_PATHS.apply) {
-      const result = await handleApply(state, request.body);
+    if (direct !== undefined) {
+      const result = await direct(state, request.body);
       return jsonResponse(result.status, result.body);
     }
     let body: unknown;

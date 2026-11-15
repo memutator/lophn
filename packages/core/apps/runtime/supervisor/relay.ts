@@ -1,5 +1,5 @@
-// core가 supervisor 제어 pipe의 op로 보낸 호출과 뒤집은 changeset 적용을 앱 process의 control socket으로
-// 중계한다. supervisor는 내용을 보지 않고 길만 이어 준다. 앱에 닿기 전에 실패했는지(`sent: false`)와
+// core가 supervisor 제어 pipe의 op로 보낸 호출, 뒤집은 changeset 적용, 폰 변경 적용, snapshot을 앱 process의
+// control socket으로 중계한다. supervisor는 내용을 보지 않고 길만 이어 준다. 앱에 닿기 전에 실패했는지(`sent: false`)와
 // 보낸 뒤 답을 받지 못했는지(`response: null`, 결과 모름)를 구별하는 것이 이 module의 일이다.
 // socket I/O는 주입받는다.
 import {
@@ -12,14 +12,21 @@ import {
   type ProcessCallRequest,
   type ProcessCallResponse,
   processCallResponseSchema,
+  type ProcessSnapshotRequest,
+  type ProcessSnapshotResponse,
+  processSnapshotResponseSchema,
+  type ProcessSyncApplyRequest,
+  type ProcessSyncApplyResponse,
+  processSyncApplyResponseSchema,
 } from "../../../../protocol/apps/calls/mod.ts";
 import { CALL_RESPONSE_MAX_BYTES } from "../../../../protocol/base/mod.ts";
 import type { LophnError } from "../../../../base/mod.ts";
 import type { ControlTarget } from "./supervisor.ts";
+import type { z } from "zod";
 
 // 호출 하나가 handler를 돌리는 시간의 상한이다. 넘으면 결과 모름이다.
 export const CALL_TIMEOUT_MS = 120_000;
-// 뒤집은 changeset 적용은 한 transaction이다.
+// 뒤집은 changeset 적용, 폰 변경 적용, snapshot 뜨기는 한 transaction(또는 VACUUM INTO 한 번)이다.
 export const APPLY_TIMEOUT_MS = 60_000;
 
 export type ControlRequest = {
@@ -47,15 +54,23 @@ type CallOutput =
   | { sent: false; error: LophnError }
   | { sent: true; response: ProcessCallResponse | null };
 
+type Answer<T> = { ok: true; value: T } | { ok: false; error: LophnError };
+
 type Relay = {
   call(target: AppToolTarget, request: ProcessCallRequest): Promise<CallOutput>;
-  // 닿지 못하면 `unavailable`이고 앱이 거절하면 그 오류다.
+  // 아래 셋은 live process에 간다. 닿지 못하면 `unavailable`이고 앱이 거절하면 그 오류다.
   apply(
     app: string,
     request: ProcessApplyRequest,
-  ): Promise<
-    { ok: true; value: ProcessApplyResponse } | { ok: false; error: LophnError }
-  >;
+  ): Promise<Answer<ProcessApplyResponse>>;
+  syncApply(
+    app: string,
+    request: ProcessSyncApplyRequest,
+  ): Promise<Answer<ProcessSyncApplyResponse>>;
+  snapshot(
+    app: string,
+    request: ProcessSnapshotRequest,
+  ): Promise<Answer<ProcessSnapshotResponse>>;
 };
 
 function unavailable(message: string): { sent: false; error: LophnError } {
@@ -107,6 +122,53 @@ export function createRelay(deps: {
   live: (app: string) => ControlTarget | undefined;
   preview: (app: string, nonce: string) => string | undefined;
 }): Relay {
+  async function toLive<T>(
+    app: string,
+    path: string,
+    request: unknown,
+    schema: z.ZodType<T>,
+  ): Promise<Answer<T>> {
+    const live = deps.live(app);
+    if (live === undefined) {
+      return {
+        ok: false,
+        error: { code: "unavailable", message: "the app is not ready" },
+      };
+    }
+    const reply = await deps.transport({
+      socket: live.socket,
+      path,
+      body: JSON.stringify(request),
+      timeoutMs: APPLY_TIMEOUT_MS,
+      maxBytes: 4096,
+    });
+    if (reply.kind !== "reply") {
+      return {
+        ok: false,
+        error: {
+          code: "unavailable",
+          message:
+            reply.kind === "lost"
+              ? "the app process did not answer"
+              : "the app process did not accept the connection",
+        },
+      };
+    }
+    if (reply.status === 200) {
+      try {
+        const parsed = schema.safeParse(JSON.parse(reply.body));
+        if (parsed.success) return { ok: true, value: parsed.data };
+      } catch {
+        /* 아래에서 unavailable이 된다 */
+      }
+    }
+    return {
+      ok: false,
+      error: refused(reply.status)
+        ? rejectionOf(reply.status, reply.body)
+        : { code: "unavailable", message: "the app process answered badly" },
+    };
+  }
   return {
     async call(target, request) {
       const context = request.context;
@@ -164,49 +226,21 @@ export function createRelay(deps: {
       }
       return { sent: true, response: null };
     },
-    async apply(app, request) {
-      const live = deps.live(app);
-      if (live === undefined) {
-        return {
-          ok: false,
-          error: { code: "unavailable", message: "the app is not ready" },
-        };
-      }
-      const reply = await deps.transport({
-        socket: live.socket,
-        path: PROCESS_PATHS.apply,
-        body: JSON.stringify(request),
-        timeoutMs: APPLY_TIMEOUT_MS,
-        maxBytes: 4096,
-      });
-      if (reply.kind !== "reply") {
-        return {
-          ok: false,
-          error: {
-            code: "unavailable",
-            message:
-              reply.kind === "lost"
-                ? "the app process did not answer the apply"
-                : "the app process did not accept the connection",
-          },
-        };
-      }
-      if (reply.status === 200) {
-        try {
-          const parsed = processApplyResponseSchema.safeParse(
-            JSON.parse(reply.body),
-          );
-          if (parsed.success) return { ok: true, value: parsed.data };
-        } catch {
-          /* 아래에서 unavailable이 된다 */
-        }
-      }
-      return {
-        ok: false,
-        error: refused(reply.status)
-          ? rejectionOf(reply.status, reply.body)
-          : { code: "unavailable", message: "the app process answered badly" },
-      };
-    },
+    apply: (app, request) =>
+      toLive(app, PROCESS_PATHS.apply, request, processApplyResponseSchema),
+    syncApply: (app, request) =>
+      toLive(
+        app,
+        PROCESS_PATHS.sync_apply,
+        request,
+        processSyncApplyResponseSchema,
+      ),
+    snapshot: (app, request) =>
+      toLive(
+        app,
+        PROCESS_PATHS.snapshot,
+        request,
+        processSnapshotResponseSchema,
+      ),
   };
 }

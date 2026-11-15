@@ -96,6 +96,10 @@ function setup() {
       return { sent: true, response };
     },
     apply: () => Promise.resolve(err({ code: "internal", message: "unused" })),
+    syncApply: () =>
+      Promise.resolve(err({ code: "internal", message: "unused" })),
+    snapshot: () =>
+      Promise.resolve(err({ code: "internal", message: "unused" })),
   };
 
   const deps: AppCallsDeps = {

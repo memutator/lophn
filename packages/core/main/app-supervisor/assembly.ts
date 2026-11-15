@@ -12,6 +12,7 @@ import { createKnownSecretRegistry } from "../../../base/redaction/mod.ts";
 import {
   appCallTool,
   processApplyRequestSchema,
+  processSyncApplyRequestSchema,
   toolCallOutputSchema,
 } from "../../../protocol/apps/calls/mod.ts";
 import {
@@ -40,6 +41,8 @@ import {
   activationAppInputSchema,
   appendLogInputSchema,
   applyInputSchema,
+  snapshotInputSchema,
+  syncApplyInputSchema,
   blockInputSchema,
   callInputSchema,
   dataJobInputSchema,
@@ -950,6 +953,35 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         throw new OpError(applied.error.code, applied.error.message);
       }
       return applied.value;
+    },
+    // 폰에서 온 변경 하나. 본문은 apply처럼 bytes stream으로 온다.
+    [SUPERVISOR_OPS.syncApply]: async (payload, body) => {
+      const input = parse(syncApplyInputSchema, payload);
+      if (body === undefined) {
+        throw new OpError("invalid_input", "sync apply body is missing");
+      }
+      let json: unknown;
+      try {
+        json = JSON.parse(
+          new TextDecoder("utf-8", { fatal: true }).decode(body),
+        );
+      } catch {
+        throw new OpError("invalid_input", "sync apply body is not json");
+      }
+      const request = parse(processSyncApplyRequestSchema, json);
+      const applied = await relay.syncApply(input.app, request);
+      if (!applied.ok) {
+        throw new OpError(applied.error.code, applied.error.message);
+      }
+      return applied.value;
+    },
+    [SUPERVISOR_OPS.snapshot]: async (payload) => {
+      const input = parse(snapshotInputSchema, payload);
+      const written = await relay.snapshot(input.app, { path: input.path });
+      if (!written.ok) {
+        throw new OpError(written.error.code, written.error.message);
+      }
+      return written.value;
     },
     [SUPERVISOR_OPS.previewStart]: (payload) => {
       const launch = parse(previewLaunchSchema, payload);

@@ -17,6 +17,7 @@ import { isJson } from "./wire-check.ts";
 import type { RuntimeState } from "./state.ts";
 import { readRejection } from "../../invocations/context.ts";
 import { ensureAppToolPort } from "./tool-port.ts";
+import { syncedWrite } from "./sync.ts";
 
 export type InvokeResult = { status: number; body: unknown };
 
@@ -28,15 +29,19 @@ export function fail(
   return { status, body: { error: { code, message } } };
 }
 
+// sync 앱의 write가 changeset과 같이 commit한 clock. JSON에서는 십진 문자열이다.
+type Stamp = { hlc?: string };
+
 // handler까지 가지 못했거나 handler가 실패한 호출. 효과가 있었을 수 있으니 changeset을 싣는다.
 function failed(
   code: string,
   message: string,
   changeset: string | null,
+  stamp: Stamp = {},
 ): InvokeResult {
   return {
     status: 200,
-    body: { status: "error", error: { code, message }, changeset },
+    body: { status: "error", error: { code, message }, changeset, ...stamp },
   };
 }
 
@@ -130,42 +135,60 @@ async function run(
   if (!handler) {
     return failed("not_found", "handler is not registered", null);
   }
-  if (record) state.store.begin();
-  let outcome: { ok: true; result: unknown } | { ok: false; error: unknown };
-  try {
-    outcome = {
-      ok: true,
-      result: await port.run(
-        {
-          app: state.identity.app,
-          release: state.identity.release,
-          mode: state.identity.mode,
-          invocation: call.invocation,
-          kind: call.kind,
-          name: call.name,
-          // 검증·default 적용한 실제 입력의 정규 hash다. 앱 코드의 capability 호출이 같은 호출에 묶였음을
-          // broker가 확인하는 근거다.
-          inputHash: inputHashOf(input.value),
-          caller: call.context.caller,
-        },
-        () => handler.handle(input.value),
-      ),
-    };
-  } catch (error) {
-    outcome = { ok: false, error };
-  }
+  type Outcome = { ok: true; result: unknown } | { ok: false; error: unknown };
+  const invokeHandler = async (): Promise<Outcome> => {
+    try {
+      return {
+        ok: true,
+        result: await port.run(
+          {
+            app: state.identity.app,
+            release: state.identity.release,
+            mode: state.identity.mode,
+            invocation: call.invocation,
+            kind: call.kind,
+            name: call.name,
+            // 검증·default 적용한 실제 입력의 정규 hash다. 앱 코드의 capability 호출이 같은 호출에 묶였음을
+            // broker가 확인하는 근거다.
+            inputHash: inputHashOf(input.value),
+            caller: call.context.caller,
+          },
+          () => handler.handle(input.value),
+        ),
+      };
+    } catch (error) {
+      return { ok: false, error };
+    }
+  };
+  let outcome: Outcome;
   // 실패해도 DB가 일부 바뀌었을 수 있다.
   let changeset: string | null = null;
-  if (record) {
-    try {
-      changeset = encodeChangeset(state.store.end());
-    } catch {
-      return failed("internal", "changeset could not be read", null);
+  let stamp: Stamp = {};
+  if (record && state.sync) {
+    // sync 앱은 data와 그 clock을 한 transaction으로 commit한다. handler가 던져도 바뀐 것은 clock과 같이 남는다.
+    const done = await syncedWrite(state.sync, invokeHandler);
+    if (!done.ok) {
+      return failed(done.error.code, done.error.message, null);
+    }
+    outcome = done.value.value;
+    changeset = encodeChangeset(done.value.changeset);
+    if (done.value.hlc !== null) stamp = { hlc: String(done.value.hlc) };
+  } else {
+    if (record) state.store.begin();
+    outcome = await invokeHandler();
+    if (record) {
+      try {
+        changeset = encodeChangeset(state.store.end());
+      } catch {
+        return failed("internal", "changeset could not be read", null);
+      }
     }
   }
   if (!outcome.ok) {
     const rejection = readRejection(outcome.error);
-    if (rejection) return failed(rejection.code, rejection.message, changeset);
+    if (rejection) {
+      return failed(rejection.code, rejection.message, changeset, stamp);
+    }
     if (outcome.error instanceof Error) {
       try {
         state.reportCaught?.(outcome.error, call.invocation);
@@ -174,18 +197,23 @@ async function run(
       }
     }
     // 원문은 내보내지 않는다.
-    return failed("internal", "handler failed", changeset);
+    return failed("internal", "handler failed", changeset, stamp);
   }
   const result = outcome.result ?? null;
   if (!isJson(result)) {
-    return failed("internal", "result is not JSON", changeset);
+    return failed("internal", "result is not JSON", changeset, stamp);
   }
   // 화면 operation의 응답은 frame을 넘어 stream으로 가고, 바깥 명령의 결과는 frame 하나에 든다.
   if (
     new TextEncoder().encode(JSON.stringify(result)).byteLength >
     (call.kind === "operation" ? OPERATION_RESULT_MAX_BYTES : RESULT_MAX_BYTES)
   ) {
-    return failed("internal", "result exceeds the size limit", changeset);
+    return failed(
+      "internal",
+      "result exceeds the size limit",
+      changeset,
+      stamp,
+    );
   }
-  return { status: 200, body: { status: "ok", result, changeset } };
+  return { status: 200, body: { status: "ok", result, changeset, ...stamp } };
 }

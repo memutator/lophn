@@ -16,6 +16,8 @@ export const CONTROL_PATHS = {
 export const PROCESS_PATHS = {
   call: "/_lophn/control/call",
   apply: "/_lophn/control/apply",
+  sync_apply: "/_lophn/control/sync_apply",
+  snapshot: "/_lophn/control/snapshot",
 } as const;
 
 export const BROKER_PATHS = {
@@ -36,5 +38,5 @@ export const RESULT_MAX_BYTES = CALL_RESPONSE_MAX_BYTES - 1024;
 // operation 응답 전체(결과·changeset·칸)의 상한과, 거기서 결과 밖 칸 몫 1 KiB를 뺀 결과 상한이다.
 export const OPERATION_RESPONSE_MAX_BYTES = CALL_RESULT_MAX_BYTES;
 export const OPERATION_RESULT_MAX_BYTES = CALL_RESULT_MAX_BYTES - 1024;
-// 뒤집은 changeset 목록의 본문 상한이다.
+// 뒤집은 changeset 목록과 폰에서 온 변경 하나의 본문 상한이다.
 export const APPLY_BODY_MAX_BYTES = 64 * 1_048_576;

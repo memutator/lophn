@@ -27,7 +27,9 @@ import {
   releasePreparationOutputSchema,
   type ReleasePreparationWire,
   restartOutputSchema,
+  snapshotOutputSchema,
   SUPERVISOR_OPS,
+  syncApplyOutputSchema,
 } from "./control-protocol.ts";
 import type { DesiredApp } from "./supervisor/supervisor.ts";
 import {
@@ -497,7 +499,7 @@ export function createSupervisorClient(
   };
 }
 
-// core가 앱 process를 부르는 길이다. supervisor 제어 pipe의 `apps.call`·`apps.apply`를 보낸다.
+// core가 앱 process를 부르는 길이다. supervisor 제어 pipe의 `apps.call`·`apps.apply`·`apps.sync_apply`·`apps.snapshot`을 보낸다.
 // supervisor가 없거나 앱에 보내기 전에 거절하면 `sent: false`이고, 보낸 뒤 답이 끊기면 `response: null`이다.
 export function createAppProcessLink(
   channel: SupervisorChannel,
@@ -551,6 +553,28 @@ export function createAppProcessLink(
           APPLY_REQUEST_TIMEOUT_MS,
           // 뒤집은 changeset 전부가 한 요청이라 control frame 한도를 넘을 수 있다.
           new TextEncoder().encode(JSON.stringify(request)),
+        ),
+      );
+    },
+    async syncApply(app, request) {
+      return shaped(
+        syncApplyOutputSchema,
+        await channel.request(
+          SUPERVISOR_OPS.syncApply,
+          { app },
+          APPLY_REQUEST_TIMEOUT_MS,
+          // 폰의 changeset은 control frame 한도를 넘을 수 있다.
+          new TextEncoder().encode(JSON.stringify(request)),
+        ),
+      );
+    },
+    async snapshot(app, request) {
+      return shaped(
+        snapshotOutputSchema,
+        await channel.request(
+          SUPERVISOR_OPS.snapshot,
+          { app, ...request },
+          APPLY_REQUEST_TIMEOUT_MS,
         ),
       );
     },

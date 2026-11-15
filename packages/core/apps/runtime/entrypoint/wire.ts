@@ -211,6 +211,37 @@ export function parseProcessApply(
   return { changesets: list as string[] };
 }
 
+// processSyncApplyRequestSchema와 같다. hlc는 63 bit 정수의 십진 문자열이다.
+export function parseProcessSyncApply(
+  value: unknown,
+): { change: { hlc: bigint; changeset: string } } | undefined {
+  const source = record(value);
+  if (!source || exact(source, ["change"])) return;
+  const change = record(source.change);
+  if (!change || exact(change, ["hlc", "changeset"])) return;
+  if (
+    typeof change.hlc !== "string" ||
+    !/^(0|[1-9][0-9]{0,18})$/.test(change.hlc) ||
+    typeof change.changeset !== "string" ||
+    !BASE64.test(change.changeset)
+  )
+    return;
+  const hlc = BigInt(change.hlc);
+  if (hlc >= BigInt(2) ** BigInt(63)) return;
+  return { change: { hlc, changeset: change.changeset } };
+}
+
+// processSnapshotRequestSchema와 같다.
+export function parseProcessSnapshot(
+  value: unknown,
+): { path: string } | undefined {
+  const source = record(value);
+  if (!source || exact(source, ["path"])) return;
+  return typeof source.path === "string" && source.path !== ""
+    ? { path: source.path }
+    : undefined;
+}
+
 type ControlProbe = { process_nonce: string };
 type ControlOpen = { process_nonce: string; release: string | null };
 type ControlClose = { process_nonce: string; reason: string };

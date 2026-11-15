@@ -29,6 +29,8 @@ import { installCrashExit } from "./crash.ts";
 import { BROKER_PATHS, SOCKET_HOST } from "./limits.ts";
 import { parseAppStart } from "./start-input.ts";
 import { publishReady, startRuntime } from "./startup.ts";
+import { openSyncStore, runsOnPhone } from "./sync.ts";
+import type { NodeDatabase } from "../../../../protocol/apps/sync/node-db.ts";
 
 const CRASH_REPORT_WAIT_MS = 2_000;
 
@@ -105,10 +107,10 @@ async function main(deps: MainDeps): Promise<void> {
             stack === null ? { reason: "not a string" } : null,
         },
         error_missing_reason: null,
-        invocation: {
-          id: invocation,
-          record_missing_reason: null,
-        },
+        invocation:
+          invocation === null
+            ? null
+            : { id: invocation, record_missing_reason: null },
       })
       .catch(() => {
         // 보고 실패가 command 결과나 프로세스 종료를 바꾸지 않는다.
@@ -121,6 +123,24 @@ async function main(deps: MainDeps): Promise<void> {
     throw error;
   }
   const startChangeset = started.state.store.end();
+  // sync 앱은 앱 code가 cap-store를 실은 뒤 그 연결에 sync 표를 건다. DB를 쓰지 않는 앱(migration이 없거나
+  // cap-store를 싣지 않음)은 sync 일을 하지 않는다.
+  if (
+    started.state.identity.mode === "live" &&
+    deps.dataSchema > 0 &&
+    runsOnPhone(deps.declaration)
+  ) {
+    const database = started.state.store.database();
+    if (database !== null) {
+      started.state.sync = openSyncStore({
+        database: database as NodeDatabase,
+        node: ids.newId("node"),
+        record: started.state.store,
+        nowMs: () => clock.nowMs(),
+        startChangeset,
+      });
+    }
+  }
   // supervisor는 control socket이 열려야 준비를 확인하고 그때 ready 통보의 changeset을 읽는다. 그래서
   // 시작이 DB를 바꿨으면 changeset을 먼저 알리고 control server를 연다. 알리지 못하면 changeset이
   // 사라지므로 시작을 실패로 본다.

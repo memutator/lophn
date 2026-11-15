@@ -15,6 +15,10 @@ import type {
   CallKind,
   ProcessApplyRequest,
   ProcessApplyResponse,
+  ProcessSnapshotRequest,
+  ProcessSnapshotResponse,
+  ProcessSyncApplyRequest,
+  ProcessSyncApplyResponse,
   ProcessCallRequest,
   ProcessCallResponse,
   Rewind,
@@ -144,6 +148,16 @@ export interface AppProcessLink {
     app: Id<"app">,
     request: ProcessApplyRequest,
   ): Promise<Result<ProcessApplyResponse>>;
+  /** sync 앱에 폰에서 온 변경 하나를 적용한다. 앱 process가 없거나 준비 전이면 `unavailable`이다. */
+  syncApply(
+    app: Id<"app">,
+    request: ProcessSyncApplyRequest,
+  ): Promise<Result<ProcessSyncApplyResponse>>;
+  /** sync 앱 DB의 사본을 request.path에 쓴다. 앱 process가 없거나 준비 전이면 `unavailable`이다. */
+  snapshot(
+    app: Id<"app">,
+    request: ProcessSnapshotRequest,
+  ): Promise<Result<ProcessSnapshotResponse>>;
 }
 
 /**

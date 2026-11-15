@@ -8,6 +8,9 @@ import {
   processApplyResponseSchema,
   processCallRequestSchema,
   processCallResponseSchema,
+  processSnapshotRequestSchema,
+  processSnapshotResponseSchema,
+  processSyncApplyResponseSchema,
 } from "../../../protocol/apps/calls/mod.ts";
 import { errorBodySchema } from "../../../protocol/base/mod.ts";
 
@@ -26,6 +29,9 @@ export const SUPERVISOR_OPS = {
   // control socket으로 중계만 한다.
   call: "apps.call",
   apply: "apps.apply",
+  // sync 앱(`runs_on`에 phone)의 DB: 폰에서 온 변경 하나를 적용하고, 폰이 처음 받을 snapshot을 뜬다. 중계만 한다.
+  syncApply: "apps.sync_apply",
+  snapshot: "apps.snapshot",
   // preview 프로세스(운영 자식과 따로 한 앱에 많아야 하나)의 시작·관측·종료. 운영 상태와
   // 활성 참조를 건드리지 않는다(apps/preview).
   previewStart: "apps.preview_start",
@@ -220,3 +226,11 @@ export const applyInputSchema = z.strictObject({
   app: appId,
 });
 export const applyOutputSchema = processApplyResponseSchema;
+// 본문(ProcessSyncApplyRequest)은 apply처럼 같은 request의 bytes stream이다. changeset이 control frame을 넘을 수 있다.
+export const syncApplyInputSchema = z.strictObject({ app: appId });
+export const syncApplyOutputSchema = processSyncApplyResponseSchema;
+export const snapshotInputSchema = z.strictObject({
+  app: appId,
+  ...processSnapshotRequestSchema.shape,
+});
+export const snapshotOutputSchema = processSnapshotResponseSchema;

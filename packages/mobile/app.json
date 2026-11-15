@@ -29,10 +29,29 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "lophn scans the pairing QR code shown on your computer.",
+          "cameraPermission": "lophn uses the camera to scan the pairing QR code shown on your computer and to take photos you add to a message.",
           "recordAudioAndroid": false
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "lophn reads the photos you choose to add to a message.",
+          "cameraPermission": "lophn uses the camera to scan the pairing QR code shown on your computer and to take photos you add to a message.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "lophn shows your latest photos so you can add one to a message.",
+          "savePhotosPermission": false,
+          "granularPermissions": [
+            "photo"
+          ]
+        }
+      ],
+      "expo-document-picker",
       [
         "expo-font",
         {

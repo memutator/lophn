@@ -56,6 +56,16 @@ export {
   useStartSession,
   useWorkspaces,
 } from "./hooks.tsx";
+export {
+  ATTACH_MAX_MB,
+  ATTACH_TYPES,
+  type Attached,
+  type Candidate,
+  readCandidates,
+  type Refusal,
+  uploadAttached,
+  withAttached,
+} from "./attach.ts";
 export type { ComputerData, SampleConversation } from "./link.ts";
 export { createPhoneComputers } from "./phone.ts";
 export type {

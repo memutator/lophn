@@ -41,6 +41,7 @@ adb -s emulator-5554 emu kill                                     # 끝낼 때
 ```
 
 - native module(`app.json`, 의존성)을 바꾸면 prebuild와 gradle을 다시 돈다. JS만 바꾸면 Metro가 다시 읽는다.
+- 대화의 첨부는 native module `expo-image-picker`(Photos, Camera), `expo-document-picker`(Files), `expo-media-library`(sheet의 최근 사진 줄)를 쓴다. 사진·카메라 권한 문구는 `app.json`의 plugin 설정이다. emulator의 사진은 `adb -s <emulator> push`로 `/sdcard/Pictures`에 넣고 `am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE`로 알린다.
 - `CI=1`로 띄운 Metro는 file을 지켜보지 않는다. JS를 바꾸면 Metro를 다시 띄운다.
 - emulator에서 이 machine은 `10.0.2.2`다.
 - 첫 gradle build는 NDK·CMake를 `~/Android/Sdk`에 받아 몇 분 걸린다.

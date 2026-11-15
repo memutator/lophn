@@ -15,7 +15,7 @@ import {
   Working,
 } from "@lophn/ui-native";
 import { Ellipsis, Monitor } from "lucide-react-native";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import type { AcpCommand, AcpCommandOpens } from "../../../../protocol/acp/mod.ts";
 import { textBlocks } from "../../../../protocol/lophn-agent/content-block.ts";
@@ -37,6 +37,7 @@ import { newId } from "../../../../shell/renderer/prefixed-id.ts";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
 import {
   type ConversationTarget,
+  type Attached,
   type SampleConversation,
   type SessionRow,
   useConversation,
@@ -48,6 +49,7 @@ import {
 } from "../../data/mod.ts";
 import { Face, LOPHN, type Profile } from "../../parts/mod.ts";
 import { Pending } from "./ask.tsx";
+import { attachedAbove, useAttachments } from "./attach.tsx";
 import { duration, useTick } from "./parts.tsx";
 import {
   AttachSheet,
@@ -194,6 +196,10 @@ export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
 
   const [draft, setDraft] = useState("");
   const [outgoing, setOutgoing] = useState<Outgoing | null>(null);
+  const attachments = useAttachments();
+  // The pictures of the message being sent, to put back when the core does not take it (their uploads stay valid).
+  const sentWith = useRef<{ id: string; items: readonly Attached[] } | null>(null);
+  const { restore } = attachments;
   const [sheet, setSheet] = useState<SheetState | null>(null);
   const close = useCallback(() => setSheet(null), []);
 
@@ -212,9 +218,12 @@ export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
       const next = afterReply(message, reply.ok ? { ok: true } : { ok: false, code: reply.code });
       setOutgoing(next);
       // Not taken: the words go back in the box to send again.
-      if (next.phase === "not_sent") setDraft(textOfOutgoing(next));
+      if (next.phase === "not_sent") {
+        setDraft(textOfOutgoing(next));
+        if (sentWith.current?.id === message.id) restore(sentWith.current.items);
+      }
     },
-    [source, session],
+    [source, session, restore],
   );
 
   const commands = (meta?.commands ?? []).filter((command) => OPENS.has(command.opens));
@@ -222,23 +231,33 @@ export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
   const run = (command: AcpCommand, argument: string) =>
     void source.act(session, { type: "run_command", session, key: actKey("cmd"), name: command.name, argument });
 
-  const send = () => {
+  const send = async () => {
     const text = draft.trim();
-    if (text === "") return;
+    const pictures = attachments.items;
+    if (text === "" || attachments.uploading) return;
     // `/name argument` runs a command the source lists, as the desktop composer does.
     const slash = /^\/(\S+)\s*([\s\S]*)$/.exec(text);
-    const command = slash === null ? undefined : commands.find((one) => one.name === slash[1] && one.opens === null);
-    setDraft("");
+    const command =
+      slash === null || pictures.length > 0
+        ? undefined
+        : commands.find((one) => one.name === slash[1] && one.opens === null);
     if (command !== undefined) {
+      setDraft("");
       run(command, slash![2]!.trim());
       return;
     }
+    // Pictures go up first; if one does not, nothing is sent and the words and pictures stay as they are.
+    const uploaded = pictures.length === 0 ? [] : await attachments.upload(source);
+    if (uploaded === null) return;
+    setDraft("");
+    attachments.clear();
     const id = newId("msg");
+    sentWith.current = { id, items: pictures };
     void deliver(
       startSend({
         id,
         key: `session-messages-send-${id}`,
-        content: textBlocks(text),
+        content: [...textBlocks(text), ...uploaded],
         delivery: "next_turn",
         queued: active !== null,
       }),
@@ -385,12 +404,13 @@ export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
       <Composer
         value={draft}
         onChangeText={setDraft}
-        onSend={send}
+        onSend={() => void send()}
+        above={attachedAbove(attachments)}
         placeholder={placeholder}
         working={active?.phase === "working"}
         onStop={() => void conversation.stop()}
         onAttach={() => setSheet({ kind: "attach" })}
-        disabled={conversation.connection === "reconnecting" || outgoing?.phase === "sending"}
+        disabled={conversation.connection === "reconnecting" || outgoing?.phase === "sending" || attachments.uploading}
         chips={
           caps.model && meta !== null ? (
             <Chip onPress={() => setSheet({ kind: "model" })}>{picker.currentLabel}</Chip>
@@ -450,6 +470,10 @@ export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
         onClose={close}
         agent={who.name}
         workspace={project === null ? null : { name: workspaceName }}
+        pictures={caps.images}
+        computer={computer}
+        offline={conversation.connection === "reconnecting"}
+        onPicked={(picked) => void attachments.add(picked)}
         onFile={project === null ? null : () => setSheet({ kind: "files" })}
         onCommands={caps.commands && commands.length > 0 ? () => setSheet({ kind: "commands" }) : null}
       />

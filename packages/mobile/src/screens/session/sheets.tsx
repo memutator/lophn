@@ -49,7 +49,9 @@ import {
   contextPercent,
 } from "../../../../shell/renderer/conversation/status-view/status-summary.ts";
 import { vendorOf } from "../../../../shell/renderer/parts/vendor-icon/vendors.ts";
+import type { Candidate } from "../../data/mod.ts";
 import { Face, type Profile, VendorIcon } from "../../parts/mod.ts";
+import { AttachPicks } from "./attach.tsx";
 import { useProjectFiles } from "./data.ts";
 import { elapsedText, toolIcon } from "./parts.tsx";
 
@@ -205,6 +207,10 @@ export function AttachSheet({
   onClose,
   agent,
   workspace,
+  pictures,
+  computer,
+  offline,
+  onPicked,
   onFile,
   onCommands,
 }: {
@@ -213,11 +219,24 @@ export function AttachSheet({
   agent: string;
   /** The project to point at a file of; null when the workspace has no files to browse (Home, an app). */
   workspace: { name: string } | null;
+  /** The agent takes pictures in a message. */
+  pictures: boolean;
+  computer: string;
+  /** The computer is offline: pictures cannot be uploaded now. */
+  offline: boolean;
+  onPicked: (picked: Candidate[]) => void;
   onFile: (() => void) | null;
   onCommands: (() => void) | null;
 }) {
+  const pointing = workspace !== null && onFile !== null;
   return (
     <Sheet open={open} onClose={onClose} title={t("mobile.session.title.attach")}>
+      {pictures && (
+        <>
+          <AttachPicks open={open} locked={offline} computer={computer} onClose={onClose} onPicked={onPicked} />
+          {(pointing || onCommands !== null) && <Divider spacing={6} />}
+        </>
+      )}
       {workspace !== null && onFile !== null && (
         <Row
           lead={<Icon icon={AtSign} />}

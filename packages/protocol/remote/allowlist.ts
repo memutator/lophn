@@ -9,23 +9,38 @@ import {
   activationConsent,
   activationConsents,
 } from "../apps/activation/consent.ts";
+import {
+  releasesGetRecord,
+  releasesListRecords,
+} from "../apps/activation/activation.ts";
 import { appGet, appList } from "../apps/apps.ts";
+import { appInvocation, appInvocations } from "../apps/calls/invocation.ts";
 import { appRewindPlan } from "../apps/calls/rewind.ts";
+import { appIcon, appTools } from "../apps/declaration/read.ts";
 import {
   noticeDismiss,
   noticeMarkRead,
   noticesList,
   noticesOpen,
 } from "../apps/notice.ts";
+import { appRuntime } from "../apps/runtime.ts";
 import type { BusEvent } from "../events/bus.ts";
 import { sessionSnapshotsList } from "../events/snapshot.ts";
 import {
   jobApprove,
   jobDecideHold,
   jobHolds,
+  jobList,
   jobPending,
+  jobRunList,
+  jobUpdate,
 } from "../jobs/jobs.ts";
-import { agentRead } from "../lophn-agent/agent-definitions.ts";
+import {
+  agentCard,
+  agentList,
+  agentProfileImageRead,
+  agentRead,
+} from "../lophn-agent/agent-definitions.ts";
 import {
   workspaceSessionList,
   workspaceSessionOpen,
@@ -63,15 +78,26 @@ import {
   renameSession,
   requestSessionCompact,
 } from "../lophn-agent/sessions.ts";
+import { skillsRead } from "../lophn-agent/skill-settings.ts";
 import { turnBodyView, turnList, turnRead } from "../lophn-agent/turn-reads.ts";
 import { stopTurn } from "../lophn-agent/turns.ts";
 import { projectApi } from "../projects/project-api.ts";
+import { projectSearch } from "../projects/project-search.ts";
+import { runList, runRead } from "../runs/runs.ts";
+import {
+  workflowInstanceList,
+  workflowInstanceRead,
+  workflowList,
+  workflowStart,
+  workflowStop,
+} from "../workflows/routes.ts";
 import { remoteUiFile, remoteUiManifest } from "./routes.ts";
 
 // 등록한 기기가 부를 수 있는 route의 전부다. 기기 자격의 scope가 이 이름들이고, 밖의 route는 `forbidden`이다.
-// 폰은 일하는 창이다: session 목록, 대화, Inbox가 읽는 것과 일을 이어 가는 쓰기만 둔다.
-// secret, provider·설정 쓰기, 기기와 pairing, 앱 지우기, `host/*`, `sessions/delete`(되돌릴 수 없다), `sessions/change-skip`(사람에게
-// 묻지 않고 돌게 하는 권한 설정이다)은 넣지 않는다. `acp/send`는 안의 route를 기기 자격으로 부르므로 대화 조작 route도 여기 있어야 한다.
+// 폰은 일하는 창이다: 보고, 말하고, 답하고, 켜고 끄고, 시작하는 route만 둔다.
+// 만들기·고치기·지우기(agent, job, 앱, project, workflow 정의), secret, provider·model 관리, 설정 쓰기, 기기와 pairing, `host/*`,
+// `tabs/*`, `sessions/delete`(되돌릴 수 없다), `sessions/change-skip`(사람에게 묻지 않고 돌게 하는 권한 설정이다)은 넣지 않는다.
+// `jobs/update`는 켜고 끄기(`enabled`)만 받는다(core/remote/call.ts). `acp/send`는 안의 route를 기기 자격으로 부르므로 대화 조작 route도 여기 있어야 한다.
 // 모두 user가 부를 수 있는 route여야 한다(아니면 core가 기기 자격을 만들지 못한다).
 // file·upload route의 bytes는 `call`에서 base64로 싣는다(core/remote/call.ts). 폰은 화면 bundle도 이 목록의 route로 받는다.
 export const REMOTE_ALLOWED_ROUTES = [
@@ -85,6 +111,10 @@ export const REMOTE_ALLOWED_ROUTES = [
   appGet,
   projectApi.list,
   projectApi.get,
+  projectApi.icon,
+  appIcon,
+  // 새 session: 그 workspace에서 일할 수 있는 agent
+  agentList,
   // 대화
   acpSnapshot,
   acpDraft,
@@ -133,14 +163,39 @@ export const REMOTE_ALLOWED_ROUTES = [
   jobApprove,
   shareRequestList,
   shareRequestDecide,
+  // Agents
+  agentCard,
+  agentProfileImageRead,
+  skillsRead,
+  // Jobs
+  jobList,
+  jobRunList,
+  jobUpdate,
+  // project workspace: workflow와 file 내용 검색
+  workflowList,
+  workflowInstanceList,
+  workflowInstanceRead,
+  workflowStart,
+  workflowStop,
+  projectSearch,
+  // 앱 workspace: 실행 기록과 판
+  runList,
+  runRead,
+  appInvocations,
+  appInvocation,
+  appTools,
+  appRuntime,
+  releasesListRecords,
+  releasesGetRecord,
   // 화면 bundle
   remoteUiManifest,
   remoteUiFile,
 ] as const;
 
 // 등록한 기기의 `watch`가 받을 수 있는 event type의 전부다. 기기가 건 조건과 상관없이 core가 이 밖은 보내지 않는다.
-// 위 route로 그리는 대화와 Inbox 화면이 듣는 것이다: session 목록의 상태, 대화의 ACP 갱신, 대기 줄(물음, 동의, 공유 요청, 알림, job).
-// 앱 event(`AppEventPublished`, 앱이 정한 payload), 설정, 앱 설치·지우기·화면, workflow는 넣지 않는다.
+// 위 route로 그리는 화면이 듣는 것이다: session 목록의 상태, 대화의 ACP 갱신, 대기 줄(물음, 동의, 공유 요청, 알림, job).
+// Jobs, Agents, workflow, 앱 실행 기록은 따로 event가 없고 `StateChanged`의 이름(jobs, agents, workflow_instances, runs,
+// app_activity, app_runtime, releases)으로 다시 읽는다. 앱 event(`AppEventPublished`, 앱이 정한 payload), 앱 설치·지우기·화면은 넣지 않는다.
 export const REMOTE_ALLOWED_EVENTS = [
   // 대화
   "SessionStarted",

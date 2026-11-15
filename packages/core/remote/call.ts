@@ -5,6 +5,7 @@ import {
   RPC_JSON_MAX_BYTES,
   UPLOAD_INPUT_HEADER,
 } from "../../protocol/base/mod.ts";
+import { jobUpdate } from "../../protocol/jobs/mod.ts";
 import { REMOTE_ALLOWED_ROUTES } from "../../protocol/remote/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import { authorize, type CredentialRegistry } from "../server/identity/mod.ts";
@@ -136,6 +137,12 @@ export function createRemoteCall(deps: RemoteCallDeps): RemoteCall {
     if (!current.ok) return current;
     const allowed = authorize(current.value, entry.route.name);
     if (!allowed.ok) return allowed;
+    if (entry.route.name === jobUpdate.name && !onlyToggles(call.body)) {
+      return err({
+        code: "forbidden",
+        message: "a device may only turn a job on or off",
+      });
+    }
     const arrival = deps.admission.enterHttp(current.value.principal);
     if (!arrival.ok) return arrival;
     try {
@@ -178,6 +185,13 @@ export function createRemoteCall(deps: RemoteCallDeps): RemoteCall {
       arrival.value.release();
     }
   };
+}
+
+// 폰은 job을 켜고 끄기만 한다. 이름·때·놓친 차례를 바꾸는 것은 job 고치기라 기기 자격에 없다.
+function onlyToggles(body: unknown): boolean {
+  const input = (body as { input?: unknown } | null)?.input;
+  if (typeof input !== "object" || input === null) return true;
+  return Object.keys(input).every((key) => key === "job" || key === "enabled");
 }
 
 // upload route: body `{input, base64}`를 HTTP upload 요청(input은 header, bytes는 body)으로 바꾼다. 한도는 dispatch가 route의

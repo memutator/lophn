@@ -3,12 +3,25 @@ import { test } from "node:test";
 import type { z } from "zod";
 import { manualClock, ok, seededRandom } from "../../base/mod.ts";
 import { type Route, routePath } from "../../protocol/base/mod.ts";
+import { appCreate, appDelete } from "../../protocol/apps/apps.ts";
 import { appsSecretValue } from "../../protocol/apps/secret-use.ts";
+import { jobCreate, jobDelete } from "../../protocol/jobs/jobs.ts";
+import {
+  agentChange,
+  agentCreate,
+  agentDelete,
+} from "../../protocol/lophn-agent/agent-definitions.ts";
 import {
   hostDone,
   hostReport,
   hostTake,
+  tabsOpen,
 } from "../../protocol/lophn-agent/host-queue.ts";
+import {
+  changeShownModels,
+  modelDefaultChange,
+  workspaceModelChange,
+} from "../../protocol/lophn-agent/models.ts";
 import {
   connectProvider,
   disconnectProvider,
@@ -21,6 +34,7 @@ import {
   changeSessionSkip,
   deleteSession,
 } from "../../protocol/lophn-agent/sessions.ts";
+import { projectApi } from "../../protocol/projects/project-api.ts";
 import { ROUTES } from "../../protocol/registry.ts";
 import {
   connectRemote,
@@ -40,6 +54,7 @@ import {
   pairingStart,
   remoteKeyText,
 } from "../../protocol/remote/mod.ts";
+import { workflowEdit } from "../../protocol/workflows/routes.ts";
 import { devicesSetting } from "../config/shell-settings.ts";
 import { createBus } from "../events/mod.ts";
 import {
@@ -151,6 +166,20 @@ function setup() {
     hostTake,
     hostReport,
     hostDone,
+    agentCreate,
+    agentChange,
+    agentDelete,
+    jobCreate,
+    jobDelete,
+    appCreate,
+    appDelete,
+    projectApi.register,
+    projectApi.edit,
+    workflowEdit,
+    changeShownModels,
+    modelDefaultChange,
+    workspaceModelChange,
+    tabsOpen,
   ];
   for (const route of [...ROUTES, ...REMOTE_ALLOWED_ROUTES, ...outside]) {
     allRoutes.set(routePath(route), route);
@@ -426,7 +455,7 @@ test("기기는 route 목록 밖의 route를 forbidden으로 받고 handler에 �
   assert.deepEqual(s.reached, ["turn_requests/decide"]);
 });
 
-test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·설정 쓰기, devices/*, pairing/*, host/*는 forbidden이다", async () => {
+test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model·설정 쓰기, devices/*, pairing/*, host/*, agent·job·앱·project·workflow 만들기·고치기·지우기는 forbidden이다", async () => {
   const s = setup();
   const key = generateKeyPair(s.random);
   s.register(key);
@@ -459,10 +488,30 @@ test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·설정
     "host/take",
     "host/report",
     "host/done",
+    "agents/create",
+    "agents/change",
+    "agents/delete",
+    "jobs/create",
+    "jobs/delete",
+    "apps/create",
+    "apps/delete",
+    "projects/create",
+    "projects/update",
+    "workflows/edit",
+    "shown-models/change",
+    "model-default/change",
+    "workspace-model/change",
+    "tabs/open",
+    // 목록에 있지만 켜고 끄기만 받는다. 이름을 바꾸면 job 고치기다.
+    "jobs/update",
   ];
   for (const path of outside) {
     const [resource, method] = path.split("/");
-    c.phone.send({ type: "call", id: path, resource, method, body: {} });
+    const body =
+      path === "jobs/update"
+        ? { input: { job: "job_x", title: "renamed" }, compare: {}, key: "k" }
+        : {};
+    c.phone.send({ type: "call", id: path, resource, method, body });
   }
   await settle();
   assert.deepEqual(

@@ -335,7 +335,7 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 
 | 단계 | 계획 | 상태 |
 |---|---|---|
-| 2 | `mobile-app` | 진행 중. wireframe은 사람이 승인(gallery Drafts › Phone app). wave 1(kit, data, route)이 끝났고 폰 앱 폴더를 `packages/mobile`로 옮겼다. wave 2(`mobile-frame`)가 돌고 있다 |
+| 2 | `mobile-app` | 끝남(2026-11-16, 0.23.62. change-log `mobile-app`, `architecture/remote.md`·`ui-kit.md`). 폰 UI kit과 native 화면으로 폰 앱을 다시 지었고 web 화면 길을 지웠다. 실제 폰 확인과 알려진 빈틈(이슈 `phone-*`)이 남았다 |
 | 6 | `mobile-user-apps` | 진행 중(task 15개). `phone` 자리, 기준 폰 읽기, core의 view 표, 폰 화면 계약이 합쳐졌다. spike `reports/mobile-program/app-screens-spike.md`, 조사 `reports/mobile-program/app-place-survey.md`. 폰 앱을 고치는 뒤쪽 wave는 `mobile-app` land 뒤 |
 | 4 | `mobile-push` | core의 주의(attention), push 보내기, desktop의 보고가 합쳐졌다. 폰 쪽 둘은 `mobile-app` land 뒤. 조사 `reports/mobile-program/push-survey.md`. 실제 배달에는 사람의 Expo·Firebase 계정이 든다 |
 | 5, 9 | `mobile-coding-agents` | 진행 중. core의 `/host-link`가 합쳐졌다. 조사 `reports/mobile-program/coding-agent-relay-survey.md` |

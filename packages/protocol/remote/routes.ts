@@ -27,6 +27,20 @@ export const pairingStart = defineMemory({
   errors: ["invalid_input", "forbidden", "unavailable"],
 });
 
+// 설정 `remote.relay`로 건 relay 연결의 상태. relay 설정이 비었거나 remote가 꺼져 있으면 off다.
+export const remoteRelayStatus = defineMemory({
+  resource: "remote_relay",
+  method: "status",
+  name: "remote_relay.status",
+  input: z.strictObject({}),
+  output: z.strictObject({
+    url: z.string().nullable(),
+    state: z.enum(["off", "connecting", "connected"]),
+  }),
+  actors: ["user"],
+  errors: ["invalid_input", "forbidden"],
+});
+
 const deviceSchema = remoteDeviceSchema.extend({
   id: deviceIdSchema,
   public_key: keyTextSchema,

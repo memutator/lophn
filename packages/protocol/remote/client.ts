@@ -22,3 +22,4 @@ export {
   remoteKeyBytes,
   remoteKeyText,
 } from "./noise.ts";
+export { relayPhoneUrl } from "./relay.ts";

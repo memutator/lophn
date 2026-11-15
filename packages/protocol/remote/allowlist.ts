@@ -34,16 +34,16 @@ import {
 import { askAnswer, askRead } from "../lophn-agent/ask-tool.ts";
 import { agentCallRead, callCancel } from "../lophn-agent/calls.ts";
 import {
+  inputRequestCancel,
+  inputRequestRead,
+} from "../lophn-agent/input-request.ts";
+import {
   editQueued,
   moveQueued,
   removeQueued,
   sendMessage,
   steerQueuedNow,
 } from "../lophn-agent/inputs.ts";
-import {
-  inputRequestCancel,
-  inputRequestRead,
-} from "../lophn-agent/input-request.ts";
 import {
   messageImageRead,
   messageImageUpload,

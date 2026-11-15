@@ -1663,6 +1663,24 @@ flows:
     crosses_process: false
     risk: [permission]
 
+  - id: remote-relay-status
+    title: "사람이 relay 연결 상태를 본다"
+    actor: person
+    entries: [route:remote_relay/status]
+    boundary: [core-api, server]
+    code: [packages/core/main/daemon/wiring/remote.ts]
+    steps:
+      - "설정 remote.relay의 주소와 relay control socket 상태(off, connecting, connected)를 돌려준다"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "user 아닌 actor다. 기기 자격도 route 목록 밖이라 forbidden이다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [permission]
+
   - id: remote-ui-manifest
     title: "폰이 remote 화면 bundle의 file 목록과 hash를 읽는다"
     actor: person

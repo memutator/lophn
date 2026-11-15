@@ -24,12 +24,14 @@ export const REMOTE_PATH = "/remote";
 // 공개 key의 글자 꼴(base64url, 32 bytes). `remoteKeyText`가 만든다.
 export const keyTextSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 
-// QR에 싣는 것. 폰은 addresses를 차례로 `ws://<address>:<port>/remote`로 붙어 보고, key로 core를 확인하고, code로 pairing한다.
+// QR에 싣는 것. 폰은 addresses의 `ws://<address>:<port>/remote`와 relay(있으면)를 같이 걸어 먼저 된 것을 쓰고,
+// key로 core를 확인하고, code로 pairing한다.
 export const remotePairingSchema = z.strictObject({
   addresses: z.array(z.string().min(1)).max(16),
   port: z.number().int().min(1).max(65535),
   key: keyTextSchema,
   code: z.string().min(1).max(128),
+  relay: z.string().url().optional(),
 });
 export type RemotePairing = z.infer<typeof remotePairingSchema>;
 

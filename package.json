@@ -22,6 +22,7 @@
     "dev": "node tools/dev.ts dev",
     "dev:core": "node tools/dev.ts dev:core",
     "dev:remote": "node tools/remote-dev.ts",
+    "dev:relay": "node packages/relay/main.ts --port 8787",
     "dev:mock": "node tools/dev.ts dev:mock",
     "doctor": "node tools/doctor/main.ts",
     "wireframes": "node tools/wireframes/build.ts",

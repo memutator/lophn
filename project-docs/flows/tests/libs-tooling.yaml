@@ -115,6 +115,10 @@ files:
     covers: []
     note: 스트리밍 중인 markdown 표시와 parse cache 렌더 helper
 
+  - path: packages/relay/relay_test.ts
+    covers: []
+    note: "증명하지 못한 control socket(증명 없음, 다른 key의 증명)에는 폰 연결이 이어지지 않는다. 폰 연결 둘의 message(data socket 전에 든 것 포함, 두 방향)가 서로의 data socket으로 가지 않고, 받는 쪽이 1 MiB를 넘게 밀리면 그 짝만 닫힌다"
+
   - path: packages/protocol/remote/channel_test.ts
     covers: []
     note: "Noise IK test vector(cacophony), responder가 받는 상대 공개 key와 큰 frame 나누기, 다른 key의 responder와 handshake 실패, record를 바꾸거나 빠뜨리거나 순서를 바꾸면 받는 쪽이 끊음"

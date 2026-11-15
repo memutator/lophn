@@ -37,6 +37,7 @@ const ALL_PACKAGES = [
   "design",
   "sdk",
   "shell",
+  "relay",
   "tools",
   "tests",
 ];
@@ -205,6 +206,7 @@ const TSC_PROJECTS: Record<string, string[]> = {
   design: ["packages/design", "packages/design/i18n"],
   sdk: ["packages/sdk", "packages/sdk/flow"],
   shell: ["packages/shell/renderer"],
+  relay: ["packages/relay"],
   tools: ["tools", "tools/wireframes"],
   tests: ["tests"],
 };

@@ -119,6 +119,10 @@ modules:
     boundary: shell
     notes: shell 중 coding-agent를 import할 수 있는 곳이다(shell/main/terminal도).
 
+  - path: packages/relay
+    boundary: relay
+    notes: 저장소에서 짓지만 사람의 기계가 아니라 인터넷의 서버에서 돈다. protocol만 import한다.
+
   - path: mobile
     boundary: mobile
     notes: root npm workspace 밖의 Expo project다(자기 package.json과 lock). `npm run check` 밖이라 `cd mobile; npm run typecheck; npm test`로 본다. protocol은 Metro가 `packages/protocol/remote/client.ts` source를 읽는다.

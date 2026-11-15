@@ -7,7 +7,7 @@ lead만 고친다. `tools/status.py mobile-widgets build`가 `tasks/*.md`에서 
 | `mobile-phone-link-contract` | phone-link | 1 | 없음 | running | phone-link/mobile-phone-link-contract |  |  |
 | `mobile-widget-wireframes` | widget-design | 1 | 없음 | running | widget-design/mobile-widget-wireframes |  |  |
 | `mobile-widget-spike` | widget-spike | 1 | 없음 | todo |  |  |  |
-| `mobile-widget-contract` | widgets | 1 | 없음 | running | widgets/mobile-widget-contract |  |  |
+| `mobile-widget-contract` | widgets | 1 | 없음 | merged | widgets/mobile-widget-contract | e8a53a8a2 |  |
 | `mobile-cap-phone` | phone-use | 2 | mobile-phone-link-contract | todo |  |  |  |
 | `mobile-widgets-decl` | widgets | 2 | 없음 | todo |  |  |  |
 | `mobile-open-target` | open-target | 3 | 없음 | todo |  |  |  |

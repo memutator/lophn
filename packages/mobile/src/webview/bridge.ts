@@ -4,8 +4,8 @@ import { z } from "zod";
 import type {
   ConnectionState,
   CoreEventMessage,
-} from "../../../packages/shell/ipc/core.ts";
-import type { CoreReply } from "../../../packages/shell/ipc/core-api.ts";
+} from "../../../shell/ipc/core.ts";
+import type { CoreReply } from "../../../shell/ipc/core-api.ts";
 
 const id = z.string().min(1).max(64);
 const name = z.string().regex(/^[a-z][a-z0-9_-]*$/);

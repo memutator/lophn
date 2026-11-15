@@ -4,15 +4,15 @@
 // The desktop sidebar keeps a session in its workspace while a tab shows it (left-sidebar-workspaces.ts). The phone has no
 // tabs, so a session stays in the list while it works or waits, or for a day after it last moved; older ones (up to 7 days)
 // go under Recent. Ported from the web phone list (remote/session-list.tsx), which goes away with the web phone screen.
-import type { AgentFace } from "../../../packages/shell/renderer/conversation/agent-tab-source.ts";
-import type { SessionEntry } from "../../../packages/shell/renderer/desktop/connection/events/sessions-store.ts";
-import type { WaitingEntry } from "../../../packages/shell/renderer/desktop/connection/events/waiting-store.ts";
-import type { CharacterProfile } from "../../../packages/protocol/lophn-agent/agent-values.ts";
+import type { AgentFace } from "../../../shell/renderer/conversation/agent-tab-source.ts";
+import type { SessionEntry } from "../../../shell/renderer/desktop/connection/events/sessions-store.ts";
+import type { WaitingEntry } from "../../../shell/renderer/desktop/connection/events/waiting-store.ts";
+import type { CharacterProfile } from "../../../protocol/lophn-agent/agent-values.ts";
 import type {
   AgentId,
   Workspace,
-} from "../../../packages/protocol/lophn-agent/workspaces.ts";
-import { codingFaceOf } from "../../../packages/shell/renderer/workspace/agents/coding-face.ts";
+} from "../../../protocol/lophn-agent/workspaces.ts";
+import { codingFaceOf } from "../../../shell/renderer/workspace/agents/coding-face.ts";
 
 export type SessionStatus = "waiting" | "working" | "idle" | "failed";
 

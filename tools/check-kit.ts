@@ -160,7 +160,7 @@ export async function checkKit(root: string): Promise<Issue[]> {
     if (!file.startsWith("packages/design/") || !file.endsWith(".tsx")) {
       continue;
     }
-    // 폰 UI kit(React Native)은 자기 폴더 꼴을 갖고 mobile/의 tsconfig가 검사한다.
+    // 폰 UI kit(React Native)은 자기 폴더 꼴을 갖고 packages/mobile/의 tsconfig가 검사한다.
     if (file.startsWith("packages/design/native/")) continue;
     if (!homes.some((h) => file.startsWith(h))) {
       add(file, 1, "design의 .tsx가 분류 폴더나 _shared 밖에 있다");

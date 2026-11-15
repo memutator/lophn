@@ -122,10 +122,16 @@ async function workspaceManifests(ctx: Ctx): Promise<string[]> {
     }
   }
   const manifests = ["package.json"];
+  // `!`로 시작하는 항목은 member에서 뺀다(packages/mobile).
+  const excluded = new Set(
+    patterns.filter((p) => p.startsWith("!")).map((p) => p.slice(1)),
+  );
   for (const pattern of patterns) {
+    if (pattern.startsWith("!")) continue;
     if (pattern.endsWith("/*")) {
       const base = pattern.slice(0, -2);
       for (const name of (await ctx.fs.list(join(ctx.root, base))) ?? []) {
+        if (excluded.has(`${base}/${name}`)) continue;
         const manifest = `${base}/${name}/package.json`;
         if (await ctx.fs.exists(join(ctx.root, manifest))) {
           manifests.push(manifest);

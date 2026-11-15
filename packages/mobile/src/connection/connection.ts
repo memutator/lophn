@@ -1,4 +1,4 @@
-import type { RandomSource } from "../../../packages/base/mod.ts";
+import type { RandomSource } from "../../../base/mod.ts";
 import {
   connectRemote,
   type KeyPair,

@@ -71,8 +71,16 @@ export async function readMembers(
 }
 
 function workspaceMatcher(workspace: string[]): (directory: string) => boolean {
-  const patterns = workspace.map(glob);
-  return (directory) => patterns.some((pattern) => pattern.test(directory));
+  // npm처럼 `!`로 시작하는 항목은 앞 항목이 잡은 folder를 뺀다(packages/mobile).
+  const included = workspace
+    .filter((entry) => !entry.startsWith("!"))
+    .map(glob);
+  const excluded = workspace
+    .filter((entry) => entry.startsWith("!"))
+    .map((entry) => glob(entry.slice(1)));
+  return (directory) =>
+    included.some((pattern) => pattern.test(directory)) &&
+    !excluded.some((pattern) => pattern.test(directory));
 }
 
 // 이미 읽은 설정으로 member를 만든다. configs는 package.json 경로 → 내용이다.

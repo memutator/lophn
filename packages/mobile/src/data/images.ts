@@ -1,9 +1,9 @@
 // Message images over the phone's connection. The desktop image source keeps bytes as Blob URLs, which React Native does not
 // have; over the remote channel the core also carries file and upload bytes as base64 (core/remote/call.ts), so the phone
 // keeps them as data URLs.
-import type { ImageSource } from "../../../packages/shell/renderer/conversation/agent-tab-core-source-images.ts";
-import type { CoreSource } from "../../../packages/shell/renderer/desktop/connection/connection.ts";
-import type { ContentBlock } from "../../../packages/protocol/lophn-agent/content-block.ts";
+import type { ImageSource } from "../../../shell/renderer/conversation/agent-tab-core-source-images.ts";
+import type { CoreSource } from "../../../shell/renderer/desktop/connection/connection.ts";
+import type { ContentBlock } from "../../../protocol/lophn-agent/content-block.ts";
 
 function base64Of(bytes: Uint8Array): string {
   let text = "";

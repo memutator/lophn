@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cryptoRandom } from "../../../packages/base/mod.ts";
+import { cryptoRandom } from "../../../base/mod.ts";
 import {
   acceptRemote,
   type RemoteServerChannel,
-} from "../../../packages/protocol/remote/channel.ts";
-import type { RemoteClientFrame } from "../../../packages/protocol/remote/frames.ts";
+} from "../../../protocol/remote/channel.ts";
+import type { RemoteClientFrame } from "../../../protocol/remote/frames.ts";
 import {
   generateKeyPair,
   type RemoteTransport,

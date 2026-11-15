@@ -5,6 +5,7 @@
   "type": "module",
   "workspaces": [
     "packages/*",
+    "!packages/mobile",
     "packages/sdk/*",
     "packages/shell/main",
     "packages/shell/renderer",

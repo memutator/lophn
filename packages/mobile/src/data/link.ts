@@ -2,14 +2,14 @@
 // conversation source over a `CoreSource`. The phone's connection already has the CoreSource shape, so the desktop code
 // runs on it unchanged. After a drop the connection sends the last watch again and the core answers `ready`; the event
 // client then re-reads every snapshot (architecture/event.md).
-import { coreAgentTabSourceFactory } from "../../../packages/shell/renderer/conversation/agent-tab-core-source.ts";
-import type { AgentTabSourceFactory } from "../../../packages/shell/renderer/conversation/agent-tab-source.ts";
-import type { CoreSource } from "../../../packages/shell/renderer/desktop/connection/connection.ts";
+import { coreAgentTabSourceFactory } from "../../../shell/renderer/conversation/agent-tab-core-source.ts";
+import type { AgentTabSourceFactory } from "../../../shell/renderer/conversation/agent-tab-source.ts";
+import type { CoreSource } from "../../../shell/renderer/desktop/connection/connection.ts";
 import {
   createEventClient,
   type EventClient,
-} from "../../../packages/shell/renderer/desktop/connection/events/client.ts";
-import { createWaitingStore } from "../../../packages/shell/renderer/desktop/connection/events/waiting-store.ts";
+} from "../../../shell/renderer/desktop/connection/events/client.ts";
+import { createWaitingStore } from "../../../shell/renderer/desktop/connection/events/waiting-store.ts";
 import type { Connection } from "../connection/connection.ts";
 import type { Link, LinkState } from "./computers.ts";
 import { remoteImages } from "./images.ts";

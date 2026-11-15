@@ -1,5 +1,5 @@
 // Gallery-only faces: lophn's agent characters (from packages/shell/renderer/parts/avatar/character.tsx) and two
-// vendor icons. The real ones move to mobile/src/parts with the app screens; the kit takes faces as nodes.
+// vendor icons. The real ones move to packages/mobile/src/parts with the app screens; the kit takes faces as nodes.
 import { useTheme } from "@lophn/ui-native";
 import { View } from "react-native";
 import Svg, { Circle, Path } from "react-native-svg";

@@ -146,10 +146,14 @@ async function stagePlatform(bundle: string, copyMembers: boolean) {
   const platform = join(bundle, "platform");
   await cp(join(repo, "packages"), join(platform, "packages"), {
     recursive: true,
-    // shell은 Electron이 따로 싣는다. node_modules는 아래 npm ci가 새로 푼다.
+    // shell은 Electron이 따로 싣는다. mobile은 폰 앱(root workspace 밖)이라 설치본에 필요 없다. node_modules는 아래 npm ci가 새로 푼다.
     filter: (source) => {
       const rel = relative(join(repo, "packages"), source).split(sep);
-      return rel[0] !== "shell" && !rel.includes("node_modules");
+      return (
+        rel[0] !== "shell" &&
+        rel[0] !== "mobile" &&
+        !rel.includes("node_modules")
+      );
     },
   });
   const root = JSON.parse(await readFile(join(repo, "package.json"), "utf8"));

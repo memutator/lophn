@@ -1,6 +1,6 @@
 // Runs at document start in the remote page (origin rule: https://remote.lophn.invalid only).
 // Turns the message port `lophnNative` into `globalThis.lophnRemote`, the desktop `CoreSource` shape.
-// Message kinds: mobile/src/webview/bridge.ts.
+// Message kinds: packages/mobile/src/webview/bridge.ts.
 (() => {
   const native = globalThis.lophnNative;
   if (!native || globalThis.lophnRemote) return;

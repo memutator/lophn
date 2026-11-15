@@ -123,9 +123,9 @@ modules:
     boundary: shell
     notes: shell 중 coding-agent를 import할 수 있는 곳이다(shell/main/terminal도).
 
-  - path: mobile
+  - path: packages/mobile
     boundary: mobile
-    notes: root npm workspace 밖의 Expo project다(자기 package.json과 lock). `npm run check` 밖이라 `cd mobile; npm run typecheck; npm test`로 본다. protocol은 Metro가 `packages/protocol/remote/client.ts` source를 읽는다.
+    notes: root npm workspace 밖의 Expo project다(자기 package.json과 lock). `npm run check` 밖이라 `cd packages/mobile; npm run typecheck; npm test`로 본다. protocol은 Metro가 `packages/protocol/remote/client.ts` source를 읽는다.
 
   - path: tools
     boundary: null

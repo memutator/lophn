@@ -1,27 +1,27 @@
 // The sample computer: the wireframe's made-up data behind a fake core, for dev builds only. It reuses the desktop's
 // gallery fakes (the fake Gateway with the Inbox items, the in-memory conversation) and runs them through the same event
 // client, stores and hooks as a real computer, so screens see the same shapes. What the person does changes memory only.
-import type { AgentTabSource } from "../../../packages/shell/renderer/conversation/agent-tab-source.ts";
+import type { AgentTabSource } from "../../../shell/renderer/conversation/agent-tab-source.ts";
 import {
   type AgentTabScene,
   createFakeAgentTabSource,
   SESSION_MAIN,
-} from "../../../packages/shell/renderer/conversation/agent-tab-fake-source.ts";
-import type { CoreSource } from "../../../packages/shell/renderer/desktop/connection/connection.ts";
+} from "../../../shell/renderer/conversation/agent-tab-fake-source.ts";
+import type { CoreSource } from "../../../shell/renderer/desktop/connection/connection.ts";
 import {
   ACTIVATION,
   createFakeWaiting,
   HISTORY_NOTICES,
   JOB_HOLD_AGENT,
   SHELL_COMMAND,
-} from "../../../packages/shell/renderer/desktop/connection/waiting/fake-source.ts";
-import type { SessionSnapshot } from "../../../packages/protocol/events/mod.ts";
-import type { CharacterProfile } from "../../../packages/protocol/lophn-agent/agent-values.ts";
+} from "../../../shell/renderer/desktop/connection/waiting/fake-source.ts";
+import type { SessionSnapshot } from "../../../protocol/events/mod.ts";
+import type { CharacterProfile } from "../../../protocol/lophn-agent/agent-values.ts";
 import {
   type AgentId,
   LOPHN_HOME_ID,
   lophnIdOf,
-} from "../../../packages/protocol/lophn-agent/workspaces.ts";
+} from "../../../protocol/lophn-agent/workspaces.ts";
 import type { SampleComputer } from "./computers.ts";
 import { type ComputerData, dataOf, type SampleConversation } from "./link.ts";
 

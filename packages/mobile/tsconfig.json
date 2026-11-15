@@ -45,16 +45,16 @@
         "./node_modules/@types/react/*"
       ],
       "@lophn/ui-native": [
-        "../packages/design/native/mod.ts"
+        "../design/native/mod.ts"
       ],
       "@lophn/i18n": [
-        "../packages/design/i18n/mod.ts"
+        "../design/i18n/mod.ts"
       ],
       "@formatjs/intl": [
         "./node_modules/@formatjs/intl"
       ],
       "@lophn/ui/input": [
-        "../packages/design/components/input/filter/range.ts"
+        "../design/components/input/filter/range.ts"
       ]
     }
   }

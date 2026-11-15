@@ -3,7 +3,7 @@ title: 꺼져 있는 동안 끊긴 폰은 "다시 pairing"이 아니라 "닿지 
 kind: bug
 status: open
 topic: platform
-modules: [packages/core/remote, mobile]
+modules: [packages/core/remote, packages/mobile]
 now: |
   core는 등록되지 않은 key로 붙은 연결을 `createRemoteHost`(`packages/core/remote/host.ts`)의 `unpaired()`로 받는다. 첫 frame이 `pair`가 아니면 `closed` frame 없이 `channel.close()`만 한다. 폰이 연결된 동안 끊으면 `revoked`가 `closed(credential_revoked)`를 보내 폰이 "끊김, 다시 pairing"을 보인다. 하지만 폰이 꺼져 있거나 닿지 않을 때 컴퓨터에서 기기를 끊으면, 다음에 붙을 때 폰은 이유 없이 닫힌 연결만 본다. 폰(`mobile/src/connection/connection.ts`)은 이것을 끊긴 연결로 보고 backoff로 다시 붙기를 되풀이한다.
 impact: |

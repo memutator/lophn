@@ -10,45 +10,45 @@ import {
   useSyncExternalStore,
 } from "react";
 import { AppState } from "react-native";
-import { appList } from "../../../packages/protocol/apps/apps.ts";
-import { agentRead } from "../../../packages/protocol/lophn-agent/agent-definitions.ts";
-import { workspaceSessionList } from "../../../packages/protocol/lophn-agent/agent-sessions.ts";
-import type { AskAnswer } from "../../../packages/protocol/lophn-agent/ask-tool.ts";
-import { textBlocks } from "../../../packages/protocol/lophn-agent/content-block.ts";
+import { appList } from "../../../protocol/apps/apps.ts";
+import { agentRead } from "../../../protocol/lophn-agent/agent-definitions.ts";
+import { workspaceSessionList } from "../../../protocol/lophn-agent/agent-sessions.ts";
+import type { AskAnswer } from "../../../protocol/lophn-agent/ask-tool.ts";
+import { textBlocks } from "../../../protocol/lophn-agent/content-block.ts";
 import {
   type AgentId,
   lophnIdOf,
   type Workspace,
-} from "../../../packages/protocol/lophn-agent/workspaces.ts";
-import { projectApi } from "../../../packages/protocol/projects/project-api.ts";
-import { coreAgentTabSourceFactory } from "../../../packages/shell/renderer/conversation/agent-tab-core-source.ts";
+} from "../../../protocol/lophn-agent/workspaces.ts";
+import { projectApi } from "../../../protocol/projects/project-api.ts";
+import { coreAgentTabSourceFactory } from "../../../shell/renderer/conversation/agent-tab-core-source.ts";
 import {
   type AgentTabData,
   useAgentTabData,
-} from "../../../packages/shell/renderer/conversation/agent-tab-data.ts";
+} from "../../../shell/renderer/conversation/agent-tab-data.ts";
 import type {
   AgentTabSource,
   Delivery,
   QuestionAnswer,
   SourceResult,
-} from "../../../packages/shell/renderer/conversation/agent-tab-source.ts";
-import { decideChoiceOf } from "../../../packages/shell/renderer/conversation/agent-view-model.ts";
-import type { CoreSource } from "../../../packages/shell/renderer/desktop/connection/connection.ts";
+} from "../../../shell/renderer/conversation/agent-tab-source.ts";
+import { decideChoiceOf } from "../../../shell/renderer/conversation/agent-view-model.ts";
+import type { CoreSource } from "../../../shell/renderer/desktop/connection/connection.ts";
 import {
   readRoute,
   readsOf,
   useCoreRead,
   useFollowedRead,
-} from "../../../packages/shell/renderer/desktop/connection/core-read.ts";
+} from "../../../shell/renderer/desktop/connection/core-read.ts";
 import {
   EventsProvider,
   useSessions,
-} from "../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
-import type { SessionEntry } from "../../../packages/shell/renderer/desktop/connection/events/sessions-store.ts";
+} from "../../../shell/renderer/desktop/connection/events/hooks.tsx";
+import type { SessionEntry } from "../../../shell/renderer/desktop/connection/events/sessions-store.ts";
 import type {
   WaitingEntry,
   WaitingState,
-} from "../../../packages/shell/renderer/desktop/connection/events/waiting-store.ts";
+} from "../../../shell/renderer/desktop/connection/events/waiting-store.ts";
 import {
   answerQuestion,
   decideJobApproval,
@@ -58,10 +58,10 @@ import {
   dismissNotice,
   readQuestions,
   type WaitingChoice,
-} from "../../../packages/shell/renderer/desktop/connection/waiting/decide.ts";
-import { markNoticesRead } from "../../../packages/shell/renderer/desktop/connection/waiting/history.ts";
-import type { InboxNames } from "../../../packages/shell/renderer/desktop/connection/waiting/names.ts";
-import { newId } from "../../../packages/shell/renderer/prefixed-id.ts";
+} from "../../../shell/renderer/desktop/connection/waiting/decide.ts";
+import { markNoticesRead } from "../../../shell/renderer/desktop/connection/waiting/history.ts";
+import type { InboxNames } from "../../../shell/renderer/desktop/connection/waiting/names.ts";
+import { newId } from "../../../shell/renderer/prefixed-id.ts";
 import type { ComputerItem, Computers, ComputersState } from "./computers.ts";
 import { type ComputerData, dataOf, type SampleConversation } from "./link.ts";
 import { type Known, type WorkspaceView, workspacesOf } from "./workspaces.ts";

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cryptoRandom } from "../../../packages/base/mod.ts";
+import { cryptoRandom } from "../../../base/mod.ts";
 import type { Computer } from "../pairing/store.ts";
 import { generateKeyPair } from "../remote.ts";
 import {

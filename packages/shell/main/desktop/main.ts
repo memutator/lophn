@@ -11,6 +11,7 @@ import * as artifact from "./wiring/artifact.ts";
 import * as bookmarks from "./wiring/bookmarks.ts";
 import * as threadBookmarks from "./wiring/thread-bookmarks.ts";
 import * as browser from "./wiring/browser.ts";
+import * as codingRelay from "./wiring/coding-relay.ts";
 import * as coding from "./wiring/coding.ts";
 import * as secretInput from "./wiring/secret-input.ts";
 import { createShellContext } from "./wiring/context.ts";
@@ -22,6 +23,7 @@ import * as editor from "./wiring/editor.ts";
 import * as extensions from "./wiring/extensions.ts";
 import * as layout from "./wiring/layout.ts";
 import * as surface from "./wiring/surface.ts";
+import * as terminalView from "./wiring/terminal-view.ts";
 import { loginPathOf } from "./core/login-path.ts";
 import { openShellCoreControl, productVersionOf } from "./core/supervise.ts";
 import { resolveLaunchMode } from "./launch-mode.ts";
@@ -105,6 +107,8 @@ function startDesktop(): void {
   add(annotate.register(ctx, views, artifacts));
   add(appearance.register(ctx));
   const terminals = add(coding.register(ctx, calls.appSessions));
+  add(codingRelay.register(ctx, terminals));
+  add(terminalView.register(ctx, terminals));
   add(bookmarks.register(ctx));
   add(threadBookmarks.register(ctx));
   const extensionHost = add(

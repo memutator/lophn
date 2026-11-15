@@ -4,8 +4,8 @@ lead만 고친다. `tools/status.py mobile-local-apps build`가 `tasks/*.md`에�
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `mobile-local-sdk` | sdk | 1 | 없음 | todo |  |  |  |
-| `mobile-sync-core` | sync | 1 | 없음 | todo |  |  |  |
+| `mobile-local-sdk` | sdk | 1 | 없음 | running | sdk/mobile-local-sdk |  |  |
+| `mobile-sync-core` | sync | 1 | 없음 | running | sync/mobile-sync-core |  |  |
 | `mobile-local-build` | phone-backend | 2 | mobile-local-sdk | todo |  |  |  |
 | `mobile-sync-runtime` | sync | 2 | mobile-sync-core, mobile-local-sdk | todo |  |  |  |
 | `mobile-sync-ledger` | sync | 3 | mobile-sync-runtime, mobile-sync-core | todo |  |  |  |

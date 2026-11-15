@@ -42,8 +42,10 @@ import { projectApi } from "../../protocol/projects/project-api.ts";
 import { ROUTES } from "../../protocol/registry.ts";
 import {
   connectRemote,
+  devicesClearPush,
   devicesConnected,
   devicesList,
+  devicesPushTargets,
   devicesRegister,
   devicesRename,
   devicesRevoke,
@@ -83,6 +85,8 @@ import {
   DEVICES_COMMANDS,
   DEVICES_SCHEMA_STEPS,
   type DevicesChange,
+  devicesListRead,
+  devicesPushTargetsRead,
   screensPaired,
   screensRenamed,
   screensRevoked,
@@ -206,6 +210,8 @@ function setup() {
     devicesSetPrimary,
     devicesRegister,
     devicesConnected,
+    devicesClearPush,
+    devicesPushTargets,
     pairingStart,
     hostTake,
     hostReport,
@@ -537,6 +543,8 @@ test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model�
     "devices/set_primary",
     "devices/register",
     "devices/connected",
+    "devices/clear_push",
+    "devices/push_targets",
     "pairing/start",
     "host/take",
     "host/report",
@@ -929,6 +937,113 @@ test("devices/unpair는 부른 기기 자기 등록만 지우고, devices/regist
     assert.notEqual(again.value.id, b);
     assert.deepEqual(ids(), [again.value.id]);
     assert.deepEqual(changes, [{ type: "revoked", id: b }]);
+  } finally {
+    db.close();
+  }
+});
+
+test("devices/set_push는 부른 기기 자기 행만 고치고, clear_push는 token이 그대로일 때만 지우고, 폰은 token을 읽지 못한다", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    for (const step of DEVICES_SCHEMA_STEPS) db.exec(step.sql);
+    const sql = createSql(db, () => true);
+    let n = 0;
+    const tx = {
+      sql,
+      now: () => "2026-11-15T00:00:00.000Z",
+      newId: () => deviceId(++n),
+      port: () => ({ push: () => undefined }),
+    } as unknown as Tx;
+    const command = (method: string) =>
+      DEVICES_COMMANDS.find((each) => each.route.method === method)!;
+    const code = (result: { ok: boolean; error?: { code: string } }) =>
+      result.ok ? "ok" : result.error!.code;
+    const random = seededRandom(5);
+    for (const _ of [1, 2]) {
+      command("register").handle(
+        tx,
+        { principal: "machine:remote", actor: "machine" } as never,
+        {
+          ...screen,
+          public_key: remoteKeyText(generateKeyPair(random).publicKey),
+        } as never,
+        {} as never,
+      );
+    }
+    const [a, b] = [deviceId(1), deviceId(2)];
+    const prefs = {
+      needs_you: true,
+      long_finish: true,
+      app_update: true,
+      job_missed: true,
+      app_notify: true,
+      quiet_when_present: true,
+      show_names: true,
+    };
+    const tokenA = "ExponentPushToken[a]";
+    const setPush = (principal: string, token: string | null) =>
+      command("set_push").handle(
+        tx,
+        { principal, actor: "user" } as never,
+        { token, prefs } as never,
+        {} as never,
+      );
+    const clearPush = (id: string, token: string) =>
+      command("clear_push").handle(
+        tx,
+        { principal: "machine:remote", actor: "machine" } as never,
+        { id, token } as never,
+        {} as never,
+      );
+    const tokens = () =>
+      sql
+        .all("select id, push_token from devices order by id", [])
+        .map((row) => [row.id, row.push_token]);
+    const targets = () =>
+      devicesPushTargetsRead.handle(
+        { sql, as_of_seq: "1" } as never,
+        {} as never,
+        {} as never,
+      );
+
+    // 기기가 아닌 자격은 forbidden이고, 끊긴 기기는 not_found다. 어느 쪽도 다른 행을 건드리지 않는다.
+    assert.equal(code(setPush("user:local", tokenA)), "forbidden");
+    assert.equal(code(setPush("machine:remote", tokenA)), "forbidden");
+    assert.equal(code(setPush(`device:${deviceId(9)}`, tokenA)), "not_found");
+    assert.deepEqual(tokens(), [
+      [a, null],
+      [b, null],
+    ]);
+
+    // 입력에 id가 없다. 부른 기기의 행만 바뀐다.
+    assert.equal(code(setPush(`device:${a}`, tokenA)), "ok");
+    assert.deepEqual(tokens(), [
+      [a, tokenA],
+      [b, null],
+    ]);
+    const listed = devicesListRead.handle(
+      { sql, as_of_seq: "1" } as never,
+      {} as never,
+      {} as never,
+    );
+    assert.ok(listed.ok);
+    assert.doesNotMatch(JSON.stringify(listed.value), /PushToken|prefs/);
+    const read = targets();
+    assert.ok(read.ok);
+    assert.deepEqual(read.value.devices, [{ id: a, token: tokenA, prefs }]);
+
+    // token이 그 사이 바뀌었으면 죽은 옛 token을 거두는 요청은 새 token을 지우지 않는다.
+    assert.equal(code(setPush(`device:${a}`, "ExponentPushToken[new]")), "ok");
+    assert.equal(code(clearPush(a, tokenA)), "ok");
+    assert.deepEqual(tokens()[0], [a, "ExponentPushToken[new]"]);
+    assert.equal(code(clearPush(a, "ExponentPushToken[new]")), "ok");
+    assert.deepEqual(tokens()[0], [a, null]);
+
+    // token: null은 push 끄기다. prefs는 남는다.
+    assert.equal(code(setPush(`device:${b}`, null)), "ok");
+    const off = targets();
+    assert.ok(off.ok);
+    assert.deepEqual(off.value.devices, []);
   } finally {
     db.close();
   }

@@ -66,6 +66,8 @@ export type RemoteHostDeps = {
   credentials: DeviceCredentials;
   call: RemoteCall;
   admission: Admission;
+  // 기기의 마지막 연결이 닫혔거나 기기를 끊었다. 그 기기가 한 보고(presence)를 지우는 데 쓴다.
+  deviceGone?(device: string): void;
   logger?: Logger;
 };
 
@@ -102,6 +104,13 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
     channel.onClose(() => {
       closed = true;
       connections.delete(connection);
+      const device = connection.device;
+      if (
+        device !== undefined &&
+        ![...connections].some((each) => each.device === device)
+      ) {
+        deps.deviceGone?.(device);
+      }
       for (const cleanup of cleanups.splice(0)) cleanup();
     });
     const pairingTimer = deps.timers.set(
@@ -303,6 +312,7 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
     },
     revoked(id) {
       deps.credentials.revoke(id);
+      deps.deviceGone?.(id);
       for (const connection of [...connections]) {
         if (connection.device !== id) continue;
         connection.channel.send({

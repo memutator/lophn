@@ -1,12 +1,16 @@
 // 기기 표 `devices`와 그 command·read. writer·reader Worker에서 돈다.
 import { err, ok, type Result } from "../../base/mod.ts";
+import { pushPrefsSchema } from "../../protocol/attention/mod.ts";
 import {
+  devicesClearPush,
   devicesConnected,
   devicesList,
+  devicesPushTargets,
   devicesRegister,
   devicesRename,
   devicesRevoke,
   devicesSetPrimary,
+  devicesSetPush,
   devicesUnpair,
   type RemoteDevice,
   remoteDeviceSchema,
@@ -37,6 +41,13 @@ create table devices (
   last_connected_at text,
   is_primary integer not null check (is_primary in (0, 1))
 ) strict;`,
+  },
+  // push token과 알림 설정은 기기의 것이라 기기 행의 칸이다. prefs는 JSON 글이고 읽을 때 pushPrefsSchema로 확인한다.
+  {
+    id: "remote.devices.push",
+    sql: `
+alter table devices add column push_token text;
+alter table devices add column push_prefs text not null default '{}';`,
   },
 ];
 
@@ -209,6 +220,39 @@ const unpair: CommandDefinition<typeof devicesUnpair> = {
   },
 };
 
+const setPush: CommandDefinition<typeof devicesSetPush> = {
+  route: devicesSetPush,
+  handle(tx, ctx, input) {
+    if (!ctx.principal.startsWith(DEVICE_PRINCIPAL)) {
+      return err({
+        code: "forbidden",
+        message: "only a paired device sets its own push",
+      });
+    }
+    const id = ctx.principal.slice(DEVICE_PRINCIPAL.length);
+    const found = load(tx.sql, id);
+    if (!found.ok) return found;
+    tx.sql.run(
+      "update devices set push_token = ?, push_prefs = ? where id = ?",
+      [input.token, JSON.stringify(input.prefs), id],
+    );
+    return ok({ id: found.value.id });
+  },
+};
+
+const clearPush: CommandDefinition<typeof devicesClearPush> = {
+  route: devicesClearPush,
+  handle(tx, _ctx, input) {
+    const found = load(tx.sql, input.id);
+    if (!found.ok) return found;
+    tx.sql.run(
+      "update devices set push_token = null where id = ? and push_token = ?",
+      [input.id, input.token],
+    );
+    return ok({ id: input.id });
+  },
+};
+
 const setPrimary: CommandDefinition<typeof devicesSetPrimary> = {
   route: devicesSetPrimary,
   handle(tx, _ctx, input) {
@@ -228,6 +272,8 @@ export const DEVICES_COMMANDS = [
   rename,
   revoke,
   unpair,
+  setPush,
+  clearPush,
   setPrimary,
 ] as const;
 
@@ -240,3 +286,30 @@ export const devicesListRead: ReadDefinition<typeof devicesList> = {
     return ok({ devices, as_of_seq: snapshot.as_of_seq, next_cursor: null });
   },
 };
+
+export const devicesPushTargetsRead: ReadDefinition<typeof devicesPushTargets> =
+  {
+    route: devicesPushTargets,
+    handle(snapshot) {
+      const devices = snapshot.sql
+        .all(
+          "select id, push_token, push_prefs from devices where push_token is not null order by created_at, id",
+          [],
+        )
+        .flatMap((row) => {
+          const prefs = pushPrefsSchema.safeParse(
+            JSON.parse(row.push_prefs as string),
+          );
+          return prefs.success
+            ? [
+                {
+                  id: row.id as RemoteDevice["id"],
+                  token: row.push_token as string,
+                  prefs: prefs.data,
+                },
+              ]
+            : [];
+        });
+      return ok({ devices, as_of_seq: snapshot.as_of_seq, next_cursor: null });
+    },
+  };

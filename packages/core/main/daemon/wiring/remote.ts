@@ -6,8 +6,10 @@ import { networkInterfaces } from "node:os";
 import type { z } from "zod";
 import { err, formatAt, ok, type Result } from "../../../../base/mod.ts";
 import {
+  devicesClearPush,
   devicesConnected,
   devicesList,
+  devicesPushTargets,
   devicesRegister,
   pairingStart,
   type RemoteDevice,
@@ -15,10 +17,13 @@ import {
   remoteRelayStatus,
 } from "../../../../protocol/remote/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import { type PushDevice } from "../../../attention/mod.ts";
+import { createExpoPushSender } from "../../../attention/push/mod.ts";
 import {
   devicesSetting,
   remoteEnabledSetting,
   remotePortSetting,
+  remotePushSetting,
   remoteRelaySetting,
 } from "../../../config/shell-settings.ts";
 import {
@@ -31,6 +36,7 @@ import {
   DEVICES_TOPIC,
   type DevicesChange,
   devicesListRead,
+  devicesPushTargetsRead,
   loadHostKey,
   openRemoteListener,
   type PairingCodes,
@@ -41,6 +47,7 @@ import {
   screensRenamed,
   screensRevoked,
 } from "../../../remote/mod.ts";
+import { devicePrincipal } from "../../../remote/call.ts";
 import {
   openRelayWebSocket,
   type RelayClient,
@@ -55,13 +62,19 @@ import {
 import { createAdmission } from "../../../supervision/responsiveness/mod.ts";
 import type { WiringContext, WiringFactory } from "./context.ts";
 
-// 기기를 등록하고 마지막 연결을 적고 key로 찾는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
+// 기기를 등록하고 마지막 연결을 적고 key로 찾고 push token을 읽고 거두는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
 const REMOTE_PRINCIPAL = "machine:remote";
 const REMOTE_CONTEXT: AuthenticatedContext = {
   principal: REMOTE_PRINCIPAL,
   actor: "machine",
   scope: {
-    operations: [devicesRegister.name, devicesConnected.name, devicesList.name],
+    operations: [
+      devicesRegister.name,
+      devicesConnected.name,
+      devicesList.name,
+      devicesClearPush.name,
+      devicesPushTargets.name,
+    ],
     targets: {},
   },
   conditions: {},
@@ -76,13 +89,13 @@ const key = (route: { resource: string; method: string }) =>
 export function createCoreRegistration() {
   return {
     commands: DEVICES_COMMANDS,
-    reads: [devicesListRead],
+    reads: [devicesListRead, devicesPushTargetsRead],
     memoryRoutes: [pairingStart, remoteRelayStatus],
   };
 }
 
 export function createReaderRegistration(): ReaderRegistration {
-  return { reads: [devicesListRead], ports: new Map() };
+  return { reads: [devicesListRead, devicesPushTargetsRead], ports: new Map() };
 }
 
 // QR에 싣는 주소 후보. loopback과 link-local(fe80::, 폰이 scope 없이 붙지 못한다)은 뺀다.
@@ -100,6 +113,12 @@ export const remoteWiring: WiringFactory = () => {
   let host: RemoteHost | undefined;
   let hostKey: ReturnType<typeof loadHostKey> | undefined;
   let unsubscribe: (() => void) | undefined;
+  // push를 보낼 기기의 메모리 사본(`devices/push_targets`). `StateChanged{remote_devices}`가 오면 다시 읽는다.
+  let pushDevices: readonly PushDevice[] = [];
+  let refreshing = Promise.resolve();
+  // host key의 공개 key 글(push 글의 `data.host`). key를 풀기 전에는 보낼 곳이 없는 것으로 친다.
+  let hostText: string | undefined;
+  let sender: ReturnType<typeof createExpoPushSender> | undefined;
   // 켜고 끄기는 하나씩 한다. 설정이 빨리 여러 번 바뀌어도 마지막 값으로 맞는다.
   let reconciling = Promise.resolve();
   let codes: PairingCodes;
@@ -172,6 +191,18 @@ export const remoteWiring: WiringFactory = () => {
     };
   }
 
+  function refreshPushDevices(ctx: WiringContext) {
+    refreshing = refreshing.then(async () => {
+      const read = await ctx.runtime.reads.get(key(devicesPushTargets))!(
+        REMOTE_CONTEXT,
+        {},
+      );
+      if (!read.ok)
+        return logError(ctx, "push_targets_failed", read.error.message);
+      pushDevices = (read.value as { devices: PushDevice[] }).devices;
+    });
+  }
+
   async function reconcile(ctx: WiringContext): Promise<void> {
     const enabled = ctx.settings.get(remoteEnabledSetting) === true;
     const port = enabled ? ctx.settings.get(remotePortSetting) : undefined;
@@ -198,6 +229,7 @@ export const remoteWiring: WiringFactory = () => {
       logError(ctx, "listener_failed", thrown);
       return;
     }
+    hostText = remoteKeyText(staticKey.publicKey);
     host ??= createRemoteHost({
       staticKey,
       random: ctx.random,
@@ -223,6 +255,8 @@ export const remoteWiring: WiringFactory = () => {
         onThrown: (thrown) => logError(ctx, "handler_threw", thrown),
       }),
       admission,
+      deviceGone: (device) =>
+        ctx.attention.forgetReporter(devicePrincipal(device)),
       logger: ctx.telemetry.logger,
     });
     const accept = host.accept;
@@ -253,10 +287,34 @@ export const remoteWiring: WiringFactory = () => {
     operations: () => [
       { name: devicesRegister.name, actors: ["machine"], kind: "command" },
       { name: devicesConnected.name, actors: ["machine"], kind: "command" },
+      { name: devicesClearPush.name, actors: ["machine"], kind: "command" },
+      { name: devicesPushTargets.name, actors: ["machine"], kind: "read" },
     ],
     records: () => [REMOTE_CONTEXT],
     async build(ctx) {
       codes = createPairingCodes({ clock: ctx.clock, random: ctx.random });
+      sender = createExpoPushSender({
+        fetch: (url, init) => fetch(url, init),
+        url: () => ctx.settings.get(remotePushSetting) ?? "",
+        clock: ctx.clock,
+        timers: systemTimers,
+        onDeadToken(token) {
+          const dead = pushDevices.find((each) => each.token === token);
+          if (dead === undefined) return;
+          void command(ctx, devicesClearPush.name, {
+            id: dead.id,
+            token,
+          }).then((done) => {
+            if (!done.ok)
+              logError(ctx, "push_token_not_cleared", done.error.message);
+          });
+        },
+      });
+      ctx.attention.bindPush({
+        devices: () => (hostText === undefined ? [] : pushDevices),
+        send: (message) => sender!.send(message),
+        host: () => hostText ?? "",
+      });
       const start = async () => {
         if (
           hostKey === undefined ||
@@ -327,15 +385,21 @@ export const remoteWiring: WiringFactory = () => {
           ) {
             reconciling = reconciling.then(() => reconcile(ctx));
           }
+          if (changes.some((change) => change.name === "remote_devices")) {
+            refreshPushDevices(ctx);
+          }
         },
         close: () => undefined,
       });
+      refreshPushDevices(ctx);
+      await refreshing;
       reconciling = reconciling.then(() => reconcile(ctx));
       await reconciling;
       return ok(undefined);
     },
     async closeIntake() {
       unsubscribe?.();
+      sender?.close();
       await reconciling;
       host?.shutdown();
       await listener?.close();

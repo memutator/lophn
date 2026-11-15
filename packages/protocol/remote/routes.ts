@@ -3,6 +3,7 @@ import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
 import { atSchema } from "../base/values.ts";
+import { pushPrefsSchema } from "../attention/mod.ts";
 import {
   keyTextSchema,
   remoteDeviceSchema,
@@ -131,6 +132,62 @@ export const devicesConnected = defineCommand({
   output: z.object({ id: deviceIdSchema }),
   actors: ["machine"],
   errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
+});
+
+// Expo push token. 폰이 `getExpoPushTokenAsync`로 받은 글 그대로다.
+const pushTokenSchema = z
+  .string()
+  .regex(/^Expo(nent)?PushToken\[[^\]]+\]$/)
+  .max(200);
+
+// 폰이 자기 push token과 알림 설정을 core에 둔다. 부른 기기 자기 행만 고친다(id를 받지 않는다). 기기 자격이 아니면 forbidden이다.
+// `token: null`은 이 기기의 push를 끄는 것이다(token을 지우고 prefs는 저장한다).
+export const devicesSetPush = defineCommand({
+  resource: "devices",
+  method: "set_push",
+  name: "devices.set_push",
+  changes: [{ name: "remote_devices", id: (_input, output) => output.id }],
+  input: z.strictObject({
+    token: pushTokenSchema.nullable(),
+    prefs: pushPrefsSchema,
+  }),
+  output: z.object({ id: deviceIdSchema }),
+  actors: ["user"],
+  errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
+});
+
+// 죽은 token을 core가 거둔다. 그 기기의 token이 입력과 같을 때만 지운다(그 사이 폰이 새 token을 보냈으면 그대로 둔다). core 안 machine 자격만 낸다.
+export const devicesClearPush = defineCommand({
+  resource: "devices",
+  method: "clear_push",
+  name: "devices.clear_push",
+  changes: [{ name: "remote_devices", id: (_input, output) => output.id }],
+  input: z.strictObject({ id: deviceIdSchema, token: pushTokenSchema }),
+  output: z.object({ id: deviceIdSchema }),
+  actors: ["machine"],
+  errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
+});
+
+// push를 보낼 기기: token이 있는 기기의 token과 알림 설정. core 안 machine 자격만 읽는다. 폰은 부를 수 없다.
+export const devicesPushTargets = defineRead({
+  resource: "devices",
+  method: "push_targets",
+  name: "devices.push_targets",
+  reads: ["remote_devices"],
+  input: z.strictObject({}),
+  output: withReadCommon(
+    z.object({
+      devices: z.array(
+        z.strictObject({
+          id: deviceIdSchema,
+          token: pushTokenSchema,
+          prefs: pushPrefsSchema,
+        }),
+      ),
+    }),
+  ),
+  actors: ["machine"],
+  errors: ["invalid_input", "forbidden", "unavailable"],
 });
 
 // 폰의 `pair`가 맞았을 때 같은 id의 `result` value다.

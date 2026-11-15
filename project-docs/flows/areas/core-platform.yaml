@@ -1548,7 +1548,7 @@ flows:
       - "기기로 붙지 않은 연결(handshake 중과 pairing 전)이 이미 8개면 새 socket을 받자마자 닫는다"
       - "연결마다 Noise IK responder handshake와 hello를 한다. 10초 안에 끝나지 않으면 닫는다. 기기로 붙기 전에는 frame이 4 KiB까지다"
       - "받은 공개 key(base64url)를 devices/list로 찾는다. 없으면 pair 말고 어떤 frame이 와도 연결을 닫고, 60초 안에 pairing하지 못해도 닫는다(remote-pair). 있으면 frame 상한을 16 MiB로 올리고 첫 frame을 기다린다. pair면 다시 pairing(remote-pair)이고 그 밖이면 그 기기로 붙인다"
-      - "등록된 기기면 actor user, principal device:<id>, scope가 REMOTE_ALLOWED_ROUTES인 자격을 core 한 번에 하나 발급해 ledger에 기록한다. 발급 뒤 key를 다시 찾아 그 사이 끊긴 기기면 자격을 거두고 닫는다. devices/connected로 마지막 연결 시각을 적는다. event 연결 한도는 principal마다다"
+      - "등록된 기기면 actor user, principal device:<id>, scope가 REMOTE_ALLOWED_ROUTES인 자격을 core 한 번에 하나 발급해 ledger에 기록한다. 발급 뒤 key를 다시 찾아 그 사이 끊긴 기기면 자격을 거두고 닫는다. devices/connected로 마지막 연결 시각을 적는다. event 연결 한도는 principal마다다. 그 기기의 마지막 연결이 닫히거나 기기를 끊으면 그 기기의 presence 보고를 지운다(attention.forgetReporter)"
       - "call은 자격을 다시 보고 scope로 거른 뒤 HTTP와 같은 dispatchHttp를 탄다. 기기의 jobs/update는 job과 enabled만 받는다(켜고 끄기). 다른 field가 하나라도 있으면 forbidden이다. 입장 한도는 remote만의 것이고 principal마다 선다"
       - "frame은 JSON뿐이라 bytes는 base64로 싣는다. upload route는 body {input, base64}를 HTTP upload 요청으로 바꾸고(한도는 route의 max_bytes), file route의 답은 {content_type, base64}다. file은 8 MiB까지다"
       - "watch는 Gateway session과 같은 Bus 구독이되 REMOTE_ALLOWED_EVENTS의 type만 보낸다(조건에 types가 없어도). 느린 연결은 Gateway와 같은 한도로 closed(slow_consumer)를 받고 닫힌다"
@@ -1789,6 +1789,85 @@ flows:
         observe: ["response"]
     crosses_process: false
     risk: [permission]
+
+  - id: devices-set-push
+    title: "폰이 자기 push token과 알림 설정을 core에 둔다"
+    actor: system
+    entries: [route:devices/set_push]
+    boundary: [core, storage]
+    code: [packages/core/remote/devices.ts, packages/core/main/daemon/wiring/remote.ts]
+    steps:
+      - "폰이 붙을 때마다와 token이 바뀔 때 기기 자격으로 부른다. 입력은 token(없으면 null)과 prefs뿐이고 id가 없다"
+      - "자격의 principal device:<id>의 행만 고친다. token과 prefs(JSON)를 저장한다. token null은 push 끄기라 token만 지우고 prefs는 저장한다"
+      - "StateChanged{remote_devices}가 나가면 wiring이 push를 보낼 기기의 메모리 사본(devices/push_targets)을 다시 읽는다"
+    outcomes:
+      - id: ok
+        observe: ["ledger:devices", "response", "event:StateChanged"]
+      - id: forbidden
+        code: forbidden
+        when: "기기 자격이 아니다(사람 token, machine)"
+        observe: ["response"]
+      - id: not_found
+        code: not_found
+        when: "그 기기의 행이 이미 없다(끊긴 기기)"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "token이 Expo push token 꼴이 아니거나 200자를 넘고, prefs가 schema에 맞지 않는다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "writer를 쓸 수 없다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [permission]
+
+  - id: devices-clear-push
+    title: "core가 죽은 push token을 거둔다"
+    actor: system
+    entries: [route:devices/clear_push]
+    boundary: [core, storage]
+    code: [packages/core/remote/devices.ts, packages/core/main/daemon/wiring/remote.ts]
+    steps:
+      - "Expo가 DeviceNotRegistered를 알리면(ticket이나 영수증) wiring의 core 안 machine 자격이 그 token을 가진 기기 id와 token으로 부른다"
+      - "그 기기의 token이 입력과 같을 때만 지운다. 그 사이 폰이 새 token을 보냈으면 그대로 둔다. prefs는 그대로다"
+    outcomes:
+      - id: ok
+        observe: ["ledger:devices", "response", "event:StateChanged"]
+      - id: not_found
+        code: not_found
+        when: "그 기기의 행이 이미 없다. 부르는 쪽은 log만 남긴다(push_token_not_cleared)"
+        observe: ["response", "log:remote push_token_not_cleared"]
+      - id: unavailable
+        code: unavailable
+        when: "writer를 쓸 수 없다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [permission]
+    declared_only: [forbidden, invalid_input]
+    unclear:
+      - "forbidden(machine 아닌 actor)은 폰 allowlist에 없어 나지 않는다. invalid_input은 wiring이 보내는 입력이 늘 맞아 나지 않는다"
+
+  - id: devices-push-targets
+    title: "push를 보낼 기기(token이 있는 기기)와 그 알림 설정을 읽는다"
+    actor: system
+    entries: [route:devices/push_targets]
+    boundary: [core, storage]
+    code: [packages/core/remote/devices.ts, packages/core/main/daemon/wiring/remote.ts]
+    steps:
+      - "core 안 machine 자격만 읽는다. 시작할 때와 StateChanged{remote_devices}마다 wiring이 읽어 메모리 사본을 바꾼다"
+      - "token이 있는 기기의 id, token, prefs만 준다. prefs가 pushPrefsSchema에 맞지 않는 행은 건너뛴다. devices/list는 token과 prefs를 내지 않는다"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "reader를 쓸 수 없다. wiring은 log만 남기고(push_targets_failed) 앞의 사본을 둔다"
+        observe: ["response", "log:remote push_targets_failed"]
+    crosses_process: false
+    declared_only: [forbidden, invalid_input]
+    unclear:
+      - "forbidden(machine 아닌 actor)은 폰 allowlist에 없어 나지 않는다"
 
   - id: devices-set-primary
     title: "기준 기기를 바꾼다"

@@ -57,6 +57,10 @@ const EXTERNAL_FETCH_LEFTOVERS: ReadonlyMap<string, string> = new Map([
     "못 고침: transport를 안 주면 globalThis.fetch로 떨어지는 기본값",
   ],
   [
+    "packages/core/main/daemon/wiring/remote.ts",
+    "못 고침: push sender(Expo Push)에 넘기는 core의 외부 fetch. CoreOptions로 주입받게 하면 지워진다",
+  ],
+  [
     "packages/core/lophn-agent/run-loop/unwired.ts",
     "못 고침: 연결 안 된 runtime deps의 fetch가 전역 fetch를 그대로 넘긴다",
   ],

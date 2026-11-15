@@ -10,6 +10,7 @@ export {
   DEVICES_TOPIC,
   type DevicesChange,
   devicesListRead,
+  devicesPushTargetsRead,
   screensPaired,
   screensRenamed,
   screensRevoked,

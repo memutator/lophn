@@ -51,12 +51,15 @@ export {
   relayToHostSchema,
 } from "./relay.ts";
 export {
+  devicesClearPush,
   devicesConnected,
   devicesList,
+  devicesPushTargets,
   devicesRegister,
   devicesRename,
   devicesRevoke,
   devicesSetPrimary,
+  devicesSetPush,
   devicesUnpair,
   pairingStart,
   type RemoteDevice,

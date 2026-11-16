@@ -9,7 +9,7 @@ handle("list_items", () =>
 
 handle("add_item", (input) => {
   const title = String((input as { title?: unknown } | null)?.title ?? "");
-  const id = newId("item");
+  const id = newId("itm");
   openStore()
     .db.prepare("insert into item (id, title, created_at) values (?, ?, ?)")
     .run(id, title, new Date().toISOString());

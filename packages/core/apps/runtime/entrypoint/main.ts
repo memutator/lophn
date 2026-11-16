@@ -135,7 +135,7 @@ async function main(deps: MainDeps): Promise<void> {
     if (database !== null) {
       const sync = openSyncStore({
         database: database as NodeDatabase,
-        node: ids.newId("node"),
+        node: ids.newId("nod"),
         record: started.state.store,
         nowMs: () => clock.nowMs(),
         startChangeset,

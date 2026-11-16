@@ -4,12 +4,15 @@
 // 표를 만드는 ledger step은 낸 step 목록의 끝에 붙어야 해서(schema-steps.lock.json) 이 wiring의 schemaStepsAfterTeams에 둔다.
 // 기기마다 터미널 입력 허락(`ctx.terminalInputGrant`)과 기기 kind(`ctx.deviceKind`)도 기기 표를 아는 여기서 채운다.
 // core가 폰에 묻는 길(`ctx.phoneLink`)도 여기서 낸다. link는 build에서 만들고 host가 늦게 생겨도 같은 것을 쓴다.
+// host key에는 만든 기계의 id가 찍힌다. 기동마다 지금 id와 대조해 다른 기계에서 복사된 key면 기기 등록을 모두 버리고 key를 지운다.
+import { rm } from "node:fs/promises";
 import { networkInterfaces } from "node:os";
 import type { z } from "zod";
 import { err, formatAt, ok, type Result } from "../../../../base/mod.ts";
 import {
   devicesClearPush,
   devicesConnected,
+  devicesForgetAll,
   devicesList,
   devicesPushTargets,
   devicesRegister,
@@ -20,6 +23,8 @@ import {
 } from "../../../../protocol/remote/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { type PushDevice } from "../../../attention/mod.ts";
+import { readMachineId } from "../../../machine/mod.ts";
+import type { DataStep } from "../../../storage/migration/mod.ts";
 import { createExpoPushSender } from "../../../attention/push/mod.ts";
 import {
   devicesSetting,
@@ -58,6 +63,10 @@ import {
   createTerminalInputGrants,
 } from "../../../remote/devices.ts";
 import {
+  readHostKeyMachine,
+  stampHostKeyMachine,
+} from "../../../remote/host-key.ts";
+import {
   openRelayWebSocket,
   type RelayClient,
   startRelayClient,
@@ -73,7 +82,8 @@ import {
 import { createAdmission } from "../../../supervision/responsiveness/mod.ts";
 import type { WiringContext, WiringFactory } from "./context.ts";
 
-// 기기를 등록하고 마지막 연결을 적고 key로 찾고 push token을 읽고 거두는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
+// 기기를 등록하고 마지막 연결을 적고 key로 찾고 push token을 읽고 거두고, 복사된 key의 기기 등록을 버리는 core 안 machine 자격이다.
+// 기동 때 ledger에 기록한다.
 const REMOTE_PRINCIPAL = "machine:remote";
 const REMOTE_CONTEXT: AuthenticatedContext = {
   principal: REMOTE_PRINCIPAL,
@@ -82,6 +92,7 @@ const REMOTE_CONTEXT: AuthenticatedContext = {
     operations: [
       devicesRegister.name,
       devicesConnected.name,
+      devicesForgetAll.name,
       devicesList.name,
       devicesClearPush.name,
       devicesPushTargets.name,
@@ -117,6 +128,25 @@ function lanAddresses(): string[] {
     .map((each) => each.address)
     .slice(0, 16);
 }
+
+// 이 판 전에 만든 host key에 이 기계의 id를 찍는다. key 값은 그대로라 이미 pairing한 폰이 그대로 붙는다.
+// ensureMachine이 data step보다 먼저 돌아 machine.json이 있다.
+export const hostKeyMachineStep: DataStep = {
+  id: "remote.host-key.machine",
+  async run(root) {
+    const machine = await readMachineId(root);
+    if (!machine.ok) return machine;
+    try {
+      await stampHostKeyMachine(`${root}/remote`, machine.value);
+    } catch {
+      return err({
+        code: "unavailable",
+        message: "the machine id could not be written to the remote host key",
+      });
+    }
+    return ok(undefined);
+  },
+};
 
 export const remoteWiring: WiringFactory = () => {
   let listener: RemoteListener | undefined;
@@ -214,8 +244,8 @@ export const remoteWiring: WiringFactory = () => {
         }
         return ok({ id });
       },
-      connected(id) {
-        void command(ctx, devicesConnected.name, { id }).then((done) => {
+      connected(id, name) {
+        void command(ctx, devicesConnected.name, { id, name }).then((done) => {
           if (!done.ok)
             logError(ctx, "connected_not_saved", done.error.message);
         });
@@ -233,6 +263,46 @@ export const remoteWiring: WiringFactory = () => {
         return logError(ctx, "push_targets_failed", read.error.message);
       pushDevices = (read.value as { devices: PushDevice[] }).devices;
     });
+  }
+
+  // host key가 다른 기계의 것이면 이 data root는 다른 기계에서 복사됐다. 그 기기 등록과 push token은 그 기계가 pairing한 것이라
+  // 모두 버리고 key를 지운다. reconcile이 지금 id를 찍은 새 key를 만든다. 등록을 버린 뒤 key를 지우므로 중간에 죽으면 다음
+  // 기동이 같은 판정으로 다시 한다.
+  async function forgetClonedDevices(
+    ctx: WiringContext,
+  ): Promise<Result<void>> {
+    const dir = `${ctx.root.path}/remote`;
+    const stamped = await readHostKeyMachine(dir);
+    if (
+      stamped === "missing" ||
+      stamped === "unreadable" ||
+      stamped === ctx.machine.id
+    ) {
+      return ok(undefined);
+    }
+    const forgot = await command(ctx, devicesForgetAll.name, {});
+    if (!forgot.ok) return forgot;
+    try {
+      await rm(`${dir}/host-key.json`, { force: true });
+    } catch (thrown) {
+      logError(ctx, "host_key_not_removed", thrown);
+      return err({
+        code: "unavailable",
+        message: "the remote host key of another machine could not be removed",
+      });
+    }
+    ctx.telemetry.logger.warn({
+      component: "remote",
+      event: "host_key_from_other_machine",
+      message:
+        "the remote host key was made on another machine; its device registrations were dropped and a new key will be made",
+      fields: {
+        from: stamped,
+        to: ctx.machine.id,
+        devices: (forgot.value as { count: number }).count,
+      },
+    });
+    return ok(undefined);
   }
 
   async function reconcile(ctx: WiringContext): Promise<void> {
@@ -254,7 +324,11 @@ export const remoteWiring: WiringFactory = () => {
     if (!enabled) return;
     let staticKey: Awaited<ReturnType<typeof loadHostKey>>;
     try {
-      hostKey ??= loadHostKey(`${ctx.root.path}/remote`, ctx.random);
+      hostKey ??= loadHostKey(
+        `${ctx.root.path}/remote`,
+        ctx.random,
+        ctx.machine.id,
+      );
       staticKey = await hostKey;
     } catch (thrown) {
       hostKey = undefined;
@@ -264,6 +338,7 @@ export const remoteWiring: WiringFactory = () => {
     hostText = remoteKeyText(staticKey.publicKey);
     host ??= createRemoteHost({
       staticKey,
+      machine: () => ({ id: ctx.machine.id, name: ctx.machine.status().name }),
       random: ctx.random,
       timers: systemTimers,
       bus: ctx.bus,
@@ -323,9 +398,11 @@ export const remoteWiring: WiringFactory = () => {
       ...PERMISSIONS_PHONE_KIND_STEPS,
       ...DEVICES_KIND_STEPS,
     ],
+    dataSteps: [hostKeyMachineStep],
     operations: () => [
       { name: devicesRegister.name, actors: ["machine"], kind: "command" },
       { name: devicesConnected.name, actors: ["machine"], kind: "command" },
+      { name: devicesForgetAll.name, actors: ["machine"], kind: "command" },
       { name: devicesClearPush.name, actors: ["machine"], kind: "command" },
       { name: devicesPushTargets.name, actors: ["machine"], kind: "read" },
     ],
@@ -426,6 +503,9 @@ export const remoteWiring: WiringFactory = () => {
       });
     },
     async start(ctx) {
+      // listener와 relay를 열고 push 대상을 읽기 전에 본다. writer가 다 접힌 뒤라 forget_all의 revoked가 끊기와 같은 길로 간다.
+      const forgot = await forgetClonedDevices(ctx);
+      if (!forgot.ok) return forgot;
       unsubscribe = ctx.bus.subscribe([{ types: ["StateChanged"] }], {
         send(event) {
           const changes = (

@@ -1,14 +1,16 @@
 // 폰 대신 core의 remote listener에 붙어 보는 개발용 client. 폰 앱이 할 일을 같은 protocol code로 한다.
 // 실행:
 //   node tools/remote-client.ts pair --state <file> --qr '<pairing/start가 준 JSON>' [--address <host>] [--name <name>]
-//   node tools/remote-client.ts call --state <file> <resource>/<method> ['<body JSON>'] [--watch <초>] [--address <host>]
-//   node tools/remote-client.ts file --state <file> <resource>/<method> ['<body JSON>'] --out <path> [--address <host>]
-// pair는 이 client의 key와 core 정보를 --state file에 남긴다. call은 그 key로 다시 붙어 route 하나를 부르고,
+//   node tools/remote-client.ts call --state <file> <resource>/<method> ['<body JSON>'] [--watch <초>] [--address <host>] [--name <name>]
+//   node tools/remote-client.ts file --state <file> <resource>/<method> ['<body JSON>'] --out <path> [--address <host>] [--name <name>]
+// pair는 이 client의 key와 core 정보(hello로 받은 기계 id 포함)를 --state file에 남긴다. --name은 hello로 알리는 이 client의 이름이다.
+// call은 그 key로 다시 붙어 route 하나를 부르고(hello의 기계 id가 state와 다르면 아무것도 보내지 않고 conflict로 끝난다),
 // file은 file route 하나를 불러 답의 base64를 bytes로 풀어 --out에 쓴다. --watch를 주면 그 동안 기기가 받을 수 있는 모든 event(REMOTE_ALLOWED_EVENTS)를 찍는다. 주소는 QR의 후보를 차례로 붙어 보고, --address가 있으면 그것만 쓴다.
 import { readFileSync, writeFileSync } from "node:fs";
 import process from "node:process";
 import { parseArgs } from "node:util";
 import { cryptoRandom } from "../packages/base/mod.ts";
+import type { Id } from "../packages/protocol/base/mod.ts";
 import {
   connectRemote,
   generateKeyPair,
@@ -27,6 +29,7 @@ type State = {
   port: number;
   key: string;
   secret_key: string;
+  machine?: Id<"mch">;
 };
 
 const { values, positionals } = parseArgs({
@@ -86,11 +89,21 @@ async function open(
       staticKey: phone,
       remoteStatic,
       capabilities: [],
+      name: values.name ?? "remote-client",
+      machine: state.machine,
       random: cryptoRandom,
     });
-    if (!channel.ok)
-      fail(`handshake failed at ${url}: ${channel.error.message}`);
-    console.error(`connected ${url}`);
+    if (!channel.ok) {
+      fail(
+        `handshake failed at ${url}: ${channel.error.code} ${channel.error.message}${
+          channel.error.details
+            ? ` ${JSON.stringify(channel.error.details)}`
+            : ""
+        }`,
+      );
+    }
+    const { machine } = channel.value.peer;
+    console.error(`connected ${url} (${machine.name}, ${machine.id})`);
     return channel.value;
   }
   return fail("no address answered");
@@ -140,7 +153,6 @@ if (command === "pair") {
     id: "pair",
     code: qr.code,
     kind: "phone",
-    name: values.name ?? "remote-client",
     os: "android",
     width: 412,
     height: 915,
@@ -149,7 +161,8 @@ if (command === "pair") {
   const done = await answer;
   print(done);
   if (done.ok) {
-    writeFileSync(values.state, `${JSON.stringify(state)}\n`, { mode: 0o600 });
+    const saved: State = { ...state, machine: channel.peer.machine.id };
+    writeFileSync(values.state, `${JSON.stringify(saved)}\n`, { mode: 0o600 });
   }
   ending = true;
   channel.close();

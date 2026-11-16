@@ -543,7 +543,7 @@ flows:
     title: "ledger 밖 data root 파일의 data step을 한 번씩 적용한다"
     actor: system
     entries: [system:data-steps-apply]
-    uses: [system:settings-call-policy-private, system:settings-places-default-on, system:apps-sealed-marker, system:artifacts-container, system:domains-place-data, system:domains-retire, system:lophn-split-per-workspace, system:settings-call-policy-workspaces, system:shell-workspace-layouts, system:workflows-participant-workspace, system:shell-global-floats-tabs, system:shell-agent-tabs-unsaved]
+    uses: [system:settings-call-policy-private, system:settings-places-default-on, system:apps-sealed-marker, system:artifacts-container, system:domains-place-data, system:domains-retire, system:lophn-split-per-workspace, system:settings-call-policy-workspaces, system:shell-workspace-layouts, system:workflows-participant-workspace, system:shell-global-floats-tabs, system:shell-agent-tabs-unsaved, system:remote-host-key-machine]
     boundary: [core]
     code: [packages/core/storage/migration/data-steps.ts, packages/core/main/daemon/core.ts, packages/core/main/daemon/wiring/context.ts]
     steps:
@@ -1605,7 +1605,7 @@ flows:
     docs: [architecture/platform.md]
     steps:
       - "기동 때와 StateChanged(settings)의 id가 remote.enabled·remote.port·remote.relay(또는 null)일 때 remote wiring이 listener와 relay 연결을 맞춘다. 맞추기는 하나씩 돈다"
-      - "켜져 있으면 `<root>/remote/host-key.json`(0600)을 읽거나 없으면 만들고, 모든 interface의 remote.port에 WebSocket listener(path /remote)를 연다"
+      - "켜져 있으면 `<root>/remote/host-key.json`(0600)을 읽거나 없으면 만든다. 새 key에는 만든 기계의 id(machine)를 같이 적는다(기동 때 다른 기계의 key는 devices-forget-all이 먼저 지운다). 모든 interface의 remote.port에 WebSocket listener(path /remote)를 연다"
       - "켜져 있고 remote.relay가 비어 있지 않으면 relay의 /v1/host?key=<core key>에 control socket을 건다. challenge에 core static key로 만든 proof로 답하고 ready를 받으면 connected다. listener를 열지 못해도 relay는 따로 돈다"
       - "relay가 connected {conn}을 알리면 /v1/data?conn=<conn>에 data socket을 열어 listener의 연결과 같이 remote-connection에 넘긴다"
       - "control socket이 끊기면 1초에서 두 배씩 30초까지 기다렸다 다시 건다. control socket은 20초마다 ping하고 60초 동안 아무것도 오지 않으면 끊는다"
@@ -1638,17 +1638,28 @@ flows:
     code: [packages/core/remote/host.ts, packages/core/remote/call.ts, packages/core/server/identity/registry.ts, packages/core/main/daemon/wiring/remote.ts, packages/core/apps/views/table.ts]
     docs: [architecture/approval.md, architecture/event.md, architecture/remote.md]
     steps:
-      - "기기로 붙지 않은 연결(handshake 중과 pairing 전)이 이미 8개면 새 socket을 받자마자 닫는다. 연결마다 Noise IK responder handshake와 hello를 한다. 10초 안에 끝나지 않으면 닫는다. 기기로 붙기 전에는 frame이 4 KiB까지다"
+      - "기기로 붙지 않은 연결(handshake 중과 pairing 전)이 이미 8개면 새 socket을 받자마자 닫는다. 연결마다 Noise IK responder handshake와 hello를 한다. 10초 안에 끝나지 않으면 닫는다. 기기로 붙기 전에는 frame이 4 KiB까지다. hello는 붙는 쪽이 먼저 {version, min_version, capabilities, name(1..64, 자기 이름)}, core는 판이 맞든 아니든 그 뒤에 {version 2, min_version 2, capabilities [], machine {id, name}}다. machine은 연결마다 ctx.machine에서 읽어 machine/rename 뒤 다음 연결부터 새 이름이다. 모르는 칸은 버린다"
+      - "판 범위: 붙는 쪽 version이 core min_version보다 낮으면 update client, core version이 붙는 쪽 min_version보다 낮으면 update host다. 양쪽 다 두 hello를 보고 conflict {details.update}로 닫고 core는 log에 같은 값을 남긴다. 붙는 쪽(폰, desktop, tools/remote-client.ts)은 pairing 때 저장한 core의 machine id를 connectRemote에 준다. core hello의 id가 다르면 hello 말고 아무 frame도 보내지 않고 conflict로 닫는다. 같은 key를 가진 복제된 기계에 pair code나 call이 가지 않는다"
       - "받은 공개 key(base64url)를 devices/list로 찾는다. 없으면 pair 말고 어떤 frame이 와도 연결을 닫고, 60초 안에 pairing하지 못해도 닫는다(remote-pair). 있으면 frame 상한을 16 MiB로 올리고 첫 frame을 기다린다. pair면 다시 pairing(remote-pair)이고 그 밖이면 그 기기로 붙인다"
-      - "등록된 기기면 actor user, principal device:<id>, scope가 REMOTE_ALLOWED_ROUTES인 자격을 core 한 번에 하나 발급해 ledger에 기록한다. 발급 뒤 key를 다시 찾아 그 사이 끊긴 기기면 자격을 거두고 닫는다. devices/connected로 마지막 연결 시각을 적는다. event 연결 한도는 principal마다다. 그 기기의 마지막 연결이 닫히거나 기기를 끊으면 그 기기의 presence 보고를 지운다(attention.forgetReporter)"
+      - "등록된 기기면 actor user, principal device:<id>, scope가 REMOTE_ALLOWED_ROUTES인 자격을 core 한 번에 하나 발급해 ledger에 기록한다. 발급 뒤 key를 다시 찾아 그 사이 끊긴 기기면 자격을 거두고 닫는다. devices/connected {id, name}으로 마지막 연결 시각과 그 연결의 hello로 알린 이름(name, name_announced_at)을 적는다. 사람이 붙인 별명(alias)은 그대로다. 알린 이름을 처음 받는 행(name_announced_at null, migration에서 온 것)의 별명이 알린 이름과 같으면 별명을 거둔다(보이는 글은 같다). 보이는 이름(alias ?? name)이 바뀌면 commit 뒤 renamed로 설정 shell.devices의 그 기기 항목 이름도 바꾼다(40자로 자른다). event 연결 한도는 principal마다다. 그 기기의 마지막 연결이 닫히거나 기기를 끊으면 그 기기의 presence 보고를 지운다(attention.forgetReporter)"
       - "call은 자격을 다시 보고 scope로 거른 뒤 HTTP와 같은 dispatchHttp를 탄다. 기기의 jobs/update는 job과 enabled만 받는다(켜고 끄기). 다른 field가 하나라도 있으면 forbidden이다. 입장 한도는 remote만의 것이고 principal마다 선다"
       - "frame은 JSON뿐이라 bytes는 base64로 싣는다. upload route는 body {input, base64}를 HTTP upload 요청으로 바꾸고(한도는 route의 max_bytes), file route의 답은 {content_type, base64}다. file은 8 MiB까지다. 앱의 폰 화면은 apps/phone_screens, apps/screen_file, apps/phone_file(폰 backend file), app_views/open·call·close만 부른다. 폰에서 도는 앱은 app_sync/push·pull·snapshot·snapshot_file로 설치하고 컴퓨터와 맞춘다(push는 기기 자격만 받는다). view의 owner는 기기 principal이라 다른 기기가 연 view는 없는 view와 같다. 폰 홈 화면 위젯은 app_widgets/list로 선언된 위젯의 값을 읽는다. 앱을 직접 부르는 apps/call_tool, app_grants/*, 앱 만들기·고치기·지우기·release·rewind, apps/log_view_error(입력의 앱을 부르는 쪽이 정한다)는 목록 밖이다"
-      - "watch는 Gateway session과 같은 Bus 구독이되 REMOTE_ALLOWED_EVENTS의 type만 보낸다(조건에 types가 없어도). session의 owner가 기기 principal이라 AppViewEvent는 이 기기가 연 view의 것만 간다. AppSyncChanged(앱 id와 seq만 싣는다)는 목록 안이고 폰이 app_sync/pull로 답한다. AppEventPublished·AppViewChanged는 목록 밖이다. 느린 연결은 Gateway와 같은 한도로 closed(slow_consumer)를 받고 닫힌다"
-      - "붙은 연결이 닫히면(폰이 끊음, 기기 끊기, core 내려감) 그 기기로 붙은 다른 연결이 없을 때 core view 표에서 그 기기(owner)의 view를 모두 지운다. 다시 붙은 폰은 app_views/open으로 다시 연다"
+      - "watch는 Gateway session과 같은 Bus 구독이되 REMOTE_ALLOWED_EVENTS의 type만 보낸다(조건에 types가 없어도). session의 owner가 기기 principal이라 AppViewEvent는 이 기기가 연 view의 것만 간다. AppSyncChanged(앱 id와 seq만 싣는다)는 목록 안이고 폰이 app_sync/pull로 답한다. AppEventPublished·AppViewChanged는 목록 밖이다. 느린 연결은 Gateway와 같은 한도로 closed(slow_consumer)를 받고 닫힌다. 붙은 연결이 닫히면(폰이 끊음, 기기 끊기, core 내려감) 그 기기로 붙은 다른 연결이 없을 때 core view 표에서 그 기기(owner)의 view를 모두 지운다. 다시 붙은 폰은 app_views/open으로 다시 연다"
     outcomes:
       - id: handshake-timeout
         when: "handshake나 hello가 10초 안에 끝나지 않았다"
         observe: ["process:연결 닫힘"]
+      - id: version-out-of-range
+        code: conflict
+        when: "두 hello의 판 범위가 겹치지 않는다. core는 자기 hello를 보낸 뒤 닫는다. 양쪽의 오류 details.update가 client(붙는 쪽을 올려라) 또는 host(core를 올려라)다"
+        observe: ["log:remote protocol_version_out_of_range", "process:연결 닫힘"]
+      - id: other-machine
+        code: conflict
+        when: "붙는 쪽이 준 machine id와 core hello의 id가 다르다(a different computer answered). 붙는 쪽이 hello 뒤로 아무 frame도 보내지 않고 닫는다"
+        observe: ["process:연결 닫힘"]
+      - id: announced-name
+        when: "붙은 기기가 알린 이름이 적혔다. 별명이 없고 알린 이름이 바뀌었으면 보이는 이름과 shell.devices 항목이 따라간다"
+        observe: ["ledger:devices", "disk:<root>/settings.json"]
       - id: unattached-full
         when: "기기로 붙지 않은 연결이 이미 8개다"
         observe: ["process:연결 닫힘"]
@@ -1792,11 +1803,11 @@ flows:
     code: [packages/core/remote/host.ts, packages/core/remote/pairing.ts, packages/core/remote/devices.ts, packages/core/main/daemon/wiring/remote.ts]
     docs: [architecture/approval.md]
     steps:
-      - "등록되지 않은 key의 연결이, 또는 등록된 key의 연결이 첫 frame으로 pair를 보낸다. kind로 갈린다: phone {code, name(1..40), os ios|android, width, height, dpr}, desktop {code, name(1..64), os linux|macos|windows}"
+      - "등록되지 않은 key의 연결이, 또는 등록된 key의 연결이 첫 frame으로 pair를 보낸다. kind로 갈린다: phone {code, os ios|android, width, height, dpr}, desktop {code, os linux|macos|windows}. 이름은 frame에 없고 그 연결의 hello name(1..64)이다"
       - "code가 지금 code와 같고 300초 안이면 쓴다(한 번만). 틀리면 unauthorized result이고 연결마다 5번째 틀리면 연결을 닫는다"
-      - "core 안 machine 자격이 devices/register로 기기를 등록한다. 같은 key의 옛 등록이 있으면 지우고(commit 뒤 devices-revoke와 같이 그 기기의 자격과 연결, shell.devices 항목을 거둔다) 새 등록으로 바꾼다. 보낸 이름은 기기가 알린 이름(name)이고 별명(alias)은 없다. 새 phone이 기준이 되고 다른 기기의 기준은 내린다. desktop은 기준이 아니고 다른 기기의 기준도 그대로다"
+      - "core 안 machine 자격이 devices/register로 기기를 등록한다. 같은 key의 옛 등록이 있으면 지우고(commit 뒤 devices-revoke와 같이 그 기기의 자격과 연결, shell.devices 항목을 거둔다) 새 등록으로 바꾼다. hello의 이름이 기기가 알린 이름(name)이 되고 알린 때(name_announced_at)를 지금으로 적는다. 별명(alias)은 없다. 새 phone이 기준이 되고 다른 기기의 기준은 내린다. desktop은 기준이 아니고 다른 기기의 기준도 그대로다"
       - "commit 뒤 registered {id, kind}로 ctx.deviceKind 사본에 kind를 더한다"
-      - "phone이면 설정 shell.devices에 device(기기 id)를 단 항목을 더한다. 이름이 다른 항목과 겹치면 \" 2\", \" 3\"을 붙인다. device가 없는 항목(사람이 넣은 것)은 건드리지 않는다. desktop은 항목을 더하지 않는다"
+      - "phone이면 설정 shell.devices에 device(기기 id)를 단 항목을 더한다. 이름은 40자로 자른다. 다른 항목과 겹치면 \" 2\", \" 3\"을 붙인다. device가 없는 항목(사람이 넣은 것)은 건드리지 않는다. desktop은 항목을 더하지 않는다"
       - "그 연결을 바로 기기로 붙이고 같은 id의 result {device}로 답한다"
     outcomes:
       - id: paired
@@ -1934,6 +1945,63 @@ flows:
         observe: ["response"]
     crosses_process: false
     risk: [permission]
+
+  - id: devices-forget-all
+    title: "host key가 다른 기계에서 온 것이면 기동 때 기기 등록을 모두 버리고 key를 지운다"
+    actor: system
+    entries: [route:devices/forget_all]
+    pre: [system:machine-ensure]
+    boundary: [core, storage]
+    code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/host-key.ts, packages/core/remote/devices.ts]
+    docs: [architecture/remote.md]
+    steps:
+      - "remote wiring의 start가 remote.enabled와 상관없이 기동마다, listener·relay를 열고 push 대상을 읽기 전에 `<root>/remote/host-key.json`의 machine을 읽는다"
+      - "file이 없거나 못 읽거나(machine이 없음 포함) machine이 지금 기계 id와 같으면 아무것도 하지 않는다. 못 읽는 key file은 덮지 않는다"
+      - "다르면 이 data root는 다른 기계에서 복사됐다(machine-ensure의 cloned). core 안 machine 자격이 devices/forget_all로 기기 행을 모두 지운다(push token 포함). 행마다 commit 뒤 devices-revoke와 같이 자격과 연결, shell.devices 항목, kind·터미널 허락 사본을 거둔다"
+      - "그 뒤 host-key.json을 지우고 경고 log 한 줄(옛 id, 지금 id, 지운 기기 수). remote.enabled면 remote-listener가 지금 id를 찍은 새 key를 만들고 relay에도 새 key로 붙는다"
+      - "기기를 버린 뒤 key를 지우므로 중간에 죽으면 다음 기동이 같은 판정으로 다시 한다"
+    outcomes:
+      - id: forgotten
+        when: "key의 machine이 지금 id와 달랐다. 기기 표가 비고 새 key가 생긴다. 옛 기계에서 pairing한 폰은 다시 pairing해야 한다"
+        observe: ["ledger:devices", "disk:<root>/settings.json", "disk:<root>/remote/host-key.json", "log:remote host_key_from_other_machine"]
+      - id: kept
+        when: "key가 없거나 못 읽거나 machine이 지금 id와 같다. 기기와 key가 그대로다"
+        observe: ["disk:<root>/remote/host-key.json"]
+      - id: unavailable
+        code: unavailable
+        when: "writer를 쓸 수 없거나 key file을 지우지 못했다. 기동이 멈춘다"
+        observe: ["process:stdout start_failed other"]
+    crosses_process: false
+    risk: [permission]
+    declared_only: [invalid_input, forbidden]
+    unclear:
+      - "devices/forget_all의 invalid_input·forbidden은 core 안 machine 자격이 빈 입력으로만 부르므로 나지 않는다"
+
+  - id: remote-host-key-machine
+    title: "이 판 전에 만든 host key에 이 기계의 id를 찍는다(data step)"
+    actor: system
+    entries: [system:remote-host-key-machine]
+    pre: [system:machine-ensure]
+    boundary: [core]
+    code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/host-key.ts]
+    docs: [architecture/remote.md]
+    steps:
+      - "data step remote.host-key.machine. readMachineId로 machine.json의 id를 읽는다(machine-ensure가 먼저 만들었다)"
+      - "`<root>/remote/host-key.json`이 있고 machine이 없으면 그 id를 더해 0600으로 temp에 쓰고 rename한다. key 값은 그대로라 이미 pairing한 폰이 그대로 붙는다"
+      - "file이 없거나 이미 machine이 있거나 JSON이 아니면 하지 않는다(못 읽는 file은 덮지 않는다). 다시 돌아도 같다"
+    outcomes:
+      - id: stamped
+        observe: ["disk:<root>/remote/host-key.json"]
+        when: "machine이 없는 key에 지금 id를 찍었다"
+      - id: skipped
+        observe: ["disk:host-key.json 변화 없음"]
+        when: "key file이 없거나 이미 찍혔거나 못 읽는다"
+      - id: failed
+        code: unavailable
+        observe: ["process:stdout start_failed other"]
+        when: "machine.json을 읽지 못했거나 key file을 쓰지 못했다"
+    crosses_process: false
+    risk: [data-loss]
 
   - id: devices-unpair
     title: "폰이 컴퓨터를 지울 때 자기 등록을 지운다"

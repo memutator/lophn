@@ -278,3 +278,118 @@ test("devices/rename은 별명만 바꾸고 null이면 알린 이름이 다시 �
     db.close();
   }
 });
+
+// 기기가 알린 이름이 사람이 붙인 별명을 덮으면 안 된다. migration이 옛 이름을 별명으로 지켜 둔 것만 처음 알린 이름과 같을 때 거둔다.
+test("붙을 때 알린 이름은 늘 고쳐 적히고 사람이 붙인 별명은 그대로이며, migration이 지킨 옛 이름은 처음 알린 이름과 같을 때만 별명에서 거둬진다", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    for (const step of DEVICES_SCHEMA_STEPS) db.exec(step.sql);
+    const insert = db.prepare(
+      `insert into devices (id, name, os, width, height, dpr, public_key, created_at, is_primary)
+         values (?, ?, 'android', 412, 915, 2.625, ?, ?, 0)`,
+    );
+    // 옛 이름이 pairing 때 온 이름인 행과 사람이 바꾼 이름인 행. migration 뒤에는 둘 다 별명이다.
+    insert.run(deviceId(1), "Pixel 9", keyText(), "2026-10-01T00:00:00.000Z");
+    insert.run(
+      deviceId(2),
+      "Work phone",
+      keyText(),
+      "2026-10-02T00:00:00.000Z",
+    );
+    for (const step of DEVICES_KIND_STEPS) db.exec(step.sql);
+    const sql = createSql(db, () => true);
+    let changes: DevicesChange[] = [];
+    let n = 2;
+    let at = 0;
+    const tx = {
+      sql,
+      now: () => `2026-11-16T00:00:0${at}.000Z`,
+      newId: () => deviceId(++n),
+      port: () => ({
+        push: (_topic: string, change: DevicesChange) => changes.push(change),
+      }),
+    } as unknown as Tx;
+    const run = (method: string, input: unknown) => {
+      changes = [];
+      at += 1;
+      const done = DEVICES_COMMANDS.find(
+        (each) => each.route.method === method,
+      )!.handle(
+        tx,
+        { principal: "machine:remote", actor: "machine" } as never,
+        input as never,
+        {} as never,
+      );
+      assert.ok(done.ok);
+    };
+    const row = (id: string) => {
+      const found = list(db).find((each) => each.id === id)!;
+      return [found.name, found.announced_name, found.alias];
+    };
+    const [migrated, renamedByPerson, paired] = [
+      deviceId(1),
+      deviceId(2),
+      deviceId(3),
+    ];
+
+    // 처음 알린 이름이 옛 이름과 같으면 별명을 거둔다. 보이는 글은 그대로다.
+    run("connected", { id: migrated, name: "Pixel 9" });
+    assert.deepEqual(row(migrated), ["Pixel 9", "Pixel 9", null]);
+    assert.deepEqual(changes, []);
+    // 다르면 사람이 바꾼 이름으로 보고 별명으로 둔다. 알린 이름만 적힌다.
+    run("connected", { id: renamedByPerson, name: "Galaxy S24" });
+    assert.deepEqual(row(renamedByPerson), [
+      "Work phone",
+      "Galaxy S24",
+      "Work phone",
+    ]);
+    assert.deepEqual(changes, []);
+    // 그 뒤로는 같은 글을 알려도 별명을 거두지 않는다.
+    run("connected", { id: renamedByPerson, name: "Work phone" });
+    assert.deepEqual(row(renamedByPerson), [
+      "Work phone",
+      "Work phone",
+      "Work phone",
+    ]);
+    // 별명이 없으면 알린 이름이 바뀔 때마다 보이는 이름이 따라간다.
+    run("connected", { id: migrated, name: "Pixel 9 Pro" });
+    assert.deepEqual(row(migrated), ["Pixel 9 Pro", "Pixel 9 Pro", null]);
+    assert.deepEqual(changes, [
+      { type: "renamed", id: migrated, name: "Pixel 9 Pro" },
+    ]);
+
+    // pairing은 hello로 알린 이름이라 알린 때를 적는다. 사람이 붙인 별명은 같은 글을 알려도 남는다.
+    run("register", {
+      kind: "phone",
+      name: "Pixel 8",
+      os: "android",
+      width: 412,
+      height: 915,
+      dpr: 2.625,
+      public_key: keyText(),
+    });
+    run("rename", { id: paired, name: "Mine" });
+    run("connected", { id: paired, name: "Mine" });
+    assert.deepEqual(row(paired), ["Mine", "Mine", "Mine"]);
+    assert.deepEqual(changes, []);
+    assert.deepEqual(
+      db
+        .prepare(
+          "select id, last_connected_at, name_announced_at from devices order by id",
+        )
+        .all()
+        .map(Object.values),
+      [
+        [migrated, "2026-11-16T00:00:04.000Z", "2026-11-16T00:00:04.000Z"],
+        [
+          renamedByPerson,
+          "2026-11-16T00:00:03.000Z",
+          "2026-11-16T00:00:03.000Z",
+        ],
+        [paired, "2026-11-16T00:00:07.000Z", "2026-11-16T00:00:07.000Z"],
+      ],
+    );
+  } finally {
+    db.close();
+  }
+});

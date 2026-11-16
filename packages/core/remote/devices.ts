@@ -4,6 +4,7 @@ import { pushPrefsSchema } from "../../protocol/attention/mod.ts";
 import {
   devicesClearPush,
   devicesConnected,
+  devicesForgetAll,
   devicesList,
   devicesPushTargets,
   devicesRegister,
@@ -245,19 +246,22 @@ const register: CommandDefinition<typeof devicesRegister> = {
     const phone = input.kind === "phone";
     if (phone)
       tx.sql.run("update devices set is_primary = 0 where is_primary = 1", []);
+    const now = tx.now();
     tx.sql.run(
-      `insert into devices (id, kind, name, os, width, height, dpr, public_key, created_at, last_connected_at, is_primary)
-       values (?, ?, ?, ?, ?, ?, ?, ?, ?, null, ?)`,
+      `insert into devices (id, kind, name, name_announced_at, os, width, height, dpr, public_key, created_at,
+         last_connected_at, is_primary)
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null, ?)`,
       [
         id,
         input.kind,
         input.name,
+        now,
         input.os,
         phone ? input.width : null,
         phone ? input.height : null,
         phone ? input.dpr : null,
         input.public_key,
-        tx.now(),
+        now,
         phone ? 1 : 0,
       ],
     );
@@ -269,12 +273,28 @@ const register: CommandDefinition<typeof devicesRegister> = {
 const connected: CommandDefinition<typeof devicesConnected> = {
   route: devicesConnected,
   handle(tx, _ctx, input) {
-    const found = load(tx.sql, input.id);
-    if (!found.ok) return found;
-    tx.sql.run("update devices set last_connected_at = ? where id = ?", [
-      tx.now(),
-      input.id,
-    ]);
+    const row = tx.sql.get(
+      "select name, alias, name_announced_at from devices where id = ?",
+      [input.id],
+    );
+    if (row === undefined) {
+      return err({ code: "not_found", message: "device not found" });
+    }
+    const before = (row.alias as string | null) ?? (row.name as string);
+    // 알린 이름을 처음 받을 때, migration이 옛 이름을 지켜 둔 별명이 그 이름과 같으면 사람이 붙인 것이 아니라 거둔다.
+    const alias =
+      row.name_announced_at === null && row.alias === input.name
+        ? null
+        : (row.alias as string | null);
+    const now = tx.now();
+    tx.sql.run(
+      "update devices set last_connected_at = ?, name = ?, name_announced_at = ?, alias = ? where id = ?",
+      [now, input.name, now, alias, input.id],
+    );
+    const shown = alias ?? input.name;
+    if (shown !== before) {
+      push(tx, { type: "renamed", id: input.id, name: shown });
+    }
     return ok({ id: input.id });
   },
 };
@@ -300,6 +320,16 @@ function remove(tx: Pick<Tx, "sql" | "port">, id: string): void {
   tx.sql.run("delete from devices where id = ?", [id]);
   push(tx, { type: "revoked", id });
 }
+
+// 행마다 revoked를 내어 연결 닫기, 자격 거두기, `shell.devices`, kind·허락 사본이 하나씩 끊은 것과 같이 따라간다.
+const forgetAll: CommandDefinition<typeof devicesForgetAll> = {
+  route: devicesForgetAll,
+  handle(tx) {
+    const rows = tx.sql.all("select id from devices", []);
+    for (const row of rows) remove(tx, row.id as string);
+    return ok({ count: rows.length });
+  },
+};
 
 const revoke: CommandDefinition<typeof devicesRevoke> = {
   route: devicesRevoke,
@@ -403,6 +433,7 @@ export const DEVICES_COMMANDS = [
   connected,
   rename,
   revoke,
+  forgetAll,
   unpair,
   setPush,
   clearPush,

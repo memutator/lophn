@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { err, manualClock, ok, seededRandom } from "../../../../base/mod.ts";
@@ -19,11 +22,13 @@ import {
   DEVICES_KIND_STEPS,
   DEVICES_SCHEMA_STEPS,
   devicesListRead,
+  devicesPushTargetsRead,
 } from "../../../remote/mod.ts";
 import { CredentialRegistry } from "../../../server/identity/mod.ts";
 import { RouteRegistry } from "../../../server/mod.ts";
 import { createSql } from "../../../storage/ledger/sqlite.ts";
 import { createAdmission } from "../../../supervision/responsiveness/mod.ts";
+import { readHostKeyMachine } from "../../../remote/host-key.ts";
 import { remoteWiring } from "./remote.ts";
 
 const PERSON: AuthenticatedContext = {
@@ -228,4 +233,158 @@ test("터미널 입력은 기본 꺼짐이고 켠 기기만 terminalInputGrant�
   } finally {
     db.close();
   }
+});
+
+// 복사된 data root의 기기 등록은 다른 기계가 pairing한 것이다. 남기면 이 기계가 그 폰에 push를 보내고 그 폰의 연결을 받는다.
+test("host key의 machine이 지금 id와 다르면 기동 뒤 기기 표가 비고(push token 포함) 새 key가 생기며, 같으면 기기와 key가 그대로다", async () => {
+  const original = `mch_0${"1".repeat(25)}`;
+  const clone = `mch_0${"2".repeat(25)}`;
+  const random = seededRandom(13);
+
+  async function boot(root: string, machine: string) {
+    const db = new DatabaseSync(join(root, "devices.db"));
+    try {
+      const sql = createSql(db, () => true);
+      let pushed: { topic: string; data: unknown }[] = [];
+      let n = 0;
+      const tx = {
+        sql,
+        now: () => "2026-11-16T00:00:00.000Z",
+        newId: () => `dev_0${String(++n).padStart(25, "0")}`,
+        port: () => ({
+          push: (topic: string, data: unknown) => pushed.push({ topic, data }),
+        }),
+      } as unknown as Tx;
+      const run = (
+        method: string,
+        who: AuthenticatedContext,
+        input: unknown,
+      ) => {
+        pushed = [];
+        return DEVICES_COMMANDS.find(
+          (each) => each.route.method === method,
+        )!.handle(tx, who, input as never, {} as never);
+      };
+      const read = (handle: typeof devicesListRead.handle) => () =>
+        handle({ sql, as_of_seq: "1" } as never, {} as never, PERSON as never);
+      let screens: unknown = [
+        {
+          name: "Pixel",
+          os: "android",
+          width: 412,
+          height: 915,
+          dpr: 2.625,
+          device: "dev_0" + "1".padStart(25, "0"),
+        },
+      ];
+      const ctx: Record<string, unknown> = {
+        root: { path: root },
+        machine: { id: machine, status: () => ({ name: "studio" }) },
+        clock: manualClock(0),
+        random,
+        provide: () => undefined,
+        runtime: {
+          reads: new Map([
+            ["devices/list", read(devicesListRead.handle)],
+            [
+              "devices/push_targets",
+              read(devicesPushTargetsRead.handle as never),
+            ],
+          ]),
+          memory: { handlers: new Map() },
+          record: async () => ok(undefined),
+        },
+        settings: {
+          get: (setting: { key: string }) =>
+            setting.key === "remote.enabled"
+              ? true
+              : setting.key === "shell.devices"
+                ? screens
+                : undefined,
+        },
+        settingsUpdate: (edits: { value: unknown }[]) => {
+          screens = edits[0].value;
+          return ok({ changed: [], rejected: [] });
+        },
+        telemetry: { logger: { error() {}, warn() {} } },
+        attention: { bindPush() {} },
+        bus: { subscribe: () => () => undefined },
+        allRoutes: [],
+      };
+      const wiring = remoteWiring();
+      const built = await wiring.build!(ctx as never);
+      assert.ok(built.ok);
+      ctx.writer = built.value.writer!({
+        command: async (
+          who: AuthenticatedContext,
+          envelope: { command: string; input: unknown },
+        ) => {
+          const done = run(
+            envelope.command.replace("devices.", ""),
+            who,
+            envelope.input,
+          );
+          return done.ok
+            ? ok({
+                result: done.value,
+                replayed: false,
+                first_seq: null,
+                last_seq: null,
+                after_commit: pushed,
+              })
+            : done;
+        },
+      } as never);
+      assert.ok((await wiring.start!(ctx as never)).ok);
+      await wiring.closeIntake!();
+      return {
+        rows: sql
+          .all("select id, push_token from devices order by id", [])
+          .map(Object.values),
+        screens,
+        key: readFileSync(join(root, "remote", "host-key.json"), "utf8"),
+      };
+    } finally {
+      db.close();
+    }
+  }
+
+  // 원래 기계에서 pairing한 폰 하나(push token이 있다)와 그 기계가 만든 key.
+  const root = mkdtempSync(join(tmpdir(), "lophn-remote-clone-"));
+  mkdirSync(join(root, "remote"));
+  const db = new DatabaseSync(join(root, "devices.db"));
+  for (const step of [...DEVICES_SCHEMA_STEPS, ...DEVICES_KIND_STEPS])
+    db.exec(step.sql);
+  db.prepare(
+    `insert into devices (id, kind, name, os, width, height, dpr, public_key, created_at, is_primary, push_token)
+       values (?, 'phone', 'Pixel', 'android', 412, 915, 2.625, ?, 'at', 1, 'ExponentPushToken[a]')`,
+  ).run(
+    `dev_0${"1".padStart(25, "0")}`,
+    remoteKeyText(generateKeyPair(random).publicKey),
+  );
+  db.close();
+  const pair = generateKeyPair(random);
+  const key = `${JSON.stringify({
+    public_key: remoteKeyText(pair.publicKey),
+    secret_key: remoteKeyText(pair.secretKey),
+    machine: original,
+  })}\n`;
+  writeFileSync(join(root, "remote", "host-key.json"), key, { mode: 0o600 });
+
+  const same = await boot(root, original);
+  assert.deepEqual(same.rows, [
+    [`dev_0${"1".padStart(25, "0")}`, "ExponentPushToken[a]"],
+  ]);
+  assert.equal(same.key, key);
+  assert.equal((same.screens as unknown[]).length, 1);
+
+  const cloned = await boot(root, clone);
+  assert.deepEqual(cloned.rows, []);
+  assert.deepEqual(cloned.screens, []);
+  assert.notEqual(cloned.key, key);
+  assert.equal(await readHostKeyMachine(join(root, "remote")), clone);
+  assert.notEqual(
+    JSON.parse(cloned.key).public_key,
+    remoteKeyText(pair.publicKey),
+  );
 });

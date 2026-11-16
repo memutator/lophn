@@ -68,6 +68,7 @@ function setup() {
   const link = createPhoneLink({ timers: fakeTimers, random });
   const host = createRemoteHost({
     staticKey: coreKey,
+    machine: () => ({ id: `mch_0${"1".repeat(25)}`, name: "studio" }),
     random,
     timers: fakeTimers,
     bus: createBus(),
@@ -98,6 +99,7 @@ function setup() {
       staticKey: key,
       remoteStatic: coreKey.publicKey,
       capabilities,
+      name: "Pixel",
       random,
     });
     assert.ok(opened.ok);

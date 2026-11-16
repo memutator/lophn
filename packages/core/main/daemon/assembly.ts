@@ -225,6 +225,6 @@ export const WIRINGS: readonly WiringFactory[] = [
   lophnSplitWiring,
   // data step이 마지막이어야 한다. 앞선 옮기기 step이 다 끝난 뒤에 domains 표와 폴더를 거둔다.
   domainsRetireWiring,
-  // 기기 표의 ledger step이 낸 step 목록의 맨 끝이다(schema-steps.lock.json). data step은 없다.
+  // 기기 표의 ledger step이 낸 step 목록의 맨 끝이다(schema-steps.lock.json). data step(host key의 machine 표지)은 앞 step과 상관없다.
   remoteWiring,
 ];

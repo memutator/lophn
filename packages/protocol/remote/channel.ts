@@ -6,13 +6,15 @@ import {
   type RandomSource,
   type Result,
 } from "../../base/mod.ts";
+import type { Id } from "../base/ids.ts";
 import {
   REMOTE_PROLOGUE,
   REMOTE_PROTOCOL_MIN_VERSION,
   REMOTE_PROTOCOL_VERSION,
   type RemoteClientFrame,
-  type RemoteHello,
+  type RemoteClientHello,
   type RemoteServerFrame,
+  type RemoteServerHello,
   remoteClientFrameSchema,
   remoteServerFrameSchema,
 } from "./frames.ts";
@@ -33,17 +35,25 @@ export type RemoteTransport = {
   onClose(handler: () => void): void;
 };
 
-// handshake와 hello로 안 상대. publicKey가 기기 신원이다. 누구인지는 부르는 쪽이 정한다.
-export type RemotePeer = {
+type PeerBase = {
   publicKey: Uint8Array;
   version: number;
+  minVersion: number;
   capabilities: string[];
 };
 
+// 붙는 쪽(폰, desktop)이 handshake와 hello로 안 core: 공개 key와 그 기계의 id와 이름.
+export type RemotePeer = PeerBase & {
+  machine: { id: Id<"mch">; name: string };
+};
+
+// core가 안 기기. publicKey가 기기 신원이고 누구인지는 부르는 쪽이 정한다. name은 기기가 알린 자기 이름이다.
+export type RemoteDevicePeer = PeerBase & { name: string };
+
 // frame 하나는 JSON 하나다. 받는 쪽은 onFrame을 걸 때까지 frame을 모아 둔다.
 // 바뀌거나 빠지거나 순서가 바뀐 record, schema 밖 frame을 받으면 연결을 끊는다.
-export type RemoteChannel<Out, In> = {
-  peer: RemotePeer;
+export type RemoteChannel<Out, In, Peer> = {
+  peer: Peer;
   send(frame: Out): Result<void>;
   onFrame(handler: (frame: In) => void): void;
   onClose(handler: () => void): void;
@@ -54,11 +64,13 @@ export type RemoteChannel<Out, In> = {
 
 export type RemoteClientChannel = RemoteChannel<
   RemoteClientFrame,
-  RemoteServerFrame
+  RemoteServerFrame,
+  RemotePeer
 >;
 export type RemoteServerChannel = RemoteChannel<
   RemoteServerFrame,
-  RemoteClientFrame
+  RemoteClientFrame,
+  RemoteDevicePeer
 >;
 
 // 받는 frame 상한의 기본값이자 보내는 frame의 상한이다. 상대가 더 큰 frame을 보내면 끊는다. 메모리를 상대가 정하지 못하게 하는 상한이다.
@@ -81,21 +93,80 @@ type Options = {
   maxFrameBytes?: number;
 };
 
-// 폰 쪽. remoteStatic은 QR로 받은 core의 공개 key이고, 다른 key의 core와는 handshake가 서지 않는다.
+const ownRange = {
+  version: REMOTE_PROTOCOL_VERSION,
+  min_version: REMOTE_PROTOCOL_MIN_VERSION,
+};
+
+type Range = { version: number; min_version: number };
+
+// 두 쪽의 판 범위가 겹치지 않으면 어느 쪽을 올려야 하는지 싣는다. 양쪽이 같은 두 hello로 같은 답을 낸다.
+function versionConflict(client: Range, host: Range): LophnError | undefined {
+  const update =
+    client.version < host.min_version
+      ? "client"
+      : host.version < client.min_version
+        ? "host"
+        : undefined;
+  if (update === undefined) return undefined;
+  return {
+    code: "conflict",
+    message: "remote protocol version out of range",
+    details: { update },
+  };
+}
+
+// 붙는 쪽(폰, desktop). remoteStatic은 QR로 받은 core의 공개 key이고, 다른 key의 core와는 handshake가 서지 않는다.
+// machine은 pairing 때 저장한 core의 기계 id다. core hello의 id가 다르면(같은 key를 가진 복제된 기계) channel을 내지 않는다.
+// channel이 나기 전에는 hello 말고 어떤 frame도 보낼 길이 없어 자격(pair code, call)이 다른 기계에 가지 않는다.
 export function connectRemote(
-  options: Options & { remoteStatic: Uint8Array },
+  options: Options & {
+    remoteStatic: Uint8Array;
+    name: string;
+    machine?: Id<"mch">;
+  },
 ): Promise<Result<RemoteClientChannel>> {
   const handshake = initiatorHandshake({ ...options, prologue });
   return open(options, remoteServerFrameSchema, {
     initiator: true,
     first: handshake.writeMessage(EMPTY),
     finish: (bytes) => handshake.readMessage(bytes).transport,
+    hello: {
+      type: "hello",
+      ...ownRange,
+      capabilities: options.capabilities,
+      name: options.name,
+    },
+    meet(publicKey, frame) {
+      const theirs = frame as RemoteServerHello;
+      const conflict = versionConflict(ownRange, theirs);
+      if (conflict) return err(conflict);
+      if (
+        options.machine !== undefined &&
+        theirs.machine.id !== options.machine
+      ) {
+        return err({
+          code: "conflict",
+          message: "a different computer answered",
+        });
+      }
+      return ok({
+        publicKey,
+        version: theirs.version,
+        minVersion: theirs.min_version,
+        capabilities: theirs.capabilities,
+        machine: {
+          id: theirs.machine.id as Id<"mch">,
+          name: theirs.machine.name,
+        },
+      });
+    },
   });
 }
 
-// core 쪽. handshake와 hello가 끝나기 전에는 어떤 frame도 부르는 쪽에 넘기지 않는다.
+// core 쪽. handshake와 hello가 끝나기 전에는 어떤 frame도 부르는 쪽에 넘기지 않는다. machine은 hello로 알리는 이 기계다.
 export function acceptRemote(
-  options: Options,
+  options: Options & { machine: { id: Id<"mch">; name: string } },
 ): Promise<Result<RemoteServerChannel>> {
   const handshake = responderHandshake({ ...options, prologue });
   return open(options, remoteClientFrameSchema, {
@@ -106,12 +177,31 @@ export function acceptRemote(
       options.transport.send(message);
       return transport;
     },
+    hello: {
+      type: "hello",
+      ...ownRange,
+      capabilities: options.capabilities,
+      machine: options.machine,
+    },
+    meet(publicKey, frame) {
+      const theirs = frame as RemoteClientHello;
+      const conflict = versionConflict(theirs, ownRange);
+      if (conflict) return err(conflict);
+      return ok({
+        publicKey,
+        version: theirs.version,
+        minVersion: theirs.min_version,
+        capabilities: theirs.capabilities,
+        name: theirs.name,
+      });
+    },
   });
 }
 
-// 양쪽 다 handshake 메시지를 하나씩 받는다. 받고 나면 initiator가 hello를 먼저 보내고, responder는 그 hello를
-// 보고 판이 맞을 때 자기 hello를 보낸다. 상대 hello가 맞으면 channel이 열린다.
-function open<Out, In extends { type: string }>(
+// 양쪽 다 handshake 메시지를 하나씩 받는다. 받고 나면 initiator가 hello를 먼저 보내고, responder는 그 hello를 받으면
+// 판이 맞든 아니든 자기 hello를 보낸다. 그래서 판이 어긋나도 양쪽 다 두 hello를 보고 같은 오류로 닫는다.
+// 상대 hello가 맞으면 channel이 열린다.
+function open<Out, In extends { type: string }, Peer>(
   options: Options,
   schema: z.ZodType<In>,
   role: {
@@ -119,16 +209,14 @@ function open<Out, In extends { type: string }>(
     first?: Uint8Array;
     // 상대 handshake 메시지를 처리하고 transport key를 낸다. 틀리면 던진다.
     finish: (bytes: Uint8Array) => Transport;
+    hello: object;
+    // 상대 hello를 보고 peer를 낸다. 오류면 그 오류로 닫는다.
+    meet: (publicKey: Uint8Array, hello: In) => Result<Peer>;
   },
-): Promise<Result<RemoteChannel<Out, In>>> {
+): Promise<Result<RemoteChannel<Out, In, Peer>>> {
   const { transport } = options;
-  const hello = {
-    type: "hello",
-    version: REMOTE_PROTOCOL_VERSION,
-    capabilities: options.capabilities,
-  };
   let keys: Transport | undefined;
-  let peer: RemotePeer | undefined;
+  let peer: Peer | undefined;
   let closed = false;
   let chunks: Uint8Array[] = [];
   let chunkBytes = 0;
@@ -139,7 +227,7 @@ function open<Out, In extends { type: string }>(
   let handler: ((frame: In) => void) | undefined;
   const queued: In[] = [];
   const closeHandlers: (() => void)[] = [];
-  let settle: (result: Result<RemoteChannel<Out, In>>) => void = () => {};
+  let settle: (result: Result<RemoteChannel<Out, In, Peer>>) => void = () => {};
 
   function close(error: LophnError = unavailable) {
     if (closed) return;
@@ -197,25 +285,16 @@ function open<Out, In extends { type: string }>(
       return;
     }
     if (frame.type !== "hello") return close(protocolError);
-    const theirs = frame as unknown as RemoteHello;
-    if (theirs.version < REMOTE_PROTOCOL_MIN_VERSION) {
-      return close({
-        code: "conflict",
-        message: "remote protocol version too old",
-      });
-    }
-    if (!role.initiator) send(hello);
-    peer = {
-      publicKey: current.remoteStatic,
-      version: theirs.version,
-      capabilities: theirs.capabilities,
-    };
+    if (!role.initiator) send(role.hello);
+    const met = role.meet(current.remoteStatic, frame);
+    if (!met.ok) return close(met.error);
+    peer = met.value;
     settle(ok(channel));
   }
 
-  const channel: RemoteChannel<Out, In> = {
+  const channel: RemoteChannel<Out, In, Peer> = {
     get peer() {
-      return peer as RemotePeer;
+      return peer as Peer;
     },
     send: (frame) => send(frame),
     onFrame(next) {
@@ -245,7 +324,7 @@ function open<Out, In extends { type: string }>(
           message: "remote handshake failed",
         });
       }
-      if (role.initiator) send(hello);
+      if (role.initiator) send(role.hello);
       return;
     }
     let frame: In | undefined;

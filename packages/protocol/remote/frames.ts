@@ -4,20 +4,36 @@ import {
   gatewayClientFrameSchema,
   gatewayServerFrameSchema,
 } from "../events/gateway.ts";
+import { machineIdSchema, machineNameSchema } from "../machine/mod.ts";
 import {
   phoneRequestFrameSchema,
   phoneResponseFrameSchema,
 } from "../phone/link.ts";
 
-// handshake 뒤 양쪽이 먼저 `hello`를 주고받는다. 상대 판이 하한보다 낮으면 연결을 끊는다.
-export const REMOTE_PROTOCOL_VERSION = 1;
-export const REMOTE_PROTOCOL_MIN_VERSION = 1;
+// handshake 뒤 client가 먼저, core가 그 뒤에 `hello`를 보낸다. 서로의 판 범위가 겹치지 않으면 양쪽 다 `conflict`로 닫는다.
+// Noise prologue는 판과 다른 것이라 판을 올려도 그대로다.
+export const REMOTE_PROTOCOL_VERSION = 2;
+export const REMOTE_PROTOCOL_MIN_VERSION = 2;
 export const REMOTE_PROLOGUE = "lophn-remote/1";
 
-const helloFrameSchema = z.strictObject({
+// hello는 모르는 칸을 버린다(z.object). 다음 판이 칸을 더해도 이 판과 붙는다.
+const helloFields = {
   type: z.literal("hello"),
   version: z.number().int().min(1),
+  min_version: z.number().int().min(1),
   capabilities: z.array(z.string().min(1).max(64)).max(64),
+};
+
+// core → client. 자격(pair code, call)을 보내기 전에 붙는 쪽이 어느 기계인지 안다.
+const serverHelloSchema = z.object({
+  ...helloFields,
+  machine: z.object({ id: machineIdSchema, name: machineNameSchema }),
+});
+
+// client → core. 폰은 자기 이름을, desktop은 자기 기계 이름을 알린다. core는 붙을 때마다 기기 표의 알린 이름으로 적는다.
+const clientHelloSchema = z.object({
+  ...helloFields,
+  name: z.string().trim().min(1).max(64),
 });
 
 const frameIdSchema = z.string().min(1).max(64);
@@ -39,7 +55,7 @@ export const remotePairingSchema = z.strictObject({
 });
 export type RemotePairing = z.infer<typeof remotePairingSchema>;
 
-// 폰의 것. 화면 칸은 설정 `shell.devices` 항목과 같은 범위다. 등록한 폰이 그 자리에 들어간다(기기 id `device`는 core가 단다. 폰은 보내지 못한다).
+// 설정 `shell.devices`의 항목 모양. 화면 칸은 설정 `shell.devices` 항목과 같은 범위다. 등록한 폰이 그 자리에 들어간다(기기 id `device`는 core가 단다. 폰은 보내지 못한다).
 export const remoteDeviceSchema = z.strictObject({
   name: z.string().min(1).max(40),
   os: z.enum(["ios", "android"]),
@@ -54,13 +70,14 @@ export const deviceKindSchema = z.enum(["phone", "desktop"]);
 // 기기가 알리는 자기 이름. desktop은 기계 이름(1..64)을 알린다.
 export const deviceNameSchema = z.string().min(1).max(64);
 
-// pairing 때 기기가 자기를 알리는 칸. kind로 갈린다. desktop에는 화면 칸이 없다.
-export const phonePairingSchema = remoteDeviceSchema.extend({
-  kind: z.literal("phone"),
-});
+// pairing 때 기기가 자기를 알리는 칸. kind로 갈린다. desktop에는 화면 칸이 없다. 이름은 그 연결의 client hello `name`이다.
+export const phonePairingSchema = remoteDeviceSchema
+  .omit({ name: true })
+  .extend({
+    kind: z.literal("phone"),
+  });
 export const desktopPairingSchema = z.strictObject({
   kind: z.literal("desktop"),
-  name: deviceNameSchema,
   os: z.enum(["linux", "macos", "windows"]),
 });
 
@@ -102,7 +119,7 @@ const resultFrameSchema = z.discriminatedUnion("ok", [
 
 // 기기 → core
 export const remoteClientFrameSchema = z.union([
-  helloFrameSchema,
+  clientHelloSchema,
   pairFrameSchema,
   callFrameSchema,
   phoneResponseFrameSchema,
@@ -112,11 +129,12 @@ export type RemoteClientFrame = z.infer<typeof remoteClientFrameSchema>;
 
 // core → 기기. ready·event·closed는 Gateway frame 그대로다. `request`는 폰이 `hello.capabilities`에 적은 kind만 온다(`phone/link.ts`).
 export const remoteServerFrameSchema = z.union([
-  helloFrameSchema,
+  serverHelloSchema,
   resultFrameSchema,
   phoneRequestFrameSchema,
   gatewayServerFrameSchema,
 ]);
 export type RemoteServerFrame = z.infer<typeof remoteServerFrameSchema>;
 
-export type RemoteHello = z.infer<typeof helloFrameSchema>;
+export type RemoteServerHello = z.infer<typeof serverHelloSchema>;
+export type RemoteClientHello = z.infer<typeof clientHelloSchema>;

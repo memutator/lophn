@@ -7,12 +7,13 @@ import {
   type RemoteServerChannel,
   type RemoteTransport,
 } from "./channel.ts";
-import type { RemoteClientFrame } from "./frames.ts";
+import { REMOTE_PROLOGUE, type RemoteClientFrame } from "./frames.ts";
 import {
   generateKeyPair,
   initiatorHandshake,
   type KeyPair,
   responderHandshake,
+  type Transport,
 } from "./noise.ts";
 
 const hex = (text: string) =>
@@ -159,6 +160,9 @@ const random = seededRandom(7);
 const coreKey = generateKeyPair(random);
 const phoneKey = generateKeyPair(random);
 
+const machine = { id: `mch_0${"1".repeat(25)}`, name: "studio" } as const;
+const otherMachine = `mch_0${"2".repeat(25)}` as const;
+
 async function pair(w: Wire, expectedCore = coreKey.publicKey) {
   const [phone, core] = await Promise.all([
     connectRemote({
@@ -166,17 +170,87 @@ async function pair(w: Wire, expectedCore = coreKey.publicKey) {
       staticKey: phoneKey,
       remoteStatic: expectedCore,
       capabilities: [],
+      name: "Pixel",
+      machine: machine.id,
       random,
     }),
     acceptRemote({
       transport: w.core,
       staticKey: coreKey,
       capabilities: [],
+      machine,
       random,
     }),
   ]);
   return { phone, core };
 }
+
+// channel code를 쓰지 않고 handshake와 record를 손으로 하는 상대. 정한 hello를 보내고 받은 frame을 모두 적는다.
+// core 역은 client hello를 받은 뒤, client 역은 handshake가 끝나자마자 자기 hello를 보낸다.
+function scripted(
+  transport: RemoteTransport,
+  role: "core" | "client",
+  hello: Record<string, unknown>,
+) {
+  const prologue = new TextEncoder().encode(REMOTE_PROLOGUE);
+  const empty = new Uint8Array();
+  const received: Record<string, unknown>[] = [];
+  let keys: Transport | undefined;
+  const send = (frame: unknown) => {
+    const data = new TextEncoder().encode(JSON.stringify(frame));
+    const plain = new Uint8Array(1 + data.length);
+    plain[0] = 1;
+    plain.set(data, 1);
+    transport.send(keys!.send.encrypt(empty, plain));
+  };
+  if (role === "core") {
+    const handshake = responderHandshake({
+      prologue,
+      staticKey: coreKey,
+      random,
+    });
+    transport.onMessage((bytes) => {
+      if (!keys) {
+        handshake.readMessage(bytes);
+        const written = handshake.writeMessage(empty);
+        transport.send(written.message);
+        keys = written.transport;
+        return;
+      }
+      received.push(read(bytes));
+      if (received.length === 1) send(hello);
+    });
+  } else {
+    const handshake = initiatorHandshake({
+      prologue,
+      staticKey: phoneKey,
+      remoteStatic: coreKey.publicKey,
+      random,
+    });
+    transport.onMessage((bytes) => {
+      if (!keys) {
+        keys = handshake.readMessage(bytes).transport;
+        send(hello);
+        return;
+      }
+      received.push(read(bytes));
+    });
+    transport.send(handshake.writeMessage(empty));
+  }
+  function read(bytes: Uint8Array) {
+    const plain = keys!.receive.decrypt(empty, bytes);
+    return JSON.parse(new TextDecoder().decode(plain.subarray(1)));
+  }
+  transport.onClose(() => undefined);
+  return received;
+}
+
+const hello = (version: number, min_version: number) => ({
+  type: "hello",
+  version,
+  min_version,
+  capabilities: [],
+});
 
 function collect(channel: RemoteServerChannel) {
   const frames: RemoteClientFrame[] = [];
@@ -255,5 +329,102 @@ test("record를 바꾸거나 빠뜨리거나 순서를 바꾸면 받는 쪽이 �
     assert.equal(got.closed(), true, name);
     assert.deepEqual(got.frames, [], name);
     assert.equal(w.closed.core, true, name);
+  }
+});
+
+// 붙는 쪽이 자격(pair code, call)을 다른 기계에 보내면 안 된다. 같은 key를 가진 복제된 기계가 답해도 hello의 id로 막는다.
+test("client가 준 machine id와 core hello의 id가 다르면 client channel이 열리지 않고 hello 뒤로 아무 frame도 보내지 않는다", async () => {
+  const w = wire();
+  const core = scripted(w.core, "core", {
+    ...hello(2, 2),
+    machine: { id: otherMachine, name: "studio" },
+  });
+  const phone = await connectRemote({
+    transport: w.phone,
+    staticKey: phoneKey,
+    remoteStatic: coreKey.publicKey,
+    capabilities: ["location.get"],
+    name: "Pixel",
+    machine: machine.id,
+    random,
+  });
+  await settle();
+  assert.ok(!phone.ok);
+  assert.equal(phone.error.code, "conflict");
+  assert.equal(phone.error.message, "a different computer answered");
+  assert.deepEqual(core, [
+    {
+      ...hello(2, 2),
+      capabilities: ["location.get"],
+      name: "Pixel",
+    },
+  ]);
+  assert.equal(w.closed.phone, true);
+
+  // 같은 id면 열리고 양쪽이 서로의 이름을 안다.
+  const opened = await pair(wire());
+  assert.ok(opened.phone.ok && opened.core.ok);
+  assert.deepEqual(opened.phone.value.peer.machine, machine);
+  assert.equal(opened.core.value.peer.name, "Pixel");
+});
+
+// 판이 어긋난 쪽이 어느 쪽을 올려야 하는지 알아야 사람에게 맞는 안내를 한다. core는 자기 hello를 먼저 보내 client도 같은 판정을 한다.
+test("판이 범위 밖이면 core는 자기 hello를 보낸 뒤 닫고, 양쪽 다 conflict와 맞는 details.update로 끝난다", async () => {
+  const outOfRange = {
+    code: "conflict",
+    message: "remote protocol version out of range",
+  };
+  // [상대 판, 하한, 올릴 쪽]
+  const cases = [
+    [1, 1, "client"],
+    [3, 3, "host"],
+  ] as const;
+  for (const [version, min, update] of cases) {
+    const w = wire();
+    const client = scripted(w.phone, "client", {
+      ...hello(version, min),
+      name: "Old phone",
+    });
+    const core = await acceptRemote({
+      transport: w.core,
+      staticKey: coreKey,
+      capabilities: [],
+      machine,
+      random,
+    });
+    await settle();
+    assert.deepEqual(core, {
+      ok: false,
+      error: { ...outOfRange, details: { update } },
+    });
+    assert.deepEqual(client, [{ ...hello(2, 2), machine }]);
+    assert.equal(w.closed.core, true);
+  }
+  // client 쪽은 core의 판으로 올릴 쪽이 거꾸로다.
+  for (const [version, min, update] of [
+    [1, 1, "host"],
+    [3, 3, "client"],
+  ] as const) {
+    const w = wire();
+    const core = scripted(w.core, "core", {
+      ...hello(version, min),
+      machine,
+    });
+    const phone = await connectRemote({
+      transport: w.phone,
+      staticKey: phoneKey,
+      remoteStatic: coreKey.publicKey,
+      capabilities: [],
+      name: "Pixel",
+      machine: machine.id,
+      random,
+    });
+    await settle();
+    assert.deepEqual(phone, {
+      ok: false,
+      error: { ...outOfRange, details: { update } },
+    });
+    assert.equal(core.length, 1);
+    assert.equal(w.closed.phone, true);
   }
 });

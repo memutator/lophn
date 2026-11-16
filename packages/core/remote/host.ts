@@ -7,6 +7,7 @@ import {
   type Result,
 } from "../../base/mod.ts";
 import type { z } from "zod";
+import type { Id } from "../../protocol/base/mod.ts";
 import {
   acceptRemote,
   type devicesRegister,
@@ -47,19 +48,21 @@ export type RemoteTimers = {
   clear(handle: unknown): void;
 };
 
-// pair frame의 기기 칸(kind로 갈린다)과 handshake로 받은 공개 key.
+// pair frame의 기기 칸(kind로 갈린다), hello로 알린 이름, handshake로 받은 공개 key.
 type DeviceInput = z.infer<typeof devicesRegister.input>;
 
 // 기기 표. production은 ledger의 devices command·read다.
 export type RemoteDevices = {
   find(publicKey: string): Promise<Result<{ id: string } | undefined>>;
   register(input: DeviceInput): Promise<Result<{ id: string }>>;
-  // 마지막 연결 시각. 실패는 연결을 막지 않는다.
-  connected(id: string): void;
+  // 마지막 연결 시각과 그 연결의 hello로 알린 이름. 실패는 연결을 막지 않는다.
+  connected(id: string, name: string): void;
 };
 
 export type RemoteHostDeps = {
   staticKey: KeyPair;
+  // hello로 알리는 이 기계. 연결마다 읽어 사람이 이름을 바꾸면 다음 연결부터 새 이름이다.
+  machine(): { id: Id<"mch">; name: string };
   random: RandomSource;
   timers: RemoteTimers;
   bus: Bus;
@@ -180,7 +183,7 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
       deps.timers.clear(pairingTimer);
       channel.setMaxFrameBytes(REMOTE_FRAME_MAX_BYTES);
       attached();
-      deps.devices.connected(device);
+      deps.devices.connected(device, channel.peer.name);
       const phone: PhoneConnection = {
         device,
         capabilities: connection.capabilities,
@@ -253,6 +256,7 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
       const { type: _type, id: _id, code: _code, ...device } = frame;
       const registered = await deps.devices.register({
         ...device,
+        name: channel.peer.name,
         public_key: publicKey,
       });
       if (!registered.ok) {
@@ -319,9 +323,21 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
         capabilities: [],
         random: deps.random,
         maxFrameBytes: REMOTE_UNATTACHED_FRAME_MAX_BYTES,
+        machine: deps.machine(),
       });
       deps.timers.clear(timer);
-      if (!opened.ok) return release();
+      if (!opened.ok) {
+        // 판이 어긋난 기기는 화면에 아무것도 남기지 않으므로 어느 쪽을 올려야 하는지 log에 남긴다.
+        if (opened.error.code === "conflict") {
+          deps.logger?.warn({
+            component: "remote",
+            event: "protocol_version_out_of_range",
+            message: opened.error.message,
+            fields: { ...opened.error.details },
+          });
+        }
+        return release();
+      }
       opened.value.onClose(release);
       try {
         await serve(opened.value, socket, release);

@@ -124,8 +124,8 @@ files:
     note: "증명하지 못한 control socket(증명 없음, 다른 key의 증명)에는 폰 연결이 이어지지 않는다. 폰 연결 둘의 message(data socket 전에 든 것 포함, 두 방향)가 서로의 data socket으로 가지 않고, 받는 쪽이 1 MiB를 넘게 밀리면 그 짝만 닫힌다"
 
   - path: packages/protocol/remote/channel_test.ts
-    covers: []
-    note: "Noise IK test vector(cacophony), responder가 받는 상대 공개 key와 큰 frame 나누기, 다른 key의 responder와 handshake 실패, record를 바꾸거나 빠뜨리거나 순서를 바꾸면 받는 쪽이 끊음"
+    covers: [remote-connection:other-machine, remote-connection:version-out-of-range]
+    note: "Noise IK test vector(cacophony), responder가 받는 상대 공개 key와 큰 frame 나누기, 다른 key의 responder와 handshake 실패, record를 바꾸거나 빠뜨리거나 순서를 바꾸면 받는 쪽이 끊음. 손으로 handshake하는 상대로 hello를 정해: core hello의 machine id가 다르면 client channel이 열리지 않고 hello 뒤로 아무 frame도 보내지 않는 것, 판이 범위 밖이면 core가 자기 hello를 보낸 뒤 닫고 양쪽 다 conflict와 맞는 details.update(client, host)로 끝나는 것"
 
   - path: packages/protocol/acp/reduce_test.ts
     covers: [acp-projection:ok, acp-read:reread]

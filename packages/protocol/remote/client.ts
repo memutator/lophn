@@ -9,9 +9,10 @@ export {
 } from "./channel.ts";
 export {
   REMOTE_PATH,
+  REMOTE_PROTOCOL_MIN_VERSION,
   REMOTE_PROTOCOL_VERSION,
   type RemoteClientFrame,
-  type RemoteHello,
+  type RemoteServerHello,
   type RemotePairing,
   type RemoteServerFrame,
   remotePairingSchema,

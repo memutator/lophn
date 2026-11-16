@@ -56,6 +56,7 @@ import {
   connectRemote,
   devicesClearPush,
   devicesConnected,
+  devicesForgetAll,
   devicesList,
   devicesPushTargets,
   devicesRegister,
@@ -161,7 +162,6 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 5));
 const deviceId = (n: number) => `dev_0${String(n).padStart(25, "0")}`;
 const screen = {
   kind: "phone",
-  name: "Pixel",
   os: "android",
   width: 412,
   height: 915,
@@ -230,6 +230,7 @@ function setup() {
     devicesSetPrimary,
     devicesRegister,
     devicesConnected,
+    devicesForgetAll,
     devicesClearPush,
     devicesPushTargets,
     pairingStart,
@@ -341,8 +342,11 @@ function setup() {
   let nextTimer = 0;
   // 기기 표를 읽은 뒤 답을 돌려주기 전에 부른다. 그 사이 기기를 끊는 test가 건다.
   const hooks: { afterFind?: (key: string) => void } = {};
+  // 등록과 붙음에 넘긴 기기 이름(hello로 알린 것).
+  const names: string[] = [];
   const host: RemoteHost = createRemoteHost({
     staticKey: coreKey,
+    machine: () => ({ id: `mch_0${"1".repeat(25)}`, name: "studio" }),
     random,
     timers: {
       set(run, ms) {
@@ -362,9 +366,10 @@ function setup() {
       register: async (input) => {
         const id = deviceId(next++);
         table.set(input.public_key, id);
+        names.push(`register ${input.name}`);
         return ok({ id });
       },
-      connected: () => undefined,
+      connected: (_id, name) => void names.push(`connected ${name}`),
     },
     credentials: createDeviceCredentials({
       registry,
@@ -462,6 +467,7 @@ function setup() {
       staticKey: phoneKey,
       remoteStatic: coreKey.publicKey,
       capabilities: [],
+      name: "Pixel",
       random,
     }).then((opened) => ({ opened, delivered: w.delivered }));
   }
@@ -504,6 +510,7 @@ function setup() {
     reached,
     uploaded,
     hooks,
+    names,
     open,
     connect,
     register,
@@ -598,6 +605,8 @@ test("틀린 pairing code는 연결마다 5번까지고, 맞는 code로 붙은 �
   );
   assert.equal(s.table.size, 1);
   assert.deepEqual(s.reached, ["turn_requests/decide"]);
+  // pair frame에는 이름이 없다. 등록 이름은 그 연결의 hello로 알린 이름이다.
+  assert.deepEqual(s.names, ["register Pixel", "connected Pixel"]);
 });
 
 test("기기는 route 목록 밖의 route를 forbidden으로 받고 handler에 닿지 않는다", async () => {
@@ -662,6 +671,7 @@ test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model�
     "devices/set_primary",
     "devices/register",
     "devices/connected",
+    "devices/forget_all",
     "devices/clear_push",
     "devices/push_targets",
     "pairing/start",
@@ -1124,7 +1134,10 @@ test("같은 이름의 기기는 shell.devices 항목을 따로 갖고, 끊거�
       id: "p",
       code: "c",
       kind: "phone",
-      ...iphone,
+      os: iphone.os,
+      width: iphone.width,
+      height: iphone.height,
+      dpr: iphone.dpr,
       device: a,
     }).success,
     false,
@@ -1187,7 +1200,11 @@ test("devices/unpair는 부른 기기 자기 등록만 지우고, devices/regist
       command("register").handle(
         tx,
         { principal: "machine:remote", actor: "machine" } as never,
-        { ...screen, public_key: remoteKeyText(publicKey.publicKey) } as never,
+        {
+          ...screen,
+          name: "Pixel",
+          public_key: remoteKeyText(publicKey.publicKey),
+        } as never,
         {} as never,
       );
     const unpair = (principal: string) =>
@@ -1218,11 +1235,12 @@ test("devices/unpair는 부른 기기 자기 등록만 지우고, devices/regist
     changes.length = 0;
     const again = register(phoneB);
     assert.ok(again.ok);
-    assert.notEqual(again.value.id, b);
-    assert.deepEqual(ids(), [again.value.id]);
+    const { id: fresh } = again.value as { id: string };
+    assert.notEqual(fresh, b);
+    assert.deepEqual(ids(), [fresh]);
     assert.deepEqual(changes, [
       { type: "revoked", id: b },
-      { type: "registered", id: again.value.id, kind: "phone" },
+      { type: "registered", id: fresh, kind: "phone" },
     ]);
   } finally {
     db.close();
@@ -1253,6 +1271,7 @@ test("devices/set_push는 부른 기기 자기 행만 고치고, clear_push는 t
         { principal: "machine:remote", actor: "machine" } as never,
         {
           ...screen,
+          name: "Pixel",
           public_key: remoteKeyText(generateKeyPair(random).publicKey),
         } as never,
         {} as never,

@@ -142,32 +142,51 @@ export const devicesSetTerminalInput = defineCommand({
   errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
 });
 
+// 기기가 알린 이름(client hello `name`). 별명과 달리 연결마다 고쳐 적힌다.
+const announcedNameSchema = z.string().trim().min(1).max(64);
+
 // pairing이 맞은 기기를 등록한다. core 안 machine 자격만 낸다. 새 phone이 기준이 된다(desktop은 기준을 건드리지 않는다).
-// 같은 key의 옛 등록(폰이 이 컴퓨터를 지웠는데 컴퓨터는 몰랐다)은 지우고 새 등록으로 바꾼다.
+// 같은 key의 옛 등록(폰이 이 컴퓨터를 지웠는데 컴퓨터는 몰랐다)은 지우고 새 등록으로 바꾼다. name은 그 연결의 hello로 알린 이름이다.
+const registered = { public_key: keyTextSchema, name: announcedNameSchema };
 export const devicesRegister = defineCommand({
   resource: "devices",
   method: "register",
   name: "devices.register",
   changes: [{ name: "remote_devices", id: (_input, output) => output.id }],
   input: z.discriminatedUnion("kind", [
-    phonePairingSchema.extend({ public_key: keyTextSchema }),
-    desktopPairingSchema.extend({ public_key: keyTextSchema }),
+    phonePairingSchema.extend(registered),
+    desktopPairingSchema.extend(registered),
   ]),
   output: z.object({ id: deviceIdSchema }),
   actors: ["machine"],
   errors: ["invalid_input", "forbidden", "unavailable"],
 });
 
-// 기기가 붙은 때를 적는다. core 안 machine 자격만 낸다.
+// 기기가 붙은 때와 그 연결의 hello로 알린 이름을 적는다. core 안 machine 자격만 낸다. 사람이 붙인 별명은 그대로다.
+// 하나만 다르다: 알린 이름을 아직 받은 적 없는 행(migration·pairing에서 온 이름)의 별명이 알린 이름과 같으면 별명을 거둔다.
+// migration이 옛 이름을 별명으로 지켜 둔 것 가운데 사람이 바꾼 적 없는 것이라 보이는 글은 바뀌지 않는다.
 export const devicesConnected = defineCommand({
   resource: "devices",
   method: "connected",
   name: "devices.connected",
   changes: [{ name: "remote_devices", id: (_input, output) => output.id }],
-  input: z.strictObject({ id: deviceIdSchema }),
+  input: z.strictObject({ id: deviceIdSchema, name: announcedNameSchema }),
   output: z.object({ id: deviceIdSchema }),
   actors: ["machine"],
   errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
+});
+
+// 기기 등록을 모두 지운다. core 안 machine 자격만 낸다. host key가 다른 기계의 것(복사된 data root)일 때 기동이 부른다:
+// 그 등록은 다른 기계가 pairing한 것이다. 행마다 끊은 것과 같이 연결을 닫고 자격을 거둔다.
+export const devicesForgetAll = defineCommand({
+  resource: "devices",
+  method: "forget_all",
+  name: "devices.forget_all",
+  changes: ["remote_devices"],
+  input: z.strictObject({}),
+  output: z.object({ count: z.number().int().min(0) }),
+  actors: ["machine"],
+  errors: ["invalid_input", "forbidden", "unavailable"],
 });
 
 // Expo push token. 폰이 `getExpoPushTokenAsync`로 받은 글 그대로다.

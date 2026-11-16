@@ -908,7 +908,7 @@ flows:
     boundary: [app-runtime, core-api]
     code: [packages/core/apps/calls/service.ts, packages/core/apps/calls/gate.ts, packages/core/apps/views/call.ts, packages/shell/main/app-frame/app-call.ts]
     steps:
-      - "shell main이 페이지가 보낸 값에서 operation과 input만 꺼낸다. 객체가 아니거나 다른 칸이 있으면 core에 보내지 않는다. 신원은 IPC를 보낸 view의 id 하나다."
+      - "shell main이 페이지가 보낸 값에서 operation과 input만 꺼낸다. 객체가 아니거나 다른 칸이 있으면 core에 보내지 않는다. input은 JSON 값으로 만든다(없으면 null, 값이 undefined인 칸은 빠진다. 폰 bridge와 같다). 신원은 IPC를 보낸 view의 id 하나다."
       - "shell main이 core app_views/call {view, operation, input}을 보낸다. core가 operation 이름(빈 값, 앞뒤 공백, 제어 문자, 와일드카드 없음)과 input(JSON 값, 64 KiB 이하)을 본다(view-table-call)."
       - "core가 view에 묶인 release(preview는 preview bundle)의 선언에서 operation을 찾는다. 없으면(command 이름 포함, 이 앱 밖 포함) forbidden이다."
       - "core가 사람 자격으로 app.call_tool(kind operation)을 부른다. 대상은 view 표의 mode, app, release(또는 preview nonce)다. 사람의 호출은 Gate를 거치지 않는다."

@@ -18,6 +18,10 @@ files:
       - annotate-send:invalid-input
     note: "앱 view가 아닌 sender의 고르기는 무시, 페이지가 보낸 app·release는 버리고 view에서 정한 값만 core에 간다. capture·upload가 실패해도 screenshot 없이 보낸다. 빈 목록 보내기는 거절. preview view의 annotation은 release 없이 bundle hash(preview_bundle)를 싣고 간다"
 
+  - path: packages/shell/main/app-frame/app-call_test.ts
+    covers: [app-operation-call:succeeded]
+    note: "페이지 입력의 값이 undefined인 칸은 빠지고 core 통로(app_views.call)의 입력 schema를 통과한다. 입력이 없으면 null로 간다"
+
   - path: packages/shell/main/app-frame/app-projects_test.ts
     covers:
       - app-projects-list:listed

@@ -19,7 +19,11 @@ interface AppCallDeps {
   resume(view_session: string): void;
 }
 
-/** 페이지 값에서는 operation과 input만 받는다. view·app·release 같은 다른 칸이 있으면 거절한다(신원은 sender view다). */
+/**
+ * 페이지 값에서는 operation과 input만 받는다. view·app·release 같은 다른 칸이 있으면 거절한다(신원은 sender view다).
+ * input은 폰 bridge와 같은 규칙으로 JSON 값으로 만든다(없으면 null, JSON 왕복). IPC는 structured clone이라 값이
+ * undefined인 칸이 그대로 오는데, core 통로의 입력 검사는 그런 값을 JSON이 아니라고 거절한다.
+ */
 function checkCall(
   value: unknown,
 ): { operation: unknown; input: unknown } | undefined {
@@ -30,7 +34,12 @@ function checkCall(
   if (Object.keys(call).some((key) => key !== "operation" && key !== "input")) {
     return undefined;
   }
-  return { operation: call.operation, input: call.input };
+  try {
+    const encoded = JSON.stringify(call.input ?? null);
+    return { operation: call.operation, input: JSON.parse(encoded) };
+  } catch {
+    return undefined;
+  }
 }
 
 export function createAppCall(deps: AppCallDeps) {

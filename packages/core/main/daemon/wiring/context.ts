@@ -2,7 +2,7 @@
 // wiring은 이 file(과 module·protocol)만 가져간다.
 //
 // 구동 순서(core.ts의 open이 이 순서로 hook을 부른다. 같은 hook은 WIRINGS 순서대로다):
-//   environment → assemble → schemaSteps·schemaStepsAfterTeams → migration → dataSteps → restartOwners → operations
+//   environment → assemble → schemaSteps·schemaStepsAfterTeams → migration → machine(machine.json) → dataSteps → restartOwners → operations
 //   → prepare → openRuntime → records → build → API → start → ready → afterReady
 // 종료 순서: closeIntake → server.stop → closeChildren → 감독 정지 → closeWork → runtime.close → stopped
 import type { Clock, RandomSource, Result } from "../../../../base/mod.ts";

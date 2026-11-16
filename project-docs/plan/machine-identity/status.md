@@ -6,7 +6,7 @@ lead만 고친다. `tools/status.py machine-identity build`가 `tasks/*.md`에�
 |---|---|---|---|---|---|---|---|
 | `machine-id` | machine-id | 1 | 없음 | merged | machine-id/machine-id | 2c9b95b7c |  |
 | `machine-device-kind` | machine-remote | 1 | 없음 | merged | machine-remote/machine-device-kind | 6a78e3f82 |  |
-| `machine-consumers` | machine-consumers | 2 | machine-id, machine-device-kind | todo |  |  |  |
-| `machine-hello` | machine-remote | 2 | machine-id, machine-device-kind | todo |  |  |  |
-| `machine-settings` | machine-settings | 2 | machine-id, machine-device-kind | todo |  |  |  |
+| `machine-consumers` | machine-consumers | 2 | machine-id, machine-device-kind | running | machine-consumers/machine-consumers |  |  |
+| `machine-hello` | machine-remote | 2 | machine-id, machine-device-kind | running | machine-remote/machine-hello |  |  |
+| `machine-settings` | machine-settings | 2 | machine-id, machine-device-kind | running | machine-settings/machine-settings |  |  |
 | `machine-phone` | machine-phone | 3 | machine-hello, machine-device-kind | todo |  |  |  |

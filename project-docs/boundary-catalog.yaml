@@ -75,7 +75,7 @@ elements:
 
       - id: jobs
         kind: subsystem
-        description: agent가 만든 job(주기, 할 일 하나, 놓친 차례 정책)을 lophn이 켜져 있을 때 정해진 때 돌린다. 할 일은 agent 호출 run, 앱 tool 호출 run, workflow instance 시작이다. 놓친 차례를 hold로 사람에게 묻는다. instance의 끝을 판정하지 않고 상태만 읽는다.
+        description: agent가 만든 job(주기, 할 일 하나, 놓친 차례 정책)을 lophn이 켜져 있을 때 정해진 때 만든 기계(주인 기계)에서만 돌린다. 다른 기계의 job은 사람이 가져올 때까지 멈춘다. 할 일은 agent 호출 run, 앱 tool 호출 run, workflow instance 시작이다. 놓친 차례를 hold로 사람에게 묻는다. instance의 끝을 판정하지 않고 상태만 읽는다.
 
       - id: problems
         kind: subsystem

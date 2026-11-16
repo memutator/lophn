@@ -50,7 +50,7 @@ flows:
       - "첫 실행의 `--quit`은 무시되고 창이 열린다(desktop.ts는 readOpenIntent가 app이 아니면 desktop.open()을 부른다). 종료 요청은 이미 떠 있는 main의 second-instance에서만 된다"
 
   - id: login-core-start
-    title: "로그인 자동 시작으로 core만 띄우고 끝난다(창, tray, extension 없음)"
+    title: "`--core`로 core만 띄우고 끝난다(Windows 로그인 시작. 창, tray, extension 없음)"
     actor: system
     entries: [system:login-core]
     boundary: [shell, core-control-protocol]
@@ -444,7 +444,7 @@ flows:
         when: "개발 실행이거나 옛 등록이 없다"
         observe: ["disk:<XDG config>/autostart/lophn.desktop이 바뀌지 않는다"]
       - id: kept-old
-        when: "옛 등록이 있으나 `always_on/set`이 실패했거나 OS 등록이 서지 않았다(unavailable, not_registered 등). 옛 등록은 그대로 남고 log만 남는다"
+        when: "옛 등록이 있으나 `always_on/set`이 실패했거나 OS 등록이 서지 않았다(unavailable, not_registered 등). 옛 등록은 그대로 남고 log만 남는다. set이 표시를 쓴 뒤 등록만 실패했으면 표시는 켜진 채라 idle-exit가 꺼지고 알림 표지는 남지 않는다(systemd user session이 없는 Linux가 이렇다)"
         observe: ["log:옛 로그인 시작 등록을 Keep running으로 옮기지 못했다"]
     crosses_process: true
     docs: [architecture/platform.md]

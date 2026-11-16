@@ -1,0 +1,12 @@
+id: keep-running-notice-waits-for-window
+title: "옮긴 사람에게 주는 한 번 알림은 그 순간 desktop 창이 없으면 다음 shell 실행까지 미뤄진다"
+kind: bug
+status: open
+topic: platform
+modules: [packages/shell/main]
+now: |
+  `showKeepRunningNotice`(`packages/shell/main/desktop/wiring/desktop.ts`)는 옛 등록 옮기기가 끝난 뒤와 첫 창을 연 뒤 두 번만 불린다. 그때 `recentWindow`가 없으면 표지(`shell/keep-running-notice.json`)를 남기고 돌아가고, 같은 shell process에서 tray나 Dock으로 창을 다시 열어도 부르지 않는다. 옮기기는 desktop 실행에서만 돈다. `--core` 실행(`ensureCoreOnly`)은 옮기지도 알리지도 않는다.
+impact: |
+  옮기기가 창을 닫은 뒤(tray만 남은 상태)에 끝나면 동작이 바뀌었다는 알림이 shell을 Quit하고 다시 켤 때까지 뜨지 않는다. 표지가 남아 알림을 잃지는 않는다.
+fix: |
+  창을 여는 길(`desktop.open`, `desktop.show`)에서도 `showKeepRunningNotice`를 부른다(작음). 추천.

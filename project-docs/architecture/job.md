@@ -1,6 +1,6 @@
 # job
 
-job은 정해진 때 저절로 도는 일 하나다. 때는 주기(`every`, 선택 `at`)이거나 event(앱 event나 core의 session event, "event로 도는 job")이다. 할 일 하나(agent 호출 run, 앱 tool 호출 run, workflow instance 시작)와 놓친 차례 정책(`run`, `hold`)을 갖고, scheduler가 차례마다 job run 한 줄을 남기며 그 일을 시작한다. agent가 만들고 사람이 등록을 한 번 승인해야 돈다. 사람은 화면에서 보고 고치고 끄고 지운다. core가 떠 있는 동안 돌고, 앱을 Quit해도 core가 남으면 계속 돈다.
+job은 정해진 때 저절로 도는 일 하나다. 때는 주기(`every`, 선택 `at`)이거나 event(앱 event나 core의 session event, "event로 도는 job")이다. 할 일 하나(agent 호출 run, 앱 tool 호출 run, workflow instance 시작)와 놓친 차례 정책(`run`, `hold`)을 갖고, scheduler가 차례마다 job run 한 줄을 남기며 그 일을 시작한다. agent가 만들고 사람이 등록을 한 번 승인해야 돈다. 사람은 화면에서 보고 고치고 끄고 지운다. core가 떠 있는 동안 돌고, 앱을 Quit해도 core가 남으면 계속 돈다. job은 만든 기계(주인 기계)에서만 돈다. 다른 기계의 job은 멈춘 채 보이고 사람이 이 기계로 가져온다.
 
 ## 문제
 
@@ -11,6 +11,7 @@ job은 정해진 때 저절로 도는 일 하나다. 때는 주기(`every`, 선�
 - 사람이 승인하지 않은 일이 사람 없이 되풀이된다. 승인한 뒤 할 일이 바뀐다.
 - 켤 때 끊긴 차례가 영영 `running`으로 남아 그 job이 다시 돌지 않는다.
 - 다른 agent가 남의 job을 끄거나 주기를 바꿔 남의 일을 흔든다.
+- 한 사람의 data root가 다른 기계로 복사되면(또는 뒤에 기계 사이에 job이 오가면) 같은 job이 두 기계에서 돌아 같은 바깥 효과가 두 번 난다.
 
 ## 목표와 비목표
 
@@ -20,7 +21,8 @@ job은 정해진 때 저절로 도는 일 하나다. 때는 주기(`every`, 선�
 - 비목표: 사람이 job을 만드는 길. 만드는 것은 agent뿐이고 사람은 승인한다.
 - 비목표: job의 할 일을 만든 뒤 바꾸기, `revision`과 동시 고치기 충돌 검사.
 - 비목표: event를 믿게 하는 장치(저장, cursor, 재시도). event로 도는 job은 켜져 있는 동안 온 event에만 반응하고 놓친 event는 따라잡지 않는다.
-- 비목표: OS service. 꺼진 core는 다음 ensure(앱 실행, CLI 명령, 로그인 autostart)가 띄운다.
+- 비목표: core를 띄우는 일. 꺼진 core는 다음 ensure(앱 실행, CLI 명령)나 사람이 표시한 기계의 로그인 시작이 띄운다(`architecture/platform.md` "늘 켜 둠").
+- 비목표: job을 기계 사이에 맞추거나 저절로 옮기기. 옮기는 것은 사람의 take over 하나다.
 
 ## 모델
 
@@ -29,6 +31,7 @@ job은 정해진 때 저절로 도는 일 하나다. 때는 주기(`every`, 선�
  사람: Jobs 탭(어느 workspace에서든) · Jobs overlay        job.update | delete | list | job_run.list
  사람: 대기 목록의 승인 card                              job.pending | job.approve
  사람: 대기 목록의 hold card                              job.holds | job.decide_hold
+ 사람: Jobs 탭의 [Run on this computer]                    job.take_over
    │  이름 풀기(agent·앱·project)와 시간대는 port로 받는다
    ▼
  job command (한 tx)  ──▶  jobs 표, job_runs 표 (정본)
@@ -38,7 +41,7 @@ job은 정해진 때 저절로 도는 일 하나다. 때는 주기(`every`, 선�
  scheduler 바퀴 (한 번에 한 바퀴)         깨우는 것: timer | wake | 최대 잠 1분
    1 열린 줄 닫기   workflow_start의 running 줄: instance가 ended → done, stopped → cancelled
                    그 밖의 running 줄(run이 있음): run이 끝났으면 그 상태로 다시 닫는다 (켜는 첫 바퀴는 제외)
-   2 job.claim_due  승인한 job만 본다. 온 차례를 job run 줄로 만들고 시작할 줄(queued)을 한 번만 넘긴다. 다음 차례 시각도 받는다
+   2 job.claim_due  이 기계의 승인한 job만 본다. 온 차례를 job run 줄로 만들고 시작할 줄(queued)을 한 번만 넘긴다. 다음 차례 시각도 받는다
    3 시작           agent_run | tool_run → run을 연다(origin = job, job run)   workflow_start → workflow instance를 시작(시작한 쪽 = job)
    4 job_run.started  줄을 running으로, run·instance·session id를 적는다
    5 run이면 끝까지 기다렸다가 job_run.ended (done | failed | cancelled)
@@ -48,7 +51,7 @@ job은 정해진 때 저절로 도는 일 하나다. 때는 주기(`every`, 선�
  켤 때: 첫 바퀴가 startup claim이다. 도는 중 끊긴 줄을 interrupted로 닫고 꺼진 사이 온 차례를 놓친 차례로 접는다
 ```
 
-- `jobs` 표(job 한 행)와 `job_runs` 표(차례마다 한 행)가 정본이다. 쓰는 것은 job command(`job.create`, `job.update`, `job.approve`, `job.delete`, `job.decide_hold`)와 scheduler의 machine command(`job.claim_due`, `job_run.started`, `job_run.ended`)뿐이다. 화면, CLI, agent는 route로 읽는다.
+- `jobs` 표(job 한 행)와 `job_runs` 표(차례마다 한 행)가 정본이다. 쓰는 것은 job command(`job.create`, `job.update`, `job.approve`, `job.delete`, `job.decide_hold`, `job.take_over`)와 scheduler의 machine command(`job.claim_due`, `job_run.started`, `job_run.ended`)뿐이다. 화면, CLI, agent는 route로 읽는다.
 - 다른 module은 이 표를 SQL로 읽지 않는다. scheduler는 run과 instance를 run service와 workflow service, workflow instance 읽기로만 본다(`architecture/layers.md`).
 - scheduler의 core 안 자격은 `machine:jobs`다. operation은 `job.claim_due`, `job_run.open`, `job_run.started`, `job_run.ended`, workflow instance 읽기이고 기동 때 ledger에 기록한다.
 
@@ -66,6 +69,16 @@ job은 정해진 때 저절로 도는 일 하나다. 때는 주기(`every`, 선�
 - `approved_at`은 사람이 등록을 승인한 때다. null이면 승인 대기이고 `next_due_at`도 null이며 돌지 않는다.
 - 만든 쪽(`creator`)은 그 session의 (agent, workspace)이고(`jobs.creator_agent`, `creator_workspace`, home이면 workspace가 null) job에 남는다. job의 workspace는 `creator`에서 나온다.
 - `last_run`은 저장하지 않고 읽을 때 그 job의 가장 새 job run으로 채운다.
+- `machine`은 주인 기계의 id다(아래 "주인 기계"). `runs_here`는 저장하지 않고 읽을 때 `machine`을 이 기계 id와 견준 것이다.
+
+### 주인 기계
+
+- job은 만든 기계의 id(`machine`, 기계 신분의 `mch_…`)를 싣고 그 기계에서만 돈다. 만들 때 core가 이 기계 id를 찍는다.
+- 이 칸이 생기기 전의 job은 `machine`이 null이고 이 기계 것으로 읽는다(`runs_here: true`). 새 판의 첫 startup claim이 null인 job에 이 기계 id를 찍는다. schema step은 기계 id를 모르기 때문이다. 그 뒤 다른 기계로 복사된 data root는 원래 기계의 id를 들고 가므로, 복사본에서는 그 job이 다른 기계의 것이다(기계 신분은 복제를 새 기계로 다룬다).
+- `runs_here`가 false인 job(다른 기계의 job)은 차례를 만들지 않고(`job.claim_due`의 질의와 차례 만들기가 둘 다 거른다), 이미 있는 `queued` 줄도 넘기지 않고, event로 열리지 않고(`job.fire_event`와 `job.event_triggers`가 이 기계 job만 본다), 놓친 차례를 [Start now]로 돌리지 못하고(`conflict`), idle-exit의 일로 세지 않는다(`job.activity`). 승인 대기 목록과 hold 목록에도 나오지 않는다. 목록(`job.list`)에는 나오고, 사람은 그 job을 고치고 끄고 지울 수 있다.
+- 사람만 부르는 `job.take_over { job }`이 이 기계로 가져온다. `machine`을 이 기계 id로 바꾸고, 켜져 있고 승인된 주기 job은 다음 차례를 지금부터 새로 센다(다른 기계에 있던 동안은 놓친 것으로 치지 않는다). 열린 `held` 줄은 그대로 두어 이제 [Start now]가 된다. 이미 이 기계 것이면 `conflict`, 없으면 `not_found`, agent면 `forbidden`이다. 사람이 고친 것이 아니라 `updated_at`은 그대로다.
+- 이 기계 id는 jobs의 port가 `machine.json`에서 읽는다(Worker마다 처음 한 번). 읽지 못하면 그 command와 read가 `unavailable`로 실패한다. 어느 기계의 것인지 모르는 job을 돌리지 않는다.
+- 기계를 넘어 오는 job(뒤의 기계 사이 sync)도 같은 칸과 같은 멈춤을 쓴다.
 
 ### event로 도는 job
 
@@ -130,7 +143,7 @@ job은 정해진 때 저절로 도는 일 하나다. 때는 주기(`every`, 선�
 13. 승인 칸이 생기기 전의 job은 migration이 승인 대기로 옮겼다.
 
 언제 도나
-14. core가 떠 있는 동안 돈다. 켜진 job(승인 대기 포함)이나 열린 job run이 있으면 idle-exit가 core를 끄지 않는다(`architecture/platform.md` "core 수명", 읽는 route는 `job.activity`).
+14. core가 떠 있는 동안 돈다. 이 기계의 켜진 job(승인 대기 포함)이나 그 열린 job run이 있으면 idle-exit가 core를 끄지 않는다(`architecture/platform.md` "core 수명", 읽는 route는 `job.activity`).
 15. 깨우는 길은 셋이고 바퀴는 같다. 다음 차례 시각 timer, 깨우기(job command의 commit 뒤), 최대 잠이다. 대기는 다음 차례까지이고 최소 1초, 최대 1분이다(켜진 job이 없으면 1분). 한 번에 한 바퀴만 돌고, 도는 사이 온 깨우기는 바퀴를 끝낸 뒤 한 번 더 돈다.
 16. `job.claim_due`가 실패하면 60초 뒤 다시 한다. 첫 claim이 한 번 성공할 때까지는 재시도도 startup claim이다. 켤 때 한 번의 일이 빠지지 않게 하려는 것이다.
 
@@ -172,10 +185,16 @@ hold
 38. 켤 때 jobs는 runs와 workflows를 맞춘 뒤에 첫 claim을 한다.
 
 권한
-39. scheduler 쪽 route(`job.claim_due`, `job_run.open`, `job_run.started`, `job_run.ended`, `job.activity`)는 machine 자격만 받는다. 쓰는 command 셋은 handler도 한 번 더 본다. 사람 쪽 route(`job.pending`, `job.approve`, `job.holds`, `job.decide_hold`, `job_run.list`)는 user만 받는다.
+39. scheduler 쪽 route(`job.claim_due`, `job_run.open`, `job_run.started`, `job_run.ended`, `job.activity`)는 machine 자격만 받는다. 쓰는 command 셋은 handler도 한 번 더 본다. 사람 쪽 route(`job.pending`, `job.approve`, `job.holds`, `job.decide_hold`, `job_run.list`, `job.take_over`)는 user만 받는다. `job.take_over`는 handler도 한 번 더 본다.
 40. tool_run은 사람이 없는 호출이고 허락은 사람의 등록 승인이다. 앱 호출 경로는 program caller를 막지 않는다. 만든 agent의 할당과 비공개 규칙은 보지 않는다(`architecture/app-call.md`, `architecture/approval.md`).
 41. agent_run이 연 turn은 unattended다. 묻지 않고 deny만 막힌다. 받은 agent는 자기 할당으로 일한다.
 42. job이 연 agent run의 agent도 job 명령을 받아 job을 만들 수 있다. 막지 않는다. 고치기는 만든 agent만 하고 사람은 모든 job을 등록 때 보고 승인하며 화면에서 보고 끌 수 있다.
+
+주인 기계
+43. job은 주인 기계에서만 돈다. 다른 기계의 job은 차례를 만들지 않고, 넘기지 않고, event로 열리지 않고, [Start now]가 `conflict`이고, idle-exit의 일이 아니다. 차례 뽑기와 차례 만들기가 둘 다 거른다. 위험 test가 있다(같은 바깥 효과가 두 기계에서 난다).
+44. job을 다른 기계로 옮기는 것은 사람의 `job.take_over`뿐이다. agent는 옮기지 못한다. 가져온 job은 지금부터 새로 세고 다른 기계에 있던 동안을 놓친 것으로 치지 않는다.
+45. 주인 칸이 없던 job은 지우거나 멈추지 않는다. 첫 startup claim이 이 기계 id를 찍기 전까지 이 기계 것으로 읽는다. migration은 행을 하나도 잃지 않는다.
+46. 이 기계 id를 읽지 못하면 job을 돌리지 않는다.
 
 ## 경계와 계약
 
@@ -190,6 +209,7 @@ hold
 | `job_run.list` | user | 그 job의 job run을 새것부터 쪽으로 준다 |
 | `job.pending`, `job.approve` | user | 승인 대기 목록, `approve` \| `reject` |
 | `job.holds`, `job.decide_hold` | user | `held` 줄 목록, `run_now`(지금 돌림) \| `skip` |
+| `job.take_over` | user | 다른 기계의 job을 이 기계로 가져온다. 오류 `not_found`·`forbidden`·`conflict`(이미 이 기계 것) |
 | `job.claim_due`, `job_run.started`, `job_run.ended` | machine | scheduler가 차례를 가져가고 줄을 열고 닫는 command |
 | `job.fire_event`, `job.event_triggers` | machine | event가 왔을 때 그 event를 때로 가진 job의 차례를 열거나 건너뛰는 command, 관심 있는 (앱, event) 목록 읽기 |
 | `job_run.open`, `job.activity` | machine | 열린 줄과 그 job 읽기, idle-exit가 보는 일(켜진 job이나 열린 job run이 있나) |
@@ -202,7 +222,7 @@ hold
 
 ### 저장
 
-- `jobs` 표: 한 행에 `title`, `creator_agent`, `creator_workspace`, `every`, `at`, `trigger`(JSON, event job만. every와 trigger는 정확히 하나), `action`(JSON), `missed_policy`, `enabled`, `next_due_at`, `approved_at`, event job의 기록(`fired_count`, `skipped_count`, `last_fired_at`, `last_skipped_at`, `last_skip_reason`), 시각.
+- `jobs` 표: 한 행에 `title`, `creator_agent`, `creator_workspace`, `every`, `at`, `trigger`(JSON, event job만. every와 trigger는 정확히 하나), `action`(JSON), `missed_policy`, `enabled`, `next_due_at`, `approved_at`, `machine`(주인 기계 id, 찍기 전 null. ledger step `jobs.machine`), event job의 기록(`fired_count`, `skipped_count`, `last_fired_at`, `last_skipped_at`, `last_skip_reason`), 시각.
 - `job_runs` 표: 한 행에 `job`, `due_at`, `missed_count`, `state`, `reason`, `run`, `instance`, `session`, `event`(event job의 차례를 연 event), 넘긴 때, 시작·끝 시각. 넘긴 때는 scheduler에 넘긴 시각이고 record에는 없다. 두 표에 FK는 없고 지우기는 command가 한다.
 - unique index: 도는 줄(`queued`, `running`) job마다 하나, `held` 줄 job마다 하나.
 
@@ -210,7 +230,8 @@ hold
 
 - run의 origin이 job이다. job이 연 run은 job과 job run을 싣는다. workflow instance의 시작한 쪽은 `{kind: "job", job}`이다(`architecture/workflow.md`).
 - 앱 호출의 program caller는 `{kind: "program", job, job_run}`이다. route가 만들지 못하고 core 안 run 연산만 만든다. 본문의 caller는 주장일 뿐이라 core가 만든 자격과 맞춰 본다. 앱 process의 caller parser는 protocol schema의 손 사본이라(앱 process는 Zod를 싣지 않는다) 다섯 종류(person, agent, app, program, flow)를 같이 받아야 한다(`architecture/app-call.md`).
-- idle-exit는 `job.activity`로 켜진 job과 열린 job run이 있나 읽는다(`architecture/platform.md`).
+- idle-exit는 `job.activity`로 이 기계의 켜진 job과 그 열린 job run이 있나 읽는다(`architecture/platform.md`).
+- 이 기계 id는 기계 신분(`machine.json`)에서 읽는다. jobs는 그 file을 쓰지 않는다.
 - 앱을 지우면 그 앱 workspace가 만든 job과 그 앱을 부르는 job을 같은 tx에서 지운다(`architecture/app-call.md`).
 
 ### 화면
@@ -219,6 +240,7 @@ hold
 - project 창 오른쪽 sidebar의 Jobs panel은 그 project와 걸린 job과 그 규칙을 보인다. 걸린 job은 그 project workspace의 session이 만든 것, 그 project의 agent를 부르는 것, 그 project의 workflow를 시작하는 것이다(`creator`와 `action`으로 읽을 때 가르고 계약은 바꾸지 않는다). 줄은 제목, Switch, 주기, 다음 차례나 대기 상태이고 줄과 "Open all jobs"는 Jobs 탭을 연다.
 - 대기 목록의 job card(승인 card와 hold card)는 셋째 read source다(앞 둘은 session snapshot과 activation 동의). `job.pending`과 `job.holds`를 같이 읽어 통째로 맞추고(둘 다 읽혀야 맞춘다) `jobs` 변경(`StateChanged`)을 받을 때 다시 읽는다. 승인 card는 제목, 할 일, 주기, 만든 agent와 workspace를 보이고 [Approve]와 [Reject]는 `job.approve`다. [Start now]와 [Skip]은 `job.decide_hold`다. 결정한 card는 다시 읽을 때 빠지고 toast는 없다.
 - Jobs 탭·overlay와 오른쪽 sidebar Jobs panel은 승인 대기 job의 다음 차례 자리에 "Waiting for your approval"을 보인다. 승인은 대기 목록에서만 한다.
+- 다른 기계의 job은 다음 차례 자리에 "Belongs to another computer"를 보이고 Jobs 탭의 그 줄에 [Run on this computer](`job.take_over`)가 선다. 화면 source의 선택 함수 `machineName?(machine)`이 그 id의 기계 이름을 알려 주면 "Belongs to <이름>"이다. 지금은 아무도 채우지 않는다(뒤에 기계 기록을 폴더로 받는 쪽이 채운다).
 - run 줄과 instance 줄은 job 제목을 보인다. run 줄은 이름 자리에 제목을 두고 agent 이름이나 tool 이름은 둘째 줄이다. instance 줄은 시작한 쪽이 job이면 제목을 보인다. 제목은 읽는 곳이 `job.list`를 읽어 job id로 붙인다. 지운 job의 옛 줄은 제목 없이 원래 이름으로 보인다. 제목은 꾸밈이라 읽기에 실패해도 run과 instance 읽기는 그대로 간다.
 - 화면이 다시 읽는 신호는 `jobs` 변경(`StateChanged`)뿐이다. 남지 않는 event라 놓친 화면은 열 때 다시 읽는다(`architecture/event.md`). run과 instance 줄은 지금의 session event와 `workflow_instances` 변경 때 다시 읽으므로 따로 알리지 않는다.
 
@@ -255,6 +277,11 @@ hold
 - 앱을 지우면 그 앱이 만든 job과 부르는 job도 지운다. 이유: 같은 slug의 새 앱이 옛 앱의 job을 물려받지 않게 한다. (agent)
 - 화면의 자리는 처음에 Settings › System과 project 창의 panel(그 project와 걸린 job만)이었다. shell을 하나로 합치면서 Settings에서 빼고 모든 workspace의 Jobs 탭, 왼쪽 sidebar의 Jobs overlay, 오른쪽 sidebar의 Jobs panel로 옮겼다. 처음 자리와 panel은 (사람, 2026-10-22)가 정했고 옮김은 shell 개편의 일부다.
 - job 명령 입력의 자유 JSON 칸(할 일의 입력, 출력 schema)은 tool의 JSON Schema로 바꿀 수 있는 형태로 둔다. 그 결과 JSON Schema에 `$defs`/`$ref`가 처음 들어갔고 진짜 Anthropic으로 보내 받아지는 것을 확인했다. OpenAI는 key가 없어 돌리지 못했다(adapter는 `strict`를 켜지 않는다). (agent)
+
+- job은 만든 기계의 id를 싣고 그 기계에서만 돈다. 다른 기계의 job은 멈춘 것으로 보이고 사람이 [Run on this computer]로 가져온다. 이유: 한 사람이 여러 기계를 쓰면(복사한 data root, 뒤의 sync) 같은 job이 두 기계에서 돌아 같은 바깥 효과가 두 번 난다. 버린 길: job을 기계 사이에 맞추거나 저절로 옮기기(어느 기계가 깨어 있는지에 따라 몰래 옮겨 다닌다). (agent, 사람이 맡긴 multi-machine 정책 2026-11-16)
+- 이미 있는 job은 새 판의 첫 startup claim이 이 기계 id로 찍는다. 이유: schema step은 기계 id를 모른다. 찍기 전의 null은 이 기계 것으로 읽어 옛 job이 멈추지 않는다. (agent)
+- 가져온 주기 job은 지금부터 새로 센다. 이유: 다른 기계에 있던 동안의 차례는 그 기계의 것이고 이 기계가 놓친 것이 아니다. approve와 같은 규칙이다. (agent)
+- 다른 기계 job의 화면 글은 "Belongs to another computer"이고 이름은 선택 함수가 알 때만 보인다. 이유: 기계 기록을 다른 기계에 알리는 일은 이 계획 밖(폴더 sync)이라 그쪽에 기대지 않는다. (agent)
 
 ## 열린 것
 

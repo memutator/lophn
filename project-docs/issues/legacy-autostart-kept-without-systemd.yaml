@@ -1,0 +1,12 @@
+id: legacy-autostart-kept-without-systemd
+title: "systemd user session이 없는 Linux에서 옛 Start at login을 옮기지 못하고 표시만 켜진 채 알림도 없다"
+kind: bug
+status: open
+topic: platform
+modules: [packages/shell/main, packages/core/always-on]
+now: |
+  `migrateLegacyLogin`(`packages/shell/main/desktop/autostart-migrate.ts`)은 옛 `autostart/lophn.desktop`을 찾으면 `always_on/set { keep_running: true }`를 부르고, 답의 `start_at_login`이 `registered`일 때만 옛 file을 지우고 알림 표지를 남긴다(`packages/shell/main/desktop/wiring/desktop.ts`). user bus가 없는 Linux(systemd 없는 배포판, WSL, user manager 없는 session)에서는 등록이 `unavailable`·`no_service_manager`라 옛 file이 남고 표지도 없다. 그런데 `set`(`packages/core/always-on/mod.ts`)은 등록 전에 표시를 이미 써서 `keep_running`이 켜지고, idle-exit가 꺼진다. 새 shell 실행마다 같은 시도를 되풀이한다.
+impact: |
+  그 사람에게는 동작이 바뀐다(창을 닫고 일이 없어도 core가 멈추지 않는다). 그런데 한 번 알림이 뜨지 않아 우연히 알게 된다. 옛 XDG autostart가 `--core`로 계속 core를 띄우므로 로그인 시작은 잃지 않는다. Settings는 표시 켜짐과 "쓸 수 없음" 이유를 보인다.
+fix: |
+  (1) 등록이 `no_service_manager`면 옛 등록이 같은 일을 하고 있으니 표시를 켜지 않고 옛 등록을 그대로 둔다: shell이 실패하면 `keep_running: false`로 되돌린다(작음, 그 사람의 동작이 옛 판과 같다). (2) 옮기기 실패에도 알림을 보인다(작음, 바뀐 동작은 알리지만 같은 스위치 둘이 남는다). 추천: (1).

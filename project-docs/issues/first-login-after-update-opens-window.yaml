@@ -5,8 +5,8 @@ status: open
 topic: platform
 modules: [packages/shell/main]
 now: |
-  켜 둔 autostart의 옛 `--tray` 등록은 일반 실행에서 한 번 `--core`로 다시 쓴다(`packages/shell/main/desktop/autostart.ts`). 업데이트 뒤 첫 실행이 그 로그인 등록이면 `--tray`를 모르는 새 판이 일반 실행으로 창을 연다. 같은 실행에서 등록은 고쳐진다. macOS `wasOpenedAtLogin`과 core-only 실행의 userData 폴더는 실기로 확인하지 않았다.
+  새 판은 `--core`만 core-only 실행으로 읽는다(`packages/shell/main/desktop/launch-mode.ts`). 옛 판의 로그인 등록이 `--tray`(Linux XDG autostart, Windows login item)이거나 macOS login item(argv가 없고, 새 판은 `wasOpenedAtLogin`을 보지 않는다)이면 업데이트 뒤 첫 로그인 실행이 일반 실행으로 창을 연다. 그 실행이 core에 붙은 뒤 옛 등록을 Keep running 표시로 옮기고 지운다(`packages/shell/main/desktop/autostart-migrate.ts`, OS 등록이 섰을 때만). 옛 등록이 `--core`면 창 없이 core만 뜨고 옮기기는 다음 일반 실행에 한다. macOS·Windows는 실기로 확인하지 않았다.
 impact: |
-  한 번 창이 뜬다. 그 뒤로는 core만 뜬다.
+  한 번 창이 뜬다. 옮기기가 되면 그 뒤로는 OS 항목이 core만 띄운다.
 fix: |
-  그대로 둔다(`--tray` 호환 장치를 두지 않는 것이 결정이다). macOS·Windows 실기 확인은 사람이 한다.
+  그대로 둔다(`--tray`·`wasOpenedAtLogin` 호환 장치를 두지 않는 것이 결정이다). macOS·Windows 실기 확인은 사람이 한다.

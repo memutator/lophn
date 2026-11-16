@@ -1,0 +1,12 @@
+id: windows-login-start-not-service
+title: "Windows 로그인 시작은 core 입구가 아니라 Electron `--core`를 거쳐 service 규칙이 걸리지 않는다"
+kind: bug
+status: open
+topic: platform
+modules: [packages/core/always-on, packages/core/main, packages/shell/main]
+now: |
+  Windows 등록은 HKCU `Run` 값 `"<exe>" --core --home "<root>"`다(`packages/core/always-on/os/entries.ts`의 `windowsRunValue`). 로그인 때 Electron이 `ensureCoreOnly`(`packages/shell/main/desktop/main.ts`)로 ensure만 하고, core는 shell의 core 감독이 띄우는 것과 같은 env(`LOPHN_LAUNCH_SHELL=1`)로 뜬다. `LOPHN_SERVICE=1`이 없어서 core 입구(`packages/core/main/daemon/main.ts`)의 "ready 전 실패는 exit 0" 규칙이 걸리지 않고, 등록 글에 싣는 env(`service_env`)도 쓰지 않는다(Explorer의 env다). ensure가 실패하면 Electron은 stderr 한 줄을 쓰고 exit 1로 끝나는데 아무도 그 줄을 보지 않는다.
+impact: |
+  지금은 `Run` 값이 다시 띄우지 않아 exit code가 무엇이든 결과가 같다. 다만 Windows에서 로그인 시작이 실패하면 사람은 Settings가 "Starts when you log in"인데 core가 없는 것만 본다. 실패 이유가 log에 남지 않는다. 그리고 세 OS의 service 규칙이 Windows만 달라, 뒤에 Windows에 다시 띄우기를 더할 때 이 차이를 다시 찾아야 한다.
+fix: |
+  (1) 그대로 두고 문서의 한계로 남긴다(없음). (2) `ensureCoreOnly`가 실패를 shell log file에 남긴다(작음). (3) `Run` 값이 core 입구를 바로 띄우는 길(env를 넘길 수 없어 console 창 없이 Node를 띄울 wrapper가 필요하다, 큼). 추천: (2). Windows 다시 띄우기를 열 때 (3)을 다시 본다.

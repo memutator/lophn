@@ -73,7 +73,7 @@ core가 소유한 child
 ## 정한 것
 
 1. core는 shell의 child가 아니다. shell과 CLI는 ensure로 붙거나 띄우는 client다. job을 shell 수명에서 떼는 것이 첫째 이유다. (사람, 2026-11-08)
-2. OS service(systemd, launchd agent, Windows service·scheduled task)로 등록하지 않는다. 로그인 때 켜는 것은 지금 autostart 설정이 core만 띄우는 것으로 충분하다. Hermes도 이미 있는 service를 켜기만 하고 설치하지 않는다. (agent)
+2. OS service(systemd, launchd agent, Windows service·scheduled task)로 등록하지 않는다. 로그인 때 켜는 것은 지금 autostart 설정이 core만 띄우는 것으로 충분하다. Hermes도 이미 있는 service를 켜기만 하고 설치하지 않는다. (agent) 2026-11 계획 `always-on`이 사람이 표시한 기계에 한해 뒤집었다(`architecture/platform.md` "늘 켜 둠").
 3. control socket은 TCP가 아니다. socket file 권한(POSIX 0700 폴더)과 Windows named pipe가 경계다. 데이터(API)는 지금처럼 loopback HTTP·WebSocket이다. API를 unix socket에도 여는 것(Codex `workspace-write` sandbox에 core socket 하나만 여는 길, `architecture/coding-agent.md`)은 이 roadmap에 넣지 않는다. (agent)
 4. 1회용 ticket을 만들지 않는다. `connect`가 지금 hello가 주는 것과 같은 user credential을 준다. 지금 `run/user-token`(0600 file)과 같은 경계에서 같은 것을 주는 것이라 더 약해지지 않는다. (agent)
 5. 동시 시작은 이미 있는 `run/instance.lock`이 가른다. pid file을 만들지 않는다. liveness는 "`identify`가 답한다"다. (agent)
@@ -91,7 +91,7 @@ core가 소유한 child
 
 ## 하지 않는 것
 
-- OS service 등록.
+- OS service 등록. 2026-11 계획 `always-on`이 사람이 표시한 기계에 한해 뒤집었다.
 - core를 쓰는 사람과 다른 사용자나 원격 머신에서 붙기. `identify` 모양은 나중에 원격 연결에 쓸 수 있게 두지만 만들지 않는다.
 - core 쪽 crash 재시작 감독.
 - API를 unix socket으로 옮기기(위 정한 것 3).

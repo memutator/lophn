@@ -1,0 +1,12 @@
+id: core-entry-own-stderr-logger
+title: "core 입구가 늘 켜 둠 OS port를 위해 자기 stderr logger를 따로 둔다"
+kind: defect
+status: open
+topic: platform
+modules: [packages/core/main, packages/core/always-on]
+now: |
+  OS port를 만드는 함수 type `AlwaysOnHost`(`packages/core/always-on/ports.ts`)는 data root만 받는다. 그래서 core 입구(`packages/core/main/daemon/main.ts`)는 `startCore` 안에서 만들어지는 core logger를 쓸 수 없어, 같은 모양의 JSON 줄을 stderr에 직접 쓰는 `stderrLogger`를 따로 만들어 `createAlwaysOnOs`에 넘긴다. 기동 실패 줄(`stderrLine`)도 같은 함수를 쓴다.
+impact: |
+  OS 명령 실패 log(`os_command_failed`)가 core telemetry를 거치지 않아 log level·format 설정을 따르지 않는다. 같은 일을 하는 logger가 두 곳에 있어 log 모양을 바꿀 때 하나를 빠뜨린다.
+fix: |
+  `AlwaysOnHost`가 `{ dataRoot, logger }`를 받게 하고 always-on wiring이 `ctx.telemetry.logger`를 넘긴다. `stderrLogger`를 지우고 `stderrLine`은 기동 실패 줄에만 남긴다(작음). 추천.

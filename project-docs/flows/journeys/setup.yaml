@@ -58,12 +58,15 @@ journeys:
       - {do: "control stop이 답하지 않으면 native message box가 core가 남아 있을 수 있다고 알린 뒤 shell만 끝난다(frame 없음, OS 창)", flow: stop-lophn:no-answer}
 
   - id: login-autostart
-    title: 로그인할 때 core만 미리 띄우게 한다
+    title: 이 컴퓨터에서 lophn을 늘 켜 둔다
     actor: person
-    goal: 로그인하면 창 없이 core가 떠 있어 앱을 켜면 바로 붙는다
+    goal: 로그인하면 창 없이 core가 떠 있고 창을 닫아도 계속 돌아, 앱을 켜면 바로 붙고 job과 폰이 멈추지 않는다
     steps:
       - {do: "Settings › Remote의 \"Keep lophn running on this computer\"를 켠다. OS가 답한 등록 사실이 보인다", flow: always-on-set:turned-on}
-      - {do: "다음 로그인 때 창 없이 core만 뜬다", flow: login-core-start:core-ready}
+      - {do: "다음 로그인 때 Linux·macOS는 OS(systemd, launchd)가 창 없이 core 입구를 바로 띄운다", flow: core-boot:ready}
+      - {do: "Windows는 로그인 시작 Run 값이 `--core`로 lophn을 열어 core만 띄우고 끝난다", flow: login-core-start:core-ready}
+      - {do: "core가 기동 때 등록을 표시에 맞춘다. 빠지거나 낡은 등록을 다시 쓴다", flow: always-on-reconcile:reregistered}
+      - {do: "앱을 켜면 이미 ready인 core에 붙는다", flow: core-ensure:attached}
 
   - id: update-start
     title: 업데이트한 뒤 처음 켠다

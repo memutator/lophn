@@ -115,7 +115,7 @@ modules:
 
   - path: packages/core/jobs
     boundary: jobs
-    notes: lophn-agent와 다른 feature module을 import하지 않는다. agent·앱·project 이름 풀기, 시간대, timer는 ports.ts의 port이고, run 시작과 instance 시작은 core/main의 wiring/jobs.ts가 runs·workflows service로 끼운다. 다른 module의 표를 SQL로 읽지 않는다.
+    notes: lophn-agent와 다른 feature module을 import하지 않는다. agent·앱·project 이름 풀기, 시간대, timer, 이 기계 id(주인 기계 비교)는 ports.ts의 port이고, run 시작과 instance 시작은 core/main의 wiring/jobs.ts가 runs·workflows service로 끼운다. 다른 module의 표를 SQL로 읽지 않는다.
 
   - path: packages/core/secrets
     boundary: secrets
@@ -129,7 +129,7 @@ modules:
 
   - path: packages/core/always-on
     boundary: always-on
-    notes: always-on.json의 유일한 주인. OS 등록과 keep-awake는 port다. `os/`가 구현하고 core 입구가 설치 layout일 때만 꽂는다.
+    notes: always-on.json의 유일한 주인. OS 등록과 keep-awake는 port다. `os/`가 구현하고(OS 명령, child, file, hash는 deps로 받는다) core 입구(`packages/core/main/daemon/main.ts`)가 설치 layout일 때만 꽂는다. 다른 module은 wiring context의 `alwaysOn`으로만 읽는다.
 
   - path: packages/protocol/always-on
     boundary: always-on

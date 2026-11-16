@@ -147,6 +147,7 @@ function fakeWorld() {
         );
       },
     },
+    log() {},
     path: {
       call(input) {
         calls.push(input);

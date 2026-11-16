@@ -17,7 +17,7 @@ test("화면이 준 입력의 undefined 칸은 빠지고 core 통로의 입력 �
       ? { ok: true, value: { outcome: { ok: true, value: 1 } } }
       : { ok: false, error: { code: "invalid_input", message: "invalid" } };
   };
-  const calls = createAppCall({ call, resume: () => {} });
+  const calls = createAppCall({ call, resume: () => {}, rejected: () => {} });
   // IPC(structured clone)는 값이 undefined인 칸을 그대로 넘긴다.
   const fromPage = structuredClone({
     operation: "usage.sessions",

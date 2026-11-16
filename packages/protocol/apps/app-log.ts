@@ -61,6 +61,7 @@ const VIEW_ERROR_NAME_MAX_CHARS = 256;
 const VIEW_ERROR_MESSAGE_MAX_CHARS = 16_384;
 
 // 앱 화면(shell)에서 잡은 오류를 app log에 쓴다. 사람만 부르고, 실패는 모양 거절, 없는 앱, supervisor 없음뿐이다.
+// `call_rejected`는 page가 보낸 것이 아니라 host가 쓴다: handler에 닿기 전에 거절한 operation 호출이고 name이 operation 이름이다.
 export const appLogViewError = defineMemory({
   resource: "apps",
   method: "log_view_error",
@@ -70,7 +71,12 @@ export const appLogViewError = defineMemory({
     app: appIdSchema,
     release: releaseIdSchema.nullable(),
     mode: z.enum(["live", "preview"]),
-    observation: z.enum(["error", "unhandledrejection", "render_error"]),
+    observation: z.enum([
+      "error",
+      "unhandledrejection",
+      "render_error",
+      "call_rejected",
+    ]),
     name: z.string().regex(/\S/).max(VIEW_ERROR_NAME_MAX_CHARS),
     message: z.string().max(VIEW_ERROR_MESSAGE_MAX_CHARS).nullable(),
   }),

@@ -141,7 +141,10 @@ import {
   appWidgetSet,
 } from "../../../../protocol/apps/widget.ts";
 import { APP_RESTART_HALTED_TOPIC } from "../../../apps/runtime/commands.ts";
-import { viewErrorLogHandler } from "../../../apps/runtime/view-errors.ts";
+import {
+  appLogWriter,
+  viewErrorLogHandler,
+} from "../../../apps/runtime/view-errors.ts";
 import { createScreenFileDeps } from "../../../apps/screens/mod.ts";
 import { createAppSkillsDeps } from "../../../apps/screens/skills.ts";
 import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
@@ -406,6 +409,9 @@ export const appsWiring: WiringFactory = () => {
         },
         lookup: appToolLookupOf(link.sql, appsControl.previews),
         path,
+        log: appLogWriter({
+          request: (op, payload) => appsControl.channel.request(op, payload),
+        }),
         publish(app, payload) {
           ctx.peek.bus?.publish({
             type: "AppViewEvent",

@@ -53,12 +53,12 @@ function checkViewError(
   };
 }
 
-/** core `app.log_view_error` 입력. 앱·release·mode는 sender view에서 정한 값이다. */
+/** core `app.log_view_error` 입력. 앱·release·mode는 sender view에서 정한 값이다. `call_rejected`는 main이 쓴다. */
 interface ViewErrorForward {
   app: string;
   release: string | null;
   mode: ConnectTarget["mode"];
-  observation: ViewErrorObservation;
+  observation: ViewErrorObservation | "call_rejected";
   name: string;
   message: string | null;
 }
@@ -101,24 +101,49 @@ export function createViewErrors(deps: ViewErrorDeps) {
         deps.log(`${where} view-error dropped reason=invalid`);
         return;
       }
-      const forward: ViewErrorForward = {
+      await forward(view, input);
+    },
+
+    /**
+     * main이 core의 view 표에 닿기 전에 거절한 operation 호출 하나. core는 이 호출을 보지 못해 기록이 없으므로 main이
+     * 그 앱 log에 남긴다. page 오류와 같은 상한을 쓴다.
+     */
+    async callRejected(
+      view: BoundView,
+      operation: unknown,
+      error: { code: string; message: string },
+    ): Promise<void> {
+      if (!admit(view.view_session)) return;
+      await forward(view, {
+        observation: "call_rejected",
+        name:
+          typeof operation === "string" && /\S/.test(operation)
+            ? operation.slice(0, VIEW_ERROR_NAME_MAX_CHARS)
+            : "(invalid operation)",
+        message: `${error.code}: ${error.message}`,
+      });
+    },
+  };
+
+  async function forward(
+    view: BoundView,
+    input: Pick<ViewErrorForward, "observation" | "name" | "message">,
+  ): Promise<void> {
+    let sent = false;
+    try {
+      sent = await deps.send({
         app: view.target.app,
         release: view.binding.release,
         mode: view.target.mode,
-        observation: input.observation,
-        name: input.name,
-        message: input.message,
-      };
-      let sent = false;
-      try {
-        sent = await deps.send(forward);
-      } catch {
-        sent = false;
-      }
-      deps.log(
-        `${where} view-error ${input.observation} app=${view.target.app} ` +
-          `mode=${view.target.mode}${sent ? "" : " unsent"}`,
-      );
-    },
-  };
+        ...input,
+      });
+    } catch {
+      sent = false;
+    }
+    deps.log(
+      `view ${view.view_session} generation=${view.generation} view-error ` +
+        `${input.observation} app=${view.target.app} ` +
+        `mode=${view.target.mode}${sent ? "" : " unsent"}`,
+    );
+  }
 }

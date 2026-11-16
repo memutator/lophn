@@ -40,6 +40,8 @@ export interface AppViewsPorts {
   release(app: string, release: string): Result<ReleaseView | null>;
   lookup: Pick<AppToolLookup, "find" | "findPreview">;
   path: AppToolCallPath;
+  /** 그 앱의 log에 줄 하나를 쓴다. 쓰지 못해도 호출 결과는 그대로다. */
+  log(app: string, text: string): void;
   /** `AppViewEvent` 하나를 Bus로 낸다. */
   publish(app: string, payload: AppViewEventPayload): void;
 }

@@ -16,6 +16,17 @@ export function viewErrorText(
   return input.message === null ? head : `${head}: ${input.message}`;
 }
 
+/** core가 스스로 쓰는 앱 log 줄(view 표의 호출 거절). 쓰지 못해도 부른 쪽 일은 그대로 간다. */
+export function appLogWriter(deps: {
+  request: SupervisorChannel["request"];
+}): (app: string, text: string) => void {
+  return (app, text) => {
+    void deps
+      .request(SUPERVISOR_OPS.appendLog, { app, invocation: null, text })
+      .catch(() => {});
+  };
+}
+
 export function viewErrorLogHandler(deps: {
   request: SupervisorChannel["request"];
 }): MemoryHandler {

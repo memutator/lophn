@@ -1,13 +1,13 @@
 id: view-call-rejection-unrecorded
 title: 화면의 operation 호출이 handler에 닿기 전에 거절되면 어디에도 기록이 없다
 kind: bug
-status: open
+status: fixed
 topic: app-call
-modules: [packages/shell/main, packages/core/apps]
+modules: [packages/shell/main, packages/core/apps, packages/protocol]
 now: |
-  화면이 부른 operation이 앱 handler에 닿기 전에 끝나는 길은 기록을 남기지 않는다. shell main의 `packages/shell/main/app-frame/app-call.ts`는 `invalid_input`·`unavailable`을 페이지에만 돌려주고 log를 쓰지 않는다. core의 `packages/core/apps/views/call.ts`(`callView`)는 선언에 없는 operation(`NOT_AVAILABLE`), 상한을 넘는 결과(`result is too large`), 모양이 틀린 앱 응답을 outcome으로만 돌려주고, 호출 경로(`packages/core/apps/calls/service.ts`)의 `not_declared` 거절도 invocation 없이(`invocation: null`) 나간다. 성공한 읽기는 원래 기록이 없으므로, 이런 실패는 invocation 목록에서 "부르지 않은 것"과 구별되지 않는다. 화면이 오류 문구를 삼키면(흔하다) 사람도 code를 보지 못한다.
+  화면이 부른 operation이 앱 handler에 닿기 전에 끝나는 길은 기록을 남기지 않았다. shell main의 `packages/shell/main/app-frame/app-call.ts`는 `invalid_input`·`unavailable`을 페이지에만 돌려주고 log를 쓰지 않았다. core의 `packages/core/apps/views/call.ts`(`callView`)는 선언에 없는 operation(`NOT_AVAILABLE`), 상한을 넘는 결과(`result is too large`), 모양이 틀린 앱 응답을 outcome으로만 돌려주고, 호출 경로(`packages/core/apps/calls/service.ts`)의 `not_declared` 거절도 invocation 없이(`invocation: null`) 나갔다. 성공한 읽기는 원래 기록이 없으므로, 이런 실패는 invocation 목록에서 "부르지 않은 것"과 구별되지 않았다. 화면이 오류 문구를 삼키면(흔하다) 사람도 code를 보지 못한다.
 impact: |
   앱 agent가 "화면이 안 뜬다"를 받았을 때 볼 증거가 없다. Mahas 세션 탭 문제에서 앱 agent는 invocation과 앱 log가 비어 있어 약 15분 동안 backend 쿼리와 data 크기를 조사하다 원인을 찾지 못했다(실제 원인은 shell main의 입력 거절이었다).
-fix: |
-  - 추천(중간): handler에 닿지 못한 화면 호출을 그 앱 log에 한 줄로 남긴다(operation 이름, code, 고정 문구). core `callView`의 거절은 core가 바로 쓰고, shell main의 거절은 `app.log_view_error`와 같은 길로 보낸다. 앱 agent가 이미 읽는 자리라 새 읽기 길이 필요 없다. 잃는 것: 깨진 화면이 같은 거절을 되풀이하면 log가 늘어 view마다 상한이 필요하다(view 오류와 같은 상한을 쓴다).
-  - 다른 안(큼): 거절도 invocation으로 남긴다. 표의 status와 rewind 대상 판정이 같이 바뀐다.
+closed: |
+  handler에 닿지 못했고 그 실패를 말하는 invocation도 없는 live 화면 호출은 그 앱 log에 `view_error call_rejected <operation>: <code>: <message>` 한 줄로 남는다. core `callView`의 거절은 core가 바로 쓰고(같은 view binding에서 같은 거절은 한 번), shell main이 core에 보내기 전에 거절한 호출은 `app.log_view_error`의 새 observation `call_rejected`로 쓴다(view 오류와 같은 상한). 앱 agent는 `app.logs`로 읽는다. core가 내려가 있거나 view를 다시 묶는 중의 `unavailable`은 쓰지 않는다.
+guard: 없음

@@ -21,6 +21,8 @@ export function register(ctx: ShellContext, views: AppViews): AppCalls {
   const appCall = createAppCall({
     call: ctx.coreInternal,
     resume: (view_session) => views.appFrame.resume(view_session),
+    rejected: (view, operation, error) =>
+      void views.viewErrors.callRejected(view, operation, error),
   });
   const appAgent = createAppAgent({
     call: ctx.coreInternal,

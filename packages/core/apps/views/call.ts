@@ -6,6 +6,7 @@ import { CALL_RESULT_MAX_BYTES } from "../../../protocol/apps/calls/limits.ts";
 import type { JsonValue } from "../../../protocol/base/json-values.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { AppViewOutcome } from "../../../protocol/apps/views.ts";
+import { viewErrorText } from "../runtime/view-errors.ts";
 import type { AppViewsPorts } from "./ports.ts";
 import type { ViewEntry } from "./table.ts";
 
@@ -153,6 +154,44 @@ async function declaredEffect(
   );
 }
 
+// log 줄에 싣는 operation 이름의 상한. `app.log_view_error`의 name 상한과 같다.
+const LOGGED_OPERATION_MAX_CHARS = 256;
+// binding 하나가 쓰는 거절 줄의 상한. operation 이름은 page가 정한다.
+const LOGGED_REJECTIONS_PER_BINDING = 32;
+
+/**
+ * handler에 닿지 못했고 그 실패를 말하는 invocation도 없는 live 호출을 앱 log에 한 줄로 남긴다. 화면이 오류를 삼키면 앱을
+ * 진단하는 쪽이 볼 흔적이 이 줄뿐이다. 같은 binding에서 같은 거절은 한 번만 쓴다: 화면이 되풀이해 불러도 log가 차지 않는다.
+ */
+function logRejected(
+  ports: AppViewsPorts,
+  entry: ViewEntry,
+  operation: string,
+  outcome: AppViewOutcome,
+  detail?: string,
+): void {
+  if (outcome.ok || entry.args.mode !== "live") return;
+  const message =
+    `${outcome.error.code}: ${outcome.error.message}` +
+    (detail === undefined ? "" : ` (${detail})`);
+  const key = `${operation}\u0000${message}`;
+  if (
+    entry.rejected.has(key) ||
+    entry.rejected.size >= LOGGED_REJECTIONS_PER_BINDING
+  ) {
+    return;
+  }
+  entry.rejected.add(key);
+  ports.log(
+    entry.args.app,
+    viewErrorText({
+      observation: "call_rejected",
+      name: operation.slice(0, LOGGED_OPERATION_MAX_CHARS),
+      message,
+    }),
+  );
+}
+
 export async function callView(
   ports: AppViewsPorts,
   entry: ViewEntry,
@@ -163,14 +202,24 @@ export async function callView(
   if (call === undefined) {
     return err({ code: "invalid_input", message: "call is invalid" });
   }
+  const rejected = (outcome: AppViewOutcome, detail?: string) => {
+    logRejected(ports, entry, call.operation, outcome, detail);
+    return ok({ outcome });
+  };
   if (entry.lost !== null) {
-    return ok({ outcome: fail("unavailable", "app is not available") });
+    return rejected(
+      fail("unavailable", "app is not available"),
+      `view lost: ${entry.lost}`,
+    );
   }
   const effect = await declaredEffect(ports, entry, call.operation);
   if (!effect.ok) {
-    return ok({ outcome: fail("unavailable", "app is not available") });
+    return rejected(
+      fail("unavailable", "app is not available"),
+      `declaration: ${effect.error.code}`,
+    );
   }
-  if (effect.value === null) return ok({ outcome: NOT_AVAILABLE });
+  if (effect.value === null) return rejected(NOT_AVAILABLE);
   const reply = await ports.path
     .call(
       {
@@ -197,7 +246,16 @@ export async function callView(
       err({ code: "unavailable" as const, message: "core call failed" }),
     );
   if (!reply.ok) {
-    return ok({ outcome: coreFailure(reply.error.code, effect.value) });
+    return rejected(
+      coreFailure(reply.error.code, effect.value),
+      `call path: ${reply.error.code}`,
+    );
   }
-  return ok({ outcome: outcomeOf(reply.value.outcome) });
+  const outcome = outcomeOf(reply.value.outcome);
+  // 호출 경로가 남긴 invocation이 그 실패를 이미 말하면 log에 다시 쓰지 않는다. invocation은 성공인데 화면에는 실패로
+  // 가는 것(상한을 넘는 결과)은 쓴다.
+  const recorded =
+    reply.value.invocation !== null &&
+    record(reply.value.outcome)?.status !== "succeeded";
+  return recorded ? ok({ outcome }) : rejected(outcome);
 }

@@ -732,7 +732,7 @@ flows:
     steps:
       - "shell main이 앱 화면의 오류를 sender view로 앱과 release, mode를 정해 사람 token으로 부른다. 화면당 20회/60초 상한은 shell 쪽에 있다(app-surface의 app-view-error-capture)."
       - "preview 화면의 오류는 log에 쓰지 않는다. 첫 분기에서 응답만 준다."
-      - "live면 supervisor에 appendLog를 넘겨 view_error <observation> <name>: <message> 한 줄을 쓰게 한다."
+      - "live면 supervisor에 appendLog를 넘겨 view_error <observation> <name>: <message> 한 줄을 쓰게 한다. observation call_rejected는 page가 아니라 shell main이 보낸 것이다(core에 닿기 전에 거절한 operation 호출, app-operation-call)."
     outcomes:
       - id: written
         observe: ["log:app"]
@@ -906,7 +906,7 @@ flows:
     when: "kind가 operation이고 사람이 연 화면(live 또는 preview)의 호출이다"
     pre: [route:releases/activate]
     boundary: [app-runtime, core-api]
-    code: [packages/core/apps/calls/service.ts, packages/core/apps/calls/gate.ts, packages/core/apps/views/call.ts, packages/shell/main/app-frame/app-call.ts]
+    code: [packages/core/apps/calls/service.ts, packages/core/apps/calls/gate.ts, packages/core/apps/views/call.ts, packages/shell/main/app-frame/app-call.ts, packages/shell/main/app-frame/view-error.ts]
     steps:
       - "shell main이 페이지가 보낸 값에서 operation과 input만 꺼낸다. 객체가 아니거나 다른 칸이 있으면 core에 보내지 않는다. input은 JSON 값으로 만든다(없으면 null, 값이 undefined인 칸은 빠진다. 폰 bridge와 같다). 신원은 IPC를 보낸 view의 id 하나다."
       - "shell main이 core app_views/call {view, operation, input}을 보낸다. core가 operation 이름(빈 값, 앞뒤 공백, 제어 문자, 와일드카드 없음)과 input(JSON 값, 64 KiB 이하)을 본다(view-table-call)."
@@ -914,7 +914,7 @@ flows:
       - "core가 사람 자격으로 app.call_tool(kind operation)을 부른다. 대상은 view 표의 mode, app, release(또는 preview nonce)다. 사람의 호출은 Gate를 거치지 않는다."
       - "core의 답을 페이지 code로 옮긴다. 앱 handler의 실패는 앱이 정한 code와 message를 그대로 싣는다. 호출 경로가 오류로 끝나거나 끊기면 invalid_input은 invalid_input, forbidden·unauthorized는 forbidden, 그 밖은 unavailable이다(쓰기는 result unknown)."
       - "core가 view를 모르면(core 재시작, 표에서 내보냄) shell main이 unavailable로 답하고 같은 요청으로 view를 다시 묶는다(app-view-refresh)."
-      - "결과가 operation 상한(CALL_RESULT_MAX_BYTES에서 1 KiB를 뺀 값)을 넘으면 unavailable로 바꾼다. invocation은 succeeded로 남는다."
+      - "결과가 operation 상한(CALL_RESULT_MAX_BYTES에서 1 KiB를 뺀 값)을 넘으면 unavailable로 바꾼다. invocation은 succeeded로 남는다. handler에 닿지 못했고 그 실패를 말하는 invocation도 없는 live 호출(선언에 없는 operation, 묶음을 잃은 view, 호출 경로 오류, 상한을 넘는 결과)은 core가 그 앱 log에 view_error call_rejected <operation>: <code>: <message> 한 줄을 쓴다. 같은 binding에서 같은 거절은 한 번만 쓴다. shell main이 core에 보내기 전에 거절한 호출(invalid_input)은 shell main이 같은 줄을 apps.log_view_error로 쓴다(view마다 60초에 20개 상한을 view 오류와 같이 쓴다). preview 화면의 호출은 쓰지 않는다."
     outcomes:
       - id: succeeded
         observe: [response, "ledger:invocations"]

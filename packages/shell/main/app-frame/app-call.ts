@@ -17,6 +17,12 @@ interface AppCallDeps {
   call: CoreCaller;
   /** core가 그 view를 모른다(core 재시작, 표에서 내보냄). 같은 요청으로 다시 연다. */
   resume(view_session: string): void;
+  /** core의 view 표에 닿기 전에 거절한 호출. core에는 기록이 없으므로 그 앱 log에 남긴다. */
+  rejected(
+    view: BoundView,
+    operation: unknown,
+    error: { code: string; message: string },
+  ): void;
 }
 
 /**
@@ -46,8 +52,15 @@ export function createAppCall(deps: AppCallDeps) {
   return {
     /** `app:call-operation` 하나. view는 IPC sender에서 registry가 정한 값이다. */
     async call(view: BoundView, value: unknown): Promise<CallOutcome<unknown>> {
+      const invalid = (operation: unknown) => {
+        const error = { code: "invalid_input", message: "call is invalid" };
+        deps.rejected(view, operation, error);
+        return { ok: false as const, error };
+      };
       const call = checkCall(value);
-      if (call === undefined) return fail("invalid_input", "call is invalid");
+      if (call === undefined) {
+        return invalid((value as { operation?: unknown } | null)?.operation);
+      }
       const reply = await deps
         .call("memory", "app_views", "call", {
           view: view.view_session,
@@ -61,9 +74,7 @@ export function createAppCall(deps: AppCallDeps) {
       if (reply.ok) {
         return (reply.value as { outcome: CallOutcome<unknown> }).outcome;
       }
-      if (reply.error.code === "invalid_input") {
-        return fail("invalid_input", "call is invalid");
-      }
+      if (reply.error.code === "invalid_input") return invalid(call.operation);
       if (reply.error.code === "not_found") deps.resume(view.view_session);
       return fail("unavailable", "app is not available");
     },

@@ -46,6 +46,8 @@ export interface ViewEntry {
   subscriptions: readonly SubscriptionDeclaration[];
   /** 다시 묶지 못한 이유. 묶여 있으면 null. */
   lost: LostReason | null;
+  /** 이 binding에서 앱 log에 이미 쓴 호출 거절(`call.ts`). 다시 묶이면 비운다. */
+  rejected: Set<string>;
   /** LRU 순서. open·call·event가 닿을 때 오른다. */
   used: number;
 }
@@ -232,6 +234,7 @@ export function createViewTable(ports: AppViewsPorts) {
         ? (bound.declaration?.subscriptions ?? [])
         : [];
     entry.lost = null;
+    entry.rejected.clear();
   }
 
   function outputOf(entry: ViewEntry): AppViewsOpenOutput {
@@ -313,6 +316,7 @@ export function createViewTable(ports: AppViewsPorts) {
         params: params.value,
         subscriptions: [],
         lost: null,
+        rejected: new Set(),
         used: 0,
       };
       apply(entry, bound.value);

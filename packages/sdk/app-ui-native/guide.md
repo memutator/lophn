@@ -73,7 +73,7 @@ root의 오류 경계는 폰 앱의 base가 둔다.
 
 | peer                 | version |
 | -------------------- | ------- |
-| `@lophn/ui-native`   | 0.1.0   |
+| `@lophn/ui-native`   | 0.2.0   |
 | `react-native`       | 0.88.1  |
 | `react`              | 19.3.0  |
 | `@lophn/declaration` | 4.8.0 (이 package가 의존으로 가져온다) |

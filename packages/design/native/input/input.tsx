@@ -1,9 +1,12 @@
 import type { LucideIcon } from "lucide-react-native";
-import { type ReactNode, useState } from "react";
+import { createContext, type ReactNode, useContext, useState } from "react";
 import { TextInput, type TextInputProps, View } from "react-native";
 import { Icon } from "../primitives/icon.tsx";
 import { Text } from "../primitives/text.tsx";
 import { scaleText, useTheme } from "../theme.tsx";
+
+// What a screen reader (and the agent that drives the phone) calls an input: the label of the Field around it.
+const FieldLabel = createContext<string | undefined>(undefined);
 
 export interface InputProps {
   value: string;
@@ -37,6 +40,7 @@ export function Input({
   onSubmit,
 }: InputProps) {
   const theme = useTheme();
+  const fieldLabel = useContext(FieldLabel);
   const [focused, setFocused] = useState(false);
   const edge = soft
     ? "transparent"
@@ -64,6 +68,7 @@ export function Input({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
+        accessibilityLabel={fieldLabel ?? placeholder}
         placeholderTextColor={theme.color.text.muted}
         autoFocus={autoFocus}
         secureTextEntry={secure}
@@ -100,7 +105,7 @@ export function Field({ label, hint, children }: FieldProps) {
       <Text variant="detail" weight="medium">
         {label}
       </Text>
-      {children}
+      <FieldLabel.Provider value={label}>{children}</FieldLabel.Provider>
       {hint !== undefined && (
         <Text variant="note" tone="muted">
           {hint}

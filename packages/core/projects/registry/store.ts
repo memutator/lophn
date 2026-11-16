@@ -48,10 +48,11 @@ export function loadProjectByName(
     : invalidStored();
 }
 
+// identity·repo·remote는 폴더를 읽은 뒤 recordIdentity가 적는다. 새 project는 모두 null이다.
 export function insertProject(tx: Pick<Tx, "sql">, project: Project): void {
   tx.sql.run(
-    `INSERT INTO projects (id, name, title, purpose, revision, status)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO projects (id, name, title, purpose, revision, status, identity, repo, remote_key, remote_url)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL)`,
     [
       project.id,
       project.name,
@@ -121,4 +122,26 @@ export function storeProjectIcon(
     "INSERT INTO project_icons (project, content_type, data) VALUES (?, ?, ?)",
     [project, icon.content_type, icon.data],
   );
+}
+
+// 폴더에서 읽은 값만 바꾼다. revision은 올리지 않는다(열린 편집 form의 CAS와 부딪치지 않게).
+export function storeIdentity(
+  tx: Pick<Tx, "sql">,
+  project: string,
+  value: Pick<Project, "identity" | "repo" | "remote">,
+): void {
+  tx.sql.run(
+    "UPDATE projects SET identity = ?, repo = ?, remote_key = ?, remote_url = ? WHERE id = ?",
+    [
+      value.identity,
+      value.repo,
+      value.remote?.key ?? null,
+      value.remote?.url ?? null,
+      project,
+    ],
+  );
+}
+
+export function clearIdentity(tx: Pick<Tx, "sql">, project: string): void {
+  tx.sql.run("UPDATE projects SET identity = NULL WHERE id = ?", [project]);
 }

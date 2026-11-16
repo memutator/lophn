@@ -185,6 +185,10 @@ files:
     covers: []
     note: markdown 목차 parser helper
 
+  - path: packages/protocol/projects/identity_test.ts
+    covers: []
+    note: "저장소 id file parser(충돌 표지는 어느 순서든 가장 작은 id, 판이 높은 file은 unreadable)와 remote key(자격이 key·url에 남지 않음). 이 순수 함수를 쓰는 route의 flow는 폴더 읽기를 짓는 변경이 잇는다"
+
   - path: packages/sdk/agent/agent_test.ts
     covers: [sdk-agent-session:reply-failed, sdk-agent-session:reply-value]
     note: parseReply가 답 꼴을 맞는지 본다(틀리면 error, 맞으면 value). 나머지는 type 동일성 검사와 message id helper

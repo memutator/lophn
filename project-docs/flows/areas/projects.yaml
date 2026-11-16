@@ -13,11 +13,11 @@ flows:
       - packages/core/projects/registry/commands.ts
       - packages/protocol/projects/project-api.ts
     steps:
-      - "사람 UI가 core-call로 project.create를 부른다. user actor가 아니면 forbidden으로 거절한다"
+      - "사람 UI가 core-call로 project.create를 부른다. clone한 저장소는 core가 machine:projects-clone 자격으로 부른다. user도 그 machine 자격도 아니면 forbidden으로 거절한다"
       - "등록 폴더 목록이 같은 path이거나 서로 겹치면 거절한다(validateFolderRoots)"
       - "TargetAuthorization port로 생성 자격을 본다. port가 없거나 판정이 실패하면 fail-closed로 막는다"
       - "같은 id나 같은 name(slug)의 project가 있으면 conflict로 거절한다"
-      - "projects와 project_folders에 revision 1로 넣고, 폴더마다 디스크 존재 여부(found)를 붙여 record를 돌려준다"
+      - "projects와 project_folders에 revision 1로 넣고(identity·repo·remote는 null), 폴더마다 디스크 존재 여부(found)를 붙여 record를 돌려준다"
     outcomes:
       - id: ok
         observe: ["ledger:projects", "ledger:project_folders", "response"]
@@ -35,7 +35,7 @@ flows:
         observe: ["response"]
       - id: forbidden
         code: forbidden
-        when: "user actor가 아니거나 TargetAuthorization이 거절했다"
+        when: "user actor도 machine:projects-clone 자격도 아니다, 또는 TargetAuthorization이 거절했다"
         observe: ["response"]
       - id: authorization-unavailable
         code: unavailable
@@ -225,6 +225,61 @@ flows:
     crosses_process: false
     risk: [permission]
 
+  - id: project-identity-record
+    title: "폴더에서 읽은 기계를 넘는 project id와 git remote를 ledger에 적는다"
+    actor: system
+    entries: [route:projects/record_identity]
+    pre: [project-register:ok]
+    boundary: [projects]
+    code:
+      - packages/core/projects/registry/commands.ts
+      - packages/core/projects/registry/contexts.ts
+      - packages/protocol/projects/identity-api.ts
+      - packages/protocol/projects/identity.ts
+    steps:
+      - "core가 machine:projects-identity 자격으로 부른다. 다른 자격이면 forbidden으로 거절한다"
+      - "project가 없으면 not_found, TargetAuthorization이 거절하면 막는다"
+      - "found가 false(폴더를 읽지 못함)면 아무것도 바꾸지 않고 지금 record를 돌려준다"
+      - "repo와 remote는 받은 값으로 바꾼다. file_identity가 null이면(file이 없거나 못 읽음) ledger의 identity를 그대로 둔다"
+      - "file의 id를 다른 project(holder)가 갖고 있으면: holder가 보관됐고 이 project가 active면 holder의 값을 지우고 이 project에 준다. 그 밖이면 이 project의 identity를 null로 한다(같은 저장소의 두 번째 copy)"
+      - "revision은 올리지 않고 project_folders·session 같은 다른 표는 건드리지 않는다. projects change를 낸다"
+    outcomes:
+      - id: recorded
+        observe: ["ledger:projects", "response"]
+      - id: kept
+        when: "found가 false거나 file_identity가 null이라 identity를 지우지 않았다"
+        observe: ["response"]
+      - id: second-copy
+        when: "같은 id를 이 기계의 다른 project가 먼저 가졌다(보관한 holder와 active project의 짝이 아니다)"
+        observe: ["ledger:projects", "response"]
+      - id: handed-over
+        when: "같은 id를 가진 보관한 project에서 active project로 넘겼다"
+        observe: ["ledger:projects", "response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력이 strict schema에 맞지 않는다(id 꼴, remote key·url 길이)"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "machine:projects-identity 자격이 아니다, 또는 TargetAuthorization이 거절했다"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "project id가 없다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "TargetAuthorization 판정을 얻지 못했다"
+        observe: ["response"]
+      - id: internal
+        code: internal
+        when: "project를 읽는 중 깨진 저장을 만났다, 또는 folder resolver port가 붙지 않았다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [data-loss, permission]
+    unclear:
+      - "이 command를 부르는 폴더 읽기(기동, 등록·폴더 변경 뒤)와 machine 자격 기록은 아직 없다. 그것을 짓는 변경이 uses와 pre를 잇는다"
+
   - id: project-icon-set
     title: "project 아이콘을 올리거나 지운다"
     actor: person
@@ -278,16 +333,16 @@ flows:
       - packages/core/projects/registry/cursor.ts
     steps:
       - "list·get은 readers(user·agent·app), icon·resolve는 user actor만 받는다"
-      - "list는 status 조건으로 거르고 project마다 TargetAuthorization을 적용해 보이는 것만 모은다. cursor는 page basis와 맞춰 푼다"
+      - "list는 status와 identity(기계를 넘는 id. 그 id를 가진 project만) 조건으로 거르고 project마다 TargetAuthorization을 적용해 보이는 것만 모은다. cursor는 거른 목록의 page basis와 맞춰 푼다"
       - "get·icon은 project가 없거나 권한이 없으면 같은 not_found로 답한다"
       - "resolve는 경로를 포함하는 가장 깊은 등록 폴더의 project를 고른다. 깊이가 같은 등록 폴더가 둘이면 conflict로 답한다"
-      - "project record(폴더마다 found)와 as_of_seq를 돌려준다. 쓰기는 없다"
+      - "project record(폴더마다 found, 저장소 file에서 읽은 identity·repo·remote)와 as_of_seq를 돌려준다. 쓰기는 없다"
     outcomes:
       - id: ok
         observe: ["response", "screen:home-no-workspaces"]
       - id: invalid-cursor
         code: invalid_input
-        when: "list의 cursor를 해독할 수 없다, 또는 cursor의 조건(status·limit·호출자 principal·actor·credential)이 이 호출과 다르다, 또는 cursor의 위치가 목록 밖이다"
+        when: "list의 cursor를 해독할 수 없다, 또는 cursor의 조건(status·identity·limit·호출자 principal·actor·credential)이 이 호출과 다르다, 또는 cursor의 위치가 목록 밖이다"
         observe: ["response"]
       - id: cursor-stale
         code: conflict
@@ -1850,3 +1905,9 @@ flows:
     risk: [sandbox]
     unclear:
       - "openLink은 http·https가 아닌 URL을 아무 흔적 없이 버린다. 문서는 조용히 사라지는 URL이 없다고 적었으므로 의도인지 확인이 필요하다"
+
+ignore:
+  - {entry: "route:projects/identity", reason: "정의만 있고 handler가 아직 없어 ROUTES에 펼치지 않았다. handler를 짓는 변경이 flow를 쓰고 이 줄을 지운다"}
+  - {entry: "route:projects/create_identity", reason: "정의만 있고 handler가 아직 없어 ROUTES에 펼치지 않았다. handler를 짓는 변경이 flow를 쓰고 이 줄을 지운다"}
+  - {entry: "route:projects/renew_identity", reason: "정의만 있고 handler가 아직 없어 ROUTES에 펼치지 않았다. handler를 짓는 변경이 flow를 쓰고 이 줄을 지운다"}
+  - {entry: "route:projects/match", reason: "정의만 있고 handler가 아직 없어 ROUTES에 펼치지 않았다. handler를 짓는 변경이 flow를 쓰고 이 줄을 지운다"}

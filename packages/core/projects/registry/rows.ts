@@ -38,6 +38,12 @@ export function projectFromRows(
     purpose: row.purpose,
     revision: row.revision,
     status: row.status,
+    identity: row.identity,
+    repo: row.repo,
+    remote:
+      row.remote_key === null
+        ? null
+        : { key: row.remote_key, url: row.remote_url },
   });
   return parsed.success ? ok({ ...parsed.data, folders }) : invalidStored();
 }

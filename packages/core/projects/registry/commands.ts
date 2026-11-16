@@ -1,6 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   projectApi,
+  projectIdentityApi,
   type ProjectRecord,
 } from "../../../protocol/projects/mod.ts";
 import type {
@@ -16,6 +17,10 @@ import {
 import type { FolderResolver } from "../ports.ts";
 import { authorizeProject } from "./authorization.ts";
 import {
+  PROJECT_CLONE_PRINCIPAL,
+  PROJECT_IDENTITY_PRINCIPAL,
+} from "./contexts.ts";
+import {
   nextRevision,
   type Project,
   type ProjectCandidate,
@@ -24,10 +29,12 @@ import {
 import { folderResolverPort } from "./ports.ts";
 import { recordOf } from "./record.ts";
 import {
+  clearIdentity,
   insertProject,
   loadProject,
   replaceChildren,
   replaceMetadata,
+  storeIdentity,
   storeProjectIcon,
 } from "./store.ts";
 
@@ -55,6 +62,14 @@ function requireUser(ctx: RequestContext): Result<void> {
   return parseActor(ctx.actor)?.kind === "user" ? ok(undefined) : forbidden();
 }
 
+// 정해진 core 안 machine 자격 하나만 받는다(contexts.ts).
+function requireMachine(ctx: RequestContext, principal: string): Result<void> {
+  return parseActor(ctx.actor)?.kind === "machine" &&
+    ctx.principal === principal
+    ? ok(undefined)
+    : err({ code: "forbidden", message: `${principal} only` });
+}
+
 function sameJson(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
@@ -80,16 +95,27 @@ export function createProjectCommands(): {
   archive: CommandDefinition<typeof projectApi.archive>;
   unarchive: CommandDefinition<typeof projectApi.unarchive>;
   setIcon: CommandDefinition<typeof projectApi.setIcon>;
+  recordIdentity: CommandDefinition<typeof projectIdentityApi.recordIdentity>;
 } {
   return {
     register: {
       route: projectApi.register,
       handle(tx, ctx, input) {
-        const actor = requireUser(ctx);
+        // clone한 저장소는 core가 machine 자격으로 등록한다.
+        const actor =
+          parseActor(ctx.actor)?.kind === "machine"
+            ? requireMachine(ctx, PROJECT_CLONE_PRINCIPAL)
+            : requireUser(ctx);
         if (!actor.ok) return actor;
         const shape = validateFolderRoots(input.folders);
         if (!shape.ok) return shape;
-        const candidate: ProjectCandidate = { ...input, status: "active" };
+        const candidate: ProjectCandidate = {
+          ...input,
+          status: "active",
+          identity: null,
+          repo: null,
+          remote: null,
+        };
         const access = authorizeProject(
           tx.port,
           ctx,
@@ -247,6 +273,39 @@ export function createProjectCommands(): {
         return ok({ uploaded: icon.value !== null });
       },
     },
+    recordIdentity: {
+      route: projectIdentityApi.recordIdentity,
+      handle(tx, ctx, input) {
+        const actor = requireMachine(ctx, PROJECT_IDENTITY_PRINCIPAL);
+        if (!actor.ok) return actor;
+        const current = loadProject(tx.sql, input.project);
+        if (!current.ok) return current;
+        if (current.value === null) return notFound();
+        const before = current.value;
+        const { revision: _revision, ...metadata } = before;
+        const access = authorizeProject(
+          tx.port,
+          ctx,
+          projectIdentityApi.recordIdentity.name,
+          { kind: "command", before, after: metadata },
+        );
+        if (!access.ok) return access;
+        const resolver = resolverOf(tx);
+        if (!resolver.ok) return resolver;
+        // 폴더를 읽지 못했으면 아무것도 지우지 않는다.
+        if (!input.found) return ok(recordOf(before, resolver.value));
+        const identity = recordedIdentity(tx, before, input.file_identity);
+        if (!identity.ok) return identity;
+        const project: Project = {
+          ...before,
+          identity: identity.value,
+          repo: input.repo,
+          remote: input.remote,
+        };
+        storeIdentity(tx, project.id, project);
+        return ok(recordOf(project, resolver.value));
+      },
+    },
     archive: {
       route: projectApi.archive,
       handle(tx, ctx, input, compare) {
@@ -272,6 +331,31 @@ export function createProjectCommands(): {
       },
     },
   };
+}
+
+// file이 없거나 못 읽으면(null) ledger의 id를 잊지 않는다. 한 기계에서 한 id는 project 하나만 갖는다: 먼저 가진
+// project가 갖고 같은 file을 읽은 두 번째 copy는 id 없이 남는다. 보관한 holder는 active project에 넘긴다.
+function recordedIdentity(
+  tx: Tx,
+  project: Project,
+  read: string | null,
+): Result<string | null> {
+  if (read === null || read === project.identity) return ok(project.identity);
+  const row = tx.sql.get("SELECT id FROM projects WHERE identity = ?", [read]);
+  if (row === undefined) return ok(read);
+  if (typeof row.id !== "string") return invalidStored();
+  const holder = loadProject(tx.sql, row.id);
+  if (!holder.ok) return holder;
+  if (holder.value === null) return invalidStored();
+  if (holder.value.status === "archived" && project.status === "active") {
+    clearIdentity(tx, holder.value.id);
+    return ok(read);
+  }
+  return ok(null);
+}
+
+function invalidStored(): Result<never> {
+  return err({ code: "internal", message: "invalid stored project" });
 }
 
 // 보관해도 폴더의 파일은 그대로다. 이 command는 상태 칸만 바꾼다.

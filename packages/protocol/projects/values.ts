@@ -12,6 +12,8 @@ export const slugSchema = z
 export const artifactNameSchema = slugSchema;
 
 export const projectIdSchema = idSchema("prj");
+// 기계를 넘는 project id. 저장소 안 `.lophn-project.json`에 있다(identity.ts).
+export const projectIdentitySchema = idSchema("pri");
 export const versionIdSchema = idSchema("ver");
 export const appIdSchema = idSchema("app");
 

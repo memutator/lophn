@@ -431,7 +431,12 @@ files:
       - project-register:ok
       - project-archive:archived
       - project-unarchive:unarchived
-    note: 보관해도 폴더 파일은 그대로다
+      - project-identity-record:recorded
+      - project-identity-record:kept
+      - project-identity-record:second-copy
+      - project-identity-record:handed-over
+      - project-identity-record:forbidden
+    note: "보관해도 폴더 파일은 그대로다. identity step이 기존 project와 그 id를 key로 쓰는 행을 그대로 두고, record_identity가 없는 file로 id를 지우지 않고 한 기계에 한 id만 두며 다른 자격을 거절한다"
 
   - path: packages/core/projects/files/files_test.ts
     covers: [project-files-list:outside, project-files-read:ok, project-files-read:invalid-input]

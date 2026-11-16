@@ -14,6 +14,7 @@ import {
 } from "./project-folders.ts";
 import {
   absolutePathSchema,
+  projectIdentitySchema,
   projectIdSchema,
   revisionSchema,
   slugSchema,
@@ -28,6 +29,10 @@ export const projectRecordSchema = z.object({
   revision: revisionSchema,
   status: archiveStateSchema,
   folders: z.array(projectFolderReadSchema),
+  // 저장소 file에서 읽은 값의 cache(identity.ts). repo가 null이면 아직 폴더를 읽지 못했다.
+  identity: projectIdentitySchema.nullable(),
+  repo: z.enum(["git", "none"]).nullable(),
+  remote: z.object({ key: z.string(), url: z.string() }).nullable(),
 });
 export type ProjectRecord = z.infer<typeof projectRecordSchema>;
 
@@ -86,6 +91,7 @@ const readErrors = [
 const readers = ["user", "agent", "app"] as const;
 
 export const projectApi = {
+  // machine은 clone한 저장소를 등록하는 core 안 자격(machine:projects-clone)만 받는다.
   register: defineCommand({
     resource: "projects",
     method: "create",
@@ -94,7 +100,7 @@ export const projectApi = {
     input: projectRegisterInputSchema,
     output: projectRecordSchema,
     compare: z.strictObject({}),
-    actors: ["user"],
+    actors: ["user", "machine"],
     errors: ["invalid_input", "conflict", "forbidden"],
   }),
   edit: defineCommand({
@@ -170,6 +176,8 @@ export const projectApi = {
     name: "project.list",
     input: z.strictObject({
       status: archiveStateSchema.optional(),
+      // 그 기계를 넘는 id를 가진 project만. 한 기계에 많아야 하나다.
+      identity: projectIdentitySchema.optional(),
       cursor: z.string().min(1).optional(),
       limit: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER).optional(),
     }),

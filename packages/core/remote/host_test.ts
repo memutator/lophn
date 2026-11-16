@@ -191,6 +191,10 @@ const projectFolder = {
           purpose: "",
           revision: "1",
           status: "active",
+          identity: null,
+          repo: null,
+          remote_key: null,
+          remote_url: null,
         }),
         all: () => [
           { position: 0, path: join(filesBase, "root"), description: "" },

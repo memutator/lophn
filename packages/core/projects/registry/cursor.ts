@@ -14,6 +14,7 @@ const basisSchema = z.strictObject({
 });
 const conditionsSchema = z.strictObject({
   status: z.enum(["active", "archived"]).nullable(),
+  identity: z.string().nullable(),
   limit: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
   principal: z.string(),
   actor: z.string(),
@@ -34,13 +35,14 @@ type ProjectPageBasis = {
 export function projectPageBasis(
   snapshot: { as_of_seq: string },
   ctx: RequestContext,
-  status: "active" | "archived" | undefined,
+  filter: { status?: "active" | "archived"; identity?: string },
   limit: number,
   projects: ProjectPageBasis[],
 ): Omit<Cursor, "offset"> {
   return {
     conditions: {
-      status: status ?? null,
+      status: filter.status ?? null,
+      identity: filter.identity ?? null,
       limit,
       principal: ctx.principal,
       actor: ctx.actor,

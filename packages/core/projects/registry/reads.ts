@@ -95,6 +95,12 @@ export function createProjectReads(deps: ProjectReadDeps): {
           if (input.status !== undefined && project.status !== input.status) {
             continue;
           }
+          if (
+            input.identity !== undefined &&
+            project.identity !== input.identity
+          ) {
+            continue;
+          }
           const access = allowed(snapshot, ctx, projectApi.list.name, project);
           if (!access.ok) return access;
           if (access.value !== null) visible.push(access.value);
@@ -103,7 +109,7 @@ export function createProjectReads(deps: ProjectReadDeps): {
         const basis = projectPageBasis(
           { as_of_seq: snapshot.as_of_seq },
           ctx,
-          input.status,
+          { status: input.status, identity: input.identity },
           limit,
           visible.map((project) => ({
             id: project.id,

@@ -314,5 +314,9 @@
   {
     "id": "jobs.machine",
     "sha256": "6ca2790f9dd0a664d62fb8ba28369221b66a066e1920bf1634fa912ffd49cc7e"
+  },
+  {
+    "id": "projects.registry.identity",
+    "sha256": "fcc3fddfebce81e4ddedb83db9527745d54e646390d7aa84099caf889c7b667f"
   }
 ]

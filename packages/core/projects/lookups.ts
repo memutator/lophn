@@ -70,3 +70,12 @@ export function projectStatusOf(
       ? "archived"
       : "active";
 }
+
+// 기계를 넘는 id(`pri_…`)를 가진 이 기계의 project. 한 기계에 많아야 하나다(unique index).
+export function projectByIdentity(
+  sql: ReadSql,
+  identity: string,
+): string | null {
+  const row = sql.get("select id from projects where identity = ?", [identity]);
+  return row === undefined ? null : String(row["id"]);
+}

@@ -589,7 +589,7 @@ flows:
     docs: [architecture/remote.md]
 
   - id: machines-open
-    title: "그 기계의 창을 열거나 앞으로 가져온다(이 컴퓨터의 id면 이 컴퓨터의 창)"
+    title: "그 기계의 창을 열거나 앞으로 가져온다(이 컴퓨터의 id면 이 컴퓨터의 창, session을 주면 그 창이 그 session을 연다)"
     actor: person
     entries: [ipc:shell:machines-open]
     uses: [machine-window-open:opened, machine-window-open:raised]
@@ -599,10 +599,11 @@ flows:
       - packages/shell/ipc/machines.ts
       - packages/shell/preload/machines-api.ts
     steps:
-      - "sender가 desktop 창 본문인지 보고(이 컴퓨터의 창과 다른 기계의 창 모두) 입력 { machine }을 strict schema로 본다"
+      - "sender가 desktop 창 본문인지 보고(이 컴퓨터의 창과 다른 기계의 창 모두) 입력 { machine, session? }을 strict schema로 본다"
       - "이 기계의 id를 아직 모르면(목록 starting) unavailable이다"
-      - "이 기계의 id면 이 컴퓨터의 가장 최근 일반 창을 앞으로 가져오고, 없으면 새 창을 연다"
-      - "목록에 없는 machine이면 not_found다. 있으면(removed도) 그 기계의 창을 연다(machine-window-open)"
+      - "이 기계의 id이고 session이 있으면 알림을 누른 것과 같은 길로 연다: 그 session을 보이는 이 컴퓨터의 창, 없으면 가장 최근 일반 창을 앞으로 가져와 그 session을 고르게 한다. 이 컴퓨터의 창이 하나도 없으면 새 창만 연다"
+      - "이 기계의 id이고 session이 없으면 이 컴퓨터의 가장 최근 일반 창을 앞으로 가져오고, 없으면 새 창을 연다"
+      - "다른 기계의 id에 session이 있으면 invalid_input이다(그 기계의 session은 그 창 안에서 연다). 목록에 없는 machine이면 not_found다. 있으면(removed도) 그 기계의 창을 연다(machine-window-open)"
     outcomes:
       - id: ok
         when: "그 기계의 창이나 이 컴퓨터의 창이 열렸거나 앞으로 왔다"
@@ -621,7 +622,7 @@ flows:
         observe: [response]
       - id: invalid_input
         code: invalid_input
-        when: "입력이 strict schema에 맞지 않는다(mch_ id가 아니다)"
+        when: "입력이 strict schema에 맞지 않거나(mch_·ses_ id가 아니다) 다른 기계의 id에 session을 주었다"
         observe: [response]
     crosses_process: false
 

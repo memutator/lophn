@@ -292,8 +292,10 @@ function SideBySide({
       <SessionColumn
         name={thisComputer?.name ?? t("machines.button.this-computer")}
         column={right}
-        onOpen={() => {
-          if (thisComputer !== null) void groups.source.open(thisComputer.id);
+        onOpen={(session) => {
+          if (thisComputer !== null) {
+            void groups.source.open(thisComputer.id, session);
+          }
         }}
       />
     </div>

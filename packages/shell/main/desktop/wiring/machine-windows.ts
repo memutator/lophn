@@ -249,15 +249,21 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
       if (!allowed(event)) return { ok: false, code: "forbidden" };
       const parsed = checkInput(machinesOpenSchema, input);
       if (!parsed.ok) return { ok: false, code: "invalid_input" };
-      const { machine } = parsed.value;
+      const { machine, session } = parsed.value;
       const list = machines.list();
       if (list.this === null) return { ok: false, code: "unavailable" };
       if (machine === list.this.id) {
+        if (session !== undefined) {
+          ctx.sessionWindows.reveal(session);
+          return { ok: true };
+        }
         const recent = recentWindow(ctx);
         if (recent === undefined) openDesktopWindow(ctx);
         else reveal(recent, headless);
         return { ok: true };
       }
+      // Another machine's sessions open inside its own window; this channel only opens this computer's.
+      if (session !== undefined) return { ok: false, code: "invalid_input" };
       const row = list.machines.find((one) => one.id === machine);
       if (row === undefined) return { ok: false, code: "not_found" };
       openMachine(machine, row.name);

@@ -12,7 +12,8 @@ export const MACHINES_PAIR_CHANNEL = "shell:machines-pair";
 export const MACHINES_REMOVE_CHANNEL = "shell:machines-remove";
 export const MACHINES_RENAME_CHANNEL = "shell:machines-rename";
 export const MACHINES_START_CHANNEL = "shell:machines-start";
-// Opens that machine's window or brings it to the front; this machine's id opens a window of this computer.
+// Opens that machine's window or brings it to the front; this machine's id opens a window of this computer, and with a
+// session that window opens the session (the popover of a project that is on both machines).
 export const MACHINES_OPEN_CHANNEL = "shell:machines-open";
 // The machine the calling window views; null in a window of this computer.
 export const MACHINES_THIS_WINDOW_CHANNEL = "shell:machines-this-window";
@@ -73,6 +74,8 @@ export const machinesRenameSchema = z.strictObject({
 
 export const machinesOpenSchema = z.strictObject({
   machine: machineIdSchema,
+  // Only with this computer's id: main refuses a session for another machine.
+  session: (idSchema("ses") as unknown as z.ZodType<Id<"ses">>).optional(),
 });
 export const machinesVisibleSchema = z.strictObject({
   session: idSchema("ses") as unknown as z.ZodType<Id<"ses">>,
@@ -120,8 +123,11 @@ export interface LophnMachinesApi {
   /** null clears the alias and the machine's announced name shows again. */
   rename(machine: Id<"mch">, alias: string | null): Promise<MachinesReply>;
   setStart(start: MachineStart): Promise<MachinesReply>;
-  /** Opens that machine's window or brings it to the front. This machine's id opens a window of this computer. */
-  open(machine: Id<"mch">): Promise<MachinesReply>;
+  /**
+   * Opens that machine's window or brings it to the front. This machine's id opens a window of this computer; with a session
+   * (only for this machine's id) that window opens the session.
+   */
+  open(machine: Id<"mch">, session?: Id<"ses">): Promise<MachinesReply>;
   /** The machine this window views; null in a window of this computer. */
   thisWindow(): Promise<MachineWindow>;
   /** This computer's core, as the person, for one of `THIS_COMPUTER_READS`. Only a window of another machine may call it. */

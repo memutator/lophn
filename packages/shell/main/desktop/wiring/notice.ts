@@ -449,6 +449,7 @@ export function createNoticeWiring(
     }
     presence.changed();
   });
+  ctx.sessionWindows.reveal = (session) => reveal({ kind: "session", session });
   ctx.ipc.handle(NOTICE_OPEN_CHANNEL, (event: IpcEvent, input: unknown) => {
     if (!checkCaller(registry, event).ok) return;
     const parsed = checkInput(noticeTargetSchema, input);

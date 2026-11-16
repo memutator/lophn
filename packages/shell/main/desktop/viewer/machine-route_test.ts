@@ -6,6 +6,7 @@ import { CORE_CALL_CHANNEL } from "../../../ipc/core.ts";
 import { FILE_READ_CHANNEL } from "../../../ipc/files.ts";
 import {
   MACHINES_CLONE_HERE_CHANNEL,
+  MACHINES_OPEN_CHANNEL,
   MACHINES_THIS_READ_CHANNEL,
 } from "../../../ipc/machines.ts";
 import { SECRET_INPUT_OPEN_CHANNEL } from "../../../ipc/secret-input.ts";
@@ -144,6 +145,14 @@ test("only a window of another machine reaches this computer's core, and only fo
       channel: MACHINES_CLONE_HERE_CHANNEL,
       window: REMOTE_WINDOW,
       input: { url: "u", identity: "i", title: "t" },
+      passes: true,
+    },
+    // Opening one of this computer's sessions only brings this computer's window forward; main refuses a session for
+    // another machine.
+    {
+      channel: MACHINES_OPEN_CHANNEL,
+      window: REMOTE_WINDOW,
+      input: { machine: HOST, session: "ses_01jx0000000000000000000000" },
       passes: true,
     },
     {

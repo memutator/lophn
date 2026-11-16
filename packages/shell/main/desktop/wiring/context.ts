@@ -122,6 +122,11 @@ export type ShellContext = {
   machineRoute: MachineRoute;
   /** 다른 기계의 창을 연다. machine-windows가 등록 때 채운다. 이름은 목록이 아직 없을 때의 창 제목이다. */
   machineWindows: { open(machine: Id<"mch">, name: string): void };
+  /**
+   * 이 컴퓨터의 창에서 그 session을 연다. 알림을 누른 것과 같은 길이다: 그 session을 보이는 창, 없으면 가장 최근 창을 앞으로
+   * 가져와 고르게 한다. notice wiring이 등록 때 채운다.
+   */
+  sessionWindows: { reveal(session: string): void };
   log: (message: string) => void;
   core: CoreConnection;
   /** main 안 core 통로. renderer allowlist를 거치지 않는다. */
@@ -250,6 +255,7 @@ export function createShellContext(): ShellContext {
     machineOf: (contents) => machineRoute.machineOf(contents.id),
     machineRoute,
     machineWindows: { open: () => void openDesktopWindow(ctx) },
+    sessionWindows: { reveal: () => void openDesktopWindow(ctx) },
     log,
     core,
     coreInternal,

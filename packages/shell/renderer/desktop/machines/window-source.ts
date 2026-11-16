@@ -125,7 +125,8 @@ export async function windowMachinesSource(): Promise<MachinesSource | null> {
             : { mode: "machine", machine: id(start.machine) },
         ),
       ),
-    open: (machine) => result(api.open(id(machine))),
+    open: (machine, session) =>
+      result(api.open(id(machine), session as Id<"ses"> | undefined)),
     async thisRead(route, input) {
       const reply = await api.thisRead(route, input);
       return reply.ok

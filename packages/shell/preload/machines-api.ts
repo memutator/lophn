@@ -89,8 +89,12 @@ export function createMachinesApi(
       }),
     setStart: (start) =>
       invoke<MachinesReply>(transport, MACHINES_START_CHANNEL, start),
-    open: (machine) =>
-      invoke<MachinesReply>(transport, MACHINES_OPEN_CHANNEL, { machine }),
+    open: (machine, session) =>
+      invoke<MachinesReply>(
+        transport,
+        MACHINES_OPEN_CHANNEL,
+        session === undefined ? { machine } : { machine, session },
+      ),
     async thisWindow() {
       const reply = await invoke<MachineWindow>(
         transport,

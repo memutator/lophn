@@ -10,7 +10,7 @@ lead만 고친다. `tools/status.py mobile-widgets build`가 `tasks/*.md`에서 
 | `mobile-widget-contract` | widgets | 1 | 없음 | merged | widgets/mobile-widget-contract | e8a53a8a2 |  |
 | `mobile-cap-phone` | phone-use | 2 | mobile-phone-link-contract | merged | phone-use/mobile-cap-phone | be7c592cf |  |
 | `mobile-widgets-decl` | widgets | 2 | 없음 | merged | widgets/mobile-widgets-decl | 21b5553ac |  |
-| `mobile-open-target` | open-target | 3 | 없음 | running | open-target/mobile-open-target |  |  |
+| `mobile-open-target` | open-target | 3 | 없음 | merged | open-target/mobile-open-target | 4564cf5e6 |  |
 | `mobile-widget-core` | widgets | 3 | mobile-widget-contract, mobile-widgets-decl | merged | widgets/mobile-widget-core | b2df3e21c |  |
 | `mobile-widget-store` | widgets | 4 | mobile-widget-core, mobile-open-target, mobile-widget-spike | todo |  |  |  |
 | `mobile-widget-native` | widgets | 5 | mobile-widget-store, mobile-widget-spike, mobile-widget-wireframes | todo |  |  |  |

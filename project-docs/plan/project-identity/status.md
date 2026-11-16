@@ -7,5 +7,5 @@ lead만 고친다. `tools/status.py project-identity build`가 `tasks/*.md`에�
 | `project-id-core` | project-id-core | 1 | 없음 | merged | project-id-core/project-id-core | 5fce446b1 |  |
 | `project-id-clone` | project-id-clone | 2 | project-id-core | merged | project-id-clone/project-id-clone | 0b748317f |  |
 | `project-id-screens` | project-id-screens | 2 | project-id-core | merged | project-id-screens/project-id-screens | 8ab3f05fa |  |
-| `project-id-sync` | project-id-sync | 2 | project-id-core | running | project-id-sync/project-id-sync |  |  |
+| `project-id-sync` | project-id-sync | 2 | project-id-core | merged | project-id-sync/project-id-sync | 6d6e42fee |  |
 | `project-id-remote-view` | project-id-remote-view | 3 | project-id-sync, project-id-clone, project-id-screens | todo |  |  |  |

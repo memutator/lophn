@@ -31,6 +31,7 @@ import {
   SettingsScreen,
 } from "../screens/settings/index.tsx";
 import { TerminalScreen } from "../screens/terminal/index.tsx";
+import { WidgetPickScreen } from "../screens/widgets/index.tsx";
 import {
   AppActivityScreen,
   FileScreen,
@@ -57,6 +58,7 @@ const SCREENS: Screens = {
   file: FileScreen,
   "app-activity": AppActivityScreen,
   app: AppScreen,
+  "widget-pick": WidgetPickScreen,
   session: SessionScreen,
   diff: DiffScreen,
   terminal: TerminalScreen,

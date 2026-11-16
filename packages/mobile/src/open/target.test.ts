@@ -23,6 +23,8 @@ test("data and URLs in the shape lophn makes give where to go", () => {
     { kind: "app", host: "k1", app: "app_1" },
     { kind: "app", host: "k1", app: "app_1", screen: "a&b=c" },
     { kind: "inbox", host: "k1" },
+    { kind: "widget_bind", widget: 7 },
+    { kind: "widget_bind", widget: 12, configure: true },
   ] satisfies OpenTarget[]) {
     assert.deepEqual(parseOpenTarget(openUrl(target), paired), target);
   }
@@ -58,6 +60,13 @@ test("anything else opens nothing", () => {
     "lophn://open?host=k1&kind=session",
     "lophn://open?host=%E0%A4%A&kind=inbox",
     "lophn://open?host=k9&kind=inbox",
+    "lophn://widget/bind",
+    "lophn://widget/bind?id=",
+    "lophn://widget/bind?id=0",
+    "lophn://widget/bind?id=x",
+    "lophn://widget/bind?id=-3",
+    "lophn://widget/bind?id=1.5",
+    "lophn://widget/bind?host=k1",
   ]) {
     assert.equal(parseOpenTarget(value, paired), null, JSON.stringify(value));
   }

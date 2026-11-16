@@ -11,18 +11,28 @@ export type OpenTarget =
       /** Which screen of the app; absent opens the app's own default. */
       readonly screen?: string;
     }
-  | { readonly kind: "inbox"; readonly host: string };
+  | { readonly kind: "inbox"; readonly host: string }
+  /**
+   * A placed widget that is bound to nothing (the launcher placed it, or the person tapped "Tap to choose"): "Choose a
+   * widget" for it. `configure`: the launcher's configure step waits for the answer. It names no computer.
+   */
+  | {
+      readonly kind: "widget_bind";
+      readonly widget: number;
+      readonly configure?: true;
+    };
 
 const PREFIX = "lophn://open?";
+const WIDGET_PREFIX = "lophn://widget/bind?";
 
 const text = (value: unknown): value is string =>
   typeof value === "string" && value !== "";
 
-function fromUrl(url: string): Record<string, string> | null {
-  if (!url.startsWith(PREFIX)) return null;
+function fromUrl(url: string, prefix = PREFIX): Record<string, string> | null {
+  if (!url.startsWith(prefix)) return null;
   const fields: Record<string, string> = {};
   try {
-    for (const pair of url.slice(PREFIX.length).split("&")) {
+    for (const pair of url.slice(prefix.length).split("&")) {
       const at = pair.indexOf("=");
       if (at < 0) continue;
       fields[decodeURIComponent(pair.slice(0, at))] = decodeURIComponent(
@@ -44,6 +54,13 @@ export function parseOpenTarget(
   value: unknown,
   pairedHosts: ReadonlySet<string>,
 ): OpenTarget | null {
+  if (typeof value === "string" && value.startsWith(WIDGET_PREFIX)) {
+    const { id, from } = fromUrl(value, WIDGET_PREFIX) ?? {};
+    if (id === undefined || !/^[1-9][0-9]{0,9}$/.test(id)) return null;
+    return from === "configure"
+      ? { kind: "widget_bind", widget: Number(id), configure: true }
+      : { kind: "widget_bind", widget: Number(id) };
+  }
   const fields = typeof value === "string" ? fromUrl(value) : value;
   if (typeof fields !== "object" || fields === null || Array.isArray(fields)) {
     return null;
@@ -65,6 +82,9 @@ export function parseOpenTarget(
 }
 
 export function openUrl(target: OpenTarget): string {
+  if (target.kind === "widget_bind") {
+    return `${WIDGET_PREFIX}id=${target.widget}${target.configure ? "&from=configure" : ""}`;
+  }
   const fields: [string, string][] = [
     ["host", target.host],
     ["kind", target.kind],

@@ -174,6 +174,13 @@ export function createWidgetStore(deps: WidgetDeps) {
       });
       void refresh("bind", [binding.host]);
     },
+    /** The widgets one computer has now (running or not); null when it is not paired or cannot be asked. */
+    async list(host: string) {
+      const computer = (await deps.paired()).find(
+        (one) => one.key === host && !one.revoked,
+      );
+      return computer === undefined ? null : listOf(host, computer);
+    },
     /** Forgets the bindings of widgets the launcher no longer has. */
     async unbindMissing() {
       await refresh("unbind", []);
@@ -203,6 +210,7 @@ const store = createWidgetStore({
 export const bindWidget = store.bind;
 export const unbindMissing = store.unbindMissing;
 export const refreshWidgets = store.refresh;
+export const listWidgets = store.list;
 
 /** The task native starts (`LophnWidgetRefresh`) when the launcher asks a widget to update and the app may be dead. */
 export const refreshWidgetsInBackground = () => store.refresh("background");

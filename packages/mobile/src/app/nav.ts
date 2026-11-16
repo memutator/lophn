@@ -34,6 +34,16 @@ export type Place =
   | { readonly name: "app-activity"; readonly app: string }
   /** A user app's phone screen; without `screen` its first one. An app with no phone screen opens its workspace. */
   | { readonly name: "app"; readonly id: string; readonly screen?: string }
+  /**
+   * "Choose a widget". `widget`: a placed widget that shows nothing yet (`configure`: the launcher waits for the answer);
+   * `app`: from an app's menu, only that app's widgets, to place a new one.
+   */
+  | {
+      readonly name: "widget-pick";
+      readonly widget?: number;
+      readonly configure?: boolean;
+      readonly app?: { readonly host: string; readonly id: string };
+    }
   /** A lophn agent's session, or a coding session of the computer's lophn app. */
   | ({ readonly name: "session" } & (ConversationTarget | CodingTarget))
   /** A file change in a conversation: the thread entry that holds it. */

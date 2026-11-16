@@ -78,7 +78,8 @@ const RECENT_MS = 7 * DAY_MS;
 // App marks take one of a few tones by id, so an app keeps its colour everywhere.
 const APP_TONES = 6;
 
-function toneOf(id: string): number {
+/** The color of an app's mark: the same everywhere the app is drawn. */
+export function toneOf(id: string): number {
   let sum = 0;
   for (const char of id) sum = (sum + char.charCodeAt(0)) % APP_TONES;
   return sum;

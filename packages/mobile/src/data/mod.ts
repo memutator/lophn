@@ -83,7 +83,7 @@ export * from "./apps.ts";
 export * from "./ops.ts";
 export * from "./places.ts";
 export * from "./search.ts";
-export { sessionIn } from "./workspaces.ts";
+export { sessionIn, toneOf } from "./workspaces.ts";
 export type {
   SessionGroup,
   SessionRow,

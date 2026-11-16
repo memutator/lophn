@@ -4,14 +4,21 @@ import { t } from "@lophn/i18n";
 import { Badge, Divider, Icon, Row, Sheet } from "@lophn/ui-native";
 import {
   History,
+  LayoutGrid,
   MessageSquarePlus,
   ScrollText,
   Smartphone,
 } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { useNav } from "../../app/nav.ts";
-import { type PhoneApp, useAppRelease } from "../../data/mod.ts";
+import {
+  type PhoneApp,
+  useAppRelease,
+  useCurrentComputer,
+} from "../../data/mod.ts";
 import { Face, LOPHN } from "../../parts/mod.ts";
+import { isPinSupported } from "../../../modules/lophn-widgets/index.ts";
+import { useWidgetLists } from "../widgets/index.tsx";
 import { when } from "../workspace/common.tsx";
 
 export function AppMenu({
@@ -42,6 +49,11 @@ export function AppMenu({
   };
   const live =
     release.loaded.state === "ready" ? release.loaded.value : null;
+  const host = useCurrentComputer()?.key;
+  const lists = useWidgetLists(open && host !== undefined ? [host] : []);
+  const widgets = (host === undefined ? [] : (lists.get(host) ?? [])).filter(
+    (one) => one.app === app.app,
+  );
   const others = app.screens.filter((one) => one.screen !== screen);
   return (
     <Sheet
@@ -88,6 +100,17 @@ export function AppMenu({
           }
         />
       ))}
+      {host !== undefined && widgets.length > 0 && isPinSupported() && (
+        <>
+          <Divider spacing={6} />
+          <Row
+            lead={<Icon icon={LayoutGrid} />}
+            title={t("mobile.widget.menu.add")}
+            sub={widgets.map((one) => one.label).join(", ")}
+            onPress={() => go({ name: "widget-pick", app: { host, id: app.app } })}
+          />
+        </>
+      )}
     </Sheet>
   );
 }

@@ -32,13 +32,11 @@ import { WINDOW_CONTROL_CHANNEL } from "../../../ipc/window-controls.ts";
 import { guestViewSession } from "../../browser/webview-guest.ts";
 import { isViewScheme } from "../security.ts";
 import {
-  type AutostartOs,
-  migrateAutostart,
-  nodeAutostartFiles,
-  nodeExecutableProbe,
-  readAutostart,
-  writeAutostart,
-} from "../autostart.ts";
+  keepRunningNotice,
+  type LegacyAutostartOs,
+  migrateLegacyLogin,
+  nodeLegacyFiles,
+} from "../autostart-migrate.ts";
 import {
   createFilePicker,
   createFolderPicker,
@@ -51,6 +49,7 @@ import {
 } from "../global-shortcut.ts";
 import { guardShortcuts } from "../headless.ts";
 import { word } from "../i18n.ts";
+import { nodeExecutableProbe } from "../os-entry/exec-path.ts";
 import { readOpenIntent } from "../open-intent.ts";
 import { createOpenExternal } from "../open-external.ts";
 import {
@@ -68,6 +67,7 @@ import { createWindowControl } from "../window-controls.ts";
 import { checkCaller } from "../ipc-guard.ts";
 import type { AppViews } from "./app-views.ts";
 import type { Coding } from "./coding.ts";
+import { recentWindow } from "./desktop-window.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
 const electronTray: TrayFactory = {
@@ -92,11 +92,7 @@ const electronTray: TrayFactory = {
                 : item.type === "notice"
                   ? { label: item.label, enabled: false }
                   : {
-                      type: item.type,
                       label: item.label,
-                      ...(item.type === "checkbox"
-                        ? { checked: item.checked, enabled: item.enabled }
-                        : {}),
                       click: () => onSelect(item.id),
                     },
             ),
@@ -232,20 +228,67 @@ export function register(
     ctx.quit.requested = true;
   });
 
-  const autostartOs: AutostartOs = {
+  const legacyAutostart: LegacyAutostartOs = {
     platform: process.platform,
     packaged: app.isPackaged,
     execPath: process.execPath,
     ...(process.env.APPIMAGE ? { appImage: process.env.APPIMAGE } : {}),
     configHome: process.env.XDG_CONFIG_HOME || join(homedir(), ".config"),
     probe: nodeExecutableProbe,
-    files: nodeAutostartFiles,
+    files: nodeLegacyFiles,
     loginItems: {
       get: (query) => app.getLoginItemSettings(query),
       set: (settings) => app.setLoginItemSettings(settings),
     },
-    log: (message) => console.log(`[lophn] ${message}`),
+    log,
   };
+
+  // 옛 판에서 옮겨진 사람에게 동작이 바뀐 것을 한 번 알린다(창을 닫아도 core가 계속 돈다). 보이면 표지를 지워 다시 보이지 않는다.
+  // 창이 아직 없으면 표지를 남겨 두고 다음 기회(창이 뜬 뒤, 옮기기가 끝난 뒤)에 한다.
+  let noticeShown = false;
+  const showKeepRunningNotice = (): void => {
+    if (noticeShown || !keepRunningNotice.pending(ctx.dataRoot)) return;
+    const parent = recentWindow(ctx);
+    if (parent === undefined) return;
+    noticeShown = true;
+    keepRunningNotice.clear(ctx.dataRoot);
+    void dialog
+      .showMessageBox(parent, {
+        type: "info",
+        message: word("settings.notice.keep-running-moved"),
+        buttons: [
+          word("settings.button.open-keep-running-settings"),
+          word("common.button.close"),
+        ],
+        defaultId: 0,
+        cancelId: 1,
+      })
+      .then((reply) => {
+        if (reply.response === 0) desktop.send("remote-settings");
+      });
+  };
+
+  // core에 붙은 뒤 옛 등록을 옮긴다. 안 되면 옛 등록을 남기고 다음 실행이 다시 한다.
+  let migrating = false;
+  ctx.relay.ready.push(() => {
+    if (migrating) return;
+    migrating = true;
+    void migrateLegacyLogin({
+      os: legacyAutostart,
+      turnOn: async () => {
+        const set = await ctx.coreInternal("memory", "always_on", "set", {
+          keep_running: true,
+        });
+        // 표시만이 아니라 OS 등록이 섰을 때만 옛 등록을 지운다.
+        return (
+          set.ok &&
+          (set.value as { start_at_login?: string }).start_at_login ===
+            "registered"
+        );
+      },
+      migrated: () => keepRunningNotice.mark(ctx.dataRoot),
+    }).then(showKeepRunningNotice);
+  });
 
   registerViewSchemes(protocol);
 
@@ -344,8 +387,6 @@ export function register(
 
   // 첫 창이 마지막 자리로 열리게 창보다 먼저 읽는다.
   Promise.all([app.whenReady(), ctx.windowState.load()]).then(() => {
-    // 업데이트 전에 켜 둔 등록(`--tray`)을 새 intent(`--core`)로 한 번 다시 쓴다.
-    migrateAutostart(autostartOs);
     const serve = createShellHandler({ distDir: ctx.rendererDist() });
     protocol.handle("lophn-shell", (request) =>
       serve(request).then(
@@ -364,8 +405,6 @@ export function register(
         actions: {
           openWindow: () => desktop.show(),
           openHome: () => desktop.open(),
-          readAutostart: () => readAutostart(autostartOs),
-          writeAutostart: (enabled) => writeAutostart(autostartOs, enabled),
           stop: () => void quitFlow.request(stopLophn),
           quit: () => void quitFlow.request(quitShell),
         },
@@ -385,6 +424,7 @@ export function register(
     if (start.kind === "app") openIntent(start);
     else if (start.kind === "agent-window") void desktop.openInactive();
     else desktop.open();
+    showKeepRunningNotice();
   });
 
   return {

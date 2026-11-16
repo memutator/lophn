@@ -30,7 +30,7 @@ import {
   removeAppWindowIpc,
 } from "../app-window-ipc.ts";
 import { createAppWindows } from "../app-window.ts";
-import { nodeExecutableProbe } from "../autostart.ts";
+import { nodeExecutableProbe } from "../os-entry/exec-path.ts";
 import { reveal } from "../headless.ts";
 import {
   type EntryFiles,

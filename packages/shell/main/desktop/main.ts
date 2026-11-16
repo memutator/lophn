@@ -1,6 +1,6 @@
 // 조립만 한다. 창·single instance·scheme 규칙은 각 모듈에 있고, 영역마다 `wiring/`의
 // 한 file이 자기 값을 등록한다. 순서는 core 연결 → browser 탭 → artifact 탭 → 앱 view → 나머지, 창 열기는 맨 끝이다.
-// core만 띄우는 로그인 intent(`--core`)는 이 조립 전에 ensure만 하고 끝난다.
+// core만 띄우는 intent(`--core`)는 이 조립 전에 ensure만 하고 끝난다.
 import { app } from "electron";
 
 import * as appearance from "./wiring/appearance.ts";
@@ -34,24 +34,10 @@ import { acquireSingleInstance } from "./single-instance.ts";
 const loginPath = loginPathOf(process.platform, process.env);
 if (loginPath) process.env.PATH = loginPath;
 
-// 로그인 자동 시작 intent는 창·tray·terminal-host·extension을 조립하지 않는다.
-const mode = resolveLaunchMode({
-  argv: process.argv,
-  // macOS login item은 argv를 넘기지 못해 OS가 알려 준 로그인 시작으로 안다.
-  openedAtLogin: openedAtLogin(),
-});
+// `--core` intent는 창·tray·terminal-host·extension을 조립하지 않는다.
+const mode = resolveLaunchMode({ argv: process.argv });
 if (mode.core) void ensureCoreOnly();
 else startDesktop();
-
-/** macOS가 login item으로 띄웠는지. argv를 못 받는 그 경우만 본다. */
-function openedAtLogin(): boolean {
-  if (process.platform !== "darwin") return false;
-  try {
-    return app.getLoginItemSettings().wasOpenedAtLogin === true;
-  } catch {
-    return false;
-  }
-}
 
 // core만 ensure하고 끝난다. shell 자원은 하나도 만들지 않는다.
 async function ensureCoreOnly(): Promise<void> {

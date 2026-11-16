@@ -144,6 +144,8 @@ export const workspaceSettings = {
   "settings.appearance.text-size-help": "The size of text across lophn.",
   "settings.button.add-entry": "Add",
   "settings.button.computer-name-reset": "Use computer name",
+  "settings.button.open-keep-running-settings": "Open settings",
+  "settings.button.turn-on-again": "Turn on again",
   "settings.button.device-name-reset": "Use the device's name",
   "settings.button.back-to": "Back to {workspace}",
   "settings.button.back-to-home": "Back to Home",
@@ -247,6 +249,7 @@ export const workspaceSettings = {
   "settings.heading.quick-sidebar-panels": "Sidebar panels",
   "settings.heading.quick-tray": "Tray",
   "settings.heading.this-computer": "This computer",
+  "settings.heading.keep-running": "Keep running",
   "settings.heading.remote-devices": "Phones",
   "settings.heading.remote-pair": "Add a phone",
   "settings.heading.shell-rules-built-in": "Built in",
@@ -281,6 +284,8 @@ export const workspaceSettings = {
   "settings.label.appearance-target": "your appearance settings",
   "settings.label.dark-theme": "Dark theme",
   "settings.label.computer-name": "Name",
+  "settings.label.keep-awake": "Keep this computer awake",
+  "settings.label.keep-running": "Keep lophn running on this computer",
   "settings.label.device-announced-name": "Calls itself {name}",
   "settings.label.device-kind-desktop": "Desktop",
   "settings.label.device-linux": "Linux",
@@ -311,6 +316,31 @@ export const workspaceSettings = {
     "Follows this computer's name ({hostname})",
   "settings.note.computer-name-next-connect":
     "A new name shows on paired devices from their next connection. A device that gave this computer its own name keeps showing that name.",
+  "settings.note.keep-awake":
+    "Stops this computer from going to sleep on its own while lophn runs. Closing the lid or choosing Sleep still puts it to sleep.",
+  "settings.note.keep-running":
+    "lophn starts when you log in and keeps running after you close its window, so scheduled jobs run and your phone can reach this computer. Stop lophn stops it until you log in again or open lophn.",
+  "settings.note.login-off-launchd":
+    "Change it in System Settings › General › Login Items.",
+  "settings.note.login-off-systemd": "Change it with systemctl --user.",
+  "settings.note.login-off-windows": "Change it in Settings › Apps › Startup.",
+  "settings.notice.keep-running-moved":
+    "lophn now keeps running on this computer after you close its window, and starts when you log in. You can turn this off in Settings › Remote.",
+  "settings.reason.development-build": "Not available in a development build",
+  "settings.reason.no-inhibitor":
+    "This system has no way for lophn to keep it awake.",
+  "settings.reason.no-service-manager":
+    "This computer has no systemd user session, so lophn can't start at login.",
+  "settings.reason.os-failed": "The system refused the change.",
+  "settings.reason.unverified-path":
+    "lophn is installed in a path it can't register safely.",
+  "settings.status.starts-at-login": "Starts when you log in",
+  "settings.warning.login-not-registered":
+    "lophn couldn't set itself to start at login.",
+  "settings.warning.login-off-in-system":
+    "Turned off in your system's startup settings.",
+  "settings.warning.login-still-registered":
+    "lophn is still set to start at login.",
   "settings.note.remote-enabled":
     "While on, lophn listens for paired phones on every network interface and keeps running when idle.",
   "settings.note.remote-pair":

@@ -1,5 +1,6 @@
 // Remote 항목의 가짜 통로. core를 부르지 않고 메모리에 둔다.
 import type {
+  AlwaysOnView,
   RemoteDevice,
   RemoteMachine,
   RemoteSettingsSource,
@@ -13,6 +14,10 @@ interface FakeRemoteOptions {
   devices?: RemoteDevice[];
   /** 처음 이 컴퓨터. 없으면 hostname을 따른다. 복제 note는 `clonedFrom`을 주고 `devices: []`로 본다. */
   machine?: RemoteMachine;
+  /** 처음 "Keep running" 상태에서 바꿀 칸. 없으면 설치본에서 꺼져 있고 systemd다. */
+  alwaysOn?: Partial<AlwaysOnView>;
+  /** 표시를 켰을 때 OS 등록이 낳는 답. 없으면 `registered`다. 등록 실패나 개발 build는 이것으로 본다. */
+  loginOnSet?: AlwaysOnView["startAtLogin"];
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -59,7 +64,18 @@ const SAMPLE_MACHINE: RemoteMachine = {
   clonedFrom: null,
 };
 
+const SAMPLE_ALWAYS_ON: AlwaysOnView = {
+  keepRunning: false,
+  keepAwake: false,
+  startAtLogin: "not_registered",
+  loginReason: null,
+  awake: "released",
+  awakeReason: null,
+  mechanism: "systemd",
+};
+
 export function fakeRemote(options: FakeRemoteOptions = {}) {
+  let alwaysOn: AlwaysOnView = { ...SAMPLE_ALWAYS_ON, ...options.alwaysOn };
   let machine = options.machine ?? SAMPLE_MACHINE;
   let enabled = options.enabled ?? true;
   let devices: readonly RemoteDevice[] =
@@ -77,6 +93,40 @@ export function fakeRemote(options: FakeRemoteOptions = {}) {
         nameSource: name === null ? "hostname" : "person",
       };
       return ok(machine);
+    },
+    alwaysOn: () => ok(alwaysOn),
+    setAlwaysOn({ keepRunning, keepAwake }) {
+      // 개발 core는 켤 수 없다.
+      if (
+        alwaysOn.loginReason === "development_build" &&
+        (keepRunning === true || keepAwake === true)
+      ) {
+        return Promise.resolve({ ok: false, code: "unavailable" });
+      }
+      if (keepRunning === true) {
+        alwaysOn = {
+          ...alwaysOn,
+          keepRunning: true,
+          startAtLogin: options.loginOnSet ?? "registered",
+        };
+      }
+      if (keepRunning === false) {
+        alwaysOn = {
+          ...alwaysOn,
+          keepRunning: false,
+          keepAwake: false,
+          startAtLogin: "not_registered",
+          awake: "released",
+        };
+      }
+      if (keepAwake !== undefined && alwaysOn.keepRunning) {
+        alwaysOn = {
+          ...alwaysOn,
+          keepAwake,
+          awake: keepAwake ? "held" : "released",
+        };
+      }
+      return ok(alwaysOn);
     },
     enabled: () => ok(enabled),
     setEnabled(on) {

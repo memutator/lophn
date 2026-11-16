@@ -3,7 +3,7 @@
 // 담지 않는다. packaged 실행 파일만 등록하고, OS 쪽은 주입한 adapter로만 만진다.
 import { join } from "node:path";
 
-import { type ExecutableProbe, verifiedExecPath } from "../autostart.ts";
+import { type ExecutableProbe, verifiedExecPath } from "./exec-path.ts";
 import { linuxEntry, linuxEntryPath } from "./linux.ts";
 import { macBundleFiles, macBundlePath } from "./macos.ts";
 import {

@@ -1,13 +1,12 @@
-// tray. Home·로그인 자동 시작·Stop lophn·Quit을 둔다. 모든 창을 닫아도
+// tray. Home·Stop lophn·Quit을 둔다. 모든 창을 닫아도
 // main과 tray, core는 남는다. Quit은 shell만 멈추고 core는 idle-exit로 끝난다.
 // Stop lophn만 core stop을 기다린 뒤 shell을 멈춘다.
 // Electron Tray·Menu는 adapter 뒤에 둔다.
 import { join } from "node:path";
 
-import type { AutostartState } from "./autostart.ts";
 import { word } from "./i18n.ts";
 
-type TrayItemId = "home" | "autostart" | "stop" | "quit";
+type TrayItemId = "home" | "stop" | "quit";
 
 /** 안내만 하는 OS 기능 실패. 그 기능 하나만 말하고 누를 수 없다. */
 type TrayNotice = "global-search-unavailable";
@@ -15,13 +14,6 @@ type TrayNotice = "global-search-unavailable";
 type TrayMenuItem =
   | { type: "normal"; id: TrayItemId; label: string }
   | { type: "notice"; label: string }
-  | {
-      type: "checkbox";
-      id: TrayItemId;
-      label: string;
-      checked: boolean;
-      enabled: boolean;
-    }
   | { type: "separator" };
 
 const NOTICE_LABELS = {
@@ -29,13 +21,9 @@ const NOTICE_LABELS = {
 } as const;
 
 /**
- * tray menu. 자동 시작을 쓸 수 없는 실행(개발 실행 등)에서는 그 항목을 끈다. 쓸 수 없게 된
- * OS 기능은 Quit 위에 누를 수 없는 줄로 하나씩 보인다.
+ * tray menu. 쓸 수 없게 된 OS 기능은 Quit 위에 누를 수 없는 줄로 하나씩 보인다.
  */
-function trayMenu(
-  autostart: AutostartState,
-  notices: readonly TrayNotice[] = [],
-): TrayMenuItem[] {
+function trayMenu(notices: readonly TrayNotice[] = []): TrayMenuItem[] {
   const shown: TrayMenuItem[] = notices.map((notice) => ({
     type: "notice",
     label: word(NOTICE_LABELS[notice]),
@@ -47,13 +35,6 @@ function trayMenu(
       label: word("common.label.tray-home"),
     },
     { type: "separator" },
-    {
-      type: "checkbox",
-      id: "autostart",
-      label: word("common.label.tray-start-at-login"),
-      checked: autostart.enabled,
-      enabled: autostart.available,
-    },
     { type: "separator" },
     ...(shown.length > 0
       ? [...shown, { type: "separator" } satisfies TrayMenuItem]
@@ -81,8 +62,6 @@ interface TrayActions {
   openWindow(): void;
   /** 새 기본 창. 새 기본 창은 언제나 Home에서 시작한다. */
   openHome(): void;
-  readAutostart(): AutostartState;
-  writeAutostart(enabled: boolean): AutostartState;
   /** `Stop lophn`. 진행 중인 일 확인은 quit flow가 하고 core stop까지 기다린다. */
   stop(): void;
   /** 일반 Quit. shell만 멈추고 core는 남긴다. */
@@ -97,8 +76,6 @@ interface TrayOptions {
 }
 
 export interface InstalledTray {
-  /** 자동 시작 상태가 바뀌면 menu를 다시 그린다. */
-  refresh(): void;
   /** 쓸 수 없게 된 OS 기능을 menu에 한 번 보인다. */
   notice(notice: TrayNotice): void;
   destroy(): void;
@@ -119,18 +96,12 @@ export function installTray(options: TrayOptions): InstalledTray | undefined {
     );
     return undefined;
   }
-  let autostart = actions.readAutostart();
   const notices: TrayNotice[] = [];
-  const render = () => handle.setMenu(trayMenu(autostart, notices), select);
+  const render = () => handle.setMenu(trayMenu(notices), select);
   function select(id: TrayItemId): void {
     switch (id) {
       case "home":
         actions.openHome();
-        return;
-      case "autostart":
-        // 결과는 OS에서 다시 읽은 상태다. 실패하면 꺼진 채로 보인다.
-        autostart = actions.writeAutostart(!autostart.enabled);
-        render();
         return;
       case "stop":
         actions.stop();
@@ -144,10 +115,6 @@ export function installTray(options: TrayOptions): InstalledTray | undefined {
   handle.onClick(() => actions.openWindow());
   render();
   return {
-    refresh() {
-      autostart = actions.readAutostart();
-      render();
-    },
     notice(notice) {
       if (notices.includes(notice)) return;
       notices.push(notice);

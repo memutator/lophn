@@ -39,6 +39,10 @@ export function DesktopIntents({
           current.onSettings("extension-packages");
           return;
         }
+        if (intent === "remote-settings") {
+          current.onSettings("remote");
+          return;
+        }
         void (async () => {
           const loaded = current.catalog
             ? await current.catalog.catalog()

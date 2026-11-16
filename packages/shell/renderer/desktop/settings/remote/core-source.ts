@@ -6,12 +6,14 @@ import {
   devicesSetTerminalInput,
   type RemoteDevice as ListedDevice,
 } from "../../../../../protocol/remote/routes.ts";
+import type { AlwaysOnStatus } from "../../../../../protocol/always-on/mod.ts";
 import type { MachineStatus } from "../../../../../protocol/machine/mod.ts";
 import type { RemotePairing } from "../../../../../protocol/remote/frames.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { call, command } from "../core-call.ts";
 import { chooseSetting, readEffective } from "../declared.ts";
 import type {
+  AlwaysOnView,
   RemoteMachine,
   RemoteRelayStatus,
   RemoteSettingsSource,
@@ -39,6 +41,25 @@ function machineOf(
   };
 }
 
+function alwaysOnOf(
+  status: SourceResult<AlwaysOnStatus>,
+): SourceResult<AlwaysOnView> {
+  if (!status.ok) return status;
+  const s = status.value;
+  return {
+    ok: true,
+    value: {
+      keepRunning: s.keep_running,
+      keepAwake: s.keep_awake,
+      startAtLogin: s.start_at_login,
+      loginReason: s.login_reason,
+      awake: s.awake,
+      awakeReason: s.awake_reason,
+      mechanism: s.mechanism,
+    },
+  };
+}
+
 export function coreRemoteSource(
   core: CoreSource,
   random: () => string = () => crypto.randomUUID(),
@@ -54,6 +75,21 @@ export function coreRemoteSource(
       return machineOf(
         await call<MachineStatus>(core, "memory", "machine", "rename", {
           name,
+        }),
+      );
+    },
+
+    async alwaysOn() {
+      return alwaysOnOf(
+        await call<AlwaysOnStatus>(core, "memory", "always_on", "status", {}),
+      );
+    },
+
+    async setAlwaysOn({ keepRunning, keepAwake }) {
+      return alwaysOnOf(
+        await call<AlwaysOnStatus>(core, "memory", "always_on", "set", {
+          ...(keepRunning === undefined ? {} : { keep_running: keepRunning }),
+          ...(keepAwake === undefined ? {} : { keep_awake: keepAwake }),
         }),
       );
     },

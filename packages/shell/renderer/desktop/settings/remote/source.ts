@@ -32,6 +32,31 @@ export interface RemoteMachine {
   readonly clonedFrom: string | null;
 }
 
+/**
+ * 이 컴퓨터를 로그인 때 띄우고 계속 돌리는 표시(`keepRunning`·`keepAwake`)와 OS가 답한 사실(`always_on/status`).
+ * `startAtLogin`은 표시와 상관없는 OS의 사실이라 표시가 꺼져 있어도 `registered`일 수 있다(지우기 실패).
+ */
+export interface AlwaysOnView {
+  readonly keepRunning: boolean;
+  readonly keepAwake: boolean;
+  readonly startAtLogin:
+    | "registered"
+    | "not_registered"
+    | "off_in_system"
+    | "unavailable";
+  /** `startAtLogin`이 `unavailable`일 때만 있다. */
+  readonly loginReason:
+    | "development_build"
+    | "no_service_manager"
+    | "unverified_path"
+    | "os_failed"
+    | null;
+  readonly awake: "held" | "released" | "unavailable";
+  readonly awakeReason: "no_inhibitor" | "os_failed" | null;
+  /** 개발 core는 null이다. */
+  readonly mechanism: "systemd" | "launchd" | "windows_run" | null;
+}
+
 /** 새 pairing code. */
 export interface RemotePairingCode {
   /** QR에 싣는 글. 폰(과 `tools/remote-client.ts`)이 읽는 JSON 그대로다. */
@@ -51,6 +76,13 @@ export interface RemoteSettingsSource {
   machine(): Promise<SourceResult<RemoteMachine>>;
   /** 이름을 바꾼다. null이면 사람이 지은 이름을 지워 hostname을 다시 따른다. */
   renameMachine(name: string | null): Promise<SourceResult<RemoteMachine>>;
+  /** 이 컴퓨터의 "Keep running" 표시와 OS 등록의 사실. core가 OS에 다시 묻는다. */
+  alwaysOn(): Promise<SourceResult<AlwaysOnView>>;
+  /** 표시를 바꾼다. 같은 `keepRunning: true`를 다시 보내면 등록을 다시 쓴다. 결과는 바꾼 뒤의 사실이다. */
+  setAlwaysOn(input: {
+    keepRunning?: boolean;
+    keepAwake?: boolean;
+  }): Promise<SourceResult<AlwaysOnView>>;
   /** 설정 `remote.enabled`. */
   enabled(): Promise<SourceResult<boolean>>;
   setEnabled(on: boolean): Promise<SourceResult<null>>;

@@ -21,7 +21,7 @@ flows:
       - "main.ts가 macOS에서 login shell의 PATH를 한 번 읽어 맞춘다(core와 terminal이 물려받는다)"
       - "startDesktop이 data root를 풀고 userData를 data root 안에 정한 뒤 shell context를 만들기 전에 `requestSingleInstanceLock(dataRoot)`를 건다. 못 얻으면 `app.quit()`으로 끝나고 context도 core도 건드리지 않는다"
       - "context가 data root, headless 값, window 상태 자리를 만들고 core 연결을 시작한다. 연결은 조립 중에 바로 control identify와 ensure를 시도하고 영역마다 wiring이 등록된다. core 연결이 끝난 core를 다시 띄우는 것은 ready 뒤 60초를 못 산 crash 5번까지다(shell-core-stale)"
-      - "ready 뒤 window 상태를 읽고 autostart 등록을 migrate하고 `lophn-shell` scheme을 붙인다"
+      - "ready 뒤 window 상태를 읽고 `lophn-shell` scheme을 붙인다. 옛 로그인 시작 등록을 Keep running으로 옮기는 일은 core에 붙은 뒤 돈다(autostart-migrate)"
       - "headless가 아니면 tray를 올린다. tray 실패는 log만 남기고 창은 연다"
       - "전역 팔레트 key를 건다(keys 소유). 실패하면 tray에 안내 한 줄만 보인다"
       - "첫 argv를 읽는다. `--open-app <ULID>`이 맞으면 앱 전용 창을 요청하고, `--agent-window`(core가 browser를 쓰려고 앱을 띄운 시작)이면 focus 없는 창을 연다(desktop-window-open-inactive). 그 밖의 argv(`--quit`도)는 기본 창을 연다"
@@ -59,7 +59,7 @@ flows:
       - packages/shell/main/desktop/launch-mode.ts
       - packages/shell/main/desktop/core/supervise.ts
     steps:
-      - "argv에 `--core`가 있거나 macOS가 login item으로 띄웠다고 알리면(wasOpenedAtLogin) 창을 조립하지 않고 core만 띄우는 길로 간다"
+      - "argv에 `--core`가 있으면(Windows의 로그인 시작 `Run` 값이 쓴다) 창을 조립하지 않고 core만 띄우는 길로 간다"
       - "package.json의 판을 읽는다. 못 읽으면 core를 띄우지 않고 종료 코드 1로 끝난다"
       - "control 자리(openShellCoreControl)를 잡고 ensure로 core에 붙거나 띄운다. 판이 다르면 ensure가 갈아 띄운다"
       - "ensure 결과로 app.exit(0) 또는 app.exit(1)을 한다. shell 자원은 하나도 만들지 않는다"
@@ -422,63 +422,55 @@ flows:
     crosses_process: true
     docs: [architecture/platform.md]
 
-  # ---------- 자동 시작 ----------
-  - id: autostart-toggle
-    title: "tray의 로그인 시 시작 항목을 켜거나 끈다(core만 띄우는 등록)"
-    actor: person
-    entries: [ui:tray-autostart]
-    boundary: [shell]
-    code:
-      - packages/shell/main/desktop/autostart.ts
-      - packages/shell/main/desktop/tray.ts
-      - packages/shell/main/desktop/wiring/desktop.ts
-    steps:
-      - "등록할 실행 경로를 검증한다. packaged이고 절대 경로이고 실행 가능하고 안전한 글자일 때만 된다. 맞지 않으면 항목이 꺼진 채 보인다(개발 실행 포함)"
-      - "Linux는 autostart 폴더의 lophn.desktop을 원자적으로 쓰거나 지운다. Exec 줄은 검증한 경로를 따옴표로 묶고 `--core` intent를 붙인다"
-      - "macOS와 Windows는 login item을 같은 경로와 `--core` args로 켜거나 끈다"
-      - "끝나면 OS에서 다시 읽은 상태로 체크를 맞춘다. OS 쓰기가 실패하면 꺼진 채로 보인다"
-    outcomes:
-      - id: enabled
-        when: "OS 등록이 켜졌다고 다시 읽혔다"
-        observe: ["disk:<XDG config>/autostart/lophn.desktop", "process:macOS·Windows login item"]
-      - id: disabled
-        when: "OS 등록을 지웠다고 다시 읽혔다"
-        observe: ["disk:<XDG config>/autostart/lophn.desktop 없음", "process:macOS·Windows login item이 꺼짐"]
-      - id: os-refused
-        when: "OS 등록 쓰기가 실패했거나, 쓴 뒤 OS에서 다시 읽는 것이 실패했다(os_failed). 체크는 꺼진 채로 보인다"
-        observe: ["log:자동 시작을 바꾸지 못했다", "process:체크가 꺼진 채로 보인다"]
-      - id: path-unverified
-        when: "개발 실행이거나(not_packaged) 실행 경로가 절대 경로·실행 가능한 파일·안전한 글자가 아니다(unverified_path). 메뉴 항목이 꺼져 있어 보통 누를 수 없고, 누른 경우에도 등록을 쓰지 않는다"
-        observe: ["disk:<XDG config>/autostart/lophn.desktop이 바뀌지 않는다", "process:macOS·Windows login item이 바뀌지 않는다"]
-    crosses_process: false
-    risk: [sandbox]
-    docs: [architecture/platform.md]
-    unclear:
-      - "risk sandbox는 lophn data root 밖(XDG autostart, login item)에 쓰는 것으로 봤다. 경로는 검증하고 argv는 `--core` 하나로 고정한다. 판단이 다르면 뺀다"
-
+  # ---------- 로그인 시작(Keep running) ----------
   - id: autostart-migrate
-    title: "업데이트 전에 등록한 `--tray` 자동 시작을 `--core`로 한 번 다시 쓴다"
+    title: "옛 판에서 켜 둔 로그인 시작 등록을 Keep running 표시로 옮기고 옛 등록을 지운다"
     actor: system
     entries: [system:autostart-migrate]
-    boundary: [shell]
+    boundary: [shell, core-api]
     code:
-      - packages/shell/main/desktop/autostart.ts
+      - packages/shell/main/desktop/autostart-migrate.ts
       - packages/shell/main/desktop/wiring/desktop.ts
     steps:
-      - "ready 뒤에 검증한 실행 경로를 얻는다. 검증이 안 되면 아무 일도 하지 않는다"
-      - "Linux는 lophn.desktop 내용이 옛 `--tray` 줄과 같은지 본다. Windows는 login item의 `--tray` args가 켜져 있는지 본다. macOS는 argv를 저장하지 않아 할 일이 없다"
-      - "옛 등록이면 `--core`로 한 번 다시 쓴다. 아니면 그대로 둔다"
-      - "OS 등록은 data root 파일이 아니라서 ledger나 data step migration이 아니다(코드 주석 그대로)"
+      - "core에 붙은 뒤(gateway ready) 한 번 돈다. 검증한 실행 경로(os-entry/exec-path.ts)가 없으면(개발 실행, packaged 아님) 아무 일도 하지 않는다"
+      - "옛 등록을 찾는다: Linux는 `$XDG_CONFIG_HOME/autostart/lophn.desktop`의 `--core`·`--tray` Exec 줄, macOS·Windows는 Electron login item의 openAtLogin. 옛 file 글과 login item을 읽는 코드는 autostart-migrate.ts 하나다"
+      - "있으면 `always_on/set { keep_running: true }`를 부르고 OS 등록이 registered로 답했을 때만 옛 등록을 지운다. 실패하면 옛 등록을 남겨 로그인 시작을 잃지 않고 다음 실행이 다시 한다"
+      - "옮기기가 끝나면 shell data의 표지 `shell/keep-running-notice.json`을 남긴다(keep-running-notice)"
     outcomes:
-      - id: rewritten
-        when: "옛 `--tray` 등록을 `--core`로 다시 썼다(Linux는 파일, Windows는 login item args)"
-        observe: ["disk:<XDG config>/autostart/lophn.desktop의 Exec 줄이 `--core`다", "process:Windows login item이 `--core` args로 켜져 있다"]
-      - id: kept
-        when: "옛 등록이 없거나 실행 경로가 검증되지 않았다. macOS는 할 일이 없어 여기다"
+      - id: migrated
+        when: "옛 등록이 있었고 표시가 켜지고 OS 등록이 섰다. 옛 등록을 지우고 표지를 남겼다"
+        observe: ["disk:<XDG config>/autostart/lophn.desktop 없음", "process:macOS·Windows login item이 꺼짐", "disk:shell/keep-running-notice.json"]
+      - id: nothing-to-migrate
+        when: "개발 실행이거나 옛 등록이 없다"
         observe: ["disk:<XDG config>/autostart/lophn.desktop이 바뀌지 않는다"]
-      - id: failed
-        when: "옛 등록을 읽거나 새 intent로 쓰는 중 OS 쓰기가 실패했다. 등록은 그대로 남고 log만 남는다"
-        observe: ["log:옛 자동 시작 등록을 새 intent로 바꾸지 못했다"]
+      - id: kept-old
+        when: "옛 등록이 있으나 `always_on/set`이 실패했거나 OS 등록이 서지 않았다(unavailable, not_registered 등). 옛 등록은 그대로 남고 log만 남는다"
+        observe: ["log:옛 로그인 시작 등록을 Keep running으로 옮기지 못했다"]
+    crosses_process: true
+    docs: [architecture/platform.md]
+
+  - id: keep-running-notice
+    title: "옮겨진 사람에게 desktop 창이 처음 열릴 때 동작이 바뀐 것을 한 번 알린다"
+    actor: system
+    entries: [system:keep-running-notice]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/autostart-migrate.ts
+      - packages/shell/main/desktop/wiring/desktop.ts
+      - packages/shell/renderer/desktop/intents.tsx
+    steps:
+      - "첫 창을 연 뒤와 옮기기가 끝난 뒤에 표지(`shell/keep-running-notice.json`)가 있고 desktop 창이 있으면 한 번만 본다. 창이 없으면 표지를 남겨 다음 기회에 한다"
+      - "표지를 지우고 창에 붙은 native message box로 알린다: 창을 닫은 뒤에도 이 컴퓨터에서 계속 돌고 로그인 때 시작한다는 것. [Open settings]는 `remote-settings` intent로 Settings › Remote를 연다. 닫기도 표지는 이미 지워서 다시 보이지 않는다"
+    outcomes:
+      - id: shown
+        when: "표지가 있었고 창이 있어 알림을 보였다. 표지는 보이는 순간 지워진다"
+        observe: ["disk:shell/keep-running-notice.json 없음", "process:native message box"]
+      - id: opened-settings
+        when: "사람이 [Open settings]를 눌렀다"
+        observe: ["screen:settings-remote"]
+      - id: no-notice
+        when: "표지가 없다(옮긴 적 없거나 이미 보였다)"
+        observe: ["process:변화가 없다"]
     crosses_process: false
     docs: [architecture/platform.md]
 

@@ -12,6 +12,7 @@ import { actionIcons, modalityIcons } from "../../../icons/mod.ts";
 import { useStateChanged } from "../../connection/core-read.ts";
 import styles from "../settings.module.css";
 import { RemoteDeviceRows } from "./device-rows.tsx";
+import { KeepRunningSection } from "./keep-running-section.tsx";
 import { QrCode } from "./qr-code.tsx";
 import remoteStyles from "./remote.module.css";
 import type {
@@ -142,6 +143,7 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
       <h1 className={styles.paneTitle}>{t("settings.label.tab-remote")}</h1>
       <p className={styles.lead}>{t("settings.intro.remote")}</p>
       <ThisComputer source={source} devices={devices} />
+      <KeepRunningSection source={source} />
       {enabled === null ? null : enabled === "failed" ? (
         <p className={styles.notice} data-remote="failed">
           {t("settings.error.remote-load-failed")}

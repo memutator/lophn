@@ -360,7 +360,7 @@ areas:
       - packages/protocol/extensions/
     owns:
       - 창 열기, 닫기, 되살리기, single instance, 종료
-      - tray, autostart, open intent(link·file로 열기), headless
+      - tray, 옛 로그인 시작 등록을 Keep running으로 옮기기와 한 번 알림, Settings › Remote의 Keep running 화면, open intent(link·file로 열기), headless
       - 보호 입력 창(secret input)
       - extension 켜기, 끄기, load
       - appearance, 언어

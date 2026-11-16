@@ -62,18 +62,19 @@ journeys:
     actor: person
     goal: 로그인하면 창 없이 core가 떠 있어 앱을 켜면 바로 붙는다
     steps:
-      - {do: "tray의 로그인 시 시작 항목을 켠다. OS 등록이 다시 읽혀 체크가 맞춰진다", flow: autostart-toggle:enabled}
+      - {do: "Settings › Remote의 \"Keep lophn running on this computer\"를 켠다. OS가 답한 등록 사실이 보인다", flow: always-on-set:turned-on}
       - {do: "다음 로그인 때 창 없이 core만 뜬다", flow: login-core-start:core-ready}
 
   - id: update-start
     title: 업데이트한 뒤 처음 켠다
     actor: person
-    goal: 새 판을 설치한 뒤 옛 core를 바꿔 띄우고 자동 시작 등록을 맞춘다
+    goal: 새 판을 설치한 뒤 옛 core를 바꿔 띄우고 옛 로그인 시작 등록을 Keep running으로 옮긴다
     steps:
       - {do: "업데이트된 앱을 켠다", screen: home-starting, flow: shell-start:window-opened}
       - {do: "판이 다른 옛 core를 멈추고 새 판을 띄운다. 돌던 run은 다시 시작하지 않는다", flow: core-ensure:replaced}
       - {do: "바뀐 내장 template을 data root에 다시 쓴다", flow: builtin-install:installed}
-      - {do: "업데이트 전에 등록한 --tray 자동 시작을 --core로 다시 쓴다", flow: autostart-migrate:rewritten}
+      - {do: "옛 판에서 켜 둔 로그인 시작 등록을 Keep running 표시로 옮기고 옛 등록을 지운다", flow: autostart-migrate:migrated}
+      - {do: "옮겨진 사람에게 창이 열릴 때 동작이 바뀐 것을 한 번 알린다", flow: keep-running-notice:shown}
 
   - id: data-steps-upgrade
     title: 옛 data root를 새 판으로 켜면 data step이 한 번씩 적용된다

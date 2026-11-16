@@ -15,7 +15,10 @@ import type {
 } from "../../../../packages/shell/renderer/desktop/settings/browser/source.ts";
 import type { StoredKeybindings } from "../../../../packages/shell/renderer/desktop/settings/keyboard/source.ts";
 import type { SettingsPane } from "../../../../packages/shell/renderer/desktop/settings/model.ts";
-import type { RemoteDevice } from "../../../../packages/shell/renderer/desktop/settings/remote/source.ts";
+import type {
+  AlwaysOnView,
+  RemoteDevice,
+} from "../../../../packages/shell/renderer/desktop/settings/remote/source.ts";
 import { fakeRemote } from "../../../../packages/shell/renderer/desktop/settings/remote/testdata/fake-source.ts";
 import { SettingsSpace } from "../../../../packages/shell/renderer/desktop/settings/settings-space.tsx";
 import { GalleryConnectHost } from "../../mock/connect-host.tsx";
@@ -48,6 +51,8 @@ interface SettingsFrameProps {
   readonly remote?: {
     readonly enabled?: boolean;
     readonly devices?: RemoteDevice[];
+    /** "Keep running"의 처음 상태에서 바꿀 칸. 안 쓰면 설치본에서 두 스위치가 꺼져 있다. */
+    readonly alwaysOn?: Partial<AlwaysOnView>;
   };
   /** Keyboard 항목의 저장된 키. 안 쓰면 바꾼 키가 없다. */
   readonly keyboard?: StoredKeybindings;

@@ -317,6 +317,59 @@ export const SettingsExtensionRemove = () => (
 /** Settings › Remote: 폰 연결이 켜져 있고 폰 둘(iPhone 16은 기준)이 pairing되어 있다. */
 export const SettingsRemote = () => <SettingsFrame pane="remote" />;
 
+/** Settings › Remote: "Keep running"과 "Keep this computer awake"가 켜져 있고 OS가 등록됨을 답했다("Starts when you log in"). */
+export const SettingsRemoteKeepRunning = () => (
+  <SettingsFrame
+    pane="remote"
+    remote={{
+      alwaysOn: {
+        keepRunning: true,
+        keepAwake: true,
+        startAtLogin: "registered",
+        awake: "held",
+      },
+    }}
+  />
+);
+
+/** Settings › Remote: 표시는 켜졌는데 OS 등록이 서지 않았다. 경고와 [Try again]이 있다. */
+export const SettingsRemoteLoginFailed = () => (
+  <SettingsFrame
+    pane="remote"
+    remote={{
+      alwaysOn: { keepRunning: true, startAtLogin: "not_registered" },
+    }}
+  />
+);
+
+/** Settings › Remote: 사람이 OS의 시작 설정에서 껐다. 어디서 바꾸는지와 [Turn on again]이 있다. */
+export const SettingsRemoteLoginOff = () => (
+  <SettingsFrame
+    pane="remote"
+    remote={{
+      alwaysOn: {
+        keepRunning: true,
+        startAtLogin: "off_in_system",
+        mechanism: "launchd",
+      },
+    }}
+  />
+);
+
+/** Settings › Remote: 개발 build라 스위치가 disabled이고 이유만 보인다. */
+export const SettingsRemoteDevelopment = () => (
+  <SettingsFrame
+    pane="remote"
+    remote={{
+      alwaysOn: {
+        startAtLogin: "unavailable",
+        loginReason: "development_build",
+        mechanism: null,
+      },
+    }}
+  />
+);
+
 /** Settings › Remote: 폰 연결이 꺼져 있어 QR과 목록 대신 안내 한 줄만 있다. */
 export const SettingsRemoteOff = () => (
   <SettingsFrame pane="remote" remote={{ enabled: false }} />

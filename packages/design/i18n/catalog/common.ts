@@ -71,7 +71,6 @@ export const common = {
     "Search from anywhere isn't available",
   "common.label.tray-home": "Home",
   "common.label.tray-quit": "Quit lophn",
-  "common.label.tray-start-at-login": "Start at login",
   "common.label.tray-stop": "Stop lophn",
   "common.label.tray-tooltip": "lophn",
   "common.label.value-range": "{start}–{end}",

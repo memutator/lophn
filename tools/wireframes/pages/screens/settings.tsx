@@ -38,6 +38,10 @@ import {
   SettingsGeneral,
   SettingsKeyboard,
   SettingsRemote,
+  SettingsRemoteDevelopment,
+  SettingsRemoteKeepRunning,
+  SettingsRemoteLoginFailed,
+  SettingsRemoteLoginOff,
   SettingsRemoteOff,
   SettingsRemotePairing,
   SettingsRemoteRevoke,
@@ -232,8 +236,36 @@ export const settingsArea: Area = {
       id: "settings-remote",
       title: "Settings · Remote",
       description:
-        "폰 연결을 켜는 Switch와 Add a phone, Phones 구역이다. 폰마다 OS와 마지막 연결, 기준 표시와 [Rename]·[Make primary]·[Unpair]가 있다.",
+        "폰 연결을 켜는 Switch와 Add a phone, Phones 구역이다. 폰마다 OS와 마지막 연결, 기준 표시와 [Rename]·[Make primary]·[Unpair]가 있다. 위에 This computer와 Keep running 구역(두 스위치가 꺼진 처음 상태)이 있다.",
       render: () => <SettingsRemote />,
+    },
+    {
+      id: "settings-remote-keep-running",
+      title: "Settings · Remote · keep running",
+      description:
+        "Keep lophn running on this computer와 Keep this computer awake가 켜져 있고 OS가 등록됨을 답했다. 사실 한 줄은 Starts when you log in이다.",
+      render: () => <SettingsRemoteKeepRunning />,
+    },
+    {
+      id: "settings-remote-login-failed",
+      title: "Settings · Remote · login not registered",
+      description:
+        "표시는 켜졌는데 OS 등록이 서지 않았다. 경고와 [Try again]이 같은 켜기를 다시 보낸다.",
+      render: () => <SettingsRemoteLoginFailed />,
+    },
+    {
+      id: "settings-remote-login-off",
+      title: "Settings · Remote · login off in system",
+      description:
+        "사람이 OS의 시작 설정에서 등록을 껐다. 어디서 바꾸는지(OS별)와 [Turn on again]이 있다.",
+      render: () => <SettingsRemoteLoginOff />,
+    },
+    {
+      id: "settings-remote-development",
+      title: "Settings · Remote · development build",
+      description:
+        "개발 build라 Keep lophn running 스위치가 disabled이고 Not available in a development build만 보인다.",
+      render: () => <SettingsRemoteDevelopment />,
     },
     {
       id: "settings-remote-off",

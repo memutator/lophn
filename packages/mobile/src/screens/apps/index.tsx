@@ -1,6 +1,7 @@
 // A user app's phone screen (tools/wireframes/drafts/phone/apps.tsx Orders, NeedsComputer and New version is live):
 // lophn's line on top (sidebar, the app's mark and name, ⋯) and under it the app's own screen in its guest runtime, or
 // why it cannot show: the computer is away, the app does not run, this phone and the screen do not fit, it failed.
+// An app that runs on the phone opens from the phone's own copy (useLocalScreen), with or without its computer.
 import { LOPHN_LOCALE, t } from "@lophn/i18n";
 import {
   Button,
@@ -21,11 +22,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Rich } from "../../app/rich.tsx";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
 import { GuestScreen } from "../../apps/guest/mod.ts";
+import { type LocalScreenState, useLocalScreen } from "../../apps/local/use-local-screen.ts";
 import { type AppScreenState, useAppScreen } from "../../apps/use-app-screen.ts";
 import {
   useAppRelease,
   useComputers,
   useCurrentComputer,
+  useLocalApps,
   usePhoneApps,
   useWorkspaces,
 } from "../../data/mod.ts";
@@ -42,11 +45,29 @@ export function AppScreen({ place }: { place: PlaceOf<"app"> }) {
   const apps = usePhoneApps();
   const app = apps.apps.find((one) => one.app === place.id);
   const workspace = useWorkspaces().find((one) => one.key === place.id);
-  const screen = useAppScreen({ computer, apps, app, screen: place.screen });
+  const local = useLocalApps();
+  const onPhone = useLocalScreen({
+    computer,
+    local,
+    app: place.id,
+    phoneApp: app,
+    screen: place.screen,
+  });
+  const screen = useAppScreen({
+    computer,
+    apps,
+    app: onPhone === null ? app : undefined,
+    screen: place.screen,
+  });
   const [menu, setMenu] = useState(false);
 
   // An app without a phone screen (or one no longer live) is its workspace.
-  if (apps.state === "ready" && app === undefined && workspace !== undefined) {
+  if (
+    onPhone === null &&
+    apps.state === "ready" &&
+    app === undefined &&
+    workspace !== undefined
+  ) {
     return (
       <WorkspaceScreen
         place={{ name: "workspace", workspace: { kind: "app", id: place.id } }}
@@ -54,7 +75,11 @@ export function AppScreen({ place }: { place: PlaceOf<"app"> }) {
     );
   }
 
-  const name = app?.name ?? workspace?.name ?? "";
+  const name =
+    app?.name ??
+    local.apps.find((one) => one.app === place.id)?.name ??
+    workspace?.name ??
+    "";
   // The same mark as the app's line in the sidebar.
   const icon = workspace?.icon.kind === "app" ? workspace.icon : null;
   const mark = (size: "sm" | "md" | "lg") => (
@@ -92,13 +117,17 @@ export function AppScreen({ place }: { place: PlaceOf<"app"> }) {
       }
     >
       <Body
-        state={screen.state}
+        state={onPhone?.state ?? screen.state}
         app={name}
         computer={computerName}
         mark={mark("lg")}
-        onRetry={screen.state.kind === "offline" ? redial : screen.retry}
+        onRetry={
+          (onPhone?.state ?? screen.state).kind === "offline"
+            ? redial
+            : (onPhone ?? screen).retry
+        }
       />
-      {screen.update !== null && screen.state.kind === "running" && (
+      {onPhone === null && screen.update !== null && screen.state.kind === "running" && (
         <Updated key={screen.update} app={place.id} />
       )}
       {app !== undefined && (
@@ -123,7 +152,7 @@ function Body({
   mark,
   onRetry,
 }: {
-  state: AppScreenState;
+  state: AppScreenState | LocalScreenState;
   app: string;
   computer: string;
   mark: ReactNode;
@@ -132,6 +161,7 @@ function Body({
   const theme = useTheme();
   switch (state.kind) {
     case "loading":
+    case "installing":
       return <View style={{ flex: 1 }} />;
     case "running":
       // Nothing may cover the guest: the sandbox hands a touch on a covered guest to the host.
@@ -147,6 +177,14 @@ function Body({
             call={state.call}
             subscribe={state.subscribe}
             onState={state.onState}
+            {...("local" in state
+              ? {
+                  backendFile: state.backendFile,
+                  local: state.local,
+                  appDb: state.appDb,
+                  onLocalChange: state.onLocalChange,
+                }
+              : {})}
           />
         </View>
       );

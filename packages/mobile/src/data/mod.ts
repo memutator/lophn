@@ -80,6 +80,7 @@ export {
 export type { ComputerData, SampleConversation } from "./link.ts";
 export { callOnce, createPhoneComputers } from "./phone.ts";
 export * from "./apps.ts";
+export * from "./local-apps.ts";
 export * from "./ops.ts";
 export * from "./places.ts";
 export * from "./search.ts";

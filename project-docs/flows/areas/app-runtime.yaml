@@ -1332,6 +1332,104 @@ flows:
         observe: [response]
     crosses_process: false
 
+  # ---------- 폰 host: 폰에서 도는 앱의 설치와 sync(폰 앱 안) ----------
+
+  - id: phone-app-install
+    title: "폰이 폰에서 도는 앱을 처음 설치한다(sync 앱은 컴퓨터 DB의 snapshot, standalone은 빈 DB에서 local migration)"
+    actor: system
+    entries: [system:phone-app-install]
+    uses: [route:apps/phone_screens, route:apps/phone_file, route:apps/screen_file, route:app_sync/snapshot, route:app_sync/snapshot_file]
+    boundary: [mobile, remote-protocol]
+    code: [packages/mobile/src/apps/local/install.ts, packages/mobile/src/apps/local/transfer.ts, packages/mobile/src/apps/local/store.ts, packages/mobile/src/data/local-apps.ts]
+    steps:
+      - "컴퓨터에 닿은 동안 apps/phone_screens에서 runs_on에 phone이 있는 앱(backend가 있는 것)을 보면 설치되지 않은 것을 설치한다. 앱 화면을 열 때도 설치한다."
+      - "files/apps/<computer>/<app>/에 installed.json이 없는 폴더(멈춘 설치)는 먼저 지운다."
+      - "apps/phone_file로 backend.js와 migration file을, apps/screen_file로 화면마다 phone.js를 받아 manifest의 크기·sha256과 맞는 것만 release/<rel>/에 쓴다. backend.json은 마지막에 쓴다."
+      - "sync 앱(runs_on에 computer와 phone): app_sync/snapshot을 8 MiB씩 snapshot_file로 받아 disk에 쓴 뒤 크기와 sha256을 disk에서 다시 확인하고 app.sqlite로 옮겨 adoptSnapshot(node는 기기 id, cursor는 snapshot의 seq)."
+      - "standalone 앱(runs_on이 phone뿐): 빈 app.sqlite에 ensureSyncTables를 하고 release의 migration으로 0에서 data_schema까지 올린다."
+      - "installed.json(release, kind, 화면, backend manifest, 마지막 맞춘 시각)을 마지막에 쓴다. 실패하면 폴더를 지우고 실패 상태로 둔다."
+    outcomes:
+      - id: installed
+        observe: ["disk:files/apps/<computer>/<app>"]
+      - id: failed
+        when: "file이나 snapshot을 받지 못함, 크기·sha256이 다름, snapshot의 release가 목록과 다름(목록을 다시 읽는다), migration 실패. 폴더는 지워지고 다음 목록 읽기나 Try again에 다시 한다"
+        observe: ["disk:files/apps/<computer>/<app>"]
+    crosses_process: false
+    risk: [data-loss]
+
+  - id: phone-app-sync
+    title: "폰이 sync 앱의 local 변경을 push하고 컴퓨터의 변경을 pull한다"
+    actor: system
+    entries: [system:phone-app-sync]
+    uses: [route:app_sync/push, route:app_sync/pull]
+    boundary: [mobile, remote-protocol]
+    code: [packages/mobile/src/apps/local/sync.ts, packages/mobile/src/apps/local/store.ts, packages/mobile/src/data/local-apps.ts]
+    steps:
+      - "폰 앱이 앞에 있고 그 컴퓨터에 닿은 동안만 돈다. 계기: guest의 local 호출이 변경을 commit함(local_change), 연결됨, AppSyncChanged, syncNow. 앱마다 한 번에 하나다."
+      - "push: host transaction 하나로 outbox의 clock 없는 줄을 commit 순서로 찍고, 256개·10 MiB씩 app_sync/push로 보낸다. 답(applied, duplicate, skipped)을 받은 줄만 outbox에서 지운다. 오류면 details.results의 줄만 지우고 나머지는 남는다."
+      - "pull: cursor 뒤를 more가 false일 때까지 받는다. 묶음마다 host transaction 하나(foreign_keys off)에서 outbox 찍기, 변경 적용(칸 단위 last-write-wins), cursor 올리기를 한다. 도중에 오류면 묶음 전체가 rollback되고 cursor는 그대로다. 제약에 걸린 변경 하나는 건너뛴다."
+      - "guest 호출은 host transaction이 끝날 때까지 기다린다(busy timeout). 들어온 변경은 호출 사이에만 들어간다."
+      - "push와 pull이 둘 다 되면 installed.json의 마지막 맞춘 시각을 고친다. release 바뀜의 backup은 새 release에서 outbox가 비는 push가 된 뒤 지운다."
+    outcomes:
+      - id: synced
+        observe: ["disk:files/apps/<computer>/<app>", "ledger:app_sync_log"]
+      - id: offline
+        when: "컴퓨터가 답하지 않거나 앱 process가 없음(unavailable). 상태는 그대로이고 다음 계기에 다시 한다"
+        observe: ["disk:files/apps/<computer>/<app>"]
+      - id: release-changed
+        when: "push가 conflict(active_release)이거나 pull이 snapshot_needed. 목록을 다시 읽고 phone-app-release-change로 간다"
+        observe: ["disk:files/apps/<computer>/<app>"]
+      - id: failed
+        when: "그 밖의 오류(outbox 줄 하나가 8 MiB를 넘음, 맞지 않는 변경). outbox와 cursor는 그대로이고 실패 상태다"
+        observe: ["disk:files/apps/<computer>/<app>"]
+    crosses_process: false
+    risk: [data-loss]
+
+  - id: phone-app-release-change
+    title: "폰이 설치된 앱을 새 release(또는 같은 release의 새 snapshot)로 바꾼다"
+    actor: system
+    entries: [system:phone-app-release-change]
+    uses: [route:apps/phone_file, route:apps/screen_file, route:app_sync/snapshot, route:app_sync/snapshot_file]
+    boundary: [mobile, remote-protocol]
+    code: [packages/mobile/src/apps/local/release.ts, packages/mobile/src/apps/local/store.ts, packages/mobile/src/apps/local/use-local-screen.ts]
+    steps:
+      - "계기: 목록의 release가 설치된 것과 다름, push의 conflict, pull의 snapshot_needed. 상태를 installing으로 두고 앱 화면의 guest가 내려가기를 기다린다."
+      - "새 release의 file을 받는다. sync 앱은 outbox를 찍는다. app.sqlite를 WAL 밖으로 꺼내 app.before-<rel>.sqlite로 backup한다."
+      - "sync 앱, outbox가 빔: 새 snapshot을 받아 adoptSnapshot한 file이 app.sqlite가 된다."
+      - "sync 앱, outbox가 있음: backup 사본을 새 release의 migration으로 local migrate하고, 새 snapshot을 adopt하고, 남은 변경을 이름으로 다시 표현(reexpress)한 file이 app.sqlite가 된다. backup은 새 release의 첫 push가 될 때까지 남는다."
+      - "standalone 앱: backup 사본을 local migrate한 file이 app.sqlite가 된다."
+      - "모든 단계는 work/의 사본에서 하고 app.sqlite는 마지막 옮기기 전까지 그대로다. 옛 release 폴더와 남길 것 없는 backup은 바꾼 뒤 지운다."
+    outcomes:
+      - id: switched
+        observe: ["disk:files/apps/<computer>/<app>"]
+      - id: failed
+        when: "file·snapshot을 받지 못함, migration이나 다시 표현이 실패함, snapshot의 release가 목록과 다름. app.sqlite와 outbox는 그대로이고 옛 release로 계속 열린다. 실패 상태로 두고 다음 계기에 다시 한다"
+        observe: ["disk:files/apps/<computer>/<app>"]
+    crosses_process: false
+    risk: [data-loss]
+
+  - id: phone-app-external
+    title: "폰에서 도는 앱의 external operation은 outbox를 먼저 보낸 뒤 컴퓨터로 간다"
+    actor: system
+    entries: [system:phone-app-external]
+    uses: [route:app_sync/push, route:app_views/call]
+    boundary: [mobile, remote-protocol]
+    code: [packages/mobile/src/apps/local/store.ts, packages/mobile/src/apps/local/use-local-screen.ts]
+    steps:
+      - "guest의 read·write operation은 늘 폰에서 돈다. external만 host의 call로 온다."
+      - "컴퓨터에 닿지 않으면 보내지 않고 unavailable이다."
+      - "그 앱의 차례에서 push를 한다. 실패하거나 outbox가 비지 않으면 보내지 않고 unavailable이다."
+      - "push가 되면 컴퓨터에 열어 둔 view로 app_views/call을 보낸다. 결과로 컴퓨터에서 바뀐 것은 다음 pull로 온다."
+    outcomes:
+      - id: sent
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "컴퓨터에 닿지 않음, push 실패, 보내지 못한 변경이 남음. 호출은 컴퓨터로 가지 않는다"
+        observe: [response]
+    crosses_process: false
+    risk: [data-loss]
+
   # ---------- 사용 관계, sdk 상태, 화면 파일 ----------
 
   - id: app-usage-read

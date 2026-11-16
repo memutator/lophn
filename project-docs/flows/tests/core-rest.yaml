@@ -611,6 +611,15 @@ files:
       - phone-link:response-dropped
     note: "메모리 전송으로 실제 connectRemote client 둘을 core host와 link에 붙인다. 기기 표·자격·call·timer만 가짜다. 요청이 지정한 기기의 연결로만 가는지, 적지 않은 kind를 보내지 않는지, 모르는 id·다른 기기·deadline 뒤의 response를 버리는지, 기다리는 사이 닫힘을 본다"
 
+  - path: packages/core/remote/devices_test.ts
+    covers:
+      - devices-list:ok
+      - devices-rename:ok
+      - remote-pair:paired
+      - devices-set-primary:desktop
+      - devices-set-push:forbidden
+    note: "메모리 sqlite에 devices.ts의 step·command·read를 바로 부른다. 옛 step까지만 건 표에 행을 넣고 remote.devices.kind를 걸어 행·칸·unique가 남고 옛 이름이 별명으로 남는 것(사람의 data root가 도는 migration), 별명 두기·지우기, desktop 등록이 기준을 바꾸지 않는 것, desktop의 기준·push token을 command와 표 CHECK 둘 다 거절하는 것을 본다"
+
   - path: packages/core/remote/host_test.ts
     covers:
       - remote-connection:unpaired-refused

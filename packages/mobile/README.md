@@ -270,6 +270,58 @@ emulator에서 개발 core에 붙여 보는 길이다(실제 폰, 사람의 `~/.
 4. 확인할 것: 컴퓨터의 write가 폰에 오는가, 개발 core를 멈춘 채 폰에서 쓰고 core를 다시 띄우면 컴퓨터 DB와 그 앱의 호출 기록(`lophn app invocations`)에 기기가 caller로 붙은 호출이 생기는가, 같은 row의 다른 칸을 양쪽에서 고쳐도 둘 다 남는가, 안 보낸 변경이 있을 때 새 release를 activation하면 변경이 살아남는가, 컴퓨터의 rewind가 폰에 오는가, `external` operation이 outbox 뒤에 가는가, core를 끈 채 standalone 앱이 열리고 쓰이는가, 설치가 실패했을 때 Try again이 되는가, Settings에서 컴퓨터를 지웠을 때 폴더가 위 규칙으로 정리되는가.
 5. 손가락 확인은 release build에서 한다(debug는 손가락이 guest에 닿지 않는다). 폰의 앱 폴더(`files/apps/…`)는 debuggable build에서 `adb -s emulator-<port> shell run-as dev.lophn.mobile ls files/apps`로 볼 수 있다.
 
+## preview 화면 다루기(drive)
+
+컴퓨터의 agent가 사람의 폰에 뜬 앱 preview 화면을 `lophn tab open --phone <app>`과 `lophn browser snapshot|act|screenshot|wait|read`로 보고 다룬다(`project-docs/architecture/browser-tab.md`의 "phone 탭", `phone-screen.md`의 "drive"). core가 폰 link로 `drive.*`를 묻고 폰이 답한다(`packages/protocol/phone/drive.ts`).
+
+- `modules/lophn-drive/`: local Expo native module(Kotlin, Android만). view id로 guest(`SandboxReactNativeView`, `delegate.origin == view`)를 찾고, Android view tree를 걸어 계약의 node(role, name, value, flag)를 내고, `View.draw`로 guest만 찍고(JPEG q80, 긴 변 1080 px, 1 MiB를 넘으면 q60), guest 표면(직계 자식)에 touch를 넣고, 칸의 InputConnection으로 글을 친 뒤 soft keyboard를 내린다. 누르기 전에 화면 밖 node를 `requestRectangleOnScreen`으로 들이고 못 들이면 `conflict off_screen`. activity가 `RESUMED`가 아니면 `phone_in_background`, 화면이 꺼졌거나 창 focus가 없으면 `screen_off`, 그 view의 guest가 없으면 `no_preview`. JS 감싸개(`index.ts`, 순수 부분은 `src/answer.ts`)가 답을 계약 schema로 검사해 `Result`로 낸다. 그 view가 preview인지는 모른다.
+- `src/apps/drive/`: `controller.ts`(React Native 없는 순수 logic)가 preview 화면의 등록부, take control, driving 줄을 든다. 이 폰이 그 컴퓨터를 위해 연 preview view가 아니면 native를 부르지 않고 `no_preview`, take control 중이면 act만 `conflict taken_over`, native의 `screen_off`는 앱이 앞에 있을 때만 여기 오므로 `covered`로 바꾼다. `use-preview.ts`가 preview 화면의 bundle(`apps/screen_file`의 preview target), `app_views/open {mode: "preview"}`, 화면 켜 두기를 맡는다. `src/link/answer.ts`의 `PHONE_HANDLERS`에 `drive.*` 넷이 있어 `hello.capabilities`에 오른다.
+- 화면: 앱 화면 ⋯ menu의 "Preview from lophn"(preview가 돌 때만), live 폰 화면이 아직 없는 앱은 Home과 sidebar의 앱 줄이 "Preview" 표시와 함께 바로 preview를 연다(`src/screens/apps/preview.tsx`, `src/screens/home/apps.tsx`, `src/app/sidebar.tsx`). preview 화면 위 줄 아래에 "Preview" 줄, 요청이 오면 60초 동안 "<agent> is driving this screen"과 [Take control]/[Hand back] 줄이 선다. 둘 다 layout 안의 줄이고 guest를 덮지 않는다.
+
+### lab에서 module만 보기
+
+guest lab build(`EXPO_PUBLIC_LOPHN_GUEST_LAB=1`, 위 "Android 확인")에 drive fixture(`guest/fixtures/src/screens/drive`: Button, IconButton, `Field` 안 Input, secure Input, SegmentedControl, Checkbox, Switch, ScrollView 안 60줄, 8 s busy 단추, render 오류 단추, 줄 바꾸기 단추)와 단추가 있다.
+
+| 단추 | 무엇 |
+|---|---|
+| `drive run` | fixture를 띄우고 API를 차례로 부른다: snapshot → 이름으로 node 찾기 → click → type → fill → Enter → Row 59 scroll과 click → screenshot jpeg·png → waitText → 줄 바꾼 뒤 옛 ref → busy 중 snapshot·screenshot. 결과와 ms를 화면 log와 logcat `LAB` 줄로 |
+| `drive dump` | node마다 화면 좌표를 logcat에 찍는다(`uiautomator dump`와 견준다) |
+| `drive watch` | 60초 동안 snapshot과 waitText를 되풀이한다(HOME, 화면 끄기, 다른 화면으로 가기 뒤의 답을 본다) |
+| `drive shot` | jpeg와 png screenshot을 앱 문서 폴더에 쓰고 크기와 ms를 보인다 |
+| `keep on`, `keep off` | `keepScreenOn` |
+
+### 개발 core로 끝까지 보기
+
+release build(손가락 입력은 release에서만 guest에 닿는다)를 emulator에 깔고 개발 core에 pairing한 뒤, 개발 core에 앱을 하나 만들어 폰 화면을 손으로 쓰고 release와 preview를 띄운다. 개발 core에는 model이 없으므로 앱을 만드는 일과 agent의 호출은 test 도구(`tests/support/app/activate.ts`의 `startTestApp`·`deliverRelease`·`prepareRelease`·`lophnTurn`, `tests/support/fake-server`)로 한다. `lophnTurn`이 앱 workspace session의 turn 하나에서 fake model이 `lophn` tool을 부르게 하므로 그 session(agent)의 자격으로 `tab open --phone`과 `browser *`가 돈다. 사람 token은 CLI를 그 data root로 부른다: `env -u XDG_RUNTIME_DIR LOPHN_HOME=<data root> ELECTRON_RUN_AS_NODE=1 node_modules/electron/dist/electron packages/cli/main.ts tab open --phone <app>`(`XDG_RUNTIME_DIR`가 있으면 사람의 core socket 자리를 찾는다).
+
+1. 앱 source에 폰 화면 하나(입력은 `Field` 안, 긴 목록, operation 단추, `Sheet`를 여는 단추)를 쓰고 release와 `preview start <release>`. 폰 화면 앱의 의존은 `project-docs/architecture/phone-screen.md`의 "설치 비용"대로 `devDependencies`에 둔다.
+2. remote를 켜고 pairing text의 `addresses`를 `["10.0.2.2"]`로 바꿔 붙여 넣는다(release build는 `EXPO_PUBLIC_LOPHN_EXTRA_ADDRESS`를 읽지 않는다).
+3. 폰에서 앱 → ⋯ → Preview from lophn. 그 전과 뒤에 `tab open --phone`을 부른다(전에는 `unavailable`).
+4. `browser snapshot`(Field label이 textbox 이름, `[offscreen]`, secure 칸 `••••`), `act click`(operation이 preview process로 불린다), `type`·`fill`·`press Enter`, `scroll --ref`와 `--dy`, `wait --text`(빈칸이 든 글은 tool 입력 JSON으로), `screenshot`(`.jpg`), `read`.
+5. 거절: Take control 뒤 act, 옛 ref, Sheet를 열거나 notification shade를 내린 때(`covered`), HOME과 `KEYCODE_SLEEP` 뒤, preview 화면을 떠난 뒤, preview를 다시 지은 뒤의 옛 ref, `preview stop` 뒤, 다른 앱 workspace의 session.
+
+결과(2026-11-16, emulator `lophn-phone` x86_64 API 36, release build, 개발 core와 fake model, 앱 workspace session의 자격):
+
+| 본 것 | 결과 |
+|---|---|
+| `tab open --phone` 폰이 preview를 열기 전 / live 앱 화면만 보일 때 / 연 뒤 | `unavailable`(보이지 않음 문장) / 같다(live view는 고르지 않는다) / 탭 id |
+| 다른 앱 workspace의 session이 연다, preview가 없을 때 연다 | `not_found` / `conflict` |
+| snapshot | 첫 줄 `screen notes 411x739dp`, `textbox "Title"`(Field label), Row 5~60 `[offscreen]`, secure 칸 `value="••••"`. 한 호출(fake turn 포함) 0.4~1.1 s |
+| act `type`·`fill`·`click`·`press Enter` | `fill`이 `type`한 글을 바꿨고, `Add note`가 preview process의 `save_item`을 불러 목록에 줄이 섰고, Enter가 `onSubmit`을 불렀다 |
+| `scroll --ref`(Row 59) 뒤 click, `scroll --dy -400`, `wait --text`, `read` | `Picked: Row 59`, 화면이 움직였다, 됨, `phone://<app>/notes` |
+| screenshot | agent는 JPEG 659x1080 18 KB(guest만), 사람 CLI는 `/tmp/lophn-screenshots/<tab>-<ms>.jpg` 30 KB |
+| driving 줄, Take control, Hand back | "lophn is driving this screen"(사람 token은 "Someone on your computer"), take control 뒤 act `conflict`·snapshot·screenshot 됨·손가락 누름이 guest에 닿음, Hand back 뒤 act 됨 |
+| 옛 ref, 다시 지은 preview 뒤의 옛 ref | `conflict`. 다시 지은 preview는 폰이 새 bundle로 다시 띄웠고 같은 탭의 새 snapshot이 됐다 |
+| guest의 `Sheet`를 열었을 때, notification shade를 내렸을 때 | 모든 호출이 `unavailable` `covered` 문장. 닫으면 다시 된다 |
+| HOME, `KEYCODE_SLEEP`, preview 화면을 떠남 | 앞에 없음 문장, 같다, 보이지 않음 문장. 돌아오면 된다 |
+| guest 맨 위 요소를 누름(host 줄 바로 아래) | host의 Back·Take control이 눌리지 않았다 |
+| 폰 network를 끊음 | 8초 안에는 "did not answer in time" `unavailable`. 다시 붙자 됨 |
+| `preview stop` | 폰은 "The preview stopped on <컴퓨터>"와 Close, agent는 `unavailable`, `tab open`은 `conflict` |
+| live 폰 화면이 없는 앱(prepare만 한 release)의 preview | Home 칸에 "Preview", sidebar 줄 "First screens · Preview", 누르면 바로 preview 화면, agent가 열고 누름. preview를 멈추자 표시가 사라졌다 |
+| 폰 화면 둘인 preview | preview 화면 ⋯ menu에 `Second`, 고르면 다시 열림. `--screen second`는 폰이 first를 보일 때 `unavailable`, second를 보일 때 열림 |
+
+알려진 한계: guest의 Sheet·Modal 안은 읽지도 누르지도 못한다(`covered`로 답한다). 가상화 목록의 그려지지 않은 줄과 가로 scroll은 덮지 않는다. scroll 뒤 누르기는 정한 시간(150 ms, 300 ms)을 기다린다. type·fill은 칸을 누르지 않아 onPress가 불리지 않고 keyboard가 뜨지 않는다. 같은 앱의 preview를 두 기기가 열면 가장 최근 쓴 view를 고른다. Back은 다루지 않는다(host 화면을 닫는다). iOS는 없다. 이슈 `phone-drive-*`.
+
 ## 정해 둔 것
 
 - Android `applicationId`: `dev.lophn.mobile`(임시).

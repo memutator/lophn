@@ -1,7 +1,7 @@
 // Jobs 탭 본문. 모든 workspace의 job을 한곳에 모아 보이고, 켜고 끄기, 제목·주기·놓친 차례 정책
 // 고치기, 지우기, 줄마다 기록 펴기를 한다. job을 만드는 단추는 없다(agent가 만든다).
 // 쓰기는 바로 보내고, 성공해도 실패해도 목록을 다시 읽는다. 저장하지 못하면 탭 위쪽 toast로 알린다.
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Button } from "@lophn/ui/primitives";
 import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { Dialog, Toast } from "@lophn/ui/overlay";
@@ -53,6 +53,33 @@ export function JobsPage({
   const [editing, setEditing] = useState<JobView | null>(null);
   const [deleting, setDeleting] = useState<JobView | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [machineNames, setMachineNames] = useState<Record<string, string>>({});
+
+  // 다른 기계의 이름은 source가 알 때만 보인다(모르면 "another computer").
+  const elsewhere =
+    loaded.state === "ready"
+      ? [
+          ...new Set(
+            loaded.value.jobs.flatMap((job) =>
+              job.runs_here || job.machine === null ? [] : [job.machine],
+            ),
+          ),
+        ].join(",")
+      : "";
+  useEffect(() => {
+    if (elsewhere === "" || source.machineName === undefined) return;
+    let current = true;
+    for (const machine of elsewhere.split(",")) {
+      void source.machineName(machine).then((name) => {
+        if (current && name !== null) {
+          setMachineNames((known) => ({ ...known, [machine]: name }));
+        }
+      });
+    }
+    return () => {
+      current = false;
+    };
+  }, [elsewhere, source]);
 
   const toggle = (job: string) =>
     setOpen((now) => {
@@ -79,12 +106,18 @@ export function JobsPage({
       job={job}
       names={names!}
       history={history}
+      machineName={
+        job.machine === null ? null : (machineNames[job.machine] ?? null)
+      }
       onToggle={() => toggle(job.id)}
       onEnabled={(enabled) =>
         void write(source.setEnabled(job.id, enabled), t("jobs.error.save"))
       }
       onEdit={() => setEditing(job)}
       onDelete={() => setDeleting(job)}
+      onTakeOver={() =>
+        void write(source.takeOver(job.id), t("jobs.error.take-over"))
+      }
       onOpenSession={onOpenSession}
       onOpenProject={onOpenProject}
     />

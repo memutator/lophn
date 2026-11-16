@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 
 import {
+  ELSEWHERE_JOBS,
   fakeJobs,
   JOB_DIGEST,
   JOB_ORDERS,
@@ -61,7 +62,7 @@ export const overlaysArea: Area = {
       id: "jobs-tab",
       title: "Jobs tab · list",
       description:
-        "Jobs 탭. 모든 workspace의 job을 한곳에 모은 목록이다(job 다섯, 하나는 꺼짐). 줄에는 제목, 주기 글, 다음 차례, 할 일 요약, 만든 agent, 놓친 차례 정책, 마지막 결과가 있고 오른쪽 끝 고정 열에 켜고 끄는 switch, Edit, Delete, 기록 토글이 있다. 어느 workspace에서든 같은 탭이고 desk에 하나다.",
+        "Jobs 탭. 모든 workspace의 job을 한곳에 모은 목록이다(job 여덟, 하나는 꺼짐, 둘은 다른 기계에서 온 것). 줄에는 제목, 주기 글, 다음 차례, 할 일 요약, 만든 agent, 놓친 차례 정책, 마지막 결과가 있고 오른쪽 끝 고정 열에 켜고 끄는 switch, Edit, Delete, 기록 토글이 있다. 어느 workspace에서든 같은 탭이고 desk에 하나다.",
       render: () => <MockDesktop homeTabs={[JOBS_TAB]} />,
     },
     {
@@ -92,6 +93,18 @@ export const overlaysArea: Area = {
           [() => click(`[data-job="${JOB_DIGEST}"] [data-job-edit]`)],
           <MockDesktop homeTabs={[JOBS_TAB]} />,
         ),
+    },
+    {
+      id: "jobs-tab-take-over",
+      title: "Jobs tab · another computer",
+      description:
+        '다른 기계에서 온 job 둘(복사된 data root나 나중의 sync로 온 것). 다음 차례 대신 "Belongs to <기계 이름>"(기계 이름을 모르면 "Belongs to another computer")과 "It was created on another computer and does not run here."가 보이고, 줄 오른쪽 끝에 [Run on this computer]가 있다. 누르면 그 job이 이 기계로 와서 다음 차례부터 돈다. Edit, Delete, 기록은 그대로 된다.',
+      render: () => (
+        <MockDesktop
+          homeTabs={[JOBS_TAB]}
+          jobs={fakeJobs({ jobs: ELSEWHERE_JOBS }).source}
+        />
+      ),
     },
     {
       id: "jobs-tab-delete",

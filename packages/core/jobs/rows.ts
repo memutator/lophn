@@ -34,9 +34,11 @@ export function jobRunFromRow(
     : err({ code: "internal", message: "invalid stored job run" });
 }
 
+// me는 이 기계의 id다. machine이 NULL(아직 안 찍음)이면 이 기계 것으로 본다.
 export function jobFromRow(
   row: Record<string, unknown>,
   lastRun: JobRunRecord | null,
+  me: string,
 ): Result<JobRecord> {
   const parsed = jobRecordSchema.safeParse({
     id: row.id,
@@ -59,6 +61,8 @@ export function jobFromRow(
     enabled: Number(row.enabled) === 1,
     approved_at: row.approved_at,
     next_due_at: row.next_due_at,
+    machine: row.machine ?? null,
+    runs_here: row.machine === null || row.machine === me,
     last_run:
       lastRun === null
         ? null

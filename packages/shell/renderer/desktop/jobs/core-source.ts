@@ -4,6 +4,7 @@ import {
   jobDelete,
   jobList,
   jobRunList,
+  jobTakeOver,
   jobUpdate,
 } from "../../../../protocol/jobs/jobs.ts";
 import { agentList } from "../../../../protocol/lophn-agent/agent-definitions.ts";
@@ -116,6 +117,15 @@ export function coreJobsSource(core: CoreSource): JobsSource {
           input: { job },
           compare: {},
           key: key(jobDelete.method),
+        }),
+      ),
+
+    takeOver: (job) =>
+      write(
+        command(core, jobTakeOver, {
+          input: { job },
+          compare: {},
+          key: key(jobTakeOver.method),
         }),
       ),
   };

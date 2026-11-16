@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
+import { ok } from "../../base/mod.ts";
 import type { JobAction, MissedPolicy } from "../../protocol/jobs/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import { createDueCommands } from "./due.ts";
-import { jobZonePort } from "./ports.ts";
-import { jobsTestSteps } from "./test-steps.ts";
+import { jobMachinePort, jobZonePort } from "./ports.ts";
+import { jobsTestSteps, THIS_MACHINE } from "./test-steps.ts";
 import { approveJob, insertJob, insertJobRun, loadJobRuns } from "./store.ts";
 
 const T = (hour: number, minute = 0) =>
@@ -35,6 +36,7 @@ function setup() {
   let seq = 0;
   const ports = new Map<unknown, unknown>([
     [jobZonePort, { zone: () => "UTC" }],
+    [jobMachinePort, { id: () => ok(THIS_MACHINE) }],
   ]);
   const tx = {
     sql,
@@ -61,6 +63,7 @@ function setup() {
       action,
       missed_policy: policy,
       enabled: true,
+      machine: THIS_MACHINE,
       created_at: T(0),
     });
     if (approved) approveJob(sql, id, { approved_at: T(0), next_due_at: next });

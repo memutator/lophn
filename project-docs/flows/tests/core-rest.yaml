@@ -169,6 +169,18 @@ files:
       - job-claim-due:not-due
     note: "승인 전 job이 claim에서 빠지는 것은 job-claim-due:not-due"
 
+  - path: packages/core/jobs/machine_test.ts
+    covers:
+      - job-take-over:taken
+      - job-take-over:forbidden
+      - job-take-over:not_found
+      - job-take-over:conflict
+      - job-hold-decide:conflict
+      - job-claim-due:not-due
+      - job-event-fire:ignored
+      - job-activity:idle
+    note: "jobs.machine step을 지나고 첫 기동 claim을 해도 job과 줄이 그대로이고 모두 이 기계로 찍힌다. 주인이 다른 job은 차례·event·Start now·idle-exit의 일에서 빠지고 take over 뒤에 돈다"
+
   - path: packages/core/jobs/schedule_test.ts
     covers: []
     note: 서머타임 날의 job 차례 계산(순수 함수)

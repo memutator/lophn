@@ -6,8 +6,8 @@ import type { AgentAtWorkspace } from "../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import { createJobCommands } from "./commands.ts";
-import { jobTargetsPort, jobZonePort } from "./ports.ts";
-import { jobsTestSteps } from "./test-steps.ts";
+import { jobMachinePort, jobTargetsPort, jobZonePort } from "./ports.ts";
+import { jobsTestSteps, THIS_MACHINE } from "./test-steps.ts";
 import { loadJob, loadJobRuns } from "./store.ts";
 
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
@@ -40,6 +40,7 @@ test("agent는 같은 agent가 같은 workspace에서 만든 job만 고치고 �
         },
       ],
       [jobZonePort, { zone: () => "UTC" }],
+      [jobMachinePort, { id: () => ok(THIS_MACHINE) }],
     ]);
     const tx = {
       sql,
@@ -72,7 +73,7 @@ test("agent는 같은 agent가 같은 workspace에서 만든 job만 고치고 �
 
     const code = (result: { ok: boolean; error?: { code: string } }) =>
       result.ok ? "ok" : result.error!.code;
-    const kept = loadJob(sql, job);
+    const kept = loadJob(sql, job, THIS_MACHINE);
     assert.ok(kept.ok && kept.value !== null);
     const unchanged = kept;
 
@@ -95,7 +96,7 @@ test("agent는 같은 agent가 같은 workspace에서 만든 job만 고치고 �
         code(commands.remove.handle(tx, agent(session), { job }, {} as never)),
         "not_found",
       );
-      assert.deepStrictEqual(loadJob(sql, job), unchanged);
+      assert.deepStrictEqual(loadJob(sql, job, THIS_MACHINE), unchanged);
     }
 
     // 같은 agent와 workspace의 다른 session은 같은 job을 다룬다.
@@ -108,7 +109,7 @@ test("agent는 같은 agent가 같은 workspace에서 만든 job만 고치고 �
         code(commands.update.handle(tx, who, { job, title }, {} as never)),
         "ok",
       );
-      const renamed = loadJob(sql, job);
+      const renamed = loadJob(sql, job, THIS_MACHINE);
       assert.ok(renamed.ok && renamed.value?.title === title);
     }
 
@@ -116,7 +117,7 @@ test("agent는 같은 agent가 같은 workspace에서 만든 job만 고치고 �
       code(commands.remove.handle(tx, user, { job }, {} as never)),
       "ok",
     );
-    const gone = loadJob(sql, job);
+    const gone = loadJob(sql, job, THIS_MACHINE);
     assert.ok(gone.ok && gone.value === null);
     const runs = loadJobRuns(sql, job, { limit: 10 });
     assert.ok(runs.ok && runs.value.length === 0);

@@ -22,6 +22,12 @@ export type JobTimers = {
 // IANA 이름이다. 구현은 jobs wiring이 Intl.DateTimeFormat().resolvedOptions().timeZone으로 꽂는다.
 export const jobZonePort = definePort<{ zone(): string }>("jobs.zone");
 
+// 이 기계의 id다(`<root>/machine.json`). job의 주인 기계와 견주는 데 쓴다. 읽지 못하면 unavailable이다(남의 job으로 보고 돌리지 않는다).
+// 구현은 jobs wiring이 Worker마다 처음 한 번 읽어 둔다.
+export const jobMachinePort = definePort<{ id(): Result<Id<"mch">> }>(
+  "jobs.machine",
+);
+
 // job을 만들 때 이름을 푸는 port. 구현은 조립(core/main)이 꽂는다.
 export type JobTargets = {
   creatorOf(session: Id<"ses">): AgentAtWorkspace | undefined;

@@ -7,9 +7,14 @@ import type { Tx } from "../../protocol/server/mod.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import { createJobCommands } from "./commands.ts";
 import { createEventCommands } from "./events.ts";
-import { jobEventPolicyPort, jobTargetsPort, jobZonePort } from "./ports.ts";
+import {
+  jobEventPolicyPort,
+  jobMachinePort,
+  jobTargetsPort,
+  jobZonePort,
+} from "./ports.ts";
 import { approveJob, insertJob, loadJob, replaceJobRun } from "./store.ts";
-import { jobsTestSteps } from "./test-steps.ts";
+import { jobsTestSteps, THIS_MACHINE } from "./test-steps.ts";
 
 const APP = "app_01hzzzzzzzzzzzzzzzzzzzzzza";
 const PRJ_A = "prj_01hzzzzzzzzzzzzzzzzzzzzzza";
@@ -29,6 +34,7 @@ function setup() {
   let seq = 0;
   const ports = new Map<unknown, unknown>([
     [jobZonePort, { zone: () => "UTC" }],
+    [jobMachinePort, { id: () => ok(THIS_MACHINE) }],
     [
       jobEventPolicyPort,
       {
@@ -92,6 +98,7 @@ function setup() {
       },
       missed_policy: "run",
       enabled: options.enabled ?? true,
+      machine: THIS_MACHINE,
       created_at: "2026-11-10T00:00:00.000Z",
     });
     if (options.approved !== false) {
@@ -197,7 +204,10 @@ test("승인 전이거나 꺼진 event job은 event가 와도 돌지 않고, 켜
       }),
       { fired: 0, skipped: 0 },
     );
-    assert.equal(loadJob(sql, "job_01hzzzzzzzzzzzzzzzzzzzzzzc").ok, true);
+    assert.equal(
+      loadJob(sql, "job_01hzzzzzzzzzzzzzzzzzzzzzzc", THIS_MACHINE).ok,
+      true,
+    );
   } finally {
     db.close();
   }
@@ -222,7 +232,7 @@ test("앞 차례가 도는 중이면 busy, 끝났어도 최소 간격 안이면 
       fired: 0,
       skipped: 1,
     });
-    let loaded = loadJob(sql, "job_01hzzzzzzzzzzzzzzzzzzzzzzc");
+    let loaded = loadJob(sql, "job_01hzzzzzzzzzzzzzzzzzzzzzzc", THIS_MACHINE);
     assert.ok(loaded.ok && loaded.value !== null);
     assert.equal(loaded.value.last_skip_reason, "busy");
 
@@ -240,7 +250,7 @@ test("앞 차례가 도는 중이면 busy, 끝났어도 최소 간격 안이면 
       fired: 0,
       skipped: 1,
     });
-    loaded = loadJob(sql, "job_01hzzzzzzzzzzzzzzzzzzzzzzc");
+    loaded = loadJob(sql, "job_01hzzzzzzzzzzzzzzzzzzzzzzc", THIS_MACHINE);
     assert.ok(loaded.ok && loaded.value !== null);
     assert.deepStrictEqual(
       [
@@ -341,7 +351,7 @@ test("lophn의 session event는 사람이 연 session만 job을 깨운다: 어�
       fire({ publisher: "lophn", event: "session.idle", session: person }),
       { fired: 2, skipped: 0 },
     );
-    const loaded = loadJob(sql, "job_01hzzzzzzzzzzzzzzzzzzzzzzd");
+    const loaded = loadJob(sql, "job_01hzzzzzzzzzzzzzzzzzzzzzzd", THIS_MACHINE);
     assert.ok(
       loaded.ok && loaded.value !== null && loaded.value.skipped_count === 0,
     );

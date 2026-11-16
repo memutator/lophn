@@ -1,4 +1,5 @@
 import type { SchemaStep } from "../../protocol/server/mod.ts";
+import { jobMachineSchemaSteps } from "./machine-schema.ts";
 import { jobsSchemaSteps } from "./schema.ts";
 import { jobTriggerSchemaSteps } from "./trigger-schema.ts";
 
@@ -6,4 +7,9 @@ import { jobTriggerSchemaSteps } from "./trigger-schema.ts";
 export const jobsTestSteps: readonly SchemaStep[] = [
   ...jobsSchemaSteps,
   ...jobTriggerSchemaSteps,
+  ...jobMachineSchemaSteps,
 ];
+
+// 테스트의 tx port에 꽂는 이 기계다. 다른 기계는 OTHER_MACHINE으로 쓴다.
+export const THIS_MACHINE = "mch_01hzzzzzzzzzzzzzzzzzzzzzza";
+export const OTHER_MACHINE = "mch_01hzzzzzzzzzzzzzzzzzzzzzzb";

@@ -12,7 +12,7 @@ import type {
   RequestContext,
   Tx,
 } from "../../protocol/server/mod.ts";
-import { jobsChanged, jobEventPolicyPort } from "./ports.ts";
+import { jobsChanged, jobEventPolicyPort, jobMachinePort } from "./ports.ts";
 import { loadJob, insertJobRun, noteFired, noteSkipped } from "./store.ts";
 
 const UNIT_MS = { m: 60_000, h: 3_600_000, d: 86_400_000 } as const;
@@ -128,21 +128,26 @@ export function createEventCommands(): {
             error: { code: "forbidden", message: "only core fires event jobs" },
           };
         }
+        const machine = tx.port(jobMachinePort).id();
+        if (!machine.ok) return machine;
         const now = tx.now();
         const lophn = input.publisher === "lophn";
-        // 이 event를 때로 가진 승인한 켜진 job. 앱 event는 앱 id로, core event는 source lophn으로 맞춘다.
+        // 이 기계의 job 가운데 이 event를 때로 가진 승인한 켜진 job. 앱 event는 앱 id로, core event는 source lophn으로 맞춘다.
         const rows = tx.sql.all(
           `SELECT id FROM jobs
             WHERE enabled = 1 AND approved_at IS NOT NULL AND trigger IS NOT NULL
+              AND machine = ?
               AND json_extract(trigger, '$.event') = ?
               AND ${lophn ? "json_extract(trigger, '$.app') IS NULL" : "json_extract(trigger, '$.app') = ?"}
             ORDER BY id`,
-          lophn ? [input.event] : [input.event, input.publisher],
+          lophn
+            ? [machine.value, input.event]
+            : [machine.value, input.event, input.publisher],
         );
         let fired = 0;
         let skipped = 0;
         for (const row of rows) {
-          const job = loadJob(tx.sql, String(row["id"]));
+          const job = loadJob(tx.sql, String(row["id"]), machine.value);
           if (!job.ok) return job;
           if (job.value === null) continue;
           // 이름(source)은 보여 주는 글이라 승인 때의 slug가 아니라 event를 낸 쪽의 이름을 싣는다.
@@ -177,11 +182,14 @@ export function createEventCommands(): {
             },
           };
         }
+        const machine = snapshot.port(jobMachinePort).id();
+        if (!machine.ok) return machine;
         const rows = snapshot.sql.all(
           `SELECT DISTINCT json_extract(trigger, '$.app') AS app, json_extract(trigger, '$.event') AS event
              FROM jobs
-            WHERE enabled = 1 AND approved_at IS NOT NULL AND trigger IS NOT NULL`,
-          [],
+            WHERE enabled = 1 AND approved_at IS NOT NULL AND trigger IS NOT NULL
+              AND machine = ?`,
+          [machine.value],
         );
         return ok({
           triggers: rows.map((row) => ({

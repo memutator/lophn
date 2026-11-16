@@ -412,6 +412,8 @@ function jobs(): JobView[] {
         prompt: "Summarize yesterday’s finished tasks and list the open questions for today.",
       },
       next_due_at: ago(-3 * 60),
+      machine: null,
+      runs_here: true,
     },
     {
       ...base,
@@ -428,6 +430,8 @@ function jobs(): JobView[] {
         prompt: "Wrap up the open work and write down where you stopped.",
       },
       next_due_at: null,
+      machine: null,
+      runs_here: true,
       last_run: { job_run: "jbr_s1", state: "done", due_at: ago(2 * 60), started_at: ago(2 * 60) },
     },
     {
@@ -439,6 +443,8 @@ function jobs(): JobView[] {
       at: "10:00",
       action: { kind: "workflow_start", project: PROJECT, workflow: "weekly-review" },
       next_due_at: ago(-4 * DAY),
+      machine: null,
+      runs_here: true,
       last_run: { job_run: "jbr_s2", state: "done", due_at: ago(3 * DAY), started_at: ago(3 * DAY) },
     },
     {
@@ -451,6 +457,8 @@ function jobs(): JobView[] {
       enabled: false,
       action: { kind: "tool_run", app: ORDERS.id, tool: "orders.export_csv" },
       next_due_at: null,
+      machine: null,
+      runs_here: true,
       last_run: { job_run: "jbr_s3", state: "done", due_at: ago(6 * DAY), started_at: ago(6 * DAY) },
     },
   ] as JobView[];

@@ -1109,6 +1109,47 @@ flows:
     refs: [J1, H9]
     docs: [architecture/job.md]
 
+  - id: job-take-over
+    title: "사람이 다른 기계에서 온 job을 이 기계로 가져온다([Run on this computer])"
+    actor: person
+    entries: [route:jobs/take_over]
+    risk: [permission]
+    boundary: [core-api, jobs]
+    code: [packages/core/jobs/commands.ts, packages/core/jobs/store.ts]
+    steps:
+      - "사람만 한다(agent는 forbidden). job이 없으면 not_found, 이미 주인이 이 기계(또는 아직 안 찍힘)면 conflict"
+      - "job의 주인을 이 기계 id로 바꾼다. 켜져 있고 승인된 주기 job은 next_due_at을 지금부터 새로 센다(다른 기계에 있던 동안은 놓친 것으로 치지 않는다). 열린 held 줄은 그대로 둔다(이제 [Start now]가 된다)"
+      - "StateChanged(jobs)를 낸다"
+    outcomes:
+      - id: taken
+        observe: [ledger:jobs, event:StateChanged, response, screen:jobs-tab-take-over]
+      - id: forbidden
+        code: forbidden
+        when: "사람(user)이 아닌 호출자"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "job이 없음"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "이미 이 기계에서 도는 job"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "이 기계의 id(machine.json)를 읽지 못함"
+        observe: [response]
+      - id: internal
+        code: internal
+        when: "저장된 job이 깨져 읽지 못함"
+        observe: [response]
+    crosses_process: false
+    declared_only: [unauthorized, invalid_input]
+    refs: [H9]
+    docs: [architecture/job.md]
+    unclear:
+      - "route가 invalid_input과 unauthorized를 선언하지만 handler는 schema 검사 밖에 내지 않는다"
+
   - id: job-list
     title: "job 목록을 읽는다(agent는 자기가 만든 것만)"
     actor: agent
@@ -1118,12 +1159,17 @@ flows:
     steps:
       - "agent session이면 creator를 찾아 같은 agent, 같은 workspace가 만든 job만 준다. 모르는 session이면 forbidden"
       - "사람(Jobs 탭)이 부르면 모든 job을 준다. id 순 50개씩 cursor로 읽는다"
+      - "주인 기계(machine)와 runs_here(주인이 null이거나 이 기계면 true)를 싣는다. 주인이 다른 job도 목록에는 보인다"
     outcomes:
       - id: ok
         observe: [response, screen:home-jobs, screen:project-window-jobs, screen:project-window-jobs-empty]
       - id: forbidden
         code: forbidden
         when: "agent session을 모름"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "이 기계의 id(machine.json)를 읽지 못함"
         observe: [response]
       - id: internal
         code: internal
@@ -1140,12 +1186,16 @@ flows:
     boundary: [core-api, jobs]
     code: [packages/core/jobs/reads.ts, packages/core/jobs/store.ts]
     steps:
-      - "job.pending은 approved_at이 없는 job을 오래된 것부터 준다"
-      - "job.holds는 held 줄을 그 job과 함께 준다"
+      - "job.pending은 이 기계의 job 가운데 approved_at이 없는 것을 오래된 것부터 준다"
+      - "job.holds는 이 기계의 job의 held 줄을 그 job과 함께 준다(주인이 다른 job은 대기 목록에 올리지 않는다)"
       - "화면은 둘을 같이 읽어 맞추고 StateChanged(jobs)를 받으면 다시 읽는다"
     outcomes:
       - id: ok
         observe: [response, screen:waiting-job-hold-kinds]
+      - id: unavailable
+        code: unavailable
+        when: "이 기계의 id(machine.json)를 읽지 못함"
+        observe: [response]
       - id: internal
         code: internal
         when: "승인 대기 job이나 held 줄이 깨져 읽지 못함(job이 없는 줄 포함)"
@@ -1187,7 +1237,7 @@ flows:
     boundary: [core-api, jobs]
     code: [packages/core/jobs/due.ts, packages/core/jobs/store.ts]
     steps:
-      - "held가 아닌 줄이면 conflict. 승인 전 job이거나 같은 job이 이미 도는 중이어도 conflict이고 줄은 held로 남는다"
+      - "held가 아닌 줄이면 conflict. 승인 전 job이거나 같은 job이 이미 도는 중이거나 주인이 이 기계가 아닌 job이어도 conflict이고 줄은 held로 남는다(Skip은 주인과 상관없이 된다)"
       - "Skip이면 줄을 skipped(person)로 닫는다"
       - "Start now면 줄을 queued로 돌려 scheduler를 깨운다. 다음 바퀴가 시작한다(job-timer)"
       - "StateChanged(jobs)를 낸다"
@@ -1198,11 +1248,15 @@ flows:
         observe: [ledger:job_runs, event:StateChanged, response]
       - id: conflict
         code: conflict
-        when: "held 줄이 아니거나, 승인 전 job이거나, 같은 job이 도는 중"
+        when: "held 줄이 아니거나, 승인 전 job이거나, 같은 job이 도는 중이거나, 주인이 이 기계가 아닌 job(\"the job belongs to another computer\")"
         observe: [response]
       - id: not_found
         code: not_found
         when: "job run이 없음"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "이 기계의 id(machine.json)를 읽지 못함"
         observe: [response]
       - id: internal
         code: internal
@@ -1221,7 +1275,8 @@ flows:
     boundary: [jobs]
     code: [packages/core/jobs/due.ts, packages/core/jobs/schedule.ts, packages/core/jobs/scheduler.ts]
     steps:
-      - "machine 자격만 받는다. 승인하고 켜진 job 가운데 next_due_at이 온 것의 차례를 본다"
+      - "machine 자격만 받는다. startup이면 맨 먼저 주인이 아직 null인 job을 이 기계로 찍는다(machine 칸이 생기기 전의 job)"
+      - "이 기계의 job 가운데 승인하고 켜진 것의 next_due_at이 온 차례를 본다. 주인이 다른 job은 차례도 놓친 차례도 만들지 않고(켤 때 닫은 줄이 있어도), 남은 queued 줄도 넘기지 않고, 다음 차례 시각에도 세지 않는다"
       - "앞 차례가 queued나 running이면 skipped(overlap). 여럿이 쌓였으면 마지막 차례를 due_at으로, 접은 수를 missed_count로 적는다"
       - "놓친 차례(startup이거나 10분 넘게 늦은 차례)가 run 정책이면 queued로 한 번만 돌리고, hold 정책이면 held 줄(card)을 남긴다. held에 또 온 차례는 같은 줄에 접는다"
       - "제때 온 차례가 돌게 되면 기다리던 held 줄은 skipped(superseded)로 닫는다"
@@ -1243,11 +1298,15 @@ flows:
         when: "queued 줄이 생기면서 기다리던 held 줄을 닫음"
         observe: [ledger:job_runs, event:StateChanged, response]
       - id: not-due
-        when: "차례가 아직 안 왔거나, job이 꺼져 있거나, 승인 전이라 줄을 만들지 않음"
+        when: "차례가 아직 안 왔거나, job이 꺼져 있거나, 승인 전이거나, 주인이 이 기계가 아니라 줄을 만들지 않음"
         observe: [response]
       - id: forbidden
         code: forbidden
         when: "machine 자격이 아님"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "이 기계의 id(machine.json)를 읽지 못함. 남의 job으로 보고 돌리지 않는다"
         observe: [response]
       - id: internal
         code: internal
@@ -1266,7 +1325,7 @@ flows:
     code: [packages/core/jobs/events.ts, packages/core/apps/events/publish.ts, packages/core/main/daemon/wiring/jobs.ts]
     steps:
       - "jobs wiring이 앱 event 전달의 안 구독자(앱이 아니고 호출 기록이 없다)로 들어간다. 앱이 낸 event와 core가 낸 `lophn`의 session.* event가 모두 온다. 승인하고 켜진 event job이 하나도 없는 (앱, event)는 바로 버리고, lophn event는 구독자가 없으면 session 한 줄도 만들지 않는다. 저장하지 않으므로 core가 꺼진 사이의 event는 job을 열지 않는다"
-      - "machine 자격의 job.fire_event가 한 tx에서 그 event를 때로 가진 승인한 켜진 job마다 판정한다. lophn session event는 job의 workspace(home이면 home)가 call 정책(mayReachWorkspace)으로 닿을 수 있고 사람이 연 session만 본다: 어느 job의 run이 연 session, run·workflow step 입력을 받은 session, 팀·call로 열린 session은 보지 않는다(고리). 앱 event는 job의 workspace가 그 앱 workspace에 닿을 때만 보고, 이 job이 부르는 앱(tool_run)이 이 event의 사슬(chain)에 있으면 보지 않는다"
+      - "machine 자격의 job.fire_event가 한 tx에서 이 기계의 job 가운데 그 event를 때로 가진 승인한 켜진 job마다 판정한다(주인이 다른 job은 보지 않는다). lophn session event는 job의 workspace(home이면 home)가 call 정책(mayReachWorkspace)으로 닿을 수 있고 사람이 연 session만 본다: 어느 job의 run이 연 session, run·workflow step 입력을 받은 session, 팀·call로 열린 session은 보지 않는다(고리). 앱 event는 job의 workspace가 그 앱 workspace에 닿을 때만 보고, 이 job이 부르는 앱(tool_run)이 이 event의 사슬(chain)에 있으면 보지 않는다"
       - "보는 event에 앞 차례가 queued·running이면 건너뛰고(busy), 마지막으로 연 때부터 최소 간격(기본 5분) 안이면 건너뛴다(too_soon). 건너뜀은 job run 줄로 쌓지 않고 job의 skipped_count와 마지막 시각·이유로 센다(event는 흔하다)"
       - "그 밖에는 event를 싣은 queued 줄을 만들고 fired_count와 마지막 시각을 고쳐 scheduler를 깨운다. 시작은 평소 차례와 같다(job-run-started). agent_run은 고정 prompt 뒤에 event를 data 블록으로 붙이고, workflow_start는 시작 글을 JSON {text, event}로 주고, tool_run은 pass_event일 때만 입력의 event 칸에 합친다"
     outcomes:
@@ -1280,11 +1339,15 @@ flows:
         when: "마지막으로 연 때에서 최소 간격 안이다. 건너뛰고 센다"
         observe: [ledger:jobs, response]
       - id: ignored
-        when: "이 job이 볼 event가 아니다: 승인 전이거나 꺼짐, 닿을 수 없는 workspace의 session이나 앱, 사람이 연 것이 아닌 session(어느 job의 run, run·workflow step·팀·call로 열림), 이 job이 부르는 앱의 사슬. 아무것도 세지 않는다"
+        when: "이 job이 볼 event가 아니다: 승인 전이거나 꺼짐이거나 주인이 이 기계가 아님, 닿을 수 없는 workspace의 session이나 앱, 사람이 연 것이 아닌 session(어느 job의 run, run·workflow step·팀·call로 열림), 이 job이 부르는 앱의 사슬. 아무것도 세지 않는다"
         observe: [response]
       - id: forbidden
         code: forbidden
         when: "machine 자격이 아님"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "이 기계의 id(machine.json)를 읽지 못함"
         observe: [response]
     crosses_process: false
     declared_only: [unauthorized, invalid_input]
@@ -1300,7 +1363,7 @@ flows:
     boundary: [jobs]
     code: [packages/core/jobs/due.ts, packages/core/jobs/scheduler.ts, packages/core/main/daemon/wiring/jobs.ts]
     steps:
-      - "wiring 순서상 runs와 workflows를 맞춘 뒤 첫 바퀴가 claim_due(startup)를 부른다"
+      - "wiring 순서상 runs와 workflows를 맞춘 뒤 첫 바퀴가 claim_due(startup)를 부른다. 이 판 이전의 job(주인 칸이 null)은 이 호출이 이 기계 것으로 찍는다"
       - "running 줄과 시작을 넘긴 queued 줄(claimed_at 있음)을 interrupted로 닫고 놓친 차례로 한 번 더 센다. workflow_start의 running 줄은 둔다(다음 바퀴가 instance 상태로 닫는다)"
       - "첫 바퀴는 run 줄의 run 상태를 읽지 않는다. runs가 끊긴 run을 이미 닫았기 때문이다"
       - "꺼진 사이 온 차례는 모두 놓친 차례다. run 정책이면 한 번 돌리고(missed_count), hold 정책이면 held card를 올린다"
@@ -1459,11 +1522,15 @@ flows:
     boundary: [jobs]
     code: [packages/core/jobs/reads.ts, packages/core/main/daemon/wiring/idle.ts]
     steps:
-      - "승인 여부와 상관없이 켜진 job이나 queued·running 줄이 있는지 표 전체를 본다"
+      - "승인 여부와 상관없이 이 기계의 켜진 job이나 이 기계의 job의 queued·running 줄이 있는지 표 전체를 본다. 주인이 다른 job은 돌지 않으니 일로 세지 않는다"
     outcomes:
       - id: busy
         observe: [response]
       - id: idle
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "이 기계의 id(machine.json)를 읽지 못함"
         observe: [response]
     crosses_process: false
     docs: [architecture/job.md, architecture/platform.md]

@@ -5,6 +5,7 @@ export const workspaceSettings = {
   "jobs.button.open-project": "Open project",
   "jobs.button.open-tab": "Open in tab",
   "jobs.button.show-history": "Show history",
+  "jobs.button.take-over": "Run on this computer",
   "jobs.empty.all": "No jobs yet.",
   "jobs.empty.list":
     "No jobs yet. Ask an agent to set one up, for example by saying “Every morning at 9, summarize what changed” or “When my usage app hits its limit, wrap up”.",
@@ -13,6 +14,7 @@ export const workspaceSettings = {
   "jobs.error.delete": "Could not delete the job.",
   "jobs.error.history": "Could not read the history.",
   "jobs.error.save": "Could not save the changes.",
+  "jobs.error.take-over": "Could not move the job to this computer.",
   "jobs.heading.delete": "Delete {title}?",
   "jobs.heading.edit": "Edit job",
   "jobs.label.action-agent": "Asks {agent}",
@@ -23,6 +25,8 @@ export const workspaceSettings = {
   "jobs.label.agent-lophn": "lophn",
   "jobs.label.agent-unnamed": "an agent",
   "jobs.label.at": "At",
+  "jobs.label.belongs-elsewhere": "Belongs to another computer",
+  "jobs.label.belongs-to": "Belongs to {name}",
   "jobs.label.created-by": "Created by {agent}",
   "jobs.label.created-by-workspace": "Created by {agent} · {workspace}",
   "jobs.label.every": "Every",
@@ -78,6 +82,8 @@ export const workspaceSettings = {
   "jobs.label.unit-minutes": "Minutes",
   "jobs.label.waiting-decision": "Waiting for your decision",
   "jobs.note.at-help": "The time of day on this computer.",
+  "jobs.note.belongs-elsewhere":
+    "It was created on another computer and does not run here.",
   "jobs.note.delete":
     "This deletes the job and its history. Anything that is running keeps going until it finishes.",
   "jobs.note.edit-readonly":

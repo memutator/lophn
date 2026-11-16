@@ -26,9 +26,10 @@ import styles from "./jobs.module.css";
 
 // 꺼짐 → 놓친 차례를 기다림 → 다음 차례 순서로 하나만 보인다.
 const stateText = (job: JobView): string =>
-  job.enabled && job.last_run?.state === "held"
+  job.runs_here && job.enabled && job.last_run?.state === "held"
     ? t("jobs.label.waiting-decision")
-    : ((job.enabled ? sourceGoneText(job) : null) ?? nextText(job, new Date()));
+    : ((job.runs_here && job.enabled ? sourceGoneText(job) : null) ??
+      nextText(job, new Date()));
 
 export function JobRows({
   project,

@@ -115,7 +115,18 @@ export function sourceGoneText(job: JobView): string | null {
     : null;
 }
 
-export function nextText(job: JobView, now: Date): string {
+/** 주인이 이 기계가 아닌 job의 글. 기계 이름을 알면 이름으로 말한다. */
+export const belongsText = (machineName: string | null): string =>
+  machineName === null
+    ? t("jobs.label.belongs-elsewhere")
+    : t("jobs.label.belongs-to", { name: machineName });
+
+export function nextText(
+  job: JobView,
+  now: Date,
+  machineName: string | null = null,
+): string {
+  if (!job.runs_here) return belongsText(machineName);
   if (job.approved_at === null) return t("jobs.label.waiting-approval");
   if (!job.enabled) return t("jobs.label.turned-off");
   if (job.trigger !== null) return eventStatsText(job, now);

@@ -13,7 +13,7 @@ import {
 import type { AgentAtWorkspace } from "../../protocol/lophn-agent/mod.ts";
 import type { ReadDefinition } from "../../protocol/server/mod.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
-import { jobEventPolicyPort, jobTargetsPort } from "./ports.ts";
+import { jobEventPolicyPort, jobMachinePort, jobTargetsPort } from "./ports.ts";
 import {
   hasActivity,
   loadHolds,
@@ -30,10 +30,11 @@ const PAGE = 50;
 function turnsOf(
   sql: Pick<Sql, "get" | "all">,
   runs: JobRunRecord[],
+  me: string,
 ): Result<JobTurn[]> {
   const turns: JobTurn[] = [];
   for (const job_run of runs) {
-    const job = loadJob(sql, job_run.job);
+    const job = loadJob(sql, job_run.job, me);
     if (!job.ok) return job;
     if (job.value === null) {
       return err({ code: "internal", message: "job run without a job" });
@@ -55,6 +56,8 @@ export function createJobReads(): {
     list: {
       route: jobList,
       handle(snapshot, ctx, input) {
+        const machine = snapshot.port(jobMachinePort).id();
+        if (!machine.ok) return machine;
         const actor = parseActor(ctx.actor);
         let creator: AgentAtWorkspace | undefined;
         if (actor?.kind === "agent") {
@@ -68,11 +71,15 @@ export function createJobReads(): {
             });
           }
         }
-        const loaded = loadJobs(snapshot.sql, {
-          ...(creator === undefined ? {} : { creator }),
-          ...(input.cursor === undefined ? {} : { after: input.cursor }),
-          limit: PAGE + 1,
-        });
+        const loaded = loadJobs(
+          snapshot.sql,
+          {
+            ...(creator === undefined ? {} : { creator }),
+            ...(input.cursor === undefined ? {} : { after: input.cursor }),
+            limit: PAGE + 1,
+          },
+          machine.value,
+        );
         if (!loaded.ok) return loaded;
         // event job의 앱이 지금 그 event를 내지 않으면 표시한다(읽을 때 선언을 한 번 본다).
         const policy = snapshot.port(jobEventPolicyPort);
@@ -95,7 +102,9 @@ export function createJobReads(): {
     runList: {
       route: jobRunList,
       handle(snapshot, _ctx, input) {
-        const job = loadJob(snapshot.sql, input.job);
+        const machine = snapshot.port(jobMachinePort).id();
+        if (!machine.ok) return machine;
+        const job = loadJob(snapshot.sql, input.job, machine.value);
         if (!job.ok) return job;
         if (job.value === null) {
           return err({ code: "not_found", message: "job not found" });
@@ -117,7 +126,9 @@ export function createJobReads(): {
     pending: {
       route: jobPending,
       handle(snapshot) {
-        const loaded = loadPendingJobs(snapshot.sql);
+        const machine = snapshot.port(jobMachinePort).id();
+        if (!machine.ok) return machine;
+        const loaded = loadPendingJobs(snapshot.sql, machine.value);
         return loaded.ok
           ? ok({
               jobs: loaded.value,
@@ -131,9 +142,11 @@ export function createJobReads(): {
     holds: {
       route: jobHolds,
       handle(snapshot) {
-        const loaded = loadHolds(snapshot.sql);
+        const machine = snapshot.port(jobMachinePort).id();
+        if (!machine.ok) return machine;
+        const loaded = loadHolds(snapshot.sql, machine.value);
         if (!loaded.ok) return loaded;
-        const holds = turnsOf(snapshot.sql, loaded.value);
+        const holds = turnsOf(snapshot.sql, loaded.value, machine.value);
         return holds.ok
           ? ok({
               holds: holds.value,
@@ -146,9 +159,11 @@ export function createJobReads(): {
     open: {
       route: jobRunOpen,
       handle(snapshot) {
+        const machine = snapshot.port(jobMachinePort).id();
+        if (!machine.ok) return machine;
         const loaded = loadOpenRuns(snapshot.sql);
         if (!loaded.ok) return loaded;
-        const open = turnsOf(snapshot.sql, loaded.value);
+        const open = turnsOf(snapshot.sql, loaded.value, machine.value);
         return open.ok
           ? ok({
               open: open.value,
@@ -161,7 +176,9 @@ export function createJobReads(): {
     activity: {
       route: jobActivity,
       handle(snapshot) {
-        const busy = hasActivity(snapshot.sql);
+        const machine = snapshot.port(jobMachinePort).id();
+        if (!machine.ok) return machine;
+        const busy = hasActivity(snapshot.sql, machine.value);
         return busy.ok
           ? ok({
               busy: busy.value,

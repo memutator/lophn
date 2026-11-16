@@ -310,5 +310,9 @@
   {
     "id": "remote.devices.kind",
     "sha256": "7efd34e9e0ef5a111f103b94ebdae116541de6f19ddbd9945ce89b61a654308f"
+  },
+  {
+    "id": "jobs.machine",
+    "sha256": "6ca2790f9dd0a664d62fb8ba28369221b66a066e1920bf1634fa912ffd49cc7e"
   }
 ]

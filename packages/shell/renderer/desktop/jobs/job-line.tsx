@@ -27,10 +27,13 @@ export interface JobLineProps {
   job: JobView;
   names: JobNames;
   history: History | undefined;
+  /** 주인 기계의 이름. 모르면 null. */
+  machineName: string | null;
   onToggle: () => void;
   onEnabled: (enabled: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
+  onTakeOver: () => void;
   onOpenSession: (session: string) => void;
   onOpenProject: (project: string) => void;
 }
@@ -39,10 +42,12 @@ export function JobLine({
   job,
   names,
   history,
+  machineName,
   onToggle,
   onEnabled,
   onEdit,
   onDelete,
+  onTakeOver,
   onOpenSession,
   onOpenProject,
 }: JobLineProps) {
@@ -58,7 +63,7 @@ export function JobLine({
         <div className={styles.main}>
           <span className={styles.title}>{job.title}</span>
           <span className={styles.line}>
-            {whenOf(job)} · {nextText(job, now)}
+            {whenOf(job)} · {nextText(job, now, machineName)}
           </span>
           <span className={styles.line}>
             <span className={styles.summary}>{action.summary}</span>
@@ -68,6 +73,11 @@ export function JobLine({
             {creatorText(job.creator, names)}
             {job.trigger === null ? ` · ${missedText(job.missed_policy)}` : ""}
           </span>
+          {job.runs_here ? null : (
+            <span className={styles.meta} data-belongs-elsewhere="">
+              {t("jobs.note.belongs-elsewhere")}
+            </span>
+          )}
           {sourceGoneText(job) === null ? null : (
             <span className={styles.meta} data-source-gone="">
               {sourceGoneText(job)}
@@ -101,6 +111,11 @@ export function JobLine({
               onCheckedChange={onEnabled}
             />
           </div>
+          {job.runs_here ? null : (
+            <Button size="sm" data-job-take-over="" onClick={onTakeOver}>
+              {t("jobs.button.take-over")}
+            </Button>
+          )}
           <Button
             size="sm"
             icon={actionIcons.edit}

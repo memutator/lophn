@@ -1,5 +1,5 @@
 // Jobs 화면의 가짜 통로. core를 부르지 않고 job을 메모리에 두며 부른 것을 기록한다.
-// 기본 값은 화면 확인용 대표 job 다섯(하나는 꺼짐)과 그 기록이다. 시각은 지금 기준 상대값이다.
+// 기본 값은 화면 확인용 대표 job 일곱(하나는 꺼짐, 둘은 다른 기계의 것)과 그 기록이다. 시각은 지금 기준 상대값이다.
 import { lophnIdOf } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import type {
   JobNames,
@@ -28,6 +28,14 @@ const PHRONER = id("prj", 2);
 const ORDERS = id("app", 1);
 const BUDGET = id("app", 2);
 
+// 이 기계와 두 다른 기계(하나는 이름을 안다).
+const THIS = id("mch", 1);
+const NAMED = id("mch", 2);
+const UNNAMED = id("mch", 3);
+const MACHINE_NAMES: Readonly<Record<string, string>> = {
+  [NAMED]: "Studio Mac",
+};
+
 const NAMES: JobNames = {
   projects: { [GROCERY]: "Grocery", [PHRONER]: "Phroner" },
   apps: { [ORDERS]: "Orders", [BUDGET]: "Budget" },
@@ -39,6 +47,8 @@ export const JOB_REVIEW = id("job", 2);
 export const JOB_ORDERS = id("job", 3);
 export const JOB_BUDGET = id("job", 4);
 export const JOB_BACKUP = id("job", 5);
+export const JOB_ELSEWHERE = id("job", 6);
+export const JOB_ELSEWHERE_NAMED = id("job", 7);
 
 const last = (
   state: JobRunState,
@@ -78,6 +88,8 @@ const JOBS: readonly JobView[] = [
     enabled: true,
     approved_at: at(-30 * DAY),
     next_due_at: null,
+    machine: THIS,
+    runs_here: true,
     last_run: last("done", -2 * HOUR, -2 * HOUR),
   },
   {
@@ -103,6 +115,8 @@ const JOBS: readonly JobView[] = [
     enabled: true,
     approved_at: at(-30 * DAY),
     next_due_at: at(3 * HOUR),
+    machine: THIS,
+    runs_here: true,
     last_run: last("done", -21 * HOUR, -21 * HOUR),
   },
   {
@@ -129,6 +143,8 @@ const JOBS: readonly JobView[] = [
     enabled: true,
     approved_at: at(-30 * DAY),
     next_due_at: at(4 * DAY),
+    machine: THIS,
+    runs_here: true,
     last_run: last("held", -2 * DAY, null),
   },
   {
@@ -151,6 +167,8 @@ const JOBS: readonly JobView[] = [
     enabled: true,
     approved_at: at(-30 * DAY),
     next_due_at: at(29 * MIN),
+    machine: THIS,
+    runs_here: true,
     last_run: last("running", -MIN, -40_000),
   },
   {
@@ -175,6 +193,8 @@ const JOBS: readonly JobView[] = [
     enabled: false,
     approved_at: at(-30 * DAY),
     next_due_at: null,
+    machine: THIS,
+    runs_here: true,
     last_run: last("failed", -9 * HOUR, -9 * HOUR),
   },
   {
@@ -194,9 +214,58 @@ const JOBS: readonly JobView[] = [
     enabled: true,
     approved_at: at(-30 * DAY),
     next_due_at: at(6 * HOUR),
+    machine: THIS,
+    runs_here: true,
     last_run: last("queued", -20_000, null),
   },
+  {
+    id: JOB_ELSEWHERE,
+    title: "Nightly photo sync",
+    creator: { agent: lophnIdOf(null), workspace: null },
+    every: "1d",
+    at: "02:00",
+    trigger: null,
+    fired_count: 0,
+    skipped_count: 0,
+    last_fired_at: null,
+    last_skipped_at: null,
+    last_skip_reason: null,
+    action: { kind: "tool_run", app: BUDGET, tool: "sync_photos" },
+    missed_policy: "run",
+    enabled: true,
+    approved_at: at(-30 * DAY),
+    next_due_at: at(5 * HOUR),
+    machine: UNNAMED,
+    runs_here: false,
+    last_run: last("done", -19 * HOUR, -19 * HOUR),
+  },
+  {
+    id: JOB_ELSEWHERE_NAMED,
+    title: "Archive the downloads folder",
+    creator: { agent: lophnIdOf(null), workspace: null },
+    every: "7d",
+    at: "04:00",
+    trigger: null,
+    fired_count: 0,
+    skipped_count: 0,
+    last_fired_at: null,
+    last_skipped_at: null,
+    last_skip_reason: null,
+    action: { kind: "tool_run", app: ORDERS, tool: "archive_downloads" },
+    missed_policy: "hold",
+    enabled: true,
+    approved_at: at(-30 * DAY),
+    next_due_at: at(2 * DAY),
+    machine: NAMED,
+    runs_here: false,
+    last_run: null,
+  },
 ];
+
+/** 주인이 이 기계가 아닌 job(이름을 아는 기계와 모르는 기계 하나씩). */
+export const ELSEWHERE_JOBS: readonly JobView[] = JOBS.filter(
+  (one) => !one.runs_here,
+);
 
 function run(
   n: number,
@@ -297,6 +366,18 @@ export function fakeJobs(options: Partial<FakeJobsOptions> = {}) {
     update(job, patch) {
       calls.push(["update", job, patch]);
       return change(job, (one) => ({ ...one, ...patch }));
+    },
+    takeOver(job) {
+      calls.push(["takeOver", job]);
+      return change(job, (one) => ({
+        ...one,
+        machine: THIS,
+        runs_here: true,
+      }));
+    },
+    machineName(machine) {
+      calls.push(["machineName", machine]);
+      return Promise.resolve(MACHINE_NAMES[machine] ?? null);
     },
     remove(job) {
       calls.push(["remove", job]);

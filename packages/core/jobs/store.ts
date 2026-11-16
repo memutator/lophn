@@ -20,25 +20,32 @@ type Write = Pick<Sql, "get" | "run">;
 function withLastRun(
   sql: Query,
   row: Record<string, unknown>,
+  me: string,
 ): Result<JobRecord> {
   const last = sql.get(
     "SELECT * FROM job_runs WHERE job = ? ORDER BY id DESC LIMIT 1",
     [row.id as string],
   );
-  if (last === undefined) return jobFromRow(row, null);
+  if (last === undefined) return jobFromRow(row, null, me);
   const lastRun = jobRunFromRow(last);
-  return lastRun.ok ? jobFromRow(row, lastRun.value) : lastRun;
+  return lastRun.ok ? jobFromRow(row, lastRun.value, me) : lastRun;
 }
 
-export function loadJob(sql: Query, id: string): Result<JobRecord | null> {
+// me는 이 기계의 id다(job의 runs_here를 채운다).
+export function loadJob(
+  sql: Query,
+  id: string,
+  me: string,
+): Result<JobRecord | null> {
   const row = sql.get("SELECT * FROM jobs WHERE id = ?", [id]);
-  return row === undefined ? ok(null) : withLastRun(sql, row);
+  return row === undefined ? ok(null) : withLastRun(sql, row, me);
 }
 
 // id 오름차순이다. cursor는 page 마지막 job id다.
 export function loadJobs(
   sql: Query,
   filter: { creator?: AgentAtWorkspace; after?: string; limit: number },
+  me: string,
 ): Result<JobRecord[]> {
   const where: string[] = [];
   const params: (string | number | null)[] = [];
@@ -58,7 +65,7 @@ export function loadJobs(
     `SELECT * FROM jobs${clause} ORDER BY id LIMIT ?`,
     params,
   )) {
-    const job = withLastRun(sql, row);
+    const job = withLastRun(sql, row, me);
     if (!job.ok) return job;
     jobs.push(job.value);
   }
@@ -78,6 +85,7 @@ export function insertJob(
     action: JobAction;
     missed_policy: MissedPolicy;
     enabled: boolean;
+    machine: string;
     created_at: string;
   },
 ): void {
@@ -85,8 +93,8 @@ export function insertJob(
   sql.run(
     `INSERT INTO jobs
       (id, title, creator_agent, creator_workspace, every, at, trigger, action, missed_policy,
-       enabled, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       enabled, machine, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       job.id,
       job.title,
@@ -100,6 +108,7 @@ export function insertJob(
       JSON.stringify(job.action),
       job.missed_policy,
       job.enabled ? 1 : 0,
+      job.machine,
       job.created_at,
       job.created_at,
     ],
@@ -146,18 +155,32 @@ export function approveJob(
   );
 }
 
-// 승인을 기다리는 job. id 순이 곧 만든 순이다.
-export function loadPendingJobs(sql: Query): Result<JobRecord[]> {
+// 이 기계에서 승인을 기다리는 job. id 순이 곧 만든 순이다.
+export function loadPendingJobs(sql: Query, me: string): Result<JobRecord[]> {
   const jobs: JobRecord[] = [];
   for (const row of sql.all(
-    "SELECT * FROM jobs WHERE approved_at IS NULL ORDER BY id",
-    [],
+    "SELECT * FROM jobs WHERE approved_at IS NULL AND machine = ? ORDER BY id",
+    [me],
   )) {
-    const job = withLastRun(sql, row);
+    const job = withLastRun(sql, row, me);
     if (!job.ok) return job;
     jobs.push(job.value);
   }
   return ok(jobs);
+}
+
+// 다른 기계로 가져온 job: 주인을 이 기계로 바꾸고 다음 차례를 지금부터 새로 센다. 사람이 고친 것이 아니라 updated_at은 건드리지 않는다.
+export function takeJob(
+  sql: Write,
+  id: string,
+  me: string,
+  nextDue: string | null,
+): void {
+  sql.run("UPDATE jobs SET machine = ?, next_due_at = ? WHERE id = ?", [
+    me,
+    nextDue,
+    id,
+  ]);
 }
 
 // 차례를 가져가는 claim이 쓴다. 사람이 고친 것이 아니라 updated_at은 건드리지 않는다.
@@ -210,9 +233,15 @@ export function loadJobRuns(
       );
 }
 
-export function loadHolds(sql: Query): Result<JobRunRecord[]> {
+// 이 기계의 job의 줄만이다.
+const OF_THIS_MACHINE = "job IN (SELECT id FROM jobs WHERE machine = ?)";
+
+export function loadHolds(sql: Query, me: string): Result<JobRunRecord[]> {
   return jobRunsOf(
-    sql.all("SELECT * FROM job_runs WHERE state = 'held' ORDER BY id", []),
+    sql.all(
+      `SELECT * FROM job_runs WHERE state = 'held' AND ${OF_THIS_MACHINE} ORDER BY id`,
+      [me],
+    ),
   );
 }
 
@@ -225,12 +254,12 @@ export function loadOpenRuns(sql: Query): Result<JobRunRecord[]> {
   );
 }
 
-// idle-exit가 보는 일. 켜진 job은 승인 여부로 다시 거르지 않는다.
-export function hasActivity(sql: Query): Result<boolean> {
+// idle-exit가 보는 일. 켜진 job은 승인 여부로 다시 거르지 않는다. 주인이 이 기계가 아닌 job은 돌지 않으니 세지 않는다.
+export function hasActivity(sql: Query, me: string): Result<boolean> {
   const row = sql.get(
-    `SELECT EXISTS (SELECT 1 FROM jobs WHERE enabled = 1)
-       OR EXISTS (SELECT 1 FROM job_runs WHERE ${OPEN_JOB_RUNS}) AS busy`,
-    [],
+    `SELECT EXISTS (SELECT 1 FROM jobs WHERE enabled = 1 AND machine = ?)
+       OR EXISTS (SELECT 1 FROM job_runs WHERE ${OPEN_JOB_RUNS} AND ${OF_THIS_MACHINE}) AS busy`,
+    [me, me],
   );
   return ok(Number(row?.["busy"] ?? 0) === 1);
 }

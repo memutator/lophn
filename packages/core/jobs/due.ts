@@ -13,7 +13,7 @@ import type {
   RequestContext,
   Tx,
 } from "../../protocol/server/mod.ts";
-import { jobHeld, jobsChanged, jobZonePort } from "./ports.ts";
+import { jobHeld, jobMachinePort, jobsChanged, jobZonePort } from "./ports.ts";
 import { jobRunFromRow } from "./rows.ts";
 import { dueTurns } from "./schedule.ts";
 import {
@@ -37,7 +37,11 @@ const notMachine = (ctx: RequestContext) =>
 // 켤 때 남은 도는 줄을 interrupted로 닫는다. workflow_start의 running 줄은 instance가 lophn 없이도 돌므로 둔다.
 // queued인데 claimed_at이 있는 줄은 started를 적었는지 알 길이 없어 action과 상관없이 닫는다.
 // 닫은 job마다 닫은 줄의 due_at 가운데 가장 큰 것을 돌려준다.
-function closeLeftovers(tx: Tx, now: string): Result<Map<string, string>> {
+function closeLeftovers(
+  tx: Tx,
+  now: string,
+  me: string,
+): Result<Map<string, string>> {
   const closed = new Map<string, string>();
   const rows = tx.sql.all(
     `SELECT * FROM job_runs
@@ -48,7 +52,7 @@ function closeLeftovers(tx: Tx, now: string): Result<Map<string, string>> {
   for (const row of rows) {
     const run = jobRunFromRow(row);
     if (!run.ok) return run;
-    const job = loadJob(tx.sql, run.value.job);
+    const job = loadJob(tx.sql, run.value.job, me);
     if (!job.ok) return job;
     if (job.value === null) continue;
     if (
@@ -113,12 +117,18 @@ function turnFor(
   closed: Map<string, string>,
   now: string,
   zone: string,
+  me: string,
 ): Result<void> {
-  const loaded = loadJob(tx.sql, id);
+  const loaded = loadJob(tx.sql, id, me);
   if (!loaded.ok) return loaded;
   const job = loaded.value;
-  // 승인 전 job은 돌지 않는다. 켤 때 닫힌 줄이 있어도 차례를 만들지 않는다.
-  if (job === null || !job.enabled || job.approved_at === null) {
+  // 승인 전 job은 돌지 않는다. 켤 때 닫힌 줄이 있어도 차례를 만들지 않는다. 주인이 이 기계가 아닌 job도 같다.
+  if (
+    job === null ||
+    !job.runs_here ||
+    !job.enabled ||
+    job.approved_at === null
+  ) {
     return ok(undefined);
   }
   // event job은 때가 없다. 켤 때 닫힌 줄이 있어도 놓친 차례를 만들지 않는다(event는 꺼진 사이를 따라잡지 않는다).
@@ -187,11 +197,15 @@ function turnFor(
 }
 
 // claimed_at이 없는 queued 줄을 한 번만 넘긴다.
-function handOut(tx: Tx, now: string): Result<JobTurn[]> {
+// 주인이 이 기계가 아닌 job의 줄은 넘기지 않는다.
+function handOut(tx: Tx, now: string, me: string): Result<JobTurn[]> {
   const start: JobTurn[] = [];
   const ids = tx.sql.all(
-    "SELECT id FROM job_runs WHERE state = 'queued' AND claimed_at IS NULL ORDER BY id",
-    [],
+    `SELECT id FROM job_runs
+     WHERE state = 'queued' AND claimed_at IS NULL
+       AND job IN (SELECT id FROM jobs WHERE machine = ?)
+     ORDER BY id`,
+    [me],
   );
   for (const row of ids) {
     tx.sql.run("UPDATE job_runs SET claimed_at = ? WHERE id = ?", [
@@ -200,7 +214,7 @@ function handOut(tx: Tx, now: string): Result<JobTurn[]> {
     ]);
     const run = loadJobRun(tx.sql, row.id as string);
     if (!run.ok) return run;
-    const job = loadJob(tx.sql, run.value!.job);
+    const job = loadJob(tx.sql, run.value!.job, me);
     if (!job.ok) return job;
     start.push({ job: job.value!, job_run: run.value! });
   }
@@ -227,9 +241,14 @@ export function createDueCommands(): {
         }
         const now = tx.now();
         const zone = tx.port(jobZonePort).zone();
+        const machine = tx.port(jobMachinePort).id();
+        if (!machine.ok) return machine;
+        const me = machine.value;
         let closed = new Map<string, string>();
         if (input.startup) {
-          const result = closeLeftovers(tx, now);
+          // 이 칸이 없던 때의 job은 새 판의 첫 기동이 이 기계 것으로 찍는다. 그 뒤 복사된 root는 원래 기계의 id를 들고 간다.
+          tx.sql.run("UPDATE jobs SET machine = ? WHERE machine IS NULL", [me]);
+          const result = closeLeftovers(tx, now, me);
           if (!result.ok) return result;
           closed = result.value;
         }
@@ -237,22 +256,22 @@ export function createDueCommands(): {
           ...tx.sql
             .all(
               `SELECT id FROM jobs
-             WHERE enabled = 1 AND approved_at IS NOT NULL
+             WHERE enabled = 1 AND approved_at IS NOT NULL AND machine = ?
                AND next_due_at IS NOT NULL AND next_due_at <= ?`,
-              [now],
+              [me, now],
             )
             .map((row) => row.id as string),
           ...closed.keys(),
         ]);
         for (const id of [...ids].sort()) {
-          const turn = turnFor(tx, id, input.startup, closed, now, zone);
+          const turn = turnFor(tx, id, input.startup, closed, now, zone, me);
           if (!turn.ok) return turn;
         }
-        const start = handOut(tx, now);
+        const start = handOut(tx, now, me);
         if (!start.ok) return start;
         const next = tx.sql.get(
-          "SELECT min(next_due_at) AS next FROM jobs WHERE enabled = 1",
-          [],
+          "SELECT min(next_due_at) AS next FROM jobs WHERE enabled = 1 AND machine = ?",
+          [me],
         );
         return ok({
           start: start.value,
@@ -314,6 +333,8 @@ export function createDueCommands(): {
     decideHold: {
       route: jobDecideHold,
       handle(tx, _ctx, input) {
+        const machine = tx.port(jobMachinePort).id();
+        if (!machine.ok) return machine;
         const current = loadJobRun(tx.sql, input.job_run);
         if (!current.ok) return current;
         if (current.value === null) {
@@ -330,8 +351,11 @@ export function createDueCommands(): {
             ended_at: tx.now(),
           });
         } else {
-          const job = loadJob(tx.sql, hold.job);
+          const job = loadJob(tx.sql, hold.job, machine.value);
           if (!job.ok) return job;
+          if (job.value?.runs_here === false) {
+            return fail("conflict", "the job belongs to another computer");
+          }
           if (job.value?.approved_at === null) {
             return fail("conflict", "the job waits for approval");
           }

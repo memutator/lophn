@@ -47,6 +47,10 @@ export const jobRecordSchema = z.object({
   enabled: z.boolean(),
   approved_at: atSchema.nullable(),
   next_due_at: atSchema.nullable(), // 꺼져 있거나 승인 전이면 null
+  // 주인 기계. 만든 기계의 id이고, 이 칸이 없던 때의 job은 새 판의 첫 claim이 찍을 때까지 null이다.
+  machine: idSchema("mch").nullable(),
+  // 읽을 때 `machine`을 이 기계 id와 비교한 것이다(null이면 true). false인 job은 차례를 만들지 않고, event로 열리지 않고, [Start now]로 돌리지 못한다.
+  runs_here: z.boolean(),
   last_run: z
     .object({
       job_run: jobRunIdSchema,
@@ -246,6 +250,26 @@ export const jobDecideHold = defineCommand({
   errors: ["invalid_input", "not_found", "unauthorized", "conflict"],
 });
 
+// 사람이 다른 기계의 job을 이 기계로 가져온다. 켜져 있고 승인된 주기 job은 지금부터 새로 센다(다른 기계에 있던 동안은 놓친 것으로 치지 않는다).
+// 열린 held 줄은 그대로 둔다(이제 [Start now]가 된다). 이미 이 기계 것이면 conflict.
+export const jobTakeOver = defineCommand({
+  resource: "jobs",
+  method: "take_over",
+  name: "job.take_over",
+  changes: [{ name: "jobs", id: (input) => input.job }],
+  input: z.strictObject(jobRef),
+  output: z.object({ job: jobRecordSchema }),
+  compare: z.strictObject({}),
+  actors: ["user"],
+  errors: [
+    "invalid_input",
+    "not_found",
+    "forbidden",
+    "unauthorized",
+    "conflict",
+  ],
+});
+
 // scheduler가 지난 차례를 job run 줄로 만들고 시작할 줄을 가져간다. startup이면 꺼져 있던 동안의 차례도 접는다.
 export const jobClaimDue = defineCommand({
   resource: "jobs",
@@ -378,6 +402,7 @@ export const JOB_ROUTES = [
   jobUpdate,
   jobApprove,
   jobDelete,
+  jobTakeOver,
   jobList,
   jobRunList,
   jobPending,

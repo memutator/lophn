@@ -9,6 +9,7 @@ import {
   jobCreate,
   jobDelete,
   type JobRecord,
+  jobTakeOver,
   type JobTrigger,
   type JobTriggerInput,
   jobUpdate,
@@ -23,6 +24,7 @@ import type {
 import {
   jobsChanged,
   jobEventPolicyPort,
+  jobMachinePort,
   jobTargetsPort,
   jobZonePort,
 } from "./ports.ts";
@@ -34,6 +36,7 @@ import {
   insertJob,
   loadJob,
   replaceJob,
+  takeJob,
 } from "./store.ts";
 
 function fail(
@@ -174,14 +177,19 @@ function resolveTrigger(
 
 // agent는 같은 agent가 같은 workspace에서 만든 job만 본다. 남의 job은 있는지도 알리지 않는다(not_found).
 // user는 어느 job이든 한다.
-function loadOwned(tx: Tx, ctx: RequestContext, id: string): Result<JobRecord> {
+function loadOwned(
+  tx: Tx,
+  ctx: RequestContext,
+  id: string,
+  machine: string,
+): Result<JobRecord> {
   const actor = parseActor(ctx.actor);
   let me: AgentAtWorkspace | undefined;
   if (actor?.kind === "agent") {
     me = tx.port(jobTargetsPort).creatorOf(actor.id as Id<"ses">);
     if (me === undefined) return fail("forbidden", "the session is not known");
   }
-  const loaded = loadJob(tx.sql, id);
+  const loaded = loadJob(tx.sql, id, machine);
   if (!loaded.ok) return loaded;
   const job = loaded.value;
   if (job === null) return fail("not_found", "job not found");
@@ -221,6 +229,7 @@ export function createJobCommands(): {
   update: CommandDefinition<typeof jobUpdate>;
   approve: CommandDefinition<typeof jobApprove>;
   remove: CommandDefinition<typeof jobDelete>;
+  takeOver: CommandDefinition<typeof jobTakeOver>;
 } {
   return {
     create: {
@@ -236,6 +245,8 @@ export function createJobCommands(): {
         if (creator === undefined) {
           return fail("forbidden", "the session is not known");
         }
+        const machine = tx.port(jobMachinePort).id();
+        if (!machine.ok) return machine;
         const at = input.at ?? null;
         // 때는 주기와 event 가운데 정확히 하나다.
         if ((input.every === undefined) === (input.trigger === undefined)) {
@@ -280,17 +291,20 @@ export function createJobCommands(): {
           // event job은 놓친 차례가 없다(저장값은 뜻이 없다).
           missed_policy: input.missed_policy ?? "run",
           enabled: input.enabled ?? true,
+          machine: machine.value,
           created_at: tx.now(),
         });
         jobsChanged(tx);
-        const job = loadJob(tx.sql, id);
+        const job = loadJob(tx.sql, id, machine.value);
         return job.ok ? ok({ job: job.value! }) : job;
       },
     },
     update: {
       route: jobUpdate,
       handle(tx, ctx, input) {
-        const owned = loadOwned(tx, ctx, input.job);
+        const machine = tx.port(jobMachinePort).id();
+        if (!machine.ok) return machine;
+        const owned = loadOwned(tx, ctx, input.job, machine.value);
         if (!owned.ok) return owned;
         const job = owned.value;
         // event job의 때(trigger)는 승인한 값이라 고치지 못한다. 주기와 시각은 주기 job의 것이다.
@@ -331,14 +345,16 @@ export function createJobCommands(): {
           updated_at: now,
         });
         jobsChanged(tx);
-        const updated = loadJob(tx.sql, job.id);
+        const updated = loadJob(tx.sql, job.id, machine.value);
         return updated.ok ? ok({ job: updated.value! }) : updated;
       },
     },
     approve: {
       route: jobApprove,
       handle(tx, _ctx, input) {
-        const loaded = loadJob(tx.sql, input.job);
+        const machine = tx.port(jobMachinePort).id();
+        if (!machine.ok) return machine;
+        const loaded = loadJob(tx.sql, input.job, machine.value);
         if (!loaded.ok) return loaded;
         const job = loaded.value;
         if (job === null) return fail("not_found", "job not found");
@@ -367,18 +383,57 @@ export function createJobCommands(): {
                 )
               : null,
         });
-        const approved = loadJob(tx.sql, job.id);
+        const approved = loadJob(tx.sql, job.id, machine.value);
         return approved.ok ? ok({ job: approved.value! }) : approved;
       },
     },
     remove: {
       route: jobDelete,
       handle(tx, ctx, input) {
-        const owned = loadOwned(tx, ctx, input.job);
+        const machine = tx.port(jobMachinePort).id();
+        if (!machine.ok) return machine;
+        const owned = loadOwned(tx, ctx, input.job, machine.value);
         if (!owned.ok) return owned;
         deleteJob(tx.sql, input.job);
         jobsChanged(tx);
         return ok({ job: input.job });
+      },
+    },
+    // 다른 기계에서 온 job을 이 기계로 가져온다. 사람만 한다(agent가 일을 이 기계로 끌어오는 길을 열지 않는다).
+    takeOver: {
+      route: jobTakeOver,
+      handle(tx, ctx, input) {
+        if (parseActor(ctx.actor)?.kind !== "user") {
+          return fail(
+            "forbidden",
+            "only the person moves a job to this computer",
+          );
+        }
+        const machine = tx.port(jobMachinePort).id();
+        if (!machine.ok) return machine;
+        const loaded = loadJob(tx.sql, input.job, machine.value);
+        if (!loaded.ok) return loaded;
+        const job = loaded.value;
+        if (job === null) return fail("not_found", "job not found");
+        if (job.runs_here) {
+          return fail("conflict", "the job already runs on this computer");
+        }
+        // 다른 기계에 있던 동안은 놓친 것으로 치지 않는다. approve와 같이 지금부터 센다.
+        const next =
+          job.enabled && job.every !== null && job.approved_at !== null
+            ? firstDue(
+                {
+                  every: job.every,
+                  at: job.at,
+                  zone: tx.port(jobZonePort).zone(),
+                },
+                tx.now(),
+              )
+            : null;
+        takeJob(tx.sql, job.id, machine.value, next);
+        jobsChanged(tx);
+        const taken = loadJob(tx.sql, job.id, machine.value);
+        return taken.ok ? ok({ job: taken.value! }) : taken;
       },
     },
   };

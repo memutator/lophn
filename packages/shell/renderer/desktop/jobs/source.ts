@@ -63,6 +63,10 @@ export interface JobView {
   /** null이면 사람의 등록 승인을 기다린다(대기 목록에서 승인한다). */
   readonly approved_at: string | null;
   readonly next_due_at: string | null;
+  /** 주인 기계의 id. 아직 찍지 않은 job은 null이다. */
+  readonly machine: string | null;
+  /** false면 다른 기계에서 온 job이라 여기서는 돌지 않는다. */
+  readonly runs_here: boolean;
   readonly last_run: {
     readonly state: JobRunState;
     readonly due_at: string;
@@ -110,4 +114,8 @@ export interface JobsSource {
   setEnabled(job: string, enabled: boolean): Promise<SourceResult<null>>;
   update(job: string, patch: JobPatch): Promise<SourceResult<null>>;
   remove(job: string): Promise<SourceResult<null>>;
+  /** 다른 기계의 job을 이 기계로 가져온다. */
+  takeOver(job: string): Promise<SourceResult<null>>;
+  /** 그 기계 id의 이름. 있고 이름을 돌려주면 "Belongs to <name>", 없거나 null이면 "Belongs to another computer"다. 기계 기록을 아는 쪽이 채운다. */
+  machineName?(machine: string): Promise<string | null>;
 }

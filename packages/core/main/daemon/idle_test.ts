@@ -14,7 +14,7 @@ import {
 } from "../../../base/mod.ts";
 import { type Sql } from "../../../protocol/server/mod.ts";
 import { jobsTestSteps } from "../../jobs/test-steps.ts";
-import { hasActivity as jobsActivity } from "../../jobs/store.ts";
+import { hasActivity as hasJobsActivity } from "../../jobs/store.ts";
 import { runsSchemaSteps } from "../../runs/schema.ts";
 import { hasActivity as runsActivity } from "../../runs/store.ts";
 import { createSql } from "../../storage/ledger/sqlite.ts";
@@ -208,6 +208,9 @@ test("일이나 client가 없이 10분이 이어질 때만 core가 스스로 끝
 });
 
 // activity read가 첫 page나 project 하나만 보면 돌던 run·instance를 끊는다. 표를 직접 만든 SQLite로 본다.
+const MACHINE = "mch_01hzzzzzzzzzzzzzzzzzzzzzza";
+const jobsActivity = (sql: Sql) => hasJobsActivity(sql, MACHINE);
+
 test("idle activity read는 다른 project의 running instance와 꺼진 job 뒤 열린 run을 본다", () => {
   const db = new DatabaseSync(":memory:");
   const activity = (read: (sql: Sql) => Result<boolean>) => {
@@ -252,10 +255,10 @@ test("idle activity read는 다른 project의 running instance와 꺼진 job 뒤
     db.exec(`
       INSERT INTO jobs
         (id, title, creator_agent, creator_workspace, every, at, action,
-         missed_policy, enabled, next_due_at, created_at, updated_at, approved_at)
+         missed_policy, enabled, next_due_at, created_at, updated_at, approved_at, machine)
       VALUES ('job_01hzzzzzzzzzzzzzzzzzzzzzza', 'off', 'lophn', NULL, '10m', NULL,
         '{"kind":"agent_run"}', 'run', 0, NULL,
-        '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z', NULL);
+        '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z', NULL, '${MACHINE}');
     `);
     assert.equal(activity(jobsActivity), false);
     db.exec(`
@@ -271,10 +274,10 @@ test("idle activity read는 다른 project의 running instance와 꺼진 job 뒤
       WHERE id = 'jbr_01hzzzzzzzzzzzzzzzzzzzzzza';
       INSERT INTO jobs
         (id, title, creator_agent, creator_workspace, every, at, action,
-         missed_policy, enabled, next_due_at, created_at, updated_at, approved_at)
+         missed_policy, enabled, next_due_at, created_at, updated_at, approved_at, machine)
       VALUES ('job_01hzzzzzzzzzzzzzzzzzzzzzzb', 'on', 'lophn', NULL, '10m', NULL,
         '{"kind":"agent_run"}', 'run', 1, NULL,
-        '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z', NULL);
+        '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z', NULL, '${MACHINE}');
     `);
     assert.equal(activity(jobsActivity), true);
 

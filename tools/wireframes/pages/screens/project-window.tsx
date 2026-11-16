@@ -618,6 +618,8 @@ const job = (
   enabled: true,
   approved_at: at(-30 * DAY),
   next_due_at: null,
+  machine: null,
+  runs_here: true,
   last_run: null,
   trigger: null,
   fired_count: 0,

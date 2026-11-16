@@ -2,10 +2,12 @@
 // jobs는 session 표와 agent·project·앱 이름 풀기를 모르므로 이 조립이 jobTargetsPort로 꽂는다.
 // reader port는 등록마다 모아 모든 read가 같이 쓰므로(같은 key를 두 곳에 두면 기동 때 던진다)
 // read를 가진 jobs/register.ts와 따로 둔다.
-import { err, ok } from "../../../../base/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
+import type { Id } from "../../../../protocol/base/mod.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
 import {
   jobEventPolicyPort,
+  jobMachinePort,
   jobTargetsPort,
   jobZonePort,
 } from "../../../jobs/ports.ts";
@@ -18,6 +20,7 @@ import { appStatusOf } from "../../../apps/lookups.ts";
 import { loadActiveDeclaration } from "../../../apps/releases/store.ts";
 import { callPolicyAt } from "../../../config/setting-declarations.ts";
 import { dataRootOf } from "../../../lophn-agent/agents/store.ts";
+import { readMachineIdSync } from "../../../machine/mod.ts";
 import {
   createSessionDirectory,
   workspaceDepsOf,
@@ -113,9 +116,26 @@ function eventPolicyOf(sql: Query): JobEventPolicy {
   };
 }
 
+// 이 기계의 id는 Worker마다 처음 한 번 읽어 둔다(복사·이름 바꾸기는 기동 때 맞춰지고 도는 동안 바뀌지 않는다). 읽지 못하면 다음에 다시 읽는다.
+function machineReader(): (sql: Query) => { id(): Result<Id<"mch">> } {
+  let known: Id<"mch"> | undefined;
+  return (sql) => ({
+    id() {
+      if (known !== undefined) return ok(known);
+      const root = dataRootOf(sql, undefined);
+      if (!root.ok) return root;
+      const read = readMachineIdSync(root.value);
+      if (read.ok) known = read.value;
+      return read;
+    },
+  });
+}
+
 export function createCoreRegistration() {
+  const machineOf = machineReader();
   return {
     ports: [
+      defineTxPort(jobMachinePort, (tx) => machineOf(tx.sql)),
       defineTxPort(jobTargetsPort, (tx) => targetsOf(tx.sql)),
       defineTxPort(jobEventPolicyPort, (tx) => eventPolicyOf(tx.sql)),
       defineTxPort(jobZonePort, () => ({
@@ -126,9 +146,11 @@ export function createCoreRegistration() {
 }
 
 export function createReaderRegistration(): ReaderRegistration {
+  const machineOf = machineReader();
   return {
     reads: [],
     ports: new Map<unknown, unknown>([
+      [jobMachinePort, snapshotPort((snapshot) => machineOf(snapshot.sql))],
       [jobTargetsPort, snapshotPort((snapshot) => targetsOf(snapshot.sql))],
       [
         jobEventPolicyPort,

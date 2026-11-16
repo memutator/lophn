@@ -26,6 +26,7 @@ export function createLedgerRegistration(
       commands.update,
       commands.approve,
       commands.remove,
+      commands.takeOver,
       due.claimDue,
       due.started,
       due.ended,

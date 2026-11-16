@@ -104,7 +104,7 @@ const list = defineCommand({
   name: "job.list",
   summary: "List the jobs you created in this workspace",
   description:
-    "List the jobs you created in this workspace: title, schedule or event trigger, action, whether it is on, the next due time (scheduled jobs), fired_count and skipped_count (event jobs) and the last run.",
+    "List the jobs you created in this workspace: title, schedule or event trigger, action, whether it is on, the next due time (scheduled jobs), fired_count and skipped_count (event jobs) and the last run. runs_here false means the job was created on another computer and does not run here; only the person can move it to this computer.",
   input: z.strictObject({}),
   effect: "read",
   routes: [jobList],

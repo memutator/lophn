@@ -203,6 +203,8 @@ function jobHold(
       enabled: true,
       approved_at: hoursAgo(24 * 30),
       next_due_at: hoursAgo(-6),
+      machine: null,
+      runs_here: true,
       last_run: {
         job_run: jid("jbr", n),
         state: "held",
@@ -301,6 +303,8 @@ export const JOB_APPROVAL_TOOL = (): { approval: JobRecord } => ({
     enabled: true,
     approved_at: null,
     next_due_at: null,
+    machine: null,
+    runs_here: true,
     last_run: null,
     created_at: ago(3),
     updated_at: ago(3),

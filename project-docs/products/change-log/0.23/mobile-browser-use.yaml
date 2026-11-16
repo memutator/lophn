@@ -1,5 +1,5 @@
 id: mobile-browser-use
-version: 0.23.65
+version: 0.23.68
 title: 컴퓨터의 agent가 사람의 폰에 뜬 앱 preview 화면을 보고 누르고 친다(phone 탭)
 modules: [packages/protocol, packages/core/host-queue, packages/core/apps, packages/core/main, packages/core/agent-workspaces, packages/cli, packages/coding-agent, packages/design, packages/sdk, packages/mobile]
 change: |

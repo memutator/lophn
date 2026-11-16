@@ -16,5 +16,5 @@ lead만 고친다. `tools/status.py mobile-coding-agents build`가 `tasks/*.md`�
 | `mobile-host-link-cleanup` | host-link | 5 | mobile-host-link-shell, mobile-coding-shell, mobile-coding-state | merged | host-link/mobile-host-link-cleanup | 5e85bdaf4 |  |
 | `mobile-terminal-device-grant` | terminal-view | 5 | mobile-terminal-core | merged | terminal-view/mobile-terminal-device-grant | 77ba62755 |  |
 | `mobile-coding-phone-screens` | coding-phone | 6 | mobile-coding-wireframes | merged | coding-phone/mobile-coding-phone-screens | 3511e9cd8 |  |
-| `mobile-terminal-phone` | terminal-view | 7 | mobile-terminal-core, mobile-terminal-shell, mobile-terminal-device-grant, mobile-coding-phone-screens | running | terminal-view/mobile-terminal-phone |  |  |
+| `mobile-terminal-phone` | terminal-view | 7 | mobile-terminal-core, mobile-terminal-shell, mobile-terminal-device-grant, mobile-coding-phone-screens | merged | terminal-view/mobile-terminal-phone | a40fc243e |  |
 | `mobile-coding-open-phone` | coding-phone | 8 | mobile-coding-open-host, mobile-terminal-phone, mobile-coding-phone-screens | todo |  |  |  |

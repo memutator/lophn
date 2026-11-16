@@ -12,7 +12,7 @@ protocol 코드는 복사하지 않는다. Metro가 `packages/protocol/remote`�
 |---|---|
 | `npm ci` | 의존성. lock대로 깐다. 판은 정확히 고정했다(`~`·`^` 없음). 새 의존을 더할 때만 `npm install` |
 | `npm run typecheck` | `tsc --noEmit`. 앱 code와 앱이 import하는 `packages/` source까지 본다 |
-| `npm test` | `node --test "src/**/*.test.ts"`. React Native를 import하지 않는 순수 logic(연결, 컴퓨터 store)만 test한다. node가 `packages/` source를 읽을 때 bare import는 root `node_modules`에서 찾으므로 root `npm install`이 되어 있어야 한다 |
+| `npm test` | `node --test "src/**/*.test.ts"`. React Native를 import하지 않는 순수 logic(앱 host, 위젯 cache, open target, 답하기, 대화·터미널 data)만 test한다. 연결과 컴퓨터 store의 test는 그 code와 같이 `packages/remote-client`에 있고 root `npm run check`가 돌린다. node가 `packages/` source를 읽을 때 bare import는 root `node_modules`에서 찾으므로 root `npm install`이 되어 있어야 한다 |
 
 폰 앱을 고쳤으면 `npm ci && npm run typecheck && npm test`를 돌린다. root `npm install`도 되어 있어야 한다(위 `npm test` 참고).
 
@@ -96,7 +96,7 @@ remote protocol 판은 2이고 하한도 2다(hello가 판 범위, 기계 id와 
 
 ## 연결
 
-`src/connection/connection.ts`가 컴퓨터마다 연결 하나를 연다(`createConnection`). QR의 주소를 같이 걸어 먼저 handshake가 서는 것을 쓰고, 끊기면 backoff로 다시 붙고, 앱이 앞으로 오면 바로 붙거나 열린 연결을 `watch`로 확인한다. 붙을 때마다 마지막 `watch`를 다시 보낸다. 모양은 desktop의 `CoreSource`(상태 `starting`·`ready`·`stale`)다.
+연결 조각(연결, 컴퓨터 store `createComputers`, pairing text 읽기와 pair, unpair)은 폰과 desktop이 같이 쓰는 `packages/remote-client`(`@lophn/remote-client`)에 있고 폰은 상대 path로 읽는다. 폰만의 것(컴퓨터의 `request`에 답하기, SecureStore, 화면 칸, sample 컴퓨터)은 여기 남는다. `createConnection`이 컴퓨터마다 연결 하나를 연다. QR의 주소를 같이 걸어 먼저 handshake가 서는 것을 쓰고, 끊기면 backoff로 다시 붙고, 앱이 앞으로 오면 바로 붙거나 열린 연결을 `watch`로 확인한다. 붙을 때마다 마지막 `watch`를 다시 보낸다. 모양은 desktop의 `CoreSource`(상태 `starting`·`ready`·`stale`)다.
 
 QR에 relay 주소(`relay`)가 있으면 컴퓨터 기록에 저장하고, 주소들과 같이 `<relay>/v1/phone?key=<core key>`도 건다. relay는 바이트만 넘기므로 handshake는 같고, 먼저 서는 길을 쓴다. relay가 생기기 전에 pairing한 폰은 relay를 모르므로 한 번 다시 pairing한다.
 

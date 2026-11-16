@@ -48,6 +48,7 @@ DetachedItem { tab, bounds }
 - `floats`의 배열 순서가 위아래 순서다(마지막이 맨 위). 고정(pinned)한 float은 늘 뒤쪽(위)에 모인다. `detached`의 순서는 뗀 순서이고 `bounds`는 OS 화면 좌표다.
 - 탭의 상태는 탭 줄(docked), 펴진 float, 접힌 float(minimized), detached 넷이다. 접힌 float은 mount하지 않고(keep kind도) title bar 오른쪽 칸의 아이콘으로 있다. 아이콘을 누르면 펴서 맨 위로 온다. 펴진 float의 아이콘은 눌린 모양이다.
 - 접힘은 float에서만 간다. 접혀도 `rect`는 접기 전 값을 지킨다.
+- 다른 기계의 창(`remote.md`의 "desktop에서 다른 기계 보기")은 layout을 저장하지 않는다. 그 창의 layout은 창이 사는 동안 메모리에만 있어 workspace를 오가거나 Settings에 갔다 와도 탭이 남고, 창을 닫았다 다시 열면 Home이다. 그 창에는 detached 탭이 없다. 이유: layout file이 기계 안 id(workspace, session)에 묶이고 detached 창까지 다른 기계에 묶는 일이 따라온다.
 - `transient` 탭(popup처럼 잠깐 뜬 패널)은 저장하지 않는다. Dock하면 사람이 고른 것이라 저장한다.
 - Agent 탭(lophn session, 첫 말 전의 "New session" 탭 포함)은 저장하지 않는다. 탭 줄, group, float, detached, 전역 float 어디에 있든 같다. 이 창이 사는 동안은 workspace·desk를 오가도 그대로이고(아래 "저장"의 창 메모리) 앱을 다시 켜거나 창을 다시 열면 없다. session은 core에 그대로 있어 sidebar의 Recent나 Main 묶음(도는·못 본 session)에서 다시 연다. 다른 탭 kind(터미널의 coding agent TUI, browser, 파일, 앱 화면, artifact 등)는 그대로 저장한다.
 - 파일 아닌 탭 중에는 한 desk에 하나인 고정 key 탭이 있다: project settings(key `project-settings`, project 창에 하나), app details(`app-detail`, 앱 workspace에 하나), jobs(`jobs`), inbox(`inbox`, 둘은 어느 workspace든 desk마다 하나). 모두 Detach하지 않는다. layout 파일에는 kind와 key만 남고 내용은 그릴 때 읽는다. Jobs는 Settings 항목이 아니라 overlay, 탭, 오른쪽 panel로 본다.

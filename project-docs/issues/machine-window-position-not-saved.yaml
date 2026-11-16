@@ -1,0 +1,13 @@
+id: machine-window-position-not-saved
+title: 다른 기계의 창은 자리와 크기를 저장하지 않아 열 때마다 이 컴퓨터의 마지막 창 자리에 뜬다
+kind: bug
+status: open
+topic: remote
+modules: [packages/shell/main]
+now: |
+  `packages/shell/main/desktop/wiring/machine-windows.ts`의 `openMachine`은 `restoredWorkspace(ctx)`(이 컴퓨터의 마지막 desktop 창 자리)로 창을 열고 `revealRestored`만 부른다. 이 컴퓨터의 창이 쓰는 `rememberWorkspace`(옮기기·크기·최대화 저장)를 걸지 않아 다른 기계의 창을 옮기거나 키워도 남지 않는다. 그 창을 닫았다 열거나 앱을 다시 켜면 이 컴퓨터 창의 자리에 겹쳐 뜬다.
+impact: |
+  사람이 보는 동작: 두 기계의 창을 나란히 두고 쓰는 사람이 열 때마다 다른 기계의 창을 다시 옮기고 크기를 맞춰야 한다. 두 창이 같은 자리에 겹쳐 떠 새 창이 열린 줄 모르기도 한다.
+fix: |
+  - (작음, 추천) shell data의 기계 목록 file(`viewer/machines.json`)에 기계마다 마지막 창 자리를 두고 `rememberWorkspace`와 같은 규칙(최소화·전체 화면은 저장하지 않는다)으로 쓴다. 잃는 것: 없음. layout은 그대로 저장하지 않는다.
+  - (작음) 이 컴퓨터 창과 같은 자리 file 하나를 같이 쓰되 다른 기계의 창은 CASCADE만큼 비켜 연다. 잃는 것: 기계마다의 자리.

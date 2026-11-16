@@ -1,6 +1,6 @@
 # remote
 
-폰 앱이다. pairing한 폰이 컴퓨터의 core에 붙어 lophn agent의 session 목록을 보고, 대화를 읽고 보내고 멈추고, 승인과 질문에 답하고, job을 켜고 끄고, project의 file을 읽는다. 컴퓨터의 desktop 앱에서 도는 coding agent(Claude Code, Codex, OpenCode, omp)의 대화도 같은 화면으로 보고 답하고 새로 열고, 그 터미널 화면을 보고 허락받은 기기는 친다. 폰 화면은 폰 앱(`mobile`)의 native React Native 화면이고 폰 UI kit(`@lophn/ui-native`, `ui-kit.md`)으로 짓는다. lophn 자신의 화면은 컴퓨터가 내려주지 않는다. 컴퓨터에서 도는 사용자 앱의 폰 화면(앱의 agent가 kit으로 쓴 React Native)만 컴퓨터가 bundle로 내려주고 폰 앱 안의 격리된 runtime(guest)에서 돈다(`phone-screen.md`). 컴퓨터가 폰에 묻는 길(`request`·`response` frame, 앱 backend가 폰의 위치를 읽는 첫 기능)과 폰의 홈 화면(위젯, 아이콘, open target. `phone-home-screen.md`)도 여기서 이어진다. 연결(listener, Noise, pairing)은 `platform.md`의 "폰이 붙는 listener", 기기 자격과 route 목록은 `approval.md`의 "폰(기기) 자격", 기기에 가는 event는 `event.md`가 맡는다. 컴퓨터의 기계 id와 이름, 복제 판정은 `machine.md`다. 같은 연결로 다른 기계의 lophn desktop도 kind `desktop` 기기로 붙을 수 있다(아래 "기기 kind". desktop 쪽 client는 아직 없다).
+폰 앱이다. pairing한 폰이 컴퓨터의 core에 붙어 lophn agent의 session 목록을 보고, 대화를 읽고 보내고 멈추고, 승인과 질문에 답하고, job을 켜고 끄고, project의 file을 읽는다. 컴퓨터의 desktop 앱에서 도는 coding agent(Claude Code, Codex, OpenCode, omp)의 대화도 같은 화면으로 보고 답하고 새로 열고, 그 터미널 화면을 보고 허락받은 기기는 친다. 폰 화면은 폰 앱(`mobile`)의 native React Native 화면이고 폰 UI kit(`@lophn/ui-native`, `ui-kit.md`)으로 짓는다. lophn 자신의 화면은 컴퓨터가 내려주지 않는다. 컴퓨터에서 도는 사용자 앱의 폰 화면(앱의 agent가 kit으로 쓴 React Native)만 컴퓨터가 bundle로 내려주고 폰 앱 안의 격리된 runtime(guest)에서 돈다(`phone-screen.md`). 컴퓨터가 폰에 묻는 길(`request`·`response` frame, 앱 backend가 폰의 위치를 읽는 첫 기능)과 폰의 홈 화면(위젯, 아이콘, open target. `phone-home-screen.md`)도 여기서 이어진다. 연결(listener, Noise, pairing)은 `platform.md`의 "폰이 붙는 listener", 기기 자격과 route 목록은 `approval.md`의 "폰(기기) 자격", 기기에 가는 event는 `event.md`가 맡는다. 컴퓨터의 기계 id와 이름, 복제 판정은 `machine.md`다. 같은 연결로 다른 기계의 lophn desktop도 kind `desktop` 기기로 붙어 그 기계의 lophn을 그 기계의 창으로 본다(아래 "desktop에서 다른 기계 보기").
 
 ## 문제
 
@@ -64,14 +64,38 @@ data 층: 컴퓨터 store → event client, Inbox store, 대화 source (desktop�
 - **첨부.** 대화의 Add sheet는 Photos(Android 시스템 사진 선택기라 권한이 없다)와 Camera(권한을 묻고, 거절하면 이유와 설정으로 가는 길을 보인다)를 준다. 사진은 JPEG로 다시 인코딩해 보낸다. PNG, JPEG, GIF, WebP만이고 한 장 5 MiB까지다. 올릴 때는 desktop composer가 붙여 넣은 그림을 올리는 길 그대로 `message-images/upload`(바이트는 `call` 안 base64)를 부르고 받은 blob을 message의 image block에 싣는다. 사진만 있는 message도 보낼 수 있다. 컴퓨터가 offline이면 첨부를 잠근다. desktop은 컴퓨터의 path로 아무 file이나 붙이지만 폰의 file에는 컴퓨터의 path가 없어 그림만이다.
 - **bytes.** frame은 JSON뿐이다. upload route는 `{input, base64}`로 보내고 file route의 답은 `{content_type, base64}`로 받는다. 한 file 8 MiB, frame 16 MiB 안이다.
 - **폰 앱 package.** `mobile`은 root npm workspace 밖의 Expo project(SDK 58, dev build)다. Metro가 protocol, design(kit, i18n), desktop의 순수 logic file을 source로 읽고, 그 안의 bare import(zod, `@noble/*`)는 폰 앱의 `node_modules`에서 푼다. 연결(handshake, frame)은 좁은 입구 `@lophn/protocol/remote/client`로 쓴다. 명령과 개발 build는 그 package의 README에 있다.
+- **연결 조각의 자리.** 연결(주소 경주, 재연결, dial, 자격 전 기계 id 확인), 기계 목록 store, pairing text 읽기와 pair, unpair는 폰과 desktop이 같이 쓰는 package `remote-client`(`@lophn/remote-client`)에 있다. protocol과 base만 import하고 `node:`도 React Native도 import하지 않아 Metro와 shell main이 같은 source를 읽는다. 폰만의 것(컴퓨터의 `request`에 답하기, 보안 저장소, 화면 칸, sample 컴퓨터)은 폰에 남는다. 한 연결이 한 번에 여는 call은 8개까지이고 나머지는 앞의 답을 기다린다: core는 한 caller의 read를 8개 넘게 줄 세우지 않고 다음 것을 `unavailable`로 답하는데, desktop 창 하나가 workspace를 열 때 그보다 많이 묻는다.
 - **개발.** `npm run dev:remote`는 개발 core(`.dev-data`)의 remote를 켜고(port 47432, 사람의 lophn과 겹치지 않게, relay는 비운다) pairing text(QR에 싣는 JSON)를 찍는다. 폰이나 emulator의 "Enter a pairing code instead" 칸에 붙여 넣는다. code는 5분, 한 번이다.
+
+### desktop에서 다른 기계 보기
+
+desktop 앱이 다른 기계의 core에 kind `desktop` 기기로 pairing해 그 기계의 session, 대화, 승인과 질문, Inbox, job 켜고 끄기를 그 기계의 창에서 본다. 권한은 폰과 같다. 다른 기계의 관리(설정, secret, provider, 거기서의 기기 등록)는 없고 각 기계의 처음 설정은 그 기계의 화면에서 한다.
+
+```
+이 컴퓨터의 창 ─┐                    ┌─ 이 컴퓨터의 core (사람 자격)
+                ├─ shell main ───────┤
+<기계> 창 ──────┘  (보낸 창으로 기계를 고른다)
+                                     └─ <기계>의 core (Noise 연결, 기기 자격. 기계마다 하나)
+```
+
+- **연결은 shell main이 든다.** renderer CSP는 `connect-src 'self'`라 창이 다른 기계에 직접 붙지 못한다. shell main이 짝지은 기계마다 연결 하나를 앱이 도는 동안 들고(폰과 같다), 꺼진 기계는 backoff로 다시 붙으며 어느 창도 막지 않는다. 기계 목록의 online, 길(direct, relay), 마지막으로 본 때가 그 연결에서 온다. 목록은 main이 통째로 밀고 renderer가 한 번에 바꾼다(`MachineList`). 기계 사이의 session 목록 합치기는 없다.
+- **기기 key와 목록.** desktop의 기기 key와 짝지은 기계 목록은 shell data의 `viewer/key.json`(`{machine, secret_key}`)과 `viewer/machines.json`(`{machine, computers, start, last, seen}`)이다. 둘 다 0600이고 temp에 쓰고 rename한다. `machine`은 만든 기계의 id다. 이 기계의 id와 다르면(복사된 data root) 둘 다 버리고 새로 시작하고, 못 읽는 file은 덮지 않고 기계 보기를 끈 채(`unreadable`) 오류를 보인다. ledger 밖이라 recovery 복구본, 내보내기, 폴더 어디에도 실리지 않는다. OS keyring은 쓰지 않는다: core의 host key가 이미 같은 보호(0600 평문)이고 keyring 없는 Linux에서 실패 갈래만 는다.
+- **pairing.** 이 컴퓨터 창의 Settings › Remote "Computers you view"에 다른 기계가 "Show as text"로 보인 글을 붙여 넣는다. 카메라 길은 없다. hello의 기계 id가 이 기계의 것이면 `pair`를 보내지 않고 거절한다(자기 자신). desktop은 hello `name`으로 이 기계의 이름(`machine/status`)을, `capabilities`로 빈 목록을 보내고 `pair`는 kind `desktop`과 OS다. 이 기계의 이름을 바꾸면 main이 `machine/rename`의 답을 보고 연결을 모두 다시 열어 보는 기계들이 새 hello로 바로 새 이름을 받는다(event가 따르지 않는 바뀜이라 답을 본다). 다른 기계 쪽 기기 줄은 "Desktop · <OS>"다.
+- **기계마다 창 하나.** 한 창은 사는 동안 한 기계만 본다. 기계를 고르면 그 기계의 창을 열거나 앞으로 가져온다. renderer가 창마다 core 하나를 module 수준에서 잡고 source를 그 위에 짓기 때문이다. 다른 기계의 창은 이 컴퓨터 창과 같은 desktop 주소를 여는데 따로 preload(core, 기계 목록, overlay, 창 단추, 단축키, 외부 링크만)를 받는다. 기계는 주소가 아니라 main이 창을 열 때 묶은 표가 정한다: 그 창이 보낸 `shell:core-call|core-watch|core-state-get`은 그 기계의 연결로 가고 이 컴퓨터의 core에 닿지 않는다. 그 밖의 IPC는 모든 handler 앞의 guard 한 곳이 허락 목록(`shell:machines-list|open|this-window|visible`, 창 단추, 외부 링크)만 넘기고 나머지를 `forbidden`으로 답한다. renderer는 기계를 주장하지 못한다. OS 창 제목은 "<보이는 이름> — lophn"이다.
+- **이 컴퓨터의 일은 이 컴퓨터의 창으로.** 다른 기계의 창은 이 컴퓨터의 창 목록에 들지 않아 이 컴퓨터의 알림, presence, surface, 전역 키, agent가 여는 창이 그 창을 보지 않는다. 이 컴퓨터의 알림을 누르면 이 컴퓨터의 창이 열리거나 앞으로 온다(다른 기계의 창만 열려 있어도). 다른 기계의 창이 앞에 있거나 보이는 session이 바뀌면 shell main이 그 기계에 기기 자격으로 `presence/report`를 보낸다(`attention.md`).
+- **다른 기계의 창의 화면.** renderer는 시작 때 이 창의 기계를 한 번 묻고(`thisWindow()`. 이 컴퓨터 창은 null), 다른 기계면 이 컴퓨터의 shell host가 필요하거나 기기가 부를 수 없는 source(Settings, provider, 빠른 실행의 core 쓰기, App details 관리, 편집기, 터미널, 로그인)를 짓지 않고 기계 context로 단추를 감춘다. 끄는 것: 터미널과 coding agent의 터미널·GUI, 편집기·file tree·file 열기, 지침·memory 편집, secret 창, browser·artifact 탭, agent가 여는 탭, 앱 화면·앱 panel·앱 창, detached 탭, Settings, provider 설정, agent·앱·project·job 만들기와 고치기, extension, thread bookmark, 그 기계의 OS 알림, session 지우기, 권한 mode. 탭 kind가 `thisComputerOnly`를 선언하고, 그런 탭이 저장된 링크, 검색 결과, 대화 안 file 링크로 열리면 본문 대신 "This opens only on <이름>"이 선다. Settings 자리는 "<이름>'s settings are changed on <이름>"과 [Open this computer]뿐이다. layout(탭, desk)은 창이 사는 동안 메모리에만 있어 다시 열면 Home이다(`workspace-layout.md`).
+- **다른 기계의 앱 화면은 띄우지 않는다.** 앱 panel, 앱 창, 앱 view는 다른 기계의 창에 없다. 미룬 것이 아니라 하지 않는 것이다: 다른 기계에서 필요한 것은 session, 대화, 승인이고, 앱은 그 기계나 폰에서 쓰거나 sync 앱이면 이 기계의 사본을 쓴다.
+- **기계 고르기와 gate.** title bar 왼쪽의 기계 고르기가 이 컴퓨터를 맨 위에, 짝지은 기계를 보이는 이름(별명 ?? 알린 이름), 상태, 길이나 마지막으로 본 때와 함께 보인다. 짝지은 기계가 없으면 그리지 않아 한 대만 쓰는 사람의 화면은 그대로다. 한 번도 붙지 않은 창은 창 전체 gate("Connecting to <이름>…", "<이름> is offline"과 마지막으로 본 때, [Try again]·[This computer])이고, 한 번 붙은 뒤의 끊김은 마지막 화면 위의 한 줄이며 다시 붙으면 사라진다. 그 기계가 이 desktop을 지우면(`credential_revoked`) 어느 화면이든 removed gate다.
+- **시작 기계.** 창이 하나도 없을 때 여는 길(시작, tray Open, 두 번째 실행)은 시작 기계를 연다: 고른 기계, 아니면 마지막에 쓴 기계(연결된 채 focus를 받은 마지막 창의 기계), 그것이 목록에 없으면 이 컴퓨터다. 시작 기계는 core를 기다리지 않고 저장된 목록에서 고르고, 꺼져 있어도 그 창을 바로 연다(offline gate). 나중에 표지가 달라 저장이 버려지면 그 창은 닫히고 이 컴퓨터의 창이 열린다.
+- **읽음은 host에.** 다 본 session의 표시(`unseen/list|dismiss`)는 기기 route다. 보는 것이 읽음을 만들고 읽음은 그 기계에 있어 어느 기기에서 봐도 같이 꺼진다. 폰도 같이 받는다.
+- **두 기기가 한 session에 쓸 때.** 보내기는 그 화면이 아는 마지막 사람 메시지(`seen`)를 싣고, 그 뒤에 다른 사람 메시지가 있으면 core가 같은 transaction에서 거절한다(`acp.md`). 꺼진 기계에 맡겨 두는 queue는 없다: 연결이 없으면 보내기는 `unavailable`이고 쓴 글은 입력칸에 남는다.
 
 ## 지키는 것
 
-1. 폰이 부르는 route는 모두 기기 route 목록 안이다. 화면이 목록 밖 route를 부르는 단추를 보이지 않는다(skip 바꾸기, session 지우기, 설정·secret 화면, job 만들기·고치기·거절).
+1. 폰과 다른 기계의 창이 부르는 route는 모두 기기 route 목록 안이다. 화면이 목록 밖 route를 부르는 단추를 보이지 않는다(skip 바꾸기, session 지우기, 설정·secret 화면, job 만들기·고치기·거절).
 2. desktop 화면의 동작과 모양은 폰 때문에 바뀌지 않는다. desktop 화면에 폰을 위한 분기(prop, host member)가 없고, 폰은 desktop의 DOM·Electron 화면 file을 import하지 않는다. 폰이 가져오는 것은 순수 logic뿐이다.
 3. 화면은 연결과 key를 직접 만지지 않는다. data 층의 읽기 hook만 쓴다.
-4. 기기 key는 폰의 보안 저장소에만 있다.
+4. 기기 key는 폰의 보안 저장소에만, desktop은 shell data의 `viewer/key.json`(0600, shell main만 읽고 쓴다)에만 있다. desktop의 file은 찍힌 기계 id가 이 기계와 다르면 쓰지 않고 버리며, 못 읽는 file은 덮지 않는다. 어느 내보내기에도 실리지 않는다.
 5. 틀린 `watch` 조건은 보내지 않는다. 연결이 닫힌 뒤에는(사람이 끊은 것이 아니면) 다시 붙는다.
 6. 폰이 컴퓨터를 지우면 그 폰의 기록이 지워지고 컴퓨터에 닿으면 컴퓨터의 등록도 지워진다. 닿지 않아도 같은 컴퓨터와 다시 pairing할 수 있다.
 7. 폰 화면의 문구는 `@lophn/i18n`의 key다. 폰에만 있는 문장만 `mobile.`로 시작하는 새 key다.
@@ -91,6 +115,7 @@ data 층: 컴퓨터 store → event client, Inbox store, 대화 source (desktop�
 21. kind로 가르는 것은 phone 장치(기준, `shell.devices`, push token, phone 탭의 preview view, presence의 폰 규칙)뿐이다. desktop 기기는 기준이 되지 못하고 push token을 두지 못하며(표 CHECK도 막는다), 그 밖의 권한은 폰과 같다.
 22. 연결은 기기의 알린 이름만 고치고 사람이 붙인 별명은 고치지 않는다(migration이 지킨 별명의 예외 하나는 `machine.md`). 폰 쪽도 같다.
 23. remote key에 찍힌 기계 id가 지금 id와 다르면 그 key와 기기 등록을 쓰지 않는다. 등록을 먼저 버리고 key를 지우므로 중간에 죽어도 다음 기동이 같은 판정을 다시 한다. 못 읽는 key file은 덮지 않는다.
+24. 다른 기계의 창이 보낸 IPC는 main이 그 창(webContents)으로 기계를 정한다. core 통로는 그 기계의 연결로만 가고, 허락 목록 밖의 channel은 어느 handler보다 먼저 `forbidden`이다. 이 컴퓨터의 알림, presence, 전역 키, agent가 여는 창은 다른 기계의 창을 쓰지 않는다.
 
 ## 경계와 계약
 
@@ -104,6 +129,7 @@ data 층: 컴퓨터 store → event client, Inbox store, 대화 source (desktop�
 - 기기 표: ledger 표 `devices`(schema step `remote.devices.kind`가 kind, 넓힌 os, phone만의 화면 칸, `alias`, `name_announced_at`을 표 다시 만들기 한 번으로 더했다. 옛 행은 phone이고 옛 이름은 `name`과 `alias` 둘로 갔다). route `devices/list`(출력에 `kind`, 보이는 `name`, `announced_name`, `alias`, phone만의 화면 칸), `devices/rename {id, name | null}`(별명. null이면 지운다), core 안 machine 자격만 부르는 `devices/register`(kind로 갈린 입력과 hello의 이름), `devices/connected {id, name}`, `devices/forget_all`.
 - remote key: `<data root>/remote/host-key.json`의 `machine`(만든 기계 id). data step `remote.host-key.machine`(remote wiring)이 이 판 전의 key에 찍는다.
 - 폰의 보안 저장소: 컴퓨터 목록의 `machine`, `announced`, `name`(별명), 폰 이름 `phone-name`.
+- 다른 기계 보기: package `@lophn/remote-client`(boundary `remote-client`, 계약 desktop-remote README의 1), shell data `viewer/key.json`·`viewer/machines.json`, renderer가 읽는 `MachineList`(`{state: starting|ready|unreadable, this, machines[{id, name, announced, alias, status: connecting|connected|offline|removed, path, last_seen_at}], start: {mode: last} | {mode: machine, machine}, last}`, id는 모두 `mch_`), preload bridge `lophnMachines`와 IPC `shell:machines-list|changed|pair|remove|rename|start|open|this-window|visible`, 따로 preload `preload-remote`. 기기 route `unseen/list|dismiss`.
 - 앱 안의 길: place union 하나. 화면은 `open(place)`, `back()`, sidebar 열기, 컴퓨터 고르기만 부른다.
 
 ## 결정
@@ -143,6 +169,16 @@ data 층: 컴퓨터 store → event client, Inbox store, 대화 source (desktop�
 - 복사된 data root는 기기 등록을 이어받지 않는다. remote key에 만든 기계의 id를 찍고 기동 때 대조해 다르면 등록을 모두 버리고 key를 새로 만든다. 이유: 그 등록과 push token은 다른 기계가 pairing한 것이고, 같은 key 둘은 붙는 쪽을 헷갈리게 한다. 복제가 들고 온 provider key와 secret은 사람이 스스로 복사한 것이라 지우지 않는다. (planner)
 - 폰을 깨우지 않는다(planner). 앱이 앞에 없으면 `unavailable`이고 문장이 agent에게 사람에게 부탁하라고 말한다. 이유: 폰 화면을 다루는 것은 사람이 폰을 들고 있을 때의 확인이고, 컴퓨터가 폰을 깨우거나 앞으로 부르면 사람이 모르는 사이에 폰이 움직인다.
 
+- desktop이 다른 기계를 kind desktop 기기로 본다. 기기 권한은 폰과 같고 desktop 때문에 관리 route를 넣지 않는다. 더하는 route는 `unseen/list|dismiss` 둘이다. (사람·planner, 2026-11-16)
+- 다른 기계의 앱 화면은 띄우지 않는다. 미룬 것이 아니라 하지 않는 것이다. (사람, 2026-11-16)
+- 한 창은 한 기계이고 기계마다 창이 하나다. 연결은 shell main이 들고 창은 지금의 `lophnCore` 통로를 그대로 쓰며 main이 보낸 창으로 기계를 가른다. 버린 안: 한 창에서 기계를 바꾸기(renderer가 창마다 core 하나를 module 수준에서 잡고 layout이 기계 안 id에 묶인다), renderer가 기계를 직접 부르기(CSP, 기기 key가 renderer에 온다). (planner)
+- 다른 기계의 창은 따로 preload를 받고 main이 그 밖 IPC를 한 곳에서 거절한다. renderer는 bridge가 없을 때의 길로 기능을 감춘다. 이유: 거절이 handler마다 흩어지면 하나를 빠뜨린다. (planner)
+- 다른 기계 창의 layout은 저장하지 않는다. 이유: layout file이 기계 안 id에 묶이고 detached 창까지 다른 기계에 묶는 일이 따라온다. (planner)
+- desktop의 기기 key는 OS keyring이 아니라 shell data의 0600 file에 기계 표지와 같이 둔다. (planner)
+- 붙여 넣기 pairing만 둔다. 카메라 길은 없다. (planner)
+- 연결 조각을 폰과 desktop이 같이 쓰는 package로 옮겼다. 이 package 밖에서 Noise 연결을 새로 짜지 않는다. protocol은 구현을 두지 않아서 따로 둔다. (planner)
+- 한 연결의 call 수를 client가 8로 막는다. 이유: core의 read 줄이 caller마다 8이라 desktop 창이 workspace를 열 때의 묶음이 "Couldn't load"로 깨졌다. 버린 안: core의 한도를 늘리기(같은 한도가 이 컴퓨터의 창에도 걸려 따로 본다, 이슈 `reader-queue-refuses-window-burst`). (agent)
+
 ## 열린 것
 
 폰의 preview 화면 다루기(drive)는 emulator의 release build와 개발 core(fake model)로만 보았다. 실제 폰, 실제 model의 agent turn, iOS는 보지 못했다(change-log `mobile-browser-use`).
@@ -153,6 +189,8 @@ data 층: 컴퓨터 store → event client, Inbox store, 대화 source (desktop�
 
 폰의 coding agent와 터미널은 실제 desktop 앱(Electron)에 붙여 보지 못했다. 폰 화면은 emulator에서 개발용 가짜 coding host(change-log `mobile-coding-agents`)를 붙인 개발 core로만 보았다: 컴퓨터를 깨우는 데 성공하는 경우, 지난 session을 실제로 되살리는 경우, 열기의 `conflict`·`unavailable` 거절, 실제 coding agent의 대화는 보지 못했고 실제 폰도 쓰지 않았다(change-log `mobile-coding-agents`). sample 컴퓨터에는 터미널 화면의 답이 없어 View terminal이 "Waiting for the terminal’s screen…"에 머문다(이슈 `phone-sample-terminal-screen-missing`). 폭 2칸 글자(CJK, emoji)의 간격은 시스템 fallback 글꼴이 1em이라는 가정이다(이슈 `phone-terminal-wide-glyph-spacing`).
 
-판이 다른 붙는 쪽에게 어느 쪽을 올릴지 보이는 화면이 없다. 판 2 폰은 판이 어긋나면 pairing에서 Cannot reach, 연결에서 offline으로 보이고, 저장한 기계 id와 다른 컴퓨터가 답해도 offline과 같아 보인다. 판 1 옛 폰 build는 core가 모양 밖 frame으로 닫아 log에도 판 어긋남이 남지 않는다. 이 판 전에 pairing해 아직 기계 id가 없는 항목은 같은 기계의 다른 항목과 다시 pairing할 때까지 접히지 않는다. desktop이 kind desktop 기기로 붙는 client는 아직 없다(core가 받을 수만 있다).
+판이 다른 붙는 쪽에게 어느 쪽을 올릴지 보이는 화면이 없다. 판 2 폰은 판이 어긋나면 pairing에서 Cannot reach, 연결에서 offline으로 보이고, 저장한 기계 id와 다른 컴퓨터가 답해도 offline과 같아 보인다. 판 1 옛 폰 build는 core가 모양 밖 frame으로 닫아 log에도 판 어긋남이 남지 않는다. 이 판 전에 pairing해 아직 기계 id가 없는 항목은 같은 기계의 다른 항목과 다시 pairing할 때까지 접히지 않는다. 
 
 폰의 알림은 실제 FCM 배달을 확인하지 못했다. 사람의 Expo·Firebase 계정이 있어야 하고 지금까지는 fake push server로만 보았다(change-log `mobile-push`, `attention.md`). 폰에 아직 없는 것과 알려진 빈틈은 이슈와 change-log `mobile-app`에 있다: 대화의 수식과 mermaid는 code box로 보인다, Deny에 이유를 쓰지 못한다, fork·rewind·subagent 열기가 없다, Inbox의 History는 notice 목록이다, agent 줄의 model은 raw 이름이다, folder가 여럿인 project는 첫 folder만 보인다.
+
+다른 기계 보기는 한 컴퓨터에서 개발 core 둘(host와 `npm run dev -- --viewer`)과 headless Electron으로만 보았다(change-log `desktop-remote`). 설치본 둘, relay 길, macOS·Windows의 key와 창은 보지 못했다(이슈 `desktop-remote-macos-keys-untested`). 다른 기계의 창은 자리를 저장하지 않는다(이슈 `machine-window-position-not-saved`). 보내기 전에 대화가 아직 안 읽혔거나 보낸 사람의 메시지가 아직 안 왔으면 `changed_elsewhere`가 잘못 설 수 있다(이슈 `stale-send-false-changed-elsewhere`).

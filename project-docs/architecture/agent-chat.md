@@ -60,6 +60,7 @@ agent chat 화면(Home·project·앱 workspace 창의 Agent 탭)이 대화를 �
 - subagent tool 줄을 누르면 대화 위 한 겹으로 자식 대화(`children[child]`)를 읽기 전용 thread로 연다.
 - 본 대화 왼쪽에 thread index rail(사람 메시지 하나에 눈금 하나)이 있고 사람 메시지에 bookmark를 단다.
 - 대화는 가상화한다. 화면 근처의 줄만 그린다.
+- 보낸 말 하나의 전달 상태: 보내는 중, 접수됨, 못 보냄, 접수 확인 안 됨(결과를 모르면 다시 보내기보다 접수 조회를 먼저 낸다), 다른 기기에서 바뀜. 보내기는 이 화면이 아는 마지막 사람 메시지(`seen`. 대화와 다음 turn 줄의 마지막 사람 메시지, 아니면 접수됐지만 아직 대화에 오지 않은 자기 메시지)를 싣고, core가 그 뒤의 다른 사람 메시지로 거절하면(`conflict`, `details.reason: "changed_elsewhere"`, `acp.md`) 쓴 글과 첨부를 입력칸에 두고 "This conversation changed on another device. Read the new messages, then send again." 한 줄을 보이며 대화를 다시 읽는다. 연결이 없으면 `unavailable`이고 쓴 글이 남는다(꺼진 기계에 맡겨 두는 queue는 없다). coding agent(harness) session은 이 검사가 없다.
 - shell mode: capability `shell`이 켜져 있고 입력이 `!`로 시작하면 입력칸이 shell mode가 된다.
 
 ## 지키는 것

@@ -155,7 +155,7 @@ modules:
 
   - path: packages/shell/main
     boundary: shell
-    notes: core main과 같은 꼴이다. desktop/main.ts는 조립만 하고 영역마다 desktop/wiring/의 한 file이 자기 값을 등록한다. extensions/는 extension registry(extension-host)이고 extensions/bundled/<id>/는 본체 안 extension code(shell-extension)라 protocol, base, 자기 폴더만 import한다(tools/check-deps.ts).
+    notes: core main과 같은 꼴이다. desktop/main.ts는 조립만 하고 영역마다 desktop/wiring/의 한 file이 자기 값을 등록한다. desktop/viewer/는 다른 기계 보기(기기 key와 기계 목록 file의 유일한 주인, 기계 목록 규칙, 보낸 창으로 기계를 고르는 IPC guard)이고 `@lophn/remote-client`를 상대 path로 읽는다. extensions/는 extension registry(extension-host)이고 extensions/bundled/<id>/는 본체 안 extension code(shell-extension)라 protocol, base, 자기 폴더만 import한다(tools/check-deps.ts).
 
   - path: packages/shell/renderer
     boundary: shell

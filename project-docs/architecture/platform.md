@@ -110,6 +110,12 @@ shell main(host)과 core는 loopback API listener에 Gateway 옆으로 열린 We
 - **attached.** queue가 shell이 붙어 있다고 보는 것은 연결이 열려 있는 동안이다(전에는 기다리는 take가 있거나 마지막 take가 끝난 지 3초 안이었다). TUI hold는 연결이 열려 있는 동안 core가 마지막 `tui` 목록으로 1초마다 갱신한다(hold는 10초 임대이고 연결이 닫히면 갱신이 멈춰 풀린다).
 - **끊긴 뒤.** 연결이 닫히고 3초 안에 다시 붙지 않으면 core가 터미널 coding agent 표와 coding relay 사본을 비운다(그 사이 일은 알 길이 없다). 다시 붙은 shell은 보고를 처음부터 다시 보낸다.
 
+### shell 창과 IPC 둘레
+
+- **창의 기계.** shell main의 IPC는 영역의 handler보다 먼저 한 둘레를 지난다: 보낸 webContents가 다른 기계의 창이면(창을 열 때 main이 그 기계에 묶는다) `shell:core-call|core-watch|core-state-get`은 그 기계의 연결로 가고, 허락한 channel(`shell:machines-list|open|this-window|visible`, 창 단추, 외부 링크) 밖은 handler를 부르지 않고 `forbidden`이다(`ipcMain.on`은 듣지 않는다). 이 컴퓨터의 창은 그대로 자기 handler로 간다. 영역이 sender 검사(`checkCaller`)를 따로 하는 것은 그대로다.
+- **preload.** 이 컴퓨터의 창은 `preload-shell`, 다른 기계의 창은 `preload-remote`(core, 기계 목록, overlay, 창 단추, 단축키, 외부 링크만)를 받는다. 다른 기계의 창이 없는 bridge의 기능은 renderer가 bridge가 없을 때의 길로 감춘다(`remote.md`).
+- **창이 없을 때 여는 창.** 시작, tray Open, 두 번째 실행은 창이 하나도 없으면 시작 기계의 창을 연다. 시작 기계는 core를 기다리지 않고 shell data의 기계 목록 file에서 고르고, 못 읽거나 이 컴퓨터면 이 컴퓨터의 창이다. agent와 이 컴퓨터의 core가 쓰는 창(browser, 탭, 알림, 전역 키, agent 창)은 늘 이 컴퓨터의 창이다.
+
 ### 폰이 붙는 listener
 
 - 설정 `remote.enabled`(기본 꺼짐, 사람만 바꾼다)가 켜져 있는 동안만 core가 따로 WebSocket listener를 연다. port는 설정 `remote.port`(기본 7432), 모든 interface, path `/remote`, binary message만 받는다. 설정이 바뀌면 열고 닫는다. 꺼져 있으면 loopback 밖 listener가 없다. API listener(loopback, `Host`·`Origin` 검사)는 그대로다.
@@ -213,6 +219,7 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 22. 로그인 시작 등록에는 표시를 켤 때 잡은 `PATH`(macOS는 `TMPDIR`도)와 lophn의 고정 env만 싣는다. 다른 env와 secret은 싣지 않는다. escape해야 하는 글자를 담은 경로는 등록하지 않는다.
 23. OS service가 띄운 core(`LOPHN_SERVICE=1`)의 ready 전 실패는 exit 0이고 ready 뒤의 비정상 끝은 0이 아니다. 다시 띄워도 같은 기동 실패를 OS가 되풀이하지 않게 하고, ready 뒤 crash는 OS가 다시 띄우게 한다.
 24. keep-awake는 core pid에 묶인 child가 쥔다. core가 어떻게 끝나든 풀리고, 저절로 잠들기 밖의 잠(덮개, Sleep 메뉴)은 막지 않는다.
+25. 다른 기계의 창이 보낸 IPC는 허락한 channel 말고 어느 영역의 handler에도 닿지 않는다. 그 창의 core 통로는 그 기계의 연결로만 가고 이 컴퓨터의 core에 닿지 않는다.
 
 ## 경계와 계약
 

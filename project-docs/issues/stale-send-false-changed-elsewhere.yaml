@@ -1,0 +1,13 @@
+id: stale-send-false-changed-elsewhere
+title: 대화를 다 읽기 전에 보내면 다른 기기가 쓰지 않았어도 "changed on another device"로 거절된다
+kind: bug
+status: open
+topic: acp
+modules: [packages/shell/renderer, packages/mobile]
+now: |
+  보내기의 `seen`은 `packages/shell/renderer/conversation/delivery-state.ts`의 `seenOf`가 화면이 가진 대화(`messages`의 user 줄)와 다음 turn 줄, 접수됐지만 아직 대화에 오지 않은 마지막 자기 메시지(`sent`)에서 고른다. 대화 snapshot이 아직 안 왔거나(창을 연 직후, 다시 붙은 직후) 다시 읽는 중이면 messages가 비어 `seen`이 null이 되고, core(`packages/core/lophn-agent/session/message-commands.ts`의 `changedElsewhere`)는 null 뒤의 모든 사람 메시지를 다른 기기의 것으로 보아 `conflict`(`changed_elsewhere`)로 거절한다. 자기 메시지도 `sent` 하나만 기억해, 같은 화면이 보낸 둘째 이전 메시지가 아직 안 온 채 다른 화면(같은 창의 다른 탭)에서 보내면 같은 거절이 날 수 있다.
+impact: |
+  사람이 보는 동작: 다른 기기가 아무것도 쓰지 않았는데 "This conversation changed on another device"가 서고 다시 보내야 한다. 글은 입력칸에 남아 잃지는 않는다. 느린 연결(다른 기계의 창, 폰)에서 잦다.
+fix: |
+  - (작음, 추천) 화면이 대화 snapshot을 받기 전에는 보내기를 잠그거나 `seen`을 싣지 않는다(검사 없이 보내기). 잃는 것: 첫 snapshot 전의 보내기는 검사가 없다.
+  - (중간) `seen`을 메시지 id 대신 snapshot의 `seq`로 싣고 core가 그 seq 뒤의 다른 기기 사람 메시지만 센다(자기 기기의 메시지는 자격으로 가른다). 잃는 것: route 입력 모양이 바뀐다.

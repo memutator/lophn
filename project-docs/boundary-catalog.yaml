@@ -224,7 +224,7 @@ elements:
 
   - id: remote-client
     kind: component
-    description: remote 연결의 client 쪽(주소 경주, 재연결, WebSocket dial, 기계 목록, pairing text 읽기와 pair, unpair). 폰 앱과 desktop shell main이 같이 쓴다.
+    description: remote 연결의 client 쪽(주소 경주, 재연결, WebSocket dial, 자격 전 기계 id 확인, 한 연결의 call 수 한도, 기계 목록, pairing text 읽기와 pair, unpair). 폰 앱과 desktop shell main(다른 기계 보기)이 같이 쓴다.
     depends_on:
       - protocol
       - base

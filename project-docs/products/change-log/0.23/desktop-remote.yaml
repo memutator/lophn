@@ -1,5 +1,5 @@
 id: desktop-remote
-version: 0.23.71
+version: 0.23.72
 title: desktop 앱이 다른 기계의 lophn을 kind desktop 기기로 pairing해 그 기계의 창으로 본다
 modules: [packages/remote-client, packages/shell/main, packages/shell/renderer, packages/shell/preload, packages/shell/ipc, packages/core/lophn-agent, packages/core/main, packages/protocol, packages/design, packages/mobile, tools]
 change: |

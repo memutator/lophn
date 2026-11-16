@@ -1,37 +1,17 @@
 // The apps of the computer on screen that run on the phone: what is installed, its sync state, and the host's sync
-// work (src/apps/local). Sync runs while the computer is connected and a screen holding this hook is mounted (the
-// phone app is in front); the work itself is per computer and outlives the screens.
+// work (src/apps/local). Sync runs while the computer is connected and something holding this hook is mounted (the
+// sidebar, so while the phone app is in front); the work itself is per computer and outlives the screens.
 import { useEffect, useMemo, useSyncExternalStore } from "react";
+import type { Workspace } from "../../../protocol/lophn-agent/workspaces.ts";
 import { useEventClient } from "../../../shell/renderer/desktop/connection/events/hooks.tsx";
-import { nativeDeps } from "../apps/local/native.ts";
-import { createLocalApps, type LocalApp, type LocalApps } from "../apps/local/store.ts";
-import { loadComputers } from "../pairing/store.ts";
+import type { LocalApp, LocalApps } from "../apps/local/store.ts";
 import { usePhoneApps } from "./apps.ts";
 import { useCurrentComputer } from "./hooks.tsx";
+import { holders, storeFor } from "./local-stores.ts";
+import { appIcon, type WorkspaceView } from "./workspaces.ts";
 
 export type { Installed, LocalKind } from "../apps/local/folder.ts";
 export type { LocalApp, LocalAppState, LocalApps } from "../apps/local/store.ts";
-
-// One store per computer for the app's life: the sync work of a computer goes on while its screens come and go.
-const stores = new Map<string, LocalApps>();
-const holders = new Map<LocalApps, number>();
-
-function storeFor(computer: string): LocalApps {
-  let store = stores.get(computer);
-  if (store === undefined) {
-    store = createLocalApps({
-      ...nativeDeps,
-      computer,
-      node: async () => {
-        const saved = (await loadComputers()).find((one) => one.key === computer);
-        if (saved === undefined) throw new Error("the computer is not paired");
-        return saved.device;
-      },
-    });
-    stores.set(computer, store);
-  }
-  return store;
-}
 
 const NONE: readonly LocalApp[] = [];
 const nothing = () => () => {};
@@ -44,6 +24,36 @@ export interface LocalAppsView {
   install(app: string): void;
   /** The computer's store; null for no computer or the sample one. */
   readonly store: LocalApps | null;
+}
+
+/** The apps installed on this phone: not one whose first install is under way or failed. */
+export function installedOf(local: LocalAppsView): readonly LocalApp[] {
+  return local.apps.filter((one) => local.store?.installed(one.app) != null);
+}
+
+/**
+ * The workspaces with the installed apps they do not list: after a restart while the computer is away the phone has
+ * no list from it, and a standalone app the computer dropped stays on the phone. Both still open here.
+ */
+export function withLocalApps(
+  workspaces: readonly WorkspaceView[],
+  installed: readonly LocalApp[],
+): readonly WorkspaceView[] {
+  const known = new Set(workspaces.map((one) => one.key));
+  const more = installed
+    .filter((one) => !known.has(one.app))
+    .map(
+      (one): WorkspaceView => ({
+        key: one.app,
+        kind: "app",
+        workspace: { kind: "app", id: one.app } as Workspace,
+        name: one.name,
+        icon: appIcon(one.app, one.name),
+        groups: [],
+        recent: [],
+      }),
+    );
+  return more.length === 0 ? workspaces : [...workspaces, ...more];
 }
 
 export function useLocalApps(): LocalAppsView {

@@ -1,5 +1,5 @@
-// Home while the computer cannot be reached (tools/wireframes/drafts/phone/shell.tsx Offline): what is said, the apps dimmed,
-// and the sessions as they were the last time the phone heard from it.
+// Home while the computer cannot be reached (tools/wireframes/drafts/phone/shell.tsx Offline): what is said, the apps
+// (dimmed but for the ones on this phone, which open), and the sessions as they were the last time the phone heard from it.
 import { formatRelativeTime, t } from "@lophn/i18n";
 import { Dot, Label, Row } from "@lophn/ui-native";
 import type { SessionRow, WorkspaceView } from "../../data/mod.ts";
@@ -19,10 +19,15 @@ function wasOf(row: SessionRow) {
 
 export function OfflineBody({
   apps,
+  onPhone,
+  onOpen,
   workspaces,
   leftAt,
 }: {
   apps: readonly WorkspaceView[];
+  /** The apps installed on this phone: they open without the computer. */
+  onPhone: ReadonlySet<string>;
+  onOpen: (app: WorkspaceView) => void;
   workspaces: readonly WorkspaceView[];
   /** When the phone last heard from it, if it did while this screen was up. */
   leftAt: number | null;
@@ -41,11 +46,13 @@ export function OfflineBody({
         : t("mobile.home.heading.last-seen", { time: formatRelativeTime(new Date(leftAt), new Date(now)) });
   return (
     <>
-      <OfflineBanner note={t("mobile.home.note.offline")} />
+      <OfflineBanner
+        note={t(onPhone.size > 0 ? "mobile.local.note.offline" : "mobile.home.note.offline")}
+      />
       {apps.length > 0 && (
         <>
           <Label>{t("common.heading.apps")}</Label>
-          <Apps apps={apps} offline onOpen={() => {}} />
+          <Apps apps={apps} away={(app) => !onPhone.has(app.key)} onOpen={onOpen} />
         </>
       )}
       {rows.length > 0 && (

@@ -85,6 +85,11 @@ export function toneOf(id: string): number {
   return sum;
 }
 
+/** An app's mark: its name's first letter on a tone picked from its id. */
+export function appIcon(id: string, name: string): WorkspaceIcon {
+  return { kind: "app", letter: name.slice(0, 1).toUpperCase(), tone: toneOf(id) };
+}
+
 export function whoOf(agent: AgentId, known: Known): Who | null {
   const read = known.agents.get(agent);
   if (read === undefined) return null;
@@ -198,11 +203,7 @@ export function workspacesOf(input: {
       ),
     ),
     ...input.apps.map((app) =>
-      view(app.id, "app", { kind: "app", id: app.id } as Workspace, app.name, {
-        kind: "app",
-        letter: app.name.slice(0, 1).toUpperCase(),
-        tone: toneOf(app.id),
-      }),
+      view(app.id, "app", { kind: "app", id: app.id } as Workspace, app.name, appIcon(app.id, app.name)),
     ),
   ];
 }

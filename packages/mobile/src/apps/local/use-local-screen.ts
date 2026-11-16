@@ -9,12 +9,12 @@ import type { ComputerItem, LocalAppsView, PhoneApp } from "../../data/mod.ts";
 import type { BundleRefusal } from "../bundle.ts";
 import {
   type AppEvent,
-  ensureBase,
   type GuestAppDbProp,
   type GuestCall,
   type GuestState,
   guestHostInfo,
 } from "../guest/mod.ts";
+import { baseReady } from "../use-app-screen.ts";
 import { linkView, type ViewLink } from "../view.ts";
 import { paths, releaseFiles, runsOnPhone } from "./folder.ts";
 
@@ -44,15 +44,6 @@ export interface LocalScreen {
   readonly state: LocalScreenState;
   retry(): void;
 }
-
-let base: Promise<unknown> | null = null;
-const baseReady = () => {
-  base ??= ensureBase().catch((error: unknown) => {
-    base = null;
-    throw error;
-  });
-  return base;
-};
 
 const away: GuestCall = () =>
   Promise.resolve({ ok: false, error: { code: "unavailable", message: "the computer is not reachable" } });

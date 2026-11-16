@@ -1,8 +1,10 @@
 // A user app's phone screen (tools/wireframes/drafts/phone/apps.tsx Orders, NeedsComputer and New version is live):
 // lophn's line on top (sidebar, the app's mark and name, ⋯) and under it the app's own screen in its guest runtime, or
 // why it cannot show: the computer is away, the app does not run, this phone and the screen do not fit, it failed.
-// An app that runs on the phone opens from the phone's own copy (useLocalScreen), with or without its computer.
-import { LOPHN_LOCALE, t } from "@lophn/i18n";
+// An app that runs on the phone opens from the phone's own copy (useLocalScreen), with or without its computer; the
+// line under its name says so and when it last synced (apps.tsx Calendar), and its body says when it is being put on
+// the phone or that could not be done.
+import { formatRelativeTime, LOPHN_LOCALE, t } from "@lophn/i18n";
 import {
   Button,
   Dot,
@@ -25,18 +27,23 @@ import { GuestScreen } from "../../apps/guest/mod.ts";
 import { type LocalScreenState, useLocalScreen } from "../../apps/local/use-local-screen.ts";
 import { type AppScreenState, useAppScreen } from "../../apps/use-app-screen.ts";
 import {
+  installedOf,
+  type LocalApp,
   useAppRelease,
   useComputers,
   useCurrentComputer,
   useLocalApps,
   usePhoneApps,
   useWorkspaces,
+  withLocalApps,
 } from "../../data/mod.ts";
 import { WorkspaceScreen } from "../workspace/index.tsx";
 import { AppMenu } from "./menu.tsx";
 
 // How long "Updated to Release N" stays.
 const UPDATE_SHOWN_MS = 8_000;
+// How often "synced 3 minutes ago" is said again.
+const UNDER_TICK_MS = 30_000;
 
 export function AppScreen({ place }: { place: PlaceOf<"app"> }) {
   const nav = useNav();
@@ -44,8 +51,11 @@ export function AppScreen({ place }: { place: PlaceOf<"app"> }) {
   const { retry: redial } = useComputers();
   const apps = usePhoneApps();
   const app = apps.apps.find((one) => one.app === place.id);
-  const workspace = useWorkspaces().find((one) => one.key === place.id);
   const local = useLocalApps();
+  // An app on this phone keeps its mark while the computer's list is not there.
+  const workspace = withLocalApps(useWorkspaces(), installedOf(local)).find(
+    (one) => one.key === place.id,
+  );
   const onPhone = useLocalScreen({
     computer,
     local,
@@ -60,6 +70,9 @@ export function AppScreen({ place }: { place: PlaceOf<"app"> }) {
     screen: place.screen,
   });
   const [menu, setMenu] = useState(false);
+  const entry = local.apps.find((one) => one.app === place.id);
+  const installed = local.store?.installed(place.id) != null;
+  const now = useNow(entry !== undefined && installed);
 
   // An app without a phone screen (or one no longer live) is its workspace.
   if (
@@ -75,11 +88,7 @@ export function AppScreen({ place }: { place: PlaceOf<"app"> }) {
     );
   }
 
-  const name =
-    app?.name ??
-    local.apps.find((one) => one.app === place.id)?.name ??
-    workspace?.name ??
-    "";
+  const name = app?.name ?? entry?.name ?? workspace?.name ?? "";
   // The same mark as the app's line in the sidebar.
   const icon = workspace?.icon.kind === "app" ? workspace.icon : null;
   const mark = (size: "sm" | "md" | "lg") => (
@@ -104,6 +113,11 @@ export function AppScreen({ place }: { place: PlaceOf<"app"> }) {
           {...nav.menuButton}
           lead={mark("sm")}
           title={name}
+          under={
+            entry !== undefined && installed
+              ? underOf(entry, computer?.status === "connected", now)
+              : undefined
+          }
           right={
             app === undefined ? undefined : (
               <IconButton
@@ -118,6 +132,7 @@ export function AppScreen({ place }: { place: PlaceOf<"app"> }) {
     >
       <Body
         state={onPhone?.state ?? screen.state}
+        installed={installed}
         app={name}
         computer={computerName}
         mark={mark("lg")}
@@ -145,14 +160,50 @@ export function AppScreen({ place }: { place: PlaceOf<"app"> }) {
   );
 }
 
+/**
+ * Where an app on this phone runs and how far it is synced. A sync app is "not synced since" when its last sync failed,
+ * or when it has changes the computer does not have while the computer is away.
+ */
+function underOf(entry: LocalApp, online: boolean, now: number): string | undefined {
+  if (entry.kind === "standalone") return t("mobile.local.under.standalone");
+  if (entry.state === "syncing" || entry.state === "installing") {
+    return t("mobile.local.under.syncing");
+  }
+  if (entry.last_synced_at === null) return undefined;
+  const at = new Date(entry.last_synced_at);
+  const fresh = now - at.getTime() < 60_000;
+  const time = formatRelativeTime(at, new Date(now));
+  if (entry.state === "failed" || (!online && entry.pending > 0)) {
+    return fresh
+      ? t("mobile.local.under.not-synced-now")
+      : t("mobile.local.under.not-synced", { time });
+  }
+  return fresh ? t("mobile.local.under.synced-now") : t("mobile.local.under.synced", { time });
+}
+
+/** The time now, again every half minute while `ticking`. */
+function useNow(ticking: boolean): number {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!ticking) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), UNDER_TICK_MS);
+    return () => clearInterval(timer);
+  }, [ticking]);
+  return now;
+}
+
 function Body({
   state,
+  installed,
   app,
   computer,
   mark,
   onRetry,
 }: {
   state: AppScreenState | LocalScreenState;
+  /** The app is on this phone (it runs from it): installing then means moving it to a new release. */
+  installed: boolean;
   app: string;
   computer: string;
   mark: ReactNode;
@@ -161,8 +212,15 @@ function Body({
   const theme = useTheme();
   switch (state.kind) {
     case "loading":
-    case "installing":
       return <View style={{ flex: 1 }} />;
+    case "installing":
+      return (
+        <Away
+          mark={mark}
+          title={t(installed ? "mobile.local.updating.title" : "mobile.local.installing.title", { app })}
+          body={t("mobile.local.installing.body")}
+        />
+      );
     case "running":
       // Nothing may cover the guest: the sandbox hands a touch on a covered guest to the host.
       return (
@@ -221,6 +279,18 @@ function Body({
         />
       );
     case "failed":
+      // The first install did not go through; under the sentence, what went wrong as the phone's host has it.
+      if ("failure" in state && state.failure !== undefined) {
+        return (
+          <Away
+            mark={mark}
+            title={t("mobile.local.install-failed.title", { app })}
+            body={t("mobile.local.install-failed.body")}
+            detail={state.failure}
+            onRetry={onRetry}
+          />
+        );
+      }
       return (
         <Away
           mark={mark}
@@ -237,11 +307,14 @@ function Away({
   mark,
   title,
   body,
+  detail,
   onRetry,
 }: {
   mark: ReactNode;
   title: string;
   body: string;
+  /** A quieter line under the body: the error as it came. */
+  detail?: string;
   onRetry?: () => void;
 }) {
   return (
@@ -260,6 +333,11 @@ function Away({
       <Text variant="body" tone="secondary" align="center" style={{ marginTop: 10 }}>
         {body}
       </Text>
+      {detail !== undefined && (
+        <Text variant="detail" tone="muted" align="center" style={{ marginTop: 8 }}>
+          {detail}
+        </Text>
+      )}
       {onRetry !== undefined && (
         <View style={{ marginTop: 20 }}>
           <Button icon={RefreshCw} onPress={onRetry}>

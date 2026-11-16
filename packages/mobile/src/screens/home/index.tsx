@@ -19,12 +19,15 @@ import { lophnIdOf } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { stateOf } from "../../app/computer-state.ts";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
 import {
+  installedOf,
   type SessionStatus,
   useCurrentComputer,
   useInbox,
+  useLocalApps,
   useNames,
   usePhoneApps,
   useWorkspaces,
+  withLocalApps,
   type WorkspaceView,
 } from "../../data/mod.ts";
 import { ago, EmptyScreen, Face, LOPHN, SESSION_DOT } from "../../parts/mod.ts";
@@ -36,7 +39,9 @@ import { OfflineBody } from "./offline.tsx";
 export function HomeScreen(_: { place: PlaceOf<"home"> }) {
   const nav = useNav();
   const computer = useCurrentComputer();
-  const workspaces = useWorkspaces();
+  const installed = installedOf(useLocalApps());
+  const onPhone = new Set(installed.map((one) => one.app));
+  const workspaces = withLocalApps(useWorkspaces(), installed);
   const names = useNames();
   const inbox = useInbox();
   const [failed, setFailed] = useState(false);
@@ -99,13 +104,20 @@ export function HomeScreen(_: { place: PlaceOf<"home"> }) {
       ) : shown ? (
         <Online
           apps={apps}
+          onPhone={onPhone}
           working={working}
           workspaces={workspaces}
           inbox={inbox}
           names={names}
         />
       ) : (
-        <OfflineBody apps={apps} workspaces={workspaces} leftAt={leftAt} />
+        <OfflineBody
+          apps={apps}
+          onPhone={onPhone}
+          onOpen={(app) => nav.open({ name: "app", id: app.key })}
+          workspaces={workspaces}
+          leftAt={leftAt}
+        />
       )}
     </Screen>
   );
@@ -125,12 +137,14 @@ function workingOf(workspaces: readonly WorkspaceView[]) {
 
 function Online({
   apps,
+  onPhone,
   working,
   workspaces,
   inbox,
   names,
 }: {
   apps: readonly WorkspaceView[];
+  onPhone: ReadonlySet<string>;
   working: ReturnType<typeof workingOf>;
   workspaces: readonly WorkspaceView[];
   inbox: ReturnType<typeof useInbox>;
@@ -138,8 +152,8 @@ function Online({
 }) {
   const nav = useNav();
   const now = Date.now();
-  // An app with a phone screen opens it; any other app opens its workspace.
-  const phone = new Set(usePhoneApps().apps.map((one) => one.app));
+  // An app with a phone screen or on this phone opens it; any other app opens its workspace.
+  const phone = new Set([...usePhoneApps().apps.map((one) => one.app), ...onPhone]);
   return (
     <>
       {inbox.count > 0 && (

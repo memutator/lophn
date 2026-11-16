@@ -30,9 +30,10 @@ export type AppScreenState =
       readonly onState: (state: GuestState) => void;
     };
 
-// The guest's base bundle is copied out of the APK once per app start, before the first screen runs.
+// The guest's base bundle is copied out of the APK once per app start, before the first screen runs. Every screen waits
+// on this one copy: ensureBase also clears the last run's wrapped backend copies, which a guest mounting meanwhile reads.
 let base: Promise<unknown> | null = null;
-const baseReady = () => {
+export const baseReady = () => {
   base ??= ensureBase().catch((error: unknown) => {
     base = null;
     throw error;

@@ -30,11 +30,14 @@ import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { lophnIdOf } from "../../../protocol/lophn-agent/workspaces.ts";
 import {
+  installedOf,
   type SessionStatus,
   useCurrentComputer,
   useInbox,
+  useLocalApps,
   usePhoneApps,
   useWorkspaces,
+  withLocalApps,
   type WorkspaceView,
 } from "../data/mod.ts";
 import { Character, Face, LOPHN, SESSION_DOT, WorkspaceMark } from "../parts/mod.ts";
@@ -81,9 +84,14 @@ export function Sidebar({ state, navigation }: DrawerContentComponentProps) {
   const frame = useContext(FrameContext);
   const insets = useSafeAreaInsets();
   const computer = useCurrentComputer();
-  const workspaces = useWorkspaces();
+  // The sidebar is always mounted in the frame, so it is what keeps the phone's apps in sync (useLocalApps).
+  const installed = installedOf(useLocalApps());
+  const workspaces = withLocalApps(useWorkspaces(), installed);
   const { count } = useInbox();
-  const phone = new Set(usePhoneApps().apps.map((one) => one.app));
+  const phone = new Set([
+    ...usePhoneApps().apps.map((one) => one.app),
+    ...installed.map((one) => one.app),
+  ]);
 
   const stack = state.routes[0]?.state;
   const shown = (stack?.routes[stack.index ?? 0] as Shown | undefined) ?? {
@@ -204,7 +212,7 @@ function Workspace({
   show,
 }: {
   workspace: WorkspaceView;
-  /** An app with a phone screen: its line opens the screen. */
+  /** An app with a phone screen or on this phone: its line opens the screen. */
   phone: boolean;
   on: string;
   show: (place: Place) => void;

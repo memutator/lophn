@@ -80,6 +80,7 @@ import {
   terminalFeed,
 } from "./terminal.ts";
 import { type ComputerData, dataOf, type SampleConversation } from "./link.ts";
+import { forgetLocalComputers } from "./local-stores.ts";
 import { type Known, type WorkspaceView, workspacesOf } from "./workspaces.ts";
 
 interface Data {
@@ -115,6 +116,10 @@ export function DataProvider({
   children: ReactNode;
 }) {
   const state = useSyncExternalStore(computers.subscribe, computers.get);
+  const paired = state.computers.map((one) => one.key).join("\n");
+  useEffect(() => {
+    if (state.ready) forgetLocalComputers(paired.split("\n"));
+  }, [state.ready, paired]);
   useEffect(() => {
     void computers.start();
     const subscription = AppState.addEventListener("change", (app) => {

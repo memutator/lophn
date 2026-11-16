@@ -139,6 +139,8 @@ release 준비가 거절한다.
 `react-native-web`(0.21.2)과 `react-dom`(19.3.0)은 이 package의 peer는 아니지만 desktop preview
 build가 쓴다. 폰 화면이 있는 앱의 `devDependencies`에 같이 둔다.
 
+앱 template의 `package.json`에는 `react`, `react-dom`, `@types/react`, `@lezer/markdown`이 이미 있다. 그것은 다시 적지 않는다.
+
 앱 `package.json`:
 
 ```json
@@ -164,8 +166,11 @@ build가 쓴다. 폰 화면이 있는 앱의 `devDependencies`에 같이 둔다.
 
 - **화면 root는 `Screen`이다.** 안전 영역, 위 줄(`TopBar`), 본문, 키보드 위로 오르는 아래 줄이 거기서 난다.
   `UiProvider`는 폰 앱의 root가 이미 둔다. 화면이 다시 두지 않는다(desktop preview도 같은 진입이 둔다).
-- **누르는 곳은 44 이상이다.** kit의 `Button`·`IconButton`·`Row`가 그렇게 준다. 직접 만드는 `Pressable`도
-  44 아래로 두지 않는다. hover가 없으니 hover로만 보이는 설명·단추를 두지 않는다.
+  앱 화면의 `TopBar`는 `left="none"`을 준다. 기본값 `"menu"`는 lophn 폰 앱의 sidebar를 여는 단추인데 앱 화면에는
+  sidebar가 없다.
+- **누르는 곳은 44 이상이다.** `IconButton`·`Row`·`Tabs`는 그렇게 준다. `Button`은 `sm` 34, `md` 42, `lg` 54라서
+  화면의 주 행동은 `lg`를 쓴다. 직접 만드는 `Pressable`도 `minHeight: 44` 아래로 두지 않는다. hover가 없으니
+  hover로만 보이는 설명·단추를 두지 않는다.
 - **등록한 기준 폰의 폭에 맞춰 그린다. 반응형을 만들지 않는다.** 폭과 DPR은 `lophn app phone-target`이
   준다(기기가 없으면 사람에게 폰을 pairing하라고 말한다). 기준 폰이 바뀌면 옛 크기로 그린 화면은 다시 그린다.
 - **글자는 `Text` 안에 둔다.** React Native의 `<View>` 아래 글자는 그려지지 않는다. 색은 `useTheme()`의

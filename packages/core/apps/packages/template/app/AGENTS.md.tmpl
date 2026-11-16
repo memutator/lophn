@@ -65,6 +65,8 @@ Package를 쓴다.
 - 화면의 `places`가 여는 자리다: `tab`은 앱 workspace와 앱 창(첫 `tab` 화면이 입구),
   `panel`은 project의 dock·float와 전역 float(사람이 activity bar에 고정해 쓴다),
   `card`는 agent 대화 안, `sidebar`는 오른쪽 sidebar, `tray`는 작업 표시줄 tray popup이다.
+  `phone`은 폰 앱이 그리는 React Native 화면이고 혼자만 쓴다(소스는 `src/screens/<key>/phone.tsx`).
+  폰 화면은 `design-app` skill의 Phone screens를 읽는다.
   `sidebar`와 `tray`는 선언하면 바로 나오고 사람이 Settings에서 끈다.
   tray popup은 기본 360×480px이다. 크기는 그 화면에 `tray: { width, height }`(px)로 적고, 각 쪽은 숫자(고정)나
   `{ min?, max? }`(내용에 맞춰 그 안에서 늘고 준다)다. 목록처럼 길이가 바뀌는 화면은 `height: { max: 480 }` 같은 범위를 쓴다.
@@ -104,7 +106,7 @@ Package를 쓴다.
 - `src/handlers.ts`: `registerHandlers`가 선언(`lophn.ts`)에 있는 operation과
   command마다 handler를 등록한다. 업무 규칙은 `src/` 아래 module로 나눈다.
 - `migrations/<from>-<to>.sql`: 앱 DB schema 단계. DB를 쓰는 앱만 둔다.
-- `src/screens/<key>/`: React 화면(`index.html`, `main.tsx`). 선언의
+- `src/screens/<key>/`: React 화면(`index.html`, `main.tsx`. 폰 화면은 `phone.tsx` 하나). 선언의
   `screens`에 같은 key로 선언한다. root는 `AppErrorBoundary`로 감싼다. 화면
   문구는 화면 코드에 그대로 쓴다. 앱은 사용자 한 사람이 쓰므로 번역 catalog를
   두지 않는다.

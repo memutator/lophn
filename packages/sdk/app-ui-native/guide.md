@@ -36,6 +36,7 @@ import {
     `onFailed`는 오류 code(`invalid_input`·`forbidden`·`conflict`·`unavailable` 등)를 받는다.
   - `input`은 operation 입력이거나 누를 때 입력을 만드는 함수다. 없으면 `null`이다.
   - `variant`·`size`는 kit `Button`의 것이다(`primary`·`secondary`·`ghost`·`danger`, `sm`·`md`·`lg`).
+    기본 `md`는 42라 누르는 곳 44에 못 미친다. 화면의 주 행동은 `size="lg"`(54)를 준다.
   - `app`은 `lophnApp`이다. 없으면 전역 `lophnApp`을 쓴다.
 - `useOperation(operation, app?)` — `{state, run}`. 단추가 아닌 trigger에서 같은 pending·실패를 쓴다.
   `run(input)`은 `{ok: true, value}`나 `{ok: false, code}`이고 기다리는 동안 다시 부르면 `undefined`다.
@@ -134,6 +135,7 @@ export default function Orders() {
       </Group>
       <OperationButton
         operation={archive}
+        size="lg"
         input={() => ({ status })}
         onDone={() => void reload()}
       >

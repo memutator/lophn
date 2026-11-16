@@ -1,7 +1,7 @@
 // 이 파일은 lophn 템플릿이 만든 선언 test다. `lophn.ts`를 읽어 선언 자체와 선언·코드·화면·의존이
 // 서로 맞는지 본다. 선언이 바뀌어도 이 파일은 고치지 않는다. 앱의 업무 규칙은 다른 test 파일에 둔다.
 import assert from "node:assert/strict";
-import { readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { test } from "node:test";
 
 import { registeredHandlers } from "@lophn/cap-tool";
@@ -44,11 +44,19 @@ test("declaration: every declared operation and command has a registered handler
 test("declaration: every screen has a source and its path is the screen entry", () => {
   for (const screen of declaration.screens) {
     assert.deepStrictEqual(screen.path, `/screens/${screen.key}/index.html`);
-    for (const file of ["index.html", "main.tsx"]) {
+    // 폰 화면은 phone.tsx 하나다(index.html은 release 준비가 짓는다). 그 밖의 화면은 index.html과 main.tsx다.
+    const phone = screen.places.includes("phone");
+    for (const file of phone ? ["phone.tsx"] : ["index.html", "main.tsx"]) {
       const info = statSync(
         new URL(`src/screens/${screen.key}/${file}`, root),
       );
       assert.ok(info.isFile(), `${screen.key}/${file} is missing`);
+    }
+    if (phone) {
+      assert.ok(
+        !existsSync(new URL(`src/screens/${screen.key}/main.tsx`, root)),
+        `${screen.key} is a phone screen and must not have main.tsx`,
+      );
     }
   }
 });
@@ -56,9 +64,14 @@ test("declaration: every screen has a source and its path is the screen entry", 
 test("declaration: sdk_dependencies are exact and match package.json", () => {
   const config = JSON.parse(
     readFileSync(new URL("package.json", root), "utf8"),
-  ) as { dependencies?: Record<string, string> };
+  ) as {
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
   const pinned = new Set<string>();
-  for (const [name, value] of Object.entries(config.dependencies ?? {})) {
+  // 폰 화면의 kit(`@lophn/ui-native`, `@lophn/app-ui-native`)은 devDependencies에 있다.
+  const all = { ...config.devDependencies, ...config.dependencies };
+  for (const [name, value] of Object.entries(all)) {
     const match = /^file:\.lophn\/sdk\/(?:@me\/)?[^/]+\/([^/]+)$/.exec(value);
     if (match) pinned.add(`${name}@${match[1]}`);
   }

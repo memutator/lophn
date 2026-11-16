@@ -159,6 +159,9 @@ Each screen declares `places`. They decide where people can open it:
   keeps a short list short. For the height to fit, do not give html, body or
   the root element `height: 100%`. lophn shrinks the popup to fit a small
   window.
+- `phone`: the lophn phone app. It stands alone: a screen with `phone` has no
+  other place. It is written in React Native, not as a desktop screen; see
+  "Phone screens".
 
 `params` is the schema of the input a screen receives (root type object; none
 means the screen takes no input). To use a part of one screen on its own, make
@@ -185,6 +188,114 @@ Panels are where an app is used most often, so design them on purpose:
   `@lophn/declaration` guide). Prefer the lucide name; do not hand-write an SVG
   for a plain glyph. lophn shows it on tabs, the activity bar and app lists. A
   person can also upload one in App details; theirs wins.
+
+## Phone screens
+
+A phone screen is a screen of the lophn phone app, written in React Native
+with the phone kit `@lophn/ui-native`. Make one only when the person asks to
+use the app on their phone. One app has desktop screens and phone screens
+together. They are different files (`src/screens/<key>/phone.tsx` and
+`main.tsx`) and share the operations and the data. Do not make one screen
+responsive for both.
+
+1. Read the person's reference phone: `lophn app phone-target` gives `device`
+   (name, OS, `width` and `height` in CSS px, `dpr`). `width` and `height` are
+   the whole phone screen; lophn's top line takes part of the height. If
+   `device` is null, tell the person to pair their phone and stop; do not draw
+   for a guessed size. Draw for that width and build no responsive layout. When
+   the person pairs another phone it becomes the reference: draw again the
+   screens you drew for the old size.
+2. Declare the screen in `lophn.ts`, alone in `places`:
+   `{ key: "orders", label: "Orders", path: "/screens/orders/index.html",
+   places: ["phone"] }`. The source is `src/screens/orders/phone.tsx`, which
+   default-exports the component. Do not put `main.tsx` or `index.html` in that
+   folder: a screen folder has one or the other, and release prepare builds the
+   phone screen itself (`npm run build` skips it). A desktop twin is a second
+   screen with another key.
+3. Add the packages after reading the guides of `@lophn/ui-native` and
+   `@lophn/app-ui-native` (`lophn package read <name>`). Put both in
+   `package.json` `devDependencies` (`file:.lophn/sdk/<name>/<version>`) and in
+   `lophn.ts` `sdk_dependencies`, with the same exact version. Put the kit's
+   peers (`react-native`, `react-native-svg`, `react-native-safe-area-context`,
+   `react-native-keyboard-controller`, `expo-clipboard`, `lucide-react-native`)
+   and `react-native-web` in `devDependencies` too, at the versions the
+   `@lophn/ui-native` guide lists; skip one the app already has. Then run
+   `npm install`. Never use `dependencies` for them: the phone app already
+   carries the kit, so release prepare drops `devDependencies` from the bundle
+   and refuses a kit that sits in `dependencies`.
+4. Write the screen by the rules below, then run `npm run check`, which type
+   checks it.
+5. Check it as described after the rules.
+
+Rules:
+
+- The root is `Screen`. Give it `top={<TopBar left="none" title="Orders" />}`:
+  `TopBar` shows lophn's sidebar button by default (`left="menu"`), and an app
+  screen has no sidebar.
+- A touch target is 44 or more. `Row` and `IconButton` already are. A `Button`
+  is 34 (`sm`) or 42 (`md`) high, so use `size="lg"` (54) for the main action of
+  a screen, and give a `Pressable` of your own `minHeight: 44`. Nothing depends
+  on hover.
+- Text sits in `Text`, with its `variant` and `tone`; do not set `fontSize`
+  (the person's text scale applies). Chrome takes its colors from `useTheme()`,
+  not from color values. The kit gives the fonts.
+- Native modules come only from this list, imported by their package name (no
+  sub-path such as `react-native/...`): `react`, `react/jsx-runtime`,
+  `react-native`, `react-native-svg`, `react-native-safe-area-context`,
+  `lucide-react-native`, `@lophn/ui-native`, `@lophn/app-ui-native`. Plain JS
+  packages of the app are bundled in. `@lophn/ui`, `@lophn/app-ui`, `react-dom`,
+  other `react-native-*` and `expo-*` packages and Node built-ins make release
+  prepare fail with a `file:line:column: reason` line that says what to use
+  instead.
+- There is no network: no `fetch`, no WebSocket. Data comes only through
+  operations (`useOperation`, `OperationButton`) and events (`useEvent`), and
+  the declaration must list them. Images are the kit's `Icon` and `data:`
+  URIs.
+
+An example, `src/screens/orders/phone.tsx`:
+
+```tsx
+import { useEffect, useState } from "react";
+import { Group, Row, Screen, TopBar } from "@lophn/ui-native";
+import { OperationButton, useOperation } from "@lophn/app-ui-native";
+
+const list = { name: "list-orders", title: "List orders" };
+const archive = { name: "archive-shipped", title: "Archive shipped" };
+
+export default function Orders() {
+  const [orders, setOrders] = useState<{ id: string; status: string }[]>([]);
+  const load = useOperation(list);
+  const reload = async () => {
+    const result = await load.run({});
+    if (result?.ok) setOrders(result.value as typeof orders);
+  };
+  useEffect(() => void reload(), []);
+  const main = <OperationButton operation={archive} size="lg" onDone={() => void reload()} />;
+  return (
+    <Screen scroll tone="floor" top={<TopBar left="none" title="Orders" />} footer={main}>
+      <Group>{orders.map((o) => <Row key={o.id} title={`Order ${o.id}`} sub={o.status} />)}</Group>
+    </Screen>
+  );
+}
+```
+
+Check it on the desktop:
+
+1. Commit, run `lophn release prepare`, then `lophn preview start`. The tab
+   that opens by itself is the first `tab` screen, so a phone-only app gets
+   none; the preview still runs.
+2. `lophn tab open --preview <app> --screen <key>` opens the screen in a frame
+   of the reference phone's size. With no registered phone it is `conflict`:
+   pair a phone, or pass `--device <name>`.
+3. Look and press with `lophn browser snapshot|screenshot|act <tab>`. Run an
+   operation with `lophn preview call`.
+
+The preview draws with react-native-web, so the phone can differ: text input,
+the soft keyboard, scrolling, fonts, the safe area. When you report, say what
+you saw in the desktop preview and what you could not see on the phone, and
+that the person makes the last check on their phone. If the phone app is older
+than the kit the screen was built with, the phone shows "update the lophn app";
+tell the person.
 
 ## Talking to an agent from a screen
 

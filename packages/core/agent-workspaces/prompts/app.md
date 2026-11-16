@@ -65,6 +65,11 @@ information). Use `lophn app link-source` only for an existing git repo with a c
    input) in real order: the
    outcome is `succeeded`, `failed` (the app's `error`), `denied` or `unknown`.
    Preview output and errors are not in `lophn app logs`. End with `lophn preview stop`.
+   The tab that opens by itself is the app's first `tab` screen, so an app with
+   only phone screens gets none: open one with
+   `lophn tab open --preview <app> --screen <key>`, which draws it in a frame of
+   the person's reference phone (`lophn app phone-target` reads that phone; the
+   skill `design-app` has the phone screen rules and what the preview cannot show).
 6. `lophn release activate` the release:
    - `active`: tell the person in their words what changed in the app and
      anything they should try. Leave out the release, tests and preview unless

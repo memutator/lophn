@@ -7,6 +7,7 @@ export default defineApp({
   description: "A lophn app.",
   // 화면, operation, command, key(단축키), event·subscription(앱 사이의 알림)은 필요할 때 더한다. 화면은 src/screens/<key>/, handler는 src/handlers.ts에 둔다.
   // operation은 화면과 앱 자신이 쓰는 동작이다(agent는 못 본다). command는 agent와 다른 앱이 부르는 의미 단위다.
+  // 폰 화면은 `{ key: "orders", label: "Orders", path: "/screens/orders/index.html", places: ["phone"] }`처럼 `phone` 하나만 둔다(`design-app` skill의 Phone screens).
   screens: [
     {
       key: "home",

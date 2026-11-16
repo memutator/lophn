@@ -1,6 +1,7 @@
 // 화면 build. 개발 때 `npm run build`로 돌린다. src/screens/<key>/의 화면을 고정한 UI Package와 함께
 // 묶어 dist/screens/<key>/에 index.html·main.js·main.js.map·main.css와 글꼴을 만든다. 운영은 build나 의존 다운로드를
 // 하지 않고 release 준비가 bundle에 담은 이 결과만 읽는다(apps/sdk#R10, R34).
+import { existsSync } from "node:fs";
 import { copyFile, mkdir, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -8,12 +9,18 @@ import * as esbuild from "esbuild";
 
 const root = join(import.meta.dirname, "..");
 
-// 화면은 src/screens/<key>/main.tsx다. 선언의 screens와 같은 key를 쓴다.
+// 화면은 src/screens/<key>/main.tsx다. 선언의 screens와 같은 key를 쓴다. 폰 화면(phone.tsx가 있는 dir)은
+// 건너뛴다: 폰 화면의 build는 release 준비가 한다.
 const screens: string[] = [];
 for (const entry of await readdir(join(root, "src/screens"), {
   withFileTypes: true,
 })) {
-  if (entry.isDirectory()) screens.push(entry.name);
+  if (
+    entry.isDirectory() &&
+    !existsSync(join(root, "src/screens", entry.name, "phone.tsx"))
+  ) {
+    screens.push(entry.name);
+  }
 }
 
 for (const screen of screens.sort()) {

@@ -34,8 +34,10 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   - `card` — agent 대화 안의 카드다.
   - `sidebar` — 오른쪽 sidebar다.
   - `tray` — 작업 표시줄 tray popup이다.
-  - `phone` — 폰 앱이 그리는 화면이다. 혼자 서는 자리라 `places`에 다른 자리와 같이 쓰면 선언 오류다.
-    소스와 빌드 방법은 폰 화면을 지원하는 판의 지침이 말한다.
+  - `phone` — 폰 앱이 그리는 React Native 화면이다. 혼자 서는 자리라 `places`에 다른 자리와 같이 쓰면 선언 오류다
+    (desktop 짝이 필요하면 key가 다른 화면을 하나 더 둔다). `path`는 `/screens/<key>/index.html`이고 소스는
+    `src/screens/<key>/phone.tsx`다(default export가 component이고, 그 dir에 `main.tsx`·`index.html`을 두지 않는다).
+    의존, 폰 규칙, 확인은 `design-app` skill의 Phone screens와 `@lophn/ui-native` guide를 읽는다.
   - `tray` 칸 — tray popup의 크기다. `{width?, height?}`이고 단위는 px다. 둘 중 하나는
     있어야 하고 없는 쪽은 기본값(너비 360, 높이 480)이다. 각 쪽은 둘 중 하나다.
     - 숫자: 그 크기로 고정한다.

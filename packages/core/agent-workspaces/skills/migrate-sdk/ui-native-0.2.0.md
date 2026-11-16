@@ -1,7 +1,7 @@
 # @lophn/ui-native 0.2.0
 
 Previous: 0.1.0
-Breaking: no. Move together with `@lophn/app-ui-native` 1.2.0 if the app uses it.
+Breaking: no. Move together with `@lophn/app-ui-native` 1.3.0 if the app uses it.
 
 `Input` now names itself for accessibility: the `label` of the `Field` around it, or its `placeholder` when it is not inside a `Field`. Before, the name was the placeholder only. When lophn drives a phone screen on the person's phone, it finds an input by this name, so give every input on a phone screen a `Field` label (a placeholder alone still works but is a hint, not a name). A secure input is named the same way; its value is never the name.
 
@@ -18,7 +18,7 @@ To move, change the pins in `package.json` and `lophn.ts` (`sdk_dependencies`) i
 
 ```json
 "@lophn/ui-native": "file:.lophn/sdk/ui-native/0.2.0",
-"@lophn/app-ui-native": "file:.lophn/sdk/app-ui-native/1.2.0",
+"@lophn/app-ui-native": "file:.lophn/sdk/app-ui-native/1.3.0",
 ```
 
 Nothing is required of an existing app: no API changed, so existing screens build and look the same. Add a `Field` label around inputs that have none when you next touch the screen.

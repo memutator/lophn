@@ -19,4 +19,4 @@ lead만 고친다. `tools/status.py mobile-widgets build`가 `tasks/*.md`에서 
 | `mobile-phone-link` | phone-link | 8 | mobile-phone-link-contract | merged | phone-link/mobile-phone-link | 512b34f40 |  |
 | `mobile-phone-use-grant` | phone-use | 9 | mobile-phone-link, mobile-widgets-decl, mobile-phone-link-contract, mobile-cap-phone | merged | phone-use/mobile-phone-use-grant | 77649030b |  |
 | `mobile-phone-location` | phone-link | 10 | mobile-phone-link, mobile-phone-use-grant | merged | phone-link/mobile-phone-location | 8b34716d6 |  |
-| `mobile-widgets-guidance` | widgets | 10 | mobile-widget-core, mobile-widgets-decl, mobile-cap-phone, mobile-phone-use-grant, mobile-widget-native | todo |  |  |  |
+| `mobile-widgets-guidance` | widgets | 10 | mobile-widget-core, mobile-widgets-decl, mobile-cap-phone, mobile-phone-use-grant, mobile-widget-native | running | widgets/mobile-widgets-guidance |  |  |

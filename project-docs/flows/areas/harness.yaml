@@ -291,7 +291,7 @@ flows:
     title: agent나 사람 token이 session 탭을 열어 달라고 요청한다
     actor: agent
     entries: [route:tabs/open]
-    when: "target이 session일 때. browser(--url)는 host-browser-tab-open, tui는 harness-tui-open, preview는 host-preview-tab-open, artifact는 host-artifact-tab-open, coding은 host-coding-handoff-open이 맡는다"
+    when: "target이 session일 때. browser(--url)는 host-browser-tab-open, tui는 harness-tui-open, preview는 host-preview-tab-open, artifact는 host-artifact-tab-open, coding은 host-coding-handoff-open이 맡는다. `phone`(폰의 preview 탭) target은 입력 schema에 올랐고 handler는 아직 없다(core의 phone 탭 task가 잇는다)"
     boundary: [host-queue-interface, host-queue-core]
     code:
       - packages/core/main/daemon/wiring/host-queue.ts

@@ -77,6 +77,15 @@ export const hostTabTargetSchema = z.union([
 ]);
 export type HostTabTarget = z.infer<typeof hostTabTargetSchema>;
 
+// `phone`은 폰에 뜬 그 앱의 preview 화면이다. shell에 가는 탭이 아니라 core가 폰 link로 다루므로 `hostTabTargetSchema`에는 없고
+// `tabs/open` 입력에만 있다. screen은 폰 화면의 key이고 null이면 폰이 지금 보이는 화면이다.
+const phoneTabTargetSchema = z.strictObject({
+  phone: z.strictObject({
+    app: idSchema("app"),
+    screen: z.string().min(1).max(64).nullable().default(null),
+  }),
+});
+
 // `tabs/open` 입력의 coding target이다. payload의 target과 달리 handoff 글을 싣는다.
 export const HANDOFF_MAX_BYTES = 64 * 1024;
 const codingOpenSchema = z.strictObject({
@@ -366,6 +375,8 @@ const acceptedSchema = z.strictObject({
 // 폰 화면은 device가 없으면 기준 폰(`devices`의 primary)의 `shell.devices` 항목 이름을 쓰고, 그것도 없으면 `conflict`다.
 // `coding`은 agent가 부른 project workspace의 session만 연다. 그 밖(사람 token, home, 앱)이거나 harness가 `shell.coding_agents.favorites`에 없거나
 // adapter에 TUI 첫 prompt 인자(`session.prompt`)가 없으면 `invalid_input`이고 message에 열 수 있는 harness id가 있다. 글은 최대 64 KiB다.
+// `phone`은 그 앱 workspace의 session과 사람 token만 연다(남의 앱이면 `not_found`). 도는 preview가 없으면 `conflict`(`preview`와 같은 문장),
+// 폰이 그 preview를 보이지 않으면 `unavailable`이다(`PHONE_TAB_TEXT.notShowing`). 앱마다 phone 탭은 하나다.
 // 사람 token은 `browser`·`preview`·`artifact`만 연다(session·tui·coding은 `invalid_input`). 앱마다 preview 탭은 하나라 이미 있으면 그 탭을 돌려주고 주인이 새로 연 쪽이 된다.
 // `artifact`는 agent면 자기 session의 workspace, 사람 token이면 입력의 workspace의 것이다. home이면 `invalid_input`, 입구 `index.html`이
 // 없으면 `not_found`다. artifact마다 host 탭은 하나라 preview처럼 이미 있으면 그 탭을 돌려주고 주인이 바뀐다.
@@ -378,7 +389,7 @@ export const tabsOpen = defineMemory({
   name: "OpenTab",
   changes: [],
   input: z.strictObject({
-    target: z.union([...sharedTargets, codingOpenSchema]),
+    target: z.union([...sharedTargets, phoneTabTargetSchema, codingOpenSchema]),
     relation: tabRelationSchema.optional(),
     // 사람 token이 browser 탭을 놓을 workspace다. 없으면 home이다. agent는 자기 session의 workspace를 쓰므로 이 칸을 무시한다.
     workspace: workspaceSchema.optional(),
@@ -411,9 +422,12 @@ export const browserRead = defineMemory({
   errors,
 });
 
-// 아래 browser/* 호출은 자기가 연 browser·preview·artifact 탭만 다룬다(남의 탭, 사람이 손으로 연 탭, session·agent 탭은 `not_found`).
+// 아래 browser/* 호출은 자기가 연 browser·preview·artifact·phone 탭만 다룬다(남의 탭, 사람이 손으로 연 탭, session·agent 탭은 `not_found`).
 // 낡은 ref, DevTools가 열려 있음, 사람이 take control 중인 쓰기는 `conflict`, shell이 없거나 탭이 창에 열려 있지 않거나 기한이 지나면
 // `unavailable`, 틀린 url(http(s)·about:blank 밖)·preview·artifact 탭의 navigate·틀린 act는 `invalid_input`이다.
+// phone 탭은 shell queue에 들어가지 않고 core가 폰 link로 답한다(`phone/drive.ts`). 되는 것은 snapshot, screenshot, read, wait의 text,
+// act의 click·type·fill·press Enter·scroll이다. 그 밖의 호출과 act는 `invalid_input`이고 `tabs/show`도 `invalid_input`이다(탭이 폰에 있다).
+// read는 `{url: "phone://<app id>/<screen>", title: "<screen>", loading: false}`를 답하고 act·wait의 page도 같은 url·title이다.
 const browserTabInput = { tab: idSchema("tab") };
 
 // 접근성 tree다. 줄마다 `- <role> "<name>" [ref=e12]`고 들여쓰기가 깊이다.
@@ -482,7 +496,7 @@ export const browserNavigate = defineMemory({
   errors,
 });
 
-// 보이는 영역의 PNG다.
+// 보이는 영역의 PNG다. phone 탭은 기본 JPEG다.
 export const browserScreenshot = defineMemory({
   resource: "browser",
   method: "screenshot",
@@ -490,7 +504,7 @@ export const browserScreenshot = defineMemory({
   input: z.strictObject(browserTabInput),
   output: z.strictObject({
     image: z.strictObject({
-      media_type: z.literal("image/png"),
+      media_type: z.enum(["image/png", "image/jpeg"]),
       data_base64: z.string(),
     }),
   }),

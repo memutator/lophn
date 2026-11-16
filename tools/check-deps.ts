@@ -300,7 +300,10 @@ const LEAVING_FILES = new Set(["packages/protocol/server/registration.ts"]);
 // extensions의 ACP handle은 acp의 type만 import한다. lophn-agent/harness-host.ts가 extensions의 extensionSettingKey를
 // 쓰지만 type import는 실행 순환이 아니다. harness-host가 그 함수를 config 쪽에서 받게 되면 이 둘을 뺀다.
 // route 정의의 `changes` 칸이 events/changes.ts의 이름 목록 type을 쓴다. changes.ts는 아무것도 import하지 않아 실행 순환이 아니다.
+// phone/drive.ts가 view id 규칙(appViewIdSchema)을 views.ts에서 받는다. apps/phone-request.ts가 phone의 PhoneKind type만 import하고
+// views.ts는 phone을 import하지 않아 실행 순환이 아니다(id 규칙을 한 곳에 두려고 복사하지 않는다).
 const PROTOCOL_CYCLE_EXCEPTIONS = new Set([
+  "packages/protocol/phone/drive.ts\0../apps/views.ts",
   "packages/protocol/base/route.ts\0../events/changes.ts",
   "packages/protocol/apps/annotation.ts\0../lophn-agent/workspaces.ts",
   "packages/protocol/extensions/acp-session.ts\0../acp/input.ts",

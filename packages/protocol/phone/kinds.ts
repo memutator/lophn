@@ -1,5 +1,15 @@
 import { z } from "zod";
 import { atSchema } from "../base/values.ts";
+import {
+  driveActInputSchema,
+  driveActOutputSchema,
+  driveScreenshotInputSchema,
+  driveScreenshotOutputSchema,
+  driveSnapshotInputSchema,
+  driveSnapshotOutputSchema,
+  driveWaitInputSchema,
+  driveWaitOutputSchema,
+} from "./drive.ts";
 
 // 폰이 답하는 kind의 목록. kind를 더하면 여기 한 항목이다(frame은 바뀌지 않는다). `deadline_ms`는 core가 request에 싣는 값이다.
 
@@ -24,6 +34,27 @@ export const PHONE_KINDS = {
     output: locationSchema,
     deadline_ms: 20_000,
   },
+  // preview 화면을 다루는 kind다(`drive.ts`). `drive.wait`의 deadline은 core가 `timeout_ms + 5_000`으로 싣는다.
+  "drive.snapshot": {
+    input: driveSnapshotInputSchema,
+    output: driveSnapshotOutputSchema,
+    deadline_ms: 10_000,
+  },
+  "drive.act": {
+    input: driveActInputSchema,
+    output: driveActOutputSchema,
+    deadline_ms: 15_000,
+  },
+  "drive.screenshot": {
+    input: driveScreenshotInputSchema,
+    output: driveScreenshotOutputSchema,
+    deadline_ms: 10_000,
+  },
+  "drive.wait": {
+    input: driveWaitInputSchema,
+    output: driveWaitOutputSchema,
+    deadline_ms: 30_000,
+  },
 } as const;
 export type PhoneKind = keyof typeof PHONE_KINDS;
 
@@ -33,6 +64,8 @@ export type PhoneKind = keyof typeof PHONE_KINDS;
 // - unsupported: 폰의 `hello.capabilities`에 그 kind가 없다
 // - phone_in_background: channel은 열렸지만 폰 앱이 활성이 아니다
 // - location_off: OS 위치 서비스가 꺼져 있다
+// - no_preview: `drive.*`의 view가 이 폰이 연 preview view가 아니거나 guest가 닫혔다
+// - screen_off: 화면이 꺼졌거나 창에 focus가 없다(`drive.*`)
 // - timeout: deadline까지 답이 없다
 export const phoneUnavailableReasonSchema = z.enum([
   "no_phone",
@@ -40,6 +73,8 @@ export const phoneUnavailableReasonSchema = z.enum([
   "unsupported",
   "phone_in_background",
   "location_off",
+  "no_preview",
+  "screen_off",
   "timeout",
 ]);
 export type PhoneUnavailableReason = z.infer<

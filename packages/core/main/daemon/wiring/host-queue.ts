@@ -135,6 +135,13 @@ export function createTabHandlers(deps: TabDeps) {
     const caller = owner(who);
     if (!caller.ok) return caller;
     const input = tabsOpen.input.parse(body);
+    // phone 탭은 아직 이어지지 않았다. core의 phone 탭이 이 자리를 맡는다.
+    if ("phone" in input.target) {
+      return err({
+        code: "invalid_input",
+        message: "phone tabs are not available yet",
+      });
+    }
     if ("preview" in input.target) {
       const { app } = input.target.preview;
       // 남의 앱은 있는지도 알리지 않는다.

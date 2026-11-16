@@ -19,16 +19,28 @@ import { StackActions, useNavigation } from "@react-navigation/native";
 import { Check, SquareTerminal } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
-import type { AcpSessionMeta } from "../../../../protocol/acp/mod.ts";
+import type { AcpCommand, AcpSessionMeta } from "../../../../protocol/acp/mod.ts";
 import { textBlocks } from "../../../../protocol/lophn-agent/content-block.ts";
 import { type AgentId, lophnIdOf, type Workspace } from "../../../../protocol/lophn-agent/workspaces.ts";
+import { capabilitiesOf, slashEntriesOf } from "../../../../shell/renderer/conversation/agent-view-model.ts";
 import { useModelPicker } from "../../../../shell/renderer/conversation/use-model-picker.ts";
 import { newId } from "../../../../shell/renderer/prefixed-id.ts";
 import { type PlaceOf, paramsOf, useNav } from "../../app/nav.ts";
-import { type AgentChoice, useAgentChoices, useConversation, useWorkspaces, type WorkspaceView } from "../../data/mod.ts";
+import {
+  type AgentChoice,
+  useAgentChoices,
+  useConversation,
+  useCurrentComputer,
+  useWorkspaces,
+  type WorkspaceView,
+} from "../../data/mod.ts";
 import { Face, LOPHN, useUnreachable, WorkspaceMark } from "../../parts/mod.ts";
 import { CodingAgentGroup } from "../coding/index.tsx";
-import { ModelSheet } from "./sheets.tsx";
+import { attachedAbove, useAttachments } from "./attach.tsx";
+import { AttachSheet, CommandsSheet, FilesSheet, ModelSheet } from "./sheets.tsx";
+
+// Before the session exists only a command that is a plain slash command or opens the model sheet can be used here.
+const BEFORE_SESSION: ReadonlySet<AcpCommand["opens"]> = new Set([null, "model", "effort"]);
 
 const sameWorkspace = (a: Workspace | null, b: Workspace | null) =>
   a === null ? b === null : b !== null && a.kind === b.kind && a.id === b.id;
@@ -60,7 +72,9 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
   const unreachable = useUnreachable();
   const [workspace, setWorkspace] = useState<Workspace | null>(place.workspace ?? null);
   const [agent, setAgent] = useState<AgentId>(place.agent ?? lophnIdOf(place.workspace ?? null));
-  const [sheet, setSheet] = useState<"workspace" | "agent" | "coding" | "model" | null>(null);
+  const [sheet, setSheet] = useState<"workspace" | "agent" | "coding" | "model" | "attach" | "files" | "commands" | null>(null);
+  const attachments = useAttachments();
+  const computer = useCurrentComputer()?.name ?? "";
   const [draft, setDraft] = useState(place.text ?? "");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -108,26 +122,52 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
   const listed: readonly AgentChoice[] =
     who !== null && !choices.some((one) => one.agent === who.agent) ? [who, ...choices] : choices;
 
+  const caps = capabilitiesOf(meta);
+  // The agent's commands that make sense before a session exists (the desktop drops the ones that need a session).
+  const usable = new Set(slashEntriesOf(meta?.commands ?? [], "", false).map((entry) => entry.name));
+  const commands = (meta?.commands ?? []).filter((command) => usable.has(command.name) && BEFORE_SESSION.has(command.opens));
+  const canCommand = caps.commands && commands.length > 0;
+  const project = workspace?.kind === "project" ? workspace.id : null;
+
   const start = async () => {
     const text = draft.trim();
-    if (text === "" || busy) return;
+    const pictures = attachments.items;
+    if ((text === "" && pictures.length === 0) || busy || attachments.uploading) return;
     setBusy(true);
     setFailed(false);
+    // `/name argument` runs a command the agent lists, as in a conversation.
+    const slash = /^\/(\S+)\s*([\s\S]*)$/.exec(text);
+    const command =
+      slash === null || pictures.length > 0 ? undefined : commands.find((one) => one.name === slash[1] && one.opens === null);
+    // Pictures go up first; if one does not, nothing opens and the words and pictures stay as they are.
+    const uploaded = pictures.length === 0 ? [] : await attachments.upload(source);
+    if (uploaded === null) {
+      setBusy(false);
+      return;
+    }
     const opened = await source.openSession({ id: session });
     if (opened.ok && pending !== null) {
       // Not saved: the session keeps the agent's default model, as on the desktop.
       await source.act(session, { type: "set_model", session, key: newId("model"), ...pending });
     }
     const message = newId("msg");
-    const sent = opened.ok
-      ? await source.send({
-          session,
-          id: message,
-          key: `session-messages-send-${message}`,
-          content: textBlocks(text),
-          delivery: "next_turn",
-        })
-      : opened;
+    const sent = !opened.ok
+      ? opened
+      : command !== undefined
+        ? await source.act(session, {
+            type: "run_command",
+            session,
+            key: newId("cmd"),
+            name: command.name,
+            argument: slash![2]!.trim(),
+          })
+        : await source.send({
+            session,
+            id: message,
+            key: `session-messages-send-${message}`,
+            content: [...(text === "" ? [] : textBlocks(text)), ...uploaded],
+            delivery: "next_turn",
+          });
     setBusy(false);
     if (!sent.ok) {
       setFailed(true);
@@ -153,7 +193,10 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
             onChangeText={setDraft}
             onSend={() => void start()}
             placeholder={unreachable ?? t("mobile.session.placeholder.new")}
-            disabled={busy || unreachable !== null}
+            above={attachedAbove(attachments)}
+            canSend={attachments.items.length > 0}
+            onAttach={caps.images || project !== null || canCommand ? () => setSheet("attach") : undefined}
+            disabled={busy || unreachable !== null || attachments.uploading}
             chips={
               unreachable !== null || meta === null || !meta.capabilities.model ? undefined : (
                 <Chip onPress={() => setSheet("model")}>{picker.currentLabel}</Chip>
@@ -183,7 +226,7 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
           >
             {who?.name ?? ""}
           </Pill>
-          {workspace?.kind === "project" && (
+          {project !== null && (
             <Pill tall lead={<Icon icon={SquareTerminal} size={18} />} onPress={() => setSheet("coding")}>
               {t("left-sidebar.heading.coding-agents")}
             </Pill>
@@ -230,11 +273,46 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
             }}
           />
         ))}
-        {workspace?.kind === "project" && <CodingAgentGroup project={workspace.id} />}
+        {project !== null && <CodingAgentGroup project={project} />}
       </Sheet>
       <Sheet open={sheet === "coding"} onClose={() => setSheet(null)} title={t("left-sidebar.heading.coding-agents")}>
-        {workspace?.kind === "project" && <CodingAgentGroup project={workspace.id} />}
+        {project !== null && <CodingAgentGroup project={project} />}
       </Sheet>
+      <AttachSheet
+        open={sheet === "attach"}
+        onClose={() => setSheet(null)}
+        agent={who?.name ?? ""}
+        workspace={project === null ? null : { name: workspaceName }}
+        pictures={caps.images}
+        computer={computer}
+        offline={unreachable !== null}
+        onPicked={(picked) => void attachments.add(picked)}
+        onFile={project === null ? null : () => setSheet("files")}
+        onCommands={canCommand ? () => setSheet("commands") : null}
+      />
+      {project !== null && (
+        <FilesSheet
+          project={project}
+          name={workspaceName}
+          open={sheet === "files"}
+          onClose={() => setSheet(null)}
+          onPick={(path) => {
+            setDraft((text) => (text === "" || text.endsWith(" ") ? `${text}${path} ` : `${text} ${path} `));
+            setSheet(null);
+          }}
+        />
+      )}
+      <CommandsSheet
+        commands={commands}
+        open={sheet === "commands"}
+        onClose={() => setSheet(null)}
+        onPick={(command) => {
+          if (command.opens === null) {
+            setDraft(`/${command.name} `);
+            setSheet(null);
+          } else setSheet("model");
+        }}
+      />
       <ModelSheet picker={picker} open={sheet === "model"} onClose={() => setSheet(null)} />
     </Screen>
   );

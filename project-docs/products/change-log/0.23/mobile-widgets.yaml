@@ -1,5 +1,5 @@
 id: mobile-widgets
-version: 0.23.65
+version: 0.23.66
 title: 앱이 폰의 홈 화면에 위젯과 아이콘을 두고, 앱 backend가 core를 거쳐 폰의 위치를 읽는다
 modules: [packages/protocol, packages/core/apps, packages/core/main, packages/core/remote, packages/core/storage, packages/core/agent-workspaces, packages/sdk, packages/shell/renderer, packages/design, packages/mobile, tools]
 change: |

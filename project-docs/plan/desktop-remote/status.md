@@ -8,5 +8,5 @@ lead만 고친다. `tools/status.py desktop-remote build`가 `tasks/*.md`에서 
 | `remote-desk-client` | remote-client | 1 | 없음 | merged | remote-client/remote-desk-client | 3fd27e082 |  |
 | `remote-desk-viewer` | desk-viewer | 2 | remote-desk-client | merged | desk-viewer/remote-desk-viewer | 9f9a69b7b |  |
 | `remote-desk-stale-send` | stale-send | 2 | remote-desk-client | merged | stale-send/remote-desk-stale-send | f64d198c5 |  |
-| `remote-desk-renderer` | desk-renderer | 3 | remote-desk-screens, remote-desk-viewer | running | desk-renderer/remote-desk-renderer |  |  |
-| `remote-desk-windows` | desk-windows | 3 | remote-desk-viewer | running | desk-windows/remote-desk-windows |  |  |
+| `remote-desk-renderer` | desk-renderer | 3 | remote-desk-screens, remote-desk-viewer | merged | desk-renderer/remote-desk-renderer | 3efc90c6d |  |
+| `remote-desk-windows` | desk-windows | 3 | remote-desk-viewer | merged | desk-windows/remote-desk-windows | 3efc90c6d |  |

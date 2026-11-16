@@ -273,6 +273,80 @@ export const shellArea: Area = {
       render: () => <ShellScene variant="desk-close" closeDesk="Review" />,
     },
     {
+      id: "shell-machine-menu",
+      title: "Shell · Machine menu",
+      description:
+        "이 컴퓨터 창의 title bar 왼쪽에 기계 고르기가 있고 이름(Studio)이 늘 보인다. 연 목록은 맨 위 이 컴퓨터, 그 아래 짝지은 기계(보이는 이름과 상태: relay로 붙음, 꺼짐과 마지막으로 본 때, 상대가 지움), 맨 아래 Pair another computer…다. 짝지은 기계가 없으면 이 단추 자체가 없다.",
+      render: () => (
+        <ShellScene
+          variant="project"
+          machine={{}}
+          open="[data-machine-button]"
+        />
+      ),
+    },
+    {
+      id: "shell-machine-window",
+      title: "Shell · Other machine window",
+      description:
+        "다른 기계(Home server)를 보는 창의 Home. title bar의 기계 고르기에 그 기계의 이름이 보이고, 이 창은 사는 동안 그 기계만 본다. 끄는 기능을 실제로 감추는 일은 renderer 연결 단계라 여기서는 title bar와 자리 표시만 맞춘다.",
+      render: () => (
+        <ShellScene variant="empty" machine={{ window: "mch_homeserver" }} />
+      ),
+    },
+    {
+      id: "shell-machine-gate-offline",
+      title: "Shell · Other machine · offline",
+      description:
+        "한 번도 붙지 못한 채 꺼져 있는 기계의 창. 마지막으로 본 때와 [Try again], 이 컴퓨터 창을 여는 [This computer]가 있다. 꺼진 기계가 창을 막지 않는다. 한 번 붙은 뒤의 끊김은 이 화면이 아니라 마지막 화면 위의 한 줄이다.",
+      render: () => (
+        <ShellScene
+          variant="empty"
+          left={false}
+          right={false}
+          machine={{ window: "mch_laptop", body: "gate" }}
+        />
+      ),
+    },
+    {
+      id: "shell-machine-gate-removed",
+      title: "Shell · Other machine · removed",
+      description:
+        "그 기계가 이 desktop을 지운 창. 이 컴퓨터의 Settings › Remote에서 다시 pairing하라는 안내와 [This computer]만 있다.",
+      render: () => (
+        <ShellScene
+          variant="empty"
+          left={false}
+          right={false}
+          machine={{ window: "mch_olddesk", body: "gate" }}
+        />
+      ),
+    },
+    {
+      id: "shell-machine-only-here",
+      title: "Shell · This opens only on …",
+      description:
+        "다른 기계 창에서 끈 기능(터미널, 편집기, browser 등)의 탭이 설 자리. 가운데 기둥에 한 줄뿐이고 단추가 없다. 이 컴퓨터의 터미널이나 파일을 대신 열자는 뜻이 아니다.",
+      render: () => (
+        <ShellScene
+          variant="empty"
+          machine={{ window: "mch_homeserver", body: "only-here" }}
+        />
+      ),
+    },
+    {
+      id: "shell-machine-settings",
+      title: "Shell · Other machine · Settings",
+      description:
+        "다른 기계 창의 Settings 자리. 그 기계의 설정은 그 기계에서 바꾼다는 한 줄과 이 컴퓨터 창을 여는 단추뿐이다. 짝지은 기계의 관리는 이 컴퓨터 창의 Settings › Remote가 한다.",
+      render: () => (
+        <ShellScene
+          variant="empty"
+          machine={{ window: "mch_homeserver", body: "settings" }}
+        />
+      ),
+    },
+    {
       id: "shell-tabs-close",
       title: "Shell · Close tabs",
       description:

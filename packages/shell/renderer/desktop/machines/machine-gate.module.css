@@ -1,0 +1,51 @@
+/* 기둥: 폼 폭, card 가운데(connection.module.css의 gate와 같다). */
+.gate {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  justify-content: center;
+  width: 100%;
+  max-width: var(--page-form);
+  min-height: 100%;
+  margin: var(--space-0) auto;
+  padding: var(--space-9) var(--layout-pane-padding-wide);
+}
+
+@media (width < 1024px) {
+  .gate {
+    padding-right: var(--layout-pane-padding-narrow);
+    padding-left: var(--layout-pane-padding-narrow);
+  }
+}
+
+.connecting {
+  display: flex;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.title {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.help {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+/* 단추는 오른쪽 끝, 주 단추가 맨 오른쪽이다. */
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}

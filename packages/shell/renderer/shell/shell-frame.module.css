@@ -92,6 +92,7 @@
 
 .brand {
   display: inline-flex;
+  flex: none;
   min-width: var(--space-0);
   overflow: hidden;
   white-space: nowrap;

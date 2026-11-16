@@ -388,3 +388,37 @@ export const SettingsRemotePairing = () => (
 export const SettingsRemoteRevoke = () => (
   <SettingsFrame pane="remote" steps={[() => click("[data-remote-revoke]")]} />
 );
+
+const VIEWED_START = { mode: "machine", machine: "mch_homeserver" } as const;
+
+/** Settings › Remote: Computers you view. 짝지은 기계 셋(Home server는 relay로 붙어 있고 별명이 있다, Work laptop은 꺼져 있다, Old desktop은 상대가 지웠다)과 시작 기계 select(Home server로 고정). */
+export const SettingsRemoteViewed = () => (
+  <SettingsFrame pane="remote" machines={{ start: VIEWED_START }} />
+);
+
+/** Settings › Remote: [Add computer]를 눌러 pairing text를 붙여 넣는 칸이 열렸다. 칸 아래에 그 컴퓨터에서 복사해 오는 길이 있다. */
+export const SettingsRemoteViewedAdd = () => (
+  <SettingsFrame
+    pane="remote"
+    machines={{ start: VIEWED_START }}
+    steps={[
+      () => click("[data-machines-add-button]"),
+      () =>
+        type(
+          "[data-machines-text]",
+          '{"addresses":["192.168.0.31"],"port":7432,"key":"q0nT3vVZ6yWm0z0cX8yFJr6dYb0p5QeTq3m7kXc1Hn4","code":"4f1c2b9e0d7a63851f2e9c4b7a0d3e6f"}',
+        ),
+    ]}
+  />
+);
+
+/** Settings › Remote: 시작 기계(Home server)의 [Remove]를 눌러 확인 dialog가 열렸다. 시작 기계라서 지운 뒤 일을 한 줄 더 알린다. */
+export const SettingsRemoteViewedRemoveStart = () => (
+  <SettingsFrame
+    pane="remote"
+    machines={{ start: VIEWED_START }}
+    steps={[
+      () => click('[data-machine-row="mch_homeserver"] [data-machine-remove]'),
+    ]}
+  />
+);

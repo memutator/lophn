@@ -34,6 +34,8 @@ export interface ShellFrameProps {
   platform?: WindowPlatform;
   /** 창 단추 통로. 기본은 preload가 둔 통로이고 없으면 단추를 그리지 않는다. */
   windowApi?: WindowControlsApi;
+  /** 왼쪽 구역의 기계 고르기(MachineSwitcher). desk 단추 앞에 선다. */
+  machineSwitcher?: ReactNode;
   /** 왼쪽 구역의 desk 단추(DeskSwitcher). project workspace에만 둔다. */
   deskSwitcher?: ReactNode;
   /** 가운데 tab 줄(TabStrip). */
@@ -170,6 +172,7 @@ export function ShellFrame({
   onToggleRight,
   platform = currentPlatform(),
   windowApi = bridge(),
+  machineSwitcher,
   deskSwitcher,
   tabs,
   panelTabs,
@@ -231,6 +234,7 @@ export function ShellFrame({
             </span>
           ) : null}
           <span className={styles.grow} />
+          {machineSwitcher}
           {deskSwitcher}
         </div>
 

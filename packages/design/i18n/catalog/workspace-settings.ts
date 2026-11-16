@@ -172,7 +172,7 @@ export const workspaceSettings = {
   "settings.button.keys-reset-all": "Reset all shortcuts",
   "settings.button.remote-make-primary": "Make primary",
   "settings.button.remote-new-code": "New code",
-  "settings.button.remote-pair": "Add phone",
+  "settings.button.remote-pair": "Add phone or computer",
   "settings.button.remote-rename": "Rename",
   "settings.button.remote-revoke": "Unpair",
   "settings.button.remote-show-text": "Show as text",
@@ -218,7 +218,8 @@ export const workspaceSettings = {
   "settings.error.key-unsupported": "That key can't be used for a shortcut.",
   "settings.error.remote-device-failed":
     "Could not change the phone. Try again.",
-  "settings.error.remote-devices-failed": "Could not read paired phones.",
+  "settings.error.remote-devices-failed":
+    "Could not read paired phones and computers.",
   "settings.error.remote-load-failed":
     "Could not read the phone connection setting.",
   "settings.error.remote-pair-failed": "Could not make a pairing code.",
@@ -250,8 +251,8 @@ export const workspaceSettings = {
   "settings.heading.quick-tray": "Tray",
   "settings.heading.this-computer": "This computer",
   "settings.heading.keep-running": "Keep running",
-  "settings.heading.remote-devices": "Phones",
-  "settings.heading.remote-pair": "Add a phone",
+  "settings.heading.remote-devices": "Devices",
+  "settings.heading.remote-pair": "Add a phone or computer",
   "settings.heading.shell-rules-built-in": "Built in",
   "settings.heading.shell-rules-project": "Project: {name}",
   "settings.heading.shell-rules-global": "Global",
@@ -270,7 +271,7 @@ export const workspaceSettings = {
   "settings.intro.quick-launch":
     "The buttons at the bottom of the left sidebar. Hover Terminal, Browser or App to open a favorite coding agent, a bookmark or an app panel directly. A project can keep its own buttons in Project settings.",
   "settings.intro.remote":
-    "Use lophn from your phone. The phone connects to this computer over your local network.",
+    "Use lophn from your phone or from lophn on another computer. They connect to this computer over your local network or the relay.",
   "settings.intro.shell-rules":
     "Before lophn runs a command for an agent, it checks these rules. Deny blocks the command, Ask waits for your answer, and Allow lets it run. The last matching rule wins, and project rules come after global rules. A command that matches no rule runs. In a pattern, * matches any text.",
   "settings.label.accent": "Accent",
@@ -298,7 +299,7 @@ export const workspaceSettings = {
   "settings.label.mode-system": "System",
   "settings.label.open-themes-folder": "Open folder",
   "settings.label.remote-device-name": "Name",
-  "settings.label.remote-enabled": "Allow phone connections",
+  "settings.label.remote-enabled": "Allow phone and computer connections",
   "settings.label.remote-expires": "Code expires in {time}",
   "settings.label.remote-last-connected": "Last connected {time}",
   "settings.label.remote-never-connected": "Never connected",
@@ -342,22 +343,22 @@ export const workspaceSettings = {
   "settings.warning.login-still-registered":
     "lophn is still set to start at login.",
   "settings.note.remote-enabled":
-    "While on, lophn listens for paired phones on every network interface and keeps running when idle.",
+    "While on, lophn listens for paired phones and computers on every network interface and keeps running when idle.",
   "settings.note.remote-pair":
-    "Show a code and scan it with the lophn phone app.",
+    "Show a code and scan it with the lophn phone app, or copy it as text into lophn on another computer.",
   "settings.note.remote-revoke":
     "{name} disconnects now. To use it again, pair it with a new code.",
   "settings.note.remote-scan":
-    "Scan this code with the lophn phone app. A new code replaces this one.",
+    "Scan this code with the lophn phone app, or use Show as text and paste it into Settings › Remote in lophn on another computer. A new code replaces this one.",
   "settings.note.remote-terminal-input":
     "Off by default; while on, anyone holding this phone can type into coding agent terminals on this computer and run commands as you.",
   "settings.notice.computer-cloned":
-    "This lophn was copied from another computer, so it is now a new computer. Phones paired with the other computer need to pair again here.",
-  "settings.notice.remote-devices-empty": "No phones paired yet.",
+    "This lophn was copied from another computer, so it is now a new computer. Phones and computers paired with the other computer need to pair again here.",
+  "settings.notice.remote-devices-empty": "No phones or computers paired yet.",
   "settings.notice.remote-expired":
-    "This code expired. Make a new code to pair a phone.",
+    "This code expired. Make a new code to pair a phone or computer.",
   "settings.notice.remote-off":
-    "Turn on phone connections to pair a phone and see paired phones.",
+    "Turn on connections to pair a phone or computer and see what is paired.",
   "settings.notice.remote-paired": "{name} is paired.",
   "settings.notice.remote-starting": "Starting phone connections…",
   "settings.reason.theme-bad_id":

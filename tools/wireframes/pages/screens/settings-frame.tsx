@@ -1,7 +1,7 @@
 // Settings 틀. 화면은 renderer의 실제 SettingsSpace가 그린다. 화면이 읽는 route는 가짜 core(core-answers)가 답하고
 // 통로는 그 core를 나눠 쓰는 fake다. 필수 설정이 빈 상태는 fake의 설정이고, 열린 dialog 같은 모양은 mount 뒤에 사람이
 // 하듯이 눌러 만든다.
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
 import { AppViewsProvider } from "../../../../packages/shell/renderer/app-frame/app-views.tsx";
 import { createEventClient } from "../../../../packages/shell/renderer/desktop/connection/events/client.ts";
@@ -15,6 +15,11 @@ import type {
 } from "../../../../packages/shell/renderer/desktop/settings/browser/source.ts";
 import type { StoredKeybindings } from "../../../../packages/shell/renderer/desktop/settings/keyboard/source.ts";
 import type { SettingsPane } from "../../../../packages/shell/renderer/desktop/settings/model.ts";
+import { MachinesProvider } from "../../../../packages/shell/renderer/desktop/machines/context.tsx";
+import {
+  type FakeMachinesOptions,
+  fakeMachines,
+} from "../../../../packages/shell/renderer/desktop/machines/testdata/fake-source.ts";
 import type {
   AlwaysOnView,
   RemoteDevice,
@@ -54,6 +59,8 @@ interface SettingsFrameProps {
     /** "Keep running"의 처음 상태에서 바꿀 칸. 안 쓰면 설치본에서 두 스위치가 꺼져 있다. */
     readonly alwaysOn?: Partial<AlwaysOnView>;
   };
+  /** Remote 항목의 "Computers you view". 안 쓰면 이 section이 없다(기계 보기를 쓰지 않는 창). */
+  readonly machines?: FakeMachinesOptions;
   /** Keyboard 항목의 저장된 키. 안 쓰면 바꾼 키가 없다. */
   readonly keyboard?: StoredKeybindings;
   /** Extensions 항목에 가짜 `lophnExtensions` 통로와 `extensions.<id>.enabled` 선언을 끼운다. */
@@ -76,6 +83,7 @@ export function SettingsFrame({
   customList,
   keyboard,
   remote,
+  machines,
   extensions = false,
   steps = [],
 }: SettingsFrameProps = {}) {
@@ -99,26 +107,45 @@ export function SettingsFrame({
     };
   });
   const { client, settings, panels } = wiring;
+  const [machineSource] = useState(() =>
+    machines === undefined ? null : fakeMachines(machines).source,
+  );
   useDrive(() => runSteps(steps));
   return (
-    <EventsProvider client={client}>
-      <GalleryConnectHost providers={panels.providers} agents={panels.agents}>
-        {/* Keyboard와 Quick launch가 앱 panel 화면 목록을 읽는다. */}
-        <AppViewsProvider value={mock.appViews}>
-          <SettingsSpace
-            source={mock.catalog}
-            settingsPane={pane}
-            onHome={noop}
-            onBack={noop}
-            backTo={null}
-            onApp={noop}
-            settings={settings}
-            settingsPanels={panels}
-            onProject={noop}
-            onOpenSession={noop}
-          />
-        </AppViewsProvider>
-      </GalleryConnectHost>
-    </EventsProvider>
+    <MaybeMachines source={machineSource}>
+      <EventsProvider client={client}>
+        <GalleryConnectHost providers={panels.providers} agents={panels.agents}>
+          {/* Keyboard와 Quick launch가 앱 panel 화면 목록을 읽는다. */}
+          <AppViewsProvider value={mock.appViews}>
+            <SettingsSpace
+              source={mock.catalog}
+              settingsPane={pane}
+              onHome={noop}
+              onBack={noop}
+              backTo={null}
+              onApp={noop}
+              settings={settings}
+              settingsPanels={panels}
+              onProject={noop}
+              onOpenSession={noop}
+            />
+          </AppViewsProvider>
+        </GalleryConnectHost>
+      </EventsProvider>
+    </MaybeMachines>
+  );
+}
+
+function MaybeMachines({
+  source,
+  children,
+}: {
+  source: ReturnType<typeof fakeMachines>["source"] | null;
+  children: ReactNode;
+}) {
+  return source === null ? (
+    children
+  ) : (
+    <MachinesProvider source={source}>{children}</MachinesProvider>
   );
 }

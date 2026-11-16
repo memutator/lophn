@@ -45,6 +45,9 @@ import {
   SettingsRemoteOff,
   SettingsRemotePairing,
   SettingsRemoteRevoke,
+  SettingsRemoteViewed,
+  SettingsRemoteViewedAdd,
+  SettingsRemoteViewedRemoveStart,
   SettingsKeyboardApps,
   SettingsKeyboardChanged,
   SettingsKeyboardConflicts,
@@ -287,6 +290,27 @@ export const settingsArea: Area = {
       description:
         "[Unpair]를 눌러 확인 dialog가 열렸다. 끊은 폰은 새 code로 다시 pairing해야 붙는다.",
       render: () => <SettingsRemoteRevoke />,
+    },
+    {
+      id: "settings-remote-viewed",
+      title: "Settings · Remote · Computers you view",
+      description:
+        "이 컴퓨터가 보려고 짝지은 다른 기계의 목록이다. 기계마다 상태(relay로 붙음, 꺼짐과 마지막으로 본 때, 상대가 지움)와 [Rename]·[Remove]가 있고, 아래에 시작 때 여는 기계 select(Home server로 고정)와 [Add computer]가 있다.",
+      render: () => <SettingsRemoteViewed />,
+    },
+    {
+      id: "settings-remote-viewed-add",
+      title: "Settings · Remote · Add computer",
+      description:
+        "[Add computer]를 눌러 다른 컴퓨터가 보여 준 pairing text를 붙여 넣는 여러 줄 칸이 열렸다. 그 컴퓨터의 Settings › Remote에서 Add phone or computer, Show as text를 복사해 온다. [Pair]를 누르면 결과 글이 칸 아래에 선다.",
+      render: () => <SettingsRemoteViewedAdd />,
+    },
+    {
+      id: "settings-remote-viewed-remove-start",
+      title: "Settings · Remote · Remove the start computer",
+      description:
+        "시작 기계의 [Remove]를 눌러 확인 dialog가 열렸다. 지우면 다시 짝지어야 보이고, 시작 기계였으니 지운 뒤에는 마지막에 쓴 기계를 연다는 한 줄이 더 붙는다.",
+      render: () => <SettingsRemoteViewedRemoveStart />,
     },
     {
       id: "settings-keyboard",

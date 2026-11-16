@@ -15,6 +15,7 @@ import { RemoteDeviceRows } from "./device-rows.tsx";
 import { KeepRunningSection } from "./keep-running-section.tsx";
 import { QrCode } from "./qr-code.tsx";
 import remoteStyles from "./remote.module.css";
+import { ViewedMachines } from "./viewed-machines.tsx";
 import type {
   RemoteDevice,
   RemotePairingCode,
@@ -144,6 +145,7 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
       <p className={styles.lead}>{t("settings.intro.remote")}</p>
       <ThisComputer source={source} devices={devices} />
       <KeepRunningSection source={source} />
+      <ViewedMachines />
       {enabled === null ? null : enabled === "failed" ? (
         <p className={styles.notice} data-remote="failed">
           {t("settings.error.remote-load-failed")}

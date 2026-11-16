@@ -1,0 +1,15 @@
+id: app-sidebar-corner-wedges
+version: 0.23.69
+title: sidebar에 놓인 앱 화면의 아래 모서리에 흰 쐐기가 남던 것을 고친다
+modules: [packages/shell/renderer]
+change: |
+  - 오른쪽 sidebar의 앱 화면 아래 두 모서리 밖에 흰색(dark에서는 어두운 회색) 쐐기가 보였다. 앱 view가 붙는 자리(`EmbeddedView`의 slot)가 자기 바탕(`surface-base`)을 칠했고, 그 위의 `<webview>`는 아래 두 모서리가 둥글어서 slot의 각진 모서리가 shell 바탕 위에 비쳤다. slot의 바탕을 지웠다. 바탕은 slot을 품은 card나 popup이 준다.
+  - tab, panel, tray popup은 부모가 같은 색의 card라 보이는 모양이 그대로다.
+why: |
+  sidebar는 card 없이 shell 바탕 위에 앱 화면을 놓는 유일한 자리라 색이 어긋났다.
+decisions:
+  - text: >-
+      sidebar의 앱 view는 아래 모서리가 둥근 채로 둔다. 버린 길: 자리마다 `<webview>`의 모서리 반경을 달리하기(어긋나는 색이 사라져 지금은 필요가 없다).
+    by: agent
+checklist:
+  - "sidebar에 앱 화면(Memo 같은 것)을 열어 아래 모서리에 흰 쐐기가 없는지 light와 dark에서 본다"

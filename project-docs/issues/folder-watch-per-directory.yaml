@@ -1,0 +1,15 @@
+id: folder-watch-per-directory
+title: 폴더 감시가 recursive watch 대신 폴더마다 watch를 건다
+kind: defect
+status: kept
+topic: folder-sync
+modules: [packages/core/main]
+now: |
+  `packages/core/main/daemon/wiring/folder.ts`는 destination마다 `machines/`, 다른 기계의 하위 폴더, 그 `apps/`, 앱 폴더와 `data/`·`source/`에 `fs.watch`를 따로 걸고 scan과 timer가 돌 때마다 목록을 다시 맞춘다(`watchedDirs`, `rewatch`). `fs.watch(path, { recursive: true })`는 core process(Linux, Electron의 Node) 안에서 event를 내지 않았다.
+impact: |
+  개발 비용: 감시 목록을 맞추는 code가 있고 앱·기계마다 watch가 서너 개 는다. 새 폴더는 부모 폴더의 event로 scan이 돈 뒤 감시에 들어간다. 사람이 보는 동작은 같다(2분 timer가 받친다).
+fix: |
+  - 작음: recursive watch가 왜 event를 내지 않는지 보고 되면 하나로 바꾼다.
+closed: |
+  폴더마다 watch로 둔다. 동작이 맞고 늦음은 2분 timer가 받치며, recursive watch가 되는 환경을 찾아 바꿔 얻는 것은 code 몇 줄이다. 그 이유는 wiring의 주석과 `folder-sync.md`의 결정에 있다.
+guard: 없음

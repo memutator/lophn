@@ -1,0 +1,12 @@
+id: folder-absent-pass-mark-in-error-column
+title: 빚진 "다른 곳에서 지운 row" 합치기 표시가 folder_reads.error 칸 안 JSON에 산다
+kind: defect
+status: open
+topic: folder-sync
+modules: [packages/core/folder]
+now: |
+  horizon 밖에서 돌아온 기계가 snapshot을 합칠 때 출처가 아직 이 기계가 낸 것을 다 받지 않았으면 "없는 row 지우기"를 미루고 표시를 남긴다(`owes_absent_pass`). `packages/core/folder/import/deps.ts`는 이 표시를 오류와 함께 `folder_reads.error` 칸에 `{ error, absent: { caught_up_at } | null }` JSON으로 넣고 읽는다. 칸 이름과 schema의 뜻(오류)과 다르고 표시만 있으면 칸이 오류가 아닌데 NULL이 아니다. 그 칸을 읽는 곳은 import 하나다.
+impact: |
+  개발 비용: 그 칸을 오류로 읽는 다른 code(진단, 뒤 계획 `machine-update`의 import 고침)가 표시를 오류로 오해하거나 지우기 쉽다. 오류를 지우는 쓰기가 표시까지 지우면 빚진 지우기가 사라져 다른 곳에서 지운 row가 이 기계에 남는다.
+fix: |
+  - 작음(추천): 다음 folder schema step을 낼 때 `folder_reads`에 `absent_caught_up_at TEXT`와 빚 표시 칸을 더하고 JSON을 옮긴다. 따로 step을 내지 않고 `machine-update`가 이 표를 고칠 때 같이 한다.

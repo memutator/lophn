@@ -21,10 +21,10 @@ lophn의 설정을 한 번 선언하면 Settings 화면, `lophn settings` 명령
 
 ## 모델
 
-설정은 선언이다. 선언 하나가 key, 값의 모양, 기본값, 설명(영어), 뜻 검사, 사람만 바꾸는지(locked)를 갖는다.
+설정은 선언이다. 선언 하나가 key, 값의 모양, 기본값, 설명(영어), 뜻 검사, 사람만 바꾸는지(locked)나 agent가 바꿀 때 사람의 허락이 드는지(`approval: "person"`와 바뀜을 쓰는 `describe`)를 갖는다.
 
 ```
-선언 (key, 모양, 기본값, 설명, 뜻 검사, locked)
+선언 (key, 모양, 기본값, 설명, 뜻 검사, locked | approval+describe)
    │
    ▼
 core ── 저장: <data root>/settings.json  (사람이 고른 값만)
@@ -43,6 +43,7 @@ shell ── core 설정의 사본을 두고 settings 변경마다 다시 읽어
 - **거절과 알림.** 하나라도 거절이면 아무것도 쓰지 않는다. 거절은 이유(영어 문장)를 싣는다. 쓰되 알릴 것(theme의 버린 색, 모자란 대비)은 notes로 돌려준다.
 - **항목마다 file 하나인 설정 묶음.** 색 theme이 이것이다. 항목의 key는 `<묶음 key>.<id>`(`shell.themes.<id>`)이고 file은 `<data root>/themes/<id>.json`이다. 같은 route와 같은 명령으로 쓰고 지운다. 사람이 그 folder에 file을 직접 두어도 같은 항목이다. core가 folder를 만들고 지켜본다. 읽지 못한 file(이름이 id 규칙에 안 맞음, 256 KB 초과, JSON 아님, 모양 틀림)은 항목이 되지 않고 이유와 함께 목록에 남는다.
 - **규칙의 자리.** 설정의 뜻을 아는 규칙은 core와 shell이 같이 쓰는 곳에 하나만 있다. 모양(theme, 글꼴 이름, 고를 수 있는 값)은 design의 순수 계산이고 단축키 표와 문법은 protocol이다. shell은 CSS를 만들 때 같은 규칙으로 한 번 더 본다(`appearance.md`의 지키는 것 3).
+- **사람의 허락이 드는 설정.** `approval: "person"`인 선언은 `describe(before, after) → string[]`(바뀜을 사람의 말로 쓴 영어 줄. 값이 다르면 빈 목록이 아니다)이 있어야 하고 locked와 같이 둘 수 없다(core가 시작할 때 거절한다). 사람 자격은 그대로 바꾼다. agent가 그런 key를 바꾸거나 지우면 route가 값을 먼저 검사한 뒤 그 줄로 승인 카드를 열어 사람에게 묻고, 사람이 허락한 그 값 한 번만 쓴다(`approval.md`의 "사람의 허락이 드는 설정"). 지금은 sync 폴더 `folder.destinations`(`folder-sync.md`) 하나다.
 - **명령.** `lophn settings get [key]`는 목록(값과 한 줄 설명)이나 설정 하나(설명 전체, 값, 기본값, JSON Schema)를 보인다. `settings set <key> <value>`와 `settings unset <key>`가 바꾼다. 설정마다 명령을 두지 않는다. 답은 바꾸기 전 값(`previous`)을 싣는다.
 - **shell의 사본.** shell main은 core가 붙으면 설정 전체를 읽고, `settings` 변경(`StateChanged`)이 오거나 다시 붙으면 다시 읽는다. 설정을 적용하는 곳(모양 CSS, main이 먼저 받는 단축키)은 이 사본을 듣는다. 창은 같은 event로 자기가 그리는 설정(모드, 단축키, 빠른 실행, 읽기 폭, 열려 있는 Settings 화면)을 다시 읽는다. 값을 창에서 main으로 보내는 통로는 없다.
 - **shell이 꺼져 있을 때.** 값은 저장되고 다음에 켤 때 적용된다. 설정을 바꾸려고 shell을 띄우지 않는다.
@@ -54,19 +55,20 @@ shell ── core 설정의 사본을 두고 settings 변경마다 다시 읽어
 1. 설정을 바꾸는 길은 `settings/update` 하나다. Settings 화면, 명령, agent가 같은 route를 부르고 같은 검사를 지난다.
 2. 하나라도 거절이면 아무 file도 바뀌지 않는다. 거절과 오류에 입력한 값을 싣지 않는다.
 3. locked인 설정은 사람이 Settings 화면에서만 바꾼다. agent가 보낸 변경에 locked인 key가 하나라도 있으면 route가 전체를 거절한다. `lophn settings set`은 누가 부르든 locked인 key를 거절한다. locked인 것은 agent가 할 수 있는 일의 범위를 정하거나 사람의 터미널에서 도는 명령을 담은 설정이다: shell 승인 규칙, call 정책, 팀 한도, turn 한도, MCP server, skill folder와 끈 skill, coding agent에게 준 앱, extension 켜기, coding agent 즐겨찾기와 실행 명령어.
-4. 설정을 쓰는 명령은 home workspace의 agent에게만 있다(home의 lophn과 그 밖의 home agent, workspace 없이 도는 harness session). project와 app workspace의 agent는 credential 상한에 `settings/update`가 없다.
-5. 항목 file을 쓰고 지우는 것은 그 항목의 file 하나만이다. 사람이 둔 다른 file과 읽지 못한 file은 고치거나 지우지 않는다. 쓰려는 id의 file이 이미 있는데 읽지 못했거나(JSON이 깨졌다 등) 대소문자만 다른 이름의 file이 있으면 거절한다. folder를 읽지 못하면 쓰지 않는다. 쓰기는 임시 file에 쓰고 rename한다.
-6. 한 번의 변경에서 쓰는 순서는 항목 쓰기, `settings.json`, 항목 지우기다. 중간에 file을 쓰지 못해 멈춰도 `settings.json`이 없는 항목을 가리키지 않는다. 거절은 아무것도 쓰지 않지만 file 쓰기 실패는 그 앞에 쓴 것이 남는다.
-7. 켜진 shell은 `settings` 변경으로만 설정을 따른다. 누가 바꿨는지 가리지 않는다. Settings 화면이 바꾼 값도 같은 길로 적용된다.
-8. 설정의 뜻을 아는 규칙은 한 곳에 있고 core와 shell이 같은 것을 쓴다.
-9. 선언에는 설명이 있어야 한다. 설명이 없는 선언은 core가 시작할 때 거절한다. agent는 설명으로 설정을 찾는다.
+4. `approval: "person"`인 설정은 agent가 사람의 그 한 번의 허락 없이 바꾸지 못한다. 묻지 못하는 agent(unattended turn, 팀 자식, lophn agent turn 밖의 harness)의 바꾸기는 `needs_approval`로 거절되고 아무것도 쓰지 않는다. 기다리는 사이 그 설정이 바뀌어 바뀜이 사람이 본 줄과 다르면 쓰지 않는다.
+5. 설정을 쓰는 명령은 home workspace의 agent에게만 있다(home의 lophn과 그 밖의 home agent, workspace 없이 도는 harness session). project와 app workspace의 agent는 credential 상한에 `settings/update`가 없다.
+6. 항목 file을 쓰고 지우는 것은 그 항목의 file 하나만이다. 사람이 둔 다른 file과 읽지 못한 file은 고치거나 지우지 않는다. 쓰려는 id의 file이 이미 있는데 읽지 못했거나(JSON이 깨졌다 등) 대소문자만 다른 이름의 file이 있으면 거절한다. folder를 읽지 못하면 쓰지 않는다. 쓰기는 임시 file에 쓰고 rename한다.
+7. 한 번의 변경에서 쓰는 순서는 항목 쓰기, `settings.json`, 항목 지우기다. 중간에 file을 쓰지 못해 멈춰도 `settings.json`이 없는 항목을 가리키지 않는다. 거절은 아무것도 쓰지 않지만 file 쓰기 실패는 그 앞에 쓴 것이 남는다.
+8. 켜진 shell은 `settings` 변경으로만 설정을 따른다. 누가 바꿨는지 가리지 않는다. Settings 화면이 바꾼 값도 같은 길로 적용된다.
+9. 설정의 뜻을 아는 규칙은 한 곳에 있고 core와 shell이 같은 것을 쓴다.
+10. 선언에는 설명이 있어야 한다. 설명이 없는 선언은 core가 시작할 때 거절한다. agent는 설명으로 설정을 찾는다.
 
 ## 경계와 계약
 
 - route `settings/list`(user, agent, app, machine): `settings`(key, description, locked, type, default, chosen)와 `folders`(key, description, folder, type, entries, unreadable). `keys`를 주면 그 key의 것만 온다.
-- route `settings/update`(user, agent): `changes`(set, unset). 답은 `changed`, `rejected`(key, reason, message), `notes`(key, message)다. reason은 `unknown_key`, `wrong_type`, `out_of_range`, `invalid_value`, `locked`다. rejected가 비어 있지 않으면 아무것도 쓰지 않은 것이다.
+- route `settings/update`(user, agent): `changes`(set, unset). 답은 `changed`, `rejected`(key, reason, message), `notes`(key, message)다. reason은 `unknown_key`, `wrong_type`, `out_of_range`, `invalid_value`, `locked`, `needs_approval`(agent가 사람의 허락이 드는 설정을 바꾸려 했는데 허락받지 못했다. message가 까닭과 사람이 쓴 이유를 싣는다)이다. rejected가 비어 있지 않으면 아무것도 쓰지 않은 것이다. agent의 호출은 승인을 물을 그 tool call(`tool_call`)을 싣는다.
 - event `StateChanged`의 `settings`: id가 값이 달라진 key다(key마다 하나, null이면 모든 key). 항목은 `<묶음 key>.<id>`이고, 읽지 못한 file 목록만 달라지면 묶음 key다. core가 쓴 것과 손으로 고친 file을 같이 알린다.
-- 명령 `settings.get`(모든 workspace), `settings.set`·`settings.unset`(home). 오류 code는 `not_found`(없는 key), `forbidden`(locked), `invalid_input`(거절된 값, JSON이 아닌 값), `unavailable`이다.
+- 명령 `settings.get`(모든 workspace), `settings.set`·`settings.unset`(home). 오류 code는 `not_found`(없는 key), `forbidden`(locked, `needs_approval`), `invalid_input`(거절된 값, JSON이 아닌 값), `unavailable`이다.
 - 저장: `<data root>/settings.json`(key 전체 이름을 쓰는 평평한 object, 사람이 고른 값만), `<data root>/themes/<id>.json`(theme 하나. 모양은 `appearance.md`).
 - 설정 묶음: `shell.themes`(folder `themes`). 항목 id는 소문자·숫자·`-`로 1~64자다.
 - boundary-catalog의 `config`, `shell`, `design-api`, `coding-agent-cli-interface`에 걸친다.
@@ -82,6 +84,8 @@ shell ── core 설정의 사본을 두고 settings 변경마다 다시 읽어
 - 뜻 검사에 쓰는 규칙은 design과 protocol에 두고 core가 그것을 import한다. 선언 자체는 core에 둔다. 이유: theme 검사는 design의 token 목록이 있어야 하고, shell은 값을 설정 사본(key와 값)으로 읽어서 선언을 import할 일이 없다. 버린 안: 선언을 protocol로 옮기기(protocol은 design을 쓸 수 없어 theme 검사를 둘 수 없다). (agent, 2026-11-11)
 - shell은 값을 창에서 main으로 밀지 않고 main이 core 설정의 사본을 따른다. 이유: 길이 둘이면 한쪽만 바뀐다. `appearance.md`의 옛 결정 "시작 때 값은 renderer가 core에서 읽어 main에 보낸다"를 뒤집었다. (agent, 2026-11-11)
 - agent에게 주는 지침은 home prompt 몇 줄이고 내장 skill은 만들지 않는다. 이유: 무엇을 바꿀 수 있는지는 `settings get`의 설명이 말한다. (agent, 2026-11-11)
+
+- agent가 바꾸되 사람이 그 한 번을 허락하는 설정을 선언의 칸(`approval: "person"`)으로 둔다. 이유: sync 폴더처럼 사람의 data가 data root를 떠나는 설정은 locked로 막으면 agent가 지침대로 바깥 도구를 붙이는 길이 막히고, 묻지 않으면 data가 사람 모르게 나간다. 바뀜의 글은 선언의 `describe`가 쓴다(카드가 값의 JSON이 아니라 "Add sync folder ..."를 보인다). (planner, 2026-11-16)
 
 ## 열린 것
 

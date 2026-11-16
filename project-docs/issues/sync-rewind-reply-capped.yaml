@@ -1,0 +1,13 @@
+id: sync-rewind-reply-capped
+title: sync 앱 rewind의 답이 4 KiB 상한을 넘으면 DB는 되돌려졌는데 rewind는 취소로 끝난다
+kind: bug
+status: open
+topic: app-sync
+modules: [packages/core/apps]
+now: |
+  rewind(`packages/core/apps/rewind/run.ts`)는 뒤집은 changeset을 `deps.link.apply`로 앱 process에 보낸다. sync 앱의 답은 effective changeset(base64)과 새 clock을 싣는데(`processApplyResponseSchema`의 `effective`), relay(`packages/core/apps/runtime/supervisor/relay.ts`)의 `apply`는 기본 답 상한 `SMALL_REPLY_MAX_BYTES`(4,096 bytes)를 쓴다. 변경 묶음 적용과 합치기는 `APPLY_BODY_MAX_BYTES`를 쓰는데 rewind만 짧은 답 상한이다. 답이 넘으면 `lost` → `unavailable`이고 run.ts는 `cancel(id, "app_unavailable")`로 끝낸다. 앱 process는 이미 commit했다.
+impact: |
+  몇 KiB 넘게 바꾼 sync 앱(폰 앱, `sync_to` 앱)의 rewind는 앱 DB를 되돌리고도 취소로 기록된다. invocation에 되돌림 표시가 붙지 않고 sync log에 `rewind` 줄이 없어 폰과 다른 기계는 되돌림을 받지 않아 사본이 갈린다. 사람이 다시 rewind하면 같은 뒤집기를 한 번 더 적용한다.
+fix: |
+  - 작음(추천): relay의 `apply`도 `{ timeoutMs: APPLY_TIMEOUT_MS, maxBytes: APPLY_BODY_MAX_BYTES }`를 쓴다.
+  - 같이: 보낸 뒤 잃은 답은 취소가 아니라 결과 모름으로 남긴다(`sync-apply-timeout-closes-as-failed`와 같은 relay 고침).

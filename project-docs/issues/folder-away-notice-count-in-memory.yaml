@@ -1,0 +1,13 @@
+id: folder-away-notice-count-in-memory
+title: 떨어져 있음 알림이 마지막으로 알린 held 수를 core 메모리에만 둬 재시작 뒤 틀린다
+kind: bug
+status: open
+topic: folder-sync
+modules: [packages/core/main]
+now: |
+  `packages/core/main/daemon/wiring/folder.ts`의 `noticeAway`는 앱마다 마지막으로 알린 held 수를 `awayNotified`(Map, core 메모리)에 둔다. core를 다시 띄우면 비어서, 떨어져 있는 앱은 새 held가 없어도 재시작 뒤 첫 내보내기 run에 같은 줄을 다시 써 안 읽음으로 되돌리고, 떨어져 있지 않은데 held가 남은 앱은 사람이 held를 풀어 수가 줄어도(`last`가 없어 `held >= last` 검사를 지나지 못한다) 줄을 "따라잡았다"와 남은 수로 고치지 않는다.
+impact: |
+  사람은 재시작 뒤 이미 읽은 "too long away" 알림을 다시 받고, held를 다 풀어도 Inbox의 줄이 "N changes are still held"로 남는다.
+fix: |
+  - 작음(추천): 마지막으로 알린 수를 기억하지 않고 notice 줄(같은 key)의 params를 읽어 비교한다. 줄이 이미 상태다.
+  - 작음: `folder_streams`에 칸을 더한다(schema step 하나).

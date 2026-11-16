@@ -1,0 +1,13 @@
+id: folder-environment-hides-held-after-away
+title: 떨어져 있음이 끝나면 held인 자기 변경이 남아도 machine.environment의 away가 null이다
+kind: bug
+status: open
+topic: folder-sync
+modules: [packages/core/main, packages/core/folder, packages/protocol/folder]
+now: |
+  `packages/core/main/daemon/wiring/folder.ts`의 `away(id)`는 내보내기 상태의 `away_since`가 null이면 held 수와 상관없이 null을 돌려준다. horizon 밖에서 돌아온 기계는 같은 run에서 자기 변경을 held로 두고 받을 것을 다 받아 `settled`가 horizon을 넘으므로 `away_since`가 곧 비는 일이 흔하다. 두 data root 시험에서 그대로 보였다: `lophn app sync-held list`는 made_here 변경 하나를 보였고 알림은 "1 change is still held"였는데 `machine environment`의 그 앱은 `away: null`이었다. 앱 칸에는 sync log의 held 수를 싣는 다른 칸이 없다(`imports[].held`는 다른 release라 복사해 둔 file 수다).
+impact: |
+  agent는 지침대로 `machine environment`를 읽고 그 앱에 사람이 풀 것이 없다고 본다. held 변경은 다른 기계에 가지 않은 채 남고, 그동안 그 기계는 그 앱의 snapshot을 쓰지 못한다(compaction이 미뤄지고 release를 바꾸면 내보내기가 멈춘다).
+fix: |
+  - 작음(추천): held 줄이 하나라도 있으면 `away`를 싣고(`since`는 떨어져 있지 않으면 null) `held`와 `changes`를 채운다. 출력 schema의 `since`를 nullable로 한다.
+  - 작음: 앱 칸에 `held_changes: int`를 따로 더한다. agent가 두 칸을 읽어야 한다.

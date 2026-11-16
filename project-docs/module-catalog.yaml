@@ -59,7 +59,7 @@ modules:
 
   - path: packages/core/apps/sync
     boundary: app-sync
-    notes: sync 앱의 ledger sync log(`app_sync_log`), 폰이 부르는 `app_sync/*` route, 임시 snapshot. 앱 DB는 열지 않고(앱 process가 연다) 변경은 앱 process의 `apps.sync_apply`·`apps.snapshot`으로 적용한다.
+    notes: sync 앱의 ledger sync log(`app_sync_log`. 폰·컴퓨터·다른 기계(origin `machine`)의 변경, rewind, 다시 snapshot, held 줄), 폰이 부르는 `app_sync/*` route, 임시 snapshot. 앱 DB는 열지 않고(앱 process가 연다) 변경은 앱 process의 `apps.sync_apply`·`apps.snapshot`으로 적용한다. 폴더 쪽(`core/folder`)은 이 log를 port로 읽고 쓴다.
 
   - path: packages/core/apps/releases/phone-backend
     boundary: app-releases
@@ -141,7 +141,11 @@ modules:
 
   - path: packages/core/folder
     boundary: folder
-    notes: destination 설정(`folder.destinations`), 자기 하위 폴더에만 쓰는 writer와 이름 꼴로 거르는 reader, local 상태 표(`folder_*`). 폴더 꼴은 `packages/protocol/folder`다.
+    notes: export/(data stream, snapshot, compaction, settled, 기계 기록), import/(기록 사본, stream 따라가기, held 복사), apps/(앱 기록, release·source 교환, take-in), environment.ts(읽기 명령과 section 자리)다. 앱 DB와 sync log에는 ports.ts의 port(`FolderApply`, sync log)로만 닿고 core/main의 wiring/folder.ts가 core/apps의 구현을 꽂는다. 계기(감시, timer, 물러남)도 그 wiring이 갖는다. 자기 하위 폴더 밖에 쓰지 못하게 writer가 막는다.
+
+  - path: packages/protocol/folder
+    boundary: folder
+    notes: 폴더 배치와 file 이름, changes·snapshot 꼴, 기록 schema(모르는 칸을 버린다), 꼴 판 범위, 수치(limits.ts), 상태와 `machine.environment` 출력 schema, route `machine/environment`·`machine/forget`·`apps/take_in`·`apps/sync_held`·`apps/sync_resume`. 구현을 두지 않는다.
 
   - path: packages/core/remote
     boundary: remote

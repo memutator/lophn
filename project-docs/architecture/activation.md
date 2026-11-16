@@ -48,6 +48,7 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 - 권한 요구 가운데 `phone.use`(scope `{capability}`, 지금은 `location.get`)는 앱이 사람의 폰 기능을 쓰겠다는 요구다. 앱마다 한 번 이 동의 카드가 묻고 카드는 항목 "Phone"에 "Use your phone's location"을 보인다(앱 상세의 권한에도 같은 글이 선다. 이 줄은 desktop 창에서 보지 못했다). 기능을 더 선언한 release는 늘어난 선언으로 다시 묻는다. 허락은 grant가 되고 사람이 거둘 수 있다(`remote.md`). 이것은 lophn의 동의이고 OS의 위치 권한은 폰이 처음 쓸 때 따로 묻는다.
 - 이전 release로 돌아가기도 같은 순서다. 사람만 시작하고(요청 행 `activation_requests`), 지금 활성 release와 data schema가 같은 `superseded` release만 고른다. migration이 없어서 앱 code만 바뀌고 DB는 그대로다.
 - 시도가 멈출 수 있는 곳은 둘이다. 닫혀 끝난 시도(`active` 또는 `failed`)와 앱을 붙든 채 멈춘 시도(`held`)다. held는 복원이나 종료를 확인하지 못해 앱을 사용 불가로 두고 이전 release도 띄우지 않은 상태이고, 매 sweep이 이어받는다.
+- 다른 기계가 sync 폴더에 내놓은 앱(`folder-sync.md`)은 `app.take_in`이 이 기계에 들인다. 같은 앱 id로 등록하고(앱 id를 고를 수 있는 것은 폴더 take-in 자격 `machine:folder-apps` 하나다) 폴더의 봉인 bundle을 전부 검사한 뒤 그대로 설치해 `prepared` release로 적는다(`created_by`는 `machine`). 이미 들인 앱이면 release만 설치한다. activation은 이 문서의 길 그대로다: 이 기계의 `release.activate`가 시작하고, 이 기계에는 그 앱의 grant가 없으니 첫 activation은 이 기계에서 사람의 동의를 묻는다. grant, 동의, secret, OAuth는 기계를 넘지 않는다.
 - 앱 process는 권한 flag 없이 뜬다(사람이 정했다).
 - 실행 허용(`run_enabled`)은 activation과 별개의 사람의 스위치다. 사람이 끄거나 보관하면 꺼지고, 보관을 되살려도 꺼진 채라 사람이 켜야 한다. activation이 대신 켜지 않는다. 사람의 입구는 App details 탭의 Run 절이다. 켜는 것은 active 보관 상태와 채택한 release가 있을 때만 받는다. 이미 켜진 채 crash loop로 멈춘 앱(10분 창, 다섯 번 초과)은 `AppRestartHalted`가 알리고, 사람의 동작이 있어야 다시 뜬다. 사람이 Run을 켜거나 새 release를 활성화하면 종료 기록(crash 창)을 비우고 다시 띄운다. 그 밖에는 스스로 다시 시도하지 않는다.
 
@@ -107,6 +108,11 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 33. migration이 표의 칸 목록을 바꾸면 그 표의 칸 clock(칸 번호로 적힌다)은 새 release의 첫 시작이 지운다. data 손실을 말하는 `-- loss:` 줄은 폰에 안 간 변경의 손실에도 그대로 근거다. 폰은 release가 바뀌면 컴퓨터 DB의 snapshot을 받고 안 보낸 변경을 새 schema에 이름으로 다시 얹는다(지운 표와 칸의 변경만 버려진다).
 34. standalone 앱(`runs_on`이 `["phone"]`)은 컴퓨터에서 activation 규칙을 그대로 받는다. 컴퓨터의 DB는 폰과 맞추지 않는다.
 
+다른 기계에서 받은 release(설계는 `folder-sync.md`)
+35. take-in은 release를 `prepared`로 둘 뿐 activation을 시작하지 않는다. 다른 기계의 동의와 grant는 옮기지 않으므로 그 앱의 첫 activation은 받은 기계에서 사람에게 묻는다. 저절로 동의하는 장치는 여기에도 없다.
+36. 받은 release는 다른 기계가 봉인한 bundle 그대로다(기계 사이 신분이 bundle hash다). 받는 기계의 lophn에 없는 SDK 판을 고정한 release는 들이지 않는다(`conflict`, `details.reason: sdk_missing`): 폴더에서 온 code가 그 기계의 SDK 저장소에 들어가지 않는다.
+37. sync 앱(`sync_to`)의 활성 release가 바뀌면 그 기계의 다음 내보내기는 snapshot이다. 다른 release의 폴더 변경은 적용하지 않고 held로 복사해 둔다(`folder-sync.md`).
+
 ## 경계와 계약
 
 경계는 앱 release(`app-releases`)가 activation을 주관하고, 앱 process 감독·호출 접수(`app-runtime`)와 앱 DB 작업(`app-data`)을 부른다. 앱 process와의 통신은 `child-supervision-protocol`을 지난다.
@@ -147,6 +153,8 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 - 앱 source와 겹치는 경로 규칙(grant가 앱 source를 감싸거나 그 안이면 거절)을 지웠다. 이유: 이 검사는 complete의 마지막 commit에서만 돌아 사람의 동의를 다 지난 뒤에 떨어졌고, 막아야 하는 것(앱 code 쓰기와 `secrets.json`·다른 앱 data 같은 data root)을 정확히 막지 못했다. `~/.lophn`을 지키는 장치는 사람의 동의 화면뿐이다. (사람, 0.13.0)
 - 기다리지 않은 시도의 결과는 release를 만든 session에 알린다. 이유: 동의 표에는 부른 session이 없고, release를 만든 session과 activate를 부른 session은 보통 같다. 버린 안: 동의 표에 session을 더하기(schema migration이 필요하다). (agent, 0.13.0)
 - 앱 공유 요청을 activation 동의와 한 번에 승인한다. 이유: 사람이 command를 만들고 grant하는 것까지 agent가 알아서 하기를 바랐고, 사람의 승인은 남기되 한 번으로 줄였다. (사람, 2026-11-07) 카드가 본 공유 요청이 바뀌었으면 동의째 `conflict`, 공유 적용이 실패하면 동의는 대기로 남음, 거절은 공유 요청을 건드리지 않음은 agent가 정했다.
+- take-in은 prepared release만 두고 동의는 받은 기계에서 사람이 한다. 이유: grant와 동의는 그 기계에서 앱이 닿는 자원의 허락이고, 기계마다 secret과 폴더가 다르다. 동의를 옮기면 사람이 보지 않은 기계에서 앱이 돈다. (planner)
+- 폴더 take-in만 앱 id를 정해 등록한다. 이유: 기계 사이 같은 앱은 같은 id여야 data stream과 기록이 이어지고, 그 밖의 등록이 id를 고르면 다른 앱의 id를 가로챌 수 있다. (planner, agent)
 - 앱 알림과 toast가 앱 id가 아니라 앱 이름을 보이도록 event와 읽기에 `app_name`을 싣는다. 이유: renderer가 이름을 따로 찾지 않게 한다. (agent, 0.13.0)
 - 대화의 동의 카드 종류는 tool 이름이 아니라 결과를 보고 정하며, `release.activate`가 성공해 끝난 뒤에만 선다. 이유: 이름만으로 정해지는 종류는 시작 때부터 줄이 서야 하는데, `consent`는 결과(동의 대기)를 봐야 안다. (agent, 0.18.0)
 - 사람에게 남는 기록(program 줄)은 상태를 바꾸는 command와 같은 tx에서 쓴다. 이유: 재전송과 끊김에서 빠지거나 늘지 않는다. (agent, 0.20.0)

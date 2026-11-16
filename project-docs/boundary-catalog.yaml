@@ -59,7 +59,7 @@ elements:
 
           - id: app-sync
             kind: component
-            description: 폰에서도 도는 앱(`runs_on`에 phone)의 컴퓨터 DB와 폰 DB를 맞추는 길로, ledger의 순서 있는 sync log, 폰의 push·pull·snapshot, 앱 process의 변경 적용(칸 단위 last-write-wins), 두 쪽이 같이 쓰는 sync core를 포함한다.
+            description: 폰에서도 도는 앱(`runs_on`에 phone)과 기계 사이로 보내는 앱(`sync_to`)의 사본을 맞추는 길로, ledger의 순서 있는 sync log(origin `machine`과 held 줄 포함), 폰의 push·pull·snapshot, 앱 process의 변경 적용(칸 단위 last-write-wins), 기계 사이 snapshot 합치기, 흔적 정리와 horizon, held 변경 풀기, 두 쪽이 같이 쓰는 sync core를 포함한다.
 
           - id: package-registry
             kind: component
@@ -168,7 +168,7 @@ elements:
 
       - id: folder
         kind: component
-        description: 바깥 도구가 옮기는 폴더(destination)로 앱 data·release·source·기계 기록을 내보내고 읽어 들이기. 기계마다 자기 하위 폴더에만 쓴다.
+        description: 바깥 도구가 옮기는 폴더(destination, 기계마다의 설정 `folder.destinations`)로 sync 앱(선언 `sync_to`)의 data stream(changes·snapshot file), release, source(증분 git bundle), 앱·기계 기록을 내보내고 읽어 들이기. 기계마다 자기 하위 폴더에만 쓰고, 읽은 file은 전부 검사한 뒤 한 transaction으로 적용하거나 다른 release면 held로 복사한다. 흔적 정리의 settled·horizon, 다른 기계의 앱을 들이는 take-in, 읽기 명령 `machine.environment`와 뒤 계획이 칸을 꽂는 section 자리를 포함한다.
 
       - id: diagnostics
         kind: component

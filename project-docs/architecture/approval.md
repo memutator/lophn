@@ -1,6 +1,6 @@
 # approval
 
-agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 둘이다. 시킨 것이 승낙이고, 할당이 허락이다. 사람이 agent에게 맡긴 일과 준 tool은 다시 묻지 않는다. 실행 때 묻는 것은 shell 규칙이 `ask`인 명령뿐이고, 사람이 없는 turn은 묻지 않는다. 실수는 묻기가 아니라 rewind와 deny 규칙으로 줄인다. 이 문서는 판정(judge), 묻는 길 하나(turn 안 request), turn mode, shell 규칙, 할당, 앱 공유 요청, 팀 자식의 물음을 다룬다. 앱의 자원 허락(activation 동의)은 `architecture/activation.md`의 일이다.
+agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 원칙은 둘이다. 시킨 것이 승낙이고, 할당이 허락이다. 사람이 agent에게 맡긴 일과 준 tool은 다시 묻지 않는다. 실행 때 묻는 것은 shell 규칙이 `ask`인 명령과 사람의 허락이 드는 설정(`approval: "person"`, 지금은 sync 폴더 `folder.destinations`)을 agent가 바꾸는 것뿐이고, 사람이 없는 turn은 묻지 않는다. 실수는 묻기가 아니라 rewind와 deny 규칙으로 줄인다. 이 문서는 판정(judge), 묻는 길 하나(turn 안 request), turn mode, shell 규칙, 할당, 앱 공유 요청, 팀 자식의 물음을 다룬다. 앱의 자원 허락(activation 동의)은 `architecture/activation.md`의 일이다.
 
 ## 문제
 
@@ -27,6 +27,7 @@ agent는 사람이 없을 때도 shell을 돌리고 앱 tool을 부르고 서로
    gate가 걸린 tool만 GateCall을 낸다: app_tool | mcp_tool | shell
    shell extension tool은 호출 route(extension_tools/call)가 extension_tool로 판정한다(lophn runtime과 harness CLI가 같은 한 곳)
    gate 없는 tool(file, web, ask, call 등)은 이 길을 거치지 않는다
+   설정 route(settings/update)가 agent의 approval 설정 바꾸기를 setting {key, lines}로 같은 판정에 묻는다
         │ memory route tool_gate/check (그 turn의 agent 자격만)
         ▼
  core가 turn 행의 mode, session의 agent·workspace, 할당, shell 규칙 층을 읽어 판정한다
@@ -82,6 +83,15 @@ turn은 시작할 때 mode(attended, unattended, skip)를 정해 turn 행(`turns
 - `always`는 ask였던 조각마다 `<앞 두 낱말> *`(한 낱말이면 그 조각, 조각을 이어야 ask인 명령은 명령 전체)를 allow로 더한다. 층은 turn의 workspace로 정한다: project workspace면 그 project 층, 앱 workspace와 Home이면 전역 층이다.
 - `shell.run`의 효과는 `external`이다. 판정은 규칙이 하고, `read`면 일시 실패에 다시 돌아 같은 명령이 두 번 돈다.
 
+### 사람의 허락이 드는 설정
+
+설정 선언이 `approval: "person"`과 바뀜을 사람의 말로 쓰는 `describe(before, after) → string[]`을 가지면(locked와 같이 둘 수 없다), 사람 자격(Settings 화면, 사람의 터미널의 `lophn settings`)은 그대로 바꾸고 agent의 바꾸기만 묻는다. 사람의 data가 data root를 떠나 바깥 도구가 올리는 폴더로 가기 시작하는 일처럼 pairing·연결과 같은 무게의 설정이다(`folder-sync.md`).
+
+- agent의 `settings/update`에 그런 key가 있으면 route가 먼저 값의 모양과 뜻을 검사한다(사람이 허락한 뒤 거절되는 값을 보이지 않는다). 통과하면 key마다 `describe(지금 값, 바꾼 뒤 값)`의 줄을 만들어 그 agent의 `lophn settings` tool call로 `tool_gate/check`에 `{kind: "setting", key, lines}`를 묻는다.
+- 판정은 attended와 skip에서 `ask`, unattended와 팀 자식(skip을 켠 팀 자식 포함)에서 `deny no_person`이다. skip은 사람이 "묻지 마"라고 한 것이지 이 무게의 일까지 맡긴 것이 아니고, 팀 자식은 부모가 대신 허락하지 못한다.
+- 카드(대화의 승인 카드, 대기 목록, 폰)는 제목 "Change a lophn setting" 아래 `lines`를 줄이지 않고 그대로 보인다(예: `Add sync folder "personal": /home/me/Sync/lophn`, `Remove sync folder "work" (/mnt/nas/lophn)`). 선택지는 `once`와 `reject`뿐이다(`always_patterns`가 빈다).
+- 허락은 기다리던 그 route 호출이 물은 그 값을 한 번 쓰는 것뿐이다. 기다리는 사이 그 설정이 바뀌어 지금 바뀜의 줄이 사람이 본 줄과 다르면 쓰지 않는다. 거절, 묻지 못함(lophn agent turn의 tool call 밖, 예: harness agent), deny는 `rejected`의 `needs_approval`(사람이 쓴 이유를 싣는다)이고 CLI는 `forbidden`으로 돌려준다.
+
 ### 팀 자식의 물음
 
 spawn된 session(`spawned_by` 있음)의 `ask` tool(질문)과 shell 규칙 `ask`(승인)는 사람이 아니라 부모에게 가는 result call이다(`architecture/agent-call.md`의 지키는 것, 팀의 ask call). 자식 turn은 turn 안 request(질문은 질문 대기)로 기다리고 부모의 답이 그것을 푼다. 부모가 판단할 수 없으면 자기 `ask`를 쓴다. 부모도 자식이면 그 위로 가고 root에서 사람에게 닿는다. 올리는 장치는 따로 없다.
@@ -114,7 +124,7 @@ spawn된 session(`spawned_by` 있음)의 `ask` tool(질문)과 shell 규칙 `ask
 2. 할당하지 않은 앱의 tool은 `deny not_assigned`, 할당에서 뺀 tool은 `deny removed`다. 어느 mode에서나 막는다. tool 목록은 session 시작 때 고정하지만(`architecture/agent-definition.md`) 판정은 call 때 지금 할당을 읽어 session 도중 뺀 앱 tool도 바로 막는다.
 3. MCP tool은 판정이 늘 `run`을 낸다(할당 줄이 없다). 막는 곳은 연결 쪽 call이다. 부를 때마다 전역·workspace 층 server 설정을 다시 읽어 꺼진 server(`mcp_off`)나 읽기 실패면 `unavailable`로 거절한다. 도는 turn 안에서 끈 server도 바로 막힌다. agent 정의 층의 `off`는 turn 시작 때 읽은 값이라 다음 turn부터 막힌다.
 4. `deny`는 어느 mode에서나 막는다. skip은 묻지 않는 것이지 금지를 푸는 것이 아니다.
-5. `ask`는 attended에서만 묻는다. unattended와 skip에서는 `run`이 된다. 팀 자식(`spawned_by` 있음, skip 꺼짐)은 예외다: mode와 상관없이 묻고 그 물음은 부모에게 간다. skip이 먼저다.
+5. `ask`는 attended에서만 묻는다. unattended와 skip에서는 `run`이 된다. 팀 자식(`spawned_by` 있음, skip 꺼짐)은 예외다: mode와 상관없이 묻고 그 물음은 부모에게 간다. skip이 먼저다. 사람의 허락이 드는 설정(`setting`)은 따로다: attended와 skip에서 사람에게 묻고, unattended와 팀 자식에서는 `deny no_person`이다. 부모도 skip도 그 허락을 대신하지 않는다.
 6. 사람의 결정은 사람 자격만 받는다(`turn_requests/decide`의 actors와 handler가 한 번 더 본다). pairing한 폰도 사람 자격(actor user, principal `device:<id>`)이라 승인, 질문, 동의, job hold에 답한다. agent, 앱, MCP server가 스스로 허락하면 판정이 의미 없다. 팀 자식의 request는 부모가 이번 한 번만 풀고, 사람의 결정 route는 그 request를 `not_found`로 거절한다.
 7. agent는 자기 할당을 넓히지 못한다. 할당 쓰기(`assignment.set`)는 사람만 하고 읽기(`assignment.get`)는 사람과 machine뿐이다. agent 정의를 만들고 고치는 tool(`agent.create`, `agent.update`)은 `mcp_servers`, `skip`, `apps`, `permissions`를 입력으로 받지 않는다. 앱 공유 요청도 agent가 여는 것은 요청뿐이고 `apps`를 더하는 것은 사람의 승인이다.
 8. 판정이 읽는 할당은 call 때마다 정의 파일에서 읽는다. 앱 호출 경로와 사용 관계도 같은 읽기다. 없는 앱 slug와 active 선언에 없는 command는 읽을 때 빠진다.
@@ -125,7 +135,7 @@ spawn된 session(`spawned_by` 있음)의 `ask` tool(질문)과 shell 규칙 `ask
 11. 묻는 길은 turn 안 request 하나다. 메모리에 있고, 물은 turn이 기다린다. 재시작하면 비고 기다리던 turn은 cancelled를 받는다.
 12. 침묵이나 카드 닫기는 결정이 아니고 기한도 없다. 원래 일이 끝나면(turn 끝, session 닫힘, 재시작) cancelled로 닫고 요청자는 거절과 구별해 받는다. 거절 이유는 agent에게 그대로 간다(tool 결과 `the person rejected this tool call: <이유>`).
 13. 물은 입력을 그대로 실행한다. 허락은 메모리에서 기다리는 같은 호출을 풀 뿐이고 다시 판정하거나 입력을 비교하지 않는다. 바꿔치기할 틈이 없어 fingerprint를 두지 않는다.
-14. 선택지는 `once`, `always`, `reject`다. "이 session 동안" 허락은 없다.
+14. 선택지는 `once`, `always`, `reject`다. "이 session 동안" 허락은 없다. `setting` request는 `once`와 `reject`뿐이다.
 15. `always`는 request의 `always_patterns`를 allow 규칙으로 더한다. shell request에만 있고, 비면 `always`를 받지 않는다(`invalid_input`). 카드는 그 줄을 그대로 보여 사람이 무엇을 허락하는지 본다.
 16. 카드 내용은 program이 GateCall에서 만든다. agent가 쓴 설명은 싣지 않는다.
 
@@ -146,13 +156,13 @@ turn mode
 ## 경계와 계약
 
 route와 command
-- `tool_gate/check`(memory, 그 turn의 agent 자격만): 실행 전 판정. `run`, `deny`(이유), 사람이 푼 뒤의 결과를 돌려준다.
+- `tool_gate/check`(memory, 그 turn의 agent 자격만): 실행 전 판정. `run`, `deny`(이유 `not_assigned`·`removed`·`shell_rule`·`no_person`), 사람이 푼 뒤의 결과를 돌려준다. 묻는 호출(승인 카드와 ACP 승인 subject)은 `app_tool`, `mcp_tool`, `shell`, `setting {key, lines}`이다.
 - `turn_requests/decide`(memory, 사람 자격만): `once | always | reject`(+ 이유 한 줄). 없거나 다른 session·팀 자식의 request는 `not_found`, 이미 닫혔으면 `conflict`, `always`를 저장하지 못하면 `internal`이고 request는 다시 열린다.
 - `extension_tools/call`: shell extension tool의 판정과 shell host로 넘기기.
 - `assignment.get`(사람·machine), `assignment.set`(사람): `{agent, entries: [{app, removed_tools[]}]}` 꼴과 revision compare.
 - `share_request.open`(agent, 앱 workspace), `share_request.decide`(사람, `approve | reject`, compare `requested_at`), `share_requests.list`(대기 목록).
 - `ask` 입구는 팀 자식 여부와 unattended 여부를 가른다. `ReplyCall.decision`이 부모의 승인 답이다.
-- 설정 `approvals.shell_rules`(`{global, projects}`), `coding-agent.shared_apps`.
+- 설정 `approvals.shell_rules`(`{global, projects}`), `coding-agent.shared_apps`. 설정 선언의 `approval: "person"`과 `describe`(`settings.md`), 그 거절 reason `needs_approval`.
 
 event (남지 않는다. commit 뒤 Bus)
 - `TurnRequestOpened`(`to_parent` 표시), `TurnRequestClosed {allow | reject | cancelled}`, `ShareRequestOpened`(새 요청이 대신해도 낸다), `ShareRequestClosed {outcome}`. 대기 목록은 snapshot의 `turn_requests`, `share_requests.list`를 읽고 이 event로 고친다. 대기 목록은 Inbox의 Now 탭 위쪽("답할 것")이다. 그 아래 휘발 알림과 따로 있는 History 탭(영구 기록)은 답할 것이 아니지만 안 읽은 영구 줄은 sidebar 배지에 센다(`architecture/app-notice.md`).
@@ -207,12 +217,15 @@ event (남지 않는다. commit 뒤 Bus)
 - 판정이 읽는 할당을 call 때마다 읽는 것과 MCP 연결 call이 server 설정을 다시 읽는 것은 사람이 거둔 권한이 바로 거둬지게 하려는 것이다. 버린 안: server를 끄는 바뀜마다 연결을 끊기(바뀜을 알리는 길을 새로 둬야 한다). (agent)
 - 폰의 자격은 사람과 같은 actor user이되 route를 목록으로 좁힌다. principal을 기기마다 두어 입장 한도와 command 결과를 shell과 나누지 않는다. 이유: 폰은 일하는 창이고(보기, 말하기, 답하기) 관리는 desktop에 남긴다. 신원은 bearer token이 아니라 handshake로 받은 공개 key다. 버린 안: 폰용 actor 종류를 새로 두기(사람의 결정 route가 모두 그 종류를 받아야 하고 뜻이 같은 사람이다). (agent, 사람이 추천을 받음 2026-11-14)
 - 폰은 일하는 창이라 대화를 이어 가는 쓰기(보내기, 멈추기, 대기열, model, 이름, fork, compact, rewind)와 켜고 끄고 시작하는 것(job 켜고 끄기, workflow 시작·멈춤)은 넣고, 되돌릴 수 없는 `sessions/delete`와 agent의 자율을 넓히는 skip 켜기는 뺀다. 이유: skip은 권한 설정과 같은 무게이고 desktop에서 정한다. 버린 안: 대화 조작을 `acp/send` 하나로 열기(안의 route 이름으로 보지 않으면 목록이 경계 노릇을 못 한다). (agent, 2026-11-15)
+- agent가 sync 폴더(destination)를 바꾸는 것은 사람이 그 한 번을 허락할 때만이다. 지금 있는 승인 카드에 이름과 전체 local 경로가 보인다. unattended turn과 팀 자식은 요청하지 못한다. 이유: 사람의 data가 data root를 떠나 바깥 도구가 올리는 폴더로 가기 시작하는 일이라 pairing·연결과 같다. 버린 안: locked(agent가 지침대로 바깥 도구를 붙이는 길이 막힌다), 묻지 않고 바꾸기. (planner, 2026-11-16 뒤집음)
+- 설정의 승인은 새 묻는 길을 두지 않고 그 agent의 `lophn settings` tool call로 같은 turn 안 request를 연다. route가 묻고 기다리며, 허락은 그 호출이 물은 값 한 번이다. 이유: request id를 실어 나중 쓰기에 맞추는 길보다 바꿔치기할 틈이 없고(지키는 것 13), 카드·대기 목록·폰이 그대로 쓴다. 판정에 skip을 묻는 예외를 두었다: 사람이 skip으로 맡긴 것은 shell 실수의 무게이지 data가 기계 밖으로 나가는 길이 아니다. (agent)
 - turn request와 질문 대기를 메모리 route로 두는 것은 의도다. ledger 표로 옮기면 durable queue가 되고, 재시작이 기다리던 turn을 끊는 것은 의도다. (agent)
 
 ## 열린 것
 
 - 공유 요청 승인이 받을 agent의 정의 파일을 하나씩 쓰다 둘째가 실패하면 첫 agent에 앱이 남는다. 파일 쓰기가 ledger tx 밖이라 요청은 열린 채로 첫 agent가 그 앱의 tool을 쓸 수 있다. 다시 승인하면 마무리되지만 사람이 거절하면 할당이 남는다. 동의와 같이 승인하는 길도 같다. 추천 고침: 쓰기 전에 받을 agent 모두의 정의 파일을 읽고 검사해 통과하면 쓴다(이슈 `share-approval-partial-assignments`).
 - 외부 효과를 다시 묻기로 정하는 일은 사람이 정한다("결정"의 external).
+- harness agent(lophn agent turn 밖에서 `lophn settings`를 부르는 coding agent)는 설정의 승인을 묻지 못해 `approval: "person"` 설정을 늘 바꾸지 못한다(`needs_approval`). sync 폴더를 바꿀 Settings 화면도 아직 없어 사람은 자기 터미널의 `lophn settings set`을 쓴다.
 - unattended coding agent의 물음에 lophn이 hook으로 받아 shell 규칙으로 답하기(deny와 floor면 거절, 나머지는 허락)는 아직 만들지 않았다. 앱 문제를 coding agent에게 맡기는 흐름이 다시 열릴 때 만든다(`project-docs/products/roadmap/approval.md`).
 - reaction이 연 turn의 mode는 지금 attended다. 지금 session을 여는 reaction이 coding session 끝 알림 하나뿐이고 그 흐름이 막혀 있어 열 일이 없다.
 - shell 규칙은 경계가 아니다. `shell.run`은 file 범위와 rewind 밖이다(이슈 `shell-run-bypasses-file-scope`).

@@ -1,0 +1,13 @@
+id: folder-first-export-before-peer-horizon
+title: destination을 처음 두면 다른 기계의 horizon을 읽기 전에 내보내 hold 규칙이 걸리지 않는다
+kind: bug
+status: open
+topic: folder-sync
+modules: [packages/core/main, packages/core/folder]
+now: |
+  `packages/core/main/daemon/wiring/folder.ts`는 `folder.destinations`가 바뀌면 `exportAll()`을 먼저 부르고 `kick("scan", scan)`을 그 뒤에 부른다(core 시작도 같은 순서). 두 일은 따로 돈다. 내보내기(`packages/core/folder/export/stream.ts`)의 hold 규칙은 `peerHorizons`(import가 ledger `folder_records`에 둔 다른 기계 앱 기록의 사본)로 horizon을 아는데, destination을 처음 둔 기계는 아직 기록 사본이 없어 horizon이 없다. 그래서 첫 run의 snapshot과 changes가 hold 규칙 없이 나간다. core를 다시 띄울 때는 사본이 ledger에 있어 이 일이 없다.
+impact: |
+  다른 기계가 이미 흔적을 정리한 뒤 이 기계를 그 폴더에 처음 붙이면(예: 옛 data를 가진 기계를 오랜만에 붙임) 그 기계의 옛 변경이 자기 쪽에서 held가 되지 않고 폴더로 나간다. 받는 기계의 그물이 그 변경을 held로 잡아 data는 잃지 않지만, held가 떨어져 있지 않은 기계 쪽에 생겨 사람이 엉뚱한 기계에서 풀어야 하고 그 기계의 상태는 떨어져 있음을 말하지 않는다.
+fix: |
+  - 작음(추천): destination이 바뀌었을 때와 core 시작 때 scan을 먼저 끝내고 내보내기를 부른다(scan의 결과에서 앱마다 내보내기를 kick한다).
+  - 작음: 앱마다 그 destination의 기록 사본을 한 번도 읽지 않았으면 내보내기가 기다린다. 다른 기계가 없는 첫 기계도 한 scan만큼 늦는다.

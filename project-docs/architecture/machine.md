@@ -100,5 +100,5 @@ binding 다름 ──────────────────▶ 새 id,
 - 이 판 전에 다른 기계로 복사한 data root는 알아채지 못한다. 두 쪽 모두 처음 기동 때 `machine.json`이 없어 각자 새 id를 만들고, 각자 host key와 sync DB에 자기 id를 찍는다. 그래서 두 기계가 같은 remote key와 기기 등록, 같은 sync node를 쥔다. 폰은 처음 붙은 쪽의 id를 배워 다른 쪽을 받아들이지 않는다.
 - OS 값을 읽지 못하던 때 만든 기록(binding null)을 그 상태로 복사하면, 복사본이 자기 OS 값으로 binding을 채워 같은 id 둘이 된다. OS 값을 읽지 못하는 곳(machine-id가 없는 container)에서는 복제를 알아채지 못한다.
 - VM image를 복제해 OS 값까지 같으면 복제를 알아채지 못한다.
-- data root를 공유 저장소(동기 폴더, network disk)에 두고 두 기계가 번갈아 쓰면 기동마다 상대의 기록을 복제로 보고 새 id를 만들며 기기 등록을 버린다(`platform.md`). 공유 저장소 검사는 아직 없다.
-- 기계 이름이 겹치는지 보지 않는다. 겹친 이름의 표시 규칙도 없다.
+- data root를 공유 저장소(동기 폴더, network disk)에 두고 두 기계가 번갈아 쓰면 기동마다 상대의 기록을 복제로 보고 새 id를 만들며 기기 등록을 버린다(`platform.md`). 공유 저장소 검사는 sync 폴더(destination)와 data root가 서로 안에 있으면 거절하는 것뿐이다(`folder-sync.md`). 그 밖은 지침이 막는다.
+- 기계 이름이 겹치는지 보지 않는다. 겹친 이름은 폴더 교환의 읽기 명령 `machine.environment`만 `이름 (id 끝 6자)`로 가린다(`folder-sync.md`).

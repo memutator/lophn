@@ -1,0 +1,13 @@
+id: folder-snapshot-future-clock-not-deferred
+title: 시계가 앞선 기계의 snapshot은 미루지 않고 합쳐 받는 기계의 clock이 앞으로 뛴다
+kind: bug
+status: open
+topic: folder-sync
+modules: [packages/core/folder, packages/protocol/apps/sync, packages/core/apps]
+now: |
+  미래 clock 미루기(`clock_ahead`)는 changes file에만 걸린다. `packages/core/folder/import/stream.ts`가 changes file의 변경마다 hlc를 보고 `clockAhead`로 가르지만 snapshot file은 header에 clock이 없고 그대로 앱 process의 `snapshot_merge`로 간다. `packages/protocol/apps/sync/merge.ts`의 `mergeSnapshot`은 끝에 `clock.observe(seen)`으로 source에서 본 가장 큰 clock을 이 DB의 마지막 clock으로 받는다. 시계가 앞선 기계가 쓴 snapshot(stream의 첫 file, release가 바뀐 뒤, 30일 compaction)이 오면 받는 기계의 clock이 그 미래 값으로 뛴다.
+impact: |
+  받는 기계의 뒤 write가 모두 미래 clock을 달고 나간다. 다른 기계들은 그 변경을 `clock_ahead`로 미루며 시계가 맞는 이 기계를 "시계가 앞선 기계"로 말한다. 그 사이 이 기계의 변경이 다른 기계에 닿지 않고, 같은 칸을 고친 다른 기계의 뒤 write를 늘 이긴다(사람이 나중에 고친 값이 진다). architecture의 지키는 것 "미래 clock은 미룬다"가 snapshot에서 깨진다.
+fix: |
+  - 중간(추천): 앱 process의 합치기가 source의 가장 큰 clock(state의 `hlc`)을 먼저 읽어 받는 쪽 시각 + 5분보다 앞서면 아무것도 쓰지 않고 `clock_ahead`(앞선 ms)로 답한다. `FolderApply.mergeSnapshot`과 process wire가 그 결과를 싣고 import가 changes file과 같이 기다린다.
+  - 작음: 쓰는 쪽이 snapshot header에 그 DB의 가장 큰 clock을 칸으로 더하고(모르는 칸은 옛 판이 버린다) 읽는 쪽이 changes와 같이 본다. 쓰는 쪽을 믿어야 하고 옛 판 snapshot은 칸이 없다.

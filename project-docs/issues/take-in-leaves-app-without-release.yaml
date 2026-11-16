@@ -1,0 +1,13 @@
+id: take-in-leaves-app-without-release
+title: take-in이 앱을 만든 뒤 release 적기가 실패하면 release 없는 앱이 남는다
+kind: bug
+status: open
+topic: folder-sync
+modules: [packages/core/folder, packages/core/apps]
+now: |
+  `packages/core/folder/apps/take-in.ts`의 take-in은 bundle 설치, 저장소 만들기, `host.createApp`(앱 등록, 같은 id), `host.connectSource`, `host.recordRelease`(prepared release)를 차례로 한 command씩 부른다. 한 transaction이 아니어서 `recordRelease`가 실패하면(예: release 검사 거절, 기록 실패) 앱 행만 남고 release가 없다. 앞에서 같은 선언 검사를 먼저 해 흔한 거절은 막는다.
+impact: |
+  사람의 앱 목록에 활성 release도 준비된 release도 없는 앱이 생긴다. 열거나 활성화할 것이 없고, 다시 `app take-in`하면 이미 있는 앱이라 release만 설치해 고쳐지지만 사람이나 agent가 그것을 알아야 한다.
+fix: |
+  - 작음(추천): 앱을 만든 뒤 release 적기가 실패하면 오류에 "다시 take-in하면 release만 설치한다"를 싣고 `available`에 그 앱을 계속 보인다.
+  - 중간: 앱 등록과 release 기록을 한 command(한 transaction)로 묶는다. 설치한 bundle file은 그 앞이라 실패하면 남는 file을 지운다.

@@ -33,6 +33,7 @@ import {
   type SessionStatus,
   useCurrentComputer,
   useInbox,
+  usePhoneApps,
   useWorkspaces,
   type WorkspaceView,
 } from "../data/mod.ts";
@@ -64,6 +65,8 @@ function lineOf(shown: Shown): string {
       return `workspace:${params.project as string}`;
     case "app-activity":
       return `workspace:${params.app as string}`;
+    case "app":
+      return `workspace:${params.id as string}`;
     case "session":
     case "terminal":
       return `session:${params.session as string}`;
@@ -80,6 +83,7 @@ export function Sidebar({ state, navigation }: DrawerContentComponentProps) {
   const computer = useCurrentComputer();
   const workspaces = useWorkspaces();
   const { count } = useInbox();
+  const phone = new Set(usePhoneApps().apps.map((one) => one.app));
 
   const stack = state.routes[0]?.state;
   const shown = (stack?.routes[stack.index ?? 0] as Shown | undefined) ?? {
@@ -175,6 +179,7 @@ export function Sidebar({ state, navigation }: DrawerContentComponentProps) {
           <Workspace
             key={workspace.key}
             workspace={workspace}
+            phone={phone.has(workspace.key)}
             on={on}
             show={show}
           />
@@ -194,10 +199,13 @@ export function Sidebar({ state, navigation }: DrawerContentComponentProps) {
 
 function Workspace({
   workspace,
+  phone,
   on,
   show,
 }: {
   workspace: WorkspaceView;
+  /** An app with a phone screen: its line opens the screen. */
+  phone: boolean;
   on: string;
   show: (place: Place) => void;
 }) {
@@ -205,7 +213,9 @@ function Workspace({
   const place: Place =
     workspace.workspace === null
       ? { name: "home" }
-      : { name: "workspace", workspace: workspace.workspace };
+      : phone
+        ? { name: "app", id: workspace.key }
+        : { name: "workspace", workspace: workspace.workspace };
   return (
     <>
       <WorkspaceRow

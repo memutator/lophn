@@ -32,6 +32,8 @@ export type Place =
   /** A file of a project, `path` relative to the project folder. */
   | { readonly name: "file"; readonly project: string; readonly path: string }
   | { readonly name: "app-activity"; readonly app: string }
+  /** A user app's phone screen; without `screen` its first one. An app with no phone screen opens its workspace. */
+  | { readonly name: "app"; readonly id: string; readonly screen?: string }
   /** A lophn agent's session, or a coding session of the computer's lophn app. */
   | ({ readonly name: "session" } & (ConversationTarget | CodingTarget))
   /** A file change in a conversation: the thread entry that holds it. */

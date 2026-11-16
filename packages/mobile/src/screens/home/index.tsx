@@ -23,6 +23,7 @@ import {
   useCurrentComputer,
   useInbox,
   useNames,
+  usePhoneApps,
   useWorkspaces,
   type WorkspaceView,
 } from "../../data/mod.ts";
@@ -137,6 +138,8 @@ function Online({
 }) {
   const nav = useNav();
   const now = Date.now();
+  // An app with a phone screen opens it; any other app opens its workspace.
+  const phone = new Set(usePhoneApps().apps.map((one) => one.app));
   return (
     <>
       {inbox.count > 0 && (
@@ -175,7 +178,11 @@ function Online({
             apps={apps}
             onOpen={(app) =>
               app.workspace !== null &&
-              nav.open({ name: "workspace", workspace: app.workspace })
+              nav.open(
+                phone.has(app.key)
+                  ? { name: "app", id: app.key }
+                  : { name: "workspace", workspace: app.workspace },
+              )
             }
           />
         </>

@@ -11,6 +11,7 @@ import {
 } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { AgentScreen, AgentsScreen } from "../screens/agents/index.tsx";
+import { AppScreen } from "../screens/apps/index.tsx";
 import { HomeScreen } from "../screens/home/index.tsx";
 import { AppUpdateScreen, InboxScreen } from "../screens/inbox/index.tsx";
 import { JobScreen, JobsScreen } from "../screens/jobs/index.tsx";
@@ -55,6 +56,7 @@ const SCREENS: Screens = {
   "workflow-run": WorkflowRunScreen,
   file: FileScreen,
   "app-activity": AppActivityScreen,
+  app: AppScreen,
   session: SessionScreen,
   diff: DiffScreen,
   terminal: TerminalScreen,

@@ -34,6 +34,7 @@ import type {
   WorkflowLine,
 } from "../../../protocol/workflows/instances.ts";
 import type { JobRunView, JobView } from "../../../shell/renderer/desktop/jobs/source.ts";
+import { sampleOrdersRoutes } from "../apps/sample-orders.ts";
 import type { SampleComputer } from "./computers.ts";
 import { type ComputerData, dataOf, type SampleConversation } from "./link.ts";
 
@@ -654,6 +655,11 @@ function sampleCore(): CoreSource {
   const reads: Record<string, Answer> = {
     ...placeRoutes(),
     ...coding,
+    ...sampleOrdersRoutes({
+      app: ORDERS.id,
+      releases: [id("rel", 7), id("rel", 8)],
+      emit: (event) => fake.emitEvent(event),
+    }),
     "projects/list": () => ({
       ...COMMON,
       projects: [

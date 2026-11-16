@@ -7,6 +7,8 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
+  useState,
   useSyncExternalStore,
 } from "react";
 import { AppState } from "react-native";
@@ -69,6 +71,14 @@ import type { InboxNames } from "../../../shell/renderer/desktop/connection/wait
 import { newId } from "../../../shell/renderer/prefixed-id.ts";
 import type { CodingActions, CodingTarget } from "./coding.ts";
 import type { ComputerItem, Computers, ComputersState } from "./computers.ts";
+import {
+  type Every,
+  TERMINAL_LOADING,
+  type TerminalFeed,
+  type TerminalSnapshot,
+  type TerminalState,
+  terminalFeed,
+} from "./terminal.ts";
 import { type ComputerData, dataOf, type SampleConversation } from "./link.ts";
 import { type Known, type WorkspaceView, workspacesOf } from "./workspaces.ts";
 
@@ -482,6 +492,50 @@ export function useCodingSessions(project?: string): CodingSessionsView {
 /** What the computer's coding sessions can be told to do: switch view, wake the computer's app, open one. */
 export function useCodingActions(): CodingActions {
   return useData().data.coding;
+}
+
+export interface TerminalView {
+  readonly screen: TerminalSnapshot | null;
+  readonly status: TerminalState["status"];
+  /** This phone may type into the terminal (the person turned it on for this phone on the computer). */
+  readonly input: boolean;
+  send(text: string): Promise<SourceResult<void>>;
+}
+
+const everyInterval: Every = (ms, run) => {
+  const timer = setInterval(run, ms);
+  return () => clearInterval(timer);
+};
+
+/**
+ * A coding session's terminal screen, watched while the screen is open; null watches nothing (the app is in the
+ * background). The last screen stays while it is not watched.
+ */
+export function useTerminal(terminal: string | null): TerminalView {
+  const { client } = useData().data;
+  const [state, setState] = useState<TerminalState>(TERMINAL_LOADING);
+  const feed = useRef<TerminalFeed | null>(null);
+  useEffect(() => {
+    if (terminal === null) return;
+    const watching = terminalFeed(client, terminal, everyInterval, setState);
+    feed.current = watching;
+    return () => {
+      feed.current = null;
+      watching.stop();
+    };
+  }, [client, terminal]);
+  const send = useCallback(
+    (text: string): Promise<SourceResult<void>> =>
+      feed.current?.send(text) ??
+      Promise.resolve({ ok: false, code: "unavailable" }),
+    [],
+  );
+  return {
+    screen: state.screen,
+    status: state.status,
+    input: state.screen?.input ?? false,
+    send,
+  };
 }
 
 /**

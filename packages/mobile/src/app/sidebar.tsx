@@ -65,6 +65,7 @@ function lineOf(shown: Shown): string {
     case "app-activity":
       return `workspace:${params.app as string}`;
     case "session":
+    case "terminal":
       return `session:${params.session as string}`;
     case "diff":
       return `session:${(params.session as { session: string }).session}`;

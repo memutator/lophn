@@ -1,11 +1,12 @@
 // A coding session that runs in a terminal tab on the computer (tools/wireframes/drafts/phone/coding.tsx InTerminal).
 // Its conversation does not reach the phone, so where the composer would be there is one line and Switch to chat, or
-// the reason it cannot switch now.
+// the reason it cannot switch now. View terminal opens the terminal's own screen.
 import { t } from "@lophn/i18n";
 import { AskCard, Button, Dot, Screen, Text } from "@lophn/ui-native";
-import { MessageSquare } from "lucide-react-native";
+import { MessageSquare, SquareTerminal } from "lucide-react-native";
 import { type ReactNode, useState } from "react";
 import { View } from "react-native";
+import { useNav } from "../../app/nav.ts";
 import type { CodingSession } from "../../data/mod.ts";
 import { Face, useLocked } from "../../parts/mod.ts";
 import { blockedText, harnessProfile, stateOf } from "./parts.tsx";
@@ -20,6 +21,7 @@ export function TerminalSession({
   computer: string;
   top: ReactNode;
 }) {
+  const nav = useNav();
   const locked = useLocked();
   const [asking, setAsking] = useState(false);
   const state = stateOf(session);
@@ -63,6 +65,14 @@ export function TerminalSession({
               </Text>
             </View>
           )}
+          <View style={{ marginTop: 18 }}>
+            <Button
+              icon={SquareTerminal}
+              onPress={() => nav.open({ name: "terminal", session: session.session, project: session.project })}
+            >
+              {t("mobile.terminal.button.view")}
+            </Button>
+          </View>
         </View>
       </Screen>
       <SwitchSheet session={asking ? session : null} onClose={() => setAsking(false)} />

@@ -10,7 +10,7 @@ import {
   useNavigation,
 } from "@react-navigation/native";
 import { createContext, useContext, useMemo } from "react";
-import type { AgentId, ConversationTarget, Workspace } from "../data/mod.ts";
+import type { AgentId, CodingTarget, ConversationTarget, Workspace } from "../data/mod.ts";
 
 export type Place =
   | { readonly name: "home" }
@@ -32,12 +32,19 @@ export type Place =
   /** A file of a project, `path` relative to the project folder. */
   | { readonly name: "file"; readonly project: string; readonly path: string }
   | { readonly name: "app-activity"; readonly app: string }
-  | ({ readonly name: "session" } & ConversationTarget)
+  /** A lophn agent's session, or a coding session of the computer's lophn app. */
+  | ({ readonly name: "session" } & (ConversationTarget | CodingTarget))
   /** A file change in a conversation: the thread entry that holds it. */
   | {
       readonly name: "diff";
-      readonly session: ConversationTarget;
+      readonly session: ConversationTarget | CodingTarget;
       readonly entry: string;
+    }
+  /** The terminal a coding session runs in on the computer, its screen as text. */
+  | {
+      readonly name: "terminal";
+      readonly session: string;
+      readonly project: string;
     }
   | {
       readonly name: "new-session";

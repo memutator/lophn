@@ -165,14 +165,14 @@ function ReadOnlyLine({ children }: { children: string }) {
   );
 }
 
-// A coding session of the computer's lophn app (Claude Code, Codex, ...). `Place` does not name it yet; see codingPlace.
+// A coding session of the computer's lophn app (Claude Code, Codex, ...).
 type CodingPlace = { readonly name: "session" } & CodingTarget;
 
-export function SessionScreen({ place }: { place: PlaceOf<"session"> | CodingPlace }) {
+export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
   return "coding" in place ? <CodingSessionScreen place={place} /> : <LophnSessionScreen place={place} />;
 }
 
-function LophnSessionScreen({ place }: { place: PlaceOf<"session"> }) {
+function LophnSessionScreen({ place }: { place: { readonly name: "session" } & ConversationTarget }) {
   const target = useMemo<ConversationTarget>(
     () => ({ session: place.session, agent: place.agent, workspace: place.workspace }),
     [place.session, place.agent, place.workspace],
@@ -421,8 +421,7 @@ function ChatScreen({
       apps,
       openSteps: (calls, output = null) => setSheet({ kind: "steps", calls, output }),
       openThought: (text) => setSheet({ kind: "thought", text }),
-      // `Place`'s diff names only a lophn target; the diff screen reads either (see codingPlace).
-      openDiff: (entryId) => nav.open({ name: "diff", session: target as ConversationTarget, entry: entryId }),
+      openDiff: (entryId) => nav.open({ name: "diff", session: target, entry: entryId }),
       openQueued: (queued) => setSheet({ kind: "queued", queued }),
       resend: (message) => void deliver({ ...message, phase: "sending", checked: false }),
     }),

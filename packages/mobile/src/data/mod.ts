@@ -59,8 +59,15 @@ export {
   useNames,
   useSampleConversation,
   useStartSession,
+  useTerminal,
   useWorkspaces,
+  type TerminalView,
 } from "./hooks.tsx";
+export type {
+  TerminalLine,
+  TerminalRun,
+  TerminalSnapshot,
+} from "./terminal.ts";
 export {
   ATTACH_MAX_MB,
   type Attached,

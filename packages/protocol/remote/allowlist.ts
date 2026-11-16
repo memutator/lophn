@@ -35,6 +35,11 @@ import {
   codingSessionsSwitchPlan,
   codingSessionsWake,
 } from "../coding-agent/relay.ts";
+import {
+  terminalViewInput,
+  terminalViewSnapshot,
+  terminalViewWatch,
+} from "../coding-agent/terminal-view.ts";
 import type { BusEvent } from "../events/bus.ts";
 import { sessionSnapshotsList } from "../events/snapshot.ts";
 import {
@@ -114,8 +119,9 @@ import { devicesSetPush, devicesUnpair } from "./routes.ts";
 // `devices/unpair`와 자기 push 설정 `devices/set_push`만 둔다),
 // `tabs/*`, `sessions/delete`(되돌릴 수 없다), `sessions/change-skip`(사람에게 묻지 않고 돌게 하는 권한 설정이다)은 넣지 않는다.
 // 컴퓨터의 coding agent(`coding_sessions/*`)는 폰이 목록을 보고 view를 바꾸고 새로 열고 컴퓨터의 앱을 깨운다. 폰이 시작한 switch도
-// `confirmed: true`가 있어야 하고(도는 turn이 끊긴다), 터미널 입력은 `host/*`·`terminal_sessions/*`가 아니라 따로 등록한 터미널 입력
-// 기기(`devices/set_terminal_input`)의 일이라 여기 없다.
+// `confirmed: true`가 있어야 하고(도는 turn이 끊긴다). coding session의 터미널 화면은 `terminal_view/*`로 보고 친다. `terminal_view/input`은
+// 목록에 있어도 사람이 컴퓨터에서 이 기기의 터미널 입력을 켰을 때만 core가 받는다. 그 스위치(`devices/set_terminal_input`)와
+// `host/*`·`terminal_sessions/*`는 넣지 않는다.
 // `jobs/update`는 켜고 끄기(`enabled`)만 받는다(core/remote/call.ts). `acp/send`는 안의 route를 기기 자격으로 부르므로 대화 조작 route도 여기 있어야 한다.
 // 모두 user가 부를 수 있는 route여야 한다(아니면 core가 기기 자격을 만들지 못한다).
 // file·upload route의 bytes는 `call`에서 base64로 싣는다(core/remote/call.ts). 폰은 화면 bundle도 이 목록의 route로 받는다.
@@ -144,6 +150,10 @@ export const REMOTE_ALLOWED_ROUTES = [
   codingSessionsSwitch,
   codingSessionsOpen,
   codingSessionsWake,
+  // coding session의 터미널: 화면 읽기, 보는 동안의 lease, 허락받은 기기의 입력
+  terminalViewSnapshot,
+  terminalViewWatch,
+  terminalViewInput,
   // 대화
   acpSnapshot,
   acpDraft,
@@ -260,4 +270,6 @@ export const REMOTE_ALLOWED_EVENTS = [
   "StateChanged",
   // 앱의 폰 화면
   "AppViewEvent",
+  // 보는 터미널의 화면이 바뀌었다(내용 없이 seq만. 폰이 `terminal_view/snapshot`을 다시 읽는다)
+  "TerminalScreenChanged",
 ] as const satisfies readonly BusEvent["type"][];

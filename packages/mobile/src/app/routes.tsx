@@ -29,6 +29,7 @@ import {
   GalleryScreen,
   SettingsScreen,
 } from "../screens/settings/index.tsx";
+import { TerminalScreen } from "../screens/terminal/index.tsx";
 import {
   AppActivityScreen,
   FileScreen,
@@ -56,6 +57,7 @@ const SCREENS: Screens = {
   "app-activity": AppActivityScreen,
   session: SessionScreen,
   diff: DiffScreen,
+  terminal: TerminalScreen,
   "new-session": NewSessionScreen,
   settings: SettingsScreen,
   computer: ComputerScreen,

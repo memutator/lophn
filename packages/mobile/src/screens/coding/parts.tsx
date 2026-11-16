@@ -27,12 +27,9 @@ export function targetOf(session: CodingSession): CodingTarget {
   };
 }
 
-/**
- * The conversation place of a coding session. `Place`'s session carries only a lophn target today; the session screen
- * reads the coding one as well, so the cast goes away when `nav.ts` takes `ConversationTarget | CodingTarget`.
- */
+/** The conversation place of a coding session. */
 export function codingPlace(session: CodingSession): Place {
-  return { name: "session", ...targetOf(session) } as unknown as Place;
+  return { name: "session", ...targetOf(session) };
 }
 
 /** The session's state as its list line and dot: working, waiting on the person, or idle since its last activity. */

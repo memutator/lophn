@@ -22,7 +22,6 @@ import { devicesSetPush } from "../../../protocol/remote/routes.ts";
 import { commandCall } from "../../../shell/renderer/command-call.ts";
 import type { ComputerData, Computers } from "../data/mod.ts";
 import type { CoreSource } from "../../../shell/renderer/desktop/connection/connection.ts";
-import { type NotificationTarget, parseNotificationData } from "./target.ts";
 
 export type { PushPrefs };
 
@@ -125,10 +124,6 @@ export interface Push {
   skip(): void;
   /** The session screen on show, so a computer does not push about what is in front of the person. Returns the way to stop looking. */
   look(session: string): () => void;
-  /** A notification the person tapped and nothing has opened yet. */
-  readonly tapped: NotificationTarget | null;
-  /** The tap was dealt with. */
-  settle(): void;
 }
 
 const PushContext = createContext<Push | null>(null);
@@ -151,7 +146,6 @@ export function PushProvider({
   const [granted, setGranted] = useState<boolean | null>(null);
   // undefined: not asked for yet; null: could not be had.
   const [token, setToken] = useState<string | null | undefined>(undefined);
-  const [tapped, setTapped] = useState<NotificationTarget | null>(null);
 
   useEffect(() => {
     void SecureStore.getItemAsync(KEY).then((raw) => {
@@ -169,22 +163,12 @@ export function PushProvider({
     const app = AppState.addEventListener("change", (next) => {
       if (next === "active") check();
     });
-    // The app was closed and the tap opened it, or the app was open.
-    const tap = (response: Notifications.NotificationResponse | null) => {
-      const target = parseNotificationData(
-        response?.notification.request.content.data,
-      );
-      if (target !== null) setTapped(target);
-    };
-    tap(Notifications.getLastNotificationResponse());
-    const taps = Notifications.addNotificationResponseReceivedListener(tap);
     // A new device token means a new Expo token.
     const rotated = Notifications.addPushTokenListener(() =>
       setToken(undefined),
     );
     return () => {
       app.remove();
-      taps.remove();
       rotated.remove();
     };
   }, []);
@@ -342,13 +326,8 @@ export function PushProvider({
       },
       skip: () => update({ enabled: false, asked: true }),
       look,
-      tapped,
-      settle() {
-        setTapped(null);
-        Notifications.clearLastNotificationResponse();
-      },
     }),
-    [status, saved?.prefs, update, look, tapped],
+    [status, saved?.prefs, update, look],
   );
   return <PushContext value={value}>{children}</PushContext>;
 }

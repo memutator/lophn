@@ -8,6 +8,7 @@ import {
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useEffect } from "react";
 import { useComputers } from "../data/mod.ts";
+import { OpenContext, useOpenTargets } from "../open/linking.ts";
 import { WelcomeScreen } from "../screens/start/welcome.tsx";
 import { ScanScreen } from "../screens/start/scan.tsx";
 import {
@@ -24,6 +25,7 @@ export function Root() {
   const theme = useTheme();
   const { ready, computers } = useComputers();
   const navigation = useNavigationContainerRef<RootParams>();
+  const open = useOpenTargets();
   const none = computers.length === 0;
 
   // The last computer was removed: back to the start.
@@ -37,6 +39,7 @@ export function Root() {
 
   if (!ready) return null;
   return (
+    <OpenContext value={open}>
     <NavigationContainer
       ref={navigation}
       theme={{
@@ -64,5 +67,6 @@ export function Root() {
         <Stack.Screen name="pair-failed" component={PairFailedScreen} />
       </Stack.Navigator>
     </NavigationContainer>
+    </OpenContext>
   );
 }

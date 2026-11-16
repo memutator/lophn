@@ -14,7 +14,7 @@ import { AgentScreen, AgentsScreen } from "../screens/agents/index.tsx";
 import { HomeScreen } from "../screens/home/index.tsx";
 import { AppUpdateScreen, InboxScreen } from "../screens/inbox/index.tsx";
 import { JobScreen, JobsScreen } from "../screens/jobs/index.tsx";
-import { OpenTapped } from "../push/opener.tsx";
+import { OpenTapped } from "../open/opener.tsx";
 import { usePush } from "../push/provider.tsx";
 import { NotificationsScreen } from "../push/screen.tsx";
 import { SearchScreen } from "../screens/search/index.tsx";

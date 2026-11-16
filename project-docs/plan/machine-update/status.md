@@ -6,5 +6,5 @@ lead만 고친다. `tools/status.py machine-update build`가 `tasks/*.md`에서 
 |---|---|---|---|---|---|---|---|
 | `update-follow` | follow | 1 | 없음 | merged | follow/update-follow | 6e5f71365 |  |
 | `update-held` | held | 1 | 없음 | todo |  |  |  |
-| `update-viewer` | viewer | 1 | 없음 | todo |  |  |  |
+| `update-viewer` | viewer | 1 | 없음 | running | viewer/update-viewer |  |  |
 | `update-status` | status | 2 | update-held, update-follow | todo |  |  |  |

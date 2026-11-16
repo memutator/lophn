@@ -1,6 +1,7 @@
 // A new session (tools/wireframes/drafts/phone/session.tsx Fresh, Agents): pick where and who, then the first message
 // opens the session and goes to its conversation, as the desktop's first message does. Only agents that can work in the
-// chosen workspace are offered; coding agents are not run from the phone yet.
+// chosen workspace are offered. In a project the computer's coding agents are offered too; picking one opens it on the
+// computer (no first message here: it is sent in the conversation) and goes to its chat.
 import { t } from "@lophn/i18n";
 import {
   Chip,
@@ -26,6 +27,7 @@ import { newId } from "../../../../shell/renderer/prefixed-id.ts";
 import { type PlaceOf, paramsOf, useNav } from "../../app/nav.ts";
 import { type AgentChoice, useAgentChoices, useConversation, useWorkspaces, type WorkspaceView } from "../../data/mod.ts";
 import { Face, LOPHN, useUnreachable, WorkspaceMark } from "../../parts/mod.ts";
+import { CodingAgentGroup } from "../coding/index.tsx";
 import { ModelSheet } from "./sheets.tsx";
 
 const sameWorkspace = (a: Workspace | null, b: Workspace | null) =>
@@ -223,6 +225,7 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
             }}
           />
         ))}
+        {workspace?.kind === "project" && <CodingAgentGroup project={workspace.id} />}
       </Sheet>
       <ModelSheet picker={picker} open={sheet === "model"} onClose={() => setSheet(null)} />
     </Screen>

@@ -182,6 +182,11 @@ function codingSource(
 
 // ---- the list and the actions
 
+/** A coding route's answer. A refusal carries the sentence the computer gave, to show as it is (`open`: "Open the project on the computer"). */
+export type CodingResult<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly code: string; readonly message?: string };
+
 export interface CodingActions {
   /** What switching the session's view would stop and whether it is blocked. Ask before `switchView`. */
   switchPlan(
@@ -194,13 +199,13 @@ export interface CodingActions {
   /** Only after the person confirmed what `switchPlan` showed: the core refuses a switch without it. */
   switchView(session: string, to: "gui" | "tui"): Promise<SourceResult<void>>;
   /** Starts the lophn app on the computer; `starting` means wait for `useCodingSessions().shell` to be `attached`. */
-  wake(): Promise<SourceResult<{ shell: "attached" | "starting" }>>;
+  wake(): Promise<CodingResult<{ shell: "attached" | "starting" }>>;
   /** A new chat-view coding session in a new terminal tab of the computer, or one that resumes a harness agent session. */
   open(input: {
     project: string;
     harness: string;
     resume?: { session: string };
-  }): Promise<SourceResult<{ session: string }>>;
+  }): Promise<CodingResult<{ session: string }>>;
 }
 
 export interface Coding extends CodingActions {
@@ -209,6 +214,20 @@ export interface Coding extends CodingActions {
 
 /** One computer's coding sessions: the conversation sources and the actions, over its event client. */
 export function codingOf(client: EventClient): Coding {
+  // `env.read` keeps only the error code; open and wake also need the sentence the computer gave.
+  async function ask<T>(
+    route: { kind: string; resource: string; method: string },
+    body: unknown,
+  ): Promise<CodingResult<T>> {
+    try {
+      const reply = await client.core.call({ kind: route.kind as "memory", resource: route.resource, method: route.method, body });
+      return reply.ok
+        ? { ok: true, value: reply.value as T }
+        : { ok: false, code: reply.error?.code ?? "unavailable", message: reply.error?.message };
+    } catch {
+      return { ok: false, code: "unavailable" };
+    }
+  }
   const env = createEnv(
     client.core,
     { assignment: lophnIdOf(null), workspace: { kind: "global", id: "" } },
@@ -227,13 +246,13 @@ export function codingOf(client: EventClient): Coding {
       });
       return done.ok ? { ok: true, value: undefined } : done;
     },
-    wake: () => env.read(codingSessionsWake, {}),
+    wake: () => ask<{ shell: "attached" | "starting" }>(codingSessionsWake, {}),
     open: ({ project, harness, resume }) =>
-      env.read(codingSessionsOpen, {
+      ask<{ session: string }>(codingSessionsOpen, {
         project,
         harness,
         ...(resume === undefined ? {} : { resume }),
         key: newId("open"),
-      }) as Promise<SourceResult<{ session: string }>>,
+      }),
   };
 }

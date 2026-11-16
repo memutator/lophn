@@ -20,7 +20,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import type { AcpCommand, AcpCommandOpens } from "../../../../protocol/acp/mod.ts";
 import { textBlocks } from "../../../../protocol/lophn-agent/content-block.ts";
-import { isCodingBuiltin } from "../../../../protocol/lophn-agent/workspaces.ts";
+import { codingBuiltinOf } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { ToolCallView } from "../../../../shell/renderer/conversation/activity/model.ts";
 import type {
   PermissionsView,
@@ -52,7 +52,7 @@ import {
   type WorkspaceView,
 } from "../../data/mod.ts";
 import { DIM, Face, LOPHN, OfflineBanner, type Profile, useUnreachable } from "../../parts/mod.ts";
-import { harnessProfile, TerminalSession } from "../coding/index.tsx";
+import { ContinueAsChat, harnessProfile, TerminalSession } from "../coding/index.tsx";
 import { Pending } from "./ask.tsx";
 import { attachedAbove, useAttachments } from "./attach.tsx";
 import { duration, useTick } from "./parts.tsx";
@@ -249,7 +249,8 @@ function ChatScreen({
   const meta = thread?.session ?? null;
   const caps = capabilitiesOf(meta);
   // A headless coding agent's session (`coding_*`) is read here and continued on the computer.
-  const coding = lophn !== null && isCodingBuiltin(lophn.agent);
+  const builtin = lophn === null ? null : codingBuiltinOf(lophn.agent);
+  const coding = builtin !== null;
   const archived = entry?.archived === true;
   const readOnly = coding || archived;
 
@@ -465,11 +466,19 @@ function ChatScreen({
     </Pressable>
   );
 
-  const footer = readOnly ? (
-    <ReadOnlyLine>
-      {coding ? t("mobile.session.notice.coding-on-computer", { computer }) : t("conversation.notice.session-archived")}
-    </ReadOnlyLine>
-  ) : (
+  const footer =
+    builtin !== null && lophn?.workspace?.kind === "project" ? (
+      <ContinueAsChat
+        project={lophn.workspace.id}
+        harness={builtin.harness}
+        label={builtin.label}
+        session={session}
+      />
+    ) : readOnly ? (
+      <ReadOnlyLine>
+        {coding ? t("mobile.session.notice.coding-on-computer", { computer }) : t("conversation.notice.session-archived")}
+      </ReadOnlyLine>
+    ) : (
     <>
       {/* While the computer is away an answer cannot go: the cards stay in view, dimmed and locked. */}
       <View pointerEvents={unreachable === null ? "auto" : "none"} style={{ opacity: unreachable === null ? 1 : DIM }}>

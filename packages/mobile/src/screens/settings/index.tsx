@@ -36,7 +36,7 @@ import {
   Trash2,
 } from "lucide-react-native";
 import { type ReactNode, useState } from "react";
-import { Platform, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 import {
   type TextSize,
   type ThemeChoice,
@@ -47,6 +47,7 @@ import { type PlaceOf, useNav } from "../../app/nav.ts";
 import { Gallery } from "../../gallery/gallery.tsx";
 import { type ComputerItem, useComputers } from "../../data/mod.ts";
 import { Face, LOPHN } from "../../parts/mod.ts";
+import { PHONE_NAME_MAX } from "../../pairing/store.ts";
 import { usePush } from "../../push/provider.tsx";
 
 function Lead({ icon }: { icon: LucideIcon }) {
@@ -105,14 +106,60 @@ const SIZE_LABEL = {
 // The product version (the root package.json), put in by metro.config.js when the app is bundled.
 const VERSION = process.env.EXPO_PUBLIC_LOPHN_VERSION ?? "";
 
-// The name this phone was paired under; computers list it so in Settings › Remote.
-const PHONE_NAME = (Platform.constants as { Model?: string }).Model ?? "";
+// A name typed in a sheet: Cancel and Save, with `extra` (a button that clears the name) above them. Save needs a name unless
+// `saveEmpty` (empty puts the default back).
+function NameSheet({
+  open,
+  title,
+  value,
+  placeholder,
+  onChange,
+  onClose,
+  onSave,
+  saveEmpty,
+  extra,
+}: {
+  open: boolean;
+  title: string;
+  value: string;
+  placeholder?: string;
+  onChange: (next: string) => void;
+  onClose: () => void;
+  onSave: () => void;
+  saveEmpty?: boolean;
+  extra?: ReactNode;
+}) {
+  const ok = saveEmpty || value.trim() !== "";
+  return (
+    <Sheet open={open} onClose={onClose} title={title}>
+      <View style={{ gap: 12, paddingHorizontal: 20, paddingBottom: 14 }}>
+        <Input
+          value={value}
+          onChangeText={onChange}
+          placeholder={placeholder}
+          autoFocus
+          onSubmit={() => ok && onSave()}
+        />
+        {extra}
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <Button block onPress={onClose}>
+            {t("common.button.cancel")}
+          </Button>
+          <Button block variant="primary" disabled={!ok} onPress={onSave}>
+            {t("settings.button.device-save")}
+          </Button>
+        </View>
+      </View>
+    </Sheet>
+  );
+}
 
 export function SettingsScreen(_: { place: PlaceOf<"settings"> }) {
   const nav = useNav();
-  const { computers } = useComputers();
+  const { computers, phoneName, setPhoneName } = useComputers();
   const { appearance } = useAppearance();
   const push = usePush();
+  const [naming, setNaming] = useState<string | null>(null);
   return (
     <Screen
       tone="floor"
@@ -150,7 +197,8 @@ export function SettingsScreen(_: { place: PlaceOf<"settings"> }) {
         <Row
           lead={<Lead icon={Smartphone} />}
           title={t("settings.label.remote-device-name")}
-          end={<Value>{PHONE_NAME}</Value>}
+          end={<Value next>{phoneName}</Value>}
+          onPress={() => setNaming(phoneName)}
         />
         <Divider />
         <Row
@@ -175,6 +223,25 @@ export function SettingsScreen(_: { place: PlaceOf<"settings"> }) {
           onPress={() => nav.open({ name: "appearance" })}
         />
       </Group>
+      <Text
+        variant="note"
+        tone="muted"
+        style={{ marginTop: 8, marginHorizontal: 20 }}
+      >
+        {t("mobile.settings.note.phone-name")}
+      </Text>
+      <NameSheet
+        open={naming !== null}
+        title={t("settings.label.remote-device-name")}
+        value={naming ?? ""}
+        onChange={(next) => setNaming(next.slice(0, PHONE_NAME_MAX))}
+        onClose={() => setNaming(null)}
+        onSave={() => {
+          void setPhoneName(naming ?? "");
+          setNaming(null);
+        }}
+        saveEmpty
+      />
       <Label>{t("mobile.settings.heading.about")}</Label>
       <Group>
         <Row
@@ -301,8 +368,17 @@ export function ComputerScreen({ place }: { place: PlaceOf<"computer"> }) {
       <Group>
         <Row
           title={t("mobile.computer.label.shown-as")}
+          sub={
+            computer.alias !== null &&
+            computer.announced !== null &&
+            computer.alias !== computer.announced
+              ? t("mobile.computer.label.announced-name", {
+                  name: computer.announced,
+                })
+              : undefined
+          }
           end={<Value next>{computer.name}</Value>}
-          onPress={() => setNaming(computer.name)}
+          onPress={() => setNaming(computer.alias ?? "")}
         />
         <Divider />
         <Row
@@ -322,39 +398,31 @@ export function ComputerScreen({ place }: { place: PlaceOf<"computer"> }) {
           }
         />
       </Group>
-      <Sheet
+      <NameSheet
         open={naming !== null}
-        onClose={() => setNaming(null)}
         title={t("mobile.computer.label.shown-as")}
-      >
-        <View style={{ gap: 12, paddingHorizontal: 20, paddingBottom: 14 }}>
-          <Input
-            value={naming ?? ""}
-            onChangeText={setNaming}
-            autoFocus
-            onSubmit={() => {
-              rename(computer.key, naming ?? "");
-              setNaming(null);
-            }}
-          />
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <Button block onPress={() => setNaming(null)}>
-              {t("common.button.cancel")}
-            </Button>
+        value={naming ?? ""}
+        placeholder={computer.announced ?? computer.name}
+        onChange={setNaming}
+        onClose={() => setNaming(null)}
+        onSave={() => {
+          rename(computer.key, naming);
+          setNaming(null);
+        }}
+        extra={
+          computer.alias !== null && (
             <Button
               block
-              variant="primary"
-              disabled={(naming ?? "").trim() === ""}
               onPress={() => {
-                rename(computer.key, naming ?? "");
+                rename(computer.key, null);
                 setNaming(null);
               }}
             >
-              {t("settings.button.device-save")}
+              {t("mobile.computer.button.use-computer-name")}
             </Button>
-          </View>
-        </View>
-      </Sheet>
+          )
+        }
+      />
       <Menu
         open={removing}
         onClose={() => setRemoving(false)}

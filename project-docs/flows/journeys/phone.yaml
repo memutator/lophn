@@ -6,9 +6,9 @@ journeys:
     goal: "컴퓨터의 QR이나 글로 폰이 pairing해 Home에서 컴퓨터의 session 목록을 본다"
     steps:
       - {do: "desktop Settings › Remote에서 QR과 \"Show as text\"를 연다. 새 1회용 code가 만들어진다", screen: settings-remote-pairing, flow: remote-pairing-start:ok}
-      - {do: "폰의 Welcome에서 QR을 찍거나 글을 붙여 넣는다. 폰이 pair로 code와 폰 이름을 보내 기기로 등록된다", screen: phone-start, flow: remote-pair:paired}
-      - {do: "폰이 이름을 확인한 뒤 Home으로 간다. 연결이 기기 자격으로 붙고 watch의 ready를 받는다", screen: phone-shell, flow: remote-connection:watch-ready}
-      - {do: "desktop의 기기 목록에 그 폰이 보인다", screen: settings-remote, flow: devices-list:ok}
+      - {do: "폰의 Welcome에서 QR을 찍거나 글을 붙여 넣는다. 폰이 pair로 code와 kind·화면을 보내 기기로 등록된다. 폰은 연결마다 hello로 자기 이름을, 컴퓨터는 자기 id와 이름을 알린다", screen: phone-start, flow: remote-pair:paired}
+      - {do: "폰이 컴퓨터가 알린 이름으로 Paired 화면을 보인다(Shown as를 채우면 그 별명). 사람이 확인한 뒤 Home으로 간다. 연결이 기기 자격으로 붙고 watch의 ready를 받는다", screen: phone-shell, flow: remote-connection:watch-ready}
+      - {do: "desktop의 기기 목록에 그 폰이 자기가 알린 이름으로 보인다", screen: settings-remote, flow: devices-list:ok}
 
   - id: phone-answer
     title: "사람이 폰에서 승인과 질문에 답하고 메시지를 보낸다"
@@ -46,4 +46,4 @@ journeys:
     goal: "폰에서 컴퓨터를 지워도 같은 컴퓨터와 다시 pairing이 된다"
     steps:
       - {do: "Settings에서 컴퓨터를 지운다. 컴퓨터에 닿으면 폰이 자기 등록을 지운다", screen: phone-settings, flow: devices-unpair:ok}
-      - {do: "컴퓨터에 닿지 않을 때 지웠다면 컴퓨터는 폰의 key를 계속 안다. 새 code로 pairing하면 옛 등록이 새 등록으로 바뀐다", screen: phone-start, flow: remote-pair:re-paired}
+      - {do: "컴퓨터에 닿지 않을 때 지웠다면 컴퓨터는 폰의 key를 계속 안다. 새 code로 pairing하면 옛 등록이 새 등록으로 바뀌고, 폰 쪽도 같은 key나 같은 machine id의 항목이 하나로 접히며 별명은 남는다", screen: phone-start, flow: remote-pair:re-paired}

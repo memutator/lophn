@@ -7,10 +7,12 @@ export const mobileApp = {
   "mobile.age.now": "now",
   "mobile.computer.button.pair-another": "Pair another computer",
   "mobile.computer.button.remove": "Remove this computer",
+  "mobile.computer.button.use-computer-name": "Use the computer’s name",
   "mobile.computer.heading.computers": "Computers",
   "mobile.computer.heading.connection": "Connection",
   "mobile.computer.heading.on-phone": "On this phone",
   "mobile.computer.heading.remove-confirm": "Remove this computer?",
+  "mobile.computer.label.announced-name": "Calls itself {name}",
   "mobile.computer.label.key": "Key",
   "mobile.computer.label.path": "Path",
   "mobile.computer.label.shown-as": "Shown as",
@@ -42,6 +44,8 @@ export const mobileApp = {
   "mobile.settings.label.theme": "Theme",
   "mobile.settings.note.appearance":
     "Colors and fonts follow lophn. The theme you picked on a computer stays on that computer.",
+  "mobile.settings.note.phone-name":
+    "Computers show this name for your phone. A name you gave the phone on a computer shows there instead.",
   "mobile.start.button.continue": "Continue",
   "mobile.start.button.enter-code": "Enter a pairing code instead",
   "mobile.start.button.flashlight": "Flashlight",

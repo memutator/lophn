@@ -201,7 +201,8 @@ export function PairingScreen({
   );
 }
 
-// Paired: the person checks the name the computer goes by on this phone, then lands on Home.
+// Paired: the computer is shown by the name it announced. The person may give it another name on this phone (an alias);
+// left empty, the computer's own name stays and follows it when it is renamed.
 export function PairedScreen({
   navigation,
   route,
@@ -209,10 +210,10 @@ export function PairedScreen({
   const theme = useTheme();
   const { computers, rename } = useComputers();
   const computer = computers.find((one) => one.key === route.params.key);
-  const [name, setName] = useState(computer?.name ?? "");
+  const [name, setName] = useState(computer?.alias ?? "");
   const push = usePush();
   const done = () => {
-    if (computer !== undefined && name.trim() !== computer.name)
+    if (computer !== undefined && name.trim() !== (computer.alias ?? ""))
       rename(computer.key, name);
     navigation.reset({ index: 0, routes: [{ name: "frame" }] });
   };
@@ -261,7 +262,12 @@ export function PairedScreen({
         <Lead>{t("mobile.start.intro.paired")}</Lead>
         <Plain style={{ alignSelf: "stretch", marginTop: 28, padding: 16 }}>
           <Field label={t("mobile.computer.label.shown-as")}>
-            <Input value={name} onChangeText={setName} onSubmit={done} />
+            <Input
+              value={name}
+              onChangeText={setName}
+              placeholder={computer?.announced ?? computer?.name}
+              onSubmit={done}
+            />
           </Field>
         </Plain>
         {asking && (

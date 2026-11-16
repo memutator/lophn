@@ -1,4 +1,5 @@
 import type { RandomSource } from "../../../base/mod.ts";
+import type { Id } from "../../../protocol/base/ids.ts";
 import { eventConditionSchema } from "../../../protocol/events/bus.ts";
 import {
   connectRemote,
@@ -6,6 +7,7 @@ import {
   REMOTE_PATH,
   type RemoteClientChannel,
   type RemoteClientFrame,
+  type RemotePeer,
   type RemoteServerFrame,
   type RemoteTransport,
   relayPhoneUrl,
@@ -62,17 +64,24 @@ export type Connection = CoreSource & {
   close(): void;
 };
 
-// Where a paired computer listens. `key` is the core's public key text from the QR; `relay` is its relay, if it has one.
+// Where a paired computer listens and which one it is. `key` is the core's public key text from the QR; `relay` is its
+// relay, if it has one. `machine` is the computer's id from its hello: once known, an answer from another machine
+// (the same key on a copied data root) is refused before anything is sent to it.
 export type Endpoint = {
   addresses: string[];
   port: number;
   key: string;
   relay?: string;
+  machine?: Id<"mch">;
 };
+
+// What a computer said about itself in its hello: its id and the name it goes by.
+export type Announced = RemotePeer["machine"];
 
 export type Dial = (url: string) => Promise<RemoteTransport>;
 
-type Common = { phone: KeyPair; dial: Dial; random: RandomSource };
+// `name` is what this phone calls itself in the hello; the computer lists the phone by it.
+type Common = { phone: KeyPair; dial: Dial; random: RandomSource; name: string };
 
 const BACKOFF_MIN_MS = 1000;
 const BACKOFF_MAX_MS = 30_000;
@@ -109,6 +118,8 @@ export function openFirst(
       staticKey: deps.phone,
       remoteStatic,
       capabilities: phoneCapabilities(),
+      name: deps.name,
+      machine: endpoint.machine,
       random: deps.random,
     });
     return channel.ok ? channel.value : undefined;
@@ -138,6 +149,8 @@ export function createConnection(
     // Runs fn after ms; returns a cancel function.
     wait: (ms: number, fn: () => void) => () => void;
     onRevoked: () => void;
+    // Every channel that opens reports who answered, so the store can keep the computer's id and its current name.
+    onPeer: (machine: Announced) => void;
     // What the phone answers the computer's `request` frames with (location, later more).
     phoneCtx: PhoneCtx;
   },
@@ -151,6 +164,9 @@ export function createConnection(
   let failures = 0;
   let cancelRetry: (() => void) | undefined;
   let cancelProbe: (() => void) | undefined;
+  // The id this link talks to: the saved one, or the first one it meets. Held here so a computer that has no id saved yet
+  // is also checked from its second connection on, without waiting for the store to write the entry.
+  let machine = deps.endpoint.machine;
   // Last conditions the screen asked for. Sent again on every new channel; `[]` still gets a `ready` back.
   let watching: WatchConditions = [];
   let nextId = 0;
@@ -180,13 +196,16 @@ export function createConnection(
   async function connect() {
     if (connecting || channel || !active || stopped) return;
     connecting = true;
-    const opened = await openFirst(deps.endpoint, deps);
+    const opened = await openFirst({ ...deps.endpoint, machine }, deps);
     connecting = false;
     if (!opened) {
       setState({ state: "stale", confirmedAt: state.confirmedAt });
       return retry();
     }
     if (stopped) return opened.channel.close();
+    const { machine: peer } = opened.channel.peer;
+    machine = peer.id;
+    deps.onPeer(peer);
     channel = opened.channel;
     path = opened.path;
     channel.onClose(() => dropped(opened.channel));

@@ -222,10 +222,27 @@ function Paired() {
         <div
           className={s.plain}
           style={{
+            display: "grid",
+            gap: 6,
+            width: "100%",
+            marginTop: 28,
+            padding: 16,
+            boxSizing: "border-box",
+            textAlign: "left",
+          }}
+        >
+          <span className={s.fieldLabel}>Shown as</span>
+          <div className={s.field}>
+            <span className={s.muted}>mina-desktop</span>
+          </div>
+        </div>
+        <div
+          className={s.plain}
+          style={{
             display: "flex",
             gap: 12,
             width: "100%",
-            marginTop: 28,
+            marginTop: 12,
             padding: 16,
             boxSizing: "border-box",
             textAlign: "left",
@@ -346,7 +363,7 @@ export function StartFlow() {
       </Shot>
       <Shot
         title="Paired"
-        text="붙은 컴퓨터 이름을 확인시키고, 폰을 쓰는 가장 큰 이유인 알림을 여기서 한 번 묻는다. Not now여도 설정에서 켠다."
+        text="붙은 컴퓨터가 스스로 알린 이름으로 확인시킨다. Shown as는 비워 두면 그 이름이 계속 보이고(회색 글자가 그 이름), 무언가 쓰면 이 폰에서만 그 별명으로 보인다. 폰을 쓰는 가장 큰 이유인 알림은 여기서 한 번 묻는다. Not now여도 설정에서 켠다."
       >
         <Paired />
       </Shot>

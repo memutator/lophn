@@ -12,8 +12,10 @@ import { pair } from "../pairing/pair.ts";
 import {
   deviceKey,
   loadComputers,
+  loadPhoneName,
   random,
   saveComputers,
+  savePhoneName,
 } from "../pairing/store.ts";
 import type { Computer } from "../pairing/store.ts";
 import type { KeyPair } from "../remote.ts";
@@ -33,31 +35,38 @@ export function createPhoneComputers(): Computers<ComputerData> {
     load: async () => ({
       phone: await deviceKey(),
       computers: await loadComputers(),
+      name: await loadPhoneName(),
     }),
     save: saveComputers,
-    open: (computer, phone, onRevoked) =>
+    saveName: async (name) => {
+      await savePhoneName(name);
+      return loadPhoneName();
+    },
+    open: (computer, phone, { name, onRevoked, onPeer }) =>
       linkOf(
         createConnection({
           endpoint: { ...computer, addresses: withDev(computer.addresses) },
           phone,
           dial: dialSocket,
           random,
+          name,
           now: Date.now,
           wait: (ms, fn) => {
             const timer = setTimeout(fn, ms);
             return () => clearTimeout(timer);
           },
           onRevoked,
+          onPeer,
           phoneCtx: {
             location: expoLocationPort,
             drive: drive.port(computer.key),
           },
         }),
       ),
-    async pair(qr, phone) {
+    async pair(qr, phone, name) {
       const result = await pair(
         { ...qr, addresses: withDev(qr.addresses) },
-        { phone, dial: dialSocket },
+        { phone, dial: dialSocket, name },
       );
       // Store the QR's own addresses; the dev address is added again at connect time.
       return result.ok
@@ -101,8 +110,11 @@ export function callOnce(
       ...computer,
       addresses: [...new Set(withDev(computer.addresses))],
     };
-    void openFirst(endpoint, { phone, dial: dialSocket, random }).then(
-      (opened) => {
+    void loadPhoneName()
+      .then((name) =>
+        openFirst(endpoint, { phone, dial: dialSocket, random, name }),
+      )
+      .then((opened) => {
         if (!opened) return finish(unavailable("not connected"));
         channel = opened.channel;
         if (done) return channel.close();
@@ -123,7 +135,6 @@ export function callOnce(
           body: call.body,
         });
         if (!sent.ok) finish({ ok: false, error: sent.error });
-      },
-    );
+      });
   });
 }

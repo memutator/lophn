@@ -46,6 +46,8 @@ function pipe(): [RemoteTransport, RemoteTransport] {
   return [side(a, b), side(b, a)];
 }
 
+const MACHINE = { id: "mch_01m7dp1jqw47d55vdyzxv5wd0x" as const, name: "mina-desktop" };
+
 const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
 test("after a drop or a dead resume the connection reconnects and sends the last watch again", async () => {
@@ -63,6 +65,7 @@ test("after a drop or a dead resume the connection reconnects and sends the last
       transport: coreSide,
       staticKey: core,
       capabilities: [],
+      machine: MACHINE,
       random: cryptoRandom,
     }).then((opened) => {
       assert.ok(opened.ok);
@@ -98,6 +101,8 @@ test("after a drop or a dead resume the connection reconnects and sends the last
       return () => {};
     },
     onRevoked: () => {},
+    onPeer: () => {},
+    name: "Mina's phone",
     phoneCtx: { location: {} as never, drive: {} as never },
   });
   const conditions = [{ session: "ses_01m7dp1jqw47d55vdyzxv5wd0x" }];
@@ -138,6 +143,7 @@ test("a watch with a session id the core would reject sends no such condition, a
       transport: coreSide,
       staticKey: core,
       capabilities: [],
+      machine: MACHINE,
       random: cryptoRandom,
     }).then((opened) => {
       assert.ok(opened.ok);
@@ -162,6 +168,8 @@ test("a watch with a session id the core would reject sends no such condition, a
       return () => {};
     },
     onRevoked: () => {},
+    onPeer: () => {},
+    name: "Mina's phone",
     phoneCtx: { location: {} as never, drive: {} as never },
   });
   await settle();
@@ -179,5 +187,67 @@ test("a watch with a session id the core would reject sends no such condition, a
   assert.equal(servers.length, 2);
   assert.deepEqual(servers[1]?.frames, [{ type: "watch", conditions: [good] }]);
   assert.equal(connection.current().state, "ready");
+  connection.close();
+});
+
+test("a computer is known by the machine id in its hello: the first one is reported, another machine behind the same key gets no frame", async () => {
+  const core = generateKeyPair(cryptoRandom);
+  const frames: RemoteClientFrame[] = [];
+  const hellos: string[] = [];
+  const channels: RemoteServerChannel[] = [];
+  let answering: { id: `mch_${string}`; name: string } = MACHINE;
+  const dial = async () => {
+    const [phoneSide, coreSide] = pipe();
+    void acceptRemote({
+      transport: coreSide,
+      staticKey: core,
+      capabilities: [],
+      machine: answering,
+      random: cryptoRandom,
+    }).then((opened) => {
+      assert.ok(opened.ok);
+      hellos.push(opened.value.peer.name);
+      channels.push(opened.value);
+      opened.value.onFrame((frame) => {
+        frames.push(frame);
+        if (frame.type === "watch") opened.value.send({ type: "ready" });
+      });
+    });
+    return phoneSide;
+  };
+  const retries: (() => void)[] = [];
+  const met: string[] = [];
+  const connection = createConnection({
+    // No id saved: an entry paired before computers announced one.
+    endpoint: { addresses: ["10.0.0.1"], port: 7432, key: remoteKeyText(core.publicKey) },
+    phone: generateKeyPair(cryptoRandom),
+    dial,
+    random: cryptoRandom,
+    name: "Mina's phone",
+    now: () => 1,
+    wait: (_ms, fn) => {
+      retries.push(fn);
+      return () => {};
+    },
+    onRevoked: () => {},
+    onPeer: (machine) => met.push(`${machine.id} ${machine.name}`),
+    phoneCtx: { location: {} as never, drive: {} as never },
+  });
+  await settle();
+  assert.equal(connection.current().state, "ready");
+  assert.deepEqual(met, [`${MACHINE.id} ${MACHINE.name}`]);
+  assert.deepEqual(hellos, ["Mina's phone"]);
+  assert.equal(frames.length, 1);
+
+  // The data root was copied: the same key now answers as another machine.
+  answering = { id: "mch_01m7dp1jqw47d55vdyzxv5wd0y", name: "copy" };
+  channels[0]?.close();
+  await settle();
+  retries.at(-1)?.();
+  await settle();
+  assert.equal(hellos.length, 2);
+  assert.equal(connection.current().state, "stale");
+  assert.equal(met.length, 1);
+  assert.equal(frames.length, 1);
   connection.close();
 });

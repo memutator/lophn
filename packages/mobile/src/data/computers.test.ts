@@ -7,6 +7,7 @@ import {
   type ComputersDeps,
   createComputers,
   type Link,
+  type PairResult,
   sampleFor,
 } from "./computers.ts";
 
@@ -19,7 +20,15 @@ const computer = (key: string): Computer => ({
 });
 
 function harness(saved: Computer[]) {
-  const opened: { key: string; closed: boolean; revoke: () => void }[] = [];
+  const opened: {
+    key: string;
+    closed: boolean;
+    revoke: () => void;
+    peer: (machine: { id: `mch_${string}`; name: string }) => void;
+  }[] = [];
+  const pairing: { result: PairResult } = {
+    result: { ok: false, failure: { kind: "unreachable" } },
+  };
   const saves: Computer[][] = [];
   const link = (record: { closed: boolean }): Link<null> => ({
     data: null,
@@ -35,18 +44,25 @@ function harness(saved: Computer[]) {
     load: async () => ({
       phone: generateKeyPair(cryptoRandom),
       computers: saved,
+      name: "Mina's phone",
     }),
+    saveName: async (name) => name,
     save: async (next) => {
       saves.push(next);
     },
-    open(one, _phone, onRevoked) {
-      const record = { key: one.key, closed: false, revoke: onRevoked };
+    open(one, _phone, on) {
+      const record = {
+        key: one.key,
+        closed: false,
+        revoke: on.onRevoked,
+        peer: on.onPeer,
+      };
       opened.push(record);
       return link(record);
     },
-    pair: async () => ({ ok: false, failure: { kind: "unreachable" } }),
+    pair: async () => pairing.result,
   };
-  return { deps, opened, saves, link };
+  return { deps, opened, saves, link, pairing };
 }
 
 test("a removed computer has its connection closed and leaves the saved list", async () => {
@@ -104,4 +120,43 @@ test("the sample computer is listed first in a dev build with the flag, and nowh
   assert.deepEqual(await listed({ dev: true, flag: "1" }), ["sample", "a"]);
   assert.deepEqual(await listed({ dev: false, flag: "1" }), ["a"]);
   assert.deepEqual(await listed({ dev: true, flag: undefined }), ["a"]);
+});
+
+test("an entry paired before computers announced themselves keeps its alias, learns the id and name on connecting, and pairing again by machine id leaves one entry", async () => {
+  // The old stored shape: an alias and nothing else new.
+  const old: Computer = { ...computer("a"), name: "My Galaxy" };
+  const { deps, opened, saves, pairing } = harness([old]);
+  const store = createComputers(deps);
+  await store.start();
+  const machine = { id: "mch_01m7dp1jqw47d55vdyzxv5wd0x" as const, name: "mina-desktop" };
+  opened[0]?.peer(machine);
+
+  assert.deepEqual(saves.at(-1), [
+    { ...old, machine: machine.id, announced: "mina-desktop" },
+  ]);
+  assert.equal(store.get().computers[0]?.name, "My Galaxy");
+  assert.equal(store.get().computers[0]?.announced, "mina-desktop");
+
+  // The computer is renamed: the alias stays, the announced name follows.
+  opened[0]?.peer({ ...machine, name: "mina-pc" });
+  assert.equal(store.get().computers[0]?.name, "My Galaxy");
+  assert.equal(store.get().computers[0]?.announced, "mina-pc");
+
+  // Its key changed (a data root of its own), so only the machine id says it is the same computer.
+  pairing.result = {
+    ok: true,
+    computer: { ...computer("b"), machine: machine.id, announced: "mina-pc" },
+  };
+  const failure = await store.add({ addresses: [], port: 1, key: "b", code: "x" });
+  assert.equal(failure, undefined);
+  assert.deepEqual(
+    store.get().computers.map((one) => [one.key, one.name]),
+    [["b", "My Galaxy"]],
+  );
+  assert.equal(opened[0]?.closed, true);
+  assert.equal(store.get().current, "b");
+
+  // Clearing the alias brings the announced name back.
+  store.rename("b", null);
+  assert.equal(store.get().computers[0]?.name, "mina-pc");
 });

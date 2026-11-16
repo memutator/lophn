@@ -28,10 +28,12 @@ import {
   Flow,
   Ic,
   IconBtn,
+  Keyboard,
   Label,
   Phone,
   Row,
   Seg,
+  Sheet,
   Shot,
   s,
   TopBar,
@@ -321,9 +323,9 @@ function Tile({ icon }: { icon: LucideIcon }) {
 
 const NEXT = <Ic icon={ChevronRight} size={16} />;
 
-function Settings() {
+function Settings({ over }: { over?: ReactNode }) {
   return (
-    <Phone tone="floor">
+    <Phone tone="floor" over={over}>
       <TopBar left="back" title="Settings" />
       <div className={s.body} style={{ gap: 0 }}>
         <Label>Computers</Label>
@@ -404,6 +406,10 @@ function Settings() {
             }
           />
         </div>
+        <p className={s.note} style={{ margin: "8px 20px 0" }}>
+          Computers show this name for your phone. A name you gave the phone on
+          a computer shows there instead.
+        </p>
         <Label>About</Label>
         <div className={s.group}>
           <Row
@@ -417,10 +423,10 @@ function Settings() {
   );
 }
 
-function Computer() {
+function Computer({ over }: { over?: ReactNode }) {
   return (
-    <Phone tone="floor">
-      <TopBar left="back" title="mina-desktop" />
+    <Phone tone="floor" over={over}>
+      <TopBar left="back" title="My Galaxy" />
       <div className={s.body}>
         <Label>Connection</Label>
         <div className={s.group}>
@@ -446,7 +452,11 @@ function Computer() {
         </p>
         <Label>On this phone</Label>
         <div className={s.group}>
-          <Row title="Shown as" end={<>mina-desktop{NEXT}</>} />
+          <Row
+            title="Shown as"
+            sub="Calls itself mina-desktop"
+            end={<>My Galaxy{NEXT}</>}
+          />
           <div className={s.hair} />
           <Row title="Paired" end="Nov 15, 2026" />
           <div className={s.hair} />
@@ -470,6 +480,52 @@ function Computer() {
         </p>
       </div>
     </Phone>
+  );
+}
+
+// The name the computer announces is the placeholder; a name given here wins and the button takes it back.
+function ShownAsSheet() {
+  return (
+    <Sheet title="Shown as">
+      <div
+        className={s.pad}
+        style={{ display: "grid", gap: 12, paddingBottom: 14 }}
+      >
+        <div className={s.field} data-focus="">
+          My Galaxy
+        </div>
+        <Btn block>Use the computer’s name</Btn>
+        <div className={s.btnRow}>
+          <Btn block>Cancel</Btn>
+          <Btn block variant="primary">
+            Save
+          </Btn>
+        </div>
+      </div>
+      <Keyboard />
+    </Sheet>
+  );
+}
+
+function PhoneNameSheet() {
+  return (
+    <Sheet title="Name">
+      <div
+        className={s.pad}
+        style={{ display: "grid", gap: 12, paddingBottom: 14 }}
+      >
+        <div className={s.field} data-focus="">
+          Mina’s phone
+        </div>
+        <div className={s.btnRow}>
+          <Btn block>Cancel</Btn>
+          <Btn block variant="primary">
+            Save
+          </Btn>
+        </div>
+      </div>
+      <Keyboard />
+    </Sheet>
   );
 }
 
@@ -678,9 +734,21 @@ export function SettingsFlow() {
       </Shot>
       <Shot
         title="A computer"
-        text="어떻게 붙어 있는지와 이 폰에서의 이름. Remove는 양쪽 등록을 다 지운다."
+        text="어떻게 붙어 있는지와 이 폰에서의 이름. 별명을 붙였으면 그 컴퓨터가 스스로 알린 이름이 그 아래 작게 보인다. Remove는 양쪽 등록을 다 지운다."
       >
         <Computer />
+      </Shot>
+      <Shot
+        title="Shown as"
+        text="입력 칸을 비우면 컴퓨터가 알린 이름이 보인다. 별명이 있으면 Use the computer’s name으로 별명을 지운다. 컴퓨터 이름이 바뀌어도 별명은 그대로다."
+      >
+        <Computer over={<ShownAsSheet />} />
+      </Shot>
+      <Shot
+        title="This phone’s name"
+        text="컴퓨터에 알리는 이 폰의 이름. 비우면 기기 model로 돌아간다. 바꾸면 곧바로 컴퓨터에 알린다."
+      >
+        <Settings over={<PhoneNameSheet />} />
       </Shot>
       <Shot
         title="Notifications"

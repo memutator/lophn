@@ -18,12 +18,12 @@ export function parseQr(text: string): RemotePairing | undefined {
   }
 }
 
-// What the core shows in its device list and uses for the phone's screen slot.
+// The kind and screen the core keeps for this phone (its preview device screen). The name is not here: every
+// connection sends it in the hello.
 function thisDevice() {
   const { width, height } = Dimensions.get("screen");
-  const constants = Platform.constants as { Model?: string };
   return {
-    name: (constants.Model ?? `${Platform.OS} phone`).slice(0, 40),
+    kind: "phone" as const,
     os: Platform.OS === "ios" ? ("ios" as const) : ("android" as const),
     width: Math.round(width),
     height: Math.round(height),
@@ -37,16 +37,18 @@ export type PairFailure =
   | { kind: "closed" }
   | { kind: "refused"; code: string };
 
-// Connects to the first address (or the relay) that answers and sends `pair` with the one-time code.
+// Connects to the first address (or the relay) that answers and sends `pair` with the one-time code. The computer's
+// hello gives its id and name, which the new entry keeps.
 export async function pair(
   qr: RemotePairing,
-  deps: { phone: KeyPair; dial: Dial },
+  deps: { phone: KeyPair; dial: Dial; name: string },
 ): Promise<
   { ok: true; computer: Computer } | { ok: false; failure: PairFailure }
 > {
   const opened = await openFirst(qr, { ...deps, random });
   if (!opened) return { ok: false, failure: { kind: "unreachable" } };
   const { channel } = opened;
+  const { machine } = channel.peer;
   const answer = new Promise<
     { ok: true; device: string } | { ok: false; failure: PairFailure }
   >((resolve) => {
@@ -76,6 +78,8 @@ export async function pair(
       port: qr.port,
       key: qr.key,
       relay: qr.relay,
+      machine: machine.id,
+      announced: machine.name,
       device: done.device,
       revoked: false,
     },

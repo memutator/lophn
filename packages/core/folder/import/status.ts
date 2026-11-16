@@ -20,6 +20,11 @@ export type ImportStatus = {
   waiting_for: number | null;
   held: number;
   error: FolderError | null;
+  /**
+   * 이 기계가 horizon 밖에서 그 출처의 snapshot을 지우기 없이 합쳤고, 출처가 이 기계의 것을 다 받은 뒤의 snapshot으로
+   * 다시 합치기를 기다린다. 그동안 다른 곳에서 지워진 옛 row가 이 기계에 남아 있을 수 있다.
+   */
+  owes_absent_pass: boolean;
 };
 
 export type KnownRecords = {
@@ -92,6 +97,7 @@ export function status(deps: FolderImportDeps, app: Id<"app">): ImportStatus[] {
       waiting_for: read.waiting_for,
       held: Number(held?.n ?? 0),
       error: read.error,
+      owes_absent_pass: read.absent !== null,
     };
   });
 }

@@ -15,7 +15,7 @@ import {
   verifyContainer,
 } from "../../../protocol/folder/mod.ts";
 import type { FolderReader } from "../fs.ts";
-import { type FolderImportDeps, hex16, saveRead } from "./deps.ts";
+import { type FolderImportDeps, hex16, loadRead, saveRead } from "./deps.ts";
 
 export const HELD_DIR = "folder-held";
 // snapshot payload를 합치기 전에 풀어 두는 곳. 앱마다 한 번에 하나만 돌아 runApp이 시작할 때 비운다.
@@ -154,6 +154,7 @@ export function recordHeld(
       ],
     );
     saveRead(tx.sql, me, input.app, input.origin, {
+      absent: loadRead(tx.sql, me, input.app, input.origin).absent,
       cursor: input.n,
       bundle_hash: input.bundle_hash,
       read_at: at,

@@ -124,7 +124,7 @@ files:
 
   - path: packages/core/folder/import/import_test.ts
     covers: []
-    note: "다른 기계의 하위 폴더 읽기. 잘린·bytes가 바뀐·번호가 다른 file은 FolderApply를 부르지 않고 cursor가 그대로이며 invalid_file이 보이고, 맞는 file로 바뀌면 적용된다. 다른 release의 file(snapshot 포함)은 같은 bytes로 data root에 held로 남고 폴더에서 지워져도 남는다. 충돌 사본·temp는 읽지 않고 늦게 온 번호를 기다려 순서대로 한 번만 적용한다. 깨진 기록·newer_format·빈 폴더는 기록 사본과 local data를 지우지 않는다. horizon 밖의 snapshot 합치기는 출처가 이 기계의 것을 다 받은 뒤에만 지우기를 싣는다. 지운 기계는 목록에서 빠지되 행과 data가 남고 새 revision이면 돌아온다. compaction 뒤에는 가장 큰 맞는 snapshot으로 따라오고, 5분 넘게 앞선 clock은 clock_ahead로 미룬다. 아직 읽기 route가 없어(folder-surface) outcome이 없다"
+    note: "다른 기계의 하위 폴더 읽기. 잘린·bytes가 바뀐·번호가 다른 file은 FolderApply를 부르지 않고 cursor가 그대로이며 invalid_file이 보이고, 맞는 file로 바뀌면 적용된다. 다른 release의 file(snapshot 포함)은 같은 bytes로 data root에 held로 남고 폴더에서 지워져도 남는다. 충돌 사본·temp는 읽지 않고 늦게 온 번호를 기다려 순서대로 한 번만 적용한다. 깨진 기록·newer_format·빈 폴더는 기록 사본과 local data를 지우지 않는다. horizon 밖에서 지우기 없이 합친 stream은 빚(owes_absent_pass)을 남기고 재시작을 넘기며, 출처가 이 기계의 것을 다 받은 뒤에 만든 snapshot이 오면 그것으로 다시 합쳐(실제 sync core) 다른 곳에서 지워지고 흔적이 정리된 row만 지우고 떨어져 있는 동안 고친 row는 남긴다. 그런 snapshot이 없으면 오류 없이 기다린다. 지운 기계는 목록에서 빠지되 행과 data가 남고 새 revision이면 돌아온다. compaction 뒤에는 가장 큰 맞는 snapshot으로 따라오고, 5분 넘게 앞선 clock은 clock_ahead로 미룬다. 아직 읽기 route가 없어(folder-surface) outcome이 없다"
 
   - path: packages/core/host-queue/hold_test.ts
     covers:

@@ -68,6 +68,13 @@ export function hex16(random: RandomSource): string {
   );
 }
 
+/**
+ * 이 기계가 horizon 밖에서 그 출처의 snapshot을 지우기 없이 합쳤다: 그 stream은 "다른 곳에서 지워지고 흔적이 정리된
+ * row"를 지우는 합치기를 아직 빚졌다. `caught_up_at`은 출처의 앱 기록이 이 기계가 낸 것을 다 받았다고 처음 보인 때의
+ * `read[이 기계].at`(출처의 시계)다. 그 뒤에 만든 snapshot만 "없음"이 "지워짐"이다.
+ */
+export type AbsentPass = { caught_up_at: string | null };
+
 export type ReadRow = {
   cursor: number;
   read_at: string | null;
@@ -75,7 +82,12 @@ export type ReadRow = {
   next_try_at: string | null;
   waiting_for: number | null;
   error: FolderError | null;
+  absent: AbsentPass | null;
 };
+
+// `folder_reads.error` 칸에 오류와 빚진 합치기를 같이 둔다: `{ error, absent }`. 둘 다 없으면 NULL이다.
+// 칸 하나를 더하는 schema step 없이 재시작을 넘긴다.
+type StateColumn = { error: FolderError | null; absent: AbsentPass | null };
 
 export function loadRead(
   sql: Pick<Sql, "get">,
@@ -96,18 +108,21 @@ export function loadRead(
       next_try_at: null,
       waiting_for: null,
       error: null,
+      absent: null,
     };
   }
+  const state: StateColumn =
+    row.error === null
+      ? { error: null, absent: null }
+      : (JSON.parse(row.error as string) as StateColumn);
   return {
     cursor: Number(row.cursor),
     read_at: row.read_at as string | null,
     attempts: Number(row.attempts),
     next_try_at: row.next_try_at as string | null,
     waiting_for: row.waiting_for === null ? null : Number(row.waiting_for),
-    error:
-      row.error === null
-        ? null
-        : (JSON.parse(row.error as string) as FolderError),
+    error: state.error,
+    absent: state.absent,
   };
 }
 
@@ -140,7 +155,9 @@ export function saveRead(
       row.attempts,
       row.next_try_at,
       row.waiting_for,
-      row.error === null ? null : JSON.stringify(row.error),
+      row.error === null && row.absent === null
+        ? null
+        : JSON.stringify({ error: row.error, absent: row.absent }),
     ],
   );
 }

@@ -19,7 +19,18 @@ import {
   seededRandom,
   sha256Hex,
 } from "../../../base/mod.ts";
-import { hlcAtMs } from "../../../protocol/apps/sync/mod.ts";
+import {
+  dropTombstones,
+  ensureSyncTables,
+  hlcAtMs,
+  mergeSnapshot,
+  openClock,
+  type Clock as SyncClock,
+  type SyncDb,
+  setState,
+  stampLocal,
+} from "../../../protocol/apps/sync/mod.ts";
+import { nodeSyncDb } from "../../../protocol/apps/sync/node-db.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import {
   appRecordPath,
@@ -203,10 +214,13 @@ async function make(base: string) {
   };
   const snapshotFile = async (
     n: number,
-    payloadText: string,
+    payloadText: string | Uint8Array,
     bundle = ACTIVE,
   ) => {
-    const payload = new TextEncoder().encode(payloadText);
+    const payload =
+      typeof payloadText === "string"
+        ? new TextEncoder().encode(payloadText)
+        : payloadText;
     const head = await containerPrefix({
       machine: PEER,
       app: APP,
@@ -250,6 +264,9 @@ async function make(base: string) {
     clock,
     calls,
     exportState,
+    apply,
+    // 같은 ledger로 새로 만든 읽기(core 재시작).
+    restart: () => createFolderImport(deps),
     folder,
     put,
     putRecords,
@@ -461,48 +478,141 @@ function machineRecordOf(env: { clock: { now(): string } }, revision: number) {
   };
 }
 
-// 출처가 이 기계의 변경을 다 받기 전에 "snapshot에 없음"을 "지워짐"으로 읽으면 이 기계가 쓴 row를 잃는다.
-test("horizon 밖에서 돌아온 기계는 출처가 이 기계의 것을 다 받기 전에는 지우기를 싣지 않는다", async () => {
+// 출처가 이 기계의 변경을 다 받기 전에 "snapshot에 없음"을 "지워짐"으로 읽으면 이 기계가 쓴 row를 잃고, 다 받은 뒤에도
+// 지우지 않으면 다른 곳에서 지워진 row가 이 기계에만 되살아 남는다.
+test("horizon 밖에서 돌아온 기계는 출처가 다 받은 뒤의 snapshot으로 다른 곳에서 지워진 row만 지운다", async () => {
   await setup(async (env) => {
-    const horizon = String(hlcAtMs(T0 - 1000));
+    const DAY = 24 * 60 * 60 * 1000;
+    const start = syncDb("base");
+    writeRows(start, T0 - 100 * DAY, [
+      "insert into notes values ('old', 'deleted elsewhere'), ('mine', 'edited here'), ('kept', 'everywhere')",
+    ]);
+    const source = syncDb("x", start.raw.serialize());
+    const here = syncDb("n", start.raw.serialize());
+    // 출처에서 지워지고 흔적이 정리됐다. 이 기계는 떨어져 있는 동안 'mine'을 고쳤다.
+    writeRows(source, T0 - 95 * DAY, [
+      "delete from notes where id in ('old', 'mine')",
+    ]);
+    const horizon = hlcAtMs(T0 - 91 * DAY);
+    source.db.exec("begin");
+    assert.equal(dropTombstones(source.db, horizon), 2);
+    source.db.exec("commit");
+    writeRows(here, T0 - DAY, [
+      "update notes set title = 'edited away' where id = 'mine'",
+    ]);
+    env.apply.mergeSnapshot = async (input) => {
+      const raw = new DatabaseSync(":memory:");
+      raw.deserialize(readFileSync(input.path));
+      const absent = input.absentDeletes;
+      here.db.exec("begin immediate");
+      const merged = mergeSnapshot(here.db, nodeSyncDb(raw), here.clock, {
+        ...(absent === undefined
+          ? {}
+          : {
+              absentDeletes: {
+                below: BigInt(absent.below),
+                keep: (table, pk) =>
+                  absent.keep.some(
+                    (one) =>
+                      one.table === table &&
+                      one.pk === Buffer.from(pk).toString("hex"),
+                  ),
+              },
+            }),
+      });
+      here.db.exec(merged.ok ? "commit" : "rollback");
+      raw.close();
+      return merged.ok
+        ? ok({ changed: true, deleted: merged.value.deleted })
+        : merged;
+    };
+    const ids = () =>
+      here.db
+        .all("select id, title from notes order by id")
+        .map((row) => `${row.id}:${row.title}`);
+
     env.exportState.away_since = env.clock.now();
-    env.exportState.data_head = 5;
+    env.exportState.data_head = 3;
+    // 1. 출처는 아직 이 기계의 3번까지 받지 않았다: 지우기 없이 합치고 빚을 남긴다.
     env.putRecords(1, {
       data: { head: 1, snapshot: 1 },
-      horizon,
-      read: { [ME]: { n: 4, at: env.clock.now() } },
+      horizon: String(horizon),
+      read: { [ME]: { n: 1, at: env.clock.now() } },
     });
     await env.folder.scan();
     env.put(
       dataEntryPath(PEER, APP, 1, "snapshot"),
-      await env.snapshotFile(1, "db one"),
+      await env.snapshotFile(1, source.raw.serialize()),
     );
     await env.run();
-    assert.deepEqual(env.calls, [
-      { kind: "snapshot", n: 1, payload: "db one" },
+    assert.deepEqual(ids(), [
+      "kept:everywhere",
+      "mine:edited away",
+      "old:deleted elsewhere",
     ]);
+    assert.equal(env.folder.status(APP)[0]?.owes_absent_pass, true);
 
+    // 2. 재시작 뒤 출처가 다 받았다고 알리지만, 그 뒤에 만든 snapshot이 아직 없다: 오류 없이 기다린다.
+    env.clock.advance(60 * 60 * 1000);
     env.putRecords(2, {
-      data: { head: 2, snapshot: 2 },
-      horizon,
-      read: { [ME]: { n: 5, at: env.clock.now() } },
+      data: { head: 1, snapshot: 1 },
+      horizon: String(horizon),
+      read: { [ME]: { n: 3, at: env.clock.now() } },
     });
-    await env.folder.scan();
+    const again = env.restart();
+    await again.scan();
+    env.clock.advance(60 * 60 * 1000);
+    assert.ok((await again.runApp(APP)).ok);
+    assert.equal(ids().length, 3);
+    assert.equal(again.status(APP)[0]?.owes_absent_pass, true);
+    assert.equal(again.status(APP)[0]?.error, null);
+
+    // 3. 출처가 다 받은 뒤의 snapshot이 오면 그것으로 다시 합친다.
     env.put(
       dataEntryPath(PEER, APP, 2, "snapshot"),
-      await env.snapshotFile(2, "db two"),
+      await env.snapshotFile(2, source.raw.serialize()),
     );
-    await env.run();
-    assert.deepEqual(env.calls[1], {
-      kind: "snapshot",
-      n: 2,
-      payload: "db two",
-      absentDeletes: { below: horizon, keep: [{ table: "notes", pk: "01" }] },
+    env.putRecords(3, {
+      data: { head: 2, snapshot: 2 },
+      horizon: String(horizon),
+      read: { [ME]: { n: 3, at: env.clock.now() } },
     });
+    await again.scan();
+    assert.ok((await again.runApp(APP)).ok);
+    assert.deepEqual(ids(), ["kept:everywhere", "mine:edited away"]);
+    assert.equal(again.status(APP)[0]?.owes_absent_pass, false);
+    assert.equal(again.status(APP)[0]?.cursor, 2);
     // 풀어 둔 임시 file은 남지 않는다.
     assert.deepEqual(readdirSync(join(env.root, "folder-tmp", APP)), []);
   });
 });
+
+type Replica = { raw: DatabaseSync; db: SyncDb; clock: SyncClock };
+
+function syncDb(node: string, bytes?: Uint8Array): Replica {
+  const raw = new DatabaseSync(":memory:");
+  if (bytes === undefined) {
+    raw.exec("create table notes (id text primary key, title text)");
+  } else {
+    raw.deserialize(bytes);
+  }
+  raw.exec("pragma foreign_keys = off");
+  const db = nodeSyncDb(raw);
+  if (bytes === undefined) ensureSyncTables(db, node);
+  else setState(db, "node", node);
+  return { raw, db, clock: openClock(db) };
+}
+
+// 앱 runtime의 write: write, changeset, clock 찍기가 한 transaction.
+function writeRows(r: Replica, atMs: number, statements: string[]) {
+  r.db.exec("begin immediate");
+  const session = r.db.session();
+  for (const statement of statements) r.db.exec(statement);
+  const changeset = session.changeset();
+  session.close();
+  assert.ok(stampLocal(r.db, changeset, r.clock.next(atMs)).ok);
+  r.db.exec("commit");
+}
 
 test("지운 기계는 알려진 기계에서 빠지지만 행과 data는 남고, 새 기록을 쓰면 돌아온다", async () => {
   await setup(async (env) => {

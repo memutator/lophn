@@ -3,7 +3,7 @@
 // 번호의 맞는 snapshot이 있으면 그것을 합치고 cursor를 그 번호로 둔다(주인이 compaction한 뒤에 온 기계).
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
-import { type Result, sha256Hex } from "../../../base/mod.ts";
+import { ok, type Result, sha256Hex } from "../../../base/mod.ts";
 import { clockAhead } from "../../../protocol/apps/sync/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import {
@@ -11,6 +11,7 @@ import {
   CHANGES_PAYLOAD_MAX_BYTES,
   CLOCK_AHEAD_MAX_MS,
   CONTAINER_HEAD_MAX_BYTES,
+  type ContainerHead,
   type ContainerHeader,
   changesOf,
   type DataKind,
@@ -80,13 +81,27 @@ type Counts = {
   duplicate: number;
   held: number;
 };
+type Invalid = { kind: "invalid"; error: FolderError };
+type Stop = { kind: "stop"; error: FolderError | null; backoff: boolean };
 type Step =
   | { kind: "done"; n: number; bytes: number; held: boolean; changes?: Counts }
-  | { kind: "invalid"; error: FolderError }
+  | Invalid
   | { kind: "gone" }
-  | { kind: "stop"; error: FolderError | null; backoff: boolean };
+  | Stop;
 
 export async function followStream(
+  deps: FolderImportDeps,
+  input: StreamInput,
+): Promise<Result<StreamOutcome>> {
+  const followed = await followFiles(deps, input);
+  if (!followed.ok) return followed;
+  const passed = await absentPass(deps, input);
+  if (!passed.ok) return passed;
+  const row = loadRead(deps.sql, deps.machine(), input.app, input.origin);
+  return ok({ ...followed.value, error: row.error });
+}
+
+async function followFiles(
   deps: FolderImportDeps,
   input: StreamInput,
 ): Promise<Result<StreamOutcome>> {
@@ -204,15 +219,8 @@ export async function followStream(
         if (step.error === null) return { ok: true, value: outcome };
         return fail(step.error, step.backoff);
       case "done": {
-        // cursor와 read 행은 processFile이 같은 transaction에서 바꿨다.
-        row = {
-          ...row,
-          cursor: step.n,
-          attempts: 0,
-          next_try_at: null,
-          waiting_for: null,
-          error: null,
-        };
+        // cursor와 read 행(빚진 합치기 표지 포함)은 processFile이 같은 transaction에서 바꿨다.
+        row = loadRead(deps.sql, me, app, origin);
         outcome.cursor = step.n;
         outcome.waiting_for = null;
         outcome.error = null;
@@ -235,7 +243,7 @@ const fileInvalid = (
   deps: FolderImportDeps,
   rel: string,
   error: FolderFileError,
-): Step => ({
+): Invalid => ({
   kind: "invalid",
   error: folderError(deps.clock, error.code, `${rel}: ${error.message}`),
 });
@@ -251,15 +259,19 @@ async function processFile(
     : processSnapshot(deps, input, n);
 }
 
+// cursor를 n으로. 빚진 합치기 표지는 그대로 두고, `owesAbsentPass`면 없을 때 새로 단다.
 function advance(
   deps: FolderImportDeps,
   input: StreamInput,
   n: number,
   header: ContainerHeader,
+  owesAbsentPass = false,
 ): Result<void> {
   const me = deps.machine();
   return deps.transaction((tx) => {
+    const current = loadRead(tx.sql, me, input.app, input.origin).absent;
     saveRead(tx.sql, me, input.app, input.origin, {
+      absent: current ?? (owesAbsentPass ? { caught_up_at: null } : null),
       cursor: n,
       bundle_hash: header.release.bundle_hash,
       read_at: deps.clock.now(),
@@ -275,7 +287,7 @@ function advance(
 function applyError(
   deps: FolderImportDeps,
   error: { code: string; message: string },
-): Step {
+): Stop {
   switch (error.code) {
     // 사이에 활성 release가 바뀌었다. 다음 번에 새 release로 다시 본다.
     case "conflict":
@@ -454,7 +466,39 @@ async function processSnapshot(
     return holdStep(deps, input, n, header, copied.value);
   }
 
-  // payload만 data root 아래 임시 file로 풀며 hash를 다시 본다.
+  const merged = await mergeFile(deps, input, n, rel, head.value);
+  if (merged.kind !== "merged") return merged;
+  // horizon 밖에서 지우기 없이 합쳤다. 출처가 이 기계의 것을 다 받은 뒤의 snapshot으로 다시 합칠 빚을 남긴다.
+  const owes =
+    deps.exportState(input.app).away_since !== null &&
+    (input.record?.horizon ?? null) !== null;
+  const advanced = advance(deps, input, n, header, owes);
+  if (!advanced.ok) {
+    return {
+      kind: "stop",
+      error: folderError(deps.clock, "apply_failed", advanced.error.message),
+      backoff: true,
+    };
+  }
+  return { kind: "done", n, bytes: merged.bytes, held: false };
+}
+
+type AbsentDeletes = {
+  below: string;
+  keep: readonly { table: string; pk: string }[];
+};
+
+// payload만 data root 아래 임시 file로 풀며 hash를 다시 보고 합친다. 임시 file은 남기지 않는다.
+async function mergeFile(
+  deps: FolderImportDeps,
+  input: StreamInput,
+  n: number,
+  rel: string,
+  head: ContainerHead,
+  absentDeletes?: AbsentDeletes,
+): Promise<
+  Exclude<Step, { kind: "done" }> | { kind: "merged"; bytes: number }
+> {
   const temp = join(
     deps.root,
     IMPORT_TMP_DIR,
@@ -465,8 +509,8 @@ async function processSnapshot(
     const copied = await copyVerified(
       input.reader,
       rel,
-      head.value,
-      head.value.payloadOffset,
+      head,
+      head.payloadOffset,
       temp,
       deps.random,
     );
@@ -481,43 +525,83 @@ async function processSnapshot(
       origin: input.origin,
       n,
       path: temp,
-      ...absentDeletes(deps, input),
+      ...(absentDeletes === undefined ? {} : { absentDeletes }),
     });
     if (!merged.ok) return applyError(deps, merged.error);
-    const advanced = advance(deps, input, n, header);
-    if (!advanced.ok) {
-      return {
-        kind: "stop",
-        error: folderError(deps.clock, "apply_failed", advanced.error.message),
-        backoff: true,
-      };
-    }
-    return {
-      kind: "done",
-      n,
-      bytes: head.value.payloadOffset + copied.value.size,
-      held: false,
-    };
+    return { kind: "merged", bytes: head.payloadOffset + copied.value.size };
   } finally {
     await rm(temp, { force: true });
   }
 }
 
-// 이 기계가 horizon 밖에서 돌아왔고 출처가 이 기계가 낸 것을 다 받았으면, 출처의 horizon 아래 row 가운데 snapshot에
-// 없는 것(다른 곳에서 지워지고 흔적이 정리된 것)을 지운다. 닿기 전의 "없음"은 "지워짐"이 아니라 싣지 않는다.
-function absentDeletes(
+/**
+ * 빚진 합치기. 출처의 앱 기록이 이 기계가 낸 것(`data_head`)을 다 받았다고 처음 보이면 그때의 `read[이 기계].at`을 적고,
+ * cursor 안쪽에서 그 뒤에 만든 가장 큰 맞는 snapshot을 출처의 horizon 아래 "없는 row 지우기"와 함께 다시 합친다.
+ * cursor는 움직이지 않고 변경을 다시 적용하지 않는다(합치기는 같은 것을 두 번 해도 같다). 그런 snapshot이 아직
+ * 없으면 오류 없이 기다린다.
+ */
+async function absentPass(
   deps: FolderImportDeps,
   input: StreamInput,
-): {
-  absentDeletes?: {
-    below: string;
-    keep: readonly { table: string; pk: string }[];
-  };
-} {
-  const state = deps.exportState(input.app);
+): Promise<Result<void>> {
+  const me = deps.machine();
+  const { app, origin } = input;
+  let row = loadRead(deps.sql, me, app, origin);
+  if (row.absent === null || input.blocked !== null) return ok(undefined);
+  if (row.next_try_at !== null && row.next_try_at > deps.clock.now()) {
+    return ok(undefined);
+  }
+  const save = (next: ReadRow): Result<void> =>
+    deps.transaction((tx) => {
+      saveRead(tx.sql, me, app, origin, next);
+      return ok(undefined);
+    });
+  if (row.absent.caught_up_at === null) {
+    const read = input.record?.read[me];
+    if (read === undefined || read.n < deps.exportState(app).data_head) {
+      return ok(undefined);
+    }
+    row = { ...row, absent: { caught_up_at: read.at } };
+    const saved = save(row);
+    if (!saved.ok) return saved;
+  }
+  const caughtUpAt = row.absent!.caught_up_at!;
   const horizon = input.record?.horizon ?? null;
-  if (state.away_since === null || horizon === null) return {};
-  const read = input.record?.read[deps.machine()];
-  if (read === undefined || read.n < state.data_head) return {};
-  return { absentDeletes: { below: horizon, keep: deps.heldRows(input.app) } };
+  if (horizon === null) return ok(undefined);
+  const listed = await input.reader.list(dataDir(origin, app));
+  if (!listed.ok) return ok(undefined);
+  const snapshots = listed.value
+    .map((name) => parseDataEntry(name)!)
+    .filter((entry) => entry.kind === "snapshot" && entry.n <= row.cursor)
+    .map((entry) => entry.n)
+    .sort((a, b) => b - a);
+  for (const n of snapshots) {
+    const rel = dataEntryPath(origin, app, n, "snapshot");
+    const headRead = await input.reader.readHead(rel, CONTAINER_HEAD_MAX_BYTES);
+    if (!headRead.ok) continue;
+    const head = await readContainerHead(headRead.value.bytes, rel);
+    if (!head.ok) continue;
+    // 번호가 작을수록 옛 snapshot이다. 출처가 다 받기 전에 만든 것의 "없음"은 "지워짐"이 아니다.
+    if (head.value.header.created_at < caughtUpAt) break;
+    if (head.value.header.release.bundle_hash !== input.release.bundle_hash) {
+      continue;
+    }
+    const merged = await mergeFile(deps, input, n, rel, head.value, {
+      below: horizon,
+      keep: deps.heldRows(app),
+    });
+    if (merged.kind === "invalid" || merged.kind === "gone") continue;
+    row = loadRead(deps.sql, me, app, origin);
+    if (merged.kind === "merged") return save({ ...row, absent: null });
+    if (merged.error === null) return ok(undefined);
+    return save({
+      ...row,
+      error: merged.error,
+      attempts: merged.backoff ? row.attempts + 1 : row.attempts,
+      next_try_at: merged.backoff
+        ? backoffUntil(deps.clock.nowMs(), row.attempts)
+        : null,
+    });
+  }
+  return ok(undefined);
 }

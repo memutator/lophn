@@ -51,7 +51,7 @@ import { createRuntimeState } from "../runtime/entrypoint/state.ts";
 import { openSyncStore, syncedWrite } from "../runtime/entrypoint/sync.ts";
 import { ensureAppToolPort } from "../runtime/entrypoint/tool-port.ts";
 import { createSyncLog } from "./log.ts";
-import { SYNC_LOG_SCHEMA_STEPS } from "./schema.ts";
+import { SYNC_LOG_MACHINE_STEPS, SYNC_LOG_SCHEMA_STEPS } from "./schema.ts";
 import { createAppSync } from "./service.ts";
 import { createSnapshots } from "./snapshots.ts";
 
@@ -127,6 +127,7 @@ function computer() {
     ...invocationsSchemaSteps,
     ...rewindSchemaSteps,
     ...SYNC_LOG_SCHEMA_STEPS,
+    ...SYNC_LOG_MACHINE_STEPS,
   ]) {
     ledgerDb.exec(step.sql);
   }
@@ -677,4 +678,150 @@ test("schema step apps.sync-log가 기존 ledger에 걸려도 다른 표의 행�
     0,
   );
   after.close();
+});
+
+const bytesOf = (change: { changeset: string }) =>
+  new Uint8Array(Buffer.from(change.changeset, "base64"));
+// 기계에서 온 변경을 적용한 invocation. 적용 길은 이 test 밖이라 log에는 id만 남는다.
+const machineInvocation = (n: number) =>
+  ({ id: `inv_m${n}`, app: APP, release: REL }) as never;
+
+// 지우면 다른 기계에서 온 변경이 폰에 가지 않아 폰이 조용히 갈라지거나, 같은 file을 다시 읽을 때 같은 변경이 두 번
+// 적용되거나, 기기의 변경 id와 섞여 다른 변경을 이미 받은 것으로 건너뛴다.
+test("다른 기계에서 온 줄은 폰 pull에 원래 changeset과 hlc로 나오고, 같은 기계의 같은 변경 id는 한 줄이며 기기의 같은 id와 섞이지 않는다", async () => {
+  const pc = computer();
+  try {
+    await pc.write("insert into item values ('a', 'milk', 0)");
+    const other = await pc.phone("other");
+    const phone = await pc.phone("b");
+    // 다른 기계의 앱 DB가 낸 변경 대신 폰 사본이 뜬 changeset을 쓴다(그 사본은 push하지 않는다).
+    const change = other.write(
+      clock.nowMs() + 10,
+      "update item set title = 'milk M' where id = 'a'",
+    );
+    const machineA = ids.newId("mch") as Id<"mch">;
+    const machineB = ids.newId("mch") as Id<"mch">;
+    const first = await pc.log.machine(
+      machineInvocation(1),
+      {
+        machine: machineA,
+        id: "7",
+        hlc: change.hlc,
+        changeset: bytesOf(change),
+      },
+      "applied",
+    );
+    assert.ok(first.ok);
+
+    const pulled = await phone.pull();
+    assert.deepEqual(pulled.changes, [
+      {
+        seq: first.value,
+        origin: "machine",
+        hlc: change.hlc,
+        changeset: change.changeset,
+      },
+    ]);
+    assert.match(phone.dump(), /'milk M'/);
+
+    assert.deepEqual(pc.log.duplicateFrom(machineA, "7"), ok(first.value));
+    assert.deepEqual(pc.log.duplicateFrom(machineB, "7"), ok(null));
+    assert.throws(
+      () =>
+        pc.sql.run(
+          `insert into app_sync_log (app, release, kind, origin, machine, change_id, hlc, created_at)
+           values (?, ?, 'skipped', 'machine', ?, '7', '1', '2026-11-16T00:00:00.000Z')`,
+          [APP, REL, machineA],
+        ),
+      /UNIQUE/,
+    );
+    const fromB = await pc.log.machine(
+      machineInvocation(2),
+      {
+        machine: machineB,
+        id: "7",
+        hlc: change.hlc,
+        changeset: bytesOf(change),
+      },
+      "skipped",
+    );
+    const fromDevice = await pc.log.phone(
+      machineInvocation(3),
+      {
+        device: phone.device,
+        id: "7",
+        hlc: change.hlc,
+        changeset: bytesOf(change),
+      },
+      "skipped",
+    );
+    assert.ok(fromB.ok && fromDevice.ok);
+    assert.deepEqual(pc.log.duplicateFrom(machineA, "7"), ok(first.value));
+    assert.deepEqual(pc.log.duplicateFrom(machineB, "7"), ok(fromB.value));
+    assert.deepEqual(pc.log.duplicate(phone.device, "7"), ok(fromDevice.value));
+    assert.deepEqual(pc.log.duplicate(machineA, "7"), ok(null));
+  } finally {
+    pc.close();
+  }
+});
+
+// 지우면 정리된 흔적과 부딪는 사람의 변경이 풀거나 release가 바뀔 때 사라지거나, 폰에 가서 지운 row를 되살린다.
+test("held 줄의 bytes는 풀어도, release가 바뀌어도 남고 폰 pull에 나오지 않는다", async () => {
+  const pc = computer();
+  try {
+    await pc.write("insert into item values ('a', 'milk', 0)");
+    const other = await pc.phone("other");
+    const phone = await pc.phone("b");
+    const change = other.write(
+      clock.nowMs() + 10,
+      "update item set title = 'milk H' where id = 'a'",
+    );
+    const held = await pc.log.held(
+      APP,
+      REL,
+      {
+        origin: "machine",
+        machine: ids.newId("mch") as Id<"mch">,
+        id: "9",
+        hlc: change.hlc,
+        changeset: bytesOf(change),
+      },
+      "past_horizon",
+    );
+    assert.ok(held.ok);
+    assert.deepEqual(
+      pc.log.heldList(APP).map((row) => row.seq),
+      [held.value],
+    );
+
+    const before = phone.dump();
+    const pulled = await phone.pull();
+    assert.deepEqual(pulled.changes, []);
+    assert.equal(pulled.next, held.value);
+    assert.equal(phone.dump(), before);
+
+    assert.ok(pc.log.resolve(held.value, clock.now()).ok);
+    assert.deepEqual(pc.log.heldList(APP), []);
+    const otherRelease = ids.newId("rel") as Id<"rel">;
+    assert.ok((await pc.log.prune(APP, otherRelease)).ok);
+
+    const row = pc.sql.get("select * from app_sync_log where seq = ?", [
+      held.value,
+    ])!;
+    assert.equal(row["kind"], "held");
+    assert.equal(row["resolved_at"], clock.now());
+    const read = await pc.log.readChangeset(
+      String(row["changeset_hash"]),
+      Number(row["changeset_size"]),
+    );
+    assert.deepEqual(read.ok && read.value, bytesOf(change));
+    assert.ok(
+      pc.sql.get(
+        "select 1 from blob_refs where owner_kind = 'app_sync_log' and owner_key = ? and hash = ?",
+        [String(held.value), row["changeset_hash"]],
+      ) !== undefined,
+    );
+  } finally {
+    pc.close();
+  }
 });

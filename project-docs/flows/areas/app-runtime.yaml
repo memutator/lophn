@@ -1258,7 +1258,7 @@ flows:
     steps:
       - "짝지은 기기 자격만 부른다. 앱이나 활성 release가 없으면 not_found다."
       - "release가 활성이 아니거나 after 뒤에 '다시 snapshot' 줄(activation이 옛 줄을 지움, 보낼 수 없는 변경, 결과 모르는 write)이 있으면 changes 없이 snapshot_needed다."
-      - "after 뒤의 줄을 seq 순서로 읽어 changeset blob을 base64로 싣는다(max_bytes, 기본 8 MiB. 첫 줄은 커도 싣는다). 부른 기기 자신이 보낸 줄과 skipped 줄은 빼되 next는 넘긴다."
+      - "after 뒤의 줄을 seq 순서로 읽어 changeset blob을 base64로 싣는다(max_bytes, 기본 8 MiB. 첫 줄은 커도 싣는다). origin은 computer·device·rewind·machine(다른 기계에서 폴더로 온 변경. 원래 changeset과 hlc)이다. 부른 기기 자신이 보낸 줄, skipped 줄, held 줄(정리된 흔적과 합칠 수 없어 적용하지 않은 변경. release가 바뀌어도 남는다)은 빼되 next는 넘긴다."
       - "읽는 사이 '다시 snapshot' 줄이나 다른 release의 줄을 만나면 거기서 멈춘다(more true). 다음 pull이 snapshot_needed를 알린다."
     outcomes:
       - id: ok

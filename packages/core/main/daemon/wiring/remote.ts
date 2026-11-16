@@ -74,6 +74,7 @@ import {
 import { systemTimers } from "../../../runs/mod.ts";
 import { jobMachineSchemaSteps } from "../../../jobs/machine-schema.ts";
 import { SYNC_LOG_SCHEMA_STEPS } from "../../../apps/sync/schema.ts";
+import { SYNC_LOG_MACHINE_STEPS } from "../../../apps/sync/schema.ts";
 import { PERMISSIONS_PHONE_KIND_STEPS } from "../../../apps/permissions/schema.ts";
 import { PROJECTS_IDENTITY_STEPS } from "../../../projects/registry/mod.ts";
 import { RouteRegistry } from "../../../server/mod.ts";
@@ -401,6 +402,7 @@ export const remoteWiring: WiringFactory = () => {
       ...DEVICES_KIND_STEPS,
       ...jobMachineSchemaSteps,
       ...PROJECTS_IDENTITY_STEPS,
+      ...SYNC_LOG_MACHINE_STEPS,
     ],
     dataSteps: [hostKeyMachineStep],
     operations: () => [

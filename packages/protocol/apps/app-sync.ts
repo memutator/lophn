@@ -90,7 +90,8 @@ export const appSyncPush = defineMemory({
 
 const pulledChangeSchema = z.strictObject({
   seq: seqSchema,
-  origin: z.enum(["computer", "device", "rewind"]),
+  // machine: 다른 기계에서 폴더로 온 변경.
+  origin: z.enum(["computer", "device", "rewind", "machine"]),
   hlc: hlcSchema,
   changeset: base64Schema,
 });

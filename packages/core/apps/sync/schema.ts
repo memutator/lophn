@@ -42,6 +42,61 @@ export const SYNC_LOG_SCHEMA_STEPS: readonly SchemaStep[] = [
   },
 ];
 
+// 다른 기계에서 폴더로 온 변경(origin machine, 칸 machine)과 held 줄(kind held, 칸 resolved_at)을 받으려 CHECK를 바꾼다.
+// - machine·change_id는 다른 기계에서 온 줄에만 있고, 기계마다 같은 change_id(주인 log의 seq)는 한 줄이다.
+// - held: 정리된 흔적과 안전하게 합칠 수 없어 적용하지도 내보내지도 않는 변경. changeset blob을 쥐고 폰에 가지 않는다.
+//   풀면 resolved_at을 적고 bytes는 남긴다.
+// 표를 다시 만들어도 seq를 그대로 옮긴다: blob 참조의 owner_key와 폰의 cursor가 seq다. 다음 번호도 이어야 해서(지운 번호를
+// 다시 쓰면 cursor가 그 줄을 건너뛴다) 옛 표의 sqlite_sequence 행을 새 표의 것으로 옮긴다. AUTOINCREMENT라 그 값은
+// 언제나 옛 max(seq) 이상이다. 이 표를 가리키는 FK·trigger·view는 없다.
+export const SYNC_LOG_MACHINE_STEPS: readonly SchemaStep[] = [
+  {
+    id: "apps.sync-log.machine",
+    sql: `
+    CREATE TABLE app_sync_log_next (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT,
+      app TEXT NOT NULL,
+      release TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('change', 'skipped', 'snapshot', 'held')),
+      origin TEXT NOT NULL CHECK (origin IN ('computer', 'device', 'rewind', 'machine')),
+      device TEXT,
+      machine TEXT,
+      change_id TEXT,
+      hlc TEXT,
+      changeset_hash TEXT,
+      changeset_size INTEGER,
+      invocation TEXT,
+      resolved_at TEXT,
+      created_at TEXT NOT NULL,
+      CHECK ((origin = 'device') = (device IS NOT NULL)),
+      CHECK ((origin = 'machine') = (machine IS NOT NULL)),
+      CHECK ((device IS NULL AND machine IS NULL) = (change_id IS NULL)),
+      CHECK ((kind IN ('change', 'held')) = (changeset_hash IS NOT NULL)),
+      CHECK ((changeset_hash IS NULL) = (changeset_size IS NULL)),
+      CHECK (kind = 'snapshot' OR hlc IS NOT NULL),
+      CHECK (kind = 'held' OR resolved_at IS NULL)
+    ) STRICT;
+    INSERT INTO app_sync_log_next
+      (seq, app, release, kind, origin, device, machine, change_id, hlc, changeset_hash, changeset_size, invocation,
+       resolved_at, created_at)
+    SELECT seq, app, release, kind, origin, device, NULL, change_id, hlc, changeset_hash, changeset_size, invocation,
+      NULL, created_at
+    FROM app_sync_log ORDER BY seq;
+    DELETE FROM sqlite_sequence WHERE name = 'app_sync_log_next';
+    UPDATE sqlite_sequence SET name = 'app_sync_log_next' WHERE name = 'app_sync_log';
+    DROP TABLE app_sync_log;
+    ALTER TABLE app_sync_log_next RENAME TO app_sync_log;
+    CREATE INDEX app_sync_log_app_seq ON app_sync_log (app, seq);
+    CREATE UNIQUE INDEX app_sync_log_device_change ON app_sync_log (device, change_id)
+      WHERE device IS NOT NULL;
+    CREATE UNIQUE INDEX app_sync_log_machine_change ON app_sync_log (machine, change_id)
+      WHERE machine IS NOT NULL;
+    CREATE INDEX app_sync_log_invocation ON app_sync_log (invocation)
+      WHERE invocation IS NOT NULL;
+  `,
+  },
+];
+
 export const SYNC_LOG_OWNER_KIND = "app_sync_log";
 export const SYNC_LOG_FIELD_NAME = "changeset";
 

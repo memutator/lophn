@@ -1,5 +1,5 @@
 // 폰이 부르는 push·pull. 컴퓨터가 hub다: 폰에서 온 변경은 차례로 컴퓨터 앱 DB에 적용되며 invocation이 되고, 모든
-// 변경은 sync log에 순서대로 남아 다른 기기가 pull한다. core는 HLC를 비교하지 않고 순서를 seq로만 다룬다.
+// 변경(다른 기계에서 폴더로 온 것도)은 sync log에 순서대로 남아 다른 기기가 pull한다. core는 HLC를 비교하지 않고 순서를 seq로만 다룬다.
 import { Buffer } from "node:buffer";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
@@ -126,6 +126,11 @@ export function createAppSync(deps: AppSyncDeps) {
       for (;;) {
         const rows = deps.log.page(input.app, next, PAGE_ROWS);
         for (const row of rows) {
+          // held 줄은 폰에 가지 않는다(release가 지난 뒤에도 남는다).
+          if (row.kind === "held") {
+            next = row.seq;
+            continue;
+          }
           // 읽는 사이에 생긴 '다시 snapshot' 줄이나 다른 release의 줄. 여기서 멈추고 다음 pull이 snapshot을 알린다.
           if (row.kind === "snapshot" || row.release !== input.release) {
             return ok(

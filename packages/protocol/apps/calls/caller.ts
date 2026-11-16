@@ -16,12 +16,21 @@ export const traceIdSchema = z.string().regex(/^[0-9a-f]{32}$/);
 // tool을 부른 쪽. kind가 호출 route의 actor와 맞는지는 core가 본다.
 export const appToolCallerSchema = z.discriminatedUnion("kind", [
   // 앱 화면을 연 사람. 앱·release·mode는 호출 입력의 target이 싣는다. `device`는 폰에서 한 write가 맞춰질 때
-  // core가 그 invocation에 붙인다(view_session은 폰의 변경 id). 화면이 보내는 호출에는 없다.
-  z.strictObject({
-    kind: z.literal("person"),
-    view_session: opaqueSchema,
-    device: idSchema("dev").optional(),
-  }),
+  // core가 그 invocation에 붙인다(view_session은 폰의 변경 id). `machine`은 다른 기계에서 폴더로 온 변경을 적용할 때
+  // 붙인다(view_session은 주인 기계 sync log의 seq). 둘은 같이 없고, 화면이 보내는 호출에는 없다.
+  z
+    .strictObject({
+      kind: z.literal("person"),
+      view_session: opaqueSchema,
+      device: idSchema("dev").optional(),
+      machine: idSchema("mch").optional(),
+    })
+    .refine(
+      (caller) => caller.device === undefined || caller.machine === undefined,
+      {
+        message: "a person caller comes from a device or a machine, not both",
+      },
+    ),
   z.strictObject({
     kind: z.literal("agent"),
     session: idSchema("ses"),

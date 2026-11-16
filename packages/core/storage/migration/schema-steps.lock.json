@@ -318,5 +318,9 @@
   {
     "id": "projects.registry.identity",
     "sha256": "fcc3fddfebce81e4ddedb83db9527745d54e646390d7aa84099caf889c7b667f"
+  },
+  {
+    "id": "apps.sync-log.machine",
+    "sha256": "51e64bbc1938934ecc5b729f7dc34e3b56fc4a1f3d3514866a45e7815a32ca9f"
   }
 ]

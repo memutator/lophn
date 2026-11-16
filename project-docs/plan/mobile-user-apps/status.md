@@ -18,4 +18,4 @@ lead만 고친다. `tools/status.py mobile-user-apps build`가 `tasks/*.md`에�
 | `mobile-remote-gate` | phone-host | 6 | mobile-views-core, mobile-phone-reads, mobile-phone-contract | merged | phone-host/mobile-remote-gate | a750e7485 |  |
 | `mobile-preview-phone` | phone-screen | 6 | mobile-build-phone, mobile-shell-views, mobile-sdk-kit, mobile-sdk-phone-hooks, mobile-phone-target | merged | phone-screen/mobile-preview-phone | 3551aae5e |  |
 | `mobile-agent-guidance` | app-guidance | 7 | mobile-preview-phone, mobile-sdk-kit, mobile-sdk-phone-hooks, mobile-build-phone, mobile-place-decl, mobile-phone-target | merged | app-guidance/mobile-agent-guidance | bcc6f02d2 |  |
-| `mobile-phone-apps` | phone-host | 7 | mobile-phone-guest, mobile-remote-gate, mobile-phone-reads | todo |  |  |  |
+| `mobile-phone-apps` | phone-host | 7 | mobile-phone-guest, mobile-remote-gate, mobile-phone-reads | running | phone-host/mobile-phone-apps |  |  |

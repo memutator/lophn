@@ -1,4 +1,4 @@
-// 폰이 붙는 remote 연결: listener, pairing, 기기 표, 기기 자격과 call, 폰에 내려주는 화면 bundle, core가 폰에 묻는 길(phone link).
+// 기기(폰, 다른 기계의 desktop)가 붙는 remote 연결: listener, pairing, 기기 표, 기기 자격과 call, 폰에 내려주는 화면 bundle, core가 폰에 묻는 길(phone link).
 export {
   createDeviceCredentials,
   createRemoteCall,
@@ -6,6 +6,7 @@ export {
 } from "./call.ts";
 export {
   DEVICES_COMMANDS,
+  DEVICES_KIND_STEPS,
   DEVICES_SCHEMA_STEPS,
   DEVICES_TOPIC,
   type DevicesChange,

@@ -97,6 +97,7 @@ import { createAdmission } from "../supervision/responsiveness/mod.ts";
 import { createDeviceCredentials, createRemoteCall } from "./call.ts";
 import {
   DEVICES_COMMANDS,
+  DEVICES_KIND_STEPS,
   DEVICES_SCHEMA_STEPS,
   type DevicesChange,
   devicesListRead,
@@ -159,6 +160,7 @@ function wire() {
 const settle = () => new Promise((resolve) => setTimeout(resolve, 5));
 const deviceId = (n: number) => `dev_0${String(n).padStart(25, "0")}`;
 const screen = {
+  kind: "phone",
   name: "Pixel",
   os: "android",
   width: 412,
@@ -1120,6 +1122,7 @@ test("같은 이름의 기기는 shell.devices 항목을 따로 갖고, 끊거�
       type: "pair",
       id: "p",
       code: "c",
+      kind: "phone",
       ...iphone,
       device: a,
     }).success,
@@ -1163,7 +1166,8 @@ test("등록된 key의 pair는 맞는 code일 때만 새 등록으로 붙고, �
 test("devices/unpair는 부른 기기 자기 등록만 지우고, devices/register는 같은 key의 옛 등록을 새 등록으로 바꾼다", () => {
   const db = new DatabaseSync(":memory:");
   try {
-    for (const step of DEVICES_SCHEMA_STEPS) db.exec(step.sql);
+    for (const step of [...DEVICES_SCHEMA_STEPS, ...DEVICES_KIND_STEPS])
+      db.exec(step.sql);
     const sql = createSql(db, () => true);
     const changes: DevicesChange[] = [];
     let n = 0;
@@ -1197,6 +1201,7 @@ test("devices/unpair는 부른 기기 자기 등록만 지우고, devices/regist
     const [a, b] = [deviceId(1), deviceId(2)];
     assert.equal(code(register(phoneA)), "ok");
     assert.equal(code(register(phoneB)), "ok");
+    changes.length = 0;
 
     // 사람(desktop)과 machine 자격은 기기가 아니다. 지울 등록이 없다.
     assert.equal(code(unpair("user:local")), "forbidden");
@@ -1214,7 +1219,10 @@ test("devices/unpair는 부른 기기 자기 등록만 지우고, devices/regist
     assert.ok(again.ok);
     assert.notEqual(again.value.id, b);
     assert.deepEqual(ids(), [again.value.id]);
-    assert.deepEqual(changes, [{ type: "revoked", id: b }]);
+    assert.deepEqual(changes, [
+      { type: "revoked", id: b },
+      { type: "registered", id: again.value.id, kind: "phone" },
+    ]);
   } finally {
     db.close();
   }
@@ -1223,7 +1231,8 @@ test("devices/unpair는 부른 기기 자기 등록만 지우고, devices/regist
 test("devices/set_push는 부른 기기 자기 행만 고치고, clear_push는 token이 그대로일 때만 지우고, 폰은 token을 읽지 못한다", () => {
   const db = new DatabaseSync(":memory:");
   try {
-    for (const step of DEVICES_SCHEMA_STEPS) db.exec(step.sql);
+    for (const step of [...DEVICES_SCHEMA_STEPS, ...DEVICES_KIND_STEPS])
+      db.exec(step.sql);
     const sql = createSql(db, () => true);
     let n = 0;
     const tx = {

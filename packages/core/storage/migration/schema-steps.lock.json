@@ -306,5 +306,9 @@
   {
     "id": "apps.permissions.phone_kind",
     "sha256": "79b3d3b0233fa47a2078003c1d92db600422760fc57b1bb0feba3f5729f15e37"
+  },
+  {
+    "id": "remote.devices.kind",
+    "sha256": "7efd34e9e0ef5a111f103b94ebdae116541de6f19ddbd9945ce89b61a654308f"
   }
 ]

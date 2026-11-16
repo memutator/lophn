@@ -39,7 +39,7 @@ export const remotePairingSchema = z.strictObject({
 });
 export type RemotePairing = z.infer<typeof remotePairingSchema>;
 
-// 화면 칸은 설정 `shell.devices` 항목과 같은 범위다. 등록한 기기가 그 자리에 들어간다(기기 id `device`는 core가 단다. 폰은 보내지 못한다).
+// 폰의 것. 화면 칸은 설정 `shell.devices` 항목과 같은 범위다. 등록한 폰이 그 자리에 들어간다(기기 id `device`는 core가 단다. 폰은 보내지 못한다).
 export const remoteDeviceSchema = z.strictObject({
   name: z.string().min(1).max(40),
   os: z.enum(["ios", "android"]),
@@ -48,12 +48,33 @@ export const remoteDeviceSchema = z.strictObject({
   dpr: z.number().min(1).max(4),
 });
 
-// 답은 같은 id의 `result`다. 성공 value는 core가 정한다(기기 id 등).
-const pairFrameSchema = remoteDeviceSchema.extend({
+// 기기 kind. 기준 기기, `shell.devices`, push는 phone만의 것이다. desktop은 다른 기계의 lophn이 기기로 붙은 것이다.
+export const deviceKindSchema = z.enum(["phone", "desktop"]);
+
+// 기기가 알리는 자기 이름. desktop은 기계 이름(1..64)을 알린다.
+export const deviceNameSchema = z.string().min(1).max(64);
+
+// pairing 때 기기가 자기를 알리는 칸. kind로 갈린다. desktop에는 화면 칸이 없다.
+export const phonePairingSchema = remoteDeviceSchema.extend({
+  kind: z.literal("phone"),
+});
+export const desktopPairingSchema = z.strictObject({
+  kind: z.literal("desktop"),
+  name: deviceNameSchema,
+  os: z.enum(["linux", "macos", "windows"]),
+});
+
+const pairFields = {
   type: z.literal("pair"),
   id: frameIdSchema,
   code: z.string().min(1).max(128),
-});
+};
+
+// 답은 같은 id의 `result`다. 성공 value는 core가 정한다(기기 id 등).
+const pairFrameSchema = z.discriminatedUnion("kind", [
+  phonePairingSchema.extend(pairFields),
+  desktopPairingSchema.extend(pairFields),
+]);
 
 // route 하나를 부른다. body는 HTTP API의 요청 body와 같다(command면 `{input, idempotency_key, …}` envelope). core의 route dispatch가 검사한다.
 const callFrameSchema = z.strictObject({
@@ -79,7 +100,7 @@ const resultFrameSchema = z.discriminatedUnion("ok", [
   }),
 ]);
 
-// 폰 → core
+// 기기 → core
 export const remoteClientFrameSchema = z.union([
   helloFrameSchema,
   pairFrameSchema,
@@ -89,7 +110,7 @@ export const remoteClientFrameSchema = z.union([
 ]);
 export type RemoteClientFrame = z.infer<typeof remoteClientFrameSchema>;
 
-// core → 폰. ready·event·closed는 Gateway frame 그대로다. `request`는 폰이 `hello.capabilities`에 적은 kind만 온다(`phone/link.ts`).
+// core → 기기. ready·event·closed는 Gateway frame 그대로다. `request`는 폰이 `hello.capabilities`에 적은 kind만 온다(`phone/link.ts`).
 export const remoteServerFrameSchema = z.union([
   helloFrameSchema,
   resultFrameSchema,

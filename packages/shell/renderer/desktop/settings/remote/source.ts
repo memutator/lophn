@@ -3,14 +3,20 @@ import type { SourceResult } from "../source.ts";
 
 export type { SourceResult };
 
-/** pairing한 폰 하나. */
+/** pairing한 기기 하나. 폰이거나 다른 기계의 lophn(desktop)이다. */
 export interface RemoteDevice {
   readonly id: string;
+  readonly kind: "phone" | "desktop";
+  /** 보이는 이름: 별명이 있으면 별명, 없으면 기기가 알린 이름. */
   readonly name: string;
-  readonly os: "ios" | "android";
+  /** 기기가 마지막으로 알린 이름. */
+  readonly announcedName: string;
+  /** 사람이 붙인 별명. 없으면 null이다. */
+  readonly alias: string | null;
+  readonly os: "ios" | "android" | "linux" | "macos" | "windows";
   /** 마지막으로 붙은 때(ISO). 아직 안 붙었으면 null이다. */
   readonly lastConnectedAt: string | null;
-  /** 기준 기기. 하나뿐이다. */
+  /** 기준 기기. 하나뿐이고 폰만 된다. */
   readonly primary: boolean;
   /** 이 폰이 coding agent 터미널에 칠 수 있는가. 기본 꺼짐이고 사람이 여기서만 켠다. */
   readonly terminalInput: boolean;
@@ -37,9 +43,10 @@ export interface RemoteSettingsSource {
   /** 새 code를 만든다. 앞 code는 무효가 된다. listener도 relay 연결도 아직 없으면 `unavailable`이다. */
   startPairing(): Promise<SourceResult<RemotePairingCode>>;
   relayStatus(): Promise<SourceResult<RemoteRelayStatus>>;
-  /** pairing한 폰들. 만든 순서다. */
+  /** pairing한 기기들. 만든 순서다. */
   devices(): Promise<SourceResult<readonly RemoteDevice[]>>;
-  rename(id: string, name: string): Promise<SourceResult<null>>;
+  /** 별명을 둔다. null이면 별명을 지워 기기가 알린 이름이 다시 보인다. */
+  rename(id: string, name: string | null): Promise<SourceResult<null>>;
   /** 기기를 지운다. 그 폰은 바로 끊기고 다시 pairing해야 붙는다. */
   revoke(id: string): Promise<SourceResult<null>>;
   setPrimary(id: string): Promise<SourceResult<null>>;

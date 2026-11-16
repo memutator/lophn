@@ -282,6 +282,8 @@ type Late = {
   // 폰이 터미널에 글을 칠 수 있는 principal인지 정한다. 기기마다의 허락을 아는 쪽이 채우고, 채워지지 않았으면 입력은 늘 forbidden이다.
   // `ctx.peek`로만 읽는다.
   terminalInputGrant: (principal: string) => boolean;
+  // remote가 낸다. 기기 principal의 kind
+  deviceKind: (principal: string) => "phone" | "desktop" | null;
   // remote가 낸다. 기기에 `request`를 보내고 답을 기다린다. `primary()`는 기준 폰의 기기 id(없으면 null)다.
   phoneLink: {
     call: PhoneLink["call"];
@@ -363,6 +365,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   codingRelay: true,
   terminalView: true,
   terminalInputGrant: true,
+  deviceKind: true,
   phoneLink: true,
   harnessHold: true,
   questionWaits: true,

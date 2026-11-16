@@ -16,6 +16,7 @@ import {
   createDeviceCredentials,
   createRemoteCall,
   DEVICES_COMMANDS,
+  DEVICES_KIND_STEPS,
   DEVICES_SCHEMA_STEPS,
   devicesListRead,
 } from "../../../remote/mod.ts";
@@ -88,7 +89,8 @@ test("devices/set_terminal_input은 폰 기기 자격으로 부르면 forbidden�
 test("터미널 입력은 기본 꺼짐이고 켠 기기만 terminalInputGrant가 true이며, 끄거나 끊으면 그 command가 답할 때 이미 false다", async () => {
   const db = new DatabaseSync(":memory:");
   try {
-    for (const step of DEVICES_SCHEMA_STEPS) db.exec(step.sql);
+    for (const step of [...DEVICES_SCHEMA_STEPS, ...DEVICES_KIND_STEPS])
+      db.exec(step.sql);
     const sql = createSql(db, () => true);
     let n = 0;
     let pushed: { topic: string; data: unknown }[] = [];
@@ -113,6 +115,7 @@ test("터미널 입력은 기본 꺼짐이고 켠 기기만 terminalInputGrant�
         "register",
         { ...PERSON, actor: "machine" },
         {
+          kind: "phone",
           name: "Pixel",
           os: "android",
           width: 412,

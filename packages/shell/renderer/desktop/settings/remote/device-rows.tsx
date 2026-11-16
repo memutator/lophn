@@ -1,5 +1,5 @@
-// Settings › Remote의 Phones 구역. pairing한 폰마다 이름, OS, 마지막 연결, 기준 표시, 터미널 입력 스위치와
-// [Rename]·[Make primary]·[Unpair]다. 끊으면 그 폰은 다시 pairing해야 붙으므로 먼저 한 번 묻는다. 터미널 입력은 그 줄에서
+// Settings › Remote의 Phones 구역. pairing한 기기마다 이름, OS, 마지막 연결, 기준 표시, 터미널 입력 스위치와
+// [Rename]·[Make primary](폰만)·[Unpair]다. 끊으면 그 폰은 다시 pairing해야 붙으므로 먼저 한 번 묻는다. 터미널 입력은 그 줄에서
 // 바로 되돌릴 수 있어 켤 때 묻지 않는다.
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
@@ -22,12 +22,16 @@ interface RemoteDeviceRowsProps {
   reload: () => void;
 }
 
+const OS_LABEL = {
+  ios: "settings.label.device-ios",
+  android: "settings.label.device-android",
+  linux: "settings.label.device-linux",
+  macos: "settings.label.device-macos",
+  windows: "settings.label.device-windows",
+} as const;
+
 function detailText(device: RemoteDevice): string {
-  const os = t(
-    device.os === "ios"
-      ? "settings.label.device-ios"
-      : "settings.label.device-android",
-  );
+  const os = t(OS_LABEL[device.os]);
   const seen =
     device.lastConnectedAt === null
       ? t("settings.label.remote-never-connected")
@@ -101,7 +105,7 @@ export function RemoteDeviceRows({
                 <Field label={t("settings.label.remote-device-name")}>
                   <Input
                     value={renaming.name}
-                    maxLength={40}
+                    maxLength={64}
                     autoFocus
                     onChange={(event) =>
                       setRenaming({ id: device.id, name: event.target.value })
@@ -165,7 +169,7 @@ export function RemoteDeviceRows({
                   >
                     {t("settings.button.remote-rename")}
                   </Button>
-                  {device.primary ? null : (
+                  {device.primary || device.kind !== "phone" ? null : (
                     <Button
                       icon={actionIcons.confirm}
                       data-remote-primary=""

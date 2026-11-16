@@ -5,7 +5,11 @@ import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
 import { atSchema } from "../base/values.ts";
 import { pushPrefsSchema } from "../attention/mod.ts";
 import {
+  desktopPairingSchema,
+  deviceKindSchema,
+  deviceNameSchema,
   keyTextSchema,
+  phonePairingSchema,
   remoteDeviceSchema,
   remotePairingSchema,
 } from "./frames.ts";
@@ -37,8 +41,21 @@ export const remoteRelayStatus = defineMemory({
   errors: ["invalid_input", "forbidden"],
 });
 
-const deviceSchema = remoteDeviceSchema.extend({
+const deviceSchema = z.strictObject({
   id: deviceIdSchema,
+  kind: deviceKindSchema,
+  // 보이는 이름: 사람이 붙인 별명이 있으면 별명, 없으면 기기가 마지막으로 알린 이름.
+  name: deviceNameSchema,
+  announced_name: deviceNameSchema,
+  alias: deviceNameSchema.nullable(),
+  os: z.enum([
+    ...phonePairingSchema.shape.os.options,
+    ...desktopPairingSchema.shape.os.options,
+  ]),
+  // 화면 칸은 phone만 있다.
+  width: remoteDeviceSchema.shape.width.nullable(),
+  height: remoteDeviceSchema.shape.height.nullable(),
+  dpr: remoteDeviceSchema.shape.dpr.nullable(),
   public_key: keyTextSchema,
   created_at: atSchema,
   last_connected_at: atSchema.nullable(),
@@ -60,7 +77,8 @@ export const devicesList = defineRead({
   errors: ["invalid_input", "forbidden", "unavailable"],
 });
 
-// 설정 `shell.devices`에서 이 기기의 항목(`device`가 이 id) 이름도 바꾼다. 다른 항목과 겹치면 뒤에 " 2"…를 붙인다.
+// 사람이 붙인 별명을 둔다. null이면 별명을 지워 기기가 알린 이름이 다시 보인다. 보이는 이름이 바뀌면 설정 `shell.devices`에서
+// 이 기기의 항목(`device`가 이 id) 이름도 바꾼다. 다른 항목과 겹치면 뒤에 " 2"…를 붙인다.
 export const devicesRename = defineCommand({
   resource: "devices",
   method: "rename",
@@ -68,7 +86,7 @@ export const devicesRename = defineCommand({
   changes: [{ name: "remote_devices", id: (_input, output) => output.id }],
   input: z.strictObject({
     id: deviceIdSchema,
-    name: remoteDeviceSchema.shape.name,
+    name: deviceNameSchema.nullable(),
   }),
   output: z.object({ id: deviceIdSchema }),
   actors: ["user"],
@@ -99,7 +117,7 @@ export const devicesUnpair = defineCommand({
   errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
 });
 
-// 기준 기기는 하나다. 다른 기기의 기준을 내린다.
+// 기준 기기는 하나다. 다른 기기의 기준을 내린다. phone만 기준이 된다(desktop이면 invalid_input).
 export const devicesSetPrimary = defineCommand({
   resource: "devices",
   method: "set_primary",
@@ -124,14 +142,17 @@ export const devicesSetTerminalInput = defineCommand({
   errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
 });
 
-// pairing이 맞은 기기를 등록한다. core 안 machine 자격만 낸다. 새 기기가 기준이 된다.
+// pairing이 맞은 기기를 등록한다. core 안 machine 자격만 낸다. 새 phone이 기준이 된다(desktop은 기준을 건드리지 않는다).
 // 같은 key의 옛 등록(폰이 이 컴퓨터를 지웠는데 컴퓨터는 몰랐다)은 지우고 새 등록으로 바꾼다.
 export const devicesRegister = defineCommand({
   resource: "devices",
   method: "register",
   name: "devices.register",
   changes: [{ name: "remote_devices", id: (_input, output) => output.id }],
-  input: remoteDeviceSchema.extend({ public_key: keyTextSchema }),
+  input: z.discriminatedUnion("kind", [
+    phonePairingSchema.extend({ public_key: keyTextSchema }),
+    desktopPairingSchema.extend({ public_key: keyTextSchema }),
+  ]),
   output: z.object({ id: deviceIdSchema }),
   actors: ["machine"],
   errors: ["invalid_input", "forbidden", "unavailable"],
@@ -155,7 +176,7 @@ const pushTokenSchema = z
   .regex(/^Expo(nent)?PushToken\[[^\]]+\]$/)
   .max(200);
 
-// 폰이 자기 push token과 알림 설정을 core에 둔다. 부른 기기 자기 행만 고친다(id를 받지 않는다). 기기 자격이 아니면 forbidden이다.
+// 폰이 자기 push token과 알림 설정을 core에 둔다. 부른 기기 자기 행만 고친다(id를 받지 않는다). 기기 자격이 아니거나 desktop이면 forbidden이다.
 // `token: null`은 이 기기의 push를 끄는 것이다(token을 지우고 prefs는 저장한다).
 export const devicesSetPush = defineCommand({
   resource: "devices",

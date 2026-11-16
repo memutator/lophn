@@ -1,4 +1,4 @@
-// remote 연결 하나하나를 맡는다. handshake로 받은 공개 key가 등록된 기기면 그 기기 자격으로 `call`·`watch`를 받고
+// remote 연결 하나하나를 맡는다. handshake로 받은 공개 key가 등록된 기기(폰, desktop)면 그 기기 자격으로 `call`·`watch`를 받고
 // (첫 frame이 `pair`면 다시 pairing이다), 아니면 `pair`만 받는다. listener(WebSocket)는 이 file을 모르고 전송 하나씩 넘긴다. test는 메모리 전송을 넘긴다.
 import {
   err,
@@ -6,8 +6,10 @@ import {
   type RandomSource,
   type Result,
 } from "../../base/mod.ts";
+import type { z } from "zod";
 import {
   acceptRemote,
+  type devicesRegister,
   type KeyPair,
   REMOTE_ALLOWED_EVENTS,
   REMOTE_FRAME_MAX_BYTES,
@@ -45,14 +47,13 @@ export type RemoteTimers = {
   clear(handle: unknown): void;
 };
 
-type PairInput = Extract<RemoteClientFrame, { type: "pair" }>;
+// pair frame의 기기 칸(kind로 갈린다)과 handshake로 받은 공개 key.
+type DeviceInput = z.infer<typeof devicesRegister.input>;
 
 // 기기 표. production은 ledger의 devices command·read다.
 export type RemoteDevices = {
   find(publicKey: string): Promise<Result<{ id: string } | undefined>>;
-  register(
-    input: Omit<PairInput, "type" | "id" | "code"> & { public_key: string },
-  ): Promise<Result<{ id: string }>>;
+  register(input: DeviceInput): Promise<Result<{ id: string }>>;
   // 마지막 연결 시각. 실패는 연결을 막지 않는다.
   connected(id: string): void;
 };
@@ -249,12 +250,9 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
         if (tries >= PAIRING_TRIES) channel.close();
         return undefined;
       }
+      const { type: _type, id: _id, code: _code, ...device } = frame;
       const registered = await deps.devices.register({
-        name: frame.name,
-        os: frame.os,
-        width: frame.width,
-        height: frame.height,
-        dpr: frame.dpr,
+        ...device,
         public_key: publicKey,
       });
       if (!registered.ok) {

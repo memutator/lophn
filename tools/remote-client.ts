@@ -139,6 +139,7 @@ if (command === "pair") {
     type: "pair",
     id: "pair",
     code: qr.code,
+    kind: "phone",
     name: values.name ?? "remote-client",
     os: "android",
     width: 412,

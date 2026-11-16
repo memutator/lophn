@@ -78,7 +78,10 @@ export function coreRemoteSource(
         ok: true,
         value: read.value.devices.map((device) => ({
           id: device.id,
+          kind: device.kind,
           name: device.name,
+          announcedName: device.announced_name,
+          alias: device.alias,
           os: device.os,
           lastConnectedAt: device.last_connected_at,
           primary: device.primary,

@@ -56,9 +56,55 @@ alter table devices add column push_prefs text not null default '{}';`,
   },
 ];
 
+// kind를 더하고 os를 넓히고 화면 칸을 phone만의 것으로 하고 이름을 알린 이름(`name`)과 사람의 별명(`alias`)으로 나눈다. CHECK를
+// 바꾸려 표를 다시 만든다. 이 표를 가리키는 FK와 따로 만든 index·trigger는 없다. 옛 행은 phone이고, 옛 `name`이 pairing 때 온
+// 이름인지 사람이 바꾼 별명인지 알 수 없어 별명으로도 옮긴다. 낸 step 목록의 끝에 붙어야 해서 DEVICES_SCHEMA_STEPS가 아니라
+// WIRINGS 맨 뒤 wiring(remote)의 schemaStepsAfterTeams 끝에 둔다.
+export const DEVICES_KIND_STEPS: readonly SchemaStep[] = [
+  {
+    id: "remote.devices.kind",
+    sql: `
+create table devices_next (
+  id text primary key,
+  kind text not null check (kind in ('phone', 'desktop')),
+  name text not null,
+  alias text,
+  name_announced_at text,
+  os text not null check (os in ('ios', 'android', 'linux', 'macos', 'windows')),
+  width integer,
+  height integer,
+  dpr real,
+  public_key text not null unique,
+  created_at text not null,
+  last_connected_at text,
+  is_primary integer not null check (is_primary in (0, 1)),
+  push_token text,
+  push_prefs text not null default '{}',
+  terminal_input integer not null default 0 check (terminal_input in (0, 1)),
+  check (
+    (kind = 'phone' and os in ('ios', 'android')
+      and width is not null and height is not null and dpr is not null)
+    or (kind = 'desktop' and os in ('linux', 'macos', 'windows')
+      and width is null and height is null and dpr is null
+      and is_primary = 0 and push_token is null)
+  )
+) strict;
+insert into devices_next (id, kind, name, alias, name_announced_at, os, width, height, dpr, public_key, created_at,
+  last_connected_at, is_primary, push_token, push_prefs, terminal_input)
+select id, 'phone', name, name, null, os, width, height, dpr, public_key, created_at,
+  last_connected_at, is_primary, push_token, push_prefs, terminal_input from devices;
+drop table devices;
+alter table devices_next rename to devices;`,
+  },
+];
+
+type DeviceKind = RemoteDevice["kind"];
+
 // commit 뒤 main thread가 할 일(설정 `shell.devices` 고치기, 연결 닫기). 설정과 연결은 writer Worker 밖에 있다.
 export const DEVICES_TOPIC = "remote.devices";
+// `renamed`는 보이는 이름(별명이 있으면 별명)이 바뀔 때 그 이름을 싣는다.
 export type DevicesChange =
+  | { type: "registered"; id: string; kind: DeviceKind }
   | { type: "renamed"; id: string; name: string }
   | { type: "revoked"; id: string }
   | { type: "terminal_input"; id: string; on: boolean };
@@ -67,10 +113,12 @@ export type DevicesChange =
 type Screen = { name: string; device?: string };
 
 // 이름은 항목 사이에서 겹치지 않아야 한다. 겹치면 " 2", " 3"…을 붙이고 이름 상한을 넘지 않게 앞을 줄인다.
-function uniqueName(name: string, list: readonly Screen[]): string {
+// 별명은 항목 이름 상한보다 길 수 있어 먼저 상한으로 자른다.
+function uniqueName(full: string, list: readonly Screen[]): string {
   const taken = new Set(list.map((each) => each.name));
+  const max = remoteDeviceSchema.shape.name.maxLength ?? full.length;
+  const name = full.slice(0, max);
   if (!taken.has(name)) return name;
-  const max = remoteDeviceSchema.shape.name.maxLength ?? name.length;
   for (let n = 2; ; n++) {
     const suffix = ` ${n}`;
     const candidate = name.slice(0, max - suffix.length) + suffix;
@@ -78,7 +126,7 @@ function uniqueName(name: string, list: readonly Screen[]): string {
   }
 }
 
-// pairing한 기기의 항목을 더한다. 같은 이름의 다른 항목(다른 폰, 사람이 넣은 항목)은 그대로 두고 새 항목 이름을 바꾼다.
+// pairing한 폰의 항목을 더한다. 같은 이름의 다른 항목(다른 폰, 사람이 넣은 항목)은 그대로 두고 새 항목 이름을 바꾼다.
 export function screensPaired<T extends Screen>(
   list: readonly T[],
   device: string,
@@ -135,14 +183,36 @@ export function createTerminalInputGrants() {
   };
 }
 
+// 기기 principal의 kind(`ctx.deviceKind`). 터미널 입력 허락과 같이 기동 때 표로 채우고 commit 뒤 바뀜으로 고친다.
+export function createDeviceKinds() {
+  const kinds = new Map<string, DeviceKind>();
+  return {
+    load(devices: readonly RemoteDevice[]) {
+      kinds.clear();
+      for (const device of devices) kinds.set(device.id, device.kind);
+    },
+    apply(change: DevicesChange) {
+      if (change.type === "registered") kinds.set(change.id, change.kind);
+      else if (change.type === "revoked") kinds.delete(change.id);
+    },
+    of: (principal: string): DeviceKind | null =>
+      principal.startsWith(DEVICE_PRINCIPAL)
+        ? (kinds.get(principal.slice(DEVICE_PRINCIPAL.length)) ?? null)
+        : null,
+  };
+}
+
 function rowOf(row: Record<string, unknown>): RemoteDevice {
   return {
     id: row.id as RemoteDevice["id"],
-    name: row.name as string,
+    kind: row.kind as DeviceKind,
+    name: (row.alias as string | null) ?? (row.name as string),
+    announced_name: row.name as string,
+    alias: (row.alias as string | null) ?? null,
     os: row.os as RemoteDevice["os"],
-    width: Number(row.width),
-    height: Number(row.height),
-    dpr: Number(row.dpr),
+    width: row.width === null ? null : Number(row.width),
+    height: row.height === null ? null : Number(row.height),
+    dpr: row.dpr === null ? null : Number(row.dpr),
     public_key: row.public_key as string,
     created_at: row.created_at as string,
     last_connected_at: (row.last_connected_at as string | null) ?? null,
@@ -171,21 +241,27 @@ const register: CommandDefinition<typeof devicesRegister> = {
     ]);
     if (taken !== undefined) remove(tx, taken.id as string);
     const id = tx.newId("dev");
-    tx.sql.run("update devices set is_primary = 0 where is_primary = 1", []);
+    // 새 phone이 기준이 된다. desktop은 기준이 되지 못하고 다른 기기의 기준도 그대로다.
+    const phone = input.kind === "phone";
+    if (phone)
+      tx.sql.run("update devices set is_primary = 0 where is_primary = 1", []);
     tx.sql.run(
-      `insert into devices (id, name, os, width, height, dpr, public_key, created_at, last_connected_at, is_primary)
-       values (?, ?, ?, ?, ?, ?, ?, ?, null, 1)`,
+      `insert into devices (id, kind, name, os, width, height, dpr, public_key, created_at, last_connected_at, is_primary)
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?, null, ?)`,
       [
         id,
+        input.kind,
         input.name,
         input.os,
-        input.width,
-        input.height,
-        input.dpr,
+        phone ? input.width : null,
+        phone ? input.height : null,
+        phone ? input.dpr : null,
         input.public_key,
         tx.now(),
+        phone ? 1 : 0,
       ],
     );
+    push(tx, { type: "registered", id, kind: input.kind });
     return ok({ id: id as RemoteDevice["id"] });
   },
 };
@@ -208,12 +284,14 @@ const rename: CommandDefinition<typeof devicesRename> = {
   handle(tx, _ctx, input) {
     const found = load(tx.sql, input.id);
     if (!found.ok) return found;
-    if (found.value.name === input.name) return ok({ id: input.id });
-    tx.sql.run("update devices set name = ? where id = ?", [
+    if (found.value.alias === input.name) return ok({ id: input.id });
+    tx.sql.run("update devices set alias = ? where id = ?", [
       input.name,
       input.id,
     ]);
-    push(tx, { type: "renamed", id: input.id, name: input.name });
+    const shown = input.name ?? found.value.announced_name;
+    if (shown !== found.value.name)
+      push(tx, { type: "renamed", id: input.id, name: shown });
     return ok({ id: input.id });
   },
 };
@@ -262,6 +340,9 @@ const setPush: CommandDefinition<typeof devicesSetPush> = {
     const id = ctx.principal.slice(DEVICE_PRINCIPAL.length);
     const found = load(tx.sql, id);
     if (!found.ok) return found;
+    if (found.value.kind !== "phone") {
+      return err({ code: "forbidden", message: "only a phone sets push" });
+    }
     tx.sql.run(
       "update devices set push_token = ?, push_prefs = ? where id = ?",
       [input.token, JSON.stringify(input.prefs), id],
@@ -303,6 +384,12 @@ const setPrimary: CommandDefinition<typeof devicesSetPrimary> = {
   handle(tx, _ctx, input) {
     const found = load(tx.sql, input.id);
     if (!found.ok) return found;
+    if (found.value.kind !== "phone") {
+      return err({
+        code: "invalid_input",
+        message: "only a phone can be the primary device",
+      });
+    }
     tx.sql.run(
       "update devices set is_primary = case when id = ? then 1 else 0 end",
       [input.id],

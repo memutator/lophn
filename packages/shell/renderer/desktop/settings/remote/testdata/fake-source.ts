@@ -18,7 +18,10 @@ function sampleDevices(now: number): RemoteDevice[] {
   return [
     {
       id: "dev_01jd0000000000000000000001",
+      kind: "phone",
       name: "Pixel 9",
+      announcedName: "Pixel 9",
+      alias: null,
       os: "android",
       lastConnectedAt: new Date(now - 26 * HOUR).toISOString(),
       primary: false,
@@ -26,7 +29,10 @@ function sampleDevices(now: number): RemoteDevice[] {
     },
     {
       id: "dev_01jd0000000000000000000002",
+      kind: "phone",
       name: "iPhone 16",
+      announcedName: "iPhone 16",
+      alias: null,
       os: "ios",
       lastConnectedAt: new Date(now - 2 * HOUR).toISOString(),
       primary: true,
@@ -72,7 +78,9 @@ export function fakeRemote(options: FakeRemoteOptions = {}) {
     devices: () => ok(devices),
     rename(id, name) {
       if (!devices.some((d) => d.id === id)) return missing();
-      devices = devices.map((d) => (d.id === id ? { ...d, name } : d));
+      devices = devices.map((d) =>
+        d.id === id ? { ...d, alias: name, name: name ?? d.announcedName } : d,
+      );
       return ok(null);
     },
     revoke(id) {

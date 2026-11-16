@@ -1,8 +1,8 @@
-// 폰이 붙는 remote 연결의 조립. 설정 `remote.enabled`가 켜지면 `remote.port`에 listener를 열고, `remote.relay`가 있으면
+// 기기(폰, 다른 기계의 desktop)가 붙는 remote 연결의 조립. 설정 `remote.enabled`가 켜지면 `remote.port`에 listener를 열고, `remote.relay`가 있으면
 // relay에도 건다. 둘은 따로 돈다(port를 못 열어도 relay는 돈다). 꺼지면 둘 다 닫는다.
 // 기기 표(devices)의 command·read는 writer·reader Worker가 이 file을 팀 등록 file로 import해 얻는다.
 // 표를 만드는 ledger step은 낸 step 목록의 끝에 붙어야 해서(schema-steps.lock.json) 이 wiring의 schemaStepsAfterTeams에 둔다.
-// 기기마다 터미널 입력 허락(`ctx.terminalInputGrant`)도 기기 표를 아는 여기서 채운다.
+// 기기마다 터미널 입력 허락(`ctx.terminalInputGrant`)과 기기 kind(`ctx.deviceKind`)도 기기 표를 아는 여기서 채운다.
 // core가 폰에 묻는 길(`ctx.phoneLink`)도 여기서 낸다. link는 build에서 만들고 host가 늦게 생겨도 같은 것을 쓴다.
 import { networkInterfaces } from "node:os";
 import type { z } from "zod";
@@ -35,6 +35,7 @@ import {
   createRemoteCall,
   createRemoteHost,
   DEVICES_COMMANDS,
+  DEVICES_KIND_STEPS,
   DEVICES_SCHEMA_STEPS,
   DEVICES_TOPIC,
   type DevicesChange,
@@ -52,7 +53,10 @@ import {
   screensRevoked,
 } from "../../../remote/mod.ts";
 import { devicePrincipal } from "../../../remote/call.ts";
-import { createTerminalInputGrants } from "../../../remote/devices.ts";
+import {
+  createDeviceKinds,
+  createTerminalInputGrants,
+} from "../../../remote/devices.ts";
 import {
   openRelayWebSocket,
   type RelayClient,
@@ -133,6 +137,8 @@ export const remoteWiring: WiringFactory = () => {
   const admission = createAdmission();
   // 기기마다 터미널 입력 허락(`ctx.terminalInputGrant`). build에서 표를 읽어 채우고 commit 뒤 바뀜으로 고친다.
   const grants = createTerminalInputGrants();
+  // 기기 principal의 kind(`ctx.deviceKind`). 허락과 같이 채우고 고친다.
+  const kinds = createDeviceKinds();
   // 붙은 기기 연결을 안다. remote가 꺼져 있으면 붙은 연결이 없어 `call`은 `unavailable`(phone_unreachable)이다.
   let phoneLink: PhoneLink;
 
@@ -198,9 +204,14 @@ export const remoteWiring: WiringFactory = () => {
       async register(input) {
         const done = await command(ctx, devicesRegister.name, input);
         if (!done.ok) return done;
-        const { public_key: _key, ...screen } = input;
         const { id } = done.value as { id: string };
-        editScreens(ctx, (list) => screensPaired(list, id, screen));
+        // preview 기기 화면은 phone만이다.
+        if (input.kind === "phone") {
+          const { name, os, width, height, dpr } = input;
+          editScreens(ctx, (list) =>
+            screensPaired(list, id, { name, os, width, height, dpr }),
+          );
+        }
         return ok({ id });
       },
       connected(id) {
@@ -310,6 +321,7 @@ export const remoteWiring: WiringFactory = () => {
       ...DEVICES_SCHEMA_STEPS,
       ...SYNC_LOG_SCHEMA_STEPS,
       ...PERMISSIONS_PHONE_KIND_STEPS,
+      ...DEVICES_KIND_STEPS,
     ],
     operations: () => [
       { name: devicesRegister.name, actors: ["machine"], kind: "command" },
@@ -347,6 +359,8 @@ export const remoteWiring: WiringFactory = () => {
       if (!listed.ok) return listed;
       grants.load(listed.value);
       ctx.provide("terminalInputGrant", grants.granted);
+      kinds.load(listed.value);
+      ctx.provide("deviceKind", kinds.of);
       phoneLink = createPhoneLink({ timers: systemTimers, random: ctx.random });
       ctx.provide("phoneLink", {
         call: phoneLink.call,
@@ -396,6 +410,7 @@ export const remoteWiring: WiringFactory = () => {
                 if (action.topic !== DEVICES_TOPIC) continue;
                 const change = action.data as DevicesChange;
                 grants.apply(change);
+                kinds.apply(change);
                 if (change.type === "revoked") {
                   host?.revoked(change.id);
                   editScreens(ctx, (list) => screensRevoked(list, change.id));

@@ -2495,3 +2495,5 @@ flows:
         when: "core가 낸 그 밖의 오류 그대로(not_found, unavailable 포함)"
         observe: [response]
     crosses_process: true
+ignore:
+  - {entry: "route:apps/take_in", reason: "route 정의만 있고 handler 등록이 없다(folder-apps가 정의하고 folder-surface가 handler·CLI·flow를 단다). 그때 이 줄을 지우고 flow를 쓴다"}

@@ -1,4 +1,6 @@
-/* 앱 native view가 붙는 자리. 크롬 없이 칸·카드 본문을 채운다. view가 붙으면 이 자리를 덮는다. */
+/* 앱 native view가 붙는 자리. 크롬 없이 칸·카드 본문을 채운다. view가 붙으면 이 자리를 덮는다.
+   바탕은 두지 않는다: <webview>는 아래 두 모서리가 둥글어서 이 자리의 각진 모서리가 비쳐 보이는데, 바탕이 있으면
+   card가 없는 sidebar에서 shell 바탕 위에 흰 쐐기가 남는다. 바탕은 이 자리를 품은 card·popup이 준다. */
 .region {
   position: relative;
   box-sizing: border-box;
@@ -9,7 +11,6 @@
   height: 100%;
   min-width: var(--space-0);
   min-height: var(--space-0);
-  background: var(--color-surface-base);
 }
 
 .placeholder {

@@ -576,6 +576,16 @@ files:
     covers: [push-send:sent, push-send:push-off, push-send:dropped, push-send:dead-token]
     note: "remote.push가 비면 fetch를 부르지 않는지, DeviceNotRegistered가 ticket과 receipt 단계 모두 token으로 알려지는지, 네트워크 실패와 500이 던지지 않고 dropped인지 메모리 fake로 본다. 알려진 token을 devices/clear_push로 거두는 wiring은 이 test 밖이다"
 
+  - path: packages/core/remote/phone-link_test.ts
+    covers:
+      - phone-link:answered
+      - phone-link:phone-error
+      - phone-link:unreachable
+      - phone-link:unsupported
+      - phone-link:timeout
+      - phone-link:response-dropped
+    note: "메모리 전송으로 실제 connectRemote client 둘을 core host와 link에 붙인다. 기기 표·자격·call·timer만 가짜다. 요청이 지정한 기기의 연결로만 가는지, 적지 않은 kind를 보내지 않는지, 모르는 id·다른 기기·deadline 뒤의 response를 버리는지, 기다리는 사이 닫힘을 본다"
+
   - path: packages/core/remote/host_test.ts
     covers:
       - remote-connection:unpaired-refused

@@ -3,6 +3,7 @@
 // 기기 표(devices)의 command·read는 writer·reader Worker가 이 file을 팀 등록 file로 import해 얻는다.
 // 표를 만드는 ledger step은 낸 step 목록의 끝에 붙어야 해서(schema-steps.lock.json) 이 wiring의 schemaStepsAfterTeams에 둔다.
 // 기기마다 터미널 입력 허락(`ctx.terminalInputGrant`)도 기기 표를 아는 여기서 채운다.
+// core가 폰에 묻는 길(`ctx.phoneLink`)도 여기서 낸다. link는 build에서 만들고 host가 늦게 생겨도 같은 것을 쓴다.
 import { networkInterfaces } from "node:os";
 import type { z } from "zod";
 import { err, formatAt, ok, type Result } from "../../../../base/mod.ts";
@@ -30,6 +31,7 @@ import {
 import {
   createDeviceCredentials,
   createPairingCodes,
+  createPhoneLink,
   createRemoteCall,
   createRemoteHost,
   DEVICES_COMMANDS,
@@ -41,6 +43,7 @@ import {
   loadHostKey,
   openRemoteListener,
   type PairingCodes,
+  type PhoneLink,
   type RemoteDevices,
   type RemoteHost,
   type RemoteListener,
@@ -129,6 +132,8 @@ export const remoteWiring: WiringFactory = () => {
   const admission = createAdmission();
   // 기기마다 터미널 입력 허락(`ctx.terminalInputGrant`). build에서 표를 읽어 채우고 commit 뒤 바뀜으로 고친다.
   const grants = createTerminalInputGrants();
+  // 붙은 기기 연결을 안다. remote가 꺼져 있으면 붙은 연결이 없어 `call`은 `unavailable`(phone_unreachable)이다.
+  let phoneLink: PhoneLink;
 
   function logError(ctx: WiringContext, event: string, thrown: unknown) {
     ctx.telemetry.logger.error({
@@ -273,6 +278,7 @@ export const remoteWiring: WiringFactory = () => {
       deviceGone: (device) =>
         ctx.attention.forgetReporter(devicePrincipal(device)),
       views: ctx.appViews,
+      phoneLink,
       logger: ctx.telemetry.logger,
     });
     const accept = host.accept;
@@ -336,6 +342,16 @@ export const remoteWiring: WiringFactory = () => {
       if (!listed.ok) return listed;
       grants.load(listed.value);
       ctx.provide("terminalInputGrant", grants.granted);
+      phoneLink = createPhoneLink({ timers: systemTimers, random: ctx.random });
+      ctx.provide("phoneLink", {
+        call: phoneLink.call,
+        async primary() {
+          const devices = await listDevices(ctx);
+          return devices.ok
+            ? ok(devices.value.find((each) => each.primary)?.id ?? null)
+            : devices;
+        },
+      });
       const start = async () => {
         if (
           hostKey === undefined ||

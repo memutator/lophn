@@ -24,6 +24,7 @@ import {
   type RemoteCall,
 } from "./call.ts";
 import type { PairingCodes } from "./pairing.ts";
+import type { PhoneConnection, PhoneLink } from "./phone-link.ts";
 
 // handshake와 hello가 이 안에 끝나지 않은 연결은 닫는다. 말 없는 socket이 자리를 붙잡지 못하게.
 export const REMOTE_HANDSHAKE_MS = 10_000;
@@ -70,6 +71,8 @@ export type RemoteHostDeps = {
   deviceGone?(device: string): void;
   // core의 앱 view 표. 기기의 마지막 연결이 닫히면 그 기기(owner)의 view를 지운다.
   views: { closeOwner(owner: string): void };
+  // core가 폰에 묻는 길. 붙은 연결과 그 연결의 `response`와 닫힘을 알린다.
+  phoneLink: Pick<PhoneLink, "attached" | "received" | "closed">;
   logger?: Logger;
 };
 
@@ -83,6 +86,8 @@ export type RemoteHost = {
 
 type Connection = {
   channel: RemoteServerChannel;
+  // 폰이 `hello.capabilities`에 적은 것. core는 여기 있는 kind만 폰에 묻는다.
+  capabilities: readonly string[];
   device?: string;
   // 붙은 기기의 Gateway session. 내려갈 때 `closed(shutdown)`을 보낸다.
   session?: { shutdown(): void };
@@ -100,7 +105,10 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
   ) {
     let closed = false;
     const cleanups: (() => void)[] = [];
-    const connection: Connection = { channel };
+    const connection: Connection = {
+      channel,
+      capabilities: channel.peer.capabilities,
+    };
     const publicKey = remoteKeyText(channel.peer.publicKey);
     connections.add(connection);
     channel.onClose(() => {
@@ -172,6 +180,13 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
       channel.setMaxFrameBytes(REMOTE_FRAME_MAX_BYTES);
       attached();
       deps.devices.connected(device);
+      const phone: PhoneConnection = {
+        device,
+        capabilities: connection.capabilities,
+        send: (frame) => channel.send(frame),
+      };
+      deps.phoneLink.attached(phone);
+      cleanups.push(() => deps.phoneLink.closed(phone));
       return (frame) => {
         if (frame.type === "call") {
           void deps
@@ -202,6 +217,8 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
             );
         } else if (frame.type === "watch") {
           session.receive(JSON.stringify(frame));
+        } else if (frame.type === "response") {
+          deps.phoneLink.received(phone, frame);
         } else {
           channel.close();
         }

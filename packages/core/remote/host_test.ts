@@ -419,6 +419,7 @@ function setup() {
     }),
     admission,
     views,
+    phoneLink: { attached() {}, received() {}, closed() {} },
   });
 
   function open(phoneKey: KeyPair) {

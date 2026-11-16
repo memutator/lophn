@@ -4,6 +4,10 @@ import {
   gatewayClientFrameSchema,
   gatewayServerFrameSchema,
 } from "../events/gateway.ts";
+import {
+  phoneRequestFrameSchema,
+  phoneResponseFrameSchema,
+} from "../phone/link.ts";
 
 // handshake 뒤 양쪽이 먼저 `hello`를 주고받는다. 상대 판이 하한보다 낮으면 연결을 끊는다.
 export const REMOTE_PROTOCOL_VERSION = 1;
@@ -80,14 +84,16 @@ export const remoteClientFrameSchema = z.union([
   helloFrameSchema,
   pairFrameSchema,
   callFrameSchema,
+  phoneResponseFrameSchema,
   gatewayClientFrameSchema,
 ]);
 export type RemoteClientFrame = z.infer<typeof remoteClientFrameSchema>;
 
-// core → 폰. ready·event·closed는 Gateway frame 그대로다.
+// core → 폰. ready·event·closed는 Gateway frame 그대로다. `request`는 폰이 `hello.capabilities`에 적은 kind만 온다(`phone/link.ts`).
 export const remoteServerFrameSchema = z.union([
   helloFrameSchema,
   resultFrameSchema,
+  phoneRequestFrameSchema,
   gatewayServerFrameSchema,
 ]);
 export type RemoteServerFrame = z.infer<typeof remoteServerFrameSchema>;

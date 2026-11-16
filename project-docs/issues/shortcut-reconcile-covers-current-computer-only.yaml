@@ -1,0 +1,12 @@
+id: shortcut-reconcile-covers-current-computer-only
+title: 홈 화면 아이콘의 정리가 화면에 있는 컴퓨터만 봐서 다른 컴퓨터의 앱을 지우거나 보관해도 사람이 그 컴퓨터로 바꿀 때까지 아이콘이 그대로 쓸 수 있다
+kind: bug
+status: open
+topic: phone-home-screen
+modules: [packages/mobile]
+now: |
+  `usePhoneApps`(`packages/mobile/src/data/apps.ts`)는 화면에 있는 컴퓨터의 `apps/phone_screens`만 읽고, 그 읽기가 올 때 `reconcileShortcuts`(`packages/mobile/src/shortcuts/sync.ts`)가 그 컴퓨터의 id만 견준다. 다른 컴퓨터의 아이콘은 그대로다. 컴퓨터를 지웠을 때(`disableRemovedComputers`)만 모든 컴퓨터를 본다. 위젯의 새로 하기는 위젯이 묶인 컴퓨터를 모두 읽지만 아이콘은 그 길에 없다.
+impact: |
+  컴퓨터가 둘 이상인 사람이 한 컴퓨터에서 앱을 지우거나 보관하면, 폰에서 그 컴퓨터로 화면을 바꾸기 전까지 그 앱의 홈 화면 아이콘이 쓸 수 있는 채로 남는다. 누르면 폰 앱이 그 앱을 열려 한다. data를 잃지는 않는다. 컴퓨터가 하나뿐인 사람은 영향이 없다.
+fix: |
+  - 작음(추천): 위젯의 새로 하기가 이미 컴퓨터마다 연결하는 자리(`packages/mobile/src/widgets/store.ts`)에서 아이콘이 있는 컴퓨터도 `apps/phone_screens`를 읽어 `reconcileShortcuts`를 부른다. 앱이 앞에 올 때와 연결된 동안 `StateChanged`가 올 때 돈다.

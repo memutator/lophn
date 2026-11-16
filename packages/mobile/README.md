@@ -96,7 +96,7 @@ QR에 relay 주소(`relay`)가 있으면 컴퓨터 기록에 저장하고, 주�
 - 알림 채널 `needs-you`(high), `finished`, `apps`를 앱이 시작할 때 만든다. 허락(Android 13)과 token을 부르기 전이다.
 - Paired 화면의 `Turn on notifications`가 허락을 묻고, 허락되면 Expo push token을 받는다. `Not now`는 끈 채로 둔다(Paired는 한 번만 묻고 다른 컴퓨터를 pairing해도 다시 묻지 않는다). Settings › Notifications에서 나중에 켠다. 거절이면 그 화면에 시스템 설정을 여는 단추가 선다.
 - 설정(스위치 일곱)과 token은 pairing한 모든 컴퓨터에 `devices/set_push`로 보낸다(붙을 때마다, 바뀔 때마다). 앱이 앞에 있는지와 열린 session은 `presence/report`로 보낸다(앞뒤가 바뀔 때, session 화면이 열고 닫힐 때, 앞에 있는 동안 30초마다).
-- 알림을 누르면 `data.host`의 컴퓨터를 고르고 session·앱·Inbox를 연다(앱이 떠 있을 때는 listener, 꺼져 있었으면 `getLastNotificationResponse()`). `data`는 `parseNotificationData`가 읽고 모양이 틀리거나 이 폰에 pairing하지 않은 컴퓨터면 아무것도 열지 않는다. 터미널 coding agent의 알림(`term:<탭>`)은 폰이 열 수 없어 Inbox로 가고, 목록에 없는 session은 8초 기다린 뒤 Inbox를 연다.
+- 알림을 누르면 `data.host`의 컴퓨터를 고르고 session·앱·Inbox를 연다(앱이 떠 있을 때는 listener, 꺼져 있었으면 `getLastNotificationResponse()`). `data`는 `src/open/`의 `parseOpenTarget`이 읽고(위젯과 아이콘의 누름, URL과 같은 해석 하나. 아래 "열기") 모양이 틀리거나 이 폰에 pairing하지 않은 컴퓨터면 아무것도 열지 않는다. 터미널 coding agent의 알림(`term:<탭>`)은 폰이 열 수 없어 알림 쪽(`src/push/target.ts`)이 Inbox로 바꾸고, 목록에 없는 session은 8초 기다린 뒤 Inbox를 연다.
 
 계정이 필요한 부분: Expo push token은 EAS project id(`app.json`의 `expo.extra.eas.projectId`)가 있어야 받고, FCM 배달은 Firebase project의 `google-services.json`(`expo.android.googleServicesFile`)이 있어야 한다. 둘 다 아직 없다. 그래서:
 
@@ -105,6 +105,48 @@ QR에 relay 주소(`relay`)가 있으면 컴퓨터 기록에 저장하고, 주�
 - Settings › Notifications 맨 아래(dev build에서만)의 `Send a test notification`은 5초 뒤 같은 `data`의 local 알림을 띄운다. 앱을 뒤로 보내 보고, 누르면 그 session(없으면 Inbox)으로 가는지 본다. 앱이 앞에 있으면 배너를 그리지 않는다.
 - 개발 core 쪽 길: `npm run dev`와 `npm run dev:core`는 fake push server(port 7498, 바꾸려면 `LOPHN_DEV_PUSH_PORT`)를 띄우고 그 주소를 개발 data root의 설정 `remote.push`에 적는다. fake가 받은 글은 core를 띄운 터미널에 `push: <제목> | <본문> | <data>` 한 줄로 찍힌다. 글이 나가려면 `npm run dev:remote`로 remote가 켜져 있고, 폰이 앱 안에서 알림을 켜 `devices/set_push`로 token을 두었고, 폰이 앞에 없어야 한다(앱을 뒤로 보낸다). 그 상태에서 core에 사람을 기다리는 일(승인, 앱의 `notify()`)이 생기면 한 줄이 찍힌다.
 - 허락 거절은 `adb -s emulator-<port> shell pm revoke dev.lophn.mobile android.permission.POST_NOTIFICATIONS`로 본다.
+
+## 홈 화면: 위젯과 앱 아이콘 (Android)
+
+설계는 `project-docs/architecture/phone-home-screen.md`다. 위젯은 사용자 앱이 선언한 값(node 넷)을 JS 없이 그리고, 앱 아이콘은 앱마다 pinned shortcut 하나다.
+
+- native: `modules/lophn-widgets/`(Kotlin Expo module 하나. 위젯 그리기·놓기·새로 하기와 앱 아이콘 pin·disable·enable). `android/src/main/java/dev/lophn/widgets/`의 `Render`(cache에서 `RemoteViews`), `Providers`(provider 둘 2x2·4x2와 놓기 callback receiver), `ConfigureActivity`(UI 없이 "Choose a widget"의 답을 기다린다), `Refresh`(위젯 broadcast 안에서 React host를 띄워 headless 일감을 돌린다), `LophnWidgetsModule`(JS가 닿는 함수). 일감 이름은 `LophnWidgetRefresh`(`index.ts`가 등록한다). 위젯은 폰 앱 private 폴더의 `widgets/bindings.json`(놓인 위젯 id → 컴퓨터, 앱, key)과 `widgets/cache.json`(그릴 것 전부와 위젯에 보이는 글)만 읽는다.
+- JS: `src/widgets/`(`store.ts`가 binding과 새로 하기, `cache.ts`가 순수 logic으로 cache를 만든다. `cache.test.ts`가 지운 컴퓨터의 위젯 규칙을 본다), `src/screens/widgets/`("Choose a widget"), `src/shortcuts/`(앱 menu의 "Add to Home screen", 아이콘 그림, 앱이 없어지면 disable). 위젯과 아이콘의 글은 `packages/design/i18n/catalog/mobile-widgets.ts`다.
+- 위젯의 새로 하기는 best effort다: 앱이 앞과 뒤로 갈 때, 연결된 동안 `StateChanged`, 위젯의 새로 하기 아이콘, Android의 주기 update(약 30~52분 간격). 한 번의 새로 하기는 컴퓨터마다 8초이고 broadcast 안에서 25초 안에 끝나야 한다.
+
+### emulator에서 확인
+
+- 죽은 채 새로 하기는 **release build**로 본다. dev client는 위젯 broadcast가 죽은 process를 깨울 때 Metro와 dev launcher가 필요해 이 길을 볼 수 없다. 위 "Android에서 띄우기"의 build에서 `assembleDebug` 대신 `assembleRelease`(debug 서명)를 쓴다. 위젯의 놓기·그리기·누름만 보려면 dev build로 된다.
+- 개발 core와 pairing하고(위 "개발 core와 pairing") 위젯을 내는 앱이 core에 있어야 한다. 저장소에 위젯 sample 앱은 없다. `tests/support/app/` 꼴로 손으로 쓴 작은 앱(선언 `widgets: [{key, label}]`와 `permissions`의 `notify.send`, 시작 code에서 `@lophn/cap-notify`의 `setWidget`)을 설치하고 release를 활성화한다. 개발 core에는 model이 없다.
+- 위젯 놓기 셋: (1) Pixel Launcher의 홈 화면을 길게 눌러 Widgets에서 lophn 위젯을 끌어 놓으면 "Choose a widget"이 열린다. (2) launcher가 그 화면을 건너뛰면 위젯이 "Tap to choose"이고 누르면 같은 화면이 열린다(`lophn://widget/bind?id=<n>`). (3) 앱 화면의 ⋯ menu "Add widget"이 launcher의 놓기 확인을 띄운다. 놓인 위젯 id는 `adb -s emulator-<port> shell dumpsys appwidget`에서 본다.
+- 죽은 채 새로 하기: 위젯을 놓은 뒤 앱을 최근 앱에서 밀어 끄고(`am force-stop`은 쓰지 않는다. 아래) 위젯의 새로 하기 아이콘을 누른다. `adb -s emulator-<port> logcat -s LophnWidgets`에 `refresh done in <ms> ms`가 찍힌다. 측정(2026-11-15~16, emulator `lophn-phone` API 36 x86_64, release build, core가 떠 있을 때): 앱이 죽은 채 1.0~1.1초(그 가운데 약 0.7초가 Noise handshake), 뒤에서 살아 있을 때 0.3초, 앞에 있을 때 0.7초, 구현 뒤 확인에서 0.6~1.2초. core를 끄면 약 0.5초에 "Offline" 꼬리와 흐린 rows로 그려진다.
+- `am force-stop` 뒤에는 Android가 위젯을 회색으로 가리고 한 번 누를 때까지 아무것도 새로 하지 않는다(Android의 규칙이라 결함이 아니다). 앱을 지우고 다시 깔면 위젯과 아이콘이 모두 사라지고 `adb install -r`은 남긴다.
+- 아이콘: 앱 화면의 ⋯ menu "Add to Home screen"이 launcher의 확인을 띄운다. 이미 놓인 앱의 menu에는 그 줄이 없다. 앱을 보관하고 폰 앱을 앞으로 가져오면 아이콘이 쓸 수 없게 된다(Pixel Launcher는 눌렀을 때 자기 글 "Shortcut isn't available"을 보이고 lophn의 글은 보이지 않는다). 아이콘 id는 `lophn:<컴퓨터 key>:<앱 id>`이고 `adb -s emulator-<port> shell dumpsys shortcut`에서 본다.
+- 보지 못한 것: 실제 폰, Pixel Launcher가 아닌 launcher, 놓기 확인을 사람이 취소하는 경우, 앱을 보관했을 때 놓인 위젯이 "no longer available"이 되는 것.
+
+## 열기(open URL)
+
+알림 누름, 위젯 누름, 홈 화면 아이콘 누름, 밖에서 온 URL이 `src/open/target.ts`의 `parseOpenTarget` 하나를 지난다(`target.test.ts`). `app.json`의 scheme은 `lophn`이다.
+
+| URL | 연다 |
+|---|---|
+| `lophn://open?host=<컴퓨터 key>&kind=inbox` | 그 컴퓨터의 Inbox |
+| `lophn://open?host=<컴퓨터 key>&kind=session&session=<session id>` | 그 session의 대화(목록에 없으면 8초 뒤 Inbox) |
+| `lophn://open?host=<컴퓨터 key>&kind=app&app=<앱 id>[&screen=<화면 key>]` | 그 앱의 폰 화면(`screen`이 없으면 첫 폰 화면, 폰 화면이 없으면 앱 workspace) |
+| `lophn://widget/bind?id=<위젯 id>[&from=configure]` | 놓인 위젯에 "Choose a widget"(`from=configure`면 launcher가 답을 기다린다) |
+
+`host`는 이 폰이 pairing한 컴퓨터의 key여야 한다. 모양이 틀린 URL, 빠진 칸, 모르는 `kind`, pairing하지 않은 `host`는 아무 화면도 열지 않는다. emulator에서: `adb -s emulator-<port> shell am start -a android.intent.action.VIEW -d "<URL>" dev.lophn.mobile`(URL의 `&`는 따옴표로 감싼다). 앱이 꺼져 있을 때와 떠 있을 때(warm) 둘 다 본다.
+
+## 위치(컴퓨터의 `request`에 답하기)
+
+설계는 `project-docs/architecture/remote.md`의 "컴퓨터가 폰에 묻는 길"이다. core가 보낸 `request` frame에 폰이 답한다. 폰이 답하는 kind는 `src/link/answer.ts`의 `PHONE_HANDLERS`의 key이고 그것이 `hello.capabilities`로 core에 간다(지금은 `location.get`). 폰은 앱이 앞에 있을 때만 답하고(`phone_in_background`) 깨지 않는다. `src/link/location.ts`가 규칙(OS 권한, 위치 서비스, `max_age_ms`)이고 `src/link/native.ts`가 `expo-location` 58.0.22 port다. `answer.test.ts`가 권한이 없거나 모르는 kind거나 앱이 앞에 없을 때 위치를 읽지 않는 것을 본다. OS 권한은 foreground(coarse·fine)뿐이고 background 위치 권한은 manifest에 없다. 처음 쓸 때 OS 권한을 한 번 묻고 거절하면 다시 묻지 않는다(`forbidden`, `os_permission_denied`).
+
+emulator에서 확인:
+
+- emulator에는 network 위치가 없다. 위치는 `adb -s emulator-<port> emu geo fix <경도> <위도>`로 넣는다(경도가 먼저다. 예 서울시청 `126.9779 37.5663`). 이 환경에서 `accuracy: "high"`만 시간 안에 왔고 `balanced`(기본)와 `low`는 시간 초과(deadline 20초)였다. 실제 폰에서 `balanced`가 되는지는 보지 못했다.
+- 위치를 부르는 앱이 core에 있어야 한다(위젯과 같이 손으로 쓴 작은 앱. 선언 `permissions`에 `{kind: "phone.use", scope: {capability: "location.get"}, reason}`와 `sdk_dependencies`에 `@lophn/cap-phone`, backend의 command에서 `getLocation({accuracy: "high"})`). release를 활성화할 때 동의 카드가 묻는다. 폰의 lophn 앱이 앞에 있는 채 부른다.
+- 보는 답: 앞에 있을 때 값(`lat`, `lon`, `accuracyM`, `at`), 뒤에 있을 때 `unavailable`(`phone_in_background`), pairing한 폰이 없을 때 `no_phone`, grant가 없을 때 `forbidden`(`phone.use`), OS 권한을 거절했을 때 `forbidden`(`os_permission_denied`). OS 권한은 `adb -s emulator-<port> shell pm revoke dev.lophn.mobile android.permission.ACCESS_FINE_LOCATION`으로 거둘 수 있다.
+- 보지 못한 것: 실제 폰, Google Play services의 자기 대화가 위치 요청을 막는 경우, 위치 서비스를 끈 채(`location_off`)의 실제 emulator 확인.
 
 ## 사용자 앱의 폰 화면(guest runtime)
 

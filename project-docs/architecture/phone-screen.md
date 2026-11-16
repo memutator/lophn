@@ -14,7 +14,7 @@
 
 - 목표: release한 앱의 폰 화면이 폰 앱에서 네이티브 느낌(scroll, keyboard, gesture)으로 돈다. 화면은 operation 호출과 앱 event로만 data를 받는다. 화면의 오류와 폭주가 폰 앱을 죽이지 않는다. 폰이 못 돌리는 화면은 이유를 말하고 거절한다.
 - 목표: agent가 기준 폰의 크기를 읽고 폰 화면을 desktop에서 열어 operation을 눌러 본다.
-- 비목표: 폰에서 backend가 도는 앱(roadmap 단계 7). 위젯, 홈 화면 아이콘, 폰 기능(단계 8). iOS(Apple 지침 2.5.2와 4.7을 사람이 Apple에 물어야 정해진다). 실제 폰에서 폰 화면을 확인하는 일(단계 10). 폰 화면을 desktop 탭에 띄우는 것(desktop은 web 화면을 둔다). 한 화면이 desktop과 폰에서 반응하는 것. core가 Hermes bytecode를 만드는 것.
+- 비목표: 폰에서 backend가 도는 앱(roadmap 단계 7). 앱 화면 밖의 위젯과 홈 화면 아이콘(`phone-home-screen.md`)과 폰 기능(`remote.md`의 "컴퓨터가 폰에 묻는 길"). iOS(Apple 지침 2.5.2와 4.7을 사람이 Apple에 물어야 정해진다). 실제 폰에서 폰 화면을 확인하는 일(단계 10). 폰 화면을 desktop 탭에 띄우는 것(desktop은 web 화면을 둔다). 한 화면이 desktop과 폰에서 반응하는 것. core가 Hermes bytecode를 만드는 것.
 - 비목표: 폰 화면의 쓰기에 앱 operation이 이미 요구하는 것 말고 다른 확인을 더하지 않는다.
 
 ## 모델
@@ -43,7 +43,7 @@ release bundle: screens/<key>/ { phone.js, phone.json(manifest), index.html + pr
 - **격리.** guest는 host의 JS 전역, Expo module, 보안 저장소, file system에 닿지 않고 network가 없다. 경계는 native module이 없는 것이다: sandbox 자체의 허용 목록에서 `Networking`, `WebSocketModule`, `BlobModule`, `FileReaderModule`, `StatusBarManager`, `LinkingManager`, `DevLoadingView`를 빼고 kit이 쓰는 native module 몇 개만 더 열었고 Expo의 package는 guest에 넘기지 않는다. `fetch`·`XMLHttpRequest`·`WebSocket`·http 이미지는 막혔고 `data:` 이미지는 그려진다. 화면이 죽지 않고 network 오류를 받도록 JS 쪽에서도 같은 실패를 낸다.
 - **오류 가두기.** guest의 상태는 `starting` → `running` → `{failed}`이고 실패는 `fatal`(화면 평가·render의 예외나 guest의 fatal), `crashed`(guest runtime 자체가 쓰러졌다), `did_not_start`(10초 안에 `ready`가 없거나 script file이 없다)다. 폰 앱의 release build에서 평가 중 예외(build의 try/catch 안과 밖), 시작 뒤 render 예외, handler의 throw, 8초 busy loop, 300 MB 할당이 모두 앱을 죽이지 않고 화면이 오류 상태로 간다는 것을 emulator에서 보았다. guest를 mount할 때마다 origin이 새로 서서 다시 mount하면 새 runtime과 새 bundle이 쓰인다. 읽을 bundle file이 없으면 loader가 앱 전체를 죽이므로 mount 전에 host가 file을 확인한다.
 - **폰의 bundle cache.** 폰은 `phone.js`를 컴퓨터마다 폴더에 bundle hash로 둔다. 같은 hash의 byte는 고정이라 한 번 둔 hash는 다시 받지 않는다. 받으면 크기와 sha256이 manifest와 같을 때만 두고(틀리면 거절한다) 앱마다 가장 새 둘만 남긴다. 목록에서 사라진 앱과 지운 컴퓨터의 bundle은 지운다. 호환 검사는 받기 전에 하므로 폰이 못 돌리는 화면은 받지도 않는다.
-- **폰의 앱 화면.** 컴퓨터가 offline이면 앱 이름과 컴퓨터를 말하는 화면, 앱이 컴퓨터에서 안 돌면(멈춤, 보관, live release 없음) 그 화면, 호환 거절 둘, 시작 실패에 Try again이 선다. 컴퓨터가 돌아오거나 앱이 다시 돌면 저절로 열린다. 열려 있는 동안 새 release가 live가 되면(`rebound`) 목록을 다시 읽어 새 bundle로 guest를 새로 띄우고 guest 아래에 "Updated to Release N" 줄을 잠시 보인다. 화면의 ⋯ menu는 앱 workspace에 변경 청하기, 앱의 session, 실행 기록, live release, 앱의 다른 폰 화면을 보인다.
+- **폰의 앱 화면.** 컴퓨터가 offline이면 앱 이름과 컴퓨터를 말하는 화면, 앱이 컴퓨터에서 안 돌면(멈춤, 보관, live release 없음) 그 화면, 호환 거절 둘, 시작 실패에 Try again이 선다. 컴퓨터가 돌아오거나 앱이 다시 돌면 저절로 열린다. 열려 있는 동안 새 release가 live가 되면(`rebound`) 목록을 다시 읽어 새 bundle로 guest를 새로 띄우고 guest 아래에 "Updated to Release N" 줄을 잠시 보인다. 화면의 ⋯ menu는 앱 workspace에 변경 청하기, 앱의 session, 실행 기록, live release, 앱의 다른 폰 화면, 홈 화면 아이콘 놓기("Add to Home screen")와 위젯 놓기("Add widget")를 보인다. 앱 화면은 알림, 위젯, 홈 화면 아이콘, `lophn://` URL이 여는 open target의 한 곳이다(`phone-home-screen.md`).
 - **desktop preview.** `lophn tab open --preview <app> --screen <key> [--device <name>]`이 preview의 release 선언에서 그 화면을 연다. 폰 화면이면 `phone` 자리로, 기준 폰의 크기·DPR·OS로 에뮬레이션한 틀에 연다(기기가 없고 `--device`도 없으면 `conflict`). 화면은 build가 만든 react-native-web 진입이고 `lophnApp`은 desktop 앱 view와 같은 preload가 주며 core가 preview의 operation을 preview bundle의 선언으로 판정해 부른다. react-native-web은 폰이 아니라서 입력, soft keyboard, scroll, 글꼴(preview bundle은 kit의 글꼴 Pretendard를 싣지 않는다), safe area가 다를 수 있다. `react-native-keyboard-controller`와 `expo-clipboard`는 preview에서만 web 대체다. 마지막 확인은 사람이 폰에서 한다.
 
 ## 지키는 것
@@ -102,5 +102,5 @@ release bundle: screens/<key>/ { phone.js, phone.json(manifest), index.html + pr
 - soft keyboard가 뜨면 guest는 줄어들지 않아 화면 아래의 입력란을 가릴 수 있다. event listener 안의 throw는 sandbox가 log만 남기고 삼켜 화면이 계속 돌고, 처리되지 않은 promise rejection은 아무 일도 없다. busy loop는 guest의 JS thread만 막는다. 300 MB 할당은 견뎠지만 Hermes heap이나 기기 memory가 모자라면 process가 끝날 수 있다(재지 않았다).
 - preview 번들이 kit의 글꼴을 싣지 않아 글자 모양이 폰과 다르다(이슈 `phone-preview-lacks-kit-font`). kit의 `Button` `sm`·`md`는 touch 대상 44 dp보다 작고(`phone-kit-button-under-touch-target`) `TopBar`는 기본으로 sidebar 단추를 보인다(`phone-kit-topbar-shows-menu-by-default`). 지침이 agent에게 넘길 값을 말한다.
 - 사람이 [Preview]로 연 preview 탭은 화면을 고르지 못하고 앱의 첫 `tab` 화면만 연다(이슈 `preview-tab-has-no-screen-picker`).
-- 폰 화면의 ⋯ menu에 wireframe의 What changed, Annotate this screen, Add to Home screen과 Home의 New app이 없다(이슈 `phone-apps-menu-lacks-wireframe-rows`).
+- 폰 화면의 ⋯ menu에 wireframe의 What changed, Annotate this screen과 Home의 New app이 없다(이슈 `phone-apps-menu-lacks-wireframe-rows`).
 - 폰 data 층의 읽기가 간헐적으로 비는 현상을 한 번 보았다(이슈 `phone-open-url-blank-workspace`).

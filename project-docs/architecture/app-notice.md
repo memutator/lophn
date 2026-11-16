@@ -1,6 +1,6 @@
 # app-notice
 
-사람에게 "답할 것"(승인·질문)이 아닌 것을 알리는 길이다. 저장은 ledger 표 `notices` 하나다. 줄의 출처는 둘이다. **app**: 캘린더의 일정 알림, 사용량 앱의 한도 경고처럼 앱 process가 `@lophn/cap-notify`의 `notify()`로 남긴 알림. **program**: release 켜짐·실패, 앱 멈춤 같은 일을 core가 직접 남긴 기록. 줄은 **휘발**이거나 **영구**다. 휘발 줄은 사람이 지우면 사라지고, 영구 줄은 지워도 읽음으로만 바뀌어 남아 사람이 나중에 찾을 수 있다. 받는 쪽은 사람뿐이다. agent에게 사실을 보내거나 lophn의 반응을 일으키는 길이 아니다. 사람의 폰에 push로 알리는 것(`attention.md`)도 받는 쪽이 사람이다. 같은 SDK package가 앱이 늘 보이고 싶은 짧은 상태(tray 값)도 낸다. 그것은 알림이 아니라 저장하지 않는 값이다.
+사람에게 "답할 것"(승인·질문)이 아닌 것을 알리는 길이다. 저장은 ledger 표 `notices` 하나다. 줄의 출처는 둘이다. **app**: 캘린더의 일정 알림, 사용량 앱의 한도 경고처럼 앱 process가 `@lophn/cap-notify`의 `notify()`로 남긴 알림. **program**: release 켜짐·실패, 앱 멈춤 같은 일을 core가 직접 남긴 기록. 줄은 **휘발**이거나 **영구**다. 휘발 줄은 사람이 지우면 사라지고, 영구 줄은 지워도 읽음으로만 바뀌어 남아 사람이 나중에 찾을 수 있다. 받는 쪽은 사람뿐이다. agent에게 사실을 보내거나 lophn의 반응을 일으키는 길이 아니다. 사람의 폰에 push로 알리는 것(`attention.md`)도 받는 쪽이 사람이다. 같은 SDK package가 앱이 늘 보이고 싶은 짧은 상태(tray 값)와 폰의 홈 화면 위젯의 값도 낸다. 그것은 알림이 아니라 저장하지 않는 값이다.
 
 ## 문제
 
@@ -127,11 +127,27 @@ Inbox는 탭 둘이다.
 - 항목은 선언하면 나오고 사람이 끈다. 설치된 앱이 `tray` 자리 화면을 선언하면 값을 내기 전에도 항목이 생긴다(값이 없으면 아이콘만 보인다). 사람이 Settings › Quick launch의 Tray에서 끄면 그 화면이 설정 `shell.tray_off`(`{app, screen}[]`, 최대 20, 기본 `[]`)에 쌓이고 항목이 빠진다. 같은 곳의 위·아래 단추로 순서를 옮기면 그때 보이는 줄 전부의 순서가 `shell.tray_order`(`{app, screen}[]`, 최대 64, 기본 `[]`)에 쓰인다. 거기 없는 화면(새로 설치한 앱)은 뒤에 선언 순서로 선다. 보일 항목이 하나도 없으면 아무것도 그리지 않는다(값도 읽지 않는다).
 - popup 크기는 화면 선언의 `tray`(`width`·`height`, 숫자면 고정이고 `{min?, max?}`면 내용에 맞춘다)로 앱이 정한다(`architecture/app-call.md`). 값(`setTray`)과 별개다. 내용에 맞추는 popup은 처음 열 때 앱 page가 내용 크기를 알릴 때까지(길어야 0.6초) 보이지 않게 그리고, 항목마다 마지막 내용 크기를 창 메모리에 두어 다시 열면 처음부터 그 크기로 뜬다. 기본 크기로 떴다가 줄어드는 것을 보이지 않는다.
 
+### 위젯 값
+
+폰의 홈 화면 위젯에 보이는 값도 tray 값처럼 알림이 아니라 저장하지 않는 값이다. 앱이 선언(`widgets`: 최대 4개 `{key, label, screen?}`)한 위젯마다 앱 process가 `@lophn/cap-notify`(1.3.0부터)의 `setWidget(key, {v: 1, rows})`나 `clearWidget(key)`를 부른다. 값은 정해진 node 넷(`text`, `stat`, `progress`, `list`)의 data 1~6줄이고 JSON으로 4096 byte까지다.
+
+```
+ 앱 process: setWidget(key, value) / clearWidget(key)
+   │ broker /_lophn/broker/notify/widget   (live 자식인가, 선언 ∩ grant에 notify.send가 있나 → 아니면 forbidden)
+   ▼
+ core app_widget.set (memory route, actor app) → (앱, key)마다 마지막 값과 받은 시각을 memory에 둔다 → StateChanged(widgets)
+   ▼ Gateway(폰 gate)
+ 폰: 연결된 동안 StateChanged와 앱이 앞에 올 때, 위젯의 새로 하기 때 app_widgets/list(actor user)로 읽어 cache에 쓰고 native 위젯이 그린다
+```
+
+- 값은 저장하지 않는다. core를 다시 켜면 비고 앱 process가 시작할 때 다시 낸다. 값을 받는 쪽은 사람이 홈 화면에 놓은 위젯뿐이다. 보관한 앱이나 없는 앱의 `set`은 거절하고(`conflict`, `not_found`) 선언에 없는 key는 `invalid_input`이다. `list`는 보관한 앱의 값과 선언에서 빠진 key의 값을 내지 않는다.
+- 위젯의 모양과 폰이 새로 하는 길, 놓기는 `architecture/phone-home-screen.md`다. 위젯 값은 push로 가지 않는다(앱 내용이 Expo와 Google을 지나지 않는다).
+
 ## 지키는 것
 
 1. 받는 쪽은 사람뿐이다. Bus에서 `NoticePosted`를 받아 사람이 아닌 쪽에 일을 하는 core 코드를 두지 않는다. 예외는 하나다: 주의(`attention.md`)가 `NoticePosted`를 받아 사람의 폰에 push를 보낸다. 받는 쪽이 사람이라 이 약속을 깨지 않는다. agent에게 알릴 일이면 agent가 앱 tool로 읽는다. 다른 앱에 알릴 일은 알림이 아니라 앱 event다.
-2. 권한은 grant `notify.send`(scope 없음)다. 앱이 선언하고 activation 때 사람이 허락한다. broker가 요청마다 지금 release의 선언 ∩ grant를 본다. preview·test 자식과 옛 release의 자식은 거절한다. SDK는 live가 아닌 mode에서 broker를 부르지 않고 `standIn`을 돌려준다. tray 값도 같은 권한이다. grant가 없는 앱의 `setTray`는 거절되고 값이 바뀌지 않는다.
-3. 앱은 입력에서 앱도 출처도 종류도 고르지 못한다. 어느 앱의 줄인지는 자식의 app credential이 정한다. app credential이 닿는 operation은 다른 앱 호출, `notices.post`, `app_tray.set`, 앱 event 발행(`app_events.publish`)뿐이다. 앱은 program 줄을 쓰지 못하고 다른 앱의 줄도 쓰지 못한다.
+2. 권한은 grant `notify.send`(scope 없음)다. 앱이 선언하고 activation 때 사람이 허락한다. broker가 요청마다 지금 release의 선언 ∩ grant를 본다. preview·test 자식과 옛 release의 자식은 거절한다. SDK는 live가 아닌 mode에서 broker를 부르지 않고 `standIn`을 돌려준다. tray 값과 위젯 값도 같은 권한이다. grant가 없는 앱의 `setTray`와 `setWidget`은 거절되고 값이 바뀌지 않는다.
+3. 앱은 입력에서 앱도 출처도 종류도 고르지 못한다. 어느 앱의 줄인지는 자식의 app credential이 정한다. app credential이 닿는 operation은 다른 앱 호출, `notices.post`, `app_tray.set`, `app_widget.set`, 앱 event 발행(`app_events.publish`), 폰에 묻는 `app_phone.request`(`remote.md`)뿐이다. 앱은 program 줄을 쓰지 못하고 다른 앱의 줄도 쓰지 못한다.
 4. program 줄에는 앱이 쓴 글이 들어가지 않는다. 글은 core의 template과 매개변수(짧은 식별자, release 이름, core가 정한 이유 코드)로 만든다. 앱 이름이나 앱 출력을 이유 칸에 그대로 싣지 않는다. 예외 하나: `release_failed`·`app_unavailable`의 reason은 core가 기록한 실패 summary다(release의 `failure.summary`, runtime reason). migration script 실패 summary에는 그 script가 낸 글이 섞일 수 있어 200자로 자른다.
 5. 같은 key는 대신한다. 주기적으로 같은 사실을 다시 확인하는 앱이 Inbox를 채우지 않게 하려는 것이다. 대신한 줄은 id가 같아 `NoticeClosed` 없이 `NoticePosted`만 다시 나가고, toast도 다시 뜬다. 영구 줄이 읽음이었어도 안 읽음으로 돌아온다.
 6. program 기록은 상태를 바꾸는 command와 같은 transaction에서 쓴다. 상태만 바뀌고 줄이 없거나 줄만 있는 일이 없고, 재전송이 줄을 늘리지 않는다.
@@ -140,18 +156,18 @@ Inbox는 탭 둘이다.
 9. toast·OS 알림 규칙: app 줄은 모두 띄운다. program 줄은 사람이 알아야 하는 `release_failed`·`release_rolled_back`·`app_unavailable`·`app_data_restored`·`sdk_update_needed`·`session_stopped_by_app`·`phone_changed`만 띄우고 `release_activated`·`app_data_migrated`·`lophn_updated`는 Inbox에만 남긴다. 앱 없는 줄은 `sdk_update_needed`·`phone_changed`만 띄우고(`lophn_updated`는 Inbox에만) 누르면 Inbox를 연다.
 10. 기동 중에 쓴 줄은 toast가 뜨지 않는다. core가 `ready`를 내기 전에 쓴 줄이라 shell이 아직 connect하지 못했고 event 구독이 없다(놓친 알림은 다시 띄우지 않는다). shell 없이 도는 core(앱을 Quit한 뒤, CLI나 autostart가 띄운 core)가 쓴 줄도 같다. 그 줄은 배지와 History로만 보인다.
 11. `kind`·`action`이 가리키는 일은 사람이 단추를 눌러야 시작된다. program이 session을 스스로 열지 않는다.
-12. tray 값은 저장하지 않는다. 알림과 달리 재시작 뒤 다시 내는 것은 앱 몫이다.
+12. tray 값과 위젯 값은 저장하지 않는다. 알림과 달리 재시작 뒤 다시 내는 것은 앱 몫이다.
 13. 못 본 turn 끝(`unseen`)은 notice 줄이 아니고 core가 든다. desktop은 `unseen/list`로 읽고 `unseen/dismiss`로 지우기만 하며 StateChanged의 `unseen`이 오면 다시 읽는다. 서고 꺼지는 규칙과 폰에서 읽으면 desktop 점이 꺼지는 것은 `attention.md`가 맡는다. shell main은 못 본 끝을 들지 않는다.
 14. 폰 push의 계기가 되는 `NoticePosted`는 안 읽은 앱 줄과 사람이 알아야 하는 program 기록(`release_failed`·`release_rolled_back`·`app_unavailable`·`app_data_restored`·`sdk_update_needed`)이다. 글에는 notice의 제목만 싣고 본문을 싣지 않는다.
 
 ## 경계와 계약
 
-- **route**: `notices.post`(actor app, 자기 앱만), `notices.record`·`notices.observe_version`(machine), `notices.dismiss`·`notices.mark_read`(user), `notices.list`·`notices.open`(user·machine). tray는 memory route `app_tray.set`(app)·`app_tray.list`(user).
+- **route**: `notices.post`(actor app, 자기 앱만), `notices.record`·`notices.observe_version`(machine), `notices.dismiss`·`notices.mark_read`(user), `notices.list`·`notices.open`(user·machine). tray는 memory route `app_tray.set`(app)·`app_tray.list`(user), 위젯 값은 memory route `app_widget.set`(app)·`app_widgets.list`(user, 폰이 부른다).
   - `notices.list`: 필터 `source`·`app`·`project`·`kind`·`persistent`·`unread`·`query`(title·body 부분 일치)·`since`·`until`(`created_at` 기간. since 포함, until 미포함, ISO 시각)·`cursor`·`limit`(≤200, 기본 50). 최근 것이 먼저이고 보관한 앱의 줄도 읽힌다.
   - `notices.open`: 안 읽은 줄 전부(휘발 + 안 읽은 영구). Inbox가 쓴다. 보관한 앱의 줄은 뺀다.
   - `notices.mark_read`: 영구 줄을 읽음으로. 휘발·이미 읽은·없는 id는 건너뛰고 오류가 아니다.
-- **event(남지 않는다)**: `NoticePosted`(줄 한 건), `NoticeClosed { id }`, `NoticeRead { id, read_at }`. tray 값이 바뀌면 `StateChanged`의 `tray`(`architecture/event.md`).
-- **SDK**: `@lophn/cap-notify`. `notify({ title, body?, key?, persistent? })`(1.2.0부터 persistent. 기본은 휘발), `setTray`·`clearTray`(1.1.0부터). broker 경로는 `/_lophn/broker/notify/send`와 `/_lophn/broker/notify/tray`다.
+- **event(남지 않는다)**: `NoticePosted`(줄 한 건), `NoticeClosed { id }`, `NoticeRead { id, read_at }`. tray 값이 바뀌면 `StateChanged`의 `tray`, 위젯 값이 바뀌면 `widgets`(`architecture/event.md`).
+- **SDK**: `@lophn/cap-notify`. `notify({ title, body?, key?, persistent? })`(1.2.0부터 persistent. 기본은 휘발), `setTray`·`clearTray`(1.1.0부터), `setWidget`·`clearWidget`(1.3.0부터). broker 경로는 `/_lophn/broker/notify/send`, `/_lophn/broker/notify/tray`, `/_lophn/broker/notify/widget`이다.
 - **grant**: `notify.send`(scope 없음). Access 탭에 "notifications" 줄로 보이고 거둘 수 있다.
 - **ledger**: 표 `notices`, 표 `core_meta`(`product_version`, `sdk_versions`). step `apps.notices.unified`는 앱 팀 목록이 아니라 `notices` wiring에 있다(낸 때 step 목록의 끝에 붙어야 했다). 그 뒤에 낸 step은 이 wiring이 아니라 WIRINGS 맨 뒤 wiring에 붙는다.
 - **설정**: `shell.tray_off`, `shell.tray_order`. 앱을 지우면(`app.delete`) 둘에서 그 앱이 빠진다.
@@ -175,6 +191,7 @@ Inbox는 탭 둘이다.
 - 사람의 폰 push는 알림의 새 받는 쪽이 아니라 같은 사람에게 닿는 또 하나의 길이다. 그래서 "받는 쪽은 사람뿐이다"를 지키며 core가 `NoticePosted`를 받는 예외를 하나 둔다(주의). 이유: 앱의 `notify()`와 program 기록이 desktop 앞에 없는 사람에게 닿으려면 core가 보고 있는 기기를 알고 보내야 한다. 버린 안: shell main이 폰에 보내기(shell이 꺼져 있으면 폰에 닿지 않는다). (agent)
 - 못 본 turn 끝(`unseen`)은 `notices` 표에 넣지 않고 core 메모리에 둔다. 이유: 보고 있는 host가 바뀌면 꺼지는 순간의 상태라 기록이 아니다. 폰에서 읽으면 desktop 점도 꺼져야 해서 정본이 shell main 메모리일 수 없었다. 버린 안: shell main이 들고 폰이 별도로 세기(점이 둘로 갈린다). (agent)
 - tray 값은 새 SDK package·permission 없이 `@lophn/cap-notify`와 `notify.send`로 내고 core는 memory에만 둔다. 이유: tray 값도 앱이 사람에게 보이는 것이고, 앱 process가 오래 살아 timer로 값을 다시 낼 수 있어 저장이 필요 없다. 새 permission kind를 두지 않았다. (agent)
+- 위젯 값도 새 permission 없이 `notify.send`로 내고 core는 memory에만 둔다. 이유: tray와 같다. 위젯 값도 앱이 사람에게 보이는 것이고 보이는 것은 사람이 위젯을 놓는 일이라 새 동의가 따로 필요 없다. 값의 모양은 정해진 node 넷으로 좁혔다(위젯은 Android의 `RemoteViews`로만 그려져 앱이 모양을 정할 수 없다). 버린 안: 위젯용 SDK part와 permission, 값의 저장(폰이 마지막 값을 cache로 갖고 앱이 시작할 때 다시 낸다). (agent)
 - tray는 OS tray가 아니라 lophn 창 안의 것이다. 앱·sidebar panel·전역 float처럼 앱이 채우고 lophn은 자리만 준다. (사람)
 - tray 항목은 켜는 쪽이 아니라 끄는 쪽(`shell.tray_off`)을 저장한다. 이유: 새로 설치한 앱이 목록 갱신 없이 바로 나온다. 옛 켠 목록(`shell.tray`)은 끈 목록의 보수로 옮기지 않고 지웠다(설치된 앱 전체를 알 수 없는 data step에서 보수를 만들 수 없다). (사람. 지움: agent)
 - 순서는 끈 것 목록과 따로 `shell.tray_order` key를 둔다. 이유: 끈 것만 쌓는 모양을 그대로 두어 migration이 없다. (agent)

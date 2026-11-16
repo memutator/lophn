@@ -1,0 +1,13 @@
+id: shortcut-keeps-old-label-and-icon
+title: 홈 화면에 놓은 앱 아이콘이 앱의 이름이나 그림이 바뀐 뒤에도 놓을 때의 이름과 그림 그대로다
+kind: bug
+status: open
+topic: phone-home-screen
+modules: [packages/mobile]
+now: |
+  앱 menu의 "Add to Home screen"(`packages/mobile/src/shortcuts/row.tsx`)이 앱 이름과 그린 PNG로 pinned shortcut을 청한다. 그 뒤 폰이 아이콘을 만지는 곳은 `packages/mobile/src/shortcuts/sync.ts`의 enable·disable뿐이다. 모듈(`modules/lophn-widgets`)에는 놓인 shortcut의 label이나 그림을 고치는 함수(`updateShortcuts`)가 없다. 이미 놓인 id의 menu 줄은 감춰져(`canAddToHomeScreen`) 사람이 다시 놓아 고칠 길도 없다(spike에서 같은 id를 다시 청하면 launcher가 확인 없이 true를 돌려주고 새로 놓지 않았다).
+impact: |
+  앱의 이름을 바꾸거나 아이콘을 바꾸면 홈 화면 아이콘만 옛 이름과 그림이다. 사람이 아이콘을 지우고 다시 놓아야 고쳐진다. 지우고 놓는 길은 있어 data는 잃지 않는다.
+fix: |
+  - 중간(추천): `apps/phone_screens`를 읽을 때 놓인 id마다 앱의 이름을 견주고 다르면 `ShortcutManagerCompat.updateShortcuts`로 label을 고친다. 그림은 앱이 앞에 있을 때만 그릴 수 있어(화면 밖 `<Svg>`) 앱 icon의 hash를 기억해 앞에 있을 때 바뀌었으면 다시 그려 update한다.
+  - 작음: label만 고치고 그림은 지우고 다시 놓으라고 둔다.

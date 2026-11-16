@@ -62,7 +62,7 @@
 
 1. 앱의 source 폴더에서 HEAD commit을 읽는다. agent runtime child는 git을 띄울 수 없어 core가 읽는다. source 연결이 없으면 `invalid_input`, HEAD를 못 읽으면 `unavailable`이다. commit tree만 읽고, 저장소 전체가 clean이어야 한다(tracked 변경이나 untracked가 하나라도 있으면 거절). symlink, 폴더 밖 경로, git metadata는 거절한다.
 2. 입력 `path` 아래 file을 뽑는다. 비어 있으면 `invalid_input`이다. 그 폴더의 `package.json`이 있어야 하고 `name`·`version`이 입력과 같아야 한다. `@lophn`·`@me` 의존은 정확한 판이어야 하고 설치 사본 사이의 `file:` 상대 경로로 다시 쓴다.
-3. 폴더 `@lophn/cap-*` 의존이 요구하는 permission을 입력 `permissions`가 덮어야 한다. `permissions`는 선언 permission 여섯 이름(`fs.read`, `fs.write`, `net.fetch`, `net.listen`, `secret.use`, `notify.send`)만 받는다.
+3. 폴더 `@lophn/cap-*` 의존이 요구하는 permission을 입력 `permissions`가 덮어야 한다. `permissions`는 선언 permission 일곱 이름(`fs.read`, `fs.write`, `net.fetch`, `net.listen`, `secret.use`, `notify.send`, `phone.use`)만 받는다.
 4. 안내는 세 절(`# Purpose`, `# API`, `# Examples`)을 core가 정해진 모양으로 이은 byte다. 각 절은 앞뒤 공백만 다듬고 나머지는 손대지 않는다. 이 byte와 bundle byte의 sha256을 만들고 blob으로 준비한다. 안내의 구조나 정확성은 검사하지 않는다.
 5. machine route `package.register_version`이 같은 tx에서 판을 넣고 blob 참조 둘을 건다.
 6. 설치 사본을 쓴다. 쓰기가 실패하면 `unavailable`로 답하지만 판은 이미 등록돼 남는다. 다음 기동이나 같은 내용의 재시도가 사본을 채운다.
@@ -86,7 +86,7 @@
 
 ## permission
 
-core는 SDK code를 import하지 않으므로 capability package가 요구하는 permission을 같은 값으로 따로 가진다. 요구는 `@lophn/cap-fs`(`fs.read` 또는 `fs.write`), `cap-net`(`net.fetch`), `cap-notify`(`notify.send`), `cap-secret`(`secret.use`와 `net.fetch` 둘 다)다. release 준비는 선언한 `@lophn/cap-*`의 요구와, 선언이 고정한 `@me` 판마다 catalog에 적힌 `permissions`를 모두 선언의 `permissions`에서 찾는다. 없으면 `invalid_input`이고 어느 package가 무슨 permission을 요구하는지 싣는다. catalog에 없는 `@me` 판은 `invalid_input`이다. 검사도 import도 grant를 주지 않는다.
+core는 SDK code를 import하지 않으므로 capability package가 요구하는 permission을 같은 값으로 따로 가진다. 요구는 `@lophn/cap-fs`(`fs.read` 또는 `fs.write`), `cap-net`(`net.fetch`), `cap-notify`(`notify.send`), `cap-phone`(`phone.use`), `cap-secret`(`secret.use`와 `net.fetch` 둘 다)다. release 준비는 선언한 `@lophn/cap-*`의 요구와, 선언이 고정한 `@me` 판마다 catalog에 적힌 `permissions`를 모두 선언의 `permissions`에서 찾는다. 없으면 `invalid_input`이고 어느 package가 무슨 permission을 요구하는지 싣는다. catalog에 없는 `@me` 판은 `invalid_input`이다. 검사도 import도 grant를 주지 않는다.
 
 publish는 같은 규칙을 폴더 `@lophn/cap-*` 의존에 적용해 낸 `permissions`가 그 요구를 덮게 한다. 그래서 소비 앱이 `@me` 판 하나의 permission만 선언하면 그 안의 cap 요구도 빠지지 않는다. `@me`가 다른 `@me`에 기대는 경우는 따라가지 않는다(열린 것).
 

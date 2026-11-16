@@ -1,0 +1,13 @@
+id: widget-text-not-pretendard
+title: 홈 화면 위젯의 글이 시스템 글꼴이라 폰 앱의 글꼴(Pretendard)과 다르다
+kind: bug
+status: open
+topic: phone-home-screen
+modules: [packages/mobile]
+now: |
+  폰 앱의 글은 Pretendard(`packages/mobile/app.json`의 expo-font)이다. 위젯의 layout(`modules/lophn-widgets/android/src/main/res/layout/`의 `lophn_*.xml`)은 `android:fontFamily="sans-serif-medium"`이나 기본 글꼴을 쓴다. 글꼴 file이 native module의 resource에 없다. 위젯은 JS 없이 RemoteViews로 그려져 폰 앱의 글꼴 등록(JS)이 닿지 않는다.
+impact: |
+  위젯과 폰 앱의 글자 모양이 다르다(위젯은 기기의 시스템 글꼴을 그린다). 사람이 보는 모양의 차이이고 data나 동작에는 영향이 없다.
+fix: |
+  - 작음(추천): Pretendard의 두 굵기(Regular, SemiBold)를 native module의 `res/font`에 넣고 layout의 `fontFamily`를 그 resource로 건다. APK가 ttf 두 개만큼(수백 KB) 는다. launcher가 RemoteViews의 앱 글꼴을 그리는지와 오래된 API에서의 모양은 emulator에서 확인해야 한다.
+  - 대안: 시스템 글꼴로 두고 wireframe의 글꼴을 그에 맞춘다(비용 없음. 폰 앱과 모양이 다른 채 남는다).

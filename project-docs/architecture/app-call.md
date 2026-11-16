@@ -221,7 +221,7 @@ project별 data를 다루는 앱은 project를 따로 만들지 않고 lophn pro
 
 ### 앱 process의 바깥 접촉
 
-1. 앱 process는 권한을 막지 않는다(사람이 정했다). SDK 넷(`@lophn/cap-net`, `@lophn/cap-secret`, `@lophn/cap-fs`, `@lophn/cap-notify`)으로 나가는 일은 선언에 적고, net과 secret과 notify는 broker가 요청마다 선언 사실 ∩ 사람의 grant를 본다(notify는 `architecture/app-notice.md`). fs는 선언이 무엇에 닿는지 보이는 값일 뿐 막지 않는다.
+1. 앱 process는 권한을 막지 않는다(사람이 정했다). SDK 다섯(`@lophn/cap-net`, `@lophn/cap-secret`, `@lophn/cap-fs`, `@lophn/cap-notify`, `@lophn/cap-phone`)으로 나가는 일은 선언에 적고, net과 secret과 notify와 phone은 broker가 요청마다 선언 사실 ∩ 사람의 grant를 본다(notify는 `architecture/app-notice.md`, phone은 폰의 위치를 읽는 `phone.use {capability}`이고 `architecture/remote.md`). fs는 선언이 무엇에 닿는지 보이는 값일 뿐 막지 않는다.
 2. broker는 live 자식의 요청만 받는다. 준비 모드와 preview의 자식이 같은 통로를 부르면 거절한다. SDK의 stand-in이 그 자리를 채운다.
 3. `@me` package의 permission은 publish와 release prepare가 지킨다. `package.publish`는 package.json의 `@lophn/cap-*` 의존이 요구하는 permission을 낸 `permissions`가 덮지 않으면 `invalid_input`이다. `release.prepare`는 선언의 `sdk_dependencies` 중 `@me` 의존마다 그 정확한 판의 catalog `permissions`를 모두 선언의 `permissions`에서 요구하고, 없으면 `invalid_input`(`@me/foo@1.2.0 needs net.fetch in the declaration permissions`)이다. `@me` package가 다른 `@me` package에 기대는 경우는 따라가지 않는다(열린 것).
 4. net: SDK의 요청은 앱 supervisor의 broker(`net/fetch`)가 보낸다. broker가 요청마다 목적지(host·port)를 선언 사실 ∩ grant로 검사한다. 앱 process의 network는 막지 않으므로 이 검사는 이 client를 지나는 요청에만 걸린다. redirect는 한 단계마다 같은 검사를 다시 받고, 플랫폼 port는 grant가 있어도 막는다. 이 검사가 틀리면 supervisor가 아무 곳이나 간다.

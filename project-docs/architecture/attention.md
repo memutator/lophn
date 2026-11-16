@@ -68,7 +68,7 @@ terminal_sessions/signal ─▶ 계기 ─┬▶ unseen(서고 꺼질 때 StateC
 - 기기 쪽 route `devices/set_push`(폰), `devices/clear_push`, `devices/push_targets`(core 안 machine)는 `remote.md`가 맡는다.
 - event: `JobHeld`(새 held 줄이 commit된 뒤 한 번. 이미 있는 줄이 갱신될 때는 내지 않는다. Inbox는 `StateChanged{jobs}`로 다시 읽으므로 폰 event 목록에는 없다). `StateChanged`의 change 이름 `unseen`(`event.md`).
 - 설정 `remote.push`(locked). 폰의 설정 칸 일곱(`pushPrefsSchema`).
-- push 글의 channel id `needs-you`, `finished`, `apps`는 폰이 시작 때 만드는 channel id와 같은 계약이다. `data`의 모양은 `{host, kind, session?, app?}`이고 폰은 모양이 틀리면 아무것도 열지 않는다.
+- push 글의 channel id `needs-you`, `finished`, `apps`는 폰이 시작 때 만드는 channel id와 같은 계약이다. `data`의 모양은 `{host, kind, session?, app?}`이고 폰은 모양이 틀리면 아무것도 열지 않는다(해석은 위젯과 홈 화면 아이콘의 누름과 같은 open target 하나다. `phone-home-screen.md`).
 
 ## 결정
 

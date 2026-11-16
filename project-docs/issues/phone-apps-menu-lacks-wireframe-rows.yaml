@@ -1,14 +1,14 @@
 id: phone-apps-menu-lacks-wireframe-rows
-title: 폰의 앱 화면에 wireframe의 What changed, Annotate this screen, Add to Home screen과 Home의 New app이 없다
+title: 폰의 앱 화면에 wireframe의 What changed, Annotate this screen과 Home의 New app이 없다
 kind: bug
 status: open
 topic: phone-screen
 modules: [packages/mobile]
 now: |
-  wireframe(`tools/wireframes/drafts/phone/apps.tsx`)의 앱 화면에는 새 판 toast 오른쪽의 `What changed` 단추, ⋯ menu의 `Annotate this screen`과 `Add to Home screen`, Home과 sidebar의 `New app`(이름과 한 줄 목적으로 앱 workspace에서 짓기 시작)이 있다. 폰 앱은 toast에 "Updated to Release N" 글만(`packages/mobile/src/screens/apps/index.tsx`), ⋯ menu에 변경 청하기, 앱 session, 실행 기록, live release, 앱의 다른 폰 화면만 둔다(`menu.tsx`). `grep`으로 네 곳이 폰 앱에 없는 것을 확인했다(gallery 제외).
+  wireframe(`tools/wireframes/drafts/phone/apps.tsx`)의 앱 화면에는 새 판 toast 오른쪽의 `What changed` 단추, ⋯ menu의 `Annotate this screen`, Home과 sidebar의 `New app`(이름과 한 줄 목적으로 앱 workspace에서 짓기 시작)이 있다. 폰 앱은 toast에 "Updated to Release N" 글만(`packages/mobile/src/screens/apps/index.tsx`), ⋯ menu에 변경 청하기, 앱 session, 실행 기록, live release, 앱의 다른 폰 화면만 둔다(`menu.tsx`). `grep`으로 세 곳이 폰 앱에 없는 것을 확인했다(gallery 제외). `Add to Home screen`은 위젯·홈 화면 아이콘 계획이 더해 지금 있다.
 impact: |
-  폰에서 앱을 새로 만들 수 없고, 앱이 새 판이 되었을 때 무엇이 바뀌었는지 폰에서 볼 수 없고, 화면에 표시를 해 agent에게 보내지 못하고, 앱 아이콘을 홈 화면에 둘 수 없다. `Add to Home screen`은 위젯·홈 화면 아이콘(roadmap 단계 8) 쪽이다.
+  폰에서 앱을 새로 만들 수 없고, 앱이 새 판이 되었을 때 무엇이 바뀌었는지 폰에서 볼 수 없고, 화면에 표시를 해 agent에게 보내지 못한다.
 fix: |
   - `What changed`(작음): 새 판 toast의 단추가 그 release의 변경 요약(앱 workspace의 release 상세)으로 간다. 폰의 앱 release 읽기가 이미 있다(`useAppRelease`).
   - `New app`(중간): Home과 sidebar에 `+`를 두고 새 session의 앱 만들기로 연다(desktop의 새 앱 흐름과 같은 route가 폰 route 목록에 있는지 먼저 본다).
-  - `Annotate this screen`·`Add to Home screen`은 위젯·홈 화면 아이콘 계획(단계 8)이 한다. 이 이슈에서는 뺀다.
+  - `Annotate this screen`(중간): 화면의 표시를 desktop의 annotation과 같은 길로 agent에게 보낸다. 폰 route 목록에 그 길이 있는지 먼저 본다.

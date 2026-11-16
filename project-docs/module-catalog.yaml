@@ -17,7 +17,7 @@ modules:
 
   - path: packages/protocol
     boundary: protocol
-    notes: 구현을 두지 않는다. 의존 없는 순수 함수를 shell과 core가 같이 써야 할 때만 예외다(shell은 core를 import할 수 없고 protocol은 된다). acp/의 reduceAcp와 events/acp-project.ts의 acpUpdatesOf가 그 예다.
+    notes: 구현을 두지 않는다. phone/은 core와 폰이 주고받는 `request`·`response` frame, kind 표(`PHONE_KINDS`), `unavailable`의 이유를 고정한다. 의존 없는 순수 함수를 shell과 core가 같이 써야 할 때만 예외다(shell은 core를 import할 수 없고 protocol은 된다). acp/의 reduceAcp와 events/acp-project.ts의 acpUpdatesOf가 그 예다.
 
   - path: packages/relay
     boundary: relay
@@ -39,7 +39,7 @@ modules:
 
   - path: packages/sdk
     boundary: sdk
-    notes: 폰 화면의 hook part `app-ui-native`가 있다. desktop `app-ui`의 DOM 없는 file을 다시 내고(설치 사본은 vendor/로 담는다) `@lophn/ui-native`를 optional peer로 쓴다. root workspace에서 `@lophn/ui-native`는 member가 아니라 check의 deps가 그 import를 예외로 둔다.
+    notes: 앱 backend가 폰의 위치를 읽는 part `cap-phone`이 있고 `cap-notify`가 위젯 값(`setWidget`)도 낸다. 폰 화면의 hook part `app-ui-native`가 있다. desktop `app-ui`의 DOM 없는 file을 다시 내고(설치 사본은 vendor/로 담는다) `@lophn/ui-native`를 optional peer로 쓴다. root workspace에서 `@lophn/ui-native`는 member가 아니라 check의 deps가 그 import를 예외로 둔다.
 
   - path: packages/core/approvals
     boundary: approvals
@@ -47,6 +47,7 @@ modules:
 
   - path: packages/core/apps
     boundary: apps
+    notes: widgets/는 앱의 위젯 값(memory)과 `app_widgets.list`, phone-request/는 앱이 폰에 묻는 `app_phone.request`다. 어느 폰에 묻는지(기준 폰)와 폰으로 보내는 일은 port이고 core/main의 wiring이 core/remote의 `PhoneLink`를 끼운다. `phone.use` grant는 permissions/(broker `phone`)에 있다.
 
   - path: packages/core/config
     boundary: config
@@ -112,6 +113,7 @@ modules:
 
   - path: packages/core/remote
     boundary: remote
+    notes: phone-link.ts는 core가 폰에 `request`를 보내고 `response`를 받는 길이다. 연결은 host가 붙이고 떼며 알린다. link는 kind를 모르고 입력·출력 검사는 부르는 쪽이 한다.
 
   - path: packages/core/attention
     boundary: attention
@@ -142,7 +144,7 @@ modules:
 
   - path: packages/mobile
     boundary: mobile
-    notes: root npm workspace 밖의 Expo project다(자기 package.json과 lock). `npm run check` 밖이라 `cd packages/mobile; npm run typecheck; npm test`로 본다. Metro가 packages/ 아래 protocol, design(kit과 i18n), desktop renderer의 순수 `.ts`를 source로 읽는다. check의 deps는 이 폴더를 보지 않는다. `guest/`는 사용자 앱의 폰 화면을 돌리는 guest runtime의 base bundle(폰 앱 build가 Hermes bytecode로 컴파일해 APK에 싣는다)이고 `patches/`의 patch가 `@callstack/react-native-sandbox`를 고친다(`npm ci`의 postinstall이 적용한다).
+    notes: root npm workspace 밖의 Expo project다(자기 package.json과 lock). `npm run check` 밖이라 `cd packages/mobile; npm run typecheck; npm test`로 본다. Metro가 packages/ 아래 protocol, design(kit과 i18n), desktop renderer의 순수 `.ts`를 source로 읽는다. check의 deps는 이 폴더를 보지 않는다. modules/lophn-widgets는 폰의 홈 화면 native 층(Kotlin Expo module 하나. 위젯 그리기·놓기·새로 하기, 앱 아이콘 pin·disable·enable)이다. widgets/, shortcuts/, open/, link/는 위젯 store, 아이콘, open target, 컴퓨터의 `request`에 답하는 handler다. `guest/`는 사용자 앱의 폰 화면을 돌리는 guest runtime의 base bundle(폰 앱 build가 Hermes bytecode로 컴파일해 APK에 싣는다)이고 `patches/`의 patch가 `@callstack/react-native-sandbox`를 고친다(`npm ci`의 postinstall이 적용한다).
 
   - path: tools
     boundary: null

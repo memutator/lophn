@@ -45,6 +45,7 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 ```
 
 - 선언 사실은 release 선언에서 권한 요구, 다른 앱 tool 쓰기, tool 이름만 뽑아 준비 때 한 번 계산해 release 행의 `facts` 열에 둔 값이다. 동의를 묻는 판정과 complete의 grant 맞춤이 이 값만 본다.
+- 권한 요구 가운데 `phone.use`(scope `{capability}`, 지금은 `location.get`)는 앱이 사람의 폰 기능을 쓰겠다는 요구다. 앱마다 한 번 이 동의 카드가 묻고 카드는 항목 "Phone"에 "Use your phone's location"을 보인다(앱 상세의 권한에도 같은 글이 선다. 이 줄은 desktop 창에서 보지 못했다). 기능을 더 선언한 release는 늘어난 선언으로 다시 묻는다. 허락은 grant가 되고 사람이 거둘 수 있다(`remote.md`). 이것은 lophn의 동의이고 OS의 위치 권한은 폰이 처음 쓸 때 따로 묻는다.
 - 이전 release로 돌아가기도 같은 순서다. 사람만 시작하고(요청 행 `activation_requests`), 지금 활성 release와 data schema가 같은 `superseded` release만 고른다. migration이 없어서 앱 code만 바뀌고 DB는 그대로다.
 - 시도가 멈출 수 있는 곳은 둘이다. 닫혀 끝난 시도(`active` 또는 `failed`)와 앱을 붙든 채 멈춘 시도(`held`)다. held는 복원이나 종료를 확인하지 못해 앱을 사용 불가로 두고 이전 release도 띄우지 않은 상태이고, 매 sweep이 이어받는다.
 - 앱 process는 권한 flag 없이 뜬다(사람이 정했다).
@@ -82,7 +83,7 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 18. migration의 출발 schema는 ledger 값이 아니라 종료 뒤 읽은 실제 DB의 값이다. 기록과 실제가 어긋날 수 있다.
 19. 복구본이 ledger에 확정된 뒤에만 migration을 시작한다. 확정 전에 꺼지면 복원할 근거가 없다.
 20. 새 process는 준비 모드로 확인까지만 하고 업무 통로는 complete가 commit된 뒤에 연다. 그 전에 업무가 들어오면 실패해도 되돌릴 수 없는 쓰기가 생긴다.
-    - 후보의 시작 code가 broker를 부르는 것은 채택 중에만 일어난다(process를 먼저 띄우고 commit으로 release를 active로 잇는다). broker는 supervisor가 아는 후보(prepare로 띄웠고 아직 열리지 않은 자식)에게만 예외를 둔다: 읽기뿐인 `sessions`는 그 release의 선언으로 답하고, 발행·net·secret·notify는 `forbidden`이 아니라 `unavailable`(곧 된다, 다시 시도)이다. core의 발행과 알림이 active release를 보고 일하기 때문이다. 교체된 옛 release의 자식은 후보가 아니므로 그대로 `forbidden`이다.
+    - 후보의 시작 code가 broker를 부르는 것은 채택 중에만 일어난다(process를 먼저 띄우고 commit으로 release를 active로 잇는다). broker는 supervisor가 아는 후보(prepare로 띄웠고 아직 열리지 않은 자식)에게만 예외를 둔다: 읽기뿐인 `sessions`는 그 release의 선언으로 답하고, 발행·net·secret·notify(위젯 값 포함)·폰 요청은 `forbidden`이 아니라 `unavailable`(곧 된다, 다시 시도)이다. core의 발행과 알림이 active release를 보고 일하기 때문이다. 교체된 옛 release의 자식은 후보가 아니므로 그대로 `forbidden`이다.
 21. complete 뒤에는 그 후보 process가 그대로 운영 process가 된다. 다시 띄우지 않는다. 앱 process를 바꿀 때 끝내는 credential은 그 앱의 app credential이다. 같은 앱 조건의 agent credential(coding session의 CLI 등)은 남는다.
 22. complete는 한 tx다. active 참조, grant 맞춤, 복구본 정리가 따로 있으면 어디서 끊겨도 중간 상태가 남는다. complete는 같은 시도인지와 실제 데이터 결과, 준비 확인을 core가 다시 검사한다.
 23. 도는 호출이 유예(30초) 안에 끝나지 않으면 결과 모름으로 닫고 강제로 멈춘다. 호출 접수는 성공이든 실패든 끝에 다시 연다. 닫힌 채 두면 앱이 영영 안 받는다.

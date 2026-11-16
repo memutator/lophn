@@ -1,0 +1,71 @@
+id: mobile-widgets
+version: 0.23.65
+title: 앱이 폰의 홈 화면에 위젯과 아이콘을 두고, 앱 backend가 core를 거쳐 폰의 위치를 읽는다
+modules: [packages/protocol, packages/core/apps, packages/core/main, packages/core/remote, packages/core/storage, packages/core/agent-workspaces, packages/sdk, packages/shell/renderer, packages/design, packages/mobile, tools]
+change: |
+  - 위젯(Android): 앱이 선언(`@lophn/declaration` 4.7.0의 칸 `widgets`: `{key, label, screen?}`, 앱마다 4개까지, `screen`은 그 앱의 `phone` 화면이어야 한다)한 위젯의 값을 앱 backend가 `@lophn/cap-notify` 1.3.0의 `setWidget(key, {v: 1, rows})`·`clearWidget(key)`로 낸다(grant는 기존 `notify.send`). 값은 정해진 node 넷(`text`, `stat`, `progress`, `list`)의 data 1~6줄이고 JSON으로 4096 byte까지다. 모르는 node, 길이를 넘는 글, 범위 밖 progress는 SDK와 core가 거절한다. broker 경로 `/_lophn/broker/notify/widget`이 더해졌다. core의 새 memory route `app_widget.set`(actor app, change 이름 `widgets`)이 (앱, key)마다 마지막 값과 받은 시각을 memory에만 두고(ledger 없음), `app_widgets.list`(actor user, 폰 gate에 있다)가 보관하지 않은 앱 중 켜진 release가 있는 앱의 선언된 위젯마다 한 줄(값이 없으면 null)을 낸다. 보관한 앱과 선언에서 빠진 key의 값은 읽을 때 지운다.
+  - 폰의 위젯: 폰 앱이 위젯 id마다 어느 컴퓨터의 어느 앱의 어느 key를 보이는지(binding)와 마지막으로 읽은 값(cache)을 앱 private 폴더의 `widgets/bindings.json`·`widgets/cache.json`에 두고, native(Kotlin Expo module `lophn-widgets`, provider 둘 2x2·4x2)가 cache만 읽어 `RemoteViews`로 그린다(JS runtime 없이). 위젯에 보이는 모든 글("Updated 14:05", "Offline 14:05", "Tap to choose", "This widget is no longer available", "Computer removed", "Waiting for your computer")은 폰의 TS가 i18n catalog로 만들어 cache에 적는다. 상태는 `ok`, `gone`(앱이 보관됐거나 새 release가 위젯을 뺐다), `computer_removed`(폰이 컴퓨터를 지웠다. rows를 지운다)이고, 마지막 시도가 실패하면 마지막 값을 흐리게 두고 꼬리를 "Offline <시각>"으로 바꾼다. 깨지거나 없는 cache는 "Tap to choose"로 그린다. 위젯 글은 시스템 글꼴이다(Pretendard 아님).
+  - 위젯 새로 하기는 best effort다: 폰 앱이 앞으로 올 때와 뒤로 갈 때, 연결된 동안 `StateChanged`의 `widgets`·`apps`·`releases`, 컴퓨터를 지웠을 때, 위젯의 새로 하기 아이콘, Android의 주기 update(30분 단위 요청이고 system이 늦춰 30~52분 간격), 위젯을 놓거나 고를 때. 폰 앱이 죽어 있어도 위젯 broadcast 안에서(`goAsync`) 같은 process에 React host를 띄워 headless JS 일감(`LophnWidgetRefresh`)을 25초 한도로 돌린다(RN의 `HeadlessJsTaskService`는 Android 12 이상이 배경에서 거절했다). 겹친 호출은 하나로 합친다. 앱이 죽은 채 release build의 emulator에서 0.6~1.2초였고 그 대부분(약 0.7초)이 Noise handshake다. push로 위젯을 새로 하지 않는다.
+  - 위젯 놓기 셋: launcher의 위젯 목록에서 끌어 놓으면 configure activity가 "Choose a widget"(`lophn://widget/bind?id=<n>&from=configure`)을 열고 답을 기다린다(닫기는 위젯을 지우고 시스템 Back은 placeholder로 남긴다). configure를 건너뛰는 launcher에는 binding 없는 위젯이 "Tap to choose"이고 그것을 누르면 같은 화면이 열린다. 앱 menu의 "Add widget"이 launcher의 `requestPinAppWidget`으로 4x2 위젯을 새로 놓고, native의 callback receiver가 새 id를 받아 binding을 쓴다(`requestPin`은 boolean만 돌려준다). 위젯의 몸을 누르면 앱의 폰 화면(`screen`이 있으면 그 화면)이 열리고 `gone`·`computer_removed`는 그 컴퓨터의 Inbox가 열린다.
+  - 홈 화면 아이콘: 앱 menu의 "Add to Home screen"이 앱마다 pinned shortcut 하나(id `lophn:<컴퓨터 key>:<앱 id>`)를 launcher에 청한다. 그림은 앱의 `icon`으로 폰 JS가 그린다(png·webp는 그대로, svg와 lucide는 화면 밖 `<Svg>`를 192px PNG로, 없거나 안 되면 첫 글자 위에 tone, 그것도 안 되면 native가 lophn mark). 누르면 `lophn://open?host=…&kind=app&app=…`으로 앱의 폰 화면이 열린다. 앱이 보관·삭제되거나 폰 화면이나 켜진 release를 잃거나 폰이 컴퓨터를 지우면 그 아이콘을 쓸 수 없게 하고(disable) 앱이 돌아오면 다시 쓸 수 있게 한다(enable). 쓸 수 없게 된 아이콘을 누를 때 보이는 글은 launcher가 정한다(Pixel Launcher는 자기 글 "Shortcut isn't available"을 보인다). 이미 놓인 앱의 menu에는 그 줄을 감춘다.
+  - open target: 알림 누름, 위젯 누름, 아이콘 누름, `lophn://` URL이 `OpenTarget` 하나(`session`, `app`(화면 선택), `inbox`, `widget_bind`)와 해석 함수 하나를 지난다. 폰 앱에 URL scheme `lophn`이 더해졌다(`lophn://open?host=<컴퓨터 key>&kind=session&session=…|app&app=…[&screen=…]|inbox`, `lophn://widget/bind?id=<n>[&from=configure]`). lophn이 만든 모양이 아니거나 이 폰이 pairing하지 않은 컴퓨터의 `host`면 아무것도 열지 않는다. 옛 `parseNotificationData`는 없다. 터미널 session(`term:`)의 알림은 Inbox로 간다는 규칙은 알림 쪽에 남았다.
+  - core가 폰에 묻는 길: remote channel에 frame `request {id, kind, input, deadline_ms}`(core→폰)와 `response {id, ok, value | error}`(폰→core)가 더해졌다. 폰은 답할 kind를 `hello.capabilities`에 적고 core는 적힌 kind만 묻는다(옛 폰은 `request`를 받지 않아 `REMOTE_PROTOCOL_VERSION`은 그대로다). protocol의 새 `phone` 폴더가 frame, kind 표(`PHONE_KINDS`: 입력, 출력, deadline), `unavailable`의 이유를 고정한다. core의 `PhoneLink.call({device, kind, input, deadline_ms})`가 그 기기의 열린 연결에만 보내고, 같은 연결에서 온 같은 `id`의 답·deadline·연결 닫힘 가운데 먼저 온 것으로 끝낸다(모르는 `id`, 다른 기기의 연결, deadline 뒤의 답은 버린다). 폰을 push로 깨우지 않는다. wiring 칸 `phoneLink`가 `call`과 기준 폰의 기기 id를 낸다. 답의 bytes는 `value` 안 base64로 싣는다(원래 8 MiB까지).
+  - 폰의 위치: 첫 kind `location.get`(입력 `{accuracy?: low|balanced|high, max_age_ms?}`, 출력 `{lat, lon, accuracy_m, at}`, deadline 20초)을 폰이 `expo-location` 58.0.22로 답한다. 앱이 앞에 있을 때만 답하고(`phone_in_background`), OS의 앞에 있을 때 위치 권한(coarse·fine. background 권한 없음)을 처음 쓸 때 한 번 묻고 거절이면 다시 묻지 않으며(`forbidden`과 `os_permission_denied`) 위치 서비스가 꺼져 있으면 `location_off`다.
+  - 앱의 길: 새 SDK part `@lophn/cap-phone` 1.0.0의 `getLocation({accuracy?, maxAgeMs?})`(preview와 test는 broker를 부르지 않고 고정 위치와 `standIn: true`)가 broker `/_lophn/broker/phone/request`를 부르고, broker가 live 자식인지와 선언 ∩ grant의 `phone.use {capability}`를 요청마다 보고(없으면 `forbidden`이고 폰에 묻지 않는다) core의 새 memory route `app_phone.request`(actor app, 폰 gate에 없다)를 그 자식의 credential로 부른다. core는 앱이 active인지, 입력이 kind에 맞는지, 사람의 기준 폰(`devices.is_primary`)이 있는지(없으면 `no_phone`) 본 뒤 폰에 묻고 폰의 답이 출력 schema에 맞는지 본다. `unavailable`의 `details.reason`: `no_phone`, `phone_unreachable`, `unsupported`, `phone_in_background`, `location_off`, `timeout`. lophn의 banner와 기록은 없다.
+  - 새 permission kind `phone.use`(scope `{capability}`)가 선언(`@lophn/declaration` 4.7.0. 선언 file이 `PHONE_CAPABILITIES`를 literal로 가진다), grant 표, 선언 사실, `package.publish`의 permission 이름(여섯 → 일곱), `@lophn/cap-phone`의 요구에 더해졌다. 앱마다 한 번 기존 activation 동의 카드가 묻고(항목 "Phone", 글 "Use your phone's location") 앱 상세의 권한에도 같은 글이 선다. 표 `grants`의 `kind` CHECK가 kind를 나열해서 ledger step `apps.permissions.phone_kind`(표 다시 만들기, 기존 grant 행이 모두 남는다)가 `WIRINGS` 맨 뒤 wiring의 `schemaStepsAfterTeams`와 `schema-steps.lock.json`에 더해졌다.
+  - SDK 판: `@lophn/declaration` 4.7.0, `@lophn/app-ui` 2.16.0과 `@lophn/app-ui-native` 1.1.0(둘 다 declaration의 정확한 판 pin을 따라 올렸고 그 밖의 변경은 없다), `@lophn/cap-notify` 1.3.0, 새 part `@lophn/cap-phone` 1.0.0. `migrate-sdk` 메모(`declaration-4.7.0.md`, `app-ui-2.16.0.md`, `app-ui-native-1.1.0.md`, `cap-notify-1.3.0.md`, `cap-phone-1.0.0.md`)와 SDK guide를 같이 썼고 기존 part의 `supported_from`은 그대로다(새 part `cap-phone`의 하한은 1.0.0).
+  - agent 지침: 내장 skill `design-app`에 "Widgets and phone location"이 더해졌다(본문은 `phone-features.md`: 위젯 선언과 값의 규칙, 새로 하기가 best effort라 시계·초 단위 값을 쓰지 말 것, 위치는 한 번씩이고 `unavailable`이 평소 일이며 화면이 아니라 backend에서 부를 것, preview에서 볼 수 없으니 사람이 폰에서 마지막 확인을 한다는 것). 앱 workspace의 prompt와 SDK guide도 맞췄다.
+  - 개발: wireframe(gallery Drafts › Phone › "11 Widgets and home screen"). `packages/mobile/README.md`에 위젯, 아이콘, open URL, 위치를 emulator에서 확인하는 길을 적었다.
+why: |
+  mobile roadmap 단계 8이다. 사람이 앱의 값 하나를 보려고 폰 앱을 열고 앱을 찾아야 했고, 앱은 폰 자체(위치)에 닿을 길이 없었다. 위젯은 폰 앱이 죽어 있어도 그려져야 하고 Android가 시키는 때에 새로 해야 해서 native가 JS 없이 cache에서 그리도록 짓고, 먼저 spike로 그 길이 emulator에서 되는지 확인했다(HeadlessJsTaskService가 배경에서 거절되는 것을 찾아 broadcast 안에서 React host를 띄우는 길로 바꿨다). core가 폰에 일을 묻는 길은 위치만이 아니라 뒤 단계(폰 화면을 모는 browser-use)도 쓰므로 frame 하나와 `PhoneLink`를 일반으로 짓고, 그 위에 앱의 길을 하나(위치) 열었다. 알림, 위젯, 아이콘이 각자 "앱을 연다"를 풀면 밖에서 온 값을 믿는 곳이 셋이 되므로 open target 하나로 모았다.
+decisions:
+  - text: >-
+      위젯은 앱이 선언하고(`widgets`) 값은 정해진 node 넷의 data이며 앱은 layout을 정하지 못한다. 이유: 폰의 고르기 목록이 값이 오기 전에도 있어야 하고 core가 선언 밖 key를 거절해야 하며, 위젯은 `RemoteViews`로만 그려져 web·RN 화면을 올릴 수 없고 모양을 앱이 정하면 AI가 쓴 코드가 홈 화면을 그린다. 버린 길: 값을 처음 낼 때 위젯이 생기게 하기, 앱이 내는 HTML·JSX, 자유로운 layout tree.
+    by: agent
+  - text: >-
+      위젯 값은 새 permission 없이 `notify.send`로 내고 core는 memory에만 둔다. 이유: tray와 같다. 앱이 오래 살아 값을 다시 낼 수 있고 폰이 마지막 값을 cache로 갖는다. 대가: 컴퓨터를 다시 켜면 앱이 다시 낼 때까지 위젯의 값이 비어 있다. 버린 길: 위젯용 SDK part와 permission, ledger 저장.
+    by: agent
+  - text: >-
+      폰의 native 층은 얇은 자체 Kotlin module 하나(`lophn-widgets`)이고 위젯 그리기·놓기·새로 하기와 앱 아이콘이 한 module에 산다. 위젯은 JS 없이 cache에서 그린다. 이유: 앱이 죽은 폰에서 위젯이 그려지고 새로 되어야 한다. 버린 길: `react-native-android-widget`(매 그림이 JS를 거친다. 죽은 채 새로 하기 자체는 됐다), `expo-widgets`(Android는 부분 집합이고 앱마다 위젯을 놓지 못한다), server가 구동하는 위젯(lophn에 공개 server가 없고 data가 사람의 것이다), push에 위젯 data를 싣기(앱 내용이 Expo와 Google을 지난다).
+    by: agent
+  - text: >-
+      새로 하기는 best effort이고 위젯은 가져온 시각을 늘 보이며 push로 깨우지 않는다. 죽은 폰 앱의 새로 하기는 `HeadlessJsTaskService`가 아니라 위젯 broadcast 안에서 `goAsync` 아래 React host를 띄워 돈다. 이유: Android가 위젯 새로 하기를 주기 update로 30분 아래로 보장하지 않고 앱이 뒤에 있으면 socket이 죽으며, Android 12 이상은 배경에서 service 시작을 거절한다(emulator에서 3번 중 3번 거절). 이 길은 service도 `WAKE_LOCK`도 WorkManager도 요구하지 않는다.
+    by: agent
+  - text: >-
+      configure는 폰 앱 화면의 답을 기다리고(hold) 답 없이 다시 보이면 placeholder로 남긴다. `requestPin`은 boolean만 돌려주고 binding은 native의 callback receiver가 쓴다. 이유: 답을 바로 OK로 하면 사람이 Home을 눌렀을 때 위젯이 사라지고, 놓기를 취소하면 callback이 오지 않아 위젯 id를 JS에 약속할 수 없다.
+    by: agent
+  - text: >-
+      위젯 머리는 앱 이름과 위젯 label뿐이고 앱 아이콘을 그리지 않는다. 앱 아이콘은 홈 화면 아이콘만 쓴다. 이유: 아이콘의 PNG는 마운트된 React tree가 있어야 그려져 headless 새로 하기와 함께 돌 수 없고, 위젯 길에서 svg를 그림으로 바꾸지 않으려 했다.
+    by: agent
+  - text: >-
+      홈 화면 아이콘은 앱마다 pinned shortcut 하나이고 id가 고정이다(`lophn:<컴퓨터 key>:<앱 id>`). 아이콘의 존재 목록을 폰이 따로 두지 않고 Android의 pinned id를 쓴다. 없어진 앱의 아이콘은 지우지 않고 쓸 수 없게 한다(disable). 이유: Android가 id로 복원해 폰이 자기 id를 만들 필요가 없고, 앱이 돌아오면 같은 아이콘이 다시 쓰이며, 잘못 쓸 수 없게 해도 data를 잃지 않는다. 버린 길: 앱 화면마다 아이콘, dynamic shortcut.
+    by: agent
+  - text: >-
+      알림, 위젯, 아이콘, URL이 open target 하나를 지난다. 이유: 밖에서 온 값을 믿는 곳이 한 곳이어야 한다. 알림 `data` 모양을 그대로 쓴다. 터미널 session 알림의 Inbox 규칙은 알림만 그런 session을 가리켜 해석 밖에 둔다.
+    by: agent
+  - text: >-
+      core가 폰에 묻는 길은 remote channel의 `request`·`response` frame과 `PhoneLink` 하나이고 칸은 `kind`다. 폰이 답할 kind를 `hello.capabilities`에 적는다. 이유: 폰이 하는 일은 한 갈래이고 뒤 단계(폰 화면을 모는 일)가 같은 길에 kind만 더한다. 옛 폰이 모르는 frame을 받지 않아 `REMOTE_PROTOCOL_VERSION`을 올리지 않는다. 버린 길: desktop의 `/host-link`를 폰에 넓히기(loopback·연결 하나·desktop Bearer), 폰이 server가 되기(NAT 뒤), 기능마다 socket, event와 답 route로 주고받기.
+    by: agent
+  - text: >-
+      앱의 길만 열었다. 앱의 `phone.use`는 기능마다 따로 묻고 거두는 permission kind 하나(scope `{capability}`)이고 앱마다 기존 동의 카드가 한 번 묻는다. 폰은 앞에 있을 때만 답하고 위치 읽기에 lophn의 banner와 기록을 두지 않는다(동의 카드가 동의이고 Android가 자기 위치 표시를 띄운다). 이유: 부르는 쪽이 없는 기능을 먼저 만들지 않고, 위치를 허락한 앱이 camera까지 얻지 않으며, foreground 위치만 쓰면 background 권한과 Google의 심사가 필요 없다. 버린 길: 기능마다 permission kind, 호출마다 묻기, 폰을 push로 깨워 위치 읽기, agent가 폰 기능을 부르는 route와 CLI(쓰는 예가 생길 때 연다).
+    by: agent
+  - text: >-
+      `phone.use`를 더하며 ledger step 하나가 들었다(계획의 조사는 "schema step 없음"이라 했다). 이유: 표 `grants`의 `kind` CHECK가 kind를 나열한다(`notify.send` 때의 `apps.permissions.notify_kind`와 같은 표 다시 만들기). 기존 grant 행이 모두 남는지를 위험 test가 본다.
+    by: agent
+  - text: >-
+      `@lophn/declaration`이 `widgets` 칸과 `phone.use`를 4.7.0 하나에 같이 냈고 `@lophn/app-ui`(2.16.0)와 `@lophn/app-ui-native`(1.1.0)를 같이 올렸다. 이유: `PermissionKind`가 vendored declaration file에 있어 `phone.use`가 선언 쪽 변경이고, 두 part가 declaration을 정확한 판으로 pin한다. SDK 판은 이 계획이 land되기 전에는 어느 앱에도 가지 않아 한 계획 안의 task들이 같은 판에서 guide와 메모를 고쳤다.
+    by: agent
+follow_up: |
+  - **확인하지 못한 것(전부 emulator 아래에서만 보았다).** 실제 폰. Electron desktop 앱(동의 카드의 "Phone: Use your phone's location" 줄과 앱 상세의 `phone.use` 줄을 창에서 본 적이 없다). 위치 정확도 `balanced`·`low`(emulator에는 network 위치가 없어 시간 초과였고 `high`만 됐다. 실제 폰에서 `balanced`가 기본이다). Google Play services가 자기 위치 대화를 띄워 위치 요청을 막는 경우. 사람이 launcher의 놓기 확인을 취소하는 경우. 앱을 보관했을 때 놓인 위젯이 "no longer available"이 되는 것. Pixel Launcher가 아닌 launcher. 실제 agent turn으로 만든 앱의 위젯과 위치(개발 core에는 model이 없다. 손으로 쓴 앱으로만 보았다). iOS(native module이 없다). 실제 앱의 값이 emulator의 놓인 위젯에 보이는 것은 보았다.
+  - 알려진 빈틈은 이슈다: `widget-bindings-written-by-native-and-js-unlocked`, `widget-text-not-pretendard`, `shortcut-keeps-old-label-and-icon`, `shortcut-reconcile-covers-current-computer-only`. 이슈 `phone-apps-menu-lacks-wireframe-rows`에서 "Add to Home screen"을 뺐다(이 판이 더했다).
+  - 플랫폼 규칙(고치지 못한다): `am force-stop`이나 설정의 강제 종료로 끝낸 폰 앱의 위젯은 Android가 회색으로 가리고 사람이 한 번 누를 때까지 새로 하지 않는다. Pixel Launcher는 쓸 수 없게 된 아이콘을 눌렀을 때 lophn의 글이 아니라 자기 글을 보인다. 사람이 launcher의 위젯 놓기 확인에서 Home을 누르면 launcher가 그 add를 취소한다. 앱을 지우고 다시 깔면 놓인 위젯과 아이콘이 모두 사라진다(덮어 깔기는 남는다).
+  - agent가 폰 기능을 부르는 길(`phone/request` route, `lophn phone location`, 기기마다의 스위치), camera와 그 밖의 기능, background 위치와 위치 연속 받기, 폰을 push로 깨워 답하게 하기, push로 위젯 새로 하기, 위젯 안의 이미지·단추·줄마다의 행동, dynamic shortcut, 폰에서 도는 앱(단계 7)의 위젯과 아이콘, iOS는 열지 않았다.
+  - 폰 앱 build에 native 변경(위젯 module, `lophn` scheme, `expo-location` 58.0.22와 위치 권한 문구)이 들었으니 실제 폰에 새 build를 까는 것은 사람의 일이다. 깔기 전에 planner에게 묻는다.
+checklist:
+  - "해야: 폰에서 위젯, 홈 화면 아이콘, 위치를 쓰려면 폰에 이 판의 lophn 앱 build를 새로 깐다(위젯 native module, URL scheme `lophn`, 위치 권한이 들었다. 폰에 build를 까는 것은 사람의 일이고 깔기 전에 planner에게 묻는다)"
+  - "컴퓨터의 lophn 앱에서 앱 workspace의 agent에게 앱에 폰 홈 화면 위젯을 더해 달라고 청하고 release를 활성화한다. 선언(`widgets`)과 `setWidget` 호출이 들어갔는지, preview에서는 위젯이 안 보인다고 agent가 말하는지 본다"
+  - "폰의 launcher에서 위젯 목록의 lophn 위젯(2x2나 4x2)을 홈 화면에 끌어 놓으면 \"Choose a widget\"이 열리고 앱의 위젯을 고르면 홈 화면에 값이 보이는지, 꼬리가 \"Updated <시각>\"인지, 닫기 단추로 닫으면 위젯이 지워지는지 본다"
+  - "폰 앱을 최근 앱에서 밀어 끈 뒤 위젯의 새로 하기 아이콘을 눌러 값이 바뀌는지, 컴퓨터를 끄고 눌러 꼬리가 \"Offline <시각>\"이고 값이 흐려지는지, 위젯의 몸을 누르면 앱의 폰 화면이 열리는지 본다"
+  - "폰 앱의 앱 화면 ⋯ menu에서 \"Add widget\"과 \"Add to Home screen\"으로 위젯과 앱 아이콘을 놓고, 아이콘을 누르면 그 앱의 폰 화면이 열리는지, 앱을 보관하고 폰 앱을 앞으로 가져오면 아이콘이 회색이 되고 다시 활성화하면 돌아오는지 본다(컴퓨터가 둘 이상이면 그 컴퓨터를 화면에 고른 뒤에 본다)"
+  - "앱 agent에게 위치를 쓰는 앱을 청하고(선언 `phone.use`) release를 활성화할 때 동의 카드에 \"Phone: Use your phone's location\" 줄이 있는지, 앱 상세의 권한에 같은 글이 있는지 본다(desktop 창에서 아직 본 적이 없다)"
+  - "폰 lophn 앱이 앞에 있을 때 그 앱의 위치 기능을 부르면 Android 위치 권한을 한 번 묻고 위치가 오는지(정확도 기본값이 실제 폰에서 시간 안에 오는지), 폰 앱을 뒤로 보낸 채 부르면 앱이 `phone_in_background`를 받고 앱이 그 사실을 사람에게 말하는지 본다"

@@ -3,7 +3,7 @@
 import { useOperation, usePlace } from "@lophn/app-ui-native";
 import { Screen, Text, TopBar } from "@lophn/ui-native";
 import { useEffect, useRef, useState } from "react";
-import { Image, NativeModules, TurboModuleRegistry, View } from "react-native";
+import { Alert, Image, Linking, NativeModules, Share, TurboModuleRegistry, View } from "react-native";
 
 const DOT =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
@@ -45,7 +45,7 @@ export default function Probe() {
       "globalThis.expo": look(() => g.expo),
       "NativeModules.ExpoSecureStore": look(() => (NativeModules as Record<string, unknown>).ExpoSecureStore),
     };
-    for (const name of ["ExpoSecureStore", "ExpoFileSystem", "Networking", "WebSocketModule", "BlobModule", "FileReaderModule", "ImageLoader", "IntentAndroid"]) {
+    for (const name of ["ExpoSecureStore", "ExpoFileSystem", "Networking", "WebSocketModule", "BlobModule", "FileReaderModule", "ImageLoader", "IntentAndroid", "LinkingManager", "Clipboard", "ShareModule", "Vibration", "DialogManagerAndroid", "ToastAndroid", "PermissionsAndroid", "SoundManager", "StatusBarManager", "DevLoadingView", "ImageStoreManager", "PlatformConstants", "DeviceInfo", "DeviceEventManager", "AppState", "Appearance", "I18nManager", "SourceCode", "ExceptionsManager", "DevSettings", "DevMenu", "LogBox", "HeadlessJsTaskSupport", "RedBox", "EventDispatcher", "SettingsManager", "KeyboardObserver", "AccessibilityInfo", "AccessibilityManager", "FrameRateLogger", "ReactDevToolsRuntimeSettingsModule", "NativeAnimatedModule", "NativeAnimatedTurboModule", "RNCSafeAreaContext", "KeyboardController", "StatusBarManagerCompat", "ReanimatedModule", "WorkletsModule"]) {
       now[`module ${name}`] = look(() => TurboModuleRegistry.get(name));
     }
     now.eval = look(() => eval("1 + 1"));
@@ -73,6 +73,14 @@ export default function Probe() {
           }),
       );
       done.prefetch = await settle(() => Image.prefetch(`${base}/prefetch.png?probe`));
+      // Ways out through other apps: a browser with data in the query, the dialer, mail, an intent, the share sheet.
+      done["openURL http"] = await settle(() => Linking.openURL(`${base}/linking?probe&data=secret`));
+      done["openURL tel"] = await settle(() => Linking.openURL("tel:5550100"));
+      done["openURL mailto"] = await settle(() => Linking.openURL("mailto:a@example.invalid?body=secret"));
+      done["openURL intent"] = await settle(() => Linking.openURL(`intent:${base.slice(5)}/intent?probe#Intent;scheme=http;end`));
+      done.canOpenURL = await settle(() => Linking.canOpenURL(`${base}/can?probe`));
+      done.share = await settle(() => Share.share({ message: "secret" }));
+      done.alert = look(() => Alert.alert("probe", "an alert from a screen"));
       for (const [key, value] of Object.entries(done)) put(key, value);
       // the image loads have settled by now
       await new Promise((resolve) => setTimeout(resolve, 1000));

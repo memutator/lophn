@@ -258,20 +258,144 @@ index 3729790..e975693 100644
          override fun getEventData() = payload
      }
  }
+diff --git a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxTouchInterceptor.kt b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxTouchInterceptor.kt
+index df55509..5a98244 100644
+--- a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxTouchInterceptor.kt
++++ b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxTouchInterceptor.kt
+@@ -6,6 +6,8 @@ import android.view.MotionEvent
+ import android.view.View
+ import android.view.ViewGroup
+ import android.view.Window
++import com.facebook.react.uimanager.PointerEvents
++import com.facebook.react.uimanager.ReactPointerEventsView
+ import java.lang.ref.WeakReference
+ 
+ /**
+@@ -312,9 +314,7 @@ object SandboxTouchInterceptor {
+      * [ViewGroup] ancestor, examines all sibling views that are drawn after
+      * (on top of) the branch containing [target]. A sibling "obscures" if:
+      * 1. It is drawn after [target]'s branch ([isDrawnAfter])
+-     * 2. It is [View.VISIBLE]
+-     * 3. Its screen bounds contain the touch point, OR any of its descendants'
+-     *    screen bounds contain the point ([hasDescendantAt] — handles overflow)
++     * 2. It or a descendant would take a touch at the point ([takesTouchAt])
+      *
+      * The walk continues up the tree because an obscuring view might be a
+      * sibling of a grandparent, not just a direct sibling of the sandbox.
+@@ -326,7 +326,6 @@ object SandboxTouchInterceptor {
+     ): Boolean {
+         var child: View = target
+         var parent = child.parent
+-        val siblingLoc = IntArray(2)
+ 
+         while (parent is ViewGroup) {
+             val group = parent
+@@ -334,26 +333,8 @@ object SandboxTouchInterceptor {
+ 
+             for (i in 0 until group.childCount) {
+                 if (i == childIndex) continue
+-                val sibling = group.getChildAt(i)
+                 if (!isDrawnAfter(group, i, childIndex)) continue
+-                if (sibling.visibility != View.VISIBLE) continue
+-
+-                // Check the sibling's own bounds
+-                sibling.getLocationOnScreen(siblingLoc)
+-                val sibRect =
+-                    Rect(
+-                        siblingLoc[0],
+-                        siblingLoc[1],
+-                        siblingLoc[0] + sibling.width,
+-                        siblingLoc[1] + sibling.height,
+-                    )
+-                if (sibRect.contains(screenX, screenY)) return true
+-
+-                // Check descendants — catches overflow (e.g. a card with
+-                // negative margin extending outside its parent's bounds)
+-                if (sibling is ViewGroup && hasDescendantAt(sibling, screenX, screenY)) {
+-                    return true
+-                }
++                if (takesTouchAt(group.getChildAt(i), screenX, screenY)) return true
+             }
+ 
+             // Move up one level in the tree
+@@ -365,34 +346,28 @@ object SandboxTouchInterceptor {
+     }
+ 
+     /**
+-     * Recursively check if [viewGroup] has any visible descendant whose
+-     * screen bounds contain ([screenX], [screenY]).
+-     *
+-     * This is needed because Android allows children to render outside their
+-     * parent's bounds (unless `clipChildren` is set). A common case is a
+-     * React Native view with negative margin or absolute positioning that
+-     * overflows its container.
++     * lophn: whether [view] or a descendant would take a touch at ([screenX], [screenY]), read the way React Native's
++     * own hit test reads `pointerEvents` (TouchTargetHelper): `none` takes nothing, `box-none` only through its
++     * children, `box-only` only itself. Descendants count outside their parent's bounds (overflow). Without this a
++     * view that lets touches through still covered the guest: a closed drawer's overlay stays VISIBLE and full-screen,
++     * faded to opacity 0 with `pointerEvents: none`, so every touch went to the host.
+      */
+-    private fun hasDescendantAt(
+-        viewGroup: ViewGroup,
++    private fun takesTouchAt(
++        view: View,
+         screenX: Int,
+         screenY: Int,
+     ): Boolean {
+-        val loc = IntArray(2)
+-        for (i in 0 until viewGroup.childCount) {
+-            val child = viewGroup.getChildAt(i)
+-            if (child.visibility != View.VISIBLE) continue
+-
+-            child.getLocationOnScreen(loc)
+-            val childRect =
+-                Rect(
+-                    loc[0],
+-                    loc[1],
+-                    loc[0] + child.width,
+-                    loc[1] + child.height,
+-                )
+-            if (childRect.contains(screenX, screenY)) return true
+-            if (child is ViewGroup && hasDescendantAt(child, screenX, screenY)) return true
++        if (view.visibility != View.VISIBLE) return false
++        val events = (view as? ReactPointerEventsView)?.pointerEvents ?: PointerEvents.AUTO
++        if (PointerEvents.canBeTouchTarget(events)) {
++            val loc = IntArray(2)
++            view.getLocationOnScreen(loc)
++            if (Rect(loc[0], loc[1], loc[0] + view.width, loc[1] + view.height).contains(screenX, screenY)) return true
++        }
++        if (view is ViewGroup && PointerEvents.canChildrenBeTouchTarget(events)) {
++            for (i in 0 until view.childCount) {
++                if (takesTouchAt(view.getChildAt(i), screenX, screenY)) return true
++            }
+         }
+         return false
+     }
 diff --git a/node_modules/@callstack/react-native-sandbox/src/index.tsx b/node_modules/@callstack/react-native-sandbox/src/index.tsx
-index 0e6bf07..e9521db 100644
+index 0e6bf07..074baa3 100644
 --- a/node_modules/@callstack/react-native-sandbox/src/index.tsx
 +++ b/node_modules/@callstack/react-native-sandbox/src/index.tsx
-@@ -15,6 +15,8 @@ import NativeSandboxReactNativeView, {
+@@ -15,13 +15,18 @@ import NativeSandboxReactNativeView, {
    ErrorEvent,
  } from '../specs/NativeSandboxReactNativeView'
  
 +// lophn: no network in a guest (Networking, WebSocketModule, BlobModule, FileReaderModule are left out).
-+// A screen gets data only through the host bridge.
++// A screen gets data only through the host bridge. No StatusBarManager either: a screen would set the whole app's status
++// bar, and the host's StatusBarManager (react-native-keyboard-controller's) is another Java class than the one a guest
++// gets, while the method ids of a module spec are cached once per process; the guest's base stubs StatusBar instead.
++// No LinkingManager (it opens URLs in other apps; on Android Linking needs IntentAndroid, which a guest never gets) and no
++// DevLoadingView (it draws a banner over the whole app).
  const SANDBOX_TURBOMODULES_WHITELIST = [
    'NativeDOMCxx',
    'NativeMicrotasksCxx',
-@@ -30,12 +32,9 @@ const SANDBOX_TURBOMODULES_WHITELIST = [
+   'NativePerformanceCxx',
+   'RedBox',
+   'DevMenu',
+-  'DevLoadingView',
+   'EventDispatcher',
+   'ImageLoader',
+   'ExceptionsManager',
+@@ -30,12 +35,8 @@ const SANDBOX_TURBOMODULES_WHITELIST = [
    'SettingsManager',
    'AppState',
    'SourceCode',
@@ -279,20 +403,21 @@ index 0e6bf07..e9521db 100644
 -  'Networking',
    'DeviceInfo',
    'AccessibilityManager',
-   'LinkingManager',
+-  'LinkingManager',
 -  'BlobModule',
    'Appearance',
    'ReactDevToolsRuntimeSettingsModule',
    'NativeReactNativeFeatureFlagsCxx',
-@@ -45,7 +44,6 @@ const SANDBOX_TURBOMODULES_WHITELIST = [
+@@ -44,8 +45,6 @@ const SANDBOX_TURBOMODULES_WHITELIST = [
+   'KeyboardObserver',
    'I18nManager',
    'FrameRateLogger',
-   'StatusBarManager',
+-  'StatusBarManager',
 -  'FileReaderModule',
  ]
  
  /**
-@@ -307,7 +305,8 @@ const SandboxReactNativeView = forwardRef<
+@@ -307,7 +306,8 @@ const SandboxReactNativeView = forwardRef<
  
      const _style: StyleProp<ViewStyle> = useMemo(
        () => ({

@@ -28,7 +28,20 @@ const guestBase = process.env.LOPHN_GUEST_BASE === "1";
 // A build with EXPO_PUBLIC_LOPHN_GUEST_LAB=1 opens the guest runtime lab (guest/lab) instead of the app.
 const guestLab = process.env.EXPO_PUBLIC_LOPHN_GUEST_LAB === "1";
 const entry = path.join(__dirname, "index.ts");
+// A guest does not set the app's status bar (guest/stubs/status-bar.ts); React Native's StatusBar is swapped wherever it
+// is imported from.
+const statusBar = path.join(
+  path.dirname(require.resolve("react-native/package.json")),
+  "Libraries/Components/StatusBar/StatusBar.js",
+);
 config.resolver.resolveRequest = (context, name, platform) => {
+  const resolved = resolve(context, name, platform);
+  if (guestBase && resolved.type === "sourceFile" && resolved.filePath === statusBar)
+    return { type: "sourceFile", filePath: path.join(__dirname, "guest/stubs/status-bar.ts") };
+  return resolved;
+};
+
+function resolve(context, name, platform) {
   if (guestBase && name === "expo-clipboard")
     return { type: "sourceFile", filePath: path.join(__dirname, "guest/stubs/expo-clipboard.ts") };
   if (guestLab && name === "./App.tsx" && context.originModulePath === entry)
@@ -49,6 +62,6 @@ config.resolver.resolveRequest = (context, name, platform) => {
     name,
     platform,
   );
-};
+}
 
 module.exports = config;

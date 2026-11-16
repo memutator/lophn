@@ -179,6 +179,16 @@ files:
       - job-run-end:cancelled
     note: workflow_start 줄이 instance 끝 상태에 맞춰 닫히는 것
 
+  - path: packages/core/machine/identity_test.ts
+    covers:
+      - machine-ensure:created
+      - machine-ensure:kept
+      - machine-ensure:cloned
+      - machine-ensure:os-unknown
+      - machine-ensure:unreadable
+      - machine-rename:renamed
+    note: "machine.json을 같은 기계의 다른 폴더로 옮기면 id가 남고, OS 값이 다르면 새 id와 cloned_from이 생기며 지은 이름이 hostname으로 돌아간다. OS 값을 못 읽으면 file을 바꾸지 않고, 깨진 file은 덮지 않고 거절한다. macOS·Windows reader는 출력 견본으로 parse만 본다"
+
   - path: packages/core/main/agent-tools_test.ts
     covers:
       - tool-operations-ceiling:home

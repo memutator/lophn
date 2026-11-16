@@ -1,9 +1,17 @@
+import { execFile } from "node:child_process";
 import { readFile, rm, stat, writeFile } from "node:fs/promises";
+import { hostname } from "node:os";
 import process from "node:process";
 import { systemClock } from "../../../base/clock.ts";
 import { cryptoRandom } from "../../../base/random.ts";
 import type { Clock, RandomSource, Result } from "../../../base/mod.ts";
-import { err, errorCode, homeOf, ok } from "../../../base/mod.ts";
+import {
+  createIdSource,
+  err,
+  errorCode,
+  homeOf,
+  ok,
+} from "../../../base/mod.ts";
 import { ROUTES } from "../../../protocol/registry.ts";
 import type { Route } from "../../../protocol/base/mod.ts";
 import {
@@ -18,6 +26,7 @@ import {
   checkRestart,
   ensureLedgerId,
 } from "../../storage/migration/mod.ts";
+import { ensureMachine, readOsMachineId } from "../../machine/mod.ts";
 import {
   acquireInstanceLock,
   type DataRoot,
@@ -54,7 +63,7 @@ import {
   type WiringFactory,
 } from "./wiring/context.ts";
 
-// 시작 순서: lock → schema step → writer·reader → API → I/O worker 감독 → worker들. 단계마다 wiring의
+// 시작 순서: lock → schema step → 기계 신분 → writer·reader → API → I/O worker 감독 → worker들. 단계마다 wiring의
 // hook을 WIRINGS 순서로 부른다(hook 순서는 wiring/context.ts에 적혀 있다).
 export type CoreOptions = {
   // 없으면 프로세스 환경의 LOPHN_HOME, 그것도 없으면 ~/.lophn.
@@ -221,6 +230,29 @@ async function open(
   });
   if (!migrated.ok) return migrated;
   ctx.provide("migrationsApplied", migrated.value);
+  // data step(`remote.host-key.machine`)이 machine.json을 읽으므로 그 앞이다.
+  const machine = await ensureMachine({
+    root: root.path,
+    osMachineId: () =>
+      readOsMachineId(process.platform, {
+        readFile: (path) => readFile(path, "utf8"),
+        exec: (file, args, timeoutMs) =>
+          new Promise((resolve, reject) =>
+            execFile(
+              file,
+              args,
+              { timeout: timeoutMs, windowsHide: true },
+              (error, stdout) => (error ? reject(error) : resolve(stdout)),
+            ),
+          ),
+      }),
+    hostname,
+    ids: createIdSource({ clock, random }),
+    clock,
+    logger: telemetry.logger,
+  });
+  if (!machine.ok) return machine;
+  ctx.provide("machine", machine.value);
   // ledger 밖 파일은 ledger 뒤에 옮긴다. ledger가 거절한 판(더 새 판, 다른 내용)은 파일도 건드리지 않는다.
   const files = await applyDataSteps(
     root.path,

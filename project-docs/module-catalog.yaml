@@ -123,6 +123,10 @@ modules:
   - path: packages/core/server
     boundary: server
 
+  - path: packages/core/machine
+    boundary: machine
+    notes: machine.json의 유일한 주인. 다른 module은 `ctx.machine`이나 `readMachineId`로만 읽는다.
+
   - path: packages/core/remote
     boundary: remote
     notes: phone-link.ts는 core가 폰에 `request`를 보내고 `response`를 받는 길이다. 연결은 host가 붙이고 떼며 알린다. link는 kind를 모르고 입력·출력 검사는 부르는 쪽이 한다.

@@ -41,6 +41,7 @@ const ID_PREFIXES = {
   tab: "Tab",
   hrq: "HostRequest",
   dev: "Device",
+  mch: "Machine",
 } as const;
 
 export type IdPrefix = keyof typeof ID_PREFIXES;

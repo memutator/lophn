@@ -47,6 +47,7 @@ import {
 import { configWiring } from "./wiring/config.ts";
 import type { WiringFactory } from "./wiring/context.ts";
 import { diagnosticsWiring } from "./wiring/diagnostics.ts";
+import { machineWiring } from "./wiring/machine.ts";
 import { domainsRetireWiring } from "./wiring/domains-retire.ts";
 import { lophnSplitWiring } from "./wiring/lophn-split.ts";
 import { eventsWiring } from "./wiring/events.ts";
@@ -158,6 +159,7 @@ export const TEAM_MODULES = [
 export const WIRINGS: readonly WiringFactory[] = [
   supervisionWiring,
   diagnosticsWiring,
+  machineWiring,
   storageWiring,
   settingDeclarationsWiring,
   configWiring,

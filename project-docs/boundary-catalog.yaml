@@ -158,6 +158,10 @@ elements:
         kind: component
         description: secret 보관(`<data root>/secrets.json`)과 이름 공간별 전송 부착, site login metadata(`<data root>/logins.json`)와 shell main에만 값을 내주는 route.
 
+      - id: machine
+        kind: component
+        description: 설치마다의 기계 id, 복제 판정, 컴퓨터 이름.
+
       - id: diagnostics
         kind: component
         description: lophn 자체의 운영 log, crash 기록, 상태 점검. core process의 구조화 log·trace·metric(telemetry), `/healthz`·`/readyz`, 자원 snapshot도 여기다.

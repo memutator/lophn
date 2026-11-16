@@ -349,13 +349,13 @@ flows:
     title: "core를 띄워 data root와 ledger를 맞추고 ready로 연다"
     actor: system
     entries: [system:core-boot]
-    uses: [system:ledger-migrate, system:data-steps-apply, system:builtin-install]
+    uses: [system:ledger-migrate, system:machine-ensure, system:data-steps-apply, system:builtin-install]
     boundary: [core, storage, core-control-protocol]
     code: [packages/core/main/daemon/main.ts, packages/core/main/daemon/core.ts, packages/core/install-and-update/data-root.ts, packages/core/install-and-update/instance-lock.ts, packages/core/main/daemon/wiring/context.ts]
     steps:
       - "data root를 풀고 POSIX면 소유자와 0700(apps, run 포함)을 검사한다. 어긋나면 기동을 거절한다. 그 뒤 run/instance.lock을 EXCLUSIVE sqlite lock으로 잡는다. 이미 잡혔으면 물러선다"
       - "앞 판의 run/user-token과 run/location.json을 지운다(ENOENT가 아닌 오류는 throw다). run/running.marker(pid, started_at)가 남아 있으면 previous_unclean_exit를 log에 남기고 새로 쓴다. control socket을 listen한다(state starting)"
-      - "팀 조립과 route 등록을 확인한다. ledger schema step(system:ledger-migrate)을 적용하고, data step(system:data-steps-apply)을 적용한 뒤 ledger-id를 정하고 재시작 점검을 돈다. 점검 결과는 어디에도 기록하지 않는다"
+      - "팀 조립과 route 등록을 확인한다. ledger schema step(system:ledger-migrate)을 적용하고, 기계 신분(system:machine-ensure)을 정해 ctx.machine에 둔 뒤 data step(system:data-steps-apply)을 적용하고 ledger-id를 정하고 재시작 점검을 돈다. 점검 결과는 어디에도 기록하지 않는다"
       - "writer와 reader Worker를 열고 wiring의 build를 돈다. sdk-install build는 node·npm shim, SDK 사본(app-release flow), 내장 앱 template 순서로 깐다(system:builtin-install)"
       - "memory route와 handler 짝을 확인하고 API를 연 뒤 wiring start를 돈다. platform/io child가 이때 뜬다. @me 사본 되살리기도 start에서 돈다(app-release 몫)"
       - "ready를 세우고 afterReady를 돈다(복구본 정리, idle 시작). control을 ready로 바꾼다"
@@ -378,7 +378,7 @@ flows:
       - id: start-failed-other
         code: unavailable
         observe: ["process:stdout start_failed other"]
-        when: "reason을 구별하지 않는 나머지 실패 전부다. data root 검사 실패, instance lock 충돌(내부 conflict)과 lock 파일 열기 실패, control socket·API·writer·reader 기동 실패(ready 전 writer Worker 죽음 포함), 팀 조립 실패, route 등록 충돌이나 schema step id 중복(internal), 복구본 만들기 실패(recovery-copy-failed), 적용 step 실패나 적용 뒤 FK·무결성 검사 실패(step-failed), data step의 기록 깨짐·기록 쓰기 실패·step 실패, ledger 식별 기록 실패, 재시작 점검 실패, wiring record 실패, builtin-install build 실패, platform/io 시작 실패와 다른 wiring의 start 실패(@me 되살리기 읽기 실패 등), memory route와 handler 불일치(internal), API 열기 실패"
+        when: "reason을 구별하지 않는 나머지 실패 전부다. data root 검사 실패, instance lock 충돌(내부 conflict)과 lock 파일 열기 실패, control socket·API·writer·reader 기동 실패(ready 전 writer Worker 죽음 포함), 팀 조립 실패, route 등록 충돌이나 schema step id 중복(internal), 복구본 만들기 실패(recovery-copy-failed), 적용 step 실패나 적용 뒤 FK·무결성 검사 실패(step-failed), machine.json 읽기 실패·깨짐·쓰기 실패, data step의 기록 깨짐·기록 쓰기 실패·step 실패, ledger 식별 기록 실패, 재시작 점검 실패, wiring record 실패, builtin-install build 실패, platform/io 시작 실패와 다른 wiring의 start 실패(@me 되살리기 읽기 실패 등), memory route와 handler 불일치(internal), API 열기 실패"
       - id: uncaught-throw
         observe: ["process:stdout 줄 없음", "process:exit 1"]
         when: "Result가 아니라 throw로 startCore를 떠난다(run/user-token이나 location.json을 ENOENT가 아닌 오류로 지울 때 등). start_failed 줄이 나가지 않는다"
@@ -389,6 +389,99 @@ flows:
       - "checkRestart가 내는 관측(ledger-head unknown)은 core.ts에서 ok만 보고 버린다. 아무 곳에도 남지 않는다. 옛 주석은 근거를 남긴다고 했다"
       - "@me 사본 되살리기(start)와 SDK 사본 깔기는 app-release가 맡는다. 이 flow는 build 순서만 적었다"
       - "복구본 만들기 실패가 stdout에서 other로 나간다. migrations.ts 주석은 시작 거절이라고만 하고 damaged_original로 가른다는 말은 없다. 코드가 맞는지 설계가 맞는지 정할 것"
+
+  - id: machine-ensure
+    title: "기동마다 이 설치의 기계 id를 정하고 복사된 data root면 새 기계로 바꾼다"
+    actor: system
+    entries: [system:machine-ensure]
+    boundary: [machine]
+    code: [packages/core/machine/identity.ts, packages/core/machine/os-id.ts, packages/core/main/daemon/core.ts]
+    steps:
+      - "OS의 기계 값을 읽는다(Linux /etc/machine-id 또는 /var/lib/dbus/machine-id, macOS ioreg의 IOPlatformUUID, Windows MachineGuid). 못 읽거나 꼴이 틀리거나 5초를 넘으면 값 없음이다. 값은 어디에도 남기지 않는다"
+      - "<root>/machine.json이 없으면 새 id(mch_)와 binding(HMAC-SHA256, key OS 값, message lophn-machine:<id>. 값이 없으면 null)을 temp에 0600으로 쓰고 rename한다"
+      - "file을 읽지 못하거나 꼴이 틀리면 덮지 않고 거절한다. message는 path와 지우면 새 기계가 되어 폰을 다시 pairing해야 한다는 말이다"
+      - "OS 값이 없으면 file 그대로 두고 경고 log 한 줄. binding이 null이면 채우기만 한다(알 수 없으면 같은 기계). binding이 맞으면 그대로다"
+      - "binding이 다르면 복제다: 새 id, 이름 null(hostname을 따른다), 새 binding, cloned_from 옛 id, cloned_at 지금으로 쓰고 경고 log 한 줄(옛 id, 새 id). host key, 기기 표, sync node는 여기서 건드리지 않는다"
+      - "data step 전에 돈다. data step이 readMachineId로 이 file을 읽는다"
+    outcomes:
+      - id: created
+        observe: ["disk:machine.json"]
+        when: "file이 없었다(새 data root나 이 판 전부터 있던 설치)"
+      - id: kept
+        observe: ["disk:machine.json"]
+        when: "binding이 맞다. data root를 같은 기계의 다른 path로 옮겨도 여기다"
+      - id: bound
+        observe: ["disk:machine.json"]
+        when: "저장된 binding이 null이고 OS 값이 있다. id는 그대로다"
+      - id: os-unknown
+        observe: ["disk:machine.json", "log:os_machine_id_unavailable"]
+        when: "OS 값을 읽지 못했다. file을 바꾸지 않는다"
+      - id: cloned
+        observe: ["disk:machine.json", "log:machine_cloned"]
+        when: "binding이 지금 OS 값과 맞지 않는다. 다른 기계로 복사된 root다"
+      - id: unreadable
+        code: unavailable
+        observe: ["disk:machine.json", "process:stdout start_failed other"]
+        when: "file을 읽지 못하거나(ENOENT 밖의 오류) JSON이나 꼴이 틀리다. file은 그대로다"
+      - id: write-failed
+        code: unavailable
+        observe: ["process:stdout start_failed other"]
+        when: "machine.json(temp, rename)을 쓰지 못했다"
+    crosses_process: false
+    risk: [data-loss]
+
+  - id: machine-status
+    title: "이 기계의 id, 이름, 복제 이력을 본다"
+    actor: person
+    entries: [route:machine/status]
+    boundary: [core-api, machine]
+    code: [packages/protocol/machine/mod.ts, packages/core/main/daemon/wiring/machine.ts, packages/core/machine/identity.ts]
+    steps:
+      - "dispatch가 body(빈 객체)와 actors(user)를 본다"
+      - "기동이 정한 기록과 지금 hostname으로 답한다. 사람이 지은 이름이 없으면 hostname에서 끝의 .local을 떼고 64자로 자른 것(비면 lophn)이고 name_source는 hostname이다"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: invalid_input
+        code: invalid_input
+        observe: ["response"]
+        when: "body가 빈 객체가 아니다"
+      - id: forbidden
+        code: forbidden
+        observe: ["response"]
+        when: "호출한 자격이 route의 actors(user)가 아니다(core dispatch가 먼저 막는다)"
+    crosses_process: false
+
+  - id: machine-rename
+    title: "이 기계의 이름을 짓거나 지워 hostname으로 돌린다"
+    actor: person
+    entries: [route:machine/rename]
+    boundary: [core-api, machine]
+    code: [packages/protocol/machine/mod.ts, packages/core/main/daemon/wiring/machine.ts, packages/core/machine/identity.ts]
+    steps:
+      - "dispatch가 body({ name: 1~64자 trim | null })와 actors(user)를 본다"
+      - "null이면 사람이 지은 이름을 지우고 hostname을 다시 따른다. 아니면 trim한 이름을 고정한다"
+      - "machine.json을 temp에 쓰고 rename한 뒤에만 메모리 값을 바꾸고 새 status를 답한다"
+    outcomes:
+      - id: renamed
+        observe: ["response", "disk:machine.json"]
+        when: "이름을 두었다"
+      - id: cleared
+        observe: ["response", "disk:machine.json"]
+        when: "name이 null이다. name_source가 hostname으로 돌아간다"
+      - id: invalid_input
+        code: invalid_input
+        observe: ["response"]
+        when: "body가 꼴 밖이다(빈 글, 64자 넘음)"
+      - id: forbidden
+        code: forbidden
+        observe: ["response"]
+        when: "호출한 자격이 route의 actors(user)가 아니다(core dispatch가 먼저 막는다)"
+      - id: unavailable
+        code: unavailable
+        observe: ["response", "disk:machine.json"]
+        when: "machine.json을 쓰지 못했다. 메모리 값과 file은 그대로다"
+    crosses_process: false
 
   - id: ledger-migrate
     title: "ledger schema step을 설치본과 대조해 적용하거나 시작을 거절한다"

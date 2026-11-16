@@ -310,6 +310,7 @@ areas:
       - packages/protocol/client/
       - packages/protocol/supervision/
       - packages/protocol/remote/
+      - packages/protocol/machine/
       - packages/core/server/
       - packages/core/remote/
     owns:
@@ -318,6 +319,7 @@ areas:
       - control socket과 ensureCore(붙기, 띄우기, 멈추기)
       - user token, credential, identity
       - remote listener, pairing, 기기 연결과 그 자격
+      - 기계 신분(machine.json), 복제 판정, 컴퓨터 이름
       - child process 감독과 crash 진단
       - health, readiness, log, telemetry, 자원 snapshot
       - 설치와 update
@@ -331,6 +333,7 @@ areas:
       - packages/core/supervision/
       - packages/core/diagnostics/
       - packages/core/install-and-update/
+      - packages/core/machine/
 
   - id: shell-workspace
     title: workspace 창, desk, 탭, layout

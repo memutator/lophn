@@ -80,6 +80,7 @@ import type { RunService } from "../../../runs/mod.ts";
 import type { createWorkflowService } from "../../../workflows/mod.ts";
 import type { WorkflowFlows } from "../../../workflows/ports.ts";
 import type { Attention } from "../../../attention/mod.ts";
+import type { MachineIdentity } from "../../../machine/mod.ts";
 import type { NoticeRecorder } from "./notices.ts";
 import type { Assembled } from "../registration.ts";
 import type { CoreOptions } from "../core.ts";
@@ -207,6 +208,8 @@ type Late = {
   // 이번 기동에서 migration이 적용한 step 수.
   migrationsApplied: number;
   ledgerId: string;
+  // 기동이 data step 전에 낸다.
+  machine: MachineIdentity;
   epoch: string;
   eventNames: readonly string[];
   operations: readonly OperationPolicy[];
@@ -311,6 +314,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   schemaSteps: true,
   migrationsApplied: true,
   ledgerId: true,
+  machine: true,
   epoch: true,
   eventNames: true,
   operations: true,

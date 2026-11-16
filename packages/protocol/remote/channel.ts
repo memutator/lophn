@@ -140,7 +140,13 @@ export function connectRemote(
     meet(publicKey, frame) {
       const theirs = frame as RemoteServerHello;
       const conflict = versionConflict(ownRange, theirs);
-      if (conflict) return err(conflict);
+      // pairing 중인 붙는 쪽은 아직 core의 이름을 몰라 "<이름>의 lophn을 올려라"를 말하려면 hello의 이름이 필요하다.
+      if (conflict) {
+        return err({
+          ...conflict,
+          details: { ...conflict.details, name: theirs.machine.name },
+        });
+      }
       if (
         options.machine !== undefined &&
         theirs.machine.id !== options.machine

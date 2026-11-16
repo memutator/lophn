@@ -27,6 +27,8 @@ const PAIR_ERRORS = {
   expired: "machines.error.pair-expired",
   closed: "machines.error.pair-closed",
   this_computer: "machines.error.pair-this-computer",
+  update_client: "machine-update.viewer.pair-client",
+  update_host: "machine-update.viewer.pair-host",
   unavailable: "machines.error.pair-unavailable",
 } as const;
 

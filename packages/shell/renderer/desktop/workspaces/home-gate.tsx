@@ -1,6 +1,6 @@
 // core가 준비되지 않았거나 시작에 실패했을 때 Home 자리에 서는 화면. workspace 창과 같은 shell 틀에 빈 왼쪽 sidebar와
 // tab 줄을 두고, 가운데 card에 준비 중 화면이나 시작 실패(core 시작, 높은 schema 등)의 다음 행동 하나를 보인다.
-// 준비되면 같은 틀의 Home 창으로 바뀌어 틀이 튀지 않는다. 다른 기계의 창이면 가운데가 그 기계의 gate(붙는 중, 꺼짐, 지워짐)다.
+// 준비되면 같은 틀의 Home 창으로 바뀌어 틀이 튀지 않는다. 다른 기계의 창이면 가운데가 그 기계의 gate(붙는 중, 꺼짐, 판이 맞지 않음, 지워짐)다.
 import type { ReactNode } from "react";
 
 import type { CoreSource } from "../connection/connection.ts";

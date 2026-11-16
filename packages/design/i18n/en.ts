@@ -8,6 +8,7 @@ import { common } from "./catalog/common.ts";
 import { conversation } from "./catalog/conversation.ts";
 import { data } from "./catalog/data.ts";
 import { leftSidebar } from "./catalog/left-sidebar.ts";
+import { machineUpdate } from "./catalog/machine-update.ts";
 import { mobileApp } from "./catalog/mobile-app.ts";
 import { mobileApps } from "./catalog/mobile-apps.ts";
 import { mobileCoding } from "./catalog/mobile-coding.ts";
@@ -38,6 +39,7 @@ export const en = {
   ...conversation,
   ...data,
   ...leftSidebar,
+  ...machineUpdate,
   ...mobileKit,
   ...mobileApp,
   ...mobileApps,

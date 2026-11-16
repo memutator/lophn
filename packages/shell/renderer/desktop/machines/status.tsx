@@ -37,6 +37,14 @@ export function statusParts(machine: MachineItem): {
         label: t("machines.status.offline"),
         detail: lastSeen(machine.lastSeenAt),
       };
+    case "update":
+      return {
+        label:
+          machine.update === "client"
+            ? t("machine-update.viewer.status-desktop-client")
+            : t("machine-update.viewer.status-host", { name: machine.name }),
+        detail: null,
+      };
     case "removed":
       return { label: t("machines.status.removed"), detail: null };
   }
@@ -46,6 +54,7 @@ const TONE = {
   connecting: "neutral",
   connected: "good",
   offline: "neutral",
+  update: "warning",
   removed: "critical",
 } as const;
 

@@ -14,6 +14,14 @@ export function stateOf(computer: ComputerItem): {
       return { tone: undefined, text: t("mobile.computer.status.connecting") };
     case "offline":
       return { tone: "off", text: t("mobile.computer.status.offline") };
+    case "update":
+      return {
+        tone: "warning",
+        text:
+          computer.update === "client"
+            ? t("machine-update.viewer.status-phone-client")
+            : t("machine-update.viewer.status-host", { name: computer.name }),
+      };
     case "revoked":
       return { tone: "critical", text: t("mobile.computer.status.revoked") };
   }

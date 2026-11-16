@@ -32,6 +32,7 @@ function viewOf(list: MachineList): MachinesView {
       announcedName: row.announced,
       alias: row.alias,
       status: row.status,
+      update: row.update,
       path: row.path,
       lastSeenAt: row.last_seen_at,
     })),

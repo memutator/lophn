@@ -44,7 +44,10 @@ export const machineRowSchema = z.strictObject({
   name: z.string(),
   announced: z.string().nullable(),
   alias: z.string().nullable(),
-  status: z.enum(["connecting", "connected", "offline", "removed"]),
+  // `update`: the machine answers but the remote protocol versions do not meet; `update` says who must update (`client`:
+  // lophn on this computer, `host`: lophn on that machine). Null in every other status.
+  status: z.enum(["connecting", "connected", "offline", "update", "removed"]),
+  update: z.enum(["client", "host"]).nullable(),
   path: z.enum(["direct", "relay"]).nullable(),
   last_seen_at: z.string().nullable(),
 });
@@ -108,6 +111,8 @@ export type MachinePairReason =
   | "expired"
   | "closed"
   | "this_computer"
+  | "update_client"
+  | "update_host"
   | "unavailable";
 export type MachinePairReply =
   | { ok: true; machine: Id<"mch"> }

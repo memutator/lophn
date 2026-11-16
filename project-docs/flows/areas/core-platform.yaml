@@ -1745,7 +1745,7 @@ flows:
         observe: ["process:연결 닫힘"]
       - id: version-out-of-range
         code: conflict
-        when: "두 hello의 판 범위가 겹치지 않는다. core는 자기 hello를 보낸 뒤 닫는다. 양쪽의 오류 details.update가 client(붙는 쪽을 올려라) 또는 host(core를 올려라)다"
+        when: "두 hello의 판 범위가 겹치지 않는다. core는 자기 hello를 보낸 뒤 닫는다. 양쪽의 오류 details.update가 client(붙는 쪽을 올려라) 또는 host(core를 올려라)다. 붙는 쪽 오류의 details.name은 core hello의 기계 이름이다. 붙는 쪽 연결(remote-client)은 그 컴퓨터의 status를 offline 대신 update로 두고 누가 올릴지를 싣는다. 판이 맞아 붙을 때까지 같은 간격으로 다시 붙으며 그대로 둔다. 폰은 banner·잠긴 입력 칸·Computers 줄에 \"Update the lophn app on this phone to reach <이름>.\"(client)나 \"<이름> runs an older lophn. Update lophn on <이름>…\"(host)와 [Try again]을, pairing 중이면 pair-failed 화면에 같은 글을 보인다(code는 쓰이지 않아 올린 뒤 다시 쓸 수 있다). desktop은 기계 목록 status update(machines-list)와 그 창의 gate(machine-window-gate:update), pairing 오류(machines-pair:update)로 보인다"
         observe: ["log:remote protocol_version_out_of_range", "process:연결 닫힘"]
       - id: old-hello
         code: invalid_input

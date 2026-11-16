@@ -10,18 +10,9 @@ import {
   createConnection,
   dialWebSocket,
   type Link,
-  type LinkState,
+  linkStateOf,
   unpair,
 } from "../../../../remote-client/mod.ts";
-
-const STATUS = {
-  starting: "connecting",
-  ready: "connected",
-  stale: "offline",
-} as const satisfies Record<
-  ReturnType<Connection["current"]>["state"],
-  LinkState["status"]
->;
 
 export type LinkDeps = {
   random: RandomSource;
@@ -71,11 +62,7 @@ export function openLink(
   });
   return {
     data: connection,
-    state: () => ({
-      status: STATUS[connection.current().state],
-      path: connection.path(),
-      waiting: 0,
-    }),
+    state: () => linkStateOf(connection, 0),
     subscribe: (listener) => connection.subscribe(() => listener()),
     pause: () => connection.pause(),
     resume: () => connection.resume(),

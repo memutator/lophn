@@ -860,6 +860,7 @@ export function createSampleComputer(): SampleComputer<ComputerData> {
       data: sample,
       state: () => ({
         status: "connected",
+        update: null,
         path: "direct",
         waiting: sample.waiting.get().count,
       }),

@@ -55,6 +55,7 @@ export function useWindowMachine(): MachineItem | null {
       announcedName: null,
       alias: null,
       status: "connecting",
+      update: null,
       path: null,
       lastSeenAt: null,
     }

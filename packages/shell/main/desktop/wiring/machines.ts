@@ -59,6 +59,7 @@ const os: "linux" | "macos" | "windows" =
   OS[process.platform as keyof typeof OS] ?? "linux";
 
 function pairReason(failure: PairFailure): MachinePairReason {
+  if (failure.kind === "update") return `update_${failure.update}`;
   if (failure.kind !== "refused") return failure.kind;
   // An expired or already used code.
   return failure.code === "not_found" ? "expired" : "refused";

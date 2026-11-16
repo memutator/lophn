@@ -7,7 +7,15 @@ export type RootParams = {
   scan: undefined;
   pairing: { qr: RemotePairing };
   paired: { key: string };
-  "pair-failed": { why: "expired" | "unreachable"; qr: RemotePairing };
+  "pair-failed":
+    | { why: "expired" | "unreachable"; qr: RemotePairing }
+    // The computer answered but one side must update first; `name` is what it called itself.
+    | {
+        why: "update";
+        update: "client" | "host";
+        name: string;
+        qr: RemotePairing;
+      };
 };
 
 /** What a computer goes by before it is named: the first address it was paired on (as the computer store names it). */

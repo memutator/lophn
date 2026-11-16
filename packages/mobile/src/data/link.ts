@@ -13,7 +13,7 @@ import { createWaitingStore } from "../../../shell/renderer/desktop/connection/e
 import {
   type Connection,
   type Link,
-  type LinkState,
+  linkStateOf,
   unpair,
 } from "../../../remote-client/mod.ts";
 import { type Coding, codingOf } from "./coding.ts";
@@ -61,24 +61,11 @@ export function dataOf(
   };
 }
 
-const STATUS = {
-  starting: "connecting",
-  ready: "connected",
-  stale: "offline",
-} as const satisfies Record<
-  ReturnType<Connection["current"]>["state"],
-  LinkState["status"]
->;
-
 export function linkOf(connection: Connection): Link<ComputerData> {
   const { data, stop } = dataOf(connection);
   return {
     data,
-    state: () => ({
-      status: STATUS[connection.current().state],
-      path: connection.path(),
-      waiting: data.waiting.get().count,
-    }),
+    state: () => linkStateOf(connection, data.waiting.get().count),
     subscribe(listener) {
       const offState = connection.subscribe(listener);
       const offWaiting = data.waiting.subscribe(listener);

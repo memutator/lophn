@@ -9,6 +9,7 @@ export {
   createComputers,
   defaultName,
   type Link,
+  linkStateOf,
   type LinkState,
   type PairResult,
   type SampleComputer,
@@ -29,6 +30,8 @@ export {
   type Endpoint,
   type Opened,
   openFirst,
+  type Outdated,
+  type Update,
   type WatchConditions,
 } from "./connection.ts";
 export {

@@ -32,7 +32,12 @@ function harness(saved: Computer[]) {
   const saves: Computer[][] = [];
   const link = (record: { closed: boolean }): Link<null> => ({
     data: null,
-    state: () => ({ status: "connected", path: "direct", waiting: 0 }),
+    state: () => ({
+      status: "connected",
+      update: null,
+      path: "direct",
+      waiting: 0,
+    }),
     subscribe: () => () => {},
     pause() {},
     resume() {},

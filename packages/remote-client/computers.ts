@@ -2,7 +2,7 @@
 // shell main read it through `subscribe`/`get`. Where the list is saved is the caller's (`load`/`save`); the sample
 // computer (phone dev builds only) is kept in memory and never saved.
 import type { KeyPair, RemotePairing } from "../protocol/remote/client.ts";
-import type { Announced, Endpoint } from "./connection.ts";
+import type { Announced, Connection, Endpoint, Update } from "./connection.ts";
 import type { PairFailure } from "./pairing.ts";
 
 // A paired computer. `key` (the core's public key) is its identity on the wire; `machine` (the computer's `mch_` id) is
@@ -17,11 +17,19 @@ export type Computer = Endpoint & {
   announced?: string;
 };
 
-export type ComputerStatus = "connecting" | "connected" | "offline" | "revoked";
+// `update`: the computer answers but its protocol versions do not meet this app's; `update` on the item says who must update.
+export type ComputerStatus =
+  | "connecting"
+  | "connected"
+  | "offline"
+  | "update"
+  | "revoked";
 export type ComputerPath = "direct" | "relay";
 
 export interface LinkState {
   readonly status: Exclude<ComputerStatus, "revoked">;
+  // Who must update while status is `update`; null otherwise.
+  readonly update: Update | null;
   readonly path: ComputerPath | null;
   // Things waiting on the person on that computer (its Inbox count).
   readonly waiting: number;
@@ -47,6 +55,7 @@ export interface ComputerItem {
   readonly alias: string | null;
   readonly announced: string | null;
   readonly status: ComputerStatus;
+  readonly update: Update | null;
   readonly path: ComputerPath | null;
   readonly waiting: number;
   readonly sample: boolean;
@@ -110,6 +119,29 @@ export interface Computers<D> {
   resume(): void;
 }
 
+const STATUS = {
+  starting: "connecting",
+  ready: "connected",
+  stale: "offline",
+} as const satisfies Record<
+  ReturnType<Connection["current"]>["state"],
+  LinkState["status"]
+>;
+
+/** A connection's link state, as the phone's and the desktop's links show it. */
+export function linkStateOf(
+  connection: Connection,
+  waiting: number,
+): LinkState {
+  const update = connection.update();
+  return {
+    status: update === null ? STATUS[connection.current().state] : "update",
+    update,
+    path: connection.path(),
+    waiting,
+  };
+}
+
 /** The sample computer is only for phone dev builds started with `EXPO_PUBLIC_LOPHN_SAMPLE=1`. */
 export function sampleFor<D>(
   env: { dev: boolean; flag: string | undefined },
@@ -163,6 +195,7 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
         alias: computer.name ?? null,
         announced: computer.announced ?? null,
         status: computer.revoked ? "revoked" : (live?.status ?? "connecting"),
+        update: computer.revoked ? null : (live?.update ?? null),
         path: computer.revoked ? null : (live?.path ?? null),
         waiting: computer.revoked ? 0 : (live?.waiting ?? 0),
         sample: false,

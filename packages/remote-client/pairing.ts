@@ -6,7 +6,12 @@ import {
 } from "../protocol/remote/client.ts";
 import { devicesUnpair } from "../protocol/remote/routes.ts";
 import type { Computer } from "./computers.ts";
-import { type Client, type CoreSource, openFirst } from "./connection.ts";
+import {
+  type Client,
+  type CoreSource,
+  openFirst,
+  type Update,
+} from "./connection.ts";
 
 // The pairing text (the phone's QR, or pasted) is the JSON from the computer's `pairing/start`.
 export function parsePairingText(text: string): RemotePairing | undefined {
@@ -19,9 +24,12 @@ export function parsePairingText(text: string): RemotePairing | undefined {
 }
 
 // Why pairing failed. Screens say it in words; `refused` carries the core's error code (an expired or used code is
-// `not_found`); `this_computer` is a pairing text from the machine doing the pairing.
+// `not_found`); `this_computer` is a pairing text from the machine doing the pairing; `update` is a computer whose
+// protocol versions do not meet this app's, with who must update and the computer's name. No pair frame went out then, so
+// the same code works again after the update.
 export type PairFailure =
   | { kind: "unreachable" }
+  | { kind: "update"; update: Update; name: string }
   | { kind: "closed" }
   | { kind: "refused"; code: string }
   | { kind: "this_computer" };
@@ -46,6 +54,9 @@ export async function pair(
 > {
   const opened = await openFirst(qr, client);
   if (!opened) return { ok: false, failure: { kind: "unreachable" } };
+  if (!("channel" in opened)) {
+    return { ok: false, failure: { kind: "update", ...opened } };
+  }
   const { channel } = opened;
   const { machine } = channel.peer;
   if (client.self !== undefined && machine.id === client.self) {

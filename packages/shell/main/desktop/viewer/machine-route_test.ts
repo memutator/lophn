@@ -32,6 +32,7 @@ function readyConnection(sent: Sent[]): Connection {
     },
     watch: () => Promise.resolve(),
     path: () => "direct",
+    update: () => null,
     pause: () => {},
     resume: () => {},
     close: () => {},

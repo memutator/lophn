@@ -28,6 +28,7 @@ export function machineList(input: {
       announced: computer.announced ?? null,
       alias: computer.name ?? null,
       status: status === "revoked" ? "removed" : status,
+      update: item?.update ?? null,
       path: item?.path ?? null,
       last_seen_at: saved.seen[computer.machine] ?? null,
     });

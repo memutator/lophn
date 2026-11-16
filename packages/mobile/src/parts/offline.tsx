@@ -4,7 +4,7 @@ import { t } from "@lophn/i18n";
 import { Banner, Button } from "@lophn/ui-native";
 import { RefreshCw, WifiOff } from "lucide-react-native";
 import { View } from "react-native";
-import { useComputers, useCurrentComputer } from "../data/mod.ts";
+import { type ComputerItem, useComputers, useCurrentComputer } from "../data/mod.ts";
 
 /** How far what was last read fades while the computer is away; the kit's Row `dim` uses the same. */
 export const DIM = 0.45;
@@ -15,12 +15,26 @@ export function useLocked(): boolean {
   return computer !== null && computer.status !== "connected";
 }
 
+/** Who must update to reach the computer, as a sentence. The pairing screen says it too. */
+export function updateText(
+  update: NonNullable<ComputerItem["update"]>,
+  name: string,
+): string {
+  return t(
+    update === "client"
+      ? "machine-update.viewer.phone-client"
+      : "machine-update.viewer.phone-host",
+    { name },
+  );
+}
+
 /** What a message box says instead of its placeholder while the computer is away (it is locked then); null when online. */
 export function useUnreachable(): string | null {
   const computer = useCurrentComputer();
-  return computer === null || computer.status === "connected"
-    ? null
-    : t("mobile.start.heading.unreachable", { name: computer.name });
+  if (computer === null || computer.status === "connected") return null;
+  return computer.update === null
+    ? t("mobile.start.heading.unreachable", { name: computer.name })
+    : updateText(computer.update, computer.name);
 }
 
 /**
@@ -31,7 +45,7 @@ export function OfflineBanner({ note }: { note: string }) {
   const computer = useCurrentComputer();
   const { retry } = useComputers();
   if (computer === null || computer.status === "connected") return null;
-  const { status, name } = computer;
+  const { status, name, update } = computer;
   return (
     <View style={{ paddingBottom: 8 }}>
       <Banner
@@ -39,7 +53,9 @@ export function OfflineBanner({ note }: { note: string }) {
         title={
           status === "revoked"
             ? t("mobile.computer.status.revoked")
-            : t(
+            : update !== null
+              ? updateText(update, name)
+              : t(
                 status === "connecting"
                   ? "mobile.offline.title-connecting"
                   : "mobile.offline.title",
@@ -47,7 +63,7 @@ export function OfflineBanner({ note }: { note: string }) {
               )
         }
         action={
-          status === "offline" ? (
+          status === "offline" || status === "update" ? (
             <Button size="sm" icon={RefreshCw} onPress={retry}>
               {t("common.button.retry")}
             </Button>

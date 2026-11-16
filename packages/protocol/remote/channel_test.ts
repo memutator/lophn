@@ -422,7 +422,7 @@ test("판이 범위 밖이면 core는 자기 hello를 보낸 뒤 닫고, 양쪽 
     await settle();
     assert.deepEqual(phone, {
       ok: false,
-      error: { ...outOfRange, details: { update } },
+      error: { ...outOfRange, details: { update, name: machine.name } },
     });
     assert.equal(core.length, 1);
     assert.equal(w.closed.phone, true);

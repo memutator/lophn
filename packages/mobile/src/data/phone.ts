@@ -125,7 +125,9 @@ export function callOnce(
         }),
       )
       .then((opened) => {
-        if (!opened) return finish(unavailable("not connected"));
+        if (!opened || !("channel" in opened)) {
+          return finish(unavailable("not connected"));
+        }
         channel = opened.channel;
         if (done) return channel.close();
         opened.channel.onClose(() => finish(unavailable("connection closed")));

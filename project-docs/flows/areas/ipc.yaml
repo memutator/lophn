@@ -368,7 +368,7 @@ flows:
     steps:
       - "core가 처음 붙으면 shell main이 machine/status로 이 기계의 id와 이름을 받는다. 그 전 목록은 state starting이다"
       - "<data root>/shell/viewer/의 key.json·machines.json을 연다. 적힌 machine이 이 기계가 아니면 둘 다 지우고 새 key와 빈 목록으로 시작한다(복제된 data root). 못 읽으면 덮지 않고 state unreadable이다"
-      - "짝지은 기계마다 연결 하나를 열어 앱이 도는 동안 든다(꺼진 기계는 backoff로 다시 붙는다). 연결 상태가 status·path가 되고, 연결되거나 끊길 때 seen에 그때를 적는다"
+      - "짝지은 기계마다 연결 하나를 열어 앱이 도는 동안 든다(꺼진 기계는 backoff로 다시 붙는다). 연결 상태가 status·path가 되고, 연결되거나 끊길 때 seen에 그때를 적는다. 판 범위가 겹치지 않으면 status update와 update(client: 이 컴퓨터, host: 그 기계)다"
       - "목록(이 기계, 기계마다 보이는 이름·알린 이름·별명·status·path·last_seen_at, start, last)이 바뀌면 이 컴퓨터의 창과 다른 기계의 창에 shell:machines-changed로 통째로 민다"
       - "shell:machines-list는 sender가 desktop 창 본문인지 보고(ipc-caller-guard) 지금 목록을 돌려준다"
     outcomes:
@@ -412,6 +412,9 @@ flows:
         observe: [response]
       - id: unreachable
         when: "어느 주소나 relay로도 handshake를 마치지 못했다"
+        observe: [response]
+      - id: update
+        when: "그 기계가 답했지만 remote protocol 판 범위가 겹치지 않는다. reason update_client(이 컴퓨터의 lophn을 올려라)나 update_host(그 기계의 lophn을 올려라)다. pair frame은 가지 않았다"
         observe: [response]
       - id: this-computer
         when: "core hello의 machine id가 이 기계의 것이다(자기 자신의 pairing text)"

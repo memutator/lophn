@@ -2627,7 +2627,7 @@ flows:
       - packages/shell/renderer/desktop/machines/machine-gate.tsx
       - packages/shell/renderer/desktop/connection/connection.tsx
     steps:
-      - "한 번도 ready가 아니면 HomeGate 자리에 기계 gate가 선다: connecting은 \"Connecting to <이름>…\", offline은 \"<이름> is offline\"과 마지막으로 본 때, [Try again]·[This computer]"
+      - "한 번도 ready가 아니면 HomeGate 자리에 기계 gate가 선다: connecting은 \"Connecting to <이름>…\", offline은 \"<이름> is offline\"과 마지막으로 본 때, update는 누가 올릴지(\"Update lophn on this computer…\" 또는 \"Update lophn on <이름>…\"), [Try again]·[This computer]. 기계 고르기와 Settings의 줄도 같은 status를 보인다"
       - "[Try again]은 platform/status를 한 번 불러 main이 그 기계의 연결을 다시 붙이게 한다. [This computer]는 이 컴퓨터의 창을 열거나 앞으로 가져온다"
       - "한 번 ready가 된 뒤의 끊김은 마지막 화면을 그대로 두고 Home 위에 끊김 한 줄(ConnectionNotice)이다. 다시 붙으면 저절로 사라진다"
       - "기계 목록의 status가 removed가 되면 언제든 지금 화면 대신 removed gate(\"<이름> removed this desktop…\"과 [This computer])다"
@@ -2637,6 +2637,9 @@ flows:
         observe: ["screen:shell-machine-gate-offline"]
       - id: offline
         when: "그 기계가 꺼져 있다. 창은 막히지 않는다"
+        observe: ["screen:shell-machine-gate-offline"]
+      - id: update
+        when: "그 기계와 remote protocol 판 범위가 겹치지 않는다(core-platform remote-connection:version-out-of-range). 창은 막히지 않는다"
         observe: ["screen:shell-machine-gate-offline"]
       - id: removed
         when: "그 기계에서 이 desktop을 Unpair했다"

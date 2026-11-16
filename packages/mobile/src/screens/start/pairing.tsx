@@ -14,6 +14,7 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import {
   Bell,
   Check,
+  CircleArrowUp,
   ClockAlert,
   Monitor,
   QrCode,
@@ -25,6 +26,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Animated, Easing, View } from "react-native";
 import { nameOf, type RootParams } from "../../app/root-params.ts";
 import { useComputers } from "../../data/mod.ts";
+import { updateText } from "../../parts/offline.tsx";
 import { usePush } from "../../push/provider.tsx";
 import { EnterCodeSheet } from "./enter-code.tsx";
 import { Center, Disc, Foot, Hero, Lead } from "./parts.tsx";
@@ -146,6 +148,13 @@ export function PairingScreen({
     void add(qr).then((failure) => {
       if (!live) return;
       if (failure === undefined) setPaired(true);
+      else if (failure.kind === "update")
+        navigation.replace("pair-failed", {
+          why: "update",
+          update: failure.update,
+          name: failure.name,
+          qr,
+        });
       else
         navigation.replace("pair-failed", {
           // The core answers a wrong, used or expired code with unauthorized (core/remote/host.ts).
@@ -334,14 +343,23 @@ export function PairFailedScreen({
   navigation,
   route,
 }: NativeStackScreenProps<RootParams, "pair-failed">) {
-  const { why, qr } = route.params;
+  const params = route.params;
+  const { why, qr } = params;
   const [entering, setEntering] = useState(false);
-  if (why === "unreachable") {
+  if (why === "unreachable" || why === "update") {
     return (
       <Failed
-        icon={Unplug}
-        title={t("mobile.start.heading.unreachable", { name: nameOf(qr) })}
-        text={t("mobile.start.intro.unreachable")}
+        icon={why === "update" ? CircleArrowUp : Unplug}
+        title={
+          why === "update"
+            ? updateText(params.update, params.name)
+            : t("mobile.start.heading.unreachable", { name: nameOf(qr) })
+        }
+        text={
+          why === "update"
+            ? t("machine-update.viewer.pair-note")
+            : t("mobile.start.intro.unreachable")
+        }
         primary={
           <Button
             variant="primary"

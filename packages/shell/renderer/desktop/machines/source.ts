@@ -3,7 +3,12 @@ import type { SourceResult } from "../../source-result.ts";
 
 export type { SourceResult };
 
-export type MachineStatus = "connecting" | "connected" | "offline" | "removed";
+export type MachineStatus =
+  | "connecting"
+  | "connected"
+  | "offline"
+  | "update"
+  | "removed";
 
 /** 짝지은 기계 하나. */
 export interface MachineItem {
@@ -15,6 +20,8 @@ export interface MachineItem {
   /** 사람이 붙인 별명. 없으면 null이다. */
   readonly alias: string | null;
   readonly status: MachineStatus;
+  /** status가 update일 때 올려야 하는 쪽: client는 이 컴퓨터의 lophn, host는 그 기계의 lophn. 그 밖에는 null이다. */
+  readonly update: "client" | "host" | null;
   /** 연결된 길. 연결되지 않았으면 null이다. */
   readonly path: "direct" | "relay" | null;
   /** 마지막으로 본 때(ISO). 한 번도 못 봤으면 null이다. */
@@ -44,6 +51,8 @@ export type PairOutcome =
         | "expired"
         | "closed"
         | "this_computer"
+        | "update_client"
+        | "update_host"
         | "unavailable";
     };
 

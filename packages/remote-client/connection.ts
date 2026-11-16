@@ -1,6 +1,6 @@
 // The client side of a remote connection, shared by the phone app and the desktop shell main. Metro reads this source
 // for the phone, so it imports only protocol and base by relative path: no `node:`, React Native or zod.
-import type { RandomSource } from "../base/mod.ts";
+import type { LophnError, RandomSource } from "../base/mod.ts";
 import type { Id } from "../protocol/base/ids.ts";
 import { eventConditionSchema } from "../protocol/events/bus.ts";
 import {
@@ -62,6 +62,9 @@ export type ConnectionPath = "direct" | "relay";
 export type Connection = CoreSource & {
   // Path of the open channel; null while not connected.
   path(): ConnectionPath | null;
+  // Who must update when the last attempt met the computer but the protocol versions did not meet. Kept through later
+  // attempts that do not reach it, so the person keeps seeing what to do; cleared when a channel opens.
+  update(): Update | null;
   // App went to the background: stop retrying. The open socket is left to the OS.
   pause(): void;
   // App came back: connect now if not connected.
@@ -105,12 +108,27 @@ const PROBE_MS = 3000;
 
 export type Opened = { channel: RemoteClientChannel; path: ConnectionPath };
 
+// Which side must update when the two remote protocol ranges do not meet: `client` is this app, `host` is lophn on the
+// computer (named `name` in its hello). From the channel's `conflict` details.
+export type Update = "client" | "host";
+export type Outdated = { update: Update; name: string };
+
+function outdatedOf(error: LophnError): Outdated | undefined {
+  const details = error.details;
+  if (error.code !== "conflict" || details === undefined) return undefined;
+  const { update, name } = details;
+  return (update === "client" || update === "host") && typeof name === "string"
+    ? { update, name }
+    : undefined;
+}
+
 // Dials every address and the relay at once and keeps the first that finishes the handshake; the rest are closed.
-// The relay only passes bytes, so the Noise handshake is the same on every path.
+// The relay only passes bytes, so the Noise handshake is the same on every path. When none opens and one met the computer
+// but the protocol versions did not meet, says who must update instead.
 export function openFirst(
   endpoint: Endpoint,
   client: Client,
-): Promise<Opened | undefined> {
+): Promise<Opened | Outdated | undefined> {
   const remoteStatic = remoteKeyBytes(endpoint.key);
   const urls: { url: string; path: ConnectionPath }[] = endpoint.addresses.map(
     (address) => ({
@@ -137,8 +155,11 @@ export function openFirst(
       machine: endpoint.machine,
       random: client.random,
     });
-    return channel.ok ? channel.value : undefined;
+    if (channel.ok) return channel.value;
+    outdated ??= outdatedOf(channel.error);
+    return undefined;
   };
+  let outdated: Outdated | undefined;
   return new Promise((resolve) => {
     let left = urls.length;
     let won = false;
@@ -150,7 +171,7 @@ export function openFirst(
           resolve({ channel, path });
         } else {
           channel?.close();
-          if (left === 0 && !won) resolve(undefined);
+          if (left === 0 && !won) resolve(outdated);
         }
       });
     }
@@ -177,6 +198,7 @@ export function createConnection(
   let state: ConnectionState = { state: "starting", confirmedAt: null };
   let channel: RemoteClientChannel | undefined;
   let path: ConnectionPath | null = null;
+  let update: Update | null = null;
   let connecting = false;
   let active = true;
   let stopped = false;
@@ -219,11 +241,13 @@ export function createConnection(
     connecting = true;
     const opened = await openFirst({ ...deps.endpoint, machine }, deps);
     connecting = false;
-    if (!opened) {
+    if (!opened || !("channel" in opened)) {
+      if (opened) update = opened.update;
       setState({ state: "stale", confirmedAt: state.confirmedAt });
       return retry();
     }
     if (stopped) return opened.channel.close();
+    update = null;
     const { machine: peer } = opened.channel.peer;
     machine = peer.id;
     deps.onPeer?.(peer);
@@ -339,6 +363,7 @@ export function createConnection(
     },
     current: () => state,
     path: () => path,
+    update: () => update,
     call(input) {
       if (pending.size < IN_FLIGHT) return send(input);
       return new Promise((resolve) => queued.push({ input, resolve }));

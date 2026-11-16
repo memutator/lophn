@@ -1,5 +1,6 @@
 // 다른 기계 창이 아직 한 번도 붙지 않았거나 그 기계가 이 desktop을 지웠을 때 창 전체 자리에 서는 화면. 한 번 붙은 뒤의 끊김은
-// 마지막 화면 위의 한 줄(ConnectionNotice)이라 여기서 그리지 않는다. 꺼진 기계는 창을 막지 않고 이 컴퓨터로 가는 길을 준다.
+// 마지막 화면 위의 한 줄(ConnectionNotice)이라 여기서 그리지 않는다. 꺼진 기계와 판이 맞지 않는 기계(어느 쪽 lophn을 올릴지
+// 말한다)는 창을 막지 않고 이 컴퓨터로 가는 길을 준다.
 import { formatRelativeTime, t } from "@lophn/i18n";
 import { Shimmer } from "@lophn/ui/feedback";
 import { Button } from "@lophn/ui/primitives";
@@ -48,10 +49,16 @@ export function MachineGate({
           <p className={styles.title}>{t("machines.gate.removed", { name })}</p>
           <div className={styles.actions}>{thisButton}</div>
         </>
-      ) : machine.status === "offline" ? (
+      ) : machine.status === "offline" || machine.status === "update" ? (
         <>
-          <p className={styles.title}>{t("machines.gate.offline", { name })}</p>
-          {seen === null ? null : (
+          <p className={styles.title}>
+            {machine.status === "offline"
+              ? t("machines.gate.offline", { name })
+              : machine.update === "client"
+                ? t("machine-update.viewer.desktop-client", { name })
+                : t("machine-update.viewer.desktop-host", { name })}
+          </p>
+          {seen === null || machine.status === "update" ? null : (
             <p className={styles.help}>
               {t("machines.status.last-seen", {
                 time: formatRelativeTime(new Date(seen), new Date()),

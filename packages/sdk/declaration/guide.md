@@ -23,7 +23,7 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
 ## 선언의 칸
 
 `name`, `description`, `screens`, `operations`, `commands`, `permissions`,
-`app_connections`, `sdk_dependencies`와 선택 칸 `icon`, `skills`, `keys`, `events`, `subscriptions`, `widgets`, `runs_on`만 있다. 알 수 없는 칸은 거절한다.
+`app_connections`, `sdk_dependencies`와 선택 칸 `icon`, `skills`, `keys`, `events`, `subscriptions`, `widgets`, `runs_on`, `sync_to`만 있다. 알 수 없는 칸은 거절한다.
 
 - `screens` — 화면 목록이다. 항목은 `{key, label, path, places, params?, tray?}`다. `places`는
   화면을 열 수 있는 자리이고 비지 않고 겹치지 않는다.
@@ -115,6 +115,13 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   폰에서 도는 backend는 text id(`newId()`)를 쓰고, `node:` import·trigger·정수 PK·PK 밖의 UNIQUE와 CHECK를 쓰지 못하며
   (release 준비가 거절한다), 컴퓨터 전용 일(network, secret, 알림, event 발행, agent)은 `external` operation에 둔다.
   `external`은 컴퓨터에 닿지 않으면 `unavailable`이다. 규칙 전부는 `design-app` skill의 bundled file `phone-apps.md`("Apps that run on the phone")다.
+- `sync_to` — 이 앱의 data를 어느 destination으로 내보내는가. destination 이름 하나다(`"personal"`).
+  소문자로 시작하고 소문자·숫자·`-`로 32자까지다. 칸이 없으면 data를 내보내지 않고, 칸이 없는 옛 선언의 hash는 그대로다.
+  값은 이름뿐이다: 이름이 가리키는 폴더 경로는 사람이 기계마다 따로 정하는 설정이라 같은 선언이 어느 기계에서나 맞고,
+  이 기계에 그 이름의 destination이 없으면 이 기계는 그 앱의 data를 내보내지도 읽지도 않는다. 바깥 도구가 그 폴더를
+  다른 기계로 옮긴다. `["phone"]`인 앱은 쓰지 못한다(폰의 data는 컴퓨터를 거쳐서만 나가는데 그 앱은 컴퓨터 사본이 없다).
+  `sync_to`가 있는 앱은 컴퓨터에서 sync 앱이라 `runs_on`에 phone이 있는 앱과 같은 schema 규칙(text id, 정수 PK·
+  AUTOINCREMENT·trigger·PK 밖의 UNIQUE와 CHECK 없음)을 release 준비가 보고, `@lophn/cap-store` 2.0.0 이상을 고정해야 한다.
 - `operations` — 앱 안의 operation 목록이다. 화면(`lophnApp.callOperation`)과 앱
   자신이 쓰는 저수준 동작이고, agent·다른 앱·job·flow는 부르지 못한다(core가
   막는다). 항목은 `{name, title, effect}`다. `title`은 화면 `OperationButton`이
@@ -176,7 +183,7 @@ const declaration = defineApp({
   commands: [],
   permissions: [],
   app_connections: [],
-  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.8.0" }],
+  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.9.0" }],
 });
 
 const result = validateDeclaration(declaration);

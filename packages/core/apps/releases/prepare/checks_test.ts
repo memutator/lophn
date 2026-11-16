@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { test } from "node:test";
 import { sha256Hex } from "../../../../base/mod.ts";
 import type { DataChange } from "../../../../protocol/apps/mod.ts";
-import { checkMigration } from "./checks.ts";
+import { checkMigration, syncSdkFloorProblem } from "./checks.ts";
 
 const NOTES = "CREATE TABLE notes (id INTEGER PRIMARY KEY, body TEXT NOT NULL)";
 
@@ -14,6 +14,7 @@ async function migrationOk(
   dataSchema: number,
   previousSchema: number | null,
   runsOn: string[] = ["computer"],
+  syncTo?: string,
 ) {
   // mkdtemp의 prefix는 구분자로 끝나야 임시 폴더가 tmpdir 안에 생긴다(join은 끝 구분자를 지운다).
   const root = await mkdtemp(`${tmpdir()}/`);
@@ -22,7 +23,10 @@ async function migrationOk(
     await mkdir(`${root}/migrations`);
     await writeFile(
       `${root}/declaration.json`,
-      JSON.stringify({ runs_on: runsOn }),
+      JSON.stringify({
+        runs_on: runsOn,
+        ...(syncTo === undefined ? {} : { sync_to: syncTo }),
+      }),
     );
     const dataChanges: DataChange[] = [];
     for (const [name, sql] of Object.entries(steps)) {
@@ -94,7 +98,7 @@ test("migration 단계가 실패하거나 schema에 닿지 못하는 bundle은 m
 });
 
 // 폰에서도 도는 앱의 schema는 두 기기가 만든 행이 겹치지 않게 text key만 쓰고 trigger가 없어야 한다. 같은 SQL이 컴퓨터에서만 도는 앱에는 괜찮다.
-test("runs_on에 phone이 있는 앱은 정수 PK, AUTOINCREMENT, trigger가 있으면 migration 검사에서 떨어지고 phone이 없는 앱은 통과한다", async () => {
+test("runs_on에 phone이 있거나 sync_to가 있는 앱은 정수 PK, AUTOINCREMENT, trigger가 있으면 migration 검사에서 떨어지고 phone이 없는 앱은 통과한다", async () => {
   const cases: [string, string, string][] = [
     ["정수 PK", "CREATE TABLE a (id INTEGER PRIMARY KEY, b TEXT)", "INTEGER"],
     [
@@ -115,7 +119,26 @@ test("runs_on에 phone이 있는 앱은 정수 PK, AUTOINCREMENT, trigger가 있
     ]);
     assert.ok(!phone.ok && phone.reason.includes(reason), label);
     assert.ok((await migrationOk({ "0-1": sql }, 1, null)).ok, label);
+    // sync_to만 있는 앱도 같은 규칙이다: 두 컴퓨터가 같은 정수 id를 만들면 행을 잃는다.
+    const folder = await migrationOk(
+      { "0-1": sql },
+      1,
+      null,
+      ["computer"],
+      "personal",
+    );
+    assert.ok(!folder.ok && folder.reason.includes(reason), label);
   }
   const text = "CREATE TABLE a (id TEXT PRIMARY KEY, b TEXT)";
   assert.ok((await migrationOk({ "0-1": text }, 1, null, ["phone"])).ok);
+});
+
+test("sync_to만 있는 앱은 cap-store 2.0.0 하한을 걸어야 하고 cap-tool은 요구하지 않는다", () => {
+  const pin = (version: string) => ({
+    sync_to: "personal",
+    sdk_dependencies: [{ name: "@lophn/cap-store", version }],
+  });
+  assert.ok(syncSdkFloorProblem(pin("1.9.0"))?.includes("sync_to"));
+  assert.equal(syncSdkFloorProblem(pin("2.0.0")), null);
+  assert.equal(syncSdkFloorProblem({ sdk_dependencies: [] }), null);
 });

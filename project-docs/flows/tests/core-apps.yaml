@@ -162,7 +162,7 @@ files:
 
   - path: packages/core/apps/releases/prepare/checks_test.ts
     covers: [release-prepare:failed-migration]
-    note: "checkMigration: migration 단계 실패, PRIMARY KEY 없는 표, 빈 DB에서 닿지 못함, active release schema가 길 위에 없음, runs_on에 phone이 있는 앱의 정수 PK·AUTOINCREMENT·trigger를 떨어뜨리고 phone이 없는 앱은 같은 SQL을 통과시킴(release-prepare failed-migration의 조건). release-prepare:failed-migration 판정을 단정"
+    note: "checkMigration: migration 단계 실패, PRIMARY KEY 없는 표, 빈 DB에서 닿지 못함, active release schema가 길 위에 없음, runs_on에 phone이 있거나 sync_to가 있는 앱의 정수 PK·AUTOINCREMENT·trigger를 떨어뜨리고 둘 다 없는 앱은 같은 SQL을 통과시킴, sync_to만 있는 앱의 SDK 하한은 cap-store 2.0.0 하나(release-prepare failed-migration의 조건). release-prepare:failed-migration 판정을 단정"
 
   - path: packages/core/apps/releases/public-tools_test.ts
     covers: []

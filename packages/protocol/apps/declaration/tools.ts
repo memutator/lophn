@@ -14,6 +14,7 @@ import {
   type ScreenDeclaration,
   type SubscriptionDeclaration,
   subscriptionHandlerName,
+  SYNC_TO_PATTERN,
   type Place,
   type ToolEffect,
   type TraySize,
@@ -158,6 +159,25 @@ export function validateRunsOn(
     );
   }
   return { ok: true, value: [...form] };
+}
+
+// sync_to의 모양(destination 이름)과 runs_on과의 짝. ["phone"] 앱은 컴퓨터 사본이 없어서 폴더로 보낼 data가 없다.
+export function validateSyncTo(
+  syncTo: unknown,
+  runsOn: RunsOn | undefined,
+): ValidationResult<string | undefined> {
+  if (syncTo === undefined) return { ok: true, value: undefined };
+  if (typeof syncTo !== "string" || !SYNC_TO_PATTERN.test(syncTo)) {
+    return invalid(
+      "sync_to must be a destination name: lowercase letters, digits and -, starting with a letter, up to 32",
+    );
+  }
+  if (runsOn?.length === 1 && runsOn[0] === "phone") {
+    return invalid(
+      'runs_on ["phone"]: sync_to has nothing to send; a phone\'s data reaches a folder only through a computer',
+    );
+  }
+  return { ok: true, value: syncTo };
 }
 
 export function validateLayers(

@@ -321,8 +321,8 @@ test("phone.use의 scope가 {capability} 하나가 아니거나 모르는 capabi
   assert.deepStrictEqual(empty.value, plain.value);
 });
 
-// runs_on은 앱 backend가 어디서 도는지를 정하는 유일한 칸이다. 칸이 없는 옛 선언의 hash는 그대로다.
-test("runs_on이 정규 꼴이 아니거나 폰 화면 없이 phone이거나 ['phone']에 돌릴 곳 없는 것이 있으면 거절한다", () => {
+// runs_on은 앱 backend가 어디서 도는지를 정하는 유일한 칸이다. 칸이 없는 옛 선언(sync_to 포함)의 hash는 그대로다.
+test("runs_on이 정규 꼴이 아니거나 폰 화면 없이 phone이거나 ['phone']에 돌릴 곳 없는 것이 있고, sync_to가 이름 꼴이 아니거나 ['phone']과 같이 있으면 거절한다", () => {
   const phoneScreen = {
     key: "home",
     label: "Home",
@@ -339,6 +339,14 @@ test("runs_on이 정규 꼴이 아니거나 폰 화면 없이 phone이거나 ['p
     ["other order", { runs_on: ["phone", "computer"] }],
     ["unknown", { runs_on: ["cloud"] }],
     ["not an array", { runs_on: "phone" }],
+    ["sync_to not a name", { sync_to: "Personal" }],
+    ["sync_to with a path", { sync_to: "/home/me/sync" }],
+    ["sync_to too long", { sync_to: `a${"b".repeat(32)}` }],
+    ["sync_to not a string", { sync_to: 1 }],
+    [
+      "sync_to on a phone-only app",
+      { sync_to: "personal", runs_on: phoneOnly },
+    ],
     [
       "phone without a phone screen",
       { runs_on: phoneOnly, screens: [tabScreen] },
@@ -388,4 +396,14 @@ test("runs_on이 정규 꼴이 아니거나 폰 화면 없이 phone이거나 ['p
   }
   const plain = validateDeclaration(base);
   assert.ok(plain.ok && !("runs_on" in plain.value));
+  assert.ok(plain.ok && !("sync_to" in plain.value));
+  for (const runsOn of [undefined, ["computer"], ["computer", "phone"]]) {
+    const synced = validateDeclaration({
+      ...base,
+      ...(runsOn === undefined ? {} : { runs_on: runsOn }),
+      sync_to: "personal",
+    });
+    assert.ok(synced.ok, JSON.stringify(runsOn));
+    assert.equal(synced.value.sync_to, "personal");
+  }
 });

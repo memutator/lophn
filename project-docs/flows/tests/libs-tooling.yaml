@@ -141,7 +141,7 @@ files:
 
   - path: packages/protocol/apps/declaration/validate_test.ts
     covers: [declaration-check:passed, declaration-check:errors]
-    note: 앱 선언 검증기. 이름 규칙, 중복, icon 경로·lucide 이름 거절과 정규형. events·subscriptions는 비면 칸이 없고 구독 handler 이름(on.<source>.<event>)이 operation·command와 겹치면 거절한다. 선언 ID와 입력 이름은 보존하고 CLI command·flag가 겹치면 slug 없이도 거절한다. widgets(4개까지, key 중복, screen이 phone 화면이 아님)와 phone.use의 scope(`{capability}` 하나, PHONE_CAPABILITIES 밖, 같은 capability 두 번)를 거절한다. runs_on은 정규 꼴 셋(computer, computer+phone, phone)만 받고 폰 화면 없는 phone, command·구독·external operation·widgets·폰 밖 자리가 있는 ["phone"]을 거절하며 칸이 없는 선언은 칸이 없다. 검사 결과 passed와 errors를 정한다
+    note: 앱 선언 검증기. 이름 규칙, 중복, icon 경로·lucide 이름 거절과 정규형. events·subscriptions는 비면 칸이 없고 구독 handler 이름(on.<source>.<event>)이 operation·command와 겹치면 거절한다. 선언 ID와 입력 이름은 보존하고 CLI command·flag가 겹치면 slug 없이도 거절한다. widgets(4개까지, key 중복, screen이 phone 화면이 아님)와 phone.use의 scope(`{capability}` 하나, PHONE_CAPABILITIES 밖, 같은 capability 두 번)를 거절한다. runs_on은 정규 꼴 셋(computer, computer+phone, phone)만 받고 폰 화면 없는 phone, command·구독·external operation·widgets·폰 밖 자리가 있는 ["phone"]을 거절하며 칸이 없는 선언은 칸이 없다. sync_to는 destination 이름 꼴만 받고 이름 꼴이 아니거나 ["phone"]과 같이 있으면 거절하며 칸이 없는 선언은 칸이 없다. 검사 결과 passed와 errors를 정한다
 
   - path: packages/protocol/apps/phone-screen_test.ts
     covers: []

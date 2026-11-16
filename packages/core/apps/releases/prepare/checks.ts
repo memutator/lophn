@@ -63,18 +63,32 @@ async function migrateOnce(
   return null;
 }
 
+// data가 기계 사이를 오가는 앱의 선언(평가한 JSON)이 어느 쪽인가. `runs_on`에 phone이면 폰과, `sync_to`가 있으면 폴더로 다른 컴퓨터와 맞춘다.
+function syncKinds(declaration: unknown): { phone: boolean; folder: boolean } {
+  const given = declaration as { runs_on?: unknown; sync_to?: unknown } | null;
+  return {
+    phone: Array.isArray(given?.runs_on) && given.runs_on.includes("phone"),
+    folder: typeof given?.sync_to === "string",
+  };
+}
+
 // 폰에서도 도는 앱이 걸어야 하는 SDK의 하한이다. 그 밑 판에는 폰 entry(`lophn-phone`)가 없다.
 const PHONE_SDK_FLOOR = {
   "@lophn/cap-store": "2.0.0",
   "@lophn/cap-tool": "2.2.0",
 } as const;
+// `sync_to`만 있는 앱은 컴퓨터에서 도는 sync 앱이라 변경을 뜨는 cap-store만 있으면 된다.
+const FOLDER_SDK_FLOOR = { "@lophn/cap-store": "2.0.0" } as const;
 
-// `runs_on`에 phone이 있는 앱의 선언(평가한 JSON)이 SDK 하한을 걸었는지 본다. 문제가 없으면 null이다.
-export function phoneSdkFloorProblem(declaration: unknown): string | null {
+// 선언이 SDK 하한을 걸었는지 본다. `runs_on`에 phone이 있거나 `sync_to`가 있는 앱만 본다. 문제가 없으면 null이다.
+export function syncSdkFloorProblem(declaration: unknown): string | null {
+  const kinds = syncKinds(declaration);
+  if (!kinds.phone && !kinds.folder) return null;
+  const floors = kinds.phone ? PHONE_SDK_FLOOR : FOLDER_SDK_FLOOR;
   const pinned = (declaration as { sdk_dependencies?: unknown } | null)
     ?.sdk_dependencies;
   const dependencies = Array.isArray(pinned) ? pinned : [];
-  for (const [name, floor] of Object.entries(PHONE_SDK_FLOOR)) {
+  for (const [name, floor] of Object.entries(floors)) {
     const found = dependencies.find(
       (dependency) => dependency?.name === name,
     ) as { version?: unknown } | undefined;
@@ -82,7 +96,9 @@ export function phoneSdkFloorProblem(declaration: unknown): string | null {
       typeof found?.version !== "string" ||
       compareVersions(found.version, floor) < 0
     ) {
-      return "an app that runs on the phone needs @lophn/cap-store 2.0.0 and @lophn/cap-tool 2.2.0 or later";
+      return kinds.phone
+        ? "an app that runs on the phone needs @lophn/cap-store 2.0.0 and @lophn/cap-tool 2.2.0 or later"
+        : "an app with sync_to needs @lophn/cap-store 2.0.0 or later";
     }
   }
   return null;
@@ -99,11 +115,11 @@ async function freshDatabase(
   return { path };
 }
 
-async function runsOnPhone(bundleRoot: string): Promise<boolean> {
-  const declaration = JSON.parse(
-    await readFile(`${bundleRoot}/declaration.json`, "utf8"),
-  ) as { runs_on?: string[] };
-  return declaration.runs_on?.includes("phone") ?? false;
+async function syncsData(bundleRoot: string): Promise<boolean> {
+  const kinds = syncKinds(
+    JSON.parse(await readFile(`${bundleRoot}/declaration.json`, "utf8")),
+  );
+  return kinds.phone || kinds.folder;
 }
 
 // 빈 DB에서 dataSchema까지, previousSchema가 있으면 그 schema의 DB에서 dataSchema까지 올라가는지 본다.
@@ -146,13 +162,16 @@ export async function checkMigration(input: {
     scripts,
   );
   if (emptyFailed !== null) return { ok: false, reason: emptyFailed };
-  // 폰에서도 도는 앱의 schema는 빈 DB에서 target까지 올린 이 DB에서 본다.
-  if (await runsOnPhone(input.bundleRoot)) {
+  // data가 기계 사이를 오가는 앱(runs_on phone이나 sync_to)의 schema는 빈 DB에서 target까지 올린 이 DB에서 본다.
+  if (await syncsData(input.bundleRoot)) {
     const db = new DatabaseSync(empty.path, { readOnly: true });
     try {
       const problems = phoneSchemaProblemsOfDatabase(db);
       if (problems.length > 0) {
-        return { ok: false, reason: problems.join(" ") };
+        return {
+          ok: false,
+          reason: `An app whose data syncs (runs_on phone or sync_to) must follow these schema rules. ${problems.join(" ")}`,
+        };
       }
     } finally {
       db.close();

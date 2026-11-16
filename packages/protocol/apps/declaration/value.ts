@@ -37,6 +37,7 @@ import {
   TOOL_NAME,
   validateLayers,
   validateRunsOn,
+  validateSyncTo,
 } from "./tools.ts";
 import { validateUses } from "./uses.ts";
 import { iconPath, permissionScope, scopeKey } from "./scope.ts";
@@ -412,6 +413,8 @@ export function validateDeclaration(
     widgets: widgets.value,
   });
   if (!runsOn.ok) return runsOn;
+  const syncTo = validateSyncTo(value.sync_to, runsOn.value);
+  if (!syncTo.ok) return syncTo;
 
   const permissions: PermissionRequirement[] = [];
   const kinds = new Set<PermissionKind>([
@@ -481,6 +484,7 @@ export function validateDeclaration(
       : {}),
     ...(widgets.value.length > 0 ? { widgets: widgets.value } : {}),
     ...(runsOn.value === undefined ? {} : { runs_on: runsOn.value }),
+    ...(syncTo.value === undefined ? {} : { sync_to: syncTo.value }),
     screens: sortBy(screens, (screen) => screen.key),
     operations: sortBy(operations, (operation) => operation.name),
     commands: sortBy(commands, (command) => command.name),

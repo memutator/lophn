@@ -233,6 +233,9 @@ export type AppDeclaration = {
   // 없어도 된다. 없으면 ["computer"]와 같고, 칸이 없는 옛 선언의 hash는 그대로다. 앱 하나의 backend가 어디서 도는지는
   // 이 칸 하나다. 폰 화면이 있다고 sync 앱이 되지 않는다(폰 화면이 있는 remote 앱이 말없이 바뀌면 안 된다).
   runs_on?: RunsOn;
+  // 없어도 된다. 없으면 이 앱의 data를 내보내지 않고, 칸이 없는 옛 선언의 hash는 그대로다. 값은 destination 이름뿐이다:
+  // 폴더 경로는 기계마다 달라서 선언에 두면 다른 기계에서 맞지 않는다. 경로는 기계마다의 설정이 이름에 묶는다.
+  sync_to?: string;
   screens: ScreenDeclaration[];
   // operation과 command의 이름은 합쳐 하나다. handler는 이름 하나로 등록한다.
   operations: OperationDeclaration[];
@@ -260,10 +263,15 @@ export const DECLARATION_KEYS = [
   "sdk_dependencies",
   "skills",
   "subscriptions",
+  "sync_to",
   "widgets",
 ] as const;
 
-// icon, skills, keys, events, subscriptions, widgets, runs_on은 칸이 없어도 된다.
+// destination 이름 꼴. protocol/folder의 destination 이름(folder-contract)과 같은 값이다. 그 폴더는 이 file들을
+// import하지 않아서 값을 두 곳에 두고 서로 가리킨다.
+export const SYNC_TO_PATTERN = /^[a-z][a-z0-9-]{0,31}$/;
+
+// icon, skills, keys, events, subscriptions, widgets, runs_on, sync_to는 칸이 없어도 된다.
 const OPTIONAL_KEYS: readonly string[] = [
   "icon",
   "skills",
@@ -272,6 +280,7 @@ const OPTIONAL_KEYS: readonly string[] = [
   "subscriptions",
   "widgets",
   "runs_on",
+  "sync_to",
 ];
 export const DECLARATION_REQUIRED_KEYS = DECLARATION_KEYS.filter(
   (key) => !OPTIONAL_KEYS.includes(key),

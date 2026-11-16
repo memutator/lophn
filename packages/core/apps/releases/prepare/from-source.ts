@@ -36,7 +36,7 @@ import { readModules, readSdkCopies } from "../bundle/modules.ts";
 import { runtimeEntry } from "../bundle/runtime-entry.ts";
 import { makeTreeWritable } from "../bundle/seal.ts";
 import { FIXED_UI_DEPENDENCIES } from "../ui-build/build.ts";
-import { phoneSdkFloorProblem } from "./checks.ts";
+import { syncSdkFloorProblem } from "./checks.ts";
 import { childEnvironment } from "./environment.ts";
 import {
   type PrepareDeps,
@@ -362,7 +362,7 @@ export async function prepareFromSource(
 
     const declared = parseDeclaration(evaluated.stdout);
     const phoneApp = runsOnPhone(declared);
-    const floor = phoneApp ? phoneSdkFloorProblem(declared) : null;
+    const floor = syncSdkFloorProblem(declared);
     if (floor !== null) return fail(floor);
 
     // 화면 build는 앱이 쓴 build script가 아니라 신뢰된 `ui-build/app-build.ts`가 한다. 앱 코드는 번들될

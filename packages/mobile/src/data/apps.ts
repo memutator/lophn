@@ -11,6 +11,7 @@ import {
 } from "../../../shell/renderer/desktop/connection/core-read.ts";
 import { forgetApps, forgetComputers } from "../apps/bundle.ts";
 import { bundleFiles } from "../apps/bundle-files.ts";
+import { disableRemovedComputers, reconcileShortcuts } from "../shortcuts/sync.ts";
 import { useComputers } from "./hooks.tsx";
 
 export type PhoneScreen = z.output<
@@ -83,10 +84,12 @@ export function usePhoneApps(): PhoneApps {
       value.computer,
       value.screens.map((one) => one.app),
     );
+    reconcileShortcuts(value.computer, computers.find((one) => one.key === value.computer)?.name ?? "", value.screens.map((one) => one.app));
   }, [value]);
   const keys = computers.map((one) => one.key).join("\n");
   useEffect(() => {
     if (ready) forgetComputers(bundleFiles(), keys.split("\n"));
+    if (ready) disableRemovedComputers(keys.split("\n"));
   }, [ready, keys]);
   return useMemo(
     () => ({

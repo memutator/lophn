@@ -1,6 +1,10 @@
-// Words the phone's home screen widgets show. The phone's TS makes them (the native widget only draws), so the keys are here
-// and not in Kotlin. Keys start with `mobile.widget.`.
+// Words the phone's home screen widgets and app icons show. The phone's TS makes them (the native side only draws), so the
+// keys are here and not in Kotlin. Keys start with `mobile.widget.` and `mobile.shortcut.`.
 export const mobileWidgets = {
+  "mobile.shortcut.app-removed": "This app was removed from {computer}",
+  "mobile.shortcut.computer-removed":
+    "This app's computer was removed from this phone",
+  "mobile.shortcut.menu.add": "Add to Home screen",
   "mobile.widget.computer-removed": "Computer removed",
   "mobile.widget.empty": "Nothing to show yet",
   "mobile.widget.gone": "This widget is no longer available",

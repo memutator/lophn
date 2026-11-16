@@ -18,6 +18,7 @@ import {
 } from "../../data/mod.ts";
 import { Face, LOPHN } from "../../parts/mod.ts";
 import { isPinSupported } from "../../../modules/lophn-widgets/index.ts";
+import { AddToHomeScreen, canAddToHomeScreen } from "../../shortcuts/row.tsx";
 import { useWidgetLists } from "../widgets/index.tsx";
 import { when } from "../workspace/common.tsx";
 
@@ -55,6 +56,8 @@ export function AppMenu({
     (one) => one.app === app.app,
   );
   const others = app.screens.filter((one) => one.screen !== screen);
+  const addWidget = host !== undefined && widgets.length > 0 && isPinSupported();
+  const addIcon = host !== undefined && open && canAddToHomeScreen(host, app.app);
   return (
     <Sheet
       open={open}
@@ -100,17 +103,16 @@ export function AppMenu({
           }
         />
       ))}
-      {host !== undefined && widgets.length > 0 && isPinSupported() && (
-        <>
-          <Divider spacing={6} />
-          <Row
-            lead={<Icon icon={LayoutGrid} />}
-            title={t("mobile.widget.menu.add")}
-            sub={widgets.map((one) => one.label).join(", ")}
-            onPress={() => go({ name: "widget-pick", app: { host, id: app.app } })}
-          />
-        </>
+      {(addWidget || addIcon) && <Divider spacing={6} />}
+      {addWidget && (
+        <Row
+          lead={<Icon icon={LayoutGrid} />}
+          title={t("mobile.widget.menu.add")}
+          sub={widgets.map((one) => one.label).join(", ")}
+          onPress={() => go({ name: "widget-pick", app: { host, id: app.app } })}
+        />
       )}
+      {addIcon && <AddToHomeScreen host={host} app={app} onAsked={onClose} />}
     </Sheet>
   );
 }

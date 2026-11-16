@@ -1,4 +1,4 @@
-// 폰이 부르는 push·pull. 컴퓨터가 hub다: 폰에서 온 변경은 차례로 컴퓨터 앱 DB에 적용되며 invocation이 되고, 모든
+// 폰이 부르는 push·pull. 폰에게는 컴퓨터가 hub다: 폰에서 온 변경은 차례로 컴퓨터 앱 DB에 적용되며 invocation이 되고, 모든
 // 변경(다른 기계에서 폴더로 온 것도)은 sync log에 순서대로 남아 다른 기기가 pull한다. core는 HLC를 비교하지 않고 순서를 seq로만 다룬다.
 import { Buffer } from "node:buffer";
 import { err, ok, type Result } from "../../../base/mod.ts";
@@ -23,7 +23,8 @@ export type AppSyncDeps = {
   log: SyncLog;
   phone: { apply(input: PhoneApply): Promise<Result<PhoneApplied>> };
   activeRelease(app: Id<"app">): Result<Id<"rel"> | null>;
-  isSync(app: string, release: string): boolean;
+  // 그 release의 선언이 `runs_on`에 phone을 가졌는가. `sync_to`만 있는 앱은 폰에 오지 않는다.
+  runsOnPhone(app: string, release: string): boolean;
 };
 
 /** 짝지은 기기의 자격(principal `device:<id>`)이면 그 기기 id. */
@@ -67,7 +68,7 @@ export function createAppSync(deps: AppSyncDeps) {
           details: { active_release: active.value },
         });
       }
-      if (!deps.isSync(app, active.value)) {
+      if (!deps.runsOnPhone(app, active.value)) {
         return err({
           code: "invalid_input",
           message: "the app does not run on the phone",

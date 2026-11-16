@@ -1,23 +1,35 @@
-// sync 앱(선언 `runs_on`에 phone)의 컴퓨터 쪽 일. 앱과 같은 cap-store 연결에서 돈다:
+// sync 앱(선언 `runs_on`에 phone이 있거나 `sync_to`가 있음)의 컴퓨터 쪽 일. 앱과 같은 cap-store 연결에서 돈다:
 // - 컴퓨터의 write는 data, changeset, clock 찍기를 한 transaction으로 commit한다(handler가 던져도 바뀐 것과 clock을 같이).
-// - 폰에서 온 변경 하나를 칸 단위 last-write-wins로 적용하고 실제로 바뀐 것(effective)을 session으로 뜬다.
-// - 폰이 처음 받을 snapshot을 `VACUUM INTO`로 뜬다.
-// - rewind 적용도 한 transaction 안에서 effective를 뜨고 새 clock을 찍는다.
+// - 폰이나 다른 기계에서 온 변경 묶음을 한 transaction에서 변경마다 칸 단위 last-write-wins로 적용하고 실제로 바뀐 것
+//   (effective)을 session으로 뜬다.
+// - 폰이 처음 받을 snapshot을 `VACUUM INTO`로 뜨고, 다른 기계의 snapshot을 row·칸 clock으로 합친다.
+// - rewind 적용과 held 변경 다시 적용도 한 transaction 안에서 effective를 뜨고 새 clock을 찍는다.
+// - core가 정한 clock보다 옛 흔적을 지운다.
 // 모두 runtime의 `exclusive` 문 안에서 부른다. 같은 연결의 session이 겹치면 한 changeset에 섞이기 때문이다.
+import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../../../base/result.ts";
 import type { AppDeclaration } from "../../../../protocol/apps/declaration/mod.ts";
 import {
   applyRemote,
+  type ApplyStats,
   type Clock,
+  dropTombstones,
   ensureSyncTables,
+  getState,
+  type HeldRow,
+  type IncomingChange,
+  maxHlc,
+  mergeSnapshot,
   openClock,
   stampLocal,
   setState,
   type SyncDb,
 } from "../../../../protocol/apps/sync/mod.ts";
+import { MERGE_HELD_MAX_BYTES } from "./limits.ts";
 import {
   type NodeDatabase,
   nodeSyncDb,
@@ -27,6 +39,14 @@ import { ident } from "../../../../protocol/apps/sync/sql.ts";
 /** 선언의 `runs_on`에 `"phone"`이 있으면 폰에도 도는 앱이다. 없으면 `["computer"]`와 같다. */
 export function runsOnPhone(declaration: AppDeclaration): boolean {
   return declaration.runs_on?.includes("phone") ?? false;
+}
+
+/**
+ * data를 다른 replica와 맞추는 앱인가: 폰에도 돌거나 폴더로 다른 기계에 보낸다(`sync_to`). 컴퓨터에서 sync 앱이다(clock
+ * 표, sync log).
+ */
+export function syncsData(declaration: AppDeclaration): boolean {
+  return runsOnPhone(declaration) || declaration.sync_to !== undefined;
 }
 
 // session 구간. runtime에서는 cap-store hook을 부르는 StoreAccess다. 바뀐 것이 없으면 null이다.
@@ -210,63 +230,86 @@ function constraintError(error: unknown): boolean {
   return typeof code === "number" && (code & 0xff) === 19;
 }
 
-export type PhoneApplied =
+export type ChangeApplied =
   | { status: "applied"; effective: Uint8Array | null }
-  | { status: "skipped"; message: string };
+  | { status: "skipped"; message: string }
+  | { status: "held" };
 
-/**
- * 폰에서 온 변경 하나를 받은 hlc 그대로 칸 단위 last-write-wins로 적용하고, 실제로 바뀐 것을 session으로 뜬다.
- * - 표나 칸이 이 DB와 맞지 않으면(다른 release의 변경) rollback하고 conflict, changeset이 깨졌으면 invalid_input.
- * - 제약(UNIQUE·CHECK·NOT NULL)에 걸리면 그 변경 하나를 rollback하고 skipped다. 맞추기가 같은 변경에 영영 막히지
- *   않게 한다.
- */
-export function applyPhoneChange(
-  sync: SyncStore,
-  change: { hlc: bigint; changeset: Uint8Array },
-): Result<PhoneApplied> {
-  const db = sync.db;
-  // SQLite는 transaction 안에서 foreign_keys를 바꾸지 못한다. 적용 중 cascade가 clock 없는 변경을 만들면 사본이 갈린다.
+// SQLite는 transaction 안에서 foreign_keys를 바꾸지 못한다. 적용 중 cascade가 clock 없는 변경을 만들면 사본이 갈린다.
+function foreignKeysOff<T>(db: SyncDb, work: () => T): T {
   const fk = Number(db.all("pragma foreign_keys")[0]?.["foreign_keys"] ?? 0);
   if (fk !== 0) db.exec("pragma foreign_keys = off");
   try {
-    db.exec("begin immediate");
-    let applied: Result<unknown>;
-    let effective: Uint8Array | null;
-    sync.record.begin();
-    try {
-      applied = applyRemote(db, [change], sync.clock);
-    } finally {
-      effective = sync.record.end();
-    }
-    if (!applied.ok) {
-      rollback(db);
-      return applied;
-    }
-    db.exec("commit");
-    return ok({ status: "applied", effective });
-  } catch (error) {
-    rollback(db);
-    if (constraintError(error)) {
-      return ok({ status: "skipped", message: errorMessage(error) });
-    }
-    throw error;
+    return work();
   } finally {
     if (fk !== 0) db.exec("pragma foreign_keys = on");
   }
 }
 
-export type RewindApplied =
+/**
+ * 폰이나 다른 기계에서 온 변경들을 받은 hlc 그대로 한 transaction에서 칸 단위 last-write-wins로 적용하고, 변경마다 실제로
+ * 바뀐 것을 session으로 뜬다. 변경마다 SAVEPOINT다.
+ * - 제약(UNIQUE·CHECK·NOT NULL)에 걸린 변경은 그것만 되돌리고 skipped다. 맞추기가 같은 변경에 영영 막히지 않게 한다.
+ * - 정리된 흔적과 안전하게 합칠 수 없는 변경은 적용하지 않고 held다(부르는 쪽이 bytes를 held 줄로 남긴다).
+ * - 표나 칸이 이 DB와 맞지 않는 변경(다른 release)이 하나라도 있으면 전부 rollback하고 conflict, changeset이 깨졌으면
+ *   invalid_input이다. 그 밖의 SQL 오류는 rollback하고 던진다.
+ */
+export function applyRemoteChanges(
+  sync: SyncStore,
+  changes: readonly IncomingChange[],
+): Result<ChangeApplied[]> {
+  const db = sync.db;
+  return foreignKeysOff(db, () => {
+    db.exec("begin immediate");
+    try {
+      const results: ChangeApplied[] = [];
+      for (const change of changes) {
+        db.exec("savepoint lophn_change");
+        let applied: Result<ApplyStats>;
+        sync.record.begin();
+        try {
+          applied = applyRemote(db, [change], sync.clock);
+        } catch (error) {
+          sync.record.end();
+          db.exec("rollback to lophn_change");
+          db.exec("release lophn_change");
+          if (!constraintError(error)) throw error;
+          results.push({ status: "skipped", message: errorMessage(error) });
+          continue;
+        }
+        const effective = sync.record.end();
+        if (!applied.ok) {
+          rollback(db);
+          return applied;
+        }
+        db.exec("release lophn_change");
+        results.push(
+          applied.value.held.length > 0
+            ? { status: "held" }
+            : { status: "applied", effective },
+        );
+      }
+      db.exec("commit");
+      return ok(results);
+    } catch (error) {
+      rollback(db);
+      throw error;
+    }
+  });
+}
+
+export type LocalApplied =
   | { ok: true; effective: Uint8Array | null; hlc: bigint | null }
   | { ok: false; message: string };
 
 /**
- * rewind의 뒤집은 changeset 적용(`apply`, cap-store의 SAVEPOINT 적용)을 바깥 transaction 하나로 감싸 effective를
- * 뜨고 새 clock으로 찍는다. 충돌이면 하나도 적용하지 않는다.
+ * core가 준 changeset의 적용(`apply`, cap-store의 SAVEPOINT 적용: rewind의 뒤집은 것, 사람이 다시 적용하는 held 변경)을
+ * 바깥 transaction 하나로 감싸 effective를 뜨고 이 기계의 새 clock으로 찍는다. 충돌이면 하나도 적용하지 않는다.
  */
-export function syncedRewind(
+export function applyAsLocalWrite(
   sync: SyncStore,
   apply: () => { ok: true } | { ok: false; message: string },
-): RewindApplied {
+): LocalApplied {
   sync.db.exec("begin immediate");
   try {
     sync.record.begin();
@@ -312,5 +355,109 @@ export function writeSnapshot(
   return ok({
     size: bytes.byteLength,
     sha256: createHash("sha256").update(bytes).digest("hex"),
+  });
+}
+
+export type SnapshotMerged = {
+  effective: Uint8Array | null;
+  deleted: number;
+  held: HeldRow[];
+};
+
+/**
+ * 다른 기계의 snapshot file(core가 풀어 둔 SQLite)을 읽기 전용으로 열어 한 transaction에서 row·칸 clock으로 합치고 실제로
+ * 바뀐 것을 session으로 뜬다. 모양이 다른 표가 있으면 아무것도 쓰지 않고 conflict다. 정리된 흔적과 부딪을 수 있는 source
+ * row는 적용하지 않고 `held`로 돌려준다. 그 합이 응답에 담기지 않을 만큼 크면 합치지 않는다(held를 잃는다).
+ * `absentDeletes`의 keep pk는 `lophn_sync_row.pk` bytes다.
+ */
+export function mergeSnapshotFile(
+  sync: SyncStore,
+  input: {
+    path: string;
+    absentDeletes?: {
+      below: bigint;
+      keep: readonly { table: string; pk: Uint8Array }[];
+    };
+  },
+): Result<SnapshotMerged> {
+  if (!isAbsolute(input.path) || !existsSync(input.path)) {
+    return err({
+      code: "invalid_input",
+      message: "snapshot path is not an absolute path to a file",
+    });
+  }
+  const keyOf = (table: string, pk: Uint8Array) =>
+    `${table}\0${Buffer.from(pk).toString("hex")}`;
+  const absent = input.absentDeletes;
+  const keep = new Set(absent?.keep.map((row) => keyOf(row.table, row.pk)));
+  const source = new DatabaseSync(input.path, { readOnly: true });
+  const db = sync.db;
+  try {
+    return foreignKeysOff(db, () => {
+      db.exec("begin immediate");
+      try {
+        let merged: ReturnType<typeof mergeSnapshot>;
+        let effective: Uint8Array | null;
+        sync.record.begin();
+        try {
+          merged = mergeSnapshot(
+            db,
+            nodeSyncDb(source),
+            sync.clock,
+            absent === undefined
+              ? {}
+              : {
+                  absentDeletes: {
+                    below: absent.below,
+                    keep: (table, pk) => keep.has(keyOf(table, pk)),
+                  },
+                },
+          );
+        } finally {
+          effective = sync.record.end();
+        }
+        if (!merged.ok) {
+          rollback(db);
+          return merged;
+        }
+        const held = merged.value.heldRows;
+        if (
+          held.reduce((sum, row) => sum + row.changeset.byteLength, 0) >
+          MERGE_HELD_MAX_BYTES
+        ) {
+          rollback(db);
+          return err({
+            code: "conflict",
+            message: "the snapshot has too many rows past the horizon to hold",
+          });
+        }
+        db.exec("commit");
+        return ok({ effective, deleted: merged.value.deleted, held });
+      } catch (error) {
+        rollback(db);
+        throw error;
+      }
+    });
+  } finally {
+    source.close();
+  }
+}
+
+/**
+ * clock이 `before`보다 작은 흔적을 지운다(경계는 core가 정한다). 지운 row 수, 올라간 horizon, 이 DB가 내거나 본 가장 큰
+ * clock을 돌려준다.
+ */
+export function cleanupTombstones(
+  sync: SyncStore,
+  before: bigint,
+): { dropped: number; horizon: bigint | null; maxHlc: bigint } {
+  return inTransaction(sync.db, () => {
+    const dropped = dropTombstones(sync.db, before);
+    const horizon = getState(sync.db, "horizon");
+    return {
+      dropped,
+      horizon: horizon === null ? null : BigInt(horizon),
+      maxHlc: maxHlc(sync.db),
+    };
   });
 }

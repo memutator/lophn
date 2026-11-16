@@ -15,10 +15,16 @@ import type {
   CallKind,
   ProcessApplyRequest,
   ProcessApplyResponse,
+  ProcessSnapshotMergeRequest,
+  ProcessSnapshotMergeResponse,
   ProcessSnapshotRequest,
   ProcessSnapshotResponse,
   ProcessSyncApplyRequest,
   ProcessSyncApplyResponse,
+  ProcessSyncCleanupRequest,
+  ProcessSyncCleanupResponse,
+  ProcessSyncReapplyRequest,
+  ProcessSyncReapplyResponse,
   ProcessCallRequest,
   ProcessCallResponse,
   Rewind,
@@ -148,16 +154,32 @@ export interface AppProcessLink {
     app: Id<"app">,
     request: ProcessApplyRequest,
   ): Promise<Result<ProcessApplyResponse>>;
-  /** sync 앱에 폰에서 온 변경 하나를 적용한다. 앱 process가 없거나 준비 전이면 `unavailable`이다. */
+  // 아래는 sync 앱의 DB 일이다. 앱 process가 없거나 준비 전이면 `unavailable`이다.
+  /** 폰이나 다른 기계에서 온 변경 묶음을 한 transaction으로 적용한다. */
   syncApply(
     app: Id<"app">,
     request: ProcessSyncApplyRequest,
   ): Promise<Result<ProcessSyncApplyResponse>>;
-  /** sync 앱 DB의 사본을 request.path에 쓴다. 앱 process가 없거나 준비 전이면 `unavailable`이다. */
+  /** sync 앱 DB의 사본을 request.path에 쓴다. */
   snapshot(
     app: Id<"app">,
     request: ProcessSnapshotRequest,
   ): Promise<Result<ProcessSnapshotResponse>>;
+  /** 다른 기계의 snapshot file을 한 transaction으로 합친다. */
+  snapshotMerge(
+    app: Id<"app">,
+    request: ProcessSnapshotMergeRequest,
+  ): Promise<Result<ProcessSnapshotMergeResponse>>;
+  /** core가 정한 clock보다 옛 흔적을 지운다. */
+  syncCleanup(
+    app: Id<"app">,
+    request: ProcessSyncCleanupRequest,
+  ): Promise<Result<ProcessSyncCleanupResponse>>;
+  /** held 변경을 이 기계의 새 write로 다시 적용한다. */
+  syncReapply(
+    app: Id<"app">,
+    request: ProcessSyncReapplyRequest,
+  ): Promise<Result<ProcessSyncReapplyResponse>>;
 }
 
 /**

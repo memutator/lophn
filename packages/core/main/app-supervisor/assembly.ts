@@ -12,7 +12,9 @@ import { createKnownSecretRegistry } from "../../../base/redaction/mod.ts";
 import {
   appCallTool,
   processApplyRequestSchema,
+  processSnapshotMergeRequestSchema,
   processSyncApplyRequestSchema,
+  processSyncReapplyRequestSchema,
   toolCallOutputSchema,
 } from "../../../protocol/apps/calls/mod.ts";
 import {
@@ -45,7 +47,10 @@ import {
   appendLogInputSchema,
   applyInputSchema,
   snapshotInputSchema,
+  snapshotMergeInputSchema,
   syncApplyInputSchema,
+  syncCleanupInputSchema,
+  syncReapplyInputSchema,
   blockInputSchema,
   callInputSchema,
   dataJobInputSchema,
@@ -287,6 +292,31 @@ function parse<T>(
   const parsed = schema.safeParse(payload);
   if (!parsed.success) throw new OpError("invalid_input", "invalid op input");
   return parsed.data;
+}
+
+// control frame에 담기지 않아 bytes stream으로 온 본문(JSON)을 읽는다.
+function parseBody<T>(
+  schema: {
+    safeParse(value: unknown): { success: true; data: T } | { success: false };
+  },
+  body: Uint8Array | undefined,
+): T {
+  if (body === undefined) throw new OpError("invalid_input", "body is missing");
+  let json: unknown;
+  try {
+    json = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body));
+  } catch {
+    throw new OpError("invalid_input", "body is not json");
+  }
+  return parse(schema, json);
+}
+
+// control frame에 담기지 않는 출력은 bytes stream으로 보낸다.
+function fitted(output: unknown): unknown {
+  const bytes = new TextEncoder().encode(JSON.stringify(output));
+  return bytes.length > CALL_RESPONSE_MAX_BYTES
+    ? new StreamedPayload(bytes)
+    : output;
 }
 
 export function assembleSupervisor(io: SupervisorIo): Assembly {
@@ -978,26 +1008,15 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       }
       return applied.value;
     },
-    // 폰에서 온 변경 하나. 본문은 apply처럼 bytes stream으로 온다.
+    // sync 앱의 DB 일. 변경 묶음·합치기의 본문과 출력(effective)은 control frame을 넘을 수 있다.
     [SUPERVISOR_OPS.syncApply]: async (payload, body) => {
       const input = parse(syncApplyInputSchema, payload);
-      if (body === undefined) {
-        throw new OpError("invalid_input", "sync apply body is missing");
-      }
-      let json: unknown;
-      try {
-        json = JSON.parse(
-          new TextDecoder("utf-8", { fatal: true }).decode(body),
-        );
-      } catch {
-        throw new OpError("invalid_input", "sync apply body is not json");
-      }
-      const request = parse(processSyncApplyRequestSchema, json);
+      const request = parseBody(processSyncApplyRequestSchema, body);
       const applied = await relay.syncApply(input.app, request);
       if (!applied.ok) {
         throw new OpError(applied.error.code, applied.error.message);
       }
-      return applied.value;
+      return fitted(applied.value);
     },
     [SUPERVISOR_OPS.snapshot]: async (payload) => {
       const input = parse(snapshotInputSchema, payload);
@@ -1006,6 +1025,32 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
         throw new OpError(written.error.code, written.error.message);
       }
       return written.value;
+    },
+    [SUPERVISOR_OPS.snapshotMerge]: async (payload, body) => {
+      const input = parse(snapshotMergeInputSchema, payload);
+      const request = parseBody(processSnapshotMergeRequestSchema, body);
+      const merged = await relay.snapshotMerge(input.app, request);
+      if (!merged.ok) {
+        throw new OpError(merged.error.code, merged.error.message);
+      }
+      return fitted(merged.value);
+    },
+    [SUPERVISOR_OPS.syncCleanup]: async (payload) => {
+      const { app, ...request } = parse(syncCleanupInputSchema, payload);
+      const cleaned = await relay.syncCleanup(app, request);
+      if (!cleaned.ok) {
+        throw new OpError(cleaned.error.code, cleaned.error.message);
+      }
+      return cleaned.value;
+    },
+    [SUPERVISOR_OPS.syncReapply]: async (payload, body) => {
+      const input = parse(syncReapplyInputSchema, payload);
+      const request = parseBody(processSyncReapplyRequestSchema, body);
+      const applied = await relay.syncReapply(input.app, request);
+      if (!applied.ok) {
+        throw new OpError(applied.error.code, applied.error.message);
+      }
+      return fitted(applied.value);
     },
     [SUPERVISOR_OPS.previewStart]: (payload) => {
       const launch = parse(previewLaunchSchema, payload);

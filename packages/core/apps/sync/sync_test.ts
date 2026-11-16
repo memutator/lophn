@@ -40,11 +40,11 @@ import { invocationsSchemaSteps } from "../invocations/schema.ts";
 import type { AppProcessLink } from "../ports.ts";
 import { createAppRewind } from "../rewind/run.ts";
 import { rewindSchemaSteps } from "../rewind/schema.ts";
+import { handleApply } from "../runtime/entrypoint/apply.ts";
 import {
-  handleApply,
   handleSnapshot,
   handleSyncApply,
-} from "../runtime/entrypoint/apply.ts";
+} from "../runtime/entrypoint/control-server.ts";
 import { createStoreAccess } from "../runtime/entrypoint/cap-host.ts";
 import { handleCall } from "../runtime/entrypoint/invoke.ts";
 import { createRuntimeState } from "../runtime/entrypoint/state.ts";
@@ -215,6 +215,12 @@ function computer() {
       await hold.gate;
       return reply(await handleSnapshot(state, encode({ path: request.path })));
     },
+    snapshotMerge: () =>
+      Promise.resolve(err({ code: "internal", message: "unused" })),
+    syncCleanup: () =>
+      Promise.resolve(err({ code: "internal", message: "unused" })),
+    syncReapply: () =>
+      Promise.resolve(err({ code: "internal", message: "unused" })),
   };
 
   const activeRelease = () => ok(REL);
@@ -249,7 +255,7 @@ function computer() {
     log,
     phone: calls.phone,
     activeRelease,
-    isSync,
+    runsOnPhone: isSync,
   });
   const snapshots = createSnapshots({
     dataRoot: dir,
@@ -257,7 +263,7 @@ function computer() {
     exclusive: calls.phone.exclusive,
     link,
     activeRelease,
-    isSync,
+    runsOnPhone: isSync,
     clock,
     ids,
     later: () => {},

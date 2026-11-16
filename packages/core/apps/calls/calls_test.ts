@@ -1,5 +1,14 @@
 import assert from "node:assert/strict";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
+// 앱 bundle이 싣는 cap-store처럼 전역 STORE_HOOKS를 설치한다. runtime은 그 hook으로 앱과 같은 연결을 쓴다.
+import {
+  closeConnection,
+  openConnection,
+} from "../../../sdk/cap-store/connection.node.ts";
 
 import {
   createIdSource,
@@ -30,6 +39,31 @@ import { type AppCallsDeps, createAppCalls } from "./mod.ts";
 import { parseProcessCall } from "../runtime/entrypoint/wire.ts";
 import { processCallRequestSchema } from "../../../protocol/apps/calls/process-wire.ts";
 import { decodeChangeset, settleResponse } from "./record.ts";
+import {
+  dumpClocks,
+  dumpData,
+  ensureSyncTables,
+  hlcAtMs,
+  openClock,
+  stampLocal,
+  type SyncDb,
+} from "../../../protocol/apps/sync/mod.ts";
+import { nodeSyncDb } from "../../../protocol/apps/sync/node-db.ts";
+import type { FolderChange } from "../../folder/ports.ts";
+import type { SyncLog, SyncLogRow } from "../sync/log.ts";
+import { createStoreAccess } from "../runtime/entrypoint/cap-host.ts";
+import {
+  handleSnapshotMerge,
+  handleSyncApply,
+  handleSyncCleanup,
+  handleSyncReapply,
+} from "../runtime/entrypoint/control-server.ts";
+import { createRuntimeState } from "../runtime/entrypoint/state.ts";
+import {
+  openSyncStore,
+  syncedWrite,
+  writeSnapshot,
+} from "../runtime/entrypoint/sync.ts";
 
 const clock = manualClock(Date.parse("2026-10-16T00:00:00.000Z"));
 const ids = createIdSource({ clock, random: seededRandom(7) });
@@ -99,6 +133,12 @@ function setup() {
     syncApply: () =>
       Promise.resolve(err({ code: "internal", message: "unused" })),
     snapshot: () =>
+      Promise.resolve(err({ code: "internal", message: "unused" })),
+    snapshotMerge: () =>
+      Promise.resolve(err({ code: "internal", message: "unused" })),
+    syncCleanup: () =>
+      Promise.resolve(err({ code: "internal", message: "unused" })),
+    syncReapply: () =>
       Promise.resolve(err({ code: "internal", message: "unused" })),
   };
 
@@ -956,4 +996,502 @@ test("앱 process의 parseProcessCall은 다섯 caller 종류에서 processCallR
       name,
     );
   }
+});
+
+// 폴더·폰에서 온 것을 받는 컴퓨터 하나: 진짜 앱 DB와 같은 thread의 runtime handler, 흉내 낸 ledger와 sync log.
+type LogLine = Omit<SyncLogRow, "changeset"> & {
+  change_id: string | null;
+  bytes: Uint8Array | null;
+  resolved_at: string | null;
+};
+
+function receiver(schema: string) {
+  const app = newApp();
+  const file = join(
+    mkdtempSync(join(tmpdir(), "lophn-folder-apply-")),
+    "app.sqlite",
+  );
+  const raw = openConnection(file);
+  raw.exec(schema);
+  const store = createStoreAccess();
+  const state = createRuntimeState({
+    identity: {
+      app,
+      release: REL,
+      bundleHash: "hash",
+      mode: "live",
+      processNonce: "nonce",
+    },
+    declaration: { operations: [], commands: [] } as never,
+    broker: {} as never,
+    store,
+    dataSchema: 1,
+    controlSocket: "socket",
+  });
+  state.ready = true;
+  const sync = openSyncStore({
+    database: store.database() as DatabaseSync,
+    node: "receiver",
+    machine: ids.newId("mch"),
+    record: store,
+    nowMs: () => clock.nowMs(),
+    startChangeset: null,
+  });
+  state.sync = sync;
+
+  const records = new Map<string, AppInvocation>();
+  const ledger: Pick<InvocationLedger, "begin" | "finish"> = {
+    begin: (row) => {
+      const started = { ...row, status: "running" } as AppInvocation;
+      records.set(row.id, started);
+      return ok(started);
+    },
+    finish: (id, result) => {
+      const changeset =
+        result.changeset === null
+          ? null
+          : { hash: "h", size_bytes: result.changeset.length };
+      const done = { ...records.get(id)!, ...result, changeset };
+      records.set(id, done as AppInvocation);
+      return Promise.resolve(ok(done as AppInvocation));
+    },
+  };
+
+  const lines: LogLine[] = [];
+  const append = (
+    line: Partial<LogLine> & Pick<LogLine, "kind" | "origin">,
+  ) => {
+    const seq = lines.length + 1;
+    lines.push({
+      seq,
+      release: REL,
+      device: null,
+      machine: null,
+      hlc: null,
+      invocation: null,
+      change_id: null,
+      bytes: null,
+      resolved_at: null,
+      ...line,
+    });
+    return ok(seq);
+  };
+  const log: Pick<
+    SyncLog,
+    | "duplicate"
+    | "duplicateFrom"
+    | "written"
+    | "unknown"
+    | "phone"
+    | "machine"
+    | "rebaseline"
+    | "held"
+    | "heldList"
+    | "resolve"
+    | "readChangeset"
+  > = {
+    duplicate: (device, id) =>
+      ok(
+        lines.find((l) => l.device === device && l.change_id === id)?.seq ??
+          null,
+      ),
+    duplicateFrom: (machine, id) =>
+      ok(
+        lines.find((l) => l.machine === machine && l.change_id === id)?.seq ??
+          null,
+      ),
+    async written(inv, hlc, bytes) {
+      if (hlc !== undefined) {
+        append({
+          kind: "change",
+          origin: "computer",
+          hlc,
+          bytes,
+          invocation: inv.id,
+        });
+      }
+    },
+    async unknown(inv) {
+      append({ kind: "snapshot", origin: "computer", invocation: inv.id });
+    },
+    phone: (inv, change, status) =>
+      Promise.resolve(
+        append({
+          kind: status === "applied" ? "change" : "skipped",
+          origin: "device",
+          device: change.device,
+          change_id: change.id,
+          hlc: change.hlc,
+          bytes: change.changeset,
+          invocation: inv.id,
+        }),
+      ),
+    machine: (inv, change, status) =>
+      Promise.resolve(
+        append({
+          kind: status === "applied" ? "change" : "skipped",
+          origin: "machine",
+          machine: change.machine,
+          change_id: change.id,
+          hlc: change.hlc,
+          bytes: change.changeset,
+          invocation: inv.id,
+        }),
+      ),
+    rebaseline: () =>
+      Promise.resolve(append({ kind: "snapshot", origin: "computer" })),
+    held: (_app, _release, change) =>
+      Promise.resolve(
+        append({
+          kind: "held",
+          origin: change.origin,
+          device: change.device ?? null,
+          machine: change.machine ?? null,
+          change_id: change.id ?? null,
+          hlc: change.hlc,
+          bytes: change.changeset,
+        }),
+      ),
+    heldList: () =>
+      lines
+        .filter((l) => l.kind === "held" && l.resolved_at === null)
+        .map((l) => ({
+          ...l,
+          changeset: { hash: String(l.seq), size: l.bytes!.length },
+        })),
+    resolve(seq, at) {
+      lines[seq - 1]!.resolved_at = at;
+      return ok(undefined);
+    },
+    readChangeset: (hash) =>
+      Promise.resolve(ok(lines[Number(hash) - 1]!.bytes!)),
+  };
+
+  const body = (value: unknown) =>
+    new TextEncoder().encode(JSON.stringify(value));
+  const reply = <T>(done: { status: number; body: unknown }): Result<T> =>
+    done.status === 200
+      ? ok(done.body as T)
+      : err(
+          (done.body as { error: { code: "conflict"; message: string } }).error,
+        );
+  const unused = () =>
+    Promise.resolve(err({ code: "internal" as const, message: "unused" }));
+  const link: AppProcessLink = {
+    call: () => Promise.resolve({ sent: true, response: null }),
+    apply: unused,
+    snapshot: unused,
+    syncApply: async (_app, request) =>
+      reply(await handleSyncApply(state, body(request))),
+    snapshotMerge: async (_app, request) =>
+      reply(await handleSnapshotMerge(state, body(request))),
+    syncCleanup: async (_app, request) =>
+      reply(await handleSyncCleanup(state, body(request))),
+    syncReapply: async (_app, request) =>
+      reply(await handleSyncReapply(state, body(request))),
+  };
+  const calls = createAppCalls({
+    callers: { agentToolCall: () => ok(null) },
+    lookup: {
+      find: () => ok(null),
+      findPreview: () => Promise.resolve(ok(null)),
+    },
+    apps: { activeRelease: () => ok(REL), archived: () => ok(false) },
+    ledger: ledger as InvocationLedger,
+    link,
+    assignmentOf: () => err({ code: "internal", message: "unused" }),
+    appGrantsOf: () =>
+      Promise.resolve(err({ code: "internal", message: "unused" })),
+    clock,
+    ids,
+    sync: log,
+  });
+
+  // 이 기계의 write 하나(앱 handler가 바꾼 것과 그 clock).
+  async function write(atMs: number, text: string) {
+    clock.set(atMs);
+    const done = await syncedWrite(sync, () => Promise.resolve(raw.exec(text)));
+    assert.ok(done.ok);
+  }
+  return {
+    app,
+    raw,
+    file,
+    calls,
+    link,
+    records,
+    lines,
+    write,
+    dump: () => `${dumpData(sync.db)}\n${dumpClocks(sync.db)}`,
+    rows: (text: string) =>
+      raw
+        .prepare(text)
+        .all()
+        .map((row) => ({ ...row })),
+    close: () => closeConnection(file),
+  };
+}
+
+// 다른 replica(다른 기계나 폰)의 DB. 자기 node의 clock으로 write를 찍는다.
+function replica(schema: string, node: string) {
+  const db: SyncDb = nodeSyncDb(new DatabaseSync(":memory:"));
+  db.exec(schema);
+  ensureSyncTables(db, node);
+  let seq = 0;
+  return {
+    db,
+    write(atMs: number, text: string): FolderChange {
+      db.exec("begin immediate");
+      const session = db.session();
+      db.exec(text);
+      const changeset = session.changeset();
+      session.close();
+      const hlc = openClock(db).next(atMs);
+      assert.ok(stampLocal(db, changeset, hlc).ok);
+      db.exec("commit");
+      seq += 1;
+      return {
+        id: String(seq),
+        hlc: String(hlc),
+        operation: "edit",
+        started_at: new Date(atMs).toISOString(),
+        changeset,
+      };
+    },
+  };
+}
+
+const T0 = Date.parse("2026-11-16T00:00:00.000Z");
+const OTHER = ids.newId("mch") as Id<"mch">;
+
+// 지우면 다시 읽은 file이 변경을 두 번 적용해 Activity에 같은 변경이 둘 남거나, 제약에 걸린 변경 하나가 file 전체를 막거나,
+// 다른 release의 file이 일부만 적용돼 사람의 data가 반쯤 바뀐다.
+test("폴더 file을 적용해도 사람의 data를 잃거나 망가뜨리지 않는다: 같은 묶음을 두 번 적용하면 둘째는 data도 clock도 그대로이고 invocation과 log 줄이 늘지 않으며, 제약에 걸린 변경만 빠지고, 표가 맞지 않는 변경이 하나라도 있으면 묶음 전체가 아무것도 바꾸지 않는다", async () => {
+  const schema =
+    "create table item (id text primary key, title text, code text unique)";
+  const here = receiver(schema);
+  const other = replica(
+    `${schema}; create table extra (id text primary key)`,
+    "other",
+  );
+  await here.write(T0 + 500, "insert into item values ('r', 'mine', 'x')");
+  const batch = [
+    other.write(T0 + 1000, "insert into item values ('a', 'milk', 'm')"),
+    other.write(T0 + 1001, "insert into item values ('b', 'eggs', 'x')"),
+    other.write(T0 + 1002, "update item set title = 'milk 2' where id = 'a'"),
+  ];
+  const apply = (changes: FolderChange[]) =>
+    here.calls.folder.applyChanges({
+      app: here.app,
+      release: REL,
+      origin: OTHER,
+      changes,
+    });
+
+  clock.set(T0 + 2000);
+  assert.deepEqual(await apply(batch), {
+    ok: true,
+    value: { applied: 2, skipped: 1, duplicate: 0, held: 0 },
+  });
+  assert.deepEqual(here.rows("select id, title, code from item order by id"), [
+    { id: "a", title: "milk 2", code: "m" },
+    { id: "r", title: "mine", code: "x" },
+  ]);
+  const caller = [...here.records.values()][0]!.caller;
+  assert.deepEqual(caller, {
+    kind: "person",
+    view_session: "1",
+    machine: OTHER,
+  });
+  assert.deepEqual(
+    here.lines.map((l) => [l.kind, l.origin, l.machine, l.change_id]),
+    [
+      ["change", "machine", OTHER, "1"],
+      ["skipped", "machine", OTHER, "2"],
+      ["change", "machine", OTHER, "3"],
+    ],
+  );
+
+  const before = here.dump();
+  const invocations = here.records.size;
+  const logged = here.lines.length;
+  assert.deepEqual(await apply(batch), {
+    ok: true,
+    value: { applied: 0, skipped: 0, duplicate: 3, held: 0 },
+  });
+  assert.equal(here.dump(), before);
+  assert.equal(here.records.size, invocations);
+  assert.equal(here.lines.length, logged);
+
+  const mixed = await apply([
+    other.write(T0 + 3000, "insert into item values ('c', 'tea', 't')"),
+    other.write(T0 + 3001, "insert into extra values ('e')"),
+  ]);
+  assert.equal(!mixed.ok && mixed.error.code, "conflict");
+  assert.equal(here.dump(), before);
+  assert.equal(here.lines.length, logged);
+  here.close();
+});
+
+// 지우면 받는 쪽이 아직 내보내지 않은 칸의 고침이 다른 기계의 옛 값으로 덮이거나, 합친 변경을 폰이 받지 못해 갈라진다.
+test("snapshot 합치기는 받는 쪽만 고친 칸을 지우지 않고 다른 기계의 고침과 row를 더하며, 폰에는 '다시 snapshot' 줄이 남는다", async () => {
+  const here = receiver(
+    "create table item (id text primary key, title text, done integer)",
+  );
+  await here.write(T0 + 1000, "insert into item values ('a', 'milk', 0)");
+  const dir = mkdtempSync(join(tmpdir(), "lophn-folder-merge-"));
+  const copy = join(dir, "copy.sqlite");
+  assert.ok(writeSnapshot(nodeSyncDb(here.raw), copy).ok);
+  const there = nodeSyncDb(new DatabaseSync(copy));
+  there.run("update lophn_sync_state set value = 'other' where key = 'node'");
+  const otherWrite = (atMs: number, text: string) => {
+    there.exec("begin immediate");
+    const session = there.session();
+    there.exec(text);
+    const changeset = session.changeset();
+    session.close();
+    assert.ok(stampLocal(there, changeset, openClock(there).next(atMs)).ok);
+    there.exec("commit");
+  };
+  otherWrite(T0 + 2000, "update item set done = 1 where id = 'a'");
+  otherWrite(T0 + 2001, "insert into item values ('b', 'eggs', 0)");
+  await here.write(
+    T0 + 3000,
+    "update item set title = 'milk R' where id = 'a'",
+  );
+  const snapshot = join(dir, "7.sqlite");
+  assert.ok(writeSnapshot(there, snapshot).ok);
+
+  const merge = () =>
+    here.calls.folder.mergeSnapshot({
+      app: here.app,
+      release: REL,
+      origin: OTHER,
+      n: 7,
+      path: snapshot,
+    });
+  assert.deepEqual(await merge(), {
+    ok: true,
+    value: { changed: true, deleted: 0 },
+  });
+  assert.deepEqual(here.rows("select id, title, done from item order by id"), [
+    { id: "a", title: "milk R", done: 1 },
+    { id: "b", title: "eggs", done: 0 },
+  ]);
+  const merged = [...here.records.values()].at(-1)!;
+  assert.deepEqual(
+    [merged.operation, merged.caller, merged.status, merged.changeset !== null],
+    [
+      { kind: "operation", name: "lophn.snapshot_merge" },
+      { kind: "person", view_session: "snapshot:7", machine: OTHER },
+      "succeeded",
+      true,
+    ],
+  );
+  assert.deepEqual(
+    here.lines.map((l) => [l.kind, l.origin, l.invocation]),
+    [["snapshot", "computer", null]],
+  );
+
+  // 같은 snapshot을 다시 합치면 바뀐 것이 없고 '다시 snapshot' 줄도 없다.
+  assert.deepEqual(await merge(), {
+    ok: true,
+    value: { changed: false, deleted: 0 },
+  });
+  assert.equal(here.lines.length, 1);
+  here.close();
+});
+
+// 지우면 흔적을 정리한 뒤 늦게 온 변경이 지운 row를 몰래 되살리거나, 그 변경이 아무 데도 남지 않고 버려진다.
+test("정리된 흔적과 부딪는 변경은 버려지지 않는다: horizon 이하 clock으로 지운 row를 되살리려는 폴더 변경과 폰 변경은 DB를 바꾸지 않고 bytes 그대로 held 줄이 되고(폰에는 skipped), apply하면 이 기계의 새 write로 들어가 내보내지며, discard해도 bytes가 남는다", async () => {
+  const schema = "create table item (id text primary key, title text)";
+  const here = receiver(schema);
+  await here.write(T0 + 1000, "insert into item values ('x', 'mine')");
+  await here.write(T0 + 3000, "delete from item where id = 'x'");
+  const cleaned = await here.link.syncCleanup(here.app, {
+    before: String(hlcAtMs(T0 + 3500)),
+  });
+  assert.ok(cleaned.ok && cleaned.value.status === "cleaned");
+  assert.equal(cleaned.value.dropped, 1);
+
+  const theirs = replica(schema, "other").write(
+    T0 + 2000,
+    "insert into item values ('x', 'theirs')",
+  );
+  const fromPhone = replica(schema, "phone").write(
+    T0 + 2500,
+    "insert into item values ('x', 'phone')",
+  );
+  const before = here.dump();
+  clock.set(T0 + 4000);
+  assert.deepEqual(
+    await here.calls.folder.applyChanges({
+      app: here.app,
+      release: REL,
+      origin: OTHER,
+      changes: [theirs],
+    }),
+    { ok: true, value: { applied: 0, skipped: 0, duplicate: 0, held: 1 } },
+  );
+  const device = ids.newId("dev") as Id<"dev">;
+  const pushed = await here.calls.phone.apply({
+    app: here.app,
+    release: REL,
+    operation: "edit",
+    started_at: fromPhone.started_at!,
+    change: {
+      device,
+      id: "p1",
+      hlc: fromPhone.hlc,
+      changeset: fromPhone.changeset,
+    },
+  });
+  assert.equal(pushed.ok && pushed.value.status, "skipped");
+  assert.equal(here.dump(), before);
+
+  const held = here.calls.syncHeld.list(here.app);
+  assert.ok(held.ok);
+  assert.deepEqual(
+    held.value.map((l) => [l.machine, l.device, l.hlc]),
+    [
+      [OTHER, null, theirs.hlc],
+      [null, device, fromPhone.hlc],
+    ],
+  );
+  assert.deepEqual(here.lines[held.value[0]!.seq - 1]!.bytes, theirs.changeset);
+  assert.deepEqual(
+    here.lines[held.value[1]!.seq - 1]!.bytes,
+    fromPhone.changeset,
+  );
+
+  const applied = await here.calls.syncHeld.apply(
+    here.app,
+    held.value[0]!.seq,
+    {
+      kind: "person",
+      view_session: "v1",
+    },
+  );
+  assert.ok(applied.ok);
+  assert.deepEqual(here.rows("select id, title from item"), [
+    { id: "x", title: "theirs" },
+  ]);
+  const written = here.lines.at(-1)!;
+  assert.deepEqual(
+    [written.kind, written.origin, written.invocation],
+    ["change", "computer", applied.value.invocation],
+  );
+  assert.ok(BigInt(written.hlc!) > BigInt(theirs.hlc));
+  assert.equal(
+    here.records.get(applied.value.invocation)!.operation.kind,
+    "operation",
+  );
+
+  assert.ok(here.calls.syncHeld.discard(here.app, held.value[1]!.seq).ok);
+  const after = here.calls.syncHeld.list(here.app);
+  assert.deepEqual(after.ok && after.value, []);
+  const kept = here.lines[held.value[1]!.seq - 1]!;
+  assert.ok(kept.resolved_at !== null);
+  assert.deepEqual(kept.bytes, fromPhone.changeset);
+  here.close();
 });

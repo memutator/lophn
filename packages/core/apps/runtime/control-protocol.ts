@@ -8,9 +8,13 @@ import {
   processApplyResponseSchema,
   processCallRequestSchema,
   processCallResponseSchema,
+  processSnapshotMergeResponseSchema,
   processSnapshotRequestSchema,
   processSnapshotResponseSchema,
   processSyncApplyResponseSchema,
+  processSyncCleanupRequestSchema,
+  processSyncCleanupResponseSchema,
+  processSyncReapplyResponseSchema,
 } from "../../../protocol/apps/calls/mod.ts";
 import { errorBodySchema } from "../../../protocol/base/mod.ts";
 
@@ -29,9 +33,13 @@ export const SUPERVISOR_OPS = {
   // control socket으로 중계만 한다.
   call: "apps.call",
   apply: "apps.apply",
-  // sync 앱(`runs_on`에 phone)의 DB: 폰에서 온 변경 하나를 적용하고, 폰이 처음 받을 snapshot을 뜬다. 중계만 한다.
+  // sync 앱(`runs_on`에 phone이나 `sync_to`가 있음)의 DB: 폰이나 다른 기계에서 온 변경 묶음 적용, 폰이 받을
+  // snapshot 뜨기, 다른 기계의 snapshot 합치기, 흔적 정리, held 변경 다시 적용. 중계만 한다.
   syncApply: "apps.sync_apply",
   snapshot: "apps.snapshot",
+  snapshotMerge: "apps.snapshot_merge",
+  syncCleanup: "apps.sync_cleanup",
+  syncReapply: "apps.sync_reapply",
   // preview 프로세스(운영 자식과 따로 한 앱에 많아야 하나)의 시작·관측·종료. 운영 상태와
   // 활성 참조를 건드리지 않는다(apps/preview).
   previewStart: "apps.preview_start",
@@ -227,8 +235,21 @@ export const applyInputSchema = z.strictObject({
 });
 export const applyOutputSchema = processApplyResponseSchema;
 // 본문(ProcessSyncApplyRequest)은 apply처럼 같은 request의 bytes stream이다. changeset이 control frame을 넘을 수 있다.
+// 출력(effective 묶음)도 frame을 넘으면 bytes stream으로 온다.
 export const syncApplyInputSchema = z.strictObject({ app: appId });
 export const syncApplyOutputSchema = processSyncApplyResponseSchema;
+// 본문(ProcessSnapshotMergeRequest. keep 목록이 길 수 있다)은 같은 request의 bytes stream이고, 출력(effective와 held
+// row)도 frame을 넘으면 bytes stream으로 온다.
+export const snapshotMergeInputSchema = z.strictObject({ app: appId });
+export const snapshotMergeOutputSchema = processSnapshotMergeResponseSchema;
+export const syncCleanupInputSchema = z.strictObject({
+  app: appId,
+  ...processSyncCleanupRequestSchema.shape,
+});
+export const syncCleanupOutputSchema = processSyncCleanupResponseSchema;
+// 본문(ProcessSyncReapplyRequest)은 같은 request의 bytes stream이다.
+export const syncReapplyInputSchema = z.strictObject({ app: appId });
+export const syncReapplyOutputSchema = processSyncReapplyResponseSchema;
 export const snapshotInputSchema = z.strictObject({
   app: appId,
   ...processSnapshotRequestSchema.shape,

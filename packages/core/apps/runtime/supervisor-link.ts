@@ -27,9 +27,12 @@ import {
   releasePreparationOutputSchema,
   type ReleasePreparationWire,
   restartOutputSchema,
+  snapshotMergeOutputSchema,
   snapshotOutputSchema,
   SUPERVISOR_OPS,
   syncApplyOutputSchema,
+  syncCleanupOutputSchema,
+  syncReapplyOutputSchema,
 } from "./control-protocol.ts";
 import type { DesiredApp } from "./supervisor/supervisor.ts";
 import {
@@ -37,7 +40,11 @@ import {
   STREAM_CHUNK_MAX_BYTES,
 } from "../../../protocol/base/mod.ts";
 import { CALL_BODY_MAX_BYTES } from "./entrypoint/limits.ts";
-import { APPLY_TIMEOUT_MS, CALL_TIMEOUT_MS } from "./supervisor/relay.ts";
+import {
+  APPLY_TIMEOUT_MS,
+  CALL_TIMEOUT_MS,
+  MERGE_TIMEOUT_MS,
+} from "./supervisor/relay.ts";
 
 const REQUEST_TIMEOUT_MS = 5_000;
 // 재시작은 이전 자식의 정지 유예(10초)와 종료 확인까지 기다린다.
@@ -53,6 +60,7 @@ const DATA_JOB_TIMEOUT_MS = 300_000;
 // 호출·적용은 supervisor가 앱 process를 기다리는 시간에 pipe 왕복 여유를 더한다.
 const CALL_REQUEST_TIMEOUT_MS = CALL_TIMEOUT_MS + 5_000;
 const APPLY_REQUEST_TIMEOUT_MS = APPLY_TIMEOUT_MS + 5_000;
+const MERGE_REQUEST_TIMEOUT_MS = MERGE_TIMEOUT_MS + 5_000;
 
 type WorkerResponse =
   | { type: "worker_response"; request_id: string; ok: true; payload: unknown }
@@ -499,7 +507,7 @@ export function createSupervisorClient(
   };
 }
 
-// core가 앱 process를 부르는 길이다. supervisor 제어 pipe의 `apps.call`·`apps.apply`·`apps.sync_apply`·`apps.snapshot`을 보낸다.
+// core가 앱 process를 부르는 길이다. supervisor 제어 pipe의 `apps.call`·`apps.apply`와 sync 앱의 DB op(`apps.sync_apply` 등)를 보낸다.
 // supervisor가 없거나 앱에 보내기 전에 거절하면 `sent: false`이고, 보낸 뒤 답이 끊기면 `response: null`이다.
 export function createAppProcessLink(
   channel: SupervisorChannel,
@@ -563,7 +571,7 @@ export function createAppProcessLink(
           SUPERVISOR_OPS.syncApply,
           { app },
           APPLY_REQUEST_TIMEOUT_MS,
-          // 폰의 changeset은 control frame 한도를 넘을 수 있다.
+          // 변경 묶음은 control frame 한도를 넘을 수 있다.
           new TextEncoder().encode(JSON.stringify(request)),
         ),
       );
@@ -575,6 +583,38 @@ export function createAppProcessLink(
           SUPERVISOR_OPS.snapshot,
           { app, ...request },
           APPLY_REQUEST_TIMEOUT_MS,
+        ),
+      );
+    },
+    async snapshotMerge(app, request) {
+      return shaped(
+        snapshotMergeOutputSchema,
+        await channel.request(
+          SUPERVISOR_OPS.snapshotMerge,
+          { app },
+          MERGE_REQUEST_TIMEOUT_MS,
+          new TextEncoder().encode(JSON.stringify(request)),
+        ),
+      );
+    },
+    async syncCleanup(app, request) {
+      return shaped(
+        syncCleanupOutputSchema,
+        await channel.request(
+          SUPERVISOR_OPS.syncCleanup,
+          { app, ...request },
+          APPLY_REQUEST_TIMEOUT_MS,
+        ),
+      );
+    },
+    async syncReapply(app, request) {
+      return shaped(
+        syncReapplyOutputSchema,
+        await channel.request(
+          SUPERVISOR_OPS.syncReapply,
+          { app },
+          APPLY_REQUEST_TIMEOUT_MS,
+          new TextEncoder().encode(JSON.stringify(request)),
         ),
       );
     },

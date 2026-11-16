@@ -1,5 +1,5 @@
-// core가 supervisor 제어 pipe의 op로 보낸 호출, 뒤집은 changeset 적용, 폰 변경 적용, snapshot을 앱 process의
-// control socket으로 중계한다. supervisor는 내용을 보지 않고 길만 이어 준다. 앱에 닿기 전에 실패했는지(`sent: false`)와
+// core가 supervisor 제어 pipe의 op로 보낸 호출, 뒤집은 changeset 적용, sync 앱의 DB 일(변경 묶음 적용, snapshot 뜨기와
+// 합치기, 흔적 정리, held 다시 적용)을 앱 process의 control socket으로 중계한다. supervisor는 내용을 보지 않고 길만 이어 준다. 앱에 닿기 전에 실패했는지(`sent: false`)와
 // 보낸 뒤 답을 받지 못했는지(`response: null`, 결과 모름)를 구별하는 것이 이 module의 일이다.
 // socket I/O는 주입받는다.
 import {
@@ -12,13 +12,23 @@ import {
   type ProcessCallRequest,
   type ProcessCallResponse,
   processCallResponseSchema,
+  type ProcessSnapshotMergeRequest,
+  type ProcessSnapshotMergeResponse,
+  processSnapshotMergeResponseSchema,
   type ProcessSnapshotRequest,
   type ProcessSnapshotResponse,
   processSnapshotResponseSchema,
   type ProcessSyncApplyRequest,
   type ProcessSyncApplyResponse,
   processSyncApplyResponseSchema,
+  type ProcessSyncCleanupRequest,
+  type ProcessSyncCleanupResponse,
+  processSyncCleanupResponseSchema,
+  type ProcessSyncReapplyRequest,
+  type ProcessSyncReapplyResponse,
+  processSyncReapplyResponseSchema,
 } from "../../../../protocol/apps/calls/mod.ts";
+import { APPLY_BODY_MAX_BYTES } from "../entrypoint/limits.ts";
 import { CALL_RESPONSE_MAX_BYTES } from "../../../../protocol/base/mod.ts";
 import type { LophnError } from "../../../../base/mod.ts";
 import type { ControlTarget } from "./supervisor.ts";
@@ -26,8 +36,12 @@ import type { z } from "zod";
 
 // 호출 하나가 handler를 돌리는 시간의 상한이다. 넘으면 결과 모름이다.
 export const CALL_TIMEOUT_MS = 120_000;
-// 뒤집은 changeset 적용, 폰 변경 적용, snapshot 뜨기는 한 transaction(또는 VACUUM INTO 한 번)이다.
+// 뒤집은 changeset 적용, 변경 묶음 적용, snapshot 뜨기는 한 transaction(또는 VACUUM INTO 한 번)이다.
 export const APPLY_TIMEOUT_MS = 60_000;
+// snapshot 합치기는 1 GiB까지의 DB를 row마다 견준다.
+export const MERGE_TIMEOUT_MS = 600_000;
+// 짧은 답(snapshot 크기, 정리 수)의 상한. 변경 묶음과 합치기의 답은 effective changeset을 실어 본문 한도까지 간다.
+const SMALL_REPLY_MAX_BYTES = 4096;
 
 export type ControlRequest = {
   socket: string;
@@ -58,7 +72,7 @@ type Answer<T> = { ok: true; value: T } | { ok: false; error: LophnError };
 
 type Relay = {
   call(target: AppToolTarget, request: ProcessCallRequest): Promise<CallOutput>;
-  // 아래 셋은 live process에 간다. 닿지 못하면 `unavailable`이고 앱이 거절하면 그 오류다.
+  // 아래는 live process에 간다. 닿지 못하면 `unavailable`이고 앱이 거절하면 그 오류다.
   apply(
     app: string,
     request: ProcessApplyRequest,
@@ -71,6 +85,18 @@ type Relay = {
     app: string,
     request: ProcessSnapshotRequest,
   ): Promise<Answer<ProcessSnapshotResponse>>;
+  snapshotMerge(
+    app: string,
+    request: ProcessSnapshotMergeRequest,
+  ): Promise<Answer<ProcessSnapshotMergeResponse>>;
+  syncCleanup(
+    app: string,
+    request: ProcessSyncCleanupRequest,
+  ): Promise<Answer<ProcessSyncCleanupResponse>>;
+  syncReapply(
+    app: string,
+    request: ProcessSyncReapplyRequest,
+  ): Promise<Answer<ProcessSyncReapplyResponse>>;
 };
 
 function unavailable(message: string): { sent: false; error: LophnError } {
@@ -127,6 +153,10 @@ export function createRelay(deps: {
     path: string,
     request: unknown,
     schema: z.ZodType<T>,
+    reply: { timeoutMs: number; maxBytes: number } = {
+      timeoutMs: APPLY_TIMEOUT_MS,
+      maxBytes: SMALL_REPLY_MAX_BYTES,
+    },
   ): Promise<Answer<T>> {
     const live = deps.live(app);
     if (live === undefined) {
@@ -135,28 +165,27 @@ export function createRelay(deps: {
         error: { code: "unavailable", message: "the app is not ready" },
       };
     }
-    const reply = await deps.transport({
+    const answer = await deps.transport({
       socket: live.socket,
       path,
       body: JSON.stringify(request),
-      timeoutMs: APPLY_TIMEOUT_MS,
-      maxBytes: 4096,
+      ...reply,
     });
-    if (reply.kind !== "reply") {
+    if (answer.kind !== "reply") {
       return {
         ok: false,
         error: {
           code: "unavailable",
           message:
-            reply.kind === "lost"
+            answer.kind === "lost"
               ? "the app process did not answer"
               : "the app process did not accept the connection",
         },
       };
     }
-    if (reply.status === 200) {
+    if (answer.status === 200) {
       try {
-        const parsed = schema.safeParse(JSON.parse(reply.body));
+        const parsed = schema.safeParse(JSON.parse(answer.body));
         if (parsed.success) return { ok: true, value: parsed.data };
       } catch {
         /* 아래에서 unavailable이 된다 */
@@ -164,8 +193,8 @@ export function createRelay(deps: {
     }
     return {
       ok: false,
-      error: refused(reply.status)
-        ? rejectionOf(reply.status, reply.body)
+      error: refused(answer.status)
+        ? rejectionOf(answer.status, answer.body)
         : { code: "unavailable", message: "the app process answered badly" },
     };
   }
@@ -234,6 +263,7 @@ export function createRelay(deps: {
         PROCESS_PATHS.sync_apply,
         request,
         processSyncApplyResponseSchema,
+        { timeoutMs: APPLY_TIMEOUT_MS, maxBytes: APPLY_BODY_MAX_BYTES },
       ),
     snapshot: (app, request) =>
       toLive(
@@ -241,6 +271,29 @@ export function createRelay(deps: {
         PROCESS_PATHS.snapshot,
         request,
         processSnapshotResponseSchema,
+      ),
+    snapshotMerge: (app, request) =>
+      toLive(
+        app,
+        PROCESS_PATHS.snapshot_merge,
+        request,
+        processSnapshotMergeResponseSchema,
+        { timeoutMs: MERGE_TIMEOUT_MS, maxBytes: APPLY_BODY_MAX_BYTES },
+      ),
+    syncCleanup: (app, request) =>
+      toLive(
+        app,
+        PROCESS_PATHS.sync_cleanup,
+        request,
+        processSyncCleanupResponseSchema,
+      ),
+    syncReapply: (app, request) =>
+      toLive(
+        app,
+        PROCESS_PATHS.sync_reapply,
+        request,
+        processSyncReapplyResponseSchema,
+        { timeoutMs: APPLY_TIMEOUT_MS, maxBytes: APPLY_BODY_MAX_BYTES },
       ),
   };
 }

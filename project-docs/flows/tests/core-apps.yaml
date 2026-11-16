@@ -6,7 +6,7 @@ files:
 
   - path: packages/core/apps/calls/calls_test.ts
     covers: [app-command-call:succeeded, app-command-call:forbidden, app-command-call:denied-gate-blocked, app-command-call:denied-call-loop, app-command-call:denied-call-too-deep, app-command-call:denied-not-declared, app-operation-call:succeeded, app-operation-call:denied-gate-blocked, app-command-call:held-then-run, app-preview-command-call:succeeded, app-preview-command-call:denied-not-declared, app-preview-command-call:forbidden]
-    note: "credential·caller 불일치(화면이 폰 기기 caller를 주장 포함)와 모르는 부모는 forbidden, write 줄, 호출 루프와 깊이 8, 앱 간 grant, agent 할당과 비공개 규칙, flow의 할당. preview 호출은 app-preview-command-call, 붙잡힌 호출 재개는 held-then-run. parseProcessCall은 내부 parser라 covers 밖"
+    note: "credential·caller 불일치(화면이 폰 기기 caller를 주장 포함)와 모르는 부모는 forbidden, write 줄, 호출 루프와 깊이 8, 앱 간 grant, agent 할당과 비공개 규칙, flow의 할당. preview 호출은 app-preview-command-call, 붙잡힌 호출 재개는 held-then-run. parseProcessCall은 내부 parser라 covers 밖. calls의 folder(FolderApply)와 syncHeld는 진짜 앱 DB와 같은 thread의 runtime handler로 본다: 같은 변경 file을 두 번 적용하면 둘째는 duplicate로 data·clock·invocation·log 줄이 그대로, 제약에 걸린 변경만 skipped, 표가 맞지 않는 변경이 있으면 묶음 전체가 그대로(conflict). snapshot 합치기는 받는 쪽만 고친 칸을 지우지 않고 '다시 snapshot' 줄을 남김. horizon 이하 clock으로 지운 row를 되살리는 폴더·폰 변경은 DB를 바꾸지 않고 held 줄(폰에는 skipped), held apply는 이 기계의 새 write 줄, discard는 bytes를 남김. route(apps/sync_held)는 아직 없어 covers 밖"
 
   - path: packages/core/apps/data/worker/restore_test.ts
     covers: [data-job-start:reverted, release-activate:failed]
@@ -198,7 +198,7 @@ files:
 
   - path: packages/core/apps/runtime/entrypoint/sync_test.ts
     covers: []
-    note: "sync 앱(runs_on에 phone)의 컴퓨터 app process: write는 handler가 던져도 data와 clock이 한 transaction으로 commit되고 commit 전에 끊기면 둘 다 없음, apps.sync_apply의 effective는 실제로 바뀐 칸만 담고 더 새 컴퓨터 칸을 덮지 않음, 제약에 걸린 폰 변경 하나는 건너뛰고 다음은 적용, 칸을 지운 migration 뒤 column clock을 지워 두 사본이 같아짐, 다른 기계의 sync DB(machine 표지가 다름)는 node가 새것이 되고 표지가 없는 DB는 지금 id를 적으며 node를 지키고 둘 다 data와 clock 표는 그대로. 이 동작을 부르는 route(app_sync/*)는 apps/sync/sync_test.ts가 본다"
+    note: "sync 앱(runs_on에 phone이나 sync_to)의 컴퓨터 app process: write는 handler가 던져도 data와 clock이 한 transaction으로 commit되고 commit 전에 끊기면 둘 다 없음, apps.sync_apply의 effective는 실제로 바뀐 칸만 담고 더 새 컴퓨터 칸을 덮지 않음, 묶음에서 제약에 걸린 변경 하나는 건너뛰고 다음은 적용, 묶음을 적용하다 연결이 끊기면 data와 clock이 묶음 앞과 같음, sync_to만 있는 computer 앱도 sync 앱(write가 clock을 실음)이고 runsOnPhone은 아님, 칸을 지운 migration 뒤 column clock을 지워 두 사본이 같아짐, 다른 기계의 sync DB(machine 표지가 다름)는 node가 새것이 되고 표지가 없는 DB는 지금 id를 적으며 node를 지키고 둘 다 data와 clock 표는 그대로. 이 동작을 부르는 route(app_sync/*)는 apps/sync/sync_test.ts가 본다"
 
   - path: packages/core/apps/runtime/observations/log-file_test.ts
     covers: [app-log-write:written, app-log-write:rotated]

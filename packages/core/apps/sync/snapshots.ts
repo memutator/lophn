@@ -40,7 +40,8 @@ export type SnapshotsDeps = {
   exclusive<T>(app: Id<"app">, work: () => Promise<T>): Promise<T | null>;
   link: Pick<AppProcessLink, "snapshot">;
   activeRelease(app: Id<"app">): Result<Id<"rel"> | null>;
-  isSync(app: string, release: string): boolean;
+  // 그 release의 선언이 `runs_on`에 phone을 가졌는가. 폰이 받을 snapshot은 폰에서 도는 앱만이다.
+  runsOnPhone(app: string, release: string): boolean;
   clock: Clock;
   ids: IdSource;
   // 만료 timer. core가 끝날 때 기다리지 않는다.
@@ -83,7 +84,7 @@ export function createSnapshots(deps: SnapshotsDeps) {
       const app = input.app as Id<"app">;
       const known = activeOf(deps, app);
       if (!known.ok) return known;
-      if (!deps.isSync(app, known.value)) return notFound();
+      if (!deps.runsOnPhone(app, known.value)) return notFound();
       const id = deps.ids.newId("snp");
       const dir = join(appFolder(deps.dataRoot, app), SNAPSHOT_DIR);
       await mkdir(dir, { recursive: true });
@@ -92,7 +93,7 @@ export function createSnapshots(deps: SnapshotsDeps) {
         // 접수를 기다리는 동안 activation이 release를 바꿨을 수 있다.
         const active = activeOf(deps, app);
         if (!active.ok) return active;
-        if (!deps.isSync(app, active.value)) return notFound();
+        if (!deps.runsOnPhone(app, active.value)) return notFound();
         const seq = deps.log.head(app);
         const written = await deps.link.snapshot(app, { path });
         if (!written.ok) return written;

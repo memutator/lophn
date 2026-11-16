@@ -3,11 +3,14 @@ import {
   type Clock,
   err,
   fingerprint,
+  type LophnError,
   ok,
   type Result,
 } from "../../../base/mod.ts";
 import type { IdSource } from "../../../base/mod.ts";
 import type {
+  AppInvocation,
+  AppToolCaller,
   AppToolTarget,
   ProcessCallRequest,
   ToolCallInput,
@@ -23,8 +26,13 @@ import type {
   CallerDirectory,
   InvocationLedger,
 } from "../ports.ts";
-import { CALL_BODY_MAX_BYTES } from "../runtime/entrypoint/limits.ts";
-import type { PhoneChange, SyncRecorder } from "../sync/log.ts";
+import {
+  CALL_BODY_MAX_BYTES,
+  SYNC_APPLY_MAX_BYTES,
+  SYNC_APPLY_MAX_CHANGES,
+} from "../runtime/entrypoint/limits.ts";
+import type { FolderApply, FolderChange } from "../../folder/ports.ts";
+import type { PhoneChange, SyncLog, SyncLogRow } from "../sync/log.ts";
 import { type CallAuth, type VerifiedCaller, verifyCaller } from "./caller.ts";
 import { callAllowed, type CallGateDeps } from "./gate.ts";
 import {
@@ -62,9 +70,48 @@ export type AppCallsDeps = CallGateDeps & {
   clock: Clock;
   ids: IdSource;
   timers?: Timers;
-  // sync 앱의 sync log. 없으면 폰에서 온 변경을 받지 않는다.
-  sync?: SyncRecorder;
+  // sync 앱의 sync log. 없으면 폰이나 다른 기계에서 온 변경을 받지 않는다.
+  sync?: SyncCalls;
 };
+
+// 호출 길이 쓰는 sync log의 면: 기록하기와 held 줄 풀기.
+type SyncCalls = Pick<
+  SyncLog,
+  | "duplicate"
+  | "duplicateFrom"
+  | "written"
+  | "unknown"
+  | "phone"
+  | "machine"
+  | "rebaseline"
+  | "held"
+  | "heldList"
+  | "resolve"
+  | "readChangeset"
+>;
+
+// 받은 변경에 주인의 operation 이름이 없을 때(앱 시작, rewind)와 core가 앱 DB를 바꾸는 일의 invocation 이름.
+const SYNC_OPERATION = "lophn.sync";
+const SNAPSHOT_MERGE_OPERATION = "lophn.snapshot_merge";
+const HELD_APPLY_OPERATION = "lophn.sync_held_apply";
+
+/** 정리된 흔적과 부딪어 적용하지 않은 변경(sync log의 held 줄)을 보고 푸는 길. 저절로 풀리지 않는다. */
+export type SyncHeld = {
+  /** 풀리지 않은 held 줄을 seq 순서로. */
+  list(app: Id<"app">): Result<SyncLogRow[]>;
+  /** 그 변경을 지금 clock의 이 기계 write로 다시 적용하고 줄을 푼다. invocation 하나(caller는 부른 사람이나 agent). */
+  apply(
+    app: Id<"app">,
+    seq: number,
+    caller: AppToolCaller,
+  ): Promise<Result<{ invocation: Id<"inv"> }>>;
+  /** 적용하지 않고 푼다. bytes는 기록에 남는다. */
+  discard(app: Id<"app">, seq: number): Result<void>;
+};
+
+// core가 연 invocation 하나와 그 시작 시각.
+type Opened = { base: CallRecordBase; startedAt: string };
+type Job = { opened: Opened[]; abandoned: boolean };
 
 // 폰에서 온 변경 하나를 컴퓨터에 적용하는 입력. operation과 started_at은 폰이 준 그대로 invocation에 남는다.
 export type PhoneApply = {
@@ -115,6 +162,9 @@ export function createAppCalls(deps: AppCallsDeps): {
     // 접수가 열리기를 기다린 뒤 write 줄을 쥔 채 work를 돈다. 줄이 정리되면(abandon) null이다.
     exclusive<T>(app: Id<"app">, work: () => Promise<T>): Promise<T | null>;
   };
+  // 폴더에서 읽은 변경과 snapshot을 적용하는 길(folder import가 부른다).
+  folder: FolderApply;
+  syncHeld: SyncHeld;
 } {
   const queue = createWriteQueue();
   const intake = createIntake({
@@ -496,135 +546,498 @@ export function createAppCalls(deps: AppCallsDeps): {
     }
   }
 
-  // 폰에서 온 변경 하나: write 줄을 잡고 → invocation 시작 → 앱 process가 칸 단위 last-write-wins로 적용 → effective
-  // changeset으로 닫기 → sync log 줄. 도는 호출로 접수에 들어 rewind·activation이 끝나기를 기다린다.
-  async function applyPhone(input: PhoneApply): Promise<Result<PhoneApplied>> {
-    if (deps.sync === undefined) {
-      return err({ code: "unavailable", message: "sync is not attached" });
+  function syncOf(): Result<SyncCalls> {
+    return deps.sync === undefined
+      ? err({ code: "unavailable", message: "sync is not attached" })
+      : ok(deps.sync);
+  }
+
+  function activeIs(app: Id<"app">, release: Id<"rel">): Result<void> {
+    const active = deps.apps.activeRelease(app);
+    if (!active.ok) return active;
+    return active.value === release
+      ? ok(undefined)
+      : err({
+          code: "conflict",
+          message: "the release is not active",
+          details: { active_release: active.value },
+        });
+  }
+
+  // 받은 쪽 시각이 보낸 쪽보다 뒤처져 있어도 시작이 끝보다 늦게 남지 않는다.
+  function finish(
+    open: Opened,
+    status: "succeeded" | "failed",
+    summary: AppInvocation["summary"],
+    changeset: Uint8Array | null,
+  ): Promise<Result<AppInvocation>> {
+    const now = deps.clock.now();
+    return deps.ledger.finish(open.base.id, {
+      status,
+      finished_at: now < open.startedAt ? open.startedAt : now,
+      summary,
+      detail_hash: null,
+      changeset,
+    });
+  }
+
+  // 앱 process가 받지 못했거나 거절한 일. 연 invocation을 모두 실패로 닫고 그 오류를 준다.
+  async function closeFailed(
+    opened: readonly Opened[],
+    error: LophnError,
+  ): Promise<Result<never>> {
+    for (const open of opened) {
+      const closed = await finish(
+        open,
+        "failed",
+        { outcome: "failed", error_code: error.code },
+        null,
+      );
+      if (!closed.ok) return closed;
     }
-    const sync: SyncRecorder = deps.sync;
-    const { app, release, change } = input;
+    return err(error);
+  }
+
+  function notSync(): LophnError {
+    return { code: "invalid_input", message: "the app does not sync its data" };
+  }
+
+  function begin(job: Job, base: CallRecordBase, startedAt: string) {
+    const begun = deps.ledger.begin({ ...base, started_at: startedAt });
+    if (begun.ok) job.opened.push({ base, startedAt });
+    return begun;
+  }
+
+  // core가 앱 DB를 바꾸는 일 하나(받은 변경, snapshot 합치기, held 다시 적용): 접수를 기다리고 도는 일로 들어 write 줄을
+  // 잡은 채 work를 돈다. 그래서 sync log의 순서가 앱 DB에 적용된 순서와 같고 rewind·activation이 끝나기를 기다린다.
+  // 도는 중 앱이 멈춰 정리되면(abandon) 연 invocation을 결과 모름으로 닫고 unavailable이다. work는 앱 process의 답을
+  // 받은 뒤 `job.abandoned`면 null을 돌려주고, 아니면 `job.opened`를 비우고 스스로 닫는다.
+  async function inLane<T>(
+    app: Id<"app">,
+    release: Id<"rel">,
+    work: (job: Job) => Promise<Result<T> | null>,
+  ): Promise<Result<T>> {
     await intake.admit(app);
-    const base: CallRecordBase = {
-      id: deps.ids.newId("inv") as Id<"inv">,
-      app,
-      release,
-      mode: "live",
-      operation: { kind: "operation", name: input.operation },
-      caller: {
-        kind: "person",
-        view_session: change.id,
-        device: change.device,
-      },
-      effect: "write",
-      input_hash: null,
-    };
-    // 폰의 시각이 컴퓨터보다 앞서 있어도 시작이 끝보다 늦게 남지 않는다.
-    const finishedAt = () => {
-      const now = deps.clock.now();
-      return now < input.started_at ? input.started_at : now;
-    };
+    const job: Job = { opened: [], abandoned: false };
     const unavailable = (): Result<never> =>
       err({ code: "unavailable", message: "the app is not running" });
-    let sent = false;
-    let abandoned = false;
-    let forced!: (result: Result<PhoneApplied>) => void;
-    const forcedResult = new Promise<Result<PhoneApplied>>((resolve) => {
+    let forced!: (result: Result<T>) => void;
+    const forcedResult = new Promise<Result<T>>((resolve) => {
       forced = resolve;
     });
     const flight: Flight = {
-      id: base.id,
+      id: deps.ids.newId("inv") as Id<"inv">,
       app,
       release,
       mode: "live",
       parent: null,
       async abandon() {
-        abandoned = true;
-        if (sent) await closeUnknown(base, input.started_at);
+        job.abandoned = true;
+        for (const open of job.opened) {
+          await closeUnknown(open.base, open.startedAt);
+        }
         forced(unavailable());
       },
     };
-
-    async function work(): Promise<Result<PhoneApplied> | null> {
+    async function run(): Promise<Result<T> | null> {
       const lane = await queue.acquire(app);
-      if (lane === null || abandoned) return null;
+      if (lane === null || job.abandoned) return null;
       try {
-        const active = deps.apps.activeRelease(app);
-        if (!active.ok) return active;
-        if (active.value !== release) {
-          return err({
-            code: "conflict",
-            message: "the release is not active",
-            details: { active_release: active.value },
-          });
-        }
-        const known = sync.duplicate(change.device, change.id);
-        if (!known.ok) return known;
-        if (known.value !== null) {
-          return ok({ status: "duplicate", seq: known.value });
-        }
-        const begun = deps.ledger.begin({
-          ...base,
-          started_at: input.started_at,
-        });
-        if (!begun.ok) return begun;
-        sent = true;
-        const applied = await deps.link.syncApply(app, {
-          change: {
-            hlc: change.hlc,
-            changeset: Buffer.from(change.changeset).toString("base64"),
-          },
-        });
-        if (abandoned) return null;
-        if (!applied.ok || applied.value.status === "not_sync") {
-          const error = applied.ok
-            ? {
-                code: "invalid_input" as const,
-                message: "the app does not run on the phone",
-              }
-            : applied.error;
-          const closed = await deps.ledger.finish(base.id, {
-            status: "failed",
-            finished_at: finishedAt(),
-            summary: { outcome: "failed", error_code: error.code },
-            detail_hash: null,
-            changeset: null,
-          });
-          if (!closed.ok) return closed;
-          return err(error);
-        }
-        const outcome = applied.value;
-        const effective =
-          outcome.status === "applied" && outcome.effective !== null
-            ? new Uint8Array(Buffer.from(outcome.effective, "base64"))
-            : null;
-        const closed = await deps.ledger.finish(base.id, {
-          status: outcome.status === "applied" ? "succeeded" : "failed",
-          finished_at: finishedAt(),
-          summary:
-            outcome.status === "applied"
-              ? { outcome: "succeeded" }
-              : { outcome: "failed", error_code: "skipped" },
-          detail_hash: null,
-          changeset: effective,
-        });
-        if (!closed.ok) return closed;
-        const logged = await sync.phone(closed.value, change, outcome.status);
-        if (!logged.ok) return logged;
-        return ok({ status: outcome.status, seq: logged.value });
+        return await work(job);
       } finally {
         lane();
       }
     }
-
     intake.enter(flight);
     try {
-      const done = await Promise.race([work(), forcedResult]);
+      const done = await Promise.race([run(), forcedResult]);
       return done === null ? await forcedResult : done;
     } finally {
-      intake.leave(base.id);
+      intake.leave(flight.id);
     }
   }
 
-  return { path: { call }, intake, phone: { apply: applyPhone, exclusive } };
+  // 폰에서 온 변경 하나: write 줄 → invocation 시작 → 앱 process가 칸 단위 last-write-wins로 적용 → effective
+  // changeset으로 닫기 → sync log 줄. 정리된 흔적과 부딪는 변경은 held 줄로 남기고 폰에는 skipped로 답한다(폰은 그
+  // 변경을 outbox에서 지우고, 사람의 변경은 컴퓨터의 held 줄에 남는다).
+  async function applyPhone(input: PhoneApply): Promise<Result<PhoneApplied>> {
+    const attached = syncOf();
+    if (!attached.ok) return attached;
+    const sync = attached.value;
+    const { app, release, change } = input;
+    return inLane<PhoneApplied>(app, release, async (job) => {
+      const active = activeIs(app, release);
+      if (!active.ok) return active;
+      const known = sync.duplicate(change.device, change.id);
+      if (!known.ok) return known;
+      if (known.value !== null) {
+        return ok({ status: "duplicate", seq: known.value });
+      }
+      const base: CallRecordBase = {
+        id: deps.ids.newId("inv") as Id<"inv">,
+        app,
+        release,
+        mode: "live",
+        operation: { kind: "operation", name: input.operation },
+        caller: {
+          kind: "person",
+          view_session: change.id,
+          device: change.device,
+        },
+        effect: "write",
+        input_hash: null,
+      };
+      const begun = begin(job, base, input.started_at);
+      if (!begun.ok) return begun;
+      const applied = await deps.link.syncApply(app, {
+        changes: [{ hlc: change.hlc, changeset: base64(change.changeset) }],
+      });
+      if (job.abandoned) return null;
+      const [open] = job.opened.splice(0);
+      if (!applied.ok) return closeFailed([open!], applied.error);
+      if (applied.value.status === "not_sync") {
+        return closeFailed([open!], notSync());
+      }
+      const result = applied.value.results[0]!;
+      if (result.status === "held") {
+        const closed = await finish(
+          open!,
+          "failed",
+          { outcome: "failed", error_code: "held" },
+          null,
+        );
+        if (!closed.ok) return closed;
+        const held = await sync.held(
+          app,
+          release,
+          { origin: "device", ...change },
+          "past_horizon",
+        );
+        if (!held.ok) return held;
+        return ok({ status: "skipped", seq: held.value });
+      }
+      const closed = await finish(
+        open!,
+        result.status === "applied" ? "succeeded" : "failed",
+        result.status === "applied"
+          ? { outcome: "succeeded" }
+          : { outcome: "failed", error_code: "skipped" },
+        result.status === "applied" ? unbase64(result.effective) : null,
+      );
+      if (!closed.ok) return closed;
+      const logged = await sync.phone(closed.value, change, result.status);
+      if (!logged.ok) return logged;
+      return ok({ status: result.status, seq: logged.value });
+    });
+  }
+
+  // 폴더에서 온 변경 file 하나: 이미 받은 변경(같은 기계의 같은 id)은 건너뛰고, 남은 변경마다 invocation을 연 뒤 앱 DB
+  // transaction 하나로 적용하고, 변경마다 effective로 닫고 sync log 줄(origin machine)이나 held 줄을 남긴다.
+  async function applyChanges(
+    input: Parameters<FolderApply["applyChanges"]>[0],
+  ): ReturnType<FolderApply["applyChanges"]> {
+    const attached = syncOf();
+    if (!attached.ok) return attached;
+    const sync = attached.value;
+    const { app, release, origin, changes } = input;
+    const counts = { applied: 0, skipped: 0, duplicate: 0, held: 0 };
+    const size = changes.reduce(
+      (sum, change) => sum + change.changeset.byteLength,
+      0,
+    );
+    if (
+      changes.length > SYNC_APPLY_MAX_CHANGES ||
+      size > SYNC_APPLY_MAX_BYTES
+    ) {
+      return err({
+        code: "invalid_input",
+        message: "the changes exceed the size limit",
+      });
+    }
+    if (changes.length === 0) return ok(counts);
+    return inLane(app, release, async (job) => {
+      const active = activeIs(app, release);
+      if (!active.ok) return active;
+      const fresh: FolderChange[] = [];
+      for (const change of changes) {
+        const known = sync.duplicateFrom(origin, change.id);
+        if (!known.ok) return known;
+        if (known.value === null) fresh.push(change);
+        else counts.duplicate++;
+      }
+      if (fresh.length === 0) return ok(counts);
+      for (const change of fresh) {
+        const begun = begin(
+          job,
+          {
+            id: deps.ids.newId("inv") as Id<"inv">,
+            app,
+            release,
+            mode: "live",
+            operation: {
+              kind: "operation",
+              name: change.operation ?? SYNC_OPERATION,
+            },
+            caller: {
+              kind: "person",
+              view_session: change.id,
+              machine: origin,
+            },
+            effect: "write",
+            input_hash: null,
+          },
+          change.started_at ?? deps.clock.now(),
+        );
+        if (!begun.ok) {
+          const closed = await closeFailed(job.opened.splice(0), begun.error);
+          return closed.ok ? begun : closed;
+        }
+      }
+      const applied = await deps.link.syncApply(app, {
+        changes: fresh.map((change) => ({
+          hlc: change.hlc,
+          changeset: base64(change.changeset),
+        })),
+      });
+      if (job.abandoned) return null;
+      const opened = job.opened.splice(0);
+      if (!applied.ok) return closeFailed(opened, applied.error);
+      if (applied.value.status === "not_sync") {
+        return closeFailed(opened, notSync());
+      }
+      for (const [i, result] of applied.value.results.entries()) {
+        const change = fresh[i]!;
+        const received = {
+          machine: origin,
+          id: change.id,
+          hlc: change.hlc,
+          changeset: change.changeset,
+        };
+        const closed = await finish(
+          opened[i]!,
+          result.status === "applied" ? "succeeded" : "failed",
+          result.status === "applied"
+            ? { outcome: "succeeded" }
+            : { outcome: "failed", error_code: result.status },
+          result.status === "applied" ? unbase64(result.effective) : null,
+        );
+        if (!closed.ok) return closed;
+        const logged =
+          result.status === "held"
+            ? await sync.held(
+                app,
+                release,
+                { origin: "machine", ...received },
+                "past_horizon",
+              )
+            : await sync.machine(closed.value, received, result.status);
+        if (!logged.ok) return logged;
+        counts[result.status]++;
+      }
+      return ok(counts);
+    });
+  }
+
+  // 다른 기계의 snapshot 합치기: invocation 하나, 앱 DB transaction 하나. 정리된 흔적과 부딪어 적용하지 않은 row는 held 줄로
+  // 남는다. 바뀐 것이 있으면 폰은 새 snapshot을 받는다(합친 변경들의 clock이 하나가 아니라 log 줄 하나로 보낼 수 없다).
+  async function mergeSnapshot(
+    input: Parameters<FolderApply["mergeSnapshot"]>[0],
+  ): ReturnType<FolderApply["mergeSnapshot"]> {
+    const attached = syncOf();
+    if (!attached.ok) return attached;
+    const sync = attached.value;
+    const { app, release, origin } = input;
+    return inLane(app, release, async (job) => {
+      const active = activeIs(app, release);
+      if (!active.ok) return active;
+      const base: CallRecordBase = {
+        id: deps.ids.newId("inv") as Id<"inv">,
+        app,
+        release,
+        mode: "live",
+        operation: { kind: "operation", name: SNAPSHOT_MERGE_OPERATION },
+        caller: {
+          kind: "person",
+          view_session: `snapshot:${input.n}`,
+          machine: origin,
+        },
+        effect: "write",
+        input_hash: null,
+      };
+      const begun = begin(job, base, deps.clock.now());
+      if (!begun.ok) return begun;
+      const absent = input.absentDeletes;
+      const merged = await deps.link.snapshotMerge(app, {
+        path: input.path,
+        ...(absent === undefined
+          ? {}
+          : {
+              absent_deletes: {
+                below: absent.below,
+                keep: absent.keep.map((row) => ({
+                  table: row.table,
+                  pk: Buffer.from(row.pk, "hex").toString("base64"),
+                })),
+              },
+            }),
+      });
+      if (job.abandoned) return null;
+      const [open] = job.opened.splice(0);
+      // 답을 받지 못했으면 합쳐졌을 수 있다: 결과 모름으로 닫아 폰이 새 snapshot을 받게 한다.
+      if (!merged.ok && merged.error.code === "unavailable") {
+        const closed = await closeUnknown(open!.base, open!.startedAt);
+        return closed.ok ? merged : closed;
+      }
+      if (!merged.ok) return closeFailed([open!], merged.error);
+      if (merged.value.status === "not_sync") {
+        return closeFailed([open!], notSync());
+      }
+      const out = merged.value;
+      const closed = await finish(
+        open!,
+        "succeeded",
+        out.effective_dropped === undefined
+          ? { outcome: "succeeded" }
+          : { outcome: "succeeded", changeset_dropped: out.effective_dropped },
+        unbase64(out.effective),
+      );
+      if (!closed.ok) return closed;
+      for (const row of out.held) {
+        const held = await sync.held(
+          app,
+          release,
+          {
+            origin: "machine",
+            machine: origin,
+            hlc: row.hlc,
+            changeset: unbase64(row.changeset)!,
+          },
+          "past_horizon",
+        );
+        if (!held.ok) return held;
+      }
+      const changed =
+        out.effective !== null || out.effective_dropped !== undefined;
+      if (changed) {
+        const marked = await sync.rebaseline(app, release);
+        if (!marked.ok) return marked;
+      }
+      return ok({ changed, deleted: out.deleted });
+    });
+  }
+
+  function heldRow(app: Id<"app">, seq: number): Result<SyncLogRow> {
+    const attached = syncOf();
+    if (!attached.ok) return attached;
+    const row = attached.value.heldList(app).find((one) => one.seq === seq);
+    return row === undefined
+      ? err({ code: "not_found", message: "no held change has this seq" })
+      : ok(row);
+  }
+
+  // held 줄의 변경을 지금 clock의 이 기계 write로 다시 적용한다(사람이나 앱 agent의 다시 정함). 보통 write처럼 sync log에
+  // 남아 내보내지고, 그 held 줄은 풀린다. 지금 data와 부딪으면 아무것도 바꾸지 않고 conflict다.
+  async function applyHeld(
+    app: Id<"app">,
+    seq: number,
+    caller: AppToolCaller,
+  ): Promise<Result<{ invocation: Id<"inv"> }>> {
+    const attached = syncOf();
+    if (!attached.ok) return attached;
+    const sync = attached.value;
+    const row = heldRow(app, seq);
+    if (!row.ok) return row;
+    const stored = row.value.changeset;
+    if (stored === null) {
+      return err({
+        code: "not_found",
+        message: "the held change has no bytes",
+      });
+    }
+    const bytes = await sync.readChangeset(stored.hash, stored.size);
+    if (!bytes.ok) return bytes;
+    const active = deps.apps.activeRelease(app);
+    if (!active.ok) return active;
+    if (active.value === null) {
+      return err({ code: "not_found", message: "app not found" });
+    }
+    const release = active.value;
+    return inLane(app, release, async (job) => {
+      const still = activeIs(app, release);
+      if (!still.ok) return still;
+      const base: CallRecordBase = {
+        id: deps.ids.newId("inv") as Id<"inv">,
+        app,
+        release,
+        mode: "live",
+        operation: { kind: "operation", name: HELD_APPLY_OPERATION },
+        caller,
+        effect: "write",
+        input_hash: null,
+      };
+      const begun = begin(job, base, deps.clock.now());
+      if (!begun.ok) return begun;
+      const applied = await deps.link.syncReapply(app, {
+        changeset: base64(bytes.value),
+      });
+      if (job.abandoned) return null;
+      const [open] = job.opened.splice(0);
+      if (!applied.ok) return closeFailed([open!], applied.error);
+      if (applied.value.status === "not_sync") {
+        return closeFailed([open!], notSync());
+      }
+      if (applied.value.status === "conflict") {
+        return closeFailed([open!], {
+          code: "conflict",
+          message: applied.value.message,
+        });
+      }
+      const effective = unbase64(applied.value.effective);
+      const closed = await finish(
+        open!,
+        "succeeded",
+        { outcome: "succeeded" },
+        effective,
+      );
+      if (!closed.ok) return closed;
+      await sync.written(
+        closed.value,
+        applied.value.hlc ?? undefined,
+        effective,
+      );
+      const resolved = sync.resolve(seq, deps.clock.now());
+      if (!resolved.ok) return resolved;
+      return ok({ invocation: base.id });
+    });
+  }
+
+  const folder: FolderApply = { applyChanges, mergeSnapshot };
+  const syncHeld: SyncHeld = {
+    list(app) {
+      const attached = syncOf();
+      return attached.ok ? ok(attached.value.heldList(app)) : attached;
+    },
+    apply: applyHeld,
+    discard(app, seq) {
+      const row = heldRow(app, seq);
+      if (!row.ok) return row;
+      return deps.sync!.resolve(seq, deps.clock.now());
+    },
+  };
+
+  return {
+    path: { call },
+    intake,
+    phone: { apply: applyPhone, exclusive },
+    folder,
+    syncHeld,
+  };
+}
+
+function base64(bytes: Uint8Array): string {
+  return Buffer.from(bytes).toString("base64");
+}
+
+function unbase64(text: string | null): Uint8Array | null {
+  return text === null ? null : new Uint8Array(Buffer.from(text, "base64"));
 }

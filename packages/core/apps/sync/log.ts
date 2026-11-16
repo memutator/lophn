@@ -139,7 +139,7 @@ export type SyncLogDeps = {
   blobs: ChangesetBlobs;
   ledger: Pick<InvocationLedger, "list">;
   activeRelease(app: Id<"app">): Result<Id<"rel"> | null>;
-  // 그 release의 선언이 `runs_on`에 phone을 가졌는가.
+  // 그 release가 sync 앱인가(`runs_on`에 phone이 있거나 `sync_to`가 있다).
   isSync(app: string, release: string): boolean;
   now(): string;
   // 줄을 쓴 transaction이 commit된 뒤. `AppSyncChanged`를 낸다.

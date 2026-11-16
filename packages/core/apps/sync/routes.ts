@@ -14,23 +14,36 @@ import {
   type ReadHandler,
 } from "../../server/mod.ts";
 import { loadActiveDeclaration } from "../releases/store.ts";
-import { runsOnPhone } from "../runtime/entrypoint/sync.ts";
+import type { AppDeclaration } from "../../../protocol/apps/declaration/mod.ts";
+import { runsOnPhone, syncsData } from "../runtime/entrypoint/sync.ts";
 import type { AppSync } from "./service.ts";
 import type { Snapshots } from "./snapshots.ts";
 
 const key = (route: { resource: string; method: string }) =>
   `${route.resource}/${route.method}`;
 
-/** 그 release의 선언이 `runs_on`에 phone을 가졌는가. */
-export function syncAppOf(
+function declared(
   sql: Pick<Sql, "get" | "all">,
+  rule: (declaration: AppDeclaration) => boolean,
 ): (app: string, release: string) => boolean {
   return (app, release) => {
     const found = loadActiveDeclaration(sql, app, release);
-    return (
-      found.ok && found.value !== null && runsOnPhone(found.value.declaration)
-    );
+    return found.ok && found.value !== null && rule(found.value.declaration);
   };
+}
+
+/** 그 release가 컴퓨터에서 sync 앱인가(`runs_on`에 phone이 있거나 `sync_to`가 있다). sync log가 본다. */
+export function syncAppOf(
+  sql: Pick<Sql, "get" | "all">,
+): (app: string, release: string) => boolean {
+  return declared(sql, syncsData);
+}
+
+/** 그 release의 선언이 `runs_on`에 phone을 가졌는가. 폰 route가 본다. */
+export function phoneAppOf(
+  sql: Pick<Sql, "get" | "all">,
+): (app: string, release: string) => boolean {
+  return declared(sql, runsOnPhone);
 }
 
 export function appSyncRoutes(

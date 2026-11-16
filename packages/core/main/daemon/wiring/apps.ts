@@ -145,7 +145,11 @@ import { createScreenFileDeps } from "../../../apps/screens/mod.ts";
 import { createAppSkillsDeps } from "../../../apps/screens/skills.ts";
 import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
 import { createSyncLog, type SyncLog } from "../../../apps/sync/log.ts";
-import { appSyncRoutes, syncAppOf } from "../../../apps/sync/routes.ts";
+import {
+  appSyncRoutes,
+  phoneAppOf,
+  syncAppOf,
+} from "../../../apps/sync/routes.ts";
 import { createAppSync } from "../../../apps/sync/service.ts";
 import {
   createSnapshots,
@@ -312,8 +316,9 @@ export const appsWiring: WiringFactory = () => {
       const callers: CallerDirectory = createCallerDirectory(link.sql);
       ctx.provide("callerDirectory", callers);
       const states = appStatesOf(link.sql);
-      // sync 앱(runs_on에 phone)의 sync log. 컴퓨터의 write·rewind·폰 변경이 순서대로 남고 폰이 pull한다.
+      // sync 앱(runs_on에 phone이나 sync_to)의 sync log. 컴퓨터의 write·rewind·폰과 다른 기계의 변경이 순서대로 남고 폰이 pull한다.
       const isSync = syncAppOf(link.sql);
+      const runsOnPhone = phoneAppOf(link.sql);
       const sync = createSyncLog({
         sql: link.sql,
         transaction: link.transaction,
@@ -408,7 +413,7 @@ export const appsWiring: WiringFactory = () => {
         exclusive: phone.exclusive,
         link: appsControl.link,
         activeRelease: states.activeRelease,
-        isSync,
+        runsOnPhone,
         clock: ctx.clock,
         ids,
       });
@@ -418,7 +423,7 @@ export const appsWiring: WiringFactory = () => {
           log: sync,
           phone,
           activeRelease: states.activeRelease,
-          isSync,
+          runsOnPhone,
         }),
         snapshotStore,
       );

@@ -11,6 +11,7 @@ import {
 } from "../../../../sdk/cap-store/connection.node.ts";
 import {
   adoptSnapshot,
+  dumpClocks,
   dumpData,
   openClock,
   readOutbox,
@@ -24,10 +25,12 @@ import { createStoreAccess } from "./cap-host.ts";
 import { handleCall } from "./invoke.ts";
 import { createRuntimeState } from "./state.ts";
 import {
-  applyPhoneChange,
+  applyRemoteChanges,
   openSyncStore,
+  runsOnPhone,
   type SyncStore,
   syncedWrite,
+  syncsData,
   writeSnapshot,
 } from "./sync.ts";
 import { ensureAppToolPort } from "./tool-port.ts";
@@ -220,9 +223,9 @@ test("apps.sync_apply의 effective changeset은 실제로 바뀐 column만 담�
   now.ms = 3000;
   await write(sync, raw, "update item set title = 'milk C' where id = 'a'");
 
-  const applied = applyPhoneChange(sync, edit);
-  assert.ok(applied.ok && applied.value.status === "applied");
-  const effective = readChangeset(applied.value.effective!);
+  const applied = applyRemoteChanges(sync, [edit]);
+  assert.ok(applied.ok && applied.value[0]!.status === "applied");
+  const effective = readChangeset(applied.value[0]!.effective!);
   assert.ok(effective.ok);
   assert.deepEqual(
     effective.value.map((change) => [change.op, change.new]),
@@ -246,9 +249,12 @@ test("apps.sync_apply의 effective changeset은 실제로 바뀐 column만 담�
   );
   now.ms = 5000;
   await write(sync, raw, "update item set code = 'y' where id = 'b'");
-  const skipped = applyPhoneChange(sync, clash);
-  assert.ok(skipped.ok && skipped.value.status === "skipped");
-  assert.ok(applyPhoneChange(sync, next).ok);
+  const applied2 = applyRemoteChanges(sync, [clash, next]);
+  assert.ok(applied2.ok);
+  assert.deepEqual(
+    applied2.value.map((result) => result.status),
+    ["skipped", "applied"],
+  );
   assert.deepEqual(
     raw
       .prepare("select id, code, done from item order by id")
@@ -304,11 +310,10 @@ test("column을 지운 migration 뒤 두 사본이 같은 줄을 고쳐도 같�
   });
   assert.ok(carried.ok);
   for (const row of readOutbox(fresh)) {
-    const pushed = applyPhoneChange(restarted, {
-      hlc: row.hlc!,
-      changeset: row.changeset,
-    });
-    assert.ok(pushed.ok && pushed.value.status === "applied");
+    const pushed = applyRemoteChanges(restarted, [
+      { hlc: row.hlc!, changeset: row.changeset },
+    ]);
+    assert.ok(pushed.ok && pushed.value[0]!.status === "applied");
   }
 
   const computerDump = dumpData(restarted.db);
@@ -378,4 +383,110 @@ test("sync DB의 machine이 다르면 node가 새것이 되고, machine이 없�
   });
   assert.deepEqual(moved.data, first.data);
   assert.deepEqual(moved.rows, first.rows);
+  closeConnection(file);
+});
+
+// 지우면 file 하나를 적용하다 앱 process가 죽었을 때 앞 변경만 남아 사람의 data가 반쯤 바뀌고, 그 file을 다시 읽어도 맞지 않는다.
+test("변경 묶음을 적용하는 도중 앱 process가 죽으면 DB는 data도 clock도 묶음 앞과 같다", async () => {
+  const now = { ms: 1000 };
+  const { dir, file, raw, sync } = computer(
+    "create table item (id text primary key, title text)",
+    now,
+  );
+  await write(sync, raw, "insert into item values ('a', 'milk')");
+  const other = phoneFrom(sync, join(dir, "other.sqlite"));
+  const batch = [
+    phoneWrite(other, 2000, "update item set title = 'milk 2' where id = 'a'"),
+    phoneWrite(other, 2001, "insert into item values ('b', 'eggs')"),
+    phoneWrite(other, 2002, "insert into item values ('c', 'tea')"),
+  ];
+  const dump = () => {
+    const db = nodeSyncDb(readOnly(file));
+    return `${dumpData(db)}\n${dumpClocks(db)}`;
+  };
+  const before = dump();
+  // 둘째 변경을 쓰는 중에 연결이 닫힌다: 열린 transaction이 commit되지 않은 채 사라진다.
+  let runs = 0;
+  const dying: SyncDb = {
+    ...sync.db,
+    run(sql, params) {
+      runs += 1;
+      if (runs === 8) {
+        closeConnection(file);
+        throw new Error("killed");
+      }
+      sync.db.run(sql, params);
+    },
+  };
+  assert.throws(() =>
+    applyRemoteChanges({ ...sync, db: dying, clock: openClock(dying) }, batch),
+  );
+  assert.ok(runs >= 8);
+  assert.equal(dump(), before);
+});
+
+// 지우면 sync_to만 있는 앱의 컴퓨터 write가 clock 없이 남아 폴더로 나가지 못하거나, 폰 route가 폰에 없는 앱을 받는다.
+test("runs_on이 computer뿐이고 sync_to가 있는 앱도 컴퓨터에서 sync 앱이라 write가 clock을 싣고, 폰 route의 검사는 그 앱을 받지 않는다", async () => {
+  const declaration = {
+    runs_on: ["computer"],
+    sync_to: "personal",
+    operations: [{ name: "add", effect: "write" }],
+    commands: [],
+  } as never;
+  assert.equal(syncsData(declaration), true);
+  assert.equal(runsOnPhone(declaration), false);
+  assert.equal(syncsData({ runs_on: ["computer"] } as never), false);
+
+  const { file, raw, store, sync } = computer(
+    "create table item (id text primary key, title text)",
+    { ms: 1000 },
+  );
+  const state = createRuntimeState({
+    identity: {
+      app: APP,
+      release: REL,
+      bundleHash: "hash",
+      mode: "live",
+      processNonce: "nonce",
+    },
+    declaration,
+    broker: {} as never,
+    store,
+    dataSchema: 1,
+    controlSocket: "socket",
+  });
+  state.accepting = true;
+  state.sync = sync;
+  ensureAppToolPort().register({
+    name: "add",
+    handle: () => {
+      raw.exec("insert into item values ('a', 'milk')");
+      return null;
+    },
+  });
+  const done = await handleCall(
+    state,
+    new TextEncoder().encode(
+      JSON.stringify({
+        invocation: `inv_${ULID}`,
+        kind: "operation",
+        name: "add",
+        context: {
+          app: APP,
+          release: REL,
+          mode: "live",
+          effect: "write",
+          caller: null,
+        },
+      }),
+    ),
+  );
+  const body = done.body as {
+    status: string;
+    changeset: string | null;
+    hlc?: string;
+  };
+  assert.equal(body.status, "ok");
+  assert.ok(body.changeset !== null && body.hlc !== undefined);
+  closeConnection(file);
 });

@@ -29,7 +29,7 @@ import { installCrashExit } from "./crash.ts";
 import { BROKER_PATHS, SOCKET_HOST } from "./limits.ts";
 import { parseAppStart } from "./start-input.ts";
 import { publishReady, startRuntime } from "./startup.ts";
-import { openSyncStore, runsOnPhone } from "./sync.ts";
+import { openSyncStore, syncsData } from "./sync.ts";
 import type { NodeDatabase } from "../../../../protocol/apps/sync/node-db.ts";
 
 const CRASH_REPORT_WAIT_MS = 2_000;
@@ -129,7 +129,7 @@ async function main(deps: MainDeps): Promise<void> {
   if (
     started.state.identity.mode === "live" &&
     deps.dataSchema > 0 &&
-    runsOnPhone(deps.declaration)
+    syncsData(deps.declaration)
   ) {
     const database = started.state.store.database();
     if (database !== null) {

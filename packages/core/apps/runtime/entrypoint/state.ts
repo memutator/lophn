@@ -42,7 +42,7 @@ export type RuntimeState = {
   // write·external 호출과 적용은 이 문을 지난다. SQLite session이 연결 단위라 겹치면 한 changeset에
   // 섞이기 때문이다.
   exclusive: Mutex;
-  // sync 앱(live, `runs_on`에 phone, DB가 있음)이면 시작 때 연다. 아니면 null이고 sync 일을 하지 않는다.
+  // sync 앱(live, `runs_on`에 phone이나 `sync_to`가 있음, DB가 있음)이면 시작 때 연다. 아니면 null이고 sync 일을 하지 않는다.
   sync: SyncStore | null;
   // handler가 잡은 예외(와 건너뛴 폰 변경)를 process를 끝내지 않고 보고한다. 없으면 보고하지 않는다.
   reportCaught?: (error: Error, invocation: string | null) => void;

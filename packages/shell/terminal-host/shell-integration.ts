@@ -1,6 +1,6 @@
 // 사람 터미널의 shell에 끼우는 시작 층. 사용자의 startup file을 login shell처럼 모두 읽은 뒤에
 // `codex`·`opencode`·`kilo`·`cline` 함수를 정의해, 사람이 친 명령이 공유 background server가 아니라
-// 그 탭의 private server로 돈다. `claude`·`codex`·`opencode`·`omp` 함수는 첫 인자가 `gui`일 때만 그 탭의 hook socket으로
+// 그 탭의 private server로 돈다. `claude`·`codex`·`opencode`·`omp`·`agy` 함수는 첫 인자가 `gui`일 때만 그 탭의 hook socket으로
 // 탭을 GUI로 바꿔 달라는 요청(`lophn hook <harness> lophn-gui`)을 보내고, 그 밖의 인자는 원래 명령에 그대로 넘긴다.
 //
 // 왜: Codex(0.156+)와 OpenCode(2.x)는 TUI를 사용자당 하나인 background server에 붙이고 turn과 hook(plugin)을
@@ -178,6 +178,17 @@ if __lophn_external omp; then
   }
 fi
 
+if __lophn_external agy; then
+  function agy {
+    if [ "\${1-}" = gui ]; then
+      shift
+      __lophn_gui antigravity "$@"
+      return
+    fi
+    command agy "$@"
+  }
+fi
+
 if __lophn_external codex; then
   function codex {
     if [ "\${1-}" = gui ]; then
@@ -304,6 +315,18 @@ if test "$__lophn_kind" = file
   end
 end
 
+set __lophn_kind (type -t agy 2>/dev/null)
+if test "$__lophn_kind" = file
+  function agy
+    if test "$argv[1]" = gui
+      set -e argv[1]
+      __lophn_gui antigravity $argv
+      return
+    end
+    command agy $argv
+  end
+end
+
 set __lophn_kind (type -t codex 2>/dev/null)
 if test "$__lophn_kind" = file
   function codex
@@ -378,7 +401,7 @@ set -e __lophn_kind
 // PowerShell 7·5.1 시작 층. 사용자의 profile을 모두 읽은 뒤 dot-source되므로 profile·alias·function은 고치지 않고
 // 지금 실제 외부 명령으로 잡히는 것만 감싼다. 감싼 경로를 call operator로 불러 자기 함수를 다시 부르지 않는다.
 // 경로는 `$global:`에 둔다. `$script:`는 함수를 부른 script의 scope로 풀려서 사용자 .ps1 안에서 부르면 비어 있었다.
-// GUI 넷은 첫 인자가 `gui`일 때만 분기하고, private server wrapper 넷은 bash·zsh·fish의 `FUNCTIONS`와 같은 규칙을 쓴다.
+// GUI 다섯은 첫 인자가 `gui`일 때만 분기하고, private server wrapper 넷은 bash·zsh·fish의 `FUNCTIONS`와 같은 규칙을 쓴다.
 const POWERSHELL = `# lophn shell integration (PowerShell 7·5.1)
 function __lophn_native {
   param([string] $Name)
@@ -455,6 +478,19 @@ if ($null -ne $__lophn_path) {
       return
     }
     & $global:__lophn_native_omp @args
+  }
+}
+
+$__lophn_path = __lophn_native 'agy'
+if ($null -ne $__lophn_path) {
+  $global:__lophn_native_agy = $__lophn_path
+  function agy {
+    if ($args.Count -gt 0 -and ([string] $args[0]) -ceq 'gui') {
+      $rest = @($args | Select-Object -Skip 1)
+      __lophn_gui 'antigravity' $rest
+      return
+    }
+    & $global:__lophn_native_agy @args
   }
 }
 

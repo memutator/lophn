@@ -49,6 +49,7 @@ const UPDATE_BATCH_MS = 20;
 export const GUI_HANDOFF: Readonly<Record<GuiHarness, HarnessGuiHandoff>> = {
   claude: "restart",
   omp: "restart",
+  antigravity: "restart",
   codex: "shared",
   opencode: "shared",
 };

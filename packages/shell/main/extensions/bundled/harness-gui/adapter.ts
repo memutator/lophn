@@ -10,6 +10,7 @@ import type {
   ExtensionSpawn,
   GuiHarness,
 } from "../../../../../protocol/extensions/mod.ts";
+import { antigravityAdapter } from "./antigravity.ts";
 import { claudeAdapter } from "./claude.ts";
 import { codexAdapter } from "./codex.ts";
 import { ompAdapter } from "./omp.ts";
@@ -32,7 +33,7 @@ export type HarnessGuiRun = {
 };
 
 // 탭 하나의 GUI·TUI 전환 흐름(탭의 `AcpTerminal` 위에서). `handoff`가 어느 길인지 정한다.
-// - restart (claude, omp): CLI가 session을 한 번에 한 쪽만 쥔다.
+// - restart (claude, omp, antigravity): CLI가 session을 한 번에 한 쪽만 쥔다.
 //   GUI → TUI: `run.running()`이 turn이나 task를 말하면 modal → `await run.stop()`(process가 끝날 때까지)
 //     → `terminal.type(run.tuiCommand() + "\r")`.
 //   TUI → GUI: `terminal.state()`가 running·waiting이면 modal → `await adapter.exitTui(terminal)`
@@ -64,4 +65,5 @@ export const HARNESS_GUI_ADAPTERS: Record<GuiHarness, HarnessGuiAdapter> = {
   codex: codexAdapter,
   opencode: opencodeAdapter,
   omp: ompAdapter,
+  antigravity: antigravityAdapter,
 };

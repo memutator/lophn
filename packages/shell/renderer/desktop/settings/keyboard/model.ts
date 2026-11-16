@@ -425,6 +425,7 @@ const CONTEXT_NAMES: Readonly<Record<string, string>> = {
   "agentView:codex": "Codex",
   "agentView:opencode": "OpenCode",
   "agentView:omp": "omp",
+  "agentView:antigravity": "Antigravity",
 };
 
 export function contextName(context: string): string {

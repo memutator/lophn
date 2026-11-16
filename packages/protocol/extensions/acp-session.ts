@@ -4,7 +4,13 @@ import type { AcpInput } from "../acp/input.ts";
 import type { AcpUpdate } from "../acp/state.ts";
 
 /** 탭의 `<harness> gui`가 받는 harness. 이 목록은 여기 하나다. */
-export const GUI_HARNESSES = ["claude", "codex", "opencode", "omp"] as const;
+export const GUI_HARNESSES = [
+  "claude",
+  "codex",
+  "opencode",
+  "omp",
+  "antigravity",
+] as const;
 export type GuiHarness = (typeof GUI_HARNESSES)[number];
 
 export function isGuiHarness(value: unknown): value is GuiHarness {

@@ -5,7 +5,7 @@ lead만 고친다. `tools/status.py desktop-remote build`가 `tasks/*.md`에서 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `remote-desk-screens` | desk-screens | 1 | 없음 | merged | desk-screens/remote-desk-screens | 66fad9b5e |  |
-| `remote-desk-client` | remote-client | 1 | 없음 | running | remote-client/remote-desk-client |  |  |
+| `remote-desk-client` | remote-client | 1 | 없음 | merged | remote-client/remote-desk-client | 3fd27e082 |  |
 | `remote-desk-viewer` | desk-viewer | 2 | remote-desk-client | todo |  |  |  |
 | `remote-desk-stale-send` | stale-send | 2 | remote-desk-client | todo |  |  |  |
 | `remote-desk-renderer` | desk-renderer | 3 | remote-desk-screens, remote-desk-viewer | todo |  |  |  |

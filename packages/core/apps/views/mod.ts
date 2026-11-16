@@ -33,6 +33,28 @@ export function createAppViews(ports: AppViewsPorts) {
     },
     close: (owner: string, view: string) =>
       ok({ closed: table.close(owner, view) }),
+    /**
+     * 기기(`device:` owner)가 연, 묶여 있는 그 앱의 preview view. phone 탭이 다룰 화면을 여기서 고른다. live view와 shell(사람·desktop)
+     * owner의 view는 결코 내지 않는다: live는 사람의 진짜 data에 operation을 부르고, shell의 view는 폰 화면이 아니다.
+     */
+    previewViews(
+      app: string,
+    ): { owner: string; view: string; screen: string; used: number }[] {
+      return [...table.entries()]
+        .filter(
+          (entry) =>
+            entry.args.mode === "preview" &&
+            entry.args.app === app &&
+            entry.lost === null &&
+            entry.owner.startsWith("device:"),
+        )
+        .map((entry) => ({
+          owner: entry.owner,
+          view: entry.view,
+          screen: entry.args.screen,
+          used: entry.used,
+        }));
+    },
     /** 폰 연결이 닫혔다(끊기, 기기 끊기, core 내려감). 그 기기의 view를 지운다. */
     closeOwner: (owner: string) => table.closeOwner(owner),
     /** Bus의 `AppViewChanged`. */

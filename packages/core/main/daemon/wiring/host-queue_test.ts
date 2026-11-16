@@ -7,8 +7,12 @@ import {
   createIdSource,
   manualClock,
   ok,
+  type Result,
   seededRandom,
 } from "../../../../base/mod.ts";
+import { PHONE_TAB_TEXT } from "../../../../protocol/phone/drive.ts";
+import { createAppViews } from "../../../apps/views/mod.ts";
+import type { PreviewView } from "../../../host-queue/phone.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import type {
   HostRequest,
@@ -55,11 +59,30 @@ const LOGIN_ENTRY = {
 };
 const KNOWN = "hunter2";
 
+// 폰 쪽 가짜. previewViews는 view 표, calls는 폰 link에 간 요청, answer는 폰의 답이다.
+type FakePhone = {
+  previewViews: (app: string) => readonly PreviewView[];
+  calls: PhoneCall[];
+  answer: (call: PhoneCall) => Result<unknown>;
+};
+type PhoneCall = {
+  device: string;
+  kind: string;
+  input: unknown;
+  deadline_ms: number;
+};
+function fakePhone(
+  previewViews: FakePhone["previewViews"] = () => [],
+): FakePhone {
+  return { previewViews, calls: [], answer: () => ok({}) };
+}
+
 function setup(
   running: boolean,
   root = "/nonexistent",
   launchShell?: (failed: () => void) => void,
   primary: string | null = null,
+  phone: FakePhone = fakePhone(),
 ) {
   const clock = manualClock(1_700_000_000_000);
   const queue = createHostQueue({
@@ -92,6 +115,12 @@ function setup(
     login: (login) =>
       Promise.resolve(ok(login === LOGIN ? LOGIN_ENTRY : undefined)),
     redact: (text) => text.replaceAll(KNOWN, "[REDACTED]"),
+    previewViews: (app) => phone.previewViews(app),
+    phoneCall: (call) => {
+      phone.calls.push(call);
+      return Promise.resolve(phone.answer(call));
+    },
+    agentName: (session) => (session === id("ses", 1) ? "Builder" : null),
   });
   return { clock, queue, ...handlers };
 }
@@ -458,4 +487,240 @@ test("fill_login의 queue 항목에는 login id만 있고, 결과와 page 글에
     `- textbox "x" value="${KNOWN}" [ref=e1]`,
   );
   assert.ok(!JSON.stringify(shot.value).includes(KNOWN));
+});
+
+// phone 탭은 사람의 폰 화면을 누르고 친다. 깨지면 다른 앱·project의 agent가 남의 앱 화면을 다루거나 남의 session이 연 탭을 부른다.
+test("agent는 자기 앱 workspace가 아닌 앱의 phone 탭을 열지 못하고(not_found), 남의 session이 연 phone 탭을 부르지 못한다(not_found)", async () => {
+  const views = [
+    { owner: "device:dev_1", view: "view-0001", screen: "home", used: 1 },
+  ];
+  const phone = fakePhone((app) => (app === APP ? views : []));
+  const { queue, open, snapshot, act, screenshot, read, close } = setup(
+    true,
+    "/nonexistent",
+    undefined,
+    null,
+    phone,
+  );
+  const host = connect(queue, [{ kind: "app", id: APP as never }]);
+  const phoneTarget = (app: string) => ({ target: { phone: { app } } });
+  for (const n of [2, 3, 4]) {
+    assert.equal(code(await open(agent(n), phoneTarget(APP))), "not_found");
+  }
+  assert.equal(code(await open(agent(1), phoneTarget(OTHER_APP))), "not_found");
+  const opened = await open(agent(1), phoneTarget(APP));
+  assert.ok(opened.ok);
+  const tab = (opened.value as { tab: string }).tab;
+  // 남의 session과 사람은 그 탭을 없는 탭과 같은 문장으로 받는다. 폰에는 아무것도 가지 않는다.
+  const gone = await snapshot(agent(1), { tab: id("tab", 9) });
+  for (const who of [agent(2), person]) {
+    assert.equal(message(await snapshot(who, { tab })), message(gone));
+    assert.equal(
+      code(await act(who, { tab, type: "click", ref: "e1" })),
+      "not_found",
+    );
+    assert.equal(code(await screenshot(who, { tab })), "not_found");
+    assert.equal(code(await read(who, { tab })), "not_found");
+  }
+  assert.equal(code(await close(agent(2), { tab })), "forbidden");
+  assert.deepEqual(phone.calls, []);
+  // phone 탭은 shell queue에 들어가지 않는다.
+  assert.equal(host.next(), null);
+});
+
+test("phone 탭 열기: 도는 preview가 없으면 conflict, 폰이 그 preview를 보이지 않으면 unavailable이고 탭이 생기지 않는다", async () => {
+  const stopped = setup(false);
+  const target = { target: { phone: { app: APP } } };
+  assert.equal(code(await stopped.open(agent(1), target)), "conflict");
+  const blank = setup(true);
+  const refused = await blank.open(agent(1), target);
+  assert.equal(code(refused), "unavailable");
+  assert.equal(message(refused), PHONE_TAB_TEXT.notShowing);
+  const views = [
+    { owner: "device:dev_1", view: "view-0001", screen: "home", used: 1 },
+  ];
+  const shown = setup(
+    true,
+    "/nonexistent",
+    undefined,
+    null,
+    fakePhone(() => views),
+  );
+  const other = await shown.open(person, {
+    target: { phone: { app: APP, screen: "pocket" } },
+  });
+  assert.equal(code(other), "unavailable");
+});
+
+// 폰은 사람의 진짜 기기다. live view는 사람의 진짜 data에 operation을 부르고, 기기가 아닌 owner(shell)의 view는 폰 화면이 아니다.
+// 고르는 것이 틀리면 agent의 누르기가 엉뚱한 화면이나 진짜 data에 닿는다.
+test("요청은 그 앱의 preview view를 연 기기에만 가고, live view나 기기가 아닌 owner의 view는 고르지 않으며, preview view가 없으면 폰에 묻지 않고 unavailable이다", async () => {
+  const REL = id("rel", 1);
+  const views = createAppViews({
+    appStatus: () => ok("active" as const),
+    live: () => Promise.resolve(ok({ release: REL, process_nonce: "live" })),
+    preview: () =>
+      Promise.resolve(
+        ok({
+          release: null,
+          bundle_hash: "3".repeat(64),
+          process_nonce: "pre",
+        }),
+      ),
+    release: () =>
+      ok({
+        bundle_hash: "1".repeat(64),
+        screens: [{ key: "home", places: ["phone", "tab"] }],
+        subscriptions: [],
+      }),
+    lookup: {} as never,
+    path: {} as never,
+    publish: () => {},
+  });
+  const view = (mode: "live" | "preview", app: string, n: number) => ({
+    view: `view-${n}`.padEnd(8, "0"),
+    mode,
+    app,
+    release: null,
+    screen: "home",
+    place: "phone",
+  });
+  // 기기 A의 preview(고를 것), 그 뒤에 연 기기 B의 live, shell의 preview, 기기 C의 다른 앱 preview.
+  assert.ok((await views.open("device:dev_a", view("preview", APP, 1))).ok);
+  assert.ok((await views.open("device:dev_b", view("live", APP, 2))).ok);
+  assert.ok((await views.open("user:person", view("preview", APP, 3))).ok);
+  assert.ok(
+    (await views.open("device:dev_c", view("preview", OTHER_APP, 4))).ok,
+  );
+
+  const phone = fakePhone((app) => views.previewViews(app));
+  phone.answer = () =>
+    ok({ media_type: "image/jpeg", data_base64: "AA==", width: 1, height: 1 });
+  const { open, screenshot } = setup(
+    true,
+    "/nonexistent",
+    undefined,
+    null,
+    phone,
+  );
+  const opened = await open(agent(1), { target: { phone: { app: APP } } });
+  assert.ok(opened.ok);
+  const tab = (opened.value as { tab: string }).tab;
+  assert.equal(code(await screenshot(agent(1), { tab })), "ok");
+  assert.deepEqual(
+    phone.calls.map((call) => [
+      call.device,
+      (call.input as { view: string }).view,
+    ]),
+    [["dev_a", view("preview", APP, 1).view]],
+  );
+
+  views.closeOwner("device:dev_a");
+  const none = await screenshot(agent(1), { tab });
+  assert.equal(code(none), "unavailable");
+  assert.equal(message(none), PHONE_TAB_TEXT.notShowing);
+  assert.equal(phone.calls.length, 1);
+});
+
+test("phone 탭: open → snapshot → click → screenshot", async () => {
+  const VIEW = "view-0001";
+  const views = [
+    { owner: "device:dev_1", view: VIEW, screen: "home", used: 1 },
+  ];
+  const phone = fakePhone(() => views);
+  phone.answer = (call) =>
+    call.kind === "drive.snapshot"
+      ? ok({
+          snapshot: "s1",
+          width_dp: 412,
+          height_dp: 915,
+          nodes: [
+            { node: 1, depth: 0, role: "header", name: "Groceries", flags: [] },
+            {
+              node: 7,
+              depth: 0,
+              role: "textbox",
+              name: "Item",
+              value: KNOWN,
+              flags: [],
+            },
+            {
+              node: 9,
+              depth: 1,
+              role: "button",
+              name: "Add",
+              flags: ["disabled"],
+            },
+          ],
+        })
+      : call.kind === "drive.screenshot"
+        ? ok({
+            media_type: "image/jpeg",
+            data_base64: "AA==",
+            width: 1,
+            height: 1,
+          })
+        : ok({});
+  const { queue, open, snapshot, act, screenshot, read, show } = setup(
+    true,
+    "/nonexistent",
+    undefined,
+    null,
+    phone,
+  );
+  const opened = await open(agent(1), { target: { phone: { app: APP } } });
+  assert.ok(opened.ok);
+  const tab = (opened.value as { tab: string }).tab;
+  // 같은 앱의 phone 탭은 하나다.
+  const again = await open(agent(1), { target: { phone: { app: APP } } });
+  assert.equal((again as { value: { tab: string } }).value.tab, tab);
+
+  const shot = await snapshot(agent(1), { tab });
+  assert.deepEqual((shot as { value: unknown }).value, {
+    snapshot: [
+      "screen home 412x915dp",
+      '- header "Groceries" [ref=e1]',
+      '- textbox "Item" value="[REDACTED]" [ref=e2]',
+      '  - button "Add" [disabled] [ref=e3]',
+    ].join("\n"),
+  });
+  const clicked = await act(agent(1), { tab, type: "click", ref: "e3" });
+  assert.deepEqual((clicked as { value: unknown }).value, {
+    url: `phone://${APP}/home`,
+    title: "home",
+  });
+  const image = await screenshot(agent(1), { tab });
+  assert.deepEqual((image as { value: unknown }).value, {
+    image: { media_type: "image/jpeg", data_base64: "AA==" },
+  });
+  assert.deepEqual(
+    phone.calls.map((call) => [call.kind, call.input]),
+    [
+      ["drive.snapshot", { view: VIEW, by: "Builder" }],
+      [
+        "drive.act",
+        {
+          view: VIEW,
+          by: "Builder",
+          snapshot: "s1",
+          act: { type: "click", node: 9 },
+        },
+      ],
+      ["drive.screenshot", { view: VIEW, by: "Builder", format: "jpeg" }],
+    ],
+  );
+  assert.deepEqual(
+    ((await read(agent(1), { tab })) as { value: unknown }).value,
+    {
+      url: `phone://${APP}/home`,
+      title: "home",
+      loading: false,
+    },
+  );
+  assert.equal(code(await show(agent(1), { tab })), "invalid_input");
+  assert.equal(
+    code(await act(agent(1), { tab, type: "hover", ref: "e3" })),
+    "invalid_input",
+  );
+  assert.equal(queue.attached(), false);
 });

@@ -45,10 +45,20 @@ import {
   type TabOwner,
 } from "../../../host-queue/mod.ts";
 import {
+  createPhoneDriver,
+  PHONE_BY_PERSON,
+  type PhoneDriveDeps,
+  type PhoneDriver,
+  type PreviewView,
+} from "../../../host-queue/phone.ts";
+import type { PhoneTab } from "../../../host-queue/queue.ts";
+import {
   type AgentSessionRow,
   loadSession,
   workspaceOf,
 } from "../../../lophn-agent/session/model.ts";
+import { workspaceDepsOf } from "../../../lophn-agent/workspaces/mod.ts";
+import { PHONE_TAB_TEXT } from "../../../../protocol/phone/drive.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { createHostLink, type MemoryHandler } from "../../../server/mod.ts";
 import { createLoginStore } from "../../../secrets/mod.ts";
@@ -118,6 +128,12 @@ type TabDeps = {
   login(id: string): Promise<Result<Login | undefined>>;
   // browser 결과가 caller에 가기 전에 거치는 redaction. 알려진 값을 아직 다 모르면 null이다.
   redact(text: string): string | null;
+  // 그 앱의 기기가 연 preview view(`apps/views`). phone 탭이 다룰 화면을 고른다.
+  previewViews(app: string): readonly PreviewView[];
+  // 폰 link(`ctx.phoneLink.call`).
+  phoneCall: PhoneDriveDeps["call"];
+  // session의 agent가 보이는 이름. 폰의 "is driving" 줄에 간다. 못 읽으면 null.
+  agentName(session: string): string | null;
 };
 
 // agent는 자격의 session으로, 사람은 사람 token으로 부른다. 탭의 주인은 session, 사람 token은 모두 "person"이다.
@@ -131,32 +147,75 @@ export function createTabHandlers(deps: TabDeps) {
   const owner = (who: AuthenticatedContext): Result<TabOwner> =>
     who.actor === "user" ? ok("person") : agentSession(who);
 
+  // preview·phone 탭은 그 앱 workspace의 session과 사람만 연다. 남의 앱은 있는지도 알리지 않는다.
+  const ownApp = async (
+    caller: TabOwner,
+    app: string,
+  ): Promise<Result<void>> => {
+    if (caller !== "person") {
+      const row = sessionRow(caller);
+      const here = row === undefined ? null : workspaceOf(row);
+      if (here?.kind !== "app" || here.id !== app) {
+        return err({ code: "not_found", message: "app not found" });
+      }
+    }
+    const facts = await deps.app(app);
+    if (!facts.ok) return facts;
+    return facts.value === null
+      ? err({ code: "not_found", message: "app not found" })
+      : ok(undefined);
+  };
+  const running = async (
+    app: string,
+  ): Promise<Result<{ release: string | null }>> => {
+    const current = await deps.preview(app);
+    if (!current.ok) return current;
+    return current.value === null
+      ? err({
+          code: "conflict",
+          message:
+            "No preview is running for this app, so there is nothing to open. Run `lophn preview start`, then open the tab again.",
+        })
+      : ok(current.value);
+  };
+  const phone = createPhoneDriver({
+    previewViews: deps.previewViews,
+    call: deps.phoneCall,
+    redact: deps.redact,
+  });
+  const byOf = (caller: TabOwner) =>
+    caller === "person"
+      ? PHONE_BY_PERSON
+      : (deps.agentName(caller) ?? "An agent").slice(0, 80);
+
   const open: MemoryHandler = async (who, body) => {
     const caller = owner(who);
     if (!caller.ok) return caller;
     const input = tabsOpen.input.parse(body);
-    // phone 탭은 아직 이어지지 않았다. core의 phone 탭이 이 자리를 맡는다.
     if ("phone" in input.target) {
-      return err({
-        code: "invalid_input",
-        message: "phone tabs are not available yet",
+      const { app, screen } = input.target.phone;
+      const own = await ownApp(caller.value, app);
+      if (!own.ok) return own;
+      const current = await running(app);
+      if (!current.ok) return current;
+      // 폰이 그 preview를 보이지 않으면 열지 않는다. 탭은 기기·view를 쥐지 않고 부를 때마다 다시 고른다.
+      const showing = deps
+        .previewViews(app)
+        .some((view) => screen === null || view.screen === screen);
+      if (!showing) {
+        return err({ code: "unavailable", message: PHONE_TAB_TEXT.notShowing });
+      }
+      const tab = queue.openPhone({
+        owner: caller.value,
+        app: app as Id<"app">,
+        screen,
       });
+      return ok({ tab, status: "accepted" as const });
     }
     if ("preview" in input.target) {
       const { app } = input.target.preview;
-      // 남의 앱은 있는지도 알리지 않는다.
-      if (caller.value !== "person") {
-        const row = sessionRow(caller.value);
-        const here = row === undefined ? null : workspaceOf(row);
-        if (here?.kind !== "app" || here.id !== app) {
-          return err({ code: "not_found", message: "app not found" });
-        }
-      }
-      const facts = await deps.app(app);
-      if (!facts.ok) return facts;
-      if (facts.value === null) {
-        return err({ code: "not_found", message: "app not found" });
-      }
+      const own = await ownApp(caller.value, app);
+      if (!own.ok) return own;
       const { screen } = input.target.preview;
       let { device } = input.target.preview;
       if (device !== null && !deps.deviceNames().includes(device)) {
@@ -165,15 +224,8 @@ export function createTabHandlers(deps: TabDeps) {
           message: `no device named ${device}; register it in Settings > Browser`,
         });
       }
-      const current = await deps.preview(app);
+      const current = await running(app);
       if (!current.ok) return current;
-      if (current.value === null) {
-        return err({
-          code: "conflict",
-          message:
-            "No preview is running for this app, so there is nothing to open. Run `lophn preview start`, then open the tab again.",
-        });
-      }
       if (screen !== null) {
         const { release } = current.value;
         const screens =
@@ -244,7 +296,8 @@ export function createTabHandlers(deps: TabDeps) {
     if (person && !("browser" in input.target)) {
       return err({
         code: "invalid_input",
-        message: "a person token opens --url, --preview and --artifact tabs",
+        message:
+          "a person token opens --url, --preview, --phone and --artifact tabs",
       });
     }
     const from = person ? undefined : sessionRow(caller.value);
@@ -384,6 +437,10 @@ export function createTabHandlers(deps: TabDeps) {
     const caller = owner(who);
     if (!caller.ok) return caller;
     const input = browserRead.input.parse(body);
+    const found = queue.browserTab(input.tab as Id<"tab">, caller.value);
+    if (found.ok && found.value.view === "phone") {
+      return phone.read(found.value.phone);
+    }
     const state = queue.read(input.tab as Id<"tab">, caller.value);
     if (!state.ok) return state;
     // page가 정한 url·title도 caller에 가기 전에 secret을 지운다.
@@ -428,6 +485,13 @@ export function createTabHandlers(deps: TabDeps) {
       ) => Result<BrowserAction> | Promise<Result<BrowserAction>>,
       shape: (content: ExtensionToolContent[], input: never) => Result<unknown>,
       route: { input: { parse(body: unknown): { tab: string } } },
+      // phone 탭이면 shell queue 대신 이것이 폰 link로 답한다.
+      onPhone: (
+        driver: PhoneDriver,
+        tab: PhoneTab,
+        by: string,
+        input: never,
+      ) => Result<unknown> | Promise<Result<unknown>>,
     ): MemoryHandler =>
     async (who, body) => {
       const caller = owner(who);
@@ -435,6 +499,14 @@ export function createTabHandlers(deps: TabDeps) {
       const input = route.input.parse(body);
       const found = queue.browserTab(input.tab as Id<"tab">, caller.value);
       if (!found.ok) return found;
+      if (found.value.view === "phone") {
+        return onPhone(
+          phone,
+          found.value.phone,
+          byOf(caller.value),
+          input as never,
+        );
+      }
       const action = await build(input as never, found.value.view);
       if (!action.ok) return action;
       if (!queue.attached()) {
@@ -494,6 +566,7 @@ export function createTabHandlers(deps: TabDeps) {
       return text.ok ? ok({ snapshot: text.value }) : text;
     },
     browserSnapshot,
+    (driver, tab, by) => driver.snapshot(tab, by),
   );
   const act = call(
     async (input: Record<string, unknown>) => {
@@ -525,6 +598,8 @@ export function createTabHandlers(deps: TabDeps) {
         : page;
     },
     browserAct,
+    (driver, tab, by, input: Record<string, unknown>) =>
+      driver.act(tab, by, input),
   );
   const navigate = call(
     (input: { url: string }, view) => {
@@ -544,6 +619,7 @@ export function createTabHandlers(deps: TabDeps) {
     },
     jsonOf,
     browserNavigate,
+    (driver) => driver.unsupported("navigate"),
   );
   const screenshot = call(
     () => ok({ kind: "screenshot" }),
@@ -554,12 +630,14 @@ export function createTabHandlers(deps: TabDeps) {
         : err({ code: "internal", message: "the browser result has no image" });
     },
     browserScreenshot,
+    (driver, tab, by) => driver.screenshot(tab, by),
   );
   const evaluate = call(
     (input: { expression: string }) =>
       ok({ kind: "evaluate", expression: input.expression }),
     jsonOf,
     browserEvaluate,
+    (driver) => driver.unsupported("evaluate"),
   );
   const logs = call(
     () => ok({ kind: "logs" }),
@@ -568,6 +646,7 @@ export function createTabHandlers(deps: TabDeps) {
       return text.ok ? ok({ logs: text.value }) : text;
     },
     browserLogs,
+    (driver) => driver.unsupported("logs"),
   );
   const wait = call(
     (input: { text?: string; url?: string; timeout_ms?: number }) =>
@@ -581,6 +660,12 @@ export function createTabHandlers(deps: TabDeps) {
           }),
     jsonOf,
     browserWait,
+    (
+      driver,
+      tab,
+      by,
+      input: { text?: string; url?: string; timeout_ms?: number },
+    ) => driver.wait(tab, by, input),
   );
 
   return {
@@ -706,6 +791,18 @@ export const hostQueueWiring: WiringFactory = () => {
           return logins.ok ? ok(logins.value.find((l) => l.id === id)) : logins;
         },
         redact: (text) => redactor(BROWSER_RESULT, "text/plain", text),
+        // view 표와 폰 link는 다른 wiring이 낸다. 부를 때 읽는다.
+        previewViews: (app) => ctx.appViews.previewViews(app),
+        phoneCall: (request) => ctx.phoneLink.call(request),
+        agentName: (session) => {
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
+            const row = loadSession(lookup, session);
+            return row === undefined
+              ? null
+              : workspaceDepsOf(lookup.sql).names.describe(row.agent).name;
+          });
+          return found.ok ? found.value : null;
+        },
       });
       tabs = handlers;
 

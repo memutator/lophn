@@ -15,6 +15,7 @@ import {
 } from "../../../../protocol/lophn-agent/providers.ts";
 import { turnRead } from "../../../../protocol/lophn-agent/turn-reads.ts";
 import type { TurnMode } from "../../../../protocol/lophn-agent/turn-values.ts";
+import { PHONE_TAB_TEXT } from "../../../../protocol/phone/drive.ts";
 import { loginOriginSchema } from "../../../../protocol/secrets/logins.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { PROJECT_LAYER } from "../../../agent-workspaces/workspace/project-layer.ts";
@@ -198,6 +199,12 @@ export const inputRequestWiring: WiringFactory = () => {
           session as Id<"ses">,
         );
         if (!found.ok) return found;
+        if (found.value.view === "phone") {
+          return err({
+            code: "invalid_input",
+            message: PHONE_TAB_TEXT.unsupported("a login request"),
+          });
+        }
         const origin = await measure(
           input.tab as Id<"tab">,
           found.value.view,

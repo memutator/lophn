@@ -7,6 +7,7 @@ import {
 } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import type { ExtensionToolContent } from "../../protocol/extensions/manifest.ts";
+import { PHONE_TAB_TEXT } from "../../protocol/phone/drive.ts";
 import {
   BROWSER_CALL_MS,
   EXTENSION_TOOL_CALL_MS,
@@ -40,14 +41,31 @@ type Entry = {
 };
 // 탭의 주인이다. 사람 token은 모두 같은 주인 "person"이다.
 export type TabOwner = Id<"ses"> | "person";
+// phone 탭이다. 화면은 폰에 있고 core가 폰 link로 다룬다(`phone.ts`). shell에는 가지 않는다. 기기와 view는 쥐지 않고
+// 부를 때마다 고른다. screen이 null이면 폰이 보이는 어느 화면이든이다. last는 마지막 snapshot과 그 ref 표(`eN` → 폰의 node)다.
+export type PhoneTab = {
+  app: string;
+  screen: string | null;
+  counter: number;
+  last: {
+    owner: string;
+    view: string;
+    snapshot: string;
+    refs: Map<string, number>;
+  } | null;
+};
 type TabEntry = {
   owner: TabOwner;
   workspace: HostWorkspace;
-  kind: "agent" | "browser" | "preview" | "artifact";
-  // preview 탭은 앱마다, artifact 탭은 artifact마다 하나라 이 key로 찾는다. 다른 탭은 null이다.
+  kind: "agent" | "browser" | "preview" | "artifact" | "phone";
+  // preview·phone 탭은 앱마다, artifact 탭은 artifact마다 하나라 이 key로 찾는다. 다른 탭은 null이다.
   single: string | null;
   state: BrowserTabState | null;
+  phone: PhoneTab | null;
 };
+export type BrowserTabView =
+  | { view: "browser" | "preview" | "artifact" }
+  | { view: "phone"; phone: PhoneTab };
 
 type ToolCallPayload = Extract<HostRequest, { kind: "tool_call" }>["payload"];
 type BrowserCallPayload = Extract<
@@ -91,15 +109,18 @@ export type HostQueue = {
   abandon(id: Id<"hrq">, message?: string): void;
   // 기한이 지난 호출(extension tool, browser 등)을 거둔다. 부른 쪽이 주기로 부른다.
   expire(): void;
-  // 자기가 연 browser·preview·artifact 탭의 종류. 없는 탭, 남의 탭, session·agent 탭은 `not_found`다.
-  browserTab(
-    tab: Id<"tab">,
-    caller: TabOwner,
-  ): Result<{ view: "browser" | "preview" | "artifact" }>;
+  // 자기가 연 browser·preview·artifact·phone 탭의 종류. 없는 탭, 남의 탭, session·agent 탭은 `not_found`다.
+  browserTab(tab: Id<"tab">, caller: TabOwner): Result<BrowserTabView>;
 
   // 탭 표에 올리고 tab_open 요청을 넣는다. 그 앱의 preview 탭이나 그 artifact의 탭이 이미 있으면 새로 만들지 않고 그 탭의 주인만 바꿔
   // 돌려준다(preview에 기기나 화면이 있으면 같은 탭 id로 tab_open을 다시 넣는다).
   openTab(input: OpenInput): Id<"tab">;
+  // phone 탭을 표에만 올린다(shell에 요청을 넣지 않는다). 그 앱의 phone 탭이 이미 있으면 주인과 screen만 바꿔 돌려준다.
+  openPhone(input: {
+    owner: TabOwner;
+    app: Id<"app">;
+    screen: string | null;
+  }): Id<"tab">;
   // browser 탭을 열고 shell이 page를 만들었다고 done으로 답할 때까지 기다린다. shell이 붙어 있으면 OPEN_WAIT_MS, 아니면 START_WAIT_MS
   // 안에 답이 없을 때 `expire()`가 거두고 `unavailable`로 끝낸다. 탭은 표에 올라가 있으므로 실패하면 부른 쪽이 `close()`로 거둔다.
   openAndWait(input: OpenInput): {
@@ -423,6 +444,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
               : "agent",
       single,
       state: null,
+      phone: null,
     });
     return { tab, sent: open(tab) };
   }
@@ -530,14 +552,15 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
         }
       }
     },
-    // 자기가 연 browser·preview·artifact 탭이다. 없는 탭, 남의 탭, session·agent 탭은 `not_found`다.
-    browserTab(tab: Id<"tab">, caller: TabOwner) {
+    // 자기가 연 browser·preview·artifact·phone 탭이다. 없는 탭, 남의 탭, session·agent 탭은 `not_found`다.
+    browserTab(tab: Id<"tab">, caller: TabOwner): Result<BrowserTabView> {
       const found = owned(tab, caller, "read");
       if (!found.ok) return found;
       if (!pageAlive(tab, found.value)) return noSuchTab();
-      const { kind } = found.value;
-      return kind === "agent"
-        ? err({ code: "not_found" as const, message: NO_SUCH_TAB })
+      const { kind, phone } = found.value;
+      if (kind === "agent") return noSuchTab();
+      return kind === "phone"
+        ? ok({ view: kind, phone: phone! })
         : ok({ view: kind });
     },
     attached,
@@ -554,6 +577,30 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     },
     newTabId: () => deps.ids.newId("tab") as Id<"tab">,
     openTab: (input: OpenInput) => place(input, false).tab,
+    openPhone(input: {
+      owner: TabOwner;
+      app: Id<"app">;
+      screen: string | null;
+    }): Id<"tab"> {
+      const single = `phone:${input.app}`;
+      for (const [id, entry] of tabs) {
+        if (entry.single === single) {
+          entry.owner = input.owner;
+          entry.phone!.screen = input.screen;
+          return id;
+        }
+      }
+      const tab = deps.ids.newId("tab") as Id<"tab">;
+      tabs.set(tab, {
+        owner: input.owner,
+        workspace: { kind: "app", id: input.app },
+        kind: "phone",
+        single,
+        state: null,
+        phone: { app: input.app, screen: input.screen, counter: 0, last: null },
+      });
+      return tab;
+    },
     openAndWait(input: OpenInput) {
       const placed = place(input, true);
       return { tab: placed.tab, ...placed.sent! };
@@ -571,6 +618,7 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       const found = owned(tab, caller, "close");
       if (!found.ok) return found;
       tabs.delete(tab);
+      if (found.value.kind === "phone") return ok(tab);
       enqueue(
         {
           id: deps.ids.newId("hrq") as Id<"hrq">,
@@ -586,6 +634,12 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
     show(tab: Id<"tab">, caller: TabOwner): Result<Id<"tab">> {
       const found = owned(tab, caller, "show");
       if (!found.ok) return found;
+      if (found.value.kind === "phone") {
+        return err({
+          code: "invalid_input" as const,
+          message: PHONE_TAB_TEXT.noShow,
+        });
+      }
       enqueue({
         id: deps.ids.newId("hrq") as Id<"hrq">,
         kind: "tab_show",

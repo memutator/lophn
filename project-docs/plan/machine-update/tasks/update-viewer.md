@@ -12,6 +12,7 @@
   - `packages/mobile/src/data/computers.ts`
   - `packages/mobile/src/data/link.ts`
   - `packages/mobile/src/parts/offline.tsx`
+  - (lead가 채움, 2026-11-17. `desktop-remote`가 연결 code를 공용 package로 옮겼다) 위 `packages/mobile/src/connection/connection.ts`·`connection.test.ts`·`data/computers.ts`는 이제 `packages/remote-client/{connection.ts,connection_test.ts,computers.ts,computers_test.ts}`다(폰의 `data/link.ts`, `data/phone.ts`, `parts/offline.tsx`는 그대로). desktop이 다른 기계를 볼 때도 같은 상태를 보인다: `packages/shell/ipc/machines.ts`의 `MachineRow` 상태에 한 값, `packages/shell/main/desktop/viewer/list.ts`, `packages/shell/renderer/desktop/machines`의 gate와 전환기 줄, `packages/shell/renderer/desktop/settings/remote/viewed-machines.tsx`의 줄(자기 줄만), `packages/design/i18n/catalog/remote-desk.ts`(key만 더한다), `project-docs/flows`의 자기 줄
 - 공유 줄 허락(key만 더한다): `packages/design/i18n/catalog/machine-update.ts`(key는 `machine-update.viewer.*`)
 - 읽을 것:
   - 계획 `README.md`의 "정한 것"(범위로 본다, 범위 밖이면 core도 hello를 보내고 닫는다), "계약 바꾸기 요청"(machine-identity), "다른 계획이 기대는 계약"의 연결 오류

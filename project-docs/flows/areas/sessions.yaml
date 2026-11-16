@@ -1881,6 +1881,48 @@ flows:
     crosses_process: false
     docs: [architecture/app-notice.md]
 
+  - id: push-send
+    title: "사람을 기다리는 일이 생기면 보고 있지 않은 폰에 Expo Push를 보낸다"
+    actor: system
+    entries: [system:push-send]
+    uses: [route:presence/report, route:terminal_sessions/signal, route:devices/clear_push, route:devices/push_targets]
+    boundary: [attention, remote, events]
+    code:
+      - packages/core/attention/triggers.ts
+      - packages/core/attention/decide.ts
+      - packages/core/attention/message.ts
+      - packages/core/attention/push/mod.ts
+      - packages/core/main/daemon/wiring/attention.ts
+      - packages/core/main/daemon/wiring/remote.ts
+    steps:
+      - "Bus event(승인, 질문, 앱 동의·공유 요청, 안 읽은 앱 notice와 알려야 하는 program 기록, job의 놓친 차례, 60초 넘게 일한 turn의 끝)나 터미널 signal(대기, 60초 넘은 끝·실패)이 계기가 된다. 팀 자식의 요청·질문과 앱이 연 session의 turn 끝은 계기가 아니다"
+      - "token이 있는 기기마다 정한다. 그 계기의 설정 칸이 꺼졌거나, 그 폰이 앞에 있거나, quiet_when_present이고 앞에 있는 desktop이 있으면 보내지 않는다. 지연은 없다"
+      - "글은 고정 문장에 session 제목, agent 이름, 앱 이름, job 이름, notice 제목만 끼워 core가 만든다(show_names가 꺼져 있으면 일반 문장). 대화 글, 명령, 질문 글, 마지막 답, notice 본문은 싣지 않는다"
+      - "remote.push가 비었거나 remote를 켠 적이 없어 컴퓨터의 key를 못 풀었으면 보내지 않는다. 아니면 Expo send를 부른다. 네트워크·429·5xx는 1, 2, 4초 뒤 세 번까지 다시 하고 그 밖의 실패는 버린다. 못 보낸 글은 다시 보내지 않는다"
+      - "ticket이 ok면 id를 기억해 15분 뒤 영수증을 한 번 묻는다. ticket이나 영수증이 DeviceNotRegistered를 알리면 core 안 machine 자격이 그 기기의 token만 지운다(devices/clear_push)"
+    outcomes:
+      - id: sent
+        when: "알릴 기기가 있고 Expo가 ticket을 ok로 돌려줬다"
+        observe: ["request:expo-push"]
+      - id: not-needed
+        when: "설정 칸이 꺼졌거나 보고 있는 기기라서, 또는 계기가 아니라서 보낼 기기가 없다"
+        observe: ["request:expo-push"]
+      - id: push-off
+        when: "remote.push가 비었거나 remote를 켠 적이 없다. fetch를 부르지 않는다"
+        observe: ["request:expo-push"]
+      - id: dropped
+        when: "재시도 뒤에도 네트워크·429·5xx이거나 400처럼 다시 해도 안 되는 응답이다. 던지지 않고 버린다"
+        observe: ["request:expo-push"]
+      - id: dead-token
+        when: "Expo가 ticket이나 영수증에서 DeviceNotRegistered를 알렸다. 그 기기의 token이 입력과 같을 때만 지우고 설정 칸은 남는다. 이미 없는 기기면 log만 남긴다(push_token_not_cleared)"
+        observe: ["ledger:devices", "log:remote push_token_not_cleared"]
+    crosses_process: false
+    docs: [architecture/attention.md, architecture/remote.md]
+    unclear:
+      - "remote를 켰다가 끄면 같은 기동 안에서는 push가 계속 나간다(push-off가 아니다). 이슈 push-continues-after-remote-off"
+      - "앱이 session을 멈춘 program 기록(session_stopped_by_app)은 desktop toast에는 뜨지만 push 계기에 없다. 이슈 push-alert-program-kinds-differ"
+      - "GUI 탭의 승인은 계기가 아니다. 이슈 push-misses-gui-tab-approvals"
+
   - id: terminal-sessions-signal
     title: "shell main이 터미널 coding agent의 계기(대기, 끝, 실패)를 core에 알린다"
     actor: shell

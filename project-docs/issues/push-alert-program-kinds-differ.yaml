@@ -1,0 +1,13 @@
+id: push-alert-program-kinds-differ
+title: 사람이 알아야 하는 program 기록의 목록이 desktop toast와 폰 push에 따로 있고 서로 다르다
+kind: bug
+status: open
+topic: attention
+modules: [packages/core/attention, packages/shell/main, packages/protocol]
+now: |
+  desktop toast의 목록은 `shell/main/desktop/wiring/notice.ts`의 `ALERT_PROGRAM_KINDS`(여섯: `release_failed`, `release_rolled_back`, `app_unavailable`, `app_data_restored`, `sdk_update_needed`, `session_stopped_by_app`)이고, 폰 push의 목록은 `core/attention/triggers.ts`의 같은 이름 상수(다섯: `session_stopped_by_app` 없음)다. 앱이 session을 멈춘 기록(`session_stopped_by_app`, `wiring/session-lifecycle.ts`가 남긴다)은 desktop에는 toast가 뜨고 폰에는 push가 가지 않는다. 같은 규칙의 사본 둘이 어긋난 것이다.
+impact: |
+  앱이 사람의 session을 멈추면 컴퓨터 앞에 있는 사람만 알고, 자리를 비운 사람은 폰으로 알지 못한다. 목록이 둘이라 새 program kind를 더할 때 한쪽을 빠뜨리기 쉽다.
+fix: |
+  - 작음(추천): "사람이 알아야 하는 program 기록" 목록을 `protocol/apps/notice.ts`(kind 목록이 있는 곳)에 하나로 두고 core attention과 shell main이 같이 읽는다. 폰 push에도 `session_stopped_by_app`이 들어간다.
+  - 더 작음: core 쪽에 `session_stopped_by_app`만 더한다. 사본은 둘로 남는다.

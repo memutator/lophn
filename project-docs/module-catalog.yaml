@@ -114,7 +114,7 @@ modules:
 
   - path: packages/core/attention
     boundary: attention
-    notes: 다른 feature module을 import하지 않는다. 기기 목록, push 보내기, session 조회는 ports.ts의 port이고 core/main의 wiring/attention.ts가 끼운다(push/는 mobile-push-send의 sender다).
+    notes: 다른 feature module을 import하지 않는다. 기기 목록, push 보내기, session 조회는 port이고 core/main의 wiring이 끼운다(기기 목록과 push 보내기는 wiring/remote.ts가 꽂는다). push/는 Expo Push sender(fetch와 timer는 인자)다.
 
   - path: packages/core/storage
     boundary: storage

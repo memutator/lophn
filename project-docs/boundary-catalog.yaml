@@ -136,7 +136,7 @@ elements:
 
       - id: attention
         kind: component
-        description: host(desktop, 폰)가 보고한 presence로 못 본 turn 끝(`unseen`)을 들고, 사람을 기다리는 일이 새로 생기거나 오래 돈 turn이 끝나면 기기마다 push가 필요한지 정하고 글을 만든다. 기기 목록과 보내기는 port다.
+        description: host(desktop, 폰)가 보고한 presence로 못 본 turn 끝(`unseen`)을 들고, 사람을 기다리는 일이 새로 생기거나 오래 돈 turn이 끝나면 보고 있지 않은 기기에 push가 필요한지 정하고 글(제목과 상태 문장)을 만들어 Expo Push로 보낸다(죽은 token 거두기 포함). 기기 목록은 port이고 remote가 꽂는다.
 
       - id: supervision
         kind: component
@@ -216,7 +216,7 @@ elements:
 
   - id: mobile
     kind: application
-    description: 사람이 폰에 까는 lophn 앱. pairing, 기기 key 보관, core 연결, 폰 kit으로 짠 native 화면(sidebar 뼈대, Home, Inbox, 대화, Jobs, Agents, workspace, Settings)과 그 data 층. 화면은 컴퓨터가 내려주지 않는다.
+    description: 사람이 폰에 까는 lophn 앱. pairing, 기기 key 보관, core 연결, 폰 kit으로 짠 native 화면(sidebar 뼈대, Home, Inbox, 대화, Jobs, Agents, workspace, Settings)과 그 data 층, 알림(허락 묻기, Settings › Notifications, push token과 설정 보내기, 앞에 있는지 알리기, 알림을 누르면 여는 곳). 화면은 컴퓨터가 내려주지 않는다.
     depends_on:
       - protocol
       - design-native
@@ -270,7 +270,7 @@ interfaces:
 
   - id: remote-protocol
     kind: interface
-    description: 폰과 core 사이의 연결. Noise IK handshake, 암호화한 record, JSON frame(hello, pair, call, result, watch와 Gateway frame), 기기가 부를 수 있는 route 목록(자기 등록을 지우는 `devices/unpair`, project의 `project_files/list|read` 포함), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
+    description: 폰과 core 사이의 연결. Noise IK handshake, 암호화한 record, JSON frame(hello, pair, call, result, watch와 Gateway frame), 기기가 부를 수 있는 route 목록(자기 등록을 지우는 `devices/unpair`, 자기 push 설정 `devices/set_push`, 앞에 있는지 알리는 `presence/report`, project의 `project_files/list|read` 포함), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
     interface_type: protocol
     defined_by: protocol
     provided_by:

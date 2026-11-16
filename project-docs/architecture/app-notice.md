@@ -1,6 +1,6 @@
 # app-notice
 
-사람에게 "답할 것"(승인·질문)이 아닌 것을 알리는 길이다. 저장은 ledger 표 `notices` 하나다. 줄의 출처는 둘이다. **app**: 캘린더의 일정 알림, 사용량 앱의 한도 경고처럼 앱 process가 `@lophn/cap-notify`의 `notify()`로 남긴 알림. **program**: release 켜짐·실패, 앱 멈춤 같은 일을 core가 직접 남긴 기록. 줄은 **휘발**이거나 **영구**다. 휘발 줄은 사람이 지우면 사라지고, 영구 줄은 지워도 읽음으로만 바뀌어 남아 사람이 나중에 찾을 수 있다. 받는 쪽은 사람뿐이다. agent에게 사실을 보내거나 lophn의 반응을 일으키는 길이 아니다. 같은 SDK package가 앱이 늘 보이고 싶은 짧은 상태(tray 값)도 낸다. 그것은 알림이 아니라 저장하지 않는 값이다.
+사람에게 "답할 것"(승인·질문)이 아닌 것을 알리는 길이다. 저장은 ledger 표 `notices` 하나다. 줄의 출처는 둘이다. **app**: 캘린더의 일정 알림, 사용량 앱의 한도 경고처럼 앱 process가 `@lophn/cap-notify`의 `notify()`로 남긴 알림. **program**: release 켜짐·실패, 앱 멈춤 같은 일을 core가 직접 남긴 기록. 줄은 **휘발**이거나 **영구**다. 휘발 줄은 사람이 지우면 사라지고, 영구 줄은 지워도 읽음으로만 바뀌어 남아 사람이 나중에 찾을 수 있다. 받는 쪽은 사람뿐이다. agent에게 사실을 보내거나 lophn의 반응을 일으키는 길이 아니다. 사람의 폰에 push로 알리는 것(`attention.md`)도 받는 쪽이 사람이다. 같은 SDK package가 앱이 늘 보이고 싶은 짧은 상태(tray 값)도 낸다. 그것은 알림이 아니라 저장하지 않는 값이다.
 
 ## 문제
 
@@ -93,6 +93,7 @@ SDK 감지가 이 신호의 쓰는 쪽이다. core 안 다른 일이 같은 순�
    ▼ Gateway
  shell main: toast(lophn 창에 focus) 또는 OS 알림. 누르면 그 앱 공간을 연다(앱 없는 줄은 Inbox)
  renderer Inbox: 휘발 줄은 Now의 Notifications에, 안 읽은 영구 줄은 배지와 History 탭 머리의 수로 센다. ready 뒤 notices.open으로 맞춘다
+ core 주의(attention): 안 읽은 앱 줄과 알려야 하는 program 기록이면 보고 있지 않은 폰에 push(제목만). 누르면 그 앱, 앱 없는 줄은 Inbox
 
  사람: 줄의 [x] → notices.dismiss → 휘발이면 줄 지움(NoticeClosed), 영구이면 read_at만 채움(NoticeRead)
  사람: notices.mark_read { ids } → 영구 줄을 한꺼번에 읽음으로
@@ -128,7 +129,7 @@ Inbox는 탭 둘이다.
 
 ## 지키는 것
 
-1. 받는 쪽은 사람뿐이다. Bus에서 `NoticePosted`를 받아 일을 하는 core 코드를 두지 않는다. agent에게 알릴 일이면 agent가 앱 tool로 읽는다. 다른 앱에 알릴 일은 알림이 아니라 앱 event다.
+1. 받는 쪽은 사람뿐이다. Bus에서 `NoticePosted`를 받아 사람이 아닌 쪽에 일을 하는 core 코드를 두지 않는다. 예외는 하나다: 주의(`attention.md`)가 `NoticePosted`를 받아 사람의 폰에 push를 보낸다. 받는 쪽이 사람이라 이 약속을 깨지 않는다. agent에게 알릴 일이면 agent가 앱 tool로 읽는다. 다른 앱에 알릴 일은 알림이 아니라 앱 event다.
 2. 권한은 grant `notify.send`(scope 없음)다. 앱이 선언하고 activation 때 사람이 허락한다. broker가 요청마다 지금 release의 선언 ∩ grant를 본다. preview·test 자식과 옛 release의 자식은 거절한다. SDK는 live가 아닌 mode에서 broker를 부르지 않고 `standIn`을 돌려준다. tray 값도 같은 권한이다. grant가 없는 앱의 `setTray`는 거절되고 값이 바뀌지 않는다.
 3. 앱은 입력에서 앱도 출처도 종류도 고르지 못한다. 어느 앱의 줄인지는 자식의 app credential이 정한다. app credential이 닿는 operation은 다른 앱 호출, `notices.post`, `app_tray.set`, 앱 event 발행(`app_events.publish`)뿐이다. 앱은 program 줄을 쓰지 못하고 다른 앱의 줄도 쓰지 못한다.
 4. program 줄에는 앱이 쓴 글이 들어가지 않는다. 글은 core의 template과 매개변수(짧은 식별자, release 이름, core가 정한 이유 코드)로 만든다. 앱 이름이나 앱 출력을 이유 칸에 그대로 싣지 않는다. 예외 하나: `release_failed`·`app_unavailable`의 reason은 core가 기록한 실패 summary다(release의 `failure.summary`, runtime reason). migration script 실패 summary에는 그 script가 낸 글이 섞일 수 있어 200자로 자른다.
@@ -140,6 +141,8 @@ Inbox는 탭 둘이다.
 10. 기동 중에 쓴 줄은 toast가 뜨지 않는다. core가 `ready`를 내기 전에 쓴 줄이라 shell이 아직 connect하지 못했고 event 구독이 없다(놓친 알림은 다시 띄우지 않는다). shell 없이 도는 core(앱을 Quit한 뒤, CLI나 autostart가 띄운 core)가 쓴 줄도 같다. 그 줄은 배지와 History로만 보인다.
 11. `kind`·`action`이 가리키는 일은 사람이 단추를 눌러야 시작된다. program이 session을 스스로 열지 않는다.
 12. tray 값은 저장하지 않는다. 알림과 달리 재시작 뒤 다시 내는 것은 앱 몫이다.
+13. 못 본 turn 끝(`unseen`)은 notice 줄이 아니고 core가 든다. desktop은 `unseen/list`로 읽고 `unseen/dismiss`로 지우기만 하며 StateChanged의 `unseen`이 오면 다시 읽는다. 서고 꺼지는 규칙과 폰에서 읽으면 desktop 점이 꺼지는 것은 `attention.md`가 맡는다. shell main은 못 본 끝을 들지 않는다.
+14. 폰 push의 계기가 되는 `NoticePosted`는 안 읽은 앱 줄과 사람이 알아야 하는 program 기록(`release_failed`·`release_rolled_back`·`app_unavailable`·`app_data_restored`·`sdk_update_needed`)이다. 글에는 notice의 제목만 싣고 본문을 싣지 않는다.
 
 ## 경계와 계약
 
@@ -152,7 +155,7 @@ Inbox는 탭 둘이다.
 - **grant**: `notify.send`(scope 없음). Access 탭에 "notifications" 줄로 보이고 거둘 수 있다.
 - **ledger**: 표 `notices`, 표 `core_meta`(`product_version`, `sdk_versions`). step `apps.notices.unified`는 앱 팀 목록이 아니라 `notices` wiring에 있다(낸 때 step 목록의 끝에 붙어야 했다). 그 뒤에 낸 step은 이 wiring이 아니라 WIRINGS 맨 뒤 wiring에 붙는다.
 - **설정**: `shell.tray_off`, `shell.tray_order`. 앱을 지우면(`app.delete`) 둘에서 그 앱이 빠진다.
-- **shell main**: toast·OS 알림 규칙(위 "지키는 것" 9)과 NoticeTarget(`app` 그 앱 공간, `inbox`)이다.
+- **shell main**: toast·OS 알림 규칙(위 "지키는 것" 9)과 NoticeTarget(`app` 그 앱 공간, `inbox`)이다. 창과 잇는 IPC channel은 `shell:notice-visible`(그 session 탭이나 앱 화면이 창에 보이는지), `shell:notice-open`(toast를 눌렀다), `shell:notice-toast`와 `shell:notice-reveal`(main이 창에 보낸다)뿐이다. 못 본 끝을 나르던 `shell:notice-unseen-get`, `shell:notice-unseen`, `shell:notice-dismiss`는 없다. renderer가 core의 `unseen/list`와 `unseen/dismiss`를 직접 부른다. shell main은 보이는 것을 core에도 알린다(`presence/report`).
 - **화면 선언**: `tray` 자리와 `tray: {width?, height?}`는 `architecture/app-call.md`의 선언 계약이다.
 
 ## 결정
@@ -169,6 +172,8 @@ Inbox는 탭 둘이다.
 - 안 읽은 영구 기록도 sidebar 배지에 센다. 이유: 알림의 목적은 사람이 알게 하는 것이고, SDK 업데이트 같은 놓치면 안 되는 program 기록이 배지에 없어 사람이 몰랐다. 처음에는 "기록은 나중에 찾는 것이고 급한 것은 toast가 맡는다"며 세지 않았으나 뒤집었다. 버린 안: 줄마다 단추를 두고 배지에서 빼는 것. (사람, 2026-11-07)
 - SDK 업데이트 줄은 앱 없이 하나다. 필수와 가능을 한 줄에 세고, 가능만 있어도 쓴다(앱 상세 Version 탭과 별개로 새 기능을 채택할지 판단하게 하려는 것). 가능은 "새 판이 있는 앱"이 아니라 "검토하지 않은 새 메모가 있는 앱"이다: home이 그대로 두기로 한 앱이 판이 바뀔 때마다 계속 세어지지 않는다(2026-11-11). 이유: 각 앱을 두고 갈지 올릴지, 새 기능을 쓸지 숲으로 보는 일은 사람이 아니라 home lophn의 몫이다. 사람은 SDK 변화가 무엇을 깨고 무엇을 가능하게 했는지 판단하지 못한다. 줄마다 [Ask lophn]이 있으면 home을 거칠 이유가 없다. 버린 안: 앱마다 줄과 단추(0.20.0 첫 모양). 새 kind를 만들지 않고 `sdk_update_needed`를 앱 없이 다시 썼다. (줄 하나·home이 숲을 봄·배지: 사람, 2026-11-07. 가능만 있어도 쓴다: 사람. kind 재사용과 필수·가능 한 줄: agent)
 - 앱 없는 program 줄 중 `sdk_update_needed`와 `phone_changed`만 toast로 띄운다. (agent)
+- 사람의 폰 push는 알림의 새 받는 쪽이 아니라 같은 사람에게 닿는 또 하나의 길이다. 그래서 "받는 쪽은 사람뿐이다"를 지키며 core가 `NoticePosted`를 받는 예외를 하나 둔다(주의). 이유: 앱의 `notify()`와 program 기록이 desktop 앞에 없는 사람에게 닿으려면 core가 보고 있는 기기를 알고 보내야 한다. 버린 안: shell main이 폰에 보내기(shell이 꺼져 있으면 폰에 닿지 않는다). (agent)
+- 못 본 turn 끝(`unseen`)은 `notices` 표에 넣지 않고 core 메모리에 둔다. 이유: 보고 있는 host가 바뀌면 꺼지는 순간의 상태라 기록이 아니다. 폰에서 읽으면 desktop 점도 꺼져야 해서 정본이 shell main 메모리일 수 없었다. 버린 안: shell main이 들고 폰이 별도로 세기(점이 둘로 갈린다). (agent)
 - tray 값은 새 SDK package·permission 없이 `@lophn/cap-notify`와 `notify.send`로 내고 core는 memory에만 둔다. 이유: tray 값도 앱이 사람에게 보이는 것이고, 앱 process가 오래 살아 timer로 값을 다시 낼 수 있어 저장이 필요 없다. 새 permission kind를 두지 않았다. (agent)
 - tray는 OS tray가 아니라 lophn 창 안의 것이다. 앱·sidebar panel·전역 float처럼 앱이 채우고 lophn은 자리만 준다. (사람)
 - tray 항목은 켜는 쪽이 아니라 끄는 쪽(`shell.tray_off`)을 저장한다. 이유: 새로 설치한 앱이 목록 갱신 없이 바로 나온다. 옛 켠 목록(`shell.tray`)은 끈 목록의 보수로 옮기지 않고 지웠다(설치된 앱 전체를 알 수 없는 data step에서 보수를 만들 수 없다). (사람. 지움: agent)

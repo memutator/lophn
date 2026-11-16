@@ -20,6 +20,16 @@ journeys:
       - {do: "대화 화면에서 사진을 고르면 올라가 blob이 된다", screen: phone-session, flow: message-image-upload:ok}
       - {do: "메시지를 보낸다", screen: phone-session, flow: session-send:ok}
 
+  - id: phone-notified
+    title: "자리를 비운 사람이 폰 알림을 받고 눌러 답한다"
+    actor: person
+    goal: "알림을 켜 둔 사람이 컴퓨터를 떠난 사이 agent가 승인을 기다리면 폰 알림을 받고, 눌러서 그 대화로 가 답한다"
+    steps:
+      - {do: "pairing 직후 Paired에서 알림을 켠다(또는 Settings › Notifications). 폰이 token과 스위치 일곱을 컴퓨터에 둔다", screen: phone-settings, flow: devices-set-push:ok}
+      - {do: "폰이 앱이 앞에 있는지와 열린 session을 컴퓨터에 알린다. 뒤로 가면 앞에 없는 것이 된다", screen: phone-shell, flow: presence-report:recorded}
+      - {do: "agent가 승인을 기다린다. 컴퓨터 앞에 앉은 사람이 없으면 core가 폰에 제목과 상태 문장만 보낸다", flow: push-send:sent}
+      - {do: "알림을 누르면 그 컴퓨터의 그 대화가 열린다. 승인 card에 한 번만 허락한다", screen: phone-session, flow: turn-request-decide:once}
+
   - id: phone-read-and-toggle
     title: "사람이 폰에서 project의 file을 읽고 job을 켜고 끈다"
     actor: person

@@ -1,0 +1,13 @@
+id: push-continues-after-remote-off
+title: remote를 켰다가 끄면 같은 기동 안에서는 폰 push가 계속 나간다
+kind: bug
+status: open
+topic: attention
+modules: [packages/core/main, packages/core/remote, packages/core/attention]
+now: |
+  `wiring/remote.ts`의 `reconcile`이 remote를 켤 때 host key를 풀어 `hostText`에 두고, 꺼질 때는 `host?.shutdown()`을 부르고 일찍 return할 뿐 `hostText`를 비우지 않는다. `bindPush`의 `devices()`는 `hostText === undefined ? [] : pushDevices`라서 remote를 한 번 켠 core는 끈 뒤에도 기기 목록을 그대로 내주고 push가 나간다. 켠 적이 없는 core(기동 때부터 꺼짐)는 `hostText`가 비어 보내지 않는다. 코드 순서로 확인했고 실제로 켰다 꺼 보지는 않았다.
+impact: |
+  사람이 Settings › Remote를 꺼도 pairing한 폰은 core를 다시 켤 때까지 "X is waiting for you" 같은 push(session 제목 포함)를 받는다. 눌러도 컴퓨터에 닿지 않는다. remote를 끄는 사람은 폰이 닿지 않기를 기대한다.
+fix: |
+  - 작음(추천): `reconcile`의 꺼진 갈래에서 `hostText = undefined`로 둔다. 다시 켜면 key가 다시 풀려 `hostText`가 선다.
+  - 이 갈래의 test는 지금 없다(wiring의 시험 file이 없다). 규칙이 한 줄이면 test 없이 고친다.

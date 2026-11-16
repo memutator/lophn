@@ -12,7 +12,7 @@
 ## 목표와 비목표
 
 - 목표: 사람이 승인한 wireframe대로 native 화면을 짓는다. 화면 아래의 로직(event client, Inbox store, 대화 source, 순수 reducer와 규칙)은 desktop과 같은 TypeScript를 쓰고 해석을 한 벌로 둔다. 화면 문구는 desktop과 같은 catalog를 쓴다. 컴퓨터 없이도 화면 모양을 볼 수 있다(sample 컴퓨터).
-- 비목표: iOS build, push 알림과 잠금 화면, coding agent session 다루기, 사용자 앱의 폰 화면과 폰에서 도는 앱, 위젯(roadmap `mobile.md`의 뒤 단계). 폰에서 secret 넣기(보호 입력 창은 desktop의 것), 만들기·고치기·지우기(agent, job, 앱, project, workflow 정의), provider와 model 관리, skip 켜기, session 지우기. 폰의 권한은 보기, 말하기, 답하기(승인·질문·앱 update), 켜고 끄기, 지금 돌리기, 새 session이다.
+- 비목표: iOS build(push도 Android만이다), 폰의 알림 목록 화면, coding agent session 다루기, 사용자 앱의 폰 화면과 폰에서 도는 앱, 위젯(roadmap `mobile.md`의 뒤 단계). 폰에서 secret 넣기(보호 입력 창은 desktop의 것), 만들기·고치기·지우기(agent, job, 앱, project, workflow 정의), provider와 model 관리, skip 켜기, session 지우기. 폰의 권한은 보기, 말하기, 답하기(승인·질문·앱 update), 켜고 끄기, 지금 돌리기, 새 session이다.
 
 ## 모델
 
@@ -35,7 +35,12 @@ data 층: 컴퓨터 store → event client, Inbox store, 대화 source (desktop�
 - **pairing.** 처음 열면 Welcome이다. Scan the code는 camera로 QR을 읽고, "Enter a pairing code instead"는 desktop Settings › Remote의 "Show as text"가 보이는 글(QR에 든 JSON)을 붙여 넣는다(camera가 없거나 허락하지 않은 폰, emulator). Pairing 화면이 `pair` frame으로 code와 폰 이름, OS, 화면 크기, DPR을 보내고 첫 연결이 열리기를 기다린다. Paired에서 사람이 이 폰에서 그 컴퓨터를 부를 이름("Shown as")을 확인한다. core는 자기 이름을 보내지 않아 이름을 안 정하면 주소로 부른다. 지났거나 이미 쓴 code는 Code expired, 닿지 않으면 Cannot reach 화면이다. 기기 key 쌍과 컴퓨터 목록(주소 후보, port, core key, relay 주소, 기기 id, 끊김 표시, 이름)은 보안 저장소(이 기기에서만, 잠금이 풀렸을 때만)에 둔다. 무작위는 `expo-crypto`다(Hermes에는 전역 crypto가 없다).
 - **컴퓨터를 지우고 다시 pairing.** Settings에서 컴퓨터를 지울 때 그 컴퓨터에 붙어 있으면 `devices/unpair`로 컴퓨터의 자기 등록을 지우고 폰의 기록을 지운다. 닿지 않으면 폰만 잊는다. 컴퓨터는 그 폰의 key를 계속 알고 있지만 같은 key가 유효한 code로 `pair`하면 옛 등록을 새 등록으로 바꾸므로(`approval.md`) 같은 컴퓨터와 다시 pairing이 된다. 마지막 컴퓨터를 지우면 Welcome으로 돌아간다. 컴퓨터에서 기기를 끊어 `closed(credential_revoked)`를 받으면 그 컴퓨터를 "다시 pairing"으로 표시하고 다시 붙기를 멈춘다.
 - **연결.** QR의 direct 주소 후보와 relay(QR에 있으면)를 같이 걸어 먼저 handshake가 된 것을 쓴다. relay 길은 바이트만 넘기므로 handshake와 그 뒤는 direct와 같다. relay를 더하기 전에 pairing한 폰은 한 번 다시 pairing해야 relay 주소를 안다. 붙을 때마다 마지막 `watch`(없으면 `[]`)를 보내고 core의 `ready`로 `ready`가 된다. 끊기면 1초에서 30초 backoff로 다시 붙는다. core가 protocol 오류로 연결을 닫은 뒤에도 다시 붙는다. 앱이 뒤로 가면 다시 붙기를 멈추고, 앞으로 오면 열린 연결에 `watch`를 다시 보내 3초 안에 `ready`가 없으면 버리고 바로 다시 붙는다. 틀린 조건(session id가 아닌 문자열 등)은 `watch`에 싣지 않는다. core가 그 조건을 이해하지 못하면 연결을 닫고, 새 연결이 마지막 `watch`를 다시 보내므로 폰이 영영 offline에 머문다. 컴퓨터 목록은 컴퓨터마다 상태(connecting, connected, offline, revoked)와 길(direct, relay), 그 컴퓨터 Inbox의 대기 수를 보인다.
-- **폰 route 목록.** 기기가 부를 수 있는 route는 `approval.md`가 정한다. 폰 화면을 지으며 session·대화 쪽에 Agents, Jobs와 그 실행 기록, workflow, 앱 실행 기록과 release, project의 file 목록과 글 file 읽기(`project_files/list`, `project_files/read`)가 더해졌고, 기기가 부르는 `jobs/update`는 `{job, enabled}`만 받는다. 폰이 자기 등록을 지우는 `devices/unpair`가 목록의 유일한 기기 route다. 화면은 목록 밖 route를 부르는 단추를 보이지 않는다(Inbox에 job 거절이 없고 job 이름·때 고치기가 없다).
+- **폰 route 목록.** 기기가 부를 수 있는 route는 `approval.md`가 정한다. 폰 화면을 지으며 session·대화 쪽에 Agents, Jobs와 그 실행 기록, workflow, 앱 실행 기록과 release, project의 file 목록과 글 file 읽기(`project_files/list`, `project_files/read`)가 더해졌고, 기기가 부르는 `jobs/update`는 `{job, enabled}`만 받는다. 기기 route는 폰이 자기 등록을 지우는 `devices/unpair`와 자기 push 설정을 두는 `devices/set_push` 둘이고, 알림을 위해 `presence/report`(지금 앞에 보이는지와 열린 session)도 목록에 있다. `devices/clear_push`와 `devices/push_targets`는 core 안 machine 자격만 부르고 폰은 부를 수 없다. 화면은 목록 밖 route를 부르는 단추를 보이지 않는다(Inbox에 job 거절이 없고 job 이름·때 고치기가 없다).
+- **알림.** 폰은 push token과 알림 설정을 pairing한 모든 컴퓨터에 `devices/set_push`로 알린다(붙을 때마다, 바뀔 때마다). 컴퓨터는 이 값을 그 기기의 행에 둔다(token과 설정 칸 일곱, `devices/list`는 내지 않는다). 입력에 기기 id가 없어 부른 기기 자기 행만 고친다. `token: null`은 push를 끈 것이라 token만 지우고 설정은 둔다. 앱이 앞에 있는지와 열린 session은 `presence/report`로 알린다(앞뒤가 바뀔 때, session 화면이 열고 닫힐 때, 앞에 있는 동안 30초마다). 누구에게 언제 무엇을 보낼지는 core의 주의가 정한다(`attention.md`).
+  - core 쪽. 기기의 마지막 연결이 닫히거나 기기가 끊기면 core가 그 기기의 presence를 잊는다. 죽은 token은 core가 `devices/clear_push`로 거둔다. push는 컴퓨터의 key를 remote가 처음 켜질 때 푸는 것에 기대므로 remote를 켠 적이 없는 core는 push를 보내지 않는다(켰다가 끈 뒤는 이슈 `push-continues-after-remote-off`). `remote.push`가 비어 있어도 나가지 않는다.
+  - 폰 앱 쪽. Paired가 알림을 한 번만 묻는다(`Turn on notifications`와 `Not now`. 다른 컴퓨터를 pairing해도 다시 묻지 않는다). Settings › Notifications에서 나중에 켜고 스위치를 고른다: 일곱(`An agent needs me`, `Long work finishes`, `An app update waits`, `A job was missed`, `My apps notify me`, `Stay quiet while I am at the computer`, `Show session names`). 허락을 거절했으면 그 화면에 시스템 설정을 여는 단추가 선다. 알림 channel은 `needs-you`(high), `finished`, `apps` 셋이고 앱이 시작할 때 만든다(Android 13은 허락과 token을 부르기 전에 있어야 한다). 앱이 앞에 있으면 알림 배너를 그리지 않는다(core도 앞에 있는 폰에는 보내지 않는다).
+  - 알림을 누르면. 알림의 `data.host`가 가리키는 컴퓨터를 고르고 `session`(그 대화), `app`(그 앱 workspace), `inbox`(Inbox)를 연다. 터미널 session은 폰이 열 수 없어 Inbox로 간다. 목록에 없는 session은 8초 기다린 뒤 Inbox를 연다. 이 폰에 pairing하지 않은 컴퓨터나 모양이 틀린 `data`는 아무것도 열지 않는다. 앱이 죽어 있다가 알림으로 열려도 같은 곳이 열린다.
+  - 개발. EAS project id가 없는 build는 push token을 받을 수 없어 알림이 "쓸 수 없다"로 선다. dev build만 처음 쓸 때 만든 가짜 token을 `devices/set_push`로 보내고 개발 core의 fake push server가 그것으로 온 글을 받는다. 폰에 알림을 그리는 것은 Expo의 일이라 fake가 못 하고, Settings › Notifications 맨 아래(dev build만)의 `Send a test notification`이 같은 `data`의 local 알림을 띄워 누르기를 본다.
 - **첨부.** 대화의 Add sheet는 Photos(Android 시스템 사진 선택기라 권한이 없다)와 Camera(권한을 묻고, 거절하면 이유와 설정으로 가는 길을 보인다)를 준다. 사진은 JPEG로 다시 인코딩해 보낸다. PNG, JPEG, GIF, WebP만이고 한 장 5 MiB까지다. 올릴 때는 desktop composer가 붙여 넣은 그림을 올리는 길 그대로 `message-images/upload`(바이트는 `call` 안 base64)를 부르고 받은 blob을 message의 image block에 싣는다. 사진만 있는 message도 보낼 수 있다. 컴퓨터가 offline이면 첨부를 잠근다. desktop은 컴퓨터의 path로 아무 file이나 붙이지만 폰의 file에는 컴퓨터의 path가 없어 그림만이다.
 - **bytes.** frame은 JSON뿐이다. upload route는 `{input, base64}`로 보내고 file route의 답은 `{content_type, base64}`로 받는다. 한 file 8 MiB, frame 16 MiB 안이다.
 - **폰 앱 package.** `mobile`은 root npm workspace 밖의 Expo project(SDK 58, dev build)다. Metro가 protocol, design(kit, i18n), desktop의 순수 logic file을 source로 읽고, 그 안의 bare import(zod, `@noble/*`)는 폰 앱의 `node_modules`에서 푼다. 연결(handshake, frame)은 좁은 입구 `@lophn/protocol/remote/client`로 쓴다. 명령과 개발 build는 그 package의 README에 있다.
@@ -51,10 +56,12 @@ data 층: 컴퓨터 store → event client, Inbox store, 대화 source (desktop�
 6. 폰이 컴퓨터를 지우면 그 폰의 기록이 지워지고 컴퓨터에 닿으면 컴퓨터의 등록도 지워진다. 닿지 않아도 같은 컴퓨터와 다시 pairing할 수 있다.
 7. 폰 화면의 문구는 `@lophn/i18n`의 key다. 폰에만 있는 문장만 `mobile.`로 시작하는 새 key다.
 8. relay는 증명하지 못한 control socket에 폰 연결을 잇지 않고, 폰 연결 둘의 message는 서로의 data socket으로 가지 않는다. relay는 내용을 보지 못한다(Noise는 폰과 core 사이에서 끝난다).
+9. 폰은 자기 push token과 설정을 자기 기기 행에만 둔다. 다른 기기의 것을 고치는 입력이 없고, token과 설정은 `devices/list`로 나가지 않으며 `devices/clear_push`·`devices/push_targets`는 폰이 부를 수 없다.
+10. 알림을 눌러 무엇을 여는지는 폰이 `data`를 모양대로 읽을 때만이다. 모양이 틀리거나 모르는 컴퓨터면 아무것도 열지 않는다. 알림 글은 대화 내용을 싣지 않는다(`attention.md`).
 
 ## 경계와 계약
 
-- boundary `remote-protocol`: frame, 기기 route 목록(`devices/unpair`, `project_files/list|read` 포함), base64 bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`(연결, frame type, key, `REMOTE_PATH`, QR 해석 schema)를 쓰고, route 정의와 schema는 protocol source를 그대로 읽는다.
+- boundary `remote-protocol`: frame, 기기 route 목록(`devices/unpair`, `devices/set_push`, `presence/report`, `project_files/list|read` 포함), base64 bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`(연결, frame type, key, `REMOTE_PATH`, QR 해석 schema)를 쓰고, route 정의와 schema는 protocol source를 그대로 읽는다.
 - boundary `mobile`: 폰 앱. boundary `design-native`: 폰 UI kit.
 - 앱 안의 길: place union 하나. 화면은 `open(place)`, `back()`, sidebar 열기, 컴퓨터 고르기만 부른다.
 
@@ -73,8 +80,9 @@ data 층: 컴퓨터 store → event client, Inbox store, 대화 source (desktop�
 - byte는 frame 종류를 늘리지 않고 `call` 안에 base64로 싣는다. 이유: 대화 이미지와 file은 작고, frame 종류를 늘리면 연결 계약이 커진다. (agent, 2026-11-15)
 - 앞으로 온 앱은 열린 연결에 `watch`를 다시 보내 3초 안의 `ready`로 살아 있는지 본다. 이유: background에서 소리 없이 죽은 socket은 close event가 오지 않는다. 멀쩡한 연결은 `stale`로 깜빡이지 않는다. (agent, 2026-11-15)
 - 폰 앱은 root workspace 밖의 `mobile`에 자기 `package.json`과 lock을 가진 Expo project로 둔다. 이유: React Native 의존 tree가 Electron 설치와 `npm run check`에 섞이지 않는다. protocol과 kit은 Metro가 source로 읽어 한 벌이다. 대가: 폰 앱의 type 검사와 test는 따로 돌린다(폰 앱 폴더의 `npm run typecheck && npm test`). (agent, 2026-11-15)
+- push는 Expo Push를 core가 직접 부르고 폰 쪽은 `expo-notifications`다. 알림 설정은 폰에 한 벌이고 pairing한 모든 컴퓨터에 사본으로 둔다. 이유와 버린 안은 `attention.md`. 폰 쪽의 정한 것: Paired에서 한 번만 묻고 거절하거나 미루면 Settings에서 켠다. 이유: 처음 pairing하는 순간이 "알림이 왜 필요한지"를 가장 잘 말하고, 다른 컴퓨터를 더할 때마다 다시 묻는 것은 귀찮다. token을 받을 수 없는 build(EAS project id가 없는 build)는 가짜 token을 만들지 않고 "쓸 수 없다"로 둔다. 개발 build만 가짜 token을 쓴다. (agent)
 - 폰 UI kit은 지금 react-native-web이나 다른 runtime을 고려하지 않는다. 사용자 앱이 kit을 쓰는 길은 roadmap `mobile.md` 단계 6의 spike가 정한다. (agent)
 
 ## 열린 것
 
-폰에 아직 없는 것과 알려진 빈틈은 이슈와 change-log `mobile-app`에 있다: 대화의 수식과 mermaid는 code box로 보인다, Deny에 이유를 쓰지 못한다, fork·rewind·subagent 열기가 없다, Inbox의 History는 notice 목록이다, agent 줄의 model은 raw 이름이다, folder가 여럿인 project는 첫 folder만 보인다.
+폰의 알림은 실제 FCM 배달을 확인하지 못했다. 사람의 Expo·Firebase 계정이 있어야 하고 지금까지는 fake push server로만 보았다(change-log `mobile-push`, `attention.md`). 폰에 아직 없는 것과 알려진 빈틈은 이슈와 change-log `mobile-app`에 있다: 대화의 수식과 mermaid는 code box로 보인다, Deny에 이유를 쓰지 못한다, fork·rewind·subagent 열기가 없다, Inbox의 History는 notice 목록이다, agent 줄의 model은 raw 이름이다, folder가 여럿인 project는 첫 folder만 보인다.

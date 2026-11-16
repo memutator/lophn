@@ -91,18 +91,19 @@ QR에 relay 주소(`relay`)가 있으면 컴퓨터 기록에 저장하고, 주�
 
 ## 알림
 
-`src/push/`가 맡는다. 알림의 글은 core가 정해 보내고(`PushMessage`) 폰은 만들지 않는다. 폰이 하는 일:
+`src/push/`가 맡는다. 알림의 글은 core가 정해 보내고(`PushMessage`) 폰은 만들지 않는다. 누구에게 언제 무엇을 보낼지의 규칙은 core의 몫이다(`project-docs/architecture/attention.md`). 폰이 하는 일:
 
 - 알림 채널 `needs-you`(high), `finished`, `apps`를 앱이 시작할 때 만든다. 허락(Android 13)과 token을 부르기 전이다.
-- Paired 화면의 `Turn on notifications`가 허락을 묻고, 허락되면 Expo push token을 받는다. `Not now`는 끈 채로 둔다(Paired는 한 번만 묻는다). Settings › Notifications에서 나중에 켠다. 거절이면 그 화면에 시스템 설정을 여는 단추가 선다.
+- Paired 화면의 `Turn on notifications`가 허락을 묻고, 허락되면 Expo push token을 받는다. `Not now`는 끈 채로 둔다(Paired는 한 번만 묻고 다른 컴퓨터를 pairing해도 다시 묻지 않는다). Settings › Notifications에서 나중에 켠다. 거절이면 그 화면에 시스템 설정을 여는 단추가 선다.
 - 설정(스위치 일곱)과 token은 pairing한 모든 컴퓨터에 `devices/set_push`로 보낸다(붙을 때마다, 바뀔 때마다). 앱이 앞에 있는지와 열린 session은 `presence/report`로 보낸다(앞뒤가 바뀔 때, session 화면이 열고 닫힐 때, 앞에 있는 동안 30초마다).
-- 알림을 누르면 `data.host`의 컴퓨터를 고르고 session·앱·Inbox를 연다(앱이 떠 있을 때는 listener, 꺼져 있었으면 `getLastNotificationResponse()`). `data`는 `parseNotificationData`가 읽고 모양이 틀리면 아무것도 열지 않는다.
+- 알림을 누르면 `data.host`의 컴퓨터를 고르고 session·앱·Inbox를 연다(앱이 떠 있을 때는 listener, 꺼져 있었으면 `getLastNotificationResponse()`). `data`는 `parseNotificationData`가 읽고 모양이 틀리거나 이 폰에 pairing하지 않은 컴퓨터면 아무것도 열지 않는다. 터미널 coding agent의 알림(`term:<탭>`)은 폰이 열 수 없어 Inbox로 가고, 목록에 없는 session은 8초 기다린 뒤 Inbox를 연다.
 
 계정이 필요한 부분: Expo push token은 EAS project id(`app.json`의 `expo.extra.eas.projectId`)가 있어야 받고, FCM 배달은 Firebase project의 `google-services.json`(`expo.android.googleServicesFile`)이 있어야 한다. 둘 다 아직 없다. 그래서:
 
-- dev build(`__DEV__`)는 앱이 처음 쓸 때 만들어 저장한 가짜 token `ExponentPushToken[lophn-dev-<무작위>]`를 `devices/set_push`로 보낸다. 개발 core의 fake push server(`tests/support/fake-push`)가 이 token으로 온 글을 받는다. 폰에 알림을 그리지는 못한다.
+- dev build(`__DEV__`)는 앱이 처음 쓸 때 만들어 저장한 가짜 token `ExponentPushToken[lophn-dev-<무작위>]`를 `devices/set_push`로 보낸다. 개발 core의 fake push server(`tests/support/fake-push`)가 이 token으로 온 글을 받는다. 폰에 알림을 그리지는 못한다(그리는 것은 Expo의 일이다).
 - 그 밖의 build는 token을 받을 수 없어 알림이 "이 build에서는 쓸 수 없다"로 서고 아무것도 등록하지 않는다.
 - Settings › Notifications 맨 아래(dev build에서만)의 `Send a test notification`은 5초 뒤 같은 `data`의 local 알림을 띄운다. 앱을 뒤로 보내 보고, 누르면 그 session(없으면 Inbox)으로 가는지 본다. 앱이 앞에 있으면 배너를 그리지 않는다.
+- 개발 core 쪽 길: `npm run dev`와 `npm run dev:core`는 fake push server(port 7498, 바꾸려면 `LOPHN_DEV_PUSH_PORT`)를 띄우고 그 주소를 개발 data root의 설정 `remote.push`에 적는다. fake가 받은 글은 core를 띄운 터미널에 `push: <제목> | <본문> | <data>` 한 줄로 찍힌다. 글이 나가려면 `npm run dev:remote`로 remote가 켜져 있고, 폰이 앱 안에서 알림을 켜 `devices/set_push`로 token을 두었고, 폰이 앞에 없어야 한다(앱을 뒤로 보낸다). 그 상태에서 core에 사람을 기다리는 일(승인, 앱의 `notify()`)이 생기면 한 줄이 찍힌다.
 - 허락 거절은 `adb -s emulator-<port> shell pm revoke dev.lophn.mobile android.permission.POST_NOTIFICATIONS`로 본다.
 
 ## 정해 둔 것

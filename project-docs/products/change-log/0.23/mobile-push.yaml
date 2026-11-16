@@ -1,0 +1,59 @@
+id: mobile-push
+version: 0.23.62
+title: core가 host들의 보고로 사람이 무엇을 보는지 알고, 사람을 기다리는 일을 보고 있지 않은 폰에 Expo Push로 알리고, 못 본 turn 끝(unseen)을 든다
+modules: [packages/protocol, packages/core/attention, packages/core/remote, packages/core/main, packages/core/config, packages/core/jobs, packages/core/storage, packages/shell/main, packages/shell/renderer, packages/shell/ipc, packages/shell/preload, packages/mobile, packages/design, tests, tools]
+change: |
+  - core에 주의(attention) module이 생겼다(`architecture/attention.md`). host(desktop, 폰)가 `presence/report`로 알린 지금의 모습(창이나 앱이 앞에 있는지, desktop은 마지막 입력 뒤 시간, 보이는 session)을 메모리에 들고, 사람을 기다리는 일이 새로 생기거나 오래 돈 turn이 끝나면 token이 있는 기기마다 보낼지 정하고 글을 만들어 Expo Push로 보낸다. 계기: 승인, 질문, 터미널 coding agent의 대기, 60초 넘게 일한 turn의 끝, 앱의 activation 동의·공유 요청, 앱의 `notify()`, 사람이 알아야 하는 program 기록, job의 놓친 차례. 보내지 않는 때: 그 계기의 설정 칸이 꺼짐, 그 폰이 앞에 있음, `quiet_when_present`인데 앞에 있는 desktop이 있음. 90초 넘게 보고가 없는 host와 마지막 연결을 닫은 기기는 앞에 없는 것이다. 창이 앞에 있어도 마지막 입력 뒤 2분이 지나면 앞에 없는 것이다.
+  - push 글은 영어 고정 문장에 session 제목, agent 이름, 앱 이름, job 이름, notice 제목만 끼운다. 대화 글, 명령, 질문 글, 마지막 답, notice 본문, 컴퓨터 이름은 싣지 않는다. 폰의 `show_names`(기본 켜짐)를 끄면 "An agent needs you" 같은 일반 문장만 간다. `data`는 `{host, kind: session|app|inbox, session?, app?}`로 어느 컴퓨터의 어디를 열지만 말한다.
+  - 새 route: `presence/report`(desktop은 shell main, 폰은 기기 자격), `unseen/list`, `unseen/dismiss`, `terminal_sessions/signal`(사람 자격만. shell main의 tracker가 터미널 coding agent의 대기·끝·실패를 알린다), `devices/set_push`(폰이 자기 token과 설정 칸 일곱을 둔다. 입력에 id가 없고 `token: null`은 push 끄기), `devices/clear_push`와 `devices/push_targets`(core 안 machine 자격만). 폰 route 목록(`REMOTE_ALLOWED_ROUTES`)에는 `presence/report`와 `devices/set_push`만 더했다.
+  - 저장: ledger step `remote.devices.push`가 `devices`에 `push_token`, `push_prefs`(JSON) 열을 더한다(`schema-steps.lock.json`에 같이 올렸다). `devices/list`는 token과 설정을 내지 않는다. 죽은 token(`DeviceNotRegistered`, ticket이나 15분 뒤 영수증)은 core가 `devices/clear_push`로 거두고(그 사이 폰이 새 token을 보냈으면 그대로 둔다) 설정 칸은 남는다. 기기의 마지막 연결이 닫히거나 끊기면 그 기기의 presence를 잊는다.
+  - 새 event `JobHeld`(job의 놓친 차례가 새 held 줄로 commit된 뒤 한 번. 폰 event 목록에는 없다)와 `StateChanged`의 change 이름 `unseen`(`id`는 session 참조).
+  - 새 설정 `remote.push`(locked): Expo send 주소(기본 Expo의 주소, 비우면 push를 끈다). `npm run dev`와 `npm run dev:core`는 fake push server(`tests/support/fake-push`, port 7498, `LOPHN_DEV_PUSH_PORT`)를 띄워 그 주소를 개발 data root의 설정에 적고 받은 글을 한 줄씩 찍는다. test용 core는 `remote.push`를 비워 push를 끈다. 개발과 test에서 실제 Expo endpoint를 부르지 않는다.
+  - `unseen`을 core가 든다. 서는 때(완료·실패로 끝난 turn과 터미널 signal. 앞에 있는 host가 보고 있지 않을 때만)와 꺼지는 때(앞에 있는 host가 보게 됨, 다음 turn, session 끝, 터미널의 waiting, 사람이 지움)의 규칙이 한 곳이다. 폰에서 session을 보면 desktop 점도 꺼진다.
+  - desktop: shell main이 창 focus, `powerMonitor`의 idle 시간, 보이는 session과 터미널을 core에 알린다(바뀔 때, 30초마다, core에 다시 붙을 때). tracker는 권한 물음과 1.5초 debounce 뒤의 끝을 `terminal_sessions/signal`로 core에 알리고 새 turn과 터미널 종료 때 core의 표시를 지운다. 창은 `unseen/list`를 읽고 `unseen/dismiss`로 지운다. IPC channel `shell:notice-unseen-get`, `shell:notice-unseen`, `shell:notice-dismiss`와 `TerminalAgent.unseen`은 없어졌다. desktop의 toast·OS 알림 규칙은 그대로다. 터미널 turn 끝의 못 본 표시는 전에는 idle이 될 때 바로 섰는데 이제 signal과 같은 때(1.5초 뒤)에 선다.
+  - 폰 앱: Paired가 알림을 한 번 묻고(`Turn on notifications`, `Not now`), Settings › Notifications에 스위치 일곱(`An agent needs me`, `Long work finishes`, `An app update waits`, `A job was missed`, `My apps notify me`, `Stay quiet while I am at the computer`, `Show session names`)이 있고 허락을 거절했으면 시스템 설정을 여는 단추가 선다. 알림 channel `needs-you`, `finished`, `apps`를 앱이 시작할 때 만든다. 설정은 폰에 한 벌이고 pairing한 모든 컴퓨터에 `devices/set_push`로 보낸다. 앱이 앞에 있는지와 열린 session은 `presence/report`로 보낸다. 알림을 누르면 `data.host`의 컴퓨터를 고르고 session, 앱, Inbox를 연다(터미널 session은 Inbox. 앱이 죽어 있다가 눌러도 열린다. 모양이 틀린 `data`나 모르는 컴퓨터는 아무것도 열지 않는다). 새 native module은 `expo-notifications`다. dev build만 가짜 token을 만들어 보내고 `Send a test notification`으로 local 알림을 띄워 누르기를 본다.
+why: |
+  mobile roadmap 단계 4다. 폰이 컴퓨터의 일을 이어 가도 사람이 자리를 비우면 승인과 질문이 폰을 열 때까지 기다렸다. 알림은 사람이 보고 있지 않을 때만 뜻이 있어서, 폰이 둘째 host가 되자 "누가 보고 있나"를 한 곳(core)이 알아야 했고, `unseen` 점도 shell main 메모리에서 core로 옮겨야 폰에서 읽을 때 desktop 점이 꺼진다. 터미널 coding agent의 상태는 shell main의 tracker만 알아 core에 올려야 폰 push와 `unseen`에 들었다.
+decisions:
+  - text: >-
+      배달은 Expo Push를 core가 직접 부른다. lophn이 gateway(`packages/relay` 옆의 service)를 돌리면 service 하나와 FCM key를 lophn이 쥐어야 하는데 글이 어차피 평문이라 privacy를 얻는 것이 없다. 대가: 알림 글(제목과 상태 문장)을 Expo와 Google이 본다. 버린 길: lophn gateway, push를 두지 않기.
+    by: agent
+  - text: >-
+      push 글에는 session 제목과 상태 한 문장만 싣고 대화 내용이나 명령은 싣지 않는다. 폰의 "Show session names"(기본 켜짐)를 끄면 일반 문장이 가고, 켜 있으면 제목이 Expo와 Google을 평문으로 지난다고 스위치 부제에 쓴다. 컴퓨터 이름은 글에 넣지 않는다(QR에 이름이 없다).
+    by: agent
+  - text: >-
+      알림 설정은 폰 하나에 한 벌이고 pairing한 모든 컴퓨터에 사본으로 보낸다. 컴퓨터마다 따로 두면 화면이 늘고 폰 하나가 컴퓨터 둘에서 다르게 울릴 이유가 없다.
+    by: agent
+  - text: >-
+      앞에 있는 host가 있으면 보내지 않는다. 알릴지는 host 단위로만 정하고 보는 session은 `unseen`을 위해서만 쓴다. desktop은 창 focus와 마지막 입력 뒤 시간(2분)을, 폰은 앱이 앞에 있는지를 보고한다. 창을 띄워 놓고 자리를 비운 사람에게 push가 가야 한다. 대가: 보이는 창이 쉬는 사이 끝난 session에도 `unseen`이 선다(의도).
+    by: agent
+  - text: >-
+      `unseen`을 core에 둔다. 정본이 shell main 메모리면 폰에서 읽어도 desktop 점이 남는다. 버린 길: shell main이 들고 폰이 따로 세기.
+    by: agent
+  - text: >-
+      터미널 coding agent의 대기와 끝은 core가 `terminal_sessions/report`의 변화를 비교해 알아내지 않고, tracker가 해석을 끝낸 순간(권한 물음, 1.5초 debounce 뒤의 끝)을 새 route `terminal_sessions/signal`로 알린다. 상태 해석이 core에 두 벌이 되지 않는다. 대가: desktop의 못 본 끝이 1.5초 늦게 선다.
+    by: agent
+  - text: >-
+      "`NoticePosted`를 받아 일을 하는 core 코드를 두지 않는다"(`app-notice.md`)의 예외로 push 보내기를 둔다. 받는 쪽이 사람이라 약속의 뜻(agent나 앱에 반응하지 않는다)을 깨지 않고, 저장·cursor·재시도가 없는 메모리 구독이라 지운 Reactor의 짐이 돌아오지 않는다(`event.md`). core가 Bus를 듣는 것은 주의에 한정한다.
+    by: agent
+  - text: >-
+      실제 Expo endpoint를 개발과 test에서 부르지 않는다. 주소가 locked 설정 `remote.push`이고 `npm run dev`·`dev:core`는 fake push server를 가리키며 test용 core는 비운다. 설정을 locked로 두는 이유는 글(제목과 상태 문장)이 그 주소로 가서 사람만 바꾸게 하는 것이다.
+    by: agent
+  - text: >-
+      Expo의 "enhanced push security"(access token)는 켜지 않는다. 열린 build에 token을 실을 수 없다. 대가: 폰의 push token을 아는 사람은 그 폰에 push를 보낼 수 있다. token은 사용자의 core와 Expo에만 있어 받아들인다.
+    by: agent
+  - text: >-
+      push 글은 영어 고정 문장이다(core에 i18n이 없다). 폰 화면 문구는 `@lophn/i18n`의 `mobile.` key다. 폰은 Paired에서 알림을 한 번만 묻는다. token을 받을 수 없는 build(EAS project id가 없음)는 가짜 token을 만들지 않고 "쓸 수 없다"로 두며 dev build만 가짜 token을 쓴다.
+    by: agent
+follow_up: |
+  - **실제 배달은 확인하지 못했다.** 사람의 Expo·Firebase 계정이 있어야 한다. 지금까지는 fake push server가 받은 글과, 폰에서 같은 `data`를 가진 local 알림으로 누르기 이동만 확인했다. 진짜 FCM 배달과 진짜 Expo push token은 본 적이 없다.
+  - **사람이 할 것**(실제 배달에만 든다): (1) Expo 계정을 만들고 project를 하나 만들어 project id를 받는다. lead가 `packages/mobile/app.json`의 `extra.eas.projectId`에 넣는다. (2) Firebase project(Spark, 무료)를 만들고 Android 앱 `dev.lophn.mobile`을 등록해 `google-services.json`을 `packages/mobile/`에 두고(`android.googleServicesFile`) FCM V1 service account key를 Expo에 올린다(dashboard나 `eas credentials`). (3) 새 dev build를 실제 폰에 깔고 pairing해 알림을 받아 본다(실제 폰에 build 깔기는 사람에게 묻는다). 이 계정은 lophn의 것이라 fork는 자기 것을 만들어야 한다. (4) iOS는 Apple Developer 계정(연 $99)과 APNs key가 있어야 하고 iOS build와 함께 따로 연다.
+  - EAS project id가 없는 폰 build는 push token을 받을 수 없어 알림을 쓸 수 없다. 개발 build만 가짜 token으로 개발 core의 fake push server와 이어진다.
+  - Android 알림 아이콘이 기본이다(이슈 `phone-notification-icon-default`).
+  - GUI 탭에서 기다리는 승인은 push 계기가 아니다(이슈 `push-misses-gui-tab-approvals`). 터미널의 TUI 탭과 lophn agent session은 간다.
+  - remote를 켰다가 끄면 같은 기동 안에서는 push가 계속 나간다(이슈 `push-continues-after-remote-off`). 앱이 session을 멈춘 기록은 desktop toast에만 뜬다(이슈 `push-alert-program-kinds-differ`).
+  - desktop 변경(presence 보고, tracker의 signal, `unseen`을 core에서 읽는 점과 Finished 줄)은 type 검사와 test와 개발 core로만 확인했고 Electron 창을 띄워 보지 못했다.
+  - 영수증을 기다리는 ticket은 메모리뿐이라 core를 다시 켜면 잃는다(그 token은 다음 send의 ticket 오류로 알게 된다). 터미널 session의 push를 누르면 폰은 Inbox로 간다(폰이 터미널 session을 여는 화면은 단계 5).
+checklist:
+  - "desktop에서 터미널 coding agent를 한 turn 돌리고 그 탭을 보지 않는 사이 turn이 끝나게 해, 탭 점(finished)과 알림 panel의 Finished 줄이 뜨고 탭을 고르면 사라지는지 본다"
+  - "폰 dev build를 개발 core(`npm run dev:core`와 `npm run dev:remote`)에 pairing하고 Paired에서 알림을 켠 뒤 앱을 뒤로 보내고 core에 사람을 기다리는 일(승인, 앱의 `notify()`)을 일으키면, dev core를 띄운 터미널에 `push:` 한 줄이 찍히는지 본다"

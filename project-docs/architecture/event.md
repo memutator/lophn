@@ -10,7 +10,7 @@ core 안에서 일어난 일은 세 부류로 갈린다. program이나 agent가 
 
 - 목표: 뒤에 꼭 움직여야 하는 일은 어떤 경우에도 빠지지 않는다. 화면은 붙거나 다시 붙을 때 정본에서 자기 상태를 다시 맞출 수 있다. 되돌아간 tx의 일을 화면이 보지 않는다.
 - 목표: 앱 하나가 낸 사실(사용량 한도에 닿음)을 여러 앱이 듣는다. 발행과 구독이 어느 쪽도 상대의 답을 기다리지 않고, 놓친 것을 믿게 하는 장치를 만들지 않는다. 발행과 거기서 나온 호출을 한 trace로 읽을 수 있다.
-- 비목표: event에 반응하는 장치(Reactor)와 domain event. lophn 사용자에게 hook(시작 전에 막기)을 여는 것. 앱이 자기 업무 사실을 lophn에 밀어 넣어 core가 반응하게 하는 길(push). program이 event를 듣고 agent session을 스스로 여는 것(사람이 승인한 job이 event로 도는 것은 이 선 안이다). 앱 event의 저장, 구독자 cursor, 재시도, 멱등 key. agent event의 저장과 replay. (event로 도는 job은 2026-11-11에 열었다: 아래 "앱 event"의 안 구독자) event를 듣고 core가 일하는 것(`StateChanged`는 화면만 듣는다). 바뀐 내용을 event에 실어 화면이 읽지 않고 고치게 하는 것. 이유는 모두 "결정"에 있다.
+- 비목표: event에 반응하는 장치(Reactor)와 domain event. lophn 사용자에게 hook(시작 전에 막기)을 여는 것. 앱이 자기 업무 사실을 lophn에 밀어 넣어 core가 반응하게 하는 길(push). program이 event를 듣고 agent session을 스스로 여는 것(사람이 승인한 job이 event로 도는 것은 이 선 안이다). 앱 event의 저장, 구독자 cursor, 재시도, 멱등 key. agent event의 저장과 replay. (event로 도는 job은 2026-11-11에 열었다: 아래 "앱 event"의 안 구독자) event를 듣고 core가 일하는 것(`StateChanged`는 화면만 듣는다. 예외는 주의(`attention.md`) 하나다: 몇 event를 듣고 사람의 기기에 알리거나 못 본 turn 끝을 든다. 저장·cursor·재시도가 없는 메모리 구독이고 사람에게 알리는 것뿐이다). 바뀐 내용을 event에 실어 화면이 읽지 않고 고치게 하는 것. 이유는 모두 "결정"에 있다.
 
 ## 모델
 
@@ -42,8 +42,8 @@ agent event
 
 남지 않는 event
 - session 밖에서 화면만 알면 되는 일이다. 메모리뿐이다. session이 없어 `subject`가 앱·release거나 null이다. `AcpUpdated`만 envelope에 `session`이 있어 session 조건에 걸린다.
-- 종류: `AppViewChanged`(activation·grant·rewind 뒤 열린 앱 view를 다시 그리라는 신호), `AppRemoved`, `StateChanged`, `AppRestartHalted`, `ActivationConsentRequested`·`ActivationConsentClosed`, `ShareRequestOpened`·`ShareRequestClosed`, `NoticePosted`·`NoticeClosed`·`NoticeRead`, `AppEventPublished`, `AppViewEvent`, `AcpUpdated`.
-- `StateChanged`는 "이 대상이 바뀌었으니 다시 읽어라"뿐이다. payload는 `{changes: [{name, id}]}`이고 내용을 싣지 않는다. `name`은 화면이 읽는 단위의 닫힌 목록(`CHANGE_NAMES`: agents, projects, apps, app_runtime, app_grants, app_activity, releases, sessions, jobs, workflow_instances, settings, tray, secrets, providers, models 등)이고 `id`는 그 단위 안의 대상(앱, job, session, 설정 key, secret 이름)이거나 null(단위 전체)이다.
+- 종류: `AppViewChanged`(activation·grant·rewind 뒤 열린 앱 view를 다시 그리라는 신호), `AppRemoved`, `StateChanged`, `AppRestartHalted`, `ActivationConsentRequested`·`ActivationConsentClosed`, `ShareRequestOpened`·`ShareRequestClosed`, `JobHeld`(job의 놓친 차례가 새 held 줄로 commit된 뒤 한 번. subject는 job. 폰 push의 계기이고 폰 event 목록에는 없다), `NoticePosted`·`NoticeClosed`·`NoticeRead`, `AppEventPublished`, `AppViewEvent`, `AcpUpdated`.
+- `StateChanged`는 "이 대상이 바뀌었으니 다시 읽어라"뿐이다. payload는 `{changes: [{name, id}]}`이고 내용을 싣지 않는다. `name`은 화면이 읽는 단위의 닫힌 목록(`CHANGE_NAMES`: agents, projects, apps, app_runtime, app_grants, app_activity, releases, sessions, jobs, workflow_instances, settings, tray, secrets, providers, models, `unseen` 등)이고 `id`는 그 단위 안의 대상(앱, job, session, 설정 key, secret 이름)이거나 null(단위 전체)이다. `unseen`은 못 본 turn 끝이 서거나 꺼질 때 core가 route 밖에서 내고 `id`는 session 참조(`ses_…`, 터미널은 `term:<탭>`)다. 화면은 `unseen/list`를 다시 읽는다.
 - `AppEventPublished`는 앱(또는 core)이 event를 낸 뒤 열린 앱 화면이 받게 하는 신호다(subject는 발행 앱, core면 null. payload는 `{source, event, payload}`). core의 view 표만 듣고 `AppViewEvent`로 바꿔 view를 연 host에 보낸다. 저장하지 않는다.
 - `AppViewEvent`는 core의 view 표(`architecture/app-call.md`의 "앱 화면")가 view 하나에 내는 신호다. subject는 그 view의 앱이고 payload는 `{owner, view}`와 `kind`로 가르는 셋 중 하나다: `event`(묶인 release가 구독을 선언한 앱 event, `{source, event, payload}`), `rebound`(`AppViewChanged` 뒤 다시 묶음, `{release, bundle_hash, process_nonce}`. binding이 그대로여도 낸다), `lost`(다시 묶지 못함, `reason`: `app_stopped`, `app_archived`, `conflict`, `evicted`). 저장하지 않는다.
 - 쓸 수 있는 type은 이 두 집합(agent event, 남지 않는 event)뿐이고 이름은 서로 겹치지 않는다. Bus에는 둘만 오른다.
@@ -140,6 +140,7 @@ boundary: `events`(commit 뒤 agent event와 남지 않는 event를 화면에 �
 ## 결정
 
 - 반응할 domain event를 모두 지우고 Reactor(cursor, 멱등 key, backoff, 5초 poll)도 지웠다. 반응이 필요한 10개 안팎을 domain event로 남겼으나 그 일도 아는 command가 같은 tx에서 하게 되었고, 마지막 반응(맡긴 coding session의 끝)도 command가 같은 tx에서 call을 닫게 되어 반응할 event 없이 장치만 남았다. 같은 사실을 두 길이 알리게 하는 문제도 있었다. 버린 안: Reactor 유지, lophn 사용자에게 hook을 여는 것. 상태는 각 module의 표가 정본이다. (agent)
+- core가 Bus event를 듣는 것은 주의(`attention.md`)에 한정한다. 이유: 승인·질문·turn 끝·앱 동의·job의 놓친 차례를 아는 곳이 Bus이고, 사람의 폰에 알리려면 core가 그것을 듣고 보고 있는 기기를 알아야 한다. 저장도 cursor도 재시도도 없이 사람에게 알릴 뿐이라 지운 Reactor의 짐이 돌아오지 않는다. 사람에게 보이는 알림이 아닌 일(agent나 앱에 반응)은 여전히 듣지 않는다. (agent)
 - 일반 change notification(`StateChanged`)을 둔다. 전에는 "받을 화면이 없다"며 두지 않고 job, workflow instance, 설정, tray만 종류마다 "다시 읽어라" event를 두었다. 이제 화면이 는다(창 둘, 폰). 바꾸는 쪽도 는다(CLI, agent, scheduler, 앱). 기능마다 손으로 단 event는 상태를 바꾸는 route 절반 가까이에서 빠져 있었다. 그래서 그 넷을 `StateChanged` 하나로 합쳤다. 화면 갱신만 하고 core는 듣지 않아 옛 Reactor의 짐(저장, cursor, 재시도)이 돌아오지 않는다. (사람이 방향을 냄, 2026-11-14. 모양은 agent)
 - 선언은 handler가 아니라 route 정의에 둔다. 이유: 내는 것을 잊지 못하게 type으로 막고, 화면 쪽이 같은 계약에서 읽기의 기댐(`reads`)을 읽는다. 버린 안: handler마다 event를 내기(지금까지의 방식), route의 `resource`를 그대로 대상으로 쓰기(다른 resource를 바꾸는 command와 여러 표를 모아 읽는 read가 많다). (agent)
 - `StateChanged`에 내용을 싣지 않는다. 실으면 event마다 schema와 접는 코드가 생겨 손으로 다는 것으로 돌아간다. 잃는 것은 줄 하나가 바뀌어도 그 읽기를 통째로 다시 하는 것이고, 한 사람이 쓰는 양에서는 문제가 아니다. 잦은 것(대화)은 내용 있는 event를 그대로 쓴다. (agent)

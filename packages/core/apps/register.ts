@@ -82,6 +82,8 @@ import { sdkReviewCommands } from "./sdk-status/commands.ts";
 import {
   appTrayList,
   appTraySet,
+  appWidgetSet,
+  appWidgetsList,
   packagesGuideBody,
 } from "../../protocol/apps/mod.ts";
 import {
@@ -268,6 +270,8 @@ export function createLedgerRegistration(
       appSdkDecide,
       appTraySet,
       appTrayList,
+      appWidgetSet,
+      appWidgetsList,
       // handler는 wiring/apps.ts가 붙인다.
       appEventPublish,
       appRewind,

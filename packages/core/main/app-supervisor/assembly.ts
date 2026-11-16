@@ -22,6 +22,7 @@ import {
 } from "../../../protocol/apps/mod.ts";
 import { appEventPublish } from "../../../protocol/apps/events.ts";
 import { appTraySet } from "../../../protocol/apps/tray.ts";
+import { appWidgetSet } from "../../../protocol/apps/widget.ts";
 import { CALL_RESPONSE_MAX_BYTES } from "../../../protocol/base/mod.ts";
 import {
   type AppCallPort,
@@ -377,6 +378,8 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       asChild(child, `${noticePost.resource}/${noticePost.method}`, input),
     setTray: (child, input) =>
       asChild(child, `${appTraySet.resource}/${appTraySet.method}`, input),
+    setWidget: (child, input) =>
+      asChild(child, `${appWidgetSet.resource}/${appWidgetSet.method}`, input),
   };
 
   const events: EventPublishPort = {

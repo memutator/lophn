@@ -22,6 +22,7 @@ const BROKER_ROUTES = {
   secretsUse: "/_lophn/broker/secrets/use",
   notifySend: "/_lophn/broker/notify/send",
   notifyTray: "/_lophn/broker/notify/tray",
+  notifyWidget: "/_lophn/broker/notify/widget",
   problemsObserve: "/_lophn/broker/problems/observe-exception",
   appsCall: APP_BROKER_PATHS.call,
   eventsPublish: "/_lophn/broker/events/publish",
@@ -87,6 +88,7 @@ function routes(services: BrokerServices): Map<string, Handler> {
   if (notify) {
     table.set(BROKER_ROUTES.notifySend, (c, b) => notify.send(c, b));
     table.set(BROKER_ROUTES.notifyTray, (c, b) => notify.tray(c, b));
+    table.set(BROKER_ROUTES.notifyWidget, (c, b) => notify.widget(c, b));
   }
   if (exceptions) {
     table.set(BROKER_ROUTES.problemsObserve, (c, b) =>

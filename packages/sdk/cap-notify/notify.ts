@@ -5,6 +5,7 @@ import { type CapHost, readHost } from "./host.ts";
 
 export const NOTIFY_SEND_PATH = "/_lophn/broker/notify/send";
 export const NOTIFY_TRAY_PATH = "/_lophn/broker/notify/tray";
+export const NOTIFY_WIDGET_PATH = "/_lophn/broker/notify/widget";
 
 // protocol/apps/notice.ts의 한도와 같다(SDK는 protocol을 import할 수 없어 사본으로 둔다).
 export const NOTIFY_TITLE_MAX = 120;
@@ -37,15 +38,99 @@ export type TrayRequest = {
   tone?: TrayTone;
 };
 
+// protocol/apps/widget.ts의 위젯 값과 같다(SDK는 protocol을 import할 수 없어 사본으로 둔다).
+export const WIDGET_VALUE_MAX_BYTES = 4096;
+const WIDGET_KEY = /^[a-z][a-z0-9_]{0,31}$/;
+
+export type WidgetTone = TrayTone;
+
+export type WidgetNode =
+  | {
+      kind: "text";
+      // 1~48자.
+      text: string;
+      tone?: WidgetTone;
+      style: "title" | "body" | "caption";
+    }
+  | {
+      kind: "stat";
+      // 큰 값. 1~12자.
+      value: string;
+      // 값 설명. 1~24자.
+      label: string;
+      tone?: WidgetTone;
+    }
+  | {
+      kind: "progress";
+      // 0~1.
+      value: number;
+      // 1~24자.
+      label?: string;
+      tone?: WidgetTone;
+    }
+  | {
+      kind: "list";
+      // 1~5줄.
+      items: {
+        // 1~32자.
+        text: string;
+        // 줄 오른쪽 글. 1~12자.
+        trail?: string;
+        tone?: WidgetTone;
+      }[];
+    };
+
+export type WidgetValue = {
+  v: 1;
+  tone?: WidgetTone;
+  // 1~6개.
+  rows: WidgetNode[];
+};
+
 export type NotifyClient = {
   notify(request: NotifyRequest): Promise<NotifyResult>;
   // 이 앱의 tray 값을 바꾼다. 사람이 이 앱의 tray 화면을 켜 두었을 때만 보인다.
   setTray(request: TrayRequest): Promise<void>;
   clearTray(): Promise<void>;
+  // 이 앱이 선언한 폰 위젯 `key`의 값을 바꾸거나 지운다.
+  setWidget(key: string, value: WidgetValue): Promise<void>;
+  clearWidget(key: string): Promise<void>;
 };
 
 function invalid(message: string): CapabilityError {
   return new CapabilityError({ code: "invalid_input", message });
+}
+
+const NODE_KINDS = ["text", "stat", "progress", "list"];
+
+// 폰이 그릴 수 있는 모양인지 core와 같은 기준으로 먼저 본다. 글자 수는 core가 다시 본다.
+function checkWidget(key: string, value: WidgetValue): void {
+  if (typeof key !== "string" || !WIDGET_KEY.test(key)) {
+    throw invalid(
+      "key must be a lowercase letter then up to 31 of a-z, 0-9, _",
+    );
+  }
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    value.v !== 1 ||
+    !Array.isArray(value.rows) ||
+    value.rows.length < 1 ||
+    value.rows.length > 6 ||
+    value.rows.some((row) => !row || !NODE_KINDS.includes(row.kind))
+  ) {
+    throw invalid(
+      "widget value must be { v: 1, rows } with 1 to 6 text, stat, progress or list nodes",
+    );
+  }
+  if (
+    new TextEncoder().encode(JSON.stringify(value)).length >
+    WIDGET_VALUE_MAX_BYTES
+  ) {
+    throw invalid(
+      `widget value must be at most ${WIDGET_VALUE_MAX_BYTES} bytes`,
+    );
+  }
 }
 
 function check(request: NotifyRequest): void {
@@ -104,7 +189,37 @@ export function createNotifyClient(deps: NotifyClientDeps = {}): NotifyClient {
     }
     if (response.status !== 200) throw fromBroker(response.body, requested);
   }
+  // setWidget과 clearWidget이 같다: value가 null이면 지운다.
+  async function widget(key: string, value: WidgetValue | null): Promise<void> {
+    const host = deps.host ?? readHost();
+    if (!host) throw missingHost();
+    // preview·test는 사람에게 닿지 않는다.
+    if (host.mode !== "live") return;
+    const requested = { permission: "notify.send", scope: {} };
+    let response;
+    try {
+      response = await host.post(NOTIFY_WIDGET_PATH, { key, value });
+    } catch {
+      throw new CapabilityError({
+        code: "unavailable",
+        message: "notify could not reach the broker",
+      });
+    }
+    if (response.status !== 200) throw fromBroker(response.body, requested);
+  }
   return {
+    async setWidget(key, value) {
+      checkWidget(key, value);
+      await widget(key, value);
+    },
+    async clearWidget(key) {
+      if (typeof key !== "string" || !WIDGET_KEY.test(key)) {
+        throw invalid(
+          "key must be a lowercase letter then up to 31 of a-z, 0-9, _",
+        );
+      }
+      await widget(key, null);
+    },
     setTray(request) {
       const text = typeof request.text === "string" ? request.text.trim() : "";
       if (text.length === 0 || text.length > TRAY_TEXT_MAX) {
@@ -162,4 +277,12 @@ export function setTray(request: TrayRequest): Promise<void> {
 
 export function clearTray(): Promise<void> {
   return shared.clearTray();
+}
+
+export function setWidget(key: string, value: WidgetValue): Promise<void> {
+  return shared.setWidget(key, value);
+}
+
+export function clearWidget(key: string): Promise<void> {
+  return shared.clearWidget(key);
 }

@@ -11,6 +11,10 @@ import {
   brokerTrayInputSchema,
 } from "../../../../protocol/apps/tray.ts";
 import {
+  type AppWidgetSetInput,
+  brokerWidgetInputSchema,
+} from "../../../../protocol/apps/widget.ts";
+import {
   type BrokerAccess,
   currentAccess,
   invalid,
@@ -20,16 +24,22 @@ import {
 } from "./access.ts";
 import type { BrokerChild } from "./invocations.ts";
 
-// core의 `notices.post`와 `app_tray.set`을 그 자식의 app credential로 부르는 포트다. 조립이 잇는다.
+// core의 `notices.post`, `app_tray.set`, `app_widget.set`을 그 자식의 app credential로 부르는 포트다. 조립이 잇는다.
 export interface NoticePostPort {
   post(child: BrokerChild, input: NoticePostInput): Promise<Result<unknown>>;
   setTray(child: BrokerChild, input: AppTraySetInput): Promise<Result<unknown>>;
+  setWidget(
+    child: BrokerChild,
+    input: AppWidgetSetInput,
+  ): Promise<Result<unknown>>;
 }
 
 export type NotifyService = {
   send(child: BrokerChild, body: unknown): Promise<Result<{ notified: true }>>;
   // tray 값은 알림과 같은 권한(notify.send)이다. text가 null이면 지운다.
   tray(child: BrokerChild, body: unknown): Promise<Result<{ set: true }>>;
+  // 위젯 값도 같은 권한이다. value가 null이면 지운다.
+  widget(child: BrokerChild, body: unknown): Promise<Result<{ set: true }>>;
 };
 
 export function createNotifyService(deps: {
@@ -71,6 +81,20 @@ export function createNotifyService(deps: {
         text,
         ...(tone === undefined ? {} : { tone }),
       });
+      return set.ok ? ok({ set: true }) : set;
+    },
+    async widget(child, body) {
+      const parsed = brokerWidgetInputSchema.safeParse(body);
+      if (!parsed.success) return invalid("widget input is invalid");
+      const refused = liveOnly(child, "notify.send", {});
+      if (refused) return refused;
+      const access = await currentAccess(deps.access, child);
+      if (!access.ok) return access;
+      if (access.value === null || !notifyGranted(access.value)) {
+        return refuse("notify.send", {});
+      }
+      const { key, value } = parsed.data;
+      const set = await deps.core.setWidget(child, { key, value });
       return set.ok ? ok({ set: true }) : set;
     },
   };

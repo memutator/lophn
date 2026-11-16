@@ -33,6 +33,7 @@ import {
   appCallTool,
   noticePost,
   appTraySet,
+  appWidgetSet,
   appEventPublish,
   appGrantsList,
   appLogFile,
@@ -182,6 +183,7 @@ const APP_CHILD_OPERATIONS = [
   appCallTool.name,
   noticePost.name,
   appTraySet.name,
+  appWidgetSet.name,
   appEventPublish.name,
   appSessionsList.name,
   appSessionsStatus.name,
@@ -207,6 +209,7 @@ export function appsOperationPolicies(): OperationPolicy[] {
     },
     { name: noticePost.name, actors: ["machine", "app"], kind: "command" },
     { name: appTraySet.name, actors: ["machine", "app"], kind: "command" },
+    { name: appWidgetSet.name, actors: ["machine", "app"], kind: "command" },
     { name: appEventPublish.name, actors: ["machine", "app"], kind: "command" },
     ...[appSessionsList, appSessionsStatus, appSessionsStop].map(
       (route): OperationPolicy => ({

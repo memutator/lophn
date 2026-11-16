@@ -306,32 +306,49 @@ flows:
     actor: app
     entries: [route:app_widget/set]
     boundary: [apps, app-capability, core-api, events]
-    code: [packages/protocol/apps/widget.ts]
+    code: [packages/core/apps/widgets/handlers.ts, packages/protocol/apps/widget.ts]
     steps:
+      - "앱 process의 setWidget·clearWidget은 broker가 notify.send grant와 live 자식을 먼저 본다(broker는 이 entry 밖)"
       - "입력은 위젯 key와 값(또는 null)이다. 값은 widgetValueSchema가 4 KiB, node kind, 글 길이, progress 범위, rows·items 수를 먼저 검사한다"
-      - "값이 null이면 그 앱의 그 위젯 값을 지우고, 아니면 메모리에만 둔다"
-      - "값이 바뀌었으니 route의 changes대로 StateChanged(widgets)가 난다"
+      - "core가 자격의 app을 본다. 없으면 not_found, 보관됐으면 conflict. key가 그 앱의 active release 선언 widgets에 없으면 invalid_input"
+      - "값이 null이면 그 앱의 그 위젯 값을 지우고, 아니면 값과 시각으로 (앱, key)의 마지막 값을 바꾼다. 메모리에만 둔다"
+      - "값이 바뀌었으니 route의 changes대로 StateChanged(widgets)가 난다(지우기도 난다)"
     outcomes:
       - id: set
         observe: [event:StateChanged, response]
+      - id: cleared
+        when: "value가 null이라 그 앱의 그 위젯 값을 지웠다"
+        observe: [event:StateChanged, response]
+      - id: not-found
+        code: not_found
+        when: "자격의 앱이 등록부에 없다"
+        observe: [response]
+      - id: archived
+        code: conflict
+        when: "앱이 보관됐다"
+        observe: [response]
+      - id: undeclared
+        code: invalid_input
+        when: "key가 active release 선언의 widgets에 없다, 또는 active release가 없다"
+        observe: [response]
       - id: forbidden
         code: forbidden
         when: "app 자격이 아니다"
         observe: [response]
     crosses_process: false
-    declared_only: [not_found, conflict]
     docs: [architecture/app-notice.md]
     unclear:
-      - "handler(선언하지 않은 key 거절, 없는 앱·보관한 앱)는 core task가 붙인다. 지금은 계약만 있다"
+      - "값을 core 재기동 때 비우는 것은 의도다(저장하지 않는다). 앱 process가 다시 낸다"
 
   - id: widget-read
     title: 설치된 앱들이 선언한 위젯과 값의 목록을 읽는다
     actor: person
     entries: [route:app_widgets/list]
     boundary: [apps, core-api]
-    code: [packages/protocol/apps/widget.ts]
+    code: [packages/core/apps/widgets/handlers.ts, packages/protocol/apps/widget.ts]
     steps:
-      - "active 앱의 active release가 선언한 위젯마다 한 줄이다. 값이 아직 없으면 value와 at이 null이다"
+      - "active 앱의 active release가 선언한 위젯마다 한 줄이다(app, app_name, key, label, screen, value, at). 값이 아직 없으면 value와 at이 null이다"
+      - "보관됐거나 없는 앱의 값과 선언에서 빠진 key의 값은 이 읽기가 메모리에서 지운다(읽기의 부수효과)"
     outcomes:
       - id: ok
         observe: [response]
@@ -343,7 +360,7 @@ flows:
     declared_only: [unauthorized, unavailable]
     docs: [architecture/app-notice.md]
     unclear:
-      - "handler는 core task가 붙인다. 지금은 계약만 있다"
+      - "app_widgets/list가 선언한 unavailable은 handler가 내지 않는다. 메모리 Map과 등록부·선언 읽기뿐이라 ledger reader를 거치지 않는다(선언을 고칠 곳)"
 
   - id: phone-request
     title: 앱 backend가 core를 거쳐 사람의 기준 폰에 기능 하나를 묻는다

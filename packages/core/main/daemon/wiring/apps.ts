@@ -123,6 +123,7 @@ import {
   createEventPublisher,
 } from "../../../apps/events/mod.ts";
 import { createTray } from "../../../apps/tray/mod.ts";
+import { createWidgets } from "../../../apps/widgets/mod.ts";
 import {
   type AppViews,
   appViewHandlers,
@@ -131,6 +132,10 @@ import {
 import { appEventPublish } from "../../../../protocol/apps/events.ts";
 import { appRecordPreview } from "../../../../protocol/apps/previews.ts";
 import { appTrayList, appTraySet } from "../../../../protocol/apps/tray.ts";
+import {
+  appWidgetsList,
+  appWidgetSet,
+} from "../../../../protocol/apps/widget.ts";
 import { APP_RESTART_HALTED_TOPIC } from "../../../apps/runtime/commands.ts";
 import { viewErrorLogHandler } from "../../../apps/runtime/view-errors.ts";
 import { createScreenFileDeps } from "../../../apps/screens/mod.ts";
@@ -461,6 +466,47 @@ export const appsWiring: WiringFactory = () => {
             : null;
         },
       });
+      // 위젯 값도 메모리에만 있다. 목록은 active release가 선언한 위젯이 정한다.
+      const widgets = createWidgets({
+        clock: ctx.clock,
+        appStatus(app) {
+          const loaded = loadApp(link.sql, app);
+          return loaded.ok && loaded.value !== null
+            ? loaded.value.status
+            : null;
+        },
+        declaredWidgets(app) {
+          const loaded = loadApp(link.sql, app);
+          if (!loaded.ok) return loaded;
+          const stored = loadActiveDeclaration(link.sql, app);
+          if (!stored.ok) return stored;
+          return ok(
+            loaded.value === null || stored.value === null
+              ? null
+              : {
+                  name: loaded.value.name,
+                  widgets: stored.value.declaration.widgets ?? [],
+                },
+          );
+        },
+        appsWithWidgets() {
+          const apps = loadApps(link.sql, "active");
+          if (!apps.ok) return apps;
+          const found = [];
+          for (const app of apps.value) {
+            const stored = loadActiveDeclaration(link.sql, app.id);
+            if (!stored.ok) return stored;
+            if (stored.value !== null) {
+              found.push({
+                app: app.id,
+                name: app.name,
+                widgets: stored.value.declaration.widgets ?? [],
+              });
+            }
+          }
+          return ok(found);
+        },
+      });
       // 앱 event: 전달(구독 앱의 handler를 앱 호출 경로로 부른다)과 앱의 발행. 발행 기록은 invocation과 같이 짧은 연결로 쓴다.
       const eventDelivery = createEventDelivery({
         clock: ctx.clock,
@@ -684,6 +730,8 @@ export const appsWiring: WiringFactory = () => {
           ],
           [`${appTraySet.resource}/${appTraySet.method}`, tray.set],
           [`${appTrayList.resource}/${appTrayList.method}`, tray.list],
+          [`${appWidgetSet.resource}/${appWidgetSet.method}`, widgets.set],
+          [`${appWidgetsList.resource}/${appWidgetsList.method}`, widgets.list],
           [
             `${appEventPublish.resource}/${appEventPublish.method}`,
             publishEvent,

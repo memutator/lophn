@@ -47,7 +47,7 @@ elements:
 
           - id: app-releases
             kind: component
-            description: 앱의 정의와 판. 폰 화면(`phone` 자리)의 build(`phone.js`, manifest, desktop preview 진입)와 선언과의 양쪽 대조, 선언의 위젯(`widgets`)과 `phone.use` 권한 요구의 검사, 폰에서 도는 앱(`runs_on`에 phone)의 backend build(`phone/backend.js`, manifest)와 release 검사(Node 내장 import, handler 집합, 폰 schema 규칙, SDK 하한)를 포함한다.
+            description: 앱의 정의와 판. 폰 화면(`phone` 자리)의 build(`phone.js`, manifest, desktop preview 진입)와 선언과의 양쪽 대조, 선언의 위젯(`widgets`)과 `phone.use` 권한 요구의 검사, 폰에서 도는 앱(`runs_on`에 phone)의 backend build(`phone/backend.js`, manifest)와 release 검사(Node 내장 import, handler 집합, 폰 schema 규칙, SDK 하한), 폴더로 맞추는 앱에서 다른 기계가 낸 새 release를 git 조상 순서로 따라가기와 기계 사이 판 차이 읽기(`apps/update_state`)를 포함한다.
 
           - id: app-runtime
             kind: component
@@ -168,7 +168,7 @@ elements:
 
       - id: folder
         kind: component
-        description: 바깥 도구가 옮기는 폴더(destination, 기계마다의 설정 `folder.destinations`)로 sync 앱(선언 `sync_to`)의 data stream(changes·snapshot file), release, source(증분 git bundle), 앱·기계 기록을 내보내고 읽어 들이기. 기계마다 자기 하위 폴더에만 쓰고, 읽은 file은 전부 검사한 뒤 한 transaction으로 적용하거나 다른 release면 held로 복사한다. 흔적 정리의 settled·horizon, 다른 기계의 앱을 들이는 take-in, 읽기 명령 `machine.environment`와 뒤 계획이 칸을 꽂는 section 자리를 포함한다.
+        description: 바깥 도구가 옮기는 폴더(destination, 기계마다의 설정 `folder.destinations`)로 sync 앱(선언 `sync_to`)의 data stream(changes·snapshot file), release, source(증분 git bundle), 앱·기계 기록을 내보내고 읽어 들이기. 기계마다 자기 하위 폴더에만 쓰고, 읽은 file은 전부 검사한 뒤 한 transaction으로 적용하거나 다른 release면 held로 복사했다가 이 기계가 그 release가 되면 출처마다 번호 순서로 적용한다(held 한도 포함). 흔적 정리의 settled·horizon, 다른 기계의 앱을 들이는 take-in, 기계 사이 폴더 꼴 판 범위, 읽기 명령 `machine.environment`와 뒤 계획이 칸을 꽂는 section 자리를 포함한다.
 
       - id: diagnostics
         kind: component

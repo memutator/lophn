@@ -1,0 +1,68 @@
+id: machine-update
+version: 0.23.72
+title: 기계마다 lophn 판과 앱 release가 달라도 잃지 않고, 새 release를 스스로 따라가고, 누가 올려야 하는지 보인다
+modules: [packages/core/apps, packages/core/apps/follow, packages/core/apps/update-state, packages/core/folder, packages/core/main, packages/protocol, packages/remote-client, packages/shell/ipc, packages/shell/main, packages/shell/renderer, packages/design, packages/mobile]
+change: |
+  전: 폴더로 맞추는 앱(`sync_to`)은 다른 기계가 새 release를 내면 그 기계의 변경을 held로 두기만 했고, 이 기계는 새 release를 따라가지 않아 사람이 기계마다 take-in과 activation을 다시 해야 했다. held를 release가 바뀐 뒤 적용하는 길이 없었다. migration이 칸 목록을 바꾸면 새 release의 첫 시작이 그 표의 칸 clock을 지워, 늦게 올라온 기계가 옛 release에서 고친 칸이 먼저 올라간 기계의 더 옛 값에 졌다. 폴더 꼴은 판 하나로 읽거나 거절했다. remote 연결의 판이 어긋나면 폰과 desktop은 offline·unreachable로만 보였다.
+  후:
+  - "따라가기: 그 앱을 들인 기계가 다른 기계들의 앱 기록이 말하는 활성 release 가운데 git 조상 순서로 하나를 골라(지금 commit의 자손이고 data schema가 낮지 않은 것, 여럿이면 나머지 모두의 자손) take-in과 같은 길로 봉인 bundle을 prepared에 설치하고(`created_by` machine) activation에 넘긴다. 동의 판정은 activation 그대로다. session이 없어 `activation.report`는 가지 않는다. 내려가지 않고, 이 기계가 내려놓은 release와 실패한 release는 다시 고르지 않으며, 갈라진 release는 따라가지 않고 `diverged`다. 계기는 core 시작, scan·source 받기 뒤, release 상태 바뀜, 동의 닫힘이다."
+  - "held drain: 이 기계의 활성 release가 held의 release가 되면 출처마다 번호 순서로 같은 적용 길로 적용하고 하나마다 지운다. 그 출처의 stream은 지금 release의 held를 다 적용한 뒤에 잇는다. 출처의 snapshot m이 합쳐지거나 held가 되면 그 출처의 m보다 옛 held를 지운다. 출처·앱마다 가장 새 held snapshot 뒤 held changes가 128 MiB를 넘을 file은 복사하지 않고 폴더에 둔다(뒤의 snapshot이 있으면 그리로 건너뛴다)."
+  - "칸 clock: 앱 process가 뜰 때 표마다 마지막으로 본 칸 이름 목록(`lophn_sync_columns`)과 대조해 칸 clock을 칸 이름으로 새 번호에 옮긴다. 이름이 없어진 칸과 표의 clock만 지운다."
+  - "폴더 꼴 판 범위: 기계 기록 `lophn.folder {version, min_version}`(없으면 `{1, 1}`)로 `ok`·`update_this`·`update_peer`를 가른다. 범위 밖 기계는 기계 기록만 두고 그 기계의 data·source·release file을 열지도 복사하지도 지우지도 않으며 cursor도 그대로다(오류 `newer_format`, `details.exchange`). 기록과 header는 모르는 칸을 버리고 읽는다."
+  - "route `apps/update_state {app}`(memory, user·agent): 따라가기 상태, held(`machine, bundle_hash, data_schema, changes, bytes, full, why`), 기계마다 release·lophn 판·exchange. App details의 Machines 절이 그것을 보인다(동의 대기면 Open waiting list). 올리는 단추는 없다."
+  - "remote: 판 범위 밖이면 core가 자기 hello를 보낸 뒤 닫고, 붙는 쪽의 `conflict`가 `details.update`(`client`·`host`)와 `details.name`을 싣는다. `@lophn/remote-client`가 그 컴퓨터를 status `update`로 둔다. 폰은 banner, 잠긴 입력 칸(Home composer 포함), Computers 줄, pair-failed 화면에, desktop은 기계 고르기·Settings 기계 줄·그 기계 창의 gate·pairing 오류에 누가 올려야 하는지 보인다."
+  - "닫는 일에서 고친 것: 따라가기의 activation 실패를 release 행에서 읽어 core가 다시 떠도 `activation_failed`와 이유가 보인다(전에는 current로 읽혔다). 앞서 따라간 release가 동의를 기다리는 동안 더 새 release가 오면 상태가 current로 지워지던 것을 그 계기 전 상태(동의 대기)로 둔다. 이 기계의 commit과 갈라진 release(다른 기계가 따로 낸 release)도 `diverged`다(전에는 current). held의 why가 사람이 이전으로 돌아가 내려놓은 release를 older_release로 보이던 것을 newer_release로(이 기계가 먼저 들인 release만 older). snapshot만 기다릴 때 \"0 changes\" 대신 \"the latest data from <기계> waits\". 폰 Home composer가 판 어긋남에도 unreachable 문구를 보이던 것을 다른 입력 칸과 같은 글로."
+why: |
+  roadmap `multi-machine`의 "두 기계가 같은 앱의 다른 release를 돌릴 때"다. 한 사람의 기계들이 다른 lophn 판과 같은 앱의 다른 release를 돌려도 data를 잃지 않고 말없이 틀리지 않아야 한다. 새 release를 기계마다 손으로 들이게 하면 사람이 빠뜨린 기계는 영영 옛 release에 머물고 그 동안의 변경이 held에 쌓인다. 판이 어긋날 때 offline으로만 보이면 사람은 무엇을 올려야 하는지 모른다.
+
+  끝에서 끝 확인(두 개발 core, 새 data root `.dev-data/mu-a`(Alpha)·`mu-b`(Beta), 같은 폴더 `.dev-data/mu-folder`, fake model, 실제 template에서 만든 text PK 표 하나의 sync 앱, prepare·activate는 앱 workspace의 fake turn, 동의는 사람 자격):
+  - (a) 둘 다 r1에서 쓰기: Alpha의 두 note와 Beta의 note 하나·칸 고침이 15초 안에 양쪽에 같았다.
+  - (b) Beta의 destination을 빈 폴더로 돌려 두고 Alpha가 r2(`tag` 칸을 더하는 migration)를 활성해 변경 4개를 쓰고, Beta가 r1에서 같은 row의 body를 고치고 note 하나를 더했다. Beta의 path를 되돌리자 Alpha의 r2 file을 held로 복사하고(02:17:07) r2를 take-in(:10)·활성(:11, 묻지 않음)한 뒤 held 4개를 Alpha의 변경 id 7·8·9·10 순서로 적용했다(:16, held 폴더가 비었다). Beta가 r2로 바뀐 뒤 낸 첫 file은 snapshot 4였고 빈 폴더에 쓴 file 3의 빈 곳을 덮어 Alpha의 cursor가 4로 갔다. 두 DB의 data(row 5개)와 칸 clock(5줄)이 같았고 Beta가 r1에서 고친 body가 Alpha에 남았다.
+  - (c) r3이 바깥 자원(`net.fetch:example.com:443`)을 더하자 Beta는 `waiting_consent`이고 r2로 계속 돌았다(r3 prepared). App details의 Machines가 Beta 줄에 "Needs your OK to update"와 Open waiting list를, Alpha 줄에 "Needs an update here: 3 changes from Alpha wait for it"을 보였다(held 3개, 54,689 bytes). 기다리는 동안 Beta가 r2에서 쓴 변경 하나는 Alpha에서 older_release held가 되었다가, 동의 뒤 Beta가 r3으로 바뀌어 낸 snapshot이 그것을 덮어 지워졌다. 두 DB가 다시 같았다(row 6개).
+  - (d) Alpha에서 사람이 r2로 돌아가도(activate_previous) Beta는 r3에 남았고 Alpha는 r3을 다시 따라가지 않았다. 그 뒤 양쪽 쓰기는 서로 held(각 1개)로 남는다. 새 release가 나올 때까지 이어진다.
+  - (e) 폴더의 Beta 기록 `lophn.folder.min_version`을 손으로 2로 올리자 Alpha가 Beta를 `update_this`로 보고 "Update lophn on this computer to exchange with Beta"를 보였다. Beta의 cursor가 7에 머물러 Beta가 새로 쓴 file 8을 읽지 않았고 폴더 file 목록에서 지워진 것이 없었다(더해진 것만). 기록을 되돌리자 cursor 7부터 이어 file 8을 held로 받았다.
+  - 그 밖: 거절한 따라가기는 Beta core가 다시 뜨자 다시 물었다(정한 대로). 따라가기 activation 실패(Beta에만 있는 row로 migration이 PK 충돌)는 고치기 전에는 core가 다시 뜨자 current로 읽혔고 고친 뒤 `activation_failed`와 이유가 남았다. Beta가 따로 낸 release(Alpha의 r5와 갈라짐)는 고친 뒤 Alpha에서 `diverged`였다.
+  - 그림: `screenshot/multi-machine/machine-update/e2e-*.png`(headless shell을 CDP로).
+decisions:
+  - text: "lophn 판은 범위로 본다: 보는 쪽 연결은 hello의 `version`·`min_version`, 폴더는 꼴 판 `[min_version, version]`. 제품 판 글은 보이기만 한다. 버린 길: 같은 build 요구(한 기계를 올릴 때 나머지가 멈춘다)."
+    by: person
+  - text: "범위 안에서는 모르는 칸을 버리고 계속 주고받고, 꼴 판은 옛 판이 틀리게 읽는 바꿈에만 올린다."
+    by: agent
+  - text: "범위 밖이면 그 기계의 data file을 열지도 복사하지도 지우지도 않고 cursor도 그대로다. 올려야 하는 기계는 \"Update lophn on this computer\", 다른 기계는 \"<이름> runs an older lophn\"을 보인다. 판이 범위 밖이어도 core는 자기 hello를 보낸 뒤 닫는다."
+    by: agent
+  - text: "새 release는 그 앱을 들인 기계에서 스스로 따라가고 판정은 지금 activation 그대로다. 들이지 않은 기계는 아무것도 하지 않는다."
+    by: person
+  - text: "\"더 새 release\"는 git 조상으로 정한다. 갈라졌으면 따라가지 않고 diverged를 보인다. 버린 길: 번호·시각(갈라진 code를 오간다)."
+    by: agent
+  - text: "이 기계가 내려놓은 release(사람의 이전으로 돌아가기 포함)와 실패한 release는 다시 따라가지 않는다. 옛 기계의 release로 내려가지 않는다."
+    by: agent
+  - text: "설치 실패와 사람이 거절한 동의는 core가 다시 뜨거나 다른 release가 오면 다시 한다. 버린 길: 기억을 ledger에 두기(schema step이 든다). activation 실패는 이미 release 행에 남아 그것으로 다시 뜬 뒤에도 보인다."
+    by: agent
+  - text: "따라간 activation에는 session이 없고 결과는 activation 기록과 따라가기 상태로 보인다."
+    by: agent
+  - text: "held는 이 기계가 그 release가 되면 출처마다 번호 순서로 적용하고 그 출처의 stream은 held를 다 적용한 뒤에 잇는다."
+    by: person
+  - text: "출처의 snapshot m이 합쳐지거나 held가 되면 그 출처의 옛 held를 지우고 그 밖에는 지우지 않는다."
+    by: agent
+  - text: "옛 release에서 한 변경은 그 기계가 올라온 뒤의 첫 snapshot을 clock으로 합칠 때 온다. 폰의 다시 표현 길은 쓰지 않는다. 그래서 migration 뒤 칸 clock을 지우지 않고 칸 이름으로 옮긴다."
+    by: agent
+  - text: "held 한도는 출처·앱마다 가장 새 held snapshot 뒤 128 MiB(한 release의 changeset 합 한도)이고 넘으면 폴더에 둔다."
+    by: agent
+  - text: "기다리는 동안 앱은 이 기계의 data로 그대로 돌고 App details의 Machines 절이 기계마다 release, 기다리는 것과 이유, 범위 밖 lophn을 보인다."
+    by: person
+  - text: "모든 기계를 올리는 단추는 없고 updater를 짓지 않는다."
+    by: person
+  - text: "앱 agent 지침과 SDK, ledger schema step은 바뀌지 않는다."
+    by: agent
+  - text: "닫는 일: 사람이 돌아가 내려놓은 release의 held는 newer_release다(그 기계는 내려오지 않는다). 이 기계의 commit과 갈라진 release도 diverged다. 따라가기의 일시 거절(conflict, unavailable)은 그 계기 전 상태를 둔다."
+    by: agent
+follow_up: |
+  - lead: `architecture/folder-sync-releases.md`를 `architecture/folder-sync.md`(app-folder-sync가 쓴다)의 절로 합치고 이 file과 다른 문서의 참조를 고친다.
+  - planner: `machine/environment`에 따라가기·held·꼴 판 범위 칸을 넘긴다(이슈 `machine-environment-lacks-update-state`).
+  - 남은 한계: 갈라진 release는 앱 agent가 합쳐 새 release를 내야 풀린다. 범위 밖 기계는 사람이 그 기계에서 올린다. 영영 올라오지 않는 기계의 옛 변경은 그 기계의 폴더와 다른 기계의 held에만 남는다. 사람이 한 기계에서 이전으로 돌아가면 두 기계는 새 release가 나올 때까지 서로의 변경을 held로 둔다. 판 2 전의 폰 build는 누가 올려야 하는지 듣지 못한다.
+  - 이슈: `folder-held-limit-untested`, `machine-update-out-of-range-listed-under-every-app`, `machine-update-update-peer-unreachable`, `machine-update-diverged-held-says-older`, `machine-environment-lacks-update-state`, `machine-window-update-after-connected`.
+checklist:
+  - 같은 폴더를 나누는 두 기계에서 폴더로 맞추는 앱을 한쪽에서 새 release(migration 포함)로 올리고, 다른 기계가 묻지 않고 스스로 그 release가 되며 그 사이 양쪽에서 쓴 것이 모두 남는지 본다
+  - 바깥 자원(network host 같은 것)을 더한 release를 한쪽에서 내면 다른 기계가 바로 바뀌지 않고 그 기계의 대기 목록에 동의가 서는지, 허락하면 바뀌는지 본다
+  - 그 동안 다른 기계의 App details › Machines에 "Needs your OK to update"와 기다리는 변경 수가 보이고, 앱이 그대로 쓰이는지 본다
+  - 폰과 desktop에서 lophn 판이 맞지 않는 컴퓨터에 붙으면 offline이 아니라 "Update lophn on <이름>"(또는 "Update the lophn app on this phone")이 보이는지 본다. pairing 때도 같은지 본다

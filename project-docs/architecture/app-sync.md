@@ -54,7 +54,7 @@
 - **rewind.** sync 앱의 rewind는 effective changeset과 새 clock을 log에 `rewind` 줄로 남겨 폰이 받는다. 새 clock이 앞선 것보다 새로워 폰이 받아 간 변경 위에서 이긴다. rewind 범위에는 폰에서 온 invocation도 다른 live write처럼 든다.
 - **처음 설치와 snapshot.** 폰은 `app_sync/snapshot`으로 컴퓨터 DB의 사본을 받는다(core가 write 줄을 쥔 채 앱 process가 `VACUUM INTO`로 떠서 사본이 log의 그 번호까지의 변경을 담는다). `app_sync/snapshot_file`로 8 MiB씩 읽고 크기와 sha256을 disk에서 확인한 뒤에 연다. core는 DB를 열지 않고 byte만 흘린다. snapshot은 10분 뒤 만료되고 다 읽히면 지워진다. standalone 앱은 snapshot 없이 빈 DB에 release의 migration을 올린다.
 - **release가 바뀔 때(폰).** 새 release가 활성이 되거나(push의 `conflict`가 `active_release`를 말한다) pull이 snapshot을 요구하면 폰은 guest를 내리고 `app.sqlite`를 backup한 뒤 모든 일을 `work/`의 사본에서 한다. outbox가 비어 있으면 새 snapshot이 `app.sqlite`가 된다. 안 보낸 변경이 있으면 backup 사본을 새 release의 migration으로 local migration하고, 새 snapshot을 받아, 남은 변경을 표와 칸 이름으로 다시 표현해 snapshot 위에 적용한 file이 `app.sqlite`가 되고 push한다. 이 backup은 새 release에서 outbox가 비는 push가 될 때까지 둔다. 어느 단계가 실패해도 `app.sqlite`와 outbox는 그대로이고 옛 release로 계속 열리며 다음 계기에 다시 한다. migration이 지운 표와 칸의 안 보낸 변경은 버려진다(그 migration의 `-- loss:` 줄을 사람이 activation 때 이미 보았다). 칸 이름 바꾸기는 지우고 새로 만든 것으로 취급된다. 같은 release끼리만 맞춘다: 컴퓨터는 활성이 아닌 release의 push를 `conflict`로 거절하고 pull은 snapshot을 알린다.
-- **release가 바뀔 때(컴퓨터).** activation이 옛 release의 log 줄과 changeset을 지우고 지운 것이 있으면 "다시 snapshot" 줄을 남긴다(지운 줄을 못 받은 폰이 같은 release로 돌아와도 빈 곳을 건너뛰지 않게). migration이 칸 목록을 바꾼 표의 칸 clock은 새 release의 첫 시작이 지운다(칸 clock은 칸 번호로 적히기 때문). 앱을 지우면 그 앱의 log와 임시 snapshot도 지운다.
+- **release가 바뀔 때(컴퓨터).** activation이 옛 release의 log 줄과 changeset을 지우고 지운 것이 있으면 "다시 snapshot" 줄을 남긴다(지운 줄을 못 받은 폰이 같은 release로 돌아와도 빈 곳을 건너뛰지 않게). 칸 clock은 칸 번호로 적히므로, 앱 process가 뜰 때 표마다 마지막으로 본 칸 이름 목록(`lophn_sync_columns`)과 지금 목록을 대조해 migration이 칸 목록을 바꾼 표의 칸 clock을 칸 이름으로 새 번호에 옮긴다. 이름이 없어진 칸(이름을 바꾼 칸 포함)의 clock만 지우고, 없어진 표(이름을 바꾼 표 포함)는 그 표의 칸 clock을 모두 지운다. 그래서 다른 기계가 옛 release에서 고친 칸이 나중에 snapshot으로 와도 clock으로 맞춰져 이 기계의 더 옛 값에 지지 않는다(`folder-sync.md`). 앱을 지우면 그 앱의 log와 임시 snapshot도 지운다.
 - **external.** 폰에서 `external` operation은 outbox를 먼저 push한 뒤 컴퓨터의 view 표(`app_views/call`)로 간다. 컴퓨터에 닿지 않거나 push가 안 되거나 안 보낸 변경이 남으면 보내지 않고 `unavailable`이다. 컴퓨터에서 바뀐 것은 다음 pull로 온다.
 - **폰의 앱 폴더.** 컴퓨터와 앱마다 `files/apps/<computer key>/<app>/`에 `app.sqlite`(data, clock, outbox), release 폴더(backend, manifest, migration, 화면 bundle), release 바뀜의 backup, 설치 기록(마지막에 쓴다. 없는 폴더는 멈춘 설치라 지운다)이 있다. 받은 file은 크기와 sha256이 manifest와 같을 때만 쓴다.
 - **지우는 때.** 앱이 컴퓨터의 목록에서 빠지거나 컴퓨터를 지워도 sync 앱의 폴더는 outbox가 비었을 때만 지운다. standalone 앱의 data는 자동으로 지우지 않는다(컴퓨터의 목록에서 빠져도 폰의 목록에 남고 열린다). 옛 release 폴더는 바꾼 뒤에 지운다.
@@ -78,6 +78,7 @@
 12. 기계 사이 snapshot은 덮지 않고 합친다. 다른 기계에서 온 row는 폴더로 다시 내보내지 않는다.
 13. 흔적 정리 때문에 사람이 쓴 변경이 버려지지 않는다. 흔적과 부딪을 수 있는 변경은 적용하지도 버리지도 않고 held 줄로 남는다. delete는 자기보다 옛 것만 지워 delete보다 새 칸 write를 잃지 않는다.
 14. 받은 clock을 깎지 않는다. 앞선 시계의 변경은 미룬다.
+15. migration이 칸 목록을 바꿔도 칸 clock은 칸 이름을 따라간다. 지우는 것은 이름이 없어진 칸과 표의 clock뿐이다.
 
 ## 경계와 계약
 
@@ -85,7 +86,7 @@
 - 선언: `runs_on`(`@lophn/declaration` 4.8.0, 없는 옛 선언은 그대로 읽히고 hash도 같다). SDK: `@lophn/cap-store` 2.0.0(`StoreDb`, 인자 없는 `migrate()`, `newId()`, `transaction()`은 SAVEPOINT), `@lophn/cap-tool` 2.2.0, `@lophn/cap-problem` 1.1.0(Node 내장을 폰 entry 뒤로 옮김). 앱 SDK의 판과 지원 하한은 `package.md`다.
 - route: `app_sync/push`(memory, 오류 `invalid_input`·`not_found`·`forbidden`·`conflict`·`unavailable`), `app_sync/pull`(read, 오류 `invalid_input`·`not_found`·`forbidden`·`unavailable`. 출력의 `snapshot_needed`는 활성이 아닌 release와 "다시 snapshot" 줄이 뜻한다), `app_sync/snapshot`(memory), `app_sync/snapshot_file`(file), `apps/phone_file`(file, 활성 release의 manifest가 적은 file만, 그 밖은 `not_found`), `apps/phone_screens`의 항목에 `runs_on`과 `backend`(manifest) 칸. event `AppSyncChanged`(남지 않음, `{release, seq}`).
 - 선언 `sync_to`(`@lophn/declaration` 4.9.0): 있으면 컴퓨터에서 sync 앱이다. 폴더 쪽 계약은 `folder-sync.md`.
-- 저장: ledger 표 `app_sync_log`(schema step `apps.sync-log`, 다시 만들기 `apps.sync-log.machine`. 앱마다 번호(다시 만들어도 그대로), release, 종류 `change`·`skipped`·`snapshot`·`held`, 출처 `computer`·`device`·`rewind`·`machine`, 기기나 기계(`machine`, origin이 machine일 때)와 변경 id(같은 기계의 같은 변경은 한 줄), clock, changeset hash와 크기, invocation, held를 푼 때 `resolved_at`). person caller의 `device`와 `machine`. 앱 DB의 숨은 표 `lophn_sync_row`, `lophn_sync_col`, `lophn_sync_kept`(delete보다 새 칸 값), `lophn_sync_state`(node, 마지막 clock, cursor, release, 컴퓨터는 node를 적은 기계 id `machine`과 흔적 정리의 `horizon`), `lophn_sync_outbox`(폰에서만). cap-store의 session은 `lophn_` 표를 담지 않아 clock이 changeset과 rewind로 퍼지지 않는다. 폰 data는 폰 앱의 `files/apps/` 아래다.
+- 저장: ledger 표 `app_sync_log`(schema step `apps.sync-log`, 다시 만들기 `apps.sync-log.machine`. 앱마다 번호(다시 만들어도 그대로), release, 종류 `change`·`skipped`·`snapshot`·`held`, 출처 `computer`·`device`·`rewind`·`machine`, 기기나 기계(`machine`, origin이 machine일 때)와 변경 id(같은 기계의 같은 변경은 한 줄), clock, changeset hash와 크기, invocation, held를 푼 때 `resolved_at`). person caller의 `device`와 `machine`. 앱 DB의 숨은 표 `lophn_sync_row`, `lophn_sync_col`, `lophn_sync_kept`(delete보다 새 칸 값), `lophn_sync_state`(node, 마지막 clock, cursor, release, 컴퓨터는 node를 적은 기계 id `machine`과 흔적 정리의 `horizon`), `lophn_sync_columns`(표마다 마지막으로 본 칸 이름 목록), `lophn_sync_outbox`(폰에서만). cap-store의 session은 `lophn_` 표를 담지 않아 clock이 changeset과 rewind로 퍼지지 않는다. 폰 data는 폰 앱의 `files/apps/` 아래다.
 - 계약 상수와 codec: sync core는 컴퓨터의 app runtime과 폰 host가 같은 module을 쓴다(IO는 driver 하나로만 하고 Node와 Hermes에서 같이 돈다). 폰 backend의 host prelude는 release 준비의 load 검사와 폰의 guest base가 같은 것을 쓴다.
 
 ## 결정
@@ -110,6 +111,7 @@
 - 맞추기 규칙은 "write는 자기 clock으로만 순서가 정해지고, delete는 자기보다 옛 것만 지운다"다. delete보다 새 칸 값은 `lophn_sync_kept`에 남는다. 버린 안: delete가 그 row의 칸 clock을 모두 지우기(A가 3에 지우고 4에 다시 넣는 사이 B가 5에 칸을 고치면 도착 순서에 따라 A는 B의 값, B는 A의 값으로 갈렸다). 셋째 node가 생기는 기계 사이에서 처음 보였다. (planner, agent)
 - 흔적은 모두가 지난 것이거나 90일보다 옛 것만 정리하고, 그 경계와 부딪을 수 있는 변경은 버리지 않고 held로 남긴다. (사람, 2026-11-16)
 - 다른 기계에서 온 일의 '다시 snapshot' 줄은 origin `machine`이고 폴더 내보내기가 건너뛴다. 이유: 건너뛰지 않으면 두 기계가 서로의 snapshot을 합칠 때마다 snapshot을 주고받는다. (agent)
+- migration 뒤 칸 clock을 지우지 않고 칸 이름으로 옮긴다. 이유: 지우면 그 표의 칸 고침이 모두 row clock으로 비교되어, 늦게 새 release로 올라온 기계가 옛 release에서 고친 칸이 먼저 올라간 기계의 더 옛 값에 진다. 이름을 바꾼 칸과 표는 지운 것과 새로 만든 것으로 본다(폰의 다시 표현과 같은 규칙). (planner, `machine-update`)
 
 ## 열린 것
 

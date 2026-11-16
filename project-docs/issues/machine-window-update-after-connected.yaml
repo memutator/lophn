@@ -1,0 +1,12 @@
+id: machine-window-update-after-connected
+title: 한 번 붙은 다른 기계의 창은 그 뒤 판이 범위 밖이 되어도 누가 올려야 하는지 말하지 않는다
+kind: bug
+status: open
+topic: remote
+modules: [packages/shell/renderer]
+now: |
+  packages/shell/renderer/desktop/machines/machine-gate.tsx의 MachineGate는 한 번도 붙지 않은 창에서만 서고 status update면 "Update lophn on …"을 보인다. 한 번 붙은 뒤의 끊김은 desktop/connection/connection.tsx의 ConnectionNotice가 마지막 화면 위에 한 줄로 보이는데, 기계의 status를 보지 않고 늘 "disconnected"(home.connection.disconnected)와 [Reconnect]다. 그래서 그 창을 연 채 한쪽 lophn을 올리면(판 범위가 어긋나면) 창은 끊김만 말한다. 기계 고르기와 Settings의 기계 줄은 update를 보인다.
+impact: |
+  사람이 다른 기계의 창을 보던 중 그 기계(또는 이 컴퓨터)의 lophn이 올라가 판이 어긋나면, 창은 [Reconnect]만 권하고 다시 붙기는 계속 실패한다. 무엇을 올려야 하는지는 기계 고르기를 열어야 안다.
+fix: |
+  작음(추천): ConnectionNotice가 그 창 기계의 status를 받아 update면 MachineGate와 같은 글(machine-update.viewer.desktop-client/host)을 보인다.

@@ -49,6 +49,7 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 - 이전 release로 돌아가기도 같은 순서다. 사람만 시작하고(요청 행 `activation_requests`), 지금 활성 release와 data schema가 같은 `superseded` release만 고른다. migration이 없어서 앱 code만 바뀌고 DB는 그대로다.
 - 시도가 멈출 수 있는 곳은 둘이다. 닫혀 끝난 시도(`active` 또는 `failed`)와 앱을 붙든 채 멈춘 시도(`held`)다. held는 복원이나 종료를 확인하지 못해 앱을 사용 불가로 두고 이전 release도 띄우지 않은 상태이고, 매 sweep이 이어받는다.
 - 다른 기계가 sync 폴더에 내놓은 앱(`folder-sync.md`)은 `app.take_in`이 이 기계에 들인다. 같은 앱 id로 등록하고(앱 id를 고를 수 있는 것은 폴더 take-in 자격 `machine:folder-apps` 하나다) 폴더의 봉인 bundle을 전부 검사한 뒤 그대로 설치해 `prepared` release로 적는다(`created_by`는 `machine`). 이미 들인 앱이면 release만 설치한다. activation은 이 문서의 길 그대로다: 이 기계의 `release.activate`가 시작하고, 이 기계에는 그 앱의 grant가 없으니 첫 activation은 이 기계에서 사람의 동의를 묻는다. grant, 동의, secret, OAuth는 기계를 넘지 않는다.
+- **다른 기계의 release 따라가기.** 폴더로 맞추는 앱(`sync_to`, `folder-sync.md`)은 그 앱을 들인 다른 기계가 새 release를 활성하면 이 기계가 스스로 따라간다. 따라갈 release는 다른 기계들의 앱 기록이 말하는 활성 release 가운데 git 조상으로 고른다: commit이 지금 활성 commit의 자손이고 data schema가 낮지 않은 것만 후보이고, 여럿이면 나머지 모두의 자손 하나로 바로 간다(migration은 누적이라 중간 release를 건너뛴다). 고른 release는 들이기(take-in)와 같은 길로 봉인 bundle 그대로 `prepared`에 설치하고(`created_by` `machine`) 위의 시도에 넘긴다. 시도와 동의 판정은 `release.activate`와 같다. 계기는 core 시작, 폴더 scan과 source 받기 뒤, 그 앱의 release 상태 바뀜, 동의 닫힘이다. 상태(`current`, `installing`, `activating`, `waiting_consent`, `declined`, `lophn_update`, `install_failed`, `activation_failed`, `diverged`)는 `apps/update_state`와 App details의 Machines 절이 보인다.
 - 앱 process는 권한 flag 없이 뜬다(사람이 정했다).
 - 실행 허용(`run_enabled`)은 activation과 별개의 사람의 스위치다. 사람이 끄거나 보관하면 꺼지고, 보관을 되살려도 꺼진 채라 사람이 켜야 한다. activation이 대신 켜지 않는다. 사람의 입구는 App details 탭의 Run 절이다. 켜는 것은 active 보관 상태와 채택한 release가 있을 때만 받는다. 이미 켜진 채 crash loop로 멈춘 앱(10분 창, 다섯 번 초과)은 `AppRestartHalted`가 알리고, 사람의 동작이 있어야 다시 뜬다. 사람이 Run을 켜거나 새 release를 활성화하면 종료 기록(crash 창)을 비우고 다시 띄운다. 그 밖에는 스스로 다시 시도하지 않는다.
 
@@ -105,13 +106,20 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 폰에서도 도는 앱(`runs_on`에 `phone`. 설계는 `app-sync.md`)
 31. release 준비가 폰 backend를 묶고 검사한다(Node 내장 import, 선언과 다른 handler 집합, 정수 PK·AUTOINCREMENT·trigger·PK 밖의 UNIQUE와 CHECK, `@lophn/cap-store` 2.0.0·`@lophn/cap-tool` 2.2.0 아래 판). 어기면 준비가 실패해 activation까지 오지 않는다. activation이 받는 입력은 봉인된 bundle이고 폰 backend도 그 안의 file이다.
 32. activation이 옛 release의 changeset을 지울 때 그 앱의 옛 release sync log 줄도 지우고 지운 것이 있으면 새 release에 '다시 snapshot' 줄을 남긴다. 지운 줄을 받지 못한 폰이 새 snapshot을 받게 하려는 것이다. 폰은 같은 release의 변경만 맞추므로 새 release가 활성이 된 뒤 옛 release의 push는 `conflict`다.
-33. migration이 표의 칸 목록을 바꾸면 그 표의 칸 clock(칸 번호로 적힌다)은 새 release의 첫 시작이 지운다. data 손실을 말하는 `-- loss:` 줄은 폰에 안 간 변경의 손실에도 그대로 근거다. 폰은 release가 바뀌면 컴퓨터 DB의 snapshot을 받고 안 보낸 변경을 새 schema에 이름으로 다시 얹는다(지운 표와 칸의 변경만 버려진다).
+33. migration이 표의 칸 목록을 바꾸면 새 release의 첫 시작이 그 표의 칸 clock(칸 번호로 적힌다)을 칸 이름으로 새 번호에 옮기고, 이름이 없어진 칸과 표의 clock만 지운다(`app-sync.md`). data 손실을 말하는 `-- loss:` 줄은 폰에 안 간 변경의 손실에도 그대로 근거다. 폰은 release가 바뀌면 컴퓨터 DB의 snapshot을 받고 안 보낸 변경을 새 schema에 이름으로 다시 얹는다(지운 표와 칸의 변경만 버려진다).
 34. standalone 앱(`runs_on`이 `["phone"]`)은 컴퓨터에서 activation 규칙을 그대로 받는다. 컴퓨터의 DB는 폰과 맞추지 않는다.
 
 다른 기계에서 받은 release(설계는 `folder-sync.md`)
 35. take-in은 release를 `prepared`로 둘 뿐 activation을 시작하지 않는다. 다른 기계의 동의와 grant는 옮기지 않으므로 그 앱의 첫 activation은 받은 기계에서 사람에게 묻는다. 저절로 동의하는 장치는 여기에도 없다.
 36. 받은 release는 다른 기계가 봉인한 bundle 그대로다(기계 사이 신분이 bundle hash다). 받는 기계의 lophn에 없는 SDK 판을 고정한 release는 들이지 않는다(`conflict`, `details.reason: sdk_missing`): 폴더에서 온 code가 그 기계의 SDK 저장소에 들어가지 않는다.
-37. sync 앱(`sync_to`)의 활성 release가 바뀌면 그 기계의 다음 내보내기는 snapshot이다. 다른 release의 폴더 변경은 적용하지 않고 held로 복사해 둔다(`folder-sync.md`).
+37. sync 앱(`sync_to`)의 활성 release가 바뀌면 그 기계의 다음 내보내기는 snapshot이다. 다른 release의 폴더 변경은 적용하지 않고 held로 복사해 두었다가 이 기계가 그 release가 되면 출처마다 번호 순서로 적용한다(`folder-sync.md`).
+
+다른 기계의 release 따라가기(폴더로 맞추는 앱)
+38. 따라가는 activation에는 session이 없다. 동의를 묻는 판정은 1–16 그대로다(늘어난 바깥 자원·다른 앱 tool·`-- loss:`면 이 기계의 사람에게 묻는다). 결과는 activation 기록(앱 notice)과 따라가기 상태로 보이고 `activation.report`는 가지 않는다(알릴 session이 없다).
+39. 내려가지 않는다. 다른 기계의 release가 지금 commit의 조상이거나 data schema가 낮으면 따라가지 않는다. 이 기계가 활성했다가 내려놓은 release(사람의 이전으로 돌아가기 포함, `superseded`)와 activation에 실패한 release(`failed`)는 다시 고르지 않는다. 그래서 사람이 한 기계에서 이전으로 돌아가도 다른 기계는 새 release에 남는다.
+40. 실패와 거절은 다시 하지 않는다. activation 실패는 release 행에 남아 다시 고르지 않고, 다른 기계가 그 release를 돌리는 동안 `activation_failed`와 실패 이유가 core가 다시 떠도 보인다. 설치 실패, 이 lophn에 없는 SDK 판(`lophn_update`), 사람이 거절한 동의는 core가 도는 동안 같은 bundle을 다시 하지 않고, core가 다시 뜨거나 다른 release가 오면 다시 한다(거절한 release는 다시 묻는다). 기억을 ledger에 두면 schema step이 든다.
+41. 갈라진 release는 따라가지 않는다. 후보 둘 이상이 서로 조상이 아니거나, 후보가 없는데 다른 기계의 release가 지금 commit의 자손도 조상도 아니면(두 기계가 따로 release를 냈다) `diverged`를 보이고 지금 release에 남는다. 앱 agent가 합쳐 둘 모두의 자손인 새 release를 내야 풀린다. 번호나 시각으로 고르면 갈라진 code를 오간다.
+42. 따라가기의 시도가 다른 시도와 겹치거나(`conflict`, 앞서 따라간 release가 동의를 기다리는 때 포함) 아직 못 하면(`unavailable`, release 폴더가 덜 옴) 그 계기 전의 상태를 두고 다음 계기에 다시 한다.
 
 ## 경계와 계약
 
@@ -130,6 +138,7 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 | `activation.report` | machine | 기다리지 않은 시도의 결과를 만든 session에 알린다 |
 | `activation.activate_previous` | 사람만 | 이전 release로 돌아가기 요청 행을 넣는다. 시작은 sweep이 한다 |
 | `app.record_unavailable` | machine | 앱을 사용 불가로 두고 `app_unavailable`을 남긴다 |
+| `apps/update_state {app}` | 사람, 그 앱 workspace의 agent | 폴더로 맞추는 앱의 따라가기 상태, 기다리는 변경(held), 기계마다의 release와 꼴 판 범위를 읽는다(memory) |
 
 - event(남지 않는다): `ActivationConsentRequested`, `ActivationConsentClosed`, `AppRestartHalted`. 앞 둘과 `AppRestartHalted`, `activations.consents`는 앱 id와 함께 `app_name`을 싣는다. 알림과 대기 목록이 id 대신 이름을 보이게 하고 renderer가 이름을 따로 찾지 않게 하려는 것이다.
 - 저장: 표 `activation_consents`(`requested_at`, `allowed_at`)와 `activation_requests`(이전으로 돌아가기), release 행의 `failure`·`facts`, 복구본은 앱마다 최근 하나만 영구 blob으로 둔다.
@@ -161,6 +170,9 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 - crash loop로 멈춘 앱은 사람의 동작(Run 켜기, 새 release 활성화)이 crash 창을 비우고 다시 띄운다. 창이 지난 뒤 supervisor가 스스로 다시 시도하지 않는다. 이유: 같은 원인이면 다섯 번 더 죽고 멈춰 이유 없이 느리다. 닫은 이슈 "crash loop로 자동 재시작이 멈춘 앱은 새 release 말고는 다시 띄울 길이 없다". (agent, 0.23.3)
 - 앱 process를 권한 flag 없이 띄운다. (사람)
 - 앱이 쓰는 npm·jsr 의존은 release 준비 때 받아 bundle에 통째로 담는다. 이유: 운영 앱이 network 없이 뜨고 앱이 자기 의존성(예: 공휴일 data 라이브러리)을 쓸 수 있어야 한다. 닫은 이슈 "npm·jsr 의존을 준비 때 받아 bundle에 통째로 담는다"(kept). 설계는 release 준비의 몫이고 activation이 받는 입력은 봉인된 bundle이다.
+- 다른 기계의 새 release는 그 앱을 들인 기계에서 스스로 따라가고 판정은 지금 activation 그대로다. 들이지 않은 기계는 아무것도 하지 않는다. (사람·planner, `machine-update`)
+- "더 새 release"는 git 조상으로 정한다. 버린 안: release 번호(기계마다 따로 센다)나 활성 시각(갈라진 code를 오간다). 사람이 내려놓은 release와 실패한 release는 다시 따라가지 않는다. (planner, `machine-update`)
+- 따라가는 activation은 session 없이 activation 기록과 따라가기 상태로만 보인다. 설치 실패와 거절의 기억은 메모리에 두고 core가 다시 뜨면 다시 한다. 이유: ledger에 두면 schema step이 든다. activation 실패는 이미 release 행에 남으니 그것으로 다시 뜬 뒤에도 보인다. (planner, agent, `machine-update`)
 
 ## 열린 것
 
@@ -169,4 +181,5 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 - 실패 reason에는 앱의 migration script가 낸 글이 앞 200자까지 실릴 수 있다. 복원된 실패는 toast가 둘(실패, data 복원) 뜰 수 있다.
 - 카드가 열린 동안 새로 열린 공유 요청은 그 동의에 묶이지 않고 따로 선다.
 - data root(`secrets.json`, 다른 앱 data)를 지키는 규칙은 아직 없다. 앱 grant가 그 경로를 덮는 선언은 사람의 동의 화면이 유일한 장치다.
-- 열린 이슈는 없다(topic이 `activation`인 이슈는 모두 닫혔다).
+- 따라가기는 두 개발 core가 한 폴더를 나눈 끝에서 끝 확인으로만 보았다(change-log `machine-update`). 실제 두 기계, 실제 바깥 동기화 도구, 실제 agent가 합친 release는 보지 못했다.
+- 사람이 거절한 따라가기는 core가 다시 뜰 때마다 다시 묻는다. 거절을 ledger에 남기지 않기로 한 대가다.

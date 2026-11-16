@@ -1,0 +1,13 @@
+id: machine-update-out-of-range-listed-under-every-app
+title: 꼴 판이 범위 밖인 기계가 폴더로 맞추는 모든 앱의 Machines 절에 선다
+kind: bug
+status: open
+topic: folder-sync
+modules: [packages/core/apps/update-state, packages/shell/renderer]
+now: |
+  packages/core/apps/update-state/read.ts의 buildUpdateState가 exchange가 ok가 아닌 기계를 앱 기록이 없어도 모든 앱의 machines에 release null로 더한다. 범위 밖 기계는 앱 기록을 읽지 않으므로 그 기계가 이 앱을 쓰는지 모른다. App details의 Machines 절(machines-section.tsx)은 그 줄 아래 "Update lophn on this computer to exchange with <이름>"이나 "<이름> runs an older lophn. Update it on that machine."을 보인다. 끝에서 끝 확인 (e)에서 Beta의 기록을 손으로 범위 밖으로 바꾸자 Alpha의 App details에 Beta 줄이 release 없이 "lophn 0.23.72"와 그 안내로 섰다.
+impact: |
+  사람이 그 기계에서 쓰지 않는 앱의 App details에도 "<이름>"과 올리라는 안내를 본다. 앱이 열 개면 같은 안내가 열 번 선다. 올려야 한다는 사실은 맞지만 그 앱과 상관있는 것처럼 보인다.
+fix: |
+  작음(추천): 범위 밖이 되기 전에 마지막으로 읽은 앱 기록(folder_records에 남은 옛 사본)이 있으면 그 앱을 쓰던 기계만 넣는다. 없으면 지금처럼 넣는다.
+  중간: 기계 범위 안내를 앱이 아니라 기계 목록(machine environment, desktop의 기계 줄)에만 두고 App details에서 뺀다.

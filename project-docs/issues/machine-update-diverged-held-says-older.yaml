@@ -1,0 +1,12 @@
+id: machine-update-diverged-held-says-older
+title: release가 갈라졌을 때 다른 기계의 기다리는 변경을 "그 기계가 올라오면 온다"로 보인다
+kind: bug
+status: open
+topic: folder-sync
+modules: [packages/core/apps/update-state, packages/protocol, packages/shell/renderer]
+now: |
+  packages/core/apps/update-state/read.ts의 buildUpdateState는 held의 why를 newer_release·older_release 둘로만 가른다(이 기계가 먼저 들인 release이거나 data schema가 낮으면 older). 갈라진 release(이 기계의 commit과 서로 조상이 아닌 release)도 둘 중 하나가 된다. 끝에서 끝 확인에서 Alpha(r5, data schema 3)와 Beta(따로 낸 release, data schema 2)가 갈라지자 Alpha의 Machines 절은 이 기계 줄에 "Two machines released different versions. Ask the app's agent to combine them."을, Beta 줄에 "Beta is on an older release; its changes arrive when it updates"를 보였다. Beta는 Alpha의 release로 올라가지 않는다(따라가기 후보가 아니다).
+impact: |
+  사람은 Beta를 올리면 변경이 온다고 읽지만 Beta에서 할 일은 없다. 갈라진 동안 Beta의 변경은 앱 agent가 합친 release가 나와야 온다.
+fix: |
+  작음(추천): why에 `diverged`를 더한다(이 기계의 따라가기 상태가 diverged이고 그 held의 release가 따라가기의 release이거나 이 기계의 release와 갈라진 것). 문구 "<기계>'s changes arrive after the app's agent combines the two releases". protocol 칸 하나, catalog key 하나, machines-section의 갈래 하나.

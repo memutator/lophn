@@ -4,7 +4,8 @@
 // An app that runs on the phone opens from the phone's own copy (useLocalScreen), with or without its computer; the
 // line under its name says so and when it last synced (apps.tsx Calendar), and its body says when it is being put on
 // the phone or that could not be done. With `preview` the place is the preview running on the computer instead
-// (preview.tsx).
+// (preview.tsx); an app whose only phone screen is in its running preview is opened that way from its line in the app
+// list.
 import { formatRelativeTime, t } from "@lophn/i18n";
 import {
   Dot,
@@ -30,6 +31,7 @@ import {
   useComputers,
   useCurrentComputer,
   useLocalApps,
+  previewOnly,
   usePhoneApps,
   useWorkspaces,
   withLocalApps,
@@ -53,7 +55,8 @@ function LiveScreen({ place }: { place: PlaceOf<"app"> }) {
   const computer = useCurrentComputer();
   const { retry: redial } = useComputers();
   const apps = usePhoneApps();
-  const app = apps.apps.find((one) => one.app === place.id);
+  // An app with only a preview's phone screen has no live screen to show here.
+  const app = apps.apps.find((one) => one.app === place.id && !previewOnly(one));
   const local = useLocalApps();
   // An app on this phone keeps its mark while the computer's list is not there.
   const workspace = withLocalApps(useWorkspaces(), installedOf(local)).find(
@@ -153,7 +156,7 @@ function LiveScreen({ place }: { place: PlaceOf<"app"> }) {
           open={menu}
           onClose={() => setMenu(false)}
           app={app}
-          screen={place.screen ?? app.screens[0].screen}
+          screen={place.screen ?? app.screens[0]!.screen}
           mark={mark("md")}
           computer={computerName}
           waiting={waiting}

@@ -8,12 +8,14 @@ what depends on those, when the person is at the phone to open the preview.
 ## Steps
 
 1. `lophn preview start` (commit and `lophn release prepare` first).
-2. Ask the person to open the app on their phone, choose Preview from lophn in
-   that app screen's menu, and keep lophn in front. Say which app and screen.
-   The phone shows Preview from lophn only for an app that already has a live
-   release with a phone screen. If the person cannot find it, say so and fall
-   back to the desktop `--preview --screen` check; tell them what you could not
-   check on the phone.
+2. Ask the person to open the app's preview on their phone and keep lophn in
+   front. Say which app and screen. When the app has a live release with a
+   phone screen, the preview is Preview from lophn in that app screen's menu.
+   When it has none yet (its first phone screen), the app's line in the lophn
+   app on the phone is marked Preview while the preview runs and opens the
+   preview directly. If the person cannot find it, say so and fall back to the
+   desktop `--preview --screen` check; tell them what you could not check on
+   the phone.
 3. `lophn tab open --phone <app id> [--screen <key>]`. It returns the tab id.
    `--screen` opens only while the phone shows that screen; without it the tab
    is the screen the phone shows now. An app has one phone tab.

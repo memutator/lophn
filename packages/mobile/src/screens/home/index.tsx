@@ -25,6 +25,7 @@ import {
   useInbox,
   useLocalApps,
   useNames,
+  previewOnly,
   usePhoneApps,
   useWorkspaces,
   withLocalApps,
@@ -152,8 +153,16 @@ function Online({
 }) {
   const nav = useNav();
   const now = Date.now();
-  // An app with a phone screen or on this phone opens it; any other app opens its workspace.
-  const phone = new Set([...usePhoneApps().apps.map((one) => one.app), ...onPhone]);
+  // An app with a phone screen or on this phone opens it, one whose only phone screen is in its running preview opens
+  // the preview, and any other app opens its workspace.
+  const phoneApps = usePhoneApps().apps;
+  const phone = new Set([
+    ...phoneApps.filter((one) => !previewOnly(one)).map((one) => one.app),
+    ...onPhone,
+  ]);
+  const previews = new Set(
+    phoneApps.filter((one) => previewOnly(one) && !phone.has(one.app)).map((one) => one.app),
+  );
   return (
     <>
       {inbox.count > 0 && (
@@ -190,12 +199,15 @@ function Online({
           <Label>{t("common.heading.apps")}</Label>
           <Apps
             apps={apps}
+            previews={previews}
             onOpen={(app) =>
               app.workspace !== null &&
               nav.open(
                 phone.has(app.key)
                   ? { name: "app", id: app.key }
-                  : { name: "workspace", workspace: app.workspace },
+                  : previews.has(app.key)
+                    ? { name: "app", id: app.key, preview: true }
+                    : { name: "workspace", workspace: app.workspace },
               )
             }
           />

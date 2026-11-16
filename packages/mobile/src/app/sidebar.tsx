@@ -35,6 +35,7 @@ import {
   useCurrentComputer,
   useInbox,
   useLocalApps,
+  previewOnly,
   usePhoneApps,
   useWorkspaces,
   withLocalApps,
@@ -88,9 +89,13 @@ export function Sidebar({ state, navigation }: DrawerContentComponentProps) {
   const installed = installedOf(useLocalApps());
   const workspaces = withLocalApps(useWorkspaces(), installed);
   const { count } = useInbox();
-  const phone = new Set([
-    ...usePhoneApps().apps.map((one) => one.app),
-    ...installed.map((one) => one.app),
+  // An app on this phone opens its screen even when the computer lists only its preview.
+  const phone = new Map<string, PhoneLine>([
+    ...usePhoneApps().apps.map((one): [string, PhoneLine] => [
+      one.app,
+      previewOnly(one) ? "preview" : "screen",
+    ]),
+    ...installed.map((one): [string, PhoneLine] => [one.app, "screen"]),
   ]);
 
   const stack = state.routes[0]?.state;
@@ -187,7 +192,7 @@ export function Sidebar({ state, navigation }: DrawerContentComponentProps) {
           <Workspace
             key={workspace.key}
             workspace={workspace}
-            phone={phone.has(workspace.key)}
+            phone={phone.get(workspace.key)}
             on={on}
             show={show}
           />
@@ -205,6 +210,9 @@ export function Sidebar({ state, navigation }: DrawerContentComponentProps) {
   );
 }
 
+/** What an app's line opens: its phone screen, or the running preview when only the preview has a phone screen. */
+type PhoneLine = "screen" | "preview";
+
 function Workspace({
   workspace,
   phone,
@@ -212,8 +220,9 @@ function Workspace({
   show,
 }: {
   workspace: WorkspaceView;
-  /** An app with a phone screen or on this phone: its line opens the screen. */
-  phone: boolean;
+  /** An app with a phone screen or on this phone: its line opens the screen, or the running preview when only the
+   * preview has one. */
+  phone: PhoneLine | undefined;
   on: string;
   show: (place: Place) => void;
 }) {
@@ -221,14 +230,20 @@ function Workspace({
   const place: Place =
     workspace.workspace === null
       ? { name: "home" }
-      : phone
-        ? { name: "app", id: workspace.key }
-        : { name: "workspace", workspace: workspace.workspace };
+      : phone === undefined
+        ? { name: "workspace", workspace: workspace.workspace }
+        : phone === "preview"
+          ? { name: "app", id: workspace.key, preview: true }
+          : { name: "app", id: workspace.key };
   return (
     <>
       <WorkspaceRow
         lead={<WorkspaceMark icon={workspace.icon} name={name} />}
-        label={name}
+        label={
+          phone === "preview"
+            ? t("mobile.drive.list.app", { name })
+            : name
+        }
         on={
           workspace.workspace === null
             ? on === "home"

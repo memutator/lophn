@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py machine-identity build`가 `tasks/*.md`에�
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `machine-id` | machine-id | 1 | 없음 | running | machine-id/machine-id |  |  |
+| `machine-id` | machine-id | 1 | 없음 | merged | machine-id/machine-id | 2c9b95b7c |  |
 | `machine-device-kind` | machine-remote | 1 | 없음 | running | machine-remote/machine-device-kind |  |  |
 | `machine-consumers` | machine-consumers | 2 | machine-id, machine-device-kind | todo |  |  |  |
 | `machine-hello` | machine-remote | 2 | machine-id, machine-device-kind | todo |  |  |  |

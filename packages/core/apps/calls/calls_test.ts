@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -40,6 +40,8 @@ import { parseProcessCall } from "../runtime/entrypoint/wire.ts";
 import { processCallRequestSchema } from "../../../protocol/apps/calls/process-wire.ts";
 import { decodeChangeset, settleResponse } from "./record.ts";
 import {
+  applyRemote,
+  dropTombstones,
   dumpClocks,
   dumpData,
   ensureSyncTables,
@@ -49,8 +51,16 @@ import {
   type SyncDb,
 } from "../../../protocol/apps/sync/mod.ts";
 import { nodeSyncDb } from "../../../protocol/apps/sync/node-db.ts";
+import {
+  changesOf,
+  dataEntryPath,
+  decodeContainer,
+} from "../../../protocol/folder/mod.ts";
+import type { Sql, Tx } from "../../../protocol/server/mod.ts";
+import { createFolderExport, type ExportLog } from "../../folder/export/mod.ts";
 import type { FolderChange } from "../../folder/ports.ts";
-import type { SyncLog, SyncLogRow } from "../sync/log.ts";
+import { FOLDER_SCHEMA_STEPS } from "../../folder/schema.ts";
+import { heldInData, type SyncLog, type SyncLogRow } from "../sync/log.ts";
 import { createStoreAccess } from "../runtime/entrypoint/cap-host.ts";
 import {
   handleSnapshotMerge,
@@ -1005,7 +1015,7 @@ type LogLine = Omit<SyncLogRow, "changeset"> & {
   resolved_at: string | null;
 };
 
-function receiver(schema: string) {
+function receiver(schema: string, node = "receiver") {
   const app = newApp();
   const file = join(
     mkdtempSync(join(tmpdir(), "lophn-folder-apply-")),
@@ -1029,9 +1039,10 @@ function receiver(schema: string) {
     controlSocket: "socket",
   });
   state.ready = true;
+  // cap-store의 연결 표가 둘 이상이면 store.database()가 하나를 고르지 못한다: 연 연결을 그대로 준다.
   const sync = openSyncStore({
-    database: store.database() as DatabaseSync,
-    node: "receiver",
+    database: raw,
+    node,
     machine: ids.newId("mch"),
     record: store,
     nowMs: () => clock.nowMs(),
@@ -1076,6 +1087,18 @@ function receiver(schema: string) {
     });
     return ok(seq);
   };
+  // core sync log의 '다시 snapshot' 줄과 같다: 다른 기계에서 온 일이면 origin machine.
+  const marker = (inv: AppInvocation) => {
+    const from =
+      inv.caller?.kind === "person" ? (inv.caller.machine ?? null) : null;
+    return append({
+      kind: "snapshot",
+      invocation: inv.id,
+      ...(from === null
+        ? { origin: "computer" as const }
+        : { origin: "machine" as const, machine: from, change_id: inv.id }),
+    });
+  };
   const log: Pick<
     SyncLog,
     | "duplicate"
@@ -1084,7 +1107,7 @@ function receiver(schema: string) {
     | "unknown"
     | "phone"
     | "machine"
-    | "rebaseline"
+    | "merged"
     | "held"
     | "heldList"
     | "resolve"
@@ -1112,7 +1135,7 @@ function receiver(schema: string) {
       }
     },
     async unknown(inv) {
-      append({ kind: "snapshot", origin: "computer", invocation: inv.id });
+      marker(inv);
     },
     phone: (inv, change, status) =>
       Promise.resolve(
@@ -1138,8 +1161,7 @@ function receiver(schema: string) {
           invocation: inv.id,
         }),
       ),
-    rebaseline: () =>
-      Promise.resolve(append({ kind: "snapshot", origin: "computer" })),
+    merged: (inv) => Promise.resolve(marker(inv)),
     held: (_app, _release, change) =>
       Promise.resolve(
         append({
@@ -1212,6 +1234,19 @@ function receiver(schema: string) {
     clock.set(atMs);
     const done = await syncedWrite(sync, () => Promise.resolve(raw.exec(text)));
     assert.ok(done.ok);
+    return done.value;
+  }
+  // 호출 길처럼 sync log에 change 줄도 남기는 write. 그 줄의 seq.
+  async function own(atMs: number, text: string) {
+    const done = await write(atMs, text);
+    append({
+      kind: "change",
+      origin: "computer",
+      hlc: String(done.hlc),
+      bytes: done.changeset,
+      invocation: ids.newId("inv"),
+    });
+    return lines.length;
   }
   return {
     app,
@@ -1222,6 +1257,7 @@ function receiver(schema: string) {
     records,
     lines,
     write,
+    own,
     dump: () => `${dumpData(sync.db)}\n${dumpClocks(sync.db)}`,
     rows: (text: string) =>
       raw
@@ -1334,7 +1370,7 @@ test("폴더 file을 적용해도 사람의 data를 잃거나 망가뜨리지 �
 });
 
 // 지우면 받는 쪽이 아직 내보내지 않은 칸의 고침이 다른 기계의 옛 값으로 덮이거나, 합친 변경을 폰이 받지 못해 갈라진다.
-test("snapshot 합치기는 받는 쪽만 고친 칸을 지우지 않고 다른 기계의 고침과 row를 더하며, 폰에는 '다시 snapshot' 줄이 남는다", async () => {
+test("snapshot 합치기는 받는 쪽만 고친 칸을 지우지 않고 다른 기계의 고침과 row를 더하며, 폰에는 '다시 snapshot' 줄(origin machine)이 남는다", async () => {
   const here = receiver(
     "create table item (id text primary key, title text, done integer)",
   );
@@ -1389,8 +1425,8 @@ test("snapshot 합치기는 받는 쪽만 고친 칸을 지우지 않고 다른 
     ],
   );
   assert.deepEqual(
-    here.lines.map((l) => [l.kind, l.origin, l.invocation]),
-    [["snapshot", "computer", null]],
+    here.lines.map((l) => [l.kind, l.origin, l.machine, l.invocation]),
+    [["snapshot", "machine", OTHER, merged.id]],
   );
 
   // 같은 snapshot을 다시 합치면 바뀐 것이 없고 '다시 snapshot' 줄도 없다.
@@ -1493,5 +1529,288 @@ test("정리된 흔적과 부딪는 변경은 버려지지 않는다: horizon �
   const kept = here.lines[held.value[1]!.seq - 1]!;
   assert.ok(kept.resolved_at !== null);
   assert.deepEqual(kept.bytes, fromPhone.changeset);
+  here.close();
+});
+
+// 받는 컴퓨터 하나의 폴더 내보내기: 그 컴퓨터의 sync log 줄을 진짜 export가 destination의 자기 하위 폴더에 쓴다.
+function folderOf(
+  here: ReturnType<typeof receiver>,
+  machine: Id<"mch">,
+  destination: string,
+) {
+  const db = new DatabaseSync(":memory:");
+  for (const step of FOLDER_SCHEMA_STEPS) db.exec(step.sql);
+  const sql: Sql = {
+    run: (text, params) => db.prepare(text).run(...params),
+    get: (text, params) => db.prepare(text).get(...params) as never,
+    all: (text, params) => db.prepare(text).all(...params) as never,
+  };
+  const lines = here.lines;
+  const log: ExportLog = {
+    head: () => lines.length,
+    page: (_app, after, limit) =>
+      lines
+        .filter((l) => l.seq > after)
+        .slice(0, limit)
+        .map((l) => ({
+          ...l,
+          changeset:
+            l.bytes === null
+              ? null
+              : { hash: String(l.seq), size: l.bytes.length },
+        })),
+    readChangeset: (hash) =>
+      Promise.resolve(ok(lines[Number(hash) - 1]!.bytes!)),
+    hold(seq) {
+      if (lines[seq - 1]!.kind === "change") lines[seq - 1]!.kind = "held";
+      return ok(undefined);
+    },
+    heldInData: () =>
+      lines.filter(
+        (l) => l.kind === "held" && l.resolved_at === null && heldInData(l),
+      ).length,
+  };
+  const knobs = { horizons: [] as { machine: Id<"mch">; horizon: string }[] };
+  const exporter = createFolderExport({
+    machine: () => ({ id: machine, name: "computer" }),
+    destinations: {
+      list: () => [{ name: "personal", path: destination, state: "ok" }],
+      resolve: (name) =>
+        name === "personal" ? { path: destination, state: "ok" } : null,
+    },
+    apps: () => [
+      {
+        app: here.app,
+        slug: "notes",
+        name: "Notes",
+        description: "",
+        sync_to: "personal",
+        release: { id: REL, bundle_hash: "b".repeat(64), data_schema: 1 },
+      },
+    ],
+    log,
+    releaseKey: () => ({ bundle_hash: "b".repeat(64), data_schema: 1 }),
+    operationOf: () => null,
+    async snapshotAt(_app, path) {
+      const written = writeSnapshot(nodeSyncDb(here.raw), path);
+      return written.ok ? ok({ seq: lines.length, ...written.value }) : written;
+    },
+    facts: () => ({
+      addresses: { lan: [], port: null, relay: null },
+      alwaysOn: null,
+      lophn: { version: "0.23.0", protocol: { version: 2, min_version: 2 } },
+    }),
+    readsCaughtUp: () => true,
+    peerHorizons: () => knobs.horizons,
+    sql,
+    transaction<T>(fn: (tx: Pick<Tx, "sql">) => Result<T>): Result<T> {
+      db.exec("begin immediate");
+      const done = fn({ sql });
+      db.exec(done.ok ? "commit" : "rollback");
+      return done;
+    },
+    clock,
+    random: seededRandom(11),
+    dataRoot: mkdtempSync(join(tmpdir(), "lophn-folder-root-")),
+  });
+  const dataDir = join(
+    destination,
+    "machines",
+    machine,
+    "apps",
+    here.app,
+    "data",
+  );
+  return {
+    knobs,
+    async run() {
+      const done = await exporter.runApp(here.app);
+      assert.ok(done.ok, JSON.stringify(done));
+      assert.equal(done.value.error, null);
+      return done.value;
+    },
+    files: () => readdirSync(dataDir).sort(),
+    async read(n: number, kind: "changes" | "snapshot") {
+      const rel = dataEntryPath(machine, here.app, n, kind);
+      const decoded = await decodeContainer(
+        readFileSync(join(destination, rel)),
+        rel,
+      );
+      assert.ok(decoded.ok);
+      return decoded.value;
+    },
+  };
+}
+
+// 지우면 두 기계가 서로의 snapshot을 한 번 합친 뒤로 모든 write가 앱 data 전부(최대 1 GiB)를 실은 snapshot으로 오가고, 그
+// 사이 폰도 매번 snapshot을 다시 받는다.
+test("두 기계가 서로의 snapshot을 한 번씩 합친 뒤에는 어느 쪽의 write도 changes file로 나가고, 받은 것은 다시 나가지 않는다", async () => {
+  const schema = "create table item (id text primary key, title text)";
+  const destination = mkdtempSync(join(tmpdir(), "lophn-folder-pingpong-"));
+  const machines = [ids.newId("mch"), ids.newId("mch")] as Id<"mch">[];
+  const a = receiver(schema, "node-a");
+  const b = receiver(schema, "node-b");
+  const A = folderOf(a, machines[0]!, destination);
+  const B = folderOf(b, machines[1]!, destination);
+  const merge = async (
+    into: ReturnType<typeof receiver>,
+    from: ReturnType<typeof folderOf>,
+    origin: Id<"mch">,
+    n: number,
+  ) => {
+    const file = join(mkdtempSync(join(tmpdir(), "lophn-folder-merge-")), "s");
+    writeFileSync(file, (await from.read(n, "snapshot")).payload);
+    const merged = await into.calls.folder.mergeSnapshot({
+      app: into.app,
+      release: REL,
+      origin,
+      n,
+      path: file,
+    });
+    assert.deepEqual(merged.ok && merged.value.changed, true);
+  };
+
+  await a.own(T0 + 1000, "insert into item values ('a', 'from a')");
+  await b.own(T0 + 1100, "insert into item values ('b', 'from b')");
+  await A.run();
+  await B.run();
+  await merge(a, B, machines[1]!, 1);
+  await merge(b, A, machines[0]!, 1);
+  // 합친 data는 출처가 이미 냈다. 폰에는 '다시 snapshot' 줄이 남는다.
+  assert.deepEqual(
+    [a.lines.at(-1)!.kind, a.lines.at(-1)!.origin],
+    ["snapshot", "machine"],
+  );
+  await A.run();
+  await B.run();
+  assert.deepEqual(A.files(), ["000000000001.snapshot"]);
+  assert.deepEqual(B.files(), ["000000000001.snapshot"]);
+
+  const aSeq = await a.own(
+    T0 + 2000,
+    "update item set title = 'a2' where id = 'a'",
+  );
+  const bSeq = await b.own(
+    T0 + 2100,
+    "update item set title = 'b2' where id = 'b'",
+  );
+  await A.run();
+  await B.run();
+  assert.deepEqual(A.files(), [
+    "000000000001.snapshot",
+    "000000000002.changes",
+  ]);
+  assert.deepEqual(B.files(), [
+    "000000000001.snapshot",
+    "000000000002.changes",
+  ]);
+  const fromA = await A.read(2, "changes");
+  assert.deepEqual(
+    changesOf(fromA.header, fromA.payload).map((one) => one.meta.id),
+    [String(aSeq)],
+  );
+
+  // B가 A의 changes file을 받는다. 받은 변경은 B에서 다시 나가지 않는다.
+  const received = await b.calls.folder.applyChanges({
+    app: b.app,
+    release: REL,
+    origin: machines[0]!,
+    changes: changesOf(fromA.header, fromA.payload).map(({ meta, bytes }) => ({
+      id: meta.id,
+      hlc: meta.hlc,
+      operation: meta.operation,
+      started_at: meta.started_at,
+      changeset: bytes,
+    })),
+  });
+  assert.deepEqual(received.ok && received.value.applied, 1);
+  await B.run();
+  assert.deepEqual(B.files(), [
+    "000000000001.snapshot",
+    "000000000002.changes",
+  ]);
+  assert.ok(bSeq > 0);
+  assert.deepEqual(b.rows("select id, title from item order by id"), [
+    { id: "a", title: "a2" },
+    { id: "b", title: "b2" },
+  ]);
+  a.close();
+  b.close();
+});
+
+// 지우면 사람이 horizon 밖에서 apply한 자기 변경이 있는 row와 부딪어 conflict로 영영 나가지 못하거나(다시 넣기), 옛 clock
+// 그대로 나가 다른 기계의 그물에 다시 걸린다. 받은 변경의 apply는 그대로 다시 적용이다(앞 test).
+test("이 기계가 낸 held 변경의 apply는 DB에 다시 넣지 않고 지금 값을 새 clock으로 내보내 흔적이 정리된 다른 기계에도 닿고, discard는 data가 여기 남는다고 말한다", async () => {
+  const schema = "create table item (id text primary key, title text)";
+  const here = receiver(schema);
+  const offline = await here.own(
+    T0 + 1000,
+    "insert into item values ('x', 'offline')",
+  );
+  const kept = await here.own(
+    T0 + 1100,
+    "insert into item values ('y', 'kept')",
+  );
+  // 내보내기가 horizon 밖에서 그 줄을 그 자리에서 held로 바꾼 상태.
+  here.lines[offline - 1]!.kind = "held";
+  here.lines[kept - 1]!.kind = "held";
+  const listed = here.calls.syncHeld.list(here.app);
+  assert.ok(listed.ok);
+  assert.deepEqual(
+    listed.value.map((l) => [l.seq, heldInData(l)]),
+    [
+      [offline, true],
+      [kept, true],
+    ],
+  );
+  const before = here.rows("select id, title from item order by id");
+
+  clock.set(T0 + 5000);
+  const applied = await here.calls.syncHeld.apply(here.app, offline, {
+    kind: "person",
+    view_session: "v1",
+  });
+  assert.ok(applied.ok, JSON.stringify(applied));
+  assert.deepEqual(here.rows("select id, title from item order by id"), before);
+  const sent = here.lines.at(-1)!;
+  assert.deepEqual(
+    [sent.kind, sent.origin, sent.invocation],
+    ["change", "computer", applied.value.invocation],
+  );
+  assert.ok(BigInt(sent.hlc!) > hlcAtMs(T0 + 4000));
+  assert.equal(here.records.get(applied.value.invocation)!.changeset, null);
+
+  // 흔적을 T0+3000 아래로 정리한 다른 기계는 옛 clock의 x를 held로 두지만, 내보낸 줄은 그대로 받는다.
+  const other = replica(schema, "other");
+  other.write(T0 + 2000, "insert into item values ('z', 'z')");
+  other.write(T0 + 2500, "delete from item where id = 'z'");
+  other.db.exec("begin immediate");
+  assert.equal(dropTombstones(other.db, hlcAtMs(T0 + 3000)), 1);
+  other.db.exec("commit");
+  other.db.exec("pragma foreign_keys = off");
+  const oldClock = here.lines[offline - 1]!.hlc!;
+  const old = applyRemote(
+    other.db,
+    [{ hlc: BigInt(oldClock), changeset: here.lines[offline - 1]!.bytes! }],
+    openClock(other.db),
+  );
+  assert.deepEqual(old.ok && old.value.held, [0]);
+  const now = applyRemote(
+    other.db,
+    [{ hlc: BigInt(sent.hlc!), changeset: sent.bytes! }],
+    openClock(other.db),
+  );
+  assert.deepEqual(now.ok && now.value.held, []);
+  assert.deepEqual(
+    other.db.all("select id, title from item").map((row) => ({ ...row })),
+    [{ id: "x", title: "offline" }],
+  );
+
+  const discarded = here.calls.syncHeld.discard(here.app, kept);
+  assert.ok(discarded.ok);
+  assert.match(discarded.value.note, /stays in its data here/);
+  assert.deepEqual(here.rows("select id, title from item order by id"), before);
+  const left = here.calls.syncHeld.list(here.app);
+  assert.deepEqual(left.ok && left.value, []);
   here.close();
 });

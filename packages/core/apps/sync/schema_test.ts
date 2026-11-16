@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { manualClock, ok, type Result } from "../../../base/mod.ts";
-import type { Id } from "../../../protocol/base/ids.ts";
+import type { AppInvocation } from "../../../protocol/apps/calls/mod.ts";
 import type { Sql, Tx } from "../../../protocol/server/mod.ts";
 import { LEDGER_SCHEMA_STEPS } from "../../storage/ledger/schema.ts";
 import { applyMigrations } from "../../storage/migration/migrations.ts";
@@ -170,7 +170,21 @@ test("apps.sync-log.machine으로 표를 다시 만들어도 모든 행과 seq�
     }
   }
 
-  const next = await log.rebaseline("app_1" as Id<"app">, "rel_1" as Id<"rel">);
+  // 다른 기계의 snapshot을 합친 줄이 새 표의 CHECK를 지난다.
+  const next = await log.merged({
+    id: "inv_merge",
+    app: "app_1",
+    release: "rel_1",
+    caller: {
+      kind: "person",
+      view_session: "snapshot:3",
+      machine: "mch_01hzzzzzzzzzzzzzzzzzzzzzzz",
+    },
+  } as unknown as AppInvocation);
   assert.deepEqual(next.ok && next.value, 8);
+  assert.deepEqual(
+    log.page("app_1", 7, 10).map((row) => [row.kind, row.origin, row.machine]),
+    [["snapshot", "machine", "mch_01hzzzzzzzzzzzzzzzzzzzzzzz"]],
+  );
   after.close();
 });

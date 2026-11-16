@@ -27,7 +27,7 @@ import {
   dataEntryPath,
 } from "../../../protocol/folder/mod.ts";
 import type { Sql, Tx } from "../../../protocol/server/mod.ts";
-import type { SyncLog } from "../../apps/sync/log.ts";
+import { heldInData, type SyncLog } from "../../apps/sync/log.ts";
 import type { DestinationsView } from "../destinations.ts";
 import type { FolderLogRow } from "../ports.ts";
 import { FOLDER_SCHEMA_STEPS } from "../schema.ts";
@@ -45,31 +45,25 @@ const BUNDLE = "b".repeat(64);
 const DAY = 24 * 60 * 60 * 1000;
 
 function fakeLog() {
-  const rows: FolderLogRow[] = [];
+  const rows: (FolderLogRow & { resolved: boolean })[] = [];
   const blobs = new Map<string, Uint8Array>();
-  const held: { hlc: string; changeset: Uint8Array }[] = [];
   const add = (row: Omit<FolderLogRow, "seq">) => {
-    rows.push({ ...row, seq: rows.length + 1 });
+    rows.push({ ...row, seq: rows.length + 1, resolved: false });
   };
   const log: ExportLog = {
     head: () => rows.length,
     page: (_app, after, limit) =>
       rows.filter((row) => row.seq > after).slice(0, limit),
     readChangeset: (hash) => Promise.resolve(ok(blobs.get(hash)!)),
-    snapshotNeeded: (_app, after) =>
-      rows.some((row) => row.seq > after && row.kind === "snapshot"),
-    held(_app, release, change) {
-      held.push({ hlc: change.hlc, changeset: change.changeset });
-      add({
-        release,
-        kind: "held",
-        origin: change.origin,
-        hlc: change.hlc,
-        changeset: put(change.changeset),
-        invocation: null,
-      });
-      return Promise.resolve(ok(rows.length));
+    hold(seq) {
+      const row = rows[seq - 1]!;
+      if (row.kind === "change") row.kind = "held";
+      return ok(undefined);
     },
+    heldInData: () =>
+      rows.filter(
+        (row) => row.kind === "held" && !row.resolved && heldInData(row),
+      ).length,
   };
   function put(bytes: Uint8Array) {
     const hash = createHash("sha256").update(bytes).digest("hex");
@@ -78,7 +72,15 @@ function fakeLog() {
   }
   return {
     log,
-    held,
+    rows,
+    // 풀리지 않은 held 줄의 [hlc, bytes 글].
+    held: () =>
+      rows
+        .filter((row) => row.kind === "held" && !row.resolved)
+        .map((row) => [
+          row.hlc,
+          new TextDecoder().decode(blobs.get(row.changeset!.hash)),
+        ]),
     change(hlc: number, text: string, origin = "computer") {
       add({
         release: REL,
@@ -90,11 +92,11 @@ function fakeLog() {
       });
       return rows.length;
     },
-    marker() {
+    marker(origin = "computer") {
       add({
         release: REL,
         kind: "snapshot",
-        origin: "computer",
+        origin,
         hlc: null,
         changeset: null,
         invocation: null,
@@ -345,13 +347,7 @@ test("horizon 밖의 기계는 정리된 흔적과 부딪힐 자기 변경을 �
     const outcome = await h.run();
 
     assert.equal(outcome.held, 1);
-    assert.deepStrictEqual(
-      h.fake.held.map((one) => [
-        one.hlc,
-        new TextDecoder().decode(one.changeset),
-      ]),
-      [["150", "offline edit"]],
-    );
+    assert.deepStrictEqual(h.fake.held(), [["150", "offline edit"]]);
     const ids: string[] = [];
     for (const name of readdirSync(h.dataFolder).filter((n) =>
       n.endsWith(".changes"),
@@ -370,7 +366,59 @@ test("horizon 밖의 기계는 정리된 흔적과 부딪힐 자기 변경을 �
     const files = readdirSync(h.dataFolder);
     assert.equal((await h.run()).held, 0);
     assert.deepStrictEqual(readdirSync(h.dataFolder), files);
-    assert.equal(h.fake.held.length, 1);
+    assert.equal(h.fake.held().length, 1);
+  });
+});
+
+// 지우면 horizon 밖의 기계가 held로 둔 자기 변경이 snapshot(30일 compaction, 필요한 snapshot, 첫 file)에 실려 사람이 풀기
+// 전에 다른 기계로 나가거나, 반대로 held가 snapshot을 영영 막아 stream이 멈춘 채 아무도 모른다.
+test("horizon 밖에서 held로 둔 자기 변경은 사람이 풀기 전에는 어떤 snapshot에도 실려 나가지 않고, 풀면 stream이 이어진다", async () => {
+  // 이미 있는 stream: compaction snapshot은 미루고 changes는 이어 가며, snapshot이 꼭 필요하면 까닭을 보이고 멈춘다.
+  await harness(async (h) => {
+    h.fake.change(100, "early");
+    await h.run();
+    h.clock.advance(31 * DAY);
+    const offline = h.fake.change(150, "offline edit");
+    h.fake.change(500, "fresh edit");
+    h.knobs.horizons = [{ machine: PEER_A, horizon: "200" }];
+    h.knobs.caughtUp = false;
+    // snapshot 사본은 앱 DB 그대로다: held 변경도 들어 있다.
+    h.knobs.rows = ["early", "offline edit", "fresh edit"];
+
+    const first = await h.run();
+    assert.equal(first.held, 1);
+    assert.equal(first.error, null);
+    const snapshots = () =>
+      readdirSync(h.dataFolder).filter((name) => name.endsWith(".snapshot"));
+    assert.deepStrictEqual(snapshots(), ["000000000001.snapshot"]);
+
+    h.fake.marker();
+    const blocked = await h.run();
+    assert.equal(blocked.error?.code, "away_too_long");
+    assert.deepStrictEqual(snapshots(), ["000000000001.snapshot"]);
+    assert.notEqual(h.exporter.settledOf(APP)?.away_since, null);
+
+    // 사람이 풀었다(apply는 새 change 줄로, discard는 풀기만).
+    h.fake.rows[offline - 1]!.resolved = true;
+    const resumed = await h.run();
+    assert.equal(resumed.error, null);
+    assert.equal(snapshots().length, 2);
+  });
+  // 첫 file(snapshot)도 같다. 걸리는 것이 없으면 horizon 밖에서도 바로 쓴다.
+  await harness(async (h) => {
+    h.knobs.horizons = [{ machine: PEER_A, horizon: "200" }];
+    const offline = h.fake.change(150, "offline edit");
+    const blocked = await h.run();
+    assert.equal(blocked.held, 1);
+    assert.equal(blocked.error?.code, "away_too_long");
+    assert.ok(!existsSync(h.dataFolder));
+    h.fake.rows[offline - 1]!.resolved = true;
+    h.fake.change(500, "fresh edit");
+    const resumed = await h.run();
+    assert.equal(resumed.error, null);
+    assert.ok(existsSync(h.file(1, "snapshot")));
+    // 내보낼 것이 없고 다 받았으니 settled가 horizon을 넘어 더는 떨어져 있지 않다.
+    assert.equal(h.exporter.settledOf(APP)?.away_since, null);
   });
 });
 

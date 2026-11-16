@@ -37,6 +37,7 @@ import {
   createFolderWriter,
   type FolderReader,
 } from "../fs.ts";
+import type { FolderLogRow } from "../ports.ts";
 import { compact } from "./compact.ts";
 import type { ExportApp, ExportOutcome, FolderExportDeps } from "./mod.ts";
 import {
@@ -56,6 +57,10 @@ type ExportOrigin = ChangeMeta["origin"];
 const EXPORT_ORIGINS = new Set<string>(["computer", "device", "rewind"]);
 
 type ReleaseKey = { bundle_hash: string; data_schema: number };
+
+// 이번 run이 snapshot을 쓸 까닭. required는 그것 없이 stream을 이을 수 없다(첫 file, release가 바뀜, bytes로 남지 못한 자기
+// 변경). compaction은 30일 지난 snapshot을 새로 써 옛 file을 지우려는 것이라 미뤄도 된다.
+type SnapshotNeed = "required" | "compaction";
 
 // ok(true)는 계속, ok(false)는 이번 run을 멈춘다(까닭은 outcome의 error나 more).
 type Step = Result<boolean>;
@@ -170,6 +175,8 @@ class Run {
   private readonly key: StreamKey;
   private readonly outcome: ExportOutcome;
   private readonly maxHlc: (app: string) => bigint | null;
+  // horizon 밖이면 이 clock 이하의 아직 내보내지 않은 자기 변경은 내보내지 않고 held로 바꾼다.
+  private holdUpTo: bigint | null = null;
 
   constructor(
     deps: FolderExportDeps,
@@ -231,41 +238,92 @@ class Run {
     );
     const settled = before?.settled == null ? null : BigInt(before.settled);
     // 이 기계가 다른 기계의 horizon 밖이면, 그 이하 clock의 아직 내보내지 않은 변경은 정리된 흔적과 부딪힐 수 있다.
-    // 내보내지도 버리지도 않고 held 줄로 옮긴다. 한 번도 settled가 없던 기계도 같다(옛 변경을 가졌을 수 있다).
-    const holdUpTo =
+    // 내보내지도 버리지도 않고 held 줄로 바꾼다. 한 번도 settled가 없던 기계도 같다(옛 변경을 가졌을 수 있다).
+    this.holdUpTo =
       peer !== null && (settled === null || settled < peer) ? peer : null;
 
     this.cursor = before?.last_seq ?? 0;
-    if (this.snapshotDue(before)) {
-      step = await this.snapshot();
+    const due = this.snapshotDue(before);
+    if (due !== null) {
+      step = await this.snapshot(due);
       if (!step.ok) return step;
       if (!step.value) return ok(undefined);
     }
-    step = await this.follow(holdUpTo);
+    step = await this.follow();
     if (!step.ok) return step;
     if (!step.value) return ok(undefined);
     return this.settle(peer);
   }
 
-  private snapshotDue(state: StreamRow | null): boolean {
+  // log의 '다시 snapshot' 줄은 follow가 만나 snapshot을 쓴다(다른 기계에서 온 일의 줄은 건너뛴다).
+  private snapshotDue(state: StreamRow | null): SnapshotNeed | null {
     const { deps, app, release } = this;
     if (
       state === null ||
       state.last_snapshot_n === null ||
-      state.bundle_hash !== release.bundle_hash ||
-      deps.log.snapshotNeeded(app.app, state.last_seq)
+      state.bundle_hash !== release.bundle_hash
     ) {
-      return true;
+      return "required";
     }
     // 마지막 snapshot이 오래되면 새로 써서 그 앞 file을 compaction할 수 있게 한다. 새 변경이 없으면 쓰지 않는다.
-    if (deps.log.head(app.app) <= state.last_seq) return false;
+    if (deps.log.head(app.app) <= state.last_seq) return null;
     const last = writtenRows(deps.sql, this.key).find(
       (row) => row.n === state.last_snapshot_n,
     );
-    return (
-      last !== undefined &&
+    return last !== undefined &&
       Date.parse(last.written_at) <= deps.clock.nowMs() - COMPACTION_KEEP_MS
+      ? "compaction"
+      : null;
+  }
+
+  // hold 규칙에 걸리는 줄: 아직 내보내지 않은 이 기계의 변경 가운데 clock이 horizon 이하인 것.
+  private covered(row: FolderLogRow): boolean {
+    return (
+      this.holdUpTo !== null &&
+      row.kind === "change" &&
+      EXPORT_ORIGINS.has(row.origin) &&
+      row.hlc !== null &&
+      BigInt(row.hlc) <= this.holdUpTo
     );
+  }
+
+  // cursor 뒤의 모든 줄에 hold 규칙을 건다. snapshot은 그 seq까지의 줄을 건너뛰므로 snapshot 앞에 한다.
+  private holdPast(): Result<void> {
+    const { deps, app } = this;
+    if (this.holdUpTo === null) return ok(undefined);
+    let after = this.cursor;
+    for (;;) {
+      const rows = deps.log.page(app.app, after, PAGE);
+      if (rows.length === 0) return ok(undefined);
+      for (const row of rows) {
+        if (!this.covered(row)) continue;
+        const held = deps.log.hold(row.seq);
+        if (!held.ok) return held;
+        this.outcome.held += 1;
+      }
+      after = rows.at(-1)!.seq;
+    }
+  }
+
+  // held로 바꾼 자기 변경은 앱 DB에 그대로 있어 snapshot에 실린다. 사람이 풀기 전에는 snapshot을 쓰지 않고, 그것 없이
+  // 이을 수 없는 stream은 멈춘 채 사람에게 그 까닭을 보인다.
+  private heldStop(count: number): Step {
+    const { deps, app } = this;
+    const error: FolderError = {
+      code: "away_too_long",
+      message: `${count} ${count === 1 ? "change" : "changes"} of ${app.name} made on this computer ${count === 1 ? "is" : "are"} held. lophn cannot send a full copy of its data to the sync folder until ${count === 1 ? "it is" : "they are"} applied or discarded (lophn app sync-held).`,
+      at: deps.clock.now(),
+    };
+    const away =
+      this.holdUpTo !== null && this.state()?.away_since == null
+        ? { away_since: deps.clock.now() }
+        : {};
+    const saved = this.tx((sql) =>
+      updateStream(sql, this.key, { error, ...away }),
+    );
+    if (!saved.ok) return saved;
+    this.outcome.error = error;
+    return ok(false);
   }
 
   // 의도만 있고 끝나지 않은 번호를 맞춘다.
@@ -425,12 +483,17 @@ class Run {
     return ok(true);
   }
 
-  private async snapshot(): Promise<Step> {
+  private async snapshot(need: SnapshotNeed): Promise<Step> {
     const { deps, app, release } = this;
     if (this.outcome.bytes >= RUN_MAX_BYTES) {
       this.outcome.more = true;
       return ok(false);
     }
+    const passed = this.holdPast();
+    if (!passed.ok) return passed;
+    const inData = deps.log.heldInData(app.app);
+    if (inData > 0)
+      return need === "required" ? this.heldStop(inData) : ok(true);
     const dir = join(appFolder(deps.dataRoot, app.app), TEMP_DIR);
     await rm(dir, { recursive: true, force: true });
     await mkdir(dir, { recursive: true });
@@ -540,13 +603,19 @@ class Run {
   }
 
   // last_seq 뒤의 log 줄을 seq 순서로 내보낸다.
-  private async follow(holdUpTo: bigint | null): Promise<Step> {
+  private async follow(): Promise<Step> {
     const { deps, app } = this;
     for (;;) {
       const rows = deps.log.page(app.app, this.cursor, PAGE);
       if (rows.length === 0) break;
       let resnapshot = false;
       for (const row of rows) {
+        // 다른 기계에서 온 일(받은 변경, snapshot 합치기)의 '다시 snapshot' 줄은 폰을 위한 것이다. 그 data는 그 기계가 이미
+        // 냈으니 여기서 snapshot을 쓰면 두 기계가 서로의 snapshot을 합칠 때마다 snapshot을 주고받는다.
+        if (row.kind === "snapshot" && row.origin === "machine") {
+          this.cursor = row.seq;
+          continue;
+        }
         if (row.kind === "snapshot") {
           resnapshot = true;
           break;
@@ -567,30 +636,19 @@ class Run {
           resnapshot = true;
           break;
         }
+        if (this.covered(row)) {
+          const held = deps.log.hold(row.seq);
+          if (!held.ok) return held;
+          this.cursor = row.seq;
+          this.outcome.held += 1;
+          continue;
+        }
         const bytes = await deps.log.readChangeset(
           row.changeset.hash,
           row.changeset.size,
         );
         if (!bytes.ok) return bytes;
         const origin = row.origin as ExportOrigin;
-        if (holdUpTo !== null && BigInt(row.hlc) <= holdUpTo) {
-          const flushed = await this.flush();
-          if (!flushed.ok || !flushed.value) return flushed;
-          const held = await deps.log.held(
-            app.app,
-            row.release as Id<"rel">,
-            { origin, hlc: row.hlc, changeset: bytes.value },
-            "past_horizon",
-          );
-          if (!held.ok) return held;
-          const passed = this.tx((sql) =>
-            updateStream(sql, this.key, { last_seq: row.seq }),
-          );
-          if (!passed.ok) return passed;
-          this.cursor = row.seq;
-          this.outcome.held += 1;
-          continue;
-        }
         const batch = this.batch;
         if (
           batch !== null &&
@@ -624,7 +682,7 @@ class Run {
       if (resnapshot) {
         const flushed = await this.flush();
         if (!flushed.ok || !flushed.value) return flushed;
-        const step = await this.snapshot();
+        const step = await this.snapshot("required");
         if (!step.ok || !step.value) return step;
       }
     }

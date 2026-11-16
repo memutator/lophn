@@ -142,12 +142,16 @@ export type SourceMeta = z.infer<typeof sourceMetaSchema>;
 
 const formatOnly = z.object({ format: formatSchema });
 
-/** 기록 file bytes를 읽는다. `format`을 먼저 보고 이 기계가 읽는 범위 밖이면 나머지를 보지 않는다. */
+/**
+ * 기록 file bytes를 읽는다. `format`을 먼저 보고 이 기계가 읽는 범위 밖이면 나머지를 보지 않는다. `release.json`만
+ * `RELEASE_RECORD_MAX_BYTES`를 준다.
+ */
 export function decodeRecord<S extends z.ZodType>(
   schema: S,
   bytes: Uint8Array,
+  maxBytes: number = RECORD_MAX_BYTES,
 ): Result<z.output<S>, FolderFileError> {
-  if (bytes.byteLength > RECORD_MAX_BYTES) {
+  if (bytes.byteLength > maxBytes) {
     return fileError("too_large", "record file is too large");
   }
   let json: unknown;

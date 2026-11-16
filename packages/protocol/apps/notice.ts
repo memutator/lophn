@@ -152,8 +152,12 @@ export const noticeRecordInputSchema = z.discriminatedUnion("kind", [
   }),
   // 기준 폰이 바뀌었다. apps: 폰 화면이 있는 활성 앱 수(옛 폰 크기로 그린 화면이라 다시 그려야 한다).
   variant("phone_changed", { apps: z.number().int().min(1).max(9999) }),
-  // 이 기계가 그 앱에서 다른 기계의 horizon 밖이 되었다. held: 풀리지 않은 held 변경 수.
-  variant("app_sync_away", { held: z.number().int().min(0).max(999999) }),
+  // 이 기계가 그 앱에서 다른 기계의 horizon 밖이 되었다. held: 풀리지 않은 held 변경 수. back: 다시 따라잡았다(같은 key의
+  // 행을 바꿔 "떨어져 있었다"를 거둔다. program 행은 지우지 않는다).
+  variant("app_sync_away", {
+    held: z.number().int().min(0).max(999999),
+    back: z.boolean().optional(),
+  }),
 ]);
 export type NoticeRecordInput = z.infer<typeof noticeRecordInputSchema>;
 

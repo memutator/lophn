@@ -9,7 +9,7 @@ import { validateDeclaration } from "../../../protocol/apps/declaration/mod.ts";
 import { RELEASE_BUNDLE_MAX_BYTES } from "../../../protocol/apps/mod.ts";
 import {
   decodeRecord,
-  RECORD_MAX_BYTES,
+  RELEASE_RECORD_MAX_BYTES,
   type ReleaseRecord,
   releaseFilePath,
   releaseRecordPath,
@@ -74,10 +74,14 @@ async function checkRelease(
 ): Promise<Result<CheckedRelease>> {
   const read = await reader.read(
     releaseRecordPath(origin, app, bundleHash),
-    RECORD_MAX_BYTES,
+    RELEASE_RECORD_MAX_BYTES,
   );
   if (!read.ok) return incomplete(`release.json: ${read.error.message}`);
-  const decoded = decodeRecord(releaseRecordSchema, read.value);
+  const decoded = decodeRecord(
+    releaseRecordSchema,
+    read.value,
+    RELEASE_RECORD_MAX_BYTES,
+  );
   if (!decoded.ok) return incomplete(`release.json: ${decoded.error.message}`);
   const record = decoded.value;
   if (

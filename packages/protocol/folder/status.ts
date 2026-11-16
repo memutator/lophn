@@ -50,7 +50,7 @@ export const machineEnvironmentSchema = z.object({
     z.object({
       id: idSchema("mch"),
       name: z.string(),
-      // 이름이 겹친 기계는 `이름 (id 앞 6자)`.
+      // 이름이 겹친 기계는 `이름 (id 끝 6자)`. id 앞쪽은 만든 시각(ULID)이라 같은 때 만든 두 기계가 겹친다.
       display_name: z.string(),
       always_on: alwaysOnSchema.nullable(),
       addresses: addressesSchema,
@@ -90,6 +90,9 @@ export const machineEnvironmentSchema = z.object({
           cursor: count,
           waiting_for: count.nullable(),
           held: count,
+          // 그 기계의 snapshot을 합쳤지만 다른 곳에서 지워진 row를 아직 지우지 않았다: 그 기계가 이 기계의 변경을 다 받으면
+          // 그 기계의 다음 snapshot으로 한 번 더 합치며 지운다.
+          owes_absent_pass: z.boolean(),
           error: folderErrorSchema.nullable(),
         }),
       ),

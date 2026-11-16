@@ -2,7 +2,8 @@
 // 폰에 보낼 줄의 changeset은 blob store에 둔다. blob store는 hash로 file 하나를 두므로 invocation이 이미 쥔 bytes와
 // 같으면 같은 file을 가리킬 뿐 새로 담지 않는다.
 // bytes를 담지 못하는 변경(너무 큼, blob 준비 실패, 결과 모름)은 '다시 snapshot' 줄로 남긴다: 그 변경을 보내지 못하면
-// 폰이 조용히 갈라지므로, 그 줄에 닿은 폰은 새 snapshot을 받는다.
+// 폰이 조용히 갈라지므로, 그 줄에 닿은 폰은 새 snapshot을 받는다. 다른 기계에서 온 일(받은 변경, snapshot 합치기)의
+// '다시 snapshot' 줄은 origin `machine`이다: 폰에는 필요하지만 폴더로는 다시 내보내지 않는다(그 기계가 이미 낸 것이다).
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { AppInvocation } from "../../../protocol/apps/calls/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
@@ -89,11 +90,14 @@ export type SyncRecorder = {
     change: MachineChange,
     status: "applied" | "skipped",
   ): Promise<Result<number>>;
-  /** invocation 없는 '다시 snapshot' 줄(폴더 snapshot을 합친 뒤). */
-  rebaseline(app: Id<"app">, release: Id<"rel">): Promise<Result<number>>;
   /**
-   * 정리된 흔적과 안전하게 합칠 수 없어 적용하지도 내보내지도 않는 변경. bytes를 blob으로 쥐고, 쥐지 못하면 줄을
-   * 남기지 않고 오류다(다시 snapshot 줄로 바꾸면 그 변경을 잃는다).
+   * 다른 기계의 snapshot을 합쳐 바뀐 것이 있다. 합친 변경들은 clock이 하나가 아니라 줄 하나로 폰에 보낼 수 없어 '다시
+   * snapshot' 줄이다(origin `machine`, 그 합치기 invocation).
+   */
+  merged(inv: AppInvocation): Promise<Result<number>>;
+  /**
+   * 받았지만 정리된 흔적과 안전하게 합칠 수 없어 적용하지 않은 변경(폰이나 다른 기계에서 온 것). bytes를 blob으로 쥐고,
+   * 쥐지 못하면 줄을 남기지 않고 오류다(다시 snapshot 줄로 바꾸면 그 변경을 잃는다). invocation은 비어 있다.
    */
   held(
     app: Id<"app">,
@@ -120,6 +124,13 @@ export type SyncLog = SyncRecorder & {
   readChangeset(hash: string, size: number): Promise<Result<Uint8Array>>;
   /** 그 앱의 풀리지 않은 held 줄을 seq 순서로. */
   heldList(app: string): SyncLogRow[];
+  /**
+   * 이 기계의 아직 내보내지 않은 change 줄을 그 자리에서 held로 바꾼다(horizon 밖의 내보내기). 줄의 seq, origin,
+   * invocation, bytes는 그대로다. 그 줄이 이미 change가 아니면 아무것도 하지 않는다.
+   */
+  hold(seq: number): Result<void>;
+  /** 풀리지 않은 held 줄 가운데 변경이 이미 이 기계의 data에 있는 것(`heldInData`)의 수. */
+  heldInData(app: string): number;
   /** held 줄을 풀었다고 적는다. bytes와 줄은 남는다. */
   resolve(seq: number, at: string): Result<void>;
   /** activation 뒤: 옛 release의 줄(held는 빼고)을 지우고, 지운 것이 있으면 새 release에 '다시 snapshot' 줄을 남긴다. */
@@ -166,6 +177,21 @@ function oneChunk(bytes: Uint8Array): ReadableStream<Uint8Array> {
       controller.close();
     },
   });
+}
+
+/**
+ * held 줄의 변경이 이미 이 기계의 data에 있는가: 내보내기가 그 자리에서 held로 바꾼 이 기계의 줄(computer, rewind, 폰에서
+ * 받아 적용한 device 줄)이다. 받고 적용하지 않은 변경의 줄(`held()`)은 origin이 machine이거나 invocation 없는 device다.
+ */
+export function heldInData(row: {
+  origin: string;
+  invocation: string | null;
+}): boolean {
+  return (
+    row.origin === "computer" ||
+    row.origin === "rewind" ||
+    (row.origin === "device" && row.invocation !== null)
+  );
 }
 
 function rowOf(row: Record<string, SqlParam>): SyncLogRow {
@@ -252,12 +278,31 @@ export function createSyncLog(deps: SyncLogDeps): SyncLog {
     return done;
   }
 
+  function heldList(app: string): SyncLogRow[] {
+    return deps.sql
+      .all(
+        `SELECT * FROM app_sync_log
+         WHERE app = ? AND kind = 'held' AND resolved_at IS NULL ORDER BY seq`,
+        [app],
+      )
+      .map(rowOf);
+  }
+
+  // 다른 기계에서 온 일의 줄은 그 기계를 적고, change_id는 그 invocation이다(같은 기계의 변경 id인 십진 seq와 겹치지 않고
+  // 같은 변경을 다시 받을 때 duplicate로 오인되지 않는다).
   function marker(inv: AppInvocation): Promise<Result<number>> {
+    const caller = inv.caller;
+    const from =
+      caller !== null && caller.kind === "person"
+        ? (caller.machine ?? null)
+        : null;
     return append({
       app: inv.app,
       release: inv.release,
       kind: "snapshot",
-      origin: "computer",
+      ...(from === null
+        ? { origin: "computer" as const }
+        : { origin: "machine" as const, machine: from, change_id: inv.id }),
       hlc: null,
       invocation: inv.id,
     });
@@ -326,16 +371,7 @@ export function createSyncLog(deps: SyncLogDeps): SyncLog {
       });
     },
 
-    rebaseline(app, release) {
-      return append({
-        app,
-        release,
-        kind: "snapshot",
-        origin: "computer",
-        hlc: null,
-        invocation: null,
-      });
-    },
+    merged: marker,
 
     held(app, release, change) {
       return append({
@@ -414,14 +450,20 @@ export function createSyncLog(deps: SyncLogDeps): SyncLog {
       return ok(bytes);
     },
 
-    heldList(app) {
-      return deps.sql
-        .all(
-          `SELECT * FROM app_sync_log
-           WHERE app = ? AND kind = 'held' AND resolved_at IS NULL ORDER BY seq`,
-          [app],
-        )
-        .map(rowOf);
+    heldList,
+
+    heldInData(app) {
+      return heldList(app).filter(heldInData).length;
+    },
+
+    hold(seq) {
+      return deps.transaction((tx) => {
+        tx.sql.run(
+          "UPDATE app_sync_log SET kind = 'held' WHERE seq = ? AND kind = 'change'",
+          [seq],
+        );
+        return ok(undefined);
+      });
     },
 
     resolve(seq, at) {

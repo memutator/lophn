@@ -180,6 +180,7 @@ export async function readEnvironment(deps: EnvironmentDeps): Promise<Env> {
         cursor: row.cursor,
         waiting_for: row.waiting_for,
         held: row.held,
+        owes_absent_pass: row.owes_absent_pass,
         error: row.error,
       })),
       away: await deps.away(app.app),

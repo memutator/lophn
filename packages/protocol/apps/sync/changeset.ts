@@ -93,23 +93,49 @@ function encodeValue(value: ChangesetValue, out: number[]): void {
   }
 }
 
+const OP_CODE = { insert: 0x12, update: 0x17, delete: 0x09 } as const;
+
 /**
- * row 하나의 INSERT 하나만 담은 changeset(SQLite session과 같은 bytes). 적용하지 않고 돌려주는 row를 다른 변경과
- * 같은 꼴(clock과 changeset)로 쥐게 한다.
+ * row change 하나만 담은 changeset(SQLite session과 같은 bytes). UPDATE의 old는 PK와 바뀐 칸, new는 바뀐 칸만 싣고 나머지는
+ * undefined다.
  */
-export function insertChangeset(
+export function rowChangeset(
   table: string,
   // 칸마다 PK 안의 순번(1부터, `pragma table_info`의 pk). PK가 아니면 0.
   primaryKey: readonly number[],
-  values: readonly ChangesetValue[],
+  change: {
+    op: "insert" | "update" | "delete";
+    old: readonly ChangesetCell[] | null;
+    new: readonly ChangesetCell[] | null;
+  },
 ): Uint8Array {
   const out: number[] = [0x54];
   for (const b of varint(primaryKey.length)) out.push(b);
   for (const pk of primaryKey) out.push(pk);
   for (const b of utf8Encode(table)) out.push(b);
-  out.push(0, 0x12, 0);
-  for (const value of values) encodeValue(value, out);
+  out.push(0, OP_CODE[change.op], 0);
+  for (const values of [change.old, change.new]) {
+    for (const value of values ?? []) {
+      if (value === undefined) out.push(0);
+      else encodeValue(value, out);
+    }
+  }
   return new Uint8Array(out);
+}
+
+/**
+ * row 하나의 INSERT 하나만 담은 changeset. 적용하지 않고 돌려주는 row를 다른 변경과 같은 꼴(clock과 changeset)로 쥐게 한다.
+ */
+export function insertChangeset(
+  table: string,
+  primaryKey: readonly number[],
+  values: readonly ChangesetValue[],
+): Uint8Array {
+  return rowChangeset(table, primaryKey, {
+    op: "insert",
+    old: null,
+    new: values,
+  });
 }
 
 /**

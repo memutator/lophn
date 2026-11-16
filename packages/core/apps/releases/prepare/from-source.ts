@@ -17,6 +17,7 @@ import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   err,
+  errorCode,
   nodeTreeDeps,
   type Result,
   signalTree,
@@ -171,7 +172,14 @@ async function readBuiltScreens(staging: string): Promise<{
   const screens: { path: string; bytes: Uint8Array }[] = [];
   const assets: { path: string; bytes: Uint8Array }[] = [];
   const root = `${staging}/dist/screens`;
-  for (const entry of await readdir(root, { withFileTypes: true })) {
+  // 화면 없는 앱(tool만 내는 `["computer"]` 앱)은 선언이 허락한다. build가 dist/screens를 만들지 않는다.
+  const entries = await readdir(root, { withFileTypes: true }).catch(
+    (thrown: unknown) => {
+      if (errorCode(thrown) === "ENOENT") return [];
+      throw thrown;
+    },
+  );
+  for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     for (const file of await readdir(`${root}/${entry.name}`, {
       withFileTypes: true,

@@ -20,6 +20,7 @@ import type { RuntimeState } from "./state.ts";
 import {
   applyAsLocalWrite,
   applyRemoteChanges,
+  releaseLocalChange,
   cleanupTombstones,
   mergeSnapshotFile,
   type SyncStore,
@@ -250,6 +251,7 @@ export function handleSyncCleanup(
 }
 
 // held 변경을 이 기계의 새 write로 다시 적용한다(`apps.sync_reapply`). 지금 data와 부딪으면 하나도 적용하지 않는다.
+// `release`면 이 기계가 낸 변경이라 다시 적용하지 않고 지금 값을 새 clock으로 찍어 내보낼 changeset을 돌려준다.
 export function handleSyncReapply(
   state: RuntimeState,
   raw: Uint8Array,
@@ -259,10 +261,34 @@ export function handleSyncReapply(
     raw,
     (value) => {
       const source = record(value);
-      if (!source || exact(source, ["changeset"])) return;
-      return bytesOf(source.changeset);
+      if (!source || exact(source, ["changeset", "release"], ["changeset"])) {
+        return;
+      }
+      if (source.release !== undefined && source.release !== true) return;
+      const changeset = bytesOf(source.changeset);
+      return changeset && { changeset, release: source.release === true };
     },
-    (sync, changeset) => {
+    (sync, { changeset, release }) => {
+      if (release) {
+        const released = releaseLocalChange(sync, changeset);
+        if (!released.ok) {
+          return released.error.code === "conflict"
+            ? {
+                status: 200,
+                body: { status: "conflict", message: released.error.message },
+              }
+            : failWith(released.error);
+        }
+        return {
+          status: 200,
+          body: {
+            status: "applied",
+            effective: encodeChangeset(released.value.changeset),
+            hlc:
+              released.value.hlc === null ? null : String(released.value.hlc),
+          },
+        };
+      }
       const applied = applyAsLocalWrite(sync, () =>
         state.store.apply([changeset]),
       );

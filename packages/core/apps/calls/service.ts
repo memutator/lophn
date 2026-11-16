@@ -32,7 +32,12 @@ import {
   SYNC_APPLY_MAX_CHANGES,
 } from "../runtime/entrypoint/limits.ts";
 import type { FolderApply, FolderChange } from "../../folder/ports.ts";
-import type { PhoneChange, SyncLog, SyncLogRow } from "../sync/log.ts";
+import {
+  heldInData,
+  type PhoneChange,
+  type SyncLog,
+  type SyncLogRow,
+} from "../sync/log.ts";
 import { type CallAuth, type VerifiedCaller, verifyCaller } from "./caller.ts";
 import { callAllowed, type CallGateDeps } from "./gate.ts";
 import {
@@ -83,7 +88,7 @@ type SyncCalls = Pick<
   | "unknown"
   | "phone"
   | "machine"
-  | "rebaseline"
+  | "merged"
   | "held"
   | "heldList"
   | "resolve"
@@ -99,15 +104,25 @@ const HELD_APPLY_OPERATION = "lophn.sync_held_apply";
 export type SyncHeld = {
   /** 풀리지 않은 held 줄을 seq 순서로. */
   list(app: Id<"app">): Result<SyncLogRow[]>;
-  /** 그 변경을 지금 clock의 이 기계 write로 다시 적용하고 줄을 푼다. invocation 하나(caller는 부른 사람이나 agent). */
+  /**
+   * 사람의 다시 정함으로 그 변경을 지금 clock의 이 기계 write로 내보내고 줄을 푼다. invocation 하나(caller는 부른 사람이나
+   * agent). 받고 적용하지 않은 변경은 다시 적용하고, 이 기계가 낸 변경(`heldInData`)은 이미 data에 있으니 다시 적용하지 않고
+   * 건드린 row·칸의 지금 값을 새 clock으로 내보낸다.
+   */
   apply(
     app: Id<"app">,
     seq: number,
     caller: AppToolCaller,
   ): Promise<Result<{ invocation: Id<"inv"> }>>;
-  /** 적용하지 않고 푼다. bytes는 기록에 남는다. */
-  discard(app: Id<"app">, seq: number): Result<void>;
+  /** 적용하지도 내보내지도 않고 푼다. bytes는 기록에 남는다. `note`는 사람에게 그 뜻을 말한다. */
+  discard(app: Id<"app">, seq: number): Result<{ note: string }>;
 };
+
+const DISCARD_NOTES = {
+  data: "This change was made on this computer and stays in its data here. It is not sent to your other computers as a change. If this computer later sends a full copy of the app's data, the copy carries the current values.",
+  received:
+    "This change was not applied on this computer. It stays in the record and is not sent anywhere.",
+} as const;
 
 // core가 연 invocation 하나와 그 시작 시각.
 type Opened = { base: CallRecordBase; startedAt: string };
@@ -919,7 +934,7 @@ export function createAppCalls(deps: AppCallsDeps): {
       const changed =
         out.effective !== null || out.effective_dropped !== undefined;
       if (changed) {
-        const marked = await sync.rebaseline(app, release);
+        const marked = await sync.merged(closed.value);
         if (!marked.ok) return marked;
       }
       return ok({ changed, deleted: out.deleted });
@@ -935,8 +950,10 @@ export function createAppCalls(deps: AppCallsDeps): {
       : ok(row);
   }
 
-  // held 줄의 변경을 지금 clock의 이 기계 write로 다시 적용한다(사람이나 앱 agent의 다시 정함). 보통 write처럼 sync log에
-  // 남아 내보내지고, 그 held 줄은 풀린다. 지금 data와 부딪으면 아무것도 바꾸지 않고 conflict다.
+  // held 줄의 변경을 지금 clock의 이 기계 write로 내보낸다(사람이나 앱 agent의 다시 정함). 보통 write처럼 sync log에 남아
+  // 내보내지고, 그 held 줄은 풀린다. 받은 변경은 다시 적용하고 지금 data와 부딪으면 아무것도 바꾸지 않고 conflict다. 이 기계가
+  // 낸 변경은 이미 data에 있어 앱 process가 지금 값을 새 clock으로 찍기만 한다(invocation은 data를 바꾸지 않아 changeset이
+  // 없다: rewind가 그것을 되돌리려 하지 않는다).
   async function applyHeld(
     app: Id<"app">,
     seq: number,
@@ -956,6 +973,7 @@ export function createAppCalls(deps: AppCallsDeps): {
     }
     const bytes = await sync.readChangeset(stored.hash, stored.size);
     if (!bytes.ok) return bytes;
+    const inData = heldInData(row.value);
     const active = deps.apps.activeRelease(app);
     if (!active.ok) return active;
     if (active.value === null) {
@@ -979,6 +997,7 @@ export function createAppCalls(deps: AppCallsDeps): {
       if (!begun.ok) return begun;
       const applied = await deps.link.syncReapply(app, {
         changeset: base64(bytes.value),
+        ...(inData ? { release: true as const } : {}),
       });
       if (job.abandoned) return null;
       const [open] = job.opened.splice(0);
@@ -997,7 +1016,7 @@ export function createAppCalls(deps: AppCallsDeps): {
         open!,
         "succeeded",
         { outcome: "succeeded" },
-        effective,
+        inData ? null : effective,
       );
       if (!closed.ok) return closed;
       await sync.written(
@@ -1021,7 +1040,13 @@ export function createAppCalls(deps: AppCallsDeps): {
     discard(app, seq) {
       const row = heldRow(app, seq);
       if (!row.ok) return row;
-      return deps.sync!.resolve(seq, deps.clock.now());
+      const resolved = deps.sync!.resolve(seq, deps.clock.now());
+      if (!resolved.ok) return resolved;
+      return ok({
+        note: heldInData(row.value)
+          ? DISCARD_NOTES.data
+          : DISCARD_NOTES.received,
+      });
     },
   };
 

@@ -27,19 +27,10 @@ export type ExportApp = {
 
 /** 내보내기가 쓰는 sync log의 면. core의 `SyncLog`가 그대로 맞는다. */
 export type ExportLog = FolderLog & {
-  /** `after` 뒤에 '다시 snapshot' 줄이 있는가. */
-  snapshotNeeded(app: string, after: number): boolean;
-  /** 정리된 흔적과 부딪힐 자기 변경을 내보내지 않고 같은 bytes의 held 줄로 남긴다. */
-  held(
-    app: Id<"app">,
-    release: Id<"rel">,
-    change: {
-      origin: "computer" | "device" | "rewind";
-      hlc: string;
-      changeset: Uint8Array;
-    },
-    reason: "past_horizon",
-  ): Promise<Result<number>>;
+  /** 정리된 흔적과 부딪힐 자기 change 줄을 내보내지 않고 그 자리에서 held 줄로 바꾼다. */
+  hold(seq: number): Result<void>;
+  /** 풀리지 않은 held 줄 가운데 변경이 이미 이 기계의 data에 있는 것의 수. 하나라도 있으면 snapshot을 쓰지 않는다. */
+  heldInData(app: string): number;
 };
 
 export type ExportFacts = {

@@ -186,6 +186,8 @@ export type ProcessSyncCleanupResponse = z.infer<
 // 하나도 적용하지 않고 conflict다. applied의 hlc는 effective가 있을 때 그것과 같이 commit된 새 clock이다.
 export const processSyncReapplyRequestSchema = z.strictObject({
   changeset: base64Schema,
+  // 이 기계가 낸 held 변경이다: 이미 DB에 있어 다시 적용하지 않고, 건드린 row·칸의 지금 값을 새 clock으로 찍어 돌려준다.
+  release: z.literal(true).optional(),
 });
 export type ProcessSyncReapplyRequest = z.infer<
   typeof processSyncReapplyRequestSchema

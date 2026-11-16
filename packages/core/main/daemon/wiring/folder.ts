@@ -50,7 +50,11 @@ import {
   loadActiveDeclaration,
   loadRelease,
 } from "../../../apps/releases/store.ts";
-import type { SyncLog, SyncLogRow } from "../../../apps/sync/log.ts";
+import {
+  heldInData,
+  type SyncLog,
+  type SyncLogRow,
+} from "../../../apps/sync/log.ts";
 import {
   remoteEnabledSetting,
   remotePortSetting,
@@ -97,8 +101,15 @@ type AlwaysOn = {
   keep_awake: boolean;
 };
 
-// 이 기계 기록의 `always_on`. always-on 계획이 `ctx.alwaysOn.status()`로 바꾼다.
-const alwaysOn = (_ctx: WiringContext): AlwaysOn | null => null;
+// 이 기계 기록과 환경의 `always_on`(always-on 계약 3): 켜 둠 표시, 로그인 때 시작이 OS에 등록됨, 깨워 둠을 실제로 쥠.
+const alwaysOn = (ctx: WiringContext): AlwaysOn => {
+  const status = ctx.alwaysOn.status();
+  return {
+    keep_running: status.keep_running,
+    starts_at_login: status.start_at_login === "registered",
+    keep_awake: status.keep_awake && status.awake === "held",
+  };
+};
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 // 환경의 `away.changes`에 싣는 held 변경 수의 한도.
@@ -513,12 +524,13 @@ export const folderWiring: WiringFactory = () => {
       async function exportApp(id: Id<"app">): Promise<RunOutcome> {
         const app = syncApp(id);
         if (app === undefined) return { ok: true, more: false };
+        const wasAway = exporter.settledOf(id)?.away_since ?? null;
         const ran = await exporter.runApp(id);
         if (!ran.ok) {
           log("export_failed", ran.error.message);
           return { ok: false, more: false };
         }
-        await noticeAway(app);
+        await noticeAway(app, wasAway, ran.value.held);
         await cleanup(app);
         kick(`app:${id}`, () => writeAppRecord(id));
         return { ok: ran.value.error === null, more: ran.value.more };
@@ -599,24 +611,50 @@ export const folderWiring: WiringFactory = () => {
         if (!saved.ok) log("horizon_not_saved", saved.error.message);
       }
 
-      // horizon 밖이 되었거나 held가 늘면 사람에게 알린다. 같은 앱은 한 줄(key)이다.
-      async function noticeAway(app: SyncApp): Promise<void> {
+      // horizon 밖이 되었거나 held가 늘면 사람에게 알린다. 같은 앱은 한 줄(key)이다. 돌아온 기계는 받을 것을 다 받으면 그 run에서
+      // 바로 settled가 horizon을 넘어 떨어져 있음이 끝날 수 있다: 그래도 이번 run이 held로 둔 변경이 있으면 알린다(사람이 풀 일이
+      // 남았다). 떨어져 있음이 끝났거나 사람이 held를 풀어 줄었으면 같은 줄을 "따라잡았다"와 남은 held 수로 바꾼다(program 행은
+      // 지우지 않는다). 끝남은 run
+      // 앞뒤의 away_since(ledger)로 알아 core가 다시 떠도 같다.
+      async function noticeAway(
+        app: SyncApp,
+        wasAway: string | null,
+        newlyHeld: number,
+      ): Promise<void> {
         const away = exporter.settledOf(app.app)?.away_since ?? null;
-        if (away === null) {
-          awayNotified.delete(app.app);
-          return;
-        }
         const held = ports.log.heldList(app.app).length;
-        const last = awayNotified.get(app.app);
-        if (last !== undefined && held <= last) return;
-        awayNotified.set(app.app, held);
+        let params: { held: number; back?: boolean };
+        if (away !== null || newlyHeld > 0) {
+          const last = awayNotified.get(app.app);
+          if (newlyHeld === 0 && last !== undefined && held <= last) return;
+          awayNotified.set(app.app, held);
+          params = { held };
+        } else {
+          // 사람이 held를 풀어 줄었을 때도 같은 줄을 지금 수로 바꾼다.
+          const last = awayNotified.get(app.app);
+          awayNotified.delete(app.app);
+          if (wasAway === null && (last === undefined || held >= last)) return;
+          if (held > 0) awayNotified.set(app.app, held);
+          params = { held, back: true };
+        }
         const recorded = await ctx.noticeRecorder({
           kind: "app_sync_away",
           app: app.app,
           key: "app_sync_away",
-          params: { held },
+          params,
         });
         if (!recorded.ok) log("away_notice_failed", recorded.error.message);
+      }
+
+      // 사람이 막힘을 풀었다(held를 풀거나 남의 writer를 보고 다시 켬): 물러남을 지우고 바로 내보낸다. 물러남은 1시간까지
+      // 자라 그대로 두면 사람이 푼 뒤에도 그만큼 기다린다.
+      function exportNow(id: Id<"app">) {
+        const lane = lanes.get(`export:${id}`);
+        if (lane !== undefined) {
+          lane.attempts = 0;
+          lane.notBefore = 0;
+        }
+        kick(`export:${id}`, () => exportApp(id));
       }
 
       function scheduleExport(id: Id<"app">) {
@@ -789,6 +827,7 @@ export const folderWiring: WiringFactory = () => {
                 machine: row.machine,
                 device: row.device,
                 hlc: row.hlc,
+                made_here: heldInData(row),
                 changes: (await heldChanges(row)).map(({ table, op, at }) => ({
                   table,
                   op,
@@ -803,7 +842,10 @@ export const folderWiring: WiringFactory = () => {
         }
         if (action === "discard") {
           const discarded = ports.held.discard(app, seq);
-          return discarded.ok ? ok({}) : discarded;
+          if (!discarded.ok) return discarded;
+          // 알림의 held 수와 snapshot을 막던 held가 바뀌었다.
+          exportNow(app);
+          return ok({ note: discarded.value.note });
         }
         const actor = parseActor(auth.actor);
         let caller;
@@ -821,7 +863,7 @@ export const folderWiring: WiringFactory = () => {
         }
         const applied = await ports.held.apply(app, seq, caller as never);
         if (!applied.ok) return applied;
-        scheduleExport(app);
+        exportNow(app);
         return ok({ invocation: applied.value.invocation });
       }
 
@@ -838,7 +880,7 @@ export const folderWiring: WiringFactory = () => {
           return ok(undefined);
         });
         if (!cleared.ok) return Promise.resolve(cleared);
-        kick(`export:${app.app}`, () => exportApp(app.app));
+        exportNow(app.app);
         return Promise.resolve(ok({ resumed: true }));
       }
 

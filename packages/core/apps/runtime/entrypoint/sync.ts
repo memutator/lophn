@@ -34,7 +34,16 @@ import {
   type NodeDatabase,
   nodeSyncDb,
 } from "../../../../protocol/apps/sync/node-db.ts";
-import { ident } from "../../../../protocol/apps/sync/sql.ts";
+import {
+  readChangeset,
+  rowChangeset,
+} from "../../../../protocol/apps/sync/changeset.ts";
+import {
+  hiddenTable,
+  ident,
+  readRow,
+  tableShape,
+} from "../../../../protocol/apps/sync/sql.ts";
 
 /** 선언의 `runs_on`에 `"phone"`이 있으면 폰에도 도는 앱이다. 없으면 `["computer"]`와 같다. */
 export function runsOnPhone(declaration: AppDeclaration): boolean {
@@ -331,6 +340,74 @@ export function applyAsLocalWrite(
     rollback(sync.db);
     throw error;
   }
+}
+
+/**
+ * 이 기계가 낸 변경 가운데 horizon 밖이라 내보내지 않고 held로 둔 것을 사람의 apply로 내보내기에 돌려보낸다. 그 변경은 이미
+ * 이 DB에 있어 다시 적용하지 않는다(다시 넣으면 있는 row와 부딪는다). 그 변경이 건드린 row·칸의 지금 값을 이 기계의 새
+ * clock으로 찍고 그 changeset을 돌려준다: insert는 row 전부, update는 그 칸, delete는 아직 없는 row의 delete다. 그 사이
+ * 사라졌거나 되살아난 row는 뒤의 변경이 맡으니 뺀다. 옛 clock 그대로 보내면 받는 쪽 horizon의 그물에 다시 걸린다.
+ * data는 바뀌지 않는다. 표가 맞지 않으면 아무것도 찍지 않고 conflict다.
+ */
+export function releaseLocalChange(
+  sync: SyncStore,
+  changeset: Uint8Array,
+): Result<{ changeset: Uint8Array | null; hlc: bigint | null }> {
+  const read = readChangeset(changeset);
+  if (!read.ok) return read;
+  const db = sync.db;
+  return inTransaction(db, () => {
+    const pieces: Uint8Array[] = [];
+    for (const change of read.value) {
+      if (hiddenTable(change.table)) continue;
+      const shape = tableShape(db, change.table);
+      if (shape === null || shape.columns.length !== change.primaryKey.length) {
+        return err({
+          code: "conflict" as const,
+          message: `the held change no longer fits the table ${change.table}`,
+        });
+      }
+      const record = (change.op === "insert" ? change.new : change.old)!;
+      const key = shape.primaryKey.map((pk, i) => (pk ? record[i] : undefined));
+      const current = readRow(db, shape, key);
+      const order = db
+        .all(`pragma table_info(${ident(change.table)})`)
+        .map((row) => Number(row["pk"]));
+      if (change.op === "insert" && current !== null) {
+        pieces.push(
+          rowChangeset(change.table, order, {
+            op: "insert",
+            old: null,
+            new: current,
+          }),
+        );
+      } else if (change.op === "update" && current !== null) {
+        const cells = change.new!.map((value, i) =>
+          value !== undefined && !shape.primaryKey[i] ? current[i] : undefined,
+        );
+        if (cells.some((value) => value !== undefined)) {
+          pieces.push(
+            rowChangeset(change.table, order, {
+              op: "update",
+              old: key,
+              new: cells,
+            }),
+          );
+        }
+      } else if (change.op === "delete" && current === null) {
+        pieces.push(
+          rowChangeset(change.table, order, {
+            op: "delete",
+            old: change.old,
+            new: null,
+          }),
+        );
+      }
+    }
+    if (pieces.length === 0) return ok({ changeset: null, hlc: null });
+    const released = new Uint8Array(Buffer.concat(pieces));
+    return ok({ changeset: released, hlc: stamp(sync, released) });
+  });
 }
 
 /**

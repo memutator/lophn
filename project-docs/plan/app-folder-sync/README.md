@@ -4,7 +4,7 @@
 - 재료: `reports/multi-machine/program.md`(계획 사이 경계, 정한 정책. roadmap과 다르면 이것), `project-docs/products/roadmap/multi-machine.md`, 코드 조사 `reports/multi-machine/code-survey.md`(D, E, G, A와 끝의 표), harness 비교 `/home/pyosechang/projects/harness-lab/_report/multi-device/comparison.md`(6, 7, 8, 12, 14절)와 같은 폴더의 `omp.md` §6.1, `hermes.md` §7.2–7.3, `happy.md` §6.3, `mixdog.md` §6.2·§7, `others.md` §7.4·§10.3–10.4, `project-docs/architecture/{app-sync,app-call,activation}.md`, 바탕 계획 `project-docs/plan/machine-identity/README.md`("다른 계획이 기대는 계약"), 이 계획을 지은 계획의 꼴 `project-docs/plan/mobile-local-apps/`(main에서 지워졌으면 git 기록).
 - 범위 밖(가는 계획):
   - 새 release를 저절로 따라가기, held 변경을 release가 바뀐 뒤 적용하기, "이 기계에서 앱을 올려야 한다" 상태, lophn 판 범위: `machine-update`.
-  - OS service 등록, 늘 켜 둠의 값, 예약 작업의 주인 기계: `always-on`. 이 계획은 기계 기록의 `always_on`을 null로 낸다.
+  - OS service 등록, 늘 켜 둠의 값, 예약 작업의 주인 기계: `always-on`. 기계 기록의 `always_on`은 그 계획의 `ctx.alwaysOn.status()`를 옮겨 싣는다(계약 6).
   - desktop이 다른 기계를 보기, 기계 고르기: `desktop-remote`.
   - project의 기계를 넘는 신분: `project-identity`.
   - agent 정의, skill, 설정, 자격을 맞추기: 하지 않는다(program 13, 16).
@@ -41,7 +41,7 @@
 - SDK 사본은 따로 싣지 않는다. 봉인한 bundle이 그 판의 SDK를 이미 담는다. 받는 기계의 lophn에 없는 SDK 판을 고정한 release는 `conflict`("이 기계의 lophn을 올려라")다: 폴더에서 온 code가 그 기계의 SDK 저장소에 들어가지 않는다 (planner).
 - source는 기계마다 증분 git bundle이다. 받는 쪽은 `refs/remotes/<mch>/*`로 fetch만 하고 합치지 않는다. 처음 받을 때만 그 release의 commit을 `main`으로 둔다. 폴더 안에 bare 저장소를 두지 않는다 (planner, 사람 roadmap).
 - 기계 기록은 id, 이름, always_on, 주소(remote가 켜졌을 때 LAN 주소·port·relay), lophn 판과 폴더 꼴 판 범위다. 공개 key, pairing code, binding, 자격은 싣지 않는다. pairing은 사람이 한다 (planner, program, machine-update 요청).
-- 이름이 겹친 기계는 목록에 `이름 (id 앞 6자)`로 보인다. 이름의 유일성은 강제하지 않는다 (planner, machine-identity가 넘김).
+- 이름이 겹친 기계는 목록에 `이름 (id 끝 6자)`로 보인다. id 앞쪽은 만든 시각(ULID)이라 겹친다. 이름의 유일성은 강제하지 않는다 (planner, machine-identity가 넘김).
 - 읽기 명령의 뼈대는 이 계획이 갖고, 뒤 계획은 등록한 함수 하나로 이름 붙은 section을 채운다(계약 7). 뒤 계획이 명령의 code를 고치지 않는다 (planner).
 - 기계를 사람이 목록에서 지우면(`machine/forget`) 그 기계는 흔적 정리를 붙잡지 않는다. 그 기계가 다시 기록을 쓰면 목록에 돌아오고 자기가 horizon 밖인지 스스로 안다 (planner).
 - 계기: 내보내기는 sync log가 바뀐 뒤 5초 debounce와 5분 timer, 읽기는 destination의 `machines/` 감시(2초 debounce)와 2분 timer. (앱, destination)·(앱, 출처 기계)마다 한 번에 하나, 한 번에 64 MiB까지, 실패한 stream은 1분부터 두 배씩 1시간까지 물러난다. 실시간이 아니다 (planner).
@@ -89,7 +89,7 @@
    - 뜻: 적용하지 않았고 잃지 않았다. 이 계획은 held를 적용하지도 지우지도 않는다(그 앱을 이 기계에서 지울 때만 지운다). `machine-update`가 이 기계의 활성 release가 `bundle_hash`가 된 뒤(또는 다시 표현해서) (origin, n) 순서로 같은 적용 길(`FolderApply`)로 적용하고 성공한 행과 file을 지운다. `machine` 칸이 지금 기계 id와 다른 행은 없는 것으로 본다.
 5. **destination.** 설정 `folder.destinations`(`<root>/settings.json`, 기계마다): `{ "<이름>": { "path": "<절대 경로>" } }`, 이름 `^[a-z][a-z0-9-]{0,31}$`, 16개까지. 거절: 상대 경로, data root 안의 경로, data root를 품은 경로, 다른 이름과 같거나 서로 안에 있는 경로. 앱은 선언 `sync_to`로 이름만 고른다. 이 기계에 그 이름이 없으면 그 앱은 이 기계에서 내보내지도 읽지도 않는다.
    - 바꾸기는 사람만 한다. 사람 자격(Settings, 사람의 터미널)은 그대로 쓴다. agent 자격은 요청만 한다: 설정 선언의 새 칸 `approval: "person"`(과 바뀜을 사람의 말로 쓰는 `describe(before, after) → string[]`)이 붙은 key를 agent가 바꾸거나 지우면, `lophn settings set|unset`이 Gate에 `{ kind: "setting", key, lines }`를 묻고 지금 있는 승인 카드(turn 안 request, 대기 목록, 폰 포함)가 `lines`를 보인다(예: `Add sync folder "personal": /home/me/Sync/lophn`, `Remove sync folder "work" (/mnt/nas/lophn)`). 고르기는 once와 reject뿐이다(always 없음). 판정: attended와 skip은 `ask`, unattended와 팀 자식은 `deny`. 허락되면 settings update가 그 request id를 싣고, core는 같은 turn에서 허락된, 같은 key와 같은 값의 request 하나에만 한 번 받는다. 그 밖의 agent 쓰기는 `rejected: needs_approval`이다.
-6. **기계 기록** `record.json`: `{ format: 1, machine, revision, updated_at, name, always_on: { keep_running, starts_at_login, keep_awake } | null, addresses: { lan: string[], port: int | null, relay: string | null }, lophn: { version, protocol: { version, min_version }, folder: { version, min_version } } }`. `lophn.folder`는 이 기계가 쓰는 꼴 판과 읽는 하한이다. 읽는 쪽은 상대의 `folder.min_version`이 자기 판보다 크면 그 기계의 file을 읽지 않고(`newer_format`, "이 기계를 올려라") 아무것도 지우지 않는다. destination마다 하나씩 쓴다. 주소는 `remote.enabled`일 때만 싣고 아니면 빈 목록과 null. `always-on`은 folder wiring에 주는 `alwaysOn(): { keep_running, starts_at_login, keep_awake } | null` 하나를 `ctx.alwaysOn.status()`로 채운다(이 계획은 null). 읽는 쪽은 기계마다 가장 큰 `revision`을 남기고, 한 기계의 기록을 읽다 실패하면 옛 사본을 그대로 둔다(한 번에 바꾸고 실패한 읽기로 지우지 않는다).
+6. **기계 기록** `record.json`: `{ format: 1, machine, revision, updated_at, name, always_on: { keep_running, starts_at_login, keep_awake } | null, addresses: { lan: string[], port: int | null, relay: string | null }, lophn: { version, protocol: { version, min_version }, folder: { version, min_version } } }`. `lophn.folder`는 이 기계가 쓰는 꼴 판과 읽는 하한이다. 읽는 쪽은 상대의 `folder.min_version`이 자기 판보다 크면 그 기계의 file을 읽지 않고(`newer_format`, "이 기계를 올려라") 아무것도 지우지 않는다. destination마다 하나씩 쓴다. 주소는 `remote.enabled`일 때만 싣고 아니면 빈 목록과 null. folder wiring의 `alwaysOn(): { keep_running, starts_at_login, keep_awake } | null`이 `ctx.alwaysOn.status()`를 옮긴다(always-on 계약 3: `starts_at_login`은 `start_at_login === "registered"`, `keep_awake`는 `keep_awake && awake === "held"`). 읽는 쪽은 기계마다 가장 큰 `revision`을 남기고, 한 기계의 기록을 읽다 실패하면 옛 사본을 그대로 둔다(한 번에 바꾸고 실패한 읽기로 지우지 않는다).
 7. **읽기 명령.** route `machine/environment`(read, actors `user`·`agent`)와 CLI `machine.environment`(workspaces `home`, `app`). 출력(모르는 칸을 무시하고 읽는다):
    ```
    { this_machine: { id, name },
@@ -97,7 +97,7 @@
      destinations: [{ name, path, state: "ok" | "missing" | "not_writable", machines: int }],
      apps: [{ app, name, sync_to: string | null, destination: "set" | "not_set_here" | null, release: bundle_hash | null,
               export: { exported_at, head, pending, error } | null,
-              imports: [{ machine, imported_at, cursor, waiting_for: int | null, held: int, error }],
+              imports: [{ machine, imported_at, cursor, waiting_for: int | null, held: int, owes_absent_pass: bool, error }],
               away: { since: ISO, held: int, changes: [{ table, op, at }] } | null,     계약 10
               sections }],
      available: [{ app, name, slug, machine, release: { bundle_hash, data_schema, created_at } | null }],
@@ -108,19 +108,19 @@
    clock_ahead의 details = { machine, machine_name, ahead_ms }, message는 "The clock of <name> is <n> minutes ahead"
    ```
    - **뒤 계획이 칸을 더하는 자리.** `sections`는 `{ <section 이름>: JSON }`이다. 뒤 계획은 명령의 code를 고치지 않고 자기 wiring에서 `ctx.folderEnvironment.register({ name, top?(): Promise<unknown>, machine?(id: Id<"mch">): Promise<unknown>, app?(app: Id<"app">): Promise<unknown> })`를 한 번 부른다. 함수가 던지거나 오래 걸리면(2초) 그 section만 `{ error }`가 되고 명령은 나머지를 돌려준다. 이름은 계획마다 하나다:
-     - `always-on`: `always_on`은 section이 아니라 위 `machines[].always_on`(이 기계는 `alwaysOn()`, 다른 기계는 기록)이다. 그 계획이 land되기 전에는 null이다.
+     - `always-on`: `always_on`은 section이 아니라 위 `machines[].always_on`(이 기계는 `alwaysOn()`, 다른 기계는 기록)이다. section은 등록하지 않는다.
      - `project-identity`: top section `projects` = `[{ project, identity, found, remote: { url } | null }]`.
      - `machine-update`: machine section `update` = `{ folder: { version, min_version } | null, exchange: "ok" | "update_this" | "update_peer" }`, app section `update` = `{ follow, held_detail, machines }`(그 계획의 계약 꼴).
      - `desktop-remote`: 넣는다면 top section `viewed_machines`(그 계획이 정한다).
-8. **sync log와 caller.** `app_sync_log.origin`에 `machine`, 새 칸 `machine`(origin이 machine일 때만), 같은 (machine, change_id)는 한 줄, `seq`와 다음 번호는 그대로다. 폴더에서 온 변경의 invocation caller는 `{ kind: "person", view_session: <주인 log seq>, machine: mch_… }`. `app_sync/pull`의 `origin`에 `machine`이 더해진다. `kind`에 `held`(계약 10. changeset blob과 출처를 쥐고 폰에 보내지 않고 내보내지 않는다)와 칸 `resolved_at`이 더해진다. 폰의 push에서 held가 된 변경은 `skipped`로 답한다(폰 code를 바꾸지 않는다).
+8. **sync log와 caller.** `app_sync_log.origin`에 `machine`, 새 칸 `machine`(origin이 machine일 때만), 같은 (machine, change_id)는 한 줄, `seq`와 다음 번호는 그대로다. 폴더에서 온 변경의 invocation caller는 `{ kind: "person", view_session: <주인 log seq>, machine: mch_… }`. `app_sync/pull`의 `origin`에 `machine`이 더해진다. `kind`에 `held`(계약 10. changeset blob과 출처를 쥐고 폰에 보내지 않고 내보내지 않는다)와 칸 `resolved_at`이 더해진다. 폰의 push에서 held가 된 변경은 `skipped`로 답한다(폰 code를 바꾸지 않는다). 다른 기계에서 온 일(snapshot 합치기, 결과 모르는 받은 변경)의 '다시 snapshot' 줄은 origin `machine`(칸 `machine`은 출처, `change_id`는 그 invocation)이다: 폰은 새 snapshot을 받고, 내보내기는 그 줄을 건너뛴다(그 data는 출처 기계가 이미 냈다. 건너뛰지 않으면 두 기계가 서로의 snapshot을 합칠 때마다 snapshot을 주고받는다).
 9. **ledger schema step(이 순서로, `machine-identity`의 `remote.devices.kind` 뒤에).** `apps.sync-log.machine`(표 다시 만들기), `folder.tables`(`folder_streams`, `folder_written`, `folder_reads`, `folder_held`, `folder_records`(`forgotten_at` 칸 포함)). data step은 없다.
 10. **흔적 정리와 horizon(90일).** 사람이 쓴 것은 정리 때문에 버려지지 않는다.
     - `settled`: 기계 M이 앱 A의 기록에 싣는 HLC. M의 그 앱 DB clock이 "내보낼 것이 없고(export `pending` 0) 읽는 모든 출처의 cursor가 그 출처 앱 기록의 `data.head`에 닿은" 마지막 때의 값이다. 뜻: M은 그 clock 이하의 자기 것을 다 냈고 남이 그때까지 낸 것을 다 받았다.
     - 알려진 기계: 이 기계가 A의 앱 기록을 가진 기계들. 사람이 `machine/forget`(사람만, 이 기계의 목록에서 지움)으로 지운 기계는 빠진다. 지운 기계가 더 큰 `revision`의 기록을 쓰면 다시 알려진 기계다.
     - 정리: 컴퓨터는 앱이 뜰 때와 하루에 한 번, clock이 `max(min(알려진 모든 기계와 자기의 settled), hlcAtMs(now − 90일))`보다 작은 tombstone만 지우고 `horizon`을 그 값으로 올려 기록에 싣는다. 모두가 지난 것이거나 90일보다 옛 것만 지운다는 뜻이다.
-    - horizon 밖: 기계 N은 자기 `settled`가 다른 기계 X의 `horizon`보다 작으면 A에 대해 horizon 밖이다(`away_too_long`). 그러면 N은 (a) X를 snapshot으로 따라온다: 합치기는 X의 horizon 이하 clock만 가진 N의 row 가운데 X의 snapshot에 없고 N의 held가 건드리지 않는 것을 지운다(그 사이 다른 곳에서 지워지고 흔적이 정리된 row). 이 지우기는 X의 기록의 `read[N].n`이 N의 `data.head`에 닿은 뒤에만 한다: X가 N이 낸 것을 다 받았어야 "X에 없음"이 "지워짐"이다. 닿기 전에는 지우지 않고 기다린다. (b) 아직 내보내지 않은 자기 변경 가운데 clock이 X의 horizon 이하인 것은 내보내지 않고 자기 sync log의 `held` 줄로 남긴다(다른 기계에 적용하지 않고 지우지 않는다). (c) 그 앱의 상태와 사람의 알림이 "<앱>이 이 컴퓨터에서 너무 오래 떨어져 있었다, 변경 N개가 held다"를 말한다.
+    - horizon 밖: 기계 N은 자기 `settled`가 다른 기계 X의 `horizon`보다 작으면 A에 대해 horizon 밖이다(`away_too_long`). 그러면 N은 (a) X를 snapshot으로 따라온다: 합치기는 X의 horizon 이하 clock만 가진 N의 row 가운데 X의 snapshot에 없고 N의 held가 건드리지 않는 것을 지운다(그 사이 다른 곳에서 지워지고 흔적이 정리된 row). 이 지우기는 X의 기록의 `read[N].n`이 N의 `data.head`에 닿은 뒤에만 한다: X가 N이 낸 것을 다 받았어야 "X에 없음"이 "지워짐"이다. 닿기 전에는 지우지 않고 기다린다. (b) 아직 내보내지 않은 자기 변경 가운데 clock이 X의 horizon 이하인 것은 내보내지 않고 자기 sync log의 그 줄을 그 자리에서 `held`로 바꾼다(다른 기계에 적용하지 않고 지우지 않는다). 그 변경은 이 기계의 앱 DB에 그대로 있어 snapshot에 실리므로, 이렇게 held인 자기 변경이 하나라도 풀리지 않았으면 snapshot을 쓰지 않는다: 30일 compaction snapshot은 미루고, snapshot 없이 이을 수 없는 stream(첫 file, release가 바뀜, bytes로 남지 못한 자기 변경)은 `away_too_long`으로 멈춰 사람이 풀기를 기다린다. snapshot 앞에는 그 seq까지의 줄에 먼저 이 규칙을 건다. (c) 그 앱의 상태와 사람의 알림이 "<앱>이 이 컴퓨터에서 너무 오래 떨어져 있었다, 변경 N개가 held다"를 말한다.
     - 받는 쪽의 그물: clock이 자기 `horizon` 이하인 변경이 row도 흔적도 없는 row를 만들거나 지우려 하면 적용하지 않고 `held` 줄로 남긴다(폰에서 온 것도 같다).
-    - 풀기: `apps/sync_held`(사람과 그 앱의 agent): 목록, `apply`(그 변경을 지금 clock의 이 기계 write로 다시 적용해 보통처럼 내보낸다: 사람의 다시 정함), `discard`(사람이나 agent가 고른 버림. `resolved_at`을 적고 bytes는 기록에 남는다). 저절로 풀리지 않는다.
+    - 풀기: `apps/sync_held`(사람과 그 앱의 agent): 목록, `apply`(그 변경을 지금 clock의 이 기계 write로 보통처럼 내보낸다: 사람의 다시 정함. 받은 변경은 다시 적용하고, 이 기계가 낸 변경은 이미 data에 있어 다시 적용하지 않고 건드린 row·칸의 지금 값을 새 clock으로 찍어 내보낸다), `discard`(사람이나 agent가 고른 버림. `resolved_at`을 적고 bytes는 기록에 남는다. 이 기계가 낸 변경은 이 기계의 data에 남고 변경으로는 나가지 않는다. 뒤에 이 기계가 snapshot을 쓰면 그 지금 값이 실린다). 저절로 풀리지 않는다.
 
 
 ## 계약 바꾸기 요청

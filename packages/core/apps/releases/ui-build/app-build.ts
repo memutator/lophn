@@ -49,9 +49,14 @@ const root = process.argv[2];
 if (root === undefined) throw new Error("build argument is missing");
 const base = await realpath(root);
 const screens: { key: string; files: string[] }[] = [];
-for (const entry of await readdir(join(base, "src/screens"), {
+// 화면 없는 앱(tool만 내는 `["computer"]` 앱)에는 src/screens가 없다.
+const screenDirs = await readdir(join(base, "src/screens"), {
   withFileTypes: true,
-})) {
+}).catch((thrown: unknown) => {
+  if ((thrown as { code?: unknown } | null)?.code === "ENOENT") return [];
+  throw thrown;
+});
+for (const entry of screenDirs) {
   if (entry.isDirectory() && SCREEN_KEY.test(entry.name)) {
     screens.push({
       key: entry.name,

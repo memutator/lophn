@@ -415,7 +415,7 @@ const syncHeld = defineCommand({
   name: "app.sync_held",
   summary: "List, apply or discard an app's held sync changes",
   description:
-    "Held changes are writes this machine did not apply and did not send, because they might undo a deletion that the other machines already cleaned up (this machine was away from them longer than 90 days, `away` in `lophn machine environment`). They are kept, not lost, until the person decides. list shows each held change: seq, where it came from, and the table, kind (insert, update, delete) and time of each row it touches. apply writes that change again now, as a new write on this machine that goes to the other machines like any write; it fails with conflict if it no longer fits the data. discard drops it without applying (the bytes stay in the record). Tell the person what each change is and let them choose before you apply or discard.",
+    "Held changes are writes lophn did not send to the person's other machines (and, if they came from another machine or the phone, did not apply here), because they might undo a deletion that the other machines already cleaned up (this machine was away from them longer than 90 days, `away` in `lophn machine environment`). They are kept, not lost, until the person decides. list shows each held change: seq, where it came from, made_here (made on this computer, so it is already in this computer's data and only the other machines lack it), and the table, kind (insert, update, delete) and time of each row it touches. apply makes it a new write of this machine now that goes to the other machines like any write: a change made here is sent with the current values of the rows it touched; a change from elsewhere is applied here first and fails with conflict if it no longer fits the data. discard resolves it without sending it: a change made here stays in this computer's data only (a later full copy of the app's data from this computer may still carry it), a change from elsewhere stays unapplied; note in the result says which. While changes made here are held, lophn cannot send a full copy of the app's data. Tell the person what each change is and let them choose before you apply or discard.",
   input: z.strictObject({
     app: idSchema("app"),
     action: z.enum(["list", "apply", "discard"]),
@@ -435,7 +435,9 @@ const syncHeld = defineCommand({
       summary:
         input.action === "list"
           ? countSummary("held changes", done.value.held?.length ?? 0, false)
-          : `${input.action === "apply" ? "applied" : "discarded"} held change ${input.seq}`,
+          : input.action === "apply"
+            ? `applied held change ${input.seq}`
+            : `discarded held change ${input.seq}: ${done.value.note ?? ""}`,
       content: done.value,
       arrayKeys: ["held"],
     });

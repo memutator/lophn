@@ -183,9 +183,12 @@ export function createAppCalls(deps: AppCallsDeps): {
         return forbidden("this credential calls previews only");
       }
     }
-    // 기기가 붙은 person은 폰 변경을 맞출 때 core만 만든다.
-    if (input.caller.kind === "person" && input.caller.device !== undefined) {
-      return forbidden("a call cannot claim a device");
+    // 기기나 다른 기계가 붙은 person은 맞춰진 변경을 적을 때 core만 만든다.
+    if (
+      input.caller.kind === "person" &&
+      (input.caller.device !== undefined || input.caller.machine !== undefined)
+    ) {
+      return forbidden("a call cannot claim a device or a machine");
     }
     const verified = verifyCaller(input, auth, {
       callers: deps.callers,

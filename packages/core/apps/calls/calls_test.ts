@@ -295,6 +295,21 @@ test("부른 쪽 종류가 credential과 다르거나 모르는 부모 invocatio
         { actor: "user" },
       ),
     ],
+    // 화면이 다른 기계에서 온 변경이라고 주장(그 invocation도 core만 만든다)
+    [
+      "person claims machine",
+      t.path.call(
+        {
+          ...person(a, "w.one"),
+          caller: {
+            kind: "person",
+            view_session: "v1",
+            machine: ids.newId("mch") as Id<"mch">,
+          },
+        },
+        { actor: "user" },
+      ),
+    ],
     // 사람·agent credential로 program이라고 주장, program 자격이 다른 job_run의 본문을 보냄
     [
       "person claims program",

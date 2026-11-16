@@ -558,6 +558,7 @@ test("요청은 그 앱의 preview view를 연 기기에만 가고, live view나
   const REL = id("rel", 1);
   const views = createAppViews({
     appStatus: () => ok("active" as const),
+    deviceKind: (owner) => (owner.startsWith("device:") ? "phone" : null),
     live: () => Promise.resolve(ok({ release: REL, process_nonce: "live" })),
     preview: () =>
       Promise.resolve(

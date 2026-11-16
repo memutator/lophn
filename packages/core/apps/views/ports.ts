@@ -20,6 +20,8 @@ export interface ReleaseView {
 }
 
 export interface AppViewsPorts {
+  /** 기기 owner(`device:<id>`)의 kind. 기기가 아닌 owner와 모르는 기기는 null. */
+  deviceKind(owner: string): "phone" | "desktop" | null;
   /** 앱이 없으면 null. */
   appStatus(app: string): Result<"active" | "archived" | null>;
   /** 지금 ready인 live process. 없거나 ready가 아니면 null. */

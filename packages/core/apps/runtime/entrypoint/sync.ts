@@ -15,6 +15,7 @@ import {
   ensureSyncTables,
   openClock,
   stampLocal,
+  setState,
   type SyncDb,
 } from "../../../../protocol/apps/sync/mod.ts";
 import {
@@ -113,14 +114,31 @@ export function forgetMovedColumns(db: SyncDb): void {
   }
 }
 
+// DB에 node를 처음 적은 기계의 id다. 컴퓨터만 쓴다(폰은 이 key를 모른다). 다른 기계에서 온 DB(복제된 data root)면 node를 새것으로
+// 바꾼다: 두 기계가 같은 node로 clock을 찍으면 서로의 변경을 같은 replica의 것으로 본다. 표지가 없는 DB는 이 판 전에 이 기계에서
+// 만든 것이라 지금 id를 적고 node를 지킨다(앱 DB는 앱 process가 열 때만 고칠 수 있어 data step으로 옮기지 않는다).
+function claimNode(db: SyncDb, machine: string, node: string): void {
+  const row = db.all(
+    "select value from lophn_sync_state where key = 'machine'",
+  )[0];
+  const before = row === undefined ? null : String(row["value"]);
+  if (before === machine) return;
+  if (before !== null) setState(db, "node", node);
+  db.run(
+    "insert into lophn_sync_state (key, value) values ('machine', ?) on conflict (key) do update set value = excluded.value",
+    [machine],
+  );
+}
+
 /**
- * sync 앱 process가 시작할 때 한 번. 숨은 표를 만들고(node는 처음 한 번만 적힌다), 칸이 바뀐 표의 column clock을
+ * sync 앱 process가 시작할 때 한 번. 숨은 표를 만들고(node는 처음 한 번만 적히고 다른 기계의 DB면 바뀐다), 칸이 바뀐 표의 column clock을
  * 지우고, 앱 시작(등록 code)이 DB를 바꿨으면 그 changeset을 찍는다. 시작 code는 transaction으로 감싸지 않아 그
  * 변경과 clock은 따로 commit된다. `startHlc`는 그 찍은 clock이다: ready 통보에 실어 core가 sync log에 남긴다.
  */
 export function openSyncStore(input: {
   database: NodeDatabase;
   node: string;
+  machine: string;
   record: Recorder;
   nowMs: () => number;
   startChangeset: Uint8Array | null;
@@ -134,6 +152,7 @@ export function openSyncStore(input: {
   };
   const startHlc = inTransaction(db, () => {
     ensureSyncTables(db, input.node);
+    claimNode(db, input.machine, input.node);
     forgetMovedColumns(db);
     return input.startChangeset === null
       ? null

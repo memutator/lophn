@@ -354,6 +354,8 @@ export const appsWiring: WiringFactory = () => {
       ctx.provide("appCallPath", path);
       // 앱 화면의 view 표(`app_views/*`). 메모리에만 있다. 앱 event와 다시 묶음은 `AppViewEvent`로 owner의 Gateway에 간다.
       views = createAppViews({
+        // remote wiring이 뒤에 채우는 `deviceKind`는 부를 때 읽는다.
+        deviceKind: (owner) => ctx.deviceKind(owner),
         appStatus(app) {
           const loaded = loadApp(link.sql, app);
           if (!loaded.ok) return loaded;

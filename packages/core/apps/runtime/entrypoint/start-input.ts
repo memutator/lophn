@@ -16,6 +16,7 @@ export type AppStart = {
   control_socket: string;
   data_path: string;
   broker_credential: string;
+  machine: string;
 };
 
 export function parseAppStart(line: string): AppStart | undefined {
@@ -40,6 +41,7 @@ export function parseAppStart(line: string): AppStart | undefined {
       "control_socket",
       "data_path",
       "broker_credential",
+      "machine",
     ])
   )
     return;
@@ -58,6 +60,7 @@ export function parseAppStart(line: string): AppStart | undefined {
   const control = endpoint(source.control_socket);
   const data = nonEmpty(source.data_path);
   const credential = nonEmpty(source.broker_credential);
+  const machine = id(source.machine, "mch");
   if (
     !app ||
     release === undefined ||
@@ -68,6 +71,7 @@ export function parseAppStart(line: string): AppStart | undefined {
     !control ||
     !data ||
     !credential ||
+    !machine ||
     (mode === "live" && release === null)
   )
     return;
@@ -81,5 +85,6 @@ export function parseAppStart(line: string): AppStart | undefined {
     control_socket: control,
     data_path: data,
     broker_credential: credential,
+    machine,
   };
 }

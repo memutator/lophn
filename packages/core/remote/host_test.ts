@@ -301,6 +301,7 @@ function setup() {
   const bus = createBus();
   const views = createAppViews({
     appStatus: () => ok("active"),
+    deviceKind: (owner) => (owner.startsWith("device:") ? "phone" : null),
     live: async () => ok({ release: viewRelease, process_nonce: "live" }),
     preview: async () => ok(null),
     release: () =>

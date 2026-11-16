@@ -35,6 +35,7 @@ import { ensureAppToolPort } from "./tool-port.ts";
 const ULID = "01j00000000000000000000000";
 const APP = `app_${ULID}`;
 const REL = `rel_${ULID}`;
+const MACHINE = `mch_${ULID}`;
 
 // 컴퓨터 app process의 앱 DB: cap-store가 연 연결 하나와 그 위의 sync store.
 function computer(schema: string, now: { ms: number }) {
@@ -47,6 +48,7 @@ function computer(schema: string, now: { ms: number }) {
     openSyncStore({
       database: store.database() as DatabaseSync,
       node: "computer",
+      machine: MACHINE,
       record: store,
       nowMs: () => now.ms,
       startChangeset: null,
@@ -313,4 +315,67 @@ test("column을 지운 migration 뒤 두 사본이 같은 줄을 고쳐도 같�
   assert.equal(computerDump, dumpData(fresh));
   assert.equal(computerDump, "# item\n'a'|'milk C'|'n P'");
   closeConnection(file);
+});
+
+// 지우면 복제한 data root의 두 기계가 같은 node로 clock을 찍어 서로의 변경을 같은 replica의 것으로 보고 건너뛴다.
+test("sync DB의 machine이 다르면 node가 새것이 되고, machine이 없으면 지금 id를 적고 node를 지킨다: 둘 다 data와 clock 표는 그대로다", async () => {
+  const now = { ms: 1000 };
+  const { file, raw, sync, store } = computer(
+    "create table item (id text primary key, title text)",
+    now,
+  );
+  await write(sync, raw, "insert into item values ('a', 'milk')");
+  const state = () => {
+    const db = readOnly(file);
+    const read = (sql: string) =>
+      db
+        .prepare(sql)
+        .all()
+        .map((row) => ({ ...row }));
+    const snapshot = {
+      sync: Object.fromEntries(
+        read("select key, value from lophn_sync_state")
+          .filter((row) =>
+            ["node", "machine", "hlc"].includes(String(row["key"])),
+          )
+          .map((row) => [row["key"], row["value"]]),
+      ),
+      data: read("select * from item"),
+      rows: read("select tbl, cast(hlc as text) as hlc from lophn_sync_row"),
+    };
+    db.close();
+    return snapshot;
+  };
+  const reopen = (machine: string, node: string) =>
+    openSyncStore({
+      database: store.database() as DatabaseSync,
+      node,
+      machine,
+      record: store,
+      nowMs: () => now.ms,
+      startChangeset: null,
+    });
+
+  // 같은 기계가 다시 열면 그대로다.
+  const first = state();
+  assert.equal(first.sync["machine"], MACHINE);
+  reopen(MACHINE, "nod_other");
+  assert.deepEqual(state(), first);
+
+  // 이 판 전에 만든 DB: machine 표지가 없다. node를 지키고 지금 id를 적는다.
+  raw.exec("delete from lophn_sync_state where key = 'machine'");
+  reopen(MACHINE, "nod_other");
+  assert.deepEqual(state(), first);
+
+  // 다른 기계에서 온 DB: node만 새것이 되고 clock과 data는 그대로다.
+  const other = `mch_${"1".repeat(26)}`;
+  reopen(other, "nod_fresh");
+  const moved = state();
+  assert.deepEqual(moved.sync, {
+    ...first.sync,
+    node: "nod_fresh",
+    machine: other,
+  });
+  assert.deepEqual(moved.data, first.data);
+  assert.deepEqual(moved.rows, first.rows);
 });

@@ -59,6 +59,8 @@ export const attentionWiring: WiringFactory = () => {
       const attention = createAttention({
         clock: ctx.clock,
         lookup,
+        // remote wiring이 뒤에 채우는 `deviceKind`는 부를 때 읽는다.
+        deviceKind: (principal) => ctx.deviceKind(principal),
         unseenChanged: (session) =>
           publishStateChanged(ctx.bus, ctx.clock.now(), [
             { name: "unseen", id: session },

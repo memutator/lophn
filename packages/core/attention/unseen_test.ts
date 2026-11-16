@@ -17,6 +17,8 @@ function setup(opened_by_app = false) {
       harness: null,
       opened_by_app,
     }),
+    deviceKind: (principal) =>
+      principal.startsWith("device:") ? "phone" : null,
     unseenChanged: (session) => changed.push(session),
   });
   const send = (type: string, payload: unknown = {}) =>

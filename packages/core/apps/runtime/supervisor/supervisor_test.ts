@@ -29,6 +29,7 @@ test("crash loop로 멈춘 앱은 사람이 다시 켜면 창을 비우고 다�
     environment: {},
     socketPaths: () => ({ broker: "b", control: "c" }),
     nonce: () => `nonce_${spawned}`,
+    machine: "mch_00000000000000000000000000",
     credential: () => "credential",
     wait: () => Promise.resolve(),
     probe: (_child, _control, desired) => ({

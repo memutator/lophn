@@ -21,10 +21,12 @@ export type { PushDevice, PushMessage, PushPrefs } from "./ports.ts";
 export function createAttention(deps: {
   clock: Clock;
   lookup: SessionLookup;
+  // 기기 principal의 kind. 보고를 받을 때 부른다(사람과 모르는 principal은 null).
+  deviceKind(principal: string): "phone" | "desktop" | null;
   // `unseen`이 서거나 꺼졌다.
   unseenChanged(session: string): void;
 }) {
-  const presence = createPresence(deps.clock);
+  const presence = createPresence(deps.clock, deps.deviceKind);
   const unseen = createUnseen({
     clock: deps.clock,
     presence: presence.table,

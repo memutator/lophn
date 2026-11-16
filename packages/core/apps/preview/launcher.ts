@@ -57,6 +57,8 @@ type PreviewChildIdentity = {
 type PreviewLauncherDeps = {
   clock: Clock;
   environment: AppEnvironment;
+  // 이 기계의 id. 앱 process 시작 줄에 실린다.
+  machine: string;
   // preview 자식의 두 socket. 같은 앱은 같은 자리를 쓴다(이전 자식 종료 확인 뒤에만 다시 쓴다).
   socketPaths: (app: string) => { broker: string; control: string };
   // 자식이 broker에 보이는 credential. 운영 앱 자식·supervisor의 credential이 아니다.
@@ -143,6 +145,7 @@ function startLine(input: {
   broker: string;
   control: string;
   credential: string;
+  machine: string;
 }): string {
   const line: AppProcessStartInput = {
     app: input.launch.app,
@@ -155,6 +158,7 @@ function startLine(input: {
     control_socket: input.control,
     data_path: input.launch.dataPath,
     broker_credential: input.credential,
+    machine: input.machine,
   };
   return JSON.stringify(line);
 }
@@ -260,6 +264,7 @@ export function createPreviewLauncher(
           broker: sockets.broker,
           control: sockets.control,
           credential,
+          machine: deps.machine,
         }),
         identity,
       });

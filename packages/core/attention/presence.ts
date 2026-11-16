@@ -7,33 +7,28 @@ export const DESKTOP_IDLE_LIMIT_MS = 120_000;
 
 export type PresenceReport = {
   at: number;
+  // 보고한 쪽이 kind phone인 기기다. 기기의 kind는 바뀌지 않으므로 보고를 받을 때 한 번 정한다.
+  phone: boolean;
   focused: boolean;
   idle_ms: number | null;
   looking: readonly string[];
 };
 export type PresenceTable = ReadonlyMap<string, PresenceReport>;
 
-export const isPhone = (reporter: string): boolean =>
-  reporter.startsWith("device:");
-
 // 앞에 있다: 폰은 앞에 보이는 것(focused), desktop은 focused이고 idle이 한도 아래다(idle을 모르면 아래로 본다).
-export function isPresent(
-  reporter: string,
-  report: PresenceReport,
-  now: number,
-): boolean {
+export function isPresent(report: PresenceReport, now: number): boolean {
   if (now - report.at >= PRESENCE_TTL_MS) return false;
   if (!report.focused) return false;
   return (
-    isPhone(reporter) ||
+    report.phone ||
     report.idle_ms === null ||
     report.idle_ms < DESKTOP_IDLE_LIMIT_MS
   );
 }
 
 export function anyDesktopPresent(table: PresenceTable, now: number): boolean {
-  for (const [reporter, report] of table) {
-    if (!isPhone(reporter) && isPresent(reporter, report, now)) return true;
+  for (const report of table.values()) {
+    if (!report.phone && isPresent(report, now)) return true;
   }
   return false;
 }
@@ -43,15 +38,16 @@ export function anyLooking(
   session: string,
   now: number,
 ): boolean {
-  for (const [reporter, report] of table) {
-    if (isPresent(reporter, report, now) && report.looking.includes(session)) {
-      return true;
-    }
+  for (const report of table.values()) {
+    if (isPresent(report, now) && report.looking.includes(session)) return true;
   }
   return false;
 }
 
-export function createPresence(clock: Clock) {
+export function createPresence(
+  clock: Clock,
+  deviceKind: (reporter: string) => "phone" | "desktop" | null,
+) {
   const table = new Map<string, PresenceReport>();
   return {
     table: table as PresenceTable,
@@ -65,6 +61,7 @@ export function createPresence(clock: Clock) {
     ): void {
       table.set(reporter, {
         at: clock.nowMs(),
+        phone: deviceKind(reporter) === "phone",
         focused: report.focused,
         idle_ms: report.idle_ms ?? null,
         looking: report.looking,
@@ -75,7 +72,7 @@ export function createPresence(clock: Clock) {
     },
     present(reporter: string): boolean {
       const report = table.get(reporter);
-      return report !== undefined && isPresent(reporter, report, clock.nowMs());
+      return report !== undefined && isPresent(report, clock.nowMs());
     },
   };
 }

@@ -40,7 +40,7 @@ files:
 
   - path: packages/core/attention/decide_test.ts
     covers: [push-send:not-needed]
-    note: "push를 어느 기기에 보낼지 정하는 표(앞에 있는 desktop, 90초가 지난 보고, idle 한도, 앞에 있는 폰은 자기에게만, 꺼진 설정 칸)와 to_parent·app이 연 session의 turn 끝이 계기가 되지 않는 규칙(판정 함수를 직접 부른다)"
+    note: "push를 어느 기기에 보낼지 정하는 표(앞에 있는 desktop, 90초가 지난 보고, idle 한도, 앞에 있는 폰은 자기에게만, kind desktop 기기의 보고는 desktop 규칙, 꺼진 설정 칸)와 to_parent·app이 연 session의 turn 끝이 계기가 되지 않는 규칙(판정 함수를 직접 부른다)"
 
   - path: packages/core/attention/message_test.ts
     covers: [push-send:sent]

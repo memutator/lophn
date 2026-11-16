@@ -73,6 +73,8 @@ export type SupervisorDeps = {
   // 앱마다 정해진 자리의 두 socket이다. 같은 앱은 같은 자리를 쓴다(이전 자식 종료 확인 뒤에만 다시 쓴다).
   socketPaths: (app: string) => { broker: string; control: string };
   nonce: () => string;
+  // 이 기계의 id. 앱 process 시작 줄에 실린다.
+  machine: string;
   // 자식마다 받는 broker credential이다. supervisor 자신의 machine credential을 자식에게
   // 주지 않는다. 발급이 거절되면 그 시작은 실패한다.
   credential: (request: {
@@ -248,6 +250,7 @@ function startLine(input: {
   broker: string;
   control: string;
   credential: string;
+  machine: string;
 }): string {
   const line: AppProcessStartInput = {
     app: input.desired.app,
@@ -259,6 +262,7 @@ function startLine(input: {
     control_socket: input.control,
     data_path: input.desired.dataPath,
     broker_credential: input.credential,
+    machine: input.machine,
   };
   return JSON.stringify(line);
 }
@@ -398,6 +402,7 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
         broker: sockets.broker,
         control: sockets.control,
         credential,
+        machine: deps.machine,
       }),
       identity,
     });

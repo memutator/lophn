@@ -73,6 +73,7 @@ function fakeWorld() {
   const calls: ToolCallInput[] = [];
   const published: { app: string; payload: AppViewEventPayload }[] = [];
   const ports: AppViewsPorts = {
+    deviceKind: (owner) => (owner.startsWith("device:") ? "phone" : null),
     appStatus: (app) =>
       ok(app === APP || app === OTHER_APP ? ("active" as const) : null),
     live: (app) =>

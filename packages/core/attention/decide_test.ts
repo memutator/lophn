@@ -29,6 +29,7 @@ const WHO = { title: "t", agent: "a", harness: null };
 const NEEDS_YOU: Cause = { kind: "approval", session: "ses_a", who: WHO };
 const report = (patch: Partial<PresenceReport> = {}): PresenceReport => ({
   at: NOW,
+  phone: false,
   focused: true,
   idle_ms: 0,
   looking: [],
@@ -77,9 +78,21 @@ test("오래된 보고와 idle이 한도를 넘은 보고는 막지 않는다", 
 test("앞에 있는 폰은 자기에게만 보내지 않는다", () => {
   const devices = [phone("one"), phone("two")];
   const sent = run(NEEDS_YOU, devices, {
-    "device:one": report({ idle_ms: null }),
+    "device:one": report({ phone: true, idle_ms: null }),
   });
   assert.deepEqual(sent, ["ExponentPushToken[two]"]);
+});
+
+test("kind desktop 기기의 보고는 desktop 규칙을 따른다", () => {
+  const devices = [phone("a")];
+  const desk = (patch: Partial<PresenceReport>) => ({
+    "device:desk": report(patch),
+  });
+  assert.equal(run(NEEDS_YOU, devices, desk({})).length, 0);
+  assert.equal(
+    run(NEEDS_YOU, devices, desk({ idle_ms: DESKTOP_IDLE_LIMIT_MS })).length,
+    1,
+  );
 });
 
 test("꺼진 설정 칸은 그 계기를 보내지 않는다", () => {

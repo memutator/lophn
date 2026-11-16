@@ -8,6 +8,7 @@ import process from "node:process";
 import { Writable } from "node:stream";
 import { createIdSource, systemClock } from "../../../base/mod.ts";
 import { encodeFrame } from "../../../protocol/base/mod.ts";
+import { readMachineIdSync } from "../../machine/mod.ts";
 import { createPreparationService } from "../../apps/releases/preparation.ts";
 import { procRssReader } from "../../apps/runtime/observations/memory.ts";
 import {
@@ -109,6 +110,11 @@ async function readBody(response: Response): Promise<unknown> {
   }
 }
 
+// core 기동이 이미 `machine.json`을 만들었다. 읽지 못하면 앱 시작 줄을 만들 수 없으므로 supervisor가 뜨지 않는다.
+if (dataRoot === undefined) throw new Error("LOPHN_HOME is not set");
+const machine = readMachineIdSync(dataRoot);
+if (!machine.ok) throw new Error(machine.error.message);
+
 const credential: { value: string } = { value: "" };
 
 // release 준비는 core가 data root(LOPHN_HOME)와 함께 띄우는 이 supervisor가 요청마다 자식으로 돌린다.
@@ -123,6 +129,7 @@ const preparation =
       );
 
 const assembled = assembleSupervisor({
+  machine: machine.value,
   ...(dataRoot === undefined ? {} : { dataRoot }),
   ...(preparation === undefined ? {} : { preparation }),
   // activation의 backup·migration·restore는 종료 확인 뒤 앱 전용 data worker가 한다.

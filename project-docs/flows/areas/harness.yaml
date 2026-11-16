@@ -486,7 +486,7 @@ flows:
       - packages/core/apps/views/mod.ts
     steps:
       - "host-preview-tab-open과 같은 검사: agent면 자기 session이 그 앱의 workspace인지 본다(아니면 앱이 있는지도 알리지 않고 not_found). 앱이 있는지 본다(없으면 not_found). 그 앱의 preview가 지금 돌고 있는지 본다(없으면 같은 conflict 문장)"
-      - "view 표에서 기기(device: owner)가 연, 묶여 있는 그 앱의 preview view를 찾는다. screen을 줬으면 그 화면의 것만 본다. live view와 shell owner의 view는 보지 않는다. 없으면 폰이 그 preview를 보이지 않는 것이라 열지 않고 unavailable(사람에게 폰에서 Preview from lophn을 열라고 부탁하라는 정한 문장)이다"
+      - "view 표에서 kind phone인 기기(device: owner)가 연, 묶여 있는 그 앱의 preview view를 찾는다. screen을 줬으면 그 화면의 것만 본다. live view와 shell owner, kind desktop 기기 owner의 view는 보지 않는다. 없으면 폰이 그 preview를 보이지 않는 것이라 열지 않고 unavailable(사람에게 폰에서 Preview from lophn을 열라고 부탁하라는 정한 문장)이다"
       - "앱마다 phone 탭은 하나다(single phone:<app>). 이미 있으면 그 탭 id를 돌려주고 주인이 새로 연 쪽이 되며 screen을 바꾼다. 없으면 core 탭 표에만 올린다. shell queue에는 아무 요청도 넣지 않는다. 탭은 기기·view를 쥐지 않는다"
     outcomes:
       - id: accepted
@@ -897,7 +897,7 @@ flows:
     steps:
       - "host-browser-inspect와 같이 주인을 대조한다(남의 탭·없는 탭은 같은 not_found 문장). shell이 붙어 있는지는 보지 않는다"
       - "navigate, evaluate, logs, wait --url, act hover·select·fill_login, Enter 밖의 press는 폰에 묻지 않고 invalid_input(phone 탭이 되는 것을 적은 정한 문장)이다"
-      - "부를 때마다 view 표에서 기기가 연 그 앱의 preview view(탭에 screen이 있으면 그 화면의 것) 가운데 가장 최근 쓴 것을 고른다. 없으면 폰에 묻지 않고 unavailable(notShowing)이다. read는 여기서 폰에 묻지 않고 {url: phone://<app>/<screen>, title: <screen>, loading: false}를 돌려준다"
+      - "부를 때마다 view 표에서 kind phone인 기기가 연 그 앱의 preview view(탭에 screen이 있으면 그 화면의 것) 가운데 가장 최근 쓴 것을 고른다. 없으면 폰에 묻지 않고 unavailable(notShowing)이다. read는 여기서 폰에 묻지 않고 {url: phone://<app>/<screen>, title: <screen>, loading: false}를 돌려준다"
       - "act는 마지막 snapshot이 지금 고른 view(같은 기기, 같은 view id)의 것이고 ref가 그 표에 있어야 한다. 아니면 폰에 묻지 않고 conflict(staleRef)다"
       - "그 기기에 ctx.phoneLink.call로 drive.snapshot·act·screenshot·wait를 묻는다. 입력에 view와 by(session agent의 보이는 이름, 사람 token이면 Someone on your computer)를 싣고, act에는 마지막 snapshot id와 node를 싣는다. deadline은 kind의 값, wait는 timeout_ms+5초다. 답은 kind의 output schema로 검사한다"
       - "snapshot은 탭마다 늘기만 하는 counter로 node마다 eN ref를 매기고 첫 줄 `screen <key> <w>x<h>dp`, 줄마다 desktop과 같은 말에 flag를 더해 쓴다(60000자에서 자르고 [truncated]). 그 ref 표가 탭의 마지막 표가 된다. screenshot은 기본 JPEG이고 media_type은 폰이 준 값이다. wait는 found가 false면 desktop wait와 같은 unavailable 문장이다. act·wait는 read와 같은 url·title을 돌려준다. snapshot 글과 url·title은 caller에 가기 전에 known-value redaction을 거친다(알려진 값을 아직 다 모르면 unavailable)"

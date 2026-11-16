@@ -111,6 +111,7 @@ function computer() {
   state.sync = openSyncStore({
     database: store.database() as DatabaseSync,
     node: "computer",
+    machine: "mch_00000000000000000000000000",
     record: store,
     nowMs: () => clock.nowMs(),
     startChangeset: null,

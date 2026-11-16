@@ -129,6 +129,8 @@ type Spawned = {
 type SupervisorIo = {
   // 없으면 app log를 file로 쓰지 않는다(data root 없는 조립).
   dataRoot?: string;
+  // 이 기계의 id(`machine.json`). 앱 process 시작 줄에 실린다.
+  machine: string;
   clock: Clock;
   ids: IdSource;
   environment: AppEnvironment;
@@ -680,6 +682,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     environment: io.environment,
     socketPaths: io.socketPaths,
     nonce: io.nonce,
+    machine: io.machine,
     credential: requestCredential,
     startChangeset: (processNonce) => startChangesets.get(processNonce),
     async spawn(request) {
@@ -802,6 +805,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
   const previews = createPreviewLauncher({
     clock: io.clock,
     environment: io.environment,
+    machine: io.machine,
     socketPaths: (app) => io.socketPaths(`preview:${app}`),
     credential: () => {
       const bytes = crypto.getRandomValues(new Uint8Array(32));

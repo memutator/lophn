@@ -23,9 +23,7 @@ export function decide(input: {
     if (!device.prefs[setting]) continue;
     // 그 폰을 사람이 지금 보고 있으면 그 폰에는 보내지 않는다(다른 기기에는 보낸다).
     const own = presence.get(`device:${device.id}`);
-    if (own !== undefined && isPresent(`device:${device.id}`, own, now)) {
-      continue;
-    }
+    if (own !== undefined && isPresent(own, now)) continue;
     if (device.prefs.quiet_when_present && desktopPresent) continue;
     messages.push(buildMessage(cause, device, input.host));
   }

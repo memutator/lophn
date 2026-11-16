@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { appIdSchema } from "../../projects/values.ts";
+import { machineIdSchema } from "../../machine/mod.ts";
 import { appStartInputSchema } from "../app-start.ts";
 import {
   invocationIdSchema,
@@ -134,6 +135,8 @@ const appProcessStartInputSchema = z
   .strictObject({
     ...kept,
     control_socket: direct_socket,
+    // 이 기계의 id. sync 앱 DB의 node가 어느 기계에서 만든 것인지 가리는 데 쓴다.
+    machine: machineIdSchema,
   })
   .refine((value) => value.mode !== "live" || value.release !== null, {
     message: "live start needs a release",

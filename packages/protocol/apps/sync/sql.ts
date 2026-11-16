@@ -61,25 +61,20 @@ export function keyWhere(
   return parts.join(" and ");
 }
 
-// row 하나를 값의 storage class 그대로 읽는다. INTEGER는 text로 받아 bigint로 바꾼다(driver마다 number·bigint가 다르다).
-export function readRow(
-  db: SyncDb,
-  shape: TableShape,
-  key: readonly ChangesetCell[],
-): ChangesetValue[] | null {
-  const select = shape.columns
+// 값을 storage class 그대로 읽는 select 목록. INTEGER는 text로 받아 bigint로 바꾼다(driver마다 number·bigint가 다르다).
+function typedColumns(shape: TableShape): string {
+  return shape.columns
     .map((column, i) => {
       const c = ident(column);
       return `typeof(${c}) as "t${i}", case typeof(${c}) when 'integer' then cast(${c} as text) else ${c} end as "v${i}"`;
     })
     .join(", ");
-  const params: SqlParam[] = [];
-  const where = keyWhere(shape, key, params);
-  const row = db.all(
-    `select ${select} from ${ident(shape.table)} where ${where}`,
-    params,
-  )[0];
-  if (row === undefined) return null;
+}
+
+function typedValues(
+  shape: TableShape,
+  row: Record<string, unknown>,
+): ChangesetValue[] {
   return shape.columns.map((_, i) => {
     const type = row[`t${i}`];
     const value = row[`v${i}`];
@@ -89,4 +84,32 @@ export function readRow(
     if (type === "text") return String(value);
     return value as Uint8Array;
   });
+}
+
+export function readRow(
+  db: SyncDb,
+  shape: TableShape,
+  key: readonly ChangesetCell[],
+): ChangesetValue[] | null {
+  const params: SqlParam[] = [];
+  const where = keyWhere(shape, key, params);
+  const row = db.all(
+    `select ${typedColumns(shape)} from ${ident(shape.table)} where ${where}`,
+    params,
+  )[0];
+  return row === undefined ? null : typedValues(shape, row);
+}
+
+export function readRows(db: SyncDb, shape: TableShape): ChangesetValue[][] {
+  return db
+    .all(`select ${typedColumns(shape)} from ${ident(shape.table)}`)
+    .map((row) => typedValues(shape, row));
+}
+
+// 앱 표 이름(숨은 표 빼고) 이름 순.
+export function userTables(db: SyncDb): string[] {
+  return db
+    .all("select name from sqlite_master where type = 'table' order by name")
+    .map((row) => String(row["name"]))
+    .filter((name) => !hiddenTable(name));
 }

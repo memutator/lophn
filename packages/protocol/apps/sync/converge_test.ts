@@ -2,15 +2,20 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 
+import { encodePk } from "./changeset.ts";
 import {
   adoptSnapshot,
   applyIncoming,
   applyRemote,
   type Clock,
+  clockAhead,
+  decodePk,
   dumpClocks,
   dumpData,
   ensureSyncTables,
+  hlcAtMs,
   type IncomingChange,
+  msOfHlc,
   openClock,
   readOutbox,
   type SyncDb,
@@ -384,3 +389,40 @@ for (const c of CASES) {
     if (c.expect) assert.ok(data[0]!.split("\n").includes(c.expect), data[0]);
   });
 }
+
+test("clock keeps rising when the wall clock goes back", () => {
+  const db = nodeSyncDb(new DatabaseSync(":memory:"));
+  ensureSyncTables(db, "computer");
+  const first = openClock(db).next(5000);
+  const second = openClock(db).next(1000);
+  const third = openClock(db).next(1000);
+  assert.ok(first < second && second < third);
+  assert.ok(msOfHlc(third) >= 5000);
+
+  const now = 1_800_000_000_000;
+  const minute = 60_000;
+  assert.equal(msOfHlc(hlcAtMs(now)), now);
+  assert.equal(
+    clockAhead(hlcAtMs(now + 10 * minute), now, 5 * minute),
+    10 * minute,
+  );
+  assert.equal(clockAhead(hlcAtMs(now + 4 * minute), now, 5 * minute), 0);
+});
+
+test("decodePk reverses encodePk", () => {
+  const keys = [
+    [BigInt("-9223372036854775808")],
+    [BigInt("9223372036854775807"), BigInt(0), BigInt(-1)],
+    [2.5, -1e308, 0.1],
+    ["", "한글 ✓ 😀", "x".repeat(300)],
+    [new Uint8Array([0, 255]), new Uint8Array(0), new Uint8Array(200)],
+    [BigInt(7), 1.25, "mixed", new Uint8Array([1])],
+  ];
+  for (const key of keys) {
+    const blob = encodePk(
+      key,
+      key.map(() => true),
+    );
+    assert.deepEqual(decodePk(blob), key);
+  }
+});

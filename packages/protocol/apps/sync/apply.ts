@@ -8,6 +8,7 @@ import {
 } from "./changeset.ts";
 import type { Clock } from "./clock.ts";
 import type { SqlParam, SyncDb } from "./db.ts";
+import { type ShapedChange, touchesClearedRow } from "./horizon.ts";
 import { stampOutbox } from "./local.ts";
 import {
   hiddenTable,
@@ -31,6 +32,8 @@ export type ApplyStats = {
   // 무엇이든 바꾼(data나 clock) row change 수와 규칙에 져서 버린 수.
   applied: number;
   skipped: number;
+  // 정리된 흔적과 부딪을 수 있어 적용하지 않은 변경의 입력 안 순번. 버린 것이 아니다: 부르는 쪽이 held로 남긴다.
+  held: number[];
 };
 
 // 엄격히 크다: 같은 변경을 두 번 적용해도 그대로다.
@@ -117,6 +120,51 @@ function sameShape(shape: TableShape, change: ChangesetChange): boolean {
   );
 }
 
+// 변경 하나의 row change를 표 모양과 짝짓는다. 표나 칸이 이 DB와 맞지 않으면(다른 release의 변경) conflict.
+function shapeChanges(
+  db: SyncDb,
+  changeset: Uint8Array,
+  shapes: Map<string, TableShape | null>,
+): Result<ShapedChange[]> {
+  const read = readChangeset(changeset);
+  if (!read.ok) return read;
+  const out: ShapedChange[] = [];
+  for (const change of read.value) {
+    if (hiddenTable(change.table)) continue;
+    if (!shapes.has(change.table)) {
+      shapes.set(change.table, tableShape(db, change.table));
+    }
+    const shape = shapes.get(change.table)!;
+    if (shape === null || !sameShape(shape, change)) {
+      return err({
+        code: "conflict",
+        message: `change does not match this database: ${change.table}`,
+        details: { table: change.table },
+      });
+    }
+    out.push({ shape, change });
+  }
+  return ok(out);
+}
+
+export function requireForeignKeysOff(db: SyncDb): void {
+  const fk = db.all("pragma foreign_keys")[0];
+  if (fk !== undefined && Number(fk["foreign_keys"]) !== 0) {
+    throw new Error("turn foreign_keys off before applying remote changes");
+  }
+}
+
+/**
+ * 그대로 적용하면 정리된 흔적과 부딪을 수 있는 변경인가: row change 가운데 하나라도 clock이 horizon 이하이고 그
+ * row에 행도 clock 줄도 없다(지워진 row가 되살아나거나 흔적 없이 지워질 수 있다). `applyRemote`는 이런 변경을
+ * 적용하지 않고 held로 돌려준다. horizon이 없으면(폰) 늘 false다. 깨졌거나 이 DB와 맞지 않는 변경도 false다
+ * (`applyRemote`가 오류로 알린다).
+ */
+export function unsafePastHorizon(db: SyncDb, change: IncomingChange): boolean {
+  const shaped = shapeChanges(db, change.changeset, new Map());
+  return shaped.ok && touchesClearedRow(db, shaped.value, change.hlc);
+}
+
 /**
  * 들어온 변경을 순서대로 규칙에 맞춰 만든 SQL로 적용한다(`applyChangeset`을 쓰지 않는다).
  *
@@ -124,6 +172,8 @@ function sameShape(shape: TableShape, change: ChangesetChange): boolean {
  * (SQLite는 transaction 안에서 foreign_keys를 바꾸지 못하고, cascade가 clock 없는 변경을 만들면 사본이 갈린다).
  * 컴퓨터 runtime은 같은 transaction 안에서 session으로 effective changeset을 뜬다.
  * 폰은 이것 대신 `applyIncoming`을 부른다(찍기가 먼저다).
+ *
+ * 변경 하나는 통째로 적용되거나 통째로 held다(`unsafePastHorizon`을 먼저 보고 적용한다).
  *
  * 오류면 이미 적용한 것이 있으니 부르는 쪽이 rollback한다: changeset이 깨졌으면 invalid_input, 표나 칸이 이 DB와
  * 맞지 않으면(다른 release의 변경) conflict. SQL 오류는 던진다.
@@ -133,29 +183,19 @@ export function applyRemote(
   changes: readonly IncomingChange[],
   clock: Clock,
 ): Result<ApplyStats> {
-  const fk = db.all("pragma foreign_keys")[0];
-  if (fk !== undefined && Number(fk["foreign_keys"]) !== 0) {
-    throw new Error("turn foreign_keys off before applying remote changes");
-  }
-  const stats: ApplyStats = { applied: 0, skipped: 0 };
+  requireForeignKeysOff(db);
+  const stats: ApplyStats = { applied: 0, skipped: 0, held: [] };
   const shapes = new Map<string, TableShape | null>();
-  for (const incoming of changes) {
+  for (let index = 0; index < changes.length; index++) {
+    const incoming = changes[index]!;
     clock.observe(incoming.hlc);
-    const read = readChangeset(incoming.changeset);
-    if (!read.ok) return read;
-    for (const change of read.value) {
-      if (hiddenTable(change.table)) continue;
-      if (!shapes.has(change.table)) {
-        shapes.set(change.table, tableShape(db, change.table));
-      }
-      const shape = shapes.get(change.table)!;
-      if (shape === null || !sameShape(shape, change)) {
-        return err({
-          code: "conflict",
-          message: `change does not match this database: ${change.table}`,
-          details: { table: change.table },
-        });
-      }
+    const shaped = shapeChanges(db, incoming.changeset, shapes);
+    if (!shaped.ok) return shaped;
+    if (touchesClearedRow(db, shaped.value, incoming.hlc)) {
+      stats.held.push(index);
+      continue;
+    }
+    for (const { shape, change } of shaped.value) {
       if (applyChange(db, shape, change, incoming.hlc)) stats.applied++;
       else stats.skipped++;
     }

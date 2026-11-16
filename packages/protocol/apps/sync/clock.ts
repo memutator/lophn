@@ -38,8 +38,33 @@ function hlcParts(hlc: bigint): { ms: number; counter: number } {
   };
 }
 
-function last(db: SyncDb): bigint {
+/**
+ * 이 replica가 내거나 본 가장 큰 clock(state의 마지막 clock). 없으면 0.
+ */
+export function maxHlc(db: SyncDb): bigint {
   return BigInt(getState(db, "hlc") ?? "0");
+}
+
+// 그 ms의 가장 작은 clock. 시각으로 정한 경계(흔적 정리의 `beforeHlc`)를 clock과 견줄 때 쓴다.
+export function hlcAtMs(ms: number): bigint {
+  return BigInt(Math.floor(ms)) << LOW_BITS;
+}
+
+export function msOfHlc(hlc: bigint): number {
+  return hlcParts(hlc).ms;
+}
+
+/**
+ * clock이 받는 쪽 시각보다 boundMs 넘게 앞섰으면 앞선 ms, 아니면 0. 앞선 clock은 값을 깎지 않고 부르는 쪽이
+ * 미룬다: 깎으면 사본마다 다른 clock을 적어 갈라진다.
+ */
+export function clockAhead(
+  hlc: bigint,
+  nowMs: number,
+  boundMs: number,
+): number {
+  const ahead = msOfHlc(hlc) - nowMs;
+  return ahead > boundMs ? ahead : 0;
 }
 
 /**
@@ -50,7 +75,7 @@ export function openClock(db: SyncDb): Clock {
     next(nowMs) {
       const node = getState(db, "node");
       if (node === null) throw new Error("sync node is not set");
-      const before = hlcParts(last(db));
+      const before = hlcParts(maxHlc(db));
       let ms = Math.floor(nowMs);
       let counter = 0;
       if (ms <= before.ms) {
@@ -70,7 +95,7 @@ export function openClock(db: SyncDb): Clock {
       return hlc;
     },
     observe(hlc) {
-      if (hlc > last(db)) setState(db, "hlc", String(hlc));
+      if (hlc > maxHlc(db)) setState(db, "hlc", String(hlc));
     },
   };
 }

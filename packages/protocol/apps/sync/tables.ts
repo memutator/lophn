@@ -13,7 +13,8 @@ create table if not exists lophn_sync_state (key text primary key, value text no
 create table if not exists lophn_sync_outbox (id text primary key, operation text not null, started_at text not null, changeset blob not null, hlc integer);
 `;
 
-export type StateKey = "node" | "hlc" | "cursor" | "release";
+// horizon: 흔적 정리(`dropTombstones`)로 지운 가장 큰 clock. 폰은 정리하지 않아 없다.
+export type StateKey = "node" | "hlc" | "cursor" | "release" | "horizon";
 
 /**
  * 숨은 표를 만들고, node가 아직 없으면 이 replica의 node를 적는다(snapshot을 받은 DB는 adoptSnapshot이 바꾼다).

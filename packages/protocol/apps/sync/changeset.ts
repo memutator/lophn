@@ -1,4 +1,8 @@
-import type { ChangesetCell } from "../../../base/changeset-invert.ts";
+import {
+  type ChangesetCell,
+  type ChangesetValue,
+  utf8Decode,
+} from "../../../base/changeset-invert.ts";
 
 export {
   type ChangesetCell,
@@ -74,4 +78,45 @@ export function encodePk(
     }
   });
   return new Uint8Array(out);
+}
+
+/**
+ * `encodePk`의 반대: PK 칸 값들을 칸 순서대로 돌려준다(PK가 아닌 칸은 없다).
+ */
+export function decodePk(blob: Uint8Array): ChangesetValue[] {
+  const out: ChangesetValue[] = [];
+  let pos = 0;
+  const length = (): number => {
+    let n = 0;
+    for (;;) {
+      const b = blob[pos++]!;
+      n = n * 128 + (b & 0x7f);
+      if ((b & 0x80) === 0) return n;
+    }
+  };
+  while (pos < blob.length) {
+    const type = blob[pos++];
+    if (type === 5) out.push(null);
+    else if (type === 1) {
+      let x = BigInt(0);
+      for (let k = 0; k < 8; k++) x = x * BYTE + BigInt(blob[pos++]!);
+      out.push(BigInt.asIntN(64, x));
+    } else if (type === 2) {
+      out.push(
+        new DataView(blob.buffer, blob.byteOffset + pos, 8).getFloat64(
+          0,
+          false,
+        ),
+      );
+      pos += 8;
+    } else if (type === 3 || type === 4) {
+      const n = length();
+      const body = blob.slice(pos, pos + n);
+      pos += n;
+      out.push(type === 3 ? utf8Decode(body) : body);
+    } else {
+      throw new Error("primary key blob is malformed");
+    }
+  }
+  return out;
 }

@@ -205,6 +205,16 @@ export type WidgetDeclaration = {
 export const WIDGET_KEY_PATTERN = /^[a-z][a-z0-9_]{0,31}$/;
 export const WIDGETS_MAX = 4;
 
+// 앱의 backend와 data가 어디서 도는가. ["computer"]는 remote(컴퓨터에서만), ["computer","phone"]은 sync
+// (컴퓨터가 정본이고 폰에도 복사본과 backend), ["phone"]은 standalone(폰에서만)이다. 정규 꼴은 이 세 가지뿐이다.
+export type RunsOn = ("computer" | "phone")[];
+
+export const RUNS_ON_FORMS: readonly RunsOn[] = [
+  ["computer"],
+  ["computer", "phone"],
+  ["phone"],
+];
+
 export type AppDeclaration = {
   name: string;
   description: string;
@@ -220,6 +230,9 @@ export type AppDeclaration = {
   subscriptions?: SubscriptionDeclaration[];
   // 없어도 된다. 칸이 없는 옛 선언의 hash는 그대로다.
   widgets?: WidgetDeclaration[];
+  // 없어도 된다. 없으면 ["computer"]와 같고, 칸이 없는 옛 선언의 hash는 그대로다. 앱 하나의 backend가 어디서 도는지는
+  // 이 칸 하나다. 폰 화면이 있다고 sync 앱이 되지 않는다(폰 화면이 있는 remote 앱이 말없이 바뀌면 안 된다).
+  runs_on?: RunsOn;
   screens: ScreenDeclaration[];
   // operation과 command의 이름은 합쳐 하나다. handler는 이름 하나로 등록한다.
   operations: OperationDeclaration[];
@@ -242,6 +255,7 @@ export const DECLARATION_KEYS = [
   "name",
   "operations",
   "permissions",
+  "runs_on",
   "screens",
   "sdk_dependencies",
   "skills",
@@ -249,7 +263,7 @@ export const DECLARATION_KEYS = [
   "widgets",
 ] as const;
 
-// icon, skills, keys, events, subscriptions, widgets는 칸이 없어도 된다.
+// icon, skills, keys, events, subscriptions, widgets, runs_on은 칸이 없어도 된다.
 const OPTIONAL_KEYS: readonly string[] = [
   "icon",
   "skills",
@@ -257,6 +271,7 @@ const OPTIONAL_KEYS: readonly string[] = [
   "events",
   "subscriptions",
   "widgets",
+  "runs_on",
 ];
 export const DECLARATION_REQUIRED_KEYS = DECLARATION_KEYS.filter(
   (key) => !OPTIONAL_KEYS.includes(key),

@@ -8,6 +8,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import { err, ok, type Result } from "../../../../base/result.ts";
+import type { AppDeclaration } from "../../../../protocol/apps/declaration/mod.ts";
 import {
   applyRemote,
   type Clock,
@@ -22,12 +23,9 @@ import {
 } from "../../../../protocol/apps/sync/node-db.ts";
 import { ident } from "../../../../protocol/apps/sync/sql.ts";
 
-/**
- * 선언의 `runs_on`에 `"phone"`이 있으면 sync 앱이다. `runs_on`은 아직 선언 type에 없어 날 JSON에서 읽는다.
- */
-export function runsOnPhone(declaration: unknown): boolean {
-  const runsOn = (declaration as { runs_on?: unknown } | null)?.runs_on;
-  return Array.isArray(runsOn) && runsOn.includes("phone");
+/** 선언의 `runs_on`에 `"phone"`이 있으면 폰에도 도는 앱이다. 없으면 `["computer"]`와 같다. */
+export function runsOnPhone(declaration: AppDeclaration): boolean {
+  return declaration.runs_on?.includes("phone") ?? false;
 }
 
 // session 구간. runtime에서는 cap-store hook을 부르는 StoreAccess다. 바뀐 것이 없으면 null이다.

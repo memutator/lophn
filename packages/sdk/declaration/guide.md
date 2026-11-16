@@ -18,12 +18,12 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
 - `canonicalInputHash(schema, value)` — 정규 입력 hash를 낸다.
 - type: `AppDeclaration`, `ScreenDeclaration`, `OperationDeclaration`,
   `CommandDeclaration`, `Place`, `ToolEffect`, `AppCommandUseDeclaration`, `PermissionRequirement`, `OAuthDeclaration`,
-  `SkillDeclaration`, `AppKeyDeclaration`, `EventDeclaration`, `SubscriptionDeclaration`, `WidgetDeclaration`, `SDKDependency`, `TraySide`, `TraySize`, `ValidationResult`, `ValidationError`
+  `SkillDeclaration`, `AppKeyDeclaration`, `EventDeclaration`, `SubscriptionDeclaration`, `WidgetDeclaration`, `RunsOn`, `SDKDependency`, `TraySide`, `TraySize`, `ValidationResult`, `ValidationError`
 
 ## 선언의 칸
 
 `name`, `description`, `screens`, `operations`, `commands`, `permissions`,
-`app_connections`, `sdk_dependencies`와 선택 칸 `icon`, `skills`, `keys`, `events`, `subscriptions`, `widgets`만 있다. 알 수 없는 칸은 거절한다.
+`app_connections`, `sdk_dependencies`와 선택 칸 `icon`, `skills`, `keys`, `events`, `subscriptions`, `widgets`, `runs_on`만 있다. 알 수 없는 칸은 거절한다.
 
 - `screens` — 화면 목록이다. 항목은 `{key, label, path, places, params?, tray?}`다. `places`는
   화면을 열 수 있는 자리이고 비지 않고 겹치지 않는다.
@@ -106,6 +106,12 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   `screen`은 widget을 누르면 열 화면의 key이고, 이 선언에서 `places`가 `["phone"]`인 화면이어야 한다(없으면 누르면 앱이 열린다).
   선언은 목록만 정한다. 값은 앱 process가 `@lophn/cap-notify`의 `setWidget`으로 내고, 선언하지 않은 `key`의 값은 core가 거절한다.
   값의 모양, 새로 하는 때, 작은 위젯에서 첫 줄이 중요한 까닭은 `@lophn/cap-notify` guide와 `design-app` skill의 Widgets를 읽는다.
+- `runs_on` — 앱의 backend와 data가 어디서 도는가. 셋 중 하나다: `["computer"]`(remote. 컴퓨터에서만 돈다),
+  `["computer","phone"]`(sync. 컴퓨터가 정본이고 폰에도 data 복사본과 backend가 있다), `["phone"]`(standalone.
+  폰에서만 돈다). 칸이 없으면 `["computer"]`와 같고 칸이 없는 옛 선언의 hash는 그대로다. 다른 값과 다른 순서는
+  거절한다. 폰 화면이 있다고 폰에서 도는 앱이 되지 않으니 폰에서 돌릴 앱만 이 칸에 `"phone"`을 쓴다. 검사 둘:
+  `phone`이 있는데 `places`가 `["phone"]`인 화면이 없으면 거절하고, `["phone"]`인데 `commands`, `subscriptions`,
+  effect가 `external`인 operation, `widgets`, 폰 밖 자리의 화면 가운데 하나가 있으면 거절한다(돌릴 컴퓨터가 없다).
 - `operations` — 앱 안의 operation 목록이다. 화면(`lophnApp.callOperation`)과 앱
   자신이 쓰는 저수준 동작이고, agent·다른 앱·job·flow는 부르지 못한다(core가
   막는다). 항목은 `{name, title, effect}`다. `title`은 화면 `OperationButton`이
@@ -167,7 +173,7 @@ const declaration = defineApp({
   commands: [],
   permissions: [],
   app_connections: [],
-  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.7.0" }],
+  sdk_dependencies: [{ name: "@lophn/declaration", version: "4.8.0" }],
 });
 
 const result = validateDeclaration(declaration);

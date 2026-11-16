@@ -320,3 +320,72 @@ test("phone.use의 scope가 {capability} 하나가 아니거나 모르는 capabi
   assert.ok(plain.ok && empty.ok && !("widgets" in plain.value));
   assert.deepStrictEqual(empty.value, plain.value);
 });
+
+// runs_on은 앱 backend가 어디서 도는지를 정하는 유일한 칸이다. 칸이 없는 옛 선언의 hash는 그대로다.
+test("runs_on이 정규 꼴이 아니거나 폰 화면 없이 phone이거나 ['phone']에 돌릴 곳 없는 것이 있으면 거절한다", () => {
+  const phoneScreen = {
+    key: "home",
+    label: "Home",
+    path: "/phone",
+    places: ["phone"],
+  };
+  const tabScreen = { ...phoneScreen, key: "main", places: ["tab"] };
+  const base = { ...declarationWith([]), screens: [phoneScreen] };
+  const phoneOnly = ["phone"];
+
+  const rejected: [string, Record<string, unknown>][] = [
+    ["empty", { runs_on: [] }],
+    ["duplicate", { runs_on: ["phone", "phone"] }],
+    ["other order", { runs_on: ["phone", "computer"] }],
+    ["unknown", { runs_on: ["cloud"] }],
+    ["not an array", { runs_on: "phone" }],
+    [
+      "phone without a phone screen",
+      { runs_on: phoneOnly, screens: [tabScreen] },
+    ],
+    [
+      "sync without a phone screen",
+      { runs_on: ["computer", "phone"], screens: [tabScreen] },
+    ],
+    ["phone with a command", { runs_on: phoneOnly, commands: [command] }],
+    [
+      "phone with a subscription",
+      { runs_on: phoneOnly, subscriptions: [{ source: "lophn", event: "x" }] },
+    ],
+    [
+      "phone with an external operation",
+      {
+        runs_on: phoneOnly,
+        operations: [{ ...operation, effect: "external" }],
+      },
+    ],
+    [
+      "phone with a widget",
+      {
+        runs_on: phoneOnly,
+        widgets: [{ key: "w", label: "W", screen: "home" }],
+      },
+    ],
+    [
+      "phone with a tab screen",
+      { runs_on: phoneOnly, screens: [phoneScreen, tabScreen] },
+    ],
+  ];
+  for (const [label, extra] of rejected) {
+    const result = validateDeclaration({ ...base, ...extra });
+    assert.ok(!result.ok, label);
+    assert.equal(result.error.code, "invalid_input", label);
+  }
+
+  for (const runsOn of [["computer"], ["computer", "phone"], phoneOnly]) {
+    const result = validateDeclaration({
+      ...base,
+      runs_on: runsOn,
+      commands: runsOn.length === 1 && runsOn[0] === "phone" ? [] : [command],
+    });
+    assert.ok(result.ok, JSON.stringify(runsOn));
+    assert.deepStrictEqual(result.value.runs_on, runsOn);
+  }
+  const plain = validateDeclaration(base);
+  assert.ok(plain.ok && !("runs_on" in plain.value));
+});

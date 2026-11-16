@@ -32,7 +32,12 @@ import {
   type ValidationResult,
 } from "./types.ts";
 import { normalizeJson, sortBy, unique } from "./json.ts";
-import { objectSchema, TOOL_NAME, validateLayers } from "./tools.ts";
+import {
+  objectSchema,
+  TOOL_NAME,
+  validateLayers,
+  validateRunsOn,
+} from "./tools.ts";
 import { validateUses } from "./uses.ts";
 import { iconPath, permissionScope, scopeKey } from "./scope.ts";
 
@@ -399,6 +404,14 @@ export function validateDeclaration(
     ...commands.map((command) => command.name),
   ]);
   if (!subscriptions.ok) return subscriptions;
+  const runsOn = validateRunsOn(value.runs_on, {
+    screens,
+    operations,
+    commands,
+    subscriptions: subscriptions.value,
+    widgets: widgets.value,
+  });
+  if (!runsOn.ok) return runsOn;
 
   const permissions: PermissionRequirement[] = [];
   const kinds = new Set<PermissionKind>([
@@ -467,6 +480,7 @@ export function validateDeclaration(
       ? { subscriptions: subscriptions.value }
       : {}),
     ...(widgets.value.length > 0 ? { widgets: widgets.value } : {}),
+    ...(runsOn.value === undefined ? {} : { runs_on: runsOn.value }),
     screens: sortBy(screens, (screen) => screen.key),
     operations: sortBy(operations, (operation) => operation.name),
     commands: sortBy(commands, (command) => command.name),

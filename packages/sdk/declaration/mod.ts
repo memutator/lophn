@@ -16,6 +16,7 @@ export type {
   PermissionRequirement,
   PermissionScope,
   Place,
+  RunsOn,
   ScreenDeclaration,
   SDKDependency,
   SubscriptionDeclaration,

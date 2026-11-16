@@ -9,6 +9,8 @@ import {
   isObject,
   nonBlank,
   type OperationDeclaration,
+  RUNS_ON_FORMS,
+  type RunsOn,
   type ScreenDeclaration,
   type SubscriptionDeclaration,
   subscriptionHandlerName,
@@ -114,6 +116,48 @@ function traySize(
     size[side] = range;
   }
   return { ok: true, value: size };
+}
+
+// runs_on의 모양(정규 꼴 셋 중 하나)과 앱이 가진 것과의 맞물림. ["phone"] 앱은 컴퓨터에서 도는 것이 없어서
+// command·구독·external operation·widgets·폰 밖 자리의 화면이 있으면 그것을 돌릴 곳이 없다.
+export function validateRunsOn(
+  runsOn: unknown,
+  app: {
+    screens: readonly ScreenDeclaration[];
+    operations: readonly OperationDeclaration[];
+    commands: readonly CommandDeclaration[];
+    subscriptions: readonly unknown[];
+    widgets: readonly unknown[];
+  },
+): ValidationResult<RunsOn | undefined> {
+  if (runsOn === undefined) return { ok: true, value: undefined };
+  const form = RUNS_ON_FORMS.find(
+    (candidate) => JSON.stringify(candidate) === JSON.stringify(runsOn),
+  );
+  if (form === undefined) {
+    return invalid(
+      'runs_on must be ["computer"], ["computer","phone"] or ["phone"]',
+    );
+  }
+  const phoneScreen = (screen: ScreenDeclaration) =>
+    screen.places.length === 1 && screen.places[0] === "phone";
+  if (form.includes("phone") && !app.screens.some(phoneScreen)) {
+    return invalid("runs_on: phone needs a screen with the phone place");
+  }
+  if (
+    form.length === 1 &&
+    form[0] === "phone" &&
+    (app.commands.length > 0 ||
+      app.subscriptions.length > 0 ||
+      app.operations.some((operation) => operation.effect === "external") ||
+      app.widgets.length > 0 ||
+      app.screens.some((screen) => !phoneScreen(screen)))
+  ) {
+    return invalid(
+      'runs_on ["phone"]: commands, subscriptions, external operations, widgets and places other than phone have nothing to run them',
+    );
+  }
+  return { ok: true, value: [...form] };
 }
 
 export function validateLayers(

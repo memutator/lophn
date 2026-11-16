@@ -262,6 +262,11 @@ export const appSpace = {
   "app-space.button.open-preview": "Preview",
   "app-space.button.send-annotations": "Send to agent",
   "app-space.button.send-annotations-to": "Send to {agent}",
+  "app-space.button.turn-on": "Turn on",
+  "app-space.empty.app-off":
+    "This app is turned off, so its screen can't open. Turn it on to use it.",
+  "app-space.empty.app-starting":
+    "This app is starting. Its screen opens as soon as it is running.",
   "app-space.empty.archived":
     "This app is archived. Restore it in Apps to open it again.",
   "app-space.empty.no-version": "This app has nothing to show yet.",

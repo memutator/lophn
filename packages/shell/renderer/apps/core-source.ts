@@ -8,6 +8,7 @@ import {
   appDelete,
   appUnarchive,
 } from "../../../protocol/apps/apps.ts";
+import { appEnableExecution } from "../../../protocol/apps/runtime.ts";
 import type { CoreCall } from "../../ipc/core.ts";
 import { commandBody } from "../command-call.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
@@ -71,6 +72,15 @@ export function coreAppsSource(core: CoreSource): AppsSource {
   };
   const withNumber = async (value: AppValue) =>
     rowOf(value, await numberOf(value.active_release));
+  const read = async (app: string): Promise<SourceResult<AppRow | null>> => {
+    const result = await call<{ app: AppValue }>(core, "read", "get", {
+      app,
+    });
+    if (!result.ok) {
+      return result.code === "not_found" ? { ok: true, value: null } : result;
+    }
+    return { ok: true, value: await withNumber(result.value.app) };
+  };
   return {
     async list() {
       const rows: AppRow[] = [];
@@ -88,15 +98,7 @@ export function coreAppsSource(core: CoreSource): AppsSource {
       return { ok: true, value: rows };
     },
 
-    async get(app) {
-      const result = await call<{ app: AppValue }>(core, "read", "get", {
-        app,
-      });
-      if (!result.ok) {
-        return result.code === "not_found" ? { ok: true, value: null } : result;
-      }
-      return { ok: true, value: await withNumber(result.value.app) };
-    },
+    get: read,
 
     async create(draft) {
       // 성공 응답은 route output(App) 그대로다.
@@ -138,6 +140,24 @@ export function coreAppsSource(core: CoreSource): AppsSource {
       return result.ok
         ? { ok: true, value: await withNumber(result.value) }
         : result;
+    },
+
+    // 탭이 앱을 읽은 뒤 다른 편집이 있어도 켜지도록 지금 revision을 다시 읽어 비교한다(app-detail의 setRun과 같다).
+    async enableRun(app) {
+      const found = await read(app);
+      if (!found.ok) return found;
+      if (found.value === null) return { ok: false, code: "not_found" };
+      const result = await call<AppValue>(
+        core,
+        "command",
+        appEnableExecution.method,
+        commandBody(appEnableExecution, {
+          input: { app },
+          compare: { base_revision: found.value.revision },
+          key: `apps-${appEnableExecution.method}-${crypto.randomUUID()}`,
+        }),
+      );
+      return result.ok ? { ok: true, value: null } : result;
     },
 
     async deleteApp(app) {

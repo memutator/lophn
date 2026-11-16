@@ -46,6 +46,8 @@ export interface AppsSource {
   create(draft: AppDraft): Promise<SourceResult<AppRow>>;
   /** 보관하면 실행도 끈다. 꺼내도 사람이 허용하기 전에는 시작하지 않는다. */
   setArchived(app: AppRow, archived: boolean): Promise<SourceResult<AppRow>>;
+  /** 사람이 앱 실행을 켠다. 채택한 release가 다시 뜬다. 보관한 앱은 `conflict`다. */
+  enableRun(app: string): Promise<SourceResult<null>>;
   /** 보관한 앱을 영구히 지운다. 보관하지 않은 앱은 `conflict`, 앱 process가 아직 멈추는 중이면 `unavailable`이다. */
   deleteApp(app: AppRow): Promise<SourceResult<null>>;
   /** 앱이 주인인 공개 package. 지워도 남고 주인이 빈다. 지우기 전에 사람에게 보인다. */

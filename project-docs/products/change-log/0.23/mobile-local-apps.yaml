@@ -1,5 +1,5 @@
 id: mobile-local-apps
-version: 0.23.65
+version: 0.23.67
 title: 앱의 backend와 data가 폰에서 돌고 컴퓨터와 맞춰진다(sync 앱) 또는 폰에만 있다(standalone 앱)
 modules: [packages/protocol, packages/sdk, packages/core/apps, packages/core/main, packages/core/remote, packages/core/agent-workspaces, packages/design, packages/mobile]
 change: |

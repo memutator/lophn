@@ -4,7 +4,7 @@
 - 재료: `/home/pyosechang/projects/lophn/reports/multi-machine/program.md`(계획 경계와 정한 정책. roadmap과 다르면 이것이 새것이다), `project-docs/products/roadmap/multi-machine.md`, 코드 조사 `/home/pyosechang/projects/lophn/reports/multi-machine/code-survey.md`(B, C, A와 끝의 표), `project-docs/plan/machine-identity/README.md`의 "다른 계획이 기대는 계약"(이 계획은 그 계획의 land 뒤에 돈다), harness 비교 `/home/pyosechang/projects/harness-lab/_report/multi-device/comparison.md` 3·4·5절과 `paseo.md`·`mixdog.md`·`open-code.md`·`emdash.md`의 "lophn에 주는 것", `project-docs/architecture/{remote,attention,acp,workspace-layout,settings,platform}.md`.
 - 범위 밖(가는 계획):
   - 다른 기계 관리(설정, secret, provider 설정, 거기서의 기기 등록), 화면 없는 기계: 보류(roadmap "보류"). 각 기계의 처음 설정은 그 기계의 화면에서 한다.
-  - 다른 기계의 앱 화면(앱 panel, 앱 창, 앱 view): 이 계획에서 끈다. 연다면 다음 계획이다(아래 "사람이 정할 것").
+  - 다른 기계의 앱 화면(앱 panel, 앱 창, 앱 view): 띄우지 않는다. 뒤 계획도 없다(사람, 2026-11-16). sync 앱은 폴더로 각 기계에 사본이 있어 그 기계에서 직접 연다.
   - agent가 다른 기계에 일을 보내기: 보류(roadmap).
   - 폴더 sync, 기계 기록을 폴더로, agent가 읽는 환경 도구: `app-folder-sync`. 이 계획은 그 도구에 줄 사실만 아래 계약 6에 적는다.
   - 기계 사이에서 같은 project 묶기(다른 기계 창의 project를 이 기계의 것과 잇기): `project-identity`의 마지막 task.
@@ -12,6 +12,8 @@
   - "늘 켜 둠"과 Settings › Remote의 그 스위치: `always-on`. 판이 다른 기계 사이의 안내: `machine-update`.
 
 ## 정한 것
+
+- 다른 기계의 앱 화면은 띄우지 않는다. 미룬 것이 아니라 하지 않는 것이다: 다른 기계에서 필요한 것은 session, 대화, 승인이고, 앱은 그 기계나 폰에서 쓰거나 sync 앱이면 이 기계의 사본을 쓴다 (사람, 2026-11-16).
 
 - desktop 기기의 권한은 폰과 같다(보기, 말하기, 승인·질문 답, 앱 쓰기). allowlist는 kind로 가르지 않고 desktop 때문에 관리 route를 넣지 않는다 (사람·planner, program 14).
 - 더하는 route는 `unseen/list|dismiss` 둘뿐이다: 보는 것이 읽음을 만들고 읽음은 host에 둔다(조사 `open-code.md` 13). 폰도 같이 받는다 (planner).
@@ -65,7 +67,6 @@
 
 ## 사람이 정할 것
 
-- 다른 기계의 앱 화면을 언제 여나. 이 계획은 끈다: 앱 view가 이 컴퓨터의 shell main(`lophn-app://` protocol, view binding, 앱 호출)에 묶여 있어서 기기 channel로 옮기는 일이 계획 하나 크기다. 끈 채면 다른 기계의 앱은 그 기계 화면이나 폰에서만 쓴다. 추천: 이 계획을 land한 뒤 써 보고 필요가 크면 다음 계획으로 연다.
 - `remote-desk-screens`의 gallery(Screens › Settings의 Remote, Screens › Shell의 기계 고르기와 다른 기계 창)를 보고 승인한다. 승인 전에 `remote-desk-renderer`를 띄우지 않는다.
 
 ## lead가 할 일

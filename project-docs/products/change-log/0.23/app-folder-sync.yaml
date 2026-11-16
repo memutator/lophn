@@ -1,5 +1,5 @@
 id: app-folder-sync
-version: 0.23.72
+version: 0.23.74
 title: 앱 data, release, source, 기계 기록이 바깥 도구가 옮기는 폴더를 거쳐 사람의 여러 컴퓨터 사이를 간다
 modules: [packages/core/folder, packages/protocol/folder, packages/protocol/apps/sync, packages/protocol, packages/core/apps, packages/core/apps/sync, packages/core/main, packages/core/storage, packages/core/approvals, packages/core/config, packages/core/agent-workspaces, packages/cli, packages/sdk, packages/design, packages/shell/main, packages/shell/renderer, packages/mobile, tests]
 change: |

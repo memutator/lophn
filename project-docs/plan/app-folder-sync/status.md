@@ -7,7 +7,7 @@ lead만 고친다. `tools/status.py app-folder-sync build`가 `tasks/*.md`에서
 | `folder-contract` | folder | 1 | 없음 | running | folder/folder-contract |  |  |
 | `folder-decl` | sdk | 1 | 없음 | merged | sdk/folder-decl | 54c866fac |  |
 | `folder-engine` | sync | 1 | 없음 | running | sync/folder-engine |  |  |
-| `folder-log` | sync | 1 | 없음 | running | sync/folder-log |  |  |
+| `folder-log` | sync | 1 | 없음 | merged | sync/folder-log | 4a46c10dd |  |
 | `folder-approval` | approval | 2 | folder-contract | todo |  |  |  |
 | `folder-apps` | folder | 2 | folder-contract, folder-decl | todo |  |  |  |
 | `folder-export` | folder | 2 | folder-contract, folder-log, folder-decl | todo |  |  |  |

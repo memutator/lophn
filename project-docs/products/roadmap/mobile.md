@@ -106,7 +106,7 @@ browser use(desktop의 browser 탭·앱 preview·기기 emulation)는 계획 `br
 - renderer는 core를 직접 부르지 않는다. IPC `shell:core-call` → shell main → core HTTP이고, main이 renderer가 부를 route를 allowlist로 좁힌다(`packages/shell/main/desktop/core/allowlist.ts`).
 - Gateway는 `watch {conditions}` → `ready` → `event`다. seq, replay, ack가 없고 끊기면 다시 watch하고 snapshot을 다시 읽는다(`packages/protocol/events/gateway.ts`). 느린 client는 buffer 1 MiB에서 끊는다. Gateway actor는 user뿐이다.
 - 대화는 `acp/snapshot {session}`(전체, paging 없음)과 `AcpUpdated`(24종)다. item마다 session 안 seq가 있고 어긋나면 `reread`다. 쓰기는 `acp/send` 하나(send, stop, answer, decide)이고 `key`로 멱등이다.
-- core → shell 요청은 host queue다. core 메모리에 쌓고 shell main이 `host/take`를 long-poll로 가져간다(`packages/protocol/lophn-agent/host-queue.ts`). 종류는 탭 열기·닫기·보이기, extension tool 호출, browser 호출, `terminal_interrupt`다. host는 하나라고 가정한다.
+- core → shell 요청은 host queue다. core 메모리에 쌓고 shell main이 `host/take`를 long-poll로 가져간다(`packages/protocol/lophn-agent/host-queue.ts`. 이 조사 뒤 단계 5에서 양방향 연결 `/host-link`로 바꾸고 `host/take`는 지웠다). 종류는 탭 열기·닫기·보이기, extension tool 호출, browser 호출, `terminal_interrupt`다. host는 하나라고 가정한다.
 - idle-exit는 일도 client도 없이 600초다(`packages/core/main/daemon/idle.ts`). client는 진행 중 HTTP 요청과 Gateway socket이다.
 
 ### 기능마다 누가 갖고 있나
@@ -315,11 +315,11 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
    - **다시 했다(사람, 2026-11-15). 끝남**(계획 `mobile-app`, change-log `mobile-app`, `architecture/remote.md`·`ui-kit.md`). 폰 UI kit(`@lophn/ui-native`)을 만들고 lophn의 폰 화면(Home, Search, Inbox, 대화와 승인·질문, 새 session, project와 앱 workspace, Jobs, Agents, Settings, pairing)을 그 kit으로 폰 앱(`packages/mobile`) 안에 지었다. 컴퓨터가 화면을 내려주는 길(web bundle, cache, WebView, bridge, `remote_ui` route)을 지웠다. 폰에 아직 없는 것은 이슈와 change-log에 있다. 실제 폰에서 써 보기는 뒤 단계다. kit을 SDK part로 올리는 일은 단계 6(계획 `mobile-user-apps`)이 한다.
 3. relay: 폰과 core가 다른 network에서도 만난다. remote와 sync 앱이 같은 연결을 쓴다. **끝남**(계획 `remote-relay`, 2026-11-15, change-log `remote-relay`, relay는 Fly.io `wss://lophn-relay.fly.dev`). IP마다의 남용 한도는 이슈 `relay-abuse-limits`.
 4. push와 알림 정하기(host의 보고, `unseen`). **끝남**(계획 `mobile-push`, 2026-11-16, change-log `mobile-push`, `architecture/attention.md`). core가 host들의 보고로 보고 있지 않은 폰에 Expo Push를 직접 보내고 `unseen`을 든다. 폰은 알림을 묻고, Settings › Notifications로 고르고, 알림을 누르면 그 session·앱·Inbox를 연다. **실제 배달(FCM)은 사람의 Expo·Firebase 계정이 있어야 해서 확인하지 못했다.** 지금까지는 fake push server로만 보았고 EAS project id가 없는 폰 build는 알림을 쓸 수 없다. 사람이 할 일은 change-log `mobile-push`의 `follow_up`.
-5. coding agent: desktop의 harness GUI 대화를 폰에서 다룬다.
+5. coding agent: desktop의 harness GUI 대화를 폰에서 다룬다. **끝남**(계획 `mobile-coding-agents`, 2026-11-16, change-log `mobile-coding-agents`, `architecture/harness-gui.md`·`acp.md`). 폰이 대화를 보고 답하고 session을 열고 되살리고 view를 바꾸고 꺼진 앱을 깨운다. **실제 desktop 앱(Electron)에 붙여 보지 못했다**(아래 진행 표).
 6. remote 앱: 컴퓨터에서 도는 앱의 화면을 폰에 띄운다(`phone` 자리, view binding, 기기 지침). 앱의 폰 화면은 폰 UI kit으로 쓴 RN 화면이다. 열기 전에 받은 RN 화면을 격리해 돌리는 길을 spike한다.
 7. sync 앱과 독립 앱: 폰에서 backend와 data가 돈다(SDK의 길 셋, 폰 runtime, changeset으로 맞추기).
 8. 위젯, 홈 화면 아이콘, 폰 기능 command.
-9. raw 터미널 보기와 간단한 입력.
+9. raw 터미널 보기와 간단한 입력. **끝남**(같은 계획, `architecture/terminal-agent.md`). coding session의 터미널을 가리지 않은 화면 그대로 보고, 입력은 사람이 컴퓨터에서 기기마다 켠 폰만 한다(기본 꺼짐). 폰은 PTY 크기를 바꾸지 않는다.
 10. 실제 폰의 browser-use.
 
 단계 7은 폰에서 backend를 실제로 돌릴 수 있는지에 달려 있다. spike(계획 `remote-core`)가 Node 위에서는 길을 찾았고 판정은 위 "폰에서 혼자 도는 앱"에 있다. 그 절의 남은 확인, 특히 Hermes와 두 번째 runtime의 SQLite, App Store 위험은 단계 7을 열기 전에 한다.
@@ -338,7 +338,7 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 | 2 | `mobile-app` | 끝남(2026-11-16, 0.23.62. change-log `mobile-app`, `architecture/remote.md`·`ui-kit.md`). 폰 UI kit과 native 화면으로 폰 앱을 다시 지었고 web 화면 길을 지웠다. 실제 폰 확인과 알려진 빈틈(이슈 `phone-*`)이 남았다 |
 | 6 | `mobile-user-apps` | 진행 중(task 15개). `phone` 자리, 기준 폰 읽기, core의 view 표, 폰 화면 계약이 합쳐졌다. spike `reports/mobile-program/app-screens-spike.md`, 조사 `reports/mobile-program/app-place-survey.md`. 폰 앱을 고치는 뒤쪽 wave는 `mobile-app` land 뒤 |
 | 4 | `mobile-push` | 끝남(2026-11-16. change-log `mobile-push`, `architecture/attention.md`·`remote.md`). core의 주의(attention), Expo Push 보내기, desktop과 폰의 보고, 폰의 알림 화면이 합쳐졌다. **실제 배달은 확인하지 못했다**: 사람의 Expo 계정(project id)과 Firebase(`google-services.json`, FCM key)가 있어야 한다. 알려진 빈틈은 이슈 `push-*`, `phone-notification-icon-default` |
-| 5, 9 | `mobile-coding-agents` | 진행 중. core의 `/host-link`가 합쳐졌다. 조사 `reports/mobile-program/coding-agent-relay-survey.md` |
+| 5, 9 | `mobile-coding-agents` | 끝남(2026-11-16. change-log `mobile-coding-agents`, `architecture/harness-gui.md`·`acp.md`·`terminal-agent.md`·`platform.md`·`remote.md`). shell main과 core가 양방향 연결 `/host-link`로 이어졌고(`host/*` route와 `terminal_sessions/report`는 지웠다), 폰이 컴퓨터의 harness GUI 대화를 같은 대화 화면과 승인·질문 card로 보고 답하고, view를 확인 뒤에 바꾸고, 새 session을 열고 지난 session을 되살리고, 꺼진 앱을 깨우고, coding session의 터미널을 보고 허락받은 기기는 친다. **확인하지 못한 것**: Electron desktop 앱을 한 번도 띄우지 않았다. 연결 위의 browser 탭·tool 호출·터미널 끊기, GUI 중계, Settings › Remote의 터미널 입력 스위치를 창에서 보지 못했다. 폰 화면은 emulator에서 가짜 coding host를 붙인 개발 core로만 보았고 실제 desktop 앱이나 실제 coding agent에 붙여 본 적이 없다. 깨우기가 성공하는 경우, 지난 session을 실제로 되살리는 경우, 열기의 `conflict`·`unavailable` 거절도 보지 못했다. 실제 폰은 쓰지 않았다. 사람이 할 일은 change-log `mobile-coding-agents`의 `checklist`. 알려진 빈틈은 이슈 `phone-new-coding-session-opens-on-pick`, `phone-sample-terminal-screen-missing`, `phone-terminal-wide-glyph-spacing`, `phone-coding-ask-duplicates-env-read`, `gui-handoff-copies-adapter-table`, `shell-copies-protocol-types-for-tsconfig`, `push-misses-gui-tab-approvals` |
 | 7 | `mobile-local-apps` | 열림(task 13개). spike가 통과했다(폰의 guest runtime 안에서 앱 backend와 자체 SQLite module이 돌고, changeset이 양방향으로 맞는다. debug와 release build. `reports/mobile-program/local-apps-spike.md`). 조사 `reports/mobile-program/local-apps-survey.md`. sync core와 SDK 변경이 돌고 있다. 폰 쪽은 `mobile-app`과 `mobile-user-apps`의 land 뒤 |
 | 8 | `mobile-widgets` | 열림(task 16개). 위젯 값 계약, 폰 요청 길 계약, wireframe(gallery Drafts › Phone · 11)이 끝났다. 조사 `reports/mobile-program/widgets-survey.md`. 나머지는 앞 계획들의 land와 위젯 native spike 뒤 |
 | 10 | `mobile-browser-use` | 열림(task 9개). spike가 통과했다(폰 앱의 native module이 사용자 앱 화면을 읽고, 찍고, 누르고, 입력하고, 스크롤한다. debug와 release build. `reports/mobile-program/drive-spike.md`). 조사 `reports/mobile-program/browser-use-survey.md`. 모든 task가 `mobile-app`, `mobile-user-apps`, `mobile-widgets`의 land 뒤 |
@@ -361,7 +361,7 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 4. **망.** 정했다(사람, 2026-11-15): lophn이 relay를 둔다. 폰과 core가 어느 network에 있든 relay로 만나고, 같은 LAN이면 direct가 먼저 붙는다. relay는 내용을 보지 못하는 전달자다(Paseo 꼴). 이유: 다른 network에서 붙지 못하면 remote의 의미가 없고, 폰에서 혼자 도는 sync 앱도 "core에 닿으면 맞춘다"가 같은 연결 위에 선다. 앞서 추천한 "direct만(LAN과 Tailscale)"은 비교한 제품 대부분이 relay나 tunnel을 기본으로 둔 것을 서버 운영 비용보다 가볍게 본 틀린 추천이었다. 컴퓨터가 꺼져 있는 동안 sync 변경을 relay가 암호문으로 맡아 둘지는 sync 앱(단계 7)을 열 때 정한다.
    **push.** 추천: Expo Push. 잃는 것: push는 Expo에 기대고 Expo가 알림 글(상태와 제목)을 본다. 다른 안: 자기 push gateway를 돌린다. push를 두지 않는다.
 5. **순서.** 정했다. 다 하고(사람), 순서는 위 "단계"다(agent).
-6. **TUI로 도는 session을 폰이 열 때.** 추천: GUI로 바꿀지 묻고, 바꾸면 desktop도 GUI로 바뀐다. 다른 안: 말없이 바꾼다(desktop에서 쓰던 TUI가 예고 없이 끊긴다). 이미 GUI인 session만 폰에 보인다(TUI로 쓰는 사람은 폰에서 못 본다).
+6. **TUI로 도는 session을 폰이 열 때.** 추천대로 갔다(`mobile-coding-agents`): 확인을 받는다. 사람이 반대하면 바꾼다. 추천: GUI로 바꿀지 묻고, 바꾸면 desktop도 GUI로 바뀐다. 다른 안: 말없이 바꾼다(desktop에서 쓰던 TUI가 예고 없이 끊긴다). 이미 GUI인 session만 폰에 보인다(TUI로 쓰는 사람은 폰에서 못 본다).
 
 ## 추천대로 가려는 것
 

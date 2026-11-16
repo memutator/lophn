@@ -1,0 +1,13 @@
+id: shell-copies-protocol-types-for-tsconfig
+title: shell main이 protocol의 TerminalLine과 coding frame 모양을 type 검사 때문에 손으로 베껴 둔다
+kind: defect
+status: open
+topic: harness-gui
+modules: [packages/shell/main, packages/shell/ipc, packages/protocol]
+now: |
+  `packages/shell/main/tsconfig.json`은 `noUncheckedIndexedAccess`를 켜고 `terminal/`과 `ipc/`를 검사하는데, protocol의 file은 그 옵션을 통과하지 못한다. 그래서 이 두 폴더의 file은 protocol의 host-link·host queue 정의를 import하지 못하고 같은 모양을 다시 적는다. `packages/shell/ipc/terminal.ts`의 `TerminalLine`(protocol `coding-agent/terminal-view.ts`의 `terminalLineSchema`와 같은 모양)과 `packages/shell/main/terminal/coding-relay.ts`의 `CodingFrame`·`CodingOutput`·`CodingLink`(host-link의 `coding_sync`·`coding_closed` frame과 `HostToolOutput`). `desktop/core`·`desktop/wiring`은 옵션이 꺼진 tsconfig(`tsconfig.node.json`)라 protocol을 그대로 import한다. 어긋나면 그 file들을 이어 주는 `desktop/wiring/terminal-view.ts`·`coding-relay.ts`의 type 검사가 잡으므로 컴파일 때 알게 된다.
+impact: |
+  frame 모양을 바꿀 때 고칠 곳이 둘이 되는 개발 비용이다(protocol 한 곳과 이 베낀 type). 사람이 보는 동작과 데이터에는 닿지 않고, 어긋남은 type 검사가 잡는다.
+fix: |
+  - 작음: 그대로 둔다(kept). 어긋나면 컴파일이 실패하고 베낀 type은 둘뿐이다.
+  - 중간: 그 type이 필요한 module(`terminal/coding-relay.ts`, `terminal/terminal-view.ts`, `ipc/terminal.ts`)을 `desktop/wiring` 쪽으로 옮기거나, protocol에서 이 옵션에 걸리는 file의 index 접근을 고쳐 import를 열어 둘 다 protocol type을 쓰게 한다. 어느 file이 걸리는지 세어 본 뒤 정한다.

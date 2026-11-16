@@ -1,0 +1,13 @@
+id: phone-terminal-wide-glyph-spacing
+title: 폰의 터미널 화면이 폭 2칸 글자(CJK, emoji)의 폭을 재지 않고 1em이라고 가정한다
+kind: defect
+status: open
+topic: remote
+modules: [packages/mobile]
+now: |
+  `packages/mobile/src/screens/terminal/rows.tsx`는 한 칸의 폭(`cell`)을 폰에서 한 번 재고(고정폭 글꼴 `PROBE`) 줄마다 그 폭에 맞춘다. 폭 2칸 글자(`run.wide`)의 run은 mono 글꼴에 없어 시스템 fallback 글꼴로 그려지는데, 그 글자 하나가 정확히 1em이라고 가정하고 `letterSpacing: (2 * cell - 1) * fontSize`로 두 칸을 채운다. fallback 글꼴의 실제 폭은 재지 않는다.
+impact: |
+  fallback 글꼴이 1em이 아니면(예: emoji를 그리는 글꼴) 한글·한자·emoji가 든 줄의 뒤쪽 열이 어긋나 TUI의 상자 선과 표가 틀어져 보인다. 이 앱의 사람은 한글을 쓴다. 글꼴에 달린 일이라 폰 기종마다 다를 수 있다.
+fix: |
+  - 작음(추천): 폰에서 폭 2칸 글자 하나(예: 한글 하나)의 폭도 한 번 재서(`cell`과 같은 방식) spacing을 그 폭으로 구한다. emoji는 따로 재거나 칸 폭 상자로 감싼다.
+  - 중간: 폭 2칸 글자를 글자마다 고정폭 `View`로 감싼다(줄 하나의 node가 늘어 긴 scrollback이 무거워진다).

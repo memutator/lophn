@@ -16,7 +16,7 @@
 
 구현 전의 코드와 지금이다. 문서(architecture)는 지금만 적는다.
 
-- **열기는 그 workspace를 띄운 창에만 갔다. 지금은 browser 탭만 어느 창이든 간다.** core host queue는 `tab_open`을 `host/take`의 `workspaces`에 그 탭의 workspace가 있을 때만 빌려 줬다. 이제 browser 탭의 `tab_open`·`tab_close`는 workspace를 가리지 않고 아무 shell main이 가져가고, shell main이 그 workspace를 보이는 창, 없으면 가장 최근 일반 창, 그것도 없으면 focus 없이 연 새 창에 보낸다. 다른 target(preview, artifact, session, coding)은 그대로 그 workspace를 보이는 창에만 가고 기다린다(`workspace-layout.md` 결정 18).
+- **열기는 그 workspace를 띄운 창에만 갔다. 지금은 browser 탭만 어느 창이든 간다.** core host queue는 `tab_open`을 shell이 알린 보이는 `workspaces`(그때는 `host/take`의 인자, 지금은 `/host-link`의 `visible`)에 그 탭의 workspace가 있을 때만 빌려 줬다. 이제 browser 탭의 `tab_open`·`tab_close`는 workspace를 가리지 않고 아무 shell main이 가져가고, shell main이 그 workspace를 보이는 창, 없으면 가장 최근 일반 창, 그것도 없으면 focus 없이 연 새 창에 보낸다. 다른 target(preview, artifact, session, coding)은 그대로 그 workspace를 보이는 창에만 가고 기다린다(`workspace-layout.md` 결정 18).
 - **shell이 없으면 browser 호출이 바로 끝났다. 지금은 열기가 shell을 띄운다.** `tab open --url`은 shell이 없으면 core가 앱을 띄우고 기다린다(조건은 아래 3번). 이미 연 browser 탭에 shell 없이 온 `browser.*`는 page가 사라진 것으로 보고 그 탭을 core 표에서 빼고 `not_found`를 답한다. preview·artifact 탭의 호출은 전과 같이 `unavailable` "the lophn app is not connected"다.
 - **core만 뜨는 때가 평소다(그대로).** 로그인 autostart는 `--core`로 core만 띄우고 Electron은 끝난다. 앱의 Quit은 shell만 정리하고 core는 남는다. 켜진 job이나 열린 job run이 있으면 idle-exit가 core를 끄지 않는다(`platform.md` "core 수명", `job.md` 14).
 - **browser 엔진과 로그인은 shell main의 것이다(그대로).** partition `persist:lophn-browser`는 shell userData에 있고 Chromium profile은 한 번에 한 process만 연다.

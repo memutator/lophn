@@ -20,6 +20,7 @@ harness GUI는 사람이 설치한 CLI(Claude Code, Codex, OpenCode, omp)를 lop
 | 계약 | `packages/protocol/acp/`, `packages/protocol/extensions/acp-session.ts` |
 | CLI 하나의 동작 | `packages/shell/main/extensions/bundled/harness-gui/`의 `<harness>.ts`, 그 test, `fixtures/<harness>/` |
 | 탭(handle, toggle, view, 되살리기) | `packages/shell/main/terminal/gui.ts`, `packages/shell/ipc/harness-gui.ts`, `packages/shell/renderer/terminal/terminal-gui.tsx` |
+| 폰으로 올리기(handle의 snapshot·갱신을 `/host-link`로, 폰의 입력·switch·열기 받기) | `packages/shell/main/terminal/coding-relay.ts`, `coding-open.ts`, core 쪽 `packages/core/coding-relay/` |
 | 화면이 GUI에 묻는 읽기 | `packages/shell/renderer/conversation/agent-tab-gui-source.ts` |
 | 화면 | `packages/shell/renderer/conversation/` (lophn agent와 같이 쓴다) |
 | 터미널 함수 | `packages/shell/terminal-host/shell-integration.ts` |
@@ -109,6 +110,7 @@ harness GUI는 사람이 설치한 CLI(Claude Code, Codex, OpenCode, omp)를 lop
   - 나머지 칸은 `flex-shrink: 0`으로 둔다.
 - **biome의 `--write` 뒤에는 diff를 본다.** 상관없는 줄(import 순서)이 바뀌었으면 되돌린다.
 - **GUI가 ACP 입력에 싣는 id는 schema를 통과해야 한다.** 화면의 session key를 `ses_${handle}`(handle이 `win_<ULID>`)로 만들었더니 `ses_win_…`이 `idSchema("ses")`에 떨어져 main이 모든 입력을 거절했고, 화면은 "couldn't confirm this message arrived"만 보였다. `guiSessionId`와 그 test가 지킨다.
+- **handle의 상태나 갱신의 모양을 바꾸면 폰도 같은 것을 받는다.** shell main이 handle마다 snapshot과 20ms 묶음의 갱신을 core에 올리고 core가 같은 reducer로 접어 폰에 낸다(`architecture/harness-gui.md`의 "폰이 보는 coding session"). adapter가 갱신을 낸다고 끝이 아니라 그 갱신이 core 사본에서도 접히고 redaction을 거친다. 입력을 더하면 `coding_input`으로 오는 것도 `acpInputSchema`를 통과한다.
 - **화면 성능은 추측하지 말고 잰다.** gallery page `harness-gui-perf`(긴 대화 + 20ms 글 조각 + 입력)를 headless Chrome CDP로 돌려 main thread 바쁜 시간, 50ms 넘는 frame, 키→paint를 잰다. probe는 commit하지 않았으니 `.dev-data`에 다시 만든다(`perf-stream-lag` worktree가 남아 있으면 그곳 `.dev-data/perf-stream-lag/run.sh`). 화면을 바꾼 뒤 한 번 돌린다. 측정에서 나온 함정:
   - Context 값을 render마다 새로 만들면 그 값을 쓰는 component가 memo를 건너 모두 다시 그린다. `fillShell` 하나로 대화의 모든 markdown이 글자마다 다시 그려졌다.
   - throttle은 걸어 둔 timer를 새 값마다 지우고 다시 걸면 안 된다. 갱신이 그리기보다 잦으면 끝까지 한 번도 터지지 않아, 글이 첫 조각만 보이다 끝에 한꺼번에 나왔다. 최신 값을 ref에 두고 걸린 것은 그대로 둔다(Claude·Codex·omp desktop이 모두 이렇다).

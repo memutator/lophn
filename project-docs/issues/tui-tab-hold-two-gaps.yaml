@@ -4,6 +4,6 @@ kind: bug
 status: open
 topic: coding-agent
 modules: [packages/core/host-queue, packages/shell/main, packages/shell/renderer]
-now: core는 `tabs/open --tui` 때 30초 예약 hold를 걸고 shell main의 heartbeat(`host/take {tui}`)로 잇는다(`packages/core/host-queue/hold.ts`). heartbeat 목록은 renderer가 탭을 만든 순간 `shell:surface-report {tui}`로 알린 것이다(`packages/shell/main/terminal/harness-tui.ts`). 두 경우에 그 사이가 빈다. (1) 그 workspace를 보이는 창이 없어 요청이 host queue에서 30초 넘게 기다리면 예약이 끝나 headless turn이 시작할 수 있고, 뒤에 탭이 생기면 TUI가 그 turn과 겹친다(`tabs/open`은 연 때만 도는 turn을 거절한다). (2) 창 reload나 앱 재시작으로 layout에서 되살아난 TUI 탭은 생성 보고가 없어 hold되지 않는다.
+now: core는 `tabs/open --tui` 때 30초 예약 hold를 걸고 shell main이 `/host-link`의 `hello`·`visible`로 알린 TUI 탭 목록으로 이어 간다(core가 연결이 열린 동안 1초마다 갱신한다)(`packages/core/host-queue/hold.ts`). heartbeat 목록은 renderer가 탭을 만든 순간 `shell:surface-report {tui}`로 알린 것이다(`packages/shell/main/terminal/harness-tui.ts`). 두 경우에 그 사이가 빈다. (1) 그 workspace를 보이는 창이 없어 요청이 host queue에서 30초 넘게 기다리면 예약이 끝나 headless turn이 시작할 수 있고, 뒤에 탭이 생기면 TUI가 그 turn과 겹친다(`tabs/open`은 연 때만 도는 turn을 거절한다). (2) 창 reload나 앱 재시작으로 layout에서 되살아난 TUI 탭은 생성 보고가 없어 hold되지 않는다.
 impact: 한 CLI session에 headless process와 TUI process가 같이 써 그 CLI의 대화 기록이 섞이거나 깨질 수 있다. 사람이 TUI에서 한 일이 headless turn과 엉킨다.
 fix: (작음) shell main이 탭을 만들 때 harness session이 돌고 있으면 탭을 열지 않고 retry로 둔다. (작음) renderer가 layout을 다 읽은 뒤 남아 있는 `host:` 터미널 탭 가운데 TUI 탭을 다시 알린다. 추천은 둘 다다.

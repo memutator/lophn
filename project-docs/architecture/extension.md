@@ -70,7 +70,7 @@ agent(lophn runtime의 ext__<id>__<tool> 또는 harness의 `lophn ext call`)
   ─▶ extension_tools/call (agent 자격)
   ─▶ core: Gate extension_tool 판정(not_assigned | removed | run)
   ─▶ shell이 붙어 있지 않으면 unavailable
-  ─▶ 이 호출만 쓰는 agent 자격을 내고 host queue에 tool_call 요청 ─ shell main ─▶ handler ─▶ host/done {output}
+  ─▶ 이 호출만 쓰는 agent 자격을 내고 host queue에 tool_call 요청 ─ shell main ─▶ handler ─▶ `/host-link` response {output}
 ```
 
 ## 지키는 것
@@ -104,7 +104,7 @@ agent(lophn runtime의 ext__<id>__<tool> 또는 harness의 `lophn ext call`)
 - `extension-host`: shell main의 registry. manifest를 읽고, 켜진 것만 load·activate하고, 표시 file로 지운다.
 - 설정 key: `extensions.<id>.enabled`(core 선언).
 - IPC `shell:extensions`: `list` · `install` · `remove` · `run(command)`. desktop 창 본문만 부르고 main이 다시 검사한다. 오류는 공통 일곱 코드다.
-- core route: `extension_tools/publish`(user), `extension_tools/catalog`(user, machine), `extension_tools/call`(agent). host queue 요청 `tool_call`과 응답 `host/done`.
+- core route: `extension_tools/publish`(user), `extension_tools/catalog`(user, machine), `extension_tools/call`(agent). host queue 요청 `tool_call`과 응답 `/host-link`의 `response`.
 - Gate 입력 `extension_tool {extension, tool}`과 결과 `run | not_assigned | removed`.
 - CLI: `lophn ext call <ext__id__tool> --input '<json>'`.
 - 저장: `<data>/extensions/<id>/.lophn-extension`(JSON `{files[]}`)과 `ctx.files`로 쓴 file. 에이전트 정의 칸 `extensions`.

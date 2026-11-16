@@ -76,7 +76,7 @@ terminal_sessions/signal ─▶ 계기 ─┬▶ unseen(서고 꺼질 때 StateC
 - 알림 설정은 폰 하나에 한 벌 있고 pairing한 모든 컴퓨터에 사본으로 보낸다. 이유: 컴퓨터마다 따로 두면 화면이 늘고, 폰 하나가 컴퓨터 둘에서 다르게 울릴 이유가 없다. (agent)
 - 앞에 있는 host가 있으면 보내지 않는다. 알릴지는 host 단위(`present`)로만 정하고 보는 session은 `unseen`을 위해서만 쓴다. 이유: session까지 맞추면 보고가 session 화면마다 오가고, 사람이 desktop 앞에 있으면 어느 session이든 직접 본다. (agent)
 - 창이 앞에 있어도 마지막 입력 뒤 2분이 지나면 앞에 없는 것이다. 이유: 창을 띄워 놓고 자리를 비운 사람에게 push가 가야 한다. 대가: 보이는 창이 쉬는 사이 끝난 session에도 `unseen`이 선다(의도). (agent)
-- 터미널 coding agent의 대기와 끝은 core가 `terminal_sessions/report`의 변화를 비교해 알아내지 않고 shell main의 tracker가 1.5초 debounce 뒤 `terminal_sessions/signal`로 알린다. 이유: 상태 해석은 tracker 한 곳에 두고 core는 순간만 받는다. 버린 안: report 변화 비교(같은 해석이 core에 두 벌이 된다). (agent)
+- 터미널 coding agent의 대기와 끝은 core가 `coding_report`(터미널 집합 보고)의 변화를 비교해 알아내지 않고 shell main의 tracker가 1.5초 debounce 뒤 `terminal_sessions/signal`로 알린다. 이유: 상태 해석은 tracker 한 곳에 두고 core는 순간만 받는다. 버린 안: report 변화 비교(같은 해석이 core에 두 벌이 된다). (agent)
 - push 글은 영어 고정 문장이다. 이유: core에 i18n이 없고 글을 OS가 그린다. 폰 화면의 문구는 `@lophn/i18n`이다. (agent)
 - session 제목을 싣는 것이 기본이고(`show_names`) 스위치 부제에 제목이 Expo와 Google을 지난다고 쓴다. 이유: 제목은 대화에서 나온 글이라 사람이 알고 고르게 한다. 컴퓨터 이름은 싣지 않는다(QR에 이름이 없다). (agent)
 - Expo의 "enhanced push security"(access token)를 켜지 않는다. 이유: 열린 build에 token을 실을 수 없다. 대가: 폰의 push token을 아는 사람은 그 폰에 push를 보낼 수 있다. token은 사용자의 core와 Expo에만 있어 받아들인다. (agent)

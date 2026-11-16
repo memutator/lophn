@@ -1344,7 +1344,7 @@ flows:
     steps:
       - "tracker가 turn 끝(완료나 실패)이나 권한 물음을 알리면 판정한다. 사람이 끊은 turn, /clear, compact는 알리지 않는다"
       - "turn 끝은 idle이 되고 1.5초 기다린다. child가 남았으면 보내지 않는다. 그사이 running이나 waiting이 되면 취소한다"
-      - "core에 terminal_sessions/signal(권한 물음은 waiting, 끝은 finished·failed와 active_ms: running부터 끝까지에서 물음을 기다린 시간을 뺀 것)을 보낸다. 제목은 terminal_sessions/report와 같다. 못 본 끝과 push는 core가 정한다"
+      - "core에 terminal_sessions/signal(권한 물음은 waiting, 끝은 finished·failed와 active_ms: running부터 끝까지에서 물음을 기다린 시간을 뺀 것)을 보낸다. 제목은 coding_report(/host-link)와 같다. 못 본 끝과 push는 core가 정한다"
       - "그 탭이 focus를 가진 창에서 보이는 탭이면 띄우지 않는다"
       - "lophn 창에 focus가 있는데 그 탭이 안 보이면 그 창의 toast, 어느 창에도 focus가 없으면 OS 알림이다. 누르면 탭이 있는 창을 앞으로 가져와 탭을 고른다"
       - "알림 본문은 hook payload가 준 마지막 답이나 오류 글, 권한 물음의 요약만 쓴다. transcript는 읽지 않는다"

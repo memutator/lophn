@@ -1,0 +1,15 @@
+id: phone-new-coding-session-opens-on-pick
+title: 폰의 새 session에서 coding agent를 고르면 첫 메시지 없이 바로 컴퓨터에 열린다
+kind: bug
+status: open
+topic: remote
+modules: [packages/mobile]
+now: |
+  `packages/mobile/src/screens/coding/pick.tsx`의 `CodingAgentGroup`은 새 session 화면의 agent 목록에서 행을 누르면 바로 `useOpenCoding().open()`(`coding_sessions/open`)을 부르고 그 대화로 간다. 승인한 wireframe(`tools/wireframes/drafts/phone/coding.tsx`의 "The first message")은 고른 뒤 새 session 화면에 남아 "새 터미널 탭이 열리고 채팅으로 시작한다"는 안내가 입력 칸 위에 서고, 첫 메시지를 보내면 그때 열려 대화 화면으로 간다. 폰은 안내를 고르는 목록 아래에 두고(`mobile.coding.notice.new-terminal`) 고르는 순간 연다.
+impact: |
+  coding agent를 잘못 눌렀거나 마음을 바꿔도 컴퓨터에 새 터미널 탭이 열리고 CLI(Claude Code 등)가 시작한다. 닫으려면 컴퓨터에서 해야 한다. 승인한 화면과 다르다(사람이 보는 동작).
+fix: |
+  - 중간(추천): 고르면 새 session 화면의 입력 칸 위에 "Starts in a new terminal tab on the computer"를 세우고 보내기를 누를 때 열고 첫 메시지를 `acp/send`로 보낸다. 열기와 첫 메시지 사이에 실패하면 메시지를 입력 칸에 둔다.
+  - 작음: 지금대로 둔다(고른 것이 곧 시작이라는 뜻의 안내를 목록에 둔다). 단순하지만 wireframe과 다르다.
+decide: |
+  승인한 wireframe(고르고, 입력하고, 보내면 열린다)를 따를지, 지금처럼 고르는 순간 열지. 지금 쪽이 한 단계 빠르지만 되돌릴 수 없는 일(컴퓨터에서 CLI가 시작함)이 고르기 한 번에 일어난다.

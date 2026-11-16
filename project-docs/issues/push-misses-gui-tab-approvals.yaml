@@ -5,9 +5,9 @@ status: open
 topic: attention
 modules: [packages/core/attention, packages/shell/main]
 now: |
-  push 계기는 core Bus의 `TurnRequestOpened`·`QuestionAsked` 등(`attention/triggers.ts`, `wiring/attention.ts`의 구독 목록)과 shell main tracker가 보내는 `terminal_sessions/signal`뿐이다. tracker는 터미널 TUI의 hook `PermissionRequested`에서만 signal을 낸다. GUI 탭의 승인 card는 harness-gui adapter가 shell main 안의 대화 상태에서 만들고 core의 turn request도 아니며, `extensions/bundled/harness-gui`와 `terminal/gui.ts`에는 core의 `terminal_sessions/signal`이나 `presence/report`를 부르는 코드가 없다(grep). 같은 CLI의 hook이 GUI에서도 와서 tracker가 알 수 있는지는 harness마다 달라 확인하지 못했다.
+  push 계기는 core Bus의 `TurnRequestOpened`·`QuestionAsked` 등(`attention/triggers.ts`, `wiring/attention.ts`의 구독 목록)과 shell main tracker가 보내는 `terminal_sessions/signal`뿐이다. tracker는 터미널 TUI의 hook `PermissionRequested`에서만 signal을 낸다. GUI 탭의 승인 card는 harness-gui adapter가 shell main 안의 대화 상태에서 만들고 core의 turn request도 아니다. shell main이 그 상태를 core로 올리는 길(coding relay의 사본, `AcpUpdated`)은 생겼지만 attention은 그것을 듣지 않는다. `extensions/bundled/harness-gui`와 `terminal/gui.ts`에는 core의 `terminal_sessions/signal`이나 `presence/report`를 부르는 코드가 없다(grep). 같은 CLI의 hook이 GUI에서도 와서 tracker가 알 수 있는지는 harness마다 달라 확인하지 못했다.
 impact: |
   `claude gui` 같은 GUI 탭에서 일을 맡기고 자리를 뜬 사람은 그 session이 승인을 기다려도 폰 알림을 받지 못한다. 터미널 TUI 탭과 lophn agent session은 알림이 가서 같은 일이 GUI에서만 다르다.
 fix: |
   - 중간(추천): GUI 탭의 승인 대기가 서고 풀릴 때 shell main이 `terminal_sessions/signal`(`waiting`)을 core에 보낸다. GUI 탭은 `term:<탭>` 참조라 기존 계기 표와 글이 그대로 쓰인다.
-  - 큼: harness GUI session을 core로 올리는 계획(핸들을 core에 두는 안)이 서면 그 session의 `TurnRequestOpened`가 계기가 된다. 그 계획이 먼저 서면 이 이슈는 저절로 풀린다.
+  - 중간: core의 coding relay가 이미 사본의 승인·질문 대기(`pending`)와 turn 끝을 `AcpUpdated`로 낸다. attention이 그 갱신(승인·질문이 열림, turn 끝)을 같은 계기 표에 이어 주면 shell main을 고치지 않고 GUI 탭도 push가 된다.

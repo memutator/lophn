@@ -77,7 +77,7 @@ core는 모양만 본다. 뜻은 shell과 design이 안다.
 
 ### 화면 동작은 이미 명령이 있다
 
-- host queue: core가 요청을 받아 줄에 넣고, shell main이 long-poll(`host/take`, 5초)로 가져가 하고 `host/done`으로 답한다(`packages/protocol/lophn-agent/host-queue.ts`, shell 쪽은 `main/desktop/wiring/surface.ts:355-400`).
+- host queue: core가 요청을 받아 줄에 넣고, shell main이 붙은 `/host-link` 연결(frame은 `packages/protocol/host-link/frames.ts`)로 받아 하고 `response` frame으로 답한다(요청 종류는 `packages/protocol/lophn-agent/host-queue.ts`, shell 쪽은 `main/desktop/wiring/surface.ts`).
 - 요청 kind는 다섯이다: `tab_open`, `tab_close`, `tab_show`, `tool_call`(extension tool), `browser_call`. 명령으로는 `lophn tab`, `lophn browser`, `lophn ext call`, `lophn preview`다. 이 roadmap은 여기에 더하지 않는다(정한 것 7).
 - shell이 없을 때 shell을 띄우는 것은 browser 탭 열기뿐이다.
 

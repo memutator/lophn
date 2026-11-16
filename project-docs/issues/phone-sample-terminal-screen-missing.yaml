@@ -1,0 +1,12 @@
+id: phone-sample-terminal-screen-missing
+title: sample 컴퓨터에서 View terminal이 화면 없이 "Waiting…"에 머문다
+kind: bug
+status: open
+topic: remote
+modules: [packages/mobile]
+now: |
+  sample 컴퓨터(`packages/mobile/src/data/sample.ts`의 `codingRoutes`)는 `coding_sessions/*`와 `acp/send`에는 답하지만 `terminal_view/snapshot`·`terminal_view/watch`에는 답이 없다. 그래서 sample에서 터미널로 도는 Codex session의 View terminal을 누르면 `terminalFeed`가 `unavailable`(sample의 fake core가 모르는 route에 주는 답)을 받아 "Waiting for the terminal’s screen…"(`mobile.terminal.label.loading`)에 머문다(화면이 온다는 뜻으로 읽힌다). 개발 core와 가짜 host(`tools/fake-coding-host.ts`)를 붙이면 화면이 보인다.
+impact: |
+  컴퓨터 없이 화면 모양을 보는 sample 모드(화면 worker와 사람이 쓴다)에서 터미널 화면, Fit width·100%, 입력 줄과 key 줄을 볼 수 없다. 데이터와 권한에는 닿지 않는다.
+fix: |
+  - 작음(추천): sample이 `terminal_view/snapshot`에 색 있는 줄 몇 개와 `input: true`를, `terminal_view/watch`에 `{}`를 답한다(입력 줄과 key 줄이 보인다. 입력을 끈 모양은 sample에서 보지 못한다).

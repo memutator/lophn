@@ -129,7 +129,7 @@ session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. �
 
 - session 제목은 두 단계다. 첫 사람 요청을 접수하는 tx에서 앞 60자를 잘라 바로 제목으로 두고, 첫 turn이 첫 model call과 나란히 session model로 제목 call(`title_summary`, 첫 요청만 재료) 하나를 해 2–6단어 제목으로 바꾼다. call로 시작한 session은 그 call의 맡긴 글을 같은 규칙으로 잘라 둔다. 제목 call은 시작할 때 session의 지금 제목을 읽고, 바꾸는 command(`sessions/ai-title`)는 제목이 아직 그 읽은 제목일 때만 쓰므로 사람이 그 사이 rename한 제목은 덮지 않고, 출처 칸을 따로 두지 않는다. 자른 제목을 요청 글에서 다시 계산해 맞추지 않는다(이미지·file 표시가 든 제목과 어긋난다). 제목 call은 본 call과 같은 turn의 call로 기록하되 시도 번호는 각자 잡는다. call이 실패하거나 답이 제목 꼴이 아니면 자른 제목이 남는다. 이유: 조사한 harness 대부분(Claude Code, Codex, OpenCode, omp, dsh, hermes, mixdog)이 LLM 제목을 쓰고, hermes·dsh처럼 즉시 보이는 제목을 먼저 두면 제목 call을 기다리지 않는다. 작은 model 설정이 없어 session model을 쓴다(dsh·hermes 기본과 같다). (agent, 2026-11-10)
 - session lifecycle을 SDK에 따로 짓지 않고 core가 event의 첫 발행자가 된다. 앱은 listener를 건다. 같은 일을 앱마다 다시 만들 필요가 없다. (사람, 2026-11-10)
-- 터미널의 coding agent도 같은 목록과 event에 넣는다(kind `terminal`). session id가 없어 `term:<탭>`을 id로 쓴다. 상태는 shell main의 tracker가 알고, shell main이 core에 지금 집합을 통째로 알린다(`terminal_sessions.report`). core는 메모리에만 두고 shell이 붙어 있지 않으면 비운다. (사람이 session id·ppid를 물은 것에서, 2026-11-10. 통째로 알리기와 메모리: agent)
+- 터미널의 coding agent도 같은 목록과 event에 넣는다(kind `terminal`). session id가 없어 `term:<탭>`을 id로 쓴다. 상태는 shell main의 tracker가 알고, shell main이 core에 지금 집합을 통째로 알린다(`/host-link`의 `coding_report` frame, `terminal-agent.md`). core는 메모리에만 두고 shell 연결이 닫히고 3초 안에 다시 붙지 않으면 비운다. (사람이 session id·ppid를 물은 것에서, 2026-11-10. 통째로 알리기와 메모리: agent)
 - `stop`은 시야 안 모든 session에 열고 archive·승인·rewind·fork·지움은 열지 않는다. stop은 잃는 것이 없고 사람의 예(한도에서 멈춤)가 남이 연 session을 멈추는 일이다. 멈춘 앱은 사람이 볼 수 있게 남긴다. (agent, 사람이 방향을 받음)
 - 가시성은 mayCall을 그대로 쓰되 agent 쌍을 빼는 함수(`mayReachWorkspace`)를 떼어 앱이 쓴다. 가짜 agent를 앱 대신 세우면 agent 쌍 규칙에 걸린다. (agent)
 

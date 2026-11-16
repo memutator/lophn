@@ -270,7 +270,7 @@ interfaces:
 
   - id: remote-protocol
     kind: interface
-    description: 폰과 core 사이의 연결. Noise IK handshake, 암호화한 record, JSON frame(hello, pair, call, result, watch와 Gateway frame), 기기가 부를 수 있는 route 목록(자기 등록을 지우는 `devices/unpair`, 자기 push 설정 `devices/set_push`, 앞에 있는지 알리는 `presence/report`, project의 `project_files/list|read` 포함), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
+    description: 폰과 core 사이의 연결. Noise IK handshake, 암호화한 record, JSON frame(hello, pair, call, result, watch와 Gateway frame), 기기가 부를 수 있는 route 목록(자기 등록을 지우는 `devices/unpair`, 자기 push 설정 `devices/set_push`, 앞에 있는지 알리는 `presence/report`, project의 `project_files/list|read`, 컴퓨터의 coding agent `coding_sessions/*`와 그 터미널 화면 `terminal_view/*` 포함), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
     interface_type: protocol
     defined_by: protocol
     provided_by:
@@ -406,7 +406,7 @@ interfaces:
 
   - id: host-queue-interface
     kind: interface
-    description: shell main이 사람 token으로 부르는 host queue의 memory route(`host/take {workspaces, tui}` — 요청을 5초까지 기다리는 long-poll이고 tui는 harness TUI hold의 heartbeat —, `done`, `report`)와 agent 자격 또는 사람 token의 `tabs/open`, `tabs/close`, `tabs/show`, `browser/read|snapshot|act|navigate|screenshot|evaluate|logs|wait`. renderer의 호출 통로에는 없다.
+    description: shell main이 사람 token으로 여는 양방향 연결 `/host-link`(WebSocket, subprotocol `lophn.host-link.1`)의 frame(host가 올리는 `hello`·`visible`(보이는 workspace와 harness TUI hold의 목록), `response`, `report`, `coding_report`·`coding_sync`·`coding_closed`, `terminal_screen`과 core가 미는 `request`(탭 열기·닫기·보이기, extension tool·browser 호출, 터미널 끊기, 폰이 청한 coding session 입력·switch·열기와 터미널 화면 밀기·입력))와 agent 자격 또는 사람 token의 `tabs/open`, `tabs/close`, `tabs/show`, `browser/read|snapshot|act|navigate|screenshot|evaluate|logs|wait`. renderer의 호출 통로에는 없다.
     interface_type: protocol
     defined_by: lophn-agent
     provided_by:

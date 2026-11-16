@@ -74,7 +74,7 @@ modules:
 
   - path: packages/core/host-queue
     boundary: core
-    notes: core가 shell에 시킬 일(탭 열기·닫기)의 메모리 queue와 agent가 연 탭의 표. 다른 module을 import하지 않고 base와 protocol만 쓴다. handler는 core/main의 wiring/host-queue.ts가 붙인다.
+    notes: core가 shell에 시킬 일(탭 열기·닫기, tool·browser 호출, 폰이 청한 coding·터미널 요청)의 메모리 queue와 agent가 연 탭의 표. shell main이 붙은 `/host-link` 연결(core/server/host-link.ts)이 queue의 요청을 받아 frame으로 민다. 다른 module을 import하지 않고 base와 protocol만 쓴다. handler는 core/main의 wiring/host-queue.ts가 붙인다.
 
   - path: packages/core/coding-relay
     boundary: core

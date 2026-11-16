@@ -1,0 +1,54 @@
+id: mobile-coding-agents
+version: 0.23.63
+title: shell main과 core를 양방향 연결로 잇고, 폰이 컴퓨터의 coding agent 대화와 터미널을 보고 다루게 한다
+modules: [packages/protocol, packages/core/host-queue, packages/core/coding-relay, packages/core/terminal-view, packages/core/server, packages/core/main, packages/core/remote, packages/core/lophn-agent, packages/core/storage, packages/shell/main, packages/shell/ipc, packages/shell/renderer, packages/shell/terminal-host, packages/mobile, packages/design, tools]
+change: |
+  - shell main과 core가 양방향 연결 `/host-link`(WebSocket, subprotocol `lophn.host-link.1`, loopback의 Host·Origin·Bearer 검사는 Gateway와 같고 사람 자격만 받는다. event 연결 한도 밖이고 연결은 한 번에 하나)로 이어진다(`architecture/platform.md`). core가 요청을 `request` frame으로 밀고 shell은 `hello`·`visible`(보이는 workspace와 TUI 탭 목록), `response`(`done`·`retry`), `report`(browser 탭 상태), `coding_report`·`coding_sync`·`coding_closed`, `terminal_screen` frame을 올린다. frame 하나는 16 MiB까지이고 틀린 frame은 1008로 닫는다. 끊기면 shell이 1초에서 30초 backoff로 다시 붙는다. 지운 것: route `host/take`(5초 long-poll), `host/done`, `host/report`, `terminal_sessions/report`와 queue의 임시 이중 길(`terminal_sessions/signal`은 그대로다). queue의 `attached`는 연결이 열려 있는 동안이고 TUI hold는 연결이 열린 동안 core가 1초마다 갱신한다. 연결이 닫히면 그 연결로 보낸 결과 요청은 `unavailable`로 끝나고 터미널 coding agent 표와 coding relay 사본은 3초 안에 다시 붙지 않으면 비워진다.
+  - core의 coding relay(`packages/core/coding-relay`): shell main이 handle마다 올린 ACP 상태(`coding_sync`: snapshot, 20ms 묶음의 update)를 session마다 접은 사본으로 메모리에 둔다(최대 64개, 가장 오래 안 쓴 것부터 버린다). 접기 전에 제품 redactor를 거치고(알려진 secret을 아직 다 모르면 내지 않는다) session id는 desktop과 같은 `ses_<터미널 ULID>`(`guiSessionId`를 protocol `session-tag.ts`로 옮겼다)다. 사본이 있는 session의 `acp/snapshot`은 사본을, `acp/send`는 입력 전체를 host의 `coding_input`으로 넘긴다(handle이 없으면 `not_found`, 연결이 없거나 10초 안에 답이 없으면 `unavailable`, `key`가 있는 입력은 session마다 200개를 기억해 한 번만 보낸다). `AcpUpdated`는 올라온 갱신을 하나씩 그대로 낸다. `TerminalSessionReport`에 `view`, `handoff`, `foreground`가 더해졌다.
+  - 새 route(사람 자격, 폰이 부른다): `coding_sessions/list`(`{shell: attached|absent, sessions}`. 줄은 session, terminal, harness, label, project, cwd, title, state, view, handoff, cli_session, last_active_at, switch), `coding_sessions/switch_plan`(바꾸면 무엇이 멈추나), `coding_sessions/switch`(`confirmed: true`가 없으면 `invalid_input`이고 host에 요청이 가지 않는다. 같은 `key`는 한 번만. 거절은 host의 code와 `details.reason`), `coding_sessions/open`(새 session이나 ledger harness agent session 되살리기. `key`로 한 번만), `coding_sessions/wake`(컴퓨터의 앱을 띄운다. 폰의 단추로만). host 요청 `coding_input`(10초), `coding_switch`·`coding_open`(60초), `terminal_stream`·`terminal_input`(5초)이 더해졌다. 폰이 연 session은 그 project를 보이는 창에 새 터미널 탭을 펴진 float로 열어 `<harness> gui [--resume <id>]`를 치고 handle이 서기를 55초까지 기다린다(창이 없으면 `unavailable`, extension이 꺼져 있으면 Settings를 열지 않고 `extension_off`, run이 시작하지 않으면 handle을 닫고 `failed`). 되살린 session은 그 터미널이 끝날 때까지 TUI 탭처럼 hold한다. core는 폰의 깨우기로도 앱을 띄운다(browser 탭 열기와 같은 조건과 쉼).
+  - 터미널 보기: route `terminal_view/snapshot`(read, 화면과 이 기기의 입력 허락 `input`), `terminal_view/watch`(lease 30초, 폰이 10초마다 갱신, `tail` 0~500), `terminal_view/input`(허락받은 기기만, 글 8192자까지, 같은 `key`는 터미널마다 200개를 기억해 한 번만). 보는 것은 coding session의 터미널뿐이다. lease가 있는 동안만 host가 화면을 통째로 밀어 올리고(첫 화면은 바로, 그 뒤는 250ms 간격으로 묶는다) core는 최신 하나만 메모리에 둔다. 화면이 바뀌면 새 event `TerminalScreenChanged {terminal, seq}`(내용 없이, 남지 않는다)를 내고 폰이 snapshot을 다시 읽는다. 폰은 PTY 크기를 바꾸지 않는다. 화면은 가리지 않는다(redaction 없음). `StateChanged`의 change 이름 `coding_sessions`가 더해졌다.
+  - 터미널 입력은 기기마다 허락이다. ledger step `remote.devices.terminal_input`이 `devices`에 `terminal_input`(기본 0) 칸을 더한다(`schema-steps.lock.json`에 같이 올렸다). 새 route `devices/set_terminal_input`은 사람 자격만 부르고 기기 route 목록에는 없다. core는 허락 표를 메모리에 두고(기동 때 읽고 commit 뒤 바뀜으로 고친다) 입력마다 동기로 본다: 끄거나 기기를 끊으면 다음 입력부터 `forbidden`이다. `devices/list`에 `terminal_input`이 실린다. desktop Settings › Remote의 기기 줄에 스위치 "Allow typing in terminals"가 생겼다(기본 꺼짐. 문구는 "이 폰을 가진 누구든 컴퓨터의 coding agent 터미널에 쳐서 사용자로서 명령을 돌릴 수 있다"를 말한다).
+  - 폰 route 목록(`REMOTE_ALLOWED_ROUTES`)에 `coding_sessions/*` 다섯과 `terminal_view/*` 셋, 폰 event 목록에 `TerminalScreenChanged`를 더했다. 폰 앱(`packages/mobile`): project workspace의 Sessions 위의 coding 목록, 대화의 coding session(desktop의 harness GUI source에 폰이 읽은 `AcpState` feed를 끼운다), 터미널로 도는 session의 `View terminal`과 `Switch to chat`(확인 sheet), 새 session의 agent sheet의 컴퓨터 coding agent 묶음, 끝난 session의 `Continue as chat`, 앱이 꺼졌을 때의 `Start lophn on the computer`, 터미널 화면(styled text row, `Fit width`·`100%`, 글 칸과 key 줄은 입력이 허락된 폰에만). 문구는 `mobile.coding.*`와 `mobile.terminal.*` key다.
+  - 개발: `node tools/fake-coding-host.ts`(먼저 `npm run dev:core`)가 실제 shell main 대신 개발 core의 `/host-link`에 붙어 canned coding session 둘(chat으로 도는 Claude Code와 터미널로 도는 Codex)과 터미널 화면을 올리고 입력과 switch와 open에 답한다.
+why: |
+  mobile roadmap 단계 5와 9다. 폰이 컴퓨터의 일을 이어 가도 desktop의 Claude Code·Codex·OpenCode·omp 대화는 shell main 메모리에 있어 폰에서 볼 수도 승인에 답할 수도 없었고, 터미널로 도는 coding agent는 PTY에 글자를 쳐야만 답할 수 있어 폰에서는 보기조차 안 됐다. shell main이 GUI 상태와 터미널 화면을 core로 계속 올려야 했는데 한 방향 long-poll(`host/take`)과 route body 한도(256 KiB)로는 안 돼 양방향 연결을 먼저 짓고 그 위에 relay와 터미널 보기를 얹었다.
+decisions:
+  - text: >-
+      shell main과 core를 long-poll(`host/take`)이 아니라 양방향 연결 `/host-link`로 잇고 옛 route는 같은 계획 안에서 지운다. 이유: GUI 상태 snapshot이 route body 한도에 들지 않고 폰도 같은 frame 모양으로 둘째 host가 될 수 있다. 버린 길: desktop은 `host/take`를 두고 coding과 폰만 새 길(같은 일에 전송이 둘 남는다).
+    by: agent
+  - text: >-
+      폰의 coding session은 handle을 shell main에 둔 채 core가 접은 사본으로 중계하고 기존 `acp/snapshot`·`acp/send`·`AcpUpdated`로 낸다. 이유: 폰이 lophn agent와 같은 대화 화면과 card를 쓰고 snapshot과 event의 순서가 core 한 곳에서 정해진다. 대가: 앱이 떠 있어야 하고 연결이 끊기면 사본이 사라진다. 버린 길: handle을 core로 옮기기(PTY를 core 밑으로 옮기는 큰 구조 변경), 폰 전용 route와 화면.
+    by: agent
+  - text: >-
+      TUI로 도는 session을 폰이 GUI로 바꿀 때는 사람이 확인한 뒤에만이다(`confirmed: true`가 없으면 `invalid_input`). 이유: 도는 turn이 끊기고 desktop 탭이 chat 화면으로 바뀌는 되돌릴 수 없는 일이다. 버린 길: 말없이 바꾸기, 이미 GUI인 session만 폰에 보이기(roadmap 사람이 정할 것 6의 추천대로).
+    by: agent
+  - text: >-
+      폰에 가는 터미널 화면은 PTY 그대로이고 가리지 않는다. 이유: 색과 칸 위치가 있는 줄이라 글을 바꾸면 TUI 칸이 밀리고 줄바꿈과 run 경계에 걸친 secret은 놓쳐 가짜 안전이 된다. 폰은 사람이 pairing한 기기이고 연결은 Noise로 암호화된다. 대가: 터미널에 찍힌 secret이 폰에도 보인다. 화면은 event에 싣지 않고 core 메모리의 최신 하나만 둔다.
+    by: agent
+  - text: >-
+      터미널에 치는 것은 기기마다 켜는 허락이고 기본은 꺼짐이다. 켜는 길은 사람이 컴퓨터의 Settings › Remote에서 고르는 것뿐이고(기기 route 목록에 없다) core가 입력마다 본다. 이유: 승인 card를 거치지 않고 사람의 shell과 TUI에 직접 치는 것이라 폰의 권한 모델(보고 말하고 답한다)에 없는 원격 shell이다. 허락을 기기 행에 두어 잃어버린 폰 하나만 끌 수 있다. 버린 길: 입력 없이 보기만, 모든 기기에 하나의 설정.
+    by: agent
+  - text: >-
+      터미널 화면은 화면 전체를 core에 두고 바뀐 것은 `TerminalScreenChanged {terminal, seq}`만 알린다. 폰이 snapshot을 다시 읽는다. 최신 화면이 옛 화면을 대신하므로 느린 폰은 건너뛰고 replay와 backpressure queue가 없다. 버린 길: survey의 row diff.
+    by: agent
+  - text: >-
+      폰이 여는 session은 그 project를 보이는 창의 새 터미널 탭으로 열고 되살리기는 ledger의 harness agent session에 한한다. 이유: handle이 터미널 탭에 묶여 있어 사람이 치는 것과 같은 길을 탄다. CLI 자신의 지난 session 목록은 adapter마다 달라 열지 않았다. headless harness agent(`coding_*`)는 폰의 새 session 목록에 두지 않는다(승인 card가 없다).
+    by: agent
+  - text: >-
+      앱 깨우기는 폰의 명시적 단추로만 한다. 앱을 깨워도 PTY는 앱과 함께 죽어 있어 목록은 비어 있으므로 쓸모는 깨운 뒤 새 session을 여는 것이다. 폰이 목록을 보는 것만으로 앱 창을 열지 않는다.
+    by: agent
+  - text: >-
+      폰의 터미널 화면은 먼저 React Native의 styled text row로 그린다. WebView terminal은 그 길이 못 쓸 때만 더한다. 이유: native module 없이 되고 새 dev build가 필요 없다. 대가: 폭 2칸 글자의 간격이 시스템 fallback 글꼴의 1em 가정에 기댄다(이슈 `phone-terminal-wide-glyph-spacing`).
+    by: agent
+follow_up: |
+  - **실제 desktop 앱(Electron)을 한 번도 띄워 보지 못했다.** `/host-link` 위의 browser 탭 열기·tool 호출·터미널 끊기, harness GUI 중계(handle의 올리기와 폰 입력), 폰이 여는 session의 새 터미널 탭, Settings › Remote의 터미널 입력 스위치는 type 검사와 test, 개발 core에 붙인 가짜 host로만 확인했다.
+  - 폰 화면은 emulator에서 가짜 coding host를 붙인 개발 core로만 보았다. 실제 desktop 앱이나 실제 coding agent에 붙인 적이 없다. 깨우기가 성공하는 경우, 지난 session을 실제로 되살리는 경우, 열기의 `conflict`·`unavailable` 거절은 보지 못했다. 실제 폰은 쓰지 않았다.
+  - 알려진 빈틈은 이슈다: `phone-new-coding-session-opens-on-pick`(고르면 첫 메시지 없이 바로 열린다. wireframe과 다르다, 사람이 정할 것), `phone-sample-terminal-screen-missing`, `phone-terminal-wide-glyph-spacing`, `phone-coding-ask-duplicates-env-read`, `gui-handoff-copies-adapter-table`, `shell-copies-protocol-types-for-tsconfig`, `push-misses-gui-tab-approvals`(GUI 탭의 승인 대기는 push가 아니다. coding relay가 이미 사본의 승인 대기를 낸다).
+  - 폰의 대화에는 지난 session 목록, rewind 미리보기, 이미지가 없다(capability로 칸이 숨는다). 터미널 resize, WebView terminal, 모든 터미널 탭의 목록은 하지 않았다.
+checklist:
+  - "컴퓨터에서 터미널 탭에 `claude gui`(또는 `codex gui` 등)를 쳐 chat으로 열고, 폰에서 그 session의 대화가 보이는지, 폰에서 보낸 글과 승인 card의 답이 컴퓨터 탭에 반영되는지 본다"
+  - "터미널로 도는 coding agent(TUI)를 폰에서 Switch to chat으로 바꿔(확인 문구에 도는 turn이 끊긴다고 나온다) 컴퓨터 탭이 chat 화면으로 바뀌는지, 도는 turn이 있는데 바꾸면 끊기는지 본다"
+  - "폰의 새 session에서 컴퓨터의 coding agent를 골라 컴퓨터에 새 터미널 탭이 펴진 float로 열리고 chat으로 시작하는지, 그 project를 보이는 창이 없을 때 'Open the project on the computer'로 거절되는지, 지난 coding session의 Continue as chat이 같은 CLI session을 되살리고 이미 열려 있으면 거절되는지 본다"
+  - "앱을 Quit한 뒤 폰에서 Start lophn on the computer를 눌러 앱이 뜨는지, 뜬 뒤 목록이 비어 있고 새 session을 열 수 있는지 본다"
+  - "폰의 View terminal에서 컴퓨터 터미널의 글과 색이 그대로 보이는지, Settings › Remote에서 그 폰의 Allow typing in terminals를 켠 때만 글 칸과 key 줄이 서고 입력이 컴퓨터 터미널에 닿는지, 끄면 다음 입력이 거절되는지 본다"
+  - "연결 전환 뒤에도 agent의 browser 탭 열기와 extension tool 호출과 앱의 session 멈춤(터미널 끊기)이 전과 같이 도는지, core를 다시 띄운 뒤 shell이 다시 붙는지 본다"

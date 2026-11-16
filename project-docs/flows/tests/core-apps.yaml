@@ -16,6 +16,10 @@ files:
     covers: [app-declaration-read:ok, app-log-read:not-found]
     note: "app.tool_index의 agent 범위와 비공개 command 가림(사람은 전부), 다른 앱 log의 not_found는 createTargetAuthorizer 직접 호출. app.invocations 범위 밖은 app-invocation-read가 missing(null)으로 적어 not_found와 맞는지 확인 필요"
 
+  - path: packages/core/apps/follow/follow_test.ts
+    covers: [folder-release-follow:current, folder-release-follow:diverged, folder-release-follow:waiting-consent, folder-release-follow:declined]
+    note: "고르기 표(일직선, 건너뛰기, 조상, 같은 commit, 갈라짐, 낮은 schema, superseded, failed, commit 없음, 같은 commit의 두 bundle)는 git을 함수로 받은 순수 판정. 동의는 실제 activation handler와 compareForActivation에 가짜 동의 줄·시작 큐를 끼워 바깥 자원이 늘면 시작하지 않고 줄만 서고, 줄이 있는 동안과 거절 뒤에는 다시 묻지 않음을 본다"
+
   - path: packages/core/apps/invocations/ledger_test.ts
     covers: [release-activate:active]
     note: "ledger 저장 규칙: 끝난 invocation은 표 trigger로 못 바꾸고 못 지움, 되돌림 표시 한 번, 큰 changeset은 결과를 살리고 changeset_dropped로 닫음, activation 뒤 이전 release의 changeset 지우기. activation 뒤 changeset 지우기는 release-activate:active"

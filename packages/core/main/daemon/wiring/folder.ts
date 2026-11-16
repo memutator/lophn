@@ -42,6 +42,7 @@ import {
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { SyncHeld } from "../../../apps/calls/service.ts";
 import { createFolderAppsHost } from "../../../apps/folder-host.ts";
+import { createFollow } from "../../../apps/follow/mod.ts";
 import {
   FOLDER_APPS_CONTEXT,
   loadApps,
@@ -445,6 +446,43 @@ export const folderWiring: WiringFactory = () => {
         dataRoot,
       });
 
+      // 다른 기계가 낸 새 release 따라가기. 계기는 start, scan·source 받기 뒤, release 상태 바뀜, 동의 닫힘이다.
+      const follow = createFollow({
+        sql,
+        apps: () =>
+          syncApps().flatMap((app) =>
+            app.release === null
+              ? []
+              : [
+                  {
+                    app: app.app,
+                    source_path: app.source_path,
+                    release: app.release,
+                  },
+                ],
+          ),
+        offered: (app) =>
+          importer
+            .records()
+            .apps.flatMap((row) =>
+              row.record.app === app &&
+              row.machine !== me() &&
+              row.record.active_release !== null
+                ? [{ machine: row.machine, ...row.record.active_release }]
+                : [],
+            ),
+        takeIn: (input) => apps.takeIn(input),
+        activate: (release) =>
+          ctx.appsControl.activation?.activate(release) ??
+          Promise.resolve(
+            err({ code: "unavailable", message: "activation is unavailable" }),
+          ),
+      });
+      const followUp = (app?: Id<"app">) => {
+        if (stopped) return;
+        follow.sweep(app).catch((thrown) => log("follow_threw", thrown));
+      };
+
       // --- 한 번 돌기(lane) ---
       function kick(name: string, job: () => Promise<RunOutcome>): void {
         if (stopped) return;
@@ -554,6 +592,7 @@ export const folderWiring: WiringFactory = () => {
           kick(`import:${app.app}`, () => importApp(app.app));
           kick(`source:${app.app}`, () => importSource(app.app));
         }
+        followUp();
         return { ok: true, more: false };
       }
 
@@ -577,6 +616,7 @@ export const folderWiring: WiringFactory = () => {
       async function importSource(id: Id<"app">): Promise<RunOutcome> {
         const fetched = await apps.importSource(id);
         if (!fetched.ok) log("source_failed", fetched.error.message);
+        else followUp(id);
         return { ok: fetched.ok, more: false };
       }
 
@@ -905,13 +945,34 @@ export const folderWiring: WiringFactory = () => {
           force: true,
         });
         unsubscribe = ctx.bus.subscribe(
-          [{ types: ["AppSyncChanged", "AppRemoved", "StateChanged"] }],
+          [
+            {
+              types: [
+                "AppSyncChanged",
+                "AppRemoved",
+                "StateChanged",
+                "ActivationConsentClosed",
+              ],
+            },
+          ],
           {
             send(event) {
               if (event.type === "AppSyncChanged") {
                 scheduleExport(event.subject as Id<"app">);
               } else if (event.type === "AppRemoved") {
                 void forget(event.subject as Id<"app">);
+              } else if (event.type === "ActivationConsentClosed") {
+                const closed = event.payload as {
+                  app: Id<"app">;
+                  release: string;
+                  outcome: "allow" | "reject" | "cancelled";
+                };
+                follow.consentClosed(
+                  closed.app,
+                  closed.release,
+                  closed.outcome,
+                );
+                followUp(closed.app);
               } else {
                 const changes = (
                   event.payload as {
@@ -931,6 +992,11 @@ export const folderWiring: WiringFactory = () => {
                 } else if (
                   changes.some((change) => change.name === "releases")
                 ) {
+                  for (const change of changes) {
+                    if (change.name === "releases" && change.id !== null) {
+                      followUp(change.id as Id<"app">);
+                    }
+                  }
                   // 활성 release가 바뀌었다(activation, take-in): 첫 snapshot과 앱 기록을 쓰고 읽기를 다시 맞춘다.
                   debounce("releases", EXPORT_DEBOUNCE_MS, () => {
                     exportAll();
@@ -947,6 +1013,8 @@ export const folderWiring: WiringFactory = () => {
         kick("scan", scan);
         everyExport();
         everyImport();
+        // apps의 start(supervisor 붙이기)가 이 wiring보다 앞이다.
+        followUp();
       };
 
       // 앱을 지울 때. local 상태와 held 사본만 지우고 폴더의 file은 그대로 둔다.

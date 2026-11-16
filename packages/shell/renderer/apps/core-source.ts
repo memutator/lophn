@@ -8,7 +8,6 @@ import {
   appDelete,
   appUnarchive,
 } from "../../../protocol/apps/apps.ts";
-import { appEnableExecution } from "../../../protocol/apps/runtime.ts";
 import type { CoreCall } from "../../ipc/core.ts";
 import { commandBody } from "../command-call.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
@@ -72,15 +71,6 @@ export function coreAppsSource(core: CoreSource): AppsSource {
   };
   const withNumber = async (value: AppValue) =>
     rowOf(value, await numberOf(value.active_release));
-  const read = async (app: string): Promise<SourceResult<AppRow | null>> => {
-    const result = await call<{ app: AppValue }>(core, "read", "get", {
-      app,
-    });
-    if (!result.ok) {
-      return result.code === "not_found" ? { ok: true, value: null } : result;
-    }
-    return { ok: true, value: await withNumber(result.value.app) };
-  };
   return {
     async list() {
       const rows: AppRow[] = [];
@@ -98,7 +88,15 @@ export function coreAppsSource(core: CoreSource): AppsSource {
       return { ok: true, value: rows };
     },
 
-    get: read,
+    async get(app) {
+      const result = await call<{ app: AppValue }>(core, "read", "get", {
+        app,
+      });
+      if (!result.ok) {
+        return result.code === "not_found" ? { ok: true, value: null } : result;
+      }
+      return { ok: true, value: await withNumber(result.value.app) };
+    },
 
     async create(draft) {
       // 성공 응답은 route output(App) 그대로다.
@@ -140,24 +138,6 @@ export function coreAppsSource(core: CoreSource): AppsSource {
       return result.ok
         ? { ok: true, value: await withNumber(result.value) }
         : result;
-    },
-
-    // 탭이 앱을 읽은 뒤 다른 편집이 있어도 켜지도록 지금 revision을 다시 읽어 비교한다(app-detail의 setRun과 같다).
-    async enableRun(app) {
-      const found = await read(app);
-      if (!found.ok) return found;
-      if (found.value === null) return { ok: false, code: "not_found" };
-      const result = await call<AppValue>(
-        core,
-        "command",
-        appEnableExecution.method,
-        commandBody(appEnableExecution, {
-          input: { app },
-          compare: { base_revision: found.value.revision },
-          key: `apps-${appEnableExecution.method}-${crypto.randomUUID()}`,
-        }),
-      );
-      return result.ok ? { ok: true, value: null } : result;
     },
 
     async deleteApp(app) {
@@ -227,7 +207,8 @@ export function coreAppsSource(core: CoreSource): AppsSource {
     },
 
     // 여는 화면은 선언 read(`/apps/tools`)가 준다. 고르지 않으면 그 release의 선언에 `tab` 자리로 적힌 첫 화면이다
-    // (main의 앱 전용 창 `createEntryScreen`과 같은 규칙).
+    // (main의 앱 전용 창 `createEntryScreen`과 같은 규칙). 선언에 그 화면이 없으면 `not_found`고(영구), 읽지 못한 것은
+    // 읽기의 오류 code 그대로다(일시일 수 있다).
     async screenToOpen(app, release, screen) {
       const result = await call<{
         release: string;
@@ -239,7 +220,7 @@ export function coreAppsSource(core: CoreSource): AppsSource {
       if (screen === undefined) {
         const entry = screens.find((each) => each.places.includes("tab"));
         return entry === undefined
-          ? { ok: false, code: "unavailable" }
+          ? { ok: false, code: "not_found" }
           : { ok: true, value: { key: entry.key, place: "tab" } };
       }
       const found = screens.find((each) => each.key === screen);
@@ -252,7 +233,7 @@ export function coreAppsSource(core: CoreSource): AppsSource {
               ? "tab"
               : found.places[0];
       return found === undefined || place === undefined
-        ? { ok: false, code: "unavailable" }
+        ? { ok: false, code: "not_found" }
         : { ok: true, value: { key: found.key, place } };
     },
   };

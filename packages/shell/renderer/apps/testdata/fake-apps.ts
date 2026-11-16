@@ -81,10 +81,6 @@ export function fakeApps(options: FakeAppsOptions = {}) {
       rows = rows.map((row) => (row.id === app.id ? next : row));
       return Promise.resolve({ ok: true, value: next });
     },
-    enableRun(app) {
-      calls.push(["enable-run", app]);
-      return Promise.resolve({ ok: true, value: null });
-    },
     deleteApp(app) {
       calls.push(["delete", app.id, app.revision]);
       if (options.deleteCode) {
@@ -104,7 +100,7 @@ export function fakeApps(options: FakeAppsOptions = {}) {
       return Promise.resolve(
         options.screen
           ? { ok: true, value: { key: screen ?? options.screen, place: "tab" } }
-          : { ok: false, code: "unavailable" },
+          : { ok: false, code: "not_found" },
       );
     },
   };

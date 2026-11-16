@@ -303,6 +303,7 @@ const appViews: AppViewsDeps | null =
         views,
         app: coreAppRead(core),
         screens: coreAppScreens(core),
+        enableRun: (app) => appDetail.setRun(app, true),
         icon: coreAppIcon(core),
       }
     : null);

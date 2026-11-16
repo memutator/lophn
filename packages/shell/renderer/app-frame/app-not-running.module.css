@@ -1,0 +1,24 @@
+/* 앱이 꺼져 있거나 뜨는 중이라 화면을 못 여는 자리의 안내. 앱 화면 자리를 채운다. */
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  margin: var(--space-0);
+  padding: var(--space-8) var(--space-9);
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.text {
+  margin: var(--space-0);
+}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+}

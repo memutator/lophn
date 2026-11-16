@@ -11,6 +11,7 @@ import {
   HeadSlotScope,
   useHeadSlot,
 } from "../../app-frame/app-tab-head.tsx";
+import { useNotRunningFailure } from "../../app-frame/app-not-running.tsx";
 import { EmbeddedView } from "../../app-frame/embedded-view.tsx";
 import { ArtifactPanel } from "./artifact-panel.tsx";
 import type { SidebarPanelPick } from "../../desktop/settings/quick-launch/source.ts";
@@ -197,6 +198,7 @@ function AppSidebarBody(props: {
   const workspace = useAppWorkspace();
   // 앱 화면이 useTabHead로 올린 머리 줄은 panel 머리 줄의 단추 자리에 그린다(card 칸이 없는 자리라 여기가 받는다).
   const [head, setHead] = useHeadSlot();
+  const notRunning = useNotRunningFailure(props.app, props.label);
   if (deps === null) return null;
   return (
     <RightSidebar
@@ -218,6 +220,8 @@ function AppSidebarBody(props: {
           label={props.label}
           keepKey={`${SIDEBAR_KEEP_PREFIX}${props.app}:${props.screen}`}
           tabHead
+          renderFailure={notRunning.renderFailure}
+          onState={notRunning.onOpened}
         />
       </HeadSlotScope>
     </RightSidebar>

@@ -46,8 +46,6 @@ export interface AppsSource {
   create(draft: AppDraft): Promise<SourceResult<AppRow>>;
   /** 보관하면 실행도 끈다. 꺼내도 사람이 허용하기 전에는 시작하지 않는다. */
   setArchived(app: AppRow, archived: boolean): Promise<SourceResult<AppRow>>;
-  /** 사람이 앱 실행을 켠다. 채택한 release가 다시 뜬다. 보관한 앱은 `conflict`다. */
-  enableRun(app: string): Promise<SourceResult<null>>;
   /** 보관한 앱을 영구히 지운다. 보관하지 않은 앱은 `conflict`, 앱 process가 아직 멈추는 중이면 `unavailable`이다. */
   deleteApp(app: AppRow): Promise<SourceResult<null>>;
   /** 앱이 주인인 공개 package. 지워도 남고 주인이 빈다. 지우기 전에 사람에게 보인다. */
@@ -56,7 +54,7 @@ export interface AppsSource {
   ): Promise<SourceResult<readonly PublishedPackage[]>>;
   /**
    * 그 version에서 여는 화면. screen이 없으면 선언에 `tab` 자리로 적힌 첫 화면이다. 있으면 그 화면이고 자리는 그 `places`에서
-   * `phone`, `tab`, 첫 자리 순으로 고른다. 선언에 없으면 `unavailable`이다.
+   * `phone`, `tab`, 첫 자리 순으로 고른다. 선언에 없으면 `not_found`(영구)이고, 선언을 읽지 못한 것은 그 읽기의 오류 code다.
    */
   screenToOpen(
     app: string,

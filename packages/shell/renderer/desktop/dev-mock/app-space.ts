@@ -71,6 +71,7 @@ export function mockAppViews(views: LophnShellViewsApi): AppViewsDeps {
             },
       );
     },
+    enableRun: () => Promise.resolve({ ok: true }),
     // 한 앱만 icon을 선언한 것으로 둔다. 나머지는 기본 모양이다.
     icon: (app) =>
       Promise.resolve(app === APP_PLANNER ? MOCK_APP_ICON : undefined),

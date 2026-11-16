@@ -9,7 +9,7 @@ import { t } from "@lophn/i18n";
 
 import type { AppFrameViewState } from "../../ipc/app-frame.ts";
 import { STAY } from "../app-frame/annotate/use-view-toast.ts";
-import { useRunView } from "../app-frame/app-detail/reads.ts";
+import { useNotRunningFailure } from "../app-frame/app-not-running.tsx";
 import { useAppViews, useAppWorkspace } from "../app-frame/app-views.tsx";
 import { EmbeddedView } from "../app-frame/embedded-view.tsx";
 import { ViewChrome } from "../app-frame/view-chrome.tsx";
@@ -27,7 +27,10 @@ type AppRecord =
 
 type Entry =
   | { readonly state: "loading" }
+  /** 선언에 tab 화면이 없다(영구). */
   | { readonly state: "unavailable" }
+  /** 선언을 읽지 못했다(일시일 수 있다). */
+  | { readonly state: "failed" }
   | { readonly state: "ready"; readonly screen: string };
 
 interface AppScreenTabProps {
@@ -40,66 +43,6 @@ interface AppScreenTabProps {
   agentView: AgentViewSlice | null;
   /** 이 앱의 preview 탭을 연다. */
   onOpenPreview: () => void;
-}
-
-// 화면을 열지 못했을 때(main이 `unavailable`로 거절) 앱이 꺼져 있거나 아직 뜨는 중이라서인지 읽어 이유를 말한다.
-// 꺼져 있으면 [Turn on]을 두고, 앱이 running이 되면 `onRunning`으로 다시 연다(켠 뒤 탭을 닫았다 열 필요가 없다).
-function AppNotRunning(props: {
-  app: string;
-  source: AppsSource;
-  onRunning: () => void;
-  onRetry: () => void;
-}) {
-  const { app, source, onRunning, onRetry } = props;
-  const { loaded } = useRunView(app);
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const run = loaded.state === "ready" ? loaded.value : null;
-  const running = run?.state === "running";
-  useEffect(() => {
-    if (running) onRunning();
-  }, [running]);
-
-  if (loaded.state === "failed") {
-    return (
-      <ErrorState target={t("app-space.label.this-app")} onRetry={onRetry} />
-    );
-  }
-  if (run === null || running) {
-    return (
-      <div className={styles.placeholder} aria-busy="true">
-        <Skeleton lines={3} />
-      </div>
-    );
-  }
-  if (!run.enabled) {
-    return (
-      <div className={styles.state} data-app-off="">
-        <p>{t("app-space.empty.app-off")}</p>
-        {failed ? <p>{t("app-detail.error.run-failed-on")}</p> : null}
-        <Button
-          disabled={busy}
-          onClick={() => {
-            setBusy(true);
-            setFailed(false);
-            void source.enableRun(app).then((result) => {
-              setBusy(false);
-              setFailed(!result.ok);
-            });
-          }}
-        >
-          {t("app-space.button.turn-on")}
-        </Button>
-      </div>
-    );
-  }
-  return (
-    <p className={styles.state} data-app-starting="">
-      {run.state === "halted"
-        ? t("app-detail.note.run-halted")
-        : t("app-space.empty.app-starting")}
-    </p>
-  );
 }
 
 export function AppScreenTab(props: AppScreenTabProps) {
@@ -130,7 +73,9 @@ export function AppScreenTab(props: AppScreenTabProps) {
           setEntry(
             screen.ok
               ? { state: "ready", screen: screen.value.key }
-              : { state: "unavailable" },
+              : {
+                  state: screen.code === "not_found" ? "unavailable" : "failed",
+                },
           );
         }
       });
@@ -163,8 +108,10 @@ export function AppScreenTab(props: AppScreenTabProps) {
   });
 
   const retry = () => setAttempt((count) => count + 1);
-  // 앱이 running이 돼도 열기가 또 거절되면 되풀이하지 않는다. 한 번 열리면 다시 풀린다.
-  const autoRetried = useRef(false);
+  const notRunning = useNotRunningFailure(
+    app,
+    record.state === "ready" ? record.row.name : t("app-space.label.this-app"),
+  );
   const row = record.state === "ready" ? record.row : null;
   let body;
   let embedded = false;
@@ -174,7 +121,7 @@ export function AppScreenTab(props: AppScreenTabProps) {
         {t("app-space.empty.screen-not-ready")}
       </p>
     );
-  } else if (record.state === "failed") {
+  } else if (record.state === "failed" || entry.state === "failed") {
     return (
       <ErrorState target={t("app-space.label.this-app")} onRetry={retry} />
     );
@@ -207,22 +154,9 @@ export function AppScreenTab(props: AppScreenTabProps) {
         keepKey={keepKey}
         tabHead
         {...(shellHead === undefined ? {} : { shellHead })}
-        renderFailure={(code, reopen) =>
-          code === "unavailable" ? (
-            <AppNotRunning
-              app={app}
-              source={source}
-              onRetry={reopen}
-              onRunning={() => {
-                if (autoRetried.current) return;
-                autoRetried.current = true;
-                reopen();
-              }}
-            />
-          ) : null
-        }
+        renderFailure={notRunning.renderFailure}
         onState={(next) => {
-          autoRetried.current = false;
+          notRunning.onOpened();
           setState(next);
         }}
       />

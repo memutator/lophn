@@ -30,6 +30,7 @@ import {
   HeadSlotScope,
   useHeadSlot,
 } from "../../app-frame/app-tab-head.tsx";
+import { useNotRunningFailure } from "../../app-frame/app-not-running.tsx";
 import { EmbeddedView } from "../../app-frame/embedded-view.tsx";
 import {
   createWebviewHost,
@@ -119,6 +120,7 @@ function PopupBody({
   workspace: TrayOpen["workspace"];
 }) {
   const deps = useAppViews();
+  const notRunning = useNotRunningFailure(item.app, item.label);
   if (deps === null) return null;
   return (
     <EmbeddedView
@@ -131,6 +133,8 @@ function PopupBody({
       workspace={workspace}
       label={item.label}
       tabHead
+      renderFailure={notRunning.renderFailure}
+      onState={notRunning.onOpened}
     />
   );
 }

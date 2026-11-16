@@ -18,6 +18,7 @@ import {
   useAppViews,
   useAppWorkspace,
 } from "../app-frame/app-views.tsx";
+import { useNotRunningFailure } from "../app-frame/app-not-running.tsx";
 import { EmbeddedView } from "../app-frame/embedded-view.tsx";
 import { useOptionalEventClient } from "../desktop/connection/events/hooks.tsx";
 import { ViewChrome } from "../app-frame/view-chrome.tsx";
@@ -213,6 +214,10 @@ export function AppPanelTab({
   const [facts, setFacts] = useState<Facts>(null);
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<AppFrameViewState | null>(null);
+  const notRunning = useNotRunningFailure(
+    app,
+    facts?.ok ? facts.value.name : t("project-workspace.label.kind-app-panel"),
+  );
   useEffect(() => {
     if (deps === null) return;
     let live = true;
@@ -293,13 +298,16 @@ export function AppPanelTab({
           label={facts.value.name}
           shown={shown}
           keepKey={keepKey}
-          onState={setState}
+          onState={(next) => {
+            notRunning.onOpened();
+            setState(next);
+          }}
           tabHead
-          renderFailure={(code) =>
+          renderFailure={(code, reopen) =>
             // 패널을 선언하지 않은 화면은 줄여 열지 않고 앱 공간으로 안내한다.
             code === "invalid_input" || code === "forbidden"
               ? notice(t("app-panel.notice.not-panel"), true)
-              : null
+              : notRunning.renderFailure(code, reopen)
           }
         />
       </div>

@@ -1906,6 +1906,78 @@ flows:
     unclear:
       - "openLink은 http·https가 아닌 URL을 아무 흔적 없이 버린다. 문서는 조용히 사라지는 URL이 없다고 적었으므로 의도인지 확인이 필요하다"
 
+  - id: project-clone
+    title: "이 기계에 없는 project를 git URL에서 받아 등록한다"
+    actor: agent
+    entries: [route:projects/clone]
+    uses: [route:projects/create]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/clone/clone.ts
+      - packages/core/projects/clone/runner.ts
+      - packages/core/projects/clone/setting.ts
+      - packages/core/main/daemon/wiring/project-clone.ts
+      - packages/protocol/projects/clone-api.ts
+    steps:
+      - "user·agent만 부른다. URL에 자격(https의 userinfo, user:pass@)이 있으면 git을 띄우기 전에 invalid_input으로 거절한다(remote 설정에 token이 남는다)"
+      - "identity를 주었고 그 id를 가진 project의 첫 폴더가 이 기계에 있으면 받지 않고 그 project를 cloned false로 돌려준다"
+      - "부모 폴더는 parent, 없으면 설정 projects.folder(사람이 처음 한 번 정한다. 값에 기계 id를 붙이지 않는다)다. 없거나 폴더가 아니면 parent를 안 준 경우 projects_folder_unset, 준 경우는 그냥 invalid_input이다. 설정이 비었거나 그 폴더가 없어졌을 때 parent가 폴더이면 설정에 기억한다"
+      - "폴더 이름은 name이나 URL 마지막 조각에서 .git을 뗀 것이다. /, \\, .., 빈 글은 invalid_input이다. <부모>/<이름>이 이미 있으면 아무것도 쓰지 않고 conflict(target_exists)다"
+      - "<부모>/.lophn-clone-<random>에 git clone한다. 이 기계의 git 설정(credential helper, ssh)을 그대로 쓰되 GIT_TERMINAL_PROMPT=0 같은 env로 묻는 창 없이 바로 실패하게 한다. 10분이 넘으면 멈춘다. 실패하면 임시 폴더를 지우고 stderr로 가른다: 자격이면 git_auth와 사람이 풀 명령(gh auth login, ssh -T git@host, 그 밖은 git clone <url>), git이 없으면 git_not_found, 시간 초과면 timeout, 그 밖은 git_failed와 stderr 끝 줄"
+      - "임시 폴더의 .lophn-project.json을 읽는다. identity를 주었는데 file의 id(충돌이면 작은 것)가 다르면 임시 폴더를 지우고 conflict(different_project)다. file이 없으면 받은 폴더를 두고 note에 다른 기계에서 commit·push한 뒤 pull하라고 알린다. rename 바로 앞에 대상이 아직 없는지 다시 보고(생겼으면 임시 폴더를 지우고 conflict target_exists) rename한다"
+      - "project.create를 machine:projects-clone 자격으로 낸다. title은 title이나 폴더 이름이고 slug는 title에서 만들어 겹치면 번호를 붙여 다섯 번까지 해 본다. 실패하면 받은 폴더는 지우지 않고(받은 것을 잃지 않게) 오류에 path를 싣는다"
+    outcomes:
+      - id: cloned
+        observe: ["disk:project-folder", "ledger:projects", "response"]
+      - id: no-identity-file
+        when: "받았고 등록했지만 저장소에 .lophn-project.json이 없다. note가 온다. 사람에게 그대로 전한다"
+        observe: ["disk:project-folder", "ledger:projects", "response"]
+      - id: already-here
+        when: "identity가 가리키는 project의 첫 폴더가 이 기계에 있다. 받지도 쓰지도 않는다"
+        observe: ["response"]
+      - id: folder-unset
+        code: invalid_input
+        when: "parent를 주지 않았고 설정 projects.folder가 비었거나 폴더가 아니다(details.reason projects_folder_unset). 에이전트가 사람에게 폴더를 한 번 묻고 parent로 준다"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "URL에 자격이 있다, parent가 폴더가 아니다, 폴더 이름이 /, \\, .., 빈 글이다"
+        observe: ["response"]
+      - id: target-exists
+        code: conflict
+        when: "<부모>/<이름>이 이미 있다(details.reason target_exists, details.path). 그 안에 아무것도 쓰지 않는다"
+        observe: ["disk:project-folder", "response"]
+      - id: different-project
+        code: conflict
+        when: "받은 저장소의 id가 identity와 다르다(details.reason different_project, details.identity). 받은 것은 지우고 등록하지 않는다"
+        observe: ["disk:project-folder", "response"]
+      - id: auth
+        code: unavailable
+        when: "이 기계의 git이 그 저장소를 읽을 자격이 없다(details.reason git_auth, details.command). 임시 폴더는 지운다. 사람에게 명령을 보이고 기다린다"
+        observe: ["response"]
+      - id: git-not-found
+        code: unavailable
+        when: "git 실행 file이 없다(details.reason git_not_found)"
+        observe: ["response"]
+      - id: timeout
+        code: unavailable
+        when: "받기가 10분을 넘었다(details.reason timeout)"
+        observe: ["response"]
+      - id: git-failed
+        code: unavailable
+        when: "그 밖의 git 실패(details.reason git_failed, stderr 끝 줄)"
+        observe: ["response"]
+      - id: register-failed
+        code: conflict
+        when: "받은 폴더를 등록하지 못했다(slug 이름이 다섯 번 다 겹쳤거나 project.create가 거절했다). 폴더는 남고 details.path가 온다"
+        observe: ["disk:project-folder", "response"]
+      - id: forbidden
+        code: forbidden
+        when: "actor가 user·agent가 아니다(route 검사)"
+        observe: ["response"]
+    crosses_process: false
+    risk: [data-loss, sandbox]
+
 ignore:
   - {entry: "route:projects/identity", reason: "정의만 있고 handler가 아직 없어 ROUTES에 펼치지 않았다. handler를 짓는 변경이 flow를 쓰고 이 줄을 지운다"}
   - {entry: "route:projects/create_identity", reason: "정의만 있고 handler가 아직 없어 ROUTES에 펼치지 않았다. handler를 짓는 변경이 flow를 쓰고 이 줄을 지운다"}

@@ -12,6 +12,7 @@ import { ASK_COMMANDS } from "./ask.ts";
 import { LOGIN_COMMANDS } from "./login.ts";
 import { PACKAGE_COMMANDS } from "./package.ts";
 import { PREVIEW_COMMANDS } from "./preview.ts";
+import { PROJECT_COMMANDS } from "./project.ts";
 import { RELEASE_COMMANDS } from "./release.ts";
 import { RUN_COMMANDS } from "./run.ts";
 import { SESSION_COMMANDS } from "./session.ts";
@@ -43,6 +44,7 @@ export const COMMANDS: readonly Command[] = [
   ...BROWSER_COMMANDS,
   ...PACKAGE_COMMANDS,
   ...PREVIEW_COMMANDS,
+  ...PROJECT_COMMANDS,
   ...RELEASE_COMMANDS,
   ...RUN_COMMANDS,
   ...SESSION_COMMANDS,

@@ -3,6 +3,7 @@ import {
   diagnosticsTraceSetting,
   teamSetting,
 } from "../../../config/setting-declarations.ts";
+import { projectsFolderSetting } from "../../../projects/clone/mod.ts";
 import { shellRulesSetting } from "../../../approvals/shell-rules/mod.ts";
 import { sharedAppsSetting } from "../../../approvals/share-requests/mod.ts";
 import { lophnAgentSettings } from "../../../lophn-agent/register.ts";
@@ -23,6 +24,7 @@ export const settingDeclarationsWiring: WiringFactory = () => ({
       callPolicySetting,
       teamSetting,
       diagnosticsTraceSetting,
+      projectsFolderSetting,
     ]);
   },
 });

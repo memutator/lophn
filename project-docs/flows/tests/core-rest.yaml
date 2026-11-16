@@ -438,6 +438,10 @@ files:
       - project-identity-record:forbidden
     note: "보관해도 폴더 파일은 그대로다. identity step이 기존 project와 그 id를 key로 쓰는 행을 그대로 두고, record_identity가 없는 file로 id를 지우지 않고 한 기계에 한 id만 두며 다른 자격을 거절한다"
 
+  - path: packages/core/projects/clone/clone_test.ts
+    covers: [project-clone:target-exists, project-clone:different-project, project-clone:auth, project-clone:invalid-input]
+    note: 있는 대상 폴더 안에 쓰지 않고, 실패한 clone과 다른 id의 저장소는 부모 폴더에 남지 않고 등록되지 않으며, 자격이 박힌 URL은 git 전에 거절된다(가짜 git)
+
   - path: packages/core/projects/files/files_test.ts
     covers: [project-files-list:outside, project-files-read:ok, project-files-read:invalid-input]
     note: 등록 폴더 밖 path(.., 절대 path, symlink)는 목록도 읽기도 거절, 1 MiB 넘으면 글자 경계에서 잘림

@@ -72,6 +72,10 @@ import {
   createLedgerRegistration as createLophnAgentRegistration,
   lophnAgentDefinitions,
 } from "./wiring/lophn-agent-team.ts";
+import {
+  createCoreRegistration as createProjectCloneRegistration,
+  projectCloneWiring,
+} from "./wiring/project-clone.ts";
 import { projectsWiring } from "./wiring/projects.ts";
 import {
   createCoreRegistration as createRemoteRegistration,
@@ -116,6 +120,7 @@ export const TEAMS = [
   { createCoreRegistration: createAppsDeleteRegistration },
   { createCoreRegistration: createAttentionRegistration },
   { createCoreRegistration: createRemoteRegistration },
+  { createCoreRegistration: createProjectCloneRegistration },
 ];
 
 // writer·reader Worker가 다시 import할 등록 파일.
@@ -145,6 +150,7 @@ export const TEAM_MODULES = [
   new URL("./wiring/apps-delete.ts", import.meta.url).href,
   new URL("./wiring/attention.ts", import.meta.url).href,
   new URL("./wiring/remote.ts", import.meta.url).href,
+  new URL("./wiring/project-clone.ts", import.meta.url).href,
 ];
 
 // module마다의 wiring. 순서가 뜻을 가진다.
@@ -169,6 +175,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   eventsWiring,
   stateChangesWiring,
   projectsWiring,
+  projectCloneWiring,
   lophnAgentSessionWiring,
   lophnAgentWiring,
   // data step은 이 순서로 돈다. agent-handle이 가장 먼저 handle을 채운다(뒤 step들이 정의를 schema로 읽는다). skills-off가 먼저 `skills`를 옮겨야 assignment-file이 엄격한 schema로 agent 파일을 읽는다.

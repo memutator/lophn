@@ -218,6 +218,30 @@ flows:
     risk: [permission]
     docs: [architecture/settings.md]
 
+  - id: project-identity-commands
+    title: "agent가 명령으로 project의 기계를 넘는 id를 읽거나 id file을 만든다"
+    actor: agent
+    entries: [cli:project.share, cli:project.identity]
+    uses: [route:projects/create_identity, route:projects/identity]
+    boundary: [coding-agent-cli-interface, projects]
+    code:
+      - packages/cli/commands/project.ts
+    steps:
+      - "project 칸이 없으면 session의 project workspace를 쓴다. Home이거나 session이 없으면(binary) invalid_input이다"
+      - "share는 projects/create_identity를, identity는 projects/identity를 부르고 summary 한 줄에 id와 file 상태(예: pri_... · not committed)를 싣는다. 실패는 route의 오류를 그대로 돌려준다"
+    outcomes:
+      - id: shared
+        when: "share가 file을 만들었거나 이미 읽을 수 있는 file이 있다"
+        observe: ["response"]
+      - id: read
+        when: "identity가 상태를 돌려줬다"
+        observe: ["response"]
+      - id: no-project
+        code: invalid_input
+        when: "project를 주지 않았고 project workspace의 session도 아니다"
+        observe: ["response"]
+    crosses_process: true
+
 links:
   - {entry: "cli:agent.models", flow: agent-models-list}
   - {entry: "cli:agent.card", flow: agent-card-read}
@@ -259,6 +283,7 @@ links:
   - {entry: "cli:ask.secret", flow: input-request-ask}
   - {entry: "cli:package.read", flow: package-guide-read}
   - {entry: "cli:package.publish", flow: package-publish}
+  - {entry: "cli:project.clone", flow: project-clone}
   - {entry: "cli:preview.start", flow: preview-start}
   - {entry: "cli:preview.stop", flow: preview-stop}
   - {entry: "cli:preview.call", flow: app-command-call}

@@ -8,4 +8,4 @@ lead만 고친다. `tools/status.py always-on build`가 `tasks/*.md`에서 id, �
 | `always-mark` | always-mark | 1 | 없음 | merged | always-mark/always-mark | 82be00cef |  |
 | `always-os` | always-os | 1 | 없음 | merged | always-os/always-os | af3d59c51 |  |
 | `always-boot` | always-boot | 2 | always-mark, always-os | merged | always-boot/always-boot | b1c283587 |  |
-| `always-desktop` | always-desktop | 2 | always-mark | running | always-desktop/always-desktop |  |  |
+| `always-desktop` | always-desktop | 2 | always-mark | merged | always-desktop/always-desktop | c1fcee138 |  |

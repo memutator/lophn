@@ -1,0 +1,13 @@
+id: phone-run-app-preview-runs-on-computer
+title: 폰에서 도는 앱의 preview는 폰이 아닌 컴퓨터의 preview process에서 backend가 돈다
+kind: defect
+status: open
+topic: app-sync
+modules: [packages/mobile, packages/core/apps]
+now: |
+  폰에서 도는 앱(`runs_on`에 `phone`)을 폰에서 "Preview from lophn"으로 열면 화면은 폰에서 그려지지만 operation은 모두 컴퓨터의 preview process로 간다. 폰의 local backend, outbox, sync는 preview에서 돌지 않는다. agent가 phone 탭으로 확인하는 것도 이 길이다. 지침은 preview와 test가 컴퓨터에서만 돈다고 말한다.
+impact: |
+  agent와 사람이 preview로는 폰 backend의 제약(호출 3초, network 없음, 폰 schema 규칙, offline 동작)을 확인하지 못한다. 그것들은 release한 뒤에야 폰에서 드러난다.
+fix: |
+  - 그대로(추천, 지금): 지침이 이 한계를 말하게 둔다. release 준비가 폰 backend의 build와 schema를 미리 검사한다.
+  - 큼: preview bundle에도 폰 backend를 실어 폰이 preview data로 local backend를 돌린다. sync와 preview data의 경계를 새로 정해야 한다.

@@ -1,0 +1,12 @@
+id: phone-app-menu-says-runs-on-computer
+title: 폰에서 도는 앱의 menu가 "Runs on <컴퓨터>"라고 적는다
+kind: bug
+status: open
+topic: app-sync
+modules: [packages/mobile]
+now: |
+  앱 화면의 ⋯ menu 머리는 모든 앱에 "Runs on <컴퓨터 이름>"을 적는다. 폰에서 도는 앱(sync 앱, 폰에서만 도는 앱)에도 같은 글이 나온다. 앱 화면의 이름 아래 줄은 맞게 적는다("On this phone · synced …", "Only on this phone · not backed up").
+impact: |
+  같은 앱에 대해 화면은 폰에서 돈다고, menu는 컴퓨터에서 돈다고 말한다.
+fix: |
+  - 작음(추천): menu 머리가 앱 화면의 상태 줄과 같은 글을 쓴다.

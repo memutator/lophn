@@ -6,6 +6,7 @@ topic: phone-screen
 modules: [packages/mobile]
 now: |
   `packages/mobile/README.md`의 guest 확인(release build, emulator)에서 같은 화면을 `key`를 바꿔 10번 다시 띄우면 PSS가 10번마다 약 20 MB(한 번에 약 2 MB) 늘었다. mount마다 origin이 새로 서서 runtime이 새로 만들어지는데(`GuestScreen`), 그 runtime의 memory가 unmount 뒤에도 다 돌아오지 않는다. 원인은 찾지 못했다(sandbox library가 runtime을 풀지 않는지, 화면 쪽 참조가 남는지 가르지 않았다).
+  2026-11-16 일곱 계획을 합친 release build에서 다시 쟀다: Home에서 PSS 170.7 MB, 여러 종류의 앱 화면을 10번 열고 닫은 뒤 235.3 MB, 20번 뒤 265.9~280.2 MB. 한 번에 약 5 MB다(앞서 잰 약 2 MB보다 크다. local backend와 DB 연결이 든 화면이 섞였다).
 impact: |
   폰 화면을 다시 띄우는 일(새 release가 live가 되면 자동으로, 오류 뒤 Try again, 앱을 오가기)이 쌓이면 폰 앱의 memory가 계속 늘어 기기가 모자랄 때 Android가 폰 앱을 끝낼 수 있다. 사람이 앱을 활발히 고치며 폰으로 보는 때가 가장 많이 다시 띄운다. 끝나도 data를 잃지는 않지만 보던 화면이 사라진다. 이 크기(한 번에 2 MB)가 실제로 문제가 되는 횟수는 재지 않았다.
 fix: |

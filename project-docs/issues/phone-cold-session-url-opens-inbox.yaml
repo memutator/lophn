@@ -1,0 +1,13 @@
+id: phone-cold-session-url-opens-inbox
+title: 꺼져 있던 폰 앱을 session URL로 열면 그 session 대신 Inbox가 열릴 때가 많다
+kind: bug
+status: open
+topic: phone-home-screen
+modules: [packages/mobile]
+now: |
+  `lophn://open?...&kind=session`으로 폰 앱을 cold start하면 여섯 번 가운데 네 번은 시작 약 9초 뒤 Inbox로 떨어졌다(2026-11-16, emulator release build). 앱이 떠 있을 때는 늘 그 session이 열린다. session 목록은 cold start 약 2초 뒤에 이미 읽혀 있었다. 원인은 못 잡았다. 알림 누름과 위젯 누름이 같은 길을 쓴다.
+impact: |
+  알림이나 위젯을 눌러 폰 앱을 깨우면 보려던 session이 아닌 Inbox가 열린다. 사람이 다시 찾아 들어가야 한다.
+fix: |
+  - 작음(추천): 원인을 먼저 찾는다. 8초 timer를 컴퓨터가 붙고 session 목록이 읽힌 뒤부터 재는 쪽이 유력하다.
+  - 중간: 목록을 기다리지 않고 그 session 하나를 core에 직접 묻는다.

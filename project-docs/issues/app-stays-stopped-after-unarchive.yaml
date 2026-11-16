@@ -1,0 +1,12 @@
+id: app-stays-stopped-after-unarchive
+title: 앱을 보관했다 되살리면 새 release를 활성화해도 앱 process가 멈춘 채다
+kind: bug
+status: open
+topic: app-runtime
+modules: [packages/core/apps]
+now: |
+  개발 core에서 앱을 archive한 뒤 unarchive하니 그 앱의 process가 다시 뜨지 않았고, 그 뒤 새 release를 활성화해도 멈춘 채였다(2026-11-16, 폰 확인 중 한 번 봄. 폰과 무관한 core 쪽 동작이다). 원인은 보지 않았다. 다시 해 보지 않았다.
+impact: |
+  되살린 앱이 불리지 않는다. 폰에서는 그 앱 화면이 "isn't running"으로 선다.
+fix: |
+  - 작음(추천): 재현부터 한다(archive → unarchive → 호출, release 활성화). 재현되면 unarchive가 runtime을 다시 원하는 상태로 올리는지 본다.

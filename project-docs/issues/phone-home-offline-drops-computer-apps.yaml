@@ -1,0 +1,13 @@
+id: phone-home-offline-drops-computer-apps
+title: 컴퓨터가 꺼진 채 폰 앱을 다시 켜면 Home에서 컴퓨터에서 도는 앱이 사라진다
+kind: bug
+status: open
+topic: phone-screen
+modules: [packages/mobile]
+now: |
+  wireframe은 컴퓨터가 offline이면 컴퓨터에서 도는 앱 tile을 흐리게 보인다. 실제로는 앱 목록과 project 목록 읽기가 mount 사이에 남지 않아, cold start나 Home을 다시 mount한 뒤에는 그 앱들이 Home에서 아예 빠진다. 오래 mount된 sidebar에는 남는다. 폰에 설치된 앱(폰에서 도는 앱)은 제대로 뜬다.
+impact: |
+  사람이 offline에서 폰 앱을 켜면 컴퓨터 앱이 없어진 것처럼 보인다. data를 잃지는 않는다.
+fix: |
+  - 작음(추천): 컴퓨터마다 마지막 앱·project 목록을 남겨(폰 화면 목록의 `lastRead`와 같은 꼴) offline에서 흐리게 그린다.
+  - 그대로: 흐린 tile 설계를 버리고 offline 안내 문장만 둔다.

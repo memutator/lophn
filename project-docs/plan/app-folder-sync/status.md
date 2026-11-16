@@ -8,10 +8,10 @@ lead만 고친다. `tools/status.py app-folder-sync build`가 `tasks/*.md`에서
 | `folder-decl` | sdk | 1 | 없음 | merged | sdk/folder-decl | 54c866fac |  |
 | `folder-engine` | sync | 1 | 없음 | merged | sync/folder-engine | 9d3be3196 |  |
 | `folder-log` | sync | 1 | 없음 | merged | sync/folder-log | 4a46c10dd |  |
-| `folder-approval` | approval | 2 | folder-contract | todo |  |  |  |
-| `folder-apps` | folder | 2 | folder-contract, folder-decl | todo |  |  |  |
-| `folder-export` | folder | 2 | folder-contract, folder-log, folder-decl | todo |  |  |  |
-| `folder-import` | folder | 2 | folder-contract, folder-engine, folder-decl | todo |  |  |  |
-| `folder-runtime` | sync | 2 | folder-contract, folder-engine, folder-log, folder-decl | todo |  |  |  |
+| `folder-approval` | approval | 2 | folder-contract | running | approval/folder-approval |  |  |
+| `folder-apps` | folder | 2 | folder-contract, folder-decl | running | folder/folder-apps |  |  |
+| `folder-export` | folder | 2 | folder-contract, folder-log, folder-decl | running | folder/folder-export |  |  |
+| `folder-import` | folder | 2 | folder-contract, folder-engine, folder-decl | running | folder/folder-import |  |  |
+| `folder-runtime` | sync | 2 | folder-contract, folder-engine, folder-log, folder-decl | running | sync/folder-runtime |  |  |
 | `folder-surface` | folder | 3 | folder-export, folder-import, folder-apps, folder-runtime, folder-approval | todo |  |  |  |
 | `folder-guidance` | sdk | 3 | folder-decl, folder-surface | todo |  |  |  |

@@ -1,5 +1,5 @@
 id: mobile-coding-agents
-version: 0.23.63
+version: 0.23.64
 title: shell main과 core를 양방향 연결로 잇고, 폰이 컴퓨터의 coding agent 대화와 터미널을 보고 다루게 한다
 modules: [packages/protocol, packages/core/host-queue, packages/core/coding-relay, packages/core/terminal-view, packages/core/server, packages/core/main, packages/core/remote, packages/core/lophn-agent, packages/core/storage, packages/shell/main, packages/shell/ipc, packages/shell/renderer, packages/shell/terminal-host, packages/mobile, packages/design, tools]
 change: |

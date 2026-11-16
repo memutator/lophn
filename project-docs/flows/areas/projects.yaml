@@ -8,9 +8,11 @@ flows:
     title: "project를 등록한다"
     actor: person
     entries: [route:projects/create]
+    uses: [route:projects/record_identity]
     boundary: [projects, core-api]
     code:
       - packages/core/projects/registry/commands.ts
+      - packages/core/main/daemon/wiring/projects.ts
       - packages/protocol/projects/project-api.ts
     steps:
       - "사람 UI가 core-call로 project.create를 부른다. clone한 저장소는 core가 machine:projects-clone 자격으로 부른다. user도 그 machine 자격도 아니면 forbidden으로 거절한다"
@@ -18,6 +20,7 @@ flows:
       - "TargetAuthorization port로 생성 자격을 본다. port가 없거나 판정이 실패하면 fail-closed로 막는다"
       - "같은 id나 같은 name(slug)의 project가 있으면 conflict로 거절한다"
       - "projects와 project_folders에 revision 1로 넣고(identity·repo·remote는 null), 폴더마다 디스크 존재 여부(found)를 붙여 record를 돌려준다"
+      - "commit되고 replay가 아니면 core가 첫 폴더의 id file과 git을 다시 읽어 project.record_identity로 적는다(project-identity-record). 읽기가 실패해도 log 한 줄이고 응답은 그대로다"
     outcomes:
       - id: ok
         observe: ["ledger:projects", "ledger:project_folders", "response"]
@@ -53,10 +56,12 @@ flows:
     title: "project의 이름, 제목, 목적, 폴더 목록을 고친다"
     actor: person
     entries: [route:projects/update]
+    uses: [route:projects/record_identity]
     pre: [project-register:ok]
     boundary: [projects, core-api]
     code:
       - packages/core/projects/registry/commands.ts
+      - packages/core/main/daemon/wiring/projects.ts
     steps:
       - "project를 읽는다. 없으면 not_found로 거절한다"
       - "폴더 목록을 바꾸면 같은 path나 겹침을 본다(validateFolderRoots)"
@@ -64,6 +69,7 @@ flows:
       - "base_revision이 현재 revision과 다르면 conflict, 실제로 바뀐 칸이 없으면 invalid_input이다"
       - "다른 project가 같은 name을 쓰면 conflict로 거절한다"
       - "projects의 metadata와 folder를 쓰고 revision을 올린다"
+      - "input에 folders가 있고 commit되고 replay가 아니면 core가 첫 폴더의 id file과 git을 다시 읽어 project.record_identity로 적는다(project-identity-record). 읽기가 실패해도 log 한 줄이고 응답은 그대로다"
     outcomes:
       - id: ok
         observe: ["ledger:projects", "ledger:project_folders", "response"]
@@ -103,16 +109,19 @@ flows:
     title: "찾을 수 없게 된 등록 폴더를 새 위치로 잇는다"
     actor: person
     entries: [route:projects/relink_folder]
+    uses: [route:projects/record_identity]
     pre: [project-register:ok]
     boundary: [projects, core-api]
     code:
       - packages/core/projects/registry/commands.ts
+      - packages/core/main/daemon/wiring/projects.ts
     steps:
       - "project와 folder_path가 등록돼 있는지 본다. 없으면 not_found로 거절한다"
       - "new_path가 folder_path와 같으면 거절하고, 바꾼 목록이 다른 폴더와 겹치면 conflict로 거절한다"
       - "TargetAuthorization으로 판정하고 base_revision을 맞춘다"
       - "new_path가 디스크에 있는지 folder resolver로 본다"
       - "folder 설명은 그대로 두고 path만 바꿔 projects와 project_folders에 쓰고 revision을 올린다"
+      - "commit되고 replay가 아니면 core가 첫 폴더의 id file과 git을 다시 읽어 project.record_identity로 적는다(project-identity-record). 읽기가 실패해도 log 한 줄이고 응답은 그대로다"
     outcomes:
       - id: ok
         observe: ["ledger:projects", "ledger:project_folders", "response"]
@@ -190,15 +199,18 @@ flows:
     title: "보관한 project를 다시 연다"
     actor: person
     entries: [route:projects/unarchive]
+    uses: [route:projects/record_identity]
     pre: [project-archive:archived]
     boundary: [projects, core-api]
     code:
       - packages/core/projects/registry/commands.ts
+      - packages/core/main/daemon/wiring/projects.ts
     steps:
       - "project를 읽는다. 없으면 not_found로 거절한다"
       - "TargetAuthorization으로 status만 바뀐 후보를 판정한다"
       - "base_revision과 현재 status(archived)를 맞춘다"
       - "projects의 status를 active로 쓰고 revision을 올린다"
+      - "commit되고 replay가 아니면 core가 첫 폴더의 id file과 git을 다시 읽어 project.record_identity로 적는다(project-identity-record). 읽기가 실패해도 log 한 줄이고 응답은 그대로다"
     outcomes:
       - id: unarchived
         observe: ["ledger:projects", "response"]
@@ -277,8 +289,186 @@ flows:
         observe: ["response"]
     crosses_process: false
     risk: [data-loss, permission]
+
+  - id: project-identity-read
+    title: "project 폴더의 id file을 다시 읽어 기계를 넘는 id의 지금 상태를 본다"
+    actor: person
+    entries: [route:projects/identity]
+    uses: [route:projects/record_identity]
+    pre: [project-register:ok]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/identity/service.ts
+      - packages/core/projects/identity/inspect.ts
+      - packages/core/projects/identity/git.ts
+      - packages/core/main/daemon/wiring/projects.ts
+    steps:
+      - "user·agent가 부른다. 그 밖의 actor는 dispatch가 forbidden으로 거절한다"
+      - "ledger에서 project를 읽는다. 없으면 not_found다"
+      - "첫 폴더가 있으면 읽는다: 폴더가 없으면 found false, git work tree가 아니면 repo none이고 file을 보지 않는다. git이면 fetch remote로 remote key(하위 폴더는 #<subpath>)를 내고, 폴더 바로 아래 .lophn-project.json을 읽어 git status로 committed·uncommitted·ignored·conflict를 가른다. 위로 올라가 찾지 않는다. git은 읽기만 한다(GIT_OPTIONAL_LOCKS=0)"
+      - "읽은 값을 project.record_identity로 적고(project-identity-record) 그 record로 상태를 만든다. 폴더가 없는 project는 적지 않는다"
+      - "file이 없고 ledger에 id가 있으면 missing이다. file의 id를 이 project가 갖지 못했고 다른 project가 가졌으면 duplicate_of에 그 project를 둔다"
+    outcomes:
+      - id: ok
+        observe: ["ledger:projects", "response", "event:StateChanged"]
+      - id: missing
+        when: "ledger에 id가 있는데 폴더에 file이 없다(지웠거나 file이 없는 branch)"
+        observe: ["response"]
+      - id: duplicate
+        when: "같은 저장소의 두 번째 copy라 id를 먼저 가진 다른 project가 있다"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "project id가 없다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "user·agent actor가 아니다(dispatch의 actor 검사), 또는 record_identity가 machine 자격을 거절했다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "ledger를 열지 못했다, git이나 file 읽기가 던졌다(권한, 10초 timeout), 또는 writer가 record_identity를 받지 못했다"
+        observe: ["response"]
+      - id: internal
+        code: internal
+        when: "project를 읽는 중 깨진 저장을 만났다"
+        observe: ["response"]
+    crosses_process: false
+
+  - id: project-identity-create
+    title: "project 폴더에 기계를 넘는 id file을 만들거나 되살리거나 충돌을 푼다"
+    actor: person
+    entries: [route:projects/create_identity]
+    uses: [route:projects/record_identity]
+    pre: [project-register:ok]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/identity/service.ts
+      - packages/core/projects/identity/file.ts
+      - packages/core/projects/identity/inspect.ts
+      - packages/core/main/daemon/wiring/projects.ts
+    steps:
+      - "user·agent가 부른다. 그 밖의 actor는 dispatch가 forbidden으로 거절한다"
+      - "project를 읽고 첫 폴더를 읽는다(project-identity-read와 같은 읽기). 폴더가 없으면 not_found, git이 아니면 invalid_input이다"
+      - "읽을 수 있는 file이 있으면 쓰지 않는다. 못 읽는 file(빈 것, JSON 아님, 꼴이 틀림, 더 새 판)이면 conflict이고 쓰지 않는다"
+      - "merge 충돌 file이면 양쪽 id 가운데 작은 것으로 덮는다(temp에 쓰고 rename)"
+      - "file이 없으면 ledger의 id(Restore)나 새 pri_ id를 temp에 쓰고 datasync한 뒤 hard link로 건다. 그 사이 file이 생겼으면(EEXIST) 건드리지 않는다. hard link를 못 거는 file system이면 wx로 직접 만든다. temp는 늘 지운다. 폴더에 다른 file을 쓰지 않고 git 쓰기 명령을 부르지 않는다"
+      - "다시 읽어 적고 project-identity-read와 같은 상태를 돌려준다"
+    outcomes:
+      - id: created
+        when: "file이 없고 ledger에도 id가 없어 새 id를 썼다"
+        observe: ["disk:<folder>/.lophn-project.json", "ledger:projects", "response"]
+      - id: restored
+        when: "file이 없고 ledger에 id가 있어 그 id를 다시 썼다([Restore])"
+        observe: ["disk:<folder>/.lophn-project.json", "ledger:projects", "response"]
+      - id: resolved
+        when: "merge 충돌 file을 작은 id로 덮었다([Resolve])"
+        observe: ["disk:<folder>/.lophn-project.json", "ledger:projects", "response"]
+      - id: already
+        when: "읽을 수 있는 file이 이미 있다(다른 기계가 만들어 commit한 것 포함), 또는 쓰는 사이 생겼다. 쓰지 않고 읽은 상태를 돌려준다"
+        observe: ["response"]
+      - id: not-git
+        code: invalid_input
+        when: "첫 폴더가 git work tree가 아니다"
+        observe: ["response"]
+      - id: unreadable
+        code: conflict
+        when: "file이 있는데 읽지 못한다. 덮지 않고 고치거나 지우라고 알린다"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "project id가 없다, project에 폴더가 없다, 또는 첫 폴더가 디스크에 없다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "user·agent actor가 아니다(dispatch의 actor 검사), 또는 record_identity가 machine 자격을 거절했다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "ledger를 열지 못했다, git이나 file 읽기·쓰기가 실패했다(권한, 10초 timeout), 또는 writer가 record_identity를 받지 못했다"
+        observe: ["response"]
+      - id: internal
+        code: internal
+        when: "project를 읽는 중 깨진 저장을 만났다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [data-loss, sandbox]
+
+  - id: project-identity-renew
+    title: "project 폴더의 id file을 새 id로 덮어 다른 기계의 같은 저장소와 나눈다"
+    actor: person
+    entries: [route:projects/renew_identity]
+    uses: [route:projects/record_identity]
+    pre: [project-register:ok]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/identity/service.ts
+      - packages/core/projects/identity/file.ts
+      - packages/core/main/daemon/wiring/projects.ts
+    steps:
+      - "사람만 부른다([Separate project]). agent·app은 dispatch가 forbidden으로 거절한다"
+      - "project를 읽고 첫 폴더를 읽는다. 폴더가 없으면 not_found, git이 아니면 invalid_input이다"
+      - "새 pri_ id를 temp에 쓰고 rename으로 덮는다. 있던 file이 어떤 상태든 덮는다"
+      - "다시 읽어 적고 project-identity-read와 같은 상태를 돌려준다. 같은 저장소의 두 번째 copy였으면 새 id를 갖는다"
+    outcomes:
+      - id: renewed
+        observe: ["disk:<folder>/.lophn-project.json", "ledger:projects", "response"]
+      - id: not-git
+        code: invalid_input
+        when: "첫 폴더가 git work tree가 아니다"
+        observe: ["response"]
+      - id: not-found
+        code: not_found
+        when: "project id가 없다, project에 폴더가 없다, 또는 첫 폴더가 디스크에 없다"
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "user actor가 아니다(dispatch의 actor 검사), 또는 record_identity가 machine 자격을 거절했다"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "ledger를 열지 못했다, git이나 file 읽기·쓰기가 실패했다, 또는 writer가 record_identity를 받지 못했다"
+        observe: ["response"]
+      - id: internal
+        code: internal
+        when: "project를 읽는 중 깨진 저장을 만났다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [data-loss, sandbox]
+    declared_only: [conflict]
     unclear:
-      - "이 command를 부르는 폴더 읽기(기동, 등록·폴더 변경 뒤)와 machine 자격 기록은 아직 없다. 그것을 짓는 변경이 uses와 pre를 잇는다"
+      - "route가 conflict를 선언하지만 renew는 file 상태와 상관없이 덮으므로 내지 않는다"
+
+  - id: project-match
+    title: "등록 전 폴더를 읽어 이 기계의 같은 project와 remote가 같은 project를 찾는다"
+    actor: person
+    entries: [route:projects/match]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/identity/service.ts
+      - packages/core/projects/identity/inspect.ts
+      - packages/protocol/projects/identity.ts
+      - packages/core/main/daemon/wiring/projects.ts
+    steps:
+      - "사람만 부른다(등록 dialog). agent·app은 dispatch가 forbidden으로 거절한다"
+      - "path를 project-identity-read와 같이 읽는다. 쓰지도 적지도 않는다"
+      - "이 기계의 모든 project를 ledger에서 읽어 matchProjects에 넣는다. same은 file의 id를 가진 project, suggestions는 remote key가 같고 둘 중 하나가 id 없는 project다. 다른 project의 폴더는 다시 읽지 않고 ledger 값을 쓴다"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "user actor가 아니다(dispatch의 actor 검사)"
+        observe: ["response"]
+      - id: unavailable
+        code: unavailable
+        when: "ledger를 열지 못했다, 또는 git이나 file 읽기가 던졌다"
+        observe: ["response"]
+      - id: internal
+        code: internal
+        when: "project를 읽는 중 깨진 저장을 만났다"
+        observe: ["response"]
+    crosses_process: false
 
   - id: project-icon-set
     title: "project 아이콘을 올리거나 지운다"
@@ -1977,9 +2167,3 @@ flows:
         observe: ["response"]
     crosses_process: false
     risk: [data-loss, sandbox]
-
-ignore:
-  - {entry: "route:projects/identity", reason: "정의만 있고 handler가 아직 없어 ROUTES에 펼치지 않았다. handler를 짓는 변경이 flow를 쓰고 이 줄을 지운다"}
-  - {entry: "route:projects/create_identity", reason: "정의만 있고 handler가 아직 없어 ROUTES에 펼치지 않았다. handler를 짓는 변경이 flow를 쓰고 이 줄을 지운다"}
-  - {entry: "route:projects/renew_identity", reason: "정의만 있고 handler가 아직 없어 ROUTES에 펼치지 않았다. handler를 짓는 변경이 flow를 쓰고 이 줄을 지운다"}
-  - {entry: "route:projects/match", reason: "정의만 있고 handler가 아직 없어 ROUTES에 펼치지 않았다. handler를 짓는 변경이 flow를 쓰고 이 줄을 지운다"}

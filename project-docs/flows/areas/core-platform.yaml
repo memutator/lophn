@@ -349,9 +349,10 @@ flows:
     title: "core를 띄워 data root와 ledger를 맞추고 ready로 연다"
     actor: system
     entries: [system:core-boot]
-    uses: [system:ledger-migrate, system:machine-ensure, system:data-steps-apply, system:builtin-install]
+    uses: [system:ledger-migrate, system:machine-ensure, system:data-steps-apply, system:builtin-install, route:projects/record_identity]
     boundary: [core, storage, core-control-protocol]
     code: [packages/core/main/daemon/main.ts, packages/core/main/daemon/entry-layout.ts, packages/core/main/daemon/core.ts, packages/core/install-and-update/data-root.ts, packages/core/install-and-update/instance-lock.ts, packages/core/main/daemon/wiring/context.ts]
+    code: [packages/core/main/daemon/main.ts, packages/core/main/daemon/core.ts, packages/core/install-and-update/data-root.ts, packages/core/install-and-update/instance-lock.ts, packages/core/main/daemon/wiring/context.ts, packages/core/main/daemon/wiring/projects.ts]
     steps:
       - "data root를 풀고 POSIX면 소유자와 0700(apps, run 포함)을 검사한다. 어긋나면 기동을 거절한다. 그 뒤 run/instance.lock을 EXCLUSIVE sqlite lock으로 잡는다. 이미 잡혔으면 물러선다"
       - "앞 판의 run/user-token과 run/location.json을 지운다(ENOENT가 아닌 오류는 throw다). run/running.marker(pid, started_at)가 남아 있으면 previous_unclean_exit를 log에 남기고 새로 쓴다. control socket을 listen한다(state starting)"
@@ -360,6 +361,8 @@ flows:
       - "memory route와 handler 짝을 확인하고 API를 연 뒤 wiring start를 돈다. platform/io child가 이때 뜬다. @me 사본 되살리기도 start에서 돈다(app-release 몫)"
       - "ready를 세우고 afterReady를 돈다(복구본 정리, idle 시작). control을 ready로 바꾼다"
       - "stdout에 ready 한 줄을 쓴다. 실패는 start_failed와 reason 한 줄을 쓰고 exit 1로 끝난다(running.marker를 지운다). 단 OS service가 띄운 core(환경 LOPHN_SERVICE=1)는 exit 0이다: OS는 0이 아닌 끝을 crash로 보고 다시 띄우는데 ready 전 실패는 다시 띄워도 같고 lock을 잃은 것은 이미 core가 있다는 뜻이다. reason은 migration이 낸 세 가지만 구별하고 나머지는 other다. ready 전에 ledger writer가 죽어도 이 길이다. core 입구는 설치 layout(platform/에 packages/shell이 없음)일 때만 startCore에 OS port를 넘긴다. 저장소 layout(개발, test, boot, eval)은 넘기지 않는다"
+      - "ready를 세우고 afterReady를 돈다(복구본 정리, idle 시작). projects wiring은 active project의 첫 폴더 id file과 git을 4개씩 다시 읽어 project.record_identity로 적는 일을 띄우고 기다리지 않는다(실패는 project마다 log 한 줄, 종료가 끝을 기다린다). control을 ready로 바꾼다"
+      - "stdout에 ready 한 줄을 쓴다. 실패는 start_failed와 reason 한 줄을 쓰고 exit 1로 끝난다(running.marker를 지운다). reason은 migration이 낸 세 가지만 구별하고 나머지는 other다. ready 전에 ledger writer가 죽어도 이 길이다"
     outcomes:
       - id: ready
         observe: ["process:stdout 첫 줄 ready", "ledger:schema_migrations", "log:core started"]

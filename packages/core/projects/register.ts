@@ -1,3 +1,4 @@
+import { PROJECT_IDENTITY_MEMORY_ROUTES } from "../../protocol/projects/mod.ts";
 import type {
   ReaderRegistration,
   TxPortRegistration,
@@ -16,6 +17,7 @@ type LedgerRegistration = {
   reads?: readonly unknown[];
   ports?: readonly TxPortRegistration[];
   apiReads?: readonly unknown[];
+  memoryRoutes?: readonly unknown[];
 };
 
 // project.search가 ledger를 짧게 읽는 통로. 없으면 검색은 unavailable이다.
@@ -57,6 +59,8 @@ export function createLedgerRegistration(
         exists: (path) => folders.exists(path),
       }),
     ],
+    // 폴더의 id file을 읽고 쓰는 route. handler는 wiring/projects.ts가 단다.
+    memoryRoutes: PROJECT_IDENTITY_MEMORY_ROUTES,
     // 폴더 존재 확인.
     ports: [{ key: folderResolverPort, create: () => folders }],
   };

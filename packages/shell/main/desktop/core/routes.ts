@@ -14,17 +14,14 @@ import {
   pairingStart,
 } from "../../../../protocol/remote/routes.ts";
 import type { Route } from "../../../../protocol/base/mod.ts";
-import { PROJECT_IDENTITY_MEMORY_ROUTES } from "../../../../protocol/projects/identity-api.ts";
 
 // approvals와 remote의 route는 core 등록이 내므로 protocol 전체 목록(ALL_ROUTES)에 없다. 사람 화면이 부르는 것만 더한다:
-// turn request 결정, 에이전트 할당 읽기·바꾸기, 앱 공유 요청 읽기·결정, 폰 pairing과 기기 관리(Settings › Remote),
-// project id file 상태와 등록 전 폴더 읽기(project 등록 dialog와 상세).
+// turn request 결정, 에이전트 할당 읽기·바꾸기, 앱 공유 요청 읽기·결정, 폰 pairing과 기기 관리(Settings › Remote).
 export const SHELL_ROUTES: readonly Route[] = [
   ...(ALL_ROUTES as readonly Route[]),
   turnRequestDecide as Route,
   ...(ASSIGNMENT_ROUTES as readonly Route[]),
   ...(SHARE_REQUEST_ROUTES as readonly Route[]),
-  ...(PROJECT_IDENTITY_MEMORY_ROUTES as readonly Route[]),
   pairingStart as Route,
   devicesList as Route,
   devicesRename as Route,

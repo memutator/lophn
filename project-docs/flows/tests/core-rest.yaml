@@ -441,6 +441,16 @@ files:
   - path: packages/core/projects/clone/clone_test.ts
     covers: [project-clone:target-exists, project-clone:different-project, project-clone:auth, project-clone:invalid-input]
     note: 있는 대상 폴더 안에 쓰지 않고, 실패한 clone과 다른 id의 저장소는 부모 폴더에 남지 않고 등록되지 않으며, 자격이 박힌 URL은 git 전에 거절된다(가짜 git)
+  - path: packages/core/projects/identity/identity_test.ts
+    covers:
+      - project-identity-create:created
+      - project-identity-create:already
+      - project-identity-create:unreadable
+      - project-identity-create:resolved
+      - project-identity-create:not-git
+      - project-identity-create:not-found
+      - project-identity-renew:renewed
+    note: "create는 폴더에 .lophn-project.json 하나만 더하고 있는 file(못 읽는 것 포함)의 byte를 바꾸지 않는다. renew와 충돌 create만 덮고 충돌은 양쪽 순서와 상관없이 작은 id다. 폴더가 없거나 git이 아니면 file을 만들지 않는다. git은 가짜, 폴더는 임시"
 
   - path: packages/core/projects/files/files_test.ts
     covers: [project-files-list:outside, project-files-read:ok, project-files-read:invalid-input]

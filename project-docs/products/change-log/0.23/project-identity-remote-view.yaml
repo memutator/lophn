@@ -1,5 +1,5 @@
 id: project-identity-remote-view
-version: 0.23.72
+version: 0.23.73
 title: 다른 기계를 보는 desktop 창이 그 기계의 project 가운데 이 컴퓨터에도 있는 것을 같은 id로 묶어 보이고 없는 것은 [Clone here]로 받는다
 modules: [packages/shell/main, packages/shell/renderer, packages/shell/preload, packages/shell/ipc, packages/design, tools]
 change: |

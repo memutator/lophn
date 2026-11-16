@@ -8,12 +8,6 @@ import type {
 } from "../../../ipc/machines.ts";
 import type { MachinesSource, MachinesView, SourceResult } from "./source.ts";
 
-// remote-desk-windows가 LophnMachinesApi에 더하는 두 method. 그 task가 합쳐지면 LophnMachinesApi로 바꾼다.
-type WindowMachinesApi = LophnMachinesApi & {
-  open(machine: Id<"mch">): Promise<MachinesReply>;
-  thisWindow(): Promise<{ id: Id<"mch">; name: string } | null>;
-};
-
 const STARTING: MachinesView = {
   state: "starting",
   thisComputer: null,
@@ -56,7 +50,7 @@ async function result(
 
 /** preload가 기계 통로를 열지 않은 창(gallery, mock)은 null이다. */
 export async function windowMachinesSource(): Promise<MachinesSource | null> {
-  const api = (globalThis as { lophnMachines?: WindowMachinesApi })
+  const api = (globalThis as { lophnMachines?: LophnMachinesApi })
     .lophnMachines;
   if (api === undefined) return null;
   let view = STARTING;
@@ -67,10 +61,11 @@ export async function windowMachinesSource(): Promise<MachinesSource | null> {
     view = viewOf(list);
     for (const listener of listeners) listener();
   });
-  const [list, win] = await Promise.all([
+  const [list, own] = await Promise.all([
     api.list().catch(() => null),
     api.thisWindow(),
   ]);
+  const win = own.machine;
   // 기다리는 사이 main이 민 목록이 더 새것이다.
   if (list !== null && !pushed) view = viewOf(list);
   const id = (machine: string) => machine as Id<"mch">;

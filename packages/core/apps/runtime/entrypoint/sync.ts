@@ -104,11 +104,13 @@ function stamp(sync: SyncStore, changeset: Uint8Array): bigint {
   return hlc;
 }
 
-// column clock은 칸 번호로 적힌다. migration이 칸을 지우거나 순서를 바꾸면 옛 clock이 다른 칸을 가리키므로, 칸
-// 목록이 바뀐 표(와 없어진 표)의 column clock을 지운다. row clock은 남아 그 row들은 다음 고침까지 row 단위로
-// 견준다. 폰은 release가 바뀔 때 이 DB의 snapshot을 받으니 같은 clock이 된다. live는 schema를 바꾸지 않으니
-// activation이 migration을 돌린 뒤 새 release의 첫 시작이 이것을 한다.
-export function forgetMovedColumns(db: SyncDb): void {
+// column clock은 칸 번호로 적힌다. migration이 칸을 더하거나 지우거나 순서를 바꾸면 옛 번호가 다른 칸을 가리키므로,
+// 칸 목록이 바뀐 표의 column clock을 옛 칸 이름 목록과 지금 목록으로 옮긴다. 이름이 없어진 칸(이름을 바꾼 칸도)과
+// 없어진 표의 clock만 지운다: 그 row는 다음 고침까지 row clock으로 견준다. 지우지 않고 옮겨야 늦게 올라온 기계가
+// 옛 release에서 한 칸 고침이 그 기계의 다음 snapshot을 합칠 때 이긴다. 폰은 release가 바뀔 때 이 DB의 snapshot을
+// 받으니 같은 clock이 된다. live는 schema를 바꾸지 않으니 activation이 migration을 돌린 뒤 새 release의 첫 시작이
+// 이것을 한다.
+export function remapColumnClocks(db: SyncDb): void {
   db.exec(COLUMNS_SQL);
   const recorded = new Map(
     db
@@ -121,17 +123,15 @@ export function forgetMovedColumns(db: SyncDb): void {
     )
     .map((row) => String(row["name"]));
   for (const table of tables) {
-    const columns = JSON.stringify(
-      db
-        .all(`pragma table_info(${ident(table)})`)
-        .map((row) => String(row["name"])),
-    );
+    const names = db
+      .all(`pragma table_info(${ident(table)})`)
+      .map((row) => String(row["name"]));
+    const columns = JSON.stringify(names);
     const before = recorded.get(table);
     recorded.delete(table);
     if (before === columns) continue;
-    if (before !== undefined) {
-      db.run("delete from lophn_sync_col where tbl = ?", [table]);
-    }
+    if (before !== undefined)
+      moveColumnClocks(db, table, JSON.parse(before), names);
     db.run(
       "insert into lophn_sync_columns (tbl, columns) values (?, ?) on conflict (tbl) do update set columns = excluded.columns",
       [table, columns],
@@ -141,6 +141,39 @@ export function forgetMovedColumns(db: SyncDb): void {
     db.run("delete from lophn_sync_col where tbl = ?", [table]);
     db.run("delete from lophn_sync_columns where tbl = ?", [table]);
   }
+}
+
+// 옛 번호 i의 칸이 지금 j면 i → j. (tbl, pk, col) 열쇠가 옮기는 도중 겹치지 않게 먼저 음수 -1 - j로 두었다가 뒤집는다.
+// 제자리인 칸(i = j)은 두고, 지금 목록에 이름이 없는 칸은 지운다.
+function moveColumnClocks(
+  db: SyncDb,
+  table: string,
+  before: readonly string[],
+  after: readonly string[],
+): void {
+  for (let i = 0; i < before.length; i++) {
+    const j = after.indexOf(before[i]!);
+    if (j === i) continue;
+    if (j === -1) {
+      db.run("delete from lophn_sync_col where tbl = ? and col = ?", [
+        table,
+        i,
+      ]);
+    } else {
+      db.run("update lophn_sync_col set col = ? where tbl = ? and col = ?", [
+        -1 - j,
+        table,
+        i,
+      ]);
+    }
+  }
+  db.run("delete from lophn_sync_col where tbl = ? and col >= ?", [
+    table,
+    before.length,
+  ]);
+  db.run("update lophn_sync_col set col = -1 - col where tbl = ? and col < 0", [
+    table,
+  ]);
 }
 
 // DB에 node를 처음 적은 기계의 id다. 컴퓨터만 쓴다(폰은 이 key를 모른다). 다른 기계에서 온 DB(복제된 data root)면 node를 새것으로
@@ -161,7 +194,7 @@ function claimNode(db: SyncDb, machine: string, node: string): void {
 
 /**
  * sync 앱 process가 시작할 때 한 번. 숨은 표를 만들고(node는 처음 한 번만 적히고 다른 기계의 DB면 바뀐다), 칸이 바뀐 표의 column clock을
- * 지우고, 앱 시작(등록 code)이 DB를 바꿨으면 그 changeset을 찍는다. 시작 code는 transaction으로 감싸지 않아 그
+ * 칸 이름으로 옮기고, 앱 시작(등록 code)이 DB를 바꿨으면 그 changeset을 찍는다. 시작 code는 transaction으로 감싸지 않아 그
  * 변경과 clock은 따로 commit된다. `startHlc`는 그 찍은 clock이다: ready 통보에 실어 core가 sync log에 남긴다.
  */
 export function openSyncStore(input: {
@@ -182,7 +215,7 @@ export function openSyncStore(input: {
   const startHlc = inTransaction(db, () => {
     ensureSyncTables(db, input.node);
     claimNode(db, input.machine, input.node);
-    forgetMovedColumns(db);
+    remapColumnClocks(db);
     return input.startChangeset === null
       ? null
       : stamp(sync, input.startChangeset);

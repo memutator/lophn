@@ -1,19 +1,16 @@
 // (이 기계, 앱, 출처 기계)의 data stream을 번호 순서로 따라간다. file은 전부 검사한 뒤에만 적용하거나 held로 둔다:
 // 깨지거나 반만 온 file에서는 아무것도 적용하지 않고 그 번호에서 기다린다. 다음 번호가 없거나 맞지 않을 때 그보다 큰
 // 번호의 맞는 snapshot이 있으면 그것을 합치고 cursor를 그 번호로 둔다(주인이 compaction한 뒤에 온 기계).
-import { rm } from "node:fs/promises";
-import { join } from "node:path";
+// 읽기 앞에 그 출처의 지금 release held를 적용하고(drain.ts), 남으면 stream을 읽지 않는다. 출처의 snapshot m을 합치거나
+// held로 두면 같은 transaction에서 그 출처의 m보다 옛 held를 지운다. held changes가 한도에 닿으면 더 복사하지 않고 멈춘다
+// (`full`): 그 뒤에 출처의 snapshot이 폴더에 있으면 그리로 건너뛴다(snapshot이 앞을 담는다).
 import { ok, type Result, sha256Hex } from "../../../base/mod.ts";
-import { clockAhead } from "../../../protocol/apps/sync/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import {
   type AppRecord,
   CHANGES_PAYLOAD_MAX_BYTES,
-  CLOCK_AHEAD_MAX_MS,
   CONTAINER_HEAD_MAX_BYTES,
-  type ContainerHead,
   type ContainerHeader,
-  changesOf,
   type DataKind,
   dataDir,
   dataEntryPath,
@@ -26,20 +23,30 @@ import {
 } from "../../../protocol/folder/mod.ts";
 import type { FolderReader } from "../fs.ts";
 import {
+  applyChangesFile,
+  type Counts,
+  fileInvalid,
+  type Invalid,
+  mergeFile,
+  type Stop,
+} from "./apply.ts";
+import {
   backoffUntil,
   type FolderImportDeps,
   folderError,
-  hex16,
   loadRead,
   type ReadRow,
   saveRead,
 } from "./deps.ts";
+import { drainHeld } from "./drain.ts";
 import {
   copyVerified,
+  dropCovered,
   heldFile,
+  heldOverLimit,
   heldPath,
-  IMPORT_TMP_DIR,
   recordHeld,
+  removeHeldFiles,
   writeAtomic,
 } from "./held.ts";
 
@@ -60,6 +67,8 @@ export type StreamOutcome = {
   error: FolderError | null;
   /** 한 번의 양(64 MiB)을 채워 멈췄다. 곧 다시 부른다. */
   more: boolean;
+  /** held가 한도에 닿아 더 복사하지 않고 멈췄다(폴더에 남는다). */
+  full: boolean;
 };
 
 export type StreamInput = {
@@ -70,23 +79,18 @@ export type StreamInput = {
   /** 출처의 그 앱 기록 사본. 없으면 `data.head`를 모른다(끝으로 본다). */
   record: AppRecord | null;
   reader: FolderReader;
-  /** scan이 그 기계를 `newer_format`으로 봤다. */
+  /** 그 기계의 꼴 판이 범위 밖이다(compat.ts). 폴더의 file을 열지 않는다. */
   blocked: FolderError | null;
+  /** 지난 읽기가 한도에 닿았고 그 뒤 이 기계의 release도 출처의 snapshot도 그대로다. 폴더를 다시 읽지 않는다. */
+  full: boolean;
 };
 
 // 한 file을 다룬 결과. invalid는 그 file에서 아무것도 적용하지 않았다는 뜻이다.
-type Counts = {
-  applied: number;
-  skipped: number;
-  duplicate: number;
-  held: number;
-};
-type Invalid = { kind: "invalid"; error: FolderError };
-type Stop = { kind: "stop"; error: FolderError | null; backoff: boolean };
 type Step =
   | { kind: "done"; n: number; bytes: number; held: boolean; changes?: Counts }
   | Invalid
   | { kind: "gone" }
+  | { kind: "full" }
   | Stop;
 
 export async function followStream(
@@ -117,6 +121,7 @@ async function followFiles(
     waiting_for: row.waiting_for,
     error: row.error,
     more: false,
+    full: false,
   };
   if (row.next_try_at !== null && row.next_try_at > deps.clock.now()) {
     return { ok: true, value: outcome };
@@ -143,7 +148,20 @@ async function followFiles(
         ? backoffUntil(deps.clock.nowMs(), row.attempts)
         : null,
     });
+
+  const drained = await drainHeld(deps, input);
+  if (!drained.ok) return drained;
+  outcome.applied_files += drained.value.files;
+  addCounts(outcome.changes, drained.value.changes);
+  if (drained.value.stop !== null) {
+    const { error, backoff } = drained.value.stop;
+    return error === null ? ok(outcome) : fail(error, backoff);
+  }
   if (input.blocked !== null) return fail(input.blocked, false);
+  if (input.full) {
+    outcome.full = true;
+    return ok(outcome);
+  }
 
   const listed = await reader.list(dataDir(origin, app));
   if (!listed.ok) return { ok: true, value: outcome };
@@ -195,6 +213,13 @@ async function followFiles(
       if (step.kind === "invalid" || step.kind === "gone") {
         const jumped = await jumpToSnapshot(next);
         if (jumped !== null) step = jumped;
+      } else if (step.kind === "full") {
+        const jumped = await jumpToSnapshot(next);
+        if (jumped === null) {
+          outcome.full = true;
+          return ok(outcome);
+        }
+        step = jumped;
       }
     }
     if (step === null || step.kind === "gone") {
@@ -213,6 +238,9 @@ async function followFiles(
       });
     }
     switch (step.kind) {
+      case "full":
+        outcome.full = true;
+        return ok(outcome);
       case "invalid":
         return fail(step.error, true);
       case "stop":
@@ -228,10 +256,7 @@ async function followFiles(
         if (step.held) outcome.held_files += 1;
         else outcome.applied_files += 1;
         if (step.changes !== undefined) {
-          outcome.changes.applied += step.changes.applied;
-          outcome.changes.skipped += step.changes.skipped;
-          outcome.changes.duplicate += step.changes.duplicate;
-          outcome.changes.held += step.changes.held;
+          addCounts(outcome.changes, step.changes);
         }
         break;
       }
@@ -239,14 +264,12 @@ async function followFiles(
   }
 }
 
-const fileInvalid = (
-  deps: FolderImportDeps,
-  rel: string,
-  error: FolderFileError,
-): Invalid => ({
-  kind: "invalid",
-  error: folderError(deps.clock, error.code, `${rel}: ${error.message}`),
-});
+function addCounts(into: Counts, more: Counts): void {
+  into.applied += more.applied;
+  into.skipped += more.skipped;
+  into.duplicate += more.duplicate;
+  into.held += more.held;
+}
 
 async function processFile(
   deps: FolderImportDeps,
@@ -259,16 +282,21 @@ async function processFile(
     : processSnapshot(deps, input, n);
 }
 
-// cursor를 n으로. 빚진 합치기 표지는 그대로 두고, `owesAbsentPass`면 없을 때 새로 단다.
-function advance(
+// cursor를 n으로. 빚진 합치기 표지는 그대로 두고, `owesAbsentPass`면 없을 때 새로 단다. snapshot이면 같은
+// transaction에서 그 출처의 더 옛 held를 지우고 commit 뒤 사본을 지운다.
+async function advance(
   deps: FolderImportDeps,
   input: StreamInput,
   n: number,
   header: ContainerHeader,
   owesAbsentPass = false,
-): Result<void> {
+): Promise<Result<void>> {
   const me = deps.machine();
-  return deps.transaction((tx) => {
+  const advanced = deps.transaction((tx) => {
+    const covered =
+      header.kind === "snapshot"
+        ? dropCovered(tx.sql, me, input.app, input.origin, n)
+        : [];
     const current = loadRead(tx.sql, me, input.app, input.origin).absent;
     saveRead(tx.sql, me, input.app, input.origin, {
       absent: current ?? (owesAbsentPass ? { caught_up_at: null } : null),
@@ -280,31 +308,11 @@ function advance(
       waiting_for: null,
       error: null,
     });
-    return { ok: true, value: undefined };
+    return ok(covered);
   });
-}
-
-function applyError(
-  deps: FolderImportDeps,
-  error: { code: string; message: string },
-): Stop {
-  switch (error.code) {
-    // 사이에 활성 release가 바뀌었다. 다음 번에 새 release로 다시 본다.
-    case "conflict":
-      return { kind: "stop", error: null, backoff: false };
-    case "unavailable":
-      return {
-        kind: "stop",
-        error: folderError(deps.clock, "app_not_running", error.message),
-        backoff: true,
-      };
-    default:
-      return {
-        kind: "stop",
-        error: folderError(deps.clock, "apply_failed", error.message),
-        backoff: true,
-      };
-  }
+  if (!advanced.ok) return advanced;
+  await removeHeldFiles(deps.root, advanced.value);
+  return ok(undefined);
 }
 
 async function holdStep(
@@ -331,6 +339,7 @@ async function holdStep(
       backoff: true,
     };
   }
+  await removeHeldFiles(deps.root, held.value);
   return { kind: "done", n, bytes: file.size, held: true };
 }
 
@@ -356,6 +365,17 @@ async function processChanges(
   const { header, payload } = decoded.value;
 
   if (header.release.bundle_hash !== input.release.bundle_hash) {
+    if (
+      heldOverLimit(
+        deps.sql,
+        deps.machine(),
+        input.app,
+        input.origin,
+        read.value.byteLength,
+      )
+    ) {
+      return { kind: "full" };
+    }
     try {
       await writeAtomic(
         heldFile(deps.root, heldPath(input.app, input.origin, n, "changes")),
@@ -379,42 +399,9 @@ async function processChanges(
     });
   }
 
-  const changes = changesOf(header, payload);
-  let newest = 0n;
-  for (const { meta } of changes) {
-    if (BigInt(meta.hlc) > newest) newest = BigInt(meta.hlc);
-  }
-  const ahead = clockAhead(newest, deps.clock.nowMs(), CLOCK_AHEAD_MAX_MS);
-  if (ahead > 0) {
-    return {
-      kind: "stop",
-      error: folderError(
-        deps.clock,
-        "clock_ahead",
-        `The clock of ${input.originName} is ${Math.round(ahead / 60_000)} minutes ahead`,
-        {
-          machine: input.origin,
-          machine_name: input.originName,
-          ahead_ms: Math.round(ahead),
-        },
-      ),
-      backoff: false,
-    };
-  }
-  const applied = await deps.apply.applyChanges({
-    app: input.app,
-    release: input.release.id,
-    origin: input.origin,
-    changes: changes.map(({ meta, bytes }) => ({
-      id: meta.id,
-      hlc: meta.hlc,
-      operation: meta.operation,
-      started_at: meta.started_at,
-      changeset: bytes,
-    })),
-  });
-  if (!applied.ok) return applyError(deps, applied.error);
-  const advanced = advance(deps, input, n, header);
+  const applied = await applyChangesFile(deps, input, header, payload);
+  if (applied.kind === "stop") return applied;
+  const advanced = await advance(deps, input, n, header);
   if (!advanced.ok) {
     return {
       kind: "stop",
@@ -427,7 +414,7 @@ async function processChanges(
     n,
     bytes: read.value.byteLength,
     held: false,
-    changes: applied.value,
+    changes: applied.counts,
   };
 }
 
@@ -466,13 +453,13 @@ async function processSnapshot(
     return holdStep(deps, input, n, header, copied.value);
   }
 
-  const merged = await mergeFile(deps, input, n, rel, head.value);
+  const merged = await mergeFile(deps, input, n, input.reader, rel, head.value);
   if (merged.kind !== "merged") return merged;
   // horizon 밖에서 지우기 없이 합쳤다. 출처가 이 기계의 것을 다 받은 뒤의 snapshot으로 다시 합칠 빚을 남긴다.
   const owes =
     deps.exportState(input.app).away_since !== null &&
     (input.record?.horizon ?? null) !== null;
-  const advanced = advance(deps, input, n, header, owes);
+  const advanced = await advance(deps, input, n, header, owes);
   if (!advanced.ok) {
     return {
       kind: "stop",
@@ -481,57 +468,6 @@ async function processSnapshot(
     };
   }
   return { kind: "done", n, bytes: merged.bytes, held: false };
-}
-
-type AbsentDeletes = {
-  below: string;
-  keep: readonly { table: string; pk: string }[];
-};
-
-// payload만 data root 아래 임시 file로 풀며 hash를 다시 보고 합친다. 임시 file은 남기지 않는다.
-async function mergeFile(
-  deps: FolderImportDeps,
-  input: StreamInput,
-  n: number,
-  rel: string,
-  head: ContainerHead,
-  absentDeletes?: AbsentDeletes,
-): Promise<
-  Exclude<Step, { kind: "done" }> | { kind: "merged"; bytes: number }
-> {
-  const temp = join(
-    deps.root,
-    IMPORT_TMP_DIR,
-    input.app,
-    `${hex16(deps.random)}.sqlite`,
-  );
-  try {
-    const copied = await copyVerified(
-      input.reader,
-      rel,
-      head,
-      head.payloadOffset,
-      temp,
-      deps.random,
-    );
-    if (!copied.ok) {
-      return copied.error.code === "unreadable"
-        ? { kind: "gone" }
-        : fileInvalid(deps, rel, copied.error as FolderFileError);
-    }
-    const merged = await deps.apply.mergeSnapshot({
-      app: input.app,
-      release: input.release.id,
-      origin: input.origin,
-      n,
-      path: temp,
-      ...(absentDeletes === undefined ? {} : { absentDeletes }),
-    });
-    if (!merged.ok) return applyError(deps, merged.error);
-    return { kind: "merged", bytes: head.payloadOffset + copied.value.size };
-  } finally {
-    await rm(temp, { force: true });
-  }
 }
 
 /**
@@ -586,10 +522,15 @@ async function absentPass(
     if (head.value.header.release.bundle_hash !== input.release.bundle_hash) {
       continue;
     }
-    const merged = await mergeFile(deps, input, n, rel, head.value, {
-      below: horizon,
-      keep: deps.heldRows(app),
-    });
+    const merged = await mergeFile(
+      deps,
+      input,
+      n,
+      input.reader,
+      rel,
+      head.value,
+      { below: horizon, keep: deps.heldRows(app) },
+    );
     if (merged.kind === "invalid" || merged.kind === "gone") continue;
     row = loadRead(deps.sql, me, app, origin);
     if (merged.kind === "merged") return save({ ...row, absent: null });

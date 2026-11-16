@@ -7,16 +7,13 @@ import { atSchema, sha256Schema } from "../base/values.ts";
 import { isSafeRelativePath } from "./layout.ts";
 import { RECORD_MAX_BYTES } from "./limits.ts";
 
-// 이 기계가 쓰는 꼴 판과, 이 기계의 file을 읽는 쪽이 가져야 할 판의 하한. 기계 기록의 `lophn.folder`에 그대로 싣는다.
-// 변경 file 1행의 판(`lophn-folder 1`)과 기록의 `format`이 이 `version`이다.
+// 이 기계가 쓰는 꼴 판(`version`)과 읽는 하한(`min_version`). 기계 기록의 `lophn.folder`에 그대로 싣는다.
+// 변경 file 1행의 판(`lophn-folder 1`)과 기록의 `format`이 이 `version`이다. 판은 옛 판이 읽으면 틀리는 바꿈에만
+// 올린다: 칸을 더하는 것은 올리지 않는다(읽는 쪽이 모르는 칸을 버린다). 칸 하나에 판을 올리면 모든 기계가 멈춘다.
+// 범위 판정은 core/folder/import/compat.ts.
 export const FOLDER_FORMAT = { version: 1, min_version: 1 } as const;
 
 export type FolderFormat = { version: number; min_version: number };
-
-// 상대가 알린 하한이 내 판보다 크면 그 기계의 file을 읽지 않는다(`newer_format`). 아무것도 지우지 않는다.
-export function canRead(peer: FolderFormat): boolean {
-  return peer.min_version <= FOLDER_FORMAT.version;
-}
 
 export type FolderFileErrorCode = "invalid_file" | "newer_format" | "too_large";
 
@@ -64,7 +61,8 @@ export const machineRecordSchema = z.object({
   lophn: z.object({
     version: z.string().min(1),
     protocol: versionRange,
-    folder: versionRange,
+    // 이 칸이 없는 기록은 꼴 판 1만 쓰고 읽는 기계다.
+    folder: versionRange.default({ version: 1, min_version: 1 }),
   }),
 });
 export type MachineRecord = z.infer<typeof machineRecordSchema>;

@@ -1,13 +1,14 @@
 // 다른 기계의 기록(`record.json`, `apps/*/app.json`)을 읽어 `folder_records`에 사본으로 둔다.
 // 한 출처 기계의 기록이 모두 읽혀야 그 기계의 행을 한 transaction에서 바꾼다. 읽기에 실패하거나 `newer_format`이면 옛
 // 행을 그대로 두고 그 기계의 오류로 남긴다. 폴더에서 기계나 file이 사라져도("아직 안 옴") 행을 지우지 않는다.
+// 꼴 판이 범위 밖인 기계(compat.ts)는 기계 기록만 사본으로 두고(누가 올려야 하는지 보인다) 앱 기록은 읽지 않으며
+// `newer_format` 오류로 남긴다.
 import { ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import {
   type AppRecord,
   appRecordPath,
   appRecordSchema,
-  canRead,
   decodeRecord,
   type FolderError,
   type MachineRecord,
@@ -17,6 +18,7 @@ import {
   recordPath,
 } from "../../../protocol/folder/mod.ts";
 import { createFolderReader, type FolderReader } from "../fs.ts";
+import { exchangeError, exchangeWith } from "./compat.ts";
 import { type FolderImportDeps, folderError } from "./deps.ts";
 
 export type ScanOutcome = {
@@ -101,15 +103,9 @@ async function readMachine(
       ),
     };
   }
-  if (!canRead(machine.record.lophn.folder)) {
-    return {
-      kind: "failed",
-      error: folderError(
-        deps.clock,
-        "newer_format",
-        `${machine.record.name} writes a folder format this lophn cannot read; update lophn on this machine`,
-      ),
-    };
+  // 범위 밖이면 앱 기록을 읽지 않는다. 막을지는 destination마다가 아니라 가장 큰 revision의 기록으로 정한다.
+  if (exchangeWith(machine.record.lophn.folder) !== "ok") {
+    return { kind: "found", machine: machine.record, apps: [] };
   }
   const names = await reader.list(`${machineDir(origin)}/apps`);
   if (!names.ok) {
@@ -207,6 +203,24 @@ export async function scan(
     if (found.error !== null) {
       outcome.errors.push({ machine: origin, ...found.error });
       continue;
+    }
+    const exchange =
+      found.machine === null
+        ? "ok"
+        : exchangeWith(found.machine.record.lophn.folder);
+    if (exchange !== "ok") {
+      // 옛 앱 기록 사본은 그대로 둔다.
+      found.apps.clear();
+      outcome.errors.push({
+        machine: origin,
+        destination: found.machine!.destination,
+        error: exchangeError(
+          deps.clock,
+          origin,
+          found.machine!.record.name,
+          exchange,
+        ),
+      });
     }
     const at = deps.clock.now();
     const written = deps.transaction((tx) => {

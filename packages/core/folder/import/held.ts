@@ -1,17 +1,22 @@
 // 다른 release의 file을 data root에 그대로 복사해 둔다(held). 적용하지 않았고 잃지 않았다는 뜻이다.
 // bytes를 `<root>/folder-held/<app>/<origin>/<n>.<kind>`에 temp와 rename으로 쓰고(0600), 그 뒤 한 transaction에서
 // `folder_held` 행과 cursor를 둔다. 복사 뒤 transaction 전에 죽으면 다음 번에 같은 file을 다시 쓴다(같은 bytes).
-// held는 적용하지도 지우지도 않는다(앱을 이 기계에서 지울 때만).
+// held가 없어지는 길은 셋뿐이다: 이 기계가 그 release가 되어 적용했다(drain.ts), 같은 출처의 더 큰 번호 snapshot이
+// 합쳐졌거나 held가 되어 그것이 담는다(`dropCovered`), 앱을 이 기계에서 지웠다.
 import { createHash } from "node:crypto";
+import { closeSync, openSync, readSync } from "node:fs";
 import { mkdir, open, rename, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { ok, type Result } from "../../../base/mod.ts";
+import type { Sql } from "../../../protocol/server/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import {
+  CONTAINER_HEAD_MAX_BYTES,
   type ContainerHead,
   type DataKind,
   entryNumber,
   type FolderFileError,
+  HELD_MAX_BYTES,
   verifyContainer,
 } from "../../../protocol/folder/mod.ts";
 import type { FolderReader } from "../fs.ts";
@@ -117,7 +122,10 @@ export async function writeAtomic(
   }
 }
 
-/** 복사를 마친 held file의 행과 cursor를 한 transaction에서. */
+/**
+ * 복사를 마친 held file의 행과 cursor를 한 transaction에서. snapshot이면 같은 출처의 그보다 옛 held를 같이 지우고
+ * 그 사본 path를 돌려준다(부르는 쪽이 commit 뒤 지운다).
+ */
 export function recordHeld(
   deps: FolderImportDeps,
   input: {
@@ -130,10 +138,14 @@ export function recordHeld(
     sha256: string;
     size: number;
   },
-): Result<void> {
+): Result<string[]> {
   const me = deps.machine();
   const at = deps.clock.now();
   return deps.transaction((tx) => {
+    const covered =
+      input.kind === "snapshot"
+        ? dropCovered(tx.sql, me, input.app, input.origin, input.n)
+        : [];
     tx.sql.run(
       `INSERT INTO folder_held
          (machine, app, origin, n, kind, bundle_hash, data_schema, path, sha256, size, held_at)
@@ -163,8 +175,92 @@ export function recordHeld(
       waiting_for: null,
       error: null,
     });
-    return ok(undefined);
+    return ok(covered);
   });
+}
+
+/**
+ * 출처의 snapshot `n`이 합쳐지거나 held가 될 때, 부르는 쪽 transaction 안에서. 그 출처의 held 가운데 번호가 `n`보다 작은
+ * 행을 release와 상관없이 지우고 사본 path를 돌려준다: 번호 n의 snapshot은 그 stream의 n보다 작은 번호의 변경을 모두
+ * 담는다(폴더 계약 2).
+ */
+export function dropCovered(
+  sql: Sql,
+  me: Id<"mch">,
+  app: Id<"app">,
+  origin: Id<"mch">,
+  n: number,
+): string[] {
+  const where = `machine = ? AND app = ? AND origin = ? AND n < ?`;
+  const paths = sql
+    .all(`SELECT path FROM folder_held WHERE ${where}`, [me, app, origin, n])
+    .map((row) => row.path as string);
+  sql.run(`DELETE FROM folder_held WHERE ${where}`, [me, app, origin, n]);
+  return paths;
+}
+
+/** commit한 뒤 지운 held 행의 사본. 남은 file은 행이 없어 다시 읽히지 않는다. */
+export async function removeHeldFiles(
+  root: string,
+  paths: readonly string[],
+): Promise<void> {
+  for (const rel of paths) await rm(heldFile(root, rel), { force: true });
+}
+
+/**
+ * held changes `size` bytes를 더 복사하면 그 출처의 한도를 넘는가. 셈은 그 출처에서 가장 새 held snapshot 뒤의 held
+ * changes다(그 앞은 snapshot이 담아 곧 지워진다). snapshot은 셈을 줄이므로 막지 않는다.
+ */
+export function heldOverLimit(
+  sql: Pick<Sql, "get">,
+  me: Id<"mch">,
+  app: Id<"app">,
+  origin: Id<"mch">,
+  size: number,
+): boolean {
+  const row = sql.get(
+    `SELECT coalesce(sum(size), 0) AS bytes FROM folder_held
+     WHERE machine = ? AND app = ? AND origin = ? AND kind = 'changes'
+       AND n > coalesce((SELECT max(n) FROM folder_held
+         WHERE machine = ? AND app = ? AND origin = ? AND kind = 'snapshot'), 0)`,
+    [me, app, origin, me, app, origin],
+  );
+  return Number(row?.bytes ?? 0) + size > HELD_MAX_BYTES;
+}
+
+/**
+ * held changes 사본의 변경 수. header(2행)만 읽는다. 사본은 받을 때 검사를 마친 것이라 hash를 다시 보지 않는다.
+ * 사본은 바뀌지 않아 `known`(path마다)에 둔다.
+ */
+export function heldChangeCount(
+  root: string,
+  rel: string,
+  known: Map<string, number>,
+): number {
+  const cached = known.get(rel);
+  if (cached !== undefined) return cached;
+  let count = 0;
+  try {
+    const fd = openSync(heldFile(root, rel), "r");
+    try {
+      const bytes = new Uint8Array(CONTAINER_HEAD_MAX_BYTES);
+      const read = readSync(fd, bytes, 0, bytes.byteLength, 0);
+      const head = bytes.subarray(0, read);
+      const end1 = head.indexOf(0x0a);
+      const end2 = head.indexOf(0x0a, end1 + 1);
+      const header = JSON.parse(
+        new TextDecoder().decode(head.subarray(end1 + 1, end2)),
+      ) as { changes?: unknown[] };
+      count = header.changes?.length ?? 0;
+    } finally {
+      closeSync(fd);
+    }
+  } catch {
+    // 사본이 없거나 깨졌다. drain이 그 행에서 멈추고 오류를 보인다.
+    return 0;
+  }
+  known.set(rel, count);
+  return count;
 }
 
 export const heldFile = (root: string, rel: string) =>

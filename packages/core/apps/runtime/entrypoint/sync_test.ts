@@ -26,6 +26,7 @@ import { handleCall } from "./invoke.ts";
 import { createRuntimeState } from "./state.ts";
 import {
   applyRemoteChanges,
+  mergeSnapshotFile,
   openSyncStore,
   runsOnPhone,
   type SyncStore,
@@ -320,6 +321,62 @@ test("column을 지운 migration 뒤 두 사본이 같은 줄을 고쳐도 같�
   assert.equal(computerDump, dumpData(fresh));
   assert.equal(computerDump, "# item\n'a'|'milk C'|'n P'");
   closeConnection(file);
+});
+
+// 지우면 늦게 올라온 기계가 옛 release에서 한 칸 고침의 clock을 migration이 지워, 먼저 올라간 기계에 그 기계의 snapshot을
+// 합쳐도 row clock끼리 비겨 고침이 사라진다.
+test("옛 release에서 한 칸 고침은 칸 하나를 더한 migration 뒤에도 그 칸의 clock을 지켜, 먼저 올라간 기계에 그 기계의 새 snapshot을 합치면 그 고침이 남는다", () => {
+  const dir = mkdtempSync(join(tmpdir(), "lophn-sync-moved-"));
+  const now = { ms: 1000 };
+  const silent = { begin() {}, end: () => null };
+  const open = (raw: DatabaseSync, machine: string) =>
+    openSyncStore({
+      database: raw,
+      node: machine,
+      machine,
+      record: silent,
+      nowMs: () => now.ms,
+      startChangeset: null,
+    });
+  const local = (sync: SyncStore, at: number, sql: string) => {
+    sync.db.exec("begin immediate");
+    const session = sync.db.session();
+    sync.db.exec(sql);
+    const changeset = session.changeset();
+    session.close();
+    assert.ok(stampLocal(sync.db, changeset, sync.clock.next(at)).ok);
+    sync.db.exec("commit");
+  };
+  // 새 칸 tag를 title 앞에 넣는다: title과 note의 칸 번호가 하나씩 밀린다.
+  const migration = [
+    "create table item_new (id text primary key, tag text, title text, note text)",
+    "insert into item_new (id, title, note) select id, title, note from item",
+    "drop table item",
+    "alter table item_new rename to item",
+  ].join(";");
+
+  const rawA = new DatabaseSync(":memory:");
+  rawA.exec("create table item (id text primary key, title text, note text)");
+  const a = open(rawA, "mch_a");
+  local(a, 1000, "insert into item values ('x', 'milk', 'n')");
+  const rawB = new DatabaseSync(":memory:");
+  rawB.deserialize(rawA.serialize());
+  let b = open(rawB, "mch_b");
+
+  // A가 먼저 새 release가 되어 title을 고친다. B는 옛 release에서 note를 고친다.
+  rawA.exec(migration);
+  const a2 = open(rawA, "mch_a");
+  local(a2, 3000, "update item set title = 'milk A' where id = 'x'");
+  local(b, 2000, "update item set note = 'n B' where id = 'x'");
+  // B가 올라오고 첫 시작 뒤 snapshot을 낸다.
+  rawB.exec(migration);
+  b = open(rawB, "mch_b");
+  const path = join(dir, "b.sqlite");
+  assert.ok(writeSnapshot(b.db, path).ok);
+
+  const merged = mergeSnapshotFile(a2, { path });
+  assert.ok(merged.ok);
+  assert.equal(dumpData(a2.db), "# item\n'x'|NULL|'milk A'|'n B'");
 });
 
 // 지우면 복제한 data root의 두 기계가 같은 node로 clock을 찍어 서로의 변경을 같은 replica의 것으로 보고 건너뛴다.

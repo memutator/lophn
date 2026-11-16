@@ -42,3 +42,8 @@ export const BACKOFF_MAX_MS = HOUR;
 
 // 읽기 명령에서 뒤 계획의 section 함수 하나를 기다리는 한도.
 export const SECTION_TIMEOUT_MS = 2 * SECOND;
+
+// 출처 하나·앱 하나에서 가장 새 held snapshot 뒤 held changes의 합. 넘을 file은 복사하지 않고 폴더에 둔다(그 출처의
+// stream은 이 기계의 release가 바뀌거나 출처가 새 snapshot을 낼 때까지 멈춘다). 한 release의 changeset 합 한도
+// `RELEASE_CHANGESET_MAX_BYTES`와 같다: 그보다 많으면 출처의 snapshot 하나가 더 싸다.
+export const HELD_MAX_BYTES = 128 * MIB;

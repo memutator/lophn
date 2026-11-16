@@ -2538,7 +2538,10 @@ flows:
     code: [packages/core/main/daemon/wiring/folder.ts, packages/core/folder/import/, packages/core/folder/apps/source.ts]
     steps:
       - "계기: destination마다 machines/와 다른 기계의 하위 폴더·apps·앱 폴더·data·source의 fs.watch(폴더마다, 이 기계 자신의 하위 폴더는 빼고 2초 debounce), 2분 timer, 설정 바뀜, 활성 release가 바뀜, 시작. 새 폴더는 scan 뒤와 timer에 더한다"
-      - "scan이 기계·앱 기록 사본을 고친다. 그 뒤 sync 앱마다 import를 돈다(먼저 sync log의 held 줄이 건드리는 row를 읽어 둔다). 출처 stream의 물러남은 import가 stream마다 한다. 받은 file이 있으면 그 앱의 내보내기를 잡는다(앱 기록의 read·settled)"
+      - "scan이 기계·앱 기록 사본을 고친다. 기계 기록의 lophn.folder가 이 기계의 꼴 판 범위 밖이면(또는 기록 자체가 더 새 꼴이면) 기계 기록만 두고 앱 기록은 읽지 않으며 newer_format으로 남긴다. 그 기계의 앱 기록은 records()에서 빠져 release·source도 읽지 않는다. 그 뒤 sync 앱마다 import를 돈다(먼저 sync log의 held 줄이 건드리는 row를 읽어 둔다). 출처 stream의 물러남은 import가 stream마다 한다. 받은 file이 있으면 그 앱의 내보내기를 잡는다(앱 기록의 read·settled)"
+      - "출처마다 stream 앞에 지금 활성 release의 held(folder_held)를 번호 순서로 FolderApply로 적용하고 하나가 성공할 때마다 그 행과 사본을 지운다(drain). 활성 release가 바뀌면 release 상태 바뀜이 scan과 import를 다시 돌려 drain이 돈다. 지금 release의 held가 남으면 그 출처의 stream은 읽지 않는다"
+      - "출처의 snapshot m이 합쳐지거나(stream·drain) held가 되면 같은 transaction에서 그 출처의 m보다 작은 번호의 held를 release와 상관없이 지우고 commit 뒤 사본을 지운다"
+      - "다른 release의 changes를 held로 둘 때 그 출처에서 가장 새 held snapshot 뒤 held changes가 128 MiB를 넘게 되면 복사하지 않고 cursor를 두고 멈춘다(full). 폴더에 더 뒤 snapshot이 있으면 그리로 건너뛴다. 이 기계의 release나 출처 앱 기록의 snapshot 번호가 바뀔 때까지 폴더를 다시 읽지 않는다(core 메모리)"
       - "source 받기는 앱마다 따로 돌고 실패하면 그 일만 물러난다"
     outcomes:
       - id: followed
@@ -2546,6 +2549,18 @@ flows:
       - id: waiting
         when: "다음 번호가 아직 오지 않음, 미래 clock(clock_ahead), 다른 release(held로 복사), 맞지 않는 file(invalid_file). 상태는 folder_reads에 남아 machine.environment에 보인다"
         observe: ["ledger:folder_reads", "ledger:folder_held", "disk:folder-held/"]
+      - id: held-applied
+        when: "이 기계의 앱이 held의 release가 되어 출처마다 번호 순서로 적용했다. 적용이 실패하거나(app_not_running, apply_failed) 사본이 없거나 맞지 않으면(invalid_file) 그 행부터 남고 그 출처의 stream은 멈춘다"
+        observe: ["ledger:folder_held", "disk:folder-held/", "ledger:folder_reads", "ledger:app_sync_log"]
+      - id: held-covered
+        when: "출처의 snapshot m이 합쳐지거나 held가 되어 그 출처의 m보다 옛 held를 지웠다"
+        observe: ["ledger:folder_held", "disk:folder-held/"]
+      - id: held-full
+        when: "그 출처의 held changes가 한도에 닿아 더 복사하지 않고 폴더에 두었다"
+        observe: ["ledger:folder_reads", "ledger:folder_held"]
+      - id: out-of-range
+        when: "그 기계의 폴더 꼴 판이 범위 밖이다(누가 올려야 하는지 update_this·update_peer). data·source·release file을 열지도 복사하지도 지우지도 않고 cursor가 그대로이며 newer_format이다. 범위 안으로 돌아오면 그 cursor부터 잇는다"
+        observe: ["ledger:folder_reads", "ledger:folder_records"]
     crosses_process: true
     risk: [data-loss]
 

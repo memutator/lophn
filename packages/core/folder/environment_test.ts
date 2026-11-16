@@ -48,6 +48,7 @@ function peersOf(
   }
   const folder = createFolderImport({
     machine: () => ME,
+    self: () => ({ name: "Desk", lophn_version: "0.23.0" }),
     destinations: { list: () => [], resolve: () => null },
     apps: () => [],
     apply: {

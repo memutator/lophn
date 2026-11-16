@@ -321,6 +321,10 @@ export const folderWiring: WiringFactory = () => {
       // import와 export는 서로의 상태를 읽는다. 부를 때 읽으므로 뒤에 만든 쪽을 앞에서 가리켜도 된다.
       const importer = createFolderImport({
         machine: me,
+        self: () => ({
+          name: ctx.machine.status().name,
+          lophn_version: version,
+        }),
         destinations,
         apps: () =>
           syncApps().map((app) => ({

@@ -202,7 +202,7 @@ files:
 
   - path: packages/core/apps/runtime/entrypoint/sync_test.ts
     covers: []
-    note: "sync 앱(runs_on에 phone이나 sync_to)의 컴퓨터 app process: write는 handler가 던져도 data와 clock이 한 transaction으로 commit되고 commit 전에 끊기면 둘 다 없음, apps.sync_apply의 effective는 실제로 바뀐 칸만 담고 더 새 컴퓨터 칸을 덮지 않음, 묶음에서 제약에 걸린 변경 하나는 건너뛰고 다음은 적용, 묶음을 적용하다 연결이 끊기면 data와 clock이 묶음 앞과 같음, sync_to만 있는 computer 앱도 sync 앱(write가 clock을 실음)이고 runsOnPhone은 아님, 칸을 지운 migration 뒤 column clock을 지워 두 사본이 같아짐, 다른 기계의 sync DB(machine 표지가 다름)는 node가 새것이 되고 표지가 없는 DB는 지금 id를 적으며 node를 지키고 둘 다 data와 clock 표는 그대로. 이 동작을 부르는 route(app_sync/*)는 apps/sync/sync_test.ts가 본다"
+    note: "sync 앱(runs_on에 phone이나 sync_to)의 컴퓨터 app process: write는 handler가 던져도 data와 clock이 한 transaction으로 commit되고 commit 전에 끊기면 둘 다 없음, apps.sync_apply의 effective는 실제로 바뀐 칸만 담고 더 새 컴퓨터 칸을 덮지 않음, 묶음에서 제약에 걸린 변경 하나는 건너뛰고 다음은 적용, 묶음을 적용하다 연결이 끊기면 data와 clock이 묶음 앞과 같음, sync_to만 있는 computer 앱도 sync 앱(write가 clock을 실음)이고 runsOnPhone은 아님, 칸을 지운 migration 뒤 column clock을 칸 이름으로 옮겨 두 사본이 같아짐, 칸을 사이에 더한 migration 뒤에도 옛 release에서 한 칸 고침의 clock이 이름으로 옮겨져 먼저 올라간 기계에 늦게 올라온 기계의 snapshot을 합치면 그 고침이 남음, 다른 기계의 sync DB(machine 표지가 다름)는 node가 새것이 되고 표지가 없는 DB는 지금 id를 적으며 node를 지키고 둘 다 data와 clock 표는 그대로. 이 동작을 부르는 route(app_sync/*)는 apps/sync/sync_test.ts가 본다"
 
   - path: packages/core/apps/runtime/observations/log-file_test.ts
     covers: [app-log-write:written, app-log-write:rotated]

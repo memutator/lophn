@@ -109,6 +109,7 @@ async function make(base: string) {
   };
   const deps: FolderImportDeps = {
     machine: () => ME,
+    self: () => ({ name: "Desk", lophn_version: "0.23.0" }),
     destinations: {
       list: () => [{ name: "personal", path: dest, state: "ok" }],
       resolve: (name) =>
@@ -431,23 +432,6 @@ test("실패한 읽기는 기록 사본도 local data도 지우지 않는다", a
     assert.ok(scanned.ok);
     assert.equal(scanned.value.errors[0]?.error.code, "invalid_file");
     assert.deepEqual(env.folder.records(), before);
-    // 더 새 꼴을 쓰는 기계: 읽지 않고 지우지 않는다.
-    env.put(
-      recordPath(PEER),
-      JSON.stringify({
-        ...machineRecordOf(env, 10),
-        lophn: {
-          version: "9",
-          protocol: { version: 2, min_version: 1 },
-          folder: { version: 2, min_version: 2 },
-        },
-      }),
-    );
-    scanned = await env.folder.scan();
-    assert.ok(scanned.ok);
-    assert.equal(scanned.value.errors[0]?.error.code, "newer_format");
-    assert.deepEqual(env.folder.records(), before);
-
     // 출처 기계의 폴더가 비었다.
     rmSync(join(env.dest, "machines", PEER), { recursive: true });
     mkdirSync(join(env.dest, "machines", PEER));

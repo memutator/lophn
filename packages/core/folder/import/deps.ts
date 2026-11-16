@@ -28,6 +28,8 @@ export type ImportApp = {
 
 export type FolderImportDeps = {
   machine: () => Id<"mch">;
+  /** 이 기계의 이름과 제품 판(시작 전이면 null). 기계 목록(`FolderExchange.machines`)의 이 기계 줄. */
+  self(): { name: string; lophn_version: string | null };
   destinations: Pick<DestinationsView, "list" | "resolve">;
   apps(): readonly ImportApp[];
   apply: FolderApply;

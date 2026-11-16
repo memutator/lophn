@@ -5,6 +5,7 @@ import type {
   FolderPickReply,
 } from "../../../../ipc/folder-picker.ts";
 import type { CommandRoute } from "../../../../../protocol/base/route.ts";
+import { projectIdentityApi } from "../../../../../protocol/projects/identity-api.ts";
 import { projectApi } from "../../../../../protocol/projects/project-api.ts";
 import {
   type CommandBody,
@@ -13,11 +14,13 @@ import {
 } from "../../../command-call.ts";
 import type { CoreReply } from "../../../../ipc/core-api.ts";
 import type { CoreSource } from "../../connection/connection.ts";
-import type { ProjectDraft } from "../source.ts";
+import type { FolderMatch, ProjectDraft } from "../source.ts";
 import type {
+  IdentityStatus,
   ProjectChange,
   ProjectItem,
   ProjectsSource,
+  RegisteredProject,
   SourceResult,
 } from "./source.ts";
 
@@ -32,6 +35,26 @@ interface ProjectValue {
     description: string;
     found: boolean;
   }[];
+  identity: string | null;
+  repo: "git" | "none" | null;
+}
+
+// project.identity·create_identity·renew_identity의 출력에서 이 화면이 읽는 칸.
+interface IdentityValue {
+  project: string;
+  identity: string | null;
+  file: IdentityStatus["file"];
+  repo: IdentityStatus["repo"];
+  folder: string | null;
+  found: boolean;
+  duplicate_of: string | null;
+}
+
+interface MatchValue {
+  repo: FolderMatch["repo"];
+  file: FolderMatch["file"];
+  same: ProjectValue | null;
+  suggestions: ProjectValue[];
 }
 
 interface ProjectListValue {
@@ -58,6 +81,8 @@ export function projectItemOf(value: ProjectValue): ProjectItem {
       description: folder.description,
       found: folder.found,
     })),
+    identity: value.identity,
+    repo: value.repo,
   };
 }
 
@@ -120,7 +145,7 @@ function slugAttempt(base: string, attempt: number): string {
     .replace(/-+$/, "")}${suffix}`;
 }
 
-export async function createProject(
+async function createProject(
   core: CoreSource,
   draft: ProjectDraft,
 ): Promise<SourceResult<ProjectItem>> {
@@ -150,6 +175,51 @@ export async function createProject(
     if (last.code !== "conflict") return last;
   }
   return last;
+}
+
+async function identityStatus(
+  core: CoreSource,
+  route:
+    | typeof projectIdentityApi.identity
+    | typeof projectIdentityApi.createIdentity
+    | typeof projectIdentityApi.renewIdentity,
+  project: string,
+): Promise<SourceResult<IdentityStatus>> {
+  const reply = await core.call({
+    kind: "memory",
+    resource: route.resource,
+    method: route.method,
+    body: { project },
+  });
+  if (!reply.ok) return failed(reply);
+  const value = reply.value as IdentityValue;
+  let duplicateOf: IdentityStatus["duplicateOf"] = null;
+  if (value.duplicate_of !== null) {
+    const found = await core.call({
+      kind: "read",
+      resource: "projects",
+      method: "get",
+      body: { project: value.duplicate_of },
+    });
+    duplicateOf = {
+      id: value.duplicate_of,
+      title: found.ok
+        ? (found.value as { project: ProjectValue }).project.title
+        : value.duplicate_of,
+    };
+  }
+  return {
+    ok: true,
+    value: {
+      project: value.project,
+      identity: value.identity,
+      file: value.file,
+      repo: value.repo,
+      folder: value.folder,
+      found: value.found,
+      duplicateOf,
+    },
+  };
 }
 
 async function write<R extends CommandRoute>(
@@ -228,6 +298,60 @@ export function coreProjectsSource(
       return chosen.ok ? chosen : { ok: false };
     },
 
-    register: (draft) => createProject(core, draft),
+    // id file을 만들지 못해도 등록은 되돌리지 않는다. 상세의 줄이 [Set up]으로 보인다.
+    async register(draft): Promise<SourceResult<RegisteredProject>> {
+      const created = await createProject(core, draft);
+      if (!created.ok || !draft.shareIdentity) return created;
+      const shared = await identityStatus(
+        core,
+        projectIdentityApi.createIdentity,
+        created.value.id,
+      );
+      return shared.ok
+        ? {
+            ok: true,
+            value: {
+              ...created.value,
+              identity: shared.value.identity,
+              repo: shared.value.repo,
+            },
+          }
+        : { ok: true, value: { ...created.value, identityFailed: true } };
+    },
+
+    async match(path) {
+      const reply = await core.call({
+        kind: "memory",
+        resource: projectIdentityApi.match.resource,
+        method: projectIdentityApi.match.method,
+        body: { path },
+      });
+      if (!reply.ok) return failed(reply);
+      const value = reply.value as MatchValue;
+      return {
+        ok: true,
+        value: {
+          repo: value.repo,
+          file: value.file,
+          same: value.same === null ? null : projectItemOf(value.same),
+          suggestions: value.suggestions.map(projectItemOf),
+        },
+      };
+    },
+
+    relinkFolder: (project, folder, path) =>
+      write(
+        core,
+        projectApi.relinkFolder,
+        { project: project.id, folder_path: folder, new_path: path },
+        project.revision,
+      ),
+
+    identity: (project) =>
+      identityStatus(core, projectIdentityApi.identity, project.id),
+    createIdentity: (project) =>
+      identityStatus(core, projectIdentityApi.createIdentity, project.id),
+    renewIdentity: (project) =>
+      identityStatus(core, projectIdentityApi.renewIdentity, project.id),
   };
 }

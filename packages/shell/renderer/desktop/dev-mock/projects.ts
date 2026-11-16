@@ -16,6 +16,8 @@ const PROJECTS: readonly ProjectItem[] = [
     purpose: "Keep the monthly food spending under the plan.",
     revision: "1",
     archived: false,
+    identity: null,
+    repo: "git",
     folders: [folderItem("/home/mina/Documents/grocery", "")],
   },
   {
@@ -24,6 +26,8 @@ const PROJECTS: readonly ProjectItem[] = [
     purpose: "Tax papers and receipts for the desk.",
     revision: "1",
     archived: false,
+    identity: null,
+    repo: "git",
     folders: [folderItem("/home/mina/Documents/office", "")],
   },
   {
@@ -32,6 +36,8 @@ const PROJECTS: readonly ProjectItem[] = [
     purpose: "Notes from last year's filing.",
     revision: "1",
     archived: true,
+    identity: null,
+    repo: "git",
     folders: [folderItem("/home/mina/Documents/tax", "")],
   },
 ];

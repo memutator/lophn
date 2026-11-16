@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Dialog } from "@lophn/ui/overlay";
 
 import { ProjectIconField } from "../../../parts/project-icon/project-icon.tsx";
+import { IdentityRow } from "./identity-row.tsx";
 import { ProjectForm } from "./project-form.tsx";
 import type { ProjectItem, ProjectsSource } from "./source.ts";
 
@@ -45,6 +46,7 @@ export function ProjectDetailDialog({
         }}
         onLatest={onLatest}
         onRelocate={onRelocate}
+        identityRow={<IdentityRow source={source} project={project} />}
         iconField={
           <ProjectIconField project={project.id} name={project.title} />
         }

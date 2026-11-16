@@ -1,5 +1,9 @@
 import type { Area } from "../types.ts";
 import { WorkspacesScene, workspacesSteps } from "./shell/workspaces-scene.tsx";
+import {
+  PROJECT_IDENTITY_BOARD_HEIGHT,
+  ProjectIdentityScene,
+} from "./shell/project-identity-scene.tsx";
 import { ShellScene } from "./shell/shell-scene.tsx";
 import { SidebarAppPanel } from "./shell/sidebar-app-panel.tsx";
 import { SidebarScene, sidebarSteps } from "./shell/sidebar-scene.tsx";
@@ -245,6 +249,14 @@ export const shellArea: Area = {
           deleteCode="unavailable"
         />
       ),
+    },
+    {
+      id: "shell-project-identity",
+      title: "Shell · Project identity",
+      description:
+        "project가 다른 컴퓨터에서도 같은 project라는 표시. 위 셋은 등록 dialog: 첫 폴더가 id file 없는 git 저장소면 켬 줄 'Same project on my other computers'(기본 켬, 등록하면 .lophn-project.json을 만든다), 폴더를 잃은 project와 같은 저장소면 [Relink … here], git이 아니면 한 줄 안내. 아래 여섯은 project 상세의 'Other computers' 줄: 아직 안 만듦([Set up]), commit 전, commit됨(⋯ menu의 Separate project), 두 컴퓨터가 따로 만들어 충돌([Resolve]), file이 사라짐([Restore]), 이 컴퓨터의 다른 copy([Separate project]). iframe 하나가 상태 하나이고 `?state=`로 한 상태만 창 크기로 본다.",
+      height: PROJECT_IDENTITY_BOARD_HEIGHT,
+      render: () => <ProjectIdentityScene />,
     },
     {
       id: "shell-desk-menu",

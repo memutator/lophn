@@ -34,6 +34,8 @@ export interface ProjectFormProps {
    * 런처 dialog와 project settings 탭이 같은 form을 쓰므로 자리는 여기 하나다.
    */
   iconField?: ReactNode;
+  /** 폴더 목록 위 "Other computers" 줄 자리. 위 iconField처럼 쓰는 쪽이 넘긴다. */
+  identityRow?: ReactNode;
 }
 
 type Problem = "name-missing" | "changed" | "failed" | "picker-failed";
@@ -48,6 +50,7 @@ export function ProjectForm({
   onRelocate,
   saved,
   iconField,
+  identityRow,
 }: ProjectFormProps) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(project));
   const [problem, setProblem] = useState<Problem | null>(null);
@@ -143,6 +146,7 @@ export function ProjectForm({
             }
           />
         </Field>
+        {identityRow}
         <div>
           <div className={styles.sectionHead}>
             <h2 className={styles.sectionTitle}>

@@ -25,6 +25,7 @@ export const workspace = {
   "home.button.delete": "Delete",
   "home.button.details": "Details",
   "home.button.hide-details": "Hide details",
+  "home.button.identity-relink": "Relink {title} here",
   "home.button.more": "More actions for {name}",
   "home.button.new-app": "New app",
   "home.button.register": "Register",
@@ -66,6 +67,8 @@ export const workspace = {
   "home.error.purpose-required": "Enter a purpose.",
   "home.error.register-failed":
     "{name} wasn't registered, so nothing was saved. Try again.",
+  "home.error.relink-failed":
+    "Couldn't relink the folder. Nothing changed. Try again.",
   "home.failure.check-damaged-original":
     "The data file failed its integrity check.",
   "home.failure.check-history-mismatch":
@@ -101,6 +104,19 @@ export const workspace = {
   "home.label.name": "Name",
   "home.label.projects": "your projects",
   "home.label.purpose": "Purpose",
+  "home.label.share-identity": "Same project on my other computers",
+  "home.note.identity-adds-file":
+    "Adds .lophn-project.json to this folder. Commit it so your other computers get it.",
+  "home.note.identity-another-copy":
+    "If you register it again, this project becomes another copy.",
+  "home.note.identity-existing":
+    "This repository is already a lophn project. Your other computers see it as the same project.",
+  "home.note.identity-not-git":
+    "Not in git, so this project stays on this computer.",
+  "home.note.identity-registered":
+    "This repository is already registered here as {title}.",
+  "home.note.identity-relink":
+    "{title} lost its folder, and this looks like the same repository.",
   "home.title.damaged-original": "Your data can't be read",
   "home.title.history-mismatch": "The saved history does not match",
   "home.title.new-app": "New app",
@@ -108,10 +124,20 @@ export const workspace = {
   "home.title.register": "Register project",
   "home.title.start-failed": "lophn didn't start",
   "projects.button.add-folder": "Add folder",
+  "projects.button.identity-more": "More actions for other computers",
+  "projects.button.identity-resolve": "Resolve",
+  "projects.button.identity-restore": "Restore",
+  "projects.button.identity-separate": "Separate project",
+  "projects.button.identity-set-up": "Set up",
   "projects.button.remove": "Remove",
   "projects.button.save": "Save changes",
   "projects.button.show-latest": "Show latest",
+  "projects.dialog.identity-separate-note":
+    "This folder gets a new id and becomes a different project on your other computers. Commit the change in this repository.",
+  "projects.dialog.identity-separate-title": "Separate this project?",
   "projects.error.changed": "This changed since you opened it.",
+  "projects.error.identity-failed":
+    "Couldn't change this. Nothing changed. Try again.",
   "projects.error.name-missing": "Enter a name.",
   "projects.error.project-change-failed":
     "Couldn't change this project. Nothing changed. Try again.",
@@ -119,6 +145,24 @@ export const workspace = {
   "projects.label.folder-description": "Folder description",
   "projects.label.name": "Name",
   "projects.label.not-found": "Not found",
+  "projects.label.other-computers": "Other computers",
   "projects.label.purpose": "Purpose",
   "projects.notice.saved": "Saved.",
+  "projects.state.identity-committed":
+    "The same project on your other computers",
+  "projects.state.identity-conflict":
+    "Two computers set this up separately. lophn keeps the older one.",
+  "projects.state.identity-duplicate":
+    "Another copy of {title} on this computer.",
+  "projects.state.identity-ignored":
+    ".gitignore excludes .lophn-project.json, so it does not reach your other computers.",
+  "projects.state.identity-missing":
+    ".lophn-project.json is missing from the folder.",
+  "projects.state.identity-none": "Not set up for your other computers",
+  "projects.state.identity-not-git":
+    "Not in git, so this project stays on this computer.",
+  "projects.state.identity-uncommitted":
+    "Not committed yet. Commit .lophn-project.json so your other computers get it.",
+  "projects.state.identity-unreadable":
+    "lophn cannot read .lophn-project.json. Fix or delete it.",
 } as const;

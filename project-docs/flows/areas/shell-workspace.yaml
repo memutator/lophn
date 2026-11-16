@@ -2511,5 +2511,73 @@ flows:
       - "기본 pane을 new-settings-general frame으로 적었다. Settings의 기본 pane 값을 코드로 확인이 필요하다"
       - "돌아가는 길(Settings를 닫아 beforeSettings로 가기)은 shell-desktop 또는 settings 쪽 flow가 맡는다"
 
+  - id: project-identity-register-line
+    title: "등록 dialog가 고른 폴더를 읽고 저장소 상태를 한 줄로 알리며, 켜 두면 등록 뒤 id file을 만든다"
+    actor: person
+    entries: [ui:project-identity-register-line]
+    when: "등록 dialog에서 첫 폴더를 고르거나 바꾼다. 켬 줄(Same project on my other computers)은 id file이 없는 git 폴더에서만 선다"
+    boundary: [shell, projects]
+    code:
+      - packages/shell/renderer/desktop/workspaces/register-dialog.tsx
+      - packages/shell/renderer/desktop/workspaces/projects/core-source.ts
+      - packages/shell/main/desktop/core/allowlist.ts
+    steps:
+      - "첫 폴더가 정해지면 memory route projects/match(allowlist의 renderer memory route)로 폴더를 읽는다. 읽는 사이 첫 폴더가 바뀌면 결과를 버린다"
+      - "git이고 file이 없으면 켬 줄(기본 켬)과 .lophn-project.json을 만든다는 note, file이 있으면 이미 lophn project라는 note, 같은 id의 project가 이 기계에 있으면 이미 등록됐고 등록하면 another copy라는 note, git이 아니면 이 컴퓨터에만 있다는 note를 보인다"
+      - "폴더를 잃은 project가 같은 remote로 제안되면 [Relink <title> here]를 보인다. 누르면 그 project의 잃은 폴더를 이 path로 relink_folder하고 dialog를 닫는다"
+      - "[Register]는 project.create를 부르고 켬 줄이 켜져 있으면 이어서 projects/create_identity를 부른다. create_identity가 실패해도 등록은 되돌리지 않고, 상세의 줄이 [Set up]으로 보인다"
+      - "match를 읽지 못하면 줄 없이 등록한다"
+    uses: [route:projects/relink_folder]
+    outcomes:
+      - id: registered-shared
+        when: "켬 줄이 켜진 채 등록했고 create_identity가 file을 만들었다"
+        observe: ["screen:shell-project-identity", "ledger:projects"]
+      - id: registered-not-shared
+        when: "켬 줄이 없거나 껐거나 create_identity가 실패해 file 없이 등록했다"
+        observe: ["screen:shell-project-identity"]
+      - id: relinked
+        when: "[Relink <title> here]로 잃은 폴더를 이어 dialog를 닫았다"
+        observe: ["screen:shell-project-identity", "ledger:project_folders"]
+      - id: relink-failed
+        when: "relink_folder가 실패했다. dialog는 열려 있고 한 줄 오류를 보인다"
+        observe: ["screen:shell-project-identity"]
+    crosses_process: false
+    unclear:
+      - "route projects/identity·create_identity·renew_identity·match는 handler가 아직 없어 entry가 없다. handler를 짓는 변경이 그 route의 flow를 쓰면 uses로 잇는다"
+
+  - id: project-identity-row
+    title: "project 상세의 Other computers 줄이 id file 상태를 보이고 단추 하나로 고친다"
+    actor: person
+    entries: [ui:project-identity-row]
+    when: "project 상세 dialog를 연다. 폴더를 못 찾았거나 폴더가 없으면 줄을 그리지 않는다"
+    boundary: [shell, projects]
+    code:
+      - packages/shell/renderer/desktop/workspaces/projects/identity-row.tsx
+      - packages/shell/renderer/desktop/workspaces/projects/project-detail.tsx
+      - packages/shell/renderer/desktop/workspaces/projects/core-source.ts
+      - packages/shell/main/desktop/core/allowlist.ts
+    steps:
+      - "열 때 projects/identity를 한 번 읽는다. 상태마다 글 하나와 오른쪽 끝 단추 하나를 보인다: none [Set up], conflict [Resolve], missing [Restore]는 projects/create_identity를 부른다"
+      - "uncommitted·ignored·committed·unreadable은 글만 보이고, uncommitted·committed는 줄 끝 menu에 [Separate project]가 있다. 같은 id를 먼저 가진 다른 project가 있으면 another copy 글과 [Separate project]를 보인다"
+      - "[Separate project]는 새 id를 쓰고 commit하라는 확인 dialog를 거쳐 projects/renew_identity를 부른다(secondary, 되돌릴 수 없는 파괴가 아니다)"
+      - "git이 아니면 이 컴퓨터에만 있다는 글만 보인다. 단추가 실패하면 줄 아래에 한 줄 오류를 보이고 줄을 다시 읽는다"
+    outcomes:
+      - id: set-up
+        when: "[Set up], [Resolve], [Restore]로 create_identity가 file을 만들었다"
+        observe: ["screen:shell-project-identity", "disk:<project 폴더>/.lophn-project.json"]
+      - id: separated
+        when: "확인 뒤 renew_identity가 새 id를 썼다"
+        observe: ["screen:shell-project-identity", "disk:<project 폴더>/.lophn-project.json"]
+      - id: change-failed
+        when: "create_identity나 renew_identity가 실패했다. 줄 아래 오류와 다시 읽은 상태를 보인다"
+        observe: ["screen:shell-project-identity"]
+      - id: no-row
+        when: "폴더를 못 찾았거나 폴더가 없거나 상태를 읽지 못했다"
+        observe: ["screen:shell-project-identity"]
+    crosses_process: false
+    risk: [data-loss]
+    unclear:
+      - "route projects/identity·create_identity·renew_identity는 handler가 아직 없어 entry가 없다. handler를 짓는 변경이 그 route의 flow를 쓰면 uses로 잇는다"
+
 links: []
 ignore: []

@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, IconButton } from "@lophn/ui/primitives";
-import { Field, Input, Textarea } from "@lophn/ui/input";
+import { Field, Input, Switch, Textarea } from "@lophn/ui/input";
 import { Dialog, Tooltip } from "@lophn/ui/overlay";
-import { actionIcons, homeIcons } from "../../icons/mod.ts";
+import { actionIcons, commonIcons, homeIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
 import { newId } from "../../prefixed-id.ts";
-import { addFolder, usableTitle } from "./model.ts";
-import type { FolderDraft, RegisterSource } from "./source.ts";
+import { addFolder, missingFolder, usableTitle } from "./model.ts";
+import type { FolderDraft, FolderMatch, RegisterSource } from "./source.ts";
 import styles from "./register-dialog.module.css";
 
 interface RegisterDialogProps {
@@ -21,6 +21,7 @@ interface RegisterDialogProps {
 
 // 프로젝트 등록 창: 이름, 목적, 폴더 목록과 폴더 추가, 오른쪽 아래 등록. 폴더는 OS 선택기로만 고르고
 // 0개여도 등록한다(앱 data만 있는 project). 런처와 Projects의 + 단추가 같이 쓴다.
+// 첫 폴더를 읽어(match) 폴더 목록 아래에 저장소의 상태를 한 줄로 알린다. 읽지 못하면 줄 없이 등록한다.
 export function RegisterDialog({
   open,
   source,
@@ -35,6 +36,34 @@ export function RegisterDialog({
   const [busy, setBusy] = useState(false);
   const [pickFailed, setPickFailed] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const [match, setMatch] = useState<FolderMatch | null>(null);
+  const [share, setShare] = useState(true);
+  const [relinkFailed, setRelinkFailed] = useState(false);
+
+  const firstPath = folders[0]?.path;
+  useEffect(() => {
+    setMatch(null);
+    setShare(true);
+    setRelinkFailed(false);
+    if (firstPath === undefined) return;
+    let stale = false;
+    void source.match(firstPath).then((read) => {
+      if (!stale) setMatch(read.ok ? read.value : null);
+    });
+    return () => {
+      stale = true;
+    };
+  }, [firstPath, source]);
+
+  // id file이 없는 git 폴더만 켬 줄이 선다.
+  const canShare =
+    match !== null &&
+    match.repo === "git" &&
+    match.file === "none" &&
+    match.same === null;
+  const lost = match?.suggestions.find(
+    (project) => !project.archived && missingFolder(project) !== undefined,
+  );
 
   const reset = () => {
     setTitle("");
@@ -75,6 +104,7 @@ export function RegisterDialog({
         path: folder.path,
         description: folder.description.trim(),
       })),
+      shareIdentity: canShare && share,
     });
     setBusy(false);
     if (!result.ok) {
@@ -83,6 +113,23 @@ export function RegisterDialog({
     }
     reset();
     onRegistered(result.value);
+  };
+
+  // 폴더를 잃은 project에 이 저장소의 폴더를 이어 주고 닫는다. 새 project는 만들지 않는다.
+  const relink = async () => {
+    const folder = lost === undefined ? undefined : missingFolder(lost);
+    if (lost === undefined || folder === undefined || firstPath === undefined) {
+      return;
+    }
+    setBusy(true);
+    setRelinkFailed(false);
+    const result = await source.relinkFolder(lost, folder.path, firstPath);
+    setBusy(false);
+    if (!result.ok) {
+      setRelinkFailed(true);
+      return;
+    }
+    close();
   };
 
   const nameError =
@@ -201,6 +248,75 @@ export function RegisterDialog({
             </p>
           ) : null}
         </section>
+        {match === null ? null : (
+          <div className={styles.identity} data-identity="">
+            {match.repo === "none" ? (
+              <p className={styles.note} data-identity-note="not-git">
+                {t("home.note.identity-not-git")}
+              </p>
+            ) : null}
+            {match.same === null ? null : (
+              <>
+                <p className={styles.note} data-identity-note="registered">
+                  {t("home.note.identity-registered", {
+                    title: match.same.title,
+                  })}
+                </p>
+                <p className={styles.note} data-identity-note="another-copy">
+                  {t("home.note.identity-another-copy")}
+                </p>
+              </>
+            )}
+            {match.repo === "git" &&
+            match.same === null &&
+            match.file !== "none" &&
+            match.file !== "unreadable" ? (
+              <p className={styles.note} data-identity-note="existing">
+                {t("home.note.identity-existing")}
+              </p>
+            ) : null}
+            {lost === undefined ? null : (
+              <div className={styles.line} data-identity-note="relink">
+                <p className={styles.note}>
+                  {t("home.note.identity-relink", { title: lost.title })}
+                </p>
+                <Button
+                  size="sm"
+                  icon={commonIcons.openLink}
+                  disabled={busy}
+                  data-relink=""
+                  onClick={() => void relink()}
+                >
+                  {t("home.button.identity-relink", { title: lost.title })}
+                </Button>
+              </div>
+            )}
+            {relinkFailed ? (
+              <p className={styles.error} role="alert" data-relink-failed="">
+                {t("home.error.relink-failed")}
+              </p>
+            ) : null}
+            {canShare ? (
+              <div data-identity-note="share">
+                <div className={styles.line}>
+                  <span className={styles.shareLabel}>
+                    {t("home.label.share-identity")}
+                  </span>
+                  <span className={styles.toggleCell}>
+                    <Switch
+                      label={t("home.label.share-identity")}
+                      checked={share}
+                      onCheckedChange={setShare}
+                    />
+                  </span>
+                </div>
+                <p className={styles.note}>
+                  {t("home.note.identity-adds-file")}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        )}
         {failure !== null ? (
           <p className={styles.error} role="alert" data-register-failed="">
             {t("home.error.register-failed", { name: failure })}

@@ -17,6 +17,6 @@ lead만 고친다. `tools/status.py mobile-widgets build`가 `tasks/*.md`에서 
 | `mobile-widget-screens` | widgets | 6 | mobile-widget-native, mobile-widget-wireframes, mobile-open-target | todo |  |  |  |
 | `mobile-shortcut-native` | shortcuts | 7 | mobile-widget-screens, mobile-open-target, mobile-widget-spike, mobile-widget-wireframes | todo |  |  |  |
 | `mobile-phone-link` | phone-link | 8 | mobile-phone-link-contract | merged | phone-link/mobile-phone-link | 512b34f40 |  |
-| `mobile-phone-use-grant` | phone-use | 9 | mobile-phone-link, mobile-widgets-decl, mobile-phone-link-contract, mobile-cap-phone | todo |  |  |  |
+| `mobile-phone-use-grant` | phone-use | 9 | mobile-phone-link, mobile-widgets-decl, mobile-phone-link-contract, mobile-cap-phone | running | phone-use/mobile-phone-use-grant |  |  |
 | `mobile-phone-location` | phone-link | 10 | mobile-phone-link, mobile-phone-use-grant | todo |  |  |  |
 | `mobile-widgets-guidance` | widgets | 10 | mobile-widget-core, mobile-widgets-decl, mobile-cap-phone, mobile-phone-use-grant, mobile-widget-native | todo |  |  |  |

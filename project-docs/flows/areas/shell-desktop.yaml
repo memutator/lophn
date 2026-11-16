@@ -338,7 +338,7 @@ flows:
       - packages/shell/main/desktop/wiring/machine-windows.ts
       - packages/shell/main/desktop/wiring/desktop-window.ts
       - packages/shell/main/desktop/window.ts
-      - packages/shell/main/desktop/machine-route.ts
+      - packages/shell/main/desktop/viewer/machine-route.ts
       - packages/shell/preload/remote.ts
       - packages/shell/main/build.ts
     steps:
@@ -368,7 +368,7 @@ flows:
     boundary: [shell, remote-client]
     code:
       - packages/shell/main/desktop/wiring/machine-windows.ts
-      - packages/shell/main/desktop/machine-route.ts
+      - packages/shell/main/desktop/viewer/machine-route.ts
     steps:
       - "기계 목록이 열린 뒤(starting이 아님) 그 기계가 목록에 없으면 창을 닫는다(이 컴퓨터에서 지움, 다른 기계의 것으로 버려진 저장). 이 desktop을 지운 기계는 removed로 남고 창은 그 gate를 보인다"
       - "그렇게 닫은 창 뒤에 창이 하나도 남지 않으면 이 컴퓨터의 창을 연다"

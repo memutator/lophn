@@ -550,7 +550,7 @@ flows:
     uses: [ipc:shell:core-call, ipc:shell:core-watch, ipc:shell:core-state-get]
     boundary: [shell, remote-client]
     code:
-      - packages/shell/main/desktop/machine-route.ts
+      - packages/shell/main/desktop/viewer/machine-route.ts
       - packages/shell/main/desktop/wiring/context.ts
       - packages/shell/main/desktop/wiring/core.ts
       - packages/shell/preload/remote.ts

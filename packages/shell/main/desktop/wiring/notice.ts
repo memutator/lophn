@@ -41,6 +41,7 @@ import type { TerminalFocusTable } from "../../terminal/controller.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import { word } from "../i18n.ts";
 import type { Registered, ShellContext } from "./context.ts";
+import { openDesktopWindow } from "./desktop-window.ts";
 
 // 띄우는 program 기록: 실패하거나 사람이 가서 볼 일. 켜짐·data migration 적용·lophn 업데이트는 결과가 기록으로 충분하다.
 const ALERT_PROGRAM_KINDS: ReadonlySet<NoticeKind> = new Set([
@@ -159,8 +160,9 @@ export function createNoticeWiring(
       live.find((item) => item.webContents.id === owner) ??
       live.filter((item) => !ctx.detached.has(item)).at(-1) ??
       live.at(-1);
+    // This computer's notice opens a window of this computer, never a window of another machine (nor the start machine).
     if (window === undefined) {
-      ctx.desktop.show();
+      openDesktopWindow(ctx);
       return;
     }
     if (window.isMinimized()) window.restore();

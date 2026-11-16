@@ -52,6 +52,10 @@ export type CoreSource = {
   onEvent(listener: (message: CoreEventMessage) => void): () => void;
 };
 
+// Calls one connection keeps open at once. The core serves a device's reads from a queue of 8 per caller and answers the
+// next one `unavailable`; a desktop window opening a workspace asks for more than that at once.
+const IN_FLIGHT = 8;
+
 // Which way the open channel goes: straight to one of the computer's addresses, or through its relay.
 export type ConnectionPath = "direct" | "relay";
 
@@ -186,6 +190,8 @@ export function createConnection(
   let watching: WatchConditions = [];
   let nextId = 0;
   const pending = new Map<string, (reply: CoreReply) => void>();
+  // Calls past IN_FLIGHT wait here for an answer to free a place.
+  const queued: { input: CoreCall; resolve: (reply: CoreReply) => void }[] = [];
   const stateListeners = new Set<(state: ConnectionState) => void>();
   const eventListeners = new Set<(message: CoreEventMessage) => void>();
 
@@ -240,6 +246,12 @@ export function createConnection(
         error: { code: "unavailable", message: "connection closed" },
       });
     }
+    for (const { resolve } of queued.splice(0)) {
+      resolve({
+        ok: false,
+        error: { code: "unavailable", message: "connection closed" },
+      });
+    }
     if (!stopped) setState({ state: "stale", confirmedAt: state.confirmedAt });
   }
 
@@ -262,6 +274,25 @@ export function createConnection(
     });
   }
 
+  function send(input: CoreCall): Promise<CoreReply> {
+    if (!channel) {
+      return Promise.resolve({
+        ok: false,
+        error: { code: "unavailable", message: "not connected" },
+      });
+    }
+    const id = `c${++nextId}`;
+    const sent = channel.send({
+      type: "call",
+      id,
+      resource: input.resource,
+      method: input.method,
+      body: input.body,
+    });
+    if (!sent.ok) return Promise.resolve({ ok: false, error: sent.error });
+    return new Promise((resolve) => pending.set(id, resolve));
+  }
+
   function received(frame: RemoteServerFrame) {
     if (frame.type === "result") {
       const resolve = pending.get(frame.id);
@@ -272,6 +303,8 @@ export function createConnection(
           ? { ok: true, value: frame.value }
           : { ok: false, error: frame.error },
       );
+      const next = queued.shift();
+      if (next) void send(next.input).then(next.resolve);
     } else if (frame.type === "ready") {
       cancelProbe?.();
       cancelProbe = undefined;
@@ -307,22 +340,8 @@ export function createConnection(
     current: () => state,
     path: () => path,
     call(input) {
-      if (!channel) {
-        return Promise.resolve({
-          ok: false,
-          error: { code: "unavailable", message: "not connected" },
-        });
-      }
-      const id = `c${++nextId}`;
-      const sent = channel.send({
-        type: "call",
-        id,
-        resource: input.resource,
-        method: input.method,
-        body: input.body,
-      });
-      if (!sent.ok) return Promise.resolve({ ok: false, error: sent.error });
-      return new Promise((resolve) => pending.set(id, resolve));
+      if (pending.size < IN_FLIGHT) return send(input);
+      return new Promise((resolve) => queued.push({ input, resolve }));
     },
     watch(conditions) {
       // The core closes the channel on a condition it cannot parse (a session id that is not one), and every new channel

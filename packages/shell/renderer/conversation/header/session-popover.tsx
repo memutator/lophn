@@ -98,8 +98,8 @@ export interface SessionSwitcherProps {
   /** 비지 않은 제목만 부른다. */
   onRename: (session: string, title: string) => void;
   onArchive: (session: string) => void;
-  /** 줄 안 확인의 Delete를 누른 뒤에만 부른다. */
-  onDelete: (session: string) => void;
+  /** 줄 안 확인의 Delete를 누른 뒤에만 부른다. 없으면 Delete 단추가 없다(지울 수 없는 source). */
+  onDelete?: (session: string) => void;
   /** 그 agent의 메시지 글(사람이 쓴 말과 agent의 답)에서 찾는다. */
   searchMessages: (
     query: string,
@@ -363,7 +363,7 @@ function Switcher(
               icon={actionIcons.delete}
               autoFocus
               onClick={() => {
-                props.onDelete(entry.id);
+                props.onDelete?.(entry.id);
                 setDeleting(null);
               }}
             >
@@ -422,16 +422,18 @@ function Switcher(
                 props.onArchive(entry.id);
               }}
             />
-            <IconButton
-              icon={homeIcons.remove}
-              label={t("conversation.button.delete")}
-              size="sm"
-              onClick={(event) => {
-                event.stopPropagation();
-                setEditing(null);
-                setDeleting(entry.id);
-              }}
-            />
+            {props.onDelete === undefined ? null : (
+              <IconButton
+                icon={homeIcons.remove}
+                label={t("conversation.button.delete")}
+                size="sm"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setEditing(null);
+                  setDeleting(entry.id);
+                }}
+              />
+            )}
           </span>
         ) : null}
       </div>

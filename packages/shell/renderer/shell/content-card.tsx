@@ -88,6 +88,8 @@ export interface ContentCardProps {
   onAction: (action: TabAction, key: string) => void;
   /** 빈 desk의 단추. */
   onEmptyAction: (action: "new-session" | "open-file") => void;
+  /** 빈 desk의 [Open file]이 선다. file 고르기 bridge가 없는 창(다른 기계의 창)은 false다. 안 주면 true다. */
+  canOpenFile?: boolean;
   /** Explorer의 파일을 card 위에 놓았다. 주지 않으면 받지 않는다. */
   onDropPath?: (path: string) => void;
 }
@@ -106,6 +108,7 @@ export function ContentCard({
   onCycle,
   onAction,
   onEmptyAction,
+  canOpenFile = true,
   onDropPath,
 }: ContentCardProps) {
   const grouped = panes.length > 1 && layout !== undefined;
@@ -188,7 +191,11 @@ export function ContentCard({
     >
       {panes.length === 0 ? (
         pending ? null : (
-          <EmptyDesk label={deskLabel} onAction={onEmptyAction} />
+          <EmptyDesk
+            label={deskLabel}
+            onAction={onEmptyAction}
+            canOpenFile={canOpenFile}
+          />
         )
       ) : (
         <div
@@ -470,9 +477,11 @@ function CrumbButton({
 function EmptyDesk({
   label,
   onAction,
+  canOpenFile,
 }: {
   label: string;
   onAction: (action: "new-session" | "open-file") => void;
+  canOpenFile: boolean;
 }) {
   return (
     <div className={styles.empty}>
@@ -488,14 +497,16 @@ function EmptyDesk({
           <Icon icon={shellIcons.newSession} pixels={14} />
           {t("shell.button.empty-new-session")}
         </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => onAction("open-file")}
-        >
-          <Icon icon={shellIcons.folder} pixels={14} />
-          {t("shell.button.empty-open-file")}
-        </Button>
+        {canOpenFile ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => onAction("open-file")}
+          >
+            <Icon icon={shellIcons.folder} pixels={14} />
+            {t("shell.button.empty-open-file")}
+          </Button>
+        ) : null}
       </span>
     </div>
   );

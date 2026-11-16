@@ -7,7 +7,7 @@ import {
 import type { WorkspaceSource } from "../workspace/source.ts";
 import {
   createLayoutSource,
-  fakeWorkspaceLayoutBridge,
+  memoryWorkspaceLayoutBridge,
 } from "../shell/layout-source.ts";
 import {
   defaultWorkspaceLayout,
@@ -110,7 +110,7 @@ function seededEditor(): EditorDeps {
 const FAKE = fakeWorkspaceSource();
 
 // 어느 project를 열어도 같은 처음 배치다.
-const SEED_LAYOUT_BRIDGE = fakeWorkspaceLayoutBridge(
+const SEED_LAYOUT_BRIDGE = memoryWorkspaceLayoutBridge(
   updateDesk(defaultWorkspaceLayout(), MAIN_DESK, (desk) =>
     selectTab(
       [

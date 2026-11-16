@@ -1,29 +1,35 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import type { Id } from "../../../protocol/base/ids.ts";
-import { CORE_CALL_CHANNEL } from "../../ipc/core.ts";
-import { FILE_READ_CHANNEL } from "../../ipc/files.ts";
-import { SECRET_INPUT_OPEN_CHANNEL } from "../../ipc/secret-input.ts";
-import { TERMINAL_OPEN_CHANNEL } from "../../ipc/terminal.ts";
-import { WORKSPACE_LAYOUT_SAVE_CHANNEL } from "../../ipc/workspace.ts";
-import { createMachineRoute, type MachineConnection } from "./machine-route.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
+import { CORE_CALL_CHANNEL } from "../../../ipc/core.ts";
+import { FILE_READ_CHANNEL } from "../../../ipc/files.ts";
+import { SECRET_INPUT_OPEN_CHANNEL } from "../../../ipc/secret-input.ts";
+import { TERMINAL_OPEN_CHANNEL } from "../../../ipc/terminal.ts";
+import { WORKSPACE_LAYOUT_SAVE_CHANNEL } from "../../../ipc/workspace.ts";
+import type { Connection } from "../../../../remote-client/mod.ts";
+import { createMachineRoute } from "./machine-route.ts";
 
 const HOST = "mch_01jx0000000000000000000000" as Id<"mch">;
 const REMOTE_WINDOW = 7;
 const LOCAL_WINDOW = 3;
 
-type Sent = Parameters<MachineConnection["call"]>[0];
+type Sent = Parameters<Connection["call"]>[0];
 
-function readyConnection(sent: Sent[]): MachineConnection {
+function readyConnection(sent: Sent[]): Connection {
   return {
     current: () => ({ state: "ready", confirmedAt: 1 }),
+    subscribe: () => () => {},
+    onEvent: () => () => {},
     call: (input) => {
       sent.push(input);
       return Promise.resolve({ ok: true, value: { from: "host" } });
     },
     watch: () => Promise.resolve(),
+    path: () => "direct",
+    pause: () => {},
     resume: () => {},
+    close: () => {},
   };
 }
 

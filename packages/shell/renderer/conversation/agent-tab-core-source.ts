@@ -72,6 +72,8 @@ interface AgentCoreDeps {
   ) => Promise<SourceResult<void>>;
   /** 이미지 올리기와 그림 주소. 없으면 Blob과 blob URL로 한다(desktop 창). blob URL이 없는 폰은 자기 것을 준다. */
   readonly images?: (core: CoreSource) => ImageSource;
+  /** 기기 자격으로 부른다(다른 기계의 창). 기기가 부를 수 없는 route의 칸(session 지우기, 권한 mode)을 두지 않는다. */
+  readonly device?: boolean;
 }
 
 export function coreAgentTabSourceFactory(
@@ -138,7 +140,9 @@ function createSource(
     },
     stopSession: (session) => stopSessionOf(env, session),
     archiveSession: (session) => archiveSessionOf(env, session),
-    deleteSession: (session) => deleteSessionOf(env, session),
+    ...(deps.device === true
+      ? { fixedMode: true as const }
+      : { deleteSession: (session) => deleteSessionOf(env, session) }),
 
     rewindPoints: (session) => readRewindPoints(env, session),
     rewindPreview: (session, message) => previewRewind(env, session, message),

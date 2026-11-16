@@ -87,6 +87,10 @@ import {
 } from "./settings/quick-launch/source.ts";
 import type { JobsSource } from "./jobs/source.ts";
 import { MachinesProvider } from "./machines/context.tsx";
+import {
+  createLayoutSource,
+  memoryWorkspaceLayoutBridge,
+} from "../shell/layout-source.ts";
 import { windowMachinesSource } from "./machines/window-source.ts";
 // xterm 기본 배치. CSP 때문에 xterm이 넣는 <style>은 xterm-view가 옮긴다.
 import "@xterm/xterm/css/xterm.css";
@@ -113,6 +117,7 @@ const bench = mock ? { source: mock.workspace, editor: mock.editor } : seed;
 // 이 컴퓨터의 shell host가 필요하거나 기기가 부를 수 없는 통로는 짓지 않는다.
 const machines = mock ? null : await windowMachinesSource();
 const remote = machines?.thisWindow() != null;
+const remoteLayouts = memoryWorkspaceLayoutBridge();
 const core = mock?.core ?? windowCoreSource();
 const editor = remote ? undefined : windowEditorDeps(core);
 // 창마다 하나인 event 연결. 대기 목록·session 상태·toast가 이 연결 하나를 나눠 쓴다.
@@ -161,12 +166,14 @@ const quickPrefs =
   mock?.quickPrefs ??
   (remote ? memoryQuickPrefs() : coreQuickPrefsSource(core));
 // 작업대는 제품 core 통로로 읽고 쓴다. 다른 기계의 창은 팔레트 파일 묶음(문서 목록)을 읽지 않는다: 그 파일은 그 기계에서만 연다.
+// 그 창의 layout은 저장하지 않고 창이 사는 동안 메모리에만 둔다(Settings에 갔다 와도 탭이 남고, 다시 열면 Home이다).
 const workspace =
   bench?.source ??
   (remote
     ? {
         ...coreWorkspaceSource(core),
         files: async () => ({ ok: true, value: [] }),
+        layout: createLayoutSource(() => remoteLayouts),
       }
     : coreWorkspaceSource(core));
 // 창마다 하나인 대화 메모리. 공간을 오가도 작성 중 말이 남는다.
@@ -174,7 +181,10 @@ const conversation = { drafts: new DraftStore() };
 // Agent 탭과 앱 공간의 Agent 칸이 agent마다 통로를 얻는 함수.
 const agentViewSource =
   mock?.agentViewSource ??
-  coreAgentTabSourceFactory(core, remote ? {} : { signIn: signInInputRequest });
+  coreAgentTabSourceFactory(
+    core,
+    remote ? { device: true } : { signIn: signInInputRequest },
+  );
 // main이 띄우는 앱 전용 창의 hash. `#app-window=<app>/<release>/<screen>`이고 각 부분은
 // encodeURIComponent된 값이다.
 function appWindowRoute(value: string): Route | undefined {

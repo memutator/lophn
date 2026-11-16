@@ -18,7 +18,10 @@ import { createHostLink, type HostLink } from "../core/host-link.ts";
 import { nodeSockets } from "../core/node-io.ts";
 import { createShellSettings, type ShellSettings } from "../core/settings.ts";
 import { type HeadlessMode, readHeadless } from "../headless.ts";
-import { createMachineRoute, type MachineRoute } from "../machine-route.ts";
+import {
+  createMachineRoute,
+  type MachineRoute,
+} from "../viewer/machine-route.ts";
 import { packagedInstall, resolveDataRoot } from "../paths.ts";
 import { appIconPath, type InstalledTray } from "../tray.ts";
 import {
@@ -67,6 +70,13 @@ export type CoreRelay = {
   events: Array<(event: BusEvent) => void>;
   /** renderer로 가지 않는 main 전용 frame. 영역이 자기 type만 골라 쓴다. */
   frames: Array<(frame: { type: string }) => void>;
+  /** 이 컴퓨터의 창이 부른 core 호출의 답. event가 따르지 않는 바뀜을 영역이 따라간다. */
+  calls: Array<
+    (
+      call: { kind: string; resource: string; method: string },
+      reply: CallResult,
+    ) => void
+  >;
 };
 
 /** event가 `StateChanged`이고 그 이름의 변경이 있으면 바뀐 id들이다(null은 그 이름 전체). 아니면 빈 목록이다. */
@@ -186,6 +196,7 @@ export function createShellContext(): ShellContext {
     ready: [],
     events: [],
     frames: [],
+    calls: [],
   };
   const core = connectCore({ here, dataRoot, windows, relay, handle });
   const coreInternal: ShellContext["coreInternal"] = (

@@ -2,8 +2,8 @@
 // A window of another machine talks to that machine's core over its connection on the same `shell:core-*` channels; the
 // rest of what this computer's shell host serves (terminal, files, browser, app views, secrets, layout…) is refused here,
 // in one place, before any area's handler runs. The renderer cannot claim a machine: main binds the window when it opens it.
-import type { Id } from "../../../protocol/base/ids.ts";
-import type { CoreReply } from "../../ipc/core-api.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
+import type { CoreReply } from "../../../ipc/core-api.ts";
 import {
   CORE_CALL_CHANNEL,
   CORE_STATE_GET_CHANNEL,
@@ -11,15 +11,16 @@ import {
   type CoreWatch,
   coreCallSchema,
   coreWatchSchema,
-} from "../../ipc/core.ts";
+} from "../../../ipc/core.ts";
 import {
   MACHINES_LIST_CHANNEL,
   MACHINES_OPEN_CHANNEL,
   MACHINES_THIS_WINDOW_CHANNEL,
   MACHINES_VISIBLE_CHANNEL,
-} from "../../ipc/machines.ts";
-import { OPEN_EXTERNAL_CHANNEL } from "../../ipc/open-external.ts";
-import { WINDOW_CONTROL_CHANNEL } from "../../ipc/window-controls.ts";
+} from "../../../ipc/machines.ts";
+import { OPEN_EXTERNAL_CHANNEL } from "../../../ipc/open-external.ts";
+import { WINDOW_CONTROL_CHANNEL } from "../../../ipc/window-controls.ts";
+import type { Connection } from "../../../../remote-client/mod.ts";
 
 // What a window of another machine may call on this computer's shell besides the core channels: the machine list and
 // switching windows, its own window buttons and opening a link in the OS browser. Overlay channels, shortcuts and intents
@@ -34,22 +35,6 @@ export const MACHINE_WINDOW_CHANNELS: ReadonlySet<string> = new Set([
 ]);
 
 type WatchConditions = CoreWatch["conditions"];
-
-// The part of a `@lophn/remote-client` Connection this route uses. Declared here so this file (checked with the shell's
-// DOM-less config) does not pull the remote client in.
-export type MachineConnection = {
-  current(): {
-    state: "starting" | "ready" | "stale";
-    confirmedAt: number | null;
-  };
-  call(input: {
-    resource: string;
-    method: string;
-    body: unknown;
-  }): Promise<CoreReply>;
-  watch(conditions: WatchConditions): Promise<void>;
-  resume(): void;
-};
 
 const FORBIDDEN = {
   ok: false,
@@ -67,7 +52,7 @@ const UNAVAILABLE: CoreReply = {
 type Binding = {
   machine: Id<"mch">;
   // The machine's live connection; undefined until the machine list is open (or once the machine left it).
-  connection(): MachineConnection | undefined;
+  connection(): Connection | undefined;
   // The last watch the window asked for, so a connection that comes later still gets it.
   conditions: WatchConditions;
 };
@@ -76,7 +61,7 @@ export type MachineRoute = {
   bind(
     contentsId: number,
     machine: Id<"mch">,
-    connection: () => MachineConnection | undefined,
+    connection: () => Connection | undefined,
   ): void;
   unbind(contentsId: number): void;
   machineOf(contentsId: number): Id<"mch"> | null;

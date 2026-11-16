@@ -312,8 +312,13 @@ export function AgentHeader(props: AgentHeaderProps): ReactElement {
       onArchive={(id) =>
         void act.current.settle(latest.current.source.archiveSession(id))
       }
-      onDelete={(id) =>
-        void act.current.settle(latest.current.source.deleteSession(id))
+      onDelete={
+        props.source.deleteSession === undefined
+          ? undefined
+          : (id) => {
+              const remove = latest.current.source.deleteSession;
+              if (remove !== undefined) void act.current.settle(remove(id));
+            }
       }
       searchMessages={(...args) =>
         latest.current.source.searchMessages(...args)

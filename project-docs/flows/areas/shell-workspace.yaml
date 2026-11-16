@@ -2597,12 +2597,12 @@ flows:
       - packages/shell/renderer/desktop/jobs/jobs-page.tsx
     steps:
       - "entry가 mount 전에 이 창의 기계를 한 번 묻는다. 기계가 있으면 같은 core 통로(main이 그 기계의 연결로 보낸다) 위에 core, event, project 목록, 앱 목록, Jobs(켜고 끄기만), 작업대, Agent 탭, project icon, 팔레트(file 검색은 projects/search)만 짓는다. Settings, provider, 빠른 실행 설정의 core 쓰기, App details 관리, 편집기, 터미널은 짓지 않는다. 빠른 실행 값은 기본값을 메모리에만 둔다"
-      - "preload가 이 컴퓨터의 shell host bridge(터미널, file, folder, layout, browser, artifact, detached, 앱 view, coding, extension, thread bookmark, surface)를 열지 않아 그 단추는 bridge가 없을 때처럼 없다. layout은 저장하지 않아 다시 열면 Home이다"
-      - "기계 context로 더 감춘다: 새 탭 menu와 빠른 실행의 앱 화면·Agents, 앱 workspace의 앱 화면 탭(처음 layout에도 없다), 앱 줄은 앱 화면 대신 앱 workspace로 간다, workspace 줄의 설정 단추, Agents 줄, project 등록과 앱 만들기, coding agent 고르기, Files·Artifacts·Workspaces panel, tray, 끌어 놓은 file 열기, 팔레트의 project 설정 행. Jobs 줄은 스위치와 기록만이고 Edit·Delete·Take over가 없다"
+      - "preload가 이 컴퓨터의 shell host bridge(터미널, file, folder, layout, browser, artifact, detached, 앱 view, coding, extension, thread bookmark, surface)를 열지 않아 그 단추는 bridge가 없을 때처럼 없다(빈 desk의 [Open file]도 없다). layout은 창이 사는 동안 메모리에만 두어 Settings에 갔다 와도 탭이 남고, 다시 열면 Home이다"
+      - "기계 context로 더 감춘다: 새 탭 menu와 빠른 실행의 앱 화면·Agents, 앱 workspace의 앱 화면 탭(처음 layout에도 없다), 앱 줄은 앱 화면 대신 앱 workspace로 간다, workspace 줄의 설정 단추, Agents 줄, project 등록과 앱 만들기, coding agent 고르기, Files·Artifacts·Workspaces panel, tray, 끌어 놓은 file 열기, 팔레트의 project 설정 행. Jobs 줄은 스위치와 기록만이고 Edit·Delete·Take over가 없다. 대화의 session 고르기에 Delete가 없고 입력칸에 권한 mode 메뉴(와 mode 순환 키)가 없다(기기는 sessions/delete·sessions/change-skip을 부르지 못한다)"
       - "저장된 링크, 팔레트의 file 결과, 대화 안 file 링크로 이 컴퓨터가 있어야 하는 kind(thisComputerOnly: 문서, 터미널, browser, artifact, 앱 화면·panel·preview, project 설정, App details, Agents)의 탭이 열리면 본문 대신 \"This opens only on <이름>\"이 선다. desk와 전역 float 모두 같다"
       - "Settings 자리는 항목 목록이 없고 \"<이름>'s settings are changed on <이름>\"과 [Open this computer]다"
       - "대화가 보이면 lophnNotice.visible을 그대로 부르고 main(preload)이 그 기계의 presence로 보낸다. 다 본 session의 점은 그 기계의 unseen/list·unseen/dismiss로 꺼진다"
-    uses: [route:unseen/list, route:unseen/dismiss, ipc:shell:machines-list]
+    uses: [route:unseen/list, route:unseen/dismiss, ipc:shell:machines-list, ipc:shell:machines-this-window, ipc:shell:machines-open]
     outcomes:
       - id: shown
         observe: ["screen:shell-machine-window"]
@@ -2631,7 +2631,7 @@ flows:
       - "[Try again]은 platform/status를 한 번 불러 main이 그 기계의 연결을 다시 붙이게 한다. [This computer]는 이 컴퓨터의 창을 열거나 앞으로 가져온다"
       - "한 번 ready가 된 뒤의 끊김은 마지막 화면을 그대로 두고 Home 위에 끊김 한 줄(ConnectionNotice)이다. 다시 붙으면 저절로 사라진다"
       - "기계 목록의 status가 removed가 되면 언제든 지금 화면 대신 removed gate(\"<이름> removed this desktop…\"과 [This computer])다"
-    uses: [ipc:shell:machines-list]
+    uses: [ipc:shell:machines-list, ipc:shell:machines-this-window, ipc:shell:machines-open]
     outcomes:
       - id: connecting
         observe: ["screen:shell-machine-gate-offline"]
@@ -2665,7 +2665,7 @@ flows:
       - "누르면 menu다: 맨 위 이 컴퓨터, 그 아래 짝지은 기계(보이는 이름, 상태와 길이나 마지막으로 본 때), 지금 창의 기계 표시, 맨 아래 \"Pair another computer…\""
       - "줄을 누르면 main이 그 기계의 창을 열거나 앞으로 가져온다(이 컴퓨터면 이 컴퓨터의 창)"
       - "\"Pair another computer…\"는 이 컴퓨터의 창이면 그 창의 Settings › Remote로 가고, 다른 기계의 창이면 이 컴퓨터의 창을 앞으로 가져오기만 한다"
-    uses: [ipc:shell:machines-list]
+    uses: [ipc:shell:machines-list, ipc:shell:machines-this-window, ipc:shell:machines-open]
     outcomes:
       - id: opened
         observe: ["screen:shell-machine-menu"]

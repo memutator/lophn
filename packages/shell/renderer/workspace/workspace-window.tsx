@@ -2657,6 +2657,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                 }),
             }
           : {})}
+        canOpenFile={pickFile !== undefined}
         onEmptyAction={(action) => {
           if (action === "new-session") openLophn();
           else if (pickFile !== undefined) {

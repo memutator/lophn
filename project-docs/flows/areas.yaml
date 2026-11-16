@@ -448,4 +448,4 @@ journey_groups:
   - id: agent-automation
     title: agent 만들기와 할당, call과 team, 승인, workflow, job, run, session rewind
   - id: phone
-    title: 폰 앱(pairing, 승인·질문 답하기, 알림 받고 눌러 답하기, project file 읽기, job 켜고 끄기, 컴퓨터 지우고 다시 pairing)
+    title: 다른 기기에서 보기(폰 앱의 pairing, 승인·질문 답하기, 알림 받고 눌러 답하기, project file 읽기, job 켜고 끄기, 컴퓨터 지우고 다시 pairing. desktop에서 다른 컴퓨터의 lophn을 그 컴퓨터의 창으로 보기)

@@ -134,8 +134,8 @@ export function createLayoutSource(
   };
 }
 
-/** 메모리에 두는 가짜 통로. dev mock과 gallery가 쓴다. 저장한 값을 JSON으로 거쳐 그대로 돌려준다. initial은 저장하기 전 project·앱 workspace가 읽는 처음 layout이다(Home은 빈 채로 시작한다). */
-export function fakeWorkspaceLayoutBridge(
+/** 메모리에 두는 통로. dev mock, gallery와 다른 기계의 창(layout을 저장하지 않고 창이 사는 동안만 든다)이 쓴다. 저장한 값을 JSON으로 거쳐 그대로 돌려준다. initial은 저장하기 전 project·앱 workspace가 읽는 처음 layout이다(Home은 빈 채로 시작한다). */
+export function memoryWorkspaceLayoutBridge(
   initial?: WorkspaceLayout,
 ): WorkspaceLayoutBridge {
   const saved = new Map<string, string>();

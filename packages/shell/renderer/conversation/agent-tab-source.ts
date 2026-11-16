@@ -711,8 +711,13 @@ export interface AgentTabSource {
   /** 그 session에서 도는 turn을 멈춘다. 도는 turn이 없으면 할 일이 없어 ok다. */
   stopSession(session: string): Promise<SourceResult<void>>;
   archiveSession(session: string): Promise<SourceResult<void>>;
-  /** 되돌릴 수 없다. 도는 turn이 있으면 conflict다. 받는 곳이 이 session인 열린 call은 실패한다. */
-  deleteSession(session: string): Promise<SourceResult<void>>;
+  /**
+   * 되돌릴 수 없다. 도는 turn이 있으면 conflict다. 받는 곳이 이 session인 열린 call은 실패한다. 없으면 지우기 칸이 없다
+   * (기기 자격으로 부르는 다른 기계의 창: 기기는 `sessions/delete`를 부르지 못한다).
+   */
+  deleteSession?(session: string): Promise<SourceResult<void>>;
+  /** 권한 mode를 바꾸지 못한다(기기 자격은 `sessions/change-skip`을 부르지 못한다). 입력칸의 mode 메뉴가 없다. */
+  readonly fixedMode?: true;
   // rewind. 확인은 대화 화면 안의 panel이고 확인 창은 없다.
   /** 시점으로 고를 수 있는 사람 메시지(steer는 아니다), 오래된 순. 숨긴 구간 밖이다. */
   rewindPoints(session: string): Promise<SourceResult<readonly string[]>>;

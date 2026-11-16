@@ -15,7 +15,7 @@ import {
 import { isAllowed, lookupCall } from "./allowlist.ts";
 import { routeByName } from "./routes.ts";
 
-type CallResult<T = unknown> =
+export type CallResult<T = unknown> =
   | { ok: true; value: T }
   | {
       ok: false;

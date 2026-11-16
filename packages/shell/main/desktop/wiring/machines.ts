@@ -156,8 +156,9 @@ export function register(ctx: ShellContext): Machines & Registered {
         name: thisMachine.name,
       }),
       save: async (list) => persist({ ...saved, computers: list }),
-      // The hello name is this machine's name, which is changed in Settings › Remote "This computer".
-      saveName: async () => thisMachine.name,
+      // The hello name is this machine's name, changed in Settings › Remote "This computer" and followed through
+      // `relay.calls` below.
+      saveName: async (name) => name,
       open: (computer, key, on) => {
         const link = openLink(computer, key, on, {
           random: cryptoRandom,
@@ -194,6 +195,17 @@ export function register(ctx: ShellContext): Machines & Registered {
     if (begun || stopped) return;
     begun = true;
     void begin();
+  });
+
+  // `machine/rename` sends no event; its answer carries the name in effect. Viewed machines hear it in a new hello.
+  ctx.relay.calls.push((call, reply) => {
+    if (call.resource !== "machine" || call.method !== "rename") return;
+    if (!reply.ok || self === null) return;
+    const name = (reply.value as MachineStatus).name;
+    if (name === self.name) return;
+    self = { ...self, name };
+    publish();
+    void computers?.setDeviceName(name);
   });
 
   const allowed = (event: IpcEvent): boolean => {

@@ -23,7 +23,12 @@ import {
   type StartFailureReason,
 } from "../../../../protocol/supervision/mod.ts";
 
-import { type CoreSession, openSession, type StreamFetch } from "./client.ts";
+import {
+  type CallResult,
+  type CoreSession,
+  openSession,
+  type StreamFetch,
+} from "./client.ts";
 import {
   type Clock,
   type Gateway,
@@ -81,6 +86,11 @@ interface ConnectionOptions {
     event(event: BusEvent): void;
     /** renderer로 가지 않는 main 전용 frame(coding 터미널 요청 등). */
     frame?(frame: { type: string }): void;
+    /** 이 컴퓨터의 창이 부른 core 호출의 답. event가 따르지 않는 바뀜(이 기계의 이름)을 main이 따라간다. */
+    called?(
+      call: { kind: string; resource: string; method: string },
+      reply: CallResult,
+    ): void;
   };
 }
 
@@ -389,13 +399,16 @@ export function startCoreConnection(
         error: { code: "unavailable", message: "core가 준비되지 않았다" },
       };
     }
-    return await attached.session.call(
-      parsed.data.kind,
-      parsed.data.resource,
-      parsed.data.method,
-      parsed.data.body,
-      parsed.data.bytes,
+    const { kind, resource, method, body, bytes } = parsed.data;
+    const reply = await attached.session.call(
+      kind,
+      resource,
+      method,
+      body,
+      bytes,
     );
+    options.own?.called?.({ kind, resource, method }, reply);
+    return reply;
   });
 
   void recover();

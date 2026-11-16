@@ -904,6 +904,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     session !== null &&
     !readOnly &&
     caps.mode &&
+    source.fixedMode !== true &&
     meta !== null &&
     meta.modes.length >= 2;
   routes.current = {
@@ -1542,11 +1543,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             permissionSummary={agent.permissionSummary}
             permissions={permissions}
             mode={
-              session === null ||
-              readOnly ||
-              !caps.mode ||
-              meta === null ||
-              meta.modes.length < 2
+              !modeReady || session === null || meta === null
                 ? undefined
                 : {
                     current: meta.mode,

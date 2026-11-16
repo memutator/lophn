@@ -291,11 +291,11 @@ Check it on the desktop:
    operation with `lophn preview call`.
 
 The preview draws with react-native-web, so the phone can differ: text input,
-the soft keyboard, scrolling, fonts, the safe area. When you report, say what
-you saw in the desktop preview and what you could not see on the phone, and
-that the person makes the last check on their phone. If the phone app is older
-than the kit the screen was built with, the phone shows "update the lophn app";
-tell the person.
+the soft keyboard, scrolling, fonts, the safe area. For those, check on the
+person's phone with `lophn tab open --phone`: `skill.read` this skill's
+`phone-check.md`. When you report, say what you saw on the desktop, on the
+phone, and what you could not check. If the phone app is older than the kit the
+screen was built with, the phone shows "update the lophn app"; tell the person.
 
 For home screen widgets (`widgets`) and phone location (`phone.use`), first read
 the bundled `phone-features.md`; when the app's backend and data also run on the

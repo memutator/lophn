@@ -212,7 +212,11 @@ export default function Orders() {
 
 desktop에서 확인한다: `lophn tab open --preview <app> --screen <key>`가 기준 폰 크기의 틀로 화면을
 연다. 이것은 react-native-web이라 실제 폰과 다를 수 있다(입력, soft keyboard, scroll, 글꼴, 안전 영역).
-"desktop preview에서 본 것"과 "폰에서 보지 못한 것"을 나눠 알리고, 마지막 확인은 사람이 폰에서 한다.
+그런 것은 사람의 폰에서 확인한다: 사람에게 폰의 lophn 앱에서 이 앱의 Preview from lophn을 열고 앱을 앞에 두어 달라고
+부탁한 뒤 `lophn tab open --phone <app> [--screen <key>]`로 열고 `lophn browser snapshot|screenshot|act|wait`로 본다(폰의
+data는 preview의 throwaway data이고, `Sheet`와 `Modal`은 읽지도 누르지도 못한다. 자세한 길은 skill `design-app`의
+`phone-check.md`). "desktop preview에서 본 것", "폰에서 본 것", "보지 못한 것"을 나눠 알린다.
+`Field`의 `label`이 안의 `Input`의 accessibility 이름이 된다(snapshot에서 찾는 이름). 입력마다 `Field`로 감싸 이름을 준다.
 
 ## version 정책
 

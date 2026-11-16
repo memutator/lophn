@@ -829,7 +829,7 @@ flows:
     steps:
       - app workspace의 agent가 짓기나 고치기 전에 skill.read로 design-app 본문을 읽는다
       - app 종류가 아니면 선언에 없어 그 turn의 skill 목록에 없어 forbidden으로 막힌다
-      - 본문(DESIGN.md의 절, 명령과 공유 판단, 폰 화면의 선언·규칙·desktop preview 확인)을 tool 결과로 준다
+      - 본문(DESIGN.md의 절, 명령과 공유 판단, 폰 화면의 선언·규칙·desktop preview 확인)을 tool 결과로 준다. 폰에서 확인하는 길(`tab open --phone`)은 딸린 phone-check.md를 skill.read path로 읽는다
     outcomes:
       - id: loaded
         observe: [response]

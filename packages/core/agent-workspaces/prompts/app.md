@@ -74,6 +74,8 @@ information). Use `lophn app link-source` only for an existing git repo with a c
    `lophn tab open --preview <app> --screen <key>`, which draws it in a frame of
    the person's reference phone (`lophn app phone-target` reads that phone; the
    skill `design-app` has the phone screen rules and what the preview cannot show).
+   If you changed a phone screen and the person is here, check it once on their
+   phone (`lophn tab open --phone <app>`; `phone-check.md` in `design-app`).
 6. `lophn release activate` the release:
    - `active`: tell the person in their words what changed in the app and
      anything they should try. Leave out the release, tests and preview unless

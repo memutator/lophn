@@ -1,7 +1,8 @@
 // A session: the conversation with an agent (tools/wireframes/drafts/phone/session.tsx). The desktop conversation's
 // values (thread, live text, pending, queued) come from `useConversation`; this screen lays them out for the phone: the
 // thread follows the newest text, what waits on the person docks above the composer, and the composer's words follow the
-// state (Reply…, Queue a message…, Reply instead…). A coding agent's session is read here and continued on the computer.
+// state (Reply…, Queue a message…, Reply instead…). A coding session of the computer's lophn app runs the same chat over
+// the coding source, or stands in its terminal (screens/coding); a headless coding agent's session is only read here.
 import { t } from "@lophn/i18n";
 import {
   Chip,
@@ -36,10 +37,13 @@ import { useModelPicker } from "../../../../shell/renderer/conversation/use-mode
 import { newId } from "../../../../shell/renderer/prefixed-id.ts";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
 import {
+  type CodingSession,
+  type CodingTarget,
   type ConversationTarget,
   type Attached,
   type SampleConversation,
   type SessionRow,
+  useCodingSessions,
   useConversation,
   useCurrentComputer,
   useNames,
@@ -48,6 +52,7 @@ import {
   type WorkspaceView,
 } from "../../data/mod.ts";
 import { DIM, Face, LOPHN, OfflineBanner, type Profile, useUnreachable } from "../../parts/mod.ts";
+import { harnessProfile, TerminalSession } from "../coding/index.tsx";
 import { Pending } from "./ask.tsx";
 import { attachedAbove, useAttachments } from "./attach.tsx";
 import { duration, useTick } from "./parts.tsx";
@@ -160,14 +165,66 @@ function ReadOnlyLine({ children }: { children: string }) {
   );
 }
 
-export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
+// A coding session of the computer's lophn app (Claude Code, Codex, ...). `Place` does not name it yet; see codingPlace.
+type CodingPlace = { readonly name: "session" } & CodingTarget;
+
+export function SessionScreen({ place }: { place: PlaceOf<"session"> | CodingPlace }) {
+  return "coding" in place ? <CodingSessionScreen place={place} /> : <LophnSessionScreen place={place} />;
+}
+
+function LophnSessionScreen({ place }: { place: PlaceOf<"session"> }) {
   const target = useMemo<ConversationTarget>(
     () => ({ session: place.session, agent: place.agent, workspace: place.workspace }),
     [place.session, place.agent, place.workspace],
   );
+  return <ChatScreen target={target} coding={null} />;
+}
+
+/** In a terminal on the computer: its line and Switch to chat. In chat: the same conversation as a lophn agent's. */
+function CodingSessionScreen({ place }: { place: CodingPlace }) {
+  const target = useMemo<CodingTarget>(
+    () => ({ session: place.session, coding: place.coding }),
+    [place.session, place.coding],
+  );
+  const nav = useNav();
+  const computer = useCurrentComputer()?.name ?? "";
+  const row = useCodingSessions(place.coding.project).sessions.find((one) => one.session === place.session) ?? null;
+  if (row?.view === "tui") {
+    return (
+      <TerminalSession
+        session={row}
+        computer={computer}
+        top={
+          <>
+            <TopBar
+              {...nav.menuButton}
+              lead={<Face profile={harnessProfile(row.harness, row.label)} size={26} />}
+              title={row.label}
+              sub={row.title ?? undefined}
+            />
+            <OfflineBanner note={t("mobile.offline.note")} />
+          </>
+        }
+      />
+    );
+  }
+  return <ChatScreen target={target} coding={row} />;
+}
+
+function ChatScreen({
+  target,
+  coding: codingRow,
+}: {
+  target: ConversationTarget | CodingTarget;
+  /** The coding session's row, when this is one and the list has it. */
+  coding: CodingSession | null;
+}) {
   const conversation = useConversation(target);
   const nav = useNav();
   const { session } = target;
+  const lophn = "agent" in target ? target : null;
+  // A relayed coding session: what the phone cannot do there (pictures, permissions, archive) is not offered.
+  const relayed = "coding" in target ? target.coding : null;
   const { source, thread } = conversation;
   const computer = useCurrentComputer()?.name ?? "";
   const found = rowOf(useWorkspaces(), session);
@@ -177,13 +234,22 @@ export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
 
   const face = conversation.agent ?? null;
   const who: { name: string; profile: Profile } = found?.row.who ??
-    (face === null ? { name: "", profile: LOPHN } : { name: face.name, profile: face.profile });
+    (face !== null
+      ? { name: face.name, profile: face.profile }
+      : codingRow !== null
+        ? { name: codingRow.label, profile: harnessProfile(codingRow.harness, codingRow.label) }
+        : { name: "", profile: LOPHN });
   const entry = conversation.sessions.find((one) => one.id === session);
   const title =
-    thread?.session?.title ?? found?.row.title ?? entry?.title ?? t("left-sidebar.label.untitled");
+    thread?.session?.title ??
+    found?.row.title ??
+    entry?.title ??
+    codingRow?.title ??
+    t("left-sidebar.label.untitled");
   const meta = thread?.session ?? null;
   const caps = capabilitiesOf(meta);
-  const coding = isCodingBuiltin(target.agent);
+  // A headless coding agent's session (`coding_*`) is read here and continued on the computer.
+  const coding = lophn !== null && isCodingBuiltin(lophn.agent);
   const archived = entry?.archived === true;
   const readOnly = coding || archived;
 
@@ -355,7 +421,8 @@ export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
       apps,
       openSteps: (calls, output = null) => setSheet({ kind: "steps", calls, output }),
       openThought: (text) => setSheet({ kind: "thought", text }),
-      openDiff: (entryId) => nav.open({ name: "diff", session: target, entry: entryId }),
+      // `Place`'s diff names only a lophn target; the diff screen reads either (see codingPlace).
+      openDiff: (entryId) => nav.open({ name: "diff", session: target as ConversationTarget, entry: entryId }),
       openQueued: (queued) => setSheet({ kind: "queued", queued }),
       resend: (message) => void deliver({ ...message, phase: "sending", checked: false }),
     }),
@@ -366,13 +433,16 @@ export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
   // ---- top and bottom
 
   const workspaceName =
-    face?.workspace?.name ?? found?.workspace.name ?? t("left-sidebar.label.home");
+    (relayed === null ? undefined : names.projects.get(relayed.project)) ??
+    face?.workspace?.name ??
+    found?.workspace.name ??
+    t("left-sidebar.label.home");
   const where =
     found?.desk == null
       ? t("mobile.session.label.where", { agent: who.name, workspace: workspaceName })
       : t("mobile.session.label.where-desk", { agent: who.name, workspace: workspaceName, desk: found.desk });
   const modeLabel = meta?.modes.find((mode) => mode.id === meta.mode)?.label ?? null;
-  const project = target.workspace?.kind === "project" ? target.workspace.id : null;
+  const project = lophn?.workspace?.kind === "project" ? lophn.workspace.id : null;
 
   const unreachable = useUnreachable();
   const placeholder =
@@ -415,7 +485,7 @@ export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
         placeholder={placeholder}
         working={active?.phase === "working"}
         onStop={() => void conversation.stop()}
-        onAttach={() => setSheet({ kind: "attach" })}
+        onAttach={relayed === null ? () => setSheet({ kind: "attach" }) : undefined}
         disabled={unreachable !== null || conversation.connection === "reconnecting" || outgoing?.phase === "sending" || attachments.uploading}
         chips={
           caps.model && meta !== null && unreachable === null ? (
@@ -510,7 +580,7 @@ export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
         context={contextLine(meta)}
         canRename={caps.rename && !readOnly}
         onRename={() => setSheet({ kind: "rename" })}
-        onPermissions={() => void openPermissions()}
+        onPermissions={relayed === null ? () => void openPermissions() : null}
         onContext={() => setSheet({ kind: "context" })}
         onArchive={caps.sessions && !archived ? () => void archive() : null}
       />

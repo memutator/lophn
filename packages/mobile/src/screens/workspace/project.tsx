@@ -14,6 +14,7 @@ import {
   type Workspace,
   type WorkspaceView,
 } from "../../data/mod.ts";
+import { CodingSessionList } from "../coding/index.tsx";
 import { AskBar, Failed } from "./common.tsx";
 import { FilesTab } from "./files.tsx";
 import { SessionList } from "./sessions.tsx";
@@ -89,7 +90,12 @@ export function ProjectWorkspace({ view }: { view: WorkspaceView }) {
     >
       <OfflineBanner note={t("mobile.offline.note")} />
       <View style={{ opacity: locked ? DIM : 1 }}>
-        {tab === 0 && <SessionList view={view} />}
+        {tab === 0 && (
+          <>
+            <CodingSessionList project={project} />
+            <SessionList view={view} />
+          </>
+        )}
         {tab === 1 && <WorkflowsTab project={project} />}
         {tab === 2 && (
           <FilesTab

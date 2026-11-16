@@ -451,7 +451,8 @@ export function SessionMenu({
   context: string | null;
   canRename: boolean;
   onRename: () => void;
-  onPermissions: () => void;
+  /** null when the source cannot read them (a coding session of the computer's app). */
+  onPermissions: (() => void) | null;
   onContext: () => void;
   onArchive: (() => void) | null;
 }) {
@@ -464,12 +465,16 @@ export function SessionMenu({
       sub={where}
       items={[
         ...(canRename ? [{ label: t("conversation.button.rename"), icon: Pencil, onSelect: onRename }] : []),
-        {
-          label: t("mobile.session.button.permissions"),
-          icon: ShieldCheck,
-          ...(mode === null ? {} : { end: mode }),
-          onSelect: onPermissions,
-        },
+        ...(onPermissions === null
+          ? []
+          : [
+              {
+                label: t("mobile.session.button.permissions"),
+                icon: ShieldCheck,
+                ...(mode === null ? {} : { end: mode }),
+                onSelect: onPermissions,
+              },
+            ]),
         ...(context === null
           ? []
           : [{ label: t("mobile.session.button.context"), icon: Gauge, end: context, onSelect: onContext }]),

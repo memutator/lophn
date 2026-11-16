@@ -98,7 +98,7 @@ test("after a drop or a dead resume the connection reconnects and sends the last
       return () => {};
     },
     onRevoked: () => {},
-    phoneCtx: { location: {} as never },
+    phoneCtx: { location: {} as never, drive: {} as never },
   });
   const conditions = [{ session: "ses_01m7dp1jqw47d55vdyzxv5wd0x" }];
   await settle();
@@ -162,7 +162,7 @@ test("a watch with a session id the core would reject sends no such condition, a
       return () => {};
     },
     onRevoked: () => {},
-    phoneCtx: { location: {} as never },
+    phoneCtx: { location: {} as never, drive: {} as never },
   });
   await settle();
   const good = { session: "ses_01m7dp1jqw47d55vdyzxv5wd0x" };

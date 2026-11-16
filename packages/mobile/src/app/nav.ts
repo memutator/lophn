@@ -32,8 +32,9 @@ export type Place =
   /** A file of a project, `path` relative to the project folder. */
   | { readonly name: "file"; readonly project: string; readonly path: string }
   | { readonly name: "app-activity"; readonly app: string }
-  /** A user app's phone screen; without `screen` its first one. An app with no phone screen opens its workspace. */
-  | { readonly name: "app"; readonly id: string; readonly screen?: string }
+  /** A user app's phone screen; without `screen` its first one. An app with no phone screen opens its workspace. With
+   * `preview` it is the preview running on the computer (Preview from lophn) instead of the live app. */
+  | { readonly name: "app"; readonly id: string; readonly screen?: string; readonly preview?: true }
   /**
    * "Choose a widget". `widget`: a placed widget that shows nothing yet (`configure`: the launcher waits for the answer);
    * `app`: from an app's menu, only that app's widgets, to place a new one.

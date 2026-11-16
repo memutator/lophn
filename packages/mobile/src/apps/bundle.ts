@@ -1,7 +1,7 @@
-// The phone screen bundle cache, without React Native: a screen's phone.js is taken from its computer only when this
-// phone can run it, kept only when its bytes match the manifest, and kept under its bundle_hash (the bytes are fixed by
-// it, so a hash once kept is never taken again). Per app the two newest bundles stay; an app gone from the list and a
-// computer gone from the phone lose theirs.
+// The phone screen bundle cache, without React Native: a screen's phone.js (a live release's or a running preview's) is
+// taken from its computer only when this phone can run it, kept only when its bytes match the manifest, and kept under
+// its bundle_hash (the bytes are fixed by it, so a hash once kept is never taken again). Per app the two newest bundles
+// stay; an app gone from the list and a computer gone from the phone lose theirs.
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { appScreenFile } from "../../../protocol/apps/calls/screen.ts";
@@ -37,9 +37,12 @@ export type Bundle =
       readonly reason: BundleRefusal | "unavailable" | "mismatch";
     };
 
-// Newest bundle hashes per app, newest first.
+// Newest bundle hashes per app, newest first. A preview's are kept apart under `<app>#preview`, so rebuilt previews do
+// not push out the live release's bundle while its screen may still start again from it.
 type Index = Record<string, string[]>;
 const KEEP = 2;
+const PREVIEW = "#preview";
+const appOf = (key: string) => key.split("#")[0]!;
 
 const indexPath = (computer: string) => `${computer}/apps.json`;
 const bundlePath = (computer: string, hash: string) => `${computer}/${hash}`;
@@ -53,11 +56,17 @@ function readIndex(files: BundleFiles, computer: string): Index {
   }
 }
 
-function keep(files: BundleFiles, computer: string, app: string, hash: string) {
+// Removes the folders of hashes no list keeps (a preview of the live release has the live bundle's hash).
+function drop(files: BundleFiles, computer: string, index: Index, hashes: readonly string[]) {
+  const kept = new Set(Object.values(index).flat());
+  for (const old of hashes) if (!kept.has(old)) files.remove(bundlePath(computer, old));
+}
+
+function keep(files: BundleFiles, computer: string, key: string, hash: string) {
   const index = readIndex(files, computer);
-  const hashes = [hash, ...(index[app] ?? []).filter((one) => one !== hash)];
-  for (const old of hashes.slice(KEEP)) files.remove(bundlePath(computer, old));
-  index[app] = hashes.slice(0, KEEP);
+  const hashes = [hash, ...(index[key] ?? []).filter((one) => one !== hash)];
+  index[key] = hashes.slice(0, KEEP);
+  drop(files, computer, index, hashes.slice(KEEP));
   files.write(indexPath(computer), JSON.stringify(index));
 }
 
@@ -68,6 +77,10 @@ function bytesOf(base64: string): Uint8Array {
   return bytes;
 }
 
+/** A screen's bundle: a live release's, or a running preview's, taken by its process. */
+export type BundleScreen = Pick<PhoneScreen, "app" | "screen" | "bundle_hash" | "manifest"> &
+  ({ readonly release: string } | { readonly process_nonce: string });
+
 /** The screen's phone.js on this phone: from the cache, or taken from the computer and checked against its manifest. */
 export async function prepareBundle(
   deps: {
@@ -76,7 +89,7 @@ export async function prepareBundle(
     host: PhoneHostInfo;
   },
   computer: string,
-  screen: PhoneScreen,
+  screen: BundleScreen,
 ): Promise<Bundle> {
   const fits = phoneCanRun(screen.manifest, deps.host);
   if (!fits.ok) return { ok: false, reason: fits.reason };
@@ -88,7 +101,10 @@ export async function prepareBundle(
         resource: appScreenFile.resource,
         method: appScreenFile.method,
         body: {
-          target: { mode: "live", app: screen.app, release: screen.release },
+          target:
+            "process_nonce" in screen
+              ? { mode: "preview", app: screen.app, process_nonce: screen.process_nonce }
+              : { mode: "live", app: screen.app, release: screen.release },
           screen: screen.screen,
           path: "phone.js",
         },
@@ -104,7 +120,12 @@ export async function prepareBundle(
     }
     deps.files.write(path, bytes);
   }
-  keep(deps.files, computer, screen.app, screen.bundle_hash);
+  keep(
+    deps.files,
+    computer,
+    "process_nonce" in screen ? `${screen.app}${PREVIEW}` : screen.app,
+    screen.bundle_hash,
+  );
   return { ok: true, file: deps.files.absolute(path) };
 }
 
@@ -115,12 +136,11 @@ export function forgetApps(
   apps: readonly string[],
 ): void {
   const index = readIndex(files, computer);
-  const gone = Object.keys(index).filter((app) => !apps.includes(app));
+  const gone = Object.keys(index).filter((key) => !apps.includes(appOf(key)));
   if (gone.length === 0) return;
-  for (const app of gone) {
-    for (const hash of index[app] ?? []) files.remove(bundlePath(computer, hash));
-    delete index[app];
-  }
+  const hashes = gone.flatMap((key) => index[key] ?? []);
+  for (const key of gone) delete index[key];
+  drop(files, computer, index, hashes);
   files.write(indexPath(computer), JSON.stringify(index));
 }
 

@@ -11,6 +11,7 @@ import { leftSidebar } from "./catalog/left-sidebar.ts";
 import { mobileApp } from "./catalog/mobile-app.ts";
 import { mobileApps } from "./catalog/mobile-apps.ts";
 import { mobileCoding } from "./catalog/mobile-coding.ts";
+import { mobileDrive } from "./catalog/mobile-drive.ts";
 import { mobileHome } from "./catalog/mobile-home.ts";
 import { mobileInbox } from "./catalog/mobile-inbox.ts";
 import { mobileKit } from "./catalog/mobile-kit.ts";
@@ -40,6 +41,7 @@ export const en = {
   ...mobileApp,
   ...mobileApps,
   ...mobileCoding,
+  ...mobileDrive,
   ...mobileHome,
   ...mobileLocal,
   ...mobileSession,

@@ -151,6 +151,7 @@ export function sampleOrdersRoutes(options: {
         screen("reports", "Reports", { "@lophn/app-ui-native": "0.9.0" }),
         screen("customers", "Customers"),
       ],
+      previews: [],
     }),
     "apps/screen_file": (body) => {
       const key = body.screen as keyof ReturnType<typeof files>;

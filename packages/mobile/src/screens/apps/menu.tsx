@@ -1,8 +1,9 @@
 // The app screen's ⋯ (tools/wireframes/drafts/phone/apps.tsx AppMenu): asking lophn to change the app, its sessions, its
-// activity, the release that is live, and the app's other phone screens.
+// activity, the release that is live, the preview running on the computer, and the app's other phone screens.
 import { t } from "@lophn/i18n";
 import { Badge, Divider, Icon, Row, Sheet } from "@lophn/ui-native";
 import {
+  FlaskConical,
   History,
   LayoutGrid,
   MessageSquarePlus,
@@ -90,6 +91,14 @@ export function AppMenu({
           lead={<Icon icon={History} />}
           title={t("shell.label.app-release", { number: live.number })}
           sub={t("mobile.places.app.went-live", { when: when(live.activatedAt) })}
+        />
+      )}
+      {app.preview !== null && (
+        <Row
+          lead={<Icon icon={FlaskConical} />}
+          title={t("mobile.drive.menu.preview")}
+          sub={t("mobile.drive.menu.preview-sub")}
+          onPress={() => go({ name: "app", id: app.app, screen, preview: true })}
         />
       )}
       {others.length > 0 && <Divider spacing={6} />}

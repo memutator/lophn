@@ -6,6 +6,7 @@ import {
   openFirst,
 } from "../connection/connection.ts";
 import { dialSocket } from "../connection/socket.ts";
+import { drive } from "../apps/drive/mod.ts";
 import { expoLocationPort } from "../link/native.ts";
 import { pair } from "../pairing/pair.ts";
 import {
@@ -47,7 +48,10 @@ export function createPhoneComputers(): Computers<ComputerData> {
             return () => clearTimeout(timer);
           },
           onRevoked,
-          phoneCtx: { location: expoLocationPort },
+          phoneCtx: {
+            location: expoLocationPort,
+            drive: drive.port(computer.key),
+          },
         }),
       ),
     async pair(qr, phone) {

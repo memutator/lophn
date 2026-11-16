@@ -1,6 +1,6 @@
-// The user apps of the computer on screen that have a phone screen (`apps/phone_screens`), read again on reconnect and
-// when a release or an app process changes. A screen whose params are required is left out: the phone has nowhere to
-// give them.
+// The user apps of the computer on screen that have a phone screen (`apps/phone_screens`), and the preview running for
+// each, read again on reconnect and when a release or an app process changes. A screen whose params are required is
+// left out: the phone has nowhere to give them.
 import { useEffect, useMemo } from "react";
 import type { z } from "zod";
 import { appPhoneScreens } from "../../../protocol/apps/phone.ts";
@@ -14,9 +14,16 @@ import { bundleFiles } from "../apps/bundle-files.ts";
 import { disableRemovedComputers, reconcileShortcuts } from "../shortcuts/sync.ts";
 import { useComputers } from "./hooks.tsx";
 
-export type PhoneScreen = z.output<
-  typeof appPhoneScreens.output
->["screens"][number];
+type Read = z.output<typeof appPhoneScreens.output>;
+export type PhoneScreen = Read["screens"][number];
+export type PreviewScreen = Read["previews"][number]["screens"][number];
+
+/** A preview of the app that runs on the computer now. Its screens open from the app's menu (Preview from lophn). */
+export interface PhonePreview {
+  readonly bundle_hash: string;
+  readonly process_nonce: string;
+  readonly screens: readonly [PreviewScreen, ...PreviewScreen[]];
+}
 
 export interface PhoneApp {
   readonly app: string;
@@ -26,12 +33,28 @@ export interface PhoneApp {
   readonly screens: readonly [PhoneScreen, ...PhoneScreen[]];
   /** The live release's process runs on the computer now. */
   readonly running: boolean;
+  /** Null when no preview with a phone screen runs. */
+  readonly preview: PhonePreview | null;
 }
 
-const needsParams = (screen: PhoneScreen) =>
+const needsParams = (screen: Pick<PhoneScreen, "params">) =>
   (screen.params?.required?.length ?? 0) > 0;
 
-export function phoneAppsOf(screens: readonly PhoneScreen[]): PhoneApp[] {
+function previewOf(previews: Read["previews"], app: string): PhonePreview | null {
+  const found = previews.find((one) => one.app === app);
+  const screens = found?.screens.filter((screen) => !needsParams(screen)) ?? [];
+  if (found === undefined || screens.length === 0) return null;
+  return {
+    bundle_hash: found.bundle_hash,
+    process_nonce: found.process_nonce,
+    screens: screens as [PreviewScreen, ...PreviewScreen[]],
+  };
+}
+
+export function phoneAppsOf(
+  screens: readonly PhoneScreen[],
+  previews: Read["previews"],
+): PhoneApp[] {
   const byApp = new Map<string, PhoneScreen[]>();
   for (const screen of screens) {
     if (needsParams(screen)) continue;
@@ -45,13 +68,14 @@ export function phoneAppsOf(screens: readonly PhoneScreen[]): PhoneApp[] {
       icon: first.icon,
       screens: list as [PhoneScreen, ...PhoneScreen[]],
       running: first.running,
+      preview: previewOf(previews, first.app),
     };
   });
 }
 
 // The last list read from each computer this run. A screen opened while its computer is away has no read of its own
 // yet; it still knows the app's name from here.
-const lastRead = new Map<string, readonly PhoneScreen[]>();
+const lastRead = new Map<string, Read>();
 
 export interface PhoneApps {
   readonly apps: readonly PhoneApp[];
@@ -67,24 +91,24 @@ export function usePhoneApps(): PhoneApps {
     async (core) => {
       const read = await readRoute(core, appPhoneScreens, {});
       return read.ok
-        ? { ok: true, value: { computer: current, screens: read.value.screens } }
+        ? { ok: true, value: { computer: current, read: read.value } }
         : read;
     },
     readsOf(appPhoneScreens, {}),
     `phone_screens:${current}`,
   );
   const value = loaded.state === "ready" ? loaded.value : null;
-  const read = value?.computer === current ? (value?.screens ?? null) : null;
-  const screens = read ?? (current === null ? null : (lastRead.get(current) ?? null));
+  const read = value?.computer === current ? (value?.read ?? null) : null;
+  const shown = read ?? (current === null ? null : (lastRead.get(current) ?? null));
   useEffect(() => {
     if (value === null || value.computer === null) return;
-    lastRead.set(value.computer, value.screens);
+    lastRead.set(value.computer, value.read);
     forgetApps(
       bundleFiles(),
       value.computer,
-      value.screens.map((one) => one.app),
+      value.read.screens.map((one) => one.app),
     );
-    reconcileShortcuts(value.computer, computers.find((one) => one.key === value.computer)?.name ?? "", value.screens.map((one) => one.app));
+    reconcileShortcuts(value.computer, computers.find((one) => one.key === value.computer)?.name ?? "", value.read.screens.map((one) => one.app));
   }, [value]);
   const keys = computers.map((one) => one.key).join("\n");
   useEffect(() => {
@@ -93,15 +117,15 @@ export function usePhoneApps(): PhoneApps {
   }, [ready, keys]);
   return useMemo(
     () => ({
-      apps: screens === null ? [] : phoneAppsOf(screens),
+      apps: shown === null ? [] : phoneAppsOf(shown.screens, shown.previews),
       state:
         read === null && loaded.state === "ready"
           ? "loading"
-          : read === null && screens !== null
+          : read === null && shown !== null
             ? "ready"
             : loaded.state,
       reload,
     }),
-    [screens, loaded.state, reload],
+    [shown, loaded.state, reload],
   );
 }

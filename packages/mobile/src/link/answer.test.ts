@@ -15,7 +15,7 @@ function fake(opts: { permission?: boolean; services?: boolean } = {}) {
     current: async () => (calls.push("current"), fix),
   };
   const deps = (active = true): AnswerDeps => ({
-    ctx: { location },
+    ctx: { location, drive: {} as never },
     isActive: () => active,
     wait: () => () => {},
   });
@@ -45,7 +45,7 @@ test("a denied OS permission, an unknown kind or an app not in front never reads
   });
 
   const unknown = fake();
-  const b = await answerRequest(request("drive.snapshot"), unknown.deps());
+  const b = await answerRequest(request("camera.take"), unknown.deps());
   assert.ok(b && !b.ok);
   assert.deepEqual(b.error.details, { reason: "unsupported" });
 
@@ -94,10 +94,17 @@ test("an allowed request answers with the position; a bad input is invalid_input
     ...slow.deps(),
     ctx: {
       location: { ...slow.deps().ctx.location, current: () => new Promise(() => {}) },
+      drive: {} as never,
     },
     wait: (_ms, fn) => (queueMicrotask(fn), () => {}),
   });
   assert.equal(never, undefined);
 
-  assert.deepEqual(phoneCapabilities(), ["location.get"]);
+  assert.deepEqual(phoneCapabilities(), [
+    "location.get",
+    "drive.snapshot",
+    "drive.act",
+    "drive.screenshot",
+    "drive.wait",
+  ]);
 });

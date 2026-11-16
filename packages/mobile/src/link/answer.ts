@@ -9,10 +9,11 @@ import type {
   PhoneRequestFrame,
   PhoneResponseFrame,
 } from "../../../protocol/phone/link.ts";
+import type { DrivePort } from "../apps/drive/controller.ts";
 import { type LocationPort, locationGet } from "./location.ts";
 
 // What handlers may use. A new kind that needs another native call adds a port here, so tests can fake it.
-export type PhoneCtx = { location: LocationPort };
+export type PhoneCtx = { location: LocationPort; drive: DrivePort };
 
 export type PhoneHandler<K extends PhoneKind> = (
   input: z.infer<(typeof PHONE_KINDS)[K]["input"]>,
@@ -23,6 +24,10 @@ export type PhoneHandler<K extends PhoneKind> = (
 // `hello.capabilities` follow from the keys, so a kind with no handler is "unsupported" and never advertised.
 export const PHONE_HANDLERS: { [K in PhoneKind]?: PhoneHandler<K> } = {
   "location.get": locationGet,
+  "drive.snapshot": (input, ctx) => ctx.drive.snapshot(input),
+  "drive.act": (input, ctx) => ctx.drive.act(input),
+  "drive.screenshot": (input, ctx) => ctx.drive.screenshot(input),
+  "drive.wait": (input, ctx) => ctx.drive.wait(input),
 };
 
 export function phoneCapabilities(): string[] {

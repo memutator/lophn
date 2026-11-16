@@ -3,29 +3,26 @@
 // why it cannot show: the computer is away, the app does not run, this phone and the screen do not fit, it failed.
 // An app that runs on the phone opens from the phone's own copy (useLocalScreen), with or without its computer; the
 // line under its name says so and when it last synced (apps.tsx Calendar), and its body says when it is being put on
-// the phone or that could not be done.
-import { formatRelativeTime, LOPHN_LOCALE, t } from "@lophn/i18n";
+// the phone or that could not be done. With `preview` the place is the preview running on the computer instead
+// (preview.tsx).
+import { formatRelativeTime, t } from "@lophn/i18n";
 import {
-  Button,
   Dot,
   IconButton,
   Mark,
   type MarkTone,
   Screen,
-  Text,
   Toast,
   TopBar,
-  useTheme,
 } from "@lophn/ui-native";
-import { Ellipsis, RefreshCw } from "lucide-react-native";
-import { type ReactNode, useEffect, useState } from "react";
+import { Ellipsis } from "lucide-react-native";
+import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Rich } from "../../app/rich.tsx";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
-import { GuestScreen } from "../../apps/guest/mod.ts";
-import { type LocalScreenState, useLocalScreen } from "../../apps/local/use-local-screen.ts";
-import { type AppScreenState, useAppScreen } from "../../apps/use-app-screen.ts";
+import { useLocalScreen } from "../../apps/local/use-local-screen.ts";
+import { useAppScreen } from "../../apps/use-app-screen.ts";
 import {
   installedOf,
   type LocalApp,
@@ -38,7 +35,9 @@ import {
   withLocalApps,
 } from "../../data/mod.ts";
 import { WorkspaceScreen } from "../workspace/index.tsx";
+import { Body } from "./body.tsx";
 import { AppMenu } from "./menu.tsx";
+import { PreviewScreen } from "./preview.tsx";
 
 // How long "Updated to Release N" stays.
 const UPDATE_SHOWN_MS = 8_000;
@@ -46,6 +45,10 @@ const UPDATE_SHOWN_MS = 8_000;
 const UNDER_TICK_MS = 30_000;
 
 export function AppScreen({ place }: { place: PlaceOf<"app"> }) {
+  return place.preview ? <PreviewScreen place={place} /> : <LiveScreen place={place} />;
+}
+
+function LiveScreen({ place }: { place: PlaceOf<"app"> }) {
   const nav = useNav();
   const computer = useCurrentComputer();
   const { retry: redial } = useComputers();
@@ -191,162 +194,6 @@ function useNow(ticking: boolean): number {
     return () => clearInterval(timer);
   }, [ticking]);
   return now;
-}
-
-function Body({
-  state,
-  installed,
-  app,
-  computer,
-  mark,
-  onRetry,
-}: {
-  state: AppScreenState | LocalScreenState;
-  /** The app is on this phone (it runs from it): installing then means moving it to a new release. */
-  installed: boolean;
-  app: string;
-  computer: string;
-  mark: ReactNode;
-  onRetry: () => void;
-}) {
-  const theme = useTheme();
-  switch (state.kind) {
-    case "loading":
-      return <View style={{ flex: 1 }} />;
-    case "installing":
-      return (
-        <Away
-          mark={mark}
-          title={t(installed ? "mobile.local.updating.title" : "mobile.local.installing.title", { app })}
-          body={t("mobile.local.installing.body")}
-        />
-      );
-    case "running":
-      // Nothing may cover the guest: the sandbox hands a touch on a covered guest to the host.
-      return (
-        <View style={{ flex: 1 }}>
-          <GuestScreen
-            key={state.key}
-            view={state.view}
-            screenFile={state.file}
-            place={{ place: "phone", params: {}, workspace: null }}
-            scheme={theme.scheme}
-            locale={LOPHN_LOCALE}
-            call={state.call}
-            subscribe={state.subscribe}
-            onState={state.onState}
-            {...("local" in state
-              ? {
-                  backendFile: state.backendFile,
-                  local: state.local,
-                  appDb: state.appDb,
-                  onLocalChange: state.onLocalChange,
-                }
-              : {})}
-          />
-        </View>
-      );
-    case "offline":
-      return (
-        <Away
-          mark={mark}
-          title={t("mobile.apps.offline.title", { app, computer })}
-          body={t("mobile.apps.offline.body", { app })}
-          onRetry={onRetry}
-        />
-      );
-    case "stopped":
-      return (
-        <Away
-          mark={mark}
-          title={t("mobile.apps.stopped.title", { app, computer })}
-          body={t("mobile.apps.stopped.body")}
-          onRetry={onRetry}
-        />
-      );
-    case "refused":
-      return state.reason === "phone_too_old" ? (
-        <Away
-          mark={mark}
-          title={t("mobile.apps.phone-too-old.title")}
-          body={t("mobile.apps.phone-too-old.body")}
-        />
-      ) : (
-        <Away
-          mark={mark}
-          title={t("mobile.apps.screen-too-old.title")}
-          body={t("mobile.apps.screen-too-old.body")}
-        />
-      );
-    case "failed":
-      // The first install did not go through; under the sentence, what went wrong as the phone's host has it.
-      if ("failure" in state && state.failure !== undefined) {
-        return (
-          <Away
-            mark={mark}
-            title={t("mobile.local.install-failed.title", { app })}
-            body={t("mobile.local.install-failed.body")}
-            detail={state.failure}
-            onRetry={onRetry}
-          />
-        );
-      }
-      return (
-        <Away
-          mark={mark}
-          title={t("mobile.apps.failed.title")}
-          body={t("mobile.apps.failed.body")}
-          onRetry={onRetry}
-        />
-      );
-  }
-}
-
-/** Why the app's screen is not there (NeedsComputer and the other states drawn like it). */
-function Away({
-  mark,
-  title,
-  body,
-  detail,
-  onRetry,
-}: {
-  mark: ReactNode;
-  title: string;
-  body: string;
-  /** A quieter line under the body: the error as it came. */
-  detail?: string;
-  onRetry?: () => void;
-}) {
-  return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        paddingHorizontal: 28,
-      }}
-    >
-      <View style={{ opacity: 0.45 }}>{mark}</View>
-      <Text variant="h1" weight="semibold" align="center" style={{ marginTop: 20 }}>
-        {title}
-      </Text>
-      <Text variant="body" tone="secondary" align="center" style={{ marginTop: 10 }}>
-        {body}
-      </Text>
-      {detail !== undefined && (
-        <Text variant="detail" tone="muted" align="center" style={{ marginTop: 8 }}>
-          {detail}
-        </Text>
-      )}
-      {onRetry !== undefined && (
-        <View style={{ marginTop: 20 }}>
-          <Button icon={RefreshCw} onPress={onRetry}>
-            {t("common.button.retry")}
-          </Button>
-        </View>
-      )}
-    </View>
-  );
 }
 
 /**

@@ -14,6 +14,7 @@ import {
   hiddenTable,
   ident,
   keyWhere,
+  readRow,
   sqlValue,
   type TableShape,
   tableShape,
@@ -21,8 +22,13 @@ import {
 import {
   columnClock,
   dropColumnClocks,
+  dropKept,
+  ensureKeptTable,
+  keptColumns,
+  laterColumnClocks,
   rowClock,
   setColumnClock,
+  setKept,
   setRowClock,
 } from "./tables.ts";
 
@@ -41,12 +47,16 @@ const newer = (hlc: bigint, than: bigint | null): boolean =>
   than === null || hlc > than;
 
 /**
- * row change 하나를 column 단위 last-write-wins로 적용한다. change의 칸 순서는 shape의 칸 순서다.
- * - UPDATE: 칸마다 들어온 clock이 그 칸 clock(없으면 row clock)보다 클 때만 쓴다. row가 없으면 버린다(delete가 이긴다).
- * - DELETE: row clock보다 새로울 때만. row clock을 그 값으로, deleted로 두고 칸 clock을 지운다.
- * - 없는 row의 INSERT: row clock(묘비)보다 새로울 때만.
+ * row change 하나를 칸 단위 last-write-wins로 적용한다. change의 칸 순서는 shape의 칸 순서다.
+ * 쓰기는 자기 clock으로만 줄을 서고, delete는 자기보다 옛 것만 지운다. row가 있는지는 마지막 insert와 마지막
+ * delete(row clock)만으로 정해지고, 칸 값은 칸마다 가장 새 clock의 것이다. 그래서 받는 순서와 상관없이 같다.
+ * - UPDATE: 칸마다 들어온 clock이 그 칸 clock(없으면 row clock)보다 클 때만 쓴다. row가 없으면 그 값을 kept로
+ *   둔다(같은 비교. row가 돌아오면 쓰인다).
+ * - DELETE: row clock보다 새로울 때만. row clock을 그 값으로, deleted로 둔다. 그보다 새 칸 clock은 지우지 않고 그
+ *   칸의 값과 같이 kept로 옮기고, 그 이하의 칸 clock과 kept는 지운다.
+ * - 없는 row의 INSERT: row clock(묘비)보다 새로울 때만. 그보다 새 kept 칸은 kept의 값과 clock을 갖는다.
  * - 있는 row의 INSERT: 모든 칸의 UPDATE이고, row clock보다 새로우면 row clock을 올린다.
- * 그래서 row clock은 받은 insert·delete 중 가장 큰 clock이고, 칸 clock은 그보다 큰 것만 남는다.
+ * 그래서 row clock은 받은 insert·delete 중 가장 큰 clock이고, 칸 clock과 kept는 그보다 큰 것만 남는다.
  */
 export function applyChange(
   db: SyncDb,
@@ -81,28 +91,60 @@ export function applyChange(
     return true;
   };
 
+  const keepColumns = (values: readonly ChangesetCell[]): boolean => {
+    const kept = new Map(keptColumns(db, table, pk).map((k) => [k.col, k.hlc]));
+    let wrote = false;
+    values.forEach((value, i) => {
+      if (value === undefined || shape.primaryKey[i]) return;
+      const column = shape.columns[i]!;
+      if (!newer(hlc, kept.get(column) ?? row)) return;
+      setKept(db, table, pk, column, hlc, value);
+      wrote = true;
+    });
+    return wrote;
+  };
+
   if (change.op === "delete") {
     if (!newer(hlc, row)) return false;
-    if (exists)
+    if (exists) {
+      const later = laterColumnClocks(db, table, pk, hlc);
+      if (later.length > 0) {
+        const current = readRow(db, shape, record)!;
+        for (const { col, hlc: at } of later) {
+          setKept(db, table, pk, shape.columns[col]!, at, current[col]!);
+        }
+      }
       db.run(`delete from ${ident(table)} where ${where}`, whereParams);
+    }
     dropColumnClocks(db, table, pk);
+    dropKept(db, table, pk, hlc);
     setRowClock(db, table, pk, hlc, true);
     return true;
   }
   if (change.op === "update") {
-    return exists && updateColumns(change.new!);
+    return exists ? updateColumns(change.new!) : keepColumns(change.new!);
   }
   if (!exists) {
     if (!newer(hlc, row)) return false;
+    const values = [...change.new!] as ChangesetValue[];
+    const survivors: { col: number; hlc: bigint }[] = [];
+    for (const kept of keptColumns(db, table, pk)) {
+      const col = shape.columns.indexOf(kept.col);
+      if (col < 0 || shape.primaryKey[col] || kept.hlc <= hlc) continue;
+      values[col] = kept.value;
+      survivors.push({ col, hlc: kept.hlc });
+    }
     const params: SqlParam[] = [];
-    const values = change.new!.map((value) =>
-      sqlValue(value as ChangesetValue, params),
-    );
+    const literals = values.map((value) => sqlValue(value, params));
     db.run(
-      `insert into ${ident(table)} (${shape.columns.map(ident).join(", ")}) values (${values.join(", ")})`,
+      `insert into ${ident(table)} (${shape.columns.map(ident).join(", ")}) values (${literals.join(", ")})`,
       params,
     );
     dropColumnClocks(db, table, pk);
+    dropKept(db, table, pk);
+    for (const survivor of survivors) {
+      setColumnClock(db, table, pk, survivor.col, survivor.hlc);
+    }
     setRowClock(db, table, pk, hlc, false);
     return true;
   }
@@ -184,6 +226,7 @@ export function applyRemote(
   clock: Clock,
 ): Result<ApplyStats> {
   requireForeignKeysOff(db);
+  ensureKeptTable(db);
   const stats: ApplyStats = { applied: 0, skipped: 0, held: [] };
   const shapes = new Map<string, TableShape | null>();
   for (let index = 0; index < changes.length; index++) {

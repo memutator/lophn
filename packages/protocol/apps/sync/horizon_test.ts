@@ -139,3 +139,32 @@ test("dropping tombstones never lets an older change through silently", () => {
   adoptSnapshot(phone.db, { node: "phone", cursor: "0", release: "r1" });
   assert.equal(getState(phone.db, "horizon"), null);
 });
+
+test("dropping a tombstone drops its kept columns, and only when all are old", () => {
+  const start = replica(null, "base");
+  start.raw.exec("create table item (id text primary key, title text)");
+  write(start, 100, ["insert into item values ('a', 'milk'), ('b', 'eggs')"]);
+  const bytes = start.raw.serialize();
+  const x = replica(bytes, "x");
+  const y = replica(bytes, "y");
+  const late = [
+    write(y, 2500, ["update item set title = 'milk Y' where id = 'a'"]),
+    write(y, 4500, ["update item set title = 'eggs Y' where id = 'b'"]),
+  ];
+  write(x, 2000, [
+    "delete from item where id = 'a'",
+    "delete from item where id = 'b'",
+  ]);
+  apply(x, late);
+  assert.equal((dumpClocks(x.db).match(/^kept /gm) ?? []).length, 2);
+
+  // a: 흔적 2000과 kept 2500이 모두 3000 아래라 같이 지운다. b: kept 4500이 남아 묘비도 남는다.
+  assert.equal(
+    inTransaction(x.db, () => dropTombstones(x.db, hlcAtMs(3000))),
+    1,
+  );
+  const clocks = dumpClocks(x.db).split("\n");
+  assert.equal(clocks.filter((l) => l.startsWith("row ")).length, 1);
+  assert.equal(clocks.filter((l) => l.startsWith("kept ")).length, 1);
+  assert.equal(getState(x.db, "horizon"), String(late[0]!.hlc));
+});

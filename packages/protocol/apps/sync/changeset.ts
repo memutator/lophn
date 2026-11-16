@@ -56,27 +56,59 @@ export function encodePk(
     if (!pk) return;
     const value = record[i];
     if (value === undefined) throw new Error("primary key value is missing");
-    if (value === null) out.push(5);
-    else if (typeof value === "bigint") {
-      let x = BigInt.asUintN(64, value);
-      const bytes: number[] = [];
-      for (let k = 0; k < 8; k++) {
-        bytes.unshift(Number(x % BYTE));
-        x /= BYTE;
-      }
-      out.push(1, ...bytes);
-    } else if (typeof value === "number") {
-      const view = new DataView(new ArrayBuffer(8));
-      view.setFloat64(0, value, false);
-      out.push(2);
-      for (let k = 0; k < 8; k++) out.push(view.getUint8(k));
-    } else if (typeof value === "string") {
-      const bytes = utf8Encode(value);
-      out.push(3, ...varint(bytes.length), ...bytes);
-    } else {
-      out.push(4, ...varint(value.length), ...value);
-    }
+    encodeValue(value, out);
   });
+  return new Uint8Array(out);
+}
+
+// changeset의 값 하나의 부호. 큰 blob도 있어 spread로 넣지 않는다.
+function encodeValue(value: ChangesetValue, out: number[]): void {
+  const append = (bytes: ArrayLike<number>) => {
+    for (let k = 0; k < bytes.length; k++) out.push(bytes[k]!);
+  };
+  if (value === null) out.push(5);
+  else if (typeof value === "bigint") {
+    let x = BigInt.asUintN(64, value);
+    const bytes: number[] = [];
+    for (let k = 0; k < 8; k++) {
+      bytes.unshift(Number(x % BYTE));
+      x /= BYTE;
+    }
+    out.push(1);
+    append(bytes);
+  } else if (typeof value === "number") {
+    const view = new DataView(new ArrayBuffer(8));
+    view.setFloat64(0, value, false);
+    out.push(2);
+    for (let k = 0; k < 8; k++) out.push(view.getUint8(k));
+  } else if (typeof value === "string") {
+    const bytes = utf8Encode(value);
+    out.push(3);
+    append(varint(bytes.length));
+    append(bytes);
+  } else {
+    out.push(4);
+    append(varint(value.length));
+    append(value);
+  }
+}
+
+/**
+ * row 하나의 INSERT 하나만 담은 changeset(SQLite session과 같은 bytes). 적용하지 않고 돌려주는 row를 다른 변경과
+ * 같은 꼴(clock과 changeset)로 쥐게 한다.
+ */
+export function insertChangeset(
+  table: string,
+  // 칸마다 PK 안의 순번(1부터, `pragma table_info`의 pk). PK가 아니면 0.
+  primaryKey: readonly number[],
+  values: readonly ChangesetValue[],
+): Uint8Array {
+  const out: number[] = [0x54];
+  for (const b of varint(primaryKey.length)) out.push(b);
+  for (const pk of primaryKey) out.push(pk);
+  for (const b of utf8Encode(table)) out.push(b);
+  out.push(0, 0x12, 0);
+  for (const value of values) encodeValue(value, out);
   return new Uint8Array(out);
 }
 

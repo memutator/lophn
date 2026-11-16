@@ -75,15 +75,16 @@ function typedValues(
   shape: TableShape,
   row: Record<string, unknown>,
 ): ChangesetValue[] {
-  return shape.columns.map((_, i) => {
-    const type = row[`t${i}`];
-    const value = row[`v${i}`];
-    if (type === "null") return null;
-    if (type === "integer") return BigInt(String(value));
-    if (type === "real") return Number(value);
-    if (type === "text") return String(value);
-    return value as Uint8Array;
-  });
+  return shape.columns.map((_, i) => storedValue(row[`t${i}`], row[`v${i}`]));
+}
+
+// `typeof(x)`와 INTEGER를 text로 읽은 값에서 원래 값을 되살린다.
+export function storedValue(type: unknown, value: unknown): ChangesetValue {
+  if (type === "null") return null;
+  if (type === "integer") return BigInt(String(value));
+  if (type === "real") return Number(value);
+  if (type === "text") return String(value);
+  return value as Uint8Array;
 }
 
 export function readRow(

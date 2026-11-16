@@ -31,7 +31,12 @@ export type { SqlParam, SyncDb, SyncSession } from "./db.ts";
 export { dumpClocks, dumpData } from "./dump.ts";
 export { dropTombstones } from "./horizon.ts";
 export { stampLocal, stampOutbox } from "./local.ts";
-export { type AbsentDeletes, mergeSnapshot } from "./merge.ts";
+export {
+  type AbsentDeletes,
+  type HeldRow,
+  type MergeStats,
+  mergeSnapshot,
+} from "./merge.ts";
 export { type MigrateOptions, type MigrationStep, migrate } from "./migrate.ts";
 export {
   type ReexpressInput,

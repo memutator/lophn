@@ -5,6 +5,8 @@ import type { SyncDb } from "./db.ts";
 import { hiddenTable, hlcLiteral } from "./sql.ts";
 import {
   dropColumnClocks,
+  dropKept,
+  ensureKeptTable,
   readOutbox,
   setColumnClock,
   setRowClock,
@@ -32,8 +34,10 @@ export function stampLocal(
         }
       });
     } else {
-      // insert와 delete는 row의 존재 clock을 바꾸고 칸 clock을 지운다(그 row의 칸 clock은 이제 row clock이다).
+      // insert와 delete는 row의 존재 clock을 바꾸고 칸 clock과 kept를 지운다(이 clock이 이 replica가 본 어떤
+      // clock보다 커서 그 row의 칸 clock은 이제 row clock이다).
       dropColumnClocks(db, change.table, pk);
+      dropKept(db, change.table, pk);
       setRowClock(db, change.table, pk, hlc, change.op === "delete");
     }
   }
@@ -53,6 +57,7 @@ export function stampOutbox(
   clock: Clock,
   nowMs: number,
 ): Result<number> {
+  ensureKeptTable(db);
   let stamped = 0;
   for (const row of readOutbox(db)) {
     if (row.hlc !== null) continue;

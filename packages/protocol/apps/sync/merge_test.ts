@@ -6,6 +6,7 @@ import {
   applyRemote,
   type Clock,
   decodePk,
+  dropTombstones,
   dumpClocks,
   dumpData,
   ensureSyncTables,
@@ -17,6 +18,7 @@ import {
   setState,
   stampLocal,
 } from "./mod.ts";
+import { readChangeset } from "./changeset.ts";
 import { nodeSyncDb } from "./node-db.ts";
 
 // 기계 사이 snapshot 합치기. 사본마다 raw(serialize용)와 SyncDb를 쥔다.
@@ -107,6 +109,11 @@ test("merging a snapshot equals applying its changes one by one", () => {
     ]),
     write(a, 2300, ["delete from tag where k = 'x' and n = 2"]),
   ];
+  // A가 지운 row(d)에 C가 더 새로 쓴 칸은 A의 kept로 남는다.
+  const lateC = [
+    write(c, 2600, ["update item set note = 'C late' where id = 'd'"]),
+  ];
+  apply(a, lateC);
 
   write(b, 500, ["update item set title = 'milk B' where id = 'a'"]);
   write(b, 900, ["update item set title = 'jam B' where id = 'd'"]);
@@ -118,9 +125,10 @@ test("merging a snapshot equals applying its changes one by one", () => {
   const merged = copy(b, "b");
   assert.ok(merge(merged, a).ok);
   const stepwise = copy(b, "b");
-  apply(stepwise, [...fromC, ...fromA]);
+  apply(stepwise, [...fromC, ...fromA, ...lateC]);
 
   assert.equal(dump(merged), dump(stepwise));
+  assert.match(dump(merged), /^kept item\|.*\|note\|.*\|'C late'$/m);
   // 받는 쪽만 더 새 clock으로 고친 칸은 남는다.
   assert.ok(
     dumpData(merged.db).split("\n").includes("'a'|'milk C'|1|'B newer'"),
@@ -175,4 +183,32 @@ test("absent deletes spare kept rows and rows with newer clocks", () => {
   assert.equal(tombstones.length, 1);
   assert.deepEqual(decodePk(tombstones[0]!["pk"] as Uint8Array), ["o1"]);
   assert.equal(tombstones[0]!["hlc"], String(below));
+});
+
+test("a merged row the receiver may have deleted and cleaned is held, not revived or dropped", () => {
+  const start = base([
+    "insert into item values ('a', 'milk', 0, null), ('b', 'eggs', 0, null)",
+  ]);
+  const source = replica(start, "y");
+  const target = replica(start, "x");
+  write(source, 5000, ["insert into item values ('n', 'new', 0, null)"]);
+  write(target, 2000, ["delete from item where id = 'a'"]);
+  assert.equal(
+    inTransaction(target.db, () => dropTombstones(target.db, hlcAtMs(3000))),
+    1,
+  );
+  const result = merge(target, source);
+  assert.ok(result.ok);
+  const ids = target.db
+    .all("select id from item order by id")
+    .map((row) => row["id"]);
+  assert.deepEqual(ids, ["b", "n"]);
+  assert.equal(result.value.heldRows.length, 1);
+  const held = result.value.heldRows[0]!;
+  assert.equal(held.table, "item");
+  assert.deepEqual(decodePk(held.pk), ["a"]);
+  const read = readChangeset(held.changeset);
+  assert.ok(read.ok);
+  assert.deepEqual(read.value[0]!.new, ["a", "milk", BigInt(0), null]);
+  assert.equal(read.value[0]!.op, "insert");
 });

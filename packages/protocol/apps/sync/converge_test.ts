@@ -19,6 +19,7 @@ import {
   openClock,
   readOutbox,
   type SyncDb,
+  setState,
   stampLocal,
   stampOutbox,
 } from "./mod.ts";
@@ -387,6 +388,182 @@ for (const c of CASES) {
       assert.equal(clocks[i], clocks[0], `clocks of replica ${i}`);
     }
     if (c.expect) assert.ok(data[0]!.split("\n").includes(c.expect), data[0]);
+  });
+}
+
+// delete, 다시 insert, 칸 update가 두세 node에서 섞일 때. 받는 모든 순서(변경마다 한 번씩)와 각 node 자신의
+// 사본이 같은 data와 clock에 닿아야 한다. delete는 자기보다 옛 것만 지운다: 더 새 칸 update는 row가 돌아올 때
+// 남는다.
+type Op = { node: string; at: number; sql: string };
+const ROW_CASES: { name: string; ops: Op[]; expect: string | null }[] = [
+  {
+    name: "re-insert between a delete and a newer column update",
+    ops: [
+      { node: "a", at: 3000, sql: "delete from item where id = 'a'" },
+      {
+        node: "a",
+        at: 4000,
+        sql: "insert into item values ('a', 'A', 1, 'A', null, null)",
+      },
+      {
+        node: "b",
+        at: 5000,
+        sql: "update item set title = 'B' where id = 'a'",
+      },
+    ],
+    expect: "'a'|'B'|1|'A'|NULL|NULL",
+  },
+  {
+    name: "re-insert newer than the column update",
+    ops: [
+      { node: "a", at: 3000, sql: "delete from item where id = 'a'" },
+      {
+        node: "b",
+        at: 3500,
+        sql: "update item set title = 'B' where id = 'a'",
+      },
+      {
+        node: "a",
+        at: 4000,
+        sql: "insert into item values ('a', 'A', 1, 'A', null, null)",
+      },
+    ],
+    expect: "'a'|'A'|1|'A'|NULL|NULL",
+  },
+  {
+    name: "column update older than the delete",
+    ops: [
+      {
+        node: "b",
+        at: 2000,
+        sql: "update item set title = 'B' where id = 'a'",
+      },
+      { node: "a", at: 3000, sql: "delete from item where id = 'a'" },
+      {
+        node: "a",
+        at: 4000,
+        sql: "insert into item values ('a', 'A', 1, 'A', null, null)",
+      },
+    ],
+    expect: "'a'|'A'|1|'A'|NULL|NULL",
+  },
+  {
+    name: "deleted row with a newer column update stays deleted",
+    ops: [
+      { node: "a", at: 3000, sql: "delete from item where id = 'a'" },
+      {
+        node: "b",
+        at: 5000,
+        sql: "update item set title = 'B' where id = 'a'",
+      },
+    ],
+    expect: null,
+  },
+  {
+    name: "three nodes: delete, re-insert elsewhere, two column updates",
+    ops: [
+      { node: "a", at: 3000, sql: "delete from item where id = 'a'" },
+      { node: "c", at: 3200, sql: "update item set done = 7 where id = 'a'" },
+      { node: "c", at: 3300, sql: "delete from item where id = 'a'" },
+      {
+        node: "c",
+        at: 4000,
+        sql: "insert into item values ('a', 'C', 2, 'C', 0.5, null)",
+      },
+      {
+        node: "b",
+        at: 5000,
+        sql: "update item set title = 'B', note = 'B' where id = 'a'",
+      },
+      {
+        node: "a",
+        at: 6000,
+        sql: "update item set score = 9.5 where id = 'b'",
+      },
+    ],
+    expect: "'a'|'B'|2|'B'|0.5|NULL",
+  },
+  {
+    name: "three nodes: a later delete erases the older update but not the newer one",
+    ops: [
+      {
+        node: "b",
+        at: 2000,
+        sql: "update item set title = 'B' where id = 'a'",
+      },
+      { node: "c", at: 4500, sql: "update item set note = 'C' where id = 'a'" },
+      { node: "a", at: 4000, sql: "delete from item where id = 'a'" },
+      {
+        node: "a",
+        at: 4200,
+        sql: "insert into item values ('a', 'A', 1, 'A', null, null)",
+      },
+    ],
+    expect: "'a'|'A'|1|'C'|NULL|NULL",
+  },
+];
+
+function permutations<T>(items: readonly T[]): T[][] {
+  if (items.length <= 1) return [[...items]];
+  return items.flatMap((item, i) =>
+    permutations([...items.slice(0, i), ...items.slice(i + 1)]).map((rest) => [
+      item,
+      ...rest,
+    ]),
+  );
+}
+
+for (const c of ROW_CASES) {
+  test(`delete and re-insert converge in every order: ${c.name}`, () => {
+    const baseRaw = new DatabaseSync(":memory:");
+    for (const sql of [ITEM, ...ITEM_BASE]) baseRaw.exec(sql);
+    ensureSyncTables(nodeSyncDb(baseRaw), "base");
+    const base = baseRaw.serialize();
+
+    const nodes = new Map<
+      string,
+      { db: SyncDb; clock: Clock; own: IncomingChange[] }
+    >();
+    const all: IncomingChange[] = [];
+    for (const op of [...c.ops].sort((x, y) => x.at - y.at)) {
+      let node = nodes.get(op.node);
+      if (node === undefined) {
+        const db = open(base);
+        setState(db, "node", op.node);
+        node = { db, clock: openClock(db), own: [] };
+        nodes.set(op.node, node);
+      }
+      const change = computerWrite(node.db, node.clock, {
+        side: "c",
+        at: op.at,
+        sql: [op.sql],
+      });
+      node.own.push(change);
+      all.push(change);
+    }
+    const replicas: SyncDb[] = [];
+    for (const node of nodes.values()) {
+      for (const change of all) {
+        if (!node.own.includes(change)) apply(node.db, [change]);
+      }
+      replicas.push(node.db);
+    }
+    for (const order of permutations(all)) {
+      const db = open(base);
+      setState(db, "node", "replica");
+      for (const change of order) apply(db, [change]);
+      replicas.push(db);
+    }
+    const data = replicas.map(dumpData);
+    const clocks = replicas.map(dumpClocks);
+    for (let i = 1; i < replicas.length; i++) {
+      assert.equal(data[i], data[0], `data of replica ${i}`);
+      assert.equal(clocks[i], clocks[0], `clocks of replica ${i}`);
+    }
+    const rows = data[0]!.split("\n");
+    if (c.expect === null)
+      assert.ok(!rows.some((r) => r.startsWith("'a'|")), data[0]);
+    else assert.ok(rows.includes(c.expect), data[0]);
   });
 }
 

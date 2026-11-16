@@ -34,5 +34,13 @@ export function dumpClocks(db: SyncDb): string {
       "select tbl, hex(pk) as pk, col, cast(hlc as text) as hlc from lophn_sync_col order by tbl, pk, col",
     )
     .map((r) => `col ${r["tbl"]}|${r["pk"]}|${r["col"]}|${r["hlc"]}`);
-  return [...rows, ...columns].join("\n");
+  const kept = db
+    .all(
+      "select tbl, hex(pk) as pk, col, cast(hlc as text) as hlc, quote(value) as value from lophn_sync_kept order by tbl, pk, col",
+    )
+    .map(
+      (r) =>
+        `kept ${r["tbl"]}|${r["pk"]}|${r["col"]}|${r["hlc"]}|${r["value"]}`,
+    );
+  return [...rows, ...columns, ...kept].join("\n");
 }

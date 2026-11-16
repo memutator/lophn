@@ -41,6 +41,10 @@ const open = defineCommand({
     "Open a tab in the shell: --session <ses> shows an open session of this workspace, --url <url> opens an http or https page in a browser tab, --preview <app> shows the running preview of an app, --artifact <name> shows an artifact of this workspace's artifacts folder (give exactly one). " +
     "--artifact is for a project or app workspace (home has no artifacts: invalid_input); it is not_found until <artifacts folder>/<name>/index.html exists. An artifact has one such tab: opening it again returns the same tab and you own it. " +
     "--device <name> (with --preview) shows it in a device registered in Settings > Browser (size, pixel ratio, touch and user agent); an unknown name is not_found, and without --device it is desktop size. " +
+    "--screen <key> (with --preview) opens that screen of the preview's release instead of the app's first tab screen; a key the release does not declare is not_found and the message lists its screens. " +
+    'A phone screen (places ["phone"]) opens in the phone place inside a device frame: without --device lophn uses the person\'s main phone (its entry in Settings > Browser), and with neither it is conflict (pair a phone or register a device, then pass --device). ' +
+    "This is a web emulation of the phone (react-native-web): input, keyboard, scrolling and fonts differ from the phone, so the person does the last check on the phone itself. " +
+    "Giving --screen or --device to a preview tab that is already open switches that same tab to the screen and device. " +
     "--preview is for the session of that app's workspace and for the person; another app's workspace gets not_found, and it is conflict if no preview is running (run preview start first). " +
     'A person token opens only --url, --preview and --artifact tabs. --url and --artifact from a person go to --workspace \'{"project":"<prj id>"}\' or \'{"app":"<app id>"}\', else env LOPHN_WORKSPACE (a project terminal sets it), else home; an agent session ignores it and uses its own workspace. ' +
     "An app has one preview tab: opening it again returns the same tab and you own it. " +
@@ -69,6 +73,7 @@ const open = defineCommand({
     preview: idSchema("app").optional(),
     artifact: artifactNameSchema.optional(),
     device: z.string().min(1).max(40).optional(),
+    screen: z.string().min(1).max(64).optional(),
     as: tabRelationSchema.optional(),
     workspace: z.string().min(1).max(200).optional(),
   }),
@@ -102,6 +107,12 @@ const open = defineCommand({
         message: "--device needs --preview",
       });
     }
+    if (input.screen !== undefined && input.preview === undefined) {
+      return err({
+        code: "invalid_input",
+        message: "--screen needs --preview",
+      });
+    }
     if (input.tui === true && input.session === undefined) {
       return err({
         code: "invalid_input",
@@ -122,7 +133,13 @@ const open = defineCommand({
     const opened = await ctx.core.read(tabsOpen, {
       target:
         input.preview !== undefined
-          ? { preview: { app: input.preview, device: input.device ?? null } }
+          ? {
+              preview: {
+                app: input.preview,
+                device: input.device ?? null,
+                screen: input.screen ?? null,
+              },
+            }
           : input.artifact !== undefined
             ? { artifact: { name: input.artifact } }
             : input.coding !== undefined

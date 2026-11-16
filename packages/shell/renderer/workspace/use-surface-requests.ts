@@ -203,17 +203,19 @@ export function useSurfaceRequests(args: Args): void {
         Object.keys(target)[0] as AgentOpen["target"],
       );
       if ("preview" in target) {
-        // 이미 이 창에 열려 있는 탭이면 새로 열지 않고 기기만 바꾼다. at이 달라야 같은 기기를 다시 줘도 탭이 알아챈다.
+        // 이미 이 창에 열려 있는 탭이면 새로 열지 않고 기기와 화면만 바꾼다. at이 달라야 같은 기기를 다시 줘도 탭이 알아챈다
+        // (사람이 탭에서 기기를 바꿨을 수 있다). 화면은 사람이 바꾸지 않아 값만 고친다.
         const existing = host()
           .windowTabs()
           .find((tab) => tab.key === key);
         if (existing !== undefined) {
-          if (target.preview.device !== null) {
+          const { device, screen } = target.preview;
+          if (device !== null || screen !== null) {
             host().patchTab(key, (current) => ({
               fields: {
                 ...current.fields,
-                device: target.preview.device,
-                device_at: Date.now(),
+                ...(device === null ? {} : { device, device_at: Date.now() }),
+                ...(screen === null ? {} : { screen }),
               },
             }));
           }
@@ -233,6 +235,7 @@ export function useSurfaceRequests(args: Args): void {
           target.preview.app,
           key,
           target.preview.device,
+          target.preview.screen,
         );
         if (person !== undefined) {
           host().openTab(tab, { select: false, after: person.key });

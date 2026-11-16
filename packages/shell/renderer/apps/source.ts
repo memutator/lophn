@@ -1,6 +1,7 @@
 // apps 화면과 앱 공간이 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은
 // core-source.ts만 안다. 모양은 protocol(apps.list·get·archive·unarchive)에서 이
 // 화면이 쓰는 field만 옮긴 것이다.
+import type { AppViewOpen } from "../../ipc/app-frame.ts";
 import type { SourceResult } from "../source-result.ts";
 
 export type { SourceResult };
@@ -30,6 +31,12 @@ export interface PublishedPackage {
   readonly users: number;
 }
 
+/** 앱 view로 여는 화면 하나와 그 자리. */
+export interface OpenScreen {
+  readonly key: string;
+  readonly place: AppViewOpen["place"];
+}
+
 export interface AppsSource {
   /** 보관한 앱까지 모두. */
   list(): Promise<SourceResult<readonly AppRow[]>>;
@@ -45,6 +52,13 @@ export interface AppsSource {
   publishedPackages(
     app: AppRow,
   ): Promise<SourceResult<readonly PublishedPackage[]>>;
-  /** 그 version에서 앱 공간에 여는 화면. 선언에 full 크기로 적힌 첫 화면이다. */
-  entryScreen(app: string, release: string): Promise<SourceResult<string>>;
+  /**
+   * 그 version에서 여는 화면. screen이 없으면 선언에 `tab` 자리로 적힌 첫 화면이다. 있으면 그 화면이고 자리는 그 `places`에서
+   * `phone`, `tab`, 첫 자리 순으로 고른다. 선언에 없으면 `unavailable`이다.
+   */
+  screenToOpen(
+    app: string,
+    release: string,
+    screen?: string,
+  ): Promise<SourceResult<OpenScreen>>;
 }

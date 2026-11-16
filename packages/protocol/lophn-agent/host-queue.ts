@@ -50,6 +50,8 @@ export type TabRelation = z.infer<typeof tabRelationSchema>;
 // `tui`는 harness agent session을 터미널 탭에서 그 CLI의 resume으로 연다(project workspace의 session만).
 // `preview`는 그 앱에서 지금 돌고 있는 preview를 앱 view 탭으로 연다(요청의 workspace는 그 앱이다).
 // device는 설정 `shell.devices`의 이름이다. 없으면 null이고 desktop 크기다. core가 이름을 확인해 보낸다.
+// screen은 preview release 선언의 화면 key다. 없으면 null이고 앱의 첫 `tab` 화면이다. 폰 화면(`places`가 `["phone"]`)이면
+// core가 device를 채워 보낸다(없으면 기준 폰에 대응하는 `shell.devices` 항목의 이름).
 // `artifact`는 요청 workspace(project나 앱)의 artifact `artifacts/<name>/`을 artifact 탭으로 연다.
 // `coding`은 project 터미널 탭에서 그 harness의 TUI를 띄운다. handoff 글은 core가 file로 쓰고 payload의 `handoff`에는 file만 간다.
 const sharedTargets = [
@@ -62,6 +64,7 @@ const sharedTargets = [
     preview: z.strictObject({
       app: idSchema("app"),
       device: z.string().min(1).max(40).nullable().default(null),
+      screen: z.string().min(1).max(64).nullable().default(null),
     }),
   }),
   z.strictObject({ artifact: z.strictObject({ name: artifactNameSchema }) }),
@@ -359,7 +362,8 @@ const acceptedSchema = z.strictObject({
 // 같은 workspace의 열린 session이나 http(s) url의 탭, 그 앱의 preview 탭을 연다. 접수만 답하고 기다리지 않는다.
 // session이 아니면 `not_found`, url이 http·https가 아니면 `invalid_input`이다.
 // `preview`는 그 앱 workspace의 session과 사람 token만 연다(agent가 다른 앱이면 `not_found`). 돌고 있는 preview가 없으면 `conflict`다.
-// `preview`의 device 이름이 `shell.devices`에 없으면 `not_found`다.
+// `preview`의 device 이름이 `shell.devices`에 없으면 `not_found`다. screen이 preview release 선언에 없으면 `not_found`다.
+// 폰 화면은 device가 없으면 기준 폰(`devices`의 primary)의 `shell.devices` 항목 이름을 쓰고, 그것도 없으면 `conflict`다.
 // `coding`은 agent가 부른 project workspace의 session만 연다. 그 밖(사람 token, home, 앱)이거나 harness가 `shell.coding_agents.favorites`에 없거나
 // adapter에 TUI 첫 prompt 인자(`session.prompt`)가 없으면 `invalid_input`이고 message에 열 수 있는 harness id가 있다. 글은 최대 64 KiB다.
 // 사람 token은 `browser`·`preview`·`artifact`만 연다(session·tui·coding은 `invalid_input`). 앱마다 preview 탭은 하나라 이미 있으면 그 탭을 돌려주고 주인이 새로 연 쪽이 된다.

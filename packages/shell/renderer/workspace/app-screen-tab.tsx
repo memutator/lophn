@@ -64,11 +64,11 @@ export function AppScreenTab(props: AppScreenTabProps) {
       else setRecord({ state: "ready", row: result.value });
       const row = result.ok ? result.value : null;
       if (row === null || row.archived || row.release === null) return;
-      void source.entryScreen(app, row.release).then((screen) => {
+      void source.screenToOpen(app, row.release).then((screen) => {
         if (live) {
           setEntry(
             screen.ok
-              ? { state: "ready", screen: screen.value }
+              ? { state: "ready", screen: screen.value.key }
               : { state: "unavailable" },
           );
         }

@@ -1,4 +1,5 @@
-// app_preview 탭. 그 앱에서 지금 돌고 있는 preview를 앱 view(mode preview)로 보인다. 앱마다 탭 하나이고 지금 preview를 따라간다:
+// app_preview 탭. 그 앱에서 지금 돌고 있는 preview를 앱 view(mode preview)로 보인다. 화면은 agent가 `--screen`으로 고른 것,
+// 없으면 앱의 첫 `tab` 화면이다. 폰 화면은 `phone` 자리로 연다. 앱마다 탭 하나이고 지금 preview를 따라간다:
 // `previews.get`을 읽고 preview가 뜨고 ready가 되고 끝날 때(app_runtime 변경) 다시 읽어, process가 바뀌면 view를 새로 열고
 // 없어지면 "돌고 있는 preview 없음"을 보인다.
 // Annotate는 앱 화면 탭과 같은 길(use-tab-annotate.tsx)이고, 보낸 annotation은 release 대신 preview의 bundle hash를 싣는다.
@@ -19,7 +20,7 @@ import { STAY } from "../app-frame/annotate/use-view-toast.ts";
 import { useAppViews, useAppWorkspace } from "../app-frame/app-views.tsx";
 import { EmbeddedView } from "../app-frame/embedded-view.tsx";
 import { useWebviewHost } from "../app-frame/webview-host.tsx";
-import type { AppRow, AppsSource } from "../apps/source.ts";
+import type { AppRow, AppsSource, OpenScreen } from "../apps/source.ts";
 import {
   type CoreSource,
   windowCoreSource,
@@ -127,7 +128,7 @@ export function useRunningPreview(app: string): {
 type Entry =
   | { readonly state: "loading" }
   | { readonly state: "unavailable" }
-  | { readonly state: "ready"; readonly screen: string };
+  | { readonly state: "ready"; readonly screen: OpenScreen };
 
 interface AppPreviewTabProps {
   app: string;
@@ -141,6 +142,8 @@ interface AppPreviewTabProps {
   initialDevice: string | null;
   /** 이미 열린 탭에 agent가 `--device`를 줄 때마다 달라지는 값. 0이면 준 적이 없다. */
   deviceAt: number;
+  /** agent가 `--screen`으로 고른 화면 key. null이면 앱의 첫 `tab` 화면이다. */
+  screen: string | null;
 }
 
 /** 등록한 기기 목록. 탭이 보일 때마다 다시 읽어 Settings에서 고친 것이 따라온다. */
@@ -187,7 +190,7 @@ function DevicePicker(props: {
 }
 
 export function AppPreviewTab(props: AppPreviewTabProps) {
-  const { app, source, shown, agentView } = props;
+  const { app, source, shown, agentView, screen } = props;
   const deps = useAppViews();
   const workspace = useAppWorkspace();
   const { preview, stop } = useRunningPreview(app);
@@ -221,19 +224,21 @@ export function AppPreviewTab(props: AppPreviewTabProps) {
     setEntry({ state: "loading" });
     if (source === undefined || release === null) return;
     let live = true;
-    void source.entryScreen(app, release).then((screen) => {
-      if (live) {
-        setEntry(
-          screen.ok
-            ? { state: "ready", screen: screen.value }
-            : { state: "unavailable" },
-        );
-      }
-    });
+    void source
+      .screenToOpen(app, release, screen ?? undefined)
+      .then((found) => {
+        if (live) {
+          setEntry(
+            found.ok
+              ? { state: "ready", screen: found.value }
+              : { state: "unavailable" },
+          );
+        }
+      });
     return () => {
       live = false;
     };
-  }, [source, app, release, preview?.nonce]);
+  }, [source, app, release, preview?.nonce, screen]);
 
   // 고른 기기를 main에서 그 view에 건다. view가 새로 열리면(다른 preview process) 새 view에 다시 건다.
   const surface = surfaceApi();
@@ -292,13 +297,13 @@ export function AppPreviewTab(props: AppPreviewTabProps) {
   } else if (entry.state === "ready" && deps !== null) {
     body = (
       <EmbeddedView
-        key={preview.nonce}
+        key={`${preview.nonce}:${entry.screen.key}`}
         views={deps.views}
         app={app}
         mode="preview"
         release={preview.release}
-        screen={entry.screen}
-        place="tab"
+        screen={entry.screen.key}
+        place={entry.screen.place}
         workspace={workspace}
         label={row?.name ?? ""}
         shown={shown}

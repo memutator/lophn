@@ -3,6 +3,7 @@ import { newId } from "../../prefixed-id.ts";
 import type {
   AppRow,
   AppsSource,
+  OpenScreen,
   PublishedPackage,
   SourceResult,
 } from "../source.ts";
@@ -94,11 +95,11 @@ export function fakeApps(options: FakeAppsOptions = {}) {
         value: options.published?.[app.id] ?? [],
       });
     },
-    entryScreen(app, release): Promise<SourceResult<string>> {
+    screenToOpen(app, release, screen): Promise<SourceResult<OpenScreen>> {
       calls.push(["entry", app, release]);
       return Promise.resolve(
         options.screen
-          ? { ok: true, value: options.screen }
+          ? { ok: true, value: { key: screen ?? options.screen, place: "tab" } }
           : { ok: false, code: "unavailable" },
       );
     },

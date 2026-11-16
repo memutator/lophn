@@ -98,7 +98,7 @@ export type HostQueue = {
   ): Result<{ view: "browser" | "preview" | "artifact" }>;
 
   // 탭 표에 올리고 tab_open 요청을 넣는다. 그 앱의 preview 탭이나 그 artifact의 탭이 이미 있으면 새로 만들지 않고 그 탭의 주인만 바꿔
-  // 돌려준다(preview에 기기가 있으면 같은 탭 id로 tab_open을 다시 넣는다).
+  // 돌려준다(preview에 기기나 화면이 있으면 같은 탭 id로 tab_open을 다시 넣는다).
   openTab(input: OpenInput): Id<"tab">;
   // browser 탭을 열고 shell이 page를 만들었다고 done으로 답할 때까지 기다린다. shell이 붙어 있으면 OPEN_WAIT_MS, 아니면 START_WAIT_MS
   // 안에 답이 없을 때 `expire()`가 거두고 `unavailable`로 끝낸다. 탭은 표에 올라가 있으므로 실패하면 부른 쪽이 `close()`로 거둔다.
@@ -397,10 +397,11 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
       for (const [id, entry] of tabs) {
         if (entry.single === single) {
           entry.owner = input.owner;
-          // 이미 열린 탭에 기기를 주면 같은 탭에 기기를 다시 알린다(창이 그 탭의 기기만 바꾼다).
+          // 이미 열린 탭에 기기나 화면을 주면 같은 탭에 다시 알린다(창이 그 탭의 기기·화면만 바꾼다).
           if (
             "preview" in input.target &&
-            input.target.preview.device !== null
+            (input.target.preview.device !== null ||
+              input.target.preview.screen !== null)
           ) {
             open(id);
           }

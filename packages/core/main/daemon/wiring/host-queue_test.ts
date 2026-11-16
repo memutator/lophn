@@ -59,6 +59,7 @@ function setup(
   running: boolean,
   root = "/nonexistent",
   launchShell?: (failed: () => void) => void,
+  primary: string | null = null,
 ) {
   const clock = manualClock(1_700_000_000_000);
   const queue = createHostQueue({
@@ -69,11 +70,20 @@ function setup(
     queue,
     sessionRow: (session) => rows[session] as AgentSessionRow | undefined,
     app: (app) => Promise.resolve(ok(app === APP ? {} : null)),
-    preview: () => Promise.resolve(ok(running ? {} : null)),
+    preview: () =>
+      Promise.resolve(ok(running ? { release: id("rel", 1) } : null)),
+    screens: () =>
+      Promise.resolve(
+        ok([
+          { key: "home", places: ["tab"] },
+          { key: "pocket", places: ["phone"] },
+        ]),
+      ),
+    primaryDeviceName: () => Promise.resolve(ok(primary)),
     // project 1에만 `report`가 있다.
     artifactExists: (workspace, name) =>
       Promise.resolve(workspace.id === id("prj", 1) && name === "report"),
-    deviceNames: () => [],
+    deviceNames: () => ["Pixel"],
     harnessHold: { open: () => ok({ harness: "x", external_session: "y" }) },
     // pi는 즐겨찾기지만 TUI 첫 prompt 인자가 없다. cursor는 있어도 즐겨찾기가 아니다.
     codingFavorites: () => ["claude", "pi"],
@@ -122,6 +132,28 @@ test("preview 탭은 그 앱 workspace의 session과 사람만 연다", async ()
   // 사람 token은 session 탭을 열지 못한다.
   const session = { target: { session: id("ses", 1) } };
   assert.equal(code(await open(person, session)), "invalid_input");
+});
+
+// 폰 화면을 넓은 desktop 틀에 그리면 agent가 폰에서도 그렇게 보인다고 잘못 믿는다. 남의 앱 화면은 --screen으로도 열리면 안 된다.
+test("--screen은 자기 앱 preview만 열고, 폰 화면은 기준 폰도 --device도 없으면 conflict이며 있으면 그 기기로 연다", async () => {
+  const screen = (key: string, device: string | null = null) => ({
+    target: { preview: { app: APP, device, screen: key } },
+  });
+  const bare = setup(true);
+  assert.equal(code(await bare.open(agent(2), screen("pocket"))), "not_found");
+  assert.equal(code(await bare.open(agent(1), screen("nope"))), "not_found");
+  assert.equal(code(await bare.open(agent(1), screen("pocket"))), "conflict");
+  assert.equal(code(await bare.open(agent(1), screen("home"))), "ok");
+  assert.equal(code(await bare.open(person, screen("pocket", "Pixel"))), "ok");
+
+  const paired = setup(true, "/nonexistent", undefined, "Pixel");
+  const host = connect(paired.queue, [{ kind: "app", id: APP as never }]);
+  assert.equal(code(await paired.open(agent(1), screen("pocket"))), "ok");
+  const sent = host.next();
+  assert.deepStrictEqual(
+    sent?.kind === "tab_open" ? sent.payload.target : null,
+    { preview: { app: APP, device: "Pixel", screen: "pocket" } },
+  );
 });
 
 test("돌고 있는 preview가 없으면 conflict다", async () => {

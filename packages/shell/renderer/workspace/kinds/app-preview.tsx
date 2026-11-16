@@ -12,17 +12,28 @@ import type { TabKindDef } from "./kind.ts";
 
 export const appPreviewKey = (app: string) => `app-preview:${app}`;
 
-/** agent가 `--device`로 연 탭은 그 기기 이름을 `fields.device`로 갖고 시작한다. 이미 열린 탭에 `--device`가 오면 `device`와 `device_at`을 고친다. 저장하지 않는 탭이라 시작값일 뿐이다. */
+/**
+ * agent가 `--device`·`--screen`으로 연 탭은 그 기기 이름과 화면 key를 `fields.device`·`fields.screen`으로 갖고 시작한다.
+ * 이미 열린 탭에 `--device`가 오면 `device`와 `device_at`을, `--screen`이 오면 `screen`을 고친다. 저장하지 않는 탭이라 시작값일 뿐이다.
+ */
 export const appPreviewTab = (
   app: string,
   key = appPreviewKey(app),
   device: string | null = null,
+  screen: string | null = null,
 ): TabItem => ({
   key,
   kind: "app_preview",
   title: t("app-space.title.preview-tab"),
   app,
-  ...(device === null ? {} : { fields: { device } }),
+  ...(device === null && screen === null
+    ? {}
+    : {
+        fields: {
+          ...(device === null ? {} : { device }),
+          ...(screen === null ? {} : { screen }),
+        },
+      }),
 });
 
 /** 사람이 누른 [Preview]. 그 앱의 preview 탭이 이미 열려 있으면 그 탭을 고른다. */
@@ -58,6 +69,9 @@ export const appPreviewKind: TabKindDef = {
         }
         deviceAt={
           typeof tab.fields?.device_at === "number" ? tab.fields.device_at : 0
+        }
+        screen={
+          typeof tab.fields?.screen === "string" ? tab.fields.screen : null
         }
       />
     );

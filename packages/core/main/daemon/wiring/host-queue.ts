@@ -8,6 +8,8 @@ import {
 } from "../../../config/shell-settings.ts";
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import type { Login } from "../../../../protocol/secrets/mod.ts";
+import { appTools } from "../../../../protocol/apps/declaration/read.ts";
+import { devicesList } from "../../../../protocol/remote/routes.ts";
 import type { ExtensionToolContent } from "../../../../protocol/extensions/manifest.ts";
 import {
   BROWSER_WAIT_DEFAULT_MS,
@@ -66,6 +68,19 @@ const BROWSER_RESULT = {
 // 부른 쪽이 shell이 떨어졌는지 보고 기한이 지났는지 보는 간격이다.
 const WATCH_MS = 1000;
 
+// 기준 폰(`devices`의 primary)을 찾는 core 안 machine 자격이다. 기동 때 ledger에 기록한다.
+const PRINCIPAL = "machine:host-queue";
+const CONTEXT: AuthenticatedContext = {
+  principal: PRINCIPAL,
+  actor: "machine",
+  scope: { operations: [devicesList.name], targets: {} },
+  conditions: {},
+  credential_ref: PRINCIPAL,
+};
+
+const PHONE_MISSING =
+  "no phone is registered: pair a phone or register a device in Settings > Browser, then pass --device";
+
 const hostWorkspaceOf = (
   workspace: ReturnType<typeof workspaceOf>,
 ): HostWorkspace => workspace ?? { kind: "home" };
@@ -75,8 +90,16 @@ type TabDeps = {
   sessionRow(session: string): AgentSessionRow | undefined;
   // 앱이 있는지. 없으면 null.
   app(app: string): Promise<Result<unknown | null>>;
-  // 그 앱에서 지금 돌고 있는 preview. 없으면 null.
-  preview(app: string): Promise<Result<unknown | null>>;
+  // 그 앱에서 지금 돌고 있는 preview와 그 release. 없으면 null.
+  preview(app: string): Promise<Result<{ release: string | null } | null>>;
+  // 그 release 선언의 화면(`apps/tools`의 읽기). 부른 쪽의 자격으로 읽는다.
+  screens(
+    who: AuthenticatedContext,
+    app: string,
+    release: string,
+  ): Promise<Result<readonly { key: string; places: readonly string[] }[]>>;
+  // 기준 폰에 대응하는 `shell.devices` 항목(`device`가 그 기기 id)의 이름. 기준 폰이나 그 항목이 없으면 null.
+  primaryDeviceName(): Promise<Result<string | null>>;
   // 그 workspace에 입구 `index.html`이 일반 file인 artifact가 있는가.
   artifactExists(
     workspace: { kind: "project" | "app"; id: string },
@@ -127,7 +150,8 @@ export function createTabHandlers(deps: TabDeps) {
       if (facts.value === null) {
         return err({ code: "not_found", message: "app not found" });
       }
-      const { device } = input.target.preview;
+      const { screen } = input.target.preview;
+      let { device } = input.target.preview;
       if (device !== null && !deps.deviceNames().includes(device)) {
         return err({
           code: "not_found",
@@ -143,10 +167,33 @@ export function createTabHandlers(deps: TabDeps) {
             "No preview is running for this app, so there is nothing to open. Run `lophn preview start`, then open the tab again.",
         });
       }
+      if (screen !== null) {
+        const { release } = current.value;
+        const screens =
+          release === null ? ok([]) : await deps.screens(who, app, release);
+        if (!screens.ok) return screens;
+        const found = screens.value.find((each) => each.key === screen);
+        if (found === undefined) {
+          const keys = screens.value.map((each) => each.key);
+          return err({
+            code: "not_found",
+            message: `no screen named ${screen}; this preview has: ${keys.join(", ") || "(none)"}`,
+          });
+        }
+        // 폰 화면을 넓은 틀에 그려 잘못 믿게 하지 않는다. 기기 id는 내보내지 않고 이름만 쓴다.
+        if (found.places.includes("phone") && device === null) {
+          const primary = await deps.primaryDeviceName();
+          if (!primary.ok) return primary;
+          if (primary.value === null) {
+            return err({ code: "conflict", message: PHONE_MISSING });
+          }
+          device = primary.value;
+        }
+      }
       const tab = queue.openTab({
         owner: caller.value,
         workspace: { kind: "app", id: app as Id<"app"> },
-        target: input.target,
+        target: { preview: { app, device, screen } },
         relation: input.relation ?? null,
         source: caller.value === "person" ? null : caller.value,
       });
@@ -551,6 +598,7 @@ export const hostQueueWiring: WiringFactory = () => {
   let tabs: ReturnType<typeof createTabHandlers> | undefined;
   return {
     name: "host-queue",
+    records: () => [CONTEXT],
     build(ctx) {
       const made = createHostQueue({
         clock: ctx.clock,
@@ -579,7 +627,41 @@ export const hostQueueWiring: WiringFactory = () => {
         queue: made,
         sessionRow,
         app: (app) => ctx.appsControl.facts.app(app),
-        preview: (app) => ctx.appsControl.previews.current(app),
+        preview: async (app) => {
+          const current = await ctx.appsControl.previews.current(app);
+          if (!current.ok) return current;
+          if (current.value === null) return ok(null);
+          // preview service는 release를 쥐지 않는다. release는 그 process의 관측이 싣는다.
+          const observed = await ctx.appsControl.client.previewObserve(
+            app,
+            current.value.process_nonce,
+          );
+          if (!observed.ok) return observed;
+          return ok({ release: observed.value?.release ?? null });
+        },
+        screens: async (who, app, release) => {
+          const read = await ctx.runtime.readers.read(appTools, who, {
+            app,
+            release,
+          });
+          if (!read.ok) return read;
+          return ok(
+            (read.value as { screens: { key: string; places: string[] }[] })
+              .screens,
+          );
+        },
+        primaryDeviceName: async () => {
+          const read = await ctx.runtime.readers.read(devicesList, CONTEXT, {});
+          if (!read.ok) return read;
+          const primary = (
+            read.value as { devices: { id: string; primary: boolean }[] }
+          ).devices.find((each) => each.primary);
+          if (primary === undefined) return ok(null);
+          const entry = (ctx.settings.get(devicesSetting) ?? []).find(
+            (each) => each.device === primary.id,
+          );
+          return ok(entry?.name ?? null);
+        },
         artifactExists: async (workspace, name) => {
           const dir = `${artifactsFolder(ctx.root.path, workspace)}/${name}`;
           try {

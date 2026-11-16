@@ -11,7 +11,7 @@ import {
 import type { CoreCall } from "../../ipc/core.ts";
 import { commandBody } from "../command-call.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
-import type { AppRow, AppsSource, SourceResult } from "./source.ts";
+import type { AppRow, AppsSource, OpenScreen, SourceResult } from "./source.ts";
 
 interface AppValue {
   id: string;
@@ -206,21 +206,34 @@ export function coreAppsSource(core: CoreSource): AppsSource {
       return { ok: true, value: result };
     },
 
-    // 앱 공간 본문에 여는 화면은 선언 read(`/apps/tools`)가 준다. 그 release의
-    // 선언에 `tab` 자리로 적힌 첫 화면이다(main의 앱 전용 창 `createEntryScreen`과 같은 규칙).
-    async entryScreen(app, release) {
+    // 여는 화면은 선언 read(`/apps/tools`)가 준다. 고르지 않으면 그 release의 선언에 `tab` 자리로 적힌 첫 화면이다
+    // (main의 앱 전용 창 `createEntryScreen`과 같은 규칙).
+    async screenToOpen(app, release, screen) {
       const result = await call<{
         release: string;
-        screens: { key: string; places: string[] }[];
+        screens: { key: string; places: OpenScreen["place"][] }[];
       }>(core, "read", "tools", { app, release });
       if (!result.ok) return result;
-      const entry =
-        result.value.release === release
-          ? result.value.screens.find((screen) => screen.places.includes("tab"))
-          : undefined;
-      return entry === undefined
+      const screens =
+        result.value.release === release ? result.value.screens : [];
+      if (screen === undefined) {
+        const entry = screens.find((each) => each.places.includes("tab"));
+        return entry === undefined
+          ? { ok: false, code: "unavailable" }
+          : { ok: true, value: { key: entry.key, place: "tab" } };
+      }
+      const found = screens.find((each) => each.key === screen);
+      const place =
+        found === undefined
+          ? undefined
+          : found.places.includes("phone")
+            ? "phone"
+            : found.places.includes("tab")
+              ? "tab"
+              : found.places[0];
+      return found === undefined || place === undefined
         ? { ok: false, code: "unavailable" }
-        : { ok: true, value: entry.key };
+        : { ok: true, value: { key: found.key, place } };
     },
   };
 }

@@ -58,6 +58,7 @@ export type FolderLogRow = {
   origin: string;
   hlc: string | null;
   changeset: { hash: string; size: number } | null;
+  invocation: string | null;
 };
 
 /** 내보내기가 읽는 sync log의 좁은 면. core의 `SyncLog`가 그대로 맞는다. */

@@ -142,7 +142,7 @@ import {
 | -------------------- | ------- |
 | `react`              | 19.3.0  |
 | `lucide-react`       | 1.51.0  |
-| `@lophn/declaration` | 4.6.0   |
+| `@lophn/declaration` | 4.7.0   |
 | `@lophn/ui`          | 1.1.0   |
 | `@lophn/i18n`        | 1.0.0   |
 

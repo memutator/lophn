@@ -12,6 +12,7 @@ import {
   OAUTH_RESERVED_PARAMS,
   type OAuthDeclaration,
   ownKeys,
+  PHONE_CAPABILITIES,
   type PermissionKind,
   type PermissionScope,
   SECRET_NAME,
@@ -208,6 +209,18 @@ export function permissionScope(
     return unexpected
       ? invalid(`permission scope ${unexpected}`)
       : { ok: true, value: {} };
+  }
+  if (kind === "phone.use") {
+    const unexpected = exactKeys(value, ["capability"], ["capability"]);
+    if (unexpected) return invalid(`permission scope ${unexpected}`);
+    if (
+      !(PHONE_CAPABILITIES as readonly unknown[]).includes(value.capability)
+    ) {
+      return invalid(
+        `phone.use capability must be one of ${PHONE_CAPABILITIES.join(", ")}`,
+      );
+    }
+    return { ok: true, value: { capability: value.capability as string } };
   }
   const keys = kind.startsWith("fs.")
     ? ["path", "recursive"]

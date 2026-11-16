@@ -1,13 +1,13 @@
 {
   "name": "@lophn/app-ui",
-  "version": "2.15.0",
+  "version": "2.16.0",
   "type": "module",
   "lophn": {
     "supported_from": "2.3.0"
   },
   "exports": "./mod.ts",
   "dependencies": {
-    "@lophn/declaration": "4.6.0",
+    "@lophn/declaration": "4.7.0",
     "@lophn/i18n": "1.0.0",
     "@lophn/ui": "1.1.0",
     "@types/react": "19.3.0",

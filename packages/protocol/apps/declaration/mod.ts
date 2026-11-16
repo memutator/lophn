@@ -26,10 +26,12 @@ export type {
   TraySize,
   ValidationError,
   ValidationResult,
+  WidgetDeclaration,
 } from "./types.ts";
 export {
   LOPHN_EVENT_SOURCE,
   OAUTH_RESERVED_PARAMS,
+  PHONE_CAPABILITIES,
   RESERVED_APP_SLUGS,
   subscriptionHandlerName,
 } from "./types.ts";

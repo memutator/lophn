@@ -250,3 +250,73 @@ test("events와 subscriptions는 비면 칸을 두지 않고 payload는 object s
     "on.masup.usage.limit",
   ]);
 });
+
+// widgets와 phone.use는 grant가 될 수 있는 것을 선언 검사가 정하는 경계다. widgets 칸이 없는 옛 선언의 hash는 그대로다.
+test("phone.use의 scope가 {capability} 하나가 아니거나 모르는 capability면, widgets의 key가 겹치거나 screen이 phone 화면이 아니면 거절한다", () => {
+  const phoneScreen = {
+    key: "home",
+    label: "Home",
+    path: "/phone",
+    places: ["phone"],
+  };
+  const tabScreen = { ...phoneScreen, key: "main", places: ["tab"] };
+  const widget = { key: "weather", label: "Weather", screen: "home" };
+  const phoneUse = {
+    kind: "phone.use",
+    scope: { capability: "location.get" },
+    reason: "Find places nearby.",
+  };
+  const base = { ...declarationWith([]), screens: [phoneScreen, tabScreen] };
+
+  const rejected: [string, Record<string, unknown>][] = [
+    ["empty scope", { permissions: [{ ...phoneUse, scope: {} }] }],
+    [
+      "unknown capability",
+      {
+        permissions: [{ ...phoneUse, scope: { capability: "camera.shoot" } }],
+      },
+    ],
+    [
+      "extra scope field",
+      {
+        permissions: [
+          {
+            ...phoneUse,
+            scope: { capability: "location.get", host: "localhost" },
+          },
+        ],
+      },
+    ],
+    ["same capability twice", { permissions: [phoneUse, { ...phoneUse }] }],
+    ["duplicate widget key", { widgets: [widget, { ...widget }] }],
+    ["screen is a tab screen", { widgets: [{ ...widget, screen: "main" }] }],
+    ["screen does not exist", { widgets: [{ ...widget, screen: "gone" }] }],
+    ["bad key", { widgets: [{ ...widget, key: "Weather" }] }],
+    ["label too long", { widgets: [{ ...widget, label: "x".repeat(41) }] }],
+    [
+      "five widgets",
+      {
+        widgets: ["a", "b", "c", "d", "e"].map((key) => ({ ...widget, key })),
+      },
+    ],
+  ];
+  for (const [label, extra] of rejected) {
+    const result = validateDeclaration({ ...base, ...extra });
+    assert.ok(!result.ok, label);
+    assert.equal(result.error.code, "invalid_input", label);
+  }
+
+  const accepted = validateDeclaration({
+    ...base,
+    permissions: [phoneUse],
+    widgets: [widget, { key: "plain", label: "Plain" }],
+  });
+  assert.ok(accepted.ok);
+  assert.deepStrictEqual(accepted.value.permissions[0]?.scope, {
+    capability: "location.get",
+  });
+  const plain = validateDeclaration(base);
+  const empty = validateDeclaration({ ...base, widgets: [] });
+  assert.ok(plain.ok && empty.ok && !("widgets" in plain.value));
+  assert.deepStrictEqual(empty.value, plain.value);
+});

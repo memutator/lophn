@@ -105,6 +105,13 @@ const appSubscriptionSchema = z.object({
   event: z.string().min(1),
 });
 
+// 앱이 폰 widget 목록에 낸 줄. 칸이 없는 선언은 없다. 규칙은 선언 검사가 정하므로 여기서는 값만 본다.
+const appWidgetSchema = z.object({
+  key: z.string().min(1),
+  label: z.string().min(1),
+  screen: z.string().min(1).optional(),
+});
+
 const appDeclarationOutputSchema = withReadCommon(
   z.object({
     app: appIdSchema,
@@ -121,6 +128,7 @@ const appDeclarationOutputSchema = withReadCommon(
     keys: z.array(appKeySchema).optional(),
     events: z.array(appEventSchema).optional(),
     subscriptions: z.array(appSubscriptionSchema).optional(),
+    widgets: z.array(appWidgetSchema).optional(),
     facts: appFactsSchema,
     evidence: appDeclarationEvidenceSchema,
   }),

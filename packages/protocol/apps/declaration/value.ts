@@ -16,12 +16,17 @@ import {
   invalid,
   isObject,
   type JsonValue,
+  lengthOf,
   nonBlank,
   type PermissionKind,
   type PermissionRequirement,
+  type ScreenDeclaration,
   singleLine,
   type SkillDeclaration,
   type SubscriptionDeclaration,
+  type WidgetDeclaration,
+  WIDGET_KEY_PATTERN,
+  WIDGETS_MAX,
   LOPHN_EVENT_SOURCE,
   subscriptionHandlerName,
   type ValidationResult,
@@ -271,6 +276,57 @@ function validateSubscriptions(
   };
 }
 
+// widget 목록의 검사. screen은 이 선언의 phone 화면(places가 ["phone"])을 가리켜야 한다.
+function validateWidgets(
+  items: unknown,
+  screens: readonly ScreenDeclaration[],
+): ValidationResult<WidgetDeclaration[]> {
+  if (items === undefined) return { ok: true, value: [] };
+  if (!Array.isArray(items)) return invalid("widgets must be an array");
+  if (items.length > WIDGETS_MAX) {
+    return invalid(`widgets must have at most ${WIDGETS_MAX} entries`);
+  }
+  const phoneScreens = new Set(
+    screens
+      .filter((screen) => screen.places.includes("phone"))
+      .map((screen) => screen.key),
+  );
+  const widgets: WidgetDeclaration[] = [];
+  for (const item of items) {
+    if (!isObject(item)) return invalid("widget must be an object");
+    const bad = exactKeys(item, ["key", "label", "screen"], ["key", "label"]);
+    if (bad) return invalid(`widget ${bad}`);
+    if (typeof item.key !== "string" || !WIDGET_KEY_PATTERN.test(item.key)) {
+      return invalid(
+        "widget key must be a lowercase letter then up to 31 lowercase letters, digits or _",
+      );
+    }
+    if (!singleLine(item.label) || lengthOf(item.label) > 40) {
+      return invalid(
+        `widget ${item.key}: label must be one line of 1-40 characters`,
+      );
+    }
+    if (item.screen !== undefined) {
+      if (typeof item.screen !== "string" || !phoneScreens.has(item.screen)) {
+        return invalid(
+          `widget ${item.key}: screen must be the key of a screen whose places is ["phone"]`,
+        );
+      }
+    }
+    widgets.push({
+      key: item.key,
+      label: item.label,
+      ...(item.screen === undefined ? {} : { screen: item.screen }),
+    });
+  }
+  const dup = unique(
+    widgets.map((widget) => widget.key),
+    "widget",
+  );
+  if (dup) return invalid(dup);
+  return { ok: true, value: widgets };
+}
+
 export function validateDeclaration(
   value: unknown,
   options?: DeclarationOptions,
@@ -336,6 +392,8 @@ export function validateDeclaration(
   if (!keys.ok) return keys;
   const events = validateEvents(value.events);
   if (!events.ok) return events;
+  const widgets = validateWidgets(value.widgets, screens);
+  if (!widgets.ok) return widgets;
   const subscriptions = validateSubscriptions(value.subscriptions, [
     ...operations.map((operation) => operation.name),
     ...commands.map((command) => command.name),
@@ -350,6 +408,7 @@ export function validateDeclaration(
     "net.listen",
     "secret.use",
     "notify.send",
+    "phone.use",
   ]);
   for (const item of permissionItems) {
     if (!isObject(item)) return invalid("permission must be an object");
@@ -407,6 +466,7 @@ export function validateDeclaration(
     ...(subscriptions.value.length > 0
       ? { subscriptions: subscriptions.value }
       : {}),
+    ...(widgets.value.length > 0 ? { widgets: widgets.value } : {}),
     screens: sortBy(screens, (screen) => screen.key),
     operations: sortBy(operations, (operation) => operation.name),
     commands: sortBy(commands, (command) => command.name),

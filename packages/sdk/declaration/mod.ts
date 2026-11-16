@@ -24,6 +24,7 @@ export type {
   TraySize,
   ValidationError,
   ValidationResult,
+  WidgetDeclaration,
 } from "../../protocol/apps/declaration/mod.ts";
 export {
   canonicalInputHash,

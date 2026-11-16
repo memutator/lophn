@@ -93,7 +93,8 @@ export type PermissionKind =
   | "net.fetch"
   | "net.listen"
   | "secret.use"
-  | "notify.send";
+  | "notify.send"
+  | "phone.use";
 
 // secret.use의 OAuth 블록. 끝점은 https이거나 loopback http다(검사는 scope.ts의 oauthScope).
 export type OAuthDeclaration = {
@@ -104,6 +105,10 @@ export type OAuthDeclaration = {
   // authorize URL에 더할 추가 parameter. 비면 칸을 두지 않는다.
   params?: Record<string, string>;
 };
+
+// 폰이 앱에 여는 기능의 이름이다. 값은 protocol/apps/phone-request.ts의 phoneCapabilitySchema와 같다.
+// 이 file은 zod 정본을 import하지 못해 literal로 옮겨 적었고, 둘이 갈라지면 선언은 통과해도 폰 요청이 거절된다.
+export const PHONE_CAPABILITIES = ["location.get"] as const;
 
 // core가 authorize URL을 만들 때도 같은 목록으로 params의 덮어쓰기를 막는다.
 export const OAUTH_RESERVED_PARAMS = [
@@ -123,6 +128,8 @@ export type PermissionScope =
   | { path: string; recursive: boolean }
   | { host: string; port: number }
   | { name: string; oauth?: OAuthDeclaration }
+  // phone.use는 폰 기능 하나(PHONE_CAPABILITIES)를 가리킨다.
+  | { capability: string }
   // notify.send는 scope가 없다. 빈 객체다.
   | Record<string, never>;
 
@@ -185,6 +192,19 @@ export function subscriptionHandlerName(
   return `on.${subscription.source}.${subscription.event}`;
 }
 
+// 앱이 폰 widget 목록에 내는 줄 하나. 값(rows)은 앱이 `setWidget`으로 내고 선언은 목록만 정한다.
+// 폰이 값이 오기 전에도 목록을 보이고, core가 선언 밖 key의 값을 거절하는 근거다.
+export type WidgetDeclaration = {
+  key: string;
+  label: string;
+  // 이 widget을 누르면 여는 화면의 key. 이 선언의 phone 화면이어야 한다.
+  screen?: string;
+};
+
+// protocol/apps/widget.ts의 WIDGET_KEY_PATTERN·WIDGETS_MAX와 같은 값이다. 이 file은 의존성이 없어 따로 쓴다.
+export const WIDGET_KEY_PATTERN = /^[a-z][a-z0-9_]{0,31}$/;
+export const WIDGETS_MAX = 4;
+
 export type AppDeclaration = {
   name: string;
   description: string;
@@ -198,6 +218,8 @@ export type AppDeclaration = {
   // 없어도 된다. 칸이 없는 옛 선언의 hash는 그대로다.
   events?: EventDeclaration[];
   subscriptions?: SubscriptionDeclaration[];
+  // 없어도 된다. 칸이 없는 옛 선언의 hash는 그대로다.
+  widgets?: WidgetDeclaration[];
   screens: ScreenDeclaration[];
   // operation과 command의 이름은 합쳐 하나다. handler는 이름 하나로 등록한다.
   operations: OperationDeclaration[];
@@ -224,15 +246,17 @@ export const DECLARATION_KEYS = [
   "sdk_dependencies",
   "skills",
   "subscriptions",
+  "widgets",
 ] as const;
 
-// icon, skills, keys, events, subscriptions는 칸이 없어도 된다.
+// icon, skills, keys, events, subscriptions, widgets는 칸이 없어도 된다.
 const OPTIONAL_KEYS: readonly string[] = [
   "icon",
   "skills",
   "keys",
   "events",
   "subscriptions",
+  "widgets",
 ];
 export const DECLARATION_REQUIRED_KEYS = DECLARATION_KEYS.filter(
   (key) => !OPTIONAL_KEYS.includes(key),

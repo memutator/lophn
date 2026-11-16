@@ -14,4 +14,4 @@ lead만 고친다. `tools/status.py app-folder-sync build`가 `tasks/*.md`에서
 | `folder-import` | folder | 2 | folder-contract, folder-engine, folder-decl | merged | folder/folder-import | ed308d30c |  |
 | `folder-runtime` | sync | 2 | folder-contract, folder-engine, folder-log, folder-decl | merged | sync/folder-runtime | b1fb8bb3b |  |
 | `folder-surface` | folder | 3 | folder-export, folder-import, folder-apps, folder-runtime, folder-approval | merged | folder/folder-surface | 2e3286f7b |  |
-| `folder-guidance` | sdk | 3 | folder-decl, folder-surface | running | sdk/folder-guidance |  |  |
+| `folder-guidance` | sdk | 3 | folder-decl, folder-surface | merged | sdk/folder-guidance | c4392f217 |  |

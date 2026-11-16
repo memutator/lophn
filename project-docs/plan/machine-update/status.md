@@ -5,6 +5,6 @@ lead만 고친다. `tools/status.py machine-update build`가 `tasks/*.md`에서 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
 | `update-follow` | follow | 1 | 없음 | merged | follow/update-follow | 6e5f71365 |  |
-| `update-held` | held | 1 | 없음 | running | held/update-held |  |  |
+| `update-held` | held | 1 | 없음 | merged | held/update-held | bcd0bdfb5 |  |
 | `update-viewer` | viewer | 1 | 없음 | merged | viewer/update-viewer | 21f3d1050 |  |
 | `update-status` | status | 2 | update-held, update-follow | todo |  |  |  |

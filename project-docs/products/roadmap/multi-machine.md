@@ -1,6 +1,6 @@
 # multi-machine: 한 사람의 lophn 여럿
 
-상태: **설계안.** 2026-11-15 사람이 방향을 냈고, 2026-11-16 사람과 planner가 대화로 모양을 잡았다. 같은 날 다른 harness 21개를 조사했다(아래 "조사"). 계획은 아직 열지 않았다. 바탕인 relay(계획 `remote-relay`), 폰에서 도는 sync 앱(`mobile-local-apps`), 폰 앱(`mobile-app`)은 main에 있다. "정한 것"에 적지 않은 것은 planner의 추천이고 결정이 아니다.
+상태: **계획 여섯으로 열었다(2026-11-16).** `project-docs/plan/{machine-identity,desktop-remote,app-folder-sync,project-identity,always-on,machine-update}/`. 계획 사이의 경계와 정한 정책은 `reports/multi-machine/program.md`에 있다. 2026-11-15 사람이 방향을 냈고, 2026-11-16 사람과 planner가 대화로 모양을 잡았다. 같은 날 다른 harness 21개를 조사했다(아래 "조사"). 바탕인 relay(계획 `remote-relay`), 폰에서 도는 sync 앱(`mobile-local-apps`), 폰 앱(`mobile-app`)은 main에 있다. "정한 것"에 적지 않은 것은 planner의 추천이고 결정이 아니다.
 
 배경 문서: `project-docs/products/roadmap/{mobile,standalone-core}.md`, `project-docs/architecture/{remote,app-sync,phone-screen,platform}.md`.
 
@@ -144,7 +144,7 @@
 - data root를 공유 저장소에 두지 않는다(그렇게 한 제품은 DB 설정을 바꾸고 모든 기계를 세운 채 이전했다).
 - 자격 file을 기계 사이에 복사하지 않는다(한쪽이 token을 갱신하면 다른 쪽이 깨진다).
 - 폴더에서 읽은 것은 전부 검사한 뒤 적용한다. 반만 만들어진 묶음은 실패로 끝내 주기 job이 성공으로 보고하지 않게 한다.
-- last-write-wins에서: 미래 시각이 찍힌 변경은 받는 쪽 시계로 자르고, 시계가 뒤로 가도 판 번호는 올라가며, 지운 것의 흔적을 정리할 때 그보다 옛 변경이 값을 되살리지 못하게 기준선을 둔다.
+- last-write-wins에서: 미래 시각이 찍힌 변경은 고치지 않고 적용을 미루며 어느 기계의 시계가 앞서 있는지 보인다(받은 시각을 받는 쪽 시계로 자르면 기계마다 사본이 달라진다). 시계가 뒤로 가도 판 번호는 올라간다. 지운 것의 흔적은 아는 기계가 모두 지나갔거나 90일이 지난 것만 정리하고, 그보다 오래 떨어져 있던 기계의 변경은 버리지 않고 그 기계에 맡아 두어 사람이나 agent가 정리한다.
 - 한 벌만 있는 것(앱 release 등)을 보관소에 쓸 때: 시작 때의 판을 적어 두고, 판이 바뀌었으면 자기 변경만 합치고, 바꾼 것이 없거나 판을 읽지 못하면 쓰지 않는다.
 - 기계를 넘어 가는 예약 작업은 주인 기계를 싣고 멈춘 채 도착한다(주인이 없으면 모든 기계가 같은 job을 돌린다).
 - 여러 기계의 session을 한 목록에 보일 때: 갱신은 전체 목록으로 받아 한 번에 적용하고, 읽기에 실패하면 아무것도 지우지 않는다.

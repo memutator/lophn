@@ -1,12 +1,15 @@
+import type { CoreReply } from "../ipc/core-api.ts";
 import {
   type LophnMachinesApi,
   MACHINES_CHANGED_CHANNEL,
+  MACHINES_CLONE_HERE_CHANNEL,
   MACHINES_LIST_CHANNEL,
   MACHINES_OPEN_CHANNEL,
   MACHINES_PAIR_CHANNEL,
   MACHINES_REMOVE_CHANNEL,
   MACHINES_RENAME_CHANNEL,
   MACHINES_START_CHANNEL,
+  MACHINES_THIS_READ_CHANNEL,
   MACHINES_THIS_WINDOW_CHANNEL,
   type MachineList,
   machineListSchema,
@@ -26,6 +29,21 @@ async function invoke<T>(
     return (await transport.invoke(channel, input)) as T | MachinesFailure;
   } catch {
     return { ok: false, code: "unavailable" };
+  }
+}
+
+async function invokeCore(
+  transport: BrowserTransport,
+  channel: string,
+  input: unknown,
+): Promise<CoreReply> {
+  try {
+    return (await transport.invoke(channel, input)) as CoreReply;
+  } catch {
+    return {
+      ok: false,
+      error: { code: "unavailable", message: "main did not answer" },
+    };
   }
 }
 
@@ -81,5 +99,9 @@ export function createMachinesApi(
       // A refusal reads as a window of this computer.
       return "ok" in reply ? { machine: null } : reply;
     },
+    thisRead: (route, input) =>
+      invokeCore(transport, MACHINES_THIS_READ_CHANNEL, { route, input }),
+    cloneHere: (input) =>
+      invokeCore(transport, MACHINES_CLONE_HERE_CHANNEL, input),
   } satisfies LophnMachinesApi);
 }

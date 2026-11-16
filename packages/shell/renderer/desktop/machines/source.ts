@@ -47,6 +47,19 @@ export type PairOutcome =
         | "unavailable";
     };
 
+/** The result of cloning another machine's project onto this computer. */
+export type CloneHereOutcome =
+  | { readonly ok: true; readonly path: string }
+  /** No projects folder and the person closed the folder picker. */
+  | { readonly ok: false; readonly reason: "cancelled" }
+  /** This computer's git has no credentials for it; the person runs `command` in a terminal here. */
+  | {
+      readonly ok: false;
+      readonly reason: "git_auth";
+      readonly command: string;
+    }
+  | { readonly ok: false; readonly reason: "failed"; readonly message: string };
+
 export interface MachinesSource {
   /** 지금 목록. 바뀌지 않았으면 같은 값을 돌려준다(useSyncExternalStore가 비교한다). */
   get(): MachinesView;
@@ -61,4 +74,15 @@ export interface MachinesSource {
   setStart(start: MachinesView["start"]): Promise<SourceResult<void>>;
   /** 그 기계의 창을 열거나 앞으로 가져온다. 이 컴퓨터의 id면 이 컴퓨터의 창이다. */
   open(id: string): Promise<SourceResult<void>>;
+  /** 다른 기계의 창에서 이 컴퓨터의 core를 읽는다. 이 두 read만 된다. */
+  thisRead(
+    route: "project.list" | "ListSessions",
+    input: unknown,
+  ): Promise<SourceResult<unknown>>;
+  /** 다른 기계의 창에서 그 기계의 project를 이 컴퓨터에 clone한다. */
+  cloneHere(input: {
+    readonly url: string;
+    readonly identity: string;
+    readonly title: string;
+  }): Promise<CloneHereOutcome>;
 }

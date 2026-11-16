@@ -13,26 +13,44 @@ import {
   coreWatchSchema,
 } from "../../../ipc/core.ts";
 import {
+  MACHINES_CLONE_HERE_CHANNEL,
   MACHINES_LIST_CHANNEL,
   MACHINES_OPEN_CHANNEL,
+  MACHINES_THIS_READ_CHANNEL,
   MACHINES_THIS_WINDOW_CHANNEL,
   MACHINES_VISIBLE_CHANNEL,
+  THIS_COMPUTER_READS,
 } from "../../../ipc/machines.ts";
 import { OPEN_EXTERNAL_CHANNEL } from "../../../ipc/open-external.ts";
 import { WINDOW_CONTROL_CHANNEL } from "../../../ipc/window-controls.ts";
 import type { Connection } from "../../../../remote-client/mod.ts";
 
 // What a window of another machine may call on this computer's shell besides the core channels: the machine list and
-// switching windows, its own window buttons and opening a link in the OS browser. Overlay channels, shortcuts and intents
+// switching windows, two narrow calls to this computer's core (its projects and sessions, clone here), its own window
+// buttons and opening a link in the OS browser. Overlay channels, shortcuts and intents
 // do not pass through here (overlays register on ipcMain themselves; shortcuts and intents are pushed by main).
 export const MACHINE_WINDOW_CHANNELS: ReadonlySet<string> = new Set([
   MACHINES_LIST_CHANNEL,
   MACHINES_OPEN_CHANNEL,
   MACHINES_THIS_WINDOW_CHANNEL,
   MACHINES_VISIBLE_CHANNEL,
+  MACHINES_THIS_READ_CHANNEL,
+  MACHINES_CLONE_HERE_CHANNEL,
   WINDOW_CONTROL_CHANNEL,
   OPEN_EXTERNAL_CHANNEL,
 ]);
+
+// Channels that reach this computer's core for a window of another machine. A window of this computer has its own core
+// channels, so it is refused here; a read outside `THIS_COMPUTER_READS` is refused before the handler runs.
+const MACHINE_WINDOW_ONLY: ReadonlySet<string> = new Set([
+  MACHINES_THIS_READ_CHANNEL,
+  MACHINES_CLONE_HERE_CHANNEL,
+]);
+
+function thisComputerRead(input: unknown): boolean {
+  const route = (input as { route?: unknown } | null)?.route;
+  return (THIS_COMPUTER_READS as readonly unknown[]).includes(route);
+}
 
 type WatchConditions = CoreWatch["conditions"];
 
@@ -41,6 +59,14 @@ const FORBIDDEN = {
   error: {
     code: "forbidden",
     message: "this window views another machine",
+  },
+} as const;
+
+const NOT_A_MACHINE_WINDOW = {
+  ok: false,
+  error: {
+    code: "forbidden",
+    message: "only a window of another machine calls this",
   },
 } as const;
 
@@ -126,7 +152,11 @@ export function createMachineRoute(): MachineRoute {
     watching: (contentsId) => bound.get(contentsId)?.conditions ?? [],
     handle(channel, contentsId, input, local) {
       const binding = bound.get(contentsId);
-      if (binding === undefined) return local();
+      if (binding === undefined) {
+        return MACHINE_WINDOW_ONLY.has(channel)
+          ? NOT_A_MACHINE_WINDOW
+          : local();
+      }
       if (channel === CORE_CALL_CHANNEL) return call(binding, input);
       if (channel === CORE_WATCH_CHANNEL) {
         const parsed = coreWatchSchema.safeParse(input);
@@ -139,6 +169,9 @@ export function createMachineRoute(): MachineRoute {
         return state === undefined
           ? { state: "starting", confirmedAt: null }
           : { state: state.state, confirmedAt: state.confirmedAt };
+      }
+      if (channel === MACHINES_THIS_READ_CHANNEL && !thisComputerRead(input)) {
+        return FORBIDDEN;
       }
       return MACHINE_WINDOW_CHANNELS.has(channel) ? local() : FORBIDDEN;
     },

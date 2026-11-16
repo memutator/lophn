@@ -6,7 +6,13 @@ import type {
   MachineList,
   MachinesReply,
 } from "../../../ipc/machines.ts";
-import type { MachinesSource, MachinesView, SourceResult } from "./source.ts";
+import type { CoreReply } from "../../../ipc/core-api.ts";
+import type {
+  CloneHereOutcome,
+  MachinesSource,
+  MachinesView,
+  SourceResult,
+} from "./source.ts";
 
 const STARTING: MachinesView = {
   state: "starting",
@@ -46,6 +52,23 @@ async function result(
   } catch {
     return { ok: false, code: "unavailable" };
   }
+}
+
+function cloneOutcome(reply: CoreReply): CloneHereOutcome {
+  if (reply.ok)
+    return { ok: true, path: (reply.value as { path: string }).path };
+  const details = reply.error?.details;
+  if (details?.["reason"] === "projects_folder_unset") {
+    return { ok: false, reason: "cancelled" };
+  }
+  if (details?.["reason"] === "git_auth") {
+    return {
+      ok: false,
+      reason: "git_auth",
+      command: String(details["command"]),
+    };
+  }
+  return { ok: false, reason: "failed", message: reply.error?.message ?? "" };
 }
 
 /** preload가 기계 통로를 열지 않은 창(gallery, mock)은 null이다. */
@@ -103,5 +126,12 @@ export async function windowMachinesSource(): Promise<MachinesSource | null> {
         ),
       ),
     open: (machine) => result(api.open(id(machine))),
+    async thisRead(route, input) {
+      const reply = await api.thisRead(route, input);
+      return reply.ok
+        ? { ok: true, value: reply.value }
+        : { ok: false, code: reply.error?.code ?? "unavailable" };
+    },
+    cloneHere: async (input) => cloneOutcome(await api.cloneHere(input)),
   };
 }

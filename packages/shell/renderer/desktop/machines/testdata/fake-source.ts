@@ -1,5 +1,6 @@
 // 기계 보기의 가짜 통로. 메모리에 두고 gallery가 목록, 시작 기계, 이 창의 기계, pair의 결과를 고정한다.
 import type {
+  CloneHereOutcome,
   MachineItem,
   MachinesSource,
   MachinesView,
@@ -53,6 +54,13 @@ export interface FakeMachinesOptions {
   window?: { id: string; name: string } | null;
   /** `pair`의 결과. 없으면 성공하고 "Studio PC"가 목록에 선다. */
   pair?: PairOutcome;
+  /** 다른 기계의 창이 읽는 이 컴퓨터의 답. 없으면 unavailable이다. */
+  thisRead?: (
+    route: "project.list" | "ListSessions",
+    input: unknown,
+  ) => unknown;
+  /** `cloneHere`의 결과. 없으면 ~/projects 아래에 받는다. */
+  clone?: CloneHereOutcome;
 }
 
 export function fakeMachines(options: FakeMachinesOptions = {}) {
@@ -142,6 +150,16 @@ export function fakeMachines(options: FakeMachinesOptions = {}) {
       opened.push(id);
       return ok();
     },
+    thisRead: (route, input) =>
+      Promise.resolve(
+        options.thisRead === undefined
+          ? { ok: false, code: "unavailable" }
+          : { ok: true, value: options.thisRead(route, input) },
+      ),
+    cloneHere: (input) =>
+      Promise.resolve(
+        options.clone ?? { ok: true, path: `/home/me/projects/${input.title}` },
+      ),
   };
   return { source, opened };
 }

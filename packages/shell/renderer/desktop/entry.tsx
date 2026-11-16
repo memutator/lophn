@@ -92,6 +92,7 @@ import {
   memoryWorkspaceLayoutBridge,
 } from "../shell/layout-source.ts";
 import { windowMachinesSource } from "./machines/window-source.ts";
+import { RemoteGroupsProvider } from "./workspaces/projects/remote-group.tsx";
 // xterm 기본 배치. CSP 때문에 xterm이 넣는 <style>은 xterm-view가 옮긴다.
 import "@xterm/xterm/css/xterm.css";
 import styles from "./entry.module.css";
@@ -324,28 +325,30 @@ const tree = (
                   <ConversationProvider deps={conversation}>
                     <EventsProvider client={events} terminals={terminal?.store}>
                       <QuickPrefsProvider source={quickPrefs}>
-                        <Desktop
-                          source={core}
-                          initial={start}
-                          workspace={workspace}
-                          editor={bench ? bench.editor : editor}
-                          windowWidth={seed ? 1440 : undefined}
-                          terminal={terminal}
-                          catalog={catalog}
-                          palette={palette}
-                          projects={projects}
-                          intents={bridges.lophnIntents}
-                          apps={apps}
-                          settings={settings}
-                          settingsPanels={settingsPanels}
-                          jobs={jobs}
-                          appDetail={appDetail}
-                          views={views}
-                          overlay={bridges.lophnShell}
-                          hookPrompt={hookPrompt}
-                          agentViewSource={agentViewSource}
-                          detached={bridges.lophnDetached}
-                        />
+                        <RemoteGroupsProvider>
+                          <Desktop
+                            source={core}
+                            initial={start}
+                            workspace={workspace}
+                            editor={bench ? bench.editor : editor}
+                            windowWidth={seed ? 1440 : undefined}
+                            terminal={terminal}
+                            catalog={catalog}
+                            palette={palette}
+                            projects={projects}
+                            intents={bridges.lophnIntents}
+                            apps={apps}
+                            settings={settings}
+                            settingsPanels={settingsPanels}
+                            jobs={jobs}
+                            appDetail={appDetail}
+                            views={views}
+                            overlay={bridges.lophnShell}
+                            hookPrompt={hookPrompt}
+                            agentViewSource={agentViewSource}
+                            detached={bridges.lophnDetached}
+                          />
+                        </RemoteGroupsProvider>
                       </QuickPrefsProvider>
                     </EventsProvider>
                   </ConversationProvider>

@@ -2675,5 +2675,42 @@ flows:
     crosses_process: true
     docs: [architecture/remote.md]
 
+  - id: machine-window-projects
+    title: "다른 기계의 창이 그 기계의 project 가운데 이 컴퓨터에도 있는 것, 그 기계에만 있는 것, remote만 같은 것을 줄로 보인다"
+    actor: person
+    entries: [ui:machine-window-projects]
+    when: "다른 기계의 창의 왼쪽 sidebar다. 이 컴퓨터의 창에는 줄이 없다"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/desktop/workspaces/projects/remote-group.ts
+      - packages/shell/renderer/desktop/workspaces/projects/remote-group.tsx
+      - packages/shell/renderer/desktop/machines/window-source.ts
+      - packages/shell/renderer/shell/left-sidebar.tsx
+      - packages/shell/renderer/desktop/entry.tsx
+    steps:
+      - "그 기계의 project.list(창의 core)와 이 컴퓨터의 project.list(shell:machines-this-read)를 각각 통째로 읽어 matchProjects로 묶는다(이 컴퓨터는 this:<prj>, 그 기계는 <mch>:<prj>). identity·remote 칸이 없는 옛 판의 기록은 null로 본다"
+      - "읽기가 실패하거나 그 기계가 끊기면 마지막 목록과 묶음을 그대로 보인다. 이 컴퓨터 쪽은 창이 앞으로 올 때와 clone 뒤에 다시 읽는다"
+      - "같은 id: project 줄 아래 \"Also on this computer\"(이름이 다르면 \"… as <이 컴퓨터의 title>\"). 누르면 기계마다 그 project lophn의 session 목록을 나란히 보인다. 각자의 core에서 읽고 합치지 않는다. 그 기계의 session은 이 창에서, 이 컴퓨터의 session은 이 컴퓨터의 창(shell:machines-open)에서 연다"
+      - "그 기계에만 있고 id가 있으면 \"Not on this computer\"와 [Clone here](shell:machines-clone-here { url: remote.url, identity, title }). remote가 없으면 단추 없이 \"Not on this computer. It has no git remote to clone from.\""
+      - "id 없이 remote만 같으면 \"Looks like <이 컴퓨터의 title>\"과 한 기계에서 id file을 만들어 commit하라는 안내다. 그 기계의 저장소에는 쓰지 않고 이 컴퓨터 쪽 단추도 없다"
+    uses: [ipc:shell:machines-this-read, ipc:shell:machines-clone-here, ipc:shell:machines-open, route:projects/list, route:sessions/list]
+    outcomes:
+      - id: grouped
+        observe: ["screen:shell-machine-projects"]
+      - id: sessions
+        when: "\"Also on this computer\"를 눌렀다"
+        observe: ["screen:shell-machine-projects-sessions"]
+      - id: cloned
+        when: "[Clone here]가 이 컴퓨터에 받아 등록했다. 이 컴퓨터의 목록을 다시 읽어 그 줄이 \"Also on this computer\"가 된다"
+        observe: ["screen:shell-machine-projects"]
+      - id: git-auth
+        when: "이 컴퓨터의 git에 자격이 없다. \"Run `<command>` in a terminal on this computer, then try again\""
+        observe: ["screen:shell-machine-projects-git-auth"]
+      - id: clone-failed
+        when: "그 밖의 이유로 받지 못했다. core의 글을 보인다. 폴더 선택기를 그만두면 아무것도 보이지 않는다"
+        observe: ["screen:shell-machine-projects"]
+    crosses_process: true
+    docs: [architecture/remote.md, architecture/project-identity.md]
+
 links: []
 ignore: []

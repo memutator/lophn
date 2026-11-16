@@ -59,4 +59,22 @@ export const remoteDesk = {
   "machines.status.removed": "Removed this desktop",
   "machines.status.with-detail": "{label} · {detail}",
   "machines.title.remove": "Remove {name}?",
+  "machines.group.also-here": "Also on this computer",
+  "machines.group.also-here-as": "Also on this computer as {title}",
+  "machines.group.clone-failed": "Could not clone it here: {message}",
+  "machines.group.clone-here": "Clone here",
+  "machines.group.cloned": "Cloned to {path}",
+  "machines.group.cloning": "Cloning…",
+  "machines.group.git-auth":
+    "Run `{command}` in a terminal on this computer, then try again",
+  "machines.group.looks-like": "Looks like {title}",
+  "machines.group.looks-like-note":
+    "Set it up on one computer and commit .lophn-project.json. The other links after git pull.",
+  "machines.group.no-remote":
+    "Not on this computer. It has no git remote to clone from.",
+  "machines.group.no-sessions": "No sessions",
+  "machines.group.not-here": "Not on this computer",
+  "machines.group.sessions-failed": "Could not read the sessions",
+  "machines.group.sessions-on": "On {name}",
+  "machines.title.clone-parent": "Choose a folder for projects you clone",
 } as const;

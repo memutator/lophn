@@ -25,6 +25,7 @@ import { AppTabIcon } from "../app-frame/app-icon.tsx";
 import { useKeyLabel } from "../commands/react.tsx";
 import { appPanelBindingId } from "../../../protocol/shell/keybindings.ts";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
+import { RemoteGroupLine } from "../desktop/workspaces/projects/remote-group.tsx";
 import { JobsLayer } from "../desktop/jobs/jobs-layer.tsx";
 import type { JobsSource } from "../desktop/jobs/source.ts";
 import {
@@ -512,6 +513,13 @@ export function LeftSidebar({
                   />
                 </span>
               </div>
+              {workspace.ref.kind === "project" ? (
+                <RemoteGroupLine
+                  project={workspace.ref.id}
+                  title={workspace.name}
+                  onOpenSession={onOpenSession}
+                />
+              ) : null}
               {workspace.current.map((group) => (
                 <Fragment key={group.desk?.key ?? ""}>
                   {/* desk를 하나만 쓰면 지금처럼 줄만 둔다. */}

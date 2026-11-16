@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { type Id, idSchema } from "../../protocol/base/ids.ts";
+import type { CoreReply } from "./core-api.ts";
 
 export const MACHINES_LIST_CHANNEL = "shell:machines-list";
 // main → renderer push: the whole list.
@@ -17,6 +18,14 @@ export const MACHINES_OPEN_CHANNEL = "shell:machines-open";
 export const MACHINES_THIS_WINDOW_CHANNEL = "shell:machines-this-window";
 // A window of another machine says which session it shows, for that machine's presence. Only those windows call it.
 export const MACHINES_VISIBLE_CHANNEL = "shell:machines-visible";
+// A window of another machine reads this computer's projects and sessions, to show which of that machine's projects are
+// also here. Only those windows call it, and only these two reads pass.
+export const MACHINES_THIS_READ_CHANNEL = "shell:machines-this-read";
+// A window of another machine clones one of that machine's projects onto this computer (this computer's `project.clone`).
+export const MACHINES_CLONE_HERE_CHANNEL = "shell:machines-clone-here";
+
+export const THIS_COMPUTER_READS = ["project.list", "ListSessions"] as const;
+export type ThisComputerRead = (typeof THIS_COMPUTER_READS)[number];
 
 export const machineIdSchema = idSchema("mch") as unknown as z.ZodType<
   Id<"mch">
@@ -70,6 +79,17 @@ export const machinesVisibleSchema = z.strictObject({
   visible: z.boolean(),
 });
 
+export const machinesThisReadSchema = z.strictObject({
+  route: z.enum(THIS_COMPUTER_READS),
+  input: z.unknown(),
+});
+export const machinesCloneHereSchema = z.strictObject({
+  url: z.string().min(1).max(2048),
+  identity: z.string().min(1),
+  title: z.string().min(1),
+});
+export type MachinesCloneHere = z.infer<typeof machinesCloneHereSchema>;
+
 export type MachineWindow = { machine: { id: Id<"mch">; name: string } | null };
 
 export type MachinesFailure = {
@@ -104,4 +124,11 @@ export interface LophnMachinesApi {
   open(machine: Id<"mch">): Promise<MachinesReply>;
   /** The machine this window views; null in a window of this computer. */
   thisWindow(): Promise<MachineWindow>;
+  /** This computer's core, as the person, for one of `THIS_COMPUTER_READS`. Only a window of another machine may call it. */
+  thisRead(route: ThisComputerRead, input: unknown): Promise<CoreReply>;
+  /**
+   * This computer's `project.clone`. Without a projects folder main asks for a parent folder first; the core's reply comes
+   * back as it is (a cancelled picker returns the `projects_folder_unset` failure).
+   */
+  cloneHere(input: MachinesCloneHere): Promise<CoreReply>;
 }

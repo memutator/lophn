@@ -4,6 +4,10 @@ import { test } from "node:test";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import { CORE_CALL_CHANNEL } from "../../../ipc/core.ts";
 import { FILE_READ_CHANNEL } from "../../../ipc/files.ts";
+import {
+  MACHINES_CLONE_HERE_CHANNEL,
+  MACHINES_THIS_READ_CHANNEL,
+} from "../../../ipc/machines.ts";
 import { SECRET_INPUT_OPEN_CHANNEL } from "../../../ipc/secret-input.ts";
 import { TERMINAL_OPEN_CHANNEL } from "../../../ipc/terminal.ts";
 import { WORKSPACE_LAYOUT_SAVE_CHANNEL } from "../../../ipc/workspace.ts";
@@ -89,4 +93,79 @@ test("a window of another machine reaches only that machine's connection; this c
     1,
     "the host got nothing from this computer's window",
   );
+});
+
+test("only a window of another machine reaches this computer's core, and only for this computer's project and session lists", async () => {
+  const route = createMachineRoute();
+  route.bind(REMOTE_WINDOW, HOST, () => readyConnection([]));
+  const cases: {
+    channel: string;
+    window: number;
+    input: unknown;
+    passes: boolean;
+  }[] = [
+    {
+      channel: MACHINES_THIS_READ_CHANNEL,
+      window: REMOTE_WINDOW,
+      input: { route: "project.list", input: {} },
+      passes: true,
+    },
+    {
+      channel: MACHINES_THIS_READ_CHANNEL,
+      window: REMOTE_WINDOW,
+      input: { route: "ListSessions", input: {} },
+      passes: true,
+    },
+    {
+      channel: MACHINES_THIS_READ_CHANNEL,
+      window: REMOTE_WINDOW,
+      input: { route: "project.get", input: {} },
+      passes: false,
+    },
+    {
+      channel: MACHINES_THIS_READ_CHANNEL,
+      window: REMOTE_WINDOW,
+      input: { route: "settings/list", input: {} },
+      passes: false,
+    },
+    {
+      channel: MACHINES_THIS_READ_CHANNEL,
+      window: REMOTE_WINDOW,
+      input: { input: {} },
+      passes: false,
+    },
+    {
+      channel: MACHINES_THIS_READ_CHANNEL,
+      window: LOCAL_WINDOW,
+      input: { route: "project.list", input: {} },
+      passes: false,
+    },
+    {
+      channel: MACHINES_CLONE_HERE_CHANNEL,
+      window: REMOTE_WINDOW,
+      input: { url: "u", identity: "i", title: "t" },
+      passes: true,
+    },
+    {
+      channel: MACHINES_CLONE_HERE_CHANNEL,
+      window: LOCAL_WINDOW,
+      input: { url: "u", identity: "i", title: "t" },
+      passes: false,
+    },
+  ];
+  for (const each of cases) {
+    let ran = false;
+    const reply = (await route.handle(
+      each.channel,
+      each.window,
+      each.input,
+      () => {
+        ran = true;
+        return { ok: true, value: "this computer" };
+      },
+    )) as { ok: boolean; error?: { code: string } };
+    const label = `${each.channel} ${JSON.stringify(each.input)} from ${each.window}`;
+    assert.equal(ran, each.passes, label);
+    if (!each.passes) assert.equal(reply.error?.code, "forbidden", label);
+  }
 });

@@ -559,7 +559,8 @@ flows:
       - "shell:core-call은 그 기계의 연결로 { resource, method, body }를 보낸다(kind는 core가 route 표로 안다). upload의 bytes는 { input: body, base64 }로, file 답 { content_type, base64 }는 { bytes, contentType }으로 바꾼다"
       - "연결이 아직 없거나 ready가 아니면 unavailable이고 그 연결에 resume()을 걸어 backoff를 기다리지 않고 다시 붙는다(창의 다시 시도가 이 길이다)"
       - "shell:core-watch는 조건을 창마다 남기고 그 연결의 watch로 건다(연결이 나중에 오면 그때 건다). shell:core-state-get은 그 연결의 지금 상태(starting|ready|stale, confirmedAt)다"
-      - "그 밖에 지나는 channel은 machines-list·open·this-window·visible, window-control, open-external뿐이다. overlay 통로는 ipcMain에 따로 붙어 이 둘레를 타지 않는다(remote preload는 overlay view에 lophnCore를 열지 않는다)"
+      - "machines-this-read·clone-here는 다른 기계의 창만 지난다(이 컴퓨터의 창이면 forbidden). this-read는 route가 project.list·ListSessions일 때만 지난다"
+      - "그 밖에 지나는 channel은 machines-list·open·this-window·visible·this-read·clone-here, window-control, open-external뿐이다. overlay 통로는 ipcMain에 따로 붙어 이 둘레를 타지 않는다(remote preload는 overlay view에 lophnCore를 열지 않는다)"
       - "나머지 handle은 { ok: false, error: { code: forbidden } }이고 영역 handler를 부르지 않는다. on 메시지는 버린다"
     outcomes:
       - id: to-machine
@@ -668,6 +669,84 @@ flows:
         observe: [response]
     crosses_process: true
     docs: [architecture/attention.md]
+
+  - id: machines-this-read
+    title: "다른 기계의 창이 이 컴퓨터의 project 목록과 session 목록을 읽는다"
+    actor: system
+    entries: [ipc:shell:machines-this-read]
+    uses: [machine-window-ipc:forbidden, route:projects/list, route:sessions/list]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/viewer/machine-route.ts
+      - packages/shell/main/desktop/wiring/machine-windows.ts
+      - packages/shell/ipc/machines.ts
+      - packages/shell/preload/machines-api.ts
+    steps:
+      - "machine-route가 영역 handler 앞에서 거른다: 보낸 창이 다른 기계에 묶이지 않았으면(이 컴퓨터의 창) forbidden, route가 project.list·ListSessions 밖이면 forbidden이다"
+      - "handler가 sender가 desktop 창 본문이고 다른 기계의 창인지 다시 보고 입력 { route, input }을 strict schema로 본다"
+      - "이 컴퓨터의 core에 사람 token으로 그 read를 부르고(main 안 통로라 contract가 입력·출력을 검사한다) 답을 그대로 돌려준다"
+    outcomes:
+      - id: ok
+        when: "이 컴퓨터의 core가 읽은 목록을 돌려줬다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 컴퓨터의 창이 불렀거나, route가 project.list·ListSessions 밖이거나, desktop 창 본문이 아닌 caller다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력이 strict schema에 맞지 않거나 read 입력이 그 route의 contract에 맞지 않는다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "이 컴퓨터의 core가 준비되지 않았다"
+        observe: [response]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/remote.md, architecture/project-identity.md]
+
+  - id: machines-clone-here
+    title: "다른 기계의 창이 그 기계의 project를 이 컴퓨터에 clone한다"
+    actor: person
+    entries: [ipc:shell:machines-clone-here]
+    uses: [machine-window-ipc:forbidden, route:projects/clone]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/viewer/machine-route.ts
+      - packages/shell/main/desktop/wiring/machine-windows.ts
+      - packages/shell/ipc/machines.ts
+      - packages/shell/preload/machines-api.ts
+    steps:
+      - "machine-route가 이 컴퓨터의 창이 보낸 것을 forbidden으로 거른다. handler가 sender가 desktop 창 본문이고 다른 기계의 창인지 다시 보고 입력 { url, identity, title }을 strict schema로 본다"
+      - "이 컴퓨터의 core에 사람 token으로 project.clone { url, identity, title }을 부른다. 다른 기계의 저장소에는 아무것도 쓰지 않는다"
+      - "답이 details.reason projects_folder_unset이면 그 창에 붙은 OS 폴더 선택기를 열고(headless는 LOPHN_SHELL_PICK_FOLDER만) 고른 폴더를 parent로 다시 부른다. 그만두면 처음 답을 돌려준다"
+      - "core의 답(성공, git_auth의 details.command, 그 밖 오류)을 그대로 돌려준다"
+    outcomes:
+      - id: cloned
+        when: "이 컴퓨터에 받아 등록했다(이미 있으면 받지 않고 그 project다)"
+        observe: [response, "disk:<projects 폴더>/<이름>"]
+      - id: cancelled
+        code: invalid_input
+        when: "projects 폴더가 없고 사람이 폴더 선택기를 닫았다. projects_folder_unset 답이 그대로 간다"
+        observe: [response]
+      - id: git-auth
+        code: unavailable
+        when: "이 컴퓨터의 git에 그 저장소의 자격이 없다. details.command(gh auth login, ssh -T git@<host>)가 그대로 간다"
+        observe: [response]
+      - id: clone-failed
+        when: "core가 그 밖의 이유로 clone을 거절했다(git_failed, timeout은 unavailable, target_exists, different_project는 conflict). 답이 그대로 간다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 컴퓨터의 창이 불렀거나 desktop 창 본문이 아닌 caller다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력이 strict schema에 맞지 않는다"
+        observe: [response]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/remote.md, architecture/project-identity.md]
 
 # ---------- 다른 area의 flow가 시작하는 channel ----------
 # push(main → renderer)는 그 결과를 전하는 flow에 건다.

@@ -5,6 +5,7 @@ import {
   ProjectIdentityScene,
 } from "./shell/project-identity-scene.tsx";
 import { ShellScene } from "./shell/shell-scene.tsx";
+import { MachineProjectsScene } from "./shell/machine-projects-scene.tsx";
 import { SidebarAppPanel } from "./shell/sidebar-app-panel.tsx";
 import { SidebarScene, sidebarSteps } from "./shell/sidebar-scene.tsx";
 import { TrayScene } from "./shell/tray-scene.tsx";
@@ -345,6 +346,27 @@ export const shellArea: Area = {
           machine={{ window: "mch_homeserver", body: "settings" }}
         />
       ),
+    },
+    {
+      id: "shell-machine-projects",
+      title: "Shell · Other machine · Projects here too",
+      description:
+        '다른 기계(Home server) 창의 왼쪽 sidebar. 그 기계의 project 줄 아래에 이 컴퓨터(Studio)와의 관계가 한 줄 선다. phroner는 같은 id라 "Also on this computer", Grocery는 그 기계에만 있어 "Not on this computer"와 [Clone here], orders-api는 id 없이 git remote만 Studio의 Orders API와 같아 "Looks like Orders API"와 한 기계에서 id file을 commit하라는 안내다. 그 기계의 저장소에는 쓰지 않는다.',
+      render: () => <MachineProjectsScene />,
+    },
+    {
+      id: "shell-machine-projects-sessions",
+      title: "Shell · Other machine · Sessions on both",
+      description:
+        '"Also on this computer"를 누른 상태. 기계마다 session 목록을 나란히(Home server, Studio) 보인다. 두 목록은 각자의 core에서 읽고 합치지 않는다. Studio의 session을 누르면 이 컴퓨터의 창이 열린다.',
+      render: () => <MachineProjectsScene open="sessions" />,
+    },
+    {
+      id: "shell-machine-projects-git-auth",
+      title: "Shell · Other machine · Clone here needs git sign-in",
+      description:
+        "[Clone here]가 이 컴퓨터의 git 자격이 없어 실패한 상태. 이 컴퓨터의 터미널에서 실행할 명령을 보인다. 묻는 창은 띄우지 않는다.",
+      render: () => <MachineProjectsScene open="git-auth" />,
     },
     {
       id: "shell-tabs-close",

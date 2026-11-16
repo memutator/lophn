@@ -33,8 +33,7 @@ export function OpenTapped() {
     if (host === undefined) return settle();
     if (!here) return select(host.key);
     if (tapped.kind === "app") {
-      // `tapped.screen` waits for the app screen place (the user-apps task); until then an app opens as its workspace.
-      return show({ name: "workspace", workspace: { kind: "app", id: tapped.app } });
+      return show({ name: "app", id: tapped.app, screen: tapped.screen });
     }
     if (tapped.kind === "inbox") return show({ name: "inbox" });
     if (target !== null) return show({ name: "session", ...target });

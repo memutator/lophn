@@ -61,3 +61,19 @@ export function NotRunning({ computer, onWoken }: { computer: string; onWoken?: 
     </View>
   );
 }
+
+/** The coding read did not go through: said in the group's place, with a way to read again. */
+export function ReadFailed({ computer, onRetry }: { computer: string; onRetry: () => void }) {
+  return (
+    <View style={{ paddingHorizontal: 20, paddingVertical: 8 }}>
+      <Text variant="small" tone="critical">
+        {t("mobile.coding.error.read-failed", { computer })}
+      </Text>
+      <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 12 }}>
+        <Button size="sm" onPress={onRetry}>
+          {t("common.button.retry")}
+        </Button>
+      </View>
+    </View>
+  );
+}

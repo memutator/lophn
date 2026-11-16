@@ -464,18 +464,14 @@ export interface CodingSessionsView {
   /** Whether the computer's lophn app is connected; null until the first read. */
   readonly shell: "attached" | "absent" | null;
   readonly sessions: CodingSession[];
+  /** `failed`: the first read did not go through (shell is null then too); `reload` tries it again. */
   readonly status: "loading" | "ready" | "failed";
+  reload(): void;
 }
-
-const LOADING_CODING: CodingSessionsView = {
-  shell: null,
-  sessions: [],
-  status: "loading",
-};
 
 /** The computer's coding sessions (of one project when given). Read again when the list changes and after a reconnect. */
 export function useCodingSessions(project?: string): CodingSessionsView {
-  const { loaded } = useCoreRead(
+  const { loaded, reload } = useCoreRead(
     codingSessionsList,
     project === undefined ? {} : { project: project as `prj_${string}` },
   );
@@ -486,11 +482,10 @@ export function useCodingSessions(project?: string): CodingSessionsView {
             shell: loaded.value.shell,
             sessions: loaded.value.sessions,
             status: "ready",
+            reload,
           }
-        : loaded.state === "failed"
-          ? { ...LOADING_CODING, status: "failed" }
-          : LOADING_CODING,
-    [loaded],
+        : { shell: null, sessions: [], status: loaded.state, reload },
+    [loaded, reload],
   );
 }
 

@@ -9,6 +9,8 @@ export const mobileCoding = {
   "mobile.coding.error.open-conflict":
     "{harness} is already open on {computer}.",
   "mobile.coding.error.open-failed": "Couldn't open {harness} on {computer}.",
+  "mobile.coding.error.read-failed":
+    "Couldn't read the coding agents on {computer}.",
   "mobile.coding.error.switch-conflict":
     "{harness} has already switched on {computer}.",
   "mobile.coding.error.switch-failed": "Couldn't switch {harness} to chat.",

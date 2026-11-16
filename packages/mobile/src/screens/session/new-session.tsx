@@ -16,7 +16,7 @@ import {
   TopBar,
 } from "@lophn/ui-native";
 import { StackActions, useNavigation } from "@react-navigation/native";
-import { Check } from "lucide-react-native";
+import { Check, SquareTerminal } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import type { AcpSessionMeta } from "../../../../protocol/acp/mod.ts";
@@ -60,7 +60,7 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
   const unreachable = useUnreachable();
   const [workspace, setWorkspace] = useState<Workspace | null>(place.workspace ?? null);
   const [agent, setAgent] = useState<AgentId>(place.agent ?? lophnIdOf(place.workspace ?? null));
-  const [sheet, setSheet] = useState<"workspace" | "agent" | "model" | null>(null);
+  const [sheet, setSheet] = useState<"workspace" | "agent" | "coding" | "model" | null>(null);
   const [draft, setDraft] = useState(place.text ?? "");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -183,6 +183,11 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
           >
             {who?.name ?? ""}
           </Pill>
+          {workspace?.kind === "project" && (
+            <Pill tall lead={<Icon icon={SquareTerminal} size={18} />} onPress={() => setSheet("coding")}>
+              {t("left-sidebar.heading.coding-agents")}
+            </Pill>
+          )}
         </View>
       </View>
 
@@ -225,6 +230,9 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
             }}
           />
         ))}
+        {workspace?.kind === "project" && <CodingAgentGroup project={workspace.id} />}
+      </Sheet>
+      <Sheet open={sheet === "coding"} onClose={() => setSheet(null)} title={t("left-sidebar.heading.coding-agents")}>
         {workspace?.kind === "project" && <CodingAgentGroup project={workspace.id} />}
       </Sheet>
       <ModelSheet picker={picker} open={sheet === "model"} onClose={() => setSheet(null)} />

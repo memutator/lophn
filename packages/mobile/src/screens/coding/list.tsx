@@ -11,8 +11,8 @@ import { useNav } from "../../app/nav.ts";
 import { useCodingSessions, useCurrentComputer, useWorkspaces } from "../../data/mod.ts";
 import { Face, useLocked } from "../../parts/mod.ts";
 import { useOpenCoding } from "./open.tsx";
-import { codingPlace, harnessProfile, stateOf, TerminalMark } from "./parts.tsx";
-import { NotRunning } from "./wake.tsx";
+import { codingPlace, codingTitle, harnessProfile, stateOf, TerminalMark } from "./parts.tsx";
+import { NotRunning, ReadFailed } from "./wake.tsx";
 
 /** The project's latest past coding session (a harness agent's session of the ledger), for Continue as chat. */
 function useLatestPast(project: string) {
@@ -71,15 +71,18 @@ function RunningEmpty({ project, computer }: { project: string; computer: string
 /** The coding sessions of one project. Nothing when the app runs and has none. */
 export function CodingSessionList({ project }: { project: string }) {
   const nav = useNav();
-  const { shell, sessions } = useCodingSessions(project);
+  const { shell, sessions, status, reload } = useCodingSessions(project);
   const computer = useCurrentComputer()?.name ?? "";
   // Set when the app was started from here: until the screen goes away, an empty list is explained instead of hidden.
   const [woken, setWoken] = useState(false);
-  if (shell !== "absent" && sessions.length === 0 && !woken) return null;
+  if (shell === null && status !== "failed") return null;
+  if (shell !== null && shell !== "absent" && sessions.length === 0 && !woken) return null;
   return (
     <>
       <Label>{t("mobile.ops.agents.coding", { computer })}</Label>
-      {shell === "absent" ? (
+      {shell === null ? (
+        <ReadFailed computer={computer} onRetry={reload} />
+      ) : shell === "absent" ? (
         <NotRunning computer={computer} onWoken={() => setWoken(true)} />
       ) : sessions.length === 0 ? (
         <RunningEmpty project={project} computer={computer} />
@@ -91,7 +94,7 @@ export function CodingSessionList({ project }: { project: string }) {
             <Row
               key={session.session}
               lead={<Face profile={harnessProfile(session.harness, session.label)} size={24} />}
-              title={session.title ?? session.label}
+              title={codingTitle(session)}
               sub={
                 terminal ? (
                   <>

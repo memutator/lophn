@@ -11,16 +11,19 @@ import { useCodingSessions } from "../../data/mod.ts";
 import { Face } from "../../parts/mod.ts";
 import { useOpenCoding } from "./open.tsx";
 import { harnessProfile } from "./parts.tsx";
-import { NotRunning } from "./wake.tsx";
+import { NotRunning, ReadFailed } from "./wake.tsx";
 
 export function CodingAgentGroup({ project }: { project: string }) {
-  const { shell } = useCodingSessions(project);
+  const { shell, status, reload } = useCodingSessions(project);
   const { open, busy, problem, computer } = useOpenCoding(true);
-  if (shell === null) return null;
+  // Still reading: nothing yet. A read that failed is said, not hidden.
+  if (shell === null && status !== "failed") return null;
   return (
     <>
       <Label>{t("mobile.ops.agents.coding", { computer })}</Label>
-      {shell === "absent" ? (
+      {shell === null ? (
+        <ReadFailed computer={computer} onRetry={reload} />
+      ) : shell === "absent" ? (
         <NotRunning computer={computer} />
       ) : (
         <>

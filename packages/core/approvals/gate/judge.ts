@@ -52,6 +52,14 @@ export function judge(
       ? askIn(mode, toParent)
       : { kind: "run" };
   }
+  // 사람의 허락이 드는 설정은 사람에게만 묻는다. skip도 묻는다(사람이 "묻지 마"라고 한 것은 이 무게의 일이 아니다).
+  // unattended turn과 팀 자식에는 물을 사람이 없어 막는다: 부모가 대신 허락하지 못한다. setting의 toParent는 skip을 켠
+  // 팀 자식도 참이다(tool_gate/check가 그렇게 넘긴다).
+  if (call.kind === "setting") {
+    return mode === "unattended" || toParent
+      ? { kind: "deny", reason: "no_person", pattern: null }
+      : { kind: "ask" };
+  }
   // MCP server는 설정한 층이 곧 할당이라 할당을 보지 않는다. app_tool의 tool은 앱의 command 이름이고
   // `removed_tools`도 command 이름을 담는다(operation은 할당 대상이 아니다).
   if (call.kind === "app_tool") {

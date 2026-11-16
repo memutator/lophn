@@ -209,3 +209,25 @@ test("할당하지 않은 extension의 tool은 not_assigned, 꺼졌거나 목록
     );
   }
 });
+
+// destination 같은 설정은 사람의 data를 data root 밖으로 보낸다. 사람이 없는 turn과 팀 자식은 묻지도 못하고 막힌다(카드가 열리지 않는다).
+test("사람의 허락이 드는 설정은 attended와 skip에서 묻고 unattended와 팀 자식은 어느 mode에서나 막는다", () => {
+  const call: GateCall = {
+    kind: "setting",
+    key: "folder.destinations",
+    lines: ['Add sync folder "personal": /home/me/Sync/lophn'],
+  };
+  const noPerson: Judgment = {
+    kind: "deny",
+    reason: "no_person",
+    pattern: null,
+  };
+  assert.deepStrictEqual(judge(call, null, rules(), "attended"), {
+    kind: "ask",
+  });
+  assert.deepStrictEqual(judge(call, null, rules(), "skip"), { kind: "ask" });
+  assert.deepStrictEqual(judge(call, null, rules(), "unattended"), noPerson);
+  for (const mode of MODES) {
+    assert.deepStrictEqual(judge(call, null, rules(), mode, true), noPerson);
+  }
+});

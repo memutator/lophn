@@ -67,6 +67,7 @@ files:
       - tool-gate-check:denied-shell-rule
       - tool-gate-check:denied-not-assigned
       - tool-gate-check:denied-removed
+      - tool-gate-check:denied-no-person
       - app-call-assignment-judge:gate-blocked
       - extension-tool-judge:not-assigned
       - extension-tool-judge:removed
@@ -91,6 +92,13 @@ files:
       - settings-file-watch:rejected-key
     note: "settings store의 update와 기동 때 읽기. 항목 file은 그 항목만 쓰고 지운다(사람이 둔 file과 읽지 못한 file은 그대로), 거절이면 아무 file도 안 바뀐다, agent는 locked 설정을 못 바꾼다"
 
+  - path: packages/core/config/routes_test.ts
+    covers:
+      - settings-update:needs-approval
+      - settings-update:changed
+      - settings-update:rejected
+    note: "agent의 folder.destinations 두기·바꾸기·지우기는 사람이 허락한 그 값만 그 한 번 쓰이고, 묻는 자리가 없거나 거절·막힘·취소·묻기 실패·결정 사이 바뀜이면 needs_approval이고 설정 file이 bytes 그대로다. 카드 줄은 이름과 전체 경로다. 사람 자격은 묻지 않고 쓰고, 틀린 값은 묻기 전에 거절된다"
+
   - path: packages/core/config/shell-settings_test.ts
     covers:
       - settings-update:rejected
@@ -108,8 +116,7 @@ files:
   - path: packages/core/folder/folder_test.ts
     covers:
       - settings-update:rejected
-      - settings-update:locked
-    note: "폴더 writer는 `..`, 절대 path, 다른 기계 폴더, 자기 폴더 안 symlink로 쓰기·지우기·rename을 하지 못하고 destination과 밖의 file이 bytes 그대로다. reader는 layout 꼴과 맞는 이름만 돌려준다. data root 안·data root를 품은·상대·서로 겹친 destination은 거절되고(손으로 둔 값은 쓰이지 않는다) agent는 folder.destinations를 두지도 지우지도 못한다. schema step folder.tables는 다른 표의 행을 그대로 둔다"
+    note: "폴더 writer는 `..`, 절대 path, 다른 기계 폴더, 자기 폴더 안 symlink로 쓰기·지우기·rename을 하지 못하고 destination과 밖의 file이 bytes 그대로다. reader는 layout 꼴과 맞는 이름만 돌려준다. data root 안·data root를 품은·상대·서로 겹친 destination은 거절되고(손으로 둔 값은 쓰이지 않는다). schema step folder.tables는 다른 표의 행을 그대로 둔다"
 
   - path: packages/core/folder/export/export_test.ts
     covers: []

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { idSchema } from "../base/ids.ts";
 import { defineMemory } from "../base/route.ts";
 import { SETTING_KEY } from "./declaration.ts";
 
@@ -11,13 +12,15 @@ export const settingsFileSchema = z.record(
 );
 
 // 하나라도 거절이면 아무것도 적용하지 않는다. 값은 싣지 않는다.
-// locked는 agent가 사람만 바꾸는 설정을 바꾸려 한 것이다. message는 뜻 검사가 거절한 이유(영어)다.
+// locked는 agent가 사람만 바꾸는 설정을 바꾸려 한 것이다. needs_approval은 agent가 사람의 허락이 드는 설정을 바꾸려 했는데
+// 허락을 받지 못한 것이다(사람이 거절했다, 물을 사람이 없다, 기다림이 끝났다). message는 그 이유(영어)다.
 const SETTING_REJECTION_REASONS = [
   "unknown_key",
   "wrong_type",
   "out_of_range",
   "invalid_value",
   "locked",
+  "needs_approval",
 ] as const;
 const settingRejectionSchema = z.strictObject({
   key: z.string(),
@@ -39,6 +42,8 @@ const settingEntrySchema = z.strictObject({
   description: z.string(),
   // 사람이 Settings 화면에서만 바꾼다. 명령과 agent는 바꾸지 못한다.
   locked: z.literal(true).optional(),
+  // agent가 바꾸면 사람이 승인 카드에서 그 한 번을 허락해야 한다.
+  approval: z.literal("person").optional(),
   // core가 선언의 zod type에서 만든 JSON Schema다.
   type: z.record(z.string(), z.json()),
   default: z.json().optional(),
@@ -84,7 +89,10 @@ const settingChangeInputSchema = z.discriminatedUnion("action", [
   }),
   z.strictObject({ key: z.string(), action: z.literal("unset") }),
 ]);
+// tool_call은 agent turn의 `lophn settings` 호출이다. approval 설정을 바꾸면 core가 그 tool call에 승인 카드를 연다.
+// 없으면 물을 자리가 없어 agent의 approval 설정 바꾸기는 needs_approval이다. 사람 자격은 보지 않는다.
 const settingsUpdateInputSchema = z.strictObject({
+  tool_call: idSchema("tcl").optional(),
   changes: z
     .array(settingChangeInputSchema)
     .refine(
@@ -117,7 +125,8 @@ export const settingsUpdate = defineMemory({
   name: "SettingsUpdate",
   input: settingsUpdateInputSchema,
   output: settingsUpdateOutputSchema,
-  // agent는 locked가 아닌 설정만 바꾼다(handler가 거른다). 어느 agent가 닿는지는 credential 상한(명령의 workspaces)이 정한다.
+  // agent는 locked가 아닌 설정만 바꾸고 approval 설정은 사람이 허락한 그 값만 쓴다(handler가 거르고 묻는다. 묻는 동안 답을
+  // 기다린다). 어느 agent가 닿는지는 credential 상한(명령의 workspaces)이 정한다.
   actors: ["user", "agent"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });

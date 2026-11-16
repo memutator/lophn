@@ -1,5 +1,6 @@
 // 승인 카드의 글. 제목, 결정 뒤 줄이 가리키는 대상, 효과를 subject에서 program이 만든다(요청한 agent가 쓴
-// 설명은 없다). 지금 묻는 것은 shell 명령이고, 앱 tool과 MCP tool은 사람이 묻기로 정할 때를 위해 그린다.
+// 설명은 없다). 지금 묻는 것은 shell 명령과 사람의 허락이 드는 설정 바꾸기이고, 앱 tool과 MCP tool은 사람이 묻기로 정할
+// 때를 위해 그린다. 설정은 core가 만든 줄(이름과 전체 경로)을 줄이지 않고 그대로 보인다.
 import { t } from "@lophn/i18n";
 import { shortId } from "../../desktop/connection/waiting/model.ts";
 import type { ApprovalSubject } from "../agent-tab-source.ts";
@@ -22,6 +23,8 @@ export function titleOf(subject: ApprovalSubject, agent: string): string {
       });
     case "plan":
       return t("conversation.title.approval-plan", { agent });
+    case "setting":
+      return t("conversation.title.approval-setting");
     case "app_tool":
     case "mcp_tool":
       return t("conversation.title.approval-run", {
@@ -70,17 +73,20 @@ export function targetOf(subject: ApprovalSubject): string {
       });
     case "file_change":
       return subject.changes.map(changeText).join(", ");
+    case "setting":
+      return subject.lines.join(", ");
     case "plan":
       return "";
   }
 }
 
-/** tool의 효과 글. shell과 file 바꾸기는 효과를 따로 말하지 않는다(대상이 바뀌는 것 자체다). */
+/** tool의 효과 글. shell, file·설정 바꾸기는 효과를 따로 말하지 않는다(대상이 바뀌는 것 자체다). */
 export function effectOf(subject: ApprovalSubject): string | null {
   if (
     subject.kind === "shell" ||
     subject.kind === "file_change" ||
-    subject.kind === "plan"
+    subject.kind === "plan" ||
+    subject.kind === "setting"
   ) {
     return null;
   }

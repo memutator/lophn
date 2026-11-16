@@ -39,6 +39,7 @@ flows:
     code: [packages/core/config/store.ts, packages/core/config/routes.ts, packages/core/config/registry.ts, packages/core/config/shell-settings.ts]
     steps:
       - "입력 모양을 본다. 부른 쪽이 agent이고 locked인 key가 하나라도 있으면 아무것도 쓰지 않고 그 key를 locked로 돌려준다. 사람(Settings 화면)은 지난다"
+      - "부른 쪽이 agent이고 선언이 `approval: \"person\"`인 key(folder.destinations)가 있으면 그 값의 타입·뜻 검사를 먼저 하고, 바뀜을 선언의 describe로 줄(이름과 전체 경로)로 만들어 agent 자격 그대로 `tool_gate/check`에 `setting`으로 묻고 사람의 답을 기다린다. 묻는 자리는 입력의 `tool_call`과 credential의 session·turn이다. 허락이면 기다린 동안 바뀜이 그대로인지 다시 보고 그 값을 그대로 쓴다. 허락은 이 호출 하나에만 쓰이고 남지 않는다. 사람 자격은 묻지 않는다"
       - "선언에 없는 key나 타입·범위가 틀린 값이 하나라도 있으면 파일을 읽지 않고 rejected 목록만 돌려준다. `<folder key>.<id>`는 folder 설정의 항목이고 id가 규칙에 안 맞으면 없는 key다"
       - "쓰기 직전에 settings.json을 다시 읽는다. 못 읽거나 JSON이 아니면 unavailable이다. 그 raw object에서 바뀐 key만 덮는다. 선언을 지운 key나 모르는 key는 파일에 남는다. 항목 변경이 닿는 folder도 다시 읽는다"
       - "쓰려는 항목과 같은 이름의 file이 이미 있는데 읽지 못한 것이거나(JSON이 깨졌다 등) 대소문자만 다른 이름이면 거절한다. 256 KB를 넘는 항목도 거절한다. 변경을 모두 얹은 값으로 뜻 검사를 한다(없는 theme id, 모드가 다른 theme, 쓸 수 없는 theme, 모르는 단축키 id와 chord, 글꼴 이름). 하나라도 거절이면 아무것도 쓰지 않고 이유(message)와 함께 rejected로 돌려준다"
@@ -59,6 +60,9 @@ flows:
         observe: ["response"]
       - id: locked
         when: "agent가 locked인 key(승인 규칙, call 정책, MCP server, skill, extension 켜기, turn 한도, coding agent 실행 명령어 등)를 바꾸려 했다. ok 응답의 rejected 목록(reason locked)이고 같이 보낸 변경도 쓰지 않는다"
+        observe: ["response"]
+      - id: needs-approval
+        when: "agent가 approval 설정을 바꾸려 했는데 허락을 받지 못했다: 묻는 자리(tool_call, credential의 turn)가 없다, 사람이 거절했다(사람의 이유가 message에 실린다), unattended turn이나 팀 자식이라 Gate가 막았다, 기다림이 turn 끝·session 닫힘·재시작으로 풀렸다, 묻기가 실패했다, 사람이 결정하는 사이 그 설정이 바뀌었다. ok 응답의 rejected 목록(reason needs_approval)이고 아무것도 쓰지 않는다"
         observe: ["response"]
       - id: unavailable
         code: unavailable

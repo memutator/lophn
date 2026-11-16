@@ -1,7 +1,8 @@
 // `lophn settings get|set|unset`: lophn의 설정을 읽고 바꾼다. 설정마다 명령을 두지 않는다. 설정의 뜻과 고를 수 있는 값은
 // core의 선언에서 오고(`settings/list`), theme처럼 항목마다 file 하나인 설정 묶음도 `<묶음 key>.<id>`로 같은 명령을 쓴다.
 // 사람만 바꾸는 설정(locked)은 여기서 바꾸지 못한다. agent는 route가, 사람의 터미널은 이 명령이 막는다(둘 다 user token이 아닌
-// 선언의 locked를 본다).
+// 선언의 locked를 본다). 사람의 허락이 드는 설정(approval)은 agent turn에서 부르면 core가 그 tool call에 승인 카드를 열고
+// 사람이 허락한 그 한 번만 쓴다. 명령은 tool call id를 싣기만 한다. 사람의 터미널은 바로 쓴다.
 import { z } from "zod";
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
@@ -37,6 +38,7 @@ function indexOf(listed: Listed): Record<string, unknown>[] {
       key: entry.key,
       value: valueOf(entry),
       ...(entry.locked === true ? { locked: true } : {}),
+      ...(entry.approval === undefined ? {} : { approval: entry.approval }),
       description: firstSentence(entry.description),
     })),
     ...listed.folders.map((folder) => ({
@@ -81,7 +83,8 @@ const get = defineCommand({
     "A key prefix (`shell`, `shell.browser`) lists the settings under it. " +
     "A key shown as `<prefix>.<id>` is a set of entries stored one file each (color themes are `shell.themes.<id>`): " +
     "`settings get shell.themes` prints the shape and every entry, `settings get shell.themes.<id>` one entry. " +
-    "`locked: true` means only the person changes it, in the Settings screen.",
+    "`locked: true` means only the person changes it, in the Settings screen. " +
+    '`approval: "person"` means a change you make asks the person first and applies only if they allow it.',
   input: z.strictObject({ key: keySchema.optional() }),
   positional: ["key"],
   effect: "read",
@@ -170,6 +173,7 @@ function readValue(schema: JsonSchema, text: string): Result<unknown> {
 const REASON: Readonly<Record<string, string>> = {
   unknown_key: "there is no such setting",
   locked: "only the person changes it, in the Settings screen",
+  needs_approval: "the person did not allow this change",
   wrong_type: "the value has the wrong type",
   out_of_range: "the value is out of range or not one of the allowed values",
   invalid_value: "the value is not valid",
@@ -228,10 +232,18 @@ async function change(
   action: { action: "set"; value: unknown } | { action: "unset" },
 ): Promise<Result<{ changed: boolean; notes: string[] }>> {
   const updated = await ctx.core.read(settingsUpdate, {
+    ...(ctx.caller === undefined ? {} : { tool_call: ctx.caller.tool_call }),
     changes: [{ key, ...action }],
   });
   if (!updated.ok) return updated;
   const rejection = updated.value.rejected[0];
+  // 사람이 거절했거나 물을 수 없었다. 이유(사람이 쓴 글 포함)를 그대로 돌려준다. 값을 고쳐 다시 할 일이 아니다.
+  if (rejection?.reason === "needs_approval") {
+    return err({
+      code: "forbidden",
+      message: `${key}: ${rejection.message ?? REASON[rejection.reason]}`,
+    });
+  }
   if (rejection !== undefined) {
     return err({
       code:
@@ -259,7 +271,9 @@ const set = defineCommand({
     "It applies at once: an open lophn window follows. The value is checked first, and a value that is not valid changes nothing and says why (invalid_input). " +
     "The answer carries `previous`, the value before the change; to undo, set it back (or `settings unset` when `previous` was the default). " +
     "`notes` are things that were accepted but need a look, such as a theme color pair with low contrast. " +
-    "A locked setting is forbidden: only the person changes it, in the Settings screen.",
+    "A locked setting is forbidden: only the person changes it, in the Settings screen. " +
+    'A setting with `approval: "person"` (sync folders) shows the person exactly what changes and waits for their answer; ' +
+    "if they reject it, nothing changes and the answer is forbidden with their reason. Tell the person why before you run it.",
   input: z.strictObject({ key: keySchema, value: z.string() }),
   positional: ["key", "value"],
   effect: "write",
@@ -296,7 +310,8 @@ const unset = defineCommand({
   description:
     "Remove the chosen value of a setting so it goes back to its default. For an entry of a set (`shell.themes.<id>`) it deletes that entry and its file. " +
     "The answer carries `previous`, the value that was removed; set it again to undo. " +
-    "A locked setting is forbidden: only the person changes it, in the Settings screen.",
+    "A locked setting is forbidden: only the person changes it, in the Settings screen. " +
+    'A setting with `approval: "person"` asks the person first, as `settings set` does.',
   input: z.strictObject({ key: keySchema }),
   positional: ["key"],
   effect: "write",

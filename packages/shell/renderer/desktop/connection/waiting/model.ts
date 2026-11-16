@@ -140,7 +140,10 @@ function appText(app: string, names: InboxNames): string {
 
 /** 도구 물음의 대상 한 줄. shell은 명령 자체가 세부라 대상 칸이 없다. */
 function toolTarget(
-  subject: Exclude<TurnRequest["subject"], { kind: "shell" | "harness" }>,
+  subject: Exclude<
+    TurnRequest["subject"],
+    { kind: "shell" | "harness" | "setting" }
+  >,
   names: InboxNames,
 ): string {
   return subject.kind === "app_tool"
@@ -179,6 +182,22 @@ function permissionView(request: TurnRequest, names: InboxNames) {
                 },
               ]),
         ],
+        choices,
+      };
+    // 바뀜이 사람이 정할 거리 전부라 늘 보인다. 줄은 core가 만든 그대로(전체 경로)다.
+    case "setting":
+      return {
+        title: t("waiting.title.setting"),
+        description: t("waiting.notice.setting"),
+        factsPinned: true,
+        facts: subject.lines.map((line, at) => ({
+          label:
+            subject.lines.length === 1
+              ? t("waiting.label.fact-change")
+              : t("waiting.label.fact-change-nth", { n: at + 1 }),
+          value: line,
+          style: "text" as const,
+        })),
         choices,
       };
     case "app_tool": {

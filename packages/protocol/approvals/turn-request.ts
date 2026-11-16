@@ -49,7 +49,7 @@ const turnRequestSubjectSchema = z.discriminatedUnion("kind", [
 
 // always_patterns는 always를 고르면 더해질 allow 규칙의 pattern이다(ask였던 조각마다 `<앞 두 낱말> *`,
 // 한 낱말이면 그 조각, 조각을 이어야 ask인 명령은 그 명령 전체). 카드는 이것을 그대로 보여 사람이
-// 무엇을 허락하는지 안다. shell request만 차 있고 tool request와 harness 물음은 비어 있다.
+// 무엇을 허락하는지 안다. shell request만 차 있고 tool·setting request와 harness 물음은 비어 있다.
 // to_parent는 팀 자식의 request라 사람이 아니라 부모가 푼다는 표시다(카드도 always도 없다, always_patterns는 빈 목록).
 export const turnRequestSchema = z.strictObject({
   id: idSchema("apr"),

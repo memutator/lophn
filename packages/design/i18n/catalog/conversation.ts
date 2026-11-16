@@ -556,6 +556,7 @@ export const conversation = {
     "{agent} wants to change {count, plural, one {a file} other {# files}}",
   "conversation.title.approval-plan": "{agent} has a plan ready",
   "conversation.title.approval-run": "{agent} wants to run {tool}",
+  "conversation.title.approval-setting": "Change a lophn setting",
   "conversation.title.consent-handled": "Release approval request handled",
   "conversation.title.consent-waiting":
     "Waiting for your approval to release {app}",

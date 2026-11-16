@@ -188,7 +188,7 @@ flows:
       - "settings/list로 key를 찾는다. 선언된 설정이거나 folder 설정의 항목(`shell.themes.<id>`)이어야 한다. 없는 key는 not_found, folder key 자체는 invalid_input이다"
       - "locked인 설정은 forbidden으로 끝낸다. 사람의 터미널(user token)도 같다. 사람은 Settings 화면에서 바꾼다"
       - "set은 값이 글자인 설정이면 명령줄의 글을 그대로, 아니면 JSON으로 읽는다. JSON이 아니면 invalid_input이다"
-      - "settings/update를 부른다. 거절(rejected)이면 이유를 실어 invalid_input으로 돌려준다"
+      - "settings/update를 부른다. lophn agent의 tool call이면 그 tool call id를 싣는다(사람의 허락이 드는 설정이면 core가 그 자리에 승인 카드를 열고 답을 기다린다). 거절(rejected)이면 이유를 실어 invalid_input으로 돌려준다. needs_approval이면 core의 이유(사람이 쓴 거절 이유 포함)를 그대로 forbidden으로 돌려준다"
       - "답에 바꾸기 전 값(previous)과 notes를 싣는다. unset은 고른 값을 지워 기본값으로 돌리고, 항목이면 그 file을 지운다"
       - "agent에게는 home workspace에서만 있는 명령이다. 다른 workspace의 agent는 credential 상한에 settings/update가 없다"
     outcomes:
@@ -205,6 +205,10 @@ flows:
       - id: locked
         code: forbidden
         when: "사람만 바꾸는 설정이다(명령이 list의 locked로 막거나 route가 agent를 locked로 거절했다)"
+        observe: ["response"]
+      - id: needs-approval
+        code: forbidden
+        when: "사람의 허락이 드는 설정(folder.destinations)을 agent가 바꾸려 했는데 사람이 거절했거나, unattended turn·팀 자식이라 막혔거나, 묻는 자리가 없거나(lophn agent turn 밖의 agent credential), 기다림이 끝났다. 아무것도 바뀌지 않는다"
         observe: ["response"]
       - id: invalid_input
         code: invalid_input

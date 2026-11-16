@@ -11,7 +11,7 @@ flows:
       - "core가 session의 agent·workspace·`spawned_by`·`skip`과 turn의 `mode`를 읽는다. 읽은 값이 없거나 읽지 못하면 판정하지 않는다."
       - "`judge`가 할당 없는 앱 tool은 `not_assigned`, 할당에서 뺀 tool은 `removed`, shell 규칙 floor와 deny 줄은 `shell_rule`로 실행 없이 이유를 돌려준다."
       - "shell 규칙이 `ask`를 내고 mode가 attended이거나 팀 자식(`toParent`)이면 turn request를 메모리에 열고 기다린다. unattended와 skip은 묻지 않고 run이다."
-      - "app tool과 MCP tool은 판정이 늘 run이다(외부 효과 묻기가 꺼져 있다)."
+      - "app tool과 MCP tool은 판정이 늘 run이다(외부 효과 묻기가 꺼져 있다). `setting`(사람의 허락이 드는 설정 바꾸기)은 runtime이 아니라 `settings/update`가 agent의 자격 그대로 부른다. attended와 skip은 묻고(skip도 묻는다), unattended turn과 팀 자식(skip을 켠 자식도)은 `no_person`으로 막아 request가 열리지 않는다. 카드는 core가 선언의 describe로 만든 `lines`를 그대로 보이고 always가 없다."
       - "사람이 `turn_requests/decide`로 once나 always를 고르면 기다리던 call이 입력을 그대로 실행한다(다시 판정하지 않는다). reject면 `the person rejected this tool call: <이유>`를 받는다. 팀 자식이면 부모의 허락과 거절이 같은 결과다(`the parent rejected this tool call`)."
       - "기다림이 turn 끝, session 닫힘, 재시작으로 풀리면 cancelled를 받는다(`turn-request-cancel`)."
     outcomes:
@@ -29,6 +29,9 @@ flows:
         observe: ["response"]
       - id: denied-shell-rule
         when: "shell 규칙 floor나 deny 줄이 명령(또는 조각)에 맞음. 맞은 pattern을 싣는다"
+        observe: ["response"]
+      - id: denied-no-person
+        when: "`setting`을 unattended turn이나 팀 자식이 물음. 물을 사람이 없어 막고 카드를 열지 않는다"
         observe: ["response"]
       - id: rejected-by-person
         when: "승인 카드에서 사람이 거절함. 팀 자식의 request면 부모의 거절, 부모가 답 없이 끝남, 부모에게 닿지 않음도 이 거절로 온다(by parent)"

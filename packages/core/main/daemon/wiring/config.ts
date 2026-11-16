@@ -1,4 +1,8 @@
-import { err, ok } from "../../../../base/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
+import {
+  toolGateCheck,
+  type ToolGateResult,
+} from "../../../../protocol/approvals/mod.ts";
 import { publishStateChanged } from "../../../../protocol/events/changes.ts";
 import { DIAGNOSTICS_TRACE_SETTING_KEY } from "../../../../protocol/diagnostics/trace.ts";
 import {
@@ -73,7 +77,17 @@ export const configWiring: WiringFactory = () => {
       return ok({
         memory: [
           [key(settingsList), settingsListHandler(store)],
-          [key(settingsUpdate), settingsUpdateHandler(store)],
+          [
+            key(settingsUpdate),
+            // agent의 approval 설정 바꾸기는 approvals의 `tool_gate/check`로 사람에게 묻는다. 그 route는 뒤 wiring이라
+            // 부를 때 찾는다.
+            settingsUpdateHandler(store, async (who, input) => {
+              const gate = ctx.runtime.memory.handlers.get(key(toolGateCheck));
+              return gate === undefined
+                ? err({ code: "unavailable", message: "route unavailable" })
+                : ((await gate(who, input)) as Result<ToolGateResult>);
+            }),
+          ],
         ],
       });
     },

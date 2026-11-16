@@ -28,7 +28,8 @@ type ToolEffect = "read" | "write" | "external";
 type GateCall =
   | { kind: "app_tool"; app: string; tool: string; effect: ToolEffect }
   | { kind: "mcp_tool"; server: string; tool: string; effect: ToolEffect }
-  | { kind: "shell"; command: string };
+  | { kind: "shell"; command: string }
+  | { kind: "setting"; key: string; lines: string[] };
 
 type AcpApprovalSubject =
   | GateCall

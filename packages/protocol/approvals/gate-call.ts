@@ -24,6 +24,13 @@ const askedCallOptions = [
     kind: z.literal("shell"),
     command: z.string().min(1),
   }),
+  // agent가 사람의 허락이 드는 설정(선언 `approval: "person"`)을 바꾼다. lines는 core가 선언의 describe(before, after)로
+  // 만든 영어 줄이고 카드가 줄이지 않고 그대로 보인다. always가 없다(always_patterns는 빈 목록).
+  z.strictObject({
+    kind: z.literal("setting"),
+    key: z.string().min(1),
+    lines: z.array(z.string().min(1)).min(1),
+  }),
 ] as const;
 
 // 사람에게 물을 수 있는 호출이다. 승인 카드(turn request)와 ACP 승인 subject가 이것만 쓴다.
@@ -77,8 +84,14 @@ export const acpApprovalSubjectSchema = z.discriminatedUnion("kind", [
 export type AcpApprovalSubject = z.infer<typeof acpApprovalSubjectSchema>;
 
 // not_assigned는 할당에 없는 앱의 tool(extension_tool은 정의 `extensions`에 없는 extension), removed는 할당에서 뺀 tool
-// (extension_tool은 꺼졌거나 목록에서 빠진 tool), shell_rule은 shell 규칙(floor)이 막음.
-export const DENY_REASONS = ["not_assigned", "removed", "shell_rule"] as const;
+// (extension_tool은 꺼졌거나 목록에서 빠진 tool), shell_rule은 shell 규칙(floor)이 막음. no_person은 사람이 있는 session에서만
+// 묻는 호출(setting)을 unattended turn이나 팀 자식이 한 것이다.
+export const DENY_REASONS = [
+  "not_assigned",
+  "removed",
+  "shell_rule",
+  "no_person",
+] as const;
 export const denyReasonSchema = z.enum(DENY_REASONS);
 export type DenyReason = z.infer<typeof denyReasonSchema>;
 

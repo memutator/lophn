@@ -114,8 +114,11 @@ export function toolGateHandler(deps: {
       agent: found.value.agent,
       workspace: found.value.workspace,
       mode: mode.value,
-      // skip이 먼저다: 사람이 skip을 켠 session은 팀 자식이어도 묻지 않는다.
-      toParent: found.value.spawnedBy !== null && !found.value.skip,
+      // skip이 먼저다: 사람이 skip을 켠 session은 팀 자식이어도 묻지 않는다. setting은 skip도 묻는 호출이라
+      // 팀 자식이면 skip과 상관없이 자식으로 판정한다(Gate가 막는다).
+      toParent:
+        found.value.spawnedBy !== null &&
+        (!found.value.skip || input.call.kind === "setting"),
       tool: input.tool,
       call: input.call,
     });

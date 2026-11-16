@@ -36,7 +36,7 @@ const CHOICE_LABEL = {
   reject: "conversation.button.approval-deny",
 } as const;
 
-/** The request's facts as the desktop card lists them: the command, the changes, or the tool and its effect. */
+/** The request's facts as the desktop card lists them: the command, the changes, the setting change, or the tool and its effect. */
 function factsOf(request: ApprovalCardRequest): { label: string; value: string; fit?: boolean }[] {
   const { subject } = request;
   const facts: { label: string; value: string; fit?: boolean }[] =
@@ -51,10 +51,13 @@ function factsOf(request: ApprovalCardRequest): { label: string; value: string; 
           ]
         : subject.kind === "plan"
           ? [{ label: t("conversation.label.plan"), value: subject.plan }]
-          : [
-              { label: t("conversation.label.approval-target"), value: targetOf(subject) },
-              { label: t("conversation.label.approval-effect"), value: effectOf(subject) ?? "" },
-            ];
+          : subject.kind === "setting"
+            ? // core's lines as they are: the name and the whole path, one change per line.
+              [{ label: t("conversation.label.approval-changes"), value: subject.lines.join("\n") }]
+            : [
+                { label: t("conversation.label.approval-target"), value: targetOf(subject) },
+                { label: t("conversation.label.approval-effect"), value: effectOf(subject) ?? "" },
+              ];
   if (request.choices.includes("always") && request.always_patterns.length > 0) {
     facts.push({
       label: t("conversation.label.approval-always"),

@@ -18,7 +18,6 @@ import type { SyncLog } from "../apps/sync/log.ts";
 import { SYNC_LOG_SCHEMA_STEPS } from "../apps/sync/schema.ts";
 import { createFileSettingsReader } from "../config/reader.ts";
 import { createSettingsRegistry } from "../config/registry.ts";
-import { settingsUpdateHandler } from "../config/routes.ts";
 import { createSettingsStore } from "../config/store.ts";
 import { createDestinations, destinationsSetting } from "./destinations.ts";
 import { createFolderReader, createFolderWriter } from "./fs.ts";
@@ -236,38 +235,6 @@ test("data root와 겹치거나 상대이거나 다른 destination과 겹친 des
       assert.deepStrictEqual(destinations.list(), [
         { name: "personal", path: sync, state: "missing" },
       ]);
-    });
-  });
-});
-
-// destination을 두면 사람의 data가 data root를 떠나 바깥 도구가 올리는 폴더로 간다. 사람의 승인 없이는 안 된다.
-test("agent 자격은 destination을 두지도 지우지도 못하고 설정 file이 그대로다", async () => {
-  await withTemp(async (dataRoot) => {
-    const original = `${JSON.stringify({ "folder.destinations": { personal: { path: "/srv/sync" } } }, null, 2)}\n`;
-    writeFileSync(join(dataRoot, "settings.json"), original);
-    await withSettings(dataRoot, async (store, file) => {
-      const update = settingsUpdateHandler(store);
-      for (const change of [
-        {
-          key: "folder.destinations",
-          action: "set",
-          value: { personal: { path: "/srv/other" } },
-        },
-        { key: "folder.destinations", action: "unset" },
-      ]) {
-        const result = await update({ actor: "agent:agt_1" } as never, {
-          changes: [change],
-        });
-        assert.deepStrictEqual(result, {
-          ok: true,
-          value: {
-            changed: [],
-            rejected: [{ key: "folder.destinations", reason: "locked" }],
-            notes: [],
-          },
-        });
-        assert.equal(readFileSync(file, "utf8"), original);
-      }
     });
   });
 });

@@ -80,6 +80,8 @@ export const data = {
   "waiting.label.fact-effect": "Effect",
   "waiting.label.fact-always": "Always allow adds",
   "waiting.label.fact-command": "Command",
+  "waiting.label.fact-change": "Change",
+  "waiting.label.fact-change-nth": "Change {n}",
   "waiting.label.fact-target": "Target",
   "waiting.label.group-activation": "App updates",
   "waiting.label.group-notifications": "Notifications",
@@ -168,6 +170,8 @@ export const data = {
   "waiting.notice.job-workflow": "Starts workflow {workflow}.",
   "waiting.notice.mcp-tool": "Uses {target}, a tool on an outside server.",
   "waiting.notice.shell": "Runs the command shown below.",
+  "waiting.notice.setting":
+    "Changes a lophn setting as shown below. Nothing changes unless you allow it.",
   "waiting.notice.question-in-session":
     "This question needs your answer in the session.",
   "waiting.notice.question-loading": "Loading the question.",
@@ -196,4 +200,5 @@ export const data = {
   "waiting.title.mcp-tool": "Use the {tool} tool",
   "waiting.title.question": "Question",
   "waiting.title.shell": "Run a command",
+  "waiting.title.setting": "Change a lophn setting",
 } as const;

@@ -1,5 +1,5 @@
 id: mobile-push
-version: 0.23.62
+version: 0.23.63
 title: core가 host들의 보고로 사람이 무엇을 보는지 알고, 사람을 기다리는 일을 보고 있지 않은 폰에 Expo Push로 알리고, 못 본 turn 끝(unseen)을 든다
 modules: [packages/protocol, packages/core/attention, packages/core/remote, packages/core/main, packages/core/config, packages/core/jobs, packages/core/storage, packages/shell/main, packages/shell/renderer, packages/shell/ipc, packages/shell/preload, packages/mobile, packages/design, tests, tools]
 change: |

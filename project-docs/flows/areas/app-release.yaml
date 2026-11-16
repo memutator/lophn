@@ -1423,5 +1423,3 @@ flows:
         observe: ["process:core follow 상태"]
     crosses_process: true
     risk: [permission, data-loss]
-    unclear:
-      - "follow 상태는 core 메모리다. 사람이 보는 길(apps/update_state, App details Machines)은 update-status가 낸다"

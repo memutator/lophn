@@ -94,6 +94,7 @@ import {
   appSyncSnapshotFile,
 } from "../../protocol/apps/app-sync.ts";
 import { SYNC_LOG_BLOB_FIELDS } from "./sync/schema.ts";
+import { appUpdateState } from "../../protocol/apps/update-state.ts";
 import type {
   ReaderRegistration,
   TxPortRegistration,
@@ -300,6 +301,8 @@ export function createLedgerRegistration(
       // 폰 sync. handler는 wiring/apps.ts가 붙인다.
       appSyncPush,
       appSyncSnapshot,
+      // 기계 사이 판 차이. handler는 wiring/folder.ts가 붙인다.
+      appUpdateState,
     ],
     // 앱 화면의 byte는 core가 UI bundle 사본에서 흘려 준다.
     files: [appScreenFile, appSyncSnapshotFile, appPhoneFile],

@@ -126,6 +126,10 @@ export function RunHalted() {
   return <AppSpace ops="version" run="halted" />;
 }
 
+export function MachinesWaiting() {
+  return <AppSpace ops="version" machines="waiting" />;
+}
+
 export function AccessGrants() {
   return <AppSpace ops="access" />;
 }

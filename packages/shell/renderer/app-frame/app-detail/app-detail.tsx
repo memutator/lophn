@@ -8,6 +8,7 @@ import { AccessTab } from "./access/access-tab.tsx";
 import { ActivityTab } from "./activity/activity-tab.tsx";
 import { FoldersSection } from "./folders-section.tsx";
 import { IconSection } from "./icon-section.tsx";
+import { MachinesSection } from "./machines-section.tsx";
 import { RunSection } from "./run-section.tsx";
 import type { AppDetailSource } from "./source.ts";
 import { VersionsTab } from "./versions/versions-tab.tsx";
@@ -42,6 +43,7 @@ export function AppDetail({
       <IconSection app={app} name={name} source={source} />
       <RunSection app={app} source={source} now={now} />
       <FoldersSection app={app} source={source} />
+      <MachinesSection app={app} now={now} />
       <Tabs defaultValue="version">
         <TabList>
           <Tab value="version" size="sm">

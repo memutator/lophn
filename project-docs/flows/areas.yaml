@@ -217,6 +217,7 @@ areas:
       - packages/protocol/apps/app-log.ts
       - packages/protocol/apps/sdk-status.ts
       - packages/protocol/apps/app-sync.ts
+      - packages/protocol/apps/update-state.ts
       - packages/protocol/folder/
     owns:
       - 앱 등록, 지우기, source 폴더

@@ -35,6 +35,8 @@ import {
   takeInInputSchema,
 } from "../../../../protocol/folder/mod.ts";
 import { parseActor } from "../../../../protocol/base/mod.ts";
+import { appUpdateState } from "../../../../protocol/apps/update-state.ts";
+import { publishStateChanged } from "../../../../protocol/events/changes.ts";
 import {
   REMOTE_PROTOCOL_MIN_VERSION,
   REMOTE_PROTOCOL_VERSION,
@@ -43,6 +45,7 @@ import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { SyncHeld } from "../../../apps/calls/service.ts";
 import { createFolderAppsHost } from "../../../apps/folder-host.ts";
 import { createFollow } from "../../../apps/follow/mod.ts";
+import { readUpdateState } from "../../../apps/update-state/mod.ts";
 import {
   FOLDER_APPS_CONTEXT,
   loadApps,
@@ -482,6 +485,13 @@ export const folderWiring: WiringFactory = () => {
             err({ code: "unavailable", message: "activation is unavailable" }),
           ),
       });
+      // App details의 Machines(`apps/update_state`)가 다시 읽는다. held·기계 범위는 앱을 가리지 않고 알린다.
+      const updateChanged = (app: Id<"app"> | null) =>
+        publishStateChanged(ctx.bus, ctx.clock.now(), [
+          { name: "app_runtime", id: app },
+        ]);
+      follow.onChange((app) => updateChanged(app));
+      importer.exchange.onChange(() => updateChanged(null));
       const followUp = (app?: Id<"app">) => {
         if (stopped) return;
         follow.sweep(app).catch((thrown) => log("follow_threw", thrown));
@@ -590,6 +600,8 @@ export const folderWiring: WiringFactory = () => {
           log("scan_failed", scanned.error.message);
           return { ok: false, more: false };
         }
+        // 다른 기계의 활성 release가 바뀌었을 수 있다.
+        if (scanned.value.updated.length > 0) updateChanged(null);
         // 새로 생긴 다른 기계·앱 폴더도 감시한다.
         rewatch();
         for (const app of syncApps()) {
@@ -827,6 +839,32 @@ export const folderWiring: WiringFactory = () => {
         );
       }
 
+      function updateState(
+        auth: AuthenticatedContext,
+        input: unknown,
+      ): Promise<Result<unknown>> {
+        const { app } = input as { app: Id<"app"> };
+        // 앱 workspace의 agent는 자기 앱만 본다.
+        if (auth.conditions.app !== undefined && auth.conditions.app !== app) {
+          return Promise.resolve(
+            err({ code: "not_found", message: "app not found" }),
+          );
+        }
+        return Promise.resolve(
+          readUpdateState(
+            {
+              machine: me,
+              syncApps,
+              follow,
+              exchange: importer.exchange,
+              records: () => importer.records(),
+              sql,
+            },
+            app,
+          ),
+        );
+      }
+
       function forgetMachine(
         _auth: AuthenticatedContext,
         input: unknown,
@@ -1036,6 +1074,7 @@ export const folderWiring: WiringFactory = () => {
           [key(machineForget), forgetMachine],
           [key(appSyncHeld), syncHeld],
           [key(appSyncResume), syncResume],
+          [key(appUpdateState), updateState],
         ],
         reads: (reads) => reads.set(key(machineEnvironment), environment),
         writer: (inner) => ({

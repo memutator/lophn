@@ -56,6 +56,8 @@ interface AppWorkspaceProps {
   readonly revoking?: readonly ("host" | "secret" | "reserve")[];
   /** Access 탭의 secret 줄들. 없으면 plain secret 하나다. */
   readonly secrets?: SecretsFake;
+  /** 폴더로 맞추는 앱의 Machines 절. waiting은 동의 기다림, 다른 기계의 기다리는 변경, 옛 lophn 기계 하나다. */
+  readonly machines?: "waiting";
   readonly activity?: {
     readonly open?: string | null;
     readonly rewind?: RewindStage | null;
@@ -218,6 +220,7 @@ export function AppSpace(props: AppWorkspaceProps = {}) {
       ...(props.version === undefined ? {} : { activation: props.version }),
       ...(props.run === undefined ? {} : { run: props.run }),
       ...(props.secrets === undefined ? {} : { secrets: props.secrets }),
+      ...(props.machines === undefined ? {} : { machines: props.machines }),
       rewind:
         props.activity?.rewind === "running"
           ? "pending"

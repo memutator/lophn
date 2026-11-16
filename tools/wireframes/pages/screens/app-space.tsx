@@ -20,6 +20,7 @@ import {
   CoachIdle,
   CoachReviewed,
   CoachWorking,
+  MachinesWaiting,
   PreviewButton,
   PreviewDevice,
   PreviewStopped,
@@ -161,6 +162,13 @@ export const appSpaceArea: Area = {
       description:
         "예상 밖 종료가 10분 안에 다섯 번을 넘어 lophn이 자동 재시작을 멈춘 앱이다. Switch는 켜진 채라 껐다가 10분이 지난 뒤 다시 켜야 돈다는 안내가 있다.",
       render: () => <RunHalted />,
+    },
+    {
+      id: "app-machines-waiting",
+      title: "App details · Machines (update waiting)",
+      description:
+        "폴더로 맞추는 앱의 Machines 절. 기계마다 release(r<n>이나 commit)와, 범위 밖이면 lophn 판이 보인다. 이 기계는 Laptop의 r8을 따라가려고 동의를 기다리고(Open waiting list가 대기 panel을 연다), Laptop이 r8에서 쓴 변경 37개가 여기서 기다리고, Office mini는 옛 lophn이라 그 기계에서 올리라고 말한다. 기다리는 동안 앱은 이 기계의 data로 돈다. 모든 기계를 올리는 단추는 없다.",
+      render: () => <MachinesWaiting />,
     },
     {
       id: "new-app-access",

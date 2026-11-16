@@ -23,6 +23,8 @@ import {
   releasesGetRecord,
   releasesListRecords,
   type RewindPlan,
+  appUpdateState,
+  type UpdateState,
 } from "../../../../protocol/apps/mod.ts";
 import {
   appIcon,
@@ -46,6 +48,7 @@ import {
 import type {
   AccessView,
   ActivationStep,
+  MachinesView,
   ActivityRow,
   ActivityView,
   AppNoticeRow,
@@ -181,6 +184,68 @@ export function useFolders(app: string): ReadHandle<readonly string[]> {
 // ---- Version ----
 
 const short = (commit: string) => commit.slice(0, 7);
+
+// ---- Machines ----
+
+function machinesView(state: UpdateState): MachinesView {
+  const label = (release: UpdateState["machines"][number]["release"]) =>
+    release === null
+      ? null
+      : release.number === null
+        ? short(release.code_commit)
+        : `r${release.number}`;
+  const target = state.machines.find(
+    (row) =>
+      row.release !== null && row.release.bundle_hash === state.follow.release,
+  );
+  return {
+    follow: {
+      step: state.follow.state,
+      target: target === undefined ? null : label(target.release),
+      reason: state.follow.reason,
+    },
+    machines: state.machines.map((row) => ({
+      machine: row.machine,
+      name: row.name,
+      thisMachine: row.this_machine,
+      release: label(row.release),
+      lophnVersion: row.lophn_version,
+      exchange: row.exchange,
+      held: state.held
+        .filter((held) => held.machine === row.machine)
+        .map((held) => ({
+          changes: held.changes,
+          full: held.full,
+          why: held.why,
+        })),
+    })),
+  };
+}
+
+/** 폴더로 맞추지 않는 앱(not_found)이면 null이다. */
+export function useMachinesView(app: string): ReadHandle<MachinesView | null> {
+  return useFollowedRead<MachinesView | null>(
+    async (core) => {
+      const reply = await core.call({
+        kind: appUpdateState.kind,
+        resource: appUpdateState.resource,
+        method: appUpdateState.method,
+        body: { app },
+      });
+      if (reply.ok) {
+        return {
+          ok: true,
+          value: machinesView(reply.value as UpdateState),
+        };
+      }
+      return reply.error?.code === "not_found"
+        ? { ok: true, value: null }
+        : { ok: false };
+    },
+    readsOf(appUpdateState, { app }),
+    app,
+  );
+}
 
 const STEP_ORDER: readonly ActivationStep["key"][] = [
   "hold",

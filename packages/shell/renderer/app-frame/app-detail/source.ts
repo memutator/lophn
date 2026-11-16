@@ -276,6 +276,51 @@ export interface RunView {
   readonly state: RunState;
 }
 
+// ---- Machines ----
+
+/** 이 기계가 다른 기계의 새 release를 따라가는 상태(core follow). */
+export type FollowStep =
+  | "current"
+  | "installing"
+  | "activating"
+  | "waiting_consent"
+  | "declined"
+  | "lophn_update"
+  | "install_failed"
+  | "activation_failed"
+  | "diverged";
+
+/** 다른 release라 이 기계가 적용하지 않고 둔 그 기계의 변경. */
+export interface HeldLine {
+  readonly changes: number;
+  /** 한도에 닿아 나머지는 폴더에 남아 있다. */
+  readonly full: boolean;
+  /** newer: 이 기계가 그 release로 올라가면 적용된다. older: 그 기계가 올라온 뒤 온다. */
+  readonly why: "newer_release" | "older_release";
+}
+
+export interface MachineLine {
+  readonly machine: string;
+  readonly name: string;
+  readonly thisMachine: boolean;
+  /** 그 기계의 활성 release: 이 기계에 있으면 r<n>, 아니면 commit 앞 7자. 모르면 null. */
+  readonly release: string | null;
+  readonly lophnVersion: string | null;
+  readonly exchange: "ok" | "update_this" | "update_peer";
+  readonly held: readonly HeldLine[];
+}
+
+export interface MachinesView {
+  readonly follow: {
+    readonly step: FollowStep;
+    /** 따라가려는 release(r<n>이나 commit 앞 7자). 모르면 null. */
+    readonly target: string | null;
+    readonly reason: string | null;
+  };
+  /** 이 기계가 첫 줄이다. */
+  readonly machines: readonly MachineLine[];
+}
+
 export interface AppDetailSource {
   /** 실행 허용을 켜거나 끈다. 끄면 앱 process가 멈추고, 보관된 앱은 켤 수 없다(conflict). */
   setRun(app: string, enabled: boolean): Promise<SourceResult<true>>;

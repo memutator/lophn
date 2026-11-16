@@ -22,6 +22,8 @@ import {
   releasesGetRecord,
   releasesListRecords,
   type RewindPlan,
+  appUpdateState,
+  type UpdateState,
 } from "../../../../../protocol/apps/mod.ts";
 import type { StateChange } from "../../../../../protocol/events/changes.ts";
 import {
@@ -80,6 +82,11 @@ interface FakeOptions {
   run?: "running" | "stopped" | "halted";
   /** 다른 앱 이름. */
   names?: Readonly<Record<string, string>>;
+  /**
+   * 폴더로 맞추는 앱의 Machines 절. waiting: 이 기계가 Laptop의 r8을 따라가려고 동의를 기다리고, Laptop이 r8에서 쓴
+   * 변경이 여기서 기다리고, Office mini는 옛 lophn이라 주고받지 못한다. 없으면 폴더로 맞추지 않는 앱이다(절이 없다).
+   */
+  machines?: "waiting";
 }
 
 const GRANT_HOST = "grt_01h455vb4pex5v6nkc6gd5fd01";
@@ -418,6 +425,64 @@ const appRecord = (
   status: "active",
 });
 
+const THIS_MACHINE = "mch_01h455vb4pex5v6nkc6gd5fd01";
+const LAPTOP = "mch_01h455vb4pex5v6nkc6gd5fd02";
+const OFFICE = "mch_01h455vb4pex5v6nkc6gd5fd03";
+const R8_BUNDLE = "8".repeat(64);
+
+const UPDATE_WAITING: UpdateState = {
+  app: MAIN,
+  follow: { state: "waiting_consent", release: R8_BUNDLE, reason: null },
+  held: [
+    {
+      machine: LAPTOP,
+      bundle_hash: R8_BUNDLE,
+      data_schema: 5,
+      changes: 37,
+      bytes: 48_213,
+      full: false,
+      why: "newer_release",
+    },
+  ],
+  machines: [
+    {
+      machine: THIS_MACHINE,
+      name: "Studio",
+      this_machine: true,
+      lophn_version: "0.23.74",
+      exchange: "ok",
+      release: {
+        bundle_hash: HASH,
+        number: 7,
+        code_commit: "3f9a1c2".padEnd(40, "0"),
+        data_schema: 4,
+      },
+    },
+    {
+      machine: LAPTOP,
+      name: "Laptop",
+      this_machine: false,
+      lophn_version: "0.23.74",
+      exchange: "ok",
+      // 따라가려고 이 기계에 prepared로 들였다.
+      release: {
+        bundle_hash: R8_BUNDLE,
+        number: 8,
+        code_commit: "c42d9e1".padEnd(40, "0"),
+        data_schema: 5,
+      },
+    },
+    {
+      machine: OFFICE,
+      name: "Office mini",
+      this_machine: false,
+      lophn_version: "0.21.4",
+      exchange: "update_peer",
+      release: null,
+    },
+  ],
+};
+
 /** 이름·제목만 쓰는 읽기의 답. 나머지 칸은 화면이 보지 않는다. */
 const partial = <T>(value: unknown) => value as T;
 
@@ -581,6 +646,10 @@ export function fakeDetail(options: FakeOptions = {}) {
   };
 
   const answers: readonly FakeAnswer[] = [
+    // 폴더로 맞추지 않는 앱은 답이 없어 읽기가 실패하고 절이 서지 않는다.
+    ...(options.machines === "waiting"
+      ? [fakeAnswer(appUpdateState, UPDATE_WAITING)]
+      : []),
     fakeAnswer(appGet, ({ app }) => ({
       ...COMMON,
       app:

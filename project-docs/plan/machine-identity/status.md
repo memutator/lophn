@@ -8,5 +8,5 @@ lead만 고친다. `tools/status.py machine-identity build`가 `tasks/*.md`에�
 | `machine-device-kind` | machine-remote | 1 | 없음 | merged | machine-remote/machine-device-kind | 6a78e3f82 |  |
 | `machine-consumers` | machine-consumers | 2 | machine-id, machine-device-kind | merged | machine-consumers/machine-consumers | 792f5ebe3 |  |
 | `machine-hello` | machine-remote | 2 | machine-id, machine-device-kind | merged | machine-remote/machine-hello | aa2c31fdc |  |
-| `machine-settings` | machine-settings | 2 | machine-id, machine-device-kind | running | machine-settings/machine-settings |  |  |
+| `machine-settings` | machine-settings | 2 | machine-id, machine-device-kind | merged | machine-settings/machine-settings | f7a971eaa |  |
 | `machine-phone` | machine-phone | 3 | machine-hello, machine-device-kind | todo |  |  |  |

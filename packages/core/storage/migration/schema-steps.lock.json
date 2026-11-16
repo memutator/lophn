@@ -322,5 +322,9 @@
   {
     "id": "apps.sync-log.machine",
     "sha256": "51e64bbc1938934ecc5b729f7dc34e3b56fc4a1f3d3514866a45e7815a32ca9f"
+  },
+  {
+    "id": "folder.tables",
+    "sha256": "e031cdd4e03ad799fe5960b8ee05ed0f56acb4a624dab1cb276fd7fe059c0672"
   }
 ]

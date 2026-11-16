@@ -161,6 +161,10 @@ files:
     covers: []
     note: 앱 위젯 값(widgetValueSchema)의 경계. 4 KiB를 넘는 값, 모르는 node kind, 길이를 넘는 글, 범위 밖 progress, 줄 수 밖의 rows·items를 거절한다. 폰의 native 위젯에 닿기 전 검사다
 
+  - path: packages/protocol/folder/container_test.ts
+    covers: []
+    note: "폴더 변경 file 꼴. 끝을 자른 것, payload·header를 1 byte 바꾼 것, 뒤에 붙인 것, path와 번호가 다른 header, 1행 판 2는 변경을 하나도 내놓지 않고(invalid_file, newer_format), 맞는 file은 넣은 변경을 bytes 그대로 돌려준다. 모르는 칸이 더해진 header와 기록은 읽히고 format 2는 newer_format이다. 아직 폴더 교환 route가 없어 outcome이 없다"
+
   - path: packages/protocol/coding-agent/headless/headless_test.ts
     covers: [harness-turn-run:configuration-unavailable]
     note: headless 출력 parser(helper)와 권한 표. deny를 옮길 수 없는 harness는 null이고 그때 configuration-unavailable이다. 전부 허락 flag가 없는 것도 본다

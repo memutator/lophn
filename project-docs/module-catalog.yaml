@@ -139,6 +139,10 @@ modules:
     boundary: always-on
     notes: route `always_on/status`·`always_on/set`과 `AlwaysOnStatus`. 구현을 두지 않는다.
 
+  - path: packages/core/folder
+    boundary: folder
+    notes: destination 설정(`folder.destinations`), 자기 하위 폴더에만 쓰는 writer와 이름 꼴로 거르는 reader, local 상태 표(`folder_*`). 폴더 꼴은 `packages/protocol/folder`다.
+
   - path: packages/core/remote
     boundary: remote
     notes: phone-link.ts는 core가 폰에 `request`를 보내고 `response`를 받는 길이다. 연결은 host가 붙이고 떼며 알린다. link는 kind를 모르고 입력·출력 검사는 부르는 쪽이 한다.

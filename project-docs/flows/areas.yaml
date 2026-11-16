@@ -217,6 +217,7 @@ areas:
       - packages/protocol/apps/app-log.ts
       - packages/protocol/apps/sdk-status.ts
       - packages/protocol/apps/app-sync.ts
+      - packages/protocol/folder/
     owns:
       - 앱 등록, 지우기, source 폴더
       - 앱 process 감독(시작, crash, 다시 띄우기)
@@ -225,6 +226,7 @@ areas:
       - capability broker(fs, net, secret, store, notify, problem)
       - 앱 OAuth, grant, 앱 log
       - 폰에서도 도는 앱(sync 앱)의 sync log와 폰의 push·pull·snapshot
+      - 앱 data·release·source·기계 기록을 폴더로 내보내고 읽어 들이기
     read:
       - architecture/app-call.md
       - architecture/activation.md

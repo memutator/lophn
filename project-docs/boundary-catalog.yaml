@@ -166,6 +166,10 @@ elements:
         kind: component
         description: 사람이 표시한 기계에서 lophn이 로그인 때 뜨고 창 없이 계속 돌게 하는 표시와, 그 표시에 맞춘 OS의 per-user 로그인 시작 등록과 keep-awake.
 
+      - id: folder
+        kind: component
+        description: 바깥 도구가 옮기는 폴더(destination)로 앱 data·release·source·기계 기록을 내보내고 읽어 들이기. 기계마다 자기 하위 폴더에만 쓴다.
+
       - id: diagnostics
         kind: component
         description: lophn 자체의 운영 log, crash 기록, 상태 점검. core process의 구조화 log·trace·metric(telemetry), `/healthz`·`/readyz`, 자원 snapshot도 여기다.

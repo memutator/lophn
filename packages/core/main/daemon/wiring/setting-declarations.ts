@@ -7,6 +7,7 @@ import { projectsFolderSetting } from "../../../projects/clone/mod.ts";
 import { shellRulesSetting } from "../../../approvals/shell-rules/mod.ts";
 import { sharedAppsSetting } from "../../../approvals/share-requests/mod.ts";
 import { lophnAgentSettings } from "../../../lophn-agent/register.ts";
+import { destinationsSetting } from "../../../folder/destinations.ts";
 import { appearanceThemesStep } from "./appearance-themes.ts";
 import { callPolicyPrivateStep } from "./call-policy-private.ts";
 import type { WiringFactory } from "./context.ts";
@@ -25,6 +26,7 @@ export const settingDeclarationsWiring: WiringFactory = () => ({
       teamSetting,
       diagnosticsTraceSetting,
       projectsFolderSetting,
+      destinationsSetting(ctx.root.path),
     ]);
   },
 });

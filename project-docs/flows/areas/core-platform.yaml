@@ -351,7 +351,7 @@ flows:
     entries: [system:core-boot]
     uses: [system:ledger-migrate, system:machine-ensure, system:data-steps-apply, system:builtin-install]
     boundary: [core, storage, core-control-protocol]
-    code: [packages/core/main/daemon/main.ts, packages/core/main/daemon/core.ts, packages/core/install-and-update/data-root.ts, packages/core/install-and-update/instance-lock.ts, packages/core/main/daemon/wiring/context.ts]
+    code: [packages/core/main/daemon/main.ts, packages/core/main/daemon/entry-layout.ts, packages/core/main/daemon/core.ts, packages/core/install-and-update/data-root.ts, packages/core/install-and-update/instance-lock.ts, packages/core/main/daemon/wiring/context.ts]
     steps:
       - "data root를 풀고 POSIX면 소유자와 0700(apps, run 포함)을 검사한다. 어긋나면 기동을 거절한다. 그 뒤 run/instance.lock을 EXCLUSIVE sqlite lock으로 잡는다. 이미 잡혔으면 물러선다"
       - "앞 판의 run/user-token과 run/location.json을 지운다(ENOENT가 아닌 오류는 throw다). run/running.marker(pid, started_at)가 남아 있으면 previous_unclean_exit를 log에 남기고 새로 쓴다. control socket을 listen한다(state starting)"
@@ -359,7 +359,7 @@ flows:
       - "writer와 reader Worker를 열고 wiring의 build를 돈다. sdk-install build는 node·npm shim, SDK 사본(app-release flow), 내장 앱 template 순서로 깐다(system:builtin-install)"
       - "memory route와 handler 짝을 확인하고 API를 연 뒤 wiring start를 돈다. platform/io child가 이때 뜬다. @me 사본 되살리기도 start에서 돈다(app-release 몫)"
       - "ready를 세우고 afterReady를 돈다(복구본 정리, idle 시작). control을 ready로 바꾼다"
-      - "stdout에 ready 한 줄을 쓴다. 실패는 start_failed와 reason 한 줄을 쓰고 exit 1로 끝난다(running.marker를 지운다). reason은 migration이 낸 세 가지만 구별하고 나머지는 other다. ready 전에 ledger writer가 죽어도 이 길이다"
+      - "stdout에 ready 한 줄을 쓴다. 실패는 start_failed와 reason 한 줄을 쓰고 exit 1로 끝난다(running.marker를 지운다). 단 OS service가 띄운 core(환경 LOPHN_SERVICE=1)는 exit 0이다: OS는 0이 아닌 끝을 crash로 보고 다시 띄우는데 ready 전 실패는 다시 띄워도 같고 lock을 잃은 것은 이미 core가 있다는 뜻이다. reason은 migration이 낸 세 가지만 구별하고 나머지는 other다. ready 전에 ledger writer가 죽어도 이 길이다. core 입구는 설치 layout(platform/에 packages/shell이 없음)일 때만 startCore에 OS port를 넘긴다. 저장소 layout(개발, test, boot, eval)은 넘기지 않는다"
     outcomes:
       - id: ready
         observe: ["process:stdout 첫 줄 ready", "ledger:schema_migrations", "log:core started"]
@@ -379,6 +379,9 @@ flows:
         code: unavailable
         observe: ["process:stdout start_failed other"]
         when: "reason을 구별하지 않는 나머지 실패 전부다. data root 검사 실패, instance lock 충돌(내부 conflict)과 lock 파일 열기 실패, control socket·API·writer·reader 기동 실패(ready 전 writer Worker 죽음 포함), 팀 조립 실패, route 등록 충돌이나 schema step id 중복(internal), 복구본 만들기 실패(recovery-copy-failed), 적용 step 실패나 적용 뒤 FK·무결성 검사 실패(step-failed), machine.json 읽기 실패·깨짐·쓰기 실패, data step의 기록 깨짐·기록 쓰기 실패·step 실패, ledger 식별 기록 실패, 재시작 점검 실패, wiring record 실패, builtin-install build 실패, platform/io 시작 실패와 다른 wiring의 start 실패(@me 되살리기 읽기 실패 등), memory route와 handler 불일치(internal), API 열기 실패"
+      - id: start-failed-service
+        observe: ["process:stdout start_failed", "process:exit 0"]
+        when: "환경 LOPHN_SERVICE=1(OS service가 띄운 core)에서 ready 전에 실패했다. 다른 core가 이미 lock을 쥔 conflict도 같다. 줄과 reason은 위 start-failed-*와 같고 끝만 exit 0이다. ready 뒤의 비정상 끝(writer 죽음, 종료 기한)은 지금처럼 0이 아니어서 OS가 다시 띄운다"
       - id: uncaught-throw
         observe: ["process:stdout 줄 없음", "process:exit 1"]
         when: "Result가 아니라 throw로 startCore를 떠난다(run/user-token이나 location.json을 ENOENT가 아닌 오류로 지울 때 등). start_failed 줄이 나가지 않는다"

@@ -395,6 +395,7 @@ flows:
     boundary: [host-queue-core, core-control-protocol]
     code:
       - packages/core/main/daemon/shell-launcher.ts
+      - packages/core/main/daemon/entry-layout.ts
       - packages/core/main/daemon/main.ts
       - packages/core/main/daemon/wiring/host-queue.ts
       - packages/core/host-queue/queue.ts
@@ -403,7 +404,7 @@ flows:
     steps:
       - "launcher는 그 core를 띄운 쪽(shell main의 core 감독, CLI의 detached 시작)이 환경 LOPHN_LAUNCH_SHELL=1을 준 core에만 있다. test, boot, E2E가 띄운 core에는 없다. 설치본이 아닌 개발 저장소에서 shell entry를 build하지 않았으면 없다"
       - "browser 탭 열기가 shell 없이 오면 queue가 launcher를 부른다. 이미 시도 중이고 30초가 안 지났으면 부르지 않고 그 시도를 같이 기다린다. 앞선 실패 뒤 5분 안이면 부르지 않고 실패로 답한다"
-      - "launcher가 core의 platform 배치에서 명령을 만든다(설치본은 core를 띄운 Electron 실행 file, 개발은 build한 shell entry 추가). ELECTRON_RUN_AS_NODE를 빼고 `--home <data root> --agent-window`를 붙여 detached로 띄우고 놓는다"
+      - "launcher가 core의 platform 배치에서 명령을 만든다(설치본은 core를 띄운 Electron 실행 file, 개발은 build한 shell entry 추가). ELECTRON_RUN_AS_NODE를 빼고 `--home <data root> --agent-window`를 붙여 detached로 띄우고 놓는다. Linux에서 OS service가 띄운 core(LOPHN_SERVICE=1)이고 env에 DISPLAY와 WAYLAND_DISPLAY가 둘 다 없으면, 띄우기 전에 `systemctl --user show-environment`(기한 2초)에서 DISPLAY, WAYLAND_DISPLAY, XAUTHORITY, XDG_SESSION_TYPE, XDG_CURRENT_DESKTOP, DBUS_SESSION_BUS_ADDRESS만 가져와 띄우는 env에 넣는다. 가져오지 못하면 그냥 띄운다(화면 없는 Linux는 browser 탭이 실패한다)"
       - "spawn이 던지거나 error event가 오면 로그를 한 줄 남기고 기다리던 열기를 바로 끝낸다. 띄운 뒤의 일은 알 길이 없어 shell이 /host-link로 붙는지로 본다. 30초 안에 붙지 않으면 시도가 실패다"
       - "shell이 /host-link로 붙으면 시도와 실패 기록을 지운다"
     outcomes:

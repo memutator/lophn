@@ -30,3 +30,5 @@ win:
 nsis:
   oneClick: false
   perMachine: false
+  # 제거할 때 "Keep lophn running"이 쓴 로그인 시작 값을 지운다.
+  include: packaging/installer.nsh

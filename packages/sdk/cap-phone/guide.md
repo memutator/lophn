@@ -15,7 +15,8 @@ import { getLocation } from "@lophn/cap-phone";
 
 - `getLocation({ accuracy?, maxAgeMs? })` — `{ lat, lon, accuracyM, at }`를 돌려준다. 인자는 모두 선택이다.
   - `lat`·`lon`은 도(degree), `accuracyM`은 미터, `at`은 잰 시각(ISO 8601 UTC)이다.
-  - `accuracy`는 `"low"`, `"balanced"`(기본), `"high"`다. 정확할수록 폰이 오래 걸리고 배터리를 쓴다.
+  - `accuracy`는 `"low"`, `"balanced"`(기본), `"high"`다. 정확할수록 폰이 오래 걸리고 배터리를 쓴다. `"high"`는 몇 초
+    걸릴 수 있으니 꼭 필요할 때만 쓴다.
   - `maxAgeMs`는 0~300000의 정수이고 기본은 0이다. 이 시간 안에 잰 위치가 폰에 있으면 새로 재지
     않고 그것을 쓴다. 0이면 매번 새로 잰다.
 - `createPhoneClient({ host? })` — 시험이나 preview에서 host를 바꿔 끼운다. live가 아닌
@@ -48,8 +49,9 @@ import { getLocation } from "@lophn/cap-phone";
 폰은 사람 손에 있어서 위치를 못 읽는 일이 정상 경로다. `unavailable`이면 앱이 사람에게 다음 일을
 보인다: `phone_in_background`·`phone_unreachable`이면 "폰에서 lophn을 열어 주세요", `location_off`면
 "폰의 위치 서비스를 켜 주세요", `no_phone`이면 "폰을 lophn에 연결해 주세요". 같은 호출을 되풀이해
-부르지 않는다. 사람이 다시 시도할 길(버튼, 다음 실행)에서 한 번 더 부른다. `os_permission_denied`도
-폰 설정에서 위치를 허용하라고 알린다.
+부르지 않는다. 사람이 다시 시도할 길(버튼, 다음 실행)에서 한 번 더 부른다. 위치를 못 얻어도 앱의 나머지는
+돌아야 하므로 화면이나 command가 위치를 기다리며 멈추지 않게 한다. `os_permission_denied`도
+폰 설정에서 위치를 허용하라고 알린다. 허락이 없는 `forbidden`(`permission`이 `phone.use`)은 grant가 없다는 뜻이다.
 
 ## 예제
 

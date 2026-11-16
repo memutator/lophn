@@ -48,10 +48,13 @@ import {
     - `{ kind: "progress", value, label?, tone? }` — `value`는 0~1, `label` 1~24자.
     - `{ kind: "list", items }` — `items`는 1~5개이고 각 `{ text, trail?, tone? }`다. `text` 1~32자, `trail` 1~12자.
     - `tone`은 `"neutral"`, `"good"`, `"warn"`, `"bad"`다. JSON으로 4 KiB(4096 bytes)를 넘는 값은 `invalid_input`이다.
+    - 작은 위젯(2x2)은 앞의 몇 줄만 보인다. 가장 중요한 줄을 맨 앞에 두고 그 줄만으로 뜻이 되게 한다.
   - 값은 (앱, key)마다 하나이고 마지막 값만 남는다. core 메모리에만 있어 lophn을 다시 켜면 사라지므로 앱이 시작 코드에서
     다시 낸다. 앱을 보관하거나 선언에서 key를 빼면 그 값은 보이지 않는다.
-  - 사람이 폰 홈 화면에 그 위젯을 놓았을 때만 보인다. 폰은 늘 새로 하지 못하므로 위젯에 가져온 시각이 같이 보인다.
-    그러니 값에 "방금" 같은 말을 넣지 말고 사실만 낸다. 앱 UI view에서는 부르지 못한다.
+  - 사람이 폰 홈 화면에 그 위젯을 놓았을 때만 보인다. 누르면 선언한 `screen`의 폰 화면이 열리고, `screen`이 없으면 앱이 열린다.
+  - 폰은 늘 새로 하지 못한다(best effort). 폰이 값을 가져오는 때는 lophn 폰 앱을 열 때, 폰이 연결된 동안 값이 바뀔 때, 그리고
+    대략 30분마다다. 위젯에 가져온 시각이 보이고 컴퓨터에 닿지 않으면 "Offline"이 보인다. 그러니 시계·카운트다운 같은 초 단위 값을
+    위젯에 두지 않고, 값에 "방금"이나 "N분 전" 같은 말을 넣지 말고 사실만 낸다. 몇 분 동안 참인 값을 낸다. 앱 UI view에서는 부르지 못한다.
 - `createNotifyClient({ host? })` — 시험이나 preview에서 host를 바꿔 끼운다. live가 아닌
   mode에서는 사람에게 닿지 않고 `notify`는 `{ notified: true, standIn: true }`만 돌려주며 `setTray`,
   `clearTray`, `setWidget`, `clearWidget`은 아무것도 하지 않는다.

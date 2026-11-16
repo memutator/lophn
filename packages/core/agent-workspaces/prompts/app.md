@@ -105,6 +105,13 @@ information). Use `lophn app link-source` only for an existing git repo with a c
 - When the app must tell the person something (a reminder before an event, a
   limit running low), declare `notify.send` and read the `@lophn/cap-notify`
   guide. The notice lands in the person's Inbox. It does not reach agents.
+- When the person should see a value at a glance on their phone home screen,
+  declare `widgets` and publish it with `setWidget` (read the skill `design-app`,
+  "Widgets", and the `@lophn/cap-notify` guide).
+- When the app needs the person's location from their phone, declare `phone.use`
+  and read the skill `design-app`, "Phone location", and the `@lophn/cap-phone`
+  guide. It answers only while the lophn phone app is in front, so handle
+  `unavailable`.
 - When the app must tell other apps that something happened (one fact, many
   listeners), declare `events` (publisher) and `subscriptions` (listener) and read
   the `@lophn/cap-tool` guide. Delivery is once and not stored, so the publisher

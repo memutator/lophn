@@ -149,6 +149,7 @@ test("터미널 입력은 기본 꺼짐이고 켠 기기만 terminalInputGrant�
       settings: { get: () => [] },
       settingsUpdate: () => ok({ changed: [], rejected: [] }),
       telemetry: { logger: { error() {} } },
+      attention: { bindPush() {} },
     };
     const wiring = remoteWiring();
     const built = await wiring.build!(ctx as never);

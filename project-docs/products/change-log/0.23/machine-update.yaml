@@ -57,7 +57,6 @@ decisions:
   - text: "닫는 일: 사람이 돌아가 내려놓은 release의 held는 newer_release다(그 기계는 내려오지 않는다). 이 기계의 commit과 갈라진 release도 diverged다. 따라가기의 일시 거절(conflict, unavailable)은 그 계기 전 상태를 둔다."
     by: agent
 follow_up: |
-  - lead: `architecture/folder-sync-releases.md`를 `architecture/folder-sync.md`(app-folder-sync가 쓴다)의 절로 합치고 이 file과 다른 문서의 참조를 고친다.
   - planner: `machine/environment`에 따라가기·held·꼴 판 범위 칸을 넘긴다(이슈 `machine-environment-lacks-update-state`).
   - 남은 한계: 갈라진 release는 앱 agent가 합쳐 새 release를 내야 풀린다. 범위 밖 기계는 사람이 그 기계에서 올린다. 영영 올라오지 않는 기계의 옛 변경은 그 기계의 폴더와 다른 기계의 held에만 남는다. 사람이 한 기계에서 이전으로 돌아가면 두 기계는 새 release가 나올 때까지 서로의 변경을 held로 둔다. 판 2 전의 폰 build는 누가 올려야 하는지 듣지 못한다.
   - 이슈: `folder-held-limit-untested`, `machine-update-out-of-range-listed-under-every-app`, `machine-update-update-peer-unreachable`, `machine-update-diverged-held-says-older`, `machine-environment-lacks-update-state`, `machine-window-update-after-connected`.

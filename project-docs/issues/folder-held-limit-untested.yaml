@@ -7,6 +7,6 @@ modules: [packages/core/folder]
 now: |
   packages/core/folder/import/held.ts의 heldOverLimit이 출처·앱마다 가장 새 held snapshot 뒤 held changes가 HELD_MAX_BYTES(128 MiB)를 넘을 file을 복사하지 않게 하고, stream.ts가 그때 `full`로 멈췄다가 폴더에 그 출처의 더 뒤 snapshot이 있으면 jumpToSnapshot으로 건너뛴다. held_test.ts는 drain 순서, 덮인 held 지우기, held 셈을 보지만 한도와 건너뛰기는 보지 않는다(grep `HELD_MAX_BYTES`·`full`). 두 개발 core 끝에서 끝 확인도 한도에 닿지 않았다(가장 큰 held가 약 55 KB).
 impact: |
-  한도와 건너뛰기는 다른 release의 변경을 잃지 않는 규칙(folder-sync-releases "지키는 것" 1·5)이다. 틀리면 출처의 변경이 held에도 cursor 뒤에도 없게 되거나(잃음) 그 출처의 stream이 영영 멈춘다. 지금은 한 release의 changeset 합이 128 MiB를 넘어야 생겨 사람이 알아채기 전에는 드러나지 않는다.
+  한도와 건너뛰기는 다른 release의 변경을 잃지 않는 규칙(folder-sync.md "지키는 것" 14·18)이다. 틀리면 출처의 변경이 held에도 cursor 뒤에도 없게 되거나(잃음) 그 출처의 stream이 영영 멈춘다. 지금은 한 release의 changeset 합이 128 MiB를 넘어야 생겨 사람이 알아채기 전에는 드러나지 않는다.
 fix: |
   작음(추천): held_test.ts에 한도를 작게 넣을 수 있게 하고(deps나 인자) 표 test 하나를 더한다. 한도에 닿은 file은 복사되지 않고 cursor가 그 앞에 남는다, 뒤에 출처의 snapshot이 오면 그리로 건너뛰고 옛 held를 지운다, 이 기계가 그 release가 되면 멈춘 cursor부터 폴더에서 읽는다.

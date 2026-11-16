@@ -111,7 +111,7 @@
 - 화면을 띄울 수 없는 server는 첫 판에서 설정할 길이 없다.
 - agent 정의, skill, 설정, provider key는 기계마다 따로다.
 - remote는 다른 기계를 관리하지 못한다.
-- ~~두 기계가 같은 앱의 다른 release를 돌릴 때의 처리는 설계가 필요하다.~~ 계획 `machine-update`로 정했다(`architecture/folder-sync-releases.md`, `architecture/activation.md`, change-log `machine-update`): 그 앱을 들인 기계가 새 release를 git 조상 순서로 스스로 따라가고 권한이 늘면 그 기계에서 묻는다. 새 release의 변경은 그 기계가 올라올 때까지 두었다가 차례로 적용하고, 옛 release의 변경은 그 기계가 올라온 뒤의 snapshot으로 온다. 갈라진 release는 앱 agent가 합쳐 새 release를 내야 풀린다.
+- ~~두 기계가 같은 앱의 다른 release를 돌릴 때의 처리는 설계가 필요하다.~~ 계획 `machine-update`로 정했다(`architecture/folder-sync.md`, `architecture/activation.md`, change-log `machine-update`): 그 앱을 들인 기계가 새 release를 git 조상 순서로 스스로 따라가고 권한이 늘면 그 기계에서 묻는다. 새 release의 변경은 그 기계가 올라올 때까지 두었다가 차례로 적용하고, 옛 release의 변경은 그 기계가 올라온 뒤의 snapshot으로 온다. 갈라진 release는 앱 agent가 합쳐 새 release를 내야 풀린다.
 
 ## 정한 것
 
@@ -186,7 +186,7 @@
 2. ~~**줄 2, 앱 data 맞추기**: 변경을 폴더로 내놓고 읽어 들이기, 앱 선언의 정책, agent가 읽는 환경 정보와 폴더 옮기기 지침. 앱 release와 source를 폴더로.~~ 계획 `app-folder-sync`로 했다(`architecture/folder-sync.md`, change-log `app-folder-sync`).
 3. ~~**project 신분**: 저장소 안 file, 두 겹 id, "이 기계에는 없음" 상태.~~ 계획 `project-identity`로 했다(`architecture/project-identity.md`, change-log `project-identity`, `project-identity-remote-view`). 다른 기계를 보는 창에서 같은 id의 project를 묶어 보이기와 [Clone here]도 그 계획의 마지막 task로 했다.
 4. **늘 켜 둠**: OS 서비스 등록과 job의 주인 기계. (계획 `always-on`, 2026-11-16 끝남)
-5. ~~**판이 다른 기계**: lophn 판과 앱 release가 기계마다 달라도 잃지 않고 말없이 틀리지 않기. 범위 밖이면 누가 올려야 하는지 보이기.~~ 계획 `machine-update`로 했다(`architecture/folder-sync-releases.md`, `architecture/activation.md`의 따라가기, `architecture/remote.md`의 hello, change-log `machine-update`).
+5. ~~**판이 다른 기계**: lophn 판과 앱 release가 기계마다 달라도 잃지 않고 말없이 틀리지 않기. 범위 밖이면 누가 올려야 하는지 보이기.~~ 계획 `machine-update`로 했다(`architecture/folder-sync.md`의 다른 release와 다른 lophn 판, `architecture/activation.md`의 따라가기, `architecture/remote.md`의 hello, change-log `machine-update`).
 
 미니 PC를 실제로 쓰려면 줄 1이 먼저다. 계획을 열기 전에 지금 code의 사실(sync가 "아무 기계끼리"를 어디까지 받치는지, remote client가 desktop에서 도는지, 기기 gate, project 표)을 조사한다.
 

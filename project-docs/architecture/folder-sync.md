@@ -1,6 +1,6 @@
 # folder-sync
 
-한 사람의 여러 컴퓨터가 앱 data, release, 앱 source, 기계 기록을 폴더 하나로 주고받는 설계다. 앱 선언의 `sync_to`가 destination 이름(기계마다 local 폴더 경로에 묶인 이름)을 고른다. 컴퓨터는 그 앱의 변경을 destination 안 자기 하위 폴더에 file로 쓰고, 다른 기계의 하위 폴더에서 file을 읽어 전부 검사한 뒤 한 transaction으로 적용한다. 폴더를 기계 사이로 옮기는 것은 사람이 고른 바깥 도구(같은 LAN의 Syncthing, rclone `crypt` 위 cloud 등)이고 lophn code는 폴더만 안다. 두 번째 기계는 폴더에 온 release를 사람의 동의로 받는다. agent는 읽기 명령 `machine.environment`로 환경을 읽고, 지침(`design-app` skill의 `folder-sync.md`)을 따라 정책을 고르고 바깥 도구를 붙인다. 칸 단위 맞추기 규칙과 sync log는 `app-sync.md`, 기계 id는 `machine.md`, release 활성화와 동의는 `activation.md`가 맡는다.
+한 사람의 여러 컴퓨터가 앱 data, release, 앱 source, 기계 기록을 폴더 하나로 주고받는 설계다. 앱 선언의 `sync_to`가 destination 이름(기계마다 local 폴더 경로에 묶인 이름)을 고른다. 컴퓨터는 그 앱의 변경을 destination 안 자기 하위 폴더에 file로 쓰고, 다른 기계의 하위 폴더에서 file을 읽어 전부 검사한 뒤 한 transaction으로 적용한다. 폴더를 기계 사이로 옮기는 것은 사람이 고른 바깥 도구(같은 LAN의 Syncthing, rclone `crypt` 위 cloud 등)이고 lophn code는 폴더만 안다. 두 번째 기계는 폴더에 온 release를 사람의 동의로 받는다. 앱을 들인 기계는 다른 기계가 낸 새 release를 스스로 따라가고(`activation.md`), 기계마다 앱 release나 lophn 판이 다른 동안 다른 release의 변경은 잃지 않고 두었다가 차례로 적용하며, 폴더 꼴을 서로 읽을 수 없으면 멈추고 누가 올려야 하는지 보인다. agent는 읽기 명령 `machine.environment`로 환경을 읽고, 지침(`design-app` skill의 `folder-sync.md`)을 따라 정책을 고르고 바깥 도구를 붙인다. 칸 단위 맞추기 규칙과 sync log는 `app-sync.md`, 기계 id는 `machine.md`, release 활성화와 동의는 `activation.md`가 맡는다.
 
 ## 문제
 
@@ -11,11 +11,17 @@
 - 지운 row의 흔적(tombstone)을 영원히 둘 수 없다. 흔적을 지우면 그보다 옛 변경을 든 기계가 돌아와 지운 row를 되살린다. 그렇다고 오래 떨어져 있던 기계의 변경을 버리면 사람이 쓴 것을 잃는다.
 - 기계마다 시계가 어긋난다. 앞선 시계의 변경은 칸 단위 last-write-wins에서 늘 이긴다.
 - 폴더는 data root 밖이고 바깥 도구가 인터넷으로 올리기도 한다. 기계 id file, 자격, secret이 거기에 섞이면 안 된다.
+- 기계 X가 앱의 release r2(migration으로 칸을 더함)를 내고 그 release로 쓴 변경은 r1을 돌리는 기계 Y의 DB에 맞지 않는다. 버리면 X의 변경을 잃고, 억지로 적용하면 Y의 DB가 깨진다.
+- Y가 r1에서 같은 row의 다른 칸을 고쳤다. Y가 r2로 올라간 뒤에도 그 고침이 X에 남아야 한다. migration이 칸 번호를 바꾸면서 칸 clock을 잃으면 늦게 올라온 Y의 칸 고침이 X의 더 옛 값에 진다.
+- 다른 release의 변경을 기다리게 두면 끝없이 쌓여 data root가 찰 수 있다. 영영 올라오지 않는 기계도 있다.
+- 두 기계의 lophn 판이 다르면 폴더의 꼴을 서로 틀리게 읽을 수 있다. 칸 하나 더할 때마다 모든 기계가 멈추면 한 기계를 올리는 것이 나머지를 막는다. 판이 맞지 않는데 말없이 멈추면 사람은 무엇을 해야 하는지 모른다.
 
 ## 목표와 비목표
 
 - 목표: 앱마다 선언 하나(`sync_to`)로 data가 가는 길을 고른다. 기계가 아무 순서로 켜지고 꺼져도 사본이 같아지고, 충돌하지 않는 편집은 잃지 않는다. 폴더에서 깨지거나 반만 온 것은 하나도 적용하지 않는다. 사람이 쓴 것은 흔적 정리 때문에 버려지지 않는다. 두 번째 기계는 같은 앱 id와 같은 봉인 bundle을 받고 활성화는 그 기계에서 사람이 동의한다.
-- 비목표: 실시간 맞추기(분 단위로 늦을 수 있다). 바깥 도구의 설치·설정·이름(code, 의존성, 설정 어디에도 없다. agent가 지침대로 붙인다). lophn이 cloud API를 부르는 길(보류. file 꼴은 폴더든 API든 같은 bytes다). agent 정의·skill·설정·자격 맞추기. 폰이 폴더를 쓰는 것(폰은 짝지은 컴퓨터를 거친다). 대량 삭제를 멈추고 묻기, 표·칸별 정책. 새 release를 저절로 따라가기와 다른 release의 변경 적용(계획 `machine-update`). 충돌을 보이는 화면.
+- 목표: 다른 release의 변경을 잃지 않고 두었다가 이 기계가 그 release가 되면 차례로 적용한다. 옛 release에서 한 변경은 그 기계가 올라온 뒤의 snapshot으로 온다. 기다리는 동안 앱은 이 기계의 data로 그대로 돈다.
+- 목표: lophn 판은 범위로 본다. 범위 안이면 계속 주고받고, 범위 밖이면 그 기계의 file을 열지도 지우지도 않고 멈추며 누가 올려야 하는지 고칠 수 있는 곳에서 말한다.
+- 비목표: 실시간 맞추기(분 단위로 늦을 수 있다). 바깥 도구의 설치·설정·이름(code, 의존성, 설정 어디에도 없다. agent가 지침대로 붙인다). lophn이 cloud API를 부르는 길(보류. file 꼴은 폴더든 API든 같은 bytes다). agent 정의·skill·설정·자격 맞추기. 폰이 폴더를 쓰는 것(폰은 짝지은 컴퓨터를 거친다). 대량 삭제를 멈추고 묻기, 표·칸별 정책. 충돌을 보이는 화면. 모든 기계를 올리는 단추와 updater(올리기는 각 기계에서 사람이 한다). 옛 release의 변경을 새 schema로 다시 표현하기(폰의 길. 컴퓨터는 자기 DB를 migration하고 덮지 않는 합치기를 받으니 snapshot이 그 일을 한다). 갈라진 release를 합치기(앱 agent가 합쳐 새 release를 낸다, `activation.md`).
 
 ## 모델
 
@@ -83,7 +89,7 @@
 
 ### held: 두 가지
 
-- **다른 release의 file(`folder_held`).** 맞는 data file의 `release.bundle_hash`가 이 기계의 그 앱 활성 release와 다르면 적용하지 않는다. bytes를 `<data root>/folder-held/<app>/<출처>/<n>.<kind>`(0600)에 그대로 복사하고 같은 transaction에서 `folder_held` 행과 cursor를 둔다. 주인의 compaction이 폴더에서 지워도 잃지 않는다. 이 계획은 적용하지도 지우지도 않는다(앱을 이 기계에서 지울 때만 지운다). `machine-update`가 활성 release가 맞은 뒤 (출처, 번호) 순서로 같은 적용 길로 적용한다.
+- **다른 release의 file(`folder_held`).** 맞는 data file의 `release.bundle_hash`가 이 기계의 그 앱 활성 release와 다르면 적용하지 않는다. bytes를 크기와 hash를 확인한 뒤 `<data root>/folder-held/<app>/<출처>/<n>.<kind>`(0600)에 temp와 rename으로 그대로 복사하고, 그 뒤 한 transaction에서 `folder_held` 행과 그 출처의 cursor를 둔다. 주인의 compaction이 폴더에서 지워도 잃지 않는다. held는 "적용하지 않았고 잃지 않았다"는 뜻이다. 적용, 지우기, 한도는 아래 "다른 release와 다른 lophn 판"이다.
 - **흔적과 부딪을 수 있는 변경(sync log의 `held` 줄).** 아래 horizon 규칙이 내보내지 않거나 적용하지 않은 변경이다. changeset blob과 출처를 쥐고 폰에 보내지 않고 내보내지 않는다. 사람이나 그 앱의 agent가 `apps/sync_held`로 푼다.
 
 ### 흔적 정리와 horizon
@@ -117,11 +123,35 @@
 
 ### 기계 기록과 환경
 
-- 기계 기록 `record.json`: `{format, machine, revision, updated_at, name, always_on, addresses: {lan, port, relay}, lophn: {version, protocol: {version, min_version}, folder: {version, min_version}}}`. 주소는 `remote.enabled`일 때만 싣는다. 공개 key, pairing code, binding, 자격은 싣지 않는다. destination마다 하나씩 쓴다. 읽는 쪽은 기계마다 가장 큰 `revision`을 남기고, 한 기계의 기록을 읽다 실패하면 옛 사본을 그대로 둔다. 상대의 `folder.min_version`이 자기 판보다 크면 그 기계의 file을 읽지 않는다(`newer_format`).
+- 기계 기록 `record.json`: `{format, machine, revision, updated_at, name, always_on, addresses: {lan, port, relay}, lophn: {version, protocol: {version, min_version}, folder: {version, min_version}}}`. 주소는 `remote.enabled`일 때만 싣는다. 공개 key, pairing code, binding, 자격은 싣지 않는다. destination마다 하나씩 쓴다. 읽는 쪽은 기계마다 가장 큰 `revision`을 남기고, 한 기계의 기록을 읽다 실패하면 옛 사본을 그대로 둔다. `lophn.folder`가 범위 밖인 기계의 file은 읽지 않는다(`newer_format`, 아래 "다른 release와 다른 lophn 판").
 - 앱 기록 `app.json`: `{format, machine, app, revision, updated_at, slug, name, description, sync_to, active_release, releases, data: {head, snapshot}, source: {head}, read: {<mch>: {n, at}}, settled, horizon}`.
 - 읽는 쪽의 cursor, held, 남의 기록 사본은 그 기계 ledger 표(`folder_reads`, `folder_held`, `folder_records`)에 두고 행마다 그 기계 id를 적는다. 다른 기계 id가 적힌 행(복제된 data root에서 온 것)은 없는 것이다.
 - 읽기 명령 `machine.environment`(route `machine/environment`, actors user·agent, workspaces home·app)는 이 기계, 알려진 기계(이름이 겹치면 `display_name`이 `이름 (id 끝 6자)`), destination 상태, 앱마다 내보내기·읽기·`away`, 들일 수 있는 앱을 돌려준다. 오류 code는 `destination_missing`, `not_writable`, `foreign_writer`, `invalid_file`, `newer_format`, `too_large`, `clock_ahead`, `apply_failed`, `app_not_running`, `release_incomplete`, `away_too_long`이다.
 - 확장 자리: 뒤 계획은 명령의 code를 고치지 않고 자기 wiring에서 `ctx.folderEnvironment.register({name, top?, machine?, app?})`를 한 번 부른다. 함수가 던지거나 2초를 넘기면 그 section만 `{error}`가 되고 명령은 나머지를 돌려준다. `always_on`은 section이 아니라 기계 칸이다(이 기계는 `ctx.alwaysOn`, 다른 기계는 기록).
+
+### 다른 release와 다른 lophn 판
+
+```
+ 출처 X의 data stream(번호 순서)            이 기계 Y(지금 release r1)
+   n: r1 changes ──────────────────────────▶ 적용
+   n+1: r2 snapshot(release가 바뀐 뒤 첫 file) ┐
+   n+2: r2 changes                            ├▶ held: <data root>/folder-held/<app>/<X>/<n>.<kind>, 행 folder_held
+   ...                                        ┘    (cursor는 held 뒤로 간다)
+ Y가 r2를 따라간다(activation) ─▶ drain: X의 r2 held를 번호 순서로 적용하고 하나마다 지운다 ─▶ X의 stream을 잇는다
+
+ Y가 r1에서 쓴 변경 ─▶ Y의 stream(r1) ─▶ X는 held(older_release)로 둔다
+ Y가 r2가 된 뒤 첫 file = snapshot m ─▶ X가 clock으로 합친다(Y의 r1 칸 고침이 온다) ─▶ X의 Y held 중 m보다 옛 것을 지운다
+```
+
+- **따라가기.** 앱을 들인 기계는 다른 기계들의 앱 기록이 말하는 활성 release 가운데 git 조상 순서로 하나를 골라 take-in과 같은 길로 설치하고 activation에 넘긴다. 고르기, 동의, 실패와 갈라짐은 `activation.md`다.
+- **drain 순서.** 이 기계의 활성 release가 held의 release가 되면, 출처마다 그 release의 held를 번호 순서로 stream과 같은 적용 길로 적용하고 하나가 성공할 때마다 그 행과 사본을 지운다. 그 출처의 stream은 지금 release의 held를 다 적용한 뒤에만 읽는다: cursor가 held 뒤에 있어 먼저 읽으면 순서가 뒤집힌다. 하나가 실패하면 그 출처는 그 행에서 멈추고 다음 계기에 같은 행부터 한다.
+- **snapshot이 덮은 held.** 출처 X의 snapshot m이 합쳐지거나 held가 되면 같은 transaction에서 X의 m보다 옛 held를 지운다. snapshot m은 m 앞의 변경을 다 담기 때문이다(폴더 꼴의 계약). 그 밖에 held가 없어지는 길은 이 기계가 그 release가 되어 적용했을 때와 앱을 이 기계에서 지웠을 때뿐이다.
+- **옛 release의 변경.** 주인의 release가 바뀐 뒤 내는 첫 file은 snapshot이다. 그래서 늦게 올라온 기계가 옛 release에서 한 변경은 따로 다시 표현하지 않고 그 snapshot을 칸 clock으로 합칠 때 온다. 이것이 맞으려면 migration 뒤에도 칸 clock이 남아야 해서, 앱 process가 뜰 때 칸 clock을 칸 이름으로 새 번호에 옮긴다(`app-sync.md`). 다른 destination에 쓰는 사이 진짜 폴더에 빈 번호가 생겨도 그 snapshot이 빈 곳을 덮어 읽는 쪽은 그 번호로 건너뛴다.
+- **왜 기다리나(`why`).** held 한 줄(출처와 release마다)은 `newer_release`(이 기계가 그 release가 되면 적용된다. 사람이 이전으로 돌아가 내려놓은 release도 여기다)나 `older_release`(이 기계가 지금보다 먼저 들인 release이거나 data schema가 낮다. 그 기계가 올라오면 snapshot으로 온다)다.
+- **한도.** 출처 하나·앱 하나에서 가장 새 held snapshot 뒤의 held changes 합이 128 MiB를 넘을 file은 복사하지 않고 폴더에 둔다(`full`). 그 출처의 stream은 거기서 멈추고, 폴더에 그 출처의 더 뒤 snapshot이 있으면 그리로 건너뛴다(snapshot이 앞을 담는다). 이 기계가 그 release에 오면 멈춘 cursor부터 폴더에서 읽고, 그 사이 주인이 compaction했으면 지금 규칙대로 뒤의 snapshot으로 따라온다. 128 MiB는 한 release의 changeset 합 한도와 같다: 그보다 많으면 출처의 snapshot 하나가 더 싸다.
+- **꼴 판 범위.** 기계마다 쓰는 꼴 판과 읽는 하한(`FOLDER_FORMAT {version, min_version}`)을 기계 기록의 `lophn.folder`에 싣는다(없는 옛 기록은 `{1, 1}`). 상대의 `version`이 내 `version`보다 크거나 내 `version`이 상대의 `min_version`보다 낮으면 이 기계를 올려야 하고(`update_this`), 상대의 `version`이 내 `min_version`보다 낮거나 내 `version`보다 낮으면 그 기계를 올려야 한다(`update_peer`). 제품 판 글(`lophn.version`)은 보이기만 하고 판정에 쓰지 않는다. 꼴 판은 옛 판이 읽으면 틀리게 되는 바꿈에만 올리고 칸을 더하는 것은 올리지 않는다(위 "변경 file 꼴").
+- **범위 밖 기계.** 기계 기록은 읽어 두고(누가 올려야 하는지 보이려고) 앱 기록은 건너뛴다. 그 기계의 data·source·release file을 열지도 복사하지도 지우지도 않으며 cursor도 그대로다. 읽기 오류는 `newer_format`이고 `details.exchange`가 누가 올릴지다. 다시 범위 안이 되면 그 cursor부터 잇는다.
+- **보이는 곳.** App details의 Machines 절(`apps/update_state`)이 기계마다 release, 이 기계의 따라가기 상태, 기다리는 변경 수와 이유, 범위 밖 안내를 보인다: "Needs an update here: N changes from <기계> wait for it"(snapshot만 기다리면 "the latest data from <기계> waits"), "<기계> is on an older release; its changes arrive when it updates", "More from <기계> wait in the folder"(한도), "Update lophn on this computer to exchange with <기계>", "<기계> runs an older lophn. Update it on that machine.", 그리고 "While changes wait, the app keeps running on this computer's data." 올리는 단추는 없다.
 
 ### 계기와 물러남
 
@@ -144,15 +174,26 @@
 11. 흔적은 알려진 모든 기계가 지난 것이거나 90일보다 옛 것만 지운다. 떨어져 돌아온 기계의 "X에 없음 = 지워짐" 지우기는 X가 그 기계가 낸 것을 다 받은 뒤에만 한다.
 12. 미래 clock은 깎지 않고 미룬다.
 13. take-in은 grant, 동의, secret, data를 옮기지 않는다. 활성화의 동의는 그 기계에서 사람이 한다.
+14. 다른 release의 변경은 적용하거나 held로 두거나 폴더에 남긴다. 말없이 버리지 않는다. held를 지우는 것은 적용했을 때, 같은 출처의 더 뒤 snapshot이 덮을 때, 앱을 이 기계에서 지울 때뿐이다.
+15. 한 출처의 변경은 번호 순서로 적용된다. 지금 release의 held가 남은 출처의 stream은 읽지 않는다.
+16. held의 복사와 그 행·cursor는 따로 commit되지만, 복사 뒤 행 전에 꺼지면 다음 번에 같은 bytes를 다시 쓴다. 크기와 hash가 header와 맞는 file만 held가 된다.
+17. migration 뒤 칸 clock은 칸 이름을 따라간다. 이름이 없어진 칸과 표의 clock만 지운다. 그래서 옛 release에서 고친 칸이 snapshot으로 와도 clock으로 맞춰진다.
+18. 출처 하나·앱 하나의 held changes는 가장 새 held snapshot 뒤로 128 MiB를 넘지 않는다. 넘을 것은 폴더에 남는다.
+19. 꼴 판이 범위 밖인 기계의 data·source·release file은 열지도 복사하지도 지우지도 않고 cursor를 움직이지 않는다. 누가 올려야 하는지를 보인다.
+20. 기다리는 동안 앱은 이 기계의 data로 돈다. 기다림이 앱을 멈추지 않는다.
 
 ## 경계와 계약
 
-- boundary `folder`(내보내기·읽기·앱 기록·take-in·환경, 폴더 꼴과 상태 schema), `app-sync`(sync core의 snapshot 합치기·흔적 정리·held, sync log의 origin `machine`과 `held` 줄), `app-runtime`(앱 process의 file 적용·합치기·정리·다시 찍기 control), `apps`(take-in 등록, `sync_held`), `config`·`approvals`(설정의 사람 승인).
+- boundary `folder`(내보내기·읽기·앱 기록·take-in·환경, 폴더 꼴과 상태 schema, 다른 release의 held·drain·한도, 꼴 판 범위), `app-sync`(sync core의 snapshot 합치기·흔적 정리·held, sync log의 origin `machine`과 `held` 줄), `app-runtime`(앱 process의 file 적용·합치기·정리·다시 찍기 control, 칸 clock 옮기기), `apps`(take-in 등록, `sync_held`), `app-releases`(따라가기와 `apps/update_state`), `config`·`approvals`(설정의 사람 승인).
 - 선언: `sync_to`(`@lophn/declaration` 4.9.0. 그 판을 고정하는 `@lophn/app-ui` 2.18.0, `@lophn/app-ui-native` 1.4.0). 설정: `folder.destinations`(`approval: "person"`).
 - route와 CLI: `machine/environment`(read, `lophn machine environment`), `machine/forget`(memory, 사람만, `lophn machine forget`), `apps/take_in`(command `app.take_in`, user·agent, `lophn app take-in`), `apps/sync_held`(memory, 사람과 그 앱의 agent, `lophn app sync-held <app> list|apply|discard [seq]`), `apps/sync_resume`(memory, 사람, `lophn app sync-resume`). `app_sync/pull`의 `origin`에 `machine`.
 - 앱 process control: `sync_apply`(변경 묶음 1~1,000개·16 MiB), `snapshot_merge`, `sync_cleanup {before} → {dropped, horizon, max_hlc}`, `sync_reapply`.
 - 저장: ledger schema step `apps.sync-log.machine`(sync log 다시 만들기: origin `machine`, 칸 `machine`, kind `held`, 칸 `resolved_at`), `folder.tables`(`folder_streams`, `folder_written`, `folder_reads`, `folder_held`, `folder_records`). data step은 없다. data root의 `folder-held/`. 앱 DB 숨은 표 `lophn_sync_kept`와 `lophn_sync_state`의 `horizon`.
 - notice kind `app_sync_away`(`app-notice.md`).
+- `folder_held` 행: 이 기계, 앱, 출처, 번호, 종류, release, data schema, 크기. 앱 DB 숨은 표 `lophn_sync_columns`(표마다 마지막으로 본 칸 이름 목록).
+- 폴더: 기계 기록 `lophn: { version, protocol, folder: { version, min_version } }`. data file header의 `release.bundle_hash`·`data_schema`.
+- 읽기: `apps/update_state {app}`(memory, 사람과 그 앱 workspace의 agent. `follow`, `held: [{machine, bundle_hash, data_schema, changes, bytes, full, why}]`, `machines: [{machine, name, this_machine, lophn_version, exchange, release}]`). 폴더 읽기 오류 `newer_format`의 `details: { machine, exchange: update_this | update_peer }`.
+- 한도 상수: held 128 MiB(한 release의 changeset 합 한도와 같다).
 
 ## 결정
 
@@ -164,7 +205,7 @@
 - 변경 file은 checksum 줄, header 줄, payload의 한 file이다. 이유: 끝까지 쓰기 전에 header를 정할 수 있어 큰 snapshot도 한 번에 쓰고, 잘린 file을 크기와 hash로 알아본다. (planner)
 - 기계 사이 snapshot은 덮지 않고 합친다. 이유: hub가 없어 덮으면 받는 쪽의 아직 안 간 변경이 사라진다. (planner)
 - 맞추기 engine의 규칙은 "write는 자기 clock으로만 순서가 정해지고, delete는 자기보다 옛 것만 지운다"다. delete가 그 row의 칸 clock을 모두 지우던 옛 규칙은 delete보다 새 칸 write를 도착 순서에 따라 잃거나 남겨 두 사본이 갈렸다(A가 3에 지우고 4에 다시 넣는 사이 B가 5에 칸을 고치면 A는 B의 값, B는 A의 값). delete보다 새 칸 값은 숨은 표 `lophn_sync_kept`에 남고 뒤에 row를 되살리는 insert가 칸마다 더 새 clock을 갖는다. row의 있음은 가장 새 insert와 가장 새 delete로 정한다. 그래서 delete, 다시 넣기, 칸 고침이 두세 node에서 어떤 순서로 와도 같아진다. (planner, agent)
-- 같은 release끼리만 적용하고 다른 release의 file은 held로 복사한다. 이유: schema가 다를 수 있고, 주인의 compaction이 폴더에서 지워도 잃지 않는다. 적용은 `machine-update`의 일이다. (planner)
+- 같은 release끼리만 적용하고 다른 release의 file은 held로 복사한다. 이유: schema가 다를 수 있고, 주인의 compaction이 폴더에서 지워도 잃지 않는다. (planner)
 - 흔적은 알려진 모든 기계가 지난 것이거나 90일보다 옛 것만 지우고, horizon 밖에서 돌아온 기계의 그런 변경은 held로 남는다(버리지 않는다). (사람, 2026-11-16 뒤집음: 처음 안은 90일 넘게 떨어진 기계의 변경을 버리는 것이었다)
 - 미래 clock은 값을 깎지 않고 미룬다. 이유: 받은 clock을 깎으면 사본마다 다른 clock을 적어 갈라진다. (planner, 조사)
 - 다른 기계에서 온 일(snapshot 합치기, 결과 모르는 받은 변경)의 '다시 snapshot' 줄은 origin `machine`(칸 `machine`은 출처, `change_id`는 그 invocation)이고 내보내기가 건너뛴다. 그 줄은 폰을 위한 것이다(합친 변경은 clock이 여럿이라 pull 줄 하나가 될 수 없다). 이유: 그 data는 출처 기계가 이미 냈고, 건너뛰지 않으면 두 기계가 서로의 snapshot을 합칠 때마다 snapshot을 주고받는다. 이 기계가 낸 크거나 결과 모르는 자기 write는 여전히 snapshot을 부른다. (agent, 두 기계 시험에서 찾음)
@@ -180,10 +221,25 @@
 - 이름이 겹친 기계는 `이름 (id 끝 6자)`다. id 앞쪽은 만든 시각(ULID)이라 같은 날 만든 기계끼리 겹친다. 이름의 유일성은 강제하지 않는다. (planner)
 - 감시는 recursive watch가 아니라 폴더마다 하나다. 이유: recursive watch가 core process 안에서 event를 내지 않았다(Linux, Electron의 Node). (agent)
 - Google Drive for desktop처럼 평문으로 올리는 도구는 사람이 "file이 평문으로 올라간다"는 말을 듣고 받아들일 때만 쓰고, cloud는 기본으로 rclone `crypt` 같은 암호화 도구로 쓴다. 지침이 묻기 전에 그것을 쉬운 말로 말하게 한다. (planner, 사람의 두 말을 맞춤)
+- 새 release의 변경은 이 기계가 그 release가 되면 출처마다 번호 순서로 적용하고, 그 출처의 stream은 held를 다 적용한 뒤에 잇는다. 이유: cursor가 held 뒤에 있어 먼저 읽으면 순서가 뒤집힌다. (사람·planner, `machine-update`)
+- 출처 X의 snapshot m이 합쳐지거나 held가 되면 X의 그보다 옛 held를 지우고, 그 밖에는 지우지 않는다. 이유: snapshot m은 m 앞의 변경을 다 담는다. (planner, `machine-update`)
+- 옛 release에서 한 변경은 그 기계가 올라온 뒤의 첫 snapshot을 clock으로 합칠 때 온다. 버린 안: 폰처럼 backup, 허브 snapshot 받기, outbox를 칸 이름으로 다시 표현하기(폰은 자기 DB를 허브의 snapshot으로 바꾸기 때문에 그 길이 있다. 컴퓨터는 자기 DB를 migration하고 덮지 않는 합치기를 받는다). 그래서 migration 뒤 칸 clock을 지우지 않고 칸 이름으로 옮긴다(`app-sync.md`). 이유: 지우면 늦게 올라온 기계의 칸 고침이 먼저 올라간 기계에서 진다. (planner, 코드, `machine-update`)
+- held 한도는 출처·앱마다 가장 새 held snapshot 뒤 128 MiB이고, 넘으면 폴더에 두고 뒤의 snapshot으로 따라온다. 이유: 그보다 많으면 snapshot 하나가 더 싸다. (planner, `machine-update`)
+- lophn 판은 범위로 본다(폴더는 꼴 판 `[min_version, version]`). 제품 판 글은 보이기만 한다. 이유: 같은 build를 요구하면 한 기계를 올릴 때 나머지가 멈춘다. (사람·planner, 정책 11, `machine-update`)
+- 범위 안에서는 모르는 칸을 버리고 계속 주고받고, 꼴 판은 옛 판이 틀리게 읽는 바꿈에만 올린다. 이유: 칸 하나 더할 때마다 모든 기계가 멈추면 안 된다. (planner, `machine-update`)
+- 범위 밖이면 그 기계의 file을 열지도 복사하지도 지우지도 않고 cursor도 그대로이며, 올려야 하는 기계는 "Update lophn on this computer", 다른 기계는 "<이름> runs an older lophn"을 보인다. 이유: 고칠 수 있는 곳에서 고칠 것을 말한다. (planner, `machine-update`)
+- 기다리는 동안 앱은 이 기계의 data로 그대로 돌고 App details의 Machines 절이 기다리는 것과 이유를 보인다. 모든 기계를 올리는 단추와 updater는 없다. (사람·planner, 정책 10·12, `machine-update`)
 
 ## 열린 것
 
-- 실제 두 기계와 실제 바깥 도구로 돌려 보지 않았다. 한 기계에서 data root 둘(개발 core 둘)과 같은 local 폴더로 내보내기, take-in과 동의, 양쪽 row, 같은 row의 다른 칸 양쪽 편집, snapshot 주고받기가 멈춤, 손으로 자른 file(`invalid_file`, 아무것도 적용 안 됨), 한쪽만 새 release(held 복사, data 그대로), 손으로 지운 changes file(snapshot으로 따라옴), 폴더에 id file·secret·host key 없음, 손으로 쓴 미래 clock file(`clock_ahead`가 기계를 말함), 앞당긴 시각의 흔적 정리(떨어진 기계의 자기 변경이 held)를 보았다. 같은 OS 위라 두 기계의 이름이 같았다.
+- 실제 두 기계와 실제 바깥 도구로 돌려 보지 않았다. 한 기계에서 data root 둘(개발 core 둘)과 같은 local 폴더로 내보내기, take-in과 동의, 양쪽 row, 같은 row의 다른 칸 양쪽 편집, snapshot 주고받기가 멈춤, 손으로 자른 file(`invalid_file`, 아무것도 적용 안 됨), 한쪽만 새 release(held 복사, data 그대로), 손으로 지운 changes file(snapshot으로 따라옴), 폴더에 id file·secret·host key 없음, 손으로 쓴 미래 clock file(`clock_ahead`가 기계를 말함), 앞당긴 시각의 흔적 정리(떨어진 기계의 자기 변경이 held)를 보았다. 같은 OS 위라 두 기계의 이름이 같았다. 다른 release의 따라가기, held drain, 꼴 판 범위도 두 개발 core가 한 폴더를 나눈 끝에서 끝 확인으로만 보았다(change-log `machine-update`).
+- held 한도(128 MiB)에 닿는 경우와 그 뒤 snapshot으로 건너뛰기는 test도 끝에서 끝 확인도 없다(이슈 `folder-held-limit-untested`).
+- 영영 올라오지 않는 기계가 옛 release에서 한 변경은 그 기계의 폴더와 다른 기계의 held에만 남는다. 앱을 지우기 전에는 held가 지워지지 않는다.
+- 사람이 한 기계에서 이전 release로 돌아가면 그 기계는 다른 기계의 새 release를 다시 따라가지 않고 다른 기계는 내려오지 않는다. 두 기계는 새 release가 나올 때까지 서로의 변경을 held로 둔다. 갈라진 release도 같다(앱 agent가 합친 release가 풀어 준다). 갈라진 동안 다른 기계의 held를 "그 기계가 올라오면 온다"로 보인다(이슈 `machine-update-diverged-held-says-older`).
+- agent는 따라가기 상태, held, 기계의 꼴 판 범위를 읽을 길이 없다. `machine/environment`에 그 칸이 없고 `apps/update_state`의 CLI 명령이 없다(이슈 `machine-environment-lacks-update-state`).
+- 범위 밖 기계는 그 앱을 쓰는지 몰라 폴더로 맞추는 모든 앱의 Machines 절에 선다(이슈 `machine-update-out-of-range-listed-under-every-app`).
+- `update_peer`(그 기계를 올려야 한다)는 모든 기계가 같은 꼴 판(`{1, 1}`)인 지금은 생기지 않는다. 꼴 판(`version`이나 `min_version`)을 처음 올리는 판이 나올 때까지 실제로 보이지 않고, 끝에서 끝 확인은 기록을 손으로 고쳐 `update_this`만 보았다(이슈 `machine-update-update-peer-unreachable`).
+- 따라가기의 설치 실패와 거절은 메모리에만 있어 core가 다시 뜨면 다시 한다(`activation.md`).
 - 앞선 시계의 snapshot은 미루지 않는다. 미루기는 changes file만 보고 snapshot 합치기는 source의 clock을 그대로 받아 이 기계의 clock이 앞으로 뛴다(이슈 `folder-snapshot-future-clock-not-deferred`).
 - destination을 처음 둘 때 내보내기가 다른 기계의 horizon을 읽기 전에 돈다(이슈 `folder-first-export-before-peer-horizon`).
 - 떨어져 있음이 끝난 뒤에도 held인 자기 변경이 남는데 `machine.environment`의 `away`는 null이다(이슈 `folder-environment-hides-held-after-away`). 알림의 held 수는 core 메모리라 재시작하면 잊는다(이슈 `folder-away-notice-count-in-memory`).

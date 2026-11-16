@@ -1,0 +1,13 @@
+id: phone-drive-two-devices-pick
+title: 같은 앱의 preview를 두 기기가 열면 phone 탭이 가장 최근 쓴 view로 말없이 옮겨 간다
+kind: bug
+status: open
+topic: browser-tab
+modules: [packages/core/host-queue, packages/core/apps]
+now: |
+  `packages/core/host-queue/phone.ts`의 `pickView`는 호출마다 그 앱의 기기 preview view 가운데 `used`가 가장 큰 것을 고른다. `used`는 core view 표(`packages/core/apps/views/table.ts`)가 열기와 operation 호출 때마다 고친다. 두 폰(또는 폰과 tablet)이 같은 앱의 preview를 열어 두면, 한 기기의 화면이 operation을 부르는 것만으로 다음 호출이 그 기기로 간다. 앞 기기의 ref는 `conflict`(낡은 ref)가 된다.
+impact: |
+  agent가 다루는 기기가 사람도 agent도 모르게 바뀌어 snapshot과 act가 다른 기기의 화면을 오간다. agent는 ref가 자꾸 낡는다고만 본다. 폰 하나를 쓰는 지금은 드물다.
+fix: |
+  - 작음(추천): 탭이 마지막으로 고른 기기를 쥐고 그 기기에 preview view가 있는 동안 그것을 쓴다. 없을 때만 다시 고른다.
+  - 작음: `tab open --phone`이 기기 이름을 받는다(`--device`). 사람이 기기 이름을 말해야 한다.

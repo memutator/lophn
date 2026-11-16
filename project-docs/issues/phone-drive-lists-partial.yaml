@@ -1,0 +1,13 @@
+id: phone-drive-lists-partial
+title: phone 탭이 가상화된 목록의 그려지지 않은 줄과 가로 scroll을 덮지 않는다
+kind: bug
+status: open
+topic: phone-screen
+modules: [packages/mobile, packages/protocol]
+now: |
+  `Drive.kt`의 snapshot은 붙어 있는 Android view만 걷고 scroll container 안의 화면 밖 줄을 `offscreen`으로 싣는다. `FlatList`·`SectionList`는 보이는 근처의 줄만 view로 만들므로 그 밖의 줄은 snapshot에 없다. `scroll --dy`는 세로뿐이고(`scroller()`가 `canScrollVertically`로 고른다) 계약(`driveActSchema`)에 가로 양이 없다. `--ref` scroll(`requestRectangleOnScreen`)은 이미 그려진 가로 줄은 들인다.
+impact: |
+  긴 목록 화면에서 agent는 snapshot이 목록 전체라고 잘못 볼 수 있고, 아래 줄을 찾으려면 `--dy`로 밀고 다시 snapshot해야 한다(지침에 없다). 가로 carousel의 그려지지 않은 칸은 닿을 길이 없다.
+fix: |
+  - 작음(추천): snapshot이 가상화 목록(끝까지 scroll되지 않은 scroll container)에 `[more]` 같은 flag를 달고 `phone-check.md`가 "밀고 다시 snapshot"을 말한다. 가로는 `dx`를 계약에 더한다.
+  - 중간: native가 목록 끝까지 밀며 모은다. 화면이 움직여 사람이 보는 화면이 바뀐다.

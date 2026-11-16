@@ -112,7 +112,7 @@ elements:
 
           - id: host-queue-core
             kind: component
-            description: core가 shell에 시킬 일(agent가 연 탭의 열기·닫기)의 메모리 queue와 agent가 연 탭의 표. shell main이 가져간다.
+            description: core가 shell에 시킬 일(agent가 연 탭의 열기·닫기)의 메모리 queue와 agent가 연 탭의 표. shell main이 가져간다. phone 탭(사람의 폰에 뜬 preview 화면)은 shell에 가지 않고 core가 폰 link의 `drive.*`로 다룬다(ref 번호, snapshot 글, 오류 문장, redaction은 core).
 
           - id: harness-host-core
             kind: component
@@ -221,7 +221,7 @@ elements:
 
   - id: mobile
     kind: application
-    description: 사람이 폰에 까는 lophn 앱. pairing, 기기 key 보관, core 연결, 폰 kit으로 짠 native 화면(sidebar 뼈대, Home, Inbox, 대화, Jobs, Agents, workspace, Settings)과 그 data 층, 알림(허락 묻기, Settings › Notifications, push token과 설정 보내기, 앞에 있는지 알리기, 알림을 누르면 여는 곳), 사용자 앱의 폰 화면을 받아 격리된 guest runtime에서 돌리는 길(호환 검사, bundle cache, host bridge, 앱 화면), 폰에서 도는 앱의 설치·sync·release 바뀜을 하는 폰 host와 guest 안의 backend와 앱 DB native module, 홈 화면의 위젯(binding과 cache file, 새로 하기, "Choose a widget", Android native module)과 앱 아이콘(pinned shortcut), 밖에서 온 누름과 URL을 한 곳으로 해석하는 open target, 컴퓨터의 `request`에 답하는 폰의 handler(위치). lophn 자신의 화면은 컴퓨터가 내려주지 않는다.
+    description: 사람이 폰에 까는 lophn 앱. pairing, 기기 key 보관, core 연결, 폰 kit으로 짠 native 화면(sidebar 뼈대, Home, Inbox, 대화, Jobs, Agents, workspace, Settings)과 그 data 층, 알림(허락 묻기, Settings › Notifications, push token과 설정 보내기, 앞에 있는지 알리기, 알림을 누르면 여는 곳), 사용자 앱의 폰 화면을 받아 격리된 guest runtime에서 돌리는 길(호환 검사, bundle cache, host bridge, 앱 화면), 폰에서 도는 앱의 설치·sync·release 바뀜을 하는 폰 host와 guest 안의 backend와 앱 DB native module, 홈 화면의 위젯(binding과 cache file, 새로 하기, "Choose a widget", Android native module)과 앱 아이콘(pinned shortcut), 밖에서 온 누름과 URL을 한 곳으로 해석하는 open target, 컴퓨터에서 도는 preview를 여는 preview 화면, 컴퓨터의 `request`에 답하는 폰의 handler(위치, 그리고 이 폰이 연 preview view의 guest만 읽고 누르고 치는 native module `lophn-drive`와 take control을 쓰는 `drive.*`). lophn 자신의 화면은 컴퓨터가 내려주지 않는다.
     depends_on:
       - protocol
       - design-native
@@ -275,7 +275,7 @@ interfaces:
 
   - id: remote-protocol
     kind: interface
-    description: 폰과 core 사이의 연결. Noise IK handshake, 암호화한 record, JSON frame(hello, pair, call, result, watch와 Gateway frame), 기기가 부를 수 있는 route 목록(자기 등록을 지우는 `devices/unpair`, 자기 push 설정 `devices/set_push`, 앞에 있는지 알리는 `presence/report`, project의 `project_files/list|read`, 컴퓨터의 coding agent `coding_sessions/*`와 그 터미널 화면 `terminal_view/*`, 사용자 앱의 폰 화면 `apps/phone_screens`·`apps/screen_file`·`app_views/*`와 그 event `AppViewEvent`, 위젯 값 `app_widgets/list`, 폰에서 도는 앱의 backend file `apps/phone_file`과 sync route `app_sync/*`와 그 event `AppSyncChanged` 포함), core가 폰에 묻는 frame `request`·`response`와 폰이 답하는 kind를 적는 `hello.capabilities`(kind 표 `PHONE_KINDS`와 `unavailable`의 이유는 protocol의 `phone`이 정한다), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
+    description: 폰과 core 사이의 연결. Noise IK handshake, 암호화한 record, JSON frame(hello, pair, call, result, watch와 Gateway frame), 기기가 부를 수 있는 route 목록(자기 등록을 지우는 `devices/unpair`, 자기 push 설정 `devices/set_push`, 앞에 있는지 알리는 `presence/report`, project의 `project_files/list|read`, 컴퓨터의 coding agent `coding_sessions/*`와 그 터미널 화면 `terminal_view/*`, 사용자 앱의 폰 화면 `apps/phone_screens`·`apps/screen_file`·`app_views/*`와 그 event `AppViewEvent`, 위젯 값 `app_widgets/list`, 폰에서 도는 앱의 backend file `apps/phone_file`과 sync route `app_sync/*`와 그 event `AppSyncChanged` 포함), core가 폰에 묻는 frame `request`·`response`와 폰이 답하는 kind를 적는 `hello.capabilities`(kind 표 `PHONE_KINDS`: `location.get`, `drive.snapshot|act|screenshot|wait`. kind와 `unavailable`의 이유는 protocol의 `phone`이 정한다), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
     interface_type: protocol
     defined_by: protocol
     provided_by:
@@ -413,7 +413,7 @@ interfaces:
 
   - id: host-queue-interface
     kind: interface
-    description: shell main이 사람 token으로 여는 양방향 연결 `/host-link`(WebSocket, subprotocol `lophn.host-link.1`)의 frame(host가 올리는 `hello`·`visible`(보이는 workspace와 harness TUI hold의 목록), `response`, `report`, `coding_report`·`coding_sync`·`coding_closed`, `terminal_screen`과 core가 미는 `request`(탭 열기·닫기·보이기, extension tool·browser 호출, 터미널 끊기, 폰이 청한 coding session 입력·switch·열기와 터미널 화면 밀기·입력))와 agent 자격 또는 사람 token의 `tabs/open`, `tabs/close`, `tabs/show`, `browser/read|snapshot|act|navigate|screenshot|evaluate|logs|wait`. renderer의 호출 통로에는 없다.
+    description: shell main이 사람 token으로 여는 양방향 연결 `/host-link`(WebSocket, subprotocol `lophn.host-link.1`)의 frame(host가 올리는 `hello`·`visible`(보이는 workspace와 harness TUI hold의 목록), `response`, `report`, `coding_report`·`coding_sync`·`coding_closed`, `terminal_screen`과 core가 미는 `request`(탭 열기·닫기·보이기, extension tool·browser 호출, 터미널 끊기, 폰이 청한 coding session 입력·switch·열기와 터미널 화면 밀기·입력))와 agent 자격 또는 사람 token의 `tabs/open`(phone 탭을 여는 target `phone` 포함), `tabs/close`, `tabs/show`, `browser/read|snapshot|act|navigate|screenshot|evaluate|logs|wait`. renderer의 호출 통로에는 없다.
     interface_type: protocol
     defined_by: lophn-agent
     provided_by:

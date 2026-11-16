@@ -1,0 +1,13 @@
+id: phone-drive-cannot-reach-sheet
+title: phone 탭이 폰 화면의 Sheet·Modal 안을 읽지도 누르지도 못한다
+kind: bug
+status: open
+topic: phone-screen
+modules: [packages/mobile, packages/design/native]
+now: |
+  kit의 `Sheet`(`packages/design/native/overlay/sheet.tsx`)는 React Native `Modal`이고 Android에서 따로 창(Dialog)을 띄운다. `lophn-drive`(`packages/mobile/modules/lophn-drive/android/.../Drive.kt`)는 activity 창의 `decorView`에서 guest를 찾고 그 view tree만 걸으므로 sheet의 내용은 tree에 없다. sheet가 뜨면 activity 창의 focus가 빠져 `guest()`가 `screen_off`를 내고, 폰의 drive controller(`src/apps/drive/controller.ts`)가 그것을 `covered`로 바꿔 snapshot, screenshot, act, wait 모두가 `unavailable`이다. agent는 사람에게 닫아 달라고 하고 그 부분은 손으로 보라는 문장을 받는다(`PHONE_TAB_TEXT.covered`).
+impact: |
+  앱 agent가 폰 화면의 sheet·dialog(고르기, 확인, 입력 form)를 사람의 폰에서 확인하지 못한다. kit이 menu와 확인을 sheet로 짜게 하므로 흔한 화면의 한 단계가 늘 사람 손으로 남는다.
+fix: |
+  - 중간(추천): guest 안의 kit `Sheet`가 `Modal`을 쓰지 않고 guest 화면 안의 view로 그린다(`phone-guest-can-cover-app`의 작은 안과 같은 변경). 그러면 sheet가 guest tree 안에 있어 drive가 그대로 읽고 누른다. kit 판이 오른다.
+  - 큼: native module이 guest가 띄운 Dialog 창도 찾아 걷는다. sandbox가 Modal 창을 어느 guest의 것인지 알려 주지 않아 다른 창과 가르기 어렵다.

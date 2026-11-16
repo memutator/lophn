@@ -1,6 +1,6 @@
 # phone-screen
 
-사용자 앱이 폰 앱 안에서 도는 화면(폰 화면)을 갖는 길이다. 앱 agent가 폰 UI kit(`@lophn/ui-native`, `ui-kit.md`)으로 React Native 화면을 쓰고 release하면 core가 그것을 plain JS bundle로 짓고, 폰 앱이 받아 앱 안에 따로 띄운 React Native runtime(guest)에서 돌린다. 화면이 어느 앱·release의 것인지, 무엇을 부를 수 있는지, 무슨 event를 받는지(view binding)는 core가 쥐어 desktop과 폰이 같은 표를 쓴다. agent는 등록된 기준 폰의 크기를 읽어 그리고 desktop preview(web 에뮬레이션)로 확인한다. 앱의 호출 경로와 화면의 신원은 `app-call.md`, 폰 앱 자체와 폰 gate는 `remote.md`가 맡는다.
+사용자 앱이 폰 앱 안에서 도는 화면(폰 화면)을 갖는 길이다. 앱 agent가 폰 UI kit(`@lophn/ui-native`, `ui-kit.md`)으로 React Native 화면을 쓰고 release하면 core가 그것을 plain JS bundle로 짓고, 폰 앱이 받아 앱 안에 따로 띄운 React Native runtime(guest)에서 돌린다. 화면이 어느 앱·release의 것인지, 무엇을 부를 수 있는지, 무슨 event를 받는지(view binding)는 core가 쥐어 desktop과 폰이 같은 표를 쓴다. agent는 등록된 기준 폰의 크기를 읽어 그리고 desktop preview(web 에뮬레이션)로 확인하며, 사람이 폰에서 preview를 열면 그 화면을 컴퓨터에서 읽고 다룬다(phone 탭, `browser-tab.md`). 앱의 호출 경로와 화면의 신원은 `app-call.md`, 폰 앱 자체와 폰 gate는 `remote.md`가 맡는다.
 
 ## 문제
 
@@ -8,13 +8,15 @@
 - 폰 앱에 받은 코드를 그냥 돌리면 AI가 쓴 화면이 폰 앱의 전역, 보안 저장소, file, network에 닿는다. 화면이 사람의 data를 바깥으로 보내거나 폰 앱을 죽일 수 있다.
 - "이 화면이 어느 앱의 어느 release이고 어떤 operation을 부를 수 있나"를 host(desktop shell main, 폰)가 각자 들면 같은 로직이 두 벌이 되고, 화면 page가 낸 값을 신원으로 믿는 틈이 생긴다.
 - 폰이 모르는 kit 판이나 약속으로 지은 화면을 돌리면 깨진다. 사람은 왜 안 열리는지 모르고 고칠 곳(폰 앱인지 컴퓨터의 앱인지)도 모른다.
-- agent는 폰이 없는 개발 환경에서 폰 화면을 짓는다. 어느 크기로 그려야 하는지, 짠 화면이 돌기는 하는지 볼 길이 없으면 추측으로 그린다.
+- agent는 폰이 없는 개발 환경에서 폰 화면을 짓는다. 어느 크기로 그려야 하는지, 짠 화면이 돌기는 하는지 볼 길이 없으면 추측으로 그린다. desktop preview는 react-native-web이라 입력, soft keyboard, scroll, 글꼴이 폰과 달라 그런 것은 실제 폰에서만 보인다.
+- 컴퓨터의 agent가 폰 화면을 다루게 하면 lophn 앱이 사람의 폰 안에서 누르고 친다. 그 손이 사람의 실제 data, lophn 자신의 화면, 다른 앱에 닿으면 안 된다.
 
 ## 목표와 비목표
 
 - 목표: release한 앱의 폰 화면이 폰 앱에서 네이티브 느낌(scroll, keyboard, gesture)으로 돈다. 화면은 operation 호출과 앱 event로만 data를 받는다. 화면의 오류와 폭주가 폰 앱을 죽이지 않는다. 폰이 못 돌리는 화면은 이유를 말하고 거절한다.
 - 목표: agent가 기준 폰의 크기를 읽고 폰 화면을 desktop에서 열어 operation을 눌러 본다.
-- 비목표: 폰에서 backend가 도는 앱(`app-sync.md`. 이 문서의 화면은 그 앱의 화면이기도 하고, guest가 backend를 같이 싣는 것은 그 문서가 정한다). 앱 화면 밖의 위젯과 홈 화면 아이콘(`phone-home-screen.md`)과 폰 기능(`remote.md`의 "컴퓨터가 폰에 묻는 길"). iOS(Apple 지침 2.5.2와 4.7을 사람이 Apple에 물어야 정해진다). 실제 폰에서 폰 화면을 확인하는 일(단계 10). 폰 화면을 desktop 탭에 띄우는 것(desktop은 web 화면을 둔다). 한 화면이 desktop과 폰에서 반응하는 것. core가 Hermes bytecode를 만드는 것.
+- 목표: 사람이 폰에서 앱의 preview를 열면 컴퓨터의 agent가 그 화면을 snapshot·screenshot으로 보고 누르고 치고 scroll한다(단계 10).
+- 비목표: 폰에서 backend가 도는 앱(`app-sync.md`. 이 문서의 화면은 그 앱의 화면이기도 하고, guest가 backend를 같이 싣는 것은 그 문서가 정한다). 앱 화면 밖의 위젯과 홈 화면 아이콘(`phone-home-screen.md`)과 폰 기능(`remote.md`의 "컴퓨터가 폰에 묻는 길"). iOS(Apple 지침 2.5.2와 4.7을 사람이 Apple에 물어야 정해진다). agent가 live 화면, lophn 자신의 화면, 다른 앱, system UI를 다루는 일. 폰 화면을 desktop 탭에 띄우는 것(desktop은 web 화면을 둔다). 한 화면이 desktop과 폰에서 반응하는 것. core가 Hermes bytecode를 만드는 것.
 - 비목표: 폰 화면의 쓰기에 앱 operation이 이미 요구하는 것 말고 다른 확인을 더하지 않는다.
 
 ## 모델
@@ -44,6 +46,8 @@ release bundle: screens/<key>/ { phone.js, phone.json(manifest), index.html + pr
 - **오류 가두기.** guest의 상태는 `starting` → `running` → `{failed}`이고 실패는 `fatal`(화면 평가·render의 예외나 guest의 fatal), `crashed`(guest runtime 자체가 쓰러졌다), `did_not_start`(10초 안에 `ready`가 없거나 script file이 없다)다. 폰 앱의 release build에서 평가 중 예외(build의 try/catch 안과 밖), 시작 뒤 render 예외, handler의 throw, 8초 busy loop, 300 MB 할당이 모두 앱을 죽이지 않고 화면이 오류 상태로 간다는 것을 emulator에서 보았다. guest를 mount할 때마다 origin이 새로 서서 다시 mount하면 새 runtime과 새 bundle이 쓰인다. 읽을 bundle file이 없으면 loader가 앱 전체를 죽이므로 mount 전에 host가 file을 확인한다.
 - **폰의 bundle cache.** 폰은 `phone.js`를 컴퓨터마다 폴더에 bundle hash로 둔다. 같은 hash의 byte는 고정이라 한 번 둔 hash는 다시 받지 않는다. 받으면 크기와 sha256이 manifest와 같을 때만 두고(틀리면 거절한다) 앱마다 가장 새 둘만 남긴다. 목록에서 사라진 앱과 지운 컴퓨터의 bundle은 지운다. 호환 검사는 받기 전에 하므로 폰이 못 돌리는 화면은 받지도 않는다.
 - **폰의 앱 화면.** 컴퓨터가 offline이면 앱 이름과 컴퓨터를 말하는 화면, 앱이 컴퓨터에서 안 돌면(멈춤, 보관, live release 없음) 그 화면, 호환 거절 둘, 시작 실패에 Try again이 선다. 컴퓨터가 돌아오거나 앱이 다시 돌면 저절로 열린다. 열려 있는 동안 새 release가 live가 되면(`rebound`) 목록을 다시 읽어 새 bundle로 guest를 새로 띄우고 guest 아래에 "Updated to Release N" 줄을 잠시 보인다. 화면의 ⋯ menu는 앱 workspace에 변경 청하기, 앱의 session, 실행 기록, live release, 앱의 다른 폰 화면, 홈 화면 아이콘 놓기("Add to Home screen")와 위젯 놓기("Add widget")를 보인다. 앱 화면은 알림, 위젯, 홈 화면 아이콘, `lophn://` URL이 여는 open target의 한 곳이다(`phone-home-screen.md`).
+- **폰의 preview 화면(Preview from lophn).** 컴퓨터에서 앱의 preview가 도는 동안 `apps/phone_screens`의 `previews`가 그 preview의 폰 화면(앱 이름, icon, release(없을 수 있다), bundle hash, process nonce, 화면 key·label·manifest)을 싣는다. 폰은 live 폰 화면이 있는 앱이면 앱 화면 ⋯ menu에 "Preview from lophn" 줄을, live 폰 화면이 아직 없는 앱(첫 폰 화면을 짓는 중)이면 Home과 sidebar의 앱 줄에 "Preview" 표시를 두고 그 줄이 바로 preview 화면을 연다. preview가 멈추면 줄과 표시가 사라진다. preview 화면은 `phone.js`를 `apps/screen_file`의 target `{mode: "preview", app, process_nonce}`로 받아 manifest로 확인하고(cache key는 bundle hash, live와 따로 앱마다 둘) 새 view id로 `app_views/open {mode: "preview", release: null, place: "phone"}`을 열어 guest에 띄운다. 위 줄 아래에 "Preview"와 "Test data on <컴퓨터>" 줄이 선다. preview가 다시 지어지면(`rebound`) 목록을 다시 읽어 새 bundle과 새 view로 다시 띄우고, 멈추면(`lost`) "The preview stopped on <컴퓨터>"와 닫기가 선다. 여러 폰 화면을 가진 preview는 preview 화면의 ⋯ menu에서 고른다. 열린 동안 폰 화면을 켜 둔다(`FLAG_KEEP_SCREEN_ON`).
+- **drive(폰 화면 다루기).** 컴퓨터의 phone 탭(`browser-tab.md`)이 폰 link로 `drive.*`를 물으면(`remote.md`) 폰 앱의 drive controller가 그 view가 이 폰이 그 컴퓨터를 위해 연 preview view인지 보고 native module `lophn-drive`(Kotlin, Android)를 부른다. module은 view id로 guest의 sandbox view를 찾아 그 Android view tree를 걸어 node(role, name, value, flag)를 내고, `View.draw`로 guest만 찍고, guest 표면(직계 자식)에 touch를 넣고, 칸의 InputConnection으로 글을 친다. 누르기 전에 node를 native로 화면 안에 들이고, 들이지 못하면 누르지 않는다. 글을 친 뒤 soft keyboard를 내린다. 요청마다 부른 agent 이름(`by`)과 시각을 남겨 preview 화면 위 줄 아래에 "<agent> is driving this screen"과 [Take control] 줄을 60초 보이고, 사람이 가져가면 "You have control"과 [Hand back]이 선다. 두 줄은 guest 위에 덮지 않고 layout 안의 한 줄이다(guest 위의 view는 그 자리의 손 입력을 host로 돌린다).
 - **desktop preview.** `lophn tab open --preview <app> --screen <key> [--device <name>]`이 preview의 release 선언에서 그 화면을 연다. 폰 화면이면 `phone` 자리로, 기준 폰의 크기·DPR·OS로 에뮬레이션한 틀에 연다(기기가 없고 `--device`도 없으면 `conflict`). 화면은 build가 만든 react-native-web 진입이고 `lophnApp`은 desktop 앱 view와 같은 preload가 주며 core가 preview의 operation을 preview bundle의 선언으로 판정해 부른다. react-native-web은 폰이 아니라서 입력, soft keyboard, scroll, 글꼴(preview bundle은 kit의 글꼴 Pretendard를 싣지 않는다), safe area가 다를 수 있다. `react-native-keyboard-controller`와 `expo-clipboard`는 preview에서만 web 대체다. 마지막 확인은 사람이 폰에서 한다.
 
 ## 지키는 것
@@ -58,9 +62,15 @@ release bundle: screens/<key>/ { phone.js, phone.json(manifest), index.html + pr
 8. 폰의 cache에는 manifest의 크기와 sha256이 맞은 `phone.js`만 남는다.
 9. agent는 기준 폰의 기기 id와 공개 key를 보지 못한다.
 10. 폰 화면의 쓰기는 앱 operation의 판정(effect, grant)이 이미 요구하는 것만 거치고 폰을 위한 다른 확인 단계를 두지 않는다.
+11. drive는 이 폰이 그 컴퓨터를 위해 연 preview view의 guest만 다룬다. live 앱 화면은 등록되지 않아 그 view id는 모르는 id와 같고 native module에 닿지 않는다. lophn 폰 앱 자신의 화면(host view), 다른 앱, system UI는 다루지 않는다.
+12. secure 입력의 값은 snapshot에 나가지 않는다(`••••`나 빈 값). native module은 값을 읽지 않고 비었는지만 본다.
+13. drive는 폰 앱이 앞에 있고 화면이 켜져 있고 preview를 덮은 것이 없을 때만 답한다. 아니면 `unavailable`이다. 폰을 깨우거나 lophn 앱을 앞으로 부르지 않는다.
+14. 사람이 take control한 동안 agent의 act는 `conflict`이고 사람의 손 입력은 늘 된다. drive의 줄은 guest를 덮지 않는다.
+15. 마지막 snapshot이 아니거나 사라졌거나 role·name이 바뀐 node, 화면 안으로 들이지 못한 node에는 touch를 넣지 않는다.
 
 ## 경계와 계약
 
+- drive: kind `drive.snapshot|act|screenshot|wait`(`browser-tab.md`의 "phone 탭의 폰 요청"), `apps/phone_screens`의 `previews`, `apps/screen_file`의 preview target, 폰 앱의 native module `lophn-drive`(boundary `mobile`).
 - boundary `app-releases`(폰 화면 build와 manifest), `app-runtime`(core의 view 표), `remote-protocol`(폰 gate), `mobile`(guest runtime과 앱 화면), `design-native`·`sdk`(kit과 hook), `sdk-api`.
 - route: `apps/phone_target`(read, user·agent), `apps/phone_screens`(read, user), `apps/screen_file`(기존), `app_views/open|call|close`(memory, user), `tabs/open`의 preview target `{app, device, screen}`. event: `AppViewEvent`(남지 않음, `event`·`rebound`·`lost`), `AppViewChanged`(기존), notice kind `phone_changed`. CLI: `lophn app phone-target`, `lophn tab open --preview <app> --screen <key>`.
 - 계약 상수: host module 목록, `PHONE_BASE_FORMAT`(base bundle의 약속이 바뀌면 올린다. 폰 앱 판이 올라가야 한다), manifest `phone.json`, host-guest 메시지, guest 전역 `lophnApp`·`__lophnMount`·`__lophnFatal`. 모두 protocol의 한 file이 고정하고 build, 읽기, 폰 host, guest base가 같은 것을 쓴다.
@@ -89,9 +99,16 @@ release bundle: screens/<key>/ { phone.js, phone.json(manifest), index.html + pr
 - 기준 폰이 바뀔 때만 사람에게 알린다. 이유: 옛 크기로 그린 폰 화면을 다시 그려야 하기 때문이다. 알리기만 하고 자동으로 다시 그리지 않는다(agent가 하는 일이라 사람이 맡긴다). (agent)
 - preview에서 폰 화면은 기준 폰(없으면 `--device`)의 틀에만 연다. 이유: 넓은 틀에 폰 화면을 그려 잘못 믿게 하지 않는다. (agent)
 - `react-native-keyboard-controller`와 `expo-clipboard`는 preview에서만 web stub이다. 이유: 같은 화면 source가 desktop에서 확인되어야 agent가 폰 없이 고친다. 입력 focus를 web build에서 믿지 못했고 desktop preview에는 키보드가 없다. 폰에서는 진짜 module이 돈다. (agent)
+- agent는 폰의 preview 화면만 다룬다(planner, 2026-11-15). 이유: live 화면은 사람의 실제 data에 operation을 부른다(desktop의 "앱은 preview만"과 같다).
+- 사람이 폰에서 preview를 여는 것이 동의다. 동작마다 묻지 않는다. 컴퓨터에서 폰을 깨우거나 앞으로 부르지 않는다(planner). 이유: 사람이 폰을 들고 있을 때 하는 확인이고, 누가 다루는지 보이고 언제든 가져갈 수 있으면 동작마다의 확인은 거추장스럽다.
+- 보기와 입력은 lophn 폰 앱 안의 Kotlin native module이 guest의 Android view tree를 걷고 직계 자식에 touch를 넣어 한다. Accessibility service, adb, guest 쪽 JS tree는 쓰지 않는다(planner, spike 판정). 이유: Accessibility service는 Play 정책상 이 용도로 쓰기 어렵고 사람이 설정에서 켜야 하며 다른 앱과 system UI까지 닿는다. adb는 cable이나 개발자 옵션이 든다. native module은 lophn 앱 안의 guest view만 보고 사람의 설정이 필요 없다. guest 쪽 JS tree는 AI가 쓴 화면 code가 답을 꾸밀 수 있다.
+- live 폰 화면이 아직 없는 앱(첫 폰 화면)은 preview가 도는 동안 폰의 앱 목록에 "Preview" 표시로 들고 그 줄이 바로 preview를 연다(agent). 이유: "Preview from lophn"은 live 앱 화면의 menu에 있어서 첫 폰 화면을 짓는 앱은 폰에서 열 길이 없었다. 버린 안: live 앱 화면 없이 menu만 띄우는 빈 앱 화면.
+- 무언가가 preview를 덮어 창 focus가 없으면 `covered`로 답한다(agent). 이유: 앱이 앞에 있는데 "앞에 없다"고 하면 agent가 사람에게 틀린 부탁을 한다. guest의 sheet·dialog 안은 guest의 view tree 밖(다른 창)이라 읽지 못하므로 사람에게 닫아 달라고 하고 그 부분은 손으로 보게 한다.
 - Android를 먼저 짓는다. iOS는 내려받은 code로 앱 기능을 바꾸는 것(Apple 지침 2.5.2)과 JavaScript mini app(4.7)에 맞는지 사람이 Apple에 물어야 정해진다. (사람이 할 일)
 
 ## 열린 것
+
+- drive는 emulator(release build)와 개발 core(fake model)로만 보았다. 실제 폰, 실제 model의 agent turn, iOS는 보지 못했다(change-log `mobile-browser-use`). guest의 Sheet·Modal 안은 읽지도 누르지도 못한다(이슈 `phone-drive-cannot-reach-sheet`). 가상화 목록의 그려지지 않은 줄과 가로 scroll은 덮지 않는다(`phone-drive-lists-partial`). scroll 뒤 누르기는 정한 시간(150 ms, 300 ms)을 기다린다(`phone-drive-settle-timing`). type·fill은 손가락과 달리 칸의 onPress를 부르지 않고 keyboard를 띄우지 않는다(`phone-drive-type-skips-press`). 같은 앱의 preview를 두 기기가 열면 가장 최근 쓴 view를 고른다(`phone-drive-two-devices-pick`).
 
 - 이 설계를 실제 Electron desktop 앱에서 보지 못했다: core view 표를 거쳐 desktop 창에서 앱 화면을 열고 operation을 부르는 것, release가 바뀔 때 다시 띄우는 것, 폰 화면을 가진 preview 탭은 type 검사와 test와 headless Chrome으로만 보았다. 폰 쪽은 emulator에서 개발 core에 손으로 지은 앱을 붙여 보았고 실제 agent turn으로 만든 앱이나 실제 폰으로 보지 못했다. iOS는 짓지 않았다.
 - guest 하나가 mount와 unmount를 되풀이하면 PSS가 한 번에 약 2 MB씩 남는다(원인을 찾지 못했다). 이슈 `phone-guest-memory-grows-per-remount`.

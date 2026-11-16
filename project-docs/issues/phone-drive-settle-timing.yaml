@@ -1,0 +1,13 @@
+id: phone-drive-settle-timing
+title: phone 탭의 scroll 뒤 누르기가 정한 시간(150 ms, 300 ms)을 기다리는 것에 기댄다
+kind: bug
+status: open
+topic: phone-screen
+modules: [packages/mobile]
+now: |
+  `Drive.kt`의 `act`는 click 대상이 화면 밖이면 native로 들인 뒤 `SETTLE_MS`(150 ms) 뒤에 누르고, `--dy` scroll은 drag 뒤 `DRAG_SETTLE_MS`(300 ms) 뒤에 답한다. guest의 JS가 scroll 끝을 보기 전에 touch가 가면 guest의 ScrollView가 그 touch를 자기 것으로 삼는다(주석). 시간은 emulator에서 맞춘 값이고 guest가 scroll 끝을 봤다는 신호를 기다리지 않는다.
+impact: |
+  느린 폰이나 guest JS가 바쁠 때 scroll 바로 뒤 누르기가 원하는 줄을 누르지 않거나(ScrollView가 삼킨다) act는 성공으로 답한다. agent는 누른 줄이 반응하지 않은 화면을 보고 화면이 틀렸다고 잘못 보고할 수 있다.
+fix: |
+  - 작음(추천): 누른 뒤 snapshot으로 확인하라는 지침은 이미 있다(`phone-check.md`). 실제 폰에서 실패가 보이면 시간을 늘리고, 그때까지 둔다.
+  - 중간: guest의 ScrollView가 scroll을 끝낸 신호(native의 scroll 상태가 멈춘 것)를 기다린 뒤 누른다. sandbox의 RN ScrollView 내부 상태에 기댄다.

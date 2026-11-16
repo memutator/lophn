@@ -64,6 +64,7 @@ component는 분류 폴더 하나 안에 있고(tsx, module CSS, 보조 file), �
 - 글 배율은 `UiProvider`와 `ThemeProvider`가 받는 값 하나(small 0.92, default 1, large 1.12)다. kit의 글과 글 크기를 token에서 읽는 조각이 줄 높이까지 곱한다. 화면은 따로 고치지 않는다. 고정 크기 상자 안의 글처럼 배율을 피해야 하는 곳만 `useTheme`의 `textScale`로 나눈다.
 - 문구는 직접 쓰지 않고 `@lophn/i18n`의 key로 쓴다. desktop에 있는 문장은 그 key를 쓰고 폰에만 있는 문장은 `mobile.`로 시작하는 key다(catalog 폴더 안 `mobile-<영역>` file). kit이 모르는 것(agent 얼굴, vendor icon)은 ReactNode로 받는다.
 - 묻는 card(`QuestionCard`)는 여러 답을 고르는 질문도 받는다. 대화와 Inbox가 같은 card를 쓴다.
+- `Input`은 자기를 감싼 `Field`의 label을 accessibility 이름으로 갖고(없으면 placeholder) 누르는 조각은 role을 지킨다. 화면 reader와, 사람의 폰에서 preview 화면을 읽는 agent(phone 탭, `browser-tab.md`)가 이 이름과 role로 요소를 찾는다. testID에 기대지 않는다. 이 변경이 `@lophn/ui-native` 0.2.0이다(옛 0.1.0으로 지은 화면은 그대로 열린다).
 - 분류 폴더(primitives, input, layout, navigation, feedback, overlay, reading, conversation)는 `@lophn/ui`와 다르다. check `kit`는 이 폴더를 건너뛰고 폰 앱의 type 검사가 본다. React Native의 `<Text>` 밖 글자는 Biome 규칙(`noReactNativeRawText`)이 막는다.
 - Metro는 alias로, tsc는 `paths`로 이 package를 찾는다.
 - 폰 kit은 SDK part `@lophn/ui-native`이고 설치 사본이 data root의 `sdk/ui-native/<판>`에 깔린다. `@lophn/ui` 사본과 섞지 않는다(`@lophn/ui`의 설치 사본은 폰 kit 폴더를 건너뛴다). 이유: desktop kit은 DOM이고 폰 kit은 React Native라 한 part에 두 runtime의 의존을 담지 않는다. react, react-native, react-native-svg, safe-area, keyboard-controller, expo-clipboard, lucide-react-native, `@lophn/i18n`은 peer와 의존으로 정확한 판이 `package.json`에 있고 guide는 `package.read @lophn/ui-native`로 읽는다. 사용자 앱의 폰 화면은 이 kit으로 쓰고 폰 앱의 base bundle이 같은 kit을 든다.

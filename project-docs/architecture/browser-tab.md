@@ -1,6 +1,6 @@
 # browser-tab
 
-workspace 창의 탭으로 인터넷 page를 여는 탭 kind `browser`의 설계다. 사람은 탭에 주소를 적어 page를 보고, popup·DevTools·bookmark를 쓰고, terminal이 연 URL과 Ctrl/Cmd-click한 link도 이 탭으로 받는다. agent는 자기가 연 browser 탭과 앱 preview 탭을 CLI(`lophn browser`)로 읽고 조작한다. lophn이 다루는 것 가운데 가장 믿지 못할 입력이 인터넷 page이므로, page가 닿는 길(navigation, popup, permission, download, IPC)은 shell main의 순수한 규칙이 정하고, Electron 연결은 그 규칙을 부르기만 한다.
+workspace 창의 탭으로 인터넷 page를 여는 탭 kind `browser`의 설계다. 사람은 탭에 주소를 적어 page를 보고, popup·DevTools·bookmark를 쓰고, terminal이 연 URL과 Ctrl/Cmd-click한 link도 이 탭으로 받는다. agent는 자기가 연 browser 탭과 앱 preview 탭을 CLI(`lophn browser`)로 읽고 조작한다. 같은 명령이 사람의 폰에 뜬 앱 preview 화면(`phone` 탭)도 다룬다(아래 "phone 탭"). lophn이 다루는 것 가운데 가장 믿지 못할 입력이 인터넷 page이므로, page가 닿는 길(navigation, popup, permission, download, IPC)은 shell main의 순수한 규칙이 정하고, Electron 연결은 그 규칙을 부르기만 한다.
 
 page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<webview>`(앱 화면·artifact 화면과 같은 창의 같은 그릇)이고, `window.opener`를 지켜야 하는 크기 준 popup과 DevTools만 native `WebContentsView`다.
 
@@ -15,7 +15,7 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 ## 목표와 비목표
 
 - 목표: 탭 안에서 일반 page, 크기 준 popup(로그인), DevTools, bookmark, favicon을 쓴다. terminal의 `$BROWSER`와 Ctrl/Cmd-click link가 같은 창에서 탭으로 열린다. agent가 자기가 연 탭을 읽고 조작한다.
-- 비목표: tab 수 cap, site 목록, capability 승인, storage mode, 사용자가 쓰지 않는 설정(rea가 모은 것 가운데 dev server와 로그인에 필요한 것만 남겼다). 진짜 폰(emulation은 크기·touch·user agent까지다). localhost·사설 IP 차단. page 쪽 preload나 IPC. 앱 live 화면을 agent가 다루는 일.
+- 비목표: tab 수 cap, site 목록, capability 승인, storage mode, 사용자가 쓰지 않는 설정(rea가 모은 것 가운데 dev server와 로그인에 필요한 것만 남겼다). 진짜 폰의 web 화면(emulation은 크기·touch·user agent까지다. 진짜 폰에서 도는 앱 preview는 `phone` 탭이 다룬다). localhost·사설 IP 차단. page 쪽 preload나 IPC. 앱 live 화면을 agent가 다루는 일.
 
 ## 모델
 
@@ -94,7 +94,7 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 
 ### agent가 다루는 탭
 
-34. **`lophn browser snapshot|act|navigate|screenshot|evaluate|logs|wait`는 `tab open`으로 연 browser 탭, preview 탭, artifact 탭만 다룬다.** 주인(연 session, 사람 token이면 "person")만 부른다. 사람이 손으로 연 탭(사람이 연 artifact 탭 포함)과 앱 live 화면은 다룰 수 없다(앱 live 화면은 sender view 신원으로 operation 막기를 건너므로 어떤 bind로도 고르지 않는다). 길은 host queue의 `browser_call`이다(`workspace-layout.md` "agent가 연 탭").
+34. **`lophn browser snapshot|act|navigate|screenshot|evaluate|logs|wait`는 `tab open`으로 연 browser 탭, preview 탭, artifact 탭, phone 탭만 다룬다.** 주인(연 session, 사람 token이면 "person")만 부른다. 사람이 손으로 연 탭(사람이 연 artifact 탭 포함)과 앱 live 화면은 다룰 수 없다(앱 live 화면은 sender view 신원으로 operation 막기를 건너므로 어떤 bind로도 고르지 않는다). 길은 host queue의 `browser_call`이다(`workspace-layout.md` "agent가 연 탭").
 35. **상태는 agent가 연 탭만 core에 알린다.** key가 `host:`로 시작하는 탭의 url·title·loading을 renderer가 `shell:surface-report`로 보내고 main이 `/host-link`의 `report` frame으로 core 표에 둔다. state와 bind는 창 단위로 알려 그 workspace가 mount되지 않은 동안에도 간다. agent와 사람 token은 `lophn browser read <tab>`으로 자기가 연 탭의 마지막 상태를 읽는다. 없는 탭, 닫히거나 page가 없어져 core 표에서 빠진 탭, 남의 탭은 같은 `not_found` 문장 하나다(탭이 있는지 새지 않게). 사람이 손으로 연 탭과 상태가 아직 없는 탭도 `not_found`다.
 36. **page에서 온 글은 `<lophn-untrusted source="browser.<명령>">`로 감싼다.** page는 인터넷이다. lophn agent는 tool 이름 규칙으로, binary는 찍는 글에 같은 tag를 둔다. 본문의 `<lophn-`는 escape되어 tag를 닫지 못한다. tag를 만들고 escape하는 곳은 core 밖 공유 protocol 코드 하나다(binary가 core를 import하지 못해서). 반대로 `browser`·`tab` 호출의 `unavailable`·`conflict` 문장과 `browser` 호출의 `not_found` 문장은 감싸지 않고 model에 그대로 간다. 그래서 그 문장은 lophn이 쓴 고정 문장(원인, 다음 할 일, 되풀이해도 되는지)이고 page나 Chromium의 글을 넣지 않는다(net error 이름만 예외). `not_found`는 없는 탭과 남의 탭이 같은 문장이라 존재가 새지 않고, 탭이 닫혔으면 다시 열라고 알려야 해서 싣는다. 이유를 못 받은 agent가 바깥 browser를 띄운 일이 있어서다.
 37. **shell main이 CDP로 실행한다.** renderer가 host 탭의 view session을 `shell:surface-report {bind}`로 알리면(host browser 탭은 창 단위로 알려 workspace가 mount되지 않아도 된다) main이 browser 탭은 `wv-<id>`의 guest(`persist:lophn-browser` partition인 것만), preview 탭은 앱 view registry에서 `mode: "preview"`인 view만, artifact 탭은 artifact view registry에 붙은 guest만 고른다. 그 탭의 첫 호출에서 debugger를 붙여 탭이 닫힐 때까지 둔다. 입력은 CDP `Input.*`이다(`sendInputEvent`는 `<webview>` guest에 닿지 않는다). DevTools가 열려 있으면 붙지 못해 `conflict`다. page가 사라진 틈(그 page를 든 창이 닫힘, page가 죽음)에는 browser 탭에는 "page가 없다, `tab open --url`로 다시 열어라"를 `unavailable`로 답한다.
@@ -118,6 +118,19 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 52. **card와 창의 origin은 shell main이 잰다.** 요청을 받으면 core가 host queue로 그 ref가 든 frame의 origin을 재게 한다(47과 같은 길). agent가 적은 글이 아니다. 피싱 site에 넣게 속은 요청을 사람이 origin으로 거른다.
 53. **save는 새 login을 만들고 once는 값을 저장하지 않는다.** save 창은 label, username, password, 선택 TOTP를 받아 잰 origin으로 `logins/save`와 `secrets/put`을 부르고, agent는 `{login: id}`를 받아 이어서 `fill-login`을 부른다. once 창은 값 하나를 받는다. shell main이 그 값을 core 메모리에 known value로 붙들고(`input_request/hold`, 그 session이 끝날 때 푼다) 같은 frame의 origin을 다시 잰 뒤 같으면 친다. 다르면 치지 않고 `conflict`다. 값은 `secrets.json`, ledger, host queue, 결과 어디에도 없고 agent는 `{filled: true}`만 받는다. `hold`는 renderer allowlist에 없다. `done`은 대화 card가 sign_in 요청의 로그인 결과를 알리는 데만 쓰고(`architecture/agent-definition.md` secret 저장소) login·secret의 결과는 shell main만 낸다.
 
+### phone 탭
+
+사람의 폰(lophn 폰 앱)에 뜬 사용자 앱 preview 화면을 컴퓨터의 agent가 같은 `lophn tab`·`lophn browser`로 보고 다룬다. 폰 화면은 폰 앱 안의 guest runtime에서 도는 React Native라(`phone-screen.md`) CDP가 없다. core가 폰 link로 묻고(`remote.md`의 "core가 폰에 묻는 길", kind `drive.*`) 폰 앱의 native module이 guest의 Android view tree를 읽고 입력을 넣는다.
+
+54. **여는 것은 그 앱 workspace의 session과 사람뿐이다.** `lophn tab open --phone <app> [--screen <key>]`(`tabs/open`의 target `{phone: {app, screen}}`)는 `--preview`와 같은 주인 검사를 한다. 다른 앱 workspace의 session은 `not_found`, 그 앱의 preview가 돌지 않으면 `conflict`(먼저 `preview start`), 폰이 그 preview를 보이지 않으면(`--screen`이면 그 화면을) `unavailable`이고 문장이 사람에게 부탁하라고 말한다. 탭은 core의 같은 탭 표에 kind `phone`으로만 있고 shell에는 생기지 않는다. 앱마다 하나(`phone:<app>`)라 다시 열면 같은 탭이 주인과 `--screen`만 바꿔 돌아온다. `tab show`는 `invalid_input`(탭이 폰에 있다), `tab close`는 core 표에서만 지운다.
+55. **기기와 view는 부를 때마다 고른다.** 탭은 기기·view를 쥐지 않는다. 호출마다 core의 view 표에서 그 앱의 preview view 가운데 기기 owner(`device:<id>`)의 것, `--screen`이면 그 화면의 것만 보고 가장 최근 쓴(열기, operation 호출) view 하나를 고른다. live view와 desktop(사람·shell)의 view는 결코 고르지 않는다. 사람이 preview를 닫았다 다시 열어 view id가 바뀌어도, preview가 새로 지어져 폰이 새 view로 다시 열어도 같은 탭이 쓰인다. 고를 view가 없으면 폰에 묻지 않고 `unavailable`이다.
+56. **폰은 자기가 연 preview view에만 답한다.** 폰 앱은 preview 화면이 열릴 때 그 view를 그 컴퓨터의 것으로 등록하고 닫힐 때 지운다. 요청의 view가 등록부에 없으면(live 화면, 닫힌 화면, 모르는 id, 다른 컴퓨터가 연 화면) native module을 부르지 않고 `unavailable`이다. 폰 앱이 앞에 있고 화면이 켜져 있을 때만 답하고, 무언가(sheet, dialog, notification shade)가 preview를 덮으면 `unavailable`(이유 `covered`)이다. 폰을 깨우거나 lophn 앱을 앞으로 부르지 않는다.
+57. **되는 것은 일부다.** snapshot, screenshot, read, `wait --text`, act `click`·`type`(끝에 붙이기)·`fill`(바꾸기)·`press Enter`·`scroll`(`--ref`면 그 요소를 화면 안으로, 아니면 `--dy` dp만큼 세로로)이다. `navigate`, `evaluate`, `logs`, `hover`, `select`, `fill_login`, Enter 밖의 `press`(Back 포함), `wait --url`은 정한 문장과 `invalid_input`이다. 좌표 누르기는 없다. screenshot은 guest 영역만 JPEG(q80, 긴 변 1080 px)로 찍고(`browser/screenshot`의 `media_type`이 `image/jpeg`, CLI는 `.jpg`로 쓴다) 1 MiB를 넘지 않는다. read는 폰에 묻지 않고 `phone://<app>/<screen>`과 화면 key를 낸다.
+58. **snapshot과 ref.** 폰은 snapshot마다 자기 node 번호(1부터)와 snapshot id를 내고, core가 탭의 counter로 `eN`을 매겨 `eN → (view, snapshot, node)`를 든다. 첫 줄은 `screen <key> <w>x<h>dp`이고 줄마다 desktop과 같은 `- <role> "<name>" [value=…] [flag…] [ref=eN]`에 flag(`disabled`, `checked`, `selected`, `scrollable`, `offscreen`)를 더한다. scroll container 안의 화면 밖 줄은 `[offscreen]`으로 싣는다. 입력 칸의 이름은 그 칸을 감싼 kit `Field`의 label이고 없으면 placeholder다. 마지막 snapshot이 아닌 ref, 다른 view나 기기의 ref는 폰에 묻지 않고 core가 `conflict`로 거른다. 폰도 node가 사라졌거나 role·name이 바뀌었으면 `conflict`(`stale_ref`), 화면 안으로 들이지 못한 node는 누르지 않고 `conflict`(`off_screen`)다(clamp한 점을 누르지 않는다).
+59. **redaction과 untrusted.** snapshot 글, act·wait·read의 page(url, title)는 caller에 가기 전에 known-value redaction을 거치고 page 글은 다른 탭처럼 `<lophn-untrusted source="browser.<명령>">`로 감싼다. 폰은 secure 입력의 값을 읽지 않고 `••••`(비었으면 빈 값)를 낸다. 오류 문장은 lophn이 정한 고정 문장(`PHONE_TAB_TEXT`)이다: 보이지 않음, 앞에 없음·화면 꺼짐, 덮임, 폰 앱이 옛 판, 시간 초과, take control, 낡은 ref, 들이지 못함, 되지 않는 명령.
+60. **take control은 폰에 있다.** 요청이 오는 동안 폰의 preview 화면 위 줄 아래에 "<agent> is driving this screen"과 [Take control]이 선다(사람 token이면 "Someone on your computer"). 사람이 가져가면 act는 `conflict`(`taken_over`)이고 snapshot·screenshot·wait는 된다. [Hand back]으로 돌려준다. 사람의 손 입력은 늘 된다. 상태는 폰 앱 메모리에 있고 그 preview 화면을 떠나면 끝난다. core는 모른다.
+61. **입력은 guest에만 간다.** 누르기는 guest 표면(sandbox view의 직계 자식)에 touch를 넣고 글은 그 칸의 InputConnection으로 친다. lophn 폰 앱 자신의 화면, 다른 앱, system UI에는 닿지 않는다. 글을 친 뒤 soft keyboard를 내린다(guest는 keyboard에 줄지 않아 사람의 화면을 덮는다).
+
 ## 경계와 계약
 
 **shell IPC(renderer ↔ main).** preload `window.lophnBrowser`는 shell 창(project 창과 detached 창)에만 있다.
@@ -135,7 +148,7 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 
 **terminal bridge protocol.** 요청 `{v:1,key,url}` 한 줄 → 답 `{"result":"pane"|"declined"}` 한 줄. env `BROWSER`, `LPN_BROWSER_BRIDGE={"socket","key"}`. ack 대기 1500ms, shim 접속 한도 3000ms.
 
-**host queue의 browser 호출.** memory route `tabs/open`, `tabs/close`, `tabs/show`, `browser/read|snapshot|act|navigate|screenshot|evaluate|logs|wait`(boundary-catalog의 host queue 계약). 호출 기한 30초. act는 `click|type|fill|fill_login|press|hover|select|scroll` 하나이고 대상은 snapshot의 ref(`e12`). wait는 `--text`나 `--url` 하나와 `timeout_ms`(기본 10초, 최대 25초). `lophn tab open --preview <app> --device <name>`은 emulation 기기를 고르고(없는 이름은 `not_found`) `--screen <key>`는 연 화면을 고른다(아래 "폰 화면 preview"). `tabs/open --url`은 page가 붙은 뒤에 답하고 실패는 `unavailable`이다. `tabs/open`의 `relation`(`--as peer|stage|aside|work|glance`)은 연 탭이 연 session에게 무엇인지이고 자리는 core가 고르지 않는다. 작업용 browser 탭(`work`)은 접힌 float이라, 사람 손이 필요하면(로그인, captcha) agent가 `lophn tab show <tab>`(`tabs/show`, 연 쪽만)으로 펴고 `ask`로 알린다.
+**host queue의 browser 호출.** memory route `tabs/open`, `tabs/close`, `tabs/show`, `browser/read|snapshot|act|navigate|screenshot|evaluate|logs|wait`(boundary-catalog의 host queue 계약). 호출 기한 30초. act는 `click|type|fill|fill_login|press|hover|select|scroll` 하나이고 대상은 snapshot의 ref(`e12`). wait는 `--text`나 `--url` 하나와 `timeout_ms`(기본 10초, 최대 25초). `lophn tab open --preview <app> --device <name>`은 emulation 기기를 고르고(없는 이름은 `not_found`) `--screen <key>`는 연 화면을 고른다(아래 "폰 화면 preview"). `tabs/open --url`은 page가 붙은 뒤에 답하고 실패는 `unavailable`이다. `tabs/open`의 target `{phone: {app, screen}}`은 phone 탭을 연다(위 "phone 탭"). `browser/screenshot`의 `media_type`은 `image/png`이고 phone 탭만 `image/jpeg`다. `tabs/open`의 `relation`(`--as peer|stage|aside|work|glance`)은 연 탭이 연 session에게 무엇인지이고 자리는 core가 고르지 않는다. 작업용 browser 탭(`work`)은 접힌 float이라, 사람 손이 필요하면(로그인, captcha) agent가 `lophn tab show <tab>`(`tabs/show`, 연 쪽만)으로 펴고 `ask`로 알린다.
 
 **오류 code(agent 호출).** 남의 탭·없는 탭은 `not_found`(page가 없어져 core 표에서 빠진 host browser 탭, shell이 없을 때의 host browser 탭도 같다), 낡은 ref·DevTools 열림·사람이 가져간 탭의 쓰기는 `conflict`, shell 없음(preview·artifact 탭)·탭이 창에 없음(preview·artifact 탭)·기한·wait 시간 끝은 `unavailable`, 틀린 url·preview·artifact 탭의 navigate는 `invalid_input`이다.
 
@@ -146,6 +159,8 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 **site login.** memory route `logins/list`(user·agent, 값 없음), `logins/save`·`logins/delete`(user), `logins/release`(shell capability, `{id, field, origin, shell_capability}` → `{value}`). 저장 file `<dataRoot>/logins.json`. 요청은 `login_request/ask`(agent), `read`·`cancel`(card), `hold`·`done`(shell main)이다.
 
 **shell 설정 UI.** Settings > Browser pane: Links(두 설정), Logins, 기기 등록, 데이터 지우기.
+
+**phone 탭의 폰 요청.** kind `drive.snapshot`·`drive.act`·`drive.screenshot`·`drive.wait`(protocol의 drive 계약, `PHONE_KINDS`). 모든 입력에 `view`(core가 고른 preview view)와 `by`(부르는 agent의 이름)가 있다. 거절 이유는 `unavailable`의 `no_preview`·`phone_in_background`·`screen_off`·`covered`·`unsupported`·`phone_unreachable`·`timeout`, `conflict`의 `taken_over`·`stale_ref`·`off_screen`이고 core가 `PHONE_TAB_TEXT`의 문장으로 바꾼다. `drive.wait`의 deadline은 `timeout_ms + 5_000`, 못 찾으면 desktop wait와 같은 `unavailable` 문장이다.
 
 ## 결정
 
@@ -179,6 +194,14 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 - **`secrets.json`은 암호화하지 않는다(agent, 2026-11-09).** 같은 사용자의 process에는 파일 키도 막지 못한다(Hermes·Skyvern 기본값과 같다).
 - **login은 전역 하나다(agent, 2026-11-09).** cookie partition이 이미 전역이라 workspace·agent로 나눠도 막는 것이 없다.
 
+- **폰의 앱도 preview만 다룬다(planner, 2026-11-15).** live 화면은 사람의 실제 data에 operation을 부른다. desktop의 "앱은 preview만"과 같은 규칙이다.
+- **사람이 폰에서 preview를 여는 것이 동의다(planner).** 앱 화면 menu의 "Preview from lophn"(live 폰 화면이 아직 없는 앱은 앱 줄이 바로 preview를 연다)을 여는 것이 "이 화면을 다뤄도 된다"는 뜻이고 동작마다 묻지 않는다. 대신 요청이 오는 동안 폰이 누가 다루는지 보이고 사람이 언제든 가져간다. 컴퓨터에서 폰을 깨우거나 lophn 앱을 앞으로 부르지 않는다. 사람이 폰을 들고 있을 때만 하는 확인이라서다.
+- **보기와 입력은 lophn 폰 앱 안의 native module이 한다. Accessibility service와 adb는 쓰지 않는다(planner, spike 판정).** Accessibility service는 Play 정책상 이 용도로 쓰기 어렵고 사람이 설정에서 켜야 하며, 켜면 다른 앱과 system UI까지 닿는다. adb는 cable이나 개발자 옵션이 필요하다. native module은 lophn 앱 안의 guest view tree만 걸으므로 범위가 preview 화면으로 좁고 사람의 설정이 필요 없다. guest 쪽 JS tree를 쓰는 길은 버렸다(AI가 쓴 화면 code가 답을 꾸밀 수 있다).
+- **phone 탭은 앱마다 하나이고 기기·view를 부를 때마다 고른다(agent).** 조사의 `<app>:<device>` 탭보다 단순하고 사람이 preview를 닫았다 다시 열어도 탭이 그대로 쓰인다.
+- **ref 번호는 core가 매긴다(agent).** 폰은 snapshot id와 자기 node 번호만 낸다. 조사의 "core가 counter 시작값을 보낸다"보다 두 쪽 상태가 어긋날 곳이 적다. 마지막 snapshot이 아닌 ref는 core가 폰에 묻지 않고 거른다.
+- **screenshot 기본은 JPEG q80, 긴 변 1080 px다(agent, spike 측정).** PNG는 1 MiB 상한을 자주 넘는다.
+- **덮인 화면은 따로 이유(`covered`)를 낸다(agent).** 앱은 앞에 있는데 sheet·dialog·notification shade가 덮은 때는 "앞에 없다"가 아니라 사람에게 닫아 달라고 하고 그 부분은 손으로 보라고 해야 한다. 폰 앱이 앞에 있을 때만 요청이 native에 닿으므로 그때의 창 focus 없음을 덮임으로 본다.
+
 ## 열린 것
 
 - **preview 탭에 기기를 건 뒤 DevTools를 열면 emulation이 말없이 풀린다.** debugger가 떨어져 크기·DPR·touch·user agent가 풀리는데 그 사실이 renderer로 가는 길이 없어, 탭은 phone frame과 기기 이름을 그대로 보인다. 반응형 확인을 잘못 믿는다. 이슈 `emulation-lost-on-devtools-open`(추천: main → renderer push 하나를 더해 Desktop으로 돌린다).
@@ -189,4 +212,5 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 - **실제로 보이는 창에서의 agent 입력·1px·기기 frame은 사람이 아직 보지 않았다(headless Electron으로만 확인).** Windows bridge의 실기 확인도 별도다.
 - **agent page는 보이는 창에서만 그린다.** `<webview>` guest는 화면에 보이는 창(숨기거나 최소화하지 않은)에서만 그린다. 숨기거나 최소화한 창은 그리지 않아 screenshot이 끝나지 않는다(x11에서 쟀다). 다른 창에 덮인 것은 그린다. 창 안에서는 화면에 있거나 1px 띠가 가려지지 않은 것만 믿을 수 있고 완전히 덮거나 viewport 밖에 두면 그리지 않는다. 숨은 page의 1px 띠는 창 오른쪽 아래에 점으로 보일 수 있다(설치한 앱에서 눈으로 확인한다). macOS와 Windows는 돌려 보지 않았다. Wayland에서는 focus 없이 연 창이 focus를 가져갈 수 있다. 화면이 없는 Linux는 browser를 쓸 수 없다.
 - **`tabs/open --url`은 page의 dom-ready까지 기다린다.** 첫 응답이 기한(10초, 앱을 띄웠으면 30초)보다 늦는 site는 실패한다.
-- **emulation은 진짜 폰이 아니다.** iOS는 WebKit이다. 실제 폰은 roadmap `mobile.md`.
+- **emulation은 진짜 폰이 아니다.** iOS는 WebKit이다. 실제 폰의 preview 화면은 phone 탭이 다룬다.
+- **phone 탭은 emulator와 개발 core에서만 보았다.** 실제 폰, 실제 model의 agent turn, iOS는 보지 못했다(change-log `mobile-browser-use`). guest의 Sheet·Modal 안은 읽지도 누르지도 못하고(`phone-drive-cannot-reach-sheet`), 가상화된 목록의 그려지지 않은 줄과 가로 scroll은 덮지 않으며(`phone-drive-lists-partial`), scroll 뒤 누르기는 정한 시간만큼 기다리고(`phone-drive-settle-timing`), type·fill은 손가락과 달리 칸의 onPress를 부르지 않는다(`phone-drive-type-skips-press`). 같은 앱의 preview를 두 기기가 열면 가장 최근 쓴 view를 고른다(`phone-drive-two-devices-pick`).

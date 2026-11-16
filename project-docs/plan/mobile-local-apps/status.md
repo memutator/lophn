@@ -14,6 +14,6 @@ lead만 고친다. `tools/status.py mobile-local-apps build`가 `tasks/*.md`에�
 | `mobile-local-prepare` | phone-backend | 5 | mobile-local-decl, mobile-local-build | merged | phone-backend/mobile-local-prepare | c49b57da7 |  |
 | `mobile-local-gate` | phone-host | 5 | mobile-sync-ledger, mobile-local-prepare | merged | phone-host/mobile-local-gate | 831b5c524 |  |
 | `mobile-local-runtime-phone` | phone-host | 5 | mobile-local-db-native, mobile-local-build, mobile-local-sdk | merged | phone-host/mobile-local-runtime-phone | b1cfb3954 |  |
-| `mobile-local-sync-phone` | phone-host | 6 | mobile-local-runtime-phone, mobile-local-gate, mobile-local-prepare, mobile-sync-ledger, mobile-sync-core | running | phone-host/mobile-local-sync-phone |  |  |
+| `mobile-local-sync-phone` | phone-host | 6 | mobile-local-runtime-phone, mobile-local-gate, mobile-local-prepare, mobile-sync-ledger, mobile-sync-core | merged | phone-host/mobile-local-sync-phone | e6f0c1dd8 |  |
 | `mobile-local-screens` | phone-host | 7 | mobile-local-sync-phone | todo |  |  |  |
 | `mobile-local-guidance` | sdk | 7 | mobile-local-decl, mobile-local-prepare, mobile-local-sync-phone, mobile-local-sdk | todo |  |  |  |

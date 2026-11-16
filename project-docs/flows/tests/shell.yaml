@@ -251,6 +251,16 @@ files:
       - harness-gui-subagent-lane:lane-opened
     note: "codex GUI adapter. resume·open_session·rollout 없는 thread resume을 session-open으로, `!`는 thread/shellCommand로 가는 shell-run으로 묶음. 승인, 질문, 시작 정책, TUI 메시지 보이기, 자식 thread lane은 harness-gui-* outcome"
 
+  - path: packages/shell/main/extensions/bundled/harness-gui/antigravity_test.ts
+    covers:
+      - harness-gui-approval:allowed-once
+      - harness-gui-approval:rejected
+      - harness-gui-question:submitted
+      - harness-gui-input:sent
+      - harness-gui-toggle:to-tui
+      - session-open:ok
+    note: "Antigravity(agy acp) GUI adapter. 녹화(1.5.9)로 돈다. 승인은 창이 고른 optionId로만, 멈추면 cancelled로 답한다. 질문은 form 속성 이름(q1, q1_other)으로 답한다. 도는 중 steer는 바로 가고 turn은 마지막 prompt 답에서 한 번 끝난다. 저장 file이 없는 대화는 새 session으로 연다. TUI 명령은 GUI에서 바꾼 값만 싣는다"
+
   - path: packages/shell/main/extensions/bundled/harness-gui/omp_test.ts
     covers:
       - harness-gui-open:start-failed

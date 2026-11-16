@@ -1362,7 +1362,7 @@ flows:
       - packages/shell/main/extensions/bundled/harness-gui/adapter.ts
       - packages/shell/renderer/terminal/terminal-gui.tsx
     steps:
-      - "사람이 터미널에서 claude gui, codex gui, opencode gui, omp gui(gui --resume id 포함)를 친다. 셸 함수가 lophn hook으로 resume 값을 보낸다"
+      - "사람이 터미널에서 claude gui, codex gui, opencode gui, omp gui, agy gui(gui --resume id 포함)를 친다. 셸 함수가 lophn hook으로 resume 값을 보낸다"
       - "shell main이 key로 탭을 찾는다. harness가 GUI를 지원하고 터미널이 살아 있을 때만 extension의 onTab.gui를 부른다. 아니면 무시한다"
       - "extension이 꺼져 있으면 Settings › System › Extensions를 열고 끝낸다"
       - "이미 그 터미널에 GUI를 여는 중이면 이 요청은 아무 일도 하지 않는다"
@@ -1563,7 +1563,7 @@ flows:
       - packages/shell/main/terminal/gui.ts
       - packages/shell/main/extensions/bundled/harness-gui/index.ts
     steps:
-      - "GUI에서 TUI로 갈 때 handoff가 restart(Claude, omp)이면 돌던 turn이나 task, 대기 입력을 modal(harness-gui-restart-modal)로 보여 주고 확인받는다. shared(Codex, OpenCode)는 묻지 않는다"
+      - "GUI에서 TUI로 갈 때 handoff가 restart(Claude, omp, Antigravity)이면 돌던 turn이나 task, 대기 입력을 modal(harness-gui-restart-modal)로 보여 주고 확인받는다. shared(Codex, OpenCode)는 묻지 않는다"
       - "renderer가 harness-gui:tab-toggle을 {terminal_ref, to}로 main에 보낸다. 화면의 Open as chat도 같은 길이다"
       - "to tui: restart면 run.stop()으로 CLI를 끝낸 뒤 handle을 닫고 PTY에 tuiCommand를 친다. shared면 TUI client가 foreground에 없을 때만 친다"
       - "to tui인데 handle이 없으면 view만 tui로 바꾸고 끝낸다"
@@ -2891,6 +2891,7 @@ flows:
       - packages/shell/main/extensions/bundled/harness-gui/claude.ts
       - packages/shell/main/extensions/bundled/harness-gui/codex.ts
       - packages/shell/main/extensions/bundled/harness-gui/omp.ts
+      - packages/shell/main/extensions/bundled/harness-gui/antigravity.ts
       - packages/shell/main/extensions/bundled/harness-gui/opencode.ts
     steps:
       - "CLI가 도구 실행의 허락을 물으면 adapter가 approval_opened로 카드를 낸다. 선택지는 어댑터마다 다르다(아래 when)"
@@ -2899,16 +2900,16 @@ flows:
       - "카드가 열린 채 turn이 끝나거나 abort되면 답 없이 cancelled로 닫는다"
     outcomes:
       - id: allowed-once
-        when: "창이 once를 골랐다. 모든 adapter가 한 번 허락을 보낸다(claude allow, codex accept, opencode reply once, omp Approve). codex의 추가 권한 요청(extra permissions)도 이 카드를 쓴다. once는 scope turn의 허락이다"
+        when: "창이 once를 골랐다. 모든 adapter가 한 번 허락을 보낸다(claude allow, codex accept, opencode reply once, omp Approve, antigravity allow_once 선택지). codex의 추가 권한 요청(extra permissions)도 이 카드를 쓴다. once는 scope turn의 허락이다"
         observe: [process:cli-gui, screen:harness-gui-terminal-tab]
       - id: allowed-session
         when: "창이 session을 골랐다. 범위는 그 CLI session이다. claude는 규칙을 기억해 다음 query의 allowedTools로 되살리고 설정 file에 쓰지 않는다. codex는 서버가 acceptForSession을 낸 때만 그 범위이고 아니면 once다. opencode는 session permissions를 PATCH하고 once를 보낸다(session을 서버에 보내지 않는다). omp는 session 선택지를 서버가 준 때만 그 범위이고 아니면 once다"
         observe: [process:cli-gui, screen:harness-gui-terminal-tab]
       - id: allowed-always
-        when: "창이 always를 골랐다. claude는 SDK 제안이 session 밖을 가리킬 때만 카드에 있고 CLI가 저장한다. codex는 서버가 execpolicy나 network 규칙을 낸 때만 영구(~/.codex/rules)이고 아니면 accept다. opencode는 영구로 표시된 선택에서만 always를 보낸다. omp는 always를 규칙으로 보내지 않아 이 갈래가 없다"
+        when: "창이 always를 골랐다. claude는 SDK 제안이 session 밖을 가리킬 때만 카드에 있고 CLI가 저장한다. codex는 서버가 execpolicy나 network 규칙을 낸 때만 영구(~/.codex/rules)이고 아니면 accept다. opencode는 영구로 표시된 선택에서만 always를 보낸다. omp는 always를 규칙으로 보내지 않아 이 갈래가 없다. antigravity는 agy가 allow_always 선택지를 준 때만 영구로 표시해 보낸다"
         observe: [process:cli-gui, screen:harness-gui-terminal-tab]
       - id: rejected
-        when: "창이 reject를 골랐다. 거절이 CLI에 가고 그 도구는 거절로 끝난다. codex 추가 권한 거절은 빈 권한을 turn 범위로 보낸다. 이유는 claude와 opencode는 거절 글로, omp는 Deny 글로 보내고, codex는 decline만 보내며 이유는 서버에 가지 않고 카드 기록에만 남는다. turn은 stopped로 그려지지 않는다"
+        when: "창이 reject를 골랐다. 거절이 CLI에 가고 그 도구는 거절로 끝난다. codex 추가 권한 거절은 빈 권한을 turn 범위로 보낸다. 이유는 claude와 opencode는 거절 글로, omp는 Deny 글로 보내고, antigravity는 reject 선택지만 보내고, codex는 decline만 보내며 이유는 서버에 가지 않고 카드 기록에만 남는다. turn은 stopped로 그려지지 않는다"
         observe: [process:cli-gui, screen:harness-gui-terminal-tab]
       - id: answered-elsewhere
         when: "다른 client가 먼저 답했다. codex는 serverRequest/resolved로 답 없이 cancelled로 닫는다. opencode는 permission.replied를 읽어 카드를 닫되 답을 보내지 않고, 그 답(reject면 denied, always면 always, 그 밖이면 once)을 기록한다. omp는 extension_ui_request cancel로 cancelled로 닫는다. claude에는 이 갈래가 없다"
@@ -2939,6 +2940,7 @@ flows:
       - packages/shell/main/extensions/bundled/harness-gui/claude.ts
       - packages/shell/main/extensions/bundled/harness-gui/codex.ts
       - packages/shell/main/extensions/bundled/harness-gui/omp.ts
+      - packages/shell/main/extensions/bundled/harness-gui/antigravity.ts
       - packages/shell/main/extensions/bundled/harness-gui/opencode.ts
     steps:
       - "CLI가 질문을 물으면 adapter가 question_asked를 낸다(claude AskUserQuestion, codex requestUserInput 최대 4문항, omp의 ask·select·confirm·input, opencode question form)"
@@ -2966,6 +2968,7 @@ flows:
       - packages/shell/main/extensions/bundled/harness-gui/claude.ts
       - packages/shell/main/extensions/bundled/harness-gui/codex.ts
       - packages/shell/main/extensions/bundled/harness-gui/omp.ts
+      - packages/shell/main/extensions/bundled/harness-gui/antigravity.ts
       - packages/shell/main/extensions/bundled/harness-gui/opencode.ts
     steps:
       - "창이 set_mode(mode id)를 보낸다. adapter가 자기 mode 표에서 찾는다. 모르는 id는 무시한다"
@@ -3192,6 +3195,7 @@ flows:
       - packages/shell/main/extensions/bundled/harness-gui/claude.ts
       - packages/shell/main/extensions/bundled/harness-gui/codex.ts
       - packages/shell/main/extensions/bundled/harness-gui/omp.ts
+      - packages/shell/main/extensions/bundled/harness-gui/antigravity.ts
       - packages/shell/main/extensions/bundled/harness-gui/opencode.ts
     steps:
       - "run_command나 '/이름 인자' 글을 adapter가 받는다. 이름이 adapter의 명령 표에 있으면 그 처리를 하고, 없으면 CLI에 prompt로 보낸다"

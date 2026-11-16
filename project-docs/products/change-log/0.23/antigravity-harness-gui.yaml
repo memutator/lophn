@@ -1,0 +1,22 @@
+id: antigravity-harness-gui
+version: 0.23.68
+title: 터미널 탭의 agy gui가 Antigravity 대화를 채팅 화면으로 보인다
+modules: [packages/protocol, packages/shell/main, packages/shell/terminal-host, packages/shell/renderer]
+change: |
+  전: harness GUI는 Claude Code, Codex, OpenCode, omp 넷만 받았다. 터미널 탭에서 Antigravity CLI(`agy`)는 TUI로만 쓸 수 있었다.
+  후: 탭에서 `agy gui [--resume <id>]`를 치면 그 탭이 채팅 화면이 되고 탭 머리 toggle로 같은 대화를 agy TUI(`agy --conversation <id>`)와 오간다. 뒤에서는 사람의 `agy acp`가 돈다. 글과 tool 줄, 승인 카드, 질문 카드, 도는 중 steer와 줄 세우기, 멈추기, model·생각 단계·mode(default, accept-edits, plan), agy 명령, 사용량, 제목, 지난 대화 열기가 된다. ACP에 없는 rewind, fork, rename, todo, subagent 대화, background task, `!` shell은 칸이 숨는다. GUI keymap은 agy TUI처럼 Shift+Tab이 mode를 돈다.
+why: |
+  사람이 쓰는 coding CLI에 Antigravity가 있고, 다른 넷처럼 같은 대화를 채팅 화면과 TUI 사이에서 오가고 싶어 했다.
+decisions:
+  - text: "agy 안의 `agy acp`로 붙는다. 이유: ACP session id가 TUI conversation id이고 대화 store가 TUI와 같다. 버린 길: t3code·orca가 쓰는 별도 agy-acp-server(대화가 TUI와 다르다), `agy -p` stream-json(turn마다 process)."
+    by: agent
+  - text: "GUI↔TUI는 restart다. 이유: agy process 둘이 같은 대화를 열면 오류 없이 서로의 변경을 보지 못하고, 둘이 붙을 local server가 없다."
+    by: agent
+  - text: "`!` shell은 두지 않는다. 이유: 결과를 model에 보내지 않고 대화에만 넣는 ACP 길이 없다."
+    by: agent
+  - text: "agy GUI를 더한다."
+    by: person
+checklist:
+  - "해야: 앱을 끄고 다시 켠 뒤 터미널 탭을 새로 열어야 `agy gui` 함수가 생긴다"
+  - "agy gui로 연 대화가 toggle 뒤 agy TUI에서 같은 대화로 이어지는지"
+  - "Settings › System › Extensions에서 Harness GUI가 켜져 있어야 한다"

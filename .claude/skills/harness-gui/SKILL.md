@@ -5,7 +5,7 @@ description: lophn harness GUI(터미널 탭에서 `claude gui`·`codex gui`·`o
 
 # harness-gui
 
-harness GUI는 사람이 설치한 CLI(Claude Code, Codex, OpenCode, omp)를 lophn 채팅 화면으로 보인다. 기준은 사람이 정했다: **그 CLI에서 되는 것은 GUI에서도 된다**(desktop app이 본보기). 이 skill은 harness-gui, harness-gui-tab 두 계획과 그 뒤 고침에서 쓴 순서와 실수를 모은다.
+harness GUI는 사람이 설치한 CLI(Claude Code, Codex, OpenCode, omp, Antigravity `agy`)를 lophn 채팅 화면으로 보인다. 기준은 사람이 정했다: **그 CLI에서 되는 것은 GUI에서도 된다**(desktop app이 본보기). 이 skill은 harness-gui, harness-gui-tab 두 계획과 그 뒤 고침에서 쓴 순서와 실수를 모은다.
 
 ## 먼저 읽을 것
 
@@ -43,7 +43,7 @@ harness GUI는 사람이 설치한 CLI(Claude Code, Codex, OpenCode, omp)를 lop
 
    - minified bundle과 CLI exe는 grep·ugrep이 정규식 한도로 멈춘다. `python3 -I`로 `mmap`·`m.find(b'…')` 앞뒤 수백 byte를 찍는다.
    - fork 보고도 추정이 섞인다. 우리 동작을 바꾸는 결론은 녹화나 측정으로 확인한 뒤에 따른다. "`now`가 Bash를 끊는다"(t3code)와 "`interrupt {send_now}`가 TUI와 같다"(CLI 코드)는 녹화에서 둘 다 기대와 달랐다.
-2. **넷 다 본다.** 기능 하나는 CLI 넷에서 다 되거나, 안 되는 CLI에서는 capability로 칸을 숨긴다. 한 CLI에서 찾은 bug는 나머지 셋에서도 확인한다. `agent-thread.tsx`에 `case "info"`가 없어 넷 모두 command 출력이 사라진 적이 있다.
+2. **다섯 다 본다.** 기능 하나는 CLI 다섯에서 다 되거나, 안 되는 CLI에서는 capability로 칸을 숨긴다. 한 CLI에서 찾은 bug는 나머지에서도 확인한다. `agent-thread.tsx`에 `case "info"`가 없어 넷 모두 command 출력이 사라진 적이 있다.
 3. **session 기능은 ACP로.** model, mode, 명령, rewind, fork, compact, 사용량, 제목처럼 lophn agent에도 있는 것은 ACP 계약에 올려 둘이 같이 쓴다. GUI만의 옆길을 만들지 않는다. 순서는 계약 → core와 adapter → 화면이고, 계약을 바꾸면 쓰는 쪽을 같은 변경에서 고친다.
 4. **있는 것을 쓴다.** vendor icon(`packages/shell/renderer/parts/vendor-icon/vendor-icon.tsx`), 머리의 뒤로 가기, 있는 popover와 model picker를 쓴다. 사람이 돌려보낸 것: 이중 머리, 회색 원 안의 icon, 글자 "C" avatar, Claude에만 붙은 fast·thinking 칩(model picker의 축으로 옮겼다).
 5. **명령은 prompt가 아니다.** `/` 명령은 `run_command`로 adapter가 처리하고, 결과는 `command_output` notice로 보인다. 명령을 prompt로 보내는 adapter는 bug다. palette는 이름이 정확히 같은 것을 맨 위에 둔다.
@@ -54,11 +54,13 @@ harness GUI는 사람이 설치한 CLI(Claude Code, Codex, OpenCode, omp)를 lop
      - Codex: 가장 싼 것(gpt-6-luna)
      - OpenCode: `openrouter/deepseek/deepseek-v4.1-flash-1017`
      - omp: `river/deepseek-ai/DeepSeek-V4.1-Flash-1017`
+     - Antigravity: `gemini-3.8-flash` + thought_level `low`(recorder가 늘 바꾼다). free tier quota를 쓰고 503 과부하가 보통 답 글로 올 수 있다
    - gemini-4-argon은 비싸서 쓰지 않는다. model id는 첫 `/`에서만 자른다(provider 뒤에 `/`가 또 있다).
    - OpenCode 기본 model `openrouter/inclusionai/ling-3.0-tiny`는 context 오류로 녹화가 멈췄다.
    - `RECORD_OUT`은 worktree 밖에 둔다. worktree는 merge 때 지워져 원본 녹화를 잃은 적이 있다.
    - 녹화는 빈 임시 cwd에서 돌린다. OpenCode의 init이 worktree에 AGENTS.md를 쓴 적이 있다.
    - 영구 규칙 승인(always, execpolicy, network amendment)을 보내지 않는다.
+   - agy는 녹화 대화를 사람의 `~/.gemini/antigravity-cli/`에 쓴다(auth가 거기 있어 따로 둘 수 없다). recorder가 만든 대화 id를 `created.txt`에 적고 끝에 그것만 지운다. 녹화를 fixture로 옮길 때 `session/list` 답에서 사람의 다른 대화를 빼고 home 경로를 가린다.
    - 사람의 전역 harness 설정은 건드리지 않는다. omp role은 session 안의 `/switch @role`로만 바꾼다.
    - 계획으로 돌릴 때는 녹화를 lead가 돌리고 path를 worker에게 넘긴다.
    - agent가 녹화 명령을 돌리면 권한 분류기가 실제 model 호출("Real-World Transactions")로 막는다. 우회하지 않고 사람에게 `! cd <worktree> && RECORD_OUT=<dir> node …/record.ts <scenario>` 한 줄을 주어 돌리게 한다.

@@ -9,7 +9,7 @@ harness GUI를 고칠 때 보는 구현 쪽 참고다. 설계(문제, 지키는 
 | 계약(handle, `AcpTerminal`, `onTab`) | `packages/protocol/extensions/acp-session.ts` |
 | adapter 계약(`HarnessGuiAdapter`, `HarnessGuiRun`) | `packages/shell/main/extensions/bundled/harness-gui/adapter.ts` |
 | extension 본체(탭 요청, env, toggle, session id 따라가기) | 같은 폴더 `index.ts` |
-| adapter(harness마다 하나) | 같은 폴더 `claude.ts`, `codex.ts`, `opencode.ts`, `omp.ts` |
+| adapter(harness마다 하나) | 같은 폴더 `claude.ts`, `codex.ts`, `opencode.ts`, `omp.ts`, `antigravity.ts` |
 | 받은 메시지 분류 | 같은 폴더 `received.ts`(`classifyReceived`) |
 | 탭 쪽 shell main(handle 붙기, 묶음 push, toggle, 이미지 tmp file) | `packages/shell/main/terminal/gui.ts` |
 | IPC channel | `packages/shell/ipc/harness-gui.ts` |
@@ -54,10 +54,10 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 - 탭 이름: `GuiSwitch`가 제목을 탭 field `guiTitle`에 두고 `tabName`이 GUI view일 때만 그것을 쓴다. 다른 workspace의 탭 줄은 `agentTitle`을 쓴다. 화면의 session key는 터미널 ref `trm_<ULID>`의 ULID로 만든 `ses_<ULID>`(`guiSessionId`)다.
 - GUI view에서는 `TerminalTab`이 서지 않으므로 `GuiSwitch`가 고른 GUI 탭을 main의 터미널 focus 표에 적는다.
 - 입력 history·Ctrl+R 검색·`agent.*` command의 handler는 `agent-view.tsx`의 routes에 있다. GUI 탭은 바깥 `agentView` 안쪽에 `agentView:<harness>`를 단다.
-- 터미널 함수: bash·zsh·fish와 PowerShell 7·5.1 시작 층의 `claude`·`codex`·`opencode`·`omp` 함수는 첫 인자가 `gui`면 `lophn hook <harness> lophn-gui`로 그 탭의 hook endpoint에 요청을 보낸다(lophn CLI 경로는 shell main이 시작 층 file을 쓸 때 넣는다. 터미널 env에서는 `LOPHN_*`가 빠진다). PowerShell 함수는 profile 뒤에 읽고 사용자 alias·function·execution policy는 바꾸지 않는다. Windows PowerShell 실기 확인은 별도다(`terminal-agent.md`).
+- 터미널 함수: bash·zsh·fish와 PowerShell 7·5.1 시작 층의 `claude`·`codex`·`opencode`·`omp`·`agy` 함수는 첫 인자가 `gui`면 `lophn hook <harness> lophn-gui`로 그 탭의 hook endpoint에 요청을 보낸다(lophn CLI 경로는 shell main이 시작 층 file을 쓸 때 넣는다. 터미널 env에서는 `LOPHN_*`가 빠진다). PowerShell 함수는 profile 뒤에 읽고 사용자 alias·function·execution policy는 바꾸지 않는다. Windows PowerShell 실기 확인은 별도다(`terminal-agent.md`).
 - GUI source(`agent-tab-gui-source.ts`)는 adapter가 낸 `capabilities`·명령 표·model 축·mode를 그대로 내고 화면은 lophn agent와 같은 검사로 없는 기능의 칸을 숨긴다. tool 본문은 item의 `body`, 이미지는 main이 tmp file(`<os tmp>/lophn-gui/<터미널 ref>/`)로 써 `file://` link로 싣는다.
 - 받은 메시지: `classifyReceived`가 `<lophn-call>`·`<lophn-reply>` tag(`from="human"`은 사람)와 Claude transcript의 `origin.kind`로 가른다.
-- 계약 이름: `GUI_HARNESSES`(`claude`, `codex`, `opencode`, `omp`)가 목록의 한 곳이다.
+- 계약 이름: `GUI_HARNESSES`(`claude`, `codex`, `opencode`, `omp`, `antigravity`)가 목록의 한 곳이다. `antigravity`의 터미널 명령은 `agy`다.
 
 ## Claude Code adapter
 
@@ -131,3 +131,21 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 - auto-accept toggle: 켜면 승인 요청에 카드 없이 `once`로 답하고 이미 열린 카드도 답한다. always·session 규칙은 보내지 않는다. 상태는 adapter run에만 있다.
 - 둘째 판: `!`는 `session.shell`이고 `by: "user"` tool item이다(turn을 열지 않고, 다시 열 때도 같다). resume 목록은 `GET /api/session?directory&parentID=null&order=desc&limit=30`(`time.updated`는 epoch ms), `open_session`은 session 상태를 비우고 `session_reset` 뒤 다시 그린다(도는 turn이 있으면 거절). server 명령 template에 `$ARGUMENTS`·`$<n>`이 있으면 `argument_hint`가 `[args]`다(`~/.config/opencode`와 `<cwd>/.opencode`의 `{command,commands}/**/*.md`를 읽는다). fork 뒤 "Forked from …" 줄.
 
+
+## Antigravity adapter
+
+`antigravity.ts`(restart). 사람 PATH의 `agy acp`(ACP stdio JSON-RPC, 1.5.9 녹화 `fixtures/antigravity/`)를 env key 없이 띄운다. 녹화 도구는 `fixtures/antigravity/record.ts`다.
+- `initialize`는 `fs`·`terminal` false(agy가 file과 shell을 스스로 한다), `elicitation.form`, clientInfo `lophn`이다. `agentInfo.version`이 1.5.9가 아니면 경고를 한 번 낸다. 로그인은 agy의 것이라 `authenticate`를 부르지 않는다.
+- 새로는 `session/new`, 다시 열기는 `<home>/.gemini/antigravity-cli/conversations/<id>.db`가 있을 때만 `session/load`다(없는 id면 agy가 빈 session을 조용히 열기 때문). load는 답 전에 지난 대화(`user_message_chunk`, 끝난 `tool_call`, `agent_message_chunk`)를 다시 보내므로 모았다가 한 묶음으로 낸다. 다시 그린 tool 제목은 path 꼴이 다르니 이름은 path에서 만든다.
+- model·생각 단계·mode는 `configOptions`(`model`, `thought_level`, `mode`)가 진실이다. 바꾸기는 `session/set_config_option`, mode는 `session/set_mode`다. 생각 단계 축은 `session/new`의 legacy model id(`gemini-3.8-flash-low` 꼴)에서 만든다. Claude·gpt-oss model에는 없다.
+- tool: shell 입력 칸 이름이 섞여 온다(`CommandLine`, `command_line`, `commandLine`, `command`). 출력 머리의 `Created At`·`Completed At` 줄은 뺀다. 편집은 `content`의 `diff`(oldText, newText)다. plan mode의 계획은 `brain/<id>/` 아래 `write_file`(ArtifactMetadata)로 오며 보통 편집 줄로 그린다. `start_subagent`도 보통 줄이다.
+- 승인: `session/request_permission`의 선택지 kind(allow_once, allow_always, reject_once)만 낸다. 창이 고른 optionId로만 답하고, 멈추면 `cancelled`다. allow_always는 agy 설정에 영구로 남아 영구라고 적는다. toolCallId가 `interaction_`로 시작하면 질문 카드다.
+- 질문: `elicitation/create`(form)의 `q1…`(oneOf const·title)과 `q1_other`(자유 답)를 질문 카드로 낸다. 답은 `{action: "accept", content: {q1: "<const>"}}`나 `{q1_other: "<글>"}`, 답이 없으면 `decline`, 멈추면 `cancel`이다.
+- steer: 도는 turn에 `session/prompt`를 또 보내면 agy가 앞 prompt를 바로 `end_turn`으로 답하고 도는 tool이 끝난 뒤 새 메시지를 같은 흐름에 넣는다(`steer.jsonl`). 그래서 ACP turn은 마지막 prompt의 답에서 끝나고, steer 메시지는 그 `user_message_chunk` 메아리(앞뒤 공백 무시)가 오면 `message_taken`이다. 다음 turn으로 보낸 것은 adapter 줄에 선다. 멈춘 뒤에는 취소된 prompt가 답할 때까지 보내지 않는다(그 사이 보내면 agy가 거절한다).
+- 우리 prompt가 없는데 agy가 내용을 내면(goal, schedule) turn을 열고 1.5초 조용하면 닫는다.
+- 명령: agy가 알린 `available_commands_update` 목록을 `/이름 인자` 글로 보낸다. 글을 내지 않는 명령(`/compact`)은 `command_output` notice를 낸다. 도는 turn 중 명령은 경고로 거절한다.
+- 서버 오류(503 과부하, quota)는 `⚠`로 시작하는 보통 답 글로 온다. 다른 내용이 없는 turn이면 `unavailable` 실패 turn이다.
+- 사용량: `usage_update {used, size}`가 context, prompt 답의 `usage`가 turn token이다. 비용은 없다. 제목은 `session_info_update`다.
+- 지난 session은 `session/list`(cwd를 거르지 않으므로 adapter가 이 cwd만 남긴다), `open_session`은 도는 turn이면 거절, `.db`를 본 뒤 앞 session을 `session/close` → `session_reset` → `session/load`, 실패하면 앞 session을 다시 load한다.
+- toggle: `exitTui`는 PTY에 Ctrl+C를 400ms 간격으로 넷까지 친다(agy TUI는 Ctrl+C 두 번에 끝난다). `stop`은 도는 turn을 `session/cancel`하고 답을 3초까지 기다린 뒤 stdin을 닫고 3초 뒤 SIGTERM이다. `tuiCommand`는 `agy --conversation <id>`에 GUI에서 바꾼 값만 더한다: model이나 단계가 바뀌면 `--model <legacy id>`(agy는 legacy id와 `--effort`를 같이 받지 않는다), mode가 accept-edits·plan이면 `--mode`.
+- agy가 죽으면 그 turn은 실패이고 다음 send가 `agy acp`를 다시 띄워 같은 id를 조용히 load한 뒤 보낸다.

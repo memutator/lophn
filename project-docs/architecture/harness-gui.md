@@ -1,12 +1,12 @@
 # harness-gui
 
-lophn 터미널 탭에서 `claude gui`(`codex gui`, `opencode gui`, `omp gui`)를 치면 그 탭이 채팅 화면으로 바뀌고, 탭 머리의 toggle로 같은 대화를 GUI와 그 CLI 자신의 TUI 사이에서 오간다. 뒤에서는 사람이 설치하고 로그인한 그 CLI가 돌고, extension `harness-gui`의 adapter가 CLI의 이벤트를 lophn ACP 갱신으로, 화면의 ACP 입력을 CLI 호출로 옮긴다. 화면은 lophn 채팅 화면이 ACP만 보고 그린다. 그 session은 CLI 자신의 session이고 lophn ledger에 기록하지 않는다.
+lophn 터미널 탭에서 `claude gui`(`codex gui`, `opencode gui`, `omp gui`, `agy gui`)를 치면 그 탭이 채팅 화면으로 바뀌고, 탭 머리의 toggle로 같은 대화를 GUI와 그 CLI 자신의 TUI 사이에서 오간다. 뒤에서는 사람이 설치하고 로그인한 그 CLI가 돌고, extension `harness-gui`의 adapter가 CLI의 이벤트를 lophn ACP 갱신으로, 화면의 ACP 입력을 CLI 호출로 옮긴다. 화면은 lophn 채팅 화면이 ACP만 보고 그린다. 그 session은 CLI 자신의 session이고 lophn ledger에 기록하지 않는다.
 
 구현 쪽 참고(어느 file이 무엇을 하는지, CLI별 호출 세부)는 harness-gui skill의 reference에 있다.
 
 ## 문제
 
-Claude Code, Codex, OpenCode, omp는 터미널 TUI로 쓴다. 사람은 같은 CLI의 대화를 lophn 채팅 화면(승인 카드, subagent, todo, 사용량, rewind 같은 칸이 있는 화면)으로 보고 싶고, 필요하면 다시 CLI 자신의 TUI로 돌아가고 싶다. 이 메커니즘이 없으면 두 가지를 잃는다.
+Claude Code, Codex, OpenCode, omp, Antigravity(`agy`)는 터미널 TUI로 쓴다. 사람은 같은 CLI의 대화를 lophn 채팅 화면(승인 카드, subagent, todo, 사용량, rewind 같은 칸이 있는 화면)으로 보고 싶고, 필요하면 다시 CLI 자신의 TUI로 돌아가고 싶다. 이 메커니즘이 없으면 두 가지를 잃는다.
 - 사람이 CLI에서 하던 일(model·mode 바꾸기, 명령, rewind, fork, resume, `!` shell)을 채팅 화면에서 할 수 없고, 화면을 CLI마다 따로 짜야 한다.
 - GUI와 TUI가 서로 다른 대화가 되면 사람은 어느 쪽이 진짜인지 잃는다. 사람의 CLI 설정과 login, session은 그 CLI의 것인데 lophn이 대신 쥐면 어긋난다.
 
@@ -32,7 +32,7 @@ Claude Code, Codex, OpenCode, omp는 터미널 TUI로 쓴다. 사람은 같은 C
 ```
 
 **handoff 둘.** adapter는 GUI와 TUI를 어떻게 오가는지가 둘 중 하나다.
-- restart(Claude Code, omp): 한 번에 한쪽 process만 산다. 넘길 때 앞 process를 끄고 같은 CLI session id로 다른 쪽을 띄운다. 돌던 turn과 background task, 줄에 선 입력은 modal로 알리고 확인받는다.
+- restart(Claude Code, omp, Antigravity): 한 번에 한쪽 process만 산다. 넘길 때 앞 process를 끄고 같은 CLI session id로 다른 쪽을 띄운다. 돌던 turn과 background task, 줄에 선 입력은 modal로 알리고 확인받는다.
 - shared(Codex, OpenCode): 탭 전용 server를 띄우고 GUI와 TUI가 같은 server에 같이 붙는다. 넘길 때는 보이는 쪽만 바뀐다. 그냥 `codex`·`opencode`로 시작한 TUI(server에 안 붙은 것)는 GUI로 처음 넘길 때 한 번 restart처럼 넘긴다. shared 대화의 CLI session id가 바뀌면(fork, `/new`, fork하는 rewind) 붙은 TUI client만 끄고 새 id로 다시 붙인다.
 
 **열기.**
@@ -55,10 +55,10 @@ Claude Code, Codex, OpenCode, omp는 터미널 TUI로 쓴다. 사람은 같은 C
 - **읽고 보내기.** 사본이 있는 session의 `acp/snapshot`은 사본을, `acp/send`는 입력 전체를 `coding_input`으로 host에 그대로 넘긴다(`acp.md`). core는 입력을 사본에 적용하지 않는다. 결과는 host가 올리는 `coding_sync`가 `AcpUpdated`로 돌려준다. 승인 card의 `decide`도 ACP 입력이라 host로 가고 core의 turn request는 건드리지 않는다.
 - **목록.** `coding_sessions/list`는 `{shell: attached | absent, sessions}`다. 줄은 shell main이 올린 터미널 coding agent 집합(`coding_report`, `terminal-agent.md`)에 사본의 상태를 겹쳐 만든다(`state`는 사본의 turn과 pending이 먼저). 줄마다 view(`gui`|`tui`), handoff, `switch`(null이면 바꿀 수 있고, 아니면 이유 `no_session`·`not_running`·`unsupported_os`)가 있다.
 - **view 바꾸기.** TUI→GUI는 도는 CLI를 끝내고 다시 띄워 도는 turn이 끊기고 desktop 탭도 chat 화면으로 바뀐다. GUI→TUI는 도는 turn과 background task와 줄 선 메시지가 멈춘다. 그래서 `coding_sessions/switch_plan`이 무엇이 멈추는지 말하고, 사람이 확인한 뒤에만 `coding_sessions/switch`를 부른다. `confirmed: true`가 없으면 `invalid_input`이고 host에 요청이 가지 않는다. 같은 `key`는 한 번만 간다. host의 `coding_switch`는 desktop의 toggle과 같은 길(`gui.toggle`)이고 거절은 그 code와 `details.reason`(`no_session`·`not_running`·`extension_off`·`unsupported_os`·`failed`) 그대로 폰에 간다. 폰에서 시작한 toggle은 탭을 가진 창의 ack를 기다리지 않고, extension이 꺼져 있어도 desktop에 Settings를 열지 않는다.
-- **열기.** `coding_sessions/open {project, harness, resume?}`는 컴퓨터에 coding session을 새로 열거나 저장된 harness agent session을 이어 연다. harness는 GUI harness 넷 중 하나고, `resume`은 그 project의 ledger harness agent session이다(그 CLI session id는 core가 싣는다). core는 그 session이 그 harness의 것인지, 저장된 CLI session이 있는지, 같은 CLI session이 이미 터미널에 열려 있지 않은지, TUI 탭이 hold하거나 headless turn이 도는 session이 아닌지를 먼저 보고(`not_found`·`invalid_input`·`conflict`) `coding_open`을 보낸다. shell main은 그 project를 보이는 창에 새 터미널 탭을 펴진 float(`glance`)로 열어 사람이 치는 것과 같은 `<harness> gui [--resume <id>]`를 치게 하고(hook → handle의 같은 길), 그 project의 터미널에 그 harness의 새 handle이 생기기를 55초까지 기다려 그 터미널로 답한다. 폰이 연 handle은 창의 ack 없이 GUI view로 선다. 그 project를 보이는 창이 없으면 `unavailable`, extension이 꺼져 있으면 `extension_off`(Settings를 열지 않는다), run이 시작하지 않으면 handle을 닫아 탭을 TUI로 두고 `failed`다. 이어 연 session은 그 터미널이 끝날 때까지 TUI 탭처럼 hold해 headless turn이 같은 CLI session에 둘째 process를 띄우지 않는다. Windows에서는 열기가 `unavailable`이고 switch는 `unsupported_os`다.
+- **열기.** `coding_sessions/open {project, harness, resume?}`는 컴퓨터에 coding session을 새로 열거나 저장된 harness agent session을 이어 연다. harness는 GUI harness 다섯 중 하나고, `resume`은 그 project의 ledger harness agent session이다(그 CLI session id는 core가 싣는다). core는 그 session이 그 harness의 것인지, 저장된 CLI session이 있는지, 같은 CLI session이 이미 터미널에 열려 있지 않은지, TUI 탭이 hold하거나 headless turn이 도는 session이 아닌지를 먼저 보고(`not_found`·`invalid_input`·`conflict`) `coding_open`을 보낸다. shell main은 그 project를 보이는 창에 새 터미널 탭을 펴진 float(`glance`)로 열어 사람이 치는 것과 같은 `<harness> gui [--resume <id>]`를 치게 하고(hook → handle의 같은 길), 그 project의 터미널에 그 harness의 새 handle이 생기기를 55초까지 기다려 그 터미널로 답한다. 폰이 연 handle은 창의 ack 없이 GUI view로 선다. 그 project를 보이는 창이 없으면 `unavailable`, extension이 꺼져 있으면 `extension_off`(Settings를 열지 않는다), run이 시작하지 않으면 handle을 닫아 탭을 TUI로 두고 `failed`다. 이어 연 session은 그 터미널이 끝날 때까지 TUI 탭처럼 hold해 headless turn이 같은 CLI session에 둘째 process를 띄우지 않는다. Windows에서는 열기가 `unavailable`이고 switch는 `unsupported_os`다.
 - **깨우기.** `coding_sessions/wake`는 컴퓨터의 앱을 띄운다(`platform.md`의 "core가 shell을 띄운다"). 앱을 Quit하면 PTY도 끝나므로 깨워도 목록은 비어 있고 폰은 그 자리에서 새 session을 열게 한다. 깨우기는 사람이 폰의 단추를 누를 때만 한다.
 
-**adapter 넷의 모양.**
+**adapter 다섯의 모양.**
 
 | harness | 붙는 경계 | handoff | TUI 끄기 |
 |---|---|---|---|
@@ -66,6 +66,7 @@ Claude Code, Codex, OpenCode, omp는 터미널 TUI로 쓴다. 사람은 같은 C
 | Codex | `codex app-server`(탭 전용 unix socket, WebSocket) | shared | PTY에 Ctrl+C를 700ms 간격으로 최대 넷 |
 | OpenCode | `opencode serve`(탭 전용, HTTP·SSE, 판 2.1.4 녹화) | shared | PTY에 `/exit`와 Enter |
 | omp | `omp --mode rpc-ui`(RPC, 18.8.7 기준) | restart | SIGTERM |
+| Antigravity | `agy acp`(ACP stdio JSON-RPC, 1.5.9 녹화) | restart | PTY에 Ctrl+C를 400ms 간격으로 최대 넷 |
 
 adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있다.
 - **Claude Code**
@@ -98,6 +99,14 @@ adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있�
   - 없는 경로로 session을 바꾸면 omp가 오류 없이 새 빈 session을 연다. 바꾼 뒤 id를 확인하고 틀리면 앞 session으로 돌아가 warning을 낸다.
   - 저장되지 않은 session의 `--resume`은 ready 전에 끝난다. 그때는 `--resume` 없이 다시 띄우고 앞 대화는 다시 그리지 않는다.
   - lophn의 omp hook은 session switch·branch도 알려 `/new`·`/resume`·`/branch`·`/fork` 뒤의 새 id를 tracker가 안다.
+- **Antigravity**
+  - 사람이 설치한 `agy`의 내장 ACP server(`agy acp`)에 붙는다. ACP session id가 TUI의 conversation id라 `agy --conversation <id>`로 같은 대화를 TUI에서 잇는다. 대화는 agy 자신의 `~/.gemini/antigravity-cli/`에 있다.
+  - restart다. agy process 둘이 같은 대화를 열어도 오류 없이 서로의 변경을 보지 못하고, 둘이 같이 붙을 local server가 없다.
+  - 없는 id로 `session/load`하면 agy가 오류 없이 빈 session을 연다. 그래서 다시 열기 전에 그 대화 file이 있는지 보고, 없으면(첫 메시지 전의 TUI) 새 session으로 연다.
+  - 도는 turn에 보낸 steer는 바로 보낸다. agy는 앞 prompt를 끝난 것으로 답하고, 도는 tool이 끝난 뒤 새 메시지를 같은 흐름에 넣어 이어 간다. 그래서 ACP turn은 마지막 prompt의 답이 와야 끝난다. 다음 turn으로 보낸 것은 adapter 줄에 섰다가 turn 뒤에 간다.
+  - 승인은 agy가 준 선택지만 낸다(녹화한 계정은 한 번 허용과 거절뿐). "늘"은 agy 설정에 영구로 남으므로 영구라고 적는다. "이 session 동안"은 없다. 질문은 ACP elicitation form이고 선택지와 자유 답을 받는다.
+  - model·생각 단계·mode(default, accept-edits, plan)는 agy의 config option이다. 생각 단계는 그것이 있는 model에서만 보인다. 명령은 agy가 알린 목록이고 `/이름 인자` 글로 보낸다.
+  - ACP에 없어 칸을 숨기는 것: rewind, fork, rename, todo, subagent의 대화(subagent는 tool 줄로만 보인다), background task, `!` shell, 비용.
 
 **subagent와 background task.** 넷 모두 자식을 lane으로 나눠 `child_update`로 내고 subagent 줄이 detail을 채운다. 멈추기·끼어들기는 `stop_child`·`steer_child`, 도는 background 일은 `tasks`다. Claude는 `run_in_background` 없이도 Agent를 비동기로 띄우므로 background인지를 입력이 아니라 tool 결과로 가르고, 그 Agent 줄은 task 알림이 끝낼 때까지 running이다(다시 그릴 때는 알림이 없어 done). subagent 안에서 시작한 task는 root에 안내를 내지 않는다. Codex는 lane이 열리기 전에 온 자식 이벤트를 짧게 쌓았다가(thread마다 50개, 모두 200개) lane이 열리면 붓고, root turn이 끝나면 버린다. omp의 task tool은 곧바로 "Spawned agent"로 끝나므로 lifecycle 이벤트가 나중에 채운다.
 
@@ -105,7 +114,7 @@ adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있�
 
 ## 지키는 것
 
-1. **harness는 `claude`, `codex`, `opencode`, `omp` 넷이다.** 목록은 한 곳이고 터미널 함수와 adapter 표가 같은 목록을 쓴다.
+1. **harness는 `claude`, `codex`, `opencode`, `omp`, `antigravity` 다섯이다.** 목록은 한 곳이고 터미널 함수와 adapter 표가 같은 목록을 쓴다. `antigravity`의 터미널 명령은 `agy`다.
 2. **handle 하나는 터미널 탭 하나다.** `id`(`win_…`)는 lophn session id가 아니다. `close()`는 탭과 extension이 같이 쓰는 한 길이고 두 번 불러도 `onClose`는 한 번이다.
 3. **handle은 접은 ACP 상태 하나만 쥔다.** 갱신과 글 조각은 쌓지 않는다. adapter는 GUI view가 붙기를 기다리지 않고 바로 publish한다. view가 붙으면 snapshot을 따로 한 message로 먼저 보내고 이어서 갱신을 보낸다(늦게 붙어도 같은 상태). 갱신은 handle마다 20ms 동안 모아 배열 하나로 보낸다.
 4. **탭의 view는 저장하지 않는다.** 앱을 다시 켜면 PTY도 CLI process도 남지 않는다. 저장본에서 다시 만들어진 탭(다른 workspace에 갔다 옴, 창 다시 load)은 IPC `harness-gui:tab-current`로 그 터미널에 살아 있는 handle과 main이 마지막으로 알린 view를 물어 되찾는다. 탭을 다른 창으로 옮기면 view와 handle이 따라간다.
@@ -114,7 +123,7 @@ adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있�
 7. **adapter는 harness마다 하나이고 `Result`로 시작한다.** `start`가 실패하면 GUI view는 그대로 두고 오류를 실패한 turn으로 보인다. `start`나 그 앞의 TUI 끄기가 던져도(예상하지 못한 오류) handle을 빈 GUI로 두지 않고 `internal` 실패(credential을 가린 글)로 같게 보인다. 사람이 TUI로 넘기거나 탭을 닫는다.
 8. **extension은 `ctx`로만 닿는다**([extension.md](extension.md)). CLI는 `ctx.spawn`으로 띄우고 사람의 설정과 login을 그대로 쓴다. 꺼진 extension은 code를 load하지 않으므로 탭 요청 handler(`onTab`)가 없는 것이 곧 "꺼짐"이다.
 9. **CLI는 사람의 login shell env로 띄운다.** 데스크톱 메뉴나 autostart로 뜬 앱의 env에는 사람의 shell 설정(nvm의 PATH, rc file의 API key)이 없다. login shell env는 harness-gui가 아니라 extension spawner가 갖는다([extension.md](extension.md) 16). GUI 열기는 그 읽기가 끝나기를 기다리고, spawn이 login env < 탭 hook env < adapter가 넘긴 key 순서로 합친다. 상위 session 표지(`CLAUDE_CODE_ENTRYPOINT` 포함)는 지운다. 탭 hook env 덕에 GUI가 띄운 CLI의 hook도 같은 탭으로 와 상태 점이 맞는다. 같은 칸에 session 표지 `LOPHN_SESSION_ID=term:<탭>`도 실려 앱이 CLI의 process를 그 탭의 session에 잇는다(GUI가 띄운 CLI는 탭의 shell이 아니라 shell main의 자식이라 shell pid로 찾을 수 없다). 앱이 보는 터미널 session 목록(`workspace-session.md`)은 GUI view의 탭을 handle의 ACP 상태(제목, CLI session id, turn 단계)로 채운다. shell main이 물려받은 표지는 지운다. CLI는 떼어 띄우고 process group째 끈다.
-10. **터미널 함수는 `gui`만 가로챈다.** bash·zsh·fish와 PowerShell 7·5.1 시작 층의 `claude`·`codex`·`opencode`·`omp` 함수는 첫 인자가 `gui`(또는 `gui --resume <id>`, `gui --resume=<id>`)면 그 탭의 hook endpoint에 요청을 보내고 아니면 인자를 그대로 원래 명령에 넘긴다. id는 `[A-Za-z0-9._-]` 200자까지다. PowerShell 함수는 profile 뒤에 읽고 사용자 alias·function·execution policy는 바꾸지 않는다. 요청은 친 곳의 cwd를 더해 그 탭의 hook socket으로 간다. 터미널 env에서는 `LOPHN_*`가 빠지므로 lophn CLI 경로는 shell main이 시작 층 file을 쓸 때 넣는다. `lophn hook`은 stdin 앞의 BOM을 뗀다(PowerShell `$OutputEncoding`이 BOM 있는 UTF-8이면 파이프 글에 붙는다). Windows PowerShell 7·5.1에서 실기로 확인했다.
+10. **터미널 함수는 `gui`만 가로챈다.** bash·zsh·fish와 PowerShell 7·5.1 시작 층의 `claude`·`codex`·`opencode`·`omp`·`agy` 함수는 첫 인자가 `gui`(또는 `gui --resume <id>`, `gui --resume=<id>`)면 그 탭의 hook endpoint에 요청을 보내고 아니면 인자를 그대로 원래 명령에 넘긴다. id는 `[A-Za-z0-9._-]` 200자까지다. PowerShell 함수는 profile 뒤에 읽고 사용자 alias·function·execution policy는 바꾸지 않는다. 요청은 친 곳의 cwd를 더해 그 탭의 hook socket으로 간다. 터미널 env에서는 `LOPHN_*`가 빠지므로 lophn CLI 경로는 shell main이 시작 층 file을 쓸 때 넣는다. `lophn hook`은 stdin 앞의 BOM을 뗀다(PowerShell `$OutputEncoding`이 BOM 있는 UTF-8이면 파이프 글에 붙는다). Windows PowerShell 7·5.1에서 실기로 확인했다.
 11. **GUI view는 터미널 탭의 한 화면이고 접은 상태에서 한 번에 그린다.** 받은 snapshot에서 시작해 갱신 묶음을 접고, 묶음 하나는 한 번만 그린다. 화면이 붙은 뒤에 snapshot이 오면(창 다시 load) 화면이 새로 읽는다. adapter가 지난 대화를 다시 그릴 때 한꺼번에 publish한 것은 한 묶음이라 한 번에 그려진다. adapter는 `seq`를 1부터 빈틈없이 붙이고, 같은 탭에서 다른 CLI session으로 바꿀 때(resume)는 `session_reset`으로 접은 상태를 비운 뒤 다시 그린다.
 12. **GUI 동안 탭 이름은 ACP session 제목(없으면 harness 이름)이고 사람이 붙인 이름이 먼저다.** GUI 동안은 TUI가 터미널 제목을 알리지 않고 그 터미널의 마지막 OSC 제목은 shell prompt의 것이므로 쓰지 않는다. 제목은 탭의 GUI 제목 칸에 두고 GUI view일 때만 쓴다. TUI로 가거나 handle이 닫히면 지운다. 다른 workspace의 탭 줄(저장본이라 view가 없다)은 agent TUI가 foreground에 없으면 그 workspace가 저장한 이름을 OSC 제목보다 먼저 쓴다.
 13. **GUI 화면의 session key는 탭이 사는 동안 같고 ACP 입력의 session 검사를 통과해야 한다.** 터미널 ref(`trm_<ULID>`)의 ULID로 만든 `ses_<ULID>`다(`guiSessionId` 한 곳. 폰이 보는 coding session의 id도 같다). 그래서 탭이나 GUI↔TUI를 오가도 창의 draft 저장소가 쳐 둔 글과 읽던 위치를 돌려준다. (handle id로 만든 `ses_win_…`은 schema에 떨어져 main이 모든 입력을 거절한 적이 있다.)
@@ -122,20 +131,20 @@ adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있�
 15. **GUI view인 탭을 골라도 '보고 있음'이다.** GUI view에서는 터미널 탭 화면이 서지 않으므로 화면이 고른 GUI 탭을 main의 터미널 focus 표에 적는다(보고 있으면 끝난 turn의 점과 알림이 사라진다).
 16. **채팅 화면은 하나이고 칸은 capability로 가린다.** GUI source는 adapter가 낸 capability·명령 표·model 축·mode를 그대로 내고 화면은 lophn agent와 같은 검사로 없는 기능의 칸을 숨긴다([agent-chat.md](agent-chat.md)). 머리 session menu의 목록은 그 CLI의 지난 session이고 id는 CLI session id다. tool 본문은 item의 `body`, 이미지는 main이 tmp file로 써 `file://` link로 싣는다. 화면은 그림 확장자의 그 link를 main에게 다시 읽혀(그 탭의 tmp 폴더 바로 아래, bytes가 그림일 때만) 그림으로 그리고 누르면 modal로 크게 보인다. 못 읽으면 chip이다. source가 답하지 못하는 읽기(call, envelope)는 `unavailable`이나 `not_found`다. 승인 카드의 always는 "Allow for this session"이고 adapter가 그 CLI session 안으로 좁힌다.
 17. **입력의 `session`은 GUI view가 만든 값이다.** adapter는 보지 않는다. 사람 메시지는 `send` 입력의 `id`로 `message_added`가 된다. turn·tool·승인 id는 adapter가 `ctx.ids`로 만들어 CLI의 id와 짝짓는다.
-18. **사람이 치지 않은 user 글은 받은 메시지다.** adapter는 `<lophn-call>`·`<lophn-reply>` tag(`from="human"`은 사람)와 Claude transcript의 `origin.kind`(human 밖: task 알림, 다른 session)를 가려 `actor: "received"`, sender(`program`이나 이름만 있는 `agent`), `call`·`reply_to`로 그린다. 받은 메시지는 `origin`이 없어 rewind 시점이나 bookmark가 되지 않는다. Codex·OpenCode·omp는 출처 칸이 없어 tag만 본다. 모르는 꼴은 사람 메시지로 둔다. GUI source에는 `envelope` 읽기가 없어 보낸 쪽 chip은 이름만 보이고 열리지 않는다.
+18. **사람이 치지 않은 user 글은 받은 메시지다.** adapter는 `<lophn-call>`·`<lophn-reply>` tag(`from="human"`은 사람)와 Claude transcript의 `origin.kind`(human 밖: task 알림, 다른 session)를 가려 `actor: "received"`, sender(`program`이나 이름만 있는 `agent`), `call`·`reply_to`로 그린다. 받은 메시지는 `origin`이 없어 rewind 시점이나 bookmark가 되지 않는다. Codex·OpenCode·omp·Antigravity는 출처 칸이 없어 tag만 본다. 모르는 꼴은 사람 메시지로 둔다. GUI source에는 `envelope` 읽기가 없어 보낸 쪽 chip은 이름만 보이고 열리지 않는다.
 19. **도는 중에 다음 turn으로 보낸 말은 대화에 보낸 말로 그리지 않는다.** 줄 끝의 "보내는 중" 항목으로 보이고 줄에 서면 거기서 보인다. 못 보냄·접수 확인 안 됨은 다시 보내기 단추가 있는 대화 줄에 남는다.
 20. **"이 session 동안"은 그 CLI session 안에서만이다.** 사람의 설정 file에 쓰지 않는다. 영구가 되는 선택(always, execpolicy, network amendment)은 영구라고 적어 내놓는다. adapter는 사람의 CLI 설정을 바꾸지 않는다(Codex만 사람 설정이 full access일 때 정책을 덮는다).
 21. **GUI 안의 key는 그 CLI의 key다.** harness-gui manifest의 `contributes.keybindings`가 harness마다 keymap을 context `agentView:<harness>`에 낸다. GUI 탭은 바깥 `agentView` 안쪽에 `agentView:<harness>`를 달아, keymap이 agent 화면 기본 key보다 먼저이고 그 keymap의 Ctrl+글자 머리는 lophn 탭·창 key보다 먼저다. 동작은 공통 command(`agent.cycle-mode`, `agent.send-now`, `agent.queue`, `agent.rewind`, `agent.history-*`, `agent.background`, `agent.toggle-details`, `agent.clear-input`, `agent.interrupt`, `agent.newline`)이고 handler는 채팅 화면에 있다.
-    - 같은 Shift+Tab이 Claude에서는 permission mode, omp에서는 thinking 단계를 돈다(그 source의 mode).
+    - 같은 Shift+Tab이 Claude와 Antigravity에서는 mode, omp에서는 thinking 단계를 돈다(그 source의 mode). agy에서 Ctrl+R은 artifact review라 GUI에서 history 검색 key를 걸지 않는다.
     - Ctrl+C는 글을 골랐으면 복사, 입력칸에 글이 있으면 지우기, 비었고 turn이 돌면 멈추기다. Esc는 turn이 돌면 바로 멈추고, 쉬는 동안 Esc Esc(OpenCode는 `Ctrl+X U`)가 마지막 사람 메시지의 rewind를 연다.
     - 입력 history(↑↓)와 Ctrl+R 검색은 이 session에서 보낸 사람 메시지다(CLI history file은 읽지 않는다). Ctrl+R은 GUI에 focus가 있으면 늘 검색을 열어 창 Reload로 새지 않는다.
     - 사람이 Settings에서 `agent.*` 키를 바꾸면 네 harness keymap의 그 command 키를 모두 대신한다. CLI의 key 설정 file은 읽지 않는다.
     - 대화 scroll(PageUp·PageDown·Ctrl+Home·Ctrl+End, `agent.scroll-*`)은 harness keymap이 아니라 agent 화면 기본 key라 네 harness가 같다.
-    - 도는 tool을 background로 보내기는 ACP 입력 `background_tool`과 capability `background`다. Claude와 OpenCode만 true이고 Codex·omp는 false다.
+    - 도는 tool을 background로 보내기는 ACP 입력 `background_tool`과 capability `background`다. Claude와 OpenCode만 true이고 Codex·omp·Antigravity는 false다.
 22. **편집 카드의 Open은 절대 경로로 연다.** ACP edit detail의 `document`가 절대 경로이고 `path`는 cwd 상대의 보이는 이름이다. adapter는 `document`를 늘 절대 경로로 낸다.
 23. **저장되지 않은 session이라고 GUI가 실패하지 않는다.** 첫 메시지 전의 TUI session은 CLI가 저장하지 않으므로 resume하지 않고 실패 줄 없이 새 session으로 연다(Claude는 같은 id).
-24. **CLI 하나의 이상이 앱이나 GUI 줄 전체를 멈추지 않는다.** 읽지 못하는 frame과 너무 큰 frame(64 MiB)은 그 줄만 버리고 경고를 한 번만 낸다(Codex·omp·OpenCode, Claude는 SDK가 읽는다). CLI에 보내는 요청은 30초 기한이 있고 일이 끝나야 답하는 요청(turn 시작, shell 명령, compact 등)은 뺀다. 답 없는 CLI가 입력 줄이나 handler를 붙들지 않는다.
-25. **adapter가 실패하면 CLI를 남기지 않는다.** 시작이 중간에 실패하거나 연결을 잃으면 띄운 CLI를 끈다. stop은 정중한 단계(abort, session id 읽기)를 3초만 기다린 뒤 닫는다(Claude·omp). 오류 글과 stderr 꼬리는 credential을 가려서 화면에 보인다.
+24. **CLI 하나의 이상이 앱이나 GUI 줄 전체를 멈추지 않는다.** 읽지 못하는 frame과 너무 큰 frame(64 MiB)은 그 줄만 버리고 경고를 한 번만 낸다(Codex·omp·OpenCode·Antigravity, Claude는 SDK가 읽는다). CLI에 보내는 요청은 30초 기한이 있고 일이 끝나야 답하는 요청(turn 시작, shell 명령, compact 등)은 뺀다. 답 없는 CLI가 입력 줄이나 handler를 붙들지 않는다.
+25. **adapter가 실패하면 CLI를 남기지 않는다.** 시작이 중간에 실패하거나 연결을 잃으면 띄운 CLI를 끈다. stop은 정중한 단계(abort, session id 읽기)를 3초만 기다린 뒤 닫는다(Claude·omp·Antigravity). 오류 글과 stderr 꼬리는 credential을 가려서 화면에 보인다.
 26. **Claude의 rewind·fork가 새 CLI를 띄우지 못하면 앞 session을 지킨다.** 앞 session과 숨긴 구간으로 돌아가고 경고로 알린다.
 27. **OpenCode의 event stream이 끊겨도 session은 산다.** 0.5초에서 10초까지 늘리며 다시 구독하고, 끊긴 사이 끝난 turn은 닫고 도는 turn에는 출력이 빠졌을 수 있다고 알린다. 끊긴 사이 뜬 승인은 다시 읽는다. event 없이 이어 실패하면 그때 실패로 끝낸다.
 28. **폰의 입력은 handle의 주인(shell main)이 받는다.** core는 `acp/send`를 사본에 적용하거나 core route로 나누지 않고 `coding_input`으로 넘긴다. handle이 없으면 `not_found`, 연결이 없거나 10초 안에 답이 없으면 `unavailable`이다. 같은 `key`의 입력은 session마다 200개를 기억해 host에 한 번만 보낸다(폰은 다시 붙은 뒤 같은 입력을 다시 보내고 adapter는 key를 거르지 않는다). protocol은 입력을 record로만 보므로 shell main이 받을 때 `acpInputSchema`로 다시 검사한다.
@@ -157,10 +166,10 @@ adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있�
 
 - **CLI 코어는 두고 화면만 바꾼다.** Claude·Codex 데스크톱이 같은 꼴이라 session·resume·설정은 CLI의 것을 쓴다. 그래서 lophn ledger에 기록하지 않고 lophn project가 아닌 폴더에서도 돈다. (사람, 2026-11-04 "CLI 화면을 대체하는 GUI")
 - **기능 묶음은 본체와 따로 켜는 extension이다.** 대다수에게 필요 없는 기능이다. (사람, 2026-11-04)
-- **각 CLI의 공식 GUI 경계로 붙는다.** Claude Code는 Agent SDK, Codex는 `codex app-server`, OpenCode는 자기 server API, omp는 `omp --mode rpc-ui`다. TUI 화면을 긁지 않는다. (agent)
+- **각 CLI의 공식 GUI 경계로 붙는다.** Claude Code는 Agent SDK, Codex는 `codex app-server`, OpenCode는 자기 server API, omp는 `omp --mode rpc-ui`, Antigravity는 `agy acp`다. TUI 화면을 긁지 않는다. (agent)
 - **GUI는 lophn 터미널 탭 안에서만 열고 친 그 탭이 GUI로 바뀐다.** 첫 판은 session 하나에 lophn 창 하나(agent)였는데 사람이 원한 것은 그 탭이 바뀌고 toggle되는 것이었다. lophn 밖 터미널과 Home workspace에서는 하지 않는다. (사람, 2026-11-05)
-- **같은 대화를 GUI와 TUI 사이에서 toggle한다.** Claude·omp는 process를 끄고 같은 session id로 다시 띄우며 modal로 알린다(사람, 2026-11-05). Codex·OpenCode는 탭 전용 server에 둘이 같이 붙는다(agent, 사람이 받음). 이유: 이 둘은 한 server에 client 여럿이 붙는 경계가 있어 끄지 않아도 된다.
-- **GUI에는 그 CLI에서 되는 채팅 기능을 다 넣고 기준은 각 데스크톱 앱이다.** 대상은 Claude Code, Codex, OpenCode, omp다. (사람, 2026-11-05)
+- **같은 대화를 GUI와 TUI 사이에서 toggle한다.** Claude·omp·Antigravity는 process를 끄고 같은 session id로 다시 띄우며 modal로 알린다(사람, 2026-11-05). Codex·OpenCode는 탭 전용 server에 둘이 같이 붙는다(agent, 사람이 받음). 이유: 이 둘은 한 server에 client 여럿이 붙는 경계가 있어 끄지 않아도 된다.
+- **GUI에는 그 CLI에서 되는 채팅 기능을 다 넣고 기준은 각 데스크톱 앱이다.** 대상은 Claude Code, Codex, OpenCode, omp다. (사람, 2026-11-05) Antigravity(`agy`)를 더했다. (사람, 2026-11-16)
 - **대화 밖 session 기능도 ACP의 입력과 갱신이다.** 화면을 lophn agent와 harness가 같이 쓰고 칸은 capability만 보고 가린다. 첫 판의 "external이면 lophn 전용 칸을 숨김"은 capability 검사로 바꿨다. 채팅 화면을 다시 짜지 않는다. (사람, 2026-11-05)
 - **Claude는 stream-json을 직접 말하지 않고 Agent SDK를 쓴다.** 이유: 승인·멈추기·resume을 Anthropic이 맞춰 둔 것을 쓰고 CLI 판이 바뀌면 SDK 판을 올린다. 비용은 개발 `node_modules`의 SDK와 peer dependency(약 40MB)와 bundle의 1.3MB이다. SDK의 OS별 claude 사본(linux-x64 약 323MB)은 받지 않고 사람의 `claude`를 쓴다. (사람, 2026-11-05)
 - **OpenCode는 `opencode acp`를 버리고 데스크톱 앱처럼 server API를 쓴다.** (사람, 2026-11-05)
@@ -174,8 +183,10 @@ adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있�
 - **입력 history는 그 GUI session에서 보낸 사람 메시지다.** CLI history file은 읽지 않는다. (agent)
 - **scroll key는 입력칸에 focus가 있어도 대화를 움직인다.** 여러 줄 draft에서 PageUp·PageDown·Ctrl+Home·Ctrl+End로 caret을 옮기던 것은 잃는다. 입력칸이 짧고 CLI TUI도 그렇다. (agent)
 - **Claude steer는 Claude desktop과 같은 detach다.** id 없는 `backgroundTasks()`는 task만 등록하고 tool 호출을 풀지 못했고, control 요청 `interrupt {send_now}`는 tool을 멈췄다(녹화로 확인). (agent)
-- **shell mode(`!`)는 harness 넷과 lophn agent 모두에 둔다.** Claude `!`는 데스크톱 앱처럼 adapter가 돌리고 `shouldQuery: false` 사람 메시지로 넣는다. (사람이 방향, agent가 모양)
+- **shell mode(`!`)는 harness 넷과 lophn agent 모두에 둔다.** Claude `!`는 데스크톱 앱처럼 adapter가 돌리고 `shouldQuery: false` 사람 메시지로 넣는다. (사람이 방향, agent가 모양) Antigravity는 결과를 model에 보내지 않고 대화에 넣는 ACP 길이 없어 `!`를 두지 않았다. (agent)
 - **fast·thinking·Speed는 composer chip이 아니라 model picker의 축이다.** Roles가 맨 위이고 provider 묶음을 접는다. lophn agent도 같다. (사람, 2026-11-05)
+- **Antigravity는 agy 안의 `agy acp`로 붙는다.** t3code·orca는 Google의 별도 `agy-acp-server`를 쓰는데 그 server의 대화는 TUI와 다르다(orca 주석). 내장 `agy acp`는 TUI와 같은 대화 store를 쓰고 ACP session id가 conversation id다. ACP에 없는 TUI 기능(rewind, fork, rename, `!`)은 GUI에 없다. (agent)
+- **Antigravity는 restart로 넘긴다.** agy process 둘이 같은 대화를 열면 오류 없이 서로를 보지 못하고, 둘이 붙을 local server가 없다(`agy remote-control`은 Google을 거치는 중계다). (agent)
 - **omp role은 "이 session만 이 role의 model로"만 넣고 사람의 `~/.omp` 배정은 바꾸지 않는다.** (사람, 2026-11-05)
 - **thread index는 사람 메시지 4개부터 보이고 bookmark는 shell data file 하나에 둔다.** harness 대화는 ledger에 없다. (사람, 2026-11-05)
 - **subagent 보기는 탭 머리 ←/→로 오간다.** 따로 둔 Back 줄이 없다. (사람, 2026-11-05)
@@ -189,7 +200,7 @@ adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있�
 ## 열린 것
 
 열린 이슈는 topic이 `harness-gui`인 이슈다.
-- adapter 넷이 줄 세우기 code(도는 중 보낸 메시지의 queue, 고치기, 옮기기, turn 뒤 보내기)를 각자 가진다. 하나를 고치면 넷을 같이 고쳐야 한다(defect).
+- adapter 다섯이 줄 세우기 code(도는 중 보낸 메시지의 queue, 고치기, 옮기기, turn 뒤 보내기)를 각자 가진다. 하나를 고치면 다섯을 같이 고쳐야 한다(defect).
 - Claude GUI의 `!` 출력은 끝날 때 한 번에 보인다. ACP에 도는 tool의 본문 갱신이 없다. shell은 `/bin/sh`로 박혀 Windows에서 돌지 않는다(defect).
 - OpenCode GUI에서 다른 client(TUI, lophn)가 live로 보낸 lophn call이 사람 메시지로 그려진다. 다시 열면 받은 메시지로 바뀐다(bug).
 - Claude Agent 줄은 시작 시각을 맞추려고 `task_started`가 올 때까지 늦게 낸다. ACP에 tool item의 `at`을 고칠 갱신이 없다(defect).
@@ -201,6 +212,7 @@ adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있�
 - Codex: rewind는 마지막 메시지만(파일은 그대로), 이미지는 끈다, 첫 메시지 전에는 TUI로 넘어가지 못한다, plan "Implement" 카드는 실제 `plan` item으로 확인하지 못했다.
 - OpenCode: todo는 녹화한 판이 codemode라 실제 `todowrite`로 확인하지 못했다. 판 2.1.4 기준이다.
 - omp: 18.8.7 기준이고 plan mode(RPC 없음)와 파일 rewind가 없다. model turn이 없는 session은 저장되지 않아 다시 열면 `!` 기록이 사라진다.
+- Antigravity: 1.5.9 기준이다. ACP에 없는 rewind, fork, rename, todo, subagent 대화, background task, `!` shell, 비용이 없다. "늘 허용" 선택지와 질문의 ask-in-chat 꼴은 녹화한 계정에서 보지 못했다. GUI가 띄운 `agy acp` turn에서도 agy hook이 탭에 오는지는 확인하지 못했다.
 - Claude: CLI가 줄 선 `later` 여럿을 잇따라 `started`하는지와 비동기 Agent 결과의 실제 순서는 녹화로 확인하지 못했다(SDK 문서에 기댔다). Claude 녹화로 줄 여럿의 지금 보내기와 비동기 Agent를 확인해야 한다.
 - Codex의 `thread/turns/list`와 자식 `thread/resume` 사이에 온 자식 이벤트는 빠질 수 있다.
 - Claude에서 SDK 사본 없이 사람 `claude`를 쓰므로 CLI 판과 SDK 판이 어긋나면 SDK 판을 올려야 한다.

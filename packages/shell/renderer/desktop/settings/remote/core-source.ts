@@ -6,11 +6,13 @@ import {
   devicesSetTerminalInput,
   type RemoteDevice as ListedDevice,
 } from "../../../../../protocol/remote/routes.ts";
+import type { MachineStatus } from "../../../../../protocol/machine/mod.ts";
 import type { RemotePairing } from "../../../../../protocol/remote/frames.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { call, command } from "../core-call.ts";
 import { chooseSetting, readEffective } from "../declared.ts";
 import type {
+  RemoteMachine,
   RemoteRelayStatus,
   RemoteSettingsSource,
   SourceResult,
@@ -21,11 +23,41 @@ const ENABLED_KEY = "remote.enabled";
 const done = (sent: SourceResult<unknown>): SourceResult<null> =>
   sent.ok ? { ok: true, value: null } : sent;
 
+function machineOf(
+  status: SourceResult<MachineStatus>,
+): SourceResult<RemoteMachine> {
+  if (!status.ok) return status;
+  const { name, name_source, hostname, cloned_from } = status.value;
+  return {
+    ok: true,
+    value: {
+      name,
+      nameSource: name_source,
+      hostname,
+      clonedFrom: cloned_from,
+    },
+  };
+}
+
 export function coreRemoteSource(
   core: CoreSource,
   random: () => string = () => crypto.randomUUID(),
 ): RemoteSettingsSource {
   return {
+    async machine() {
+      return machineOf(
+        await call<MachineStatus>(core, "memory", "machine", "status", {}),
+      );
+    },
+
+    async renameMachine(name) {
+      return machineOf(
+        await call<MachineStatus>(core, "memory", "machine", "rename", {
+          name,
+        }),
+      );
+    },
+
     async enabled() {
       const read = await readEffective(core, [ENABLED_KEY]);
       return read.ok

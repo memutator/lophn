@@ -13,6 +13,7 @@ import { SHELL_ROUTES } from "./routes.ts";
 // - workflow 목록 읽기와 시작·멈춤(Workflows 탭과 sidebar). 보고(`report`)와 고치기(`edit`)는 agent가 부르므로 renderer는 부르지 않는다.
 // - 앱 tray 값 읽기(`app_tray/list`. 작업 표시줄 tray). `app_tray/set`은 앱 process만 부른다.
 // - 폰 pairing code 만들기(`pairing/start`. Settings › Remote의 QR)
+// - 이 컴퓨터의 이름 읽기·바꾸기(`machine/status`·`machine/rename`. Settings › Remote)
 // - 못 본 turn 끝 읽기와 지우기(`unseen/list`·`unseen/dismiss`. 탭의 finished 점과 알림 panel의 Finished 줄). presence 보고와
 //   터미널 signal은 shell main만 부른다.
 // 다른 memory route는 main의 고정 통로만 부른다.
@@ -50,6 +51,8 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:workflows/stop",
   "memory:app_tray/list",
   "memory:pairing/start",
+  "memory:machine/status",
+  "memory:machine/rename",
   "memory:unseen/list",
   "memory:unseen/dismiss",
 ];

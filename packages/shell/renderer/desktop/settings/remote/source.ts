@@ -22,6 +22,16 @@ export interface RemoteDevice {
   readonly terminalInput: boolean;
 }
 
+/** 이 컴퓨터의 이름과 복제 여부(`machine/status`). */
+export interface RemoteMachine {
+  /** 알리는 이름: 사람이 지은 이름이 있으면 그것, 없으면 hostname이다. */
+  readonly name: string;
+  readonly nameSource: "hostname" | "person";
+  readonly hostname: string;
+  /** 다른 컴퓨터에서 복사된 data root라 새 기계가 되었으면 옛 기계의 id. 아니면 null이다. */
+  readonly clonedFrom: string | null;
+}
+
 /** 새 pairing code. */
 export interface RemotePairingCode {
   /** QR에 싣는 글. 폰(과 `tools/remote-client.ts`)이 읽는 JSON 그대로다. */
@@ -37,6 +47,10 @@ export interface RemoteRelayStatus {
 }
 
 export interface RemoteSettingsSource {
+  /** 이 컴퓨터의 이름. */
+  machine(): Promise<SourceResult<RemoteMachine>>;
+  /** 이름을 바꾼다. null이면 사람이 지은 이름을 지워 hostname을 다시 따른다. */
+  renameMachine(name: string | null): Promise<SourceResult<RemoteMachine>>;
   /** 설정 `remote.enabled`. */
   enabled(): Promise<SourceResult<boolean>>;
   setEnabled(on: boolean): Promise<SourceResult<null>>;

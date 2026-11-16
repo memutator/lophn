@@ -32,6 +32,10 @@ const OS_LABEL = {
 
 function detailText(device: RemoteDevice): string {
   const os = t(OS_LABEL[device.os]);
+  const platform =
+    device.kind === "desktop"
+      ? `${t("settings.label.device-kind-desktop")} · ${os}`
+      : os;
   const seen =
     device.lastConnectedAt === null
       ? t("settings.label.remote-never-connected")
@@ -41,7 +45,7 @@ function detailText(device: RemoteDevice): string {
             new Date(),
           ),
         });
-  return `${os} · ${seen}`;
+  return `${platform} · ${seen}`;
 }
 
 export function RemoteDeviceRows({
@@ -86,6 +90,10 @@ export function RemoteDeviceRows({
     }
   }
 
+  async function resetName(device: RemoteDevice): Promise<void> {
+    if (await act(source.rename(device.id, null))) setRenaming(null);
+  }
+
   async function revoke(device: RemoteDevice): Promise<void> {
     setRevoking(null);
     await act(source.revoke(device.id));
@@ -105,6 +113,7 @@ export function RemoteDeviceRows({
                 <Field label={t("settings.label.remote-device-name")}>
                   <Input
                     value={renaming.name}
+                    placeholder={device.announcedName}
                     maxLength={64}
                     autoFocus
                     onChange={(event) =>
@@ -115,6 +124,15 @@ export function RemoteDeviceRows({
               </div>
               <div className={styles.lineControl}>
                 <div className={styles.actions}>
+                  {device.alias === null ? null : (
+                    <Button
+                      icon={actionIcons.reset}
+                      data-remote-name-reset=""
+                      onClick={() => void resetName(device)}
+                    >
+                      {t("settings.button.device-name-reset")}
+                    </Button>
+                  )}
                   <Button onClick={() => setRenaming(null)}>
                     {t("settings.button.cancel")}
                   </Button>
@@ -144,6 +162,14 @@ export function RemoteDeviceRows({
                     </span>
                   ) : null}
                 </span>
+                {device.alias !== null &&
+                device.alias !== device.announcedName ? (
+                  <span className={styles.caption} data-remote-announced="">
+                    {t("settings.label.device-announced-name", {
+                      name: device.announcedName,
+                    })}
+                  </span>
+                ) : null}
                 <span className={styles.lineHelp}>{detailText(device)}</span>
               </div>
               <div className={styles.lineControl}>

@@ -1,6 +1,7 @@
 // Remote 항목의 가짜 통로. core를 부르지 않고 메모리에 둔다.
 import type {
   RemoteDevice,
+  RemoteMachine,
   RemoteSettingsSource,
   SourceResult,
 } from "../source.ts";
@@ -10,6 +11,8 @@ interface FakeRemoteOptions {
   enabled?: boolean;
   /** 처음 기기 목록. 없으면 화면 확인용 대표 둘이다. */
   devices?: RemoteDevice[];
+  /** 처음 이 컴퓨터. 없으면 hostname을 따른다. 복제 note는 `clonedFrom`을 주고 `devices: []`로 본다. */
+  machine?: RemoteMachine;
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -20,8 +23,8 @@ function sampleDevices(now: number): RemoteDevice[] {
       id: "dev_01jd0000000000000000000001",
       kind: "phone",
       name: "Pixel 9",
-      announcedName: "Pixel 9",
-      alias: null,
+      announcedName: "SM-S918N",
+      alias: "Pixel 9",
       os: "android",
       lastConnectedAt: new Date(now - 26 * HOUR).toISOString(),
       primary: false,
@@ -49,7 +52,15 @@ const SAMPLE_PAIRING = {
   code: "4f1c2b9e0d7a63851f2e9c4b7a0d3e6f",
 };
 
+const SAMPLE_MACHINE: RemoteMachine = {
+  name: "studio",
+  nameSource: "hostname",
+  hostname: "studio",
+  clonedFrom: null,
+};
+
 export function fakeRemote(options: FakeRemoteOptions = {}) {
+  let machine = options.machine ?? SAMPLE_MACHINE;
   let enabled = options.enabled ?? true;
   let devices: readonly RemoteDevice[] =
     options.devices ?? sampleDevices(Date.now());
@@ -58,6 +69,15 @@ export function fakeRemote(options: FakeRemoteOptions = {}) {
   const missing = (): Promise<SourceResult<null>> =>
     Promise.resolve({ ok: false, code: "not_found" });
   const source: RemoteSettingsSource = {
+    machine: () => ok(machine),
+    renameMachine(name) {
+      machine = {
+        ...machine,
+        name: name ?? machine.hostname,
+        nameSource: name === null ? "hostname" : "person",
+      };
+      return ok(machine);
+    },
     enabled: () => ok(enabled),
     setEnabled(on) {
       enabled = on;

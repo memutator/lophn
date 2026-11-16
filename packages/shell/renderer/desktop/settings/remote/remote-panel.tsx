@@ -20,6 +20,7 @@ import type {
   RemoteRelayStatus,
   RemoteSettingsSource,
 } from "./source.ts";
+import { ThisComputer } from "./this-computer.tsx";
 
 type Loaded<T> = T | "failed" | null;
 
@@ -140,6 +141,7 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
       )}
       <h1 className={styles.paneTitle}>{t("settings.label.tab-remote")}</h1>
       <p className={styles.lead}>{t("settings.intro.remote")}</p>
+      <ThisComputer source={source} devices={devices} />
       {enabled === null ? null : enabled === "failed" ? (
         <p className={styles.notice} data-remote="failed">
           {t("settings.error.remote-load-failed")}

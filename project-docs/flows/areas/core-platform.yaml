@@ -435,8 +435,9 @@ flows:
     actor: person
     entries: [route:machine/status]
     boundary: [core-api, machine]
-    code: [packages/protocol/machine/mod.ts, packages/core/main/daemon/wiring/machine.ts, packages/core/machine/identity.ts]
+    code: [packages/protocol/machine/mod.ts, packages/core/main/daemon/wiring/machine.ts, packages/core/machine/identity.ts, packages/shell/renderer/desktop/settings/remote/this-computer.tsx, packages/shell/main/desktop/core/allowlist.ts]
     steps:
+      - "Settings › Remote의 \"This computer\"가 열릴 때 부른다(renderer allowlist의 memory:machine/status). 이름 input과 복제 note(cloned_from이 있고 기기가 하나도 없을 때)를 이 답으로 그린다"
       - "dispatch가 body(빈 객체)와 actors(user)를 본다"
       - "기동이 정한 기록과 지금 hostname으로 답한다. 사람이 지은 이름이 없으면 hostname에서 끝의 .local을 떼고 64자로 자른 것(비면 lophn)이고 name_source는 hostname이다"
     outcomes:
@@ -457,8 +458,9 @@ flows:
     actor: person
     entries: [route:machine/rename]
     boundary: [core-api, machine]
-    code: [packages/protocol/machine/mod.ts, packages/core/main/daemon/wiring/machine.ts, packages/core/machine/identity.ts]
+    code: [packages/protocol/machine/mod.ts, packages/core/main/daemon/wiring/machine.ts, packages/core/machine/identity.ts, packages/shell/renderer/desktop/settings/remote/this-computer.tsx, packages/shell/main/desktop/core/allowlist.ts]
     steps:
+      - "사람이 Settings › Remote의 \"This computer\" Name input에서 Enter나 blur로 저장하면 이름을 보내고(비우면 보내지 않고 지금 이름으로 돌아간다), 사람이 지은 이름이면 [Use computer name]이 null을 보낸다(renderer allowlist의 memory:machine/rename). 실패하면 이 pane의 다른 줄과 같은 오류 글(settings.error.value-not-saved)이 보인다"
       - "dispatch가 body({ name: 1~64자 trim | null })와 actors(user)를 본다"
       - "null이면 사람이 지은 이름을 지우고 hostname을 다시 따른다. 아니면 trim한 이름을 고정한다"
       - "machine.json을 temp에 쓰고 rename한 뒤에만 메모리 값을 바꾸고 새 status를 답한다"
@@ -1899,8 +1901,9 @@ flows:
     actor: person
     entries: [route:devices/rename]
     boundary: [core-api, storage]
-    code: [packages/core/remote/devices.ts, packages/core/main/daemon/wiring/remote.ts]
+    code: [packages/core/remote/devices.ts, packages/core/main/daemon/wiring/remote.ts, packages/shell/renderer/desktop/settings/remote/device-rows.tsx]
     steps:
+      - "Settings › Remote의 기기 줄 [Rename] sheet가 부른다. 별명이 있을 때 sheet의 [Use the device's name]이 name null로 부르고, 별명이 있고 알린 이름과 다르면 줄 제목 아래에 알린 이름이 작게 보인다"
       - "입력 name이 글이면 별명(alias)으로 두고, null이면 별명을 지워 기기가 알린 이름이 다시 보인다. 기기가 알린 이름은 바꾸지 않는다. 별명이 같으면 아무것도 쓰지 않는다"
       - "보이는 이름이 바뀌었을 때만 commit 뒤 renamed로 설정 shell.devices에서 device가 그 기기인 항목만 새 보이는 이름으로 바꾼다(40자로 자르고 겹치면 숫자를 붙인다). desktop은 항목이 없어 바뀌지 않는다"
     outcomes:

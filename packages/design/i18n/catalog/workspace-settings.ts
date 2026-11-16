@@ -137,6 +137,8 @@ export const workspaceSettings = {
     "A bar at the bottom of the window that holds your floating panels.",
   "settings.appearance.text-size-help": "The size of text across lophn.",
   "settings.button.add-entry": "Add",
+  "settings.button.computer-name-reset": "Use computer name",
+  "settings.button.device-name-reset": "Use the device's name",
   "settings.button.back-to": "Back to {workspace}",
   "settings.button.back-to-home": "Back to Home",
   "settings.button.add-rule": "Add rule",
@@ -238,6 +240,7 @@ export const workspaceSettings = {
   "settings.heading.quick-buttons": "Buttons",
   "settings.heading.quick-sidebar-panels": "Sidebar panels",
   "settings.heading.quick-tray": "Tray",
+  "settings.heading.this-computer": "This computer",
   "settings.heading.remote-devices": "Phones",
   "settings.heading.remote-pair": "Add a phone",
   "settings.heading.shell-rules-built-in": "Built in",
@@ -271,6 +274,9 @@ export const workspaceSettings = {
   "settings.label.add-entry": "Add an entry",
   "settings.label.appearance-target": "your appearance settings",
   "settings.label.dark-theme": "Dark theme",
+  "settings.label.computer-name": "Name",
+  "settings.label.device-announced-name": "Calls itself {name}",
+  "settings.label.device-kind-desktop": "Desktop",
   "settings.label.device-linux": "Linux",
   "settings.label.device-macos": "macOS",
   "settings.label.device-windows": "Windows",
@@ -295,6 +301,10 @@ export const workspaceSettings = {
   "settings.label.theme-file": "{name} (file)",
   "settings.label.theme-not-found": "{name} (not found)",
   "settings.label.themes-folder": "Themes folder",
+  "settings.note.computer-name-follows":
+    "Follows this computer's name ({hostname})",
+  "settings.note.computer-name-next-connect":
+    "A new name shows on paired devices from their next connection. A device that gave this computer its own name keeps showing that name.",
   "settings.note.remote-enabled":
     "While on, lophn listens for paired phones on every network interface and keeps running when idle.",
   "settings.note.remote-pair":
@@ -305,6 +315,8 @@ export const workspaceSettings = {
     "Scan this code with the lophn phone app. A new code replaces this one.",
   "settings.note.remote-terminal-input":
     "Off by default; while on, anyone holding this phone can type into coding agent terminals on this computer and run commands as you.",
+  "settings.notice.computer-cloned":
+    "This lophn was copied from another computer, so it is now a new computer. Phones paired with the other computer need to pair again here.",
   "settings.notice.remote-devices-empty": "No phones paired yet.",
   "settings.notice.remote-expired":
     "This code expired. Make a new code to pair a phone.",

@@ -25,3 +25,13 @@
   overflow-wrap: anywhere;
   user-select: text;
 }
+
+/* "This computer" 줄 아래의 note들. 줄 목록과 떨어져 선다. */
+.below {
+  margin-top: var(--space-3);
+}
+
+/* 다음 줄 목록(켜기 줄)과 떨어져 선다. margin-top은 groupBlock이 갖는다. */
+.section {
+  margin-bottom: var(--space-6);
+}

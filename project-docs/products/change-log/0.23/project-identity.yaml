@@ -1,5 +1,5 @@
 id: project-identity
-version: 0.23.68
+version: 0.23.71
 title: 같은 git 저장소는 어느 기계에서도 같은 project다(저장소 안 id file과 `lophn project clone`)
 modules: [packages/protocol, packages/core/projects, packages/core/main, packages/core/storage, packages/cli, packages/shell/main, packages/shell/renderer, packages/design]
 checked: [module-catalog]

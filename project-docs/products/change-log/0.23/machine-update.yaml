@@ -24,6 +24,8 @@ why: |
   - 그 밖: 거절한 따라가기는 Beta core가 다시 뜨자 다시 물었다(정한 대로). 따라가기 activation 실패(Beta에만 있는 row로 migration이 PK 충돌)는 고치기 전에는 core가 다시 뜨자 current로 읽혔고 고친 뒤 `activation_failed`와 이유가 남았다. Beta가 따로 낸 release(Alpha의 r5와 갈라짐)는 고친 뒤 Alpha에서 `diverged`였다.
   - 그림: `screenshot/multi-machine/machine-update/e2e-*.png`(headless shell을 CDP로).
 decisions:
+  - text: "`app.create`의 앱 id는 사람과 폴더 take-in 자격이 정한다. `app-folder-sync` 항목의 '폴더 take-in만 정한다'를 바로잡는다: 그 좁힘이 사람이 정한 id로 앱을 만드는 e2e(`sdk-decide`)를 깼고, 사람이 id를 정하는 것은 원래 있던 계약이다. agent와 그 밖의 machine 자격은 여전히 정하지 못한다."
+    by: agent
   - text: "lophn 판은 범위로 본다: 보는 쪽 연결은 hello의 `version`·`min_version`, 폴더는 꼴 판 `[min_version, version]`. 제품 판 글은 보이기만 한다. 버린 길: 같은 build 요구(한 기계를 올릴 때 나머지가 멈춘다)."
     by: person
   - text: "범위 안에서는 모르는 칸을 버리고 계속 주고받고, 꼴 판은 옛 판이 틀리게 읽는 바꿈에만 올린다."

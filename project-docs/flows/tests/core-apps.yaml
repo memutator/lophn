@@ -106,7 +106,7 @@ files:
 
   - path: packages/core/apps/registration/commands_test.ts
     covers: [app-create:conflict, app-create:invalid-input, app-create:forbidden, app-set-icon:uploaded, app-set-icon:cleared, app-set-icon:invalid-icon, app-set-icon:not-found]
-    note: "이미 있는 slug와 예약어 slug 거절(앱이 안 늘어남), 사람·agent·다른 machine 자격의 id 지정과 take-in 자격의 id 없는 등록 거절, icon의 크기·형식·선언 type과 바이트 불일치 거절, icon 설정과 지우기, 없는 앱"
+    note: "이미 있는 slug와 예약어 slug 거절(앱이 안 늘어남), agent·다른 machine 자격의 id 지정과 take-in 자격의 id 없는 등록 거절(사람의 id 지정은 된다), icon의 크기·형식·선언 type과 바이트 불일치 거절, icon 설정과 지우기, 없는 앱"
 
   - path: packages/core/apps/registration/delete_test.ts
     covers: [app-delete:not-archived, app-delete:forbidden, app-delete:deleted]

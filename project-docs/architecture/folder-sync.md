@@ -119,7 +119,7 @@
 - `app.take_in {app, from?, release?}`는 다른 기계가 폴더에 내놓은 앱을 이 기계에 들인다. 같은 `app_` id로 등록하고(slug가 이미 다른 앱의 것이면 `conflict`), release 폴더를 전부 검사한 뒤 봉인 사본을 설치하고 `prepared` release로 적는다. 이미 들인 앱이면 앱 행을 건드리지 않고 그 release만 설치한다(같은 bundle이 있으면 그것을 돌려준다).
 - grant, 동의, secret, OAuth, invocation 기록, 앱 data는 옮기지 않는다. 활성화는 이 기계의 `release.activate`이고 첫 활성화는 이 기계에서 사람에게 동의를 묻는다(`activation.md`). data는 활성화 뒤 data stream으로 온다.
 - `conflict`의 `details.reason`: `sdk_missing`(이 lophn에 bundle이 고정한 SDK 판이 없다. 폴더에서 온 code를 이 기계의 SDK 저장소에 넣지 않는다), `slug_in_use`, `dependency_missing`(`details.packages`). release file이 다 오지 않았으면 `invalid_input`에 `details.reason: release_incomplete`다.
-- `app.create`에서 앱 id를 고를 수 있는 것은 폴더 take-in 자격(`machine:folder-apps`) 하나다.
+- `app.create`에서 앱 id를 고를 수 있는 것은 사람과 폴더 take-in 자격(`machine:folder-apps`)뿐이다. agent와 그 밖의 machine 자격은 고르지 못한다.
 
 ### 기계 기록과 환경
 

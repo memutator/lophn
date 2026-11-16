@@ -131,10 +131,20 @@ export function createAppCommands(): {
         if (!actor.ok) return actor;
         const whole = requireWholeScope(ctx);
         if (!whole.ok) return whole;
-        // 앱 id는 기계 사이 같은 앱의 신분이라 다른 기계의 앱을 들이는 폴더 take-in만 정한다. 사람과 agent는 정하지 못하고,
-        // take-in은 늘 id를 준다. 이미 있는 ID는 만들지 않는다.
-        if ((input.id !== undefined) !== isFolderTakeIn(ctx)) {
-          return forbidden("only the folder take-in assigns an app id");
+        // 앱 id는 기계 사이 같은 앱의 신분이다. 정하는 것은 사람과, 다른 기계의 앱을 들이는 폴더 take-in뿐이다(take-in은
+        // 늘 id를 준다). agent와 그 밖의 machine 자격은 정하지 못한다. 이미 있는 ID는 만들지 않는다.
+        const takeIn = isFolderTakeIn(ctx);
+        if (takeIn && input.id === undefined) {
+          return forbidden("the folder take-in gives the app id");
+        }
+        if (
+          input.id !== undefined &&
+          !takeIn &&
+          parseActor(ctx.actor)?.kind !== "user"
+        ) {
+          return forbidden(
+            "only a person or the folder take-in assigns an app id",
+          );
         }
         // 앱 slug는 `lophn <slug> <command>`의 첫 낱말이라 내장 명령 이름은 쓰지 못한다.
         if (RESERVED_APP_SLUGS.includes(input.slug)) {

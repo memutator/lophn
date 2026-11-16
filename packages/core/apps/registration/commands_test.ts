@@ -114,8 +114,8 @@ test("app.set_icon은 큰 파일과 이미지 아닌 것을 invalid_input으로 
   assert.strictEqual(setIcon("app_none", icon).error?.code, "not_found");
 });
 
-// 앱 id는 기계 사이 같은 앱의 신분이다. 다른 기계의 앱을 들이는 폴더 take-in 말고 누가 id를 정하면 남의 앱 자리를 차지한다.
-test("app.create의 id는 폴더 take-in 자격만 정하고 사람, agent, 다른 machine 자격은 거절된다", () => {
+// 앱 id는 기계 사이 같은 앱의 신분이다. 사람과 폴더 take-in 말고 누가 id를 정하면 남의 앱 자리를 차지한다.
+test("app.create의 id는 사람과 폴더 take-in 자격만 정하고 agent와 다른 machine 자격은 거절된다", () => {
   const { create, apps } = open();
   const id = "app_01hzzzzzzzzzzzzzzzzzzzzzzz";
   const agent = {
@@ -128,7 +128,7 @@ test("app.create의 id는 폴더 take-in 자격만 정하고 사람, agent, 다�
     principal: "machine:apps-source",
     credential_ref: "machine:apps-source",
   };
-  for (const ctx of [USER, agent, otherMachine]) {
+  for (const ctx of [agent, otherMachine]) {
     assert.deepStrictEqual(
       create("taken", ctx, id).error?.code,
       "forbidden",
@@ -143,4 +143,6 @@ test("app.create의 id는 폴더 take-in 자격만 정하고 사람, agent, 다�
   assert.deepStrictEqual(apps(), 0);
   const taken = create("taken", FOLDER_APPS_CONTEXT, id);
   assert.deepStrictEqual(taken.value?.id, id);
+  const own = "app_01hzzzzzzzzzzzzzzzzzzzzzzy";
+  assert.deepStrictEqual(create("own", USER, own).value?.id, own);
 });

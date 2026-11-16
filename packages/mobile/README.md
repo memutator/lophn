@@ -59,7 +59,7 @@ AVD `lophn-phone` 하나를 여럿이 쓴다.
 
 ## 화면 이동
 
-React Navigation 7(native stack과 drawer)이다. 아래 tab bar는 없다. 앱이 더 쓰는 native module은 `react-native-screens`, `react-native-gesture-handler`(drawer), `expo-camera`다.
+React Navigation 7(native stack과 drawer)이다. 아래 tab bar는 없다. 앱이 더 쓰는 native module은 `react-native-screens`, `react-native-gesture-handler`(drawer), `expo-camera`, `expo-notifications`(알림, 아래)다.
 
 - root stack(`src/app/root.tsx`): 컴퓨터가 하나도 없으면 연결 흐름(`src/screens/start/`: Welcome, Scan, Pairing, Paired, 실패 둘, Enter a pairing code sheet)에서 시작하고, 있으면 frame이다. 마지막 컴퓨터를 지우면 Welcome으로 돌아간다.
 - frame(`src/app/frame.tsx`): 왼쪽 drawer가 sidebar(`src/app/sidebar.tsx`)이고 옆이 place의 stack이다. 폭 600 이상에 높이 480 이상이면 sidebar가 늘 열려 있고 stack은 그 옆 card에 들며, 화면은 menu 단추를 두지 않는다. 가로로 든 폰은 폭이 넘어도 낮아서 drawer로 둔다. sidebar에서 고르면 stack이 [Home, 그 곳]으로 바뀌고, 화면 안에서 연 곳은 stack에 쌓인다.
@@ -88,6 +88,22 @@ React Navigation 7(native stack과 drawer)이다. 아래 tab bar는 없다. 앱�
 `src/connection/connection.ts`가 컴퓨터마다 연결 하나를 연다(`createConnection`). QR의 주소를 같이 걸어 먼저 handshake가 서는 것을 쓰고, 끊기면 backoff로 다시 붙고, 앱이 앞으로 오면 바로 붙거나 열린 연결을 `watch`로 확인한다. 붙을 때마다 마지막 `watch`를 다시 보낸다. 모양은 desktop의 `CoreSource`(상태 `starting`·`ready`·`stale`)다.
 
 QR에 relay 주소(`relay`)가 있으면 컴퓨터 기록에 저장하고, 주소들과 같이 `<relay>/v1/phone?key=<core key>`도 건다. relay는 바이트만 넘기므로 handshake는 같고, 먼저 서는 길을 쓴다. relay가 생기기 전에 pairing한 폰은 relay를 모르므로 한 번 다시 pairing한다.
+
+## 알림
+
+`src/push/`가 맡는다. 알림의 글은 core가 정해 보내고(`PushMessage`) 폰은 만들지 않는다. 폰이 하는 일:
+
+- 알림 채널 `needs-you`(high), `finished`, `apps`를 앱이 시작할 때 만든다. 허락(Android 13)과 token을 부르기 전이다.
+- Paired 화면의 `Turn on notifications`가 허락을 묻고, 허락되면 Expo push token을 받는다. `Not now`는 끈 채로 둔다(Paired는 한 번만 묻는다). Settings › Notifications에서 나중에 켠다. 거절이면 그 화면에 시스템 설정을 여는 단추가 선다.
+- 설정(스위치 일곱)과 token은 pairing한 모든 컴퓨터에 `devices/set_push`로 보낸다(붙을 때마다, 바뀔 때마다). 앱이 앞에 있는지와 열린 session은 `presence/report`로 보낸다(앞뒤가 바뀔 때, session 화면이 열고 닫힐 때, 앞에 있는 동안 30초마다).
+- 알림을 누르면 `data.host`의 컴퓨터를 고르고 session·앱·Inbox를 연다(앱이 떠 있을 때는 listener, 꺼져 있었으면 `getLastNotificationResponse()`). `data`는 `parseNotificationData`가 읽고 모양이 틀리면 아무것도 열지 않는다.
+
+계정이 필요한 부분: Expo push token은 EAS project id(`app.json`의 `expo.extra.eas.projectId`)가 있어야 받고, FCM 배달은 Firebase project의 `google-services.json`(`expo.android.googleServicesFile`)이 있어야 한다. 둘 다 아직 없다. 그래서:
+
+- dev build(`__DEV__`)는 앱이 처음 쓸 때 만들어 저장한 가짜 token `ExponentPushToken[lophn-dev-<무작위>]`를 `devices/set_push`로 보낸다. 개발 core의 fake push server(`tests/support/fake-push`)가 이 token으로 온 글을 받는다. 폰에 알림을 그리지는 못한다.
+- 그 밖의 build는 token을 받을 수 없어 알림이 "이 build에서는 쓸 수 없다"로 서고 아무것도 등록하지 않는다.
+- Settings › Notifications 맨 아래(dev build에서만)의 `Send a test notification`은 5초 뒤 같은 `data`의 local 알림을 띄운다. 앱을 뒤로 보내 보고, 누르면 그 session(없으면 Inbox)으로 가는지 본다. 앱이 앞에 있으면 배너를 그리지 않는다.
+- 허락 거절은 `adb -s emulator-<port> shell pm revoke dev.lophn.mobile android.permission.POST_NOTIFICATIONS`로 본다.
 
 ## 정해 둔 것
 

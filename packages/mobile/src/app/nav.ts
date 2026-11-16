@@ -49,6 +49,7 @@ export type Place =
   | { readonly name: "settings" }
   | { readonly name: "computer"; readonly key: string }
   | { readonly name: "appearance" }
+  | { readonly name: "notifications" }
   /** Dev builds only: the kit gallery. */
   | { readonly name: "gallery" }
   /** Pairing another computer: the start flow from Scan. */

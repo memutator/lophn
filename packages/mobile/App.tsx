@@ -5,6 +5,7 @@ import { AppearanceProvider } from "./src/app/appearance.tsx";
 import { Root } from "./src/app/root.tsx";
 import { createPhoneComputers, DataProvider } from "./src/data/mod.ts";
 import { Gallery } from "./src/gallery/gallery.tsx";
+import { PushProvider } from "./src/push/provider.tsx";
 
 // Dev only: start Metro with EXPO_PUBLIC_LOPHN_GALLERY=1 to open straight into the kit gallery.
 const GALLERY = __DEV__ && process.env.EXPO_PUBLIC_LOPHN_GALLERY === "1";
@@ -24,7 +25,9 @@ export default function App() {
               <Gallery onExit={() => setGallery(false)} />
             ) : (
               <DataProvider computers={computers}>
-                <Root />
+                <PushProvider computers={computers}>
+                  <Root />
+                </PushProvider>
               </DataProvider>
             )}
           </UiProvider>

@@ -1,5 +1,5 @@
 // The phone app's own settings (tools/wireframes/drafts/phone/more.tsx SettingsFlow): the paired computers, this
-// phone, its look. lophn's own settings (providers, agents) stay on the computer. Notifications come with push.
+// phone, its look. lophn's own settings (providers, agents) stay on the computer. Notifications is its own screen (src/push).
 import { t } from "@lophn/i18n";
 import {
   AgentTurn,
@@ -23,6 +23,7 @@ import {
 } from "@lophn/ui-native";
 import * as Clipboard from "expo-clipboard";
 import {
+  Bell,
   ChevronRight,
   Copy,
   Info,
@@ -46,6 +47,7 @@ import { type PlaceOf, useNav } from "../../app/nav.ts";
 import { Gallery } from "../../gallery/gallery.tsx";
 import { type ComputerItem, useComputers } from "../../data/mod.ts";
 import { Face, LOPHN } from "../../parts/mod.ts";
+import { usePush } from "../../push/provider.tsx";
 
 function Lead({ icon }: { icon: LucideIcon }) {
   return (
@@ -110,6 +112,7 @@ export function SettingsScreen(_: { place: PlaceOf<"settings"> }) {
   const nav = useNav();
   const { computers } = useComputers();
   const { appearance } = useAppearance();
+  const push = usePush();
   return (
     <Screen
       tone="floor"
@@ -148,6 +151,21 @@ export function SettingsScreen(_: { place: PlaceOf<"settings"> }) {
           lead={<Lead icon={Smartphone} />}
           title={t("settings.label.remote-device-name")}
           end={<Value>{PHONE_NAME}</Value>}
+        />
+        <Divider />
+        <Row
+          lead={<Lead icon={Bell} />}
+          title={t("mobile.notifications.title.screen")}
+          end={
+            <Value next>
+              {t(
+                push.status === "on"
+                  ? "settings.label.value-on"
+                  : "settings.label.value-off",
+              )}
+            </Value>
+          }
+          onPress={() => nav.open({ name: "notifications" })}
         />
         <Divider />
         <Row

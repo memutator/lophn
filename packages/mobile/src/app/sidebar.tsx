@@ -54,6 +54,7 @@ function lineOf(shown: Shown): string {
       return "agents";
     case "computer":
     case "appearance":
+    case "notifications":
     case "gallery":
       return "settings";
     case "workspace":

@@ -12,6 +12,7 @@ import {
 } from "@lophn/ui-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import {
+  Bell,
   Check,
   ClockAlert,
   Monitor,
@@ -24,6 +25,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Animated, Easing, View } from "react-native";
 import { nameOf, type RootParams } from "../../app/root-params.ts";
 import { useComputers } from "../../data/mod.ts";
+import { usePush } from "../../push/provider.tsx";
 import { EnterCodeSheet } from "./enter-code.tsx";
 import { Center, Disc, Foot, Hero, Lead } from "./parts.tsx";
 
@@ -208,18 +210,46 @@ export function PairedScreen({
   const { computers, rename } = useComputers();
   const computer = computers.find((one) => one.key === route.params.key);
   const [name, setName] = useState(computer?.name ?? "");
+  const push = usePush();
   const done = () => {
     if (computer !== undefined && name.trim() !== computer.name)
       rename(computer.key, name);
     navigation.reset({ index: 0, routes: [{ name: "frame" }] });
   };
+  // Notifications are asked about once, here; Settings › Notifications turns them on later.
+  const asking = push.status === "off" && !push.asked;
   return (
     <Screen
       footer={
         <Foot>
-          <Button variant="primary" size="lg" onPress={done}>
-            {t("mobile.start.button.continue")}
-          </Button>
+          {asking ? (
+            <>
+              <Button
+                variant="primary"
+                size="lg"
+                icon={Bell}
+                onPress={() => {
+                  void push.turnOn();
+                  done();
+                }}
+              >
+                {t("mobile.notifications.button.turn-on")}
+              </Button>
+              <Button
+                variant="ghost"
+                onPress={() => {
+                  push.skip();
+                  done();
+                }}
+              >
+                {t("common.button.not-now")}
+              </Button>
+            </>
+          ) : (
+            <Button variant="primary" size="lg" onPress={done}>
+              {t("mobile.start.button.continue")}
+            </Button>
+          )}
         </Foot>
       }
     >
@@ -234,6 +264,27 @@ export function PairedScreen({
             <Input value={name} onChangeText={setName} onSubmit={done} />
           </Field>
         </Plain>
+        {asking && (
+          <Plain
+            style={{
+              alignSelf: "stretch",
+              marginTop: 12,
+              padding: 16,
+              flexDirection: "row",
+              gap: 12,
+            }}
+          >
+            <Icon icon={Bell} size={22} />
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text weight="semibold">
+                {t("mobile.notifications.heading.know-when")}
+              </Text>
+              <Text variant="note" tone="muted">
+                {t("mobile.notifications.note.ask")}
+              </Text>
+            </View>
+          </Plain>
+        )}
       </Center>
     </Screen>
   );

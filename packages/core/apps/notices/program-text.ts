@@ -57,6 +57,14 @@ export function programNoticeText(input: NoticeRecordInput): {
         title: "Your phone changed",
         body: `${apps(input.params.apps)} ${input.params.apps === 1 ? "has a phone screen" : "have phone screens"} drawn for the old phone. Ask lophn to redraw them.`,
       };
+    case "app_sync_away":
+      return {
+        title: "This app was away from your other computers too long",
+        body:
+          input.params.held === 0
+            ? "It is catching up from the other computers. Nothing is held yet."
+            : `${input.params.held} ${input.params.held === 1 ? "change is" : "changes are"} held on this computer. Ask the app's agent to apply or discard them.`,
+      };
     case "sdk_update_needed": {
       const { required, available } = input.params;
       // 앞 문장이 "N apps"를 썼으면 뒤는 수만 쓴다("3 apps must update, 2 can use ...").

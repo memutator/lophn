@@ -2495,5 +2495,223 @@ flows:
         when: "core가 낸 그 밖의 오류 그대로(not_found, unavailable 포함)"
         observe: [response]
     crosses_process: true
-ignore:
-  - {entry: "route:apps/take_in", reason: "route 정의만 있고 handler 등록이 없다(folder-apps가 정의하고 folder-surface가 handler·CLI·flow를 단다). 그때 이 줄을 지우고 flow를 쓴다"}
+
+  - id: folder-export-run
+    title: "sync_to가 있는 앱의 data, 앱 기록, release, source와 기계 기록을 destination의 자기 하위 폴더에 쓴다"
+    actor: system
+    entries: [system:folder-export]
+    boundary: [folder, app-sync]
+    code: [packages/core/main/daemon/wiring/folder.ts, packages/core/folder/export/, packages/core/folder/apps/]
+    steps:
+      - "계기: 앱마다 AppSyncChanged 뒤 5초 debounce, 5분 timer, folder.destinations 설정이 바뀜, core 시작. (앱, destination)마다 한 번에 하나이고 그 사이 온 계기는 끝난 뒤 한 번 더 돈다. 기계 기록은 시작 listener가 제품 판을 알려 준 뒤부터 쓴다"
+      - "export가 sync log를 따라 changes·snapshot file을 쓰고(64 MiB를 넘으면 more로 바로 이어 돈다), 그 뒤 앱 기록·release·source를 쓴다. 실패한 일은 1분부터 두 배씩 1시간까지 그 일만 물러난다"
+      - "앱이 다른 기계의 horizon 밖(away_since)이면 core 알림 app_sync_away 하나(앱마다 key 하나)를 쓴다. held 수가 늘면 다시 쓴다"
+      - "앱 release마다 core가 뜬 뒤 처음과 하루에 한 번 흔적 정리: before = max(min(알려진 기계와 자기의 settled), now − 90일)(settled 없는 기계가 있으면 90일 쪽만)로 앱 process의 sync_cleanup을 부르고 돌아온 horizon을 folder_streams에 둔다. 앱이 떠 있지 않으면 다음 run에 다시 본다"
+    outcomes:
+      - id: written
+        observe: ["disk:<destination>/machines/<mch>/", "ledger:folder_streams", "ledger:folder_written"]
+      - id: stream-error
+        when: "destination이 없거나 쓸 수 없음, 앱이 떠 있지 않음, 남의 writer(foreign_writer, 사람이 app.sync_resume할 때까지 다시 쓰지 않음), 너무 큼. 오류는 folder_streams의 error에 남아 machine.environment에 보이고 그 일은 물러난다"
+        observe: ["ledger:folder_streams", "log:core"]
+      - id: away-noticed
+        when: "이 기계가 그 앱에서 다른 기계의 horizon 밖이다. 옛 변경은 held 줄로 남는다"
+        observe: ["ledger:notices", "ledger:app_sync_log"]
+      - id: cleaned
+        when: "흔적 정리가 돌았다"
+        observe: ["ledger:folder_streams"]
+    crosses_process: true
+    risk: [data-loss]
+
+  - id: folder-import-run
+    title: "destination의 다른 기계 하위 폴더를 읽어 기록 사본을 고치고 data stream과 source를 따라잡는다"
+    actor: system
+    entries: [system:folder-import]
+    boundary: [folder, app-sync]
+    code: [packages/core/main/daemon/wiring/folder.ts, packages/core/folder/import/, packages/core/folder/apps/source.ts]
+    steps:
+      - "계기: destination마다 machines/와 다른 기계의 하위 폴더·apps·앱 폴더·data·source의 fs.watch(폴더마다, 이 기계 자신의 하위 폴더는 빼고 2초 debounce), 2분 timer, 설정 바뀜, 활성 release가 바뀜, 시작. 새 폴더는 scan 뒤와 timer에 더한다"
+      - "scan이 기계·앱 기록 사본을 고친다. 그 뒤 sync 앱마다 import를 돈다(먼저 sync log의 held 줄이 건드리는 row를 읽어 둔다). 출처 stream의 물러남은 import가 stream마다 한다. 받은 file이 있으면 그 앱의 내보내기를 잡는다(앱 기록의 read·settled)"
+      - "source 받기는 앱마다 따로 돌고 실패하면 그 일만 물러난다"
+    outcomes:
+      - id: followed
+        observe: ["ledger:folder_reads", "ledger:folder_records", "ledger:app_sync_log"]
+      - id: waiting
+        when: "다음 번호가 아직 오지 않음, 미래 clock(clock_ahead), 다른 release(held로 복사), 맞지 않는 file(invalid_file). 상태는 folder_reads에 남아 machine.environment에 보인다"
+        observe: ["ledger:folder_reads", "ledger:folder_held", "disk:folder-held/"]
+    crosses_process: true
+    risk: [data-loss]
+
+  - id: folder-app-forget
+    title: "앱을 지우면 그 앱의 폴더 교환 local 상태와 held 사본을 지운다"
+    actor: system
+    entries: [system:folder-app-forget]
+    boundary: [folder]
+    code: [packages/core/main/daemon/wiring/folder.ts, packages/core/folder/export/mod.ts, packages/core/folder/import/mod.ts]
+    steps:
+      - "AppRemoved event를 받아 export와 import의 forget을 부른다. 폴더의 file은 그대로 둔다"
+    outcomes:
+      - id: forgotten
+        observe: ["ledger:folder_streams", "ledger:folder_reads", "ledger:folder_held", "disk:folder-held/<app>"]
+    crosses_process: false
+
+  - id: machine-environment-read
+    title: "사람과 agent가 이 기계의 폴더 교환 환경(기계, destination, 앱 상태, 들일 수 있는 앱)을 읽는다"
+    actor: agent
+    entries: [route:machine/environment]
+    boundary: [folder, core-api]
+    code: [packages/core/folder/environment.ts, packages/core/main/daemon/wiring/folder.ts, packages/protocol/folder/environment.ts, packages/protocol/folder/status.ts]
+    steps:
+      - "메인 스레드 read handler가 this_machine, 기계 목록(자기와 지우지 않은 기록 사본. 이름이 겹치면 display_name에 id 앞 6자), destination 상태, 활성 release가 있는 앱마다 export·imports·away, 들일 수 있는 앱을 모은다. 경로 말고는 local file 내용을 싣지 않는다"
+      - "뒤 계획이 ctx.folderEnvironment.register로 꽂은 section(top, 기계마다, 앱마다)을 부른다. 하나가 던지거나 2초를 넘으면 그 section만 { error }다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "호출한 자격이 route의 actors(user, agent)가 아니다(core dispatch가 먼저 막는다)"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "body가 빈 객체가 아니다"
+        observe: [response]
+    crosses_process: false
+
+  - id: machine-forget
+    title: "사람이 다른 기계를 이 기계의 목록에서 지운다"
+    actor: person
+    entries: [route:machine/forget]
+    boundary: [folder, core-api]
+    code: [packages/core/main/daemon/wiring/folder.ts, packages/core/folder/import/mod.ts, packages/protocol/folder/forget.ts]
+    steps:
+      - "dispatch가 actors(user)를 본다. 자기 id면 거절한다"
+      - "folder_records의 그 기계 행에 forgotten_at을 적는다. 그 기계는 읽지 않고 흔적 정리를 붙잡지 않는다. 행과 받은 data는 남고, 그 기계가 더 큰 revision의 기록을 쓰면 돌아온다"
+      - "내보내기를 잡는다(앱 기록과 흔적 정리)"
+    outcomes:
+      - id: forgotten
+        observe: [response, "ledger:folder_records"]
+      - id: self
+        code: invalid_input
+        when: "이 기계 자신의 id다"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "그 기계의 기록이 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "호출한 자격이 user가 아니다(core dispatch가 먼저 막는다)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "ledger에 쓰지 못했다"
+        observe: [response]
+    crosses_process: false
+    risk: [data-loss]
+
+  - id: app-sync-held
+    title: "사람이나 그 앱의 agent가 horizon 밖이라 held로 남은 변경을 보고, 다시 적용하거나 버린다"
+    actor: agent
+    entries: [route:apps/sync_held]
+    boundary: [folder, app-sync]
+    code: [packages/core/main/daemon/wiring/folder.ts, packages/core/apps/calls/service.ts, packages/protocol/folder/held.ts]
+    steps:
+      - "앱 workspace의 agent 자격은 자기 앱만 본다(다른 앱은 not_found)"
+      - "list: 풀리지 않은 held 줄과 줄마다 changeset이 건드리는 표·종류·때"
+      - "apply: 그 changeset을 지금 clock의 이 기계 write로 다시 적용한다(invocation 하나, caller는 사람이나 agent의 tool call). 보통 write처럼 sync log에 남아 내보내지고 held 줄은 풀린다. agent는 tool_call이 있어야 한다"
+      - "discard: 적용하지 않고 resolved_at을 적는다. bytes는 기록에 남는다"
+    outcomes:
+      - id: listed
+        observe: [response]
+      - id: applied
+        observe: [response, "ledger:invocations", "ledger:app_sync_log"]
+      - id: discarded
+        observe: [response, "ledger:app_sync_log"]
+      - id: invalid_input
+        code: invalid_input
+        when: "apply·discard에 seq가 없다, agent가 tool_call 없이 apply한다, changeset이 깨졌다"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "그 seq의 held 줄이 없다, 앱이 없다, 앱 workspace agent가 다른 앱을 적었다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "다시 적용한 변경이 지금 data와 부딪는다(아무것도 바뀌지 않는다), 또는 사이에 활성 release가 바뀌었다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "sync log가 붙지 않았거나 앱 process가 떠 있지 않다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "호출한 자격이 user·agent가 아니다(core dispatch가 먼저 막는다)"
+        observe: [response]
+    crosses_process: true
+    risk: [data-loss]
+
+  - id: app-sync-resume
+    title: "사람이 남의 writer 때문에 멈춘 앱 내보내기를 다시 켠다"
+    actor: person
+    entries: [route:apps/sync_resume]
+    boundary: [folder]
+    code: [packages/core/main/daemon/wiring/folder.ts, packages/protocol/folder/held.ts]
+    steps:
+      - "그 앱 data stream의 오류를 지우고 내보내기를 잡는다. 자기 하위 폴더에 남의 file이 아직 있으면 다음 내보내기가 다시 foreign_writer로 멈춘다"
+    outcomes:
+      - id: resumed
+        observe: [response, "ledger:folder_streams"]
+      - id: not-stopped
+        when: "그 앱이 이 기계에서 내보내지 않거나 오류가 없다(resumed false)"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "호출한 자격이 user가 아니다(core dispatch가 먼저 막는다)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "ledger에 쓰지 못했다"
+        observe: [response]
+    crosses_process: false
+
+  - id: app-take-in
+    title: "다른 기계가 폴더에 낸 앱을 같은 id로 이 기계에 들인다(release는 prepared)"
+    actor: agent
+    entries: [route:apps/take_in]
+    uses: [route:apps/create, route:apps/connect_source, route:releases/record]
+    boundary: [folder, app-releases]
+    code: [packages/core/main/daemon/wiring/folder.ts, packages/core/folder/apps/take-in.ts, packages/core/apps/folder-host.ts, packages/protocol/folder/take-in.ts]
+    docs: [architecture/activation.md]
+    steps:
+      - "ledger handler가 없다. folder wiring이 writer 앞에서 받아 입력을 검사한다"
+      - "앱 기록 사본에서 출처(from 없으면 기록이 가장 최근인 기계)와 release(없으면 그 기계의 활성 release)를 고른다. 같은 bundle의 release가 이미 있으면 그것을 돌려준다"
+      - "release 폴더의 file 목록과 크기·sha256, SDK·package 의존, slug, 선언을 검사한 뒤 봉인 사본을 쓴다"
+      - "앱이 없으면 source 저장소를 만들고 폴더 take-in 자격(machine:folder-apps)으로 같은 id의 app.create와 connect_source를 부르고, release.record로 release를 prepared로 넣는다. 활성화와 동의는 이 기계에서 release.activate가 사람에게 묻는다"
+      - "끝나면 그 앱의 source 받기를 잡는다"
+    outcomes:
+      - id: installed
+        observe: [response, "ledger:apps", "ledger:releases", "disk:apps/<app>/"]
+      - id: existing
+        when: "같은 bundle의 release가 이미 있다(installed existing)"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "그 앱이 폴더 기록에 없다, 그 release가 기록에 없다, 기록을 읽은 destination이 이 기계에 없다"
+        observe: [response]
+      - id: release-incomplete
+        code: invalid_input
+        when: "release 폴더가 아직 다 오지 않았거나 file이 맞지 않다(details.reason release_incomplete), 선언이 맞지 않다, 입력 꼴이 틀리다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "이 기계 lophn에 없는 SDK 판(sdk_missing), 다른 앱이 slug를 씀(slug_in_use), 의존 package가 없음(dependency_missing)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "봉인 사본을 쓰거나 읽지 못함, git 실패, 안쪽 command의 실패"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "호출한 자격이 user·agent가 아니다(core dispatch가 먼저 막는다)"
+        observe: [response]
+    crosses_process: false
+    risk: [permission]

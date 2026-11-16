@@ -1,4 +1,4 @@
-// `lophn app read|tools|create|link-source|status|phone-target|sdk-status|sdk-decide|sdk-feature|logs|invocations|event-publications`, `lophn declaration check`: 앱을 찾고 만들고 진단하는 명령이다.
+// `lophn app read|tools|create|link-source|status|phone-target|sdk-status|sdk-decide|sdk-feature|logs|invocations|event-publications|take-in|sync-held|sync-resume`, `lophn declaration check`: 앱을 찾고 만들고 진단하는 명령이다.
 // 다른 앱의 비공개 command를 숨기는 일은 `app.tool_index` route가 부른 쪽 credential을 보고 한다. 여기서는 부르기만 한다.
 import { resolve } from "node:path";
 import { z } from "zod";
@@ -22,6 +22,11 @@ import {
   declarationCheck,
 } from "../../protocol/apps/mod.ts";
 import { appToolIndex } from "../../protocol/apps/declaration/read.ts";
+import {
+  appSyncHeld,
+  appSyncResume,
+  appTakeIn,
+} from "../../protocol/folder/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
 import { appIdSchema } from "../../protocol/projects/values.ts";
 import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
@@ -379,6 +384,86 @@ const eventPublications = defineCommand({
   },
 });
 
+const takeIn = defineCommand({
+  name: "app.take_in",
+  summary: "Take in an app another machine put in a sync folder",
+  description:
+    "Install on this machine an app that another of the person's machines shared through a sync folder (`available` in `lophn machine environment`). The app keeps the same id on every machine, and the release is the exact sealed bundle the other machine built. The release lands prepared: nothing runs until it is activated on this machine, and activation asks the person here. from picks the machine (default: the one whose record is newest) and release picks a bundle hash (default: that machine's active release). If the app is already here, only the release is installed. conflict says why in details.reason: sdk_missing (this lophn lacks the SDK version the bundle pins; update lophn here), slug_in_use (another app here has the slug), dependency_missing (details.packages). invalid_input with details.reason release_incomplete means the release files have not fully arrived in the folder yet; try again later.",
+  input: z.strictObject({
+    app: idSchema("app"),
+    from: idSchema("mch").optional(),
+    release: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .optional(),
+  }),
+  positional: ["app"],
+  effect: "write",
+  routes: [appTakeIn],
+  workspaces: ["home"],
+  run: async (input, ctx) => {
+    const taken = await ctx.core.command(appTakeIn, input, { key: ctx.key });
+    if (!taken.ok) return taken;
+    return ok({
+      summary: `took in ${taken.value.app} as release ${taken.value.release} (${taken.value.installed}); activate it with \`lophn release activate ${taken.value.release}\`; the person is asked on this machine`,
+      content: taken.value,
+    });
+  },
+});
+
+const syncHeld = defineCommand({
+  name: "app.sync_held",
+  summary: "List, apply or discard an app's held sync changes",
+  description:
+    "Held changes are writes this machine did not apply and did not send, because they might undo a deletion that the other machines already cleaned up (this machine was away from them longer than 90 days, `away` in `lophn machine environment`). They are kept, not lost, until the person decides. list shows each held change: seq, where it came from, and the table, kind (insert, update, delete) and time of each row it touches. apply writes that change again now, as a new write on this machine that goes to the other machines like any write; it fails with conflict if it no longer fits the data. discard drops it without applying (the bytes stay in the record). Tell the person what each change is and let them choose before you apply or discard.",
+  input: z.strictObject({
+    app: idSchema("app"),
+    action: z.enum(["list", "apply", "discard"]),
+    seq: z.number().int().positive().optional(),
+  }),
+  positional: ["app", "action", "seq"],
+  effect: "write",
+  routes: [appSyncHeld],
+  workspaces: ["home", "app"],
+  run: async (input, ctx) => {
+    const done = await ctx.core.read(appSyncHeld, {
+      ...input,
+      ...(ctx.caller === undefined ? {} : { tool_call: ctx.caller.tool_call }),
+    });
+    if (!done.ok) return done;
+    return ok({
+      summary:
+        input.action === "list"
+          ? countSummary("held changes", done.value.held?.length ?? 0, false)
+          : `${input.action === "apply" ? "applied" : "discarded"} held change ${input.seq}`,
+      content: done.value,
+      arrayKeys: ["held"],
+    });
+  },
+});
+
+const syncResume = defineCommand({
+  name: "app.sync_resume",
+  summary: "Resume an app's export to its sync folder after it stopped",
+  description:
+    "Export of an app stops when this machine's part of the sync folder holds a file this machine did not write (foreign_writer: a copy of this machine's data folder may be writing there). Remove that copy's files first, then resume. If the file is still there, export stops again.",
+  input: z.strictObject({ app: idSchema("app") }),
+  positional: ["app"],
+  effect: "write",
+  routes: [appSyncResume],
+  workspaces: [],
+  run: async (input, ctx) => {
+    const done = await ctx.core.read(appSyncResume, input);
+    if (!done.ok) return done;
+    return ok({
+      summary: done.value.resumed
+        ? `resumed export of ${input.app}`
+        : `export of ${input.app} was not stopped`,
+      content: done.value,
+    });
+  },
+});
+
 export const APP_COMMANDS = [
   read,
   tools,
@@ -393,4 +478,7 @@ export const APP_COMMANDS = [
   logs,
   invocations,
   eventPublications,
+  takeIn,
+  syncHeld,
+  syncResume,
 ];

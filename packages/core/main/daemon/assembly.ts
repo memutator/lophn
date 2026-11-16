@@ -88,6 +88,7 @@ import { sdkInstallWiring } from "./wiring/sdk-install.ts";
 import { secretsWiring } from "./wiring/secrets.ts";
 import { serverWiring } from "./wiring/server.ts";
 import { appCallsWiring } from "./wiring/app-calls.ts";
+import { folderWiring } from "./wiring/folder.ts";
 import { sessionLifecycleWiring } from "./wiring/session-lifecycle.ts";
 import { codingRelayWiring } from "./wiring/coding-relay.ts";
 import { terminalViewWiring } from "./wiring/terminal-view.ts";
@@ -223,6 +224,7 @@ export const WIRINGS: readonly WiringFactory[] = [
   codingRelayWiring,
   terminalViewWiring,
   appCallsWiring,
+  folderWiring,
   acpWiring,
   alwaysOnWiring,
   idleWiring,

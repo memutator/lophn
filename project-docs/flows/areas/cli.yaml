@@ -261,6 +261,11 @@ links:
   - {entry: "cli:declaration.check", flow: declaration-check}
   - {entry: "cli:app.status", flow: app-runtime-read}
   - {entry: "cli:app.phone_target", flow: app-phone-target-read}
+  - {entry: "cli:app.take_in", flow: app-take-in}
+  - {entry: "cli:app.sync_held", flow: app-sync-held}
+  - {entry: "cli:app.sync_resume", flow: app-sync-resume}
+  - {entry: "cli:machine.environment", flow: machine-environment-read}
+  - {entry: "cli:machine.forget", flow: machine-forget}
   - {entry: "cli:app.sdk_status", flow: app-sdk-status-read}
   - {entry: "cli:app.sdk_decide", flow: app-sdk-decide}
   - {entry: "cli:app.sdk_feature", flow: app-sdk-feature}

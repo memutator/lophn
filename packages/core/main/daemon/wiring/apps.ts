@@ -339,7 +339,7 @@ export const appsWiring: WiringFactory = () => {
           }),
       });
       syncLog = sync;
-      const { path, intake, phone } = createAppCalls({
+      const { path, intake, phone, folder, syncHeld } = createAppCalls({
         callers,
         lookup: appToolLookupOf(link.sql, appsControl.previews),
         apps: states,
@@ -360,6 +360,12 @@ export const appsWiring: WiringFactory = () => {
         sync,
       });
       ctx.provide("appCallPath", path);
+      ctx.provide("folderPorts", {
+        apply: folder,
+        held: syncHeld,
+        exclusive: phone.exclusive,
+        log: sync,
+      });
       // 앱 화면의 view 표(`app_views/*`). 메모리에만 있다. 앱 event와 다시 묶음은 `AppViewEvent`로 owner의 Gateway에 간다.
       views = createAppViews({
         // remote wiring이 뒤에 채우는 `deviceKind`는 부를 때 읽는다.

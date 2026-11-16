@@ -1,0 +1,965 @@
+// 폴더 교환의 조립. 내보내기·읽기·앱 기록과 take-in(core/folder)을 core에 잇고, 언제 돌지(계기)를 정한다:
+// - 내보내기와 앱 기록·release·source 쓰기: 앱마다 `AppSyncChanged` 뒤 5초 debounce, 그리고 5분 timer.
+// - 읽기(scan → data stream 따라잡기, source 받기): destination의 다른 기계 폴더마다 fs.watch(2초 debounce), 그리고 2분 timer.
+// - 흔적 정리: 앱(release)마다 core가 뜬 뒤 처음과 하루에 한 번.
+// (앱, destination)·(앱, 출처)마다 한 번에 하나만 돈다. 결과가 `more`면 바로 이어 돌고, 실패한 일은 1분부터 두 배씩 1시간까지
+// 물러난다(읽기의 data stream은 import가 stream마다 따로 물러난다). 이 일들은 idle-exit를 막지 않는다.
+import { type FSWatcher, readdirSync, watch } from "node:fs";
+import { rm } from "node:fs/promises";
+import { join } from "node:path";
+import { Buffer } from "node:buffer";
+import {
+  createIdSource,
+  err,
+  errorCode,
+  formatAt,
+  ok,
+  type Result,
+} from "../../../../base/mod.ts";
+import { readChangeset } from "../../../../base/changeset-invert.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
+import { encodePk } from "../../../../protocol/apps/sync/changeset.ts";
+import { msOfHlc } from "../../../../protocol/apps/sync/clock.ts";
+import {
+  appSyncHeld,
+  appSyncResume,
+  appTakeIn,
+  BACKOFF_FIRST_MS,
+  BACKOFF_MAX_MS,
+  EXPORT_DEBOUNCE_MS,
+  EXPORT_TIMER_MS,
+  IMPORT_DEBOUNCE_MS,
+  IMPORT_TIMER_MS,
+  machineEnvironment,
+  machineForget,
+  takeInInputSchema,
+} from "../../../../protocol/folder/mod.ts";
+import { parseActor } from "../../../../protocol/base/mod.ts";
+import {
+  REMOTE_PROTOCOL_MIN_VERSION,
+  REMOTE_PROTOCOL_VERSION,
+} from "../../../../protocol/remote/mod.ts";
+import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import type { SyncHeld } from "../../../apps/calls/service.ts";
+import { createFolderAppsHost } from "../../../apps/folder-host.ts";
+import {
+  FOLDER_APPS_CONTEXT,
+  loadApps,
+} from "../../../apps/registration/mod.ts";
+import {
+  loadActiveDeclaration,
+  loadRelease,
+} from "../../../apps/releases/store.ts";
+import type { SyncLog, SyncLogRow } from "../../../apps/sync/log.ts";
+import {
+  remoteEnabledSetting,
+  remotePortSetting,
+  remoteRelaySetting,
+} from "../../../config/shell-settings.ts";
+import { createFolderApps } from "../../../folder/apps/mod.ts";
+import {
+  createDestinations,
+  DESTINATIONS_KEY,
+} from "../../../folder/destinations.ts";
+import {
+  cleanupBefore,
+  createFolderSections,
+  type FolderEnvironment,
+  readEnvironment,
+} from "../../../folder/environment.ts";
+import { createFolderExport } from "../../../folder/export/mod.ts";
+import {
+  ensureStream,
+  readStream,
+  updateStream,
+} from "../../../folder/export/status.ts";
+import { createFolderImport } from "../../../folder/import/mod.ts";
+import { IMPORT_TMP_DIR } from "../../../folder/import/held.ts";
+import type { FolderApply } from "../../../folder/ports.ts";
+import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
+import type { WiringContext, WiringFactory } from "./context.ts";
+import { lanAddresses } from "./remote.ts";
+
+export type { FolderEnvironment };
+
+/** apps가 낸다(`ctx.folderPorts`): 폴더 교환이 앱 DB와 sync log에 닿는 길. */
+export type FolderPorts = {
+  apply: FolderApply;
+  held: SyncHeld;
+  /** 접수가 열리기를 기다린 뒤 그 앱의 write 줄을 쥔 채 돈다. 줄이 정리되면 null. */
+  exclusive<T>(app: Id<"app">, work: () => Promise<T>): Promise<T | null>;
+  log: SyncLog;
+};
+
+type AlwaysOn = {
+  keep_running: boolean;
+  starts_at_login: boolean;
+  keep_awake: boolean;
+};
+
+// 이 기계 기록의 `always_on`. always-on 계획이 `ctx.alwaysOn.status()`로 바꾼다.
+const alwaysOn = (_ctx: WiringContext): AlwaysOn | null => null;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+// 환경의 `away.changes`에 싣는 held 변경 수의 한도.
+const AWAY_CHANGES_MAX = 100;
+
+const key = (route: { resource: string; method: string }) =>
+  `${route.resource}/${route.method}`;
+
+type LocalApp = {
+  app: Id<"app">;
+  slug: string;
+  name: string;
+  description: string;
+  source_path: string | null;
+  sync_to: string | null;
+  release: {
+    id: Id<"rel">;
+    bundle_hash: string;
+    code_commit: string;
+    data_schema: number;
+    data_changes: readonly Record<string, unknown>[];
+    created_at: string;
+  } | null;
+};
+
+type SyncApp = LocalApp & { sync_to: string };
+
+// 한 번 돈 결과. ok가 아니면 물러난다.
+type RunOutcome = { ok: boolean; more: boolean };
+
+type Lane = {
+  running: boolean;
+  again: boolean;
+  attempts: number;
+  notBefore: number;
+};
+
+export const folderWiring: WiringFactory = () => {
+  let link: WriteLink | undefined;
+  let stopped = false;
+  const work = new Set<Promise<void>>();
+  const lanes = new Map<string, Lane>();
+  const timers = new Set<ReturnType<typeof setTimeout>>();
+  const debounces = new Map<string, ReturnType<typeof setTimeout>>();
+  const watchers = new Map<string, FSWatcher>();
+  const sections = createFolderSections();
+  let unsubscribe: (() => void) | undefined;
+  // 시작 listener가 알려 준 제품 판. 모르면 기계 기록을 쓰지 않는다.
+  let version: string | null = null;
+  // 앱 release마다 마지막으로 흔적을 정리한 때(core 메모리).
+  const cleaned = new Map<string, number>();
+  // 앱마다 마지막으로 알린 held 수. horizon 밖이 아니게 되면 지운다.
+  const awayNotified = new Map<Id<"app">, number>();
+  // build가 만들고 start가 건다.
+  let startTriggers: (() => Promise<void>) | undefined;
+
+  return {
+    name: "folder",
+    records: () => [FOLDER_APPS_CONTEXT],
+    // 뒤 계획이 자기 build에서 등록할 수 있게 build 앞에 낸다.
+    prepare(ctx) {
+      ctx.provide("folderEnvironment", { register: sections.register });
+    },
+    build(ctx) {
+      const opened = openWriteLink({
+        ledgerPath: ctx.ledgerPath,
+        clock: ctx.clock,
+        ids: createIdSource({ clock: ctx.clock, random: ctx.random }),
+        fields: [],
+        live: () => false,
+        as: FOLDER_APPS_CONTEXT,
+      });
+      if (!opened.ok) return opened;
+      const writeLink = opened.value;
+      link = writeLink;
+      const { sql } = writeLink;
+      const dataRoot = ctx.root.path;
+      const ports = ctx.folderPorts;
+      const me = () => ctx.machine.id;
+      const log = (event: string, message: unknown) =>
+        ctx.telemetry.logger.error({
+          component: "folder",
+          event,
+          fields: {
+            message:
+              message instanceof Error ? message.message : String(message),
+          },
+        });
+
+      ctx.productStartListeners.push((start) => {
+        version = start.version;
+        kick("records", () => publishRecords());
+      });
+
+      const destinations = createDestinations({
+        dataRoot,
+        settings: ctx.settings,
+      });
+
+      // 활성 release가 있는 보관하지 않은 앱. sync_to는 그 release 선언의 것이다.
+      function localApps(): LocalApp[] {
+        const listed = loadApps(sql, "active");
+        if (!listed.ok) return [];
+        return listed.value.flatMap((app): LocalApp[] => {
+          const stored = loadActiveDeclaration(sql, app.id);
+          if (!stored.ok || stored.value === null) return [];
+          const { release, declaration } = stored.value;
+          return [
+            {
+              app: app.id as Id<"app">,
+              slug: app.slug,
+              name: app.name,
+              description: app.description,
+              source_path: app.source_path ?? null,
+              sync_to: declaration.sync_to ?? null,
+              release: {
+                id: release.id as Id<"rel">,
+                bundle_hash: release.bundle_hash,
+                code_commit: release.code_commit,
+                data_schema: release.data_schema,
+                data_changes: release.data_changes as readonly Record<
+                  string,
+                  unknown
+                >[],
+                created_at: release.created_at,
+              },
+            },
+          ];
+        });
+      }
+      const syncApps = (): SyncApp[] =>
+        localApps().filter((app): app is SyncApp => app.sync_to !== null);
+      const syncApp = (app: Id<"app">) =>
+        syncApps().find((each) => each.app === app);
+
+      const dataKey = (app: SyncApp) => ({
+        machine: me(),
+        app: app.app,
+        destination: app.sync_to,
+        stream: "data" as const,
+      });
+      // 흔적 정리가 올린 horizon. 앱 기록에 실린다.
+      function horizonOf(id: Id<"app">): string | null {
+        const app = syncApp(id);
+        if (app === undefined) return null;
+        const row = sql.get(
+          `SELECT horizon FROM folder_streams WHERE machine = ? AND app = ? AND destination = ? AND stream = 'data'`,
+          [me(), id, app.sync_to],
+        );
+        return (row?.horizon as string | null | undefined) ?? null;
+      }
+
+      // held 줄이 건드리는 row(표, 종류, 때, pk hex). 읽지 못한 줄은 빈 목록이다.
+      async function heldChanges(row: SyncLogRow) {
+        if (row.changeset === null || row.hlc === null) return [];
+        const bytes = await ports.log.readChangeset(
+          row.changeset.hash,
+          row.changeset.size,
+        );
+        if (!bytes.ok) return [];
+        const changes = readChangeset(bytes.value);
+        if (!changes.ok) return [];
+        const at = formatAt(msOfHlc(BigInt(row.hlc)));
+        return changes.value.map((change) => ({
+          table: change.table,
+          op: change.op,
+          at,
+          pk: Buffer.from(
+            encodePk((change.old ?? change.new)!, change.primaryKey),
+          ).toString("hex"),
+        }));
+      }
+      // import의 `heldRows`는 동기라 앱마다 읽기 앞에 채워 둔다.
+      const heldRowCache = new Map<
+        Id<"app">,
+        { table: string; pk: string }[]
+      >();
+      async function refreshHeldRows(app: Id<"app">): Promise<void> {
+        const rows = ports.log.heldList(app);
+        const touched = (await Promise.all(rows.map(heldChanges))).flat();
+        heldRowCache.set(
+          app,
+          touched.map(({ table, pk }) => ({ table, pk })),
+        );
+      }
+
+      const facts = () => {
+        const remote = ctx.settings.get(remoteEnabledSetting) === true;
+        return {
+          addresses: remote
+            ? {
+                lan: lanAddresses(),
+                port: ctx.settings.get(remotePortSetting) ?? null,
+                relay: ctx.settings.get(remoteRelaySetting) || null,
+              }
+            : { lan: [], port: null, relay: null },
+          alwaysOn: alwaysOn(ctx),
+          lophn: {
+            version: version ?? "unknown",
+            protocol: {
+              version: REMOTE_PROTOCOL_VERSION,
+              min_version: REMOTE_PROTOCOL_MIN_VERSION,
+            },
+          },
+        };
+      };
+
+      // import와 export는 서로의 상태를 읽는다. 부를 때 읽으므로 뒤에 만든 쪽을 앞에서 가리켜도 된다.
+      const importer = createFolderImport({
+        machine: me,
+        destinations,
+        apps: () =>
+          syncApps().map((app) => ({
+            app: app.app,
+            sync_to: app.sync_to,
+            release: app.release,
+          })),
+        apply: ports.apply,
+        exportState(app) {
+          const settled = exporter.settledOf(app);
+          return {
+            settled: settled?.settled ?? null,
+            data_head: exporter.status(app)?.head ?? 0,
+            away_since: settled?.away_since ?? null,
+          };
+        },
+        heldRows: (app) => heldRowCache.get(app) ?? [],
+        sql,
+        transaction: writeLink.transaction,
+        clock: ctx.clock,
+        random: ctx.random,
+        root: dataRoot,
+      });
+      const exporter = createFolderExport({
+        machine: () => ({ id: me(), name: ctx.machine.status().name }),
+        destinations,
+        apps: () => syncApps(),
+        log: ports.log,
+        releaseKey(release) {
+          const found = loadRelease(sql, release);
+          return found.ok && found.value !== null
+            ? {
+                bundle_hash: found.value.bundle_hash,
+                data_schema: found.value.data_schema,
+              }
+            : null;
+        },
+        operationOf(invocation) {
+          const found = ctx.invocationLedger.get(invocation as Id<"inv">);
+          if (!found.ok || found.value === null) return null;
+          const { operation, started_at } = found.value;
+          if (started_at === null) return null;
+          return {
+            name: "name" in operation ? operation.name : operation.kind,
+            started_at,
+          };
+        },
+        async snapshotAt(app, path) {
+          const taken = await ports.exclusive(app, async () => {
+            const seq = ports.log.head(app);
+            const written = await ctx.appsControl.link.snapshot(app, { path });
+            if (!written.ok) return written;
+            if (written.value.status === "not_sync") {
+              return err({
+                code: "unavailable" as const,
+                message: "the app has no sync data",
+              });
+            }
+            return ok({
+              seq,
+              size: written.value.size,
+              sha256: written.value.sha256,
+            });
+          });
+          return (
+            taken ?? err({ code: "unavailable", message: "the app stopped" })
+          );
+        },
+        facts,
+        readsCaughtUp: (app) => importer.readsCaughtUp(app),
+        peerHorizons: (app) =>
+          importer
+            .peerHorizons(app)
+            .flatMap((peer) =>
+              peer.horizon === null
+                ? []
+                : [{ machine: peer.machine, horizon: peer.horizon }],
+            ),
+        sql,
+        transaction: writeLink.transaction,
+        clock: ctx.clock,
+        random: ctx.random,
+        dataRoot,
+      });
+      const apps = createFolderApps({
+        machine: me,
+        destinations,
+        apps: () => syncApps(),
+        records: () =>
+          importer.records().apps.map((row) => ({
+            origin: row.machine,
+            destination: row.destination,
+            record: row.record,
+          })),
+        progress(app) {
+          const read: Record<Id<"mch">, { n: number; at: string }> = {};
+          for (const row of importer.status(app)) {
+            if (row.imported_at !== null) {
+              read[row.machine] = { n: row.cursor, at: row.imported_at };
+            }
+          }
+          return {
+            read,
+            settled: exporter.settledOf(app)?.settled ?? null,
+            horizon: horizonOf(app),
+          };
+        },
+        host: createFolderAppsHost({
+          sql,
+          dataRoot,
+          random: ctx.random,
+          command: async (envelope) => {
+            const done = await ctx.writer.command(FOLDER_APPS_CONTEXT, {
+              ...envelope,
+              prepared: [],
+            } as never);
+            return done.ok ? ok(done.value.result) : done;
+          },
+        }),
+        sql,
+        clock: ctx.clock,
+        random: ctx.random,
+        dataRoot,
+      });
+
+      // --- 한 번 돌기(lane) ---
+      function kick(name: string, job: () => Promise<RunOutcome>): void {
+        if (stopped) return;
+        let lane = lanes.get(name);
+        if (lane === undefined) {
+          lane = { running: false, again: false, attempts: 0, notBefore: 0 };
+          lanes.set(name, lane);
+        }
+        const one = lane;
+        if (one.running) {
+          one.again = true;
+          return;
+        }
+        if (ctx.clock.nowMs() < one.notBefore) return;
+        one.running = true;
+        const done = (async () => {
+          try {
+            for (;;) {
+              one.again = false;
+              let outcome: RunOutcome;
+              try {
+                outcome = await job();
+              } catch (thrown) {
+                log("run_threw", thrown);
+                outcome = { ok: false, more: false };
+              }
+              if (!outcome.ok) {
+                one.notBefore =
+                  ctx.clock.nowMs() +
+                  Math.min(
+                    BACKOFF_FIRST_MS * 2 ** Math.min(one.attempts, 20),
+                    BACKOFF_MAX_MS,
+                  );
+                one.attempts += 1;
+                return;
+              }
+              one.attempts = 0;
+              one.notBefore = 0;
+              if (stopped || !(outcome.more || one.again)) return;
+            }
+          } finally {
+            one.running = false;
+          }
+        })();
+        work.add(done);
+        void done.finally(() => work.delete(done));
+      }
+
+      function later(fn: () => void, ms: number) {
+        const timer = setTimeout(() => {
+          timers.delete(timer);
+          fn();
+        }, ms);
+        timer.unref?.();
+        timers.add(timer);
+      }
+      function debounce(name: string, ms: number, fn: () => void) {
+        const was = debounces.get(name);
+        if (was !== undefined) clearTimeout(was);
+        const timer = setTimeout(() => {
+          debounces.delete(name);
+          fn();
+        }, ms);
+        timer.unref?.();
+        debounces.set(name, timer);
+      }
+
+      async function publishRecords(): Promise<RunOutcome> {
+        if (version === null) return { ok: true, more: false };
+        const published = await exporter.publishRecords();
+        if (!published.ok) log("record_not_written", published.error.message);
+        // 처음 쓴 기록이 `machines/`를 만든다. 그때부터 감시할 수 있다.
+        rewatch();
+        return { ok: published.ok, more: false };
+      }
+
+      async function exportApp(id: Id<"app">): Promise<RunOutcome> {
+        const app = syncApp(id);
+        if (app === undefined) return { ok: true, more: false };
+        const ran = await exporter.runApp(id);
+        if (!ran.ok) {
+          log("export_failed", ran.error.message);
+          return { ok: false, more: false };
+        }
+        await noticeAway(app);
+        await cleanup(app);
+        kick(`app:${id}`, () => writeAppRecord(id));
+        return { ok: ran.value.error === null, more: ran.value.more };
+      }
+
+      async function writeAppRecord(id: Id<"app">): Promise<RunOutcome> {
+        const written = await apps.runApp(id);
+        if (!written.ok) log("app_record_failed", written.error.message);
+        return { ok: written.ok, more: false };
+      }
+
+      async function scan(): Promise<RunOutcome> {
+        const scanned = await importer.scan();
+        if (!scanned.ok) {
+          log("scan_failed", scanned.error.message);
+          return { ok: false, more: false };
+        }
+        // 새로 생긴 다른 기계·앱 폴더도 감시한다.
+        rewatch();
+        for (const app of syncApps()) {
+          kick(`import:${app.app}`, () => importApp(app.app));
+          kick(`source:${app.app}`, () => importSource(app.app));
+        }
+        return { ok: true, more: false };
+      }
+
+      async function importApp(id: Id<"app">): Promise<RunOutcome> {
+        await refreshHeldRows(id);
+        const ran = await importer.runApp(id);
+        if (!ran.ok) {
+          log("import_failed", ran.error.message);
+          return { ok: false, more: false };
+        }
+        // 받은 것이 앱 기록의 `read`와 `settled`를 바꾼다.
+        if (ran.value.streams.some((each) => each.applied_files > 0)) {
+          scheduleExport(id);
+        }
+        return {
+          ok: true,
+          more: ran.value.busy || ran.value.streams.some((each) => each.more),
+        };
+      }
+
+      async function importSource(id: Id<"app">): Promise<RunOutcome> {
+        const fetched = await apps.importSource(id);
+        if (!fetched.ok) log("source_failed", fetched.error.message);
+        return { ok: fetched.ok, more: false };
+      }
+
+      // 흔적 정리(README 계약 10). 앱 release마다 core가 뜬 뒤 처음과 하루에 한 번. 앱이 떠 있지 않으면 다음 run에 다시 본다.
+      async function cleanup(app: SyncApp): Promise<void> {
+        if (app.release === null) return;
+        const mark = `${app.app}:${app.release.id}`;
+        const last = cleaned.get(mark);
+        if (last !== undefined && ctx.clock.nowMs() - last < DAY_MS) return;
+        const before = cleanupBefore({
+          own: exporter.settledOf(app.app)?.settled ?? null,
+          peers: importer.peerHorizons(app.app),
+          nowMs: ctx.clock.nowMs(),
+        });
+        const done = await ctx.appsControl.link.syncCleanup(app.app, {
+          before: before.toString(),
+        });
+        if (!done.ok) return;
+        cleaned.set(mark, ctx.clock.nowMs());
+        if (done.value.status !== "cleaned" || done.value.horizon === null) {
+          return;
+        }
+        const horizon = done.value.horizon;
+        const saved = writeLink.transaction((tx) => {
+          ensureStream(tx.sql, dataKey(app));
+          tx.sql.run(
+            `UPDATE folder_streams SET horizon = ? WHERE machine = ? AND app = ? AND destination = ? AND stream = 'data'`,
+            [horizon, me(), app.app, app.sync_to],
+          );
+          return ok(undefined);
+        });
+        if (!saved.ok) log("horizon_not_saved", saved.error.message);
+      }
+
+      // horizon 밖이 되었거나 held가 늘면 사람에게 알린다. 같은 앱은 한 줄(key)이다.
+      async function noticeAway(app: SyncApp): Promise<void> {
+        const away = exporter.settledOf(app.app)?.away_since ?? null;
+        if (away === null) {
+          awayNotified.delete(app.app);
+          return;
+        }
+        const held = ports.log.heldList(app.app).length;
+        const last = awayNotified.get(app.app);
+        if (last !== undefined && held <= last) return;
+        awayNotified.set(app.app, held);
+        const recorded = await ctx.noticeRecorder({
+          kind: "app_sync_away",
+          app: app.app,
+          key: "app_sync_away",
+          params: { held },
+        });
+        if (!recorded.ok) log("away_notice_failed", recorded.error.message);
+      }
+
+      function scheduleExport(id: Id<"app">) {
+        debounce(`export:${id}`, EXPORT_DEBOUNCE_MS, () =>
+          kick(`export:${id}`, () => exportApp(id)),
+        );
+      }
+      function scheduleScan() {
+        debounce("scan", IMPORT_DEBOUNCE_MS, () => kick("scan", scan));
+      }
+
+      function exportAll() {
+        kick("records", () => publishRecords());
+        for (const app of syncApps()) {
+          kick(`export:${app.app}`, () => exportApp(app.app));
+        }
+      }
+
+      // 다른 기계가 쓰는 폴더를 감시한다: destination마다 `machines/`, 다른 기계의 하위 폴더, 그 `apps/`, 앱 폴더와 그 `data/`·`source/`.
+      // recursive watch는 core process 안에서 event가 오지 않아(Linux, Electron Node 24) 폴더마다 따로 건다. 새 폴더는 다음
+      // scan이나 timer가 다시 볼 때 더한다. 이 기계 자신의 하위 폴더는 보지 않는다.
+      function watchedDirs(): string[] {
+        const dirs: string[] = [];
+        const children = (dir: string) => {
+          try {
+            return readdirSync(dir, { withFileTypes: true })
+              .filter((entry) => entry.isDirectory())
+              .map((entry) => entry.name);
+          } catch {
+            return [];
+          }
+        };
+        for (const destination of destinations.list()) {
+          if (destination.state === "missing") continue;
+          const machines = join(destination.path, "machines");
+          dirs.push(machines);
+          for (const machine of children(machines)) {
+            if (machine === me()) continue;
+            const apps = join(machines, machine, "apps");
+            dirs.push(join(machines, machine), apps);
+            for (const app of children(apps)) {
+              dirs.push(
+                join(apps, app),
+                join(apps, app, "data"),
+                join(apps, app, "source"),
+              );
+            }
+          }
+        }
+        return dirs;
+      }
+
+      function rewatch() {
+        const wanted = new Set(watchedDirs());
+        for (const [path, watcher] of watchers) {
+          if (!wanted.has(path)) {
+            watcher.close();
+            watchers.delete(path);
+          }
+        }
+        for (const path of wanted) {
+          if (watchers.has(path)) continue;
+          try {
+            const watcher = watch(path, { persistent: false }, scheduleScan);
+            watcher.on("error", () => {
+              watcher.close();
+              watchers.delete(path);
+            });
+            watchers.set(path, watcher);
+          } catch (thrown) {
+            // 아직 없는 폴더는 다음에 다시 본다.
+            if (errorCode(thrown) !== "ENOENT")
+              log("watch_unavailable", thrown);
+          }
+        }
+      }
+
+      function everyExport() {
+        later(() => {
+          exportAll();
+          everyExport();
+        }, EXPORT_TIMER_MS);
+      }
+      function everyImport() {
+        later(() => {
+          rewatch();
+          kick("scan", scan);
+          everyImport();
+        }, IMPORT_TIMER_MS);
+      }
+
+      // --- route ---
+      async function away(id: Id<"app">) {
+        const since = exporter.settledOf(id)?.away_since ?? null;
+        if (since === null) return null;
+        const rows = ports.log.heldList(id);
+        const changes = (await Promise.all(rows.map(heldChanges)))
+          .flat()
+          .slice(0, AWAY_CHANGES_MAX)
+          .map(({ table, op, at }) => ({ table, op, at }));
+        return { since, held: rows.length, changes };
+      }
+
+      async function environment() {
+        return ok(
+          await readEnvironment({
+            machine: () => ({ id: me(), name: ctx.machine.status().name }),
+            alwaysOn: () => alwaysOn(ctx),
+            addresses: () => facts().addresses,
+            version: () => version,
+            destinations,
+            apps: () =>
+              localApps().map((app) => ({
+                app: app.app,
+                name: app.name,
+                sync_to: app.sync_to,
+                bundle_hash: app.release?.bundle_hash ?? null,
+              })),
+            exportStatus: (app) => exporter.status(app),
+            importStatus: (app) => importer.status(app),
+            away,
+            records: () => importer.records(),
+            available: () => apps.available(),
+            sections,
+          }),
+        );
+      }
+
+      function forgetMachine(
+        _auth: AuthenticatedContext,
+        input: unknown,
+      ): Promise<Result<unknown>> {
+        const { machine } = input as { machine: Id<"mch"> };
+        if (machine === me()) {
+          return Promise.resolve(
+            err({
+              code: "invalid_input",
+              message: "this is this machine; it cannot forget itself",
+            }),
+          );
+        }
+        const forgotten = importer.forgetMachine(machine);
+        if (!forgotten.ok) return Promise.resolve(forgotten);
+        exportAll();
+        return Promise.resolve(ok({ machine }));
+      }
+
+      async function syncHeld(
+        auth: AuthenticatedContext,
+        input: unknown,
+      ): Promise<Result<unknown>> {
+        const { app, action, seq, tool_call } = input as {
+          app: Id<"app">;
+          action: "list" | "apply" | "discard";
+          seq?: number;
+          tool_call?: string;
+        };
+        // 앱 workspace의 agent는 자기 앱만 본다.
+        if (auth.conditions.app !== undefined && auth.conditions.app !== app) {
+          return err({ code: "not_found", message: "app not found" });
+        }
+        if (action === "list") {
+          const rows = ports.held.list(app);
+          if (!rows.ok) return rows;
+          return ok({
+            held: await Promise.all(
+              rows.value.map(async (row) => ({
+                seq: row.seq,
+                origin: row.origin,
+                machine: row.machine,
+                device: row.device,
+                hlc: row.hlc,
+                changes: (await heldChanges(row)).map(({ table, op, at }) => ({
+                  table,
+                  op,
+                  at,
+                })),
+              })),
+            ),
+          });
+        }
+        if (seq === undefined) {
+          return err({ code: "invalid_input", message: `${action} needs seq` });
+        }
+        if (action === "discard") {
+          const discarded = ports.held.discard(app, seq);
+          return discarded.ok ? ok({}) : discarded;
+        }
+        const actor = parseActor(auth.actor);
+        let caller;
+        if (actor?.kind === "agent") {
+          const { session, turn } = auth.conditions;
+          if (session === undefined || turn === undefined || !tool_call) {
+            return err({
+              code: "invalid_input",
+              message: "an agent applies a held change from a tool call",
+            });
+          }
+          caller = { kind: "agent", session, turn, tool_call } as const;
+        } else {
+          caller = { kind: "person", view_session: `held:${seq}` } as const;
+        }
+        const applied = await ports.held.apply(app, seq, caller as never);
+        if (!applied.ok) return applied;
+        scheduleExport(app);
+        return ok({ invocation: applied.value.invocation });
+      }
+
+      function syncResume(
+        _auth: AuthenticatedContext,
+        input: unknown,
+      ): Promise<Result<unknown>> {
+        const app = syncApp((input as { app: Id<"app"> }).app);
+        if (app === undefined) return Promise.resolve(ok({ resumed: false }));
+        const stopped = readStream(sql, dataKey(app))?.error ?? null;
+        if (stopped === null) return Promise.resolve(ok({ resumed: false }));
+        const cleared = writeLink.transaction((tx) => {
+          updateStream(tx.sql, dataKey(app), { error: null });
+          return ok(undefined);
+        });
+        if (!cleared.ok) return Promise.resolve(cleared);
+        kick(`export:${app.app}`, () => exportApp(app.app));
+        return Promise.resolve(ok({ resumed: true }));
+      }
+
+      // `app.take_in`은 ledger handler가 없다. 폴더를 읽고 앱·release를 core command로 들이는 일이라 writer 앞에서 한다.
+      async function takeIn(input: unknown): Promise<Result<unknown>> {
+        const parsed = takeInInputSchema.safeParse(input);
+        if (!parsed.success) {
+          return err({ code: "invalid_input", message: parsed.error.message });
+        }
+        const taken = await apps.takeIn(parsed.data);
+        if (!taken.ok) return taken;
+        // 들인 앱의 source와(활성화 뒤) data를 바로 받는다.
+        const app = parsed.data.app as Id<"app">;
+        kick(`source:${app}`, () => importSource(app));
+        return ok(taken.value);
+      }
+
+      // --- 계기 ---
+      startTriggers = async () => {
+        await rm(join(dataRoot, IMPORT_TMP_DIR), {
+          recursive: true,
+          force: true,
+        });
+        unsubscribe = ctx.bus.subscribe(
+          [{ types: ["AppSyncChanged", "AppRemoved", "StateChanged"] }],
+          {
+            send(event) {
+              if (event.type === "AppSyncChanged") {
+                scheduleExport(event.subject as Id<"app">);
+              } else if (event.type === "AppRemoved") {
+                void forget(event.subject as Id<"app">);
+              } else {
+                const changes = (
+                  event.payload as {
+                    changes: { name: string; id: string | null }[];
+                  }
+                ).changes;
+                if (
+                  changes.some(
+                    (change) =>
+                      change.name === "settings" &&
+                      (change.id === null || change.id === DESTINATIONS_KEY),
+                  )
+                ) {
+                  rewatch();
+                  exportAll();
+                  kick("scan", scan);
+                } else if (
+                  changes.some((change) => change.name === "releases")
+                ) {
+                  // 활성 release가 바뀌었다(activation, take-in): 첫 snapshot과 앱 기록을 쓰고 읽기를 다시 맞춘다.
+                  debounce("releases", EXPORT_DEBOUNCE_MS, () => {
+                    exportAll();
+                    kick("scan", scan);
+                  });
+                }
+              }
+            },
+            close: () => undefined,
+          },
+        );
+        rewatch();
+        exportAll();
+        kick("scan", scan);
+        everyExport();
+        everyImport();
+      };
+
+      // 앱을 지울 때. local 상태와 held 사본만 지우고 폴더의 file은 그대로 둔다.
+      async function forget(app: Id<"app">): Promise<void> {
+        heldRowCache.delete(app);
+        awayNotified.delete(app);
+        const exported = exporter.forget(app);
+        if (!exported.ok) log("forget_failed", exported.error.message);
+        const imported = await importer.forget(app);
+        if (!imported.ok) log("forget_failed", imported.error.message);
+      }
+
+      return ok({
+        memory: [
+          [key(machineForget), forgetMachine],
+          [key(appSyncHeld), syncHeld],
+          [key(appSyncResume), syncResume],
+        ],
+        reads: (reads) => reads.set(key(machineEnvironment), environment),
+        writer: (inner) => ({
+          ...inner,
+          async command(auth, envelope) {
+            if (envelope.command !== appTakeIn.name) {
+              return await inner.command(auth, envelope);
+            }
+            const taken = await takeIn(envelope.input);
+            if (!taken.ok) return taken;
+            return ok({
+              result: taken.value,
+              replayed: false,
+              first_seq: null,
+              last_seq: null,
+            });
+          },
+        }),
+      });
+    },
+    async start() {
+      await startTriggers?.();
+      return ok(undefined);
+    },
+    closeIntake() {
+      stopped = true;
+      unsubscribe?.();
+      for (const timer of timers) clearTimeout(timer);
+      timers.clear();
+      for (const timer of debounces.values()) clearTimeout(timer);
+      debounces.clear();
+      for (const watcher of watchers.values()) watcher.close();
+      watchers.clear();
+    },
+    async closeWork() {
+      await Promise.allSettled([...work]);
+      link?.close();
+      link = undefined;
+    },
+  };
+};

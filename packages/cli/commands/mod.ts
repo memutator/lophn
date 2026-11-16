@@ -10,6 +10,7 @@ import { EXT_COMMANDS } from "./ext.ts";
 import { JOB_COMMANDS } from "./job.ts";
 import { ASK_COMMANDS } from "./ask.ts";
 import { LOGIN_COMMANDS } from "./login.ts";
+import { MACHINE_COMMANDS } from "./machine.ts";
 import { PACKAGE_COMMANDS } from "./package.ts";
 import { PREVIEW_COMMANDS } from "./preview.ts";
 import { PROJECT_COMMANDS } from "./project.ts";
@@ -38,6 +39,7 @@ export const COMMANDS: readonly Command[] = [
   ...EXT_COMMANDS,
   ...JOB_COMMANDS,
   ...LOGIN_COMMANDS,
+  ...MACHINE_COMMANDS,
   ...ASK_COMMANDS,
   ...APP_COMMANDS,
   ...APP_SHARE_COMMANDS,

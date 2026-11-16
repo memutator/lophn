@@ -14,4 +14,5 @@ export const KIND_LABEL = {
   sdk_update_needed: "waiting.label.kind-sdk-update-needed",
   session_stopped_by_app: "waiting.label.kind-session-stopped-by-app",
   phone_changed: "waiting.label.kind-phone-changed",
+  app_sync_away: "waiting.label.kind-app-sync-away",
 } as const satisfies Record<NoticeKind, MessageKey>;

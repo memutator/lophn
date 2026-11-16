@@ -83,6 +83,7 @@ import type { Attention } from "../../../attention/mod.ts";
 import type { MachineIdentity } from "../../../machine/mod.ts";
 import type { AlwaysOn } from "../../../always-on/mod.ts";
 import type { NoticeRecorder } from "./notices.ts";
+import type { FolderEnvironment, FolderPorts } from "./folder.ts";
 import type { Assembled } from "../registration.ts";
 import type { CoreOptions } from "../core.ts";
 import type { CoreRuntime } from "../runtime.ts";
@@ -311,6 +312,10 @@ type Late = {
   attention: Attention;
   // always-on wiring이 낸다. 이 기계의 "늘 켜 둠" 표시와 OS가 답한 사실. idle-exit가 표시를 읽는다.
   alwaysOn: AlwaysOn;
+  // apps가 낸다. 폴더 교환이 앱 DB와 sync log에 닿는 길(받은 변경 적용, held 풀기, write 줄 쥐기).
+  folderPorts: FolderPorts;
+  // folder가 prepare에서 낸다. 뒤 계획이 `machine.environment`에 자기 section을 등록한다.
+  folderEnvironment: FolderEnvironment;
 };
 
 const LATE_KEYS: Record<keyof Late, true> = {
@@ -380,6 +385,8 @@ const LATE_KEYS: Record<keyof Late, true> = {
   noticeRecorder: true,
   attention: true,
   alwaysOn: true,
+  folderPorts: true,
+  folderEnvironment: true,
 };
 
 export type WiringContext = {

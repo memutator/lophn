@@ -118,18 +118,30 @@ files:
       - settings-update:rejected
     note: "폴더 writer는 `..`, 절대 path, 다른 기계 폴더, 자기 폴더 안 symlink로 쓰기·지우기·rename을 하지 못하고 destination과 밖의 file이 bytes 그대로다. reader는 layout 꼴과 맞는 이름만 돌려준다. data root 안·data root를 품은·상대·서로 겹친 destination은 거절되고(손으로 둔 값은 쓰이지 않는다). schema step folder.tables는 다른 표의 행을 그대로 둔다"
 
+  - path: packages/core/folder/environment_test.ts
+    covers:
+      - folder-export-run:cleaned
+    note: "흔적 정리의 경계 표 test: before는 알려진 기계 가운데 가장 늦지 않은 settled를 넘지 않거나 90일 쪽이고, settled 없는 기계가 있으면 90일 쪽만, 사람이 지운 기계(실제 import의 기록 사본)는 붙잡지 않는다"
+
   - path: packages/core/folder/export/export_test.ts
-    covers: []
+    covers:
+      - folder-export-run:written
+      - folder-export-run:stream-error
     note: "폴더 내보내기(route 없음, folder wiring이 부른다). 내보내기·snapshot·compaction·기계 기록을 여러 번 돌려도 다른 기계의 하위 폴더와 사람의 file이 bytes 그대로다. data root의 machine.json binding·secrets.json·host key 비밀 key가 폴더 file에 없다. 다른 기계 horizon 이하의 내보내지 않은 변경은 file에 없고 같은 bytes의 held 줄이 된다. rename 뒤 기록 전에 죽어도 번호를 다시 쓰지 않고, 자기 하위 폴더에 남이 쓴 번호·바뀐 file이 있으면 쓰지 않고 foreign_writer다"
 
   - path: packages/core/folder/import/import_test.ts
-    covers: []
-    note: "다른 기계의 하위 폴더 읽기. 잘린·bytes가 바뀐·번호가 다른 file은 FolderApply를 부르지 않고 cursor가 그대로이며 invalid_file이 보이고, 맞는 file로 바뀌면 적용된다. 다른 release의 file(snapshot 포함)은 같은 bytes로 data root에 held로 남고 폴더에서 지워져도 남는다. 충돌 사본·temp는 읽지 않고 늦게 온 번호를 기다려 순서대로 한 번만 적용한다. 깨진 기록·newer_format·빈 폴더는 기록 사본과 local data를 지우지 않는다. horizon 밖에서 지우기 없이 합친 stream은 빚(owes_absent_pass)을 남기고 재시작을 넘기며, 출처가 이 기계의 것을 다 받은 뒤에 만든 snapshot이 오면 그것으로 다시 합쳐(실제 sync core) 다른 곳에서 지워지고 흔적이 정리된 row만 지우고 떨어져 있는 동안 고친 row는 남긴다. 그런 snapshot이 없으면 오류 없이 기다린다. 지운 기계는 목록에서 빠지되 행과 data가 남고 새 revision이면 돌아온다. compaction 뒤에는 가장 큰 맞는 snapshot으로 따라오고, 5분 넘게 앞선 clock은 clock_ahead로 미룬다. 아직 읽기 route가 없어(folder-surface) outcome이 없다"
+    covers:
+      - folder-import-run:followed
+      - folder-import-run:waiting
+    note: "다른 기계의 하위 폴더 읽기. 잘린·bytes가 바뀐·번호가 다른 file은 FolderApply를 부르지 않고 cursor가 그대로이며 invalid_file이 보이고, 맞는 file로 바뀌면 적용된다. 다른 release의 file(snapshot 포함)은 같은 bytes로 data root에 held로 남고 폴더에서 지워져도 남는다. 충돌 사본·temp는 읽지 않고 늦게 온 번호를 기다려 순서대로 한 번만 적용한다. 깨진 기록·newer_format·빈 폴더는 기록 사본과 local data를 지우지 않는다. horizon 밖에서 지우기 없이 합친 stream은 빚(owes_absent_pass)을 남기고 재시작을 넘기며, 출처가 이 기계의 것을 다 받은 뒤에 만든 snapshot이 오면 그것으로 다시 합쳐(실제 sync core) 다른 곳에서 지워지고 흔적이 정리된 row만 지우고 떨어져 있는 동안 고친 row는 남긴다. 그런 snapshot이 없으면 오류 없이 기다린다. 지운 기계는 목록에서 빠지되 행과 data가 남고 새 revision이면 돌아온다. compaction 뒤에는 가장 큰 맞는 snapshot으로 따라오고, 5분 넘게 앞선 clock은 clock_ahead로 미룬다"
 
   - path: packages/core/folder/apps/apps_test.ts
     covers:
       - release-activate:waiting-consent
-    note: "실제 git과 임시 폴더 두 기계. take-in한 release는 prepared이고 grant·동의 행이 없으며 activation 판정이 동의를 기다린다. 두 번 부르거나 이미 있는 앱에 부르면 앱 행은 그대로이고 release는 하나다. release.json이 없거나 file이 빠지거나 1 byte 다르거나 manifest hash가 폴더 이름과 다르면 앱·release 행과 봉인 사본이 생기지 않는다(release_incomplete). 다른 기계의 증분 source bundle은 refs/remotes/<mch>/*에만 오고 HEAD, branch, 작업 tree는 그대로다. route apps/take_in의 flow는 folder-surface가 쓴다"
+      - app-take-in:installed
+      - app-take-in:existing
+      - app-take-in:release-incomplete
+    note: "실제 git과 임시 폴더 두 기계. take-in한 release는 prepared이고 grant·동의 행이 없으며 activation 판정이 동의를 기다린다. 두 번 부르거나 이미 있는 앱에 부르면 앱 행은 그대로이고 release는 하나다. release.json이 없거나 file이 빠지거나 1 byte 다르거나 manifest hash가 폴더 이름과 다르면 앱·release 행과 봉인 사본이 생기지 않는다(release_incomplete). 다른 기계의 증분 source bundle은 refs/remotes/<mch>/*에만 오고 HEAD, branch, 작업 tree는 그대로다"
 
   - path: packages/core/host-queue/hold_test.ts
     covers:

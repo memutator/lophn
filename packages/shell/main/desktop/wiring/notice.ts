@@ -52,6 +52,7 @@ const ALERT_PROGRAM_KINDS: ReadonlySet<NoticeKind> = new Set([
   "sdk_update_needed",
   "session_stopped_by_app",
   "phone_changed",
+  "app_sync_away",
 ]);
 
 const TITLES = {

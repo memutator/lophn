@@ -356,6 +356,7 @@ export const RESERVED_APP_SLUGS: readonly string[] = [
   // core가 event의 발행자일 때 쓰는 source 이름과 겹치면 안 된다.
   "lophn",
   "login",
+  "machine",
 ];
 export const SECRET_NAME = /^[A-Za-z0-9_.:-]+$/;
 export const PACKAGE_NAME = /^@(?:me|lophn)\/[a-z0-9]+(?:-[a-z0-9]+)*$/;

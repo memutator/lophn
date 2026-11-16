@@ -125,7 +125,7 @@ export function createReaderRegistration(): ReaderRegistration {
 }
 
 // QR에 싣는 주소 후보. loopback과 link-local(fe80::, 폰이 scope 없이 붙지 못한다)은 뺀다.
-function lanAddresses(): string[] {
+export function lanAddresses(): string[] {
   return Object.values(networkInterfaces())
     .flatMap((list) => list ?? [])
     .filter((each) => !each.internal && !each.address.startsWith("fe80:"))

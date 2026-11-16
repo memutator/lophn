@@ -17,6 +17,7 @@ import { LOGIN_ROUTES } from "./secrets/logins.ts";
 import { DIAGNOSTIC_STATUS_ROUTES } from "./diagnostics/diagnostics.ts";
 import { MACHINE_ROUTES } from "./machine/mod.ts";
 import { ALWAYS_ON_ROUTES } from "./always-on/mod.ts";
+import { FOLDER_ROUTES } from "./folder/mod.ts";
 
 // 지금 있는 route. 다른 파일의 route 배열(BLOB_ROUTES 등)도 여기로 모은다.
 // approvals의 route는 core 등록(`core/approvals/registration.ts`)이 낸다. 여기 두면 겹친다.
@@ -40,6 +41,7 @@ export const ROUTES = [
   ...DIAGNOSTIC_STATUS_ROUTES,
   ...MACHINE_ROUTES,
   ...ALWAYS_ON_ROUTES,
+  ...FOLDER_ROUTES,
 ] as const;
 
 // 지금 있는 event. platform 소유 event는 settings에서 시작한다.

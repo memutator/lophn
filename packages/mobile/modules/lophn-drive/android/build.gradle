@@ -1,0 +1,17 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'dev.lophn.drive'
+version = '0.0.0'
+
+android {
+  namespace "dev.lophn.drive"
+}
+
+dependencies {
+  implementation "com.facebook.react:react-android:+"
+  // The guest view classes (SandboxReactNativeView, its delegate's origin) come from the autolinked sandbox library.
+  implementation project(':callstack_react-native-sandbox')
+}

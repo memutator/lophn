@@ -25,8 +25,10 @@ import {
 } from "../../src/apps/guest/mod.ts";
 import { pathOf } from "../../src/apps/guest/files.ts";
 import { type AppDbConnection, openHost } from "../../modules/lophn-app-db/index.ts";
+import { keepScreenOn } from "../../modules/lophn-drive/index.ts";
+import { dumpNodes, runDrive, shoot, watchDrive } from "./drive.ts";
 
-const FIXTURES = ["tasks", "top-throw", "raw-throw", "misbehave", "probe", "big", "local", "local-backend", "throw-backend"];
+const FIXTURES = ["tasks", "top-throw", "raw-throw", "misbehave", "probe", "big", "local", "local-backend", "throw-backend", "drive"];
 const PROBE = process.env.EXPO_PUBLIC_LOPHN_GUEST_LAB_PROBE ?? "http://10.0.2.2:8237";
 
 // A value only the host runtime has; the probe fixture looks for it.
@@ -149,6 +151,20 @@ export default function Lab() {
       log(`remount ${i + 1}/10 ${state}`);
     }
   };
+  // The drive scenario on a fresh drive fixture alone on screen (guest/lab/drive.ts).
+  const driveView = () => `lab-${slots.find((slot) => slot.fixture === "drive")?.key}`;
+  const drive = async () => {
+    const done = new Promise<string>((resolve) => waiters.current.set(next.current, resolve));
+    setSlots([]);
+    const key = mount("drive");
+    const state = await done;
+    waiters.current.delete(key);
+    if (state !== "running") return log(`drive fixture ${state}`);
+    await runDrive(`lab-${key}`, log, async () => {
+      setSlots([]);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    });
+  };
   const canRun = () => {
     const manifest = JSON.parse(new File("asset:///guest/fixtures/tasks.json").textSync()) as PhoneManifest;
     const host = guestHostInfo();
@@ -178,6 +194,12 @@ export default function Lab() {
       `do:${name}`,
       () => emit("do", name),
     ]),
+    ["drive run", () => void drive()],
+    ["drive dump", () => void dumpNodes(driveView(), log)],
+    ["drive watch", () => void watchDrive(driveView(), log)],
+    ["drive shot", () => void shoot(driveView(), log)],
+    ["keep on", () => keepScreenOn(true)],
+    ["keep off", () => keepScreenOn(false)],
     ["canrun", canRun],
     ["scheme", () => setScheme((s) => (s === "light" ? "dark" : "light"))],
     [`host tap ${taps}`, () => setTaps((n) => n + 1)],
@@ -204,7 +226,9 @@ export default function Lab() {
             </Pressable>
           ))}
         </View>
-        <ScrollView style={{ maxHeight: 260, paddingHorizontal: 6 }}>
+        <ScrollView
+          style={{ maxHeight: slots.some((slot) => slot.fixture === "drive") ? 150 : 260, paddingHorizontal: 6 }}
+        >
           {slots.map((slot) => (
             <Text key={`s${slot.key}`} style={{ fontSize: 11 }}>{`slot ${slot.key} ${slot.fixture}: ${slot.state}`}</Text>
           ))}

@@ -4,9 +4,9 @@ lead만 고친다. `tools/status.py mobile-browser-use build`가 `tasks/*.md`에
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `mobile-drive-contract` | drive-contract | 1 | 없음 | todo |  |  |  |
-| `mobile-drive-preview-read` | drive-core | 1 | 없음 | todo |  |  |  |
-| `mobile-drive-kit` | drive-kit | 1 | 없음 | todo |  |  |  |
+| `mobile-drive-contract` | drive-contract | 1 | 없음 | running | drive-contract/mobile-drive-contract |  |  |
+| `mobile-drive-preview-read` | drive-core | 1 | 없음 | running | drive-core/mobile-drive-preview-read |  |  |
+| `mobile-drive-kit` | drive-kit | 1 | 없음 | running | drive-kit/mobile-drive-kit |  |  |
 | `mobile-drive-cli` | drive-agent | 2 | mobile-drive-contract | todo |  |  |  |
 | `mobile-drive-core` | drive-core | 2 | mobile-drive-contract | todo |  |  |  |
 | `mobile-drive-native` | drive-phone | 2 | mobile-drive-contract | todo |  |  |  |

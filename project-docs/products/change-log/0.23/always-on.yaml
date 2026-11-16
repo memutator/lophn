@@ -1,5 +1,5 @@
 id: always-on
-version: 0.23.68
+version: 0.23.70
 title: 사람이 표시한 기계에서 lophn이 로그인 때 뜨고 창 없이 계속 돌며, job은 만든 기계에서만 돈다
 modules: [packages/core/always-on, packages/protocol/always-on, packages/protocol, packages/core/main, packages/core/jobs, packages/core/storage, packages/shell/main, packages/shell/renderer, packages/shell/ipc, packages/cli, packages/design, packages/mobile]
 change: |

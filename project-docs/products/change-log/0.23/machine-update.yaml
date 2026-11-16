@@ -1,5 +1,5 @@
 id: machine-update
-version: 0.23.72
+version: 0.23.75
 title: 기계마다 lophn 판과 앱 release가 달라도 잃지 않고, 새 release를 스스로 따라가고, 누가 올려야 하는지 보인다
 modules: [packages/core/apps, packages/core/apps/follow, packages/core/apps/update-state, packages/core/folder, packages/core/main, packages/protocol, packages/remote-client, packages/shell/ipc, packages/shell/main, packages/shell/renderer, packages/design, packages/mobile]
 change: |

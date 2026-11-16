@@ -17,6 +17,8 @@ export const FOLDER_ERROR_CODES = [
   "app_not_running",
   "release_incomplete",
   "away_too_long",
+  // 앱 source의 git bundle을 만들거나 받지 못했다(git이 없거나 실패). data 내보내기와 읽기는 막지 않는다.
+  "source_failed",
 ] as const;
 export type FolderErrorCode = (typeof FOLDER_ERROR_CODES)[number];
 

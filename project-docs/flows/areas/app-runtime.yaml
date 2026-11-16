@@ -12,10 +12,10 @@ flows:
     boundary: [apps]
     code: [packages/core/apps/registration/commands.ts, packages/core/apps/registration/source-folder.ts]
     steps:
-      - "사람(agent는 whole scope 요청만)이 slug, 이름, 설명으로 등록을 청한다. 미리 정한 id는 사람만 쓴다."
+      - "사람(agent는 whole scope 요청만)이 slug, 이름, 설명으로 등록을 청한다. 다른 기계의 앱을 들이는 폴더 take-in 자격(machine:folder-apps)은 그 앱의 id를 정해 등록하고, 그 밖의 누구도 id를 정하지 못한다."
       - "내장 명령 이름(RESERVED_APP_SLUGS), slug 중복, id 중복을 거른다."
       - "같은 transaction에서 AppCreated event와 apps 행을 쓴다(source_path null, run_enabled false, status active)."
-      - "commit 뒤 source-folder writer가 apps/<id>/source에 template을 깔고 commit한 뒤, machine 자격으로 connect_source를 부른다."
+      - "commit 뒤 source-folder writer가 apps/<id>/source에 template을 깔고 commit한 뒤, machine 자격으로 connect_source를 부른다. machine 자격의 등록(take-in)은 template을 깔지 않는다."
       - "폴더가 이미 있으면 commit이 있을 때만 그대로 쓰고, commit이 없으면 덮지 않고 거절한다. 깔 때 scaffold는 이미 있는 파일을 덮지 않고 빠진 파일만 채운다."
       - "깔기나 잇기가 실패해도 create는 ok다. 앱은 source_path null로 남고 core log에 source_folder_unprepared가 남는다."
     outcomes:
@@ -27,7 +27,7 @@ flows:
         observe: ["ledger:apps", "event:AppCreated", "log:core"]
       - id: forbidden
         code: forbidden
-        when: "사람도 agent도 아님(requireCreator), agent가 whole scope가 아닌 요청(앱 범위 조건을 가짐), 사람이 아닌데 id를 미리 정함, 앱 범위 판정(authorizeApp)이 거절함"
+        when: "사람도 agent도 폴더 take-in 자격도 아님(requireCreator), agent가 whole scope가 아닌 요청(앱 범위 조건을 가짐), take-in 자격이 아닌데 id를 정함 또는 take-in 자격이 id 없이 부름, 앱 범위 판정(authorizeApp)이 거절함"
         observe: [response]
       - id: invalid-input
         code: invalid_input

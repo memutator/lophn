@@ -81,7 +81,7 @@ export async function exportSource(
   const repo = app.source_path;
   if (repo === null) return ok(undefined);
   const heads = await branchHeads(repo);
-  if (!heads.ok) return failed("apply_failed", heads.error.message);
+  if (!heads.ok) return failed("source_failed", heads.error.message);
   const n = streamOf(sql, me, app.app, destination, "source")?.next_n ?? 1;
   let before: SourceMeta | null = null;
   if (n > 1) {
@@ -102,12 +102,12 @@ export async function exportSource(
   }
   const excluded = Object.values(before?.heads ?? {});
   const count = await newCommitCount(repo, excluded);
-  if (!count.ok) return failed("apply_failed", count.error.message);
+  if (!count.ok) return failed("source_failed", count.error.message);
   if (count.value === 0) return ok(undefined);
   const temp = await tempFile(target.dataRoot, target.random);
   try {
     const created = await createBundle(repo, temp, excluded);
-    if (!created.ok) return failed("apply_failed", created.error.message);
+    if (!created.ok) return failed("source_failed", created.error.message);
     const size = (await stat(temp)).size;
     if (size > SOURCE_BUNDLE_MAX_BYTES) {
       return failed(
@@ -117,7 +117,7 @@ export async function exportSource(
     }
     const prerequisites = await bundlePrerequisites(temp);
     if (!prerequisites.ok) {
-      return failed("apply_failed", prerequisites.error.message);
+      return failed("source_failed", prerequisites.error.message);
     }
     const sha256 = await fileSha256(temp);
     const bundlePath = sourcePath(me, app.app, n, "bundle");
@@ -165,7 +165,7 @@ export async function exportSource(
     return ok(undefined);
   } catch (thrown) {
     return failed(
-      "apply_failed",
+      "source_failed",
       thrown instanceof Error ? thrown.message : String(thrown),
     );
   } finally {
@@ -302,7 +302,7 @@ export async function fetchSource(input: {
         return {
           cursor,
           stopped: {
-            error: { code: "apply_failed", message: done.error.message },
+            error: { code: "source_failed", message: done.error.message },
           },
         };
       }

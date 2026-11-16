@@ -184,14 +184,6 @@ function coreLayerViolation(file: string, target: string): string | undefined {
   }
 }
 
-// 바닥 module이 feature module을 아는 file(rule core-layer). 못 끊은 file은 이유와 함께 면제한다.
-const CORE_LAYER_EXCEPTIONS: ReadonlyMap<string, string> = new Map([
-  [
-    "packages/core/folder/apps/host.ts",
-    "못 옮김: take-in이 core/apps의 store·봉인 함수와 command를 한 면으로 부른다. core/apps가 이 면을 구현해 넘기면(FolderApply처럼) 옮긴다",
-  ],
-]);
-
 // harness 폴더가 feature module의 protocol을 아는 것(rule harness-domain). 앞 task가 못 끊은 file은 이유와 함께 면제한다.
 // 목록 file이 위반을 다 없애면 검사가 빼라고 알려준다.
 const HARNESS_DIR = `packages/core/${CORE_HARNESS}/`;
@@ -504,9 +496,7 @@ export async function checkRepo(root: string): Promise<Violation[]> {
           );
         }
         const message = coreLayerViolation(file, target);
-        if (message && !CORE_LAYER_EXCEPTIONS.has(file)) {
-          add(file, line, "core-layer", message);
-        }
+        if (message) add(file, line, "core-layer", message);
         const protocol = harnessProtocol(file, target);
         if (protocol) harness(file, line, protocol);
       }

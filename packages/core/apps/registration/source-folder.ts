@@ -165,7 +165,7 @@ async function requireCommittedRepository(path: string): Promise<Result<void>> {
   }
 }
 
-// `app.connect_source`는 받기 전에 폴더를 확인한다. `app.create`가 처음 성공하면 source를 깔아 이은 앱을 결과로 돌려준다.
+// `app.connect_source`는 받기 전에 폴더를 확인한다. `app.create`(machine 자격 말고)가 처음 성공하면 source를 깔아 이은 앱을 결과로 돌려준다.
 // 깔기나 잇기가 실패해도 create는 이미 commit됐으므로 오류로 바꾸지 않는다. 앱은 `source_path: null`로 남고
 // `app.link_source`로 잇는다. 다시 시도하지 않는다.
 export function withSourceFolder(
@@ -189,10 +189,12 @@ export function withSourceFolder(
         return await inner.command(ctx, envelope);
       }
       const done = await inner.command(ctx, envelope);
+      // machine 자격의 등록(폴더 take-in)은 template을 깔지 않는다: source는 다른 기계의 bundle에서 오거나 비어 있다.
       if (
         !done.ok ||
         done.value.replayed ||
-        envelope.command !== appCreate.name
+        envelope.command !== appCreate.name ||
+        ctx.actor === "machine"
       )
         return done;
       const app = done.value.result as App;

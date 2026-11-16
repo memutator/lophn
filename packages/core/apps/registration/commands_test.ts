@@ -9,6 +9,7 @@ import {
   type Tx,
 } from "../../../protocol/server/mod.ts";
 import { createAppCommands } from "./commands.ts";
+import { FOLDER_APPS_CONTEXT } from "./folder-take-in.ts";
 import { appsSchemaSteps } from "./schema.ts";
 import { loadAppIcon } from "./store.ts";
 
@@ -55,11 +56,16 @@ function open() {
         {},
       ) as { ok: boolean; error?: { code: string } },
     apps: () => db.prepare("SELECT slug FROM apps").all().length,
-    create: (slug: string) =>
+    create: (slug: string, ctx = USER, id?: string) =>
       (create.handle as (...a: unknown[]) => unknown)(
         tx,
-        USER,
-        { slug, name: `App ${slug}`, description: "does things" },
+        ctx,
+        {
+          slug,
+          name: `App ${slug}`,
+          description: "does things",
+          ...(id === undefined ? {} : { id }),
+        },
         {},
       ) as { ok: boolean; value?: { id: string }; error?: { code: string } },
   };
@@ -106,4 +112,35 @@ test("app.set_icon은 큰 파일과 이미지 아닌 것을 invalid_input으로 
   assert.strictEqual(setIcon(app, null).ok, true);
   assert.strictEqual(loadAppIcon(sql, app), null);
   assert.strictEqual(setIcon("app_none", icon).error?.code, "not_found");
+});
+
+// 앱 id는 기계 사이 같은 앱의 신분이다. 다른 기계의 앱을 들이는 폴더 take-in 말고 누가 id를 정하면 남의 앱 자리를 차지한다.
+test("app.create의 id는 폴더 take-in 자격만 정하고 사람, agent, 다른 machine 자격은 거절된다", () => {
+  const { create, apps } = open();
+  const id = "app_01hzzzzzzzzzzzzzzzzzzzzzzz";
+  const agent = {
+    ...USER,
+    principal: "agent:ses_01hzzzzzzzzzzzzzzzzzzzzzzz",
+    actor: "agent:ses_01hzzzzzzzzzzzzzzzzzzzzzzz",
+  };
+  const otherMachine = {
+    ...FOLDER_APPS_CONTEXT,
+    principal: "machine:apps-source",
+    credential_ref: "machine:apps-source",
+  };
+  for (const ctx of [USER, agent, otherMachine]) {
+    assert.deepStrictEqual(
+      create("taken", ctx, id).error?.code,
+      "forbidden",
+      ctx.principal,
+    );
+  }
+  // take-in 자격도 id 없이 만들지 못한다.
+  assert.deepStrictEqual(
+    create("taken", FOLDER_APPS_CONTEXT).error?.code,
+    "forbidden",
+  );
+  assert.deepStrictEqual(apps(), 0);
+  const taken = create("taken", FOLDER_APPS_CONTEXT, id);
+  assert.deepStrictEqual(taken.value?.id, id);
 });

@@ -20,8 +20,11 @@ import type {
   TakeInOutput,
 } from "../../../protocol/folder/take-in.ts";
 import { createFolderReader, type FolderReader } from "../fs.ts";
-import type { FolderAppRecordCopy, FolderAppsDeps } from "./deps.ts";
-import type { FolderAppsHost } from "./host.ts";
+import type {
+  FolderAppRecordCopy,
+  FolderAppsDeps,
+  FolderAppsHost,
+} from "./deps.ts";
 import { DECLARATION_FILE, MANIFEST_FILE } from "./releases.ts";
 import { createRepository } from "./source.ts";
 import { setSourceRead } from "./state.ts";

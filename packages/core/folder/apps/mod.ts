@@ -9,7 +9,6 @@ import type {
 } from "../../../protocol/folder/take-in.ts";
 import { createFolderReader, createFolderWriter } from "../fs.ts";
 import type { FolderAppsDeps } from "./deps.ts";
-import { createFolderAppsHost } from "./host.ts";
 import { writeAppRecord } from "./records.ts";
 import { pruneReleases, writeActiveRelease } from "./releases.ts";
 import { createRepository, exportSource, fetchSource } from "./source.ts";
@@ -26,10 +25,11 @@ export type {
   FolderAppProgress,
   FolderAppRecordCopy,
   FolderAppsDeps,
-  FolderCommand,
+  FolderAppsHost,
   FolderLocalApp,
+  InstalledBundle,
+  LocalApp,
 } from "./deps.ts";
-export { FOLDER_APPS_CONTEXT, FOLDER_APPS_PRINCIPAL } from "./host.ts";
 export type { AvailableApp } from "./take-in.ts";
 
 export type FolderApps = {
@@ -42,7 +42,7 @@ export type FolderApps = {
 };
 
 export function createFolderApps(deps: FolderAppsDeps): FolderApps {
-  const host = createFolderAppsHost(deps);
+  const { host } = deps;
   const now = () => deps.clock.now();
 
   return {
@@ -143,7 +143,7 @@ export function createFolderApps(deps: FolderAppsDeps): FolderApps {
           if (!made.ok) {
             setSourceRead(deps.sql, key, {
               error: {
-                code: "apply_failed",
+                code: "source_failed",
                 message: made.error.message,
                 at: now(),
               },

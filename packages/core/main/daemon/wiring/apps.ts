@@ -14,6 +14,7 @@ import {
 } from "../../../../protocol/apps/grants.ts";
 import {
   appConnectSource,
+  appCreate,
   appLogViewError,
   declarationCheck,
   packagePublish,
@@ -192,6 +193,8 @@ export const appsWiring: WiringFactory = () => {
       ...appsOperationPolicies(),
       // 새 앱의 source를 잇는 core 안 machine 자격(registration/source-folder.ts).
       { name: appConnectSource.name, actors: ["machine"], kind: "command" },
+      // 다른 기계의 앱을 같은 id로 들이는 폴더 take-in 자격(apps/registration/folder-take-in.ts). handler가 그 자격만 받는다.
+      { name: appCreate.name, actors: ["machine"], kind: "command" },
       // SDK 결정을 기록하고 handoff call을 낸다(apps/sdk-status/decide.ts).
       { name: appSdkReviewRecord.name, actors: ["machine"], kind: "command" },
     ],

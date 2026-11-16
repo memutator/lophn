@@ -28,6 +28,7 @@ import { checkIconUpload, parseActor } from "../../../protocol/base/mod.ts";
 import { RESERVED_APP_SLUGS } from "../../../protocol/apps/declaration/mod.ts";
 import { clearAppNotices } from "../notices/commands.ts";
 import { eraseApp } from "./delete.ts";
+import { isFolderTakeIn } from "./folder-take-in.ts";
 import { isSameOrInside } from "../permissions/model.ts";
 import { type AppAccessTarget, authorizeApp, denied } from "./model.ts";
 import {
@@ -54,10 +55,11 @@ function invalid(message: string): Result<never> {
   return err({ code: "invalid_input", message });
 }
 
-// 등록은 사람과 agent(앱 만들기 tool)만 한다. 앱의 `app:` actor는 route actors와 함께 거른다.
+// 등록은 사람과 agent(앱 만들기 tool), 그리고 다른 기계의 앱을 들이는 폴더 take-in 자격만 한다. 앱의 `app:` actor는
+// route actors와 함께 거른다. 그 밖의 machine 자격은 등록하지 못한다.
 function requireCreator(ctx: RequestContext): Result<void> {
   const kind = parseActor(ctx.actor)?.kind;
-  return kind === "user" || kind === "agent"
+  return kind === "user" || kind === "agent" || isFolderTakeIn(ctx)
     ? ok(undefined)
     : forbidden("app creation is user or lophn agent only");
 }
@@ -129,11 +131,10 @@ export function createAppCommands(): {
         if (!actor.ok) return actor;
         const whole = requireWholeScope(ctx);
         if (!whole.ok) return whole;
-        // 미리 배정한 ID는 사람 자격만 쓴다. agent는 ID를 정하지 못하고, 이미 있는 ID는 만들지 않는다.
-        if (input.id !== undefined) {
-          if (parseActor(ctx.actor)?.kind !== "user") {
-            return forbidden("only a person assigns an app id");
-          }
+        // 앱 id는 기계 사이 같은 앱의 신분이라 다른 기계의 앱을 들이는 폴더 take-in만 정한다. 사람과 agent는 정하지 못하고,
+        // take-in은 늘 id를 준다. 이미 있는 ID는 만들지 않는다.
+        if ((input.id !== undefined) !== isFolderTakeIn(ctx)) {
+          return forbidden("only the folder take-in assigns an app id");
         }
         // 앱 slug는 `lophn <slug> <command>`의 첫 낱말이라 내장 명령 이름은 쓰지 못한다.
         if (RESERVED_APP_SLUGS.includes(input.slug)) {

@@ -1,97 +1,39 @@
-// take-in과 source 받기가 core/apps에 기대는 면 하나. 앱·release 행은 core/apps의 store 함수로 읽고, 봉인 사본은
-// release 준비와 같은 writeBundle·sealCopy로 쓰고, 등록과 release 적기는 core command(machine 자격)로 한다.
-// folder는 바닥 module이라 feature module을 import하지 못한다. 이 file만 예외로 둔다(tools/check-deps.ts):
-// core/apps가 이 면을 구현해 넘기게 되면(FolderApply처럼) 그쪽으로 옮기고 예외를 지운다.
+// 폴더 take-in과 source 받기의 port(`FolderAppsHost`, core/folder/apps가 정의한다)를 core/apps가 구현한다. 앱·release 행은
+// store 함수로 읽고, 봉인 사본은 release 준비와 같은 writeBundle·sealCopy로 쓰고, 등록·source 잇기·release 적기는
+// core command를 폴더 take-in 자격(`FOLDER_APPS_CONTEXT`)으로 부른다. 조립이 `command`를 그 자격의 writer에 묶어 넘긴다.
 import { readFile } from "node:fs/promises";
-import { err, ok, type RandomSource, type Result } from "../../../base/mod.ts";
+import { err, ok, type RandomSource, type Result } from "../../base/mod.ts";
 import {
   appConnectSource,
   appCreate,
-  type BundleManifest,
-  type DataChange,
   releaseRecord,
-} from "../../../protocol/apps/mod.ts";
-import { bundleFileStore } from "../../../protocol/apps/app-storage.ts";
-import type { Id } from "../../../protocol/base/ids.ts";
-import type {
-  AuthenticatedContext,
-  Sql,
-} from "../../../protocol/server/mod.ts";
-import { loadVersionPermissions } from "../../apps/packages/store.ts";
-import { loadApp, loadApps } from "../../apps/registration/mod.ts";
+} from "../../protocol/apps/mod.ts";
+import { bundleFileStore } from "../../protocol/apps/app-storage.ts";
+import type { Id } from "../../protocol/base/ids.ts";
+import type { Sql } from "../../protocol/server/mod.ts";
+import { loadVersionPermissions } from "./packages/store.ts";
+import { loadApp, loadApps } from "./registration/mod.ts";
 import {
   dataChangesOf,
   readBundleCopy,
-} from "../../apps/releases/activation/desired.ts";
+} from "./releases/activation/desired.ts";
 import {
   bundleCopyPath,
   clearUnsealedCopy,
   DECLARATION_COPY_NAME,
   sealCopy,
   writeBundle,
-} from "../../apps/releases/bundle/seal.ts";
-import { loadReleases } from "../../apps/releases/store.ts";
-import type { FolderCommand } from "./deps.ts";
+} from "./releases/bundle/seal.ts";
+import { loadReleases } from "./releases/store.ts";
+import type { FolderAppsHost, InstalledBundle } from "../folder/apps/deps.ts";
 
-export const FOLDER_APPS_PRINCIPAL = "machine:folder-apps";
-// take-in이 앱을 같은 id로 등록하고 source를 잇고 release를 적는 core 안 machine 자격. 조립이 records와 operation 상한에 둔다.
-export const FOLDER_APPS_CONTEXT: AuthenticatedContext = {
-  principal: FOLDER_APPS_PRINCIPAL,
-  actor: "machine",
-  scope: {
-    operations: [appCreate.name, appConnectSource.name, releaseRecord.name],
-    targets: {},
-  },
-  conditions: {},
-  credential_ref: FOLDER_APPS_PRINCIPAL,
-};
-
-export type LocalApp = {
-  slug: string;
-  source_path: string | null;
-  revision: string;
-  // 이 기계에서 가장 늦게 넣은 release의 commit. 처음 만드는 source 저장소의 main이 된다.
-  code_commit: string | null;
-};
-
-export type InstalledBundle = {
-  declaration: Record<string, unknown>;
-  manifest: BundleManifest;
-  data_schema: number;
-  data_changes: DataChange[];
-};
-
-export type FolderAppsHost = {
-  app(id: Id<"app">): Result<LocalApp | null>;
-  slugOwner(slug: string): Result<Id<"app"> | null>;
-  releaseWith(app: Id<"app">, bundleHash: string): Result<Id<"rel"> | null>;
-  published(name: string, version: string): boolean;
-  /** 검사를 마친 bundle file(manifest.json과 declaration.json 포함)을 봉인 사본으로 쓴다. 이미 봉인된 사본은 그대로 둔다. */
-  installBundle(
-    app: Id<"app">,
-    bundleHash: string,
-    manifest: BundleManifest,
-    files: readonly { path: string; bytes: Uint8Array }[],
-  ): Promise<Result<InstalledBundle>>;
-  createApp(input: {
-    id: Id<"app">;
-    slug: string;
-    name: string;
-    description: string;
-  }): Promise<Result<{ revision: string }>>;
-  connectSource(
-    app: Id<"app">,
-    revision: string,
-    sourcePath: string,
-  ): Promise<Result<void>>;
-  recordRelease(input: {
-    app: Id<"app">;
-    commit: string;
-    bundle_hash: string;
-    declaration_hash: string;
-    installed: InstalledBundle;
-  }): Promise<Result<Id<"rel">>>;
-};
+/** core command를 폴더 take-in 자격으로 부른다. 성공이면 command의 result다. */
+export type FolderCommand = (envelope: {
+  command: string;
+  input: unknown;
+  idempotency_key: string;
+  compare: unknown;
+}) => Promise<Result<unknown>>;
 
 export function createFolderAppsHost(deps: {
   sql: Sql;

@@ -47,7 +47,12 @@ import {
 } from "../../../protocol/folder/mod.ts";
 import { sdkSchemaSteps } from "../../apps/packages/schema.ts";
 import { permissionsSchemaSteps } from "../../apps/permissions/schema.ts";
+import {
+  createFolderAppsHost,
+  type FolderCommand,
+} from "../../apps/folder-host.ts";
 import { createAppCommands } from "../../apps/registration/commands.ts";
+import { FOLDER_APPS_CONTEXT } from "../../apps/registration/folder-take-in.ts";
 import { appsSchemaSteps } from "../../apps/registration/schema.ts";
 import { createActivationHandlers } from "../../apps/releases/activation/handler.ts";
 import { buildManifest } from "../../apps/releases/bundle/manifest.ts";
@@ -70,7 +75,6 @@ import {
   createFolderApps,
   type FolderAppRecordCopy,
   type FolderApps,
-  type FolderCommand,
   type FolderLocalApp,
 } from "./mod.ts";
 
@@ -139,7 +143,7 @@ function commandPort(db: DatabaseSync, now: () => string): FolderCommand {
   const apps = createAppCommands();
   const releases = createReleaseCommands();
   const table: Record<string, [CommandDefinition, RequestContext]> = {
-    "app.create": [apps.create as never, userCtx],
+    "app.create": [apps.create as never, machineCtx],
     "app.connect_source": [apps.connectSource as never, machineCtx],
     "release.record": [releases.record as never, machineCtx],
   };
@@ -287,9 +291,14 @@ async function world(): Promise<World> {
     apps: () => [local],
     records: () => recordsIn(dest, B),
     progress,
-    command: () => {
-      throw new Error("A takes nothing in");
-    },
+    host: createFolderAppsHost({
+      sql: sqlOf(dbA),
+      dataRoot: rootA,
+      command: () => {
+        throw new Error("A takes nothing in");
+      },
+      random: seededRandom(3),
+    }),
     sql: sqlOf(dbA),
     clock,
     random: seededRandom(1),
@@ -301,7 +310,12 @@ async function world(): Promise<World> {
     apps: () => [],
     records: () => recordsIn(dest, A),
     progress,
-    command: commandPort(dbB, () => clock.now()),
+    host: createFolderAppsHost({
+      sql: sqlOf(dbB),
+      dataRoot: rootB,
+      command: commandPort(dbB, () => clock.now()),
+      random: seededRandom(4),
+    }),
     sql: sqlOf(dbB),
     clock,
     random: seededRandom(2),

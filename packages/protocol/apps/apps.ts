@@ -86,8 +86,8 @@ export const appCompareSchema = z.strictObject({
 });
 
 const appCreateInputSchema = z.strictObject({
-  // 미리 배정한 app ID. 사람이 고른 질문 선택지의 고정 action만 앱 ID를 먼저 정할 수 있다.
-  // 없으면 등록이 ID를 만든다. 사람 자격(user)만 쓴다.
+  // 미리 배정한 app ID. 다른 기계의 앱을 같은 id로 들이는 core 안 폴더 take-in(machine)만 쓴다.
+  // 없으면 등록이 ID를 만든다.
   id: appIdSchema.optional(),
   slug: slugSchema,
   name: appNameSchema,
@@ -100,7 +100,7 @@ const appConnectSourceInputSchema = z.strictObject({
 });
 export const appInputSchema = z.strictObject({ app: appIdSchema });
 
-// 등록은 user와 agent만 받는다.
+// 등록은 user와 agent, 그리고 다른 기계의 앱을 들이는 core 안 폴더 take-in(machine)만 받는다.
 export const appCreate = defineCommand({
   resource: "apps",
   method: "create",
@@ -109,7 +109,7 @@ export const appCreate = defineCommand({
   input: appCreateInputSchema,
   output: appSchema,
   compare: z.strictObject({}),
-  actors: ["user", "agent"],
+  actors: ["user", "agent", "machine"],
   errors: ["forbidden", "invalid_input", "not_found", "conflict"],
 });
 // source 연결은 user, 그 앱 workspace의 agent, core가 새 앱의 source를 이을 때 machine만 받는다.

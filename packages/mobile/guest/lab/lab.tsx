@@ -1,14 +1,19 @@
 // The guest runtime lab: a development app (a build with EXPO_PUBLIC_LOPHN_GUEST_LAB=1 opens it instead of the phone
 // app; metro.config.js swaps App.tsx) that runs the fixture screens (guest/fixtures) in GuestScreen and prints what
 // happens as plain text, read with `adb shell uiautomator dump` and screenshots. English only: it is a developer tool.
+// `local` and `local-throw` mount an app that runs on the phone: the local screen fixture with local-backend.js (or
+// throw-backend.js) and a fresh database file the lab migrates and binds, as the phone host will.
 import { Directory, File, Paths } from "expo-file-system";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import type { PhoneBackendManifest } from "../../../protocol/apps/phone-backend.ts";
 import {
+  type PhoneLocal,
   type PhoneManifest,
   phoneCanRun,
 } from "../../../protocol/apps/phone-screen.ts";
+import { ensureSyncTables, readOutbox } from "../../../protocol/apps/sync/tables.ts";
 import type { JsonValue } from "../../../protocol/base/json-values.ts";
 import {
   type AppEvent,
@@ -19,14 +24,17 @@ import {
   guestHostInfo,
 } from "../../src/apps/guest/mod.ts";
 import { pathOf } from "../../src/apps/guest/files.ts";
+import { type AppDbConnection, openHost } from "../../modules/lophn-app-db/index.ts";
 
-const FIXTURES = ["tasks", "top-throw", "raw-throw", "misbehave", "probe", "big"];
+const FIXTURES = ["tasks", "top-throw", "raw-throw", "misbehave", "probe", "big", "local", "local-backend", "throw-backend"];
 const PROBE = process.env.EXPO_PUBLIC_LOPHN_GUEST_LAB_PROBE ?? "http://10.0.2.2:8237";
 
 // A value only the host runtime has; the probe fixture looks for it.
 (globalThis as Record<string, unknown>).__lophnHostMarker = "host-only";
 
-type Slot = { key: number; fixture: string; file: string; at: number; state: string };
+// An app that runs on the phone: its backend file, what its phone/backend.json says, and its database file.
+type Local = { backend: string; local: PhoneLocal; db: string };
+type Slot = { key: number; fixture: string; file: string; at: number; state: string; local?: Local };
 
 async function extractFixtures(): Promise<string> {
   const dir = new Directory(Paths.document, "guest/lab");
@@ -52,6 +60,7 @@ export default function Lab() {
   const tasks = useRef([{ id: 1, title: "Water the plants" }]);
   const listeners = useRef(new Set<(event: AppEvent) => void>());
   const waiters = useRef(new Map<number, (state: string) => void>());
+  const databases = useRef(new Map<number, AppDbConnection>());
 
   const log = (line: string) => {
     console.log(`LAB ${line}`);
@@ -71,8 +80,15 @@ export default function Lab() {
     })();
   }, []);
 
-  const call = async (operation: string, input: JsonValue): Promise<CallOutcome> => {
+  const call = async (operation: string, input: JsonValue, slot?: Slot): Promise<CallOutcome> => {
     log(`call ${operation} ${JSON.stringify(input).slice(0, 120)}`);
+    if (operation === "lab.result") return { ok: true, value: null };
+    if (operation === "lab.first_local") {
+      const at = Number((input as { at?: unknown })?.at);
+      log(`slot ${slot?.key} first local call ${at - (slot?.at ?? at)} ms after mount`);
+      return { ok: true, value: null };
+    }
+    if (operation === "send_report") return { ok: true, value: { sent: true, via: "host" } };
     if (operation === "tasks.list") return { ok: true, value: tasks.current };
     if (operation === "tasks.add") {
       const title = String((input as { title?: unknown })?.title ?? "");
@@ -86,10 +102,27 @@ export default function Lab() {
     return { ok: false, error: { code: "not_found", message: `no operation ${operation}` } };
   };
 
-  const mount = (fixture: string, file = `${dir}/${fixture}.js`) => {
+  const mount = (fixture: string, file = `${dir}/${fixture}.js`, local?: Local) => {
     const key = next.current++;
-    setSlots((all) => [...all, { key, fixture, file, at: Date.now(), state: "mounting" }]);
+    setSlots((all) => [...all, { key, fixture, file, at: Date.now(), state: "mounting", local }]);
     return key;
+  };
+  // A fresh database file, migrated and with the sync tables, as the phone host leaves it before a mount.
+  const mountLocal = (backend: string) => {
+    const db = `${dir}/local-${Date.now()}.sqlite`;
+    const host = openHost(db);
+    host.exec(new File("asset:///guest/fixtures/local-0-1.sql").textSync());
+    ensureSyncTables(host, "phone-lab");
+    const manifest = JSON.parse(
+      new File("asset:///guest/fixtures/local-backend.json").textSync(),
+    ) as PhoneBackendManifest;
+    const local = { operations: manifest.operations, data_schema: manifest.data_schema };
+    const key = mount("local", `${dir}/local.js`, { backend: `${dir}/${backend}.js`, local, db });
+    databases.current.set(key, host);
+  };
+  const outbox = (key: number) => {
+    const host = databases.current.get(key);
+    return host ? readOutbox(host).map((row) => row.operation).join(",") : "?";
   };
   const onState = (key: number) => (state: GuestState) => {
     setSlots((all) =>
@@ -129,7 +162,10 @@ export default function Lab() {
   };
 
   const actions: [string, () => void][] = [
-    ...FIXTURES.map((name): [string, () => void] => [name, () => mount(name)]),
+    ...FIXTURES.filter((name) => !name.includes("backend")).map((name): [string, () => void] =>
+      name === "local" ? [name, () => mountLocal("local-backend")] : [name, () => mount(name)],
+    ),
+    ["local-throw", () => mountLocal("throw-backend")],
     ["two", () => {
       mount("tasks");
       mount("tasks");
@@ -138,7 +174,7 @@ export default function Lab() {
     ["missing", () => mount("missing", `${dir}/missing.js`)],
     ["unmount", () => setSlots([])],
     ["note", () => emit("note", `note at ${new Date().toISOString().slice(11, 19)}`)],
-    ...["render", "handler", "reject", "busy", "alloc"].map((name): [string, () => void] => [
+    ...["render", "handler", "reject", "busy", "alloc", "add", "refuse", "offline", "report", "list"].map((name): [string, () => void] => [
       `do:${name}`,
       () => emit("do", name),
     ]),
@@ -185,13 +221,17 @@ export default function Lab() {
                 place={{ place: "phone", params: { probe: PROBE }, workspace: null }}
                 scheme={scheme}
                 locale="en"
-                call={call}
+                call={(operation, input) => call(operation, input, slot)}
                 subscribe={(listener) => {
                   listeners.current.add(listener);
                   return () => listeners.current.delete(listener);
                 }}
                 onState={onState(slot.key)}
                 log={(line) => log(line.slice(0, 300))}
+                backendFile={slot.local?.backend}
+                local={slot.local?.local}
+                appDb={slot.local && { path: slot.local.db, record: true }}
+                onLocalChange={() => log(`slot ${slot.key} local_change, outbox ${outbox(slot.key)}`)}
               />
             </View>
           ))}

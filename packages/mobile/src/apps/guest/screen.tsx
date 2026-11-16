@@ -2,8 +2,9 @@ import SandboxReactNativeView, {
   type SandboxReactNativeViewRef,
 } from "@callstack/react-native-sandbox";
 import { useEffect, useRef, useState } from "react";
-import type { PhonePlace } from "../../../../protocol/apps/phone-screen.ts";
-import { basePath, fileExists } from "./files.ts";
+import type { PhoneLocal, PhonePlace } from "../../../../protocol/apps/phone-screen.ts";
+import { APP_DB_SUBSTITUTION, type GuestAppDbProp, useAppDbBinding } from "./app-db.ts";
+import { basePath, fileExists, wrapBackend } from "./files.ts";
 import { GUEST_MODULES } from "./modules.ts";
 import {
   type AppEvent,
@@ -30,6 +31,16 @@ export interface GuestScreenProps {
   onState: (state: GuestState) => void;
   // Why the guest failed, for the developer. Default: console.warn.
   log?: (line: string) => void;
+  // An app that runs on the phone gives these together. The guest then loads base|backend|screen and runs the app's
+  // read and write operations itself; external ones still come to `call`.
+  // Absolute path of the app's backend.js, downloaded and checked against its manifest hash.
+  backendFile?: string;
+  // The release's operation effects and data schema (its phone/backend.json).
+  local?: PhoneLocal;
+  // The app's database file, bound to this guest while it is mounted.
+  appDb?: GuestAppDbProp;
+  // A local call committed a change; it is in the outbox.
+  onLocalChange?: () => void;
 }
 
 // One user app phone screen in its own React Native runtime. It starts on mount and is destroyed on unmount (no idle
@@ -46,15 +57,32 @@ export function GuestScreen(props: GuestScreenProps) {
   const [origin] = useState(
     () => `${props.view}:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
   );
-  const [files] = useState(() => [basePath(), props.screenFile]);
+  const dbReady = useAppDbBinding(origin, props.appDb);
+  const [base] = useState(basePath);
+  const [files] = useState(() =>
+    props.backendFile === undefined
+      ? [base, props.screenFile]
+      : [base, props.backendFile, props.screenFile],
+  );
   // A missing script file ends the whole app inside the loader, so it is checked before the runtime starts.
   const [present] = useState(() => files.every(fileExists));
+  const [scripts] = useState(() =>
+    present && props.backendFile !== undefined
+      ? [base, wrapBackend(props.backendFile, origin), props.screenFile]
+      : files,
+  );
   const [session] = useState(() =>
     createGuestSession({
-      init: { place: props.place, scheme: props.scheme, locale: props.locale },
+      init: {
+        place: props.place,
+        scheme: props.scheme,
+        locale: props.locale,
+        local: props.local ?? null,
+      },
       call: (operation, input) => latest.current.call(operation, input),
       post: (message) => ref.current?.postMessage(message),
       onState: (state) => latest.current.onState(state),
+      onLocalChange: () => latest.current.onLocalChange?.(),
       log: (line) => say(line),
     }),
   );
@@ -82,14 +110,15 @@ export function GuestScreen(props: GuestScreenProps) {
     session.appearance(props.scheme);
   }, [props.scheme, session]);
 
-  if (!present) return null;
+  if (!present || !dbReady) return null;
   return (
     <SandboxReactNativeView
       ref={ref}
       origin={origin}
       componentName="Screen"
-      jsBundleSource={files.join("|")}
+      jsBundleSource={scripts.join("|")}
       allowedTurboModules={GUEST_MODULES}
+      turboModuleSubstitutions={props.appDb ? APP_DB_SUBSTITUTION : undefined}
       onMessage={session.receive}
       onError={session.error}
       style={{ flex: 1 }}

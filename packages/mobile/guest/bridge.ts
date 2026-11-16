@@ -1,6 +1,7 @@
 // Guest side of the bridge over the sandbox's globalThis.postMessage / setOnMessage. The host is trusted: its messages
 // are read as they come. `lophnApp` is the same shape as the desktop's (PhoneLophnApp) so @lophn/app-ui-native's hooks
-// run unchanged.
+// run unchanged. For an app that runs on the phone (`init.local`), read and write operations go to the local runner
+// (src/apps/guest/local-call.ts) instead of the host.
 import {
   PHONE_CALL_INPUT_MAX_BYTES,
   type PhoneGuestMessage,
@@ -9,6 +10,9 @@ import {
 } from "../../protocol/apps/phone-screen.ts";
 
 type Init = Extract<PhoneHostMessage, { type: "init" }>;
+
+// Runs one read or write operation in this guest. Fails with `"<code>: <message>"` like a host call.
+export type LocalRun = (operation: string, input: unknown) => Promise<unknown>;
 
 const sandbox = globalThis as unknown as {
   postMessage: (message: PhoneGuestMessage) => void;
@@ -21,6 +25,10 @@ export interface Bridge {
   fatal(error: unknown): void;
   // Called on every init and appearance message; `init` is the last init.
   watch(listener: (init: Init) => void): () => void;
+  // The last init; undefined before the first.
+  init(): Init | undefined;
+  // Set once by the base when this guest has the app's database.
+  runLocal(run: LocalRun): void;
 }
 
 const describe = (error: unknown) =>
@@ -31,10 +39,17 @@ export function installBridge(): Bridge {
   const subscribers = new Set<{ source: string; event: string; listener: (payload: unknown) => void }>();
   const watchers = new Set<(init: Init) => void>();
   let last: Init | undefined;
+  let local: LocalRun | undefined;
+  let started!: (init: Init) => void;
+  // Where a call goes depends on `init.local`; a screen draws only after init, so a call rarely waits here.
+  const first = new Promise<Init>((resolve) => {
+    started = resolve;
+  });
   let nextId = 1;
   const send = (message: PhoneGuestMessage) => sandbox.postMessage(message);
   const update = (init: Init) => {
     last = init;
+    started(init);
     if (sandbox.lophnApp) sandbox.lophnApp.place = init.place;
     for (const watcher of watchers) watcher(init);
   };
@@ -76,10 +91,18 @@ export function installBridge(): Bridge {
       if (new TextEncoder().encode(text).byteLength > PHONE_CALL_INPUT_MAX_BYTES) {
         return Promise.reject(new Error("invalid_input: call input is over 64 KiB"));
       }
-      const id = nextId++;
-      return new Promise((resolve, reject) => {
-        pending.set(id, { resolve, reject });
-        send({ type: "call", id, operation, input: JSON.parse(text) });
+      const json = JSON.parse(text);
+      return first.then((init) => {
+        const effect = init.local?.operations[operation];
+        if (effect === "read" || effect === "write") {
+          if (!local) return Promise.reject(new Error("unavailable: this screen has no app database"));
+          return local(operation, json);
+        }
+        const id = nextId++;
+        return new Promise((resolve, reject) => {
+          pending.set(id, { resolve, reject });
+          send({ type: "call", id, operation, input: json });
+        });
       });
     },
     events: {
@@ -102,6 +125,10 @@ export function installBridge(): Bridge {
       return () => {
         watchers.delete(listener);
       };
+    },
+    init: () => last,
+    runLocal(run) {
+      local = run;
     },
   };
 }

@@ -1,0 +1,57 @@
+// The lab's backend: tests/support/app/local (one table, list_items, add_item, send_report) with this file in place of
+// its src/handlers.ts. Two more operations for the lab's checks: refuse_item changes a row, then refuses; try_offline
+// tries every way to the computer a backend has (global fetch, @lophn/cap-net, the broker) and returns what each said.
+// `.tmpl` keeps the phone app's typecheck out of it: it is app code, built by guest/build-fixtures.ts.
+import { createNetClient } from "@lophn/cap-net";
+import { newId, openStore } from "@lophn/cap-store";
+import { connectCommands, HandlerRejection, handle } from "@lophn/cap-tool";
+
+const add = (title: string) => {
+  const id = newId("item");
+  openStore()
+    .db.prepare("insert into item (id, title, created_at) values (?, ?, ?)")
+    .run(id, title, new Date().toISOString());
+  return id;
+};
+
+handle("list_items", () =>
+  openStore()
+    .db.prepare("select id, title from item order by created_at, id")
+    .all(),
+);
+
+handle("add_item", (input) => ({
+  id: add(String((input as { title?: unknown } | null)?.title ?? "")),
+}));
+
+handle("send_report", () => ({ sent: true }));
+
+handle("refuse_item", () => {
+  add("refused but kept");
+  throw new HandlerRejection("conflict", "the list is full");
+});
+
+const codeOf = (thrown: unknown) =>
+  String((thrown as { code?: unknown }).code ?? (thrown as Error).message);
+
+handle("try_offline", async () => {
+  const seen: Record<string, string> = {};
+  try {
+    await fetch("http://10.0.2.2:8237/backend-fetch");
+    seen.fetch = "reached";
+  } catch (thrown) {
+    seen.fetch = codeOf(thrown);
+  }
+  try {
+    await createNetClient().fetch(
+      { host: "10.0.2.2", port: 8237, path: "/backend-net" },
+      { retries: 0 },
+    );
+    seen.net = "reached";
+  } catch (thrown) {
+    seen.net = codeOf(thrown);
+  }
+  const called = await connectCommands("other", ["ping"]).call("ping", {});
+  seen.broker = called.ok ? called.value.outcome.status : called.error.code;
+  return seen;
+});

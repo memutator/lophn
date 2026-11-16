@@ -1,4 +1,5 @@
 // The guest runtime: a user app's phone screen in its own React Native runtime inside the phone app (Android).
+export type { GuestAppDbProp } from "./app-db.ts";
 export { ensureBase } from "./files.ts";
 export { guestHostInfo } from "./host-info.ts";
 export {

@@ -1,8 +1,10 @@
 // The host half of one guest screen, without React Native: reads guest messages, answers `ready` with `init`, forwards
-// calls and app events, and decides the guest's state. Who the guest is comes from the host (the `call` it was given is
-// already bound to the host's view); nothing a message says about an app, release or view is read.
+// calls and app events, passes on `local_change`, and decides the guest's state. Who the guest is comes from the host
+// (the `call` it was given is already bound to the host's view); nothing a message says about an app, release or view
+// is read.
 import {
   type PhoneHostMessage,
+  type PhoneLocal,
   type PhonePlace,
   parsePhoneGuestMessage,
 } from "../../../../protocol/apps/phone-screen.ts";
@@ -27,6 +29,8 @@ export type GuestInit = {
   place: PhonePlace;
   scheme: "light" | "dark";
   locale: string;
+  // The app's backend runs in this guest (an app that runs on the phone); null sends every call to the host.
+  local: PhoneLocal | null;
 };
 
 // What the guest runtime reports through the view's onError. The patched sandbox names a failure of the runtime itself
@@ -50,6 +54,8 @@ export function createGuestSession(options: {
   call: GuestCall;
   post: (message: PhoneHostMessage) => void;
   onState: (state: GuestState) => void;
+  // A local call in the guest committed a change (it is in the outbox).
+  onLocalChange: () => void;
   // A line for the developer when the guest fails (its fatal message, a runtime error).
   log: (line: string) => void;
 }): GuestSession {
@@ -88,6 +94,9 @@ export function createGuestSession(options: {
                 },
               }),
           );
+          return;
+        case "local_change":
+          options.onLocalChange();
           return;
         case "fatal":
           options.log(`fatal: ${message.message}`);

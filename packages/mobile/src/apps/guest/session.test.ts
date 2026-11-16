@@ -12,6 +12,7 @@ const init = {
   place: { place: "phone" as const, params: {}, workspace: null },
   scheme: "light" as const,
   locale: "en",
+  local: null,
 };
 
 function setup() {
@@ -27,6 +28,7 @@ function setup() {
     },
     post: (message) => posted.push(message),
     onState: (state) => states.push(state),
+    onLocalChange: () => {},
     log: () => {},
   });
   return { session, posted, states, sent };

@@ -24,8 +24,9 @@ export const PHONE_HOST_MODULES = [
   "@lophn/app-ui-native",
 ] as const;
 
-// base bundle의 약속(전역 이름, 메시지)이 바뀔 때 올린다.
-export const PHONE_BASE_FORMAT = 1;
+// base bundle의 약속(전역 이름, 메시지)이 바뀔 때 올린다. 2: 폰에서 도는 앱의 backend를 base 뒤에 싣는다(`init`의
+// `local`, `local_change`). 1로 지은 화면은 2인 폰에서 그대로 돈다(`phoneCanRun`은 화면의 base가 폰보다 클 때만 막는다).
+export const PHONE_BASE_FORMAT = 2;
 
 // guest의 base bundle이 내는 전역 이름이다. 화면 bundle의 진입은 `__lophnMount(Screen)`을 부르고 평가 전체를
 // `try{…}catch(e){__lophnFatal(e)}`로 감싼다(평가 중 예외는 host process를 죽인다).
@@ -121,8 +122,10 @@ export const phoneGuestMessageSchema = z.discriminatedUnion("type", [
     operation: z.string(),
     input: callInputSchema,
   }),
-  // guest의 root가 잡은 오류나 화면 bundle 평가 중의 오류(`__lophnFatal`)
+  // guest의 root가 잡은 오류나 화면·backend bundle 평가 중의 오류(`__lophnFatal`)
   z.strictObject({ type: z.literal("fatal"), message: z.string().max(2000) }),
+  // guest 안의 local 호출이 앱 data의 변경을 commit했다. 변경은 그 transaction에서 outbox에 남았으므로 싣지 않는다.
+  z.strictObject({ type: z.literal("local_change") }),
 ]);
 export type PhoneGuestMessage = z.infer<typeof phoneGuestMessageSchema>;
 
@@ -143,6 +146,15 @@ const phonePlaceSchema = z.strictObject({
 });
 export type PhonePlace = z.infer<typeof phonePlaceSchema>;
 
+// 폰에서 도는 앱(`runs_on`에 phone)의 backend 정보다. 값은 그 release의 `phone/backend.json`에서 온다. guest는
+// effect가 read·write인 operation을 자기 안에서 돌리고 external은 host로 보낸다. `data_schema`는 host가 mount 전에
+// 맞춰 둔 schema 번호다(backend의 `store.migrate()`가 보는 target).
+export const phoneLocalSchema = z.strictObject({
+  operations: z.record(z.string(), z.enum(["read", "write", "external"])),
+  data_schema: z.number().int().nonnegative(),
+});
+export type PhoneLocal = z.infer<typeof phoneLocalSchema>;
+
 // host -> guest
 export const phoneHostMessageSchema = z.discriminatedUnion("type", [
   // guest의 root는 이것을 받을 때까지 화면을 그리지 않는다(`lophnApp.place`가 첫 render 전에 서 있어야 한다).
@@ -151,6 +163,8 @@ export const phoneHostMessageSchema = z.discriminatedUnion("type", [
     place: phonePlaceSchema,
     scheme: schemeSchema,
     locale: z.string(),
+    // 폰에서 도는 앱이면 값, 아니면 null(모든 호출이 host로 간다).
+    local: phoneLocalSchema.nullable(),
   }),
   // `app_views/call`의 outcome 그대로다. 앱 오류 code는 일곱 code가 아니라 그대로 간다.
   z.strictObject({
@@ -175,8 +189,10 @@ export const phoneHostMessageSchema = z.discriminatedUnion("type", [
 ]);
 export type PhoneHostMessage = z.infer<typeof phoneHostMessageSchema>;
 
-// guest가 만드는 `globalThis.lophnApp`의 모양이다. `callOperation`은 실패를 `"<code>: <message>"` Error로
-// reject한다(desktop의 `lophnApp`과 같고 `@lophn/app-ui`의 use-operation이 기댄다). commands, setTabHead,
+// guest가 만드는 `globalThis.lophnApp`의 모양이다. `callOperation`은 `init.local`이 effect를 read·write로 적은
+// operation을 guest 안의 backend로 돌리고(호출 하나가 transaction 하나) 나머지는 host로 `call`을 보낸다. 실패는
+// `"<code>: <message>"` Error로 reject한다(desktop의 `lophnApp`과 같고 `@lophn/app-ui`의 use-operation이 기댄다.
+// local 호출에서 `HandlerRejection`은 그 code, 그 밖의 throw는 `internal`). commands, setTabHead,
 // setKeepAlive, agent, sessions, agents, projects, openExternal은 없다.
 export type PhoneLophnApp = {
   place: PhonePlace;

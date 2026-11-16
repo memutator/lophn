@@ -45,7 +45,7 @@ If the app should run on the phone too (or only there), or when you build such a
 @@ -26 +26 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
 -`app_connections`, `sdk_dependencies`와 선택 칸 `icon`, `skills`, `keys`, `events`, `subscriptions`, `widgets`만 있다. 알 수 없는 칸은 거절한다.
 +`app_connections`, `sdk_dependencies`와 선택 칸 `icon`, `skills`, `keys`, `events`, `subscriptions`, `widgets`, `runs_on`만 있다. 알 수 없는 칸은 거절한다.
-@@ -107,0 +108,9 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
+@@ -108,0 +109,9 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
 +- `runs_on` — 앱의 backend와 data가 어디서 도는가. 셋 중 하나다: `["computer"]`(remote. 컴퓨터에서만 돈다),
 +  `["computer","phone"]`(sync. 컴퓨터가 정본이고 폰에도 data 복사본과 backend가 있다), `["phone"]`(standalone.
 +  폰에서만 돈다). 칸이 없으면 `["computer"]`와 같고 칸이 없는 옛 선언의 hash는 그대로다. 다른 값과 다른 순서는
@@ -56,11 +56,16 @@ If the app should run on the phone too (or only there), or when you build such a
 +  (release 준비가 거절한다), 컴퓨터 전용 일(network, secret, 알림, event 발행, agent)은 `external` operation에 둔다.
 +  `external`은 컴퓨터에 닿지 않으면 `unavailable`이다. 규칙 전부는 `design-app` skill의 bundled file `phone-apps.md`("Apps that run on the phone")다.
 # design-app skill, SKILL.md
-@@ -299,0 +300,4 @@ tell the person.
-+When the app's backend and data also run on the phone (`runs_on`), read the
-+bundled file `phone-apps.md` with `skill.read({ name: "design-app", path:
-+"phone-apps.md" })` first.
-+
+@@ -300,5 +300,4 @@ tell the person.
+-## Widgets and phone location
+-
+-When the app should show a value on the person's phone home screen (`widgets`)
+-or read their location from the phone (`phone.use`), read the bundled file with
+-`skill.read({ name: "design-app", path: "phone-features.md" })` first.
++For home screen widgets (`widgets`) and phone location (`phone.use`), first read
++the bundled `phone-features.md`; when the app's backend and data also run on the
++phone (`runs_on`), first read `phone-apps.md`. Read each with
++`skill.read({ name: "design-app", path: "<file>" })`.
 # AGENTS.md of a new app
 @@ -69,0 +70,4 @@ Package를 쓴다.
 +  `runs_on`은 앱의 backend와 data가 어디서 도는가다. 없으면 컴퓨터에서만 돌고(`["computer"]`),

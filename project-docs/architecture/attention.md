@@ -27,8 +27,8 @@ terminal_sessions/signal ─▶ 계기 ─┬▶ unseen(서고 꺼질 때 StateC
                                   └▶ 기기마다 알릴지 정하기 ─▶ 글 만들기 ─▶ Expo Push ─▶ 폰
 ```
 
-- **presence.** host가 core에 알리는 지금의 모습이다: 창이나 앱이 앞에 있는지(`focused`), desktop만 마지막 입력 뒤 지난 시간(`idle_ms`, OS가 아는 시간), 보이는 session 참조(`looking`, `ses_…`이고 터미널은 `term:<탭>`, 32개까지). 누가 보고했는지는 입력이 아니라 자격이 정한다(폰은 `device:<id>`, shell main은 사람 자격). 메모리뿐이고 표가 없다. desktop은 focus나 보이는 것이 바뀔 때, 30초마다, core에 다시 붙을 때 보낸다. 폰은 앱이 앞뒤로 갈 때, session 화면이 열리고 닫힐 때, 앞에 있는 동안 30초마다 보낸다. 기기가 마지막 연결을 닫거나 끊기면 그 기기의 보고를 잊는다.
-- **앞에 있다.** 폰은 앱이 앞에 있을 때다. desktop은 창에 focus가 있고 마지막 입력 뒤 2분이 지나지 않았을 때다(idle을 모르면 지나지 않은 것으로 본다). 90초 넘게 보고가 없는 host는 앞에 없다.
+- **presence.** host가 core에 알리는 지금의 모습이다: 창이나 앱이 앞에 있는지(`focused`), desktop만 마지막 입력 뒤 지난 시간(`idle_ms`, OS가 아는 시간), 보이는 session 참조(`looking`, `ses_…`이고 터미널은 `term:<탭>`, 32개까지). 누가 보고했는지는 입력이 아니라 자격이 정한다(기기는 `device:<id>`, shell main은 사람 자격). 기기의 보고는 받을 때 그 기기의 kind로 폰 규칙인지 정한다. 메모리뿐이고 표가 없다. desktop은 focus나 보이는 것이 바뀔 때, 30초마다, core에 다시 붙을 때 보낸다. 폰은 앱이 앞뒤로 갈 때, session 화면이 열리고 닫힐 때, 앞에 있는 동안 30초마다 보낸다. 기기가 마지막 연결을 닫거나 끊기면 그 기기의 보고를 잊는다.
+- **앞에 있다.** kind `phone` 기기는 앱이 앞에 있을 때다. desktop(shell main과, 다른 기계의 lophn이 kind `desktop` 기기로 붙어 보고한 것)은 창에 focus가 있고 마지막 입력 뒤 2분이 지나지 않았을 때다(idle을 모르면 지나지 않은 것으로 본다). 그래서 다른 기계의 desktop 앞에 앉은 사람도 `quiet_when_present`의 "앞에 있는 desktop"이다. push는 token이 있는 기기, 곧 phone에만 간다. 90초 넘게 보고가 없는 host는 앞에 없다.
 - **unseen.** 못 본 turn 끝이다. session 참조마다 `finished`나 `failed`와 시각을 메모리에 둔다.
   - 서는 때: 완료나 실패로 끝난 turn(끊은 turn과 앱이 연 session의 turn은 뺀다)과 터미널의 끝·실패 signal. 앞에 있는 host가 그 session을 보고 있으면 서지 않는다. 승인과 질문의 대기는 unseen이 아니다(waiting 표시가 맡는다).
   - 꺼지는 때: 앞에 있는 host가 그 session을 새로 보고 있다고 알릴 때, 다음 turn이 시작할 때, session이 끝날 때, 터미널의 waiting signal이 올 때, 사람이 지울 때(`unseen/dismiss`). 터미널은 core가 turn 시작과 끝남을 모르므로 shell이 새 turn과 종료를 알려 지우게 한다.
@@ -55,7 +55,7 @@ terminal_sessions/signal ─▶ 계기 ─┬▶ unseen(서고 꺼질 때 StateC
 1. push 글에는 대화 내용, 명령, 질문 글, 마지막 답, notice의 본문, 컴퓨터 이름을 싣지 않는다. 싣는 것은 고정 문장과 session 제목, agent 이름, 앱 이름, job 이름, notice 제목뿐이고 `show_names`가 꺼져 있으면 고정 문장만이다.
 2. 사람이 보고 있는 기기에는 알리지 않는다: 앞에 있는 폰에는 그 폰에 보내지 않고, 앞에 있는 desktop이 있고 `quiet_when_present`이면 그 폰에 보내지 않는다.
 3. 90초 넘게 보고가 없는 host는 앞에 없다. 죽은 desktop이 push를 영원히 막지 않는다. 기기가 마지막 연결을 닫으면 그 기기의 보고를 잊어 연결이 끊긴 폰이 앞에 있는 것으로 남지 않는다.
-4. 누가 보고했는지는 자격이 정한다. 폰은 자기 이름으로만 보고하고 `terminal_sessions/signal`은 사람 자격(shell main)만 부른다.
+4. 누가 보고했는지와 어느 규칙(폰, desktop)을 따르는지는 자격과 그 기기의 kind가 정한다. 입력으로 고르지 못한다. 폰은 자기 이름으로만 보고하고 `terminal_sessions/signal`은 사람 자격(shell main)만 부른다.
 5. `unseen`의 정본은 core 하나이고, 서는 때와 꺼지는 때의 규칙은 한 곳에 있다. desktop은 읽고 지우기만 한다.
 6. 개발과 test는 실제 Expo endpoint를 부르지 않는다. `remote.push`가 가리키는 곳만 부르고, 그 설정은 locked라 사람만 바꾼다. 개발 core는 fake push server를 가리키고 test용 core는 비워 push를 끈다.
 7. push는 기록이 아니다. 못 보낸 글은 다시 보내지 않고 버린다(일시 오류의 재시도 셋만 빼고). 놓친 것은 Inbox가 기록으로 남긴다.
@@ -81,6 +81,7 @@ terminal_sessions/signal ─▶ 계기 ─┬▶ unseen(서고 꺼질 때 StateC
 - session 제목을 싣는 것이 기본이고(`show_names`) 스위치 부제에 제목이 Expo와 Google을 지난다고 쓴다. 이유: 제목은 대화에서 나온 글이라 사람이 알고 고르게 한다. 컴퓨터 이름은 싣지 않는다(QR에 이름이 없다). (agent)
 - Expo의 "enhanced push security"(access token)를 켜지 않는다. 이유: 열린 build에 token을 실을 수 없다. 대가: 폰의 push token을 아는 사람은 그 폰에 push를 보낼 수 있다. token은 사용자의 core와 Expo에만 있어 받아들인다. (agent)
 - desktop 화면 안 앱 화면(`view_session`)은 `looking`에 싣지 않는다. 이유: 앱이 연 session의 끝은 `unseen`을 세우지 않는다. (agent)
+- 기기의 보고는 principal 꼴(`device:`)이 아니라 기기 kind로 폰 규칙과 desktop 규칙을 가른다. 이유: 다른 기계의 desktop도 기기로 붙어 보고하고, 그 사람은 화면 앞에 앉아 있어 desktop처럼 idle 한도를 따라야 한다. kind는 바뀌지 않으므로 보고를 받을 때 한 번 정한다. (planner)
 
 ## 열린 것
 

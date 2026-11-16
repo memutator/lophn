@@ -125,7 +125,7 @@ modules:
 
   - path: packages/core/machine
     boundary: machine
-    notes: machine.json의 유일한 주인. 다른 module은 `ctx.machine`이나 `readMachineId`로만 읽는다.
+    notes: machine.json의 유일한 주인. core 안에서는 `ctx.machine`, wiring 밖(data step, app supervisor)은 `readMachineId`·`readMachineIdSync`로만 읽는다. OS 기계 값은 binding을 만드는 데만 쓰고 남기지 않는다.
 
   - path: packages/core/remote
     boundary: remote

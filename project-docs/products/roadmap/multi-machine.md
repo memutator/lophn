@@ -181,7 +181,7 @@
 
 서로 기대지 않는 두 줄과 그 앞의 작은 바탕이다.
 
-0. **바탕**: 기계 id와 이름(폰에 이름이 주소 대신 보인다), 복제된 data root 알아채기(추천: 새 기계로 다룬다), 붙기 전에 판·capability·id를 알려 주는 공개 상태. 지금 폰 remote에도 바로 쓰인다.
+0. ~~**바탕**: 기계 id와 이름(폰에 이름이 주소 대신 보인다), 복제된 data root 알아채기(추천: 새 기계로 다룬다), 붙기 전에 판·capability·id를 알려 주는 공개 상태. 지금 폰 remote에도 바로 쓰인다.~~ 계획 `machine-identity`로 했다(`architecture/machine.md`, change-log `machine-identity`).
 1. **줄 1, 다른 기계 보기**: desktop이 다른 기계의 core에 기기로 pairing해 연다. 기계 고르기, 보는 쪽마다의 기본 기계.
 2. **줄 2, 앱 data 맞추기**: 변경을 폴더로 내놓고 읽어 들이기, 앱 선언의 정책, agent가 읽는 환경 정보와 폴더 옮기기 지침. 앱 release와 source를 폴더로.
 3. **project 신분**: 저장소 안 file, 두 겹 id, "이 기계에는 없음" 상태.

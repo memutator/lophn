@@ -42,6 +42,7 @@
 - **hub와 sync log.** 컴퓨터는 앱마다 순서 있는 sync log(ledger 표 `app_sync_log`)를 쥐고 폰은 자기 cursor(받은 마지막 번호)를 쥔다. core는 기기마다의 상태를 두지 않는다. log의 한 줄은 컴퓨터의 write, 폰에서 온 변경, rewind, 또는 "다시 snapshot"이고, changeset은 invocation이 이미 쥔 blob을 가리킨다. 다른 기기에는 원래 changeset과 그 clock을 보낸다(적용한 뒤의 실제 변경(effective)만 보내면 값이 같은 update가 clock만 움직이고 사라져 다른 폰의 clock이 어긋난다).
 - **폰의 write가 컴퓨터에서 invocation이 되는 길.** `app_sync/push`는 폰의 변경을 256개·10 MiB 안에서 차례로 보낸다(변경 하나는 8 MiB 이하). 받은 컴퓨터는 앱의 write 줄을 잡고 invocation 하나를 연다: operation 이름과 시작 시각은 폰의 값, caller는 `{kind: person, view_session: <폰의 변경 id>, device: <기기 id>}`, effect는 `write`. 앱 process가 변경을 칸 단위 규칙으로 적용하며 실제로 바뀐 것(effective changeset)을 뜨고, 그것이 invocation의 changeset이 되어 Activity와 rewind가 덮는다. 같은 기기의 같은 변경 id는 한 번만 적용된다(`duplicate`). 제약에 걸려 건너뛴 변경은 `skipped`로 답하고 폰이 outbox에서 지운다. 컴퓨터는 log에 줄을 쓰고 `AppSyncChanged`를 낸다.
 - **폰의 sync.** 폰 host가 한다. push는 clock이 없는 outbox 줄에 clock을 commit 순서로 찍고(write는 outbox 줄과 같이 commit되고 clock은 나중에 찍힌다) 컴퓨터가 답한 줄만 outbox에서 지운다. pull은 cursor 뒤를 받아 묶음마다 transaction 하나에서 "찍기, 적용, cursor 올리기"를 하고 도중에 실패하면 cursor가 그대로다. 들어온 변경은 guest 호출 사이에만 적용된다(`busy_timeout`). 계기는 local 변경, 연결됨, `AppSyncChanged`, 목록 읽기다. 폰 앱이 앞에 있고 그 컴퓨터에 닿은 동안만 돈다.
+- **컴퓨터 node의 기계 표지.** 컴퓨터의 sync 앱 DB는 `lophn_sync_state`에 node를 처음 적은 기계의 id(key `machine`)를 같이 둔다. 앱 process가 열 때 표지가 지금 기계 id와 다르면(다른 기계에서 복사된 data root, `machine.md`) node를 새것으로 바꾸고 표지를 고친다. data, row·칸 clock, log는 그대로다. 표지가 없으면 이 판 전에 이 기계에서 만든 DB라 지금 id를 적고 node를 지킨다. 두 기계가 같은 node로 clock을 찍으면 서로의 변경을 같은 replica의 것으로 보기 때문이다. 폰은 이 key를 쓰지 않는다(폰의 node는 기기 id다).
 - **컴퓨터의 write.** sync 앱의 컴퓨터 write는 호출이 끝난 뒤 같은 write 줄 안에서 log에 줄을 쓴다(그래서 log의 순서가 DB에 적용된 순서다). 앱이 뜨며 한 write는 ready 통보에 실어 log에 남긴다. changeset이 너무 크거나 결과를 알 수 없는 변경은 보낼 수 없으니 "다시 snapshot" 줄을 남기고, 그 줄에 닿은 폰은 새 snapshot을 받는다. core가 앱의 commit과 log 줄 사이에서 죽었으면 core가 뜰 때 같은 줄로 메운다.
 - **rewind.** sync 앱의 rewind는 effective changeset과 새 clock을 log에 `rewind` 줄로 남겨 폰이 받는다. 새 clock이 앞선 것보다 새로워 폰이 받아 간 변경 위에서 이긴다. rewind 범위에는 폰에서 온 invocation도 다른 live write처럼 든다.
 - **처음 설치와 snapshot.** 폰은 `app_sync/snapshot`으로 컴퓨터 DB의 사본을 받는다(core가 write 줄을 쥔 채 앱 process가 `VACUUM INTO`로 떠서 사본이 log의 그 번호까지의 변경을 담는다). `app_sync/snapshot_file`로 8 MiB씩 읽고 크기와 sha256을 disk에서 확인한 뒤에 연다. core는 DB를 열지 않고 byte만 흘린다. snapshot은 10분 뒤 만료되고 다 읽히면 지워진다. standalone 앱은 snapshot 없이 빈 DB에 release의 migration을 올린다.
@@ -66,13 +67,14 @@
 8. 폰에서 도는 backend는 release 검사를 통과한 code뿐이다: Node 내장 import, 선언과 다른 handler 집합, 정수 PK·AUTOINCREMENT·trigger·PK 밖의 UNIQUE와 CHECK, 폰 entry가 없는 SDK 판이 없다. 준비는 앱 code를 core process 안에서 돌리지 않는다.
 9. 폰이 받는 backend file은 그 release의 manifest가 적은 것뿐이고 크기와 sha256이 맞아야 쓴다. 폰 gate에서 push와 snapshot은 짝지은 기기만 받는다.
 10. 같은 기기의 같은 변경 id는 한 번만 적용된다(다시 보내도 중복되지 않는다). outbox 줄은 컴퓨터가 답한 것만 지운다.
+11. 다른 기계에서 온 컴퓨터 sync DB는 같은 node로 clock을 찍지 않는다. node만 바꾸고 data와 clock 표는 그대로 둔다.
 
 ## 경계와 계약
 
 - boundary `app-sync`(sync log, 폰의 push·pull·snapshot, 칸 단위 규칙의 sync core), `app-releases`(폰 backend build와 검사, manifest), `app-runtime`(앱 process의 sync 일), `remote-protocol`(폰 gate), `mobile`(폰 host의 설치와 sync, guest의 backend, native SQLite module), `sdk`·`sdk-api`(선언 `runs_on`과 SDK 판).
 - 선언: `runs_on`(`@lophn/declaration` 4.8.0, 없는 옛 선언은 그대로 읽히고 hash도 같다). SDK: `@lophn/cap-store` 2.0.0(`StoreDb`, 인자 없는 `migrate()`, `newId()`, `transaction()`은 SAVEPOINT), `@lophn/cap-tool` 2.2.0, `@lophn/cap-problem` 1.1.0(Node 내장을 폰 entry 뒤로 옮김). 앱 SDK의 판과 지원 하한은 `package.md`다.
 - route: `app_sync/push`(memory, 오류 `invalid_input`·`not_found`·`forbidden`·`conflict`·`unavailable`), `app_sync/pull`(read, 오류 `invalid_input`·`not_found`·`forbidden`·`unavailable`. 출력의 `snapshot_needed`는 활성이 아닌 release와 "다시 snapshot" 줄이 뜻한다), `app_sync/snapshot`(memory), `app_sync/snapshot_file`(file), `apps/phone_file`(file, 활성 release의 manifest가 적은 file만, 그 밖은 `not_found`), `apps/phone_screens`의 항목에 `runs_on`과 `backend`(manifest) 칸. event `AppSyncChanged`(남지 않음, `{release, seq}`).
-- 저장: ledger 표 `app_sync_log`(schema step `apps.sync-log`. 앱마다 번호, release, 종류 `change`·`skipped`·`snapshot`, 출처 `computer`·`device`·`rewind`, 기기와 변경 id, clock, changeset hash와 크기, invocation). person caller의 `device`. 앱 DB의 숨은 표 `lophn_sync_row`, `lophn_sync_col`, `lophn_sync_state`(node, 마지막 clock, cursor, release), `lophn_sync_outbox`(폰에서만). cap-store의 session은 `lophn_` 표를 담지 않아 clock이 changeset과 rewind로 퍼지지 않는다. 폰 data는 폰 앱의 `files/apps/` 아래다.
+- 저장: ledger 표 `app_sync_log`(schema step `apps.sync-log`. 앱마다 번호, release, 종류 `change`·`skipped`·`snapshot`, 출처 `computer`·`device`·`rewind`, 기기와 변경 id, clock, changeset hash와 크기, invocation). person caller의 `device`. 앱 DB의 숨은 표 `lophn_sync_row`, `lophn_sync_col`, `lophn_sync_state`(node, 마지막 clock, cursor, release, 컴퓨터는 node를 적은 기계 id `machine`), `lophn_sync_outbox`(폰에서만). cap-store의 session은 `lophn_` 표를 담지 않아 clock이 changeset과 rewind로 퍼지지 않는다. 폰 data는 폰 앱의 `files/apps/` 아래다.
 - 계약 상수와 codec: sync core는 컴퓨터의 app runtime과 폰 host가 같은 module을 쓴다(IO는 driver 하나로만 하고 Node와 Hermes에서 같이 돈다). 폰 backend의 host prelude는 release 준비의 load 검사와 폰의 guest base가 같은 것을 쓴다.
 
 ## 결정
@@ -90,6 +92,7 @@
 - standalone 앱은 폰에서만 돈다. data를 backup하지 않고 컴퓨터는 그 DB와 맞추지 않으며 폰이 "Only on this phone · not backed up"을 말한다. 이유: roadmap이 사람의 앱은 사람의 기기에 있다고 정했고, backup을 만들려면 sync와 다른 길이 하나 더 든다. 폰 data가 지워지면 되살릴 곳이 없다는 것을 앱 agent가 사람에게 말한다(지침). (planner)
 - 폰 backend bundle은 plain JS이고 core는 Hermes bytecode를 만들지 않는다. 이유: 실제 크기 backend(약 20 KB)는 release build에서 mount부터 첫 호출까지 55–139 ms였다. 200 KB의 plain JS는 machine 부하 아래에서 372–535 ms로 300 ms를 넘었고 같은 크기의 bytecode는 83–129 ms였다. 그래서 backend가 크게 나와 느리면 bytecode가 fallback이다(폰 앱의 Hermes와 맞는 `hermesc`를 core가 들어야 한다). (planner, spike)
 - sync 앱의 read와 write는 컴퓨터가 닿아도 폰에서 돌고, 컴퓨터에 닿을 때만 맞춘다. external이 가는 길은 컴퓨터의 기존 view 표다. 이유: 한 길로 두어 online과 offline이 같고 전환 경합이 없다. (planner)
+- 컴퓨터 sync DB의 node에 만든 기계의 id를 표지로 찍고, 다르면 앱 process가 열 때 node를 새로 받는다. 이유: 복제 판정이 앱 DB를 열 수 없고(앱 process만 연다) 소비자 목록을 몰라도 각 상태가 스스로 맞춘다. 앱 DB는 data step으로 옮길 수 없어 표지가 없는 옛 DB는 이 기계의 것으로 본다. (planner, agent)
 - 컴퓨터가 hub이고 폰 둘은 컴퓨터를 거쳐서만 맞는다. relay는 변경을 맡지 않는다. 이유: 암호문을 relay가 맡는 것은 relay에 저장과 키 관리를 더하는 일이고, 사람이 컴퓨터를 켜 둔다는 전제로 충분하다고 보았다. 대가: 컴퓨터가 꺼진 동안 폰 둘이 같은 앱을 고치면 컴퓨터가 켜진 뒤에야 맞는다. (planner)
 
 ## 열린 것
@@ -103,4 +106,5 @@
 - sync 앱을 컴퓨터에서 띄우는 자동 검사가 없다(이슈 `no-check-starts-a-sync-app-on-the-computer`). 이 때문에 컴퓨터의 sync 노드 id가 틀린 모양이라 어떤 sync 앱도 컴퓨터에서 뜨지 못한 버그가 emulator 확인 중에야 드러났다.
 - 폰의 local 호출 문맥의 앱 id가 빈 글자다(이슈 `phone-local-call-context-has-no-app-id`). 폰에서 한 write의 앱 event는 전달되지 않는다(이슈 `phone-write-events-not-delivered`).
 - guest를 띄울 때마다 쓰는 backend 사본이 cache 폴더에 쌓이고 앱을 다시 켤 때까지 남는다(이슈 `phone-guest-backend-copies-pile-in-cache`). `backend.js.map`이 bundle에 실리지만 폰은 받지 않는다(이슈 `phone-backend-source-map-in-bundle`).
+- 이 판 전에 다른 기계로 복사한 sync DB는 표지가 없어 두 기계 모두 node를 지킨다. 두 기계가 같은 node를 쓴다(`machine.md`의 열린 것).
 - 컴퓨터는 `["phone"]` 앱도 다른 앱처럼 activation하고 process를 띄워 DB를 만든다. 그 DB는 폰과 맞추지 않고 쓰이지도 않는다. 막지는 않았다.

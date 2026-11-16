@@ -136,7 +136,7 @@ elements:
 
       - id: remote
         kind: component
-        description: pairing한 폰이 붙는 암호화된 바깥 listener, 기기 표와 pairing, 기기 자격과 route 목록, core가 폰에 일을 묻고 답을 받는 `PhoneLink`(기기의 연결 찾기, deadline, 답 거르기).
+        description: pairing한 기기(kind phone, desktop)가 붙는 암호화된 바깥 listener, 기기 표(알린 이름과 별명)와 pairing, 복사된 data root의 기기 등록 버리기, 기기 자격과 route 목록, core가 폰에 일을 묻고 답을 받는 `PhoneLink`(기기의 연결 찾기, deadline, 답 거르기).
 
       - id: attention
         kind: component
@@ -160,7 +160,7 @@ elements:
 
       - id: machine
         kind: component
-        description: 설치마다의 기계 id, 복제 판정, 컴퓨터 이름.
+        description: 설치마다의 기계 신분(`<data root>/machine.json`의 id, 사람이 지은 이름, OS 기계 값과 묶은 binding)과 기동 때의 복제 판정(복사된 data root는 새 id), 컴퓨터 자기 이름(기본 hostname)과 route `machine/status`·`machine/rename`. 기계에 묶인 상태(remote key, sync node)는 각 module이 이 id를 표지로 찍어 스스로 맞춘다.
 
       - id: diagnostics
         kind: component
@@ -279,7 +279,7 @@ interfaces:
 
   - id: remote-protocol
     kind: interface
-    description: 폰과 core 사이의 연결. Noise IK handshake, 암호화한 record, JSON frame(hello, pair, call, result, watch와 Gateway frame), 기기가 부를 수 있는 route 목록(자기 등록을 지우는 `devices/unpair`, 자기 push 설정 `devices/set_push`, 앞에 있는지 알리는 `presence/report`, project의 `project_files/list|read`, 컴퓨터의 coding agent `coding_sessions/*`와 그 터미널 화면 `terminal_view/*`, 사용자 앱의 폰 화면 `apps/phone_screens`·`apps/screen_file`·`app_views/*`와 그 event `AppViewEvent`, 위젯 값 `app_widgets/list`, 폰에서 도는 앱의 backend file `apps/phone_file`과 sync route `app_sync/*`와 그 event `AppSyncChanged` 포함), core가 폰에 묻는 frame `request`·`response`와 폰이 답하는 kind를 적는 `hello.capabilities`(kind 표 `PHONE_KINDS`(`location.get`, `drive.snapshot|act|screenshot|wait`)와 `unavailable`의 이유는 protocol의 `phone`이 정한다), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
+    description: 기기(폰, 다른 기계의 desktop)와 core 사이의 연결. Noise IK handshake, 암호화한 record, JSON frame(판 범위와 기계 id·이름을 싣는 hello, kind로 갈린 pair, call, result, watch와 Gateway frame), 기기가 부를 수 있는 route 목록(자기 등록을 지우는 `devices/unpair`, 자기 push 설정 `devices/set_push`, 앞에 있는지 알리는 `presence/report`, project의 `project_files/list|read`, 컴퓨터의 coding agent `coding_sessions/*`와 그 터미널 화면 `terminal_view/*`, 사용자 앱의 폰 화면 `apps/phone_screens`·`apps/screen_file`·`app_views/*`와 그 event `AppViewEvent`, 위젯 값 `app_widgets/list`, 폰에서 도는 앱의 backend file `apps/phone_file`과 sync route `app_sync/*`와 그 event `AppSyncChanged` 포함), core가 폰에 묻는 frame `request`·`response`와 폰이 답하는 kind를 적는 `hello.capabilities`(kind 표 `PHONE_KINDS`(`location.get`, `drive.snapshot|act|screenshot|wait`)와 `unavailable`의 이유는 protocol의 `phone`이 정한다), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
     interface_type: protocol
     defined_by: protocol
     provided_by:

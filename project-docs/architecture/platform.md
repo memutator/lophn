@@ -42,11 +42,12 @@ OS마다 다른 순수 규칙은 base의 OS 층 한 곳에 있다. base는 node 
  shell(앱 실행·--core) ─┐                    identify 답 있음 ─▶ 판 대조 ─▶ connect {client}
  CLI 사람 명령 ─────────┼─▶ ensureCore ─ control socket ─┤                     판 다름 ─▶ stop → identify 사라짐 → 새로 띄우기(한 번)
                         ┘                                └ 답 없음 ─▶ detached spawn ─▶ stdout 첫 줄 ready | start_failed
- core: instance lock ─▶ control listen(starting) ─▶ migration·API·wiring·afterReady ─▶ ready ─▶ … ─▶ stop | idle-exit | signal ─▶ 같은 shutdown barrier
+ core: instance lock ─▶ control listen(starting) ─▶ migration·기계·data step·API·wiring·afterReady ─▶ ready ─▶ … ─▶ stop | idle-exit | signal ─▶ 같은 shutdown barrier
 ```
 
 - **core는 shell의 child가 아니다.** shell과 CLI는 같은 `ensureCore`로 붙거나 띄우는 client다. IO(dial, detached spawn, Clock, timer)는 인자로 받는다. 띄운 core는 POSIX 새 session, win32 detached+`windowsHide`이고 launcher는 stdout 첫 JSON 줄(`ready` 또는 `start_failed {reason}`)만 읽고 놓는다. 그 줄에 token은 없다.
 - **control socket.** data root마다 공통 socket 자리 아래 이름 `core`로 연다. POSIX는 0700 폴더의 unix socket, win32는 data root 이름 공간의 named pipe다. 한 연결에 JSON 한 줄 요청 하나와 Result 답 하나다(계약 `core-control-protocol`). verb는 `identify`(제품 판, protocol 판, `core_epoch`, `api_url`, `starting|ready|stopping`, credential 없음), `connect {client: cli|shell}`(user token을 주고, shell이면 shell capability도), `stop`, `diagnostic`, 사람 결정 handle 등록과 창 닫기(shell capability만, `architecture/approval.md`)다. 경계는 socket 자리의 권한이고 OS peer 신원은 보지 않는다. 데이터(API)는 그대로 loopback HTTP·WebSocket이다. core의 user token은 file로 쓰지 않고 `connect`로만 준다. 같은 core에 shell과 CLI가 각자 connect하므로 core마다 user credential이 하나라는 제한은 없다.
+- **기동 순서.** 팀 조립과 route 등록을 확인한 뒤 ledger schema step을 적용하고, 그다음 기계 단계가 이 설치의 기계 신분(`machine.json`)을 정한다(`machine.md`: 처음이면 만들고, 복사된 data root면 새 기계로 바꾸고, 못 읽으면 덮지 않고 기동을 거절한다). 그 뒤에 data step, ledger 식별, 재시작 점검, wiring 조립이 온다. 기계 단계가 data step과 wiring보다 앞이라 data step(`remote.host-key.machine`)과 wiring이 지금 기계 id를 읽는다. 앱 supervisor는 이 기동이 만든 file을 읽고, 없으면 뜨지 않는다.
 - **동시 시작은 data root의 `run/instance.lock`이 가른다.** lock을 잡은 core만 socket 잔여물을 치우고 listen한다. 진 core는 살아 있는 core의 socket과 runtime file을 건드리지 않고 끝나며, ensure는 identify를 다시 물어 이긴 core에 붙는다. liveness는 "identify가 답한다"이고 pid file이나 HTTP health probe를 쓰지 않는다. 끝나는 중(`stopping`)인 core를 만나면 ready나 사라짐을 기다린다.
 - **판 대조.** identify의 제품 판이나 protocol 판이 ensure 쪽과 다르면 ensure가 `stop`을 보내 끝나기를 기다린 뒤 새로 띄운다(한 번). 돌던 run·job 차례는 종료와 같이 `interrupted`가 된다.
 - **끝나는 길은 셋이고 barrier는 하나다.** control `stop`(`lophn core stop`, tray의 `Stop lophn`, 판 교체), idle-exit, SIGINT·SIGTERM. 앱의 Quit(Cmd+Q, `--quit`, will-quit, tray의 `Quit lophn`)는 shell 자원과 연결만 정리하고 core는 남긴다. 명시 stop 뒤에는 shell이 core를 저절로 다시 띄우지 않는다(`closed(shutdown)`이나 identify `stopping`을 본 shell은 이미 도는 같은 판 core에만 다시 붙는다). 반대 방향은 하나 있다: 앱을 Quit한 뒤에도 core가 browser가 필요하면 shell을 띄운다(아래 "core가 shell을 띄운다"). core가 crash하면 core 쪽에서 다시 띄우는 감독은 없고 다음 ensure(shell 재연결, CLI 호출, autostart)가 띄운다. shell의 재연결에는 상한이 있다(아래 "core가 죽었을 때"). core가 SIGKILL돼도 child는 stdin EOF로 스스로 끝난다. `lophn core stop`은 core를 띄우지 않는다.
@@ -95,7 +96,7 @@ shell main(host)과 core는 loopback API listener에 Gateway 옆으로 열린 We
 
 ### file
 
-- **data root.** 기본은 home 아래 `.lophn`(Windows `%USERPROFILE%\.lophn`)이다. POSIX는 소유 uid와 mode(group·other 권한 없음)를 보고 아니면 기동을 거절한다. Windows는 mode·uid가 없어 보지 않고 user profile ACL을 믿는다. `secrets.json`도 같은 file이고 Windows는 0600 검사를 하지 않는다.
+- **data root.** 기본은 home 아래 `.lophn`(Windows `%USERPROFILE%\.lophn`)이다. POSIX는 소유 uid와 mode(group·other 권한 없음)를 보고 아니면 기동을 거절한다. Windows는 mode·uid가 없어 보지 않고 user profile ACL을 믿는다. `secrets.json`도 같은 file이고 Windows는 0600 검사를 하지 않는다. data root는 한 기계의 것이다. 공유 저장소(동기 폴더, network disk) 위의 data root를 두 기계가 번갈아 띄우면 기동마다 상대 기계의 기록을 복제로 판정해 새 기계 id를 만들고 기기 등록을 버린다(`machine.md`). 동기 폴더에서는 instance lock이 다른 기계의 core를 막지 못한다. 공유 저장소인지 검사하는 길은 아직 없다.
 - **봉인.** 앱 bundle 사본(`apps/<app>/bundles/<hash>/`)은 file 0444·폴더 0555로 좁힌 뒤 옆에 빈 표지 `<사본>.sealed`를 쓴다. 봉인 판정은 표지가 있는가 하나다(Windows 폴더에는 쓰기 bit가 없다). 표지 없는 사본은 끊긴 준비가 남긴 것이라 쓰기 권한을 돌려준 뒤 지우고 다시 쓰고, 못 지우면 준비가 실패한다. 옛 data root는 data step `apps.sealed-marker`가 쓰기 bit 없는 사본에 표지를 써서 옮긴다.
 - **bundle file 나눠 쓰기.** 봉인은 좁히기 전에 사본의 file을 내용 sha256으로 `<data>/bundle-files/<sha256>`과 hardlink로 잇는다. release마다 `node_modules`를 통째로 담아도 같은 byte는 디스크에 한 번만 있고, 앱 사이에도 나눠 쓴다. 0444 file이라 한 사본이 다른 사본을 바꾸지 못한다. 나눠 쓰지 못한 file(다른 fs, link 수 한도)은 사본 그대로 둔다. 표지 없는 사본을 지울 때 hardlink인 file의 mode는 건드리지 않는다(mode가 inode에 붙어 다른 사본까지 풀린다). Windows는 읽기 전용 속성이 link끼리 같이 붙어, 읽기 전용 file을 지울 때 Node가 속성을 풀면 다른 사본의 것도 풀린다. 그래서 store 쓸기가 아무도 안 쓰는 file을 지우면서 남은 file이 풀려 있으면 다시 0444로 잠그고, 사본이 지워질 수 있는 일(봉인, 앱 지우기, data step) 뒤마다 돈다. 지우기부터 다음 쓸기까지 그 file은 쓸 수 있는 채다. NTFS의 link 수 한도(1023)에 닿은 file은 사본 그대로 둔다. 옛 data root는 data step `apps.bundle-file-sharing`(POSIX)·`apps.bundle-file-sharing-win32`(Windows)가 봉인된 사본의 폴더를 잠시 열어 옮긴다.
 - **연결.** bundle과 flow host의 directory 연결은 Windows에서 junction(권한이 필요 없다), 그 밖은 symlink다. file 연결은 모든 OS에서 symlink다.
@@ -166,6 +167,7 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 17. shell의 core 재시작은 상한(60초 안에 5번)이 있고, 넘으면 시작 실패 화면에 멈춘다. Retry가 상한을 풀지 않는다.
 18. 곧 끝날 두 번째 shell process는 core를 건드리지 않는다. Quit·`Stop lophn` 뒤에는 돌던 ensure가 core를 새로 띄우지 않는다.
 19. blob의 목적 기록과 미참조 표지는 본문이 없다고 확인된 것만 지운다.
+20. 기계 단계는 data step과 wiring 조립보다 먼저 돌고, 실패하면 기동이 실패한다. 기계 id를 모르는 채 뜬 core가 없다.
 
 ## 경계와 계약
 
@@ -176,6 +178,7 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 - **launch intent.** `--core`(core만 띄우고 Electron은 끝난다), macOS는 `wasOpenedAtLogin`. `--quit`은 Quit와 같다. `--agent-window`는 core가 browser를 쓰려고 앱을 띄울 때 쓴다(focus 없는 창 하나).
 - **환경 이름.** `LOPHN_GIT_BASH`(Windows Git Bash 경로), `LOPHN_CLI`(개발 실행의 CLI launcher), `LOPHN_DAEMON_URL`, `LOPHN_LAUNCH_SHELL`(`1`이면 그 core가 browser가 필요할 때 앱을 띄울 수 있다. shell과 CLI의 core 시작이 준다).
 - **install 계약.** 설치 root 아래 `platform/`, `extensions/`, `desktop/`, `skills/`, 그리고 `bin/`의 CLI launcher.
+- **기계 기록** `<data root>/machine.json`(`machine.md`). 앱 process 시작 줄에 기계 id `machine`이 실린다.
 - **data step** `apps.sealed-marker`: 옛 data root의 봉인 사본에 표지를 쓴다. 두 번 돌아도 같고 새 data root는 처음부터 적용한 것으로 친다.
 - **data step** `apps.bundle-file-sharing`·`apps.bundle-file-sharing-win32`: 옛 data root의 봉인 사본 file을 store와 hardlink로 잇는다. 이미 이어진 file은 건너뛰어 두 번 돌아도 같다. 앞의 것은 win32가 아닐 때만, 뒤의 것은 win32일 때만 돈다. 앞의 것을 Windows를 빼고 먼저 내서, 그 판을 거친 Windows data root도 옮기려고 둘로 나눴다.
 

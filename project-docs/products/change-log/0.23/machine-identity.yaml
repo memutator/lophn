@@ -1,0 +1,58 @@
+id: machine-identity
+version: 0.23.68
+title: 설치마다 기계 id와 이름을 두고, 복사된 data root를 새 기계로 알아채고, 붙는 쪽이 자격을 보내기 전에 상대 기계를 확인한다
+modules: [packages/core/machine, packages/core/remote, packages/core/main, packages/core/apps, packages/core/attention, packages/core/storage, packages/protocol, packages/shell/main, packages/shell/renderer, packages/design, packages/mobile, tools]
+change: |
+  전: 설치에 기계 id도 이름도 없었다. 폰은 컴퓨터를 pairing한 주소로 불렀고 사람이 손으로 이름을 붙였다. 붙는 쪽은 core의 공개 key만 알아, data root를 복사하면 두 기계가 같은 key·기기 등록·push token·sync node로 답했다. hello는 판 하나와 capabilities뿐이었고 기기 표는 폰만 알았다.
+  후:
+  - "기계 기록 `<data root>/machine.json`(0600, temp에 쓰고 rename): `id`(`mch_`), `name`(사람이 지은 이름, null이면 hostname), `binding`, `created_at`, `cloned_from`, `cloned_at`. 기동마다 ledger schema step 뒤, data step과 wiring 앞에서 정한다. 없으면 만들고, 깨지거나 못 읽으면 덮지 않고 기동을 거절한다(지우면 새 기계가 되어 폰을 다시 pairing해야 한다는 문구)."
+  - "복제 판정: OS의 기계 값(Linux `/etc/machine-id`, macOS `IOPlatformUUID`, Windows `MachineGuid`)을 key로 id를 HMAC한 binding이 맞지 않으면 복제다. 새 id, 이름은 hostname으로, `cloned_from`을 적는다. OS 값을 못 읽거나 binding이 없으면 같은 기계로 둔다(binding만 채운다). data root path와 hostname은 넣지 않아 같은 기계에서 옮기거나 이름을 바꿔도 그대로다."
+  - "복제 판정의 한계: 이 판 전에 복사한 root는 두 쪽이 각자 새 id를 만들어 같은 remote key·기기 등록·sync node를 그대로 쥔다. OS 값을 못 읽는 곳, OS 값까지 같은 VM image 복제는 알아채지 못한다. 공유 저장소 위의 data root를 두 기계가 번갈아 띄우면 기동마다 복제로 판정해 id를 새로 만들고 기기 등록을 버린다(검사는 아직 없다)."
+  - "기계에 묶인 상태는 만든 기계 id를 표지로 적는다. remote key `remote/host-key.json`의 `machine`: 기동마다 지금 id와 대조해 다르면 기기 등록을 모두 버리고(`devices/forget_all`, core 안 machine 자격) key를 지운다. 다음에 remote를 열 때 새 key를 만든다. 이 판 전의 key에는 data step `remote.host-key.machine`이 key 값 그대로 지금 id를 찍는다. sync 앱 DB `lophn_sync_state`의 key `machine`: 앱 process가 열 때 다르면 node를 새로 받고, 없으면 지금 id를 적고 node를 지킨다. 앱 process 시작 줄에 `machine`이 실리고 app supervisor는 `machine.json`을 못 읽으면 뜨지 않는다."
+  - route `machine/status`·`machine/rename`(memory, actor user. null이면 hostname을 다시 따른다). desktop Settings › Remote 맨 위에 "This computer"(Name, [Use computer name], 다음 연결부터 보인다는 note, 복제로 새 기계가 되었고 기기가 없을 때의 알림).
+  - "remote protocol 판 2, 하한 2. hello: 붙는 쪽이 먼저 `{version, min_version, capabilities, name}`, core가 판이 맞든 아니든 그 뒤에 `{version, min_version, capabilities, machine: {id, name}}`. 모르는 칸은 버린다. 범위가 겹치지 않으면 양쪽이 `conflict {details: {update: client | host}}`로 닫고 core는 log를 남긴다. 붙는 쪽은 저장한 기계 id가 core hello의 id와 다르면 아무 frame도 보내지 않고 닫는다. 판 1 옛 폰 build의 hello는 모양 밖이라 core가 닫는다: 옛 build는 붙지 못하고 offline으로 보이며 안내도 없다. 폰 앱과 core를 같이 올려야 한다."
+  - "기기 kind: schema step `remote.devices.kind`가 `devices` 표를 한 번 다시 만들어 `kind`(phone, desktop), 넓힌 `os`(linux, macos, windows 더함), phone만의 화면 칸, `alias`, `name_announced_at`을 더했다. 옛 행은 phone이고 옛 이름은 `name`과 `alias` 둘로 갔다. `pair`는 kind로 갈리고 이름은 hello가 싣는다. phone에만 걸리는 것: 기준(`devices/set_primary`는 desktop이면 `invalid_input`), `shell.devices` 항목, push token(`devices/set_push`는 desktop이면 `forbidden`), phone 탭의 preview view, presence의 폰 규칙(desktop 기기는 idle 한도를 따른다). 기기 route 목록과 `app_sync/*`는 kind와 상관없다."
+  - "알린 이름과 별명: 기기 행은 알린 이름(`name`, 붙을 때마다 hello로 고침)과 사람의 별명(`alias`)을 따로 둔다. `devices/list`에 `kind`, 보이는 `name`(별명 우선), `announced_name`, `alias`가 오고, `devices/rename`의 `name: null`이 별명을 지운다. migration이 옛 이름으로 지킨 별명은 처음 알린 이름과 같으면 거둔다(보이는 글은 같다). Settings › Remote의 기기 줄은 kind, \"Calls itself <알린 이름>\", [Use the device's name]을 보인다."
+  - "폰 앱: Settings › This phone의 이름(SecureStore `phone-name`, 기본 기기 model, 40자)을 모든 hello에 싣고, 바꾸면 연결을 다시 연다. 컴퓨터마다 `machine`, `announced`, 별명 `name`을 두고 보이는 이름은 별명, 알린 이름, 주소 차례다. Paired는 \"Paired with <이름>\"이고 이름 칸의 placeholder가 알린 이름이다. 컴퓨터 상세는 별명 아래 \"Calls itself …\"와 [Use the computer's name]이다. pairing은 같은 key나 같은 기계 id의 항목을 하나로 접고 별명을 남긴다. 이 판 전에 pairing한 항목은 첫 연결에서 id를 배우고 둘째 연결부터 대조한다."
+  - 개발 도구 `tools/remote-client.ts`도 hello 2를 쓴다.
+why: |
+  한 사람이 여러 기계에서 lophn을 쓰는 길(roadmap `multi-machine` 순서 0)의 바탕이다. 기계를 가리킬 id와 이름이 없으면 폰과 desktop이 같은 기계를 같은 이름으로 부를 수 없고, 복사된 data root는 같은 key로 답해 붙는 쪽이 자격을 엉뚱한 기계에 보낸다. 같은 신분 둘은 서로의 변경과 push를 덮는다. desktop이 다른 기계에 기기로 붙는 다음 계획을 위해 core가 kind desktop을 받을 수 있어야 했다.
+decisions:
+  - text: "\"main\" 기계를 두지 않는다. 기본 보기는 보는 쪽마다, 늘 켜 둠은 기계마다다."
+    by: person
+  - text: "기계와 폰에 이름을 짓는다(2026-11-16)."
+    by: person
+  - text: "보는 쪽 별명은 남는다. 기계가 알린 이름을 기본으로 보이고 별명이 있으면 별명을 보인다. 컴퓨터가 폰에 붙인 별명과 폰이 컴퓨터에 붙인 \"Shown as\"가 같은 규칙이다. 별명은 스스로 바뀌지 않고 이미 붙인 별명은 migration을 그대로 지난다(2026-11-16)."
+    by: person
+  - text: "자기 이름은 그 기계에 산다(컴퓨터는 `machine.json`의 이름, 기본 hostname. 폰은 폰 앱의 이름, 기본 기기 model). 연결마다 hello로 알린다."
+    by: agent
+  - text: "기계 id는 ledger 밖 `machine.json`에 두고 어디로도 내보내지 않는다. 다른 기계로 가는 기록은 id 값을 출처로만 싣는다."
+    by: agent
+  - text: "복제는 OS 기계 값으로 id를 HMAC한 binding으로 알아챈다. path와 hostname은 넣지 않는다. 버린 길: path를 넣기(같은 기계에서 disk를 옮기면 복제가 된다)."
+    by: agent
+  - text: "알아챈 복제는 새 기계다(새 id, 새 host key, 기기·relay 등록과 sync node를 이어받지 않는다). 알 수 없으면(OS 값 없음, binding 없음) 같은 기계, OS 값이 바뀌면 새 기계다. 이유: 폰을 다시 pairing하는 비용이 같은 신분 둘보다 싸다."
+    by: agent
+  - text: "기계에 묶인 상태는 만든 기계 id를 표지로 적고 읽을 때 대조한다. host key와 sync node가 첫 둘이다. 복제 판정이 소비자 목록을 몰라도 된다."
+    by: agent
+  - text: "공개 상태는 Noise handshake 뒤의 hello에 싣는다. 버린 길: 평문 HTTP 답(LAN의 누구에게나 이름과 id를 보인다)."
+    by: agent
+  - text: "붙는 쪽은 hello의 기계 id를 저장한 것과 비교한 뒤에만 frame을 보내고 같은 id의 항목은 하나로 접는다(별명은 남긴다)."
+    by: agent
+  - text: "remote protocol 판과 하한을 2로 올린다. 옛 폰 앱은 붙지 못하므로 폰 앱과 core를 같이 올린다. hello는 모르는 칸을 버려 다음부터는 칸을 더해도 판을 올리지 않는다. 판이 어긋나면 core도 hello를 먼저 보내 양쪽이 올릴 쪽을 안다."
+    by: agent
+  - text: "기기 kind(phone, desktop)를 더하고 옛 행은 phone이다. kind로 가르는 것은 phone 장치(기준, `shell.devices`, push token, phone preview view, presence의 폰 규칙)뿐이고 desktop 기기의 권한은 폰과 같다(다른 기계의 관리는 없다)."
+    by: agent
+  - text: "깨진 `machine.json`은 덮지 않고 기동을 거절한다. 새 id로 덮으면 host key 표지가 어긋나 기기 등록이 모두 버려진다."
+    by: agent
+  - text: "복제가 들고 온 provider key와 secret은 지우지 않는다(사람이 스스로 복사한 것이다). agent 정의, skill, 설정은 기계 사이에 맞추지 않는다."
+    by: agent
+  - text: "migration은 옛 기기 이름을 알린 이름과 별명 둘로 옮기고, 처음 알린 이름이 그 별명과 같으면 별명을 거둔다. 이유: 옛 이름이 사람이 바꾼 것인지 표에 없다."
+    by: agent
+follow_up: |
+  판이 어긋날 때 "이 앱을 올려라"와 "<컴퓨터>의 lophn을 올려라"를 보이는 화면은 계획 `machine-update`, desktop이 kind desktop 기기로 붙는 client는 `desktop-remote`, 공유 저장소 검사와 agent가 읽는 기계 정보는 `app-folder-sync`가 한다.
+checklist:
+  - "해야: 폰에 새 폰 앱 build를 깐다(옛 build는 protocol 1이라 붙지 못한다)"
+  - 'Settings › Remote 맨 위에 "This computer"와 이 컴퓨터의 이름(기본은 hostname)이 보이는지 본다'
+  - '"This computer"의 이름을 바꾸면 폰이 다시 붙은 뒤 그 이름이 보이는지 본다(폰에서 별명을 붙인 컴퓨터는 별명 아래 "Calls itself …"로 보인다)'
+  - '이미 붙여 둔 이름(컴퓨터의 기기 이름, 폰의 "Shown as")이 그대로 남아 있는지 본다'
+  - 이미 pairing한 폰이 다시 pairing 없이 붙는지 본다

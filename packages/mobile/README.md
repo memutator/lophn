@@ -40,7 +40,7 @@ adb shell am start -a android.intent.action.VIEW \
 adb -s emulator-5554 emu kill                                     # 끝낼 때
 ```
 
-- native module(`app.json`, 의존성)을 바꾸면 prebuild와 gradle을 다시 돈다. JS만 바꾸면 Metro가 다시 읽는다.
+- native module(`app.json`, 의존성)을 바꾸면 prebuild와 gradle을 다시 돈다. JS만 바꾸면 Metro가 다시 읽는다(`CI=1`로 띄운 Metro는 아니다. 아래).
 - 대화의 첨부(Photos, Camera)는 native module `expo-image-picker`를 쓴다. Photos는 Android 시스템 사진 선택기라 권한이 없고, 카메라 권한 문구는 `app.json`의 plugin 설정이다. emulator의 사진은 `adb -s <emulator> push`로 `/sdcard/Pictures`에 넣고 `am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE`로 알린다.
 - `CI=1`로 띄운 Metro는 file을 지켜보지 않는다. JS를 바꾸면 Metro를 다시 띄운다.
 - emulator에서 이 machine은 `10.0.2.2`다.
@@ -70,9 +70,20 @@ React Navigation 7(native stack과 drawer)이다. 아래 tab bar는 없다. 앱�
 
 ## pairing
 
-처음 열면 Welcome이다. Scan the code로 camera 권한을 묻고 QR(core `pairing/start`의 JSON)을 `expo-camera`로 읽거나, Enter a pairing code instead로 그 JSON을 붙여 넣는다(desktop Settings › Remote의 QR 아래 "Show as text"가 그 글이다). Pairing 화면이 pair를 보내고 첫 연결이 열리기를 기다린 뒤 Paired에서 이 폰에서 부를 컴퓨터 이름("Shown as")을 확인시킨다. 지난 code는 Code expired, 닿지 않으면 Cannot reach 화면이다. 기기 key 쌍과 pairing한 컴퓨터 목록은 `expo-secure-store`(이 기기에서만, 잠금이 풀렸을 때만)에 둔다. 모양(theme, 글자 크기) 설정도 같은 곳에 둔다.
+처음 열면 Welcome이다. Scan the code로 camera 권한을 묻고 QR(core `pairing/start`의 JSON)을 `expo-camera`로 읽거나, Enter a pairing code instead로 그 JSON을 붙여 넣는다(desktop Settings › Remote의 QR 아래 "Show as text"가 그 글이다). Pairing 화면이 pair(kind `phone`, OS, 화면 칸)를 보내고 첫 연결이 열리기를 기다린 뒤 Paired에서 "Paired with <컴퓨터 이름>"을 보인다. 이름 칸은 비어 있고 placeholder가 컴퓨터가 알린 이름이며, 무엇을 쓰면 이 폰에서 부르는 별명("Shown as")이 된다. 지난 code는 Code expired, 닿지 않으면 Cannot reach 화면이다. 기기 key 쌍과 pairing한 컴퓨터 목록은 `expo-secure-store`(이 기기에서만, 잠금이 풀렸을 때만)에 둔다. 모양(theme, 글자 크기) 설정도 같은 곳에 둔다.
 
 컴퓨터를 지우면(Settings) 그 컴퓨터에 붙어 있을 때 컴퓨터의 등록도 `devices/unpair`로 지운다. 닿지 않으면 폰만 잊고, 다음에 같은 컴퓨터와 pairing하면 컴퓨터가 옛 등록을 새 등록으로 바꾼다. 마지막 컴퓨터를 지우면 Welcome으로 돌아간다.
+
+### 이름과 기계 id
+
+- 폰의 이름: Settings › This phone › Name. SecureStore key `phone-name`, 기본은 기기 model(`Platform.constants.Model`, 없으면 `<os> phone`), 40자. 모든 연결의 client hello `name`으로 보낸다(컴퓨터의 기기 줄에 알린 이름으로 보인다). 바꾸면 열린 연결을 모두 닫고 다시 열어 새 hello를 보낸다. 컴퓨터에서 이 폰에 별명을 붙였으면 그 컴퓨터에서는 별명이 보인다.
+- 컴퓨터 기록(`Computer`, SecureStore `computers`): `machine`(core hello의 `mch_` id), `announced`(그 컴퓨터가 마지막으로 알린 이름), `name`(사람이 이 폰에서 붙인 별명 "Shown as"). 보이는 이름은 `name ?? announced ?? 주소`다. 연결이 열릴 때마다 `machine`과 `announced`를 고치고 별명은 건드리지 않는다. `rename(key, null)`("Use the computer's name")이 별명을 지운다.
+- 저장한 `machine`이 있으면 연결마다 `connectRemote`에 준다. 다른 id가 답하면 channel이 열리지 않고 아무 frame도 보내지 않으며 그 컴퓨터는 offline으로 보인다("다른 컴퓨터가 답했다"는 상태는 따로 없다). 이 판 전에 pairing한 항목은 첫 연결에서 id를 배우고 둘째 연결부터 대조한다.
+- pairing은 같은 key나 같은 `machine`의 항목을 하나로 접고 별명을 남긴다. id가 아직 없는 옛 항목은 다시 pairing할 때까지 같은 기계의 다른 항목과 접히지 않는다.
+
+### 폰 앱과 core는 같이 올린다
+
+remote protocol 판은 2이고 하한도 2다(hello가 판 범위, 기계 id와 이름을 싣는다). 판 1인 옛 폰 build는 판 2 core에 붙지 못한다: core가 옛 hello를 모양 밖으로 보고 닫으므로 그 build는 다시 붙기를 되풀이하며 offline으로 보이고 올리라는 안내도 없다. 그래서 core를 올리면 폰에도 새 build를 깐다(실제 폰에 까는 것은 사람에게 묻는다). 판 2끼리 범위가 어긋나면 `conflict`의 `details.update`(`client`·`host`)가 어느 쪽을 올릴지 말하지만 지금 폰은 pairing에서 Cannot reach, 연결에서 offline으로만 보인다.
 
 ### 개발 core와 pairing
 

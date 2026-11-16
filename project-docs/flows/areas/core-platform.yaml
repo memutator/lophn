@@ -1655,6 +1655,10 @@ flows:
         code: conflict
         when: "두 hello의 판 범위가 겹치지 않는다. core는 자기 hello를 보낸 뒤 닫는다. 양쪽의 오류 details.update가 client(붙는 쪽을 올려라) 또는 host(core를 올려라)다"
         observe: ["log:remote protocol_version_out_of_range", "process:연결 닫힘"]
+      - id: old-hello
+        code: invalid_input
+        when: "판 1 붙는 쪽(이 판 전의 폰 build)의 hello는 min_version과 name이 없어 모양 밖 frame이다. core는 자기 hello 없이 닫고 log를 남기지 않는다. 옛 폰은 다시 붙기를 되풀이하며 offline으로 보인다"
+        observe: ["process:연결 닫힘"]
       - id: other-machine
         code: conflict
         when: "붙는 쪽이 준 machine id와 core hello의 id가 다르다(a different computer answered). 붙는 쪽이 hello 뒤로 아무 frame도 보내지 않고 닫는다"

@@ -384,7 +384,12 @@ function setup() {
           "apps/phone_screens",
           () => {
             reached.push("apps/phone_screens");
-            return ok({ screens: [], as_of_seq: "1", next_cursor: null });
+            return ok({
+              screens: [],
+              previews: [],
+              as_of_seq: "1",
+              next_cursor: null,
+            });
           },
         ],
         [

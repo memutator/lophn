@@ -3,6 +3,7 @@ import { withReadCommon } from "../base/envelope.ts";
 import { defineFile, defineRead } from "../base/route.ts";
 import {
   appIdSchema,
+  processNonceSchema,
   releaseIdSchema,
   sha256Schema,
 } from "./channel-values.ts";
@@ -32,10 +33,19 @@ export const appPhoneTarget = defineRead({
   errors: ["invalid_input", "forbidden", "unavailable"],
 });
 
+const phoneScreenParamsSchema = z
+  .custom<InputSchema>(
+    (value) =>
+      typeof value === "object" && value !== null && !Array.isArray(value),
+  )
+  .optional();
+
 // 폰이 받을 화면의 목록이다. 보관한 앱과 활성 release가 없는 앱은 싣지 않는다. 화면 file은 `apps/screen_file`
 // (target live, screen, path `phone.js`)로 받고, 쓸 수 있는지는 폰이 `phoneCanRun`으로 manifest를 보고 정한다.
 // `runs_on`은 선언의 값이다(없으면 ["computer"]). `backend`는 `phone`에서 도는 앱의 `phone/backend.json`이고 그 file과
 // migration file은 `apps/phone_file`로 받는다. 앱의 `backend.json`을 읽지 못하면 그 앱의 화면은 싣지 않는다.
+// `previews`는 컴퓨터에서 지금 도는(ready) preview의 phone 화면이다. 화면 file은 `apps/screen_file`의 target
+// `{mode: "preview", app, process_nonce}`, view는 `app_views/open`의 `mode: "preview"`로 연다.
 export const appPhoneScreens = defineRead({
   resource: "apps",
   method: "phone_screens",
@@ -51,14 +61,7 @@ export const appPhoneScreens = defineRead({
           icon: z.string().nullable(),
           screen: z.string(),
           label: z.string(),
-          params: z
-            .custom<InputSchema>(
-              (value) =>
-                typeof value === "object" &&
-                value !== null &&
-                !Array.isArray(value),
-            )
-            .optional(),
+          params: phoneScreenParamsSchema,
           release: releaseIdSchema,
           bundle_hash: sha256Schema,
           manifest: phoneManifestSchema,
@@ -66,6 +69,25 @@ export const appPhoneScreens = defineRead({
           backend: phoneBackendManifestSchema.nullable(),
           // 그 release의 앱 process가 지금 live로 도는가
           running: z.boolean(),
+        }),
+      ),
+      previews: z.array(
+        z.object({
+          app: appIdSchema,
+          app_name: z.string(),
+          icon: z.string().nullable(),
+          // preview는 release 없이 띄울 수도 있다
+          release: releaseIdSchema.nullable(),
+          bundle_hash: sha256Schema,
+          process_nonce: processNonceSchema,
+          screens: z.array(
+            z.object({
+              screen: z.string(),
+              label: z.string(),
+              params: phoneScreenParamsSchema,
+              manifest: phoneManifestSchema,
+            }),
+          ),
         }),
       ),
     }),

@@ -1532,7 +1532,7 @@ flows:
     declared_only: [invalid_input, forbidden, unavailable]
 
   - id: app-phone-screens-list
-    title: "폰이 받을 앱 화면 목록(manifest와 running)을 읽는다"
+    title: "폰이 받을 앱 화면 목록(manifest와 running)과 지금 도는 preview의 폰 화면을 읽는다"
     actor: person
     entries: [route:apps/phone_screens]
     boundary: [app-runtime]
@@ -1545,9 +1545,11 @@ flows:
       - "화면마다 app, 앱 이름, 선언의 icon(lucide 이름이나 null), screen, label, params, release, bundle_hash(release 기록), manifest, runs_on(선언에 없으면 [computer]), backend, running을 낸다."
       - "running은 supervisor가 지금 관측한 live process가 그 release이고 ready이며 요청을 받는가다. 관측을 못 하면 false다."
       - "폰은 manifest를 `phoneCanRun`으로 자기 판과 맞춰 열지 말지 정하고, 화면 byte는 `apps/screen_file`(phone.js)로 받는다."
+      - "previews: 보관하지 않은 앱마다 그 앱의 preview가 ready인지 본다(preview service의 현재 preview와 supervisor 관측. 관측을 못 하면 없는 것이다). ready면 그 preview bundle 사본의 declaration.json을 읽어 places가 phone 하나인 화면을 고르고 live와 같은 규칙으로 manifest를 읽는다(사본 밖이거나 틀린 화면은 뺀다). 화면이 없는 preview는 싣지 않는다. active release가 없는 앱도 싣는다."
+      - "preview마다 app, 앱 이름, icon, release(release 없이 띄웠으면 null), bundle_hash, process_nonce, 화면(screen, label, params, manifest)을 낸다. 폰은 화면 byte를 `apps/screen_file`의 target {mode: preview, app, process_nonce}로 받고 view는 `app_views/open`의 mode preview로 연다. preview가 서고 멈출 때 app_runtime 변경이 나가 폰이 다시 읽는다."
     outcomes:
       - id: listed
-        when: "읽힌 화면 목록(빈 목록도)을 돌려줬다. 빠진 앱·화면(backend manifest를 못 읽은 폰 앱 포함)이 있어도 오류가 아니다"
+        when: "읽힌 화면 목록과 previews(빈 목록도)를 돌려줬다. 빠진 앱·화면(backend manifest를 못 읽은 폰 앱 포함)이 있어도 오류가 아니다"
         observe: [response]
       - id: invalid-input
         code: invalid_input

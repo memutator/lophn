@@ -245,7 +245,7 @@ files:
 
   - path: packages/core/apps/phone/screens_test.ts
     covers: [app-phone-screens-list:listed]
-    note: "runs_on에 phone이 있는 앱은 backend manifest를 싣고 읽지 못하면 그 앱을 빼며 log를 남김. 보관한 앱, active release가 없는 앱, phone 화면이 없는 앱, bundle의 screens 폴더 밖을 가리키는 manifest(`..` key, 밖을 가리키는 symlink)와 틀린 manifest는 싣지 않고, 맞는 화면만 앱 순서로 싣고 running을 앱마다 다르게 냄"
+    note: "runs_on에 phone이 있는 앱은 backend manifest를 싣고 읽지 못하면 그 앱을 빼며 log를 남김. 보관한 앱, active release가 없는 앱, phone 화면이 없는 앱, bundle의 screens 폴더 밖을 가리키는 manifest(`..` key, 밖을 가리키는 symlink)와 틀린 manifest는 싣지 않고, 맞는 화면만 앱 순서로 싣고 running을 앱마다 다르게 냄. previews는 ready인 preview(release 없는 것 포함)의 phone 화면만 싣고 보관한 앱, preview가 없는 앱, phone 화면이 없는 preview, preview bundle 밖을 가리키는 manifest는 싣지 않음"
 
   - path: packages/core/apps/phone/changed_test.ts
     covers: [phone-changed-notice:noticed, phone-changed-notice:not-noticed]

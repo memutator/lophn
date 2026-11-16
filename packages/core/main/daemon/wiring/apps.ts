@@ -377,21 +377,7 @@ export const appsWiring: WiringFactory = () => {
               : null,
           );
         },
-        // preview service는 release를 쥐지 않는다. release는 그 process의 관측이 싣는다.
-        async preview(app) {
-          const current = await appsControl.previews.current(app);
-          if (!current.ok) return current;
-          if (current.value === null || !current.value.ready) return ok(null);
-          const nonce = current.value.process_nonce;
-          const observed = await appsControl.client.previewObserve(app, nonce);
-          if (!observed.ok) return observed;
-          if (observed.value === null || !observed.value.ready) return ok(null);
-          return ok({
-            release: observed.value.release as Id<"rel"> | null,
-            bundle_hash: current.value.bundle_hash,
-            process_nonce: nonce,
-          });
-        },
+        preview: (app) => readyPreview(appsControl, app),
         release(app, release) {
           const loaded = loadActiveDeclaration(link.sql, app, release);
           if (!loaded.ok) return loaded;
@@ -870,6 +856,10 @@ export const appsWiring: WiringFactory = () => {
                     observed.value.accepting
                   );
                 },
+                async preview(app) {
+                  const ready = await readyPreview(appsControl, app);
+                  return ready.ok ? ready.value : null;
+                },
               },
               link.sql,
             ),
@@ -1067,6 +1057,26 @@ export const appsWiring: WiringFactory = () => {
     },
   };
 };
+
+// 그 앱의 지금 ready인 preview process(view의 preview port와 `apps/phone_screens`가 같이 쓴다).
+// preview service는 release를 쥐지 않는다. release는 그 process의 관측이 싣는다.
+async function readyPreview(
+  appsControl: Pick<WiringContext["appsControl"], "previews" | "client">,
+  app: string,
+) {
+  const current = await appsControl.previews.current(app);
+  if (!current.ok) return current;
+  if (current.value === null || !current.value.ready) return ok(null);
+  const nonce = current.value.process_nonce;
+  const observed = await appsControl.client.previewObserve(app, nonce);
+  if (!observed.ok) return observed;
+  if (observed.value === null || !observed.value.ready) return ok(null);
+  return ok({
+    release: observed.value.release as Id<"rel"> | null,
+    bundle_hash: current.value.bundle_hash,
+    process_nonce: nonce,
+  });
+}
 
 // 앱의 현재 선언 가운데 oauth를 가진 secret.use마다, 현재 선언 ∩ active grant에 들었는지(secretsWiring의 allowance와 같은 판정)를 낸다.
 function declaredOAuth(

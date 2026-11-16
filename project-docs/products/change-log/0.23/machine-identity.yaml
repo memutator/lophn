@@ -1,5 +1,5 @@
 id: machine-identity
-version: 0.23.68
+version: 0.23.69
 title: 설치마다 기계 id와 이름을 두고, 복사된 data root를 새 기계로 알아채고, 붙는 쪽이 자격을 보내기 전에 상대 기계를 확인한다
 modules: [packages/core/machine, packages/core/remote, packages/core/main, packages/core/apps, packages/core/attention, packages/core/storage, packages/protocol, packages/shell/main, packages/shell/renderer, packages/design, packages/mobile, tools]
 change: |

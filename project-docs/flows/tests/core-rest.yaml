@@ -179,6 +179,16 @@ files:
       - job-run-end:cancelled
     note: workflow_start 줄이 instance 끝 상태에 맞춰 닫히는 것
 
+  - path: packages/core/always-on/always-on_test.ts
+    covers:
+      - always-on-set:unavailable
+      - always-on-set:turned-on
+      - always-on-reconcile:skipped
+      - always-on-reconcile:kept
+      - always-on-reconcile:reregistered
+      - always-on-reconcile:unregistered
+    note: "fake OS port로 센다. 개발 core(port 없음)는 켜기를 unavailable로 거절하고 file을 쓰지 않는다. 다른 기계의 always-on.json은 꺼짐으로 읽혀 register·hold 없이 항목이 있을 때만 unregister하고 file을 덮지 않는다. file 없는 root는 OS를 부르지 않는다. start_at_login registered는 port가 registered를 답했을 때뿐이고 등록 실패에도 표시는 남는다. 맞추기는 off_in_system을 다시 켜지 않고 빠진 등록은 다시 쓴다"
+
   - path: packages/core/machine/identity_test.ts
     covers:
       - machine-ensure:created

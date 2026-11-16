@@ -81,6 +81,7 @@ import type { createWorkflowService } from "../../../workflows/mod.ts";
 import type { WorkflowFlows } from "../../../workflows/ports.ts";
 import type { Attention } from "../../../attention/mod.ts";
 import type { MachineIdentity } from "../../../machine/mod.ts";
+import type { AlwaysOn } from "../../../always-on/mod.ts";
 import type { NoticeRecorder } from "./notices.ts";
 import type { Assembled } from "../registration.ts";
 import type { CoreOptions } from "../core.ts";
@@ -308,6 +309,8 @@ type Late = {
   noticeRecorder: NoticeRecorder;
   // attention wiring이 낸다. 기기 목록과 push 보내기를 꽂고(`bindPush`) 기기가 끊길 때 보고를 지운다(`forgetReporter`).
   attention: Attention;
+  // always-on wiring이 낸다. 이 기계의 "늘 켜 둠" 표시와 OS가 답한 사실. idle-exit가 표시를 읽는다.
+  alwaysOn: AlwaysOn;
 };
 
 const LATE_KEYS: Record<keyof Late, true> = {
@@ -376,6 +379,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   flowHost: true,
   noticeRecorder: true,
   attention: true,
+  alwaysOn: true,
 };
 
 export type WiringContext = {

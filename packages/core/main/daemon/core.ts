@@ -49,6 +49,7 @@ import { describeThrown } from "../../../base/telemetry/mod.ts";
 import { createShellCapabilities } from "../../server/control/capability.ts";
 import { assemble } from "./registration.ts";
 import type { TeamModule } from "../../storage/ledger/team-module.ts";
+import type { AlwaysOnHost } from "../../always-on/ports.ts";
 import { openRuntime } from "./runtime.ts";
 import { type CoreControl, createCoreControl } from "./control.ts";
 import {
@@ -83,6 +84,8 @@ export type CoreOptions = {
   // shell(앱)을 data root로 띄운다. browser가 필요한데 shell이 없을 때만 부른다. 시작이 실패하면 onError로 알린다.
   // 없으면 core는 shell을 띄우지 않는다.
   launchShell?: (dataRoot: string, onError: (error: unknown) => void) => void;
+  // 설치 layout으로 뜬 core만 core 입구가 준다. 없으면 OS 등록을 하지 않는다(개발·test core).
+  alwaysOn?: AlwaysOnHost;
   // ready 뒤 writer가 죽었거나 shutdown이 기한을 넘기면 core를 끝낸다. graceful 종료가 아니다: shell이 다시 띄운다.
   exit(code: number): void;
 };

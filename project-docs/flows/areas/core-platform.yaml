@@ -485,6 +485,94 @@ flows:
         when: "machine.json을 쓰지 못했다. 메모리 값과 file은 그대로다"
     crosses_process: false
 
+  - id: always-on-status
+    title: "이 기계의 늘 켜 둠 표시와 OS가 답한 로그인 시작·keep-awake를 본다"
+    actor: person
+    entries: [route:always_on/status]
+    boundary: [core-api, always-on]
+    code: [packages/protocol/always-on/mod.ts, packages/core/main/daemon/wiring/always-on.ts, packages/core/always-on/mod.ts]
+    steps:
+      - "dispatch가 body(빈 객체)와 actors(user)를 본다"
+      - "다른 set·맞추기가 끝나기를 기다린 뒤 OS port가 있으면 등록을 다시 읽는다(이 기계의 표시가 있으면 켤 때 잡은 env, 없으면 지금 env로). 개발·test core는 OS를 부르지 않고 start_at_login unavailable, login_reason development_build, mechanism null이다"
+      - "keep_running·keep_awake는 표시(always-on.json)이고 다른 기계의 file이나 깨진 file은 꺼짐이다. start_at_login은 표시와 상관없는 OS의 사실이다: registered는 port가 registered를 답했을 때뿐이고 absent·stale은 not_registered다. awake는 keep-awake를 쥔 결과다"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: invalid_input
+        code: invalid_input
+        observe: ["response"]
+        when: "body가 빈 객체가 아니다"
+      - id: forbidden
+        code: forbidden
+        observe: ["response"]
+        when: "호출한 자격이 route의 actors(user)가 아니다(core dispatch가 먼저 막는다)"
+    crosses_process: false
+
+  - id: always-on-set
+    title: "이 기계에서 lophn을 늘 켜 두거나 끄고, 그동안 기계가 잠들지 않게 한다"
+    actor: person
+    entries: [route:always_on/set]
+    boundary: [core-api, always-on]
+    code: [packages/protocol/always-on/mod.ts, packages/core/main/daemon/wiring/always-on.ts, packages/core/always-on/mod.ts, packages/core/always-on/state.ts]
+    steps:
+      - "dispatch가 body({ keep_running?, keep_awake? } 중 하나는 있음)와 actors(user)를 본다"
+      - "set·맞추기·status는 한 줄로 돈다"
+      - "OS port가 없는 개발·test core는 keep_running: true나 keep_awake: true를 unavailable로 거절하고 아무것도 쓰지 않는다"
+      - "결과의 keep_running이 false인데 keep_awake: true가 오면 invalid_input이다. keep_running: false는 keep_awake도 끈다"
+      - "keep_running: true가 오면(이미 켜져 있어도, 화면의 Try again) 지금 env(PATH, macOS는 TMPDIR)를 다시 잡아 always-on.json에 이 기계 id와 같이 temp 0600으로 쓰고 rename한 뒤 register를 부른다. 끄면 이 기계의 표시가 있을 때만 file을 고치고 unregister를 부른다. file을 쓰지 못하면 unavailable이고 OS를 부르지 않는다"
+      - "등록이 실패해도 표시는 남는다. 결과는 start_at_login에 사실로 보인다"
+      - "표시와 keep-awake가 둘 다 켜졌으면 keep-awake를 쥐고 아니면 놓는다. 쥔 child가 끝나면 awake unavailable과 이유다"
+    outcomes:
+      - id: turned-on
+        observe: ["response", "disk:always-on.json", "request:os-registrar"]
+        when: "keep_running: true. start_at_login은 port가 답한 대로다(registered, not_registered, off_in_system, unavailable)"
+      - id: turned-off
+        observe: ["response", "disk:always-on.json", "request:os-registrar"]
+        when: "keep_running: false. 이 기계의 표시가 없으면 file을 쓰지 않고 unregister만 부른다"
+      - id: awake-changed
+        observe: ["response", "disk:always-on.json", "request:os-keep-awake"]
+        when: "keep_awake만 바꿨다. 등록은 다시 하지 않는다"
+      - id: invalid_input
+        code: invalid_input
+        observe: ["response"]
+        when: "body가 꼴 밖이다(둘 다 없음, 다른 칸), 또는 표시가 꺼진 채로 keep_awake: true다"
+      - id: forbidden
+        code: forbidden
+        observe: ["response"]
+        when: "호출한 자격이 route의 actors(user)가 아니다(core dispatch가 먼저 막는다)"
+      - id: unavailable
+        code: unavailable
+        observe: ["response"]
+        when: "개발·test core(OS port 없음)에서 켜려 했다(\"This is a development build.\"), 또는 always-on.json을 쓰지 못했다. 둘 다 file과 OS는 그대로다"
+    crosses_process: true
+
+  - id: always-on-reconcile
+    title: "기동 때 OS의 로그인 시작 등록과 keep-awake를 이 기계의 표시에 맞춘다"
+    actor: system
+    entries: [system:always-on-reconcile]
+    pre: [core-boot:ready]
+    boundary: [always-on]
+    code: [packages/core/main/daemon/wiring/always-on.ts, packages/core/always-on/mod.ts, packages/core/always-on/state.ts]
+    steps:
+      - "ready 뒤 기다리지 않고 한 번 돈다. set과 같은 줄에 선다"
+      - "OS port가 없거나(개발·test core) always-on.json이 없으면(한 번도 켠 적 없는 root) OS를 부르지 않는다"
+      - "이 기계의 표시가 켜져 있으면 켤 때 잡은 env로 read한다. absent·stale이면 register한다. off_in_system(OS나 사람이 OS 설정에서 끔)은 다시 켜지 않는다. keep-awake도 켜져 있으면 쥔다"
+      - "표시가 꺼져 있거나, file이 깨졌거나, 다른 기계의 file(복제)이면 꺼짐이다. read가 항목을 보이면(registered, stale, off_in_system) unregister한다. 다른 기계의 file은 덮지 않는다"
+    outcomes:
+      - id: skipped
+        observe: ["request:os-registrar 없음"]
+        when: "OS port가 없거나 always-on.json이 없다"
+      - id: kept
+        observe: ["request:os-registrar"]
+        when: "표시가 켜져 있고 OS가 registered나 off_in_system을 답했다. off_in_system이면 status가 그대로 알린다"
+      - id: reregistered
+        observe: ["request:os-registrar", "log:always-on always_on_reregistered"]
+        when: "표시가 켜져 있고 등록이 빠졌거나 낡았다"
+      - id: unregistered
+        observe: ["request:os-registrar", "log:always-on always_on_unregistered"]
+        when: "표시가 꺼졌거나 다른 기계의 것인데 이 기계 OS에 이 data root의 항목이 있다"
+    crosses_process: true
+
   - id: ledger-migrate
     title: "ledger schema step을 설치본과 대조해 적용하거나 시작을 거절한다"
     actor: system
@@ -824,6 +912,7 @@ flows:
     code: [packages/core/main/daemon/idle.ts, packages/core/main/daemon/wiring/idle.ts]
     steps:
       - "ready가 된 뒤 30초마다 깨어 일을 본다. 일은 도는 lophn agent turn(core 메모리의 queue)과 job, run, workflow instance의 activity read 셋을 machine:idle 자격으로 읽은 것이다. 대기 중인 입력과 harness queue는 세지 않는다"
+      - "설정 remote.enabled가 켜져 있거나 이 기계의 늘 켜 둠 표시(always-on.json의 keep_running, 다른 기계의 file은 꺼짐)가 켜져 있으면 늘 일이 있는 것으로 본다. 끄는 것은 Stop lophn이다"
       - "붙은 client(진행 중 HTTP 요청과 Gateway 구독)가 있거나 일이 있거나 읽는 동안 새 client가 들어왔으면 유휴를 비운다"
       - "읽기가 err를 돌려주거나 throw하면 일이 있는 것으로 보고 warn 한 줄을 남기고 살아 있는다"
       - "일도 client도 없는 상태가 10분 이어지면 shutdown barrier를 시작한다. control stop과 같은 barrier다"
@@ -833,7 +922,7 @@ flows:
         when: "유휴가 10분 이어졌다"
       - id: kept-alive
         observe: ["process:core 계속 실행"]
-        when: "일(도는 lophn agent turn 포함)이나 client가 있다. 활동 읽기가 err를 돌려주거나 throw했다(log:core idle_activity_read_failed로도 남는다)"
+        when: "일(도는 lophn agent turn 포함)이나 client가 있다. remote.enabled나 늘 켜 둠 표시가 켜져 있다. 활동 읽기가 err를 돌려주거나 throw했다(log:core idle_activity_read_failed로도 남는다)"
     crosses_process: true
     risk: [data-loss]
 

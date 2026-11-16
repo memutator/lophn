@@ -127,6 +127,14 @@ modules:
     boundary: machine
     notes: machine.json의 유일한 주인. core 안에서는 `ctx.machine`, wiring 밖(data step, app supervisor)은 `readMachineId`·`readMachineIdSync`로만 읽는다. OS 기계 값은 binding을 만드는 데만 쓰고 남기지 않는다.
 
+  - path: packages/core/always-on
+    boundary: always-on
+    notes: always-on.json의 유일한 주인. OS 등록과 keep-awake는 port다. `os/`가 구현하고 core 입구가 설치 layout일 때만 꽂는다.
+
+  - path: packages/protocol/always-on
+    boundary: always-on
+    notes: route `always_on/status`·`always_on/set`과 `AlwaysOnStatus`. 구현을 두지 않는다.
+
   - path: packages/core/remote
     boundary: remote
     notes: phone-link.ts는 core가 폰에 `request`를 보내고 `response`를 받는 길이다. 연결은 host가 붙이고 떼며 알린다. link는 kind를 모르고 입력·출력 검사는 부르는 쪽이 한다.

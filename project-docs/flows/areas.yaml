@@ -311,6 +311,7 @@ areas:
       - packages/protocol/supervision/
       - packages/protocol/remote/
       - packages/protocol/machine/
+      - packages/protocol/always-on/
       - packages/core/server/
       - packages/core/remote/
     owns:
@@ -320,6 +321,7 @@ areas:
       - user token, credential, identity
       - remote listener, pairing, 기기 연결과 그 자격
       - 기계 신분(machine.json), 복제 판정, 컴퓨터 이름
+      - 늘 켜 둠 표시(always-on.json)와 OS 로그인 시작 등록·keep-awake 맞추기
       - child process 감독과 crash 진단
       - health, readiness, log, telemetry, 자원 snapshot
       - 설치와 update

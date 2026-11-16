@@ -442,7 +442,10 @@ function ChatScreen({
       ? t("mobile.session.label.where", { agent: who.name, workspace: workspaceName })
       : t("mobile.session.label.where-desk", { agent: who.name, workspace: workspaceName, desk: found.desk });
   const modeLabel = meta?.modes.find((mode) => mode.id === meta.mode)?.label ?? null;
-  const project = lophn?.workspace?.kind === "project" ? lophn.workspace.id : null;
+  const project = lophn?.workspace?.kind === "project" ? lophn.workspace.id : (relayed?.project ?? null);
+  // A relayed coding session takes no pictures here, but still points at a file and runs commands, so the + stays for those.
+  const pictures = caps.images && relayed === null;
+  const canCommand = caps.commands && commands.length > 0;
 
   const unreachable = useUnreachable();
   const placeholder =
@@ -493,7 +496,7 @@ function ChatScreen({
         placeholder={placeholder}
         working={active?.phase === "working"}
         onStop={() => void conversation.stop()}
-        onAttach={relayed === null ? () => setSheet({ kind: "attach" }) : undefined}
+        onAttach={pictures || project !== null || canCommand ? () => setSheet({ kind: "attach" }) : undefined}
         disabled={unreachable !== null || conversation.connection === "reconnecting" || outgoing?.phase === "sending" || attachments.uploading}
         chips={
           caps.model && meta !== null && unreachable === null ? (
@@ -557,12 +560,12 @@ function ChatScreen({
         onClose={close}
         agent={who.name}
         workspace={project === null ? null : { name: workspaceName }}
-        pictures={caps.images}
+        pictures={pictures}
         computer={computer}
         offline={conversation.connection === "reconnecting"}
         onPicked={(picked) => void attachments.add(picked)}
         onFile={project === null ? null : () => setSheet({ kind: "files" })}
-        onCommands={caps.commands && commands.length > 0 ? () => setSheet({ kind: "commands" }) : null}
+        onCommands={canCommand ? () => setSheet({ kind: "commands" }) : null}
       />
       {project !== null && (
         <FilesSheet

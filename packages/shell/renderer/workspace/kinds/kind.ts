@@ -37,6 +37,11 @@ export interface TabKindDef {
    * kind만 탭 줄의 이름 바꾸기(더블클릭, 탭 menu의 Rename)가 생긴다. 지금은 터미널과 Agent 탭이다(Agent 탭은 session 제목을 바꾼다).
    */
   rename?(tab: TabItem, name: string | null, host: TabHost): void;
+  /**
+   * true면 이 탭은 이 컴퓨터의 shell host(파일, 터미널, browser, 앱 view)나 기기가 부를 수 없는 관리 route가 있어야 선다.
+   * 다른 기계의 창에서는 본문 대신 "This opens only on <이름>"이 선다.
+   */
+  readonly thisComputerOnly?: true;
   /** true면 닫은 탭 다시 열기가 건너뛴다(PTY처럼 닫으면 이어 갈 수 없는 탭). */
   readonly noReopen?: true;
   /** true면 이 kind의 탭은 Detach하지 않는다(탭 menu 항목과 패널 단추를 그리지 않는다). 다른 탭에 묶인 보조 패널(browser DevTools)이 쓴다. */

@@ -2578,5 +2578,102 @@ flows:
     risk: [data-loss]
     docs: [architecture/project-identity.md]
 
+  # ---- 다른 기계의 창 ----
+  - id: machine-window
+    title: "다른 기계의 창이 그 기계의 session, 대화, 승인, Inbox, job만 보이고 이 컴퓨터가 있어야 하는 기능을 감춘다"
+    actor: person
+    entries: [ui:machine-window]
+    when: "main이 다른 기계의 창으로 연 창이다(lophnMachines.thisWindow()가 그 기계를 준다). 창이 사는 동안 한 기계만 본다"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/desktop/entry.tsx
+      - packages/shell/renderer/desktop/machines/context.tsx
+      - packages/shell/renderer/desktop/machines/only-here.tsx
+      - packages/shell/renderer/desktop/settings/settings-space.tsx
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/workspace/kinds/kind.ts
+      - packages/shell/renderer/workspace/sidebar/sidebar-panels.tsx
+      - packages/shell/renderer/workspace/sidebar/workspace-left-sidebar.tsx
+      - packages/shell/renderer/desktop/jobs/jobs-page.tsx
+    steps:
+      - "entry가 mount 전에 이 창의 기계를 한 번 묻는다. 기계가 있으면 같은 core 통로(main이 그 기계의 연결로 보낸다) 위에 core, event, project 목록, 앱 목록, Jobs(켜고 끄기만), 작업대, Agent 탭, project icon, 팔레트(file 검색은 projects/search)만 짓는다. Settings, provider, 빠른 실행 설정의 core 쓰기, App details 관리, 편집기, 터미널은 짓지 않는다. 빠른 실행 값은 기본값을 메모리에만 둔다"
+      - "preload가 이 컴퓨터의 shell host bridge(터미널, file, folder, layout, browser, artifact, detached, 앱 view, coding, extension, thread bookmark, surface)를 열지 않아 그 단추는 bridge가 없을 때처럼 없다. layout은 저장하지 않아 다시 열면 Home이다"
+      - "기계 context로 더 감춘다: 새 탭 menu와 빠른 실행의 앱 화면·Agents, 앱 workspace의 앱 화면 탭(처음 layout에도 없다), 앱 줄은 앱 화면 대신 앱 workspace로 간다, workspace 줄의 설정 단추, Agents 줄, project 등록과 앱 만들기, coding agent 고르기, Files·Artifacts·Workspaces panel, tray, 끌어 놓은 file 열기, 팔레트의 project 설정 행. Jobs 줄은 스위치와 기록만이고 Edit·Delete·Take over가 없다"
+      - "저장된 링크, 팔레트의 file 결과, 대화 안 file 링크로 이 컴퓨터가 있어야 하는 kind(thisComputerOnly: 문서, 터미널, browser, artifact, 앱 화면·panel·preview, project 설정, App details, Agents)의 탭이 열리면 본문 대신 \"This opens only on <이름>\"이 선다. desk와 전역 float 모두 같다"
+      - "Settings 자리는 항목 목록이 없고 \"<이름>'s settings are changed on <이름>\"과 [Open this computer]다"
+      - "대화가 보이면 lophnNotice.visible을 그대로 부르고 main(preload)이 그 기계의 presence로 보낸다. 다 본 session의 점은 그 기계의 unseen/list·unseen/dismiss로 꺼진다"
+    uses: [route:unseen/list, route:unseen/dismiss, ipc:shell:machines-list]
+    outcomes:
+      - id: shown
+        observe: ["screen:shell-machine-window"]
+      - id: only-here
+        when: "이 컴퓨터가 있어야 하는 kind의 탭이 열렸다"
+        observe: ["screen:shell-machine-only-here"]
+      - id: settings-elsewhere
+        when: "Settings로 갔다(단축키, Taskbar, 대화의 설정 링크)"
+        observe: ["screen:shell-machine-settings"]
+    crosses_process: true
+    docs: [architecture/remote.md, architecture/workspace-layout.md, architecture/settings.md]
+
+  - id: machine-window-gate
+    title: "다른 기계의 창이 처음 붙기 전과 그 기계가 이 desktop을 지웠을 때 창 전체 gate를 보인다"
+    actor: person
+    entries: [ui:machine-window-gate]
+    when: "다른 기계의 창이 한 번도 ready가 아니었거나 그 기계의 status가 removed다"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/desktop/main.tsx
+      - packages/shell/renderer/desktop/workspaces/home-gate.tsx
+      - packages/shell/renderer/desktop/machines/machine-gate.tsx
+      - packages/shell/renderer/desktop/connection/connection.tsx
+    steps:
+      - "한 번도 ready가 아니면 HomeGate 자리에 기계 gate가 선다: connecting은 \"Connecting to <이름>…\", offline은 \"<이름> is offline\"과 마지막으로 본 때, [Try again]·[This computer]"
+      - "[Try again]은 platform/status를 한 번 불러 main이 그 기계의 연결을 다시 붙이게 한다. [This computer]는 이 컴퓨터의 창을 열거나 앞으로 가져온다"
+      - "한 번 ready가 된 뒤의 끊김은 마지막 화면을 그대로 두고 Home 위에 끊김 한 줄(ConnectionNotice)이다. 다시 붙으면 저절로 사라진다"
+      - "기계 목록의 status가 removed가 되면 언제든 지금 화면 대신 removed gate(\"<이름> removed this desktop…\"과 [This computer])다"
+    uses: [ipc:shell:machines-list]
+    outcomes:
+      - id: connecting
+        observe: ["screen:shell-machine-gate-offline"]
+      - id: offline
+        when: "그 기계가 꺼져 있다. 창은 막히지 않는다"
+        observe: ["screen:shell-machine-gate-offline"]
+      - id: removed
+        when: "그 기계에서 이 desktop을 Unpair했다"
+        observe: ["screen:shell-machine-gate-removed"]
+      - id: disconnected
+        when: "한 번 붙은 뒤 연결이 끊겼다"
+        observe: ["screen:shell-machine-window"]
+      - id: reconnected
+        when: "끊긴 기계가 다시 붙었다. gate나 끊김 줄이 저절로 사라진다"
+        observe: ["screen:shell-machine-window"]
+    crosses_process: true
+    docs: [architecture/remote.md]
+
+  - id: machine-switcher
+    title: "title bar의 기계 고르기로 이 컴퓨터와 짝지은 기계의 창을 열거나 앞으로 가져온다"
+    actor: person
+    entries: [ui:machine-switcher]
+    when: "짝지은 기계가 있거나 이 창이 다른 기계의 창이다. 없으면 고르기를 그리지 않고 title bar는 그대로다"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/desktop/machines/machine-switcher.tsx
+      - packages/shell/renderer/desktop/machines/window-source.ts
+      - packages/shell/renderer/shell/shell-frame.tsx
+    steps:
+      - "workspace 창, Settings, 시작 gate가 title bar 왼쪽에 이 창의 기계 이름을 보인다. 고르기가 서면 logo 옆 제품 이름 글자는 빠진다"
+      - "누르면 menu다: 맨 위 이 컴퓨터, 그 아래 짝지은 기계(보이는 이름, 상태와 길이나 마지막으로 본 때), 지금 창의 기계 표시, 맨 아래 \"Pair another computer…\""
+      - "줄을 누르면 main이 그 기계의 창을 열거나 앞으로 가져온다(이 컴퓨터면 이 컴퓨터의 창)"
+      - "\"Pair another computer…\"는 이 컴퓨터의 창이면 그 창의 Settings › Remote로 가고, 다른 기계의 창이면 이 컴퓨터의 창을 앞으로 가져오기만 한다"
+    uses: [ipc:shell:machines-list]
+    outcomes:
+      - id: opened
+        observe: ["screen:shell-machine-menu"]
+      - id: pair-another
+        when: "\"Pair another computer…\"를 눌렀다"
+        observe: ["screen:settings-remote-viewed-add"]
+    crosses_process: true
+    docs: [architecture/remote.md]
+
 links: []
 ignore: []

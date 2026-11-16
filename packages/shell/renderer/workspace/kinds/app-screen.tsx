@@ -25,6 +25,7 @@ export function openAppScreen(host: TabHost): void {
 }
 
 export const appScreenKind: TabKindDef = {
+  thisComputerOnly: true,
   kind: "app_screen",
   labelKey: "app-space.label.kind-app-screen",
   icon: workspaceIcons.appPanel,

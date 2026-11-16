@@ -135,6 +135,7 @@ function DevtoolsFloat(props: { tab: TabItem; shown: boolean; host: TabHost }) {
 }
 
 export const browserDevtoolsKind: TabKindDef = {
+  thisComputerOnly: true,
   kind: "browser_devtools",
   labelKey: "browser.label.devtools",
   icon: browserIcons.inspect,

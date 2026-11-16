@@ -22,6 +22,7 @@ export function openProjectSettings(host: TabHost): void {
 }
 
 export const projectSettingsKind: TabKindDef = {
+  thisComputerOnly: true,
   kind: "project_settings",
   labelKey: "project-workspace.label.kind-project-settings",
   icon: commonIcons.settings,

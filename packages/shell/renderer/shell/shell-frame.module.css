@@ -102,6 +102,11 @@
   font-weight: var(--font-weight-semibold);
 }
 
+/* 기계 고르기가 서면 그 이름이 어느 기계인지 말하므로 제품 이름 글자는 빠지고 logo만 남는다. */
+.titleLeft:has([data-machine-button]) .brandName {
+  display: none;
+}
+
 /* 창 단추는 어떤 폭에서도 줄어들지 않는다. */
 .windowControls {
   display: inline-flex;

@@ -54,6 +54,7 @@ export function openBrowserTab(
 }
 
 export const browserKind: TabKindDef = {
+  thisComputerOnly: true,
   kind: "browser",
   labelKey: "browser.label.kind",
   icon: browserIcons.globe,

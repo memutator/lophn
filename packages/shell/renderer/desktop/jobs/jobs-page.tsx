@@ -113,11 +113,18 @@ export function JobsPage({
       onEnabled={(enabled) =>
         void write(source.setEnabled(job.id, enabled), t("jobs.error.save"))
       }
-      onEdit={() => setEditing(job)}
-      onDelete={() => setDeleting(job)}
-      onTakeOver={() =>
-        void write(source.takeOver(job.id), t("jobs.error.take-over"))
-      }
+      {...(source.update === undefined
+        ? {}
+        : { onEdit: () => setEditing(job) })}
+      {...(source.remove === undefined
+        ? {}
+        : { onDelete: () => setDeleting(job) })}
+      {...(source.takeOver === undefined
+        ? {}
+        : {
+            onTakeOver: () =>
+              void write(source.takeOver!(job.id), t("jobs.error.take-over")),
+          })}
       onOpenSession={onOpenSession}
       onOpenProject={onOpenProject}
     />
@@ -158,7 +165,7 @@ export function JobsPage({
           onSave={(patch) => {
             const job = editing.id;
             setEditing(null);
-            void write(source.update(job, patch), t("jobs.error.save"));
+            void write(source.update!(job, patch), t("jobs.error.save"));
           }}
         />
       )}
@@ -178,7 +185,7 @@ export function JobsPage({
               onClick={() => {
                 const job = deleting!.id;
                 setDeleting(null);
-                void write(source.remove(job), t("jobs.error.delete"));
+                void write(source.remove!(job), t("jobs.error.delete"));
               }}
             >
               {t("jobs.button.delete")}

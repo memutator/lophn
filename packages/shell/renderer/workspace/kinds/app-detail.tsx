@@ -23,6 +23,7 @@ export function openAppDetail(host: TabHost): void {
 }
 
 export const appDetailKind: TabKindDef = {
+  thisComputerOnly: true,
   kind: "app_detail",
   labelKey: "project-workspace.label.kind-app-detail",
   icon: commonIcons.settings,

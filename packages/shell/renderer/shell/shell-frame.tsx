@@ -230,7 +230,7 @@ export function ShellFrame({
                 profile={{ kind: "character", shape: "square", color: "coral" }}
                 size="sm"
               />
-              lophn
+              <span className={styles.brandName}>lophn</span>
             </span>
           ) : null}
           <span className={styles.grow} />

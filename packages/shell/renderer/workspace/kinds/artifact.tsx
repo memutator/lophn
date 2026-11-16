@@ -126,6 +126,7 @@ function sourceOf(tab: TabItem): ArtifactSource | null {
 }
 
 export const artifactKind: TabKindDef = {
+  thisComputerOnly: true,
   kind: "artifact",
   labelKey: "artifact.label.kind",
   icon: artifactIcons.kind,

@@ -31,9 +31,10 @@ export interface JobLineProps {
   machineName: string | null;
   onToggle: () => void;
   onEnabled: (enabled: boolean) => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  onTakeOver: () => void;
+  /** 셋 다 없으면 그 단추가 없다(다른 기계의 창). */
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onTakeOver?: () => void;
   onOpenSession: (session: string) => void;
   onOpenProject: (project: string) => void;
 }
@@ -111,27 +112,31 @@ export function JobLine({
               onCheckedChange={onEnabled}
             />
           </div>
-          {job.runs_here ? null : (
+          {job.runs_here || onTakeOver === undefined ? null : (
             <Button size="sm" data-job-take-over="" onClick={onTakeOver}>
               {t("jobs.button.take-over")}
             </Button>
           )}
-          <Button
-            size="sm"
-            icon={actionIcons.edit}
-            data-job-edit=""
-            onClick={onEdit}
-          >
-            {t("settings.button.edit")}
-          </Button>
-          <Button
-            size="sm"
-            icon={actionIcons.delete}
-            data-job-delete=""
-            onClick={onDelete}
-          >
-            {t("jobs.button.delete")}
-          </Button>
+          {onEdit === undefined ? null : (
+            <Button
+              size="sm"
+              icon={actionIcons.edit}
+              data-job-edit=""
+              onClick={onEdit}
+            >
+              {t("settings.button.edit")}
+            </Button>
+          )}
+          {onDelete === undefined ? null : (
+            <Button
+              size="sm"
+              icon={actionIcons.delete}
+              data-job-delete=""
+              onClick={onDelete}
+            >
+              {t("jobs.button.delete")}
+            </Button>
+          )}
           <IconButton
             icon={open ? commonIcons.collapse : commonIcons.expand}
             label={

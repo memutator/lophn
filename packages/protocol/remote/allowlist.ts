@@ -5,7 +5,7 @@ import {
   shareRequestList,
 } from "../approvals/share-request.ts";
 import { turnRequestDecide } from "../approvals/turn-request.ts";
-import { presenceReport } from "../attention/mod.ts";
+import { presenceReport, unseenDismiss, unseenList } from "../attention/mod.ts";
 import {
   activationConsent,
   activationConsents,
@@ -131,6 +131,7 @@ import { devicesSetPush, devicesUnpair } from "./routes.ts";
 // `host/*`·`terminal_sessions/*`는 넣지 않는다.
 // `jobs/update`는 켜고 끄기(`enabled`)만 받는다(core/remote/call.ts). `acp/send`는 안의 route를 기기 자격으로 부르므로 대화 조작 route도 여기 있어야 한다.
 // 모두 user가 부를 수 있는 route여야 한다(아니면 core가 기기 자격을 만들지 못한다).
+// 다 본 session의 표시(`unseen/list|dismiss`)를 둔다: 보는 것이 읽음을 만들고 읽음은 host에 있다(어느 기기에서 봐도 같이 꺼진다).
 // file·upload route의 bytes는 `call`에서 base64로 싣는다(core/remote/call.ts). 폰은 화면 bundle도 이 목록의 route로 받는다.
 // 앱의 폰 화면: 목록(`apps/phone_screens`), 화면 file(`apps/screen_file`), 폰 backend file(`apps/phone_file`), view binding(`app_views/*`)만 둔다. 폰 화면 bridge는
 // view id로만 앱을 부르고, 부를 수 있는 operation은 core가 그 view에 묶인 release의 선언에 있는 것만으로 판정한다. 그래서
@@ -199,6 +200,8 @@ export const REMOTE_ALLOWED_ROUTES = [
   messageImageUpload,
   // Inbox
   turnRequestDecide,
+  unseenList,
+  unseenDismiss,
   noticesList,
   noticesOpen,
   noticeMarkRead,

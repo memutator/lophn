@@ -47,3 +47,18 @@ journeys:
     steps:
       - {do: "Settings에서 컴퓨터를 지운다. 컴퓨터에 닿으면 폰이 자기 등록을 지운다", screen: phone-settings, flow: devices-unpair:ok}
       - {do: "컴퓨터에 닿지 않을 때 지웠다면 컴퓨터는 폰의 key를 계속 안다. 새 code로 pairing하면 옛 등록이 새 등록으로 바뀌고, 폰 쪽도 같은 key나 같은 machine id의 항목이 하나로 접히며 별명은 남는다", screen: phone-start, flow: remote-pair:re-paired}
+
+  - id: desktop-view-other-computer
+    title: "이 desktop에서 다른 컴퓨터의 lophn을 연다"
+    actor: person
+    goal: "집 컴퓨터에 앉은 사람이 회사 컴퓨터의 lophn을 그 컴퓨터의 창으로 열어 대화하고 승인에 답하며, 그 컴퓨터가 꺼져도 창이 막히지 않는다"
+    steps:
+      - {do: "다른 컴퓨터의 Settings › Remote에서 \"Add phone or computer\"를 누르고 \"Show as text\"의 글을 복사한다", screen: settings-remote-pairing, flow: remote-pairing-start:ok}
+      - {do: "이 컴퓨터의 Settings › Remote \"Computers you view\"에서 [Add computer]에 글을 붙여 넣고 [Pair]를 누른다. 이 desktop이 kind desktop 기기로 등록된다", screen: settings-remote-viewed-add, flow: machines-pair:ok}
+      - {do: "title bar의 기계 고르기를 열고 그 컴퓨터를 고른다", screen: shell-machine-menu, flow: machine-switcher:opened}
+      - {do: "그 컴퓨터의 창이 \"<이름> — lophn\"으로 열리고 Home에 그 컴퓨터의 session 목록이 보인다. 터미널, 편집기, 앱 화면, 설정 단추는 없다", screen: shell-machine-window, flow: machine-window:shown}
+      - {do: "그 창에서 대화를 열고 메시지를 보낸다", screen: shell-machine-window, flow: session-send:ok}
+      - {do: "Inbox의 shell 규칙 승인을 한 번만 허락한다", screen: shell-machine-window, flow: turn-request-decide:once}
+      - {do: "그 컴퓨터가 꺼지면 창은 마지막 화면 위에 끊김 한 줄을 보인다", screen: shell-machine-window, flow: machine-window-gate:disconnected}
+      - {do: "desktop을 다시 켜면 그 컴퓨터의 창이 offline gate로 바로 열리고 [This computer]로 이 컴퓨터의 창을 연다", screen: shell-machine-gate-offline, flow: machine-window-gate:offline}
+      - {do: "그 컴퓨터가 다시 켜지면 창이 저절로 붙는다", screen: shell-machine-window, flow: machine-window-gate:reconnected}

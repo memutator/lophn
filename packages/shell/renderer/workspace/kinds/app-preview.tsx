@@ -45,6 +45,7 @@ export function openAppPreview(host: TabHost, app: string): void {
 }
 
 export const appPreviewKind: TabKindDef = {
+  thisComputerOnly: true,
   kind: "app_preview",
   labelKey: "app-space.label.kind-app-preview",
   icon: workspaceIcons.appPanel,

@@ -17,6 +17,9 @@ import {
   type SettingsPane,
 } from "./model.ts";
 import type { SettingsSource } from "./source.ts";
+import { useWindowMachine } from "../machines/context.tsx";
+import { MachineSwitcher } from "../machines/machine-switcher.tsx";
+import { RemoteSettings } from "../machines/remote-settings.tsx";
 import styles from "./settings-space.module.css";
 
 interface SettingsSpaceProps {
@@ -46,6 +49,7 @@ interface SettingsSpaceProps {
 const EMPTY_CATALOG: Catalog = { projects: [], apps: [] };
 
 // Settings 공간. 왼쪽 sidebar가 항목 목록을 들고 본문은 고른 항목 하나만 그린다. 대화는 이 화면에 기대지 않는다.
+// 다른 기계의 창이면 항목이 없고 본문은 "그 기계의 설정은 그 기계에서 바꾼다" 한 줄이다.
 export function SettingsSpace({
   source,
   settingsPane: initialPane,
@@ -63,6 +67,7 @@ export function SettingsSpace({
     initialPane ?? DEFAULT_PANE,
   );
   const [left, setLeft] = useSidebarOpen("left", true);
+  const machine = useWindowMachine();
 
   const [catalog, setCatalog] = useState<Catalog>(EMPTY_CATALOG);
 
@@ -117,6 +122,9 @@ export function SettingsSpace({
         left={left}
         onToggleLeft={() => setLeft(!left)}
         right={false}
+        machineSwitcher={
+          <MachineSwitcher onPairAnother={() => setSettingsPane("remote")} />
+        }
         tabs={
           <TabStrip
             entries={[
@@ -155,7 +163,7 @@ export function SettingsSpace({
               {waiting}
             </div>
             <div className={styles.navList}>
-              {SETTINGS_GROUPS.map((group) => (
+              {(machine === null ? SETTINGS_GROUPS : []).map((group) => (
                 <div key={group.id} className={styles.navGroup}>
                   <div className={styles.sectionHead}>{t(group.label)}</div>
                   {group.panes.map((entry) => (
@@ -181,14 +189,18 @@ export function SettingsSpace({
           <div className={styles.cardHead}>
             <span className={styles.crumbs}>
               <span className={styles.crumb}>{title}</span>
-              <span className={styles.crumb}>
-                <span className={styles.sep}>/</span>
-                {paneLabel(settingsPane)}
-              </span>
+              {machine === null ? (
+                <span className={styles.crumb}>
+                  <span className={styles.sep}>/</span>
+                  {paneLabel(settingsPane)}
+                </span>
+              ) : null}
             </span>
           </div>
           <div className={styles.cardBody}>
-            {settings ? (
+            {machine !== null ? (
+              <RemoteSettings machine={machine} />
+            ) : settings ? (
               <SettingsScreen
                 {...settingsPanels}
                 pane={settingsPane}

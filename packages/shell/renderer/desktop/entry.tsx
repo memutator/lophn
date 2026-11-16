@@ -2,7 +2,7 @@ import { mount } from "../entry.tsx";
 import { HighlighterProvider } from "@lophn/ui/reading";
 import { createWorkerHighlighter } from "../highlight/client.ts";
 import { Desktop } from "./main.tsx";
-import { windowCoreSource } from "./connection/connection.ts";
+import { type CoreSource, windowCoreSource } from "./connection/connection.ts";
 import { windowEditorDeps } from "../editor/window-deps.ts";
 import {
   openApp,
@@ -14,7 +14,7 @@ import {
 } from "./router.ts";
 import { catalogSource } from "./palette/core-catalog.ts";
 import type { HookPromptApi } from "./hook-prompt/hook-prompt-host.tsx";
-import { windowTerminalDeps } from "../terminal/deps.ts";
+import { type TerminalDeps, windowTerminalDeps } from "../terminal/deps.ts";
 import { TerminalStore } from "../terminal/store.ts";
 import {
   createXtermView,
@@ -80,6 +80,14 @@ import {
 import type { LophnShellAnnotateApi } from "../../ipc/annotation.ts";
 import { coreQuickPrefsSource } from "./settings/quick-launch/core-source.ts";
 import { QuickPrefsProvider } from "./settings/quick-launch/store.tsx";
+import {
+  DEFAULT_QUICK_PREFS,
+  type QuickPrefs,
+  type QuickPrefsSource,
+} from "./settings/quick-launch/source.ts";
+import type { JobsSource } from "./jobs/source.ts";
+import { MachinesProvider } from "./machines/context.tsx";
+import { windowMachinesSource } from "./machines/window-source.ts";
 // xterm 기본 배치. CSP 때문에 xterm이 넣는 <style>은 xterm-view가 옮긴다.
 import "@xterm/xterm/css/xterm.css";
 import styles from "./entry.module.css";
@@ -101,8 +109,12 @@ const seed =
     : null;
 // 시드 작업대와 mock 모드는 둘 다 가짜 작업대와 문서 탭 통로를 쓴다(core·편집 파일 통로 없음).
 const bench = mock ? { source: mock.workspace, editor: mock.editor } : seed;
+// 이 창이 보는 기계(main이 정한다). null이면 이 컴퓨터의 창이다. 다른 기계의 창은 그 기계의 core를 같은 통로로 부르고,
+// 이 컴퓨터의 shell host가 필요하거나 기기가 부를 수 없는 통로는 짓지 않는다.
+const machines = mock ? null : await windowMachinesSource();
+const remote = machines?.thisWindow() != null;
 const core = mock?.core ?? windowCoreSource();
-const editor = windowEditorDeps(core);
+const editor = remote ? undefined : windowEditorDeps(core);
 // 창마다 하나인 event 연결. 대기 목록·session 상태·toast가 이 연결 하나를 나눠 쓴다.
 const events = createEventClient(mock?.events ?? core);
 // Home Workspaces panel의 project 목록·등록·보관과 앱 공간의 project 고르기.
@@ -112,40 +124,57 @@ const projects =
 const apps = mock?.apps ?? coreAppsSource(core);
 // 팔레트의 project·앱 행.
 const catalog = mock?.catalog ?? catalogSource(projects, apps);
-const appDetail = mock?.appDetail ?? coreAppDetailSource(core);
+const appDetail = remote
+  ? undefined
+  : (mock?.appDetail ?? coreAppDetailSource(core));
 // settings 화면의 일반 설정·확장. credential은 보호 창이 받는다.
-const settings = mock?.settings ?? coreSettingsSource(core);
+const settings = remote
+  ? undefined
+  : (mock?.settings ?? coreSettingsSource(core));
 // workspace 창의 Jobs overlay와 Jobs 탭, sidebar Jobs panel.
-const jobs = mock?.jobs ?? coreJobsSource(core);
+const jobs =
+  mock?.jobs ?? (remote ? jobsSwitchOnly(core) : coreJobsSource(core));
 // settings 항목마다의 통로. key·로그인 응답은 보호 창이 받고, coding agent 감지는 main이 따로 검증하는 통로(`lophnCoding`)다.
-const settingsPanels = mock?.settingsPanels ?? {
-  providers: coreProviderSettingsSource(core),
-  agents: coreAgentsSettingsSource(core),
-  diagnostics: coreDiagnosticsSource(core),
-  shellRules: coreShellRulesSource(core),
-  // 설치된 글꼴은 Chromium Local Font Access로 읽는다. 권한은 desktop 창 session이 준다.
-  appearance: coreAppearanceSource(
-    core,
-    (globalThis as { queryLocalFonts?: QueryLocalFonts }).queryLocalFonts?.bind(
-      globalThis,
-    ),
-    (globalThis as { lophnAppearance?: AppearanceApi }).lophnAppearance,
-  ),
-  keyboard: coreKeyboardSource(core),
-  remote: coreRemoteSource(core),
-  coding: coreCodingConnectionsSource({ core, coding: windowCodingApi() }),
-  browser: windowBrowserSettings(),
-};
+const settingsPanels = remote
+  ? undefined
+  : (mock?.settingsPanels ?? {
+      providers: coreProviderSettingsSource(core),
+      agents: coreAgentsSettingsSource(core),
+      diagnostics: coreDiagnosticsSource(core),
+      shellRules: coreShellRulesSource(core),
+      // 설치된 글꼴은 Chromium Local Font Access로 읽는다. 권한은 desktop 창 session이 준다.
+      appearance: coreAppearanceSource(
+        core,
+        (
+          globalThis as { queryLocalFonts?: QueryLocalFonts }
+        ).queryLocalFonts?.bind(globalThis),
+        (globalThis as { lophnAppearance?: AppearanceApi }).lophnAppearance,
+      ),
+      keyboard: coreKeyboardSource(core),
+      remote: coreRemoteSource(core),
+      coding: coreCodingConnectionsSource({ core, coding: windowCodingApi() }),
+      browser: windowBrowserSettings(),
+    });
 // 빠른 실행 전역 값(단추 순서·고정, 앱 panel 여는 자리, coding agent 즐겨찾기). Settings와 workspace 창이 같이 쓴다.
-const quickPrefs = mock?.quickPrefs ?? coreQuickPrefsSource(core);
-// 작업대는 제품 core 통로로 읽고 쓴다.
-const workspace = bench?.source ?? coreWorkspaceSource(core);
+// 다른 기계의 설정은 기기가 읽지도 쓰지도 못해 그 창은 기본값을 메모리에만 둔다.
+const quickPrefs =
+  mock?.quickPrefs ??
+  (remote ? memoryQuickPrefs() : coreQuickPrefsSource(core));
+// 작업대는 제품 core 통로로 읽고 쓴다. 다른 기계의 창은 팔레트 파일 묶음(문서 목록)을 읽지 않는다: 그 파일은 그 기계에서만 연다.
+const workspace =
+  bench?.source ??
+  (remote
+    ? {
+        ...coreWorkspaceSource(core),
+        files: async () => ({ ok: true, value: [] }),
+      }
+    : coreWorkspaceSource(core));
 // 창마다 하나인 대화 메모리. 공간을 오가도 작성 중 말이 남는다.
 const conversation = { drafts: new DraftStore() };
 // Agent 탭과 앱 공간의 Agent 칸이 agent마다 통로를 얻는 함수.
 const agentViewSource =
   mock?.agentViewSource ??
-  coreAgentTabSourceFactory(core, { signIn: signInInputRequest });
+  coreAgentTabSourceFactory(core, remote ? {} : { signIn: signInInputRequest });
 // main이 띄우는 앱 전용 창의 hash. `#app-window=<app>/<release>/<screen>`이고 각 부분은
 // encodeURIComponent된 값이다.
 function appWindowRoute(value: string): Route | undefined {
@@ -181,23 +210,42 @@ const start: Route | undefined = seed
             ? openSettings()
             : undefined;
 // 창마다 하나. runtime의 대응과 살아 있는 xterm을 tab mount와 별도로 유지한다. 터미널 clipboard는 main이 쓴다.
-// view는 처음 그릴 때 만들어지므로 그때는 `terminal`이 있다.
-const terminal = windowTerminalDeps(new TerminalStore(), (host, edge) => {
-  const bridge = terminal.bridge;
-  const clipboard: TerminalClipboard | null =
-    bridge === null
-      ? null
-      : {
-          copy: async (text) => {
-            await bridge.copy({ text: text.slice(0, 60_000) });
-          },
-          paste: async () => {
-            const reply = await bridge.paste();
-            return reply.ok ? reply.value : "";
-          },
-        };
-  return createXtermView(host, edge, undefined, clipboard);
-});
+// view는 처음 그릴 때 만들어지므로 그때는 `terminal`이 있다. 다른 기계의 창에는 터미널이 없다.
+const terminal: TerminalDeps | undefined = remote
+  ? undefined
+  : windowTerminalDeps(new TerminalStore(), (host, edge) => {
+      const bridge = terminal!.bridge;
+      const clipboard: TerminalClipboard | null =
+        bridge === null
+          ? null
+          : {
+              copy: async (text) => {
+                await bridge.copy({ text: text.slice(0, 60_000) });
+              },
+              paste: async () => {
+                const reply = await bridge.paste();
+                return reply.ok ? reply.value : "";
+              },
+            };
+      return createXtermView(host, edge, undefined, clipboard);
+    });
+
+// 다른 기계의 job은 켜고 끄기만 한다(기기의 `jobs/update`는 `enabled`만 받는다). 고치기·지우기·가져오기가 없으면 그 단추가 없다.
+function jobsSwitchOnly(core: CoreSource): JobsSource {
+  const { list, runs, setEnabled } = coreJobsSource(core);
+  return { list, runs, setEnabled };
+}
+
+function memoryQuickPrefs(): QuickPrefsSource {
+  let prefs: QuickPrefs = DEFAULT_QUICK_PREFS;
+  return {
+    read: () => Promise.resolve({ ok: true, value: prefs }),
+    write(key, value) {
+      prefs = { ...prefs, [key]: value };
+      return Promise.resolve({ ok: true, value: null });
+    },
+  };
+}
 
 // 창 안 팔레트. overlay와 shortcut 통로는 desktop preload가 연다.
 const bridges = globalThis as {
@@ -254,7 +302,7 @@ const projectIcons = mock?.projectIcons ?? coreProjectIcons(core);
 // 파일 읽기와 chat의 code block이 같은 Worker를 쓴다. Worker는 첫 highlight 때 뜬다.
 const highlighter = createWorkerHighlighter();
 
-mount(
+const tree = (
   <div className={styles.root}>
     <HighlighterProvider value={highlighter}>
       <ProjectIconsProvider value={projectIcons}>
@@ -264,7 +312,7 @@ mount(
               <AnnotateApiProvider value={annotate}>
                 <BrowserOverlayProvider value={bridges.lophnShell ?? null}>
                   <ConversationProvider deps={conversation}>
-                    <EventsProvider client={events} terminals={terminal.store}>
+                    <EventsProvider client={events} terminals={terminal?.store}>
                       <QuickPrefsProvider source={quickPrefs}>
                         <Desktop
                           source={core}
@@ -298,5 +346,12 @@ mount(
         </AppViewsProvider>
       </ProjectIconsProvider>
     </HighlighterProvider>
-  </div>,
+  </div>
+);
+mount(
+  machines === null ? (
+    tree
+  ) : (
+    <MachinesProvider source={machines}>{tree}</MachinesProvider>
+  ),
 );

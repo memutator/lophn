@@ -244,6 +244,9 @@ import type {
 import { useCommands, useWindowCommands } from "../commands/react.tsx";
 import { surfaceApi, useSurfaceRequests } from "./use-surface-requests.ts";
 import { useTabHostSlices } from "./use-tab-host-slices.ts";
+import { useWindowMachine } from "../desktop/machines/context.tsx";
+import { MachineSwitcher } from "../desktop/machines/machine-switcher.tsx";
+import { OnlyHere } from "../desktop/machines/only-here.tsx";
 import styles from "./workspace-window.module.css";
 
 /** 이 창이 보일 수 있는 workspace: Home, project, 앱. */
@@ -405,6 +408,9 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   const workspaceId = workspaceKey(workspace);
   const browserApi = useBrowserApi();
   const surface = surfaceApi();
+  // 다른 기계의 창이면 그 기계. 이 컴퓨터의 shell host가 필요하거나 기기가 부를 수 없는 것(앱 화면, Agents, 설정)은 감추고
+  // 그런 탭 자리에는 "This opens only on <이름>"이 선다.
+  const machine = useWindowMachine();
   // 창의 view 보관이 있으면 화면 그릇이 이 창보다 오래 산다: 떠나도 살려 둘 page가 다시 load되지 않는다.
   const workspaceViews = useWorkspaceViews();
   const pool = useMemo(
@@ -524,10 +530,10 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       live = false;
     };
   }, [appId, props.apps]);
-  // 앱 workspace를 처음 열면(저장된 layout이 없으면) Main desk에 앱 화면 탭이 고른 채 있다.
+  // 앱 workspace를 처음 열면(저장된 layout이 없으면) Main desk에 앱 화면 탭이 고른 채 있다. 다른 기계의 창은 앱 화면이 없다.
   const freshLayout = (): WorkspaceLayout => {
     const base = defaultWorkspaceLayout();
-    return appId === null
+    return appId === null || machine !== null
       ? base
       : updateDesk(base, base.active, (item) =>
           openTabInDesk(item, appScreenTab(appId, "")),
@@ -1044,11 +1050,14 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   const openLophn = (): boolean => openNew({});
   // 이 workspace의 설정 단추가 여는 탭(project는 Project settings, 앱은 App details). Home은 없다.
   const openSettingsHere =
-    projectId !== null
-      ? () => openProjectSettings(host)
-      : isApp && props.appDetail !== undefined
-        ? () => openAppDetail(host)
-        : undefined;
+    machine !== null
+      ? undefined
+      : projectId !== null
+        ? () => openProjectSettings(host)
+        : isApp && props.appDetail !== undefined
+          ? () => openAppDetail(host)
+          : undefined;
+  const onSettingsAt = machine === null ? props.onSettingsAt : undefined;
   // + hover 목록과 탭 줄 + menu가 같이 쓰는, 고른 agent로 새 session을 여는 길.
   const startChoice = (choice: AgentChoice) => {
     if (choice.kind === "lophn") {
@@ -1169,12 +1178,13 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     }
     if (props.startSettings && started.current.settings === undefined) {
       started.current.settings = true;
-      if (projectId !== null) openProjectSettings(host);
-      else if (appId !== null && props.appDetail !== undefined) {
-        openAppDetail(host);
-      }
+      openSettingsHere?.();
     }
-    if (props.startAppScreen && started.current.appScreen === undefined) {
+    if (
+      props.startAppScreen &&
+      machine === null &&
+      started.current.appScreen === undefined
+    ) {
       started.current.appScreen = true;
       openAppScreen(host);
     }
@@ -1367,6 +1377,9 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   // webview는 host가 key로 한 번만 만들고 옮기지 않으므로 desk나 탭을 바꿔 다시 mount해도 page가 이어진다.
   const bodyOf = (tab: TabItem, active: boolean): ReactNode => {
     const def = tabKindOf(tab.kind);
+    if (machine !== null && def?.thisComputerOnly) {
+      return <OnlyHere key={tab.key} machine={machine} />;
+    }
     return (
       <TabBoundary key={tab.key}>
         {def?.keep?.(tab, true, host) ?? def?.render?.(tab, active, host) ?? (
@@ -1707,7 +1720,8 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       terminal: terminal !== undefined,
       platform: palette.platform,
       keys: windowCommands?.overrides() ?? {},
-      home: projectId === null,
+      // 다른 기계의 창도 project 설정 행이 없다(그 기계에서 바꾼다).
+      home: projectId === null || machine !== null,
       search:
         palette.search && projectId !== null
           ? (query) =>
@@ -2021,6 +2035,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       ? (["search.open"] as const)
       : []),
     ...(props.jobs === undefined ? (["jobs.open"] as const) : []),
+    ...(machine !== null ? (["explorer.focus"] as const) : []),
     ...(projectId === null
       ? ([
           "explorer.focus",
@@ -2543,6 +2558,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   const sidebarKind: SidebarKind = isHome ? "home" : isApp ? "app" : "project";
   const sidebarCtx: SidebarCtx = {
     kind: sidebarKind,
+    otherMachine: machine !== null,
     ...(props.jobs === undefined ? {} : { jobs: props.jobs }),
     onOpenJobs: () => openJobs(host),
     project:
@@ -2632,11 +2648,15 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
           focusTabBody(latestDesk().selected);
         }}
         onAction={runTabAction}
-        onDropPath={(path) =>
-          openFile(host, path, {
-            ...(desk.selected === null ? {} : { from: desk.selected }),
-          })
-        }
+        // 끌어 놓은 file은 이 컴퓨터의 것이라 다른 기계의 창에서는 열 곳이 없다.
+        {...(machine === null
+          ? {
+              onDropPath: (path: string) =>
+                openFile(host, path, {
+                  ...(desk.selected === null ? {} : { from: desk.selected }),
+                }),
+            }
+          : {})}
         onEmptyAction={(action) => {
           if (action === "new-session") openLophn();
           else if (pickFile !== undefined) {
@@ -2686,7 +2706,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
 
   // App hover 목록: 앱 workspace의 앱 화면과 모든 앱 panel 화면. 누르면 바로 연다.
   const quickAppItems: QuickHoverItem[] = [
-    ...(isApp
+    ...(isApp && machine === null
       ? [
           {
             id: "app-screen",
@@ -2843,6 +2863,9 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
               onToggleLeft={() => setLeftOpen(!leftOpen)}
               right={rightOpen}
               onToggleRight={() => setRightOpen(!rightOpen)}
+              machineSwitcher={
+                <MachineSwitcher onPairAnother={() => onSettings("remote")} />
+              }
               deskSwitcher={
                 projectId === null ? undefined : (
                   <DeskSwitcher
@@ -2907,14 +2930,14 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                             choices: agentChoiceList,
                             onChoice: startChoice,
                           })}
-                      {...(agents === null
+                      {...(agents === null || machine !== null
                         ? {}
                         : { onAgents: () => openAgents(host) })}
                       {...(source.searchSource === undefined ||
                       projectId === null
                         ? {}
                         : { onSearch: () => openSearchShortcut(host) })}
-                      {...(isApp
+                      {...(isApp && machine === null
                         ? { onAppScreen: () => openAppScreen(host) }
                         : {})}
                       {...(host.appScreens
@@ -3015,9 +3038,15 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                     ref.kind === "home" ? onHome() : props.onWorkspace?.(ref)
                   }
                   onWorkspaceRow={(ref) => {
-                    // 앱 줄은 앱 화면으로 간다. 이 앱이면 앱 화면 탭을 열거나 고른다.
+                    // 앱 줄은 앱 화면으로 간다. 이 앱이면 앱 화면 탭을 열거나 고른다. 다른 기계의 창은 앱 workspace로만 간다.
                     if (ref.kind === "home") onHome();
-                    else if (ref.kind === "app" && isApp && ref.id === appId) {
+                    else if (ref.kind === "app" && machine !== null) {
+                      props.onWorkspace?.(ref);
+                    } else if (
+                      ref.kind === "app" &&
+                      isApp &&
+                      ref.id === appId
+                    ) {
                       openAppScreen(host);
                     } else if (
                       ref.kind === "app" &&
@@ -3028,24 +3057,26 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                   }}
                   onNewApp={(app) => props.onNewApp?.(app)}
                   {...(openSettingsHere === undefined &&
-                  props.onSettingsAt === undefined
+                  onSettingsAt === undefined
                     ? {}
                     : {
                         onWorkspaceSettings: (ref: WorkspaceRef) =>
                           workspaceKey(ref) === workspaceKey(workspace)
                             ? openSettingsHere?.()
-                            : props.onSettingsAt?.(ref),
+                            : onSettingsAt?.(ref),
                       })}
                   {...(taskbar ? {} : { quick: quickLaunch })}
                   jobs={props.jobs}
                   onInbox={() => openInbox(host)}
                   onJobs={() => openJobs(host)}
-                  onAgents={() => openAgents(host)}
+                  {...(machine === null
+                    ? { onAgents: () => openAgents(host) }
+                    : {})}
                   {...(taskbar ? {} : { onSettings: () => onSettings() })}
                 />
               }
               tray={
-                taskbar
+                taskbar || machine !== null
                   ? undefined
                   : (side) => (
                       <TrayHost
@@ -3070,12 +3101,14 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
                     onToggleFloat={toggleDeskFloat}
                     onSettings={() => onSettings()}
                     tray={
-                      <TrayHost
-                        off={quickPrefs.trayOff}
-                        order={quickPrefs.trayOrder}
-                        screens={panelApps}
-                        side="above"
-                      />
+                      machine !== null ? undefined : (
+                        <TrayHost
+                          off={quickPrefs.trayOff}
+                          order={quickPrefs.trayOrder}
+                          screens={panelApps}
+                          side="above"
+                        />
+                      )
                     }
                   />
                 ) : undefined

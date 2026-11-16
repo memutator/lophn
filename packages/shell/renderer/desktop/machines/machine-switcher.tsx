@@ -13,7 +13,7 @@ import { MachineStatus } from "./status.tsx";
 export function MachineSwitcher({
   onPairAnother,
 }: {
-  /** 어디로 갈지(Settings › Remote 등)는 부르는 쪽이 정한다. */
+  /** 이 컴퓨터의 창에서 어디로 갈지(Settings › Remote 등)는 부르는 쪽이 정한다. */
   onPairAnother: () => void;
 }) {
   const source = useMachines();
@@ -84,7 +84,10 @@ export function MachineSwitcher({
             data-machine-pair-another=""
             onClick={() => {
               setOpen(false);
-              onPairAnother();
+              // pairing은 이 컴퓨터 창의 Settings › Remote가 한다. 다른 기계의 창은 그 창을 앞으로 가져오기만 한다.
+              if (win !== null && view.thisComputer !== null) {
+                void source.open(view.thisComputer.id);
+              } else onPairAnother();
             }}
           >
             <span className={styles.lead}>

@@ -112,10 +112,11 @@ export interface JobsSource {
   /** 새것이 앞이다. */
   runs(job: string): Promise<SourceResult<readonly JobRunView[]>>;
   setEnabled(job: string, enabled: boolean): Promise<SourceResult<null>>;
-  update(job: string, patch: JobPatch): Promise<SourceResult<null>>;
-  remove(job: string): Promise<SourceResult<null>>;
+  // 아래 셋이 없으면(다른 기계의 창: 기기는 켜고 끄기만 한다) 그 단추가 없다.
+  update?(job: string, patch: JobPatch): Promise<SourceResult<null>>;
+  remove?(job: string): Promise<SourceResult<null>>;
   /** 다른 기계의 job을 이 기계로 가져온다. */
-  takeOver(job: string): Promise<SourceResult<null>>;
+  takeOver?(job: string): Promise<SourceResult<null>>;
   /** 그 기계 id의 이름. 있고 이름을 돌려주면 "Belongs to <name>", 없거나 null이면 "Belongs to another computer"다. 기계 기록을 아는 쪽이 채운다. */
   machineName?(machine: string): Promise<string | null>;
 }

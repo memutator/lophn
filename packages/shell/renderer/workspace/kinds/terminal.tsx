@@ -258,6 +258,7 @@ function runtimeOf(tab: TabItem, host: TabHost) {
 }
 
 export const terminalKind: TabKindDef = {
+  thisComputerOnly: true,
   kind: "terminal",
   labelKey: "project-workspace.label.kind-terminal",
   icon: workspaceIcons.terminal,

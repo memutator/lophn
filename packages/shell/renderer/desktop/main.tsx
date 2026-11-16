@@ -26,6 +26,7 @@ import { ToastHost } from "./connection/toasts/toast-host.tsx";
 import { registerToastActionHandler } from "./connection/toasts/toast-actions.ts";
 import { useWaitingPanel } from "./connection/waiting/waiting-layer.tsx";
 import { HomeGate } from "./workspaces/home-gate.tsx";
+import { useWindowMachine } from "./machines/context.tsx";
 import {
   createSidebarMemory,
   SidebarMemoryProvider,
@@ -337,11 +338,21 @@ export function Desktop({
   // 작업대는 core 기록을 읽어 연다. 준비 전·실패에는 연결 화면(HomeGate)을 보이고, 준비되면 그때
   // 작업대를 열어 읽는다.
   const connection = useConnection(source);
-  const live = connection.state === "ready" || connection.state === "stale";
+  // 다른 기계의 창은 한 번 붙은 뒤로는 끊겨도 마지막 화면을 그대로 두고(위에 끊김 한 줄), 그 기계가 이 desktop을 지웠으면
+  // 언제든 창 전체가 gate다.
+  const machine = useWindowMachine();
+  const connected = useRef(false);
+  if (connection.state === "ready") connected.current = true;
+  const live =
+    machine === null
+      ? connection.state === "ready" || connection.state === "stale"
+      : connected.current && machine.status !== "removed";
   let space: ReactNode;
   // 전역 float 층은 workspace와 Settings 위에만 있다. detached 창, 앱 전용 창, 연결 화면(HomeGate)에는 없다.
   let globalFloats = false;
-  if (route.space === "project" && route.project && workspace && live) {
+  if (machine !== null && !live) {
+    space = <HomeGate source={source} onSettings={settingsSpace} />;
+  } else if (route.space === "project" && route.project && workspace && live) {
     globalFloats = true;
     space = (
       <WorkspaceWindow
@@ -492,7 +503,7 @@ export function Desktop({
       />
     );
   } else {
-    space = <HomeGate source={source} />;
+    space = <HomeGate source={source} onSettings={settingsSpace} />;
   }
   // 창 shortcut의 Home 복귀와 팔레트는 어느 공간에서든 이 한 곳에서 받는다.
   const tree = (

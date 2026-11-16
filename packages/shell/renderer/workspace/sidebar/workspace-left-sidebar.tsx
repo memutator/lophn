@@ -16,6 +16,7 @@ import { CreateAppDialog } from "../../desktop/workspaces/create-app-dialog.tsx"
 import type { ProjectsSource } from "../../desktop/workspaces/projects/source.ts";
 import { RegisterDialog } from "../../desktop/workspaces/register-dialog.tsx";
 import { useQuickPrefs } from "../../desktop/settings/quick-launch/store.tsx";
+import { useWindowMachine } from "../../desktop/machines/context.tsx";
 import { type AgentChoice } from "../../parts/agent-session/agent-session.tsx";
 import { codingDot } from "../../parts/agent-session/coding.ts";
 import { newId } from "../../prefixed-id.ts";
@@ -149,7 +150,8 @@ export interface WorkspaceLeftSidebarProps {
   jobs?: JobsSource;
   onInbox: () => void;
   onJobs: () => void;
-  onAgents: () => void;
+  /** 없으면 Agents 줄이 없다. */
+  onAgents?: () => void;
   /** 맨 아래 줄의 빠른 실행. 작업 표시줄이 켜져 있으면 주지 않는다(작업 표시줄이 그린다). */
   quick?: QuickLaunch;
   /** 이 창의 탭(draft 줄)을 고른다. */
@@ -165,7 +167,11 @@ export interface WorkspaceLeftSidebarProps {
 }
 
 export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
-  const { workspace: current, projects, apps } = props;
+  const { workspace: current } = props;
+  // 다른 기계의 창은 project 등록과 앱 만들기가 없고, coding agent는 그 기계의 터미널에 있어 고를 수 없다.
+  const machine = useWindowMachine();
+  const projects = machine === null ? props.projects : undefined;
+  const apps = machine === null ? props.apps : undefined;
   const projectId = current.kind === "project" ? current.id : null;
   const list = useSidebarWorkspaceList();
   const { sessions } = useSessions();
@@ -319,7 +325,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
                 name: props.lophnNames[assignment] ?? LOPHN_AGENT_NAME,
               };
             }),
-          ref.kind === "project" ? coding.favorites : [],
+          ref.kind === "project" && machine === null ? coding.favorites : [],
         );
   const [registering, setRegistering] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -488,7 +494,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         {...(props.jobs === undefined ? {} : { jobs: props.jobs })}
         onInbox={props.onInbox}
         onJobs={props.onJobs}
-        onAgents={props.onAgents}
+        {...(props.onAgents === undefined ? {} : { onAgents: props.onAgents })}
         onWorkspace={props.onWorkspaceRow}
         onSession={open}
         onRemoveRecent={(_workspace, item) =>

@@ -80,8 +80,8 @@ export interface LeftSidebarProps {
   /** Inbox·Jobs overlay의 [Open in tab]과 Jobs 줄(통로가 없을 때): 그 탭을 연다. */
   onInbox: () => void;
   onJobs: () => void;
-  /** Agents 줄: 지금 workspace의 Agents 탭을 연다. */
-  onAgents: () => void;
+  /** Agents 줄: 지금 workspace의 Agents 탭을 연다. 없으면 Agents 줄이 없다. */
+  onAgents?: () => void;
   /** workspace 줄 누르기. 앱 줄이면 그 앱 화면 탭으로 간다. */
   onWorkspace: (ref: WorkspaceRef) => void;
   onSession: (workspace: SidebarWorkspace, session: SidebarSession) => void;
@@ -381,12 +381,14 @@ export function LeftSidebar({
             )}
           />
         )}
-        <NavRow
-          icon={commonIcons.agents}
-          label={t("left-sidebar.button.agents")}
-          onClick={onAgents}
-          data-nav="agents"
-        />
+        {onAgents === undefined ? null : (
+          <NavRow
+            icon={commonIcons.agents}
+            label={t("left-sidebar.button.agents")}
+            onClick={onAgents}
+            data-nav="agents"
+          />
+        )}
       </div>
 
       <div className={styles.sectionHead}>

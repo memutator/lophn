@@ -43,6 +43,7 @@ function faceOf(tab: TabItem, host: TabHost): Face | undefined {
 }
 
 export const agentsKind: TabKindDef = {
+  thisComputerOnly: true,
   kind: "agents",
   labelKey: "project-workspace.label.kind-agents",
   icon: commonIcons.agents,

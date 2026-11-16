@@ -28,6 +28,8 @@ import type { TabHost } from "../../workspace/kinds/host.ts";
 import { tabKindOf } from "../../workspace/kinds/registry.ts";
 import type { ProjectView, WorkspaceSource } from "../../workspace/source.ts";
 import { TabBoundary } from "../../workspace/tab-boundary.tsx";
+import { useWindowMachine } from "../../desktop/machines/context.tsx";
+import { OnlyHere } from "../../desktop/machines/only-here.tsx";
 import { useTabHostSlices } from "../../workspace/use-tab-host-slices.ts";
 import type { WorkspaceWindowProps } from "../../workspace/workspace-window.tsx";
 import { clampFloatRect } from "../../workspace/model.ts";
@@ -184,6 +186,7 @@ function GlobalFloatBody({
   });
   const hostRef = useRef(host);
   hostRef.current = host;
+  const machine = useWindowMachine();
 
   const { registerHost } = globalFloats;
   useEffect(
@@ -200,6 +203,9 @@ function GlobalFloatBody({
   }
 
   if (def === undefined) return null;
+  if (machine !== null && def.thisComputerOnly) {
+    return <OnlyHere machine={machine} />;
+  }
   return (
     <TabBoundary key={tab.key}>
       {def.keep?.(tab, true, host) ?? def.render?.(tab, true, host)}

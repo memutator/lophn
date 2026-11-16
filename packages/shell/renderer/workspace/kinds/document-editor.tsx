@@ -113,6 +113,7 @@ function FileTab({ tab, host }: { tab: TabItem; host: TabHost }) {
 }
 
 export const documentEditorKind: TabKindDef = {
+  thisComputerOnly: true,
   kind: "document_editor",
   labelKey: "project-workspace.label.kind-document-editor",
   icon: workspaceIcons.documentEditor,

@@ -56,6 +56,7 @@ export function openPinnedAppPanel(
 }
 
 export const appPanelKind: TabKindDef = {
+  thisComputerOnly: true,
   kind: "app_panel",
   labelKey: "project-workspace.label.kind-app-panel",
   icon: workspaceIcons.appPanel,

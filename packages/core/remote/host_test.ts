@@ -387,6 +387,18 @@ function setup() {
             return ok({ screens: [], as_of_seq: "1", next_cursor: null });
           },
         ],
+        [
+          "app_sync/pull",
+          (() => {
+            reached.push("app_sync/pull");
+            return ok({
+              changes: [],
+              next: 0,
+              more: false,
+              snapshot_needed: false,
+            });
+          }) as never,
+        ],
       ]),
       memory: new Map([
         [
@@ -412,6 +424,18 @@ function setup() {
             reached.push("apps/screen_file");
             return ok(bytesFileStream(new Uint8Array([1]), "text/javascript"));
           },
+        ],
+        [
+          "apps/phone_file",
+          async () =>
+            ok(bytesFileStream(new Uint8Array([1]), "text/javascript")),
+        ],
+        [
+          "app_sync/snapshot_file",
+          async () =>
+            ok(
+              bytesFileStream(new Uint8Array([2]), "application/octet-stream"),
+            ),
         ],
       ]),
       uploads: new Map([["message-images/upload", upload]]),
@@ -706,6 +730,8 @@ test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model�
     ],
     ["app_views/call", { view, operation: "save", input: null }],
     ["app_views/close", { view }],
+    // 폰에서 도는 앱: 맞추기 route는 통과한다.
+    ["app_sync/pull", { app: viewApp, release: viewRelease, after: 0 }],
   ] as const;
   // 차례로 보낸다. open이 끝나기 전에 call이 닿지 않게.
   for (const [path, body] of inside) {
@@ -725,6 +751,7 @@ test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model�
     "apps/phone_screens",
     "apps/screen_file",
     "app operation",
+    "app_sync/pull",
   ]);
 });
 
@@ -787,6 +814,20 @@ test("기기의 upload는 base64를 같은 bytes로 넘기고, file route는 {co
     method: "read",
     body: { session: decideBody.session, image: "a".repeat(64) },
   });
+  c.phone.send({
+    type: "call",
+    id: "phone_file",
+    resource: "apps",
+    method: "phone_file",
+    body: { app: viewApp, release: viewRelease, path: "phone/backend.js" },
+  });
+  c.phone.send({
+    type: "call",
+    id: "snapshot_file",
+    resource: "app_sync",
+    method: "snapshot_file",
+    body: { snapshot: "snap", offset: 0, length: 1 },
+  });
   await settle();
   assert.deepEqual(s.uploaded, [{ input, bytes: [0, 255, 7] }]);
   const byId = Object.fromEntries(
@@ -803,6 +844,18 @@ test("기기의 upload는 base64를 같은 bytes로 넘기고, file route는 {co
     id: "read",
     ok: true,
     value: { content_type: "image/png", base64: "iVBORw==" },
+  });
+  assert.deepEqual(byId.phone_file, {
+    type: "result",
+    id: "phone_file",
+    ok: true,
+    value: { content_type: "text/javascript", base64: "AQ==" },
+  });
+  assert.deepEqual(byId.snapshot_file, {
+    type: "result",
+    id: "snapshot_file",
+    ok: true,
+    value: { content_type: "application/octet-stream", base64: "Ag==" },
   });
 });
 
@@ -869,12 +922,18 @@ test("기기의 watch는 types 없이 걸어도 REMOTE_ALLOWED_EVENTS 밖의 eve
     at: s.clock.now(),
     payload: { id: `ntc_0${"1".repeat(25)}` },
   });
+  s.bus.publish({
+    type: "AppSyncChanged",
+    subject: viewApp,
+    at: s.clock.now(),
+    payload: { release: viewRelease, seq: 3 },
+  });
   await settle();
   assert.deepEqual(
     c.frames.map((frame) =>
       frame.type === "event" ? frame.event.type : frame.type,
     ),
-    ["ready", "NoticeClosed"],
+    ["ready", "NoticeClosed", "AppSyncChanged"],
   );
 });
 

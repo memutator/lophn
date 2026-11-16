@@ -14,6 +14,12 @@ import {
   releasesGetRecord,
   releasesListRecords,
 } from "../apps/activation/activation.ts";
+import {
+  appSyncPull,
+  appSyncPush,
+  appSyncSnapshot,
+  appSyncSnapshotFile,
+} from "../apps/app-sync.ts";
 import { appGet, appList } from "../apps/apps.ts";
 import { appInvocation, appInvocations } from "../apps/calls/invocation.ts";
 import { appRewindPlan } from "../apps/calls/rewind.ts";
@@ -130,6 +136,8 @@ import { devicesSetPush, devicesUnpair } from "./routes.ts";
 // view id로만 앱을 부르고, 부를 수 있는 operation은 core가 그 view에 묶인 release의 선언에 있는 것만으로 판정한다. 그래서
 // 앱을 직접 부르는 `apps/call_tool`과 grant(`app_grants/*`)는 넣지 않는다. 화면 오류를 쓰는 `apps/log_view_error`도 넣지 않는다:
 // 입력의 앱을 부르는 쪽이 정해서 다른 앱의 log에 쓸 수 있다.
+// 폰에서 도는 앱: 폰이 앱 backend와 migration file(`apps/phone_file`)을 받고 자기 사본을 컴퓨터와 맞춘다(`app_sync/*`). `app_sync/push`는
+// 기기 자격(principal `device:<id>`)만 받는다.
 export const REMOTE_ALLOWED_ROUTES = [
   // session 목록
   workspaceSessionList,
@@ -238,6 +246,11 @@ export const REMOTE_ALLOWED_ROUTES = [
   appViewsClose,
   // 폰 홈 화면 위젯의 값: 폰이 위젯을 그리려면 읽어야 한다
   appWidgetsList,
+  // 폰에서 도는 앱: 설치(snapshot)와 맞추기(push, pull)
+  appSyncPush,
+  appSyncPull,
+  appSyncSnapshot,
+  appSyncSnapshotFile,
   // 폰이 이 컴퓨터를 지울 때 자기 등록을 지운다
   devicesUnpair,
   // push: 폰이 자기 token과 알림 설정을 두고, 지금 앞에 보이는지를 알린다
@@ -249,7 +262,7 @@ export const REMOTE_ALLOWED_ROUTES = [
 // 위 route로 그리는 화면이 듣는 것이다: session 목록의 상태, 대화의 ACP 갱신, 대기 줄(물음, 동의, 공유 요청, 알림, job).
 // Jobs, Agents, workflow, 앱 실행 기록은 따로 event가 없고 `StateChanged`의 이름(jobs, agents, workflow_instances, runs,
 // app_activity, app_runtime, releases)으로 다시 읽는다. 앱 event는 `AppViewEvent`로만 받는다: 묶인 release가 구독을 선언한 view의
-// owner에게만 가고, Gateway가 이 기기(owner)가 연 view의 것만 보낸다. `AppEventPublished`(모든 앱의 event 원본), `AppViewChanged`,
+// owner에게만 가고, Gateway가 이 기기(owner)가 연 view의 것만 보낸다. `AppSyncChanged`(앱 id와 seq만 싣는다)도 받는다. `AppEventPublished`(모든 앱의 event 원본), `AppViewChanged`,
 // 앱 설치·지우기는 넣지 않는다.
 export const REMOTE_ALLOWED_EVENTS = [
   // 대화
@@ -276,4 +289,6 @@ export const REMOTE_ALLOWED_EVENTS = [
   "AppViewEvent",
   // 보는 터미널의 화면이 바뀌었다(내용 없이 seq만. 폰이 `terminal_view/snapshot`을 다시 읽는다)
   "TerminalScreenChanged",
+  // 폰에서 도는 앱: sync log에 줄이 생기면 폰이 pull한다
+  "AppSyncChanged",
 ] as const satisfies readonly BusEvent["type"][];

@@ -3,7 +3,7 @@
 // a view a preview screen of this phone registered for the asking computer; a live app screen never registers, so its
 // view is "no preview" like any unknown id.
 import type { z } from "zod";
-import { err, type LophnError, type Result } from "../../../../base/mod.ts";
+import { err, type Result } from "../../../../base/mod.ts";
 import type {
   DriveAct,
   DriveSnapshotOutput,
@@ -81,17 +81,17 @@ const takenOver = (): Result<never> =>
     details: { reason: "taken_over" },
   });
 
-// The native module says screen_off when the window lost focus. A request only gets here while the app is in front
-// (answerRequest), so the screen is on and something covers the preview: a sheet or dialog the app opened (its content is
-// outside the screen lophn reads), the person's own menu, or a system panel. Without a reason the core passes the
-// message on as it is.
-export const COVERED_TEXT =
-  "Something covers the preview on the phone (a sheet or dialog, or a system panel), so lophn cannot drive it; what a sheet or dialog shows is not part of the screen lophn reads. Ask the person to close it on the phone and check that part by hand, then try again.";
-
+// The native module says screen_off when the screen is off or the window lost focus. A request only gets here while the
+// app is in front (answerRequest), so the screen is on and something covers the preview: a sheet or dialog the app
+// opened (its content is outside the screen lophn reads), the person's own menu, or a system panel. The core tells the
+// agent what `covered` means (PHONE_TAB_TEXT.covered).
 function uncovered<T>(result: Result<T>): Result<T> {
   if (result.ok || result.error.details?.["reason"] !== "screen_off") return result;
-  const error: LophnError = { code: "unavailable", message: COVERED_TEXT };
-  return err(error);
+  return err({
+    code: "unavailable",
+    message: "Something covers the preview on the phone.",
+    details: { reason: "covered" },
+  });
 }
 
 export function createDrive(deps: { native: DriveNative; now: () => number }) {

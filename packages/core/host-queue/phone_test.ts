@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ok } from "../../base/mod.ts";
+import { err, ok } from "../../base/mod.ts";
 import { PHONE_TAB_TEXT } from "../../protocol/phone/drive.ts";
 import { createPhoneDriver, type PreviewView } from "./phone.ts";
 import type { PhoneTab } from "./queue.ts";
@@ -67,4 +67,30 @@ test("마지막 snapshot이 아닌 ref와 다른 view의 ref는 폰에 묻지 �
   ];
   conflict(await driver.act(tab, "a", { type: "click", ref: "e2" }));
   assert.equal(calls.length, asked);
+});
+
+// 폰의 거절 이유가 agent가 할 일을 말하는 정한 문장이 되어야 agent가 사람에게 부탁한다(되풀이하지 않는다).
+test("폰의 unavailable 이유는 정한 문장이 된다", async () => {
+  const reasons: [string, string][] = [
+    ["no_preview", PHONE_TAB_TEXT.notShowing],
+    ["phone_in_background", PHONE_TAB_TEXT.notInFront],
+    ["covered", PHONE_TAB_TEXT.covered],
+  ];
+  for (const [reason, text] of reasons) {
+    const driver = createPhoneDriver({
+      previewViews: () => [
+        { owner: "device:dev_1", view: "view-0001", screen: "home", used: 1 },
+      ],
+      call: () =>
+        Promise.resolve(
+          err({ code: "unavailable", message: "x", details: { reason } }),
+        ),
+      redact: (value) => value,
+    });
+    const tab: PhoneTab = { app: APP, screen: null, counter: 0, last: null };
+    assert.deepEqual(await driver.snapshot(tab, "a"), {
+      ok: false,
+      error: { code: "unavailable", message: text },
+    });
+  }
 });

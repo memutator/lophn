@@ -65,7 +65,8 @@ export type PhoneKind = keyof typeof PHONE_KINDS;
 // - phone_in_background: channel은 열렸지만 폰 앱이 활성이 아니다
 // - location_off: OS 위치 서비스가 꺼져 있다
 // - no_preview: `drive.*`의 view가 이 폰이 연 preview view가 아니거나 guest가 닫혔다
-// - screen_off: 화면이 꺼졌거나 창에 focus가 없다(`drive.*`)
+// - screen_off: 화면이 꺼졌다(`drive.*`)
+// - covered: 앱은 앞에 있지만 무언가(sheet, dialog, notification shade)가 preview를 덮어 창에 focus가 없다(`drive.*`)
 // - timeout: deadline까지 답이 없다
 export const phoneUnavailableReasonSchema = z.enum([
   "no_phone",
@@ -75,6 +76,7 @@ export const phoneUnavailableReasonSchema = z.enum([
   "location_off",
   "no_preview",
   "screen_off",
+  "covered",
   "timeout",
 ]);
 export type PhoneUnavailableReason = z.infer<

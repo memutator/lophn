@@ -125,6 +125,8 @@ export const PHONE_TAB_TEXT = {
     "The phone is not showing a preview of this app, so there is nothing to drive. Ask the person to open the app in the lophn app on the phone and choose Preview from lophn, then try again; retrying before that does not help.",
   notInFront:
     "The lophn app on the phone is not in front or the phone screen is off, so lophn cannot drive it. Ask the person to unlock the phone and keep the preview open, then try again.",
+  covered:
+    "Something on the phone (a sheet, a dialog or the notification shade) covers the preview, so lophn cannot read or drive it; what a sheet or dialog shows is not part of the screen lophn reads. Ask the person to close it on the phone and to check that part by hand, then try again.",
   tooOld:
     "The lophn app on the phone is too old to be driven. Ask the person to update the lophn app on the phone.",
   timedOut:

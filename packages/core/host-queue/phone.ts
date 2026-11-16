@@ -58,6 +58,7 @@ const REASON_TEXT: Partial<Record<string, Record<string, string>>> = {
     no_preview: PHONE_TAB_TEXT.notShowing,
     phone_in_background: PHONE_TAB_TEXT.notInFront,
     screen_off: PHONE_TAB_TEXT.notInFront,
+    covered: PHONE_TAB_TEXT.covered,
     unsupported: PHONE_TAB_TEXT.tooOld,
     timeout: PHONE_TAB_TEXT.timedOut,
   },

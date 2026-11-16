@@ -22,6 +22,7 @@ import * as detached from "./wiring/detached.ts";
 import * as editor from "./wiring/editor.ts";
 import * as extensions from "./wiring/extensions.ts";
 import * as layout from "./wiring/layout.ts";
+import * as machines from "./wiring/machines.ts";
 import * as surface from "./wiring/surface.ts";
 import * as terminalView from "./wiring/terminal-view.ts";
 import { loginPathOf } from "./core/login-path.ts";
@@ -86,6 +87,7 @@ function startDesktop(): void {
 
   add(crash.register(ctx));
   add(core.register(ctx));
+  add(machines.register(ctx));
   const browserViews = add(browser.register(ctx));
   const artifacts = add(artifact.register(ctx, browserViews));
   const views = add(appViews.register(ctx, browserViews, artifacts));

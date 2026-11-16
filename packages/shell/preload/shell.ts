@@ -23,6 +23,7 @@ import { createInstructionsApi } from "./instructions-api.ts";
 import { createMemoryApi } from "./memory-api.ts";
 import { createGlobalFloatsApi } from "./global-floats-api.ts";
 import { createLayoutApi } from "./layout-api.ts";
+import { createMachinesApi } from "./machines-api.ts";
 import { createShellApi } from "./shell-api.ts";
 import { createIntentApi, createShortcutApi } from "./shortcut-api.ts";
 import { createAppearanceApi } from "./appearance-api.ts";
@@ -170,6 +171,11 @@ if (role === "shell") {
   );
   // [Memory]: memory 파일을 같은 편집기 길로 연다. 경로는 main에만 있다.
   contextBridge.exposeInMainWorld("lophnMemory", createMemoryApi(ipcRenderer));
+  // The machines this computer views. Connections and the saved list are in main.
+  contextBridge.exposeInMainWorld(
+    "lophnMachines",
+    createMachinesApi(ipcRenderer),
+  );
 }
 
 contextBridge.exposeInMainWorld("lophnCore", createCoreApi(ipcRenderer));

@@ -405,6 +405,14 @@ files:
       - global-floats-read:empty
     note: "전역 float 목록을 쓰고 읽는다. 모양이 틀린 값은 거절하고 파일을 그대로 두며, 틀린 파일이나 다른 schema_version은 빈 목록으로 읽는다"
 
+  - path: packages/shell/main/desktop/viewer/store_test.ts
+    covers: [machines-list:ok]
+    note: "desktop 기기 key와 기계 목록 저장(data-loss). key는 한 번 만들어지고(0600) 다시 열면 같다, 다른 machine id가 적힌 저장은 버려져 새 key와 빈 목록이 된다, 깨진 machines.json은 덮이지 않고 unreadable이며 그 동안 key가 새로 생기지 않는다"
+
+  - path: packages/shell/main/desktop/viewer/list_test.ts
+    covers: [machines-start:ok, machines-remove:ok]
+    note: "시작 기계 규칙. 고른 기계가 빠졌거나 removed면 마지막에 쓴 기계, 그것도 없으면 이 기계다. 지운 기계가 시작 기계였으면 start가 last가 되고 last였으면 이 기계가 된다"
+
   - path: packages/shell/main/workspace/window-state_test.ts
     covers:
       - window-state-save:saved

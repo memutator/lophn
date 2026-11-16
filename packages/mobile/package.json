@@ -7,9 +7,11 @@
     "start": "expo start --dev-client",
     "android": "expo run:android",
     "typecheck": "tsc --noEmit",
-    "test": "node --test \"src/**/*.test.ts\""
+    "test": "node --test \"src/**/*.test.ts\"",
+    "postinstall": "patch-package"
   },
   "dependencies": {
+    "@callstack/react-native-sandbox": "0.7.0",
     "@expo-google-fonts/jetbrains-mono": "0.4.1",
     "@formatjs/intl": "6.1.2",
     "@lezer/markdown": "1.7.2",
@@ -26,6 +28,7 @@
     "expo-constants": "58.0.16",
     "expo-crypto": "58.0.8",
     "expo-dev-client": "58.0.20",
+    "expo-file-system": "58.0.13",
     "expo-font": "58.0.12",
     "expo-haptics": "58.0.8",
     "expo-image-picker": "58.0.10",
@@ -48,6 +51,7 @@
   "devDependencies": {
     "@types/node": "24.19.1",
     "@types/react": "19.3.0",
+    "patch-package": "8.0.1",
     "typescript": "6.0.3"
   }
 }

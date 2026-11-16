@@ -1,0 +1,304 @@
+diff --git a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/GuestImageControllerBuilder.java b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/GuestImageControllerBuilder.java
+new file mode 100644
+index 0000000..67dff04
+--- /dev/null
++++ b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/GuestImageControllerBuilder.java
+@@ -0,0 +1,39 @@
++package io.callstack.rnsandbox;
++
++// lophn: Fresco's controller builder for a guest's image views: loads of network URIs fail (see GuestImages.kt).
++// Java because Fresco passes a null caller context where its signature says non-null, which Kotlin would reject.
++
++import android.content.Context;
++import com.facebook.common.references.CloseableReference;
++import com.facebook.common.util.UriUtil;
++import com.facebook.datasource.DataSource;
++import com.facebook.datasource.DataSources;
++import com.facebook.drawee.backends.pipeline.PipelineDraweeControllerBuilder;
++import com.facebook.drawee.backends.pipeline.PipelineDraweeControllerFactory;
++import com.facebook.drawee.interfaces.DraweeController;
++import com.facebook.imagepipeline.core.ImagePipeline;
++import com.facebook.imagepipeline.image.CloseableImage;
++import com.facebook.imagepipeline.request.ImageRequest;
++import java.util.Collections;
++
++class GuestImageControllerBuilder extends PipelineDraweeControllerBuilder {
++  GuestImageControllerBuilder(
++      Context context, PipelineDraweeControllerFactory factory, ImagePipeline pipeline) {
++    super(context, factory, pipeline, Collections.emptySet(), Collections.emptySet());
++  }
++
++  @Override
++  protected DataSource<CloseableReference<CloseableImage>> getDataSourceForRequest(
++      DraweeController controller,
++      String controllerId,
++      ImageRequest imageRequest,
++      Object callerContext,
++      CacheLevel cacheLevel) {
++    if (UriUtil.isNetworkUri(imageRequest.getSourceUri())) {
++      return DataSources.immediateFailedDataSource(
++          new SecurityException("a phone screen has no network"));
++    }
++    return super.getDataSourceForRequest(
++        controller, controllerId, imageRequest, callerContext, cacheLevel);
++  }
++}
+diff --git a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/GuestImages.kt b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/GuestImages.kt
+new file mode 100644
+index 0000000..77e9276
+--- /dev/null
++++ b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/GuestImages.kt
+@@ -0,0 +1,67 @@
++package io.callstack.rnsandbox
++
++// lophn: a guest has no network, and images are a way out too: an <Image> with an http URL or Image.prefetch sends a
++// request (with whatever the screen put in the URL) through the host's Fresco pipeline. A guest gets an image view
++// whose loads of network URIs fail and an ImageLoader that refuses every call.
++
++import android.content.Context
++import com.facebook.common.executors.UiThreadImmediateExecutorService
++import com.facebook.drawee.backends.pipeline.Fresco
++import com.facebook.drawee.backends.pipeline.PipelineDraweeControllerFactory
++import com.facebook.drawee.components.DeferredReleaser
++import com.facebook.fbreact.specs.NativeImageLoaderAndroidSpec
++import com.facebook.react.bridge.Arguments
++import com.facebook.react.bridge.Promise
++import com.facebook.react.bridge.ReactApplicationContext
++import com.facebook.react.bridge.ReadableArray
++import com.facebook.react.bridge.ReadableMap
++import com.facebook.react.views.image.ReactImageManager
++
++private const val NO_NETWORK = "a phone screen has no network"
++
++// The same image view manager as React Native's, over a controller builder made like Fresco's own
++// (PipelineDraweeControllerBuilderSupplier) but refusing network URIs.
++internal fun guestImageManager(context: Context): ReactImageManager {
++    val pipelineFactory = Fresco.getImagePipelineFactory()
++    val pipeline = pipelineFactory.imagePipeline
++    val factory = PipelineDraweeControllerFactory()
++    factory.init(
++        context.resources,
++        DeferredReleaser.getInstance(),
++        pipelineFactory.getAnimatedDrawableFactory(context),
++        pipelineFactory.xmlDrawableFactory,
++        UiThreadImmediateExecutorService.getInstance(),
++        pipeline.bitmapMemoryCache,
++        null,
++        null,
++    )
++    return ReactImageManager(GuestImageControllerBuilder(context, factory, pipeline))
++}
++
++internal class GuestImageLoaderModule(
++    reactContext: ReactApplicationContext,
++) : NativeImageLoaderAndroidSpec(reactContext) {
++    override fun getSize(
++        uri: String?,
++        promise: Promise,
++    ) = promise.reject("E_UNAVAILABLE", NO_NETWORK)
++
++    override fun getSizeWithHeaders(
++        uri: String?,
++        headers: ReadableMap?,
++        promise: Promise,
++    ) = promise.reject("E_UNAVAILABLE", NO_NETWORK)
++
++    override fun prefetchImage(
++        uri: String?,
++        requestId: Double,
++        promise: Promise,
++    ) = promise.reject("E_UNAVAILABLE", NO_NETWORK)
++
++    override fun abortRequest(requestId: Double) = Unit
++
++    override fun queryCache(
++        uris: ReadableArray,
++        promise: Promise,
++    ) = promise.resolve(Arguments.createMap())
++}
+diff --git a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeDelegate.kt b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeDelegate.kt
+index d101298..6ff9a73 100644
+--- a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeDelegate.kt
++++ b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeDelegate.kt
+@@ -27,6 +27,8 @@ import com.facebook.react.runtime.ReactHostImpl
+ import com.facebook.react.runtime.hermes.HermesInstance
+ import com.facebook.react.shell.MainReactPackage
+ import com.facebook.react.uimanager.ViewManager
++import com.facebook.fbreact.specs.NativeImageLoaderAndroidSpec
++import com.facebook.react.views.image.ReactImageManager
+ 
+ class SandboxReactNativeDelegate(
+     private val context: Context,
+@@ -195,6 +197,10 @@ class SandboxReactNativeDelegate(
+                         jsRuntimeFactory = HermesInstance(),
+                         turboModuleManagerDelegateBuilder = tmmDelegateBuilder,
+                         bindingsInstaller = bindingsInstaller,
++                        // lophn: the default handler rethrows, which ends the whole app when the guest fails
++                        // before its own error handler is installed (an exception while the bundle runs). The
++                        // guest's ReactHost is destroyed after this call; the view reports it as fatal instead.
++                        exceptionHandler = { e -> reportHostException(e) },
+                     )
+ 
+                 val componentFactory = ComponentFactory()
+@@ -205,8 +211,9 @@ class SandboxReactNativeDelegate(
+                         sandboxContext,
+                         hostDelegate,
+                         componentFactory,
+-                        true,
+-                        true,
++                        // lophn: no dev support in a guest; with it a debug host made the guest ask Metro for its bundle.
++                        false,
++                        false,
+                     )
+ 
+                 ownsReactHost = true
+@@ -296,12 +303,42 @@ class SandboxReactNativeDelegate(
+                 JSBundleLoader.createFileLoader(bundleSource)
+             }
+ 
++            // lophn: absolute file paths, and "base|screen" to run two scripts in order in one runtime.
++            bundleSource.startsWith("/") && bundleSource.contains("|") -> {
++                val paths = bundleSource.split("|")
++                object : JSBundleLoader() {
++                    override fun loadScript(delegate: com.facebook.react.bridge.JSBundleLoaderDelegate): String {
++                        for (p in paths) delegate.loadScriptFromFile(p, p, false)
++                        return paths.last()
++                    }
++                }
++            }
++
++            bundleSource.startsWith("/") -> {
++                JSBundleLoader.createFileLoader(bundleSource, bundleSource, true)
++            }
++
+             else -> {
+                 JSBundleLoader.createAssetLoader(context, "assets://$bundleSource", true)
+             }
+         }
+     }
+ 
++    private fun reportHostException(e: Exception) {
++        Log.e(TAG, "Sandbox '$origin' failed: ${e.message}", e)
++        // The ReactHost destroys its runtime right after this call. The JSI state goes first: freed later by the
++        // view's cleanup, after the runtime, it ended the app (SIGSEGV in nativeDestroy).
++        val handle = jsiStateHandle
++        if (handle != 0L) {
++            jsiStateHandle = 0
++            if (origin.isNotEmpty()) sharedHosts[origin]?.jsiStateHandle = 0
++            SandboxJSIInstaller.nativeDestroy(handle)
++        }
++        UiThreadUtil.runOnUiThread {
++            sandboxView?.emitOnError("GuestCrashed", e.message ?: "guest failed", e.stackTraceToString(), true)
++        }
++    }
++
+     fun onJSIBindingsInstalled(stateHandle: Long) {
+         jsiStateHandle = stateHandle
+         // Store on the shared host so views that reuse this host can
+@@ -598,6 +635,9 @@ class SandboxReactNativeDelegate(
+                 return null
+             }
+ 
++            // lophn: React Native's ImageLoader fetches URLs (prefetch, getSize); a guest gets one that does not.
++            if (name == NativeImageLoaderAndroidSpec.NAME) return GuestImageLoaderModule(reactContext)
++
+             delegate.getModule(name, reactContext)?.let { return it }
+ 
+             for (pkg in hostPackages) {
+@@ -641,7 +681,26 @@ class SandboxReactNativeDelegate(
+             }
+         }
+ 
+-        override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> =
+-            delegate.createViewManagers(reactContext)
++        override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {
++            // lophn: the image view of a guest does not load network URIs (GuestImages.kt).
++            val own =
++                delegate
++                    .createViewManagers(reactContext)
++                    .map { if (it.name == ReactImageManager.REACT_CLASS) guestImageManager(reactContext) else it }
++                    .toMutableList()
++            // lophn: the kit's native views. Every view manager given to a guest is reachable from screen code
++            // through its props, so this list stays as short as the kit allows.
++            val prefixes = listOf("RNSVG", "RNCSafeArea", "KeyboardController", "Reanimated")
++            for (pkg in hostPackages) {
++                try {
++                    for (vm in pkg.createViewManagers(reactContext)) {
++                        if (prefixes.any { vm.name.startsWith(it) }) own.add(vm)
++                    }
++                } catch (e: Exception) {
++                    Log.w(TAG, "view managers of ${pkg.javaClass.simpleName} failed: ${e.message}")
++                }
++            }
++            return own
++        }
+     }
+ }
+diff --git a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeView.kt b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeView.kt
+index 3729790..e975693 100644
+--- a/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeView.kt
++++ b/node_modules/@callstack/react-native-sandbox/android/src/main/java/io/callstack/rnsandbox/SandboxReactNativeView.kt
+@@ -126,6 +126,10 @@ class SandboxReactNativeView(
+     ) : Event<OnMessageEvent>(surfaceId, viewId) {
+         override fun getEventName() = "topMessage"
+ 
++        // lophn: Event.canCoalesce() defaults to true, so several guest messages posted in one frame
++        // arrived as only the last one.
++        override fun canCoalesce() = false
++
+         override fun getEventData() = payload
+     }
+ 
+@@ -136,6 +140,8 @@ class SandboxReactNativeView(
+     ) : Event<OnErrorEvent>(surfaceId, viewId) {
+         override fun getEventName() = "topError"
+ 
++        override fun canCoalesce() = false
++
+         override fun getEventData() = payload
+     }
+ }
+diff --git a/node_modules/@callstack/react-native-sandbox/src/index.tsx b/node_modules/@callstack/react-native-sandbox/src/index.tsx
+index 0e6bf07..e9521db 100644
+--- a/node_modules/@callstack/react-native-sandbox/src/index.tsx
++++ b/node_modules/@callstack/react-native-sandbox/src/index.tsx
+@@ -15,6 +15,8 @@ import NativeSandboxReactNativeView, {
+   ErrorEvent,
+ } from '../specs/NativeSandboxReactNativeView'
+ 
++// lophn: no network in a guest (Networking, WebSocketModule, BlobModule, FileReaderModule are left out).
++// A screen gets data only through the host bridge.
+ const SANDBOX_TURBOMODULES_WHITELIST = [
+   'NativeDOMCxx',
+   'NativeMicrotasksCxx',
+@@ -30,12 +32,9 @@ const SANDBOX_TURBOMODULES_WHITELIST = [
+   'SettingsManager',
+   'AppState',
+   'SourceCode',
+-  'WebSocketModule',
+-  'Networking',
+   'DeviceInfo',
+   'AccessibilityManager',
+   'LinkingManager',
+-  'BlobModule',
+   'Appearance',
+   'ReactDevToolsRuntimeSettingsModule',
+   'NativeReactNativeFeatureFlagsCxx',
+@@ -45,7 +44,6 @@ const SANDBOX_TURBOMODULES_WHITELIST = [
+   'I18nManager',
+   'FrameRateLogger',
+   'StatusBarManager',
+-  'FileReaderModule',
+ ]
+ 
+ /**
+@@ -307,7 +305,8 @@ const SandboxReactNativeView = forwardRef<
+ 
+     const _style: StyleProp<ViewStyle> = useMemo(
+       () => ({
+-        ...StyleSheet.absoluteFillObject,
++        // lophn: StyleSheet.absoluteFillObject is gone in RN 0.88.
++        position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+       }),
+       []
+     )

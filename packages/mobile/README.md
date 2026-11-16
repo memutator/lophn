@@ -106,6 +106,51 @@ QR에 relay 주소(`relay`)가 있으면 컴퓨터 기록에 저장하고, 주�
 - 개발 core 쪽 길: `npm run dev`와 `npm run dev:core`는 fake push server(port 7498, 바꾸려면 `LOPHN_DEV_PUSH_PORT`)를 띄우고 그 주소를 개발 data root의 설정 `remote.push`에 적는다. fake가 받은 글은 core를 띄운 터미널에 `push: <제목> | <본문> | <data>` 한 줄로 찍힌다. 글이 나가려면 `npm run dev:remote`로 remote가 켜져 있고, 폰이 앱 안에서 알림을 켜 `devices/set_push`로 token을 두었고, 폰이 앞에 없어야 한다(앱을 뒤로 보낸다). 그 상태에서 core에 사람을 기다리는 일(승인, 앱의 `notify()`)이 생기면 한 줄이 찍힌다.
 - 허락 거절은 `adb -s emulator-<port> shell pm revoke dev.lophn.mobile android.permission.POST_NOTIFICATIONS`로 본다.
 
+## 사용자 앱의 폰 화면(guest runtime)
+
+사용자 앱의 폰 화면(`phone.js`)은 폰 앱 안에 따로 띄운 React Native runtime(guest)에서 돈다. `@callstack/react-native-sandbox` 0.7.0이 화면마다 `ReactHost`와 Hermes를 하나씩 따로 만든다. guest는 host의 JS 전역, Expo module, secure store, file system에 닿지 않고 network가 없다. 화면은 data를 bridge(operation 호출과 앱 event)로만 받는다. 계약은 `packages/protocol/apps/phone-screen.ts`다.
+
+- `src/apps/guest/`(host): `GuestScreen`(화면 하나. mount에 시작하고 unmount에 버린다. 다시 띄우거나 새 `phone.js`를 띄우려면 `key`를 바꾼다), `guestHostInfo()`(`phoneCanRun`의 host 쪽), `ensureBase()`(APK assets의 base bundle을 files 폴더로 꺼낸다. 앱 시작 때 한 번 부른다), `session.ts`(React Native 없는 순수 logic: 메시지 검사, `ready`에 `init`, call과 event 전달, 상태), `modules.ts`(guest에 더 열어 주는 native module).
+  - `GuestScreen` 위에 화면 전체를 덮는 형제 view를 두지 않는다. sandbox가 그것을 guest를 가리는 overlay로 보고 손가락 입력을 host로 돌린다.
+  - 신원은 host가 준 `view`뿐이다. 메시지는 계약 schema(`phoneGuestMessageSchema`)로 검사하고 모르는 모양, 상한을 넘는 것, 앱·release·view를 내세우는 것은 버린다. `call` prop은 host가 자기 view에 묶어 준다.
+  - mount마다 origin(`<view>:<무작위>`)이 새로 선다. 같은 origin의 view는 runtime 하나를 같이 써서 다시 mount하면 옛 runtime과 옛 bundle이 쓰인다.
+  - 상태: `starting` → `running`(`ready`가 왔다) → `{failed}`. `did_not_start`는 10 s 안에 `ready`가 없거나 script file이 없다(없는 file을 loader가 읽으면 앱 전체가 죽어서 mount 전에 본다). `fatal`은 guest의 `fatal` 메시지(화면 평가나 render의 예외)나 guest JS의 fatal 오류, `crashed`는 runtime 자체가 쓰러졌다(guest가 오류 handler를 갖기 전의 예외, native 예외).
+- `guest/`(guest): `base.ts`가 base bundle의 진입이다. `PHONE_HOST_MODULES`만 `require`로 내주고(registry가 그 목록으로 type이 매겨져 어긋나면 typecheck와 build가 실패한다), `lophnApp`과 bridge(`bridge.ts`), root(`root.tsx`: `init` 전에는 그리지 않고 `UiProvider`와 error boundary 아래 화면을 그린다), `__lophnMount`, `__lophnFatal`을 세운다. `no-network.ts`는 `fetch`·`XMLHttpRequest`·`WebSocket`이 network 오류로 실패하게 한다(경계는 native module이 없는 것이고 이것은 화면이 죽지 않게 하는 실패 모양이다). kit이 import하는 `expo-clipboard`는 base build에서 아무것도 하지 않는 stub이다(`stubs/`).
+- build: `guest/build-base.sh <out>`이 typecheck, Metro(`expo export:embed`, `LOPHN_GUEST_BASE=1`), 이 앱의 Hermes에 맞는 `hermesc`로 `<out>/guest/base.hbc`와 `base.json`(sha256)을 만든다. gradle이 `preBuild` 앞에 부르고 결과를 APK assets에 넣는다(`plugins/with-guest-runtime.js`. 같은 plugin이 `MainApplication`에서 앱의 package들을 sandbox에 넘긴다). sandbox의 R8 keep 규칙은 `app.json`의 `expo-build-properties` `extraProguardRules`다. 화면 bundle은 plain JS이고 core가 짓는다.
+- 허용 목록: sandbox 자체 목록(patch로 `Networking`, `WebSocketModule`, `BlobModule`, `FileReaderModule`을 뺐다)과 `modules.ts`의 kit용 넷(`RNCSafeAreaContext`, `KeyboardController`, `ReanimatedModule`, `WorkletsModule`). `StatusBarManagerCompat`은 화면이 앱 전체의 status bar를 바꿀 수 있어 뺐다(kit이 쓰지 않는다). Expo의 package는 guest에 넘기지 않는다(guest마다 Expo app context가 서고 지워지지 않았다). guest의 `ImageLoader`는 모든 호출을 거절하는 대체이고, 이미지 view는 network URI를 읽지 않는다(http 이미지 URL도 data를 내보내는 길이라서). guest에 주는 host의 view는 `RNSVG`, `RNCSafeArea`, `KeyboardController`, `Reanimated` 이름의 것뿐이다. 여기에 secret, file, network를 가진 module을 더하지 않는다.
+- patch(`patches/@callstack+react-native-sandbox+0.7.0.patch`, `npm ci`의 `postinstall`이 적용한다): RN 0.88에 없는 `StyleSheet.absoluteFillObject` 대체, 절대 경로와 `base|screen` 두 script loader, guest의 dev support 끄기, host package의 kit view 허용, 한 frame의 메시지가 합쳐지지 않게(`canCoalesce`), network module 빼기, guest `ReactHost`의 예외를 앱을 끝내지 않고 `onError`(`GuestCrashed`)로 돌리기, 이미지와 `ImageLoader`의 network 막기. 다시 만들려면 `node_modules/@callstack/react-native-sandbox`를 고친 뒤 `npx patch-package @callstack/react-native-sandbox --exclude '^package\.json$|android/build/|android/\.cxx/'`(gradle이 그 폴더에 build 산출물을 남긴다).
+- lab: `EXPO_PUBLIC_LOPHN_GUEST_LAB=1`로 지은 build는 앱 대신 `guest/lab/lab.tsx`를 연다(`metro.config.js`가 `App.tsx`를 바꾼다. dev build면 Metro도 같은 변수로 띄운다). 그 build에서만 `guest/fixtures`의 화면이 core의 화면 build(`bundlePhone`)와 같은 규칙으로 지어져 assets에 든다(`guest/build-fixtures.ts`). 단추마다 fixture를 `GuestScreen`으로 띄우고 상태, `ready`까지의 ms, 받은 call, 실패 이유를 글로 보인다. probe fixture는 `http://10.0.2.2:8237`(`EXPO_PUBLIC_LOPHN_GUEST_LAB_PROBE`)에 요청을 보내 보므로 그 port에 `python3 -m http.server`를 띄워 두면 요청이 왔는지 log로 본다.
+- 알려진 한계: guest는 kit의 Sheet가 쓰는 RN `Modal`로 앱 화면 전체를 덮을 수 있고, kit의 `Screen`이 쓰는 RN `StatusBar`로 앱의 status bar 모양을 바꾼다. soft keyboard가 뜨면 guest는 줄어들지 않아 화면 아래의 입력란을 가린다. guest의 JS 오류 중 host가 보낸 event를 받은 listener 안의 throw는 sandbox가 log만 남기고 삼킨다(화면은 계속 돈다). 처리되지 않은 promise rejection은 아무 일도 없다. busy loop는 guest의 JS thread만 막는다. 300 MB 할당은 견뎠지만 Hermes heap이 다 차거나 기기 memory가 모자라면 process가 끝날 수 있다(재지 않았다). mount와 unmount를 되풀이하면 PSS가 한 번에 약 2 MB씩 남는다(아래). iOS는 짓지 않았다.
+
+### Android 확인
+
+lab build로 emulator에서 확인한다(debug와 release). debug(dev client)에서는 dev menu의 전체 화면 view 때문에 손가락 입력이 guest에 닿지 않으니 손가락 확인은 release build에서 한다. lab의 `do:*` 단추는 host event로 같은 동작을 시켜서 debug에서도 돈다.
+
+```sh
+EXPO_PUBLIC_LOPHN_GUEST_LAB=1 ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon \
+  -Pkotlin.compiler.execution.strategy=in-process "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1536m" --max-workers=1
+adb -s emulator-<port> install -r app/build/outputs/apk/release/app-release.apk
+```
+
+- release `assembleRelease`는 debug 서명이고 `--max-workers=1`로 돈다(병렬이면 memory monitor가 죽였다).
+- lab이 아닌 build의 APK에는 fixture가 없다(`unzip -l <apk> | grep assets/guest`).
+- `uiautomator dump`는 화면이 계속 바뀌면(misbehave fixture의 tick) idle을 못 얻어 guest 글을 빼먹는다. 그때는 screenshot을 본다.
+
+결과(2026-11-16, emulator `lophn-phone` x86_64 API 36, 2 GB):
+
+| 시나리오 | debug(dev client) | release(R8) |
+|---|---|---|
+| a. kit 화면, call 왕복, host event, `Input`에 손가락과 soft keyboard로 입력 | 그려지고 call·event 됨. 손가락은 guest에 닿지 않는다(dev menu) | 모두 된다. 단추가 손가락으로 눌리고 keyboard로 친 글이 `tasks.add`로 간다 |
+| b. 평가 중 예외(build의 try/catch 안 / 밖), file 없음 | `failed fatal` / `failed crashed` / `failed did_not_start`, 앱 산다 | 같다(세 번씩) |
+| c. 시작 뒤 render 예외 | `failed fatal`(boundary) | 같다 |
+| d. handler throw / 처리되지 않은 rejection | event listener 안 throw는 sandbox가 log만 남기고 화면은 돈다 / 아무 일 없음 | 단추 handler throw는 `failed fatal` / 아무 일 없음 |
+| e. 8 s busy loop / 그 중 unmount / 300 MB 할당 | host 단추가 눌린다 / guest가 사라지고 앱 산다 / 할당되고 unmount 뒤 돌아온다 | 같다(loop 동안 guest tick이 멈추고 host 단추는 4번 눌림) |
+| f. 격리 probe | 아래와 같다 | host 전역·`expo`·`ExpoSecureStore`·`ExpoFileSystem`·network module 없음, `fetch`·XHR·WebSocket·`Image.prefetch`·http 이미지 실패, `data:` 이미지 그려짐, probe server에 요청 0. host의 `fetch`는 닿는다 |
+| g. 두 화면 동시 / `key`로 10번 다시 띄우기 | 된다 | 된다. PSS는 10번마다 약 20 MB씩 는다 |
+| h. 새 kit의 manifest | `phone_too_old`, 옛 major는 `screen_too_old` | 같다 |
+
+숫자(release): mount→`running`(첫 `ready`) 83–117 ms, 214 KB plain JS 화면(함수 1,500개) 150–167 ms. guest 하나의 PSS +28–38 MB(앱만 87–97 MB, 둘이면 +55–60 MB). base `base.hbc` 6.35 MB(Metro JS 5.0 MB), fixture 화면 1.8–3.5 KB. debug에서 `running`까지 170–330 ms.
+
 ## 정해 둔 것
 
 - Android `applicationId`: `dev.lophn.mobile`(임시).

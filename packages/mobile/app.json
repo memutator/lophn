@@ -21,7 +21,8 @@
         "expo-build-properties",
         {
           "android": {
-            "usesCleartextTraffic": true
+            "usesCleartextTraffic": true,
+            "extraProguardRules": "# react-native-sandbox (the guest runtime) calls Kotlin methods from JNI; R8 must not strip or rename them.\n-keep class io.callstack.rnsandbox.** { *; }"
           }
         }
       ],
@@ -80,7 +81,8 @@
             ]
           }
         }
-      ]
+      ],
+      "./plugins/with-guest-runtime.js"
     ],
     "experiments": {
       "tsconfigPaths": false

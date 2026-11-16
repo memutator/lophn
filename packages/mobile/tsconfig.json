@@ -55,6 +55,9 @@
       ],
       "@lophn/ui/input": [
         "../design/components/input/filter/range.ts"
+      ],
+      "@lophn/app-ui-native": [
+        "../sdk/app-ui-native/mod.ts"
       ]
     }
   }

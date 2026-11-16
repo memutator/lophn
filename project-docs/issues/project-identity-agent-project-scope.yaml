@@ -1,0 +1,16 @@
+id: project-identity-agent-project-scope
+title: agent가 identity route로 자기 workspace 밖 project의 id file을 만들 수 있어야 하나
+kind: defect
+status: open
+topic: project-identity
+modules: [packages/core/main, packages/core/projects]
+now: |
+  `project.identity`와 `project.create_identity`는 actor user·agent의 memory route다. dispatch(`packages/core/server/dispatch.ts`의 `memory`)는 memory route에 target 검사를 하지 않고, handler(`packages/core/main/daemon/wiring/projects.ts`의 memory 표)는 부른 쪽(`_who`)을 보지 않는다. 그래서 project A의 session에서 도는 agent도 `lophn project share --project <B의 prj id>`로 project B의 첫 폴더에 file을 만들 수 있다. 다른 memory route도 같은 꼴이다.
+impact: |
+  쓰는 것은 등록된 project 폴더의 `.lophn-project.json` 하나이고 읽을 수 있는 file은 덮지 않아 data를 잃지는 않는다. 다만 사람이 그 project에서 agent에게 맡기지 않은 저장소에 untracked file이 생긴다.
+fix: |
+  - 그대로 둔다(비용 0. 다른 memory route와 같다).
+  - agent 자격이면 handler가 그 agent의 workspace가 그 project인지 본다(작음~중간. memory route 전체에 같은 규칙을 둘지와 같이 정한다).
+  추천: 그대로 두고 memory route 전체의 agent 범위를 정할 때 같이 본다.
+decide: |
+  agent가 자기 workspace 밖 project의 memory route(identity 읽기·만들기 포함)를 부를 수 있어야 하나. Home의 lophn agent는 여러 project를 다루므로 막으면 Home agent의 `share --project`도 막을지 같이 정해야 한다.

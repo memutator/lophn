@@ -241,6 +241,7 @@ flows:
         when: "project를 주지 않았고 project workspace의 session도 아니다"
         observe: ["response"]
     crosses_process: true
+    docs: [architecture/project-identity.md]
 
 links:
   - {entry: "cli:agent.models", flow: agent-models-list}

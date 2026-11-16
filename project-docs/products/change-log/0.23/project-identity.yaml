@@ -1,0 +1,62 @@
+id: project-identity
+version: 0.23.68
+title: 같은 git 저장소는 어느 기계에서도 같은 project다(저장소 안 id file과 `lophn project clone`)
+modules: [packages/protocol, packages/core/projects, packages/core/main, packages/core/storage, packages/cli, packages/shell/main, packages/shell/renderer, packages/design]
+checked: [module-catalog]
+change: |
+  전: project id(`prj_…`)는 기계마다 따로 생겨, 두 기계에 같은 저장소를 등록해도 서로 같은 project인지 알 길이 없었다. 이 기계에 없는 project를 받아 등록하는 길도 없었다.
+  후:
+  - **id file.** git 저장소인 project는 첫 등록 폴더 바로 아래 `.lophn-project.json`에 기계를 넘는 id(`pri_<ULID>`)를 갖는다. 꼴은 `{ "lophn_project": 1, "id": "pri_…" }`뿐이다(이름, remote, 경로, 기계 id 없음). git이 code와 함께 옮기고, 다른 기계는 clone이나 pull로 온 file을 읽어 같은 project로 알아본다. ledger의 projects 줄에 `identity`, `repo`, `remote` 칸이 더해졌고(schema step `projects.registry.identity`) `identity`는 한 기계에서 유일하다. 모든 기록은 그대로 `prj_` key다.
+  - **만드는 때.** git 폴더를 등록하는 dialog의 "Same project on my other computers"(id file이 없는 git 폴더에서만 서고 기본 켬), project 상세의 "Other computers" 줄 [Set up], agent의 `lophn project share`. file이 이미 있는 저장소(다른 기계가 만들어 commit한 것)는 읽기만 한다. 판을 올려도 이미 등록된 저장소에 file을 만들지 않는다.
+  - **lophn은 사람의 저장소에 commit하지 않는다.** 쓰는 것은 그 file 하나이고 git은 읽기만 한다. 만든 뒤 `git status`는 `?? .lophn-project.json` 하나이고, 사람이나 agent가 commit해야 다른 기계로 간다. 상세 줄이 "Not committed yet"을 보인다.
+  - **덮지 않음.** file은 없을 때만 만든다. 덮는 것은 사람의 [Separate project](새 id)와 충돌 [Resolve] 둘뿐이고, 읽지 못하는 file(더 새 판 포함)은 덮지 않는다. ledger에 id가 있는데 file이 없으면 "missing"으로 보이고 [Restore]가 같은 id를 다시 쓴다.
+  - **충돌.** 두 기계가 pull 전에 각자 만들어 merge 충돌이 나면 양쪽 id 가운데 작은 것이 그 project의 id다. 읽기는 file을 고치지 않고 그 값을 쓰고, [Resolve]나 agent가 그 값을 쓴다. 충돌 표지가 없어진 뒤에는 merge commit 전이어도 "Not committed yet"이다.
+  - **fork.** fork는 같은 id를 들고 가므로 같은 project다. 나누려면 사람이 [Separate project]로 새 id를 쓰고 commit한다(agent는 못 한다).
+  - **중복.** 한 기계에서 한 id는 project 하나만 갖는다. 같은 저장소의 두 번째 clone이나 worktree를 등록하면 id 없이 "Another copy of <title> on this computer"로 보이고 [Separate project]로 나눈다. 보관한 project의 id는 같은 file을 읽은 active project에 넘어간다.
+  - **다시 읽기.** ledger 값은 file의 cache다. core가 켜질 때, 등록·폴더 변경·relink·보관 해제 뒤, `project.identity`·`create_identity`·`renew_identity`·`clone`마다 다시 읽는다. watcher는 없다.
+  - **remote 힌트.** 등록 dialog가 고른 폴더를 `project.match`로 읽어 "이미 project X로 등록됨"과 같은 remote의 폴더를 잃은 project에 [Relink <title> here]를 보인다. remote로 말없이 합치지 않는다. git이 아닌 폴더는 "Not in git, so this project stays on this computer"다.
+  - **clone.** `lophn project clone <url>`(route `project.clone`)이 이 기계에 없는 project를 받아 등록한다. 그 기계의 git 자격(`gh`, credential helper, SSH key)만 쓰고 묻는 창을 띄우지 않는다. 자격이 없으면 바로 실패하고 실행할 명령(`gh auth login`, `ssh -T git@<host>`)을 돌려준다. 자격이 박힌 URL, 이미 있는 대상 폴더, `--identity`와 다른 저장소는 거절한다. 받을 부모 폴더는 처음 한 번 agent가 사람에게 묻고 설정 `projects.folder`에 기억한다. 나중에 바꾸는 길은 `lophn settings set projects.folder <path>`뿐이고 설정 화면은 없다.
+  - **CLI.** `lophn project share`와 `lophn project identity`(`--project`, 없으면 session의 project).
+  - **예약 이름.** 앱 slug `project`는 이제 예약 이름이다(`lophn project` 명령과 겹치지 않게). 이 이름의 새 앱은 만들 수 없다.
+  - **기존 data root.** schema step이 칸만 더하고(값 null) 모든 project와 `prj_` id, 그것을 key로 쓰는 표가 그대로다. 기존 project는 id 없이 이어지고, id는 사람이 [Set up]하거나 file이 있는 저장소를 읽을 때 생긴다.
+  - 다른 기계를 보는 창에서 같은 id의 project를 묶어 보이는 것은 뒤 변경(`desktop-remote` 뒤의 task)으로 온다.
+  - flow: `projects`의 identity·clone flow와 core 기동의 다시 읽기(`project-identity-startup`), `shell-workspace`의 등록 dialog 줄과 상세 줄이 route를 `uses`로 잇는다. 설계는 `architecture/project-identity.md`.
+why: |
+  사람이 "내 lophn 프로젝트는 메인 머신에서도 맥북 머신에서도 같은 의미여야돼"라고 했다(roadmap `multi-machine` "모양" 4). git remote로 식별하면 fork가 합쳐지고 origin을 바꾸면 신분이 바뀌므로, git이 옮기는 저장소 file에 id를 두고 remote는 힌트로만 쓴다.
+decisions:
+  - text: project는 기계가 달라도 같은 의미다. code와 앱 source는 git으로 옮기고 lophn agent가 더 적극적으로 돕는다(clone, share).
+    by: person
+  - text: session과 대화는 기계 사이에 옮기지 않는다. 기록은 기계별 `prj_` key 그대로 두고 기계를 넘는 id는 그 옆 칸이다.
+    by: person
+  - text: "기계를 넘는 id는 사람의 저장소 안 file에 두고 git remote는 힌트로만 쓴다. 버린 길: remote를 id로(fork가 합쳐지고 origin 변경에 신분이 바뀐다)."
+    by: agent
+  - text: lophn은 그 file 하나만 쓰고 commit, add, checkout 같은 git 쓰기를 하지 않는다. commit은 사람이나 agent가 한다.
+    by: agent
+  - text: "file 자리는 첫 등록 폴더 바로 아래 `.lophn-project.json`이다. 버린 길: `.lophn/` 아래(app 저장소는 `.lophn/`을 `.gitignore`로 통째로 빼는 일이 흔하다)."
+    by: agent
+  - text: "file에는 판과 id만 둔다. 버린 길: 이름을 넣기(rename마다 file이 바뀌어 merge 충돌), 폴더 이름 기본값(다른 저장소가 섞인다)."
+    by: agent
+  - text: file은 등록 dialog의 켬 줄, 상세의 [Set up], `lophn project share`로만 만든다. 판을 올릴 때 이미 등록된 저장소에 뿌리지 않는다(사람이 `git status`에 놀라지 않고 남의 저장소에 file이 생기지 않는다).
+    by: agent
+  - text: file은 없을 때만 만들고 덮는 것은 [Separate project]와 [Resolve] 둘뿐이다. ledger에 id가 있는데 file이 없으면 저절로 다시 쓰지 않는다(file이 없는 branch로 옮길 때 checkout을 막지 않게).
+    by: agent
+  - text: merge 충돌은 작은 id(먼저 만든 것)가 이긴다. 누가 풀어도 같은 값이라 두 기계가 하나로 모인다.
+    by: agent
+  - text: "fork는 같은 project이고 나누기는 사람만 한다. 버린 길: remote로 fork를 가르기(mirror, SSH alias, origin 변경을 가를 수 없다)."
+    by: agent
+  - text: "한 기계에서 한 id는 먼저 가진 project가 갖고 두 번째 copy는 id 없이 보인다. 버린 길: 합치기(두 폴더의 session이 한 project로 섞인다)."
+    by: agent
+  - text: watcher 없이 기동·쓰기 뒤·id를 묻는 route마다 다시 읽고, 기록을 고쳐도 project `revision`을 올리지 않는다.
+    by: agent
+  - text: clone은 그 기계의 git 자격만 쓰고 묻지 않으며 자격이 없으면 실행할 명령을 돌려준다. 부모 폴더는 처음 한 번 묻고 `projects.folder`에 두며 기계 id를 붙이지 않는다.
+    by: agent
+  - text: "merge가 끝나지 않았어도 충돌 표지가 없는 file은 `uncommitted`로 보인다. 버린 길: git index의 unmerged를 `conflict`로 보이기([Resolve] 뒤에도 [Resolve]가 계속 서고 남은 일인 commit을 말하지 않는다. 개발 core 확인에서 찾았다)."
+    by: agent
+follow_up: |
+  - 다른 기계 창에서 같은 id의 project를 묶는 task `project-id-remote-view`는 `desktop-remote`가 land한 뒤 연다.
+  - `app-folder-sync`의 agent 환경 도구에 project마다 `identity`, `found`, `remote.url`을 넘긴다.
+  - 남은 이슈: `project-identity-row-missing-in-settings-page`, `project-clone-unreadable-identity-silent`, `project-renew-identity-declares-conflict`, `project-identity-agent-project-scope`, `project-clone-ssh-hint-ignores-port`.
+checklist:
+  - git 저장소 폴더를 Register project로 고르면 "Same project on my other computers" 줄이 켜져 있고, 등록 뒤 그 저장소의 `git status`가 `?? .lophn-project.json` 하나뿐인지 본다(lophn이 commit하지 않았는지)
+  - Workspaces panel에서 그 project 상세를 열면 "Other computers" 줄이 "Not committed yet"을 보이는지, `.lophn-project.json`을 commit하면 "The same project on your other computers"로 바뀌는지 본다
+  - git이 아닌 폴더를 등록하면 켬 줄이 없고 상세가 "Not in git, so this project stays on this computer"를 보이는지 본다

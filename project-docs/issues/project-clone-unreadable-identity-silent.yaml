@@ -1,0 +1,13 @@
+id: project-clone-unreadable-identity-silent
+title: clone한 저장소의 id file을 읽지 못해도 알리지 않고 등록한다
+kind: bug
+status: open
+topic: project-identity
+modules: [packages/core/projects]
+now: |
+  `packages/core/projects/clone/clone.ts`의 clone은 받은 임시 폴더의 `.lophn-project.json`을 `parseIdentityFile`로 읽는다. file이 없으면 note(`NO_IDENTITY_FILE`)를 싣고, `identity`를 주었으면 `ok`·`conflict`인 file의 id만 견준다. 읽지 못하는 file(`unreadable`: 비었음, JSON 아님, 꼴이 틀림, `lophn_project`가 더 큰 판)은 두 갈래 어디에도 걸리지 않아 note 없이 등록되고, `identity`를 주었어도 다른 project인지 보지 않는다.
+impact: |
+  더 새 lophn이 있는 기계에서 만든 file이나 손으로 깨진 file이 든 저장소를 agent가 받으면, project는 id 없이 등록되고(상세 줄은 "lophn cannot read .lophn-project.json") agent는 결과만 보고 사람에게 아무것도 전하지 않는다. `identity`로 특정 project를 기대한 agent는 그 project를 받았다고 믿는다.
+fix: |
+  - `unreadable`이면 note를 싣는다(예: "This repository's .lophn-project.json cannot be read; this lophn may be older than the one that wrote it. Update lophn or fix the file."). `identity`를 주었으면 같은지 모르므로 note에 그것도 쓴다(작음). 추천.
+  - `identity`를 주었는데 읽지 못하면 받은 것을 지우고 `conflict`로 거절한다(작음. 판이 다른 기계 사이에서 clone이 막힌다).

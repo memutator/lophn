@@ -1,0 +1,13 @@
+id: project-identity-row-missing-in-settings-page
+title: project 설정 page에는 "Other computers" 줄이 없다
+kind: bug
+status: open
+topic: project-identity
+modules: [packages/shell/renderer]
+now: |
+  "Other computers" 줄(`IdentityRow`, `packages/shell/renderer/desktop/workspaces/projects/identity-row.tsx`)은 `ProjectForm`의 `identityRow` 자리로 들어간다. 그 자리를 채우는 곳은 Workspaces panel의 상세 dialog(`project-detail.tsx`)뿐이다. project 탭의 Settings page(`packages/shell/renderer/workspace/project-settings/project-settings-page.tsx`의 `GeneralSection`)도 같은 `ProjectForm`을 그리지만 `identityRow`를 넘기지 않는다.
+impact: |
+  project 안에서 그 project의 설정을 연 사람은 id file 상태(Not committed yet, conflict, missing)와 [Set up]·[Resolve]·[Restore]·[Separate project]를 보지 못한다. 그 단추를 찾으려면 Home의 Workspaces panel에서 상세를 열어야 한다.
+fix: |
+  - `GeneralSection`이 `identityRow={<IdentityRow source={projects} project={project} />}`를 넘긴다(작음). 추천.
+  - 줄을 `ProjectForm` 안으로 옮겨 두 곳이 늘 같이 보이게 한다(작음. form이 source에 identity 읽기를 요구하게 된다).

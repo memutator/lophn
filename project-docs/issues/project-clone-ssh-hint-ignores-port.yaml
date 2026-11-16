@@ -1,0 +1,12 @@
+id: project-clone-ssh-hint-ignores-port
+title: ssh URL의 자격 안내 명령이 기본이 아닌 port를 빠뜨린다
+kind: bug
+status: open
+topic: project-identity
+modules: [packages/core/projects]
+now: |
+  `packages/core/projects/clone/clone.ts`의 `signInCommand`는 `ssh://[user@]host[:port]/path`에서 user와 host만 꺼내 `ssh -T <user>@<host>`를 돌려준다. port는 정규식이 버린다.
+impact: |
+  `ssh://git@git.example.com:2222/team/app.git`의 clone이 자격 없음(`git_auth`)으로 실패하면 사람이 받는 명령 `ssh -T git@git.example.com`이 22번 port로 가서 다른 결과(접속 실패나 다른 server)를 보인다. 사람은 자격을 고쳐도 무엇이 맞는지 확인하지 못한다.
+fix: |
+  - port를 잡아 `ssh -T -p <port> <user>@<host>`를 돌려준다(작음). 추천.

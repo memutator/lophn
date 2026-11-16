@@ -1,0 +1,13 @@
+id: project-renew-identity-declares-conflict
+title: project.renew_identity가 conflict를 선언하지만 내지 않는다
+kind: defect
+status: open
+topic: project-identity
+modules: [packages/protocol, packages/core/projects]
+now: |
+  `packages/protocol/projects/identity-api.ts`의 `renewIdentity`는 errors에 `conflict`를 둔다. handler(`packages/core/projects/identity/service.ts`의 `renew`)는 첫 폴더를 찾고 git인지만 본 뒤 file이 어떤 상태든(읽지 못하는 더 새 판 file 포함) 새 id로 덮는다. `conflict`를 내는 길이 없다(flow `project-identity-renew`의 `declared_only`).
+impact: |
+  route 계약을 읽는 쪽(renderer, 다른 계획의 caller)이 오지 않는 오류를 다룬다. 계약은 "lophn_project가 1보다 크면 읽지 못한 것으로 보고 덮지 않는다"인데 renew는 더 새 판 file도 덮어, 화면에는 그 상태에서 [Separate project]가 없지만 route로는 덮인다.
+fix: |
+  - 읽지 못하는 file(`unreadable`)이면 renew도 `conflict`로 거절한다(작음. 계약의 "더 새 판은 덮지 않는다"와 맞고 선언이 살아난다). 추천.
+  - 선언에서 `conflict`를 지운다(작음. 더 새 판 file을 사람이 route로 덮을 수 있는 채로 둔다).

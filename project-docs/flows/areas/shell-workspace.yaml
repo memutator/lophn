@@ -2527,7 +2527,7 @@ flows:
       - "폴더를 잃은 project가 같은 remote로 제안되면 [Relink <title> here]를 보인다. 누르면 그 project의 잃은 폴더를 이 path로 relink_folder하고 dialog를 닫는다"
       - "[Register]는 project.create를 부르고 켬 줄이 켜져 있으면 이어서 projects/create_identity를 부른다. create_identity가 실패해도 등록은 되돌리지 않고, 상세의 줄이 [Set up]으로 보인다"
       - "match를 읽지 못하면 줄 없이 등록한다"
-    uses: [route:projects/relink_folder]
+    uses: [route:projects/match, route:projects/create, route:projects/create_identity, route:projects/relink_folder]
     outcomes:
       - id: registered-shared
         when: "켬 줄이 켜진 채 등록했고 create_identity가 file을 만들었다"
@@ -2542,8 +2542,7 @@ flows:
         when: "relink_folder가 실패했다. dialog는 열려 있고 한 줄 오류를 보인다"
         observe: ["screen:shell-project-identity"]
     crosses_process: false
-    unclear:
-      - "route projects/identity·create_identity·renew_identity·match는 handler가 아직 없어 entry가 없다. handler를 짓는 변경이 그 route의 flow를 쓰면 uses로 잇는다"
+    docs: [architecture/project-identity.md]
 
   - id: project-identity-row
     title: "project 상세의 Other computers 줄이 id file 상태를 보이고 단추 하나로 고친다"
@@ -2556,6 +2555,7 @@ flows:
       - packages/shell/renderer/desktop/workspaces/projects/project-detail.tsx
       - packages/shell/renderer/desktop/workspaces/projects/core-source.ts
       - packages/shell/main/desktop/core/allowlist.ts
+    uses: [route:projects/identity, route:projects/create_identity, route:projects/renew_identity]
     steps:
       - "열 때 projects/identity를 한 번 읽는다. 상태마다 글 하나와 오른쪽 끝 단추 하나를 보인다: none [Set up], conflict [Resolve], missing [Restore]는 projects/create_identity를 부른다"
       - "uncommitted·ignored·committed·unreadable은 글만 보이고, uncommitted·committed는 줄 끝 menu에 [Separate project]가 있다. 같은 id를 먼저 가진 다른 project가 있으면 another copy 글과 [Separate project]를 보인다"
@@ -2576,8 +2576,7 @@ flows:
         observe: ["screen:shell-project-identity"]
     crosses_process: false
     risk: [data-loss]
-    unclear:
-      - "route projects/identity·create_identity·renew_identity는 handler가 아직 없어 entry가 없다. handler를 짓는 변경이 그 route의 flow를 쓰면 uses로 잇는다"
+    docs: [architecture/project-identity.md]
 
 links: []
 ignore: []

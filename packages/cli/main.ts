@@ -99,7 +99,9 @@ function saveImage(
   result: CommandResult,
   input: Record<string, unknown>,
 ): Result<CommandResult, LophnError> {
-  const image = result.content.image as { data_base64: string } | undefined;
+  const image = result.content.image as
+    | { media_type: string; data_base64: string }
+    | undefined;
   if (image === undefined) return ok(result);
   const path =
     typeof input.out === "string"
@@ -107,7 +109,7 @@ function saveImage(
       : join(
           tmpdir(),
           "lophn-screenshots",
-          `${String(input.tab)}-${systemClock.nowMs()}.png`,
+          `${String(input.tab)}-${systemClock.nowMs()}.${image.media_type === "image/jpeg" ? "jpg" : "png"}`,
         );
   try {
     mkdirSync(dirname(path), { recursive: true });

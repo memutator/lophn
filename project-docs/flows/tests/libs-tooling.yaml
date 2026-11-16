@@ -49,6 +49,10 @@ files:
     covers: []
     note: "browser.snapshot이 page 글을 untrusted tag로 감싸고 글 안의 닫는 tag를 흉내 낸 것이 밖으로 나가지 못하는지만 본다. core는 가짜라 route outcome은 단정하지 않는다"
 
+  - path: packages/cli/commands/tab_test.ts
+    covers: []
+    note: "tab.open의 --phone 인자 검사만 본다(--device와 같이 주면 invalid_input, --screen은 --phone과 되고 target이 phone으로 간다). core는 가짜라 route outcome은 단정하지 않는다"
+
   - path: packages/cli/commands/call_test.ts
     covers: []
     note: call.send가 dedup과 idempotency key에 tool call id를 싣는지만 본다. core의 dedup 판정은 call-send가 core 쪽 test로 본다

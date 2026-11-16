@@ -7,6 +7,7 @@ import { loadApps } from "../registration/mod.ts";
 import { loadActiveDeclaration } from "../releases/store.ts";
 import type { ScreenFileDeps } from "../screens/mod.ts";
 import { serveFileUnder } from "../screens/mod.ts";
+import { readBackendManifest } from "./files.ts";
 
 type PhoneScreen = ReturnType<
   typeof appPhoneScreens.output.parse
@@ -15,6 +16,8 @@ type PhoneScreen = ReturnType<
 export type PhoneScreensDeps = Omit<ScreenFileDeps, "maxBytes"> & {
   /** 그 앱의 live process가 이 release로 ready이고 요청을 받는가. 관측을 못 하면 false다. */
   running(app: string, release: string): Promise<boolean>;
+  /** 폰에서 도는 앱의 backend manifest를 읽지 못해 그 앱을 뺐다는 log 한 줄. */
+  warn(message: string): void;
 };
 
 const MANIFEST_MAX_BYTES = 64 * 1024;
@@ -69,6 +72,15 @@ export async function readPhoneScreens(
       (screen) => screen.places.length === 1 && screen.places[0] === "phone",
     );
     if (phone.length === 0) continue;
+    const runsOn = declaration.runs_on ?? ["computer"];
+    // 폰에서 도는 앱의 backend manifest를 읽지 못하면 그 앱은 폰에 보낼 수 없다.
+    const backend = runsOn.includes("phone")
+      ? await readBackendManifest(deps, app.id, release.id)
+      : null;
+    if (runsOn.includes("phone") && backend === null) {
+      deps.warn(`phone backend manifest of ${app.id} is unreadable`);
+      continue;
+    }
     const running = await deps.running(app.id, release.id);
     for (const screen of phone) {
       const manifest = await readManifest(deps, app.id, screen.key);
@@ -83,6 +95,8 @@ export async function readPhoneScreens(
         release: release.id,
         bundle_hash: release.bundle_hash,
         manifest,
+        runs_on: runsOn,
+        backend,
         running,
       });
     }

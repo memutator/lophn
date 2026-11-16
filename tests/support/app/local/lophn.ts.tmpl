@@ -1,10 +1,19 @@
 import { defineApp } from "@lophn/declaration";
 
-// build와 load 검사를 보는 작은 앱이다: 표 하나(text id), operation 셋(read, write, external).
+// 폰 backend의 build·load 검사와 release 준비를 보는 작은 앱이다: 표 하나(text id), operation 셋(read, write, external),
+// 폰 화면 하나(runs_on에 phone이 있으려면 폰 화면이 있어야 한다).
 export default defineApp({
   name: "Local items",
   description: "Keep a short list of items on the phone.",
-  screens: [],
+  runs_on: ["computer", "phone"],
+  screens: [
+    {
+      key: "home",
+      label: "Home",
+      path: "/screens/home/index.html",
+      places: ["phone"],
+    },
+  ],
   operations: [
     { name: "list_items", title: "List items", effect: "read" },
     { name: "add_item", title: "Add item", effect: "write" },
@@ -17,5 +26,7 @@ export default defineApp({
     { name: "@lophn/declaration", version: "4.8.0" },
     { name: "@lophn/cap-tool", version: "2.2.0" },
     { name: "@lophn/cap-store", version: "2.0.0" },
+    { name: "@lophn/ui-native", version: "0.1.0" },
+    { name: "@lophn/app-ui-native", version: "0.1.0" },
   ],
 });

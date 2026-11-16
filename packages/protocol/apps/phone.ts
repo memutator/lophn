@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { withReadCommon } from "../base/envelope.ts";
-import { defineRead } from "../base/route.ts";
+import { defineFile, defineRead } from "../base/route.ts";
 import {
   appIdSchema,
   releaseIdSchema,
   sha256Schema,
 } from "./channel-values.ts";
 import type { InputSchema } from "./declaration/mod.ts";
+import { phoneBackendManifestSchema } from "./phone-backend.ts";
 import { phoneManifestSchema } from "./phone-screen.ts";
 
 // remote 최상위를 import하면 protocol 순환이라 칸을 여기 따로 둔다(범위는 `remoteDeviceSchema`가 정한다).
@@ -33,6 +34,8 @@ export const appPhoneTarget = defineRead({
 
 // 폰이 받을 화면의 목록이다. 보관한 앱과 활성 release가 없는 앱은 싣지 않는다. 화면 file은 `apps/screen_file`
 // (target live, screen, path `phone.js`)로 받고, 쓸 수 있는지는 폰이 `phoneCanRun`으로 manifest를 보고 정한다.
+// `runs_on`은 선언의 값이다(없으면 ["computer"]). `backend`는 `phone`에서 도는 앱의 `phone/backend.json`이고 그 file과
+// migration file은 `apps/phone_file`로 받는다. 앱의 `backend.json`을 읽지 못하면 그 앱의 화면은 싣지 않는다.
 export const appPhoneScreens = defineRead({
   resource: "apps",
   method: "phone_screens",
@@ -59,6 +62,8 @@ export const appPhoneScreens = defineRead({
           release: releaseIdSchema,
           bundle_hash: sha256Schema,
           manifest: phoneManifestSchema,
+          runs_on: z.array(z.enum(["computer", "phone"])),
+          backend: phoneBackendManifestSchema.nullable(),
           // 그 release의 앱 process가 지금 live로 도는가
           running: z.boolean(),
         }),
@@ -68,4 +73,21 @@ export const appPhoneScreens = defineRead({
   reads: ["releases", "app_runtime"],
   actors: ["user"],
   errors: ["invalid_input", "forbidden", "unavailable"],
+});
+
+// 폰이 앱 backend와 migration file을 받는다. path는 그 release의 `phone/backend.json`이 적은 것(`phone/backend.js`,
+// `phone/backend.json`, `migrations/<from>-<to>.sql`)뿐이고, 그 앱의 활성 release가 아니거나 목록 밖이면 not_found다.
+// 받은 byte는 폰이 manifest의 size·sha256으로 확인한다.
+export const appPhoneFile = defineFile({
+  resource: "apps",
+  method: "phone_file",
+  name: "app.phone_file",
+  input: z.strictObject({
+    app: appIdSchema,
+    release: releaseIdSchema,
+    path: z.string().min(1),
+  }),
+  contentType: "application/octet-stream",
+  actors: ["user"],
+  errors: ["invalid_input", "not_found", "unavailable"],
 });

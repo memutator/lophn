@@ -146,7 +146,7 @@ files:
 
   - path: packages/core/apps/releases/phone-backend/build_test.ts
     covers: []
-    note: "폰 backend build와 load 검사(아직 release 준비에 걸리지 않아 outcome이 없다): fixture 앱이 phone/backend.js와 manifest로 묶이고 backend.js에 require(·node:가 없으며, node:fs·fs·@lophn/cap-fs·@lophn/flow import는 file과 import를 말하며 실패한다. 빈 vm context에서 실어 선언과 등록한 handler가 다르면(빠지거나 남으면) 실패한다"
+    note: "폰 backend build와 load 검사(release 준비가 부르는 함수): fixture 앱이 phone/backend.js와 manifest로 묶이고 backend.js에 require(·node:가 없으며, node:fs·fs·@lophn/cap-fs·@lophn/flow import는 file과 import를 말하며 실패한다. 빈 vm context에서 실어 선언과 등록한 handler가 다르면(빠지거나 남으면) 실패한다"
 
   - path: packages/core/apps/releases/prepare/source-checks_test.ts
     covers: [release-prepare:failed-build]
@@ -154,7 +154,7 @@ files:
 
   - path: packages/core/apps/releases/prepare/from-source_test.ts
     covers: [release-prepare:failed-build]
-    note: "fixture 앱(tests/support/app/phone)으로 준비를 돌림: 폰 화면 하나만 가진 앱은 phone.js·phone.json·preview를 담고 kit은 prune되어 bundle node_modules에 없음. 선언했는데 phone.tsx가 없음, phone.tsx가 선언에 없음, 한 key에 main.tsx와 phone.tsx는 failed-build 사유로 실패. npm·node·git 자식을 띄움(network 없음)"
+    note: "fixture 앱(tests/support/app/phone, tests/support/app/local)으로 준비를 돌림: 폰 화면 하나만 가진 앱은 phone.js·phone.json·preview를 담고 kit은 prune되어 bundle node_modules에 없음. 선언했는데 phone.tsx가 없음, phone.tsx가 선언에 없음, 한 key에 main.tsx와 phone.tsx는 failed-build 사유로 실패. runs_on에 phone이 있는 앱은 phone/backend.js·backend.json과 migration을 담고, node: import·선언과 다른 handler·SDK 하한 미달이면 failed-build로 실패하며 runs_on 없는 폰 화면 앱은 그대로 준비됨. npm·node·git 자식을 띄움(network 없음)"
 
   - path: packages/core/apps/releases/ui-build/phone/build_test.ts
     covers: [release-prepare:failed-build]
@@ -162,7 +162,7 @@ files:
 
   - path: packages/core/apps/releases/prepare/checks_test.ts
     covers: [release-prepare:failed-migration]
-    note: "checkMigration: migration 단계 실패, PRIMARY KEY 없는 표, 빈 DB에서 닿지 못함, active release schema가 길 위에 없음을 떨어뜨림(release-prepare failed-migration의 조건). release-prepare:failed-migration 판정을 단정"
+    note: "checkMigration: migration 단계 실패, PRIMARY KEY 없는 표, 빈 DB에서 닿지 못함, active release schema가 길 위에 없음, runs_on에 phone이 있는 앱의 정수 PK·AUTOINCREMENT·trigger를 떨어뜨리고 phone이 없는 앱은 같은 SQL을 통과시킴(release-prepare failed-migration의 조건). release-prepare:failed-migration 판정을 단정"
 
   - path: packages/core/apps/releases/public-tools_test.ts
     covers: []
@@ -239,9 +239,13 @@ files:
     covers: [app-phone-target-read:found, app-phone-target-read:no-device]
     note: "기준 기기(is_primary)의 name, os, width, height, dpr만 싣고 id와 공개 key는 싣지 않음. 기기가 없으면 device는 null"
 
+  - path: packages/core/apps/phone/files_test.ts
+    covers: [app-phone-file-read:served, app-phone-file-read:not-found]
+    note: "backend.json이 적은 file(backend.js, backend.json, migration)만 내주고, `..`·backend.js.map·적지 않은 migration·다른 화면 file·node_modules·활성이 아닌 release는 not_found"
+
   - path: packages/core/apps/phone/screens_test.ts
     covers: [app-phone-screens-list:listed]
-    note: "보관한 앱, active release가 없는 앱, phone 화면이 없는 앱, bundle의 screens 폴더 밖을 가리키는 manifest(`..` key, 밖을 가리키는 symlink)와 틀린 manifest는 싣지 않고, 맞는 화면만 앱 순서로 싣고 running을 앱마다 다르게 냄"
+    note: "runs_on에 phone이 있는 앱은 backend manifest를 싣고 읽지 못하면 그 앱을 빼며 log를 남김. 보관한 앱, active release가 없는 앱, phone 화면이 없는 앱, bundle의 screens 폴더 밖을 가리키는 manifest(`..` key, 밖을 가리키는 symlink)와 틀린 manifest는 싣지 않고, 맞는 화면만 앱 순서로 싣고 running을 앱마다 다르게 냄"
 
   - path: packages/core/apps/phone/changed_test.ts
     covers: [phone-changed-notice:noticed, phone-changed-notice:not-noticed]

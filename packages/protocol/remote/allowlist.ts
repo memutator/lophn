@@ -25,7 +25,7 @@ import {
   noticesList,
   noticesOpen,
 } from "../apps/notice.ts";
-import { appPhoneScreens } from "../apps/phone.ts";
+import { appPhoneFile, appPhoneScreens } from "../apps/phone.ts";
 import { appRuntime } from "../apps/runtime.ts";
 import { appViewsCall, appViewsClose, appViewsOpen } from "../apps/views.ts";
 import { appWidgetsList } from "../apps/widget.ts";
@@ -126,7 +126,7 @@ import { devicesSetPush, devicesUnpair } from "./routes.ts";
 // `jobs/update`는 켜고 끄기(`enabled`)만 받는다(core/remote/call.ts). `acp/send`는 안의 route를 기기 자격으로 부르므로 대화 조작 route도 여기 있어야 한다.
 // 모두 user가 부를 수 있는 route여야 한다(아니면 core가 기기 자격을 만들지 못한다).
 // file·upload route의 bytes는 `call`에서 base64로 싣는다(core/remote/call.ts). 폰은 화면 bundle도 이 목록의 route로 받는다.
-// 앱의 폰 화면: 목록(`apps/phone_screens`), 화면 file(`apps/screen_file`), view binding(`app_views/*`)만 둔다. 폰 화면 bridge는
+// 앱의 폰 화면: 목록(`apps/phone_screens`), 화면 file(`apps/screen_file`), 폰 backend file(`apps/phone_file`), view binding(`app_views/*`)만 둔다. 폰 화면 bridge는
 // view id로만 앱을 부르고, 부를 수 있는 operation은 core가 그 view에 묶인 release의 선언에 있는 것만으로 판정한다. 그래서
 // 앱을 직접 부르는 `apps/call_tool`과 grant(`app_grants/*`)는 넣지 않는다. 화면 오류를 쓰는 `apps/log_view_error`도 넣지 않는다:
 // 입력의 앱을 부르는 쪽이 정해서 다른 앱의 log에 쓸 수 있다.
@@ -232,6 +232,7 @@ export const REMOTE_ALLOWED_ROUTES = [
   // 앱의 폰 화면
   appPhoneScreens,
   appScreenFile,
+  appPhoneFile,
   appViewsOpen,
   appViewsCall,
   appViewsClose,

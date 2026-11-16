@@ -109,6 +109,7 @@ import {
   screenFileStream,
   withStartInvocation,
 } from "../../../apps/routes.ts";
+import { phoneFileStream } from "../../../apps/phone/files.ts";
 import { NOTICE_TOPIC } from "../../../apps/notices/mod.ts";
 import {
   readSdkStatus,
@@ -821,6 +822,10 @@ export const appsWiring: WiringFactory = () => {
         ],
         fileStreams: [
           ["apps/screen_file", screenFileStream(createScreenFileDeps(locator))],
+          [
+            "apps/phone_file",
+            phoneFileStream(createScreenFileDeps(locator), link.sql),
+          ],
           ...syncRoutes.files,
         ],
         reads(reads) {
@@ -848,6 +853,12 @@ export const appsWiring: WiringFactory = () => {
             phoneScreensRead(
               {
                 ...createScreenFileDeps(locator),
+                warn: (message) =>
+                  ctx.telemetry.logger.warn({
+                    component: "apps/phone",
+                    event: "backend_manifest_unreadable",
+                    fields: { message },
+                  }),
                 async running(app, release) {
                   const observed = await appsControl.client.observe(app);
                   return (

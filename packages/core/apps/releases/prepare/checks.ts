@@ -3,7 +3,9 @@
 // core가 import하지 않는 모듈이고, 앱이 쓴 migration SQL은 release 준비 자식에서만 돈다.
 // 부르는 곳은 packages/core/main/worker/release-job.ts 하나다.
 
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
+import { DatabaseSync } from "node:sqlite";
+import { compareVersions } from "../../../../base/mod.ts";
 import {
   type DataChange,
   rolledBackStepText,
@@ -15,6 +17,7 @@ import {
   migrateAppDatabase,
   scriptFromBundle,
 } from "../../data/worker/migrate.ts";
+import { phoneSchemaProblemsOfDatabase } from "../phone-backend/schema-read.ts";
 
 // 실패는 오류 code가 아니라 결과다. reason은 agent가 읽고 고칠 글이다.
 export type CheckOutcome = { ok: true } | { ok: false; reason: string };
@@ -60,6 +63,31 @@ async function migrateOnce(
   return null;
 }
 
+// 폰에서도 도는 앱이 걸어야 하는 SDK의 하한이다. 그 밑 판에는 폰 entry(`lophn-phone`)가 없다.
+const PHONE_SDK_FLOOR = {
+  "@lophn/cap-store": "2.0.0",
+  "@lophn/cap-tool": "2.2.0",
+} as const;
+
+// `runs_on`에 phone이 있는 앱의 선언(평가한 JSON)이 SDK 하한을 걸었는지 본다. 문제가 없으면 null이다.
+export function phoneSdkFloorProblem(declaration: unknown): string | null {
+  const pinned = (declaration as { sdk_dependencies?: unknown } | null)
+    ?.sdk_dependencies;
+  const dependencies = Array.isArray(pinned) ? pinned : [];
+  for (const [name, floor] of Object.entries(PHONE_SDK_FLOOR)) {
+    const found = dependencies.find(
+      (dependency) => dependency?.name === name,
+    ) as { version?: unknown } | undefined;
+    if (
+      typeof found?.version !== "string" ||
+      compareVersions(found.version, floor) < 0
+    ) {
+      return "an app that runs on the phone needs @lophn/cap-store 2.0.0 and @lophn/cap-tool 2.2.0 or later";
+    }
+  }
+  return null;
+}
+
 async function freshDatabase(
   dataArea: string,
 ): Promise<{ path: string } | { error: string }> {
@@ -69,6 +97,13 @@ async function freshDatabase(
   if (!opened.ok) return { error: opened.error.message };
   opened.value.close();
   return { path };
+}
+
+async function runsOnPhone(bundleRoot: string): Promise<boolean> {
+  const declaration = JSON.parse(
+    await readFile(`${bundleRoot}/declaration.json`, "utf8"),
+  ) as { runs_on?: string[] };
+  return declaration.runs_on?.includes("phone") ?? false;
 }
 
 // 빈 DB에서 dataSchema까지, previousSchema가 있으면 그 schema의 DB에서 dataSchema까지 올라가는지 본다.
@@ -111,6 +146,18 @@ export async function checkMigration(input: {
     scripts,
   );
   if (emptyFailed !== null) return { ok: false, reason: emptyFailed };
+  // 폰에서도 도는 앱의 schema는 빈 DB에서 target까지 올린 이 DB에서 본다.
+  if (await runsOnPhone(input.bundleRoot)) {
+    const db = new DatabaseSync(empty.path, { readOnly: true });
+    try {
+      const problems = phoneSchemaProblemsOfDatabase(db);
+      if (problems.length > 0) {
+        return { ok: false, reason: problems.join(" ") };
+      }
+    } finally {
+      db.close();
+    }
+  }
 
   if (previousSchema === null || previousSchema === 0) return { ok: true };
   const upgrade = await freshDatabase(`${area}/upgrade`);

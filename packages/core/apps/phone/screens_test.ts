@@ -12,6 +12,16 @@ import { readPhoneScreens } from "./screens.ts";
 
 const id = (prefix: string, letter: string) =>
   `${prefix}_01${letter.repeat(24)}`;
+const BACKEND = JSON.stringify({
+  format: 1,
+  entry: "backend.js",
+  size: 1,
+  sha256: "a".repeat(64),
+  data_schema: 0,
+  migrations: [],
+  operations: { list: "read" },
+  sdk: { "@lophn/cap-store": "2.0.0", "@lophn/cap-tool": "2.2.0" },
+});
 const MANIFEST = JSON.stringify({
   format: 1,
   entry: "phone.js",
@@ -49,6 +59,7 @@ test("phone_screens는 보관한 앱, 켜진 release 없는 앱, phone 아닌 �
       status: "active" | "archived",
       release: string,
       screens: unknown[],
+      runsOn?: string[],
     ) => {
       n += 1;
       db.prepare(
@@ -67,7 +78,11 @@ test("phone_screens는 보관한 앱, 켜진 release 없는 앱, phone 아닌 �
         "d".repeat(64),
         release,
         release === "active" ? "2026-01-01T00:00:00.000Z" : null,
-        JSON.stringify({ icon: "lucide:star", screens }),
+        JSON.stringify({
+          icon: "lucide:star",
+          screens,
+          ...(runsOn ? { runs_on: runsOn } : {}),
+        }),
       );
     };
     const good = id("app", "a");
@@ -85,11 +100,23 @@ test("phone_screens는 보관한 앱, 켜진 release 없는 앱, phone 아닌 �
     add(id("app", "e"), "active", "active", [
       { ...phone("main"), places: ["tab"] },
     ]);
+    // 폰에서도 도는 앱: backend.json이 있으면 싣고, 없으면 그 앱을 뺀다.
+    const synced = id("app", "f");
+    const broken = id("app", "g");
+    add(synced, "active", "active", [phone("main")], ["computer", "phone"]);
+    add(broken, "active", "active", [phone("main")], ["computer", "phone"]);
 
     // 앱마다 bundle 사본(<tmp>/bundles/<app>). <tmp>/outside는 manifest가 맞아도 bundle 밖이다.
     await mkdir(join(tmp, "outside"));
     await writeFile(join(tmp, "outside/phone.json"), MANIFEST);
-    for (const app of [good, second, id("app", "c"), id("app", "d")]) {
+    for (const app of [
+      good,
+      second,
+      id("app", "c"),
+      id("app", "d"),
+      synced,
+      broken,
+    ]) {
       await mkdir(join(tmp, "bundles", app, "screens/main"), {
         recursive: true,
       });
@@ -98,6 +125,11 @@ test("phone_screens는 보관한 앱, 켜진 release 없는 앱, phone 아닌 �
         MANIFEST,
       );
     }
+    await mkdir(join(tmp, "bundles", synced, "phone"));
+    await writeFile(
+      join(tmp, "bundles", synced, "phone/backend.json"),
+      BACKEND,
+    );
     await mkdir(join(tmp, "bundles", good, "screens/broken"));
     await writeFile(
       join(tmp, "bundles", good, "screens/broken/phone.json"),
@@ -113,12 +145,14 @@ test("phone_screens는 보관한 앱, 켜진 release 없는 앱, phone 아닌 �
       join(tmp, "bundles", good, "screens/linked"),
       "junction",
     );
+    const warnings: string[] = [];
     const read = await readPhoneScreens(
       {
         ...createScreenFileDeps({
           dir: (target) => ok(join(tmp, "bundles", target.app)),
         }),
         running: (app) => Promise.resolve(app === good),
+        warn: (message) => warnings.push(message),
       },
       sql,
     );
@@ -128,8 +162,18 @@ test("phone_screens는 보관한 앱, 켜진 release 없는 앱, phone 아닌 �
       [
         [good, "main", true],
         [second, "main", false],
+        [synced, "main", false],
       ],
     );
+    assert.deepStrictEqual(
+      read.value.screens.map((s) => [s.runs_on, s.backend?.entry ?? null]),
+      [
+        [["computer"], null],
+        [["computer"], null],
+        [["computer", "phone"], "backend.js"],
+      ],
+    );
+    assert.equal(warnings.length, 1);
     assert.deepStrictEqual(read.value.screens[0].icon, "lucide:star");
     assert.deepStrictEqual(read.value.screens[0].release, id("rel", "1"));
     assert.deepStrictEqual(read.value.screens[0].bundle_hash, "b".repeat(64));

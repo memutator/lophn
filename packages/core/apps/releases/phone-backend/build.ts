@@ -1,7 +1,7 @@
 // 앱의 `main.ts`를 폰에서 도는 backend(`phone/backend.js` + `phone/backend.json`)로 묶는다. 폰은 Node 내장 module이
 // 없는 JS 런타임이라 SDK는 조건 `lophn-phone`의 폰 entry로 풀고, Node 내장과 폰 entry가 없는 SDK는 build가
 // 거절한다. esbuild는 앱 code를 묶을 뿐 실행하지 않는다(load 검사가 child에서 실행한다).
-// import는 staging 안에서만 푼다: staging 밖 file(저장소 node_modules 등)이 묶이면 build가 실패한다.
+// import는 staging 안에서만 푼다(`stagingGuard`): staging 밖 file(저장소 node_modules 등)이 묶이면 build가 실패한다.
 import {
   mkdir,
   readdir,
@@ -10,7 +10,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { isBuiltin } from "node:module";
-import { isAbsolute, join, relative, sep } from "node:path";
+import { join, relative } from "node:path";
 import * as esbuild from "esbuild";
 import {
   err,
@@ -24,6 +24,7 @@ import {
   PHONE_BACKEND_MAX_BYTES,
   type PhoneBackendManifest,
 } from "../../../../protocol/apps/mod.ts";
+import { stagingGuard } from "../ui-build/staging-guard.ts";
 
 // 폰 entry가 없는 SDK다(파일과 flow는 컴퓨터에서만 돈다).
 const NO_PHONE_ENTRY = ["@lophn/cap-fs", "@lophn/flow"];
@@ -74,19 +75,6 @@ function importGuard(root: string): esbuild.Plugin {
           return rejected(name, args.importer);
         }
         return undefined;
-      });
-      // staging 밖(realpath 기준) file은 묶지 않는다. file 내용은 오류에 싣지 않는다.
-      build.onLoad({ filter: /.*/, namespace: "file" }, async (args) => {
-        if (!isAbsolute(args.path)) return undefined;
-        let real: string;
-        try {
-          real = await realpath(args.path);
-        } catch {
-          return { errors: [{ text: "import is outside the app build area" }] };
-        }
-        return real === root || real.startsWith(`${root}${sep}`)
-          ? undefined
-          : { errors: [{ text: "import is outside the app build area" }] };
       });
     },
   };
@@ -151,7 +139,7 @@ export async function buildPhoneBackend(
       sourcemap: "external",
       define: { "process.env.NODE_ENV": '"production"' },
       logLevel: "silent",
-      plugins: [importGuard(root)],
+      plugins: [importGuard(root), stagingGuard(root)],
     });
   } catch (thrown) {
     return invalid(firstError(thrown));

@@ -51,8 +51,8 @@ export type PrepareReleaseInput = {
   entrypoint: string;
   declarationSource: string;
   screens: readonly { path: string; bytes: Uint8Array }[];
-  // 화면 build가 main.js 말고 만든 자원(index.html·CSS·글꼴, 폰 화면의 phone.js·phone.json·preview.js). 그대로
-  // bundle에 담고 runtime이 screens/ 아래에서 내준다.
+  // 화면 build가 main.js 말고 만든 자원(index.html·CSS·글꼴, 폰 화면의 phone.js·phone.json·preview.js)과 폰
+  // backend의 `phone/` file. 그대로 bundle에 담고 runtime이 screens/ 아래에서 내준다.
   assets?: readonly { path: string; bytes: Uint8Array }[];
   // bundle에 담은 정확한 의존 전부(manifest.dependencies가 된다).
   dependencies: BundleManifest["dependencies"];
@@ -139,7 +139,9 @@ export async function prepareRelease(
   const entryFiles = input.entryFiles ?? [];
   // 플랫폼이 더하는 파일의 path를 앱 source가 차지하고 있으면 거절한다.
   const reserved = new Set(
-    [...sdkCopies, ...moduleCopies, ...entryFiles].map((file) => file.path),
+    [...assets, ...sdkCopies, ...moduleCopies, ...entryFiles].map(
+      (file) => file.path,
+    ),
   );
   if (extracted.value.some((file) => reserved.has(file.path))) {
     return fail("entrypoint_reserved");

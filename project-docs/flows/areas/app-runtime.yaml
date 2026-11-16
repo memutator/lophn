@@ -1416,17 +1416,18 @@ flows:
     actor: person
     entries: [route:apps/phone_screens]
     boundary: [app-runtime]
-    code: [packages/core/apps/phone/screens.ts, packages/core/apps/routes.ts, packages/core/main/daemon/wiring/apps.ts, packages/protocol/apps/phone.ts, packages/protocol/apps/phone-screen.ts]
+    code: [packages/core/apps/phone/screens.ts, packages/core/apps/phone/files.ts, packages/core/apps/routes.ts, packages/core/main/daemon/wiring/apps.ts, packages/protocol/apps/phone.ts, packages/protocol/apps/phone-screen.ts, packages/protocol/apps/phone-backend.ts]
     docs: [architecture/remote.md]
     steps:
       - "메인 스레드 handler가 보관하지 않은 앱마다 active release 선언의 화면 가운데 places가 phone 하나인 것을 고른다. active release가 없는 앱과 phone 화면이 없는 앱은 싣지 않는다."
       - "화면마다 bundle 사본의 screens/<key>/phone.json을 읽어 phoneManifestSchema로 검사한다. 화면 폴더나 file이 bundle의 screens 폴더 밖(`..`, 밖을 가리키는 symlink)이면 없는 file이다. manifest가 없거나 틀린 화면은 오류 없이 뺀다."
-      - "화면마다 app, 앱 이름, 선언의 icon(lucide 이름이나 null), screen, label, params, release, bundle_hash(release 기록), manifest, running을 낸다."
+      - "선언의 runs_on에 phone이 있는 앱은 bundle 사본의 phone/backend.json을 phoneBackendManifestSchema로 읽는다. 읽지 못하면(없음, 틀림) 그 앱의 화면을 모두 빼고 log 한 줄을 남긴다. phone이 없는 앱의 backend는 null이다."
+      - "화면마다 app, 앱 이름, 선언의 icon(lucide 이름이나 null), screen, label, params, release, bundle_hash(release 기록), manifest, runs_on(선언에 없으면 [computer]), backend, running을 낸다."
       - "running은 supervisor가 지금 관측한 live process가 그 release이고 ready이며 요청을 받는가다. 관측을 못 하면 false다."
       - "폰은 manifest를 `phoneCanRun`으로 자기 판과 맞춰 열지 말지 정하고, 화면 byte는 `apps/screen_file`(phone.js)로 받는다."
     outcomes:
       - id: listed
-        when: "읽힌 화면 목록(빈 목록도)을 돌려줬다. 빠진 앱·화면이 있어도 오류가 아니다"
+        when: "읽힌 화면 목록(빈 목록도)을 돌려줬다. 빠진 앱·화면(backend manifest를 못 읽은 폰 앱 포함)이 있어도 오류가 아니다"
         observe: [response]
       - id: invalid-input
         code: invalid_input
@@ -1445,6 +1446,42 @@ flows:
     declared_only: [unavailable]
     unclear:
       - "protocol이 unavailable을 선언하지만 조립된 handler는 store 오류를 internal로 돌려주고 supervisor 관측 실패는 running false로 삼킨다. unavailable은 handler가 붙기 전(등록 때 unattachedRead)에만 난다"
+
+  - id: app-phone-file-read
+    title: "폰이 앱 backend와 migration file 하나를 받는다"
+    actor: person
+    entries: [route:apps/phone_file]
+    boundary: [app-runtime]
+    code: [packages/core/apps/phone/files.ts, packages/core/main/daemon/wiring/apps.ts, packages/protocol/apps/phone.ts]
+    docs: [architecture/remote.md]
+    steps:
+      - "입력은 app, release, path다. 그 앱의 active release가 그 release가 아니면 not_found다."
+      - "그 release의 bundle 사본의 phone/backend.json을 읽어 path가 phone/backend.js, phone/backend.json, 그 manifest가 적은 migrations/<from>-<to>.sql 가운데 하나인지 본다. 목록 밖(`..`, 다른 화면 file, node_modules, backend.js.map 포함)이면 not_found다. manifest가 없거나 틀려도 not_found다."
+      - "목록 안의 path는 realpath로 풀어 bundle 사본 폴더 밖(밖을 가리키는 symlink)이면 not_found, 8 MiB를 넘는 file도 not_found다. 읽기만 한다."
+      - "폰은 받은 byte를 manifest의 size·sha256으로 확인한다."
+    outcomes:
+      - id: served
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력이 schema에 맞지 않음(dispatch)"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "그 release가 그 앱의 active release가 아님, backend.json이 없거나 틀림, path가 목록 밖, file이 없거나 bundle 밖을 가리키거나 8 MiB를 넘음"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 credential이 아님(route actors는 user만)"
+        observe: [response]
+      - id: read-failed
+        when: "active release 선언 조회(loadActiveDeclaration)가 낸 오류 그대로(invalid stored app 등)"
+        observe: [response]
+    crosses_process: false
+    declared_only: [unavailable]
+    risk: [sandbox]
+    unclear:
+      - "route가 unavailable을 선언하지만 handler는 내지 않는다. bundle 조회 실패는 not_found로 가려진다."
 
   - id: app-sdk-decide
     title: "home lophn이 앱 하나의 SDK 업데이트 결정을 기록하고 update면 그 앱의 lophn에게 같은 동작으로 맡긴다"

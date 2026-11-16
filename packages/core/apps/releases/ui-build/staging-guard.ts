@@ -1,4 +1,4 @@
-// 화면 build가 불러오는 file이 staging 안(realpath 기준)에 있는지 본다. staging 밖의 file(lophn repo의
+// 화면 build와 폰 backend build가 불러오는 file이 staging 안(realpath 기준)에 있는지 본다. staging 밖의 file(lophn repo의
 // node_modules 등)이 화면에 묶이지 않게 한다. file 내용은 오류에 싣지 않는다.
 import { realpath } from "node:fs/promises";
 import { isAbsolute, sep } from "node:path";

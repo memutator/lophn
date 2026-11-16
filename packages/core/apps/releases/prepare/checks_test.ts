@@ -13,12 +13,17 @@ async function migrationOk(
   steps: Record<string, string>,
   dataSchema: number,
   previousSchema: number | null,
+  runsOn: string[] = ["computer"],
 ) {
   // mkdtemp의 prefix는 구분자로 끝나야 임시 폴더가 tmpdir 안에 생긴다(join은 끝 구분자를 지운다).
   const root = await mkdtemp(`${tmpdir()}/`);
   const area = await mkdtemp(`${tmpdir()}/`);
   try {
     await mkdir(`${root}/migrations`);
+    await writeFile(
+      `${root}/declaration.json`,
+      JSON.stringify({ runs_on: runsOn }),
+    );
     const dataChanges: DataChange[] = [];
     for (const [name, sql] of Object.entries(steps)) {
       await writeFile(`${root}/migrations/${name}.sql`, sql);
@@ -86,4 +91,31 @@ test("migration 단계가 실패하거나 schema에 닿지 못하는 bundle은 m
       }
     }
   }
+});
+
+// 폰에서도 도는 앱의 schema는 두 기기가 만든 행이 겹치지 않게 text key만 쓰고 trigger가 없어야 한다. 같은 SQL이 컴퓨터에서만 도는 앱에는 괜찮다.
+test("runs_on에 phone이 있는 앱은 정수 PK, AUTOINCREMENT, trigger가 있으면 migration 검사에서 떨어지고 phone이 없는 앱은 통과한다", async () => {
+  const cases: [string, string, string][] = [
+    ["정수 PK", "CREATE TABLE a (id INTEGER PRIMARY KEY, b TEXT)", "INTEGER"],
+    [
+      "AUTOINCREMENT",
+      "CREATE TABLE a (id INTEGER PRIMARY KEY AUTOINCREMENT, b TEXT)",
+      "AUTOINCREMENT",
+    ],
+    [
+      "trigger",
+      "CREATE TABLE a (id TEXT PRIMARY KEY, b TEXT); CREATE TRIGGER t AFTER INSERT ON a BEGIN UPDATE a SET b = 'x'; END",
+      "Triggers are not allowed",
+    ],
+  ];
+  for (const [label, sql, reason] of cases) {
+    const phone = await migrationOk({ "0-1": sql }, 1, null, [
+      "computer",
+      "phone",
+    ]);
+    assert.ok(!phone.ok && phone.reason.includes(reason), label);
+    assert.ok((await migrationOk({ "0-1": sql }, 1, null)).ok, label);
+  }
+  const text = "CREATE TABLE a (id TEXT PRIMARY KEY, b TEXT)";
+  assert.ok((await migrationOk({ "0-1": text }, 1, null, ["phone"])).ok);
 });

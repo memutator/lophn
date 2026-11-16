@@ -62,7 +62,7 @@ import { loadActiveDeclaration, releaseFacts } from "./releases/store.ts";
 import { createRuntimeCommands } from "./runtime/commands.ts";
 import { createRuntimeReads } from "./runtime/reads.ts";
 import { phoneTargetRead } from "./phone/target.ts";
-import { appPhoneScreens } from "../../protocol/apps/phone.ts";
+import { appPhoneFile, appPhoneScreens } from "../../protocol/apps/phone.ts";
 import {
   PACKAGE_BUNDLE_BLOB_FIELD,
   PACKAGE_GUIDE_BLOB_FIELD,
@@ -302,7 +302,7 @@ export function createLedgerRegistration(
       appSyncSnapshot,
     ],
     // 앱 화면의 byte는 core가 UI bundle 사본에서 흘려 준다.
-    files: [appScreenFile, appSyncSnapshotFile],
+    files: [appScreenFile, appSyncSnapshotFile, appPhoneFile],
     blobPurposes: INVOCATION_BLOB_PURPOSES,
     // coding-agent connection의 app scope 검사와 documents의 자리 해석은 같은 Tx의
     // 존재 조회를 쓴다. TargetAuthorization은 tx.ts가 주입하므로 여기 등록하지 않는다.

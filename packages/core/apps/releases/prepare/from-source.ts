@@ -1,7 +1,7 @@
 // 연결된 source의 commit 하나에서 봉인 bundle까지 준비한다.
 // release worker 안에서 돈다: commit을 staging에 풀고, package.json이 거는 SDK 사본을 staging의
 // `.lophn/sdk`에 채우고, npm으로 의존을 받고, 선언 값을 평가하고, 앱의 화면 build를 직접 돌리고(폰 화면이 있으면
-// build에만 쓴 devDependencies를 뺀다), 받아 둔 node_modules를 bundle 파일로 읽어 `prepareRelease`에 넘긴다.
+// build에만 쓴 devDependencies를 뺀다), 폰에서도 도는 앱(`runs_on`에 phone)이면 폰 backend를 묶고 실어 보고, 받아 둔 node_modules를 bundle 파일로 읽어 `prepareRelease`에 넘긴다.
 // 운영 process는 network 없이 bundle 안 사본만 읽는다. staging은 끝나면 늘 지운다.
 import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
@@ -36,6 +36,7 @@ import { readModules, readSdkCopies } from "../bundle/modules.ts";
 import { runtimeEntry } from "../bundle/runtime-entry.ts";
 import { makeTreeWritable } from "../bundle/seal.ts";
 import { FIXED_UI_DEPENDENCIES } from "../ui-build/build.ts";
+import { phoneSdkFloorProblem } from "./checks.ts";
 import { childEnvironment } from "./environment.ts";
 import {
   type PrepareDeps,
@@ -156,6 +157,9 @@ const EVAL_DECLARATION = fileURLToPath(
 const APP_BUILD = fileURLToPath(
   new URL("../ui-build/app-build.ts", import.meta.url),
 );
+const PHONE_BACKEND = fileURLToPath(
+  new URL("../phone-backend/main.ts", import.meta.url),
+);
 const PACKAGES_URL = new URL("../../../../", import.meta.url).href;
 
 // 화면 build 결과(dist/screens/<key>/)를 bundle 입력으로 읽는다. desktop 화면의 main.js는 화면이고 나머지(폰 화면의
@@ -237,6 +241,24 @@ function phoneScreenProblem(
   }
   return null;
 }
+
+// 평가한 선언 JSON의 모양 검사는 뒤의 선언 검사가 한다. 여기는 폰 backend를 지을지만 본다.
+function parseDeclaration(json: string): unknown {
+  try {
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+function runsOnPhone(declaration: unknown): boolean {
+  const runsOn = (declaration as { runs_on?: unknown } | null)?.runs_on;
+  return Array.isArray(runsOn) && runsOn.includes("phone");
+}
+
+type PhoneBackendResult =
+  | { ok: true; files: string[] }
+  | { ok: false; message: string };
 
 export async function prepareFromSource(
   input: SourcePrepareInput,
@@ -338,6 +360,11 @@ export async function prepareFromSource(
       );
     }
 
+    const declared = parseDeclaration(evaluated.stdout);
+    const phoneApp = runsOnPhone(declared);
+    const floor = phoneApp ? phoneSdkFloorProblem(declared) : null;
+    if (floor !== null) return fail(floor);
+
     // 화면 build는 앱이 쓴 build script가 아니라 신뢰된 `ui-build/app-build.ts`가 한다. 앱 코드는 번들될
     // 뿐 실행되지 않는다.
     const built = await runChild(nodeCommand(APP_BUILD, [staging]), {
@@ -362,6 +389,40 @@ export async function prepareFromSource(
     );
     if (phoneProblem !== null) return fail(phoneProblem);
     if (aborted()) return fail("cancelled");
+
+    // 폰 backend도 신뢰된 child가 묶고(`phone-backend/main.ts`) 선언한 handler와 맞는지 실어 본다. 묶는 데 staging의
+    // SDK 사본을 읽으므로 prune 앞이다. 결과 file(`phone/*`)은 화면 자원과 같이 bundle에 담긴다.
+    const phoneFiles: { path: string; bytes: Uint8Array }[] = [];
+    if (phoneApp) {
+      const backend = await runChild(nodeCommand(PHONE_BACKEND, [staging]), {
+        cwd: staging,
+        signal: deps.signal,
+        limitMs,
+        env: childEnvironment(`${staging}/.tmp`),
+      });
+      if (backend === "aborted") return fail("cancelled");
+      if (backend === "timeout") return fail("elapsed_ms");
+      if (backend.code !== 0) {
+        return fail(
+          childHead("phone_backend_failed", backend.stderr, staging),
+          "unavailable",
+        );
+      }
+      // 앱 code가 평가 중 stdout에 쓸 수 있어 마지막 줄이 결과다.
+      let result: PhoneBackendResult;
+      try {
+        result = JSON.parse(backend.stdout.trim().split("\n").at(-1) ?? "");
+      } catch {
+        return fail(
+          childHead("phone_backend_failed", backend.stdout, staging),
+          "unavailable",
+        );
+      }
+      if (!result.ok) return fail(result.message);
+      for (const path of result.files) {
+        phoneFiles.push({ path, bytes: await readFile(`${staging}/${path}`) });
+      }
+    }
 
     // 폰 화면의 kit과 그 peer(react-native 등)는 build에만 쓰는 devDependencies다. 그대로 담으면 bundle 상한
     // (byte·file 수)을 넘으므로 build 뒤 sealed node_modules에서 뺀다. 폰 화면이 없는 앱은 그대로 둔다.
@@ -401,7 +462,7 @@ export async function prepareFromSource(
         entryFiles: platformEntry.files,
         declarationSource: evaluated.stdout.trim(),
         screens: screens.screens,
-        assets: screens.assets,
+        assets: [...screens.assets, ...phoneFiles],
         dependencies: dependencies.value,
         uiDependencies,
         sdkCopies: copies.value,

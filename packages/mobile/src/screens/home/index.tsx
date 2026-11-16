@@ -31,7 +31,7 @@ import {
   withLocalApps,
   type WorkspaceView,
 } from "../../data/mod.ts";
-import { ago, EmptyScreen, Face, LOPHN, SESSION_DOT } from "../../parts/mod.ts";
+import { ago, EmptyScreen, Face, LOPHN, SESSION_DOT, useUnreachable } from "../../parts/mod.ts";
 import { Apps } from "./apps.tsx";
 import { HomeComposer } from "./compose.tsx";
 import { frontOf, NeedsYou } from "./needs.tsx";
@@ -49,6 +49,8 @@ export function HomeScreen(_: { place: PlaceOf<"home"> }) {
 
   const status = computer?.status ?? "offline";
   const online = status === "connected";
+  // Out of the version range it says who must update, like every other message box.
+  const unreachable = useUnreachable();
   // When the phone last heard from the computer: set the moment a connection ends.
   const [leftAt, setLeftAt] = useState<number | null>(null);
   useEffect(() => {
@@ -89,7 +91,7 @@ export function HomeScreen(_: { place: PlaceOf<"home"> }) {
         <HomeComposer
           workspaces={workspaces}
           locked={!online}
-          unreachable={t("mobile.start.heading.unreachable", { name })}
+          unreachable={unreachable ?? t("mobile.start.heading.unreachable", { name })}
           onStarted={(target) => nav.open({ name: "session", ...target })}
           onFailed={setFailed}
         />

@@ -39,8 +39,8 @@ export const updateStateSchema = z.object({
       bytes: count,
       // 한도에 닿아 더 복사하지 않고 폴더에 둔다.
       full: z.boolean(),
-      // 이 기계가 그 release를 활성한 적이 있거나 data schema가 지금 것보다 낮으면 older_release(그 기계가 올라오면 온다),
-      // 아니면 newer_release(이 기계가 올라가면 적용된다).
+      // 이 기계가 지금 release보다 먼저 들인 release이거나 data schema가 지금 것보다 낮으면 older_release(그 기계가 올라오면
+      // 온다), 아니면 newer_release(이 기계가 그 release가 되면 적용된다. 사람이 돌아가 내려놓은 release도 여기다).
       why: z.enum(["newer_release", "older_release"]),
     }),
   ),

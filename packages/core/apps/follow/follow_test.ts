@@ -15,10 +15,11 @@ const B = "mch_01arz3ndektsv4rrffq69g5fa2" as Id<"mch">;
 const hash = (c: string) => c.repeat(64);
 const commit = (c: string) => c.repeat(40);
 
-// 작은 git 기록: p ← c0 ← c1 ← c2, 그리고 c0 ← x(c1과 갈라짐). m은 이 저장소에 아직 없다.
+// 작은 git 기록: p ← c0 ← c1 ← c2, 그리고 c0 ← x(c1과 갈라짐), p ← y(c0과 갈라짐). m은 이 저장소에 아직 없다.
 const PARENT: Record<string, string | null> = {
   [commit("0")]: commit("9"),
   [commit("9")]: null,
+  [commit("8")]: commit("9"),
   [commit("1")]: commit("0"),
   [commit("2")]: commit("1"),
   [commit("7")]: commit("0"),
@@ -83,6 +84,11 @@ test("옛 기계의 release와 이 기계가 내려놓은 release는 목표가 �
         offer("x", "7", { machine: B, created_at: "2026-11-11T00:00:00.000Z" }),
       ],
       want: { kind: "diverged", bundle: hash("x") },
+    },
+    {
+      name: "이 기계와 갈라짐(그 기계가 따로 release를 냈다)",
+      offered: [offer("y", "8")],
+      want: { kind: "diverged", bundle: hash("y") },
     },
     {
       name: "낮은 data schema",

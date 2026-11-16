@@ -43,19 +43,41 @@ export async function chooseRelease(input: {
     }
   }
   const candidates: OfferedRelease[] = [];
+  // 지금 commit의 자손도 조상도 아닌 release: 그 기계와 이 기계가 따로 release를 냈다.
+  const apart: OfferedRelease[] = [];
   for (const offered of byBundle.values()) {
     if (offered.bundle_hash === current.bundle_hash) continue;
     if (input.dropped.has(offered.bundle_hash)) continue;
-    if (offered.data_schema < current.data_schema) continue;
     if (offered.code_commit === current.code_commit) continue;
     // 자손인지 모르면(commit이 아직 없거나 git이 실패) 이번에는 빼고 다음 계기에 다시 본다.
     const after = await input.isAncestor(
       current.code_commit,
       offered.code_commit,
     );
-    if (after.ok && after.value === true) candidates.push(offered);
+    if (!after.ok || after.value === "missing") continue;
+    if (after.value) {
+      if (offered.data_schema >= current.data_schema) candidates.push(offered);
+      continue;
+    }
+    const before = await input.isAncestor(
+      offered.code_commit,
+      current.code_commit,
+    );
+    if (before.ok && before.value === false) apart.push(offered);
   }
-  if (candidates.length === 0) return { kind: "current" };
+  const byCreated = (a: OfferedRelease, b: OfferedRelease) =>
+    a.created_at < b.created_at
+      ? -1
+      : a.created_at > b.created_at
+        ? 1
+        : a.bundle_hash < b.bundle_hash
+          ? -1
+          : 1;
+  if (candidates.length === 0) {
+    return apart.length === 0
+      ? { kind: "current" }
+      : { kind: "diverged", release: apart.sort(byCreated).at(-1)! };
+  }
 
   const known = new Map<string, boolean>();
   async function below(ancestor: string, descendant: string) {
@@ -81,14 +103,6 @@ export async function chooseRelease(input: {
     }
     if (all) tops.push(top);
   }
-  const byCreated = (a: OfferedRelease, b: OfferedRelease) =>
-    a.created_at < b.created_at
-      ? -1
-      : a.created_at > b.created_at
-        ? 1
-        : a.bundle_hash < b.bundle_hash
-          ? -1
-          : 1;
   // 여럿이면 같은 commit의 다른 bundle이다. 먼저 활성된 쪽.
   if (tops.length > 0) {
     return { kind: "target", release: tops.sort(byCreated)[0]! };

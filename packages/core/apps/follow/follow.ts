@@ -104,6 +104,8 @@ export function createFollow(deps: FollowDeps): Follow {
   }
 
   async function once(app: Id<"app">): Promise<void> {
+    // 이번 계기가 아무것도 바꾸지 못하면(다른 activation이 돌거나 동의를 기다림, release 폴더가 덜 옴) 보이던 상태를 그대로 둔다.
+    const initial = stateOf(app);
     const local = deps.apps().find((each) => each.app === app);
     if (local === undefined) {
       gaveUp.delete(app);
@@ -132,20 +134,32 @@ export function createFollow(deps: FollowDeps): Follow {
     });
 
     if (choice.kind === "current") {
-      // 따라가던 release가 activation에 실패했으면(실패한 release는 고르지 않는다) 다른 기계가 그것을 돌리는 동안 이유를 둔다.
-      const was = stateOf(app).release;
-      const failed = was === null ? undefined : byHash.get(was);
-      if (
-        failed?.status === "failed" &&
-        failed.failure !== null &&
-        offered.some((each) => each.bundle_hash === was)
-      ) {
+      // 다른 기계가 돌리는 더 새 release가 여기서 activation에 실패했으면(실패한 release는 고르지 않는다) 이유를 둔다.
+      // 실패는 release 행(ledger)에서 읽어 core가 다시 떠도 보인다.
+      for (const each of offered) {
+        const failed = byHash.get(each.bundle_hash);
+        if (
+          failed?.status !== "failed" ||
+          failed.failure === null ||
+          each.data_schema < local.release.data_schema ||
+          source === null
+        ) {
+          continue;
+        }
+        const after = await deps.isAncestor(
+          source,
+          local.release.code_commit,
+          each.code_commit,
+        );
+        if (!after.ok || after.value !== true) continue;
         set(app, {
           state: "activation_failed",
-          release: was,
+          release: each.bundle_hash,
           reason: `${failed.failure.code}: ${failed.failure.summary}`,
         });
-      } else set(app, CURRENT);
+        return;
+      }
+      set(app, CURRENT);
       return;
     }
     const bundle = choice.release.bundle_hash;
@@ -167,7 +181,6 @@ export function createFollow(deps: FollowDeps): Follow {
     }
     let release = row?.id as string | undefined;
     if (release === undefined) {
-      const before = stateOf(app);
       set(app, { state: "installing", release: bundle, reason: null });
       const taken = await deps.takeIn({
         app,
@@ -183,7 +196,7 @@ export function createFollow(deps: FollowDeps): Follow {
           taken.error.code === "invalid_input" &&
           details?.reason === "release_incomplete"
         ) {
-          set(app, before);
+          set(app, initial);
           return;
         }
         const failed: GaveUp =
@@ -215,12 +228,12 @@ export function createFollow(deps: FollowDeps): Follow {
       });
       return;
     }
-    const before = stateOf(app);
     set(app, { state: "activating", release: bundle, reason: null });
     const done = await deps.activate(release);
-    // 같은 앱에 도는 시도가 있거나(conflict) activation을 아직 못 한다(unavailable). 다음 계기에 다시 한다.
+    // 같은 앱에 도는 시도가 있거나(conflict: 앞서 따라간 release가 동의를 기다리는 때도) activation을 아직 못 한다
+    // (unavailable). 다음 계기에 다시 한다.
     if (!done.ok) {
-      set(app, before.state === "installing" ? CURRENT : before);
+      set(app, initial);
       return;
     }
     const out = done.value;

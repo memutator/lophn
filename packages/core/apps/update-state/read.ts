@@ -21,10 +21,7 @@ export type UpdateStateInput = {
   machines: readonly MachineExchange[];
   /** 다른 기계들의 그 앱 활성 release(앱 기록 사본). 범위 밖 기계의 기록은 없다. */
   offered: readonly { machine: Id<"mch">; release: ActiveRelease | null }[];
-  releases: readonly Pick<
-    ReleaseRecord,
-    "bundle_hash" | "number" | "activated_at"
-  >[];
+  releases: readonly Pick<ReleaseRecord, "bundle_hash" | "number">[];
 };
 
 export function buildUpdateState(input: UpdateStateInput): UpdateState {
@@ -71,22 +68,28 @@ export function buildUpdateState(input: UpdateStateInput): UpdateState {
       .sort((a, b) => a.name.localeCompare(b.name)),
   ];
 
+  // 이 기계가 지금 것보다 먼저 들인 release는 옛 release다. 사람이 이전으로 돌아가 내려놓은 release는 번호가 더 커서 newer다:
+  // 그 기계는 내려오지 않으니 "그 기계가 올라오면 온다"고 보이면 틀린다.
+  const currentNumber =
+    current === null ? null : (local.get(current.bundle_hash)?.number ?? null);
   const held = input.held
     // 지금 release의 held는 바로 적용되는 중이다.
     .filter((row) => row.bundle_hash !== current?.bundle_hash)
-    .map((row) => ({
-      machine: row.origin,
-      bundle_hash: row.bundle_hash,
-      data_schema: row.data_schema,
-      changes: row.changes,
-      bytes: row.bytes,
-      full: row.full,
-      why:
-        (local.get(row.bundle_hash)?.activated_at ?? null) !== null ||
-        row.data_schema < (current?.data_schema ?? 0)
-          ? ("older_release" as const)
-          : ("newer_release" as const),
-    }));
+    .map((row) => {
+      const number = local.get(row.bundle_hash)?.number ?? null;
+      const older =
+        row.data_schema < (current?.data_schema ?? 0) ||
+        (number !== null && currentNumber !== null && number < currentNumber);
+      return {
+        machine: row.origin,
+        bundle_hash: row.bundle_hash,
+        data_schema: row.data_schema,
+        changes: row.changes,
+        bytes: row.bytes,
+        full: row.full,
+        why: older ? ("older_release" as const) : ("newer_release" as const),
+      };
+    });
 
   return { app: input.app, follow: input.follow, held, machines };
 }

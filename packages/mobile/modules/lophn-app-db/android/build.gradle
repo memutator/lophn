@@ -1,0 +1,30 @@
+apply plugin: "com.android.library"
+apply plugin: "org.jetbrains.kotlin.android"
+
+def safeExtGet(prop, fallback) { rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback }
+
+android {
+  namespace "dev.lophn.appdb"
+  compileSdkVersion safeExtGet("compileSdkVersion", 36)
+  ndkVersion safeExtGet("ndkVersion", "27.1.12297006")
+  defaultConfig {
+    minSdkVersion safeExtGet("minSdkVersion", 24)
+    targetSdkVersion safeExtGet("targetSdkVersion", 36)
+    consumerProguardFiles "proguard-rules.pro"
+    externalNativeBuild {
+      cmake {
+        abiFilters(*(findProperty("reactNativeArchitectures") ?: "armeabi-v7a,arm64-v8a,x86,x86_64").split(","))
+        arguments "-DANDROID_STL=c++_shared"
+      }
+    }
+  }
+  externalNativeBuild { cmake { path "src/main/jni/CMakeLists.txt" } }
+  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+  kotlinOptions { jvmTarget = "17" }
+  buildFeatures { prefab true }
+}
+
+dependencies {
+  implementation "com.facebook.react:react-android"
+  implementation project(":callstack_react-native-sandbox")
+}

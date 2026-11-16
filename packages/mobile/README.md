@@ -193,6 +193,43 @@ adb -s emulator-<port> install -r app/build/outputs/apk/release/app-release.apk
 
 숫자(release): mount→`running`(첫 `ready`) 83–117 ms, 214 KB plain JS 화면(함수 1,500개) 150–167 ms. guest 하나의 PSS +28–38 MB(앱만 87–97 MB, 둘이면 +55–60 MB). base `base.hbc` 6.35 MB(Metro JS 5.0 MB), fixture 화면 1.8–3.5 KB. debug에서 `running`까지 170–330 ms.
 
+## 앱 DB native module
+
+폰에서 도는 앱의 SQLite는 우리 native module `modules/lophn-app-db`(C++ JSI, Android만)다. 앱의 주 runtime(host)과 앱 화면의 guest runtime이 같은 `.so`의 같은 SQLite로 같은 file을 연다. 한 process 안에서 SQLite 사본 둘이 한 file을 열면 lock이 깨지므로 expo-sqlite는 더하지 않는다. JS API와 값 규칙은 `modules/lophn-app-db/index.ts` 머리에 있다. host 쪽 연결은 sync core의 `SyncDb`(`packages/protocol/apps/sync/db.ts`)다.
+
+- host: `openHost(path)`, `bind(origin, path, {record})`, `unbind(origin)`. 앱의 주 ReactHost context에서만 되고, 다른 context(guest)에서 부르면 `forbidden`으로 던진다.
+- guest: `installGuest()`(native `install()`)가 그 origin에 묶인 file 하나의 연결을 준다. runtime마다 한 번이고 둘째는 던진다. `beginCall()`이 `BEGIN IMMEDIATE`와 session을 열고, `endCall({id, operation, started_at})`이 changeset이 있고 `record`이면 `lophn_sync_outbox`에 한 줄을 같은 transaction에서 쓰고 commit한다. `abortCall()`은 rollback이다.
+- `GuestScreen`에는 `src/apps/guest/app-db.ts`의 `useAppDbBinding(origin, appDb)`(mount 전에 bind, unmount 때 unbind)와 `APP_DB_SUBSTITUTION`(sandbox의 module 대체)을 건다. sandbox는 대체한 module에만 origin을 알려 주므로 module이 자기 자신을 대체한다. 대체가 없는 guest는 module에 닿지 못한다.
+
+guest 연결이 막는 것과 이유:
+
+| 막는 것 | 어떻게 | 이유 |
+|---|---|---|
+| 다른 file 열기 | path는 host가 정한다. guest에는 `open`이 없고 file을 만들지도 않는다 | 앱은 자기 file 하나만 본다 |
+| ATTACH·DETACH, `VACUUM INTO` | `SQLITE_LIMIT_ATTACHED` 0과 authorizer | 다른 file 읽기와 앱 file 밖으로 복사 |
+| extension 싣기 | `SQLITE_OMIT_LOAD_EXTENSION`으로 짓는다 | native code 싣기 |
+| `lophn_sync_*` 읽기·쓰기·DDL·pragma | authorizer(대소문자 무시). `endCall`의 outbox 쓰기만 C++ 안에서 예외 | clock, outbox, sync 상태는 host의 것이다 |
+| trigger 만들기 | authorizer | trigger는 host의 쓰기(sync 적용) 안에서 authorizer 없이 돈다 |
+| call 안의 `BEGIN`·`COMMIT`·`ROLLBACK` | authorizer(SAVEPOINT는 된다) | write가 outbox 줄 없이 commit되면 sync가 그 변경을 잃는다 |
+| 5 s 넘는 statement | progress handler가 끊는다(`interrupted`) | guest의 폭주가 file의 lock을 쥐고 있지 않게 |
+| 64 MiB 넘는 값 | `SQLITE_LIMIT_LENGTH` | 메모리 |
+| `writable_schema` 같은 손상 | `SQLITE_DBCONFIG_DEFENSIVE` | file 깨기 |
+
+`unbind`는 guest의 연결을 닫는다(돌던 statement는 interrupt, 열린 call은 rollback). 그 뒤 guest의 handle은 `database is closed`로 던진다. 모든 연결은 WAL, `busy_timeout` 5 s, `foreign_keys` on(컴퓨터의 `node:sqlite`와 같다)이다.
+
+SQLite는 공식 amalgamation을 손대지 않고 `modules/lophn-app-db/android/src/main/jni/sqlite/`에 둔다(판과 sha256은 그 폴더의 `VERSION`). 판 올리기: sqlite.org에서 `sqlite-amalgamation-<판>.zip`을 받아 sha256을 확인하고 `sqlite3.c`, `sqlite3.h`를 바꾼 뒤 `VERSION`을 고치고, 아래 lab을 debug와 release에서 다시 돌린다. build flag(`SQLITE_ENABLE_SESSION`, `SQLITE_ENABLE_PREUPDATE_HOOK`, `SQLITE_OMIT_LOAD_EXTENSION`, `SQLITE_THREADSAFE=1`, 비공개 link)는 같은 폴더 위 `CMakeLists.txt`다.
+
+android 쪽: autolinking이 host에 package를 넣고, config plugin `plugins/with-app-db.js`가 `MainApplication`에 sandbox 대체 package 등록 한 줄을 넣는다(prebuild를 다시 돌려도 한 번). R8 keep 규칙(`dev.lophn.appdb.**`. C++가 JNI 이름으로 부른다)은 module의 consumer ProGuard file(`android/proguard-rules.pro`)이 싣는다.
+
+### lab 확인
+
+`guest/lab/app-db.tsx`(host)가 file을 열어 guest(`guest/fixtures/app-db-probe.tsx`)에 묶고 경계 확인을 차례로 돈다: guest의 `pragma database_list`, 거절(ATTACH, VACUUM INTO, extension, `lophn_sync_*`, trigger, call 안의 COMMIT, 64 MiB, 둘째 `install()`, guest의 host 함수), host 500 + guest 500 엇갈린 write 뒤 `integrity_check`, call의 outbox 한 줄과 abort, 5 s query 끊기, `unbind` 뒤 handle. 결과는 화면의 PASS/FAIL 줄과 logcat의 `APPDB` 줄이다. 위의 단추는 PSS를 재려고 guest를 띄워 둔다.
+
+lab은 host와 guest가 같은 bundle(`guest/lab/app-db-entry.ts`: host의 `main`, guest의 `AppDbProbe`)을 쓴다. prebuild 뒤 생성된 `android/`에서:
+
+- release: `android/app/build.gradle`의 `entryFile`을 `file("../../guest/lab/app-db-entry.ts")`로 바꾸고 `assembleRelease`. guest는 APK의 `index.android.bundle`을 싣는다.
+- debug: `assembleDebug`에 `-PreactNativeDevServerPort=<Metro port>`를 더한다(guest의 dev support가 그 port의 Metro에서 `guest/lab/app-db-entry`를 받는다). Metro를 그 port로 띄우고 dev client를 `exp+lophn://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A<port>%2Fguest%2Flab%2Fapp-db-entry.bundle%3Fplatform%3Dandroid%26dev%3Dtrue` 로 연다.
+
 ## 정해 둔 것
 
 - Android `applicationId`: `dev.lophn.mobile`(임시).

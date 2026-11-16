@@ -1,0 +1,7 @@
+{
+  "name": "lophn-app-db",
+  "version": "0.0.0",
+  "private": true,
+  "main": "index.ts",
+  "description": "Synchronous SQLite with sessions for the phone host and app guest runtimes; a guest gets one file the host bound to it"
+}

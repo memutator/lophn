@@ -89,7 +89,8 @@
           }
         }
       ],
-      "./plugins/with-guest-runtime.js"
+      "./plugins/with-guest-runtime.js",
+      "./plugins/with-app-db.js"
     ],
     "experiments": {
       "tsconfigPaths": false

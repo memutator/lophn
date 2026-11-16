@@ -55,6 +55,7 @@
 - 같은 name·version을 같은 bundle hash, guide hash, permissions로 다시 내면 재시도로 받는다. 이때 새 판 행도 event도 없고 빠진 blob 참조만 붙는다. 하나라도 다르면 `conflict`이고 공개 판은 바뀌지 않는다. 이미 낸 판의 description은 바뀌지 않는다. 새 판을 낼 때 그 판의 description이 package의 description이 된다.
 - 판 등록(`package.register_version`)은 machine 자격만 부른다. 사람도 agent도 직접 부르지 않고 publish가 부른다. 등록은 판 행, blob 참조 둘, `PackageVersionRegistered` event를 같은 tx에 넣는다. blob의 hash·목적이 입력과 다르거나 그 호출자가 준비한 blob이 아니면 `invalid_input`이다.
 - 설치 사본은 같은 byte면 그대로 두고 다르면 지우고 다시 쓴다. 사본은 읽기 전용이라 덮어쓰지 않는다.
+- 선언의 `runs_on`에 `phone`이 있는 앱(폰에서도 도는 앱, `app-sync.md`)은 `@lophn/cap-store` 2.0.0과 `@lophn/cap-tool` 2.2.0 이상을 `sdk_dependencies`에 고정해야 release 준비가 통과한다. 그 밑 판에는 폰 entry가 없다. 폰 entry는 `cap-store`, `cap-tool`, `cap-problem`이 조건 `lophn-phone`으로 내는 Node 내장 없는 같은 이름의 export다(폰에서 안 되는 일은 `unavailable`로 던진다). 선언의 판은 `package.json`의 `file:` 의존과 같아야 release 등록이 받으므로 이 검사는 묶인 사본의 판을 본 것과 같다. 폰 backend는 `@lophn/cap-fs`와 `@lophn/flow`를 묶지 못한다.
 
 ## publish (`package.publish`)
 

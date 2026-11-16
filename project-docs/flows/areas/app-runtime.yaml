@@ -1430,6 +1430,28 @@ flows:
     crosses_process: false
     risk: [data-loss]
 
+  - id: phone-app-prune
+    title: "앱이 컴퓨터의 목록에서 빠지거나 컴퓨터를 지우면 폰이 그 앱 폴더를 지우되 컴퓨터에 안 간 변경과 standalone data는 남긴다"
+    actor: system
+    entries: [system:phone-app-prune]
+    uses: [route:apps/phone_screens]
+    boundary: [mobile]
+    code: [packages/mobile/src/apps/local/prune.ts, packages/mobile/src/apps/local/store.ts, packages/mobile/src/data/local-stores.ts]
+    steps:
+      - "계기: 컴퓨터의 apps/phone_screens 목록에 폰에서 도는 앱이 더는 없음(앱이 보관·삭제·release 없음), 또는 Settings에서 컴퓨터를 지워 폰이 그 컴퓨터를 더는 pairing하지 않음. 앞의 계기는 그 앱의 guest가 mount되어 있지 않을 때만 처리한다."
+      - "컴퓨터를 지운 계기는 그 컴퓨터의 폴더를 훑는다. installed.json이 없는 폴더(멈춘 설치)는 바로 지우고, 있는 앱은 아래 규칙으로 정리한다. 앱이 하나도 안 남으면 그 컴퓨터 폴더도 지운다."
+      - "sync 앱: outbox를 읽어 비어 있을 때만 앱 폴더(app.sqlite, backup, release 폴더)를 지운다. 안 보낸 변경이 있으면 폴더와 data를 그대로 둔다(다시 같은 컴퓨터와 pairing하거나 앱이 목록에 돌아오면 다시 맞춘다)."
+      - "standalone 앱: 컴퓨터가 그 data를 모르므로 자동으로 지우지 않는다. 컴퓨터의 목록에서 빠져도 폰의 목록에 남고 그대로 열린다."
+    outcomes:
+      - id: removed
+        when: "outbox가 빈 sync 앱 폴더, 멈춘 설치의 폴더"
+        observe: ["disk:files/apps/<computer>/<app>"]
+      - id: kept
+        when: "안 보낸 변경이 있는 sync 앱, standalone 앱, guest가 mount된 앱"
+        observe: ["disk:files/apps/<computer>/<app>"]
+    crosses_process: false
+    risk: [data-loss]
+
   # ---------- 사용 관계, sdk 상태, 화면 파일 ----------
 
   - id: app-usage-read

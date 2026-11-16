@@ -1,0 +1,15 @@
+id: phone-write-events-not-delivered
+title: 폰에서 한 write가 컴퓨터의 앱 event를 내지 못해 그 event를 듣는 앱과 열린 화면이 폰의 변경을 알지 못한다
+kind: bug
+status: open
+topic: app-sync
+modules: [packages/core/apps, packages/mobile]
+now: |
+  앱 event는 앱 process가 `publish`로 core에 낸다. 폰의 backend는 `publish`가 `unavailable`이라 폰에서 한 write는 event를 낼 수 없고, 컴퓨터가 폰의 변경을 적용할 때(`app_sync/push`의 적용 길, `packages/core/apps/sync/service.ts`와 `packages/core/apps/runtime/entrypoint/sync.ts`)도 event를 내지 않는다. 지침(`design-app`)이 이것을 앱 agent에게 말한다.
+impact: |
+  컴퓨터의 다른 앱이나 열려 있는 desktop 화면이 이 앱의 event(예: 항목이 추가됨)를 구독해 갱신된다면 폰의 write에는 갱신되지 않는다. 데이터를 잃지는 않지만 사람이 폰에서 한 일이 컴퓨터의 반응(알림, 다른 앱의 일, 열린 화면 갱신)에 닿지 않는다. 컴퓨터의 `AppSyncChanged`는 폰에만 간다.
+fix: |
+  - 중간(추천): 컴퓨터가 폰의 변경을 적용한 뒤 그 앱의 선언한 event 하나(예: 선언의 `events`에 `synced`)를 core가 대신 내게 한다. 어떤 event를 어떤 payload로 낼지는 앱 선언이 정한다. 새 선언 칸이라 SDK 판과 지침이 늘어난다.
+  - 작음: 지침에 "폰에서 쓴 data를 컴퓨터가 반응하게 하려면 구독 대신 `external` operation을 쓴다"를 적고 그대로 둔다.
+decide: |
+  폰 write가 컴퓨터의 앱 event를 내는 것이 제품이 약속할 일인지(앱이 폰에서 쓴 것에 컴퓨터가 반응하는 길)는 사람이 정한다. 약속하면 선언 칸을 더하는 설계가 든다. 약속하지 않으면 지침으로 두고 kept로 닫는다.

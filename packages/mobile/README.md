@@ -150,9 +150,10 @@ emulator에서 확인:
 
 ## 사용자 앱의 폰 화면(guest runtime)
 
-사용자 앱의 폰 화면(`phone.js`)은 폰 앱 안에 따로 띄운 React Native runtime(guest)에서 돈다. `@callstack/react-native-sandbox` 0.7.0이 화면마다 `ReactHost`와 Hermes를 하나씩 따로 만든다. guest는 host의 JS 전역, Expo module, secure store, file system에 닿지 않고 network가 없다. 화면은 data를 bridge(operation 호출과 앱 event)로만 받는다. 계약은 `packages/protocol/apps/phone-screen.ts`다.
+사용자 앱의 폰 화면(`phone.js`)은 폰 앱 안에 따로 띄운 React Native runtime(guest)에서 돈다. `@callstack/react-native-sandbox` 0.7.0이 화면마다 `ReactHost`와 Hermes를 하나씩 따로 만든다. guest는 host의 JS 전역, Expo module, secure store, file system에 닿지 않고 network가 없다. 화면은 data를 bridge(operation 호출과 앱 event)로만 받는다. 폰에서 도는 앱(선언 `runs_on`에 `phone`)은 같은 guest가 그 앱의 backend도 싣는다(아래 "폰에서 도는 앱의 backend"). 계약은 `packages/protocol/apps/phone-screen.ts`다.
 
-- `src/apps/guest/`(host): `GuestScreen`(화면 하나. mount에 시작하고 unmount에 버린다. 다시 띄우거나 새 `phone.js`를 띄우려면 `key`를 바꾼다), `guestHostInfo()`(`phoneCanRun`의 host 쪽), `ensureBase()`(APK assets의 base bundle을 files 폴더로 꺼낸다. 앱 시작 때 한 번 부른다), `session.ts`(React Native 없는 순수 logic: 메시지 검사, `ready`에 `init`, call과 event 전달, 상태), `modules.ts`(guest에 더 열어 주는 native module).
+- `src/apps/guest/`(host): `GuestScreen`(화면 하나. mount에 시작하고 unmount에 버린다. 다시 띄우거나 새 `phone.js`를 띄우려면 `key`를 바꾼다), `guestHostInfo()`(`phoneCanRun`의 host 쪽), `ensureBase()`(APK assets의 base bundle을 files 폴더로 꺼낸다. 앱 시작 때 한 번 부른다), `session.ts`(React Native 없는 순수 logic: 메시지 검사, `ready`에 `init`, call과 event 전달, 상태), `modules.ts`(guest에 더 열어 주는 native module), `files.ts`(base 꺼내기, backend 사본 `wrapBackend`), `local-call.ts`(guest 안의 backend 길, React Native 없는 순수 logic), `app-db.ts`(앱 DB 묶기).
+  - `GuestScreen`의 props 가운데 폰에서 도는 앱의 것: `appDb`(`{path, record}`: 앱 DB file을 mount 전에 이 guest의 origin에 묶고 unmount에 푼다. sync 앱은 `record`가 true), `backendFile`(내려받아 hash를 확인한 `backend.js`의 path), `local`(`init`에 실리는 operation의 effect 표와 data schema 판), `onLocalChange`(guest의 local 호출이 변경을 commit했다. 내용은 없고 변경은 outbox에 있다). `backendFile`이 있으면 `base|backend|screen`을 싣는다.
   - `GuestScreen` 위에 손가락 입력을 받는 view를 두지 않는다. sandbox는 guest 위에 그려진 view가 그 자리의 입력을 받으면(React Native의 `pointerEvents`로 읽는다: `none`은 받지 않고, `box-none`은 자식만 본다) guest를 가린 것으로 보고 입력을 host로 돌린다. 닫힌 drawer의 scrim은 투명한 채 남지만 `pointerEvents: none`이라 가리지 않는다.
   - 신원은 host가 준 `view`뿐이다. 메시지는 계약 schema(`phoneGuestMessageSchema`)로 검사하고 모르는 모양, 상한을 넘는 것, 앱·release·view를 내세우는 것은 버린다. `call` prop은 host가 자기 view에 묶어 준다.
   - mount마다 origin(`<view>:<무작위>`)이 새로 선다. 같은 origin의 view는 runtime 하나를 같이 써서 다시 mount하면 옛 runtime과 옛 bundle이 쓰인다.
@@ -160,9 +161,18 @@ emulator에서 확인:
 - `guest/`(guest): `base.ts`가 base bundle의 진입이다. `PHONE_HOST_MODULES`만 `require`로 내주고(registry가 그 목록으로 type이 매겨져 어긋나면 typecheck와 build가 실패한다), `lophnApp`과 bridge(`bridge.ts`), root(`root.tsx`: `init` 전에는 그리지 않고 `UiProvider`와 error boundary 아래 화면을 그린다), `__lophnMount`, `__lophnFatal`을 세운다. `no-network.ts`는 `fetch`·`XMLHttpRequest`·`WebSocket`이 network 오류로 실패하게 한다(경계는 native module이 없는 것이고 이것은 화면이 죽지 않게 하는 실패 모양이다). kit이 import하는 `expo-clipboard`는 base build에서 아무것도 하지 않는 stub이다(`stubs/`).
 - build: `guest/build-base.sh <out>`이 typecheck, Metro(`expo export:embed`, `LOPHN_GUEST_BASE=1`), 이 앱의 Hermes에 맞는 `hermesc`로 `<out>/guest/base.hbc`와 `base.json`(sha256)을 만든다. gradle이 `preBuild` 앞에 부르고 결과를 APK assets에 넣는다(`plugins/with-guest-runtime.js`. 같은 plugin이 `MainApplication`에서 앱의 package들을 sandbox에 넘긴다). sandbox의 R8 keep 규칙은 `app.json`의 `expo-build-properties` `extraProguardRules`다. 화면 bundle은 plain JS이고 core가 짓는다.
 - 허용 목록: sandbox 자체 목록(patch로 `Networking`, `WebSocketModule`, `BlobModule`, `FileReaderModule`, `LinkingManager`, `DevLoadingView`를 뺐다. Android의 `Linking`은 `IntentAndroid`를 쓰는데 그것은 목록에 없어 `openURL`·`canOpenURL`이 실패한다)과 `modules.ts`의 kit용 넷(`RNCSafeAreaContext`, `KeyboardController`, `ReanimatedModule`, `WorkletsModule`). `StatusBarManager`는 patch로 sandbox 목록에서도 뺐다: 화면이 앱 전체의 status bar를 바꾸고, host의 `StatusBarManager`(react-native-keyboard-controller의 것)와 guest가 받는 RN의 것이 다른 Java class인데 TurboModule spec의 method id는 process에 한 번 cache되어 debug build에서 guest가 뜨자마자 앱이 JNI 오류로 끝났다. 그래서 base build는 RN의 `StatusBar`를 아무것도 하지 않는 stub(`guest/stubs/status-bar.ts`)으로 바꾼다(kit의 `Screen`이 그대로 그려진다). 같은 이유로 guest에 host와 다른 class를 같은 이름으로 주는 module(`ImageLoader`의 대체)은 host가 그 module의 method를 부르지 않아야 debug에서 안전하다. Expo의 package는 guest에 넘기지 않는다(guest마다 Expo app context가 서고 지워지지 않았다). guest의 `ImageLoader`는 모든 호출을 거절하는 대체이고, 이미지 view는 network URI를 읽지 않는다(http 이미지 URL도 data를 내보내는 길이라서). guest에 주는 host의 view는 `RNSVG`, `RNCSafeArea`, `KeyboardController`, `Reanimated` 이름의 것뿐이다. 목록과 상관없이 RN이 늘 넣는 module(`PlatformConstants`, `DeviceInfo`, `DeviceEventManager`, `ExceptionsManager`, `SourceCode`, `DevSettings`, `DevMenu`, `LogBox`, `HeadlessJsTaskSupport`)과 C++ module도 guest에 있다. dev support가 꺼진 guest에서 dev 쪽은 아무것도 하지 않는다. `I18nManager.forceRTL`은 앱 전체의 RTL 설정을 저장한다(다음 시작부터 앱 전체가 뒤집힌다). 여기에 secret, file, network, 다른 앱을 여는 길(intent, share, clipboard)을 가진 module을 더하지 않는다.
-- patch(`patches/@callstack+react-native-sandbox+0.7.0.patch`, `npm ci`의 `postinstall`이 적용한다): RN 0.88에 없는 `StyleSheet.absoluteFillObject` 대체, 절대 경로와 `base|screen` 두 script loader, guest의 dev support 끄기, host package의 kit view 허용, 한 frame의 메시지가 합쳐지지 않게(`canCoalesce`), network module과 `StatusBarManager` 빼기, touch interceptor가 guest를 가리는지 볼 때 `pointerEvents`를 따르기, guest `ReactHost`의 예외를 앱을 끝내지 않고 `onError`(`GuestCrashed`)로 돌리기, 이미지와 `ImageLoader`의 network 막기. 다시 만들려면 `node_modules/@callstack/react-native-sandbox`를 고친 뒤 `npx patch-package @callstack/react-native-sandbox --exclude '^package\.json$|android/build/|android/\.cxx/'`(gradle이 그 폴더에 build 산출물을 남긴다).
+- patch(`patches/@callstack+react-native-sandbox+0.7.0.patch`, `npm ci`의 `postinstall`이 적용한다): RN 0.88에 없는 `StyleSheet.absoluteFillObject` 대체, 절대 경로와 `base|screen` 또는 `base|backend|screen` script loader(`|`로 이은 path를 차례로 싣는다), guest의 dev support 끄기, host package의 kit view 허용, 한 frame의 메시지가 합쳐지지 않게(`canCoalesce`), network module과 `StatusBarManager` 빼기, touch interceptor가 guest를 가리는지 볼 때 `pointerEvents`를 따르기, guest `ReactHost`의 예외를 앱을 끝내지 않고 `onError`(`GuestCrashed`)로 돌리기, 이미지와 `ImageLoader`의 network 막기. 다시 만들려면 `node_modules/@callstack/react-native-sandbox`를 고친 뒤 `npx patch-package @callstack/react-native-sandbox --exclude '^package\.json$|android/build/|android/\.cxx/'`(gradle이 그 폴더에 build 산출물을 남긴다).
 - lab: `EXPO_PUBLIC_LOPHN_GUEST_LAB=1`로 지은 build는 앱 대신 `guest/lab/lab.tsx`를 연다(`metro.config.js`가 `App.tsx`를 바꾼다. dev build면 Metro도 같은 변수로 띄운다). 그 build에서만 `guest/fixtures`의 화면이 core의 화면 build(`bundlePhone`)와 같은 규칙으로 지어져 assets에 든다(`guest/build-fixtures.ts`). 단추마다 fixture를 `GuestScreen`으로 띄우고 상태, `ready`까지의 ms, 받은 call, 실패 이유를 글로 보인다. probe fixture는 `http://10.0.2.2:8237`(`EXPO_PUBLIC_LOPHN_GUEST_LAB_PROBE`)에 요청을 보내 보므로 그 port에 `python3 -m http.server`를 띄워 두면 요청이 왔는지 log로 본다.
 - 알려진 한계: guest는 kit의 Sheet가 쓰는 RN `Modal`로 앱 화면 전체를 덮을 수 있다. soft keyboard가 뜨면 guest는 줄어들지 않아 화면 아래의 입력란을 가린다. guest의 JS 오류 중 host가 보낸 event를 받은 listener 안의 throw는 sandbox가 log만 남기고 삼킨다(화면은 계속 돈다). 처리되지 않은 promise rejection은 아무 일도 없다. busy loop는 guest의 JS thread만 막는다. 300 MB 할당은 견뎠지만 Hermes heap이 다 차거나 기기 memory가 모자라면 process가 끝날 수 있다(재지 않았다). mount와 unmount를 되풀이하면 PSS가 한 번에 약 2 MB씩 남는다(아래). iOS는 짓지 않았다.
+
+### 폰에서 도는 앱의 backend
+
+선언 `runs_on`에 `phone`이 있는 앱의 backend(`backend.js`. core가 release 준비 때 plain JS 한 file로 묶는다)는 그 앱 화면의 guest 안에서 돈다. 설계는 `project-docs/architecture/app-sync.md`다.
+
+- 싣기: loader가 `base|backend|screen`을 차례로 싣는다(patch의 loader가 `|`로 이은 path를 나눈다). base의 `guest/base.ts`가 backend를 평가하기 전에 `installLocalBackend`(`src/apps/guest/local-call.ts`)를 불러 guest의 DB handle을 받아 closure에 쥐고(전역에 남기지 않는다) backend host(호출을 하나씩 돌리는 handler port, 앱 DB driver, random, 늘 `unavailable`인 network 통로)를 깐다. 화면의 `lophnApp.callOperation`은 `init.local`의 effect로 갈린다: read와 write는 guest 안에서 돌고 `external`과 `local`이 없는 앱은 host로 간다.
+- 호출 하나는 transaction 하나이고 한 번에 하나씩 돈다: `beginCall()` → handler → `endCall({id, operation, started_at})`(변경이 있으면 outbox 줄을 같은 transaction에서 쓰고 commit) → 변경이 있었으면 host에 `local_change`. handler가 던져도 바뀐 것은 outbox에 간다. 호출 밖에서는 DB handle이 던진다(호출 밖의 쓰기는 outbox 줄 없이 commit되어 sync가 못 본다). 호출은 3초 안에 끝나야 한다(`LOCAL_CALL_LIMIT_MS`): 넘으면 rollback하고 `unavailable`이다. 끝나지 않는 handler는 그 guest의 다음 호출을 mount를 다시 하기 전까지 막는다(이슈 `phone-hung-handler-blocks-later-calls`).
+- backend 사본: core가 만든 `backend.js`는 평가 중 예외가 React Native에 닿아 guest 전체를 `crashed`로 끝내므로 host가 화면 bundle처럼 try/catch로 감싼 사본(`wrapBackend`)을 cache 폴더(`<cache>/guest/<origin>.js`)에 mount마다 써서 싣는다. 그러면 예외가 `fatal`로 앱의 메시지와 함께 간다. 사본은 unmount 때 지우지 않는다(loader가 읽기 전에 사라질 수 있다). 다음 앱 시작의 `ensureBase`가 지운다(이슈 `phone-guest-backend-copies-pile-in-cache`).
+- lab: `local`(그 fixture 화면과 `local-backend.js`를 앱 DB 하나와 같이 싣는다)과 `local-throw`(평가 중 던지는 backend, `failed fatal`이어야 하고 앱이 산다) 단추가 있고, debug에서 손가락이 guest에 안 닿으므로 `do:add`·`do:refuse`(변경하고 거절)·`do:offline`(backend에서 갈 수 있는 모든 network 길이 `unavailable`인지)·`do:report`(`external`이 host로 감)·`do:list` 단추가 host event로 같은 동작을 시킨다. `guest/build-fixtures.ts`가 `local-backend.js`·manifest·migration을 core의 `buildPhoneBackend`와 같은 길로 짓는다. 첫 local 호출까지의 ms는 `lab.first_local`로 로그에 남는다(release build에서 mount부터 140–180 ms, 처음 한 번 376 ms).
 
 ### Android 확인
 
@@ -229,6 +239,36 @@ lab은 host와 guest가 같은 bundle(`guest/lab/app-db-entry.ts`: host의 `main
 
 - release: `android/app/build.gradle`의 `entryFile`을 `file("../../guest/lab/app-db-entry.ts")`로 바꾸고 `assembleRelease`. guest는 APK의 `index.android.bundle`을 싣는다.
 - debug: `assembleDebug`에 `-PreactNativeDevServerPort=<Metro port>`를 더한다(guest의 dev support가 그 port의 Metro에서 `guest/lab/app-db-entry`를 받는다). Metro를 그 port로 띄우고 dev client를 `exp+lophn://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A<port>%2Fguest%2Flab%2Fapp-db-entry.bundle%3Fplatform%3Dandroid%26dev%3Dtrue` 로 연다.
+
+## 폰에서 도는 앱(host)
+
+폰 host가 설치, sync, release 바뀜, 지우기를 한다(`src/apps/local/`. React Native와 native module 없이 두어 `npm test`가 `node:sqlite`로 돈다. `src/data/local-apps.ts`와 `local-stores.ts`가 그것을 화면에 잇는다). 설계는 `project-docs/architecture/app-sync.md`다.
+
+앱 폴더(컴퓨터와 앱마다. `files/apps/<컴퓨터 key>/<앱 id>/`):
+
+```
+installed.json                 설치된 것(release, kind sync|standalone, 화면, backend manifest, 마지막 맞춘 시각). 마지막에 쓴다.
+                               이것이 없는 폴더는 멈춘 설치라 다음에 지우고 다시 한다
+app.sqlite                     data, 숨은 clock 표, outbox
+app.before-<rel>.sqlite        release 바뀜의 backup. 새 release의 첫 push가 될 때까지(안 보낸 변경이 있었을 때만) 둔다
+release/<rel>/backend.js, backend.json, migrations/<from>-<to>.sql, screens/<화면 key>/phone.js
+work/                          snapshot이나 migrate한 사본. 단계가 끝나면 지운다
+```
+
+- 받은 file(backend, migration, 화면 bundle, snapshot)은 크기와 sha256이 manifest나 컴퓨터가 말한 것과 같을 때만 쓰고, snapshot은 disk에서 다시 읽어 확인한 뒤 연다(file 쓰기가 일찍 돌아온 일이 있었다).
+- sync는 앱이 앞에 있고 그 컴퓨터에 닿은 동안만 돈다. 계기는 guest의 `local_change`, 연결됨, `AppSyncChanged`, 앱 목록 읽기다. 앱을 열지 않아도 도는 것은 sidebar가 `useLocalApps`를 쥐고 있어서다. 지금은 지금 고른 컴퓨터에 대해서만 돈다(이슈 `phone-sync-only-for-current-computer`).
+- 앱이 컴퓨터의 목록에서 빠지거나 컴퓨터를 지워도 sync 앱의 폴더는 outbox가 비었을 때만 지우고 standalone 앱의 data는 지우지 않는다.
+- 컴퓨터가 없어도 폰이 가진 사본에서 앱 목록이 읽히고 폰에서 도는 앱이 열린다(컴퓨터가 필요한 `external`만 `unavailable`).
+
+### sync 확인 길(emulator + 개발 core)
+
+emulator에서 개발 core에 붙여 보는 길이다(실제 폰, 사람의 `~/.lophn`, 실제 relay는 쓰지 않는다). 앞의 "Android에서 띄우기"와 "개발 core와 pairing"을 먼저 한다. 폰 앱 build는 native module을 더한 판이어야 한다.
+
+1. 개발 core와 remote를 띄우고 emulator와 pairing한다(`npm run dev:core`, `npm run dev:remote`).
+2. 폰에서 도는 앱을 개발 core에 release한다. 개발 core에는 앱을 만들어 줄 agent turn이 없어서 사람이 짠 앱을 release하는 driver(앱 만들기, source commit, `release prepare`, `release activate`, 동의 허락을 차례로 부르는 일회용 script)가 필요하다. 그 일을 test core에서 하는 본보기가 `tests/support/app/activate.ts`이고, 폰에서도 도는 작은 앱의 source는 `tests/support/app/local/fixture.ts`의 `createLocalApp`이 만든다(sync는 `runs_on: ["computer","phone"]`, standalone은 `["phone"]`으로 선언을 바꾼다). release 준비가 폰 backend와 검사를 통과해야 폰이 받는다.
+3. 폰에서 앱이 설치되어 열리는지, 위 줄이 "On this phone · synced …"인지 본다. 컴퓨터 쪽 data는 컴퓨터의 앱 화면이나 route `apps/call_tool`로 앱의 write operation을 불러 바꾼다.
+4. 확인할 것: 컴퓨터의 write가 폰에 오는가, 개발 core를 멈춘 채 폰에서 쓰고 core를 다시 띄우면 컴퓨터 DB와 그 앱의 호출 기록(`lophn app invocations`)에 기기가 caller로 붙은 호출이 생기는가, 같은 row의 다른 칸을 양쪽에서 고쳐도 둘 다 남는가, 안 보낸 변경이 있을 때 새 release를 activation하면 변경이 살아남는가, 컴퓨터의 rewind가 폰에 오는가, `external` operation이 outbox 뒤에 가는가, core를 끈 채 standalone 앱이 열리고 쓰이는가, 설치가 실패했을 때 Try again이 되는가, Settings에서 컴퓨터를 지웠을 때 폴더가 위 규칙으로 정리되는가.
+5. 손가락 확인은 release build에서 한다(debug는 손가락이 guest에 닿지 않는다). 폰의 앱 폴더(`files/apps/…`)는 debuggable build에서 `adb -s emulator-<port> shell run-as dev.lophn.mobile ls files/apps`로 볼 수 있다.
 
 ## 정해 둔 것
 

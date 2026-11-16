@@ -1,0 +1,13 @@
+id: phone-backend-source-map-in-bundle
+title: 폰 backend의 `backend.js.map`이 release bundle에 실리지만 폰은 받지 않아 bundle 크기만 쓴다
+kind: defect
+status: open
+topic: app-sync
+modules: [packages/core/apps]
+now: |
+  release 준비가 `phone/backend.js`와 manifest `phone/backend.json`과 함께 `phone/backend.js.map`을 bundle에 쓴다(`packages/core/apps/releases/phone-backend/build.ts`의 `files`). `apps/phone_file`은 manifest가 적은 file(backend, manifest, migration)만 주고 map은 목록에 없어 폰이 받지 못한다(`packages/core/apps/phone/files.ts`). map을 읽는 곳은 없다.
+impact: |
+  앱 release마다 bundle과 ledger의 blob에 쓸모없는 map 하나가 늘어난다(minify한 backend의 map은 backend보다 큰 경우가 많다). bundle 크기 한도(256 MiB, file 10,000개)에 조금씩 가까워진다.
+fix: |
+  - 작음(추천): map을 bundle에 쓰지 않는다. 폰에서 난 오류를 컴퓨터에서 풀 길이 생기면 그때 manifest에 올리고 `apps/phone_file`이 준다.
+  - 작음: 컴퓨터의 app log가 폰의 stack을 풀어 읽는다고 정하면 map을 남기고 manifest에 적는다(폰 오류가 앱 log에 가는 길이 먼저 있어야 한다. 이슈 `phone-screen-errors-not-in-app-log`).

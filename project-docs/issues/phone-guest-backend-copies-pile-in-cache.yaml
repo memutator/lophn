@@ -1,0 +1,13 @@
+id: phone-guest-backend-copies-pile-in-cache
+title: guest를 띄울 때마다 backend.js의 사본이 cache 폴더에 하나씩 생기고 앱을 다시 켤 때까지 남는다
+kind: defect
+status: open
+topic: app-sync
+modules: [packages/mobile]
+now: |
+  폰에서 도는 앱의 guest는 `backend.js`를 try/catch로 감싼 사본을 실행한다(`packages/mobile/src/apps/guest/files.ts`의 `wrapBackend`). 사본은 mount마다 origin 이름으로 cache 폴더에 쓰이고 지우는 곳은 앱 시작 때의 `ensureBase`뿐이다(unmount 때 지우면 loader가 읽기 전에 사라질 수 있다). 앱을 오래 켜 둔 채 화면을 여러 번 열면(release가 바뀔 때마다 다시 띄운다) 최대 4 MiB의 사본이 쌓인다.
+impact: |
+  앱을 다시 켜지 않는 동안 폰의 cache가 mount 횟수에 비례해 늘어난다. 사본이 보통 20 KB 안팎이라 지금은 작은 손실이고, backend가 커지면(상한 4 MiB) 눈에 띈다. 데이터를 잃지는 않는다.
+fix: |
+  - 작음(추천): 사본 이름을 backend의 sha256으로 정해 같은 backend는 사본 하나를 다시 쓰고, release가 바뀌어 안 쓰는 사본만 지운다.
+  - 작음: guest가 `ready`를 보낸 뒤(loader가 읽은 뒤) unmount 전에 그 사본을 지운다.

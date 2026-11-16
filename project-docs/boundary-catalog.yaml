@@ -47,7 +47,7 @@ elements:
 
           - id: app-releases
             kind: component
-            description: 앱의 정의와 판. 폰 화면(`phone` 자리)의 build(`phone.js`, manifest, desktop preview 진입)와 선언과의 양쪽 대조, 선언의 위젯(`widgets`)과 `phone.use` 권한 요구의 검사를 포함한다.
+            description: 앱의 정의와 판. 폰 화면(`phone` 자리)의 build(`phone.js`, manifest, desktop preview 진입)와 선언과의 양쪽 대조, 선언의 위젯(`widgets`)과 `phone.use` 권한 요구의 검사, 폰에서 도는 앱(`runs_on`에 phone)의 backend build(`phone/backend.js`, manifest)와 release 검사(Node 내장 import, handler 집합, 폰 schema 규칙, SDK 하한)를 포함한다.
 
           - id: app-runtime
             kind: component
@@ -56,6 +56,10 @@ elements:
           - id: app-data
             kind: component
             description: 앱의 업무 data.
+
+          - id: app-sync
+            kind: component
+            description: 폰에서도 도는 앱(`runs_on`에 phone)의 컴퓨터 DB와 폰 DB를 맞추는 길로, ledger의 순서 있는 sync log, 폰의 push·pull·snapshot, 앱 process의 변경 적용(칸 단위 last-write-wins), 두 쪽이 같이 쓰는 sync core를 포함한다.
 
           - id: package-registry
             kind: component
@@ -197,7 +201,7 @@ elements:
 
   - id: sdk
     kind: library
-    description: 사용자 앱이 import하는 입구. 폰 화면의 hook part(`@lophn/app-ui-native`)와 폰의 위치를 읽는 part(`@lophn/cap-phone`)를 포함한다.
+    description: 사용자 앱이 import하는 입구. 폰 화면의 hook part(`@lophn/app-ui-native`), 폰의 위치를 읽는 part(`@lophn/cap-phone`), 폰에서도 도는 앱이 쓰는 폰 entry(`lophn-phone` 조건)를 포함한다.
     depends_on:
       - protocol
       - design
@@ -217,7 +221,7 @@ elements:
 
   - id: mobile
     kind: application
-    description: 사람이 폰에 까는 lophn 앱. pairing, 기기 key 보관, core 연결, 폰 kit으로 짠 native 화면(sidebar 뼈대, Home, Inbox, 대화, Jobs, Agents, workspace, Settings)과 그 data 층, 알림(허락 묻기, Settings › Notifications, push token과 설정 보내기, 앞에 있는지 알리기, 알림을 누르면 여는 곳), 사용자 앱의 폰 화면을 받아 격리된 guest runtime에서 돌리는 길(호환 검사, bundle cache, host bridge, 앱 화면), 홈 화면의 위젯(binding과 cache file, 새로 하기, "Choose a widget", Android native module)과 앱 아이콘(pinned shortcut), 밖에서 온 누름과 URL을 한 곳으로 해석하는 open target, 컴퓨터의 `request`에 답하는 폰의 handler(위치). lophn 자신의 화면은 컴퓨터가 내려주지 않는다.
+    description: 사람이 폰에 까는 lophn 앱. pairing, 기기 key 보관, core 연결, 폰 kit으로 짠 native 화면(sidebar 뼈대, Home, Inbox, 대화, Jobs, Agents, workspace, Settings)과 그 data 층, 알림(허락 묻기, Settings › Notifications, push token과 설정 보내기, 앞에 있는지 알리기, 알림을 누르면 여는 곳), 사용자 앱의 폰 화면을 받아 격리된 guest runtime에서 돌리는 길(호환 검사, bundle cache, host bridge, 앱 화면), 폰에서 도는 앱의 설치·sync·release 바뀜을 하는 폰 host와 guest 안의 backend와 앱 DB native module, 홈 화면의 위젯(binding과 cache file, 새로 하기, "Choose a widget", Android native module)과 앱 아이콘(pinned shortcut), 밖에서 온 누름과 URL을 한 곳으로 해석하는 open target, 컴퓨터의 `request`에 답하는 폰의 handler(위치). lophn 자신의 화면은 컴퓨터가 내려주지 않는다.
     depends_on:
       - protocol
       - design-native
@@ -271,7 +275,7 @@ interfaces:
 
   - id: remote-protocol
     kind: interface
-    description: 폰과 core 사이의 연결. Noise IK handshake, 암호화한 record, JSON frame(hello, pair, call, result, watch와 Gateway frame), 기기가 부를 수 있는 route 목록(자기 등록을 지우는 `devices/unpair`, 자기 push 설정 `devices/set_push`, 앞에 있는지 알리는 `presence/report`, project의 `project_files/list|read`, 컴퓨터의 coding agent `coding_sessions/*`와 그 터미널 화면 `terminal_view/*`, 사용자 앱의 폰 화면 `apps/phone_screens`·`apps/screen_file`·`app_views/*`와 그 event `AppViewEvent`, 위젯 값 `app_widgets/list` 포함), core가 폰에 묻는 frame `request`·`response`와 폰이 답하는 kind를 적는 `hello.capabilities`(kind 표 `PHONE_KINDS`와 `unavailable`의 이유는 protocol의 `phone`이 정한다), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
+    description: 폰과 core 사이의 연결. Noise IK handshake, 암호화한 record, JSON frame(hello, pair, call, result, watch와 Gateway frame), 기기가 부를 수 있는 route 목록(자기 등록을 지우는 `devices/unpair`, 자기 push 설정 `devices/set_push`, 앞에 있는지 알리는 `presence/report`, project의 `project_files/list|read`, 컴퓨터의 coding agent `coding_sessions/*`와 그 터미널 화면 `terminal_view/*`, 사용자 앱의 폰 화면 `apps/phone_screens`·`apps/screen_file`·`app_views/*`와 그 event `AppViewEvent`, 위젯 값 `app_widgets/list`, 폰에서 도는 앱의 backend file `apps/phone_file`과 sync route `app_sync/*`와 그 event `AppSyncChanged` 포함), core가 폰에 묻는 frame `request`·`response`와 폰이 답하는 kind를 적는 `hello.capabilities`(kind 표 `PHONE_KINDS`와 `unavailable`의 이유는 protocol의 `phone`이 정한다), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
     interface_type: protocol
     defined_by: protocol
     provided_by:

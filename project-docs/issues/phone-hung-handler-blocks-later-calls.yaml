@@ -1,0 +1,13 @@
+id: phone-hung-handler-blocks-later-calls
+title: 폰에서 끝나지 않는 handler는 3초 뒤 rollback되지만 그 앱의 다음 local 호출을 화면을 다시 띄울 때까지 막는다
+kind: bug
+status: open
+topic: app-sync
+modules: [packages/mobile]
+now: |
+  guest의 local 호출은 한 번에 하나이고 3초 안에 끝나야 한다(`packages/mobile/src/apps/guest/local-call.ts`의 `LOCAL_CALL_LIMIT_MS`). 넘으면 호출은 rollback되고 `unavailable`로 reject되지만 다음 호출이 시작되게 하는 `free`는 "늦은 handler가 settle한 뒤"에만 불린다(`void settled.then(free)`). handler가 영영 settle하지 않으면(끝나지 않는 await) `free`가 불리지 않아 그 guest의 뒤 호출이 모두 줄에서 기다린다.
+impact: |
+  앱 code의 버그 하나(예: 오지 않는 응답을 기다리는 await)가 폰의 그 앱을 사람이 화면을 나갔다 다시 열 때까지 쓸 수 없게 만든다. data를 잃지는 않지만 폰에서 쓴 것이 거절되거나 기다리게 된다. 사람은 이유를 모르고 앱 agent도 폰의 이 상태를 로그로 읽지 못한다.
+fix: |
+  - 작음(추천): 늦은 handler가 settle하지 않아도 다음 호출이 시작되게 하고, 늦은 handler가 뒤에 하는 일은 다음 호출의 transaction에 섞이지 않도록 늦은 호출의 DB 접근을 막는다(호출마다 닫히는 handle 래퍼, 이미 `open` 표지가 있다).
+  - 중간: 한 번 늦은 앱의 guest를 host가 새로 띄운다(runtime을 버리면 늦은 handler도 같이 사라진다). 화면이 한 번 깜빡인다.

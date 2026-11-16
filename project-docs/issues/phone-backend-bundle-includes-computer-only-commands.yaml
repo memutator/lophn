@@ -1,0 +1,13 @@
+id: phone-backend-bundle-includes-computer-only-commands
+title: 폰 backend가 operation과 command를 한 bundle로 묶어서, 컴퓨터에서만 쓰는 command의 `node:` import가 두 곳에서 도는 앱의 준비를 실패시킨다
+kind: defect
+status: open
+topic: app-sync
+modules: [packages/core/apps]
+now: |
+  release 준비는 `runs_on`에 `phone`이 있는 앱의 `main`을 한 bundle(`phone/backend.js`)로 묶는다(`packages/core/apps/releases/phone-backend/build.ts`). `main`이 command handler까지 등록하므로 command가 `node:fs`나 `@lophn/cap-fs`를 import하면 폰에서 돌지도 않는 그 import 때문에 준비가 `a backend that runs on the phone cannot import ...`로 실패한다. load 검사도 operation, command, 구독 handler를 모두 선언과 맞추게 한다(`load-check.ts`). 폰은 command와 구독을 부르지 못한다.
+impact: |
+  앱 agent가 컴퓨터 전용 기능(파일을 읽는 command)을 가진 앱을 폰에서도 돌리려 하면 command와 operation을 한 `main`에서 갈라 써야 하는데 지침이 이 갈래를 알려 주지 않아 시행착오가 난다. 해결이 앱 code 구조(핸들러를 두 entry로 나누기)를 바꾸는 일이라 agent 시간이 든다.
+fix: |
+  - 중간(추천): 앱이 폰 entry(`phone-main`)를 따로 둘 수 있게 하고 없으면 지금처럼 `main`을 쓴다. 선언의 handler 집합 검사는 폰 entry가 operation만 맞게 한다. SDK와 template 지침이 늘어난다.
+  - 작음: 지침(`design-app`)에 "컴퓨터 전용 import는 command의 별도 module에 두고 operation module은 그것을 import하지 않는다"를 쓴다. command가 `main`을 거쳐 묶이는 한 한계가 남는다.

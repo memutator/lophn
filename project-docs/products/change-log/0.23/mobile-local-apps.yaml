@@ -1,0 +1,69 @@
+id: mobile-local-apps
+version: 0.23.65
+title: 앱의 backend와 data가 폰에서 돌고 컴퓨터와 맞춰진다(sync 앱) 또는 폰에만 있다(standalone 앱)
+modules: [packages/protocol, packages/sdk, packages/core/apps, packages/core/main, packages/core/remote, packages/core/agent-workspaces, packages/design, packages/mobile]
+change: |
+  - 앱 선언에 `runs_on`이 더해졌다: `["computer"]`(없을 때의 기본, 전과 같다), `["computer","phone"]`(sync 앱. 컴퓨터가 hub), `["phone"]`(standalone 앱). `phone`이 있으면 `phone` 자리의 화면이 하나 있어야 하고(`runs_on: phone needs a screen with the phone place`), `["phone"]`은 command, 구독, `external` operation, widgets, 폰 밖 자리의 화면을 선언하지 못한다. 저장된 선언은 그대로 읽히고 `runs_on`이 없는 옛 선언의 hash는 같다(migration 없음). SDK 판: `@lophn/declaration` 4.8.0, `@lophn/app-ui` 2.17.0과 `@lophn/app-ui-native` 1.2.0(declaration에 정확한 판으로 기대서 같이 올렸다), `@lophn/cap-store` 2.0.0(major: `store.db`가 Node의 `DatabaseSync`가 아니라 SDK가 정한 `StoreDb`이고, 인자 없는 `migrate()`가 release의 migration을 쓰고, `newId()`가 기기가 달라도 겹치지 않는 text id를 내고, `transaction()`이 SAVEPOINT라 바깥 transaction 안에서도 된다), `@lophn/cap-tool` 2.2.0, `@lophn/cap-problem` 1.1.0(Node 내장을 조건 `lophn-phone`의 폰 entry 뒤로 옮겼다). `migrate-sdk` 메모와 `supported_from`을 같이 썼다(`supported_from`은 그대로라 옛 판으로 봉인한 release는 그대로 뜬다). 앱 template과 sample의 pin도 올렸다.
+  - release 준비: `runs_on`에 `phone`이 있는 앱은 core가 backend(`main`)를 plain JS 한 file `phone/backend.js`와 manifest `phone/backend.json`으로 묶고(es2015, 즉시 실행 함수, minify, 4 MiB 한도, SDK는 폰 entry로, migration SQL은 bundle에 넣지 않고 `migrations/` file 그대로) 빈 context(child process의 `vm`)에 폰과 같은 host prelude만 깔고 실어 선언한 handler를 정확히 등록하는지 본다. 어기면 agent가 읽고 고칠 영어 한 줄로 실패한다: `node:` import와 Node 내장 이름과 `@lophn/cap-fs`·`@lophn/flow`(`a backend that runs on the phone cannot import <name> (<file>)`), 선언과 다른 handler 집합(빠진 것과 남는 것의 이름), 정수 PK(column 하나짜리 `INTEGER`)·AUTOINCREMENT·trigger·PK 밖의 UNIQUE와 CHECK, 선언이 `@lophn/cap-store` 2.0.0과 `@lophn/cap-tool` 2.2.0 이상을 고정하지 않은 것. `phone`이 없는 앱의 준비는 그대로다. 폰이 받는 길: `apps/phone_screens`의 항목에 `runs_on`과 `backend`(manifest)가 더해졌고 새 file route `apps/phone_file`이 활성 release의 manifest가 적은 file(backend, manifest, migration)만 준다(목록 밖 path와 활성이 아닌 release는 `not_found`).
+  - 컴퓨터가 hub다: ledger에 새 표 `app_sync_log`(schema step `apps.sync-log`. 앱마다 순서 번호, release, 종류 `change`·`skipped`·`snapshot`, 출처 `computer`·`device`·`rewind`, 기기와 변경 id, clock, changeset hash와 크기, invocation)와 새 route `app_sync/push|pull|snapshot|snapshot_file`, 새 transient event `AppSyncChanged {release, seq}`. person caller에 `device`가 더해졌다(`{kind: person, view_session, device?}`). sync 앱(선언의 `runs_on`에 `phone`)의 컴퓨터 write는 앱 process 안에서 data, changeset, clock 찍기를 한 transaction으로 commit하고 같은 write 줄 안에서 log에 줄을 쓴다. 앱이 뜨며 한 write는 ready 통보에 실어 남긴다. 폰에서 온 변경은 write 줄을 잡고 invocation 하나가 되어(operation 이름과 시작 시각은 폰의 값, caller는 기기가 붙은 `person`, effect `write`) 앱 process의 새 control `apps.sync_apply`로 칸 단위 last-write-wins로 적용되고 실제로 바뀐 것(effective changeset)이 그 invocation의 changeset이 되어 Activity와 rewind에 든다. 다른 기기에는 원래 changeset과 clock을 보낸다. 같은 기기의 같은 변경 id는 한 번만 적용되고(`duplicate`), 제약에 걸린 변경 하나는 `skipped`(invocation은 `skipped`로 실패 기록)로 건너뛰고 이어 간다. 새 control `apps.snapshot`이 `VACUUM INTO`로 폰이 처음 받을 컴퓨터 DB의 사본을 뜨고(core가 write 줄을 쥔 채라 log의 그 번호까지의 변경을 담는다) 8 MiB씩 읽혀 10분 안에 만료된다. rewind는 effective 변경과 새 clock을 `rewind` 줄로 남겨 폰이 받는다. 변경이 너무 크거나 결과를 모르면 '다시 snapshot' 줄을 남겨 그 줄에 닿은 폰이 새 snapshot을 받게 하고, 앱의 commit과 log 줄 사이에서 core가 죽은 변경은 core가 뜰 때 같은 줄로 메운다. activation은 옛 release의 log 줄을 지우고 '다시 snapshot' 줄을 남기며 앱을 지우면 그 앱의 log와 임시 snapshot도 지운다. migration이 칸 목록을 바꾼 표의 칸 clock은 새 release의 첫 시작이 지운다.
+  - sync 규칙(두 쪽이 같은 module을 쓴다): 63 bit hybrid logical clock 하나, row마다 한 줄(마지막 insert나 delete의 clock)과 insert 뒤에 바뀐 칸만의 칸 clock을 숨은 표 `lophn_sync_row`·`lophn_sync_col`에 두고(`lophn_sync_state`와 폰의 `lophn_sync_outbox`도 있다. cap-store의 session은 `lophn_` 표를 담지 않는다), UPDATE는 칸 clock보다 새로울 때만, delete는 그 row의 마지막 insert나 delete보다 새로울 때만 적용하고 delete가 이긴다. 같은 변경을 두 번 적용해도 그대로다. 들어온 변경은 칸 이름으로 만든 SQL로 적용한다.
+  - 폰 gate: `app_sync/push|pull|snapshot|snapshot_file`, `apps/phone_file`, event `AppSyncChanged`를 연다(`app_sync/push`와 `snapshot`은 짝지은 기기만 받고 `apps/call_tool`, grant는 닫힌 채다).
+  - 폰 앱(Android만): 우리 native module `lophn-app-db`(C++ JSI. 공식 SQLite amalgamation 3.53.3을 손대지 않고 sha256으로 고정해 저장소에 두었다)가 host와 guest에 같은 SQLite 라이브러리로 같은 file을 열게 하고 guest의 연결은 host가 file 하나에 묶는다. ATTACH와 `VACUUM INTO`, extension 싣기, `lophn_sync_*` 접근, 둘째 handle, trigger 만들기, 호출 안의 `BEGIN`·`COMMIT`을 거절하고 5초 넘는 statement를 끊고 64 MiB 넘는 값을 막는다. 앱의 backend는 그 앱 화면의 guest 안에서 base, backend, 화면 순서로 돈다(`PHONE_BASE_FORMAT` 2, guest 메시지 `local_change`, `init`의 `local`). read와 write는 컴퓨터에 닿을 때도 늘 guest 안에서 돌고 호출 하나가 transaction 하나다(끝나면 native module이 그 변경을 같은 transaction에서 outbox에 쓰고 commit한다. 3초 안에 끝나지 않으면 rollback하고 `unavailable`). `external`만 host로 가서 outbox를 먼저 push한 뒤 컴퓨터로 간다(안 되면 `unavailable`). 폰 host가 처음 설치(sync 앱은 snapshot, standalone은 빈 DB에 local migration), push, pull, release 바뀜(backup, local migration, 새 snapshot, 안 보낸 변경을 표와 칸 이름으로 다시 표현, push. backup은 새 release의 첫 push가 될 때까지 둔다. 실패하면 `app.sqlite`와 outbox는 그대로), 지우기(sync 앱 폴더는 컴퓨터에 안 간 변경이 없을 때만, standalone data는 자동으로 지우지 않는다)를 하고 앱 폴더는 `files/apps/<컴퓨터 key>/<앱>/`이다. 폰 앱이 앞에 있고 컴퓨터에 닿은 동안만 맞추고 sidebar가 그 일을 쥐고 있어 앱을 열지 않아도 설치와 push가 된다. 컴퓨터를 지우면 그 컴퓨터의 폴더가 같은 규칙으로 정리된다.
+  - 폰의 화면: 앱 화면 위 줄이 sync 앱은 "On this phone · synced <시각>"(맞추는 중이면 "syncing", 닿지 않는데 안 보낸 변경이 있으면 "not synced since <시각>"), standalone은 "Only on this phone · not backed up"이고 설치 중과 설치 실패(Try again) 화면이 있다. 컴퓨터가 offline이어도 폰에서 도는 앱은 Home에서 흐리지 않고 목록에 있고 열린다(앱 시작 때 컴퓨터가 없어도 폰이 가진 사본에서 읽는다). 충돌을 보이는 화면은 없다.
+  - agent 지침: 내장 skill `design-app`에 "Apps that run on the phone"가 더해졌다(`runs_on` 고르기, `newId()`, 정수 PK·trigger·UNIQUE·CHECK 금지, 칸 이름 바꾸기가 안 보낸 변경을 잃는 것, `BEGIN`·`COMMIT` 직접 쓰지 않기, 컴퓨터 전용 일은 `external` operation에 두기, 폰에서 한 write의 앱 event가 전달되지 않는 것, 폰 data를 backup하지 않는다고 사람에게 말하기). 앱 template의 `AGENTS.md`, SDK guide, app prompt, `declaration-4.8.0.md`의 Instruction diff도 고쳤다.
+  - 측정(emulator, 개발 core): 폰에서 1,000 변경 pull 463 ms(debug), Node에서 pull 1,000개 43 ms, push 1,000개 166 ms. 설치와 첫 열기 약 5.3 s(debug). guest mount부터 첫 local 호출까지 release build에서 140–180 ms(처음 한 번 376 ms). local guest 하나가 약 22 MB. guest에서 쓰기 1,000번이 55–590 ms. `lophn-app-db`의 `.so`가 약 1.27 MB.
+why: |
+  mobile roadmap 단계 7이다. 사람의 앱이 폰에서 컴퓨터 없이 읽고 쓰는 것이 제품의 약속인데(캘린더 같은 앱을 폰과 desktop에서 같은 data로 쓰고, 폰에서만 쓰는 앱도 있다) 단계 6까지는 폰 화면이 컴퓨터에서 도는 backend를 부르는 것뿐이어서 컴퓨터가 꺼지면 앱이 열리지 않았다. 폰의 backend를 AI가 쓴 code로 폰 앱 안에서 돌리면 그 code가 폰 앱의 key, 다른 file, network에 닿으면 안 되고 두 사본이 갈라지면 사람의 data를 잃는다. 그래서 spike로 guest 안의 backend와 자체 SQLite module이 돌고 변경이 양쪽으로 맞는 것을 먼저 확인하고(debug와 release), 충돌 규칙을 칸 단위로 고쳐(row 단위는 다른 칸을 고친 두 사본이 갈라진다) sync core를 컴퓨터와 폰이 같은 code로 쓰게 지었다. 폰에서 한 write를 컴퓨터가 invocation으로 기록해 Activity와 rewind가 덮고, 컴퓨터에 안 간 변경과 폰에만 있는 data는 지우지 않는 규칙을 모든 길(release 바뀜, 앱 삭제, 컴퓨터 삭제)에 걸었다.
+decisions:
+  - text: 사람의 앱이 폰에서 컴퓨터 없이 돌고 data가 컴퓨터와 맞춰지거나(sync 앱) 폰에만 둔다(standalone 앱). 사람의 앱은 사람의 기기에 있다는 전제라 컴퓨터가 꺼진 동안 폰 둘끼리는 맞추지 않는다.
+    by: person
+  - text: >-
+      선언 칸 `runs_on` 하나로 remote, sync, standalone을 가른다. 버린 길: 모드마다 SDK API를 따로 두기(같은 길을 셋 짓는다), 화면으로 짐작하기(폰 화면이 있는 remote 앱이 말없이 sync 앱이 된다).
+    by: agent
+  - text: >-
+      폰의 backend는 그 앱 화면의 guest runtime 안에서 돌고 read와 write는 컴퓨터에 닿을 때도 늘 폰에서 돈다. 이유: 길이 하나라 online과 offline이 같고 전환 경합이 없다. 버린 길: 앱마다 별도의 headless runtime(runtime 하나에 20–40 MB와 native 작업이 더 든다), 폰 앱의 주 runtime에서 돌리기(AI가 쓴 code가 기기 key에 닿는다), 숨은 WebView(SQLite가 비동기), 폰용 Node(nodejs-mobile에 `node:sqlite`가 없다).
+    by: agent
+  - text: >-
+      폰의 SQLite는 우리 작은 native module이고 expo-sqlite는 쓰지 않는다. 이유: spike에서 guest 안의 expo-sqlite는 다른 file을 ATTACH하고 `VACUUM INTO`로 내보내고 Expo module 21개와 숨은 clock 표에 닿았고 JS로 막을 수 없었다. SQLite 소스(공식 amalgamation 한 쌍, 9.5 MB의 text)는 저장소에 그대로 둔다. 이유(추론): build가 network나 다른 package의 이름을 바꾼 사본에 기대지 않고 판을 올릴 때 diff가 한 쌍의 교체뿐이다. 대가: 저장소가 9.5 MB 커진다.
+    by: agent
+  - text: >-
+      충돌은 칸 단위로 나중 것이 이기고 delete가 이긴다. 충돌 화면은 두지 않는다. 버린 길: row 단위 clock(다른 칸을 고친 두 사본이 영영 갈라진다), `applyChangeset`로 그대로 적용하기(binding마다 충돌 정책이 다르고 expo-sqlite는 늘 REPLACE), clock을 칸마다 한 줄로 두기(spike에서 10k row data의 1.84배. 고른 꼴은 insert만 한 data에서 0.21배), delete가 clock과 관계없이 이기게 하기(지웠다 다시 넣은 row가 한쪽에서만 지워진다. delete도 그 row의 마지막 insert나 delete보다 새로울 때만 적용한다).
+    by: agent
+  - text: >-
+      write와 그 변경 기록은 한 transaction이다(폰은 guest 호출마다 native module이 outbox 줄을 같은 transaction에서 쓰고 host가 clock을 나중에 찍는다. 들어온 변경을 적용하는 transaction은 맨 앞에서 안 찍힌 줄부터 찍는다). 이유: 찍기 전에 적용하면 들어온 변경이 옛 clock과 비교되어 local 값을 덮고 사본이 갈린다.
+    by: agent
+  - text: >-
+      폰의 table은 정수 PK, AUTOINCREMENT, trigger, PK 밖의 UNIQUE와 CHECK를 쓰지 못하고 id는 `newId()`다. 이유: 두 기기가 같은 정수 id를 만들면 어떤 규칙으로도 row 하나를 잃고, trigger가 쓴 row는 changeset으로 다시 와서 효과가 두 번 나고, 두 기기에서 온 칸이 제약에 같이 걸리면 적용이 같은 변경에서 영영 실패한다.
+    by: agent
+  - text: >-
+      폰에서 한 write는 컴퓨터가 받을 때 invocation이 된다. caller는 새 종류가 아니라 `person`에 `device`를 더한 것이다(ledger schema step이 늘지 않는다). 그래서 "모든 호출은 core를 지난다"는 "모든 호출은 core가 기록한다. 폰의 local 호출은 맞출 때 기록된다"로 바뀌었다. 다른 기기에는 effective가 아니라 원래 changeset과 clock을 보낸다(effective만 퍼뜨리면 값이 같은 update가 사라져 clock이 어긋난다).
+    by: agent
+  - text: >-
+      release가 바뀌면 폰은 backup을 뜨고 local migration, 새 snapshot, 안 보낸 변경의 이름 기준 다시 표현을 하고 backup은 새 release의 첫 push가 될 때까지 둔다. migration이 지운 표와 칸의 안 보낸 변경은 말없이 버린다(그 migration의 `-- loss:` 줄을 사람이 activation에서 이미 보았다). 같은 release끼리만 맞춘다. 칸 이름 바꾸기는 지우고 새로 만든 것으로 취급된다.
+    by: agent
+  - text: >-
+      폰의 local 호출은 한 번에 하나이고 3초 안에 끝나야 한다(넘으면 rollback하고 `unavailable`). 이유: 호출이 file의 write lock을 쥐는 동안 host의 sync 쓰기는 5초 busy timeout을 기다리므로 끝나지 않는 호출이 sync를 막지 않게 한다. 대가: 끝나지 않는 handler는 그 앱의 다음 local 호출을 막는다(이슈 `phone-hung-handler-blocks-later-calls`).
+    by: agent
+  - text: >-
+      폰 backend bundle은 plain JS이고 core는 Hermes bytecode를 만들지 않는다. 이유: 실제 크기 backend(약 20 KB)가 release build에서 55–139 ms에 시작했고 200 KB의 plain JS만 부하 아래에서 300 ms를 넘었다(bytecode는 83–129 ms). backend가 크게 나와 느리면 bytecode가 fallback이다(폰 앱의 Hermes와 맞는 `hermesc`를 core가 들어야 한다).
+    by: agent
+  - text: >-
+      computer가 hub이고 relay는 변경을 맡지 않는다. 이유: relay에 저장과 키 관리를 더하지 않고 사람이 컴퓨터를 켠다는 전제로 충분하다고 보았다. 대가: 컴퓨터가 꺼진 동안 폰 둘이 같은 앱을 고치면 컴퓨터가 켜진 뒤에야 맞는다. standalone 앱의 data는 backup하지 않는다("Only on this phone · not backed up").
+    by: agent
+  - text: >-
+      Android만 짓고 iOS는 열지 않았다. 내려받은 backend code를 기기에서 local DB와 같이 돌리는 것은 Apple 지침 2.5.2와 4.7.2에 화면보다 더 강하게 걸려 사람이 Apple에 물어야 정해진다.
+    by: agent
+follow_up: |
+  - **확인하지 못한 것.** 실제 폰(emulator만 썼다), 실제 agent turn으로 만든 앱(개발 core에는 model이 없어 손으로 release한 앱 "Local items"(sync)와 "Phone notes"(standalone)로만 보았다), Electron desktop 앱(한 번도 띄우지 않았다), 한 앱을 두 폰이 컴퓨터를 거쳐 맞추는 것(기기를 하나만 붙였다), 폰의 변경 하나가 8 MiB를 넘을 때의 폰 쪽, 오래 끊긴 뒤와 큰 data, 폰에서 1,000개 변경을 push하는 시간(pull만 쟀다), iOS(native module이 없다)는 보지 못했다. emulator에서 본 것: 컴퓨터 DB snapshot으로 설치, 컴퓨터를 끊은 채 폰에서 쓴 write가 다시 붙을 때 push되어 컴퓨터의 Activity에 기기가 caller로 보임, 컴퓨터 write가 폰으로 pull됨, 한 row의 다른 칸을 양쪽에서 고쳐도 둘 다 남음, 안 보낸 변경이 있을 때 migration이 든 release가 활성이 됨, 컴퓨터에서 한 rewind가 폰에 닿음, external이 outbox 뒤에 감, core를 끈 채 standalone 앱이 열리고 씀, 앱을 열지 않아도 설치와 push가 됨(sidebar가 일을 쥔다), 폰 앱을 다시 켜고 컴퓨터가 없어도 폰에서 도는 앱이 목록에 있고 열림, release build에서 손가락 입력이 write로 가서 몇 초 안에 컴퓨터에 닿음, 설치 실패와 Try again, 컴퓨터 지우기.
+  - **자동 검사가 덮지 못한 구멍(찾은 버그).** 컴퓨터의 앱 runtime이 sync node id를 네 글자 prefix로 요청해서 id source가 던졌고, 그래서 sync 앱이 컴퓨터에서 전혀 뜨지 못했다(activation이 `start_failed`). 단위 test도 check도 통과했고 emulator 확인 중에야 드러나 고쳤다. sync 앱을 컴퓨터에서 실제로 띄우는 검사는 지금도 없다(이슈 `no-check-starts-a-sync-app-on-the-computer`).
+  - 폰 backend가 operation과 command를 한 bundle로 묶는 것(컴퓨터 전용 command의 `node:` import가 준비를 실패시킴), 변경 하나가 8 MiB를 넘으면 폰에서 영영 push되지 않는 것, 끝나지 않는 handler가 다음 local 호출을 막는 것, sync가 지금 화면의 컴퓨터에 대해서만 도는 것, 설치 실패 화면이 컴퓨터의 오류 글(한국어)을 그대로 보이는 것, guest를 띄울 때마다 쌓이는 backend 사본, bundle에 실리는 `backend.js.map`, local 호출 문맥의 앱 id가 빈 글자인 것, 폰 write의 앱 event가 전달되지 않는 것은 이슈다: `phone-backend-bundle-includes-computer-only-commands`, `phone-oversize-change-cannot-be-pushed`, `phone-hung-handler-blocks-later-calls`, `phone-sync-only-for-current-computer`, `phone-install-failure-shows-raw-core-error`, `phone-guest-backend-copies-pile-in-cache`, `phone-backend-source-map-in-bundle`, `phone-local-call-context-has-no-app-id`, `phone-write-events-not-delivered`.
+  - 컴퓨터는 `["phone"]` 앱(standalone)도 다른 앱처럼 activation하고 process를 띄워 DB를 만든다. 그 DB는 폰과 맞추지 않고 쓰이지도 않는다. 막지 않았다.
+  - 폰 앱 build에 native 변경(`lophn-app-db` module, config plugin, R8 keep 규칙)이 들었으니 실제 폰에 새 build를 까는 것은 사람의 일이다. 깔기 전에 planner에게 묻는다.
+checklist:
+  - "해야: 폰에서 도는 앱을 쓰려면 폰에 이 판의 lophn 앱 build를 새로 깐다(native module `lophn-app-db`와 config plugin, R8 keep 규칙이 더해졌다. 폰에 build를 까는 것은 사람의 일이고 깔기 전에 planner에게 묻는다)"
+  - "앱 workspace의 agent에게 폰에서 컴퓨터 없이도 읽고 써야 하는 앱을 청한다. agent가 `runs_on: [\"computer\", \"phone\"]`을 쓰고 id를 `newId()`로, 컴퓨터 전용 일을 `external` operation에 두는지, release 준비가 통과하는지(안 되면 한 줄 영어 사유가 agent에게 닿는지) 본다"
+  - "폰에서 그 앱이 컴퓨터 DB의 snapshot으로 설치되어 열리고 위 줄이 \"On this phone · synced …\"인지, 컴퓨터를 끄거나 오프라인으로 하고 폰에서 쓴 write가 컴퓨터가 돌아오면 컴퓨터의 앱 Activity에 기기가 붙은 호출로 보이는지, 컴퓨터에서 한 write가 폰에 오는지 본다"
+  - "같은 row의 다른 칸을 폰과 컴퓨터에서 동시에 고쳐도 둘 다 남는지, 안 보낸 변경이 있는 채 앱의 새 release를 activation하면 변경이 살아남는지, 컴퓨터에서 한 rewind가 폰에도 가는지 본다"
+  - "앱이 `[\"phone\"]`이면 폰에서 \"Only on this phone · not backed up\"이 보이고 컴퓨터를 끈 채 열리고 쓰이는지, 앱의 `external` operation이 컴퓨터가 없을 때 `unavailable`로 화면에 오는지 본다"
+  - "Electron desktop 앱에서 sync 앱을 activation해 뜨는지(`running`) 본다. 컴퓨터 쪽 시작은 자동 검사가 덮지 못한다"
+  - "폰 둘을 pairing해 한 sync 앱을 양쪽에서 고쳤을 때 컴퓨터를 거쳐 맞는지 본다(이 계획은 기기 하나만 붙여 보았다)"

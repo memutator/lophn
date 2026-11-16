@@ -1,0 +1,13 @@
+id: no-check-starts-a-sync-app-on-the-computer
+title: sync 앱(`runs_on`에 `phone`)을 컴퓨터에서 실제로 띄우는 자동 검사가 없어 컴퓨터 쪽 시작이 깨져도 check가 통과한다
+kind: bug
+status: open
+topic: app-sync
+modules: [packages/core/apps, tests]
+now: |
+  sync 앱의 컴퓨터 쪽 시작(`packages/core/apps/runtime/entrypoint/main.ts`가 `openSyncStore`를 부르며 node id를 만든다)은 어느 test도 process로 돌리지 않는다. `entrypoint/sync_test.ts`는 `openSyncStore`를 직접 부르고, release 준비 test(`from-source_test.ts`)는 fixture 앱(`tests/support/app/local`)을 준비만 한다. e2e도 sync 앱을 activate하지 않는다. 그래서 node id를 네 글자 prefix로 요청해 id source가 던지고 sync 앱이 컴퓨터에서 전혀 시작하지 못한 버그(activation이 `start_failed`로 끝남)가 단위 test와 check를 모두 통과했고 emulator 확인 중에야 드러났다(고쳤다).
+impact: |
+  sync 앱 시작 길(앱 process의 시작, ready 통보에 실린 시작 changeset, supervisor)이 깨지면 폰에서 도는 앱이 모두 설치되지 않는데 check는 모른다. 이 기능은 사람의 data를 두 기기에 두는 것이라 시작이 깨지면 발견까지 늦을수록 손해가 크다.
+fix: |
+  - 중간(추천): `tests/support/app/local` fixture를 activation까지 올려 sync 앱이 `running`이 되고 컴퓨터 write 하나가 `app_sync/pull`에 나오는지 보는 e2e 하나를 더한다. subprocess와 core를 띄우는 test이므로 AGENTS.md대로 사람에게 먼저 묻는다.
+  - 작음: `main.ts`의 시작 부분을 sync store를 여는 데까지 child 없이 부를 수 있게 나눠 단위 test에서 같은 id source 규칙으로 돌려 본다. 실제 process 시작은 덮지 못한다.

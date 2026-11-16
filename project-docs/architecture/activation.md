@@ -40,7 +40,7 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
    4 migration이 있으면 복구본을 만들어 ledger에 확정한 뒤 단계를 순서대로 적용한다
    5 새 process를 준비 모드로 띄워 hash, handler, schema, 연결을 확인한다. 업무 통로는 닫혀 있다
    6 complete, 한 tx: active 참조, 이전 superseded, 앱 grant를 새 선언 사실에 맞춤, 복구본 정리
-   7 업무 통로를 열고, 접수를 다시 열어 붙잡은 호출을 활성 release로 넘기고, 이전 release의 changeset을 지운다
+   7 업무 통로를 열고, 접수를 다시 열어 붙잡은 호출을 활성 release로 넘기고, 이전 release의 changeset을 지운다(폰에서도 도는 앱이면 옛 release의 sync log 줄도 지우고 새 release에 '다시 snapshot' 줄을 남긴다)
  6 전에 실패 ─▶ 종료 확인 ─▶ 복구본 복원과 확인 ─▶ fail, 한 tx: 실패 기록 ─▶ 이전 release를 다시 띄움
 ```
 
@@ -100,6 +100,12 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
     - `activation.fail`은 `release_failed {release, reason}`을 남긴다. reason은 실패 summary이고 복원했으면 "The app is back on release rN"을 덧붙인다. release 이름은 Version 탭과 같은 `r<number>`다.
     - 데이터 변경·복원 기록(`activation.record_data_change`·`activation.record_data_restore`)은 `app_data_migrated`·`app_data_restored`를, 앱을 사용 불가로 둔 `app.record_unavailable`(복원 실패·종료 확인 불가 포함)은 `app_unavailable`을 같은 tx에서 남긴다.
     - 기록은 `activation.report`와 다른 길이다. report는 만든 agent가 turn 안에서 알게 하는 것이고 기록은 사람이 나중에 찾는 것이다.
+
+폰에서도 도는 앱(`runs_on`에 `phone`. 설계는 `app-sync.md`)
+31. release 준비가 폰 backend를 묶고 검사한다(Node 내장 import, 선언과 다른 handler 집합, 정수 PK·AUTOINCREMENT·trigger·PK 밖의 UNIQUE와 CHECK, `@lophn/cap-store` 2.0.0·`@lophn/cap-tool` 2.2.0 아래 판). 어기면 준비가 실패해 activation까지 오지 않는다. activation이 받는 입력은 봉인된 bundle이고 폰 backend도 그 안의 file이다.
+32. activation이 옛 release의 changeset을 지울 때 그 앱의 옛 release sync log 줄도 지우고 지운 것이 있으면 새 release에 '다시 snapshot' 줄을 남긴다. 지운 줄을 받지 못한 폰이 새 snapshot을 받게 하려는 것이다. 폰은 같은 release의 변경만 맞추므로 새 release가 활성이 된 뒤 옛 release의 push는 `conflict`다.
+33. migration이 표의 칸 목록을 바꾸면 그 표의 칸 clock(칸 번호로 적힌다)은 새 release의 첫 시작이 지운다. data 손실을 말하는 `-- loss:` 줄은 폰에 안 간 변경의 손실에도 그대로 근거다. 폰은 release가 바뀌면 컴퓨터 DB의 snapshot을 받고 안 보낸 변경을 새 schema에 이름으로 다시 얹는다(지운 표와 칸의 변경만 버려진다).
+34. standalone 앱(`runs_on`이 `["phone"]`)은 컴퓨터에서 activation 규칙을 그대로 받는다. 컴퓨터의 DB는 폰과 맞추지 않는다.
 
 ## 경계와 계약
 

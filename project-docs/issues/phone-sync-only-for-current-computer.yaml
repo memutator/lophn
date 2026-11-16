@@ -1,0 +1,13 @@
+id: phone-sync-only-for-current-computer
+title: 폰의 sync는 지금 화면에 있는 컴퓨터에 대해서만 돌아 다른 컴퓨터의 앱 변경은 그 컴퓨터를 고를 때까지 컴퓨터에 가지 않는다
+kind: bug
+status: open
+topic: app-sync
+modules: [packages/mobile]
+now: |
+  앱 목록과 sync를 쥐는 hook `useLocalApps`는 지금 고른 컴퓨터 하나의 store만 연결한다(`packages/mobile/src/data/local-apps.ts`: `useCurrentComputer`, `holders`, `store.connect`). 소유자가 없어지면(`left === 0`) 그 컴퓨터의 store는 `connect(null)`이 되어 push와 pull이 멈춘다. 앱 store는 컴퓨터마다 있지만(`packages/mobile/src/data/local-stores.ts`) push와 pull을 거는 곳은 이 hook의 `connect` 하나뿐이다.
+impact: |
+  컴퓨터를 둘 이상 pairing한 사람이 컴퓨터 A에서 앱을 쓰고 컴퓨터 B로 바꾸면 A의 앱에 쌓인 변경은 A를 다시 고를 때까지 컴퓨터에 가지 않는다. 폰 data는 잃지 않지만(outbox는 남는다) 컴퓨터의 Activity와 다른 기기에 늦게 닿는다. 컴퓨터가 하나뿐인 사람은 겪지 않는다.
+fix: |
+  - 중간(추천): 데이터 provider가 pairing한 컴퓨터마다 store를 연결해 두고 sync 계기(연결됨, `AppSyncChanged`, 목록)를 모든 컴퓨터에 건다. store는 이미 컴퓨터마다 있다(`packages/mobile/src/data/local-stores.ts`). 앱이 앞에 있을 때만 맞춘다는 규칙은 그대로다.
+  - 작음: 컴퓨터를 바꿀 때 떠나는 컴퓨터의 sync를 한 번 돌려 둔다. 바뀐 뒤에 쌓이는 변경은 여전히 안 간다.

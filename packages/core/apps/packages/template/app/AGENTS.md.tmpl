@@ -71,6 +71,8 @@ Package를 쓴다.
   폰에서도 돌릴 앱만 `["computer", "phone"]`, 폰에서만 돌 앱만 `["phone"]`을 쓴다(폰 화면이 있다는 이유로 쓰지 않는다).
   폰에서 도는 앱은 `design-app` skill의 "Apps that run on the phone"(bundled file `phone-apps.md`, `skill.read`)를 먼저 읽고 따른다:
   text id(`newId()`), `node:` import·trigger·정수 PK 금지, 컴퓨터 전용 일은 `external` operation.
+  `sync_to`는 앱의 data를 사람의 다른 컴퓨터로 보낼 destination 이름이다. 없으면 data는 이 기계에만 있다.
+  쓰기 전에 `design-app` skill의 bundled file `folder-sync.md`를 읽고 따른다(정책 고르기, 사람에게 설명, 폴더를 옮기는 도구).
   `sidebar`와 `tray`는 선언하면 바로 나오고 사람이 Settings에서 끈다.
   tray popup은 기본 360×480px이다. 크기는 그 화면에 `tray: { width, height }`(px)로 적고, 각 쪽은 숫자(고정)나
   `{ min?, max? }`(내용에 맞춰 그 안에서 늘고 준다)다. 목록처럼 길이가 바뀌는 화면은 `height: { max: 480 }` 같은 범위를 쓴다.

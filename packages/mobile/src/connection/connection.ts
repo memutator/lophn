@@ -11,6 +11,7 @@ import {
   relayPhoneUrl,
   remoteKeyBytes,
 } from "../remote.ts";
+import { answerRequest, type PhoneCtx, phoneCapabilities } from "../link/answer.ts";
 
 // Same shape as the desktop renderer's CoreSource (packages/shell/renderer/desktop/connection), so remote screens take either.
 export type ConnectionState = {
@@ -107,7 +108,7 @@ export function openFirst(
       transport,
       staticKey: deps.phone,
       remoteStatic,
-      capabilities: [],
+      capabilities: phoneCapabilities(),
       random: deps.random,
     });
     return channel.ok ? channel.value : undefined;
@@ -137,6 +138,8 @@ export function createConnection(
     // Runs fn after ms; returns a cancel function.
     wait: (ms: number, fn: () => void) => () => void;
     onRevoked: () => void;
+    // What the phone answers the computer's `request` frames with (location, later more).
+    phoneCtx: PhoneCtx;
   },
 ): Connection {
   let state: ConnectionState = { state: "starting", confirmedAt: null };
@@ -241,6 +244,15 @@ export function createConnection(
       failures = 0;
       setState({ state: "ready", confirmedAt: deps.now() });
       emit({ kind: "ready" });
+    } else if (frame.type === "request") {
+      const from = channel;
+      void answerRequest(frame, {
+        ctx: deps.phoneCtx,
+        isActive: () => active,
+        wait: deps.wait,
+      }).then((response) => {
+        if (response && channel === from) from?.send(response);
+      });
     } else if (frame.type === "event") {
       emit({ kind: "event", event: frame.event });
     } else if (frame.type === "closed") {

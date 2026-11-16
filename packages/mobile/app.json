@@ -45,6 +45,12 @@
         }
       ],
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "lophn shares your location with an app on your computer when you allowed that app to use it."
+        }
+      ],
+      [
         "expo-font",
         {
           "android": {

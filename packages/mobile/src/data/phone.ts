@@ -1,6 +1,7 @@
 // The computer store with the phone's real parts: secure store, WebSocket, expo-crypto, and the sample computer in dev.
 import { createConnection } from "../connection/connection.ts";
 import { dialSocket } from "../connection/socket.ts";
+import { expoLocationPort } from "../link/native.ts";
 import { pair } from "../pairing/pair.ts";
 import {
   deviceKey,
@@ -39,6 +40,7 @@ export function createPhoneComputers(): Computers<ComputerData> {
             return () => clearTimeout(timer);
           },
           onRevoked,
+          phoneCtx: { location: expoLocationPort },
         }),
       ),
     async pair(qr, phone) {

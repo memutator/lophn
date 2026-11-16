@@ -1651,6 +1651,45 @@ flows:
         observe: ["response"]
     crosses_process: false
 
+  - id: phone-answer
+    title: "폰이 core의 request에 답한다(앞에 있을 때만, 첫 kind는 위치)"
+    actor: system
+    entries: [system:phone-answer]
+    pre: [system:phone-link]
+    boundary: [core]
+    code: [packages/mobile/src/link/answer.ts, packages/mobile/src/link/location.ts, packages/mobile/src/link/native.ts, packages/mobile/src/connection/connection.ts]
+    docs: [architecture/remote.md]
+    steps:
+      - "폰은 hello.capabilities에 PHONE_HANDLERS의 kind를 적는다. 받은 request마다 같은 id의 response 하나를 deadline 안에 보낸다"
+      - "모르는 kind는 unavailable(unsupported). 앱이 앞에 있지 않으면 handler를 부르지 않고 unavailable(phone_in_background)다. 폰을 깨우지 않고 banner도 기록도 없다"
+      - "input이 kind의 input schema에 맞지 않으면 invalid_input, handler가 던지면 internal이다"
+      - "location.get: OS 위치 권한이 없으면(한 번도 안 물었을 때만 묻는다) 위치를 읽지 않고 forbidden(details.reason os_permission_denied). 위치 서비스가 꺼졌으면 unavailable(location_off). max_age_ms가 있으면 그 안의 마지막 위치를 먼저 쓰고, 없으면 accuracy(기본 balanced)로 한 번 읽는다. 답은 {lat, lon, accuracy_m, at}이다"
+      - "deadline이 지난 뒤에 끝난 답은 보내지 않는다(core가 버린다)"
+    outcomes:
+      - id: answered
+        observe: ["response"]
+      - id: os-permission-denied
+        code: forbidden
+        when: "폰의 OS 위치 권한이 거절됐다. 위치를 읽지 않는다. details.reason os_permission_denied"
+        observe: ["response"]
+      - id: phone-unavailable
+        code: unavailable
+        when: "모르는 kind(unsupported), 앱이 앞에 있지 않음(phone_in_background), 위치 서비스가 꺼짐(location_off)"
+        observe: ["response"]
+      - id: invalid-input
+        code: invalid_input
+        when: "input이 kind의 input schema에 맞지 않는다"
+        observe: ["response"]
+      - id: handler-failed
+        code: internal
+        when: "handler가 던졌다(예: 위치를 읽지 못함)"
+        observe: ["response"]
+      - id: answer-dropped
+        when: "deadline이 지난 뒤 끝난 답이다. 보내지 않는다"
+        observe: ["response"]
+    crosses_process: false
+    risk: [permission]
+
   - id: remote-pair
     title: "폰이 QR의 code로 pair해 기기로 등록된다"
     actor: system

@@ -1,5 +1,5 @@
 id: mobile-user-apps
-version: 0.23.64
+version: 0.23.65
 title: 사용자 앱이 폰 화면(`phone` 자리)을 갖고, 폰 앱이 그것을 격리된 runtime에서 돌린다
 modules: [packages/protocol, packages/core/apps, packages/core/events, packages/core/server, packages/core/main, packages/core/remote, packages/core/host-queue, packages/core/agent-workspaces, packages/shell/main, packages/shell/renderer, packages/shell/ipc, packages/shell/preload, packages/cli, packages/design, packages/sdk, packages/mobile]
 change: |

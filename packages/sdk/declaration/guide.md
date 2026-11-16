@@ -112,6 +112,9 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   거절한다. 폰 화면이 있다고 폰에서 도는 앱이 되지 않으니 폰에서 돌릴 앱만 이 칸에 `"phone"`을 쓴다. 검사 둘:
   `phone`이 있는데 `places`가 `["phone"]`인 화면이 없으면 거절하고, `["phone"]`인데 `commands`, `subscriptions`,
   effect가 `external`인 operation, `widgets`, 폰 밖 자리의 화면 가운데 하나가 있으면 거절한다(돌릴 컴퓨터가 없다).
+  폰에서 도는 backend는 text id(`newId()`)를 쓰고, `node:` import·trigger·정수 PK·PK 밖의 UNIQUE와 CHECK를 쓰지 못하며
+  (release 준비가 거절한다), 컴퓨터 전용 일(network, secret, 알림, event 발행, agent)은 `external` operation에 둔다.
+  `external`은 컴퓨터에 닿지 않으면 `unavailable`이다. 규칙 전부는 `design-app` skill의 bundled file `phone-apps.md`("Apps that run on the phone")다.
 - `operations` — 앱 안의 operation 목록이다. 화면(`lophnApp.callOperation`)과 앱
   자신이 쓰는 저수준 동작이고, agent·다른 앱·job·flow는 부르지 못한다(core가
   막는다). 항목은 `{name, title, effect}`다. `title`은 화면 `OperationButton`이

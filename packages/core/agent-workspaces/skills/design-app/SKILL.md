@@ -297,11 +297,10 @@ that the person makes the last check on their phone. If the phone app is older
 than the kit the screen was built with, the phone shows "update the lophn app";
 tell the person.
 
-## Widgets and phone location
-
-When the app should show a value on the person's phone home screen (`widgets`)
-or read their location from the phone (`phone.use`), read the bundled file with
-`skill.read({ name: "design-app", path: "phone-features.md" })` first.
+For home screen widgets (`widgets`) and phone location (`phone.use`), first read
+the bundled `phone-features.md`; when the app's backend and data also run on the
+phone (`runs_on`), first read `phone-apps.md`. Read each with
+`skill.read({ name: "design-app", path: "<file>" })`.
 
 ## Talking to an agent from a screen
 

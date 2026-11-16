@@ -28,6 +28,10 @@ choices that change what they get.
 Before you build a new app or feature, or change one, read the skill
 `design-app` and write or edit `DESIGN.md` as it says.
 
+When the person wants the app to work on the phone itself (its backend and data
+run there, which a phone screen alone does not do), read the skill `design-app`
+file `phone-apps.md` before you set `runs_on`.
+
 When the app needs an agent of its own (an opponent, a coach, a reviewer), you create
 and wire it yourself as `design-app` says; do not use the built-in `lophn` agent for it.
 

@@ -75,8 +75,6 @@ export async function inspectFolder(
       ? "committed"
       : state === "ignored"
         ? "ignored"
-        : state === "conflict"
-          ? "conflict"
-          : "uncommitted";
+        : "uncommitted";
   return { ...base, file, file_identity: read.id };
 }

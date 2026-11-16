@@ -4,12 +4,7 @@ import process from "node:process";
 
 import type { Logger } from "../../../base/mod.ts";
 
-export type GitFileState =
-  | "tracked"
-  | "changed"
-  | "untracked"
-  | "ignored"
-  | "conflict";
+export type GitFileState = "tracked" | "changed" | "untracked" | "ignored";
 
 export type GitReader = {
   // work tree의 맨 위. work tree가 아니거나 git이 없으면 null이다.
@@ -56,13 +51,13 @@ function run(args: readonly string[]): Promise<Ran> {
   });
 }
 
-// porcelain v1의 XY 두 칸. 둘 중 하나가 U이거나 AA·DD면 merge 충돌이다.
+// porcelain v1의 XY 두 칸. merge가 끝나지 않은 file(U, AA, DD)도 changed다: 충돌인지는 file 안의 표지가 정하고,
+// 표지가 없으면 [Resolve]나 사람이 이미 푼 것이라 남은 일은 commit이다.
 function stateOf(line: string): GitFileState {
   if (line === "") return "tracked";
   const xy = line.slice(0, 2);
   if (xy === "??") return "untracked";
   if (xy === "!!") return "ignored";
-  if (xy.includes("U") || xy === "AA" || xy === "DD") return "conflict";
   return "changed";
 }
 

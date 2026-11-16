@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color name="lophn_w_surface">#FF161615</color>
+  <color name="lophn_w_surface_muted">#FF252523</color>
+  <color name="lophn_w_border">#FF2C2C2A</color>
+  <color name="lophn_w_text">#FFF3F3F0</color>
+  <color name="lophn_w_text_secondary">#FFC3C2B7</color>
+  <color name="lophn_w_text_muted">#FF96958D</color>
+  <color name="lophn_w_ink">#FFF3F3F0</color>
+  <color name="lophn_w_good_text">#FF0CA30C</color>
+  <color name="lophn_w_warn_text">#FFFAB219</color>
+  <color name="lophn_w_bad_text">#FFE66767</color>
+  <color name="lophn_w_good_marker">#FF0CA30C</color>
+  <color name="lophn_w_warn_marker">#FFFAB219</color>
+  <color name="lophn_w_bad_marker">#FFD03B3B</color>
+</resources>

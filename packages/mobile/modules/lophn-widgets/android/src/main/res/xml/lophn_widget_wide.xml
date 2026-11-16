@@ -1,0 +1,11 @@
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+  android:minWidth="250dp" android:minHeight="110dp"
+  android:targetCellWidth="4" android:targetCellHeight="2"
+  android:resizeMode="horizontal|vertical"
+  android:updatePeriodMillis="1800000"
+  android:initialLayout="@layout/lophn_placeholder"
+  android:previewLayout="@layout/lophn_widget_preview"
+  android:description="@string/lophn_widget_description"
+  android:configure="dev.lophn.widgets.ConfigureActivity"
+  android:widgetFeatures="reconfigurable"
+  android:widgetCategory="home_screen" />

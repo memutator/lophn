@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The design tokens a widget uses (packages/design/generated/tokens.css, light). values-night has the dark ones. -->
+<resources>
+  <color name="lophn_w_surface">#FFFFFFFF</color>
+  <color name="lophn_w_surface_muted">#FFEBEAE6</color>
+  <color name="lophn_w_border">#FFE1E0D9</color>
+  <color name="lophn_w_text">#FF1A1A18</color>
+  <color name="lophn_w_text_secondary">#FF52514E</color>
+  <color name="lophn_w_text_muted">#FF6B6A65</color>
+  <color name="lophn_w_ink">#FF1A1A18</color>
+  <color name="lophn_w_good_text">#FF006300</color>
+  <color name="lophn_w_warn_text">#FF8A5A00</color>
+  <color name="lophn_w_bad_text">#FFB93232</color>
+  <color name="lophn_w_good_marker">#FF0CA30C</color>
+  <color name="lophn_w_warn_marker">#FFFAB219</color>
+  <color name="lophn_w_bad_marker">#FFD03B3B</color>
+</resources>

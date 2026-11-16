@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only what Android shows before lophn has written anything: the widget picker. Words on a widget come from the cache. -->
+<resources>
+  <string name="lophn_widget_small">App widget</string>
+  <string name="lophn_widget_wide">Wide app widget</string>
+  <string name="lophn_widget_description">Shows a widget from one of your apps</string>
+  <string name="lophn_widget_refresh">Refresh</string>
+</resources>

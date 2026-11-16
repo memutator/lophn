@@ -1,0 +1,7 @@
+<!-- lophn's character, coral square (packages/shell/renderer/parts/avatar/character.tsx). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="28dp" android:height="28dp" android:viewportWidth="96" android:viewportHeight="96">
+  <path android:fillColor="#FFFF806B"
+    android:pathData="M30 14H66Q80 14 80 30V42Q91 49 89 59Q87 66 79 62Q77 73 66 76V82Q66 89 59 89H56Q50 89 50 82V78H42V82Q42 89 35 89H32Q26 89 26 82V75Q16 71 15 62Q7 66 5 59Q3 49 16 42V30Q16 14 30 14Z" />
+  <path android:fillColor="#FF1C2530"
+    android:pathData="M32.2 45a4.8 4.8 0 1 0 9.6 0a4.8 4.8 0 1 0 -9.6 0ZM54.2 45a4.8 4.8 0 1 0 9.6 0a4.8 4.8 0 1 0 -9.6 0Z" />
+</vector>

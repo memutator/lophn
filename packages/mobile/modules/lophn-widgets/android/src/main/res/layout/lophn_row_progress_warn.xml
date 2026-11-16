@@ -1,0 +1,7 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="wrap_content"
+  android:orientation="vertical" android:layout_marginBottom="4dp">
+  <ProgressBar android:id="@+id/lw_bar" style="@android:style/Widget.ProgressBar.Horizontal" android:layout_width="match_parent" android:layout_height="6dp"
+    android:minHeight="6dp" android:maxHeight="6dp" android:max="1000" android:indeterminate="false" android:progressDrawable="@drawable/lophn_progress_warn" />
+  <TextView android:id="@+id/lw_label" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp"
+    android:textSize="11sp" android:lineHeight="15sp" android:textColor="@color/lophn_w_text_secondary" android:singleLine="true" android:ellipsize="end" />
+</LinearLayout>

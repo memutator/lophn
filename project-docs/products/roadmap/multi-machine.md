@@ -75,7 +75,7 @@
 ### 4. project의 신분
 
 - project는 두 겹의 id를 갖는다: 기계별 id(지금의 것)와 기계를 넘는 신분.
-- 기계를 넘는 신분은 저장소 안의 file에 둔다(무작위 id와 이름. commit되어 git을 타고 간다). git remote 주소는 힌트로만 쓴다. remote로 식별하면 fork가 한 project로 합쳐지고 origin을 바꾸면 신분이 바뀐다.
+- 기계를 넘는 신분은 저장소 안의 file에 둔다(무작위 id 하나. 이름은 넣지 않고 기계마다 둔다. commit되어 git을 타고 간다). git remote 주소는 힌트로만 쓴다. remote로 식별하면 fork가 한 project로 합쳐지고 origin을 바꾸면 신분이 바뀐다.
 - 기계마다 그 project의 상태가 있다: 폴더가 있다, 이 기계에는 없다. 없으면 agent가 clone을 돕는다.
 - project에 딸린 지침과 설정을 저장소 file로 두어 git을 타게 할지는 정하지 않았다(아래 "사람이 정할 것").
 
@@ -184,7 +184,7 @@
 0. ~~**바탕**: 기계 id와 이름(폰에 이름이 주소 대신 보인다), 복제된 data root 알아채기(추천: 새 기계로 다룬다), 붙기 전에 판·capability·id를 알려 주는 공개 상태. 지금 폰 remote에도 바로 쓰인다.~~ 계획 `machine-identity`로 했다(`architecture/machine.md`, change-log `machine-identity`).
 1. ~~**줄 1, 다른 기계 보기**: desktop이 다른 기계의 core에 기기로 pairing해 연다. 기계 고르기, 보는 쪽마다의 기본 기계.~~ 계획 `desktop-remote`로 했다(`architecture/remote.md`의 "desktop에서 다른 기계 보기", change-log `desktop-remote`). 다른 기계의 앱 화면은 띄우지 않는다(사람, 2026-11-16: 미룬 것이 아니라 하지 않는다).
 2. **줄 2, 앱 data 맞추기**: 변경을 폴더로 내놓고 읽어 들이기, 앱 선언의 정책, agent가 읽는 환경 정보와 폴더 옮기기 지침. 앱 release와 source를 폴더로.
-3. ~~**project 신분**: 저장소 안 file, 두 겹 id, "이 기계에는 없음" 상태.~~ 계획 `project-identity`로 했다(`architecture/project-identity.md`, change-log `project-identity`). 남은 것: 다른 기계를 보는 창에서 같은 id의 project를 묶어 보이기(task `project-id-remote-view`, `desktop-remote`가 land한 뒤).
+3. ~~**project 신분**: 저장소 안 file, 두 겹 id, "이 기계에는 없음" 상태.~~ 계획 `project-identity`로 했다(`architecture/project-identity.md`, change-log `project-identity`, `project-identity-remote-view`). 다른 기계를 보는 창에서 같은 id의 project를 묶어 보이기와 [Clone here]도 그 계획의 마지막 task로 했다.
 4. **늘 켜 둠**: OS 서비스 등록과 job의 주인 기계. (계획 `always-on`, 2026-11-16 끝남)
 
 미니 PC를 실제로 쓰려면 줄 1이 먼저다. 계획을 열기 전에 지금 code의 사실(sync가 "아무 기계끼리"를 어디까지 받치는지, remote client가 desktop에서 도는지, 기기 gate, project 표)을 조사한다.

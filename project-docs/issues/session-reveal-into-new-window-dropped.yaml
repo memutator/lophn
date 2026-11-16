@@ -1,0 +1,13 @@
+id: session-reveal-into-new-window-dropped
+title: 이 컴퓨터의 창이 하나도 없을 때 알림이나 다른 기계의 창에서 session을 열면 새 창만 열리고 그 session은 열리지 않는다
+kind: bug
+status: open
+topic: remote
+modules: [packages/shell/main, packages/shell/preload]
+now: |
+  `packages/shell/main/desktop/wiring/notice.ts`의 `reveal`은 이 컴퓨터의 창(`ctx.windows`)이 하나도 없으면 `openDesktopWindow(ctx)`만 부르고 돌아간다. 새 창에 `NOTICE_REVEAL_CHANNEL { session }`을 보내지 않는다. 보낸다 해도 `packages/shell/preload/notice-api.ts`의 `onReveal`은 구독 전에 온 메시지를 들고 있지 않아(desktop intent의 `createIntentApi`와 다르다) 막 연 창의 renderer가 놓친다. OS 알림 click과, 다른 기계의 창의 "Also on this computer" popover에서 이 컴퓨터의 session을 누른 것(`shell:machines-open { machine, session }` → `ctx.sessionWindows.reveal`)이 같은 길을 탄다.
+impact: |
+  사람이 보는 동작: 다른 기계의 창만 띄워 두고 쓰거나 창을 다 닫고 tray로 둔 사람이 알림이나 popover의 session을 누르면 이 컴퓨터의 창이 Home(또는 마지막 workspace)으로 열리고, 누른 session은 다시 찾아 열어야 한다.
+fix: |
+  - (작음, 추천) `reveal`이 새 창을 열었으면 load 뒤 같은 reveal을 보내고, notice preload가 `createIntentApi`처럼 구독 전에 온 마지막 reveal 하나를 들고 있다가 첫 구독에 넘긴다. 잃는 것: 없음.
+  - (중간) 새 창을 그 session의 workspace로 여는 시작 값을 더한다. 잃는 것: 창 시작 값의 모양이 는다.

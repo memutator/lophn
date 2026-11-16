@@ -1,0 +1,40 @@
+id: project-identity-remote-view
+version: 0.23.72
+title: 다른 기계를 보는 desktop 창이 그 기계의 project 가운데 이 컴퓨터에도 있는 것을 같은 id로 묶어 보이고 없는 것은 [Clone here]로 받는다
+modules: [packages/shell/main, packages/shell/renderer, packages/shell/preload, packages/shell/ipc, packages/design, tools]
+change: |
+  전: 기계를 넘는 project id(`.lophn-project.json`, change-log `project-identity`)는 있었지만, desktop이 다른 기계(M)의 창을 볼 때 M의 project가 이 컴퓨터의 어느 project와 같은지 보이는 곳이 없었다. M에만 있는 project를 이 컴퓨터에 받는 길은 agent의 `lophn project clone`뿐이었다.
+  후:
+  - "M의 창의 왼쪽 sidebar에서 M의 project 줄 아래에 한 줄이 선다. 두 기계의 `project.list`를 각각 통째로 읽어 `matchProjects`로 묶는다(열쇠는 이 컴퓨터 `this:<prj>`, M `<mch>:<prj>`. `identity`·`remote` 칸이 없는 옛 판 M의 기록은 null). 이 컴퓨터의 창에는 줄이 없다."
+  - "같은 id: \"Also on this computer\"(이름이 다르면 \"… as <title>\"). 누르면 popover에 M과 이 컴퓨터의 session 목록을 나란히 보인다. 각자의 core에서 읽고 합치지 않는다. M의 session은 그 창에서 열고, 이 컴퓨터의 session을 누르면 이 컴퓨터의 창이 알림을 누른 것과 같은 길로 앞으로 와서 그 session을 연다."
+  - "M에만 있고 id가 있다: \"Not on this computer\" [Clone here]. 이 컴퓨터의 `project.clone { url, identity, title }`을 부르고, projects 폴더가 아직 없으면 OS 폴더 선택기를 한 번 열어 고른 폴더를 `projects.folder`로 기억한다. 이 컴퓨터의 git에 자격이 없으면 \"Run `<command>` in a terminal on this computer, then try again\". 받으면 그 줄이 \"Also on this computer\"가 된다. remote가 없으면 단추 없이 \"It has no git remote to clone from\"."
+  - "id 없이 remote만 같다: \"Looks like <이 컴퓨터의 title>\"과 한 기계에서 id file을 만들어 commit하라는 안내. 단추는 없다."
+  - "읽기가 실패하거나 M이 끊기면 마지막 목록과 묶음을 그대로 보인다. 이 컴퓨터 쪽은 창이 앞으로 올 때와 clone 뒤에 다시 읽는다."
+  - "새 IPC `shell:machines-this-read { route: project.list | ListSessions, input }`와 `shell:machines-clone-here { url, identity, title }`. 둘 다 이 컴퓨터의 core를 사람 자격으로 부르고, 다른 기계의 창에서만 지난다(이 컴퓨터의 창이면 `forbidden`). this-read는 두 read 밖을 `forbidden`으로 거른다. `shell:machines-open`은 선택 칸 `session`을 받는다(이 컴퓨터의 id에만. 다른 기계의 id면 `invalid_input`)."
+  - "M에는 아무것도 쓰지 않는다(id file, 설정 모두). 저장 모양, route, ledger는 바뀌지 않는다."
+  - "flow: `ipc`의 `machines-this-read`·`machines-clone-here`·`machines-open`, `shell-workspace`의 다른 기계 창 project 줄. 설계는 `architecture/project-identity.md`의 \"다른 기계의 창\"과 `architecture/remote.md`."
+why: |
+  roadmap `multi-machine`의 "project가 기계마다 같은 것으로 보인다"를 다른 기계를 보는 화면까지 잇는다. 사람의 말: "내 lophn 프로젝트는 메인 머신에서도 맥북 머신에서도 같은 의미여야돼". id가 같은 project를 다른 기계의 창에서도 같은 것으로 보이고, 없는 것은 그 자리에서 받게 한다.
+decisions:
+  - text: 다른 기계를 보는 desktop은 폰과 같은 권한이다. 그 창에서 M의 project에 id file을 만들거나 설정을 바꾸지 않는다.
+    by: person
+  - text: "다른 기계의 창이 이 컴퓨터를 읽는 길은 shell main을 거치는 좁은 IPC 둘(`project.list`·`ListSessions` 읽기, `project.clone`)이다. 버린 길: 그 창에 이 컴퓨터의 core 통로를 하나 더 열기(guard 하나로 막던 경계가 둘로 갈린다)."
+    by: agent
+  - text: 두 기계의 session 목록은 합치지 않고 나란히 보인다. 묶기 열쇠에 기계를 붙여(`this:`, `<mch>:`) 한 기계의 `prj_`가 다른 기계의 기록을 가리키지 않는다. remote만 같은 짝은 단추 없는 제안 한 줄이다.
+    by: agent
+  - text: "이 컴퓨터의 session을 popover에서 누르면 `shell:machines-open`에 session을 실어 알림 click과 같은 reveal로 연다. 버린 길: 새 channel이나 desktop intent에 session을 싣기(창을 고르는 규칙이 두 벌이 된다)."
+    by: agent
+  - text: "처음 clone의 폴더는 shell이 폴더 선택기로 받아 `parent`로 넘기고, 설정이 비었거나 그 폴더가 없어졌을 때 core의 `project.clone`이 그 `parent`를 `projects.folder`로 기억한다. agent의 clone과 [Clone here]가 같은 규칙을 탄다(남은 일 보고의 \"기억하지 않는다\"는 틀렸다: core가 이미 기억한다)."
+    by: agent
+  - text: clone이 끝나면 그 줄이 "Also on this computer"로 바뀌는 것이 결과 표시다. 받은 path 줄("Cloned to <path>")은 줄이 바뀌어 보이지 않지만 폴더는 사람이 고른 곳이나 `projects.folder` 아래라 따로 두지 않는다.
+    by: agent
+follow_up: |
+  - 이슈 `remote-group-sessions-only-project-lophn`: 나란한 session 목록이 그 project lophn agent의 session만 보인다.
+  - 이슈 `session-reveal-into-new-window-dropped`: 이 컴퓨터의 창이 하나도 없을 때 popover나 알림에서 누른 session은 새 창만 열고 고르지 않는다.
+  - [Clone here]의 git 자격 안내 문구는 gallery에서만 보았다. 설치본 둘에서 아래 checklist로 본다.
+checklist:
+  - 설치한 desktop 둘(A, B)에서 B가 A를 보게 pairing한 뒤, 두 기계에 같은 id file을 가진 저장소를 등록하고 B의 A 창 sidebar에서 그 project 줄 아래 "Also on this computer"가 보이는지 본다
+  - A에만 있는 id 있는 project 줄에 "Not on this computer" [Clone here]가, id 없이 remote만 같은 project 줄에 "Looks like <B의 title>"이 보이는지 본다
+  - B에 projects 폴더가 아직 없을 때 [Clone here]를 누르면 폴더 선택기가 한 번 뜨고, 받은 뒤 줄이 "Also on this computer"가 되며, 다른 project의 [Clone here]에서는 선택기가 다시 뜨지 않는지 본다
+  - B의 git이 그 저장소에 로그인하지 않았을 때 [Clone here]가 "Run `<command>` in a terminal on this computer, then try again"을 보이는지 본다
+  - B의 A 창에서 "Also on this computer" popover를 열고 B 쪽 session을 누르면 B의 창이 앞으로 와서 그 session을 여는지 본다

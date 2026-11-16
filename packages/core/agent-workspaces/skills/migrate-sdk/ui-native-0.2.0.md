@@ -31,25 +31,31 @@ The lophn instructions for phone screens changed: after you change a phone scree
 
 ```diff
 # lophn app agent prompt
-@@ -72,2 +72,4 @@ information). Use `lophn app link-source` only for an existing git repo with a c
+@@ -76,2 +76,4 @@ information). Use `lophn app link-source` only for an existing git repo with a c
     skill `design-app` has the phone screen rules and what the preview cannot show).
 +   If you changed a phone screen and the person is here, check it once on their
 +   phone (`lophn tab open --phone <app>`; `phone-check.md` in `design-app`).
  6. `lophn release activate` the release:
 # design-app skill
-@@ -293,7 +293,7 @@ Check it on the desktop:
- The preview draws with react-native-web, so the phone can differ: text input,
--the soft keyboard, scrolling, fonts, the safe area. When you report, say what
+@@ -294,10 +294,10 @@ The preview draws with react-native-web, so the phone can differ: text input,
+ the soft keyboard, scrolling, fonts, the safe area. When you report, say what
 -you saw in the desktop preview and what you could not see on the phone, and
 -that the person makes the last check on their phone. If the phone app is older
 -than the kit the screen was built with, the phone shows "update the lophn app";
 -tell the person.
-+the soft keyboard, scrolling, fonts, the safe area. For those, check on the
-+person's phone with `lophn tab open --phone`: `skill.read` this skill's
-+`phone-check.md`. When you report, say what you saw on the desktop, on the
-+phone, and what you could not check. If the phone app is older than the kit the
-+screen was built with, the phone shows "update the lophn app"; tell the person.
- 
+-
+-For home screen widgets (`widgets`) and phone location (`phone.use`), first read
+-the bundled `phone-features.md`; when the app's backend and data also run on the
+-phone (`runs_on`), first read `phone-apps.md`. Read each with
++you saw on the desktop, on the phone, and what you could not check. If the
++phone app is older than the kit the screen was built with, the phone shows
++"update the lophn app"; tell the person.
++
++To check those on the person's phone (`lophn tab open --phone`), first read the
++bundled `phone-check.md`; for home screen widgets (`widgets`) and phone location
++(`phone.use`), first read `phone-features.md`; when the app's backend and data
++also run on the phone (`runs_on`), first read `phone-apps.md`. Read each with
+ `skill.read({ name: "design-app", path: "<file>" })`.
 # @lophn/ui-native guide.md
 @@ -214,3 +214,7 @@ desktop에서 확인한다: `lophn tab open --preview <app> --screen <key>`가 
  연다. 이것은 react-native-web이라 실제 폰과 다를 수 있다(입력, soft keyboard, scroll, 글꼴, 안전 영역).

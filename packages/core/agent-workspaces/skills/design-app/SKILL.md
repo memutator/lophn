@@ -291,15 +291,15 @@ Check it on the desktop:
    operation with `lophn preview call`.
 
 The preview draws with react-native-web, so the phone can differ: text input,
-the soft keyboard, scrolling, fonts, the safe area. For those, check on the
-person's phone with `lophn tab open --phone`: `skill.read` this skill's
-`phone-check.md`. When you report, say what you saw on the desktop, on the
-phone, and what you could not check. If the phone app is older than the kit the
-screen was built with, the phone shows "update the lophn app"; tell the person.
+the soft keyboard, scrolling, fonts, the safe area. When you report, say what
+you saw on the desktop, on the phone, and what you could not check. If the
+phone app is older than the kit the screen was built with, the phone shows
+"update the lophn app"; tell the person.
 
-For home screen widgets (`widgets`) and phone location (`phone.use`), first read
-the bundled `phone-features.md`; when the app's backend and data also run on the
-phone (`runs_on`), first read `phone-apps.md`. Read each with
+To check those on the person's phone (`lophn tab open --phone`), first read the
+bundled `phone-check.md`; for home screen widgets (`widgets`) and phone location
+(`phone.use`), first read `phone-features.md`; when the app's backend and data
+also run on the phone (`runs_on`), first read `phone-apps.md`. Read each with
 `skill.read({ name: "design-app", path: "<file>" })`.
 
 ## Talking to an agent from a screen

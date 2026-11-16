@@ -10,13 +10,13 @@ lead만 고친다. `tools/status.py mobile-widgets build`가 `tasks/*.md`에서 
 | `mobile-widget-contract` | widgets | 1 | 없음 | merged | widgets/mobile-widget-contract | e8a53a8a2 |  |
 | `mobile-cap-phone` | phone-use | 2 | mobile-phone-link-contract | merged | phone-use/mobile-cap-phone | be7c592cf |  |
 | `mobile-widgets-decl` | widgets | 2 | 없음 | merged | widgets/mobile-widgets-decl | 21b5553ac |  |
-| `mobile-open-target` | open-target | 3 | 없음 | todo |  |  |  |
+| `mobile-open-target` | open-target | 3 | 없음 | running | open-target/mobile-open-target |  |  |
 | `mobile-widget-core` | widgets | 3 | mobile-widget-contract, mobile-widgets-decl | merged | widgets/mobile-widget-core | b2df3e21c |  |
 | `mobile-widget-store` | widgets | 4 | mobile-widget-core, mobile-open-target, mobile-widget-spike | todo |  |  |  |
 | `mobile-widget-native` | widgets | 5 | mobile-widget-store, mobile-widget-spike, mobile-widget-wireframes | todo |  |  |  |
 | `mobile-widget-screens` | widgets | 6 | mobile-widget-native, mobile-widget-wireframes, mobile-open-target | todo |  |  |  |
 | `mobile-shortcut-native` | shortcuts | 7 | mobile-widget-screens, mobile-open-target, mobile-widget-spike, mobile-widget-wireframes | todo |  |  |  |
-| `mobile-phone-link` | phone-link | 8 | mobile-phone-link-contract | todo |  |  |  |
+| `mobile-phone-link` | phone-link | 8 | mobile-phone-link-contract | running | phone-link/mobile-phone-link |  |  |
 | `mobile-phone-use-grant` | phone-use | 9 | mobile-phone-link, mobile-widgets-decl, mobile-phone-link-contract, mobile-cap-phone | todo |  |  |  |
 | `mobile-phone-location` | phone-link | 10 | mobile-phone-link, mobile-phone-use-grant | todo |  |  |  |
 | `mobile-widgets-guidance` | widgets | 10 | mobile-widget-core, mobile-widgets-decl, mobile-cap-phone, mobile-phone-use-grant, mobile-widget-native | todo |  |  |  |

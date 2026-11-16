@@ -15,7 +15,7 @@ lead만 고친다. `tools/status.py mobile-widgets build`가 `tasks/*.md`에서 
 | `mobile-widget-store` | widgets | 4 | mobile-widget-core, mobile-open-target, mobile-widget-spike | merged | widgets/mobile-widget-store | 2bad892dc |  |
 | `mobile-widget-native` | widgets | 5 | mobile-widget-store, mobile-widget-spike, mobile-widget-wireframes | merged | widgets/mobile-widget-native | f51a4ad8d |  |
 | `mobile-widget-screens` | widgets | 6 | mobile-widget-native, mobile-widget-wireframes, mobile-open-target | merged | widgets/mobile-widget-screens | 94f28a81e |  |
-| `mobile-shortcut-native` | shortcuts | 7 | mobile-widget-screens, mobile-open-target, mobile-widget-spike, mobile-widget-wireframes | running | shortcuts/mobile-shortcut-native |  |  |
+| `mobile-shortcut-native` | shortcuts | 7 | mobile-widget-screens, mobile-open-target, mobile-widget-spike, mobile-widget-wireframes | merged | shortcuts/mobile-shortcut-native | 8a0131398 |  |
 | `mobile-phone-link` | phone-link | 8 | mobile-phone-link-contract | merged | phone-link/mobile-phone-link | 512b34f40 |  |
 | `mobile-phone-use-grant` | phone-use | 9 | mobile-phone-link, mobile-widgets-decl, mobile-phone-link-contract, mobile-cap-phone | merged | phone-use/mobile-phone-use-grant | 77649030b |  |
 | `mobile-phone-location` | phone-link | 10 | mobile-phone-link, mobile-phone-use-grant | merged | phone-link/mobile-phone-location | 8b34716d6 |  |

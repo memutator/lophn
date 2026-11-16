@@ -80,6 +80,14 @@ files:
     covers: [app-broker-notify:notified, app-broker-notify:tray-set, app-broker-notify:widget-set, app-broker-notify:refused]
     note: "notify.send 허락이 없거나 preview이거나 옛 release인 자식은 core에 닿지 않고 forbidden으로 거절, 허락된 알림과 tray·위젯 값은 core로 감"
 
+  - path: packages/core/apps/permissions/broker/phone_test.ts
+    covers: [app-broker-phone:answered, app-broker-phone:refused]
+    note: "phone.use를 선언하지 않았거나 grant가 없거나 거둬졌거나 다른 capability뿐이거나 preview 자식이거나 보관된 앱이면 forbidden(permission phone.use, scope {capability})이고 core에 닿지 않음. 허락된 요청만 core로 감"
+
+  - path: packages/core/apps/permissions/schema_test.ts
+    covers: []
+    note: "apps.permissions.phone_kind step 뒤에도 기존 grant 행·index·trigger가 그대로이고 phone.use 행을 넣을 수 있음. ledger step 내부라 flow outcome이 없다"
+
   - path: packages/core/apps/widgets/handlers_test.ts
     covers: [widget-set:set, widget-set:cleared, widget-set:not-found, widget-set:archived, widget-set:undeclared, widget-set:forbidden, widget-read:ok]
     note: "app 자격만 자기 앱의 위젯 값을 쓰고(user는 forbidden), 선언하지 않은 key는 invalid_input, 없는 앱은 not_found, 보관된 앱은 conflict이며, 목록은 보관된 앱의 값과 선언에서 빠진 key의 값을 내지 않고 지운 값은 돌아오지 않음"

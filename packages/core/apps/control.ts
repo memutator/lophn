@@ -34,6 +34,7 @@ import {
   noticePost,
   appTraySet,
   appWidgetSet,
+  appPhoneRequest,
   appEventPublish,
   appGrantsList,
   appLogFile,
@@ -177,13 +178,14 @@ const SUPERVISOR_OPERATIONS = [
   // 앱의 외부 요청에 붙일 secret 값을 core가 현재 grant로 다시 판정해 건넨다.
   appsSecretValue.name,
 ];
-// 자식 앱마다 받는 app credential이 닿는 operation. 다른 앱 호출, 사람에게 알리기(notice·tray), event 발행, session 목록·상태·멈추기뿐이다.
-// 호출은 앱 process의 broker가 그 자식의 credential로 core를 부른다. notice의 권한은 broker가 판정한다.
+// 자식 앱마다 받는 app credential이 닿는 operation. 다른 앱 호출, 사람에게 알리기(notice·tray), 폰에 묻기, event 발행, session 목록·상태·멈추기뿐이다.
+// 호출은 앱 process의 broker가 그 자식의 credential로 core를 부른다. notice와 폰의 권한은 broker가 판정한다.
 const APP_CHILD_OPERATIONS = [
   appCallTool.name,
   noticePost.name,
   appTraySet.name,
   appWidgetSet.name,
+  appPhoneRequest.name,
   appEventPublish.name,
   appSessionsList.name,
   appSessionsStatus.name,
@@ -210,6 +212,7 @@ export function appsOperationPolicies(): OperationPolicy[] {
     { name: noticePost.name, actors: ["machine", "app"], kind: "command" },
     { name: appTraySet.name, actors: ["machine", "app"], kind: "command" },
     { name: appWidgetSet.name, actors: ["machine", "app"], kind: "command" },
+    { name: appPhoneRequest.name, actors: ["machine", "app"], kind: "command" },
     { name: appEventPublish.name, actors: ["machine", "app"], kind: "command" },
     ...[appSessionsList, appSessionsStatus, appSessionsStop].map(
       (route): OperationPolicy => ({

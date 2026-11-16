@@ -367,21 +367,39 @@ flows:
     actor: app
     entries: [route:app_phone/request]
     boundary: [apps, core-api]
-    code: [packages/protocol/apps/phone-request.ts]
+    code: [packages/core/apps/phone-request/handler.ts, packages/protocol/apps/phone-request.ts, packages/core/remote/phone-link.ts]
     steps:
-      - "broker가 선언과 grant(phone.use, 범위 capability)를 본 뒤 앱 자식 credential로 부른다. core가 기준 폰에 묻고 답을 그대로 돌려준다"
+      - "broker가 선언과 grant(phone.use, 범위 capability)를 본 뒤 앱 자식 credential로 부른다(broker는 이 entry 밖)"
+      - "core가 자격의 app을 본다. app 자격이 아니면 forbidden, 앱이 없으면 not_found, 보관됐으면 conflict"
+      - "input이 capability의 PHONE_KINDS 입력 schema에 맞지 않으면 invalid_input"
+      - "기준 폰(devices.is_primary)을 찾는다. 없으면 unavailable(no_phone)"
+      - "PhoneLink.call로 그 기기에 kind와 입력, kind의 deadline을 보낸다. 폰의 오류(unavailable의 이유, forbidden의 os_permission_denied)는 그대로 돌려준다"
+      - "답이 kind의 출력 schema에 맞으면 {value}, 아니면 unavailable이다. banner와 기록은 없다"
     outcomes:
       - id: ok
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch)"
+        when: "app 자격이 아니다, 이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch), 또는 폰이 OS 권한을 거절했다(reason os_permission_denied)"
         observe: [response]
-    crosses_process: false
-    declared_only: [invalid_input, not_found, conflict, unavailable]
+      - id: not-found
+        code: not_found
+        when: "자격의 앱이 등록부에 없다"
+        observe: [response]
+      - id: archived
+        code: conflict
+        when: "앱이 보관됐다"
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "input이 그 capability의 입력 schema에 맞지 않는다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "기준 폰이 없다(no_phone), 폰에 닿지 못했거나 답하지 않았다(phone_unreachable, unsupported, phone_in_background, location_off, timeout), 기기 목록을 읽지 못했다, 또는 폰의 답이 출력 schema에 맞지 않는다"
+        observe: [response]
+    crosses_process: true
     docs: [architecture/remote.md]
-    unclear:
-      - "handler와 폰으로 가는 길은 뒤 task(mobile-phone-link, mobile-phone-use-grant)가 붙인다. 지금은 계약만 있다"
 
   # ---- annotation: core route ----
   - id: annotation-persist

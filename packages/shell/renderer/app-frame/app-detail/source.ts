@@ -99,7 +99,8 @@ export type ResourceKind =
   | "network"
   | "listen"
   | "secret"
-  | "notify";
+  | "notify"
+  | "phone";
 
 export type OAuthState = "none" | "in_progress" | "signed_in" | "failed";
 
@@ -131,7 +132,7 @@ export interface SecretInfo {
 export interface ResourceRow {
   readonly grant: string;
   readonly kind: ResourceKind;
-  /** 경로, host:port, secret 이름. 값은 없다. */
+  /** 경로, host:port, secret 이름, 폰 기능의 문장. 값은 없다. */
   readonly name: string;
   readonly grantedAt: string;
   /** 정리까지 끝나 거둬졌다. */

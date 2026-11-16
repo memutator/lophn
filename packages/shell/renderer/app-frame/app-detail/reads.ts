@@ -65,6 +65,7 @@ import type {
   SecretInfo,
   VersionView,
 } from "./source.ts";
+import { phoneCapabilityText } from "./model.ts";
 
 const RELEASE_LIMIT = 200;
 const GRANT_LIMIT = 200;
@@ -404,6 +405,7 @@ const RESOURCE_KINDS: Partial<Record<AppGrant["scope"]["kind"], ResourceKind>> =
     "net.listen": "listen",
     "secret.use": "secret",
     "notify.send": "notify",
+    "phone.use": "phone",
   };
 
 function resourceOf(grant: AppGrant, secret?: SecretInfo): ResourceRow | null {
@@ -417,7 +419,9 @@ function resourceOf(grant: AppGrant, secret?: SecretInfo): ResourceRow | null {
         ? `${scope.host}:${scope.port}`
         : "name" in scope
           ? scope.name
-          : "";
+          : "capability" in scope
+            ? phoneCapabilityText(scope.capability)
+            : "";
   return {
     grant: grant.id,
     kind,

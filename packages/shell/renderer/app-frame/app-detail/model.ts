@@ -100,6 +100,8 @@ export function resourceKindText(kind: ResourceKind): string {
       return t("app-detail.label.resource-secret");
     case "notify":
       return t("app-detail.label.resource-notify");
+    case "phone":
+      return t("app-detail.label.resource-phone");
   }
 }
 
@@ -118,7 +120,16 @@ export function resourceDetail(kind: ResourceKind, grantedAt: string): string {
       return t("app-detail.note.resource-secret");
     case "notify":
       return t("app-detail.note.resource-notify", { when });
+    case "phone":
+      return t("app-detail.note.resource-phone", { when });
   }
+}
+
+/** 폰 기능 grant의 이름. 동의 카드의 줄과 같은 문장이다. 모르는 capability는 이름 그대로다. */
+export function phoneCapabilityText(capability: string): string {
+  return capability === "location.get"
+    ? t("waiting.label.declared-phone-location")
+    : capability;
 }
 
 const FAILED_NOTE: Record<OAuthReason, () => string> = {

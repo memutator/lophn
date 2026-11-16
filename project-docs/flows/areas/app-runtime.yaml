@@ -2103,6 +2103,51 @@ flows:
     crosses_process: true
     risk: [permission]
 
+  - id: app-broker-phone
+    title: "앱 backend가 broker를 거쳐 사람의 폰에 기능 하나를 묻는다"
+    actor: app
+    entries: [system:app-broker-phone]
+    uses: [route:app_phone/request, route:apps/tools, route:app_grants/list]
+    pre: [app-record-started:started]
+    boundary: [app-capability, app-runtime]
+    code: [packages/core/apps/permissions/broker/phone.ts, packages/core/apps/permissions/broker/access.ts, packages/core/apps/permissions/effective.ts]
+    steps:
+      - "앱의 getLocation이 broker의 phone/request에 capability와 input을 보낸다. 입력 모양을 먼저 검사한다(schema)."
+      - "운영 자식이고 release가 지금 release와 같아야 한다. 현재 선언 ∩ grant에 그 capability의 phone.use가 있어야 한다. 아니면 forbidden(permission phone.use, scope {capability})이고 core를 부르지 않는다. 현재 범위를 읽지 못하면 access-unavailable이다."
+      - "core app_phone.request를 그 자식의 app credential로 부르고 답({value})이나 오류를 그대로 돌려준다."
+    outcomes:
+      - id: answered
+        observe: [response]
+      - id: refused
+        code: forbidden
+        when: "phone.use를 선언하지 않음, grant가 없거나 거둬짐, 다른 capability의 grant뿐, 운영 자식이 아님(preview나 release 없음), 자식 release가 현재 release와 다름, active release가 없음(보관된 앱 포함)"
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "본문 모양이 맞지 않음(모르는 capability 포함), 본문이 1 MiB를 넘음, JSON이 아님, JSON 객체가 아님"
+        observe: [response]
+      - id: access-unavailable
+        code: unavailable
+        when: "현재 실행 범위 읽기 실패(apps/tools, app_grants/list), 또는 activation 중인 후보 release"
+        observe: [response]
+      - id: core-refused
+        when: "app_phone.request가 낸 오류 그대로(unavailable: 폰 없음·닿지 않음·credential 없음·core에 닿지 않음, forbidden: 폰의 OS 권한 거절, invalid_input, not_found, conflict)"
+        observe: [response]
+      - id: unauthorized
+        code: unauthorized
+        when: "credential이 틀림, 또는 본문의 process_nonce·mode가 연결과 다름"
+        observe: [response]
+      - id: broker-closing
+        code: unavailable
+        when: "회수·교체를 시작한 연결이라 새 요청을 받지 않음(broker is closing)"
+        observe: [response]
+      - id: handler-threw
+        code: internal
+        when: "처리기가 예외를 던짐"
+        observe: [response]
+    crosses_process: true
+    risk: [permission]
+
   - id: app-broker-problem
     title: "앱이 잡은 예외를 앱 log에 쓴다"
     actor: app

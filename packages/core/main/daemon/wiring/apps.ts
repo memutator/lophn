@@ -124,6 +124,8 @@ import {
 } from "../../../apps/events/mod.ts";
 import { createTray } from "../../../apps/tray/mod.ts";
 import { createWidgets } from "../../../apps/widgets/mod.ts";
+import { phoneRequestHandler } from "../../../apps/phone-request/mod.ts";
+import { appPhoneRequest } from "../../../../protocol/apps/phone-request.ts";
 import {
   type AppViews,
   appViewHandlers,
@@ -732,6 +734,19 @@ export const appsWiring: WiringFactory = () => {
           [`${appTrayList.resource}/${appTrayList.method}`, tray.list],
           [`${appWidgetSet.resource}/${appWidgetSet.method}`, widgets.set],
           [`${appWidgetsList.resource}/${appWidgetsList.method}`, widgets.list],
+          // remote wiring이 뒤에 채우는 `phoneLink`는 부를 때 읽는다.
+          [
+            `${appPhoneRequest.resource}/${appPhoneRequest.method}`,
+            phoneRequestHandler({
+              appStatus(app) {
+                const loaded = loadApp(link.sql, app);
+                return loaded.ok && loaded.value !== null
+                  ? loaded.value.status
+                  : null;
+              },
+              phone: () => ctx.phoneLink,
+            }),
+          ],
           [
             `${appEventPublish.resource}/${appEventPublish.method}`,
             publishEvent,

@@ -302,5 +302,9 @@
   {
     "id": "apps.sync-log",
     "sha256": "621e97d8714164391d8b8759b7a8eb8a621b0aff49a085b92a63b4ae44ab096b"
+  },
+  {
+    "id": "apps.permissions.phone_kind",
+    "sha256": "79b3d3b0233fa47a2078003c1d92db600422760fc57b1bb0feba3f5729f15e37"
   }
 ]

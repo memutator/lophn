@@ -95,6 +95,17 @@ function resourceOf(
       : undefined;
   }
   if (kind === "notify.send") return { kind };
+  if (kind === "phone.use") {
+    return "capability" in scope
+      ? {
+          kind,
+          ...(scope as Omit<
+            Extract<AppGrantScope, { kind: "phone.use" }>,
+            "kind"
+          >),
+        }
+      : undefined;
+  }
   return undefined;
 }
 
@@ -114,6 +125,7 @@ export function resourceLabel(scope: ResourceScope): string {
     } → ${new URL(token_endpoint).host} scopes:${scopes.join(" ")}`;
   }
   if (scope.kind === "notify.send") return scope.kind;
+  if (scope.kind === "phone.use") return `${scope.kind}:${scope.capability}`;
   return `${scope.kind}:${scope.name}`;
 }
 

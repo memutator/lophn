@@ -45,4 +45,5 @@ export * from "./sdk-status.ts";
 export * from "./usage.ts";
 export * from "./phone.ts";
 export * from "./phone-screen.ts";
+export * from "./phone-request.ts";
 export * from "./app-sync.ts";

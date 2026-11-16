@@ -254,7 +254,7 @@ flows:
     title: "앱이 사람의 기준 폰에서 위치를 한 번 읽는다"
     actor: app
     entries: [sdk:cap-phone/getLocation, sdk:cap-phone/createPhoneClient]
-    uses: [phone-request:ok, phone-request:forbidden]
+    uses: [app-broker-phone:answered, app-broker-phone:refused, app-broker-phone:core-refused]
     boundary: [sdk-api, app-capability, child-supervision-protocol]
     code: [packages/sdk/cap-phone/phone.ts, packages/sdk/cap-phone/errors.ts]
     steps:

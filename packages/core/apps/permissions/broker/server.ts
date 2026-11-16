@@ -3,7 +3,10 @@
 // not_found다. 신원은 요청 본문이 정하지 않는다. 본문의 nonce·mode가 연결과 다르면 거절한다.
 import { asInternalError, err, type Result } from "../../../../base/mod.ts";
 import { APP_BROKER_PATHS } from "../../../../protocol/apps/calls/mod.ts";
-import { NET_FETCH_BODY_MAX_BYTES } from "../../../../protocol/apps/mod.ts";
+import {
+  NET_FETCH_BODY_MAX_BYTES,
+  PHONE_REQUEST_BROKER_PATH,
+} from "../../../../protocol/apps/mod.ts";
 import { ERROR_HTTP_STATUS } from "../../../../protocol/base/mod.ts";
 import { serve } from "../../../server/serve.ts";
 import type { AppsCallService } from "./apps-call.ts";
@@ -12,6 +15,7 @@ import type { SessionsService } from "./sessions.ts";
 import type { BrokerChild } from "./invocations.ts";
 import type { NetFetchService } from "./net-fetch.ts";
 import type { NotifyService } from "./notify.ts";
+import type { PhoneService } from "./phone.ts";
 import type { ExceptionLogService } from "./problems.ts";
 import type { ReadyService } from "./ready.ts";
 import type { SecretUseService } from "./secrets.ts";
@@ -23,6 +27,7 @@ const BROKER_ROUTES = {
   notifySend: "/_lophn/broker/notify/send",
   notifyTray: "/_lophn/broker/notify/tray",
   notifyWidget: "/_lophn/broker/notify/widget",
+  phoneRequest: PHONE_REQUEST_BROKER_PATH,
   problemsObserve: "/_lophn/broker/problems/observe-exception",
   appsCall: APP_BROKER_PATHS.call,
   eventsPublish: "/_lophn/broker/events/publish",
@@ -45,6 +50,7 @@ export type BrokerServices = {
   net?: NetFetchService;
   secrets?: SecretUseService;
   notify?: NotifyService;
+  phone?: PhoneService;
   exceptions?: ExceptionLogService;
   appsCall?: AppsCallService;
   events?: EventsService;
@@ -73,6 +79,7 @@ function routes(services: BrokerServices): Map<string, Handler> {
     net,
     secrets,
     notify,
+    phone,
     exceptions,
     appsCall,
     events,
@@ -90,6 +97,8 @@ function routes(services: BrokerServices): Map<string, Handler> {
     table.set(BROKER_ROUTES.notifyTray, (c, b) => notify.tray(c, b));
     table.set(BROKER_ROUTES.notifyWidget, (c, b) => notify.widget(c, b));
   }
+  if (phone)
+    table.set(BROKER_ROUTES.phoneRequest, (c, b) => phone.request(c, b));
   if (exceptions) {
     table.set(BROKER_ROUTES.problemsObserve, (c, b) =>
       exceptions.observe(c, b),

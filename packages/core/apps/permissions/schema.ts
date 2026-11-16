@@ -69,3 +69,41 @@ export const permissionsSchemaSteps: readonly SchemaStep[] = [
   `,
   },
 ];
+
+// phone.use를 kind에 더한다(notify_kind와 같은 다시 만들기). 낸 step 목록의 끝에 붙어야 해서 permissionsSchemaSteps가 아니라
+// WIRINGS 맨 뒤 wiring의 schemaStepsAfterTeams에 둔다.
+export const PERMISSIONS_PHONE_KIND_STEPS: readonly SchemaStep[] = [
+  {
+    id: "apps.permissions.phone_kind",
+    sql: `
+    CREATE TABLE grants_next (
+      id TEXT PRIMARY KEY NOT NULL,
+      app TEXT NOT NULL REFERENCES apps(id),
+      kind TEXT NOT NULL CHECK (kind IN (
+        'fs.read', 'fs.write', 'net.fetch', 'net.listen', 'secret.use', 'notify.send', 'phone.use', 'app.call'
+      )),
+      scope TEXT NOT NULL CHECK (length(scope) > 0),
+      status TEXT NOT NULL CHECK (status IN ('active', 'revoked')),
+      created_at TEXT NOT NULL CHECK (length(created_at) > 0),
+      revoked_at TEXT,
+      CHECK (
+        (status = 'active' AND revoked_at IS NULL) OR
+        (status = 'revoked' AND revoked_at IS NOT NULL)
+      )
+    ) STRICT;
+    INSERT INTO grants_next SELECT id, app, kind, scope, status, created_at, revoked_at FROM grants;
+    DROP TABLE grants;
+    ALTER TABLE grants_next RENAME TO grants;
+    CREATE UNIQUE INDEX grants_active_scope ON grants(app, kind, scope)
+      WHERE status = 'active';
+    CREATE INDEX grants_app_status_kind ON grants(app, status, kind);
+    CREATE TRIGGER grants_immutable BEFORE UPDATE ON grants
+    WHEN NEW.id <> OLD.id OR NEW.app <> OLD.app OR NEW.kind <> OLD.kind
+      OR NEW.scope <> OLD.scope OR NEW.created_at <> OLD.created_at
+      OR OLD.status <> 'active' OR NEW.status <> 'revoked'
+    BEGIN SELECT RAISE(ABORT, 'grant content is immutable; revoked is final'); END;
+    CREATE TRIGGER grants_no_delete BEFORE DELETE ON grants
+    BEGIN SELECT RAISE(ABORT, 'grants are revoked, not deleted'); END;
+  `,
+  },
+];

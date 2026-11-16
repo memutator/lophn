@@ -84,6 +84,7 @@ const PERMISSION_KINDS = [
   "net.listen",
   "secret.use",
   "notify.send",
+  "phone.use",
 ] as const satisfies readonly PermissionKind[];
 
 // 앱 workspace의 session이 그 앱 code의 일부를 사용자 package로 낸다. 앱 source의 HEAD commit에서 파일을 읽는 I/O라 memory route이고,

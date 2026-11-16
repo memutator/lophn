@@ -34,6 +34,11 @@ export {
   type NotifyService,
 } from "./broker/notify.ts";
 export {
+  createPhoneService,
+  type PhoneRequestPort,
+  type PhoneService,
+} from "./broker/phone.ts";
+export {
   createExceptionLogService,
   type ExceptionLog,
   type ExceptionLogService,

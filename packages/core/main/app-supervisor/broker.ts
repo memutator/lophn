@@ -17,12 +17,14 @@ import {
   createExceptionLogService,
   createNetFetchService,
   createNotifyService,
+  createPhoneService,
   createReadyService,
   createSessionsService,
   createSecretUseService,
   type EventPublishPort,
   type ExceptionLog,
   type NoticePostPort,
+  type PhoneRequestPort,
   type ReadyReceiver,
   type RedactionGate,
   type SecretDelivery,
@@ -42,6 +44,8 @@ export type BrokerAdapters = {
   sessions: SessionsPort;
   // 앱이 사람에게 알린다. 그 자식의 app credential로 core의 notices.post를 부른다.
   notice: NoticePostPort;
+  // 앱이 사람의 폰에 묻는다. 그 자식의 app credential로 core의 app_phone.request를 부른다.
+  phone: PhoneRequestPort;
   // 앱이 loopback으로 닿지 못해야 하는 플랫폼 port. hello 뒤에 알려지므로 호출 때 읽는다.
   platformPorts: () => readonly number[];
   // 외부 전송. 시험이 local fake를 넣는다. 기본은 전역 fetch다.
@@ -78,6 +82,10 @@ function servicesFor(adapters: BrokerAdapters): BrokerServices {
     notify: createNotifyService({
       access: adapters.access,
       core: adapters.notice,
+    }),
+    phone: createPhoneService({
+      access: adapters.access,
+      core: adapters.phone,
     }),
     exceptions: createExceptionLogService({ log: adapters.exceptions }),
     appsCall: createAppsCallService({ core: adapters.appCall }),

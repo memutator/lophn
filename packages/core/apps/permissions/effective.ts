@@ -14,6 +14,7 @@ const ACCESS_KINDS: ReadonlySet<string> = new Set<AccessKind>([
   "net.listen",
   "secret.use",
   "notify.send",
+  "phone.use",
 ]);
 
 type AccessEntry = {

@@ -60,6 +60,7 @@ import {
 } from "../../../remote/relay-client.ts";
 import { systemTimers } from "../../../runs/mod.ts";
 import { SYNC_LOG_SCHEMA_STEPS } from "../../../apps/sync/schema.ts";
+import { PERMISSIONS_PHONE_KIND_STEPS } from "../../../apps/permissions/schema.ts";
 import { RouteRegistry } from "../../../server/mod.ts";
 import {
   type ReaderRegistration,
@@ -305,7 +306,11 @@ export const remoteWiring: WiringFactory = () => {
 
   return {
     name: "remote",
-    schemaStepsAfterTeams: [...DEVICES_SCHEMA_STEPS, ...SYNC_LOG_SCHEMA_STEPS],
+    schemaStepsAfterTeams: [
+      ...DEVICES_SCHEMA_STEPS,
+      ...SYNC_LOG_SCHEMA_STEPS,
+      ...PERMISSIONS_PHONE_KIND_STEPS,
+    ],
     operations: () => [
       { name: devicesRegister.name, actors: ["machine"], kind: "command" },
       { name: devicesConnected.name, actors: ["machine"], kind: "command" },

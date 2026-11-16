@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { toolKeySchema } from "./channel-values.ts";
+import { phoneCapabilitySchema } from "./phone-request.ts";
 import { hostOf, oauthScope } from "./declaration/scope.ts";
 
 // declaration.permissions에는 이 중 fs·net·secret·document만 들어간다.
@@ -72,6 +73,10 @@ const documentScopeSchema = z.strictObject({
 });
 // notify.send는 scope가 없다. 앱이 사람에게 알리는 것 하나뿐이라 좁힐 자원이 없다.
 const notifyScopeSchema = z.strictObject({});
+// phone.use는 폰 기능 하나를 가리킨다. 기능마다 따로 묻고 따로 거둔다.
+const phoneScopeSchema = z.strictObject({
+  capability: phoneCapabilitySchema,
+});
 const appCallScopeSchema = z.strictObject({
   app: idSchema("app"),
   app_tools: uniqueList(toolKeySchema),
@@ -86,6 +91,7 @@ export const permissionRequirementSchema = z
       "net.listen",
       "secret.use",
       "notify.send",
+      "phone.use",
       "document.save",
     ]),
     scope: z.union([
@@ -94,6 +100,7 @@ export const permissionRequirementSchema = z
       listenScopeSchema,
       secretScopeSchema,
       notifyScopeSchema,
+      phoneScopeSchema,
       documentScopeSchema,
     ]),
     reason: z.string().min(1),
@@ -108,7 +115,9 @@ export const permissionRequirementSchema = z
             ? value.kind === "secret.use"
             : "key" in value.scope
               ? value.kind === "document.save"
-              : value.kind === "notify.send";
+              : "capability" in value.scope
+                ? value.kind === "phone.use"
+                : value.kind === "notify.send";
     if (!scopeKind) {
       context.addIssue({
         code: "custom",
@@ -141,6 +150,7 @@ export const appGrantScopeSchema = z.discriminatedUnion("kind", [
   listenScopeSchema.extend({ kind: z.literal("net.listen") }),
   secretScopeSchema.extend({ kind: z.literal("secret.use") }),
   notifyScopeSchema.extend({ kind: z.literal("notify.send") }),
+  phoneScopeSchema.extend({ kind: z.literal("phone.use") }),
   appCallScopeSchema.extend({ kind: z.literal("app.call") }),
 ]);
 export type AppGrantScope = z.infer<typeof appGrantScopeSchema>;

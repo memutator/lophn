@@ -17,6 +17,7 @@ import {
 } from "../../../protocol/apps/calls/mod.ts";
 import {
   noticePost,
+  appPhoneRequest,
   appsSecretValue,
   CONTROL_PATHS,
 } from "../../../protocol/apps/mod.ts";
@@ -29,6 +30,7 @@ import {
   type BrokerChild,
   type EventPublishPort,
   type NoticePostPort,
+  type PhoneRequestPort,
   type ReadyReceiver,
   type SessionsPort,
 } from "../../apps/permissions/mod.ts";
@@ -381,6 +383,14 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     setWidget: (child, input) =>
       asChild(child, `${appWidgetSet.resource}/${appWidgetSet.method}`, input),
   };
+  const phone: PhoneRequestPort = {
+    request: (child, input) =>
+      asChild(
+        child,
+        `${appPhoneRequest.resource}/${appPhoneRequest.method}`,
+        input,
+      ),
+  };
 
   const events: EventPublishPort = {
     publish: (child, input) =>
@@ -443,6 +453,7 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
     events,
     sessions,
     notice,
+    phone,
     platformPorts: () => (hello.apiPort === 0 ? [] : [hello.apiPort]),
     exceptions: {
       frames: (child, stack) =>

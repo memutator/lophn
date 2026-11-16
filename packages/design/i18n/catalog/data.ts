@@ -68,6 +68,11 @@ export const data = {
   "waiting.label.declared-notify": "Notify",
   "waiting.label.declared-notify-value": "Send you notifications",
   "waiting.label.declared-other": "Other",
+  "app-detail.label.resource-phone": "phone",
+  "app-detail.note.resource-phone":
+    "Asks your phone only while lophn is open on it. Allowed {when}.",
+  "waiting.label.declared-phone": "Phone",
+  "waiting.label.declared-phone-location": "Use your phone's location",
   "waiting.label.declared-secret": "Secret",
   "waiting.label.effect-external": "external",
   "waiting.label.effect-read": "read",

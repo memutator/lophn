@@ -243,6 +243,17 @@ function declaredLines(resources: readonly string[]): Line[] {
     }
     const at = resource.indexOf(":");
     const kind = at === -1 ? "" : resource.slice(0, at);
+    // 폰 기능은 이름 대신 사람이 읽는 한 문장이다. 모르는 capability는 이름 그대로 보인다.
+    if (kind === "phone.use") {
+      const capability = resource.slice(at + 1);
+      return {
+        label: t("waiting.label.declared-phone"),
+        value:
+          capability === "location.get"
+            ? t("waiting.label.declared-phone-location")
+            : capability,
+      };
+    }
     if (kind in DECLARED_LABELS) {
       return {
         label: t(DECLARED_LABELS[kind as keyof typeof DECLARED_LABELS]),

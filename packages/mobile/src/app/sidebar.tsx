@@ -32,6 +32,8 @@ import { lophnIdOf } from "../../../protocol/lophn-agent/workspaces.ts";
 import {
   installedOf,
   type SessionStatus,
+  type CodingSession,
+  useCodingSessions,
   useCurrentComputer,
   useInbox,
   useLocalApps,
@@ -42,6 +44,7 @@ import {
   type WorkspaceView,
 } from "../data/mod.ts";
 import { Character, Face, LOPHN, SESSION_DOT, WorkspaceMark } from "../parts/mod.ts";
+import { codingPlace, codingTitle, harnessProfile, stateOf as codingState, TerminalMark } from "../screens/coding/parts.tsx";
 import { stateOf } from "./computer-state.ts";
 import { FrameContext, type Place, paramsOf } from "./nav.ts";
 
@@ -88,6 +91,9 @@ export function Sidebar({ state, navigation }: DrawerContentComponentProps) {
   // The sidebar is always mounted in the frame, so it is what keeps the phone's apps in sync (useLocalApps).
   const installed = installedOf(useLocalApps());
   const workspaces = withLocalApps(useWorkspaces(), installed);
+  // One read of every project's coding sessions (empty while the computer's lophn app is not running); it follows the
+  // coding_sessions change event, so the rows come and go without a reload.
+  const coding = useCodingSessions().sessions;
   const { count } = useInbox();
   // An app on this phone opens its screen even when the computer lists only its preview.
   const phone = new Map<string, PhoneLine>([
@@ -193,8 +199,10 @@ export function Sidebar({ state, navigation }: DrawerContentComponentProps) {
             key={workspace.key}
             workspace={workspace}
             phone={phone.get(workspace.key)}
+            coding={coding.filter((one) => one.project === workspace.key)}
             on={on}
             show={show}
+            open={open}
           />
         ))}
       </SidebarList>
@@ -216,15 +224,20 @@ type PhoneLine = "screen" | "preview";
 function Workspace({
   workspace,
   phone,
+  coding,
   on,
   show,
+  open,
 }: {
   workspace: WorkspaceView;
   /** An app with a phone screen or on this phone: its line opens the screen, or the running preview when only the
    * preview has one. */
   phone: PhoneLine | undefined;
+  /** The project's running coding sessions of the computer's terminal tabs. */
+  coding: readonly CodingSession[];
   on: string;
   show: (place: Place) => void;
+  open: (place: Place) => void;
 }) {
   const name = workspace.name ?? t("left-sidebar.label.home");
   const place: Place =
@@ -235,6 +248,9 @@ function Workspace({
         : phone === "preview"
           ? { name: "app", id: workspace.key, preview: true }
           : { name: "app", id: workspace.key };
+  // The desktop puts a project's terminal sessions after its lophn sessions; the phone does not know their desk, so they
+  // follow the first group that is not a named desk (no label, or Main), or come first when every group is a desk.
+  const after = coding.length === 0 ? -1 : workspace.groups.findIndex((group) => group.label === null || group.label === "Main");
   return (
     <>
       <WorkspaceRow
@@ -249,9 +265,19 @@ function Workspace({
             ? on === "home"
             : on === `workspace:${workspace.key}`
         }
+        end={
+          <IconButton
+            icon={Plus}
+            label={t("left-sidebar.label.new-session")}
+            tone="muted"
+            size={18}
+            onPress={() => open({ name: "new-session", ...(workspace.workspace === null ? {} : { workspace: workspace.workspace }) })}
+          />
+        }
         onPress={() => show(place)}
       />
-      {workspace.groups.map((group) => (
+      {coding.length > 0 && after === -1 && <CodingLines sessions={coding} on={on} show={show} />}
+      {workspace.groups.map((group, at) => (
         <Fragment key={group.label ?? ""}>
           {group.label !== null && <WorktreeLabel>{group.label}</WorktreeLabel>}
           {group.rows.map((row) => (
@@ -272,8 +298,35 @@ function Workspace({
               }
             />
           ))}
+          {at === after && <CodingLines sessions={coding} on={on} show={show} />}
         </Fragment>
       ))}
     </>
   );
+}
+
+/** A project's running coding sessions, in the desktop's order (by session id, the terminal tab's id). They look as they
+ * do on the project screen: same face, title, state dot and Terminal mark. */
+function CodingLines({
+  sessions,
+  on,
+  show,
+}: {
+  sessions: readonly CodingSession[];
+  on: string;
+  show: (place: Place) => void;
+}) {
+  return [...sessions]
+    .sort((a, b) => (a.session < b.session ? -1 : a.session > b.session ? 1 : 0))
+    .map((session) => (
+      <SessionRow
+        key={session.session}
+        face={<Face profile={harnessProfile(session.harness, session.label)} size={20} />}
+        title={codingTitle(session)}
+        mark={session.view === "tui" ? <TerminalMark /> : undefined}
+        tone={codingState(session).tone}
+        on={on === `session:${session.session}`}
+        onPress={() => show(codingPlace(session))}
+      />
+    ));
 }

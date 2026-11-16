@@ -306,16 +306,25 @@ export interface WorkspaceRowProps {
   /** An icon (Home, a folder) or an app's Mark. */
   lead: ReactNode;
   label: string;
+  /** A small icon button at the end (+: a new session here). */
+  end?: ReactNode;
   on?: boolean;
   onPress?: () => void;
 }
 
 // A workspace in the sidebar: Home, a project, an app. Its sessions follow it.
-export function WorkspaceRow({ lead, label, on, onPress }: WorkspaceRowProps) {
+export function WorkspaceRow({
+  lead,
+  label,
+  end,
+  on,
+  onPress,
+}: WorkspaceRowProps) {
   return (
     <SideRow on={on} strong onPress={onPress}>
       {lead}
       <SideText strong>{label}</SideText>
+      {end}
     </SideRow>
   );
 }
@@ -324,6 +333,8 @@ export interface SessionRowProps {
   /** Who runs it, 20 wide: an agent's face, a coding agent's icon, a workflow icon. */
   face: ReactNode;
   title: string;
+  /** A small mark after the title (a coding session that runs in a terminal). */
+  mark?: ReactNode;
   /** warning: waits on the person. good: working. None: idle. */
   tone?: DotTone;
   on?: boolean;
@@ -334,6 +345,7 @@ export interface SessionRowProps {
 export function SessionRow({
   face,
   title,
+  mark,
   tone,
   on,
   onPress,
@@ -351,6 +363,7 @@ export function SessionRow({
         {face}
       </View>
       <SideText>{title}</SideText>
+      {mark}
       <Dot tone={tone} />
     </SideRow>
   );

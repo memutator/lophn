@@ -27,6 +27,11 @@ export function targetOf(session: CodingSession): CodingTarget {
   };
 }
 
+/** The session's name in a list: its title, or its harness's name before it has one. */
+export function codingTitle(session: CodingSession): string {
+  return session.title ?? session.label;
+}
+
 /** The conversation place of a coding session. */
 export function codingPlace(session: CodingSession): Place {
   return { name: "session", ...targetOf(session) };

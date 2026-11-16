@@ -18,6 +18,7 @@ import { mobileOps } from "./catalog/mobile-ops.ts";
 import { mobilePlaces } from "./catalog/mobile-places.ts";
 import { mobileSession } from "./catalog/mobile-session.ts";
 import { mobileTerminal } from "./catalog/mobile-terminal.ts";
+import { mobileWidgets } from "./catalog/mobile-widgets.ts";
 import { project } from "./catalog/project.ts";
 import { shell } from "./catalog/shell.ts";
 import { workflow } from "./catalog/workflow.ts";
@@ -43,6 +44,7 @@ export const en = {
   ...mobileNotifications,
   ...mobileOps,
   ...mobileTerminal,
+  ...mobileWidgets,
   ...project,
   ...shell,
   ...workflow,

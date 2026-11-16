@@ -78,7 +78,7 @@ export {
   withAttached,
 } from "./attach.ts";
 export type { ComputerData, SampleConversation } from "./link.ts";
-export { createPhoneComputers } from "./phone.ts";
+export { callOnce, createPhoneComputers } from "./phone.ts";
 export * from "./ops.ts";
 export * from "./places.ts";
 export * from "./search.ts";

@@ -28,6 +28,7 @@ import {
 import { appPhoneScreens } from "../apps/phone.ts";
 import { appRuntime } from "../apps/runtime.ts";
 import { appViewsCall, appViewsClose, appViewsOpen } from "../apps/views.ts";
+import { appWidgetsList } from "../apps/widget.ts";
 import {
   codingSessionsList,
   codingSessionsOpen,
@@ -234,6 +235,8 @@ export const REMOTE_ALLOWED_ROUTES = [
   appViewsOpen,
   appViewsCall,
   appViewsClose,
+  // 폰 홈 화면 위젯의 값: 폰이 위젯을 그리려면 읽어야 한다
+  appWidgetsList,
   // 폰이 이 컴퓨터를 지울 때 자기 등록을 지운다
   devicesUnpair,
   // push: 폰이 자기 token과 알림 설정을 두고, 지금 앞에 보이는지를 알린다

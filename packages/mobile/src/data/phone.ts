@@ -1,5 +1,10 @@
 // The computer store with the phone's real parts: secure store, WebSocket, expo-crypto, and the sample computer in dev.
-import { createConnection } from "../connection/connection.ts";
+import {
+  type CoreCall,
+  type CoreReply,
+  createConnection,
+  openFirst,
+} from "../connection/connection.ts";
 import { dialSocket } from "../connection/socket.ts";
 import { expoLocationPort } from "../link/native.ts";
 import { pair } from "../pairing/pair.ts";
@@ -9,6 +14,8 @@ import {
   random,
   saveComputers,
 } from "../pairing/store.ts";
+import type { Computer } from "../pairing/store.ts";
+import type { KeyPair } from "../remote.ts";
 import { type Computers, createComputers, sampleFor } from "./computers.ts";
 import { type ComputerData, linkOf } from "./link.ts";
 import { createSampleComputer } from "./sample.ts";
@@ -57,5 +64,62 @@ export function createPhoneComputers(): Computers<ComputerData> {
       { dev: __DEV__, flag: process.env.EXPO_PUBLIC_LOPHN_SAMPLE },
       createSampleComputer,
     ),
+  });
+}
+
+const unavailable = (message: string): CoreReply => ({
+  ok: false,
+  error: { code: "unavailable", message },
+});
+
+/**
+ * Attaches to one computer, makes one call and closes, for what runs without the computer store (a widget refresh while the
+ * app is dead). Gives up after `timeoutMs` for the whole of it.
+ */
+export function callOnce(
+  computer: Computer,
+  phone: KeyPair,
+  call: CoreCall,
+  timeoutMs: number,
+): Promise<CoreReply> {
+  return new Promise((resolve) => {
+    let done = false;
+    let channel: { close(): void } | undefined;
+    const finish = (reply: CoreReply) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      channel?.close();
+      resolve(reply);
+    };
+    const timer = setTimeout(() => finish(unavailable("timed out")), timeoutMs);
+    const endpoint = {
+      ...computer,
+      addresses: [...new Set(withDev(computer.addresses))],
+    };
+    void openFirst(endpoint, { phone, dial: dialSocket, random }).then(
+      (opened) => {
+        if (!opened) return finish(unavailable("not connected"));
+        channel = opened.channel;
+        if (done) return channel.close();
+        opened.channel.onClose(() => finish(unavailable("connection closed")));
+        opened.channel.onFrame((frame) => {
+          if (frame.type !== "result" || frame.id !== "once") return;
+          finish(
+            frame.ok
+              ? { ok: true, value: frame.value }
+              : { ok: false, error: frame.error },
+          );
+        });
+        const sent = opened.channel.send({
+          type: "call",
+          id: "once",
+          resource: call.resource,
+          method: call.method,
+          body: call.body,
+        });
+        if (!sent.ok) finish({ ok: false, error: sent.error });
+      },
+    );
   });
 }

@@ -256,6 +256,11 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
   }
 
   publish();
+  // A fresh store (the phone app started again) knows of no pending change until it counts them: without this, a sync
+  // app opened with its computer away said "synced" while its outbox still held changes.
+  for (const one of listInstalled(files, computer)) {
+    if (one.kind === "sync") void countPending(one.app).then(publish);
+  }
 
   return {
     get: () => apps,

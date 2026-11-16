@@ -13,7 +13,7 @@ lead만 고친다. `tools/status.py mobile-widgets build`가 `tasks/*.md`에서 
 | `mobile-open-target` | open-target | 3 | 없음 | merged | open-target/mobile-open-target | 4564cf5e6 |  |
 | `mobile-widget-core` | widgets | 3 | mobile-widget-contract, mobile-widgets-decl | merged | widgets/mobile-widget-core | b2df3e21c |  |
 | `mobile-widget-store` | widgets | 4 | mobile-widget-core, mobile-open-target, mobile-widget-spike | merged | widgets/mobile-widget-store | 2bad892dc |  |
-| `mobile-widget-native` | widgets | 5 | mobile-widget-store, mobile-widget-spike, mobile-widget-wireframes | running | widgets/mobile-widget-native |  |  |
+| `mobile-widget-native` | widgets | 5 | mobile-widget-store, mobile-widget-spike, mobile-widget-wireframes | merged | widgets/mobile-widget-native | f51a4ad8d |  |
 | `mobile-widget-screens` | widgets | 6 | mobile-widget-native, mobile-widget-wireframes, mobile-open-target | todo |  |  |  |
 | `mobile-shortcut-native` | shortcuts | 7 | mobile-widget-screens, mobile-open-target, mobile-widget-spike, mobile-widget-wireframes | todo |  |  |  |
 | `mobile-phone-link` | phone-link | 8 | mobile-phone-link-contract | merged | phone-link/mobile-phone-link | 512b34f40 |  |

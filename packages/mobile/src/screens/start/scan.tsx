@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, StatusBar, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { RootParams } from "../../app/root-params.ts";
-import { parseQr } from "../../pairing/pair.ts";
+import { parsePairingText } from "../../../../remote-client/mod.ts";
 import { EnterCodeSheet } from "./enter-code.tsx";
 
 // The camera screen stays dark in either theme (phone.module.css [data-tone="camera"]).
@@ -119,7 +119,7 @@ export function ScanScreen({
                 enableTorch={torch}
                 barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
                 onBarcodeScanned={({ data }) => {
-                  const qr = parseQr(data);
+                  const qr = parsePairingText(data);
                   if (qr === undefined || read.current) return;
                   read.current = true;
                   navigation.replace("pairing", { qr });

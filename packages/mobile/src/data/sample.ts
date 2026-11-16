@@ -35,7 +35,7 @@ import type {
 } from "../../../protocol/workflows/instances.ts";
 import type { JobRunView, JobView } from "../../../shell/renderer/desktop/jobs/source.ts";
 import { sampleOrdersRoutes } from "../apps/sample-orders.ts";
-import type { SampleComputer } from "./computers.ts";
+import type { SampleComputer } from "../../../remote-client/mod.ts";
 import { type ComputerData, dataOf, type SampleConversation } from "./link.ts";
 
 export const SAMPLE_KEY = "sample";

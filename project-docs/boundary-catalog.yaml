@@ -178,6 +178,7 @@ elements:
       - base
       - design
       - coding-agent-harness-api
+      - remote-client
     children:
 
       - id: extension-host
@@ -221,6 +222,13 @@ elements:
     depends_on:
       - protocol
 
+  - id: remote-client
+    kind: component
+    description: remote 연결의 client 쪽(주소 경주, 재연결, WebSocket dial, 기계 목록, pairing text 읽기와 pair, unpair). 폰 앱과 desktop shell main이 같이 쓴다.
+    depends_on:
+      - protocol
+      - base
+
   - id: design-native
     kind: library
     description: 폰 앱의 React Native UI kit(`@lophn/ui-native`). desktop kit과 같은 token과 문구 catalog를 쓴다. SDK part이기도 해서 사용자 앱의 폰 화면이 import하고 폰 앱의 base bundle이 같은 kit을 든다.
@@ -233,6 +241,7 @@ elements:
     depends_on:
       - protocol
       - design-native
+      - remote-client
 
   - id: app
     kind: extension

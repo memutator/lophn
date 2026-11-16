@@ -70,7 +70,11 @@ import { markNoticesRead } from "../../../shell/renderer/desktop/connection/wait
 import type { InboxNames } from "../../../shell/renderer/desktop/connection/waiting/names.ts";
 import { newId } from "../../../shell/renderer/prefixed-id.ts";
 import type { CodingActions, CodingTarget } from "./coding.ts";
-import type { ComputerItem, Computers, ComputersState } from "./computers.ts";
+import type {
+  ComputerItem,
+  Computers,
+  ComputersState,
+} from "../../../remote-client/mod.ts";
 import {
   type Every,
   TERMINAL_LOADING,
@@ -149,7 +153,7 @@ export interface ComputersView extends ComputersState {
   /** Sets the alias; null clears it and the name the computer announced shows again. */
   rename(key: string, name: string | null): void;
   /** Names this phone for every computer. */
-  setPhoneName(name: string): Promise<void>;
+  setDeviceName(name: string): Promise<void>;
   /** Dials a computer that is not connected right now instead of waiting for the next backoff. */
   retry(): void;
 }
@@ -163,7 +167,7 @@ export function useComputers(): ComputersView {
     add: computers.add,
     remove: computers.remove,
     rename: computers.rename,
-    setPhoneName: computers.setPhoneName,
+    setDeviceName: computers.setDeviceName,
     retry: computers.resume,
   };
 }

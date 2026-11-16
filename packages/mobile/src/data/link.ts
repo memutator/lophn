@@ -10,10 +10,13 @@ import {
   type EventClient,
 } from "../../../shell/renderer/desktop/connection/events/client.ts";
 import { createWaitingStore } from "../../../shell/renderer/desktop/connection/events/waiting-store.ts";
-import type { Connection } from "../connection/connection.ts";
-import { unpair } from "../pairing/unpair.ts";
+import {
+  type Connection,
+  type Link,
+  type LinkState,
+  unpair,
+} from "../../../remote-client/mod.ts";
 import { type Coding, codingOf } from "./coding.ts";
-import type { Link, LinkState } from "./computers.ts";
 import { remoteImages } from "./images.ts";
 
 export type WaitingStore = ReturnType<typeof createWaitingStore>;
@@ -86,7 +89,7 @@ export function linkOf(connection: Connection): Link<ComputerData> {
     },
     pause: () => connection.pause(),
     resume: () => connection.resume(),
-    unpair: () => unpair(connection),
+    unpair: () => unpair(connection, crypto.randomUUID()),
     close() {
       stop();
       connection.close();

@@ -23,6 +23,10 @@ modules:
     boundary: app-sync
     notes: sync core다. 컴퓨터의 app runtime과 폰 host가 같은 module을 쓴다. 폰 앱이 Metro로 이 폴더를 바로 읽고 앱 process의 entrypoint도 상대 path로 읽어서 zod와 `node:` module을 import하지 않는다(Node driver와 test만 예외). 숨은 표 `lophn_sync_*`의 칸 이름은 폰 native module(`packages/mobile/modules/lophn-app-db`)이 C++에서 쓰므로 바꾸면 그쪽도 바꾼다.
 
+  - path: packages/remote-client
+    boundary: remote-client
+    notes: 폰과 desktop shell main이 같이 쓰는 remote client다. 폰은 Metro가 source를 읽어서 protocol과 base만 상대 path로 import하고 `node:`·React Native·zod를 import하지 않는다(test만 `node:test`). 컴퓨터의 `request`에 답하기, 기기 key와 기계 목록의 저장, 폰의 화면 칸은 쓰는 쪽이 넣는다.
+
   - path: packages/relay
     boundary: relay
     notes: 저장소에서 짓지만 사람의 기계가 아니라 인터넷의 서버에서 돈다. protocol과 base만 import한다.

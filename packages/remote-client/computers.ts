@@ -1,9 +1,21 @@
-// The paired computers and one live link to each. React-free so Node tests drive it; hooks read it through `subscribe`/`get`.
-// Saved computers come from the phone's secure store; the sample computer (dev builds only) is kept in memory and never saved.
-import type { Announced } from "../connection/connection.ts";
-import type { PairFailure } from "../pairing/pair.ts";
-import type { Computer } from "../pairing/store.ts";
-import type { KeyPair, RemotePairing } from "../remote.ts";
+// The paired computers and one live link to each. React-free so Node tests drive it; the phone's hooks and the desktop
+// shell main read it through `subscribe`/`get`. Where the list is saved is the caller's (`load`/`save`); the sample
+// computer (phone dev builds only) is kept in memory and never saved.
+import type { KeyPair, RemotePairing } from "../protocol/remote/client.ts";
+import type { Announced, Endpoint } from "./connection.ts";
+import type { PairFailure } from "./pairing.ts";
+
+// A paired computer. `key` (the core's public key) is its identity on the wire; `machine` (the computer's `mch_` id) is
+// what a computer is: pairing again with the same machine, on any key, replaces the entry.
+// `name` is the alias the person gave it on this device and only the person changes it; `announced` is the name the
+// computer itself sent in its last hello. Shown: name ?? announced ?? the address. `machine` is empty on an entry paired
+// before computers announced themselves; the first connection fills it in.
+export type Computer = Endpoint & {
+  device: string;
+  revoked: boolean;
+  name?: string;
+  announced?: string;
+};
 
 export type ComputerStatus = "connecting" | "connected" | "offline" | "revoked";
 export type ComputerPath = "direct" | "relay";
@@ -22,7 +34,7 @@ export interface Link<D> {
   subscribe(listener: () => void): () => void;
   pause(): void;
   resume(): void;
-  // Asks the computer to drop this phone's registration. Absent on the sample computer.
+  // Asks the computer to drop this device's registration. Absent on the sample computer.
   unpair?(): Promise<void>;
   close(): void;
 }
@@ -31,7 +43,7 @@ export interface ComputerItem {
   readonly key: string;
   // What the screens show: the person's alias, else the name the computer announced, else its address.
   readonly name: string;
-  // The alias the person gave it on this phone, and the name the computer last announced; null when there is none.
+  // The alias the person gave it on this device, and the name the computer last announced; null when there is none.
   readonly alias: string | null;
   readonly announced: string | null;
   readonly status: ComputerStatus;
@@ -41,10 +53,10 @@ export interface ComputerItem {
 }
 
 export interface ComputersState {
-  // False until the phone key and the saved list are read.
+  // False until the device key and the saved list are read.
   readonly ready: boolean;
-  // What this phone calls itself to every computer (its hello name); empty until ready.
-  readonly phoneName: string;
+  // What this device calls itself to every computer (its hello name); empty until ready.
+  readonly deviceName: string;
   readonly computers: readonly ComputerItem[];
   readonly current: string | null;
 }
@@ -60,22 +72,22 @@ export interface SampleComputer<D> {
 }
 
 export interface ComputersDeps<D> {
-  load(): Promise<{ phone: KeyPair; computers: Computer[]; name: string }>;
+  load(): Promise<{ key: KeyPair; computers: Computer[]; name: string }>;
   save(computers: Computer[]): Promise<void>;
-  // Saves the phone's name (empty goes back to the default) and returns the one in effect.
+  // Saves the device's name (empty goes back to the default) and returns the one in effect.
   saveName(name: string): Promise<string>;
-  // Opens the link; it connects on its own and keeps retrying until closed. `onRevoked` is the computer cutting this phone
-  // off; `onPeer` is the computer saying who it is each time a channel opens. `name` is the phone's name for that hello.
+  // Opens the link; it connects on its own and keeps retrying until closed. `onRevoked` is the computer cutting this device
+  // off; `onPeer` is the computer saying who it is each time a channel opens. `name` is the device's name for that hello.
   open(
     computer: Computer,
-    phone: KeyPair,
+    key: KeyPair,
     on: {
       name: string;
       onRevoked: () => void;
       onPeer: (machine: Announced) => void;
     },
   ): Link<D>;
-  pair(qr: RemotePairing, phone: KeyPair, name: string): Promise<PairResult>;
+  pair(qr: RemotePairing, key: KeyPair, name: string): Promise<PairResult>;
   sample?: SampleComputer<D>;
 }
 
@@ -86,19 +98,19 @@ export interface Computers<D> {
   start(): Promise<void>;
   link(key: string): Link<D> | undefined;
   select(key: string): void;
-  // Pairs with the QR's computer and selects it. Returns why when it fails.
+  // Pairs with the pairing text's computer and selects it. Returns why when it fails.
   add(qr: RemotePairing): Promise<PairFailure | undefined>;
   remove(key: string): void;
   // Sets the alias; null or empty clears it and the computer's own name shows again.
   rename(key: string, name: string | null): void;
-  // Names this phone. Links open again so every computer hears it now.
-  setPhoneName(name: string): Promise<void>;
+  // Names this device. Links open again so every computer hears it now.
+  setDeviceName(name: string): Promise<void>;
   // The app went to the background or came back.
   pause(): void;
   resume(): void;
 }
 
-/** The sample computer is only for dev builds started with `EXPO_PUBLIC_LOPHN_SAMPLE=1`. */
+/** The sample computer is only for phone dev builds started with `EXPO_PUBLIC_LOPHN_SAMPLE=1`. */
 export function sampleFor<D>(
   env: { dev: boolean; flag: string | undefined },
   make: () => SampleComputer<D>,
@@ -113,18 +125,18 @@ export function defaultName(computer: Computer): string {
 
 export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
   const { sample } = deps;
-  let phone: KeyPair | undefined;
+  let deviceKey: KeyPair | undefined;
   let saved: Computer[] = [];
   let ready = false;
   let starting: Promise<void> | undefined;
   let chosen: string | null = null;
   let sampleName = sample?.name ?? "";
-  let phoneName = "";
+  let deviceName = "";
   const links = new Map<string, { link: Link<D>; stop: () => void }>();
   const listeners = new Set<() => void>();
   let state: ComputersState = {
     ready: false,
-    phoneName,
+    deviceName,
     computers: [],
     current: null,
   };
@@ -159,7 +171,7 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
     const current = computers.some((one) => one.key === chosen)
       ? chosen
       : (computers[0]?.key ?? null);
-    state = { ready, phoneName, computers, current };
+    state = { ready, deviceName, computers, current };
     for (const listener of [...listeners]) listener();
   }
 
@@ -173,9 +185,9 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
       links.delete(key);
     }
     for (const computer of saved) {
-      if (!phone || computer.revoked || links.has(computer.key)) continue;
-      const link = deps.open(computer, phone, {
-        name: phoneName,
+      if (!deviceKey || computer.revoked || links.has(computer.key)) continue;
+      const link = deps.open(computer, deviceKey, {
+        name: deviceName,
         onRevoked: () => revoke(computer.key),
         onPeer: (machine) => learn(computer.key, machine),
       });
@@ -195,10 +207,13 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
   function learn(key: string, machine: Announced) {
     const known = saved.find((c) => c.key === key);
     if (!known) return;
-    if (known.machine === machine.id && known.announced === machine.name) return;
+    if (known.machine === machine.id && known.announced === machine.name)
+      return;
     update(
       saved.map((c) =>
-        c.key === key ? { ...c, machine: machine.id, announced: machine.name } : c,
+        c.key === key
+          ? { ...c, machine: machine.id, announced: machine.name }
+          : c,
       ),
     );
   }
@@ -222,8 +237,8 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
     },
     start() {
       starting ??= deps.load().then((loaded) => {
-        phone = loaded.phone;
-        phoneName = loaded.name;
+        deviceKey = loaded.key;
+        deviceName = loaded.name;
         saved = loaded.computers;
         ready = true;
         sync();
@@ -238,9 +253,9 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
       publish();
     },
     async add(qr) {
-      // start() has not read the phone key yet; nothing could have been dialled.
-      if (!phone) return { kind: "unreachable" };
-      const result = await deps.pair(qr, phone, phoneName);
+      // start() has not read the device key yet; nothing could have been dialled.
+      if (!deviceKey) return { kind: "unreachable" };
+      const result = await deps.pair(qr, deviceKey, deviceName);
       if (!result.ok) return result.failure;
       const computer = result.computer;
       // The same computer again, by key or by machine id (its key can change with a data root of its own): the old entries
@@ -262,8 +277,8 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
     },
     remove(key) {
       if (key === sample?.key) return;
-      // A connected computer drops this phone from its list before the link closes. One that is not reached keeps the
-      // old registration until the phone pairs with it again, which replaces it.
+      // A connected computer drops this device from its list before the link closes. One that is not reached keeps the
+      // old registration until the device pairs with it again, which replaces it.
       const entry = links.get(key);
       if (entry?.link.unpair && entry.link.state().status === "connected") {
         links.delete(key);
@@ -287,8 +302,8 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
         }),
       );
     },
-    async setPhoneName(name) {
-      phoneName = await deps.saveName(name);
+    async setDeviceName(name) {
+      deviceName = await deps.saveName(name);
       // The hello is sent when a channel opens, so a name change needs new channels.
       for (const key of [...links.keys()]) closeLink(key);
       sync();

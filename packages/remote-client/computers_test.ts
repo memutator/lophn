@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cryptoRandom } from "../../../base/mod.ts";
-import type { Computer } from "../pairing/store.ts";
-import { generateKeyPair } from "../remote.ts";
+import { cryptoRandom } from "../base/mod.ts";
+import { generateKeyPair } from "../protocol/remote/client.ts";
 import {
+  type Computer,
   type ComputersDeps,
   createComputers,
   type Link,
@@ -42,7 +42,7 @@ function harness(saved: Computer[]) {
   });
   const deps: ComputersDeps<null> = {
     load: async () => ({
-      phone: generateKeyPair(cryptoRandom),
+      key: generateKeyPair(cryptoRandom),
       computers: saved,
       name: "Mina's phone",
     }),
@@ -50,7 +50,7 @@ function harness(saved: Computer[]) {
     save: async (next) => {
       saves.push(next);
     },
-    open(one, _phone, on) {
+    open(one, _key, on) {
       const record = {
         key: one.key,
         closed: false,
@@ -128,7 +128,10 @@ test("an entry paired before computers announced themselves keeps its alias, lea
   const { deps, opened, saves, pairing } = harness([old]);
   const store = createComputers(deps);
   await store.start();
-  const machine = { id: "mch_01m7dp1jqw47d55vdyzxv5wd0x" as const, name: "mina-desktop" };
+  const machine = {
+    id: "mch_01m7dp1jqw47d55vdyzxv5wd0x" as const,
+    name: "mina-desktop",
+  };
   opened[0]?.peer(machine);
 
   assert.deepEqual(saves.at(-1), [
@@ -147,7 +150,12 @@ test("an entry paired before computers announced themselves keeps its alias, lea
     ok: true,
     computer: { ...computer("b"), machine: machine.id, announced: "mina-pc" },
   };
-  const failure = await store.add({ addresses: [], port: 1, key: "b", code: "x" });
+  const failure = await store.add({
+    addresses: [],
+    port: 1,
+    key: "b",
+    code: "x",
+  });
   assert.equal(failure, undefined);
   assert.deepEqual(
     store.get().computers.map((one) => [one.key, one.name]),

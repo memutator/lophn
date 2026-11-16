@@ -1,12 +1,17 @@
 // The computer store with the phone's real parts: secure store, WebSocket, expo-crypto, and the sample computer in dev.
 import {
+  type Computer,
+  type Computers,
   type CoreCall,
   type CoreReply,
+  createComputers,
   createConnection,
+  dialWebSocket,
   openFirst,
-} from "../connection/connection.ts";
-import { dialSocket } from "../connection/socket.ts";
+  sampleFor,
+} from "../../../remote-client/mod.ts";
 import { drive } from "../apps/drive/mod.ts";
+import { answerRequest, phoneCapabilities } from "../link/answer.ts";
 import { expoLocationPort } from "../link/native.ts";
 import { pair } from "../pairing/pair.ts";
 import {
@@ -17,9 +22,7 @@ import {
   saveComputers,
   savePhoneName,
 } from "../pairing/store.ts";
-import type { Computer } from "../pairing/store.ts";
 import type { KeyPair } from "../remote.ts";
-import { type Computers, createComputers, sampleFor } from "./computers.ts";
 import { type ComputerData, linkOf } from "./link.ts";
 import { createSampleComputer } from "./sample.ts";
 
@@ -33,7 +36,7 @@ const withDev = (addresses: string[]) =>
 export function createPhoneComputers(): Computers<ComputerData> {
   return createComputers<ComputerData>({
     load: async () => ({
-      phone: await deviceKey(),
+      key: await deviceKey(),
       computers: await loadComputers(),
       name: await loadPhoneName(),
     }),
@@ -42,31 +45,32 @@ export function createPhoneComputers(): Computers<ComputerData> {
       await savePhoneName(name);
       return loadPhoneName();
     },
-    open: (computer, phone, { name, onRevoked, onPeer }) =>
-      linkOf(
+    open: (computer, key, { name, onRevoked, onPeer }) => {
+      const wait = (ms: number, fn: () => void) => {
+        const timer = setTimeout(fn, ms);
+        return () => clearTimeout(timer);
+      };
+      const ctx = { location: expoLocationPort, drive: drive.port(computer.key) };
+      return linkOf(
         createConnection({
           endpoint: { ...computer, addresses: withDev(computer.addresses) },
-          phone,
-          dial: dialSocket,
+          key,
+          dial: dialWebSocket,
           random,
           name,
+          capabilities: phoneCapabilities(),
           now: Date.now,
-          wait: (ms, fn) => {
-            const timer = setTimeout(fn, ms);
-            return () => clearTimeout(timer);
-          },
+          wait,
           onRevoked,
           onPeer,
-          phoneCtx: {
-            location: expoLocationPort,
-            drive: drive.port(computer.key),
-          },
+          answer: (frame, isActive) => answerRequest(frame, { ctx, isActive, wait }),
         }),
-      ),
-    async pair(qr, phone, name) {
+      );
+    },
+    async pair(qr, key, name) {
       const result = await pair(
         { ...qr, addresses: withDev(qr.addresses) },
-        { phone, dial: dialSocket, name },
+        { key, dial: dialWebSocket, name },
       );
       // Store the QR's own addresses; the dev address is added again at connect time.
       return result.ok
@@ -112,7 +116,13 @@ export function callOnce(
     };
     void loadPhoneName()
       .then((name) =>
-        openFirst(endpoint, { phone, dial: dialSocket, random, name }),
+        openFirst(endpoint, {
+          key: phone,
+          dial: dialWebSocket,
+          random,
+          name,
+          capabilities: phoneCapabilities(),
+        }),
       )
       .then((opened) => {
         if (!opened) return finish(unavailable("not connected"));

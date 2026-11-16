@@ -39,8 +39,9 @@ export const PACKAGE_DEPENDENCIES: Record<string, string[]> = {
   "coding-agent": ["protocol", "base"],
   design: [],
   sdk: ["protocol", "design"],
-  shell: ["protocol", "base", "design"],
+  shell: ["protocol", "base", "design", "remote-client"],
   relay: ["protocol", "base"],
+  "remote-client": ["protocol", "base"],
 };
 // shell main의 terminal host만 coding-agent를 더 쓸 수 있다.
 const TERMINAL_HOST = [

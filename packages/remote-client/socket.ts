@@ -1,7 +1,7 @@
-import type { RemoteTransport } from "../remote.ts";
+import type { RemoteTransport } from "../protocol/remote/client.ts";
 
-// React Native WebSocket as a remote transport.
-export function dialSocket(url: string): Promise<RemoteTransport> {
+// The standard global WebSocket (React Native, Node, Electron main) as a remote transport.
+export function dialWebSocket(url: string): Promise<RemoteTransport> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(url);
     ws.binaryType = "arraybuffer";

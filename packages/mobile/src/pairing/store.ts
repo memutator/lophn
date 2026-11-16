@@ -1,7 +1,7 @@
 import { getRandomValues } from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
-import type { Endpoint } from "../connection/connection.ts";
+import type { Computer } from "../../../remote-client/mod.ts";
 import {
   generateKeyPair,
   type KeyPair,
@@ -11,18 +11,6 @@ import {
 
 // Hermes has no global crypto, so packages/base's cryptoRandom does not work here.
 export const random = { fill: (bytes: Uint8Array) => getRandomValues(bytes) };
-
-// A paired computer. `key` (the core's public key) is its identity on the wire; `machine` (the computer's `mch_` id) is
-// what a computer is: pairing again with the same machine, on any key, replaces the entry.
-// `name` is the alias the person gave it on this phone and only the person changes it; `announced` is the name the
-// computer itself sent in its last hello. Shown: name ?? announced ?? the address. `machine` is empty on an entry paired
-// before computers announced themselves; the first connection fills it in.
-export type Computer = Endpoint & {
-  device: string;
-  revoked: boolean;
-  name?: string;
-  announced?: string;
-};
 
 const options = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,

@@ -38,6 +38,7 @@ const ALL_PACKAGES = [
   "sdk",
   "shell",
   "relay",
+  "remote-client",
   "tools",
   "tests",
 ];
@@ -207,6 +208,7 @@ const TSC_PROJECTS: Record<string, string[]> = {
   sdk: ["packages/sdk", "packages/sdk/flow"],
   shell: ["packages/shell/renderer"],
   relay: ["packages/relay"],
+  "remote-client": ["packages/remote-client"],
   tools: ["tools", "tools/wireframes"],
   tests: ["tests"],
 };
@@ -355,7 +357,9 @@ async function buildSteps(
       commands: [[...BIOME_CMD, "lint", ...dirs]],
     });
   } else skip("shell fmt/lint", "shell이 안 돎");
-  if (has("shell", "protocol", "base", "design", "coding-agent")) {
+  if (
+    has("shell", "protocol", "base", "design", "coding-agent", "remote-client")
+  ) {
     // shell main은 root npm workspace의 member다. 의존은 root node_modules에 있다.
     const installed = await exists("node_modules");
     const commands = [[...NPM, "--prefix", SHELL_MAIN, "run", "check"]];

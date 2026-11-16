@@ -34,13 +34,13 @@ export {
   type CardView,
   cardOf,
 } from "../../../shell/renderer/desktop/connection/waiting/model.ts";
-export type { PairFailure } from "../pairing/pair.ts";
 export type {
   ComputerItem,
   ComputerPath,
   ComputerStatus,
   Computers,
-} from "./computers.ts";
+  PairFailure,
+} from "../../../remote-client/mod.ts";
 export type { CodingActions, CodingTarget } from "./coding.ts";
 export type { CodingSession } from "../../../protocol/coding-agent/relay.ts";
 export {

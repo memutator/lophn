@@ -1,16 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cryptoRandom } from "../../../base/mod.ts";
+import { cryptoRandom } from "../base/mod.ts";
+import type { Id } from "../protocol/base/ids.ts";
 import {
   acceptRemote,
   type RemoteServerChannel,
-} from "../../../protocol/remote/channel.ts";
-import type { RemoteClientFrame } from "../../../protocol/remote/frames.ts";
+} from "../protocol/remote/channel.ts";
+import type { RemoteClientFrame } from "../protocol/remote/frames.ts";
 import {
   generateKeyPair,
   type RemoteTransport,
   remoteKeyText,
-} from "../remote.ts";
+} from "../protocol/remote/client.ts";
 import { createConnection } from "./connection.ts";
 
 // Two in-memory transports wired to each other. Delivery is async like a socket.
@@ -46,7 +47,10 @@ function pipe(): [RemoteTransport, RemoteTransport] {
   return [side(a, b), side(b, a)];
 }
 
-const MACHINE = { id: "mch_01m7dp1jqw47d55vdyzxv5wd0x" as const, name: "mina-desktop" };
+const MACHINE = {
+  id: "mch_01m7dp1jqw47d55vdyzxv5wd0x" as const,
+  name: "mina-desktop",
+};
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
@@ -60,7 +64,7 @@ test("after a drop or a dead resume the connection reconnects and sends the last
   // The relay is down here: the direct address alone must keep the connection going.
   const dial = async (url: string) => {
     if (url.startsWith("wss://")) throw new Error("relay unreachable");
-    const [phoneSide, coreSide] = pipe();
+    const [clientSide, coreSide] = pipe();
     void acceptRemote({
       transport: coreSide,
       staticKey: core,
@@ -82,7 +86,7 @@ test("after a drop or a dead resume the connection reconnects and sends the last
         }
       });
     });
-    return phoneSide;
+    return clientSide;
   };
   const retries: (() => void)[] = [];
   const connection = createConnection({
@@ -92,7 +96,8 @@ test("after a drop or a dead resume the connection reconnects and sends the last
       key: remoteKeyText(core.publicKey),
       relay: "wss://relay.test",
     },
-    phone: generateKeyPair(cryptoRandom),
+    key: generateKeyPair(cryptoRandom),
+    capabilities: [],
     dial,
     random: cryptoRandom,
     now: () => 1,
@@ -103,7 +108,6 @@ test("after a drop or a dead resume the connection reconnects and sends the last
     onRevoked: () => {},
     onPeer: () => {},
     name: "Mina's phone",
-    phoneCtx: { location: {} as never, drive: {} as never },
   });
   const conditions = [{ session: "ses_01m7dp1jqw47d55vdyzxv5wd0x" }];
   await settle();
@@ -136,9 +140,12 @@ test("after a drop or a dead resume the connection reconnects and sends the last
 
 test("a watch with a session id the core would reject sends no such condition, and the connection comes back after the core closes it", async () => {
   const core = generateKeyPair(cryptoRandom);
-  const servers: { channel: RemoteServerChannel; frames: RemoteClientFrame[] }[] = [];
+  const servers: {
+    channel: RemoteServerChannel;
+    frames: RemoteClientFrame[];
+  }[] = [];
   const dial = async () => {
-    const [phoneSide, coreSide] = pipe();
+    const [clientSide, coreSide] = pipe();
     void acceptRemote({
       transport: coreSide,
       staticKey: core,
@@ -147,19 +154,27 @@ test("a watch with a session id the core would reject sends no such condition, a
       random: cryptoRandom,
     }).then((opened) => {
       assert.ok(opened.ok);
-      const server = { channel: opened.value, frames: [] as RemoteClientFrame[] };
+      const server = {
+        channel: opened.value,
+        frames: [] as RemoteClientFrame[],
+      };
       servers.push(server);
       opened.value.onFrame((frame) => {
         server.frames.push(frame);
         if (frame.type === "watch") opened.value.send({ type: "ready" });
       });
     });
-    return phoneSide;
+    return clientSide;
   };
   const retries: (() => void)[] = [];
   const connection = createConnection({
-    endpoint: { addresses: ["10.0.0.1"], port: 7432, key: remoteKeyText(core.publicKey) },
-    phone: generateKeyPair(cryptoRandom),
+    endpoint: {
+      addresses: ["10.0.0.1"],
+      port: 7432,
+      key: remoteKeyText(core.publicKey),
+    },
+    key: generateKeyPair(cryptoRandom),
+    capabilities: [],
     dial,
     random: cryptoRandom,
     now: () => 1,
@@ -170,14 +185,16 @@ test("a watch with a session id the core would reject sends no such condition, a
     onRevoked: () => {},
     onPeer: () => {},
     name: "Mina's phone",
-    phoneCtx: { location: {} as never, drive: {} as never },
   });
   await settle();
   const good = { session: "ses_01m7dp1jqw47d55vdyzxv5wd0x" };
   await connection.watch([good, { session: "" }]);
   await settle();
   // The core parses every frame with this schema and closes the channel on one it cannot read.
-  assert.deepEqual(servers[0]?.frames.at(-1), { type: "watch", conditions: [good] });
+  assert.deepEqual(servers[0]?.frames.at(-1), {
+    type: "watch",
+    conditions: [good],
+  });
   assert.equal(connection.current().state, "ready");
 
   servers[0]?.channel.close();
@@ -197,7 +214,7 @@ test("a computer is known by the machine id in its hello: the first one is repor
   const channels: RemoteServerChannel[] = [];
   let answering: { id: `mch_${string}`; name: string } = MACHINE;
   const dial = async () => {
-    const [phoneSide, coreSide] = pipe();
+    const [clientSide, coreSide] = pipe();
     void acceptRemote({
       transport: coreSide,
       staticKey: core,
@@ -213,14 +230,19 @@ test("a computer is known by the machine id in its hello: the first one is repor
         if (frame.type === "watch") opened.value.send({ type: "ready" });
       });
     });
-    return phoneSide;
+    return clientSide;
   };
   const retries: (() => void)[] = [];
   const met: string[] = [];
   const connection = createConnection({
     // No id saved: an entry paired before computers announced one.
-    endpoint: { addresses: ["10.0.0.1"], port: 7432, key: remoteKeyText(core.publicKey) },
-    phone: generateKeyPair(cryptoRandom),
+    endpoint: {
+      addresses: ["10.0.0.1"],
+      port: 7432,
+      key: remoteKeyText(core.publicKey),
+    },
+    key: generateKeyPair(cryptoRandom),
+    capabilities: [],
     dial,
     random: cryptoRandom,
     name: "Mina's phone",
@@ -231,7 +253,6 @@ test("a computer is known by the machine id in its hello: the first one is repor
     },
     onRevoked: () => {},
     onPeer: (machine) => met.push(`${machine.id} ${machine.name}`),
-    phoneCtx: { location: {} as never, drive: {} as never },
   });
   await settle();
   assert.equal(connection.current().state, "ready");
@@ -249,5 +270,77 @@ test("a computer is known by the machine id in its hello: the first one is repor
   assert.equal(connection.current().state, "stale");
   assert.equal(met.length, 1);
   assert.equal(frames.length, 1);
+  connection.close();
+});
+
+test("a saved machine id is checked before anything is sent: another machine behind the key gets no watch and no call, the saved one gets the watch", async () => {
+  const core = generateKeyPair(cryptoRandom);
+  const frames: RemoteClientFrame[] = [];
+  const channels: RemoteServerChannel[] = [];
+  let answering: { id: Id<"mch">; name: string } = {
+    id: "mch_01m7dp1jqw47d55vdyzxv5wd0y",
+    name: "copy",
+  };
+  const dial = async () => {
+    const [clientSide, coreSide] = pipe();
+    void acceptRemote({
+      transport: coreSide,
+      staticKey: core,
+      capabilities: [],
+      machine: answering,
+      random: cryptoRandom,
+    }).then((opened) => {
+      assert.ok(opened.ok);
+      channels.push(opened.value);
+      opened.value.onFrame((frame) => {
+        frames.push(frame);
+        if (frame.type === "watch") opened.value.send({ type: "ready" });
+      });
+    });
+    return clientSide;
+  };
+  const retries: (() => void)[] = [];
+  const met: string[] = [];
+  const connection = createConnection({
+    endpoint: {
+      addresses: ["10.0.0.1"],
+      port: 7432,
+      key: remoteKeyText(core.publicKey),
+      machine: MACHINE.id,
+    },
+    key: generateKeyPair(cryptoRandom),
+    capabilities: [],
+    dial,
+    random: cryptoRandom,
+    name: "Mina's laptop",
+    now: () => 1,
+    wait: (_ms, fn) => {
+      retries.push(fn);
+      return () => {};
+    },
+    onRevoked: () => {},
+    onPeer: (machine) => met.push(machine.id),
+  });
+  await settle();
+  // The copy finished the handshake and its hello, and heard nothing after it.
+  assert.equal(channels.length, 1);
+  assert.equal(connection.current().state, "stale");
+  const reply = await connection.call({
+    resource: "sessions",
+    method: "list",
+    body: {},
+  });
+  assert.equal(reply.ok, false);
+  await settle();
+  assert.deepEqual(frames, []);
+  assert.deepEqual(met, []);
+
+  answering = MACHINE;
+  retries.at(-1)?.();
+  await settle();
+  assert.equal(channels.length, 2);
+  assert.deepEqual(frames, [{ type: "watch", conditions: [] }]);
+  assert.deepEqual(met, [MACHINE.id]);
+  assert.equal(connection.current().state, "ready");
   connection.close();
 });

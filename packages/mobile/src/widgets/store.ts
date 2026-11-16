@@ -5,10 +5,10 @@
 import { useEffect } from "react";
 import { AppState } from "react-native";
 import { type AppWidget, appWidgetsList } from "../../../protocol/apps/widget.ts";
-import type { CoreReply } from "../connection/connection.ts";
+import type { Computer, CoreReply } from "../../../remote-client/mod.ts";
 import type { CoreSource } from "../../../shell/renderer/desktop/connection/connection.ts";
 import { callOnce, type Computers, type ComputerData } from "../data/mod.ts";
-import { loadComputers, deviceKey, type Computer } from "../pairing/store.ts";
+import { loadComputers, deviceKey } from "../pairing/store.ts";
 import type { KeyPair } from "../remote.ts";
 import {
   type Binding,

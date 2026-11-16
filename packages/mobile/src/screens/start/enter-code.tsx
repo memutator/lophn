@@ -5,7 +5,7 @@ import * as Clipboard from "expo-clipboard";
 import { useState } from "react";
 import { View } from "react-native";
 import { Rich } from "../../app/rich.tsx";
-import { parseQr } from "../../pairing/pair.ts";
+import { parsePairingText } from "../../../../remote-client/mod.ts";
 import type { RemotePairing } from "../../remote.ts";
 
 export function EnterCodeSheet({
@@ -20,7 +20,7 @@ export function EnterCodeSheet({
   const [text, setText] = useState("");
   const [wrong, setWrong] = useState(false);
   const pair = () => {
-    const qr = parseQr(text.trim());
+    const qr = parsePairingText(text.trim());
     if (qr === undefined) {
       setWrong(true);
       return;

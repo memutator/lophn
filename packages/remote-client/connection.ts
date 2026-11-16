@@ -1,6 +1,8 @@
-import type { RandomSource } from "../../../base/mod.ts";
-import type { Id } from "../../../protocol/base/ids.ts";
-import { eventConditionSchema } from "../../../protocol/events/bus.ts";
+// The client side of a remote connection, shared by the phone app and the desktop shell main. Metro reads this source
+// for the phone, so it imports only protocol and base by relative path: no `node:`, React Native or zod.
+import type { RandomSource } from "../base/mod.ts";
+import type { Id } from "../protocol/base/ids.ts";
+import { eventConditionSchema } from "../protocol/events/bus.ts";
 import {
   connectRemote,
   type KeyPair,
@@ -12,8 +14,7 @@ import {
   type RemoteTransport,
   relayPhoneUrl,
   remoteKeyBytes,
-} from "../remote.ts";
-import { answerRequest, type PhoneCtx, phoneCapabilities } from "../link/answer.ts";
+} from "../protocol/remote/client.ts";
 
 // Same shape as the desktop renderer's CoreSource (packages/shell/renderer/desktop/connection), so remote screens take either.
 export type ConnectionState = {
@@ -64,8 +65,8 @@ export type Connection = CoreSource & {
   close(): void;
 };
 
-// Where a paired computer listens and which one it is. `key` is the core's public key text from the QR; `relay` is its
-// relay, if it has one. `machine` is the computer's id from its hello: once known, an answer from another machine
+// Where a paired computer listens and which one it is. `key` is the core's public key text from the pairing text; `relay`
+// is its relay, if it has one. `machine` is the computer's id from its hello: once known, an answer from another machine
 // (the same key on a copied data root) is refused before anything is sent to it.
 export type Endpoint = {
   addresses: string[];
@@ -80,21 +81,31 @@ export type Announced = RemotePeer["machine"];
 
 export type Dial = (url: string) => Promise<RemoteTransport>;
 
-// `name` is what this phone calls itself in the hello; the computer lists the phone by it.
-type Common = { phone: KeyPair; dial: Dial; random: RandomSource; name: string };
+// This device as it meets a computer. `key` is its key pair, which the computer knows it by; `name` is what it calls itself
+// in the hello, and the computer lists it by that name; `capabilities` are the `request` kinds it answers (none on desktop).
+export type Client = {
+  key: KeyPair;
+  dial: Dial;
+  random: RandomSource;
+  name: string;
+  capabilities: string[];
+};
+
+type RequestFrame = Extract<RemoteServerFrame, { type: "request" }>;
+type ResponseFrame = Extract<RemoteClientFrame, { type: "response" }>;
 
 const BACKOFF_MIN_MS = 1000;
 const BACKOFF_MAX_MS = 30_000;
 // How long a resumed channel has to answer the re-sent watch before it counts as dead.
 const PROBE_MS = 3000;
 
-type Opened = { channel: RemoteClientChannel; path: ConnectionPath };
+export type Opened = { channel: RemoteClientChannel; path: ConnectionPath };
 
 // Dials every address and the relay at once and keeps the first that finishes the handshake; the rest are closed.
 // The relay only passes bytes, so the Noise handshake is the same on every path.
 export function openFirst(
   endpoint: Endpoint,
-  deps: Common,
+  client: Client,
 ): Promise<Opened | undefined> {
   const remoteStatic = remoteKeyBytes(endpoint.key);
   const urls: { url: string; path: ConnectionPath }[] = endpoint.addresses.map(
@@ -111,16 +122,16 @@ export function openFirst(
   }
   if (!remoteStatic || urls.length === 0) return Promise.resolve(undefined);
   const open = async (url: string) => {
-    const transport = await deps.dial(url).catch(() => undefined);
+    const transport = await client.dial(url).catch(() => undefined);
     if (!transport) return undefined;
     const channel = await connectRemote({
       transport,
-      staticKey: deps.phone,
+      staticKey: client.key,
       remoteStatic,
-      capabilities: phoneCapabilities(),
-      name: deps.name,
+      capabilities: client.capabilities,
+      name: client.name,
       machine: endpoint.machine,
-      random: deps.random,
+      random: client.random,
     });
     return channel.ok ? channel.value : undefined;
   };
@@ -143,16 +154,20 @@ export function openFirst(
 }
 
 export function createConnection(
-  deps: Common & {
+  deps: Client & {
     endpoint: Endpoint;
     now: () => number;
     // Runs fn after ms; returns a cancel function.
     wait: (ms: number, fn: () => void) => () => void;
     onRevoked: () => void;
     // Every channel that opens reports who answered, so the store can keep the computer's id and its current name.
-    onPeer: (machine: Announced) => void;
-    // What the phone answers the computer's `request` frames with (location, later more).
-    phoneCtx: PhoneCtx;
+    onPeer?: (machine: Announced) => void;
+    // The answer to the computer's `request` frame (the phone's location, later more); undefined when it comes too late.
+    // `isActive` is false while paused. Without it every request is dropped: the desktop answers no kind.
+    answer?: (
+      frame: RequestFrame,
+      isActive: () => boolean,
+    ) => Promise<ResponseFrame | undefined>;
   },
 ): Connection {
   let state: ConnectionState = { state: "starting", confirmedAt: null };
@@ -205,7 +220,7 @@ export function createConnection(
     if (stopped) return opened.channel.close();
     const { machine: peer } = opened.channel.peer;
     machine = peer.id;
-    deps.onPeer(peer);
+    deps.onPeer?.(peer);
     channel = opened.channel;
     path = opened.path;
     channel.onClose(() => dropped(opened.channel));
@@ -264,14 +279,13 @@ export function createConnection(
       setState({ state: "ready", confirmedAt: deps.now() });
       emit({ kind: "ready" });
     } else if (frame.type === "request") {
+      if (!deps.answer) return;
       const from = channel;
-      void answerRequest(frame, {
-        ctx: deps.phoneCtx,
-        isActive: () => active,
-        wait: deps.wait,
-      }).then((response) => {
-        if (response && channel === from) from?.send(response);
-      });
+      void deps
+        .answer(frame, () => active)
+        .then((response) => {
+          if (response && channel === from) from?.send(response);
+        });
     } else if (frame.type === "event") {
       emit({ kind: "event", event: frame.event });
     } else if (frame.type === "closed") {
@@ -312,7 +326,7 @@ export function createConnection(
     },
     watch(conditions) {
       // The core closes the channel on a condition it cannot parse (a session id that is not one), and every new channel
-      // sends the last watch again, so one bad condition kept the phone offline for good. It is left out instead.
+      // sends the last watch again, so one bad condition kept the device offline for good. It is left out instead.
       watching = conditions.filter(
         (one) => eventConditionSchema.safeParse(one).success,
       );

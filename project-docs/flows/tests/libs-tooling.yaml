@@ -127,6 +127,14 @@ files:
     covers: [remote-connection:other-machine, remote-connection:version-out-of-range]
     note: "Noise IK test vector(cacophony), responder가 받는 상대 공개 key와 큰 frame 나누기, 다른 key의 responder와 handshake 실패, record를 바꾸거나 빠뜨리거나 순서를 바꾸면 받는 쪽이 끊음. 손으로 handshake하는 상대로 hello를 정해: core hello의 machine id가 다르면 client channel이 열리지 않고 hello 뒤로 아무 frame도 보내지 않는 것, 판이 범위 밖이면 core가 자기 hello를 보낸 뒤 닫고 양쪽 다 conflict와 맞는 details.update(client, host)로 끝나는 것"
 
+  - path: packages/remote-client/connection_test.ts
+    covers: [remote-connection:other-machine]
+    note: "메모리 전송 위의 createConnection(폰과 desktop이 같이 쓴다). 저장한 machine id와 다른 기계가 답하면 hello 뒤로 watch도 call도 보내지 않고 stale로 남고, 같은 기계가 답하면 watch를 보내고 ready다. id가 없는 항목은 처음 만난 id를 알리고 그 뒤로 다른 기계를 거절한다. 끊기거나 죽은 채 resume하면 다시 붙어 마지막 watch를 다시 보내고, core가 거절할 session id는 watch에서 뺀다"
+
+  - path: packages/remote-client/computers_test.ts
+    covers: []
+    note: "기계 목록 store: 지운 컴퓨터는 연결을 닫고 저장 목록에서 빠지고, 거둬진 컴퓨터는 revoked로 저장되어 다시 붙지 않는다. 별명은 남고 알린 이름과 id를 배우며, 같은 machine id로 다시 pairing하면 항목 하나로 접는다. sample 컴퓨터는 폰 dev build에서만 보인다"
+
   - path: packages/protocol/acp/reduce_test.ts
     covers: [acp-projection:ok, acp-read:reread]
     note: "Bus event를 acpUpdatesOf로 바꾸고 클라이언트 reducer로 접는다(두 번 접어도 같음, 항목 순번 순서). reread 판정은 acp-read:reread"

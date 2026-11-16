@@ -1,0 +1,10 @@
+{
+  "name": "@lophn/remote-client",
+  "version": "0.0.0",
+  "type": "module",
+  "exports": "./mod.ts",
+  "dependencies": {
+    "@lophn/base": "0.0.0",
+    "@lophn/protocol": "0.0.0"
+  }
+}

@@ -156,7 +156,7 @@ function NameSheet({
 
 export function SettingsScreen(_: { place: PlaceOf<"settings"> }) {
   const nav = useNav();
-  const { computers, phoneName, setPhoneName } = useComputers();
+  const { computers, deviceName, setDeviceName } = useComputers();
   const { appearance } = useAppearance();
   const push = usePush();
   const [naming, setNaming] = useState<string | null>(null);
@@ -197,8 +197,8 @@ export function SettingsScreen(_: { place: PlaceOf<"settings"> }) {
         <Row
           lead={<Lead icon={Smartphone} />}
           title={t("settings.label.remote-device-name")}
-          end={<Value next>{phoneName}</Value>}
-          onPress={() => setNaming(phoneName)}
+          end={<Value next>{deviceName}</Value>}
+          onPress={() => setNaming(deviceName)}
         />
         <Divider />
         <Row
@@ -237,7 +237,7 @@ export function SettingsScreen(_: { place: PlaceOf<"settings"> }) {
         onChange={(next) => setNaming(next.slice(0, PHONE_NAME_MAX))}
         onClose={() => setNaming(null)}
         onSave={() => {
-          void setPhoneName(naming ?? "");
+          void setDeviceName(naming ?? "");
           setNaming(null);
         }}
         saveEmpty

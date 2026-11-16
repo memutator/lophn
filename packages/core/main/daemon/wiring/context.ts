@@ -62,6 +62,7 @@ import type {
 import type { createSupervisor } from "../../../supervision/responsiveness/mod.ts";
 import type { createAppsControl } from "../../../apps/control.ts";
 import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
+import type { AppViews } from "../../../apps/views/mod.ts";
 import type { Queue } from "../../../lophn-agent/run-loop/queue.ts";
 import type { HarnessHold, HostQueue } from "../../../host-queue/mod.ts";
 import type { SecretStore } from "../../../secrets/mod.ts";
@@ -253,6 +254,8 @@ type Late = {
   appIntake: AppIntake;
   // 앱 tool 호출 길. runs가 앱 tool을 부른다.
   appCallPath: AppToolCallPath;
+  // apps가 낸다. 앱 화면의 view 표. remote가 폰 연결이 닫힐 때 그 기기의 view를 지운다.
+  appViews: AppViews;
   // apps가 낸다. 앱 event(와 core가 낼 event `lophn`)를 구독 앱에 넘긴다.
   eventDelivery: EventDelivery;
   invocationLedger: InvocationLedger;
@@ -327,6 +330,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   appViewSignal: true,
   appIntake: true,
   appCallPath: true,
+  appViews: true,
   eventDelivery: true,
   invocationLedger: true,
   appRewind: true,

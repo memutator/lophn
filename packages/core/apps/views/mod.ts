@@ -33,6 +33,8 @@ export function createAppViews(ports: AppViewsPorts) {
     },
     close: (owner: string, view: string) =>
       ok({ closed: table.close(owner, view) }),
+    /** 폰 연결이 닫혔다(끊기, 기기 끊기, core 내려감). 그 기기의 view를 지운다. */
+    closeOwner: (owner: string) => table.closeOwner(owner),
     /** Bus의 `AppViewChanged`. */
     changed: (app: string) => table.rebind(app),
     /** Bus의 `AppEventPublished`. */

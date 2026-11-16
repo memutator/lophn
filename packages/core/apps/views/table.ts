@@ -330,6 +330,13 @@ export function createViewTable(ports: AppViewsPorts) {
       return entries.delete(keyOf(owner, view));
     },
 
+    /** host가 owner의 연결을 잃었다. 그 owner의 view를 모두 지운다. 받을 곳이 없으니 event는 내지 않는다. */
+    closeOwner(owner: string): void {
+      for (const [key, entry] of entries) {
+        if (entry.owner === owner) entries.delete(key);
+      }
+    },
+
     touch,
 
     entries(): IterableIterator<ViewEntry> {

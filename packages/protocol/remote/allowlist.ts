@@ -17,6 +17,7 @@ import {
 import { appGet, appList } from "../apps/apps.ts";
 import { appInvocation, appInvocations } from "../apps/calls/invocation.ts";
 import { appRewindPlan } from "../apps/calls/rewind.ts";
+import { appScreenFile } from "../apps/calls/screen.ts";
 import { appIcon, appTools } from "../apps/declaration/read.ts";
 import {
   noticeDismiss,
@@ -24,7 +25,9 @@ import {
   noticesList,
   noticesOpen,
 } from "../apps/notice.ts";
+import { appPhoneScreens } from "../apps/phone.ts";
 import { appRuntime } from "../apps/runtime.ts";
+import { appViewsCall, appViewsClose, appViewsOpen } from "../apps/views.ts";
 import type { BusEvent } from "../events/bus.ts";
 import { sessionSnapshotsList } from "../events/snapshot.ts";
 import {
@@ -106,6 +109,10 @@ import { devicesSetPush, devicesUnpair } from "./routes.ts";
 // `jobs/update`는 켜고 끄기(`enabled`)만 받는다(core/remote/call.ts). `acp/send`는 안의 route를 기기 자격으로 부르므로 대화 조작 route도 여기 있어야 한다.
 // 모두 user가 부를 수 있는 route여야 한다(아니면 core가 기기 자격을 만들지 못한다).
 // file·upload route의 bytes는 `call`에서 base64로 싣는다(core/remote/call.ts). 폰은 화면 bundle도 이 목록의 route로 받는다.
+// 앱의 폰 화면: 목록(`apps/phone_screens`), 화면 file(`apps/screen_file`), view binding(`app_views/*`)만 둔다. 폰 화면 bridge는
+// view id로만 앱을 부르고, 부를 수 있는 operation은 core가 그 view에 묶인 release의 선언에 있는 것만으로 판정한다. 그래서
+// 앱을 직접 부르는 `apps/call_tool`과 grant(`app_grants/*`)는 넣지 않는다. 화면 오류를 쓰는 `apps/log_view_error`도 넣지 않는다:
+// 입력의 앱을 부르는 쪽이 정해서 다른 앱의 log에 쓸 수 있다.
 export const REMOTE_ALLOWED_ROUTES = [
   // session 목록
   workspaceSessionList,
@@ -195,6 +202,12 @@ export const REMOTE_ALLOWED_ROUTES = [
   appRuntime,
   releasesListRecords,
   releasesGetRecord,
+  // 앱의 폰 화면
+  appPhoneScreens,
+  appScreenFile,
+  appViewsOpen,
+  appViewsCall,
+  appViewsClose,
   // 폰이 이 컴퓨터를 지울 때 자기 등록을 지운다
   devicesUnpair,
   // push: 폰이 자기 token과 알림 설정을 두고, 지금 앞에 보이는지를 알린다
@@ -205,7 +218,9 @@ export const REMOTE_ALLOWED_ROUTES = [
 // 등록한 기기의 `watch`가 받을 수 있는 event type의 전부다. 기기가 건 조건과 상관없이 core가 이 밖은 보내지 않는다.
 // 위 route로 그리는 화면이 듣는 것이다: session 목록의 상태, 대화의 ACP 갱신, 대기 줄(물음, 동의, 공유 요청, 알림, job).
 // Jobs, Agents, workflow, 앱 실행 기록은 따로 event가 없고 `StateChanged`의 이름(jobs, agents, workflow_instances, runs,
-// app_activity, app_runtime, releases)으로 다시 읽는다. 앱 event(`AppEventPublished`, 앱이 정한 payload), 앱 설치·지우기·화면은 넣지 않는다.
+// app_activity, app_runtime, releases)으로 다시 읽는다. 앱 event는 `AppViewEvent`로만 받는다: 묶인 release가 구독을 선언한 view의
+// owner에게만 가고, Gateway가 이 기기(owner)가 연 view의 것만 보낸다. `AppEventPublished`(모든 앱의 event 원본), `AppViewChanged`,
+// 앱 설치·지우기는 넣지 않는다.
 export const REMOTE_ALLOWED_EVENTS = [
   // 대화
   "SessionStarted",
@@ -227,4 +242,6 @@ export const REMOTE_ALLOWED_EVENTS = [
   "NoticeRead",
   // 화면 갱신의 공통 event. 바뀐 대상 이름과 id만 싣고 내용은 없다. Inbox가 job hold 등을 이것으로 다시 읽는다.
   "StateChanged",
+  // 앱의 폰 화면
+  "AppViewEvent",
 ] as const satisfies readonly BusEvent["type"][];

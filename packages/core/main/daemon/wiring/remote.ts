@@ -257,6 +257,7 @@ export const remoteWiring: WiringFactory = () => {
       admission,
       deviceGone: (device) =>
         ctx.attention.forgetReporter(devicePrincipal(device)),
+      views: ctx.appViews,
       logger: ctx.telemetry.logger,
     });
     const accept = host.accept;

@@ -7,7 +7,24 @@ import { test } from "node:test";
 import type { z } from "zod";
 import { manualClock, ok, seededRandom } from "../../base/mod.ts";
 import { type Route, routePath } from "../../protocol/base/mod.ts";
-import { appCreate, appDelete } from "../../protocol/apps/apps.ts";
+import { activationActivatePrevious } from "../../protocol/apps/activation/activation.ts";
+import { appLogViewError } from "../../protocol/apps/app-log.ts";
+import {
+  appArchive,
+  appCreate,
+  appDelete,
+  appEditFolders,
+  appRename,
+  appSetIcon,
+  appUnarchive,
+} from "../../protocol/apps/apps.ts";
+import { appCallTool } from "../../protocol/apps/calls/call.ts";
+import { appRewind } from "../../protocol/apps/calls/rewind.ts";
+import { appGrantRevoke, appGrantsList } from "../../protocol/apps/grants.ts";
+import {
+  releaseActivate,
+  releasePrepare,
+} from "../../protocol/apps/releases.ts";
 import { appsSecretValue } from "../../protocol/apps/secret-use.ts";
 import { jobCreate, jobDelete } from "../../protocol/jobs/jobs.ts";
 import {
@@ -61,6 +78,7 @@ import {
   remoteKeyText,
 } from "../../protocol/remote/mod.ts";
 import { workflowEdit } from "../../protocol/workflows/routes.ts";
+import { appViewHandlers, createAppViews } from "../apps/views/mod.ts";
 import { devicesSetting } from "../config/shell-settings.ts";
 import {
   projectFilesListRead,
@@ -71,10 +89,11 @@ import {
   CredentialRegistry,
   type OperationPolicy,
 } from "../server/identity/mod.ts";
-import type {
-  FileStreamHandler,
-  MemoryHandler,
-  UploadHandler,
+import {
+  bytesFileStream,
+  type FileStreamHandler,
+  type MemoryHandler,
+  type UploadHandler,
 } from "../server/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
@@ -184,7 +203,11 @@ const projectFolder = {
     ),
 };
 
-// 기기 표만 가짜다. 자격, scope, route dispatch, Gateway 구독은 production code다.
+// 폰 화면을 연 앱 하나. release 하나가 화면 main(자리 phone), operation save, 구독 ops/limit을 선언했다.
+const viewApp = `app_0${"1".repeat(25)}`;
+const viewRelease = `rel_0${"1".repeat(25)}`;
+
+// 기기 표, 앱 process·release 선언, 앱 호출 경로만 가짜다. 자격, scope, route dispatch, view 표, Gateway 구독은 production code다.
 function setup() {
   const random = seededRandom(11);
   const clock = manualClock(1_000_000);
@@ -230,6 +253,19 @@ function setup() {
     modelDefaultChange,
     workspaceModelChange,
     tabsOpen,
+    appCallTool,
+    appGrantsList,
+    appGrantRevoke,
+    appArchive,
+    appUnarchive,
+    appRename,
+    appEditFolders,
+    appSetIcon,
+    releasePrepare,
+    releaseActivate,
+    activationActivatePrevious,
+    appRewind,
+    appLogViewError,
   ];
   for (const route of [...ROUTES, ...REMOTE_ALLOWED_ROUTES, ...outside]) {
     allRoutes.set(routePath(route), route);
@@ -269,6 +305,42 @@ function setup() {
     };
   const admission = createAdmission();
   const bus = createBus();
+  const views = createAppViews({
+    appStatus: () => ok("active"),
+    live: async () => ok({ release: viewRelease, process_nonce: "live" }),
+    preview: async () => ok(null),
+    release: () =>
+      ok({
+        bundle_hash: "a".repeat(64),
+        screens: [{ key: "main", places: ["phone"] }],
+        subscriptions: [{ source: "ops", event: "limit" }],
+      }),
+    lookup: {
+      find: (_app, release, _kind, name) =>
+        ok(
+          name === "save"
+            ? { release: release as never, effect: "write", public: false }
+            : null,
+        ),
+      findPreview: async () => ok(null),
+    },
+    path: {
+      call: async () => {
+        reached.push("app operation");
+        return ok({
+          invocation: null,
+          outcome: { status: "succeeded" as const, result: { done: true } },
+        });
+      },
+    },
+    publish: (app, payload) =>
+      bus.publish({
+        type: "AppViewEvent",
+        subject: app,
+        at: clock.now(),
+        payload,
+      }),
+  });
   const codes = createPairingCodes({ clock, random });
   const timers = new Map<number, { run: () => void; ms: number }>();
   let nextTimer = 0;
@@ -316,6 +388,13 @@ function setup() {
           "project_files/read",
           projectFilesReadRead(projectFolder).handle as never,
         ],
+        [
+          "apps/phone_screens",
+          () => {
+            reached.push("apps/phone_screens");
+            return ok({ screens: [], as_of_seq: "1", next_cursor: null });
+          },
+        ],
       ]),
       memory: new Map([
         [
@@ -328,12 +407,26 @@ function setup() {
           "settings/update",
           reach("settings/update", { changed: [], rejected: [] }),
         ],
+        ["apps/call_tool", reach("apps/call_tool", {})],
+        ["apps/rewind", reach("apps/rewind", {})],
+        ["apps/log_view_error", reach("apps/log_view_error", {})],
+        ...appViewHandlers(views),
       ]),
-      fileStreams: new Map([["message-images/read", image]]),
+      fileStreams: new Map<string, FileStreamHandler>([
+        ["message-images/read", image],
+        [
+          "apps/screen_file",
+          async () => {
+            reached.push("apps/screen_file");
+            return ok(bytesFileStream(new Uint8Array([1]), "text/javascript"));
+          },
+        ],
+      ]),
       uploads: new Map([["message-images/upload", upload]]),
       admission,
     }),
     admission,
+    views,
   });
 
   function open(phoneKey: KeyPair) {
@@ -381,6 +474,7 @@ function setup() {
     codes,
     clock,
     bus,
+    views,
     table,
     reached,
     uploaded,
@@ -514,7 +608,7 @@ test("기기는 route 목록 밖의 route를 forbidden으로 받고 handler에 �
   assert.deepEqual(s.reached, ["turn_requests/decide"]);
 });
 
-test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model·설정 쓰기, devices/*, pairing/*, host/*, agent·job·앱·project·workflow 만들기·고치기·지우기는 forbidden이다", async () => {
+test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model·설정 쓰기, devices/*, pairing/*, host/*, agent·job·앱·project·workflow 만들기·고치기·지우기, 앱 직접 호출·grant·release·rewind·log 쓰기는 forbidden이고, 폰 화면 route는 통과한다", async () => {
   const s = setup();
   const key = generateKeyPair(s.random);
   s.register(key);
@@ -563,6 +657,20 @@ test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model�
     "model-default/change",
     "workspace-model/change",
     "tabs/open",
+    // 폰 화면은 view로만 앱을 부른다. 앱을 직접 부르거나 허락·판·되돌리기를 바꾸거나 남의 앱 log에 쓰지 못한다.
+    "apps/call_tool",
+    "app_grants/list",
+    "app_grants/revoke",
+    "apps/archive",
+    "apps/unarchive",
+    "apps/rename",
+    "apps/edit_folders",
+    "apps/set_icon",
+    "releases/prepare",
+    "releases/activate",
+    "activations/activate_previous",
+    "apps/rewind",
+    "apps/log_view_error",
     // 목록에 있지만 켜고 끄기만 받는다. 이름을 바꾸면 job 고치기다.
     "jobs/update",
   ];
@@ -583,6 +691,51 @@ test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model�
     outside.map((path) => [path, "forbidden"]),
   );
   assert.deepEqual(s.reached, []);
+
+  const view = "phone-view-1";
+  const inside = [
+    ["apps/phone_screens", {}],
+    [
+      "apps/screen_file",
+      {
+        target: { mode: "live", app: viewApp, release: viewRelease },
+        screen: "main",
+        path: "phone.js",
+      },
+    ],
+    [
+      "app_views/open",
+      {
+        view,
+        mode: "live",
+        app: viewApp,
+        release: null,
+        screen: "main",
+        place: "phone",
+      },
+    ],
+    ["app_views/call", { view, operation: "save", input: null }],
+    ["app_views/close", { view }],
+  ] as const;
+  // 차례로 보낸다. open이 끝나기 전에 call이 닿지 않게.
+  for (const [path, body] of inside) {
+    const [resource, method] = path.split("/");
+    c.phone.send({ type: "call", id: path, resource, method, body });
+    while (!results(c.frames).some((frame) => frame.id === path)) {
+      await settle();
+    }
+  }
+  assert.deepEqual(
+    results(c.frames)
+      .slice(outside.length)
+      .map((frame) => [frame.id, frame.ok]),
+    inside.map(([path]) => [path, true]),
+  );
+  assert.deepEqual(s.reached, [
+    "apps/phone_screens",
+    "apps/screen_file",
+    "app operation",
+  ]);
 });
 
 test("기기가 project file route를 불러도 등록 폴더 밖 path(.., 밖을 가리키는 symlink)는 invalid_input이다", async () => {
@@ -733,6 +886,77 @@ test("기기의 watch는 types 없이 걸어도 REMOTE_ALLOWED_EVENTS 밖의 eve
     ),
     ["ready", "NoticeClosed"],
   );
+});
+
+test("기기 A는 기기 B가 연 view를 부르거나 닫지 못하고, AppViewEvent는 owner인 기기에만 가며, 연결이 닫히면 그 기기의 view가 지워진다", async () => {
+  const s = setup();
+  const keyA = generateKeyPair(s.random);
+  const keyB = generateKeyPair(s.random);
+  s.register(keyA);
+  s.register(keyB);
+  const a = await s.connect(keyA);
+  const b = await s.connect(keyB);
+  let n = 0;
+  // call 하나를 보내고 답을 기다려 [ok, value 또는 error code]로 준다.
+  async function call(
+    c: Awaited<ReturnType<typeof s.connect>>,
+    method: "open" | "call" | "close",
+    body: unknown,
+  ) {
+    const id = `c${n++}`;
+    c.phone.send({ type: "call", id, resource: "app_views", method, body });
+    for (;;) {
+      const found = results(c.frames).find((frame) => frame.id === id);
+      if (found) return found.ok ? found.value : found.error.code;
+      await settle();
+    }
+  }
+  const openBody = (view: string) => ({
+    view,
+    mode: "live",
+    app: viewApp,
+    release: null,
+    screen: "main",
+    place: "phone",
+  });
+  const save = (view: string) => ({ view, operation: "save", input: null });
+  const done = { outcome: { ok: true, value: { done: true } } };
+
+  // 열기는 binding({view, release, ...})을, 실패는 오류 code(문자열)를 준다.
+  assert.equal(typeof (await call(b, "open", openBody("view-of-b"))), "object");
+  assert.equal(typeof (await call(a, "open", openBody("view-of-a"))), "object");
+  // A가 B의 view id를 알아도 없는 view와 같다.
+  assert.equal(await call(a, "call", save("view-of-b")), "not_found");
+  assert.deepEqual(await call(a, "close", { view: "view-of-b" }), {
+    closed: false,
+  });
+  assert.deepEqual(await call(b, "call", save("view-of-b")), done);
+
+  a.phone.send({ type: "watch", conditions: [{}] });
+  b.phone.send({ type: "watch", conditions: [{}] });
+  await settle();
+  s.views.published({
+    source: "ops",
+    event: "limit",
+    payload: { left: 1 },
+    audience: null,
+  });
+  await settle();
+  const appEvents = (c: Awaited<ReturnType<typeof s.connect>>) =>
+    c.frames.flatMap((frame) =>
+      frame.type === "event" && frame.event.type === "AppViewEvent"
+        ? [(frame.event.payload as { view: string }).view]
+        : [],
+    );
+  assert.deepEqual(appEvents(a), ["view-of-a"]);
+  assert.deepEqual(appEvents(b), ["view-of-b"]);
+
+  // B가 끊겼다 다시 붙으면 B의 view는 없고 A의 view는 그대로다.
+  b.phone.close();
+  await settle();
+  const again = await s.connect(keyB);
+  assert.equal(await call(again, "call", save("view-of-b")), "not_found");
+  assert.deepEqual(await call(a, "call", save("view-of-a")), done);
 });
 
 test("붙지 않은 연결은 한도를 넘으면 바로 닫히고, pairing 시간이 지나면 닫혀 자리를 내준다", async () => {

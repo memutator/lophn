@@ -68,6 +68,8 @@ export type RemoteHostDeps = {
   admission: Admission;
   // 기기의 마지막 연결이 닫혔거나 기기를 끊었다. 그 기기가 한 보고(presence)를 지우는 데 쓴다.
   deviceGone?(device: string): void;
+  // core의 앱 view 표. 기기의 마지막 연결이 닫히면 그 기기(owner)의 view를 지운다.
+  views: { closeOwner(owner: string): void };
   logger?: Logger;
 };
 
@@ -140,11 +142,13 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
         channel.close();
         return undefined;
       }
-      const slot = deps.admission.enterEvent(devicePrincipal(device));
+      const owner = devicePrincipal(device);
+      const slot = deps.admission.enterEvent(owner);
       if (!slot.ok) {
         channel.close();
         return undefined;
       }
+      // owner를 주면 Gateway가 `AppViewEvent`를 이 기기가 연 view의 것만 보낸다.
       const session = createGatewaySession(
         {
           send: (text) => void channel.send(JSON.parse(text)),
@@ -152,11 +156,16 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
           bufferedAmount: () => socket.bufferedAmount(),
         },
         deps.bus,
-        { events: REMOTE_ALLOWED_EVENTS },
+        { events: REMOTE_ALLOWED_EVENTS, owner },
       );
       cleanups.push(() => {
         session.closed();
         slot.value.release();
+        // 폰이 새 연결로 먼저 다시 붙은 뒤 옛 연결의 닫힘이 늦게 오면, 새 연결이 다시 연 view를 지우지 않는다.
+        const attachedElsewhere = [...connections].some(
+          (other) => other.device === device && other.session !== undefined,
+        );
+        if (!attachedElsewhere) deps.views.closeOwner(owner);
       });
       connection.session = session;
       deps.timers.clear(pairingTimer);

@@ -6,7 +6,13 @@ import type { Delivery } from "./agent-tab-source.ts";
 
 export type { Delivery };
 
-type DeliveryPhase = "sending" | "accepted" | "not_sent" | "unconfirmed";
+type DeliveryPhase =
+  | "sending"
+  | "accepted"
+  | "not_sent"
+  | "unconfirmed"
+  // core가 거절했다: 다른 기기가 먼저 보낸 사람 메시지를 이 화면이 못 봤다. 말은 입력칸에 남고 화면은 대화를 다시 읽는다.
+  | "changed_elsewhere";
 
 export interface Outgoing {
   readonly id: string;
@@ -48,10 +54,37 @@ export function startSend(
 
 export function afterReply(outgoing: Outgoing, reply: SendReply): Outgoing {
   if (reply.ok) return { ...outgoing, phase: "accepted" };
+  if (reply.code === "changed_elsewhere") {
+    return { ...outgoing, phase: "changed_elsewhere" };
+  }
   return {
     ...outgoing,
     phase: NOT_TAKEN.has(reply.code) ? "not_sent" : "unconfirmed",
   };
+}
+
+/**
+ * 보내기에 싣는 `seen`: 이 화면이 아는 마지막 사람 메시지. 대화의 사람 메시지와 줄에 선 메시지 가운데 가장 뒤의 것이고,
+ * 이 화면이 보내 접수됐지만 아직 대화에 안 들어온 말(`sent`)이 있으면 그것이다. 하나도 모르면 null이다.
+ */
+export function seenOf(
+  messages: readonly { id: string; actor: string; at: string }[],
+  queued: readonly { id: string; at: string }[],
+  sent: string | null,
+): string | null {
+  let last: { id: string; at: string } | null = null;
+  for (const one of [
+    ...messages.filter((m) => m.actor === "user"),
+    ...queued,
+  ]) {
+    if (last === null || one.at >= last.at) last = one;
+  }
+  if (sent !== null && last?.id !== sent) {
+    const known =
+      messages.some((m) => m.id === sent) || queued.some((q) => q.id === sent);
+    if (!known) return sent;
+  }
+  return last?.id ?? null;
 }
 
 /** 접수 조회 결과. 찾으면 접수됨이고, 못 찾으면 다시 보내기를 연다. */
@@ -76,6 +109,8 @@ export function deliveryAction(outgoing: Outgoing): DeliveryAction {
       return "none";
     case "not_sent":
       return "edit";
+    case "changed_elsewhere":
+      return "none";
     case "unconfirmed":
       return outgoing.checked ? "resend" : "check";
   }

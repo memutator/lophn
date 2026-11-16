@@ -5,7 +5,9 @@ import {
   afterCheck,
   afterReply,
   deliveryAction,
+  composerLocked,
   resend,
+  seenOf,
   startSend,
   waitsInQueue,
 } from "./delivery-state.ts";
@@ -66,4 +68,30 @@ test("대화에서 빠지는 것은 줄에 설 말이 보내는 중이거나 접
     false,
   );
   assert.equal(waitsInQueue(sending), false);
+});
+
+// 다른 기기가 먼저 보내 거절되면 쓴 글이 사라지면 안 된다. 접수됨만 입력칸을 비운다.
+test("changed_elsewhere 뒤 쓴 글과 첨부는 그대로 남아 다시 보낼 수 있다", () => {
+  const after = afterReply(sending, { ok: false, code: "changed_elsewhere" });
+  assert.deepStrictEqual(after.phase, "changed_elsewhere");
+  assert.deepStrictEqual(after.content, sending.content);
+  assert.equal(composerLocked(after), false);
+  assert.deepStrictEqual(deliveryAction(after), "none");
+});
+
+// 화면이 아는 것보다 앞선 seen을 싣거나 줄에 선 메시지를 빼먹으면 core가 멀쩡한 보내기를 거절한다.
+test("seen은 대화의 마지막 사람 메시지와 줄에 선 메시지 가운데 뒤의 것이고 아직 안 온 내 말이 있으면 그것이다", () => {
+  const user = (id: string, at: string) => ({ id, actor: "user", at });
+  const messages = [
+    user("m1", "2026-10-17T00:00:01.000Z"),
+    { id: "a1", actor: "agent", at: "2026-10-17T00:00:02.000Z" },
+  ];
+  assert.equal(seenOf([], [], null), null);
+  assert.equal(seenOf(messages, [], null), "m1");
+  assert.equal(
+    seenOf(messages, [{ id: "q1", at: "2026-10-17T00:00:03.000Z" }], null),
+    "q1",
+  );
+  assert.equal(seenOf(messages, [], "m9"), "m9");
+  assert.equal(seenOf(messages, [], "m1"), "m1");
 });

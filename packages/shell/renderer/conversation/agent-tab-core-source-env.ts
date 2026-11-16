@@ -11,6 +11,7 @@ import type {
   AgentId,
   Workspace,
 } from "../../../protocol/lophn-agent/workspaces.ts";
+import type { CoreReply } from "../../ipc/core-api.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import { type CommandBody, commandBody } from "../command-call.ts";
 import type { SourceResult } from "./agent-tab-source.ts";
@@ -79,7 +80,7 @@ export function createGate(): Gate {
   return new Gate();
 }
 
-/** 화면이 구별하는 오류 code는 공통 일곱뿐이다. 그 밖은 internal이다. */
+/** 화면이 구별하는 오류 code는 공통 일곱과 보내기의 `changed_elsewhere`다. 그 밖은 internal이다. */
 const ERROR_CODES: ReadonlySet<string> = new Set([
   "invalid_input",
   "not_found",
@@ -90,8 +91,17 @@ const ERROR_CODES: ReadonlySet<string> = new Set([
   "internal",
 ]);
 
-function errorCodeOf(code: string | undefined): string {
-  return code !== undefined && ERROR_CODES.has(code) ? code : "internal";
+function errorCodeOf(error: CoreReply["error"]): string {
+  // 다른 기기가 먼저 보낸 말이 있어 core가 보내기를 거절했다. 화면은 대화를 다시 읽고 쓴 글을 남긴다.
+  if (
+    error?.code === "conflict" &&
+    error.details?.["reason"] === "changed_elsewhere"
+  ) {
+    return "changed_elsewhere";
+  }
+  return error !== undefined && ERROR_CODES.has(error.code)
+    ? error.code
+    : "internal";
 }
 
 export interface Env {
@@ -139,7 +149,7 @@ export function createEnv(
         body,
       });
       if (!reply.ok) {
-        return { ok: false, code: errorCodeOf(reply.error?.code) };
+        return { ok: false, code: errorCodeOf(reply.error) };
       }
       return { ok: true, value: reply.value as T };
     } catch {

@@ -88,6 +88,8 @@ export const conversation = {
     "Couldn't attach the image, so the message wasn't sent. Try again.",
   "conversation.error.attach-skipped":
     "Some files couldn't be attached. Images must be PNG, JPEG, GIF or WebP up to 5 MB.",
+  "conversation.error.changed-elsewhere":
+    "This conversation changed on another device. Read the new messages, then send again.",
   "conversation.error.model-effort-none": "Choose at least one effort.",
   "conversation.error.model-info-conflict":
     "This model's details changed elsewhere. The latest is loaded; save again to keep your edits.",

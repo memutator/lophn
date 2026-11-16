@@ -217,8 +217,8 @@ files:
     note: "reasoning 글을 저장하기 전 redaction하고 blob 준비 통로에도 secret이 가지 않는다"
 
   - path: packages/core/lophn-agent/session/message-commands_test.ts
-    covers: [queue-restore-on-start:ok, shell-run:ok]
-    note: "켤 때 되돌리는 사람 메시지는 turn이 가져가지 않은 것만이고, Fork 복사본과 unattended는 빼며, shell 기록은 Router에 넣지도 되돌리지도 않는다"
+    covers: [queue-restore-on-start:ok, shell-run:ok, session-send:changed-elsewhere]
+    note: "켤 때 되돌리는 사람 메시지는 turn이 가져가지 않은 것만이고, Fork 복사본과 unattended는 빼며, shell 기록은 Router에 넣지도 되돌리지도 않는다. seen 뒤에 다른 사람 메시지가 있으면 보내기는 changed_elsewhere로 끝나 아무것도 남지 않고, seen이 없으면 검사하지 않으며, 같은 id의 재전송은 막히지 않는다"
 
   - path: packages/core/lophn-agent/session/queued-edit_test.ts
     covers: [queued-edit-record:ok, queued-edit-record:conflict, queued-edit-record:invalid_input, queued-move-record:ok, queued-move-record:conflict, queued-remove-record:conflict]

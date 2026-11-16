@@ -264,6 +264,7 @@ export function createAcpSend(deps: AcpSendDeps) {
             refs: [],
             // 앱 화면이 보낸 것이면 그 앱. shell main이 sender view에서 정해 덮는다(이름표일 뿐이다).
             ...(input.via_app === undefined ? {} : { via_app: input.via_app }),
+            ...(input.seen === undefined ? {} : { seen: input.seen }),
           },
           input.key,
           {},

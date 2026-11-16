@@ -595,6 +595,11 @@ export interface SendInput {
   readonly key: string;
   readonly content: readonly ContentBlock[];
   readonly delivery: Delivery;
+  /**
+   * 이 화면이 아는 마지막 사람 메시지(`seenOf`). 그 뒤에 다른 기기의 사람 메시지가 있으면 core가 거절하고
+   * 실패 code는 `changed_elsewhere`다. null은 하나도 못 봤다는 뜻이다(새 session의 첫 말).
+   */
+  readonly seen: string | null;
 }
 
 export interface AgentTabSource {

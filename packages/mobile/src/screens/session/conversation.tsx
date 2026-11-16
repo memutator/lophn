@@ -26,10 +26,11 @@ import type {
   PermissionsView,
   QueuedView,
 } from "../../../../shell/renderer/conversation/agent-tab-source.ts";
-import { capabilitiesOf, clockOf } from "../../../../shell/renderer/conversation/agent-view-model.ts";
+import { capabilitiesOf, clockOf, messagesOf } from "../../../../shell/renderer/conversation/agent-view-model.ts";
 import {
   afterReply,
   type Outgoing,
+  seenOf,
   startSend,
   waitsInQueue,
 } from "../../../../shell/renderer/conversation/delivery-state.ts";
@@ -263,6 +264,7 @@ function ChatScreen({
 
   const [draft, setDraft] = useState("");
   const [outgoing, setOutgoing] = useState<Outgoing | null>(null);
+  const [changed, setChanged] = useState(false);
   const attachments = useAttachments();
   // The pictures of the message being sent, to put back when the core does not take it (their uploads stay valid).
   const sentWith = useRef<{ id: string; items: readonly Attached[] } | null>(null);
@@ -281,16 +283,20 @@ function ChatScreen({
         key: message.key,
         content: message.content,
         delivery: message.delivery,
+        seen: seenOf(messagesOf(thread), thread?.queued ?? [], outgoing?.phase === "accepted" ? outgoing.id : null),
       });
       const next = afterReply(message, reply.ok ? { ok: true } : { ok: false, code: reply.code });
-      setOutgoing(next);
+      // Another device wrote first: no bubble, the words go back in the box and the conversation is read again.
+      setOutgoing(next.phase === "changed_elsewhere" ? null : next);
+      setChanged(next.phase === "changed_elsewhere");
       // Not taken: the words go back in the box to send again.
-      if (next.phase === "not_sent") {
+      if (next.phase === "not_sent" || next.phase === "changed_elsewhere") {
         setDraft(textOfOutgoing(next));
         if (sentWith.current?.id === message.id) restore(sentWith.current.items);
       }
+      if (next.phase === "changed_elsewhere") void conversation.reload();
     },
-    [source, session, restore],
+    [source, session, restore, thread, outgoing, conversation],
   );
 
   const commands = (meta?.commands ?? []).filter((command) => OPENS.has(command.opens));
@@ -487,6 +493,11 @@ function ChatScreen({
       <View pointerEvents={unreachable === null ? "auto" : "none"} style={{ opacity: unreachable === null ? 1 : DIM }}>
         <Pending conversation={conversation} session={session} agent={who.name} computer={computer} />
       </View>
+      {changed && (
+        <Text variant="note" tone="critical" style={{ marginHorizontal: 24, marginBottom: 4 }}>
+          {t("conversation.error.changed-elsewhere")}
+        </Text>
+      )}
       <Composer
         value={draft}
         onChangeText={setDraft}

@@ -29,6 +29,7 @@ export function sendContent(
       key: input.key,
       content: [...input.content],
       delivery: input.delivery,
+      seen: input.seen,
     })
     .then(dropValue);
 }

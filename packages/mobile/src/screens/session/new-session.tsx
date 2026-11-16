@@ -167,6 +167,7 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
             key: `session-messages-send-${message}`,
             content: [...(text === "" ? [] : textBlocks(text)), ...uploaded],
             delivery: "next_turn",
+            seen: null,
           });
     setBusy(false);
     if (!sent.ok) {

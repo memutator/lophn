@@ -9,7 +9,11 @@ import type {
 export interface CoreReply {
   readonly ok: boolean;
   readonly value?: unknown;
-  readonly error?: { readonly code: string; readonly message: string };
+  readonly error?: {
+    readonly code: string;
+    readonly message: string;
+    readonly details?: Record<string, unknown>;
+  };
 }
 
 export interface CoreApi {

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { ok, type Result } from "../../../base/mod.ts";
+import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   blocksSummary,
   type ContentBlock,
@@ -159,7 +159,43 @@ type HumanMessage = {
   origin_app?: string;
   // `!` 명령 기록이면 그 본문. content는 비어 있고, queue·checkpoint·제목은 이 기록에 해당하지 않는다.
   shell?: ReturnType<typeof contentOfShell>;
+  // 보내는 화면이 아는 마지막 사람 메시지. 없으면 검사하지 않는다.
+  seen?: string | null;
 };
+
+// 보내는 화면이 못 본 사람 메시지가 그 뒤에 있으면 거절한다(다른 기기가 먼저 보냈다). 합치지 않는다: 화면이
+// 다시 읽고 사람이 다시 보낸다. `!` 명령 기록은 사람 말이 아니고, rewind가 숨긴 메시지는 화면에 없어 세지 않는다.
+function changedElsewhere(
+  tx: Tx,
+  session: string,
+  seen: string | null,
+): Result<void> {
+  let after = 0;
+  if (seen !== null) {
+    const row = tx.sql.get(
+      "select created_seq from messages where id = ? and session = ?",
+      [seen, session],
+    );
+    if (row === undefined)
+      return reject("invalid_input", "unknown seen message");
+    after = Number(row["created_seq"]);
+  }
+  const hidden = hiddenRanges(tx, session);
+  const newer = tx.sql
+    .all(
+      `select created_seq from messages
+       where session = ? and from_kind = 'human' and shell = 0 and created_seq > ?`,
+      [session, after],
+    )
+    .some((row) => !inHiddenRange(hidden, String(row["created_seq"])));
+  return newer
+    ? err({
+        code: "conflict",
+        message: "this conversation changed on another device",
+        details: { reason: "changed_elsewhere" },
+      })
+    : ok(undefined);
+}
 
 // 사람 메시지를 session 기록에 쓴다. queue에 넣는 것(Router)은 부른 쪽이 한다. `existingBody`가 있으면 본문
 // blob은 이미 저장되고 참조가 등록된 값이다(다른 concern이 사람 한 번의 요청에서 만든 요청; request.ts).
@@ -199,6 +235,10 @@ function writeHuman(
   }
   const session = loadSession(tx, input.session);
   if (session === undefined) return sessionNotFound();
+  if (input.seen !== undefined) {
+    const stale = changedElsewhere(tx, session.id, input.seen);
+    if (!stale.ok) return stale;
+  }
   const firstRequest =
     tx.sql.get(
       `select 1 as found from messages

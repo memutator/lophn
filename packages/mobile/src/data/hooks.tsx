@@ -39,7 +39,8 @@ import type {
   QuestionAnswer,
   SourceResult,
 } from "../../../shell/renderer/conversation/agent-tab-source.ts";
-import { decideChoiceOf } from "../../../shell/renderer/conversation/agent-view-model.ts";
+import { decideChoiceOf, messagesOf } from "../../../shell/renderer/conversation/agent-view-model.ts";
+import { seenOf } from "../../../shell/renderer/conversation/delivery-state.ts";
 import type { CoreSource } from "../../../shell/renderer/desktop/connection/connection.ts";
 import {
   readRoute,
@@ -433,9 +434,10 @@ export function useConversation(
         key: `session-messages-send-${message}`,
         content: textBlocks(text),
         delivery,
+        seen: seenOf(messagesOf(data.thread), data.thread?.queued ?? [], null),
       });
     },
-    [source, session],
+    [source, session, data.thread],
   );
   return {
     ...data,
@@ -572,6 +574,7 @@ export function useStartSession(): (input: {
         key: `session-messages-send-${message}`,
         content: textBlocks(text),
         delivery: "next_turn",
+        seen: null,
       });
       return sent.ok
         ? { ok: true, value: { session, agent, workspace } }

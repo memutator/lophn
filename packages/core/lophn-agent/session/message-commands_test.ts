@@ -38,12 +38,13 @@ function setup() {
     turn: string | null,
     from = "human",
     unattended = 0,
+    shell = 0,
   ) => {
     seq += 1;
     sql.run(
-      `insert into messages (id, session, from_kind, from_ref, turn, unattended,
+      `insert into messages (id, session, from_kind, from_ref, turn, unattended, shell,
          body, created_seq, created_at, state_seq)
-       values (?, ?, ?, ?, ?, ?, ?, ?, '2026-10-17T00:00:00.000Z', ?)`,
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?, '2026-10-17T00:00:00.000Z', ?)`,
       [
         id,
         sessionId,
@@ -51,6 +52,7 @@ function setup() {
         from === "human" ? null : "ses_x",
         turn,
         unattended,
+        shell,
         hash,
         seq,
         seq,
@@ -226,4 +228,74 @@ test("앱 화면이 보낸 메시지는 보낸 앱을 이름표로 얼리고 mod
   assert.throws(() =>
     sql.run("update messages set origin_app = null where id = ?", [VIEW]),
   );
+});
+
+// 두 기기가 한 session에 쓸 때 늦게 보낸 쪽이 모르는 사람 메시지를 덮어 이어 말하면 안 된다. 거절하면 아무것도 남지 않아야 한다.
+test("다른 기기의 사람 메시지가 seen 뒤에 있으면 보내기는 changed_elsewhere로 끝나고 아무것도 남지 않는다", () => {
+  const { sql, session, message } = setup();
+  const ses = "ses_01hzzzzzzzzzzzzzzzzzzzzzzc";
+  session(ses, false);
+  message("msg_01hzzzzzzzzzzzzzzzzzzzzzz1", ses, null);
+  // 다른 기기의 `!` 명령은 사람 말이 아니다.
+  message("msg_01hzzzzzzzzzzzzzzzzzzzzzz2", ses, null, "human", 0, 1);
+  let routed = 0;
+  const { send } = createMessageCommands({
+    router: {
+      route: () => {
+        routed += 1;
+        return ok({ session: null });
+      },
+    },
+    directory: {
+      find: () => ({ accepting: true }) as never,
+      app: () => null,
+    },
+  });
+  const tx = {
+    sql,
+    now: () => "2026-10-17T00:00:00.000Z",
+    registerBlobRef: () => ok(undefined),
+  } as unknown as Tx;
+  const ctx = { principal: "user:me", actor: "user" } as RequestContext;
+  const make = (id: string, seen?: string | null) =>
+    send.handle(
+      tx,
+      ctx,
+      {
+        id,
+        session: ses,
+        content: [{ type: "text", text: "go on" }],
+        delivery: "next_turn",
+        refs: [],
+        ...(seen === undefined ? {} : { seen }),
+      } as never,
+      {} as never,
+    ) as {
+      ok: boolean;
+      error?: { code: string; details?: unknown };
+    };
+  const count = () =>
+    Number(sql.get("select count(*) as n from messages", [])!["n"]);
+
+  // 첫 사람 메시지 뒤에 다른 것이 없다(둘째는 shell): 접수된다.
+  const first = "msg_01hzzzzzzzzzzzzzzzzzzzzzz1";
+  assert.ok(make("msg_01hzzzzzzzzzzzzzzzzzzzzzz3", first).ok);
+  // 방금 접수된 메시지가 이제 seen 뒤에 있다.
+  const before = count();
+  const stale = make("msg_01hzzzzzzzzzzzzzzzzzzzzzz4", first);
+  assert.equal(stale.ok, false);
+  assert.equal(stale.error?.code, "conflict");
+  assert.deepStrictEqual(stale.error?.details, { reason: "changed_elsewhere" });
+  assert.equal(count(), before);
+  assert.equal(routed, 1);
+  // seen이 마지막 사람 메시지면 접수되고, null은 사람 메시지가 있으니 거절이고, 없으면 검사하지 않는다.
+  assert.equal(
+    make("msg_01hzzzzzzzzzzzzzzzzzzzzzz4", "msg_01hzzzzzzzzzzzzzzzzzzzzzz3").ok,
+    true,
+  );
+  assert.equal(make("msg_01hzzzzzzzzzzzzzzzzzzzzzz5", null).ok, false);
+  assert.equal(make("msg_01hzzzzzzzzzzzzzzzzzzzzzz5").ok, true);
+  // 같은 id의 다시 보내기는 자기 메시지에 막히지 않는다.
+  assert.equal(make("msg_01hzzzzzzzzzzzzzzzzzzzzzz3", first).ok, true);
+  assert.equal(routed, 3);
 });

@@ -35,6 +35,7 @@ export async function runNoticeAction(
     key: `session-messages-send-${message}`,
     content: textBlocks(`/${action.skill} ${action.args}`.trim()),
     delivery: "next_turn",
+    seen: null,
   });
   if (!sent.ok) return false;
   runToastAction({ kind: "session", session });

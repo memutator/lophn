@@ -84,6 +84,7 @@ import {
   fitsMessage,
   type Outgoing,
   resend,
+  seenOf,
   startSend,
   waitsInQueue,
 } from "./delivery-state.ts";
@@ -169,7 +170,8 @@ type Problem =
   | "open-failed"
   | "stop-failed"
   | "action-failed"
-  | "attach-failed";
+  | "attach-failed"
+  | "changed-elsewhere";
 
 const NO_ENTRIES: readonly ThreadEntry[] = [];
 
@@ -178,6 +180,7 @@ const PROBLEM_TEXT = {
   "attach-failed": "conversation.error.attach-failed",
   "stop-failed": "conversation.error.stop-failed",
   "action-failed": "conversation.error.action-failed",
+  "changed-elsewhere": "conversation.error.changed-elsewhere",
 } as const;
 
 /** 화면이 읽은 것. 새 session은 읽을 대화가 없다. */
@@ -608,13 +611,25 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
       key: outgoing.key,
       content: outgoing.content,
       delivery: outgoing.delivery,
+      // 새 session은 아직 아는 메시지가 없다.
+      seen:
+        target === session
+          ? seenOf(messages, thread?.queued ?? [], sentId)
+          : null,
     });
     const next = afterReply(
       outgoing,
       reply.ok ? { ok: true } : { ok: false, code: reply.code },
     );
-    if (next.phase === "accepted") drafts.accepted(target, next);
-    else drafts.save(target, { outgoing: next });
+    if (next.phase === "accepted") {
+      drafts.accepted(target, next);
+      setProblem((was) => (was === "changed-elsewhere" ? null : was));
+    } else if (next.phase === "changed_elsewhere") {
+      // 쓴 글은 입력칸에 그대로 있다. 보낸 말 줄만 치우고 대화를 다시 읽는다.
+      drafts.save(target, { outgoing: null });
+      setProblem("changed-elsewhere");
+      void data.reload();
+    } else drafts.save(target, { outgoing: next });
   };
 
   const dispatch = async (

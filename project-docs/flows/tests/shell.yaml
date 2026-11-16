@@ -455,8 +455,9 @@ files:
       - session-send:ok
       - session-send:not_found
       - session-send:conflict
+      - session-send:changed-elsewhere
       - acp-read:ok
-    note: "afterReply의 NOT_TAKEN 분류(not_found·conflict 등은 접수 안 됨, 그 밖은 결과를 모름)가 session-send 답을 정하고, ok는 접수됨이다. afterCheck의 찾음 판정은 acp snapshot 읽기(acp-read:ok)로 정한다. 같은 id·key 재전송 규칙은 판정이 아니라 전송 상태라 빠진 것은 없다"
+    note: "changed_elsewhere 뒤에도 쓴 글이 남고 seenOf가 보내기에 싣는 seen을 고른다. afterReply의 NOT_TAKEN 분류(not_found·conflict 등은 접수 안 됨, 그 밖은 결과를 모름)가 session-send 답을 정하고, ok는 접수됨이다. afterCheck의 찾음 판정은 acp snapshot 읽기(acp-read:ok)로 정한다. 같은 id·key 재전송 규칙은 판정이 아니라 전송 상태라 빠진 것은 없다"
 
   - path: packages/shell/renderer/conversation/live-text_test.ts
     covers: []

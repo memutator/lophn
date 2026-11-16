@@ -32,6 +32,8 @@ export const acpInputSchema = z.discriminatedUnion("type", [
     delivery: inputDeliverySchema,
     /** 앱 화면이 보낸 것이면 그 앱(shell main이 보낸 view에서 정해 덮는다. 이름표일 뿐이다). */
     via_app: idSchema("app").optional(),
+    /** 이 화면이 아는 마지막 사람 메시지(null은 하나도 못 봄). 그 뒤에 다른 기기의 사람 메시지가 있으면 거절된다. 없으면 검사하지 않는다. */
+    seen: message.nullable().optional(),
   }),
   /** 도는 turn을 멈춘다. */
   z.strictObject({

@@ -28,6 +28,8 @@ const sendMessageInputSchema = z.strictObject({
   unattended: z.literal(true).optional(),
   // 앱 화면이 보낸 사람 메시지면 그 앱. 이름표일 뿐이다: 메시지는 사람의 것이고 model이 받는 글과 권한은 그대로다.
   via_app: idSchema("app").optional(),
+  // 보내는 화면이 아는 마지막 사람 메시지. 그 뒤에 다른 사람 메시지가 있으면 conflict(changed_elsewhere)로 끝나고 아무것도 넣지 않는다. null은 하나도 못 봤다는 뜻이다. 없으면 검사하지 않는다(화면이 없는 보내는 쪽).
+  seen: idSchema("msg").nullable().optional(),
 });
 
 export const sendMessage = defineCommand({

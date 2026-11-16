@@ -369,7 +369,7 @@ flows:
       - "core가 처음 붙으면 shell main이 machine/status로 이 기계의 id와 이름을 받는다. 그 전 목록은 state starting이다"
       - "<data root>/shell/viewer/의 key.json·machines.json을 연다. 적힌 machine이 이 기계가 아니면 둘 다 지우고 새 key와 빈 목록으로 시작한다(복제된 data root). 못 읽으면 덮지 않고 state unreadable이다"
       - "짝지은 기계마다 연결 하나를 열어 앱이 도는 동안 든다(꺼진 기계는 backoff로 다시 붙는다). 연결 상태가 status·path가 되고, 연결되거나 끊길 때 seen에 그때를 적는다"
-      - "목록(이 기계, 기계마다 보이는 이름·알린 이름·별명·status·path·last_seen_at, start, last)이 바뀌면 이 컴퓨터의 창에 shell:machines-changed로 통째로 민다"
+      - "목록(이 기계, 기계마다 보이는 이름·알린 이름·별명·status·path·last_seen_at, start, last)이 바뀌면 이 컴퓨터의 창과 다른 기계의 창에 shell:machines-changed로 통째로 민다"
       - "shell:machines-list는 sender가 desktop 창 본문인지 보고(ipc-caller-guard) 지금 목록을 돌려준다"
     outcomes:
       - id: ok
@@ -541,6 +541,133 @@ flows:
         when: "입력이 strict schema에 맞지 않거나, 고른 machine이 목록에도 없고 이 기계도 아니다"
         observe: [response]
     crosses_process: false
+
+  # ---------- 다른 기계의 창 (기계마다 창 하나, main이 연결을 든다) ----------
+  - id: machine-window-ipc
+    title: "다른 기계의 창이 보낸 IPC를 고른다: core 통로는 그 기계의 연결로, 정한 몇 channel만 이 컴퓨터로, 나머지는 거절"
+    actor: system
+    entries: [system:machine-window-ipc]
+    uses: [ipc:shell:core-call, ipc:shell:core-watch, ipc:shell:core-state-get]
+    boundary: [shell, remote-client]
+    code:
+      - packages/shell/main/desktop/machine-route.ts
+      - packages/shell/main/desktop/wiring/context.ts
+      - packages/shell/main/desktop/wiring/core.ts
+      - packages/shell/preload/remote.ts
+    steps:
+      - "모든 ctx.ipc.handle·on과 core 연결의 shell:core-* handler가 영역의 listener 앞에서 보낸 webContents id로 기계를 찾는다. main이 다른 기계의 창을 열 때 묶은 표이고 renderer가 기계를 주장하지 못한다. 묶이지 않은 sender(이 컴퓨터의 창, overlay)는 지금 handler로 간다"
+      - "shell:core-call은 그 기계의 연결로 { resource, method, body }를 보낸다(kind는 core가 route 표로 안다). upload의 bytes는 { input: body, base64 }로, file 답 { content_type, base64 }는 { bytes, contentType }으로 바꾼다"
+      - "연결이 아직 없거나 ready가 아니면 unavailable이고 그 연결에 resume()을 걸어 backoff를 기다리지 않고 다시 붙는다(창의 다시 시도가 이 길이다)"
+      - "shell:core-watch는 조건을 창마다 남기고 그 연결의 watch로 건다(연결이 나중에 오면 그때 건다). shell:core-state-get은 그 연결의 지금 상태(starting|ready|stale, confirmedAt)다"
+      - "그 밖에 지나는 channel은 machines-list·open·this-window·visible, window-control, open-external뿐이다. overlay 통로는 ipcMain에 따로 붙어 이 둘레를 타지 않는다(remote preload는 overlay view에 lophnCore를 열지 않는다)"
+      - "나머지 handle은 { ok: false, error: { code: forbidden } }이고 영역 handler를 부르지 않는다. on 메시지는 버린다"
+    outcomes:
+      - id: to-machine
+        when: "다른 기계의 창이 보낸 core 통로가 그 기계의 연결로 갔다. 이 컴퓨터의 core는 불리지 않는다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "그 기계와의 연결이 아직 없거나 ready가 아니다(기계 목록이 열리기 전, 꺼진 기계, 이 desktop을 지운 기계)"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "shell:core-call 입력이 core call schema에 맞지 않는다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "다른 기계의 창이 허락 목록 밖의 handle channel(터미널, file, secret 입력, layout, browser, 앱 view…)을 불렀다. on 메시지는 답 없이 버린다"
+        observe: [response]
+      - id: allowed
+        when: "다른 기계의 창이 허락 목록의 channel을 불렀다. 이 컴퓨터의 handler가 자기 sender 검사를 그대로 한다"
+        observe: [response]
+      - id: this-computer
+        when: "보낸 창이 다른 기계에 묶이지 않았다(이 컴퓨터의 창). 지금 handler로 간다"
+        observe: [response]
+    crosses_process: true
+    risk: [permission, sandbox]
+    docs: [architecture/remote.md]
+
+  - id: machines-open
+    title: "그 기계의 창을 열거나 앞으로 가져온다(이 컴퓨터의 id면 이 컴퓨터의 창)"
+    actor: person
+    entries: [ipc:shell:machines-open]
+    uses: [machine-window-open:opened, machine-window-open:raised]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/wiring/machine-windows.ts
+      - packages/shell/ipc/machines.ts
+      - packages/shell/preload/machines-api.ts
+    steps:
+      - "sender가 desktop 창 본문인지 보고(이 컴퓨터의 창과 다른 기계의 창 모두) 입력 { machine }을 strict schema로 본다"
+      - "이 기계의 id를 아직 모르면(목록 starting) unavailable이다"
+      - "이 기계의 id면 이 컴퓨터의 가장 최근 일반 창을 앞으로 가져오고, 없으면 새 창을 연다"
+      - "목록에 없는 machine이면 not_found다. 있으면(removed도) 그 기계의 창을 연다(machine-window-open)"
+    outcomes:
+      - id: ok
+        when: "그 기계의 창이나 이 컴퓨터의 창이 열렸거나 앞으로 왔다"
+        observe: [response, "process:창 하나가 앞으로 온다"]
+      - id: not_found
+        code: not_found
+        when: "그 machine id가 목록에 없다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "기계 목록이 아직 이 기계의 id를 모른다(starting)"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "desktop 창 본문이 아닌 caller다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력이 strict schema에 맞지 않는다(mch_ id가 아니다)"
+        observe: [response]
+    crosses_process: false
+
+  - id: machines-this-window
+    title: "부른 창이 보는 기계를 알려 준다"
+    actor: system
+    entries: [ipc:shell:machines-this-window]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/wiring/machine-windows.ts
+      - packages/shell/ipc/machines.ts
+      - packages/shell/preload/machines-api.ts
+    steps:
+      - "보낸 webContents가 다른 기계의 창이면 그 기계의 id와 보이는 이름, 아니면 null이다. 입력은 없다"
+    outcomes:
+      - id: machine
+        when: "다른 기계의 창이 불렀다"
+        observe: [response]
+      - id: this-computer
+        when: "이 컴퓨터의 창이 불렀다. { machine: null }이다"
+        observe: [response]
+    crosses_process: false
+
+  - id: machines-visible
+    title: "다른 기계의 창이 보이는 session을 알리고, main이 그 기계에 presence로 보낸다"
+    actor: system
+    entries: [ipc:shell:machines-visible]
+    uses: [route:presence/report]
+    boundary: [shell, remote-client]
+    code:
+      - packages/shell/main/desktop/wiring/machine-windows.ts
+      - packages/shell/main/notice/presence.ts
+      - packages/shell/preload/remote.ts
+    steps:
+      - "remote preload의 lophnNotice.visible이 session 꼴만 이 channel로 보낸다(앱 화면 view_session은 버린다)"
+      - "보낸 창이 다른 기계의 창이 아니면 버린다. 입력 { session, visible }을 strict schema로 보고 그 창의 보이는 session을 고친다"
+      - "그 창의 presence(focus와 보이는 session, idle은 OS 입력 시간)가 바뀌었으면 그 기계의 연결로 presence/report를 기기 자격으로 보낸다. 30초마다 다시 보내고, 연결이 다시 ready가 되면 바로 보낸다. 연결이 ready가 아니면 보내지 않는다. headless는 보내지 않는다"
+      - "창이 닫히면 focused false를 한 번 보낸다. 이 컴퓨터의 presence와 알림은 다른 기계의 창을 세지 않는다"
+    outcomes:
+      - id: reported
+        when: "바뀐 presence를 그 기계에 보냈다"
+        observe: ["request:그 기계의 core presence/report"]
+      - id: ignored
+        when: "이 컴퓨터의 창이 불렀거나, 입력이 schema에 맞지 않거나, 연결이 ready가 아니다"
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/attention.md]
 
 # ---------- 다른 area의 flow가 시작하는 channel ----------
 # push(main → renderer)는 그 결과를 전하는 flow에 건다.

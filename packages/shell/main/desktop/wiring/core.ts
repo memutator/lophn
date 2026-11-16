@@ -1,7 +1,7 @@
 // core 연결과 상태 relay.
 
 import { join } from "node:path";
-import { app, type BrowserWindow, ipcMain } from "electron";
+import { app, type BrowserWindow } from "electron";
 
 import { CORE_STATE_CHANNEL } from "../../../ipc/core.ts";
 import { startCoreConnection } from "../core/connection.ts";
@@ -15,6 +15,11 @@ type ConnectInput = {
   dataRoot: string;
   windows: Set<BrowserWindow>;
   relay: CoreRelay;
+  // context의 IPC 둘레(`ctx.ipc.handle`). 다른 기계의 창이 보낸 `shell:core-*`는 그 기계의 연결로 가고 이 core에 닿지 않는다.
+  handle: (
+    channel: string,
+    listener: (event: never, input: never) => Promise<unknown>,
+  ) => void;
 };
 
 /** core entry의 기준. packaged는 설치 묶음의 platform/(source)이고, 개발은 `here`에서 저장소 루트다. */
@@ -27,12 +32,12 @@ export function coreRoot(here: string = __dirname): string {
 // 창을 다 닫아도 core는 남는다. `Stop lophn`만 core를 멈춘다.
 // Gateway 조건과 도착한 event, 호출 앞 처리는 relay에 영역이 덧붙인 것을 부른다.
 export function connectCore(input: ConnectInput) {
-  const { here, dataRoot, windows, relay } = input;
+  const { here, dataRoot, windows, relay, handle } = input;
   const repoRoot = coreRoot(here);
   return startCoreConnection({
     launch: { repoRoot, dataRoot },
     productVersion: productVersionOf(repoRoot),
-    ipc: { handle: (channel, listener) => ipcMain.handle(channel, listener) },
+    ipc: { handle },
     fetch: nodeFetch,
     stream: nodeStreamFetch,
     sockets: nodeSockets(),

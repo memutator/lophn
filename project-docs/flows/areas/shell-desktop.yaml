@@ -6,7 +6,7 @@ flows:
     title: "desktop app을 켠다(single instance, tray, 전역 팔레트, 첫 창)"
     actor: system
     entries: [system:shell-start]
-    uses: [control:identify, control:connect, desktop-window-open:opened, desktop-window-open-inactive:opened]
+    uses: [control:identify, control:connect, desktop-window-open:opened, desktop-window-open-inactive:opened, machine-window-start:machine, machine-window-start:this-computer]
     boundary: [shell, core-control-protocol]
     code:
       - packages/shell/main/desktop/main.ts
@@ -24,10 +24,10 @@ flows:
       - "ready 뒤 window 상태를 읽고 `lophn-shell` scheme을 붙인다. 옛 로그인 시작 등록을 Keep running으로 옮기는 일은 core에 붙은 뒤 돈다(autostart-migrate)"
       - "headless가 아니면 tray를 올린다. tray 실패는 log만 남기고 창은 연다"
       - "전역 팔레트 key를 건다(keys 소유). 실패하면 tray에 안내 한 줄만 보인다"
-      - "첫 argv를 읽는다. `--open-app <ULID>`이 맞으면 앱 전용 창을 요청하고, `--agent-window`(core가 browser를 쓰려고 앱을 띄운 시작)이면 focus 없는 창을 연다(desktop-window-open-inactive). 그 밖의 argv(`--quit`도)는 기본 창을 연다"
+      - "첫 argv를 읽는다. `--open-app <ULID>`이 맞으면 앱 전용 창을 요청하고, `--agent-window`(core가 browser를 쓰려고 앱을 띄운 시작)이면 focus 없는 창을 연다(desktop-window-open-inactive). 그 밖의 argv(`--quit`도)는 시작 기계의 창을 연다(machine-window-start: 고른 기계나 마지막에 쓴 기계, 아니면 이 컴퓨터)"
     outcomes:
       - id: window-opened
-        when: "기본 창이 열렸다(desktop-window-open:opened). 첫 실행의 `--quit`은 종료가 아니라 창 열기로 읽힌다. core 연결이 실패(failed-start)해도, 전역 팔레트 등록이 실패해도 창은 연다(tray 안내만 남는다)"
+        when: "시작 기계의 창이 열렸다(이 컴퓨터면 desktop-window-open:opened). 첫 실행의 `--quit`은 종료가 아니라 창 열기로 읽힌다. core 연결이 실패(failed-start)해도, 전역 팔레트 등록이 실패해도 창은 연다(tray 안내만 남는다)"
         observe: ["process:shell 기본 창 하나가 생긴다"]
       - id: window-opened-tray-failed
         when: "LOPHN_SHELL_HEADLESS가 아니고 tray를 띄우지 못했다. log만 남기고 기본 창은 연다. tray가 없어도 창 닫기는 종료가 아니다"
@@ -85,7 +85,7 @@ flows:
     title: "이미 떠 있는 desktop main이 두 번째 실행의 argv를 받아 창을 열거나 끄기로 답한다"
     actor: system
     entries: [system:second-instance]
-    uses: [desktop-window-open:opened, desktop-window-open-inactive:opened, desktop-window-open-inactive:reused, ui:tray-quit, shell-stop:stopped]
+    uses: [desktop-window-open:opened, desktop-window-open-inactive:opened, desktop-window-open-inactive:reused, ui:tray-quit, shell-stop:stopped, machine-window-start:machine]
     boundary: [shell]
     code:
       - packages/shell/main/desktop/single-instance.ts
@@ -99,7 +99,7 @@ flows:
       - "`--agent-window`이면 일반 창이 하나도 없을 때만 focus 없이 창 하나를 연다(desktop-window-open-inactive). 있으면 아무것도 하지 않는다. 앞으로 가져오지 않는다"
       - "`--quit`이면 창이 하나라도 있을 때 tray Quit과 같은 확인 경로를 타고, 창이 없으면 확인 없이 shell 정리를 밟는다"
       - "`--open-app <ID>`이 맞으면 앱 전용 창(app-surface)을 요청한다"
-      - "그 밖의 argv는 desktop-window-open과 같은 길로 새 기본 창을 연다"
+      - "그 밖의 argv는 창(어느 기계든)이 하나도 없으면 시작 기계의 창을(machine-window-start), 있으면 desktop-window-open과 같은 길로 이 컴퓨터의 새 기본 창을 연다"
     outcomes:
       - id: window-opened
         when: "기본 창 요청이다. argv에 대상이 없거나 모양이 틀린 것도 여기다"
@@ -134,7 +134,7 @@ flows:
     title: "새 desktop 창을 Home으로 연다(저장한 자리와 크기를 되살린다)"
     actor: person
     entries: [ui:tray-home]
-    uses: [system:shell-navigation]
+    uses: [system:shell-navigation, machine-window-start:machine]
     boundary: [shell]
     code:
       - packages/shell/main/desktop/wiring/desktop-window.ts
@@ -150,7 +150,8 @@ flows:
       - "`lophn-shell://desktop` 주소를 연다. 개발 전용 시작 env가 있으면 그 주소와 hash를 쓴다. 창은 security.ts의 webPreferences와 preload로 만든다"
       - "창에 탐색 가드를 단다(will-frame-navigate, will-redirect, window open을 shell-navigation 규칙으로 거른다). 보호 창은 이 길로 만들지 않는다. detached 탭 창과 앱 전용 창은 같은 함수에 시작 값(hash, 자리)을 주어 만든다. 그때는 저장한 자리를 쓰지도 고치지도 않는다"
       - "shell 자신의 overlay view를 붙인다. 이때 그 session(default)에 권한과 download 정책을 건다(shell-session-policy)"
-      - "창을 windows 집합에 넣고 created 반응(core 상태 전달, 편집기 close guard)을 건다. 옮기거나 크기를 바꾸면 500ms 뒤, 최대화·되돌림·닫기 때 window.json에 저장한다"
+      - "tray Home은 창(어느 기계든)이 하나도 없으면 시작 기계의 창을 연다(machine-window-start). 있으면 이 컴퓨터의 새 창이다"
+      - "창을 windows 집합에 넣고 created 반응(core 상태 전달, 편집기 close guard)을 건다. 일반 창은 topWindows(어느 기계든 최근 창 순서)에도 든다. 옮기거나 크기를 바꾸면 500ms 뒤, 최대화·되돌림·닫기 때 window.json에 저장한다"
     outcomes:
       - id: opened
         when: "desktop 창 하나가 생겨 Home 주소를 읽기 시작했다. 일반 창이면 자리를 저장한다. 같은 함수로 만든 detached 탭·앱 전용 창(시작 값이 있는 경우)은 같은 길이지만 저장하지 않는다"
@@ -195,26 +196,26 @@ flows:
       - "macOS와 Windows, Wayland의 focus는 돌려 보지 않았다"
 
   - id: desktop-window-show
-    title: "가장 최근 desktop 창을 앞으로 가져오고, 창이 없으면 새 기본 창을 연다"
+    title: "가장 최근 창(어느 기계든)을 앞으로 가져오고, 창이 없으면 시작 기계의 창을 연다"
     actor: person
     entries: [ui:tray-open-window, system:dock-activate]
-    uses: [desktop-window-open:opened]
+    uses: [desktop-window-open:opened, machine-window-start:machine, machine-window-start:this-computer]
     boundary: [shell]
     code:
       - packages/shell/main/desktop/wiring/desktop-window.ts
       - packages/shell/main/desktop/tray.ts
       - packages/shell/main/desktop/wiring/desktop.ts
     steps:
-      - "windows 집합에서 focus를 가장 최근에 받은 desktop 창을 고른다. detached 탭 창과 앱 전용 창은 건너뛴다"
+      - "topWindows(이 컴퓨터의 일반 창과 다른 기계의 창)에서 focus를 가장 최근에 받은 창을 고른다. detached 탭 창과 앱 전용 창은 들지 않는다"
       - "그 창이 있으면 최소화를 풀고 show와 focus만 한다. headless이면 아무 일도 하지 않는다"
-      - "창이 하나도 없으면 desktop-window-open과 같은 길로 새 기본 창을 연다"
+      - "창이 하나도 없으면 시작 기계의 창을 연다(machine-window-start). 이 컴퓨터의 알림을 누를 때 이 컴퓨터의 창이 없으면 이 길이라 다른 기계의 창이 앞으로 올 수 있다"
       - "macOS Dock 클릭(activate)은 창이 하나도 없을 때만 이 길로 간다. 창이 있으면 아무 일도 하지 않는다"
     outcomes:
       - id: focused
         when: "최근 desktop 창이 있다(tray 아이콘 클릭). headless면 앞으로 가져오지 않아 noop과 같다"
         observe: ["process:그 창이 앞으로 온다"]
       - id: opened
-        when: "desktop 창이 하나도 없어 새 기본 창을 연다"
+        when: "창이 하나도 없어 시작 기계의 창을 연다"
         observe: ["process:desktop 창 하나가 생긴다"]
       - id: noop
         when: "macOS activate인데 창이 이미 있다(창 수가 0이 아니면 detached 창만 있어도 아무 일 없다). 또는 headless라 창을 앞으로 가져오지 않는다"
@@ -300,6 +301,86 @@ flows:
       - "편집기 저장 확인 흐름은 projects 소유라 여기서는 결과(닫힘, 마지막 닫힘, 유지)만 본다"
       - "file-close-answer는 guardIpc가 거절하면 아무 응답 없이 버려진다. 그러면 guard는 15초 뒤 닫는다. 저장 중 문서가 있으면 답 없이 닫힐 수 있다. 의도인지 확인이 필요하다"
       - "app.quit으로 닫히는 창은 quit.quitting 때문에 이 guard를 건너뛴다(끄기 확인은 quit-app이 묻는다). 저장 중·실패 문서는 끄기 확인 뒤 묻지 않고 닫힌다"
+
+  # ---------- 다른 기계의 창 ----------
+  - id: machine-window-start
+    title: "창이 하나도 없을 때 시작 기계의 창을 연다(core를 기다리지 않는다)"
+    actor: system
+    entries: [system:machine-window-start]
+    uses: [desktop-window-open:opened, machine-window-open:opened]
+    boundary: [shell]
+    code:
+      - packages/shell/main/desktop/wiring/desktop-window.ts
+      - packages/shell/main/desktop/viewer/store.ts
+      - packages/shell/main/desktop/wiring/context.ts
+      - packages/shell/main/desktop/wiring/desktop.ts
+    steps:
+      - "앱 시작, tray Open·Home, 두 번째 실행, macOS activate가 창(어느 기계든)이 하나도 없을 때 이 길로 온다. agent 창(openInactive), intent, 알림, surface는 이 컴퓨터의 창만 본다"
+      - "<data root>/shell/viewer/machines.json의 start·last만 읽는다. 고른 기계(start machine)가 목록에 있고 removed가 아니면 그것, 아니면 last가 그러면 그것이다. key와 machine 표지는 보지 않는다(core가 아직 없다)"
+      - "못 읽거나 고를 기계가 없거나 이 컴퓨터면 이 컴퓨터의 창을 연다. 기계면 저장된 보이는 이름으로 그 기계의 창을 연다(꺼진 기계여도 창을 바로 연다)"
+      - "나중에 core가 답해 저장이 다른 기계의 것으로 버려지면 그 창은 목록에서 빠져 닫히고 이 컴퓨터의 창이 열린다(machine-window-close)"
+    outcomes:
+      - id: machine
+        when: "시작 기계가 다른 기계라 그 기계의 창을 열었다"
+        observe: ["process:<이름> — lophn 창 하나가 생긴다"]
+      - id: this-computer
+        when: "machines.json이 없거나 못 읽거나, 시작 기계가 이 컴퓨터이거나 목록에 없다. 이 컴퓨터의 창을 열었다"
+        observe: ["process:desktop 창 하나가 생긴다"]
+    crosses_process: false
+    docs: [architecture/remote.md]
+
+  - id: machine-window-open
+    title: "다른 기계의 창을 연다(기계마다 하나, remote preload, 그 기계의 연결 상태와 event만 받는다)"
+    actor: person
+    uses: [ipc:shell:machines-open, ipc:shell:core-state, ipc:shell:core-event, ipc:shell:machines-changed]
+    boundary: [shell, remote-client]
+    code:
+      - packages/shell/main/desktop/wiring/machine-windows.ts
+      - packages/shell/main/desktop/wiring/desktop-window.ts
+      - packages/shell/main/desktop/window.ts
+      - packages/shell/main/desktop/machine-route.ts
+      - packages/shell/preload/remote.ts
+      - packages/shell/main/build.ts
+    steps:
+      - "그 기계의 창이 이미 있으면 앞으로 가져온다. 기계마다 창은 하나다"
+      - "없으면 preload-remote.cjs로 이 컴퓨터 창과 같은 lophn-shell://desktop 주소를 연다. 기계는 주소가 아니라 main의 표(machine-route)가 정한다. 제목은 '<보이는 이름> — lophn', 자리는 이 컴퓨터의 마지막 창 자리이고 저장하지 않는다"
+      - "navigation guard, overlay, 창 단추 상태, appearance CSS는 이 컴퓨터의 창과 같다. windows·detached·appWindows에 넣지 않고 windowHooks.created(core 상태 push, 편집기 guard 등)를 부르지 않는다. topWindows에는 든다"
+      - "remote preload는 lophnCore, lophnMachines, lophnShell(overlay와 openExternal), lophnShortcuts, lophnIntents, lophnWindow, lophnNotice(visible만 shell:machines-visible로, toast·reveal 없음)만 연다. overlay view에는 lophnShell만 연다"
+      - "그 기계의 연결 상태(starting|ready|stale)와 event(ready·event·closed)를 그 창에만 shell:core-state·core-event로 민다. 기계 목록이 열리기 전이면 starting이고 연결이 생기면 그때 붙는다(다시 pairing해 연결이 바뀌어도 따라간다). 목록이 바뀌면 shell:machines-changed도 민다"
+      - "보이는 이름(별명 ?? 알린 이름)이 바뀌면 창 제목을 고친다"
+      - "창이 focus를 받을 때 그 기계의 연결이 ready면 그 기계가 '마지막에 쓴 기계'가 된다. 이 컴퓨터의 창이 focus를 받으면 이 컴퓨터다"
+    outcomes:
+      - id: opened
+        when: "그 기계의 창이 새로 열렸다"
+        observe: ["process:<이름> — lophn 창 하나가 생긴다"]
+      - id: raised
+        when: "그 기계의 창이 이미 있어 앞으로 왔다"
+        observe: ["process:그 창이 앞으로 온다"]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/remote.md]
+
+  - id: machine-window-close
+    title: "다른 기계의 창이 닫힌다(사람이 닫거나, 그 기계가 목록에서 빠졌다)"
+    actor: system
+    entries: [system:machine-window-close]
+    uses: [desktop-window-open:opened]
+    boundary: [shell, remote-client]
+    code:
+      - packages/shell/main/desktop/wiring/machine-windows.ts
+      - packages/shell/main/desktop/machine-route.ts
+    steps:
+      - "기계 목록이 열린 뒤(starting이 아님) 그 기계가 목록에 없으면 창을 닫는다(이 컴퓨터에서 지움, 다른 기계의 것으로 버려진 저장). 이 desktop을 지운 기계는 removed로 남고 창은 그 gate를 보인다"
+      - "그렇게 닫은 창 뒤에 창이 하나도 남지 않으면 이 컴퓨터의 창을 연다"
+      - "닫힌 창은 표에서 빠지고, 그 기계에 presence focused false를 한 번 보내고, 그 연결의 watch를 비운다. 연결은 앱이 도는 동안 남는다"
+    outcomes:
+      - id: closed
+        when: "창이 닫혔고 다른 창이 남아 있다"
+        observe: ["process:창 하나가 사라진다"]
+      - id: replaced
+        when: "목록에서 빠진 기계의 창이 마지막 창이라 이 컴퓨터의 창이 대신 열렸다"
+        observe: ["process:desktop 창 하나가 생긴다"]
+    crosses_process: true
 
   # ---------- shell 기본 session 정책 ----------
   - id: shell-session-policy

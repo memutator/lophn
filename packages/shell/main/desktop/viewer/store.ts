@@ -13,7 +13,7 @@ import {
   remoteKeyBytes,
   remoteKeyText,
 } from "../../../../protocol/remote/client.ts";
-import type { Computer } from "../../../../remote-client/mod.ts";
+import { type Computer, defaultName } from "../../../../remote-client/mod.ts";
 import {
   machineIdSchema as machineId,
   type MachineStart,
@@ -153,5 +153,41 @@ export function createViewerStore(deps: {
         .then(() => write(machinesFile, { machine: deps.machine, ...saved }));
       return writing;
     },
+  };
+}
+
+/**
+ * The machine the first window opens on, read before the core answers: `start` and `last` of `machines.json` and whether
+ * that machine is still in the list (not removed). The device key and the machine stamp are not checked here; a list that
+ * turns out to belong to another machine is dropped once the core answers and that window closes. Null when the file is
+ * missing or unreadable, or when the start is this machine.
+ */
+export async function readStartMachine(
+  dataRoot: string,
+  fs: Pick<StoreDeps, "readFile"> = defaultStoreDeps,
+): Promise<{ machine: Id<"mch">; name: string } | null> {
+  let saved: z.infer<typeof machinesFileSchema>;
+  try {
+    const text = new TextDecoder().decode(
+      await fs.readFile(join(dataRoot, "shell", "viewer", "machines.json")),
+    );
+    const parsed = machinesFileSchema.safeParse(JSON.parse(text));
+    if (!parsed.success) return null;
+    saved = parsed.data;
+  } catch {
+    return null;
+  }
+  const usable = (id: Id<"mch"> | null) =>
+    saved.computers.find(
+      (computer) => computer.machine === id && !computer.revoked,
+    );
+  const computer =
+    (saved.start.mode === "machine"
+      ? usable(saved.start.machine)
+      : undefined) ?? usable(saved.last);
+  if (computer?.machine === undefined) return null;
+  return {
+    machine: computer.machine,
+    name: computer.name ?? computer.announced ?? defaultName(computer),
   };
 }

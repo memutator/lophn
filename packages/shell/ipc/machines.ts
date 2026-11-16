@@ -11,6 +11,12 @@ export const MACHINES_PAIR_CHANNEL = "shell:machines-pair";
 export const MACHINES_REMOVE_CHANNEL = "shell:machines-remove";
 export const MACHINES_RENAME_CHANNEL = "shell:machines-rename";
 export const MACHINES_START_CHANNEL = "shell:machines-start";
+// Opens that machine's window or brings it to the front; this machine's id opens a window of this computer.
+export const MACHINES_OPEN_CHANNEL = "shell:machines-open";
+// The machine the calling window views; null in a window of this computer.
+export const MACHINES_THIS_WINDOW_CHANNEL = "shell:machines-this-window";
+// A window of another machine says which session it shows, for that machine's presence. Only those windows call it.
+export const MACHINES_VISIBLE_CHANNEL = "shell:machines-visible";
 
 export const machineIdSchema = idSchema("mch") as unknown as z.ZodType<
   Id<"mch">
@@ -56,6 +62,16 @@ export const machinesRenameSchema = z.strictObject({
   alias: z.string().trim().min(1).max(64).nullable(),
 });
 
+export const machinesOpenSchema = z.strictObject({
+  machine: machineIdSchema,
+});
+export const machinesVisibleSchema = z.strictObject({
+  session: idSchema("ses") as unknown as z.ZodType<Id<"ses">>,
+  visible: z.boolean(),
+});
+
+export type MachineWindow = { machine: { id: Id<"mch">; name: string } | null };
+
 export type MachinesFailure = {
   ok: false;
   code: "invalid_input" | "forbidden" | "not_found" | "unavailable";
@@ -84,4 +100,8 @@ export interface LophnMachinesApi {
   /** null clears the alias and the machine's announced name shows again. */
   rename(machine: Id<"mch">, alias: string | null): Promise<MachinesReply>;
   setStart(start: MachineStart): Promise<MachinesReply>;
+  /** Opens that machine's window or brings it to the front. This machine's id opens a window of this computer. */
+  open(machine: Id<"mch">): Promise<MachinesReply>;
+  /** The machine this window views; null in a window of this computer. */
+  thisWindow(): Promise<MachineWindow>;
 }

@@ -28,6 +28,7 @@ import {
   openWindow,
   type WindowConfig,
 } from "../window.ts";
+import { readStartMachine } from "../viewer/store.ts";
 import { clampToWorkAreas } from "../work-area.ts";
 import { stateOf } from "../window-controls.ts";
 import type { WindowBounds } from "../../workspace/schema.ts";
@@ -35,9 +36,11 @@ import type { ShellContext } from "./context.ts";
 
 /** 영역이 창을 열고 보이게 할 때 쓰는 통로. */
 export type DesktopWindows = {
-  open(): BrowserWindow | undefined;
-  /** 일반 창이 있으면 그 창을, 없으면 focus 없이 새 창을 연다. 앱과 저장한 창 자리가 준비된 뒤 돌려준다. */
+  /** 창이 하나도 없으면 시작 기계의 창을, 있으면 이 컴퓨터의 새 창을 연다. */
+  open(): void;
+  /** 이 컴퓨터의 일반 창이 있으면 그 창을, 없으면 focus 없이 새 창을 연다. 앱과 저장한 창 자리가 준비된 뒤 돌려준다. */
   openInactive(): Promise<BrowserWindow | undefined>;
+  /** 가장 최근 창(어느 기계든)을 앞으로 가져온다. 창이 없으면 시작 기계의 창을 연다. */
   show(): void;
   send(intent: DesktopIntent): void;
 };
@@ -56,7 +59,7 @@ const SAVE_DEBOUNCE_MS = 500;
  * 새 desktop 창의 자리. 마지막으로 저장한 자리를 지금 화면 안으로 당긴다. 다른 desktop 창이 떠 있으면 그만큼
  * 비켜 연다. 저장한 적 없으면 undefined이고 OS가 기본 크기 창을 놓는다.
  */
-function restoredWorkspace(ctx: ShellContext) {
+export function restoredWorkspace(ctx: ShellContext) {
   const saved = ctx.windowState.current;
   if (saved === null) return undefined;
   const shift = recentWindow(ctx) === undefined ? 0 : CASCADE_STEP;
@@ -114,14 +117,30 @@ export async function openInactiveWindow(
   );
 }
 
-/** 가장 최근 창을 앞으로 가져온다. 창이 없으면 새 기본 창을 연다. */
+function recentTopWindow(ctx: ShellContext): BrowserWindow | undefined {
+  return [...ctx.topWindows].filter((window) => !window.isDestroyed()).at(-1);
+}
+
 export function showDesktopWindow(ctx: ShellContext): void {
-  const recent = recentWindow(ctx);
-  if (recent === undefined) {
-    openDesktopWindow(ctx);
-    return;
-  }
-  reveal(recent, ctx.headless);
+  const recent = recentTopWindow(ctx);
+  if (recent === undefined) openStartWindow(ctx);
+  else reveal(recent, ctx.headless);
+}
+
+export function openDesktop(ctx: ShellContext): void {
+  if (recentTopWindow(ctx) === undefined) openStartWindow(ctx);
+  else openDesktopWindow(ctx);
+}
+
+/**
+ * 창이 없을 때 여는 창. 시작 기계는 core를 기다리지 않고 저장된 목록에서 고른다. 못 읽거나 이 컴퓨터면 이 컴퓨터의 창이다.
+ * 나중에 표지가 달라 저장이 버려지면 그 기계의 창은 목록에서 빠져 닫히고 이 컴퓨터의 창이 열린다(machine-windows).
+ */
+function openStartWindow(ctx: ShellContext): void {
+  void readStartMachine(ctx.dataRoot).then((start) => {
+    if (start === null) openDesktopWindow(ctx);
+    else ctx.machineWindows.open(start.machine, start.name);
+  });
 }
 
 /** shell 창의 시작 값. detached 탭 창과 앱 전용 창이 쓴다. */
@@ -141,7 +160,7 @@ export function openDesktopWindow(
   // 보이되 focus를 가져오지 않는다(`showInactive`). 저장한 자리가 있든 없든 숨긴 채 만들어 ready-to-show에서 보인다.
   options: { inactive?: boolean } = {},
 ): BrowserWindow | undefined {
-  const { here, headless, windows, overlays } = ctx;
+  const { here, windows } = ctx;
   // detached 창은 layout이 탭마다 자리를 갖는다. 앱 전체의 마지막 자리는 desktop 창만 쓰고 고친다.
   const workspace = start === undefined ? restoredWorkspace(ctx) : undefined;
   const bounds = start?.bounds ?? workspace?.bounds;
@@ -181,57 +200,10 @@ export function openDesktopWindow(
                 : desktopUrl,
     windows: {
       create: (config: WindowConfig) => {
-        const window = new BrowserWindow(
-          surfaceOptions({ ...config, icon: ctx.appIcon }, headless),
-        );
-        // shell 창의 main frame은 lophn-shell://desktop 밖으로 가지 않는다. http·https는
-        // open-external로 넘긴다. Electron 44에서 main frame은 will-frame-navigate가 먼저 오고,
-        // 거기서 막으면 will-navigate는 오지 않는다. 그래서 will-navigate는 듣지 않는다.
-        const open = (url: string) =>
-          headless.headless ? Promise.resolve() : shell.openExternal(url);
-        const guard = (event: NavigationEvent) => {
-          const decision = decideShellNavigation({
-            url: event.url,
-            isMainFrame: event.isMainFrame,
-          });
-          if (decision.allow) return;
-          event.preventDefault();
-          if (decision.external) {
-            void openExternalLink({ open, log: ctx.log }, event.url);
-          }
-        };
-        window.webContents.on("will-frame-navigate", guard);
-        window.webContents.on("will-redirect", guard);
-        // ctrl·가운데 click과 target=_blank link가 여기로 온다.
-        window.webContents.setWindowOpenHandler((details) => {
-          const decision = decideShellNavigation({
-            url: details.url,
-            isMainFrame: true,
-          });
-          if (!decision.allow && decision.external) {
-            void openExternalLink({ open, log: ctx.log }, details.url);
-          }
-          return { action: "deny" };
-        });
-        const shotName = `window-${++shotSerial}`;
-        if (headless.headless) {
-          window.webContents.once("did-finish-load", () =>
-            console.log(
-              `[lophn] headless ${shotName} visible=${window.isVisible()}`,
-            ),
-          );
-        }
-        capturePaints(window.webContents, shotName, headless, {
-          write: (path, data) => writeFileSync(path, data),
-          timer: {
-            set: (callback, ms) => setTimeout(callback, ms),
-            clear: (handle) => clearTimeout(handle as NodeJS.Timeout),
-          },
-        });
-        overlays.attach(
-          window,
+        const window = createShellWindow(
+          ctx,
+          config,
           join(here, "preload-shell.cjs"),
-          app.isPackaged,
         );
         windows.add(window);
         created = window;
@@ -251,21 +223,88 @@ export function openDesktopWindow(
           windows.add(window);
         });
         window.on("closed", () => windows.delete(window));
-        // 최대화·되돌림은 상단 바가 단추 모양을 바꾸도록 그 창에 알린다.
-        const sendWindowState = () => {
-          if (!window.isDestroyed()) {
-            window.webContents.send(WINDOW_STATE_CHANNEL, stateOf(window));
-          }
-        };
-        window.on("maximize", sendWindowState);
-        window.on("unmaximize", sendWindowState);
-        window.on("enter-full-screen", sendWindowState);
-        window.on("leave-full-screen", sendWindowState);
+        if (start === undefined) {
+          ctx.topWindows.add(window);
+          window.on("focus", () => {
+            ctx.topWindows.delete(window);
+            ctx.topWindows.add(window);
+          });
+          window.on("closed", () => ctx.topWindows.delete(window));
+        }
         return wrap(window);
       },
     },
   });
   return created;
+}
+
+/**
+ * shell 창 하나를 만든다: navigation guard, headless 그림, overlay, 창 단추 상태. 이 컴퓨터의 창과 다른 기계의 창이 같이
+ * 쓴다. 어느 목록에 넣을지와 영역 반응(`windowHooks`)은 부르는 쪽이 정한다.
+ */
+export function createShellWindow(
+  ctx: ShellContext,
+  config: WindowConfig,
+  preload: string,
+): BrowserWindow {
+  const { headless, overlays } = ctx;
+  const window = new BrowserWindow(
+    surfaceOptions({ ...config, icon: ctx.appIcon }, headless),
+  );
+  // shell 창의 main frame은 lophn-shell://desktop 밖으로 가지 않는다. http·https는
+  // open-external로 넘긴다. Electron 44에서 main frame은 will-frame-navigate가 먼저 오고,
+  // 거기서 막으면 will-navigate는 오지 않는다. 그래서 will-navigate는 듣지 않는다.
+  const open = (url: string) =>
+    headless.headless ? Promise.resolve() : shell.openExternal(url);
+  const guard = (event: NavigationEvent) => {
+    const decision = decideShellNavigation({
+      url: event.url,
+      isMainFrame: event.isMainFrame,
+    });
+    if (decision.allow) return;
+    event.preventDefault();
+    if (decision.external) {
+      void openExternalLink({ open, log: ctx.log }, event.url);
+    }
+  };
+  window.webContents.on("will-frame-navigate", guard);
+  window.webContents.on("will-redirect", guard);
+  // ctrl·가운데 click과 target=_blank link가 여기로 온다.
+  window.webContents.setWindowOpenHandler((details) => {
+    const decision = decideShellNavigation({
+      url: details.url,
+      isMainFrame: true,
+    });
+    if (!decision.allow && decision.external) {
+      void openExternalLink({ open, log: ctx.log }, details.url);
+    }
+    return { action: "deny" };
+  });
+  const shotName = `window-${++shotSerial}`;
+  if (headless.headless) {
+    window.webContents.once("did-finish-load", () =>
+      console.log(`[lophn] headless ${shotName} visible=${window.isVisible()}`),
+    );
+  }
+  capturePaints(window.webContents, shotName, headless, {
+    write: (path, data) => writeFileSync(path, data),
+    timer: {
+      set: (callback, ms) => setTimeout(callback, ms),
+      clear: (handle) => clearTimeout(handle as NodeJS.Timeout),
+    },
+  });
+  overlays.attach(window, preload, app.isPackaged);
+  // 최대화·되돌림은 상단 바가 단추 모양을 바꾸도록 그 창에 알린다.
+  const sendWindowState = () => {
+    if (!window.isDestroyed()) {
+      window.webContents.send(WINDOW_STATE_CHANNEL, stateOf(window));
+    }
+  };
+  window.on("maximize", sendWindowState);
+  window.on("unmaximize", sendWindowState);
+  window.on("enter-full-screen", sendWindowState);
+  window.on("leave-full-screen", sendWindowState);
+  return window;
 }
 
 /**
@@ -279,21 +318,7 @@ function rememberWorkspace(
   workspace: { bounds: WindowBounds; maximized: boolean } | undefined,
   inactive: boolean,
 ): void {
-  if (workspace !== undefined || inactive) {
-    // Wayland(KWin)에서는 Electron이 창이 뜰 모니터를 몰라 만들 때 크기를 primary 모니터 안으로 자르고, 보인 뒤
-    // 바꾼 크기도 받지 않는다. 숨긴 채 만든 창에 저장한 크기를 다시 건 뒤 보이면 그 크기로 뜬다(KWin에서 확인).
-    // 자리(x·y)는 Wayland에서 compositor가 정한다. X11·macOS·Windows는 만들 때의 크기·자리가 이미 맞다.
-    window.once("ready-to-show", () => {
-      if (window.isDestroyed()) return;
-      if (workspace !== undefined) {
-        window.setSize(workspace.bounds.width, workspace.bounds.height);
-        // maximize()는 Windows에서 focus를 가져가므로 focus 없는 창은 저장한 일반 크기로 둔다.
-        if (workspace.maximized && !inactive) window.maximize();
-      }
-      if (inactive) revealInactive(window, ctx.headless);
-      else reveal(window, ctx.headless);
-    });
-  }
+  revealRestored(ctx, window, workspace, inactive);
   // focus 없이 연 창은 maximize하지 않았으므로 그 창의 상태가 사람이 고른 것이 아니다. 사람이 그 창을 최대화하거나 되돌리기
   // 전에는 앞서 저장한 값을 그대로 쓴다. 안 그러면 다음 창이 최대화 없이 열린다.
   let kept: boolean | undefined = inactive
@@ -327,7 +352,30 @@ function rememberWorkspace(
   window.on("close", save);
 }
 
-function wrap(window: BrowserWindow): CreatedWindow {
+/** 숨긴 채 만든 창을 저장한 크기·최대화로 맞춘 뒤 보인다. 자리를 저장하지 않는 다른 기계의 창도 쓴다. */
+export function revealRestored(
+  ctx: ShellContext,
+  window: BrowserWindow,
+  workspace: { bounds: WindowBounds; maximized: boolean } | undefined,
+  inactive: boolean,
+): void {
+  if (workspace === undefined && !inactive) return;
+  // Wayland(KWin)에서는 Electron이 창이 뜰 모니터를 몰라 만들 때 크기를 primary 모니터 안으로 자르고, 보인 뒤
+  // 바꾼 크기도 받지 않는다. 숨긴 채 만든 창에 저장한 크기를 다시 건 뒤 보이면 그 크기로 뜬다(KWin에서 확인).
+  // 자리(x·y)는 Wayland에서 compositor가 정한다. X11·macOS·Windows는 만들 때의 크기·자리가 이미 맞다.
+  window.once("ready-to-show", () => {
+    if (window.isDestroyed()) return;
+    if (workspace !== undefined) {
+      window.setSize(workspace.bounds.width, workspace.bounds.height);
+      // maximize()는 Windows에서 focus를 가져가므로 focus 없는 창은 저장한 일반 크기로 둔다.
+      if (workspace.maximized && !inactive) window.maximize();
+    }
+    if (inactive) revealInactive(window, ctx.headless);
+    else reveal(window, ctx.headless);
+  });
+}
+
+export function wrap(window: BrowserWindow): CreatedWindow {
   return {
     setTitle: (title) => window.setTitle(title),
     loadURL: (url) => window.loadURL(url),

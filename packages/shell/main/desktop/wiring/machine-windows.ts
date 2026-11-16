@@ -1,0 +1,283 @@
+// Windows of other machines: one window per machine, opened with its own preload (`preload-remote.cjs`) on the same desktop
+// page. Main binds the window to the machine (machine-route), pushes that machine's connection state and events to it
+// alone, tells the machine what the window shows (presence) and keeps its title on the machine's name. These windows are
+// not in `ctx.windows`: this computer's notices, presence, surface and global keys never see them.
+import { app, type BrowserWindow, powerMonitor } from "electron";
+import { join } from "node:path";
+
+import type { Id } from "../../../../protocol/base/ids.ts";
+import type { Connection } from "../../../../remote-client/mod.ts";
+import { CORE_EVENT_CHANNEL, CORE_STATE_CHANNEL } from "../../../ipc/core.ts";
+import {
+  MACHINES_CHANGED_CHANNEL,
+  MACHINES_OPEN_CHANNEL,
+  MACHINES_THIS_WINDOW_CHANNEL,
+  MACHINES_VISIBLE_CHANNEL,
+  type MachinesReply,
+  type MachineWindow,
+  machinesOpenSchema,
+  machinesVisibleSchema,
+} from "../../../ipc/machines.ts";
+import { createPresenceReporter } from "../../notice/presence.ts";
+import { reveal } from "../headless.ts";
+import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
+import { DESKTOP_URL } from "../shell-protocol.ts";
+import { openWindow, windowTitle } from "../window.ts";
+import type { Registered, ShellContext } from "./context.ts";
+import {
+  createShellWindow,
+  openDesktopWindow,
+  recentWindow,
+  restoredWorkspace,
+  revealRestored,
+  wrap,
+} from "./desktop-window.ts";
+import type { Machines } from "./machines.ts";
+
+type Opened = {
+  window: BrowserWindow;
+  machine: Id<"mch">;
+  name: string;
+  // The connection whose state and events this window gets; it can arrive after the window (the list opens later).
+  connection: Connection | undefined;
+  release: () => void;
+  // Sessions the window says it shows.
+  visible: Set<string>;
+  presence: ReturnType<typeof createPresenceReporter>;
+};
+
+export function register(ctx: ShellContext, machines: Machines): Registered {
+  const { ipc, headless } = ctx;
+  const registry = ctx.overlays.overlayRegistry();
+  const preload = join(ctx.here, "preload-remote.cjs");
+  const opened = new Map<Id<"mch">, Opened>();
+
+  const send = (entry: Opened, channel: string, payload: unknown) => {
+    if (!entry.window.isDestroyed()) {
+      entry.window.webContents.send(channel, payload);
+    }
+  };
+  const stateOf = (connection: Connection | undefined) => {
+    const current = connection?.current();
+    return current === undefined
+      ? { state: "starting", confirmedAt: null }
+      : { state: current.state, confirmedAt: current.confirmedAt };
+  };
+  const reportOver = (connection: Connection | undefined, body: unknown) => {
+    // headless has no person in front of it.
+    if (headless.headless || connection?.current().state !== "ready") return;
+    void connection.call({ resource: "presence", method: "report", body });
+  };
+
+  // Follows the machine's live connection: the list opens after the first window, and a re-paired machine gets a new one.
+  function attach(entry: Opened): void {
+    const connection = machines.connection(entry.machine);
+    if (connection === entry.connection) return;
+    entry.release();
+    entry.release = () => {};
+    entry.connection = connection;
+    send(entry, CORE_STATE_CHANNEL, stateOf(connection));
+    if (connection === undefined) return;
+    void connection.watch(
+      ctx.machineRoute.watching(entry.window.webContents.id),
+    );
+    let ready = connection.current().state === "ready";
+    const offState = connection.subscribe((state) => {
+      send(entry, CORE_STATE_CHANNEL, stateOf(connection));
+      const now = state.state === "ready";
+      if (now && !ready) entry.presence.report();
+      ready = now;
+    });
+    const offEvent = connection.onEvent((message) =>
+      send(entry, CORE_EVENT_CHANNEL, message),
+    );
+    entry.release = () => {
+      offState();
+      offEvent();
+    };
+  }
+
+  function openMachine(machine: Id<"mch">, name: string): void {
+    const found = opened.get(machine);
+    if (found !== undefined && !found.window.isDestroyed()) {
+      reveal(found.window, headless);
+      return;
+    }
+    const title =
+      machines.list().machines.find((row) => row.id === machine)?.name ?? name;
+    const workspace = restoredWorkspace(ctx);
+    let window: BrowserWindow | undefined;
+    openWindow({
+      platform: process.platform,
+      packaged: app.isPackaged,
+      preload,
+      title: windowTitle(title),
+      ...(workspace ? { bounds: workspace.bounds, show: false } : {}),
+      // The machine is not in the address: main's table decides it from the sending window.
+      url: DESKTOP_URL,
+      windows: {
+        create: (config) => {
+          window = createShellWindow(ctx, config, preload);
+          ctx.machineRoute.bind(window.webContents.id, machine, () =>
+            machines.connection(machine),
+          );
+          return wrap(window);
+        },
+      },
+    });
+    const created = window!;
+    revealRestored(ctx, created, workspace, false);
+    const entry: Opened = {
+      window: created,
+      machine,
+      name: title,
+      connection: undefined,
+      release: () => {},
+      visible: new Set(),
+      presence: createPresenceReporter({
+        view: () =>
+          created.isDestroyed() || !created.isFocused()
+            ? { focused: false, looking: [] }
+            : { focused: true, looking: [...entry.visible] },
+        idleMs: () => powerMonitor.getSystemIdleTime() * 1000,
+        send: (report) => reportOver(entry.connection, report),
+        every(ms, fn) {
+          const timer = setInterval(fn, ms);
+          timer.unref?.();
+          return () => clearInterval(timer);
+        },
+      }),
+    };
+    opened.set(machine, entry);
+    ctx.topWindows.add(created);
+    const contentsId = created.webContents.id;
+    created.webContents.on("did-finish-load", () =>
+      send(entry, CORE_STATE_CHANNEL, stateOf(entry.connection)),
+    );
+    created.on("focus", () => {
+      ctx.topWindows.delete(created);
+      ctx.topWindows.add(created);
+      // Only a switch that reached the machine counts as the last used one.
+      if (entry.connection?.current().state === "ready") {
+        machines.markUsed(machine);
+      }
+      entry.presence.changed();
+    });
+    created.on("blur", () => entry.presence.changed());
+    created.on("closed", () => {
+      ctx.machineRoute.unbind(contentsId);
+      ctx.topWindows.delete(created);
+      if (opened.get(machine) === entry) opened.delete(machine);
+      entry.presence.stop();
+      reportOver(entry.connection, {
+        focused: false,
+        idle_ms: Math.round(powerMonitor.getSystemIdleTime() * 1000),
+        looking: [],
+      });
+      void entry.connection?.watch([]);
+      entry.release();
+    });
+    attach(entry);
+  }
+  ctx.machineWindows.open = openMachine;
+
+  // A window of this computer that gets focus makes this computer the last used machine.
+  ctx.windowHooks.created.push((window) => {
+    window.on("focus", () => {
+      const self = machines.list().this;
+      if (self !== null) machines.markUsed(self.id);
+    });
+  });
+
+  const unsubscribe = machines.subscribe((list) => {
+    const closing = new Set<BrowserWindow>();
+    for (const entry of [...opened.values()]) {
+      if (entry.window.isDestroyed()) continue;
+      send(entry, MACHINES_CHANGED_CHANNEL, list);
+      const row = list.machines.find((one) => one.id === entry.machine);
+      if (row === undefined) {
+        // Left the list (removed here, or a saved list dropped as another machine's). A machine that removed this desktop
+        // stays listed as `removed` and its window shows that.
+        if (list.state !== "starting") {
+          closing.add(entry.window);
+          entry.window.close();
+        }
+        continue;
+      }
+      if (row.name !== entry.name) {
+        entry.name = row.name;
+        entry.window.setTitle(windowTitle(row.name));
+      }
+      attach(entry);
+    }
+    // The last window closed this way: this computer's window opens in its place.
+    const left = [...ctx.topWindows].some(
+      (window) => !window.isDestroyed() && !closing.has(window),
+    );
+    if (closing.size > 0 && !left) openDesktopWindow(ctx);
+  });
+
+  const allowed = (event: IpcEvent): boolean => {
+    const caller = checkCaller(registry, event);
+    return caller.ok && caller.value.origin.host === "desktop";
+  };
+
+  ipc.handle(
+    MACHINES_OPEN_CHANNEL,
+    (event: IpcEvent, input: unknown): MachinesReply => {
+      if (!allowed(event)) return { ok: false, code: "forbidden" };
+      const parsed = checkInput(machinesOpenSchema, input);
+      if (!parsed.ok) return { ok: false, code: "invalid_input" };
+      const { machine } = parsed.value;
+      const list = machines.list();
+      if (list.this === null) return { ok: false, code: "unavailable" };
+      if (machine === list.this.id) {
+        const recent = recentWindow(ctx);
+        if (recent === undefined) openDesktopWindow(ctx);
+        else reveal(recent, headless);
+        return { ok: true };
+      }
+      const row = list.machines.find((one) => one.id === machine);
+      if (row === undefined) return { ok: false, code: "not_found" };
+      openMachine(machine, row.name);
+      return { ok: true };
+    },
+  );
+
+  ipc.handle(MACHINES_THIS_WINDOW_CHANNEL, (event: IpcEvent): MachineWindow => {
+    const machine = ctx.machineOf(event.sender);
+    const entry = machine === null ? undefined : opened.get(machine);
+    return {
+      machine:
+        entry === undefined ? null : { id: entry.machine, name: entry.name },
+    };
+  });
+
+  ipc.handle(MACHINES_VISIBLE_CHANNEL, (event: IpcEvent, input: unknown) => {
+    const machine = ctx.machineOf(event.sender);
+    const entry = machine === null ? undefined : opened.get(machine);
+    if (entry === undefined) return;
+    const parsed = checkInput(machinesVisibleSchema, input);
+    if (!parsed.ok) return;
+    if (parsed.value.visible) entry.visible.add(parsed.value.session);
+    else entry.visible.delete(parsed.value.session);
+    entry.presence.changed();
+  });
+
+  return {
+    stop() {
+      unsubscribe();
+      for (const channel of [
+        MACHINES_OPEN_CHANNEL,
+        MACHINES_THIS_WINDOW_CHANNEL,
+        MACHINES_VISIBLE_CHANNEL,
+      ]) {
+        ipc.removeHandler(channel);
+      }
+      for (const entry of opened.values()) {
+        entry.presence.stop();
+        entry.release();
+      }
+    },
+  };
+}

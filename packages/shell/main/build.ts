@@ -48,6 +48,8 @@ const entries: BuildEntry[] = [
   { in: join(here, "desktop/main.ts"), out: "desktop" },
   { in: join(shell, "terminal-host/cli.ts"), out: "terminal-host" },
   { in: join(shell, "preload/shell.ts"), out: "preload-shell" },
+  // 다른 기계의 창. core·기계 목록·overlay·창 조작·단축키만 연다.
+  { in: join(shell, "preload/remote.ts"), out: "preload-remote" },
   {
     in: join(shell, "preload/secret-input.ts"),
     out: "preload-secret-input",

@@ -2,15 +2,18 @@ import {
   type LophnMachinesApi,
   MACHINES_CHANGED_CHANNEL,
   MACHINES_LIST_CHANNEL,
+  MACHINES_OPEN_CHANNEL,
   MACHINES_PAIR_CHANNEL,
   MACHINES_REMOVE_CHANNEL,
   MACHINES_RENAME_CHANNEL,
   MACHINES_START_CHANNEL,
+  MACHINES_THIS_WINDOW_CHANNEL,
   type MachineList,
   machineListSchema,
   type MachinePairReply,
   type MachinesFailure,
   type MachinesReply,
+  type MachineWindow,
 } from "../ipc/machines.ts";
 import type { BrowserTransport } from "./browser-api.ts";
 
@@ -68,5 +71,15 @@ export function createMachinesApi(
       }),
     setStart: (start) =>
       invoke<MachinesReply>(transport, MACHINES_START_CHANNEL, start),
+    open: (machine) =>
+      invoke<MachinesReply>(transport, MACHINES_OPEN_CHANNEL, { machine }),
+    async thisWindow() {
+      const reply = await invoke<MachineWindow>(
+        transport,
+        MACHINES_THIS_WINDOW_CHANNEL,
+      );
+      // A refusal reads as a window of this computer.
+      return "ok" in reply ? { machine: null } : reply;
+    },
   } satisfies LophnMachinesApi);
 }

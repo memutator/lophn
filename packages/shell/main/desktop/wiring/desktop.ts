@@ -336,7 +336,8 @@ export function register(
         // browser 탭의 <webview> guest는 창의 자식 view가 아니라서 host를 통해 창을 찾는다.
         const host =
           contents.getType() === "webview" ? contents.hostWebContents : null;
-        const window = [...windows].find(
+        // 다른 기계의 창(`topWindows`에만 든다)도 팔레트·Home 키를 받는다.
+        const window = [...windows, ...ctx.topWindows].find(
           (window) =>
             !window.isDestroyed() &&
             (window.webContents === contents ||
@@ -378,7 +379,8 @@ export function register(
     );
   });
 
-  // 창을 다 닫아도 main은 남는다. 종료는 tray의 명시 행동이다.
+  // 창을 다 닫아도 main은 남는다. 종료는 tray의 명시 행동이다. 창이 없을 때 여는 길(시작, tray, 두 번째 실행, Dock)은
+  // 시작 기계의 창을 연다(`desktop.open`·`desktop.show`).
   app.on("window-all-closed", () => {});
   // macOS는 창 없이 Dock을 누르면 창을 다시 연다.
   app.on("activate", () => {

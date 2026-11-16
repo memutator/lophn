@@ -4,6 +4,7 @@ import { app, type BrowserWindow, ipcMain } from "electron";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
+import type { Id } from "../../../../protocol/base/ids.ts";
 import type { ChangeName } from "../../../../protocol/events/changes.ts";
 import type {
   BusEvent,
@@ -17,6 +18,7 @@ import { createHostLink, type HostLink } from "../core/host-link.ts";
 import { nodeSockets } from "../core/node-io.ts";
 import { createShellSettings, type ShellSettings } from "../core/settings.ts";
 import { type HeadlessMode, readHeadless } from "../headless.ts";
+import { createMachineRoute, type MachineRoute } from "../machine-route.ts";
 import { packagedInstall, resolveDataRoot } from "../paths.ts";
 import { appIconPath, type InstalledTray } from "../tray.ts";
 import {
@@ -27,6 +29,7 @@ import { connectCore } from "./core.ts";
 import {
   type DesktopWindows,
   openDesktopWindow,
+  openDesktop,
   openInactiveWindow,
   sendIntent,
   showDesktopWindow,
@@ -98,6 +101,17 @@ export type ShellContext = {
   detached: Set<BrowserWindow>;
   /** 앱 전용 창들. `windows`에도 들어 있다. 창 밖에서 온 일은 이 창으로 가지 않는다. */
   appWindows: Set<BrowserWindow>;
+  /**
+   * 사람이 여는 창 전부: 이 컴퓨터의 일반 창과 다른 기계의 창(detached·앱 전용 창은 없다). 최근 focus가 끝이다.
+   * 창이 없을 때 시작 기계를 열고, 있으면 어느 기계든 가장 최근 창을 앞으로 가져올 때 본다.
+   */
+  topWindows: Set<BrowserWindow>;
+  /** 다른 기계의 창이면 그 기계. 그 창은 `windows`·`detached`·`appWindows`에 들지 않는다. */
+  machineOf(contents: { id: number }): Id<"mch"> | null;
+  /** 보낸 webContents로 기계를 고르는 표. machine-windows가 창을 묶고 IPC 둘레(`ipc`)가 본다. */
+  machineRoute: MachineRoute;
+  /** 다른 기계의 창을 연다. machine-windows가 등록 때 채운다. 이름은 목록이 아직 없을 때의 창 제목이다. */
+  machineWindows: { open(machine: Id<"mch">, name: string): void };
   log: (message: string) => void;
   core: CoreConnection;
   /** main 안 core 통로. renderer allowlist를 거치지 않는다. */
@@ -149,6 +163,15 @@ export function createShellContext(): ShellContext {
   const overlays = electronOverlays(headless);
   const windows = new Set<BrowserWindow>();
   const appWindows = new Set<BrowserWindow>();
+  const topWindows = new Set<BrowserWindow>();
+  const machineRoute = createMachineRoute();
+  // 모든 IPC가 영역의 listener 앞에서 보낸 창의 기계를 본다. 다른 기계의 창이면 machine-route의 규칙을 탄다.
+  const handle: Ipc["handle"] = (channel, listener) =>
+    ipcMain.handle(channel, (event, ...args: unknown[]) =>
+      machineRoute.handle(channel, event.sender.id, args[0], () =>
+        (listener as (...all: unknown[]) => unknown)(event, ...args),
+      ),
+    );
   const log = (message: string) => console.log(`[lophn] ${message}`);
 
   const windowRef = (window: BrowserWindow) => `window-${window.id}`;
@@ -164,7 +187,7 @@ export function createShellContext(): ShellContext {
     events: [],
     frames: [],
   };
-  const core = connectCore({ here, dataRoot, windows, relay });
+  const core = connectCore({ here, dataRoot, windows, relay, handle });
   const coreInternal: ShellContext["coreInternal"] = (
     kind,
     resource,
@@ -212,14 +235,23 @@ export function createShellContext(): ShellContext {
     windows,
     detached: new Set(),
     appWindows,
+    topWindows,
+    machineOf: (contents) => machineRoute.machineOf(contents.id),
+    machineRoute,
+    machineWindows: { open: () => void openDesktopWindow(ctx) },
     log,
     core,
     coreInternal,
     hostLink,
     settings,
     ipc: {
-      handle: (channel, listener) => ipcMain.handle(channel, listener as never),
-      on: (channel, listener) => void ipcMain.on(channel, listener as never),
+      handle,
+      on: (channel, listener) =>
+        void ipcMain.on(channel, (event, ...args: unknown[]) => {
+          if (machineRoute.passes(channel, event.sender.id)) {
+            (listener as (...all: unknown[]) => void)(event, ...args);
+          }
+        }),
       removeHandler: (channel) => ipcMain.removeHandler(channel),
       removeAllListeners: (channel) => void ipcMain.removeAllListeners(channel),
     },
@@ -240,7 +272,7 @@ export function createShellContext(): ShellContext {
       },
     },
     desktop: {
-      open: () => openDesktopWindow(ctx),
+      open: () => openDesktop(ctx),
       openInactive: () => openInactiveWindow(ctx),
       show: () => showDesktopWindow(ctx),
       send: (intent) => sendIntent(ctx, intent),
@@ -248,7 +280,7 @@ export function createShellContext(): ShellContext {
     windowRef,
     windowOfRef,
     shellWindowOf: (sender) =>
-      [...windows].find(
+      [...windows, ...topWindows].find(
         (window) => !window.isDestroyed() && window.webContents === sender,
       ),
     rendererDist: () => {

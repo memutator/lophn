@@ -1,4 +1,4 @@
-// 실행: npm run dev, npm run dev:core, npm run dev:mock
+// 실행: npm run dev, npm run dev:core, npm run dev:mock, npm run dev -- --viewer
 //
 // core는 standalone daemon이다. shell main(Electron)이 없어도 돌고, `npm run dev`는 shell main을,
 // `npm run dev:core`는 core만 직접 띄운다. 둘 다 개발 데이터 root(저장소 안의
@@ -15,6 +15,10 @@
 // renderer와 shell main을 build한 뒤(옛 화면이 뜨지 않게) electron을 `npm run` 없이 바로 띄운다. `dev:mock`은 shell을 mock 주소(`?mock`)로 열어 renderer가 모든 화면을 메모리 가짜 데이터로
 // 채운다. 그래서 fake를 띄우지 않고, 데이터 root는 매번 새로 만드는 .dev-data/mock이다. 터미널 탭만
 // 진짜 PTY다. core가 mock project의 폴더를 모르므로 shell main이 데이터 root의 mock-terminal 폴더에서 연다.
+//
+// `npm run dev -- --viewer`는 두 번째 desktop(자기 core와 shell)을 .dev-data/viewer로 띄운다. 먼저 뜬 `npm run dev`나
+// `dev:core`(host)를 다른 기계로 보고 pairing하는 개발용이다. fake provider와 fake push는 host 쪽 실행이 띄운 것을 같은
+// 고정 port로 쓰고 따로 띄우지 않는다.
 
 import { type ChildProcess, spawn } from "node:child_process";
 import {
@@ -83,6 +87,20 @@ function devDataRoot(root: string): string {
   return `${root}/.dev-data`;
 }
 
+/** `--viewer`의 두 번째 desktop 데이터 root. 지우지 않고 이어 쓴다(pairing이 남는다). */
+function viewerDataRoot(root: string): string {
+  return `${devDataRoot(root)}/viewer`;
+}
+
+// fake push server(tests/support/fake-push)의 send 경로. `--viewer`는 host 쪽이 띄운 server를 이 주소로 쓴다.
+const PUSH_SEND_PATH = "/--/api/v2/push/send";
+
+function portOf(portText: string | undefined, fallback: number): number {
+  return portText === undefined || portText === ""
+    ? fallback
+    : Number(portText);
+}
+
 /** mock 모드 데이터 root. 실행마다 비우고 새로 만든다. */
 function mockDataRoot(root: string): string {
   return `${devDataRoot(root)}/mock`;
@@ -103,10 +121,7 @@ function planRendererBuild(root: string): SpawnPlan {
  * 실패한다(사람이 한 번에 하나만 띄우는 개발 도구라 고정 port를 쓴다).
  */
 async function startDevFake(portText: string | undefined) {
-  const port =
-    portText === undefined || portText === ""
-      ? DEFAULT_FAKE_PORT
-      : Number(portText);
+  const port = portOf(portText, DEFAULT_FAKE_PORT);
   const fake = createFakeHandler({
     fallback: { kind: "text", text: "fake model: ok" },
   });
@@ -132,10 +147,7 @@ async function startDevFake(portText: string | undefined) {
 
 /** 개발 core가 실제 Expo Push를 부르지 않게 하는 fake push server. 받은 글마다 한 줄을 찍는다. */
 async function startDevPush(portText: string | undefined): Promise<FakePush> {
-  const port =
-    portText === undefined || portText === ""
-      ? DEFAULT_PUSH_PORT
-      : Number(portText);
+  const port = portOf(portText, DEFAULT_PUSH_PORT);
   try {
     return await startFakePush({
       port,
@@ -453,10 +465,13 @@ async function launch(
   closers: (() => Promise<void>)[],
 ): Promise<{ ok: true } | { ok: false }> {
   const parentEnv = { ...envObject(), ...options.env };
+  const viewer = mode === "dev" && process.argv.includes("--viewer");
   const dataRoot =
     mode === "dev:mock"
       ? mockDataRoot(options.root)
-      : devDataRoot(options.root);
+      : viewer
+        ? viewerDataRoot(options.root)
+        : devDataRoot(options.root);
   const group = new ProcessGroup();
   const spawn = options.spawn ?? defaultSpawn;
 
@@ -491,9 +506,17 @@ async function launch(
 
   if (mode !== "dev:mock") {
     try {
-      const push = await startDevPush(parentEnv[PUSH_PORT]);
-      closers.push(push.close);
-      await plantFakePush(dataRoot, push.url);
+      if (viewer) {
+        const port = portOf(parentEnv[PUSH_PORT], DEFAULT_PUSH_PORT);
+        await plantFakePush(
+          dataRoot,
+          `http://127.0.0.1:${port}${PUSH_SEND_PATH}`,
+        );
+      } else {
+        const push = await startDevPush(parentEnv[PUSH_PORT]);
+        closers.push(push.close);
+        await plantFakePush(dataRoot, push.url);
+      }
     } catch (error) {
       console.error(
         `npm run ${mode}: fake push server를 붙이지 못했다: ${
@@ -507,9 +530,14 @@ async function launch(
 
   if (mode !== "dev:mock" && parentEnv[LIVE] !== "1") {
     try {
-      const fake = await startDevFake(parentEnv[FAKE_PORT]);
-      closers.push(fake.close);
-      await plantFakeProvider(dataRoot, fake.url);
+      if (viewer) {
+        const port = portOf(parentEnv[FAKE_PORT], DEFAULT_FAKE_PORT);
+        await plantFakeProvider(dataRoot, `http://127.0.0.1:${port}`);
+      } else {
+        const fake = await startDevFake(parentEnv[FAKE_PORT]);
+        closers.push(fake.close);
+        await plantFakeProvider(dataRoot, fake.url);
+      }
     } catch (error) {
       console.error(
         `npm run ${mode}: fake provider를 붙이지 못했다: ${
@@ -592,8 +620,9 @@ if (import.meta.main) {
   const args = process.argv.slice(2);
   if (args.includes("--help")) {
     console.log(
-      "실행: node tools/dev.ts [dev|dev:core|dev:mock] [--port=<n>]\n" +
+      "실행: node tools/dev.ts [dev|dev:core|dev:mock] [--port=<n>] [--viewer]\n" +
         "  dev: shell과 core를 띄운다\n" +
+        "  dev --viewer: 두 번째 desktop을 .dev-data/viewer로 띄운다(fake는 먼저 뜬 dev가 띄운 것을 쓴다)\n" +
         "  dev:core: core만 띄운다\n" +
         "  dev:mock: 가짜 데이터로 shell을 띄운다",
     );

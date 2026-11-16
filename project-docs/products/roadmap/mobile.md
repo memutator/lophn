@@ -363,6 +363,10 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 5. **순서.** 정했다. 다 하고(사람), 순서는 위 "단계"다(agent).
 6. **TUI로 도는 session을 폰이 열 때.** 추천대로 갔다(`mobile-coding-agents`): 확인을 받는다. 사람이 반대하면 바꾼다. 추천: GUI로 바꿀지 묻고, 바꾸면 desktop도 GUI로 바뀐다. 다른 안: 말없이 바꾼다(desktop에서 쓰던 TUI가 예고 없이 끊긴다). 이미 GUI인 session만 폰에 보인다(TUI로 쓰는 사람은 폰에서 못 본다).
 
+7. **iOS에서 사용자 앱 화면을 띄우는 길.** 정하지 않았다(2026-11-16에 올림). 지금 구조는 컴퓨터에서 받은 화면 bundle을 폰 앱 안의 따로 띄운 React Native runtime에서 돌린다(`architecture/phone-screen.md`). Android에서는 확인했고 iOS는 어느 계획에도 없어 한 번도 짓지 않았다. 기술로는 iOS에서도 지을 수 있지만 App Store 심사 지침(내려받은 코드를 실행하는 것을 제한하는 2.5.2와 binary 밖 software의 예외인 4.7)에 걸릴 수 있다. 지침의 지금 문구는 정할 때 다시 확인한다. 고를 것: (a) App Store에 내지 않고 자기 기기에 직접 설치하거나 TestFlight로만 쓴다(심사가 없거나 가볍다. 지금 구조 그대로). (b) App Store에 지금 구조로 낸다(심사 결과를 모른다. 거절되면 (c)로 간다). (c) iOS에서는 사용자 앱 화면을 WebView 안의 web(react-native-web)으로 돌린다(심사에 유리하다. scroll·keyboard·gesture의 native 느낌을 잃고, 폰에서 도는 backend와 화면 조작을 iOS용으로 다시 짠다. kit을 web으로 그리는 것은 desktop preview가 이미 한다). 추천: Android에서 써 보며 방향이 잡힌 뒤 정한다. 먼저 할 수 있는 것은 lophn 자신의 화면만 iOS에서 띄우는 것이다(native module이 거의 없다. Mac이나 cloud build와 Apple 계정이 든다).
+8. **폰에서 새 coding session을 여는 순서.** 정하지 않았다. 지금은 coding agent를 고르는 즉시 컴퓨터에 새 탭이 열리고 첫 메시지는 chat에서 쓴다. 승인한 wireframe은 고르고, 첫 메시지를 쓰고, 보낼 때 연다. 이슈 `phone-new-coding-session-opens-on-pick`.
+9. **폰에서 쓴 것이 컴퓨터의 앱 event를 내는가.** 정하지 않았다. 이슈 `phone-write-events-not-delivered`.
+
 ## 추천대로 가려는 것
 
 사람이 반대하지 않으면 계획을 열 때 정한 것으로 옮긴다. 괄호는 2026-11-08의 열린 질문 번호다.

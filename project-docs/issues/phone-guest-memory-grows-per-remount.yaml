@@ -1,0 +1,13 @@
+id: phone-guest-memory-grows-per-remount
+title: 폰의 guest를 다시 띄울 때마다 폰 앱의 memory가 약 2 MB씩 남는다
+kind: bug
+status: open
+topic: phone-screen
+modules: [packages/mobile]
+now: |
+  `packages/mobile/README.md`의 guest 확인(release build, emulator)에서 같은 화면을 `key`를 바꿔 10번 다시 띄우면 PSS가 10번마다 약 20 MB(한 번에 약 2 MB) 늘었다. mount마다 origin이 새로 서서 runtime이 새로 만들어지는데(`GuestScreen`), 그 runtime의 memory가 unmount 뒤에도 다 돌아오지 않는다. 원인은 찾지 못했다(sandbox library가 runtime을 풀지 않는지, 화면 쪽 참조가 남는지 가르지 않았다).
+impact: |
+  폰 화면을 다시 띄우는 일(새 release가 live가 되면 자동으로, 오류 뒤 Try again, 앱을 오가기)이 쌓이면 폰 앱의 memory가 계속 늘어 기기가 모자랄 때 Android가 폰 앱을 끝낼 수 있다. 사람이 앱을 활발히 고치며 폰으로 보는 때가 가장 많이 다시 띄운다. 끝나도 data를 잃지는 않지만 보던 화면이 사라진다. 이 크기(한 번에 2 MB)가 실제로 문제가 되는 횟수는 재지 않았다.
+fix: |
+  - 작음(추천): 원인을 먼저 찾는다. 같은 화면을 수십 번 다시 띄우며 PSS와 Hermes heap을 보고, library의 runtime 해제를 patch로 고칠 수 있는지 본다.
+  - 원인을 못 찾으면 다시 띄우는 횟수를 줄이는 쪽을 본다(예: 새 release 알림이 연달아 와도 마지막 것 하나만 다시 띄운다). 지금 구조가 새 bundle마다 runtime을 새로 만드는 이유(같은 origin을 다시 mount하면 옛 runtime과 옛 bundle이 쓰인다)와 부딪히지 않게 한다.

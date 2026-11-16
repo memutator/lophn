@@ -47,11 +47,11 @@ elements:
 
           - id: app-releases
             kind: component
-            description: 앱의 정의와 판.
+            description: 앱의 정의와 판. 폰 화면(`phone` 자리)의 build(`phone.js`, manifest, desktop preview 진입)와 선언과의 양쪽 대조를 포함한다.
 
           - id: app-runtime
             kind: component
-            description: 앱의 실행과 capability(사람에게 알리는 cap-notify 포함). 앱마다 file로 남는 앱 log(쓰기는 app supervisor 하나, 읽기 route `apps.logs`)와 예외 stack 풀이를 포함한다.
+            description: 앱의 실행과 capability(사람에게 알리는 cap-notify 포함). 앱마다 file로 남는 앱 log(쓰기는 app supervisor 하나, 읽기 route `apps.logs`)와 예외 stack 풀이, 앱 화면(view)을 어느 앱·release에 묶는 core의 view 표(`app_views/*`, 기기 owner 거르기 포함)와 기준 폰·폰 화면 목록 읽기를 포함한다.
 
           - id: app-data
             kind: component
@@ -197,10 +197,11 @@ elements:
 
   - id: sdk
     kind: library
-    description: 사용자 앱이 import하는 입구.
+    description: 사용자 앱이 import하는 입구. 폰 화면의 hook part(`@lophn/app-ui-native`)를 포함한다.
     depends_on:
       - protocol
       - design
+      - design-native
 
   - id: relay
     kind: application
@@ -210,13 +211,13 @@ elements:
 
   - id: design-native
     kind: library
-    description: 폰 앱의 React Native UI kit(`@lophn/ui-native`). desktop kit과 같은 token과 문구 catalog를 쓴다. 아직 SDK part가 아니다.
+    description: 폰 앱의 React Native UI kit(`@lophn/ui-native`). desktop kit과 같은 token과 문구 catalog를 쓴다. SDK part이기도 해서 사용자 앱의 폰 화면이 import하고 폰 앱의 base bundle이 같은 kit을 든다.
     depends_on:
       - design
 
   - id: mobile
     kind: application
-    description: 사람이 폰에 까는 lophn 앱. pairing, 기기 key 보관, core 연결, 폰 kit으로 짠 native 화면(sidebar 뼈대, Home, Inbox, 대화, Jobs, Agents, workspace, Settings)과 그 data 층, 알림(허락 묻기, Settings › Notifications, push token과 설정 보내기, 앞에 있는지 알리기, 알림을 누르면 여는 곳). 화면은 컴퓨터가 내려주지 않는다.
+    description: 사람이 폰에 까는 lophn 앱. pairing, 기기 key 보관, core 연결, 폰 kit으로 짠 native 화면(sidebar 뼈대, Home, Inbox, 대화, Jobs, Agents, workspace, Settings)과 그 data 층, 알림(허락 묻기, Settings › Notifications, push token과 설정 보내기, 앞에 있는지 알리기, 알림을 누르면 여는 곳), 사용자 앱의 폰 화면을 받아 격리된 guest runtime에서 돌리는 길(호환 검사, bundle cache, host bridge, 앱 화면). lophn 자신의 화면은 컴퓨터가 내려주지 않는다.
     depends_on:
       - protocol
       - design-native
@@ -270,7 +271,7 @@ interfaces:
 
   - id: remote-protocol
     kind: interface
-    description: 폰과 core 사이의 연결. Noise IK handshake, 암호화한 record, JSON frame(hello, pair, call, result, watch와 Gateway frame), 기기가 부를 수 있는 route 목록(자기 등록을 지우는 `devices/unpair`, 자기 push 설정 `devices/set_push`, 앞에 있는지 알리는 `presence/report`, project의 `project_files/list|read`, 컴퓨터의 coding agent `coding_sessions/*`와 그 터미널 화면 `terminal_view/*` 포함), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
+    description: 폰과 core 사이의 연결. Noise IK handshake, 암호화한 record, JSON frame(hello, pair, call, result, watch와 Gateway frame), 기기가 부를 수 있는 route 목록(자기 등록을 지우는 `devices/unpair`, 자기 push 설정 `devices/set_push`, 앞에 있는지 알리는 `presence/report`, project의 `project_files/list|read`, 컴퓨터의 coding agent `coding_sessions/*`와 그 터미널 화면 `terminal_view/*`, 사용자 앱의 폰 화면 `apps/phone_screens`·`apps/screen_file`·`app_views/*`와 그 event `AppViewEvent` 포함), call에 base64로 싣는 file·upload bytes. 폰은 연결에 좁은 입구 `@lophn/protocol/remote/client`를 쓰고 route 정의와 schema는 protocol source를 그대로 읽는다.
     interface_type: protocol
     defined_by: protocol
     provided_by:
@@ -375,14 +376,16 @@ interfaces:
 
   - id: design-api
     kind: interface
-    description: UI kit의 공개 API.
+    description: UI kit의 공개 API. desktop kit(`@lophn/ui`)과 폰 kit(`@lophn/ui-native`).
     interface_type: api
     defined_by: design
     provided_by:
       - design
+      - design-native
     used_by:
       - shell
       - sdk
+      - mobile
 
   - id: coding-agent-harness-api
     kind: interface

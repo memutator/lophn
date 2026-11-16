@@ -1,0 +1,13 @@
+id: phone-preview-lacks-kit-font
+title: desktop preview가 폰 kit의 글꼴(Pretendard, JetBrains Mono)을 싣지 않아 글자 모양이 폰과 다르다
+kind: bug
+status: open
+topic: phone-screen
+modules: [packages/core/apps]
+now: |
+  폰 kit의 `Text`는 글꼴 `Pretendard`와 `JetBrainsMono`를 이름으로 건다(`packages/design/native/theme.tsx`). 폰 앱은 글꼴 file을 앱에 넣어 둔다(`packages/mobile/app.json`의 expo-font plugin). 폰 화면 build가 만드는 preview 진입(`packages/core/apps/releases/ui-build/phone/build.ts`의 `index.html`·`preview.js`)에는 글꼴 file이나 `@font-face`가 없어 react-native-web이 시스템 글꼴로 그린다.
+impact: |
+  앱 agent는 desktop preview로 폰 화면의 줄바꿈, 글 폭, 줄 높이를 보고 맞춘다. 글꼴이 달라 한글과 숫자의 폭이 폰과 다르면 preview에서 맞은 레이아웃이 폰에서 넘치거나 어긋난다. 사람이 폰에서 마지막 확인을 하지만 그만큼 고칠 일이 폰으로 미뤄진다.
+fix: |
+  - 작음(추천): preview 진입에 같은 글꼴 file을 `@font-face`로 건다. desktop이 이미 쓰는 Pretendard를 쓰되 file을 core가 가진 출처에서 bundle에 복사한다(출처와 크기를 정해야 한다. sealed bundle 한도에 센다).
+  - 대안: 글꼴 일치는 약속하지 않고 지침(`design-app`)이 preview의 글자 모양이 다르다는 것을 말한다(이미 말한다). 비용은 없지만 글자 폭에 민감한 화면은 폰에서 고친다.

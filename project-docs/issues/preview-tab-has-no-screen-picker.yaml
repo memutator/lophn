@@ -1,0 +1,12 @@
+id: preview-tab-has-no-screen-picker
+title: 사람이 [Preview]로 연 preview 탭은 화면을 고르지 못하고 앱의 첫 tab 화면만 열어 폰 화면만 있는 앱은 비어 보인다
+kind: bug
+status: open
+topic: browser-tab
+modules: [packages/shell/renderer]
+now: |
+  사람이 앱 화면 탭의 [Preview]로 여는 탭(key `app-preview:<app>`)은 `screen` 없이 열려 `screenToOpen`이 그 release 선언에서 `tab` 자리를 가진 첫 화면을 고른다(`packages/shell/renderer/apps/core-source.ts`). 첫 `tab` 화면이 없으면(폰 화면만 가진 앱) 결과가 `unavailable`이라 탭은 "screen not ready"를 보인다(`app-preview-tab.tsx`). `--screen <key>`는 agent의 `lophn tab open`에만 있다.
+impact: |
+  사람이 폰 화면 preview를 보려면 agent에게 `lophn tab open --preview --screen`을 청해야 한다. 한 앱에 `tab` 화면이 여럿이거나 폰 화면이 여럿이어도 첫 화면 말고는 고를 수 없다.
+fix: |
+  - 작음(추천): preview 탭의 안내 줄(기기 고르기가 있는 곳)에 그 release의 화면 고르기를 더한다. 폰 화면을 고르면 기준 폰 기기를 고른 것으로 연다.

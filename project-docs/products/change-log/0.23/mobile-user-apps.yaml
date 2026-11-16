@@ -1,0 +1,76 @@
+id: mobile-user-apps
+version: 0.23.64
+title: 사용자 앱이 폰 화면(`phone` 자리)을 갖고, 폰 앱이 그것을 격리된 runtime에서 돌린다
+modules: [packages/protocol, packages/core/apps, packages/core/events, packages/core/server, packages/core/main, packages/core/remote, packages/core/host-queue, packages/core/agent-workspaces, packages/shell/main, packages/shell/renderer, packages/shell/ipc, packages/shell/preload, packages/cli, packages/design, packages/sdk, packages/mobile]
+change: |
+  - 앱 선언의 화면 `places`에 `phone`이 더해졌다. `phone`은 `places`에 혼자 서고(다른 자리와 섞으면 `invalid_input`) 폰 앱이 그리는 React Native 화면이다. 같은 literal을 적던 아홉 곳을 맞췄다. 저장된 선언은 그대로 읽힌다(migration 없음). SDK 판: `@lophn/declaration` 4.6.0, `@lophn/app-ui` 2.15.0(declaration에 정확한 판으로 기대서 같이 올렸다), 새 part `@lophn/ui-native` 0.1.0(폰 kit. `@lophn/ui` 사본과 섞지 않는다)과 `@lophn/app-ui-native` 1.0.0(hook `useOperation`·`useEvent`·`usePlace`와 `OperationButton`. desktop `@lophn/app-ui`의 DOM 없는 file을 다시 낸다). `migrate-sdk` 메모와 `supported_from`을 같이 썼다(`ui-native`는 0.1.0, `app-ui-native`는 1.0.0).
+  - 기준 폰: read `apps/phone_target`(agent도 부른다)과 `lophn app phone-target`이 사람이 pairing한 기준 기기의 이름, OS, 크기, DPR을 낸다(기기가 없으면 `device: null`. 기기 id와 공개 key는 내지 않는다). 기준 기기가 바뀌고 폰 화면이 있는 앱이 있으면 notice 한 줄(kind `phone_changed`)로 앱 수를 알린다. 알리기만 한다.
+  - view binding이 shell main에서 core로 옮겨졌다. 새 memory route `app_views/open|call|close`(actor user)가 `(owner, view)` 표를 core 메모리에 두고 owner는 요청 credential의 principal이다(shell main과 CLI는 `user`, 폰은 `device:<id>`). 열기는 화면과 자리가 선언에 있는지, `params`가 그 화면의 schema에 맞는지 보고 live는 지금 도는 release에, preview는 지금 preview process에 묶는다. 같은 인자의 다시 열기는 지금 binding을 돌려준다(resume). owner마다 64개이고 넘으면 가장 오래 쓰지 않은 view를 내보낸다(`lost`, `evicted`). 호출은 묶인 release(preview는 preview bundle)의 선언에 있는 operation만 부르고 command, 구독 handler, 다른 앱의 이름은 같은 `forbidden`이다. 새 event `AppViewEvent`(남지 않음)가 `event`(묶인 release가 구독을 선언한 앱 event), `rebound`(`AppViewChanged`마다 그 앱의 모든 view에, binding이 그대로여도), `lost`(`app_stopped`, `app_archived`, `conflict`, `evicted`)를 낸다. Gateway session의 새 옵션 `owner`가 `AppViewEvent`를 그 owner의 연결에만 보낸다(owner를 주지 않은 session에는 가지 않는다). shell main은 view id를 정해 열고 core의 `app_views/*`와 `AppViewEvent`만 쓴다: 옛 연결·호출 판정·event 거르기·다시 묶기 로직과 test를 지웠다. preview 화면의 operation 호출이 처음으로 된다(이슈 `preview-screen-cannot-call-operation`이 닫혔다). 표는 메모리뿐이라 ledger step과 새 wiring이 없다.
+  - 폰 화면 build: release 준비가 폰 화면마다(`places`가 `["phone"]`) 같은 source(화면 dir의 폰 화면 source 하나)를 두 번 묶는다. `phone.js`(plain JS, 즉시 실행 함수, es2015, minify, 2 MiB 한도)와 `phone.json` manifest(크기, sha256, `PHONE_BASE_FORMAT`, build 때의 kit 판 둘, 실제로 require하는 module)를 `screens/<key>/`에 쓰고 desktop preview용 `index.html`·`preview.js`(react-native-web)도 쓴다. 화면이 import할 수 있는 module은 `PHONE_HOST_MODULES`(`react`, `react/jsx-runtime`, `react-native`, `react-native-svg`, `react-native-safe-area-context`, `lucide-react-native`, `@lophn/ui-native`, `@lophn/app-ui-native`)뿐이다. 앱 자기 순수 JS 의존은 묶고 desktop용(`react-dom`, `@lophn/ui`, `@lophn/app-ui`), 목록 밖의 `react-native*`·`expo*`, 목록 module의 sub-path, node 내장, staging 밖 file은 `file:line:column: reason`으로 준비를 실패시킨다. 선언의 폰 화면과 source가 양쪽으로 맞아야 하고(source 없는 선언, 선언 없는 source, 한 key에 desktop 화면과 폰 화면이 같이 있는 것) 어긋나면 준비가 실패한다. 설치 비용은 안 A다: 폰 화면 앱은 kit과 peer와 `react-native-web`을 `devDependencies`에 두고 준비가 build 뒤 `npm prune --omit=dev --ignore-scripts`로 뺀다(prune 뒤 51 MB·5,440 file, 안 하면 471 MB·45,890 file). kit이 `dependencies`에 있으면 준비가 거절한다. 앱 template의 `scripts/build-ui.ts.tmpl`은 폰 화면 dir을 건너뛴다. 기본 앱 template은 폰 의존이 없다. core에 새 의존은 없다(preview build가 쓰는 `react-native-web`·`react-dom`은 앱의 `devDependencies`에서 풀린다).
+  - 폰이 받는 길: read `apps/phone_screens`(actor user)가 보관하지 않은 앱 중 켜진 release가 있는 앱의 폰 화면(앱 이름, icon, 화면 key와 label, `params` schema, release, bundle hash, manifest, `running`)을 싣고 `phone.js`는 기존 `apps/screen_file`로 받는다. 폰 gate(`REMOTE_ALLOWED_ROUTES`)에 `apps/phone_screens`, `apps/screen_file`, `app_views/*`를, 폰 event 목록(`REMOTE_ALLOWED_EVENTS`)에 `AppViewEvent`를 더했다(owner가 그 기기인 view의 것만 간다). `apps/call_tool`, grant, `apps/log_view_error`는 폰 gate에 없다. 폰 연결이 닫히면 core가 그 기기의 view를 지운다(같은 기기가 새 연결로 먼저 다시 붙었으면 지우지 않는다). 새 계약 file이 manifest, `phoneCanRun`(폰이 자기보다 새 base·kit·모르는 module이면 `phone_too_old`, kit의 major가 더 작으면 `screen_too_old`), host-guest 메시지, guest 전역을 고정한다.
+  - 폰 앱(`packages/mobile`): 폰 앱 안의 guest runtime이 `@callstack/react-native-sandbox` 0.7.0(patch-package patch로 고침: network module 빼기, 절대 경로 loader, 한 frame의 메시지가 합쳐지지 않게, guest 예외를 앱을 끝내지 않고 `onError`로, 이미지의 network 막기 등)으로 화면마다 `ReactHost`와 Hermes를 따로 띄운다. 폰 앱이 컴파일해 APK에 싣는 base bundle(Hermes bytecode)이 React, React Native, kit, 아이콘, hook을 갖고 `PHONE_HOST_MODULES`만 `require`로 내주며 화면이 쓰는 `lophnApp`(`place`, `callOperation`, `events`)을 세운다. guest에는 network가 없고(`fetch`·`XMLHttpRequest`·`WebSocket`·http 이미지 막힘, `data:` 이미지는 그려짐) host의 JS 전역, 보안 저장소, file system에 닿지 않는다. guest의 시작 실패와 예외는 앱을 죽이지 않고 화면이 오류 상태로 간다. 폰의 앱 화면(sidebar와 Home의 앱 줄, ⋯ menu)은 `phone.js`를 호환 검사 뒤 받아 bundle hash로 cache하고(크기와 sha256을 manifest와 대조, 앱마다 가장 새 둘만 둔다) 새 release가 live가 되면 새 bundle로 다시 띄우고 "Updated to Release N" 줄을 보인다. 컴퓨터 offline, 앱 멈춤, 호환 거절 둘, 시작 실패에 각각 화면이 선다. 문구는 `mobile.apps.*` key다.
+  - desktop preview: `lophn tab open --preview <app> --screen <key> [--device <name>]`이 폰 화면을 `phone` 자리로 기준 폰(없으면 `--device`)의 크기·DPR·OS 틀에 연다. 폰 화면인데 기준 폰도 `--device`도 없으면 `conflict`, 선언에 없는 key는 `not_found`(있는 화면을 적는다). `tabs/open`의 preview target이 `{app, device, screen}`이 되었다. 화면은 react-native-web이라 입력, soft keyboard, scroll, 글꼴이 폰과 다르다(preview 번들은 kit의 글꼴을 싣지 않는다). 사람이 [Preview]로 연 탭은 화면을 고르지 못한다.
+  - agent 지침: 내장 skill `design-app`에 "Phone screens"가 더해졌다(기준 폰 읽기, 선언, 의존을 `devDependencies`에, 규칙: `TopBar left="none"`, touch 대상 44 이상(`Button`은 `size="lg"`), 허용 module, network 없음, preview로 확인하고 폰에서 못 본 것을 사람에게 말하기). 앱 template의 `AGENTS.md`와 SDK guide, `declaration-4.6.0.md`의 Instruction diff도 고쳤다.
+why: |
+  mobile roadmap 단계 6이다. lophn agent가 사람의 앱을 짓는 것이 제품의 핵심인데 폰에서는 lophn 자신의 화면만 있고 사람이 만든 앱은 열 수 없었다. 폰 화면을 앱마다 native build로 내면 앱을 만들 때마다 폰에 새 앱을 깔아야 하고, 받은 코드를 그냥 돌리면 AI가 쓴 화면이 폰 앱의 전역과 보안 저장소와 network에 닿는다. 그래서 spike로 격리된 React Native runtime이 되는 것을 먼저 확인하고(release build에서 오류가 폰 앱을 죽이지 않는 것까지) 그 위에 build, 읽기, gate, 폰의 앱 화면을 지었다. 화면의 신원 판정(어느 앱·release, 부를 operation, 받을 event)은 desktop과 폰이 두 벌 들지 않게 core로 옮겼다.
+decisions:
+  - text: >-
+      사용자 앱의 폰 화면은 폰 UI kit으로 쓴 React Native이고 desktop 화면과 다른 source다. 폰 앱은 앱마다 native build 없이 그 bundle을 받아 돈다. 이유: scroll, keyboard, gesture가 폰다워야 하고 web 화면을 WebView에 넣은 길은 폰답지 않았다. 한 화면이 반응하지 않는다. 앱 하나가 두 화면을 갖고 operation과 data는 하나다.
+    by: person
+  - text: >-
+      폰 화면은 폰 앱 안의 따로 띄운 React Native runtime(guest)에서 돌린다. `@callstack/react-native-sandbox`를 spike가 쓴 판(0.7.0)에 고정하고 변경은 fork가 아니라 저장소의 patch로 둔다. 이유: 격리와 native 느낌을 둘 다 얻고 spike에서 돌았다. 버린 길: react-native-web WebView(native 느낌을 잃는다. roadmap의 fallback으로만 남는다).
+    by: agent
+  - text: >-
+      bundle을 base(폰 앱이 컴파일해 싣는다)와 plain JS 화면 bundle(core가 release마다 짓는다)로 나누고 core는 Hermes bytecode를 만들지 않는다. 이유: `hermesc` binary를 core가 들어야 하고 작은 plain JS로 release build에서 mount부터 `running`까지 83–117 ms였다.
+    by: agent
+  - text: >-
+      guest에는 network가 없고 data는 operation 호출과 앱 event(둘 다 core를 거친다)로만 받는다. http 이미지 URL도 data를 내보내는 길이라 막았다. 이유: AI가 쓴 화면이 사람의 data를 바깥으로 보내는 길을 막는다.
+    by: agent
+  - text: >-
+      폰은 자기보다 새 base·kit으로 지은 화면, 모르는 module을 쓰는 화면(`phone_too_old`)과 옛 major의 kit으로 지은 화면(`screen_too_old`)을 열지 않고 각각 "update the lophn app", "ask lophn on your computer to update this app"을 말한다. 이유: 모르는 약속으로 돌리다 깨지는 것보다 분명히 거절하고 고칠 곳이 다르다.
+    by: agent
+  - text: >-
+      화면이 import할 수 있는 module 목록에서 `react-native-reanimated`를 뺐다. 이유: kit이 쓰지 않고 화면은 React Native의 `Animated`를 쓴다. 허용 목록과 preview의 web 대체가 하나 준다. 폰 앱 자신의 의존은 그대로다.
+    by: agent
+  - text: >-
+      폰 화면 앱의 설치 비용은 폰 의존을 `devDependencies`에 두고 준비가 build 뒤 prune하는 안 A로 정했다. 이유: 앱 agent가 type 검사와 preview build를 하려면 kit과 peer가 앱 안에 있어야 하고 prune하면 bundle이 51 MB로 한도 안이다. 버린 길: web 쪽 package를 core의 의존으로 두는 안 B(core의 의존과 packaging이 늘고 type의 출처가 따로 필요하다). 기본 앱 template은 폰 의존을 갖지 않는다.
+    by: agent
+  - text: >-
+      view binding을 shell main에서 core로 옮긴다. 신원은 host가 붙인 view id와 credential의 principal이고 page가 낸 값은 신원이 아니다. 이유: desktop과 폰이 같은 로직을 두 벌 들지 않게 한다. 버린 길: host마다 binding을 들기.
+    by: agent
+  - text: >-
+      `AppViewEvent`의 owner 거르기는 Gateway session의 `owner` 옵션 하나이고 owner를 주지 않은 session은 받지 않는다(기본이 막기). core는 `AppViewChanged`마다 그 앱의 모든 view에 `rebound`를 낸다(binding이 같아도. 이유: grant가 바뀌어 host가 CSP host를 다시 읽을 때가 있다). owner당 64개를 넘으면 가장 오래 쓰지 않은 view를 `evicted`로 내보낸다(이유: core가 shell보다 오래 살아 옛 view가 남고 거절하면 core 재시작까지 열 수 없다). 조사는 "binding이 바뀔 때만 rebound", "64개면 conflict"였다.
+    by: agent
+  - text: >-
+      card가 아닌 live view의 다시 열기는 release를 신원으로 견주지 않는다. 이유: 그 값은 처음 열 때의 전제이고 view는 그 뒤 도는 release를 따른다. card와 preview는 release까지 같아야 한다.
+    by: agent
+  - text: >-
+      화면의 operation 호출은 preview에서도 core의 `app_views/call`로 가서 preview bundle의 선언으로 판정한다. 이유: 폰 화면을 desktop preview로 확인하려면 눌러서 operation이 불려야 한다.
+    by: agent
+  - text: >-
+      폰 gate는 `apps/call_tool`, grant, `apps/log_view_error`를 열지 않는다. 이유: 부를 operation은 core가 view의 binding으로 판정하고, 화면 오류를 쓰는 route는 입력의 앱을 부르는 쪽이 정해서 다른 앱의 log에 쓸 수 있다. 대가: 폰 화면의 오류가 앱 log에 남지 않는다(이슈 `phone-screen-errors-not-in-app-log`).
+    by: agent
+  - text: >-
+      기준 폰이 바뀔 때만 사람에게 알린다(옛 크기로 그린 폰 화면을 다시 그려야 해서). 알리기만 하고 자동으로 다시 그리지 않는다. 폰 화면의 쓰기에는 앱 operation이 이미 요구하는 것 말고 다른 확인을 더하지 않는다.
+    by: agent
+  - text: >-
+      preview에서 폰 화면을 열 때 기준 폰도 `--device`도 없으면 열지 않고 `conflict`다. 이유: 넓은 desktop 틀에 폰 화면을 그려 agent가 잘못 믿게 하지 않는다. preview는 react-native-web 에뮬레이션이라 마지막 확인은 사람이 폰에서 한다.
+    by: agent
+  - text: >-
+      Android를 먼저 짓고 iOS는 열지 않았다. 내려받은 code로 앱 기능을 바꾸는 것(Apple 지침 2.5.2)과 JavaScript mini app(4.7)에 맞는지 사람이 Apple에 물어야 정해진다.
+    by: agent
+follow_up: |
+  - **실제 desktop 앱(Electron)을 한 번도 띄워 보지 못했다.** core view 표를 거쳐 desktop 창에서 앱 화면을 열고 operation을 부르는 것, 앱을 다시 release하면 화면이 새 판으로 다시 뜨는 것, 앱 event를 구독한 화면이 event를 받는 것, 폰 화면이 있는 preview 탭은 type 검사와 test와 headless Chrome에서만 보았다. preview는 headless Chrome에서 그려 보았을 뿐 창에서 본 적이 없다.
+  - 폰 쪽은 emulator(release build와 debug build)에서 개발 core에 손으로 지은 앱을 붙여 보았다. **실제 agent turn으로 만든 앱은 한 번도 보지 못했다**(개발 core에는 model이 없다). 실제 폰과 iOS는 쓰지 않았다. debug build(dev client)에서는 손가락 입력이 guest에 닿지 않아(dev menu의 전체 화면 view) 손가락 확인은 release build에서만 했다.
+  - 폰 앱 build에 native 변경(sandbox library, R8 keep 규칙, base bundle, 앱 package 목록을 sandbox에 넘기는 plugin)이 들었으니 실제 폰에 새 build를 까는 것은 사람의 일이다. 깔기 전에 planner에게 묻는다.
+  - 알려진 빈틈은 이슈다: `phone-guest-memory-grows-per-remount`, `phone-guest-can-cover-app`, `phone-screen-errors-not-in-app-log`, `phone-preview-lacks-kit-font`, `phone-kit-button-under-touch-target`, `phone-kit-topbar-shows-menu-by-default`, `preview-tab-has-no-screen-picker`, `phone-apps-menu-lacks-wireframe-rows`, `phone-open-url-blank-workspace`.
+  - guest의 허용 목록에 sandbox 자체 목록의 `LinkingManager`가 남아 있다. guest가 외부 URL을 열 수 있는지 확인하지 않았다.
+  - 폰 화면 확인 중 폰 앱에서 세 가지를 따로 고치고 확인하는 중이다(닫힌 drawer의 overlay가 guest의 touch를 막은 것, guest가 mount될 때 debug build가 끝나는 것, 앱 열기 대상이 앱의 폰 화면을 여는 것). 이 항목에는 반영하지 않았다.
+checklist:
+  - "해야: 폰 화면을 쓰려면 폰에 이 판의 lophn 앱 build를 새로 깐다(guest runtime의 native 변경이 들었다. 폰에 build를 까는 것은 사람의 일이고 깔기 전에 planner에게 묻는다)"
+  - "컴퓨터의 lophn 앱에서 앱 workspace를 열어 앱 화면이 열리고 단추가 operation을 부르는지, 앱을 다시 release하면 화면이 새 판으로 다시 뜨는지, 앱 event를 구독한 화면이 event를 받는지 본다(shell main이 core의 view 표를 쓰게 바뀌었다)"
+  - "앱 preview 탭에서 화면의 단추가 operation을 부르는지 본다(전에는 preview 화면에서 operation이 안 불렸다)"
+  - "폰을 pairing한 뒤 앱 workspace의 agent에게 앱에 폰 화면을 더해 달라고 청한다. agent가 `lophn app phone-target`으로 폰 크기를 읽고 폰 화면을 쓰고 준비가 통과하는지(`npm install`이 120초 안에 끝나는지 포함), `lophn tab open --preview <app> --screen <key>`가 기준 폰 크기의 틀에 열리는지 본다"
+  - "폰의 sidebar나 Home에서 그 앱을 눌러 화면이 열리고 손가락으로 누른 단추가 operation을 부르는지, 앱을 다시 release하면 \"Updated to Release N\"이 잠시 보이고 새 화면이 뜨는지 본다"
+  - "컴퓨터를 끄거나 오프라인으로 하고 폰에서 앱을 열어 \"runs on <컴퓨터>\" 화면이 서는지, 컴퓨터가 돌아오면 저절로 열리는지 본다"
+  - "새 폰을 pairing해 기준 폰이 바뀐 뒤 컴퓨터의 Inbox에 폰 화면이 있는 앱 수를 알리는 줄이 오는지 본다"

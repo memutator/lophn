@@ -1,6 +1,6 @@
 # ui-kit
 
-lophn이 내놓는 범용 UI component(kit, package `@lophn/ui`)가 lophn 화면(renderer), 사용자 앱, 봉한 artifact view에 어떻게 닿는지, 사람이 그것을 어디서 보고 승인하는지, 앱이 고정한 SDK 판이 바뀔 때 어떻게 알리고 옮기는지를 다룬다. 흐름은 token → kit → renderer·사용자 앱·artifact → gallery다. 폰 앱의 React Native kit(`@lophn/ui-native`)은 같은 token에서 나오고 "폰 UI kit" 절이 다룬다. Boundary는 `design`(library), `design-native`(library), `design-api`(공개 API), `sdk-api`, `app-releases`다.
+lophn이 내놓는 범용 UI component(kit, package `@lophn/ui`)가 lophn 화면(renderer), 사용자 앱, 봉한 artifact view에 어떻게 닿는지, 사람이 그것을 어디서 보고 승인하는지, 앱이 고정한 SDK 판이 바뀔 때 어떻게 알리고 옮기는지를 다룬다. 흐름은 token → kit → renderer·사용자 앱·artifact → gallery다. 폰 앱의 React Native kit(`@lophn/ui-native`)은 같은 token에서 나오고 "폰 UI kit" 절이 다룬다. 이 kit과 hook part `@lophn/app-ui-native`는 SDK part라 사용자 앱의 폰 화면이 쓴다(`phone-screen.md`). Boundary는 `design`(library), `design-native`(library), `design-api`(공개 API), `sdk-api`, `app-releases`다.
 
 ## 문제
 
@@ -66,7 +66,8 @@ component는 분류 폴더 하나 안에 있고(tsx, module CSS, 보조 file), �
 - 묻는 card(`QuestionCard`)는 여러 답을 고르는 질문도 받는다. 대화와 Inbox가 같은 card를 쓴다.
 - 분류 폴더(primitives, input, layout, navigation, feedback, overlay, reading, conversation)는 `@lophn/ui`와 다르다. check `kit`는 이 폴더를 건너뛰고 폰 앱의 type 검사가 본다. React Native의 `<Text>` 밖 글자는 Biome 규칙(`noReactNativeRawText`)이 막는다.
 - Metro는 alias로, tsc는 `paths`로 이 package를 찾는다.
-- 폰 kit은 아직 SDK part가 아니다. 사용자 앱이 이 kit을 쓰게 하고 SDK 판과 `migrate-sdk` 메모로 올리는 일은 계획 `mobile-user-apps`가 한다.
+- 폰 kit은 SDK part `@lophn/ui-native`이고 설치 사본이 data root의 `sdk/ui-native/<판>`에 깔린다. `@lophn/ui` 사본과 섞지 않는다(`@lophn/ui`의 설치 사본은 폰 kit 폴더를 건너뛴다). 이유: desktop kit은 DOM이고 폰 kit은 React Native라 한 part에 두 runtime의 의존을 담지 않는다. react, react-native, react-native-svg, safe-area, keyboard-controller, expo-clipboard, lucide-react-native, `@lophn/i18n`은 peer와 의존으로 정확한 판이 `package.json`에 있고 guide는 `package.read @lophn/ui-native`로 읽는다. 사용자 앱의 폰 화면은 이 kit으로 쓰고 폰 앱의 base bundle이 같은 kit을 든다.
+- `@lophn/app-ui-native`는 폰 화면이 앱 bridge(`lophnApp`)를 쓰는 hook(`useOperation`, `useEvent`, `usePlace`)과 React Native의 `OperationButton`이다. hook은 desktop `@lophn/app-ui`의 DOM 없는 file을 그대로 다시 내고(설치 사본에서는 `vendor/`로 담는다) 폰의 guest runtime과 desktop preview가 같은 전역 `lophnApp`을 주므로 같은 hook이 둘 다에서 돈다. 폰에 없는 bridge(`useTabHead`, `useCommand`, `useProjects`, `useKeepAlive`)와 오류 경계는 내지 않는다.
 
 ### chart와 GraphDiagram
 
@@ -105,7 +106,7 @@ component는 분류 폴더 하나 안에 있고(tsx, module CSS, 보조 file), �
 7. 분류 공개 목록의 값 export마다 "언제 쓰나" 한 줄이 윗줄에 있다. 분류 폴더 밖의 component는 없다.
 8. gallery는 실제 component를 import만 한다. gallery 안에 component 모양을 흉내 낸 CSS 사본을 두지 않는다.
 9. 앱 화면에서 쓰는 npm 의존(react, radix, lucide, markdown parser, icon json, d3 등)은 SDK 사본의 `package.json`이 정확한 판으로 갖는다.
-10. 앱 화면 build는 고정된 package 밖의 import를 거절한다.
+10. 앱 화면 build는 고정된 package 밖의 import를 거절한다. 폰 화면 build는 폰 host module 목록 밖의 import(desktop용 `react-dom`·`@lophn/ui`·`@lophn/app-ui` 포함)를 거절한다.
 11. 앱을 고치는 agent는 `package.read @lophn/ui` 한 번으로 모든 분류의 이름과 "언제 쓰나" 줄을 받는다. props 정의가 예산 때문에 밀려도 분류가 사라지지 않는다.
 12. SDK 판을 올리면 메모를 같이 쓴다. 지금 판과 하한의 메모, 하한이 판보다 높지 않은 것, 메모 사슬이 check에서 맞아야 한다.
 13. 앱마다 SDK 알림 줄을 두지 않는다. 앱 없는 program 줄 하나가 숲의 입구다.
@@ -123,9 +124,10 @@ component는 분류 폴더 하나 안에 있고(tsx, module CSS, 보조 file), �
 
 1. 앱 template이 `@lophn/ui`(root와 sub-path 11개), `@lophn/app-ui`, `@lophn/declaration`을 `package.json`의 `file:.lophn/<설치 경로>` 의존으로 적는다.
 2. 설치 사본은 data root의 `sdk/<이름 뒤쪽>/<판>`(예: `sdk/ui/1.1.0`)에 있다. 앱 `package.json`이 거는 사본을 앱 폴더의 `.lophn/sdk`로 복사한 뒤, lock이 있으면 `npm ci`, 없으면 `npm install`로 의존을 받는다. npm은 `node_modules/@lophn/*`를 그 사본으로 잇는 symlink로 깔고, Node는 symlink의 실제 경로가 `node_modules` 밖일 때만 그 `.ts`를 돌린다. 사본의 npm 의존과 사본끼리의 `file:` 의존은 앱 `node_modules`에서 풀린다. release 준비도 staging에서 같은 일을 한다. agent shell의 `npm`은 의존을 깔기 전에 사본을 먼저 맞춘다. 그래서 agent가 SDK 의존을 더한 뒤 바로 `npm install`이 그 사본을 찾는다.
-3. 화면 build는 `@lophn/declaration`, `@lophn/ui`, `@lophn/app-ui`, `@lophn/agent`, `@lophn/i18n`, `react`, `react-dom`을 external로 둔다. `@lophn/ui/overlay` 같은 sub-path도 같이 external이다. 이 밖의 package는 build가 거절한다.
+3. 화면 build는 `@lophn/declaration`, `@lophn/ui`, `@lophn/app-ui`, `@lophn/agent`, `@lophn/i18n`, `react`, `react-dom`을 external로 둔다. `@lophn/ui/overlay` 같은 sub-path도 같이 external이다. 이 밖의 package는 build가 거절한다. 폰 화면(`places`가 `["phone"]`)은 이 build가 아니라 폰 화면 build를 따른다: 화면이 import할 수 있는 module은 폰의 host module 목록(`react`, `react-native`, `react-native-svg`, `react-native-safe-area-context`, `lucide-react-native`, `@lophn/ui-native`, `@lophn/app-ui-native`)뿐이고 앱 자기 npm 의존(순수 JS)은 묶는다(`phone-screen.md`의 build).
 4. release 준비가 staging의 `.lophn/sdk` 사본과 `node_modules`를 release bundle에 굳힌다. symlink는 `node_modules/.lophn-links.json` 목록으로 굳히고 bundle 사본을 봉인할 때 연결을 다시 만든다(npm package의 `node_modules/<이름>` symlink를 따라 복사하지 않는다). 실행 중인 앱은 그 bundle의 사본만 본다.
-5. 앱을 고치는 agent는 template `AGENTS.md`(lophn-managed 절)에서 화면 component는 `@lophn/ui/<분류>`, 앱 bridge component는 `@lophn/app-ui`, 앱 CSS는 `tokens.css`의 변수만 쓰라고 안내받는다.
+5. 폰 화면을 가진 앱은 `@lophn/ui-native`·`@lophn/app-ui-native`와 kit의 peer와 `react-native-web`을 `devDependencies`로 둔다(agent가 폰 화면을 더할 때 `design-app` skill이 말한다). 기본 template은 폰 의존이 없다. 준비가 폰 화면을 지은 뒤 `devDependencies`를 빼서 bundle에는 backend가 쓰는 의존만 남는다. kit이 `dependencies`에 있으면 준비가 거절한다.
+6. 앱을 고치는 agent는 template `AGENTS.md`(lophn-managed 절)에서 화면 component는 `@lophn/ui/<분류>`, 앱 bridge component는 `@lophn/app-ui`, 앱 CSS는 `tokens.css`의 변수만 쓰라고 안내받는다.
 
 설치 사본과 앱 template은 core가 기동할 때 repo에서 깐다. 같은 byte면 그대로 두고 다르면 지우고 다시 쓴다. 사본 밖 protocol을 가리키는 sdk(declaration, cap-store, cap-problem)는 그 file을 사본 안 `vendor/`에 담고 specifier를 바꾸며, vendor로 담은 `@lophn/protocol`은 사본 `package.json`의 의존에서 뺀다.
 
@@ -208,8 +210,12 @@ check `sdk notes` step은 지금 판과 하한의 메모, 하한이 판보다 �
 - private workspace에 대한 home의 맡기기 예외는 home의 기본 lophn, private 쪽 lophn, `reply: none` 셋이 다 맞을 때뿐이다. home을 통째로 예외로 두지 않는다. (사람이 추천을 받음)
 - 옛 SDK 사본을 data root에 따로 싣지 않는다. 하한 아래의 앱은 처음 다시 release할 때 옮긴다. (agent)
 - component 추가나 선택 prop 추가는 `@lophn/ui` 판을 올리지 않는다. 이 판에 component를 더해 온 관행을 따른다. (agent)
+- 폰 kit은 `@lophn/ui`에 합치지 않고 SDK part `@lophn/ui-native`로 따로 낸다. 이유: 두 kit은 runtime(DOM과 React Native)과 peer가 다르다. 한 part에 담으면 모든 앱이 폰 의존을 설치하고 desktop 앱의 설치 사본에 React Native source가 섞인다. 기본 앱 template은 폰 의존을 갖지 않고 agent가 폰 화면을 더할 때 의존을 더한다. (agent)
+- 폰 화면 앱은 kit과 peer를 `devDependencies`에 두고 준비가 build 뒤 prune한다. 이유와 버린 안(core가 web 쪽 package를 자기 의존으로 갖는 안)은 `phone-screen.md`. (agent)
 
 ## 열린 것
+
+- 폰 kit의 `TopBar`는 기본으로 sidebar 단추(`left="menu"`)를 보이고 `Button`의 `sm`·`md`는 34·42로 touch 대상 44보다 작다. 앱 화면은 sidebar가 없고 손가락으로 누르므로 지침(`design-app`)이 agent에게 `left="none"`과 `size="lg"`를 넘기라고 말한다. kit의 기본값은 그대로다(이슈 `phone-kit-topbar-shows-menu-by-default`, `phone-kit-button-under-touch-target`).
 
 - 감지로 쓴 `sdk_update_needed` 줄은 기동 중에 쓰므로 toast가 뜨지 않고 배지와 History로만 보인다(이슈 `startup-program-notice-no-toast`).
 - 감지는 제품 판이나 설치된 SDK 판 묶음이 바뀔 때만 돈다. 감지 뒤 지금 상태를 앱 단위로 닫는 길은 없다(위 "SDK 업데이트 감지와 맡기기").

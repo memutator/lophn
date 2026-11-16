@@ -1,0 +1,13 @@
+id: phone-kit-button-under-touch-target
+title: 폰 kit의 Button sm과 md(기본)가 touch 대상 44 dp보다 작다
+kind: bug
+status: open
+topic: ui-kit
+modules: [packages/design/native]
+now: |
+  `Button`의 높이는 `sm` 34, `md` 42, `lg` 54이고 기본이 `md`다(`packages/design/native/primitives/button.tsx`). 사람이 승인한 wireframe의 크기를 옮긴 값이다. `Row`와 `IconButton`은 44 이상이다. 앱 agent의 지침(`design-app`)은 앱의 주 동작에 `size="lg"`를 쓰라고 말하고 있어 agent는 피하지만, 기본 `md`를 그대로 쓴 단추와 lophn 폰 화면의 `sm`·`md` 단추는 44보다 작다.
+impact: |
+  손가락으로 누르는 폰에서 작은 단추를 놓치거나 옆 단추를 누른다. 사용자 앱의 폰 화면이 kit의 기본을 쓰면 그대로 그렇다. 되돌릴 수 없는 동작(지우기, 보내기)에 이 크기를 쓰면 잘못 누른 값이 남는다.
+fix: |
+  - 작음(추천): `Button`이 보이는 크기는 두고 `hitSlop`으로 눌리는 영역을 44까지 넓힌다. wireframe의 모양과 모든 화면의 배치는 그대로다. 단추끼리 가까우면 영역이 겹치므로 gallery에서 간격을 본다.
+  - 중간: `md`를 44로 올린다. 모든 폰 화면의 높이가 바뀌어 wireframe(사람이 승인한 숫자)을 다시 승인받아야 한다.

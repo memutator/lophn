@@ -1,0 +1,12 @@
+id: phone-open-url-blank-workspace
+title: 앱이 떠 있을 때 lophn://open 앱 URL을 열면 간헐적으로 workspace가 비고 Home의 목록도 사라졌다
+kind: bug
+status: open
+topic: remote
+modules: [packages/mobile]
+now: |
+  emulator에서 폰 앱이 떠 있는(warm) 채로 `lophn://open?...&kind=app` URL을 보내자(알림이나 shortcut이 여는 길, `packages/mobile/src/open/`) 간헐적으로 앱 workspace가 빈 채로 열렸고 Home의 session과 workspace 목록도 같이 비었다. data 층의 읽기가 비는 것으로 보이나 원인은 격리하지 못했고 늘 나는 것이 아니라 재현 조건도 모른다. 앱 대상이 여는 곳을 고치는 변경이 따로 진행 중이라 같은 길이다. 그 변경 뒤 다시 본다.
+impact: |
+  알림이나 shortcut으로 앱을 열 때 가끔 빈 화면이 보여 사람이 앱을 다시 열어야 한다. 앱에 쓴 data를 잃지는 않는다(읽기가 비는 것이다). 얼마나 자주 나는지 모른다.
+fix: |
+  - 작음(추천): 앱 대상이 앱의 폰 화면으로 열리도록 고치는 변경이 들어간 뒤 같은 길(warm 상태에서 URL을 여러 번 보내기)을 emulator에서 반복해 다시 나는지 본다. 나면 열기 직후 data 층의 읽기(`useWorkspaces`, `usePhoneApps`)가 연결 전에 빈 값을 확정하는지 본다. 원인을 모른 채 먼저 고치지 않는다.

@@ -9,7 +9,7 @@ lead만 고친다. `tools/status.py app-folder-sync build`가 `tasks/*.md`에서
 | `folder-engine` | sync | 1 | 없음 | merged | sync/folder-engine | 9d3be3196 |  |
 | `folder-log` | sync | 1 | 없음 | merged | sync/folder-log | 4a46c10dd |  |
 | `folder-approval` | approval | 2 | folder-contract | merged | approval/folder-approval | 50722567d |  |
-| `folder-apps` | folder | 2 | folder-contract, folder-decl | running | folder/folder-apps |  |  |
+| `folder-apps` | folder | 2 | folder-contract, folder-decl | merged | folder/folder-apps | e74e4966a |  |
 | `folder-export` | folder | 2 | folder-contract, folder-log, folder-decl | merged | folder/folder-export | f4d044a8a |  |
 | `folder-import` | folder | 2 | folder-contract, folder-engine, folder-decl | merged | folder/folder-import | ed308d30c |  |
 | `folder-runtime` | sync | 2 | folder-contract, folder-engine, folder-log, folder-decl | merged | sync/folder-runtime | b1fb8bb3b |  |

@@ -7,7 +7,7 @@ lead만 고친다. `tools/status.py mobile-browser-use build`가 `tasks/*.md`에
 | `mobile-drive-contract` | drive-contract | 1 | 없음 | merged | drive-contract/mobile-drive-contract | 5a67ea4ca |  |
 | `mobile-drive-preview-read` | drive-core | 1 | 없음 | merged | drive-core/mobile-drive-preview-read | bee6276b6 |  |
 | `mobile-drive-kit` | drive-kit | 1 | 없음 | merged | drive-kit/mobile-drive-kit | d55c49bfa |  |
-| `mobile-drive-cli` | drive-agent | 2 | mobile-drive-contract | running | drive-agent/mobile-drive-cli |  |  |
+| `mobile-drive-cli` | drive-agent | 2 | mobile-drive-contract | merged | drive-agent/mobile-drive-cli | a45bc3c78 |  |
 | `mobile-drive-core` | drive-core | 2 | mobile-drive-contract | running | drive-core/mobile-drive-core |  |  |
 | `mobile-drive-native` | drive-phone | 2 | mobile-drive-contract | running | drive-phone/mobile-drive-native |  |  |
 | `mobile-drive-phone` | drive-phone | 3 | mobile-drive-native, mobile-drive-preview-read, mobile-drive-contract, mobile-drive-core | todo |  |  |  |

@@ -12,7 +12,7 @@ lead만 고친다. `tools/status.py mobile-local-apps build`가 `tasks/*.md`에�
 | `mobile-local-db-native` | phone-host | 4 | 없음 | running | phone-host/mobile-local-db-native |  |  |
 | `mobile-local-decl` | sdk | 4 | 없음 | merged | sdk/mobile-local-decl | 39a5e5777 |  |
 | `mobile-local-prepare` | phone-backend | 5 | mobile-local-decl, mobile-local-build | merged | phone-backend/mobile-local-prepare | c49b57da7 |  |
-| `mobile-local-gate` | phone-host | 5 | mobile-sync-ledger, mobile-local-prepare | todo |  |  |  |
+| `mobile-local-gate` | phone-host | 5 | mobile-sync-ledger, mobile-local-prepare | running | phone-host/mobile-local-gate |  |  |
 | `mobile-local-runtime-phone` | phone-host | 5 | mobile-local-db-native, mobile-local-build, mobile-local-sdk | todo |  |  |  |
 | `mobile-local-sync-phone` | phone-host | 6 | mobile-local-runtime-phone, mobile-local-gate, mobile-local-prepare, mobile-sync-ledger, mobile-sync-core | todo |  |  |  |
 | `mobile-local-screens` | phone-host | 7 | mobile-local-sync-phone | todo |  |  |  |

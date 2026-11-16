@@ -12,4 +12,4 @@ lead만 고친다. `tools/status.py mobile-browser-use build`가 `tasks/*.md`에
 | `mobile-drive-native` | drive-phone | 2 | mobile-drive-contract | merged | drive-phone/mobile-drive-native | de2c32971 |  |
 | `mobile-drive-phone` | drive-phone | 3 | mobile-drive-native, mobile-drive-preview-read, mobile-drive-contract, mobile-drive-core | merged | drive-phone/mobile-drive-phone | 4c4aa5794 |  |
 | `mobile-drive-guidance` | drive-agent | 4 | mobile-drive-cli, mobile-drive-kit, mobile-drive-phone | merged | drive-agent/mobile-drive-guidance | a71158c67 |  |
-| `mobile-drive-verify` | drive-check | 5 | mobile-drive-phone, mobile-drive-core, mobile-drive-cli, mobile-drive-guidance | todo |  |  |  |
+| `mobile-drive-verify` | drive-check | 5 | mobile-drive-phone, mobile-drive-core, mobile-drive-cli, mobile-drive-guidance | merged | plan/mobile-browser-use | 93875426a | lead가 plan branch에서 직접 |

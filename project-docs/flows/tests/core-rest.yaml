@@ -188,6 +188,9 @@ files:
       - always-on-reconcile:reregistered
       - always-on-reconcile:unregistered
     note: "fake OS port로 센다. 개발 core(port 없음)는 켜기를 unavailable로 거절하고 file을 쓰지 않는다. 다른 기계의 always-on.json은 꺼짐으로 읽혀 register·hold 없이 항목이 있을 때만 unregister하고 file을 덮지 않는다. file 없는 root는 OS를 부르지 않는다. start_at_login registered는 port가 registered를 답했을 때뿐이고 등록 실패에도 표시는 남는다. 맞추기는 off_in_system을 다시 켜지 않고 빠진 등록은 다시 쓴다"
+  - path: packages/core/always-on/os/os_test.ts
+    covers: []
+    note: "세 OS(systemd unit, LaunchAgent plist, HKCU Run 값)의 등록 글에는 실행 경로, core entry, data root와 정해진 env 이름만 실리고 env의 secret은 없으며 안전하지 않은 글자가 든 경로는 쓰지 않는다. OS 답은 항목이 있고 같은 글이고 켜져 있을 때만 registered이고(꺼짐은 off_in_system, bus 없음은 no_service_manager), unregister는 stop·bootout을 부르지 않는다. OS 명령은 fake다"
 
   - path: packages/core/machine/identity_test.ts
     covers:

@@ -760,13 +760,13 @@ export function CodingFlow() {
       </Shot>
       <Shot
         title="A new coding session"
-        text="새 session의 Who works on it에 컴퓨터의 coding agent 넷이 묶여 있다. 앱이 꺼져 있으면 이 묶음 자리에도 Start lophn on the computer가 온다."
+        text="새 session의 단추는 workspace와 agent 둘이다. agent 단추의 Who works on it 안에 lophn agent 묶음 아래로 컴퓨터의 coding agent 묶음이 선다. 목록은 정해진 것이라 바로 서고, 컴퓨터의 답이 오기 전에는 흐리고 누를 수 없다. 앱이 꺼져 있으면 묶음 아래에 Start lophn on the computer가 온다."
       >
         <NewCoding over={<Pick />} />
       </Shot>
       <Shot
         title="The first message"
-        text="고르면 컴퓨터에 새 터미널 탭이 열리고 채팅으로 시작한다고 입력 칸 위에 알린다. 보내면 flow 4의 대화 화면으로 간다."
+        text="고르기만 해서는 아무것도 열리지 않는다. 입력 칸 위에 컴퓨터의 새 터미널 탭으로 시작한다고 알린다. 첫 메시지를 보내면 그때 컴퓨터에 열고 그 메시지를 보내 flow 4의 대화 화면으로 간다. 못 열거나 못 보내면 글은 입력 칸에 남는다."
       >
         <NewCoding />
       </Shot>

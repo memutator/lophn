@@ -1,7 +1,8 @@
 // A new session (tools/wireframes/drafts/phone/session.tsx Fresh, Agents): pick where and who, then the first message
 // opens the session and goes to its conversation, as the desktop's first message does. Only agents that can work in the
-// chosen workspace are offered. In a project the computer's coding agents are offered too; picking one opens it on the
-// computer (no first message here: it is sent in the conversation) and goes to its chat.
+// chosen workspace are offered. In a project the computer's coding agents are offered in the same sheet
+// (tools/wireframes/drafts/phone/coding.tsx Pick, The first message): picking one opens nothing; the first message
+// opens it in a new terminal tab on the computer, is sent to it, and goes to its chat.
 import { t } from "@lophn/i18n";
 import {
   Chip,
@@ -14,12 +15,15 @@ import {
   Sheet,
   Text,
   TopBar,
+  Working,
 } from "@lophn/ui-native";
 import { StackActions, useNavigation } from "@react-navigation/native";
-import { Check, SquareTerminal } from "lucide-react-native";
+import { Check, Monitor } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import type { AcpCommand, AcpSessionMeta } from "../../../../protocol/acp/mod.ts";
+import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
+import type { GuiHarness } from "../../../../protocol/extensions/mod.ts";
 import { textBlocks } from "../../../../protocol/lophn-agent/content-block.ts";
 import { type AgentId, lophnIdOf, type Workspace } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { capabilitiesOf, slashEntriesOf } from "../../../../shell/renderer/conversation/agent-view-model.ts";
@@ -29,13 +33,14 @@ import { type PlaceOf, paramsOf, useNav } from "../../app/nav.ts";
 import {
   type AgentChoice,
   useAgentChoices,
+  useCodingActions,
   useConversation,
   useCurrentComputer,
   useWorkspaces,
   type WorkspaceView,
 } from "../../data/mod.ts";
 import { Face, LOPHN, useUnreachable, WorkspaceMark } from "../../parts/mod.ts";
-import { CodingAgentGroup } from "../coding/index.tsx";
+import { CodingAgentGroup, harnessProfile, problemText } from "../coding/index.tsx";
 import { attachedAbove, useAttachments } from "./attach.tsx";
 import { AttachSheet, CommandsSheet, FilesSheet, ModelSheet } from "./sheets.tsx";
 
@@ -72,12 +77,18 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
   const unreachable = useUnreachable();
   const [workspace, setWorkspace] = useState<Workspace | null>(place.workspace ?? null);
   const [agent, setAgent] = useState<AgentId>(place.agent ?? lophnIdOf(place.workspace ?? null));
-  const [sheet, setSheet] = useState<"workspace" | "agent" | "coding" | "model" | "attach" | "files" | "commands" | null>(null);
+  // A coding agent of the computer picked instead of a lophn agent.
+  const [harness, setHarness] = useState<GuiHarness | null>(null);
+  const [sheet, setSheet] = useState<"workspace" | "agent" | "model" | "attach" | "files" | "commands" | null>(null);
   const attachments = useAttachments();
   const computer = useCurrentComputer()?.name ?? "";
   const [draft, setDraft] = useState(place.text ?? "");
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const coding = useCodingActions();
+  // The coding session a first message opened when sending to it then failed: trying again sends into it rather than
+  // opening a second terminal tab.
+  const [codingOpened, setCodingOpened] = useState<{ project: string; harness: string; session: string } | null>(null);
   const [pending, setPending] = useState<{ model: string; options: Record<string, string> } | null>(null);
 
   // The id the session will get when the first message opens it. Until then the conversation hook reads nothing for it;
@@ -115,12 +126,16 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
 
   const shown = workspaces.find((one) => sameWorkspace(one.workspace, workspace));
   const workspaceName = shown === undefined ? t("left-sidebar.label.home") : nameOf(shown);
-  const who: AgentChoice | null =
+  const lophn: AgentChoice | null =
     choices.find((one) => one.agent === agent) ??
     (face === null || face === undefined ? null : { agent, name: face.name, profile: face.profile, scoped: false });
   // The workspace's own lophn is always there, even before the list is read.
   const listed: readonly AgentChoice[] =
-    who !== null && !choices.some((one) => one.agent === who.agent) ? [who, ...choices] : choices;
+    lophn !== null && !choices.some((one) => one.agent === lophn.agent) ? [lophn, ...choices] : choices;
+  const who =
+    harness === null
+      ? lophn
+      : { name: HARNESS_ADAPTERS[harness].label, profile: harnessProfile(harness, HARNESS_ADAPTERS[harness].label) };
 
   const caps = capabilitiesOf(meta);
   // The agent's commands that make sense before a session exists (the desktop drops the ones that need a session).
@@ -129,12 +144,43 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
   const canCommand = caps.commands && commands.length > 0;
   const project = workspace?.kind === "project" ? workspace.id : null;
 
+  // The coding agent's first message: open it on the computer (once), send the words, go to its chat. On a failure the
+  // words stay in the composer.
+  const startCoding = async (text: string): Promise<string | null> => {
+    if (harness === null || project === null) return null;
+    const label = HARNESS_ADAPTERS[harness].label;
+    let opened = codingOpened?.project === project && codingOpened.harness === harness ? codingOpened.session : null;
+    if (opened === null) {
+      const open = await coding.open({ project, harness });
+      if (!open.ok) return problemText(open.code, open.message, label, computer);
+      opened = open.value.session;
+      setCodingOpened({ project, harness, session: opened });
+    }
+    const message = newId("msg");
+    const sent = await coding.send(opened, { id: message, key: `session-messages-send-${message}`, text });
+    if (!sent.ok) return t("mobile.coding.error.send-failed", { harness: label, computer });
+    navigation.dispatch(
+      StackActions.replace("session", paramsOf({ name: "session", session: opened, coding: { harness, project, cwd: null } })),
+    );
+    return null;
+  };
+
   const start = async () => {
     const text = draft.trim();
     const pictures = attachments.items;
     if ((text === "" && pictures.length === 0) || busy || attachments.uploading) return;
+    if (harness !== null && project !== null) {
+      // Words only: the phone attaches no pictures to a coding agent.
+      if (text === "") return;
+      setBusy(true);
+      setProblem(null);
+      const failed = await startCoding(text);
+      setBusy(false);
+      setProblem(failed);
+      return;
+    }
     setBusy(true);
-    setFailed(false);
+    setProblem(null);
     // `/name argument` runs a command the agent lists, as in a conversation.
     const slash = /^\/(\S+)\s*([\s\S]*)$/.exec(text);
     const command =
@@ -171,7 +217,7 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
           });
     setBusy(false);
     if (!sent.ok) {
-      setFailed(true);
+      setProblem(t("conversation.error.open-failed"));
       return;
     }
     navigation.dispatch(
@@ -184,10 +230,26 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
       top={<TopBar {...nav.menuButton} title={t("left-sidebar.label.new-session")} />}
       footer={
         <>
-          {failed && (
+          {problem !== null && (
             <Text variant="note" tone="critical" style={{ marginHorizontal: 24, marginBottom: 4 }}>
-              {t("conversation.error.open-failed")}
+              {problem}
             </Text>
+          )}
+          {harness !== null && (
+            <View
+              style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 20, paddingBottom: 2 }}
+            >
+              {busy ? (
+                <Working>{t("mobile.coding.notice.opening", { computer })}</Working>
+              ) : (
+                <>
+                  <Icon icon={Monitor} size={14} tone="muted" />
+                  <Text variant="note" tone="muted">
+                    {t("mobile.coding.notice.new-terminal")}
+                  </Text>
+                </>
+              )}
+            </View>
           )}
           <Composer
             value={draft}
@@ -196,10 +258,10 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
             placeholder={unreachable ?? t("mobile.session.placeholder.new")}
             above={attachedAbove(attachments)}
             canSend={attachments.items.length > 0}
-            onAttach={caps.images || project !== null || canCommand ? () => setSheet("attach") : undefined}
+            onAttach={harness === null && (caps.images || project !== null || canCommand) ? () => setSheet("attach") : undefined}
             disabled={busy || unreachable !== null || attachments.uploading}
             chips={
-              unreachable !== null || meta === null || !meta.capabilities.model ? undefined : (
+              harness !== null || unreachable !== null || meta === null || !meta.capabilities.model ? undefined : (
                 <Chip onPress={() => setSheet("model")}>{picker.currentLabel}</Chip>
               )
             }
@@ -227,11 +289,6 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
           >
             {who?.name ?? ""}
           </Pill>
-          {project !== null && (
-            <Pill tall lead={<Icon icon={SquareTerminal} size={18} />} onPress={() => setSheet("coding")}>
-              {t("left-sidebar.heading.coding-agents")}
-            </Pill>
-          )}
         </View>
       </View>
 
@@ -245,6 +302,7 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
             onPress={() => {
               setWorkspace(one.workspace);
               setAgent(lophnIdOf(one.workspace));
+              setHarness(null);
               setPending(null);
               setSheet(null);
             }}
@@ -266,18 +324,25 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
                   ? t("mobile.session.label.agent-only-in", { workspace: workspaceName })
                   : t("mobile.session.label.agent-everywhere")
             }
-            end={one.agent === agent ? <Icon icon={Check} /> : undefined}
+            end={harness === null && one.agent === agent ? <Icon icon={Check} /> : undefined}
             onPress={() => {
               setAgent(one.agent);
+              setHarness(null);
               setPending(null);
               setSheet(null);
             }}
           />
         ))}
-        {project !== null && <CodingAgentGroup project={project} />}
-      </Sheet>
-      <Sheet open={sheet === "coding"} onClose={() => setSheet(null)} title={t("left-sidebar.heading.coding-agents")}>
-        {project !== null && <CodingAgentGroup project={project} />}
+        {project !== null && (
+          <CodingAgentGroup
+            project={project}
+            picked={harness}
+            onPick={(picked) => {
+              setHarness(picked);
+              setSheet(null);
+            }}
+          />
+        )}
       </Sheet>
       <AttachSheet
         open={sheet === "attach"}

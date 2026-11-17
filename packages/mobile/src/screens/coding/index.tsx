@@ -3,6 +3,7 @@
 
 export { ContinueAsChat } from "./continue.tsx";
 export { CodingSessionList } from "./list.tsx";
+export { problemText } from "./open.tsx";
 export { CodingAgentGroup } from "./pick.tsx";
 export { harnessProfile } from "./parts.tsx";
 export { SwitchSheet } from "./switch-sheet.tsx";

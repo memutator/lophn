@@ -1,5 +1,5 @@
 // The computer's coding agents (Claude Code, Codex, ...) on the phone. The list (`useCodingSessions`, in hooks.tsx) and the actions are the core's
-// `coding_sessions/*` routes; a chat-view session's conversation goes through the ACP routes the core relays from the
+// `coding_sessions/*` routes (and `acp/send` for a new session's first message); a chat-view session's conversation goes through the ACP routes the core relays from the
 // computer's lophn app (`acp/snapshot`, `acp/send`, `AcpUpdated`), and is shown by the desktop's harness GUI source
 // (`guiAgentTabSource`) fed by the phone instead of by the app's IPC. What the session can do (rewind, images, ...) is
 // told by `session.capabilities` in the ACP state, the same as on the desktop.
@@ -18,6 +18,7 @@ import {
   codingSessionsWake,
 } from "../../../protocol/coding-agent/relay.ts";
 import { isGuiHarness } from "../../../protocol/extensions/mod.ts";
+import { textBlocks } from "../../../protocol/lophn-agent/content-block.ts";
 import { lophnIdOf } from "../../../protocol/lophn-agent/workspaces.ts";
 import { guiAgentTabSource } from "../../../shell/renderer/conversation/agent-tab-gui-source.ts";
 import {
@@ -206,6 +207,8 @@ export interface CodingActions {
     harness: string;
     resume?: { session: string };
   }): Promise<CodingResult<{ session: string }>>;
+  /** Sends a message to a coding session `open` gave, before any screen reads its conversation (the new session's first message). */
+  send(session: string, message: { id: string; key: string; text: string }): Promise<SourceResult<void>>;
 }
 
 export interface Coding extends CodingActions {
@@ -254,5 +257,16 @@ export function codingOf(client: EventClient): Coding {
         ...(resume === undefined ? {} : { resume }),
         key: newId("open"),
       }),
+    async send(session, { id, key, text }) {
+      const sent = await env.read(acpSend, {
+        type: "send",
+        session,
+        id,
+        key,
+        content: textBlocks(text),
+        delivery: "next_turn",
+      });
+      return sent.ok ? { ok: true, value: undefined } : sent;
+    },
   };
 }

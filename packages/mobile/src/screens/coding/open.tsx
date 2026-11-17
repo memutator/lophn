@@ -7,7 +7,7 @@ import { type PlaceOf, paramsOf, useNav } from "../../app/nav.ts";
 import { useCodingActions, useCurrentComputer } from "../../data/mod.ts";
 
 /** Why an open did not go through, in a sentence. The computer's own sentence is shown as it is. */
-function problemText(code: string, message: string | undefined, harness: string, computer: string): string {
+export function problemText(code: string, message: string | undefined, harness: string, computer: string): string {
   if (code === "unavailable" && message !== undefined && message !== "") return message;
   return code === "conflict"
     ? t("mobile.coding.error.open-conflict", { harness, computer })

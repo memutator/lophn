@@ -1,7 +1,7 @@
 id: phone-terminal-wide-glyph-spacing
 title: 폰의 터미널 화면이 폭 2칸 글자(CJK, emoji)의 폭을 재지 않고 1em이라고 가정한다
 kind: defect
-status: open
+status: fixed
 topic: remote
 modules: [packages/mobile]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): 폰에서 폭 2칸 글자 하나(예: 한글 하나)의 폭도 한 번 재서(`cell`과 같은 방식) spacing을 그 폭으로 구한다. emoji는 따로 재거나 칸 폭 상자로 감싼다.
   - 중간: 폭 2칸 글자를 글자마다 고정폭 `View`로 감싼다(줄 하나의 node가 늘어 긴 scrollback이 무거워진다).
+closed: |
+  한글과 emoji의 폭을 한 번씩 재서 폭 2칸 글자의 간격을 맞춘다.
+guard: 없음

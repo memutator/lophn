@@ -1,7 +1,7 @@
 id: layout-save-rejection-is-silent
 title: layout 저장이 거절돼도 화면은 그대로이고 사람은 모른다
 kind: bug
-status: open
+status: fixed
 topic: workspace-layout
 modules: [packages/shell/renderer]
 now: |
@@ -10,3 +10,6 @@ impact: |
   디스크가 가득 차거나 파일을 못 쓰면, 사람이 밤새 늘어놓은 탭 배치가 화면에서는 멀쩡해 보이다가 재시작하면 옛 배치로 돌아간다. 알림이 없다.
 fix: |
   첫 실패에서 toast 하나를 띄우고 `dirty`를 유지해 다음 변화나 기한에 다시 쓴다(작음). 추천: 이것.
+closed: |
+  저장이 실패하면 닫을 수 있는 알림 card를 띄우고 10초 뒤와 다음 변화에 다시 쓴다. 전역 float도 같다.
+guard: 없음

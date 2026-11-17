@@ -1,7 +1,7 @@
 id: app-keys-shadowed-by-main-shortcuts
 title: main이 먼저 받는 키를 단 앱 key는 앱 안에서 돌지 않는다
 kind: bug
-status: open
+status: fixed
 topic: keybindings
 modules: [packages/protocol, packages/shell/preload]
 now: |
@@ -10,3 +10,6 @@ impact: |
   앱이 `Ctrl+W`나 `Ctrl+Tab` 같은 키를 선언하면 Settings에는 줄이 보이지만 눌러도 앱 handler가 돌지 않고 탭이 닫히거나 바뀐다.
 fix: |
   Settings › Keyboard 겹침 검사(`findConflicts`)에 앱 key와 `main` 줄의 겹침을 보이게 한다(작음). 또는 선언 검사가 기본 `main` 줄 chord를 거절한다(작음, 사람이 바꾼 main 키는 못 막는다). 추천: 겹침 검사.
+closed: |
+  앱 key가 main이 먼저 받는 맥락 없는 줄과 같은 키면 Settings의 겹침 검사가 알린다.
+guard: 없음

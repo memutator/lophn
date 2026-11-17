@@ -1,7 +1,7 @@
 id: phone-copies-desktop-pure-helpers
 title: 폰 화면이 desktop의 순수 helper 다섯을 DOM file에서 못 가져와 베껴 쓴다
 kind: defect
-status: open
+status: fixed
 topic: remote
 modules: [packages/mobile, packages/shell/renderer]
 now: |
@@ -10,3 +10,6 @@ impact: |
   desktop의 규칙을 고치면 폰이 따로 틀어진다(실패 이유 하나를 더하면 폰은 이유를 모른다). 개발 비용이고 사람이 보는 동작은 아직 같다.
 fix: |
   - 작음(추천): 하나씩 순수 부분을 import가 깨끗한 `.ts`로 옮겨 desktop과 폰이 같이 쓴다(이미 workflow 규칙과 line diff가 그렇게 했다). 실패 이유 표와 `duration`부터. desktop의 동작과 export 이름은 그대로 둔다.
+closed: |
+  helper 다섯을 DOM 없는 file로 꺼내 desktop과 폰이 같이 import한다(`activity/elapsed.ts`, `thread/turn-failure.ts`, `activity/tool-body-text.ts`, `input-request-card/title.ts`, `activity/edit-diff.ts`).
+guard: 없음

@@ -1,7 +1,7 @@
 id: phone-local-call-context-has-no-app-id
 title: 폰의 local 호출 문맥에는 앱 id가 빈 글자라 같은 handler가 컴퓨터와 폰에서 다른 문맥을 본다
 kind: defect
-status: open
+status: fixed
 topic: app-sync
 modules: [packages/mobile, packages/protocol]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): `init`의 `local`에 앱 id와 release를 더하고(host의 설치 기록이 안다) 문맥에 싣는다. 폰 base가 올라가므로 `PHONE_BASE_FORMAT`을 같이 올린다.
   - 없음: SDK가 폰에서 문맥의 앱 id를 읽지 않는다고 지침에 적는다.
+closed: |
+  `init.local`이 `app`과 `release`를 싣고 폰의 호출 문맥에 들어간다. `PHONE_BASE_FORMAT`은 3이다.
+guard: packages/mobile/src/apps/guest/local-call.test.ts의 `cap.current()` 검사

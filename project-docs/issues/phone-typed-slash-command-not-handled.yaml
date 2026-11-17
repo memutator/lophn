@@ -1,7 +1,7 @@
 id: phone-typed-slash-command-not-handled
 title: 폰 입력칸에서 `/`를 쳐도 command 목록이 뜨지 않고, `/rename` 같은 화면 동작 command를 글로 치면 메시지로 보내진다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/mobile, packages/shell/renderer]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): 폰의 `send`가 desktop의 `runSlash`와 같은 규칙을 쓴다. `opens`가 있는 command는 폰의 그 sheet를 열거나(model, effort, context) 인자가 있으면 바로 한다(`/rename 새 이름`). 규칙을 DOM 없는 file로 꺼내 둘이 같이 쓴다. 글이 `/`로 시작하면 입력칸 위에 command 목록을 걸러 보인다(+ sheet와 같은 목록).
   - 더 작음: 글이 `/`로 시작하면 + sheet의 command 목록을 여는 것만 한다. 글로 친 `/rename`은 여전히 메시지로 간다.
+closed: |
+  desktop과 폰이 `conversation/slash-rule.ts`의 규칙을 같이 쓴다. 폰에서 `/이름`을 치는 동안 command 목록이 입력칸 위에 뜨고, 화면 동작이 딸린 command는 그 sheet를 열거나 바로 한다(`/rename 새 이름`). 모르는 이름과 컴퓨터에서만 되는 command는 메시지로 보내지 않고 알린다.
+guard: 없음

@@ -1,7 +1,7 @@
 id: share-approval-partial-assignments
 title: 공유 요청 승인이 agent 파일을 하나씩 쓰다 둘째가 실패하면 첫 agent에 앱이 남는다
 kind: bug
-status: open
+status: fixed
 topic: approval
 modules: [packages/core/approvals, packages/core/main, packages/core/lophn-agent]
 now: |
@@ -12,3 +12,6 @@ fix: |
   - 쓰기 전에 받을 agent 모두의 정의 파일을 읽고 파싱해 검사하고, 모두 통과하면 쓴다. 작음. 둘째 쓰기의 오류 대부분(깨진 파일, 없는 agent)이 첫 쓰기 전에 잡힌다. 디스크 오류는 남는다. 추천.
   - 쓰다 실패하면 이미 쓴 agent의 파일을 이전 내용으로 되돌린다. 중간. 되돌리다 또 실패하는 경우가 남는다.
   - 파일 쓰기를 commit 뒤(`afterCommit`)로 옮긴다. 큼. 승인 결과를 ledger가 먼저 확정해 파일 쓰기 실패를 따로 다뤄야 한다.
+closed: |
+  승인이 모든 agent의 할당을 먼저 읽고, 뒤 agent의 쓰기가 실패하면 앞서 쓴 agent를 전 값으로 되돌린다. 되돌리기 쓰기도 실패하면 첫 agent에 앱이 남는다.
+guard: packages/core/approvals/share-requests/commands_test.ts의 "an approval that fails on the second agent leaves the first agent's assignment as it was"

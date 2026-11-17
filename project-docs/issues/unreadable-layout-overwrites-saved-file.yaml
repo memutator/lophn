@@ -1,7 +1,7 @@
 id: unreadable-layout-overwrites-saved-file
 title: layout을 읽지 못하면 기본 layout이 저장된 파일을 덮는다
 kind: bug
-status: open
+status: fixed
 topic: workspace-layout
 modules: [packages/shell/renderer, packages/shell/main]
 now: |
@@ -12,3 +12,6 @@ fix: |
   - 읽기가 `ok: false`이거나 `unsupported_schema`·`corrupt`면 renderer가 그 workspace의 저장을 끈다(작음: `load`가 `saveBlocked` ref를 두고 `persist`가 건너뛴다. 사람에게 한 번 toast로 알린다).
   - main의 write가 기존 파일이 읽히지 않는 판이면 거절한다(중간, 읽기와 쓰기 규칙을 main 한 곳에 둔다).
   추천: 앞의 것. 손상(`corrupt`)은 사람이 잃을 게 없는 쪽이라 덮어도 되지만, 그 경우도 옛 파일을 `.bak`으로 한 번 옮겨 두면 값이 싸다.
+closed: |
+  읽기가 실패했거나 다른 판(`unsupported_schema`)이면 그 workspace의 저장을 막고 알린다. 손상된 file은 `.bak`을 남긴 뒤 덮는다.
+guard: packages/shell/main/workspace/workspace-layout_test.ts의 "손상된 파일은 읽을 때 .bak으로 한 벌 남긴다"

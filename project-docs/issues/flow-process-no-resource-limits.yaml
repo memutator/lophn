@@ -1,7 +1,7 @@
 id: flow-process-no-resource-limits
 title: flow process에 memory 한도가 없다
 kind: bug
-status: open
+status: fixed
 topic: workflow
 modules: [packages/core/main]
 now: |
@@ -12,3 +12,6 @@ fix: |
   - 작음(추천): flow process를 띄울 때 `--max-old-space-size=512`를 Node 인자로 준다(`ELECTRON_RUN_AS_NODE`에서 그 인자가 먹는지 먼저 확인한다). 넘으면 process가 죽고 `program_exited` 줄에 끝 code와 stderr 끝이 남는다. 다시 생긴 문제라 test를 같이 쓴다.
 regressed: |
   앞서는 `flowFlags`가 `--v8-flags=--max-old-space-size=512`를 늘 더하는 것으로 닫았고 `flags_test.ts`가 지켰다. flow를 Deno에서 Node로 옮기며 `flowFlags`와 그 test가 함께 없어져 한도가 사라졌다. `architecture/workflow.md` "열린 것"이 이것을 적고 있다.
+closed: |
+  flow process를 `--max-old-space-size=512`로 띄운다(`nodeCommand`가 entry 앞에 runtime 인자를 받는다). `ELECTRON_RUN_AS_NODE`에서 인자가 먹는 것을 확인했다.
+guard: packages/core/main/flow-host/host_test.ts의 "a flow process starts with a V8 heap limit before its entry"

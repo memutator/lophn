@@ -1,7 +1,7 @@
 id: phone-project-first-folder-only
 title: 폴더가 여럿인 project는 폰에서 첫 폴더의 file만 보이고 검색 결과는 다른 폴더의 file을 첫 폴더에서 연다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/mobile]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 중간(추천): 검색 결과의 `folder_path`를 file `Place`에 실어 그 폴더에서 연다. 폰이 project의 등록 폴더 목록을 읽게 하고 둘 이상이면 Files 맨 위에 폴더 고르기를 둔다.
   - 작음: 검색 결과만 고친다(`folder_path`를 `Place`에 싣기). Files는 첫 폴더만 보이는 채다.
+closed: |
+  검색 결과가 `folder_path`를 실어 그 폴더에서 열고, 폴더가 둘 이상인 project는 Files 위에 폴더 고르기가 선다.
+guard: 없음

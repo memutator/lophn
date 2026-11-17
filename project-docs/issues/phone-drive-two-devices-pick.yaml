@@ -1,7 +1,7 @@
 id: phone-drive-two-devices-pick
 title: 같은 앱의 preview를 두 기기가 열면 phone 탭이 가장 최근 쓴 view로 말없이 옮겨 간다
 kind: bug
-status: open
+status: fixed
 topic: browser-tab
 modules: [packages/core/host-queue, packages/core/apps]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): 탭이 마지막으로 고른 기기를 쥐고 그 기기에 preview view가 있는 동안 그것을 쓴다. 없을 때만 다시 고른다.
   - 작음: `tab open --phone`이 기기 이름을 받는다(`--device`). 사람이 기기 이름을 말해야 한다.
+closed: |
+  phone driver가 탭마다 고른 기기를 기억하고 그 기기에 preview view가 있는 동안 그대로 쓴다.
+guard: 없음

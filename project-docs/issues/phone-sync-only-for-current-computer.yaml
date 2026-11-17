@@ -1,7 +1,7 @@
 id: phone-sync-only-for-current-computer
 title: 폰의 sync는 지금 화면에 있는 컴퓨터에 대해서만 돌아 다른 컴퓨터의 앱 변경은 그 컴퓨터를 고를 때까지 컴퓨터에 가지 않는다
 kind: bug
-status: open
+status: fixed
 topic: app-sync
 modules: [packages/mobile]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 중간(추천): 데이터 provider가 pairing한 컴퓨터마다 store를 연결해 두고 sync 계기(연결됨, `AppSyncChanged`, 목록)를 모든 컴퓨터에 건다. store는 이미 컴퓨터마다 있다(`packages/mobile/src/data/local-stores.ts`). 앱이 앞에 있을 때만 맞춘다는 규칙은 그대로다.
   - 작음: 컴퓨터를 바꿀 때 떠나는 컴퓨터의 sync를 한 번 돌려 둔다. 바뀐 뒤에 쌓이는 변경은 여전히 안 간다.
+closed: |
+  `followLocalComputers`가 pairing한 컴퓨터마다 연결이 서 있는 동안 그 컴퓨터의 store를 잇고 `AppSyncChanged`를 듣는다. 화면에 없는 컴퓨터의 앱은 고를 때까지 새로 깔리거나 새 release로 가지 않는다(push와 pull은 돈다).
+guard: 없음

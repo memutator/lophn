@@ -1,7 +1,7 @@
 id: phone-guest-backend-copies-pile-in-cache
 title: guest를 띄울 때마다 backend.js의 사본이 cache 폴더에 하나씩 생기고 앱을 다시 켤 때까지 남는다
 kind: defect
-status: open
+status: fixed
 topic: app-sync
 modules: [packages/mobile]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): 사본 이름을 backend의 sha256으로 정해 같은 backend는 사본 하나를 다시 쓰고, release가 바뀌어 안 쓰는 사본만 지운다.
   - 작음: guest가 `ready`를 보낸 뒤(loader가 읽은 뒤) unmount 전에 그 사본을 지운다.
+closed: |
+  사본 이름을 backend file path의 sha256으로 해 같은 backend는 사본 하나를 다시 쓴다.
+guard: 없음

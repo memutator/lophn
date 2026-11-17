@@ -1,7 +1,7 @@
 id: phone-preview-lacks-kit-font
 title: desktop preview가 폰 kit의 글꼴(Pretendard, JetBrains Mono)을 싣지 않아 글자 모양이 폰과 다르다
 kind: bug
-status: open
+status: fixed
 topic: phone-screen
 modules: [packages/core/apps]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): preview 진입에 같은 글꼴 file을 `@font-face`로 건다. desktop이 이미 쓰는 Pretendard를 쓰되 file을 core가 가진 출처에서 bundle에 복사한다(출처와 크기를 정해야 한다. sealed bundle 한도에 센다).
   - 대안: 글꼴 일치는 약속하지 않고 지침(`design-app`)이 preview의 글자 모양이 다르다는 것을 말한다(이미 말한다). 비용은 없지만 글자 폭에 민감한 화면은 폰에서 고친다.
+closed: |
+  폰 화면 preview build가 Pretendard와 JetBrains Mono woff2를 화면 폴더에 복사하고 `index.html`이 `@font-face`로 건다. 폰 화면마다 release에 약 1.9 MB가 든다.
+guard: 없음

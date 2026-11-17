@@ -1,7 +1,7 @@
 id: phone-cannot-open-terminal-tab
 title: 폰에서 컴퓨터에 터미널 탭을 새로 열 수 없다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/mobile, packages/core/coding-relay, packages/shell/main]
 now: |
@@ -12,3 +12,6 @@ fix: |
   - 중간(추천): 폰의 새 session 고르기에 Terminal 항목을 두고, 고르면 컴퓨터의 그 project에 터미널 탭을 열어 폰의 터미널 화면으로 간다. 여는 길은 coding session 열기와 같은 host 요청을 harness 없이 쓰고, 폰의 터미널 목록과 `terminal_view`가 coding session이 아닌 터미널도 받게 한다. 입력은 지금처럼 컴퓨터에서 그 기기에 허락했을 때만 된다(허락이 없으면 열어도 보기만 한다는 것을 화면이 말한다).
 decided: |
   사람이 정했다: 폰에서 터미널 탭을 스스로 열 수 있어야 한다.
+closed: |
+  `terminal_view/open {project, key}`가 컴퓨터에 터미널 탭을 열고 터미널 id를 준다. 폰의 `openTerminal`이 부른다. 새 session 화면의 Terminal 항목은 이슈 `phone-tui-session-not-usable-from-terminal-screen`에서 놓는다. core를 다시 켜면 폰이 연 터미널을 잊는다.
+guard: packages/core/terminal-view/view_test.ts의 같은 test

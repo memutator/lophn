@@ -1,7 +1,7 @@
 id: phone-notification-icon-default
 title: 폰 알림의 Android 작은 아이콘이 기본이다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/mobile]
 now: |
@@ -10,3 +10,6 @@ impact: |
   알림이 어느 앱의 것인지 상태 줄에서 알아보기 어려울 수 있다(사람이 보는 화면의 품질). 데이터나 권한에는 닿지 않는다.
 fix: |
   - 작음(추천): plugin 설정에 `icon`(`./assets/android-icon-monochrome.png`나 알림용 흰 그림)과 `color`를 준다. native 설정이 바뀌므로 새 dev build가 든다. 실제 폰에 build를 까는 일은 사람에게 묻는다.
+closed: |
+  `app.json`의 `expo-notifications`에 monochrome 아이콘과 색을 줬다. 새 dev build에서 보인다.
+guard: 없음

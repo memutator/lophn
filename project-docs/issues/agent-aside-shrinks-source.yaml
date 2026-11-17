@@ -1,7 +1,7 @@
 id: agent-aside-shrinks-source
 title: agent가 같은 source 옆에 aside 탭을 거듭 열면 source 칸이 1/8까지 줄어든다
 kind: bug
-status: open
+status: fixed
 topic: workspace-layout
 modules: [packages/shell/renderer]
 now: |
@@ -12,3 +12,6 @@ impact: |
 fix: |
   - 추천(작음): aside도 source 칸이 group에서 가장 넓은 칸의 절반보다 작으면 source 칸 대신 가장 넓은 칸을 나눈다(peer의 넓이 계산을 같이 쓴다). source 곁이라는 뜻은 조금 약해진다.
   - 작음: aside로 나눌 때 source 칸 비율을 group 칸 수로 고르게 다시 맞춘다. 사람이 끌어 맞춘 비율을 덮는다.
+closed: |
+  source 칸이 가장 넓은 칸의 절반 이하가 되면 aside가 가장 넓은 칸을 가른다.
+guard: packages/shell/renderer/shell/desk-model_test.ts의 aside test

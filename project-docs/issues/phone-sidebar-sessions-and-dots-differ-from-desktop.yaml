@@ -1,7 +1,7 @@
 id: phone-sidebar-sessions-and-dots-differ-from-desktop
 title: 폰의 sidebar가 보이는 session, 그 순서, 상태 점이 desktop과 다르다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/mobile, packages/shell/renderer]
 now: |
@@ -20,3 +20,6 @@ fix: |
   - 작음: 점의 뜻과 색만 맞추고(`unseen` 읽기 포함) 목록 규칙은 그대로 둔다.
 decided: |
   desktop의 규칙을 따른다(사람: sidebar에서 session이 보이는 규칙과 indicator가 desktop과 다르다). desk 묶음, draft 줄, 저장된 터미널처럼 폰이 layout을 읽지 못해 생기는 차이는 이 이슈에서 다루지 않는다.
+closed: |
+  고르기·순서·점의 규칙을 `packages/shell/renderer/parts/agent-session/activity.ts`에 두고 desktop과 폰이 같이 쓴다. 폰은 도는 중·기다리는 중·못 본 끝을 만든 순으로 보이고 나머지는 접힌 Recent(7일)에 둔다. sidebar에서 쉬는 session에 회색 점이 남고 도는 coding session이 초록인 것은 남았다.
+guard: 없음

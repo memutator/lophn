@@ -1,7 +1,7 @@
 id: start-failure-screen-no-recovery-path
 title: 이력이 어긋나거나 손상된 data의 시작 실패 화면은 복구본이 있다는 것도 되돌리는 길도 알리지 않는다
 kind: bug
-status: open
+status: fixed
 topic: platform
 modules: [packages/core/storage, packages/shell/renderer]
 now: |
@@ -16,3 +16,6 @@ fix: |
   - [Restore backup] 단추로 shell이 복구본을 되돌린다. 중간~큼. 원본을 덮는 일이라 확인 dialog와 원본 보존이 필요하고, 손상은 드물어 쓸 때 만든다.
 decided: |
   글 안내만 더한다. 되돌리는 단추는 필요해지면 만든다.
+closed: |
+  시작 실패 화면이 복구본의 자리와 되돌리는 순서를 문구로 알린다.
+guard: 없음

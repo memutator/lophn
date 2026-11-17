@@ -9,6 +9,7 @@ now: |
 impact: |
   폰에서 session을 되돌리거나 갈라 새 session으로 이어 가지 못하고, 팀 자식 session의 대화를 열어 보지 못한다. desktop으로 가야 한다. 폰의 권한 모델(말하기, 답하기)은 이 조작을 허용하는데 화면이 없는 것이다.
 fix: |
+  - 한 것: subagent 줄을 누르면 그 대화가 읽기 전용 sheet로 열린다(child는 session이 아니라 같은 thread 안의 대화다). fork와 rewind는 폰에 없고, 글로 치면 컴퓨터에서 쓰라고 알린다.
   - 중간: subagent 줄을 누르면 그 session의 대화로 간다(`Place`의 session을 그대로 쓴다). 가장 작고 쓸 일이 많다(추천).
   - 중간: 메시지 menu에 fork를 더한다. 새 session을 열고 이어 가는 길은 이미 있다.
   - 큼: rewind는 미리보기(file 되돌리기 포함)와 확인이 필요해 화면이 따로 든다. 쓰는 예를 보고 연다.

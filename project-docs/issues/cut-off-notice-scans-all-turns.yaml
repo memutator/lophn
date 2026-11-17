@@ -8,5 +8,6 @@ now: |
   `packages/core/lophn-agent/run-loop/prepare.ts`의 `cutOffNotice`는 바로 앞 turn이 `interrupted(restarted)`인지 알려고 `turnList`(`state: finished`)를 cursor 끝까지 읽어 `started_at`이 가장 늦은 turn을 고른다. `turnList`에 순서나 개수 칸이 없어서다. 재시작은 드물지만 이 읽기는 모든 turn 시작마다 돈다.
 impact: 'turn이 수천 개인 session에서 turn 하나를 시작할 때마다 read page가 그 수에 비례해 늘어 첫 응답이 늦어진다. `history.ts`도 같은 꼴이라 비용이 두 배가 된다.'
 fix: |
+  - 한 것: session마다 runtime process에서 첫 turn에만 훑는다. 그 한 번은 여전히 끝난 turn을 다 읽는다. 끝에서 몇 개만 읽으려면 `turnList`에 최신 순과 `limit`을 더해야 한다(`packages/protocol/lophn-agent/turn-reads.ts`).
   - `turnList`에 최신 순서와 `limit`을 더해 한 page만 읽는다. 작음. 추천.
   - 재시작이 turn을 닫을 때(`run-loop/interrupt.ts`) 알림을 session에 남겨 다음 turn이 그것만 읽게 한다. 중간.

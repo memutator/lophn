@@ -1,7 +1,7 @@
 id: phone-coding-open-refused-without-project-window
 title: 폰에서 새 coding session을 열어도 컴퓨터의 lophn 창이 그 project를 보이고 있지 않으면 열리지 않는다
 kind: bug
-status: open
+status: fixed
 topic: harness-gui
 modules: [packages/shell/main, packages/mobile]
 now: |
@@ -13,3 +13,6 @@ fix: |
   - 큼: 터미널과 coding session이 창 없이 살 수 있게 한다(shell main이 PTY와 GUI adapter를 쥐고 창은 붙었다 떨어진다). artifact 탭 이슈도 같이 풀리지만 탭과 layout의 소유를 다시 짜야 한다.
 decided: |
   사람이 정했다: 그 project를 보이는 창이 없으면 그 project의 창을 focus 없이 하나 열고 거기에 탭을 연다. 터미널이 창 없이 도는 구조는 이 이슈에서 하지 않는다.
+closed: |
+  그 project를 보이는 창이 없으면 shell main이 그 project의 창을 focus 없이 열고 15초까지 기다려 거기에 탭을 연다.
+guard: 없음

@@ -1,7 +1,7 @@
 id: phone-session-header-leads-with-agent-name
 title: 폰의 대화 머리 줄이 agent 이름을 크게, session 이름을 작게 보이고 project는 보이지 않는다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/mobile, tools]
 now: |
@@ -12,3 +12,6 @@ fix: |
   - 작음(추천): 세 머리 줄에서 `title`을 session 제목(없으면 agent 이름)으로, kit `TopBar`의 `under`(제목 아래 작은 회색 줄)를 "Agent · Project"로 바꾼다. 얼굴은 `lead` 그대로다. wireframe을 먼저 고친다(`ui-design` skill). 긴 제목은 잘린다.
 decided: |
   사람이 정했다: session 이름이 큰 글이고 project 같은 것은 작은 회색 글이다. 머리 줄에 적용한다. desktop의 대화 머리(agent 이름이 먼저)는 이 이슈에서 바꾸지 않는다.
+closed: |
+  폰의 대화와 터미널 화면 머리 줄은 session 이름이 큰 글이고 "Agent · Project"가 아래 작은 줄이다.
+guard: 없음

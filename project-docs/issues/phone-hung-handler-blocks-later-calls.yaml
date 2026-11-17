@@ -1,7 +1,7 @@
 id: phone-hung-handler-blocks-later-calls
 title: 폰에서 끝나지 않는 handler는 3초 뒤 rollback되지만 그 앱의 다음 local 호출을 화면을 다시 띄울 때까지 막는다
 kind: bug
-status: open
+status: fixed
 topic: app-sync
 modules: [packages/mobile]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): 늦은 handler가 settle하지 않아도 다음 호출이 시작되게 하고, 늦은 handler가 뒤에 하는 일은 다음 호출의 transaction에 섞이지 않도록 늦은 호출의 DB 접근을 막는다(호출마다 닫히는 handle 래퍼, 이미 `open` 표지가 있다).
   - 중간: 한 번 늦은 앱의 guest를 host가 새로 띄운다(runtime을 버리면 늦은 handler도 같이 사라진다). 화면이 한 번 깜빡인다.
+closed: |
+  한도를 넘긴 handler가 한도 한 번 더 안에 끝나지 않으면 guest가 `fatal`을 내고 화면이 실패 상태가 되며 Retry가 새 runtime을 띄운다.
+guard: packages/mobile/src/apps/guest/local-call.test.ts의 `hang` 단계

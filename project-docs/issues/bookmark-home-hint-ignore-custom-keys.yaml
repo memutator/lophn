@@ -1,7 +1,7 @@
 id: bookmark-home-hint-ignore-custom-keys
 title: browser 머리 줄의 북마크 키와 desktop 팔레트의 Home hint가 사람이 바꾼 키를 따르지 않는다
 kind: bug
-status: open
+status: fixed
 topic: keybindings
 modules: [packages/shell/renderer]
 now: |
@@ -10,3 +10,6 @@ impact: |
   사람이 Settings에서 북마크 키나 Home 키를 바꾸면, 주소 줄에 focus가 있을 때는 옛 Ctrl/Cmd+D가 북마크를 하고 새 키는 듣지 않는다. Home 화면의 팔레트는 바뀌기 전 키를 hint로 보인다.
 fix: |
   머리 줄의 `onKeyDown`을 지우고 머리 줄 요소도 `data-key-context="browser"` 안에 두어 `browser.bookmark` command가 받게 한다(작음). desktop scope builder에 overrides를 넘기거나 `useKeyLabel`을 쓴다(작음). 추천: 둘 다.
+closed: |
+  browser 머리 줄이 키를 직접 보지 않고 `browser.bookmark` 줄을 따르며, 팔레트의 Home hint가 사람이 바꾼 키를 쓴다.
+guard: 없음

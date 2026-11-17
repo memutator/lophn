@@ -1,7 +1,7 @@
 id: phone-only-app-still-starts-on-computer
 title: 폰에서만 도는 앱(runs_on ["phone"])도 컴퓨터가 그 앱의 process와 DB를 띄운다
 kind: defect
-status: open
+status: fixed
 topic: app-sync
 modules: [packages/core/apps]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 중간(추천): `runs_on`에 `computer`가 없는 앱은 활성화해도 core가 process를 띄우지 않고, 그 앱을 부르는 호출은 "이 앱은 폰에서만 돈다"는 `unavailable`로 답한다. 활성화가 process의 ready를 기다리고(`releases/activation`) `apps/phone_screens`가 `running`을 알리므로 그 둘도 같이 고친다. 폰 backend의 build와 file 내주기는 그대로 둔다.
   - 위에 더해 App details와 앱 목록이 "폰에서만 돈다"를 보인다.
+closed: |
+  `runs_on`이 `["phone"]`인 앱은 컴퓨터에서 process를 띄우지 않고 data 폴더도 만들지 않는다. activation은 process 없이 봉인한 선언으로 준비 증명을 만든다(nonce `phone-only`). 그 앱을 부르면 "the app is not ready"의 `unavailable`이다. App details는 폰에서만 돈다고 따로 말하지 않는다.
+guard: 없음

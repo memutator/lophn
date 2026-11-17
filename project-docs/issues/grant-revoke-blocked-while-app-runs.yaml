@@ -1,7 +1,7 @@
 id: grant-revoke-blocked-while-app-runs
 title: 앱이 떠 있는 동안 grant를 거두면 계속 unavailable이다
 kind: bug
-status: open
+status: fixed
 topic: app-call
 modules: [packages/core/apps, packages/shell/renderer]
 now: |
@@ -15,3 +15,6 @@ fix: |
   - revoke를 받는 쪽에서 core가 supervisor에 그 앱을 멈추라고 요청하고(`pause`와 같은 종료 확인), `AppStopped`가 남은 뒤 `markRevoked`를 한다. 중간. 사람이 누른 한 번으로 끝난다. 추천.
   - 마지막 사실이 아니라 supervisor의 지금 상태(살아 있는 child 유무)를 본다. 중간. crash·재시작 뒤 stale한 사실 문제도 같이 푼다. 위와 함께 하면 좋다.
   - 화면이 "앱 실행을 끈 뒤 거두라"고 알린다. 작음. 권한을 거두려고 앱을 끄게 하므로 임시 방편이다.
+closed: |
+  거두기가 process 상태를 보지 않고 바로 commit된다. broker가 요청마다 선언 ∩ active grant를 다시 읽으므로 거둔 것은 다음 요청부터 거절된다. 이미 시작한 요청은 끝까지 간다.
+guard: 없음

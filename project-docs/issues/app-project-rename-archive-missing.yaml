@@ -1,7 +1,7 @@
 id: app-project-rename-archive-missing
 title: 앱·project 설정에 이름 바꾸기와 보관이 없다
 kind: bug
-status: open
+status: fixed
 topic: shell
 modules: [packages/shell/renderer]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - project 설정 General 맨 아래에 Archive(secondary), 앱 상세 맨 위에 General 칸(이름 바꾸기 `app.rename`, Archive)을 둔다. 지금 들어와 있는 workspace를 보관하면 Home으로 옮긴다. Workspaces panel의 ⋯ menu는 빠른 길로 둔다(작음, renderer와 gallery만).
   - 추천: 이것.
+closed: |
+  App details에 이름 바꾸기와 보관이, project 설정 General에 보관이 있다.
+guard: 없음

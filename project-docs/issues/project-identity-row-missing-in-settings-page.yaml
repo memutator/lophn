@@ -1,7 +1,7 @@
 id: project-identity-row-missing-in-settings-page
 title: project 설정 page에는 "Other computers" 줄이 없다
 kind: bug
-status: open
+status: fixed
 topic: project-identity
 modules: [packages/shell/renderer]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - `GeneralSection`이 `identityRow={<IdentityRow source={projects} project={project} />}`를 넘긴다(작음). 추천.
   - 줄을 `ProjectForm` 안으로 옮겨 두 곳이 늘 같이 보이게 한다(작음. form이 source에 identity 읽기를 요구하게 된다).
+closed: |
+  project 설정 page가 `identityRow`를 넘긴다.
+guard: 없음

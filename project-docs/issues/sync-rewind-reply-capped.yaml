@@ -9,5 +9,6 @@ now: |
 impact: |
   몇 KiB 넘게 바꾼 sync 앱(폰 앱, `sync_to` 앱)의 rewind는 앱 DB를 되돌리고도 취소로 기록된다. invocation에 되돌림 표시가 붙지 않고 sync log에 `rewind` 줄이 없어 폰과 다른 기계는 되돌림을 받지 않아 사본이 갈린다. 사람이 다시 rewind하면 같은 뒤집기를 한 번 더 적용한다.
 fix: |
+  - 한 것: rewind의 `apply`가 `APPLY_BODY_MAX_BYTES`와 긴 기한을 쓴다. 답을 잃으면 여전히 취소로 끝나되 이유가 "the app data may already be rewound"라고 말한다. 결과 모름으로 남기려면 `app_rewinds`에 새 상태(schema step)와 protocol `Rewind`의 변경이 든다.
   - 작음(추천): relay의 `apply`도 `{ timeoutMs: APPLY_TIMEOUT_MS, maxBytes: APPLY_BODY_MAX_BYTES }`를 쓴다.
   - 같이: 보낸 뒤 잃은 답은 취소가 아니라 결과 모름으로 남긴다(`sync-apply-timeout-closes-as-failed`와 같은 relay 고침).

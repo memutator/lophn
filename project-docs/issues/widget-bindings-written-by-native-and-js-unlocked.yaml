@@ -1,7 +1,7 @@
 id: widget-bindings-written-by-native-and-js-unlocked
 title: 위젯 binding file을 놓기 callback(native)과 JS store가 서로 막지 않고 고쳐서 놓은 위젯의 binding이 사라질 수 있다
 kind: bug
-status: open
+status: fixed
 topic: phone-home-screen
 modules: [packages/mobile]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): binding을 바꾸는 일을 native module의 함수 하나(예 `updateBindings(add, removeMissing)`)로 옮겨 native 안에서 한 번에(`synchronized`) 읽고 쓴다. JS는 binding file을 직접 쓰지 않고 읽기만 한다. receiver와 같은 잠금이라 겹치지 않는다.
   - 대안: JS가 쓴 뒤 receiver가 쓴 id가 남았는지 다시 읽어 맞춘다(창이 남는다).
+closed: |
+  binding을 바꾸는 일을 native `Files.updateBindings`가 한 잠금 안에서 하고 JS는 binding file을 쓰지 않는다. Kotlin 변경은 dev build에서 확인해야 한다.
+guard: 없음

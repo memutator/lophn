@@ -1,7 +1,7 @@
 id: provider-id-overwrite
 title: '이미 있는 provider id로 연결하면 그 provider의 key·token이 새 값으로 덮인다'
 kind: bug
-status: open
+status: fixed
 topic: agent-definition
 modules: [packages/core/lophn-agent, packages/shell/renderer]
 now: |
@@ -17,3 +17,6 @@ impact: |
 fix: |
   - core가 맡는다(중간, 추천). `login.complete`가 그 id의 provider가 있는지 먼저 보고 있으면 token을 쓰지 않는다. 새 연결은 임시 이름에 쓰고 ConnectProvider가 성공한 뒤에 `provider.<id>`로 옮긴다. Disconnect command가 secret 값을 지운다(renderer의 best-effort 정리를 없앤다).
   - renderer가 값을 쓰기 직전에 다시 읽는 것은 이미 했다. 두 창이 같은 순간에 잇는 틈은 이것으로 막지 못한다.
+closed: |
+  구독 로그인은 ConnectProvider가 성공한 뒤에만 token을 쓴다. API key는 임시 이름(`provider.<id>.new.<random>`)에 쓰고 연결이 성공하면 core가 `provider.<id>`로 옮긴다. 끊으면 core가 secret 값을 지운다. 연결이 commit된 뒤 값 쓰기가 실패하면 자격 없는 provider가 남아 끊고 다시 이어야 한다.
+guard: packages/core/lophn-agent/providers/login_test.ts의 "이미 이어진 id로 잇기가 conflict로 끝나면 그 provider의 key·token은 그대로이고 새 값은 남지 않는다"

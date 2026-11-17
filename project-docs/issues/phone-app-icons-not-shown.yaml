@@ -1,7 +1,7 @@
 id: phone-app-icons-not-shown
 title: 폰에서 앱과 project의 아이콘이 보이지 않고 글자나 폴더 그림만 보인다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/mobile, packages/design/native]
 now: |
@@ -13,3 +13,6 @@ fix: |
   - 작음: 저장 없이 화면이 뜰 때마다 받는다(desktop의 10초 memory cache와 같은 꼴). 폰 앱을 켤 때마다 앱 수만큼 호출이 줄을 선다.
 decided: |
   폰은 목록, 이름, 아이콘 같은 가벼운 것만 file로 두고 먼저 그린 뒤 새 값으로 바꾼다. 대화 내용은 저장하지 않는다(사람). 아이콘 hash는 처음에는 두지 않고 `StateChanged`의 apps와 다시 붙을 때 다시 받는다.
+closed: |
+  폰이 `app.icon`과 `project.icon`을 받아 (컴퓨터, 앱이나 project)마다 file로 두고 그린다. apps·projects·releases가 바뀌거나 다시 붙으면 다시 받는다.
+guard: packages/mobile/src/data/saved.test.ts

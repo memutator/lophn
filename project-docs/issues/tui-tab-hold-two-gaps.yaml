@@ -1,7 +1,7 @@
 id: tui-tab-hold-two-gaps
 title: 창이 없어 30초 넘게 기다린 TUI 탭 열기는 hold가 풀려 headless turn과 겹칠 수 있다
 kind: bug
-status: open
+status: fixed
 topic: coding-agent
 modules: [packages/core/host-queue, packages/shell/main, packages/shell/renderer]
 now: |
@@ -9,3 +9,6 @@ now: |
 impact: 한 CLI session에 headless process와 TUI process가 같이 써 그 CLI의 대화 기록이 섞이거나 깨질 수 있다. 사람이 TUI에서 한 일이 headless turn과 엉킨다.
 fix: |
   (작음, 추천) shell main이 탭을 만들 때 그 harness session이 돌고 있으면 탭을 열지 않고 retry로 둔다.
+closed: |
+  TUI 탭을 창에 내기 전에 session을 hold하고, 그 session이 돌거나 기다리는 중이면 hold를 놓고 retry로 답한다.
+guard: 없음

@@ -9,6 +9,7 @@ now: |
 impact: |
   recent가 사람이 연 적 없는 session으로 찬다. 그 session이 도는 동안 탭의 session id가 바뀌어 GUI toggle이 엉뚱한 session을 열 수 있다.
 fix: |
+  - 한 것: 녹화 도구(`fixtures/*/record.ts`)가 `LPN_TERMINAL_HOOK`을 지워 그 경우는 나지 않는다. Bash tool이나 `!`로 띄운 `claude -p`는 그대로다. pid로 가르려면 `terminalHookLineSchema`에 칸을 더하고 tracker가 foreground와 GUI가 띄운 pid를 알아야 한다.
   - `lophn hook`이 가장 가까운 harness 조상 process의 pid를 싣고, main은 그 pid가 PTY foreground group(TUI)이나 GUI handle이 띄운 CLI일 때만 받는다. 중간. 추천.
   - Claude만: SessionStart에서 `$CLAUDE_ENV_FILE`에 `unset LPN_TERMINAL_HOOK`을 적어 Bash tool 자식이 물려받지 않게 한다. 작음. SDK mode에서 되는지 확인이 필요하고 다른 harness는 남는다.
   - 녹화 script들이 `LPN_TERMINAL_HOOK`을 지운다. 작음. 본 경우만 막는다.

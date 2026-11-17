@@ -1,7 +1,7 @@
 id: me-dependency-permission-not-followed
 title: "`@me` package가 다른 `@me`에 기대면 그 권한을 따라가지 않는다"
 kind: bug
-status: open
+status: fixed
 topic: app-call
 modules: [packages/core/apps]
 now: |
@@ -10,3 +10,6 @@ impact: |
   `@me/a`가 `net.fetch`를 적은 `@me/b`에 기대면서 자기 `permissions`에 `net.fetch`를 빼고 낼 수 있다. `@me/a`만 쓰는 소비 앱은 `net.fetch` 없이 release가 뜨고 실행 중 broker에서 거절된다.
 fix: |
   - 작음(추천): publish 때 `@me/*` 의존의 정확한 판을 catalog에서 찾아 그 `permissions`도 입력이 덮는지 본다. 한 단계만 보면 된다(그 판도 publish 때 같은 검사를 지났으므로).
+closed: |
+  `package.publish`가 기대는 `@me` 판을 catalog에서 찾아 그 판이 선언한 permission을 이 package가 선언하지 않았으면 거절한다. release 준비와 같은 규칙(`missingUserPackagePermission`)을 쓴다.
+guard: packages/core/apps/releases/sdk-permissions_test.ts의 "@me 의존의 permission을 덮지 않은 @me package는 publish되지 않는다"

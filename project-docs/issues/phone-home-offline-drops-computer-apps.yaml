@@ -1,7 +1,7 @@
 id: phone-home-offline-drops-computer-apps
 title: 컴퓨터가 꺼진 채 폰 앱을 다시 켜면 Home에서 컴퓨터에서 도는 앱이 사라진다
 kind: bug
-status: open
+status: fixed
 topic: phone-screen
 modules: [packages/mobile]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 중간(추천): 컴퓨터마다 마지막 앱·project 목록을 폰의 file에 남겨 offline에서 흐리게 그린다. 폰 화면 목록의 `lastRead`(`packages/mobile/src/data/apps.ts`)는 memory라 폰 앱을 다시 켜면 비므로 같은 꼴로는 안 된다.
   - 그대로: 흐린 tile 설계를 버리고 offline 안내 문장만 둔다.
+closed: |
+  컴퓨터마다 마지막 앱·project 목록을 file로 두고 컴퓨터가 닿지 않는 동안 흐리게 그린다. 대화 내용은 저장하지 않는다.
+guard: packages/mobile/src/data/saved.test.ts의 "a computer's lists and icons outlive the run that read them; an app it dropped loses its icon"

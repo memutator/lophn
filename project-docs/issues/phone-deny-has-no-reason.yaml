@@ -1,7 +1,7 @@
 id: phone-deny-has-no-reason
 title: 폰에서 승인을 거절(Deny)할 때 이유를 쓰지 못한다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/mobile]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): Deny를 누르면 한 줄 입력(선택)이 열리고 보내기에서 `reason`을 실어 `decideWaiting`에 넘긴다. wireframe의 History 줄이 "Denied · … “not on main”"으로 이유를 보이므로 그 모양과 맞는다. 입력 sheet의 모양은 `ui-design` skill대로 wireframe을 먼저 고친다.
   - 작음: 폰에는 이유를 두지 않기로 하고 문서에 적는다. 거절이 빠르지만 agent가 이유를 모른다.
+closed: |
+  폰의 Deny 세 곳(대화 card, Inbox Now, Home)이 이유 한 줄을 받는 sheet를 열고 `reason`을 실어 보낸다.
+guard: 없음

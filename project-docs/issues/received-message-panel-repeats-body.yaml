@@ -1,7 +1,7 @@
 id: received-message-panel-repeats-body
 title: 다른 agent가 보낸 메시지의 chip을 펼치면 아래 본문과 같은 글이 한 번 더 보인다
 kind: bug
-status: open
+status: fixed
 topic: agent-chat
 modules: [packages/shell/renderer]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): `SenderPanel`에서 "What was handed over" 칸을 빼고 근거 링크와 보낸 session만 둔다. 둘 다 없으면 chip이 펼쳐지지 않는다. gallery의 가짜 source도 같은 꼴로 맞춘다.
   - 작음: 본문을 몇 줄로 접고 펼친 panel이 전체를 보인다. 받은 메시지를 읽으려면 한 번 더 눌러야 한다.
+closed: |
+  `SenderPanel`이 맡긴 글을 보이지 않고 근거 링크와 보낸 session만 보인다. 둘 다 없으면 chip이 펼쳐지지 않는다(첫 누름 뒤에 안다).
+guard: 없음

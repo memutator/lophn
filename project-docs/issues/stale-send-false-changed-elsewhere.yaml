@@ -1,7 +1,7 @@
 id: stale-send-false-changed-elsewhere
 title: 대화를 다 읽기 전에 보내면 다른 기기가 쓰지 않았어도 "changed on another device"로 거절된다
 kind: bug
-status: open
+status: fixed
 topic: acp
 modules: [packages/shell/renderer, packages/mobile]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - (작음, 추천) 화면이 대화 snapshot을 받기 전에는 보내기를 잠그거나 `seen`을 싣지 않는다(검사 없이 보내기). 잃는 것: 첫 snapshot 전의 보내기는 검사가 없다.
   - (중간) `seen`을 메시지 id 대신 snapshot의 `seq`로 싣고 core가 그 seq 뒤의 다른 기기 사람 메시지만 센다(자기 기기의 메시지는 자격으로 가른다). 잃는 것: route 입력 모양이 바뀐다.
+closed: |
+  첫 snapshot을 받기 전에는 `seen`을 싣지 않고 core는 `seen`이 없으면 검사하지 않는다. desktop과 폰 둘 다다.
+guard: packages/shell/renderer/conversation/delivery-state_test.ts의 `seenOf` 검사

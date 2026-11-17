@@ -1,7 +1,7 @@
 id: phone-oversize-change-cannot-be-pushed
 title: 폰에서 변경 하나가 8 MiB를 넘으면 폰에는 commit되지만 컴퓨터에 영영 가지 못해 그 앱의 sync가 멈춘다
 kind: bug
-status: open
+status: fixed
 topic: app-sync
 modules: [packages/mobile, packages/core/apps]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): 호출을 끝낼 때(`endCall`의 결과 bytes) 8 MiB를 넘으면 그 호출을 rollback하고 `invalid_input`으로 거절한다. 사람과 앱 agent가 변경을 나누게 되고 outbox가 막히지 않는다. 한도는 push schema와 같은 상수 하나를 쓴다.
   - 중간: 넘는 줄을 폰이 outbox에서 빼고 새 snapshot으로 맞춘다(컴퓨터의 "너무 큰 변경"과 같은 길). 그 변경은 사라진다.
+closed: |
+  native `endCall`이 한도(`APP_SYNC_CHANGE_MAX_BYTES`, host가 `init.local.change_max_bytes`로 넘긴다)를 넘는 changeset을 rollback하고 호출이 `invalid_input`으로 끝난다. native 변경은 dev build에서 확인해야 한다.
+guard: packages/mobile/src/apps/guest/local-call.test.ts의 `bulk` 단계

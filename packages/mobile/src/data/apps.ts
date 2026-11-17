@@ -11,7 +11,7 @@ import {
 } from "../../../shell/renderer/desktop/connection/core-read.ts";
 import { forgetApps, forgetComputers } from "../apps/bundle.ts";
 import { bundleFiles } from "../apps/bundle-files.ts";
-import { disableRemovedComputers, reconcileShortcuts } from "../shortcuts/sync.ts";
+import { disableRemovedComputers } from "../shortcuts/sync.ts";
 import { useComputers } from "./hooks.tsx";
 
 // The kept lists and icons of each computer: the phone's light store, read by the same screens.
@@ -123,7 +123,6 @@ export function usePhoneApps(): PhoneApps {
       value.computer,
       [...value.read.screens, ...value.read.previews].map((one) => one.app),
     );
-    reconcileShortcuts(value.computer, computers.find((one) => one.key === value.computer)?.name ?? "", value.read.screens.map((one) => one.app));
   }, [value]);
   const keys = computers.map((one) => one.key).join("\n");
   useEffect(() => {

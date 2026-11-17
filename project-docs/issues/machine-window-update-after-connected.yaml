@@ -1,7 +1,7 @@
 id: machine-window-update-after-connected
 title: 한 번 붙은 다른 기계의 창은 그 뒤 판이 범위 밖이 되어도 누가 올려야 하는지 말하지 않는다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/shell/renderer]
 now: |
@@ -10,3 +10,6 @@ impact: |
   사람이 다른 기계의 창을 보던 중 그 기계(또는 이 컴퓨터)의 lophn이 올라가 판이 어긋나면, 창은 [Reconnect]만 권하고 다시 붙기는 계속 실패한다. 무엇을 올려야 하는지는 기계 고르기를 열어야 안다.
 fix: |
   작음(추천): ConnectionNotice가 그 창 기계의 status를 받아 update면 MachineGate와 같은 글(machine-update.viewer.desktop-client/host)을 보인다.
+closed: |
+  붙은 뒤에도 그 기계의 상태가 `update`면 `ConnectionNotice`가 누가 올려야 하는지 말한다.
+guard: 없음

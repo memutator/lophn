@@ -6,6 +6,7 @@ import { Root } from "./src/app/root.tsx";
 import { createPhoneComputers, DataProvider } from "./src/data/mod.ts";
 import { Gallery } from "./src/gallery/gallery.tsx";
 import { PushProvider } from "./src/push/provider.tsx";
+import { useShortcutSync } from "./src/shortcuts/sync.ts";
 import { useWidgetRefresh } from "./src/widgets/store.ts";
 
 // Dev only: start Metro with EXPO_PUBLIC_LOPHN_GALLERY=1 to open straight into the kit gallery.
@@ -15,6 +16,7 @@ export default function App() {
   const [computers] = useState(createPhoneComputers);
   const [gallery, setGallery] = useState(GALLERY);
   useWidgetRefresh(computers);
+  useShortcutSync(computers);
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AppearanceProvider>

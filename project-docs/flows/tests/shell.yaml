@@ -381,7 +381,13 @@ files:
       - harness-gui-open:ack-timeout
       - harness-gui-cli-env:spawned
       - coding-session-switch:unavailable
-    note: "lophn-gui 요청은 그 key의 터미널에만 handle을 연다. 모르는 key, 상대 경로 cwd, id에 쓸 수 없는 글자는 무시. CLI env에서 상위 session 표지는 빼고 provider key와 hook env는 남긴다(env 규칙은 harness-gui-cli-env:spawned). 폰이 시작한 GUI 전환은 ack 없이 GUI로 남고(desktop은 ack가 없으면 닫힌다), TUI를 끄지 못하면 handle을 닫아 failed이며 PTY에 아무것도 치지 않는다"
+      - harness-gui-publish:snapshot
+      - harness-gui-publish:batched
+      - harness-gui-tab-tool-body:read
+      - harness-gui-tab-tool-body:missing
+      - acp-coding-image:saved
+      - acp-coding-image:not_found
+    note: "lophn-gui 요청은 그 key의 터미널에만 handle을 연다. 모르는 key, 상대 경로 cwd, id에 쓸 수 없는 글자는 무시. CLI env에서 상위 session 표지는 빼고 provider key와 hook env는 남긴다(env 규칙은 harness-gui-cli-env:spawned). 폰이 시작한 GUI 전환은 ack 없이 GUI로 남고(desktop은 ack가 없으면 닫힌다), TUI를 끄지 못하면 handle을 닫아 failed이며 PTY에 아무것도 치지 않는다. 창과 core에 내는 snapshot·갱신에는 tool 본문이 없고(사람 명령은 명령 글만) 본문 read는 그 tool(자식·숨긴 구간 안까지)의 것만 준다. 받은 이름이 무엇이든 그림은 그 탭의 임시 폴더 바로 아래에 그림 확장자로 쓰이고, 그림이 아닌 bytes는 쓰지 않으며, 그 폴더 밖이나 다른 탭의 그림은 읽지 않는다"
 
   - path: packages/shell/main/terminal/coding-open_test.ts
     covers: [coding-session-open:conflict, coding-session-open:opened]

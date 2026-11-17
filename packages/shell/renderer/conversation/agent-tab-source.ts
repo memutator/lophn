@@ -412,7 +412,7 @@ export interface ThreadShell extends EntryBase {
   readonly kind: "shell";
   readonly command: string;
   readonly state: ToolCallState;
-  /** harness가 item에 실은 출력. lophn은 null이라 `toolCallBody(id, "output")`으로 읽는다. */
+  /** item에 실린 출력. 상태에는 tool 본문이 실리지 않아(lophn, harness 모두) 보통 null이고 `toolCallBody(id, "output")`으로 읽는다. */
   readonly output: string | null;
 }
 

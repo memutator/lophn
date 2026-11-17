@@ -594,8 +594,8 @@ files:
       - control-connect:ok
 
   - path: packages/core/coding-relay/relay_test.ts
-    covers: [coding-session-input:deduplicated, coding-session-input:unavailable, coding-session-switch:unavailable, coding-relay-sync:cleared]
-    note: "같은 id·key의 send는 host에 한 번만 간다(새 snapshot 뒤에도). 연결이 닫히면 진행 중 coding_switch와 입력이 unavailable로 끝나고, 비운 뒤에는 목록·사본이 없고 입력은 not_found다"
+    covers: [coding-session-input:deduplicated, coding-session-input:unavailable, coding-session-switch:unavailable, coding-relay-sync:cleared, acp-coding-tool-body:ok, acp-coding-tool-body:not_found, acp-coding-tool-body:unavailable]
+    note: "같은 id·key의 send는 host에 한 번만 간다(새 snapshot 뒤에도). 연결이 닫히면 진행 중 coding_switch와 입력이 unavailable로 끝나고, 비운 뒤에는 목록·사본이 없고 입력은 not_found다. 펼친 tool 본문은 사본이 없으면 not_found, host에서 읽은 본문은 사본과 같은 redactor를 지나고 알려진 secret을 다 모르면 unavailable이다"
 
   - path: packages/core/coding-relay/open_test.ts
     covers: [coding-session-open:conflict, coding-session-open:deduplicated]

@@ -75,7 +75,7 @@ export function ShellRun({
   readBody,
   onStop,
 }: {
-  /** tool id. 출력이 item에 없으면(lophn) 이 id로 본문을 읽는다. */
+  /** tool id. 출력이 item에 없으면 이 id로 본문을 읽는다. */
   id: string;
   command: string;
   state: ToolCallState;

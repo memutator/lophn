@@ -5,7 +5,7 @@ import type { ImageSource } from "../../../shell/renderer/conversation/agent-tab
 import type { CoreSource } from "../../../shell/renderer/desktop/connection/connection.ts";
 import type { ContentBlock } from "../../../protocol/lophn-agent/content-block.ts";
 
-function base64Of(bytes: Uint8Array): string {
+export function base64Of(bytes: Uint8Array): string {
   let text = "";
   // fromCharCode takes its bytes as arguments; a big image would overflow the call stack in one go.
   for (let at = 0; at < bytes.length; at += 0x8000) {

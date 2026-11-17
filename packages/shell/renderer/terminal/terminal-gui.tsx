@@ -391,6 +391,12 @@ export function TerminalGui({
             info,
             feed,
             input: (input) => api.input(gui.handle, input),
+            toolBody: async (toolCall, part) => {
+              const body = await api.toolBody(gui.handle, toolCall, part);
+              return body === null
+                ? { ok: false, code: "not_found" }
+                : { ok: true, value: body };
+            },
             sessions: () => api.sessions(gui.handle),
             rewindPreview: (message) => api.rewindPreview(gui.handle, message),
             writeImage: async (image) =>

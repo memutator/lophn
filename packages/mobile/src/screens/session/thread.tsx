@@ -222,6 +222,15 @@ function Picture({ blob }: { blob: string }) {
   return <Thumb source={url === null ? undefined : { uri: url }} />;
 }
 
+// A coding session's pictures are `file://` links to the computer's temporary folder; the source reads them back.
+const IMAGE_FILE = /^file:\/\/.*\.(png|jpe?g|gif|webp)$/i;
+
+/** A picture behind a link, or its chip while it loads or when it cannot be read. */
+function LinkPicture({ uri, name }: { uri: string; name: string }) {
+  const url = useImage(uri);
+  return url === null ? <FileChip name={name} /> : <Thumb source={{ uri: url }} />;
+}
+
 /** Pictures and files a message carries, as the composer shows them. */
 function Attached({ parts }: { parts: readonly BodyPart[] }) {
   const shown = parts.filter(
@@ -233,6 +242,8 @@ function Attached({ parts }: { parts: readonly BodyPart[] }) {
       {shown.map((part, at) =>
         part.kind === "image" ? (
           <Picture key={at} blob={part.blob} />
+        ) : part.kind === "resource_link" && IMAGE_FILE.test(part.uri) ? (
+          <LinkPicture key={at} uri={part.uri} name={part.name} />
         ) : (
           <FileChip
             key={at}

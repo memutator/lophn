@@ -185,9 +185,10 @@ export const acpToolItemSchema = z.strictObject({
   duration_ms: count.nullable(),
   detail: acpToolDetailSchema,
   /**
-   * harness가 싣는 입력·출력 글(JSON이면 그 글). 한 쪽이 상한을 넘으면 잘라 `truncated`. lophn은 null이고 본문은
-   * blob read(`toolCallBody`)로 읽는다. lophn이 null인 것은 redaction 경계다(`acp-build_test.ts`의 'tool 본문이
-   * 없다' case).
+   * harness adapter가 handle에 싣는 입력·출력 글(JSON이면 그 글). 한 쪽이 상한을 넘으면 잘라 `truncated`. handle이 창과
+   * core에 내는 상태에서는 빠지고(`withoutToolBodies`. 사람이 친 명령은 `input`만 남는다) 화면이 펼칠 때 `acp/tool_body`나
+   * GUI IPC로 읽는다. lophn은 null이고 본문은 blob read(`toolCallBody`)로 읽는다. lophn이 null인 것은 redaction 경계다
+   * (`acp-build_test.ts`의 'tool 본문이 없다' case).
    */
   body: acpToolBodySchema.nullable(),
 });

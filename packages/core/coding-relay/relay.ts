@@ -35,6 +35,23 @@ type SwitchPlan = {
 };
 
 const SESSION_GONE = "The coding session is not open on the computer.";
+const BAD_REPLY =
+  "The lophn app on the computer gave an answer that could not be read.";
+const NOT_READY =
+  "The computer is still loading its secrets; try again shortly.";
+
+// host가 답한 content(`[{type: "text", text: <JSON>}]`)의 값이다. 모양이 다르면 null이다.
+function textReply<T>(content: unknown): T | null {
+  const first = Array.isArray(content)
+    ? (content[0] as { type?: string; text?: string } | undefined)
+    : undefined;
+  if (first?.type !== "text" || first.text === undefined) return null;
+  try {
+    return JSON.parse(first.text) as T;
+  } catch {
+    return null;
+  }
+}
 
 // 경계에 내보내는 code는 공통 일곱 가운데 이 route들이 선언한 것뿐이다. host의 그 밖 code는 unavailable로 옮긴다.
 const PASSED_CODES = new Set<string>([
@@ -287,6 +304,74 @@ export function createCodingRelay(deps: CodingRelayDeps) {
         });
       }
       return sent;
+    },
+
+    // 펼친 tool 줄의 본문 한 쪽. 사본에는 본문이 없어 host에 묻고, 사본과 같은 redactor를 지나 낸다.
+    async toolBody(input: {
+      session: string;
+      tool_call: string;
+      part: "input" | "output";
+    }): Promise<Result<{ value: string; truncated: boolean }>> {
+      if (!replicas.has(input.session)) {
+        return err({ code: "not_found", message: SESSION_GONE });
+      }
+      const done = await deps.call({ kind: "coding_body", payload: input });
+      if (!done.ok) return err(passed(done.error));
+      const body = textReply<{ value: string; truncated: boolean }>(done.value);
+      if (body === null) {
+        return err({ code: "unavailable", message: BAD_REPLY });
+      }
+      const redacted = deps.redact(body);
+      return redacted === null
+        ? err({ code: "unavailable", message: NOT_READY })
+        : ok(redacted);
+    },
+
+    // 폰이 붙인 그림을 그 탭의 임시 폴더에 쓰게 하고 경로를 받는다. 메시지는 그 경로의 `file://` link를 싣는다.
+    async writeImage(
+      session: string,
+      bytes: Uint8Array,
+    ): Promise<Result<{ path: string }>> {
+      if (!replicas.has(session)) {
+        return err({ code: "not_found", message: SESSION_GONE });
+      }
+      const done = await deps.call({
+        kind: "coding_image_write",
+        payload: { session, data: Buffer.from(bytes).toString("base64") },
+      });
+      if (!done.ok) return err(passed(done.error));
+      const written = textReply<{ path: string }>(done.value);
+      return written === null
+        ? err({ code: "unavailable", message: BAD_REPLY })
+        : ok({ path: written.path });
+    },
+
+    // 그 탭의 임시 폴더에 쓴 그림(대화의 `file://` link)을 읽는다.
+    async readImage(
+      session: string,
+      path: string,
+    ): Promise<Result<{ mime: string; bytes: Uint8Array }>> {
+      if (!replicas.has(session)) {
+        return err({ code: "not_found", message: SESSION_GONE });
+      }
+      const done = await deps.call({
+        kind: "coding_image_read",
+        payload: { session, path },
+      });
+      if (!done.ok) return err(passed(done.error));
+      const image = Array.isArray(done.value)
+        ? (done.value[0] as
+            | { type?: string; mimeType?: string; data?: string }
+            | undefined)
+        : undefined;
+      return image?.type !== "image" ||
+        image.mimeType === undefined ||
+        image.data === undefined
+        ? err({ code: "unavailable", message: BAD_REPLY })
+        : ok({
+            mime: image.mimeType,
+            bytes: new Uint8Array(Buffer.from(image.data, "base64")),
+          });
     },
 
     list,

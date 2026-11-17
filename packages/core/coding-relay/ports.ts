@@ -11,7 +11,13 @@ export type CodingRequest =
   | {
       kind: "coding_switch";
       payload: { terminal_ref: string; to: "gui" | "tui" };
-    };
+    }
+  | {
+      kind: "coding_body";
+      payload: { session: string; tool_call: string; part: "input" | "output" };
+    }
+  | { kind: "coding_image_write"; payload: { session: string; data: string } }
+  | { kind: "coding_image_read"; payload: { session: string; path: string } };
 
 export type CodingRelayDeps = {
   clock: Clock;

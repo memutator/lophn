@@ -1,4 +1,11 @@
-import { acpDraft, acpSend, acpSnapshot } from "../acp/routes.ts";
+import {
+  acpDraft,
+  acpImageRead,
+  acpImageUpload,
+  acpSend,
+  acpSnapshot,
+  acpToolBodyRead,
+} from "../acp/routes.ts";
 import { assignmentGet } from "../approvals/assignment.ts";
 import {
   shareRequestDecide,
@@ -173,6 +180,10 @@ export const REMOTE_ALLOWED_ROUTES = [
   acpSnapshot,
   acpDraft,
   acpSend,
+  // coding session: 펼친 tool 줄의 본문, 붙이는 그림과 대화의 그림
+  acpToolBodyRead,
+  acpImageUpload,
+  acpImageRead,
   askRead,
   askAnswer,
   agentRead,

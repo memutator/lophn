@@ -887,6 +887,7 @@ links:
   - {entry: "ipc:harness-gui:tab-rewind-preview", flow: harness-gui-tab-rewind-preview}
   - {entry: "ipc:harness-gui:tab-image", flow: harness-gui-tab-image}
   - {entry: "ipc:harness-gui:tab-image-read", flow: harness-gui-tab-image-read}
+  - {entry: "ipc:harness-gui:tab-tool-body", flow: harness-gui-tab-tool-body}
   - {entry: "ipc:shell:terminal-open", flow: terminal-open}
   - {entry: "ipc:shell:terminal-input", flow: terminal-input}
   - {entry: "ipc:shell:terminal-response", flow: terminal-respond}

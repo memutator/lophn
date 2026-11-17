@@ -212,7 +212,7 @@ function ChatScreen({
   const nav = useNav();
   const { session } = target;
   const lophn = "agent" in target ? target : null;
-  // A relayed coding session: what the phone cannot do there (pictures, permissions, archive) is not offered.
+  // A relayed coding session: what the phone cannot do there (permissions, archive) is not offered.
   const relayed = "coding" in target ? target.coding : null;
   const { source, thread } = conversation;
   const computer = useCurrentComputer()?.name ?? "";
@@ -476,8 +476,8 @@ function ChatScreen({
       : t("mobile.session.label.where-desk", { agent: who.name, workspace: workspaceName, desk: found.desk });
   const modeLabel = meta?.modes.find((mode) => mode.id === meta.mode)?.label ?? null;
   const project = lophn?.workspace?.kind === "project" ? lophn.workspace.id : (relayed?.project ?? null);
-  // A relayed coding session takes no pictures here, but still points at a file and runs commands, so the + stays for those.
-  const pictures = caps.images && relayed === null;
+  // A relayed coding session's pictures go to its terminal tab's temporary folder on the computer (the source's `uploadImage`).
+  const pictures = caps.images;
 
   // While `/name` is typed (no space yet), the matching commands stand over the composer, as the + sheet lists them.
   const query = canCommand && attachments.items.length === 0 ? slashQuery(draft) : null;

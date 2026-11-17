@@ -43,6 +43,7 @@ import {
   type ContentBlock,
 } from "../../../../../protocol/lophn-agent/content-block.ts";
 import type { HarnessGuiAdapter, HarnessGuiRun } from "./adapter.ts";
+import { replayImages } from "./images.ts";
 import { resendQueue, swapQueued } from "./queue.ts";
 import { classifyReceived, type ReceivedText } from "./received.ts";
 
@@ -391,16 +392,11 @@ const joined = (content: Msg["content"], kind: "text" | "thinking") =>
         })
         .join("\n");
 
-// 사람이 붙인 그림은 session file에 base64로만 남는다. 다시 그릴 때 탭 임시 폴더에 쓸 길이 없어 자리만 보인다.
-const withImages = (msg: Msg, text: string) =>
-  [
-    text,
-    ...(typeof msg.content === "string" ? [] : (msg.content ?? []))
-      .filter((block) => block.type === "image")
-      .map(() => IMAGE_NOTE),
-  ]
-    .filter((one) => one !== "")
-    .join("\n");
+// 사람 메시지의 그림 block(`{type: "image", data, mimeType}`, base64).
+const picturesOf = (msg: Msg) =>
+  (typeof msg.content === "string" ? [] : (msg.content ?? [])).filter(
+    (block) => block.type === "image",
+  ) as { data?: string; mimeType?: string }[];
 
 const resultText = (content: Block[] | undefined) =>
   (content ?? []).map((block) => block.text ?? "").join("");
@@ -948,7 +944,7 @@ const noticeLevel = (level: string | undefined) =>
 
 const start: (io: OmpIo) => Start =
   (io) =>
-  async ({ cwd, resume, session, spawn, clock, ids }) => {
+  async ({ terminal, cwd, resume, session, spawn, clock, ids }) => {
     let closed = false;
     let exited = false;
     let stopping = false;
@@ -2240,16 +2236,33 @@ const start: (io: OmpIo) => Start =
         if (page.data.messages.some((msg) => msg.role === "assistant")) {
           hadModelTurn = true;
         }
+        // 그림은 탭 임시 폴더에 먼저 다시 쓴다(replay는 메시지마다 바로 그린다).
+        const pictures = new Map<Msg, ContentBlock[]>();
+        for (const msg of page.data.messages) {
+          if (msg.role === "user" && picturesOf(msg).length > 0) {
+            pictures.set(msg, await replayImages(terminal, picturesOf(msg)));
+          }
+        }
         main.replay(page.data.messages, (msg) => {
           if (msg.synthetic || msg.attribution === "agent") return;
           main.endTurn("completed");
           const text = joined(msg.content, "text");
           const received = classifyReceived(text);
-          if (received !== null) addReceived(received);
-          else
-            addUser(ids.newId("msg"), [
-              { type: "text", text: withImages(msg, text) },
-            ]);
+          if (received !== null) {
+            addReceived(received);
+            return;
+          }
+          const links = pictures.get(msg) ?? [];
+          const shown = [
+            text,
+            ...Array(picturesOf(msg).length - links.length).fill(IMAGE_NOTE),
+          ]
+            .filter((one) => one !== "")
+            .join("\n");
+          addUser(ids.newId("msg"), [
+            ...links,
+            ...(shown === "" ? [] : [{ type: "text" as const, text: shown }]),
+          ]);
         });
         cursor = page.data.nextCursor;
         if (cursor === undefined) return;

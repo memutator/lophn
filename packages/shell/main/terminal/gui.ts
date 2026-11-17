@@ -3,6 +3,7 @@
 // 넘기고, extension이 연 handle을 그 탭을 가진 창에 알려 붙이고, 창의 toggle을 extension에 전한다.
 // 어느 process를 끄고 띄우는지(`exitTui`, `run.stop()`, `tuiCommand()`)는 adapter를 쥔 extension이 정하고, 여기는 탭의
 // PTY(치기, signal, foreground 떠남)와 tracker가 아는 것(session id, 상태)만 준다.
+import { isAbsolute, join, relative, sep } from "node:path";
 import {
   HARNESS_GUI_TAB_OPENED_CHANNEL,
   HARNESS_GUI_TAB_UPDATE_CHANNEL,
@@ -17,10 +18,13 @@ import {
   type HarnessGuiTabView,
 } from "../../ipc/harness-gui.ts";
 import { terminalGuiPayloadSchema } from "../../../protocol/coding-agent/terminal-hook.ts";
-import type {
-  AcpInput,
-  AcpState,
-  AcpUpdate,
+import {
+  type AcpInput,
+  type AcpState,
+  type AcpUpdate,
+  toolBodyOf,
+  updateWithoutToolBodies,
+  withoutToolBodies,
 } from "../../../protocol/acp/mod.ts";
 import {
   type AcpTabRequest,
@@ -114,16 +118,15 @@ export type TabGuiDeps = {
     signal(terminalRef: string, signal: "SIGINT" | "SIGTERM"): Promise<void>;
     onForegroundExit(terminalRef: string, listener: () => void): () => void;
   };
-  /** 사람이 붙인 이미지를 그 터미널의 임시 폴더에 쓰고 절대 경로를 돌려준다. */
-  writeImage(
-    terminalRef: string,
-    image: { name: string; data: Uint8Array },
-  ): Promise<string>;
-  /** `writeImage`가 그 터미널에 쓴 이미지를 읽는다. 그 폴더 밖이거나 이미지가 아니면 null. */
-  readImage(
-    terminalRef: string,
-    path: string,
-  ): Promise<{ mime: string; data: Uint8Array } | null>;
+  /**
+   * 사람이 붙인 그림을 쓰는 곳. 터미널마다 `<root>/<terminal_ref>/` 폴더 하나다(`<os tmp>/lophn-gui`. 터미널을 닫아도 OS가 비운다).
+   * `write`는 없는 폴더를 0700으로 만들고 file을 0600으로 쓴다. `read`는 못 읽으면 null이다.
+   */
+  images: {
+    readonly root: string;
+    write(path: string, data: Uint8Array): Promise<void>;
+    read(path: string): Promise<Uint8Array | null>;
+  };
   log(message: string): void;
   /** GUI 탭의 session 상태(title, turn phase)가 바뀌었다. 앱이 보는 터미널 session 목록을 다시 보내게 한다. */
   changed?(): void;
@@ -196,10 +199,18 @@ export type TabGui = {
   connect(sender: TabSender, handle: string): HarnessGuiInfo | null;
   disconnect(sender: TabSender, handle: string): void;
   input(handle: string, input: AcpInput): boolean;
+  /** 그 handle의 tool 본문 한 쪽(창과 core에 내는 상태에는 본문이 없다). handle이나 그 본문이 없으면 null. */
+  toolBody(
+    handle: string,
+    toolCall: string,
+    part: "input" | "output",
+  ): { value: string; truncated: boolean } | null;
+  /** 그림을 그 탭의 임시 폴더에 쓰고 절대 경로를 준다. handle이 없거나 PNG·JPEG·GIF·WebP가 아니면 null. */
   uploadImage(
     handle: string,
     image: { name: string; data: Uint8Array },
   ): Promise<string | null>;
+  /** 그 탭의 임시 폴더 바로 아래 그림. 그 밖이거나 그림이 아니면 null. */
   readImage(
     handle: string,
     path: string,
@@ -213,7 +224,61 @@ export type TabGui = {
   stop(): void;
 };
 
+// 붙이기가 받는 형식만 bytes로 가린다. 이름(확장자)은 창이나 폰이 준 글이라 믿지 않는다.
+function imageKind(bytes: Uint8Array): "png" | "jpeg" | "gif" | "webp" | null {
+  const at = (...head: number[]) => head.every((byte, i) => bytes[i] === byte);
+  if (at(0x89, 0x50, 0x4e, 0x47)) return "png";
+  if (at(0xff, 0xd8, 0xff)) return "jpeg";
+  if (at(0x47, 0x49, 0x46, 0x38)) return "gif";
+  if (at(0x52, 0x49, 0x46, 0x46) && bytes[8] === 0x57) return "webp";
+  return null;
+}
+// 화면은 이 확장자의 `file://` link만 그림으로 다시 읽는다(`message-attachments.tsx`).
+const IMAGE_FILE = /\.(png|jpe?g|gif|webp)$/i;
+
 export function createTabGui(deps: TabGuiDeps): TabGui {
+  const imageDir = (terminalRef: string) => join(deps.images.root, terminalRef);
+
+  // CLI는 file 경로로 그림을 읽는다. 이름은 받은 글이라 경로로 쓸 수 있는 글자만 남기고 앞에 유일한 id를 붙인다.
+  async function writeImage(
+    terminalRef: string,
+    image: { name: string; data: Uint8Array },
+  ): Promise<string | null> {
+    const kind = imageKind(image.data);
+    if (kind === null) return null;
+    const base = image.name.replace(/[^A-Za-z0-9._-]/g, "_").slice(-100);
+    const name = IMAGE_FILE.test(base) ? base : `${base}.${kind}`;
+    const path = join(imageDir(terminalRef), `${deps.ids.request()}-${name}`);
+    try {
+      await deps.images.write(path, image.data);
+      return path;
+    } catch (cause) {
+      deps.log(`gui: image write failed: ${String(cause)}`);
+      return null;
+    }
+  }
+
+  // 대화에 실린 경로는 받은 글이라 그 탭의 임시 폴더 바로 아래 file만 읽는다.
+  async function readImage(
+    terminalRef: string,
+    path: string,
+  ): Promise<{ mime: string; data: Uint8Array } | null> {
+    const rest = relative(imageDir(terminalRef), path);
+    if (
+      rest === "" ||
+      rest.startsWith("..") ||
+      rest.includes(sep) ||
+      isAbsolute(rest)
+    ) {
+      return null;
+    }
+    const data = await deps.images.read(path);
+    const kind = data === null ? null : imageKind(data);
+    return data === null || kind === null
+      ? null
+      : { mime: `image/${kind}`, data };
+  }
+
   const byTerminal = new Map<string, Tab>();
   const byHandle = new Map<string, Tab>();
   // handle이 아직 없는 사이(extension이 시작하는 중)의 같은 터미널 요청을 하나로 만든다.
@@ -261,6 +326,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
       },
       onForegroundExit: (listener) =>
         deps.terminals.onForegroundExit(terminalRef, listener),
+      writeImage: (image) => writeImage(terminalRef, image),
     };
   }
 
@@ -577,16 +643,26 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
       return true;
     },
 
+    toolBody(handleId, toolCall, part) {
+      const tab = byHandle.get(handleId);
+      const body =
+        tab === undefined ? null : toolBodyOf(tab.handle.state(), toolCall);
+      const value = body?.[part] ?? null;
+      return body === null || value === null
+        ? null
+        : { value, truncated: body.truncated };
+    },
+
     async uploadImage(handleId, image) {
       const tab = byHandle.get(handleId);
       if (tab === undefined) return null;
-      return await deps.writeImage(tab.handle.terminal, image);
+      return await writeImage(tab.handle.terminal, image);
     },
 
     async readImage(handleId, path) {
       const tab = byHandle.get(handleId);
       if (tab === undefined) return null;
-      return await deps.readImage(tab.handle.terminal, path);
+      return await readImage(tab.handle.terminal, path);
     },
 
     terminalChanged(runtime) {
@@ -610,6 +686,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
 /**
  * handle에 붙어 snapshot은 붙는 즉시 따로 넘기고, 이어지는 update는 `UPDATE_BATCH_MS` 동안 모아 배열 하나로 넘긴다. 그래서
  * snapshot이 늘 먼저 닿는다. 창(`connect`)과 core relay(`coding-relay.ts`)가 같이 쓴다. 닫히면 모으던 update는 버린다.
+ * tool 본문은 빼고 넘긴다: 긴 대화의 snapshot은 대부분이 본문이고, 화면은 줄을 펼칠 때 `toolBody`로 그 하나만 읽는다.
  */
 export function attachBatched(
   handle: TabHandle,
@@ -634,9 +711,9 @@ export function attachBatched(
     sink.updates(updates);
   };
   const stop = handle.attach({
-    snapshot: (state) => sink.snapshot(state),
+    snapshot: (state) => sink.snapshot(withoutToolBodies(state)),
     update(update) {
-      pending.push(update);
+      pending.push(updateWithoutToolBodies(update));
       cancelFlush ??= after(UPDATE_BATCH_MS, flush);
     },
     closed() {

@@ -78,6 +78,7 @@ import type {
   ExtensionProcess,
 } from "../../../../../protocol/extensions/mod.ts";
 import type { HarnessGuiAdapter } from "./adapter.ts";
+import { replayImages } from "./images.ts";
 import { swapQueued } from "./queue.ts";
 
 /** adapter가 밖에 기대는 것. test가 가짜로 바꾼다. */
@@ -2421,9 +2422,8 @@ const start: (sdk: ClaudeSdk) => Start =
             continue;
           }
           const text = textOf(blocks);
-          // 사람이 붙인 그림은 transcript에 base64로만 남는다. 탭 임시 폴더에 다시 쓸 길이 없어 자리만 보인다.
-          const images = blocks.filter((one) => one.type === "image").length;
-          if (text === "" && images === 0) {
+          const images = blocks.filter((one) => one.type === "image");
+          if (text === "" && images.length === 0) {
             onToolResults(root, blocks);
             continue;
           }
@@ -2483,13 +2483,28 @@ const start: (sdk: ClaudeSdk) => Start =
           } else if (flags.is_meta === true) {
             continue;
           } else {
-            const shown = [text, ...Array(images).fill(IMAGE_NOTE)]
+            const pictures = await replayImages(
+              terminal,
+              images.map((one) => {
+                const source = (
+                  one as { source?: { data?: string; media_type?: string } }
+                ).source;
+                return { data: source?.data, mimeType: source?.media_type };
+              }),
+            );
+            const notes = images.length - pictures.length;
+            const shown = [text, ...Array(notes).fill(IMAGE_NOTE)]
               .filter((one) => one !== "")
               .join("\n");
             addUser(
               root,
               ids.newId("msg"),
-              [{ type: "text", text: shown }],
+              [
+                ...pictures,
+                ...(shown === ""
+                  ? []
+                  : [{ type: "text" as const, text: shown }]),
+              ],
               now(),
               message.uuid,
             );

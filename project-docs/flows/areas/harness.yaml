@@ -1638,7 +1638,7 @@ flows:
       - packages/shell/main/terminal/coding-relay.ts
       - packages/shell/main/desktop/wiring/agent.ts
     steps:
-      - "shell main은 GUI handle이 열리면 coding_sync snapshot을 먼저, 이어서 창과 같은 20ms 묶음의 updates를 보내고 handle이 닫히면 coding_closed를 보낸다. coding_report는 tracker·GUI 탭이 바뀔 때 보낸다. 연결이 없을 때는 쌓지 않고, 연결이 열릴 때마다 coding_report와 모든 handle의 snapshot을 다시 보낸다"
+      - "shell main은 GUI handle이 열리면 coding_sync snapshot을 먼저, 이어서 창과 같은 20ms 묶음의 updates를 보내고 handle이 닫히면 coding_closed를 보낸다. 창과 같이 tool 본문은 빼고 보낸다(사람이 친 명령은 명령 글만 남는다). coding_report는 tracker·GUI 탭이 바뀔 때 보낸다. 연결이 없을 때는 쌓지 않고, 연결이 열릴 때마다 coding_report와 모든 handle의 snapshot을 다시 보낸다"
       - "host가 coding_report로 터미널 coding agent 집합(view, handoff, foreground 포함)을 보내면 session lifecycle 표와 coding relay가 같은 집합으로 바뀐다"
       - "coding_sync의 snapshot은 그 session(ses_<터미널 ULID>)의 사본을 갈아 끼우고 updates는 reduceAcp로 접는다. 둘 다 먼저 제품 redactor로 모든 글을 거른다. 알려진 secret을 아직 다 모르면 그 session의 사본을 버리고 아무것도 내지 않는다"
       - "updates는 하나씩 AcpUpdated {session, update}로 Bus에 낸다. snapshot이 사본을 갈아 끼우면 StateChanged {coding_sessions, id: session}을, 목록이 바뀌면 StateChanged {coding_sessions}를 낸다"
@@ -2837,6 +2837,7 @@ flows:
     steps:
       - "adapter가 handle에 update를 publish하면 extension wiring이 상태를 접어 두고 붙은 창마다 listener를 부른다"
       - "창이 붙은 직후에는 현재 상태(snapshot)를 한 번 보낸다. 그 뒤 갱신은 20ms 안에 온 것을 모아 한 message로 보낸다"
+      - "snapshot과 갱신에서 tool 본문(입력·출력)을 뺀다. 사람이 친 명령(by user)은 명령 글만 남긴다. 본문은 줄을 펼칠 때 tab-tool-body로 읽는다"
       - "창이 살아 있지 않으면 그 창의 listener를 떼어 더 보내지 않는다"
     outcomes:
       - id: snapshot
@@ -2906,13 +2907,35 @@ flows:
       - packages/shell/main/desktop/wiring/coding.ts
     steps:
       - "renderer가 보낸 이미지의 종류(image/*)와 크기(10 MiB 이하)를 schema가 본다. 맞지 않으면 null이다"
-      - "main은 tmpdir 아래 lophn-gui/<터미널 ref>/ 폴더(0700)에 uuid를 붙이고 이름의 경로 밖 글자를 _로 바꾼 파일(0600)로 쓴다"
+      - "bytes가 png·jpeg·gif·webp가 아니면 null이다. main은 tmpdir 아래 lophn-gui/<터미널 ref>/ 폴더(0700)에 uuid를 붙이고 이름의 경로 밖 글자를 _로 바꾼 파일(0600)로 쓴다. 이름이 그림 확장자로 끝나지 않으면 bytes의 형식 확장자를 붙인다"
       - "쓴 절대 경로를 돌려준다. 그 경로를 CLI 입력에 넣는 것은 renderer가 한다"
     outcomes:
       - id: saved
         observe: ["disk:<os tmp>/lophn-gui/<terminal ref>/", response]
       - id: refused
-        when: "창이 desktop 본문이 아니거나, 이미지 종류나 크기가 맞지 않거나, handle이 없다. null이다"
+        when: "창이 desktop 본문이 아니거나, 이미지 종류나 크기가 맞지 않거나, bytes가 그림이 아니거나, handle이 없다. null이다"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/harness-gui.md]
+
+  - id: harness-gui-tab-tool-body
+    title: "tool 줄을 펼칠 때 그 tool 하나의 입력이나 출력을 handle에서 읽는다"
+    actor: person
+    uses: [ipc:harness-gui:tab-tool-body]
+    boundary: [shell-extension, acp]
+    code:
+      - packages/shell/main/terminal/gui.ts
+      - packages/shell/main/desktop/wiring/extensions.ts
+      - packages/protocol/acp/bodies.ts
+      - packages/shell/renderer/conversation/agent-tab-gui-source.ts
+    steps:
+      - "창의 상태에는 tool 본문이 없다. 화면이 줄을 펼치거나 사람이 친 명령이 끝나면 GUI source가 그 tool id와 쪽(input·output)으로 main에 묻는다"
+      - "main은 handle이 접어 둔 상태에서 그 tool을 찾는다(자식 대화와 숨긴 구간 안까지). 그 쪽 본문과 truncated를 돌려준다"
+    outcomes:
+      - id: read
+        observe: [screen:harness-gui-terminal-tab, response]
+      - id: missing
+        when: "창이 desktop 본문이 아니거나, handle이 없거나, 그 tool이나 그 쪽 본문이 없다(도는 tool의 출력). null이고 화면은 not_found로 본다"
         observe: [response]
     crosses_process: false
     docs: [architecture/harness-gui.md]

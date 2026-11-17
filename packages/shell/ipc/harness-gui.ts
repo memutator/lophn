@@ -1,6 +1,6 @@
 // harness-gui와 main의 shell IPC 경계. 터미널 탭 하나가 ACP session 하나(extension harness-gui의 handle)를 그린다
 // (`HarnessGuiTabApi`). `connect`로 붙으면 지금까지 접은 상태(snapshot)를 먼저 받고 이어서 갱신을 모아 받는다. 대화 조작은
-// `input`으로 보낸다.
+// `input`으로 보낸다. 상태에는 tool 본문이 없고 줄을 펼칠 때 `toolBody`로 읽는다.
 // 이 파일은 main·preload·renderer가 함께 부르므로 import는 type뿐이다.
 import type { AcpInput, AcpState, AcpUpdate } from "../../protocol/acp/mod.ts";
 import type {
@@ -42,6 +42,8 @@ export const HARNESS_GUI_TAB_SESSIONS_CHANNEL = "harness-gui:tab-sessions";
 /** renderer → main invoke. 그 사람 메시지로 rewind하면 되돌아갈 file. */
 export const HARNESS_GUI_TAB_REWIND_PREVIEW_CHANNEL =
   "harness-gui:tab-rewind-preview";
+/** renderer → main invoke. tool 줄을 펼칠 때 그 tool 하나의 본문 한 쪽을 읽는다. `UPDATE`의 상태에는 본문이 없다. */
+export const HARNESS_GUI_TAB_TOOL_BODY_CHANNEL = "harness-gui:tab-tool-body";
 /** renderer → main invoke. 사람이 붙인 이미지를 탭의 임시 폴더에 쓰고 경로를 받는다. */
 export const HARNESS_GUI_TAB_IMAGE_CHANNEL = "harness-gui:tab-image";
 /** renderer → main invoke. 그 탭의 임시 폴더에 쓴 이미지를 다시 읽는다. 대화의 그림을 그리는 데 쓴다. */
@@ -130,6 +132,12 @@ export interface HarnessGuiTabApi {
     handle: string,
     message: string,
   ): Promise<HarnessGuiRewindPreview | null>;
+  /** 그 tool의 본문 한 쪽. handle이나 그 본문이 없거나 통로가 끊기면 null. */
+  toolBody(
+    handle: string,
+    toolCall: string,
+    part: "input" | "output",
+  ): Promise<{ value: string; truncated: boolean } | null>;
   /** 쓴 file의 절대 경로. 못 썼으면 null. */
   uploadImage(
     handle: string,

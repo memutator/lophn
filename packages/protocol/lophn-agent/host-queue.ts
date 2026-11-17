@@ -5,6 +5,7 @@ import { defineMemory } from "../base/route.ts";
 import { extensionToolContentSchema } from "../extensions/manifest.ts";
 import { artifactNameSchema } from "../projects/values.ts";
 import { loginIdSchema } from "../secrets/logins.ts";
+import { MESSAGE_IMAGE_MAX_BYTES } from "./message-images.ts";
 import { workspaceSchema } from "./workspaces.ts";
 
 // core 메모리의 host queue다. core가 shell에 시킬 일(탭 열기·닫기, extension tool 호출, browser 호출)을 담고, shell main이 붙은
@@ -233,7 +234,7 @@ const terminalInterruptPayloadSchema = z.strictObject({
   terminal_ref: z.string().min(1),
 });
 
-// 아래 일곱은 연결이 있을 때만 넣는다. 연결이 없을 때 대기하지 않고 연결이 끊기면 `unavailable`로 끝난다(`LINK_REQUEST_KINDS`).
+// 아래 열은 연결이 있을 때만 넣는다. 연결이 없을 때 대기하지 않고 연결이 끊기면 `unavailable`로 끝난다(`LINK_REQUEST_KINDS`).
 // workspace 칸이 없고 답은 `response`의 output이다.
 // coding session(GUI handle)에 입력 하나를 넘긴다. handle이 없으면 error `not_found`다.
 // input은 `AcpInput`(`protocol/acp/input.ts`)이다. acp가 lophn-agent를 import해 여기서 그 schema를 쓰면 순환이라 모양만 보고,
@@ -259,6 +260,26 @@ const codingOpenPayloadSchema = z.strictObject({
       cli_session: z.string().regex(/^[A-Za-z0-9._-]{1,200}$/),
     })
     .optional(),
+});
+// coding session의 tool 본문 한 쪽을 읽는다(core가 내는 상태에는 본문이 없다). 답은 JSON `{"value":"…","truncated":false}` 글
+// 하나다. 그 tool이나 그 쪽 본문이 없으면 error `not_found`다.
+const codingBodyPayloadSchema = z.strictObject({
+  session: idSchema("ses"),
+  tool_call: z.string().min(1).max(200),
+  part: z.enum(["input", "output"]),
+});
+// 폰이 붙인 그림(base64)을 그 coding session 탭의 임시 폴더에 쓴다. 답은 JSON `{"path":"…"}` 글 하나다. 그림이 아니면 `invalid_input`이다.
+const codingImageWritePayloadSchema = z.strictObject({
+  session: idSchema("ses"),
+  data: z
+    .string()
+    .min(1)
+    .max(Math.ceil(MESSAGE_IMAGE_MAX_BYTES / 3) * 4),
+});
+// 그 탭의 임시 폴더 바로 아래 그림을 읽는다. 답은 image content 하나다. 그 밖이거나 그림이 아니면 `not_found`다.
+const codingImageReadPayloadSchema = z.strictObject({
+  session: idSchema("ses"),
+  path: z.string().min(1).max(4096),
 });
 // 그 터미널의 화면을 `terminal_screen` frame으로 밀어 올리기를 켜고 끈다. tail은 viewport 위 scrollback 줄 수다.
 const terminalStreamPayloadSchema = z.strictObject({
@@ -333,6 +354,21 @@ export const hostRequestSchema = z.discriminatedUnion("kind", [
   }),
   z.strictObject({
     id: idSchema("hrq"),
+    kind: z.literal("coding_body"),
+    payload: codingBodyPayloadSchema,
+  }),
+  z.strictObject({
+    id: idSchema("hrq"),
+    kind: z.literal("coding_image_write"),
+    payload: codingImageWritePayloadSchema,
+  }),
+  z.strictObject({
+    id: idSchema("hrq"),
+    kind: z.literal("coding_image_read"),
+    payload: codingImageReadPayloadSchema,
+  }),
+  z.strictObject({
+    id: idSchema("hrq"),
     kind: z.literal("terminal_stream"),
     payload: terminalStreamPayloadSchema,
   }),
@@ -359,6 +395,9 @@ export const LINK_REQUEST_KINDS = [
   "coding_input",
   "coding_switch",
   "coding_open",
+  "coding_body",
+  "coding_image_write",
+  "coding_image_read",
   "terminal_stream",
   "terminal_input",
   "terminal_resize",

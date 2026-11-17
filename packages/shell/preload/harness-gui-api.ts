@@ -11,6 +11,7 @@ import {
   HARNESS_GUI_TAB_CURRENT_CHANNEL,
   HARNESS_GUI_TAB_SESSIONS_CHANNEL,
   HARNESS_GUI_TAB_TOGGLE_CHANNEL,
+  HARNESS_GUI_TAB_TOOL_BODY_CHANNEL,
   HARNESS_GUI_TAB_UPDATE_CHANNEL,
   HARNESS_GUI_TAB_VIEW_CHANNEL,
   type HarnessGuiInfo,
@@ -127,6 +128,17 @@ export function createHarnessGuiTabApi(
           handle,
           message,
         })) as HarnessGuiRewindPreview | null;
+      } catch {
+        return null;
+      }
+    },
+    async toolBody(handle, toolCall, part) {
+      try {
+        return (await transport.invoke(HARNESS_GUI_TAB_TOOL_BODY_CHANNEL, {
+          handle,
+          tool_call: toolCall,
+          part,
+        })) as { value: string; truncated: boolean } | null;
       } catch {
         return null;
       }

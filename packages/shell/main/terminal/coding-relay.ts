@@ -1,7 +1,8 @@
 // 터미널 탭의 GUI handle을 core에 잇는다(폰의 coding session). handle마다 연결(`/host-link`)로 snapshot을 먼저, 이어서 창과 같은
 // 20 ms 묶음의 update를 올리고, 닫히면 알린다. core는 이것을 사본으로 접어 `acp/snapshot`·`AcpUpdated`로 폰에 낸다. 연결이 없을
 // 때는 쌓지 않는다: 연결이 (다시) 열릴 때마다 모든 handle의 snapshot을 처음부터 다시 보낸다(core가 다시 떴어도 같다).
-// core가 넘긴 폰의 입력(`coding_input`)과 view 바꾸기(`coding_switch`)를 handle과 탭 toggle에 넘긴다.
+// core가 넘긴 폰의 입력(`coding_input`)과 view 바꾸기(`coding_switch`)를 handle과 탭 toggle에 넘기고, 폰이 펼친 tool 줄의
+// 본문(`coding_body`)과 붙이거나 그리는 그림(`coding_image_write`, `coding_image_read`)을 그 탭에서 답한다.
 // test가 돌도록 Electron을 import하지 않는다.
 import {
   type AcpState,
@@ -22,7 +23,12 @@ export type CodingFrame =
     }
   | { type: "coding_closed"; session: string };
 export type CodingOutput =
-  | { content: { type: "text"; text: string }[] }
+  | {
+      content: (
+        | { type: "text"; text: string }
+        | { type: "image"; mimeType: string; data: string }
+      )[];
+    }
   | {
       error: {
         code: "invalid_input" | "not_found" | "conflict" | "unavailable";
@@ -49,9 +55,35 @@ export type CodingLink = {
       to: "gui" | "tui";
     }) => Promise<CodingOutput>,
   ): void;
+  /** host 요청 `coding_body`의 처리기. */
+  onBody(
+    handler: (payload: {
+      session: string;
+      tool_call: string;
+      part: "input" | "output";
+    }) => Promise<CodingOutput>,
+  ): void;
+  /** host 요청 `coding_image_write`의 처리기. `data`는 base64다. */
+  onImageWrite(
+    handler: (payload: {
+      session: string;
+      data: string;
+    }) => Promise<CodingOutput>,
+  ): void;
+  /** host 요청 `coding_image_read`의 처리기. */
+  onImageRead(
+    handler: (payload: {
+      session: string;
+      path: string;
+    }) => Promise<CodingOutput>,
+  ): void;
 };
 
 const OK: CodingOutput = { content: [{ type: "text", text: "ok" }] };
+const NO_CHAT = "No chat view is open for this session.";
+const text = (value: unknown): CodingOutput => ({
+  content: [{ type: "text", text: JSON.stringify(value) }],
+});
 
 function failed(
   code: "invalid_input" | "not_found" | "conflict" | "unavailable",
@@ -68,7 +100,16 @@ function failed(
 }
 
 export function createCodingRelay(deps: {
-  gui: Pick<TabGui, "onHandle" | "input" | "toggle" | "current">;
+  gui: Pick<
+    TabGui,
+    | "onHandle"
+    | "input"
+    | "toggle"
+    | "current"
+    | "toolBody"
+    | "uploadImage"
+    | "readImage"
+  >;
   link: CodingLink;
   after(ms: number, run: () => void): () => void;
   /** 그 터미널이 살아 있다. */
@@ -120,7 +161,7 @@ export function createCodingRelay(deps: {
     }
     const entry = live.get(session);
     if (entry === undefined || !gui.input(entry.handle.id, parsed.data)) {
-      return failed("not_found", "No chat view is open for this session.");
+      return failed("not_found", NO_CHAT);
     }
     return OK;
   });
@@ -149,6 +190,45 @@ export function createCodingRelay(deps: {
       default:
         return failed("unavailable", reply.message, reply.reason);
     }
+  });
+
+  link.onBody(async ({ session, tool_call: toolCall, part }) => {
+    const entry = live.get(session);
+    if (entry === undefined) return failed("not_found", NO_CHAT);
+    const body = gui.toolBody(entry.handle.id, toolCall, part);
+    return body === null
+      ? failed("not_found", "That tool call has no such body.")
+      : text(body);
+  });
+
+  // 폰의 그림에는 이름이 없다. 이름은 형식만 말하고 자리는 그 탭의 임시 폴더다(`TabGui.uploadImage`).
+  link.onImageWrite(async ({ session, data }) => {
+    const entry = live.get(session);
+    if (entry === undefined) return failed("not_found", NO_CHAT);
+    const path = await gui.uploadImage(entry.handle.id, {
+      name: "phone-image",
+      data: new Uint8Array(Buffer.from(data, "base64")),
+    });
+    return path === null
+      ? failed("invalid_input", "The picture could not be saved.")
+      : text({ path });
+  });
+
+  link.onImageRead(async ({ session, path }) => {
+    const entry = live.get(session);
+    if (entry === undefined) return failed("not_found", NO_CHAT);
+    const image = await gui.readImage(entry.handle.id, path);
+    return image === null
+      ? failed("not_found", "No such picture in this chat.")
+      : {
+          content: [
+            {
+              type: "image",
+              mimeType: image.mime,
+              data: Buffer.from(image.data).toString("base64"),
+            },
+          ],
+        };
   });
 
   return {

@@ -99,6 +99,11 @@ export function register(
       onOpen: (handler) => ctx.hostLink.onOpen(handler),
       onInput: (handler) => ctx.hostLink.onRequest("coding_input", handler),
       onSwitch: (handler) => ctx.hostLink.onRequest("coding_switch", handler),
+      onBody: (handler) => ctx.hostLink.onRequest("coding_body", handler),
+      onImageWrite: (handler) =>
+        ctx.hostLink.onRequest("coding_image_write", handler),
+      onImageRead: (handler) =>
+        ctx.hostLink.onRequest("coding_image_read", handler),
     },
     after,
     alive: (terminalRef) =>

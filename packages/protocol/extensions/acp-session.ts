@@ -48,6 +48,11 @@ export type AcpTerminal = {
   signal(signal: "SIGINT" | "SIGTERM"): void;
   /** foreground process가 끝나면 불린다(shell prompt로 돌아왔다). 돌려받은 함수로 그만 듣는다. */
   onForegroundExit(listener: () => void): () => void;
+  /**
+   * 그림 bytes를 이 탭의 임시 폴더에 쓰고 절대 경로를 준다(사람이 붙인 그림과 같은 자리). 지난 대화의 그림을 다시 그릴 때
+   * 메시지에 그 경로의 `file://` resource_link를 싣는다. PNG·JPEG·GIF·WebP가 아니거나 못 쓰면 null이다.
+   */
+  writeImage(image: { name: string; data: Uint8Array }): Promise<string | null>;
 };
 
 /** `onTab`의 `gui`가 받는 것. 탭이 GUI로 가야 한다. `resume`은 그 CLI 자신의 session id. */

@@ -42,6 +42,9 @@ function setup() {
       },
       toggle: () => Promise.resolve({ ok: true }),
       current: () => null,
+      toolBody: () => null,
+      uploadImage: () => Promise.resolve(null),
+      readImage: () => Promise.resolve(null),
     },
     link: {
       // 연결이 없으면 보내지 못하고 아무것도 쌓지 않는다.
@@ -53,6 +56,9 @@ function setup() {
       onInput: (handler) => void requests.set("coding_input", handler as never),
       onSwitch: (handler) =>
         void requests.set("coding_switch", handler as never),
+      onBody: () => {},
+      onImageWrite: () => {},
+      onImageRead: () => {},
     },
     after(_ms, run) {
       timers.push(run);

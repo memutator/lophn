@@ -122,3 +122,43 @@ test("연결이 닫히면 진행 중이던 coding_switch와 입력은 unavailabl
   const gone = await relay.send(send("k2"));
   assert.equal(!gone.ok && gone.error.code, "not_found");
 });
+
+// 사본은 redactor를 지나지만 본문은 사본에 없어 따로 host에서 온다. 이 길이 redactor를 건너뛰면 tool 출력의 secret이 폰에 그대로 간다.
+test("펼친 tool 본문은 host에서 읽어 사본과 같은 redactor를 지나고, 알려진 secret을 다 모르면 내지 않는다", async () => {
+  let ready = true;
+  const relay = createCodingRelay({
+    clock: manualClock(0),
+    publish: () => {},
+    call: () =>
+      Promise.resolve(
+        ok([
+          {
+            type: "text",
+            text: JSON.stringify({ value: "token=SECRET", truncated: false }),
+          },
+        ]) as Result<unknown>,
+      ),
+    attached: () => true,
+    redact: <T>(value: T) =>
+      ready
+        ? (JSON.parse(
+            JSON.stringify(value).replaceAll("SECRET", "[redacted]"),
+          ) as T)
+        : null,
+    platform: "linux",
+  });
+  const read = () =>
+    relay.toolBody({ session: SESSION, tool_call: "t1", part: "output" });
+  const missing = await read();
+  assert.equal(!missing.ok && missing.error.code, "not_found");
+
+  relay.reported([report]);
+  relay.sync({ session: SESSION, snapshot: EMPTY_ACP_STATE });
+  assert.deepEqual(
+    await read(),
+    ok({ value: "token=[redacted]", truncated: false }),
+  );
+  ready = false;
+  const withheld = await read();
+  assert.equal(!withheld.ok && withheld.error.code, "unavailable");
+});

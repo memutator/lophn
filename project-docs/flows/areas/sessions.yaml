@@ -1052,6 +1052,89 @@ flows:
     docs: [architecture/acp.md]
     unclear: []
 
+  - id: acp-coding-tool-body
+    title: "폰이 coding session의 tool 줄을 펼칠 때 그 tool 하나의 입력이나 출력을 컴퓨터에서 읽는다"
+    actor: person
+    entries: [route:acp/tool_body]
+    uses: [system:host-link]
+    boundary: [acp, host-queue-interface]
+    code:
+      - packages/core/main/daemon/wiring/coding-relay.ts
+      - packages/core/coding-relay/relay.ts
+      - packages/shell/main/terminal/coding-relay.ts
+      - packages/shell/main/terminal/gui.ts
+      - packages/mobile/src/data/coding.ts
+    steps:
+      - "coding session의 사본(acp/snapshot)에는 tool 본문이 없다. 사본이 없는 session이면 not_found다"
+      - "core는 coding_body {session, tool_call, part}로 host에 묻는다. shell main은 그 session의 handle 상태에서 그 tool을 찾아(자식 대화와 숨긴 구간 안까지) 본문 한 쪽을 JSON 글로 답한다"
+      - "core는 답을 사본과 같은 제품 redactor로 거른 뒤 낸다. 알려진 secret을 아직 다 모르면 내지 않는다"
+    outcomes:
+      - id: ok
+        observe: [request:shell, response]
+      - id: not_found
+        code: not_found
+        when: "사본이 없거나, host에 그 handle이 없거나, 그 tool이나 그 쪽 본문이 없다(도는 tool의 출력)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "연결이 없거나 답 전에 닫혔거나 기한(10초)이 지났다, host의 답을 읽지 못했다, 알려진 secret을 아직 다 모른다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력 schema가 맞지 않는다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch)"
+        observe: [response]
+    crosses_process: true
+    risk: [secret]
+    docs: [architecture/harness-gui.md, architecture/acp.md]
+    unclear: []
+
+  - id: acp-coding-image
+    title: "폰이 coding session에 그림을 붙이면 컴퓨터가 그 탭의 임시 폴더에 쓰고, 대화의 그림 링크를 다시 읽는다"
+    actor: person
+    entries: [route:acp/image_upload, route:acp/image_read]
+    uses: [system:host-link]
+    boundary: [acp, host-queue-interface]
+    code:
+      - packages/core/main/daemon/wiring/coding-relay.ts
+      - packages/core/coding-relay/relay.ts
+      - packages/shell/main/terminal/coding-relay.ts
+      - packages/shell/main/terminal/gui.ts
+      - packages/mobile/src/data/attach.ts
+    steps:
+      - "image_upload: 폰이 bytes(5 MiB까지, png·jpeg·gif·webp)를 보낸다. core는 선언한 길이와 body가 맞는지 보고 coding_image_write {session, data(base64)}로 host에 넘긴다"
+      - "shell main은 bytes가 그림일 때만 그 session 탭의 tmpdir 아래 lophn-gui/<터미널 ref>/에 uuid와 형식 확장자를 붙인 file로 쓰고 절대 경로를 답한다. 폰은 이름을 보내지 않는다"
+      - "폰은 그 경로의 file:// resource_link를 메시지에 싣고 acp/send로 보낸다(desktop GUI의 붙이기와 같다)"
+      - "image_read: 대화의 file:// 그림 링크를 coding_image_read로 host에 묻는다. shell main은 그 탭의 임시 폴더 바로 아래 file이 그림일 때만 image content로 답하고 core는 그 bytes를 file로 낸다"
+    outcomes:
+      - id: saved
+        observe: ["disk:<os tmp>/lophn-gui/<terminal ref>/", response]
+      - id: read
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "사본이 없거나 host에 그 handle이 없다. image_read는 그 폴더 밖 경로거나 file이 없거나 그림이 아니다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "입력 schema가 맞지 않거나, 선언한 길이와 body가 다르거나, host가 bytes를 그림으로 읽지 못했다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "연결이 없거나 답 전에 닫혔거나 기한(30초)이 지났다, host의 답을 읽지 못했다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "이 route의 actor가 아니거나 credential scope에 operation이 없다(dispatch)"
+        observe: [response]
+    crosses_process: true
+    risk: [data-loss]
+    docs: [architecture/harness-gui.md, architecture/remote.md]
+    unclear: []
+
   - id: acp-send
     title: "화면의 대화 조작 하나(ACP 입력)를 지금 있는 route로 넘긴다"
     actor: person

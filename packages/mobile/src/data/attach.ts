@@ -1,5 +1,6 @@
 // Pictures a person adds to a message from the phone. They go the way the desktop composer's pasted images go: uploaded
 // with `message-images/upload` (the source's `uploadImage`), and the message carries the returned blob in an image block.
+// A computer's coding session takes them as the desktop's harness GUI does: a file in its terminal tab (`codingImages`).
 // The desktop also attaches any file by its path on the computer; a phone's files have no path there, so only pictures go.
 import type { ContentBlock } from "../../../protocol/lophn-agent/content-block.ts";
 import {
@@ -7,6 +8,8 @@ import {
   MESSAGE_IMAGE_TYPES,
 } from "../../../protocol/lophn-agent/message-images.ts";
 import type { AgentTabSource, SourceResult } from "../../../shell/renderer/conversation/agent-tab-source.ts";
+import type { CoreSource } from "../../../shell/renderer/desktop/connection/connection.ts";
+import { base64Of } from "./images.ts";
 
 type ImageType = keyof typeof MESSAGE_IMAGE_TYPES;
 
@@ -96,4 +99,58 @@ export async function uploadAttached(
     blocks.push(uploaded.value.block);
   }
   return { ok: true, value: blocks };
+}
+
+/**
+ * Pictures of a computer's coding session. A coding agent reads a picture by its path, so the computer writes the bytes
+ * into that terminal tab's temporary folder (`acp/image_upload`) and the message carries a `file://` link to it, as the
+ * desktop's harness GUI does. The conversation's pictures are those links, read back with `acp/image_read` as data URLs
+ * (React Native has no Blob URLs).
+ */
+export function codingImages(core: CoreSource, session: string) {
+  // Key: the `file://` link. One read per picture however often it is drawn.
+  const urls = new Map<string, Promise<string | null>>();
+  return {
+    async writeImage(image: Blob): Promise<string | null> {
+      let bytes: Uint8Array;
+      try {
+        bytes = new Uint8Array(await image.arrayBuffer());
+      } catch {
+        return null;
+      }
+      const base64 = base64Of(bytes);
+      const reply = await core
+        .call({
+          kind: "upload",
+          resource: "acp",
+          method: "image_upload",
+          body: { input: { session, content_type: image.type, bytes: bytes.byteLength }, base64 },
+        })
+        .catch(() => null);
+      if (!reply?.ok) return null;
+      const { path } = reply.value as { path: string };
+      urls.set(`file://${path}`, Promise.resolve(`data:${image.type};base64,${base64}`));
+      return path;
+    },
+    imageUrl(id: string): Promise<string | null> {
+      if (!id.startsWith("file://")) return Promise.resolve(null);
+      let url = urls.get(id);
+      if (url === undefined) {
+        url = core
+          .call({ kind: "file", resource: "acp", method: "image_read", body: { session, path: id.slice("file://".length) } })
+          .then((reply) => {
+            if (!reply.ok) return null;
+            const file = reply.value as { content_type: string; base64: string };
+            return `data:${file.content_type};base64,${file.base64}`;
+          })
+          .catch(() => null);
+        urls.set(id, url);
+        // A picture that could not be read is read again next time.
+        void url.then((value) => {
+          if (value === null) urls.delete(id);
+        });
+      }
+      return url;
+    },
+  };
 }

@@ -3,11 +3,14 @@
 // 이 page가 한 줄로 흉내 낸다(실제 앱은 ContentCard가 머리에 올린다).
 import { Profiler, type ReactNode, useEffect, useMemo } from "react";
 
-import type {
-  AcpChildUpdate,
-  AcpToolBody,
-  AcpToolDetail,
-  AcpUpdate,
+import {
+  type AcpChildUpdate,
+  type AcpToolBody,
+  type AcpToolDetail,
+  type AcpUpdate,
+  EMPTY_ACP_STATE,
+  reduceAcp,
+  toolBodyOf,
 } from "../../../../packages/protocol/acp/mod.ts";
 import type { HarnessGuiTabApi } from "../../../../packages/shell/ipc/harness-gui.ts";
 import type { TerminalAgent } from "../../../../packages/shell/ipc/terminal.ts";
@@ -578,12 +581,17 @@ function fakeApi(
 ): HarnessGuiTabApi {
   let push: (update: AcpUpdate) => void = () => {};
   let seq = 8;
+  // main처럼 본문을 쥐고 펼칠 때 준다(이 가짜는 갱신에 본문을 그대로 싣는다).
+  let state = EMPTY_ACP_STATE;
   return {
     onOpened: () => () => {},
     ackOpened: async () => {},
     onView: () => () => {},
     async connect(_handle, onBatch) {
-      const onUpdate = (update: AcpUpdate) => onBatch({ updates: [update] });
+      const onUpdate = (update: AcpUpdate) => {
+        state = reduceAcp(state, update);
+        onBatch({ updates: [update] });
+      };
       push = onUpdate;
       for (const update of [
         ...base,
@@ -595,6 +603,13 @@ function fakeApi(
       return { harness, cwd: CWD };
     },
     disconnect: async () => {},
+    async toolBody(_handle, id, part) {
+      const body = toolBodyOf(state, id);
+      const value = body?.[part] ?? null;
+      return body === null || value === null
+        ? null
+        : { value, truncated: body.truncated };
+    },
     async input(_handle, input) {
       if (input.type === "open_session") {
         // 같은 탭에서 CLI session을 바꾼다: 상태가 비고 그 session의 대화가 다시 온다.

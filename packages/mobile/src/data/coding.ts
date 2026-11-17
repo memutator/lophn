@@ -2,10 +2,11 @@
 // `coding_sessions/*` routes (and `acp/send` for a new session's first message); a chat-view session's conversation goes through the ACP routes the core relays from the
 // computer's lophn app (`acp/snapshot`, `acp/send`, `AcpUpdated`), and is shown by the desktop's harness GUI source
 // (`guiAgentTabSource`) fed by the phone instead of by the app's IPC. What the session can do (rewind, images, ...) is
-// told by `session.capabilities` in the ACP state, the same as on the desktop.
+// told by `session.capabilities` in the ACP state, the same as on the desktop. Tool bodies and pictures are read from the computer when shown.
 import {
   acpSend,
   acpSnapshot,
+  acpToolBodyRead,
   EMPTY_ACP_STATE,
   reduceAcp,
   type AcpState,
@@ -35,6 +36,7 @@ import type {
   EventMessage,
 } from "../../../shell/renderer/desktop/connection/events/client.ts";
 import { newId } from "../../../shell/renderer/prefixed-id.ts";
+import { codingImages } from "./attach.ts";
 import { openTerminal } from "./terminal.ts";
 
 /** A coding session to open a conversation with (a row of `useCodingSessions`: its id, harness, project and folder). */
@@ -150,7 +152,7 @@ const UNAVAILABLE = { ok: false, code: "unavailable" } as const;
 
 /**
  * The desktop's harness GUI source over the core's relay. Everything the desktop gets from the app's IPC that the phone
- * cannot (past CLI sessions, rewind preview, images) answers unavailable, so the screen hides it by capability.
+ * cannot (past CLI sessions, rewind preview) answers unavailable, so the screen hides it by capability.
  */
 function codingSource(
   client: EventClient,
@@ -166,15 +168,19 @@ function codingSource(
     });
   }
   const feed = codingFeed(client, env, session);
+  const images = codingImages(client.core, session);
   const gui = guiAgentTabSource({
     info: { harness: coding.harness, cwd: coding.cwd ?? "" },
     feed,
     input: async (input) => (await env.read(acpSend, input)).ok,
+    toolBody: (toolCall, part) => env.read(acpToolBodyRead, { session, tool_call: toolCall, part }),
     sessions: () => Promise.resolve([]),
     rewindPreview: () => Promise.resolve(null),
+    writeImage: images.writeImage,
   });
   return {
     ...gui,
+    imageUrl: (_session, id) => images.imageUrl(id),
     acp: async (id) => {
       const read = await feed.loaded();
       return read.ok ? gui.acp(id) : read;

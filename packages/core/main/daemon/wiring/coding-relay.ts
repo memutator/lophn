@@ -1,8 +1,14 @@
 // coding relay: shell main이 `/host-link`로 올린 GUI handle의 ACP 상태(`coding_sync`, `coding_closed`)를 relay에 넣고
-// `coding_sessions/{list,switch_plan,switch,open,wake}`를 낸다. 터미널 보고(`coding_report`)와 연결이 끊긴 뒤의 비우기는 session lifecycle
-// wiring이 표와 함께 relay에 넘긴다. `acp/snapshot`·`acp/send`의 분기는 acp wiring이 `ctx.codingRelay`로 한다.
+// `coding_sessions/{list,switch_plan,switch,open,wake}`와 coding session만의 `acp/{tool_body,image_upload,image_read}`를 낸다.
+// 터미널 보고(`coding_report`)와 연결이 끊긴 뒤의 비우기는 session lifecycle wiring이 표와 함께 relay에 넘긴다.
+// `acp/snapshot`·`acp/send`의 분기는 acp wiring이 `ctx.codingRelay`로 한다.
 import process from "node:process";
-import { ok } from "../../../../base/mod.ts";
+import { err, ok } from "../../../../base/mod.ts";
+import {
+  acpImageRead,
+  acpImageUpload,
+  acpToolBodyRead,
+} from "../../../../protocol/acp/routes.ts";
 import { describeThrown } from "../../../../base/telemetry/mod.ts";
 import { HARNESS_ADAPTER_OF_RUNTIME } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import {
@@ -23,6 +29,7 @@ import {
 } from "../../../lophn-agent/session/model.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import type { KnownSecretMatch } from "../../../storage/ledger/mod.ts";
+import { bytesFileStream } from "../../../server/mod.ts";
 import { redactDeep } from "./acp-build.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
@@ -141,6 +148,50 @@ export const codingRelayWiring: WiringFactory = () => ({
         ],
         [key(codingSessionsWake), () => opener.wake()],
       ],
+      uploads: [
+        [
+          key(acpImageUpload),
+          async (_who, input, body) => {
+            const { session, bytes } = input as {
+              session: string;
+              bytes: number;
+            };
+            let data: Uint8Array;
+            try {
+              data = new Uint8Array(
+                await new Response(body.bytes).arrayBuffer(),
+              );
+            } catch {
+              return err({
+                code: "invalid_input",
+                message: "upload body could not be read",
+              });
+            }
+            if (data.byteLength !== bytes) {
+              return err({
+                code: "invalid_input",
+                message: "upload input does not match the body",
+              });
+            }
+            return await relay.writeImage(session, data);
+          },
+        ],
+      ],
+      fileStreams: [
+        [
+          key(acpImageRead),
+          async (_who, input) => {
+            const { session, path } = input as {
+              session: string;
+              path: string;
+            };
+            const read = await relay.readImage(session, path);
+            return read.ok
+              ? ok(bytesFileStream(read.value.bytes, read.value.mime))
+              : read;
+          },
+        ],
+      ],
       reads: (reads) =>
         reads
           .set(key(codingSessionsList), (_who, input) =>
@@ -151,6 +202,15 @@ export const codingRelayWiring: WiringFactory = () => ({
           )
           .set(key(codingSessionsSwitchPlan), (_who, input) =>
             relay.switchPlan((input as { session: string }).session),
+          )
+          .set(key(acpToolBodyRead), (_who, input) =>
+            relay.toolBody(
+              input as {
+                session: string;
+                tool_call: string;
+                part: "input" | "output";
+              },
+            ),
           ),
     });
   },

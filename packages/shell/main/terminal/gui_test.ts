@@ -1,25 +1,46 @@
 import assert from "node:assert/strict";
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
 
 import { terminalHookLineSchema } from "../../../protocol/coding-agent/terminal-hook.ts";
 import type { AcpTabRequest } from "../../../protocol/extensions/mod.ts";
 import {
   type AcpState,
+  type AcpToolItem,
   type AcpUpdate,
   EMPTY_ACP_STATE,
 } from "../../../protocol/acp/mod.ts";
 import { createHookIngress } from "./agent/ingress.ts";
 import {
+  attachBatched,
   cliEnv,
   createTabGui,
+  type TabGuiDeps,
   type TabHandle,
   type ToggleSource,
 } from "./gui.ts";
 
+const NO_IMAGES: TabGuiDeps["images"] = {
+  root: "/tmp/lophn-gui",
+  write: () => Promise.resolve(),
+  read: () => Promise.resolve(null),
+};
+
 const KEY_A = "a".repeat(64);
 const KEY_B = "b".repeat(64);
 
-function setup(options: { state?: () => AcpState } = {}) {
+function setup(
+  options: { state?: () => AcpState; images?: TabGuiDeps["images"] } = {},
+) {
   const requests: AcpTabRequest[] = [];
   const pushes: { channel: string; payload: unknown }[] = [];
   const gui = createTabGui({
@@ -52,8 +73,7 @@ function setup(options: { state?: () => AcpState } = {}) {
       signal: () => Promise.resolve(),
       onForegroundExit: () => () => {},
     },
-    writeImage: () => Promise.resolve("/tmp/x"),
-    readImage: () => Promise.resolve(null),
+    images: options.images ?? NO_IMAGES,
     log: () => {},
   });
   const ingress = createHookIngress({
@@ -285,8 +305,7 @@ test("폰이 시작한 GUI 전환은 ack 없이 GUI로 남고, TUI를 끄지 못
       signal: () => Promise.resolve(),
       onForegroundExit: () => () => {},
     },
-    writeImage: () => Promise.resolve("/tmp/x"),
-    readImage: () => Promise.resolve(null),
+    images: NO_IMAGES,
     log: () => {},
   });
   const fireTimers = () => {
@@ -356,3 +375,184 @@ function liveHandle(terminal: string, n: number) {
     },
   };
 }
+
+const AT = "2026-11-15T00:00:00.000Z";
+const tool = (
+  id: string,
+  body: AcpToolItem["body"],
+  by: AcpToolItem["by"] = "agent",
+): AcpToolItem => ({
+  id,
+  seq: 1,
+  at: AT,
+  kind: "tool",
+  by,
+  turn: null,
+  tool: "shell.run",
+  category: "command",
+  title: id,
+  state: "ok",
+  duration_ms: null,
+  detail: { kind: "generic" },
+  body,
+});
+const bodyOf = (text: string) => ({
+  input: `${text} in`,
+  output: `${text} out`,
+  truncated: false,
+});
+
+// 긴 coding session의 snapshot은 대부분이 tool 본문이라 폰 frame 한도(16 MiB)에 걸린다. 본문이 새면 그 한도로 다시 돌아가고,
+// 본문 read가 다른 tool의 것을 주면 펼친 줄에 남의 출력이 보인다.
+test("coding session의 snapshot에는 tool 본문이 없고 본문 read가 그 tool의 것만 준다", () => {
+  const state: AcpState = {
+    ...EMPTY_ACP_STATE,
+    items: [
+      tool("t1", bodyOf("one")),
+      tool("t2", bodyOf("two"), "user"),
+      {
+        id: "h1",
+        seq: 3,
+        at: AT,
+        kind: "hidden",
+        checkpoint: "m1",
+        choice: "messages_only",
+        count: 1,
+        restored: 0,
+        left: [],
+        items: [tool("t3", bodyOf("three"))],
+      },
+    ],
+    children: {
+      c1: {
+        ...EMPTY_ACP_STATE,
+        items: [tool("t4", bodyOf("four"))],
+      } as AcpState["children"][string],
+    },
+  };
+  const t = setup({ state: () => state });
+  const listeners: Parameters<TabHandle["attach"]>[0][] = [];
+  const handle: TabHandle = {
+    ...fakeHandle("trm_a", () => state),
+    attach(listener) {
+      listener.snapshot(state);
+      listeners.push(listener);
+      return () => {};
+    },
+  };
+  t.gui.opened(handle);
+
+  const sent: unknown[] = [];
+  const timers: (() => void)[] = [];
+  attachBatched(
+    handle,
+    (_ms, run) => {
+      timers.push(run);
+      return () => {};
+    },
+    {
+      snapshot: (snapshot) => sent.push(snapshot),
+      updates: (updates) => sent.push(...updates),
+      closed: () => {},
+    },
+  );
+  for (const listener of listeners) {
+    listener.update({ type: "tool_started", item: tool("t5", bodyOf("five")) });
+    listener.update({
+      type: "tool_ended",
+      tool_call: "t5",
+      state: "ok",
+      at: AT,
+      detail: null,
+      body: bodyOf("five"),
+    });
+    listener.update({
+      type: "child_update",
+      child: "c1",
+      update: { type: "tool_started", item: tool("t6", bodyOf("six")) },
+    });
+  }
+  for (const run of timers.splice(0)) run();
+  const wire = JSON.stringify(sent);
+  for (const word of ["one", "three", "four", "five", "six", "two out"]) {
+    assert.equal(wire.includes(word), false, word);
+  }
+  // 사람이 친 명령은 그 줄에 명령 전체를 보이므로 명령 글만 남는다.
+  assert.equal(wire.includes("two in"), true);
+
+  for (const [id, part, value] of [
+    ["t1", "output", "one out"],
+    ["t2", "output", "two out"],
+    ["t3", "input", "three in"],
+    ["t4", "output", "four out"],
+  ] as const) {
+    assert.deepEqual(t.gui.toolBody("win_trm_a", id, part), {
+      value,
+      truncated: false,
+    });
+  }
+  assert.equal(t.gui.toolBody("win_trm_a", "t9", "output"), null);
+  assert.equal(t.gui.toolBody("win_other", "t1", "output"), null);
+});
+
+// 폰과 창이 준 이름은 믿을 수 없는 글이다. 그림이 탭 임시 폴더 밖에 쓰이거나 그 밖의 file이 읽히면 사람의 file을 덮거나 내보낸다.
+test("폰이 보낸 그림이 그 탭의 임시 폴더 밖에 쓰이지 않는다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-gui-test-"));
+  try {
+    const t = setup({
+      images: {
+        root,
+        async write(path, data) {
+          await mkdir(dirname(path), { recursive: true });
+          await writeFile(path, data);
+        },
+        read: (path) =>
+          readFile(path).then(
+            (data) => new Uint8Array(data),
+            () => null,
+          ),
+      },
+    });
+    t.gui.opened(fakeHandle("trm_a"));
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
+    const written: string[] = [];
+    for (const name of [
+      "phone-image",
+      "../../escape.png",
+      "/etc/x.png",
+      "..",
+    ]) {
+      const path = await t.gui.uploadImage("win_trm_a", { name, data: png });
+      assert.notEqual(path, null, name);
+      assert.equal(dirname(path!), join(root, "trm_a"), name);
+      assert.match(path!, /\.(png|jpe?g|gif|webp)$/);
+      written.push(path!);
+    }
+    assert.equal(
+      await t.gui.uploadImage("win_trm_a", {
+        name: "x.png",
+        data: new TextEncoder().encode("#!/bin/sh"),
+      }),
+      null,
+    );
+    assert.deepEqual((await readdir(root)).sort(), ["trm_a"]);
+    assert.equal((await readdir(join(root, "trm_a"))).length, written.length);
+
+    assert.deepEqual(await t.gui.readImage("win_trm_a", written[0]!), {
+      mime: "image/png",
+      data: png,
+    });
+    await writeFile(join(root, "outside.png"), png);
+    await mkdir(join(root, "trm_b"));
+    await writeFile(join(root, "trm_b", "other.png"), png);
+    for (const path of [
+      join(root, "outside.png"),
+      join(root, "trm_b", "other.png"),
+      join(root, "trm_a", "..", "outside.png"),
+    ]) {
+      assert.equal(await t.gui.readImage("win_trm_a", path), null, path);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

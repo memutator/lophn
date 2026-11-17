@@ -1,0 +1,15 @@
+id: phone-tui-session-not-usable-from-terminal-screen
+title: 폰에서 터미널로 도는 coding session은 채팅으로 바꿔야만 쓸 수 있다
+kind: bug
+status: open
+topic: remote
+modules: [packages/mobile, packages/core/remote, packages/shell/renderer]
+now: |
+  컴퓨터에서 터미널(TUI)로 도는 coding session을 폰에서 열면 대화 화면 대신 안내 화면이 선다(`packages/mobile/src/screens/coding/terminal.tsx`의 `TerminalSession`: "터미널에서 돌고 있다"는 글, `View terminal`, `Switch to chat`). 일을 시키려면 `Switch to chat`으로 그 CLI를 끝내고 GUI로 다시 띄워야 하고, 그러면 도는 turn이 끊긴다. `View terminal`로 여는 터미널 화면(`screens/terminal/`)은 기본이 보기만이다. 입력은 컴퓨터의 Settings › Remote에서 그 기기에 "Allow typing in terminals"를 켰을 때만 되고(`devices.terminal_input`, 기본 0) 폰에서는 켤 수 없다. 그래서 컴퓨터 앞에 없는 사람은 터미널로 도는 session에 아무것도 치지 못한다.
+impact: |
+  사람이 컴퓨터에서 터미널로 띄워 둔 coding agent를 밖에서 폰으로 이어 쓰려면 채팅으로 바꿔 도는 일을 끊어야 한다. 터미널 화면만으로는 보기만 되어 remote로 일을 이어 갈 수 없다.
+fix: |
+  - 중간(추천): 터미널로 도는 session을 폰에서 열면 안내 화면을 거치지 않고 터미널 화면이 바로 열린다. 머리 줄에 session 이름과 상태를 두고 `Switch to chat`은 그 화면의 menu로 옮긴다. 입력칸과 key 줄로 그 자리에서 친다. 폰의 새 session에서 Terminal 항목으로 연 터미널(이슈 `phone-cannot-open-terminal-tab`)도 같은 화면이다.
+  - 입력 허락: 지금은 기기마다 컴퓨터에서 켜야 한다. 폰으로 remote가 되려면 pairing할 때 컴퓨터의 pairing 화면에서 "이 폰이 터미널에 입력할 수 있다"를 같이 정하게 하고(기본 켬) Settings › Remote의 switch는 그대로 둔다. 이미 pairing한 기기는 지금 값 그대로다.
+decided: |
+  사람이 정했다: 터미널 화면으로도 remote로 쓸 수 있어야 한다. 터미널 입력 허락은 pairing할 때 기본 켬이고 컴퓨터의 pairing 화면에서 끌 수 있다. Settings › Remote의 기기별 switch는 그대로 둔다. 이미 pairing한 기기는 지금 값 그대로다(사람이 Settings에서 켠다).

@@ -12,9 +12,9 @@ lead만 고친다. `tools/status.py issue-sweep build`가 `tasks/*.md`에서 id,
 | `sweep-phone-chat` | phone-chat | 1 | 없음 | running | phone-chat/sweep-phone-chat |  |  |
 | `sweep-phone-lists` | phone-lists | 1 | 없음 | running | phone-lists/sweep-phone-lists |  |  |
 | `sweep-phone-local-apps` | phone-local-apps | 1 | 없음 | running | phone-local-apps/sweep-phone-local-apps |  |  |
-| `sweep-phone-new-session` | phone-new-session | 1 | 없음 | running | phone-new-session/sweep-phone-new-session |  |  |
+| `sweep-phone-new-session` | phone-new-session | 1 | 없음 | merged | phone-new-session/sweep-phone-new-session | 59d04814e |  |
 | `sweep-phone-terminal` | phone-terminal | 1 | 없음 | running | phone-terminal/sweep-phone-terminal |  |  |
-| `sweep-remote-transport` | remote-transport | 1 | 없음 | running | remote-transport/sweep-remote-transport |  |  |
+| `sweep-remote-transport` | remote-transport | 1 | 없음 | merged | remote-transport/sweep-remote-transport | 8d2c41913 |  |
 | `sweep-shell-main` | shell-main | 1 | 없음 | running | shell-main/sweep-shell-main |  |  |
 | `sweep-shell-renderer` | shell-renderer | 1 | 없음 | running | shell-renderer/sweep-shell-renderer |  |  |
 | `sweep-tools` | tools | 1 | 없음 | merged | tools/sweep-tools | 39a84fd84 | merge last |

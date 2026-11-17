@@ -1,5 +1,5 @@
 id: antigravity-harness-gui
-version: 0.23.68
+version: 0.23.76
 title: 터미널 탭의 agy gui가 Antigravity 대화를 채팅 화면으로 보인다
 modules: [packages/protocol, packages/shell/main, packages/shell/terminal-host, packages/shell/renderer]
 change: |

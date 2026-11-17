@@ -125,6 +125,7 @@ function packageOf(file: string): string | "all" | undefined {
     file === "package.json" ||
     file === "package-lock.json" ||
     file === "biome.json" ||
+    /^tsconfig[^/]*\.json$/.test(file) ||
     /^tools\/check[^/]*\.ts$/.test(file)
   )
     return "all";
@@ -196,25 +197,24 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-// package마다 type check하는 tsc project(tsconfig.json이 있는 폴더). shell main·preload·ipc·terminal-host는
+// package가 바뀌면 type check하는 tsc project. tsconfig.base.json 그대로인 package는 tsconfig.node.json 한 program이
+// 본다: 따로 돌면 서로 import하는 source를 project마다 다시 검사한다. shell main·preload·ipc·terminal-host는
 // "shell main" 단계의 `npm run check`가 본다.
+const NODE_TSC = "tsconfig.node.json";
 const TSC_PROJECTS: Record<string, string[]> = {
-  base: ["packages/base"],
-  protocol: ["packages/protocol"],
-  core: ["packages/core"],
-  cli: ["packages/cli"],
-  "coding-agent": ["packages/coding-agent"],
+  base: [NODE_TSC],
+  protocol: [NODE_TSC],
+  core: [NODE_TSC],
+  cli: [NODE_TSC],
+  "coding-agent": [NODE_TSC],
   design: ["packages/design", "packages/design/i18n"],
   sdk: ["packages/sdk", "packages/sdk/flow"],
   shell: ["packages/shell/renderer"],
-  relay: ["packages/relay"],
-  "remote-client": ["packages/remote-client"],
-  tools: ["tools", "tools/wireframes"],
-  tests: ["tests"],
+  relay: [NODE_TSC],
+  "remote-client": [NODE_TSC],
+  tools: [NODE_TSC, "tools/wireframes"],
+  tests: [NODE_TSC],
 };
-function typeChecks(p: string): string[][] {
-  return TSC_PROJECTS[p].map((dir) => [...TSC, "--noEmit", "-p", dir]);
-}
 
 async function buildSteps(
   run: Set<string>,
@@ -314,9 +314,16 @@ async function buildSteps(
     commands: [["node", "tools/check-skills.ts"]],
   });
 
-  for (const p of ALL_PACKAGES.filter((p) => full || run.has(p))) {
-    const commands = typeChecks(p);
-    if (commands.length > 0) checks.push({ name: `check ${p}`, commands });
+  const projects = new Set(
+    ALL_PACKAGES.filter((p) => full || run.has(p)).flatMap(
+      (p) => TSC_PROJECTS[p],
+    ),
+  );
+  for (const project of projects) {
+    checks.push({
+      name: `tsc ${project}`,
+      commands: [[...TSC, "--noEmit", "-p", project]],
+    });
   }
 
   if (has("design", "sdk", "shell")) {

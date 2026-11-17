@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.base.json",
+  // check가 tsconfig.base.json 그대로인 package를 한 program으로 type check한다. package마다 따로 돌면 서로 import하는
+  // source를 project마다 다시 검사해 CPU와 memory를 세 배 가까이 쓴다. package의 tsconfig.json은 editor가 쓴다.
+  "include": [
+    "packages/base/**/*.ts",
+    "packages/protocol/**/*.ts",
+    "packages/core/**/*.ts",
+    "packages/cli/**/*.ts",
+    "packages/coding-agent/**/*.ts",
+    "packages/relay/**/*.ts",
+    "packages/remote-client/**/*.ts",
+    "tools/**/*.ts",
+    "tests/**/*.ts"
+  ],
+  "exclude": ["tools/wireframes"]
+}

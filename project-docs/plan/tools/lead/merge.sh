@@ -11,6 +11,10 @@ plan=$1; id=$2
 [ -d project-docs/plan/$plan/tasks ] || { echo "STOP: 계획 없음: $plan"; exit 1; }
 if [ "${FIX:-}" = 1 ]; then B=fix/$id; else u=$(grep -m1 -oP "단위: \K[a-z0-9-]+" project-docs/plan/$plan/tasks/$id.md); B=$u/$id; fi
 W=$MAIN/.claude/worktrees/$id
+. "$ROOT/project-docs/plan/tools/lead/main-lib.sh"
+# 의존을 바꾼 commit을 받은 worktree는 node_modules가 낡아 check:full이 멈춘다(remote-core에서 두 번).
+# npm ci 뒤 Electron binary는 worktree-prep이 다시 받는다.
+fresh_deps() { (cd "$1" && deps "$2" "$3" && node tools/worktree-prep.ts "$1" >/dev/null) || { echo "STOP: deps refresh failed in $1"; exit 1; }; }
 # land가 plan branch를 main 위로 다시 쓰면 merge-base가 옛 wave commit 앞으로 간다. launch.sh가 적은 갈라진 점이 있으면
 # 그 뒤의 commit만 task의 것이다(옛 base의 commit을 다시 올리다 충돌한 일이 여섯 번 있다).
 FROM=$(git config --get "branch.$B.lophnBase" || true)
@@ -25,9 +29,12 @@ git -C $W status --short | grep -v node_modules | sed 's/^/dirty: /'
 git -C $W rebase --onto $BASE $FROM >/dev/null 2>&1 || { echo "STOP: rebase conflict"; git -C $W status --short | head; exit 1; }
 # 뒤에서 끊겨 다시 돌릴 때 이미 옮긴 plan branch commit을 또 옮기지 않게 기준을 지금 BASE로 적는다.
 git config "branch.$B.lophnBase" "$(git rev-parse $BASE)"
+fresh_deps $W $FROM $BASE
 out=$(cd $W && npm run check:full 2>&1) || { echo "$out" | tail -30; echo "STOP: worktree full check failed"; exit 1; }
+before=$(git rev-parse HEAD)
 git merge --ff-only -q $B || { echo "STOP: ff failed"; exit 1; }
 [ -e node_modules ] || { echo "STOP: lead worktree node_modules missing (worktree-prep)"; exit 1; }
+fresh_deps "$ROOT" $before HEAD
 out=$(npm run check:full 2>&1) || { echo "$out" | tail -30; echo "STOP: plan branch full check failed"; exit 1; }
 echo "plan branch full check ok"
 BOOT=$(project-docs/plan/tools/lead/boot.sh 2>&1); [ "$(echo "$BOOT" | grep -c "exit 0")" = 2 ] || { echo "STOP: boot failed after merge"; echo "$BOOT" | tail -6; exit 1; }; echo "boot ok"

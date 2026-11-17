@@ -33,7 +33,7 @@ decisions:
     by: person
   - text: "폰은 목록·이름·아이콘만 file로 두고 대화는 저장하지 않는다. session의 기록(transcript, tool 이력)은 기계 사이에 맞추지 않는다. 꺼진 기계의 일은 handoff로 넘기고 그것은 나중에 다룬다."
     by: person
-  - text: "폰 앱 화면의 머리 줄은 lophn만 그린다. Claude의 `/remote-control`은 숨긴다. grant 거두기는 process를 멈추지 않는다(broker가 요청마다 범위를 다시 읽는다). 직접 주소를 pairing 뒤에도 새로 받고 사람이 적는 주소 설정을 둔다(사람의 답을 받기 전에 넣었다. 사람이 빼라고 하면 되돌린다)."
+  - text: "폰 앱 화면의 머리 줄은 lophn만 그린다. Claude의 `/remote-control`은 숨긴다. grant 거두기는 process를 멈추지 않는다(broker가 요청마다 범위를 다시 읽는다). 직접 주소를 pairing 뒤에도 새로 받고 사람이 적는 주소 설정을 둔다(사람의 답을 받기 전에 넣었고, 사람이 2026-11-17에 두기로 했다)."
     by: agent
   - text: "두 기기가 같은 session을 다룰 때의 빈틈 여덟은 고치지 않고 이슈로만 올렸다(사람: 의논하고 다음 roadmap으로 연다)."
     by: person

@@ -61,7 +61,7 @@
 |---|---|---|
 | `core-terminals` | 터미널, coding agent(GUI session, harness adapter, 화면 없는 harness turn), 그 상태와 알림의 근거를 core로 옮긴다. desktop 화면과 폰이 같은 route로 붙는다 | 없음 |
 | `core-setup` | 처음 설정을 어느 화면에서나 한다: secret 넣기, provider 연결과 로그인, 기본 model, project 더하기. 순서를 쥔 code를 화면에서 core로 옮긴다 | 없음 |
-| `core-browser` | 화면 없는 기계에서 core가 browser를 띄운다. agent의 page를 다른 기기에서 보고 끼어든다 | spike(`reports/multi-device/spike-headless-browser.md`). core와 shell이 주고받는 file이 `core-terminals`와 겹쳐 그 뒤에 합친다 |
+| `core-browser` | 화면 없는 기계에서 core가 browser를 띄운다. agent의 page를 다른 기기에서 보고 끼어든다 | core와 shell이 주고받는 file이 `core-terminals`와 겹쳐 그 뒤에 합친다 |
 
 셋은 같이 연다. `core-terminals`가 가장 크고 나머지의 바닥이다(core와 shell 사이 link의 모양을 바꾼다). 화면 없는 기계에서 remote를 켜고 pairing code를 보이는 CLI는 `multi-device.md`의 `device-roster`가 한다.
 
@@ -110,3 +110,4 @@
 - 폰이 이미 둘째 provider다(폰의 앱 화면을 browser 동사로 다룬다). 다만 provider라는 틀이 아니라 갈래 셋으로 박혀 있다.
 - 멀리서 보는 길로 가장 가까운 것은 터미널 보기다(보는 쪽이 lease를 잡으면 host가 화면을 밀고, core는 마지막 것만 들고, 내용 없는 event가 나면 보는 쪽이 읽어 간다). 실리는 것은 글자다. 그림 stream은 code에 없다.
 - 제품에는 화면 없는 길이 없다. 개발용 `LOPHN_SHELL_HEADLESS`만 있다. Chromium은 Electron 안의 것 하나뿐이다.
+- 실제로 돌려 본 것(`reports/multi-device/spike-headless-browser.md`, Linux): display가 없어도 Electron이 `--ozone-platform=headless`로 뜨고 offscreen page에서 screenshot, AX tree, click, 입력, 남는 cookie가 된다. CDP screencast가 offscreen page와 보이는 창의 `<webview>`에서 frame을 낸다(1280x800 JPEG 한 장에 5~9 KB, 10 fps에 core 하나의 5~16%). 창이 최소화되거나 숨겨지면 frame이 멈춘다. page 하나에 memory 110~140 MB다.

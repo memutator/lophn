@@ -4,6 +4,8 @@
 import { ok } from "../../../../base/mod.ts";
 import {
   terminalViewInput,
+  terminalViewOpen,
+  terminalViewResize,
   terminalViewSnapshot,
   terminalViewWatch,
 } from "../../../../protocol/coding-agent/terminal-view.ts";
@@ -59,6 +61,19 @@ export const terminalViewWiring: WiringFactory = () => {
                 who.principal,
                 input as { terminal: string; text: string; key: string },
               ),
+          ],
+          [
+            key(terminalViewResize),
+            (who, input) =>
+              view.resize(
+                who.principal,
+                input as { terminal: string; columns: number; rows: number },
+              ),
+          ],
+          [
+            key(terminalViewOpen),
+            (_who, input) =>
+              view.open(input as { project: string; key: string }),
           ],
         ],
         reads: (reads) =>

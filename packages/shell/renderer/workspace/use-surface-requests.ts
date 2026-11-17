@@ -295,6 +295,11 @@ export function useSurfaceRequests(args: Args): void {
         done();
         return;
       }
+      // 폰이 연 터미널이다(shell main의 `terminal_open`). shell만 띄운다.
+      if ("terminal" in target) {
+        if (openTerminal(host(), { open }) !== null) done();
+        return;
+      }
       if ("coding" in target) {
         const { handoff, resume } = request.payload;
         const { harness } = target.coding;

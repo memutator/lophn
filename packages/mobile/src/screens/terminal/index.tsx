@@ -1,34 +1,36 @@
-// A coding session's terminal on the computer, as the phone sees it (tools/wireframes/drafts/phone/coding.tsx Term): the
-// screen's text and colors, Fit width or 100% with sideways scroll, and under it either the line that typing is off for
-// this phone or a text box and a key bar. The phone never resizes the terminal; watching stops in the background.
-import { t } from "@lophn/i18n";
-import {
-  Icon,
-  Screen,
-  SegmentedControl,
-  Tag,
-  Text,
-  TopBar,
-  useTheme,
-} from "@lophn/ui-native";
+// A terminal on the computer as the phone sees it (tools/wireframes/drafts/phone/terminal.tsx): a coding session's
+// terminal, or one the phone opened (its place's session is `term:<terminal>`). The screen's text and colors at one size,
+// and under it either the line that typing is off for this phone or a text box and a key bar. The phone sizes the terminal
+// to its own grid when it opens the screen and when the person taps it; while it holds the size (the screen it gets is
+// its grid) it follows the grid as the keyboard or rotation changes it. Watching stops in the background.
+import { type MessageKey, t } from "@lophn/i18n";
+import { Icon, Screen, Tag, Text, TopBar, useTheme } from "@lophn/ui-native";
+import * as Clipboard from "expo-clipboard";
 import {
   ArrowUp,
+  ClipboardPaste,
   KeyboardOff,
   SquareTerminal,
   WifiOff,
 } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { type ComponentRef, type RefObject, useEffect, useRef, useState } from "react";
 import { AppState, Pressable, TextInput, View } from "react-native";
+import { TERMINAL_SESSION_PREFIX } from "../../../../protocol/lophn-agent/session-tag.ts";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
 import {
   type SourceResult,
   useCodingSessions,
   useCurrentComputer,
+  useNames,
   useTerminal,
 } from "../../data/mod.ts";
 import { Face, OfflineBanner } from "../../parts/mod.ts";
 import { harnessProfile } from "../coding/index.tsx";
-import { TerminalRows } from "./rows.tsx";
+import { type BarKey, barKeyBytes, charBytes, type Mods, NO_MODS } from "./keys.ts";
+import { type Grid, TerminalRows } from "./rows.tsx";
+
+// Grid changes while the keyboard slides or the phone turns come in a burst; the last one is claimed.
+const GRID_SETTLE_MS = 150;
 
 function useForeground(): boolean {
   const [on, setOn] = useState(AppState.currentState !== "background");
@@ -45,15 +47,62 @@ export function TerminalScreen({ place }: { place: PlaceOf<"terminal"> }) {
   const nav = useNav();
   const theme = useTheme();
   const computer = useCurrentComputer()?.name ?? "";
+  const names = useNames();
   const coding = useCodingSessions(place.project);
+  // A terminal the phone opened has no coding session; its place carries the terminal.
+  const opened = place.session.startsWith(TERMINAL_SESSION_PREFIX)
+    ? place.session.slice(TERMINAL_SESSION_PREFIX.length)
+    : null;
   const row =
-    coding.sessions.find((one) => one.session === place.session) ?? null;
+    opened !== null
+      ? null
+      : (coding.sessions.find((one) => one.session === place.session) ?? null);
+  const terminal = opened ?? row?.terminal ?? null;
   const foreground = useForeground();
-  const view = useTerminal(foreground && row !== null ? row.terminal : null);
-  const [fit, setFit] = useState(false);
+  const view = useTerminal(foreground ? terminal : null);
   const gone =
-    view.status === "gone" || (coding.status === "ready" && row === null);
+    view.status === "gone" ||
+    (opened === null && coding.status === "ready" && row === null);
   const screen = view.screen;
+  const typing = useRef<ComponentRef<typeof TextInput>>(null);
+
+  // The size this phone asked for last. It still holds the size while the screen it gets is that size.
+  const claimed = useRef<Grid | null>(null);
+  const grid = useRef<Grid | null>(null);
+  const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => clearTimeout(settle.current ?? undefined), []);
+  const claim = () => {
+    if (grid.current === null) return;
+    claimed.current = grid.current;
+    view.resize(grid.current.columns, grid.current.rows);
+  };
+  const onGrid = (next: Grid) => {
+    grid.current = next;
+    clearTimeout(settle.current ?? undefined);
+    settle.current = setTimeout(() => {
+      const held = claimed.current;
+      const owner =
+        held === null ||
+        (screen !== null &&
+          screen.columns === held.columns &&
+          screen.rows === held.rows);
+      if (owner) claim();
+    }, GRID_SETTLE_MS);
+  };
+  const onTap = () => {
+    claim();
+    if (view.input) typing.current?.focus();
+  };
+
+  const project = names.projects.get(place.project) ?? "";
+  const title =
+    row === null
+      ? t("terminal.label.output")
+      : (row.title ?? row.label);
+  const under =
+    row === null
+      ? project
+      : t("mobile.session.label.where", { agent: row.label, workspace: project });
 
   let bottom = null;
   if (gone) {
@@ -69,7 +118,7 @@ export function TerminalScreen({ place }: { place: PlaceOf<"terminal"> }) {
       </Line>
     );
   } else if (view.input) {
-    bottom = <Typing send={view.send} />;
+    bottom = <Typing send={view.send} input={typing} />;
   } else if (screen !== null) {
     bottom = (
       <Line icon={KeyboardOff}>{t("mobile.terminal.notice.typing-off")}</Line>
@@ -88,8 +137,8 @@ export function TerminalScreen({ place }: { place: PlaceOf<"terminal"> }) {
                 <Face profile={harnessProfile(row.harness, row.label)} size={26} />
               )
             }
-            title={row?.label ?? t("terminal.label.output")}
-            sub={row?.title ?? undefined}
+            title={title}
+            under={under === "" ? undefined : under}
             right={
               screen !== null && !view.input ? (
                 <View style={{ marginRight: 14 }}>
@@ -101,21 +150,7 @@ export function TerminalScreen({ place }: { place: PlaceOf<"terminal"> }) {
           <OfflineBanner note={t("mobile.offline.note")} />
         </>
       }
-      footer={
-        <View>
-          <View style={{ width: 200, paddingTop: 6, paddingHorizontal: 12, paddingBottom: 4 }}>
-            <SegmentedControl
-              items={[
-                t("mobile.terminal.button.fit-width"),
-                t("mobile.terminal.button.actual-size"),
-              ]}
-              on={fit ? 0 : 1}
-              onChange={(at) => setFit(at === 0)}
-            />
-          </View>
-          {bottom}
-        </View>
-      }
+      footer={bottom}
     >
       {screen === null ? (
         <View
@@ -134,7 +169,7 @@ export function TerminalScreen({ place }: { place: PlaceOf<"terminal"> }) {
           )}
         </View>
       ) : (
-        <TerminalRows screen={screen} fit={fit} />
+        <TerminalRows screen={screen} onGrid={onGrid} onTap={onTap} />
       )}
     </Screen>
   );
@@ -169,28 +204,47 @@ function Line({
   );
 }
 
-// What each key sends: the bytes a terminal keyboard sends for it.
-const KEYS = [
-  { label: "mobile.terminal.key.escape", cap: null, bytes: "\x1b" },
-  { label: "mobile.terminal.key.tab", cap: null, bytes: "\t" },
-  { label: "mobile.terminal.key.interrupt", cap: null, bytes: "\x03" },
-  { label: "mobile.terminal.key.up", cap: "↑", bytes: "\x1b[A" },
-  { label: "mobile.terminal.key.down", cap: "↓", bytes: "\x1b[B" },
-  { label: "mobile.terminal.key.left", cap: "←", bytes: "\x1b[D" },
-  { label: "mobile.terminal.key.right", cap: "→", bytes: "\x1b[C" },
-  { label: "mobile.terminal.key.enter", cap: null, bytes: "\r" },
-] as const;
+type Modifier = keyof Mods;
+
+// The key bar in two rows. Ctrl, Alt and Shift hold for the next key, from the bar or the text box, then let go.
+const ROWS: readonly (readonly (
+  | { kind: "key"; key: BarKey; label: MessageKey; cap: string | null }
+  | { kind: "mod"; mod: Modifier; label: MessageKey }
+  | { kind: "bytes"; bytes: string; label: MessageKey }
+  | { kind: "paste"; label: MessageKey }
+)[])[] = [
+  [
+    { kind: "key", key: "escape", label: "mobile.terminal.key.escape", cap: null },
+    { kind: "key", key: "tab", label: "mobile.terminal.key.tab", cap: null },
+    { kind: "mod", mod: "ctrl", label: "mobile.terminal.key.ctrl" },
+    { kind: "mod", mod: "alt", label: "mobile.terminal.key.alt" },
+    { kind: "mod", mod: "shift", label: "mobile.terminal.key.shift" },
+    { kind: "bytes", bytes: "\x03", label: "mobile.terminal.key.interrupt" },
+  ],
+  [
+    { kind: "paste", label: "mobile.terminal.key.paste" },
+    { kind: "key", key: "left", label: "mobile.terminal.key.left", cap: "←" },
+    { kind: "key", key: "up", label: "mobile.terminal.key.up", cap: "↑" },
+    { kind: "key", key: "down", label: "mobile.terminal.key.down", cap: "↓" },
+    { kind: "key", key: "right", label: "mobile.terminal.key.right", cap: "→" },
+    { kind: "key", key: "enter", label: "mobile.terminal.key.enter", cap: null },
+  ],
+];
 
 /** The text box (its send types the text only, no Enter) and the key bar. */
 function Typing({
   send,
+  input,
 }: {
   send: (text: string) => Promise<SourceResult<void>>;
+  input: RefObject<ComponentRef<typeof TextInput> | null>;
 }) {
   const theme = useTheme();
   const [text, setText] = useState("");
   const [focused, setFocused] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [mods, setMods] = useState<Mods>(NO_MODS);
+  const armed = mods.ctrl || mods.alt || mods.shift;
   const type = async (bytes: string) => {
     const done = await send(bytes);
     setFailed(!done.ok);
@@ -199,6 +253,28 @@ function Typing({
   const submit = async () => {
     if (text === "") return;
     if (await type(text)) setText("");
+  };
+  // With a modifier held, one character typed in the box goes to the terminal with it instead of into the box.
+  const change = (next: string) => {
+    if (armed && next.length === text.length + 1 && next.startsWith(text)) {
+      setMods(NO_MODS);
+      void type(charBytes(next.slice(-1), mods));
+      return;
+    }
+    setText(next);
+  };
+  const press = async (key: (typeof ROWS)[number][number]) => {
+    if (key.kind === "mod") {
+      setMods((now) => ({ ...now, [key.mod]: !now[key.mod] }));
+      return;
+    }
+    setMods(NO_MODS);
+    if (key.kind === "key") await type(barKeyBytes(key.key, mods));
+    else if (key.kind === "bytes") await type(key.bytes);
+    else {
+      const pasted = await Clipboard.getStringAsync().catch(() => "");
+      if (pasted !== "") await type(pasted);
+    }
   };
   return (
     <View>
@@ -218,8 +294,9 @@ function Typing({
           }}
         >
           <TextInput
+            ref={input}
             value={text}
-            onChangeText={setText}
+            onChangeText={change}
             placeholder={t("mobile.terminal.placeholder.type")}
             placeholderTextColor={theme.color.text.muted}
             autoCapitalize="none"
@@ -269,32 +346,62 @@ function Typing({
           </Text>
         )}
       </View>
-      <View style={{ flexDirection: "row", gap: 5, paddingTop: 6, paddingHorizontal: 12, paddingBottom: 8 }}>
-        {KEYS.map((key) => (
-          <Pressable
-            key={key.label}
-            accessibilityRole="button"
-            accessibilityLabel={t(key.label)}
-            onPress={() => void type(key.bytes)}
-            style={({ pressed }) => ({
-              flexGrow: 1,
-              flexShrink: 1,
-              height: 34,
-              paddingHorizontal: 6,
-              alignItems: "center",
-              justifyContent: "center",
-              borderWidth: 1,
-              borderColor: theme.color.border.base,
-              borderRadius: 8,
-              backgroundColor: pressed ? theme.color.surface.muted : theme.color.surface.base,
-            })}
-          >
-            <Text variant="small" weight="medium" tone="secondary" numberOfLines={1}>
-              {key.cap ?? t(key.label)}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
+      {ROWS.map((row, at) => (
+        <View
+          key={at}
+          style={{
+            flexDirection: "row",
+            gap: 5,
+            paddingTop: 6,
+            paddingHorizontal: 12,
+            paddingBottom: at === ROWS.length - 1 ? 8 : 0,
+          }}
+        >
+          {row.map((key) => {
+            const on = key.kind === "mod" && mods[key.mod];
+            return (
+              <Pressable
+                key={key.label}
+                accessibilityRole="button"
+                accessibilityLabel={t(key.label)}
+                accessibilityState={key.kind === "mod" ? { selected: on } : undefined}
+                onPress={() => void press(key)}
+                style={({ pressed }) => ({
+                  flexGrow: 1,
+                  flexShrink: 1,
+                  flexBasis: 0,
+                  height: 34,
+                  paddingHorizontal: 4,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 1,
+                  borderColor: on ? theme.color.ink.background : theme.color.border.base,
+                  borderRadius: 8,
+                  backgroundColor: on
+                    ? theme.color.ink.background
+                    : pressed
+                      ? theme.color.surface.muted
+                      : theme.color.surface.base,
+                })}
+              >
+                {key.kind === "paste" ? (
+                  <Icon icon={ClipboardPaste} size={16} tone="secondary" />
+                ) : (
+                  <Text
+                    variant="small"
+                    weight="medium"
+                    tone="secondary"
+                    numberOfLines={1}
+                    style={on ? { color: theme.color.ink.text } : undefined}
+                  >
+                    {key.kind === "key" && key.cap !== null ? key.cap : t(key.label)}
+                  </Text>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+      ))}
     </View>
   );
 }

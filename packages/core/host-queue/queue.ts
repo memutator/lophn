@@ -179,6 +179,8 @@ export const LINK_CALL_MS: Record<LinkRequestKind, number> = {
   coding_open: 60_000,
   terminal_stream: 5_000,
   terminal_input: 5_000,
+  terminal_resize: 5_000,
+  terminal_open: 60_000,
 };
 const LINK_ABSENT = "The lophn app on the computer is not connected.";
 const LINK_LOST = "The lophn app disconnected before it answered.";

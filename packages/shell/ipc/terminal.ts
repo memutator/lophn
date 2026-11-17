@@ -299,6 +299,11 @@ export type TerminalRuntime = {
   agent?: TerminalAgent;
   /** 탭 줄에 보이는 이름. 탭을 그린 창이 main에 알린 것이라, 어느 창·workspace의 탭이든 모든 창이 같은 이름을 안다. */
   tab_name?: string;
+  /**
+   * 폰이 PTY 크기(columns·rows)를 잡았다. 탭은 칸에 맞추지 않고 이 크기로 그리며, 사람이 그 탭에 focus를 주면 다시 칸에 맞춰 잡는다.
+   * 폰이 떠나면(화면 밀기가 꺼진다) main이 놓고 탭이 칸에 다시 맞춘다.
+   */
+  remote_size?: true;
 };
 
 /** OS 알림이나 toast를 누르면 main이 그 터미널 탭을 고르라고 보낸다. project는 그 터미널이 속한 project다. */

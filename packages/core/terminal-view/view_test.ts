@@ -7,6 +7,8 @@ import { createTerminalView, LEASE_MS, type TerminalRequest } from "./view.ts";
 
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 const TERMINAL = "trm_01hzx3k4m5n6p7q8r9s0t1v2w3";
+// host가 `terminal_open`에 답하는 터미널이다.
+const OPENED = "trm_01hzx3k4m5n6p7q8r9s0t1v2w4";
 
 const frame = (terminal: string, seq: number) =>
   ({
@@ -31,9 +33,11 @@ function setup(typing: (principal: string) => boolean = () => false) {
     publish: (event) => published.push(event),
     call: (request) => {
       calls.push(request);
-      return Promise.resolve(
-        ok([{ type: "text", text: "ok" }]) as Result<unknown>,
-      );
+      const text =
+        request.kind === "terminal_open"
+          ? JSON.stringify({ terminal_ref: OPENED })
+          : "ok";
+      return Promise.resolve(ok([{ type: "text", text }]) as Result<unknown>);
     },
     known: (terminal) => known.has(terminal),
     mayType: typing,
@@ -130,4 +134,33 @@ test("lease가 있는 동안만 host가 화면을 밀고 core는 lease 없는 �
   });
   const gone = view.snapshot("p1", TERMINAL);
   assert.ok(!gone.ok && gone.error.code === "unavailable");
+});
+
+// 폰은 coding session의 터미널과 자기가 연 터미널만 본다. 남이 보는 desktop 터미널의 크기는 보지 않는 principal이 바꾸지 못한다.
+test("폰이 연 터미널은 목록에 없어도 보이고, 크기는 그 터미널을 보는 principal만 잡는다", async () => {
+  const { view, calls } = setup();
+  const before = await view.watch("p1", { terminal: OPENED, on: true });
+  assert.ok(!before.ok && before.error.code === "not_found");
+
+  const opened = await view.open({ project: "prj_x", key: "o1" });
+  assert.ok(opened.ok && opened.value.terminal === OPENED);
+  assert.ok((await view.watch("p1", { terminal: OPENED, on: true })).ok);
+  // 같은 key는 다시 열지 않는다.
+  await view.open({ project: "prj_x", key: "o1" });
+  assert.equal(calls.filter((call) => call.kind === "terminal_open").length, 1);
+
+  const resized = await view.resize("p1", {
+    terminal: TERMINAL,
+    columns: 40,
+    rows: 20,
+  });
+  assert.ok(!resized.ok && resized.error.code === "conflict");
+  await view.watch("p1", { terminal: TERMINAL, on: true });
+  assert.ok(
+    (await view.resize("p1", { terminal: TERMINAL, columns: 40, rows: 20 })).ok,
+  );
+  assert.deepEqual(calls.at(-1), {
+    kind: "terminal_resize",
+    payload: { terminal_ref: TERMINAL, columns: 40, rows: 20 },
+  });
 });

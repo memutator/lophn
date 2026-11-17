@@ -507,6 +507,8 @@ export interface TerminalView {
   /** This phone may type into the terminal (the person turned it on for this phone on the computer). */
   readonly input: boolean;
   send(text: string): Promise<SourceResult<void>>;
+  /** Sizes the terminal to this phone's screen (`TerminalFeed.resize`). */
+  resize(columns: number, rows: number): void;
 }
 
 const everyInterval: Every = (ms, run) => {
@@ -515,17 +517,22 @@ const everyInterval: Every = (ms, run) => {
 };
 
 /**
- * A coding session's terminal screen, watched while the screen is open; null watches nothing (the app is in the
+ * A terminal's screen on the computer, watched while the screen is open; null watches nothing (the app is in the
  * background). The last screen stays while it is not watched.
  */
 export function useTerminal(terminal: string | null): TerminalView {
   const { client } = useData().data;
   const [state, setState] = useState<TerminalState>(TERMINAL_LOADING);
   const feed = useRef<TerminalFeed | null>(null);
+  // The last size asked for: a new watch (back from the background) claims it again.
+  const size = useRef<{ columns: number; rows: number } | null>(null);
   useEffect(() => {
     if (terminal === null) return;
     const watching = terminalFeed(client, terminal, everyInterval, setState);
     feed.current = watching;
+    if (size.current !== null) {
+      watching.resize(size.current.columns, size.current.rows);
+    }
     return () => {
       feed.current = null;
       watching.stop();
@@ -537,11 +544,19 @@ export function useTerminal(terminal: string | null): TerminalView {
       Promise.resolve({ ok: false, code: "unavailable" }),
     [],
   );
+  const resize = useCallback(
+    (columns: number, rows: number) => {
+      size.current = { columns, rows };
+      feed.current?.resize(columns, rows);
+    },
+    [],
+  );
   return {
     screen: state.screen,
     status: state.status,
     input: state.screen?.input ?? false,
     send,
+    resize,
   };
 }
 

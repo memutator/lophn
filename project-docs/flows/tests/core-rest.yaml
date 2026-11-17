@@ -606,8 +606,8 @@ files:
     note: "host가 올린 snapshot·갱신 안의 알려진 secret(tool body, 메시지 글)은 사본과 AcpUpdated에서 가려진다. switch는 confirmed: true 없이 invalid_input이고 agent 자격은 forbidden이며 둘 다 host에 요청이 나가지 않는다"
 
   - path: packages/core/terminal-view/view_test.ts
-    covers: [terminal-view-input:sent, terminal-view-input:deduplicated, terminal-view-input:forbidden, terminal-view-input:not_found, terminal-view-watch:watching, terminal-view-watch:stopped, terminal-view-watch:not_found, terminal-view-screen:changed, terminal-view-screen:dropped, terminal-view-snapshot:unavailable]
-    note: "허락받은 principal의 입력만 host에 가고(같은 key는 한 번), 목록에 없는 터미널은 보기·입력·watch가 not_found다. lease들의 tail 최대로 host에 켜고, 갱신하지 않은 lease는 30초 뒤 거두며, lease 없는 터미널의 화면은 버린다"
+    covers: [terminal-view-input:sent, terminal-view-input:deduplicated, terminal-view-input:forbidden, terminal-view-input:not_found, terminal-view-watch:watching, terminal-view-watch:stopped, terminal-view-watch:not_found, terminal-view-screen:changed, terminal-view-screen:dropped, terminal-view-snapshot:unavailable, terminal-view-open:opened, terminal-view-open:deduplicated, terminal-view-resize:resized, terminal-view-resize:conflict]
+    note: "허락받은 principal의 입력만 host에 가고(같은 key는 한 번), 목록에 없는 터미널은 보기·입력·watch가 not_found다. lease들의 tail 최대로 host에 켜고, 갱신하지 않은 lease는 30초 뒤 거두며, lease 없는 터미널의 화면은 버린다. 폰이 연 터미널은 목록에 없어도 보이고, 크기는 lease를 가진 principal만 잡는다"
 
   - path: packages/core/main/daemon/wiring/terminal-view_test.ts
     covers: [terminal-view-input:forbidden]

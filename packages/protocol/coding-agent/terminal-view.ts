@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { idSchema } from "../base/ids.ts";
 import { defineMemory, defineRead } from "../base/route.ts";
 
-// 폰이 coding session 터미널의 raw 화면을 보는 route다. 화면은 host(shell main)가 `/host-link`의 `terminal_screen` frame으로 올리고
+// 폰이 컴퓨터 터미널의 raw 화면을 보는 route다. 화면은 host(shell main)가 `/host-link`의 `terminal_screen` frame으로 올리고
 // core는 메모리에 최신 하나만 둔다(ledger 없음). 화면이 바뀌었다는 알림은 `TerminalScreenChanged`(내용 없이 seq만)이고
-// 폰이 `snapshot`을 다시 읽는다. 보는 것은 coding session의 터미널뿐이다(그 목록은 `coding_sessions/list`).
+// 폰이 `snapshot`을 다시 읽는다. 보는 것은 coding session의 터미널(그 목록은 `coding_sessions/list`)과 폰이 `open`으로 연 터미널뿐이다.
 
 // `#rrggbb`이거나 xterm 256색 palette 번호(`p0`~`p255`)다.
 const terminalColorSchema = z
@@ -102,8 +103,43 @@ export const terminalViewInput = defineMemory({
   errors,
 });
 
+// 이 principal이 보는(lease가 있는) 터미널의 PTY 크기를 폰 화면의 열과 줄 수로 잡는다. 마지막에 잡은 쪽이 이긴다: 컴퓨터에서 그 탭에
+// focus가 오면 컴퓨터가 다시 잡고, 그 터미널의 lease가 모두 끝나면 컴퓨터의 탭이 자기 크기로 되돌린다. lease가 없으면 conflict다.
+export const terminalViewResize = defineMemory({
+  resource: "terminal_view",
+  method: "resize",
+  name: "TerminalViewResize",
+  changes: [],
+  input: z.strictObject({
+    terminal: terminalSchema,
+    columns: z.number().int().min(10).max(512),
+    rows: z.number().int().min(4).max(256),
+  }),
+  output: z.strictObject({}),
+  actors: ["user"],
+  errors,
+});
+
+// project의 폴더에서 shell만 도는 터미널 탭을 컴퓨터에 새로 열고 그 터미널을 준다. 그 project를 보이는 창이 없으면 컴퓨터가 focus 없이
+// 그 project의 창을 하나 연다. 연결이 없으면 unavailable이다(폰은 `coding_sessions/wake`를 먼저 부른다). 같은 key는 한 번만 연다.
+export const terminalViewOpen = defineMemory({
+  resource: "terminal_view",
+  method: "open",
+  name: "TerminalViewOpen",
+  changes: [],
+  input: z.strictObject({
+    project: idSchema("prj"),
+    key: z.string().min(1).max(200),
+  }),
+  output: z.strictObject({ terminal: terminalSchema }),
+  actors: ["user"],
+  errors,
+});
+
 export const TERMINAL_VIEW_ROUTES = [
   terminalViewSnapshot,
   terminalViewWatch,
   terminalViewInput,
+  terminalViewResize,
+  terminalViewOpen,
 ] as const;

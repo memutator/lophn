@@ -402,7 +402,18 @@ export function register(
   ctx.hostLink.onRequest("tab_close", queueTab);
   ctx.hostLink.onRequest("tab_show", queueTab);
 
-  // 새로 연 창이 그 workspace를 보일 때까지 기다린다. 마지막 workspace로 뜨므로 다른 workspace면 기한까지 없다.
+  // 그 session에 turn이 돌고 있다(승인·질문을 기다리는 것도). 읽지 못하면 돌지 않는 것으로 본다(전처럼 연다).
+  async function turnRunning(session: string): Promise<boolean> {
+    const read = await ctx.coreInternal("read", "session_snapshots", "list", {
+      sessions: [session],
+    });
+    if (!read.ok) return false;
+    const state = (read.value as { snapshots?: { state?: string }[] })
+      .snapshots?.[0]?.state;
+    return state === "running" || state === "waiting";
+  }
+
+  // 새로 연 창이 그 workspace를 보일 때까지 기다린다.
   async function shownWithin(workspace: Workspace) {
     for (let waited = 0; waited < WINDOW_READY_MS; waited += WINDOW_POLL_MS) {
       const found = windowOf(workspace);
@@ -412,14 +423,17 @@ export function register(
     return windowOf(workspace);
   }
 
-  // shell main이 안쪽에서 넣는 탭 열기다(폰이 연 coding session, `terminal/coding-open.ts`). core의 탭 요청과 한 차례로 열고, core가
-  // 모르는 탭이라 core에 답하지 않고 retry도 없다. 그 workspace를 보이는 창이 없고 일반 창이 하나도 없으면 focus 없이 하나 연다.
+  // shell main이 안쪽에서 넣는 탭 열기다(폰이 연 coding session과 터미널, `terminal/coding-open.ts`). core의 탭 요청과 한 차례로 열고,
+  // core가 모르는 탭이라 core에 답하지 않고 retry도 없다. 그 project를 보이는 창이 없으면 그 project의 창을 focus 없이 하나 연다:
+  // 사람이 폰에서 누른 일이라 창이 하나 느는 것을 받아들이고, 사람이 보던 창의 workspace는 바꾸지 않는다.
   coding.bindTabOpen((request) => {
     const opened = tabs.then(async () => {
       if (stopped) return false;
       let target = windowOf(request.workspace);
-      if (target === undefined && recentWindow(ctx) === undefined) {
-        await ctx.desktop.openInactive().catch(() => undefined);
+      if (target === undefined && request.workspace.kind === "project") {
+        await ctx.desktop
+          .openInactive(request.workspace.id)
+          .catch(() => undefined);
         target = await shownWithin(request.workspace);
       }
       return target === undefined
@@ -465,7 +479,34 @@ export function register(
         window: target.webContents.id,
       });
     }
+    // TUI 탭은 그 session의 headless turn이 돌지 않을 때만 연다. 창이 없어 오래 기다린 요청은 core의 예약 hold가 끝나 그 사이 turn이
+    // 시작했을 수 있다. 묻기 전에 hold를 걸어 그 뒤로는 새 turn이 시작하지 않게 하고, 돌고 있으면 놓고 retry로 둔다.
+    const held =
+      request.kind === "tab_open" &&
+      request.payload.target !== undefined &&
+      "tui" in request.payload.target
+        ? String(request.payload.target.tui)
+        : null;
+    if (held !== null) {
+      tui.open(tab, held, target.webContents.id);
+      syncVisible();
+      if (await turnRunning(held)) {
+        tui.release(tab);
+        syncVisible();
+        await rest();
+        ctx.hostLink.send({
+          type: "response",
+          id: request.id,
+          result: "retry",
+        });
+        return;
+      }
+    }
     const opened = await offer(request, { request }, target);
+    if (!opened && held !== null) {
+      tui.release(tab);
+      syncVisible();
+    }
     if (opened && request.kind === "tab_close") forgetTab(tab);
     if (opened && browserOpen) {
       // 창이 page를 만들겠다고 답했다. page가 붙어 bind가 오면 core에 알린다.

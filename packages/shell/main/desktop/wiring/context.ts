@@ -290,7 +290,7 @@ export function createShellContext(): ShellContext {
     },
     desktop: {
       open: () => openDesktop(ctx),
-      openInactive: () => openInactiveWindow(ctx),
+      openInactive: (project) => openInactiveWindow(ctx, project),
       show: () => showDesktopWindow(ctx),
       send: (intent) => sendIntent(ctx, intent),
     },

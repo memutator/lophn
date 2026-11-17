@@ -38,8 +38,11 @@ import type { ShellContext } from "./context.ts";
 export type DesktopWindows = {
   /** 창이 하나도 없으면 시작 기계의 창을, 있으면 이 컴퓨터의 새 창을 연다. */
   open(): void;
-  /** 이 컴퓨터의 일반 창이 있으면 그 창을, 없으면 focus 없이 새 창을 연다. 앱과 저장한 창 자리가 준비된 뒤 돌려준다. */
-  openInactive(): Promise<BrowserWindow | undefined>;
+  /**
+   * 이 컴퓨터의 일반 창이 있으면 그 창을, 없으면 focus 없이 새 창을 연다. project를 주면 늘 그 project를 보이는 새 창을 focus 없이
+   * 연다. 앱과 저장한 창 자리가 준비된 뒤 돌려준다.
+   */
+  openInactive(project?: string): Promise<BrowserWindow | undefined>;
   /** 가장 최근 창(어느 기계든)을 앞으로 가져온다. 창이 없으면 시작 기계의 창을 연다. */
   show(): void;
   send(intent: DesktopIntent): void;
@@ -116,8 +119,12 @@ export function recentWindow(ctx: ShellContext): BrowserWindow | undefined {
 // 일을 끊지 않게 focus는 가져오지 않고, 숨기거나 최소화하지 않는다. 앱이 준비되기 전에는 BrowserWindow를 만들 수 없다.
 export async function openInactiveWindow(
   ctx: ShellContext,
+  project?: string,
 ): Promise<BrowserWindow | undefined> {
   await Promise.all([app.whenReady(), ctx.windowState.load()]);
+  if (project !== undefined) {
+    return openDesktopWindow(ctx, undefined, { inactive: true, project });
+  }
   return (
     recentWindow(ctx) ?? openDesktopWindow(ctx, undefined, { inactive: true })
   );
@@ -164,7 +171,8 @@ export function openDesktopWindow(
   ctx: ShellContext,
   start?: DesktopWindowStart,
   // 보이되 focus를 가져오지 않는다(`showInactive`). 저장한 자리가 있든 없든 숨긴 채 만들어 ready-to-show에서 보인다.
-  options: { inactive?: boolean } = {},
+  // project가 있으면 그 project 작업대부터 연다(폰이 연 터미널 탭을 놓을 창).
+  options: { inactive?: boolean; project?: string } = {},
 ): BrowserWindow | undefined {
   const { here, windows } = ctx;
   // detached 창은 layout이 탭마다 자리를 갖는다. 앱 전체의 마지막 자리는 desktop 창만 쓰고 고친다.
@@ -191,19 +199,21 @@ export function openDesktopWindow(
     url:
       start !== undefined
         ? `${desktopUrl}${start.hash}`
-        : process.env.LOPHN_DEV_SEED === "1"
-          ? `${DESKTOP_URL}?dev-seed=1`
-          : /^project:prj_[0-9a-z]{26}$/.test(
-                process.env.LOPHN_SHELL_START ?? "",
-              )
-            ? `${desktopUrl}#project=${process.env.LOPHN_SHELL_START!.slice(8)}`
-            : process.env.LOPHN_SHELL_START === "settings"
-              ? `${desktopUrl}#settings`
-              : /^app:app_[0-9a-z]{26}$/.test(
-                    process.env.LOPHN_SHELL_START ?? "",
-                  )
-                ? `${desktopUrl}#app=${process.env.LOPHN_SHELL_START!.slice(4)}`
-                : desktopUrl,
+        : options.project !== undefined
+          ? `${desktopUrl}#project=${options.project}`
+          : process.env.LOPHN_DEV_SEED === "1"
+            ? `${DESKTOP_URL}?dev-seed=1`
+            : /^project:prj_[0-9a-z]{26}$/.test(
+                  process.env.LOPHN_SHELL_START ?? "",
+                )
+              ? `${desktopUrl}#project=${process.env.LOPHN_SHELL_START!.slice(8)}`
+              : process.env.LOPHN_SHELL_START === "settings"
+                ? `${desktopUrl}#settings`
+                : /^app:app_[0-9a-z]{26}$/.test(
+                      process.env.LOPHN_SHELL_START ?? "",
+                    )
+                  ? `${desktopUrl}#app=${process.env.LOPHN_SHELL_START!.slice(4)}`
+                  : desktopUrl,
     windows: {
       create: (config: WindowConfig) => {
         const window = createShellWindow(

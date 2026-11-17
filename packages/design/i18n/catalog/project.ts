@@ -250,6 +250,7 @@ export const project = {
   "terminal.menu.open-chat": "Open as chat",
   "terminal.menu.open-terminal": "Open in terminal",
   "terminal.notice.next-handoff": "The next hand-off starts a new session.",
+  "terminal.notice.sized-for-phone": "Sized for a phone · Click to fit",
   "terminal.reason.foreground":
     "The CLI is not the foreground process of this terminal",
   "terminal.reason.foreground-short": "Not in foreground",

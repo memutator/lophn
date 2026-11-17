@@ -29,6 +29,8 @@ export interface TerminalEntry {
    * 저장하지 않는다.
    */
   readonly restored?: number;
+  /** 폰이 PTY 크기를 잡았다(runtime의 `remote_size`). 탭은 칸에 맞추지 않고 사람이 focus를 주면 다시 잡는다. 저장하지 않는다. */
+  readonly remote?: boolean;
 }
 
 /** 탭의 coding agent. main이 알린 것에 core의 못 본 끝(`unseen`, `term:<탭>`)을 더한 것이다. */

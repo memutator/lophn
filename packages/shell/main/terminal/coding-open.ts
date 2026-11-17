@@ -1,4 +1,5 @@
-// 폰이 연 coding session(core의 `coding_open`)을 desktop에 연다. 그 project를 보이는 창에 coding 탭 열기를 넣어 새 터미널이
+// 폰이 연 coding session(core의 `coding_open`)과 터미널(`terminal_open`)을 desktop에 연다. 그 project를 보이는 창에(없으면 focus 없이 그
+// project의 창을 하나 열어) 탭 열기를 넣는다. coding session은 새 터미널이
 // `<harness> gui`(되살리면 `--resume <id>`)를 치게 하고(사람이 친 것과 같은 길: hook → `gui.request` → extension이 handle을 연다),
 // 그 project의 터미널에 그 harness의 새 handle이 생길 때까지 기다린다. 되살리면 그 ledger session을 그 터미널이 끝날 때까지
 // hold해 headless turn이 같은 CLI session에 둘째 process를 띄우지 않게 한다. Electron을 모르고 deps로만 일한다.
@@ -10,12 +11,14 @@ import type { TabGui, TabHandle } from "./gui.ts";
 
 // core가 연결 요청을 60초 기다린다. 그보다 먼저 답해야 이유가 폰에 닿는다.
 const OPEN_WAIT_MS = 55_000;
+const NO_WINDOW =
+  "The lophn app could not open a window for this project on the computer, so the terminal tab was not opened. Try again; if it fails again, open the project on the computer.";
 
 export type CodingOpenDeps = {
   gui: Pick<TabGui, "onHandle" | "tabSessions">;
   /** 그 터미널의 project. 없는 터미널이면 undefined. */
   projectOf(terminalRef: string): string | undefined;
-  /** 그 project를 보이는 창에 coding 탭 열기를 넣는다. 창이 탭을 열었다고 답하면 true다. */
+  /** 그 project를 보이는 창(없으면 새로 연 창)에 coding 탭 열기를 넣는다. 창이 탭을 열었다고 답하면 true다. */
   openTab(input: {
     project: string;
     harness: GuiHarness;
@@ -102,8 +105,7 @@ export function createCodingOpen(deps: CodingOpenDeps) {
         return {
           ok: false,
           code: "unavailable",
-          message:
-            "No lophn window on the computer shows this project, so the terminal tab was not opened. Open the project on the computer.",
+          message: NO_WINDOW,
         };
       }
       const handle = await started;
@@ -124,6 +126,51 @@ export function createCodingOpen(deps: CodingOpenDeps) {
       off();
       cancel();
       if (!holding) deps.release(key);
+    }
+  };
+}
+
+export type TerminalOpenDeps = {
+  /** 그 project를 보이는 창(없으면 새로 연 창)에 터미널 탭 열기를 넣는다. 창이 탭을 열었다고 답하면 true다. */
+  openTab(project: string): Promise<boolean>;
+  /** 지금 있는 터미널. */
+  terminals(): readonly string[];
+  /** host가 알린 runtime을 듣는다. 돌려받은 함수로 그만 듣는다. */
+  onRuntime(
+    listener: (runtime: { terminal_ref: string; project: string }) => void,
+  ): () => void;
+  after(ms: number, run: () => void): () => void;
+};
+
+/** 폰이 연 터미널. 탭을 연 뒤 그 project에 처음 생긴 터미널이 그 탭의 것이다. */
+export function createTerminalOpen(deps: TerminalOpenDeps) {
+  return async function open(project: string): Promise<CodingOpenResult> {
+    const before = new Set(deps.terminals());
+    let settle: (terminal: string | null) => void = () => {};
+    const started = new Promise<string | null>((resolve) => {
+      settle = resolve;
+    });
+    const off = deps.onRuntime((runtime) => {
+      if (!before.has(runtime.terminal_ref) && runtime.project === project) {
+        settle(runtime.terminal_ref);
+      }
+    });
+    const cancel = deps.after(OPEN_WAIT_MS, () => settle(null));
+    try {
+      if (!(await deps.openTab(project))) {
+        return { ok: false, code: "unavailable", message: NO_WINDOW };
+      }
+      const terminal = await started;
+      return terminal === null
+        ? {
+            ok: false,
+            code: "unavailable",
+            message: "The terminal did not start in time.",
+          }
+        : { ok: true, terminal_ref: terminal };
+    } finally {
+      off();
+      cancel();
     }
   };
 }

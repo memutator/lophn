@@ -1,12 +1,14 @@
 // The terminal's screen as text rows: one mono `Text` per line (scrollback above the screen), each run a nested `Text`
-// with its colors and flags. Every cell is the mono font's advance wide, so columns line up; a wide (CJK) run gets the
-// letter spacing that makes each of its glyphs two cells. The advance is measured once on the phone (Android rounds it
-// to its pixels), so a row is as wide as its columns. The newest line is at the bottom and stays there while the
+// with its colors and flags. Every cell is the mono font's advance wide, so columns line up; a wide (CJK, emoji) run gets
+// the letter spacing that makes each of its glyphs two cells. The advance, a Hangul glyph's and an emoji's width are
+// measured once on the phone (the wide ones come from fallback fonts whose width differs by phone), so a row is as wide
+// as its columns. The text is one size; the phone sizes the terminal to its own grid (`onGrid`), and a screen wider than
+// that (the computer took the size back) scrolls sideways. The newest line is at the bottom and stays there while the
 // screen changes; scrolling up to read holds the screen still until the person goes back to the latest.
 import { t } from "@lophn/i18n";
-import { Icon, type Theme, useTheme } from "@lophn/ui-native";
-import { ArrowDown } from "lucide-react-native";
-import { useRef, useState } from "react";
+import { Icon, Text, type Theme, useTheme } from "@lophn/ui-native";
+import { ArrowDown, Minimize2 } from "lucide-react-native";
+import { useEffect, useRef, useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -22,9 +24,17 @@ import type {
 } from "../../data/mod.ts";
 import { terminalColor } from "./colors.ts";
 
-// JetBrains Mono's advance is 600 of 1000 units: one cell is 0.6 of the font size until the phone measured it.
+// JetBrains Mono's advance is 600 of 1000 units: one cell is 0.6 of the font size until the phone measured it. A wide
+// glyph is taken as one em until then.
 const CELL = 0.6;
 const PROBE = "0".repeat(100);
+const WIDE_PROBE = "가".repeat(50);
+const EMOJI_PROBE = "😀".repeat(20);
+// An emoji (with its variation selector and joined parts): drawn by the emoji font, measured on its own.
+const EMOJI = /(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)/u;
+// The smallest grid the core takes (`terminal_view/resize`).
+const MIN_COLUMNS = 10;
+const MIN_ROWS = 4;
 // Dim text: the desktop drafts draw it at 0.55.
 const DIM_ALPHA = "8c";
 const PAD_X = 12;
@@ -39,21 +49,20 @@ interface Font {
   readonly lineHeight: number;
 }
 
-/** Font size and line height that fit `columns` cells in `width`, in the 13/19 proportion of the 100% size. */
-function fitFont(width: number, columns: number, cell: number): Font {
-  const fontSize = Math.max(
-    1,
-    Math.floor(((width - 2 * PAD_X) / (columns * cell)) * 10) / 10,
-  );
-  return { fontSize, lineHeight: Math.round(fontSize * (19 / 13) * 10) / 10 };
+/** Widths over the font size: one cell, one Hangul glyph, one emoji. */
+interface Metrics {
+  readonly cell: number;
+  readonly wide: number;
+  readonly emoji: number;
 }
 
-function runStyle(
-  run: TerminalRun,
-  theme: Theme,
-  font: Font,
-  cell: number,
-): TextStyle {
+/** The phone's own grid: how many cells fit the view. */
+export interface Grid {
+  readonly columns: number;
+  readonly rows: number;
+}
+
+function runStyle(run: TerminalRun, theme: Theme): TextStyle {
   const scheme = theme.scheme;
   let fg = terminalColor(run.fg, scheme);
   let bg = terminalColor(run.bg, scheme);
@@ -70,9 +79,34 @@ function runStyle(
     fontWeight: run.bold ? "600" : undefined,
     fontStyle: run.italic ? "italic" : undefined,
     textDecorationLine: run.underline ? "underline" : undefined,
-    // A CJK glyph from the system fallback font is one em wide; spacing makes it two cells.
-    letterSpacing: run.wide ? (2 * cell - 1) * font.fontSize : undefined,
   };
+}
+
+/** A wide run's text: spacing after each glyph makes it two cells, by the measured width of its kind. */
+function WideText({
+  text,
+  font,
+  metrics,
+}: {
+  text: string;
+  font: Font;
+  metrics: Metrics;
+}) {
+  const spacing = (width: number) => (2 * metrics.cell - width) * font.fontSize;
+  return text
+    .split(EMOJI)
+    .map((piece, i) =>
+      piece === "" ? null : (
+        <NativeText
+          key={i}
+          style={{
+            letterSpacing: spacing(i % 2 === 1 ? metrics.emoji : metrics.wide),
+          }}
+        >
+          {piece}
+        </NativeText>
+      ),
+    );
 }
 
 /** The runs of a line with the cursor's cell cut out of them as its own run (padded with spaces past the end). */
@@ -113,15 +147,14 @@ function Row({
   cursor,
   width,
   font,
-  cell,
+  metrics,
 }: {
   line: TerminalLine;
   /** The cursor's column on this line. */
   cursor: number | null;
   width: number;
   font: Font;
-  /** One cell's width over the font size. */
-  cell: number;
+  metrics: Metrics;
 }) {
   const theme = useTheme();
   const { runs, at } =
@@ -143,14 +176,16 @@ function Row({
             <NativeText
               key={i}
               style={[
-                runStyle(run, theme, font, cell),
+                runStyle(run, theme),
                 i === at && {
                   color: theme.color.surface.base,
                   backgroundColor: theme.color.text.primary,
                 },
               ]}
             >
-              {JOINS.test(run.text)
+              {run.wide ? (
+                <WideText text={run.text} font={font} metrics={metrics} />
+              ) : JOINS.test(run.text)
                 ? run.text
                     .split(JOINS)
                     .map((piece, j) => <NativeText key={j}>{piece}</NativeText>)
@@ -177,13 +212,20 @@ function itemsOf(screen: TerminalSnapshot): Item[] {
     .reverse();
 }
 
+// A touch that ends where it started, quickly, is a tap; anything else scrolls.
+const TAP_MOVE = 8;
+const TAP_MS = 300;
+
 export function TerminalRows({
   screen,
-  fit,
+  onGrid,
+  onTap,
 }: {
   screen: TerminalSnapshot;
-  /** Shrinks the text so every column fits the width; otherwise the 100% size scrolls sideways. */
-  fit: boolean;
+  /** The phone's grid once measured, and again whenever the view's size changes (rotation, keyboard). */
+  onGrid(grid: Grid): void;
+  /** The person tapped the screen. */
+  onTap(): void;
 }) {
   const theme = useTheme();
   const list = useRef<FlatList<Item>>(null);
@@ -193,12 +235,61 @@ export function TerminalRows({
   // The screen held while the person reads above the latest.
   const [held, setHeld] = useState<TerminalSnapshot | null>(null);
   const shown = held ?? screen;
-  const [cell, setCell] = useState(CELL);
-  const font: Font =
-    fit && size !== null
-      ? fitFont(size.width, shown.columns, cell)
-      : theme.type.note;
-  const rowWidth = Math.ceil(shown.columns * cell * font.fontSize) + 1;
+  const font: Font = theme.type.note;
+  const [cell, setCell] = useState<number | null>(null);
+  const [wide, setWide] = useState(1);
+  const [emoji, setEmoji] = useState(1);
+  const metrics: Metrics = { cell: cell ?? CELL, wide, emoji };
+  const rowWidth = Math.ceil(shown.columns * metrics.cell * font.fontSize) + 1;
+  const touch = useRef<{ x: number; y: number; at: number } | null>(null);
+
+  const grid: Grid | null =
+    size === null || cell === null
+      ? null
+      : {
+          columns: Math.min(
+            512,
+            Math.max(
+              MIN_COLUMNS,
+              Math.floor((size.width - 2 * PAD_X) / (cell * font.fontSize)),
+            ),
+          ),
+          rows: Math.min(
+            256,
+            Math.max(
+              MIN_ROWS,
+              Math.floor((size.height - 2 * PAD_Y) / font.lineHeight),
+            ),
+          ),
+        };
+  const gridKey = grid === null ? null : `${grid.columns}x${grid.rows}`;
+  const latestGrid = useRef(onGrid);
+  latestGrid.current = onGrid;
+  useEffect(() => {
+    if (grid !== null) latestGrid.current(grid);
+  }, [gridKey]);
+
+  const probe = (text: string, fontSize: number, set: (width: number) => void) => (
+    <NativeText
+      numberOfLines={1}
+      onTextLayout={(event) => {
+        const line = event.nativeEvent.lines[0];
+        if (line !== undefined && line.width > 0) {
+          set(line.width / Array.from(text).length / fontSize);
+        }
+      }}
+      style={{
+        position: "absolute",
+        top: -1000,
+        width: 4000,
+        opacity: 0,
+        fontFamily: theme.font.mono,
+        ...font,
+      }}
+    >
+      {text}
+    </NativeText>
+  );
 
   const rows =
     size === null ? null : (
@@ -215,11 +306,11 @@ export function TerminalRows({
             cursor={item.cursor}
             width={rowWidth}
             font={font}
-            cell={cell}
+            metrics={metrics}
           />
         )}
         style={{
-          width: fit ? size.width : rowWidth + 2 * PAD_X,
+          width: Math.max(size.width, rowWidth + 2 * PAD_X),
           height: size.height,
         }}
         contentContainerStyle={{
@@ -243,31 +334,58 @@ export function TerminalRows({
         setSize({ width, height });
       }}
     >
-      <NativeText
-        numberOfLines={1}
-        onTextLayout={(event) => {
-          const line = event.nativeEvent.lines[0];
-          if (line !== undefined && line.width > 0) {
-            setCell(line.width / PROBE.length / theme.type.note.fontSize);
+      {probe(PROBE, font.fontSize, setCell)}
+      {probe(WIDE_PROBE, font.fontSize, setWide)}
+      {probe(EMOJI_PROBE, font.fontSize, setEmoji)}
+      <View
+        style={{ flex: 1, minHeight: 0 }}
+        onTouchStart={(event) => {
+          const { pageX, pageY } = event.nativeEvent;
+          touch.current = { x: pageX, y: pageY, at: Date.now() };
+        }}
+        onTouchEnd={(event) => {
+          const start = touch.current;
+          touch.current = null;
+          if (start === null) return;
+          const { pageX, pageY } = event.nativeEvent;
+          if (
+            Math.abs(pageX - start.x) < TAP_MOVE &&
+            Math.abs(pageY - start.y) < TAP_MOVE &&
+            Date.now() - start.at < TAP_MS
+          ) {
+            onTap();
           }
         }}
-        style={{
-          position: "absolute",
-          top: -1000,
-          width: 4000,
-          opacity: 0,
-          fontFamily: theme.font.mono,
-          ...theme.type.note,
-        }}
       >
-        {PROBE}
-      </NativeText>
-      {fit ? (
-        rows
-      ) : (
         <ScrollView horizontal showsHorizontalScrollIndicator>
           {rows}
         </ScrollView>
+      </View>
+      {grid !== null && shown.columns > grid.columns && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onTap}
+          style={{
+            position: "absolute",
+            top: 10,
+            alignSelf: "center",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            height: 34,
+            paddingHorizontal: 14,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: theme.color.border.base,
+            backgroundColor: theme.color.surface.base,
+            boxShadow: theme.shadow.popover,
+          }}
+        >
+          <Icon icon={Minimize2} size={16} />
+          <Text variant="small" weight="medium">
+            {t("mobile.terminal.button.fit-phone")}
+          </Text>
+        </Pressable>
       )}
       {held !== null && (
         <Pressable

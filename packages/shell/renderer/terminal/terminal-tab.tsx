@@ -325,14 +325,29 @@ export function TerminalTab({
       ? `${entry.terminalRef}:${liveRuntime.generation}`
       : null;
 
-  // 고른 탭일 때만 main의 focus 표에 이 터미널을 적는다. 떠나면 지운다.
   const boundRef = entry?.terminalRef ?? null;
   const boundGeneration = entry?.generation ?? 0;
+  // 폰이 PTY 크기를 잡았다. 칸에 맞추지 않고, 사람이 이 탭을 고르거나 누르면 칸 크기로 다시 잡는다(마지막에 잡은 쪽이 이긴다).
+  const remote = entry?.remote === true;
+  const reclaim = () => {
+    if (!remote || !bridge || boundRef === null) return;
+    const dims = viewRef.current?.fit();
+    if (!dims) return;
+    void bridge.resize({
+      terminal_ref: boundRef,
+      generation: boundGeneration,
+      columns: dims.columns,
+      rows: dims.rows,
+    });
+  };
+
+  // 고른 탭일 때만 main의 focus 표에 이 터미널을 적는다. 떠나면 지운다.
   useEffect(() => {
     if (!active || !bridge || boundRef === null || boundGeneration < 1) return;
     const ref = { terminal_ref: boundRef, generation: boundGeneration };
     void bridge.focus({ ...ref, focused: true });
     viewRef.current?.focus();
+    reclaim();
     return () => {
       void bridge.focus({ ...ref, focused: false });
     };
@@ -340,9 +355,14 @@ export function TerminalTab({
 
   // 표시 영역에 맞춰 PTY 치수를 바꾼다. focus 칸이 아니어도 보이면 따른다. 안 그러면 xterm만 새 폭이고
   // PTY는 옛 폭이라 TUI가 옛 폭으로 그려 잘린다. 다시 붙어 snapshot을 PTY 치수로 쓴 뒤(`restored`)에도 칸에 다시 맞춘다.
+  // 폰이 크기를 잡은 동안은 맞추지 않고, 놓으면 같은 치수라도 다시 보낸다.
   const restored = entry?.restored ?? 0;
   useEffect(() => {
     if (!liveKey || !bridge || boundRef === null) return;
+    if (remote) {
+      lastSize.current = "";
+      return;
+    }
     const dims = viewRef.current?.fit();
     if (!dims) return;
     const key = `${liveKey}:${dims.columns}x${dims.rows}`;
@@ -362,6 +382,7 @@ export function TerminalTab({
     size?.width,
     size?.height,
     restored,
+    remote,
   ]);
 
   const showScreen =
@@ -417,8 +438,15 @@ export function TerminalTab({
         aria-label={t("terminal.label.output")}
         data-key-context="terminal"
         onFocus={bindFocus}
+        onPointerDown={reclaim}
+        onKeyDown={reclaim}
       >
         <div ref={hostRef} className={styles.screenHost} />
+        {remote && showScreen ? (
+          <div className={styles.remoteSize}>
+            {t("terminal.notice.sized-for-phone")}
+          </div>
+        ) : null}
       </div>
       {showScreen || banner ? null : <div className={styles.fill} />}
       {banner}

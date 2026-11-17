@@ -1,4 +1,4 @@
-// Words only the mobile app shows: a coding session's terminal on the computer, seen and typed into from the phone.
+// Words only the mobile app shows: a terminal on the computer, seen and typed into from the phone.
 // Keys start with `mobile.`.
 export const mobileTerminal = {
   "mobile.terminal.button.view": "View terminal",
@@ -14,6 +14,11 @@ export const mobileTerminal = {
   "mobile.terminal.key.left": "Left",
   "mobile.terminal.key.right": "Right",
   "mobile.terminal.key.enter": "Enter",
+  "mobile.terminal.key.ctrl": "Ctrl",
+  "mobile.terminal.key.alt": "Alt",
+  "mobile.terminal.key.shift": "Shift",
+  "mobile.terminal.key.paste": "Paste",
+  "mobile.terminal.button.fit-phone": "Fit to phone",
   "mobile.terminal.label.view-only": "View only",
   "mobile.terminal.label.loading": "Waiting for the terminal’s screen…",
   "mobile.terminal.notice.typing-off":

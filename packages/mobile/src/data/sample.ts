@@ -18,6 +18,7 @@ import {
   SHELL_COMMAND,
 } from "../../../shell/renderer/desktop/connection/waiting/fake-source.ts";
 import type { CodingSession } from "../../../protocol/coding-agent/relay.ts";
+import type { TerminalLine } from "../../../protocol/coding-agent/terminal-view.ts";
 import type { BusEvent, SessionSnapshot } from "../../../protocol/events/mod.ts";
 import type { CharacterProfile } from "../../../protocol/lophn-agent/agent-values.ts";
 import {
@@ -639,6 +640,64 @@ function codingRoutes(changed: () => void): Record<string, Answer> {
   };
 }
 
+/**
+ * The terminal screen of every sample terminal: a few colored lines with Hangul and an emoji, and what was typed on the
+ * prompt line. It follows the size the phone claims. Typing is on, so the text box and the key bar show.
+ */
+function terminalRoutes(emit: (event: BusEvent) => void): Record<string, Answer> {
+  let size = { columns: 44, rows: 18 };
+  let typed = "";
+  let seq = 1;
+  const line = (...runs: TerminalLine["runs"]): TerminalLine => ({ runs, wrapped: false });
+  const changed = (terminal: unknown) => {
+    seq++;
+    emit({
+      type: "TerminalScreenChanged",
+      subject: `terminal:${String(terminal)}`,
+      at: new Date().toISOString(),
+      payload: { terminal: String(terminal), seq },
+    } as BusEvent);
+  };
+  return {
+    "terminal_view/watch": () => ({}),
+    "terminal_view/resize": (body) => {
+      size = { columns: Number(body.columns), rows: Number(body.rows) };
+      changed(body.terminal);
+      return {};
+    },
+    "terminal_view/input": (body) => {
+      typed += String(body.text).replace(/[\x00-\x1f\x7f]/g, "");
+      changed(body.terminal);
+      return {};
+    },
+    "terminal_view/open": () => ({ terminal: "trm_sample90" }),
+    "terminal_view/snapshot": (body) => {
+      const lines = [
+        line({ text: ">_ ", dim: true }, { text: "OpenAI Codex", bold: true }, { text: " (v0.58.0)", dim: true }),
+        line(),
+        line({ text: "• ", fg: "p2" }, { text: "Edited ", bold: true }, { text: "src/eval/loader.ts " }, { text: "+42", fg: "p2" }, { text: " " }, { text: "-18", fg: "p1" }),
+        line({ text: "  18 ", fg: "p8" }, { text: "+export async function loadBoard(", fg: "p2" }),
+        line(),
+        line({ text: "✔ ", fg: "p2" }, { text: "테스트", wide: true }, { text: " 48 passed " }, { text: "🎉", wide: true }),
+        line(),
+        line({ text: "▌ ", fg: "p6" }, { text: typed === "" ? "Ask Codex to do anything" : typed, dim: typed === "" }),
+      ];
+      const rows = Math.max(size.rows, lines.length);
+      return {
+        terminal: String(body.terminal),
+        generation: 1,
+        seq,
+        columns: size.columns,
+        rows,
+        cursor: { x: 2 + typed.length, y: lines.length - 1, hidden: false },
+        scrollback: [],
+        lines: [...lines, ...Array.from({ length: rows - lines.length }, () => line())],
+        input: true,
+      };
+    },
+  };
+}
+
 /** The fake Gateway plus the reads every screen makes: projects, apps, sessions, agents, and what the place screens read. */
 function sampleCore(): CoreSource {
   const fake = inbox();
@@ -663,6 +722,7 @@ function sampleCore(): CoreSource {
   const reads: Record<string, Answer> = {
     ...placeRoutes(),
     ...coding,
+    ...terminalRoutes((event) => fake.emitEvent(event)),
     ...sampleOrdersRoutes({
       app: ORDERS.id,
       releases: [id("rel", 7), id("rel", 8)],

@@ -69,11 +69,13 @@ const sharedTargets = [
   }),
   z.strictObject({ artifact: z.strictObject({ name: artifactNameSchema }) }),
 ] as const;
+// `terminal`은 shell만 도는 터미널 탭이다(폰이 연 터미널, `terminal_open`). shell main만 넣는다.
 export const hostTabTargetSchema = z.union([
   ...sharedTargets,
   z.strictObject({
     coding: z.strictObject({ harness: z.string().min(1).max(64) }),
   }),
+  z.strictObject({ terminal: z.strictObject({}) }),
 ]);
 export type HostTabTarget = z.infer<typeof hostTabTargetSchema>;
 
@@ -231,7 +233,7 @@ const terminalInterruptPayloadSchema = z.strictObject({
   terminal_ref: z.string().min(1),
 });
 
-// 아래 다섯은 연결이 있을 때만 넣는다. 연결이 없을 때 대기하지 않고 연결이 끊기면 `unavailable`로 끝난다(`LINK_REQUEST_KINDS`).
+// 아래 일곱은 연결이 있을 때만 넣는다. 연결이 없을 때 대기하지 않고 연결이 끊기면 `unavailable`로 끝난다(`LINK_REQUEST_KINDS`).
 // workspace 칸이 없고 답은 `response`의 output이다.
 // coding session(GUI handle)에 입력 하나를 넘긴다. handle이 없으면 error `not_found`다.
 // input은 `AcpInput`(`protocol/acp/input.ts`)이다. acp가 lophn-agent를 import해 여기서 그 schema를 쓰면 순환이라 모양만 보고,
@@ -267,6 +269,16 @@ const terminalStreamPayloadSchema = z.strictObject({
 const terminalInputPayloadSchema = z.strictObject({
   terminal_ref: z.string().min(1),
   text: z.string().min(1).max(8192),
+});
+// 폰이 그 터미널의 PTY 크기를 잡는다. 화면 밀기(`terminal_stream`)가 꺼지면 host가 놓고 desktop 탭이 자기 크기로 되돌린다.
+const terminalResizePayloadSchema = z.strictObject({
+  terminal_ref: z.string().min(1),
+  columns: z.number().int().min(1).max(512),
+  rows: z.number().int().min(1).max(256),
+});
+// project에 shell만 도는 터미널 탭을 연다. 답은 JSON `{"terminal_ref":"…"}` 글 하나다.
+const terminalOpenPayloadSchema = z.strictObject({
+  project: idSchema("prj"),
 });
 
 export const hostRequestSchema = z.discriminatedUnion("kind", [
@@ -329,6 +341,16 @@ export const hostRequestSchema = z.discriminatedUnion("kind", [
     kind: z.literal("terminal_input"),
     payload: terminalInputPayloadSchema,
   }),
+  z.strictObject({
+    id: idSchema("hrq"),
+    kind: z.literal("terminal_resize"),
+    payload: terminalResizePayloadSchema,
+  }),
+  z.strictObject({
+    id: idSchema("hrq"),
+    kind: z.literal("terminal_open"),
+    payload: terminalOpenPayloadSchema,
+  }),
 ]);
 export type HostRequest = z.infer<typeof hostRequestSchema>;
 
@@ -339,6 +361,8 @@ export const LINK_REQUEST_KINDS = [
   "coding_open",
   "terminal_stream",
   "terminal_input",
+  "terminal_resize",
+  "terminal_open",
 ] as const;
 export type LinkRequestKind = (typeof LINK_REQUEST_KINDS)[number];
 

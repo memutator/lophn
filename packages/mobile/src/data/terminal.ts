@@ -1,14 +1,19 @@
-// The raw screen of a coding session's terminal on the computer (`terminal_view/*`). The core keeps only the latest screen
-// and says that it changed (`TerminalScreenChanged`, no content); the phone reads the snapshot again. Watching is a lease
-// the phone renews every 10 seconds; the core drops it 30 seconds after the last renewal, so a phone that went away
-// stops the host from pushing screens without saying so. The phone never resizes the terminal.
+// The raw screen of a terminal on the computer (`terminal_view/*`): a coding session's terminal or one the phone opened.
+// The core keeps only the latest screen and says that it changed (`TerminalScreenChanged`, no content); the phone reads
+// the snapshot again. Watching is a lease the phone renews every 10 seconds; the core drops it 30 seconds after the last
+// renewal, so a phone that went away stops the host from pushing screens without saying so. The phone sizes the terminal
+// to its own screen when it claims (the last device that claimed wins; the computer claims back when its tab gets focus),
+// and the computer's tab takes its own size back when no phone watches any more.
 import type { z } from "zod";
 import {
   terminalViewInput,
+  terminalViewOpen,
+  terminalViewResize,
   terminalViewSnapshot,
   terminalViewWatch,
 } from "../../../protocol/coding-agent/terminal-view.ts";
 import type { SourceResult } from "../../../shell/renderer/conversation/agent-tab-source.ts";
+import type { CodingResult } from "./coding.ts";
 import type {
   EventClient,
   EventMessage,
@@ -42,6 +47,8 @@ export type Every = (ms: number, run: () => void) => () => void;
 export interface TerminalFeed {
   /** Types into the terminal. Only when the snapshot said `input`; the core refuses it otherwise. */
   send(text: string): Promise<SourceResult<void>>;
+  /** Claims the terminal's size for this phone: now if watching, and again each time the watch starts over. */
+  resize(columns: number, rows: number): void;
   /** Stops watching: drops the lease now instead of letting it run out. */
   stop(): void;
 }
@@ -82,6 +89,8 @@ export function terminalFeed(
   let reading = false;
   let again = false;
   let renewing: (() => void) | null = null;
+  let leased = false;
+  let size: { columns: number; rows: number } | null = null;
 
   function set(next: TerminalState) {
     if (stopped) return;
@@ -111,6 +120,7 @@ export function terminalFeed(
   /** Takes or renews the lease. */
   async function lease() {
     const done = await call(client, terminalViewWatch, { terminal, on: true });
+    leased = done.ok;
     if (!done.ok) {
       set({
         screen: state.screen,
@@ -119,16 +129,23 @@ export function terminalFeed(
     }
   }
 
+  /** The core takes a size only from a phone that watches. */
+  async function claim() {
+    if (size === null || !leased || stopped) return;
+    await call(client, terminalViewResize, { terminal, ...size });
+  }
+
   function onMessage(message: EventMessage) {
     if (stopped) return;
     if (message.kind === "ready") {
       // Every renewal reads the screen too: whether this phone may type changes on the computer without an event.
-      const renew = () => void lease().then(read);
-      renewing ??= every(LEASE_EVERY_MS, renew);
-      renew();
+      // Only a new watch claims the size; a renewal must not take it back from the computer.
+      renewing ??= every(LEASE_EVERY_MS, () => void lease().then(read));
+      void lease().then(claim).then(read);
     } else if (message.kind === "disconnected") {
       renewing?.();
       renewing = null;
+      leased = false;
       set({ screen: state.screen, status: "offline" });
     } else if (
       message.event.type === "TerminalScreenChanged" &&
@@ -152,6 +169,10 @@ export function terminalFeed(
       });
       return done.ok ? { ok: true, value: undefined } : done;
     },
+    resize(columns, rows) {
+      size = { columns, rows };
+      void claim();
+    },
     stop() {
       stopped = true;
       unsubscribe();
@@ -160,4 +181,35 @@ export function terminalFeed(
       void call(client, terminalViewWatch, { terminal, on: false });
     },
   };
+}
+
+/**
+ * Opens a terminal tab with a shell in the project's folder on the computer (a window for the project opens there, without
+ * focus, if none shows it) and gives its terminal, to watch with `terminalFeed`. A refusal carries the computer's sentence.
+ * The same `key` opens it once.
+ */
+export async function openTerminal(
+  client: EventClient,
+  project: string,
+  key: string = newId("open"),
+): Promise<CodingResult<string>> {
+  try {
+    const reply = await client.core.call({
+      kind: terminalViewOpen.kind as "memory",
+      resource: terminalViewOpen.resource,
+      method: terminalViewOpen.method,
+      body: { project, key },
+    });
+    return reply.ok
+      ? { ok: true, value: (reply.value as { terminal: string }).terminal }
+      : {
+          ok: false,
+          code: reply.error?.code ?? "unavailable",
+          ...(reply.error?.message === undefined
+            ? {}
+            : { message: reply.error.message }),
+        };
+  } catch {
+    return { ok: false, code: "unavailable" };
+  }
 }

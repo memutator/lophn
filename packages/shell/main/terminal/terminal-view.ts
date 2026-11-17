@@ -1,7 +1,8 @@
 // 폰이 보는 터미널의 화면을 core에 밀어 올리고(`terminal_screen` frame), 폰이 친 글을 그 터미널에 친다.
 // 화면은 row diff 없이 매번 전체다. core가 최신 화면 하나만 두므로 느린 쪽은 건너뛰고 replay가 없다.
 // 보는 중인지는 core의 `terminal_stream`이 정한다(폰의 lease). 입력 허락은 core가 이미 봤다.
-// PTY 크기는 바꾸지 않는다: 폰 하나가 desktop 창의 크기를 흔들면 안 된다.
+// 폰은 PTY 크기를 잡을 수 있다(`terminal_resize`, 마지막에 잡은 쪽이 이긴다). 밀기가 꺼지거나 연결이 다시 열리면 폰의 크기를 놓아
+// desktop 탭이 칸에 다시 맞추게 한다: 폰이 떠난 뒤 desktop 창의 터미널이 폰 폭으로 남지 않는다.
 import type {
   HostRequest,
   HostToolOutput,
@@ -51,6 +52,15 @@ export function createTerminalView(deps: {
   runtime(terminalRef: string): TerminalRuntime | undefined;
   type(terminalRef: string, generation: number, text: string): Promise<void>;
   humanInput(terminalRef: string, text: string): void;
+  /** 폰의 크기로 PTY를 바꾼다. 답한 runtime은 모든 창에 간다(탭이 그 크기로 그린다). */
+  resize(
+    terminalRef: string,
+    generation: number,
+    columns: number,
+    rows: number,
+  ): Promise<void>;
+  /** 폰이 잡은 크기를 놓는다. 답한 runtime이 창에 가면 탭이 칸에 다시 맞춘다. */
+  release(terminalRef: string, generation: number): Promise<void>;
   /** run을 ms 뒤 부르고 취소 함수를 돌려준다. */
   schedule(run: () => void, ms: number): () => void;
 }) {
@@ -90,6 +100,10 @@ export function createTerminalView(deps: {
   function stop(ref: string): void {
     watching.get(ref)?.cancel?.();
     watching.delete(ref);
+    const runtime = deps.runtime(ref);
+    if (runtime?.remote_size === true && runtime.state === "running") {
+      void deps.release(ref, runtime.generation).catch(() => {});
+    }
   }
 
   function reset(): void {
@@ -128,6 +142,26 @@ export function createTerminalView(deps: {
       }
       // 사람이 desktop에서 친 것과 같다(끊기 key면 coding agent 상태를 모르게 둔다).
       deps.humanInput(payload.terminal_ref, payload.text);
+      return OK;
+    },
+    async resize(payload: Payload<"terminal_resize">): Promise<HostToolOutput> {
+      const ref = payload.terminal_ref;
+      const runtime = deps.runtime(ref);
+      if (runtime === undefined || runtime.state !== "running") {
+        return notFound("no running terminal");
+      }
+      try {
+        await deps.resize(
+          ref,
+          runtime.generation,
+          payload.columns,
+          payload.rows,
+        );
+      } catch (cause) {
+        return { error: { code: "unavailable", message: String(cause) } };
+      }
+      // 크기가 바뀐 화면을 바로 보낸다. 출력이 없는 shell prompt는 다시 그리지 않을 수 있다.
+      changed(ref);
       return OK;
     },
     output(chunks: readonly TerminalOutput[]): void {

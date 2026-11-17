@@ -28,6 +28,8 @@ test("보는 터미널의 화면은 켤 때 한 번, 출력이 이어지면 간�
       ref === "trm_a" ? ({ state: "running" } as TerminalRuntime) : undefined,
     type: async () => {},
     humanInput() {},
+    resize: async () => {},
+    release: async () => {},
     schedule(run, ms) {
       assert.equal(ms, SCREEN_INTERVAL_MS);
       timers.push(run);

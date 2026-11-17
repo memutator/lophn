@@ -61,7 +61,11 @@ export type HostRequest =
       generation: number;
       columns: number;
       rows: number;
+      /** 폰이 잡은 크기다. 없으면 desktop 탭이 잡은 것이고 폰의 크기를 놓는다. */
+      remote?: true;
     }
+  /** 폰이 잡은 크기를 놓는다(크기는 그대로). desktop 탭이 칸에 다시 맞춘다. */
+  | { id: string; type: "release"; terminal_ref: string; generation: number }
   | {
       id: string;
       type: "signal";
@@ -349,6 +353,12 @@ function createHost(deps: HostDeps): Host {
       session.screen.resize(request.columns, request.rows);
       session.runtime.columns = request.columns;
       session.runtime.rows = request.rows;
+      if (request.remote) session.runtime.remote_size = true;
+      else delete session.runtime.remote_size;
+      return { ok: true, runtime: { ...session.runtime } };
+    }
+    if (request.type === "release") {
+      delete session.runtime.remote_size;
       return { ok: true, runtime: { ...session.runtime } };
     }
     if (request.type === "close") return stop(session, deps.sleep);

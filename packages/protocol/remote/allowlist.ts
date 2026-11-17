@@ -44,6 +44,8 @@ import {
 } from "../coding-agent/relay.ts";
 import {
   terminalViewInput,
+  terminalViewOpen,
+  terminalViewResize,
   terminalViewSnapshot,
   terminalViewWatch,
 } from "../coding-agent/terminal-view.ts";
@@ -164,6 +166,9 @@ export const REMOTE_ALLOWED_ROUTES = [
   terminalViewSnapshot,
   terminalViewWatch,
   terminalViewInput,
+  // 보는 터미널의 PTY 크기를 폰에 맞추기, project에 터미널 탭 열기
+  terminalViewResize,
+  terminalViewOpen,
   // 대화
   acpSnapshot,
   acpDraft,

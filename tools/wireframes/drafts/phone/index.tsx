@@ -10,6 +10,7 @@ import { OpsFlow, SettingsFlow, WideFlow } from "./more.tsx";
 import { SessionFlow } from "./session.tsx";
 import { ShellFlow } from "./shell.tsx";
 import { StartFlow } from "./start.tsx";
+import { TerminalFlow } from "./terminal.tsx";
 import { WidgetsFlow } from "./widgets.tsx";
 import { WorkspaceFlow } from "./workspace.tsx";
 
@@ -110,6 +111,14 @@ const FLOWS: readonly FlowPage[] = [
       "내 앱이 폰의 Home 화면에 놓이는 길. 위젯(작은 것, 넓은 것, 상태), Choose a widget, 앱 menu의 Add widget과 Add to Home screen, 아이콘, 폰 위치 동의.",
     height: rows(14),
     render: () => <WidgetsFlow />,
+  },
+  {
+    id: "phone-terminal",
+    title: "Phone · 12 Terminal",
+    description:
+      "컴퓨터의 터미널을 폰에서 보고 친다. 폰 폭으로 크기 잡기, 입력과 key 줄, 컴퓨터가 크기를 다시 잡은 때, 폰이 연 터미널.",
+    height: rows(4),
+    render: () => <TerminalFlow />,
   },
 ];
 

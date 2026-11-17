@@ -28,6 +28,7 @@ import type { DataStep } from "../../../storage/migration/mod.ts";
 import { createExpoPushSender } from "../../../attention/push/mod.ts";
 import {
   devicesSetting,
+  remoteAddressesSetting,
   remoteEnabledSetting,
   remotePortSetting,
   remotePushSetting,
@@ -127,13 +128,20 @@ export function createReaderRegistration(): ReaderRegistration {
   return { reads: [devicesListRead, devicesPushTargetsRead], ports: new Map() };
 }
 
-// QR에 싣는 주소 후보. loopback과 link-local(fe80::, 폰이 scope 없이 붙지 못한다)은 뺀다.
+// 이 기계의 network interface 주소. loopback과 link-local(fe80::, 폰이 scope 없이 붙지 못한다)은 뺀다.
 export function lanAddresses(): string[] {
   return Object.values(networkInterfaces())
     .flatMap((list) => list ?? [])
     .filter((each) => !each.internal && !each.address.startsWith("fe80:"))
     .map((each) => each.address)
     .slice(0, 16);
+}
+
+// QR과 hello에 싣는 주소 후보: 사람이 적은 주소(`remote.addresses`)가 먼저, 그 뒤에 interface 주소. hello가 붙을 때마다
+// 다시 실어 pairing 뒤에 생긴 주소(새 network, Tailscale)도 붙는 쪽이 안다.
+function directAddresses(ctx: WiringContext): string[] {
+  const written = ctx.settings.get(remoteAddressesSetting) ?? [];
+  return [...new Set([...written, ...lanAddresses()])].slice(0, 16);
 }
 
 // 이 판 전에 만든 host key에 이 기계의 id를 찍는다. key 값은 그대로라 이미 pairing한 폰이 그대로 붙는다.
@@ -349,7 +357,11 @@ export const remoteWiring: WiringFactory = () => {
     hostText = remoteKeyText(staticKey.publicKey);
     host ??= createRemoteHost({
       staticKey,
-      machine: () => ({ id: ctx.machine.id, name: ctx.machine.status().name }),
+      machine: () => ({
+        id: ctx.machine.id,
+        name: ctx.machine.status().name,
+        addresses: directAddresses(ctx),
+      }),
       random: ctx.random,
       timers: systemTimers,
       bus: ctx.bus,
@@ -477,7 +489,7 @@ export const remoteWiring: WiringFactory = () => {
         const staticKey = await hostKey;
         const code = codes.start();
         return ok({
-          addresses: lanAddresses(),
+          addresses: directAddresses(ctx),
           port: listener?.port ?? ctx.settings.get(remotePortSetting),
           key: remoteKeyText(staticKey.publicKey),
           code: code.code,

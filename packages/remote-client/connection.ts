@@ -87,7 +87,8 @@ export type Endpoint = {
   machine?: Id<"mch">;
 };
 
-// What a computer said about itself in its hello: its id and the name it goes by.
+// What a computer said about itself in its hello: its id, the name it goes by and, only from a connection that checked the
+// saved id, the addresses to dial next time.
 export type Announced = RemotePeer["machine"];
 
 export type Dial = (url: string) => Promise<RemoteTransport>;
@@ -110,7 +111,12 @@ const BACKOFF_MAX_MS = 30_000;
 // How long a resumed channel has to answer the re-sent watch before it counts as dead.
 const PROBE_MS = 3000;
 
-export type Opened = { channel: RemoteClientChannel; path: ConnectionPath };
+// `address` is the direct address that opened; absent on the relay.
+export type Opened = {
+  channel: RemoteClientChannel;
+  path: ConnectionPath;
+  address?: string;
+};
 
 // Which side must update when the two remote protocol ranges do not meet: `client` is this app, `host` is lophn on the
 // computer (named `name` in its hello). From the channel's `conflict` details.
@@ -134,12 +140,13 @@ export function openFirst(
   client: Client,
 ): Promise<Opened | Outdated | undefined> {
   const remoteStatic = remoteKeyBytes(endpoint.key);
-  const urls: { url: string; path: ConnectionPath }[] = endpoint.addresses.map(
-    (address) => ({
-      url: `ws://${address.includes(":") ? `[${address}]` : address}:${endpoint.port}${REMOTE_PATH}`,
-      path: "direct",
-    }),
-  );
+  const urls: { url: string; path: ConnectionPath; address?: string }[] = [
+    ...new Set(endpoint.addresses),
+  ].map((address) => ({
+    url: `ws://${address.includes(":") ? `[${address}]` : address}:${endpoint.port}${REMOTE_PATH}`,
+    path: "direct",
+    address,
+  }));
   if (endpoint.relay) {
     urls.push({
       url: relayPhoneUrl(endpoint.relay, endpoint.key),
@@ -167,12 +174,16 @@ export function openFirst(
   return new Promise((resolve) => {
     let left = urls.length;
     let won = false;
-    for (const { url, path } of urls) {
+    for (const { url, path, address } of urls) {
       void open(url).then((channel) => {
         left -= 1;
         if (channel && !won) {
           won = true;
-          resolve({ channel, path });
+          resolve({
+            channel,
+            path,
+            ...(address === undefined ? {} : { address }),
+          });
         } else {
           channel?.close();
           if (left === 0 && !won) resolve(outdated);
@@ -182,6 +193,14 @@ export function openFirst(
   });
 }
 
+// The computer's own list, with the address this channel opened on kept first: the computer does not know every address
+// it is reached at (an emulator's host alias, a forwarded port).
+function reachable(announced: string[], opened: string | undefined) {
+  return opened === undefined || announced.includes(opened)
+    ? announced
+    : [opened, ...announced].slice(0, 16);
+}
+
 export function createConnection(
   deps: Client & {
     endpoint: Endpoint;
@@ -189,7 +208,8 @@ export function createConnection(
     // Runs fn after ms; returns a cancel function.
     wait: (ms: number, fn: () => void) => () => void;
     onRevoked: () => void;
-    // Every channel that opens reports who answered, so the store can keep the computer's id and its current name.
+    // Every channel that opens reports who answered, so the store can keep the computer's id, its current name and, when
+    // the channel checked the saved id, its current addresses.
     onPeer?: (machine: Announced) => void;
     // The answer to the computer's `request` frame (the phone's location, later more); undefined when it comes too late.
     // `isActive` is false while paused. Without it every request is dropped: the desktop answers no kind.
@@ -212,6 +232,9 @@ export function createConnection(
   // The id this link talks to: the saved one, or the first one it meets. Held here so a computer that has no id saved yet
   // is also checked from its second connection on, without waiting for the store to write the entry.
   let machine = deps.endpoint.machine;
+  // The direct addresses the next attempt dials. Replaced by the computer's hello only on a channel that checked the id
+  // above, so another machine behind the same key cannot point this device elsewhere.
+  let addresses = deps.endpoint.addresses;
   // Last conditions the screen asked for. Sent again on every new channel; `[]` still gets a `ready` back.
   let watching: WatchConditions = [];
   let nextId = 0;
@@ -243,7 +266,11 @@ export function createConnection(
   async function connect() {
     if (connecting || channel || !active || stopped) return;
     connecting = true;
-    const opened = await openFirst({ ...deps.endpoint, machine }, deps);
+    const checked = machine !== undefined;
+    const opened = await openFirst(
+      { ...deps.endpoint, machine, addresses },
+      deps,
+    );
     connecting = false;
     if (!opened || !("channel" in opened)) {
       if (opened) update = opened.update;
@@ -252,9 +279,14 @@ export function createConnection(
     }
     if (stopped) return opened.channel.close();
     update = null;
-    const { machine: peer } = opened.channel.peer;
+    const { addresses: announced, ...peer } = opened.channel.peer.machine;
     machine = peer.id;
-    deps.onPeer?.(peer);
+    if (checked && announced !== undefined) {
+      addresses = reachable(announced, opened.address);
+      deps.onPeer?.({ ...peer, addresses });
+    } else {
+      deps.onPeer?.(peer);
+    }
     channel = opened.channel;
     path = opened.path;
     channel.onClose(() => dropped(opened.channel));

@@ -42,9 +42,9 @@ type PeerBase = {
   capabilities: string[];
 };
 
-// 붙는 쪽(폰, desktop)이 handshake와 hello로 안 core: 공개 key와 그 기계의 id와 이름.
+// 붙는 쪽(폰, desktop)이 handshake와 hello로 안 core: 공개 key와 그 기계의 id와 이름, 지금 주소 후보(이 칸 전의 core는 없다).
 export type RemotePeer = PeerBase & {
-  machine: { id: Id<"mch">; name: string };
+  machine: { id: Id<"mch">; name: string; addresses?: string[] };
 };
 
 // core가 안 기기. publicKey가 기기 신원이고 누구인지는 부르는 쪽이 정한다. name은 기기가 알린 자기 이름이다.
@@ -156,14 +156,16 @@ export function connectRemote(
           message: "a different computer answered",
         });
       }
+      const { id, name, addresses } = theirs.machine;
       return ok({
         publicKey,
         version: theirs.version,
         minVersion: theirs.min_version,
         capabilities: theirs.capabilities,
         machine: {
-          id: theirs.machine.id as Id<"mch">,
-          name: theirs.machine.name,
+          id: id as Id<"mch">,
+          name,
+          ...(addresses === undefined ? {} : { addresses }),
         },
       });
     },
@@ -172,7 +174,7 @@ export function connectRemote(
 
 // core 쪽. handshake와 hello가 끝나기 전에는 어떤 frame도 부르는 쪽에 넘기지 않는다. machine은 hello로 알리는 이 기계다.
 export function acceptRemote(
-  options: Options & { machine: { id: Id<"mch">; name: string } },
+  options: Options & { machine: RemotePeer["machine"] },
 ): Promise<Result<RemoteServerChannel>> {
   const handshake = responderHandshake({ ...options, prologue });
   return open(options, remoteClientFrameSchema, {

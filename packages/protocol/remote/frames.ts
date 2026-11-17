@@ -24,10 +24,20 @@ const helloFields = {
   capabilities: z.array(z.string().min(1).max(64)).max(64),
 };
 
-// core → client. 자격(pair code, call)을 보내기 전에 붙는 쪽이 어느 기계인지 안다.
+// 붙는 쪽이 `ws://<address>:<port>/remote`로 거는 주소 후보(IP나 domain, port 없이). QR과 core hello가 싣는다.
+export const remoteAddressesSchema = z
+  .array(z.string().min(1).max(253))
+  .max(16);
+
+// core → client. 자격(pair code, call)을 보내기 전에 붙는 쪽이 어느 기계인지 안다. `addresses`는 그 기계의 지금 주소 후보다.
+// pairing 뒤에 주소가 바뀌어도(새 network, Tailscale) 붙는 쪽이 저장한 목록을 고친다. 이 칸 전의 core는 싣지 않는다.
 const serverHelloSchema = z.object({
   ...helloFields,
-  machine: z.object({ id: machineIdSchema, name: machineNameSchema }),
+  machine: z.object({
+    id: machineIdSchema,
+    name: machineNameSchema,
+    addresses: remoteAddressesSchema.optional(),
+  }),
 });
 
 // client → core. 폰은 자기 이름을, desktop은 자기 기계 이름을 알린다. core는 붙을 때마다 기기 표의 알린 이름으로 적는다.
@@ -47,7 +57,7 @@ export const keyTextSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 // QR에 싣는 것. 폰은 addresses의 `ws://<address>:<port>/remote`와 relay(있으면)를 같이 걸어 먼저 된 것을 쓰고,
 // key로 core를 확인하고, code로 pairing한다.
 export const remotePairingSchema = z.strictObject({
-  addresses: z.array(z.string().min(1)).max(16),
+  addresses: remoteAddressesSchema,
   port: z.number().int().min(1).max(65535),
   key: keyTextSchema,
   code: z.string().min(1).max(128),

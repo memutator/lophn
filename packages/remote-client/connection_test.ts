@@ -344,3 +344,96 @@ test("a saved machine id is checked before anything is sent: another machine beh
   assert.equal(connection.current().state, "ready");
   connection.close();
 });
+
+test("the addresses a device dials change only through a channel that checked the saved machine id", async () => {
+  const core = generateKeyPair(cryptoRandom);
+  const channels: RemoteServerChannel[] = [];
+  let answering: {
+    id: Id<"mch">;
+    name: string;
+    addresses: string[];
+  } = { ...MACHINE, addresses: ["100.64.0.5"] };
+  let unreachable = new Set<string>();
+  const rounds: string[][] = [];
+  const dial = async (url: string) => {
+    const host = new URL(url).hostname;
+    rounds.at(-1)?.push(host);
+    if (unreachable.has(host)) throw new Error("unreachable");
+    const [clientSide, coreSide] = pipe();
+    void acceptRemote({
+      transport: coreSide,
+      staticKey: core,
+      capabilities: [],
+      machine: answering,
+      random: cryptoRandom,
+    }).then((opened) => {
+      assert.ok(opened.ok);
+      channels.push(opened.value);
+      opened.value.onFrame((frame) => {
+        if (frame.type === "watch") opened.value.send({ type: "ready" });
+      });
+    });
+    return clientSide;
+  };
+  const retries: (() => void)[] = [];
+  const met: (string[] | undefined)[] = [];
+  const again = async () => {
+    for (const channel of channels.splice(0)) channel.close();
+    await settle();
+    rounds.push([]);
+    retries.at(-1)?.();
+    await settle();
+  };
+  rounds.push([]);
+  const connection = createConnection({
+    // No id saved yet: the first channel has nothing to check its hello against.
+    endpoint: {
+      addresses: ["10.0.0.1"],
+      port: 7432,
+      key: remoteKeyText(core.publicKey),
+    },
+    key: generateKeyPair(cryptoRandom),
+    capabilities: [],
+    dial,
+    random: cryptoRandom,
+    name: "Mina's phone",
+    now: () => 1,
+    wait: (_ms, fn) => {
+      retries.push(fn);
+      return () => {};
+    },
+    onRevoked: () => {},
+    onPeer: (machine) => met.push(machine.addresses),
+  });
+  await settle();
+  assert.equal(connection.current().state, "ready");
+  assert.deepEqual(met, [undefined]);
+
+  // The id is known now: this channel checks it and takes the computer's list, keeping the address it opened on.
+  await again();
+  assert.deepEqual(rounds.at(-1), ["10.0.0.1"]);
+  assert.deepEqual(met.at(-1), ["10.0.0.1", "100.64.0.5"]);
+
+  // A copied data root answers with the same key and another machine id: its addresses are not taken.
+  answering = {
+    id: "mch_01m7dp1jqw47d55vdyzxv5wd0y",
+    name: "copy",
+    addresses: ["203.0.113.9"],
+  };
+  await again();
+  assert.equal(connection.current().state, "stale");
+  assert.equal(met.length, 2);
+
+  // The computer moved: only its new address answers, and its list replaces the old one.
+  answering = { ...MACHINE, addresses: ["100.64.0.5"] };
+  unreachable = new Set(["10.0.0.1"]);
+  rounds.push([]);
+  retries.at(-1)?.();
+  await settle();
+  assert.deepEqual(rounds.at(-1), ["10.0.0.1", "100.64.0.5"]);
+  assert.equal(connection.current().state, "ready");
+  assert.deepEqual(met.at(-1), ["100.64.0.5"]);
+  await again();
+  assert.deepEqual(rounds.at(-1), ["100.64.0.5"]);
+  connection.close();
+});

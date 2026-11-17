@@ -351,7 +351,11 @@ function setup() {
   const names: string[] = [];
   const host: RemoteHost = createRemoteHost({
     staticKey: coreKey,
-    machine: () => ({ id: `mch_0${"1".repeat(25)}`, name: "studio" }),
+    machine: () => ({
+      id: `mch_0${"1".repeat(25)}`,
+      name: "studio",
+      addresses: ["192.168.0.2"],
+    }),
     random,
     timers: {
       set(run, ms) {

@@ -235,17 +235,22 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
     sync();
   }
 
-  // A connection met the computer: keep its id (an entry paired before ids has none) and the name it goes by now. The
-  // alias is the person's and stays.
+  // A connection met the computer: keep its id (an entry paired before ids has none), the name it goes by now and the
+  // addresses it gave, which the connection passes on only after checking the id. The alias is the person's and stays.
   function learn(key: string, machine: Announced) {
     const known = saved.find((c) => c.key === key);
     if (!known) return;
-    if (known.machine === machine.id && known.announced === machine.name)
+    const addresses = machine.addresses ?? known.addresses;
+    if (
+      known.machine === machine.id &&
+      known.announced === machine.name &&
+      addresses.join("\n") === known.addresses.join("\n")
+    )
       return;
     update(
       saved.map((c) =>
         c.key === key
-          ? { ...c, machine: machine.id, announced: machine.name }
+          ? { ...c, machine: machine.id, announced: machine.name, addresses }
           : c,
       ),
     );

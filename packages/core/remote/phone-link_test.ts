@@ -68,7 +68,11 @@ function setup() {
   const link = createPhoneLink({ timers: fakeTimers, random });
   const host = createRemoteHost({
     staticKey: coreKey,
-    machine: () => ({ id: `mch_0${"1".repeat(25)}`, name: "studio" }),
+    machine: () => ({
+      id: `mch_0${"1".repeat(25)}`,
+      name: "studio",
+      addresses: [],
+    }),
     random,
     timers: fakeTimers,
     bus: createBus(),

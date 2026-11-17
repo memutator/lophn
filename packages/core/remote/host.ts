@@ -61,8 +61,8 @@ export type RemoteDevices = {
 
 export type RemoteHostDeps = {
   staticKey: KeyPair;
-  // hello로 알리는 이 기계. 연결마다 읽어 사람이 이름을 바꾸면 다음 연결부터 새 이름이다.
-  machine(): { id: Id<"mch">; name: string };
+  // hello로 알리는 이 기계와 지금 주소 후보. 연결마다 읽어 이름이나 주소가 바뀌면 다음 연결부터 새 것이다.
+  machine(): { id: Id<"mch">; name: string; addresses: string[] };
   random: RandomSource;
   timers: RemoteTimers;
   bus: Bus;

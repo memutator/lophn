@@ -3,7 +3,7 @@
 // screen and goes to the host as `lab.result` (a host call: it is not one of the app's operations). The first local
 // call's time goes as `lab.first_local`. Host events `lab/do` run the buttons where taps do not reach a guest (debug).
 import { useEvent, useOperation } from "@lophn/app-ui-native";
-import { Button, ListCard, Row, Screen, Text, TopBar } from "@lophn/ui-native";
+import { Button, ListCard, Row, Screen, Text } from "@lophn/ui-native";
 import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 
@@ -53,7 +53,7 @@ export default function Local() {
   useEvent<string>("lab", "do", (name) => void actions[name]?.());
 
   return (
-    <Screen top={<TopBar left="none" title="Local items" sub="runs on this phone" />} scroll>
+    <Screen scroll>
       <View style={{ padding: 16, gap: 12 }}>
         <Text>{`last: ${last}`}</Text>
         <ListCard>

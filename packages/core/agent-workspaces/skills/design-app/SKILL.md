@@ -229,13 +229,14 @@ responsive for both.
 
 Rules:
 
-- The root is `Screen`. Give it `top={<TopBar left="none" title="Orders" />}`:
-  `TopBar` shows lophn's sidebar button by default (`left="menu"`), and an app
-  screen has no sidebar.
-- A touch target is 44 or more. `Row` and `IconButton` already are. A `Button`
-  is 34 (`sm`) or 42 (`md`) high, so use `size="lg"` (54) for the main action of
-  a screen, and give a `Pressable` of your own `minHeight: 44`. Nothing depends
-  on hover.
+- The root is `Screen`, with no `top`: lophn draws the head row (the app's
+  name and menu), so draw no `TopBar` or title row. View tabs go at the top of
+  the body, the main action in `footer`.
+- `Sheet` and `Menu` open inside the screen. Do not use React Native's `Modal`:
+  it covers all of lophn and the phone tab cannot read it.
+- A touch target is 44 or more. `Row`, `IconButton` and `Button` already are.
+  Use `size="lg"` (54) for a screen's main action, and give a `Pressable` of
+  your own `minHeight: 44`. Nothing depends on hover.
 - Text sits in `Text`, with its `variant` and `tone`; do not set `fontSize`
   (the person's text scale applies). Chrome takes its colors from `useTheme()`,
   not from color values. The kit gives the fonts.
@@ -256,7 +257,7 @@ An example, `src/screens/orders/phone.tsx`:
 
 ```tsx
 import { useEffect, useState } from "react";
-import { Group, Row, Screen, TopBar } from "@lophn/ui-native";
+import { Group, Row, Screen } from "@lophn/ui-native";
 import { OperationButton, useOperation } from "@lophn/app-ui-native";
 
 const list = { name: "list-orders", title: "List orders" };
@@ -272,7 +273,7 @@ export default function Orders() {
   useEffect(() => void reload(), []);
   const main = <OperationButton operation={archive} size="lg" onDone={() => void reload()} />;
   return (
-    <Screen scroll tone="floor" top={<TopBar left="none" title="Orders" />} footer={main}>
+    <Screen scroll tone="floor" footer={main}>
       <Group>{orders.map((o) => <Row key={o.id} title={`Order ${o.id}`} sub={o.status} />)}</Group>
     </Screen>
   );

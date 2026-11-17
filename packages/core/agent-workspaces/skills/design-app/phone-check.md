@@ -48,10 +48,17 @@ placeholder. Put every input in a `Field` with a label so you can find it.
 ## Limits
 
 - The data on the phone is the preview's throwaway data, not the person's.
-- A kit `Sheet` or any `Modal` on the screen cannot be read or driven from the
-  phone tab: while one is open the calls are `unavailable` and say something
-  covers the preview. Design the check so the step under test is on the
-  screen itself, and tell the person what you could not check.
+- A kit `Sheet` or `Menu` opens inside the screen: read and drive it like the
+  rest. A React Native `Modal` cannot be read or driven from the phone tab:
+  while one is open the calls are `unavailable` and say something covers the
+  preview. Tell the person what you could not check.
+- A snapshot of a long list (`FlatList`, `SectionList`) has only the rows near
+  the screen, not the whole list. To reach the rows below, `scroll --dy` and
+  take a new snapshot. A cell of a horizontal list that is not drawn yet cannot
+  be reached; `scroll --ref` brings in one that is.
+- `type` and `fill` do not press the input: its `onPress` does not run and the
+  soft keyboard does not open. When pressing the input changes the screen
+  (a button that shows up, a hint), `click` it first and check that.
 - There is no Back and no system dialog (permission prompts, share sheet,
   keyboard chrome): you cannot press or see them.
 - The lophn app must stay in front. The person can take control at any time.

@@ -53,6 +53,11 @@ pass a job step by step. Before you make or change one, read the skill
   A new app is registered at home: tell the person, who asks lophn at home.
 - When you hear that a public command you use has changed, read the change
   and check the skills that call it before you use it again.
+- When this project gets something another workspace may ask about (a new
+  report, a body of material, a job that moved here), tell lophn at home in a
+  line or two with `lophn call send`
+  (`to: {agent: "lophn", workspace: {home: true}}`, `--reply none`): what it is
+  and whom to ask. Home keeps the map of the workspaces in the global memory.
 - When an MCP server of your own definition or of this project needs its key or
   sign-in, request it with `lophn ask secret --mcp <server> [--part <part>]`;
   the person types the value or signs in themselves and you never see it. A

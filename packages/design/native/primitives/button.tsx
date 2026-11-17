@@ -23,6 +23,9 @@ const SIZE: Record<
   lg: { height: 54, padX: 20, radius: 14, icon: 17, text: "body" },
 };
 
+// A finger needs 44 to hit. sm and md keep the wireframe's look and reach 44 with an invisible margin above and below.
+const TOUCH = 44;
+
 export interface ButtonProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
@@ -80,12 +83,14 @@ export function Button({
 }: ButtonProps) {
   const theme = useTheme();
   const box = SIZE[size];
+  const slop = Math.max(0, (TOUCH - box.height) / 2);
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
+      hitSlop={{ top: slop, bottom: slop }}
       style={({ pressed }) => {
         const tone = disabled
           ? {

@@ -1,6 +1,6 @@
 {
   "name": "@lophn/ui-native",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "lophn": {
     "supported_from": "0.1.0"

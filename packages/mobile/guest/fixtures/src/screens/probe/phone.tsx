@@ -1,7 +1,7 @@
 // (f) What a screen can reach. The results go to the host as a call (lab.probe) and on the screen. `params.probe` is the
 // base URL of a server on the computer: a request that arrives there is a way out.
 import { useOperation, usePlace } from "@lophn/app-ui-native";
-import { Screen, Text, TopBar } from "@lophn/ui-native";
+import { Screen, Text } from "@lophn/ui-native";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Image, Linking, NativeModules, Share, TurboModuleRegistry, View } from "react-native";
 
@@ -88,7 +88,7 @@ export default function Probe() {
     })();
   }, []);
   return (
-    <Screen top={<TopBar left="none" title="Fixture probe" />} scroll>
+    <Screen scroll>
       <View style={{ padding: 16, gap: 4 }}>
         {Object.entries(lines).map(([key, value]) => (
           <Text key={key} variant="detail">{`${key}: ${value}`}</Text>

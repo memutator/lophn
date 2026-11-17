@@ -1,7 +1,7 @@
 // (c) (d) (e) A screen that breaks on purpose: a render throw, a handler throw, an unhandled rejection, an 8 s busy
 // loop, a 300 MB allocation. Each runs from its button or from the host event lab/do (debug builds cannot tap a guest).
 import { useEvent } from "@lophn/app-ui-native";
-import { Button, Screen, Text, TopBar } from "@lophn/ui-native";
+import { Button, Screen, Text } from "@lophn/ui-native";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 
@@ -41,7 +41,7 @@ export default function Misbehave() {
   useEvent<string>("lab", "do", (action) => actions[action]?.());
   if (mode === "render") throw new Error("render throw");
   return (
-    <Screen top={<TopBar left="none" title="Fixture misbehave" />} scroll>
+    <Screen scroll>
       <View style={{ padding: 16, gap: 12 }}>
         <Text>{`tick ${tick} ${mode}`}</Text>
         {Object.keys(actions).map((name) => (

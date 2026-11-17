@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { ScrollView, StatusBar, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SheetLayer } from "../overlay/sheet.tsx";
 import { IconButton } from "../primitives/icon-button.tsx";
 import { Text } from "../primitives/text.tsx";
 import { useTheme } from "../theme.tsx";
@@ -43,46 +44,49 @@ export function Screen({
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   return (
-    <KeyboardAvoidingView
-      behavior="padding"
-      // The footer keeps its bottom inset; lifting by that much less puts it flush on the keyboard.
-      keyboardVerticalOffset={footer === undefined ? 0 : -insets.bottom}
-      style={{
-        flex: 1,
-        backgroundColor: theme.color.surface[tone],
-        paddingTop: insets.top,
-      }}
-    >
-      <StatusBar
-        barStyle={theme.scheme === "dark" ? "light-content" : "dark-content"}
-      />
-      {top}
-      {scroll ? (
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{
-            ...column,
-            paddingBottom: footer === undefined ? insets.bottom + 16 : 8,
-          }}
-          keyboardShouldPersistTaps="handled"
-        >
-          {children}
-        </ScrollView>
-      ) : (
-        <View style={{ flex: 1, minHeight: 0, ...column }}>{children}</View>
-      )}
-      {footer !== undefined && (
-        <View style={{ paddingBottom: insets.bottom, ...column }}>
-          {footer}
-        </View>
-      )}
-      {over}
-    </KeyboardAvoidingView>
+    <SheetLayer>
+      <KeyboardAvoidingView
+        behavior="padding"
+        // The footer keeps its bottom inset; lifting by that much less puts it flush on the keyboard.
+        keyboardVerticalOffset={footer === undefined ? 0 : -insets.bottom}
+        style={{
+          flex: 1,
+          backgroundColor: theme.color.surface[tone],
+          paddingTop: insets.top,
+        }}
+      >
+        <StatusBar
+          barStyle={theme.scheme === "dark" ? "light-content" : "dark-content"}
+        />
+        {top}
+        {scroll ? (
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{
+              ...column,
+              paddingBottom: footer === undefined ? insets.bottom + 16 : 8,
+            }}
+            keyboardShouldPersistTaps="handled"
+          >
+            {children}
+          </ScrollView>
+        ) : (
+          <View style={{ flex: 1, minHeight: 0, ...column }}>{children}</View>
+        )}
+        {footer !== undefined && (
+          <View style={{ paddingBottom: insets.bottom, ...column }}>
+            {footer}
+          </View>
+        )}
+        {over}
+      </KeyboardAvoidingView>
+    </SheetLayer>
   );
 }
 
 export interface TopBarProps {
-  /** menu: opens the sidebar (every top-level place). back: a place inside a place. close: a full-screen step. */
+  /** menu: opens the sidebar (every top-level place). back: a place inside a place. close: a full-screen step.
+   * Without it: menu when `onLeft` is given, else none (a button with nothing to do is not drawn). */
   left?: "menu" | "back" | "close" | "none";
   onLeft?: () => void;
   /** Marks the menu button: something waits in the sidebar. */
@@ -106,8 +110,8 @@ const LEFT_LABEL = {
 } as const;
 
 export function TopBar({
-  left = "menu",
   onLeft,
+  left = onLeft === undefined ? "none" : "menu",
   menuDot,
   lead,
   title,

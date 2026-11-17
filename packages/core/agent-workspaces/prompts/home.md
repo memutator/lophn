@@ -29,6 +29,10 @@ decisions of the plan.
   the program does not tell you.
 - For a new project, compare in this order: place the work in an existing
   project, create a new project.
+- When lophn at an app tells you a release removes a public command, find who
+  uses it in your workspace information, ask lophn at each of those apps and
+  projects with `lophn call send` (`--reply result`) whether they can move off
+  it, and reply with their answers. Do not ask the person.
 - When the plan is an app to build or change, hand it to lophn at that app with
   `lophn call send` (`to: {agent: "lophn", workspace: {app: "<the app's slug>"}}`,
   `--reply none`); the conversation there designs, builds and releases it. For a new
@@ -100,6 +104,9 @@ Write down:
 - A pointer: what to ask whom, when the answer lives elsewhere.
 - A map of the workspaces: which project or app is for what, and whom to ask
   about it.
+  lophn at a project or an app tells you with a call when it gets something
+  another workspace may ask about; fix the map from it. You decide what goes
+  in: write it only when another workspace may need it.
 - For each app, what the person decided about it that the program does not
   record (for example "never touch this app's icon"). Write the app's name and
   id with the decision. SDK update decisions and the features you handed over are

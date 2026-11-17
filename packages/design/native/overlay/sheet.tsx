@@ -1,6 +1,16 @@
 import { t } from "@lophn/i18n";
 import { Check as CheckIcon, type LucideIcon } from "lucide-react-native";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Animated,
   Easing,
@@ -100,20 +110,15 @@ export function Sheet({
     [drag, onClose],
   );
 
-  if (!mounted) return null;
   const translateY = Animated.add(
     shown.interpolate({ inputRange: [0, 1], outputRange: [height, 0] }),
     drag,
   );
-  return (
-    <Modal
-      transparent
-      visible
-      statusBarTranslucent
-      navigationBarTranslucent
-      animationType="none"
-      onRequestClose={onClose}
-    >
+  const layer = useContext(Layer);
+  const id = useId();
+  const inScreen = inAppScreen();
+  const content = mounted ? (
+    <>
       <Animated.View
         style={[
           StyleSheet.absoluteFill,
@@ -136,7 +141,8 @@ export function Sheet({
             width: "100%",
             maxWidth: SHEET_WIDTH,
             alignSelf: "center",
-            maxHeight: height * 0.92,
+            // Inside an app screen the sheet stops below the top of the screen, not of the phone.
+            maxHeight: inScreen ? "92%" : height * 0.92,
             backgroundColor: theme.color.surface.base,
             borderTopLeftRadius: 28,
             borderTopRightRadius: 28,
@@ -209,7 +215,76 @@ export function Sheet({
           </ScrollView>
         </Animated.View>
       </KeyboardAvoidingView>
+    </>
+  ) : null;
+  useLayoutEffect(() => layer?.(id, content));
+  useEffect(() => (layer ? () => layer(id, null) : undefined), [layer, id]);
+
+  if (content === null || layer !== null) return null;
+  if (inScreen)
+    return (
+      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+        {content}
+      </View>
+    );
+  return (
+    <Modal
+      transparent
+      visible
+      statusBarTranslucent
+      navigationBarTranslucent
+      animationType="none"
+      onRequestClose={onClose}
+    >
+      {content}
     </Modal>
+  );
+}
+
+// An app's screen runs where lophn set the global `lophnApp` (the phone's guest runtime, the desktop preview); lophn's
+// own phone screens have none. A Modal there would be a window over the whole lophn app, where an app could pass for
+// lophn's own screens and where the phone tab cannot read it, so an app's sheet draws inside the screen instead.
+function inAppScreen(): boolean {
+  return (globalThis as { lophnApp?: unknown }).lophnApp !== undefined;
+}
+
+type Place = (id: string, content: ReactNode) => void;
+const Layer = createContext<Place | null>(null);
+
+// Covers a Screen of an app so its sheets draw over the whole screen wherever in the screen they are opened.
+// Outside an app it adds nothing: lophn's own sheets are Modals.
+export function SheetLayer({ children }: { children: ReactNode }) {
+  const [sheets, setSheets] = useState<ReadonlyMap<string, ReactNode>>(
+    new Map(),
+  );
+  const place = useMemo<Place>(
+    () => (id, content) =>
+      setSheets((current) => {
+        if ((current.get(id) ?? null) === content) return current;
+        // A sheet keeps its place while it is open; one that opens again comes last, on top.
+        const next = new Map(current);
+        if (content === null) next.delete(id);
+        else next.set(id, content);
+        return next;
+      }),
+    [],
+  );
+  if (!inAppScreen()) return children;
+  return (
+    <Layer.Provider value={place}>
+      <View style={{ flex: 1 }}>
+        {children}
+        {[...sheets].map(([id, content]) => (
+          <View
+            key={id}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="box-none"
+          >
+            {content}
+          </View>
+        ))}
+      </View>
+    </Layer.Provider>
   );
 }
 

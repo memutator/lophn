@@ -16,7 +16,7 @@ external로 두고 폰이 내준다). 이 package를 설치하는 것은 type �
 ## 공개 API와 type
 
 ```tsx
-import { Screen, TopBar, Row, Text, Button } from "@lophn/ui-native";
+import { Screen, Row, Text, Button } from "@lophn/ui-native";
 ```
 
 모든 export는 이 root 하나에서 나온다(`@lophn/ui-native/<경로>` 같은 sub-path는 없고 build가 거절한다). 각 조각의 props type은 `<이름>Props`로 같이 나온다(`ScreenProps`, `RowProps`, …). 위
@@ -145,7 +145,7 @@ build가 쓴다. 폰 화면이 있는 앱의 `devDependencies`에 같이 둔다.
 
 ```json
 "devDependencies": {
-  "@lophn/ui-native": "file:.lophn/sdk/ui-native/0.2.0",
+  "@lophn/ui-native": "file:.lophn/sdk/ui-native/0.3.0",
   "@types/react": "19.3.0",
   "expo-clipboard": "58.0.4",
   "lucide-react-native": "1.73.0",
@@ -158,19 +158,22 @@ build가 쓴다. 폰 화면이 있는 앱의 `devDependencies`에 같이 둔다.
 }
 ```
 
-앱 `lophn.ts`의 `sdk_dependencies`에도 같은 판을 적는다: `{ name: "@lophn/ui-native", version: "0.2.0" }`.
+앱 `lophn.ts`의 `sdk_dependencies`에도 같은 판을 적는다: `{ name: "@lophn/ui-native", version: "0.3.0" }`.
 두 곳의 판은 같아야 한다. operation을 부르는 `@lophn/app-ui-native`도 같은 방식으로 둔다(그 guide).
 `@lophn/ui-native`의 peer 판은 위 표가 정확한 판이다. 판을 올리면 표와 같이 바뀐다.
 
 ## 폰 규칙
 
-- **화면 root는 `Screen`이다.** 안전 영역, 위 줄(`TopBar`), 본문, 키보드 위로 오르는 아래 줄이 거기서 난다.
+- **화면 root는 `Screen`이고 `top`을 주지 않는다.** 안전 영역, 본문, 키보드 위로 오르는 아래 줄이 거기서 난다.
   `UiProvider`는 폰 앱의 root가 이미 둔다. 화면이 다시 두지 않는다(desktop preview도 같은 진입이 둔다).
-  앱 화면의 `TopBar`는 `left="none"`을 준다. 기본값 `"menu"`는 lophn 폰 앱의 sidebar를 여는 단추인데 앱 화면에는
-  sidebar가 없다.
-- **누르는 곳은 44 이상이다.** `IconButton`·`Row`·`Tabs`는 그렇게 준다. `Button`은 `sm` 34, `md` 42, `lg` 54라서
-  화면의 주 행동은 `lg`를 쓴다. 직접 만드는 `Pressable`도 `minHeight: 44` 아래로 두지 않는다. hover가 없으니
-  hover로만 보이는 설명·단추를 두지 않는다.
+  앱 화면의 머리 줄(앱 mark와 이름, ⋯ menu)은 lophn이 그린다. desktop과 같다. 앱은 `TopBar`나 제목 줄을
+  그리지 않는다(앱 이름이 lophn의 줄 아래에 한 번 더 선다). view 탭은 본문 맨 위, 주 행동은 `footer`에 둔다.
+  `TopBar`는 `onLeft`가 없으면 왼쪽 단추를 그리지 않는다.
+- **`Sheet`·`Menu`는 화면 안에 뜬다**(lophn의 머리 줄 아래). React Native의 `Modal`을 직접 쓰지 않는다. lophn
+  앱 전체를 덮고, phone 탭이 그 안을 읽지도 누르지도 못한다.
+- **누르는 곳은 44 이상이다.** `IconButton`·`Row`·`Tabs`·`Button`은 그렇게 준다. `Button`은 `sm` 34, `md` 42,
+  `lg` 54로 보이지만 눌리는 곳은 위아래로 넓혀 44 이상이다. 화면의 주 행동은 `lg`를 쓴다. 직접 만드는
+  `Pressable`도 `minHeight: 44` 아래로 두지 않는다. hover가 없으니 hover로만 보이는 설명·단추를 두지 않는다.
 - **등록한 기준 폰의 폭에 맞춰 그린다. 반응형을 만들지 않는다.** 폭과 DPR은 `lophn app phone-target`이
   준다(기기가 없으면 사람에게 폰을 pairing하라고 말한다). 기준 폰이 바뀌면 옛 크기로 그린 화면은 다시 그린다.
 - **글자는 `Text` 안에 둔다.** React Native의 `<View>` 아래 글자는 그려지지 않는다. 색은 `useTheme()`의
@@ -189,16 +192,12 @@ build가 쓴다. 폰 화면이 있는 앱의 `devDependencies`에 같이 둔다.
 ## 사용
 
 ```tsx
-import { Screen, TopBar, Group, Row, Text, Button } from "@lophn/ui-native";
+import { Screen, Group, Row, Text, Button } from "@lophn/ui-native";
 import { OperationButton, useOperation } from "@lophn/app-ui-native";
 
 export default function Orders() {
   return (
-    <Screen
-      tone="floor"
-      scroll
-      top={<TopBar left="none" title="Orders" />}
-    >
+    <Screen tone="floor" scroll>
       <Group>
         <Row title="Order 1042" sub="Shipped" end={<Text tone="muted">3 items</Text>} />
       </Group>
@@ -214,7 +213,7 @@ desktop에서 확인한다: `lophn tab open --preview <app> --screen <key>`가 �
 연다. 이것은 react-native-web이라 실제 폰과 다를 수 있다(입력, soft keyboard, scroll, 글꼴, 안전 영역).
 그런 것은 사람의 폰에서 확인한다: 사람에게 폰의 lophn 앱에서 이 앱의 Preview from lophn을 열고 앱을 앞에 두어 달라고
 부탁한 뒤 `lophn tab open --phone <app> [--screen <key>]`로 열고 `lophn browser snapshot|screenshot|act|wait`로 본다(폰의
-data는 preview의 throwaway data이고, `Sheet`와 `Modal`은 읽지도 누르지도 못한다. 자세한 길은 skill `design-app`의
+data는 preview의 throwaway data이고, `Modal`은 읽지도 누르지도 못한다. 자세한 길은 skill `design-app`의
 `phone-check.md`). "desktop preview에서 본 것", "폰에서 본 것", "보지 못한 것"을 나눠 알린다.
 `Field`의 `label`이 안의 `Input`의 accessibility 이름이 된다(snapshot에서 찾는 이름). 입력마다 `Field`로 감싸 이름을 준다.
 

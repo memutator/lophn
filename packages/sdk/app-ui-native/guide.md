@@ -36,7 +36,7 @@ import {
     `onFailed`는 오류 code(`invalid_input`·`forbidden`·`conflict`·`unavailable` 등)를 받는다.
   - `input`은 operation 입력이거나 누를 때 입력을 만드는 함수다. 없으면 `null`이다.
   - `variant`·`size`는 kit `Button`의 것이다(`primary`·`secondary`·`ghost`·`danger`, `sm`·`md`·`lg`).
-    기본 `md`는 42라 누르는 곳 44에 못 미친다. 화면의 주 행동은 `size="lg"`(54)를 준다.
+    화면의 주 행동은 `size="lg"`(54)를 준다.
   - `app`은 `lophnApp`이다. 없으면 전역 `lophnApp`을 쓴다.
 - `useOperation(operation, app?)` — `{state, run}`. 단추가 아닌 trigger에서 같은 pending·실패를 쓴다.
   `run(input)`은 `{ok: true, value}`나 `{ok: false, code}`이고 기다리는 동안 다시 부르면 `undefined`다.
@@ -50,7 +50,8 @@ import {
   `EventBridge`, `Place`, `PlaceValue`, `PlaceWorkspace`, `OperationButtonProps`
 
 `useTabHead`·`useCommand`·`useProjects`·`useKeepAlive`·`AppErrorBoundary`는 없다. 폰에 그 bridge가 없고,
-root의 오류 경계는 폰 앱의 base가 둔다.
+root의 오류 경계는 폰 앱의 base가 둔다. 폰 화면의 머리 줄은 lophn이 그리고 앱은 머리 줄을 그리지 않는다
+(`@lophn/ui-native` guide의 폰 규칙).
 
 규칙:
 
@@ -73,7 +74,7 @@ root의 오류 경계는 폰 앱의 base가 둔다.
 
 | peer                 | version |
 | -------------------- | ------- |
-| `@lophn/ui-native`   | 0.2.0   |
+| `@lophn/ui-native`   | 0.3.0   |
 | `react-native`       | 0.88.1  |
 | `react`              | 19.3.0  |
 | `@lophn/declaration` | 4.9.0 (이 package가 의존으로 가져온다) |
@@ -83,13 +84,13 @@ root의 오류 경계는 폰 앱의 base가 둔다.
 
 ```json
 "devDependencies": {
-  "@lophn/app-ui-native": "file:.lophn/sdk/app-ui-native/1.4.0"
+  "@lophn/app-ui-native": "file:.lophn/sdk/app-ui-native/1.5.0"
 }
 ```
 
 ```ts
 sdk_dependencies: [
-  { name: "@lophn/app-ui-native", version: "1.4.0" },
+  { name: "@lophn/app-ui-native", version: "1.5.0" },
 ],
 ```
 
@@ -100,7 +101,7 @@ sdk_dependencies: [
 
 ```tsx
 import { useState } from "react";
-import { Group, Row, Screen, Text, TopBar } from "@lophn/ui-native";
+import { Group, Row, Screen, Text } from "@lophn/ui-native";
 import {
   OperationButton,
   type OperationSpec,
@@ -127,7 +128,7 @@ export default function Orders() {
   useEvent("orders", "changed", () => void reload());
 
   return (
-    <Screen scroll top={<TopBar left="none" title="Orders" />}>
+    <Screen scroll>
       <Group>
         {orders.map((order) => (
           <Row key={order.id} title={`Order ${order.id}`} />

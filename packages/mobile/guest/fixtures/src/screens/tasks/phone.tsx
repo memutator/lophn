@@ -1,7 +1,7 @@
 // (a) A normal kit screen: calls round-trip through the host's fake operations, a host event changes the screen, and
 // the Input takes typing from the soft keyboard.
 import { useEvent, useOperation, usePlace } from "@lophn/app-ui-native";
-import { Button, Input, ListCard, Row, Screen, Text, TopBar } from "@lophn/ui-native";
+import { Button, Input, ListCard, Row, Screen, Text } from "@lophn/ui-native";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 
@@ -29,8 +29,9 @@ export default function Tasks() {
     }
   };
   return (
-    <Screen top={<TopBar left="none" title="Fixture tasks" sub={place.place ?? "outside"} />} scroll>
+    <Screen scroll>
       <View style={{ padding: 16, gap: 12 }}>
+        <Text>{`place: ${place.place ?? "outside"}`}</Text>
         <Text>{`event: ${note}`}</Text>
         <ListCard>
           {tasks.map((task) => (

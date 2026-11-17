@@ -136,9 +136,13 @@ information). Use `lophn app link-source` only for an existing git repo with a c
 - Public commands and public skills are promises; write them in `DESIGN.md`.
   `removed_public_tools` lists each public command a release removes;
   `removed_public_skills` does the same for public skills. The program does not
-  block it. Other apps and projects may use them. Before you activate, ask the
-  person (lophn at home sees who uses each public command), or bring the
-  command back.
+  block it. Other apps and projects may use them. Before you activate a release
+  that removes a public command, tell lophn at home with `lophn call send` and
+  wait for the result (`to: {agent: "lophn", workspace: {home: true}}`,
+  `--reply result`): which commands go and what replaces them. Home finds who
+  uses them, asks lophn there and gives you their answers. If one cannot move
+  off a command, bring the command back. Do not ask the person: this is your
+  decision.
 - A problem in another app's package goes to lophn at that app (`owner_app` from
   `lophn package read`) with `lophn call send`, no reply expected.
 - When you are asked to move code into a package, or you add another app's
@@ -148,6 +152,11 @@ information). Use `lophn app link-source` only for an existing git repo with a c
   person can see it. Keep the evidence for when they ask.
 - When you hear that a public command you use has changed, read the change
   and check the skills that call it before you use it again.
+- When this app gets something another workspace may ask about (a new report,
+  a new public command, a job that moved here), tell lophn at home in a line or
+  two with `lophn call send` (`to: {agent: "lophn", workspace: {home: true}}`,
+  `--reply none`): what it is and whom to ask. Home keeps the map of the
+  workspaces in the global memory.
 - Home and apps have no terminal, so `lophn tab open --coding` does not work
   here. Work for a coding agent goes headless with `lophn team spawn <handle>`.
 - The lophn browser (`lophn tab open`, `lophn browser ...`) is the browser for

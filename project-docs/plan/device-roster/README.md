@@ -11,16 +11,18 @@
 정체:
 - **컴퓨터의 정체는 core의 것 하나다.** 지금의 host key(`remote/host-key.json`)를 받는 쪽과 붙는 쪽 둘 다에 쓰고, 명단 항목에 서명할 서명 key 하나를 더한다. shell main이 따로 들던 붙는 쪽 key와 목록(`shell/viewer/key.json`, `machines.json`)은 없앤다. (agent: 화면 없는 기계도 같은 정체를 가져야 한다)
 - **폰의 정체는 지금의 device key다.** 폰은 서명 key가 없고 누구도 들이지 못한다. (사람: "이미 든 컴퓨터 하나가 승인")
-- **기기 id는 명단 전체에서 하나다.** 지금 컴퓨터마다 따로 만든 `dev_`는 migration에서 그대로 명단의 id가 된다. `app_sync_log.device`, `shell.devices[].device`, principal `device:<id>`는 같은 값을 쓴다. (agent)
+- **기기 id는 명단 전체에서 하나다.** 지금 컴퓨터마다 따로 만든 `dev_`는 migration에서 그대로 명단의 id가 된다. 같은 폰이 컴퓨터마다 다른 id를 가졌으면 명단이 합쳐질 때 작은 id 하나로 모으고, `app_sync_log.device`, `shell.devices[].device`를 같은 write에서 고친다. principal `device:<id>`도 같은 값을 쓴다. (agent)
+- **이름도 명단 전체에서 하나다.** 기기의 이름은 항목에 있고 어느 컴퓨터에서나 바꾼다. 컴퓨터마다 따로 붙이던 별명(alias)은 이름으로 옮기고 없앤다. (agent)
 
 명단:
 - **명단은 서명한 항목의 모음이다.** 항목은 기기 하나(id, 종류 computer|phone, key, 컴퓨터면 서명 key와 `mch_`, 이름, os, 터미널 입력 허락, 들인 쪽, 서명)이고, 빼기도 서명한 항목이다. 폴더나 폰처럼 믿지 않는 곳을 거쳐도 서명으로 가린다. (agent: 한쪽만 켜진 기계에도 퍼져야 한다)
 - **믿음은 나에서 시작해 서명을 따라간다.** 컴퓨터는 자기를 믿고, 믿는 컴퓨터가 서명한 항목을 믿는다. 컴퓨터 둘이 이어질 때 서로의 항목에 서명하므로 두 명단이 합쳐진다. (agent)
-- **빼기가 이긴다.** 뺀 key는 다시 들이지 못한다(새 key로 다시 들어온다). 뺀 컴퓨터가 서명한 항목은 빼기를 알기 전에 받은 것만 남긴다. (agent)
+- **빼기가 이긴다.** 뺀 key는 다시 들이지 못한다. 빠진 것을 안 기기는 복사한 data root 때처럼 가진 명단과 key를 버리고 새 key를 만들어, 다시 초대하면 새 기기로 들어온다. 뺀 컴퓨터가 서명한 항목은 빼기를 알기 전에 받은 것만 남긴다. (agent)
 - **허락은 항목에 있다.** 터미널 입력 허락은 기기마다 하나이고 모든 기계에 같다. 어느 컴퓨터에서나 바꾼다(서명한 새 판). 부를 수 있는 route 목록은 지금 그대로 하나다. (agent: 사람 "기존의 approval이랑 크게 다를 게 없다")
 
 들이기:
-- **pairing code는 초대장이다.** 든 컴퓨터가 한 번 쓸 서명 key를 만들어 서명하고 QR과 글로 보인다. 새 기기는 그 key로 자기 항목에 서명해 스스로 들어온다. 초대한 컴퓨터가 꺼져 있어도 되고(dual boot), 새 기기는 아직 소식을 못 들은 다른 컴퓨터에 붙을 때 자기 항목과 초대장을 내민다. 초대장에는 수명이 있고, 초대한 컴퓨터는 한 번 쓰인 것을 다시 받지 않는다. (agent: 살아 있는 연결이 있어야만 들일 수 있으면 dual boot의 두 OS는 영영 못 잇는다)
+- **pairing code는 초대장이다.** 든 컴퓨터가 한 번 쓸 서명 key를 만들어 서명하고 QR과 글로 보인다. 새 기기는 그 key로 자기 항목에 서명해 스스로 들어온다. 초대한 컴퓨터가 꺼져 있어도 되고(dual boot), 새 기기는 아직 소식을 못 들은 다른 컴퓨터에 붙을 때 자기 항목과 초대장을 내민다. 초대한 컴퓨터는 한 번 쓰인 것을 다시 받지 않는다. 초대장의 수명은 만들 때 고른다: 기본은 짧고(30분), 새 기기가 초대한 컴퓨터와 같은 때 켜질 수 없으면 긴 것(7일)을 고른다. 수명은 항목이 도착한 때로 본다. (agent: 살아 있는 연결이 있어야만 들일 수 있으면 dual boot의 두 OS는 영영 못 잇는다)
+- **폰이 명단을 나른다.** 폰은 가진 항목을 붙는 컴퓨터마다 양쪽으로 넘긴다. dual boot는 이렇게 이어진다: OS A에서 긴 초대장을 만들고, OS B에서 그것으로 들어가고, 폰으로 B의 초대장을 한 번 찍는다(폰은 B가 있는 줄을 아직 모른다. 폰의 id는 그대로다). 그 뒤 폰이 B의 항목을 A에, A의 명단을 B에 전한다. 초대한 컴퓨터가 꺼져 있을 때 들어간 기기는 그 소식이 닿을 때까지 "기다리는 중"이다. 폴더로 나르는 것은 `carry-paths`다. (agent)
 - **화면 없는 기계는 CLI로 한다.** `lophn remote on | invite | join <초대장> | devices | remove <기기>`. 사람의 터미널에서만 된다(agent의 shell은 지금처럼 거절). (agent)
 
 연결:
@@ -30,7 +32,7 @@
 
 옮기기:
 - **폰은 다시 pairing하지 않는다.** 지금 `devices` 줄은 이 컴퓨터가 서명한 명단 항목이 된다(id, key, 허락 그대로). host key는 바꾸지 않는다.
-- **컴퓨터끼리는 한 번 다시 잇는다.** 지금 desktop이 다른 desktop에 붙던 key는 shell의 것이라 없어진다. 그 `devices` 줄(종류 desktop)과 `shell/viewer/machines.json`은 data step이 지우고, 사람이 컴퓨터 둘을 초대로 한 번 잇는다(change-log의 `해야:`). 창 자리(`viewer/windows.json`)는 둔다. (agent: 옛 key를 읽어 주는 호환 장치를 만들지 않는다)
+- **컴퓨터끼리는 한 번 다시 잇는다.** 지금 desktop이 다른 desktop에 붙던 key는 shell의 것이라 없어진다. 그 `devices` 줄(종류 desktop)은 명단으로 옮기는 schema step이 지우고 `shell/viewer/machines.json`과 `key.json`은 data step이 지운다. 사람이 컴퓨터 둘을 초대로 한 번 잇는다(change-log의 `해야:`). 창 자리(`viewer/windows.json`)와 시작할 때 여는 기계는 남긴다. (agent: 옛 key를 읽어 주는 호환 장치를 만들지 않는다)
 - protocol 판을 올린다. core, shell, 폰 앱을 같은 변경에서 고친다(`v2` 길을 만들지 않는다).
 
 ## task
@@ -62,6 +64,10 @@
 - 실제 relay에 붙지 않는다. 개발 root에서 `remote.enabled`를 켜기 전에 `remote.relay`를 비운다.
 - `packages/protocol/remote/allowlist.ts`, `packages/core/main/daemon/wiring/`의 등록 줄, `schema-steps.lock.json`은 lead가 합친다. `core-setup`과 `core-terminals`도 같은 file을 고치니 `status.py ready`가 거르는 대로 따른다.
 - `packages/mobile`을 고친 task는 `cd packages/mobile && npm ci && npm run typecheck && npm test`도 통과해야 한다.
+- `roster-core`는 크다(옮기기, 저장, 서명 key, 받아들이기, 초대, 빼기 퍼뜨리기). 막히면 "옮기기와 저장"과 "받아들이기와 초대"로 쪼갠다.
+- `roster-desktop`의 "내 기기" 화면은 승인된 wireframe이 없다. task가 gallery에 먼저 그리고, merge하기 전에 그 page를 사람에게 보인다.
+- 중간 land를 한 번 한다: wave 4(`roster-desktop`)까지 합친 뒤다. `core-setup`의 `setup-scope`·`setup-viewer`와 `core-browser`의 `page-view-desktop`이 그것을 기다린다. wave 2나 3에서는 올리지 않는다(desktop이 다른 기계를 보는 길이 wave 4에서야 새 길로 바뀐다).
+- `core-setup`의 `setup-scope`는 이 계획의 `roster-links` 위에서 돈다. 다른 컴퓨터가 넘긴 call을 받는 쪽이 지금의 `createRemoteCall`을 그대로 거쳐야 한다(`roster-links`의 brief에 있다).
 - subprocess나 서버를 띄우는 test와 E2E는 새로 만들기 전에 사람에게 묻는다.
 - 끝나면: `architecture/remote.md`(명단, 들이기, 컴퓨터끼리의 연결), `machine.md`, `approval.md`, boundary·module catalog, flows, change-log(`해야:` 컴퓨터끼리 한 번 다시 잇기, 폰 앱 update), roadmap `multi-device.md`의 순서 표.
 - 사람에게: 끝난 뒤 실제 기기로 확인을 부탁한다(폰 하나와 컴퓨터 둘: 폰을 한 컴퓨터와 pairing하면 다른 컴퓨터가 목록에 뜨는지, 한쪽에서 폰을 빼면 다른 쪽도 끊는지).

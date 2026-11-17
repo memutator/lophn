@@ -345,6 +345,7 @@ export function TerminalGui({
   drafts,
   host,
   onTitle,
+  focusKey = null,
   now = Date.now,
 }: {
   api: HarnessGuiTabApi;
@@ -354,6 +355,8 @@ export function TerminalGui({
   host?: Partial<AgentViewHost>;
   /** CLI session 제목이 생기거나 바뀌었다(`/rename`, resume). 탭 이름이 따라간다. */
   onTitle?: (title: string) => void;
+  /** 이 탭을 보고 있으면 그 탭 key. 대화 화면이 그려지면 입력칸으로 focus를 옮긴다. */
+  focusKey?: string | null;
   now?: () => number;
 }) {
   // terminalRef(`trm_<ULID>`)는 터미널이 다시 시작해도 같다. 아직 모르면 handle로 둔다.
@@ -414,6 +417,12 @@ export function TerminalGui({
           }),
     [api, gui.handle, feed, info],
   );
+  // 고른 탭만 mount되므로 탭을 고르거나 TUI에서 GUI로 바꿀 때마다 새로 붙고, 입력칸은 connect가 답한 뒤에야 생긴다.
+  // 탭을 고른 다음 frame의 focus는 빈 본문을 보므로 화면이 그려진 이때 옮긴다.
+  const shown = source !== null;
+  useEffect(() => {
+    if (shown && focusKey !== null) focusTabBody(focusKey);
+  }, [shown, focusKey]);
   // restart는 process를 끄고 같은 대화를 TUI로 잇는다(modal). shared는 server가 그대로라 view만 바뀐다.
   const toggle = useGuiToggle({
     api,
@@ -523,12 +532,6 @@ export function GuiSwitch({
   // 끝난 turn의 점과 알림이 사라진다.
   const showingGui = viewOf(tab) === "gui";
   const generation = entry?.generation ?? 0;
-  // TUI에서 GUI로 바뀌면 xterm이 사라지며 focus가 창 밖(body)에 남는다. 그대로면 대화 scroll key가
-  // 아무 데도 닿지 않으므로, 이 탭을 보고 있을 때는 입력칸으로 focus를 옮긴다.
-  useEffect(() => {
-    if (!active || !showingGui) return;
-    focusTabBody(tab.key);
-  }, [active, showingGui, tab.key]);
   useEffect(() => {
     const bridge = deps.bridge;
     if (
@@ -620,6 +623,7 @@ export function GuiSwitch({
       gui={gui}
       terminalRef={terminalRef}
       onTitle={onTitle}
+      focusKey={active ? tab.key : null}
       {...(agentView === null ? {} : { drafts: agentView.drafts })}
       host={{
         ...(agentView === null

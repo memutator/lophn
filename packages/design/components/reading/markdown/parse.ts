@@ -450,12 +450,23 @@ class Reader {
   }
 
   table(node: Node): Block {
-    const cells = (row: Node | null) =>
-      (row?.getChildren("TableCell") ?? []).map((cell) => {
-        const content = this.inlines(cell);
-        trimEdges(content);
-        return content;
-      });
+    // lezer는 빈 칸에 TableCell을 만들지 않는다. 구분자 `|` 수로 열을 세어 빈 칸도 자리를 지킨다.
+    const cells = (row: Node | null, width: number): Inline[][] => {
+      const out: Inline[][] = Array.from({ length: width }, () => []);
+      if (!row) return out;
+      const children = childNodes(row);
+      // 앞 `|`가 없는 줄은 첫 칸이 구분자 없이 시작한다.
+      let column = children[0]?.name === "TableDelimiter" ? -1 : 0;
+      for (const child of children) {
+        if (child.name === "TableDelimiter") column += 1;
+        else if (child.name === "TableCell" && column < width) {
+          const content = this.inlines(child);
+          trimEdges(content);
+          out[column] = content;
+        }
+      }
+      return out;
+    };
     const delimiter = childNodes(node).find(
       (child) => child.name === "TableDelimiter",
     );
@@ -474,8 +485,8 @@ class Reader {
     return {
       kind: "table",
       align,
-      header: cells(node.getChild("TableHeader")),
-      rows: node.getChildren("TableRow").map((row) => cells(row)),
+      header: cells(node.getChild("TableHeader"), align.length),
+      rows: node.getChildren("TableRow").map((row) => cells(row, align.length)),
     };
   }
 }

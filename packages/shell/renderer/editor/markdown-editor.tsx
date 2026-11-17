@@ -105,8 +105,19 @@ export function MarkdownEditor({
                 if (!editor.dom.isConnected) return;
                 setPasteFailed(links.length < images.length);
                 if (links.length === 0) return;
+                const { doc } = editor.state;
                 const at = editor.state.selection.main.head;
-                const text = links.join("\n");
+                const line = doc.lineAt(at);
+                // 그림 링크는 한 줄이 아니라 자기 문단이어야 한다. 앞 그림 바로 뒤에 이어 붙이면
+                // 한 줄에 그림이 둘이 되고, 그림 뒤에 커서를 둘 자리(빈 줄)도 없어 입력이 막힌다.
+                const lead =
+                  line.text.slice(0, at - line.from).trim() !== ""
+                    ? "\n\n"
+                    : line.number > 1 &&
+                        doc.line(line.number - 1).text.trim() !== ""
+                      ? "\n"
+                      : "";
+                const text = `${lead}${links.join("\n\n")}\n\n`;
                 editor.dispatch({
                   changes: { from: at, insert: text },
                   selection: { anchor: at + text.length },

@@ -1,0 +1,17 @@
+id: harness-gui-dogfood-fixes
+version: 0.23.50
+title: harness GUI의 focus·ESC·effort 알림·interrupt 표시와 마크다운 표·그림 붙여넣기를 고친다
+modules: [packages/shell/main, packages/shell/renderer, packages/design]
+change: |
+  - GUI 탭을 고르거나 TUI에서 GUI로 바꾸면 대화 화면이 그려진 뒤 입력칸에 focus가 간다. 전에는 화면이 그려지기 전 frame에 focus를 옮기려다 빗나갔다.
+  - 대화 글처럼 입력칸 밖을 눌러도 focus가 대화 화면에 남는다. 전에는 focus가 body로 빠져 Escape(멈추기) 같은 대화 화면 key가 먹지 않았다.
+  - Claude GUI에서 model만 바꾸면 effort를 바꿨다는 `/effort` 명령 출력이 더는 뜨지 않는다. picker가 싣는 effort가 CLI가 이미 쓰는 값과 같으면 보내지 않는다.
+  - Claude GUI가 지난 대화를 다시 읽을 때 `[Request interrupted by user…]`를 사람 메시지로 그리지 않고 그 turn을 멈춘 것으로 닫는다.
+  - 마크다운 표에서 빈 칸이 사라져 머리와 칸이 한 칸씩 밀리던 것을 고쳤다(lezer는 빈 칸에 TableCell을 만들지 않는다). 머리 줄 밑줄을 진하게 했다.
+  - 마크다운 편집기에 그림을 붙이면 그림마다 자기 문단이 되고 caret이 그 뒤 빈 줄에 간다. 전에는 그림이 한 줄에 이어 붙어 그 뒤에 칠 수 없었다.
+why: |
+  사람이 harness GUI를 매일 쓰며 찾은 것들이다(issue.md). 매일 쓰는 길(탭 오가기, 멈추기, model 바꾸기, resume)과 대화의 표가 어긋나 보였다.
+decisions:
+  - text: >-
+      대화 화면(section)에 tabIndex -1을 주어 화면 자신이 focus를 받게 했다. 버린 길: 대화 글을 누를 때마다 입력칸으로 focus 옮기기(글을 골라 복사하기가 깨진다).
+    by: agent

@@ -215,6 +215,7 @@ type Cancelable = Query & {
 
 // CLI가 control 요청에 답하지 않으면 입력 줄이 멈춘다. 기한을 넘기면 실패로 알린다.
 const REQUEST_WAIT_MS = 30_000;
+const INTERRUPTED = /^\s*\[Request interrupted by user[^\]]*\]\s*$/;
 // stop()의 interrupt는 정중하게 3초만 기다리고 바로 close한다(nodeSpawn의 SIGKILL 유예 3초, tui() 기한 8초 안).
 const STOP_POLITE_MS = 3_000;
 function bounded<T>(
@@ -2427,6 +2428,12 @@ const start: (sdk: ClaudeSdk) => Start =
             onToolResults(root, blocks);
             continue;
           }
+          // 사람이 멈춘 자리에 CLI가 user 글로 남기는 표시다. 사람 메시지가 아니라 그 turn이 멈췄다는 뜻이다.
+          if (INTERRUPTED.test(text)) {
+            onToolResults(root, blocks);
+            if (root.turn !== null) endTurn("stopped");
+            continue;
+          }
           if (root.turn !== null) endTurn("completed");
           const bash = /^<bash-input>([\s\S]*?)<\/bash-input>/.exec(text);
           if (bash !== null) {
@@ -3043,7 +3050,12 @@ const start: (sdk: ClaudeSdk) => Start =
       } catch {
         // 지금 process가 거절했다. 다음에 띄울 때 쓰도록 기억만 해 두고 지금 값을 다시 보인다.
       }
-      if (options.effort !== undefined && options.effort !== carry.effort)
+      // picker는 건드리지 않은 effort도 함께 싣는다. CLI가 이미 쓰는 값과 같으면 `/effort`를 보내지 않는다
+      // (보내면 model만 바꿨는데 effort를 바꿨다는 명령 출력이 뜬다).
+      const row = currentRow();
+      const using =
+        carry.effort ?? (row === undefined ? null : shownEffort(row));
+      if (options.effort !== undefined && options.effort !== using)
         await setEffort(options.effort);
       // fast는 이 query의 flag 설정이고 thinking은 토큰 한도를 걷거나 0으로 막는다.
       if (options.fast !== undefined) {

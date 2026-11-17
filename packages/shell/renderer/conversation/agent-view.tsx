@@ -1152,12 +1152,15 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     call.then((result) => result.ok);
 
   const view = (
+    // 입력칸 밖(대화 글)을 누르면 focus가 body로 빠져 key context와 이 화면의 command(Escape의 멈추기 등)가 사라진다.
+    // 화면 자신이 focus를 받게 한다(tab 순서에는 넣지 않는다).
     <section
       className={styles.view}
       data-agent-view=""
       data-key-context={
         props.harness === undefined ? "agentView" : `agentView:${props.harness}`
       }
+      tabIndex={-1}
       onFocus={claimFocus}
     >
       <AgentHeader

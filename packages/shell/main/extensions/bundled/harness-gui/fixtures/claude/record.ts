@@ -19,6 +19,7 @@ import { execFile, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { appendFileSync, writeFileSync } from "node:fs";
 import { mkdir, readFile, rm } from "node:fs/promises";
+import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { crc32, deflateSync } from "node:zlib";
 import {
@@ -826,6 +827,65 @@ const SCENARIOS: Record<string, (ctx: Ctx) => Promise<void>> = {
     await run.call("rewindFiles dry", "no-such-uuid", () =>
       run.q.rewindFiles(randomUUID(), { dryRun: true }),
     );
+    await run.close();
+  },
+
+  // (m) `@` 언급: CLI의 `file_suggestions`(내부 control 요청)가 무엇을 돌려주는지, agent·MCP 목록, 글 속 `@"경로"`와
+  // `@폴더/`가 transcript에 어떤 꼴로 남는지(펼친 내용이 따로 들어가는지) 본다.
+  async at_mention({ rec, cwd, open }) {
+    await mkdir(resolve(cwd, "src"), { recursive: true });
+    await mkdir(resolve(cwd, "docs"), { recursive: true });
+    await mkdir(resolve(cwd, ".claude/agents"), { recursive: true });
+    writeFileSync(resolve(cwd, "src/alpha.ts"), "export const ALPHA = 41;\n");
+    writeFileSync(resolve(cwd, "src/beta.md"), "# beta\n");
+    writeFileSync(resolve(cwd, "docs/notes.txt"), "notes\n");
+    writeFileSync(resolve(cwd, "ignored.txt"), "ignored\n");
+    writeFileSync(resolve(cwd, ".gitignore"), "ignored.txt\n");
+    writeFileSync(
+      resolve(cwd, ".claude/agents/reviewer.md"),
+      "---\nname: reviewer\ndescription: Reviews code\n---\nReview the code.\n",
+    );
+    await new Promise<void>((done) =>
+      execFile("git", ["init", "-q"], { cwd }, () => done()),
+    );
+    const run = open();
+    const internal = run.q as unknown as {
+      request(body: Record<string, unknown>): Promise<unknown>;
+    };
+    for (const query of ["", "alp", "src/", "doc", "ignored", "revi"])
+      await run
+        .call("request file_suggestions", { query }, () =>
+          internal.request({ subtype: "file_suggestions", query }),
+        )
+        .catch(() => undefined);
+    await run
+      .call("supportedAgents", {}, () => run.q.supportedAgents())
+      .catch(() => undefined);
+    await run
+      .call("mcpServerStatus", {}, () => run.q.mcpServerStatus())
+      .catch(() => undefined);
+    const u1 = await run.ask(
+      'Reply with only the number in @"src/alpha.ts" plus one. Do not use any tool.',
+    );
+    const u2 = await run.ask(
+      "List the file names in @src/ on one line. Do not use any tool.",
+    );
+    const id = run.sessionId();
+    if (id !== undefined) {
+      const list = await getSessionMessages(id, { dir: cwd });
+      rec.write("call", {
+        name: "getSessionMessages",
+        args: { session: id, dir: cwd },
+        result: list,
+      });
+      const file = resolve(
+        homedir(),
+        ".claude/projects",
+        cwd.replace(/[^A-Za-z0-9]/g, "-"),
+        `${id}.jsonl`,
+      );
+      rec.write("lead_note", { u1, u2, transcript: await textOfFile(file) });
+    }
     await run.close();
   },
 

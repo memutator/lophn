@@ -25,7 +25,7 @@
 | 2 | `setup-viewer` | `setup-provider`, `setup-project`, `setup-scope` | desktop의 다른 기계 창: Settings와 project 더하기를 열고, 보호 입력 창의 값이 그 기계로 간다 |
 | 2 | `setup-phone` | `setup-provider`, `setup-scope` | 폰 앱: secret·입력 card에 답하기, provider 연결 화면 |
 
-`setup-scope`는 `device-roster`의 `roster-core`와 같은 file(`packages/core/remote/call.ts`, `packages/protocol/remote/allowlist.ts`)을 고치고, 다른 컴퓨터가 넘긴 call을 받는 길(`roster-links`)이 같은 거르기를 타는지 봐야 한다. `roster-links`가 merge된 뒤에 띄운다. `setup-viewer`는 `device-roster`의 `roster-desktop`이 merge된 뒤에 띄운다(다른 기계 창이 붙는 길이 바뀐다).
+`setup-scope`는 `device-roster`의 `roster-core`와 같은 file(`packages/core/remote/call.ts`, `packages/protocol/remote/allowlist.ts`)을 고치고, 다른 컴퓨터가 넘긴 call을 받는 길(`roster-links`)이 같은 거르기를 타는지 봐야 한다. 둘 다 다른 계획의 branch에 있으므로 `device-roster`가 wave 4(`roster-desktop`)까지 main에 올린 뒤에 이 계획의 branch를 main 위로 옮기고 `setup-scope`를 띄운다. `setup-viewer`도 그 뒤다(다른 기계 창이 붙는 길이 바뀐다). `setup-provider`와 `setup-project`는 바로 띄운다.
 
 ## 위험 test (brief에 있다)
 

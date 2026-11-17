@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, sha256Schema } from "../base/values.ts";
+import { followStateSchema, updateStateSchema } from "../apps/update-state.ts";
 import { addressesSchema, alwaysOnSchema } from "./records.ts";
 
 export const FOLDER_ERROR_CODES = [
@@ -56,6 +57,8 @@ export const machineEnvironmentSchema = z.object({
       addresses: addressesSchema,
       lophn_version: z.string().nullable(),
       record_at: atSchema.nullable(),
+      // 폴더 꼴 판 범위(`apps/update_state`의 기계 칸과 같다). 이 기계는 늘 ok.
+      exchange: z.enum(["ok", "update_this", "update_peer"]),
       destinations: z.array(z.string()),
       sections: sectionsSchema,
     }),
@@ -96,10 +99,14 @@ export const machineEnvironmentSchema = z.object({
           error: folderErrorSchema.nullable(),
         }),
       ),
-      // horizon 밖에 있다(`away_too_long`): 언제부터, held 수, held 변경의 표·종류·때.
+      // `apps/update_state`와 같은 값. 폴더로 맞추지 않는 앱은 follow가 null이고 held·machines가 비었다.
+      follow: followStateSchema.nullable(),
+      held: updateStateSchema.shape.held,
+      machines: updateStateSchema.shape.machines,
+      // horizon 밖에 있거나 풀리지 않은 held 줄이 있다: 떨어진 때(떨어져 있지 않으면 null), held 수, held 변경의 표·종류·때.
       away: z
         .object({
-          since: atSchema,
+          since: atSchema.nullable(),
           held: count,
           changes: z.array(
             z.object({ table: z.string(), op: z.string(), at: atSchema }),

@@ -13,14 +13,20 @@ import { folderError } from "./deps.ts";
 /** ok: 주고받는다. update_this: 이 기계의 lophn을 올려야 한다. update_peer: 그 기계의 lophn을 올려야 한다. */
 export type Exchange = "ok" | "update_this" | "update_peer";
 
-/** 그 기계의 기록이 알린 꼴 판 범위로. 기록이 `newer_format`이라 읽지 못했으면 부르는 쪽이 `update_this`로 둔다. */
-export function exchangeWith(peer: FolderFormat): Exchange {
+/**
+ * 그 기계의 기록이 알린 꼴 판 범위로. 기록이 `newer_format`이라 읽지 못했으면 부르는 쪽이 `update_this`로 둔다.
+ * `own`은 이 기계의 꼴 판이다. 모든 build가 같은 꼴 판인 동안 update_peer 갈래는 test만 본다.
+ */
+export function exchangeWith(
+  peer: FolderFormat,
+  own: FolderFormat = FOLDER_FORMAT,
+): Exchange {
   // 그 기계가 쓰는 file을 이 기계가 읽는가.
-  if (peer.version > FOLDER_FORMAT.version) return "update_this";
-  if (peer.version < FOLDER_FORMAT.min_version) return "update_peer";
+  if (peer.version > own.version) return "update_this";
+  if (peer.version < own.min_version) return "update_peer";
   // 이 기계가 쓰는 file을 그 기계가 읽는가.
-  if (FOLDER_FORMAT.version < peer.min_version) return "update_this";
-  if (FOLDER_FORMAT.version > peer.version) return "update_peer";
+  if (own.version < peer.min_version) return "update_this";
+  if (own.version > peer.version) return "update_peer";
   return "ok";
 }
 
@@ -66,5 +72,7 @@ export type FolderExchange = {
   machines(): MachineExchange[];
   /** 그 앱의 held를 출처와 release마다 한 줄. */
   held(app: Id<"app">): HeldDetail[];
+  /** 앱 기록 사본이 있는 (기계, 앱). 꼴 판이 범위 밖인 기계가 범위 밖이 되기 전에 남긴 옛 사본도 든다. */
+  recorded(): { machine: Id<"mch">; app: Id<"app"> }[];
   onChange(listener: () => void): () => void;
 };

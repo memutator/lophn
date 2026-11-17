@@ -372,6 +372,7 @@ async function processChanges(
         input.app,
         input.origin,
         read.value.byteLength,
+        deps.heldMaxBytes,
       )
     ) {
       return { kind: "full" };

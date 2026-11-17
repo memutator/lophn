@@ -685,3 +685,28 @@ test("clock이 5분 넘게 앞선 file은 시각이 따라올 때까지 적용�
     assert.equal(env.folder.readsCaughtUp(APP), true);
   });
 });
+
+// snapshot 합치기는 source의 가장 큰 clock을 이 기계의 clock으로 받는다. 미루지 않으면 이 기계의 뒤 쓰기가 모두 앞선 clock을 단다.
+test("clock이 5분 넘게 앞선 snapshot은 시각이 따라올 때까지 합치지 않는다", async () => {
+  await setup(async (env) => {
+    env.putRecords(1, { data: { head: 1, snapshot: 1 } });
+    await env.folder.scan();
+    const raw = new DatabaseSync(":memory:");
+    const db = nodeSyncDb(raw);
+    ensureSyncTables(db, "peer");
+    setState(db, "hlc", String(hlcAtMs(T0 + 10 * 60 * 1000)));
+    env.put(
+      dataEntryPath(PEER, APP, 1, "snapshot"),
+      await env.snapshotFile(1, raw.serialize()),
+    );
+    raw.close();
+    const stream = await env.run();
+    assert.equal(env.calls.length, 0);
+    assert.equal(env.cursor(), 0);
+    assert.equal(stream?.error?.code, "clock_ahead");
+    assert.equal(stream?.error?.details?.["ahead_ms"], 600000);
+    env.clock.advance(6 * 60 * 1000);
+    await env.run();
+    assert.deepEqual(appliedIds(env.calls), ["snapshot 1"]);
+  });
+});

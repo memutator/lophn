@@ -21,7 +21,7 @@ export type UpdateStateDeps = {
     } | null;
   }[];
   follow: Pick<Follow, "state">;
-  exchange: Pick<FolderExchange, "machines" | "held">;
+  exchange: Pick<FolderExchange, "machines" | "held" | "recorded">;
   records(): KnownRecords;
   sql: Pick<Sql, "get" | "all">;
 };
@@ -54,6 +54,7 @@ export function readUpdateState(
           machine: row.machine,
           release: row.record.active_release,
         })),
+      recorded: deps.exchange.recorded(),
       releases: releases.value,
     }),
   );

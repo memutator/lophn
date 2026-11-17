@@ -22,6 +22,8 @@ export type StreamRow = {
   written_at: string | null;
   settled: string | null;
   away_since: string | null;
+  // 떨어져 있음 알림에 마지막으로 쓴 held 수. 알린 적이 없거나 다 따라잡았으면 null.
+  away_notified: number | null;
   error: FolderError | null;
 };
 
@@ -65,6 +67,7 @@ export function readStream(
     written_at: text(row["written_at"]),
     settled: text(row["settled"]),
     away_since: text(row["away_since"]),
+    away_notified: num(row["away_notified"]),
     error: error === null ? null : (JSON.parse(error) as FolderError),
   };
 }

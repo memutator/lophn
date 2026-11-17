@@ -1,7 +1,9 @@
 // 검사를 마친 file 하나를 `FolderApply`로 적용하는 길. stream(폴더에서 바로)과 drain(held 사본)이 같이 쓴다.
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
-import { clockAhead } from "../../../protocol/apps/sync/mod.ts";
+import { DatabaseSync } from "node:sqlite";
+import { clockAhead, maxHlc } from "../../../protocol/apps/sync/mod.ts";
+import { nodeSyncDb } from "../../../protocol/apps/sync/node-db.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import {
   CLOCK_AHEAD_MAX_MS,
@@ -67,6 +69,44 @@ export function applyError(
   }
 }
 
+// clock이 받는 쪽 시각보다 5분 넘게 앞섰으면 미루는 멈춤. 물러나지 않고 다음 계기에 다시 본다.
+function clockAheadStop(
+  deps: FolderImportDeps,
+  target: ApplyTarget,
+  newest: bigint,
+): Stop | null {
+  const ahead = clockAhead(newest, deps.clock.nowMs(), CLOCK_AHEAD_MAX_MS);
+  if (ahead === 0) return null;
+  return {
+    kind: "stop",
+    error: folderError(
+      deps.clock,
+      "clock_ahead",
+      `The clock of ${target.originName} is ${Math.round(ahead / 60_000)} minutes ahead`,
+      {
+        machine: target.origin,
+        machine_name: target.originName,
+        ahead_ms: Math.round(ahead),
+      },
+    ),
+    backoff: false,
+  };
+}
+
+// snapshot의 가장 큰 clock(숨은 state 표의 hlc). 합치기가 이 값을 받는 쪽 clock으로 받으므로 앞선 시계의 snapshot은
+// 합치기 전에 미룬다. 읽지 못하는 file은 0이다: 합치기가 그 file의 오류를 낸다.
+function snapshotClock(path: string): bigint {
+  let db: DatabaseSync | undefined;
+  try {
+    db = new DatabaseSync(path, { readOnly: true });
+    return maxHlc(nodeSyncDb(db));
+  } catch {
+    return 0n;
+  } finally {
+    db?.close();
+  }
+}
+
 /** changes file 하나 = 앱 DB transaction 하나. clock이 5분 넘게 앞선 file은 적용하지 않고 미룬다. */
 export async function applyChangesFile(
   deps: FolderImportDeps,
@@ -79,23 +119,8 @@ export async function applyChangesFile(
   for (const { meta } of changes) {
     if (BigInt(meta.hlc) > newest) newest = BigInt(meta.hlc);
   }
-  const ahead = clockAhead(newest, deps.clock.nowMs(), CLOCK_AHEAD_MAX_MS);
-  if (ahead > 0) {
-    return {
-      kind: "stop",
-      error: folderError(
-        deps.clock,
-        "clock_ahead",
-        `The clock of ${target.originName} is ${Math.round(ahead / 60_000)} minutes ahead`,
-        {
-          machine: target.origin,
-          machine_name: target.originName,
-          ahead_ms: Math.round(ahead),
-        },
-      ),
-      backoff: false,
-    };
-  }
+  const ahead = clockAheadStop(deps, target, newest);
+  if (ahead !== null) return ahead;
   const applied = await deps.apply.applyChanges({
     app: target.app,
     release: target.release.id,
@@ -119,7 +144,7 @@ export type AbsentDeletes = {
 
 /**
  * snapshot의 payload만 data root 아래 임시 file로 풀며 hash를 다시 보고 합친다. 임시 file은 남기지 않는다. `rel`은
- * `reader` 안의 path다(폴더의 file이나 data root의 held 사본).
+ * `reader` 안의 path다(폴더의 file이나 data root의 held 사본). clock이 5분 넘게 앞선 snapshot은 합치지 않고 미룬다.
  */
 export async function mergeFile(
   deps: FolderImportDeps,
@@ -152,6 +177,8 @@ export async function mergeFile(
         ? { kind: "gone" }
         : fileInvalid(deps, rel, copied.error as FolderFileError);
     }
+    const ahead = clockAheadStop(deps, target, snapshotClock(temp));
+    if (ahead !== null) return ahead;
     const merged = await deps.apply.mergeSnapshot({
       app: target.app,
       release: target.release.id,

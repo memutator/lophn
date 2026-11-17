@@ -110,13 +110,7 @@ export const projectIdentityApi = {
     input: projectInputSchema,
     output: projectIdentityStatusSchema,
     actors: ["user"],
-    errors: [
-      "invalid_input",
-      "not_found",
-      "conflict",
-      "forbidden",
-      "unavailable",
-    ],
+    errors: ["invalid_input", "not_found", "forbidden", "unavailable"],
   }),
   match: defineMemory({
     resource: "projects",

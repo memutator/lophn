@@ -70,6 +70,9 @@ const AUTH_FAILED = [
   "Repository not found",
 ];
 const NO_IDENTITY_FILE = `This repository has no ${PROJECT_IDENTITY_FILE} yet. Commit and push it on the other computer, then pull here; lophn links the project when the file arrives.`;
+const UNREADABLE_IDENTITY_FILE = `This repository's ${PROJECT_IDENTITY_FILE} cannot be read; this lophn may be older than the one that wrote it. Update lophn or fix the file.`;
+const UNKNOWN_IDENTITY =
+  " lophn could not check that this is the project you meant.";
 
 function fail(
   code: "invalid_input" | "conflict" | "unavailable",
@@ -107,8 +110,11 @@ function signInCommand(url: string): string {
   if (web !== null && web[1]!.toLowerCase() === "github.com") {
     return "gh auth login";
   }
-  const ssh = /^ssh:\/\/(?:([^/?#@]+)@)?([^/?#:]+)/i.exec(url);
-  if (ssh !== null) return `ssh -T ${ssh[1] ?? "git"}@${ssh[2]}`;
+  const ssh = /^ssh:\/\/(?:([^/?#@]+)@)?([^/?#:]+)(?::(\d+))?/i.exec(url);
+  if (ssh !== null) {
+    const port = ssh[3] === undefined || ssh[3] === "22" ? "" : `-p ${ssh[3]} `;
+    return `ssh -T ${port}${ssh[1] ?? "git"}@${ssh[2]}`;
+  }
   const scp = /^(?:([^@/]+)@)?([^/:]{2,}):/.exec(url);
   if (scp !== null && !/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) {
     return `ssh -T ${scp[1] ?? "git"}@${scp[2]}`;
@@ -291,21 +297,21 @@ export async function cloneProject(
 
   let note: string | null = null;
   const text = await deps.fs.readText(`${staging}/${PROJECT_IDENTITY_FILE}`);
-  if (text === null) {
+  const read = text === null ? null : parseIdentityFile(text);
+  if (read === null) {
     note = NO_IDENTITY_FILE;
-  } else if (input.identity !== undefined) {
-    const read = parseIdentityFile(text);
-    if (
-      (read.kind === "ok" || read.kind === "conflict") &&
-      read.id !== input.identity
-    ) {
-      await deps.fs.rm(staging);
-      return fail(
-        "conflict",
-        "This repository is a different project than the one you meant",
-        { reason: "different_project", identity: read.id },
-      );
-    }
+  } else if (read.kind === "unreadable") {
+    note =
+      input.identity === undefined
+        ? UNREADABLE_IDENTITY_FILE
+        : UNREADABLE_IDENTITY_FILE + UNKNOWN_IDENTITY;
+  } else if (input.identity !== undefined && read.id !== input.identity) {
+    await deps.fs.rm(staging);
+    return fail(
+      "conflict",
+      "This repository is a different project than the one you meant",
+      { reason: "different_project", identity: read.id },
+    );
   }
 
   // rename은 비어 있는 폴더 위에 덮을 수 있으므로 바로 앞에서 한 번 더 본다.

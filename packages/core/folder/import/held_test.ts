@@ -43,6 +43,7 @@ import type { Sql } from "../../../protocol/server/mod.ts";
 import { createSql } from "../../storage/ledger/sqlite.ts";
 import type { FolderApply } from "../ports.ts";
 import { FOLDER_SCHEMA_STEPS } from "../schema.ts";
+import { exchangeWith } from "./compat.ts";
 import { createFolderImport } from "./mod.ts";
 
 const ME = "mch_01hzzzzzzzzzzzzzzzzzzzzzzz" as Id<"mch">;
@@ -112,6 +113,7 @@ async function make(base: string) {
   const clock = manualClock(T0);
   const here = replica("here");
   let active = R1;
+  let heldMax: number | undefined;
   // 출처와 변경 id(= file 번호). 적용한 순서.
   const applied: string[] = [];
   const failOnce = new Set<string>();
@@ -193,6 +195,9 @@ async function make(base: string) {
     clock,
     random: seededRandom(11),
     root,
+    get heldMaxBytes() {
+      return heldMax;
+    },
   });
   const put = (rel: string, bytes: Uint8Array | string) => {
     const path = join(dest, ...rel.split("/"));
@@ -226,7 +231,13 @@ async function make(base: string) {
       }),
     );
   };
-  const putApp = (origin: Id<"mch">) => {
+  const putApp = (
+    origin: Id<"mch">,
+    data: { head: number; snapshot: number | null } = {
+      head: 0,
+      snapshot: null,
+    },
+  ) => {
     revision += 1;
     put(
       appRecordPath(origin, APP),
@@ -242,7 +253,7 @@ async function make(base: string) {
         sync_to: "personal",
         active_release: null,
         releases: [],
-        data: { head: 0, snapshot: null },
+        data,
         source: { head: 0 },
         read: {},
         settled: null,
@@ -329,6 +340,13 @@ async function make(base: string) {
     setActive: (release: typeof R1) => {
       active = release;
     },
+    setHeldMax: (bytes: number) => {
+      heldMax = bytes;
+    },
+    fileSize: (origin: Id<"mch">, n: number) =>
+      readFileSync(
+        join(dest, ...dataEntryPath(origin, APP, n, "changes").split("/")),
+      ).byteLength,
     putMachine,
     putApp,
     putChanges,
@@ -582,4 +600,118 @@ test("폴더 꼴 판이 범위 밖인 기계의 file은 열리지도 복사되�
     );
     assert.equal(env.folder.records().apps.length, 1);
   });
+});
+
+// 한도에서 복사하지 않은 file을 cursor가 지나치면 그 변경은 held에도 폴더 읽기에도 없어 잃고, 건너뛰지 못하면 그 출처가 영영 멈춘다.
+test("held가 한도에 닿으면 넘을 file은 복사되지 않고 cursor가 그 앞에 남으며, 뒤에 출처의 snapshot이 오면 그리로 건너뛰어 옛 held를 지우고, 이 기계가 그 release가 되면 멈춘 cursor부터 폴더에서 읽는다", async () => {
+  await setup(async (env) => {
+    const x = replica("x");
+    env.putMachine(P);
+    env.putApp(P, { head: 3, snapshot: null });
+    await env.putChanges(
+      P,
+      1,
+      R2,
+      write(x, T0 - 9000, "insert into notes values ('a', 'one')"),
+    );
+    await env.putChanges(
+      P,
+      2,
+      R2,
+      write(x, T0 - 8000, "update notes set title = 'two' where id = 'a'"),
+    );
+    await env.putChanges(
+      P,
+      3,
+      R2,
+      write(x, T0 - 7000, "insert into notes values ('b', 'three')"),
+    );
+    env.setHeldMax(env.fileSize(P, 1) + env.fileSize(P, 2));
+    await env.folder.scan();
+    await env.run();
+    assert.deepEqual(env.heldRows(P), [1, 2]);
+    assert.deepEqual(env.heldCopies(P), [
+      "000000000001.changes",
+      "000000000002.changes",
+    ]);
+    assert.equal(env.cursor(P), 2);
+    assert.equal(env.folder.exchange.held(APP)[0]?.full, true);
+
+    // 출처가 4를 쓰고 snapshot 5를 쓴다: 3에서 멈춘 stream이 5로 건너뛰고 5가 담는 1, 2를 지운다.
+    await env.putChanges(
+      P,
+      4,
+      R2,
+      write(x, T0 - 6000, "update notes set title = 'four' where id = 'b'"),
+    );
+    await env.putSnapshot(P, 5, R2, x);
+    env.putApp(P, { head: 5, snapshot: 5 });
+    await env.folder.scan();
+    await env.run();
+    assert.deepEqual(env.heldRows(P), [5]);
+    assert.deepEqual(env.heldCopies(P), ["000000000005.snapshot"]);
+    assert.equal(env.cursor(P), 5);
+    assert.equal(env.folder.exchange.held(APP)[0]?.full, false);
+
+    // snapshot 뒤의 changes가 다시 한도에 닿는다.
+    await env.putChanges(
+      P,
+      6,
+      R2,
+      write(x, T0 - 5000, "insert into notes values ('c', 'six')"),
+    );
+    await env.putChanges(
+      P,
+      7,
+      R2,
+      write(x, T0 - 4000, "update notes set title = 'seven' where id = 'c'"),
+    );
+    env.putApp(P, { head: 7, snapshot: 5 });
+    env.setHeldMax(env.fileSize(P, 6));
+    await env.folder.scan();
+    await env.run();
+    assert.deepEqual(env.heldRows(P), [5, 6]);
+    assert.equal(env.cursor(P), 6);
+    assert.deepEqual(env.applied, []);
+
+    // 이 기계가 R2가 된다: held를 번호 순서로 적용하고 멈춘 cursor 뒤의 7을 폴더에서 읽는다.
+    env.setActive(R2);
+    await env.run();
+    assert.deepEqual(env.applied, ["P5 snapshot", "P6", "P7"]);
+    assert.deepEqual(env.heldRows(P), []);
+    assert.deepEqual(env.heldCopies(P), []);
+    assert.equal(env.cursor(P), 7);
+    const theirs = replica("both");
+    theirs.raw.exec(
+      "insert into notes values ('a', 'two'), ('b', 'four'), ('c', 'seven')",
+    );
+    assert.equal(dumpData(env.here.db), dumpData(theirs.db));
+  });
+});
+
+// 틀리면 꼴 판을 처음 올리는 판에서 옛 판 기계의 file을 틀리게 읽거나, 누가 올려야 하는지 거꾸로 말한다.
+test("꼴 판 범위는 서로 읽을 수 있으면 ok, 이 기계가 상대 file을 못 읽거나 상대가 이 기계 file을 못 읽으면 누가 올릴지를 가른다", () => {
+  const own = { version: 2, min_version: 1 };
+  const cases: [{ version: number; min_version: number }, string][] = [
+    // 같은 판.
+    [{ version: 2, min_version: 1 }, "ok"],
+    // 상대가 새 판을 쓴다: 이 기계가 읽지 못한다.
+    [{ version: 3, min_version: 1 }, "update_this"],
+    // 상대의 읽는 하한이 이 기계의 판보다 높다.
+    [{ version: 2, min_version: 3 }, "update_this"],
+    // 상대가 옛 판이다: 이 기계 file을 읽지 못한다.
+    [{ version: 1, min_version: 1 }, "update_peer"],
+    // 상대가 이 기계의 읽는 하한보다 옛 판을 쓴다.
+    [{ version: 0, min_version: 0 }, "update_peer"],
+  ];
+  for (const [peer, want] of cases) {
+    assert.equal(exchangeWith(peer, own), want, JSON.stringify(peer));
+  }
+  assert.equal(
+    exchangeWith(
+      { version: 1, min_version: 1 },
+      { version: 2, min_version: 2 },
+    ),
+    "update_peer",
+  );
 });

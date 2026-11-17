@@ -57,7 +57,9 @@ function peerNotes(row: MachineLine): string[] {
             count: held.changes,
             machine: row.name,
           })
-        : t("machine-update.status.held-older", { machine: row.name }),
+        : held.why === "diverged"
+          ? t("machine-update.status.held-diverged", { machine: row.name })
+          : t("machine-update.status.held-older", { machine: row.name }),
     );
     if (held.full) {
       notes.push(t("machine-update.status.held-full", { machine: row.name }));

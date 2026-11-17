@@ -39,12 +39,14 @@ export const updateStateSchema = z.object({
       bytes: count,
       // 한도에 닿아 더 복사하지 않고 폴더에 둔다.
       full: z.boolean(),
-      // 이 기계가 지금 release보다 먼저 들인 release이거나 data schema가 지금 것보다 낮으면 older_release(그 기계가 올라오면
-      // 온다), 아니면 newer_release(이 기계가 그 release가 되면 적용된다. 사람이 돌아가 내려놓은 release도 여기다).
-      why: z.enum(["newer_release", "older_release"]),
+      // 이 기계의 따라가기가 갈라졌고 그 release의 held면 diverged(앱 agent가 두 release를 합친 release가 나와야 온다).
+      // 아니면 이 기계가 지금 release보다 먼저 들인 release이거나 data schema가 지금 것보다 낮으면 older_release(그 기계가
+      // 올라오면 온다), 그 밖은 newer_release(이 기계가 그 release가 되면 적용된다. 사람이 돌아가 내려놓은 release도 여기다).
+      why: z.enum(["newer_release", "older_release", "diverged"]),
     }),
   ),
-  // 이 기계와 그 앱을 주고받는 기계, 그리고 꼴 판이 범위 밖이라 앱 기록을 읽지 못한 기계.
+  // 이 기계와 그 앱을 주고받는 기계, 그리고 꼴 판이 범위 밖이라 앱 기록을 읽지 못한 기계(범위 밖이 되기 전에 읽은 앱
+  // 기록이 있으면 그 앱을 쓰던 기계만).
   machines: z.array(
     z.object({
       machine: idSchema("mch"),

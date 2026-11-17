@@ -462,9 +462,6 @@ flows:
         observe: ["response"]
     crosses_process: false
     risk: [data-loss, sandbox]
-    declared_only: [conflict]
-    unclear:
-      - "route가 conflict를 선언하지만 renew는 file 상태와 상관없이 덮으므로 내지 않는다"
     docs: [architecture/project-identity.md]
 
   - id: project-match

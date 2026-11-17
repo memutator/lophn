@@ -217,6 +217,7 @@ export function heldOverLimit(
   app: Id<"app">,
   origin: Id<"mch">,
   size: number,
+  limit = HELD_MAX_BYTES,
 ): boolean {
   const row = sql.get(
     `SELECT coalesce(sum(size), 0) AS bytes FROM folder_held
@@ -225,7 +226,7 @@ export function heldOverLimit(
          WHERE machine = ? AND app = ? AND origin = ? AND kind = 'snapshot'), 0)`,
     [me, app, origin, me, app, origin],
   );
-  return Number(row?.bytes ?? 0) + size > HELD_MAX_BYTES;
+  return Number(row?.bytes ?? 0) + size > limit;
 }
 
 /**

@@ -3,7 +3,8 @@ import type { SchemaStep } from "../../protocol/server/mod.ts";
 // 폴더 교환의 local 상태. 폴더에는 두지 않고 이 기계 ledger에 둔다.
 // 모든 표의 첫 칸 machine은 그 행을 쓴 기계 id다. 지금 기계 id와 다른 행(복제된 data root에서 온 것)은 없는 것으로 본다.
 // - folder_streams: 이 기계가 destination에 쓰는 stream마다의 다음 번호와 상태. 기계 기록은 app ''.
-//   settled·horizon은 HLC(십진 문자열).
+//   settled·horizon은 HLC(십진 문자열). away_notified는 떨어져 있음 알림에 마지막으로 쓴 held 수다(알림 줄은 그린 글만 가져
+//   수를 되읽을 수 없고, core가 다시 떠도 같은 줄을 다시 쓰지 않아야 한다).
 // - folder_written: 이 기계가 쓴 file. compaction과, 자기 폴더에 자기가 쓰지 않은 file이 보이는 것(남의 writer)을 알아챈다.
 // - folder_reads: (앱, 출처 기계, stream)마다 적용했거나 held로 넘긴 마지막 번호와 물러남.
 // - folder_held: 다른 release라 적용하지 않고 data root에 복사해 둔 file.
@@ -84,5 +85,13 @@ export const FOLDER_SCHEMA_STEPS: readonly SchemaStep[] = [
       PRIMARY KEY (machine, origin, kind, key)
     ) STRICT;
   `,
+  },
+];
+
+// folder_streams에 떨어져 있음 알림의 마지막 held 수를 둔다. FOLDER_SCHEMA_STEPS 뒤 낸 step 목록의 끝에 잇는다.
+export const FOLDER_AWAY_NOTIFIED_STEPS: readonly SchemaStep[] = [
+  {
+    id: "folder.away-notified",
+    sql: `ALTER TABLE folder_streams ADD COLUMN away_notified INTEGER;`,
   },
 ];

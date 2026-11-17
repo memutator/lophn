@@ -21,6 +21,8 @@ export type UpdateStateInput = {
   machines: readonly MachineExchange[];
   /** 다른 기계들의 그 앱 활성 release(앱 기록 사본). 범위 밖 기계의 기록은 없다. */
   offered: readonly { machine: Id<"mch">; release: ActiveRelease | null }[];
+  /** 모든 기계의 앱 기록 사본이 있는 (기계, 앱). 범위 밖 기계가 범위 밖이 되기 전에 읽은 옛 사본도 든다. */
+  recorded: readonly { machine: Id<"mch">; app: Id<"app"> }[];
   releases: readonly Pick<ReleaseRecord, "bundle_hash" | "number">[];
 };
 
@@ -56,10 +58,15 @@ export function buildUpdateState(input: UpdateStateInput): UpdateState {
   for (const row of input.offered) {
     if (row.machine !== me) others.set(row.machine, row.release);
   }
-  // 범위 밖 기계는 앱 기록을 읽지 않아 이 앱을 쓰는지 모른다. 주고받지 못한다는 것은 보인다.
+  // 범위 밖 기계는 지금 앱 기록을 읽지 않는다. 범위 밖이 되기 전에 읽은 앱 기록이 있으면 그 앱을 쓰던 기계만 넣고, 하나도
+  // 없으면 이 앱을 쓰는지 몰라 넣는다: 주고받지 못한다는 것은 보인다.
   for (const row of input.machines) {
-    if (row.machine !== me && row.exchange !== "ok" && !others.has(row.machine))
-      others.set(row.machine, null);
+    if (row.machine === me || row.exchange === "ok" || others.has(row.machine))
+      continue;
+    const apps = input.recorded.filter((each) => each.machine === row.machine);
+    if (apps.length > 0 && !apps.some((each) => each.app === input.app))
+      continue;
+    others.set(row.machine, null);
   }
   const machines = [
     machineRow(me, current),
@@ -77,6 +84,9 @@ export function buildUpdateState(input: UpdateStateInput): UpdateState {
     .filter((row) => row.bundle_hash !== current?.bundle_hash)
     .map((row) => {
       const number = local.get(row.bundle_hash)?.number ?? null;
+      const diverged =
+        input.follow.state === "diverged" &&
+        row.bundle_hash === input.follow.release;
       const older =
         row.data_schema < (current?.data_schema ?? 0) ||
         (number !== null && currentNumber !== null && number < currentNumber);
@@ -87,7 +97,11 @@ export function buildUpdateState(input: UpdateStateInput): UpdateState {
         changes: row.changes,
         bytes: row.bytes,
         full: row.full,
-        why: older ? ("older_release" as const) : ("newer_release" as const),
+        why: diverged
+          ? ("diverged" as const)
+          : older
+            ? ("older_release" as const)
+            : ("newer_release" as const),
       };
     });
 

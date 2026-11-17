@@ -165,8 +165,9 @@ export const folderWiring: WiringFactory = () => {
   let version: string | null = null;
   // 앱 release마다 마지막으로 흔적을 정리한 때(core 메모리).
   const cleaned = new Map<string, number>();
-  // 앱마다 마지막으로 알린 held 수. horizon 밖이 아니게 되면 지운다.
-  const awayNotified = new Map<Id<"app">, number>();
+  // core 시작과 destination이 바뀐 뒤에는 scan이 다른 기계의 기록 사본(horizon)을 먼저 읽고 내보낸다: 사본 없이 내보내면
+  // hold 규칙이 다른 기계의 horizon을 몰라 떨어져 있던 변경이 그대로 나간다.
+  let exportAfterScan = false;
   // build가 만들고 start가 건다.
   let startTriggers: (() => Promise<void>) | undefined;
 
@@ -595,8 +596,12 @@ export const folderWiring: WiringFactory = () => {
       }
 
       async function scan(): Promise<RunOutcome> {
+        // 돌기 시작할 때 가져간다: 도는 중에 destination이 바뀌면 다음 run이 새 destination을 읽은 뒤 내보낸다.
+        const exportAfter = exportAfterScan;
+        exportAfterScan = false;
         const scanned = await importer.scan();
         if (!scanned.ok) {
+          if (exportAfter) exportAfterScan = true;
           log("scan_failed", scanned.error.message);
           return { ok: false, more: false };
         }
@@ -604,6 +609,7 @@ export const folderWiring: WiringFactory = () => {
         if (scanned.value.updated.length > 0) updateChanged(null);
         // 새로 생긴 다른 기계·앱 폴더도 감시한다.
         rewatch();
+        if (exportAfter) exportAll();
         for (const app of syncApps()) {
           kick(`import:${app.app}`, () => importApp(app.app));
           kick(`source:${app.app}`, () => importSource(app.app));
@@ -670,8 +676,7 @@ export const folderWiring: WiringFactory = () => {
       // horizon 밖이 되었거나 held가 늘면 사람에게 알린다. 같은 앱은 한 줄(key)이다. 돌아온 기계는 받을 것을 다 받으면 그 run에서
       // 바로 settled가 horizon을 넘어 떨어져 있음이 끝날 수 있다: 그래도 이번 run이 held로 둔 변경이 있으면 알린다(사람이 풀 일이
       // 남았다). 떨어져 있음이 끝났거나 사람이 held를 풀어 줄었으면 같은 줄을 "따라잡았다"와 남은 held 수로 바꾼다(program 행은
-      // 지우지 않는다). 끝남은 run
-      // 앞뒤의 away_since(ledger)로 알아 core가 다시 떠도 같다.
+      // 지우지 않는다). 마지막으로 알린 수(away_notified)와 run 앞뒤의 away_since는 ledger에 있어 core가 다시 떠도 같다.
       async function noticeAway(
         app: SyncApp,
         wasAway: string | null,
@@ -679,18 +684,17 @@ export const folderWiring: WiringFactory = () => {
       ): Promise<void> {
         const away = exporter.settledOf(app.app)?.away_since ?? null;
         const held = ports.log.heldList(app.app).length;
+        const last = readStream(sql, dataKey(app))?.away_notified ?? null;
         let params: { held: number; back?: boolean };
+        let notified: number | null;
         if (away !== null || newlyHeld > 0) {
-          const last = awayNotified.get(app.app);
-          if (newlyHeld === 0 && last !== undefined && held <= last) return;
-          awayNotified.set(app.app, held);
+          if (newlyHeld === 0 && last !== null && held <= last) return;
+          notified = held;
           params = { held };
         } else {
           // 사람이 held를 풀어 줄었을 때도 같은 줄을 지금 수로 바꾼다.
-          const last = awayNotified.get(app.app);
-          awayNotified.delete(app.app);
-          if (wasAway === null && (last === undefined || held >= last)) return;
-          if (held > 0) awayNotified.set(app.app, held);
+          if (wasAway === null && (last === null || held >= last)) return;
+          notified = held > 0 ? held : null;
           params = { held, back: true };
         }
         const recorded = await ctx.noticeRecorder({
@@ -699,7 +703,15 @@ export const folderWiring: WiringFactory = () => {
           key: "app_sync_away",
           params,
         });
-        if (!recorded.ok) log("away_notice_failed", recorded.error.message);
+        if (!recorded.ok) {
+          log("away_notice_failed", recorded.error.message);
+          return;
+        }
+        const saved = writeLink.transaction((tx) => {
+          updateStream(tx.sql, dataKey(app), { away_notified: notified });
+          return ok(undefined);
+        });
+        if (!saved.ok) log("away_notice_failed", saved.error.message);
       }
 
       // 사람이 막힘을 풀었다(held를 풀거나 남의 writer를 보고 다시 켬): 물러남을 지우고 바로 내보낸다. 물러남은 1시간까지
@@ -803,16 +815,26 @@ export const folderWiring: WiringFactory = () => {
       }
 
       // --- route ---
+      // 떨어져 있음이 끝나도 풀리지 않은 held 줄이 남으면 싣는다: 그동안 그 변경은 다른 기계에 가지 않고 snapshot도 막힌다.
       async function away(id: Id<"app">) {
         const since = exporter.settledOf(id)?.away_since ?? null;
-        if (since === null) return null;
         const rows = ports.log.heldList(id);
+        if (since === null && rows.length === 0) return null;
         const changes = (await Promise.all(rows.map(heldChanges)))
           .flat()
           .slice(0, AWAY_CHANGES_MAX)
           .map(({ table, op, at }) => ({ table, op, at }));
         return { since, held: rows.length, changes };
       }
+
+      const updateDeps = {
+        machine: me,
+        syncApps,
+        follow,
+        exchange: importer.exchange,
+        records: () => importer.records(),
+        sql,
+      };
 
       async function environment() {
         return ok(
@@ -832,6 +854,11 @@ export const folderWiring: WiringFactory = () => {
             exportStatus: (app) => exporter.status(app),
             importStatus: (app) => importer.status(app),
             away,
+            exchange: () => importer.exchange.machines(),
+            update(app) {
+              const read = readUpdateState(updateDeps, app);
+              return read.ok ? read.value : null;
+            },
             records: () => importer.records(),
             available: () => apps.available(),
             sections,
@@ -850,19 +877,7 @@ export const folderWiring: WiringFactory = () => {
             err({ code: "not_found", message: "app not found" }),
           );
         }
-        return Promise.resolve(
-          readUpdateState(
-            {
-              machine: me,
-              syncApps,
-              follow,
-              exchange: importer.exchange,
-              records: () => importer.records(),
-              sql,
-            },
-            app,
-          ),
-        );
+        return Promise.resolve(readUpdateState(updateDeps, app));
       }
 
       function forgetMachine(
@@ -1029,7 +1044,7 @@ export const folderWiring: WiringFactory = () => {
                   )
                 ) {
                   rewatch();
-                  exportAll();
+                  exportAfterScan = true;
                   kick("scan", scan);
                 } else if (
                   changes.some((change) => change.name === "releases")
@@ -1051,7 +1066,7 @@ export const folderWiring: WiringFactory = () => {
           },
         );
         rewatch();
-        exportAll();
+        exportAfterScan = true;
         kick("scan", scan);
         everyExport();
         everyImport();
@@ -1062,7 +1077,6 @@ export const folderWiring: WiringFactory = () => {
       // 앱을 지울 때. local 상태와 held 사본만 지우고 폴더의 file은 그대로 둔다.
       async function forget(app: Id<"app">): Promise<void> {
         heldRowCache.delete(app);
-        awayNotified.delete(app);
         const exported = exporter.forget(app);
         if (!exported.ok) log("forget_failed", exported.error.message);
         const imported = await importer.forget(app);

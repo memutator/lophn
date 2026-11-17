@@ -48,6 +48,8 @@ export type FolderImportDeps = {
   random: RandomSource;
   /** data root. held 사본과 snapshot 임시 file이 여기 아래에 간다. */
   root: string;
+  /** 출처·앱마다 held changes 한도. 없으면 `HELD_MAX_BYTES`. test가 작게 둔다. */
+  heldMaxBytes?: number;
 };
 
 export const folderError = (

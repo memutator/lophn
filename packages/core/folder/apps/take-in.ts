@@ -315,7 +315,14 @@ export async function takeIn(
     declaration_hash: release.declaration_hash,
     installed: installed.value,
   });
-  if (!recorded.ok) return recorded;
+  if (!recorded.ok) {
+    // 앱 등록과 release 기록은 따로 commit된다. 앱만 남았으면 다시 take-in이 release만 설치해 고친다.
+    if (local.value !== null) return recorded;
+    return err({
+      ...recorded.error,
+      message: `${recorded.error.message}. The app was added without a release; take it in again to install only the release.`,
+    });
+  }
   return ok({
     app: app,
     release: recorded.value,
@@ -336,7 +343,10 @@ export type AvailableApp = {
   } | null;
 };
 
-/** 다른 기계가 내놓았고 이 기계에 아직 없는 앱. 앱마다 기록이 가장 최근인 기계의 것 하나. */
+/**
+ * 다른 기계가 내놓았고 이 기계에 아직 없는 앱. 앱마다 기록이 가장 최근인 기계의 것 하나. take-in이 앱을 만든 뒤 release
+ * 기록에 실패해 release가 하나도 없는 앱도 든다: 다시 take-in하면 release만 설치한다.
+ */
 export function available(
   deps: FolderAppsDeps,
   host: FolderAppsHost,
@@ -349,7 +359,7 @@ export function available(
   )) {
     const local = host.app(app);
     if (!local.ok) return local;
-    if (local.value !== null) continue;
+    if (local.value !== null && local.value.code_commit !== null) continue;
     const { origin, record } = pickRecord(copies, app)!;
     out.push({
       app,

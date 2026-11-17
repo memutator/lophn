@@ -303,6 +303,8 @@ export function createFolderImport(deps: FolderImportDeps): FolderImport {
     exchange: {
       machines,
       held,
+      recorded: () =>
+        records(deps).apps.map(({ machine, app }) => ({ machine, app })),
       onChange(listener) {
         listeners.add(listener);
         return () => listeners.delete(listener);

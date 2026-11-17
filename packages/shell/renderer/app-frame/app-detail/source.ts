@@ -295,8 +295,8 @@ export interface HeldLine {
   readonly changes: number;
   /** 한도에 닿아 나머지는 폴더에 남아 있다. */
   readonly full: boolean;
-  /** newer: 이 기계가 그 release로 올라가면 적용된다. older: 그 기계가 올라온 뒤 온다. */
-  readonly why: "newer_release" | "older_release";
+  /** newer: 이 기계가 그 release로 올라가면 적용된다. older: 그 기계가 올라온 뒤 온다. diverged: 앱 agent가 합친 release가 나와야 온다. */
+  readonly why: "newer_release" | "older_release" | "diverged";
 }
 
 export interface MachineLine {

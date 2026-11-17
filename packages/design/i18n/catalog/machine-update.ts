@@ -39,6 +39,8 @@ export const machineUpdate = {
     "Needs an update here: {count, plural, =0 {the latest data from {machine} waits} one {# change from {machine} waits} other {# changes from {machine} wait}} for it",
   "machine-update.status.held-older":
     "{machine} is on an older release; its changes arrive when it updates",
+  "machine-update.status.held-diverged":
+    "{machine}'s changes arrive after the app's agent combines the two releases",
   "machine-update.status.held-full": "More from {machine} wait in the folder",
   "machine-update.status.exchange-update-this":
     "Update lophn on this computer to exchange with {machine}",

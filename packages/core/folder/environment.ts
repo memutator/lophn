@@ -3,6 +3,7 @@
 // 그 section만 `{ error }`다. 흔적 정리의 경계(README 계약 10)도 여기서 센다: 환경이 싣는 horizon이 그 결과다.
 import type { Result } from "../../base/mod.ts";
 import { hlcAtMs } from "../../protocol/apps/sync/clock.ts";
+import type { UpdateState } from "../../protocol/apps/update-state.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import {
   type MachineEnvironment,
@@ -119,6 +120,15 @@ export type EnvironmentDeps = {
   exportStatus(app: Id<"app">): ExportStatus | null;
   importStatus(app: Id<"app">): ImportStatus[];
   away(app: Id<"app">): Promise<Env["apps"][number]["away"]>;
+  /** 기계마다 폴더 꼴 판 범위. 없는 기계는 ok다. */
+  exchange(): readonly {
+    machine: Id<"mch">;
+    exchange: Env["machines"][number]["exchange"];
+  }[];
+  /** `apps/update_state`와 같은 값. 폴더로 맞추지 않는 앱은 null. */
+  update(
+    app: Id<"app">,
+  ): Pick<UpdateState, "follow" | "held" | "machines"> | null;
   records(): KnownRecords;
   available(): Result<AvailableApp[]>;
   sections: FolderSections;
@@ -151,9 +161,13 @@ export async function readEnvironment(deps: EnvironmentDeps): Promise<Env> {
       })),
   ];
   // 이름이 겹친 기계는 `이름 (id 6자)`. id의 앞쪽은 만든 시각이라 같은 날 만든 두 기계가 같다. 무작위인 끝 6자를 쓴다.
+  const exchange = new Map(
+    deps.exchange().map((row) => [row.machine, row.exchange]),
+  );
   const machines = await Promise.all(
     listed.map(async (each) => ({
       ...each,
+      exchange: exchange.get(each.id) ?? ("ok" as const),
       display_name:
         listed.filter((other) => other.name === each.name).length > 1
           ? `${each.name} (${each.id.slice(-6)})`
@@ -162,30 +176,36 @@ export async function readEnvironment(deps: EnvironmentDeps): Promise<Env> {
     })),
   );
   const apps = await Promise.all(
-    deps.apps().map(async (app) => ({
-      app: app.app,
-      name: app.name,
-      sync_to: app.sync_to,
-      destination:
-        app.sync_to === null
-          ? null
-          : deps.destinations.resolve(app.sync_to) === null
-            ? ("not_set_here" as const)
-            : ("set" as const),
-      release: app.bundle_hash,
-      export: deps.exportStatus(app.app),
-      imports: deps.importStatus(app.app).map((row) => ({
-        machine: row.machine,
-        imported_at: row.imported_at,
-        cursor: row.cursor,
-        waiting_for: row.waiting_for,
-        held: row.held,
-        owes_absent_pass: row.owes_absent_pass,
-        error: row.error,
-      })),
-      away: await deps.away(app.app),
-      sections: await deps.sections.app(app.app),
-    })),
+    deps.apps().map(async (app) => {
+      const update = deps.update(app.app);
+      return {
+        app: app.app,
+        name: app.name,
+        sync_to: app.sync_to,
+        destination:
+          app.sync_to === null
+            ? null
+            : deps.destinations.resolve(app.sync_to) === null
+              ? ("not_set_here" as const)
+              : ("set" as const),
+        release: app.bundle_hash,
+        export: deps.exportStatus(app.app),
+        imports: deps.importStatus(app.app).map((row) => ({
+          machine: row.machine,
+          imported_at: row.imported_at,
+          cursor: row.cursor,
+          waiting_for: row.waiting_for,
+          held: row.held,
+          owes_absent_pass: row.owes_absent_pass,
+          error: row.error,
+        })),
+        follow: update?.follow ?? null,
+        held: update?.held ?? [],
+        machines: update?.machines ?? [],
+        away: await deps.away(app.app),
+        sections: await deps.sections.app(app.app),
+      };
+    }),
   );
   const available = deps.available();
   return {

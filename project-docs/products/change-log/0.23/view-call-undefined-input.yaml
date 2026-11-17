@@ -1,5 +1,5 @@
 id: view-call-undefined-input
-version: 0.23.69
+version: 0.23.77
 title: 화면이 값이 undefined인 칸을 넣어 부른 operation이 desktop에서 거절되던 것을 고치고, 거절된 화면 호출을 앱 log에 남긴다
 modules: [packages/shell/main, packages/core/apps, packages/protocol]
 change: |

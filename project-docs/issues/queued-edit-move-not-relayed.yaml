@@ -1,0 +1,12 @@
+id: queued-edit-move-not-relayed
+title: 줄 선 메시지를 한 기기가 고치거나 옮겨도 다른 기기의 화면은 그대로다
+kind: bug
+status: open
+topic: agent-chat
+modules: [packages/core/main, packages/protocol]
+now: |
+  lophn agent session의 줄 선 메시지를 지우면 event가 나가지만(`packages/core/main/daemon/wiring/lophn-agent-runtime.ts`의 `remove`) 고치기(`edit`)와 옮기기(`move`)는 event를 내지 않는다. 고친 기기는 snapshot을 다시 읽어 맞추고, 다른 기기는 옛 글과 옛 순서를 그대로 보인다. 그 기기가 낡은 글을 다시 고치면 앞의 고침을 덮는다(비교 값이 없다). coding session은 adapter가 지우고 다시 세우는 update를 내서 맞는다.
+impact: |
+  폰과 컴퓨터에서 같은 대화를 보는 사람은 한쪽에서 고친 다음 지시가 다른 쪽에 반영되지 않은 것을 보고, turn은 화면과 다른 글로 돈다.
+fix: |
+  - 작음(추천): 고치기와 옮기기도 지우기와 같은 길로 변경을 낸다(지우고 다시 세우는 update를 다시 쓰거나 새 update를 더한다).

@@ -1,7 +1,7 @@
 id: shortcut-keeps-old-label-and-icon
 title: 홈 화면에 놓은 앱 아이콘이 앱의 이름이나 그림이 바뀐 뒤에도 놓을 때의 이름과 그림 그대로다
 kind: bug
-status: open
+status: fixed
 topic: phone-home-screen
 modules: [packages/mobile]
 now: |
@@ -12,3 +12,6 @@ fix: |
   - 한 것: 하지 않았다. native `updateShortcuts`(`modules/lophn-widgets`의 `ShortcutManagerCompat.updateShortcuts`)가 있어야 `shortcuts/sync.ts`가 이름과 그림을 맞춘다. 폰이 아이콘 file을 갖게 됐으니 그림 비교는 그 file로 한다.
   - 중간(추천): `apps/phone_screens`를 읽을 때 놓인 id마다 앱의 이름을 견주고 다르면 `ShortcutManagerCompat.updateShortcuts`로 label을 고친다. 그림은 앱이 앞에 있을 때만 그릴 수 있어(화면 밖 `<Svg>`) 앱 icon의 hash를 기억해 앞에 있을 때 바뀌었으면 다시 그려 update한다.
   - 작음: label만 고치고 그림은 지우고 다시 놓으라고 둔다.
+closed: |
+  `ShortcutSync`가 정리할 때 놓인 아이콘의 이름을 앱 이름과 맞추고, 폰이 둔 아이콘 file과 그림 key가 다르면 다시 그려 바꾼다(native `updateShortcuts`). 그림은 폰 앱이 앞에 있을 때만 다시 그린다. Kotlin 변경은 dev build에서 확인해야 한다.
+guard: 없음

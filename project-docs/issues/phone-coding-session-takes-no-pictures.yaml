@@ -1,7 +1,7 @@
 id: phone-coding-session-takes-no-pictures
 title: 폰에서 coding session의 대화에 이미지를 붙일 수 없다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/mobile, packages/core/coding-relay, packages/shell/main]
 now: |
@@ -12,3 +12,6 @@ fix: |
   - 중간(추천): 폰이 그림 bytes를 coding 입력과 함께 보내고 shell main이 그 탭의 임시 폴더에 써서(desktop의 live 붙이기가 쓰는 자리와 이름 규칙) `file://` resource_link로 adapter에 넘긴다. adapter는 고치지 않는다. 그림 하나가 remote와 host 연결의 frame 한도 안이어야 한다(폰이 이미 JPEG로 다시 줄인다). `remote.md`의 비목표에서 이 줄을 뺀다.
 decided: |
   사람이 정했다: coding agent의 폰 입력칸에서도 이미지를 붙일 수 있어야 한다. 비목표로 둔 앞선 결정을 뒤집는다.
+closed: |
+  폰이 coding session에 그림을 붙여 보낸다(`acp/image_upload`). shell main이 그 탭의 임시 폴더에 쓰고 `file://` resource_link로 adapter에 넘긴다. 보낸 그림은 `acp/image_read`로 읽어 작은 그림으로 보인다.
+guard: packages/shell/main/terminal/gui_test.ts의 "폰이 보낸 그림이 그 탭의 임시 폴더 밖에 쓰이지 않는다"

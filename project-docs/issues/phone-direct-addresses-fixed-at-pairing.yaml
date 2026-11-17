@@ -1,7 +1,7 @@
 id: phone-direct-addresses-fixed-at-pairing
 title: 폰이 아는 컴퓨터의 직접 주소는 pairing한 순간의 것이라 나중에 생긴 주소로는 붙지 못한다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/core/main, packages/core/remote, packages/remote-client, packages/protocol, packages/mobile]
 now: |
@@ -13,3 +13,6 @@ fix: |
   - 폰이 지금 어느 길로 붙었는지(Direct, Relay)는 이미 폰의 Settings가 보인다.
 decided: |
   사람이 정한 원칙: lophn은 사용자의 환경을 요구하지 않고, 환경에 맞는 길을 준비해 둔다. relay는 아무것도 없는 사람의 길이고 Tailscale이나 VM이 있으면 직접 붙는다. 길은 lophn이 스스로 고르고 사람에게는 지금 어느 길인지 보인다.
+closed: |
+  컴퓨터가 hello에 지금 주소 후보를 싣고, 기기는 저장한 기계 id가 확인된 연결에서 온 목록으로만 저장한 주소를 바꾼다. 설정 `remote.addresses`에 사람이 적은 주소가 interface 주소 앞에 실린다(Settings 화면의 칸은 없고 `lophn settings set`으로 정한다). `remote.port`를 바꾸면 여전히 다시 pairing해야 한다.
+guard: packages/remote-client/connection_test.ts의 "the addresses a device dials change only through a channel that checked the saved machine id"

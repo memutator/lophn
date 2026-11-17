@@ -1,7 +1,7 @@
 id: sync-rewind-reply-capped
 title: sync 앱 rewind의 답이 4 KiB 상한을 넘으면 DB는 되돌려졌는데 rewind는 취소로 끝난다
 kind: bug
-status: open
+status: fixed
 topic: app-sync
 modules: [packages/core/apps]
 now: |
@@ -12,3 +12,6 @@ fix: |
   - 한 것: rewind의 `apply`가 `APPLY_BODY_MAX_BYTES`와 긴 기한을 쓴다. 답을 잃으면 여전히 취소로 끝나되 이유가 "the app data may already be rewound"라고 말한다. 결과 모름으로 남기려면 `app_rewinds`에 새 상태(schema step)와 protocol `Rewind`의 변경이 든다.
   - 작음(추천): relay의 `apply`도 `{ timeoutMs: APPLY_TIMEOUT_MS, maxBytes: APPLY_BODY_MAX_BYTES }`를 쓴다.
   - 같이: 보낸 뒤 잃은 답은 취소가 아니라 결과 모름으로 남긴다(`sync-apply-timeout-closes-as-failed`와 같은 relay 고침).
+closed: |
+  rewind의 `apply`가 큰 답 상한을 쓰고, 보낸 뒤 답을 잃으면 rewind가 `unknown`으로 남는다(schema step `apps.rewind.unknown`). App details는 그것을 따로 그리지 않고 conflict 단계에 이유 글로 보인다.
+guard: packages/core/apps/rewind/rewind_test.ts의 "보낸 뒤 답을 잃으면 취소가 아니라 결과 모름으로 남고 되돌림 표시를 하지 않는다"

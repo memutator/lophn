@@ -1,0 +1,12 @@
+id: remote-call-errors-drop-details
+title: remote 호출의 오류에서 `details`가 빠져 폰과 다른 기계의 창은 "다른 기기에서 바뀌었다"를 알지 못한다
+kind: bug
+status: open
+topic: remote
+modules: [packages/core/remote]
+now: |
+  기기의 호출이 실패하면 core는 오류의 code와 message만 돌려준다(`packages/core/remote/call.ts`가 `err({code, message})`를 만들고 `host.ts`가 그 둘만 보낸다). frame의 schema는 `details`를 받는다(`packages/protocol/remote/frames.ts`). desktop은 보내기의 `conflict`에 딸린 `details.reason`(`changed_elsewhere`)을 보고 "다른 기기에서 바뀌었다"를 보이고 대화를 다시 읽는데, 폰과 다른 기계의 창은 그 값을 받지 못해 그냥 "보내지 못했다"로 보인다.
+impact: |
+  두 기기가 같은 때 보냈을 때 remote 쪽 사람은 왜 안 갔는지 모르고 다시 보내기만 누른다. 글은 입력칸에 남는다. `details`에 기대는 다른 안내도 remote에서는 빠진다.
+fix: |
+  - 작음(추천): 두 곳에서 `details`를 그대로 싣고 test 하나로 지킨다.

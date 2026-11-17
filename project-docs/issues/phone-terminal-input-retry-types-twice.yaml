@@ -1,0 +1,12 @@
+id: phone-terminal-input-retry-types-twice
+title: 폰의 터미널 입력은 답을 잃고 다시 보내면 같은 글이 두 번 쳐진다
+kind: bug
+status: open
+topic: remote
+modules: [packages/mobile]
+now: |
+  폰은 터미널 입력을 보낼 때마다 새 key를 만든다(`packages/mobile/src/data/terminal.ts`). core는 같은 key의 입력을 한 번만 넘기지만(`packages/core/terminal-view/view.ts`) key가 매번 달라 걸리지 않는다. 컴퓨터가 이미 쳤는데 답이 폰에 오지 못했으면 폰은 실패로 보고, 사람이 다시 보내면 같은 글이 또 쳐진다.
+impact: |
+  연결이 끊기는 순간에 보낸 명령이 터미널에 두 번 들어간다. 지우기나 push 같은 명령이면 두 번 돈다.
+fix: |
+  - 작음(추천): 친 글 하나에 key 하나를 두고 성공할 때까지 같은 key로 다시 보낸다.

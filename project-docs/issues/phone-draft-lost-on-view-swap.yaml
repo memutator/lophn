@@ -1,0 +1,12 @@
+id: phone-draft-lost-on-view-swap
+title: 폰에서 쓰던 글이 coding session이 채팅과 터미널 사이로 바뀔 때 사라진다
+kind: bug
+status: open
+topic: remote
+modules: [packages/mobile]
+now: |
+  폰의 입력칸 글과 붙인 그림은 화면 component의 state다(`packages/mobile/src/screens/session/conversation.tsx`). 다른 기기가 그 coding session을 터미널로 바꾸면 폰은 채팅 화면을 내리고 터미널 화면을 올려 쓰던 글이 사라진다. 반대로 바뀌면 터미널 입력칸의 글이 사라진다. desktop은 창마다 session별 draft 보관소가 있어 남는다(`packages/shell/renderer/conversation/drafts.ts`).
+impact: |
+  폰에서 긴 지시를 쓰던 중에 컴퓨터 쪽에서 화면을 바꾸면 쓴 글을 잃는다.
+fix: |
+  - 작음(추천): 폰도 session별 draft 보관소를 두어 화면이 바뀌어도 글이 남게 한다(memory, 저장하지 않는다).

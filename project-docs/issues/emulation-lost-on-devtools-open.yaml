@@ -1,7 +1,7 @@
 id: emulation-lost-on-devtools-open
 title: preview 탭에 기기를 건 뒤 DevTools를 열면 emulation이 말없이 풀린다
 kind: bug
-status: open
+status: fixed
 topic: browser-tab
 modules: [packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/shell/renderer]
 now: |
@@ -12,3 +12,6 @@ fix: |
   - 한 것: main 쪽은 DevTools가 열리면 emulation 상태와 debugger 주인을 비운다(닫은 뒤 기기를 다시 고를 수 있다). renderer는 여전히 폰 틀과 기기 이름을 보인다. main에서 renderer로 알리는 push(`shell:surface-emulation`)가 `ipc/surface.ts`, `preload/surface-api.ts`, `desktop/wiring/surface.ts`에 든다.
   - (추천, 작음~중간) main → renderer push 하나(`shell:surface-emulation {view_session, device: null, reason: "devtools"}`)를 `ipc/surface.ts`·`preload/surface-api.ts`에 더하고, `devtoolsOpened`에서 emulation을 지운 뒤 보낸다. preview 탭이 Desktop으로 돌아가 기존 안내를 보인다.
   - (작음) DevTools가 닫힐 때 고른 기기를 다시 건다. 사람이 DevTools를 닫으면 그대로 이어진다. 하지만 열려 있는 동안의 틀린 frame은 남는다.
+closed: |
+  DevTools가 열리면 main이 emulation을 떼고 `shell:surface-emulation`으로 알려 preview 탭이 Desktop으로 돌아가고 DevTools를 닫으라는 안내를 보인다. Electron에서 돌려 보지는 않았다.
+guard: 없음

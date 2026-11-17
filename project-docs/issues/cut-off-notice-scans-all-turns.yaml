@@ -1,7 +1,7 @@
 id: cut-off-notice-scans-all-turns
 title: turn을 시작할 때마다 앞 turn이 재시작으로 끊겼는지 보려고 session의 끝난 turn을 다 읽는다
 kind: defect
-status: open
+status: fixed
 topic: workspace-session
 modules: [packages/core/lophn-agent]
 now: |
@@ -11,3 +11,6 @@ fix: |
   - 한 것: session마다 runtime process에서 첫 turn에만 훑는다. 그 한 번은 여전히 끝난 turn을 다 읽는다. 끝에서 몇 개만 읽으려면 `turnList`에 최신 순과 `limit`을 더해야 한다(`packages/protocol/lophn-agent/turn-reads.ts`).
   - `turnList`에 최신 순서와 `limit`을 더해 한 page만 읽는다. 작음. 추천.
   - 재시작이 turn을 닫을 때(`run-loop/interrupt.ts`) 알림을 session에 남겨 다음 turn이 그것만 읽게 한다. 중간.
+closed: |
+  `ListTurns`가 최신 순과 `limit`을 받고 `cutOffNotice`가 끝난 turn 하나만 읽는다. `session/history.ts`는 여전히 turn을 page로 다 읽는다.
+guard: 없음

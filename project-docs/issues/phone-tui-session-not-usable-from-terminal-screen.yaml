@@ -1,7 +1,7 @@
 id: phone-tui-session-not-usable-from-terminal-screen
 title: 폰에서 터미널로 도는 coding session은 채팅으로 바꿔야만 쓸 수 있다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/mobile, packages/core/remote, packages/shell/renderer]
 now: |
@@ -13,3 +13,6 @@ fix: |
   - 입력 허락: 지금은 기기마다 컴퓨터에서 켜야 한다. 폰으로 remote가 되려면 pairing할 때 컴퓨터의 pairing 화면에서 "이 폰이 터미널에 입력할 수 있다"를 같이 정하게 하고(기본 켬) Settings › Remote의 switch는 그대로 둔다. 이미 pairing한 기기는 지금 값 그대로다.
 decided: |
   사람이 정했다: 터미널 화면으로도 remote로 쓸 수 있어야 한다. 터미널 입력 허락은 pairing할 때 기본 켬이고 컴퓨터의 pairing 화면에서 끌 수 있다. Settings › Remote의 기기별 switch는 그대로 둔다. 이미 pairing한 기기는 지금 값 그대로다(사람이 Settings에서 켠다).
+closed: |
+  터미널로 도는 coding session을 폰에서 열면 터미널 화면이 바로 열리고 `Switch to chat`은 그 화면의 menu에 있다. 새 session의 agent sheet에 Terminal 항목이 있다. 터미널 입력 허락은 pairing code에 실려 등록 때 정해지고 기본이 켬이다(컴퓨터의 pairing 칸에서 끌 수 있다). 이미 pairing한 기기는 그대로다. 폰과 Electron에서 돌려 보지는 않았다.
+guard: packages/core/remote/devices_test.ts의 "pairing으로 등록한 기기는 터미널 입력이 켜져 있고, pairing 때 끄면 꺼져 있다"

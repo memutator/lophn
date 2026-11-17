@@ -1,7 +1,7 @@
 id: remote-group-sessions-only-project-lophn
 title: 다른 기계의 창의 "Also on this computer" popover가 그 project lophn agent의 session만 보이고 다른 agent의 session을 빠뜨린다
 kind: bug
-status: open
+status: fixed
 topic: project-identity
 modules: [packages/shell/renderer, packages/shell/ipc]
 now: |
@@ -12,3 +12,6 @@ fix: |
   - 한 것: 하지 않았다. `ListAgents`를 `THIS_COMPUTER_READS`(`packages/shell/ipc/machines.ts`)와 main의 허용 목록, 기계 route 위험 test에 더해야 한다.
   - (중간, 추천) 두 기계에서 그 project workspace의 agent 목록을 읽어(`ListAgents { workspace }`, 이 컴퓨터 쪽은 `THIS_COMPUTER_READS`에 `ListAgents`를 더하고 machine-route 위험 test 표에 줄을 더한다) agent마다 `ListSessions`를 부르고 합쳐 최근 순으로 자른다. 줄에 agent 이름을 붙인다. 잃는 것: 읽기 횟수가 agent 수만큼 는다.
   - (중간) `ListSessions`의 `agent`를 선택으로 바꿔 workspace의 모든 agent session을 한 번에 돌린다. 잃는 것: 이 route를 쓰는 모든 곳의 계약이 바뀐다.
+closed: |
+  `ListAgents`가 이 컴퓨터 읽기 목록에 들었고 popover가 그 workspace의 모든 agent의 session을 최근 순으로 8개까지, agent 이름과 함께 보인다.
+guard: packages/shell/main/desktop/viewer/machine-route_test.ts의 "only a window of another machine reaches this computer's core, and only for this computer's project, agent and session lists"

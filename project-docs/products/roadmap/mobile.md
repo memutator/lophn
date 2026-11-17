@@ -374,7 +374,7 @@ spike 판정(계획 `remote-core`, 2026-11-14, 보고서 `reports/phone-runtime-
 - **폰이 server일 때 폰에서 도는 것(3).** 뒤집혔다(사람, 2026-11-14). 사용자 앱은 컴퓨터가 꺼져 있어도 폰에서 혼자 돌아야 한다. 아래 "폰에서 혼자 도는 앱".
 - **앱 event(4).** 닫힘(2026-11-11). 저장하지 않는 앱 event를 열었다(`architecture/event.md`). 폰에 띄운 앱 화면은 view binding을 core로 옮기면 같은 길로 받는다.
 - **폰의 권한(5).** 폰은 일하는 창이다: 보기, 말하기, 답하기(승인, 질문, 동의), 앱 쓰기. 관리(secret, provider 설정, 기기 추가와 끊기, 앱 지우기)는 desktop에서만 한다. secret 넣기는 지금도 shell의 보호 입력 창만 한다(`architecture/approval.md`의 사람 결정 handle).
-- **core 깨어 있기(6).** Settings의 Remote access가 켜져 있으면(바깥 listener가 열려 있으면) idle-exit로 끝나지 않는다. 폰은 꺼진 core를 띄우지 못하기 때문이다. 조건을 "등록된 기기가 있음"으로 두지 않는다. pairing은 한 번 하면 지우지 않아 idle-exit가 사실상 없어진다. 사람이 `Stop lophn`을 누르면 remote가 켜져 있어도 core가 끝난다. 로그인 때 core를 띄우는 것은 지금 autostart가 한다. PC 잠자기는 OS 설정에 맡긴다.
+- **core 깨어 있기(6).** Settings의 Remote access가 켜져 있으면(바깥 listener가 열려 있으면) idle-exit로 끝나지 않는다. 폰은 꺼진 core를 띄우지 못하기 때문이다. 조건을 "등록된 기기가 있음"으로 두지 않는다. pairing은 한 번 하면 지우지 않아 idle-exit가 사실상 없어진다. 사람이 `Stop lophn`을 누르면 remote가 켜져 있어도 core가 끝난다. 로그인 때 core를 띄우는 것은 늘 켜 둠 표시다(2026-11 계획 `always-on`, `architecture/platform.md` "늘 켜 둠"). PC 잠자기는 OS 설정에 맡긴다.
 - **`PRODUCT.md`(7).** "원격, 여러 사람용 서비스"를 "여러 사람용 서비스는 하지 않는다. 한 사람이 자기 폰에서 자기 컴퓨터에 붙는 것은 한다."로 고친다.
 - **폰용 앱 화면.** `phone` 자리를 선언한 앱만 폰에 보인다. 지금 `tab` screen을 좁게 보이는 길은 두지 않는다.
 

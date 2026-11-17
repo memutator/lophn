@@ -29,7 +29,7 @@
 
 ## 하지 않는 것
 
-- **OS service.** autostart로 충분하다. (상주 daemon은 2026-11-08 `standalone-core.md`가 뒤집었다: core가 shell 밖에서 스스로 서고 켜진 job이 있으면 산다.)
+- **OS service.** autostart로 충분하다. (2026-11 계획 `always-on`이 사람이 표시한 기계에 한해 뒤집었다, `architecture/platform.md` "늘 켜 둠". 상주 daemon은 2026-11-08 `standalone-core.md`가 뒤집었다: core가 shell 밖에서 스스로 서고 켜진 job이 있으면 산다.)
 - **push형 event source와 webhook.** 주기 polling으로 끌어 읽는다. webhook은 공개 endpoint가 필요해 개인 로컬 작업 공간(PRODUCT 5절)과 맞지 않는다.
 - **자동 재시도.** 다시 하기는 flow가 한다.
 - **LLM judge로 run 결과 검증.** 뜻 검증은 flow를 짠 agent의 일이다(`architecture/approval.md`가 LLM judge를 넣지 않은 이유와 같다).

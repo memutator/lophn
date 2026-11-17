@@ -1,7 +1,7 @@
 id: first-login-after-update-opens-window
 title: "업데이트 뒤 첫 로그인 실행은 창을 한 번 연다"
 kind: bug
-status: open
+status: kept
 topic: platform
 modules: [packages/shell/main]
 now: |
@@ -10,3 +10,6 @@ impact: |
   한 번 창이 뜬다. 옮기기가 되면 그 뒤로는 OS 항목이 core만 띄운다.
 fix: |
   그대로 둔다(`--tray`·`wasOpenedAtLogin` 호환 장치를 두지 않는 것이 결정이다). macOS·Windows 실기 확인은 사람이 한다.
+closed: |
+  남긴다. 옛 등록(`--tray`, macOS `wasOpenedAtLogin`)을 읽는 호환 장치를 두지 않는 것이 결정이고(AGENTS.md "호환성"), 창은 업데이트 뒤 한 번 뜬 뒤 옮기기가 OS 등록을 Keep running으로 바꾼다. macOS·Windows 실기 확인은 change-log `always-on`의 checklist다.
+guard: 없음

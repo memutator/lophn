@@ -125,6 +125,6 @@ M의 창 renderer ── 창의 core 통로 ──────────▶ M�
 - project 설정 page(General)에는 "Other computers" 줄이 없고 Workspaces panel의 상세 dialog에만 있다(이슈 `project-identity-row-missing-in-settings-page`).
 - clone한 저장소의 file을 읽지 못할 때(더 새 판 포함) 알리지 않고 지나간다(이슈 `project-clone-unreadable-identity-silent`).
 - `project.renew_identity`가 `conflict`를 선언하지만 내지 않는다(이슈 `project-renew-identity-declares-conflict`).
-- agent가 identity route를 부를 때 그 agent가 그 project에 닿는지 보지 않는다(이슈 `project-identity-agent-project-scope`).
+- agent가 identity route를 부를 때 그 agent가 그 project에 닿는지 보지 않는다. 다른 memory route와 같고 쓰는 것은 등록된 project 폴더의 file 하나라 그대로 둔다(이슈 `project-identity-agent-project-scope`, kept).
 - `ssh://` URL의 자격 안내 명령이 기본이 아닌 port를 빠뜨린다(이슈 `project-clone-ssh-hint-ignores-port`).
 - 실제 원격(GitHub 등)에서 file이 다른 기계로 가는 것과 두 기계 사이의 충돌은 보지 못했다. 개발 core와 임시 저장소(local clone과 merge)로 확인했고 network는 자격 없는 private URL 하나만 시도했다.

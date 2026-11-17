@@ -96,7 +96,8 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 | 채팅 중심 비서 | 사람에게는 UI가 필요하다(4절 축 2) |
 | 앱 마켓 | 한 사람에게 맞춘 앱이 목적이다(2절) |
 | 사용자 도메인을 범용 모델로 미리 만들기 | 필요할 때 agent가 그 사람에게 맞춰 만든다(2절) |
-| 여러 사람용 서비스 | 자기 컴퓨터에서 도는 개인 작업 공간이다. 한 사람이 자기 폰에서 자기 컴퓨터에 붙는 것은 한다 |
+| 여러 사람용 서비스 | 자기 컴퓨터에서 도는 개인 작업 공간이다. 한 사람이 자기 폰이나 자기 다른 컴퓨터에서 자기 컴퓨터에 붙는 것은 한다 |
+| 저장소(cloud, NAS) 연결 기능 | 기계 사이로 앱 data를 옮기는 것은 사람이 고른 바깥 도구가 폴더를 옮기는 것이다. agent가 그 도구를 붙인다 |
 
 ## 6. 지금 범위와 그다음
 
@@ -107,7 +108,8 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 - 앱: 그 앱 workspace의 session이 직접 짓기(선언, 코드, 앱 test), release 준비와 검사, preview, activation, 실행, data, 앱 log, 사람이 넣는 앱 secret과 OAuth sign-in(값은 앱에 주지 않는다)
 - grant와 approval, event, rewind
 - workflow: project에 정의(`workflow.yaml`, `workflow.md`, 고르는 artifact), instance와 report, 사람 step, workflow마다의 desk. project workspace의 agent가 쓴 code(`flow.ts`)가 agent와 앱 tool을 부르는 flow
-- job: agent가 만들어 정해진 때 agent 호출, 앱 tool 호출, workflow 시작을 돌린다. 놓친 차례를 사람에게 묻고(hold), 사람은 화면에서 보고 끄고 지운다(`architecture/job.md`)
+- job: agent가 만들어 정해진 때 agent 호출, 앱 tool 호출, workflow 시작을 돌린다. 놓친 차례를 사람에게 묻고(hold), 사람은 화면에서 보고 끄고 지운다(`architecture/job.md`). job은 만든 기계에서만 돈다
+- 한 사람의 여러 컴퓨터: 기계마다 온전한 lophn이 돈다. session은 옮기지 않고 다른 기계의 desktop이나 폰에서 보고 말한다(desktop은 그 기계의 앱 화면을 보이지 않는다). 앱 data가 어디로 가는지는 앱마다 agent가 정하고 바깥 도구가 폴더를 옮긴다. project는 어느 기계에서나 같은 project다. 사람이 표시한 기계는 로그인 때 뜨고 창을 닫아도 계속 돈다(`products/roadmap/multi-machine.md`)
 
 **그다음**
 - agent의 결과를 추상화한 GUI(4절 축 2). MVP에서는 채팅 안에서 앱의 부품을 가져다 쓰는 데까지 간다.

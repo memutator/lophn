@@ -49,6 +49,7 @@ L1~L11은 home 지침(`packages/core/agent-workspaces/prompts/home.md`)에 쓰�
 - L9. 사람이 새 앱이나 앱의 변경을 원하면, home의 session은 기획 전에 workspace 정보의 앱 지도(앱마다 공개 command, 그 command를 쓰는 다른 앱·project, 그 앱이 주인인 package)에서 다른 앱의 공개 command나 package가 이미 그 일을 하는지 본다. 있으면 그것을 쓰는 안을 먼저 견준다.
 - L10. 기획이 다른 앱의 공개 command를 쓰거나, command를 공개로 내거나, 코드를 package로 옮기는 것처럼 그릇 경계를 넘으면, home의 session이 정하고 이유를 기록한다(F2). 같은 package나 공개 command를 여러 곳이 쓰는지는 지도에서 읽고, program이 알려 주지 않는다.
 - L11. 재사용과 package로 빼기는 home의 session이 판단해 정한다. 사람에게는 그 결과 무엇이 달라지는지만 말한다. (제안)
+- L12. 앱의 data를 사람의 다른 컴퓨터로 보내야 하면(선언 `sync_to`), 이 기계의 destination(설정 `folder.destinations`)을 청하는 것은 home의 session뿐이다. 먼저 어느 앱의 무엇이 어느 폴더로 가고 어느 바깥 도구가 어디로 옮기는지, 암호화되는지를 말하고, 사람이 승인 카드에서 그 한 번을 허락한다. 사람이 없는 turn과 팀 자식은 청하지 못한다. 폴더를 옮기는 바깥 도구는 lophn 기능이 아니고 session이 지침대로 사람의 기계에 붙인다(`architecture/folder-sync.md`).
 
 ### 어느 workspace든
 
@@ -93,6 +94,7 @@ C7~C9는 용어와 그릇 밖의 일, C24 이후는 그릇의 skill과 artifact,
 - C27. 그 project가 쓰는 공개 command가 바뀌었다고 알림이 오면, project workspace의 session이 바뀐 command를 읽고 그 command를 부르는 skill을 다시 본다.
 - C28. agent가 쓴 결과 문서가 필요하면, 그 그릇 workspace의 session이 그릇의 artifact를 쓴다. node 그림(상태 흐름 같은 것)을 둘지와 모양은 session이 정한다(F5). workflow 그림(C29)과 같다.
 - C29. 사람이 workflow를 청하거나 project의 일이 여러 참가자가 step을 넘기며 도는 모양이면, project workspace의 session이 그 project의 `workflows/<name>/`에 선언(`workflow.yaml`)과 `workflow.md`를 쓰거나 고친다. artifact(step 그림, instance 상태)를 둘지는 session이 정한다(F5). workflow 정의를 쓰는 것은 그 project workspace의 session뿐이다(`architecture/workflow.md`). 결정적인 처리가 필요한 workflow는 `kind: flow`로 두고 같은 폴더에 code(`flow.ts`)를 쓴다. 쓴 뒤 `workflow.check`로 type check한다. flow가 부를 앱 tool은 `workflow.yaml`의 `agent`(없으면 lophn)에게 할당한 공개 command만 되므로, 그 앱이 할당에 없으면 사람에게 할당을 청한다(F3).
+- C30. project가 다른 기계에서도 같은 project여야 하면, session이 `lophn project share`로 저장소 안 id file을 만들고 그 file의 commit은 session이나 사람이 한다(lophn은 git 쓰기를 하지 않는다). 이 기계에 없는 project가 필요하면 `lophn project clone`으로 받는다. 처음이면 project를 둘 폴더를 사람에게 한 번 묻는다. git 자격이 없다는 실패가 오면 돌려받은 명령을 사람에게 알린다. 나누기([Separate project])는 사람만 한다(`architecture/project-identity.md`).
 
 ### workflow 참가자
 
@@ -115,6 +117,7 @@ J1~J6은 정해진 때 도는 일(job)을 만들고 job이 agent를 부를 때�
 - J4. job이 앱 tool을 부르는 차례는 그 job을 만든 agent의 지금 할당 안에서만 된다. 밖이면 막히고 그 차례는 실패로 남는다.
 - J5. job이 부른 session도 job tool을 받아 job을 만들 수 있다. 막지 않는다. 사람이 모든 job을 화면에서 본다.
 - J6. job의 차례가 실패해도 자동으로 다시 하지 않는다. 다시 하는 것은 사람이 정한다.
+- J7. job은 만든 기계에서만 돈다. 다른 기계의 job(복사한 data root에서 온 것)은 멈춘 채 보이고, 이 기계로 옮기는 것은 사람의 [Run on this computer]뿐이다. agent는 job을 기계 사이로 옮기지 않는다(`architecture/job.md` "주인 기계").
 
 ### 사람
 

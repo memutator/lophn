@@ -42,7 +42,7 @@ planner가 theme, 단축키, extension을 하나씩 옮기는 단계로 초안�
   - `<data root>/extensions/<id>/`(extension 설치 표시)
   - core는 이 file들의 모양을 migration 때만 안다(`wiring/global-floats-tabs.ts`, `wiring/workspace-rename.ts`).
 - **renderer localStorage**: sidebar 폭과 열림, 숨긴 recent.
-- 설정이 아예 아닌 것: 로그인 때 자동 시작(tray 메뉴의 toggle뿐, `main/desktop/autostart.ts`), OS 전역 단축키(상수 `CommandOrControl+Shift+K`), 언어(상수 `en`).
+- 설정이 아예 아닌 것: 로그인 때 자동 시작(그때는 tray 메뉴의 toggle뿐이었다. 2026-11 계획 `always-on`이 Settings › Remote의 Keep running 표시로 바꿨다, `architecture/platform.md` "늘 켜 둠"), OS 전역 단축키(상수 `CommandOrControl+Shift+K`), 언어(상수 `en`).
 
 ### 값을 바꾸는 길은 화면 하나다
 

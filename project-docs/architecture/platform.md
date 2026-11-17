@@ -293,7 +293,7 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 - Windows에서 foreground 판정과 TUI 끄기가 없다. 후보는 ConPTY에 Ctrl+C를 쓰거나 process tree를 끄는 것, foreground는 PTY shell pid 아래 process tree 근사다. 그 전까지는 toggle이 없음이 드러나야 한다(지키는 것 4). (같은 이슈)
 - 다른 client(CLI)가 stop한 뒤 shell은 주기적으로 identify를 묻지 않아 새 core에 스스로 붙지 못한다. Reconnect를 눌러야 한다. (이슈 "shell이 다른 client의 stop 뒤에는 새 core를 스스로 알아채지 못한다")
 - 업데이트 뒤 첫 로그인 실행이 옛 등록(Linux·Windows의 `--tray`, macOS의 login item)이면 새 판이 일반 실행으로 창을 한 번 연다. 그 실행이 옛 등록을 표시로 옮긴다. (이슈 "업데이트 뒤 첫 로그인 실행은 창을 한 번 연다")
-- 늘 켜 둠의 OS 쪽(systemd unit, LaunchAgent, Windows `Run` 값, keep-awake child, child tree 끄기, NSIS 제거 macro)은 어느 실제 기계에서도 돌려 보지 않았다. 글 만들기와 OS 답 읽기는 fake exec로만 확인했다. (이슈 `always-on-os-side-unverified`)
+- 늘 켜 둠의 OS 쪽(systemd unit, LaunchAgent, Windows `Run` 값, keep-awake child, child tree 끄기, NSIS 제거 macro)은 어느 실제 기계에서도 돌려 보지 않았다. 글 만들기와 OS 답 읽기는 fake exec로만 확인했다. 사람이 설치본에서 change-log `always-on`의 checklist로 본다.
 - Windows의 로그인 시작은 core 입구가 아니라 Electron `--core`를 거쳐 `LOPHN_SERVICE=1`과 기동 실패 exit 0 규칙이 걸리지 않는다. (이슈 `windows-login-start-not-service`)
 - systemd user session이 없는 Linux에서는 옛 "Start at login"을 옮기지 못해 옛 autostart가 남고, 표시는 켜져 idle-exit가 꺼진 채 한 번 알림도 뜨지 않는다. (이슈 `legacy-autostart-kept-without-systemd`)
 - 옮긴 사람에게 주는 한 번 알림은 그 순간 desktop 창이 없으면 다음 shell 실행까지 미뤄진다. (이슈 `keep-running-notice-waits-for-window`)

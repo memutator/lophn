@@ -391,10 +391,10 @@ components:
   - id: architecture-platform
     kind: doc
     roles: [planner, lead, worker]
-    description: "Linux·macOS·Windows에서 다르게 하는 것의 설계: OS 규칙이 모이는 자리, 꺼진 기능, 다른 OS를 확인하는 법, core의 수명(띄우기, 붙기, 끄기, idle-exit, autostart)."
+    description: "Linux·macOS·Windows에서 다르게 하는 것의 설계: OS 규칙이 모이는 자리, 꺼진 기능, 다른 OS를 확인하는 법, core의 수명(띄우기, 붙기, 끄기, idle-exit, 늘 켜 둠)."
     path: project-docs/architecture/platform.md
     change_reasons:
-      boundaries: [base]
+      boundaries: [base, always-on]
       paths: [packages/base/os/, packages/core/supervision/, packages/core/install-and-update/data-root.ts, packages/core/apps/releases/bundle/seal.ts, packages/core/apps/runtime/processes/, packages/core/lophn-agent/tools/shell/, packages/shell/main/desktop/paths.ts, packages/shell/main/desktop/core/login-path.ts, packages/shell/terminal-host/child-group.ts, packages/coding-agent/harnesses/detect.ts, tools/package/, tools/ci/]
 
   - id: architecture-observability
@@ -469,6 +469,73 @@ components:
       boundaries: [config]
       paths: [packages/protocol/config/, packages/core/config/, packages/cli/commands/settings.ts, packages/shell/main/desktop/core/settings.ts]
       note: 설정 선언의 칸, settings route·event·명령, locked인 설정의 목록, shell이 설정을 따르는 길이 바뀔 때. 설정 하나를 더하는 것만으로는 고치지 않는다.
+
+  - id: architecture-remote
+    kind: doc
+    roles: [planner, lead]
+    description: "기기(폰, 다른 기계를 보는 desktop)가 컴퓨터의 core에 붙는 길의 설계: Noise handshake와 hello, pairing과 기기 표, 기기가 부를 수 있는 route, core가 폰에 묻는 request, 폰 앱 화면, desktop의 다른 기계 창."
+    path: project-docs/architecture/remote.md
+    change_reasons:
+      boundaries: [remote, remote-protocol, remote-client, relay, mobile]
+      paths: [packages/shell/main/desktop/viewer/, packages/shell/preload/remote.ts]
+
+  - id: architecture-attention
+    kind: doc
+    roles: [planner, lead]
+    description: 사람을 기다리는 일과 turn 끝, 앱 알림을 어느 기기에 알릴지 정하는 설계(presence 보고, unseen, Expo Push).
+    path: project-docs/architecture/attention.md
+    change_reasons:
+      boundaries: [attention]
+
+  - id: architecture-phone-screen
+    kind: doc
+    roles: [planner, lead]
+    description: 사용자 앱의 폰 화면(폰 UI kit으로 쓴 React Native 화면)을 core가 build하고 폰 앱이 guest runtime에서 돌리는 설계와 view binding.
+    path: project-docs/architecture/phone-screen.md
+    change_reasons:
+      boundaries: [mobile, design-native]
+      paths: [packages/core/apps/phone/, packages/core/apps/views/]
+
+  - id: architecture-phone-home-screen
+    kind: doc
+    roles: [planner, lead]
+    description: 사용자 앱이 폰 홈 화면에 닿는 설계(위젯, 홈 화면 아이콘, open target). Android만.
+    path: project-docs/architecture/phone-home-screen.md
+    change_reasons:
+      paths: [packages/core/apps/widgets/, packages/mobile/modules/lophn-widgets/, packages/mobile/src/widgets/, packages/mobile/src/shortcuts/, packages/mobile/src/open/]
+
+  - id: architecture-app-sync
+    kind: doc
+    roles: [planner, lead]
+    description: 폰에서 도는 앱과 기계 사이로 보내는 앱의 사본 맞추기 설계(ledger sync log, 폰의 push·pull·snapshot, 칸 단위 clock, 기계 사이 snapshot 합치기, 흔적 정리와 horizon).
+    path: project-docs/architecture/app-sync.md
+    change_reasons:
+      boundaries: [app-sync]
+
+  - id: architecture-machine
+    kind: doc
+    roles: [planner, lead]
+    description: 설치마다의 기계 id와 이름, 복사된 data root를 새 기계로 알아채기, 기계에 묶인 상태의 표지.
+    path: project-docs/architecture/machine.md
+    change_reasons:
+      boundaries: [machine]
+
+  - id: architecture-folder-sync
+    kind: doc
+    roles: [planner, lead]
+    description: 한 사람의 여러 컴퓨터가 앱 data, release, 앱 source, 기계 기록을 바깥 도구가 옮기는 폴더로 주고받는 설계(destination, 하위 폴더, 검사 뒤 적용, held, take-in, 따라가기, 판 범위, 읽기 명령 `machine.environment`).
+    path: project-docs/architecture/folder-sync.md
+    change_reasons:
+      boundaries: [folder, app-releases]
+      paths: [packages/core/agent-workspaces/skills/design-app/folder-sync.md]
+
+  - id: architecture-project-identity
+    kind: doc
+    roles: [planner, lead]
+    description: git 저장소인 project가 어느 기계에서도 같은 project로 보이게 하는 설계(저장소 안 `.lophn-project.json`, 두 층 id, 이 기계에 없는 project의 clone, 다른 기계 창의 묶어 보이기).
+    path: project-docs/architecture/project-identity.md
+    change_reasons:
+      paths: [packages/core/projects/identity/, packages/core/projects/clone/, packages/protocol/projects/identity.ts, packages/protocol/projects/identity-api.ts, packages/protocol/projects/clone-api.ts]
 
 
 

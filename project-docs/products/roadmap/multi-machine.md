@@ -1,6 +1,6 @@
 # multi-machine: 한 사람의 lophn 여럿
 
-상태: **계획 여섯으로 열었다(2026-11-16).** `project-docs/plan/{machine-identity,desktop-remote,app-folder-sync,project-identity,always-on,machine-update}/`. 계획 사이의 경계와 정한 정책은 `reports/multi-machine/program.md`에 있다. 2026-11-15 사람이 방향을 냈고, 2026-11-16 사람과 planner가 대화로 모양을 잡았다. 같은 날 다른 harness 21개를 조사했다(아래 "조사"). 바탕인 relay(계획 `remote-relay`), 폰에서 도는 sync 앱(`mobile-local-apps`), 폰 앱(`mobile-app`)은 main에 있다. "정한 것"에 적지 않은 것은 planner의 추천이고 결정이 아니다.
+상태: **끝남(2026-11-17).** 계획 여섯(`machine-identity`, `always-on`, `project-identity`, `desktop-remote`, `app-folder-sync`, `machine-update`)을 main에 land했다(0.23.69~0.23.75, change-log 같은 이름). 설계는 `architecture/{machine,remote,folder-sync,app-sync,activation,project-identity,platform,job}.md`가 지금 코드를 적는다. 계획 사이의 경계와 계획 중에 정한 정책 26개는 `reports/multi-machine/program.md`에 있다. 남은 것은 아래 "남은 것"이다. 2026-11-15 사람이 방향을 냈고, 2026-11-16 사람과 planner가 대화로 모양을 잡았다. 같은 날 다른 harness 21개를 조사했다(아래 "조사"). 바탕인 relay(계획 `remote-relay`), 폰에서 도는 sync 앱(`mobile-local-apps`), 폰 앱(`mobile-app`)은 main에 있다. "정한 것"에 적지 않은 것은 planner의 추천이고 결정이 아니다.
 
 배경 문서: `project-docs/products/roadmap/{mobile,standalone-core}.md`, `project-docs/architecture/{remote,app-sync,phone-screen,platform}.md`.
 
@@ -49,7 +49,7 @@
 ### 1. 기계와 이름
 
 - 기계마다 설치 id가 하나 있다. id는 그 기계를 떠나지 않는다: backup, 내보내기, sync 폴더 어디에도 넣지 않는다. data root를 복사해 생긴 두 번째 기계는 알아채고 새 id를 받는다.
-- 이름은 그 기계가 갖고, 붙는 쪽에 알려 준다. 기본값은 hostname이고 사람이 바꾼다. 사람이 한 번 바꾼 뒤에는 hostname을 따라가지 않는다. 폰도 이름을 갖는다. 보는 쪽이 따로 붙이는 별명은 첫 판에 두지 않는다.
+- 이름은 그 기계가 갖고, 붙는 쪽에 알려 준다. 기본값은 hostname이고 사람이 바꾼다. 사람이 한 번 바꾼 뒤에는 hostname을 따라가지 않는다. 폰도 이름을 갖는다. 보는 쪽이 별명을 붙여 두었으면 알린 이름 대신 별명을 보인다(사람, 2026-11-16).
 - "main" 하나를 두지 않는다. 기계마다 "늘 켜 둠" 표시(켜면 그 기계의 lophn이 부팅 때 스스로 뜬다)와, 보는 쪽마다의 기본 기계(켤 때 마지막에 쓴 기계를 열지 정해 둔 기계를 열지)로 나눈다.
 - 기계를 넘는 모든 기록은 절대적인 기계 id를 싣는다. "local"처럼 보는 사람에 따라 뜻이 달라지는 값을 저장하지 않는다.
 
@@ -126,12 +126,16 @@
 | 사용자 data를 다루는 부분은 선례와 달라도 lophn이 정한다 | 사람, 2026-11-16 |
 | 기계와 폰에 이름을 짓는다 | 사람, 2026-11-16 |
 | Google Drive API를 lophn이 직접 부르는 길은 보류한다 | 사람, 2026-11-16 |
+| 보는 쪽이 붙인 별명이 있으면 알린 이름 대신 별명을 보인다(폰과 desktop, 두 방향) | 사람, 2026-11-16 |
+| 다른 기계를 보는 desktop은 그 기계의 앱 화면을 보이지 않는다 | 사람, 2026-11-16 |
 | 합치는 엔진은 lophn 것 하나로 고정하고 앱마다 다른 것은 정책뿐이다 | planner 추천 |
 | lophn과 바깥의 약속은 폴더다 | planner 추천(사람의 rclone 방향에서) |
 | remote의 첫 판은 폰과 같은 권한이고 처음 설정은 그 기계의 화면에서 한다 | planner 추천 |
 | "main" 대신 늘 켜 둠 표시와 보는 쪽마다의 기본 기계 | planner 추천 |
 | project 신분은 저장소 안 file, 두 겹 id | planner 추천 |
 | git 로그인을 만들지 않고 그 기계의 것을 쓴다 | planner 추천 |
+
+"planner 추천"과 계획 사이에 부딪히는 정책은 사람이 planner에게 맡겼다(2026-11-16). 계획 중에 정한 것은 `reports/multi-machine/program.md`의 "Policies decided"와 각 change-log의 `decisions`에 있다.
 
 ## 조사에서 가져온 규칙
 
@@ -171,11 +175,19 @@
 
 ## 사람이 정할 것
 
-1. **agent 정의, skill, 설정을 기계 사이에 맞추나.** 지금 안은 맞추지 않는다. 맞춘다면 무엇을(이름으로 좁힌 목록), 값이 기계마다 다를 때 어떻게 보이나("Mixed" 표시). 다른 제품은 설정 몇 개를 붙어 있는 기계에 뿌리는 정도다.
-2. **project에 딸린 지침과 설정을 저장소 file로 두나.** 두면 git을 타고 모든 기계에 간다(개인 값은 그 기계에, 공유 값은 저장소 file에, "공유" 단추가 개인 값을 file에 쓴다). 안 두면 기계마다 다시 정한다.
-3. **앱마다 정책의 범위.** 정해진 것은 "어느 폴더로 가는가, 또는 내보내지 않는가"다. 더 필요한가: 특정 기계를 빼기, 폰을 빼기, 보관 기간, 맞추지 않고 그 기계에만 두는 column(예: 이 기계의 창 위치), 예약 작업의 주인 기계.
-4. **늘 켜 둠 표시가 하는 일.** 추천: 표시하면 그 기계의 lophn이 부팅 때 스스로 뜨고(OS 서비스 등록), agent가 주기 job과 폴더 옮기기를 그 기계에 건다.
-5. **폰의 틈.** 컴퓨터가 전부 꺼져 있으면 폰이 쓴 것이 퍼지지 않는다. 그대로 두나, 보류한 Drive API를 여나.
+1. ~~**agent 정의, skill, 설정을 기계 사이에 맞추나.**~~ 이번 계획들에서는 맞추지 않았다(planner 정책 13). 필요가 실제로 생기면 다시 연다.
+2. **project에 딸린 지침과 설정을 저장소 file로 두나.** 두면 git을 타고 모든 기계에 간다(개인 값은 그 기계에, 공유 값은 저장소 file에, "공유" 단추가 개인 값을 file에 쓴다). 안 두면 기계마다 다시 정한다. 아직 열려 있다. 저장소 file `.lophn-project.json`은 지금 판과 id만 갖는다(`architecture/project-identity.md`).
+3. ~~**앱마다 정책의 범위.**~~ 선언 칸은 destination 이름 `sync_to` 하나다. 예약 작업은 만든 기계에서만 돈다(job의 주인 기계).
+4. ~~**늘 켜 둠 표시가 하는 일.**~~ 표시하면 로그인 때 OS의 per-user 시작 항목으로 뜨고 창을 닫아도 돈다. 로그인 전에 뜨지는 않고, 잠들기 막기는 따로 스위치다(planner 정책 5~7).
+5. ~~**폰의 틈.**~~ 그대로 둔다: 폰은 폴더를 쓰지 않고 pairing한 컴퓨터를 거친다(planner 정책 15). Drive API는 보류 그대로다.
+
+## 남은 것
+
+- **정할 것**: 위 2(project 지침과 설정을 저장소 file로).
+- **실제 기계에서 확인하지 않은 것**: 늘 켜 둠의 OS 쪽 전부(systemd user unit, LaunchAgent, Windows `Run` 값, keep-awake, NSIS 제거), macOS와 Windows 전체, 실제 두 기계와 실제 폴더 옮기는 도구(Syncthing, rclone), desktop 사이의 relay 길, 새 build를 깐 실제 폰, 서로 다른 lophn 판이 만나는 것. 확인할 것은 change-log `always-on`, `desktop-remote`, `app-folder-sync`, `machine-update`, `project-identity-remote-view`의 checklist다.
+- **보류**: lophn이 Google Drive API를 직접 부르기(아래 "보류").
+- **열린 이슈**: `node tools/records.ts issues --status open --topic folder-sync`(그리고 `remote`, `project-identity`, `platform`, `app-sync`).
+- **한계로 둔 것**: destination을 바꿀 Settings 화면이 없다(사람은 `lophn settings set folder.destinations`나 home의 lophn agent). Windows는 crash 뒤 core를 다시 띄우지 않는다. 갈라진 release는 앱 agent가 합쳐 새 release를 내야 풀린다.
 
 ## 순서
 
@@ -185,10 +197,9 @@
 1. ~~**줄 1, 다른 기계 보기**: desktop이 다른 기계의 core에 기기로 pairing해 연다. 기계 고르기, 보는 쪽마다의 기본 기계.~~ 계획 `desktop-remote`로 했다(`architecture/remote.md`의 "desktop에서 다른 기계 보기", change-log `desktop-remote`). 다른 기계의 앱 화면은 띄우지 않는다(사람, 2026-11-16: 미룬 것이 아니라 하지 않는다).
 2. ~~**줄 2, 앱 data 맞추기**: 변경을 폴더로 내놓고 읽어 들이기, 앱 선언의 정책, agent가 읽는 환경 정보와 폴더 옮기기 지침. 앱 release와 source를 폴더로.~~ 계획 `app-folder-sync`로 했다(`architecture/folder-sync.md`, change-log `app-folder-sync`).
 3. ~~**project 신분**: 저장소 안 file, 두 겹 id, "이 기계에는 없음" 상태.~~ 계획 `project-identity`로 했다(`architecture/project-identity.md`, change-log `project-identity`, `project-identity-remote-view`). 다른 기계를 보는 창에서 같은 id의 project를 묶어 보이기와 [Clone here]도 그 계획의 마지막 task로 했다.
-4. **늘 켜 둠**: OS 서비스 등록과 job의 주인 기계. (계획 `always-on`, 2026-11-16 끝남)
+4. ~~**늘 켜 둠**: OS 서비스 등록과 job의 주인 기계.~~ 계획 `always-on`으로 했다(`architecture/platform.md`의 "늘 켜 둠", `architecture/job.md`의 "주인 기계", change-log `always-on`).
 5. ~~**판이 다른 기계**: lophn 판과 앱 release가 기계마다 달라도 잃지 않고 말없이 틀리지 않기. 범위 밖이면 누가 올려야 하는지 보이기.~~ 계획 `machine-update`로 했다(`architecture/folder-sync.md`의 다른 release와 다른 lophn 판, `architecture/activation.md`의 따라가기, `architecture/remote.md`의 hello, change-log `machine-update`).
 
-미니 PC를 실제로 쓰려면 줄 1이 먼저다. 계획을 열기 전에 지금 code의 사실(sync가 "아무 기계끼리"를 어디까지 받치는지, remote client가 desktop에서 도는지, 기기 gate, project 표)을 조사한다.
 
 ## 조사
 

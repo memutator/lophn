@@ -157,7 +157,7 @@ Inbox는 탭 둘이다.
 7. 남기는 기간: program 줄은 지우지 않는다. 앱이 영구로 남긴 줄은 앱마다 최근 200개, 휘발 줄은 앱마다 50개다. 고장 난 앱이 표를 끝없이 키우지 못하게 한다.
 8. 정본은 표다. 줄은 사람이 지우거나(휘발) 상한에 밀리거나 앱이 보관될 때까지(휘발) 재시작을 넘어 남는다. toast는 shell 정책이라 놓친 것을 다시 띄우지 않는다.
 9. toast·OS 알림 규칙: app 줄은 모두 띄운다. program 줄은 사람이 알아야 하는 `release_failed`·`release_rolled_back`·`app_unavailable`·`app_data_restored`·`sdk_update_needed`·`session_stopped_by_app`·`phone_changed`·`app_sync_away`만 띄우고 `release_activated`·`app_data_migrated`·`lophn_updated`는 Inbox에만 남긴다. 앱 없는 줄은 `sdk_update_needed`·`phone_changed`만 띄우고(`lophn_updated`는 Inbox에만) 누르면 Inbox를 연다.
-10. 기동 중에 쓴 줄은 toast가 뜨지 않는다. core가 `ready`를 내기 전에 쓴 줄이라 shell이 아직 connect하지 못했고 event 구독이 없다(놓친 알림은 다시 띄우지 않는다). shell 없이 도는 core(앱을 Quit한 뒤, CLI나 autostart가 띄운 core)가 쓴 줄도 같다. 그 줄은 배지와 History로만 보인다.
+10. 기동 중에 쓴 줄은 toast가 뜨지 않는다. core가 `ready`를 내기 전에 쓴 줄이라 shell이 아직 connect하지 못했고 event 구독이 없다(놓친 알림은 다시 띄우지 않는다). shell 없이 도는 core(앱을 Quit한 뒤, CLI나 로그인 시작이 띄운 core)가 쓴 줄도 같다. 그 줄은 배지와 History로만 보인다.
 11. `kind`·`action`이 가리키는 일은 사람이 단추를 눌러야 시작된다. program이 session을 스스로 열지 않는다.
 12. tray 값과 위젯 값은 저장하지 않는다. 알림과 달리 재시작 뒤 다시 내는 것은 앱 몫이다.
 13. 못 본 turn 끝(`unseen`)은 notice 줄이 아니고 core가 든다. desktop은 `unseen/list`로 읽고 `unseen/dismiss`로 지우기만 하며 StateChanged의 `unseen`이 오면 다시 읽는다. 서고 꺼지는 규칙과 폰에서 읽으면 desktop 점이 꺼지는 것은 `attention.md`가 맡는다. shell main은 못 본 끝을 들지 않는다.

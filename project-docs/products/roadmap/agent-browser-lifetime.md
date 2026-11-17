@@ -7,7 +7,7 @@
 
 - lophn agent는 사람이 지켜볼 때만 일하지 않는다. job이 정해진 때 agent를 부르고, workflow는 사람과 agent가 step을 넘기며 돈다. 사람은 그동안 다른 workspace에 있거나 창을 모두 닫았거나 앱을 Quit했다(`PRODUCT.md` 3·6절). 사람의 몫은 결과를 보고 정하는 것이다.
 - 그런데 agent browser page의 수명은 "사람이 지금 그 workspace를 화면에 띄웠나"에 묶여 있다. 그 workspace를 띄운 창이 없으면 `tab open`은 열리지 않고, 연 뒤에도 사람이 다른 workspace로 가면 page가 사라진다.
-- shell이 아예 없으면 browser를 쓸 수 없다. job은 core만으로 돈다(로그인 autostart는 core만 띄우고, 앱을 Quit해도 core는 남는다). 그래서 browser가 필요한 job은 평소 상태에서 실패한다.
+- shell이 아예 없으면 browser를 쓸 수 없다. job은 core만으로 돈다(로그인 시작은 core만 띄우고, 앱을 Quit해도 core는 남는다). 그래서 browser가 필요한 job은 평소 상태에서 실패한다.
 - 실제로 일어났다(2026-11-10, 앱 workspace의 session). 사람이 project workspace로 옮긴 4초 뒤 agent가 `tab open`을 불렀다. 탭은 10분 뒤 사람이 앱 workspace로 돌아왔을 때야 열렸다. 그 사이 `browser.snapshot`·`screenshot`은 `unavailable`, `browser.read`는 `not_found`였다. model은 이유 없이 "tool is unavailable"만 받았다. 그래서 shell로 사람의 Chrome profile 쿠키를 `/tmp`에 복사하고 `--remote-debugging-port`로 Chrome을 띄워 `uvx browser-use`로 일을 이었다. 끝난 뒤에도 그 Chrome process와 계정별 쿠키 사본이 `~/.local/share/` 아래에 남았다.
 - 이것은 lophn이 막아야 할 agent의 실수(폴더 밖 쓰기, 사람 data 건드리기)를 lophn의 구조가 부른 것이다. grant·rewind·관측이 닿지 않는 바깥 browser로 agent를 밀어낸다. 새벽에 도는 job도 같은 길로 간다.
 - 사람 browser 탭의 reload(workspace를 오가면 page를 다시 load한다)도 뿌리가 같다. page 수명이 workspace 화면의 mount에 붙어 있고, Keep alive는 그 위의 예외 목록이다.
@@ -18,7 +18,7 @@
 
 - **열기는 그 workspace를 띄운 창에만 갔다. 지금은 browser 탭만 어느 창이든 간다.** core host queue는 `tab_open`을 shell이 알린 보이는 `workspaces`(그때는 `host/take`의 인자, 지금은 `/host-link`의 `visible`)에 그 탭의 workspace가 있을 때만 빌려 줬다. 이제 browser 탭의 `tab_open`·`tab_close`는 workspace를 가리지 않고 아무 shell main이 가져가고, shell main이 그 workspace를 보이는 창, 없으면 가장 최근 일반 창, 그것도 없으면 focus 없이 연 새 창에 보낸다. 다른 target(preview, artifact, session, coding)은 그대로 그 workspace를 보이는 창에만 가고 기다린다(`workspace-layout.md` 결정 18).
 - **shell이 없으면 browser 호출이 바로 끝났다. 지금은 열기가 shell을 띄운다.** `tab open --url`은 shell이 없으면 core가 앱을 띄우고 기다린다(조건은 아래 3번). 이미 연 browser 탭에 shell 없이 온 `browser.*`는 page가 사라진 것으로 보고 그 탭을 core 표에서 빼고 `not_found`를 답한다. preview·artifact 탭의 호출은 전과 같이 `unavailable` "the lophn app is not connected"다.
-- **core만 뜨는 때가 평소다(그대로).** 로그인 autostart는 `--core`로 core만 띄우고 Electron은 끝난다. 앱의 Quit은 shell만 정리하고 core는 남는다. 켜진 job이나 열린 job run이 있으면 idle-exit가 core를 끄지 않는다(`platform.md` "core 수명", `job.md` 14).
+- **core만 뜨는 때가 평소다(그대로).** 로그인 시작(늘 켜 둠 표시를 켠 기계의 OS 등록)은 core만 띄운다(`platform.md` "늘 켜 둠"). 앱의 Quit은 shell만 정리하고 core는 남는다. 켜진 job이나 열린 job run이 있으면 idle-exit가 core를 끄지 않는다(`platform.md` "core 수명", `job.md` 14).
 - **browser 엔진과 로그인은 shell main의 것이다(그대로).** partition `persist:lophn-browser`는 shell userData에 있고 Chromium profile은 한 번에 한 process만 연다.
 - **창 없이 도는 shell main은 개발용뿐이다(그대로).** `LOPHN_SHELL_HEADLESS=1`은 개발 확인용이다. 제품에 "page만 든 shell"은 없다. 대신 `--agent-window` intent가 일반 창을 focus 없이 연다.
 - **shell main은 창이 알린 workspace만 안다(그대로).** renderer가 layout을 다 읽은 뒤 `shell:surface-workspace`로 알리고 main이 창마다 하나를 `shown`에 둔다. detached 창은 세지 않는다. browser 탭 열기는 이 정보가 없어도(보이는 창이 없어도) 가장 최근 일반 창으로 간다.

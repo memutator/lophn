@@ -1,0 +1,13 @@
+id: dev-root-remote-uses-real-relay
+title: 개발 data root에서 remote를 켜면 개발 core가 실제 relay에 붙는다
+kind: bug
+status: open
+topic: remote
+modules: [tools]
+now: |
+  설정 `remote.relay`의 기본값은 lophn이 띄운 실제 relay `wss://lophn-relay.fly.dev`다(`packages/core/config/shell-settings.ts`의 `remoteRelaySetting`). relay를 비우는 것은 `npm run dev:remote`(`tools/remote-dev.ts`)뿐이고 그것도 `.dev-data` 하나에만 한다. `tools/dev.ts`는 개발 root(`.dev-data`, `--viewer`의 `.dev-data/viewer`)에 fake push(`remote.push`)와 fake provider만 심고 relay는 건드리지 않는다. 그래서 Settings › Remote의 스위치나 `lophn settings set remote.enabled true`로 개발 core의 remote를 켜면 그 core가 실제 relay에 붙는다. multi-machine 계획에서 worker가 개발 root의 `remote.enabled`를 켰다(두 desktop 확인).
+impact: |
+  개발·test core가 사람의 확인 없이 바깥 service(실제 relay)에 등록하고 붙는다. AGENTS.md가 실제 model provider 호출처럼 묻게 하는 종류의 바깥 호출이고, 개발 core의 연결이 운영 relay에 남는다.
+fix: |
+  - 작음(추천): `tools/dev.ts`가 fake push를 심는 자리에서 개발 root의 `settings.json`에 `remote.relay` 칸이 없으면 `""`로 심는다(있으면 사람이 적은 것이라 둔다). `dev:remote`의 relay 줄은 그대로 둔다.
+  - 작음: 개발 relay가 필요해지면 `tools/dev.ts`가 local relay(`packages/relay`)를 띄워 그 주소를 심는다. 지금 쓰는 곳이 없다.

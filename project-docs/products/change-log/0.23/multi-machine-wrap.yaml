@@ -1,0 +1,26 @@
+id: multi-machine-wrap
+version: 0.23.75
+title: multi-machine 계획 여섯이 land한 뒤 context를 지금 코드에 맞추고 이슈를 거른다
+modules: []
+checked: [agents-md, tool-doctor, architecture-testing, architecture-agent-call, architecture-package, architecture-workspace-session, architecture-run, architecture-workflow, architecture-agent-definition, architecture-coding-agent, architecture-extension, architecture-terminal-agent, architecture-annotation, architecture-browser-tab, architecture-keybindings, architecture-artifact, architecture-ui-kit, architecture-appearance, tool-context-review, tool-worktree-prep, tool-e2e, tool-test-live, skill-sdk-note, skill-flows, skill-write-test, tool-check-sdk-notes, tool-package, tool-models-snapshot, skill-ui-design]
+change: |
+  전: 계획 여섯(machine-identity, always-on, project-identity, desktop-remote, app-folder-sync, machine-update)의 lead가 자기 문서는 고쳤지만, 같은 boundary에 기대는 그 밖의 조각과 제품 문서는 옛 모양이었다.
+  후:
+  - "`architecture/layers.md`: package 그림과 규칙에 `remote-client`(shell이 쓰고 protocol·base만 쓴다), core 바닥 목록에 remote, attention, machine, always-on, folder."
+  - "`architecture/event.md` 18: core가 `StateChanged`를 듣는 곳이 셋(remote, 폰 화면 바뀜, folder)이라고 바로잡았다. 전에는 "core는 듣고 일하지 않는다"였다."
+  - "`architecture/remote.md`: 지운 계획 README를 가리키던 계약 줄을 뺐다. `platform.md`·`remote.md`·`folder-sync.md`·`project-identity.md`의 이슈 줄을 아래 이슈 정리에 맞췄다. `app-notice.md`의 autostart를 로그인 시작으로."
+  - "`PRODUCT.md`: 하지 않는 것에 저장소(cloud, NAS) 연결 기능, MVP에 한 사람의 여러 컴퓨터(기계마다 온전한 lophn, session은 옮기지 않고 보기, 다른 기계의 앱 화면은 보이지 않음, 앱마다 data 길, project는 어디서나 같음, 늘 켜 둠)와 job은 만든 기계에서만 돈다."
+  - "`products/AGENT.md`: L12(destination은 home의 session만 승인 카드로 청한다), C30(project id file과 clone, commit은 session이나 사람), J7(job은 만든 기계에서만, 옮기기는 사람)."
+  - "roadmap `multi-machine.md`를 끝남으로: 상태, 순서 4, 별명 결정, 사람이 정할 것 가운데 열린 것은 2(project 지침과 설정을 저장소 file로)뿐, 새 절 "남은 것"(실제 기계에서 확인하지 않은 것, 보류한 Drive API, 열린 이슈, 한계). `config-surface.md`·`agent-browser-lifetime.md`·`mobile.md`·`headless-schedule.md`의 옛 autostart(지운 `autostart.ts`와 tray "Start at login") 문장을 늘 켜 둠으로."
+  - "registry: architecture 문서 여덟(remote, attention, phone-screen, phone-home-screen, app-sync, machine, folder-sync, project-identity)을 더하고 platform의 change_reasons에 `always-on`을, 설명의 autostart를 늘 켜 둠으로."
+  - "이슈: 확인 못 함만 적은 `always-on-os-side-unverified`·`desktop-remote-macos-keys-untested`를 지웠다(change-log checklist가 같은 것을 사람에게 맡긴다). `folder-absent-pass-mark-in-error-column`, `project-identity-agent-project-scope`, `first-login-after-update-opens-window`를 kept로 닫았다. `machine-environment-lacks-update-state`와 `remote-revoked-offline-looks-unreachable`이 지운 file을 가리키던 글을 고쳤다. 새 이슈 `dev-root-remote-uses-real-relay`."
+  - "lead가 겪은 함정을 orchestrate skill(worker 목록, review 표, merge, 함정)과 worker prompt(`prompt.py`)에: flows 줄은 worker가 고친다, 같은 wave의 남의 type 사본 금지, flows yaml 충돌 뒤 `flows.ts check`, 기존 계약을 좁힌 것은 e2e·support를 grep, task 묶음 merge, 두 계획의 마무리 문서는 하나씩, 개발 root의 relay."
+why: |
+  wrap-plan 2·3단계: `context-review --range e23ec7130..HEAD`의 다시 볼 조각 34개를 지금 코드와 대조하고, 계획이 올린 이슈 32개를 issue skill의 "올릴지"로 다시 거르고, lead가 겪은 함정을 다음 lead와 worker가 읽는 자리에 옮긴다.
+decisions:
+  - text: 계획 여섯의 change-log는 이미 낸 판이라 `checked`를 고치지 않고 이 항목에 모았다.
+    by: agent
+  - text: 확인 못 함만 적은 이슈는 kept로 닫지 않고 지웠다. 그 확인은 change-log의 checklist가 사람에게 맡기고 roadmap의 "남은 것"이 목록으로 가진다.
+    by: agent
+  - text: 사람이 정할 것 1(agent 정의·skill·설정 맞추기)은 planner 정책 13(이번 계획들에서는 맞추지 않는다)으로 닫고 필요가 생기면 다시 연다. 열린 것은 2뿐이다.
+    by: agent

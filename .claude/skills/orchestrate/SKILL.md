@@ -63,7 +63,9 @@ Agent tool로 띄운다: `subagent_type: sonnet-high`, `run_in_background: true`
 worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록도 고친다):
 - 작업 위치(worktree 절대 경로)와 "그 밖의 file은 고치지 않는다".
 - 먼저 읽을 것: worktree의 AGENTS.md, brief의 절대 경로, brief의 "읽을 것".
-- 소유 path만 고친다. 계약은 고치지 않고 요청을 보고에 적는다. project-docs는 고치지 않는다.
+- 소유 path만 고친다. 계약은 고치지 않고 요청을 보고에 적는다. project-docs는 고치지 않는다. 예외는 자기 task가 더하거나 지운 입구·test file의 `project-docs/flows/` 줄이다("project-docs를 고치지 않는다"만 보고 worker가 flows 줄을 빠뜨린 일이 있다).
+- 다른 task나 module이 가진 type을 자기 쪽에 따로 선언하지 않는다. 같은 wave에서 한 file에 만나는 두 task가 병렬로 돌 때 뒤 task가 앞 task의 type 사본을 두면 어긋남이 merge에서야 드러났다.
+- 실제 relay에 붙지 않는다: 개발 root에서 `remote.enabled`를 켜기 전에 `remote.relay`를 비운다(기본값이 실제 relay다. worker가 개발 root의 remote를 켠 일이 있다. 이슈 `dev-root-remote-uses-real-relay`).
 - import를 끊으려고 다른 module의 표를 SQL로 직접 읽지 않는다. 못 끊으면 `check-deps` 예외로 둔다.
 - 지우거나 옮기거나 값을 바꾼 이름·숫자는 grep해 주석과 오류 메시지에 남은 것도 고친다. route를 지우거나 이름을 바꾸면 method를 문자열로도 grep한다(화면이 resource·method 문자열로 불러 type check가 못 본다. 안 쓰는 export 정리가 화면 셋이 부르던 route를 지운 일이 있다). protocol 입력·출력의 칸 이름을 바꾸면 `<칸>:`과 `.<칸>`도 문자열로 grep한다(command envelope의 `input`과 `link.read`·`call` 응답은 type이 없다. 칸 이름 바꾸기가 `release.record` 입력과 shell의 `apps/tools` 읽기를 놓친 일이 있다). 규칙을 모을 때 이미 있는 표를 쓰고 사본을 만들지 않는다(옛 이름이 남은 주석을 lead가 따로 고친 일이 네 번, 모으는 task가 role 표 사본을 또 만든 일이 있다).
 - test는 위험한 것만(`write-test`). E2E, 브라우저, 스크린샷, subprocess·서버 test는 새로 만들지 않는다(계획이 brief로 정한 `tests/e2e`의 flow만 예외).
@@ -92,6 +94,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 | 소유 밖 file을 안 고쳤다 | `git diff --name-only plan/<계획>...<branch>`를 brief의 소유와 댄다. 예외: 지운 것을 가리키던 등록 줄만 뺀 것, i18n catalog에 key를 더한 것 |
 | check가 통과한다 | worktree에서 `npm run check:full`. 빠른 check는 바뀐 package만 본다 |
 | 위험 test | brief의 "위험 test"가 이름으로 있고 통과한다 |
+| 기존 계약을 좁히지 않았다 | 입력 검사나 자격을 바꾼 route를 `grep -rn "<route>" tests/e2e tests/support`로 찾는다. brief 밖에서 좁힌 것(앱 id를 누가 정하나)이 check:full을 지나 e2e에서 깨진 일이 있다 |
 | 할 일을 다 했다 | brief의 "할 일"과 "남지 않음" grep을 하나씩 댄다. `TODO`·`FIXME` grep |
 | core가 뜬다 | check는 통과해도 reader 등록 중복처럼 기동 때만 드러나는 오류가 있다. `lead/boot.sh`(merge.sh가 돌린다) |
 | 화면 | `npm run wireframes`가 되고 gallery page가 옮긴 component를 쓴다 |
@@ -101,7 +104,8 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 ### 6. merge
 
 `project-docs/plan/tools/lead/merge.sh <계획> <id>`(`fix/<id>` branch는 `merge-fix.sh <계획> <id>`). 하는 일: node_modules 검사 → plan branch 위로 rebase → worktree `check:full` → plan branch로 ff-merge → plan branch `check:full` → core 두 번 기동(`boot.sh`) → renderer build → worktree·branch 정리 → status merged. 멈추면 `STOP: ...`을 찍는다.
-- `STOP: rebase conflict`: worktree에서 충돌을 풀고 `GIT_EDITOR=true git rebase --continue` 뒤 다시 돌린다. 대개 등록 file이나 i18n catalog다. catalog 충돌은 두 쪽 key를 다 남긴다. 그 밖 file이 충돌하면 소유가 잘못 나뉜 것이다. task를 돌려보내고 소유를 고친다.
+- `STOP: rebase conflict`: worktree에서 충돌을 풀고 `GIT_EDITOR=true git rebase --continue` 뒤 다시 돌린다. 대개 등록 file이나 i18n catalog다. catalog 충돌은 두 쪽 key를 다 남긴다. flows yaml 충돌을 두 쪽을 다 남겨 풀면 한 flow 안에 key가 겹치거나 지운 `ignore` 줄이 되살아난다. 풀고 바로 `node tools/flows.ts check`를 돈다. 그 밖 file이 충돌하면 소유가 잘못 나뉜 것이다. task를 돌려보내고 소유를 고친다.
+- merge.sh는 task마다 같은 commit에 `check:full`을 두 번 돈다(worktree, plan branch). 끝난 task가 여럿이면 차례로 rebase·ff한 뒤 묶음에 `check:full`과 기동을 한 번 도는 길도 있다(multi-machine lead가 쓴 저장소 밖 script reports/multi-machine/lead/merge-batch.sh. 사람이 2026-11-17 그 방식을 받았다). 묶음이 실패하면 어느 task인지 다시 가린다.
 - merge 바로 뒤에 보고의 "등록할 것"을 고치고 check가 통과하면 commit한다. `merge.sh`가 바꾼 `status.md`는 commit하지 않으니 lead가 같이 commit한다.
 - land는 계획 끝에 한 번이 기본이다. land 하나에 `check:full`, e2e 전체, core 기동으로 수십 분이 들고 그동안 다음 wave를 띄우지 못한다(workspace-layers는 wave마다 land해 계획 대부분이 land 대기였다). 중간 land는 다음 가운데 하나일 때만 하고, 그 wave를 README에 적는다.
   - 사람의 data root 모양을 바꾸는 migration이 든 wave(그 wave 전부가 함께 올라야 root가 깨지지 않는다)
@@ -147,6 +151,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 - land 뒤에 다음 merge를 이어 붙일 때는 `land.sh && merge.sh …`처럼 land의 종료 코드를 본다. agent-card에서 land가 e2e로 실패했는데 명령이 그 실패를 보지 않아 다음 task merge가 먼저 돌았고, 그 뒤 land를 모두 다시 돌렸다.
 - land.sh가 rebase 충돌로 멈추면 lead worktree에서 풀고 `git add`, `git rebase --continue` 뒤 land.sh를 다시 돈다. `package.json`의 판 줄만 부딪히면 도구가 main의 판으로 맞춰 스스로 푼다(branch가 판을 고치지 않는 것이 원칙이다). 항목은 file이 따로라 서로 부딪히지 않는다. plan branch를 손으로 `git rebase main`하는 명령은 분류기가 막았다(worker branch가 그 위에 있을 때). land.sh 길로 한다.
 - lead가 쓸 문서(이슈 닫기, change-log 항목, architecture)가 main에서 다른 계획이 고친 file과 겹치면, main에서 갈라진 branch에서 쓰고 land의 rebase가 끝난 뒤 lead worktree에 cherry-pick한다. 옛 base에서 쓰면 rebase 충돌이 문서마다 난다.
+- 두 계획의 마무리 문서 commit(architecture, catalog, change-log)을 병렬로 쓰면 같은 architecture file에서 부딪힌다(multi-machine). 하나씩 쓰거나 둘째를 첫째의 branch 위에서 쓴다.
 - wiring에 memory handler만 붙이고 팀 registration의 `memoryRoutes`에 route를 빼면 요청이 늘 `not_found`인데 check와 기동은 통과했다(여섯 route가 그랬다). 지금은 core 기동이 둘을 대조해 멈춘다.
 - turn 경로(model resolver 같은 runtime 쪽 코드)가 machine 자격으로 새 read를 부르면 `packages/core/lophn-agent/run-loop/runtime-access.ts`의 `RUNTIME_MACHINE_ROUTES`에 그 route를 더한다. 빠지면 unit(가짜 machine)과 core 기동은 통과하고, e2e에서 모든 turn이 시작하자마자 `configuration_unavailable`로 끝났다.
 - land와 merge를 background로 돌릴 때 출력은 `| tail`로 받지 말고 file로 받는다. land.sh는 단계마다 시각과 단계 이름 한 줄(`lock을 잡았다`, `check:full`, `e2e`, `core 두 번 기동`, `main fast-forward`)을 바로 찍고, 단계의 출력은 실패할 때만 찍는다. "다른 land가 끝나기를 기다린다" 뒤에 `lock을 잡았다`가 없으면 아직 기다리는 중이다. e2e가 도는 동안의 진행은 그 test의 data root(`/tmp/lophn-e2e-*`)에 새 file이 쓰이는지로 본다(e2e가 멈춘 것을 40분 동안 몰랐다).

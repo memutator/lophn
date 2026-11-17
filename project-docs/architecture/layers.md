@@ -44,13 +44,14 @@ core는 daemon main thread, writer·reader Worker, I/O child process, agent runt
               ▲  ▲         └────▶ design (설정 값의 규칙만)
               │  └── sdk ──▶ design
               │
-              ├── shell ──▶ design
+              ├── shell ──▶ design, remote-client
+              ├── remote-client
               ├── cli
               └── coding-agent
 ```
 
 - base는 아무것도 import하지 않는다. protocol은 base만 쓴다. design은 아무것도 쓰지 않는다. sdk는 protocol, design을 쓴다.
-- core는 protocol, base, cli(아래 절), design의 설정 규칙(아래)을 쓴다. cli와 coding-agent는 protocol, base만 쓴다. shell은 protocol, base, design을 쓴다.
+- core는 protocol, base, cli(아래 절), design의 설정 규칙(아래)을 쓴다. cli, coding-agent, remote-client는 protocol, base만 쓴다. shell은 protocol, base, design, remote-client를 쓴다. remote-client는 폰 앱도 source로 읽으므로 `node:`와 React Native를 import하지 않는다.
 - core를 import하는 것은 core뿐이다. shell은 core를 import할 수 없고, 그래서 shell과 core가 같이 써야 하는 의존 없는 순수 함수는 protocol에 둔다(단축키 표와 문법이 그렇다).
 - core가 design에서 쓰는 것은 설정 값의 규칙(고를 수 있는 모양 값, 글꼴 이름 규칙, theme 검사)뿐이다. 설정의 뜻을 core가 shell과 같은 규칙으로 검사하려는 것이다(`settings.md`). 그 규칙은 design 안의 순수 계산만 쓰므로 component와 CSS는 core에 실리지 않는다.
 - coding-agent는 shell 중 terminal host와, cli의 binary 입구만 더 쓸 수 있다.
@@ -75,7 +76,8 @@ core는 daemon main thread, writer·reader Worker, I/O child process, agent runt
                       │
                       ▼
  바닥: storage, events, server, supervision, secrets, config, diagnostics,
-       approvals, router, host queue, install-and-update ...
+       approvals, router, host queue, install-and-update, remote, attention,
+       machine, always-on, folder ...
 
  protocol: 경계 사이의 약속(type, schema, route, event). 모든 층이 쓴다
 ```

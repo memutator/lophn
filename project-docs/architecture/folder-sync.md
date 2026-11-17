@@ -245,6 +245,6 @@
 - 떨어져 있음이 끝난 뒤에도 held인 자기 변경이 남는데 `machine.environment`의 `away`는 null이다(이슈 `folder-environment-hides-held-after-away`). 알림의 held 수는 core 메모리라 재시작하면 잊는다(이슈 `folder-away-notice-count-in-memory`).
 - 변경 묶음 적용의 답이 시간을 넘기면 invocation이 실패로 닫혀 그 묶음의 effective changeset을 Activity가 잃는다(이슈 `sync-apply-timeout-closes-as-failed`). sync 앱 rewind의 답은 4 KiB 한도다(이슈 `sync-rewind-reply-capped`).
 - take-in이 앱을 만든 뒤 release 적기가 실패하면 release 없는 앱이 남는다. 다시 take-in하면 release만 설치한다(이슈 `take-in-leaves-app-without-release`).
-- 빚진 지우기 표시가 `folder_reads.error` 칸 안 JSON에 산다(이슈 `folder-absent-pass-mark-in-error-column`).
+- 빚진 지우기 표시가 `folder_reads.error` 칸 안 JSON에 산다. 그 칸을 읽고 쓰는 곳이 import 하나라 칸을 나누는 schema step은 folder 표를 다음에 고칠 때 같이 한다(이슈 `folder-absent-pass-mark-in-error-column`, kept).
 - `clock_ahead`의 글은 기계 이름만 쓴다. 이름이 겹친 기계끼리는 `details.machine`(id)으로만 가린다.
 - destination을 바꿀 Settings 화면이 없다. 사람은 자기 터미널의 `lophn settings set`을 쓴다. harness agent(lophn agent tool call 밖)는 승인을 묻지 못해 늘 `needs_approval`이다.

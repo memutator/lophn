@@ -23,4 +23,4 @@ lead만 고친다. `tools/status.py issue-sweep build`가 `tasks/*.md`에서 id,
 | `sweep-contracts` | contracts | 2 | 없음 | running | contracts/sweep-contracts |  |  |
 | `sweep-docs` | docs | 2 | 없음 | running | docs/sweep-docs |  |  |
 | `sweep-phone-polish` | phone-polish | 2 | 없음 | running | phone-polish/sweep-phone-polish |  |  |
-| `sweep-phone-terminal-remote` | phone-terminal-remote | 2 | 없음 | running | phone-terminal-remote/sweep-phone-terminal-remote |  |  |
+| `sweep-phone-terminal-remote` | phone-terminal-remote | 2 | 없음 | merged | phone-terminal-remote/sweep-phone-terminal-remote | d55d94fdf |  |

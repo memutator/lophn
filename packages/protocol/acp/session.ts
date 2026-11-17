@@ -45,7 +45,8 @@ export const acpModelGroupSchema = z.strictObject({
 export type AcpModelGroup = z.infer<typeof acpModelGroupSchema>;
 
 // lophn `AgentValueLayer`(agent-definitions.ts의 AGENT_VALUE_LAYERS)와 같은 값. 그쪽이 enum을 내놓지 않고, type만
-// 가져와도 shell main tsc가 agent-definitions의 큰 import 사슬을 읽게 되어 값을 옮겨 적는다.
+// 가져와도 shell main tsc가 agent-definitions의 큰 import 사슬을 읽게 되어 값을 옮겨 적는다. 원본에 층이 늘면 core의
+// ACP 만들기(acp-build.ts)가 원본 값을 이 type에 넣는 줄에서 tsc가 깨진다.
 const valueLayers = ["global", "project", "agent", "session"] as const;
 
 export const acpModelCurrentSchema = z.strictObject({
@@ -134,6 +135,7 @@ export const acpCommandSchema = z.strictObject({
 export type AcpCommand = z.infer<typeof acpCommandSchema>;
 
 // `COST_KINDS`(model-call-values.ts)와 같은 값이다. 그 file을 import하면 shell main tsc가 resolved-model.ts까지 읽는다.
+// 원본에 종류가 늘면 core의 ACP 만들기(acp-build.ts `readUsage`)에서 tsc가 깨진다.
 const COST_KINDS = [
   "reported",
   "estimated",

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
-import { ok, type Result } from "../../../base/mod.ts";
+import { err, ok, type Result } from "../../../base/mod.ts";
 import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
 import { afterCommit } from "../../storage/ledger/after-commit.ts";
 import { assignmentPorts } from "../assignment/mod.ts";
@@ -139,4 +139,86 @@ test("an opened share request changes no assignment until the user approves", ()
     ),
   );
   assert.deepStrictEqual(rows(), 0);
+});
+
+// 할당은 agent 정의 파일이라 tx가 되돌리지 못한다. 둘째 agent에서 실패하면 첫 agent에 앱만 남아 사람이 승인하지
+// 않은 권한이 생긴다.
+test("an approval that fails on the second agent leaves the first agent's assignment as it was", () => {
+  const db = new DatabaseSync(":memory:");
+  for (const step of shareRequestSteps) db.exec(step.sql);
+  const SECOND = "agt_01hzzzzzzzzzzzzzzzzzzzzzzb";
+  const files = new Map<string, { entries: unknown[]; revision: number }>([
+    [
+      AGENT,
+      { entries: [{ app: OTHER_APP, removed_tools: ["danger"] }], revision: 1 },
+    ],
+    [SECOND, { entries: [], revision: 0 }],
+  ]);
+  const before = structuredClone([...files]);
+  const ports = new Map<unknown, unknown>([
+    [
+      shareLookupPort,
+      {
+        app: () => ({
+          name: "Notes",
+          slug: "notes",
+          public_skills: 1,
+          public_commands: 2,
+        }),
+        agent: () => "Reviewer",
+      },
+    ],
+    [
+      assignmentPorts,
+      {
+        get: (agent: string) =>
+          ok({
+            assignment: { agent, entries: files.get(agent)!.entries },
+            revision: files.get(agent)!.revision,
+          }),
+        set: (agent: string, entries: unknown[], revision: number) => {
+          if (agent === SECOND) {
+            return err({ code: "invalid_input", message: "broken file" });
+          }
+          assert.deepStrictEqual(revision, files.get(agent)!.revision);
+          files.set(agent, { entries, revision: revision + 1 });
+          return ok({ assignment: { agent, entries }, revision: revision + 1 });
+        },
+      },
+    ],
+    [afterCommit, { push: () => {} }],
+  ]);
+  const tx = {
+    sql: {
+      run: (text: string, params: never[]) => db.prepare(text).run(...params),
+      get: (text: string, params: never[]) =>
+        db.prepare(text).get(...params) as Record<string, never> | undefined,
+      all: (text: string, params: never[]) =>
+        db.prepare(text).all(...params) as Record<string, never>[],
+    },
+    now: () => "2026-11-02T00:00:01.000Z",
+    port: (key: unknown) => ports.get(key),
+  } as unknown as Tx;
+  const commands = createShareRequestCommands();
+  const opened = (
+    commands.open.handle as (
+      ...a: unknown[]
+    ) => Result<{ requested_at: string }>
+  )(tx, ctxOf(`agent:${SESSION}`, APP), {
+    agents: [AGENT, SECOND],
+    coding_agents: false,
+    reason: "",
+  });
+  assert.ok(opened.ok);
+  const done = (commands.decide.handle as (...a: unknown[]) => Result<unknown>)(
+    tx,
+    ctxOf("user"),
+    { app: APP, choice: "approve" },
+    { requested_at: opened.value.requested_at },
+  );
+  assert.deepStrictEqual(!done.ok && done.error.code, "invalid_input");
+  assert.deepStrictEqual(
+    [...files].map(([agent, value]) => [agent, value.entries]),
+    before.map(([agent, value]) => [agent, value.entries]),
+  );
 });

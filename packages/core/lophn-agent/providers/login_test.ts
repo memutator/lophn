@@ -108,8 +108,10 @@ async function fixedLogin(input: {
   endpoint: string;
   protocol: string;
   answer(url: string, init: RequestInit): Response;
+  // 이미 이어진 provider의 값. 있으면 Connect가 conflict로 끝난다.
+  existing?: Record<string, string>;
 }) {
-  const secrets = new Map<string, string>();
+  const secrets = new Map<string, string>(Object.entries(input.existing ?? {}));
   const connects: Record<string, unknown>[] = [];
   const requests: { url: string; init: RequestInit }[] = [];
   const listening: unknown[] = [];
@@ -121,6 +123,11 @@ async function fixedLogin(input: {
     {
       command(_ctx, envelope) {
         const sent = envelope.input as Record<string, unknown>;
+        if (input.existing !== undefined) {
+          return Promise.resolve(
+            err({ code: "conflict", message: "provider id already exists" }),
+          );
+        }
         connects.push(sent);
         return Promise.resolve(
           ok({
@@ -225,6 +232,8 @@ async function fixedLogin(input: {
   });
   await new Promise((resolve) => setTimeout(resolve, 0));
   return {
+    run,
+    store: secrets,
     authorize,
     state,
     code: done.ok
@@ -453,5 +462,56 @@ test("Antigravity 로그인은 tier가 없으면 onboarding을 기다린 뒤 마
   assert.deepStrictEqual(
     [missing.code, missing.secrets, missing.connects.length],
     ["unavailable", [], 0],
+  );
+});
+
+test("이미 이어진 id로 잇기가 conflict로 끝나면 그 provider의 key·token은 그대로이고 새 값은 남지 않는다", async () => {
+  const builtin = builtinProviderDefinition("openai");
+  assert.ok(builtin.ok && builtin.value.oauth?.product === "chatgpt");
+  const secret = "provider.01h455vb4pex5v6nkc6gd5fd12";
+  const existing = {
+    [secret]: "OLD-ACCESS",
+    [`${secret}.refresh`]: "OLD-REFRESH",
+    [`${secret}.meta`]: '{"subject":"old"}',
+  };
+  // 구독 로그인: 다른 계정의 token을 받았지만 연결이 conflict다.
+  const signed = await fixedLogin({
+    definition: {
+      ...builtin.value,
+      oauth: {
+        ...builtin.value.oauth,
+        authorization_endpoint: `${ISSUER}/authorize`,
+        token_endpoint: `${ISSUER}/token`,
+      },
+    },
+    endpoint: "https://chatgpt.com/backend-api/codex",
+    protocol: "openai-responses",
+    answer: () =>
+      Response.json({
+        access_token: accessWith("acct-new"),
+        refresh_token: "NEW-REFRESH",
+        expires_in: 3600,
+      }),
+    existing,
+  });
+  assert.deepStrictEqual(
+    [signed.code, Object.fromEntries(signed.store)],
+    ["conflict", existing],
+  );
+
+  // API key: 임시 이름에 올라온 새 key는 버려지고 연결된 provider의 key 자리는 그대로다.
+  signed.store.set(`${secret}.new.abc`, "NEW-KEY");
+  const keyed = await signed.run("ConnectProvider", {
+    id: PROVIDER,
+    name: "OpenAI",
+    definition: builtin.value,
+    endpoint: "https://api.openai.com/v1",
+    protocol: "openai-responses",
+    auth_kind: "api_key",
+    credential: { secret: `${secret}.new.abc` },
+  });
+  assert.deepStrictEqual(
+    [keyed.ok ? "ok" : keyed.error.code, Object.fromEntries(signed.store)],
+    ["conflict", existing],
   );
 });

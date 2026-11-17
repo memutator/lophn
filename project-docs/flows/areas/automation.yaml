@@ -47,7 +47,7 @@ flows:
     steps:
       - "선언의 kind가 flow면 step 입력을 받지 않는다. step이 오면 invalid_input으로 거절한다"
       - "instance 행을 running으로 만들고 step이 없는 started 줄을 쓴다(넘기지 않아 handed는 null)"
-      - "launch가 agent 칸을 한 번 풀고 설치된 @lophn/flow의 entry.ts로 flow.ts를 process 하나로 띄운다"
+      - "launch가 agent 칸을 한 번 풀고 설치된 @lophn/flow의 entry.ts로 flow.ts를 process 하나로 띄운다. V8 heap은 512 MiB로 묶는다(넘으면 process가 죽고 workflow-flow-exit로 간다)"
       - "stdin으로 start(instance, 입력 글)를 보내고 시작은 성공으로 답한다"
       - "띄우지 못하면 program_exited 줄(code null, 이유)을 남기고 instance를 ended로 닫는다. 끝은 workflow-flow-exit가 맡는다"
     outcomes:

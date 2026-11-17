@@ -28,7 +28,10 @@ import {
   type Spawned,
   spawnProcess,
 } from "../../supervision/responsiveness/process.ts";
-import { nodeCommand } from "../../supervision/security/node-command.ts";
+import {
+  nodeCommand,
+  type NodeCommand,
+} from "../../supervision/security/node-command.ts";
 import type {
   createWorkflowService,
   WorkflowFlows,
@@ -58,6 +61,17 @@ const TAIL_LINES = 10;
 const TAIL_LINE_CHARS = 500;
 // exit 신호가 마지막 data나 EOF보다 늦게 올 수 있다. 정상 종료를 틀린 통로로 읽지 않게 잠깐 기다린다.
 const EXIT_GRACE_MS = 200;
+// AI가 짠 flow code가 memory를 끝없이 늘려도 사람의 기계 memory를 다 잡지 않게 V8 heap을 묶는다. 넘으면 process가
+// 죽고 program_exited 줄에 끝 code와 stderr 끝이 남는다.
+const FLOW_HEAP_LIMIT_MB = 512;
+
+export function flowCommand(entry: string, flowFile: string): NodeCommand {
+  return nodeCommand(
+    entry,
+    [flowFile],
+    [`--max-old-space-size=${FLOW_HEAP_LIMIT_MB}`],
+  );
+}
 
 type Entry = {
   child: Spawned;
@@ -264,9 +278,9 @@ export function createFlowHost(
       return err({ code: "conflict", message: "flow is already running" });
     }
     const folder = workflowFolder(dataRoot, project, start.workflow);
-    const command = nodeCommand(
+    const command = flowCommand(
       `${dataRoot}/${installed.value}/${FLOW_ENTRY_FILE}`,
-      [`${folder}/${WORKFLOW_FLOW_FILE}`],
+      `${folder}/${WORKFLOW_FLOW_FILE}`,
     );
 
     let child: Spawned;

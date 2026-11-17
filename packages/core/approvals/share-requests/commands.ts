@@ -1,10 +1,12 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
-import { assignmentPorts } from "../assignment/mod.ts";
+import { assignmentPorts, type AssignmentState } from "../assignment/mod.ts";
 import {
+  type AssignmentEntry,
   shareRequestDecide,
   shareRequestOpen,
 } from "../../../protocol/approvals/mod.ts";
+import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
 import { afterCommit } from "../../storage/ledger/after-commit.ts";
 import { loadShare, type ShareRow } from "./rows.ts";
@@ -32,6 +34,8 @@ function push(tx: Pick<Tx, "port" | "now">, event: Event): void {
 
 // 승인의 효과: 받을 agent마다 할당 쓰기 길로 앱을 더하고, coding agent 몫은 commit 뒤로 넘긴다.
 // 이미 있는 줄과 그 줄의 뺀 command는 그대로다. decide와 activation 동의가 같이 쓴다.
+// 할당은 agent 정의 파일이라 ledger tx가 되돌리지 못한다. 한 agent에서 실패하면 앞서 쓴 agent의 할당을 이전 줄로
+// 되돌린다: 요청은 열린 채인데 첫 agent만 그 앱의 tool을 쓰게 되면 사람이 본 결과와 권한이 어긋난다.
 function applyApproval(
   tx: Pick<Tx, "port" | "now">,
   appId: string,
@@ -42,17 +46,33 @@ function applyApproval(
     return err({ code: "not_found", message: "app not found" });
   }
   const assignments = tx.port(assignmentPorts);
+  // 쓰기 전에 모두 읽어 둔다. 못 읽는 agent가 있으면 아무것도 쓰지 않는다.
+  const states: (AssignmentState & { agent: AgentId })[] = [];
   for (const agent of waiting.agents) {
     const state = assignments.get(agent);
     if (!state.ok) return state;
-    const { entries } = state.value.assignment;
+    states.push({ agent, ...state.value });
+  }
+  const written: {
+    agent: AgentId;
+    before: AssignmentEntry[];
+    revision: number;
+  }[] = [];
+  for (const { agent, assignment, revision } of states) {
+    const { entries } = assignment;
     if (entries.some((entry) => entry.app === appId)) continue;
-    const written = assignments.set(
+    const set = assignments.set(
       agent,
       [...entries, { app: appId, removed_tools: [] }],
-      state.value.revision,
+      revision,
     );
-    if (!written.ok) return written;
+    if (!set.ok) {
+      for (const done of written.reverse()) {
+        assignments.set(done.agent, done.before, done.revision);
+      }
+      return set;
+    }
+    written.push({ agent, before: entries, revision: set.value.revision });
   }
   if (waiting.coding_agents) {
     const data: ShareCodingData = { slug: app.slug };

@@ -8,6 +8,17 @@ export function providerSecretName(provider: string): string {
   return `provider.${provider.replace(/^pvd_/, "")}`;
 }
 
+// API key를 처음 받는 자리. 연결하는 쪽이 `provider.<id>.new.<무작위>`에 값을 올리고 ConnectProvider에 이 이름을 싣는다.
+// core가 연결이 성공한 뒤에만 `provider.<id>`로 옮긴다. 같은 id가 이미 이어져 있으면(다른 창이 먼저 이었다) 그 provider의
+// key가 덮이지 않는다. 무작위 꼬리라 두 창이 같은 순간에 이어도 서로의 값을 덮지 않는다.
+export function isStagedProviderSecret(
+  provider: string,
+  name: string,
+): boolean {
+  const prefix = `${providerSecretName(provider)}.new.`;
+  return name.startsWith(prefix) && name.length > prefix.length;
+}
+
 export function providerTokenNames(provider: string): {
   access: string;
   refresh: string;

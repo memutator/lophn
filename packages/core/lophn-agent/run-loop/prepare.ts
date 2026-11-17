@@ -392,6 +392,8 @@ function toolsNotice(
 // 재시작으로 끊긴 turn의 batch는 이력에 없어 다음 turn은 그 call이 돌았는지 모른다. 바로 앞 turn이 restarted로 끝났으면
 // 그 turn이 결과를 확정하지 못한 tool call(core가 uncertain으로 닫았다)을 알린다. 읽지 못하면 알리지 않고 turn을
 // 시작한다. 글은 고정 문구와 tool 이름·id뿐이다.
+// restarted는 이 process(agent runtime child)가 사라졌을 때만 생긴다(core가 켜질 때, child가 죽었을 때). 그래서 이
+// process에서 session의 첫 turn만 본다. 그 뒤의 앞 turn은 이 process가 돌린 것이라 restarted일 수 없다.
 const NOTICE_MAX_PAGES = 400;
 
 async function cutOffNotice(
@@ -506,6 +508,8 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
   const { machine, clock, ids } = deps;
   const fixedBySession = new Map<string, FixedTools>();
   const seenBySession = new Map<string, Seen>();
+  // 끊긴 turn 알림을 이미 본 session(cutOffNotice).
+  const cutOffChecked = new Set<string>();
   const fixedMemory = createFixedMemory();
 
   // 등록된 외부 MCP tool이다. 읽지 못하면 서버 자체가 없는 것과 같은 답이다(fails closed).
@@ -783,8 +787,11 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         ...(m.current.length === 0 || (await keyOf(m.current)) === fixed.key
           ? []
           : [noticeText(toolsNotice(fixed.definitions, m.current))]),
-        ...(await cutOffNotice(machine, seat.session)),
+        ...(cutOffChecked.has(seat.session)
+          ? []
+          : await cutOffNotice(machine, seat.session)),
       ];
+      cutOffChecked.add(seat.session);
       return ok({
         prompt: {
           workspace_kind_prompt: prompt.value,

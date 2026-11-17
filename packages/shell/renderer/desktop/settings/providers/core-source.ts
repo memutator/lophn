@@ -4,11 +4,12 @@
 // token은 core가 발급자에게 받아 저장한다.
 //
 // provider 하나에는 연결(credential) 하나라 Connect는 provider와 credential을 함께 받는
-// ConnectProvider 하나다. key로 연결하는 일은 보호 입력 창이 값을 `secrets/put`으로 올린 뒤(`stored`)
-// 이 통로가 그 이름을 실어 ConnectProvider를 부른다. 구독 로그인은 login-begin이 준 주소를 OS browser로
+// ConnectProvider 하나다. key로 연결하는 일은 보호 입력 창이 값을 임시 이름(`provider.<id>.new.<무작위>`)에
+// `secrets/put`으로 올린 뒤(`stored`) 이 통로가 그 이름을 실어 ConnectProvider를 부른다. core가 연결이 성공한 뒤에만
+// `provider.<id>`로 옮기고 실패하면 버린다. 구독 로그인은 login-begin이 준 주소를 OS browser로
 // 열고 login-complete를 interval마다 부른다. 끝나면 core가 token을 저장하고 Connect까지 한다.
 // 끊기는 화면이 Dialog로 사람에게 물은 뒤 부른다: shell main에서 결정 handle(`provider_disconnect`)을
-// 받아 DisconnectProvider에 싣는다.
+// 받아 DisconnectProvider에 싣는다. 값은 core가 지운다.
 import { t } from "@lophn/i18n";
 
 import type {
@@ -251,8 +252,8 @@ export function coreProviderSettingsSource(
   }
 
   /**
-   * API key로 연결한다. 보호 창이 값을 `secrets/put`으로 올린 뒤(`stored`)에야 그 이름을 가리키는
-   * ConnectProvider를 보낸다. 연결이 실패하면 올라간 값은 쓰이지 않으니 지운다(결과는 무시).
+   * API key로 연결한다. 보호 창이 값을 임시 이름에 올린 뒤(`stored`)에야 그 이름을 실은 ConnectProvider를 보낸다.
+   * 옮기기와 버리기는 core가 한다.
    */
   async function connectWithKey(input: {
     id: string;
@@ -261,7 +262,7 @@ export function coreProviderSettingsSource(
     endpoint: string;
     protocol: ProviderProtocol;
   }): Promise<WindowOutcome> {
-    const secret = providerSecretName(input.id);
+    const secret = `${providerSecretName(input.id)}.new.${random()}`;
     const entered = await enterSecret(openSecret, {
       name: secret,
       purpose: "provider",
@@ -274,12 +275,7 @@ export function coreProviderSettingsSource(
       compare: {},
       key: `provider-connect-${random()}`,
     });
-    if (sent.ok) return { ok: true, value: null };
-    // conflict는 같은 id의 provider가 이미 있다는 뜻이라 그 이름은 연결된 provider의 key 자리다.
-    if (sent.code !== "conflict") {
-      await call(core, "memory", "secrets", "delete", { name: secret });
-    }
-    return sent;
+    return sent.ok ? { ok: true, value: null } : sent;
   }
 
   /** 구독 계정으로 로그인한다. 주소와 protocol은 내장 정의에서 온다. */
@@ -343,13 +339,7 @@ export function coreProviderSettingsSource(
         compare: { revision: read.value.provider.revision },
         confirmation: handle.confirmation,
       });
-      if (!sent.ok) return sent;
-      // 값 정리는 best-effort다. 못 지워도 끊기는 끝났다. 구독 로그인은 refresh token과 meta를 옆에 둔다.
-      const secret = providerSecretName(provider);
-      for (const name of [secret, `${secret}.refresh`, `${secret}.meta`]) {
-        await call(core, "memory", "secrets", "delete", { name });
-      }
-      return { ok: true, value: null };
+      return sent.ok ? { ok: true, value: null } : sent;
     },
 
     async connect(definition, way, progress) {

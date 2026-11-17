@@ -80,6 +80,7 @@ files:
       - share-request-decide:forbidden
       - share-request-decide:conflict
       - share-request-decide:approved
+      - share-request-decide:approve-write-failed
 
   - path: packages/core/config/store_test.ts
     covers:
@@ -462,6 +463,10 @@ files:
       - workspace-file-scope:app
       - workspace-file-scope:home
     note: rewind 쓰기 폴더 목록을 session의 workspace 종류로 고른다
+
+  - path: packages/core/main/flow-host/host_test.ts
+    covers: []
+    note: "flow process를 V8 heap 한도(512 MiB) 인자로 띄운다. workflow-start-flow의 한 step이라 단독 outcome이 없다"
 
   - path: packages/core/main/flow-host/sdk-link_test.ts
     covers: []

@@ -15,13 +15,15 @@ export type NodeCommand = {
 };
 
 // credential·token은 이 argv에 절대 넣지 않는다. hello frame이 한 번 전달한다.
+// nodeFlags는 runtime이 읽는 flag(heap 한도 등)라 entry 앞에 놓는다.
 export function nodeCommand(
   entry: string,
   args: readonly string[] = [],
+  nodeFlags: readonly string[] = [],
 ): NodeCommand {
   return {
     command: process.execPath,
-    args: [entry, ...args],
+    args: [...nodeFlags, entry, ...args],
     env: { ELECTRON_RUN_AS_NODE: "1" },
   };
 }

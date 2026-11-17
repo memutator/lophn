@@ -1,5 +1,5 @@
 id: app-sidebar-corner-wedges
-version: 0.23.69
+version: 0.23.78
 title: sidebar에 놓인 앱 화면의 아래 모서리에 흰 쐐기가 남던 것을 고친다
 modules: [packages/shell/renderer]
 change: |

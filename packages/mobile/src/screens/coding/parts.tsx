@@ -50,7 +50,8 @@ export function stateOf(session: CodingSession): {
           at === null
             ? t("conversation.label.status-working")
             : t("mobile.places.session.working", { when: ago(at) }),
-        tone: "good",
+        // Green means "finished and not seen" (shell/renderer/parts/agent-session/activity.ts), so running is its own tone.
+        tone: "working",
       };
     case "waiting":
       return { text: t("common.label.tab-waiting"), tone: "warning" };

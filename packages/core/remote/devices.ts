@@ -249,8 +249,8 @@ const register: CommandDefinition<typeof devicesRegister> = {
     const now = tx.now();
     tx.sql.run(
       `insert into devices (id, kind, name, name_announced_at, os, width, height, dpr, public_key, created_at,
-         last_connected_at, is_primary)
-       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null, ?)`,
+         last_connected_at, is_primary, terminal_input)
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, null, ?, ?)`,
       [
         id,
         input.kind,
@@ -263,9 +263,13 @@ const register: CommandDefinition<typeof devicesRegister> = {
         input.public_key,
         now,
         phone ? 1 : 0,
+        input.terminal_input ? 1 : 0,
       ],
     );
     push(tx, { type: "registered", id, kind: input.kind });
+    // 허락 사본은 이 바뀜으로만 켠다(createTerminalInputGrants).
+    if (input.terminal_input)
+      push(tx, { type: "terminal_input", id, on: true });
     return ok({ id: id as RemoteDevice["id"] });
   },
 };

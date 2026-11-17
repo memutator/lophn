@@ -18,7 +18,7 @@ export interface RemoteDevice {
   readonly lastConnectedAt: string | null;
   /** 기준 기기. 하나뿐이고 폰만 된다. */
   readonly primary: boolean;
-  /** 이 폰이 coding agent 터미널에 칠 수 있는가. 기본 꺼짐이고 사람이 여기서만 켠다. */
+  /** 이 기기가 이 컴퓨터의 터미널에 칠 수 있는가. pairing 화면에서 정한 값으로 시작하고 사람이 이 컴퓨터에서만 바꾼다. */
   readonly terminalInput: boolean;
 }
 
@@ -87,7 +87,10 @@ export interface RemoteSettingsSource {
   enabled(): Promise<SourceResult<boolean>>;
   setEnabled(on: boolean): Promise<SourceResult<null>>;
   /** 새 code를 만든다. 앞 code는 무효가 된다. listener도 relay 연결도 아직 없으면 `unavailable`이다. */
-  startPairing(): Promise<SourceResult<RemotePairingCode>>;
+  /** `terminalInput`은 이 code로 붙는 기기가 터미널에 칠 수 있는가다. */
+  startPairing(
+    terminalInput: boolean,
+  ): Promise<SourceResult<RemotePairingCode>>;
   relayStatus(): Promise<SourceResult<RemoteRelayStatus>>;
   /** pairing한 기기들. 만든 순서다. */
   devices(): Promise<SourceResult<readonly RemoteDevice[]>>;

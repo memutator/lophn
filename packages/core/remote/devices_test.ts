@@ -1,17 +1,19 @@
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
-import { seededRandom } from "../../base/mod.ts";
+import { manualClock, seededRandom } from "../../base/mod.ts";
 import { generateKeyPair, remoteKeyText } from "../../protocol/remote/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import {
+  createTerminalInputGrants,
   DEVICES_COMMANDS,
   DEVICES_KIND_STEPS,
   DEVICES_SCHEMA_STEPS,
   type DevicesChange,
   devicesListRead,
 } from "./devices.ts";
+import { createPairingCodes } from "./pairing.ts";
 
 const deviceId = (n: number) => `dev_0${String(n).padStart(25, "0")}`;
 const random = seededRandom(11);
@@ -389,6 +391,73 @@ test("붙을 때 알린 이름은 늘 고쳐 적히고 사람이 붙인 별명�
         [paired, "2026-11-16T00:00:07.000Z", "2026-11-16T00:00:07.000Z"],
       ],
     );
+  } finally {
+    db.close();
+  }
+});
+
+// 권한 경계: 터미널 입력 허락은 pairing 화면에서 code와 같이 정한 값으로 시작한다. 끄고 만든 code로 붙은 기기는 칠 수 없다.
+test("pairing으로 등록한 기기는 터미널 입력이 켜져 있고, pairing 때 끄면 꺼져 있다", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    for (const step of [...DEVICES_SCHEMA_STEPS, ...DEVICES_KIND_STEPS])
+      db.exec(step.sql);
+    const sql = createSql(db, () => true);
+    const grants = createTerminalInputGrants();
+    let n = 0;
+    const tx = {
+      sql,
+      now: () => "2026-11-17T00:00:00.000Z",
+      newId: () => deviceId(++n),
+      port: () => ({
+        push: (_topic: string, change: DevicesChange) => grants.apply(change),
+      }),
+    } as unknown as Tx;
+    const codes = createPairingCodes({
+      clock: manualClock(1_000_000),
+      random: seededRandom(5),
+    });
+    const register = DEVICES_COMMANDS.find(
+      (each) => each.route.method === "register",
+    )!;
+    const pair = (terminal_input: boolean) => {
+      const { code } = codes.start({ terminal_input });
+      const grant = codes.take(code);
+      assert.ok(grant);
+      const done = register.handle(
+        tx,
+        { principal: "machine:remote", actor: "machine" } as never,
+        {
+          kind: "phone",
+          name: "Pixel",
+          os: "android",
+          width: 412,
+          height: 915,
+          dpr: 2.625,
+          public_key: keyText(),
+          ...grant,
+        } as never,
+        {} as never,
+      );
+      assert.ok(done.ok);
+      return (done.value as { id: string }).id;
+    };
+
+    const on = pair(true);
+    const off = pair(false);
+    assert.deepEqual(
+      list(db).map((each) => [each.id, each.terminal_input]),
+      [
+        [on, true],
+        [off, false],
+      ],
+    );
+    assert.equal(grants.granted(`device:${on}`), true);
+    assert.equal(grants.granted(`device:${off}`), false);
+    // 기동 때 표에서 다시 채워도 같다.
+    grants.load(list(db));
+    assert.equal(grants.granted(`device:${on}`), true);
+    assert.equal(grants.granted(`device:${off}`), false);
   } finally {
     db.close();
   }

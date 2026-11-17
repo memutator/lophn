@@ -1,4 +1,5 @@
 // Settings › Remote. 폰 연결(`remote.enabled`)을 켜고, QR로 폰을 pairing하고, pairing한 폰을 관리한다.
+// 새 기기의 터미널 입력 허락은 code와 같이 정한다(기본 켬). 바꾸면 그 값으로 새 code를 만든다.
 // 기기가 바뀌면(`remote_devices`) 목록을 다시 읽고, QR이 보이는 동안 새 폰이 보이면 QR을 닫는다.
 
 import { t } from "@lophn/i18n";
@@ -61,6 +62,7 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
   const [relay, setRelay] = useState<RemoteRelayStatus | null>(null);
   // 카메라를 못 쓰는 폰은 QR에 든 글을 붙여 넣는다. 한 번 펼치면 새 code에도 펼친 채다.
   const [asText, setAsText] = useState(false);
+  const [terminalInput, setTerminalInput] = useState(true);
 
   const loadDevices = useCallback(async () => {
     const read = await source.devices();
@@ -113,12 +115,12 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
     if (!on) setPairing({ state: "idle" });
   }
 
-  async function startPairing(): Promise<void> {
+  async function startPairing(typing = terminalInput): Promise<void> {
     setPairing({ state: "starting" });
     const before = await loadDevices();
     const known = new Set(before.ok ? before.value.map((one) => one.id) : []);
     for (let attempt = 1; attempt <= START_TRIES; attempt += 1) {
-      const started = await source.startPairing();
+      const started = await source.startPairing(typing);
       if (started.ok) {
         setNow(Date.now());
         setPairing({ state: "shown", code: started.value, known });
@@ -203,7 +205,37 @@ export function RemotePanel({ source }: { source: RemoteSettingsSource }) {
                 <h2 className={styles.groupTitle}>
                   {t("settings.heading.remote-pair")}
                 </h2>
-                <ul className={styles.lines}>{pairingLine()}</ul>
+                <ul className={styles.lines}>
+                  <li
+                    className={styles.line}
+                    data-remote-row="pair-terminal-input"
+                  >
+                    <div className={styles.lineMain}>
+                      <span className={styles.lineName}>
+                        {t("settings.label.remote-pair-terminal-input")}
+                      </span>
+                      <span className={styles.lineHelp}>
+                        {t("settings.note.remote-pair-terminal-input")}
+                      </span>
+                    </div>
+                    <div className={styles.endSlot}>
+                      <Switch
+                        label={t(
+                          terminalInput
+                            ? "settings.label.value-on"
+                            : "settings.label.value-off",
+                        )}
+                        checked={terminalInput}
+                        onCheckedChange={(on) => {
+                          setTerminalInput(on);
+                          // 보이는 code는 옛 값으로 만든 것이라 새 값으로 바꾼다.
+                          if (pairing.state === "shown") void startPairing(on);
+                        }}
+                      />
+                    </div>
+                  </li>
+                  {pairingLine()}
+                </ul>
               </section>
               <section className={styles.groupBlock}>
                 <h2 className={styles.groupTitle}>

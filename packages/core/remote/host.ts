@@ -253,7 +253,8 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
         channel.close();
         return undefined;
       }
-      if (!deps.pairing.take(frame.code)) {
+      const grant = deps.pairing.take(frame.code);
+      if (grant === undefined) {
         tries += 1;
         channel.send({
           type: "result",
@@ -270,6 +271,7 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
       const { type: _type, id: _id, code: _code, ...device } = frame;
       const registered = await deps.devices.register({
         ...device,
+        ...grant,
         name: channel.peer.name,
         public_key: publicKey,
       });

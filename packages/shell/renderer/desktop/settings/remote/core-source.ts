@@ -103,13 +103,13 @@ export function coreRemoteSource(
 
     setEnabled: (on) => chooseSetting(core, ENABLED_KEY, on),
 
-    async startPairing() {
+    async startPairing(terminalInput) {
       const started = await call<RemotePairing & { expires_at: string }>(
         core,
         "memory",
         "pairing",
         "start",
-        {},
+        { terminal_input: terminalInput },
       );
       if (!started.ok) return started;
       // QR은 `remotePairingSchema`(strict)가 읽는 칸만 싣는다. 끝나는 때는 폰이 쓰지 않는다.

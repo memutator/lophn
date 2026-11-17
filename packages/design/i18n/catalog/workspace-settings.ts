@@ -309,6 +309,8 @@ export const workspaceSettings = {
     "Reachable from anywhere through the relay",
   "settings.label.remote-relay-unreachable": "Can't reach the relay",
   "settings.label.remote-terminal-input": "Allow typing in terminals",
+  "settings.label.remote-pair-terminal-input":
+    "Let the new device type in terminals",
   "settings.label.tab-remote": "Remote",
   "settings.label.theme-file": "{name} (file)",
   "settings.label.theme-not-found": "{name} (not found)",
@@ -350,6 +352,10 @@ export const workspaceSettings = {
     "{name} disconnects now. To use it again, pair it with a new code.",
   "settings.note.remote-scan":
     "Scan this code with the lophn phone app, or use Show as text and paste it into Settings › Remote in lophn on another computer. A new code replaces this one.",
+  "settings.note.remote-pair-terminal-input":
+    "On by default: the phone or computer you pair next can type into terminals on this computer and run commands as you. Changing this makes a new code. You can change it later for each device.",
+  "settings.note.remote-device-terminal-input":
+    "While on, anyone holding this device can type into terminals on this computer and run commands as you.",
   "settings.note.remote-terminal-input":
     "Off by default; while on, anyone holding this phone can type into coding agent terminals on this computer and run commands as you.",
   "settings.notice.computer-cloned":

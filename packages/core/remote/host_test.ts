@@ -570,24 +570,24 @@ test("등록되지 않은 key의 연결은 pair 말고 아무 frame도 통하지
 
 test("쓴 code, 300초 지난 code, 새 code가 대신한 code는 다시 통하지 않는다", () => {
   const s = setup();
-  const used = s.codes.start().code;
-  assert.equal(s.codes.take(used), true);
-  assert.equal(s.codes.take(used), false);
+  const used = s.codes.start({ terminal_input: true }).code;
+  assert.deepEqual(s.codes.take(used), { terminal_input: true });
+  assert.equal(s.codes.take(used), undefined);
 
-  const old = s.codes.start().code;
+  const old = s.codes.start({ terminal_input: true }).code;
   s.clock.advance(PAIRING_CODE_MS);
-  assert.equal(s.codes.take(old), false);
+  assert.equal(s.codes.take(old), undefined);
 
-  const replaced = s.codes.start().code;
-  const current = s.codes.start().code;
-  assert.equal(s.codes.take(replaced), false);
-  assert.equal(s.codes.take(current), true);
+  const replaced = s.codes.start({ terminal_input: true }).code;
+  const current = s.codes.start({ terminal_input: true }).code;
+  assert.equal(s.codes.take(replaced), undefined);
+  assert.deepEqual(s.codes.take(current), { terminal_input: true });
 });
 
 test("틀린 pairing code는 연결마다 5번까지고, 맞는 code로 붙은 기기는 그 자리에서 route를 부른다", async () => {
   const s = setup();
   const guesser = await s.connect(generateKeyPair(s.random));
-  const code = s.codes.start().code;
+  const code = s.codes.start({ terminal_input: true }).code;
   for (let i = 0; i < PAIRING_TRIES; i++) {
     guesser.phone.send({ type: "pair", id: `p${i}`, code: "wrong", ...screen });
     await settle();
@@ -925,7 +925,7 @@ test("끊은 기기는 연결이 닫히고 같은 key로는 pair만 받는다", 
   repaired.phone.send({
     type: "pair",
     id: "p",
-    code: s.codes.start().code,
+    code: s.codes.start({ terminal_input: true }).code,
     ...screen,
   });
   await settle();
@@ -1162,7 +1162,7 @@ test("등록된 key의 pair는 맞는 code일 때만 새 등록으로 붙고, �
   const s = setup();
   const key = generateKeyPair(s.random);
   const old = s.register(key);
-  const code = s.codes.start().code;
+  const code = s.codes.start({ terminal_input: true }).code;
   const c = await s.connect(key);
   c.phone.send({ type: "pair", id: "wrong", code: "wrong", ...screen });
   await settle();

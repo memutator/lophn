@@ -182,7 +182,7 @@ export function RemoteDeviceRows({
                     }
                   />
                   <p className={styles.lineHelp}>
-                    {t("settings.note.remote-terminal-input")}
+                    {t("settings.note.remote-device-terminal-input")}
                   </p>
                 </div>
                 <div className={styles.actions}>

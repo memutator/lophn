@@ -476,7 +476,7 @@ export const remoteWiring: WiringFactory = () => {
             : devices;
         },
       });
-      const start = async () => {
+      const start = async (_who: unknown, input: unknown) => {
         if (
           hostKey === undefined ||
           (listener === undefined && relay === undefined)
@@ -487,7 +487,7 @@ export const remoteWiring: WiringFactory = () => {
           });
         }
         const staticKey = await hostKey;
-        const code = codes.start();
+        const code = codes.start(input as z.infer<typeof pairingStart.input>);
         return ok({
           addresses: directAddresses(ctx),
           port: listener?.port ?? ctx.settings.get(remotePortSetting),

@@ -1,9 +1,31 @@
 // Flow 12. A terminal on the computer, seen and typed into from the phone: the phone sizes it to its own screen (the
-// last device that claimed wins; the computer's tab takes its size back when it gets focus or the phone leaves).
-import { ArrowUp, ClipboardPaste, KeyboardOff, Minimize2 } from "lucide-react";
-import type { CSSProperties } from "react";
+// last device that claimed wins; the computer's tab takes its size back when it gets focus or the phone leaves). A
+// coding session that runs in a terminal opens here directly, and its menu switches it to chat.
+import {
+  ArrowUp,
+  ClipboardPaste,
+  Ellipsis,
+  KeyboardOff,
+  MessageSquare,
+  Minimize2,
+  RefreshCw,
+} from "lucide-react";
+import type { CSSProperties, ReactNode } from "react";
 import c from "./coding.module.css";
-import { Face, Flow, Ic, Keyboard, Phone, Shot, s, TopBar } from "./kit.tsx";
+import {
+  Btn,
+  Face,
+  Flow,
+  Ic,
+  IconBtn,
+  Keyboard,
+  Phone,
+  Row,
+  Sheet,
+  Shot,
+  s,
+  TopBar,
+} from "./kit.tsx";
 
 type Ansi = "red" | "green" | "cyan" | "bright-black";
 type Run = [text: string, fg?: Ansi | "", flags?: "b" | "d" | "cur"];
@@ -274,21 +296,82 @@ function Typing({ text }: { text?: string }) {
   );
 }
 
+// The session's own place, so the sidebar's menu is on the left. Under the name: how it is doing and the project.
 function CodexHead({ viewOnly }: { viewOnly?: boolean }) {
   return (
     <TopBar
-      left="back"
       lead={<Face who="Codex" size={26} />}
       title="Split the eval board loader"
-      under="Codex · phroner"
+      under="Working · 4m · phroner"
       right={
-        viewOnly ? (
-          <span className={s.tag} style={{ marginRight: 14 }}>
-            View only
-          </span>
-        ) : undefined
+        <span style={{ display: "inline-flex", alignItems: "center" }}>
+          {viewOnly && (
+            <span className={s.tag} style={{ marginRight: 4 }}>
+              View only
+            </span>
+          )}
+          <IconBtn icon={Ellipsis} />
+        </span>
       }
     />
+  );
+}
+
+function SessionMenu() {
+  return (
+    <Sheet title="Split the eval board loader">
+      <Row lead={<Ic icon={MessageSquare} />} title="Switch to chat" />
+    </Sheet>
+  );
+}
+
+function SwitchSheet({ running }: { running?: boolean }) {
+  return (
+    <Sheet title="Switch Codex to chat?">
+      <div className={s.pad}>
+        <p className={s.p} style={{ color: "var(--color-text-secondary)" }}>
+          {running
+            ? "The running turn will be interrupted, 2 background tasks stop, and the terminal tab on mina-desktop becomes the chat view."
+            : "Codex keeps the same conversation, and the terminal tab on mina-desktop becomes the chat view."}
+        </p>
+        <div className={s.btnRow} style={{ marginTop: 20 }}>
+          <Btn block>Cancel</Btn>
+          <Btn block variant="primary" icon={RefreshCw}>
+            Switch
+          </Btn>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+function BlockedSheet() {
+  return (
+    <Sheet title="Switch Codex to chat?">
+      <div className={s.pad}>
+        <p className={s.p} style={{ color: "var(--color-text-secondary)" }}>
+          Codex hasn’t reported its session yet. Send it a message in the
+          terminal first, then switch.
+        </p>
+        <div className={s.btnRow} style={{ marginTop: 20 }}>
+          <Btn block>Cancel</Btn>
+          <Btn block disabled variant="primary" icon={RefreshCw}>
+            Switch
+          </Btn>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+function CodexTerminal({ over }: { over?: ReactNode }) {
+  return (
+    <Phone over={over}>
+      <CodexHead />
+      <Screen lines={NARROW.slice(5)} />
+      <Typing />
+      <Keys />
+    </Phone>
   );
 }
 
@@ -296,11 +379,11 @@ export function TerminalFlow() {
   return (
     <Flow
       title="12 · Terminal"
-      note="컴퓨터의 터미널을 폰에서 보고 친다. 폰이 터미널 화면을 열면 자기 화면의 열과 줄 수로 PTY 크기를 잡아 TUI가 폰 폭으로 다시 그린다. 컴퓨터에서 그 탭에 focus가 오면 컴퓨터가 다시 잡는다(마지막에 잡은 쪽이 이긴다). 폰이 떠나면 컴퓨터의 탭이 자기 크기로 되돌린다. 확대와 Fit width는 없다."
+      note="컴퓨터의 터미널을 폰에서 보고 친다. 터미널로 도는 coding session을 열면 안내 화면 없이 이 화면이 열린다. 폰이 터미널 화면을 열면 자기 화면의 열과 줄 수로 PTY 크기를 잡아 TUI가 폰 폭으로 다시 그린다. 컴퓨터에서 그 탭에 focus가 오면 컴퓨터가 다시 잡는다(마지막에 잡은 쪽이 이긴다). 폰이 떠나면 컴퓨터의 탭이 자기 크기로 되돌린다. 확대와 Fit width는 없다."
     >
       <Shot
         title="Sized for this phone, view only"
-        text="머리 줄은 session 이름이 큰 글이고 agent와 project가 아래 작은 글이다. 글자는 늘 같은 크기이고 줄이 폰 폭에 맞는다. 이 폰에 입력이 허락되지 않았으면 아래에 그 한 줄."
+        text="머리 줄은 session 이름이 큰 글이고 상태와 project가 아래 작은 글이다. 오른쪽 …은 session menu다. 글자는 늘 같은 크기이고 줄이 폰 폭에 맞는다. 입력은 pairing 때 기본으로 켜진다. 컴퓨터에서 이 폰의 입력을 꺼 두었으면 아래에 그 한 줄."
       >
         <Phone>
           <CodexHead viewOnly />
@@ -345,7 +428,7 @@ export function TerminalFlow() {
       </Shot>
       <Shot
         title="A terminal opened from the phone"
-        text="새 session에서 Terminal을 고르면 컴퓨터의 그 project 창에 터미널 탭이 열리고(창이 없으면 focus 없이 하나 연다) 이 화면으로 온다. shell만 돌고, 입력은 컴퓨터에서 이 폰에 허락했을 때만 된다."
+        text="새 session의 Who works on it에서 coding agent 묶음 끝의 Terminal을 고르면(flow 10) 컴퓨터의 그 project 창에 터미널 탭이 열리고(창이 없으면 focus 없이 하나 연다) 이 화면으로 온다. shell만 돌고, 입력 허락은 coding session의 터미널과 같다."
       >
         <Phone>
           <TopBar left="back" title="Terminal" under="phroner" />
@@ -353,6 +436,30 @@ export function TerminalFlow() {
           <Typing text="ls src/eval" />
           <Keys />
         </Phone>
+      </Shot>
+      <Shot
+        title="The session menu"
+        text="터미널로 도는 coding session의 …에 Switch to chat이 있다. 고르면 바로 바꾸지 않고 먼저 묻는다."
+      >
+        <CodexTerminal over={<SessionMenu />} />
+      </Shot>
+      <Shot
+        title="Switch to chat while it works"
+        text="늘 먼저 묻는다. 대화는 이어지고 컴퓨터의 터미널 탭이 채팅 화면으로 바뀐다. 도는 turn이 있으면 그 turn이 끊기고 background task가 멈춘다는 것을 한 문장으로 말한다. Switch는 주 단추(되돌릴 수 없는 삭제가 아니라 빨강이 아니다). 바뀌면 이 자리가 flow 4의 대화 화면이 된다."
+      >
+        <CodexTerminal over={<SwitchSheet running />} />
+      </Shot>
+      <Shot
+        title="Switch to chat, nothing running"
+        text="도는 turn이 없으면 대화가 이어진다는 것과 컴퓨터 탭이 바뀐다는 것만 말한다."
+      >
+        <CodexTerminal over={<SwitchSheet />} />
+      </Shot>
+      <Shot
+        title="When it cannot switch"
+        text="Switch가 꺼지고 이유가 한 줄로 보인다. 그 밖의 이유: “The coding agents extension is off on mina-desktop.”, “Switching to chat doesn’t work on Windows yet.”, “No coding agent is running in this terminal now.”"
+      >
+        <CodexTerminal over={<BlockedSheet />} />
       </Shot>
     </Flow>
   );

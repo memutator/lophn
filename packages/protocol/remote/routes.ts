@@ -17,11 +17,12 @@ import {
 const deviceIdSchema = idSchema("dev");
 
 // 새 code를 만들고 앞 code를 무효로 한다. remote listener도 relay도 떠 있지 않으면 unavailable이다.
+// `terminal_input`은 이 code로 붙는 기기가 터미널에 칠 수 있는가다. 사람이 pairing 화면에서 정한다.
 export const pairingStart = defineMemory({
   resource: "pairing",
   method: "start",
   name: "pairing.start",
-  input: z.strictObject({}),
+  input: z.strictObject({ terminal_input: z.boolean() }),
   output: remotePairingSchema.extend({ expires_at: atSchema }),
   actors: ["user"],
   errors: ["invalid_input", "forbidden", "unavailable"],
@@ -147,7 +148,12 @@ const announcedNameSchema = z.string().trim().min(1).max(64);
 
 // pairing이 맞은 기기를 등록한다. core 안 machine 자격만 낸다. 새 phone이 기준이 된다(desktop은 기준을 건드리지 않는다).
 // 같은 key의 옛 등록(폰이 이 컴퓨터를 지웠는데 컴퓨터는 몰랐다)은 지우고 새 등록으로 바꾼다. name은 그 연결의 hello로 알린 이름이다.
-const registered = { public_key: keyTextSchema, name: announcedNameSchema };
+// terminal_input은 그 pairing code를 만들 때 사람이 정한 터미널 입력 허락이다.
+const registered = {
+  public_key: keyTextSchema,
+  name: announcedNameSchema,
+  terminal_input: z.boolean(),
+};
 export const devicesRegister = defineCommand({
   resource: "devices",
   method: "register",

@@ -1,14 +1,16 @@
 // A terminal on the computer as the phone sees it (tools/wireframes/drafts/phone/terminal.tsx): a coding session's
-// terminal, or one the phone opened (its place's session is `term:<terminal>`). The screen's text and colors at one size,
+// terminal (the session screen shows it in place of the chat while the session runs in a terminal), or one the phone
+// opened (its place's session is `term:<terminal>`). The screen's text and colors at one size,
 // and under it either the line that typing is off for this phone or a text box and a key bar. The phone sizes the terminal
 // to its own grid when it opens the screen and when the person taps it; while it holds the size (the screen it gets is
 // its grid) it follows the grid as the keyboard or rotation changes it. Watching stops in the background.
 import { type MessageKey, t } from "@lophn/i18n";
-import { Icon, Screen, Tag, Text, TopBar, useTheme } from "@lophn/ui-native";
+import { Icon, IconButton, Screen, Tag, Text, TopBar, type TopBarProps, useTheme } from "@lophn/ui-native";
 import * as Clipboard from "expo-clipboard";
 import {
   ArrowUp,
   ClipboardPaste,
+  Ellipsis,
   KeyboardOff,
   SquareTerminal,
   WifiOff,
@@ -25,7 +27,7 @@ import {
   useTerminal,
 } from "../../data/mod.ts";
 import { Face, OfflineBanner } from "../../parts/mod.ts";
-import { harnessProfile } from "../coding/index.tsx";
+import { harnessProfile, stateOf } from "../coding/parts.tsx";
 import { type BarKey, barKeyBytes, charBytes, type Mods, NO_MODS } from "./keys.ts";
 import { type Grid, TerminalRows } from "./rows.tsx";
 
@@ -45,18 +47,42 @@ function useForeground(): boolean {
 
 export function TerminalScreen({ place }: { place: PlaceOf<"terminal"> }) {
   const nav = useNav();
+  return (
+    <TerminalView
+      session={place.session}
+      project={place.project}
+      left={{ left: "back", onLeft: nav.back }}
+    />
+  );
+}
+
+/**
+ * The terminal of `session` (a coding session, or `term:<terminal>`) with its top bar. `left` is the bar's left button
+ * (back, or the sidebar's menu on a top-level screen); `onMore`, when given, puts the more-actions button on the right.
+ */
+export function TerminalView({
+  session,
+  project: projectId,
+  left,
+  onMore,
+}: {
+  session: string;
+  project: string;
+  left: Pick<TopBarProps, "left" | "onLeft">;
+  onMore?: () => void;
+}) {
   const theme = useTheme();
   const computer = useCurrentComputer()?.name ?? "";
   const names = useNames();
-  const coding = useCodingSessions(place.project);
+  const coding = useCodingSessions(projectId);
   // A terminal the phone opened has no coding session; its place carries the terminal.
-  const opened = place.session.startsWith(TERMINAL_SESSION_PREFIX)
-    ? place.session.slice(TERMINAL_SESSION_PREFIX.length)
+  const opened = session.startsWith(TERMINAL_SESSION_PREFIX)
+    ? session.slice(TERMINAL_SESSION_PREFIX.length)
     : null;
   const row =
     opened !== null
       ? null
-      : (coding.sessions.find((one) => one.session === place.session) ?? null);
+      : (coding.sessions.find((one) => one.session === session) ?? null);
   const terminal = opened ?? row?.terminal ?? null;
   const foreground = useForeground();
   const view = useTerminal(foreground ? terminal : null);
@@ -94,15 +120,19 @@ export function TerminalScreen({ place }: { place: PlaceOf<"terminal"> }) {
     if (view.input) typing.current?.focus();
   };
 
-  const project = names.projects.get(place.project) ?? "";
+  const project = names.projects.get(projectId) ?? "";
   const title =
     row === null
       ? t("terminal.label.output")
       : (row.title ?? row.label);
+  // A coding session's line says how it is doing (working, waiting, idle) where a chat would show its agent.
   const under =
     row === null
       ? project
-      : t("mobile.session.label.where", { agent: row.label, workspace: project });
+      : t("mobile.session.label.where", {
+          agent: stateOf(row).text ?? row.label,
+          workspace: project,
+        });
 
   let bottom = null;
   if (gone) {
@@ -130,8 +160,7 @@ export function TerminalScreen({ place }: { place: PlaceOf<"terminal"> }) {
       top={
         <>
           <TopBar
-            left="back"
-            onLeft={nav.back}
+            {...left}
             lead={
               row === null ? undefined : (
                 <Face profile={harnessProfile(row.harness, row.label)} size={26} />
@@ -140,11 +169,20 @@ export function TerminalScreen({ place }: { place: PlaceOf<"terminal"> }) {
             title={title}
             under={under === "" ? undefined : under}
             right={
-              screen !== null && !view.input ? (
-                <View style={{ marginRight: 14 }}>
-                  <Tag>{t("mobile.terminal.label.view-only")}</Tag>
-                </View>
-              ) : undefined
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                {screen !== null && !view.input && (
+                  <View style={{ marginRight: onMore === undefined ? 14 : 4 }}>
+                    <Tag>{t("mobile.terminal.label.view-only")}</Tag>
+                  </View>
+                )}
+                {onMore !== undefined && (
+                  <IconButton
+                    icon={Ellipsis}
+                    label={t("conversation.label.more-actions")}
+                    onPress={onMore}
+                  />
+                )}
+              </View>
             }
           />
           <OfflineBanner note={t("mobile.offline.note")} />

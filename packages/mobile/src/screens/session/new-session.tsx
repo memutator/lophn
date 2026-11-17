@@ -2,7 +2,8 @@
 // opens the session and goes to its conversation, as the desktop's first message does. Only agents that can work in the
 // chosen workspace are offered. In a project the computer's coding agents are offered in the same sheet
 // (tools/wireframes/drafts/phone/coding.tsx Pick, The first message): picking one opens nothing; the first message
-// opens it in a new terminal tab on the computer, is sent to it, and goes to its chat.
+// opens it in a new terminal tab on the computer, is sent to it, and goes to its chat. Terminal under them opens a shell
+// tab in the project on the computer and goes to its terminal screen.
 import { t } from "@lophn/i18n";
 import {
   Chip,
@@ -25,6 +26,7 @@ import type { AcpCommand, AcpSessionMeta } from "../../../../protocol/acp/mod.ts
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import type { GuiHarness } from "../../../../protocol/extensions/mod.ts";
 import { textBlocks } from "../../../../protocol/lophn-agent/content-block.ts";
+import { TERMINAL_SESSION_PREFIX } from "../../../../protocol/lophn-agent/session-tag.ts";
 import { type AgentId, lophnIdOf, type Workspace } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { capabilitiesOf, slashEntriesOf } from "../../../../shell/renderer/conversation/agent-view-model.ts";
 import { useModelPicker } from "../../../../shell/renderer/conversation/use-model-picker.ts";
@@ -163,6 +165,25 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
       StackActions.replace("session", paramsOf({ name: "session", session: opened, coding: { harness, project, cwd: null } })),
     );
     return null;
+  };
+
+  const openTerminal = async () => {
+    if (project === null || busy) return;
+    setSheet(null);
+    setBusy(true);
+    setProblem(null);
+    const opened = await coding.openTerminal(project);
+    setBusy(false);
+    if (!opened.ok) {
+      setProblem(problemText(opened.code, opened.message, t("terminal.label.output"), computer));
+      return;
+    }
+    navigation.dispatch(
+      StackActions.replace(
+        "terminal",
+        paramsOf({ name: "terminal", session: `${TERMINAL_SESSION_PREFIX}${opened.value}`, project }),
+      ),
+    );
   };
 
   const start = async () => {
@@ -341,6 +362,7 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
               setHarness(picked);
               setSheet(null);
             }}
+            onTerminal={() => void openTerminal()}
           />
         )}
       </Sheet>

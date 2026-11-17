@@ -68,7 +68,7 @@ if (updated.value.rejected.length > 0) {
 // listener는 설정 변경을 받고 열린다. 열리기 전에는 pairing/start가 unavailable이다.
 let qr: string | undefined;
 for (let tries = 0; tries < 50 && qr === undefined; tries += 1) {
-  const started = await core.call(pairingStart, {});
+  const started = await core.call(pairingStart, { terminal_input: true });
   if (started.ok) {
     const { expires_at: _, ...pairing } = started.value;
     qr = JSON.stringify(pairing);

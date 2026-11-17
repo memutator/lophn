@@ -1,81 +1,44 @@
-// A coding session that runs in a terminal tab on the computer (tools/wireframes/drafts/phone/coding.tsx InTerminal).
-// Its conversation does not reach the phone, so where the composer would be there is one line and Switch to chat, or
-// the reason it cannot switch now. View terminal opens the terminal's own screen.
+// A coding session that runs in a terminal tab on the computer (tools/wireframes/drafts/phone/terminal.tsx). Its
+// conversation does not reach the phone, so the session screen is the terminal itself, typed into from the phone. Switch
+// to chat sits in the top bar's menu and asks first (SwitchSheet); once the session is a chat the session screen shows
+// the conversation.
 import { t } from "@lophn/i18n";
-import { AskCard, Button, Dot, Screen, Text } from "@lophn/ui-native";
-import { MessageSquare, SquareTerminal } from "lucide-react-native";
-import { type ReactNode, useState } from "react";
-import { View } from "react-native";
+import { Menu } from "@lophn/ui-native";
+import { MessageSquare } from "lucide-react-native";
+import { useState } from "react";
 import { useNav } from "../../app/nav.ts";
 import type { CodingSession } from "../../data/mod.ts";
-import { Face, useLocked } from "../../parts/mod.ts";
-import { blockedText, harnessProfile, stateOf } from "./parts.tsx";
+import { Face } from "../../parts/mod.ts";
+import { TerminalView } from "../terminal/index.tsx";
+import { harnessProfile, stateOf } from "./parts.tsx";
 import { SwitchSheet } from "./switch-sheet.tsx";
 
-export function TerminalSession({
-  session,
-  computer,
-  top,
-}: {
-  session: CodingSession;
-  computer: string;
-  top: ReactNode;
-}) {
+export function TerminalSession({ session }: { session: CodingSession }) {
   const nav = useNav();
-  const locked = useLocked();
-  const [asking, setAsking] = useState(false);
-  const state = stateOf(session);
-  const blocked = session.switch?.blocked ?? null;
+  const [sheet, setSheet] = useState<"menu" | "switch" | null>(null);
   return (
     <>
-      <Screen
-        top={top}
-        footer={
-          <View style={{ paddingBottom: 6 }}>
-            <AskCard>
-              <Text variant="control" tone="secondary">
-                {blocked === null
-                  ? t("mobile.coding.notice.in-terminal")
-                  : blockedText(blocked, session.label, computer)}
-              </Text>
-              <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 12 }}>
-                <Button
-                  variant={blocked === null ? "primary" : "secondary"}
-                  icon={MessageSquare}
-                  disabled={blocked !== null || locked}
-                  onPress={() => setAsking(true)}
-                >
-                  {t("mobile.coding.button.switch-to-chat")}
-                </Button>
-              </View>
-            </AskCard>
-          </View>
-        }
-      >
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
-          <Face profile={harnessProfile(session.harness, session.label)} size={56} />
-          <Text variant="heading" weight="semibold" align="center" style={{ marginTop: 14 }}>
-            {t("mobile.coding.heading.in-terminal", { harness: session.label })}
-          </Text>
-          {state.text !== null && (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6 }}>
-              <Dot tone={state.tone ?? "off"} />
-              <Text variant="detail" tone="muted">
-                {state.text}
-              </Text>
-            </View>
-          )}
-          <View style={{ marginTop: 18 }}>
-            <Button
-              icon={SquareTerminal}
-              onPress={() => nav.open({ name: "terminal", session: session.session, project: session.project })}
-            >
-              {t("mobile.terminal.button.view")}
-            </Button>
-          </View>
-        </View>
-      </Screen>
-      <SwitchSheet session={asking ? session : null} onClose={() => setAsking(false)} />
+      <TerminalView
+        session={session.session}
+        project={session.project}
+        left={nav.menuButton}
+        onMore={() => setSheet("menu")}
+      />
+      <Menu
+        open={sheet === "menu"}
+        onClose={() => setSheet(null)}
+        lead={<Face profile={harnessProfile(session.harness, session.label)} size={34} />}
+        title={session.title ?? session.label}
+        sub={stateOf(session).text ?? session.label}
+        items={[
+          {
+            label: t("mobile.coding.button.switch-to-chat"),
+            icon: MessageSquare,
+            onSelect: () => setSheet("switch"),
+          },
+        ]}
+      />
+      <SwitchSheet session={sheet === "switch" ? session : null} onClose={() => setSheet(null)} />
     </>
   );
 }

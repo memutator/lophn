@@ -3,37 +3,44 @@ import { remoteKeyText } from "../../protocol/remote/mod.ts";
 
 export const PAIRING_CODE_MS = 300_000;
 
+// 사람이 pairing 화면에서 code와 같이 정한 것. code로 붙은 기기가 처음부터 갖는다.
+export type PairingGrant = { terminal_input: boolean };
+
 // 1회용 pairing code. 메모리에만 있고 하나뿐이다: 새 code가 옛 code를 무효로 한다.
 export type PairingCodes = {
-  start(): { code: string; expiresAt: number };
-  // 맞으면 code를 쓰고 true다. 틀리거나 지났거나 이미 썼으면 false다.
-  take(code: string): boolean;
+  start(grant: PairingGrant): { code: string; expiresAt: number };
+  // 맞으면 code를 쓰고 그 code와 같이 정한 것을 낸다. 틀리거나 지났거나 이미 썼으면 undefined다.
+  take(code: string): PairingGrant | undefined;
 };
 
 export function createPairingCodes(deps: {
   clock: Clock;
   random: RandomSource;
 }): PairingCodes {
-  let current: { code: string; expiresAt: number } | undefined;
+  let current:
+    | { code: string; expiresAt: number; grant: PairingGrant }
+    | undefined;
   return {
-    start() {
+    start(grant) {
       const bytes = new Uint8Array(16);
       deps.random.fill(bytes);
       current = {
         code: remoteKeyText(bytes),
         expiresAt: deps.clock.nowMs() + PAIRING_CODE_MS,
+        grant: { ...grant },
       };
-      return { ...current };
+      return { code: current.code, expiresAt: current.expiresAt };
     },
     take(code) {
-      if (current === undefined) return false;
+      if (current === undefined) return undefined;
       if (deps.clock.nowMs() >= current.expiresAt) {
         current = undefined;
-        return false;
+        return undefined;
       }
-      if (!sameText(code, current.code)) return false;
+      if (!sameText(code, current.code)) return undefined;
+      const { grant } = current;
       current = undefined;
-      return true;
+      return grant;
     },
   };
 }

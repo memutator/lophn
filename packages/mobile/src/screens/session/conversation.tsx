@@ -189,35 +189,14 @@ function LophnSessionScreen({ place }: { place: { readonly name: "session" } & C
   return <ChatScreen target={target} coding={null} />;
 }
 
-/** In a terminal on the computer: its line and Switch to chat. In chat: the same conversation as a lophn agent's. */
+/** In a terminal on the computer: that terminal, typed into from here. In chat: the same conversation as a lophn agent's. */
 function CodingSessionScreen({ place }: { place: CodingPlace }) {
   const target = useMemo<CodingTarget>(
     () => ({ session: place.session, coding: place.coding }),
     [place.session, place.coding],
   );
-  const nav = useNav();
-  const computer = useCurrentComputer()?.name ?? "";
-  const project = useNames().projects.get(place.coding.project);
   const row = useCodingSessions(place.coding.project).sessions.find((one) => one.session === place.session) ?? null;
-  if (row?.view === "tui") {
-    return (
-      <TerminalSession
-        session={row}
-        computer={computer}
-        top={
-          <>
-            <TopBar
-              {...nav.menuButton}
-              lead={<Face profile={harnessProfile(row.harness, row.label)} size={26} />}
-              title={row.title ?? row.label}
-              under={project === undefined ? row.label : t("mobile.session.label.where", { agent: row.label, workspace: project })}
-            />
-            <OfflineBanner note={t("mobile.offline.note")} />
-          </>
-        }
-      />
-    );
-  }
+  if (row?.view === "tui") return <TerminalSession session={row} />;
   return <ChatScreen target={target} coding={row} />;
 }
 

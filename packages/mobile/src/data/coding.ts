@@ -35,6 +35,7 @@ import type {
   EventMessage,
 } from "../../../shell/renderer/desktop/connection/events/client.ts";
 import { newId } from "../../../shell/renderer/prefixed-id.ts";
+import { openTerminal } from "./terminal.ts";
 
 /** A coding session to open a conversation with (a row of `useCodingSessions`: its id, harness, project and folder). */
 export interface CodingTarget {
@@ -209,6 +210,8 @@ export interface CodingActions {
   }): Promise<CodingResult<{ session: string }>>;
   /** Sends a message to a coding session `open` gave, before any screen reads its conversation (the new session's first message). */
   send(session: string, message: { id: string; key: string; text: string }): Promise<SourceResult<void>>;
+  /** A new terminal tab running a shell in the project's folder on the computer; gives its terminal (`openTerminal`). */
+  openTerminal(project: string): Promise<CodingResult<string>>;
 }
 
 export interface Coding extends CodingActions {
@@ -268,5 +271,6 @@ export function codingOf(client: EventClient): Coding {
       });
       return sent.ok ? { ok: true, value: undefined } : sent;
     },
+    openTerminal: (project) => openTerminal(client, project),
   };
 }

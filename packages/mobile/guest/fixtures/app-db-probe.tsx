@@ -103,7 +103,7 @@ const handlers: Record<string, (r: ProbeRequest) => unknown> = {
     const d = handle();
     d.beginCall();
     d.prepare("insert into item (id, title) values (?, ?)").run(["call-1", "written in a call"]);
-    return d.endCall({ id: "change-1", operation: "save_item", started_at: "2026-11-16T00:00:00.000Z" });
+    return d.endCall({ id: "change-1", operation: "save_item", started_at: "2026-11-16T00:00:00.000Z", max_bytes: 8 << 20 });
   },
   call_abort() {
     const d = handle();
@@ -116,7 +116,7 @@ const handlers: Record<string, (r: ProbeRequest) => unknown> = {
     const d = handle();
     d.beginCall();
     d.prepare("select count(*) as n from item").get();
-    return d.endCall({ id: "change-empty", operation: "page_items", started_at: "2026-11-16T00:00:00.000Z" });
+    return d.endCall({ id: "change-empty", operation: "page_items", started_at: "2026-11-16T00:00:00.000Z", max_bytes: 8 << 20 });
   },
   long_query() {
     const d = handle();
@@ -138,7 +138,7 @@ const handlers: Record<string, (r: ProbeRequest) => unknown> = {
     for (let i = 0; i < 1000; i++) {
       d.beginCall();
       insert.run([`timed-${i}`, `call ${i}`]);
-      d.endCall({ id: `timed-${i}`, operation: "save_item", started_at: "2026-11-16T00:00:00.000Z" });
+      d.endCall({ id: `timed-${i}`, operation: "save_item", started_at: "2026-11-16T00:00:00.000Z", max_bytes: 8 << 20 });
     }
     return { calls: 1000, ms: Date.now() - t };
   },
@@ -154,7 +154,7 @@ const handlers: Record<string, (r: ProbeRequest) => unknown> = {
     return [
       refusal("prepare after unbind", () => d.prepare("select 1 as one").get()),
       refusal("exec after unbind", () => d.exec("select 1")),
-      refusal("endCall after unbind", () => d.endCall({ id: "x", operation: "y", started_at: "z" })),
+      refusal("endCall after unbind", () => d.endCall({ id: "x", operation: "y", started_at: "z", max_bytes: 8 << 20 })),
     ];
   },
 };

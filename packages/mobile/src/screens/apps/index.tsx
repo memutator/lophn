@@ -106,6 +106,10 @@ function LiveScreen({ place }: { place: PlaceOf<"app"> }) {
     />
   );
   const computerName = computer?.name ?? "";
+  const under =
+    entry !== undefined && installed
+      ? underOf(entry, computer?.status === "connected", now)
+      : undefined;
   const waiting =
     workspace?.groups
       .flatMap((group) => group.rows)
@@ -119,11 +123,7 @@ function LiveScreen({ place }: { place: PlaceOf<"app"> }) {
           {...nav.menuButton}
           lead={mark("sm")}
           title={name}
-          under={
-            entry !== undefined && installed
-              ? underOf(entry, computer?.status === "connected", now)
-              : undefined
-          }
+          under={under}
           right={
             app === undefined ? undefined : (
               <IconButton
@@ -158,7 +158,11 @@ function LiveScreen({ place }: { place: PlaceOf<"app"> }) {
           app={app}
           screen={place.screen ?? app.screens[0]!.screen}
           mark={mark("md")}
-          computer={computerName}
+          sub={
+            onPhone === null
+              ? t("mobile.apps.menu.runs-on", { computer: computerName })
+              : under
+          }
           waiting={waiting}
         />
       )}

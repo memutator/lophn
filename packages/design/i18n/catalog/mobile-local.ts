@@ -3,6 +3,13 @@
 export const mobileLocal = {
   "mobile.local.install-failed.body":
     "Something went wrong while it was put here. Try again, or ask lophn to look at it.",
+  "mobile.local.install-failed.detail": "{step} · {code}",
+  "mobile.local.install-failed.step.data":
+    "Its data could not be set up on this phone.",
+  "mobile.local.install-failed.step.files":
+    "Its files did not come from the computer.",
+  "mobile.local.install-failed.step.snapshot":
+    "Its data did not come from the computer.",
   "mobile.local.install-failed.title": "{app} couldn't be put on this phone",
   "mobile.local.installing.body": "It opens here when it is ready.",
   "mobile.local.installing.title": "Putting {app} on this phone",

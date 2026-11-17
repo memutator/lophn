@@ -13,7 +13,9 @@ import type { Bridge, LocalRun } from "../../../guest/bridge.ts";
 
 // A local call holds the file's write lock until it ends, and the host's own writes give up after their 5 s busy
 // timeout. A call still running after this is rolled back and fails `unavailable`. Only an `await` lets the limit
-// fire; one long statement is stopped by the module's own 5 s limit.
+// fire; one long statement is stopped by the module's own 5 s limit. A late handler that has not settled after as long
+// again ends the guest (`fatal`): calls run one at a time, so it would hold every later call of the screen, and its
+// later DB access could not be told from the next call's.
 export const LOCAL_CALL_LIMIT_MS = 3000;
 
 // The same mark and codes as @lophn/cap-tool's HandlerRejection (packages/sdk/cap-tool/rejection.ts).
@@ -34,7 +36,7 @@ function failure(thrown: unknown): Error {
 export function installLocalBackend(
   global: object,
   db: GuestAppDb,
-  bridge: Pick<Bridge, "init" | "send" | "runLocal">,
+  bridge: Pick<Bridge, "init" | "send" | "fatal" | "runLocal">,
   limitMs = LOCAL_CALL_LIMIT_MS,
 ): void {
   // The database answers only inside a call: a write outside one would commit without an outbox row, and sync would
@@ -76,6 +78,11 @@ export function installLocalBackend(
   // `free` lets the next call begin. It runs once the call's transaction has ended, or, after the time limit, once the
   // late handler settles, so nothing it still does lands in the next call's transaction.
   async function run(operation: string, input: unknown, free: () => void): Promise<unknown> {
+    const local = bridge.init()?.local;
+    if (!local) {
+      free();
+      throw new Error("unavailable: the app has not started yet");
+    }
     const started_at = new Date().toISOString();
     // A bare ULID: the sync routes take the phone's change id without a prefix.
     const id = ids.newId("chg").slice(4);
@@ -88,8 +95,8 @@ export function installLocalBackend(
     open = true;
     const settled = host
       .run(operation, input, {
-        app: "",
-        release: null,
+        app: local.app,
+        release: local.release,
         mode: "live",
         invocation: id,
         kind: "operation",
@@ -117,21 +124,33 @@ export function installLocalBackend(
       } catch {}
     };
     if (outcome === "late") {
-      void settled.then(free);
       abort();
+      const hung = setTimeout(
+        () => bridge.fatal(new Error(`${operation} did not finish within ${2 * limitMs} ms`)),
+        limitMs,
+      );
+      void settled.then(() => {
+        clearTimeout(hung);
+        free();
+      });
       throw new Error(`unavailable: ${operation} did not finish within ${limitMs} ms`);
     }
-    let bytes: number;
+    let ended: { bytes: number; kept: boolean };
     try {
-      bytes = db.endCall({ id, operation, started_at }).bytes;
+      ended = db.endCall({ id, operation, started_at, max_bytes: local.change_max_bytes });
     } catch (thrown) {
       abort();
       throw new Error(`internal: ${messageOf(thrown)}`);
     } finally {
       free();
     }
-    if (bytes > 0) {
-      if (bridge.init()?.local?.operations[operation] === "read") {
+    if (!ended.kept) {
+      throw new Error(
+        `invalid_input: ${operation} changed ${ended.bytes} bytes of app data at once, over the ${local.change_max_bytes} that can go to the computer; nothing was kept, make the change in smaller parts`,
+      );
+    }
+    if (ended.bytes > 0) {
+      if (local.operations[operation] === "read") {
         console.warn(`read operation ${operation} changed app data; the change is kept as a write`);
       }
       bridge.send({ type: "local_change" });

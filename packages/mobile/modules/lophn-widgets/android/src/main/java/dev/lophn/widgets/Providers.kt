@@ -36,11 +36,9 @@ class PinResultReceiver : BroadcastReceiver() {
     val id = intent.getIntExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
     val bind = intent.getStringExtra(EXTRA_BIND) ?: return
     if (id == AppWidgetManager.INVALID_APPWIDGET_ID) return
-    synchronized(Files) {
-      val all = Files.json(ctx, Files.BINDINGS) ?: JSONObject().put("v", 1)
-      val widgets = all.optJSONObject("widgets") ?: JSONObject().also { all.put("widgets", it) }
+    Files.updateBindings(ctx) { widgets ->
       widgets.put(id.toString(), JSONObject(bind))
-      Files.write(ctx, Files.BINDINGS, all.toString())
+      true
     }
     Refresh.start(ctx, goAsync(), changed = true)
   }

@@ -174,4 +174,18 @@ object Files {
     tmp.writeText(text)
     if (!tmp.renameTo(file)) throw java.io.IOException("cannot write $name")
   }
+
+  // The bindings change in one read-change-write under this object's lock: the pin callback and the app's JS both
+  // change them, and a write from a read taken before the other's change would drop that change. `change` gets the
+  // `widgets` object and says whether it changed it. Returns the file's text after.
+  @Synchronized
+  fun updateBindings(ctx: Context, change: (widgets: JSONObject) -> Boolean): String {
+    val all = json(ctx, BINDINGS) ?: JSONObject().put("v", 1)
+    val widgets = all.optJSONObject("widgets") ?: JSONObject().also { all.put("widgets", it) }
+    val text = all.toString()
+    if (!change(widgets)) return text
+    val next = all.toString()
+    write(ctx, BINDINGS, next)
+    return next
+  }
 }

@@ -5,9 +5,12 @@ import { widgetFiles } from "../../modules/lophn-widgets/index.ts";
 export type WidgetNative = {
   /** Null when the file does not exist. `name` is relative to the app's private folder, like "widgets/cache.json". */
   readText(name: string): Promise<string | null>;
+  /** Not the bindings file: that changes only through `bind` and `dropUnplaced`. */
   writeText(name: string, text: string): Promise<void>;
-  /** appWidgetIds of the widgets the launcher has placed. */
-  placedIds(): Promise<number[]>;
+  /** Binds a placed widget (its appWidgetId) to a binding's JSON. */
+  bind(id: number, binding: string): Promise<void>;
+  /** Forgets the bindings of widgets the launcher no longer has; gives the bindings file's text after. */
+  dropUnplaced(): Promise<string>;
   /** Draws the widgets again from the cache file; every placed widget when `ids` is absent. */
   redraw(ids?: number[]): Promise<void>;
 };

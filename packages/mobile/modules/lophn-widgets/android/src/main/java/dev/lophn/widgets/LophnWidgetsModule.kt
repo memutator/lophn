@@ -17,6 +17,7 @@ import androidx.core.graphics.drawable.IconCompat
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import org.json.JSONObject
 
 // What the phone app's TS reaches of the home screen: the widget files, placed widget ids, drawing, placing a widget
 // or an app icon (pinned shortcut).
@@ -34,8 +35,27 @@ class LophnWidgetsModule : Module() {
     Name("LophnWidgets")
 
     AsyncFunction("readText") { name: String -> Files.read(ctx, file(name)) }
-    AsyncFunction("writeText") { name: String, text: String -> Files.write(ctx, file(name), text) }
-    AsyncFunction("placedIds") { Render.placedIds(ctx).toList() }
+    AsyncFunction("writeText") { name: String, text: String ->
+      require(name != Files.BINDINGS) { "the bindings change only through bindWidget and dropUnplacedBindings" }
+      Files.write(ctx, file(name), text)
+    }
+    // The two changes TS makes to the bindings, each in one step under the lock the pin callback takes.
+    AsyncFunction("bindWidget") { id: Int, bind: String ->
+      Files.updateBindings(ctx) { widgets ->
+        widgets.put(id.toString(), JSONObject(bind))
+        true
+      }
+      Unit
+    }
+    // Forgets the widgets the launcher no longer has; returns the bindings left.
+    AsyncFunction("dropUnplacedBindings") {
+      val placed = Render.placedIds(ctx).toSet()
+      Files.updateBindings(ctx) { widgets ->
+        val gone = widgets.keys().asSequence().filter { key -> key.toIntOrNull().let { it == null || it !in placed } }.toList()
+        gone.forEach { widgets.remove(it) }
+        gone.isNotEmpty()
+      }
+    }
     AsyncFunction("redraw") { ids: List<Int>? ->
       if (ids == null) Render.drawAll(ctx)
       else {

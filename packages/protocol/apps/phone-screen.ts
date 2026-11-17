@@ -25,8 +25,9 @@ export const PHONE_HOST_MODULES = [
 ] as const;
 
 // base bundle의 약속(전역 이름, 메시지)이 바뀔 때 올린다. 2: 폰에서 도는 앱의 backend를 base 뒤에 싣는다(`init`의
-// `local`, `local_change`). 1로 지은 화면은 2인 폰에서 그대로 돈다(`phoneCanRun`은 화면의 base가 폰보다 클 때만 막는다).
-export const PHONE_BASE_FORMAT = 2;
+// `local`, `local_change`). 3: `init.local`이 앱 id, release, 변경 하나의 상한을 싣고 backend의 호출 문맥이 앱 id와
+// release를 본다. 옛 판으로 지은 화면은 새 폰에서 그대로 돈다(`phoneCanRun`은 화면의 base가 폰보다 클 때만 막는다).
+export const PHONE_BASE_FORMAT = 3;
 
 // guest의 base bundle이 내는 전역 이름이다. 화면 bundle의 진입은 `__lophnMount(Screen)`을 부르고 평가 전체를
 // `try{…}catch(e){__lophnFatal(e)}`로 감싼다(평가 중 예외는 host process를 죽인다).
@@ -148,10 +149,15 @@ export type PhonePlace = z.infer<typeof phonePlaceSchema>;
 
 // 폰에서 도는 앱(`runs_on`에 phone)의 backend 정보다. 값은 그 release의 `phone/backend.json`에서 온다. guest는
 // effect가 read·write인 operation을 자기 안에서 돌리고 external은 host로 보낸다. `data_schema`는 host가 mount 전에
-// 맞춰 둔 schema 번호다(backend의 `store.migrate()`가 보는 target).
+// 맞춰 둔 schema 번호다(backend의 `store.migrate()`가 보는 target). `app`과 `release`는 host의 설치 기록에서 오고
+// backend의 호출 문맥이 컴퓨터에서와 같이 본다. `change_max_bytes`는 호출 하나가 outbox에 남길 수 있는 changeset의
+// 상한이다(컴퓨터의 push가 받는 변경 하나의 상한). 넘는 호출은 rollback되고 `invalid_input`이다.
 export const phoneLocalSchema = z.strictObject({
+  app: z.string().min(1),
+  release: z.string().min(1),
   operations: z.record(z.string(), z.enum(["read", "write", "external"])),
   data_schema: z.number().int().nonnegative(),
+  change_max_bytes: z.number().int().positive(),
 });
 export type PhoneLocal = z.infer<typeof phoneLocalSchema>;
 

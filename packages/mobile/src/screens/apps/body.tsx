@@ -6,8 +6,15 @@ import { RefreshCw } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { View } from "react-native";
 import { GuestScreen } from "../../apps/guest/mod.ts";
+import type { InstallStep } from "../../apps/local/install.ts";
 import type { LocalScreenState } from "../../apps/local/use-local-screen.ts";
 import type { AppScreenState } from "../../apps/use-app-screen.ts";
+
+const STEP = {
+  files: "mobile.local.install-failed.step.files",
+  snapshot: "mobile.local.install-failed.step.snapshot",
+  data: "mobile.local.install-failed.step.data",
+} as const satisfies Record<InstallStep, string>;
 
 export function Body({
   state,
@@ -95,14 +102,20 @@ export function Body({
         />
       );
     case "failed":
-      // The first install did not go through; under the sentence, what went wrong as the phone's host has it.
+      // The first install did not go through; under the sentence, the step it stopped at and the code. What the
+      // computer said is in the log only: it is the computer's own wording.
       if ("failure" in state && state.failure !== undefined) {
+        const { step, code } = state.failure;
         return (
           <Away
             mark={mark}
             title={t("mobile.local.install-failed.title", { app })}
             body={t("mobile.local.install-failed.body")}
-            detail={state.failure}
+            detail={
+              step === undefined
+                ? code
+                : t("mobile.local.install-failed.detail", { step: t(STEP[step]), code })
+            }
             onRetry={onRetry}
           />
         );

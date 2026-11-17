@@ -5,7 +5,8 @@ import { requireNativeModule } from "expo";
 type Native = {
   readText(name: string): Promise<string | null>;
   writeText(name: string, text: string): Promise<void>;
-  placedIds(): Promise<number[]>;
+  bindWidget(id: number, bind: string): Promise<void>;
+  dropUnplacedBindings(): Promise<string>;
   redraw(ids: number[] | null): Promise<void>;
   isPinSupported(): boolean;
   requestPin(size: "small" | "wide", bind: string): boolean;
@@ -19,11 +20,15 @@ type Native = {
 
 const native = requireNativeModule<Native>("LophnWidgets");
 
-/** The widget files (`name` like "widgets/cache.json"; nothing outside `widgets/`), placed ids and drawing. */
+/**
+ * The widget files (`name` like "widgets/cache.json"; nothing outside `widgets/`) and drawing. The bindings file is only
+ * read here: native changes it in one step under the lock its pin callback takes too.
+ */
 export const widgetFiles = {
   readText: (name: string) => native.readText(name),
   writeText: (name: string, text: string) => native.writeText(name, text),
-  placedIds: () => native.placedIds(),
+  bind: (id: number, binding: string) => native.bindWidget(id, binding),
+  dropUnplaced: () => native.dropUnplacedBindings(),
   redraw: (ids?: number[]) => native.redraw(ids ?? null),
 };
 

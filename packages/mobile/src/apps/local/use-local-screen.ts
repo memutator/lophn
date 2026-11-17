@@ -2,10 +2,12 @@
 // guest runs the app's backend on app.sqlite; external operations push the outbox first and then go to the view on the
 // computer (opened while it is reachable). Not installed yet: it installs while the computer is reachable.
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { APP_SYNC_CHANGE_MAX_BYTES } from "../../../../protocol/apps/app-sync.ts";
 import { type PhoneLocal, phoneCanRun } from "../../../../protocol/apps/phone-screen.ts";
 import { useEventClient } from "../../../../shell/renderer/desktop/connection/events/hooks.tsx";
 import { newId } from "../../../../shell/renderer/prefixed-id.ts";
 import type { ComputerItem, LocalAppsView, PhoneApp } from "../../data/mod.ts";
+import type { LocalFailure } from "./store.ts";
 import type { BundleRefusal } from "../bundle.ts";
 import {
   type AppEvent,
@@ -25,7 +27,7 @@ export type LocalScreenState =
   /** Being installed, or moving to a new release. */
   | { readonly kind: "installing" }
   | { readonly kind: "refused"; readonly reason: BundleRefusal }
-  | { readonly kind: "failed"; readonly failure?: string }
+  | { readonly kind: "failed"; readonly failure?: LocalFailure }
   | {
       readonly kind: "running";
       readonly key: string;
@@ -155,7 +157,13 @@ export function useLocalScreen({
       },
       onState: (next) => setGuest({ key: guestKey, state: next }),
       backendFile: absolute(files.backend),
-      local: { operations: installed.backend.operations, data_schema: installed.backend.data_schema },
+      local: {
+        app: appId,
+        release: installed.release,
+        operations: installed.backend.operations,
+        data_schema: installed.backend.data_schema,
+        change_max_bytes: APP_SYNC_CHANGE_MAX_BYTES,
+      },
       appDb: { path: absolute(paths(computer!.key, appId).db), record: sync },
       onLocalChange: () => store!.localChange(appId),
     };

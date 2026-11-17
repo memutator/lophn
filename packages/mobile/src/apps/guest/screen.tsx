@@ -68,7 +68,7 @@ export function GuestScreen(props: GuestScreenProps) {
   const [present] = useState(() => files.every(fileExists));
   const [scripts] = useState(() =>
     present && props.backendFile !== undefined
-      ? [base, wrapBackend(props.backendFile, origin), props.screenFile]
+      ? [base, wrapBackend(props.backendFile), props.screenFile]
       : files,
   );
   const [session] = useState(() =>

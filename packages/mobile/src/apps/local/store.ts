@@ -18,13 +18,19 @@ import {
   runsOnPhone,
   writeInstalled,
 } from "./folder.ts";
-import { type Ctx, install } from "./install.ts";
+import { type Ctx, type InstallStep, install } from "./install.ts";
 import type { LocalDeps, Remote } from "./ports.ts";
 import { pruneApp } from "./prune.ts";
 import { switchRelease } from "./release.ts";
 import { pull, push } from "./sync.ts";
 
 export type LocalAppState = "ready" | "installing" | "syncing" | "failed";
+
+/**
+ * Why the last install, sync or release change did not go through: the error code, and for an install the step it
+ * stopped at. What the computer said with it is only logged: it is the computer's own wording, not the person's.
+ */
+export type LocalFailure = { readonly code: string; readonly step?: InstallStep };
 
 export interface LocalApp {
   readonly app: string;
@@ -37,8 +43,7 @@ export interface LocalApp {
   /** Local changes the computer does not have yet. */
   readonly pending: number;
   readonly state: LocalAppState;
-  /** Why the last install, sync or release change did not go through (for the developer). */
-  readonly failure?: string;
+  readonly failure?: LocalFailure;
 }
 
 type Screens = readonly [PhoneScreen, ...PhoneScreen[]];
@@ -86,7 +91,7 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
   let listed = new Map<string, Screens>();
   let reloadList = () => {};
   const busy = new Map<string, "installing" | "syncing">();
-  const failures = new Map<string, string>();
+  const failures = new Map<string, LocalFailure>();
   const pending = new Map<string, number>();
   const queues = new Map<string, Promise<unknown>>();
   const syncQueued = new Set<string>();
@@ -135,10 +140,15 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
     for (const listener of [...listeners]) listener();
   }
 
+  function fail(app: string, error: { code: string; message: string }, step?: InstallStep) {
+    console.warn(`app ${app}${step === undefined ? "" : ` (${step})`}: ${error.code}: ${error.message}`);
+    failures.set(app, step === undefined ? { code: error.code } : { code: error.code, step });
+  }
+
   function queued<T>(app: string, work: () => Promise<T>): Promise<T> {
     const run = (queues.get(app) ?? Promise.resolve()).then(work);
     const settled = run.catch((thrown: unknown) => {
-      failures.set(app, thrown instanceof Error ? thrown.message : String(thrown));
+      fail(app, { code: "internal", message: thrown instanceof Error ? thrown.message : String(thrown) });
       busy.delete(app);
       publish();
     });
@@ -174,7 +184,7 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
     publish();
     const done = await install(ctx, screens);
     busy.delete(app);
-    if (!done.ok) failures.set(app, done.error.message);
+    if (!done.ok) fail(app, done.error, done.error.step);
     publish();
   }
 
@@ -191,7 +201,7 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
     busy.delete(app);
     if (done.ok) failures.delete(app);
     else {
-      failures.set(app, done.error.message);
+      fail(app, done.error);
       if (done.error.code === "conflict") reloadList();
     }
     await countPending(app);
@@ -210,13 +220,13 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
       const pushed = await push(ctx, one);
       if (!pushed.ok) {
         if (pushed.error.code === "conflict") reloadList();
-        else if (pushed.error.code !== "unavailable") failures.set(app, pushed.error.message);
+        else if (pushed.error.code !== "unavailable") fail(app, pushed.error);
         return;
       }
       one = readInstalled(files, computer, app) ?? one;
       const pulled = await pull(ctx, one);
       if (!pulled.ok) {
-        if (pulled.error.code !== "unavailable") failures.set(app, pulled.error.message);
+        if (pulled.error.code !== "unavailable") fail(app, pulled.error);
         return;
       }
       if (pulled.value.snapshot_needed) {
@@ -273,7 +283,13 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
     connect(next) {
       if (next === remote) return;
       remote = next;
-      if (remote !== null) syncAll();
+      if (remote === null) return;
+      syncAll();
+      // The list can come before the connection is handed over (they come from different places), and then could not
+      // install.
+      for (const app of listed.keys()) {
+        if (readInstalled(files, computer, app) === null) void queued(app, () => installOne(app));
+      }
     },
     list(screens, reload) {
       reloadList = reload;

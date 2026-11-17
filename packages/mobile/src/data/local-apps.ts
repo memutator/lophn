@@ -1,17 +1,16 @@
 // The apps of the computer on screen that run on the phone: what is installed, its sync state, and the host's sync
-// work (src/apps/local). Sync runs while the computer is connected and something holding this hook is mounted (the
-// sidebar, so while the phone app is in front); the work itself is per computer and outlives the screens.
+// work (src/apps/local). Every paired computer's apps sync while its link is connected (local-stores.ts); this hook
+// gives the computer on screen's store its list from that computer, which installs, moves and prunes its apps.
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { Workspace } from "../../../protocol/lophn-agent/workspaces.ts";
-import { useEventClient } from "../../../shell/renderer/desktop/connection/events/hooks.tsx";
 import type { LocalApp, LocalApps } from "../apps/local/store.ts";
 import { usePhoneApps } from "./apps.ts";
 import { useCurrentComputer } from "./hooks.tsx";
-import { holders, storeFor } from "./local-stores.ts";
+import { storeFor } from "./local-stores.ts";
 import { appIcon, type WorkspaceView } from "./workspaces.ts";
 
 export type { Installed, LocalKind } from "../apps/local/folder.ts";
-export type { LocalApp, LocalAppState, LocalApps } from "../apps/local/store.ts";
+export type { LocalApp, LocalAppState, LocalApps, LocalFailure } from "../apps/local/store.ts";
 
 const NONE: readonly LocalApp[] = [];
 const nothing = () => () => {};
@@ -58,22 +57,10 @@ export function withLocalApps(
 
 export function useLocalApps(): LocalAppsView {
   const computer = useCurrentComputer();
-  const client = useEventClient();
   const phone = usePhoneApps();
   const store = computer === null || computer.sample ? null : storeFor(computer.key);
   const online = computer?.status === "connected";
   const apps = useSyncExternalStore(store?.subscribe ?? nothing, store?.get ?? (() => NONE));
-
-  useEffect(() => {
-    if (store === null) return;
-    holders.set(store, (holders.get(store) ?? 0) + 1);
-    store.connect(online ? client.core : null);
-    return () => {
-      const left = (holders.get(store) ?? 1) - 1;
-      holders.set(store, left);
-      if (left === 0) store.connect(null);
-    };
-  }, [store, online, client]);
 
   useEffect(() => {
     if (store === null || !online || phone.state !== "ready") return;
@@ -82,15 +69,6 @@ export function useLocalApps(): LocalAppsView {
       phone.reload,
     );
   }, [store, online, phone.apps, phone.state, phone.reload]);
-
-  useEffect(() => {
-    if (store === null) return;
-    return client.subscribe({ types: ["AppSyncChanged"] }, (message) => {
-      if (message.kind === "event" && message.event.type === "AppSyncChanged") {
-        store.changed(message.event.subject);
-      }
-    });
-  }, [store, client]);
 
   return useMemo(
     () => ({

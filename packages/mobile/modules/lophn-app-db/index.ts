@@ -40,9 +40,13 @@ export type GuestAppDb = {
   beginCall(): void;
   /**
    * Ends the call: when the call changed rows and the host bound the file with `record`, writes the changeset to
-   * `lophn_sync_outbox` in the same transaction, then commits.
+   * `lophn_sync_outbox` in the same transaction, then commits. With `record`, a changeset over `max_bytes` is rolled
+   * back instead (`kept: false`).
    */
-  endCall(call: { id: string; operation: string; started_at: string }): { bytes: number };
+  endCall(call: { id: string; operation: string; started_at: string; max_bytes: number }): {
+    bytes: number;
+    kept: boolean;
+  };
   /** Rolls the call back. */
   abortCall(): void;
   randomBytes(n: number): Uint8Array;

@@ -24,7 +24,6 @@ const LIST = {
   resource: appWidgetsList.resource,
   method: appWidgetsList.method,
 };
-const BINDINGS = "widgets/bindings.json";
 const CACHE = "widgets/cache.json";
 // Per computer. A broadcast that starts a background refresh is allowed about ten seconds.
 const CALL_MS = 8000;
@@ -61,17 +60,6 @@ export function createWidgetStore(deps: WidgetDeps) {
   let running: Promise<void> | null = null;
   // Asked for while a refresh runs: asked once more after it, for these computers (null: all).
   let again: { hosts: Set<string> | null } | null = null;
-  let lock: Promise<unknown> = Promise.resolve();
-
-  // Bindings are read, changed and written by two callers (the refresh drops widgets the launcher lost, a bind adds one).
-  function exclusive<T>(fn: () => Promise<T>): Promise<T> {
-    const run = lock.then(fn);
-    lock = run.catch(() => {});
-    return run;
-  }
-
-  const readBindings = async () =>
-    parse<Bindings>(await native.readText(BINDINGS), EMPTY_BINDINGS);
 
   async function listOf(
     host: string,
@@ -93,17 +81,8 @@ export function createWidgetStore(deps: WidgetDeps) {
   }
 
   async function pass(hosts: Set<string> | null) {
-    const bindings = await exclusive(async () => {
-      const placed = new Set(await native.placedIds());
-      const all = await readBindings();
-      const kept = Object.entries(all.widgets).filter(([id]) =>
-        placed.has(Number(id)),
-      );
-      if (kept.length === Object.keys(all.widgets).length) return all;
-      const left: Bindings = { v: 1, widgets: Object.fromEntries(kept) };
-      await native.writeText(BINDINGS, JSON.stringify(left));
-      return left;
-    });
+    // Native changes the bindings (here and in its pin callback) in one step each, so neither drops the other's.
+    const bindings = parse<Bindings>(await native.dropUnplaced(), EMPTY_BINDINGS);
     // The saved list is written a moment after the person removes a computer; the running app already knows.
     const computers = (await deps.paired()).filter(
       (one) => !one.revoked && (live === null || live.known(one.key)),
@@ -167,11 +146,7 @@ export function createWidgetStore(deps: WidgetDeps) {
     },
     /** Pins a placed widget to one app widget of one computer and reads its value. */
     async bind(id: number, binding: Binding) {
-      await exclusive(async () => {
-        const bindings = await readBindings();
-        bindings.widgets[String(id)] = binding;
-        await native.writeText(BINDINGS, JSON.stringify(bindings));
-      });
+      await native.bind(id, JSON.stringify(binding));
       void refresh("bind", [binding.host]);
     },
     /** The widgets one computer has now (running or not); null when it is not paired or cannot be asked. */

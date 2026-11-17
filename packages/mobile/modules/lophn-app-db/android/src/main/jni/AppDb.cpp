@@ -380,7 +380,7 @@ jsi::Object connection(jsi::Runtime& rt, const std::shared_ptr<Conn>& c) {
     });
   }));
   o.setProperty(rt, "endCall", fn(rt, "endCall", 1, [c](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* a, size_t n) {
-    if (n < 1 || !a[0].isObject()) throw jsi::JSError(rt, "endCall: expected {id, operation, started_at}");
+    if (n < 1 || !a[0].isObject()) throw jsi::JSError(rt, "endCall: expected {id, operation, started_at, max_bytes}");
     auto meta = a[0].getObject(rt);
     auto text = [&](const char* k) {
       jsi::Value v = meta.getProperty(rt, k);
@@ -388,6 +388,9 @@ jsi::Object connection(jsi::Runtime& rt, const std::shared_ptr<Conn>& c) {
       return v.getString(rt).utf8(rt);
     };
     std::string id = text("id"), operation = text("operation"), startedAt = text("started_at");
+    jsi::Value max = meta.getProperty(rt, "max_bytes");
+    if (!max.isNumber() || max.getNumber() < 0) throw jsi::JSError(rt, "endCall: max_bytes must be a number >= 0");
+    double maxBytes = max.getNumber();
     return guarded(rt, c, [&] {
       if (!c->inCall) throw Error{"endCall: no call is open"};
       int size = 0;
@@ -396,9 +399,14 @@ jsi::Object connection(jsi::Runtime& rt, const std::shared_ptr<Conn>& c) {
       dropSession(*c, c->call);
       c->call = nullptr;
       c->inCall = false;
+      bool kept = true;
       try {
         if (rc != SQLITE_OK) fail(c->db, "changeset");
-        if (size > 0 && c->record) {
+        // An outbox row the computer would refuse would stop every later push, so the call goes instead.
+        if (c->record && (double)size > maxBytes) {
+          kept = false;
+          execTrusted(*c, "rollback");
+        } else if (size > 0 && c->record) {
           sqlite3_stmt* st = nullptr;
           c->trusted = true;
           rc = sqlite3_prepare_v2(c->db, kOutboxInsert, -1, &st, nullptr);
@@ -413,7 +421,7 @@ jsi::Object connection(jsi::Runtime& rt, const std::shared_ptr<Conn>& c) {
           c->trusted = false;
           if (rc != SQLITE_DONE) fail(c->db, "outbox");
         }
-        execTrusted(*c, "commit");
+        if (kept) execTrusted(*c, "commit");
       } catch (...) {
         sqlite3_free(bytes);
         c->trusted = false;
@@ -423,6 +431,7 @@ jsi::Object connection(jsi::Runtime& rt, const std::shared_ptr<Conn>& c) {
       sqlite3_free(bytes);
       jsi::Object r(rt);
       r.setProperty(rt, "bytes", (double)size);
+      r.setProperty(rt, "kept", kept);
       return jsi::Value(std::move(r));
     });
   }));

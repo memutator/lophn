@@ -7,6 +7,7 @@ import { Directory, File, Paths } from "expo-file-system";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { APP_SYNC_CHANGE_MAX_BYTES } from "../../../protocol/apps/app-sync.ts";
 import type { PhoneBackendManifest } from "../../../protocol/apps/phone-backend.ts";
 import {
   type PhoneLocal,
@@ -118,7 +119,13 @@ export default function Lab() {
     const manifest = JSON.parse(
       new File("asset:///guest/fixtures/local-backend.json").textSync(),
     ) as PhoneBackendManifest;
-    const local = { operations: manifest.operations, data_schema: manifest.data_schema };
+    const local = {
+      app: "app_lab",
+      release: "rel_lab",
+      operations: manifest.operations,
+      data_schema: manifest.data_schema,
+      change_max_bytes: APP_SYNC_CHANGE_MAX_BYTES,
+    };
     const key = mount("local", `${dir}/local.js`, { backend: `${dir}/${backend}.js`, local, db });
     databases.current.set(key, host);
   };

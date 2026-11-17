@@ -29,7 +29,7 @@ export function AppMenu({
   app,
   screen,
   mark,
-  computer,
+  sub,
   waiting,
 }: {
   open: boolean;
@@ -38,7 +38,8 @@ export function AppMenu({
   /** The screen on show; the others are listed. */
   screen: string;
   mark: ReactNode;
-  computer: string;
+  /** Where the app runs: the line under its name on the app screen, or the computer it runs on. */
+  sub: string | undefined;
   /** What the app's sessions wait on the person for. */
   waiting: number;
 }) {
@@ -65,7 +66,7 @@ export function AppMenu({
       onClose={onClose}
       lead={mark}
       title={app.name}
-      sub={t("mobile.apps.menu.runs-on", { computer })}
+      sub={sub}
     >
       <Row
         lead={<Icon icon={MessageSquarePlus} />}

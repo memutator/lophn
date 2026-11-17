@@ -7,7 +7,7 @@
 ## 정한 것
 
 - **일을 가진 process는 core의 자식이다.** PTY를 쥔 process는 core가 띄우고 core와 수명을 같이한다. extension host(registry, CLI를 띄우는 spawner, bundled extension 둘)와 coding agent의 상태(tracker, hook socket, GUI handle, ACP state)는 core 안에서 돈다. core가 드는 것은 사본이 아니라 원본이다. (agent: 사람 "core가 좀 더 가져가고 shell은 client")
-- **code는 core 쪽 package로 옮긴다.** `packages/shell/terminal-host`, `packages/shell/main/terminal`, `packages/shell/main/extensions`는 이미 Electron을 import하지 않는다. 옮기고(`move-files`) shell에 사본을 남기지 않는다. module catalog를 같이 고친다. (agent)
+- **code는 core 쪽 package로 옮긴다.** `packages/shell/terminal-host`, `packages/shell/main/terminal`, `packages/shell/main/extensions`는 이미 Electron을 import하지 않는다. 자리는 `packages/core/terminals`, `packages/core/terminal-agents`, `packages/core/extensions`다. shell은 core를 import할 수 없어서 wave 2·3은 core 자리에 사본을 만들고, shell의 원본은 wave 4의 `term-desktop`이 지운다. 끝에는 사본이 남지 않는다. module catalog를 같이 고친다. (agent)
 - **화면은 route로만 붙는다.** desktop 화면과 폰이 같은 core route를 쓴다. 폰이 이미 쓰는 `coding_sessions/*`, `acp/*`, `terminal_view/*`를 바닥으로 삼고, desktop에 필요한 것(터미널 열기·닫기·다시 시작·입력·크기, 날 출력 stream, 목록)을 더한다. shell의 터미널·harness-gui·coding IPC channel과 core가 shell에 시키던 요청(`coding_*`, `terminal_*`, `terminal_interrupt`, `tool_call`)은 지운다. core와 shell 사이 link에는 창이 있어야 하는 것(탭 열기·닫기·보이기, browser)만 남는다. (agent: 같은 일을 하는 길을 둘로 두지 않는다)
 - **터미널은 core가 연다.** 탭이 mount될 때 PTY를 여는 지금 순서를 뒤집는다. 열라는 요청(사람의 화면, 폰, agent의 `lophn tab open`)이 core에 오면 core가 열고, 그 workspace를 보는 창이 있으면 탭으로 보인다. 창이 없어도 열린다. (agent)
 - **출력 stream은 보는 쪽이 잡은 동안만 간다.** 터미널 보기의 lease와 같은 모양이다. 보는 화면이 없으면 core는 화면 상태만 유지한다. (agent)
@@ -24,12 +24,12 @@
 | 1 | `term-contract` | 없음 | protocol: 터미널과 coding session의 route·event 모양(desktop과 폰이 같이 쓴다), 지울 link 요청 목록, extension host의 port. `architecture/terminal-agent.md` 초안 |
 | 2 | `term-host` | `term-contract` | PTY host를 core의 자식으로: `terminal-host`와 supervisor 옮기기, core가 띄우기, login env, node-pty build와 packaging, `terminals/*` route와 출력 stream, core 수명 규칙 |
 | 2 | `ext-host` | `term-contract` | extension host를 core로: registry, spawner, bundled extension(harness-gui adapter 다섯과 녹화, harness host)의 build와 자리, Settings › Extensions가 route를 쓰기, extension tool을 core가 바로 부르기 |
-| 3 | `coding-core` | `term-host`, `ext-host` | coding agent의 상태를 core로: tracker, hook socket, GUI handle과 ACP state, GUI↔TUI 바꾸기, session 열기, TUI hold. core의 사본(coding relay)을 원본으로 바꾼다 |
-| 4 | `term-desktop` | `coding-core` | desktop: 터미널 탭과 GUI 화면이 core route를 쓴다. shell의 터미널·harness-gui·coding IPC와 그 wiring 지우기, 알림을 core event로, Quit 흐름 |
+| 3 | `coding-core` | `term-host`, `ext-host` | coding agent의 상태를 core로: tracker, hook socket, GUI handle과 ACP state, GUI↔TUI 바꾸기, session 열기, TUI hold, hook 설치와 harness 찾기(`coding_agents/*`), 터미널의 link를 여는 bridge의 core 쪽. core의 사본(coding relay)을 원본으로 바꾼다 |
+| 4 | `term-desktop` | `coding-core` | desktop: 터미널 탭, GUI 화면, Settings › Coding agents가 core route를 쓴다. shell의 터미널·harness-gui·coding IPC와 그 wiring, 옮긴 code의 원본 지우기, 알림을 core event로, Quit 흐름 |
 | 4 | `term-phone` | `coding-core` | 폰 앱: 바뀐 route와 모양에 맞추기, 창 없이 열리는 것에 맞춘 문구와 기다림 |
 | 5 | `term-cleanup` | `term-desktop`, `term-phone` | link의 옛 요청과 frame, `tools/fake-coding-host.ts`, flows·catalog, 남은 옛 이름 |
 
-`term-host`와 `ext-host`는 build와 packaging file(`packages/shell/main/build.ts`, `tools/package/`)에서 만난다. 그 file은 `term-host`가 갖고 `ext-host`는 고칠 줄을 보고에 적는다.
+`term-host`와 `ext-host`는 build와 packaging file(`packages/shell/main/build.ts`, `tools/package/`)에서 만난다. 그 file은 `term-host`가 갖고 `ext-host`는 고칠 줄을 보고에 적는다. `ext-host`는 `term-host`가 주는 사람의 env를 읽으므로 `term-host`를 먼저 merge한다.
 
 ## 위험 test (brief에 있다)
 
@@ -41,7 +41,10 @@
 
 ## lead가 할 일
 
-- wave 4를 띄우기 전에 실제 Electron에서 한 번 돌려 본다(터미널 열기, 치기, `claude gui`, 앱 Quit 뒤 다시 켜서 붙기). unit test만으로는 이 길을 못 본다(이 영역에 e2e가 없다).
+- wave 4를 띄우기 전에 core 쪽을 한 번 돌려 본다(`tools/remote-client.ts`나 개발 폰으로 터미널 열기, 치기, coding session 열기). desktop의 길은 `term-desktop`을 merge하기 전에 실제 Electron에서 돌려 본다(터미널 열기, 치기, `claude gui`, 앱 Quit 뒤 다시 켜서 붙기). unit test만으로는 이 길을 못 본다(이 영역에 e2e가 없다).
+- wave 2~3 사이에는 plan branch에서 폰과 desktop이 서로 다른 터미널을 본다(desktop은 아직 shell의 PTY를 쓴다). 그래서 이 계획은 중간에 land하지 않는다.
+- 사본이 있는 동안 main에서 shell 쪽 원본(harness-gui adapter 같은 것)을 고치는 다른 session이 있으면 core의 사본에도 옮긴다.
+- `coding-core`와 `term-desktop`은 크다. 두 번 실패하면 쪼갠다(`term-desktop`은 "터미널 탭과 Quit"과 "GUI, Settings, 알림"으로).
 - node-pty를 core가 load할 수 있는지는 `term-host`가 가장 먼저 확인한다(조사에서 확인하지 못했다). 안 되면 멈추고 보고한다.
 - `core-browser`가 같은 link와 host queue file을 고친다. `status.py ready`가 거르는 대로 따르고, 이 계획의 `coding-core`가 merge된 뒤에 `core-browser`의 core 쪽 task가 돈다.
 - subprocess를 띄우는 test와 E2E는 새로 만들기 전에 사람에게 묻는다. 실제 coding CLI와 실제 provider를 부르지 않는다(녹화 재생만).

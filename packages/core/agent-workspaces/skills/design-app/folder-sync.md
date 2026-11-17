@@ -57,8 +57,8 @@ Know and design for these:
   instead of editing a shared one.
 - Changes apply only between computers that run the same release of the app. A
   change from another release waits on this computer, not lost, until this
-  computer runs that release. After you activate a new release on one computer,
-  activate it on the others too (see "Bring an app to another machine").
+  computer runs that release. The other computers that have the app follow a new
+  release by themselves (see "Bring an app to another machine").
 - Keep the app's data well under 1 GiB: a larger store cannot go to the folder.
 
 ## Set up a destination on this machine
@@ -203,9 +203,11 @@ If take-in answers `conflict` with `sdk_missing`, or the environment shows
 `release_incomplete` means the release files have not fully arrived; wait for the
 tool and try again.
 
-For a new release: activate it on the first computer, then on each other computer
-run `lophn app take-in <app>` again (it installs only the new release) and activate
-it there. Until then that computer holds the new changes and does not lose them.
+For a new release, activate it on one computer only. Every other computer that has
+the app installs and activates it by itself once its files arrive (`apps[].follow`
+in `lophn machine environment`, see "Releases between computers"). The person is
+asked there only when the release asks for more than the one before. Until then
+that computer holds the new changes and does not lose them.
 
 The other computer's source arrives in the app's repository as
 `refs/remotes/<machine id>/*` and is not merged. Before you change the app on this
@@ -237,6 +239,12 @@ from your other computers too long", means this computer did not catch up with t
 others for more than 90 days for that app. The others have cleaned up the records
 of rows they deleted, so some of this computer's changes could bring deleted rows
 back. Those changes are held on this computer: not sent, not applied, not lost.
+
+`away` stays set while any of those changes is held: `away.held` counts them and
+`away.changes` lists the table, kind and time of each. `away.since` is when the
+computer fell behind; it is null once the computer caught up but held changes
+remain. They still wait for the person, and while they do this computer sends no
+full copy of the app's data (see `away_too_long` below).
 
 1. `lophn app sync-held <app> list` shows each held change: its `seq`, where it came
    from, and the table, kind and time of each row it touches.
@@ -281,3 +289,40 @@ in their own terminal. If that computer writes to the folder again, it comes bac
 - `away_too_long`: see "Away too long".
 - `source_failed`: git failed or is missing. Data still moves; install git or tell
   the person.
+
+### Releases between computers
+
+For an app with `sync_to`, each `apps[]` entry also shows how the computers stand
+on its releases (an app without it has `follow: null` and empty `held` and
+`machines`). While anything waits, the app keeps running on this computer's data.
+
+- `machines`: each computer that exchanges this app, with the release it runs
+  (`release.number` is its `r<n>` when this computer has that release too,
+  `code_commit`, `data_schema`), its lophn version and `exchange`.
+- `follow.state`: this computer following the release the others run.
+  - `current`: nothing to follow. `installing`, `activating`: under way, wait.
+  - `waiting_consent`: the release asks for more than the one before. The person
+    allows it on this computer in its approval card; tell them which app and what
+    it asks.
+  - `declined`: the person refused it here. This computer stays on its release and
+    the newer release's changes wait. Do not ask again on your own.
+  - `lophn_update`: this computer's lophn is too old for that release. Ask the
+    person to update lophn here.
+  - `install_failed`, `activation_failed`: read `follow.reason` and the app's log.
+    This computer keeps its release. If the cause is in the app, fix it, then build
+    and activate a new release on one computer; the others follow it.
+  - `diverged`: two computers built releases apart. Merge the other computer's
+    branch (`refs/remotes/<machine id>/*`) into this one, build a release and
+    activate it; every computer follows it.
+- `held`: changes from another release that wait here, one line per computer and
+  release, with `changes` and `why`:
+  - `newer_release`: applied once this computer runs that release (`follow`).
+  - `older_release`: that computer runs an older release; its changes come when it
+    follows.
+  - `diverged`: they come after the merged release (see `diverged` above).
+  - `full: true`: more of them wait in the folder; they come the same way.
+- `exchange` (on each of the top `machines` and in `apps[].machines`): `ok`;
+  `update_this`: this computer's lophn is too old to read that computer's files,
+  ask the person to update lophn here; `update_peer`: that computer's lophn is too
+  old, ask the person to update it there. Until then nothing from that computer is
+  read, and nothing is lost.

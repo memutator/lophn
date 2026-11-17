@@ -26,7 +26,7 @@ import {
 } from "../../../../packages/shell/renderer/icons/mod.ts";
 import type { AvatarProfile } from "../../../../packages/shell/renderer/parts/avatar/avatar.tsx";
 import { Avatar } from "../../../../packages/shell/renderer/parts/avatar/avatar.tsx";
-import type { TabDot } from "../../../../packages/shell/renderer/parts/tab-state-dot/tab-state-dot.tsx";
+import type { SessionDot } from "../../../../packages/shell/renderer/parts/agent-session/activity.ts";
 import type { StripTab } from "../../../../packages/shell/renderer/shell/tab-strip.tsx";
 
 import { NewTabMenu } from "../../../../packages/shell/renderer/workspace/add-tab-menu.tsx";
@@ -131,7 +131,7 @@ function tabIcon(tab: TabSpec): ReactNode {
 /** shell `TabStrip`에 넘기는 탭. states는 Agent 탭의 상태 점(사람을 기다림·일하는 중)이다. */
 export function stripTabsOf(
   tabs: readonly TabSpec[],
-  states?: Readonly<Record<string, TabDot | null>>,
+  states?: Readonly<Record<string, SessionDot | null>>,
 ): StripTab[] {
   return tabs.map((tab) => ({
     key: tab.key,

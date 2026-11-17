@@ -169,7 +169,7 @@ build가 쓴다. 폰 화면이 있는 앱의 `devDependencies`에 같이 둔다.
   앱 화면의 머리 줄(앱 mark와 이름, ⋯ menu)은 lophn이 그린다. desktop과 같다. 앱은 `TopBar`나 제목 줄을
   그리지 않는다(앱 이름이 lophn의 줄 아래에 한 번 더 선다). view 탭은 본문 맨 위, 주 행동은 `footer`에 둔다.
   `TopBar`는 `onLeft`가 없으면 왼쪽 단추를 그리지 않는다.
-- **`Sheet`·`Menu`는 화면 안에 뜬다**(lophn의 머리 줄 아래). React Native의 `Modal`을 직접 쓰지 않는다. lophn
+- **`Sheet`·`Menu`·`Drawer`는 화면 안에 뜬다**(lophn의 머리 줄 아래). React Native의 `Modal`을 직접 쓰지 않는다. lophn
   앱 전체를 덮고, phone 탭이 그 안을 읽지도 누르지도 못한다.
 - **누르는 곳은 44 이상이다.** `IconButton`·`Row`·`Tabs`·`Button`은 그렇게 준다. `Button`은 `sm` 34, `md` 42,
   `lg` 54로 보이지만 눌리는 곳은 위아래로 넓혀 44 이상이다. 화면의 주 행동은 `lg`를 쓴다. 직접 만드는

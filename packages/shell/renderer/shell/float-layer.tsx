@@ -20,10 +20,8 @@ import {
 } from "../app-frame/app-tab-head.tsx";
 import { ViewLayerProvider } from "../app-frame/webview-host.tsx";
 import { actionIcons, browserIcons, shellIcons } from "../icons/mod.ts";
-import {
-  TabStateDot,
-  type TabDot,
-} from "../parts/tab-state-dot/tab-state-dot.tsx";
+import type { SessionDot } from "../parts/agent-session/activity.ts";
+import { TabStateDot } from "../parts/tab-state-dot/tab-state-dot.tsx";
 import { startPointerDrag } from "../workspace/drag.ts";
 import {
   clampFloatRect,
@@ -39,7 +37,7 @@ export interface FloatEntry {
   readonly key: string;
   readonly title: string;
   readonly icon: ReactNode;
-  readonly dot?: TabDot | null;
+  readonly dot?: SessionDot | null;
   /** layer(stage) 왼쪽 위 기준 CSS px. */
   readonly rect: FloatRect;
   /** 고정(always on top). */

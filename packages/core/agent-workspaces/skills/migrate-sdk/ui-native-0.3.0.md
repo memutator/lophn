@@ -3,11 +3,17 @@
 Previous: 0.2.0
 Breaking: no. Move together with `@lophn/app-ui-native` 1.5.0 if the app uses it.
 
-Three parts changed how they behave in an app's phone screen. No API was removed or renamed.
+Some parts changed how they behave in an app's phone screen, and `Dot` has two new tones. No API was removed or renamed.
 
-- `Sheet` and `Menu` open inside the screen, under lophn's head row, instead of over the whole phone app. lophn can now read and press them when it checks the screen on the person's phone. A sheet reaches over the whole `Screen` wherever in the screen it is opened. The phone's Back button no longer closes it; give the sheet a way to close (dragging down and the scrim still close it).
+- `Sheet`, `Menu` and the sidebar `Drawer` open inside the screen, under lophn's head row, instead of over the whole phone app. lophn can now read and press them when it checks the screen on the person's phone. A sheet or drawer reaches over the whole `Screen` wherever in the screen it is opened. The phone's Back button no longer closes it; give it a way to close (dragging and the scrim still close it).
 - `TopBar` draws no left button when it has no `onLeft`. Before, it drew a sidebar button that did nothing in an app screen.
 - `Button` `sm` (34) and `md` (42) press at 44: the area you can press reaches above and below the box. They look the same.
+- `Dot` takes `tone="working"` (an agent works now: ink that breathes) and `tone="neutral"` (gray, the same as no tone).
+- `SessionRow` draws no dot when it has no `tone` (an idle session). Before, it drew a gray dot. Give an ended session `tone="neutral"` to keep its gray dot:
+
+```tsx
+<SessionRow face={face} title="Weekly report" tone={ended ? "neutral" : undefined} />
+```
 
 lophn draws the head row above every app screen on the phone (the app's mark and name, its menu), as on the desktop. A screen that draws its own `TopBar` shows a second row with the app's name again. Drop it:
 
@@ -29,7 +35,7 @@ To move, change the pins in `package.json` and `lophn.ts` (`sdk_dependencies`) i
 "@lophn/app-ui-native": "file:.lophn/sdk/app-ui-native/1.5.0",
 ```
 
-Nothing is required of an existing app: a screen built with 0.2.0 keeps opening on a phone app with 0.3.0 and gets the new `Sheet`, `TopBar` and `Button` from the phone. If it draws its own `TopBar`, it keeps showing two head rows until you drop it. A screen built with 0.3.0 does not open on a lophn phone app whose kit is still 0.2.0 (the phone shows "update the lophn app").
+Nothing is required of an existing app: a screen built with 0.2.0 keeps opening on a phone app with 0.3.0 and gets the new `Sheet`, `Drawer`, `TopBar`, `Button` and `SessionRow` from the phone (an ended session's row loses its gray dot until it passes `tone="neutral"`). If it draws its own `TopBar`, it keeps showing two head rows until you drop it. A screen built with 0.3.0 does not open on a lophn phone app whose kit is still 0.2.0 (the phone shows "update the lophn app").
 
 ## Instruction diff
 
@@ -48,8 +54,8 @@ The lophn instructions for phone screens changed. Update the lophn-managed part 
 +- The root is `Screen`, with no `top`: lophn draws the head row (the app's
 +  name and menu), so draw no `TopBar` or title row. View tabs go at the top of
 +  the body, the main action in `footer`.
-+- `Sheet` and `Menu` open inside the screen. Do not use React Native's `Modal`:
-+  it covers all of lophn and the phone tab cannot read it.
++- `Sheet`, `Menu` and `Drawer` open inside the screen. Do not use React Native's
++  `Modal`: it covers lophn and the phone tab cannot read it.
 +- A touch target is 44 or more. `Row`, `IconButton` and `Button` already are.
 +  Use `size="lg"` (54) for a screen's main action, and give a `Pressable` of
 +  your own `minHeight: 44`. Nothing depends on hover.
@@ -65,8 +71,8 @@ The lophn instructions for phone screens changed. Update the lophn-managed part 
 -  phone tab: while one is open the calls are `unavailable` and say something
 -  covers the preview. Design the check so the step under test is on the
 -  screen itself, and tell the person what you could not check.
-+- A kit `Sheet` or `Menu` opens inside the screen: read and drive it like the
-+  rest. A React Native `Modal` cannot be read or driven from the phone tab:
++- A kit `Sheet`, `Menu` or `Drawer` opens inside the screen: read and drive it
++  like the rest. A React Native `Modal` cannot be read or driven from the phone tab:
 +  while one is open the calls are `unavailable` and say something covers the
 +  preview. Tell the person what you could not check.
 +- A snapshot of a long list (`FlatList`, `SectionList`) has only the rows near
@@ -89,7 +95,7 @@ The lophn instructions for phone screens changed. Update the lophn-managed part 
 +  앱 화면의 머리 줄(앱 mark와 이름, ⋯ menu)은 lophn이 그린다. desktop과 같다. 앱은 `TopBar`나 제목 줄을
 +  그리지 않는다(앱 이름이 lophn의 줄 아래에 한 번 더 선다). view 탭은 본문 맨 위, 주 행동은 `footer`에 둔다.
 +  `TopBar`는 `onLeft`가 없으면 왼쪽 단추를 그리지 않는다.
-+- **`Sheet`·`Menu`는 화면 안에 뜬다**(lophn의 머리 줄 아래). React Native의 `Modal`을 직접 쓰지 않는다. lophn
++- **`Sheet`·`Menu`·`Drawer`는 화면 안에 뜬다**(lophn의 머리 줄 아래). React Native의 `Modal`을 직접 쓰지 않는다. lophn
 +  앱 전체를 덮고, phone 탭이 그 안을 읽지도 누르지도 못한다.
 +- **누르는 곳은 44 이상이다.** `IconButton`·`Row`·`Tabs`·`Button`은 그렇게 준다. `Button`은 `sm` 34, `md` 42,
 +  `lg` 54로 보이지만 눌리는 곳은 위아래로 넓혀 44 이상이다. 화면의 주 행동은 `lg`를 쓴다. 직접 만드는

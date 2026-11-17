@@ -14,9 +14,9 @@ import { Icon, IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 
 import { shellIcons } from "../icons/mod.ts";
+import type { SessionDot } from "../parts/agent-session/activity.ts";
 import {
   dotLabel,
-  type TabDot,
   TabStateDot,
 } from "../parts/tab-state-dot/tab-state-dot.tsx";
 import type { SplitDir } from "./desk-model.ts";
@@ -28,7 +28,7 @@ export interface StripTab {
   readonly key: string;
   readonly title: string;
   readonly icon: ReactNode;
-  readonly dot?: TabDot | null;
+  readonly dot?: SessionDot | null;
   /** preview tab. 이름이 italic이다. */
   readonly preview?: boolean;
   /** 저장 안 된 변경이 있다. 닫기 자리에 ●가 보이고 hover하면 ×가 된다(상태 점도 같은 자리를 쓴다). */

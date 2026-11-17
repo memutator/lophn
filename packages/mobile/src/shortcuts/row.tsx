@@ -8,9 +8,9 @@ import { appIcon } from "../../../protocol/apps/declaration/read.ts";
 import { readRoute } from "../../../shell/renderer/desktop/connection/core-read.ts";
 import { useEventClient } from "../../../shell/renderer/desktop/connection/events/hooks.tsx";
 import { shortcuts } from "../../modules/lophn-widgets/index.ts";
-import { type PhoneApp, toneOf } from "../data/mod.ts";
+import type { PhoneApp } from "../data/mod.ts";
 import { openUrl } from "../open/target.ts";
-import { type Drawn, Picture } from "./picture.tsx";
+import { type Drawn, drawnOf, IconPicture, pictureKey } from "./picture.tsx";
 import { shortcutId } from "./sync.ts";
 
 /** Whether the row has anything to offer: the launcher can place icons and this app's is not there yet. */
@@ -34,7 +34,7 @@ export function AddToHomeScreen({
   const core = useEventClient().core;
   const [drawn, setDrawn] = useState<Drawn | null>(null);
   const [round, setRound] = useState(0);
-  const pin = (png: string) => {
+  const pin = (one: Drawn, png: string) => {
     setDrawn(null);
     shortcuts.pin({
       id: shortcutId(host, app.app),
@@ -42,6 +42,8 @@ export function AddToHomeScreen({
       // Native puts lophn's own mark where the PNG does not decode.
       iconPng: png,
       url: openUrl({ kind: "app", host, app: app.app }),
+      // Of what was asked for, not of the mark drawn instead: the next sync would draw it again for nothing.
+      picture: pictureKey(one),
     });
     onAsked();
   };
@@ -51,11 +53,7 @@ export function AddToHomeScreen({
       () => ({ ok: false }) as const,
     );
     setRound((one) => one + 1);
-    setDrawn({
-      icon: read.ok ? read.value.icon : null,
-      letter: app.name.slice(0, 1).toUpperCase(),
-      tone: toneOf(app.app),
-    });
+    setDrawn(drawnOf(app.app, app.name, read.ok ? read.value.icon : null));
   };
   return (
     <>
@@ -65,16 +63,7 @@ export function AddToHomeScreen({
         onPress={() => void start()}
       />
       {drawn !== null && (
-        <Picture
-          key={`${round}:${drawn.icon === null ? "mark" : "icon"}`}
-          drawn={drawn}
-          onDone={(png) => {
-            if (png !== null) pin(png);
-            // The app's own icon would not draw: its mark instead.
-            else if (drawn.icon !== null) setDrawn({ ...drawn, icon: null });
-            else pin("");
-          }}
-        />
+        <IconPicture key={round} drawn={drawn} onDone={(png) => pin(drawn, png)} />
       )}
     </>
   );

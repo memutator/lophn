@@ -5,7 +5,7 @@ import { FileIcon, Icon } from "@lophn/ui/primitives";
 import { Markdown } from "@lophn/ui/reading";
 import { shellIcons } from "../../../packages/shell/renderer/icons/mod.ts";
 import { Avatar } from "../../../packages/shell/renderer/parts/avatar/avatar.tsx";
-import type { TabDot } from "../../../packages/shell/renderer/parts/tab-state-dot/tab-state-dot.tsx";
+import type { SessionDot } from "../../../packages/shell/renderer/parts/agent-session/activity.ts";
 import {
   type Vendor,
   VendorIcon,
@@ -37,7 +37,7 @@ export interface MockTab {
   title: string;
   crumbs: string[];
   agent?: Agent;
-  dot?: TabDot;
+  dot?: SessionDot;
   status?: string;
   /** preview tab. 이름이 italic이다. */
   preview?: boolean;

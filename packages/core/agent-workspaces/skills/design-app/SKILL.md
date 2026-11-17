@@ -232,8 +232,8 @@ Rules:
 - The root is `Screen`, with no `top`: lophn draws the head row (the app's
   name and menu), so draw no `TopBar` or title row. View tabs go at the top of
   the body, the main action in `footer`.
-- `Sheet` and `Menu` open inside the screen. Do not use React Native's `Modal`:
-  it covers all of lophn and the phone tab cannot read it.
+- `Sheet`, `Menu` and `Drawer` open inside the screen. Do not use React Native's
+  `Modal`: it covers lophn and the phone tab cannot read it.
 - A touch target is 44 or more. `Row`, `IconButton` and `Button` already are.
   Use `size="lg"` (54) for a screen's main action, and give a `Pressable` of
   your own `minHeight: 44`. Nothing depends on hover.

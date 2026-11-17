@@ -1,6 +1,6 @@
 // sidebar가 그리는 session 줄의 값. lophn session은 `useSessions()`에서, 터미널 coding agent session은
 // `usePanelTerminals`가 만든다. 앱 공간의 run 목록(run-list)도 같은 session 줄을 쓴다.
-import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
+import type { SessionDot } from "../../parts/agent-session/activity.ts";
 
 /** sidebar가 쓰는 session 한 줄. `useSessions()`의 항목에서 부르는 쪽이 옮긴다. */
 export interface PanelSession {
@@ -9,7 +9,7 @@ export interface PanelSession {
   /** 이 session을 가진 agent의 `asg_…`. */
   readonly agent: string;
   /** 탭 줄과 같은 상태 점. 없으면 null이다. */
-  readonly dot: TabDot | null;
+  readonly dot: SessionDot | null;
   /** 이 창에 그 session의 탭이 열려 있다. 닫으면 Recent로 간다. */
   readonly open: boolean;
   /** 마지막으로 움직인 때(epoch ms). */
@@ -24,7 +24,7 @@ export interface PanelTerminal {
   /** harness의 제품 이름. */
   readonly label: string;
   readonly title: string;
-  readonly dot: TabDot | null;
+  readonly dot: SessionDot | null;
   /** 마지막으로 움직인 때(epoch ms). */
   readonly at: number;
   /** 이 창에서 도는 탭. 누르면 그 탭을 고른다. */

@@ -10,6 +10,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.net.Uri
+import android.os.PersistableBundle
 import android.util.Base64
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
@@ -17,6 +18,8 @@ import androidx.core.graphics.drawable.IconCompat
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import expo.modules.kotlin.records.Field
+import expo.modules.kotlin.records.Record
 import org.json.JSONObject
 
 // What the phone app's TS reaches of the home screen: the widget files, placed widget ids, drawing, placing a widget
@@ -90,24 +93,40 @@ class LophnWidgetsModule : Module() {
 
     Function("isShortcutPinSupported") { ShortcutManagerCompat.isRequestPinShortcutSupported(ctx) }
     // True when the launcher showed its sheet, or at once (no sheet) when this id is already pinned.
-    Function("pinShortcut") { id: String, label: String, png: String, url: String ->
-      val bytes = Base64.decode(png, Base64.DEFAULT)
-      val icon = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.let { IconCompat.createWithAdaptiveBitmap(adaptive(it)) }
-        ?: IconCompat.createWithResource(ctx, R.drawable.lophn_mark)
-      val info = ShortcutInfoCompat.Builder(ctx, id)
-        .setShortLabel(label)
-        .setIcon(icon)
-        .setIntent(Intent(Intent.ACTION_VIEW, Uri.parse(url)).setPackage(ctx.packageName))
-        .build()
-      ShortcutManagerCompat.requestPinShortcut(ctx, info, null)
+    Function("pinShortcut") { id: String, label: String, png: String, url: String, picture: String ->
+      val icon = iconOf(png) ?: IconCompat.createWithResource(ctx, R.drawable.lophn_mark)
+      ShortcutManagerCompat.requestPinShortcut(ctx, shortcut(id, label, icon, url, picture), null)
     }
     Function("pinnedShortcuts") {
-      ShortcutManagerCompat.getShortcuts(ctx, ShortcutManagerCompat.FLAG_MATCH_PINNED).map { it.id }
+      ShortcutManagerCompat.getShortcuts(ctx, ShortcutManagerCompat.FLAG_MATCH_PINNED).map {
+        mapOf("id" to it.id, "label" to it.shortLabel.toString(), "picture" to (it.extras?.getString(PICTURE) ?: ""))
+      }
+    }
+    // False when Android refused for now (it limits how often an app in the background updates).
+    Function("updateShortcuts") { list: List<ShortcutUpdate> ->
+      ShortcutManagerCompat.updateShortcuts(ctx, list.map { shortcut(it.id, it.label, iconOf(it.png), it.url, it.picture) })
     }
     Function("disableShortcuts") { ids: List<String>, message: String -> ShortcutManagerCompat.disableShortcuts(ctx, ids, message) }
     Function("enableShortcuts") { ids: List<String> ->
       ShortcutManagerCompat.enableShortcuts(ctx, ShortcutManagerCompat.getShortcuts(ctx, ShortcutManagerCompat.FLAG_MATCH_PINNED).filter { it.id in ids })
     }
+  }
+
+  // `picture` names what the icon was drawn from, so TS can tell when the app's icon changed. A null icon keeps the one
+  // the launcher has.
+  private fun shortcut(id: String, label: String, icon: IconCompat?, url: String, picture: String): ShortcutInfoCompat {
+    val builder = ShortcutInfoCompat.Builder(ctx, id)
+      .setShortLabel(label)
+      .setIntent(Intent(Intent.ACTION_VIEW, Uri.parse(url)).setPackage(ctx.packageName))
+      .setExtras(PersistableBundle().apply { putString(PICTURE, picture) })
+    if (icon != null) builder.setIcon(icon)
+    return builder.build()
+  }
+
+  // Null when the PNG does not decode (an empty string too).
+  private fun iconOf(png: String): IconCompat? {
+    val bytes = Base64.decode(png, Base64.DEFAULT)
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.let { IconCompat.createWithAdaptiveBitmap(adaptive(it)) }
   }
 
   // The launcher masks a 108-unit square and shows its middle 72: put the icon in that middle on white.
@@ -122,5 +141,15 @@ class LophnWidgetsModule : Module() {
 
   companion object {
     private val NAME = Regex("^widgets/[A-Za-z0-9_-][A-Za-z0-9._-]*$")
+    private const val PICTURE = "picture"
   }
+}
+
+// One pinned app icon's name and picture now; an empty `png` keeps the picture it has.
+class ShortcutUpdate : Record {
+  @Field val id: String = ""
+  @Field val label: String = ""
+  @Field val png: String = ""
+  @Field val url: String = ""
+  @Field val picture: String = ""
 }

@@ -19,7 +19,7 @@ import type { DraftStore } from "../../conversation/drafts.ts";
 import type { ReadPosition } from "./kind.ts";
 import type { AvatarProfile } from "../../parts/avatar/avatar.tsx";
 import type { ArtifactsSlice } from "../../conversation/message-list/artifact-text.tsx";
-import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
+import type { SessionDot } from "../../parts/agent-session/activity.ts";
 
 /** 파일 탭이 작업대와 나누는 상태. */
 interface DocumentSlice {
@@ -51,7 +51,7 @@ export interface AgentViewSlice {
   /** 탭 줄이 그리는 agent의 profile 아이콘. 목록에 없으면 undefined. */
   profileOf(agent: string): AvatarProfile | undefined;
   /** 탭 줄의 상태 점. session이 없거나 쉬는 중이면 null이다. */
-  dotOf(session: string | null): TabDot | null;
+  dotOf(session: string | null): SessionDot | null;
   /** `/skills`·`/mcp`가 Settings › Agents로 간다. */
   openSettings(target: "skills" | "mcp"): void;
   /** provider 끊김 줄의 행동이 Settings › Providers로 간다. */

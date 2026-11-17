@@ -3,18 +3,54 @@
 // screen). Android draws a png or webp itself. No icon, or one that cannot be drawn, gives the in-app mark: the app's
 // first letter on its tone.
 import { useTheme } from "@lophn/ui-native";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
 import * as Lucide from "lucide-react-native";
-import { type ComponentType, type RefObject, useEffect, useRef } from "react";
+import { type ComponentType, type RefObject, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import Svg, { G, parse, Rect, Text } from "react-native-svg";
 import type { AppIcon } from "../../../protocol/apps/declaration/read.ts";
 import { lucideComponentOf } from "../../../shell/renderer/parts/icon-upload/lucide-key.ts";
+import { toneOf } from "../data/workspaces.ts";
 
 const SIDE = 192;
 // Past this the picture is taken as failed and the next way is tried.
 const DRAW_MS = 3000;
 
 export type Drawn = { icon: AppIcon | null; letter: string; tone: number };
+
+/** What an app's picture is drawn from: its icon, or its mark (its name's first letter on its tone). */
+export const drawnOf = (app: string, name: string, icon: AppIcon | null): Drawn => ({
+  icon,
+  letter: name.slice(0, 1).toUpperCase(),
+  tone: toneOf(app),
+});
+
+/** What a picture is drawn from, short enough to keep on the pinned icon: a new key means the picture changed. */
+export const pictureKey = ({ icon, letter, tone }: Drawn): string =>
+  bytesToHex(sha256(utf8ToBytes(JSON.stringify([icon, letter, tone])))).slice(0, 16);
+
+/** The app's own icon, else its mark when the icon would not draw; `onDone("")` when neither drew. */
+export function IconPicture({
+  drawn,
+  onDone,
+}: {
+  drawn: Drawn;
+  onDone: (png: string) => void;
+}) {
+  const [now, setNow] = useState(drawn);
+  return (
+    <Picture
+      key={now.icon === null ? "mark" : "icon"}
+      drawn={now}
+      onDone={(png) => {
+        if (png !== null) onDone(png);
+        else if (now.icon !== null) setNow({ ...now, icon: null });
+        else onDone("");
+      }}
+    />
+  );
+}
 
 /** Draws `drawn` once and hands back its PNG as base64, or null when it could not be drawn. */
 export function Picture({

@@ -6,7 +6,7 @@ import type { TerminalResume } from "../../../ipc/terminal.ts";
 import { workspaceIcons } from "../../icons/mod.ts";
 import { AgentFaceIcon } from "../../parts/agent-session/agent-session.tsx";
 import { codingDot, codingFace } from "../../parts/agent-session/coding.ts";
-import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
+import type { SessionDot } from "../../parts/agent-session/activity.ts";
 import { closeTerminalTab, type TerminalDeps } from "../../terminal/deps.ts";
 import { type RememberedName, terminalName } from "../../terminal/model.ts";
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
@@ -237,7 +237,7 @@ function agentTabIcon(tab: TabItem, host: TabHost): ReactNode | null {
   );
 }
 
-function agentTabDot(tab: TabItem, host: TabHost): TabDot | null {
+function agentTabDot(tab: TabItem, host: TabHost): SessionDot | null {
   const agent = host.props.terminal?.store.agentOf(tab.key);
   return agent === undefined ? null : codingDot(agent);
 }

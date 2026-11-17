@@ -22,12 +22,18 @@ export const STATUS_ICONS: Record<StatusTone, LucideIcon> = {
   neutral: CircleDashed,
 };
 
-export type DotTone = "warning" | "good" | "critical" | "off" | "working";
+export type DotTone =
+  | "warning"
+  | "good"
+  | "critical"
+  | "off"
+  | "working"
+  | "neutral";
 
 export interface DotProps {
   /**
    * warning: waits on the person. good: done, or connected. critical: failed. off: offline. working: an agent works now
-   * (ink, breathing). None: idle or ended.
+   * (ink, breathing). neutral or none: gray (ended, connecting).
    */
   tone?: DotTone;
 }

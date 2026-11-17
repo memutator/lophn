@@ -12,8 +12,9 @@ type Native = {
   requestPin(size: "small" | "wide", bind: string): boolean;
   finishConfigure(id: number, ok: boolean): boolean;
   isShortcutPinSupported(): boolean;
-  pinShortcut(id: string, label: string, pngBase64: string, url: string): boolean;
-  pinnedShortcuts(): string[];
+  pinShortcut(id: string, label: string, pngBase64: string, url: string, picture: string): boolean;
+  pinnedShortcuts(): PinnedShortcut[];
+  updateShortcuts(list: { id: string; label: string; png: string; url: string; picture: string }[]): boolean;
   disableShortcuts(ids: string[], message: string): void;
   enableShortcuts(ids: string[]): void;
 };
@@ -51,13 +52,20 @@ export const requestPin = (
 export const finishConfigure = (id: number, ok: boolean): boolean =>
   native.finishConfigure(id, ok);
 
+/** A pinned app icon: its name, and `picture`, what its picture was drawn from ("" when not known). */
+export type PinnedShortcut = { id: string; label: string; picture: string };
+
 /** App icons on the home screen (pinned shortcuts). */
 export const shortcuts = {
   isPinSupported: (): boolean => native.isShortcutPinSupported(),
   /** True when the launcher showed its sheet, or at once with no sheet when `id` is already pinned. */
-  pin: (one: { id: string; label: string; iconPng: string; url: string }): boolean =>
-    native.pinShortcut(one.id, one.label, one.iconPng, one.url),
-  pinnedIds: (): string[] => native.pinnedShortcuts(),
+  pin: (one: { id: string; label: string; iconPng: string; url: string; picture: string }): boolean =>
+    native.pinShortcut(one.id, one.label, one.iconPng, one.url, one.picture),
+  pinned: (): PinnedShortcut[] => native.pinnedShortcuts(),
+  pinnedIds: (): string[] => native.pinnedShortcuts().map((one) => one.id),
+  /** Changes placed icons' names and pictures; an empty `iconPng` keeps the picture. False when Android refused for now. */
+  update: (list: { id: string; label: string; iconPng: string; url: string; picture: string }[]): boolean =>
+    native.updateShortcuts(list.map(({ iconPng, ...one }) => ({ ...one, png: iconPng }))),
   disable: (ids: string[], message: string): void => native.disableShortcuts(ids, message),
   enable: (ids: string[]): void => native.enableShortcuts(ids),
 };

@@ -114,8 +114,6 @@ export function Sheet({
     shown.interpolate({ inputRange: [0, 1], outputRange: [height, 0] }),
     drag,
   );
-  const layer = useContext(Layer);
-  const id = useId();
   const inScreen = inAppScreen();
   const content = mounted ? (
     <>
@@ -217,11 +215,30 @@ export function Sheet({
       </KeyboardAvoidingView>
     </>
   ) : null;
+  return useOverlay(content, onClose);
+}
+
+// An app's screen runs where lophn set the global `lophnApp` (the phone's guest runtime, the desktop preview); lophn's
+// own phone screens have none. A Modal there would be a window over the whole lophn app, where an app could pass for
+// lophn's own screens and where the phone tab cannot read it, so an app's sheet and drawer draw inside the screen instead.
+function inAppScreen(): boolean {
+  return (globalThis as { lophnApp?: unknown }).lophnApp !== undefined;
+}
+
+type Place = (id: string, content: ReactNode) => void;
+const Layer = createContext<Place | null>(null);
+
+/**
+ * Puts `content` (null: nothing) over the whole screen: in an app's screen inside its Screen, elsewhere in a Modal over
+ * the phone app. The Sheet and the sidebar Drawer draw through it; `onClose` is what the phone's Back button asks there.
+ */
+export function useOverlay(content: ReactNode, onClose: () => void): ReactNode {
+  const layer = useContext(Layer);
+  const id = useId();
   useLayoutEffect(() => layer?.(id, content));
   useEffect(() => (layer ? () => layer(id, null) : undefined), [layer, id]);
-
   if (content === null || layer !== null) return null;
-  if (inScreen)
+  if (inAppScreen())
     return (
       <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
         {content}
@@ -240,16 +257,6 @@ export function Sheet({
     </Modal>
   );
 }
-
-// An app's screen runs where lophn set the global `lophnApp` (the phone's guest runtime, the desktop preview); lophn's
-// own phone screens have none. A Modal there would be a window over the whole lophn app, where an app could pass for
-// lophn's own screens and where the phone tab cannot read it, so an app's sheet draws inside the screen instead.
-function inAppScreen(): boolean {
-  return (globalThis as { lophnApp?: unknown }).lophnApp !== undefined;
-}
-
-type Place = (id: string, content: ReactNode) => void;
-const Layer = createContext<Place | null>(null);
 
 // Covers a Screen of an app so its sheets draw over the whole screen wherever in the screen they are opened.
 // Outside an app it adds nothing: lophn's own sheets are Modals.

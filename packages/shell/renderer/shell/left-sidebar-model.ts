@@ -1,6 +1,6 @@
 // 왼쪽 sidebar가 그리는 값. 화면은 이 값과 callback만 안다(project 창, 뒤에 Home과 app workspace가 같이 쓴다).
 import type { AgentFace } from "../parts/agent-session/agent-session.tsx";
-import type { TabDot } from "../parts/tab-state-dot/tab-state-dot.tsx";
+import type { SessionDot } from "../parts/agent-session/activity.ts";
 import type { WorkspaceRef } from "./desk-model.ts";
 
 /**
@@ -16,7 +16,7 @@ export interface SidebarSession {
   readonly title: string;
   /** 줄 앞의 agent 아이콘. workflow desk는 vendor도 profile도 없다. */
   readonly agent: AgentFace | { readonly kind: "workflow" };
-  readonly dot: TabDot | null;
+  readonly dot: SessionDot | null;
   /** 줄에 hover하면 연필(Rename)과 x(Stop)가 뜬다. draft는 이름을 둘 session이 없어 x만 뜬다. */
   readonly actions: boolean;
   /** 마지막으로 움직인 때(epoch ms). Recent 줄의 상대 시각이다. 모르면 0. */

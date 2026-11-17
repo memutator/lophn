@@ -134,8 +134,9 @@ export function FramePage({ onBack }: { onBack: () => void }) {
     <Page title="Frame" onBack={onBack}>
       <Label>TopBar</Label>
       <View style={{ borderTopWidth: 1, borderBottomWidth: 1, borderColor: theme.color.border.subtle }}>
-        <TopBar title="Home" menuDot right={<Pill lead={<Dot tone="good" />}>mina-desktop</Pill>} />
+        <TopBar left="menu" title="Home" menuDot right={<Pill lead={<Dot tone="good" />}>mina-desktop</Pill>} />
         <TopBar
+          left="menu"
           lead={<Face who="lophn" size={26} />}
           title="lophn"
           sub="Weekly report"
@@ -235,7 +236,8 @@ export function DisplayPage({ onBack }: { onBack: () => void }) {
           <Dot tone="good" />
           <Dot tone="critical" />
           <Dot tone="off" />
-          <Dot />
+          <Dot tone="working" />
+          <Dot tone="neutral" />
         </Line>
       </Pad>
       <Label>Badge · Tag</Label>
@@ -486,7 +488,9 @@ export function SidebarPage({ onBack }: { onBack: () => void }) {
       <WorkspaceRow lead={<Icon icon={FolderOpen} size={19} />} label="phroner" />
       <WorktreeLabel>Main</WorktreeLabel>
       <SessionRow face={<Face who="lophn" size={20} />} title="Weekly report" tone="warning" on />
-      <SessionRow face={<Face who="Claude Code" size={20} />} title="Fix flaky retry in the scenario runner" tone="good" />
+      <SessionRow face={<Face who="Claude Code" size={20} />} title="Fix flaky retry in the scenario runner" tone="working" />
+      <SessionRow face={<Face who="Codex" size={20} />} title="Split the eval board loader" tone="good" />
+      <SessionRow face={<Face who="lophn" size={20} />} title="Ended session" tone="neutral" />
       <SessionRow face={<Face who="Codex" size={20} />} title="Idle session" />
       <WorkspaceRow lead={<Mark kind="app" name="Orders" tone={1} />} label="Orders" />
       <SidebarFoot>

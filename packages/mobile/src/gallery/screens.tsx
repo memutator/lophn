@@ -344,6 +344,7 @@ type Item = { id: string; draw: () => ReactElement };
 function SessionTop() {
   return (
     <TopBar
+      left="menu"
       lead={<Face who="lophn" size={26} />}
       title="lophn"
       sub="Weekly report"
@@ -600,7 +601,7 @@ export function InboxScreen() {
     <Screen
       top={
         <>
-          <TopBar title="Inbox" />
+          <TopBar left="menu" title="Inbox" />
           <Tabs items={["Now", "History"]} on={tab} onChange={setTab} />
         </>
       }
@@ -685,6 +686,7 @@ export function OrdersScreen() {
       tone="floor"
       top={
         <TopBar
+          left="menu"
           lead={<Mark kind="app" name="Orders" tone={1} />}
           title="Orders"
           right={<IconButton icon={Ellipsis} label="App menu" />}

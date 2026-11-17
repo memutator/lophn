@@ -4,7 +4,6 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Easing,
-  Modal,
   PanResponder,
   Pressable,
   ScrollView,
@@ -14,6 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Dot, type DotTone } from "../feedback/status.tsx";
+import { useOverlay } from "../overlay/sheet.tsx";
 import { Icon } from "../primitives/icon.tsx";
 import { Text } from "../primitives/text.tsx";
 import { Ink, useTheme } from "../theme.tsx";
@@ -28,7 +28,8 @@ export interface DrawerProps {
 
 const WIDTH = 326;
 
-// The sidebar on a phone: a panel that slides in from the left edge over a scrim.
+// The sidebar on a phone: a panel that slides in from the left edge over a scrim. In an app's screen it stays inside
+// the screen, as a Sheet does.
 export function Drawer({ open, onClose, children }: DrawerProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -80,20 +81,12 @@ export function Drawer({ open, onClose, children }: DrawerProps) {
     [drag, onClose, width],
   );
 
-  if (!mounted) return null;
   const translateX = Animated.add(
     shown.interpolate({ inputRange: [0, 1], outputRange: [-width, 0] }),
     drag,
   );
-  return (
-    <Modal
-      transparent
-      visible
-      statusBarTranslucent
-      navigationBarTranslucent
-      animationType="none"
-      onRequestClose={onClose}
-    >
+  const content = mounted ? (
+    <>
       <Animated.View
         style={[
           StyleSheet.absoluteFill,
@@ -123,8 +116,9 @@ export function Drawer({ open, onClose, children }: DrawerProps) {
       >
         {children}
       </Animated.View>
-    </Modal>
-  );
+    </>
+  ) : null;
+  return useOverlay(content, onClose);
 }
 
 export interface SidebarHeadProps {
@@ -335,7 +329,8 @@ export interface SessionRowProps {
   title: string;
   /** A small mark after the title (a coding session that runs in a terminal). */
   mark?: ReactNode;
-  /** warning: waits on the person. good: working. None: idle. */
+  /** warning: waits on the person. working: an agent works now. good: a turn ended that the person has not seen.
+   * neutral: ended. None: idle, no dot. */
   tone?: DotTone;
   on?: boolean;
   onPress?: () => void;
@@ -364,7 +359,7 @@ export function SessionRow({
       </View>
       <SideText>{title}</SideText>
       {mark}
-      <Dot tone={tone} />
+      {tone !== undefined && <Dot tone={tone} />}
     </SideRow>
   );
 }

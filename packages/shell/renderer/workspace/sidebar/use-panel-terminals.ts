@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
 import type { TerminalAgentSession } from "../../../ipc/terminal.ts";
-import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
+import type { SessionDot } from "../../parts/agent-session/activity.ts";
 import { useRemembered } from "../../shell/sidebar-memory.tsx";
 import type { TerminalDeps } from "../../terminal/deps.ts";
 import type { PanelTerminal } from "./panel-types.ts";
@@ -15,7 +15,7 @@ import type { PanelTerminal } from "./panel-types.ts";
 export interface TerminalTabView {
   readonly key: string;
   readonly title: string;
-  readonly dot: TabDot | null;
+  readonly dot: SessionDot | null;
 }
 
 const NO_SAVED: readonly TerminalAgentSession[] = [];

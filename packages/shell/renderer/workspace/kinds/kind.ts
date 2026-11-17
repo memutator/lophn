@@ -6,7 +6,7 @@ import type { IconProps } from "@lophn/ui/primitives";
 import type { MessageKey } from "@lophn/i18n";
 import type { ReactNode } from "react";
 import type { TabTransfer } from "../../../ipc/detached.ts";
-import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
+import type { SessionDot } from "../../parts/agent-session/activity.ts";
 import type { TabItem } from "../model.ts";
 import type { TabHost } from "./host.ts";
 
@@ -31,7 +31,7 @@ export interface TabKindDef {
   /** 이 탭이 사는 자리(desk) key. 있으면 탭을 여는 길이 그 자리로 건너가서 연다(없는 자리는 그 탭이 열린 채 만든다). 없으면 보이는 자리다. */
   homeDesk?(tab: TabItem): string | undefined;
   /** 탭 이름 뒤의 상태 점(Agent 탭의 session 상태). null이면 점이 없다. */
-  dotOf?(tab: TabItem, host: TabHost): TabDot | null;
+  dotOf?(tab: TabItem, host: TabHost): SessionDot | null;
   /**
    * 사람이 탭 이름을 바꿨다. null이면 사람이 붙인 이름을 지우고 자동 이름으로 돌아간다. 이 hook을 선언한
    * kind만 탭 줄의 이름 바꾸기(더블클릭, 탭 menu의 Rename)가 생긴다. 지금은 터미널과 Agent 탭이다(Agent 탭은 session 제목을 바꾼다).

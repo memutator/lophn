@@ -23,7 +23,7 @@ import type { EditorDeps } from "../../editor/document-view.tsx";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
 import type { TerminalDeps } from "../../terminal/deps.ts";
 import type { SettingsPane } from "../../desktop/settings/model.ts";
-import type { TabDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
+import type { SessionDot } from "../../parts/agent-session/activity.ts";
 import type { TabHost } from "../../workspace/kinds/host.ts";
 import { tabKindOf } from "../../workspace/kinds/registry.ts";
 import type { ProjectView, WorkspaceSource } from "../../workspace/source.ts";
@@ -237,7 +237,7 @@ export function GlobalFloatLayer({ env }: { env: GlobalFloatEnv }) {
   // 제목 줄의 아이콘과 상태 점은 본문의 slice 없이 읽는다. agent의 profile 아이콘과 상태 점은 본문 안에서만 알 수 있어 종류 아이콘이다.
   const chrome = (
     item: GlobalFloatView,
-  ): { icon: ReactNode; dot: TabDot | null } => {
+  ): { icon: ReactNode; dot: SessionDot | null } => {
     const def = tabKindOf(item.tab.kind);
     if (def === undefined) return { icon: null, dot: null };
     const light = hostOf(env, item, {

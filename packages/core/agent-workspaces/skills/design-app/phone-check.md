@@ -48,8 +48,8 @@ placeholder. Put every input in a `Field` with a label so you can find it.
 ## Limits
 
 - The data on the phone is the preview's throwaway data, not the person's.
-- A kit `Sheet` or `Menu` opens inside the screen: read and drive it like the
-  rest. A React Native `Modal` cannot be read or driven from the phone tab:
+- A kit `Sheet`, `Menu` or `Drawer` opens inside the screen: read and drive it
+  like the rest. A React Native `Modal` cannot be read or driven from the phone tab:
   while one is open the calls are `unavailable` and say something covers the
   preview. Tell the person what you could not check.
 - A snapshot of a long list (`FlatList`, `SectionList`) has only the rows near

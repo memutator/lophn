@@ -26,10 +26,8 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { AgentCharacter } from "../../../../packages/shell/renderer/parts/avatar/character.tsx";
-import {
-  type TabDot,
-  TabStateDot,
-} from "../../../../packages/shell/renderer/parts/tab-state-dot/tab-state-dot.tsx";
+import type { SessionDot } from "../../../../packages/shell/renderer/parts/agent-session/activity.ts";
+import { TabStateDot } from "../../../../packages/shell/renderer/parts/tab-state-dot/tab-state-dot.tsx";
 import {
   Badge,
   Btn,
@@ -111,7 +109,7 @@ function Session({
 }: {
   who: string;
   children: ReactNode;
-  dot?: TabDot;
+  dot?: SessionDot;
   on?: boolean;
 }) {
   return (

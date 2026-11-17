@@ -1,5 +1,5 @@
 id: harness-gui-dogfood-fixes
-version: 0.23.50
+version: 0.23.81
 title: harness GUI의 focus·ESC·effort 알림·interrupt 표시와 마크다운 표·그림 붙여넣기를 고친다
 modules: [packages/shell/main, packages/shell/renderer, packages/design]
 change: |

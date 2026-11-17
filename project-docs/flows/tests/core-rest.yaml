@@ -134,14 +134,15 @@ files:
     covers:
       - folder-import-run:held-applied
       - folder-import-run:held-covered
+      - folder-import-run:held-full
       - folder-import-run:out-of-range
-    note: "다른 release·다른 꼴 판의 기계(FolderApply는 node:sqlite 위의 실제 sync core 적용). 다른 release의 held는 이 기계가 그 release가 될 때까지 적용되지 않고, 된 뒤 출처마다 번호 순서로 빠짐없이 적용되며 그 동안 그 출처의 뒤 file은 읽지 않고, 적용이 실패하면 그 행부터 남아 물러남 뒤 같은 행부터 잇는다. 출처의 snapshot m이 held가 되거나 합쳐지면 그 출처의 m보다 옛 held만 지워지고 다른 출처와 더 큰 번호의 held는 남는다. 꼴 판이 범위 밖(version이 크거나 min_version이 큼)인 기계는 깨뜨린 file을 열지 않아 newer_format 그대로이고 복사·삭제·cursor 이동이 없으며 앱 기록이 records()에서 빠지고, 범위 안으로 돌아오면 그 cursor부터 잇는다"
+    note: "다른 release·다른 꼴 판의 기계(FolderApply는 node:sqlite 위의 실제 sync core 적용). 다른 release의 held는 이 기계가 그 release가 될 때까지 적용되지 않고, 된 뒤 출처마다 번호 순서로 빠짐없이 적용되며 그 동안 그 출처의 뒤 file은 읽지 않고, 적용이 실패하면 그 행부터 남아 물러남 뒤 같은 행부터 잇는다. 출처의 snapshot m이 held가 되거나 합쳐지면 그 출처의 m보다 옛 held만 지워지고 다른 출처와 더 큰 번호의 held는 남는다. 꼴 판이 범위 밖(version이 크거나 min_version이 큼)인 기계는 깨뜨린 file을 열지 않아 newer_format 그대로이고 복사·삭제·cursor 이동이 없으며 앱 기록이 records()에서 빠지고, 범위 안으로 돌아오면 그 cursor부터 잇는다. held가 한도(test는 작게 넣는다)에 닿으면 넘을 file은 복사되지 않고 cursor가 그 앞에 남으며, 뒤에 출처의 snapshot이 오면 그리로 건너뛰고, 이 기계가 그 release가 되면 멈춘 cursor부터 폴더에서 읽는다. 꼴 판 판정 표(exchangeWith)가 ok·update_this·update_peer를 가른다"
 
   - path: packages/core/folder/import/import_test.ts
     covers:
       - folder-import-run:followed
       - folder-import-run:waiting
-    note: "다른 기계의 하위 폴더 읽기. 잘린·bytes가 바뀐·번호가 다른 file은 FolderApply를 부르지 않고 cursor가 그대로이며 invalid_file이 보이고, 맞는 file로 바뀌면 적용된다. 다른 release의 file(snapshot 포함)은 같은 bytes로 data root에 held로 남고 폴더에서 지워져도 남는다. 충돌 사본·temp는 읽지 않고 늦게 온 번호를 기다려 순서대로 한 번만 적용한다. 깨진 기록·빈 폴더는 기록 사본과 local data를 지우지 않는다. horizon 밖에서 지우기 없이 합친 stream은 빚(owes_absent_pass)을 남기고 재시작을 넘기며, 출처가 이 기계의 것을 다 받은 뒤에 만든 snapshot이 오면 그것으로 다시 합쳐(실제 sync core) 다른 곳에서 지워지고 흔적이 정리된 row만 지우고 떨어져 있는 동안 고친 row는 남긴다. 그런 snapshot이 없으면 오류 없이 기다린다. 지운 기계는 목록에서 빠지되 행과 data가 남고 새 revision이면 돌아온다. compaction 뒤에는 가장 큰 맞는 snapshot으로 따라오고, 5분 넘게 앞선 clock은 clock_ahead로 미룬다"
+    note: "다른 기계의 하위 폴더 읽기. 잘린·bytes가 바뀐·번호가 다른 file은 FolderApply를 부르지 않고 cursor가 그대로이며 invalid_file이 보이고, 맞는 file로 바뀌면 적용된다. 다른 release의 file(snapshot 포함)은 같은 bytes로 data root에 held로 남고 폴더에서 지워져도 남는다. 충돌 사본·temp는 읽지 않고 늦게 온 번호를 기다려 순서대로 한 번만 적용한다. 깨진 기록·빈 폴더는 기록 사본과 local data를 지우지 않는다. horizon 밖에서 지우기 없이 합친 stream은 빚(owes_absent_pass)을 남기고 재시작을 넘기며, 출처가 이 기계의 것을 다 받은 뒤에 만든 snapshot이 오면 그것으로 다시 합쳐(실제 sync core) 다른 곳에서 지워지고 흔적이 정리된 row만 지우고 떨어져 있는 동안 고친 row는 남긴다. 그런 snapshot이 없으면 오류 없이 기다린다. 지운 기계는 목록에서 빠지되 행과 data가 남고 새 revision이면 돌아온다. compaction 뒤에는 가장 큰 맞는 snapshot으로 따라오고, 5분 넘게 앞선 clock의 changes file과 snapshot은 clock_ahead로 미룬다"
 
   - path: packages/core/folder/apps/apps_test.ts
     covers:

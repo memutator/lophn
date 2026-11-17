@@ -65,6 +65,7 @@ component는 분류 폴더 하나 안에 있고(tsx, module CSS, 보조 file), �
 - 문구는 직접 쓰지 않고 `@lophn/i18n`의 key로 쓴다. desktop에 있는 문장은 그 key를 쓰고 폰에만 있는 문장은 `mobile.`로 시작하는 key다(catalog 폴더 안 `mobile-<영역>` file). kit이 모르는 것(agent 얼굴, vendor icon)은 ReactNode로 받는다.
 - 묻는 card(`QuestionCard`)는 여러 답을 고르는 질문도 받는다. 대화와 Inbox가 같은 card를 쓴다.
 - `Input`은 자기를 감싼 `Field`의 label을 accessibility 이름으로 갖고(없으면 placeholder) 누르는 조각은 role을 지킨다. 화면 reader와, 사람의 폰에서 preview 화면을 읽는 agent(phone 탭, `browser-tab.md`)가 이 이름과 role로 요소를 찾는다. testID에 기대지 않는다. 이 변경이 `@lophn/ui-native` 0.2.0이다(옛 0.1.0으로 지은 화면은 그대로 열린다).
+- 앱 화면(전역 `lophnApp`이 있는 guest)에서는 `Sheet`와 `Menu`가 OS 창(`Modal`)이 아니라 `Screen` 안의 층으로 선다. 그래서 앱이 연 sheet가 lophn 앱을 덮지 못하고 phone 탭이 그 안을 읽는다. 폰의 뒤로 가기는 이 sheet를 닫지 않는다. `Sidebar`·`Drawer`는 아직 `Modal`이다. `TopBar`는 `onLeft`가 있을 때만 sidebar 단추(`menu`)가 기본이다. `Button`의 `sm`·`md`(34·42)는 위아래 `hitSlop`으로 누르는 자리를 touch 대상 44까지 넓힌다. 이 변경이 `@lophn/ui-native` 0.3.0이다.
 - 분류 폴더(primitives, input, layout, navigation, feedback, overlay, reading, conversation)는 `@lophn/ui`와 다르다. check `kit`는 이 폴더를 건너뛰고 폰 앱의 type 검사가 본다. React Native의 `<Text>` 밖 글자는 Biome 규칙(`noReactNativeRawText`)이 막는다.
 - Metro는 alias로, tsc는 `paths`로 이 package를 찾는다.
 - 폰 kit은 SDK part `@lophn/ui-native`이고 설치 사본이 data root의 `sdk/ui-native/<판>`에 깔린다. `@lophn/ui` 사본과 섞지 않는다(`@lophn/ui`의 설치 사본은 폰 kit 폴더를 건너뛴다). 이유: desktop kit은 DOM이고 폰 kit은 React Native라 한 part에 두 runtime의 의존을 담지 않는다. react, react-native, react-native-svg, safe-area, keyboard-controller, expo-clipboard, lucide-react-native, `@lophn/i18n`은 peer와 의존으로 정확한 판이 `package.json`에 있고 guide는 `package.read @lophn/ui-native`로 읽는다. 사용자 앱의 폰 화면은 이 kit으로 쓰고 폰 앱의 base bundle이 같은 kit을 든다.
@@ -216,9 +217,8 @@ check `sdk notes` step은 지금 판과 하한의 메모, 하한이 판보다 �
 
 ## 열린 것
 
-- 폰 kit의 `TopBar`는 기본으로 sidebar 단추(`left="menu"`)를 보이고 `Button`의 `sm`·`md`는 34·42로 touch 대상 44보다 작다. 앱 화면은 sidebar가 없고 손가락으로 누르므로 지침(`design-app`)이 agent에게 `left="none"`과 `size="lg"`를 넘기라고 말한다. kit의 기본값은 그대로다(이슈 `phone-kit-topbar-shows-menu-by-default`, `phone-kit-button-under-touch-target`).
-
-- 감지로 쓴 `sdk_update_needed` 줄은 기동 중에 쓰므로 toast가 뜨지 않고 배지와 History로만 보인다(이슈 `startup-program-notice-no-toast`).
+- 앱 화면의 kit `Sidebar`·`Drawer`와 화면 source가 직접 부르는 `Modal`은 OS 창으로 떠 lophn 앱을 덮을 수 있다(이슈 `phone-guest-can-cover-app`).
+- 기동 중에 쓴 안 읽은 `sdk_update_needed` 줄은 shell이 붙을 때 toast로 보이고, 안 읽은 채 두면 앱을 켤 때마다 다시 뜬다.
 - 감지는 제품 판이나 설치된 SDK 판 묶음이 바뀔 때만 돈다. 감지 뒤 지금 상태를 앱 단위로 닫는 길은 없다(위 "SDK 업데이트 감지와 맡기기").
 - `update-apps` skill을 실제 model이 그대로 따르는지는 eval이 없다.
 - 오래된 major 구간이 길어지면 제품을 낼 때 메모를 합친다.

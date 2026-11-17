@@ -145,7 +145,7 @@ secret
 session 조작: `set_model`, `set_mode`, `run_command`, `rewind`, `fork`, `compact`, `rename`, `stop_child`, `steer_child`, `stop_task`, `background_tool`(도는 root tool을 background로, capability `background`), `set_toggle`, `set_goal`, `use_role`, `open_session`, `run_shell`, `stop_shell`.
 session 조작은 모두 `key`를 싣는다(`stop_shell`은 `item`).
 
-`send`는 `seen`을 싣는다: 그 화면이 아는 마지막 사람 메시지의 id이고 null은 하나도 못 봤다는 뜻이다(새 session의 첫 말). 한 session에 여러 기기(이 컴퓨터의 창, 다른 기계를 보는 desktop의 창, 폰)가 쓸 수 있어서다. core는 메시지를 넣는 같은 transaction에서 `seen` 뒤에 사람 메시지가 있는지 보고, 있으면 아무것도 넣지 않고 `conflict`(`details.reason: "changed_elsewhere"`)로 끝낸다. 합치지 않는다. 사람 메시지는 사람이 보낸 message이고 `!` 명령 기록과 rewind가 숨긴 메시지는 세지 않는다. 모르는 `seen`은 `invalid_input`이다. `seen`이 없으면 검사하지 않는다(화면이 없는 보내는 쪽: CLI, run, call). 이미 받은 id를 다시 보내면 검사보다 앞서 앞의 결과를 돌려준다. 화면은 `seen`을 대화와 다음 turn 줄의 마지막 사람 메시지, 아니면 받았지만 아직 대화에 오지 않은 자기 메시지에서 고르고, 거절이면 쓴 글과 첨부를 입력칸에 두고 "This conversation changed on another device. Read the new messages, then send again." 한 줄을 보이며 대화를 다시 읽는다(`agent-chat.md`의 전달 상태). coding agent(harness) session의 보내기와 coding relay는 이 검사를 하지 않는다.
+`send`는 `seen`을 싣는다: 그 화면이 아는 마지막 사람 메시지의 id이고 null은 하나도 못 봤다는 뜻이다(새 session의 첫 말). 한 session에 여러 기기(이 컴퓨터의 창, 다른 기계를 보는 desktop의 창, 폰)가 쓸 수 있어서다. core는 메시지를 넣는 같은 transaction에서 `seen` 뒤에 사람 메시지가 있는지 보고, 있으면 아무것도 넣지 않고 `conflict`(`details.reason: "changed_elsewhere"`)로 끝낸다. 합치지 않는다. 사람 메시지는 사람이 보낸 message이고 `!` 명령 기록과 rewind가 숨긴 메시지는 세지 않는다. 모르는 `seen`은 `invalid_input`이다. `seen`이 없으면 검사하지 않는다(화면이 없는 보내는 쪽: CLI, run, call). 이미 받은 id를 다시 보내면 검사보다 앞서 앞의 결과를 돌려준다. 화면은 `seen`을 대화와 다음 turn 줄의 마지막 사람 메시지, 아니면 받았지만 아직 대화에 오지 않은 자기 메시지에서 고른다. 대화의 첫 snapshot을 받기 전에는 아는 것이 없어 `seen`을 싣지 않는다(검사 없이 들어간다. 읽기 전의 보내기가 거짓 `changed_elsewhere`로 막히지 않는다). 거절이면 거절이면 쓴 글과 첨부를 입력칸에 두고 "This conversation changed on another device. Read the new messages, then send again." 한 줄을 보이며 대화를 다시 읽는다(`agent-chat.md`의 전달 상태). coding agent(harness) session의 보내기와 coding relay는 이 검사를 하지 않는다.
 
 lophn core는 입력을 지금 route로 나눈다.
 
@@ -260,6 +260,6 @@ third-party CLI GUI(extension `harness-gui`, [harness-gui.md](harness-gui.md))�
 
 ## 열린 것
 
-- ACP session meta의 `layer` 값 목록과 비용 종류 목록(`usage.costs[].kind`)이 lophn 원본의 사본이다. 원본을 import하면 shell main의 tsc가 큰 import 사슬까지 읽고 깨져서 값을 옮겨 적었다. 원본에 층이나 비용 종류가 늘면 snapshot 검사가 실패하거나 화면이 그 값을 못 그린다. 두 목록을 import 사슬이 짧은 leaf 파일로 옮겨 둘 다 그것을 import하게 하는 것이 추천안이다. 이슈: `acp-session-copies-value-lists`(defect).
+- ACP session meta의 `layer` 값 목록과 비용 종류 목록(`usage.costs[].kind`)이 lophn 원본의 사본이다. 원본을 import하면 shell main의 tsc가 큰 import 사슬까지 읽고 깨져서 값을 옮겨 적었다. 두 사본이 어긋나면 core의 type 검사가 먼저 실패한다(ACP를 짓는 core 쪽이 원본 값을 ACP type에 넣는다). leaf file로 옮기는 것은 얻는 것이 작아 이대로 둔다(이슈 `acp-session-copies-value-lists`, kept).
 - `reread`의 ②(글 조각 offset 어긋남)는 한 model 호출에서 한 번만 다시 읽는 규칙을 읽는 쪽이 지켜야 한다. 규격이 막지 않는다.
 - harness가 쓴 tool 줄은 전용 항목이 없어 글 block 하나다.

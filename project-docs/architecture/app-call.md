@@ -121,7 +121,7 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
 ### 공개 범위와 사용 관계
 
 1. 비공개 command는 그 앱 workspace의 session만 본다. 다른 workspace(home, project, 다른 앱)의 session은 `public` command만 본다. agent가 command를 찾는 길, `app.tool_index`, Grants 탭 후보가 같은 규칙이다. flow instance가 연 tool run은 목록이 없어 부를 때 instance의 agent(`workflow.yaml`의 `agent`)가 놓인 workspace로 같은 규칙을 본다. job이 연 tool run은 사람이 승인한 job이라 거르지 않는다. core의 할당 쓰기는 거르지 않으므로 agent에게 막는 곳은 이 거르기다.
-2. 사용 관계(`app.usage`)의 쓰는 쪽은 그 앱 command를 부른 agent session의 workspace다. invocation 기록에서만 세고, home과 그 앱 자신의 workspace는 세지 않는다. 쓰는 곳이 있는 public command를 지우거나 비공개로 바꾸는 release는 막지 않고 `release.prepare`가 결과의 `removed_public_tools`에 그 command를 싣는다.
+2. 사용 관계(`app.usage`)의 쓰는 쪽은 그 앱 command를 부른 agent session의 workspace다. invocation 기록에서만 세고, home과 그 앱 자신의 workspace는 세지 않는다. 쓰는 곳이 있는 public command를 지우거나 비공개로 바꾸는 release는 막지 않고 `release.prepare`가 결과의 `removed_public_tools`에 그 command를 싣는다. 앱 prompt는 그런 release를 activate하기 전에 사람에게 묻지 않고 home의 lophn에게 결과를 받는 call로 알리라고 한다(home이 쓰는 workspace에 묻는다).
 3. 공개였던 skill을 지우거나 비공개로 바꾸는 release도 막지 않는다. `release.prepare`가 결과의 `removed_public_skills`에 싣는다. skill이 부르는 command를 지우는 일은 `removed_public_tools`가 따로 싣는다.
 4. 공유되는 skill은 active release의 것이고 core read `app.skills`(actor user·machine)가 읽는다. 입력은 앱 slug 목록(64개까지)이고 slug마다 active release 선언의 `skills[].public`인 skill을 bundle 사본의 `.lophn/skills/<name>/`에서 읽는다. 선언에 없는 폴더는 열지 않는다. 없는 slug, 보관한 앱, active release가 없는 앱, 읽을 수 없는 skill(폴더 없음, 큼, 머리 틀림, 폴더 이름과 `name`이 다름, bundle 밖을 가리키는 symlink)은 오류 없이 뺀다. 결과는 skill마다 `{app, slug, release, name, description, skill_md, files}`이고 `skill_md`는 SKILL.md 전체, `files`는 옆에 딸린 `.md`다. 같은 이름을 두 앱이 내면 받는 쪽이 slug 순으로 정한다. 파일을 읽으므로 메인 스레드 read다. 읽는 쪽은 할당받은 agent(`architecture/agent-definition.md`)와 coding agent의 사본(`architecture/coding-agent.md`)이다.
    - skill 본문은 앱 source의 commit 파일 `.lophn/skills/<name>/SKILL.md`다. 앱 template의 `.gitignore`는 SDK 설치 사본 `.lophn/sdk/`만 뺀다(옛 앱은 `.lophn/` 전체를 뺀 것을 앱 agent가 고친다).
@@ -222,7 +222,7 @@ project별 data를 다루는 앱은 project를 따로 만들지 않고 lophn pro
 
 ### 앱 process의 바깥 접촉
 
-1. 앱 process는 권한을 막지 않는다(사람이 정했다). SDK 다섯(`@lophn/cap-net`, `@lophn/cap-secret`, `@lophn/cap-fs`, `@lophn/cap-notify`, `@lophn/cap-phone`)으로 나가는 일은 선언에 적고, net과 secret과 notify와 phone은 broker가 요청마다 선언 사실 ∩ 사람의 grant를 본다(notify는 `architecture/app-notice.md`, phone은 폰의 위치를 읽는 `phone.use {capability}`이고 `architecture/remote.md`). fs는 선언이 무엇에 닿는지 보이는 값일 뿐 막지 않는다.
+1. 앱 process는 권한을 막지 않는다(사람이 정했다). SDK 다섯(`@lophn/cap-net`, `@lophn/cap-secret`, `@lophn/cap-fs`, `@lophn/cap-notify`, `@lophn/cap-phone`)으로 나가는 일은 선언에 적고, net과 secret과 notify와 phone은 broker가 요청마다 선언 사실 ∩ 사람의 grant를 본다(notify는 `architecture/app-notice.md`, phone은 폰의 위치를 읽는 `phone.use {capability}`이고 `architecture/remote.md`). fs는 선언이 무엇에 닿는지 보이는 값일 뿐 막지 않는다. 사람이 grant를 거두는 것은 앱 process가 떠 있어도 바로 commit되고, broker가 요청마다 다시 읽으므로 다음 요청부터 거절된다. 이미 시작한 요청은 끝까지 간다.
 2. broker는 live 자식의 요청만 받는다. 준비 모드와 preview의 자식이 같은 통로를 부르면 거절한다. SDK의 stand-in이 그 자리를 채운다.
 3. `@me` package의 permission은 publish와 release prepare가 지킨다. `package.publish`는 package.json의 `@lophn/cap-*` 의존이 요구하는 permission을 낸 `permissions`가 덮지 않으면 `invalid_input`이다. `release.prepare`는 선언의 `sdk_dependencies` 중 `@me` 의존마다 그 정확한 판의 catalog `permissions`를 모두 선언의 `permissions`에서 요구하고, 없으면 `invalid_input`(`@me/foo@1.2.0 needs net.fetch in the declaration permissions`)이다. `@me` package가 다른 `@me` package에 기대는 경우는 따라가지 않는다(열린 것).
 4. net: SDK의 요청은 앱 supervisor의 broker(`net/fetch`)가 보낸다. broker가 요청마다 목적지(host·port)를 선언 사실 ∩ grant로 검사한다. 앱 process의 network는 막지 않으므로 이 검사는 이 client를 지나는 요청에만 걸린다. redirect는 한 단계마다 같은 검사를 다시 받고, 플랫폼 port는 grant가 있어도 막는다. 이 검사가 틀리면 supervisor가 아무 곳이나 간다.
@@ -305,9 +305,8 @@ project별 data를 다루는 앱은 project를 따로 만들지 않고 lophn pro
 
 - core를 다시 켜면 앱 OAuth sign-in 실패 이유가 사라진다. 실패 이유는 메모리에만 있어 refresh가 거절된 뒤 core가 다시 뜨면 Access 탭이 "Not signed in"만 보인다. 동작(앱은 `conflict`를 받는다)은 같고 이유 글만 잃는다. 추천은 실패 이유를 `app-oauth.<이름>.meta`에 남기는 것이다.
 - 앱 e2e 여섯(앱 tool 호출, activation, 앱 data rewind, 앱 재시작)이 test 앱에 patch를 얹지 못하고 시작에서 실패한다. 이 길이 깨져도 land가 잡지 못한다.
-- `@me` package가 다른 `@me`에 기대면 그 권한을 따라가지 않는다. publish와 release 준비가 직접 적은 의존만 본다. 소비 앱은 `net.fetch` 없이 release가 뜨고 실행 중 broker에서 거절된다.
+
 - 기동 옮기기가 옛 `@me` 판에 bundle blob을 못 붙일 수 있다. `package.json`을 다시 쓴 모양이 원래와 다르면 hash가 달라 blob을 붙이지 못하고 기동마다 건너뜀만 남긴다. 설치 사본이 유일한 byte로 남는다.
-- 앱이 떠 있는 동안 grant를 거두면 계속 `unavailable`이다. 마지막 process 사실이 `AppStarted`면 거두기를 거절하는데 process를 멈추는 쪽이 없어, 앱을 쓰는 중에는 외부 net·secret·앱 호출 권한을 거둘 수 없다. 중요한 쪽이다: 권한 경계에서 사람이 한 결정이 반영되지 않는다.
-- 앱 child가 exit 0으로 끝나면 다시 뜨지 않고 core도 모른다. desired가 켜져 있는데 죽은 채로 남고 앱 상태는 "실행 중"으로 보인다.
+- `app_grants/revoke`는 거두기가 process 상태를 보지 않게 된 뒤에도 `unavailable`을 오류로 선언한다(내지 않는 code).
 - 새 data root에는 옛 SDK 판 사본이 없다. 옛 판에 고정된 앱은 release 준비가 `sdk_not_installed`로 실패하고 이유에 앱의 SDK 판을 올리라고 싣는다(앱 agent가 바로 고친다). 옛 판 사본은 싣지 않기로 했다.
 - agent가 archived 앱 workspace를 범위로 agent를 만드는 것은 아직 막지 않는다.

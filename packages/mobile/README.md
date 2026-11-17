@@ -121,8 +121,8 @@ QR에 relay 주소(`relay`)가 있으면 컴퓨터 기록에 저장하고, 주�
 
 설계는 `project-docs/architecture/phone-home-screen.md`다. 위젯은 사용자 앱이 선언한 값(node 넷)을 JS 없이 그리고, 앱 아이콘은 앱마다 pinned shortcut 하나다.
 
-- native: `modules/lophn-widgets/`(Kotlin Expo module 하나. 위젯 그리기·놓기·새로 하기와 앱 아이콘 pin·disable·enable). `android/src/main/java/dev/lophn/widgets/`의 `Render`(cache에서 `RemoteViews`), `Providers`(provider 둘 2x2·4x2와 놓기 callback receiver), `ConfigureActivity`(UI 없이 "Choose a widget"의 답을 기다린다), `Refresh`(위젯 broadcast 안에서 React host를 띄워 headless 일감을 돌린다), `LophnWidgetsModule`(JS가 닿는 함수). 일감 이름은 `LophnWidgetRefresh`(`index.ts`가 등록한다). 위젯은 폰 앱 private 폴더의 `widgets/bindings.json`(놓인 위젯 id → 컴퓨터, 앱, key)과 `widgets/cache.json`(그릴 것 전부와 위젯에 보이는 글)만 읽는다.
-- JS: `src/widgets/`(`store.ts`가 binding과 새로 하기, `cache.ts`가 순수 logic으로 cache를 만든다. `cache.test.ts`가 지운 컴퓨터의 위젯 규칙을 본다), `src/screens/widgets/`("Choose a widget"), `src/shortcuts/`(앱 menu의 "Add to Home screen", 아이콘 그림, 앱이 없어지면 disable). 위젯과 아이콘의 글은 `packages/design/i18n/catalog/mobile-widgets.ts`다.
+- native: `modules/lophn-widgets/`(Kotlin Expo module 하나. 위젯 그리기·놓기·새로 하기와 앱 아이콘 pin·disable·enable). `android/src/main/java/dev/lophn/widgets/`의 `Render`(cache에서 `RemoteViews`), `Providers`(provider 둘 2x2·4x2와 놓기 callback receiver), `ConfigureActivity`(UI 없이 "Choose a widget"의 답을 기다린다), `Refresh`(위젯 broadcast 안에서 React host를 띄워 headless 일감을 돌린다), `LophnWidgetsModule`(JS가 닿는 함수). 일감 이름은 `LophnWidgetRefresh`(`index.ts`가 등록한다). 위젯은 폰 앱 private 폴더의 `widgets/bindings.json`(놓인 위젯 id → 컴퓨터, 앱, key)과 `widgets/cache.json`(그릴 것 전부와 위젯에 보이는 글)만 읽는다. `bindings.json`은 native만 쓴다: 놓기 callback과 JS가 청한 바꾸기(`bindWidget`, `dropUnplacedBindings`)가 `Files.updateBindings`의 한 잠금 안에서 읽고 바꾸고 쓴다.
+- JS: `src/widgets/`(`store.ts`가 binding 바꾸기를 native에 청하고 새로 하기를 한다. binding file을 직접 쓰지 않는다. `cache.ts`가 순수 logic으로 cache를 만든다. `cache.test.ts`가 지운 컴퓨터의 위젯 규칙을 본다), `src/screens/widgets/`("Choose a widget"), `src/shortcuts/`(아이콘을 놓은 모든 컴퓨터를 붙을 때, 앱·release가 바뀔 때, 앱이 앞으로 올 때 정리하는 `useShortcutSync`, 앱 menu의 "Add to Home screen", 아이콘 그림, 앱이 없어지면 disable). 위젯과 아이콘의 글은 `packages/design/i18n/catalog/mobile-widgets.ts`다.
 - 위젯의 새로 하기는 best effort다: 앱이 앞과 뒤로 갈 때, 연결된 동안 `StateChanged`, 위젯의 새로 하기 아이콘, Android의 주기 update(약 30~52분 간격). 한 번의 새로 하기는 컴퓨터마다 8초이고 broadcast 안에서 25초 안에 끝나야 한다.
 
 ### emulator에서 확인
@@ -181,8 +181,8 @@ emulator에서 확인:
 선언 `runs_on`에 `phone`이 있는 앱의 backend(`backend.js`. core가 release 준비 때 plain JS 한 file로 묶는다)는 그 앱 화면의 guest 안에서 돈다. 설계는 `project-docs/architecture/app-sync.md`다.
 
 - 싣기: loader가 `base|backend|screen`을 차례로 싣는다(patch의 loader가 `|`로 이은 path를 나눈다). base의 `guest/base.ts`가 backend를 평가하기 전에 `installLocalBackend`(`src/apps/guest/local-call.ts`)를 불러 guest의 DB handle을 받아 closure에 쥐고(전역에 남기지 않는다) backend host(호출을 하나씩 돌리는 handler port, 앱 DB driver, random, 늘 `unavailable`인 network 통로)를 깐다. 화면의 `lophnApp.callOperation`은 `init.local`의 effect로 갈린다: read와 write는 guest 안에서 돌고 `external`과 `local`이 없는 앱은 host로 간다.
-- 호출 하나는 transaction 하나이고 한 번에 하나씩 돈다: `beginCall()` → handler → `endCall({id, operation, started_at})`(변경이 있으면 outbox 줄을 같은 transaction에서 쓰고 commit) → 변경이 있었으면 host에 `local_change`. handler가 던져도 바뀐 것은 outbox에 간다. 호출 밖에서는 DB handle이 던진다(호출 밖의 쓰기는 outbox 줄 없이 commit되어 sync가 못 본다). 호출은 3초 안에 끝나야 한다(`LOCAL_CALL_LIMIT_MS`): 넘으면 rollback하고 `unavailable`이다. 끝나지 않는 handler는 그 guest의 다음 호출을 mount를 다시 하기 전까지 막는다(이슈 `phone-hung-handler-blocks-later-calls`).
-- backend 사본: core가 만든 `backend.js`는 평가 중 예외가 React Native에 닿아 guest 전체를 `crashed`로 끝내므로 host가 화면 bundle처럼 try/catch로 감싼 사본(`wrapBackend`)을 cache 폴더(`<cache>/guest/<origin>.js`)에 mount마다 써서 싣는다. 그러면 예외가 `fatal`로 앱의 메시지와 함께 간다. 사본은 unmount 때 지우지 않는다(loader가 읽기 전에 사라질 수 있다). 다음 앱 시작의 `ensureBase`가 지운다(이슈 `phone-guest-backend-copies-pile-in-cache`).
+- 호출 하나는 transaction 하나이고 한 번에 하나씩 돈다: `beginCall()` → handler → `endCall({id, operation, started_at, max_bytes})`(변경이 있으면 outbox 줄을 같은 transaction에서 쓰고 commit) → 변경이 있었으면 host에 `local_change`. handler가 던져도 바뀐 것은 outbox에 간다. 호출 밖에서는 DB handle이 던진다(호출 밖의 쓰기는 outbox 줄 없이 commit되어 sync가 못 본다). 호출은 3초 안에 끝나야 한다(`LOCAL_CALL_LIMIT_MS`): 넘으면 rollback하고 `unavailable`이다. 그 handler가 3초를 더 지나도 끝나지 않으면 guest가 `fatal`로 끝나고(뒤의 호출을 막지 않게) 화면의 Retry가 새 runtime을 띄운다. changeset이 `init.local.change_max_bytes`(push 한도)를 넘으면 native `endCall`이 rollback하고 호출이 `invalid_input`으로 끝난다. `init.local`은 앱 id와 release도 실어 backend의 호출 문맥에 든다(`PHONE_BASE_FORMAT` 3).
+- backend 사본: core가 만든 `backend.js`는 평가 중 예외가 React Native에 닿아 guest 전체를 `crashed`로 끝내므로 host가 화면 bundle처럼 try/catch로 감싼 사본(`wrapBackend`)을 cache 폴더(`<cache>/guest/<backend file path의 sha256>.js`)에 써서 싣는다. 그러면 예외가 `fatal`로 앱의 메시지와 함께 간다. 같은 backend는 사본 하나를 다시 쓴다. 사본은 unmount 때 지우지 않는다(loader가 읽기 전에 사라질 수 있다). 다음 앱 시작의 `ensureBase`가 지운다.
 - lab: `local`(그 fixture 화면과 `local-backend.js`를 앱 DB 하나와 같이 싣는다)과 `local-throw`(평가 중 던지는 backend, `failed fatal`이어야 하고 앱이 산다) 단추가 있고, debug에서 손가락이 guest에 안 닿으므로 `do:add`·`do:refuse`(변경하고 거절)·`do:offline`(backend에서 갈 수 있는 모든 network 길이 `unavailable`인지)·`do:report`(`external`이 host로 감)·`do:list` 단추가 host event로 같은 동작을 시킨다. `guest/build-fixtures.ts`가 `local-backend.js`·manifest·migration을 core의 `buildPhoneBackend`와 같은 길로 짓는다. 첫 local 호출까지의 ms는 `lab.first_local`로 로그에 남는다(release build에서 mount부터 140–180 ms, 처음 한 번 376 ms).
 
 ### Android 확인
@@ -267,7 +267,7 @@ work/                          snapshot이나 migrate한 사본. 단계가 끝�
 ```
 
 - 받은 file(backend, migration, 화면 bundle, snapshot)은 크기와 sha256이 manifest나 컴퓨터가 말한 것과 같을 때만 쓰고, snapshot은 disk에서 다시 읽어 확인한 뒤 연다(file 쓰기가 일찍 돌아온 일이 있었다).
-- sync는 앱이 앞에 있고 그 컴퓨터에 닿은 동안만 돈다. 계기는 guest의 `local_change`, 연결됨, `AppSyncChanged`, 앱 목록 읽기다. 앱을 열지 않아도 도는 것은 sidebar가 `useLocalApps`를 쥐고 있어서다. 지금은 지금 고른 컴퓨터에 대해서만 돈다(이슈 `phone-sync-only-for-current-computer`).
+- sync는 앱이 앞에 있고 그 컴퓨터에 닿은 동안만 돈다. 계기는 guest의 `local_change`, 연결됨, `AppSyncChanged`, 앱 목록 읽기다. pairing한 컴퓨터마다 store가 하나이고(`src/data/local-stores.ts`), 화면이 바뀌어도 사는 data provider가 `followLocalComputers`로 연결이 선 모든 컴퓨터의 store를 그 연결에 잇고 그 컴퓨터의 `AppSyncChanged`를 넘긴다. 그래서 앱을 열지 않아도, 다른 컴퓨터를 보고 있어도 push와 pull이 돈다. 새로 깔기와 새 release로 옮기기는 목록을 읽는 sidebar(`useLocalApps`)가 지금 고른 컴퓨터에 대해서만 한다.
 - 앱이 컴퓨터의 목록에서 빠지거나 컴퓨터를 지워도 sync 앱의 폴더는 outbox가 비었을 때만 지우고 standalone 앱의 data는 지우지 않는다.
 - 컴퓨터가 없어도 폰이 가진 사본에서 앱 목록이 읽히고 폰에서 도는 앱이 열린다(컴퓨터가 필요한 `external`만 `unavailable`).
 
@@ -331,7 +331,7 @@ release build(손가락 입력은 release에서만 guest에 닿는다)를 emulat
 | live 폰 화면이 없는 앱(prepare만 한 release)의 preview | Home 칸에 "Preview", sidebar 줄 "First screens · Preview", 누르면 바로 preview 화면, agent가 열고 누름. preview를 멈추자 표시가 사라졌다 |
 | 폰 화면 둘인 preview | preview 화면 ⋯ menu에 `Second`, 고르면 다시 열림. `--screen second`는 폰이 first를 보일 때 `unavailable`, second를 보일 때 열림 |
 
-알려진 한계: guest의 Sheet·Modal 안은 읽지도 누르지도 못한다(`covered`로 답한다). 가상화 목록의 그려지지 않은 줄과 가로 scroll은 덮지 않는다. scroll 뒤 누르기는 정한 시간(150 ms, 300 ms)을 기다린다. type·fill은 칸을 누르지 않아 onPress가 불리지 않고 keyboard가 뜨지 않는다. 같은 앱의 preview를 두 기기가 열면 가장 최근 쓴 view를 고른다. Back은 다루지 않는다(host 화면을 닫는다). iOS는 없다. 이슈 `phone-drive-*`.
+알려진 한계: 앱 화면의 kit `Sheet`·`Menu`는 화면 안의 층이라 닿지만(기기에서 보지 않았다) kit `Sidebar`·`Drawer`와 화면이 직접 연 `Modal` 안은 다른 창이라 읽지도 누르지도 못한다(`covered`로 답한다). 가상화 목록의 그려지지 않은 줄과 가로 scroll은 snapshot에 들지 않는다(지침이 `scroll --dy` 뒤 다시 snapshot하라고 말한다). scroll 뒤 누르기는 정한 시간(150 ms, 300 ms)을 기다린다. type·fill은 칸을 누르지 않아 onPress가 불리지 않고 keyboard가 뜨지 않는다(지침이 먼저 `click`하라고 말한다). 같은 앱의 preview를 두 기기가 열면 phone 탭은 고른 기기에 그 기기의 preview view가 있는 동안 머문다. Back은 다루지 않는다(host 화면을 닫는다). iOS는 없다. 이슈 `phone-drive-settle-timing`.
 
 ## 정해 둔 것
 

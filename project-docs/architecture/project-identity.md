@@ -39,10 +39,10 @@ ledger projects 줄 (기계별)
   같이 오는 `repo`(`git`, `none`, 아직 못 읽었으면 null), `found`(첫 폴더가 이 기계에 있나), `remote`, `duplicate_of`(같은 id를 먼저 가진 이 기계의 다른 project)가 화면과 agent가 고를 단추를 정한다.
 - **다시 읽는 때.** ledger 값은 file의 cache다. core가 켜질 때(active project를 몇 개씩, 켜기를 기다리게 하지 않고), project 등록·폴더 변경·relink·보관 해제가 commit된 뒤, 그리고 `project.identity`·`project.create_identity`·`project.renew_identity`·`project.clone`이 부를 때 다시 읽는다. pull로 file이 바뀌면 다음 읽기에서 따라온다. 읽기는 git을 읽기만 하고(index lock을 잡지 않는다) file이 없어졌을 때 ledger의 id를 지우지 않는다. 기록을 고쳐도 project `revision`은 오르지 않는다.
 - **한 기계에 한 id.** 같은 file을 읽은 project가 둘이면 먼저 가진 project가 id를 갖고, 나중 것은 id 없이 "Another copy of <title>"(`duplicate_of`)로 보인다. 먼저 가진 project가 보관되어 있고 나중 것이 active면 id를 active project에 넘긴다.
-- **만드는 때.** git 폴더를 등록하는 dialog의 "Same project on my other computers"(id file이 없는 git 폴더에서만 서고 기본 켬), project 상세 "Other computers" 줄의 [Set up], agent의 `lophn project share`. 판을 올리거나 core가 켜질 때 이미 등록된 저장소에 file을 만들지 않는다.
+- **만드는 때.** git 폴더를 등록하는 dialog의 "Same project on my other computers"(id file이 없는 git 폴더에서만 서고 기본 켬), project 상세(Workspaces panel의 dialog와 project 설정 page의 General) "Other computers" 줄의 [Set up], agent의 `lophn project share`. 판을 올리거나 core가 켜질 때 이미 등록된 저장소에 file을 만들지 않는다.
 - **쓰는 길 셋.** 만들기(`project.create_identity`: file이 없으면 ledger의 id(Restore)나 새 id, 충돌이면 이긴 id, 읽을 수 있는 file이 있으면 쓰지 않음, 읽지 못하는 file이면 `conflict`), 나누기(`project.renew_identity`, [Separate project]: 새 id로 덮는다. 사람만), 그 밖에는 쓰지 않는다. 없을 때 만들기는 temp file에 쓰고 hard link로 거는 것이라 그 사이 생긴 file을 덮지 않는다. 덮기는 temp file에 쓰고 rename한다.
 - **remote 힌트.** fetch remote 가운데 `origin`, `upstream`, 이름순으로 하나를 고르고, local remote(`file:`, 경로)는 버린다. scp 꼴과 URL을 한 꼴로 맞추고 host를 소문자로, 자격·기본 port·`.git`·끝 `/`를 떼고, github.com은 path도 소문자로 한 key를 낸다. 저장소 안 하위 폴더 project는 `#<상대 경로>`를 붙인다. `ssh -G`로 alias를 풀지 않는다. 힌트는 제안만 한다: 등록 dialog가 "폴더를 잃은 project X를 여기로 relink"와 "이미 project X로 등록됨"을 보이고(`project.match`), 다른 기계의 목록과 짝을 짓는 쪽(remote 보기, 폴더 sync)이 같은 순수 함수를 쓴다.
-- **clone.** `project.clone`은 부모 폴더(입력 `parent`, 없으면 설정 `projects.folder`) 아래 `.lophn-clone-<random>`에 git clone하고 끝나면 이름을 바꿔 등록한다. 그 기계의 git 자격(`gh`, credential helper, SSH key)만 쓰고 묻는 창을 띄우지 않으며, 자격이 없으면 바로 실패하고 사람이 실행할 명령(`gh auth login`, `ssh -T git@<host>`)을 돌려준다. 자격이 박힌 URL은 거절한다. 대상 폴더가 있으면 쓰지 않는다. `identity`를 주었는데 받은 저장소의 id가 다르면 받은 것을 지우고 등록하지 않는다. 그 id를 가진 project가 이미 이 기계에 있으면 받지 않는다. 받은 저장소에 file이 없으면 등록하고 다른 기계에서 commit·push한 뒤 pull하라고 알린다. `projects.folder`는 처음 clone할 때 한 번 묻는다: agent가 사람에게 묻거나, 다른 기계의 창의 [Clone here]가 폴더 선택기를 연다. 묻고 받은 폴더는 `parent`로 오고, 설정이 비었거나 그 폴더가 없어졌으면 core가 그 `parent`를 설정에 기억한다. 나중에 바꾸는 길은 `lophn settings set projects.folder <path>`뿐이다.
+- **clone.** `project.clone`은 부모 폴더(입력 `parent`, 없으면 설정 `projects.folder`) 아래 `.lophn-clone-<random>`에 git clone하고 끝나면 이름을 바꿔 등록한다. 그 기계의 git 자격(`gh`, credential helper, SSH key)만 쓰고 묻는 창을 띄우지 않으며, 자격이 없으면 바로 실패하고 사람이 실행할 명령(`gh auth login`, `ssh -T git@<host>`, 22가 아닌 port면 `ssh -T -p <port> git@<host>`)을 돌려준다. 받은 저장소의 id file을 읽지 못하면(더 새 판 포함) 결과에 note를 싣고, `identity`를 주었으면 맞는 project인지 확인하지 못했다고 말한다. 자격이 박힌 URL은 거절한다. 대상 폴더가 있으면 쓰지 않는다. `identity`를 주었는데 받은 저장소의 id가 다르면 받은 것을 지우고 등록하지 않는다. 그 id를 가진 project가 이미 이 기계에 있으면 받지 않는다. 받은 저장소에 file이 없으면 등록하고 다른 기계에서 commit·push한 뒤 pull하라고 알린다. `projects.folder`는 처음 clone할 때 한 번 묻는다: agent가 사람에게 묻거나, 다른 기계의 창의 [Clone here]가 폴더 선택기를 연다. 묻고 받은 폴더는 `parent`로 오고, 설정이 비었거나 그 폴더가 없어졌으면 core가 그 `parent`를 설정에 기억한다. 나중에 바꾸는 길은 `lophn settings set projects.folder <path>`뿐이다.
 
 ### 다른 기계의 창
 
@@ -114,17 +114,15 @@ M의 창 renderer ── 창의 core 통로 ──────────▶ M�
 - 다른 기계를 보는 desktop은 폰과 같은 권한이다. 그 창에서 M의 project에 id file을 만들거나 설정을 바꾸지 않는다. (사람)
 - 다른 기계의 창이 이 컴퓨터를 읽는 길은 shell main을 거치는 좁은 IPC 둘(읽기 둘, clone)이다. 이유: 한 창은 한 기계만 보고 renderer는 기계를 주장하지 못한다(`remote.md`). 버린 길: 그 창에 이 컴퓨터의 core 통로를 하나 더 열기(guard 하나로 막던 경계가 둘로 갈린다). (planner)
 - 묶기는 등록 dialog와 같은 `matchProjects`를 쓰고 열쇠에 기계를 붙인다. remote만 같은 짝은 제안 한 줄뿐이다(지키는 것 7). (planner)
-- 이 컴퓨터의 session을 popover에서 누르면 `shell:machines-open`에 session을 실어 이 컴퓨터의 알림을 누른 것과 같은 길로 연다. 버린 길: 새 IPC channel이나 desktop intent에 session을 싣기(창을 고르는 규칙이 두 벌이 된다). (agent)
+- 이 컴퓨터의 session을 popover에서 누르면 `shell:machines-open`에 session을 실어 이 컴퓨터의 알림을 누른 것과 같은 길로 연다. 이 컴퓨터의 창이 하나도 없으면 새 창이 load된 뒤 그 session을 고른다. 버린 길: 새 IPC channel이나 desktop intent에 session을 싣기(창을 고르는 규칙이 두 벌이 된다). (agent)
 - 처음 clone의 폴더는 shell이 폴더 선택기로 받아 `parent`로 넘기고 기억은 core가 한다(설정이 비었거나 폴더가 없어졌을 때). 이유: agent의 clone과 [Clone here]가 같은 규칙 하나를 탄다. (agent)
 
 ## 열린 것
 
 - 다른 기계의 창의 나란한 session 목록은 그 project lophn agent의 session만 보인다. 같은 project에 둔 다른 agent의 session은 빠진다(이슈 `remote-group-sessions-only-project-lophn`).
-- 이 컴퓨터의 창이 하나도 없을 때 이 컴퓨터의 session을 popover에서 누르면 새 창만 열리고 그 session은 고르지 않는다. 이 컴퓨터의 알림을 누를 때와 같다(이슈 `session-reveal-into-new-window-dropped`).
+
 - 다른 기계의 창의 묶기와 [Clone here]는 한 컴퓨터의 개발 core 둘과 headless Electron으로 보았다. 설치본 둘과 실제 원격 저장소는 보지 못했다.
-- project 설정 page(General)에는 "Other computers" 줄이 없고 Workspaces panel의 상세 dialog에만 있다(이슈 `project-identity-row-missing-in-settings-page`).
-- clone한 저장소의 file을 읽지 못할 때(더 새 판 포함) 알리지 않고 지나간다(이슈 `project-clone-unreadable-identity-silent`).
-- `project.renew_identity`가 `conflict`를 선언하지만 내지 않는다(이슈 `project-renew-identity-declares-conflict`).
+
 - agent가 identity route를 부를 때 그 agent가 그 project에 닿는지 보지 않는다. 다른 memory route와 같고 쓰는 것은 등록된 project 폴더의 file 하나라 그대로 둔다(이슈 `project-identity-agent-project-scope`, kept).
-- `ssh://` URL의 자격 안내 명령이 기본이 아닌 port를 빠뜨린다(이슈 `project-clone-ssh-hint-ignores-port`).
+
 - 실제 원격(GitHub 등)에서 file이 다른 기계로 가는 것과 두 기계 사이의 충돌은 보지 못했다. 개발 core와 임시 저장소(local clone과 merge)로 확인했고 network는 자격 없는 private URL 하나만 시도했다.

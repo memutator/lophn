@@ -115,7 +115,7 @@ flow
 33. instance 하나에 process 하나다. 시작할 때 host가 띄우고, code가 끝나면 끝난다. 다시 띄우지 않는다(자동 재시도 없음). 띄우지 못하면 시작은 그대로 성공이고 그 이유가 `program_exited`(code null) 줄로 남아 instance가 `ended`가 된다.
 34. process는 Electron의 Node로 뜨는 설치된 SDK(`@lophn/flow`, `<data>/sdk/flow/<판>`)의 진입 file이고 인자가 그 instance의 flow code다. 권한 제한은 없다(사람이 정했다. 앱 process와 같다). 환경은 HOME·PATH·XDG cache 위치와 Node로 뜬다는 표시뿐이다. 바깥 효과는 앱 tool과 agent를 거쳐야 invocation 기록과 rewind가 선다. 그래서 flow guide와 skill이 그렇게 쓰라고 한다.
     - flow code의 `@lophn/flow`는 모든 flow file의 공통 조상인 `<data>/projects/node_modules/@lophn/flow` symlink가 설치 사본으로 푼다. launch와 `workflow.check`가 그 link를 만든다.
-    - memory, CPU, 시간 한도는 없다. 멈추는 길은 `StopWorkflow`뿐이다.
+    - process는 V8 heap 한도 512 MiB(`--max-old-space-size=512`)로 뜬다. CPU와 시간 한도는 없다. 멈추는 길은 `StopWorkflow`뿐이다.
 35. process와 core는 stdin·stdout의 JSON 줄로 말한다. core가 첫 줄 `start`(instance, 입력 글)를 쓰고, process가 `agent`·`tool`·`report` 요청을 id와 함께 보내면 core가 같은 id의 `response`(`{ok: true, result}` 또는 `{ok: false, reason, message}`)로 답한다. 실패도 값이다. 요청에는 instance가 없다. core가 그 process의 것으로 채운다.
     - 진입 file은 lophn이 쥔 SDK의 것이다. flow code를 import하기 전에 stdout의 write를 stderr로 돌려(console은 이를 따라온다) flow code가 쓴 글이 통로를 깨지 않게 한다. 통로는 SDK module을 읽을 때 잡아 둔 원래 write만 쓰고, 진입 file이 그 module을 먼저 import해 잡기가 돌리기보다 앞선다. stdin이 닫히면 process는 스스로 끝난다(core가 죽어도 고아로 남지 않는다).
     - JSON이 아니거나 id가 없거나 1 MiB를 넘는 줄이 오면 통로가 깨진 것이라 host가 process를 끝낸다. 읽히지만 칸이 틀린 요청은 `invalid_input` 실패 값으로 답한다(오타 하나로 flow 전체가 죽지 않게).
@@ -207,5 +207,5 @@ flow
 
 ## 열린 것
 
-- flow process에 CPU 한도가 없다. AI가 짠 flow code가 끝없는 loop에 빠지면 사람이 [Stop]할 때까지(job이 밤에 시작한 flow면 아무도 보지 않는 동안) CPU 하나를 잡는다. memory도 막지 않는다(Deno 때의 512 MiB 한도는 Node로 옮기며 없어졌다). CPU를 막으려면 OS 한도가 필요하고 core에 실행 허락이 있어야 한다(큼). 앱의 한도를 정할 때 같이 정한다. 이슈: `flow-process-cpu-limit`(CPU), `flow-process-no-resource-limits`(memory, Node 인자로 다시 줄 수 있다).
+- flow process에 CPU 한도가 없다. AI가 짠 flow code가 끝없는 loop에 빠지면 사람이 [Stop]할 때까지(job이 밤에 시작한 flow면 아무도 보지 않는 동안) CPU 하나를 잡는다. memory는 V8 heap 512 MiB에서 막힌다. CPU를 막으려면 OS 한도가 필요하고 core에 실행 허락이 있어야 한다(큼). 앱의 한도를 정할 때 같이 정한다. 이슈: `flow-process-cpu-limit`.
 - `workflow.yaml`에 남은 옛 `{kind: harness}` 참가자는 옮기지 않는다. `invalid_declaration`이고 손으로 고친다(agent 이름을 알 수 없다).

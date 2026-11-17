@@ -650,7 +650,8 @@ flows:
     steps:
       - "relay가 NoticePosted를 Gateway로 받는다"
       - "읽음 표시(read_at)가 있는 줄은 버린다"
-      - "program 줄은 release_failed·release_rolled_back·app_unavailable·app_data_restored·sdk_update_needed·session_stopped_by_app·phone_changed만 띄운다. 나머지(켜짐, migration 적용, lophn 업데이트)는 Inbox에만 남는다"
+      - "program 줄은 protocol의 ALERT_PROGRAM_KINDS(release_failed·release_rolled_back·app_unavailable·app_data_restored·sdk_update_needed·session_stopped_by_app·phone_changed·app_sync_away. 폰 push와 같은 목록)만 띄운다. 나머지(켜짐, migration 적용, lophn 업데이트)는 Inbox에만 남는다"
+      - "core 기동 중에 쓰여 Gateway가 붙기 전에 지나간 줄은 event로 오지 않는다. 그래서 relay가 ready가 될 때마다 notices.open을 읽어 안 읽은 sdk_update_needed·app_unavailable 줄을 같은 길로 띄운다. 한 shell 실행 안에서 같은 행(id와 시각)은 한 번만 띄운다(안 읽은 채 두면 shell을 다시 켤 때 다시 뜬다)"
       - "routeNotice: 보고 있으면 없음, focus를 가진 lophn 창이 있으면 toast, 없으면 OS 알림이다. 앱 줄과 Inbox 목표는 보고 있다고 보지 않는다"
       - "누르면 앱 공간(app)이나 Inbox(inbox)를 연다(notice-reveal)"
     outcomes:
@@ -951,14 +952,11 @@ flows:
       - "toast를 누르면 renderer가 shell:notice-open으로 target을 보낸다. OS 알림을 누르면 main이 바로 reveal을 부른다"
       - "target의 탭을 가진 창을 고른다(없으면 마지막 focus 창, detached 창은 건너뜀)"
       - "창을 복원하고 앞으로 가져온 뒤 renderer에 NOTICE_REVEAL(session·app·inbox)을 보낸다. terminal이면 TERMINAL_REVEAL을 보낸다"
-      - "창이 하나도 없으면 desktop 창만 띄우고 탭은 고르지 않는다"
+      - "창이 하나도 없으면 desktop 창을 새로 띄우고 그 page가 load를 마친 뒤 같은 reveal을 보낸다. notice preload는 화면이 구독할 때까지 그 reveal을 들고 있다"
     outcomes:
       - id: revealed
-        when: "target이 inbox면 Inbox, app이면 앱 공간, session이면 그 대화를 연다. terminal 목표면 terminal 탭을 고른다"
+        when: "target이 inbox면 Inbox, app이면 앱 공간, session이면 그 대화를 연다. terminal 목표면 terminal 탭을 고른다. 창이 없었으면 새로 띄운 창에서 연다"
         observe: [screen:inbox-tab]
-      - id: desktop-only
-        when: "창이 하나도 없어 desktop 창만 띄웠다"
-        observe: []
       - id: ignored
         when: "caller가 살아 있는 등록 webContents의 main frame이 아니거나 입력 schema에 맞지 않는다(응답 없이 버린다)"
         observe: []
@@ -967,6 +965,7 @@ flows:
     unclear:
       - "app target의 observe는 screen:app-space가 맞지만 한 outcome에 target별 frame을 다 적지 못해 inbox 하나만 적었다"
       - "terminal 목표인데 project를 찾지 못하면 아무것도 보내지 않는다(terminal area 소관)"
+      - "새로 띄운 창에 보내는 terminal reveal은 terminal preload가 들고 있지 않아 화면이 구독하기 전에 오면 잃을 수 있다(코드 읽기로 본 것이다)"
 
   - id: notice-presence
     title: desktop이 보고 있는 것(창 focus, idle, 보이는 session·터미널)을 core에 알린다

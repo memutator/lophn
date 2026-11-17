@@ -604,7 +604,7 @@ flows:
     steps:
       - "sender가 desktop 창 본문인지 보고(이 컴퓨터의 창과 다른 기계의 창 모두) 입력 { machine, session? }을 strict schema로 본다"
       - "이 기계의 id를 아직 모르면(목록 starting) unavailable이다"
-      - "이 기계의 id이고 session이 있으면 알림을 누른 것과 같은 길로 연다: 그 session을 보이는 이 컴퓨터의 창, 없으면 가장 최근 일반 창을 앞으로 가져와 그 session을 고르게 한다. 이 컴퓨터의 창이 하나도 없으면 새 창만 연다"
+      - "이 기계의 id이고 session이 있으면 알림을 누른 것과 같은 길로 연다: 그 session을 보이는 이 컴퓨터의 창, 없으면 가장 최근 일반 창을 앞으로 가져와 그 session을 고르게 한다. 이 컴퓨터의 창이 하나도 없으면 새 창을 열고 그 page가 load를 마친 뒤 그 session을 고르게 한다"
       - "이 기계의 id이고 session이 없으면 이 컴퓨터의 가장 최근 일반 창을 앞으로 가져오고, 없으면 새 창을 연다"
       - "다른 기계의 id에 session이 있으면 invalid_input이다(그 기계의 session은 그 창 안에서 연다). 목록에 없는 machine이면 not_found다. 있으면(removed도) 그 기계의 창을 연다(machine-window-open)"
     outcomes:

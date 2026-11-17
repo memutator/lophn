@@ -108,11 +108,11 @@ OS마다 따로 저장하고(macOS의 Cmd 조합을 Linux에 옮기면 뜻이 �
 11. **사람이 바꾼 키는 검사를 지난 것만 덮는다.** 표에 있는 id, `app.panel:*`, 꼴이 맞는 `ext.*`·`app.*` id와 읽을 수 있는 chord(한 타나 두 타, 한 id에 최대 4개)만 남긴다. 지금 기여되지 않은 `ext.*`·`app.*` id(extension을 껐거나 앱을 지움)의 값도 버리지 않는다. Settings는 "없는 command" 줄로 보여 지우게 하고, 다른 줄을 저장해도 그 값은 남는다. 저장 파일이나 IPC 값이 틀려도 그 줄만 표의 키가 되고 나머지 키는 산다. main도 같은 검사로 다시 거른다.
 12. **빈 chord 목록은 키를 뺀 것이다.** 표와 같은 값은 저장에서 빠진다.
 13. **새 키는 받기 전에 본다.** 두 타면 타마다 본다. modifier 없는 키(F1~F12 빼고)는 입력칸 글자를 삼켜서 받지 않는다. 예약 키(전역 팔레트 키, 글자 편집 Ctrl/Cmd+A·C·V·X·Z와 redo, OS 키 Cmd+Q·H·M·Tab·Space, Cmd+Shift+3·4·5, Alt+F4, Alt+Tab)는 lophn이나 OS가 먼저 가져가서 거절한다. palette·Home·북마크·터미널 복사·붙여 넣기는 표의 줄이라 바꿀 수 있다. 다른 바인딩이 쓰는 키는 거절하지 않고 "바꾸기"를 준다. 이 줄에 달고 그 chord를 가진 다른 줄에서는 그 chord만 뺀 변경 하나로 저장한다. 겹침은 modifier 순서와 상관없이 본다.
-14. **겹침은 저장된 값에서도 본다.** 같은 platform·같은 context에서 두 binding이 같은 chord를 가지거나, 사람이 단 키가 예약 키와 같으면 겹침이다(표가 바뀌어 옛 사람 키와 새 기본 키가 부딪힌 경우). chord마다 하나이고 겹친 id는 표 순서다. 겹치면 표 순서가 앞인 binding이 받는다. Settings › Keyboard는 맨 위에 겹친 수와 "겹친 것만 보기"를, 겹친 줄에 상대 이름과 빼기를 보인다. 번호 줄에서 빼기는 겹친 chord를 가진 번호의 id만 비운다. 기본 표에는 겹침이 없다. context가 다르면 같은 chord라도 겹침이 아니고, 두 타의 머리가 홑 binding과 같아도 겹침이 아니다. harness keymap은 겹침 검사에 들지 않고 `agent.*` 줄에 harness별 글로 보인다.
+14. **겹침은 저장된 값에서도 본다.** 같은 platform·같은 context에서 두 binding이 같은 chord를 가지거나, 사람이 단 키가 예약 키와 같으면 겹침이다(표가 바뀌어 옛 사람 키와 새 기본 키가 부딪힌 경우). 다른 context인데 한쪽이 가리는 둘도 겹침이다: main이 먼저 받는 context 없는 줄은 같은 chord의 앱 key를 가리고(page가 받기 전에 main이 삼킨다), harness GUI keymap(context `<바깥>:<harness>`)은 그 context와 바깥 context의 같은 chord를 가린다(사람이 `agent.find`에 Ctrl+R을 달면 harness의 history 검색과 겹침으로 보인다). keymap끼리는 겹침으로 보지 않는다(Ctrl+C의 clear-input·interrupt처럼 조건으로 갈린다). chord마다 하나이고 겹친 id는 표 순서다. 겹치면 표 순서가 앞인 binding이 받는다. Settings › Keyboard는 맨 위에 겹친 수와 "겹친 것만 보기"를, 겹친 줄에 상대 이름과 빼기를 보인다. 번호 줄에서 빼기는 겹친 chord를 가진 번호의 id만 비운다. 기본 표에는 겹침이 없다. context가 다르면 같은 chord라도 겹침이 아니고, 두 타의 머리가 홑 binding과 같아도 겹침이 아니다. harness keymap은 겹침 검사에 들지 않고 `agent.*` 줄에 harness별 글로 보인다.
 15. **그 workspace에 그 일이 없으면 키를 삼키지 않는다.** 통로가 없는 command(Home의 터미널·Explorer·desk, 앱 통로가 없는 `app.panel`)는 올리지 않는다. 지금 사정에 기대는 command(group이 아닐 때 `pane.*`, 쌓이지 않은 칸의 `pane.stack-*`, float이 없을 때 `float.*`, 이동 기록이 없을 때 `nav.*`)는 `when`으로 막는다. `when` 판정은 context menu가 그 항목을 보이는 사정과 같다. 번호(arg)마다의 판정은 하지 않는다.
 16. **새 키를 받는 칸(`data-key-capture`) 안의 키는 command로 보내지 않는다.** 지금 듣는 키를 눌러도 command가 돌지 않고 칸이 받는다. 이 칸은 한 타 뒤 1.5초를 기다려 둘째 타를 받는다.
 17. **여러 화면에 같은 command가 있으면 focus를 받은 화면이 받는다.** registry는 id마다 마지막 주인만 부르므로 터미널·browser·agent 화면은 focus가 들어올 때 창 하나의 command에 자기 `run`·`when`을 맡기고, 그 command가 focus를 받은 화면의 것을 부른다(`terminal.copy`·`terminal.paste`, `browser.bookmark`, `agent.*`).
-18. **앱 key는 그 앱 webview 안에서 guest가 먼저 판정한다.** `when`이 guest 안의 함수라 main이 동기로 판단할 수 없어서다. 앱 key는 홑 타이고 modifier나 F1~F12가 있어야 한다(선언 검사). browser 탭(남의 page)과 artifact에는 이 preload가 없어 page가 키를 받는다. main이 먼저 받는 키는 page에 닿지 않아 그 chord의 앱 key는 돌지 않는다(열린 것).
+18. **앱 key는 그 앱 webview 안에서 guest가 먼저 판정한다.** `when`이 guest 안의 함수라 main이 동기로 판단할 수 없어서다. 앱 key는 홑 타이고 modifier나 F1~F12가 있어야 한다(선언 검사). browser 탭(남의 page)과 artifact에는 이 preload가 없어 page가 키를 받는다. main이 먼저 받는 키는 page에 닿지 않아 그 chord의 앱 key는 돌지 않는다. 선언 검사는 거절하지 않고 Settings의 겹침 검사가 알린다.
 
 ## 경계와 계약
 
@@ -140,6 +140,8 @@ OS마다 따로 저장하고(macOS의 Cmd 조합을 Linux에 옮기면 뜻이 �
 - harness GUI 안에서는 그 CLI의 key가 lophn 탭·창 key와 desktop 관례보다 먼저다. 터미널에서 Ctrl+글자가 PTY로 가는 것과 같다. Ctrl+C는 글을 골랐으면 복사, 아니면 CLI 동작이다. CLI key 설정 file은 읽지 않는다. (사람, 2026-11-08)
 - Settings에서 바꾼 `agent.*` 키는 네 harness keymap을 함께 대신한다. harness마다 따로 바꾸기는 하지 않는다. (agent, 0.22.0)
 - 겹치면 표 순서가 앞인 binding이 받고, 이미 쓰는 키는 거절하지 않고 바꾸기를 준다. (agent, 0.18.0)
+- shell은 Electron 기본 application menu에서 Reload·Force Reload만 뺀 menu를 건다. 이유: Linux·Windows에서 page가 막지 않은 Ctrl+R·Ctrl+Shift+R이 창 renderer를 다시 불러 열린 popover·입력칸·scroll을 잃었다. 편집 role, 창 닫기, zoom, 전체 화면 accelerator는 기본 menu와 같이 남긴다. (agent)
+- browser 머리 줄의 북마크 키와 desktop 팔레트 Home 줄의 hint도 사람이 바꾼 키를 따른다(머리 줄은 키를 직접 듣지 않고 `browser.bookmark` 줄을 쓴다). (agent)
 - 전역 팔레트 키는 바꾸지 않는다. 이유: OS 전역 등록이라 창 안 shortcut 길로 덮을 수 없다. 팔레트·Home 창 안 키는 이제 표의 줄이라 바꿀 수 있다. (agent, 0.10.0·0.22.0)
 - 저장은 OS마다 따로다. 이유: macOS의 Cmd 조합을 Linux에 옮기면 뜻이 달라진다. (agent, 0.10.0)
 - 저장 단위는 binding id이고 Settings 화면만 command로 묶는다. 이유: "n번째 탭"·"칸 focus"가 번호마다 따로 서 있을 이유가 없다는 사람의 지적. 번호 줄은 modifier 하나를 모든 번호에 붙이고 번호마다 겹침을 본다. 처음 결정(줄 하나에 키 하나, 여러 키 UI 없음)에서 바뀐 것이다. (사람, 0.10.0)
@@ -153,8 +155,5 @@ OS마다 따로 저장하고(macOS의 Cmd 조합을 Linux에 옮기면 뜻이 �
 
 이슈는 topic이 `keybindings`인 이슈다.
 
-- **browser 머리 줄의 북마크 키와 desktop 팔레트의 Home hint가 사람이 바꾼 키를 따르지 않는다.** browser 탭 본문과 page는 `browser.bookmark` 줄(사람이 바꾼 키 포함)을 따르지만, card mode 머리 줄의 주소 칸은 아직 Ctrl/Cmd+D를 직접 듣는다. desktop 팔레트의 Home 줄 hint는 기본 표만 읽는다. 추천: 머리 줄을 `browser` context 안에 두어 command가 받게 하고 desktop 팔레트가 override를 읽게 한다.
-- **main이 먼저 받는 키를 단 앱 key는 앱 안에서 돌지 않는다.** 앱이 `Ctrl+W`나 `Ctrl+Tab`을 선언하면 Settings에는 줄이 보이지만 눌러도 앱 handler가 돌지 않는다. 선언 검사가 이 chord를 거절하지 않는다. 추천: 겹침 검사에 앱 key와 `main` 줄의 겹침을 보인다.
-- **harness keymap의 키는 겹침 검사에 잡히지 않는다.** 사람이 `agent.find`에 Ctrl+R을 달아도 겹침 표시가 없는데, Claude·Codex·omp GUI 안에서는 harness의 Ctrl+R이 안쪽 context라 먼저 받는다. 추천: 겹침 검사에 keymap을 넣고 같은 context·같은 chord의 서로 다른 command 둘(Ctrl+C의 clear-input·interrupt)만 예외로 둔다.
-- **Electron 기본 menu의 Ctrl+R(Reload)이 shell 창을 다시 부른다.** shell은 application menu를 정하지 않아 Linux·Windows에서 page가 막지 않은 Ctrl+R·Ctrl+Shift+R이 창 renderer를 다시 load한다(열린 popover·입력칸 상태·스크롤을 잃는다). 추천: Reload를 뺀 menu를 직접 만든다(Close Window·편집 role처럼 지금 기대는 accelerator는 남긴다).
+- **main이 먼저 받는 키를 단 앱 key는 앱 안에서 돌지 않는다.** Settings의 겹침 검사가 알리지만 선언 검사는 이 chord를 거절하지 않는다.
 - Electron 창에서 실제로 눌러 본 확인은 사람 몫으로 남아 있다: browser 탭 page에 focus가 있을 때 `Ctrl+T`·`Ctrl+Alt+PageDown`·앱 단축키, Linux 터미널의 `Ctrl+T`·`Ctrl+N`·`Ctrl+O`, mac의 `Ctrl+Shift+숫자`·``Ctrl+Shift+` ``가 OS 키와 겹치지 않는지, 실제 앱에서 CLI마다 눌러 보기.

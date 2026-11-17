@@ -351,8 +351,7 @@ journeys:
     refs: [H2]
     steps:
       - {do: "Access 탭에서 앱이 허락받은 바깥 자원을 본다", screen: new-app-access, flow: app-grant-list:listed}
-      - {do: "Revoke를 누르지만 앱 process가 아직 살아 있어 접수만 된다", screen: new-app-access-revoking, flow: app-grant-revoke:process-running}
-      - {do: "자식 종료가 확인된 뒤 다시 거둔다", screen: new-app-access-revoking, flow: app-grant-revoke:revoked}
+      - {do: "앱이 떠 있는 채로 Revoke를 누르면 바로 거둬진다", screen: new-app-access-revoking, flow: app-grant-revoke:revoked}
       - {do: "거둔 뒤 같은 host로 가는 앱 요청이 막힌다", flow: app-broker-net-fetch:refused}
 
   - id: app-public-call-assigned

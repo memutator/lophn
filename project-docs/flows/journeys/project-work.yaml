@@ -493,9 +493,9 @@ journeys:
   - id: layout-restore-fresh-corrupt
     title: "layout 파일이 깨졌으면 기본 layout으로 시작한다"
     actor: person
-    goal: "layout 파일이 깨졌거나 판이 다르면 빈 기본 layout으로 시작하고, 새로 만든 desk가 다음 저장에 파일을 바꾼다"
+    goal: "layout 파일이 깨졌으면 .bak을 남기고 빈 기본 layout으로 시작하고, 새로 만든 desk가 다음 저장에 파일을 바꾼다. 판이 다른 파일은 덮지 않는다"
     steps:
-      - {do: "layout 파일이 깨졌거나 판이 다르면 빈 기본 layout으로 시작한다", screen: shell-empty, flow: layout-restore:fresh-corrupt}
+      - {do: "layout 파일이 깨졌으면 한 벌을 .bak으로 남기고 빈 기본 layout으로 시작한다", screen: shell-empty, flow: layout-restore:fresh-corrupt}
       - {do: "빈 layout에 desk를 새로 만들면 다음 저장에서 layout 파일이 바뀐다", screen: shell-desk-menu, flow: desk-new:created}
 
   - id: sidebar-workspace-session

@@ -89,7 +89,7 @@
 
 core는 SDK code를 import하지 않으므로 capability package가 요구하는 permission을 같은 값으로 따로 가진다. 요구는 `@lophn/cap-fs`(`fs.read` 또는 `fs.write`), `cap-net`(`net.fetch`), `cap-notify`(`notify.send`), `cap-phone`(`phone.use`), `cap-secret`(`secret.use`와 `net.fetch` 둘 다)다. release 준비는 선언한 `@lophn/cap-*`의 요구와, 선언이 고정한 `@me` 판마다 catalog에 적힌 `permissions`를 모두 선언의 `permissions`에서 찾는다. 없으면 `invalid_input`이고 어느 package가 무슨 permission을 요구하는지 싣는다. catalog에 없는 `@me` 판은 `invalid_input`이다. 검사도 import도 grant를 주지 않는다.
 
-publish는 같은 규칙을 폴더 `@lophn/cap-*` 의존에 적용해 낸 `permissions`가 그 요구를 덮게 한다. 그래서 소비 앱이 `@me` 판 하나의 permission만 선언하면 그 안의 cap 요구도 빠지지 않는다. `@me`가 다른 `@me`에 기대는 경우는 따라가지 않는다(열린 것).
+publish는 같은 규칙을 폴더 `@lophn/cap-*` 의존에 적용해 낸 `permissions`가 그 요구를 덮게 한다. 그래서 소비 앱이 `@me` 판 하나의 permission만 선언하면 그 안의 cap 요구도 빠지지 않는다. `@me`가 다른 `@me`에 기대면 publish가 그 `@me` 의존의 정확한 판을 catalog에서 찾아 그 판이 선언한 permission을 이 package가 선언했는지 본다(release 준비와 같은 규칙, 한 단계). 덮지 않으면 publish를 거절한다.
 
 실행 때 막는 것은 broker다(`app-call.md`). 다만 net·secret·notify·앱 호출만 broker route가 있고, cap-fs는 broker route가 없어 선언된 `fs.*`를 실행 때 판정하지 않는다.
 
@@ -140,7 +140,7 @@ publish는 같은 규칙을 폴더 `@lophn/cap-*` 의존에 적용해 낸 `permi
 
 ## 열린 것
 
-- `@me` package가 다른 `@me`에 기대면 그 권한을 따라가지 않는다. `@me/a`가 `net.fetch`를 적은 `@me/b`에 기대면서 자기 `permissions`에서 빼고 낼 수 있고, `@me/a`만 쓰는 소비 앱은 release가 뜨고 실행 중 broker에서 거절된다. 추천은 publish 때 `@me` 의존의 정확한 판의 `permissions`도 입력이 덮는지 한 단계만 보는 것이다(이슈 `me-dependency-permission-not-followed`).
+
 - 기동 옮기기가 옛 `@me` 판에 bundle blob을 못 붙일 수 있다. 사본의 `package.json`이 원래 JSON 2칸 들여쓰기가 아니면 hash가 `bundle_hash`와 달라 붙이지 못하고 기동마다 `me_copy_skipped`만 남는다. 그런 판은 설치 사본이 유일한 byte다. 사람의 data root에는 건너뛴 판이 없어 이슈는 kept로 닫았다(`old-me-version-blob-not-reattached`).
 - cap-fs는 실행 때 broker가 막지 않는다. "실행 때 막는 것은 broker"와 cap-fs의 동작이 어긋나 정본을 정해야 한다. `app-call.md`는 cap-fs가 OS가 허락하는 파일을 어디든 읽고 쓴다고 적는다.
 - `@me` 판의 안내는 형식(세 절이 비지 않음)만 검사한다. 안내가 맞는지는 낸 agent의 몫이다.

@@ -39,15 +39,15 @@ terminal_sessions/signal ─▶ 계기 ─┬▶ unseen(서고 꺼질 때 StateC
   |---|---|---|---|---|
   | 승인(`TurnRequestOpened`), 질문(`QuestionAsked`), 터미널 coding agent의 대기 | `needs_you` | `needs-you` | high | 그 session. 터미널은 폰이 열 수 없어 Inbox |
   | 60초 넘게 일한 turn의 완료·실패(터미널 포함) | `long_finish` | `finished` | default | 그 session. 터미널은 Inbox |
-  | 앱의 activation 동의, 공유 요청, 사람이 알아야 하는 program 기록(release 실패와 되돌림, 앱 사용 불가, data 복원, SDK 업데이트 필요) | `app_update` | `apps` | default | 그 앱, 앱이 없는 기록과 동의·공유 요청은 Inbox |
+  | 앱의 activation 동의, 공유 요청, 사람이 알아야 하는 program 기록(release 실패와 되돌림, 앱 사용 불가, data 복원, SDK 업데이트 필요, 앱이 session을 멈춤, 폴더로 맞추는 앱이 다른 컴퓨터들에서 너무 오래 떨어짐) | `app_update` | `apps` | default | 그 앱, 앱이 없는 기록과 동의·공유 요청은 Inbox |
   | 앱의 `notify()`(`NoticePosted`의 앱 줄, 안 읽은 것) | `app_notify` | `apps` | default | 그 앱 |
   | job의 놓친 차례가 새로 held가 됨(`JobHeld`) | `job_missed` | `needs-you` | default | Inbox |
 
-  팀 자식의 승인과 질문은 부모가 푸니 계기가 아니다. 앱이 연 session의 승인은 사람이 가야 풀리므로 계기이고 그 turn 끝은 아니다(앱이 turn마다 agent를 부려 쓴다). 켜짐·data migration·lophn 업데이트 같은 program 기록은 Inbox에만 남는다.
+  팀 자식의 승인과 질문은 부모가 푸니 계기가 아니다. 앱이 연 session의 승인은 사람이 가야 풀리므로 계기이고 그 turn 끝은 아니다(앱이 turn마다 agent를 부려 쓴다). 켜짐·data migration·lophn 업데이트 같은 program 기록은 Inbox에만 남는다. 사람이 알아야 하는 program 기록의 목록은 하나이고 desktop toast·OS 알림과 폰 push가 같이 읽는다. 폰 push만 주 폰이 바뀐 기록(`phone_changed`)을 뺀다: 받는 것은 바뀌기 전 폰이라 뜻이 없다.
 - **알릴지 정하기.** 계기 하나마다 push token이 있는 기기마다 정한다. 그 기기의 설정 칸이 꺼져 있으면 보내지 않는다. 그 폰이 앞에 있으면 그 폰에는 보내지 않는다(다른 폰에는 보낸다). 그 폰의 `quiet_when_present`가 켜져 있고 앞에 있는 desktop이 있으면 보내지 않는다. 지연이 없어 한 번 정하고 끝이다. 어느 session을 보고 있는지(`looking`)는 알릴지를 정하는 데 쓰지 않고 `unseen`에만 쓴다. event와 signal은 한 줄로 처리해 읽기가 끝나는 순서가 event 순서를 뒤집지 않는다.
 - **push 글.** core가 영어 고정 문장으로 다 만든다(OS가 그리는 글을 폰이 고칠 수 없고 core에 i18n이 없다). 제목과 상태 한 문장뿐이다. 고정 문장에 session 제목, agent 이름(터미널은 harness 이름), 앱 이름, job 이름, 앱이나 program이 낸 notice의 제목만 끼운다. 대화 글, 명령, 질문 글, 마지막 답, notice의 본문은 어디에도 싣지 않고 컴퓨터 이름도 싣지 않는다. 제목은 120자, 본문은 200자에서 자른다. 폰의 `show_names`가 꺼져 있으면 이름 없이 "An agent needs you" 같은 일반 문장이 간다. `data`에는 어느 컴퓨터의 어디를 열지만 싣는다: 컴퓨터의 공개 key 글(`host`), `kind`(`session`, `app`, `inbox`), `session`이나 `app`. 보낸 지 1시간이 지난 글은 Expo가 버린다.
 - **보내기.** core가 Expo Push HTTP API를 직접 부른다. send 주소는 잠긴 설정 `remote.push`(기본은 Expo의 send 주소, 비우면 push를 끈다)이고 영수증 주소는 끝의 `/send`를 `/getReceipts`로 바꿔 만든다. 일시 오류(네트워크, 429, 5xx)는 1, 2, 4초 뒤 세 번까지 다시 하고 그 밖의 실패는 바로 버린다. queue를 두지 않는다. ticket의 id를 기억해 보낸 지 15분 뒤 영수증을 한 번 묻는다. 죽은 token(`DeviceNotRegistered`)이 ticket이나 영수증에서 알려지면 core가 그 기기의 token을 지운다(`devices/clear_push`. 그 사이 폰이 새 token을 보냈으면 그대로 둔다). 설정 칸은 남고, 폰이 다시 붙을 때 `devices/set_push`가 새 token을 둔다.
-- **기기 쪽.** 기기 목록(token과 설정 칸)과 컴퓨터의 공개 key 글은 remote가 attention에 꽂는다(`remote.md`). attention은 다른 feature module을 import하지 않는다. 컴퓨터의 key는 remote가 처음 켜질 때 풀리고, 풀리기 전에는 보낼 곳이 없는 것으로 친다.
+- **기기 쪽.** 기기 목록(token과 설정 칸)과 컴퓨터의 공개 key 글은 remote가 attention에 꽂는다(`remote.md`). attention은 다른 feature module을 import하지 않는다. 컴퓨터의 key는 remote가 켜질 때 풀리고, 풀리기 전과 remote가 꺼진 동안은 보낼 곳이 없는 것으로 친다(끄면 같은 core 실행 안에서 바로 멈춘다).
 - **폰의 설정.** 설정 칸은 일곱이다: `needs_you`, `long_finish`, `app_update`, `job_missed`, `app_notify`, `quiet_when_present`, `show_names`. 폰 하나에 있고 pairing한 모든 컴퓨터에 사본으로 간다.
 
 ## 지키는 것
@@ -88,7 +88,6 @@ terminal_sessions/signal ─▶ 계기 ─┬▶ unseen(서고 꺼질 때 StateC
 - 실제 FCM 배달과 Expo token은 확인하지 못했다. 사람의 Expo·Firebase 계정이 있어야 하고, 지금까지는 fake push server가 받은 글로만 확인했다.
 - EAS project id가 없는 폰 build는 push token을 받지 못해 알림을 쓸 수 없다. 개발 build만 가짜 token으로 개발 core의 fake push server와 이어진다.
 - GUI 탭에서 기다리는 승인은 push 계기가 아니다. 터미널의 TUI는 tracker가 알리지만 GUI의 승인 card는 core의 turn request가 아니다(이슈 `push-misses-gui-tab-approvals`).
-- remote를 한 번 켠 뒤 끄면 같은 기동 안에서는 push가 계속 나간다(이슈 `push-continues-after-remote-off`).
-- 앱이 session을 멈춘 기록(`session_stopped_by_app`), 주 폰이 바뀐 기록(`phone_changed`), 떨어져 있음 알림(`app_sync_away`)은 desktop toast에는 뜨지만 push 계기가 아니다. 두 목록이 따로 있다(이슈 `push-alert-program-kinds-differ`).
+
 - 영수증을 기다리는 ticket은 메모리뿐이라 core를 다시 켜면 잃는다. 그 token은 다음 send의 ticket 오류로 알게 된다.
-- Android 알림 아이콘이 기본이다(이슈 `phone-notification-icon-default`).
+- Android 알림 아이콘(monochrome 아이콘과 색)은 새 dev build에서만 보이고 아직 기기에서 보지 않았다.

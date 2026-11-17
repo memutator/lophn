@@ -59,7 +59,7 @@
 
 `sdk_update_needed`의 params는 `{required, available}`(옮겨야 하는 앱 수, 필수는 아니지만 home이 아직 검토하지 않은 새 메모가 있는 앱 수)이고 글은 "SDK updates for your apps" / "3 apps must update, 2 can use new SDK features."이다. action은 `open_home_skill` `update-apps` + 빈 args(전체)다. 앱마다 줄을 만들지 않는 것은 각 앱을 두고 갈지 올릴지(그리고 새 SDK 기능을 쓸지) 숲으로 보는 일이 사람이 아니라 home lophn의 몫이기 때문이다. 앱마다 있던 옛 `sdk_update_needed` 줄(앱 있음)은 program 줄이라 지울 수 없어 남고 단추도 그대로 동작한다.
 
-`app_sync_away`의 params는 `{held, back?}`(풀리지 않은 held 변경 수, 따라잡았으면 `back: true`)이다. 글은 떨어져 있을 때 "This app was away from your other computers too long" / "2 changes are held on this computer. Ask the app's agent to apply or discard them.", 따라잡았으면 "This app caught up with your other computers" / "It is no longer away. 1 change is still held on this computer. …"(없으면 "Nothing is held.")이다. action은 없다: held는 사람이 그 앱의 agent에게 맡겨 `lophn app sync-held`로 푼다. core의 folder wiring이 내보내기 run 앞뒤의 떨어져 있음(ledger)과 held 수를 보고 `noticeRecorder`로 쓴다. program 줄은 지울 수 없어서 "떨어져 있었다"를 거두는 길이 같은 key 줄을 바꾸는 것이다. 마지막으로 알린 held 수는 core 메모리라 재시작하면 잊는다(이슈 `folder-away-notice-count-in-memory`).
+`app_sync_away`의 params는 `{held, back?}`(풀리지 않은 held 변경 수, 따라잡았으면 `back: true`)이다. 글은 떨어져 있을 때 "This app was away from your other computers too long" / "2 changes are held on this computer. Ask the app's agent to apply or discard them.", 따라잡았으면 "This app caught up with your other computers" / "It is no longer away. 1 change is still held on this computer. …"(없으면 "Nothing is held.")이다. action은 없다: held는 사람이 그 앱의 agent에게 맡겨 `lophn app sync-held`로 푼다. core의 folder wiring이 내보내기 run 앞뒤의 떨어져 있음(ledger)과 held 수를 보고 `noticeRecorder`로 쓴다. program 줄은 지울 수 없어서 "떨어져 있었다"를 거두는 길이 같은 key 줄을 바꾸는 것이다. 마지막으로 알린 held 수는 그 앱의 folder stream 행(ledger)에 두어 core를 다시 켜도 같은 수로 다시 알리지 않는다.
 
 `phone_changed`의 params는 `{apps}`(폰 화면이 있는 활성 앱 수)이고 글은 "Your phone changed" / "2 apps have phone screens drawn for the old phone. Ask lophn to redraw them."이다. action은 없다. 알리기만 하고 자동으로 다시 그리지 않는다(옛 폰 크기로 그린 화면을 새 크기로 다시 그리는 일은 사람이 lophn에게 맡긴다). core 안에서 Bus의 `remote_devices` `StateChanged`를 보고 `noticeRecorder`로 쓴다. 마지막으로 본 기준 id는 메모리에만 둔다(core가 시작할 때 지금 값). pairing은 core가 켜져 있어야 하므로 꺼진 사이의 변경은 없다.
 
@@ -157,7 +157,7 @@ Inbox는 탭 둘이다.
 7. 남기는 기간: program 줄은 지우지 않는다. 앱이 영구로 남긴 줄은 앱마다 최근 200개, 휘발 줄은 앱마다 50개다. 고장 난 앱이 표를 끝없이 키우지 못하게 한다.
 8. 정본은 표다. 줄은 사람이 지우거나(휘발) 상한에 밀리거나 앱이 보관될 때까지(휘발) 재시작을 넘어 남는다. toast는 shell 정책이라 놓친 것을 다시 띄우지 않는다.
 9. toast·OS 알림 규칙: app 줄은 모두 띄운다. program 줄은 사람이 알아야 하는 `release_failed`·`release_rolled_back`·`app_unavailable`·`app_data_restored`·`sdk_update_needed`·`session_stopped_by_app`·`phone_changed`·`app_sync_away`만 띄우고 `release_activated`·`app_data_migrated`·`lophn_updated`는 Inbox에만 남긴다. 앱 없는 줄은 `sdk_update_needed`·`phone_changed`만 띄우고(`lophn_updated`는 Inbox에만) 누르면 Inbox를 연다.
-10. 기동 중에 쓴 줄은 toast가 뜨지 않는다. core가 `ready`를 내기 전에 쓴 줄이라 shell이 아직 connect하지 못했고 event 구독이 없다(놓친 알림은 다시 띄우지 않는다). shell 없이 도는 core(앱을 Quit한 뒤, CLI나 로그인 시작이 띄운 core)가 쓴 줄도 같다. 그 줄은 배지와 History로만 보인다.
+10. 기동 중에 쓴 줄은 event로는 toast가 뜨지 않는다. core가 `ready`를 내기 전에 쓴 줄이라 shell이 아직 connect하지 못했고 event 구독이 없다. 그중 놓치면 안 되는 `sdk_update_needed`·`app_unavailable`만은 shell이 core에 붙을 때마다 안 읽은 줄을 읽어 그 shell 실행에서 아직 띄우지 않았으면 한 번 띄운다. 그 밖의 놓친 줄과 shell 없이 도는 core(앱을 Quit한 뒤, CLI나 로그인 시작이 띄운 core)가 쓴 다른 줄은 배지와 History로만 보인다.
 11. `kind`·`action`이 가리키는 일은 사람이 단추를 눌러야 시작된다. program이 session을 스스로 열지 않는다.
 12. tray 값과 위젯 값은 저장하지 않는다. 알림과 달리 재시작 뒤 다시 내는 것은 앱 몫이다.
 13. 못 본 turn 끝(`unseen`)은 notice 줄이 아니고 core가 든다. desktop은 `unseen/list`로 읽고 `unseen/dismiss`로 지우기만 하며 StateChanged의 `unseen`이 오면 다시 읽는다. 서고 꺼지는 규칙과 폰에서 읽으면 desktop 점이 꺼지는 것은 `attention.md`가 맡는다. shell main은 못 본 끝을 들지 않는다.
@@ -202,7 +202,7 @@ Inbox는 탭 둘이다.
 
 ## 열린 것
 
-- 기동 중에 쓴 program 줄(`sdk_update_needed`)은 toast가 없다. 기동 뒤 Gateway가 붙으면 안 읽은 급한 줄을 `notices.open`으로 읽어 한 번 띄우는 안이 있다(작음, 급하지 않음). 이슈 `startup-program-notice-no-toast`.
+- 기동 중에 쓴 안 읽은 급한 program 줄(`sdk_update_needed`, `app_unavailable`)은 shell이 core에 붙을 때마다 읽어 toast로 한 번 띄운다. 안 읽은 채 두면 앱을 켤 때마다 다시 뜬다.
 - 실패 이유에는 앱의 migration script가 낸 글이 실릴 수 있다(앞 200자로 자른다).
 - 복원된 실패는 toast가 둘(실패, data 복원) 뜰 수 있다.
 - program 기록에 project가 비어 있다.

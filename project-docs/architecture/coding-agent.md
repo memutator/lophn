@@ -70,7 +70,7 @@ TurnEnded ─▶ result call이면 마지막 기록 메시지가 답(custom의 �
 
 ### TUI 탭과 hold
 
-harness session은 `lophn tab open --session <ses> --tui`로 터미널 탭에서도 연다. 그 CLI의 resume 줄(`claude --resume <id>`, `codex resume <id>`, `opencode --session <id>`)을 친다. TUI 탭이 있는 동안 그 session의 headless turn은 시작하지 않는다. 이 hold는 lease다: core가 열 때 30초 예약을 걸고, shell main이 `/host-link`의 `hello`·`visible`에 TUI 탭이 있는 session 목록을 실어 보내면 core가 연결이 열린 동안 그 목록으로 10초로 이어 가고(1초마다), 목록에서 빠지면 바로 푼다.
+harness session은 `lophn tab open --session <ses> --tui`로 터미널 탭에서도 연다. 그 CLI의 resume 줄(`claude --resume <id>`, `codex resume <id>`, `opencode --session <id>`)을 친다. TUI 탭이 있는 동안 그 session의 headless turn은 시작하지 않는다. 이 hold는 lease다: core가 열 때 30초 예약을 걸고, shell main이 `/host-link`의 `hello`·`visible`에 TUI 탭이 있는 session 목록을 실어 보내면 core가 연결이 열린 동안 그 목록으로 10초로 이어 가고(1초마다), 목록에서 빠지면 바로 푼다. 그 workspace를 보이는 창이 없어 요청이 30초 넘게 기다리면 예약이 끝나 그 사이 headless turn이 시작했을 수 있다. 그래서 shell main은 탭을 창에 내기 전에 그 session을 목록에 실어 먼저 hold하고, 그 session의 turn이 돌거나 사람을 기다리는 중이면 hold를 놓고 요청을 retry로 돌린다(한 CLI session에 두 process가 쓰면 대화 기록이 섞이거나 깨진다).
 
 ## 지키는 것
 
@@ -184,7 +184,7 @@ harness session은 `lophn tab open --session <ses> --tui`로 터미널 탭에서
 - binary `lophn`의 help에 사람 token으로는 거절되는 명령이 보인다(`job.create`, `call.*`, `session.list`, `package.publish`는 actor가 agent만이라 `forbidden`). 사람 터미널의 coding agent에는 아직 신원이 없다. coding agent 신원과 같이 열거나 그때까지 help에서 빼거나 표시한다.
 - fork한 harness session이 외부 session id를 물려받지 않아 harness 쪽 앞 대화를 잃는다. headless resume이 fork를 지원하는 harness(`claude --resume --fork-session` 등)만 id를 물려주는 방안이 있다.
 - opencode agent는 사람의 opencode 권한 설정대로 돌아 shell과 폴더 밖 쓰기를 한다(사람, 2026-11-04: 이대로 둔다). 좁히려면 inline config의 `permission`을 넘긴다.
-- TUI 탭 hold가 끊기는 틈: 그 workspace를 보이는 창이 없어 요청이 host queue에서 30초 넘게 기다리면 예약이 끝나 headless turn이 시작할 수 있고 뒤에 탭이 생기면 겹친다. 한 CLI session에 두 process가 쓰면 대화 기록이 섞이거나 깨진다(이슈 `tui-tab-hold-two-gaps`). 창 reload는 shell main의 탭 표가 남고 앱 재시작은 터미널 탭의 PTY를 되살리지 않아 틈이 아니다.
+
 - TUI에서 `/clear` 같은 것으로 바뀐 CLI session id는 따라가지 않는다.
 - 개발 경로를 놓은 뒤 packaged로 돌아가면 `command` 없는 `dry_run`이 `unchanged`라 개발 경로가 전역 설정에 남는다(개발 머신만. 항목을 지우거나 packaged에서 다시 놓는다).
 - Codex 0.150 미만은 `Interrupt` hook이 없어 끊어도 running에 남는다.

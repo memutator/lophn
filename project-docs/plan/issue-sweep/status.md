@@ -21,6 +21,6 @@ lead만 고친다. `tools/status.py issue-sweep build`가 `tasks/*.md`에서 id,
 | `sweep-coding-bodies` | coding-bodies | 2 | 없음 | merged | coding-bodies/sweep-coding-bodies | 2ed124204 |  |
 | `sweep-connection-paths` | connection-paths | 2 | 없음 | merged | connection-paths/sweep-connection-paths | ffee60431 |  |
 | `sweep-contracts` | contracts | 2 | 없음 | merged | contracts/sweep-contracts | 770a90b55 |  |
-| `sweep-docs` | docs | 2 | 없음 | running | docs/sweep-docs |  |  |
+| `sweep-docs` | docs | 2 | 없음 | merged | docs/sweep-docs | 2e979c41f |  |
 | `sweep-phone-polish` | phone-polish | 2 | 없음 | merged | phone-polish/sweep-phone-polish | 07cd84db5 |  |
 | `sweep-phone-terminal-remote` | phone-terminal-remote | 2 | 없음 | merged | phone-terminal-remote/sweep-phone-terminal-remote | d55d94fdf |  |

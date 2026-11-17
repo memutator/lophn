@@ -1,5 +1,5 @@
 id: issue-sweep
-version: 0.23.79
+version: 0.23.80
 title: 열린 이슈 백여 개를 주제별로 한 번에 고친다(폰의 대화·목록·터미널·앱 화면, harness GUI, shell, folder sync, 앱 runtime)
 modules: [packages/cli, packages/core/agent-workspaces, packages/core/always-on, packages/core/approvals, packages/core/apps, packages/core/apps/releases/phone-backend, packages/core/apps/update-state, packages/core/attention, packages/core/coding-relay, packages/core/config, packages/core/folder, packages/core/host-queue, packages/core/lophn-agent, packages/core/main, packages/core/projects, packages/core/remote, packages/core/storage, packages/core/supervision, packages/core/terminal-view, packages/design, packages/design/native, packages/mobile, packages/mobile/modules/lophn-app-db, packages/protocol, packages/protocol/folder, packages/relay, packages/remote-client, packages/sdk, packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer, packages/shell/terminal-host, tests, tools]
 change: |

@@ -1,7 +1,7 @@
 id: app-e2e-patch-anchor-missing
 title: 앱 e2e 여섯이 test 앱에 patch를 얹지 못하고 시작에서 실패한다
 kind: bug
-status: open
+status: fixed
 topic: app-call
 modules: [tests]
 now: |
@@ -10,3 +10,6 @@ impact: |
   앱 tool 호출, release activation, 앱 data rewind, 앱 재시작의 e2e가 아무것도 검사하지 못한다. 이 길이 깨져도 land가 잡지 못한다.
 fix: |
   - 작음(추천): 한 test의 data root(`/tmp/lophn-e2e-*/home/apps/<app>/source/lophn.ts`)를 열어 patch 직전 모양을 보고, 견본 overlay와 patch 자리를 다시 맞춘다.
+closed: |
+  지금은 나지 않는다. `tests/e2e/app-call_test.ts`와 `app-activation_test.ts`를 돌려 11개가 모두 통과했다(견본 overlay의 patch 자리가 patch file들의 `replaceOnce` 대상과 맞는다). 원인을 고친 변경은 찾지 않았다.
+guard: land.sh의 e2e 단계(`npm run e2e:deps`, `npm run e2e`)

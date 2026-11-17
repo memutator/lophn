@@ -1,7 +1,7 @@
 id: phone-drive-settle-timing
 title: phone 탭의 scroll 뒤 누르기가 정한 시간(150 ms, 300 ms)을 기다리는 것에 기댄다
 kind: bug
-status: open
+status: kept
 topic: phone-screen
 modules: [packages/mobile]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): 누른 뒤 snapshot으로 확인하라는 지침은 이미 있다(`phone-check.md`). 실제 폰에서 실패가 보이면 시간을 늘리고, 그때까지 둔다.
   - 중간: guest의 ScrollView가 scroll을 끝낸 신호(native의 scroll 상태가 멈춘 것)를 기다린 뒤 누른다. sandbox의 RN ScrollView 내부 상태에 기댄다.
+closed: |
+  실제 폰에서 실패를 본 적이 없다. 두 시간(150 ms, 300 ms)을 둔 이유는 `Drive.kt`의 `act`와 scroll 주석에 있다. 실제 폰에서 scroll 바로 뒤 누르기가 빗나가는 것이 보이면 `regressed`로 되살리고 시간을 늘리거나 scroll이 멈춘 신호를 기다리게 한다.
+guard: 없음

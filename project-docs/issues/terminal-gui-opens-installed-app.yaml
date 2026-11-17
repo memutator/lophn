@@ -1,7 +1,7 @@
 id: terminal-gui-opens-installed-app
 title: "터미널 탭에서 부르는 `lophn gui`가 개발 앱이 아니라 `~/.lophn`의 앱으로 감"
 kind: mistake
-status: open
+status: fixed
 topic: mistakes
 modules: [packages/shell/terminal-host, tools]
 now: |
@@ -14,3 +14,6 @@ cause: |
   터미널 탭에서 lophn을 부르는 code가 무엇을 shell main에서 받아야 하는지 적힌 곳이 없었다(`terminal-agent.md`에는 env를 지운다는 사실만 있다). brief도 그것을 말하지 않았다.
 prevent: |
   `terminal-agent.md` "지키는 것"에 "터미널 탭 안에서 lophn을 부르는 code는 CLI 경로와 data root를 shell main에서 받는다(터미널 env에는 `LOPHN_*`가 없다)"를 둔다. 저장소 실행의 `lophn gui`는 data root가 `~/.lophn`이거나 없으면 앱을 띄우지 않는다(fix task, 위험 test).
+closed: |
+  `lophn gui` 명령이 없어졌다. `claude gui`는 shell 함수가 `lophn hook <harness> lophn-gui`로 그 탭의 hook socket에 한 줄을 쓰는 것이고(`packages/shell/terminal-host/shell-integration.ts`, `packages/coding-agent/local/hook.ts`) core도 앱도 띄우지 않으며 data root에 닿지 않는다. 막는 문장은 `terminal-agent.md` "지키는 것"에 있다.
+guard: 없음

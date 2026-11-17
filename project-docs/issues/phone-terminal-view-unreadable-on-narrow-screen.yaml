@@ -1,0 +1,19 @@
+id: phone-terminal-view-unreadable-on-narrow-screen
+title: 폰의 터미널 보기가 컴퓨터의 터미널 폭 그대로라 폰 폭에서 읽기 어렵다
+kind: bug
+status: open
+topic: remote
+modules: [packages/mobile, packages/core/terminal-view, packages/shell/main]
+now: |
+  폰의 `View terminal`(`packages/mobile/src/screens/terminal/`)은 컴퓨터 터미널의 화면을 그 열 수 그대로 styled text row로 그린다. 폰은 PTY 크기를 바꾸지 않는다(`architecture/remote.md`의 비목표). 고를 수 있는 것은 `Fit width`(줄 전체가 폭에 들도록 글자를 줄인다)와 `100%`(글자 크기를 두고 가로로 민다)뿐이다. 컴퓨터의 터미널이 넓으면 앞의 것은 글자가 읽을 수 없게 작아지고 뒤의 것은 줄마다 가로로 밀어야 한다. TUI는 그 폭에 맞춰 그린 화면이라 폰 폭에 맞게 다시 흐르지 않는다.
+  Paseo는 폰이 PTY 크기를 자기 화면에 맞게 바꾼다(`reports/phone-native-ui/paseo-terminal.md`). PTY는 하나이고 마지막으로 크기를 잡은 기기가 이긴다. 폰은 열 때, focus 때, 화면을 누를 때, keyboard를 띄울 때 크기를 잡고, 잡은 뒤에는 keyboard와 회전을 따라 다시 맞춘다. 떠날 때 되돌리지 않는다. 그래서 확대나 가로 scroll이 없고 글자 크기는 설정 하나다. 그리는 것은 WebView가 아니라 native view이고, 화면은 raw PTY byte를 폰의 headless xterm이 풀어 만든다. 입력은 숨긴 입력칸과 key 줄(Esc, Tab, 화살표, Enter, Paste, 한 번만 걸리는 Ctrl·Alt·Shift)이다. coding agent는 채팅 화면으로 보이고 터미널은 shell 용이다.
+impact: |
+  사람이 폰에서 coding agent의 터미널을 보면 글자가 너무 작거나 화면이 잘려 무슨 일이 있는지 읽기 어렵고, 터미널에 입력을 허락받은 기기도 보면서 치기 어렵다.
+fix: |
+  - 중간(추천): 폰의 터미널 화면에 "폰에 맞추기"를 둔다. 누르면 폰이 자기 화면의 열과 줄 수로 PTY 크기를 잡고, 폰이 떠나면(화면 lease가 끝나면) 컴퓨터의 탭이 자기 크기로 되돌린다. Paseo의 크기 잡기를 가져오되 떠날 때 되돌리는 것을 더한 것이다. 폰이 크기를 청하는 route, core가 host에 넘기는 요청, desktop 탭의 "다른 기기가 크기를 잡았다" 상태가 든다. 잃는 것: 폰이 보는 동안 컴퓨터의 그 터미널이 좁다.
+  - 작음(같이): key 줄에 Paste와 한 번만 걸리는 Ctrl·Alt·Shift를 더하고, 화면을 누르면 숨긴 입력칸으로 keyboard를 띄운다(입력을 허락받은 기기만). 폰 안에서 끝난다.
+  - 작음: 맨 아래로 가기 단추와 글 고르기·복사. scrollback은 이미 snapshot에 실려 온다.
+  - 나중: 폰이 터미널을 열면 묻지 않고 크기를 잡고 keyboard와 회전을 따라간다(Paseo의 기본 동작). 폰을 열 때마다 컴퓨터의 터미널이 바뀐다.
+  - 하지 않는다: raw byte stream과 폰의 xterm, native 그리기까지 Paseo의 길 전체를 옮기기. 폰이 화면 snapshot을 그리는 지금 구조를 버려야 한다.
+decided: |
+  사람이 정했다: 지금 모양은 쓸 수 없고 Paseo를 참고해 고친다. 크기 규칙은 Paseo와 같게 한다(사람이 "Paseo 그대로"를 물었고 구조상 제약이 없다, agent가 이 쪽으로 정했다). 폰이 터미널 화면을 열면 자기 화면의 열과 줄 수로 PTY 크기를 잡고, 컴퓨터에서 그 탭에 focus가 오면 컴퓨터가 다시 잡는다(마지막에 잡은 쪽이 이긴다). 폰이 떠나면(lease가 끝나면) 컴퓨터의 탭이 자기 크기로 되돌린다. 폰에 보내고 그리는 방식(화면 한 장을 글 줄로)은 그대로 둔다. `remote.md`의 비목표 "폰이 터미널 크기를 바꾸는 것"을 뺀다.

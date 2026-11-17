@@ -5,9 +5,9 @@ status: open
 topic: attention
 modules: [packages/core/attention, packages/shell/main, packages/protocol]
 now: |
-  desktop toast의 목록은 `shell/main/desktop/wiring/notice.ts`의 `ALERT_PROGRAM_KINDS`(여섯: `release_failed`, `release_rolled_back`, `app_unavailable`, `app_data_restored`, `sdk_update_needed`, `session_stopped_by_app`)이고, 폰 push의 목록은 `core/attention/triggers.ts`의 같은 이름 상수(다섯: `session_stopped_by_app` 없음)다. 앱이 session을 멈춘 기록(`session_stopped_by_app`, `wiring/session-lifecycle.ts`가 남긴다)은 desktop에는 toast가 뜨고 폰에는 push가 가지 않는다. 같은 규칙의 사본 둘이 어긋난 것이다.
+  desktop toast의 목록은 `shell/main/desktop/wiring/notice.ts`의 `ALERT_PROGRAM_KINDS`(여덟: `release_failed`, `release_rolled_back`, `app_unavailable`, `app_data_restored`, `sdk_update_needed`, `session_stopped_by_app`, `phone_changed`, `app_sync_away`)이고, 폰 push의 목록은 `core/attention/triggers.ts`의 같은 이름 상수(앞의 다섯)다. 셋이 다르다. 앱이 session을 멈춘 기록(`session_stopped_by_app`), 주 폰이 바뀐 기록(`phone_changed`), 떨어져 있음 알림(`app_sync_away`)은 desktop에는 toast가 뜨고 폰에는 push가 가지 않는다. core 쪽 주석은 "앱이 멈춘 기록은 Inbox에만 남긴다"고 하고 `architecture/attention.md`도 push 계기를 다섯으로 적어, 뒤의 둘은 목록을 하나만 고치고 다른 쪽을 빠뜨린 것이다.
 impact: |
-  앱이 사람의 session을 멈추면 컴퓨터 앞에 있는 사람만 알고, 자리를 비운 사람은 폰으로 알지 못한다. 목록이 둘이라 새 program kind를 더할 때 한쪽을 빠뜨리기 쉽다.
+  앱이 사람의 session을 멈추거나 다른 기계의 변경이 기다리게 되면 컴퓨터 앞에 있는 사람만 알고, 자리를 비운 사람은 폰으로 알지 못한다. 목록이 둘이라 새 program kind를 더할 때 한쪽을 빠뜨린다(이미 둘이 그렇게 빠졌다).
 fix: |
-  - 작음(추천): "사람이 알아야 하는 program 기록" 목록을 `protocol/apps/notice.ts`(kind 목록이 있는 곳)에 하나로 두고 core attention과 shell main이 같이 읽는다. 폰 push에도 `session_stopped_by_app`이 들어간다.
-  - 더 작음: core 쪽에 `session_stopped_by_app`만 더한다. 사본은 둘로 남는다.
+  - 작음(추천): "사람이 알아야 하는 program 기록" 목록을 `protocol/apps/notice.ts`(kind 목록이 있는 곳)에 하나로 두고 core attention과 shell main이 같이 읽는다. 폰 push에 `session_stopped_by_app`과 `app_sync_away`가 들어간다. `phone_changed`는 바뀌기 전 폰에 가는 push가 뜻이 있는지 보고 정한다. `attention.md`의 계기 목록을 같이 고친다.
+  - 더 작음: core 쪽에 빠진 kind만 더한다. 사본은 둘로 남는다.

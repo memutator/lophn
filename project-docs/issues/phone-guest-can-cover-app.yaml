@@ -5,10 +5,9 @@ status: open
 topic: phone-screen
 modules: [packages/mobile, packages/design/native]
 now: |
-  kit의 `Sheet`는 React Native `Modal`을 쓰고(`packages/design/native/overlay/sheet.tsx`) `Screen`은 `StatusBar`를 쓴다(`layout/screen.tsx`). guest에서는 둘 다 폰 앱 전체의 window에 닿는다: sandbox의 native module 허용 목록에 `StatusBarManager`가 남아 있고(`StatusBarManagerCompat`만 뺐다) `Modal`은 앱 전체의 window에 그려진다. `packages/mobile/README.md`가 알려진 한계로 적었다.
-  status bar는 2026-11-16에 막았다(guest에서 `StatusBarManager`를 빼고 base가 `StatusBar`를 stub으로 바꾼다). 남은 것은 `Modal`이다.
+  kit의 `Sheet`와 `Sidebar`는 React Native `Modal`을 쓴다(`packages/design/native/overlay/sheet.tsx`, `navigation/sidebar.tsx`). guest에서 `Modal`은 폰 앱 전체의 window에 그려지고, 이것을 막는 stub이나 sandbox 허용 목록 변경이 없다. `packages/mobile/README.md`가 알려진 한계로 적었다. status bar 쪽은 막혀 있다(sandbox patch가 guest에서 `StatusBarManager`를 빼고 base가 `StatusBar`를 `guest/stubs/status-bar.ts`로 바꾼다).
 impact: |
   AI가 쓴 폰 화면이 lophn 앱 전체를 덮는 화면을 그려 lophn 자신의 화면(승인, 설정)처럼 보이게 할 수 있다. 사용자 앱 코드는 AI가 쓴 것이라 lophn이 그 화면에서 사람을 속이는 길을 막아야 한다는 쪽이다(AGENTS.md의 막는 대상). 실제로 속이는 화면을 만들어 본 것은 아니고 덮을 수 있다는 것을 확인했다.
 fix: |
-  - 작음(추천): guest 안의 kit이 `Modal`과 `StatusBar`를 쓰지 않게 한다. guest의 root가 알리는 값으로 `Sheet`는 guest 화면 안의 view로 그리고 `Screen`은 status bar를 건드리지 않는다(host가 정한다). 화면 source가 kit을 안 거치고 직접 부르는 길은 이것으로 막지 못한다.
-  - 중간: sandbox library가 guest에 열어 주는 view와 module(`StatusBarManager` 포함) 목록에서 `Modal`과 status bar를 뺄 수 있는지 본다. 가능하면 화면 어디서든 덮을 수 없지만 kit의 sheet를 다시 짜야 한다.
+  - 중간(추천): guest 안의 kit `Sheet`를 `Modal`이 아니라 guest 화면 안의 view로 그린다. kit을 바꾸는 일이라 SDK 판과 `migrate-sdk` 메모가 든다. phone 탭이 Sheet 안을 읽지 못하는 것(이슈 `phone-drive-cannot-reach-sheet`)도 같이 풀린다. 화면 source가 kit을 안 거치고 `Modal`을 직접 부르는 길은 이것으로 막지 못한다.
+  - 중간: sandbox library가 guest에 열어 주는 view 목록에서 `Modal`을 뺄 수 있는지 본다. 가능하면 화면 어디서든 덮을 수 없다. 위의 것과 같이 해야 kit의 sheet가 남는다.

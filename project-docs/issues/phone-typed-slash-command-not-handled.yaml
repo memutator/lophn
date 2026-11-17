@@ -1,0 +1,13 @@
+id: phone-typed-slash-command-not-handled
+title: 폰 입력칸에서 `/`를 쳐도 command 목록이 뜨지 않고, `/rename` 같은 화면 동작 command를 글로 치면 메시지로 보내진다
+kind: bug
+status: open
+topic: remote
+modules: [packages/mobile, packages/shell/renderer]
+now: |
+  폰의 대화 입력칸(`packages/mobile/src/screens/session/conversation.tsx`)은 글을 치는 동안 command 목록을 열지 않는다. 목록은 + 단추의 sheet(`CommandsSheet`)에만 있다. 보내기(`send`)는 글이 `/이름 인자` 꼴이면 command를 찾아 돌리는데, `opens`가 null인 것만 찾는다. 화면 동작이 딸린 command(`rename`, `model`, `effort`, `compact`, `archive` 따위)를 글로 치면 찾지 못해 그 글이 보통 메시지로 간다. desktop은 `runSlash`(`packages/shell/renderer/conversation/agent-view.tsx`)가 `opens`를 보고 화면 동작을 한다(`/rename 새 이름`은 `rename` 입력을 보낸다). 폰에서 coding session에 `/rename 새 이름`을 치면 그 글이 CLI에 가서 CLI가 자기 쪽 이름만 바꾸고, adapter는 이름이 바뀐 것을 몰라 desktop의 탭과 목록 이름이 그대로다. lophn agent session에서는 그 글이 model에게 메시지로 간다.
+impact: |
+  사람이 폰에서 desktop처럼 `/`를 치면 아무것도 뜨지 않아 command가 없는 줄 안다. `/rename`을 치면 된 것처럼 보이지만 desktop과 폰의 목록 이름은 바뀌지 않고, lophn agent에게는 뜻 없는 메시지가 한 줄 간다.
+fix: |
+  - 작음(추천): 폰의 `send`가 desktop의 `runSlash`와 같은 규칙을 쓴다. `opens`가 있는 command는 폰의 그 sheet를 열거나(model, effort, context) 인자가 있으면 바로 한다(`/rename 새 이름`). 규칙을 DOM 없는 file로 꺼내 둘이 같이 쓴다. 글이 `/`로 시작하면 입력칸 위에 command 목록을 걸러 보인다(+ sheet와 같은 목록).
+  - 더 작음: 글이 `/`로 시작하면 + sheet의 command 목록을 여는 것만 한다. 글로 친 `/rename`은 여전히 메시지로 간다.

@@ -141,6 +141,6 @@ publish는 같은 규칙을 폴더 `@lophn/cap-*` 의존에 적용해 낸 `permi
 ## 열린 것
 
 - `@me` package가 다른 `@me`에 기대면 그 권한을 따라가지 않는다. `@me/a`가 `net.fetch`를 적은 `@me/b`에 기대면서 자기 `permissions`에서 빼고 낼 수 있고, `@me/a`만 쓰는 소비 앱은 release가 뜨고 실행 중 broker에서 거절된다. 추천은 publish 때 `@me` 의존의 정확한 판의 `permissions`도 입력이 덮는지 한 단계만 보는 것이다(이슈 `me-dependency-permission-not-followed`).
-- 기동 옮기기가 옛 `@me` 판에 bundle blob을 못 붙일 수 있다. 사본의 `package.json`이 원래 JSON 2칸 들여쓰기가 아니면 hash가 `bundle_hash`와 달라 붙이지 못하고 기동마다 `me_copy_skipped`만 남는다. 그런 판은 설치 사본이 유일한 byte다(이슈 `old-me-version-blob-not-reattached`).
+- 기동 옮기기가 옛 `@me` 판에 bundle blob을 못 붙일 수 있다. 사본의 `package.json`이 원래 JSON 2칸 들여쓰기가 아니면 hash가 `bundle_hash`와 달라 붙이지 못하고 기동마다 `me_copy_skipped`만 남는다. 그런 판은 설치 사본이 유일한 byte다. 사람의 data root에는 건너뛴 판이 없어 이슈는 kept로 닫았다(`old-me-version-blob-not-reattached`).
 - cap-fs는 실행 때 broker가 막지 않는다. "실행 때 막는 것은 broker"와 cap-fs의 동작이 어긋나 정본을 정해야 한다. `app-call.md`는 cap-fs가 OS가 허락하는 파일을 어디든 읽고 쓴다고 적는다.
 - `@me` 판의 안내는 형식(세 절이 비지 않음)만 검사한다. 안내가 맞는지는 낸 agent의 몫이다.

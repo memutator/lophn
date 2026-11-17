@@ -5,7 +5,7 @@ status: open
 topic: remote
 modules: [packages/mobile]
 now: |
-  desktop의 승인 card는 거절에 이유 한 줄을 실어 보내고(`packages/shell/renderer/desktop/connection/waiting/decide.ts`의 `decideWaiting(..., reason)`) core는 그 이유를 기다리던 call의 결과 `the person rejected this tool call: <이유>`로 agent에게 준다. 폰은 Inbox의 Now(`packages/mobile/src/screens/inbox/now.tsx`의 `PermissionItem`)와 대화의 승인 card(`packages/mobile/src/screens/session/ask.tsx`) 모두 `reject`만 보내고 이유 칸이 없다.
+  desktop의 승인 card는 거절에 이유 한 줄을 실어 보내고(`packages/shell/renderer/desktop/connection/waiting/decide.ts`의 `decideWaiting(..., reason)`) core는 그 이유를 기다리던 call의 결과 `the person rejected this tool call: <이유>`로 agent에게 준다. 폰은 Inbox의 Now(`packages/mobile/src/screens/inbox/now.tsx`의 `PermissionItem`), 대화의 승인 card(`packages/mobile/src/screens/session/ask.tsx`), Home의 승인 card(`packages/mobile/src/screens/home/needs.tsx`) 셋 모두 `reject`만 보내고 이유 칸이 없다. 이유를 싣는 길은 폰에도 있다(`data/hooks.tsx`의 `decide(entry, choice, reason?)`가 `decideWaiting`에 넘긴다). 없는 것은 입력 화면뿐이다.
 impact: |
   폰에서 거절한 사람은 agent에게 왜 안 되는지 말하지 못한다. agent는 이유 없는 거절을 받아 같은 호출을 되풀이하거나 다른 길을 헤맨다. 이유를 주려면 desktop으로 가거나 따로 메시지를 보내야 한다.
 fix: |

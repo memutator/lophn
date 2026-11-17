@@ -1,0 +1,15 @@
+id: gui-composer-lacks-at-mention
+title: 입력칸에서 `@`로 file을 찾아 붙일 수 없다
+kind: bug
+status: open
+topic: harness-gui
+modules: [packages/shell/renderer, packages/shell/ipc]
+now: |
+  입력칸(`packages/shell/renderer/conversation/composer/agent-composer.tsx`)이 글로 여는 menu는 `/`뿐이다(`use-slash-menu.tsx`의 `slashQuery`). `@`를 치면 아무 일도 없다. file을 붙이는 길은 + 단추의 file 고르기, 끌어다 놓기, 붙여넣기이고 셋 다 project 안을 이름으로 찾지 못한다. 붙인 file은 `resource_link` block으로 가고 harness-gui의 adapter 다섯이 모두 그 block을 받으므로 보내는 쪽은 이미 된다. 없는 것은 고르는 쪽이다. file 이름으로 찾는 index가 없고(`lophnFiles.list`는 폴더 하나를 읽고, project 검색은 내용 검색이다), harness GUI 탭의 cwd가 입력칸에 오지 않는다.
+impact: |
+  Claude Code·Codex·OpenCode의 TUI에서 쓰던 `@file`을 GUI에서는 못 쓴다. 사람은 + 단추로 폴더를 타고 내려가거나 path를 손으로 쳐야 한다. harness GUI의 기준(그 CLI에서 되는 것은 GUI에서도 된다)에 빠진 것이다.
+fix: |
+  - 중간(추천): `@`를 치면 `/` menu와 같은 꼴의 menu가 열려 그 session의 cwd(lophn agent는 workspace의 폴더) 아래 file을 이름으로 찾고, 고르면 file 첨부 chip이 된다. file 이름 찾기 route 하나와 탭의 cwd를 입력칸에 넘기는 칸이 든다. adapter는 고치지 않는다.
+  - 작음: 고른 path를 `@path` 글로 입력칸에 넣고 CLI가 풀게 한다. harness마다 푸는 법이 달라 권하지 않는다.
+decided: |
+  처음에는 file만 찾는다. session, 앱, annotation 같은 lophn의 다른 context를 `@`에 넣는 것은 쓰임이 보일 때 더한다(AGENTS.md "속도").

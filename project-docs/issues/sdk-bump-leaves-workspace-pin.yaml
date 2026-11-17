@@ -1,7 +1,7 @@
 id: sdk-bump-leaves-workspace-pin
 title: "SDK 판을 올리면서 workspace pin 하나를 빠뜨려 새 `npm ci`가 깨짐"
 kind: mistake
-status: open
+status: fixed
 topic: mistakes
 modules: [packages/sdk, tools]
 now: |
@@ -13,4 +13,7 @@ fix: |
 cause: |
   brief가 판이 박힌 곳을 조사 목록으로 줬는데 그 목록이 `tools/` 아래를 빠뜨렸다. 판 올림을 확인하는 check가 없다.
 prevent: |
-  check의 deps 단계에 "workspace package의 `@lophn/*` 의존은 그 workspace의 지금 판과 같다"를 더한다(`package.json` 파일만 읽는다). 판을 올리는 brief의 끝남에는 `grep -rn '"@lophn/<이름>": "<옛 판>"' --include=package.json .`가 0줄을 넣는다.
+  `sdk-note` skill 2단계("pin을 고친다")가 판이 박힌 곳을 grep으로 찾게 하고(`tools/wireframes/package.json` 포함) 깨끗한 worktree의 `npm ci`를 확인하게 한다. 한 번 난 실수라 문장으로 막았다. 다시 나면 check의 deps 단계에 "workspace package의 `@lophn/*` 의존은 그 workspace의 지금 판과 같다"를 더한다.
+closed: |
+  pin을 고쳤고 지금 workspace의 `@lophn/*` pin은 모두 그 package의 판과 같다. 막는 문장은 `sdk-note` skill 2단계에 있다. check는 만들지 않았다.
+guard: 없음

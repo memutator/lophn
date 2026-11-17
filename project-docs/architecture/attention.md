@@ -89,6 +89,6 @@ terminal_sessions/signal ─▶ 계기 ─┬▶ unseen(서고 꺼질 때 StateC
 - EAS project id가 없는 폰 build는 push token을 받지 못해 알림을 쓸 수 없다. 개발 build만 가짜 token으로 개발 core의 fake push server와 이어진다.
 - GUI 탭에서 기다리는 승인은 push 계기가 아니다. 터미널의 TUI는 tracker가 알리지만 GUI의 승인 card는 core의 turn request가 아니다(이슈 `push-misses-gui-tab-approvals`).
 - remote를 한 번 켠 뒤 끄면 같은 기동 안에서는 push가 계속 나간다(이슈 `push-continues-after-remote-off`).
-- 앱이 session을 멈춘 기록(`session_stopped_by_app`)은 desktop toast에는 뜨지만 push 계기가 아니다. 두 목록이 따로 있다(이슈 `push-alert-program-kinds-differ`).
+- 앱이 session을 멈춘 기록(`session_stopped_by_app`), 주 폰이 바뀐 기록(`phone_changed`), 떨어져 있음 알림(`app_sync_away`)은 desktop toast에는 뜨지만 push 계기가 아니다. 두 목록이 따로 있다(이슈 `push-alert-program-kinds-differ`).
 - 영수증을 기다리는 ticket은 메모리뿐이라 core를 다시 켜면 잃는다. 그 token은 다음 send의 ticket 오류로 알게 된다.
 - Android 알림 아이콘이 기본이다(이슈 `phone-notification-icon-default`).

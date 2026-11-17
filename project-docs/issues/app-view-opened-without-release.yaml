@@ -1,7 +1,7 @@
 id: app-view-opened-without-release
 title: "tray popup과 앱 sidebar panel이 판 없이 앱 view를 열어 모든 열기가 거절되고 \"Couldn't load\""
 kind: mistake
-status: open
+status: fixed
 topic: mistakes
 modules: [packages/shell/renderer, tools]
 now: |
@@ -14,3 +14,6 @@ cause: |
   `AppViewOpen`의 `release`가 mode와 상관없이 optional이라 판 없는 live 열기가 compile을 통과했다. "새 앱 view 자리는 진짜 앱에서 한 번 연다"는 지침이 review 표에 없었고, 보고의 "확인 못 함"을 lead가 확인하는 규칙이 gallery 화면 확인으로 대체됐다.
 prevent: |
   `appViewOpenSchema`를 mode로 가르는 union으로 바꿔 live는 `release` string이 필수다(판 없는 live 열기는 compile error라 check가 잡는다). 그리고 새 앱 view 자리는 merge 전에 진짜 Electron 앱에서 한 번 열어 본다는 문장을 orchestrate skill의 review 표(lead가 merge 전에 읽는 곳)에 더했다. 방법은 headless 창 + `--remote-debugging-port` + CDP로 열어 screenshot을 보는 것이다.
+closed: |
+  `packages/shell/ipc/app-frame.ts`의 `appViewOpenSchema`가 mode로 가르는 union이라 live는 `release`가 필수다. 새 앱 view 자리는 진짜 Electron 앱에서 한 번 연다는 줄이 orchestrate skill의 review 표에 있다.
+guard: "`npm run check`의 tsc(판 없는 live 열기는 compile error)"

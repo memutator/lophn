@@ -1,0 +1,13 @@
+id: claude-gui-effort-lost-on-new-run
+title: Claude GUI에서 고른 effort가 대화를 다시 열거나 TUI에서 GUI로 넘어오면 설정 기본값으로 돌아간다
+kind: bug
+status: open
+topic: harness-gui
+modules: [packages/shell/main]
+now: |
+  사람이 고른 effort는 adapter run 하나의 memory에만 있다(`packages/shell/main/extensions/bundled/harness-gui/claude.ts`의 `carry.effort`). 같은 run 안에서는 이어진다(`setEffort`가 `/effort`를 보내고, rewind·fork·clear가 다시 여는 `open`이 `effort`를 싣고, GUI에서 TUI로 넘길 때 `tuiCommand`가 `--effort`를 붙인다). 새 run은 잇지 않는다. `HarnessGuiAdapter.start`(`adapter.ts`)가 받는 것은 terminal, cwd, resume, session 따위뿐이고 model·effort·mode를 넘길 칸이 없다. 그래서 resume, TUI에서 GUI로의 toggle, 창을 다시 읽어 run이 새로 뜰 때, 앱을 다시 켤 때 `carry.effort`가 null로 시작하고 화면은 CLI의 init 값이나 설정 file의 기본값(`shownEffort`, `settingsDefaults`)을 보인다. CLI의 `/effort`는 그 session에만 걸리고 transcript에 남지 않아 replay로도 되살릴 수 없다. TUI에서 바꾼 effort도 GUI로 넘어올 때 읽지 못한다. 닫은 이슈 `claude-usage-resets-on-reopen`과 같은 꼴(run memory에만 있는 값)이다.
+impact: |
+  사람이 effort를 올려 두고 일하다가 대화를 다시 열거나 TUI에서 GUI로 넘어오면 말없이 기본 effort로 돌아가, 다음 turn이 사람이 믿는 것과 다른 effort로 돈다. 답의 질과 비용이 달라진다.
+fix: |
+  - 작음(추천): 탭마다 이어 갈 값(model, effort, mode)을 terminal 쪽이 하나 들고 `start`에 넘긴다. GUI에서 정한 값은 run이 바뀌어도 남는다. TUI에서 바꾼 값은 여전히 못 읽는다.
+  - 중간: TUI가 지금 쓰는 effort를 넘어올 때 읽는다. CLI가 그 값을 내주는 곳이 있어야 한다(transcript에는 없다).

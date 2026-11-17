@@ -1,0 +1,34 @@
+id: issue-sort
+version: 0.23.79
+title: 열린 이슈 143개를 지금 코드와 대조해 거르고 사람의 메모(issue.md)를 이슈로 올린다
+modules: []
+change: |
+  전: 열린 이슈 143개. 올린 뒤 코드가 바뀌어 글이 틀린 것, 이미 고쳐진 것, 손해가 구체적이지 않은 것이 섞여 있었고, 사람이 쓰면서 적은 메모(저장소 root의 `issue.md` 14줄과 대화로 준 6개)는 이슈가 아니었다.
+  후: 열린 이슈 146개.
+  - "fixed로 닫음(8): `home-session-shows-lophn-face`, `image-only-pending-message-blank`, `app-e2e-patch-anchor-missing`(app e2e 둘을 돌려 11개 통과), mistake 다섯(`app-view-opened-without-release`, `sdk-bump-leaves-workspace-pin`, `terminal-gui-opens-installed-app`, `app-dispatch-returns-wrong-tool-name`, `plan-reference-shape-unchecked-in-review`). 뒤의 둘은 막는 문장이 없어서 orchestrate skill의 `brief-template.md`와 review 표, planner-persona skill에 뒀다."
+  - "kept로 닫음(8): `phone-drive-settle-timing`, `gui-handoff-copies-adapter-table`, `shell-copies-protocol-types-for-tsconfig`, `old-me-version-blob-not-reattached`(사람의 data root를 읽기 전용으로 보니 건너뛴 판이 없다), `app-stays-stopped-after-unarchive`(정한 동작), `phone-run-app-preview-runs-on-computer`, `workflow-rename-merges-desk-into-main`(이름 바꾸기 기능이 없다), `shell-run-bypasses-file-scope`(사람이 그대로 두기로 정했다)."
+  - "되살림(1): `flow-process-no-resource-limits`. flow를 Deno에서 Node로 옮기며 512 MiB heap 한도와 그 test가 없어졌다."
+  - "글을 고침(29): file·함수·개수·원인이 지금 코드와 달랐던 것. 크게 달라진 것은 `shell-misses-new-core-after-stop`(Reconnect를 눌러도 붙지 못한다), `phone-oversize-change-cannot-be-pushed`(pull도 멈춘다), `phone-project-first-folder-only`(검색은 모든 폴더를 찾고 여는 폴더가 틀린다), `push-alert-program-kinds-differ`(셋이 다르다), `tui-tab-hold-two-gaps`(틈은 하나다), `home-memory-workspace-map-empty`(Home lophn을 부르는 길은 있다), `remove-public-command-users-found-via-home`(앱 지침이 F2와 반대다)."
+  - "새 이슈(18): harness GUI `gui-composer-lacks-at-mention`, `claude-replay-shows-rows-live-hides`, `claude-gui-offers-remote-control`, `claude-gui-effort-lost-on-new-run`. 대화 `received-message-panel-repeats-body`. preview `preview-touch-emulation-changes-cursor`. 폰 `phone-session-header-leads-with-agent-name`, `phone-app-screen-draws-second-header`, `phone-app-icons-not-shown`, `remote-reply-over-frame-limit-is-dropped`, `phone-sidebar-sessions-and-dots-differ-from-desktop`, `phone-coding-agent-list-waits-for-session-read`, `phone-coding-session-takes-no-pictures`, `phone-terminal-view-unreadable-on-narrow-screen`, `phone-typed-slash-command-not-handled`, `phone-coding-open-refused-without-project-window`, `phone-cannot-open-terminal-tab`, `phone-new-session-has-redundant-coding-button`."
+  - "architecture 문서의 이슈 줄을 맞췄다: `platform.md`, `coding-agent.md`, `attention.md`, `workflow.md`, `app-sync.md`, `package.md`, `terminal-agent.md`(없어진 `lophn gui` 문장)."
+why: |
+  이슈가 쌓이면 아무도 보지 않는다. 다음 계획을 고르기 전에 열린 것을 지금 코드로 다시 보고, 사람이 쓰면서 본 것을 같은 목록에 올린다.
+decisions:
+  - text: "폰의 터미널 크기는 Paseo의 규칙을 따른다(폰이 열면 크기를 잡고 컴퓨터가 focus하면 다시 잡는다. 폰이 떠나면 되돌린다). 폰 앱 화면의 머리 줄은 lophn만 그린다. Claude의 `/remote-control`은 목록에서 숨긴다. 폰에서 coding agent는 고를 때가 아니라 첫 메시지를 보낼 때 연다. 사람이 방향을 말했고 세부는 추천안으로 진행했다."
+    by: agent
+  - text: "폰은 목록·이름·아이콘 같은 가벼운 것만 저장하고 대화 내용은 저장하지 않는다. 긴 coding session은 tool 본문을 펼칠 때 받는 것으로 푼다. 폰에서 터미널 탭을 스스로 열 수 있어야 하고, 새 session의 고르기 단추는 둘로 합친다."
+    by: person
+  - text: "관찰된 실패가 없거나 잃는 것이 없는 defect는 kept로 닫고 이유를 `closed`에 뒀다. 한 번 본 뒤 원인을 모르는 증상(`phone-open-url-blank-workspace`, `phone-cold-session-url-opens-inbox`, `e2e-app-restart-reader-unavailable-under-load`)은 열어 뒀다. 버린 길: 원인을 모른다는 이유로 닫기(사람이 본 증상이다)."
+    by: agent
+  - text: "`shell-run-bypasses-file-scope`는 사람이 그대로 두기로 정한 것이라 kept로 닫았다. shell로 범위 밖 file을 망가뜨린 일이 생기면 되살린다."
+    by: person
+  - text: "`remove-public-command-users-found-via-home`의 정한 것을 뒤집었다. A21이 F2(공개 command는 agent가 정한다)에 맞게 바뀐 뒤라 앱 지침의 \"사람에게 묻는다\"를 빼는 쪽이 맞고, 쓰는 곳 찾기는 P12를 지켜 home을 거친다."
+    by: agent
+  - text: "mistake 다섯은 check를 새로 만들지 않고 문장으로 막아 닫았다. 한 번씩 난 실수다. 다시 나면 check로 막는다."
+    by: agent
+  - text: "`gui-composer-lacks-at-mention`은 file만 찾는 것으로 시작한다. 버린 길: session·앱·annotation도 `@`에 넣기(쓰임이 보일 때 더한다)."
+    by: agent
+  - text: "폰의 대화 머리 줄은 session 이름이 큰 글이고 project는 작은 회색 글이다. 폰의 sidebar가 보이는 session과 상태 점은 desktop의 규칙을 따른다. coding session에서도 폰으로 이미지를 붙일 수 있어야 하고, 폰의 터미널 보기는 Paseo를 참고해 고친다(둘 다 `remote.md`의 비목표를 뒤집는다). 폰에서 연 coding session은 그 project를 보이는 창이 없으면 창을 focus 없이 하나 열어 거기에 연다."
+    by: person
+follow_up: |
+  사람이 정할 것이 남은 열린 이슈: `preview-touch-emulation-changes-cursor`(어디서 바뀐 채인지), `phone-write-events-not-delivered`, `phone-conversation-math-mermaid-as-code`, `phone-inbox-history-lacks-answers`, `workspace-relay-unused-and-disconnected`, `model-call-body-capacity-not-enforced`, `provider-failure-body-not-kept`, `windows-unsigned-blocked-by-smart-app-control`.

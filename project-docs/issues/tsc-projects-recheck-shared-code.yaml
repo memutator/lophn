@@ -3,23 +3,17 @@ title: check의 tsc project들이 같은 파일을 여러 번 type check해 CPU�
 kind: defect
 status: open
 topic: code-health
-modules: [tools, tests, packages/base, packages/protocol, packages/cli, packages/coding-agent, packages/sdk, packages/shell/renderer]
+modules: [tools, tests, packages/base, packages/protocol, packages/cli, packages/coding-agent, packages/sdk, packages/shell/renderer, packages/relay, packages/remote-client]
 now: |
-  `tools/check.ts`의 `TSC_PROJECTS`는 package마다 `tsc --noEmit -p <폴더>`를 따로 띄운다. project마다 import를 따라가
-  다른 package의 source를 자기 program에 다시 넣으므로 같은 파일이 여러 project에서 다시 검사된다
-  (`tsc --listFilesOnly`로 node_modules를 뺀 저장소 파일: 합 4415, 서로 다른 파일 2398, 평균 1.84번).
-  - `packages/protocol`은 10개 project 중 8개에, `packages/base`는 9개에 들어간다.
-  - `tests` project는 `packages/core` 파일 463개를, `tools` project는 protocol 파일 204개를 다시 검사한다.
-  base·protocol·core·cli·coding-agent·tools·tests의 tsconfig는 `tsconfig.base.json` 설정 그대로라(include·exclude만 다름)
-  한 program으로 묶을 수 있다. 재 보니 따로 일곱 번은 CPU 30.5초·최대 memory 합 5.0GB, 한 program은 CPU 14.1초·1.7GB이고
-  type 오류는 똑같이 없다. design·sdk·shell/renderer는 lib에 dom이 들어가 따로 둔다.
+  `tools/check.ts`의 `TSC_PROJECTS`는 package마다 `tsc --noEmit -p <폴더>`를 따로 띄운다(묶음 12개, tsc 16번). project마다 import를 따라가 다른 package의 source를 자기 program에 다시 넣으므로 같은 파일이 여러 project에서 다시 검사된다. base·protocol·core·cli·coding-agent·relay·remote-client·tools·tests의 tsconfig는 `tsconfig.base.json` 설정 그대로라(include·exclude만 다름) 한 program으로 묶을 수 있다. design·sdk·shell/renderer는 lib에 dom이 들어가 따로 둔다.
+  relay와 remote-client가 생기기 전(project 10개)에 잰 값: `tsc --listFilesOnly`로 node_modules를 뺀 저장소 파일이 합 4415, 서로 다른 파일 2398(평균 1.84번). `packages/protocol`은 10개 project 중 8개에, `packages/base`는 9개에 들어갔다. node 쪽 일곱을 따로 돌리면 CPU 30.5초·최대 memory 합 5.0GB, 한 program은 CPU 14.1초·1.7GB이고 type 오류는 똑같이 없었다. 지금은 project가 늘어 다시 검사가 더 많다.
 impact: |
   개발 비용. worker 여럿이 `npm run check`를 겹쳐 돌리면 tsc가 core와 memory를 다 먹어 사람이 쓰는 lophn 터미널 입력이
   밀리고 swap까지 간다(TypeScript 7 tsc는 project 하나에도 여러 thread를 쓴다). check의 낮은 우선순위와 동시 수 제한은
   밀림을 줄일 뿐이고 하는 일의 양은 그대로다.
 fix: |
-  - (추천, 작음) root에 node 쪽 tsconfig 하나(base·protocol·core·cli·coding-agent·tools·tests의 include, 각 exclude를 옮김)를
-    두고 `TSC_PROJECTS`에서 이 일곱을 그 하나로 바꾼다. node 쪽 package 하나만 바뀌어도 전부 검사하지만 지금도 tests·tools가
+  - (추천, 작음) root에 node 쪽 tsconfig 하나(base·protocol·core·cli·coding-agent·relay·remote-client·tools·tests의 include, 각 exclude를 옮김)를
+    두고 `TSC_PROJECTS`에서 이 아홉을 그 하나로 바꾼다. node 쪽 package 하나만 바뀌어도 전부 검사하지만 지금도 tests·tools가
     대부분을 다시 보므로 잃는 것이 거의 없다. 잃는 것: package마다 따로 걸리던 "다른 package에서 안 보이는 global" 같은
     차이(지금 설정이 같아 실제로는 없음).
   - (큼) project references + `tsc -b`로 package마다 `.d.ts` 경계를 둔다. 다시 검사가 없어지지만 composite·emit 설정과

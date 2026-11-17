@@ -1,7 +1,7 @@
 id: shell-run-bypasses-file-scope
 title: '`shell.run`이 file 범위와 rewind를 거치지 않는다'
 kind: bug
-status: open
+status: kept
 topic: workspace-session
 modules: [packages/core/lophn-agent, packages/core/agent-workspaces]
 now: project와 app workspace 종류의 tool 목록에 `shell.run`이 있다(`packages/protocol/lophn-agent/tool-lists.ts`의 `WORK_TOOLS`). home에는 없다. `packages/core/lophn-agent/tools/shell/run.ts`의 `runShell`은 범위의 base 폴더에서 `/bin/sh`를 띄운다. 자식 process에는 아무 권한 제한이 없다. OS sandbox는 없다. 판정은 shell 규칙(제품 floor·ask, Settings의 전역·project 층, `architecture/approval.md`)이 하고 effect는 `external`이다. 규칙에 걸리지 않는 명령은 묻지 않고 돈다. rewind 기록은 `file.write`·`file.edit`만 남긴다(`packages/core/agent-workspaces/hooks.ts`의 `FILE_HOOKS`).
@@ -12,3 +12,6 @@ fix: |
 
   추천: 첫째. project workspace에서 shell이 필요한 경우를 아직 보지 못했다.
 decided: '(사람, 2026-10-19): 일단 그대로 둔다.'
+closed: |
+  사람이 그대로 두기로 정했다(`decided`). shell 규칙은 경계가 아니고 `shell.run`은 file 범위와 rewind 밖이라는 것을 `architecture/approval.md`가 말한다. agent가 shell로 범위 밖 file을 망가뜨린 일이 생기면 `regressed`로 되살리고 project workspace에서 `shell.run`을 빼거나 OS sandbox를 둔다.
+guard: 없음

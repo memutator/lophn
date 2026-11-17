@@ -1,18 +1,14 @@
 id: flow-process-no-resource-limits
-title: 'flow process에 CPU·memory·시간 한도가 없다'
+title: flow process에 memory 한도가 없다
 kind: bug
-status: fixed
+status: open
 topic: workflow
 modules: [packages/core/main]
 now: |
-  `packages/core/main/flow-host/host.ts`의 `launch`는 `spawnProcess`로 `deno run`을 띄울 뿐 `--v8-flags=--max-old-space-size`나 시간 한도를 두지 않는다. 시간 한도는 brief가 일부러 두지 않았다(오래 도는 flow가 정상이다). 멈추는 길은 사람의 `StopWorkflow`뿐이다. 앱 process도 CPU·RSS 한도가 없고 화면에 그 한계를 알린다(`packages/core/apps/permissions/flags.ts`의 `permissions.limit.cpu`, `permissions.limit.rss`). flow에는 그런 안내도 없다.
+  flow process(`packages/core/main/flow-host/host.ts`)는 `nodeCommand`(`packages/core/supervision/security/node-command.ts`)로 Electron의 Node를 띄우고 heap 한도 인자를 주지 않는다. Deno로 띄울 때 `flowFlags`가 주던 512 MiB 한도(`--v8-flags=--max-old-space-size=512`)와 그것을 보던 `flags_test.ts`는 Node로 옮기며 없어졌다. CPU 한도는 이슈 `flow-process-cpu-limit`이 따로 가진다. 시간 한도는 두지 않기로 했다(오래 도는 flow가 정상이다).
 impact: |
-  AI가 짠 `flow.ts`가 끝없는 loop에 빠지거나 memory를 계속 늘리면, 사람이 화면에서 멈출 때까지 사람의 기계에서 CPU 하나와 memory를 잡는다. job이 밤에 시작한 flow면 아무도 보지 않는 동안 그렇다.
+  AI가 짠 `flow.ts`가 memory를 계속 늘리면 Node 기본 heap 한도에 닿을 때까지 사람의 기계 memory를 잡는다. job이 밤에 시작한 flow면 아무도 보지 않는 동안 그렇다.
 fix: |
-  - `flowFlags`에 `--v8-flags=--max-old-space-size=<MiB>`를 더한다. 넘으면 process가 죽고 `program_exited` 줄에 끝 code와 stderr가 남는다. 작음.
-  - CPU 시간은 OS 한도(`prlimit`)가 필요하고 core는 그 실행 허락이 없다. 큼. 앱과 같이 다룬다.
-
-  추천: memory 한도만 먼저 둔다. CPU와 시간은 앱의 한도를 정할 때 같이 정한다.
-closed: |
-  `flowFlags`가 `--v8-flags=--max-old-space-size=512`를 늘 더한다. 넘으면 process가 죽고 `program_exited` 줄에 끝 code와 stderr 끝이 남는다. 시간 한도는 두지 않는다(오래 도는 flow가 정상이고 멈추는 길은 `StopWorkflow`다). CPU 한도는 남은 문제라 열린 이슈 "flow process에 CPU 한도가 없다"로 옮겼다.
-guard: 'packages/core/main/flow-host/flags_test.ts의 test "flow flags deny reading outside symlinks and always cap memory"'
+  - 작음(추천): flow process를 띄울 때 `--max-old-space-size=512`를 Node 인자로 준다(`ELECTRON_RUN_AS_NODE`에서 그 인자가 먹는지 먼저 확인한다). 넘으면 process가 죽고 `program_exited` 줄에 끝 code와 stderr 끝이 남는다. 다시 생긴 문제라 test를 같이 쓴다.
+regressed: |
+  앞서는 `flowFlags`가 `--v8-flags=--max-old-space-size=512`를 늘 더하는 것으로 닫았고 `flags_test.ts`가 지켰다. flow를 Deno에서 Node로 옮기며 `flowFlags`와 그 test가 함께 없어져 한도가 사라졌다. `architecture/workflow.md` "열린 것"이 이것을 적고 있다.

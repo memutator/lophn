@@ -1,0 +1,13 @@
+id: received-message-panel-repeats-body
+title: 다른 agent가 보낸 메시지의 chip을 펼치면 아래 본문과 같은 글이 한 번 더 보인다
+kind: bug
+status: open
+topic: agent-chat
+modules: [packages/shell/renderer]
+now: |
+  lophn 대화에서 다른 agent나 앱이 보낸 메시지는 `ReceivedMessage`(`packages/shell/renderer/conversation/thread/received-message.tsx`)가 보낸 쪽 chip, chip을 누르면 펼쳐지는 `SenderPanel`, 늘 보이는 본문 셋으로 그린다. `SenderPanel`(`thread/sender-chip.tsx`)의 "What was handed over" 칸은 `envelope.task`를 보이는데, `readEnvelope`(`conversation/agent-tab-core-source-bodies.ts`)가 `task`를 그 메시지의 본문 글(`textOf(body.value)`)로 채운다. 그래서 chip을 펼치면 아래에 고정으로 보이는 본문과 같은 글이 위에 한 번 더 나온다. panel이 따로 주는 것은 근거 링크와 보낸 session뿐이다. gallery의 가짜 source는 본문을 짧게, `task`를 길게 넣어 둘이 다른 글인 것처럼 보인다.
+impact: |
+  사람이 다른 agent에게서 온 메시지를 읽을 때 같은 글이 펼침과 고정으로 두 번 보여 무엇이 다른지 찾게 된다. 긴 메시지면 화면을 두 배로 쓴다.
+fix: |
+  - 작음(추천): `SenderPanel`에서 "What was handed over" 칸을 빼고 근거 링크와 보낸 session만 둔다. 둘 다 없으면 chip이 펼쳐지지 않는다. gallery의 가짜 source도 같은 꼴로 맞춘다.
+  - 작음: 본문을 몇 줄로 접고 펼친 panel이 전체를 보인다. 받은 메시지를 읽으려면 한 번 더 눌러야 한다.

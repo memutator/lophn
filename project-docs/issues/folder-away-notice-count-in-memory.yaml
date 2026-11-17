@@ -9,5 +9,5 @@ now: |
 impact: |
   사람은 재시작 뒤 이미 읽은 "too long away" 알림을 다시 받고, held를 다 풀어도 Inbox의 줄이 "N changes are still held"로 남는다.
 fix: |
-  - 작음(추천): 마지막으로 알린 수를 기억하지 않고 notice 줄(같은 key)의 params를 읽어 비교한다. 줄이 이미 상태다.
-  - 작음: `folder_streams`에 칸을 더한다(schema step 하나).
+  - 작음(추천): `folder_streams`에 마지막으로 알린 held 수 칸을 더한다(schema step 하나와 `schema-steps.lock.json` 줄). notice 줄은 그려진 title과 body만 가져(`packages/core/apps/notices/program-text.ts`) 수를 되읽을 수 없다.
+  - 작음: notice 줄의 body 글에서 수를 다시 읽는다. 문구를 바꾸면 깨진다.

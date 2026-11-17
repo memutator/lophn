@@ -1,7 +1,7 @@
 id: home-session-shows-lophn-face
 title: 사람이 만든 agent의 home session이 런처에서 lophn 얼굴로 보인다
 kind: bug
-status: open
+status: fixed
 topic: shell
 modules: [packages/shell/renderer]
 now: |
@@ -12,3 +12,6 @@ fix: |
   - 패널이 연 session의 agent(session store `SessionEntry.agent`)로 source를 고른다(작음, 패널 하나). 런처에서 home의 다른 agent를 고르는 길은 없다.
   - 런처에 home의 agent select를 둔다(중간, 화면을 새로 그린다).
   - 추천: 앞의 것. 여는 길이 이미 session id라 그 session의 agent를 쓰면 된다.
+closed: |
+  런처의 lophn 패널이 없어졌다. Home session은 `packages/shell/renderer/desktop/main.tsx`의 `openSession`이 `openHome(session)`으로 열고, 탭은 `workspace/sidebar/panel-sessions.ts`의 `agentRow`가 그 session의 agent(`sessionAgentKey`)로 찾는다. lophn source 하나로 읽는 길이 없다.
+guard: 없음

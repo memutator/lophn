@@ -1,12 +1,13 @@
 id: shell-misses-new-core-after-stop
-title: "shell이 다른 client의 stop 뒤에는 새 core를 스스로 알아채지 못한다"
+title: shell이 다른 client의 stop 뒤에는 새 core에 다시 붙지 못한다(Reconnect를 눌러도)
 kind: bug
 status: open
 topic: platform
 modules: [packages/shell/main]
 now: |
-  shell이 `closed(shutdown)`이나 identify `stopping`을 보면 그 process에서는 core를 다시 띄우지 않는다(`connection.ts`의 `shutdownSeen`). 새 core(CLI가 띄운 것)에 붙는 것은 renderer의 core 호출(file tree poll, Reconnect 단추)이 `join()`할 때뿐이고 판이 같아야 한다. 주기적 identify는 없다.
+  shell이 `closed(shutdown)`이나 identify `stopping`을 보면 그 process에서는 core를 다시 띄우지 않는다(`packages/shell/main/desktop/core/connection.ts`의 `shutdownSeen`). 주기적 identify는 없다. 그때 죽은 연결(`attached`)을 비우지 않는다. `shutdownSeen`이면 `sink.stale`과 `recover`가 바로 돌아가고, renderer의 core 호출(Reconnect 단추, file tree poll)은 `attached`가 비어 있을 때만 `attachIfAlive`로 가는데 `attached`가 남아 있어 죽은 session에 호출을 보낸다. `attached`를 비우는 곳은 crash가 한도를 넘었을 때와 `detach`·`stopCore`뿐이다. 그래서 CLI가 core를 다시 띄워도 이 shell은 Reconnect로도 붙지 못한다. 코드를 읽어 찾았고 돌려서 확인하지는 않았다.
 impact: |
-  `lophn core stop` 뒤 CLI가 core를 다시 띄워도 shell 화면은 Reconnect를 누르기 전까지 끊긴 채일 수 있다.
+  `lophn core stop` 뒤 CLI가 core를 다시 띄워도 shell 화면은 끊긴 채이고, 사람은 lophn 앱을 Quit하고 다시 켜야 한다.
 fix: |
-  `shutdownSeen` 동안 30초마다 identify만 묻고(띄우지 않는다) ready면 join한다(작음).
+  - 작음(추천): `shutdownSeen`이 되면 `attached`를 비워 renderer의 호출이 `attachIfAlive`로 가게 한다(이미 서 있는 core에만 붙고 띄우지 않는다). 돌려서 Reconnect가 붙는지 확인한다.
+  - 작음: 위에 더해 `shutdownSeen` 동안 30초마다 identify만 묻고(띄우지 않는다) ready면 붙는다. 사람이 누르지 않아도 붙는다.

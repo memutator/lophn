@@ -1,7 +1,7 @@
 id: image-only-pending-message-blank
 title: 일하는 중 보낸 이미지만 든 사람 메시지가 대기 줄에서 빈 줄로 보인다
 kind: bug
-status: open
+status: fixed
 topic: shell
 modules: [packages/shell/renderer, packages/core/lophn-agent]
 now: |
@@ -12,3 +12,6 @@ fix: |
   - event의 `body`를 `blocksSummary(input.body)`로 채운다(작음, core 한 줄). live 메시지 목록도 본문을 읽기 전까지 `[image]`를 보인다.
   - event에 block을 싣는다(중간, event 계약이 바뀐다).
   - 추천: 앞의 것.
+closed: |
+  `MessageReceived`의 `body`는 block 배열이고(`packages/protocol/events/agent.ts`) `run-loop/work.ts`가 그대로 싣는다. 대기 줄의 `summary`는 `conversation/thread-layout.ts`가 `blocksSummary(queued.content)`로 채워 이미지만 든 메시지도 `[image]`로 보인다.
+guard: 없음

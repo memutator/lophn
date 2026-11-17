@@ -291,7 +291,7 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 
 - Windows hook 명령이 cmd에서 돌지 않는다. 따옴표 없는 `C:/…` 경로는 cmd가 명령으로 읽지 못하고, 설치본의 맨 `lophn`은 lophn 터미널 밖의 PATH와 Git Bash에서 못 찾는다. 다시 깔기·지우기·dry_run이 `C:/…` 경로 hook을 우리 것으로 알아보지 못한다. 추천은 hook 명령을 cmd와 Git Bash 양쪽에서 도는 꼴로 쓰는 것이다. (이슈 "Windows에서 깔린 hook 명령이 cmd에서 돌지 않고 GUI↔TUI toggle이 없다")
 - Windows에서 foreground 판정과 TUI 끄기가 없다. 후보는 ConPTY에 Ctrl+C를 쓰거나 process tree를 끄는 것, foreground는 PTY shell pid 아래 process tree 근사다. 그 전까지는 toggle이 없음이 드러나야 한다(지키는 것 4). (같은 이슈)
-- 다른 client(CLI)가 stop한 뒤 shell은 주기적으로 identify를 묻지 않아 새 core에 스스로 붙지 못한다. Reconnect를 눌러야 한다. (이슈 "shell이 다른 client의 stop 뒤에는 새 core를 스스로 알아채지 못한다")
+- 다른 client(CLI)가 stop한 뒤 shell은 주기적으로 identify를 묻지 않아 새 core에 스스로 붙지 못한다. 죽은 연결을 비우지 않아 Reconnect를 눌러도 붙지 못하고 shell을 다시 켜야 한다(코드로 읽은 것이다). (이슈 `shell-misses-new-core-after-stop`)
 - 업데이트 뒤 첫 로그인 실행이 옛 등록(Linux·Windows의 `--tray`, macOS의 login item)이면 새 판이 일반 실행으로 창을 한 번 연다. 그 실행이 옛 등록을 표시로 옮긴다. (이슈 "업데이트 뒤 첫 로그인 실행은 창을 한 번 연다")
 - 늘 켜 둠의 OS 쪽(systemd unit, LaunchAgent, Windows `Run` 값, keep-awake child, child tree 끄기, NSIS 제거 macro)은 어느 실제 기계에서도 돌려 보지 않았다. 글 만들기와 OS 답 읽기는 fake exec로만 확인했다. 사람이 설치본에서 change-log `always-on`의 checklist로 본다.
 - Windows의 로그인 시작은 core 입구가 아니라 Electron `--core`를 거쳐 `LOPHN_SERVICE=1`과 기동 실패 exit 0 규칙이 걸리지 않는다. (이슈 `windows-login-start-not-service`)

@@ -1,0 +1,17 @@
+id: remote-reply-over-frame-limit-is-dropped
+title: remote 답이 frame 한도(16 MiB)를 넘으면 말없이 버려져 폰과 다른 기계의 창이 끝없이 기다린다
+kind: bug
+status: open
+topic: remote
+modules: [packages/core/remote, packages/remote-client, packages/protocol]
+now: |
+  컴퓨터가 remote 호출에 답할 때 `packages/core/remote/host.ts`는 `channel.send`의 결과를 보지 않는다. `channel.send`(`packages/protocol/remote/channel.ts`)는 frame이 `REMOTE_FRAME_MAX_BYTES`(16 MiB)를 넘으면 `invalid_input`을 돌려주고 아무것도 보내지 않는다. 부른 쪽(`packages/remote-client/connection.ts`)에는 호출 기한이 없어 그 호출이 `pending`에 끝없이 남고, 한 번에 도는 호출 8개(`IN_FLIGHT`) 가운데 한 자리를 계속 쥔다. 그런 호출이 8개 쌓이면 그 연결의 다음 호출이 모두 줄에서 기다린다. 큰 답이 나올 수 있는 곳은 coding session의 대화 snapshot이다. `AcpState.items`(`packages/protocol/acp/state.ts`)에는 개수 한도가 없고 tool 본문 하나만 64 KiB로 막는다. 사람이 본 것: 긴 coding session 하나(Claude Code session, transcript가 약 99 MB)를 폰에서 열면 아무 내용도 그려지지 않는다. 이 길에 걸릴 만한 크기지만 그 snapshot이 실제로 16 MiB를 넘는지는 재지 않았다.
+impact: |
+  아주 긴 coding session의 대화를 폰이나 다른 기계의 창에서 열면 화면이 loading에 머물고 오류도 뜨지 않는다. 여러 번 다시 열면 그 연결의 다른 화면도 멈춘 것처럼 보이고 다시 붙어야 풀린다.
+fix: |
+  - 먼저: 그 session을 폰에서 열 때 컴퓨터가 만드는 snapshot의 크기를 재서 이 길이 맞는지 본다. 아니면 원인을 다시 찾는다.
+  - 작음(1): 답이 한도를 넘으면 그 호출에 오류(`unavailable`과 "답이 너무 크다"는 글)로 답하고, remote-client에 호출 기한을 둬 자리를 놓는다. 화면은 loading 대신 오류와 다시 하기를 보인다.
+  - 중간(2): coding session의 tool 본문(입력과 출력, 하나에 64 KiB까지)을 snapshot에 싣지 않고 사람이 tool 줄을 펼칠 때 그 하나만 읽는다. lophn agent session이 이미 그렇게 한다(`toolCallBody`). snapshot 크기의 대부분이 본문이라 긴 대화가 열린다.
+  - 큼(3): item도 끝에서부터 N개씩 나눠 받고 위로 scroll할 때 더 받는다. ACP state와 desktop·폰 대화 화면, 숨긴 구간, 검색이 같이 바뀐다.
+decided: |
+  1과 2를 한다. 3은 2를 하고도 긴 대화가 느릴 때 한다. 폰은 대화 내용을 저장하지 않는다(사람: session까지 저장할 필요는 없다).

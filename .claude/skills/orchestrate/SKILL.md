@@ -94,6 +94,7 @@ worker에게 꼭 넣을 것(`prompt.py`에 들어 있다. 고치면 이 목록�
 | 소유 밖 file을 안 고쳤다 | `git diff --name-only plan/<계획>...<branch>`를 brief의 소유와 댄다. 예외: 지운 것을 가리키던 등록 줄만 뺀 것, i18n catalog에 key를 더한 것 |
 | check가 통과한다 | worktree에서 `npm run check:full`. 빠른 check는 바뀐 package만 본다 |
 | 위험 test | brief의 "위험 test"가 이름으로 있고 통과한다 |
+| 계획의 목표와 본보기 | diff가 README와 같은지만 보지 않는다. 계획의 목표 문장(사람의 말)과 계획이 따른다고 한 본보기에 비춰 만든 모양이 맞는지 본다. 본보기와 다른 장치를 만들었으면 README의 정한 것에 그 차이가 적혀 있어야 한다(이슈 `plan-reference-shape-unchecked-in-review`) |
 | 기존 계약을 좁히지 않았다 | 입력 검사나 자격을 바꾼 route를 `grep -rn "<route>" tests/e2e tests/support`로 찾는다. brief 밖에서 좁힌 것(앱 id를 누가 정하나)이 check:full을 지나 e2e에서 깨진 일이 있다 |
 | 할 일을 다 했다 | brief의 "할 일"과 "남지 않음" grep을 하나씩 댄다. `TODO`·`FIXME` grep |
 | core가 뜬다 | check는 통과해도 reader 등록 중복처럼 기동 때만 드러나는 오류가 있다. `lead/boot.sh`(merge.sh가 돌린다) |

@@ -9,11 +9,11 @@ now: |
   - 구독 로그인: `login.complete`(`packages/core/lophn-agent/providers/login.ts`)가 `saveProviderTokens`로 `provider.<id>`(과 `.refresh`·`.meta`)를 쓴 다음 `connectProvider`를 부른다. `conflict`면 "그 이름은 그 provider의 token이라 지우지 않는다"고 주석을 두고 지우지 않는데, 그 token은 이미 새 로그인의 것이다.
   - API key: `connectWithKey`(`packages/shell/renderer/desktop/settings/providers/core-source.ts`)가 보호 입력 창으로 `secrets/put`을 먼저 올린 뒤 connect를 보내고, `conflict`면 지우지 않는다. `secrets/put`은 같은 이름을 조용히 바꾼다.
   - 같은 id가 나오는 경우: 정의 key마다 창이 id를 하나 쥐고(`idFor`) 이미 연결된 정의는 그 id를 다시 쓴다. 다른 창에서 먼저 연결했거나 목록이 낡은 창에서 한 번 더 연결하면 이 길로 간다.
-  - (2026-11-14 screen-sync) provider 목록이 `providers` 변경을 받아 다시 읽고(다른 창이 먼저 이은 것이 보인다), API key 연결과 구독 로그인 시작·custom 등록이 값을 쓰기 직전에 `providers/list`를 다시 읽어 그 정의가 이미 이어져 있으면 아무것도 쓰지 않고 `conflict`를 낸다(renderer, `packages/shell/renderer/desktop/settings/providers/core-source.ts`). 남은 것: 두 창이 거의 같은 순간에 잇는 틈, core `login.complete`가 connect 전에 token을 쓰는 것, 끊기의 renderer best-effort 정리. 이 셋은 core가 맡아야 해서 열어 둔다.
+  - renderer 쪽은 막았다. provider 목록이 `providers` 변경을 받아 다시 읽고(다른 창이 먼저 이은 것이 보인다), API key 연결과 구독 로그인 시작·custom 등록이 값을 쓰기 직전에 `providers/list`를 다시 읽어 그 정의가 이미 이어져 있으면 아무것도 쓰지 않고 `conflict`를 낸다(renderer, `packages/shell/renderer/desktop/settings/providers/core-source.ts`). 남은 것: 두 창이 거의 같은 순간에 잇는 틈, core `login.complete`가 connect 전에 token을 쓰는 것, 끊기의 renderer best-effort 정리. 이 셋은 core가 맡아야 해서 열어 둔다.
   - 같은 뿌리의 작은 것: 끊기(`disconnect`)에서 secret 값 정리는 renderer가 끝난 뒤 best-effort로 한다(같은 파일). 그 사이 창이나 core가 죽으면 끊은 provider의 key·refresh token이 `secrets.json`에 남는다. core는 값을 지우지 않는다.
 impact: |
   연결이 실패(`conflict`)로 끝나는데 이미 쓰던 provider의 key나 구독 token이 다른 계정의 token이나 틀린 key로 바뀐다. 그 provider를 쓰던 agent의 turn이 인증 오류로 실패하고, 사람은 원래 key를 다시 넣어야 한다. 구독은 다른 계정의 token으로 쓰이는 채 provider 행은 옛 계정을 보인다.
   끊기는 renderer의 best-effort 정리라서(위 "같은 뿌리") 끊은 provider의 key·구독 token이 `secrets.json`에 남는 틈이 따로 있다. 사람은 끊었다고 믿는다.
 fix: |
-  - 값을 쓰기 전에 그 id의 provider가 있는지 읽어 보고(또는 core가 login begin·secret put 단계에서 거절하고) 있으면 쓰지 않는다. 작음. 추천.
-  - 새 연결은 임시 이름에 쓰고 ConnectProvider가 성공한 뒤에 `provider.<id>`로 옮긴다. 중간. 끊기의 정리 누락과 같이 core가 맡을 수 있다(Disconnect command가 값을 지운다).
+  - core가 맡는다(중간, 추천). `login.complete`가 그 id의 provider가 있는지 먼저 보고 있으면 token을 쓰지 않는다. 새 연결은 임시 이름에 쓰고 ConnectProvider가 성공한 뒤에 `provider.<id>`로 옮긴다. Disconnect command가 secret 값을 지운다(renderer의 best-effort 정리를 없앤다).
+  - renderer가 값을 쓰기 직전에 다시 읽는 것은 이미 했다. 두 창이 같은 순간에 잇는 틈은 이것으로 막지 못한다.

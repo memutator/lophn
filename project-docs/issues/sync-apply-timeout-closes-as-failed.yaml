@@ -9,5 +9,5 @@ now: |
 impact: |
   큰 폴더 file(최대 1,000개·16 MiB)이나 느린 기계에서 다른 기계·폰의 변경이 DB에 들어갔는데 Activity에는 changeset 없는 실패와 빈 성공만 남는다. 그 변경은 rewind로 되돌릴 수 없고, 결과 모름이었다면 막혔을 rewind 범위가 막히지 않아 rewind가 그 변경을 모른 채 앞뒤를 되돌린다.
 fix: |
-  - 작음(추천): relay가 `lost`와 `not_sent`를 가르게 하고(호출 길의 `sent`처럼) service가 보낸 뒤 잃은 답은 결과 모름(`closeUnknown`)으로 닫는다. abandon 길이 이미 그렇게 한다. rewind는 결과 모름이 든 범위를 막으므로 사람은 그 사실을 본다.
+  - 작음(추천): relay가 `lost`와 `not_sent`를 가르게 하고(호출 길의 `sent`처럼) service가 보낸 뒤 잃은 답은 결과 모름(`closeUnknown`)으로 닫는다. abandon 길이 이미 그렇게 한다. 앱 process가 틀린 답을 준 경우("the app process answered badly")도 보낸 뒤라 같은 결과 모름으로 닫는다. rewind는 결과 모름이 든 범위를 막으므로 사람은 그 사실을 본다.
   - 중간: 앱 process가 변경 id마다 결과를 남겨 다시 물을 수 있게 한다.

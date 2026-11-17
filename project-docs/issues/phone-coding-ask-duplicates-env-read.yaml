@@ -5,9 +5,9 @@ status: open
 topic: remote
 modules: [packages/mobile, packages/shell/renderer]
 now: |
-  desktop의 대화 source가 쓰는 `env.read`(`packages/shell/renderer/conversation/agent-tab-core-source-env.ts`)는 실패에서 오류 code만 남기고(`errorCodeOf`) 문장을 버린다. 폰의 열기와 깨우기는 컴퓨터가 준 문장("Open the project on the computer")을 그대로 보여야 해서 `packages/mobile/src/data/coding.ts`의 `codingOf` 안 `ask`가 `client.core.call`을 직접 부르고 결과를 `CodingResult`로 옮긴다. 터미널의 `packages/mobile/src/data/terminal.ts`도 같은 모양의 `call`을 따로 가진다. 같은 일(`core.call`의 답을 Result로 옮기기)이 폰 안에 둘이고 `env.read`까지 셋이다.
+  desktop의 대화 source가 쓰는 `env.read`(`packages/shell/renderer/conversation/agent-tab-core-source-env.ts`)는 실패에서 오류 code만 남기고(`errorCodeOf`) 문장을 버린다. 폰의 열기와 깨우기는 컴퓨터가 준 문장("Open the project on the computer")을 그대로 보여야 해서 `packages/mobile/src/data/coding.ts`의 `codingOf` 안 `ask`가 `client.core.call`을 직접 부르고 결과를 `CodingResult`로 옮긴다. `data/terminal.ts`의 `call`과 `data/places.ts`의 `ask`도 같은 모양이다. 같은 일(`core.call`의 답을 Result로 옮기기)이 폰 안에 셋이고 `env.read`까지 넷이다.
 impact: |
-  호출 오류 처리(예외 → `unavailable`, 오류 code 옮기기)를 고칠 곳이 셋이 된다. 사람이 보는 동작과 데이터에는 닿지 않는 개발 비용이다.
+  호출 오류 처리(예외 → `unavailable`, 오류 code 옮기기)를 고칠 곳이 넷이 된다. 사람이 보는 동작과 데이터에는 닿지 않는 개발 비용이다.
 fix: |
-  - 작음(추천): `env.read`의 실패에 optional `message`를 싣고(desktop 소비자는 무시한다) 폰의 `ask`와 `call`을 지워 `env.read`로 모은다.
-  - 더 작음: 폰의 두 helper를 `data/ops.ts`의 한 함수로 합친다. desktop file은 건드리지 않는다.
+  - 작음(추천): 폰의 세 helper를 한 함수로 합친다(`data/places.ts`의 `ask`를 꺼내 셋이 쓴다). desktop file은 건드리지 않는다.
+  - 작음: `env.read`의 실패에 optional `message`를 싣고(desktop 소비자는 무시한다) 폰의 helper를 지워 `env.read`로 모은다.

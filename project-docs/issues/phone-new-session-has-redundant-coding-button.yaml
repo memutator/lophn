@@ -1,0 +1,14 @@
+id: phone-new-session-has-redundant-coding-button
+title: 폰의 새 session 화면에 고르기 단추가 셋이고 Coding agents 단추가 agent 단추와 겹친다
+kind: bug
+status: open
+topic: remote
+modules: [packages/mobile, tools]
+now: |
+  폰의 새 session 화면(`packages/mobile/src/screens/session/new-session.tsx`)은 workspace 단추, agent 단추, Coding agents 단추 셋을 보인다(sheet `workspace`, `agent`, `coding`). agent 단추의 목록과 Coding agents 단추의 목록(`screens/coding/pick.tsx`)이 같은 고르기를 둘로 나눈 것이라 화면에 단추가 하나 더 선다. desktop은 한 목록 안에서 lophn agent 묶음과 coding agent 묶음을 나눈다.
+impact: |
+  사람이 누가 일할지 고르는 단추가 둘이라 어느 것을 눌러야 하는지 한 번 더 본다. 좁은 화면에서 단추 줄이 두 줄이 된다.
+fix: |
+  - 작음(추천): 단추를 workspace와 agent 둘로 한다. agent 단추의 sheet 안에서 lophn agent 묶음과 coding agent 묶음(과 Terminal 항목)을 item으로 나눈다. coding agent를 고르면 입력칸 위에 "컴퓨터에 새 터미널 탭으로 시작한다"를 보이고 보내기를 누를 때 연다(이슈 `phone-new-coding-session-opens-on-pick`). wireframe을 먼저 고친다(`ui-design` skill).
+decided: |
+  사람이 정했다: 단추는 둘로 합치고 안에서 item으로 구분한다.

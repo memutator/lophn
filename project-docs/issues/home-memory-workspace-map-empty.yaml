@@ -5,11 +5,10 @@ status: open
 topic: agent-definition
 modules: [packages/core/agent-workspaces]
 now: |
-  Home memory(`<data>/home/memory.md`)는 이제 모든 workspace의 lophn·사람이 만든 agent가 `global memory`로 받는다(`packages/core/agent-workspaces/hooks.ts` `readMemoryTexts`). Home prompt(`packages/core/agent-workspaces/prompts/home.md` "Memory")는 workspace를 건너는 사실(workspace 지도 포함)을 거기 적으라고 한다. project·앱 prompt(`prompts/project.md`, `prompts/app.md`)는 global memory를 읽기만 하고, 거기 없으면 사람에게 물으라고 한다. 쓰는 것은 Home lophn과 사람뿐이다. project·앱 lophn은 Home lophn을 부를 수 없다(`router.ts`가 handle `lophn`을 부른 쪽 workspace로 보낸다). 자기 workspace에 다른 workspace가 물을 만한 것이 생겼을 때(새 report, 맡은 일이 바뀜) Home에 알리는 길이 없다. 그래서 지도는 사람이 Home에서 직접 말해 주는 것과 Home이 스스로 넘긴 일로만 채워진다.
+  Home memory(`<data>/home/memory.md`)는 모든 workspace의 lophn·사람이 만든 agent가 `global memory`로 받는다(`packages/core/agent-workspaces/hooks.ts` `readMemoryTexts`). Home prompt(`packages/core/agent-workspaces/prompts/home.md` "Memory")는 workspace를 건너는 사실(workspace 지도 포함)을 거기 적으라고 한다. project·앱 prompt(`prompts/project.md`, `prompts/app.md`)는 global memory를 읽기만 하고, 거기 없으면 사람에게 물으라고 한다. 쓰는 것은 Home lophn과 사람뿐이다. project·앱 lophn이 Home lophn을 부르는 길은 있다(call의 workspace를 `{home: true}`로 적으면 `packages/core/router/router.ts`가 부른 쪽 workspace로 바꾸지 않는다. private workspace는 call 정책이 막는다). 하지만 어느 prompt도 자기 workspace에 다른 workspace가 물을 만한 것이 생겼을 때(새 report, 맡은 일이 바뀜) Home에 알리라고 하지 않는다. 그래서 지도는 사람이 Home에서 직접 말해 주는 것과 Home이 스스로 넘긴 일로만 채워진다.
 impact: |
   사람이 path를 주지 않아도 agent가 필요한 자료를 찾아가게 하려는 memory의 목적이 이뤄지지 않는다. 예: harness-lab project의 lophn이 memory 구조 비교 report를 써도 global memory의 지도에는 없다. lophn project의 agent는 global memory에서 못 찾고 사람에게 묻는다. 사람이 매번 path를 알려 준다.
 fix: |
-  - project·앱 prompt에서 "다른 workspace가 물을 만한 것이 생기면 사람에게 Home에 적으라고 말한다"를 더한다(작음). 잃는 것: 사람이 한 번 더 움직인다.
-  - Home lophn이 지도가 비었거나 낡았을 때 각 workspace의 lophn에게 물어 global memory를 채운다(중간). Home에서 보낸 call은 다른 workspace에 닿는다. 잃는 것: 물을 때마다 workspace 수만큼 call이 든다.
-  - project·앱에서 Home lophn에 닿는 알림 길을 연다(중간). 잃는 것: 한 workspace에서 속은 agent가 모든 prompt에 실리는 글을 넣는 길이 생긴다(계획 browser-vault가 막기로 정한 길).
-  - 추천: 둘째. 쓰는 쪽을 Home으로 두는 경계를 지키고 prompt 문구만 바꾼다.
+  - 작음(추천): project·앱 prompt에 "다른 workspace가 물을 만한 것이 생기면 Home lophn에게 call로 알린다(`workspace: {home: true}`)"를 더하고, Home prompt에 그 call을 받으면 global memory의 지도를 고친다고 쓴다. 쓰는 쪽은 Home 그대로다. `app.md`는 앱 agent가 읽는 지침이라 `migrate-sdk` 메모(Instruction diff)가 든다. 잃는 것: 한 workspace에서 속은 agent가 Home lophn을 거쳐 모든 prompt에 실리는 글을 넣자고 할 수 있다. 적을지는 Home lophn이 정한다.
+  - 작음: project·앱 prompt가 사람에게 Home에 적으라고 말하게 한다. 잃는 것: 사람이 한 번 더 움직인다.
+  - 중간: Home lophn이 지도가 비었거나 낡았을 때 각 workspace의 lophn에게 물어 채운다. 잃는 것: 물을 때마다 workspace 수만큼 call이 든다.

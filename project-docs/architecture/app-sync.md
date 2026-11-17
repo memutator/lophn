@@ -116,7 +116,7 @@
 ## 열린 것
 
 - **실제 폰, 실제 agent, 두 폰, Electron으로 보지 못했다.** emulator(Android)에서 개발 core에 손으로 release한 앱 둘(sync, standalone)로 설치, offline write의 push, 컴퓨터 write의 pull, 같은 row의 다른 칸 양쪽 편집, 안 보낸 변경이 있을 때의 release 바뀜, rewind, external, core를 끈 standalone, 앱을 열지 않고 하는 설치와 push, 손가락 입력을 보았다. 앱 agent가 만든 앱(개발 core에는 model이 없다), 실제 폰, Electron desktop 앱, 한 앱을 두 폰이 컴퓨터를 거쳐 맞추는 것(기기를 하나만 붙였다), 변경 하나가 8 MiB를 넘을 때의 폰 쪽, 오래 끊긴 뒤와 큰 data, 폰에서 1,000개 변경을 push하는 시간은 보지 못했다. iOS는 짓지 않았다.
-- 변경 하나가 8 MiB를 넘으면 폰에서는 commit되지만 push가 영영 거절되어 앱이 실패 상태에 머문다. 폰에서 막는 장치가 없다(이슈 `phone-oversize-change-cannot-be-pushed`).
+- 변경 하나가 8 MiB를 넘으면 폰에서는 commit되지만 push가 영영 거절되어 앱이 실패 상태에 머문다. push가 실패하면 pull도 하지 않아 그 앱의 sync가 양쪽으로 멈춘다. 폰에서 막는 장치가 없다(이슈 `phone-oversize-change-cannot-be-pushed`).
 - 끝나지 않는 handler는 3초 뒤 rollback되지만 그 앱의 다음 local 호출을 막는다(이슈 `phone-hung-handler-blocks-later-calls`).
 - sync는 지금 화면에 있는 컴퓨터에 대해서만 돈다(이슈 `phone-sync-only-for-current-computer`).
 - 폰 앱의 설치 실패 문구가 컴퓨터가 낸 오류 글을 그대로 보인다(이슈 `phone-install-failure-shows-raw-core-error`).
@@ -125,4 +125,4 @@
 - 폰의 local 호출 문맥의 앱 id가 빈 글자다(이슈 `phone-local-call-context-has-no-app-id`). 폰에서 한 write의 앱 event는 전달되지 않는다(이슈 `phone-write-events-not-delivered`).
 - guest를 띄울 때마다 쓰는 backend 사본이 cache 폴더에 쌓이고 앱을 다시 켤 때까지 남는다(이슈 `phone-guest-backend-copies-pile-in-cache`). `backend.js.map`이 bundle에 실리지만 폰은 받지 않는다(이슈 `phone-backend-source-map-in-bundle`).
 - 이 판 전에 다른 기계로 복사한 sync DB는 표지가 없어 두 기계 모두 node를 지킨다. 두 기계가 같은 node를 쓴다(`machine.md`의 열린 것).
-- 컴퓨터는 `["phone"]` 앱도 다른 앱처럼 activation하고 process를 띄워 DB를 만든다. 그 DB는 폰과 맞추지 않고 쓰이지도 않는다. 막지는 않았다.
+- 컴퓨터는 `["phone"]` 앱도 다른 앱처럼 activation하고 process를 띄워 DB와 sync store를 만든다. 그 DB는 폰과 맞추지 않고 쓰이지도 않는다. 막지는 않았다(이슈 `phone-only-app-still-starts-on-computer`).

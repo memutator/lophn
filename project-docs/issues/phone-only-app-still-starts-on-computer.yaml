@@ -5,9 +5,9 @@ status: open
 topic: app-sync
 modules: [packages/core/apps]
 now: |
-  선언의 `runs_on`이 `["phone"]`인 앱은 data가 그 폰에만 있고 컴퓨터는 preview만 돌린다고 지침과 `architecture/app-sync.md`가 말한다. 하지만 컴퓨터 쪽에 그것을 막는 코드가 없다: release를 활성화하면 core가 다른 앱과 같이 그 앱의 process를 띄우고 data root에 앱 DB를 만든다. sync는 돌지 않아(`runsOnPhone`이 computer를 같이 선언한 앱만 본다) 컴퓨터의 DB와 폰의 DB는 서로 모르는 두 사본이 된다. 닫는 문서를 쓰던 worker가 코드를 읽어 찾았고 돌려서 확인하지는 않았다.
+  선언의 `runs_on`이 `["phone"]`인 앱은 data가 그 폰에만 있고 컴퓨터는 preview만 돌린다고 지침과 `architecture/app-sync.md`가 말한다. 하지만 컴퓨터 쪽에 그것을 막는 코드가 없다. `packages/core/apps` 어디도 process를 띄우기 전에 `runs_on`의 `computer`를 보지 않아, release를 활성화하면 core가 다른 앱과 같이 그 앱의 process를 띄우고 data root에 앱 DB를 만든다. `runsOnPhone`(`runtime/entrypoint/sync.ts`)은 `runs_on`에 `phone`이 있기만 하면 참이라 컴퓨터는 이 앱을 sync 앱으로 보고 sync store(clock 표, sync log)까지 연다(`entrypoint/main.ts`). 폰은 이 앱을 standalone으로 다뤄(`packages/mobile/src/apps/local/folder.ts`) 컴퓨터와 맞추지 않으므로 컴퓨터의 DB와 폰의 DB는 서로 모르는 두 사본이 된다. 코드를 읽어 찾았고 돌려서 확인하지는 않았다.
 impact: |
   사람이 "이 앱의 data는 폰에만 있다"고 들었는데 컴퓨터에도 빈(또는 migration만 돈) DB가 생기고, lophn agent나 다른 앱이 컴퓨터의 그 앱을 부르면 폰의 data와 다른 답을 받는다. data를 잃지는 않는다.
 fix: |
-  - 작음(추천): `runs_on`에 `computer`가 없는 앱은 활성화해도 core가 process를 띄우지 않고, 그 앱을 부르는 호출은 "이 앱은 폰에서만 돈다"는 `unavailable`로 답한다. 폰 backend의 build와 file 내주기는 그대로 둔다.
-  - 중간: 위에 더해 App details와 앱 목록이 "폰에서만 돈다"를 보인다.
+  - 중간(추천): `runs_on`에 `computer`가 없는 앱은 활성화해도 core가 process를 띄우지 않고, 그 앱을 부르는 호출은 "이 앱은 폰에서만 돈다"는 `unavailable`로 답한다. 활성화가 process의 ready를 기다리고(`releases/activation`) `apps/phone_screens`가 `running`을 알리므로 그 둘도 같이 고친다. 폰 backend의 build와 file 내주기는 그대로 둔다.
+  - 위에 더해 App details와 앱 목록이 "폰에서만 돈다"를 보인다.

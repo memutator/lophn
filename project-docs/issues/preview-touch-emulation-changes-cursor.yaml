@@ -1,0 +1,16 @@
+id: preview-touch-emulation-changes-cursor
+title: 폰 기기를 건 preview 탭 위에서 mouse cursor가 touch 모양으로 바뀐다
+kind: bug
+status: open
+topic: browser-tab
+modules: [packages/shell/main, packages/shell/renderer]
+now: |
+  preview 탭에 폰 기기를 걸면 `packages/shell/main/browser/agent/emulation.ts`의 `apply`가 `Emulation.setEmitTouchEventsForMouse({enabled: true, configuration: "mobile"})`를 켠다. mouse를 touch로 바꿔 주는 이 설정이 page 위의 cursor를 둥근 touch 모양으로 바꾼다. 끄는 곳은 Desktop을 고를 때의 `apply(…, null)`뿐이고 탭을 닫으면 webview가 없어진다. preview의 CSS는 cursor를 건드리지 않는다. 사람이 적은 것은 "mobile preview를 열고 나면 커서가 바뀐다"이고, preview 밖이나 탭을 떠난 뒤에도 바뀐 채인지는 확인하지 못했다. 코드에서는 그렇게 되는 길을 찾지 못했다.
+impact: |
+  desktop에서 폰 화면을 확인하는 사람에게 cursor가 낯선 모양으로 바뀐다. preview 밖에서도 바뀐 채라면 lophn 전체에서 cursor가 틀린 것이라 더 크다.
+fix: |
+  - 작음(추천): 먼저 어디서 바뀐 채인지 본다(preview page 위에서만인지, 탭을 떠난 뒤에도인지). page 위에서만이면 아래에서 고른다. 밖에서도면 그 길을 찾아 고친다.
+  - 작음: touch cursor를 그대로 두고 닫는다. touch로 누르고 끌어 scroll하는 것을 그대로 볼 수 있다.
+  - 작음: `setEmitTouchEventsForMouse`를 끈다. cursor는 화살표로 남지만 끌어서 scroll하기 같은 touch 동작을 preview에서 못 본다.
+decide: |
+  page 위에서만 바뀌는 것이라면, touch 모양 cursor를 둘지(touch 동작을 그대로 본다) 화살표로 둘지(끌어서 scroll을 못 본다).

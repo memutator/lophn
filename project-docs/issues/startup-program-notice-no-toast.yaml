@@ -5,7 +5,7 @@ status: open
 topic: shell
 modules: [packages/shell/main, packages/core/main]
 now: |
-  `noticesWiring.afterReady`가 쓰는 program 기록(`sdk_update_needed`)의 `NoticePosted`는 shell main이 받지 못한다. `afterReady`는 core가 부모(shell main)에게 hello를 보내기 전에 돌고(`packages/core/main/daemon/core.ts`), shell의 Gateway 구독은 hello 뒤에 열려서 그 event는 구독이 없을 때 나간다. 놓친 알림은 다시 띄우지 않는다. 확인했다(코드 순서). sdk-forest 변경으로 배지가 안 읽은 기록을 세어 사람이 몰라서 못 보는 일은 줄었다.
+  `noticesWiring.afterReady`가 쓰는 program 기록(`sdk_update_needed`)의 `NoticePosted`는 shell main이 받지 못한다. core는 `afterReady`를 돌린 뒤에 `control.ready`를 부르고(`packages/core/main/daemon/core.ts`), shell은 control이 ready를 낸 뒤에야 붙어 구독을 연다. event에는 다시 보내기가 없어 그 사이에 나간 것은 놓친다. core가 다시 뜬 뒤 shell이 다시 붙을 때도 같다. 놓친 알림은 다시 띄우지 않는다. 배지는 안 읽은 기록을 세므로 사람이 아예 못 보지는 않는다.
 impact: |
   기동 중에 쓴 필수 알림(SDK 업데이트 필요)은 toast·OS 알림이 없다. 배지와 History로만 보인다.
 fix: |

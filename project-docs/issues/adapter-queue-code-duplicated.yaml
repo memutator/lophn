@@ -1,12 +1,13 @@
 id: adapter-queue-code-duplicated
-title: adapter 넷이 줄 세우기 code를 따로 가진다
+title: adapter 다섯이 줄 세우기 code를 따로 가진다
 kind: defect
 status: open
 topic: harness-gui
 modules: [packages/shell/main]
 now: |
-  도는 중에 보낸 메시지를 줄에 세우고 고치고 옮기고 turn 뒤에 보내는 code(`resendQueue`와 `edit_queued`·`move_queued` 처리)가 `claude.ts`, `codex.ts`, `opencode.ts`, `omp.ts`에 각자 복사돼 있다. 뒤의 셋이 `claude.ts`를 본떠 썼다.
+  도는 중에 보낸 메시지를 줄에 세우고 고치고 옮기는 code가 harness-gui의 adapter 다섯(`claude.ts`, `codex.ts`, `opencode.ts`, `omp.ts`, `antigravity.ts`)에 각자 있다. 글자까지 같은 것은 `move_queued`의 자리 바꾸기 묶음(다섯 모두)과 `resendQueue`(줄을 memory에 두는 `codex.ts`·`antigravity.ts`의 것이 같고 `omp.ts`도 가진다)다. 나머지는 harness마다 다르다. `claude.ts`와 `opencode.ts`는 줄을 CLI나 server 쪽에 두고 `requeue`로 다시 넣고, `omp.ts`의 `edit_queued`는 고친 메시지를 줄 끝으로 보낸다.
 impact: |
-  줄 세우기 bug를 고치면 네 곳을 같이 고쳐야 하고, 하나만 고치면 harness마다 동작이 갈린다.
+  자리 바꾸기나 다시 보내기의 bug를 고치면 세 곳에서 다섯 곳을 같이 고쳐야 하고, 하나만 고치면 harness마다 동작이 갈린다. 사람이 보는 동작은 지금 같다.
 fix: |
-  - 같은 폴더에 줄 file 하나(queue와 그 입력 처리, 다음 turn에 넣을 callback을 받는다)를 두고 넷이 쓴다. 작음. 추천.
+  - 작음(추천): 같은 폴더에 `move_queued`의 자리 바꾸기 함수 하나와, 줄을 memory에 두는 셋(codex, omp, antigravity)이 쓰는 `resendQueue` 하나를 둔다. harness마다 다른 `requeue`와 `edit_queued`는 그대로 둔다.
+  - 중간: 줄 전체(queue와 그 입력 처리, 다음 turn에 넣을 callback)를 file 하나로 모은다. 줄을 두는 곳이 harness마다 달라 callback이 많아진다.

@@ -1,12 +1,13 @@
 id: phone-project-first-folder-only
-title: 폴더가 여럿인 project는 폰에서 첫 폴더의 file만 보이고 file 검색이 폴더를 가리지 않는다
+title: 폴더가 여럿인 project는 폰에서 첫 폴더의 file만 보이고 검색 결과는 다른 폴더의 file을 첫 폴더에서 연다
 kind: bug
 status: open
 topic: remote
 modules: [packages/mobile]
 now: |
-  `project_files/list`, `project_files/read`, `projects/search`는 선택 input `folder`(등록 폴더 하나)를 받고 없으면 project의 첫 폴더다. 폰의 `useProjectFiles`와 `useProjectFile`(`packages/mobile/src/data/places.ts`), 검색(`packages/mobile/src/data/search.ts`)은 `folder`를 싣지 않는다.
+  `project_files/list`와 `project_files/read`는 선택 input `folder`(등록 폴더 하나)를 받고 없으면 project의 첫 폴더다(`packages/core/projects/files/mod.ts`). 폰의 `useProjectFiles`와 `useProjectFile`(`packages/mobile/src/data/places.ts`)은 `folder`를 싣지 않는다. `projects/search`는 `folder`가 없으면 등록 폴더 전부를 훑고 match마다 `folder_path`를 싣는데(`packages/core/projects/registry/model.ts`의 `searchScopeOf`), 폰의 검색(`packages/mobile/src/data/search.ts`)은 `folder_path`를 버리고 file `Place`도 `{project, path}`뿐이다(`app/nav.ts`). 폰에는 등록 폴더 목록을 읽는 곳도 없다.
 impact: |
-  등록 폴더가 둘 이상인 project에서 폰은 첫 폴더만 연다. 나머지 폴더의 file은 열 수도 검색 결과로 볼 수도 없다. 검색 결과가 다른 폴더의 같은 상대 path를 첫 폴더의 것으로 연다.
+  등록 폴더가 둘 이상인 project에서 폰의 Files는 첫 폴더만 연다. 검색은 다른 폴더의 file도 찾지만 누르면 같은 상대 path를 첫 폴더에서 열어 다른 file이 뜨거나 `not_found`다.
 fix: |
-  - 작음(추천): project 상세의 폴더 목록이 둘 이상이면 Files의 맨 위에 폴더 고르기를 두고 고른 폴더를 세 읽기에 넘긴다. 검색 결과는 `folder_path`를 `Place`의 file에 실어 같은 폴더를 연다.
+  - 중간(추천): 검색 결과의 `folder_path`를 file `Place`에 실어 그 폴더에서 연다. 폰이 project의 등록 폴더 목록을 읽게 하고 둘 이상이면 Files 맨 위에 폴더 고르기를 둔다.
+  - 작음: 검색 결과만 고친다(`folder_path`를 `Place`에 싣기). Files는 첫 폴더만 보이는 채다.

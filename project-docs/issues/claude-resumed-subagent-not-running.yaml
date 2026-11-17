@@ -1,0 +1,16 @@
+id: claude-resumed-subagent-not-running
+title: Claude GUI에서 SendMessage로 다시 깨운 subagent가 도는 것으로 보이지 않는다
+kind: bug
+status: open
+topic: harness-gui
+modules: [packages/shell/main]
+now: |
+  composer 위 dock의 running 줄은 대화 안 subagent tool 줄 중 `state: "running"`인 것과 `tasks`의 running으로 만든다. `packages/shell/main/extensions/bundled/harness-gui/claude.ts`는 subagent를 Agent tool 줄 하나로만 보이고(`onTasksChanged`가 `task_type`이 agent인 task를 건너뛴다), 그 줄의 state는 Agent tool_use로 시작해 첫 task 알림으로 끝난다.
+  lead가 끝난 subagent를 `SendMessage`로 다시 깨우면(CLI 결과 "Resuming agent …", `resumedAgentId`) 같은 task id로 subagent가 다시 돈다. adapter에는 끝난 줄을 running으로 되돌리는 길이 없다: `onTask`의 `task_started`는 `agentCalls.get(tool_use_id)`로만 찾고, 찾아도 `detail.state`를 고치지 않으며 닫힌 lane의 turn을 다시 열지 않는다.
+  본 곳: session 76bfac84의 transcript. Agent(`toolu_01Lo41…`, agent `ad17ac94…`)가 stage 1을 끝낸 뒤 SendMessage 두 번(14:21, 14:54 UTC)으로 다시 깨웠고, 20분 넘게 subagent transcript가 쓰이는 동안 dock에 줄이 없었다.
+  resume 때 SDK stream의 `task_started`가 어떤 `tool_use_id`로 오는지(원래 Agent, SendMessage, 없음)는 녹화로 확인하지 않았다. 셋 중 무엇이어도 지금 code로는 줄이 running이 되지 않는다.
+impact: |
+  한 worker에게 일을 이어서 맡기는 흐름(stage 1 → review → 같은 worker에 stage 2)에서 첫 실행 뒤로는 worker가 도는지 화면에서 알 수 없다. dock에 줄이 없고, 대화의 Agent 줄은 done으로 남고, 그 뒤 worker가 한 일은 자식 대화에 들어오지 않는다. root turn이 끝나 있으면 GUI는 아무 일도 없는 것처럼 보인다.
+fix: |
+  - 추천(작음~중간): `task_started`에서 `tool_use_id`로 못 찾으면 task id(`agentByTask`)로 그 Agent 줄을 찾아 `state: "running"`으로 되돌리고 lane의 turn을 다시 연다. 끝은 지금의 task 알림 길이 닫는다. SendMessage의 `message`를 자식 대화의 사람 메시지로 넣는다. 먼저 resume 녹화(haiku) 하나로 `task_started`·자식 메시지의 모양을 확인한다.
+  - Codex·OpenCode·omp에도 끝난 subagent를 다시 깨우는 길이 있는지 같이 본다.

@@ -1,0 +1,16 @@
+id: phone-app-screen-draws-second-header
+title: 폰의 앱 화면에 머리 줄이 둘 선다(lophn의 것과 앱이 그린 것)
+kind: bug
+status: open
+topic: phone-screen
+modules: [packages/mobile, packages/design/native, packages/sdk, packages/core/agent-workspaces]
+now: |
+  폰 앱은 앱 화면 위에 늘 자기 `TopBar`(sidebar 단추, 앱 mark와 이름, 상태 줄, ⋯ menu)를 그리고 그 아래에 guest 화면을 둔다(`packages/mobile/src/screens/apps/index.tsx`, preview도 같다). 앱 agent가 읽는 지침은 폰 화면의 root를 `Screen`으로 하고 `top={<TopBar left="none" title="…" />}`을 주라고 한다(`packages/core/agent-workspaces/skills/design-app/SKILL.md`의 "Phone screens", `packages/sdk/app-ui-native/guide.md`, `packages/design/native/guide.md`, guest fixture). 그래서 지침대로 만든 앱은 lophn의 줄 아래에 제목을 되풀이하는 줄을 하나 더 그린다. `left="none"`은 눌러도 아무 일 없는 sidebar 단추만 지운다. 같은 skill의 desktop 규칙은 반대다("lophn이 이미 앱 이름을 보인다. 머리 줄을 따로 그리지 않는다. `useTabHead`로 lophn의 줄에 올린다"). 폰에는 `useTabHead`가 없어(`packages/sdk/app-ui-native/mod.ts`) lophn의 줄에 제목이나 단추를 올릴 길이 없다.
+impact: |
+  지침대로 만든 폰 앱은 모두 머리 줄이 두 줄이고 앱 이름이 두 번 보인다. 작은 화면에서 세로 100 dp쯤을 잃는다. desktop과 폰의 규칙이 반대라 앱 agent가 화면마다 다른 규칙을 따라야 한다.
+fix: |
+  - 작음(추천): 규칙을 하나로 한다. 앱 화면의 머리 줄은 lophn이 그리고 앱은 `TopBar`를 그리지 않는다. 화면 제목, view 탭, 주 단추는 본문에 둔다. skill, 두 guide, fixture, gallery를 고치고 `sdk-note` skill대로 `migrate-sdk` 메모(Instruction diff)를 쓴다. 이미 만든 앱은 다시 그릴 때까지 두 줄이다. 잃는 것: 앱이 lophn의 줄에 제목이나 단추를 올리지 못한다.
+  - 중간~큼: 폰에도 머리 줄 bridge(폰의 `useTabHead`)를 만들어 앱이 lophn의 줄에 제목과 단추를 올린다. desktop 규칙과 같아진다. guest와 host 사이 메시지와 host의 그리기가 든다.
+  - 버린 길: guest가 줄을 그리면 lophn의 줄을 숨긴다. lophn의 줄에 있는 앱 이름과 ⋯ menu(Preview, 위젯, 다른 화면)를 잃는다.
+decided: |
+  앱 화면의 머리 줄은 lophn이 그리고 앱은 `TopBar`를 그리지 않는다(작은 안). 사람의 메모가 "lophn app에서도 header 규칙을 따라야 한다"였고 desktop 규칙과 같은 방향이다. 앱이 lophn의 줄에 단추를 올리는 bridge는 그런 앱이 필요해질 때 만든다. (agent, 추천안으로 진행)

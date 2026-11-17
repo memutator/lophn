@@ -5,7 +5,7 @@ status: open
 topic: app-sync
 modules: [packages/mobile, packages/core/apps]
 now: |
-  폰에서 도는 앱의 설치가 실패하면 앱 화면은 `mobile.local.install-failed.*` 문장 아래에 `detail`로 `state.failure`를 보인다(`packages/mobile/src/screens/apps/index.tsx`). 그 값은 컴퓨터의 답 오류 글을 그대로 옮긴 것이다(`packages/mobile/src/apps/local/transfer.ts`의 `failed`가 `reply.error.message`를 쓴다). core의 `internal` 오류에는 한국어 글이 있다(`packages/core/apps/write-link.ts`의 "ledger에 기록할 수 없다" 같은 것). 개발 core의 emulator 확인에서 한 줄의 한국어 글이 영어 화면에 나왔다.
+  폰에서 도는 앱의 설치가 실패하면 앱 화면은 `mobile.local.install-failed.*` 문장 아래에 `detail`로 `state.failure`를 보인다(`packages/mobile/src/screens/apps/body.tsx`). 그 값은 컴퓨터의 답 오류 글을 그대로 옮긴 것이다(`packages/mobile/src/apps/local/store.ts`가 `done.error.message`를 두고, `transfer.ts`의 `failed`가 `reply.error.message`를 쓴다). core의 `unavailable` 오류에는 한국어 글이 있다(`packages/core/apps/write-link.ts`와 `storage/ledger/tx.ts`의 "ledger에 기록할 수 없다" 같은 것). 같은 store의 push·pull 길은 `unavailable`의 글을 보이지 않는데 설치 길만 그대로 보인다. 개발 core의 emulator 확인에서 한 줄의 한국어 글이 영어 화면에 나왔다.
 impact: |
   사람이 폰에서 보는 영어 화면에 한국어 내부 글이 섞이고 그 글은 사람이 할 일을 말하지 않는다. 앱 agent에게 옮겨도 core의 내부 사정이라 쓸모가 적다. 데이터를 잃지는 않는다.
 fix: |

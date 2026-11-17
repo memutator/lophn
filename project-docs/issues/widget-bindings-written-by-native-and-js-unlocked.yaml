@@ -5,7 +5,7 @@ status: open
 topic: phone-home-screen
 modules: [packages/mobile]
 now: |
-  위젯 binding은 `widgets/bindings.json` 한 file이다. 고치는 곳이 둘이다. JS store(`packages/mobile/src/widgets/store.ts`)의 `bind`("Choose a widget"에서 고를 때)와 새로 하기의 정리(`pass`가 launcher에 없는 위젯 id를 binding에서 뺀다)는 file을 읽고 바꾸고 다시 쓰는 세 걸음이고 JS 안에서만 `exclusive`로 순서를 세운다. `requestPin`의 callback receiver(`PinResultReceiver`, `modules/lophn-widgets/android`)는 새 위젯 id를 file에 더한다. native의 `Files.write`는 쓰는 순간만 막고(`@Synchronized`) JS의 읽고-바꾸고-쓰기 세 걸음 전체를 막지 못한다. JS가 읽은 뒤 receiver가 새 id를 쓰고 JS가 자기 사본을 쓰면 receiver의 binding이 덮여 사라진다.
+  위젯 binding은 `widgets/bindings.json` 한 file이다. 고치는 곳이 둘이다. `requestPin`의 callback receiver(`PinResultReceiver`, `modules/lophn-widgets/android`의 `Providers.kt`)는 읽고 새 위젯 id를 더해 쓰는 일을 `synchronized(Files)` 안에서 한다. JS store(`packages/mobile/src/widgets/store.ts`)의 `bind`("Choose a widget"에서 고를 때)와 새로 하기의 정리(`pass`가 launcher에 없는 위젯 id를 binding에서 뺀다)는 file을 읽고 바꾸고 다시 쓰는 세 걸음이고 JS 안에서만 `exclusive`로 순서를 세운다. JS의 쓰기(`LophnWidgetsModule.kt`의 `writeText` → `Files.write`)는 쓰는 순간만 그 잠금을 잡아 세 걸음 전체가 잠금 밖이다. JS가 읽은 뒤 receiver가 새 id를 쓰고 JS가 자기 사본을 쓰면 receiver의 binding이 덮여 사라진다.
 impact: |
   앱 menu의 "Add widget"으로 놓은 위젯이 binding 없이 남아 "Tap to choose"로 선다(사람이 눌러 다시 골라야 한다). 읽고 쓰는 창이 몇 ms이고 같은 때에 다른 위젯을 고르거나 launcher에서 위젯이 지워지는 일이 겹쳐야 해서 드물다. data를 잃는 것은 아니고 위젯 하나를 다시 고르는 일이다.
 fix: |

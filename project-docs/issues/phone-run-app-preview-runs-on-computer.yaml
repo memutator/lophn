@@ -1,7 +1,7 @@
 id: phone-run-app-preview-runs-on-computer
 title: 폰에서 도는 앱의 preview는 폰이 아닌 컴퓨터의 preview process에서 backend가 돈다
 kind: defect
-status: open
+status: kept
 topic: app-sync
 modules: [packages/mobile, packages/core/apps]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 그대로(추천, 지금): 지침이 이 한계를 말하게 둔다. release 준비가 폰 backend의 build와 schema를 미리 검사한다.
   - 큼: preview bundle에도 폰 backend를 실어 폰이 preview data로 local backend를 돌린다. sync와 preview data의 경계를 새로 정해야 한다.
+closed: |
+  preview와 test는 컴퓨터에서만 돈다고 정했고 지침이 그 한계와 "마지막 확인은 사람이 폰에서 한다"를 말한다(`design-app`의 `phone-apps.md`). release 준비가 폰 backend의 build와 schema를 미리 검사한다. preview에서 폰 backend를 돌리는 것은 sync와 preview data의 경계를 새로 정하는 큰 일이라 필요가 생기면 roadmap으로 연다.
+guard: 없음

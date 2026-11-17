@@ -1,7 +1,7 @@
 id: app-dispatch-returns-wrong-tool-name
 title: "app command dispatch가 wire 이름이 아닌 이름을 돌려 모든 앱 command 호출이 실패"
 kind: mistake
-status: open
+status: fixed
 topic: mistakes
 modules: [packages/core/lophn-agent]
 now: |
@@ -14,3 +14,6 @@ cause: |
   dispatch를 바꾸는 task의 끝남에 "풀린 호출이 실행기의 찾기까지 이어진다"는 기준이 없었다. 내장 명령의 길(`resolveLophnCall`)은 wire 이름을 냈는데 새 길이 그것을 따르지 않았다.
 prevent: |
   `packages/core/lophn-agent/tools/app-public_test.ts`에 풀린 앱 command를 `toolForWireName`으로 찾는 test를 더했다. 실행 경로를 바꾸는 brief의 위험 test는 "입력부터 실행기까지 한 번 이어 본다"로 쓴다.
+closed: |
+  `resolveAppCall`이 wire 이름을 낸다(`packages/core/lophn-agent/tools/lophn/resolve.ts`, `run-loop/prepare.ts`). "실행 경로를 바꾸는 task의 위험 test는 입력부터 실행기까지 한 번 이어 본다"는 문장을 orchestrate skill의 `brief-template.md`에 뒀다.
+guard: "`packages/core/lophn-agent/tools/app-public_test.ts`(풀린 앱 command를 `toolForWireName`으로 찾는다)"

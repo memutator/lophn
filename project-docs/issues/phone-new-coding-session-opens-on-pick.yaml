@@ -11,5 +11,5 @@ impact: |
 fix: |
   - 중간(추천): 고르면 새 session 화면의 입력 칸 위에 "Starts in a new terminal tab on the computer"를 세우고 보내기를 누를 때 열고 첫 메시지를 `acp/send`로 보낸다. 열기와 첫 메시지 사이에 실패하면 메시지를 입력 칸에 둔다.
   - 작음: 지금대로 둔다(고른 것이 곧 시작이라는 뜻의 안내를 목록에 둔다). 단순하지만 wireframe과 다르다.
-decide: |
-  승인한 wireframe(고르고, 입력하고, 보내면 열린다)를 따를지, 지금처럼 고르는 순간 열지. 지금 쪽이 한 단계 빠르지만 되돌릴 수 없는 일(컴퓨터에서 CLI가 시작함)이 고르기 한 번에 일어난다.
+decided: |
+  고르기를 agent 단추 하나로 합치면서(이슈 `phone-new-session-has-redundant-coding-button`) coding agent를 고르는 것은 다른 agent를 고르는 것과 같은 일이 된다. 고른 순간에는 열지 않고 첫 메시지를 보낼 때 연다.

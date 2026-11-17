@@ -1,0 +1,15 @@
+id: phone-app-icons-not-shown
+title: 폰에서 앱과 project의 아이콘이 보이지 않고 글자나 폴더 그림만 보인다
+kind: bug
+status: open
+topic: remote
+modules: [packages/mobile, packages/design/native]
+now: |
+  폰은 workspace의 그림을 home, project, 앱(글자와 색) 셋으로만 안다(`packages/mobile/src/data/workspaces.ts`의 `WorkspaceIcon`, `parts/workspace-mark.tsx`). kit의 `Mark`(`packages/design/native/feedback/display.tsx`)는 lucide 아이콘만 받고 그림은 못 그린다. 아이콘을 읽는 route는 폰에 열려 있다(`app.icon`과 `project.icon`이 remote 허용 목록에 있다. 사람이 올린 그림이 선언의 것을 이기고 64 KiB를 넘으면 null이다). 폰에서 `app.icon`을 부르는 곳은 홈 화면에 아이콘을 놓는 줄(`shortcuts/row.tsx`)뿐이고 저장해 두지 않는다. `apps/phone_screens`가 싣는 `icon`은 선언의 값(lucide 이름이나 path)이고 폰은 그것을 받아 두기만 하고 읽지 않는다. 아이콘이 바뀌었는지 알 hash는 어디에도 없다.
+impact: |
+  폰의 sidebar, Home의 앱 격자, 새 session 고르기에서 앱이 색 글자로, project가 같은 폴더 그림으로 보여 서로 가려 보기 어렵다. 사람이 올리거나 앱이 선언한 아이콘이 폰에서는 쓰이지 않는다.
+fix: |
+  - 중간(추천): 폰이 (컴퓨터, 앱)마다 아이콘을 한 번 받아 file로 두고 그린다. `StateChanged`의 apps가 오거나 다시 붙을 때 바뀌었는지 본다. 매번 다시 받지 않도록 `app.icon`의 답과 `apps/phone_screens`의 줄에 아이콘 hash를 싣는다(작은 protocol 변경). `WorkspaceIcon`에 그림과 lucide 갈래를, kit `Mark`에 그림 칸을 더한다. project도 `project.icon`으로 같은 길을 쓴다. 홈 화면 아이콘이 옛 그림으로 남는 것(이슈 `shortcut-keeps-old-label-and-icon`)도 같은 hash로 풀 수 있다.
+  - 작음: 저장 없이 화면이 뜰 때마다 받는다(desktop의 10초 memory cache와 같은 꼴). 폰 앱을 켤 때마다 앱 수만큼 호출이 줄을 선다.
+decided: |
+  폰은 목록, 이름, 아이콘 같은 가벼운 것만 file로 두고 먼저 그린 뒤 새 값으로 바꾼다. 대화 내용은 저장하지 않는다(사람). 아이콘 hash는 처음에는 두지 않고 `StateChanged`의 apps와 다시 붙을 때 다시 받는다.

@@ -1,7 +1,7 @@
 id: old-me-version-blob-not-reattached
 title: 기동 옮기기가 옛 `@me` 판에 bundle blob을 못 붙일 수 있다
 kind: bug
-status: open
+status: kept
 topic: app-call
 modules: [packages/core/apps, packages/core/main]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): 사람의 data root에 `@me` 판이 있는지, 몇 개가 건너뛰어지는지 먼저 본다. 없거나 모두 붙었으면 kept로 닫는다.
   - 남는 판이 있으면: 옛 판은 설치 사본 byte 자체를 blob으로 보존하는 별도 field를 둔다.
+closed: |
+  사람의 data root를 읽기 전용으로 봤다. `package_versions`의 `@me` 판 둘 모두 `bundle_hash`와 `guide_hash`의 blob이 `blob_refs`에 붙어 있고 건너뛴 판이 없다. 새 판은 낼 때 blob이 붙으므로 건너뛰는 판이 더 생기지 않는다.
+guard: 없음

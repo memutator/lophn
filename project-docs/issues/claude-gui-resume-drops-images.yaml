@@ -12,5 +12,5 @@ now: |
 impact: |
   사람이 Claude GUI에서 지난 대화를 다시 열면 자기가 보낸 그림이 보이지 않는다. 그림만 보낸 메시지는 대화에서 통째로 빠져 무엇을 물었는지 알 수 없다. agent는 transcript로 그림을 기억하므로 화면과 agent가 아는 것이 다르다.
 fix: |
-  - 추천(중간): replay에서 base64 image block을 만나면 bytes를 탭 임시 폴더에 쓰고(live `writeImage`와 같은 자리·이름 규칙) `file://` resource_link block으로 사람 메시지에 싣는다. 화면은 지금의 썸네일·modal 길을 그대로 쓴다. adapter가 쓰기 port를 받아야 한다. 같은 때 OpenCode·omp replay도 보고 같은 꼴로 맞춘다.
+  - 추천(중간): replay에서 base64 image block을 만나면 bytes를 탭 임시 폴더에 쓰고(live `writeImage`와 같은 자리·이름 규칙) `file://` resource_link block으로 사람 메시지에 싣는다. 화면은 지금의 썸네일·modal 길을 그대로 쓴다. adapter가 쓰기 port를 받아야 한다. omp의 replay도 글만 읽어(`omp.ts`의 `joined(msg.content, "text")`) 그림을 버리므로 같은 꼴로 맞춘다. OpenCode의 replay는 file을 싣는다.
   - 작음: 그림 자리에 `[image]` 글만 남긴다. 메시지가 빠지지는 않지만 그림은 못 본다.

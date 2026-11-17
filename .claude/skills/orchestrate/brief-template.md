@@ -62,4 +62,5 @@ task 하나에 file 하나다: `project-docs/plan/<계획>/tasks/<id>.md`. worke
 - 외부 data(models.dev 등)를 읽는 task는 정하기 전에 실제 data 한 건을 열어 없는 칸과 빈 값이 어떻게 오는지 본다. brief가 `limit.input`이 없으면 null로 정했다가 대부분 model을 고를 수 없게 된 일이 있다.
 - "남지 않음" grep은 `tests/`(e2e 기대값, fixture)까지 본다. protocol 이름, id 꼴, 문자열 값을 바꾸면 e2e가 옛 값을 기대하고 있을 수 있고, e2e는 land에서만 돈다.
 - 위험 test는 `write-test` skill 기준이다. 화면, 문구, 내부 구현은 test하지 않는다.
+- 실행 경로(이름 풀기, dispatch, route에서 실행기까지)를 바꾸는 task의 위험 test는 입력부터 실행기까지 한 번 이어 본다. 풀기까지만 보면 실행기가 못 찾는 이름을 돌려주는 것을 놓친다(이슈 `app-dispatch-returns-wrong-tool-name`).
 - 말: 개발자 영어 단어를 그대로 쓴다. 뜻을 옮긴 번역어(장부, 가림, 시험)를 새로 만들지 않는다.

@@ -1,6 +1,6 @@
 # call record: 호출 한 건의 기록으로 앱 문제의 책임을 가른다
 
-상태: 로드맵. 방향은 사람이 정했다(2026-11-17). 사람이 정할 것 둘이 남았다(아래 "정할 것"). 계획은 아직 열지 않았다.
+상태: 로드맵. 방향과 정할 것은 사람이 정했다(2026-11-17). 계획 `call-record`(`project-docs/plan/call-record/`)이 덩어리 1~5를 가져간다. 6은 남는다.
 배경 문서: `project-docs/architecture/app-call.md`(호출 경로, 앱 log, 10-20의 "log를 primitive로" 결정), `project-docs/architecture/observability.md`(core log, trace id), `project-docs/architecture/phone-screen.md`.
 조사(2026-11-17, main `4148bf373`, code를 열어 path와 줄로 적은 것): `research_notes/call-record-survey/spine.md`(core 호출 경로와 화면이 아닌 caller), `screen.md`(화면에서 core까지), `read-side.md`(agent가 읽는 것, log, id, 지침, invocation 표에 기대는 것).
 이슈: `view-call-undefined-input-rejected`(fixed), `view-call-rejection-unrecorded`(fixed, 땜질. 이 일이 대신한다).
@@ -42,13 +42,15 @@ agent가 도구를 안 쓴 것이 아니라 써도 답이 없는 구조다.
 - 기록의 primitive를 log 줄에서 호출 한 건의 기록으로 바꾼다. 10-20에 지운 problem 모델(열림·닫힘 상태, 묶음, 닫기 gate)은 되살리지 않는다. lophn은 사실을 남기고 판단은 agent가 한다는 것은 그대로다.
 - 책임은 오류 code가 아니라 호출이 끝난 자리로 정한다. 구분은 넷이다: `app`(handler나 화면 code가 던졌다), `contract`(앱이 lophn을 틀리게 불렀다. 어긴 규칙을 같이 적는다), `platform`(lophn이 자기 약속을 못 지켰다), `state`(앱이 꺼짐, 보관됨, grant 없음, core 재시작 중. 누구의 bug도 아니다).
 - `platform`이면 앱 agent는 앱을 고치지 않고 멈춰서 lophn 쪽 문제라고 알린다. 앱에서 우회하는 것은 사람이 원할 때만 한다.
+- lophn 쪽 문제(`platform`)는 사람에게 조용히 보인다. 앱의 Activity 화면이 그 호출에 lophn 쪽 문제라고 표시하고, Settings › Diagnostics가 lophn이 실패한 호출 목록을 보인다. toast와 Inbox 알림은 내지 않는다. 버린 길: toast나 Inbox 알림(화면이 되풀이해 부르면 시끄럽고 사람이 할 수 있는 일이 없다).
+- 앱 화면의 실패 표시(SDK의 `ErrorState`, `OperationButton`)는 `platform`과 `state`일 때만 lophn이 정한 한 줄을 더한다(`platform`: 앱이 아니라 lophn 쪽 문제, `state`: 사람이 할 일). `app`과 `contract`는 지금 문구 그대로다. SDK 판이 오르고 이미 만든 앱은 새 SDK로 옮겨야 보인다. 버린 길: 화면은 그대로 두고 Activity와 agent만 책임을 알기(사람이 화면만 봐서는 앱 고장인지 lophn 고장인지 모른다).
 
 agent(근거는 AGENTS.md "설계 방향"과 위 조사):
 
 - 호출 id는 invocation id 하나이고 core가 호출을 받는 첫 줄에서 만든다. ledger 줄, 앱 log의 `invocation` 칸, 호출 기록이 같은 id를 쓴다. 버린 길: 호출 id를 따로 두기(같은 호출을 가리키는 id가 둘이 된다).
 - 앱이 준 값의 검사는 core 입구에서 한 번만 한다. host(shell main, 폰 host)는 신원만 붙이고 `operation`과 `input`을 열어 보지 않고 넘긴다. 그 뒤 hop이 lophn 자신의 메시지를 거절하면 언제나 `platform`이다. 지금은 같은 검사가 세 곳에 있고 그중 하나가 오늘 bug를 냈다.
 - 끝나는 자리는 닫힌 목록이고 자리마다 stage와 책임이 하나다. 호출 경로의 code는 목록에 없는 오류로 호출을 끝낼 수 없다(type으로 막는다). 두 원인을 한 문구로 내는 묶음(호출 경로 7, 화면 길 8)은 자리마다 책임이 하나가 될 때까지 가른다. 버린 길: 실행 중에 오류 문구를 보고 책임을 추측하기.
-- 호출 기록은 ledger 밖에 앱마다 둔다. 성공이 아닌 끝은 한 건씩 남기고 core를 다시 켜도 남는다(사람은 다음 날 말한다). 성공은 이름마다 횟수와 마지막 시각, 그리고 최근 몇 건만 둔다. 본문은 남기지 않되, 성공이 아닌 호출의 입력은 재현에 쓰도록 상한까지 잘라 앱 log와 같은 redaction으로 남긴다. 버린 길: 모든 호출을 ledger에 넣기(화면이 주기적으로 읽는 호출이 영구 기록을 채우고, preview는 release가 없어 들어가지 못한다).
+- 호출 기록은 `invocations`와 따로 앱마다 둔다. 성공이 아닌 끝은 한 건씩 남기고 core를 다시 켜도 남는다(사람은 다음 날 말한다). 앱마다 최근 것만 남기는 표다(`app_event_publications`와 같은 꼴). 성공은 이름마다 횟수와 마지막 시각만 core 메모리에 두고, 읽을 때 언제부터 센 것인지 같이 준다. 본문은 남기지 않되, 성공이 아닌 호출의 입력은 재현에 쓰도록 상한까지 잘라 redaction을 거쳐 남긴다. lophn 쪽 목록은 이 표에서 책임이 `platform`인 줄을 읽는다(따로 쌓지 않는다). 버린 길: 모든 호출을 `invocations`에 넣기(화면이 주기적으로 읽는 호출이 영구 기록을 채우고, preview는 release가 없어 들어가지 못한다), 성공까지 file이나 표에 쓰기(읽기마다 쓰기가 생긴다).
 - ledger의 `invocations`는 앱 data를 바꿨을 수 있는 호출(write, external, 시작, sync)의 기록으로 남는다. rewind의 재료다. 진단만을 위해 쓰던 줄(denied, 실패한 read)은 호출 기록으로 옮기고 ledger에 새로 쓰지 않는다. 이미 있는 줄은 그대로 둔다.
 - 호출한 쪽이 받는 결과의 네 상태(succeeded, failed, denied, unknown)는 남긴다. "돌았나, 안 돌았나, 모르나"는 책임과 다른 축이고 write를 다시 부를지 정하는 데 쓴다. 여기에 호출 id, stage, 책임, 이유를 더한다. denial code는 책임이 하나가 되게 다시 나눈다.
 - preview 호출도 호출 기록을 남긴다. agent가 재현한 것이 사람 화면의 실패와 같은 모양의 증거로 남는다.
@@ -73,7 +75,7 @@ agent(근거는 AGENTS.md "설계 방향"과 위 조사):
         ├▶ 호출한 쪽: 네 상태 + id, stage, 책임, 이유
         ├▶ 앱마다의 호출 기록(성공은 횟수, 성공이 아닌 것은 한 건씩)
         ├▶ data를 바꿨을 수 있으면 ledger invocation(같은 id)
-        └▶ platform이면 lophn 쪽 목록에도
+        └▶ lophn 쪽 목록은 같은 기록에서 책임이 platform인 것을 읽는다
 ```
 
 - 호출 기록에는 상태가 없다. 열림, 닫힘, 묶음, 닫기 gate가 없고 고쳤다는 표시도 없다. 한 번 쓰고 읽기만 한다.
@@ -89,22 +91,13 @@ agent(근거는 AGENTS.md "설계 방향"과 위 조사):
 5. 호출한 쪽이 받는 실패에는 언제나 호출 id와 책임이 있다(화면, agent tool, CLI, 다른 앱).
 6. agent가 받는 앱 호출의 실패에는 이유 문구가 실린다. 다른 workspace의 이름과 존재를 가리는 고정 문장(`forbidden`, `not_found`)은 그대로다.
 
-## 정할 것 (사람)
-
-1. **lophn 쪽 문제(`platform`)를 agent 없이 사람에게 어떻게 보일까.**
-   - 추천: 조용히 보인다. 앱의 Activity 화면에서 그 호출에 "lophn 쪽 문제"를 표시하고, Settings › Diagnostics에 lophn이 실패한 호출 목록을 둔다. toast와 Inbox 알림은 없다. 잃는 것: 사람이 그 화면을 열거나 agent에게 물어야 안다.
-   - 다른 안: toast나 Inbox 알림을 낸다. 바로 알지만, 화면이 되풀이해 부르면 시끄럽고 사람이 할 수 있는 일이 없다.
-2. **앱 화면의 실패 표시에 책임을 보일까.** 지금 SDK의 `ErrorState`는 원인을 추측하지 않는다는 규칙으로 "Couldn't load {target}."만 보인다.
-   - 추천: `platform`과 `state`일 때만 lophn이 정한 한 줄을 더한다(`platform`: 앱이 아니라 lophn 쪽 문제다, `state`: 사람이 할 일). `app`과 `contract`는 지금 그대로다. 잃는 것: SDK 판이 오르고, 이미 만든 앱은 새 SDK로 옮겨야 보인다.
-   - 다른 안: 화면은 그대로 두고 Activity와 agent만 책임을 안다. SDK는 그대로지만 사람은 화면만 봐서는 앱이 고장인지 lophn이 고장인지 모른다.
-
 ## 일의 덩어리와 순서
 
 1. **계약 고정.** 끝나는 자리 목록(stage, 책임), 호출 기록의 모양, 호출한 쪽이 받는 결과, `app.calls`의 출력. protocol만 고친다. 뒤 덩어리가 모두 여기에 기댄다.
 2. **core 호출 경로.** id를 입구에서 만들기, 모든 끝에 목록 값 달기, 버려지던 이유 살리기, 한 문구로 뭉친 원인 가르기, 호출 기록 쓰기(preview 포함), ledger에는 data를 바꾼 호출만.
 3. **화면 길.** shell main과 폰 host에서 검사 빼기, 입구 검사 하나로 모으기, 화면이 받는 결과에 id와 책임, 땜질 지우기.
 4. **읽기.** `app.calls` route와 CLI와 agent 출력, Activity 화면, core span의 호출 id.
-5. **SDK와 지침.** `useOperation`과 `ErrorState`(정할 것 2), 앱 간 호출 결과, SDK guide, `prompts/app.md`·`home.md`·`repair-app`·앱 template의 진단 순서. `sdk-note`가 걸린다.
+5. **SDK와 지침.** `useOperation`과 `ErrorState`, 앱 간 호출 결과, SDK guide, `prompts/app.md`·`home.md`·`repair-app`·앱 template의 진단 순서. `sdk-note`가 걸린다.
 6. **뒤로.** view 열기의 실패(desktop 13곳, 문구가 버려지고 code만 간다), 화면 bridge의 다른 채널(19곳), 폰에서 도는 앱의 local 호출.
 
 1과 2는 한 줄이다(2가 1의 목록을 채우며 고친다). 3, 4, 5는 1과 2가 끝나면 path가 갈려 나란히 돌 수 있다. 계획을 열 때 다시 본다.

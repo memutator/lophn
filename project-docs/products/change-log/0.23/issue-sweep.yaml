@@ -1,0 +1,53 @@
+id: issue-sweep
+version: 0.23.79
+title: 열린 이슈 백여 개를 주제별로 한 번에 고친다(폰의 대화·목록·터미널·앱 화면, harness GUI, shell, folder sync, 앱 runtime)
+modules: [packages/cli, packages/core/agent-workspaces, packages/core/always-on, packages/core/approvals, packages/core/apps, packages/core/apps/releases/phone-backend, packages/core/apps/update-state, packages/core/attention, packages/core/coding-relay, packages/core/config, packages/core/folder, packages/core/host-queue, packages/core/lophn-agent, packages/core/main, packages/core/projects, packages/core/remote, packages/core/storage, packages/core/supervision, packages/core/terminal-view, packages/design, packages/design/native, packages/mobile, packages/mobile/modules/lophn-app-db, packages/protocol, packages/protocol/folder, packages/relay, packages/remote-client, packages/sdk, packages/shell/ipc, packages/shell/main, packages/shell/preload, packages/shell/renderer, packages/shell/terminal-host, tests, tools]
+change: |
+  고친 이슈마다의 전과 후는 그 이슈 file의 `closed` 칸에 있다(`node tools/records.ts issues`). 사람이 보는 동작이 바뀐 것을 묶어 적는다.
+  - "폰의 새 session: 고르기 단추가 workspace와 agent 둘이다. agent sheet 안에 lophn agent 묶음, 컴퓨터의 coding agent 묶음, Terminal 항목이 있다. coding agent는 고를 때가 아니라 첫 메시지를 보낼 때 연다."
+  - "폰의 대화: 머리 줄은 session 이름이 큰 글이고 `Agent · Project`가 작은 줄이다. `/`를 치면 command 목록이 뜨고 화면 동작이 딸린 command(`/rename 새 이름`)가 된다. Deny에 이유를 쓴다. subagent 줄을 누르면 그 대화가 sheet로 열린다. coding session에 그림을 붙인다."
+  - "폰의 목록: sidebar가 보이는 session, 순서, 상태 점이 desktop과 같은 규칙(같은 file)이다. 앱과 project의 아이콘이 보인다. 컴퓨터마다 마지막 앱·project 목록과 아이콘을 폰이 file로 두고 컴퓨터가 닿지 않을 때 흐리게 그린다(대화는 두지 않는다). 폴더가 여럿인 project에 폴더 고르기가 있다."
+  - "폰의 터미널: 폰이 터미널 화면을 열면 PTY 크기를 자기 화면에 맞게 잡고, 컴퓨터에서 그 탭을 고르거나 누르거나 치면 컴퓨터가 다시 잡는다. 폰이 떠나면 탭의 크기로 돌아간다. `Fit width`와 `100%`가 없어졌다. key 줄에 Paste와 한 번만 걸리는 Ctrl·Alt·Shift가 있다. 터미널로 도는 coding session은 터미널 화면이 바로 열리고 `Switch to chat`은 그 화면의 menu에 있다. 폰에서 project에 터미널 탭을 연다."
+  - "터미널 입력 허락: pairing할 때 정하고 기본이 켬이다(컴퓨터의 Settings › Remote의 pairing 칸에서 끈다). 이미 pairing한 기기는 그대로다."
+  - "폰에서 연 coding session과 터미널: 그 project를 보이는 창이 없으면 그 project의 창을 focus 없이 하나 열어 거기에 연다. 전에는 거절했다."
+  - "붙는 주소: 컴퓨터가 붙을 때마다 지금 주소 후보를 알려 주고 기기가 저장한 목록을 바꾼다(기계 id가 확인된 연결에서만). 설정 `remote.addresses`에 사람이 적은 주소가 맨 앞에 실린다."
+  - "remote 호출: 답이 16 MiB를 넘으면 `unavailable`로 답하고 호출에 120초 기한이 있다. 꺼져 있는 동안 끊긴 기기는 `credential_revoked`를 받는다. remote를 끄면 push가 멈춘다. 한 caller의 read가 8개를 넘으면 거절하지 않고 2초까지 기다린다."
+  - "coding session의 대화: tool의 입력·출력 본문을 snapshot과 update에 싣지 않고 펼칠 때 읽는다(route `acp/tool_body`, IPC `harness-gui:tab-tool-body`). 그림은 `acp/image_upload`·`acp/image_read`로 주고받는다. host 요청 `coding_body`, `coding_image_write`, `coding_image_read`, `terminal_resize`, `terminal_open`이 생겼다."
+  - "harness GUI: Claude GUI에서 고른 model·effort·mode가 resume과 TUI에서 GUI로 넘어올 때 이어진다. task notification을 줄로 그리지 않는다. `/remote-control`이 목록에 없다. 다시 연 대화의 그림이 보인다(Claude, omp). OpenCode에서 다른 client의 lophn call이 받은 메시지로 그려진다. fork한 session이 harness의 앞 대화를 물려받는다(Claude, OpenCode)."
+  - "폰 앱 화면(SDK): 머리 줄은 lophn만 그리고 앱은 `TopBar`를 그리지 않는다. guest 안의 kit `Sheet`·`Menu`·`Drawer`는 화면 안에 그린다. `TopBar`의 `left` 기본값과 `Button`의 누르는 자리가 바뀌었다. `@lophn/ui-native` 0.3.0, `@lophn/app-ui-native` 1.5.0, `@lophn/agent` 1.15.0(`migrate-sdk` 메모)."
+  - "폰에서 도는 앱: 끝나지 않는 handler는 화면을 실패 상태로 만들고 Retry로 다시 띄운다. 8 MiB를 넘는 변경은 그 호출을 `invalid_input`으로 거절한다. `init.local`이 앱 id와 release를 싣는다(`PHONE_BASE_FORMAT` 3). pairing한 모든 컴퓨터와 맞춘다. 위젯 binding은 native만 쓴다. 홈 화면 아이콘의 이름과 그림이 앱을 따라 바뀐다."
+  - "앱 runtime: exit 0으로 끝난 앱도 다시 띄운다. grant 거두기가 process 상태를 보지 않고 바로 된다. `@me` package가 기대는 `@me`의 permission을 선언하지 않으면 publish를 거절한다. sync 적용과 rewind의 답을 잃으면 실패나 취소가 아니라 결과 모름으로 남는다(rewind의 `unknown`, schema step `apps.rewind.unknown`). `runs_on`이 `[\"phone\"]`인 앱은 컴퓨터에서 process를 띄우지 않는다."
+  - "folder sync: 마지막으로 알린 held 수를 ledger에 둔다(schema step `folder.away-notified`). 시계가 5분 넘게 앞선 snapshot을 미룬다. 첫 내보내기가 scan 뒤에 돈다. `machine.environment`가 기계마다 `exchange`를, 앱마다 `follow`·`held`·`machines`를 싣는다."
+  - "provider: 이미 있는 id로 이어도 쓰던 key·token이 덮이지 않는다(연결이 성공한 뒤에만 쓴다). 끊으면 core가 secret 값을 지운다."
+  - "shell: 첫 실행의 `--quit`이 창을 열지 않는다. 창이 없어도 `--quit`이 확인을 묻는다. 다른 client가 core를 멈춘 뒤 30초마다 서 있는 core에 붙어 본다. 기본 menu에서 Reload를 뺐다. layout을 읽지 못하면 저장을 막고 알린다. App details에 이름 바꾸기와 보관이 있다. preview 탭에 화면 고르기가 있다. Settings의 겹침 검사가 harness keymap과 앱 key를 본다."
+  - "relay: IP마다 socket 32개와 control socket 4개, 폰 연결마다 초당 1 MiB(한 번에 17 MiB)의 한도. 배포하지 않았다."
+  - "flow process를 512 MiB heap 한도로 띄운다."
+  - "check: node 쪽 package 아홉을 한 tsc program(`tsconfig.node.json`)으로 본다. `merge.sh`가 의존이 바뀌면 `npm ci`를 돌린다."
+  - "문서: `PRODUCT.md`에 session의 기록은 기계 사이에 맞추지 않는다고 적었다. roadmap `paths-by-environment.md`(환경마다의 길, 초안)를 더했다."
+why: |
+  열린 이슈가 146개로 쌓여 있었고, 사람이 폰과 harness GUI를 쓰면서 본 것(`issue.md`와 대화)이 그 위에 더해졌다. 같은 file을 고치는 이슈를 묶어 path가 겹치지 않는 task 스무 개로 나눠 한 번에 고쳤다. 열린 이슈는 46개가 남았다.
+decisions:
+  - text: "폰의 터미널 크기는 Paseo의 규칙을 따른다(마지막에 잡은 쪽이 이기고 폰이 떠나면 되돌린다). 폰에 보내고 그리는 방식(화면 한 장을 글 줄로)은 그대로 둔다. 버린 길: Paseo처럼 raw byte stream과 폰의 terminal emulator(폰이 화면 snapshot을 그리는 구조를 버려야 한다)."
+    by: agent
+  - text: "터미널 입력 허락은 pairing 때 기본 켬이다. 폰에서 연 coding session은 project 창이 없으면 창을 focus 없이 연다. 새 session의 고르기 단추는 둘이다. 폰에서 터미널 탭을 연다. coding session에서도 폰으로 이미지를 붙인다."
+    by: person
+  - text: "폰은 목록·이름·아이콘만 file로 두고 대화는 저장하지 않는다. session의 기록(transcript, tool 이력)은 기계 사이에 맞추지 않는다. 꺼진 기계의 일은 handoff로 넘기고 그것은 나중에 다룬다."
+    by: person
+  - text: "폰 앱 화면의 머리 줄은 lophn만 그린다. Claude의 `/remote-control`은 숨긴다. grant 거두기는 process를 멈추지 않는다(broker가 요청마다 범위를 다시 읽는다). 직접 주소를 pairing 뒤에도 새로 받고 사람이 적는 주소 설정을 둔다(사람의 답을 받기 전에 넣었다. 사람이 빼라고 하면 되돌린다)."
+    by: agent
+  - text: "두 기기가 같은 session을 다룰 때의 빈틈 여덟은 고치지 않고 이슈로만 올렸다(사람: 의논하고 다음 roadmap으로 연다)."
+    by: person
+follow_up: |
+  폰과 Electron에서 돌려 본 것이 없다. 아래 checklist로 사람이 본다. 열어도 비어 보이는 coding session의 원인은 모른다(이슈 `phone-coding-session-opens-empty`). 화면 줄이 필요한 것: Settings › Remote의 `remote.addresses` 칸.
+checklist:
+  - "해야: 폰 앱을 새로 build한다(native 변경: 위젯 binding과 홈 화면 아이콘의 Kotlin, 앱 DB의 C++, 알림 아이콘, guest base)"
+  - "해야: 이미 pairing한 폰으로 터미널에 치려면 컴퓨터의 Settings › Remote에서 그 기기의 Allow typing in terminals를 켠다"
+  - 폰의 새 session에 단추가 둘이고 agent sheet에 coding agent와 Terminal이 보이는지, coding agent가 첫 메시지를 보낼 때 열리는지 본다
+  - 폰에서 Terminal을 고르면 컴퓨터에 터미널 탭이 열리고 폰 폭에 맞는지, 컴퓨터에서 그 탭을 누르면 다시 넓어지는지 본다
+  - 컴퓨터의 lophn이 다른 project를 보이고 있을 때 폰에서 coding session을 열면 창이 하나 더 열리며 시작하는지 본다
+  - 폰의 sidebar와 project 안의 점이 desktop과 같은지(도는 중은 숨 쉬는 진한 점, 못 본 끝은 초록), 앱과 project 아이콘이 보이는지 본다
+  - 폰의 coding session에서 tool 줄을 펼치면 본문이 뜨는지, 사진을 붙여 보내면 가는지 본다
+  - 폰에서 `/`를 치면 목록이 뜨는지, `/rename 새 이름`이 desktop의 이름도 바꾸는지 본다
+  - Claude GUI에서 effort를 바꾸고 TUI로 갔다 돌아와도 그대로인지, subagent를 쓴 대화를 다시 열어도 task 알림 줄이 없는지 본다
+  - "`lophn core stop` 뒤 core를 다시 띄우면 열려 있던 lophn 창이 30초 안에 다시 붙는지 본다"
+  - 폰에서 열어도 비어 보이던 그 coding session을 다시 열어 보고, 여전히 비면 컴퓨터의 log와 함께 알린다

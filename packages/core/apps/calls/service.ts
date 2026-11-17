@@ -613,6 +613,21 @@ export function createAppCalls(deps: AppCallsDeps): {
     return err(error);
   }
 
+  // 답을 받지 못한 일. 보낸 뒤 잃었으면(relay·supervisor 통로가 `details.sent`를 단다) 앱 process가 한 transaction으로
+  // 이미 적용했을 수 있어 결과 모름으로 닫는다. 그래야 그 변경을 모르는 rewind가 범위를 막는다. 보내기 전에 막혔거나 앱이
+  // 거절했으면 실패로 닫는다.
+  async function closeNotApplied(
+    opened: readonly Opened[],
+    error: LophnError,
+  ): Promise<Result<never>> {
+    if (error.details?.["sent"] !== true) return closeFailed(opened, error);
+    for (const open of opened) {
+      const closed = await closeUnknown(open.base, open.startedAt);
+      if (!closed.ok) return closed;
+    }
+    return err(error);
+  }
+
   function notSync(): LophnError {
     return { code: "invalid_input", message: "the app does not sync its data" };
   }
@@ -709,7 +724,7 @@ export function createAppCalls(deps: AppCallsDeps): {
       });
       if (job.abandoned) return null;
       const [open] = job.opened.splice(0);
-      if (!applied.ok) return closeFailed([open!], applied.error);
+      if (!applied.ok) return closeNotApplied([open!], applied.error);
       if (applied.value.status === "not_sync") {
         return closeFailed([open!], notSync());
       }
@@ -816,7 +831,7 @@ export function createAppCalls(deps: AppCallsDeps): {
       });
       if (job.abandoned) return null;
       const opened = job.opened.splice(0);
-      if (!applied.ok) return closeFailed(opened, applied.error);
+      if (!applied.ok) return closeNotApplied(opened, applied.error);
       if (applied.value.status === "not_sync") {
         return closeFailed(opened, notSync());
       }
@@ -899,11 +914,7 @@ export function createAppCalls(deps: AppCallsDeps): {
       if (job.abandoned) return null;
       const [open] = job.opened.splice(0);
       // 답을 받지 못했으면 합쳐졌을 수 있다: 결과 모름으로 닫아 폰이 새 snapshot을 받게 한다.
-      if (!merged.ok && merged.error.code === "unavailable") {
-        const closed = await closeUnknown(open!.base, open!.startedAt);
-        return closed.ok ? merged : closed;
-      }
-      if (!merged.ok) return closeFailed([open!], merged.error);
+      if (!merged.ok) return closeNotApplied([open!], merged.error);
       if (merged.value.status === "not_sync") {
         return closeFailed([open!], notSync());
       }
@@ -1001,7 +1012,7 @@ export function createAppCalls(deps: AppCallsDeps): {
       });
       if (job.abandoned) return null;
       const [open] = job.opened.splice(0);
-      if (!applied.ok) return closeFailed([open!], applied.error);
+      if (!applied.ok) return closeNotApplied([open!], applied.error);
       if (applied.value.status === "not_sync") {
         return closeFailed([open!], notSync());
       }

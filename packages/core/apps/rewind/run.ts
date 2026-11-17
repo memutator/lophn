@@ -95,7 +95,14 @@ export function createAppRewind(deps: RewindDeps): AppRewind {
         ),
       });
       if (!applied.ok) {
-        return cancel(id, "app_unavailable", applied.error.message);
+        // 보낸 뒤 답을 잃었으면 앱 process가 이미 되돌렸을 수 있다. 기록에는 결과 모름 상태가 없어 이유 글로 남긴다.
+        return cancel(
+          id,
+          "app_unavailable",
+          applied.error.details?.["sent"] === true
+            ? `${applied.error.message}; the app data may already be rewound`
+            : applied.error.message,
+        );
       }
       if (applied.value.status === "conflict") {
         return cancel(id, "conflict", applied.value.message);

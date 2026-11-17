@@ -59,7 +59,23 @@ export function missingSdkPermission(
   );
   if (cap !== undefined) return cap;
   // `@me` package가 publish 때 적은 permission은 소비 앱 선언에도 모두 있어야 한다.
-  for (const dependency of declaration.sdk_dependencies) {
+  return missingUserPackagePermission(
+    declaration.sdk_dependencies,
+    userPackagePermissions,
+    declared,
+    "declaration permissions",
+  );
+}
+
+// `@me` 의존마다 그 정확한 판이 catalog에 적은 permission 중 declared에 없는 첫 것을 낸다.
+// 한 단계만 본다: 그 판도 publish 때 자기 `@me` 의존을 같은 규칙으로 덮었다.
+export function missingUserPackagePermission(
+  dependencies: Iterable<{ name: string; version: string }>,
+  userPackagePermissions: ReadonlyMap<string, readonly string[]>,
+  declared: ReadonlySet<string>,
+  where: string,
+): SdkPermissionFailure | undefined {
+  for (const dependency of dependencies) {
     const key = `${dependency.name}@${dependency.version}`;
     const needed = userPackagePermissions.get(key);
     if (needed === undefined) continue;
@@ -68,7 +84,7 @@ export function missingSdkPermission(
     return {
       package: dependency.name,
       permissions: [missing],
-      message: `${key} needs ${missing} in the declaration permissions`,
+      message: `${key} needs ${missing} in the ${where}`,
     };
   }
   return undefined;

@@ -8,13 +8,7 @@ import {
   declaredScopes,
   resourceLabel,
 } from "./facts.ts";
-import {
-  insertGrant,
-  lastProcessFact,
-  loadGrant,
-  loadGrants,
-  markRevoked,
-} from "./store.ts";
+import { insertGrant, loadGrant, loadGrants, markRevoked } from "./store.ts";
 
 type AppGrantScope = AppGrant["scope"];
 
@@ -160,16 +154,8 @@ export function createGrantCommands(): {
             : access;
         }
         if (grant.status !== "active") return absent();
-        // 거두기 접수와 실제 완료는 다르다. 살아 있는 process가 멈췄다는 사실(AppStopped)이 원장에
-        // 없으면 revoked로 확정하지 않는다. 부르는 쪽(GrantApplier)은 stop으로 종료를 확인하고
-        // supervisor가 AppStopped를 기록한 뒤에 이 command를 부른다. 앱 grant는 event를 내지 않는다.
-        if (lastProcessFact(tx.sql, grant.app).kind === "started") {
-          return err({
-            code: "unavailable",
-            message:
-              "process termination is not confirmed; the revoke is not complete",
-          });
-        }
+        // 떠 있는 process는 멈추지 않는다. broker가 요청마다 선언 ∩ active grant를 다시 읽고 앱은 secret
+        // 값을 쥐지 않으므로, 거둔 것은 다음 요청부터 거절된다. 앱 grant는 event를 내지 않는다.
         const at = tx.now();
         const revoked = markRevoked(tx, grant.id, at);
         if (!revoked.ok) return revoked;

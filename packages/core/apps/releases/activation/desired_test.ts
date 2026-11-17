@@ -13,6 +13,7 @@ test("bundle의 필수 handler와 등록해도 되는 구독 handler(on.<source>
       commands: [],
       subscriptions: [{ source: "masup", event: "usage.limit" }],
       dataSchema: 0,
+      runsOnComputer: true,
     },
     {
       app: "app_1",

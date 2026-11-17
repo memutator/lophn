@@ -145,6 +145,9 @@ export type ActivationDriver = {
 // 큰 migration(data job 상한 300초)은 넘을 수 있어 running이다.
 const ACTIVATE_WAIT_MS = 120_000;
 
+// 폰에서만 도는 release의 준비 확인에 process nonce 대신 싣는 값이다. 컴퓨터에 그 release의 process는 없다.
+const PHONE_ONLY_NONCE = "phone-only";
+
 function unavailable(message: string): Result<never> {
   return err({ code: "unavailable", message });
 }
@@ -196,10 +199,13 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     if (!copy.ok) return copy;
     if (copy.value === undefined) return unavailable("bundle copy is missing");
     const dataPath = appDataFolder(deps.dataRoot, app);
-    try {
-      await mkdir(dataPath, { recursive: true });
-    } catch {
-      return unavailable("app data area cannot be made");
+    // 폰에서만 도는 앱은 컴퓨터에 data를 두지 않는다.
+    if (copy.value.runsOnComputer) {
+      try {
+        await mkdir(dataPath, { recursive: true });
+      } catch {
+        return unavailable("app data area cannot be made");
+      }
     }
     return ok(
       desiredFromBundle(copy.value, {
@@ -339,6 +345,37 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     return await deps.facts.app(app);
   }
 
+  // 폰에서만 도는 release인가(선언 `runs_on`에 computer가 없다). 컴퓨터에는 그 앱의 process도 DB도 두지 않아
+  // activation이 data 일과 후보 시작을 건너뛴다. 폰이 자기 DB를 올린다.
+  async function phoneOnly(attempt: Attempt): Promise<Result<boolean>> {
+    const copy = await readBundleCopy(
+      deps.dataRoot,
+      attempt.app,
+      attempt.bundleHash,
+    );
+    if (!copy.ok) return copy;
+    if (copy.value === undefined) return unavailable("bundle copy is missing");
+    return ok(!copy.value.runsOnComputer);
+  }
+
+  // release를 준비해서 연다. 종료 확인 뒤에만 부른다. 폰에서만 도는 release는 실행을 꺼 둔 채로 알리고 붙들기만 푼다.
+  async function runRelease(
+    app: string,
+    release: string,
+  ): Promise<Result<void>> {
+    const found = await ledgerApp(app);
+    if (!found.ok) return found;
+    if (found.value === null) return unavailable("app is unavailable");
+    const desired = await desiredFor(app, release, {
+      runEnabled: found.value.run_enabled,
+      archived: found.value.status === "archived",
+    });
+    if (!desired.ok) return desired;
+    const told = await deps.reconcile(desired.value);
+    if (!told.ok) return told;
+    return await deps.client.activationResume(app);
+  }
+
   const ports: ActivationPorts = {
     intake: {
       close: (app) => late?.intake.close(app),
@@ -359,11 +396,27 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
         return paused.ok && paused.value;
       },
       async startCandidate(attempt) {
+        const only = await phoneOnly(attempt);
+        if (!only.ok) return only;
         const desired = await desiredFor(attempt.app, attempt.release, {
           runEnabled: true,
           archived: false,
         });
         if (!desired.ok) return desired;
+        // 컴퓨터에 띄울 process가 없다. 준비 확인은 봉인 사본의 선언(handler 이름·schema)으로 대신한다.
+        if (only.value) {
+          return ok({
+            nonce: PHONE_ONLY_NONCE,
+            attestation: {
+              release: attempt.release,
+              bundle_hash: attempt.bundleHash,
+              tools: desired.value.tools,
+              data_schema: attempt.targetSchema,
+              process_nonce: PHONE_ONLY_NONCE,
+              connection_ok: true as const,
+            },
+          });
+        }
         const started = await deps.client.activationPrepare(desired.value);
         if (!started.ok) return started;
         if (!started.value.ok) {
@@ -383,28 +436,25 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
         });
       },
       async openCandidate(attempt) {
+        const only = await phoneOnly(attempt);
+        if (!only.ok) return only;
+        if (only.value) return await runRelease(attempt.app, attempt.release);
         const opened = await deps.client.activationOpen(attempt.app);
         if (!opened.ok) return opened;
         if (!opened.value) return unavailable("the candidate was not opened");
         // 채택한 release가 열렸다. 붙들기를 풀면 core가 알리는 상태와 같아 아무것도 다시 띄우지 않는다.
         return await deps.client.activationResume(attempt.app);
       },
-      async run(app, release) {
-        const found = await ledgerApp(app);
-        if (!found.ok) return found;
-        if (found.value === null) return unavailable("app is unavailable");
-        const desired = await desiredFor(app, release, {
-          runEnabled: found.value.run_enabled,
-          archived: found.value.status === "archived",
-        });
-        if (!desired.ok) return desired;
-        const told = await deps.reconcile(desired.value);
-        if (!told.ok) return told;
-        return await deps.client.activationResume(app);
-      },
+      run: runRelease,
     },
     data: {
       async inspect(attempt) {
+        const only = await phoneOnly(attempt);
+        if (!only.ok) return only;
+        // 컴퓨터에 앱 DB가 없다. 목표 schema로 보아 backup과 migration을 건너뛴다.
+        if (only.value) {
+          return ok({ data_schema: attempt.targetSchema, integrity_ok: true });
+        }
         const done = await job(attempt, "inspect");
         return done.ok
           ? ok({

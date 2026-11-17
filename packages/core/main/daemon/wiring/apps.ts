@@ -818,6 +818,7 @@ export const appsWiring: WiringFactory = () => {
               dataRoot: ctx.root.path,
               sourceRootOf: (app) => sourceRootOfApp(link.sql, app),
               prepareBlob: (call) => ctx.blobRelay.prepare(call),
+              catalog: link.sql,
               registerVersion: async (input) => {
                 const done = await ctx.writer.command(
                   PACKAGE_PUBLISH_CONTEXT as never,

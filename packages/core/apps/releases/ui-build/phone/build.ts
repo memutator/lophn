@@ -10,12 +10,12 @@
 //   실제로 require하는 이름이다. 2 MiB를 넘는 `phone.js`는 실패다.
 // - `index.html`·`preview.js`(+`preview.js.map`): desktop preview. react-dom이 화면을 kit의 `UiProvider`와 error
 //   boundary 아래 그린다. `react-native`는 react-native-web으로 풀고(`web-shims.ts`), `.web.*`를 먼저 찾는다.
-//   이 build가 쓰는 react-native-web·react-dom은 앱의 devDependencies에서 온다.
+//   이 build가 쓰는 react-native-web·react-dom은 앱의 devDependencies에서 온다. kit 글꼴 file(`KIT_FONTS`)도 같이 둔다.
 // 폰 화면 앱은 kit과 그 peer(react-native 등, 설치 약 470 MB)를 devDependencies로 둔다. 준비는 build 뒤 그것을
 // `npm prune --omit=dev`로 빼서 bundle 상한(256 MiB, file 10,000개) 안에 든다(`prepare/from-source.ts`).
 // 앱 code는 묶일 뿐 실행되지 않고, staging 밖 file은 `stagingGuard`가 막는다.
 import { createHash } from "node:crypto";
-import { readFile, realpath, writeFile } from "node:fs/promises";
+import { copyFile, readFile, realpath, writeFile } from "node:fs/promises";
 import { isBuiltin } from "node:module";
 import { join, sep } from "node:path";
 import * as esbuild from "esbuild";
@@ -150,11 +150,31 @@ export async function bundlePhone(
   return [...new Set(modules)].sort();
 }
 
+// kit의 `Text`가 이름으로 거는 글꼴(`design/native/theme.tsx`의 `font`)과 그 file이다. 폰 앱은 같은 글꼴을 앱에 넣어 두므로
+// preview도 그 글꼴로 그려야 줄바꿈과 글 폭이 폰과 같다. file은 앱 source가 아니라 core가 가진 design 글꼴이다.
+const KIT_FONTS = [
+  { family: "Pretendard", file: "PretendardVariable.woff2" },
+  { family: "JetBrainsMono", file: "JetBrainsMonoVariable.woff2" },
+] as const;
+const DESIGN_FONTS = new URL("../../../../../design/fonts/", import.meta.url);
+
+const FONT_FACES = KIT_FONTS.map(
+  (font) => `      @font-face {
+        font-family: "${font.family}";
+        font-weight: 100 900;
+        font-display: block;
+        src: url("./${font.file}") format("woff2");
+      }`,
+).join("\n");
+
 const PREVIEW_HTML = `<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+${FONT_FACES}
+    </style>
   </head>
   <body>
     <div id="root"></div>
@@ -219,6 +239,9 @@ async function bundlePreview(base: string, key: string, out: string) {
     plugins: [webShims(base), stagingGuard(base)],
   });
   await writeFile(join(out, "index.html"), PREVIEW_HTML);
+  for (const font of KIT_FONTS) {
+    await copyFile(new URL(font.file, DESIGN_FONTS), join(out, font.file));
+  }
 }
 
 // 앱이 pin한 kit 판. npm이 건 `node_modules/<이름>`이 `.lophn/sdk`의 설치 사본이어야 한다.

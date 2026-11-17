@@ -8,7 +8,6 @@ import type { ChildIdentity } from "../processes/identity.ts";
 import { sameChild } from "../processes/identity.ts";
 import type { AppEnvironment } from "../processes/spawn.ts";
 import type { StopReason } from "../processes/terminate.ts";
-import { unexpected } from "../processes/terminate.ts";
 import {
   backoffMs,
   crashLoop,
@@ -339,9 +338,6 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
     const confirmed = await tracked.child.terminate();
     if (!confirmed) return false;
     const code = await tracked.child.exited;
-    if (unexpected({ intended: tracked.intended, exitCode: code })) {
-      runtime.exits.push({ atMs: deps.clock.nowMs() });
-    }
     emit({
       kind: "exit",
       app: tracked.desired.app,
@@ -613,7 +609,8 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
     await launch(runtime, desired);
   }
 
-  // 예상 밖 종료만 센다. 의도된 종료는 crash도 backoff도 아니다.
+  // 의도하지 않은 종료는 exit 0이어도 예상 밖으로 센다: 앱 server가 스스로 끝나는 것은 정상이 아니다.
+  // 의도된 종료는 crash도 backoff도 아니다.
   function onChildExit(runtime: AppRuntime, tracked: Tracked) {
     if (runtime.tracked !== tracked || tracked.intended !== undefined) return;
     void enqueue(runtime, async () => {
@@ -630,7 +627,6 @@ export function createSupervisor(deps: SupervisorDeps): Supervisor {
         intended: false,
         exitCode: code,
       });
-      if (!unexpected({ intended: tracked.intended, exitCode: code })) return;
       const now = deps.clock.nowMs();
       runtime.exits = [...recentExits(runtime.exits, now), { atMs: now }];
       const desired = runtime.desired;

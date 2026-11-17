@@ -8,13 +8,16 @@ import type {
   PackageRegisterVersionInput,
   packageRegisterVersionOutputSchema,
 } from "../../../protocol/apps/mod.ts";
+import type { Sql } from "../../../protocol/server/mod.ts";
 import type { MemoryHandler } from "../../server/mod.ts";
 import {
   extractCommit,
   type GitRunner,
   gitCommandRunner,
   missingCapPermission,
+  missingUserPackagePermission,
 } from "../releases/mod.ts";
+import { loadVersionPermissions } from "./store.ts";
 import {
   bundleBytes,
   INSTALL_PRINCIPAL,
@@ -34,6 +37,8 @@ type PublishDeps = {
   // 앱에 연결된 source 폴더(app.source_path). 연결 안 된 앱은 err다.
   sourceRootOf: (app: string) => Promise<Result<string>> | Result<string>;
   prepareBlob: PrepareBlob;
+  // package catalog를 읽는다. `@me` 의존이 publish 때 적은 permission을 찾는다.
+  catalog: Pick<Sql, "get" | "all">;
   // machine 자격으로 package.register_version을 ledger command로 넣는다.
   registerVersion: (
     input: PackageRegisterVersionInput,
@@ -53,16 +58,19 @@ function guideText(guide: PackagePublishInput["guide"]): string {
   );
 }
 
-// package.json의 dependencies 이름. 모양 오류는 prepareCopyFiles가 이미 거절했다.
-export function dependencyNames(
+// package.json의 dependencies 이름과 판. 모양 오류는 prepareCopyFiles가 이미 거절했다(@lophn·@me는 정확한 판이다).
+export function dependencyVersions(
   files: readonly { path: string; bytes: Uint8Array }[],
-): string[] {
+): { name: string; version: string }[] {
   const manifest = files.find((file) => file.path === "package.json");
   if (manifest === undefined) return [];
   const parsed = JSON.parse(new TextDecoder().decode(manifest.bytes)) as {
     dependencies?: Record<string, unknown>;
   };
-  return Object.keys(parsed.dependencies ?? {});
+  return Object.entries(parsed.dependencies ?? {}).map(([name, version]) => ({
+    name,
+    version: String(version),
+  }));
 }
 
 export function publishPackage(deps: PublishDeps): MemoryHandler {
@@ -122,12 +130,33 @@ export function publishPackage(deps: PublishDeps): MemoryHandler {
     // 사본은 package.json을 갖고, 그 안의 @lophn·@me 의존은 설치 사본 사이의 `file:` 경로다.
     const copy = prepareCopyFiles(input.name, input.version, files);
     if (!copy.ok) return copy;
-    // 낸 permission이 내부 `@lophn/cap-*` 의존이 요구하는 것을 덮어야 소비 앱이 release 때 빠짐없이 선언한다.
-    const missing = missingCapPermission(
-      dependencyNames(files),
-      new Set<string>(input.permissions),
-      "package permissions",
-    );
+    // 낸 permission이 내부 `@lophn/cap-*` 의존과 `@me` 의존의 요구를 덮어야 소비 앱이 release 때 빠짐없이 선언한다.
+    const dependencies = dependencyVersions(files);
+    const declared = new Set<string>(input.permissions);
+    const userPermissions = new Map<string, readonly string[]>();
+    for (const dependency of dependencies) {
+      if (!dependency.name.startsWith("@me/")) continue;
+      const key = `${dependency.name}@${dependency.version}`;
+      const found = loadVersionPermissions(
+        deps.catalog,
+        dependency.name,
+        dependency.version,
+      );
+      if (found === null) return invalid(`${key} is not published`);
+      userPermissions.set(key, found);
+    }
+    const missing =
+      missingCapPermission(
+        dependencies.map((dependency) => dependency.name),
+        declared,
+        "package permissions",
+      ) ??
+      missingUserPackagePermission(
+        dependencies,
+        userPermissions,
+        declared,
+        "package permissions",
+      );
     if (missing !== undefined) return invalid(missing.message);
 
     const bundle = bundleBytes(files);

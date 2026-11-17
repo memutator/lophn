@@ -20,7 +20,8 @@ const DESIRED: DesiredApp = {
 };
 
 // 지우면 crash loop로 멈춘 앱을 사람이 Run으로 켜도 창이 안 비어 다시 뜨지 않는다.
-test("crash loop로 멈춘 앱은 사람이 다시 켜면 창을 비우고 다시 뜬다", async () => {
+// 자식은 exit 0으로 끝난다: 스스로 0으로 끝난 앱도 예상 밖으로 세어 다시 띄워야 crash loop에 닿는다.
+test("스스로 끝나는 앱은 crash loop로 멈추고, 사람이 다시 켜면 창을 비우고 다시 뜬다", async () => {
   let crashing = true;
   let spawned = 0;
   const supervisor = createSupervisor({
@@ -42,7 +43,7 @@ test("crash loop로 멈춘 앱은 사람이 다시 켜면 창을 비우고 다�
       spawned += 1;
       let finish: (code: number | null) => void = () => {};
       const exited = crashing
-        ? Promise.resolve(1)
+        ? Promise.resolve(0)
         : new Promise<number | null>((resolve) => (finish = resolve));
       const child: AppChild = {
         identity: { ...request.identity, pid: spawned },

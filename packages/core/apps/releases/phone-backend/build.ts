@@ -136,7 +136,7 @@ export async function buildPhoneBackend(
       format: "iife",
       target: "es2015",
       minify: true,
-      sourcemap: "external",
+      // source map은 싣지 않는다. 폰은 manifest가 적은 file만 받고 map을 읽는 곳이 없다.
       define: { "process.env.NODE_ENV": '"production"' },
       logLevel: "silent",
       plugins: [importGuard(root), stagingGuard(root)],
@@ -145,10 +145,7 @@ export async function buildPhoneBackend(
     return invalid(firstError(thrown));
   }
   const js = built.outputFiles.find((file) => file.path.endsWith("backend.js"));
-  const map = built.outputFiles.find((file) =>
-    file.path.endsWith("backend.js.map"),
-  );
-  if (js === undefined || map === undefined) {
+  if (js === undefined) {
     return err({
       code: "internal",
       message: "the backend build wrote no output",
@@ -195,13 +192,12 @@ export async function buildPhoneBackend(
   };
   await mkdir(join(root, "phone"), { recursive: true });
   await writeFile(join(root, "phone/backend.js"), js.contents);
-  await writeFile(join(root, "phone/backend.js.map"), map.contents);
   await writeFile(
     join(root, "phone/backend.json"),
     `${JSON.stringify(manifest, null, 2)}\n`,
   );
   return ok({
-    files: ["phone/backend.js", "phone/backend.js.map", "phone/backend.json"],
+    files: ["phone/backend.js", "phone/backend.json"],
     manifest,
   });
 }

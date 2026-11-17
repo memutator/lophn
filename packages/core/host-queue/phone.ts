@@ -13,7 +13,8 @@ import { PHONE_KINDS, type PhoneKind } from "../../protocol/phone/kinds.ts";
 import type { PhoneTab } from "./queue.ts";
 
 // phone 탭의 browser 호출을 폰 link의 `drive.*`로 바꾼다(`protocol/phone/drive.ts`). 기기와 view는 부를 때마다 그 앱의 열린
-// preview view에서 고르고, ref 번호·snapshot 글·오류 문장·redaction은 core가 한다. 폰은 view·by·snapshot id만 받는다.
+// preview view에서 고르되, 탭이 고른 기기에 preview view가 있는 동안은 그 기기에 머문다. ref 번호·snapshot 글·오류 문장·
+// redaction은 core가 한다. 폰은 view·by·snapshot id만 받는다.
 
 // 그 앱의 preview view 하나다(`apps/views`의 `previewViews`). owner는 `device:<기기 id>`다.
 export type PreviewView = {
@@ -120,8 +121,22 @@ function render(
 }
 
 export function createPhoneDriver(deps: PhoneDriveDeps) {
-  const pick = (tab: PhoneTab) =>
-    pickView(deps.previewViews(tab.app), tab.screen);
+  // 탭마다 마지막으로 고른 기기(owner)다. 두 기기가 같은 앱의 preview를 열어 두면 다른 기기가 화면을 쓰기만 해도
+  // `used`가 바뀌므로, 고른 기기의 view가 사라질 때만 다시 고른다.
+  const held = new WeakMap<PhoneTab, string>();
+  const pick = (tab: PhoneTab): PreviewView | null => {
+    const views = deps.previewViews(tab.app);
+    const owner = held.get(tab);
+    const chosen =
+      (owner === undefined
+        ? null
+        : pickView(
+            views.filter((view) => view.owner === owner),
+            tab.screen,
+          )) ?? pickView(views, tab.screen);
+    if (chosen !== null) held.set(tab, chosen.owner);
+    return chosen;
+  };
 
   async function ask<K extends PhoneKind>(
     kind: K,

@@ -25,12 +25,18 @@ type ControlReader = {
   read(buffer: Uint8Array): Promise<number | null>;
 };
 
-// op 처리기가 던지는 오류. code가 worker_response의 error.code가 된다.
+// op 처리기가 던지는 오류. code·details가 worker_response의 error가 된다.
 export class OpError extends Error {
   readonly code: ErrorCode;
-  constructor(code: ErrorCode, message: string) {
+  readonly details: Record<string, unknown> | undefined;
+  constructor(
+    code: ErrorCode,
+    message: string,
+    details?: Record<string, unknown>,
+  ) {
     super(message);
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -154,6 +160,9 @@ export function attachControlLink(
         error: {
           code,
           message: error instanceof OpError ? error.message : "op failed",
+          ...(error instanceof OpError && error.details !== undefined
+            ? { details: error.details }
+            : {}),
         },
       });
     }

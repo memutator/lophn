@@ -45,6 +45,8 @@ type BundleParts = {
   subscriptions: SubscriptionDeclaration[];
   // migrations/<from>-<to>.sql 단계의 가장 큰 도착 schema다. 단계가 없으면 0이다.
   dataSchema: number;
+  // 선언 `runs_on`에 computer가 있다(없으면 `["computer"]`). 폰에서만 도는 앱은 컴퓨터에 process도 DB도 없다.
+  runsOnComputer: boolean;
 };
 
 function unavailable(message: string): Result<never> {
@@ -167,11 +169,14 @@ export async function readBundleCopy(
     commands: declaration.value.commands,
     subscriptions: declaration.value.subscriptions ?? [],
     dataSchema: dataSchemaOf(manifest),
+    runsOnComputer: (declaration.value.runs_on ?? ["computer"]).includes(
+      "computer",
+    ),
   });
 }
 
 // supervisor에 알리는 운영 앱의 원하는 상태다(apps/runtime `DesiredApp`). 사본에서 읽은 부분과 ledger가 정한
-// 부분(release·실행 허용·archive·data schema)을 하나로 합친다.
+// 부분(release·실행 허용·archive·data schema)을 하나로 합친다. 폰에서만 도는 앱은 실행을 허용해도 컴퓨터에서 띄우지 않는다.
 export function desiredFromBundle(
   parts: BundleParts,
   input: {
@@ -188,7 +193,7 @@ export function desiredFromBundle(
     app: input.app,
     release: input.release,
     bundleHash: input.bundleHash,
-    runEnabled: input.runEnabled,
+    runEnabled: input.runEnabled && parts.runsOnComputer,
     archived: input.archived,
     tools: requiredHandlerNames(parts),
     subscribed: parts.subscriptions.map(subscriptionHandlerName),

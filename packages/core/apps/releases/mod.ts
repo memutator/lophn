@@ -52,7 +52,10 @@ export {
   usageCounter,
 } from "./prepare/limits.ts";
 export { createActivationQueueRead, createReleaseReads } from "./reads.ts";
-export { missingCapPermission } from "./sdk-permissions.ts";
+export {
+  missingCapPermission,
+  missingUserPackagePermission,
+} from "./sdk-permissions.ts";
 // core의 ledger 쪽(동기 command·read). packages/core/apps/register.ts는 core module graph에 worker 코드가 들어가지
 // 않도록 이 파일들을 각각 import한다.
 export { releasesSchemaSteps } from "./schema.ts";

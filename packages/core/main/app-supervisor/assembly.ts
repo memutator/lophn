@@ -1004,7 +1004,11 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       const request = parse(processApplyRequestSchema, json);
       const applied = await relay.apply(input.app, request);
       if (!applied.ok) {
-        throw new OpError(applied.error.code, applied.error.message);
+        throw new OpError(
+          applied.error.code,
+          applied.error.message,
+          applied.error.details,
+        );
       }
       return applied.value;
     },
@@ -1014,7 +1018,11 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       const request = parseBody(processSyncApplyRequestSchema, body);
       const applied = await relay.syncApply(input.app, request);
       if (!applied.ok) {
-        throw new OpError(applied.error.code, applied.error.message);
+        throw new OpError(
+          applied.error.code,
+          applied.error.message,
+          applied.error.details,
+        );
       }
       return fitted(applied.value);
     },
@@ -1022,7 +1030,11 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       const input = parse(snapshotInputSchema, payload);
       const written = await relay.snapshot(input.app, { path: input.path });
       if (!written.ok) {
-        throw new OpError(written.error.code, written.error.message);
+        throw new OpError(
+          written.error.code,
+          written.error.message,
+          written.error.details,
+        );
       }
       return written.value;
     },
@@ -1031,7 +1043,11 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       const request = parseBody(processSnapshotMergeRequestSchema, body);
       const merged = await relay.snapshotMerge(input.app, request);
       if (!merged.ok) {
-        throw new OpError(merged.error.code, merged.error.message);
+        throw new OpError(
+          merged.error.code,
+          merged.error.message,
+          merged.error.details,
+        );
       }
       return fitted(merged.value);
     },
@@ -1039,7 +1055,11 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       const { app, ...request } = parse(syncCleanupInputSchema, payload);
       const cleaned = await relay.syncCleanup(app, request);
       if (!cleaned.ok) {
-        throw new OpError(cleaned.error.code, cleaned.error.message);
+        throw new OpError(
+          cleaned.error.code,
+          cleaned.error.message,
+          cleaned.error.details,
+        );
       }
       return cleaned.value;
     },
@@ -1048,7 +1068,11 @@ export function assembleSupervisor(io: SupervisorIo): Assembly {
       const request = parseBody(processSyncReapplyRequestSchema, body);
       const applied = await relay.syncReapply(input.app, request);
       if (!applied.ok) {
-        throw new OpError(applied.error.code, applied.error.message);
+        throw new OpError(
+          applied.error.code,
+          applied.error.message,
+          applied.error.details,
+        );
       }
       return fitted(applied.value);
     },

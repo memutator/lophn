@@ -68,7 +68,11 @@ type WorkerResponse =
       type: "worker_response";
       request_id: string;
       ok: false;
-      error: { code: string; message: string };
+      error: {
+        code: string;
+        message: string;
+        details?: Record<string, unknown>;
+      };
     };
 
 // pipe로 frame을 쓰는 함수들. false면 보내지 못한 것이다.
@@ -218,8 +222,12 @@ export function createSupervisorChannel(): SupervisorChannel {
           ? ok(response.payload)
           : err({
               code: response.error.code as "unavailable",
-              // supervisor가 준 이유를 그대로 싣는다. 이 오류는 op 처리기가 던진 code·message뿐이다.
+              // supervisor가 준 이유를 그대로 싣는다. 이 오류는 op 처리기가 던진 code·message·details뿐이다
+              // (`details.sent`: 앱 process에 보낸 뒤 답을 잃었다).
               message: response.error.message,
+              ...(response.error.details === undefined
+                ? {}
+                : { details: response.error.details }),
             }),
       );
       return true;

@@ -91,27 +91,3 @@ export function markRevoked(
   );
   return Number(changed.changes) === 1 ? ok(undefined) : invalidStored();
 }
-
-// 앱의 grant 집합이 바뀔 때마다 늘어나는 값이다(만든 grant 수 + 거둔 grant 수). 없으면 "0".
-// releases가 승인 때 본 값으로 쓰는 동안만 남긴다.
-
-type ProcessFact =
-  | { kind: "none" }
-  | { kind: "started"; nonce: string }
-  | { kind: "stopped"; nonce: string };
-
-// 마지막 프로세스 사실. supervisor가 남긴 AppStarted·AppStopped만 본다.
-export function lastProcessFact(sql: Query, app: string): ProcessFact {
-  const row = sql.get(
-    `SELECT type, json_extract(payload, '$.process_nonce') AS nonce
-     FROM events
-     WHERE subject = ? AND type IN ('AppStarted', 'AppStopped')
-     ORDER BY seq DESC LIMIT 1`,
-    [app],
-  );
-  if (row === undefined) return { kind: "none" };
-  const nonce = String(row.nonce);
-  return row.type === "AppStarted"
-    ? { kind: "started", nonce }
-    : { kind: "stopped", nonce };
-}

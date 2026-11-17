@@ -1369,6 +1369,35 @@ test("폴더 file을 적용해도 사람의 data를 잃거나 망가뜨리지 �
   here.close();
 });
 
+// 지우면 보낸 뒤 답을 잃은 묶음이 실패로 닫혀, DB에 들어간 변경을 Activity와 rewind가 모른 채 rewind 범위가 막히지 않는다.
+test("변경 묶음을 앱 process에 보낸 뒤 답을 잃으면 연 invocation은 실패가 아니라 결과 모름으로 닫힌다", async () => {
+  const schema = "create table item (id text primary key, title text)";
+  const here = receiver(schema);
+  const other = replica(schema, "other");
+  const applied = here.link.syncApply;
+  here.link.syncApply = async (app, request) => {
+    await applied(app, request);
+    return err({
+      code: "unavailable",
+      message: "the app process did not answer",
+      details: { sent: true },
+    });
+  };
+  clock.set(T0 + 2000);
+  const lost = await here.calls.folder.applyChanges({
+    app: here.app,
+    release: REL,
+    origin: OTHER,
+    changes: [other.write(T0 + 1000, "insert into item values ('a', 'milk')")],
+  });
+  assert.equal(!lost.ok && lost.error.code, "unavailable");
+  assert.deepEqual(
+    [...here.records.values()].map((record) => record.status),
+    ["unknown"],
+  );
+  here.close();
+});
+
 // 지우면 받는 쪽이 아직 내보내지 않은 칸의 고침이 다른 기계의 옛 값으로 덮이거나, 합친 변경을 폰이 받지 못해 갈라진다.
 test("snapshot 합치기는 받는 쪽만 고친 칸을 지우지 않고 다른 기계의 고침과 row를 더하며, 폰에는 '다시 snapshot' 줄(origin machine)이 남는다", async () => {
   const here = receiver(

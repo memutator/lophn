@@ -40,8 +40,12 @@ export const CALL_TIMEOUT_MS = 120_000;
 export const APPLY_TIMEOUT_MS = 60_000;
 // snapshot 합치기는 1 GiB까지의 DB를 row마다 견준다.
 export const MERGE_TIMEOUT_MS = 600_000;
-// 짧은 답(snapshot 크기, 정리 수)의 상한. 변경 묶음과 합치기의 답은 effective changeset을 실어 본문 한도까지 간다.
+// 짧은 답(snapshot 크기, 정리 수)의 상한. 뒤집은 changeset 적용, 변경 묶음과 합치기의 답은 effective changeset을 실어
+// 본문 한도까지 간다.
 const SMALL_REPLY_MAX_BYTES = 4096;
+// 보낸 뒤 답을 받지 못했다(끊김, 시간 넘음, 상한 넘음, 틀린 답). 앱 process가 이미 적용했을 수 있어 결과 모름이다.
+// core 쪽 통로(supervisor-link)가 pipe에서 잃은 답에 다는 것과 같은 표시다.
+const SENT = { sent: true };
 
 export type ControlRequest = {
   socket: string;
@@ -72,7 +76,8 @@ type Answer<T> = { ok: true; value: T } | { ok: false; error: LophnError };
 
 type Relay = {
   call(target: AppToolTarget, request: ProcessCallRequest): Promise<CallOutput>;
-  // 아래는 live process에 간다. 닿지 못하면 `unavailable`이고 앱이 거절하면 그 오류다.
+  // 아래는 live process에 간다. 닿지 못하면 `unavailable`이고 앱이 거절하면 그 오류다. 보낸 뒤 답을 잃으면
+  // `unavailable`에 `details.sent`가 붙는다.
   apply(
     app: string,
     request: ProcessApplyRequest,
@@ -171,15 +176,22 @@ export function createRelay(deps: {
       body: JSON.stringify(request),
       ...reply,
     });
-    if (answer.kind !== "reply") {
+    if (answer.kind === "not_sent") {
       return {
         ok: false,
         error: {
           code: "unavailable",
-          message:
-            answer.kind === "lost"
-              ? "the app process did not answer"
-              : "the app process did not accept the connection",
+          message: "the app process did not accept the connection",
+        },
+      };
+    }
+    if (answer.kind === "lost") {
+      return {
+        ok: false,
+        error: {
+          code: "unavailable",
+          message: "the app process did not answer",
+          details: SENT,
         },
       };
     }
@@ -195,7 +207,11 @@ export function createRelay(deps: {
       ok: false,
       error: refused(answer.status)
         ? rejectionOf(answer.status, answer.body)
-        : { code: "unavailable", message: "the app process answered badly" },
+        : {
+            code: "unavailable",
+            message: "the app process answered badly",
+            details: SENT,
+          },
     };
   }
   return {
@@ -256,7 +272,10 @@ export function createRelay(deps: {
       return { sent: true, response: null };
     },
     apply: (app, request) =>
-      toLive(app, PROCESS_PATHS.apply, request, processApplyResponseSchema),
+      toLive(app, PROCESS_PATHS.apply, request, processApplyResponseSchema, {
+        timeoutMs: APPLY_TIMEOUT_MS,
+        maxBytes: APPLY_BODY_MAX_BYTES,
+      }),
     syncApply: (app, request) =>
       toLive(
         app,

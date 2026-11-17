@@ -17,4 +17,4 @@ lead만 고친다. `tools/status.py issue-sweep build`가 `tasks/*.md`에서 id,
 | `sweep-remote-transport` | remote-transport | 1 | 없음 | running | remote-transport/sweep-remote-transport |  |  |
 | `sweep-shell-main` | shell-main | 1 | 없음 | running | shell-main/sweep-shell-main |  |  |
 | `sweep-shell-renderer` | shell-renderer | 1 | 없음 | running | shell-renderer/sweep-shell-renderer |  |  |
-| `sweep-tools` | tools | 1 | 없음 | running | tools/sweep-tools |  |  |
+| `sweep-tools` | tools | 1 | 없음 | review | tools/sweep-tools | fe76e46a3 | merge last |

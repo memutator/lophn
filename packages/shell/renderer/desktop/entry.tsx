@@ -303,7 +303,9 @@ const appViews: AppViewsDeps | null =
         views,
         app: coreAppRead(core),
         screens: coreAppScreens(core),
-        enableRun: (app) => appDetail.setRun(app, true),
+        // 다른 컴퓨터를 보는 창에는 app detail source가 없다. 거기서는 켜지 못한다.
+        enableRun: (app) =>
+          appDetail?.setRun(app, true) ?? Promise.resolve({ ok: false }),
         icon: coreAppIcon(core),
       }
     : null);

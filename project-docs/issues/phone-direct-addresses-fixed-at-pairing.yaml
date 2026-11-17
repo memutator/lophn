@@ -1,0 +1,15 @@
+id: phone-direct-addresses-fixed-at-pairing
+title: 폰이 아는 컴퓨터의 직접 주소는 pairing한 순간의 것이라 나중에 생긴 주소로는 붙지 못한다
+kind: bug
+status: open
+topic: remote
+modules: [packages/core/main, packages/core/remote, packages/remote-client, packages/protocol, packages/mobile]
+now: |
+  폰이 직접 붙을 주소 후보는 QR에 실려 온다(`packages/protocol/remote/frames.ts`의 `addresses`, 16개까지). 컴퓨터는 pairing할 때 자기 network interface의 주소를 모아 싣는다(`packages/core/main/daemon/wiring/remote.ts`의 `lanAddresses`). 폰은 그 목록을 저장해 두고 다시 붙을 때마다 그 주소들과 relay를 같이 건다. 연결된 뒤에 컴퓨터의 지금 주소를 다시 받는 길이 없다. 그래서 pairing 뒤에 Tailscale을 깔았거나 공유기가 바뀌어 주소가 달라지면 폰은 옛 주소만 걸어 직접 붙지 못하고 relay로만 붙는다. 고치려면 다시 pairing해야 한다. 컴퓨터에 사람이 주소를 적어 줄 설정도 없다(`remote.port`와 `remote.relay`뿐이다). 공인 주소가 interface에 붙지 않는 VM은 폰에 알려 줄 주소가 없다.
+impact: |
+  직접 붙을 수 있는 환경(Tailscale, 같은 network의 새 주소, 공인 주소가 있는 VM)인데도 폰이 relay로만 붙어 relay의 속도와 크기 한도를 그대로 받는다. 사람은 왜 느린지 모르고, 다시 pairing하면 된다는 것도 모른다.
+fix: |
+  - 작음(추천): 폰이 붙을 때마다 컴퓨터가 지금 주소 후보를 알려 주고 폰이 저장한 목록을 바꾼다(다른 기계의 desktop도 같은 client라 같이 된다). 컴퓨터의 설정에 사람이 적는 주소 목록(`remote.addresses` 같은 이름, domain이나 IP)을 두어 interface 주소 앞에 싣는다. 설정 화면(Settings › Remote)에 그 칸을 둔다.
+  - 폰이 지금 어느 길로 붙었는지(Direct, Relay)는 이미 폰의 Settings가 보인다.
+decided: |
+  사람이 정한 원칙: lophn은 사용자의 환경을 요구하지 않고, 환경에 맞는 길을 준비해 둔다. relay는 아무것도 없는 사람의 길이고 Tailscale이나 VM이 있으면 직접 붙는다. 길은 lophn이 스스로 고르고 사람에게는 지금 어느 길인지 보인다.

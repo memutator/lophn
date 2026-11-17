@@ -33,7 +33,16 @@
 | 1 | `sweep-core-agent` | lophn agent, provider, flow, 공유 승인 |
 | 1 | `sweep-tools` | check의 tsc 묶기, merge.sh |
 
-wave 2는 wave 1이 모두 merged된 뒤 lead가 brief를 쓴다: coding session의 tool 본문을 펼칠 때 받기(`remote-reply-over-frame-limit-is-dropped`의 2), 폰 coding session의 이미지(`phone-coding-session-takes-no-pictures`), ACP tool item 갱신(`claude-agent-row-emitted-late`, `claude-bang-output-shown-at-end`), 폰 새 session의 Terminal 항목.
+wave 2(wave 1이 모두 merged된 뒤):
+
+| wave | task | 무엇 |
+|---|---|---|
+| 2 | `sweep-phone-terminal-remote` | 터미널 화면으로 remote 쓰기, 새 session의 Terminal 항목, 터미널 입력 허락의 기본값 |
+| 2 | `sweep-coding-bodies` | coding session의 tool 본문을 펼칠 때 받기, 폰의 이미지, 다시 연 대화의 그림 |
+| 2 | `sweep-contracts` | 계약을 열어야 해서 wave 1이 못 한 것 |
+| 2 | `sweep-connection-paths` | 직접 주소를 pairing 뒤에도 새로 받기, 사람이 적는 주소 |
+| 2 | `sweep-phone-polish` | 폰과 kit의 잔손질 |
+| 2 | `sweep-docs` | architecture 문서와 flows를 wave 1의 code에 맞추기 |
 
 ## 범위 밖
 

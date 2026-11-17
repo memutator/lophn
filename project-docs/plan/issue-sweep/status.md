@@ -18,3 +18,9 @@ lead만 고친다. `tools/status.py issue-sweep build`가 `tasks/*.md`에서 id,
 | `sweep-shell-main` | shell-main | 1 | 없음 | merged | shell-main/sweep-shell-main | 5d47fa6f4 |  |
 | `sweep-shell-renderer` | shell-renderer | 1 | 없음 | merged | shell-renderer/sweep-shell-renderer | 47b311980 |  |
 | `sweep-tools` | tools | 1 | 없음 | merged | tools/sweep-tools | 39a84fd84 | merge last |
+| `sweep-coding-bodies` | coding-bodies | 2 | 없음 | todo |  |  |  |
+| `sweep-connection-paths` | connection-paths | 2 | 없음 | todo |  |  |  |
+| `sweep-contracts` | contracts | 2 | 없음 | todo |  |  |  |
+| `sweep-docs` | docs | 2 | 없음 | todo |  |  |  |
+| `sweep-phone-polish` | phone-polish | 2 | 없음 | todo |  |  |  |
+| `sweep-phone-terminal-remote` | phone-terminal-remote | 2 | 없음 | todo |  |  |  |

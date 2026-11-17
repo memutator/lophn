@@ -1732,8 +1732,8 @@ flows:
     code: [packages/core/remote/host.ts, packages/core/remote/call.ts, packages/core/server/identity/registry.ts, packages/core/main/daemon/wiring/remote.ts, packages/core/apps/views/table.ts]
     docs: [architecture/approval.md, architecture/event.md, architecture/remote.md]
     steps:
-      - "기기로 붙지 않은 연결(handshake 중과 pairing 전)이 이미 8개면 새 socket을 받자마자 닫는다. 연결마다 Noise IK responder handshake와 hello를 한다. 10초 안에 끝나지 않으면 닫는다. 기기로 붙기 전에는 frame이 4 KiB까지다. hello는 붙는 쪽이 먼저 {version, min_version, capabilities, name(1..64, 자기 이름)}, core는 판이 맞든 아니든 그 뒤에 {version 2, min_version 2, capabilities [], machine {id, name}}다. machine은 연결마다 ctx.machine에서 읽어 machine/rename 뒤 다음 연결부터 새 이름이다. 모르는 칸은 버린다"
-      - "판 범위: 붙는 쪽 version이 core min_version보다 낮으면 update client, core version이 붙는 쪽 min_version보다 낮으면 update host다. 양쪽 다 두 hello를 보고 conflict {details.update}로 닫고 core는 log에 같은 값을 남긴다. 붙는 쪽(폰, desktop, tools/remote-client.ts)은 pairing 때 저장한 core의 machine id를 connectRemote에 준다. core hello의 id가 다르면 hello 말고 아무 frame도 보내지 않고 conflict로 닫는다. 같은 key를 가진 복제된 기계에 pair code나 call이 가지 않는다"
+      - "기기로 붙지 않은 연결(handshake 중과 pairing 전)이 이미 8개면 새 socket을 받자마자 닫는다. 연결마다 Noise IK responder handshake와 hello를 한다. 10초 안에 끝나지 않으면 닫는다. 기기로 붙기 전에는 frame이 4 KiB까지다. hello는 붙는 쪽이 먼저 {version, min_version, capabilities, name(1..64, 자기 이름)}, core는 판이 맞든 아니든 그 뒤에 {version 2, min_version 2, capabilities [], machine {id, name, addresses}}다. machine은 연결마다 ctx.machine에서 읽어 machine/rename 뒤 다음 연결부터 새 이름이다. addresses는 연결마다 다시 계산한 direct 주소 후보다: 설정 remote.addresses가 먼저, 그 뒤 loopback과 link-local이 아닌 interface 주소, 겹친 것을 빼고 16개까지. 모르는 칸은 버린다"
+      - "판 범위: 붙는 쪽 version이 core min_version보다 낮으면 update client, core version이 붙는 쪽 min_version보다 낮으면 update host다. 양쪽 다 두 hello를 보고 conflict {details.update}로 닫고 core는 log에 같은 값을 남긴다. 붙는 쪽(폰, desktop, tools/remote-client.ts)은 pairing 때 저장한 core의 machine id를 connectRemote에 준다. core hello의 id가 다르면 hello 말고 아무 frame도 보내지 않고 conflict로 닫는다. 같은 key를 가진 복제된 기계에 pair code나 call이 가지 않는다. 저장한 id를 대조한 연결에서만 core hello의 addresses로 저장한 주소 목록을 바꾼다(열린 direct 주소가 그 목록에 없으면 앞에 남긴다). id를 아직 모르는 연결은 주소를 바꾸지 않는다"
       - "받은 공개 key(base64url)를 devices/list로 찾는다. 없으면 pair 말고 어떤 frame이 오면 closed(credential_revoked)를 보내고 연결을 닫는다(꺼져 있는 동안 끊긴 기기가 다시 pairing으로 보이게 한다). 60초 안에 pairing하지 못해도 닫는다(remote-pair). 있으면 frame 상한을 16 MiB로 올리고 첫 frame을 기다린다. pair면 다시 pairing(remote-pair)이고 그 밖이면 그 기기로 붙인다"
       - "등록된 기기면 actor user, principal device:<id>, scope가 REMOTE_ALLOWED_ROUTES인 자격을 core 한 번에 하나 발급해 ledger에 기록한다. 발급 뒤 key를 다시 찾아 그 사이 끊긴 기기면 자격을 거두고 닫는다. devices/connected {id, name}으로 마지막 연결 시각과 그 연결의 hello로 알린 이름(name, name_announced_at)을 적는다. 사람이 붙인 별명(alias)은 그대로다. 알린 이름을 처음 받는 행(name_announced_at null, migration에서 온 것)의 별명이 알린 이름과 같으면 별명을 거둔다(보이는 글은 같다). 보이는 이름(alias ?? name)이 바뀌면 commit 뒤 renamed로 설정 shell.devices의 그 기기 항목 이름도 바꾼다(40자로 자른다). event 연결 한도는 principal마다다. 그 기기의 마지막 연결이 닫히거나 기기를 끊으면 그 기기의 presence 보고를 지운다(attention.forgetReporter)"
       - "call은 자격을 다시 보고 scope로 거른 뒤 HTTP와 같은 dispatchHttp를 탄다. 답이 frame 상한(16 MiB)을 넘어 보내지 못하면 같은 id에 unavailable(\"the reply is too large to send\")로 답한다. 기기의 jobs/update는 job과 enabled만 받는다(켜고 끄기). 다른 field가 하나라도 있으면 forbidden이다. 입장 한도는 remote만의 것이고 principal마다 선다. 못 본 끝 표시 unseen/list·unseen/dismiss는 목록 안이다(폰과 다른 기계의 desktop 창이 같이 받는다): 보는 것이 읽음을 만들고 읽음은 host core에 있어 어느 기기에서 봐도 같이 꺼진다"
@@ -1755,6 +1755,9 @@ flows:
         code: conflict
         when: "붙는 쪽이 준 machine id와 core hello의 id가 다르다(a different computer answered). 붙는 쪽이 hello 뒤로 아무 frame도 보내지 않고 닫는다"
         observe: ["process:연결 닫힘"]
+      - id: addresses-learned
+        when: "붙는 쪽이 저장한 machine id를 대조한 연결에서 core hello의 addresses를 받아 다음 연결부터 그 주소를 건다. pairing 뒤 생긴 주소(새 network, Tailscale, remote.addresses)를 다시 pairing 없이 쓴다"
+        observe: ["disk:붙는 쪽이 저장한 컴퓨터 목록(폰 보안 저장소, shell/viewer/machines.json)"]
       - id: announced-name
         when: "붙은 기기가 알린 이름이 적혔다. 별명이 없고 알린 이름이 바뀌었으면 보이는 이름과 shell.devices 항목이 따라간다"
         observe: ["ledger:devices", "disk:<root>/settings.json"]
@@ -1777,7 +1780,7 @@ flows:
         observe: ["response"]
       - id: reply-too-large
         code: unavailable
-        when: "route의 답이 frame 상한(16 MiB)을 넘어 보내지 못했다. 큰 snapshot을 가진 긴 coding session을 열 때 난다"
+        when: "route의 답이 frame 상한(16 MiB)을 넘어 보내지 못했다. coding session의 snapshot은 tool 본문을 싣지 않아 이 한도에 잘 닿지 않는다"
         observe: ["response"]
       - id: call-forbidden
         code: forbidden
@@ -1905,9 +1908,9 @@ flows:
     docs: [architecture/approval.md]
     steps:
       - "등록되지 않은 key의 연결이, 또는 등록된 key의 연결이 첫 frame으로 pair를 보낸다. kind로 갈린다: phone {code, os ios|android, width, height, dpr}, desktop {code, os linux|macos|windows}. 이름은 frame에 없고 그 연결의 hello name(1..64)이다"
-      - "code가 지금 code와 같고 300초 안이면 쓴다(한 번만). 틀리면 unauthorized result이고 연결마다 5번째 틀리면 연결을 닫는다"
-      - "core 안 machine 자격이 devices/register로 기기를 등록한다. 같은 key의 옛 등록이 있으면 지우고(commit 뒤 devices-revoke와 같이 그 기기의 자격과 연결, shell.devices 항목을 거둔다) 새 등록으로 바꾼다. hello의 이름이 기기가 알린 이름(name)이 되고 알린 때(name_announced_at)를 지금으로 적는다. 별명(alias)은 없다. 새 phone이 기준이 되고 다른 기기의 기준은 내린다. desktop은 기준이 아니고 다른 기기의 기준도 그대로다"
-      - "commit 뒤 registered {id, kind}로 ctx.deviceKind 사본에 kind를 더한다"
+      - "code가 지금 code와 같고 300초 안이면 쓴다(한 번만). code와 같이 정한 terminal_input을 꺼낸다. 틀리면 unauthorized result이고 연결마다 5번째 틀리면 연결을 닫는다"
+      - "core 안 machine 자격이 devices/register로 기기를 등록한다. 같은 key의 옛 등록이 있으면 지우고(commit 뒤 devices-revoke와 같이 그 기기의 자격과 연결, shell.devices 항목을 거둔다) 새 등록으로 바꾼다. hello의 이름이 기기가 알린 이름(name)이 되고 알린 때(name_announced_at)를 지금으로 적는다. 별명(alias)은 없다. 새 phone이 기준이 되고 다른 기기의 기준은 내린다. desktop은 기준이 아니고 다른 기기의 기준도 그대로다. terminal_input은 그 code의 값이다"
+      - "commit 뒤 registered {id, kind}로 ctx.deviceKind 사본에 kind를 더한다. terminal_input이 켜졌으면 terminal_input {id, on: true}로 허락 사본(terminalInputGrant)도 켠다"
       - "phone이면 설정 shell.devices에 device(기기 id)를 단 항목을 더한다. 이름은 40자로 자른다. 다른 항목과 겹치면 \" 2\", \" 3\"을 붙인다. device가 없는 항목(사람이 넣은 것)은 건드리지 않는다. desktop은 항목을 더하지 않는다"
       - "그 연결을 바로 기기로 붙이고 같은 id의 result {device}로 답한다"
     outcomes:
@@ -1934,14 +1937,15 @@ flows:
       - "devices/register의 forbidden(machine 아닌 actor)은 core 안 machine 자격만 부르므로 나지 않는다"
 
   - id: remote-pairing-start
-    title: "사람이 QR에 실을 pairing code와 주소를 받는다"
+    title: "사람이 QR에 실을 pairing code와 주소를 받는다(새 기기의 터미널 입력 허락을 같이 정한다)"
     actor: person
     entries: [route:pairing/start]
     boundary: [core-api, server]
-    code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/pairing.ts]
+    code: [packages/core/main/daemon/wiring/remote.ts, packages/core/remote/pairing.ts, packages/shell/renderer/desktop/settings/remote/remote-panel.tsx]
     steps:
-      - "새 1회용 code(128-bit, 300초, 메모리에만)를 만들고 앞 code를 무효로 한다"
-      - "loopback과 link-local이 아닌 interface 주소, remote.port, core 공개 key(base64url), code, 끝 시각을 돌려준다. relay 연결을 걸었으면 relay 주소(설정 remote.relay)도 싣는다"
+      - "Settings › Remote의 pairing 칸이 부른다. 입력 terminal_input은 칸의 \"Let the new device type in terminals\"(기본 켬)이고 바꾸면 그 값으로 새 code를 만든다"
+      - "새 1회용 code(128-bit, 300초, 메모리에만)를 만들어 terminal_input과 같이 두고 앞 code를 무효로 한다"
+      - "주소 후보(설정 remote.addresses가 먼저, 그 뒤 loopback과 link-local이 아닌 interface 주소, 16개까지), remote.port, core 공개 key(base64url), code, 끝 시각을 돌려준다. relay 연결을 걸었으면 relay 주소(설정 remote.relay)도 싣는다"
     outcomes:
       - id: ok
         observe: ["response"]
@@ -2247,8 +2251,8 @@ flows:
     boundary: [core-api, storage]
     code: [packages/core/remote/devices.ts, packages/core/main/daemon/wiring/remote.ts, packages/shell/renderer/desktop/settings/remote/device-rows.tsx]
     steps:
-      - "Settings › Remote의 기기 줄 스위치가 부른다. 기기의 terminal_input을 바꾼다(기본 꺼짐). 같은 값이면 아무것도 쓰지 않는다"
-      - "commit 뒤 command가 답하기 전에 main thread의 허락 사본(terminalInputGrant)을 고친다. 끄면 그 기기의 다음 terminal_view/input부터 forbidden이다. 기기를 끊거나(devices-revoke, devices-unpair) 같은 key로 다시 pairing하면 옛 기기의 허락도 사라지고 새 등록은 꺼짐이다"
+      - "Settings › Remote의 기기 줄 스위치가 부른다. 기기의 terminal_input을 바꾼다(처음 값은 pairing code와 같이 정한 것, remote-pair). 같은 값이면 아무것도 쓰지 않는다"
+      - "commit 뒤 command가 답하기 전에 main thread의 허락 사본(terminalInputGrant)을 고친다. 끄면 그 기기의 다음 terminal_view/input부터 forbidden이다. 기기를 끊거나(devices-revoke, devices-unpair) 같은 key로 다시 pairing하면 옛 기기의 허락도 사라지고 새 등록은 그 code의 값이다"
     outcomes:
       - id: ok
         observe: ["ledger:devices", "response"]

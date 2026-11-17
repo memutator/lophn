@@ -98,10 +98,10 @@ const FLOWS: readonly FlowPage[] = [
   },
   {
     id: "phone-coding",
-    title: "Phone · 10 Coding agents and terminal",
+    title: "Phone · 10 Coding agents",
     description:
-      "컴퓨터의 coding agent를 폰에서 다룬다. project의 coding session 묶음, 앱 깨우기, 승인, 터미널 session을 채팅으로 바꾸기, 새 coding session과 이어 가기, 터미널 화면.",
-    height: rows(12),
+      "컴퓨터의 coding agent를 폰에서 다룬다. project의 coding session 묶음, 앱 깨우기, 승인, 새 coding session(agent sheet의 Terminal 포함)과 첫 메시지, 끝난 session 이어 가기. 터미널로 도는 session은 flow 12 Terminal에서 열린다.",
+    height: rows(6),
     render: () => <CodingFlow />,
   },
   {
@@ -116,8 +116,8 @@ const FLOWS: readonly FlowPage[] = [
     id: "phone-terminal",
     title: "Phone · 12 Terminal",
     description:
-      "컴퓨터의 터미널을 폰에서 보고 친다. 폰 폭으로 크기 잡기, 입력과 key 줄, 컴퓨터가 크기를 다시 잡은 때, 폰이 연 터미널.",
-    height: rows(4),
+      "컴퓨터의 터미널을 폰에서 보고 친다. 터미널로 도는 coding session은 이 화면으로 열린다. 폰 폭으로 크기 잡기, 입력과 key 줄, 컴퓨터가 크기를 다시 잡은 때, 폰이 연 터미널, session menu와 채팅으로 바꾸기.",
+    height: rows(8),
     render: () => <TerminalFlow />,
   },
 ];

@@ -2699,10 +2699,10 @@ flows:
     steps:
       - "그 기계의 project.list(창의 core)와 이 컴퓨터의 project.list(shell:machines-this-read)를 각각 통째로 읽어 matchProjects로 묶는다(이 컴퓨터는 this:<prj>, 그 기계는 <mch>:<prj>). identity·remote 칸이 없는 옛 판의 기록은 null로 본다"
       - "읽기가 실패하거나 그 기계가 끊기면 마지막 목록과 묶음을 그대로 보인다. 이 컴퓨터 쪽은 창이 앞으로 올 때와 clone 뒤에 다시 읽는다"
-      - "같은 id: project 줄 아래 \"Also on this computer\"(이름이 다르면 \"… as <이 컴퓨터의 title>\"). 누르면 기계마다 그 project lophn의 session 목록을 나란히 보인다. 각자의 core에서 읽고 합치지 않는다. 그 기계의 session은 이 창에서 열고, 이 컴퓨터의 session은 shell:machines-open { machine: 이 컴퓨터, session }으로 이 컴퓨터의 창이 열어 고른다"
+      - "같은 id: project 줄 아래 \"Also on this computer\"(이름이 다르면 \"… as <이 컴퓨터의 title>\"). 누르면 기계마다 그 project workspace의 모든 agent(ListAgents)의 session을 최근 순으로 8개까지, agent 이름과 함께 나란히 보인다. 각자의 core에서 읽고 합치지 않는다. 한 읽기라도 실패하면 그 열은 마지막 목록을 둔다. 그 기계의 session은 이 창에서 열고, 이 컴퓨터의 session은 shell:machines-open { machine: 이 컴퓨터, session }으로 이 컴퓨터의 창이 열어 고른다"
       - "그 기계에만 있고 id가 있으면 \"Not on this computer\"와 [Clone here](shell:machines-clone-here { url: remote.url, identity, title }). remote가 없으면 단추 없이 \"Not on this computer. It has no git remote to clone from.\""
       - "id 없이 remote만 같으면 \"Looks like <이 컴퓨터의 title>\"과 한 기계에서 id file을 만들어 commit하라는 안내다. 그 기계의 저장소에는 쓰지 않고 이 컴퓨터 쪽 단추도 없다"
-    uses: [ipc:shell:machines-this-read, ipc:shell:machines-clone-here, ipc:shell:machines-open, route:projects/list, route:sessions/list]
+    uses: [ipc:shell:machines-this-read, ipc:shell:machines-clone-here, ipc:shell:machines-open, route:projects/list, route:agents/list, route:sessions/list]
     outcomes:
       - id: grouped
         observe: ["screen:shell-machine-projects"]

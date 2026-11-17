@@ -49,7 +49,8 @@ core: (앱, key)마다 마지막 값 하나와 받은 시각. memory뿐
 
 - 앱 menu의 "Add to Home screen"이 launcher에 앱의 pinned shortcut 하나를 청한다. launcher가 자기 확인을 보인다. id는 `lophn:<컴퓨터 key>:<앱 id>`로 고정이라 같은 앱을 다시 청하면 이미 있는 아이콘이다(그때 launcher는 확인을 보이지 않아 사람에게 아무 일도 안 일어난 것처럼 보이므로, 이미 놓인 앱의 menu에는 그 줄을 감춘다). 이름은 앱 이름이고 누르면 `lophn://open?host=…&app=…&kind=app`으로 앱의 폰 화면이 열린다.
 - 그림은 앱의 `icon`으로 폰 JS가 그린다. png나 webp는 그대로 쓰고, svg와 lucide는 화면 밖에 올린 `<Svg>`를 192px의 PNG로 읽어 만들며(그래서 앱이 앞에 있을 때만 된다), 아이콘이 없거나 그려지지 않으면 앱 이름의 첫 글자를 앱의 tone 위에 올린 그림이고 그것도 안 되면 native가 lophn의 mark를 쓴다. native는 그림을 launcher의 adaptive 모양(108 중 가운데 72)에 맞춰 흰 바탕에 놓는다. launcher는 lophn 배지를 모서리에 붙인다.
-- 아이콘의 신원은 폰이 따로 들고 있는 목록이 아니라 Android가 가진 pinned id다. 폰은 아이콘을 놓은 컴퓨터마다(화면에 있는지와 상관없이) 그 컴퓨터가 붙을 때, 그 컴퓨터의 앱이나 release가 바뀔 때(`StateChanged`), 폰 앱이 앞으로 올 때 `apps/phone_screens`를 읽어 그 컴퓨터의 pinned id를 견준다. 앱이 목록에서 사라졌으면(보관, 삭제, 폰 화면을 잃음, 켜진 release 없음) 그 아이콘을 쓸 수 없게 하고(disable. 지우지는 않는다) 앱이 돌아오면 다시 쓸 수 있게 한다(enable). 폰이 컴퓨터를 지우면 그 컴퓨터의 아이콘을 모두 쓸 수 없게 한다. 쓸 수 없게 된 아이콘을 누르면 보이는 글은 launcher가 정한다(Pixel Launcher는 우리 글이 아니라 자기 글 "Shortcut isn't available"을 보인다).
+- 아이콘의 신원은 폰이 따로 들고 있는 목록이 아니라 Android가 가진 pinned id다. 폰은 아이콘을 놓은 컴퓨터마다(화면에 있는지와 상관없이) 그 컴퓨터가 붙을 때, 그 컴퓨터의 앱이나 release가 바뀔 때(`StateChanged`), 폰 앱이 앞으로 올 때 `apps/phone_screens`를 읽어 그 컴퓨터의 pinned id를 견준다. 앱이 목록에서 사라졌으면(보관, 삭제, 폰 화면을 잃음, 켜진 release 없음) 그 아이콘을 쓸 수 없게 하고(disable. 지우지는 않는다) 앱이 돌아오면 다시 쓸 수 있게 한다(enable). 폰이 컴퓨터를 지우면 그 컴퓨터의 아이콘을 모두 쓸 수 없게 한다.
+- 같은 정리에서 놓인 아이콘의 이름과 그림도 앱을 따라간다. 이름이 앱 이름과 다르면 바꾼다. 아이콘은 놓을 때 그린 것의 key(앱 아이콘, 첫 글자, tone의 hash)를 들고 있고, 폰이 둔 앱 아이콘으로 만든 key가 다르면 그림을 다시 그려 바꾼다(native `updateShortcuts`). 다시 그리기는 화면 밖 `<Svg>`가 필요해 폰 앱이 앞에 있을 때만 되고, 정리는 앱 root의 `ShortcutSync`가 한다. 폰이 아직 그 앱의 아이콘을 읽지 않았으면 그림은 그대로 둔다. 폰이 그 컴퓨터의 앱 아이콘을 새로 둘 때도 정리를 돈다. 쓸 수 없게 된 아이콘을 누르면 보이는 글은 launcher가 정한다(Pixel Launcher는 우리 글이 아니라 자기 글 "Shortcut isn't available"을 보인다).
 
 ### open target
 
@@ -76,7 +77,7 @@ core: (앱, key)마다 마지막 값 하나와 받은 시각. memory뿐
 - boundary `app-runtime`(위젯 값 memory와 두 route, broker `notify/widget`), `app-releases`(선언의 `widgets`), `remote-protocol`(폰 route 목록의 `app_widgets/list`), `mobile`(폰의 store, cache, native module, 화면, open target), `sdk-api`(`@lophn/cap-notify`의 `setWidget`·`clearWidget`).
 - route: `app_widget.set`(memory, actor app, changes `widgets`), `app_widgets.list`(memory, actor user, 폰이 부른다). 위젯 값이 바뀌면 `StateChanged`의 change 이름 `widgets`(`event.md`). 폰의 아이콘은 기존 `apps/phone_screens`(어느 앱이 있는지)와 `apps/icon`(그림)을 읽는다. 새 CLI는 없다.
 - SDK: `@lophn/cap-notify` 1.3.0의 `setWidget(key, value)`·`clearWidget(key)`. broker 경로 `/_lophn/broker/notify/widget`. 선언 `@lophn/declaration` 4.7.0(`widgets`와 permission kind `phone.use`), `@lophn/app-ui` 2.16.0과 `@lophn/app-ui-native` 1.1.0(declaration의 정확한 판 pin을 따라 올렸다).
-- 폰의 저장: 앱 private 폴더의 `widgets/bindings.json`과 `widgets/cache.json`. native module 이름은 `LophnWidgets`(위젯, 놓기, 아이콘 pin·disable·enable 모두 한 module). headless 일감 이름은 `LophnWidgetRefresh`. URL scheme은 `lophn`.
+- 폰의 저장: 앱 private 폴더의 `widgets/bindings.json`과 `widgets/cache.json`. native module 이름은 `LophnWidgets`(위젯, 놓기, 아이콘 pin·disable·enable·update 모두 한 module). headless 일감 이름은 `LophnWidgetRefresh`. URL scheme은 `lophn`.
 - ledger step이 없다. 값은 memory이고 binding은 폰 file이다.
 
 ## 결정
@@ -104,6 +105,6 @@ core: (앱, key)마다 마지막 값 하나와 받은 시각. memory뿐
 
 - 강제 종료한(`am force-stop`, 설정의 "강제 종료") 폰 앱의 위젯은 Android가 회색으로 가리고 사람이 한 번 누를 때까지 새로 하지 않는다. Android의 규칙이라 lophn이 고치지 못한다. 이 상태에서는 lophn의 글이 보이지 않는다.
 - 쓸 수 없게 된 아이콘을 눌렀을 때의 글은 launcher가 정한다. Pixel Launcher는 자기 글을 보인다. 다른 launcher는 보지 못했다.
-- 홈 화면에 놓인 아이콘은 앱의 이름과 그림이 바뀌어도 놓을 때의 것 그대로다(이슈 `shortcut-keeps-old-label-and-icon`). 위젯 글은 Pretendard가 아니라 시스템 글꼴이다(이슈 `widget-text-not-pretendard`). binding을 native 잠금 안에서 바꾸는 Kotlin과 모든 컴퓨터의 아이콘 정리는 dev build와 emulator에서 아직 보지 않았다.
+- 놓인 아이콘의 이름과 그림을 바꾸는 Kotlin(`updateShortcuts`, 그림 key)은 dev build와 emulator에서 아직 보지 않았다. 위젯 글은 Pretendard가 아니라 시스템 글꼴이다(이슈 `widget-text-not-pretendard`). binding을 native 잠금 안에서 바꾸는 Kotlin과 모든 컴퓨터의 아이콘 정리는 dev build와 emulator에서 아직 보지 않았다.
 - 다른 launcher(Pixel Launcher 밖), 실제 폰, 사람이 launcher의 놓기 확인을 취소하는 경우, 앱을 보관했을 때 놓인 위젯이 "no longer available"이 되는 것, 앱 agent가 실제 turn으로 만든 앱의 위젯은 보지 못했다(change-log `mobile-widgets`).
 - 폰에서 도는 앱(단계 7)의 위젯과 아이콘은 `mobile-local-apps`가 정한다. iOS는 짓지 않았다.

@@ -57,7 +57,7 @@ ACP(App Context Protocol)는 agent 쪽이 내놓는 대화(메시지와 content 
 - 입력에서 뽑는 칸(`edit`의 path·줄 수, `call`의 to·task·reply)은 시작 때부터 차 있다. 결과에서 아는 칸(`call`의 call id·state·fail_reason·session)은 call이 생긴 뒤에야 알아서 그 전과 실패한 tool에서는 null이다.
 - 끝난 뒤 detail이 바뀌면(background로 돈 subagent가 끝남) `tool_detail_changed`가 detail만 바꾼다.
 - `question`의 outcome은 submitted, human_message, cancelled, parent_reply다. 팀 자식의 질문을 부모가 `call reply`로 답했으면 `parent_reply`이고 부모의 답 글이 `reply` 한 칸에 실린다. 자식 탭의 카드는 "Answered by the parent"와 그 글을 보인다.
-- 종류마다 화면에 필요한 칸만 싣는다. 입력·출력 본문은 lophn이면 싣지 않고(redaction 경계) 별도 읽기(`toolCallBody`)로 읽는다. harness는 다시 읽을 저장소가 없어서 tool item의 `body`(`{input, output, truncated}`, 한 쪽 64 KiB까지)에 싣는다. 화면은 tool 이름이나 JSON을 읽어 종류를 가르지 않는다.
+- 종류마다 화면에 필요한 칸만 싣는다. 입력·출력 본문은 lophn이면 싣지 않고(redaction 경계) 별도 읽기(`toolCallBody`)로 읽는다. harness는 다시 읽을 저장소가 없어서 handle(shell main)의 tool item이 `body`(`{input, output, truncated}`, 한 쪽 64 KiB까지)를 쥐고, 창과 core로 가는 snapshot·갱신에서는 뺀다(사람이 친 명령은 명령 글만 남긴다). 화면은 줄을 펼칠 때 그 tool 하나의 본문을 읽는다(desktop은 IPC, 폰은 `acp/tool_body`. `harness-gui.md`). 화면은 tool 이름이나 JSON을 읽어 종류를 가르지 않는다.
 - 사람이 돌린 명령: `by: "user"`이면 사람이 `!`로 돌린 명령이다(`tool: "shell"`, `category: "command"`, `title`은 명령 첫 줄, `body.input`은 명령 전체, `body.output`은 출력). 화면은 사람 쪽에 출력을 펼쳐 그린다. turn 밖에서 돈 그 줄만 `turn`이 null이다.
 
 ### 상태의 나머지

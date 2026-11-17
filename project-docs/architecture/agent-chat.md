@@ -154,3 +154,4 @@ secret
 
 - 수 MB 이미지 결과의 redaction이 시간 안에 끝나는지는 확인하지 못했다.
 - 화면 밖으로 나간 줄의 안 상태(펼친 tool 본문 등)는 가상화 때문에 남지 않는다.
+- 두 기기(창, 폰, 다른 기계의 창)가 한 lophn session을 같이 쓸 때: 줄 선 메시지를 한 기기가 고치거나 옮기면 다른 기기의 화면은 옛 글과 순서 그대로다(이슈 `queued-edit-move-not-relayed`). 한 기기가 보관하면 다른 기기가 방금 시작한 turn이 말없이 멈춘다(`archive-stops-turn-started-elsewhere`).

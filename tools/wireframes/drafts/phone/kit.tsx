@@ -15,6 +15,7 @@ import {
 import type { CSSProperties, ReactNode } from "react";
 import { Avatar } from "../../../../packages/shell/renderer/parts/avatar/avatar.tsx";
 import { AgentCharacter } from "../../../../packages/shell/renderer/parts/avatar/character.tsx";
+import { TabStateDot } from "../../../../packages/shell/renderer/parts/tab-state-dot/tab-state-dot.tsx";
 import {
   type Vendor,
   VendorIcon,
@@ -267,11 +268,14 @@ export function Mark({
 
 // ── small parts ──────────────────────────────────────
 
+// As the phone kit's Dot: working is the desktop's breathing ink dot (green means a turn ended and not seen), neutral
+// and none are gray.
 export function Dot({
   tone,
 }: {
-  tone?: "warning" | "good" | "critical" | "off";
+  tone?: "warning" | "good" | "critical" | "off" | "working" | "neutral";
 }) {
+  if (tone === "working") return <TabStateDot dot="working" />;
   return <span className={s.dot} data-tone={tone} />;
 }
 

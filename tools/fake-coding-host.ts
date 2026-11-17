@@ -3,8 +3,11 @@
 // 개발 core(.dev-data)에 사람 자격으로 붙어 coding session 둘을 올린다: chat(GUI)으로 도는 Claude Code(도는 turn과 승인 card)와
 // 터미널(TUI)로 도는 Codex. `coding_input`을 받으면 `send`는 사람 말 하나를 더하고 `decide`는 card를 닫는다. `coding_switch`를
 // 받으면 view를 바꿔 다시 올린다. `coding_open`을 받으면 그 harness의 빈 GUI session 하나를 새 터미널로 더해 올리고 그 터미널로
-// 답한다. `terminal_stream`을 받으면 그 터미널의 canned 화면(색 있는 줄 몇 개와 입력 줄)을 올리고,
-// `terminal_input`을 받으면 그 글을 입력 줄에 더해 다시 올린다. 그 밖의 요청(탭, tool, browser)은 `unavailable`로 답한다.
+// 답한다. 진짜 host처럼 올리는 상태에서 tool 본문을 빼고 `coding_body`로 그 본문을 답한다. `coding_image_write`는 그림을
+// 메모리에 두고 가짜 절대 경로를 답하고, `coding_image_read`는 그 경로의 그림을 돌려준다(disk에 쓰지 않는다).
+// `terminal_stream`을 받으면 그 터미널의 canned 화면(색 있는 줄 몇 개와 입력 줄)을 올리고, `terminal_input`을 받으면 그 글을
+// 입력 줄에 더해, `terminal_resize`를 받으면 그 크기로 다시 올린다. `terminal_open`은 coding session 없는 터미널 하나를 더해
+// 그 터미널로 답한다. 그 밖의 요청(탭, tool, browser)은 `unavailable`로 답한다.
 // project를 주지 않으면 첫 project다.
 import { join } from "node:path";
 import process from "node:process";
@@ -19,6 +22,9 @@ import {
   acpInputSchema,
   EMPTY_ACP_STATE,
   reduceAcp,
+  toolBodyOf,
+  updateWithoutToolBodies,
+  withoutToolBodies,
 } from "../packages/protocol/acp/mod.ts";
 import {
   CONTROL_REQUEST_TIMEOUT_MS,
@@ -156,6 +162,8 @@ const sessionOf = (fake: Fake) => guiSessionId(fake.report.terminal_ref);
 
 const SCREEN_COLUMNS = 80;
 const SCREEN_ROWS = 8;
+// 폰이 붙인 그림을 둔다는 가짜 폴더. 진짜 host는 탭마다 `<os tmp>/lophn-gui/<터미널 ref>/`에 쓴다.
+const IMAGE_DIR = "/tmp/lophn-fake-coding-host";
 const SCROLLBACK: TerminalLine[] = [1, 2, 3].map((n) => ({
   runs: [{ text: `$ make step-${n}`, fg: "p8" }],
   wrapped: false,
@@ -172,7 +180,32 @@ const visible = (text: string) =>
     })
     .join("");
 
-type FakeTerminal = { typed: string; seq: number; tail: number | null };
+type FakeTerminal = {
+  typed: string;
+  seq: number;
+  tail: number | null;
+  columns: number;
+  rows: number;
+};
+const newTerminal = (): FakeTerminal => ({
+  typed: "",
+  seq: 0,
+  tail: null,
+  columns: SCREEN_COLUMNS,
+  rows: SCREEN_ROWS,
+});
+
+// 진짜 host와 같이 bytes로 그림 형식을 가린다. 아니면 null이다.
+function imageType(bytes: Uint8Array): { mime: string; ext: string } | null {
+  const at = (...head: number[]) => head.every((byte, i) => bytes[i] === byte);
+  if (at(0x89, 0x50, 0x4e, 0x47)) return { mime: "image/png", ext: "png" };
+  if (at(0xff, 0xd8, 0xff)) return { mime: "image/jpeg", ext: "jpg" };
+  if (at(0x47, 0x49, 0x46, 0x38)) return { mime: "image/gif", ext: "gif" };
+  if (at(0x52, 0x49, 0x46, 0x46) && bytes[8] === 0x57) {
+    return { mime: "image/webp", ext: "webp" };
+  }
+  return null;
+}
 
 // 가짜 host 하나. `send`로 frame을 올리고 core의 `request` frame을 `request`로 받는다. 연결과 상관없어 core 없이도 돌려 볼 수 있다.
 export function fakeCodingHost(
@@ -182,11 +215,13 @@ export function fakeCodingHost(
   const fakes = cannedSessions(project);
   // 터미널마다 폰이 친 글과 화면 seq. tail이 null이면 보는 폰이 없다.
   const terminals = new Map<string, FakeTerminal>(
-    fakes.map((fake) => [
-      fake.report.terminal_ref,
-      { typed: "", seq: 0, tail: null },
-    ]),
+    fakes.map((fake) => [fake.report.terminal_ref, newTerminal()]),
   );
+  // 새로 여는 터미널(coding session이든 shell이든)의 ref. canned 둘과 겹치지 않는다.
+  let opened = 0;
+  const newRef = () => `trm_01${String(++opened).padStart(24, "0")}`;
+  // 폰이 붙인 그림. key는 가짜 절대 경로다.
+  const images = new Map<string, { mime: string; data: string }>();
 
   function screen(ref: string, terminal: FakeTerminal) {
     if (terminal.tail === null) return;
@@ -213,21 +248,21 @@ export function fakeCodingHost(
       BLANK,
       { runs: [{ text: prompt }], wrapped: false },
     ];
-    while (lines.length < SCREEN_ROWS) lines.push(BLANK);
+    while (lines.length < terminal.rows) lines.push(BLANK);
     send({
       type: "terminal_screen",
       terminal_ref: ref,
       generation: 1,
       seq: terminal.seq,
-      columns: SCREEN_COLUMNS,
-      rows: SCREEN_ROWS,
+      columns: terminal.columns,
+      rows: terminal.rows,
       cursor: {
-        x: Math.min([...prompt].length, SCREEN_COLUMNS - 1),
-        y: 5,
+        x: Math.min([...prompt].length, terminal.columns - 1),
+        y: Math.min(5, terminal.rows - 1),
         hidden: false,
       },
       scrollback: terminal.tail === 0 ? [] : SCROLLBACK.slice(-terminal.tail),
-      lines,
+      lines: lines.slice(0, terminal.rows),
     });
   }
 
@@ -240,14 +275,18 @@ export function fakeCodingHost(
     send({
       type: "coding_sync",
       session: sessionOf(fake),
-      snapshot: fake.state,
+      snapshot: withoutToolBodies(fake.state),
     });
   }
 
   function apply(fake: Fake, updates: AcpUpdate[]) {
     if (fake.state === null) return;
     for (const update of updates) fake.state = reduceAcp(fake.state, update);
-    send({ type: "coding_sync", session: sessionOf(fake), updates });
+    send({
+      type: "coding_sync",
+      session: sessionOf(fake),
+      updates: updates.map(updateWithoutToolBodies),
+    });
   }
 
   const done = (content: string): HostToolOutput => ({
@@ -338,7 +377,7 @@ export function fakeCodingHost(
     harness: string,
     resume: { session: string; cli_session: string } | undefined,
   ): HostToolOutput {
-    const ref = `trm_01${String(fakes.length).padStart(24, "0")}`;
+    const ref = newRef();
     const fake: Fake = {
       report: {
         terminal_ref: ref,
@@ -357,15 +396,89 @@ export function fakeCodingHost(
       state: plainState(),
     };
     fakes.push(fake);
-    terminals.set(ref, { typed: "", seq: 0, tail: null });
+    terminals.set(ref, newTerminal());
     report();
     snapshot(fake);
     console.log(`fake-coding-host: opened ${harness} in ${ref}`);
     return done(JSON.stringify({ terminal_ref: ref }));
   }
 
+  const chatOf = (session: string) =>
+    fakes.find((one) => sessionOf(one) === session && one.state !== null);
+
+  function body(
+    session: string,
+    toolCall: string,
+    part: "input" | "output",
+  ): HostToolOutput {
+    const fake = chatOf(session);
+    if (fake?.state == null)
+      return failed("not_found", "no GUI handle for this session");
+    const found = toolBodyOf(fake.state, toolCall);
+    const value = found?.[part] ?? null;
+    if (found === null || value === null) {
+      return failed("not_found", "That tool call has no such body.");
+    }
+    return done(JSON.stringify({ value, truncated: found.truncated }));
+  }
+
+  function writeImage(session: string, data: string): HostToolOutput {
+    if (chatOf(session) === undefined) {
+      return failed("not_found", "no GUI handle for this session");
+    }
+    const type = imageType(new Uint8Array(Buffer.from(data, "base64")));
+    if (type === null) {
+      return failed("invalid_input", "The picture could not be saved.");
+    }
+    const path = `${IMAGE_DIR}/phone-image-${images.size + 1}.${type.ext}`;
+    images.set(path, { mime: type.mime, data });
+    console.log(`fake-coding-host: kept a picture as ${path}`);
+    return done(JSON.stringify({ path }));
+  }
+
+  function readImage(session: string, path: string): HostToolOutput {
+    const image = images.get(path);
+    if (chatOf(session) === undefined || image === undefined) {
+      return failed("not_found", "No such picture in this chat.");
+    }
+    return {
+      content: [{ type: "image", mimeType: image.mime, data: image.data }],
+    };
+  }
+
+  // coding session 없이 shell만 도는 터미널을 연다(폰의 새 session 화면의 Terminal).
+  function openTerminal(): HostToolOutput {
+    const ref = newRef();
+    terminals.set(ref, newTerminal());
+    console.log(`fake-coding-host: opened a shell terminal ${ref}`);
+    return done(JSON.stringify({ terminal_ref: ref }));
+  }
+
   function answer(request: CoreFrame): HostToolOutput {
     switch (request.kind) {
+      case "coding_body":
+        return body(
+          request.payload.session,
+          request.payload.tool_call,
+          request.payload.part,
+        );
+      case "coding_image_write":
+        return writeImage(request.payload.session, request.payload.data);
+      case "coding_image_read":
+        return readImage(request.payload.session, request.payload.path);
+      case "terminal_open":
+        return openTerminal();
+      case "terminal_resize": {
+        const { terminal_ref: ref, columns, rows } = request.payload;
+        const terminal = terminals.get(ref);
+        if (terminal === undefined)
+          return failed("not_found", "no such terminal");
+        terminal.columns = columns;
+        terminal.rows = rows;
+        screen(ref, terminal);
+        console.log(`fake-coding-host: ${ref} sized ${columns}x${rows}`);
+        return done("ok");
+      }
       case "coding_open":
         return openSession(request.payload.harness, request.payload.resume);
       case "coding_input":

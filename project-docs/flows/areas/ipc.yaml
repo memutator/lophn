@@ -562,7 +562,7 @@ flows:
       - "shell:core-call은 그 기계의 연결로 { resource, method, body }를 보낸다(kind는 core가 route 표로 안다). upload의 bytes는 { input: body, base64 }로, file 답 { content_type, base64 }는 { bytes, contentType }으로 바꾼다"
       - "연결이 아직 없거나 ready가 아니면 unavailable이고 그 연결에 resume()을 걸어 backoff를 기다리지 않고 다시 붙는다(창의 다시 시도가 이 길이다)"
       - "shell:core-watch는 조건을 창마다 남기고 그 연결의 watch로 건다(연결이 나중에 오면 그때 건다). shell:core-state-get은 그 연결의 지금 상태(starting|ready|stale, confirmedAt)다"
-      - "machines-this-read·clone-here는 다른 기계의 창만 지난다(이 컴퓨터의 창이면 forbidden). this-read는 route가 project.list·ListSessions일 때만 지난다"
+      - "machines-this-read·clone-here는 다른 기계의 창만 지난다(이 컴퓨터의 창이면 forbidden). this-read는 route가 project.list·ListAgents·ListSessions일 때만 지난다"
       - "그 밖에 지나는 channel은 machines-list·open·this-window·visible·this-read·clone-here, window-control, open-external뿐이다. overlay 통로는 ipcMain에 따로 붙어 이 둘레를 타지 않는다(remote preload는 overlay view에 lophnCore를 열지 않는다)"
       - "나머지 handle은 { ok: false, error: { code: forbidden } }이고 영역 handler를 부르지 않는다. on 메시지는 버린다"
     outcomes:

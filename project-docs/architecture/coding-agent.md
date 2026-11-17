@@ -137,9 +137,10 @@ harness session은 `lophn tab open --session <ses> --tui`로 터미널 탭에서
 - **TUI 열기 요청.** host queue의 `tab_open`(target `{tui}`, payload `resume {harness: <adapter id>, external_session}`)을 renderer가 받아 터미널 탭(key `host:<tab>`)에 resume 줄을 친다. runtime → adapter id 대응은 한 곳에서만 정한다.
 - **TUI handoff.** agent가 `tabs/open` target `{coding: {harness, handoff}}`(CLI `lophn tab open --coding <harness> --handoff <글>`)로 사람이 이어서 만질 일을 넘긴다. project workspace의 agent만, 즐겨찾기 가운데 adapter가 첫 prompt 인자 꼴(`session.prompt`)을 아는 harness만 된다. core는 글을 `<data root>/handoffs/<tab>.md`(0600)에 쓰고 payload에는 `handoff {harness, file}`만 싣는다. 창은 사람의 즐겨찾기 명령 뒤에 고정 글 "Read the handoff at <file> and continue the work it describes."만 첫 prompt로 붙여 새 터미널 탭에서 친다. 이 탭은 사람의 터미널이라 lophn session도 hold도 없다.
 - **headless 명령.** harness마다 adapter 항목 하나(명령, parser, 권한 표)다. parser는 순수 함수이고 실제 녹화에서 만든 fixture로 본다(Claude Code 2.1.318, codex-cli 0.166.0, opencode 2.1.4).
-  - Claude Code: `claude -p --output-format stream-json --verbose --allowed-tools "Bash(lophn *)" [--resume <id>] [--disallowed-tools …] -- <prompt>`. permission mode는 사람의 Claude Code 설정대로이고 `lophn`만 따로 허락한다(deny가 allow보다 앞선다). 정의의 deny `lophn(<slug> <command>)`는 `Bash(lophn <slug> <command>)`와 그 뒤 인자 꼴의 disallow다.
+  - Claude Code: `claude -p --output-format stream-json --verbose --allowed-tools "Bash(lophn *)" [--resume <id> | --resume <원본 id> --fork-session] [--disallowed-tools …] -- <prompt>`. permission mode는 사람의 Claude Code 설정대로이고 `lophn`만 따로 허락한다(deny가 allow보다 앞선다). 정의의 deny `lophn(<slug> <command>)`는 `Bash(lophn <slug> <command>)`와 그 뒤 인자 꼴의 disallow다.
   - Codex: `codex exec --json --skip-git-repo-check -c sandbox_workspace_write.network_access=true -- <prompt>`, 이어 가기는 `codex exec resume … -- <id> <prompt>`. sandbox mode는 사람의 Codex 설정대로다. stdin 끝을 기다리므로 host가 띄우자마자 닫는다.
-  - opencode: `opencode run --standalone --format json [--session <id>] <prompt>`. 권한 flag가 없어 사람의 opencode 설정대로 돌고, 그 설정이 `lophn`을 허락해야 부른다. 끝 event가 없어 process의 exit code가 끝이다.
+  - opencode: `opencode run --standalone --format json [--session <id> | --session <원본 id> --fork] <prompt>`. 권한 flag가 없어 사람의 opencode 설정대로 돌고, 그 설정이 `lophn`을 허락해야 부른다. 끝 event가 없어 process의 exit code가 끝이다.
+- **fork한 session의 첫 turn.** fork한 harness session이 아직 harness session id를 갖지 않았고 원본의 지금 마지막 메시지에서 갈라졌고 harness가 같으면, core가 take의 `fork_external_session_id`에 원본의 harness session id를 싣는다. Claude Code와 opencode는 그 session에서 갈라 시작해 앞 대화를 물려받고, Codex는 headless fork가 없어 새로 시작한다. 원본의 중간에서 갈랐으면 harness 기록이 원본의 끝까지라 싣지 않는다(새로 시작한다).
 - **내장 skill `lophn-agent`.** 받은 call의 tag 읽기, `call reply`(승인을 청하는 팀원의 call에는 `--allow`·`--reject`)·`call send`·`call cancel`, `team`, `session list`·`agent card`, `ext call`을 적고 turn 자격이 있을 때만 쓰라고 한다. `tab open --url|--preview`, `preview`, `browser snapshot → act --ref` 같은 탭 명령은 사람 token(사람의 터미널)으로도 되어 따로 적는다. 사람 token으로 연 탭의 주인은 "person"이다([workspace-layout.md](workspace-layout.md) "agent가 연 탭").
 - **hook 설치 출력.** `harness install`의 출력은 event·file 목록과 상태(`unchanged`, `missing`, `failed`, `conflict`, skill 사본의 `skipped`)이고 `dry_run`은 쓰지 않고 같은 판정을 낸다.
 
@@ -182,7 +183,7 @@ harness session은 `lophn tab open --session <ses> --tui`로 터미널 탭에서
 열린 이슈는 topic이 `coding-agent`인 이슈다.
 
 - binary `lophn`의 help에 사람 token으로는 거절되는 명령이 보인다(`job.create`, `call.*`, `session.list`, `package.publish`는 actor가 agent만이라 `forbidden`). 사람 터미널의 coding agent에는 아직 신원이 없다. coding agent 신원과 같이 열거나 그때까지 help에서 빼거나 표시한다.
-- fork한 harness session이 외부 session id를 물려받지 않아 harness 쪽 앞 대화를 잃는다. headless resume이 fork를 지원하는 harness(`claude --resume --fork-session` 등)만 id를 물려주는 방안이 있다.
+- fork한 session이 원본의 harness session에서 갈라 시작하는 것(`--fork-session`, `--fork`)은 실제 CLI로 돌려 보지 않았다. Codex와 원본 중간에서 가른 fork는 harness 쪽 앞 대화 없이 시작한다.
 - opencode agent는 사람의 opencode 권한 설정대로 돌아 shell과 폴더 밖 쓰기를 한다(사람, 2026-11-04: 이대로 둔다). 좁히려면 inline config의 `permission`을 넘긴다.
 
 - TUI에서 `/clear` 같은 것으로 바뀐 CLI session id는 따라가지 않는다.

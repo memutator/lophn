@@ -616,7 +616,7 @@ files:
 
   - path: packages/core/main/daemon/wiring/remote_test.ts
     covers: [devices-set-terminal-input:ok, devices-set-terminal-input:forbidden, devices-set-terminal-input:not_found, devices-revoke:ok, devices-forget-all:forgotten, devices-forget-all:kept]
-    note: "폰 기기 자격의 devices/set_terminal_input은 실제 call 길(기기 자격 scope)에서 forbidden이고 writer에 닿지 않는다. 메모리 sqlite의 devices.ts command를 remote wiring의 writer 층으로 돌려, terminal_input이 기본 꺼짐이고 켠 기기의 device:<id>만 terminalInputGrant가 true이며 끄거나 끊으면 command가 답할 때 이미 false인지 본다(기동 전 켜 둔 기기는 build가 읽는다). 임시 data root와 file sqlite로 remote wiring의 build·start를 두 번 돌려, host key의 machine이 지금 id와 같으면 기기·push token·shell.devices·key가 그대로이고 다르면 기기 표와 shell.devices가 비고 지금 id를 찍은 새 key가 생기는 것을 본다(listener는 열지 않는다)"
+    note: "폰 기기 자격의 devices/set_terminal_input은 실제 call 길(기기 자격 scope)에서 forbidden이고 writer에 닿지 않는다. 메모리 sqlite의 devices.ts command를 remote wiring의 writer 층으로 돌려, terminal_input 없이 등록한 기기는 꺼짐이고 켠 기기의 device:<id>만 terminalInputGrant가 true이며 끄거나 끊으면 command가 답할 때 이미 false인지 본다(기동 전 켜 둔 기기는 build가 읽는다). 임시 data root와 file sqlite로 remote wiring의 build·start를 두 번 돌려, host key의 machine이 지금 id와 같으면 기기·push token·shell.devices·key가 그대로이고 다르면 기기 표와 shell.devices가 비고 지금 id를 찍은 새 key가 생기는 것을 본다(listener는 열지 않는다)"
 
   - path: packages/core/server/host-link_test.ts
     covers: [host-link:unauthorized, host-link:forbidden, host-link:closed]
@@ -721,7 +721,7 @@ files:
       - devices-set-primary:desktop
       - devices-set-push:forbidden
       - remote-connection:announced-name
-    note: "메모리 sqlite에 devices.ts의 step·command·read를 바로 부른다. 옛 step까지만 건 표에 행을 넣고 remote.devices.kind를 걸어 행·칸·unique가 남고 옛 이름이 별명으로 남는 것(사람의 data root가 도는 migration), 별명 두기·지우기, desktop 등록이 기준을 바꾸지 않는 것, desktop의 기준·push token을 command와 표 CHECK 둘 다 거절하는 것을 본다. devices/connected가 알린 이름을 늘 고쳐 적고 사람이 붙인 별명은 두며, migration이 지킨 옛 이름은 처음 알린 이름과 같을 때만 별명에서 거두는 것도 본다"
+    note: "메모리 sqlite에 devices.ts의 step·command·read를 바로 부른다. 옛 step까지만 건 표에 행을 넣고 remote.devices.kind를 걸어 행·칸·unique가 남고 옛 이름이 별명으로 남는 것(사람의 data root가 도는 migration), 별명 두기·지우기, desktop 등록이 기준을 바꾸지 않는 것, desktop의 기준·push token을 command와 표 CHECK 둘 다 거절하는 것을 본다. devices/connected가 알린 이름을 늘 고쳐 적고 사람이 붙인 별명은 두며, migration이 지킨 옛 이름은 처음 알린 이름과 같을 때만 별명에서 거두는 것도 본다. pairing code를 terminal_input 켬과 끔으로 만들어 등록한 두 기기가 그 값으로 표와 허락 사본(기동 때 다시 채운 것 포함)에 서는 것도 본다"
 
   - path: packages/core/remote/host_test.ts
     covers:

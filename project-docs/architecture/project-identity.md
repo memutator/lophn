@@ -49,19 +49,19 @@ ledger projects 줄 (기계별)
 desktop이 다른 기계(M)를 보는 창(`remote.md`의 "desktop에서 다른 기계 보기")의 왼쪽 sidebar에서 M의 project 줄 아래에 이 컴퓨터와의 관계를 한 줄로 보인다. 이 컴퓨터의 창에는 이 줄이 없다.
 
 ```
-M의 창 renderer ── 창의 core 통로 ──────────▶ M의 core       project.list, ListSessions (기기 자격)
-               └─ shell:machines-this-read ─▶ 이 컴퓨터의 core  project.list, ListSessions (사람 자격, 읽기 둘만)
+M의 창 renderer ── 창의 core 통로 ──────────▶ M의 core       project.list, ListAgents, ListSessions (기기 자격)
+               └─ shell:machines-this-read ─▶ 이 컴퓨터의 core  project.list, ListAgents, ListSessions (사람 자격, 읽기 셋만)
                └─ shell:machines-clone-here ▶ 이 컴퓨터의 core  project.clone (사람 자격)
                └─ shell:machines-open ──────▶ 이 컴퓨터의 창    { machine: 이 컴퓨터, session }
 ```
 
 - **묶기.** M의 `project.list`(그 창의 core)와 이 컴퓨터의 `project.list`(shell main을 거친다)를 각각 통째로 받아 같은 순수 함수 `matchProjects`에 넣는다. 열쇠는 이 컴퓨터의 것이 `this:<prj>`, M의 것이 `<M의 mch>:<prj>`라 두 기계의 `prj_`가 섞이지 않는다. `identity`·`remote` 칸이 없는 옛 판 M의 기록은 null로 본다. 묶음은 M의 project마다 셋 가운데 하나이고, id도 짝도 없는 project에는 줄이 없다.
-  - **같은 project**(id가 같다): "Also on this computer"(이 컴퓨터의 title이 다르면 "Also on this computer as <title>"). 누르면 popover에 기계마다 session 목록을 나란히 보인다.
+  - **같은 project**(id가 같다): "Also on this computer"(이 컴퓨터의 title이 다르면 "Also on this computer as <title>"). 누르면 popover에 기계마다 그 project workspace의 모든 agent의 session을 최근 순으로 8개까지 agent 이름과 함께 나란히 보인다(`ListSessions`가 agent 하나씩 받아 `ListAgents`로 먼저 agent를 읽는다).
   - **M에만 있다**(id가 있고 이 컴퓨터에 짝이 없다): "Not on this computer"와 [Clone here]. M의 기록에 remote가 없으면 단추 없이 "It has no git remote to clone from".
   - **remote만 같다**(`suggested`): "Looks like <이 컴퓨터의 title>"과 한 기계에서 id file을 만들어 commit하면 다른 기계가 pull 뒤 따라온다는 안내. 단추는 없다: M의 저장소에는 쓰지 못하고, 이 컴퓨터 쪽 [Set up]은 이 컴퓨터의 창에서 한다.
 - **session은 나란히, 합치지 않는다.** 두 목록은 각자의 core에서 읽는다(M의 것은 그 창의 core, 이 컴퓨터의 것은 `shell:machines-this-read`). M의 session은 그 창에서 열고, 이 컴퓨터의 session을 누르면 `shell:machines-open { machine: 이 컴퓨터, session }`이 이 컴퓨터의 알림을 누른 것과 같은 길로 이 컴퓨터의 창을 앞으로 가져와 그 session을 연다. session과 대화는 기계 사이에 옮기지 않는다.
 - **[Clone here].** `shell:machines-clone-here { url, identity, title }`이 이 컴퓨터의 `project.clone`을 사람 자격으로 부른다. 답이 `projects_folder_unset`이면 shell main이 그 창에 붙은 OS 폴더 선택기를 열고 고른 폴더를 `parent`로 다시 부르며, core가 그 폴더를 `projects.folder`로 기억한다(다음 clone은 묻지 않는다). 선택기를 닫으면 아무 일도 없다. `git_auth`면 "Run `<command>` in a terminal on this computer, then try again"을 보인다. 받은 뒤 이 컴퓨터의 목록을 다시 읽어 그 줄이 "Also on this computer"가 된다.
-- **M에는 쓰지 않는다.** 다른 기계의 창은 폰과 같은 권한이다. 이 줄들은 M에 아무것도 쓰지 않고(id file도, 설정도), 이 컴퓨터에는 두 읽기와 clone만 한다.
+- **M에는 쓰지 않는다.** 다른 기계의 창은 폰과 같은 권한이다. 이 줄들은 M에 아무것도 쓰지 않고(id file도, 설정도), 이 컴퓨터에는 세 읽기와 clone만 한다.
 - **읽기가 실패해도 지우지 않는다.** 어느 쪽 읽기가 실패하거나 M이 끊기면 그쪽의 마지막 목록과 묶음, session 목록을 그대로 보인다. 이 컴퓨터의 core는 이 창에 event를 보내지 않으므로 이 컴퓨터 쪽은 창이 앞으로 올 때와 clone 뒤에 다시 읽는다.
 
 ## 지키는 것
@@ -75,7 +75,7 @@ M의 창 renderer ── 창의 core 통로 ──────────▶ M�
 7. remote는 제안에만 쓴다. remote가 같다는 것만으로 project를 합치거나 id를 옮기지 않는다.
 8. 나누기(`project.renew_identity`)는 사람만 한다. agent는 만들기·Restore·Resolve(`project.share`)와 clone만 한다.
 9. clone은 묻는 창을 띄우지 않고 자격을 저장하지 않으며, 자격이 박힌 URL을 받지 않는다. 받다가 실패하면 임시 폴더를 지운다. 받은 뒤 등록이 실패해도 받은 폴더는 지우지 않는다.
-10. 다른 기계의 창은 그 기계에 쓰지 않는다. 이 컴퓨터의 core에는 `project.list`·`ListSessions` 읽기와 `project.clone`만 부르고, 그 둘은 이 컴퓨터의 창에서 부르면 거절된다(`remote.md` 지키는 것 24).
+10. 다른 기계의 창은 그 기계에 쓰지 않는다. 이 컴퓨터의 core에는 `project.list`·`ListAgents`·`ListSessions` 읽기와 `project.clone`만 부르고, 그 둘은 이 컴퓨터의 창에서 부르면 거절된다(`remote.md` 지키는 것 24).
 11. 두 기계의 session 목록은 합치지 않는다. 각자의 core에서 읽고 나란히 보일 뿐이며, 묶기의 열쇠는 기계가 붙은 `this:<prj>`·`<mch>:<prj>`라 한 기계의 `prj_`가 다른 기계의 기록을 가리키지 않는다.
 
 ## 경계와 계약
@@ -85,7 +85,7 @@ M의 창 renderer ── 창의 core 통로 ──────────▶ M�
 - `ProjectRecord`의 칸 `identity`(pri | null), `repo`(`git` | `none` | null), `remote`(`{ key, url }` | null). `project.list { identity }`가 id로 이 기계의 project를 찾는다(많아야 하나).
 - route: `project.identity`(memory, user·agent), `project.create_identity`(memory, user·agent), `project.renew_identity`(memory, user), `project.match { path }`(memory, user. 등록 전 폴더를 읽고 `same`과 `suggestions`를 돌린다), `project.clone { url, parent?, name?, title?, identity? }`(memory, user·agent. 실패의 `details.reason`: `projects_folder_unset`, `git_auth`와 `details.command`, `git_not_found`, `timeout`, `git_failed`, `different_project`, `target_exists`), `project.record_identity`(core 안 machine 자격만. 읽은 값을 ledger에 적는다).
 - CLI: `lophn project clone <url>`, `lophn project share`, `lophn project identity`(`--project`가 없으면 그 session의 project).
-- shell IPC(다른 기계의 창, `remote.md`): `shell:machines-this-read { route: "project.list" | "ListSessions", input }`, `shell:machines-clone-here { url, identity, title }`(답은 core의 `project.clone` 답 그대로), `shell:machines-open { machine, session? }`(session은 이 컴퓨터의 id에만).
+- shell IPC(다른 기계의 창, `remote.md`): `shell:machines-this-read { route: "project.list" | "ListAgents" | "ListSessions", input }`, `shell:machines-clone-here { url, identity, title }`(답은 core의 `project.clone` 답 그대로), `shell:machines-open { machine, session? }`(session은 이 컴퓨터의 id에만).
 - 설정: `projects.folder`(이 기계에서 clone한 project를 두는 폴더. 값에 기계 id를 붙이지 않는다).
 - 순수 함수: file 꼴 읽기·쓰기, remote key, 힌트 짝짓기(identity가 같은 짝 `same`, identity로 짝이 되지 않았고 remote key가 같으며 하나 이상 identity가 없는 짝 `suggested`. 한 목록에 같은 key가 둘 이상이면 제안하지 않는다)는 protocol에 있어 renderer, remote 보기, 폴더 sync가 같이 쓴다.
 - 저장: ledger schema step `projects.registry.identity`(projects 표에 칸 넷과 `identity` unique index). 칸만 더하고 값은 null이다.
@@ -112,16 +112,14 @@ M의 창 renderer ── 창의 core 통로 ──────────▶ M�
 - clone은 임시 폴더에 받고 이름을 바꾼다. 받은 저장소의 id가 기대와 다르면 지우고 `conflict`, file이 아직 없으면 남겨 등록하고 알린다. 이유: 반쯤 받은 폴더가 project 자리에 남지 않고, commit·push 전인 저장소도 pull로 file이 오면 따라온다. (planner, Paseo·Happy 조사)
 - 위험 test는 git을 띄우지 않고 주입한 runner와 임시 폴더로 쓴다. 실제 git으로는 개발 core에서 손으로 확인했다. (planner)
 - 다른 기계를 보는 desktop은 폰과 같은 권한이다. 그 창에서 M의 project에 id file을 만들거나 설정을 바꾸지 않는다. (사람)
-- 다른 기계의 창이 이 컴퓨터를 읽는 길은 shell main을 거치는 좁은 IPC 둘(읽기 둘, clone)이다. 이유: 한 창은 한 기계만 보고 renderer는 기계를 주장하지 못한다(`remote.md`). 버린 길: 그 창에 이 컴퓨터의 core 통로를 하나 더 열기(guard 하나로 막던 경계가 둘로 갈린다). (planner)
+- 다른 기계의 창이 이 컴퓨터를 읽는 길은 shell main을 거치는 좁은 IPC 둘(읽기 셋, clone)이다. 이유: 한 창은 한 기계만 보고 renderer는 기계를 주장하지 못한다(`remote.md`). 버린 길: 그 창에 이 컴퓨터의 core 통로를 하나 더 열기(guard 하나로 막던 경계가 둘로 갈린다). (planner)
 - 묶기는 등록 dialog와 같은 `matchProjects`를 쓰고 열쇠에 기계를 붙인다. remote만 같은 짝은 제안 한 줄뿐이다(지키는 것 7). (planner)
 - 이 컴퓨터의 session을 popover에서 누르면 `shell:machines-open`에 session을 실어 이 컴퓨터의 알림을 누른 것과 같은 길로 연다. 이 컴퓨터의 창이 하나도 없으면 새 창이 load된 뒤 그 session을 고른다. 버린 길: 새 IPC channel이나 desktop intent에 session을 싣기(창을 고르는 규칙이 두 벌이 된다). (agent)
 - 처음 clone의 폴더는 shell이 폴더 선택기로 받아 `parent`로 넘기고 기억은 core가 한다(설정이 비었거나 폴더가 없어졌을 때). 이유: agent의 clone과 [Clone here]가 같은 규칙 하나를 탄다. (agent)
 
 ## 열린 것
 
-- 다른 기계의 창의 나란한 session 목록은 그 project lophn agent의 session만 보인다. 같은 project에 둔 다른 agent의 session은 빠진다(이슈 `remote-group-sessions-only-project-lophn`).
-
-- 다른 기계의 창의 묶기와 [Clone here]는 한 컴퓨터의 개발 core 둘과 headless Electron으로 보았다. 설치본 둘과 실제 원격 저장소는 보지 못했다.
+- 다른 기계의 창의 묶기와 [Clone here]는 한 컴퓨터의 개발 core 둘과 headless Electron으로 보았다. popover의 모든 agent session 목록은 test와 wireframe으로만 보았다. 설치본 둘과 실제 원격 저장소는 보지 못했다.
 
 - agent가 identity route를 부를 때 그 agent가 그 project에 닿는지 보지 않는다. 다른 memory route와 같고 쓰는 것은 등록된 project 폴더의 file 하나라 그대로 둔다(이슈 `project-identity-agent-project-scope`, kept).
 

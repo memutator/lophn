@@ -104,7 +104,7 @@ release bundle: screens/<key>/ { phone.js, phone.json(manifest), index.html + pr
 - 사람이 폰에서 preview를 여는 것이 동의다. 동작마다 묻지 않는다. 컴퓨터에서 폰을 깨우거나 앞으로 부르지 않는다(planner). 이유: 사람이 폰을 들고 있을 때 하는 확인이고, 누가 다루는지 보이고 언제든 가져갈 수 있으면 동작마다의 확인은 거추장스럽다.
 - 보기와 입력은 lophn 폰 앱 안의 Kotlin native module이 guest의 Android view tree를 걷고 직계 자식에 touch를 넣어 한다. Accessibility service, adb, guest 쪽 JS tree는 쓰지 않는다(planner, spike 판정). 이유: Accessibility service는 Play 정책상 이 용도로 쓰기 어렵고 사람이 설정에서 켜야 하며 다른 앱과 system UI까지 닿는다. adb는 cable이나 개발자 옵션이 든다. native module은 lophn 앱 안의 guest view만 보고 사람의 설정이 필요 없다. guest 쪽 JS tree는 AI가 쓴 화면 code가 답을 꾸밀 수 있다.
 - live 폰 화면이 아직 없는 앱(첫 폰 화면)은 preview가 도는 동안 폰의 앱 목록에 "Preview" 표시로 들고 그 줄이 바로 preview를 연다(agent). 이유: "Preview from lophn"은 live 앱 화면의 menu에 있어서 첫 폰 화면을 짓는 앱은 폰에서 열 길이 없었다. 버린 안: live 앱 화면 없이 menu만 띄우는 빈 앱 화면.
-- 무언가가 preview를 덮어 창 focus가 없으면 `covered`로 답한다(agent). 이유: 앱이 앞에 있는데 "앞에 없다"고 하면 agent가 사람에게 틀린 부탁을 한다. guest가 연 OS 창(kit `Sidebar`·`Drawer`, 화면이 직접 연 `Modal`, OS dialog)의 안은 guest의 view tree 밖이라 읽지 못하므로 사람에게 닫아 달라고 하고 그 부분은 손으로 보게 한다. 앱 화면 안의 kit `Sheet`·`Menu`는 OS 창이 아니라 `Screen` 안의 층이라(`ui-kit.md`) view tree 안에 있다.
+- 무언가가 preview를 덮어 창 focus가 없으면 `covered`로 답한다(agent). 이유: 앱이 앞에 있는데 "앞에 없다"고 하면 agent가 사람에게 틀린 부탁을 한다. guest가 연 OS 창(화면이 직접 연 `Modal`, OS dialog)의 안은 guest의 view tree 밖이라 읽지 못하므로 사람에게 닫아 달라고 하고 그 부분은 손으로 보게 한다. 앱 화면 안의 kit `Sheet`·`Menu`·`Drawer`는 OS 창이 아니라 `Screen` 안의 층이라(`ui-kit.md`) view tree 안에 있다.
 - Android를 먼저 짓는다. iOS는 내려받은 code로 앱 기능을 바꾸는 것(Apple 지침 2.5.2)과 JavaScript mini app(4.7)에 맞는지 사람이 Apple에 물어야 정해진다. (사람이 할 일)
 
 ## 열린 것
@@ -113,7 +113,7 @@ release bundle: screens/<key>/ { phone.js, phone.json(manifest), index.html + pr
 
 - 이 설계를 실제 Electron desktop 앱에서 보지 못했다: core view 표를 거쳐 desktop 창에서 앱 화면을 열고 operation을 부르는 것, release가 바뀔 때 다시 띄우는 것, 폰 화면을 가진 preview 탭은 type 검사와 test와 headless Chrome으로만 보았다. 폰 쪽은 emulator에서 개발 core에 손으로 지은 앱을 붙여 보았고 실제 agent turn으로 만든 앱이나 실제 폰으로 보지 못했다. iOS는 짓지 않았다.
 - guest 하나가 mount와 unmount를 되풀이하면 PSS가 한 번에 약 2 MB씩 남는다(원인을 찾지 못했다). 이슈 `phone-guest-memory-grows-per-remount`.
-- guest는 kit의 `Sidebar`·`Drawer`가 쓰는 `Modal`과 화면 source가 직접 부른 `Modal`로 앱 전체를 덮을 수 있다(kit `Sheet`·`Menu`는 화면 안의 층이라 덮지 않는다). 이슈 `phone-guest-can-cover-app`. status bar는 guest에서 닿지 않는다(base가 `StatusBar`를 stub으로 바꾼다).
+- guest는 화면 source가 직접 부른 React Native `Modal`로 앱 전체를 덮을 수 있다(kit `Sheet`·`Menu`·`Drawer`는 화면 안의 층이라 덮지 않는다). 이슈 `phone-guest-can-cover-app`. status bar는 guest에서 닿지 않는다(base가 `StatusBar`를 stub으로 바꾼다).
 - guest에 남은 native module 가운데 `KeyboardController`(keyboard mode 바꾸기·닫기)와 `I18nManager.forceRTL`(앱 전체의 RTL 설정)은 밖으로 나가는 길은 아니지만 앱 전체에 닿는다. 링크 열기·공유·clipboard는 guest에 없다(debug lab build의 probe로 확인. release는 돌리지 않았다).
 - 폰 화면의 오류가 앱 log에 남지 않는다(위 폰 gate 결정). view에 묶인 route가 필요하다. 이슈 `phone-screen-errors-not-in-app-log`.
 - debug build(dev client)에서는 dev menu의 전체 화면 view 때문에 손가락 입력이 guest에 닿지 않는다. 손가락 확인은 release build에서 한다.

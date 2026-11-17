@@ -103,7 +103,7 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 40. **take control.** agent가 다루기 시작한 탭은 탭 머리(preview는 안내 줄)에 "Agent is controlling this tab"과 [Take control]을 둔다. 사람이 가져오면 agent의 act·navigate·evaluate는 `conflict`이고 snapshot·screenshot·logs·wait·read는 된다. [Hand back]으로 푼다. 상태는 shell main 메모리에 탭마다 있고 core는 모른다.
 41. **뒤에 연 탭도 바로 다룬다.** `tab open`은 늘 뒤에 열리므로 host 탭의 browser·preview·artifact 본문은 고르지 않아도 숨은 그릇에 mount된다. agent가 다루는 동안 숨은 guest는 그리기를 이어 가야 screenshot과 입력이 되므로, 다른 내용 뒤가 아니라 창 오른쪽 아래 1px만 걸쳐 둔다(뒤에 두면 Chromium이 그리기를 멈춘다). host browser 탭(`--url`)은 여기에 더해 workspace가 mount되지 않아도 page가 있다. 창이 page를 그 workspace의 pool에 숨은 항목으로 만들어 두고 자리는 다음 mount로 미루며(다시 load하지 않는다), `tabs/open`은 page가 붙은 뒤에 답한다(shell이 있으면 10초, 앱을 띄웠으면 30초, 실패는 `unavailable`이고 탭이 남지 않는다). page는 탭을 닫거나 창이 닫히거나 상한(창마다 12개, 가장 오래 쓰지 않은 것)이 놓을 때까지 있다. 없어지면 탭도 core 표에서 빠지고 뒤의 `browser.*`는 `not_found`다(마지막 url을 되살리지 않는다. agent가 다시 연다). 창이 하나도 없으면 lophn이 창을 focus 없이 열고 앱이 꺼져 있으면 앱을 띄운다(`workspace-layout.md`, `platform.md`). 열린 창이 최소화되어 있으면 그리지 않아 screenshot이 실패한다.
 42. **screenshot.** lophn agent는 image content로 받는다. binary는 PNG를 `--out <path>`나 `<os tmpdir>/lophn-screenshots/<tab>-<unix ms>.png`에 쓰고 그 path를 찍는다(harness는 자기 Read tool로 본다). emulation된 page의 screenshot은 CSS px 크기다.
-43. **기기 emulation은 preview 탭에만 있고, 고른 기기는 탭 상태에만 있다.** emulation은 driver와 같은 debugger를 owner를 나눠 같이 쓴다(webContents 하나에 debugger 하나). DevTools가 열려 있으면 걸지 못해 Desktop으로 돌아가고 안내를 보인다.
+43. **기기 emulation은 preview 탭에만 있고, 고른 기기는 탭 상태에만 있다.** emulation은 driver와 같은 debugger를 owner를 나눠 같이 쓴다(webContents 하나에 debugger 하나). DevTools가 열려 있으면 걸지 못해 Desktop으로 돌아가고 안내를 보인다. 건 뒤에 사람이 DevTools를 열면 debugger가 떨어져 기기가 풀리고, main이 건 상태를 비운 뒤 `shell:surface-emulation`으로 그 view session을 알려 preview 탭이 Desktop으로 돌아가 같은 안내(DevTools를 닫으라)를 보인다. 탭이 풀린 기기의 phone frame과 이름을 그대로 두지 않는다.
 
 ### site login
 
@@ -137,7 +137,7 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 - 요청: `shell:browser-navigate`, `shell:browser-command`(뒤로·앞으로·새로 고침), `shell:browser-adopt`, `shell:browser-clear-data`, `shell:browser-devtools-open|close|window`, `shell:bookmarks-list|add|update|remove`. native 항목의 자리는 `shell:view-bounds`·`shell:views-hidden`.
 - push: `shell:browser-state`(url·title·loading·favicon·crash), `shell:browser-event`(kind `popup`, `popup-blocked`, `open-tab`, `close`, `bookmark-key`, `download`, `devtools-closed`), `shell:bookmarks-changed`.
 - terminal: `shell:terminal-link`(Ctrl/Cmd-click), `shell:terminal-bridge-open`(push), `shell:terminal-bridge-ack`(invoke).
-- agent 쪽: `shell:surface-report {bind}`, `shell:surface-request`·`surface-ack`, `shell:surface-control`·`surface-take`(take control), `shell:surface-emulate`, `shell:surface-workspace`.
+- agent 쪽: `shell:surface-report {bind}`, `shell:surface-request`·`surface-ack`, `shell:surface-control`·`surface-take`(take control), `shell:surface-emulate`, `shell:surface-emulation`(main → 창: 건 기기가 DevTools로 풀렸다), `shell:surface-workspace`.
 - 오류는 공통 일곱 code다. 예: popup adopt의 다른 창은 `invalid_input`, 두 번째는 `forbidden`.
 
 **layout.** browser 탭 `{key, url, favicon}`과 선택 `keep_alive`. 탭은 desk당 1200개 상한(layout 일반 규칙)이 있어 browser 전용 cap은 두지 않는다.
@@ -204,7 +204,7 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 
 ## 열린 것
 
-- **preview 탭에 기기를 건 뒤 DevTools를 열면 emulation이 말없이 풀린다.** debugger가 떨어져 크기·DPR·touch·user agent가 풀린다. main은 emulation 상태와 debugger 주인을 비워 닫은 뒤 기기를 다시 고를 수 있지만, 그 사실이 renderer로 가는 길이 없어 탭은 phone frame과 기기 이름을 그대로 보인다. 반응형 확인을 잘못 믿는다. 이슈 `emulation-lost-on-devtools-open`(main → renderer push 하나를 더해 Desktop으로 돌린다).
+- **DevTools로 풀린 기기를 Desktop으로 돌리는 길은 Electron에서 돌려 보지 않았다.**
 - **크기 없이 `window.open`을 쓰는 로그인은 깨질 수 있다.** opener가 끊기는 대가다.
 - **coding 탭의 `BROWSER`.** coding 탭은 app space 패널에 붙어 browser 탭을 열 pane이 없어 지금은 OS browser로 간다(roadmap `browser-tab.md`의 "남은 bridge 일").
 - **다시 열어 복원한 detached terminal과 host가 죽은 뒤 사람이 다시 시작한 shell은 bridge가 없다.** OS browser로 간다(`workspace-layout.md` 이슈의 terminal 재연결과 함께 풀린다).

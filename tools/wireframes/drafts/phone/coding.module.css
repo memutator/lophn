@@ -15,12 +15,6 @@
   white-space: pre;
 }
 
-/* Fit width: an 80-column screen shrinks to the phone's width. */
-.term[data-fit] {
-  font-size: 7.6px;
-  line-height: 11px;
-}
-
 /* Where the horizontal scroll stands at 100%. */
 .hScroll {
   position: absolute;

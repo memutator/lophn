@@ -241,7 +241,6 @@
 - 범위 밖이 되기 전에 읽은 앱 기록이 없는 기계는 폴더로 맞추는 모든 앱의 Machines 절에 선다.
 - `update_peer`(그 기계를 올려야 한다)는 모든 기계가 같은 꼴 판(`{1, 1}`)인 지금은 생기지 않는다. 판정 표는 test가 다섯 경우를 보지만 import 길의 `update_peer`는 꼴 판(`version`이나 `min_version`)을 처음 올리는 변경에서 끝에서 끝으로 본다.
 - 따라가기의 설치 실패와 거절은 메모리에만 있어 core가 다시 뜨면 다시 한다(`activation.md`).
-- sync 앱 rewind의 답을 잃으면 rewind는 취소로 끝나되 이유가 앱 data가 이미 되돌려졌을 수 있다고 말한다. 결과 모름으로 남기려면 rewind 기록에 새 상태가 든다(이슈 `sync-rewind-reply-capped`).
 - 빚진 지우기 표시가 `folder_reads.error` 칸 안 JSON에 산다. 그 칸을 읽고 쓰는 곳이 import 하나라 칸을 나누는 schema step은 folder 표를 다음에 고칠 때 같이 한다(이슈 `folder-absent-pass-mark-in-error-column`, kept).
 - `clock_ahead`의 글은 기계 이름만 쓴다. 이름이 겹친 기계끼리는 `details.machine`(id)으로만 가린다.
 - destination을 바꿀 Settings 화면이 없다. 사람은 자기 터미널의 `lophn settings set`을 쓴다. harness agent(lophn agent tool call 밖)는 승인을 묻지 못해 늘 `needs_approval`이다.

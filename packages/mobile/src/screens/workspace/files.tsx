@@ -6,27 +6,32 @@ import {
   CodeBlock,
   Icon,
   Markdown,
+  Pill,
   Row,
   Screen,
+  Sheet,
   Text,
   TopBar,
   useTheme,
 } from "@lophn/ui-native";
 import {
+  Check,
   ChevronRight,
   FileText,
   Folder,
   Info,
   Monitor,
 } from "lucide-react-native";
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { Pressable, View } from "react-native";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
 import { useNames, type Workspace } from "../../data/mod.ts";
 import {
   type ProjectFileEntry,
+  type ProjectFolder,
   useProjectFile,
   useProjectFiles,
+  useProjectFolders,
 } from "../../data/mod.ts";
 import { ago, EmptyNote, OfflineBanner } from "../../parts/mod.ts";
 import { AskBar, Failed } from "./common.tsx";
@@ -87,27 +92,79 @@ function Crumbs({
   );
 }
 
+/** A project with more than one folder: which one Files shows, picked from a sheet. */
+function FolderPick({
+  folders,
+  folder,
+  onFolder,
+}: {
+  folders: readonly ProjectFolder[];
+  folder: ProjectFolder;
+  onFolder: (folder: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <View style={{ flexDirection: "row", paddingTop: 12, paddingHorizontal: 20 }}>
+      <Pill lead={<Icon icon={Folder} size={15} />} onPress={() => setOpen(true)}>
+        {folder.name}
+      </Pill>
+      <Sheet open={open} onClose={() => setOpen(false)}>
+        {folders.map((one) => (
+          <Row
+            key={one.path}
+            lead={<Icon icon={Folder} />}
+            title={one.name}
+            sub={one.path}
+            end={one.path === folder.path ? <Icon icon={Check} size={16} /> : undefined}
+            onPress={() => {
+              setOpen(false);
+              onFolder(one.path);
+            }}
+          />
+        ))}
+      </Sheet>
+    </View>
+  );
+}
+
 export function FilesTab({
   project,
   name,
+  folder,
+  onFolder,
   path,
   onPath,
 }: {
   project: string;
   /** The project's name, the first crumb. */
   name: string;
+  /** The registered folder shown (absolute); null for the first. */
+  folder: string | null;
+  onFolder: (folder: string) => void;
+  /** Relative to the folder shown. */
   path: string;
   onPath: (path: string) => void;
 }) {
   const nav = useNav();
-  const files = useProjectFiles(project, path);
+  const folders = useProjectFolders(project);
+  const list = folders.loaded.state === "ready" ? folders.loaded.value : [];
+  const shown = list.find((one) => one.path === folder) ?? list[0];
+  const files = useProjectFiles(project, path, folder);
   const open = (entry: ProjectFileEntry) =>
     entry.kind === "folder"
       ? onPath(join(path, entry.name))
-      : nav.open({ name: "file", project, path: join(path, entry.name) });
+      : nav.open({
+          name: "file",
+          project,
+          path: join(path, entry.name),
+          ...(shown === undefined ? {} : { folder: shown.path }),
+        });
   return (
     <>
-      <Crumbs project={name} path={path} onOpen={onPath} />
+      {list.length > 1 && shown !== undefined && (
+        <FolderPick folders={list} folder={shown} onFolder={onFolder} />
+      )}
+      <Crumbs project={list.length > 1 && shown !== undefined ? shown.name : name} path={path} onOpen={onPath} />
       {files.loaded.state === "failed" && <Failed onRetry={files.reload} />}
       {files.loaded.state === "ready" &&
         (files.loaded.value.length === 0 ? (
@@ -141,7 +198,7 @@ const SHOWN_CHARS = 100_000;
 
 export function FileScreen({ place }: { place: PlaceOf<"file"> }) {
   const nav = useNav();
-  const file = useProjectFile(place.project, place.path);
+  const file = useProjectFile(place.project, place.path, place.folder);
   const projectName = useNames().projects.get(place.project) ?? place.project;
   const folders = parts(place.path);
   const name = folders.pop() ?? place.path;

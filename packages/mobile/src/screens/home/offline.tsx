@@ -1,9 +1,9 @@
 // Home while the computer cannot be reached (tools/wireframes/drafts/phone/shell.tsx Offline): what is said, the apps
 // (dimmed but for the ones on this phone, which open), and the sessions as they were the last time the phone heard from it.
 import { formatRelativeTime, t } from "@lophn/i18n";
-import { Dot, Label, Row } from "@lophn/ui-native";
+import { Label, Row } from "@lophn/ui-native";
 import type { SessionRow, WorkspaceView } from "../../data/mod.ts";
-import { Face, LOPHN, OfflineBanner, SESSION_DOT } from "../../parts/mod.ts";
+import { Face, LOPHN, OfflineBanner, SessionDot } from "../../parts/mod.ts";
 import { Apps } from "./apps.tsx";
 
 function wasOf(row: SessionRow) {
@@ -65,7 +65,7 @@ export function OfflineBody({
               lead={<Face profile={row.who?.profile ?? LOPHN} />}
               title={row.title ?? t("left-sidebar.label.untitled")}
               sub={wasOf(row)}
-              end={<Dot tone={SESSION_DOT[row.status]} />}
+              end={<SessionDot status={row.status} />}
             />
           ))}
         </>

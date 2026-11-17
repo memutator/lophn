@@ -10,4 +10,4 @@ export { WorkspaceMark } from "./workspace-mark.tsx";
 export { ago } from "./ago.ts";
 export { DIM, OfflineBanner, useLocked, useUnreachable } from "./offline.tsx";
 export { EmptyNote, EmptyScreen } from "./empty.tsx";
-export { SESSION_DOT } from "./session-dot.ts";
+export { SESSION_DOT, SessionDot } from "./session-dot.tsx";

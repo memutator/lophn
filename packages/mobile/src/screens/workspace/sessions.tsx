@@ -1,15 +1,14 @@
 // A workspace's sessions: grouped by worktree, then Recent. The sessions tab of a project and of an app.
 import { t } from "@lophn/i18n";
-import { Dot, Label, Row } from "@lophn/ui-native";
+import { Label, Row } from "@lophn/ui-native";
 import { Fragment } from "react";
 import { lophnIdOf } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { useNav } from "../../app/nav.ts";
 import {
   type SessionRow,
-  type SessionStatus,
   type WorkspaceView,
 } from "../../data/mod.ts";
-import { ago, EmptyNote, Face, LOPHN, SESSION_DOT } from "../../parts/mod.ts";
+import { ago, EmptyNote, Face, LOPHN, SessionDot } from "../../parts/mod.ts";
 
 
 function subOf(row: SessionRow): string {
@@ -57,7 +56,7 @@ export function SessionList({ view }: { view: WorkspaceView }) {
               lead={<Face profile={row.who?.profile ?? LOPHN} size={24} />}
               title={row.title ?? t("left-sidebar.label.untitled")}
               sub={subOf(row)}
-              end={<Dot tone={SESSION_DOT[row.status]} />}
+              end={<SessionDot status={row.status} />}
               onPress={() => open(row)}
             />
           ))}

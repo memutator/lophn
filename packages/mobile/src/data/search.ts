@@ -43,7 +43,9 @@ export interface WorkflowHit {
 export interface FileHit {
   readonly project: string;
   readonly projectName: string;
-  /** Relative to the project folder, as the file place takes it. */
+  /** The registered folder it is in (absolute); a project may have more than one. */
+  readonly folder: string;
+  /** Relative to `folder`, as the file place takes it. */
   readonly path: string;
   readonly name: string;
   /** The folders above it, joined by " / ". Empty for a file at the top. */
@@ -132,12 +134,15 @@ export function useSearch(query: string): SearchResults {
           });
           if (!read.ok) return [];
           // Matches come per line; a file with many lines is one hit.
-          const paths = [...new Set(read.value.matches.map((m) => m.path))];
-          return paths.slice(0, FILES_PER_PROJECT).map((path): FileHit => {
+          const files = new Map(
+            read.value.matches.map((m) => [`${m.folder_path}\0${m.path}`, m]),
+          );
+          return [...files.values()].slice(0, FILES_PER_PROJECT).map(({ folder_path, path }): FileHit => {
             const parts = path.split("/");
             return {
               project: project.id,
               projectName: project.title,
+              folder: folder_path,
               path,
               name: parts.at(-1) ?? path,
               folders: parts.slice(0, -1).join(" / "),

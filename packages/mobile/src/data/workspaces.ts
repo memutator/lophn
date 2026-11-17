@@ -1,9 +1,9 @@
 // The phone's workspace list: Home, every project, every app, and under each its sessions. Session state comes from the
 // desktop sessions store (snapshot and events), titles and times from `sessions/list`, faces from `agents/read`.
 //
-// The desktop sidebar keeps a session in its workspace while a tab shows it (left-sidebar-workspaces.ts). The phone has no
-// tabs, so a session stays in the list while it works or waits, or for a day after it last moved; older ones (up to 7 days)
-// go under Recent. Ported from the web phone list (remote/session-list.tsx), which goes away with the web phone screen.
+// The rules are the desktop sidebar's (shell parts/agent-session/activity.ts) without tabs: a session is in the list while
+// it works, waits, or ended a turn the person has not seen; the rest (ended ones too) go under Recent for 7 days. The list
+// keeps the order sessions were made in, so a row stays where it is while its state changes.
 import type { AgentFace } from "../../../shell/renderer/conversation/agent-tab-source.ts";
 import type { SessionEntry } from "../../../shell/renderer/desktop/connection/events/sessions-store.ts";
 import type { WaitingEntry } from "../../../shell/renderer/desktop/connection/events/waiting-store.ts";
@@ -12,9 +12,18 @@ import type {
   AgentId,
   Workspace,
 } from "../../../protocol/lophn-agent/workspaces.ts";
+import {
+  activityDot,
+  byCreated,
+  byNewest,
+  sessionPlace,
+} from "../../../shell/renderer/parts/agent-session/activity.ts";
+import { lophnActivity } from "../../../shell/renderer/parts/agent-session/lophn.ts";
 import { codingFaceOf } from "../../../shell/renderer/workspace/agents/coding-face.ts";
+import type { SavedLists } from "./saved.ts";
 
-export type SessionStatus = "waiting" | "working" | "idle" | "failed";
+/** The desktop's state dot (`activityDot`), idle where it has none. */
+export type SessionStatus = "waiting" | "working" | "finished" | "ended" | "idle";
 
 /** Who runs a session: a lophn agent's character, or a coding agent's product icon. Same rule as the conversation header. */
 export interface Who {
@@ -41,10 +50,16 @@ export interface SessionRow {
   readonly waiting: number;
 }
 
+/** A project or an app carries its id: the mark draws the picture the phone keeps for it, if any. */
 export type WorkspaceIcon =
   | { readonly kind: "home" }
-  | { readonly kind: "project" }
-  | { readonly kind: "app"; readonly letter: string; readonly tone: number };
+  | { readonly kind: "project"; readonly id: string }
+  | {
+      readonly kind: "app";
+      readonly id: string;
+      readonly letter: string;
+      readonly tone: number;
+    };
 
 export interface SessionGroup {
   /** Desk name (the desktop sidebar's worktree group). null when the computer does not say. */
@@ -73,8 +88,6 @@ export interface Known {
   >;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const RECENT_MS = 7 * DAY_MS;
 // App marks take one of a few tones by id, so an app keeps its colour everywhere.
 const APP_TONES = 6;
 
@@ -87,7 +100,7 @@ export function toneOf(id: string): number {
 
 /** An app's mark: its name's first letter on a tone picked from its id. */
 export function appIcon(id: string, name: string): WorkspaceIcon {
-  return { kind: "app", letter: name.slice(0, 1).toUpperCase(), tone: toneOf(id) };
+  return { kind: "app", id, letter: name.slice(0, 1).toUpperCase(), tone: toneOf(id) };
 }
 
 export function whoOf(agent: AgentId, known: Known): Who | null {
@@ -110,13 +123,7 @@ function rowOf(
 ): SessionRow {
   const mine = waiting.filter((one) => one.session === entry.session);
   const title = known.titles.get(entry.session);
-  // An Inbox item counts even before the session state catches up with it.
-  const status: SessionStatus =
-    mine.length > 0 || entry.state === "waiting"
-      ? "waiting"
-      : entry.state === "running"
-        ? "working"
-        : "idle";
+  const status: SessionStatus = activityDot(lophnActivity(entry)) ?? "idle";
   const waitingFor: WaitingFor | null =
     status !== "waiting"
       ? null
@@ -138,8 +145,6 @@ function rowOf(
   };
 }
 
-const newest = (a: SessionRow, b: SessionRow) => b.at - a.at;
-
 export function workspacesOf(input: {
   readonly now: number;
   readonly sessions: readonly SessionEntry[];
@@ -152,16 +157,21 @@ export function workspacesOf(input: {
   const current = new Map<string, Map<string | null, SessionRow[]>>();
   const recent = new Map<string, SessionRow[]>();
   for (const entry of input.sessions) {
-    if (entry.ended !== null || entry.archived) continue;
+    if (entry.archived) continue;
     const key = entry.workspace?.id ?? "home";
     const row = rowOf(entry, input.known, input.waiting);
-    const age = input.now - row.at;
-    if (row.status !== "idle" || row.at === 0 || age <= DAY_MS) {
+    const place = sessionPlace({
+      dot: row.status === "idle" ? null : row.status,
+      open: false,
+      at: row.at,
+      now: input.now,
+    });
+    if (place === "current") {
       const desk = input.deskOf?.(row.id) ?? null;
       const groups = current.get(key) ?? new Map<string | null, SessionRow[]>();
       groups.set(desk, [...(groups.get(desk) ?? []), row]);
       current.set(key, groups);
-    } else if (age <= RECENT_MS) {
+    } else if (place === "recent") {
       recent.set(key, [...(recent.get(key) ?? []), row]);
     }
   }
@@ -188,8 +198,11 @@ export function workspacesOf(input: {
               ? 1
               : a.localeCompare(b),
       )
-      .map(([label, rows]) => ({ label, rows: rows.sort(newest) })),
-    recent: (recent.get(key) ?? []).sort(newest),
+      .map(([label, rows]) => ({
+        label,
+        rows: rows.sort((a, b) => byCreated(a.id, b.id)),
+      })),
+    recent: (recent.get(key) ?? []).sort(byNewest),
   });
   return [
     view("home", "home", null, null, { kind: "home" }),
@@ -199,13 +212,50 @@ export function workspacesOf(input: {
         "project",
         { kind: "project", id: project.id } as Workspace,
         project.title,
-        { kind: "project" },
+        { kind: "project", id: project.id },
       ),
     ),
     ...input.apps.map((app) =>
       view(app.id, "app", { kind: "app", id: app.id } as Workspace, app.name, appIcon(app.id, app.name)),
     ),
   ];
+}
+
+/**
+ * The workspaces with the kept apps and projects they do not list. Only while the computer is away or nothing but Home is
+ * listed yet: once the computer answers, its own lists are the truth (an app it dropped is gone).
+ */
+export function withSavedLists(
+  workspaces: readonly WorkspaceView[],
+  lists: SavedLists | null,
+  online: boolean,
+): readonly WorkspaceView[] {
+  if (lists === null) return workspaces;
+  if (online && workspaces.some((one) => one.kind !== "home")) return workspaces;
+  const known = new Set(workspaces.map((one) => one.key));
+  const blank = (
+    kind: "project" | "app",
+    id: string,
+    name: string,
+  ): WorkspaceView => ({
+    key: id,
+    kind,
+    workspace: { kind, id } as Workspace,
+    name,
+    icon: kind === "app" ? appIcon(id, name) : { kind: "project", id },
+    groups: [],
+    recent: [],
+  });
+  const projects = lists.projects
+    .filter((one) => !known.has(one.id))
+    .map((one) => blank("project", one.id, one.title));
+  const apps = lists.apps
+    .filter((one) => !known.has(one.id))
+    .map((one) => blank("app", one.id, one.name));
+  if (projects.length === 0 && apps.length === 0) return workspaces;
+  const of = (kind: WorkspaceView["kind"]) =>
+    workspaces.filter((one) => one.kind === kind);
+  return [...of("home"), ...of("project"), ...projects, ...of("app"), ...apps];
 }
 
 /** A session's row and the workspace it is listed in, or undefined when the list does not have it. */

@@ -2,11 +2,11 @@
 // sessions, workflows, files and jobs, and a box at the bottom that starts a session in it.
 import { t } from "@lophn/i18n";
 import { Icon, IconButton, Row, Screen, Tabs, TopBar } from "@lophn/ui-native";
-import { Clock, FolderOpen, Plus } from "lucide-react-native";
+import { Clock, Plus } from "lucide-react-native";
 import { useState } from "react";
 import { View } from "react-native";
 import { useNav } from "../../app/nav.ts";
-import { DIM, EmptyNote, OfflineBanner, useLocked } from "../../parts/mod.ts";
+import { DIM, EmptyNote, OfflineBanner, useLocked, WorkspaceMark } from "../../parts/mod.ts";
 import {
   nextText,
   useProjectJobs,
@@ -54,7 +54,9 @@ export function ProjectWorkspace({ view }: { view: WorkspaceView }) {
   const nav = useNav();
   const locked = useLocked();
   const [tab, setTab] = useState(0);
-  // The folder the Files tab is in, kept here so leaving a file comes back to it.
+  // Where the Files tab is (a registered folder, null for the first, and a path in it), kept here so leaving a file
+  // comes back to it.
+  const [root, setRoot] = useState<string | null>(null);
   const [folder, setFolder] = useState("");
   const project = view.key;
   const name = view.name ?? project;
@@ -65,7 +67,7 @@ export function ProjectWorkspace({ view }: { view: WorkspaceView }) {
         <>
           <TopBar
             {...nav.menuButton}
-            lead={<Icon icon={FolderOpen} size={22} />}
+            lead={<WorkspaceMark icon={view.icon} name={name} />}
             title={name}
             right={
               <IconButton
@@ -101,6 +103,11 @@ export function ProjectWorkspace({ view }: { view: WorkspaceView }) {
           <FilesTab
             project={project}
             name={name}
+            folder={root}
+            onFolder={(next) => {
+              setRoot(next);
+              setFolder("");
+            }}
             path={folder}
             onPath={setFolder}
           />

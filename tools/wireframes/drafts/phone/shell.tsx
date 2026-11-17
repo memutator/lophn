@@ -27,6 +27,10 @@ import {
 import type { ReactNode } from "react";
 import { AgentCharacter } from "../../../../packages/shell/renderer/parts/avatar/character.tsx";
 import {
+  type TabDot,
+  TabStateDot,
+} from "../../../../packages/shell/renderer/parts/tab-state-dot/tab-state-dot.tsx";
+import {
   Badge,
   Btn,
   Chip,
@@ -98,22 +102,23 @@ function Space({
   );
 }
 
+// The desktop's state dot: waiting yellow, working ink that breathes, a turn ended and not seen green, ended gray.
 function Session({
   who,
   children,
-  tone,
+  dot,
   on,
 }: {
   who: string;
   children: ReactNode;
-  tone?: "warning" | "good";
+  dot?: TabDot;
   on?: boolean;
 }) {
   return (
     <div className={s.dRow} data-kind="session" data-on={on || undefined}>
       <Face who={who} size={20} />
       <span className={s.dText}>{children}</span>
-      <Dot tone={tone} />
+      {dot !== undefined && <TabStateDot dot={dot} />}
     </div>
   );
 }
@@ -181,16 +186,18 @@ export function SidebarBody({ on }: { on: Place }) {
         <Space lead={<Ic icon={Home} size={19} />} on={on === "home"}>
           Home
         </Space>
-        <Session who="lophn">Plan the week</Session>
+        <Session who="lophn" dot="finished">
+          Plan the week
+        </Session>
 
         <Space lead={<Ic icon={FolderOpen} size={19} />} on={on === "phroner"}>
           phroner
         </Space>
         <div className={s.dSub}>Main</div>
-        <Session who="lophn" tone="warning" on={on === "weekly-report"}>
+        <Session who="lophn" dot="waiting" on={on === "weekly-report"}>
           Weekly report
         </Session>
-        <Session who="Claude Code" tone="good">
+        <Session who="Claude Code" dot="working">
           Fix flaky retry in the scenario runner
         </Session>
         <div className={s.dSub}>weekly-review</div>
@@ -201,9 +208,18 @@ export function SidebarBody({ on }: { on: Place }) {
           <span className={s.dText}>weekly-review</span>
           <Dot tone="warning" />
         </div>
-        <Session who="Codex" tone="good">
+        <Session who="Codex" dot="working">
           Split the eval board loader
         </Session>
+        {(on === "phroner" || on === "weekly-report") && (
+          // The workspace on screen keeps the rest of its last 7 days under a folded Recent, as on the desktop.
+          <div className={s.dRow} data-kind="session">
+            <span className={s.box} style={{ width: 20, height: 20 }}>
+              <Ic icon={ChevronRight} size={15} />
+            </span>
+            <span className={s.dText}>Recent · 13</span>
+          </div>
+        )}
 
         <Space
           lead={<Mark kind="app" name="Orders" tone={1} />}
@@ -211,7 +227,7 @@ export function SidebarBody({ on }: { on: Place }) {
         >
           Orders
         </Space>
-        <Session who="lophn" tone="warning">
+        <Session who="lophn" dot="waiting">
           Add a CSV export
         </Session>
         <Space
@@ -354,7 +370,7 @@ export function HomeScreen({ over }: { over?: ReactNode }) {
           lead={<Face who="Codex" />}
           title="Split the eval board loader"
           sub="Codex · phroner · 4m"
-          end={<Dot tone="good" />}
+          end={<TabStateDot dot="working" />}
         />
       </div>
       <Composer
@@ -470,7 +486,7 @@ function Offline() {
           lead={<Face who="Codex" />}
           title="Split the eval board loader"
           sub="Was working"
-          end={<Dot tone="good" />}
+          end={<TabStateDot dot="working" />}
         />
         <Row
           dim

@@ -5,6 +5,7 @@ import type { MemoryRoute, ReadRoute } from "../../../protocol/base/route.ts";
 import { releasesListRecords } from "../../../protocol/apps/activation/activation.ts";
 import { jobList } from "../../../protocol/jobs/jobs.ts";
 import { lophnIdOf } from "../../../protocol/lophn-agent/workspaces.ts";
+import { projectApi } from "../../../protocol/projects/project-api.ts";
 import {
   type ProjectFileEntry,
   projectFilesList,
@@ -196,22 +197,59 @@ const readOnce = (core: CoreSource, instance: string, cursor?: string) =>
 
 // ---- files
 
-/** The folder `path` (relative to the project folder, "" for its root): folders first, then files by name. */
+export interface ProjectFolder {
+  /** Absolute, on the computer. */
+  readonly path: string;
+  /** Its last name, as the folder pick shows it. */
+  readonly name: string;
+}
+
+/** The project's registered folders, in its order; the first is the one a file without a folder is read from. */
+export function useProjectFolders(
+  project: string,
+): ReadHandle<readonly ProjectFolder[]> {
+  const core = useCore();
+  return useFollowedRead<readonly ProjectFolder[]>(
+    async () => {
+      const read = await ask(core, projectApi.get, {
+        project: project as `prj_${string}`,
+      });
+      return read.ok
+        ? ok(
+            read.value.project.folders.map((folder) => ({
+              path: folder.path,
+              name: folder.path.split(/[\\/]/).filter(Boolean).at(-1) ?? folder.path,
+            })),
+          )
+        : { ok: false };
+    },
+    [{ name: "projects", id: project }],
+    project,
+  );
+}
+
+/** `folder` (absolute, null for the project's first): only a project with more than one folder has to say. */
+const inFolder = (folder: string | null | undefined) =>
+  folder === null || folder === undefined ? {} : { folder };
+
+/** The folder `path` (relative to `folder`, the first when not given; "" for its root): folders first, then files by name. */
 export function useProjectFiles(
   project: string,
   path: string,
+  folder?: string | null,
 ): ReadHandle<readonly ProjectFileEntry[]> {
   const core = useCore();
   return useFollowedRead<readonly ProjectFileEntry[]>(
     async () => {
       const listed = await ask(core, projectFilesList, {
         project,
+        ...inFolder(folder),
         ...(path === "" ? {} : { path }),
       });
       return listed.ok ? ok(listed.value.entries) : { ok: false };
     },
     [],
-    `${project}\0${path}`,
+    `${project}\0${folder ?? ""}\0${path}`,
   );
 }
 
@@ -227,18 +265,23 @@ export type FileContent =
 export function useProjectFile(
   project: string,
   path: string,
+  folder?: string,
 ): ReadHandle<FileContent> {
   const core = useCore();
   return useFollowedRead<FileContent>(
     async () => {
-      const read = await ask(core, projectFilesRead, { project, path });
+      const read = await ask(core, projectFilesRead, {
+        project,
+        path,
+        ...inFolder(folder),
+      });
       if (read.ok) return ok({ kind: "text", ...read.value } as const);
       return read.code === "invalid_input"
         ? ok({ kind: "not-text" } as const)
         : { ok: false };
     },
     [],
-    `${project}\0${path}`,
+    `${project}\0${folder ?? ""}\0${path}`,
   );
 }
 

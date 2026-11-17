@@ -20,18 +20,18 @@ import { stateOf } from "../../app/computer-state.ts";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
 import {
   installedOf,
-  type SessionStatus,
   useCurrentComputer,
   useInbox,
   useLocalApps,
   useNames,
   previewOnly,
   usePhoneApps,
+  useWithSavedLists,
   useWorkspaces,
   withLocalApps,
   type WorkspaceView,
 } from "../../data/mod.ts";
-import { ago, EmptyScreen, Face, LOPHN, SESSION_DOT, useUnreachable } from "../../parts/mod.ts";
+import { ago, EmptyScreen, Face, LOPHN, SessionDot, useUnreachable } from "../../parts/mod.ts";
 import { Apps } from "./apps.tsx";
 import { HomeComposer } from "./compose.tsx";
 import { frontOf, NeedsYou } from "./needs.tsx";
@@ -42,7 +42,7 @@ export function HomeScreen(_: { place: PlaceOf<"home"> }) {
   const computer = useCurrentComputer();
   const installed = installedOf(useLocalApps());
   const onPhone = new Set(installed.map((one) => one.app));
-  const workspaces = withLocalApps(useWorkspaces(), installed);
+  const workspaces = withLocalApps(useWithSavedLists(useWorkspaces()), installed);
   const names = useNames();
   const inbox = useInbox();
   const [failed, setFailed] = useState(false);
@@ -230,7 +230,7 @@ function Online({
               ]
                 .filter((part) => part !== undefined)
                 .join(" · ")}
-              end={<Dot tone={SESSION_DOT[row.status]} />}
+              end={<SessionDot status={row.status} />}
               onPress={() =>
                 nav.open({
                   name: "session",

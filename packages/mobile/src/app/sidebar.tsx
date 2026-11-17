@@ -4,6 +4,7 @@ import { t } from "@lophn/i18n";
 import {
   Badge,
   ComputerPicker,
+  Icon,
   IconButton,
   NavRow,
   SessionRow,
@@ -11,6 +12,7 @@ import {
   SidebarHead,
   SidebarLabel,
   SidebarList,
+  Text,
   WorkspaceRow,
   WorktreeLabel,
 } from "@lophn/ui-native";
@@ -18,6 +20,8 @@ import type { DrawerContentComponentProps } from "@react-navigation/drawer";
 import { StackActions } from "@react-navigation/native";
 import {
   Bell,
+  ChevronDown,
+  ChevronRight,
   Clock,
   Monitor,
   Plus,
@@ -25,20 +29,21 @@ import {
   Settings,
   Users,
 } from "lucide-react-native";
-import { Fragment, useContext } from "react";
-import { View } from "react-native";
+import { Fragment, useContext, useState } from "react";
+import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { lophnIdOf } from "../../../protocol/lophn-agent/workspaces.ts";
 import {
   installedOf,
-  type SessionStatus,
   type CodingSession,
   useCodingSessions,
   useCurrentComputer,
   useInbox,
+  useKeepLists,
   useLocalApps,
   previewOnly,
   usePhoneApps,
+  useWithSavedLists,
   useWorkspaces,
   withLocalApps,
   type WorkspaceView,
@@ -88,9 +93,11 @@ export function Sidebar({ state, navigation }: DrawerContentComponentProps) {
   const frame = useContext(FrameContext);
   const insets = useSafeAreaInsets();
   const computer = useCurrentComputer();
-  // The sidebar is always mounted in the frame, so it is what keeps the phone's apps in sync (useLocalApps).
+  // The sidebar is always mounted in the frame, so it is what keeps the phone's apps in sync (useLocalApps) and the
+  // computer's lists and icons on the phone (useKeepLists).
+  useKeepLists();
   const installed = installedOf(useLocalApps());
-  const workspaces = withLocalApps(useWorkspaces(), installed);
+  const workspaces = withLocalApps(useWithSavedLists(useWorkspaces()), installed);
   // One read of every project's coding sessions (empty while the computer's lophn app is not running); it follows the
   // coding_sessions change event, so the rows come and go without a reload.
   const coding = useCodingSessions().sessions;
@@ -248,6 +255,33 @@ function Workspace({
         : phone === "preview"
           ? { name: "app", id: workspace.key, preview: true }
           : { name: "app", id: workspace.key };
+  // The desktop keeps the rest of the last 7 days under a folded Recent of the workspace on screen only.
+  const here =
+    workspace.workspace === null
+      ? on === "home"
+      : on === `workspace:${workspace.key}` ||
+        [...workspace.groups.flatMap((group) => group.rows), ...workspace.recent].some(
+          (row) => on === `session:${row.id}`,
+        );
+  const [recentOpen, setRecentOpen] = useState(false);
+  const sessionRow = (row: WorkspaceView["recent"][number]) => (
+    <SessionRow
+      key={row.id}
+      face={<Face profile={row.who?.profile ?? LOPHN} size={20} />}
+      title={row.title ?? t("left-sidebar.label.untitled")}
+      tone={SESSION_DOT[row.status]}
+      on={on === `session:${row.id}`}
+      onPress={() =>
+        show({
+          name: "session",
+          session: row.id,
+          // A session's agent is known once its first event arrives; until then it is its workspace's lophn.
+          agent: row.agent ?? lophnIdOf(row.workspace),
+          workspace: row.workspace,
+        })
+      }
+    />
+  );
   // The desktop puts a project's terminal sessions after its lophn sessions; the phone does not know their desk, so they
   // follow the first group that is not a named desk (no label, or Main), or come first when every group is a desk.
   const after = coding.length === 0 ? -1 : workspace.groups.findIndex((group) => group.label === null || group.label === "Main");
@@ -280,27 +314,26 @@ function Workspace({
       {workspace.groups.map((group, at) => (
         <Fragment key={group.label ?? ""}>
           {group.label !== null && <WorktreeLabel>{group.label}</WorktreeLabel>}
-          {group.rows.map((row) => (
-            <SessionRow
-              key={row.id}
-              face={<Face profile={row.who?.profile ?? LOPHN} size={20} />}
-              title={row.title ?? t("left-sidebar.label.untitled")}
-              tone={SESSION_DOT[row.status]}
-              on={on === `session:${row.id}`}
-              onPress={() =>
-                show({
-                  name: "session",
-                  session: row.id,
-                  // A session's agent is known once its first event arrives; until then it is its workspace's lophn.
-                  agent: row.agent ?? lophnIdOf(row.workspace),
-                  workspace: row.workspace,
-                })
-              }
-            />
-          ))}
+          {group.rows.map(sessionRow)}
           {at === after && <CodingLines sessions={coding} on={on} show={show} />}
         </Fragment>
       ))}
+      {here && workspace.recent.length > 0 && (
+        <>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded: recentOpen }}
+            onPress={() => setRecentOpen((open) => !open)}
+            style={{ flexDirection: "row", alignItems: "center", gap: 4, paddingLeft: 34, paddingVertical: 6 }}
+          >
+            <Icon icon={recentOpen ? ChevronDown : ChevronRight} size={14} />
+            <Text variant="caption" tone="muted">
+              {`${t("left-sidebar.label.recent")} · ${workspace.recent.length}`}
+            </Text>
+          </Pressable>
+          {recentOpen && workspace.recent.map(sessionRow)}
+        </>
+      )}
     </>
   );
 }

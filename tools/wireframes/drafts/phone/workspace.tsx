@@ -1,6 +1,7 @@
 // Flow 6. A project workspace: its sessions, workflows and files.
 import {
   Check,
+  ChevronDown,
   ChevronRight,
   CircleDot,
   FileText,
@@ -14,6 +15,7 @@ import {
   Workflow,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { TabStateDot } from "../../../../packages/shell/renderer/parts/tab-state-dot/tab-state-dot.tsx";
 import {
   Btn,
   Chip,
@@ -63,20 +65,20 @@ function Sessions() {
           lead={<Face who="Claude Code" />}
           title="Fix flaky retry in the scenario runner"
           sub="Working · 2m"
-          end={<Dot tone="good" />}
+          end={<TabStateDot dot="working" />}
         />
         <Row
           lead={<Face who="lophn" />}
           title="Harness change summary"
           sub="Done · yesterday"
-          end={<Dot />}
+          end={<TabStateDot dot="finished" />}
         />
         <Label>weekly-review</Label>
         <Row
           lead={<Face who="Codex" />}
           title="Split the eval board loader"
           sub="Working · 4m"
-          end={<Dot tone="good" />}
+          end={<TabStateDot dot="working" />}
         />
         <Label end="13">Recent</Label>
         <Row
@@ -321,6 +323,14 @@ function Files() {
       <Head />
       <Tabs items={TABS} on={2} />
       <div className={s.body}>
+        {/* A project with more than one folder picks which one Files shows; a file found by search opens in its own folder. */}
+        <div style={{ padding: "12px 20px 0" }}>
+          <span className={s.pill}>
+            <Ic icon={Folder} size={15} />
+            phroner
+            <Ic icon={ChevronDown} size={14} />
+          </span>
+        </div>
         <div className={s.crumbs}>
           phroner
           <Ic icon={ChevronRight} size={13} />

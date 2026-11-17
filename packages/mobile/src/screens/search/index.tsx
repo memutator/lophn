@@ -24,9 +24,8 @@ import { useState } from "react";
 import { View } from "react-native";
 import { lophnIdOf } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
-import type { SessionStatus } from "../../data/mod.ts";
 import { type WorkflowHit, useSearch } from "../../data/mod.ts";
-import { Face, LOPHN, OfflineBanner, SESSION_DOT } from "../../parts/mod.ts";
+import { Face, LOPHN, OfflineBanner, SessionDot } from "../../parts/mod.ts";
 
 const WORKFLOW_STATE = {
   human: "workflow.label.state-human",
@@ -108,7 +107,7 @@ export function SearchScreen(_: { place: PlaceOf<"search"> }) {
               sub={[row.who?.name, workspaceName]
                 .filter((part) => part !== undefined)
                 .join(" · ")}
-              end={<Dot tone={SESSION_DOT[row.status]} />}
+              end={<SessionDot status={row.status} />}
               onPress={() =>
                 nav.open({
                   name: "session",
@@ -134,7 +133,7 @@ export function SearchScreen(_: { place: PlaceOf<"search"> }) {
                 hit.state === "human" ? (
                   <Dot tone="warning" />
                 ) : hit.state === "running" ? (
-                  <Dot tone="good" />
+                  <Dot tone="working" />
                 ) : undefined
               }
               onPress={() =>
@@ -153,14 +152,14 @@ export function SearchScreen(_: { place: PlaceOf<"search"> }) {
           <Label>{t("common.heading.palette-files")}</Label>
           {found.files.map((hit) => (
             <Row
-              key={`${hit.project}/${hit.path}`}
+              key={`${hit.project}\0${hit.folder}\0${hit.path}`}
               lead={<Mark icon={FileText} />}
               title={hit.name}
               sub={[hit.projectName, hit.folders]
                 .filter((part) => part !== "")
                 .join(" / ")}
               onPress={() =>
-                nav.open({ name: "file", project: hit.project, path: hit.path })
+                nav.open({ name: "file", project: hit.project, path: hit.path, folder: hit.folder })
               }
             />
           ))}

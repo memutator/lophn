@@ -29,8 +29,13 @@ export type Place =
       readonly project: string;
       readonly run: string;
     }
-  /** A file of a project, `path` relative to the project folder. */
-  | { readonly name: "file"; readonly project: string; readonly path: string }
+  /** A file of a project, `path` relative to `folder` (one of its folders, absolute; without it the first). */
+  | {
+      readonly name: "file";
+      readonly project: string;
+      readonly path: string;
+      readonly folder?: string;
+    }
   | { readonly name: "app-activity"; readonly app: string }
   /** A user app's phone screen; without `screen` its first one. An app with no phone screen opens its workspace. With
    * `preview` it is the preview running on the computer (Preview from lophn) instead of the live app. */

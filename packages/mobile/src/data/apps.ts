@@ -14,6 +14,9 @@ import { bundleFiles } from "../apps/bundle-files.ts";
 import { disableRemovedComputers, reconcileShortcuts } from "../shortcuts/sync.ts";
 import { useComputers } from "./hooks.tsx";
 
+// The kept lists and icons of each computer: the phone's light store, read by the same screens.
+export * from "./lists.ts";
+
 type Read = z.output<typeof appPhoneScreens.output>;
 export type PhoneScreen = Read["screens"][number];
 export type PreviewScreen = Read["previews"][number]["screens"][number];

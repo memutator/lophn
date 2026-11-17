@@ -28,7 +28,13 @@
         }
       ],
       "expo-secure-store",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#1a1a18"
+        }
+      ],
       [
         "expo-camera",
         {

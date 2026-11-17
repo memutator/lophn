@@ -72,13 +72,13 @@ A1~A15는 앱을 짓는 일이다(A16은 없앴다). A17 이후는 앱의 source
 - A8. 앱 workspace의 session이 준비한 release를 `preview.start`로 fixture data에 띄우고 `preview.call`로 journey를 차례로 불러 확인한다. preview 탭이 열리고 화면은 `lophn browser`로 본다. preview는 운영 data에 닿지 않고 기록을 남기지 않는다.
 - A9. 확인한 release를 앱 workspace의 session이 `release.activate`로 올리고, 사람에게 그 앱에서 무엇이 달라졌는지를 domain 말로 알린다. 확인하지 못해 사람이 써 보며 봐야 할 것이 있으면 그것도 domain 말로 말한다(F4).
 - A10. activation이 실패하면, 앱 workspace의 session이 `release.activate`의 결과로 받은 실패 근거와 앱 log를 읽고 고친다. program이 다시 부르지 않는다. (고치는 것은 제안)
-- A11. 첫 activation이거나 선언이 넓어졌거나 data 손실 migration이면 `release.activate`가 동의 대기를 돌려준다. session은 사람에게 무엇을 허락하는지 domain 말로 말하고(F3), 동의 뒤의 결과는 사람이 화면에서 본다.
+- A11. 첫 activation이거나 선언이 넓어졌거나 data 손실 migration이면 `release.activate`가 동의 대기를 돌려준다. session은 사람에게 무엇을 허락하는지 domain 말로 말한다(F3). 사람이 허락한 뒤 시작한 시도가 끝나면(켜짐이나 실패) program이 release를 만든 session에 그 결과를 알린다. 사람이 거절하면 session에 알리지 않는다(사람이 그 session에서 이유와 방향을 말한다).
 - A12. 앱 밖의 재사용이나 그릇 경계를 넘는 기획을 판단해야 하면, 앱 workspace의 session은 home의 lophn에게 답을 받지 않는 call로 맡긴다. (제안)
 - A13. 앱이 읽을 자료 묶음이 필요하면, 앱 workspace의 session은 그 project workspace의 lophn에게 결과를 받는 call로 맡긴다. (제안)
 - A15. 앱을 만들거나 기능을 더할 때, 앱 workspace의 session은 보고할 실패 분기와 이름을 설계에 적고 그 자리에 `reportProblem`을 둔다. 그 호출은 앱 log에 error 한 줄을 쓰고, session이 `app.logs`로 읽는다.
-- A17. 앱의 source 폴더를 잇거나 앱이 만든 package를 publish하는 것은 그 앱 workspace의 session만 한다. 다른 앱의 것은 자격이 막는다. publish한 앱이 그 package의 주인이 된다.
+- A17. 앱의 source 폴더는 그 앱 workspace의 session이나 사람(앱 workspace의 터미널에서 CLI로)이 잇는다. 앱이 만든 package를 publish하는 것은 그 앱 workspace의 session만 한다. 다른 앱의 것은 자격이 막는다. publish한 앱이 그 package의 주인이 된다.
 - A20. 자기 앱이 쓰는 package에서 난 문제는, 앱 workspace의 session이 고치지 않고 package 주인 앱(`package.get`의 `owner_app`) workspace의 lophn에게 답을 받지 않는 call로 맡긴다.
-- A21. 공개 command는 다른 앱·project가 기대는 약속이다. 다른 곳이 쓰는 공개 command를 지우는 release는 program이 막지 않고 `release.prepare`의 결과에 그 command를 싣는다. 지우려면 앱 workspace의 session이 activate하기 전에 쓰는 그릇 workspace의 lophn에게 결과를 받는 call로 알린다. 쓰는 쪽이 옮길 수 없다고 하면 tool을 되살린다. 사람에게는 묻지 않는다(F2).
+- A21. 공개 command는 다른 앱·project가 기대는 약속이다. 다른 곳이 쓰는 공개 command를 지우는 release는 program이 막지 않고 `release.prepare`의 결과에 그 command를 싣는다. 지우려면 앱 workspace의 session이 activate하기 전에 home의 lophn에게 결과를 받는 call로 알리고, home의 lophn이 그 command를 쓰는 그릇을 찾아(앱 session은 다른 그릇이 무엇을 쓰는지 읽지 못한다, P12) 그 그릇의 lophn에게 전하고 답을 모아 준다. 쓰는 쪽이 옮길 수 없다고 하면 tool을 되살린다. 사람에게는 묻지 않는다(F2).
 - A22. 앱 화면이 agent에게 일을 시켜야 하면(사람이 쓴 것 검토, 결과 설명), 앱 workspace의 session은 그 앱 범위의 전용 agent(`runtime: custom`)를 만들고 화면 code에서 `@lophn/agent`로 그 agent의 앱 workspace session에 보낸다. 내장 lophn은 쓰지 않는다. 화면의 context는 `contextBlock`으로 싸고, 값이 필요하면 답 꼴(`reply`)을 붙이고 꼴에 맞지 않는 답의 화면(다시 보내기)을 둔다. agent에게 닿으려고 operation이나 command를 더하지 않는다. 그 session은 그 앱을 쓰는 사람의 session이라 sidebar에 보이고 승인은 채팅 탭에서 한다. (제안)
 
 ### project
@@ -114,7 +114,7 @@ J1~J6은 정해진 때 도는 일(job)을 만들고 job이 agent를 부를 때�
 - J1. 사람이 정해진 때 도는 일을 청하면, 그 일을 맡은 session이 `job.create`로 job을 만든다. 세 workspace 종류 모두 job tool을 받는다. 사람은 job을 직접 만들지 못하고 agent에게 청한다. 만든 job은 사람이 대기 목록에서 등록을 한 번 승인해야 돈다(F3, `architecture/job.md`).
 - J2. job을 만든 쪽은 그 session의 (agent, workspace)다. agent는 같은 agent, 같은 workspace가 만든 job만 `job.update`, `job.delete`, `job.list`로 다룬다. 남이 만든 job은 보이지도 않고 고치지 못한다. 사람은 모든 job을 화면에서 고치고 끄고 지운다.
 - J3. job의 차례가 오면 program이 job에 적힌 agent를 그 workspace에서 부른다. 부를 때마다 새 session이고 사람이 없는 turn(unattended)이다. 받은 session은 그래도 자기 할당으로만 일한다(T5, T6). 답과 실패는 그 run에 남는다.
-- J4. job이 앱 tool을 부르는 차례는 그 job을 만든 agent의 지금 할당 안에서만 된다. 밖이면 막히고 그 차례는 실패로 남는다.
+- J4. job이 앱 tool을 부르는 차례는 사람이 그 job의 등록을 승인했기 때문에 돈다. 만든 agent의 할당은 보지 않는다(job 하나 때문에 그 agent에게 앱 전체를 열어 주지 않는다). 승인 화면이 그 job이 부를 tool을 보인다.
 - J5. job이 부른 session도 job tool을 받아 job을 만들 수 있다. 막지 않는다. 사람이 모든 job을 화면에서 본다.
 - J6. job의 차례가 실패해도 자동으로 다시 하지 않는다. 다시 하는 것은 사람이 정한다.
 - J7. job은 만든 기계에서만 돈다. 다른 기계의 job(복사한 data root에서 온 것)은 멈춘 채 보이고, 이 기계로 옮기는 것은 사람의 [Run on this computer]뿐이다. agent는 job을 기계 사이로 옮기지 않는다(`architecture/job.md` "주인 기계").
@@ -214,11 +214,11 @@ call의 `to`는 `{session}`이나 `{agent, workspace?}`(+ 열린 session이 닫�
 program은 스스로 정해 agent를 부르지 않는다. 앱 오류는 사람에게 toast로 알리고(E2), activation 실패는 `release.activate`를 부른 session에 결과로 돌아간다(E3). agent는 앱 상태와 앱 log로 지금 상태를 직접 읽는다. 정기적으로 앱을 살피게 하고 싶으면 사람이 시킨다. 정해진 때 job이 agent를 부르는 것은 예외가 아니라 사람이 시킨 일의 실행이다(E10).
 
 - E2. 앱이 거듭 죽어 자동 재시작을 멈추면, program이 사람에게 toast로 알린다. agent는 부르지 않는다. 앱 workspace의 session은 사람이 청하면 `app.status`와 `app.logs`(`process_exit crash_loop` 줄)로 읽는다.
-- E3. activation이 실패하면, program이 실패 기록을 남기고 `release.activate`의 결과로 돌려준다. 동의 뒤에 시작한 시도의 결과는 사람이 화면에서 본다. session을 부르지 않는다.
+- E3. activation이 실패하면, program이 실패 기록을 남기고 `release.activate`의 결과로 돌려준다. 동의 뒤에 시작한 시도의 결과(켜짐이나 실패)는 program이 release를 만든 session에 알린다(A11).
 - E6. 앱 workspace의 session이 `release.activate`한 release가 첫 activation이거나 선언이 넓어졌거나 data 손실 가능성이 있으면, program이 activation 동의를 대기 목록에 올린다. 사람이 동의해야 activation이 이어진다.
 - E8. 다른 곳이 쓰는 공개 command를 지운 release는 program이 막지 않는다. `release.prepare`의 결과에 그 command를 싣는다.
 - E9. workflow instance에서 사람의 시작, 참가자의 report `next`, 고치기의 `hand_now`가 step을 말하면, program이 그 step의 담당(사람 step이면 `with` agent)에게 step 메시지를 넣는다. 담당을 풀 수 없으면 넣지 않고 그 사실을 instance의 줄로 남긴다. 무엇을 넘길지 program이 정하지 않는다.
-- E10. 사람이 등록을 승인한 job의 차례가 오면, program이 job에 적힌 일을 한다: agent를 run으로 부르거나, 만든 agent의 할당 안에서 앱 tool을 부르거나, workflow instance를 시작한다. 이것은 사람이 agent에게 시킨 일(J1)의 실행이고 program이 스스로 정한 반응이 아니다. lophn이 꺼진 사이나 컴퓨터가 잠든 사이 놓친 차례(차례 시각보다 10분 넘게 늦은 차례)를 `hold`로 둔 job은 program이 대기 목록에 card를 올리고 사람이 [Start now]나 [Skip]을 고른다. 자동 재시도는 없다.
+- E10. 사람이 등록을 승인한 job의 차례가 오면, program이 job에 적힌 일을 한다: agent를 run으로 부르거나, 승인된 앱 tool을 부르거나(J4), workflow instance를 시작한다. 이것은 사람이 agent에게 시킨 일(J1)의 실행이고 program이 스스로 정한 반응이 아니다. lophn이 꺼진 사이나 컴퓨터가 잠든 사이 놓친 차례(차례 시각보다 10분 넘게 늦은 차례)를 `hold`로 둔 job은 program이 대기 목록에 card를 올리고 사람이 [Start now]나 [Skip]을 고른다. 자동 재시도는 없다.
 - E11. 사람이나 job이 flow instance를 시작하면, program이 그 workflow 폴더의 `flow.ts`를 process 하나로 띄우고 code의 요청(agent run, 앱 tool 호출, report)을 그대로 한다. 앱 tool은 `workflow.yaml`의 `agent`(없으면 lophn)의 할당 안에서만 된다. code가 끝나면 끝 code와 stderr 끝 줄을 남기고 instance를 닫는다. 성공인지 판정하지 않고 다시 띄우지 않는다.
 
 ## 7. 하지 않는 것

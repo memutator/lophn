@@ -1,7 +1,7 @@
 id: app-source-connect-actors-differ-from-a17
 title: AGENT.md A17은 source 폴더 잇기를 앱 workspace session만 한다고 쓰는데 route는 사람도 받는다
 kind: bug
-status: open
+status: fixed
 topic: app-call
 modules: [packages/core/apps, packages/cli]
 now: |
@@ -15,3 +15,6 @@ fix: |
   - route에서 user를 빼 A17에 맞춘다. 작음. 사람이 잇는 길만 사라지고 얻는 것이 없어 권하지 않는다.
 decided: |
   A17 문장을 고친다. 사람은 공격자가 아니고(AGENTS.md "속도") 사람이 CLI로 source를 다시 잇는 길은 앱이 source 없이 남았을 때 필요하다.
+closed: |
+  `project-docs/products/AGENT.md`의 A17이 source는 그 앱 workspace의 session이나 사람이 잇는다고 쓴다.
+guard: 없음

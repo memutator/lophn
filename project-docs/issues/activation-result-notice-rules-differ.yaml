@@ -1,7 +1,7 @@
 id: activation-result-notice-rules-differ
 title: AGENT.md E3·A11은 동의 뒤 시도의 결과를 session에 알리지 않는다고 쓰는데 코드는 알리고, 거절은 알리지 않는다
 kind: bug
-status: open
+status: fixed
 topic: activation
 modules: [packages/core/apps]
 now: |
@@ -15,3 +15,6 @@ fix: |
   - 거절은 알리지 않는다로 둔다. 거절하는 사람은 그 session에서 바로 거절 이유와 방향을 말하는 흐름이라(journey app-first-activation-declined) 알림은 얻는 것이 작다. 알리려면 동의 표에 session이 없어(결정 139) schema step이 필요하다. 중간~큼. 권하지 않는다.
 decided: |
   AGENT.md를 코드에 맞춘다. 거절 알림은 만들지 않는다.
+closed: |
+  `project-docs/products/AGENT.md`의 A11과 E3을 코드와 `activation.md`에 맞췄다. 동의 뒤 시도의 결과는 release를 만든 session에 알리고 거절은 알리지 않는다.
+guard: 없음

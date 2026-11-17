@@ -22,9 +22,13 @@ import {
   remoteRelayStatus,
 } from "../../../../protocol/remote/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import { PERMISSIONS_PHONE_KIND_STEPS } from "../../../apps/permissions/schema.ts";
+import { rewindUnknownSchemaSteps } from "../../../apps/rewind/mod.ts";
+import {
+  SYNC_LOG_MACHINE_STEPS,
+  SYNC_LOG_SCHEMA_STEPS,
+} from "../../../apps/sync/schema.ts";
 import { type PushDevice } from "../../../attention/mod.ts";
-import { readMachineId } from "../../../machine/mod.ts";
-import type { DataStep } from "../../../storage/migration/mod.ts";
 import { createExpoPushSender } from "../../../attention/push/mod.ts";
 import {
   devicesSetting,
@@ -34,6 +38,22 @@ import {
   remotePushSetting,
   remoteRelaySetting,
 } from "../../../config/shell-settings.ts";
+import {
+  FOLDER_AWAY_NOTIFIED_STEPS,
+  FOLDER_SCHEMA_STEPS,
+} from "../../../folder/schema.ts";
+import { jobMachineSchemaSteps } from "../../../jobs/machine-schema.ts";
+import { readMachineId } from "../../../machine/mod.ts";
+import { PROJECTS_IDENTITY_STEPS } from "../../../projects/registry/mod.ts";
+import { devicePrincipal } from "../../../remote/call.ts";
+import {
+  createDeviceKinds,
+  createTerminalInputGrants,
+} from "../../../remote/devices.ts";
+import {
+  readHostKeyMachine,
+  stampHostKeyMachine,
+} from "../../../remote/host-key.ts";
 import {
   createDeviceCredentials,
   createPairingCodes,
@@ -58,35 +78,18 @@ import {
   screensRenamed,
   screensRevoked,
 } from "../../../remote/mod.ts";
-import { devicePrincipal } from "../../../remote/call.ts";
-import {
-  createDeviceKinds,
-  createTerminalInputGrants,
-} from "../../../remote/devices.ts";
-import {
-  readHostKeyMachine,
-  stampHostKeyMachine,
-} from "../../../remote/host-key.ts";
 import {
   openRelayWebSocket,
   type RelayClient,
   startRelayClient,
 } from "../../../remote/relay-client.ts";
 import { systemTimers } from "../../../runs/mod.ts";
-import { jobMachineSchemaSteps } from "../../../jobs/machine-schema.ts";
-import { SYNC_LOG_SCHEMA_STEPS } from "../../../apps/sync/schema.ts";
-import { SYNC_LOG_MACHINE_STEPS } from "../../../apps/sync/schema.ts";
-import {
-  FOLDER_AWAY_NOTIFIED_STEPS,
-  FOLDER_SCHEMA_STEPS,
-} from "../../../folder/schema.ts";
-import { PERMISSIONS_PHONE_KIND_STEPS } from "../../../apps/permissions/schema.ts";
-import { PROJECTS_IDENTITY_STEPS } from "../../../projects/registry/mod.ts";
 import { RouteRegistry } from "../../../server/mod.ts";
 import {
   type ReaderRegistration,
   withAfterCommit,
 } from "../../../storage/ledger/mod.ts";
+import type { DataStep } from "../../../storage/migration/mod.ts";
 import { createAdmission } from "../../../supervision/responsiveness/mod.ts";
 import type { WiringContext, WiringFactory } from "./context.ts";
 
@@ -425,6 +428,7 @@ export const remoteWiring: WiringFactory = () => {
       ...SYNC_LOG_MACHINE_STEPS,
       ...FOLDER_SCHEMA_STEPS,
       ...FOLDER_AWAY_NOTIFIED_STEPS,
+      ...rewindUnknownSchemaSteps,
     ],
     dataSteps: [hostKeyMachineStep],
     operations: () => [

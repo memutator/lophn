@@ -20,7 +20,7 @@ lead만 고친다. `tools/status.py issue-sweep build`가 `tasks/*.md`에서 id,
 | `sweep-tools` | tools | 1 | 없음 | merged | tools/sweep-tools | 39a84fd84 | merge last |
 | `sweep-coding-bodies` | coding-bodies | 2 | 없음 | running | coding-bodies/sweep-coding-bodies |  |  |
 | `sweep-connection-paths` | connection-paths | 2 | 없음 | merged | connection-paths/sweep-connection-paths | ffee60431 |  |
-| `sweep-contracts` | contracts | 2 | 없음 | running | contracts/sweep-contracts |  |  |
+| `sweep-contracts` | contracts | 2 | 없음 | merged | contracts/sweep-contracts | 770a90b55 |  |
 | `sweep-docs` | docs | 2 | 없음 | running | docs/sweep-docs |  |  |
 | `sweep-phone-polish` | phone-polish | 2 | 없음 | running | phone-polish/sweep-phone-polish |  |  |
 | `sweep-phone-terminal-remote` | phone-terminal-remote | 2 | 없음 | merged | phone-terminal-remote/sweep-phone-terminal-remote | d55d94fdf |  |

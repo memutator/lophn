@@ -330,5 +330,9 @@
   {
     "id": "folder.away-notified",
     "sha256": "a7511d7157e57278a4e1da729ddb9f01afa013ebbacd5df02344ab316aceaeea"
+  },
+  {
+    "id": "apps.rewind.unknown",
+    "sha256": "218ad7ea2df97fe5f5c9c5d7c148702da441ea67830087e8e1bf883ae0c1b83a"
   }
 ]

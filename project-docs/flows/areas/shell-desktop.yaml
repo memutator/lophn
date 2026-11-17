@@ -19,15 +19,15 @@ flows:
       - packages/shell/main/desktop/headless.ts
     steps:
       - "main.ts가 macOS에서 login shell의 PATH를 한 번 읽어 맞춘다(core와 terminal이 물려받는다)"
-      - "startDesktop이 data root를 풀고 userData를 data root 안에 정한 뒤 shell context를 만들기 전에 `requestSingleInstanceLock(dataRoot)`를 건다. 못 얻으면 `app.quit()`으로 끝나고 context도 core도 건드리지 않는다"
+      - "startDesktop이 data root를 풀고 userData를 data root 안에 정한 뒤 shell context를 만들기 전에 `requestSingleInstanceLock(dataRoot)`를 건다. 못 얻으면 `app.quit()`으로 끝나고 context도 core도 건드리지 않는다. 얻었어도 argv가 `--quit`이면 끌 shell이 없어 같이 끝난다"
       - "context가 data root, headless 값, window 상태 자리를 만들고 core 연결을 시작한다. 연결은 조립 중에 바로 control identify와 ensure를 시도하고 영역마다 wiring이 등록된다. core 연결이 끝난 core를 다시 띄우는 것은 ready 뒤 60초를 못 산 crash 5번까지다(shell-core-stale)"
       - "ready 뒤 window 상태를 읽고 `lophn-shell` scheme을 붙인다. 옛 로그인 시작 등록을 Keep running으로 옮기는 일은 core에 붙은 뒤 돈다(autostart-migrate)"
       - "headless가 아니면 tray를 올린다. tray 실패는 log만 남기고 창은 연다"
       - "전역 팔레트 key를 건다(keys 소유). 실패하면 tray에 안내 한 줄만 보인다"
-      - "첫 argv를 읽는다. `--open-app <ULID>`이 맞으면 앱 전용 창을 요청하고, `--agent-window`(core가 browser를 쓰려고 앱을 띄운 시작)이면 focus 없는 창을 연다(desktop-window-open-inactive). 그 밖의 argv(`--quit`도)는 시작 기계의 창을 연다(machine-window-start: 고른 기계나 마지막에 쓴 기계, 아니면 이 컴퓨터)"
+      - "첫 argv를 읽는다. `--open-app <ULID>`이 맞으면 앱 전용 창을 요청하고, `--agent-window`(core가 browser를 쓰려고 앱을 띄운 시작)이면 focus 없는 창을 연다(desktop-window-open-inactive). 그 밖의 argv는 시작 기계의 창을 연다(machine-window-start: 고른 기계나 마지막에 쓴 기계, 아니면 이 컴퓨터)"
     outcomes:
       - id: window-opened
-        when: "시작 기계의 창이 열렸다(이 컴퓨터면 desktop-window-open:opened). 첫 실행의 `--quit`은 종료가 아니라 창 열기로 읽힌다. core 연결이 실패(failed-start)해도, 전역 팔레트 등록이 실패해도 창은 연다(tray 안내만 남는다)"
+        when: "시작 기계의 창이 열렸다(이 컴퓨터면 desktop-window-open:opened). core 연결이 실패(failed-start)해도, 전역 팔레트 등록이 실패해도 창은 연다(tray 안내만 남는다)"
         observe: ["process:shell 기본 창 하나가 생긴다"]
       - id: window-opened-tray-failed
         when: "LOPHN_SHELL_HEADLESS가 아니고 tray를 띄우지 못했다. log만 남기고 기본 창은 연다. tray가 없어도 창 닫기는 종료가 아니다"
@@ -44,10 +44,11 @@ flows:
       - id: second-process-exits
         when: "single instance lock을 다른 main이 잡고 있다. 이 process는 shell context와 core 연결을 만들기 전에 창 없이 끝난다(core를 띄우거나 갈아 띄우지 않는다)"
         observe: ["process:두 번째 shell process가 끝난다"]
+      - id: quit-without-shell
+        when: "떠 있는 shell이 없는데 `--quit`으로 켰다. 창, tray, core 연결 없이 끝난다(core를 띄우지 않는다)"
+        observe: ["process:shell process가 창 없이 끝난다"]
     crosses_process: true
     docs: [architecture/platform.md]
-    unclear:
-      - "첫 실행의 `--quit`은 무시되고 창이 열린다(desktop.ts는 readOpenIntent가 app이 아니면 desktop.open()을 부른다). 종료 요청은 이미 떠 있는 main의 second-instance에서만 된다"
 
   - id: login-core-start
     title: "`--core`로 core만 띄우고 끝난다(Windows 로그인 시작. 창, tray, extension 없음)"
@@ -97,7 +98,7 @@ flows:
       - "argv를 readOpenIntent로 읽는다. 모양이 조금이라도 다르면 기본 창 요청으로 본다"
       - "`--core`이면 아무 일도 하지 않는다(창을 열지 않는다)"
       - "`--agent-window`이면 일반 창이 하나도 없을 때만 focus 없이 창 하나를 연다(desktop-window-open-inactive). 있으면 아무것도 하지 않는다. 앞으로 가져오지 않는다"
-      - "`--quit`이면 창이 하나라도 있을 때 tray Quit과 같은 확인 경로를 타고, 창이 없으면 확인 없이 shell 정리를 밟는다"
+      - "`--quit`이면 창이 있든 없든 tray Quit과 같은 확인 경로를 탄다(확인 창은 부모 창 없이도 뜬다). headless만 확인 없이 shell 정리를 밟는다"
       - "`--open-app <ID>`이 맞으면 앱 전용 창(app-surface)을 요청한다"
       - "그 밖의 argv는 창(어느 기계든)이 하나도 없으면 시작 기계의 창을(machine-window-start), 있으면 desktop-window-open과 같은 길로 이 컴퓨터의 새 기본 창을 연다"
     outcomes:
@@ -116,18 +117,17 @@ flows:
       - id: agent-window-kept
         when: "`--agent-window`이고 일반 창이 이미 있다. 창 수도 순서도 focus도 그대로다"
         observe: ["process:창 수와 순서가 그대로다"]
-      - id: quit-with-window
-        when: "`--quit`이고 BrowserWindow가 하나 이상 있다(detached와 앱 창 포함). ui:tray-quit과 같은 경로라 quit-app의 quit·cancelled·busy 가운데 하나가 된다. 두 번째 `--quit`이 확인 창 중에 오면 busy로 조용히 끝난다"
-        observe: ["process:진행 중인 터미널·저장이 있으면 끄기 확인 창이 뜨고, 없으면 확인 없이 shell이 끝난다"]
-      - id: quit-without-window
-        when: "`--quit`이고 창이 없다. 진행 중 터미널과 저장을 묻지 않고 shell을 끈다"
+      - id: quit-confirmed
+        when: "`--quit`이다. 창이 없어도 ui:tray-quit과 같은 경로라 quit-app의 quit·cancelled·busy 가운데 하나가 된다. 두 번째 `--quit`이 확인 창 중에 오면 busy로 조용히 끝난다"
+        observe: ["process:진행 중인 터미널·저장이 있으면 끄기 확인 창이 뜨고, 없으면 확인 없이 shell이 끝난다", "process:core는 남는다"]
+      - id: quit-headless
+        when: "LOPHN_SHELL_HEADLESS=1의 `--quit`이다. 사람 화면에 확인 창을 띄우지 않고 shell을 끈다"
         observe: ["process:shell 정리 뒤 app이 끝난다", "process:core는 남는다"]
     crosses_process: true
     risk: [sandbox]
     docs: [architecture/platform.md]
     unclear:
       - "risk sandbox는 OS가 넘긴 argv를 정해진 flag만 읽는다는 경계(실행 권한으로 읽지 않는다)로 봤다"
-      - "창이 없을 때의 `--quit`은 확인 창을 띄울 부모 창이 없다는 이유로 진행 중 터미널과 저장을 묻지 않고 끈다. 데이터 손실 위험이 있어 사람 확인이 필요하다"
 
   # ---------- 창 ----------
   - id: desktop-window-open

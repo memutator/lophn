@@ -1,4 +1,5 @@
 // Bus event와 터미널 signal을 push의 "계기"(Cause)로 바꾸는 순수 함수. 무엇을 계기로 치는지의 표가 이 file 한 곳이다.
+import { ALERT_PROGRAM_KINDS } from "../../protocol/apps/notice.ts";
 import type { BusEvent } from "../../protocol/events/mod.ts";
 import type { PushMessage, PushPrefs } from "./ports.ts";
 
@@ -60,15 +61,6 @@ export const CAUSE_ROW: Record<Cause["kind"], Row> = {
     priority: "default",
   },
 };
-
-// 사람이 알아야 하는 program 기록. 켜짐·data migration·lophn 업데이트·앱이 멈춘 기록은 Inbox에만 남긴다.
-const ALERT_PROGRAM_KINDS: ReadonlySet<string> = new Set([
-  "release_failed",
-  "release_rolled_back",
-  "app_unavailable",
-  "app_data_restored",
-  "sdk_update_needed",
-]);
 
 // 끝난 turn의 종류. 완료와 실패만 센다(끊은 turn과 그 밖은 건너뛴다).
 export function turnEndKind(outcome: {
@@ -137,7 +129,9 @@ export function causeOf(
       const notice = event.payload;
       if (notice.read_at !== null) return null;
       if (notice.source === "program") {
-        return ALERT_PROGRAM_KINDS.has(notice.kind)
+        // 주 폰이 바뀐 기록은 폰에 보내지 않는다: 받는 것은 바뀌기 전 폰이라 뜻이 없다.
+        return ALERT_PROGRAM_KINDS.has(notice.kind) &&
+          notice.kind !== "phone_changed"
           ? { kind: "program_notice", app: notice.app, title: notice.title }
           : null;
       }

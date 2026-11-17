@@ -6,7 +6,6 @@ import { homedir } from "node:os";
 import { dirname } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import type { Logger } from "../../../base/mod.ts";
 import { createAlwaysOnOs } from "../../always-on/os/mod.ts";
 import { startFailureReason } from "../../storage/migration/mod.ts";
 import { TEAM_MODULES, TEAMS, WIRINGS } from "./assembly.ts";
@@ -105,33 +104,6 @@ const files = {
   },
 };
 
-// core의 logger는 startCore 안에서 만들어져 여기서는 손에 없다. OS 명령 실패만 같은 모양의 줄로 stderr에 쓴다.
-const stderrLine = (
-  level: string,
-  input: {
-    component: string;
-    event: string;
-    message?: string;
-    fields?: unknown;
-  },
-) =>
-  process.stderr.write(
-    `${JSON.stringify({
-      timestamp: new Date().toISOString(),
-      level,
-      service_name: "lophn-core",
-      ...input,
-    })}\n`,
-  );
-const stderrLogger: Logger = {
-  log: (input) => stderrLine(input.level, input),
-  debug: (input) => stderrLine("debug", input),
-  info: (input) => stderrLine("info", input),
-  warn: (input) => stderrLine("warn", input),
-  error: (input) => stderrLine("error", input),
-  flush: async () => {},
-};
-
 // launcher가 stdout을 먼저 놓아도 core가 EPIPE로 죽지 않는다.
 process.stdout.on("error", () => {});
 
@@ -143,7 +115,7 @@ const started = await startCore({
   exit: (code) => process.exit(code),
   // 설치 layout으로 뜬 core만 OS port를 받는다. 개발·test core가 사람의 OS에 등록하지 않는다.
   alwaysOn: installedLayout(platformRoot, existsSync)
-    ? (dataRoot) =>
+    ? ({ dataRoot, logger }) =>
         createAlwaysOnOs({
           platform: process.platform,
           dataRoot,
@@ -157,7 +129,7 @@ const started = await startCore({
           spawn: spawnHolder,
           files,
           hash: (text) => createHash("sha256").update(text).digest("hex"),
-          logger: stderrLogger,
+          logger,
         })
     : undefined,
   launchShell: createShellLauncher({
@@ -171,12 +143,17 @@ const started = await startCore({
   }),
 });
 if (!started.ok) {
-  // core의 logger는 기동 실패 전에 만들어졌어도 여기서는 손에 없다. 같은 모양의 줄을 직접 쓴다.
-  stderrLine("error", {
-    component: "core",
-    event: "start_failed",
-    message: started.error.message,
-  });
+  // core의 logger는 startCore 안에서 만들어져 실패가 돌아온 여기서는 손에 없다. 같은 모양의 줄을 직접 쓴다.
+  process.stderr.write(
+    `${JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: "error",
+      service_name: "lophn-core",
+      component: "core",
+      event: "start_failed",
+      message: started.error.message,
+    })}\n`,
+  );
   // 화면 없이 띄운 쪽이 실패 이유를 보이게 알린다. 문장과 경로는 싣지 않는다.
   const reason = startFailureReason(started.error);
   process.stdout.write(`${JSON.stringify({ type: "start_failed", reason })}\n`);

@@ -37,12 +37,14 @@ import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import { DESKTOP_URL } from "../shell-protocol.ts";
 import { openWindow, windowTitle } from "../window.ts";
 import type { Registered, ShellContext } from "./context.ts";
+import { createWindowPlaces } from "../viewer/window-places.ts";
 import {
   createShellWindow,
+  onScreen,
   openDesktopWindow,
   recentWindow,
+  rememberWorkspace,
   restoredWorkspace,
-  revealRestored,
   wrap,
 } from "./desktop-window.ts";
 import type { Machines } from "./machines.ts";
@@ -72,6 +74,11 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
   const registry = ctx.overlays.overlayRegistry();
   const preload = join(ctx.here, "preload-remote.cjs");
   const opened = new Map<Id<"mch">, Opened>();
+  const places = createWindowPlaces(ctx.dataRoot);
+  let placesLoaded = false;
+  void places.loaded.then(() => {
+    placesLoaded = true;
+  });
 
   const send = (entry: Opened, channel: string, payload: unknown) => {
     if (!entry.window.isDestroyed()) {
@@ -124,9 +131,17 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
       reveal(found.window, headless);
       return;
     }
+    // The first window can be asked for before the saved places are read.
+    if (!placesLoaded) {
+      void places.loaded.then(() => openMachine(machine, name));
+      return;
+    }
     const title =
       machines.list().machines.find((row) => row.id === machine)?.name ?? name;
-    const workspace = restoredWorkspace(ctx);
+    // This machine's own last place; one never saved opens where this computer's last window was.
+    const place = places.get(machine);
+    const workspace =
+      place === undefined ? restoredWorkspace(ctx) : onScreen(place);
     let window: BrowserWindow | undefined;
     openWindow({
       platform: process.platform,
@@ -147,7 +162,9 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
       },
     });
     const created = window!;
-    revealRestored(ctx, created, workspace, false);
+    rememberWorkspace(ctx, created, workspace, false, (state) =>
+      places.save(machine, state),
+    );
     const entry: Opened = {
       window: created,
       machine,

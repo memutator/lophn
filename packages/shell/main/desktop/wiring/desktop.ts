@@ -52,12 +52,7 @@ import { word } from "../i18n.ts";
 import { nodeExecutableProbe } from "../os-entry/exec-path.ts";
 import { readOpenIntent } from "../open-intent.ts";
 import { createOpenExternal } from "../open-external.ts";
-import {
-  createQuitFlow,
-  quitChosen,
-  quitDialogOptions,
-  requestQuit,
-} from "../quit.ts";
+import { createQuitFlow, quitChosen, quitDialogOptions } from "../quit.ts";
 import { registerViewSchemes } from "../security.ts";
 import { createShellHandler } from "../shell-protocol.ts";
 import { listenShortcuts } from "../shortcuts.ts";
@@ -244,7 +239,7 @@ export function register(
   };
 
   // 옛 판에서 옮겨진 사람에게 동작이 바뀐 것을 한 번 알린다(창을 닫아도 core가 계속 돈다). 보이면 표지를 지워 다시 보이지 않는다.
-  // 창이 아직 없으면 표지를 남겨 두고 다음 기회(창이 뜬 뒤, 옮기기가 끝난 뒤)에 한다.
+  // 창이 아직 없으면 표지를 남겨 두고 다음 기회(옮기기가 끝난 뒤, 이 컴퓨터의 창이 load를 마친 뒤)에 한다.
   let noticeShown = false;
   const showKeepRunningNotice = (): void => {
     if (noticeShown || !keepRunningNotice.pending(ctx.dataRoot)) return;
@@ -267,6 +262,10 @@ export function register(
         if (reply.response === 0) desktop.send("remote-settings");
       });
   };
+  // 시작, tray, Dock, 두 번째 실행 어느 길로 연 창이든 같다.
+  ctx.windowHooks.created.push((window) =>
+    window.webContents.once("did-finish-load", showKeepRunningNotice),
+  );
 
   // core에 붙은 뒤 옛 등록을 옮긴다. 안 되면 옛 등록을 남기고 다음 실행이 다시 한다.
   let migrating = false;
@@ -276,15 +275,34 @@ export function register(
     void migrateLegacyLogin({
       os: legacyAutostart,
       turnOn: async () => {
+        const before = await ctx.coreInternal(
+          "memory",
+          "always_on",
+          "status",
+          {},
+        );
         const set = await ctx.coreInternal("memory", "always_on", "set", {
           keep_running: true,
         });
+        if (!set.ok) return false;
         // 표시만이 아니라 OS 등록이 섰을 때만 옛 등록을 지운다.
-        return (
-          set.ok &&
+        if (
           (set.value as { start_at_login?: string }).start_at_login ===
-            "registered"
-        );
+          "registered"
+        ) {
+          return true;
+        }
+        // 등록이 서지 않았으면(systemd user session 없음 등) 옛 등록이 로그인 시작을 계속 한다. 표시만 켜 두면 알림 없이
+        // idle-exit만 꺼지므로 이 시도가 켠 표시는 되돌린다. 사람이 이미 켠 표시는 그대로 둔다.
+        const wasOn =
+          before.ok &&
+          (before.value as { keep_running?: boolean }).keep_running === true;
+        if (!wasOn) {
+          await ctx.coreInternal("memory", "always_on", "set", {
+            keep_running: false,
+          });
+        }
+        return false;
       },
       migrated: () => keepRunningNotice.mark(ctx.dataRoot),
     }).then(showKeepRunningNotice);
@@ -298,13 +316,11 @@ export function register(
     onOpenWindow: () => desktop.open(),
     onOpenApp: (app) => openIntent({ kind: "app", app }),
     onAgentWindow: () => void desktop.openInactive(),
+    // 창이 없어도 tray Quit과 같이 도는 터미널을 묻는다(확인 창은 부모 창 없이 뜬다). headless만 사람 화면에 띄우지 않고 끈다.
     onQuitIntent: () =>
-      requestQuit({
-        windows: { hasWindows: () => BrowserWindow.getAllWindows().length > 0 },
-        stop: quitShell,
-        quitApp: () => app.quit(),
-        confirmWithWindows: () => void quitFlow.request(quitShell),
-      }),
+      void (headless.headless
+        ? quitFlow.stopNow(quitShell)
+        : quitFlow.request(quitShell)),
   });
 
   // 사람이 바꾼 키(설정 `shell.keybindings`). core 설정의 사본이 바뀌면 main이 먼저 받는 키도 따른다.
@@ -389,6 +405,30 @@ export function register(
 
   // 첫 창이 마지막 자리로 열리게 창보다 먼저 읽는다.
   Promise.all([app.whenReady(), ctx.windowState.load()]).then(() => {
+    // Electron 기본 menu에서 Reload·Force Reload만 뺀다. Linux·Windows에서 page가 막지 않은 Ctrl+R이 창 renderer를 다시
+    // 불러 popover·입력·스크롤을 잃는다. 편집·창 닫기·zoom·전체 화면 accelerator는 기본 menu와 같이 남긴다.
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate([
+        ...(process.platform === "darwin"
+          ? [{ role: "appMenu" as const }]
+          : []),
+        { role: "fileMenu" },
+        { role: "editMenu" },
+        {
+          role: "viewMenu",
+          submenu: [
+            { role: "toggleDevTools" },
+            { type: "separator" },
+            { role: "resetZoom" },
+            { role: "zoomIn" },
+            { role: "zoomOut" },
+            { type: "separator" },
+            { role: "togglefullscreen" },
+          ],
+        },
+        { role: "windowMenu" },
+      ]),
+    );
     const serve = createShellHandler({ distDir: ctx.rendererDist() });
     protocol.handle("lophn-shell", (request) =>
       serve(request).then(
@@ -420,13 +460,12 @@ export function register(
       unavailable: () => ctx.tray.current?.notice("global-search-unavailable"),
       log,
     });
-    // core만 띄우는 시작(`--core`)은 여기 오기 전에 끝난다. 첫 시작의 `--open-app`은
+    // core만 띄우는 시작(`--core`)과 첫 시작의 `--quit`은 여기 오기 전에 끝난다. 첫 시작의 `--open-app`은
     // 기본 창 대신 앱 전용 창을, `--agent-window`는 focus 없는 창을 연다.
     const start = readOpenIntent(process.argv);
     if (start.kind === "app") openIntent(start);
     else if (start.kind === "agent-window") void desktop.openInactive();
     else desktop.open();
-    showKeepRunningNotice();
   });
 
   return {

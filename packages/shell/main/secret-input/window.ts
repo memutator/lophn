@@ -209,7 +209,8 @@ export function openSecretInputWindow(input: {
   window.on("unresponsive", input.onCrashed);
   // 앱 전용 창에서 요청해도 보호 창을 앞으로 가져온다.
   focusSurface(input.parent, headless);
-  void window.loadURL(SECRET_INPUT_URL);
+  // 로드가 실패하면 page가 높이를 알리지 않아 창이 숨은 채 남는다. crash와 같이 끝내 앱 입력 막음을 푼다.
+  void window.loadURL(SECRET_INPUT_URL).catch(() => input.onCrashed());
   let shown = false;
   const fit = (height: number) => {
     if (window.isDestroyed()) return;

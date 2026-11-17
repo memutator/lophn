@@ -5,9 +5,11 @@
 // 무엇을 보고 있는지(창 focus, idle, 보이는 session·터미널)는 core에도 알린다(presence). 못 본 turn 끝(`unseen`)은 core가 든다.
 import { BrowserWindow, Notification, powerMonitor } from "electron";
 
-import type {
-  Notice as NoticeRow,
-  NoticeKind,
+import {
+  ALERT_PROGRAM_KINDS,
+  type Notice as NoticeRow,
+  type NoticeKind,
+  noticesOpen,
 } from "../../../../protocol/apps/notice.ts";
 import { sessionSnapshotsList } from "../../../../protocol/events/mod.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
@@ -43,16 +45,10 @@ import { word } from "../i18n.ts";
 import type { Registered, ShellContext } from "./context.ts";
 import { openDesktopWindow } from "./desktop-window.ts";
 
-// 띄우는 program 기록: 실패하거나 사람이 가서 볼 일. 켜짐·data migration 적용·lophn 업데이트는 결과가 기록으로 충분하다.
-const ALERT_PROGRAM_KINDS: ReadonlySet<NoticeKind> = new Set([
-  "release_failed",
-  "release_rolled_back",
-  "app_unavailable",
-  "app_data_restored",
+// core 기동 중에 쓰여 shell이 붙기 전에 지나간 기록 가운데 붙은 뒤 다시 읽어 띄우는 것(`notices.open`).
+const STARTUP_PROGRAM_KINDS: ReadonlySet<NoticeKind> = new Set([
   "sdk_update_needed",
-  "session_stopped_by_app",
-  "phone_changed",
-  "app_sync_away",
+  "app_unavailable",
 ]);
 
 const TITLES = {
@@ -157,36 +153,42 @@ export function createNoticeWiring(
         : target.kind === "session"
           ? visibility.owner(target.session)
           : undefined;
-    const window =
+    const found =
       live.find((item) => item.webContents.id === owner) ??
       live.filter((item) => !ctx.detached.has(item)).at(-1) ??
       live.at(-1);
     // This computer's notice opens a window of this computer, never a window of another machine (nor the start machine).
-    if (window === undefined) {
-      openDesktopWindow(ctx);
-      return;
+    // A new window gets the same reveal once its page has loaded; the notice preload holds it until the screen subscribes.
+    const window = found ?? openDesktopWindow(ctx);
+    if (window === undefined) return;
+    if (found !== undefined) {
+      if (window.isMinimized()) window.restore();
+      window.show();
+      window.focus();
     }
-    if (window.isMinimized()) window.restore();
-    window.show();
-    window.focus();
-    if (target.kind === "terminal") {
-      const project = projectOf(target.terminal_ref);
-      if (project === undefined) return;
-      for (const item of live) {
-        item.webContents.send(TERMINAL_REVEAL_CHANNEL, {
-          terminal_ref: target.terminal_ref,
-          project,
+    const send = () => {
+      if (window.isDestroyed()) return;
+      if (target.kind === "terminal") {
+        const project = projectOf(target.terminal_ref);
+        if (project === undefined) return;
+        for (const item of found === undefined ? [window] : live) {
+          item.webContents.send(TERMINAL_REVEAL_CHANNEL, {
+            terminal_ref: target.terminal_ref,
+            project,
+          });
+        }
+      } else if (target.kind === "session") {
+        window.webContents.send(NOTICE_REVEAL_CHANNEL, {
+          session: target.session,
         });
+      } else if (target.kind === "app") {
+        window.webContents.send(NOTICE_REVEAL_CHANNEL, { app: target.app });
+      } else {
+        window.webContents.send(NOTICE_REVEAL_CHANNEL, { inbox: true });
       }
-    } else if (target.kind === "session") {
-      window.webContents.send(NOTICE_REVEAL_CHANNEL, {
-        session: target.session,
-      });
-    } else if (target.kind === "app") {
-      window.webContents.send(NOTICE_REVEAL_CHANNEL, { app: target.app });
-    } else {
-      window.webContents.send(NOTICE_REVEAL_CHANNEL, { inbox: true });
-    }
+    };
+    if (found === undefined) window.webContents.once("did-finish-load", send);
+    else send();
   }
 
   // GC가 알림을 거두면 click이 오지 않는다.
@@ -398,16 +400,14 @@ export function createNoticeWiring(
   });
   ctx.relay.events.push((event) => void sessions.event(event));
   // 사람에게 한 알림. 보고 있는 탭이 없으므로 lophn 창에 focus가 있으면 toast, 아니면 OS 알림이다.
-  // 놓친 알림은 다시 띄우지 않는다(Inbox 줄이 남는다). 앱이 한 알림은 모두 띄운다. program 기록은 사람이 알아야 하는
-  // 종류만 띄우고 나머지(켜짐, data migration 적용, lophn 업데이트)는 Inbox에만 남긴다.
-  ctx.relay.conditions.push({ types: ["NoticePosted"] });
-  ctx.relay.events.push((event) => {
-    if (event.type !== "NoticePosted") return;
-    const posted = event.payload as NoticeRow;
-    if (posted.read_at !== null) return;
-    if (posted.source === "program" && !ALERT_PROGRAM_KINDS.has(posted.kind)) {
-      return;
-    }
+  // 놓친 알림은 다시 띄우지 않는다(Inbox 줄이 남는다. 기동 중의 급한 program 기록만 예외로 아래에서 다시 읽는다).
+  // 앱이 한 알림은 모두 띄운다. program 기록은 사람이 알아야 하는 종류(ALERT_PROGRAM_KINDS)만 띄운다.
+  // 한 번 띄운 행(id와 시각). 같은 key로 바뀐 행은 시각이 달라 다시 띄운다.
+  const presented = new Set<string>();
+  function presentRow(posted: NoticeRow): void {
+    const key = `${posted.id}:${posted.created_at}`;
+    if (presented.has(key)) return;
+    presented.add(key);
     // 앱 없는 기록(SDK 업데이트 필요)은 누르면 Inbox를 연다. 앱 없는 기록은 ALERT 목록에 든 것만 여기까지 온다.
     present(
       posted.app === null
@@ -419,6 +419,31 @@ export function createNoticeWiring(
         ? { kind: "inbox" }
         : { kind: "app", app: posted.app },
     );
+  }
+  ctx.relay.conditions.push({ types: ["NoticePosted"] });
+  ctx.relay.events.push((event) => {
+    if (event.type !== "NoticePosted") return;
+    const posted = event.payload as NoticeRow;
+    if (posted.read_at !== null) return;
+    if (posted.source === "program" && !ALERT_PROGRAM_KINDS.has(posted.kind)) {
+      return;
+    }
+    presentRow(posted);
+  });
+  // core는 기동 일(SDK 판 확인)을 마친 뒤 ready를 내고 shell은 그 뒤에 구독하므로 그 사이의 NoticePosted는 오지 않는다.
+  // 붙을 때마다 안 읽은 급한 program 기록을 읽어 아직 띄우지 않은 것만 띄운다.
+  ctx.relay.ready.push(() => {
+    void read("read", noticesOpen, {}).then((open) => {
+      for (const row of open?.notices ?? []) {
+        if (
+          row.source === "program" &&
+          row.read_at === null &&
+          STARTUP_PROGRAM_KINDS.has(row.kind)
+        ) {
+          presentRow(row);
+        }
+      }
+    });
   });
   ctx.windowHooks.created.push((window) => {
     window.on("focus", () => presence.changed());

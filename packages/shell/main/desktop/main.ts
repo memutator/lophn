@@ -30,6 +30,7 @@ import { loginPathOf } from "./core/login-path.ts";
 import { openShellCoreControl, productVersionOf } from "./core/supervise.ts";
 import { resolveLaunchMode } from "./launch-mode.ts";
 import { browserDataPath, resolveDataRoot } from "./paths.ts";
+import { readOpenIntent } from "./open-intent.ts";
 import { acquireSingleInstance } from "./single-instance.ts";
 
 // core·terminal-host·extension이 이 env를 물려받으므로 어느 것보다 먼저 둔다.
@@ -79,6 +80,11 @@ function startDesktop(): void {
   const dataRoot = resolveDataRoot();
   app.setPath("userData", browserDataPath(dataRoot));
   if (!acquireSingleInstance(app, dataRoot)) return;
+  // 떠 있는 shell이 없는 `--quit`은 끌 것이 없다. 창도 core도 띄우지 않고 끝난다(정리 스크립트가 lophn을 새로 띄우지 않게).
+  if (readOpenIntent(process.argv).kind === "quit") {
+    app.quit();
+    return;
+  }
 
   const ctx = createShellContext();
   const add = <T extends { stop(): void }>(area: T): T => {

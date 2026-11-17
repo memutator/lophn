@@ -49,6 +49,8 @@ let shotSerial = 0;
 
 type NavigationEvent = ElectronEvent & { url: string; isMainFrame: boolean };
 
+type Workspace = { bounds: WindowBounds; maximized: boolean };
+
 /** 이미 떠 있는 desktop 창이 있으면 새 창을 이만큼 비켜 연다. 같은 자리에 겹쳐 뜨면 새 창이 열린 줄 모른다. */
 const CASCADE_STEP = 32;
 
@@ -62,7 +64,11 @@ const SAVE_DEBOUNCE_MS = 500;
 export function restoredWorkspace(ctx: ShellContext) {
   const saved = ctx.windowState.current;
   if (saved === null) return undefined;
-  const shift = recentWindow(ctx) === undefined ? 0 : CASCADE_STEP;
+  return onScreen(saved, recentWindow(ctx) === undefined ? 0 : CASCADE_STEP);
+}
+
+/** 저장한 자리를 `shift`만큼 비켜 지금 화면 안으로 당긴다. 다른 기계의 창은 기계마다 저장한 자리를 그대로(0) 쓴다. */
+export function onScreen(saved: Workspace, shift = 0): Workspace {
   const bounds = clampToWorkAreas(
     {
       ...saved.bounds,
@@ -209,7 +215,13 @@ export function openDesktopWindow(
         created = window;
         for (const reaction of ctx.windowHooks.created) reaction(window);
         if (start === undefined) {
-          rememberWorkspace(ctx, window, workspace, options.inactive === true);
+          rememberWorkspace(
+            ctx,
+            window,
+            workspace,
+            options.inactive === true,
+            (state) => ctx.windowState.save(state),
+          );
         }
         const contentsId = window.webContents.id;
         const ref = ctx.windowRef(window);
@@ -308,15 +320,16 @@ export function createShellWindow(
 }
 
 /**
- * 저장한 크기·최대화를 되살리고, 옮기거나 크기를 바꾸거나 최대화·되돌리거나 닫을 때 그 자리를 저장한다. 최대화한
+ * 저장한 크기·최대화를 되살리고, 옮기거나 크기를 바꾸거나 최대화·되돌리거나 닫을 때 그 자리를 `store`로 저장한다. 최대화한
  * 창은 되돌렸을 때의 자리(`getNormalBounds`)를 함께 둔다. 최소화와 전체 화면은 저장하지 않는다(다시 열 때 그
- * 모양이면 창이 안 보이거나 상단 바가 없다).
+ * 모양이면 창이 안 보이거나 상단 바가 없다). 이 컴퓨터의 창은 앱 하나의 자리에, 다른 기계의 창은 기계마다의 자리에 둔다.
  */
-function rememberWorkspace(
+export function rememberWorkspace(
   ctx: ShellContext,
   window: BrowserWindow,
-  workspace: { bounds: WindowBounds; maximized: boolean } | undefined,
+  workspace: Workspace | undefined,
   inactive: boolean,
+  store: (state: Workspace) => void,
 ): void {
   revealRestored(ctx, window, workspace, inactive);
   // focus 없이 연 창은 maximize하지 않았으므로 그 창의 상태가 사람이 고른 것이 아니다. 사람이 그 창을 최대화하거나 되돌리기
@@ -331,7 +344,7 @@ function rememberWorkspace(
       return;
     }
     const { x, y, width, height } = window.getNormalBounds();
-    ctx.windowState.save({
+    store({
       bounds: { x, y, width, height },
       maximized: kept ?? window.isMaximized(),
     });
@@ -352,11 +365,11 @@ function rememberWorkspace(
   window.on("close", save);
 }
 
-/** 숨긴 채 만든 창을 저장한 크기·최대화로 맞춘 뒤 보인다. 자리를 저장하지 않는 다른 기계의 창도 쓴다. */
-export function revealRestored(
+/** 숨긴 채 만든 창을 저장한 크기·최대화로 맞춘 뒤 보인다. */
+function revealRestored(
   ctx: ShellContext,
   window: BrowserWindow,
-  workspace: { bounds: WindowBounds; maximized: boolean } | undefined,
+  workspace: Workspace | undefined,
   inactive: boolean,
 ): void {
   if (workspace === undefined && !inactive) return;

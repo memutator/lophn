@@ -37,6 +37,27 @@ export function createNoticeApi(transport: NoticeTransport): LophnNoticeApi {
     transport.on(channel, callback);
     return () => transport.removeListener(channel, callback);
   }
+  // 알림을 눌러 막 연 창에는 화면이 구독하기 전에 reveal이 온다. 마지막 하나를 들고 있다가 첫 구독에 넘긴다.
+  const revealListeners = new Set<(reveal: NoticeReveal) => void>();
+  let heldReveal: NoticeReveal | null = null;
+  transport.on(NOTICE_REVEAL_CHANNEL, (_event, payload) => {
+    if (
+      !isRecord(payload) ||
+      !(
+        typeof payload.session === "string" ||
+        typeof payload.app === "string" ||
+        payload.inbox === true
+      )
+    ) {
+      return;
+    }
+    const reveal = payload as NoticeReveal;
+    if (revealListeners.size === 0) {
+      heldReveal = reveal;
+      return;
+    }
+    for (const listener of revealListeners) listener(reveal);
+  });
   return Object.freeze({
     visible: async (input) => {
       await transport.invoke(NOTICE_VISIBLE_CHANNEL, input).catch(() => {});
@@ -51,15 +72,14 @@ export function createNoticeApi(transport: NoticeTransport): LophnNoticeApi {
           isRecord(payload) && typeof payload.id === "string",
         listener,
       ),
-    onReveal: (listener) =>
-      listen(
-        NOTICE_REVEAL_CHANNEL,
-        (payload): payload is NoticeReveal =>
-          isRecord(payload) &&
-          (typeof payload.session === "string" ||
-            typeof payload.app === "string" ||
-            payload.inbox === true),
-        listener,
-      ),
+    onReveal: (listener) => {
+      revealListeners.add(listener);
+      if (heldReveal !== null) {
+        const reveal = heldReveal;
+        heldReveal = null;
+        listener(reveal);
+      }
+      return () => void revealListeners.delete(listener);
+    },
   } satisfies LophnNoticeApi);
 }

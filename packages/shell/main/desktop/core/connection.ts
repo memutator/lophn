@@ -139,6 +139,8 @@ const RECOVER_DELAY_MS = 1_000;
 const STABLE_MS = 60_000;
 /** crash가 이만큼 이어지면 shell이 다시 띄우지 않고 failed-start에 멈춘다. */
 const RESTART_LIMIT = 5;
+/** 다른 client가 core를 멈춘 뒤 새 core가 섰는지 묻는 간격. 묻기만 하고 띄우지 않는다. */
+const SHUTDOWN_PROBE_MS = 30_000;
 
 /** main 조립이 부른다. 준비 전에 창은 이미 열려 있다. */
 export function startCoreConnection(
@@ -180,6 +182,8 @@ export function startCoreConnection(
   let stopped = false;
   // 다른 client가 control stop을 보냈다(`closed(shutdown)`). 저절로 다시 띄우지 않는다.
   let shutdownSeen = false;
+  // shutdownSeen 동안 새 core(CLI가 다시 띄운 것)가 섰는지 묻는 timer.
+  let probe: ReturnType<typeof setInterval> | undefined;
   // 이어진 짧은 crash 수와 마지막 ready 시각. Retry(attachIfAlive)는 수를 비우지 않는다.
   let crashes = 0;
   let readyAt: number | undefined;
@@ -207,6 +211,24 @@ export function startCoreConnection(
       state.state = "failed-start";
     }
     push();
+  }
+
+  // 다른 client가 core를 멈췄다. 죽은 연결을 비워 renderer의 호출(Reconnect)이 attachIfAlive로 가게 하고,
+  // 사람이 누르지 않아도 새 core가 서면 붙도록 identify만 주기적으로 묻는다. 어느 쪽도 core를 띄우지 않는다.
+  function shutdownObserved(): void {
+    shutdownSeen = true;
+    attached?.gateway.stop();
+    attached = undefined;
+    state.state = "stale";
+    push();
+    probe ??= setInterval(() => {
+      if (stopped || !shutdownSeen) {
+        clearInterval(probe);
+        probe = undefined;
+        return;
+      }
+      void attachIfAlive();
+    }, SHUTDOWN_PROBE_MS);
   }
 
   function openCore(core: {
@@ -277,11 +299,7 @@ export function startCoreConnection(
           } else if (frame.type === "closed") {
             relay({ kind: "closed", reason: frame.reason });
             // core가 내려간다는 frame이다. 이 shell은 core를 다시 띄우지 않는다.
-            if (frame.reason === "shutdown") {
-              shutdownSeen = true;
-              state.state = "stale";
-              push();
-            }
+            if (frame.reason === "shutdown") shutdownObserved();
           } else options.own?.frame?.(frame);
         },
       },
@@ -320,9 +338,7 @@ export function startCoreConnection(
       const identified = await control.identify();
       if (stopped) return;
       if (identified.ok && identified.value.state === "stopping") {
-        shutdownSeen = true;
-        state.state = "stale";
-        push();
+        shutdownObserved();
         return;
       }
       state.state = "starting";
@@ -443,6 +459,7 @@ export function startCoreConnection(
     },
     detach() {
       stopped = true;
+      clearInterval(probe);
       controller.abort();
       attached?.gateway.stop();
       attached = undefined;
@@ -450,6 +467,7 @@ export function startCoreConnection(
     async stopCore() {
       // 멈추는 동안의 reconnect는 core를 다시 띄우지 않는다.
       stopped = true;
+      clearInterval(probe);
       controller.abort();
       attached?.gateway.stop();
       attached = undefined;

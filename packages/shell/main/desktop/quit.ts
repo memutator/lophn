@@ -54,7 +54,7 @@ interface QuitFlow {
    * 일반 Quit은 shell 자원만, `Stop lophn`은 core stop까지 기다린다.
    */
   request(stop: () => void | Promise<void>): Promise<QuitOutcome>;
-  /** 확인 없이 멈춘다. 확인할 창이 없는 `--quit`이 쓴다. */
+  /** 확인 없이 멈춘다. 확인 창을 띄울 수 없는 headless의 `--quit`이 쓴다. */
   stopNow(stop: () => void | Promise<void>): Promise<void>;
   /** 이미 끄는 중인지. */
   readonly quitting: boolean;
@@ -103,43 +103,6 @@ export function createQuitFlow(options: QuitFlowOptions): QuitFlow {
       return quitting;
     },
   };
-}
-
-// second-instance `--quit`의 종료 순서. 창이 있으면 tray Quit과 같은 확인 경로를 쓴다.
-// 창이 없으면 확인할 창이 없다는 사실을 log로 남기고 shell 정리 순서를 밟는다.
-
-interface QuitWindowProbe {
-  /** 진행 중 터미널·저장을 확인할 창이 있는지. */
-  hasWindows(): boolean;
-}
-
-interface QuitOptions {
-  windows: QuitWindowProbe;
-  /** shell 자원과 core 연결 정리. 일반 Quit이라 core는 멈추지 않는다. */
-  stop: () => void | Promise<void>;
-  /** Electron 종료. stop이 끝난 뒤에 부른다. */
-  quitApp: () => void;
-  /** 창이 있을 때의 끄기 확인(tray Quit과 같은 경로). 창이 있으면 이 경로만 쓴다. */
-  confirmWithWindows?: () => void;
-  /** 확인할 창이 없을 때 남기는 log. */
-  log?: (message: string) => void;
-}
-
-/** 명시 종료를 순서대로 밟는다. 자동 종료는 아니다. */
-export function requestQuit(options: QuitOptions): void {
-  if (options.windows.hasWindows()) {
-    if (options.confirmWithWindows !== undefined) {
-      options.confirmWithWindows();
-      return;
-    }
-    options.log?.("창이 있어 끄기 확인 경로로 보낸다");
-    return;
-  }
-  // 창이 없으면 진행 중 터미널·저장을 확인할 창이 없다. 사실을 log로 남긴다.
-  (options.log ?? defaultLog)(
-    "확인할 창이 없어 끄기 확인 없이 shell 정리 순서를 밟는다",
-  );
-  void Promise.resolve(options.stop()).finally(options.quitApp);
 }
 
 /** native 확인 창의 버튼 배치. Esc·창 닫기는 취소다. */

@@ -22,7 +22,10 @@ export const alwaysOnWiring: WiringFactory = () => {
       const built = await createAlwaysOn({
         root: ctx.root.path,
         machine: ctx.machine.id,
-        os: ctx.options.alwaysOn?.(ctx.root.path),
+        os: ctx.options.alwaysOn?.({
+          dataRoot: ctx.root.path,
+          logger: ctx.telemetry.logger,
+        }),
         clock: ctx.clock,
         logger: ctx.telemetry.logger,
       });

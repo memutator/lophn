@@ -1,6 +1,8 @@
 // OS 등록과 keep-awake의 port. `os/`가 구현하고 core 입구가 설치 layout일 때만 `startCore`의 `alwaysOn`으로 준다.
 // `always-os`가 같은 모양을 따로 적어 구현하므로 모양을 바꾸지 않는다.
 
+import type { Logger } from "../../base/mod.ts";
+
 export type ServiceEnv = { PATH: string; TMPDIR?: string };
 
 export type Registration =
@@ -42,4 +44,8 @@ export type AlwaysOnOs = {
   captureEnv(): ServiceEnv;
 };
 
-export type AlwaysOnHost = (dataRoot: string) => AlwaysOnOs;
+// OS 명령 실패 log도 core logger(level·format 설정)를 따르게 core가 만든 logger를 받는다.
+export type AlwaysOnHost = (host: {
+  dataRoot: string;
+  logger: Logger;
+}) => AlwaysOnOs;

@@ -48,6 +48,18 @@ export const PROGRAM_NOTICE_KINDS = [
   "phone_changed",
   "app_sync_away",
 ] as const;
+// 사람이 알아야 하는 program 기록: 실패하거나 사람이 가서 볼 일. desktop toast·OS 알림과 폰 push가 같이 읽는다.
+// 나머지(켜짐, data migration 적용, lophn 업데이트)는 결과가 기록으로 충분해 Inbox에만 남긴다.
+export const ALERT_PROGRAM_KINDS: ReadonlySet<NoticeKind> = new Set([
+  "release_failed",
+  "release_rolled_back",
+  "app_unavailable",
+  "app_data_restored",
+  "sdk_update_needed",
+  "session_stopped_by_app",
+  "phone_changed",
+  "app_sync_away",
+] satisfies ProgramNoticeKind[]);
 export const programNoticeKindSchema = z.enum(PROGRAM_NOTICE_KINDS);
 export type ProgramNoticeKind = z.infer<typeof programNoticeKindSchema>;
 export const noticeKindSchema = z.enum(["app", ...PROGRAM_NOTICE_KINDS]);

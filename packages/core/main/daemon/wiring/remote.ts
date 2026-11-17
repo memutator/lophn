@@ -161,7 +161,7 @@ export const remoteWiring: WiringFactory = () => {
   // push를 보낼 기기의 메모리 사본(`devices/push_targets`). `StateChanged{remote_devices}`가 오면 다시 읽는다.
   let pushDevices: readonly PushDevice[] = [];
   let refreshing = Promise.resolve();
-  // host key의 공개 key 글(push 글의 `data.host`). key를 풀기 전에는 보낼 곳이 없는 것으로 친다.
+  // host key의 공개 key 글(push 글의 `data.host`). key를 풀기 전과 remote가 꺼진 동안은 보낼 곳이 없는 것으로 친다.
   let hostText: string | undefined;
   let sender: ReturnType<typeof createExpoPushSender> | undefined;
   // 켜고 끄기는 하나씩 한다. 설정이 빨리 여러 번 바뀌어도 마지막 값으로 맞는다.
@@ -325,7 +325,11 @@ export const remoteWiring: WiringFactory = () => {
       relay.close();
       relay = undefined;
     }
-    if (!enabled) return;
+    if (!enabled) {
+      // 끈 뒤에는 push도 멈춘다. bindPush의 기기 목록이 hostText로 갈린다. 다시 켜면 key를 풀어 다시 선다.
+      hostText = undefined;
+      return;
+    }
     let staticKey: Awaited<ReturnType<typeof loadHostKey>>;
     try {
       hostKey ??= loadHostKey(

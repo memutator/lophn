@@ -8,7 +8,8 @@
 // ledger에 남으므로 뒤에 뜨는 core가 시작할 때부터 쓴다. CLI와 shell은 control identify·connect로 붙는다.
 // 사람이 LOPHN_LIVE_PROVIDER=1을 두면 fake provider를 띄우지도 연결하지도 않는다.
 // fake push server(tests/support/fake-push, 고정 port 기본 7498, LOPHN_DEV_PUSH_PORT)는 그래도 띄우고,
-// core를 띄우기 전에 settings.json의 remote.push를 그 주소로 적어 개발 core가 실제 Expo를 부르지 않게 한다.
+// core를 띄우기 전에 settings.json의 remote.push를 그 주소로 적어 개발 core가 실제 Expo를 부르지 않게 한다. 같은 자리에서
+// remote.relay가 없으면 ""로 심어 개발 core가 remote를 켜도 실제 relay에 붙지 않게 한다.
 // Ctrl+C와 SIGTERM에 띄운 프로세스를 정리한다.
 //
 // shell main은 renderer bundle(packages/shell/renderer/build.ts)을 읽는다. `dev`와 `dev:mock`은
@@ -172,9 +173,13 @@ async function startDevPush(portText: string | undefined): Promise<FakePush> {
   }
 }
 
-// core를 띄우기 전에 settings.json의 remote.push를 fake 주소로 적는다(있는 값은 덮는다).
+// core를 띄우기 전에 settings.json의 remote.push를 fake 주소로 적는다(있는 값은 덮는다). remote.relay는 칸이 없으면
+// ""로 심는다. 기본값이 실제 relay라 개발 root에서 remote를 켜면 개발 core가 바깥 service에 붙는다. 있으면 사람이 적은 것이라 둔다.
 // 이미 도는 core가 있으면 그 core의 설정을 그대로 둔다.
-async function plantFakePush(dataRoot: string, pushUrl: string): Promise<void> {
+async function plantDevRemote(
+  dataRoot: string,
+  pushUrl: string,
+): Promise<void> {
   const running = coreControl(dataRoot);
   if (running !== undefined && (await controlIdentify(running)).ok) return;
   const settingsPath = `${dataRoot}/settings.json`;
@@ -185,6 +190,7 @@ async function plantFakePush(dataRoot: string, pushUrl: string): Promise<void> {
     if (errorCode(error) !== "ENOENT") throw error;
   }
   settings["remote.push"] = pushUrl;
+  if (!("remote.relay" in settings)) settings["remote.relay"] = "";
   await writeFile(settingsPath, JSON.stringify(settings), { mode: 0o600 });
 }
 
@@ -508,14 +514,14 @@ async function launch(
     try {
       if (viewer) {
         const port = portOf(parentEnv[PUSH_PORT], DEFAULT_PUSH_PORT);
-        await plantFakePush(
+        await plantDevRemote(
           dataRoot,
           `http://127.0.0.1:${port}${PUSH_SEND_PATH}`,
         );
       } else {
         const push = await startDevPush(parentEnv[PUSH_PORT]);
         closers.push(push.close);
-        await plantFakePush(dataRoot, push.url);
+        await plantDevRemote(dataRoot, push.url);
       }
     } catch (error) {
       console.error(

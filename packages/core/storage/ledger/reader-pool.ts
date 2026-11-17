@@ -35,6 +35,9 @@ type Slot = {
 };
 
 const READER_READY_MS = 10000;
+// 줄에 서는 read의 상한: caller(principal)마다, 전체. 다른 caller는 공정 순서로 돈다.
+const PER_CALLER = 8;
+const WAITING_MAX = 64;
 // reader가 등록·회수를 반영했다는 확인을 기다리는 상한. 진행 중인 read(최대 READ_TIMEOUT_MS)
 // 뒤에 처리되므로 그보다 길다. 확인하지 못한 reader는 오래된 값을 쥔 채 서빙하지 않게 격리한다.
 const KNOWN_ACK_MS = 5000;
@@ -81,6 +84,12 @@ export async function createReaderPool(
   const slots: Slot[] = [];
   const queues = new Map<string, Pending[]>();
   const principals: string[] = [];
+  // caller 줄(PER_CALLER)이 찬 뒤 온 read. 줄에 자리가 나면 들어가고 READ_TIMEOUT_MS 안에 못 들어가면 unavailable이다.
+  // 창 하나가 workspace를 열 때 한꺼번에 부르는 read를 거절하지 않고 늦게 받는다.
+  const held = new Map<
+    string,
+    { pending: Pending; timer: ReturnType<typeof setTimeout> }[]
+  >();
   let nextId = 0;
   let closed = false;
   let waiting = 0;
@@ -176,6 +185,17 @@ export async function createReaderPool(
     return true;
   }
 
+  // 줄 끝에 세운다. 그 caller가 줄에 없었으면 공정 순서의 끝에 넣는다.
+  function enqueue(pending: Pending) {
+    const queue = queues.get(pending.ctx.principal);
+    if (queue) queue.push(pending);
+    else {
+      queues.set(pending.ctx.principal, [pending]);
+      principals.push(pending.ctx.principal);
+    }
+    waiting++;
+  }
+
   function take(): Pending | undefined {
     const principal = principals.shift();
     if (principal === undefined) return;
@@ -184,7 +204,36 @@ export async function createReaderPool(
     waiting--;
     if (queue.length) principals.push(principal);
     else queues.delete(principal);
+    // 자리가 났다. 기다리던 그 caller의 read를 줄에 세운다.
+    const next = held.get(principal)?.shift();
+    if (next) {
+      clearTimeout(next.timer);
+      if (held.get(principal)!.length === 0) held.delete(principal);
+      enqueue(next.pending);
+    }
     return pending;
+  }
+
+  function hold(pending: Pending) {
+    const list = held.get(pending.ctx.principal) ?? [];
+    held.set(pending.ctx.principal, list);
+    const entry = {
+      pending,
+      timer: setTimeout(() => {
+        const index = list.indexOf(entry);
+        if (index < 0) return;
+        list.splice(index, 1);
+        if (list.length === 0) held.delete(pending.ctx.principal);
+        pending.resolve(unavailable());
+      }, READ_TIMEOUT_MS),
+    };
+    list.push(entry);
+  }
+
+  // 줄과 기다리는 read를 모두 unavailable로 끝낸다.
+  function drain() {
+    let pending: Pending | undefined;
+    while ((pending = take())) pending.resolve(unavailable());
   }
 
   function pump() {
@@ -212,10 +261,7 @@ export async function createReaderPool(
         pump();
       }
     }
-    if (slots.every((slot) => slot.health !== "healthy")) {
-      let pending: Pending | undefined;
-      while ((pending = take())) pending.resolve(unavailable());
-    }
+    if (slots.every((slot) => slot.health !== "healthy")) drain();
   }
 
   function newWorker(): Worker {
@@ -358,19 +404,16 @@ export async function createReaderPool(
       if (
         closed ||
         !slots.some((slot) => slot.health === "healthy") ||
-        waiting >= 64 ||
-        (queues.get(ctx.principal)?.length ?? 0) >= 8
+        waiting >= WAITING_MAX
       )
         return Promise.resolve(unavailable());
       return new Promise((resolve) => {
         const pending = { id: ++nextId, key, ctx, input, resolve };
-        const queue = queues.get(ctx.principal);
-        if (queue) queue.push(pending);
-        else {
-          queues.set(ctx.principal, [pending]);
-          principals.push(ctx.principal);
+        if ((queues.get(ctx.principal)?.length ?? 0) >= PER_CALLER) {
+          hold(pending);
+          return;
         }
-        waiting++;
+        enqueue(pending);
         pump();
       });
     },
@@ -386,8 +429,7 @@ export async function createReaderPool(
         slot.pending = undefined;
         slot.worker.terminate();
       }
-      let pending: Pending | undefined;
-      while ((pending = take())) pending.resolve(unavailable());
+      drain();
       for (const wait of [...knownWaits.values()]) wait.settle(unavailable());
     },
   });

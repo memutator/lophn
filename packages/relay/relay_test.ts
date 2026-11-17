@@ -16,6 +16,10 @@ import {
 import {
   createRelay,
   RELAY_BUFFER_MAX_BYTES,
+  RELAY_BURST_BYTES,
+  RELAY_BYTES_PER_SECOND,
+  RELAY_HOSTS_PER_IP,
+  RELAY_SOCKETS_PER_IP,
   type RelaySocket,
 } from "./relay.ts";
 
@@ -24,8 +28,8 @@ function memorySocket() {
   const sent: (Uint8Array | string)[] = [];
   const handlers: {
     message?: (data: Uint8Array | string) => void;
-    close?: () => void;
-  } = {};
+    close: (() => void)[];
+  } = { close: [] };
   const end = { sent, closed: false, buffered: 0 };
   const socket: RelaySocket = {
     send: (data) => void sent.push(data),
@@ -33,11 +37,11 @@ function memorySocket() {
     close() {
       if (end.closed) return;
       end.closed = true;
-      handlers.close?.();
+      for (const handler of handlers.close) handler();
     },
     onMessage: (handler) => void (handlers.message = handler),
     onPong: () => undefined,
-    onClose: (handler) => void (handlers.close = handler),
+    onClose: (handler) => void handlers.close.push(handler),
     bufferedAmount: () => end.buffered,
   };
   return {
@@ -54,11 +58,18 @@ function memorySocket() {
 const RELAY = "ws://relay";
 const random = seededRandom(7);
 
-function setup() {
-  return createRelay({
+const IP = "203.0.113.1";
+
+function setup(clock = { ms: 0 }) {
+  const relay = createRelay({
     random,
     timers: { set: () => undefined, clear: () => undefined },
+    now: () => clock.ms,
   });
+  return {
+    accept: (url: string, socket: RelaySocket, ip = IP) =>
+      relay.accept(url, socket, ip),
+  };
 }
 
 // core가 control socket을 걸고 challenge에 proof를 답한다. secret이 core key의 것이 아니면 틀린 증명이다.
@@ -66,10 +77,11 @@ function connectHost(
   relay: ReturnType<typeof setup>,
   core: KeyPair,
   proofSecret: Uint8Array | undefined,
+  ip = IP,
 ) {
   const host = memorySocket();
   const key = remoteKeyText(core.publicKey);
-  relay.accept(path(relayHostUrl(RELAY, key)), host.socket);
+  relay.accept(path(relayHostUrl(RELAY, key)), host.socket, ip);
   const challenge = host.control()[0];
   assert.equal(challenge.type, "challenge");
   if (proofSecret && challenge.type === "challenge") {
@@ -149,4 +161,63 @@ test("폰 연결 둘의 message가 서로의 data socket으로 가지 않는다"
   assert.equal(dataA.end.sent.length, 2);
   assert.equal(phoneA.end.closed, true);
   assert.equal(phoneB.end.closed, false);
+});
+
+test("한 IP는 host 자리와 socket을 한도까지만 열고, 한도를 넘게 넘기는 폰 연결은 닫힌다", () => {
+  const clock = { ms: 0 };
+  const relay = setup(clock);
+  const openHost = () => {
+    const host = memorySocket();
+    const key = remoteKeyText(generateKeyPair(random).publicKey);
+    relay.accept(path(relayHostUrl(RELAY, key)), host.socket);
+    return host;
+  };
+  const hosts = Array.from({ length: RELAY_HOSTS_PER_IP + 1 }, openHost);
+  assert.deepEqual(
+    hosts.map((host) => host.end.closed),
+    [...Array<boolean>(RELAY_HOSTS_PER_IP).fill(false), true],
+  );
+  // host 하나가 닫히면 그 자리가 난다.
+  hosts[0]?.socket.close();
+  assert.equal(openHost().end.closed, false);
+
+  // 다른 IP의 core 둘에 이 IP의 폰을 붙인다. control 4개와 합해 RELAY_SOCKETS_PER_IP를 넘는 socket은 닫힌다.
+  const coreIp = "198.51.100.2";
+  const cores = [generateKeyPair(random), generateKeyPair(random)].map((core) =>
+    connectHost(relay, core, core.secretKey, coreIp),
+  );
+  const room = RELAY_SOCKETS_PER_IP - RELAY_HOSTS_PER_IP;
+  const phones = Array.from({ length: room + 1 }, (_, i) => {
+    const phone = memorySocket();
+    const { key } = cores[i % 2]!;
+    relay.accept(path(relayPhoneUrl(RELAY, key)), phone.socket);
+    return phone;
+  });
+  assert.deepEqual(
+    phones.map((phone) => phone.end.closed),
+    [...Array<boolean>(room).fill(false), true],
+  );
+  // 다른 IP는 따로 센다.
+  const other = memorySocket();
+  relay.accept(
+    path(relayPhoneUrl(RELAY, cores[0]!.key)),
+    other.socket,
+    "198.51.100.3",
+  );
+  assert.equal(other.end.closed, false);
+
+  // 한꺼번의 한도까지는 넘기고, 그 뒤는 초당 한도만큼만 넘긴다. 넘으면 그 짝을 닫는다.
+  const conns = cores[0]!.host
+    .control()
+    .flatMap((f) => (f.type === "connected" ? [f.conn] : []));
+  const data = memorySocket();
+  relay.accept(path(relayDataUrl(RELAY, conns.at(-1)!)), data.socket, coreIp);
+  other.receive(new Uint8Array(RELAY_BURST_BYTES));
+  clock.ms += 1000;
+  other.receive(new Uint8Array(RELAY_BYTES_PER_SECOND));
+  assert.equal(data.end.sent.length, 2);
+  assert.equal(other.end.closed, false);
+  other.receive(Uint8Array.of(1));
+  assert.equal(data.end.sent.length, 2);
+  assert.equal(other.end.closed, true);
 });

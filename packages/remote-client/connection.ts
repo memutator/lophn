@@ -52,9 +52,13 @@ export type CoreSource = {
   onEvent(listener: (message: CoreEventMessage) => void): () => void;
 };
 
-// Calls one connection keeps open at once. The core serves a device's reads from a queue of 8 per caller and answers the
-// next one `unavailable`; a desktop window opening a workspace asks for more than that at once.
+// Calls one connection keeps open at once. The core serves a device's reads from a queue of 8 per caller and holds the
+// rest back; a desktop window opening a workspace asks for more than that at once.
 const IN_FLIGHT = 8;
+// A call with no answer by then is given up with `unavailable` and frees its place, so one lost answer does not hold a
+// place for good. Longer than the slowest route (opening a coding session waits up to 55 s) plus a full frame over a
+// slow phone link.
+const CALL_DEADLINE_MS = 120_000;
 
 // Which way the open channel goes: straight to one of the computer's addresses, or through its relay.
 export type ConnectionPath = "direct" | "relay";
@@ -314,21 +318,38 @@ export function createConnection(
       body: input.body,
     });
     if (!sent.ok) return Promise.resolve({ ok: false, error: sent.error });
-    return new Promise((resolve) => pending.set(id, resolve));
+    return new Promise((resolve) => {
+      const cancel = deps.wait(CALL_DEADLINE_MS, () =>
+        answered(id, {
+          ok: false,
+          error: { code: "unavailable", message: "no answer in time" },
+        }),
+      );
+      pending.set(id, (reply) => {
+        cancel();
+        resolve(reply);
+      });
+    });
+  }
+
+  // Settles a call that is still open and lets the next queued call take its place.
+  function answered(id: string, reply: CoreReply) {
+    const resolve = pending.get(id);
+    if (!resolve) return;
+    pending.delete(id);
+    resolve(reply);
+    const next = queued.shift();
+    if (next) void send(next.input).then(next.resolve);
   }
 
   function received(frame: RemoteServerFrame) {
     if (frame.type === "result") {
-      const resolve = pending.get(frame.id);
-      if (!resolve) return;
-      pending.delete(frame.id);
-      resolve(
+      answered(
+        frame.id,
         frame.ok
           ? { ok: true, value: frame.value }
           : { ok: false, error: frame.error },
       );
-      const next = queued.shift();
-      if (next) void send(next.input).then(next.resolve);
     } else if (frame.type === "ready") {
       cancelProbe?.();
       cancelProbe = undefined;

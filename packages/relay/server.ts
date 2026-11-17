@@ -35,32 +35,42 @@ export function openRelayServer(options: {
     server.on("connection", (ws, request) => {
       ws.binaryType = "arraybuffer";
       ws.on("error", () => undefined);
-      options.relay.accept(request.url ?? "", {
-        send(data) {
-          if (ws.readyState === WebSocket.OPEN) ws.send(data);
+      // Fly.io의 proxy 뒤에서는 socket 주소가 proxy다. proxy가 붙이는 Fly-Client-IP가 연 쪽의 주소다.
+      const forwarded = request.headers["fly-client-ip"];
+      const ip =
+        (typeof forwarded === "string" ? forwarded : undefined) ??
+        request.socket.remoteAddress ??
+        "";
+      options.relay.accept(
+        request.url ?? "",
+        {
+          send(data) {
+            if (ws.readyState === WebSocket.OPEN) ws.send(data);
+          },
+          ping() {
+            if (ws.readyState === WebSocket.OPEN) ws.ping();
+          },
+          // 짝에서 넘긴 message를 보낼 틈을 주고 닫는다. 답 없는 상대는 1초 뒤 끊는다.
+          close() {
+            ws.close();
+            setTimeout(() => ws.terminate(), CLOSE_GRACE_MS).unref();
+          },
+          onMessage(handler) {
+            ws.on("message", (data, isBinary) => {
+              if (!isBinary) return handler(String(data));
+              handler(new Uint8Array(data as ArrayBuffer));
+            });
+          },
+          onPong(handler) {
+            ws.on("pong", handler);
+          },
+          onClose(handler) {
+            ws.on("close", handler);
+          },
+          bufferedAmount: () => ws.bufferedAmount,
         },
-        ping() {
-          if (ws.readyState === WebSocket.OPEN) ws.ping();
-        },
-        // 짝에서 넘긴 message를 보낼 틈을 주고 닫는다. 답 없는 상대는 1초 뒤 끊는다.
-        close() {
-          ws.close();
-          setTimeout(() => ws.terminate(), CLOSE_GRACE_MS).unref();
-        },
-        onMessage(handler) {
-          ws.on("message", (data, isBinary) => {
-            if (!isBinary) return handler(String(data));
-            handler(new Uint8Array(data as ArrayBuffer));
-          });
-        },
-        onPong(handler) {
-          ws.on("pong", handler);
-        },
-        onClose(handler) {
-          ws.on("close", handler);
-        },
-        bufferedAmount: () => ws.bufferedAmount,
-      });
+        ip,
+      );
     });
   });
 }

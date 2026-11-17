@@ -555,7 +555,10 @@ test("등록되지 않은 key의 연결은 pair 말고 아무 frame도 통하지
       });
       await settle();
       assert.deepEqual(s.reached, []);
-      assert.deepEqual(c.frames, []);
+      // 등록되지 않은 key는 다시 pairing하라는 이유를 받는다(꺼져 있는 동안 끊긴 폰).
+      assert.deepEqual(c.frames, [
+        { type: "closed", reason: "credential_revoked" },
+      ]);
       assert.equal(c.closed(), true);
     });
   }
@@ -909,7 +912,9 @@ test("끊은 기기는 연결이 닫히고 같은 key로는 pair만 받는다", 
   });
   await settle();
   assert.equal(again.closed(), true);
-  assert.deepEqual(results(again.frames), []);
+  assert.deepEqual(again.frames, [
+    { type: "closed", reason: "credential_revoked" },
+  ]);
   assert.deepEqual(s.reached, []);
 
   const repaired = await s.connect(key);

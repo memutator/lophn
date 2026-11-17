@@ -11,6 +11,8 @@ const server = await openRelayServer({
   port: Number(values.port ?? process.env.PORT ?? 8080),
   relay: createRelay({
     random: cryptoRandom,
+    now: () => Date.now(),
+    log: (line) => console.log(line),
     timers: {
       set: (run, ms) => setTimeout(run, ms),
       clear: (handle) => clearTimeout(handle as NodeJS.Timeout),

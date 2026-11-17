@@ -199,8 +199,8 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
               (): Result<unknown> =>
                 err({ code: "internal", message: "internal error" }),
             )
-            .then((result) =>
-              channel.send(
+            .then((result) => {
+              const sent = channel.send(
                 result.ok
                   ? {
                       type: "result",
@@ -217,8 +217,20 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
                         message: result.error.message,
                       },
                     },
-              ),
-            );
+              );
+              // frame 한도를 넘는 답은 보내지 못했다. 부른 쪽이 그 답을 끝없이 기다리지 않게 오류로 답한다.
+              if (!sent.ok && sent.error.code === "invalid_input") {
+                channel.send({
+                  type: "result",
+                  id: frame.id,
+                  ok: false,
+                  error: {
+                    code: "unavailable",
+                    message: "the reply is too large to send",
+                  },
+                });
+              }
+            });
         } else if (frame.type === "watch") {
           session.receive(JSON.stringify(frame));
         } else if (frame.type === "response") {
@@ -236,6 +248,8 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
       frame: RemoteClientFrame,
     ): Promise<((frame: RemoteClientFrame) => void) | undefined> {
       if (frame.type !== "pair") {
+        // 꺼져 있는 동안 끊긴 기기는 다음 연결에서 이것을 받는다. 이유 없이 닫으면 닿지 않음으로 보고 헛되이 다시 붙는다.
+        channel.send({ type: "closed", reason: "credential_revoked" });
         channel.close();
         return undefined;
       }

@@ -165,7 +165,7 @@ function Sessions({ down }: { down?: boolean }) {
               lead={<Face who="Claude Code" />}
               title="Fix flaky retry in the scenario runner"
               sub="Working · 2m"
-              end={<Dot tone="good" />}
+              end={<Dot tone="working" />}
             />
             <Row
               lead={<Face who="Codex" />}
@@ -182,7 +182,7 @@ function Sessions({ down }: { down?: boolean }) {
                   Working · 4m
                 </span>
               }
-              end={<Dot tone="good" />}
+              end={<Dot tone="working" />}
             />
           </>
         )}
@@ -418,7 +418,7 @@ export function CodingFlow() {
       </Shot>
       <Shot
         title="Approval from a coding agent"
-        text="flow 4의 coding agent 화면과 같다. 승인 card도 lophn agent의 것과 같은 모양이고 이름만 coding agent다. 폰에서는 이미지를 붙이지 않아 입력 칸에 +가 없다."
+        text="flow 4의 coding agent 화면과 같다. 승인 card도 lophn agent의 것과 같은 모양이고 이름만 coding agent다. 입력 칸의 +로 사진을 붙인다."
       >
         <Approve />
       </Shot>

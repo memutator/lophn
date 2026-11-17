@@ -91,7 +91,7 @@ test("devices/set_terminal_input은 폰 기기 자격으로 부르면 forbidden�
 });
 
 // 기기 표는 메모리 sqlite에 devices.ts command 그대로다. writer는 command를 바로 돌리고 commit 뒤 할 일을 싣는다.
-test("터미널 입력은 기본 꺼짐이고 켠 기기만 terminalInputGrant가 true이며, 끄거나 끊으면 그 command가 답할 때 이미 false다", async () => {
+test("터미널 입력을 받지 않고 등록한 기기는 꺼져 있고 켠 기기만 terminalInputGrant가 true이며, 끄거나 끊으면 그 command가 답할 때 이미 false다", async () => {
   const db = new DatabaseSync(":memory:");
   try {
     for (const step of [...DEVICES_SCHEMA_STEPS, ...DEVICES_KIND_STEPS])

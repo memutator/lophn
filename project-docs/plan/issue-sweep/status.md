@@ -6,15 +6,15 @@ lead만 고친다. `tools/status.py issue-sweep build`가 `tasks/*.md`에서 id,
 |---|---|---|---|---|---|---|---|
 | `sweep-core-agent` | core-agent | 1 | 없음 | running | core-agent/sweep-core-agent |  |  |
 | `sweep-core-apps` | core-apps | 1 | 없음 | running | core-apps/sweep-core-apps |  |  |
-| `sweep-folder-identity` | folder-identity | 1 | 없음 | running | folder-identity/sweep-folder-identity |  |  |
-| `sweep-harness-adapters` | harness-adapters | 1 | 없음 | running | harness-adapters/sweep-harness-adapters |  |  |
-| `sweep-kit-instructions` | kit-instructions | 1 | 없음 | running | kit-instructions/sweep-kit-instructions |  |  |
+| `sweep-folder-identity` | folder-identity | 1 | 없음 | merged | folder-identity/sweep-folder-identity | 65edde7fc |  |
+| `sweep-harness-adapters` | harness-adapters | 1 | 없음 | merged | harness-adapters/sweep-harness-adapters | 53d37b0ac |  |
+| `sweep-kit-instructions` | kit-instructions | 1 | 없음 | merged | kit-instructions/sweep-kit-instructions | f9161b273 |  |
 | `sweep-phone-chat` | phone-chat | 1 | 없음 | running | phone-chat/sweep-phone-chat |  |  |
 | `sweep-phone-lists` | phone-lists | 1 | 없음 | running | phone-lists/sweep-phone-lists |  |  |
 | `sweep-phone-local-apps` | phone-local-apps | 1 | 없음 | running | phone-local-apps/sweep-phone-local-apps |  |  |
 | `sweep-phone-new-session` | phone-new-session | 1 | 없음 | merged | phone-new-session/sweep-phone-new-session | 59d04814e |  |
 | `sweep-phone-terminal` | phone-terminal | 1 | 없음 | running | phone-terminal/sweep-phone-terminal |  |  |
 | `sweep-remote-transport` | remote-transport | 1 | 없음 | merged | remote-transport/sweep-remote-transport | 8d2c41913 |  |
-| `sweep-shell-main` | shell-main | 1 | 없음 | running | shell-main/sweep-shell-main |  |  |
+| `sweep-shell-main` | shell-main | 1 | 없음 | merged | shell-main/sweep-shell-main | 5d47fa6f4 |  |
 | `sweep-shell-renderer` | shell-renderer | 1 | 없음 | running | shell-renderer/sweep-shell-renderer |  |  |
 | `sweep-tools` | tools | 1 | 없음 | merged | tools/sweep-tools | 39a84fd84 | merge last |

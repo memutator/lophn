@@ -326,5 +326,9 @@
   {
     "id": "folder.tables",
     "sha256": "e031cdd4e03ad799fe5960b8ee05ed0f56acb4a624dab1cb276fd7fe059c0672"
+  },
+  {
+    "id": "folder.away-notified",
+    "sha256": "a7511d7157e57278a4e1da729ddb9f01afa013ebbacd5df02344ab316aceaeea"
   }
 ]

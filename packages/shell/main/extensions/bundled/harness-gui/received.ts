@@ -1,4 +1,4 @@
-// 사람이 치지 않은 user 글(다른 agent나 앱의 lophn call·reply, task 알림, 다른 session)을 가려낸다. 모르는 꼴은 null이라
+// 사람이 치지 않은 user 글(다른 agent나 앱의 lophn call·reply, program의 알림, 다른 session)을 가려낸다. 모르는 꼴은 null이라
 // 호출한 쪽이 지금처럼 사람 메시지로 둔다.
 import type { AcpSender } from "../../../../../protocol/acp/items.ts";
 
@@ -17,11 +17,12 @@ export type TranscriptOrigin = {
   body?: string;
 };
 
-// core가 만드는 `<lophn-call from="…" call="…" reply="…">본문</lophn-call>`과 `<lophn-reply call="…" from="…" …>`.
+// core가 만드는 `<lophn-call from="…" call="…" reply="…">본문</lophn-call>`과 `<lophn-reply call="…" from="…" …>`,
+// 그리고 program이 넣는 reaction·step·notice(`packages/protocol/lophn-agent/input-tags.ts`).
 // 본문 안의 `<lophn-…`는 core가 `&lt;`로 무력화해 두었다. 사람이 tag를 붙여 넣는 일은 드물어 origin보다 tag를 먼저 본다:
 // lophn이 TUI에 붙여 넣은 call은 origin이 human이다.
 const TAG =
-  /^<lophn-(call|reply)((?: [a-z_]+="[^"]*")*)>\n([\s\S]*?)\n<\/lophn-\1>/;
+  /^<lophn-(call|reply|reaction|step|notice)((?: [a-z_]+="[^"]*")*)>\n([\s\S]*?)\n<\/lophn-\1>/;
 
 function attributes(raw: string): Record<string, string> {
   return Object.fromEntries(
@@ -35,6 +36,14 @@ export function classifyReceived(
 ): ReceivedText | null {
   const tag = TAG.exec(text.trimStart());
   if (tag !== null) {
+    const body = (tag[3] ?? "").replace(/&lt;(\/?)lophn-/g, "<$1lophn-");
+    if (tag[1] !== "call" && tag[1] !== "reply")
+      return {
+        sender: { kind: "program" },
+        call: null,
+        reply_to: null,
+        text: body,
+      };
     const attr = attributes(tag[2] ?? "");
     const from = attr.from ?? "";
     // 사람이 보낸 call이다. 받은 메시지가 아니라 지금처럼 사람 메시지로 둔다(호출한 쪽이 풀어 그리지 않는다).
@@ -51,12 +60,9 @@ export function classifyReceived(
             : { kind: "agent", agent: null, name: from === "" ? null : from },
       call: tag[1] === "call" ? id : null,
       reply_to: tag[1] === "reply" ? id : null,
-      text: (tag[3] ?? "").replace(/&lt;(\/?)lophn-/g, "<$1lophn-"),
+      text: body,
     };
   }
-  // 다시 뜬 CLI는 앞 process가 띄운 task의 알림을 origin 없이 SDK 입력(`promptSource: "sdk"`)으로 적는다. 글 꼴로도 가른다.
-  if (/^\s*<task-notification>/.test(text))
-    return { sender: { kind: "program" }, call: null, reply_to: null, text };
   if (origin?.kind === undefined || origin.kind === "human") return null;
   if (origin.kind === "peer") {
     return {
@@ -81,4 +87,16 @@ export function classifyBlocks(
   return first?.type === "text" && first.text !== undefined
     ? classifyReceived(first.text)
     : null;
+}
+
+// Claude가 background task·subagent가 끝났을 때 넣는 알림이다. live는 이것을 대화 줄로 그리지 않고(Agent 줄과 task가 상태를
+// 보인다) 다시 그릴 때도 그리지 않는다. 다시 뜬 CLI는 앞 process가 띄운 task의 알림을 origin 없이 SDK 입력
+// (`promptSource: "sdk"`)으로 적으므로 글 꼴로도 가른다.
+export function isTaskNotification(
+  text: string,
+  origin?: TranscriptOrigin | null,
+): boolean {
+  return (
+    origin?.kind === "task-notification" || /^\s*<task-notification>/.test(text)
+  );
 }

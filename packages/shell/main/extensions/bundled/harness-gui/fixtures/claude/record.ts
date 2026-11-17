@@ -40,6 +40,10 @@ import {
   type SpawnOptions,
 } from "@anthropic-ai/claude-agent-sdk";
 
+// 터미널 탭 안에서(`!`나 Bash tool로) 돌린 녹화의 CLI가 탭의 hook env를 물려받으면 그 hook이 탭으로 가 녹화 session이
+// 그 탭의 session과 recent에 들어간다.
+delete process.env.LPN_TERMINAL_HOOK;
+
 // `packages/shell/terminal-host/env.ts`의 SESSION_MARKER_NAME 중 Claude 쪽과 같다(extension은 그 file을 import하지 못한다).
 const MARKERS = new Set([
   "AI_AGENT",

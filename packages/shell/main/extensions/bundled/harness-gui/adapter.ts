@@ -16,6 +16,16 @@ import { codexAdapter } from "./codex.ts";
 import { ompAdapter } from "./omp.ts";
 import { opencodeAdapter } from "./opencode.ts";
 
+/**
+ * 사람이 GUI에서 고른 값 가운데 CLI가 그 session에 남기지 않는 것. 탭이 run을 넘어 들고 있다가 다음 `start`에 준다
+ * (resume, TUI → GUI, `<harness> gui`를 다시 칠 때). 고르지 않은 칸은 없다.
+ */
+export type HarnessGuiCarry = {
+  model?: string;
+  effort?: string;
+  mode?: string;
+};
+
 /** 도는 CLI 하나. restart는 `stop()`이 끝난 뒤 `tuiCommand()`를 치고, shared는 `stop()` 없이 친다. */
 export type HarnessGuiRun = {
   /** process가 끝날 때까지 기다린다. */
@@ -24,6 +34,8 @@ export type HarnessGuiRun = {
   tuiCommand(): string;
   /** 그 CLI 자신의 session id. 모르면 null. */
   sessionId(): string | null;
+  /** 다음 run이 이어 갈 값. 그 값을 CLI가 session에 남기는 harness(Codex, OpenCode, omp)는 두지 않는다. */
+  carry?(): HarnessGuiCarry;
   /** restart 전 modal이 "멈출 것"을 말하게 한다. `tasks`는 ACP `tasks` 중 `state: running`인 수다. */
   running(): { turn: boolean; tasks: number };
   /** 그 CLI가 이 폴더에서 가진 지난 session, 최근 순. 없으면 `capabilities.resume`도 false다. */
@@ -51,6 +63,8 @@ export type HarnessGuiAdapter = {
     cwd: string;
     /** 그 CLI 자신의 session id. */
     resume?: string;
+    /** 앞 run이 `carry()`로 넘긴 값. */
+    carry?: HarnessGuiCarry;
     session: AcpSessionHandle;
     spawn: ExtensionSpawn;
     clock: Clock;

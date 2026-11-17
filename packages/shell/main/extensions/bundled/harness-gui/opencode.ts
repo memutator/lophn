@@ -34,6 +34,7 @@ import type {
 import type { AcpApprovalSubject } from "../../../../../protocol/approvals/gate-call.ts";
 import type { ContentBlock } from "../../../../../protocol/lophn-agent/content-block.ts";
 import type { HarnessGuiAdapter } from "./adapter.ts";
+import { swapQueued } from "./queue.ts";
 import { classifyReceived } from "./received.ts";
 
 /** lophn이 녹화하고 확인한 OpenCode 판. 다르면 창에 한 번 알린다. */
@@ -708,6 +709,8 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
     const acpOf = new Map<string, string>();
     const serverOf = new Map<string, string>();
     const own = new Map<string, ContentBlock[]>();
+    // 다른 client(TUI, lophn)가 넣은 lophn call·reply 따위. 줄의 항목에는 보낸 쪽이 없어 줄에 세우지 않고 넘겨질 때 받은 메시지로 그린다.
+    const foreign = new Map<string, Json>();
     const deliveryOf = new Map<string, "steer" | "queue">();
     // retry가 다시 보낼 turn의 사람 메시지.
     const userOf = new Map<string, ContentBlock[]>();
@@ -1333,6 +1336,13 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
 
     function userQueued(inbox: string, item: Json) {
       const payload = rec(item.payload);
+      if (
+        str(rec(payload.metadata).lophn) === "" &&
+        classifyReceived(str(payload.text)) !== null
+      ) {
+        foreign.set(inbox, payload);
+        return;
+      }
       const acp = str(rec(payload.metadata).lophn) || inbox;
       acpOf.set(inbox, acp);
       serverOf.set(acp, inbox);
@@ -1355,6 +1365,12 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
     }
 
     function delivered(inbox: string) {
+      const payload = foreign.get(inbox);
+      if (payload !== undefined) {
+        foreign.delete(inbox);
+        userMessage(main, inbox, payload, false);
+        return;
+      }
       const acp = acpOf.get(inbox) ?? inbox;
       const delivery = deliveryOf.get(acp);
       const queued = mirror.queued.find((one) => one.id === acp);
@@ -1667,6 +1683,7 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
           return;
         }
         case "session.inbox.cancelled": {
+          if (foreign.delete(str(data.inboxID))) return;
           const acp = acpOf.get(str(data.inboxID)) ?? str(data.inboxID);
           deliveryOf.delete(acp);
           emit({ type: "message_removed", message: acp });
@@ -2670,14 +2687,9 @@ export function createOpencodeAdapter(deps: OpencodeDeps): HarnessGuiAdapter {
         }
         case "move_queued": {
           const order = [...mirror.queued];
-          const index = order.findIndex((one) => one.id === input.message);
-          const target = index + (input.direction === "up" ? -1 : 1);
-          const moved = order[index];
-          const other = order[target];
-          if (moved === undefined || other === undefined) return;
-          order[index] = other;
-          order[target] = moved;
-          await attempt("Move", () => requeue(order, Math.min(index, target)));
+          const from = swapQueued(order, input.message, input.direction);
+          if (from === null) return;
+          await attempt("Move", () => requeue(order, from));
           return;
         }
         case "set_model":

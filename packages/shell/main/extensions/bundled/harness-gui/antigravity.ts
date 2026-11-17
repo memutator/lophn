@@ -27,6 +27,7 @@ import type {
 } from "../../../../../protocol/extensions/mod.ts";
 import type { ContentBlock } from "../../../../../protocol/lophn-agent/content-block.ts";
 import type { HarnessGuiAdapter, HarnessGuiRun } from "./adapter.ts";
+import { resendQueue, swapQueued } from "./queue.ts";
 import { classifyReceived, type ReceivedText } from "./received.ts";
 
 type Start = HarnessGuiAdapter["start"];
@@ -1778,19 +1779,13 @@ const start: (io: AntigravityIo) => Start =
           if (one === undefined) return;
           one.content = message.content;
           one.text = textOf(message.content);
-          // 같은 id로 다시 낸다: 줄의 항목은 갱신을 받지 않아 지우고 다시 넣는다.
-          resendQueue();
+          resendQueue(queue, publish, now());
           return;
         }
         case "move_queued": {
-          const index = queue.findIndex((one) => one.id === message.message);
-          const target = index + (message.direction === "up" ? -1 : 1);
-          const moved = queue[index];
-          const other = queue[target];
-          if (moved === undefined || other === undefined) return;
-          queue[index] = other;
-          queue[target] = moved;
-          resendQueue();
+          if (swapQueued(queue, message.message, message.direction) === null)
+            return;
+          resendQueue(queue, publish, now());
           return;
         }
         case "set_model":
@@ -1824,17 +1819,6 @@ const start: (io: AntigravityIo) => Start =
           return unavailable("Shell mode");
         case "use_role":
           return unavailable("Roles");
-      }
-    }
-
-    function resendQueue() {
-      for (const one of queue)
-        publish({ type: "message_removed", message: one.id });
-      for (const one of queue) {
-        publish({
-          type: "message_queued",
-          queued: { id: one.id, at: now(), content: one.content },
-        });
       }
     }
 

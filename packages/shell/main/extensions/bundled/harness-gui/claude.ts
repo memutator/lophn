@@ -33,6 +33,7 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import {
   classifyReceived,
+  isTaskNotification,
   type ReceivedText,
   type TranscriptOrigin,
 } from "./received.ts";
@@ -66,7 +67,10 @@ import type {
   AcpTask,
   AcpUpdate,
 } from "../../../../../protocol/acp/state.ts";
-import type { ContentBlock } from "../../../../../protocol/lophn-agent/content-block.ts";
+import {
+  IMAGE_NOTE,
+  type ContentBlock,
+} from "../../../../../protocol/lophn-agent/content-block.ts";
 import type {
   AcpCliSession,
   AcpRewindPreview,
@@ -74,6 +78,7 @@ import type {
   ExtensionProcess,
 } from "../../../../../protocol/extensions/mod.ts";
 import type { HarnessGuiAdapter } from "./adapter.ts";
+import { swapQueued } from "./queue.ts";
 
 /** adapter가 밖에 기대는 것. test가 가짜로 바꾼다. */
 export type ClaudeSdk = {
@@ -268,6 +273,9 @@ const HIDDEN_COMMANDS = new Set([
   "agents",
   "ultrareview",
   "login",
+  // SDK로 뜬 CLI에서는 열 panel이 없어 거절 글만 온다. 폰에서 이어 보기는 lophn 자신의 길이 있다.
+  "remote-control",
+  "rc",
 ]);
 const LIMIT_LABELS: Record<string, string> = {
   five_hour: "5h",
@@ -838,7 +846,16 @@ function inputQueue() {
 
 const start: (sdk: ClaudeSdk) => Start =
   (sdk) =>
-  async ({ terminal, cwd, resume, session, spawn, clock, ids }) => {
+  async ({
+    terminal,
+    cwd,
+    resume,
+    carry: given,
+    session,
+    spawn,
+    clock,
+    ids,
+  }) => {
     // 한 session을 두 process가 같이 쓰지 않는다. TUI가 foreground에 있으면 먼저 `exitTui`로 끝내야 한다.
     if (terminal !== null && terminal.state() !== "shell") {
       return {
@@ -909,7 +926,8 @@ const start: (sdk: ClaudeSdk) => Start =
     // transcript에만 붙인 shell 메시지의 uuid. 그 result(num_turns 0)는 turn이 아니다(녹화 shell_append).
     const shellUuids = new Set<string>();
 
-    // query를 다시 열 때 넘기는 것과 TUI로 넘길 때의 flag.
+    // query를 다시 열 때 넘기는 것과 TUI로 넘길 때의 flag. 사람이 고른 model·effort·mode는 앞 run에서도 이어 온다:
+    // CLI의 `/effort`는 그 process에만 걸리고 transcript에 남지 않는다.
     const carry: {
       model: string | null;
       effort: string | null;
@@ -920,9 +938,9 @@ const start: (sdk: ClaudeSdk) => Start =
       rules: Set<string>;
       dirs: Set<string>;
     } = {
-      model: null,
-      effort: null,
-      mode: null,
+      model: given?.model ?? null,
+      effort: given?.effort ?? null,
+      mode: given?.mode ?? null,
       fast: null,
       thinking: null,
       rules: new Set(),
@@ -935,7 +953,7 @@ const start: (sdk: ClaudeSdk) => Start =
     let cliSession = resume ?? uuidOf(ids);
     let models: ModelInfo[] = [];
     let modelId: string | null = null; // 지금 model의 resolved id
-    let shownModel: string | null = null; // 사람이 고른 model row의 value
+    let shownModel: string | null = carry.model; // 사람이 고른 model row의 value
     let fastState = "off"; // init의 fast_mode_state
     // 사람이 effort를 고르지 않았을 때 CLI가 쓸 값. init의 effort가 설정 file보다 앞선다(null은 effort 없음).
     let initEffort: string | null | undefined;
@@ -1749,6 +1767,7 @@ const start: (sdk: ClaudeSdk) => Start =
       }
       const text = textOf(content);
       if (lane !== root && text !== "" && text === lane.prompt) return;
+      if (lane === root && isTaskNotification(text, message.origin)) return;
       // root에서 tool_result 말고 글이 오면 남이 넣은 것이다(사람 메시지는 이미 보낼 때 그렸다).
       const received =
         lane === root && text !== ""
@@ -2402,7 +2421,9 @@ const start: (sdk: ClaudeSdk) => Start =
             continue;
           }
           const text = textOf(blocks);
-          if (text === "") {
+          // 사람이 붙인 그림은 transcript에 base64로만 남는다. 탭 임시 폴더에 다시 쓸 길이 없어 자리만 보인다.
+          const images = blocks.filter((one) => one.type === "image").length;
+          if (text === "" && images === 0) {
             onToolResults(root, blocks);
             continue;
           }
@@ -2453,16 +2474,22 @@ const start: (sdk: ClaudeSdk) => Start =
             else commandOutput(lastCommand, body);
             continue;
           }
-          const received = classifyReceived(text, originOf.get(message.uuid));
+          const origin = originOf.get(message.uuid);
+          // live처럼 줄로 그리지 않는다. 끝남은 Agent 줄과 task가 보인다.
+          if (isTaskNotification(text, origin)) continue;
+          const received = classifyReceived(text, origin);
           if (received !== null) {
             addReceived(root, received, now(), message.uuid);
           } else if (flags.is_meta === true) {
             continue;
           } else {
+            const shown = [text, ...Array(images).fill(IMAGE_NOTE)]
+              .filter((one) => one !== "")
+              .join("\n");
             addUser(
               root,
               ids.newId("msg"),
-              [{ type: "text", text }],
+              [{ type: "text", text: shown }],
               now(),
               message.uuid,
             );
@@ -3403,13 +3430,8 @@ const start: (sdk: ClaudeSdk) => Start =
         }
         case "move_queued": {
           const list = queuedList();
-          const index = list.findIndex((one) => one.id === message.message);
-          const target = index + (message.direction === "up" ? -1 : 1);
-          const moved = list[index];
-          const other = list[target];
-          if (moved === undefined || other === undefined) return;
-          list[index] = other;
-          list[target] = moved;
+          if (swapQueued(list, message.message, message.direction) === null)
+            return;
           await requeue(list);
           return;
         }
@@ -3566,6 +3588,11 @@ const start: (sdk: ClaudeSdk) => Start =
           return `claude ${flags.join(" ")}`;
         },
         sessionId: () => cliSession,
+        carry: () => ({
+          ...(carry.model === null ? {} : { model: carry.model }),
+          ...(carry.effort === null ? {} : { effort: carry.effort }),
+          ...(carry.mode === null ? {} : { mode: carry.mode }),
+        }),
         running: () => ({ turn: root.turn !== null, tasks: runningTasks() }),
         sessions,
         rewindPreview,

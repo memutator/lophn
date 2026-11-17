@@ -12,6 +12,7 @@ import { redactCredentials } from "../../../../../base/telemetry/log.ts";
 import {
   HARNESS_GUI_ADAPTERS,
   type HarnessGuiAdapter,
+  type HarnessGuiCarry,
   type HarnessGuiRun,
 } from "./adapter.ts";
 
@@ -56,6 +57,12 @@ type Tab = {
 
 export function activate(ctx: ExtensionContext): void {
   const tabs = new Map<string, Tab>();
+  // terminal id → 끝난 run이 넘긴 값. handle은 toggle과 resume마다 새로 열리므로 탭(terminal)에 둔다. 작은 값이라 터미널이 닫혀도 남긴다.
+  const carried = new Map<string, HarnessGuiCarry>();
+  const keepCarry = (terminalId: string, run: HarnessGuiRun | null) => {
+    const carry = run?.carry?.();
+    if (carry !== undefined) carried.set(terminalId, carry);
+  };
 
   // env는 (spawn이 얹는 login shell) < 탭의 hook env < adapter가 바꾸는 칸 순서다. 탭의 hook env 덕에 GUI가 띄운 CLI의 hook도 같은
   // 탭으로 와서 GUI turn 동안에도 탭의 상태 점이 맞는다.
@@ -142,6 +149,7 @@ export function activate(ctx: ExtensionContext): void {
       if (tabs.get(terminal.id) === tab) tabs.delete(terminal.id);
       const run = tab.run;
       tab.run = null;
+      keepCarry(terminal.id, run);
       // 닫힌 handle이라 오류를 보일 곳이 없다.
       run?.stop().catch(() => {});
     });
@@ -159,10 +167,12 @@ export function activate(ctx: ExtensionContext): void {
       }
       if (tab.closed) return;
 
+      const carry = carried.get(terminal.id);
       const started = await adapter.start({
         terminal,
         cwd: terminal.cwd,
         ...(request.resume === undefined ? {} : { resume: request.resume }),
+        ...(carry === undefined ? {} : { carry }),
         session: {
           ...session,
           publish(update) {
@@ -198,6 +208,7 @@ export function activate(ctx: ExtensionContext): void {
     if (tab.adapter.handoff === "restart") {
       // CLI가 끝난 뒤에야 handle을 닫고 같은 session을 TUI로 잇는다.
       tab.run = null;
+      keepCarry(terminalId, run);
       let command: string | undefined;
       if (run !== null) {
         // 앞 process가 끝났는지 모르면 TUI를 띄우지 않는다(같은 session을 둘이 쓰지 않는다).

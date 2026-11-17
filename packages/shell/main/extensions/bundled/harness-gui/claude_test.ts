@@ -1028,7 +1028,8 @@ test("저장되지 않은 session을 resume하라는 요청은 같은 id의 새 
 });
 
 // 손으로 만든 transcript 줄이다(녹화 아님). 남이 넣은 글이 사람 메시지로 그려지면 rewind 시점과 bookmark가 남의 말에 붙는다.
-test("resume은 task 알림·peer·lophn call을 받은 메시지로 그리고 사람 메시지만 origin을 가진다", async () => {
+// task 알림은 live가 줄로 그리지 않으므로 다시 그릴 때도 그리지 않는다(Agent 줄과 task가 끝남을 보인다).
+test("resume은 peer·lophn call·notice를 받은 메시지로 그리고 task 알림은 그리지 않으며 사람 메시지만 origin을 가진다", async () => {
   const user = (uuid: string, content: string) => ({
     type: "user",
     uuid,
@@ -1070,6 +1071,10 @@ test("resume은 task 알림·peer·lophn call을 받은 메시지로 그리고 �
         "u11",
         "<local-command-stdout>Theme set to light</local-command-stdout>",
       ),
+      user(
+        "u12",
+        '<lophn-notice kind="call_cancelled">\ncall cal_1\n</lophn-notice>\nThis is an automatic notice and was not written by a person.',
+      ),
     ],
     entries: [
       { type: "user", uuid: "u1", origin: { kind: "human" } },
@@ -1102,14 +1107,6 @@ test("resume은 task 알림·peer·lophn call을 받은 메시지로 그리고 �
   );
   assert.deepEqual(rows, [
     ["user", undefined, null, null, "u1", "hello"],
-    [
-      "received",
-      "program",
-      null,
-      null,
-      null,
-      "<task-notification>done</task-notification>",
-    ],
     ["received", "reviewer", null, null, null, "hi"],
     ["received", "agent:ses_1", "cal_1", null, null, "Please review <lophn-x"],
     [
@@ -1121,14 +1118,7 @@ test("resume은 task 알림·peer·lophn call을 받은 메시지로 그리고 �
       "<unknown-wrapper>x</unknown-wrapper>",
     ],
     ["user", undefined, null, null, "u6", humanCall],
-    [
-      "received",
-      "program",
-      null,
-      null,
-      null,
-      "<task-notification>late</task-notification>",
-    ],
+    ["received", "program", null, null, null, "call cal_1"],
   ]);
   assert.ok(
     t.state.items.some(

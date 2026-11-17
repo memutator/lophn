@@ -24,6 +24,10 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { WebSocket } from "ws";
 
+// 터미널 탭 안에서(`!`나 Bash tool로) 돌린 녹화의 CLI가 탭의 hook env를 물려받으면 그 hook이 탭으로 가 녹화 session이
+// 그 탭의 session과 recent에 들어간다.
+delete process.env.LPN_TERMINAL_HOOK;
+
 // worktree 안 .dev-data는 merge 때 지워지므로 출력 폴더를 기본값 없이 받는다.
 const OUT_ENV = process.env.LOPHN_REC_OUT;
 const MODEL = process.env.CODEX_MODEL;

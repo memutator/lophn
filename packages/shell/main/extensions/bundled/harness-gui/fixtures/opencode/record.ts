@@ -27,6 +27,10 @@ import {
   type OpencodeTransport,
 } from "../../opencode.ts";
 
+// 터미널 탭 안에서(`!`나 Bash tool로) 돌린 녹화의 CLI가 탭의 hook env를 물려받으면 그 hook이 탭으로 가 녹화 session이
+// 그 탭의 session과 recent에 들어간다.
+delete process.env.LPN_TERMINAL_HOOK;
+
 type Json = Record<string, unknown>;
 const rec = (value: unknown): Json =>
   typeof value === "object" && value !== null && !Array.isArray(value)

@@ -38,8 +38,12 @@ import type {
   AcpUpdate,
 } from "../../../../../protocol/acp/state.ts";
 import type { AcpCliSession } from "../../../../../protocol/extensions/mod.ts";
-import type { ContentBlock } from "../../../../../protocol/lophn-agent/content-block.ts";
+import {
+  IMAGE_NOTE,
+  type ContentBlock,
+} from "../../../../../protocol/lophn-agent/content-block.ts";
 import type { HarnessGuiAdapter, HarnessGuiRun } from "./adapter.ts";
+import { resendQueue, swapQueued } from "./queue.ts";
 import { classifyReceived, type ReceivedText } from "./received.ts";
 
 type Start = HarnessGuiAdapter["start"];
@@ -386,6 +390,17 @@ const joined = (content: Msg["content"], kind: "text" | "thinking") =>
           return text ? [text] : [];
         })
         .join("\n");
+
+// 사람이 붙인 그림은 session file에 base64로만 남는다. 다시 그릴 때 탭 임시 폴더에 쓸 길이 없어 자리만 보인다.
+const withImages = (msg: Msg, text: string) =>
+  [
+    text,
+    ...(typeof msg.content === "string" ? [] : (msg.content ?? []))
+      .filter((block) => block.type === "image")
+      .map(() => IMAGE_NOTE),
+  ]
+    .filter((one) => one !== "")
+    .join("\n");
 
 const resultText = (content: Block[] | undefined) =>
   (content ?? []).map((block) => block.text ?? "").join("");
@@ -2231,7 +2246,10 @@ const start: (io: OmpIo) => Start =
           const text = joined(msg.content, "text");
           const received = classifyReceived(text);
           if (received !== null) addReceived(received);
-          else addUser(ids.newId("msg"), [{ type: "text", text }]);
+          else
+            addUser(ids.newId("msg"), [
+              { type: "text", text: withImages(msg, text) },
+            ]);
         });
         cursor = page.data.nextCursor;
         if (cursor === undefined) return;
@@ -2307,17 +2325,6 @@ const start: (io: OmpIo) => Start =
       one.kind === "steer"
         ? request("prompt", { message: one.text, streamingBehavior: "steer" })
         : request("follow_up", { message: one.text });
-    function resendQueue() {
-      for (const one of queue) {
-        publish({ type: "message_removed", message: one.id });
-      }
-      for (const one of queue) {
-        publish({
-          type: "message_queued",
-          queued: { id: one.id, at: now(), content: one.content },
-        });
-      }
-    }
     // omp 줄은 순서를 바꾸는 명령이 없어, 바뀌는 자리부터 지우고 새 순서로 다시 넣는다.
     async function requeue(from: number) {
       const tail = queue.slice(from);
@@ -2821,19 +2828,14 @@ const start: (io: OmpIo) => Start =
           one.text = textOf(message.content);
           queue.push(one);
           await queueAdd(one);
-          resendQueue();
+          resendQueue(queue, publish, now());
           return;
         }
         case "move_queued": {
-          const index = queue.findIndex((one) => one.id === message.message);
-          const target = index + (message.direction === "up" ? -1 : 1);
-          const moved = queue[index];
-          const other = queue[target];
-          if (moved === undefined || other === undefined) return;
-          queue[index] = other;
-          queue[target] = moved;
-          await requeue(Math.min(index, target));
-          resendQueue();
+          const from = swapQueued(queue, message.message, message.direction);
+          if (from === null) return;
+          await requeue(from);
+          resendQueue(queue, publish, now());
           return;
         }
         case "set_model": {

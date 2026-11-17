@@ -39,6 +39,7 @@ import type {
 import type { AcpTerminal } from "../../../../../protocol/extensions/mod.ts";
 import type { ContentBlock } from "../../../../../protocol/lophn-agent/content-block.ts";
 import type { HarnessGuiAdapter, HarnessGuiRun } from "./adapter.ts";
+import { resendQueue, swapQueued } from "./queue.ts";
 import { classifyBlocks, type ReceivedText } from "./received.ts";
 
 // app-server 메시지에서 읽는 칸만 읽는다. 모양은 `codex app-server generate-ts --experimental`이 정한다.
@@ -3175,18 +3176,13 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             const queued = queue.find((one) => one.id === message.message);
             if (queued === undefined) return;
             queued.content = message.content;
-            resendQueue();
+            resendQueue(queue, publish, now());
             return;
           }
           case "move_queued": {
-            const index = queue.findIndex((one) => one.id === message.message);
-            const target = index + (message.direction === "up" ? -1 : 1);
-            const moved = queue[index];
-            const other = queue[target];
-            if (moved === undefined || other === undefined) return;
-            queue[index] = other;
-            queue[target] = moved;
-            resendQueue();
+            if (swapQueued(queue, message.message, message.direction) === null)
+              return;
+            resendQueue(queue, publish, now());
             return;
           }
           case "set_model":
@@ -3255,13 +3251,6 @@ export function createCodexAdapter(io: CodexIo): HarnessGuiAdapter {
             void attempt("Request", () => openSession(message.cli_session));
             return;
         }
-      }
-
-      function resendQueue() {
-        for (const one of queue)
-          publish({ type: "message_removed", message: one.id });
-        for (const one of queue)
-          publish({ type: "message_queued", queued: one });
       }
 
       let told = false;

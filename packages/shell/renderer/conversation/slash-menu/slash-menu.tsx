@@ -60,11 +60,6 @@ interface SlashMenuProps {
   onPick: (entry: SlashEntryView) => void;
 }
 
-/** 입력 글자가 `/`로 시작하고 공백이 아직 없으면 명령을 고르는 중이다. 그 뒤의 글자를 돌려준다. */
-export function slashQuery(text: string): string | null {
-  return text.startsWith("/") && !/\s/.test(text) ? text.slice(1) : null;
-}
-
 // lophn 앱 동작의 아이콘은 이름이 아니라 열 화면 동작으로 고른다.
 const OPENS_ICONS: Readonly<Record<AcpCommandOpens, IconType>> = {
   new: conversationIcons.newSession,

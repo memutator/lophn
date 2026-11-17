@@ -1,6 +1,26 @@
+// 시간 글과 초 tick. DOM이 없어 폰도 import한다.
 import { useEffect, useState } from "react";
+import { t } from "@lophn/i18n";
 
-import { duration } from "./worked-for.tsx";
+/** 걸린 시간 글. 1분 미만은 "18s", 1시간 미만은 "1m 15s", 그 위는 "1h 5m"다. */
+export function duration(ms: number): string {
+  const total = Math.round(ms / 1000);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  if (hours > 0) {
+    return minutes === 0
+      ? t("conversation.label.duration-hours", { hours })
+      : t("conversation.label.duration-hours-minutes", { hours, minutes });
+  }
+  if (minutes === 0) {
+    return t("conversation.label.duration-seconds", { seconds });
+  }
+  if (seconds === 0) {
+    return t("conversation.label.duration-minutes", { minutes });
+  }
+  return t("conversation.label.duration-minutes-seconds", { minutes, seconds });
+}
 
 /**
  * 다음 정각 초까지 기다린 뒤 1초마다 부른다. 줄마다 따로 시작해도 모든 시간 글이 같은 초에 바뀐다(Claude TUI처럼).

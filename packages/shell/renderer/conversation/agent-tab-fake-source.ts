@@ -793,11 +793,10 @@ function askTool(
 
 function envelope(
   sender: Envelope["sender"],
-  task: string,
   refs: Envelope["refs"],
   session: Envelope["session"],
 ): Envelope {
-  return { sender, task, refs, session };
+  return { sender, refs, session };
 }
 
 // ---- harness 장면의 dock: 도는 subagent 하나(자식 대화), 도는 shell task 하나, 줄 선 메시지 ----
@@ -1121,7 +1120,6 @@ function sceneData(scene: AgentTabScene): SceneData {
     case "sender-chips": {
       const notice = envelope(
         { kind: "program", label: null },
-        "The nightly eval moved to 08:00. The next run starts in 20 minutes.",
         [
           {
             kind: "session",
@@ -1133,7 +1131,6 @@ function sceneData(scene: AgentTabScene): SceneData {
       );
       const lophn = envelope(
         { kind: "agent", agent: lophnIdOf(PHRONER), name: "lophn" },
-        "Keep the scenario names in Eval board as they are. A person asked for that, so do not rename them in the fix.",
         [
           {
             kind: "annotation",
@@ -1157,7 +1154,7 @@ function sceneData(scene: AgentTabScene): SceneData {
             received(
               2,
               36,
-              "About the fix for P-12: keep the scenario names as they are.",
+              "About the fix for P-12: keep the scenario names in Eval board as they are. A person asked for that, so do not rename them in the fix.",
               lophn.sender,
             ),
           ],
@@ -1228,9 +1225,10 @@ function sceneData(scene: AgentTabScene): SceneData {
         ),
       };
     case "call-replies": {
+      const answerText =
+        "The 3 regressions share one cause: query-recipe-gap, sched-edit and wake-plant all call the lookup right after a plan edit.";
       const answer = envelope(
         { kind: "agent", agent: fakeId("agt", 1), name: "Eval analyst" },
-        "The 3 regressions share one cause: query-recipe-gap, sched-edit and wake-plant all call the lookup right after a plan edit.",
         [
           {
             kind: "file",
@@ -1240,9 +1238,10 @@ function sceneData(scene: AgentTabScene): SceneData {
         ],
         { id: sessionId(8), title: "Regression on query-recipe-gap" },
       );
+      const noticeText =
+        "The session of Experiment planner ended before it answered your request.";
       const notice = envelope(
         { kind: "program", label: "lophn · Not answered" },
-        "The session of Experiment planner ended before it answered your request.",
         [],
         null,
       );
@@ -1252,11 +1251,11 @@ function sceneData(scene: AgentTabScene): SceneData {
         state: numbered(
           [
             call(1, 44, { ...CALL_OPEN, state: "done" }),
-            received(1, 48, answer.task, answer.sender, {
+            received(1, 48, answerText, answer.sender, {
               reply_to: callId(1),
             }),
             call(3, 49, CALL_FAILED),
-            received(2, 50, notice.task, notice.sender, {
+            received(2, 50, noticeText, notice.sender, {
               reply_to: callId(3),
             }),
           ],

@@ -106,6 +106,7 @@ import {
 import { QuestionCard } from "./question-card/question-card.tsx";
 import { RewindPanel } from "./session-rewind/rewind-panel.tsx";
 import type { SlashEntryView } from "./slash-menu/types.ts";
+import { slashScreenOf } from "./slash-rule.ts";
 import { StatusFooter } from "./status-view/status-footer.tsx";
 import type { StatusData } from "./status-view/status-summary.ts";
 import { StatusView } from "./status-view/status-view.tsx";
@@ -614,7 +615,11 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
       // 새 session은 아직 아는 메시지가 없다.
       seen:
         target === session
-          ? seenOf(messages, thread?.queued ?? [], sentId)
+          ? seenOf(
+              thread === null ? null : messages,
+              thread?.queued ?? [],
+              sentId,
+            )
           : null,
     });
     const next = afterReply(
@@ -754,17 +759,11 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     setLayer({ kind: "status" });
   };
 
-  // 명령이 여는 화면 동작(`opens`)만 보고 이름은 해석하지 않는다. `opens`가 null이거나 인자를 CLI가 받는 명령이면
-  // CLI에 보내고 출력은 대화의 명령 출력 줄로 온다. model·effort·mode는 composer가 먼저 열어 보았다.
+  // 화면 동작은 `slashScreenOf`가 고른다. model·effort·mode는 composer가 먼저 열어 보았다.
   const runSlash = (command: SlashEntryView, argument: string) => {
     const clear = () => drafts.save(key, { text: "", selection: [0, 0] });
-    const opens = command.opens;
-    const sendsArgument =
-      argument !== "" &&
-      command.argumentHint !== null &&
-      opens !== "rename" &&
-      opens !== "goal";
-    if (opens !== null && !sendsArgument) {
+    const opens = slashScreenOf(command, argument);
+    if (opens !== null) {
       const screen: Record<AcpCommandOpens, () => void> = {
         // 새 이름을 쓸 때까지 기다린다.
         rename: () => {

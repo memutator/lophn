@@ -79,8 +79,9 @@ test("changed_elsewhere 뒤 쓴 글과 첨부는 그대로 남아 다시 보낼 
   assert.deepStrictEqual(deliveryAction(after), "none");
 });
 
-// 화면이 아는 것보다 앞선 seen을 싣거나 줄에 선 메시지를 빼먹으면 core가 멀쩡한 보내기를 거절한다.
-test("seen은 대화의 마지막 사람 메시지와 줄에 선 메시지 가운데 뒤의 것이고 아직 안 온 내 말이 있으면 그것이다", () => {
+// 화면이 아는 것보다 앞선 seen을 싣거나 줄에 선 메시지를 빼먹으면 core가 멀쩡한 보내기를 거절한다. 대화를 읽기 전에
+// null을 실으면 core가 모든 사람 메시지를 다른 기기의 것으로 본다.
+test("seen은 대화의 마지막 사람 메시지와 줄에 선 메시지 가운데 뒤의 것이고 아직 안 온 내 말이 있으면 그것이며 대화를 읽기 전에는 싣지 않는다", () => {
   const user = (id: string, at: string) => ({ id, actor: "user", at });
   const messages = [
     user("m1", "2026-10-17T00:00:01.000Z"),
@@ -94,4 +95,5 @@ test("seen은 대화의 마지막 사람 메시지와 줄에 선 메시지 가�
   );
   assert.equal(seenOf(messages, [], "m9"), "m9");
   assert.equal(seenOf(messages, [], "m1"), "m1");
+  assert.equal(seenOf(null, [], "m9"), undefined);
 });

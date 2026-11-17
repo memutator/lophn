@@ -434,7 +434,7 @@ export function useConversation(
         key: `session-messages-send-${message}`,
         content: textBlocks(text),
         delivery,
-        seen: seenOf(messagesOf(data.thread), data.thread?.queued ?? [], null),
+        seen: seenOf(data.thread === null ? null : messagesOf(data.thread), data.thread?.queued ?? [], null),
       });
     },
     [source, session, data.thread],

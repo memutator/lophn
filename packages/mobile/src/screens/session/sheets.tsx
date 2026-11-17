@@ -1,5 +1,6 @@
 // The sheets a conversation opens: what the agent did (with each step's input and output read when opened), its
-// reasoning, adding to the message, the model and effort, the session menu and what hangs off it.
+// reasoning, a subagent's conversation, adding to the message, the commands, the model and effort, the session menu and
+// what hangs off it, and the reason for a Deny (which the Inbox and Home use too).
 import { t } from "@lophn/i18n";
 import {
   Button,
@@ -31,16 +32,20 @@ import {
   ShieldCheck,
   SquareSlash,
   Trash2,
+  X,
 } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
-import type { AcpCommand, AcpSessionMeta } from "../../../../protocol/acp/mod.ts";
+import { type AcpChildState, type AcpSessionMeta, EMPTY_ACP_CHILD_STATE } from "../../../../protocol/acp/mod.ts";
+import { elapsedText } from "../../../../shell/renderer/conversation/activity/elapsed.ts";
 import type { ToolCallView } from "../../../../shell/renderer/conversation/activity/model.ts";
+import { inputText, outputText } from "../../../../shell/renderer/conversation/activity/tool-body-text.ts";
 import type {
   AgentTabSource,
   PermissionsView,
   QueuedView,
   SourceResult,
+  ThreadSubagent,
   ToolCallBodyView,
 } from "../../../../shell/renderer/conversation/agent-tab-source.ts";
 import type { ModelPickerProps } from "../../../../shell/renderer/conversation/model-picker/types.ts";
@@ -48,43 +53,17 @@ import {
   compactTokens,
   contextPercent,
 } from "../../../../shell/renderer/conversation/status-view/status-summary.ts";
+import { createLayoutCache, layoutOf } from "../../../../shell/renderer/conversation/thread-layout.ts";
 import { vendorOf } from "../../../../shell/renderer/parts/vendor-icon/vendors.ts";
 import { type Candidate, useProjectFiles } from "../../data/mod.ts";
 import { Face, type Profile, VendorIcon } from "../../parts/mod.ts";
 import { AttachPicks } from "./attach.tsx";
-import { elapsedText, toolIcon } from "./parts.tsx";
+import { toolIcon } from "./parts.tsx";
+import { Row as ThreadRowView, rowsOf, ThreadContext } from "./thread.tsx";
 
 const pad = { paddingHorizontal: 20 } as const;
 
 // ---- what the agent did
-
-function recordOf(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-// The desktop tool line's input and output text (activity/tool-line.tsx, a DOM file): a command as typed and its
-// stdout and stderr, anything else as JSON.
-function inputText(call: ToolCallView, body: ToolCallBodyView): string {
-  if (body.truncated || typeof body.value === "string") return String(body.value);
-  const command = call.tool === "shell.run" ? recordOf(body.value)?.["command"] : undefined;
-  return typeof command === "string" ? command : (JSON.stringify(body.value, null, 2) ?? "");
-}
-
-function outputText(call: ToolCallView, body: ToolCallBodyView): string {
-  if (body.truncated || typeof body.value === "string") return String(body.value);
-  if (call.tool === "shell.run") {
-    const content = recordOf(recordOf(body.value)?.["content"]);
-    if (content !== null) {
-      return [content["stdout"], content["stderr"]]
-        .filter((text): text is string => typeof text === "string" && text !== "")
-        .join("\n");
-    }
-  }
-  const content = recordOf(body.value)?.["content"] ?? body.value;
-  return typeof content === "string" ? content : (JSON.stringify(content, null, 2) ?? "");
-}
 
 type Read = SourceResult<ToolCallBodyView>;
 
@@ -112,7 +91,7 @@ function Step({
       live = false;
     };
   }, [open, body, call.id, readBody]);
-  const time = elapsedText(call.state === "running", call.startedAt, call.durationMs);
+  const time = elapsedText(call.state === "running", call.startedAt, call.durationMs, Date.now);
   const shownOutput =
     output ?? (body?.output.ok === true ? outputText(call, body.output.value) : null);
   const failed = [body?.input, body?.output].some((read) => read !== undefined && !read.ok && read.code !== "not_found");
@@ -295,28 +274,85 @@ export function FilesSheet({
   );
 }
 
-export function CommandsSheet({
+type Listed = { readonly name: string; readonly description: string };
+
+/** Commands as rows: `/name` and what it does. The + sheet's list and the list over the composer while `/` is typed. */
+export function CommandRows<T extends Listed>({
+  commands,
+  onPick,
+}: {
+  commands: readonly T[];
+  onPick: (command: T) => void;
+}) {
+  return commands.map((command) => (
+    <Row
+      key={command.name}
+      lead={<Icon icon={SquareSlash} />}
+      title={`/${command.name}`}
+      sub={command.description}
+      onPress={() => onPick(command)}
+    />
+  ));
+}
+
+export function CommandsSheet<T extends Listed>({
   commands,
   open,
   onClose,
   onPick,
 }: {
-  commands: readonly AcpCommand[];
+  commands: readonly T[];
   open: boolean;
   onClose: () => void;
-  onPick: (command: AcpCommand) => void;
+  onPick: (command: T) => void;
 }) {
   return (
     <Sheet open={open} onClose={onClose} title={t("conversation.label.slash-menu")}>
-      {commands.map((command) => (
-        <Row
-          key={command.name}
-          lead={<Icon icon={SquareSlash} />}
-          title={`/${command.name}`}
-          sub={command.description}
-          onPress={() => onPick(command)}
-        />
-      ))}
+      <CommandRows commands={commands} onPick={onPick} />
+    </Sheet>
+  );
+}
+
+/**
+ * A subagent's conversation, read only, as the desktop opens it from the subagent line: the child's rows laid out the
+ * same way from `thread.children`. Steering and stopping the child is done on the computer.
+ */
+export function ChildSheet({
+  entry,
+  state,
+  onClose,
+}: {
+  entry: ThreadSubagent | null;
+  state: AcpChildState | undefined;
+  onClose: () => void;
+}) {
+  const actions = useContext(ThreadContext);
+  const child = entry?.child ?? null;
+  const cache = useMemo(() => createLayoutCache(), [child]);
+  const view = entry === null ? null : layoutOf(state ?? EMPTY_ACP_CHILD_STATE, cache);
+  const rows = view === null ? [] : rowsOf(view.entries, view.live);
+  const value = useMemo(
+    () => (actions === null ? null : { ...actions, readOnly: true, canRetry: false }),
+    [actions],
+  );
+  return (
+    <Sheet
+      open={entry !== null}
+      onClose={onClose}
+      title={entry === null ? undefined : t("mobile.session.label.subagent", { agent: entry.agent, description: entry.description })}
+    >
+      <ThreadContext value={value}>
+        <View style={{ ...pad, gap: 18, paddingBottom: 12 }}>
+          {rows.length === 0 && (
+            <Text variant="small" tone="muted">
+              {t("conversation.empty.no-messages")}
+            </Text>
+          )}
+          {rows.map((row) => (
+            <ThreadRowView key={row.id} row={row} />
+          ))}
+        </View>
+      </ThreadContext>
     </Sheet>
   );
 }
@@ -521,6 +557,48 @@ export function RenameSheet({
         <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
           <Button variant="primary" disabled={value.trim() === ""} onPress={save}>
             {t("conversation.button.save")}
+          </Button>
+        </View>
+      </View>
+    </Sheet>
+  );
+}
+
+/**
+ * Deny with a reason, like the desktop card's reason row: the agent gets "the person rejected this tool call: <reason>".
+ * The reason may stay empty. Every place that denies a request on the phone opens this sheet.
+ */
+export function DenySheet({
+  open,
+  agent,
+  busy = false,
+  onClose,
+  onDeny,
+}: {
+  open: boolean;
+  agent: string;
+  busy?: boolean;
+  onClose: () => void;
+  onDeny: (reason: string | undefined) => void;
+}) {
+  const [reason, setReason] = useState("");
+  useEffect(() => {
+    if (open) setReason("");
+  }, [open]);
+  const deny = () => onDeny(reason.trim() === "" ? undefined : reason.trim());
+  return (
+    <Sheet open={open} onClose={onClose} title={t("conversation.label.approval-reason")}>
+      <View style={{ ...pad, gap: 12, paddingBottom: 8 }}>
+        <Input
+          value={reason}
+          onChangeText={setReason}
+          placeholder={t("conversation.label.approval-reason-placeholder", { agent })}
+          autoFocus
+          onSubmit={deny}
+        />
+        <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
+          <Button icon={X} disabled={busy} onPress={deny}>
+            {t("conversation.button.approval-deny")}
           </Button>
         </View>
       </View>

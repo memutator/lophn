@@ -9,7 +9,7 @@ import { t } from "@lophn/i18n";
 
 import { commonIcons } from "../../icons/mod.ts";
 import type { ArtifactsSlice } from "./artifact-text.tsx";
-import { duration } from "../activity/worked-for.tsx";
+import { duration } from "../activity/elapsed.ts";
 import { ChatMarkdown } from "./chat-markdown.tsx";
 import styles from "./message-body.module.css";
 

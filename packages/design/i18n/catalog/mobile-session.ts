@@ -32,6 +32,7 @@ export const mobileSession = {
   "mobile.session.notice.attach-kind":
     "{name} was not added. Only PNG, JPEG, GIF and WebP pictures can be sent from the phone.",
   "mobile.session.notice.attach-unreadable": "{name} could not be read.",
+  "mobile.session.notice.command-on-computer": "Use /{name} on {computer}.",
   "mobile.session.notice.coding-on-computer":
     "This session continues on {computer}. Open lophn there to work in it.",
   "mobile.session.notice.secret-on-computer":

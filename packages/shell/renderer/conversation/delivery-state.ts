@@ -66,12 +66,15 @@ export function afterReply(outgoing: Outgoing, reply: SendReply): Outgoing {
 /**
  * 보내기에 싣는 `seen`: 이 화면이 아는 마지막 사람 메시지. 대화의 사람 메시지와 줄에 선 메시지 가운데 가장 뒤의 것이고,
  * 이 화면이 보내 접수됐지만 아직 대화에 안 들어온 말(`sent`)이 있으면 그것이다. 하나도 모르면 null이다.
+ * 대화 snapshot을 아직 못 받았으면(`messages`가 null) undefined다: 모르는 것을 null(아무것도 못 봤다)로 보내면 core가
+ * 모든 사람 메시지를 다른 기기의 것으로 보아 거절한다. 검사 없이 보낸다.
  */
 export function seenOf(
-  messages: readonly { id: string; actor: string; at: string }[],
+  messages: readonly { id: string; actor: string; at: string }[] | null,
   queued: readonly { id: string; at: string }[],
   sent: string | null,
-): string | null {
+): string | null | undefined {
+  if (messages === null) return undefined;
   let last: { id: string; at: string } | null = null;
   for (const one of [
     ...messages.filter((m) => m.actor === "user"),

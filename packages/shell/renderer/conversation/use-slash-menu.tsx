@@ -15,8 +15,8 @@ import {
   type SlashEntryView,
   SlashMenu,
   type SlashMenuState,
-  slashQuery,
 } from "./slash-menu/slash-menu.tsx";
+import { chooseSlash, parseSlash, slashQuery } from "./slash-rule.ts";
 
 interface SlashMenuInput {
   source: Pick<AgentTabSource, "acp" | "draft">;
@@ -124,20 +124,10 @@ export function useSlashMenu(input: SlashMenuInput): SlashMenuControl {
   };
 
   const submit = async () => {
-    const match = /^\/(\S*)(\s*)([\s\S]*)$/.exec(text)!;
-    const [name, spaced, argument] = [match[1]!, match[2]! !== "", match[3]!];
+    const { name, spaced, argument } = parseSlash(text)!;
     // 인자를 쓰는 중이면 메뉴가 닫혀 있다. 이름으로 목록을 거르고 판정한다.
     const entries = slashRows(slashListOf(commands, name, session !== null));
-    // 인자를 쳤으면 이름이 같은 것이다. 이름만 쳤으면 화살표로 고른 줄이 우선이다. 고르지 않았으면(첫 줄)
-    // 이름이 꼭 맞는 명령이 이긴다. `/status`는 설명에 "status"가 든 MCP가 첫 줄이라 MCP가 돌던 일이 있다.
-    const exact =
-      entries.find((entry) => entry.name === name) ??
-      entries.find((entry) => entry.alias === name);
-    const chosen = spaced
-      ? exact
-      : highlight === 0
-        ? (exact ?? entries[0])
-        : entries[highlight];
+    const chosen = chooseSlash(entries, name, spaced, highlight);
     if (chosen === undefined) setUnknown({ kind: "unknown", name });
     else if (spaced) latest.current.onRun(chosen, argument.trim());
     else pick(chosen);

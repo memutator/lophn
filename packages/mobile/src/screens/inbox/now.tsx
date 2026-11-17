@@ -18,6 +18,7 @@ import {
   type WorkspaceView,
 } from "../../data/mod.ts";
 import { ago, Character, DIM, LOPHN } from "../../parts/mod.ts";
+import { DenySheet } from "../session/sheets.tsx";
 import { Asker, Buttons, Item, useAnswering } from "./item.tsx";
 import {
   type AskQuestion,
@@ -164,8 +165,9 @@ function PermissionItem({
   const view = cardOf(entry, names);
   const answering = useAnswering();
   const openSession = useSessionTitle(entry);
-  const answer = (choice: "once" | "always" | "reject") =>
-    answering.send(() => inbox.decide(entry, choice));
+  const answer = (choice: "once" | "always" | "reject", reason?: string) =>
+    answering.send(() => inbox.decide(entry, choice, reason));
+  const [denying, setDenying] = useState(false);
   const disabled = locked || answering.busy;
   return (
     <Item
@@ -184,7 +186,7 @@ function PermissionItem({
             size="sm"
             icon={X}
             disabled={disabled}
-            onPress={() => answer("reject")}
+            onPress={() => (view.requester === null ? void answer("reject") : setDenying(true))}
           >
             {t("waiting.button.deny")}
           </Button>
@@ -209,6 +211,16 @@ function PermissionItem({
           </Button>
         </Buttons>
       )}
+      <DenySheet
+        open={denying}
+        agent={view.requester ?? ""}
+        busy={disabled}
+        onClose={() => setDenying(false)}
+        onDeny={(reason) => {
+          setDenying(false);
+          void answer("reject", reason);
+        }}
+      />
     </Item>
   );
 }

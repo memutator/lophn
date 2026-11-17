@@ -162,11 +162,9 @@ export interface EvidenceRef {
   readonly target: string;
 }
 
-/** 보낸 쪽 chip을 누르면 panel에 읽어 보이는 것. */
+/** 보낸 쪽 chip을 누르면 panel에 읽어 보이는 것. 맡긴 글은 받은 메시지의 본문이라 여기 없다. */
 export interface Envelope {
   readonly sender: Sender;
-  /** 맡긴 글. */
-  readonly task: string;
   readonly refs: readonly EvidenceRef[];
   /** 보낸 session. program이 보낸 것은 없다. */
   readonly session: { readonly id: string; readonly title: string } | null;
@@ -597,9 +595,10 @@ export interface SendInput {
   readonly delivery: Delivery;
   /**
    * 이 화면이 아는 마지막 사람 메시지(`seenOf`). 그 뒤에 다른 기기의 사람 메시지가 있으면 core가 거절하고
-   * 실패 code는 `changed_elsewhere`다. null은 하나도 못 봤다는 뜻이다(새 session의 첫 말).
+   * 실패 code는 `changed_elsewhere`다. null은 하나도 못 봤다는 뜻이다(새 session의 첫 말). undefined는 대화를 아직
+   * 못 읽었다는 뜻이고 core가 검사하지 않는다.
    */
-  readonly seen: string | null;
+  readonly seen: string | null | undefined;
 }
 
 export interface AgentTabSource {

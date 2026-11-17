@@ -1,6 +1,6 @@
 // 받은 메시지의 보낸 쪽 chip과, chip을 누르면 열리는 panel. 사람이 직접 쓰지 않은 입력(다른 agent의 부탁,
-// lophn이 보낸 알림, 배달 알림)이 chip을 단다. panel은 맡긴 글, 근거 링크, 보낸 session을
-// 읽어 보인다.
+// lophn이 보낸 알림, 배달 알림)이 chip을 단다. panel은 근거 링크와 보낸 session을 읽어 보인다. 맡긴 글은 늘 보이는
+// 본문이라 panel에 다시 두지 않는다.
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
@@ -82,12 +82,6 @@ export function SenderChip({
   );
 }
 
-const HEAD: Record<Sender["kind"], MessageKey> = {
-  agent: "conversation.label.sender-head-handed",
-  app: "conversation.label.sender-head-handed",
-  program: "conversation.label.sender-head-why",
-};
-
 type Loaded =
   | { readonly state: "loading" }
   | { readonly state: "failed" }
@@ -96,22 +90,23 @@ type Loaded =
 interface SenderPanelProps {
   /** 받은 메시지 id. panel이 열릴 때 봉투를 읽는다. */
   message: string;
-  sender: Sender;
   source: Pick<AgentTabSource, "envelope">;
   /** 파일·session·annotation 근거 링크를 연다. 없으면 링크가 아니라 글이다. */
   onOpenRef?: ((ref: EvidenceRef) => void) | undefined;
   /** 보낸 session의 탭을 연다. 없으면 링크가 아니라 글이다. */
   onOpenSession?: ((session: string) => void) | undefined;
+  /** 읽어 보니 근거도 보낸 session도 없다. 보일 것이 없어 chip이 더는 펼쳐지지 않는다. */
+  onEmpty: () => void;
 }
 
-/** chip 아래로 펼쳐지는 panel: 맡긴 글, 근거 링크, 보낸 session 링크. */
+/** chip 아래로 펼쳐지는 panel: 근거 링크, 보낸 session 링크. */
 export function SenderPanel({
   message,
-  sender,
   source,
   onOpenRef,
   onOpenSession,
-}: SenderPanelProps): ReactElement {
+  onEmpty,
+}: SenderPanelProps): ReactElement | null {
   const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
   useEffect(() => {
     let live = true;
@@ -129,7 +124,15 @@ export function SenderPanel({
       live = false;
     };
   }, [source, message]);
+  const empty =
+    loaded.state === "ready" &&
+    loaded.envelope.refs.length === 0 &&
+    loaded.envelope.session === null;
+  useEffect(() => {
+    if (empty) onEmpty();
+  }, [empty, onEmpty]);
 
+  if (empty) return null;
   if (loaded.state !== "ready") {
     return (
       <section
@@ -154,12 +157,6 @@ export function SenderPanel({
       aria-label={t("conversation.title.sender-details")}
       data-sender-panel="ready"
     >
-      <div className={styles.senderBlock}>
-        <p className={styles.senderHead}>{t(HEAD[sender.kind])}</p>
-        <p className={styles.senderTask} data-sender-task="">
-          {envelope.task}
-        </p>
-      </div>
       {envelope.refs.length === 0 ? null : (
         <div className={styles.senderBlock}>
           <p className={styles.senderHead}>

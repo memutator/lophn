@@ -25,7 +25,9 @@ import {
   targetOf,
   titleOf,
 } from "../../../../shell/renderer/conversation/approval-card/subject-text.ts";
+import { inputRequestTitle } from "../../../../shell/renderer/conversation/input-request-card/title.ts";
 import type { Conversation } from "../../data/mod.ts";
+import { DenySheet } from "./sheets.tsx";
 
 type Choice = ApprovalCardRequest["choices"][number];
 
@@ -79,14 +81,15 @@ function Approval({
 }: {
   agent: string;
   request: ApprovalCardRequest;
-  decide: (choice: Choice) => Promise<boolean>;
+  decide: (choice: Choice, reason?: string) => Promise<boolean>;
 }) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-  const press = async (choice: Choice) => {
+  const [denying, setDenying] = useState(false);
+  const press = async (choice: Choice, reason?: string) => {
     setBusy(true);
     setFailed(false);
-    const done = await decide(choice);
+    const done = await decide(choice, reason);
     setBusy(false);
     setFailed(!done);
   };
@@ -106,7 +109,13 @@ function Approval({
       {others.length > 0 && (
         <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
           {others.map((choice) => (
-            <Button key={choice} block icon={choice === "reject" ? X : Check} disabled={busy} onPress={() => void press(choice)}>
+            <Button
+              key={choice}
+              block
+              icon={choice === "reject" ? X : Check}
+              disabled={busy}
+              onPress={() => (choice === "reject" ? setDenying(true) : void press(choice))}
+            >
               {t(CHOICE_LABEL[choice])}
             </Button>
           ))}
@@ -119,6 +128,16 @@ function Approval({
           </Button>
         </View>
       )}
+      <DenySheet
+        open={denying}
+        agent={agent}
+        busy={busy}
+        onClose={() => setDenying(false)}
+        onDeny={(reason) => {
+          setDenying(false);
+          void press("reject", reason);
+        }}
+      />
     </AskCard>
   );
 }
@@ -212,22 +231,6 @@ function Questions({
   );
 }
 
-// The desktop card's title (input-request-card.tsx, a DOM file the phone cannot load).
-function inputTitle(view: InputRequestView, agent: string): string {
-  if (view.kind === "login") return t(`conversation.title.input-request-${view.mode}`, { agent });
-  if (view.kind === "sign_in") {
-    return t("conversation.title.input-request-sign-in", { agent, subject: view.subject });
-  }
-  return t(
-    "app" in view.slot
-      ? "conversation.title.input-request-app"
-      : "mcp" in view.slot
-        ? "conversation.title.input-request-mcp"
-        : "conversation.title.input-request-provider",
-    { agent, subject: view.subject },
-  );
-}
-
 /** A secret, a login or a sign-in: what is asked and where it goes, typed on the computer, with Cancel. */
 function InputRequest({
   agent,
@@ -265,7 +268,7 @@ function InputRequest({
           };
   return (
     <AskCard>
-      <AskTitle icon={view.kind === "sign_in" ? LogIn : KeyRound}>{inputTitle(view, agent)}</AskTitle>
+      <AskTitle icon={view.kind === "sign_in" ? LogIn : KeyRound}>{inputRequestTitle(view, agent)}</AskTitle>
       <Fact label={fact.label} value={fact.value} />
       <Text variant="note" tone="muted" style={{ marginTop: 10 }}>
         {t(view.kind === "sign_in" ? "mobile.session.notice.sign-in-on-computer" : "mobile.session.notice.secret-on-computer", {
@@ -305,7 +308,7 @@ export function Pending({
           key={approval.id}
           agent={agent}
           request={approval}
-          decide={async (choice) => (await conversation.decide(choice)).ok}
+          decide={async (choice, reason) => (await conversation.decide(choice, reason)).ok}
         />
       )}
       {questions !== null &&

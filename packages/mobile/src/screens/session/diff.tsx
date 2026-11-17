@@ -6,34 +6,9 @@ import { useEffect, useState } from "react";
 import { ScrollView } from "react-native";
 import type { ThreadEntry } from "../../../../shell/renderer/conversation/agent-tab-source.ts";
 import { flatEntries } from "../../../../shell/renderer/conversation/agent-view-model.ts";
-import { compareLines } from "../../../../shell/renderer/line-diff.ts";
+import { editDiffOf } from "../../../../shell/renderer/conversation/activity/edit-diff.ts";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
 import { useConversation } from "../../data/mod.ts";
-
-function parseJson(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
-
-// The desktop edit card's rule (activity/file-edit-card.tsx): file.edit gives old_string and new_string, file.write the
-// whole content. A harness gives the input as JSON text.
-function diffOf(raw: unknown): ReturnType<typeof compareLines> | null {
-  const value = typeof raw === "string" ? parseJson(raw) : raw;
-  if (value === null || typeof value !== "object") return null;
-  const input = value as Record<string, unknown>;
-  const after =
-    typeof input["new_string"] === "string"
-      ? input["new_string"]
-      : typeof input["content"] === "string"
-        ? input["content"]
-        : null;
-  if (after === null) return null;
-  const before = typeof input["old_string"] === "string" ? input["old_string"] : "";
-  return compareLines(before, after);
-}
 
 export function DiffScreen({ place }: { place: PlaceOf<"diff"> }) {
   const nav = useNav();
@@ -42,7 +17,7 @@ export function DiffScreen({ place }: { place: PlaceOf<"diff"> }) {
     (entry): entry is Extract<ThreadEntry, { kind: "edit" }> => entry.kind === "edit" && entry.id === place.entry,
   );
   const edit = found?.edit ?? null;
-  const [lines, setLines] = useState<ReturnType<typeof compareLines> | null>(null);
+  const [lines, setLines] = useState<ReturnType<typeof editDiffOf>>(null);
   const [missing, setMissing] = useState(false);
   const call = edit?.id ?? null;
   useEffect(() => {
@@ -50,7 +25,7 @@ export function DiffScreen({ place }: { place: PlaceOf<"diff"> }) {
     let live = true;
     void source.toolCallBody(call, "input").then((read) => {
       if (!live) return;
-      const diff = read.ok ? diffOf(read.value.value) : null;
+      const diff = read.ok ? editDiffOf(read.value.value) : null;
       if (diff === null) setMissing(true);
       else setLines(diff);
     });

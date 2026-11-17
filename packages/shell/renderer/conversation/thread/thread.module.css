@@ -93,12 +93,6 @@
   line-height: var(--type-caption-line);
 }
 
-.senderTask {
-  margin: var(--space-0);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-}
-
 .refList {
   display: flex;
   flex-direction: column;

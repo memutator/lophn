@@ -16,6 +16,7 @@ import {
   type WorkspaceView,
 } from "../../data/mod.ts";
 import { ago, Face, LOPHN } from "../../parts/mod.ts";
+import { DenySheet } from "../session/sheets.tsx";
 
 /** How many cards Home shows; the rest are one tap away under Inbox. */
 export const NEEDS_SHOWN = 2;
@@ -168,10 +169,11 @@ function PermissionCard({
   const command = view.factsPinned
     ? view.facts.find((fact) => fact.style === "code")
     : undefined;
-  async function decide(choice: "once" | "reject") {
+  const [denying, setDenying] = useState(false);
+  async function decide(choice: "once" | "reject", reason?: string) {
     setBusy(true);
     setFailed(false);
-    const done = await inbox.decide(entry, choice);
+    const done = await inbox.decide(entry, choice, reason);
     // A decided request leaves the list and takes this card with it.
     if (!done.ok) {
       setFailed(true);
@@ -195,7 +197,12 @@ function PermissionCard({
         </Text>
       )}
       <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
-        <Button block icon={X} disabled={busy} onPress={() => decide("reject")}>
+        <Button
+          block
+          icon={X}
+          disabled={busy}
+          onPress={() => (view.requester === null ? void decide("reject") : setDenying(true))}
+        >
           {t("waiting.button.deny")}
         </Button>
         <Button
@@ -208,6 +215,16 @@ function PermissionCard({
           {t("waiting.button.allow-once")}
         </Button>
       </View>
+      <DenySheet
+        open={denying}
+        agent={view.requester ?? ""}
+        busy={busy}
+        onClose={() => setDenying(false)}
+        onDeny={(reason) => {
+          setDenying(false);
+          void decide("reject", reason);
+        }}
+      />
     </Card>
   );
 }

@@ -17,16 +17,19 @@ import {
 } from "@lophn/ui-native";
 import { Ellipsis, Monitor } from "lucide-react-native";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Pressable, View } from "react-native";
-import type { AcpCommand, AcpCommandOpens } from "../../../../protocol/acp/mod.ts";
+import { Pressable, ScrollView, View } from "react-native";
+import type { AcpCommandOpens } from "../../../../protocol/acp/mod.ts";
 import { textBlocks } from "../../../../protocol/lophn-agent/content-block.ts";
 import { codingBuiltinOf } from "../../../../protocol/lophn-agent/workspaces.ts";
+import { duration, useSecondTick } from "../../../../shell/renderer/conversation/activity/elapsed.ts";
 import type { ToolCallView } from "../../../../shell/renderer/conversation/activity/model.ts";
 import type {
   PermissionsView,
   QueuedView,
+  ThreadSubagent,
 } from "../../../../shell/renderer/conversation/agent-tab-source.ts";
-import { capabilitiesOf, clockOf, messagesOf } from "../../../../shell/renderer/conversation/agent-view-model.ts";
+import { capabilitiesOf, clockOf, messagesOf, slashEntriesOf } from "../../../../shell/renderer/conversation/agent-view-model.ts";
+import { runComposerCommand } from "../../../../shell/renderer/conversation/composer/slash-actions.ts";
 import {
   afterReply,
   type Outgoing,
@@ -34,6 +37,8 @@ import {
   startSend,
   waitsInQueue,
 } from "../../../../shell/renderer/conversation/delivery-state.ts";
+import type { SlashEntryView } from "../../../../shell/renderer/conversation/slash-menu/types.ts";
+import { chooseSlash, parseSlash, slashQuery, slashScreenOf } from "../../../../shell/renderer/conversation/slash-rule.ts";
 import { useModelPicker } from "../../../../shell/renderer/conversation/use-model-picker.ts";
 import { newId } from "../../../../shell/renderer/prefixed-id.ts";
 import { type PlaceOf, useNav } from "../../app/nav.ts";
@@ -56,9 +61,10 @@ import { DIM, Face, LOPHN, OfflineBanner, type Profile, useUnreachable } from ".
 import { ContinueAsChat, harnessProfile, TerminalSession } from "../coding/index.tsx";
 import { Pending } from "./ask.tsx";
 import { attachedAbove, useAttachments } from "./attach.tsx";
-import { duration, useTick } from "./parts.tsx";
 import {
   AttachSheet,
+  ChildSheet,
+  CommandRows,
   CommandsSheet,
   ContextSheet,
   contextLine,
@@ -78,11 +84,13 @@ type SheetState =
   | { readonly kind: "thought"; readonly text: string }
   | { readonly kind: "queued"; readonly queued: QueuedView }
   | { readonly kind: "permissions"; readonly view: PermissionsView | null }
+  | { readonly kind: "child"; readonly entry: ThreadSubagent }
   | {
       readonly kind: "attach" | "files" | "commands" | "model" | "menu" | "rename" | "context";
     };
 
-// Commands the phone can carry out from the list: run as they are, or opened in one of this screen's sheets.
+// Commands the phone can carry out: run as they are, or opened in one of this screen's sheets. The others (fork, rewind,
+// a new session, ...) are done on the computer; typed here they say so instead of going out as a message.
 const OPENS: ReadonlySet<AcpCommandOpens | null> = new Set([
   null,
   "model",
@@ -126,7 +134,7 @@ function WorkingLine({
   clock: { activeMs: number; at: number } | null;
 }) {
   const [start] = useState(Date.now);
-  useTick(waiting === undefined);
+  useSecondTick(waiting === undefined);
   if (waiting !== undefined) {
     return (
       <Working tone="warning">
@@ -189,6 +197,7 @@ function CodingSessionScreen({ place }: { place: CodingPlace }) {
   );
   const nav = useNav();
   const computer = useCurrentComputer()?.name ?? "";
+  const project = useNames().projects.get(place.coding.project);
   const row = useCodingSessions(place.coding.project).sessions.find((one) => one.session === place.session) ?? null;
   if (row?.view === "tui") {
     return (
@@ -200,8 +209,8 @@ function CodingSessionScreen({ place }: { place: CodingPlace }) {
             <TopBar
               {...nav.menuButton}
               lead={<Face profile={harnessProfile(row.harness, row.label)} size={26} />}
-              title={row.label}
-              sub={row.title ?? undefined}
+              title={row.title ?? row.label}
+              under={project === undefined ? row.label : t("mobile.session.label.where", { agent: row.label, workspace: project })}
             />
             <OfflineBanner note={t("mobile.offline.note")} />
           </>
@@ -265,6 +274,12 @@ function ChatScreen({
   const [draft, setDraft] = useState("");
   const [outgoing, setOutgoing] = useState<Outgoing | null>(null);
   const [changed, setChanged] = useState(false);
+  // A typed `/…` that ran nothing: an unknown name, or a command done on the computer. Typing clears it.
+  const [slashNote, setSlashNote] = useState<string | null>(null);
+  const edit = (text: string) => {
+    setDraft(text);
+    setSlashNote(null);
+  };
   const attachments = useAttachments();
   // The pictures of the message being sent, to put back when the core does not take it (their uploads stay valid).
   const sentWith = useRef<{ id: string; items: readonly Attached[] } | null>(null);
@@ -283,7 +298,11 @@ function ChatScreen({
         key: message.key,
         content: message.content,
         delivery: message.delivery,
-        seen: seenOf(messagesOf(thread), thread?.queued ?? [], outgoing?.phase === "accepted" ? outgoing.id : null),
+        seen: seenOf(
+          thread === null ? null : messagesOf(thread),
+          thread?.queued ?? [],
+          outgoing?.phase === "accepted" ? outgoing.id : null,
+        ),
       });
       const next = afterReply(message, reply.ok ? { ok: true } : { ok: false, code: reply.code });
       // Another device wrote first: no bubble, the words go back in the box and the conversation is read again.
@@ -299,24 +318,84 @@ function ChatScreen({
     [source, session, restore, thread, outgoing, conversation],
   );
 
-  const commands = (meta?.commands ?? []).filter((command) => OPENS.has(command.opens));
+  const allCommands = meta?.commands ?? [];
+  const commands = allCommands.filter((command) => OPENS.has(command.opens));
+  const canCommand = caps.commands && commands.length > 0;
 
-  const run = (command: AcpCommand, argument: string) =>
-    void source.act(session, { type: "run_command", session, key: actKey("cmd"), name: command.name, argument });
+  // The desktop composer's rule (slash-rule.ts, runComposerCommand): model and effort first, then the command's screen
+  // action, or the command goes to the agent as typed.
+  const runCommand = (entry: SlashEntryView, argument: string) => {
+    setSheet(null);
+    const handled = runComposerCommand(entry, argument, {
+      meta,
+      mode: null,
+      openPicker: () => setSheet({ kind: "model" }),
+      openMode: () => {},
+      chooseModel: (model) => picker.onPick({ provider: "", modelName: model }),
+      chooseOptions: (model, options) =>
+        void source.act(session, { type: "set_model", session, key: actKey("model"), model, options }),
+      onProblem: () => setSheet({ kind: "model" }),
+    });
+    if (handled) {
+      setDraft("");
+      return;
+    }
+    const screen = slashScreenOf(entry, argument);
+    if (screen === null) {
+      setDraft("");
+      void source.act(session, { type: "run_command", session, key: actKey("cmd"), name: entry.name, argument });
+      return;
+    }
+    if (!OPENS.has(screen)) {
+      setSlashNote(t("mobile.session.notice.command-on-computer", { name: entry.name, computer }));
+      return;
+    }
+    setDraft("");
+    switch (screen) {
+      case "rename":
+        if (argument === "") setSheet({ kind: "rename" });
+        else void source.act(session, { type: "rename", session, key: actKey("rename"), title: argument });
+        return;
+      case "archive":
+        void archive();
+        return;
+      case "compact":
+        void source.act(session, { type: "compact", session, key: actKey("compact") });
+        return;
+      case "permissions":
+        void openPermissions();
+        return;
+      default:
+        setSheet({ kind: "context" });
+    }
+  };
+
+  // A row picked from a list. A command that takes its argument as typed waits for it; the rest act at once.
+  const pickCommand = (entry: SlashEntryView) => {
+    if (entry.opens === null && entry.argumentHint !== null) {
+      setSheet(null);
+      edit(`/${entry.name} `);
+      return;
+    }
+    runCommand(entry, "");
+  };
 
   const send = async () => {
     const text = draft.trim();
     const pictures = attachments.items;
     if ((text === "" && pictures.length === 0) || attachments.uploading) return;
-    // `/name argument` runs a command the source lists, as the desktop composer does.
-    const slash = /^\/(\S+)\s*([\s\S]*)$/.exec(text);
-    const command =
-      slash === null || pictures.length > 0
-        ? undefined
-        : commands.find((one) => one.name === slash[1] && one.opens === null);
-    if (command !== undefined) {
-      setDraft("");
-      run(command, slash![2]!.trim());
+    // `/name argument` is a command, as in the desktop composer; a name that matches nothing is not sent as a message.
+    const slash = canCommand && pictures.length === 0 ? parseSlash(text) : null;
+    if (slash !== null) {
+      const chosen = chooseSlash(slashEntriesOf(commands, slash.name, true), slash.name, slash.spaced);
+      if (chosen === undefined) {
+        setSlashNote(
+          allCommands.some((one) => one.name === slash.name)
+            ? t("mobile.session.notice.command-on-computer", { name: slash.name, computer })
+            : t("conversation.label.slash-unknown", { name: slash.name }),
+        );
+      } else if (slash.spaced) runCommand(chosen, slash.argument.trim());
+      else pickCommand(chosen);
       return;
     }
     // Pictures go up first; if one does not, nothing is sent and the words and pictures stay as they are.
@@ -335,40 +414,6 @@ function ChatScreen({
         queued: active !== null,
       }),
     );
-  };
-
-  const pickCommand = (command: AcpCommand) => {
-    switch (command.opens) {
-      case null:
-        if (command.argument_hint === null) {
-          setSheet(null);
-          run(command, "");
-        } else {
-          setDraft(`/${command.name} `);
-          setSheet(null);
-        }
-        return;
-      case "model":
-      case "effort":
-        setSheet({ kind: "model" });
-        return;
-      case "permissions":
-        void openPermissions();
-        return;
-      case "rename":
-        setSheet({ kind: "rename" });
-        return;
-      case "archive":
-        setSheet(null);
-        void archive();
-        return;
-      case "compact":
-        setSheet(null);
-        void source.act(session, { type: "compact", session, key: actKey("compact") });
-        return;
-      default:
-        setSheet({ kind: "context" });
-    }
   };
 
   const openPermissions = async () => {
@@ -429,6 +474,7 @@ function ChatScreen({
       openSteps: (calls, output = null) => setSheet({ kind: "steps", calls, output }),
       openThought: (text) => setSheet({ kind: "thought", text }),
       openDiff: (entryId) => nav.open({ name: "diff", session: target, entry: entryId }),
+      openChild: (entry) => setSheet({ kind: "child", entry }),
       openQueued: (queued) => setSheet({ kind: "queued", queued }),
       resend: (message) => void deliver({ ...message, phase: "sending", checked: false }),
     }),
@@ -443,16 +489,20 @@ function ChatScreen({
     face?.workspace?.name ??
     found?.workspace.name ??
     t("left-sidebar.label.home");
+  // The head's quiet line: who runs the session and in which project. The session menu adds the desk.
+  const under = t("mobile.session.label.where", { agent: who.name, workspace: workspaceName });
   const where =
     found?.desk == null
-      ? t("mobile.session.label.where", { agent: who.name, workspace: workspaceName })
+      ? under
       : t("mobile.session.label.where-desk", { agent: who.name, workspace: workspaceName, desk: found.desk });
   const modeLabel = meta?.modes.find((mode) => mode.id === meta.mode)?.label ?? null;
   const project = lophn?.workspace?.kind === "project" ? lophn.workspace.id : (relayed?.project ?? null);
   // A relayed coding session takes no pictures here, but still points at a file and runs commands, so the + stays for those.
   const pictures = caps.images && relayed === null;
-  const canCommand = caps.commands && commands.length > 0;
 
+  // While `/name` is typed (no space yet), the matching commands stand over the composer, as the + sheet lists them.
+  const query = canCommand && attachments.items.length === 0 ? slashQuery(draft) : null;
+  const typed = query === null ? null : slashEntriesOf(commands, query, true);
   const unreachable = useUnreachable();
   const placeholder =
     unreachable ??
@@ -498,9 +548,25 @@ function ChatScreen({
           {t("conversation.error.changed-elsewhere")}
         </Text>
       )}
+      {slashNote !== null && (
+        <Text variant="note" tone="critical" style={{ marginHorizontal: 24, marginBottom: 4 }}>
+          {slashNote}
+        </Text>
+      )}
+      {typed !== null && (
+        <ScrollView style={{ maxHeight: 220 }} keyboardShouldPersistTaps="handled">
+          {typed.length === 0 ? (
+            <Text variant="small" tone="muted" style={{ marginHorizontal: 24, marginVertical: 8 }}>
+              {t("conversation.notice.slash-no-match")}
+            </Text>
+          ) : (
+            <CommandRows commands={typed} onPick={pickCommand} />
+          )}
+        </ScrollView>
+      )}
       <Composer
         value={draft}
-        onChangeText={setDraft}
+        onChangeText={edit}
         onSend={() => void send()}
         above={attachedAbove(attachments)}
         canSend={attachments.items.length > 0}
@@ -526,8 +592,8 @@ function ChatScreen({
           <TopBar
             {...nav.menuButton}
             lead={lead}
-            title={who.name}
-            sub={title}
+            title={title}
+            under={under}
             right={
               <IconButton
                 icon={Ellipsis}
@@ -585,12 +651,22 @@ function ChatScreen({
           open={sheet?.kind === "files"}
           onClose={close}
           onPick={(path) => {
-            setDraft((text) => (text === "" || text.endsWith(" ") ? `${text}${path} ` : `${text} ${path} `));
+            edit(draft === "" || draft.endsWith(" ") ? `${draft}${path} ` : `${draft} ${path} `);
             setSheet(null);
           }}
         />
       )}
-      <CommandsSheet commands={commands} open={sheet?.kind === "commands"} onClose={close} onPick={pickCommand} />
+      <CommandsSheet
+        commands={slashEntriesOf(commands, "", true)}
+        open={sheet?.kind === "commands"}
+        onClose={close}
+        onPick={pickCommand}
+      />
+      <ChildSheet
+        entry={sheet?.kind === "child" ? sheet.entry : null}
+        state={sheet?.kind === "child" && sheet.entry.child !== null ? thread?.children[sheet.entry.child] : undefined}
+        onClose={close}
+      />
       <ModelSheet picker={picker} open={sheet?.kind === "model"} onClose={close} />
       <SessionMenu
         open={sheet?.kind === "menu"}

@@ -1,6 +1,11 @@
 // 받은 메시지 한 개. 왼쪽에 놓이고(내 메시지는 오른쪽 bubble) 위에 보낸 쪽 chip이 붙는다. chip을 누르면 그 아래로
 // panel이 열린다. `replyTo`는 어느 부탁에 대한 답인지 한 줄로 잇는 글이다.
-import { type ReactElement, type ReactNode, useState } from "react";
+import {
+  type ReactElement,
+  type ReactNode,
+  useCallback,
+  useState,
+} from "react";
 import { t } from "@lophn/i18n";
 
 import type {
@@ -38,6 +43,12 @@ export function ReceivedMessage({
   children,
 }: ReceivedMessageProps): ReactElement {
   const [open, setOpen] = useState(defaultOpen);
+  // 근거도 보낸 session도 없는 봉투: 펼칠 것이 없다.
+  const [empty, setEmpty] = useState(false);
+  const closeEmpty = useCallback(() => {
+    setEmpty(true);
+    setOpen(false);
+  }, []);
   return (
     <div
       className={styles.received}
@@ -49,7 +60,9 @@ export function ReceivedMessage({
           sender={sender}
           open={open}
           onToggle={
-            source.envelope === undefined ? undefined : () => setOpen(!open)
+            source.envelope === undefined || empty
+              ? undefined
+              : () => setOpen(!open)
           }
         />
         <span className={styles.time}>{time}</span>
@@ -57,10 +70,10 @@ export function ReceivedMessage({
       {open ? (
         <SenderPanel
           message={message}
-          sender={sender}
           source={source}
           onOpenRef={onOpenRef}
           onOpenSession={onOpenSession}
+          onEmpty={closeEmpty}
         />
       ) : null}
       {replyTo === undefined ? null : (

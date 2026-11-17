@@ -6,9 +6,9 @@ import { type DiffLine, DiffView } from "@lophn/ui/reading";
 import { t } from "@lophn/i18n";
 
 import { actionIcons, conversationIcons } from "../../icons/mod.ts";
-import { compareLines } from "../../line-diff.ts";
 import type { AgentTabSource } from "../agent-tab-source.ts";
 import type { ToolCallState } from "./model.ts";
+import { editDiffOf } from "./edit-diff.ts";
 import { ToolStateMark } from "./tool-state-mark.tsx";
 import styles from "./activity.module.css";
 
@@ -25,33 +25,6 @@ interface EditCardProps {
   readInput: AgentTabSource["toolCallBody"] | undefined;
   /** [Open]: 그 파일의 탭을 연다. */
   onOpen: () => void;
-}
-
-function parseJson(text: string): unknown {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
-
-// tool 입력에서 비교할 앞뒤 글을 꺼낸다. file.edit은 old_string/new_string, file.write는 content 전체다.
-// 파일 어디쯤인지 모르므로 줄 번호는 붙이지 않는다.
-function diffOf(raw: unknown): readonly DiffLine[] | null {
-  // harness가 싣는 본문은 입력 JSON 글이다.
-  const value = typeof raw === "string" ? parseJson(raw) : raw;
-  if (value === null || typeof value !== "object") return null;
-  const input = value as Record<string, unknown>;
-  const after =
-    typeof input["new_string"] === "string"
-      ? input["new_string"]
-      : typeof input["content"] === "string"
-        ? input["content"]
-        : null;
-  if (after === null) return null;
-  const before =
-    typeof input["old_string"] === "string" ? input["old_string"] : "";
-  return compareLines(before, after).map(({ kind, text }) => ({ kind, text }));
 }
 
 // 파일을 바꾼 편집 카드 "Edited <경로> +n −m". 한 줄: 앞에 펼침 chevron, 오른쪽 끝에 [Open]. 펼치면 바뀐 줄을 unified diff로 본다.
@@ -77,9 +50,10 @@ export function EditCard({
     readInput(call, "input").then(
       (result) => {
         if (!alive) return;
-        const found = result.ok ? diffOf(result.value.value) : null;
+        const found = result.ok ? editDiffOf(result.value.value) : null;
+        // 파일 어디쯤인지 모르므로 줄 번호는 붙이지 않는다.
         if (found === null) setMissing(true);
-        else setLines(found);
+        else setLines(found.map(({ kind, text }) => ({ kind, text })));
       },
       () => {
         if (alive) setMissing(true);

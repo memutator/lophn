@@ -1,6 +1,5 @@
-// 받은 메시지의 보낸 쪽 chip이 읽는 것(맡긴 글, 근거 링크, 보낸 session)과 tool 호출의 입력·결과 본문. 대화 줄은
+// 받은 메시지의 보낸 쪽 chip이 읽는 것(근거 링크, 보낸 session)과 tool 호출의 입력·결과 본문. 대화 줄은
 // ACP snapshot이 주므로 여기서 만들지 않는다. 한 번 읽으면 바뀌지 않는 값은 기억한다.
-import { messageBody } from "../../../protocol/lophn-agent/messages.ts";
 import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 import {
   type ReceivedMessage,
@@ -8,7 +7,6 @@ import {
 } from "../../../protocol/lophn-agent/received-messages.ts";
 import { turnBodyView } from "../../../protocol/lophn-agent/turn-reads.ts";
 import type {
-  BodyPart,
   Envelope,
   EvidenceRef,
   Sender,
@@ -20,7 +18,6 @@ import { agentNameOf, readSession } from "./agent-tab-core-source-sessions.ts";
 
 /** 한 번 읽으면 바뀌지 않는 값. */
 interface BodiesMemo {
-  readonly bodies: Map<string, readonly BodyPart[]>;
   readonly agents: Map<string, AgentId>;
   /** `<종류>:<id>` → tool 호출의 입력·결과 본문. */
   readonly views: Map<string, ToolCallBodyView>;
@@ -28,74 +25,12 @@ interface BodiesMemo {
 
 export function createBodiesMemo(): BodiesMemo {
   return {
-    bodies: new Map(),
     agents: new Map(),
     views: new Map(),
   };
 }
 
-// ---------------------------------------------------------------- 본문과 보낸 쪽
-
-/** 확정 메시지 하나의 본문. 시각 블록은 받은 값 그대로 넘기고 블록 renderer가 그리기 전에 검사한다. */
-async function readBody(
-  env: Env,
-  memo: BodiesMemo,
-  message: string,
-): Promise<SourceResult<readonly BodyPart[]>> {
-  const known = memo.bodies.get(message);
-  if (known !== undefined) return { ok: true, value: known };
-  const read = await env.read(messageBody, { message });
-  if (!read.ok) return read;
-  const parts = read.value.content.parts.flatMap((part): BodyPart[] => {
-    switch (part.kind) {
-      case "text":
-        return [{ kind: "text", text: part.text }];
-      case "image":
-        return [{ kind: "image", blob: part.blob }];
-      case "resource_link":
-        return [{ kind: "resource_link", uri: part.uri, name: part.name }];
-      case "resource":
-        return [{ kind: "resource", uri: part.uri, text: part.text }];
-      case "app_card":
-        return [
-          {
-            kind: "app_card",
-            app: part.app,
-            view: part.view,
-            ...(part.params === undefined ? {} : { params: part.params }),
-          },
-        ];
-      // harness가 쓴 tool 줄은 전용 줄이 생기기 전까지 글 한 줄로 보인다.
-      case "harness_tool":
-        return [
-          {
-            kind: "text",
-            text: `[${part.status}] ${part.name}: ${part.summary}`,
-          },
-        ];
-      // 사람이 `!`로 돌린 명령은 본문이 아니라 사람 tool 줄(ACP item)로 그린다.
-      case "shell":
-        return [];
-      // reasoning은 글과 달리 agent 답 앞의 reasoning 줄이 그린다.
-      case "reasoning":
-        return [
-          {
-            kind: "reasoning",
-            text: part.text,
-            durationMs: part.duration_ms,
-          },
-        ];
-    }
-  });
-  memo.bodies.set(message, parts);
-  return { ok: true, value: parts };
-}
-
-function textOf(parts: readonly BodyPart[]): string {
-  return parts
-    .flatMap((part) => (part.kind === "text" ? [part.text] : []))
-    .join("\n");
-}
+// ---------------------------------------------------------------- 보낸 쪽
 
 async function agentOf(
   env: Env,
@@ -159,7 +94,7 @@ function refsOf(refs: ReceivedMessage["refs"]): EvidenceRef[] {
   });
 }
 
-/** 보낸 쪽 chip을 누르면 읽는다: 맡긴 글, 근거 링크, 보낸 session. */
+/** 보낸 쪽 chip을 누르면 읽는다: 근거 링크, 보낸 session. */
 export async function readEnvelope(
   env: Env,
   memo: BodiesMemo,
@@ -167,9 +102,7 @@ export async function readEnvelope(
 ): Promise<SourceResult<Envelope>> {
   const read = await env.read(receivedMessageRead, { message });
   if (!read.ok) return read;
-  const { from, refs, id } = read.value.message;
-  const body = await readBody(env, memo, id);
-  if (!body.ok) return body;
+  const { from, refs } = read.value.message;
   const base = await senderOf(env, memo, from);
   if (base === null) return { ok: false, code: "not_found" };
   const sender = await withName(env, base, from);
@@ -182,7 +115,7 @@ export async function readEnvelope(
   }
   return {
     ok: true,
-    value: { sender, task: textOf(body.value), refs: refsOf(refs), session },
+    value: { sender, refs: refsOf(refs), session },
   };
 }
 

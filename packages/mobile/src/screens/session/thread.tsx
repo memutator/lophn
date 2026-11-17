@@ -35,7 +35,6 @@ import {
 import { createContext, memo, type ReactNode, useContext, useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import type { AcpWriting } from "../../../../protocol/acp/mod.ts";
-import { TURN_FAILED_REASONS } from "../../../../protocol/lophn-agent/turn-values.ts";
 import type { ToolCallView } from "../../../../shell/renderer/conversation/activity/model.ts";
 import type {
   AgentTabSource,
@@ -50,10 +49,12 @@ import { targetOf } from "../../../../shell/renderer/conversation/approval-card/
 import type { Outgoing } from "../../../../shell/renderer/conversation/delivery-state.ts";
 import { closeOpenFence } from "../../../../shell/renderer/conversation/live-text.ts";
 import { partsOfContent } from "../../../../shell/renderer/conversation/thread-layout.ts";
+import { failedText } from "../../../../shell/renderer/conversation/thread/turn-failure.ts";
 import { useNav } from "../../app/nav.ts";
 import { useInbox } from "../../data/mod.ts";
 import { Face, type Profile } from "../../parts/mod.ts";
-import { duration, elapsedText, Line, useTick } from "./parts.tsx";
+import { duration, elapsedText, useSecondTick } from "../../../../shell/renderer/conversation/activity/elapsed.ts";
+import { Line } from "./parts.tsx";
 
 // ---- rows
 
@@ -136,6 +137,8 @@ export interface ThreadActions {
   openSteps(calls: readonly ToolCallView[], output?: string | null): void;
   openThought(text: string): void;
   openDiff(entry: string): void;
+  /** A subagent line whose child conversation is known: opens it read only. */
+  openChild(entry: Extract<ThreadEntry, { kind: "subagent" }>): void;
   openQueued(queued: QueuedView): void;
   resend(outgoing: Outgoing): void;
 }
@@ -395,7 +398,7 @@ function Body({ parts }: { parts: readonly BodyPart[] }) {
 function toolLabel(calls: readonly ToolCallView[]): string {
   const first = calls[0]!;
   if (calls.length === 1) {
-    const time = elapsedText(first.state === "running", first.startedAt, first.durationMs);
+    const time = elapsedText(first.state === "running", first.startedAt, first.durationMs, Date.now);
     const state = TOOL_STATE[first.state];
     return [first.title, time, state === undefined ? "" : t(state)].filter((part) => part !== "").join(" · ");
   }
@@ -433,18 +436,20 @@ const TOOL_STATE: Partial<Record<ToolCallView["state"], MessageKey>> = {
 
 function Tools({ calls }: { calls: readonly ToolCallView[] }) {
   const { openSteps } = useActions();
-  useTick(calls.length === 1 && calls[0]!.state === "running");
+  useSecondTick(calls.length === 1 && calls[0]!.state === "running");
   return <Act onPress={() => openSteps(calls)}>{toolLabel(calls)}</Act>;
 }
 
 function Subagent({ entry }: { entry: Extract<ThreadEntry, { kind: "subagent" }> }) {
+  const { openChild } = useActions();
   const running = entry.state === "running";
-  useTick(running);
-  const time = elapsedText(running, entry.startedAt, entry.durationMs);
+  useSecondTick(running);
+  const time = elapsedText(running, entry.startedAt, entry.durationMs, Date.now);
   return (
     <Line
       icon={Bot}
       under={running ? (entry.last ?? undefined) : undefined}
+      onPress={entry.child === null ? undefined : () => openChild(entry)}
       end={
         running ? (
           <Text variant="caption" tone="muted">
@@ -575,44 +580,11 @@ function Questions({ entry }: { entry: Extract<ThreadEntry, { kind: "questions" 
   );
 }
 
-type FailedReason = (typeof TURN_FAILED_REASONS)[number];
-
-// Same table as the desktop's provider-error.tsx, which the phone cannot load (DOM).
-const FAILED_TEXT = {
-  model_error: "conversation.error.turn-model-error",
-  tool_error: "conversation.error.turn-tool-error",
-  context_limit: "conversation.error.turn-context-limit",
-  model_attempt_limit: "conversation.error.turn-model-attempt-limit",
-  stall_limit: "conversation.error.turn-stall-limit",
-  active_limit: "conversation.error.turn-active-limit",
-  repeated_tool_failure: "conversation.error.turn-repeated-tool-failure",
-  effect_unknown: "conversation.error.turn-effect-unknown",
-  clock_uncertain: "conversation.error.turn-clock-uncertain",
-  configuration_unavailable: "conversation.error.turn-configuration-unavailable",
-  model_required: "conversation.error.turn-model-required",
-  target_unavailable: "conversation.error.turn-target-unavailable",
-  no_answer: "conversation.error.turn-no-answer",
-  internal: "conversation.error.turn-internal",
-} as const satisfies Record<FailedReason, string>;
-
-function errorText(entry: Extract<ThreadEntry, { kind: "provider-error" }>): string {
-  const status = entry.evidence?.http_status;
-  if (entry.code === "configuration_unavailable" && (status === 402 || status === 429)) {
-    return t("conversation.error.turn-usage-limit");
-  }
-  if (entry.code === "configuration_unavailable" && (status === 401 || status === 403)) {
-    return t("conversation.error.turn-sign-in-rejected");
-  }
-  if ((entry.code === "model_error" || entry.code === "model_attempt_limit") && status === 429) {
-    return t("conversation.error.turn-rate-limited");
-  }
-  return entry.code in FAILED_TEXT ? t(FAILED_TEXT[entry.code as FailedReason]) : entry.message;
-}
-
 /** A failed request in one line with Retry, which sends the failed turn's input again. */
 function ProviderError({ entry }: { entry: Extract<ThreadEntry, { kind: "provider-error" }> }) {
   const { source, canRetry, readOnly } = useActions();
   const [state, setState] = useState<"idle" | "sending" | "failed">("idle");
+  const text = failedText(entry.code, entry.evidence?.http_status, entry.message);
   const retry = async () => {
     setState("sending");
     const result = await source.retryTurn(entry.turn);
@@ -628,7 +600,7 @@ function ProviderError({ entry }: { entry: Extract<ThreadEntry, { kind: "provide
         ) : undefined
       }
     >
-      {state === "failed" ? `${errorText(entry)}\n${t("conversation.notice.retry-failed")}` : errorText(entry)}
+      {state === "failed" ? `${text}\n${t("conversation.notice.retry-failed")}` : text}
     </ErrorLine>
   );
 }

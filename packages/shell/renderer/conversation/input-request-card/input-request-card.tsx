@@ -15,6 +15,7 @@ import type {
 } from "../../../ipc/secret-input.ts";
 import type { AgentTabSource } from "../agent-tab-source.ts";
 import { useOptionalEventClient } from "../../desktop/connection/events/hooks.tsx";
+import { inputRequestTitle } from "./title.ts";
 import styles from "./input-request-card.module.css";
 
 /**
@@ -48,26 +49,6 @@ interface InputRequestCardProps {
   >;
   /** 보호 창을 열고 닫힐 때까지 기다린다. 열지 못하면 false다. */
   onEnter: () => Promise<boolean>;
-}
-
-function titleOf(view: InputRequestView, agent: string): string {
-  if (view.kind === "login") {
-    return t(`conversation.title.input-request-${view.mode}`, { agent });
-  }
-  if (view.kind === "sign_in") {
-    return t("conversation.title.input-request-sign-in", {
-      agent,
-      subject: view.subject,
-    });
-  }
-  return t(
-    "app" in view.slot
-      ? "conversation.title.input-request-app"
-      : "mcp" in view.slot
-        ? "conversation.title.input-request-mcp"
-        : "conversation.title.input-request-provider",
-    { agent, subject: view.subject },
-  );
 }
 
 export function InputRequestCard({
@@ -132,7 +113,7 @@ export function InputRequestCard({
       className={styles.card}
       aria-label={t("conversation.label.input-request-card", { agent })}
     >
-      <span className={styles.title}>{titleOf(view, agent)}</span>
+      <span className={styles.title}>{inputRequestTitle(view, agent)}</span>
       {view.kind === "sign_in" ? (
         <div className={styles.site} data-sign-in-destinations="">
           <span className={styles.caption}>

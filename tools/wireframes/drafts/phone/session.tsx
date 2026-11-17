@@ -50,18 +50,21 @@ import {
   Vend,
 } from "./kit.tsx";
 
+// The session's name leads; who runs it and in which project is the quiet line under it.
 function Head({
   who = "lophn",
   title = "Weekly report",
+  project = "phroner",
 }: {
   who?: string;
   title?: string;
+  project?: string;
 }) {
   return (
     <TopBar
       lead={<Face who={who} size={26} />}
-      title={who}
-      sub={title}
+      title={title}
+      under={`${who} · ${project}`}
       right={<IconBtn icon={Ellipsis} />}
     />
   );
@@ -184,9 +187,9 @@ function Running() {
   );
 }
 
-function Approval() {
+function Approval({ over }: { over?: ReactNode }) {
   return (
-    <Phone>
+    <Phone over={over}>
       <Head />
       <div className={s.thread}>
         <div className={s.turn}>
@@ -229,6 +232,69 @@ function Approval() {
       </div>
       <Composer placeholder="Reply…" chips={MODEL} />
     </Phone>
+  );
+}
+
+// Deny asks why, in one optional line; the agent gets it with the refusal. Inbox and Home deny through the same sheet.
+function DenyReason() {
+  return (
+    <Sheet title="Reason for denying">
+      <div
+        className={s.pad}
+        style={{ display: "grid", gap: 12, paddingBottom: 8 }}
+      >
+        <div className={s.field} style={{ minHeight: 40 }}>
+          <span>Not on main, use a branch</span>
+          <span className={s.caret} />
+        </div>
+        <div className={s.btnRow} data-end="">
+          <Btn icon={X}>Deny</Btn>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+// `/` typed in the message: the commands that match stand over the composer, the same list as + › Commands and skills.
+function TypedCommand() {
+  return (
+    <Phone>
+      <Head />
+      <Answer />
+      <Row
+        lead={<Ic icon={SquareSlash} />}
+        title="/rename"
+        sub="Rename this session"
+      />
+      <Row
+        lead={<Ic icon={SquareSlash} />}
+        title="/review"
+        sub="Review the changes on this branch"
+      />
+      <Composer placeholder="Reply…" value="/re" chips={MODEL} action="send" />
+    </Phone>
+  );
+}
+
+// A subagent's line opens its conversation, read only. Steering or stopping it is done on the computer.
+function Subagent() {
+  return (
+    <Sheet title="Explore · Find where the upload retry is called">
+      <div className={s.thread}>
+        <div className={s.bubble}>
+          Find every caller of withRetry in src/scenario and say which ones wrap
+          a timeout.
+        </div>
+        <div className={s.turn}>
+          <Who who="Explore" />
+          <Act>Searched for withRetry · 4 matches</Act>
+          <p className={s.p}>
+            runner.ts and client.ts both wrap the request in withRetry, so a
+            timeout is retried by each.
+          </p>
+        </div>
+      </div>
+    </Sheet>
   );
 }
 
@@ -499,9 +565,9 @@ function SessionMenu() {
   );
 }
 
-function Coding() {
+function Coding({ over }: { over?: ReactNode }) {
   return (
-    <Phone>
+    <Phone over={over}>
       <Head who="Claude Code" title="Fix flaky retry in the scenario runner" />
       <div className={s.thread}>
         <div className={s.bubble}>
@@ -511,6 +577,7 @@ function Coding() {
         <div className={s.turn}>
           <Who who="Claude Code" />
           <Act>Explored 6 files</Act>
+          <Act>Explore · Find where the upload retry is called · 38s</Act>
           <p className={s.p}>
             The retry wrapper is applied in both{" "}
             <span className={s.mono}>runner.ts</span> and{" "}
@@ -668,7 +735,7 @@ export function SessionFlow() {
     >
       <Shot
         title="Answer"
-        text="위쪽: sidebar 단추, agent와 session 이름, ⋯. 한 일은 접힌 줄이고 누르면 펼친다. 고친 file은 card로, 누르면 diff다. 입력 칸 아래 줄에 첨부(+)와 model이 있다."
+        text="위쪽: sidebar 단추, 큰 글로 session 이름과 그 아래 작은 회색 글로 agent · project, ⋯. 한 일은 접힌 줄이고 누르면 펼친다. 고친 file은 card로, 누르면 diff다. 입력 칸 아래 줄에 첨부(+)와 model이 있다."
       >
         <Done />
       </Shot>
@@ -683,6 +750,12 @@ export function SessionFlow() {
         text="agent가 멈추고 묻는다. 무엇을 하려는지 그대로 보이고, 가장 흔한 답(Allow once)이 가장 크고 엄지에 가깝다."
       >
         <Approval />
+      </Shot>
+      <Shot
+        title="Deny with a reason"
+        text="Deny를 누르면 이유 한 줄을 묻는다(비워도 된다). agent는 거절과 함께 이 글을 받는다. Inbox와 Home의 Deny도 같은 sheet다."
+      >
+        <Approval over={<DenyReason />} />
       </Shot>
       <Shot
         title="Question"
@@ -709,6 +782,12 @@ export function SessionFlow() {
         <Done over={<Attach />} />
       </Shot>
       <Shot
+        title="Typed command"
+        text="입력 칸에 /를 치면 맞는 명령이 입력 칸 위에 선다. desktop과 같은 규칙: /rename 새 이름은 바로 이름을 바꾸고, model·context 같은 것은 그 sheet를 연다. 폰에서 못 하는 명령(fork, rewind)은 컴퓨터에서 하라고 말하고 메시지로 보내지 않는다."
+      >
+        <TypedCommand />
+      </Shot>
+      <Shot
         title="Model"
         text="입력 칸의 model 이름. provider마다 묶인 model과 effort. model을 더하고 빼는 관리는 컴퓨터에서 한다."
       >
@@ -725,6 +804,12 @@ export function SessionFlow() {
         text="컴퓨터의 Claude Code나 Codex도 같은 화면이다. 아이콘만 다르다. 할 일 목록은 입력 칸 위에 접혀 있다."
       >
         <Coding />
+      </Shot>
+      <Shot
+        title="A subagent"
+        text="subagent 줄을 누르면 그 대화가 읽기로 올라온다."
+      >
+        <Coding over={<Subagent />} />
       </Shot>
       <Shot
         title="When the phone cannot do it"

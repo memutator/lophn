@@ -9,8 +9,7 @@ import { iconPixels, systemClipboard } from "@lophn/ui/shared";
 import { conversationIcons, editorIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
-import { startSecondTick } from "../activity/elapsed.ts";
-import { duration } from "../activity/worked-for.tsx";
+import { duration, startSecondTick } from "../activity/elapsed.ts";
 import styles from "./turns.module.css";
 
 // 일하는 중 줄에 걸린 시간을 붙이기 시작하는 때. 1~2초짜리 일에 숫자가 깜빡이지 않을 만큼 기다리되, omp의 5초처럼

@@ -1,6 +1,5 @@
-// Small pieces the conversation screens share: time text, a ticking clock, and the quiet one-line row the thread uses for
-// what the wireframe has no own shape for (subagents, calls, decisions, notices).
-import { t } from "@lophn/i18n";
+// Small pieces the conversation screens share: a tool's icon and the quiet one-line row the thread uses for what the
+// wireframe has no own shape for (subagents, calls, decisions, notices). Time text is the desktop's (activity/elapsed.ts).
 import { Icon, Ink, Text, useTheme } from "@lophn/ui-native";
 import {
   ChevronRight,
@@ -12,50 +11,9 @@ import {
   Terminal,
   Wrench,
 } from "lucide-react-native";
-import { type ReactNode, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import type { ToolCallView } from "../../../../shell/renderer/conversation/activity/model.ts";
-
-// The desktop's `duration` (activity/worked-for.tsx) lives in a DOM file the phone cannot load; same keys, same rule.
-/** 18s, 1m 15s, 1h 5m. */
-export function duration(ms: number): string {
-  const total = Math.round(ms / 1000);
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const seconds = total % 60;
-  if (hours > 0) {
-    return minutes === 0
-      ? t("conversation.label.duration-hours", { hours })
-      : t("conversation.label.duration-hours-minutes", { hours, minutes });
-  }
-  if (minutes === 0) return t("conversation.label.duration-seconds", { seconds });
-  if (seconds === 0) return t("conversation.label.duration-minutes", { minutes });
-  return t("conversation.label.duration-minutes-seconds", { minutes, seconds });
-}
-
-/** A running line's time from its start, a finished line's own duration; empty when unknown. */
-export function elapsedText(
-  running: boolean,
-  startedAt: string | null,
-  durationMs: number | null,
-): string {
-  if (running) {
-    return startedAt === null
-      ? ""
-      : duration(Math.max(0, Date.now() - Date.parse(startedAt)));
-  }
-  return durationMs === null ? "" : duration(durationMs);
-}
-
-/** Draws again every second while `active`. */
-export function useTick(active: boolean): void {
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    if (!active) return;
-    const timer = setInterval(() => setTick((tick) => tick + 1), 1000);
-    return () => clearInterval(timer);
-  }, [active]);
-}
 
 const CATEGORY_ICON: Record<ToolCallView["category"], LucideIcon> = {
   read: FileText,

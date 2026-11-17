@@ -1,7 +1,7 @@
 id: startup-program-notice-no-toast
 title: 기동 때 쓴 program 기록의 toast가 뜨지 않는다
 kind: bug
-status: open
+status: fixed
 topic: shell
 modules: [packages/shell/main, packages/core/main]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 기동 뒤 Gateway가 붙으면 안 읽은 급한 program 줄(`sdk_update_needed`, `app_unavailable`)을 `notices.open`으로 읽어 toast로 한 번 보인다(작음).
   - 추천: 이것. 배지가 있으니 급하지는 않다.
+closed: |
+  shell이 붙을 때마다(`relay.ready`) 안 읽은 `sdk_update_needed`·`app_unavailable` 줄을 읽어 toast로 한 번 보인다. 안 읽은 채 두면 앱을 켤 때마다 다시 뜬다.
+guard: 없음

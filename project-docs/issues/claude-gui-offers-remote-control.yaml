@@ -1,7 +1,7 @@
 id: claude-gui-offers-remote-control
 title: Claude GUI의 `/` 목록에 `/remote-control`이 있지만 실행하면 거절 글만 나온다
 kind: bug
-status: open
+status: fixed
 topic: harness-gui
 modules: [packages/shell/main]
 now: |
@@ -13,3 +13,6 @@ fix: |
   - 중간: GUI에서 켜지게 만든다. SDK의 시작 설정(`remoteControlAtStartup`)이나 control 요청으로 켜고 상태와 링크를 화면에 보인다. 되는지는 실제 CLI로 녹화해 봐야 안다.
 decided: |
   목록에서 숨긴다(`HIDDEN_COMMANDS`에 `remote-control`, `rc`). lophn에 폰으로 coding session을 보는 자기 길이 있어 겹친다. 사람이 Claude의 remote control을 GUI에서 쓰기를 원하면 되살려 만든다. (agent, 추천안으로 진행)
+closed: |
+  `remote-control`과 `rc`를 `HIDDEN_COMMANDS`에 넣어 `/` 목록에 뜨지 않는다.
+guard: 없음

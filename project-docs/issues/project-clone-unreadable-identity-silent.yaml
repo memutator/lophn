@@ -1,7 +1,7 @@
 id: project-clone-unreadable-identity-silent
 title: clone한 저장소의 id file을 읽지 못해도 알리지 않고 등록한다
 kind: bug
-status: open
+status: fixed
 topic: project-identity
 modules: [packages/core/projects]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - `unreadable`이면 note를 싣는다(예: "This repository's .lophn-project.json cannot be read; this lophn may be older than the one that wrote it. Update lophn or fix the file."). `identity`를 주었으면 같은지 모르므로 note에 그것도 쓴다(작음). 추천.
   - `identity`를 주었는데 읽지 못하면 받은 것을 지우고 `conflict`로 거절한다(작음. 판이 다른 기계 사이에서 clone이 막힌다).
+closed: |
+  id file을 읽지 못하면 note를 싣고, `identity`를 줬으면 맞는 project인지 확인하지 못했다고 말한다.
+guard: 없음

@@ -1,7 +1,7 @@
 id: folder-away-notice-count-in-memory
 title: 떨어져 있음 알림이 마지막으로 알린 held 수를 core 메모리에만 둬 재시작 뒤 틀린다
 kind: bug
-status: open
+status: fixed
 topic: folder-sync
 modules: [packages/core/main]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): `folder_streams`에 마지막으로 알린 held 수 칸을 더한다(schema step 하나와 `schema-steps.lock.json` 줄). notice 줄은 그려진 title과 body만 가져(`packages/core/apps/notices/program-text.ts`) 수를 되읽을 수 없다.
   - 작음: notice 줄의 body 글에서 수를 다시 읽는다. 문구를 바꾸면 깨진다.
+closed: |
+  마지막으로 알린 held 수를 `folder_streams.away_notified`에 둔다(schema step `folder.away-notified`).
+guard: 없음

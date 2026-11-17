@@ -1,7 +1,7 @@
 id: phone-kit-topbar-shows-menu-by-default
 title: 폰 kit의 TopBar가 기본으로 sidebar 단추를 보여 사용자 앱 화면에는 눌러도 아무 일 없는 단추가 선다
 kind: bug
-status: open
+status: fixed
 topic: ui-kit
 modules: [packages/design/native]
 now: |
@@ -12,3 +12,6 @@ fix: |
   - 작음(추천): `left`의 기본을 `onLeft`가 있을 때만 `menu`로 하고 없으면 `none`으로 한다. 폰 앱의 type 검사와 gallery로 기본값에 기대던 lophn 화면이 없는지 본다.
   - 대안: guest의 root가 알리는 값으로 guest 안에서만 기본을 `none`으로 한다(kit의 호스트용 동작은 그대로).
   - 앱 화면이 `TopBar`를 아예 그리지 않기로 하면(이슈 `phone-app-screen-draws-second-header`) 사용자 앱에서는 이 단추가 설 일이 없어져 그 변경에서 같이 닫는다.
+closed: |
+  `TopBar`의 `left`는 `onLeft`가 있을 때만 `menu`가 기본이다.
+guard: 없음

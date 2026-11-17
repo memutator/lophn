@@ -1,7 +1,7 @@
 id: machine-update-out-of-range-listed-under-every-app
 title: 꼴 판이 범위 밖인 기계가 폴더로 맞추는 모든 앱의 Machines 절에 선다
 kind: bug
-status: open
+status: fixed
 topic: folder-sync
 modules: [packages/core/apps/update-state, packages/shell/renderer]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   작음(추천): 범위 밖이 되기 전에 마지막으로 읽은 앱 기록(folder_records에 남은 옛 사본)이 있으면 그 앱을 쓰던 기계만 넣는다. 없으면 지금처럼 넣는다.
   중간: 기계 범위 안내를 앱이 아니라 기계 목록(machine environment, desktop의 기계 줄)에만 두고 App details에서 뺀다.
+closed: |
+  범위 밖 기계는 옛 기록 사본이 남은 앱 아래에만 선다. 사본이 하나도 없으면 전처럼 모든 앱에 선다.
+guard: 없음

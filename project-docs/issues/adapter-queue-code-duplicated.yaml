@@ -1,7 +1,7 @@
 id: adapter-queue-code-duplicated
 title: adapter 다섯이 줄 세우기 code를 따로 가진다
 kind: defect
-status: open
+status: fixed
 topic: harness-gui
 modules: [packages/shell/main]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): 같은 폴더에 `move_queued`의 자리 바꾸기 함수 하나와, 줄을 memory에 두는 셋(codex, omp, antigravity)이 쓰는 `resendQueue` 하나를 둔다. harness마다 다른 `requeue`와 `edit_queued`는 그대로 둔다.
   - 중간: 줄 전체(queue와 그 입력 처리, 다음 turn에 넣을 callback)를 file 하나로 모은다. 줄을 두는 곳이 harness마다 달라 callback이 많아진다.
+closed: |
+  `harness-gui/queue.ts`의 `swapQueued`를 adapter 다섯이, `resendQueue`를 codex·omp·antigravity가 쓴다. `requeue`와 omp의 `edit_queued`는 harness마다 그대로다.
+guard: 없음

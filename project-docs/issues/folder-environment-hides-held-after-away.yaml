@@ -1,7 +1,7 @@
 id: folder-environment-hides-held-after-away
 title: 떨어져 있음이 끝나면 held인 자기 변경이 남아도 machine.environment의 away가 null이다
 kind: bug
-status: open
+status: fixed
 topic: folder-sync
 modules: [packages/core/main, packages/core/folder, packages/protocol/folder]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): held 줄이 하나라도 있으면 `away`를 싣고(`since`는 떨어져 있지 않으면 null) `held`와 `changes`를 채운다. 출력 schema의 `since`를 nullable로 한다.
   - 작음: 앱 칸에 `held_changes: int`를 따로 더한다. agent가 두 칸을 읽어야 한다.
+closed: |
+  held인 sync log 줄이 남아 있으면 `away`가 서고, 떨어져 있지 않으면 `since`가 null이다.
+guard: 없음

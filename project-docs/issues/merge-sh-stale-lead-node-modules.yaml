@@ -1,7 +1,7 @@
 id: merge-sh-stale-lead-node-modules
 title: 의존성을 더한 task를 합치면 merge.sh가 lead worktree의 옛 node_modules로 check:full을 돌다 멈춘다
 kind: defect
-status: open
+status: fixed
 topic: planning
 modules: [tools]
 now: |
@@ -10,3 +10,6 @@ impact: |
   merge가 이미 ff된 상태로 멈춰 lead가 원인을 찾고 `npm ci`와 `tools/worktree-prep.ts`(npm ci가 Electron binary를 지운다)를 손으로 돈 뒤 merge.sh를 다시 돈다. 한 번에 check:full 한 바퀴(수 분)가 버려진다.
 fix: |
   추천: merge.sh가 rebase 뒤 task worktree에서, ff 뒤 lead worktree에서 merge 전후 `package-lock.json`이 다르면 `npm ci`와 `node tools/worktree-prep.ts <worktree>`를 돈다. `main-lib.sh`의 `deps`를 부르고 Electron binary를 다시 받는다(몇 줄).
+closed: |
+  `merge.sh`가 rebase 뒤와 ff 뒤에 `package-lock.json`이 바뀌었으면 `npm ci`와 `worktree-prep`을 돌린다(`fresh_deps`). `npm ci`가 실패해 STOP한 뒤에는 lead가 손으로 `npm ci`를 돌려야 한다.
+guard: 없음

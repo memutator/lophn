@@ -1,7 +1,7 @@
 id: electron-default-menu-ctrl-r-reload
 title: Electron 기본 menu의 Ctrl+R(Reload)이 shell 창을 다시 부른다
 kind: bug
-status: open
+status: fixed
 topic: keybindings
 modules: [packages/shell/main]
 now: |
@@ -10,3 +10,6 @@ impact: |
   사람이 습관으로 Ctrl+R을 누르면 창의 열린 popover, 입력칸 상태, 스크롤 위치를 잃는다(탭과 draft는 저장본에서 되살아난다).
 fix: |
   창에 쓰는 menu를 직접 만들어 Reload를 빼거나(작음, Close Window·편집 role처럼 지금 기대는 accelerator는 남긴다) `setApplicationMenu(null)`로 지운다(작음, macOS의 편집 key equivalent가 사라질 수 있다). 추천: 직접 만든 menu.
+closed: |
+  기본 menu에서 Reload와 Force Reload를 뺀 menu를 건다.
+guard: 없음

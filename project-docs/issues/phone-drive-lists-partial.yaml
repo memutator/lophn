@@ -1,7 +1,7 @@
 id: phone-drive-lists-partial
 title: phone 탭이 가상화된 목록의 그려지지 않은 줄과 가로 scroll을 덮지 않는다
 kind: bug
-status: open
+status: fixed
 topic: phone-screen
 modules: [packages/mobile, packages/protocol]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): snapshot이 가상화 목록(끝까지 scroll되지 않은 scroll container)에 `[more]` 같은 flag를 달고 `phone-check.md`가 "밀고 다시 snapshot"을 말한다. 가로는 `dx`를 계약에 더한다.
   - 중간: native가 목록 끝까지 밀며 모은다. 화면이 움직여 사람이 보는 화면이 바뀐다.
+closed: |
+  `phone-check.md`가 긴 목록은 가까운 줄만 snapshot에 든다는 것과 `scroll --dy` 뒤 다시 snapshot하라는 것을 말한다. `[more]` 표지와 가로 scroll은 만들지 않았다.
+guard: 없음

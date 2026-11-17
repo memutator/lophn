@@ -1,7 +1,7 @@
 id: remove-public-command-users-found-via-home
 title: AGENT.md A21은 쓰는 그릇의 lophn에게 알리고 사람에게 묻지 않는다고 쓰는데 앱 지침은 사람에게 물으라고 하고 앱 session은 누가 쓰는지 읽지 못한다
 kind: bug
-status: open
+status: fixed
 topic: app-call
 modules: [packages/core/apps, packages/core/agent-workspaces]
 now: |
@@ -15,3 +15,6 @@ fix: |
   - 중간: `release.prepare`의 `removed_public_tools`에 쓰는 그릇을 실어 앱 session이 바로 그 lophn을 부른다. 그릇을 넘는 읽기라 P12와 부딪혀 권하지 않는다.
 decided: |
   앞의 것으로 한다. F2가 공개 command를 agent가 정한다고 했으니 지침에서 "사람에게 묻는다"를 빼고, P12(경계는 그릇)를 지켜 쓰는 곳 찾기는 home을 거친다. 앞서 정한 "A21 문장을 지침에 맞게 고친다"는 A21이 F2에 맞게 바뀐 뒤라 방향이 반대가 됐다.
+closed: |
+  앱 prompt가 공개 command를 지우는 release를 activate하기 전에 home의 lophn에게 결과를 받는 call로 알리게 하고 사람에게 묻지 않는다. `AGENT.md` A21도 home을 거친다고 쓴다.
+guard: 없음

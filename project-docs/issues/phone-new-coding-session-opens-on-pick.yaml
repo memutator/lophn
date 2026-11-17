@@ -1,7 +1,7 @@
 id: phone-new-coding-session-opens-on-pick
 title: 폰의 새 session에서 coding agent를 고르면 첫 메시지 없이 바로 컴퓨터에 열린다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/mobile]
 now: |
@@ -13,3 +13,6 @@ fix: |
   - 작음: 지금대로 둔다(고른 것이 곧 시작이라는 뜻의 안내를 목록에 둔다). 단순하지만 wireframe과 다르다.
 decided: |
   고르기를 agent 단추 하나로 합치면서(이슈 `phone-new-session-has-redundant-coding-button`) coding agent를 고르는 것은 다른 agent를 고르는 것과 같은 일이 된다. 고른 순간에는 열지 않고 첫 메시지를 보낼 때 연다.
+closed: |
+  coding agent는 고를 때 열지 않고 첫 메시지를 보낼 때 `coding_sessions/open`을 부르고 그 메시지를 보낸다. 열기는 됐는데 보내기가 실패하면 다시 보낼 때 같은 session에 보낸다.
+guard: 없음

@@ -1,7 +1,7 @@
 id: phone-drive-type-skips-press
 title: phone 탭의 type·fill이 손가락과 달리 칸의 onPress를 부르지 않고 keyboard를 띄우지 않는다
 kind: bug
-status: open
+status: fixed
 topic: phone-screen
 modules: [packages/mobile]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): `phone-check.md`의 한계에 "type·fill은 칸을 누르지 않는다. 누를 때의 동작은 click으로 먼저 본다"를 더한다.
   - 중간: type 전에 click을 먼저 하고 keyboard가 뜬 화면도 screenshot에 담는다(guest가 keyboard에 줄지 않는 문제를 같이 풀어야 한다).
+closed: |
+  `phone-check.md`가 `type`·`fill`은 칸을 누르지 않으니 먼저 `click`하라고 말한다.
+guard: 없음

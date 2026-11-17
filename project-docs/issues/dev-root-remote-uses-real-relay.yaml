@@ -1,7 +1,7 @@
 id: dev-root-remote-uses-real-relay
 title: 개발 data root에서 remote를 켜면 개발 core가 실제 relay에 붙는다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [tools]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): `tools/dev.ts`가 fake push를 심는 자리에서 개발 root의 `settings.json`에 `remote.relay` 칸이 없으면 `""`로 심는다(있으면 사람이 적은 것이라 둔다). `dev:remote`의 relay 줄은 그대로 둔다.
   - 작음: 개발 relay가 필요해지면 `tools/dev.ts`가 local relay(`packages/relay`)를 띄워 그 주소를 심는다. 지금 쓰는 곳이 없다.
+closed: |
+  `tools/dev.ts`가 개발 root의 `settings.json`에 `remote.relay`가 없으면 빈 값으로 써 실제 relay에 붙지 않는다.
+guard: 없음

@@ -1,7 +1,7 @@
 id: push-alert-program-kinds-differ
 title: 사람이 알아야 하는 program 기록의 목록이 desktop toast와 폰 push에 따로 있고 서로 다르다
 kind: bug
-status: open
+status: fixed
 topic: attention
 modules: [packages/core/attention, packages/shell/main, packages/protocol]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): "사람이 알아야 하는 program 기록" 목록을 `protocol/apps/notice.ts`(kind 목록이 있는 곳)에 하나로 두고 core attention과 shell main이 같이 읽는다. 폰 push에 `session_stopped_by_app`과 `app_sync_away`가 들어간다. `phone_changed`는 바뀌기 전 폰에 가는 push가 뜻이 있는지 보고 정한다. `attention.md`의 계기 목록을 같이 고친다.
   - 더 작음: core 쪽에 빠진 kind만 더한다. 사본은 둘로 남는다.
+closed: |
+  목록을 `packages/protocol/apps/notice.ts`의 `ALERT_PROGRAM_KINDS` 하나로 두고 shell과 core가 같이 읽는다. 폰 push는 `phone_changed`만 뺀다.
+guard: 없음

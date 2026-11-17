@@ -1,7 +1,7 @@
 id: machine-window-position-not-saved
 title: 다른 기계의 창은 자리와 크기를 저장하지 않아 열 때마다 이 컴퓨터의 마지막 창 자리에 뜬다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/shell/main]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - (작음, 추천) shell data의 기계 목록 file(`viewer/machines.json`)에 기계마다 마지막 창 자리를 두고 `rememberWorkspace`와 같은 규칙(최소화·전체 화면은 저장하지 않는다)으로 쓴다. 잃는 것: 없음. layout은 그대로 저장하지 않는다.
   - (작음) 이 컴퓨터 창과 같은 자리 file 하나를 같이 쓰되 다른 기계의 창은 CASCADE만큼 비켜 연다. 잃는 것: 기계마다의 자리.
+closed: |
+  다른 기계의 창 자리와 크기를 `shell/viewer/windows.json`에 기계 id로 둔다(`viewer/window-places.ts`). 지운 기계의 줄은 남는다.
+guard: 없음

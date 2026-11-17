@@ -1,7 +1,7 @@
 id: reader-queue-refuses-window-burst
 title: 창이 한 번에 read를 8개 넘게 부르면 core가 나머지를 unavailable로 거절해 "Couldn't load this conversation"이 선다
 kind: bug
-status: open
+status: fixed
 topic: platform
 modules: [packages/core/storage, packages/shell/renderer]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - (작음, 추천) reader pool이 caller 줄이 차면 거절하지 않고 짧게(예: read timeout 안에서) 기다리게 한다. 전체 상한 64는 그대로 둔다. 잃는 것: 한 caller가 몰아 부르면 그 caller의 응답이 늦다(다른 caller는 공정 순서로 그대로다).
   - (작음) shell main의 core client가 창마다 동시 read 수를 막는다(remote client와 같은 방법). 잃는 것: CLI·앱 등 다른 caller는 그대로 거절을 받는다.
+closed: |
+  caller의 read 줄이 8개로 찼을 때 새 read를 거절하지 않고 2초(`READ_TIMEOUT_MS`)까지 잡아 두었다가 자리가 나면 줄에 넣는다(`reader-pool.ts`). 전체 64개 상한은 그대로다.
+guard: 없음

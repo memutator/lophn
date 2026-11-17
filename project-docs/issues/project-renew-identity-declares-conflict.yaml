@@ -1,7 +1,7 @@
 id: project-renew-identity-declares-conflict
 title: project.renew_identity가 conflict를 선언하지만 내지 않는다
 kind: defect
-status: open
+status: fixed
 topic: project-identity
 modules: [packages/protocol, packages/core/projects]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 읽지 못하는 file(`unreadable`)이면 renew도 `conflict`로 거절한다(작음. 계약의 "더 새 판은 덮지 않는다"와 맞고 선언이 살아난다). 추천.
   - 선언에서 `conflict`를 지운다(작음. 더 새 판 file을 사람이 route로 덮을 수 있는 채로 둔다).
+closed: |
+  `renewIdentity`의 오류 목록에서 `conflict`를 뺐다. Separate는 어떤 file이든 덮는다.
+guard: 없음

@@ -1,7 +1,7 @@
 id: phone-kit-button-under-touch-target
 title: 폰 kit의 Button sm과 md(기본)가 touch 대상 44 dp보다 작다
 kind: bug
-status: open
+status: fixed
 topic: ui-kit
 modules: [packages/design/native]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): `Button`이 보이는 크기는 두고 `hitSlop`으로 눌리는 영역을 44까지 넓힌다. wireframe의 모양과 모든 화면의 배치는 그대로다. 단추끼리 가까우면 영역이 겹치므로 gallery에서 간격을 본다.
   - 중간: `md`를 44로 올린다. 모든 폰 화면의 높이가 바뀌어 wireframe(사람이 승인한 숫자)을 다시 승인받아야 한다.
+closed: |
+  `Button`이 위아래 `hitSlop`으로 누르는 자리를 44까지 넓힌다(sm 5, md 1).
+guard: 없음

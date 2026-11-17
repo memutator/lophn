@@ -1,7 +1,7 @@
 id: push-continues-after-remote-off
 title: remote를 켰다가 끄면 같은 기동 안에서는 폰 push가 계속 나간다
 kind: bug
-status: open
+status: fixed
 topic: attention
 modules: [packages/core/main, packages/core/remote, packages/core/attention]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): `reconcile`의 꺼진 갈래에서 `hostText = undefined`로 둔다. 다시 켜면 key가 다시 풀려 `hostText`가 선다.
   - 이 갈래의 test는 지금 없다(wiring의 시험 file이 없다). 규칙이 한 줄이면 test 없이 고친다.
+closed: |
+  remote를 끄면 `reconcile`이 `hostText`를 비워 push를 받을 기기 목록이 빈다(`packages/core/main/daemon/wiring/remote.ts`).
+guard: 없음

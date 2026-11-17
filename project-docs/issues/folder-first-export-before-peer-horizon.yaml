@@ -1,7 +1,7 @@
 id: folder-first-export-before-peer-horizon
 title: destination을 처음 두면 다른 기계의 horizon을 읽기 전에 내보내 hold 규칙이 걸리지 않는다
 kind: bug
-status: open
+status: fixed
 topic: folder-sync
 modules: [packages/core/main, packages/core/folder]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): destination이 바뀌었을 때와 core 시작 때 scan을 먼저 끝내고 내보내기를 부른다(scan의 결과에서 앱마다 내보내기를 kick한다).
   - 작음: 앱마다 그 destination의 기록 사본을 한 번도 읽지 않았으면 내보내기가 기다린다. 다른 기계가 없는 첫 기계도 한 scan만큼 늦는다.
+closed: |
+  기동과 destination 바뀜 뒤의 첫 내보내기는 scan이 끝난 뒤에 돈다(`exportAfterScan`).
+guard: 없음

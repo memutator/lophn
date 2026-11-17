@@ -1,7 +1,7 @@
 id: remote-revoked-offline-looks-unreachable
 title: 꺼져 있는 동안 끊긴 폰은 "다시 pairing"이 아니라 "닿지 않음"을 끝없이 보인다
 kind: bug
-status: open
+status: fixed
 topic: platform
 modules: [packages/core/remote, packages/remote-client, packages/mobile]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): `unpaired()`에서 첫 frame이 `pair`가 아니면 닫기 전에 `closed(credential_revoked)`를 보낸다. 폰은 이미 그 이유를 "다시 pairing"으로 보인다. 등록 안 된 key에게 "등록 안 됨"을 알리는 것이라 새로 드러나는 것은 없다.
   - 작음: 폰이 `ready` 전에 닫힌 연결을 끊김으로 본다. core가 꺼지는 중이거나 handshake 뒤 다른 이유로 닫혀도 "다시 pairing"으로 보여 틀린다.
+closed: |
+  등록되지 않은 key가 `pair` 말고 다른 frame을 보내면 host가 `closed(credential_revoked)`를 보낸 뒤 닫는다. 폰과 desktop은 이것을 다시 pairing으로 보이고 다시 붙지 않는다.
+guard: packages/core/remote/host_test.ts의 "등록되지 않은 key의 연결은 pair 말고 아무 frame도 통하지 않는다"

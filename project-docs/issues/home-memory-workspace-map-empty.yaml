@@ -1,7 +1,7 @@
 id: home-memory-workspace-map-empty
 title: 'Home memory의 workspace 지도를 채우는 길이 없다'
 kind: bug
-status: open
+status: fixed
 topic: agent-definition
 modules: [packages/core/agent-workspaces]
 now: |
@@ -12,3 +12,6 @@ fix: |
   - 작음(추천): project·앱 prompt에 "다른 workspace가 물을 만한 것이 생기면 Home lophn에게 call로 알린다(`workspace: {home: true}`)"를 더하고, Home prompt에 그 call을 받으면 global memory의 지도를 고친다고 쓴다. 쓰는 쪽은 Home 그대로다. `app.md`는 앱 agent가 읽는 지침이라 `migrate-sdk` 메모(Instruction diff)가 든다. 잃는 것: 한 workspace에서 속은 agent가 Home lophn을 거쳐 모든 prompt에 실리는 글을 넣자고 할 수 있다. 적을지는 Home lophn이 정한다.
   - 작음: project·앱 prompt가 사람에게 Home에 적으라고 말하게 한다. 잃는 것: 사람이 한 번 더 움직인다.
   - 중간: Home lophn이 지도가 비었거나 낡았을 때 각 workspace의 lophn에게 물어 채운다. 잃는 것: 물을 때마다 workspace 수만큼 call이 든다.
+closed: |
+  project·앱 prompt가 다른 workspace가 물을 만한 것이 생기면 home의 lophn에게 call로 알리게 하고, home prompt가 그 call로 지도를 고친다고 쓴다.
+guard: 없음

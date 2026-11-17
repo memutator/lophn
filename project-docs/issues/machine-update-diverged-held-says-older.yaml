@@ -1,7 +1,7 @@
 id: machine-update-diverged-held-says-older
 title: release가 갈라졌을 때 다른 기계의 기다리는 변경을 "그 기계가 올라오면 온다"로 보인다
 kind: bug
-status: open
+status: fixed
 topic: folder-sync
 modules: [packages/core/apps/update-state, packages/protocol, packages/shell/renderer]
 now: |
@@ -10,3 +10,6 @@ impact: |
   사람은 Beta를 올리면 변경이 온다고 읽지만 Beta에서 할 일은 없다. 갈라진 동안 Beta의 변경은 앱 agent가 합친 release가 나와야 온다.
 fix: |
   작음(추천): why에 `diverged`를 더한다(이 기계의 따라가기 상태가 diverged이고 그 held의 release가 따라가기의 release이거나 이 기계의 release와 갈라진 것). 문구 "<기계>'s changes arrive after the app's agent combines the two releases". protocol 칸 하나, catalog key 하나, machines-section의 갈래 하나.
+closed: |
+  따라가기가 갈라진 상태이고 기다리는 변경의 release가 따라갈 release면 `why`가 `diverged`이고 Machines 절이 그 문구를 보인다.
+guard: 없음

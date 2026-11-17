@@ -1,7 +1,7 @@
 id: phone-drive-cannot-reach-sheet
 title: phone 탭이 폰 화면의 Sheet·Modal 안을 읽지도 누르지도 못한다
 kind: bug
-status: open
+status: fixed
 topic: phone-screen
 modules: [packages/mobile, packages/design/native]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 중간(추천): guest 안의 kit `Sheet`가 `Modal`을 쓰지 않고 guest 화면 안의 view로 그린다(`phone-guest-can-cover-app`의 작은 안과 같은 변경). 그러면 sheet가 guest tree 안에 있어 drive가 그대로 읽고 누른다. kit 판이 오른다.
   - 큼: native module이 guest가 띄운 Dialog 창도 찾아 걷는다. sandbox가 Modal 창을 어느 guest의 것인지 알려 주지 않아 다른 창과 가르기 어렵다.
+closed: |
+  guest 안의 kit `Sheet`가 `Modal`이 아니라 화면 안의 view라 새 window가 focus를 가져가지 않는다. 기기에서 확인하지는 않았다.
+guard: 없음

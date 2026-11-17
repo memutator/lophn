@@ -1,7 +1,7 @@
 id: take-in-leaves-app-without-release
 title: take-in이 앱을 만든 뒤 release 적기가 실패하면 release 없는 앱이 남는다
 kind: bug
-status: open
+status: fixed
 topic: folder-sync
 modules: [packages/core/folder, packages/core/apps]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): 앱을 만든 뒤 release 적기가 실패하면 오류에 "다시 take-in하면 release만 설치한다"를 싣고 `available`에 그 앱을 계속 보인다.
   - 중간: 앱 등록과 release 기록을 한 command(한 transaction)로 묶는다. 설치한 bundle file은 그 앞이라 실패하면 남는 file을 지운다.
+closed: |
+  release 적기가 실패하면 오류 글이 앱이 release 없이 더해졌다고 말하고, release 줄이 없는 앱은 `available`에 계속 선다.
+guard: 없음

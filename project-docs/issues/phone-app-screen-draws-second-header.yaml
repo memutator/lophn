@@ -1,7 +1,7 @@
 id: phone-app-screen-draws-second-header
 title: 폰의 앱 화면에 머리 줄이 둘 선다(lophn의 것과 앱이 그린 것)
 kind: bug
-status: open
+status: fixed
 topic: phone-screen
 modules: [packages/mobile, packages/design/native, packages/sdk, packages/core/agent-workspaces]
 now: |
@@ -14,3 +14,6 @@ fix: |
   - 버린 길: guest가 줄을 그리면 lophn의 줄을 숨긴다. lophn의 줄에 있는 앱 이름과 ⋯ menu(Preview, 위젯, 다른 화면)를 잃는다.
 decided: |
   앱 화면의 머리 줄은 lophn이 그리고 앱은 `TopBar`를 그리지 않는다(작은 안). 사람의 메모가 "lophn app에서도 header 규칙을 따라야 한다"였고 desktop 규칙과 같은 방향이다. 앱이 lophn의 줄에 단추를 올리는 bridge는 그런 앱이 필요해질 때 만든다. (agent, 추천안으로 진행)
+closed: |
+  지침(`design-app` skill, 두 guide)과 guest fixture가 앱 화면에 `TopBar`를 그리지 않는다. 머리 줄은 lophn만 그리고 view 탭은 본문 위, 주 단추는 `footer`에 둔다. 이미 만든 앱은 다시 그릴 때까지 두 줄이다.
+guard: 없음

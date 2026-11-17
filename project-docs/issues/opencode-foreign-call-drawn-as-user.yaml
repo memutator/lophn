@@ -1,7 +1,7 @@
 id: opencode-foreign-call-drawn-as-user
 title: OpenCode GUI에서 다른 client가 보낸 lophn call이 live로는 사람 메시지로 그려진다
 kind: bug
-status: open
+status: fixed
 topic: harness-gui
 modules: [packages/shell/main, packages/protocol]
 now: |
@@ -10,3 +10,6 @@ impact: |
   OpenCode GUI를 열어 둔 채 다른 agent가 그 session에 call을 보내면, 다시 열기 전까지 사람 메시지로 보인다.
 fix: |
   줄 선 item에 받은 메시지 표시를 더하거나, 다른 client의 메시지는 줄을 거치지 않고 `message_added`로 그린다. 뒤의 것이 작다. 추천.
+closed: |
+  다른 client가 보낸 lophn call은 줄에 세우지 않고 들고 있다가 전달될 때 받은 메시지로 그린다(`opencode.ts`의 `userQueued`).
+guard: 없음

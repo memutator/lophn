@@ -1,7 +1,7 @@
 id: phone-coding-agent-list-waits-for-session-read
 title: 폰의 새 session에서 coding agent 목록이 호출 하나가 끝날 때까지 아예 그려지지 않는다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/mobile]
 now: |
@@ -12,3 +12,6 @@ fix: |
   - 작음(추천): 목록을 상수에서 바로 그리고, 읽기가 오면 상태(앱이 꺼짐, 붙지 않음)를 얹는다. 답이 오기 전에는 고르기를 누를 수 없게 둔다.
   - 작음: 위에 더해 sidebar가 이미 읽고 있는 `coding_sessions/list` 값을 같이 써 sheet가 기다리지 않게 한다.
   - 필요 없음: 기계마다 목록을 폰에 저장하기. 목록이 상수라 저장할 것이 없다. 기계마다 설치된 agent만 보이게 하려면 컴퓨터가 CLI를 찾아보는 새 기능이 든다.
+closed: |
+  목록을 `GUI_HARNESSES`에서 바로 그리고 컴퓨터의 답이 오기 전에는 흐리게 둔다.
+guard: 없음

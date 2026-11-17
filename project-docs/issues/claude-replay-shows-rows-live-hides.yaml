@@ -1,7 +1,7 @@
 id: claude-replay-shows-rows-live-hides
 title: Claude GUI에서 대화를 다시 열면 live에서는 안 보이던 task notification과 다른 agent의 메시지가 줄로 모두 보인다
 kind: bug
-status: open
+status: fixed
 topic: harness-gui
 modules: [packages/shell/main]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): replay에서 program이 낸 task notification을 줄로 그리지 않는다(상태는 Agent 줄과 task가 이미 보인다). 그 밖의 lophn 꼬리표도 `classifyReceived`가 가르거나 숨긴다. `claude_test.ts`의 그 줄 검사를 같이 고친다.
   - 중간: live와 replay가 무엇을 그릴지 고르는 함수 하나를 같이 쓴다. live stream에 task notification이 어떤 꼴로 오는지 녹화가 있어야 한다(실제 CLI 호출이라 사람에게 묻는다).
+closed: |
+  task notification은 live와 replay 모두 줄로 그리지 않는다(`received.ts`의 `isTaskNotification`). lophn의 reaction·step·notice 꼬리표는 program이 보낸 받은 메시지로 그린다. steer 꼬리표는 사람 메시지로 남는다.
+guard: packages/shell/main/extensions/bundled/harness-gui/claude_test.ts의 "resume은 peer·lophn call·notice를 받은 메시지로 그리고 task 알림은 그리지 않으며 사람 메시지만 origin을 가진다"

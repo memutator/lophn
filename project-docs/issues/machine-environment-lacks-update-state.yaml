@@ -1,7 +1,7 @@
 id: machine-environment-lacks-update-state
 title: agent가 따라가기 상태, 기다리는 변경, 기계의 꼴 판 범위를 읽을 길이 없다
 kind: bug
-status: open
+status: fixed
 topic: folder-sync
 modules: [packages/core/folder, packages/cli]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   작음(추천): machine.environment의 machines[]에 `exchange`, apps[]에 `follow`·held·기계마다의 release를 apps/update_state와 같은 값으로 싣는다(folder wiring이 follow와 importer.exchange를 이미 든다). guidance(design-app folder-sync)에 그 칸을 읽는 법 한 줄.
   작음: `lophn app update-state <app>` CLI 명령을 더한다.
+closed: |
+  `machine.environment`가 기계마다 `exchange`를, 앱마다 `follow`·`held`·`machines`를 싣는다. `design-app`의 folder-sync 지침에는 아직 적지 않았다.
+guard: 없음

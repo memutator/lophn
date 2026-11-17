@@ -1,7 +1,7 @@
 id: shell-misses-new-core-after-stop
 title: shell이 다른 client의 stop 뒤에는 새 core에 다시 붙지 못한다(Reconnect를 눌러도)
 kind: bug
-status: open
+status: fixed
 topic: platform
 modules: [packages/shell/main]
 now: |
@@ -11,3 +11,6 @@ impact: |
 fix: |
   - 작음(추천): `shutdownSeen`이 되면 `attached`를 비워 renderer의 호출이 `attachIfAlive`로 가게 한다(이미 서 있는 core에만 붙고 띄우지 않는다). 돌려서 Reconnect가 붙는지 확인한다.
   - 작음: 위에 더해 `shutdownSeen` 동안 30초마다 identify만 묻고(띄우지 않는다) ready면 붙는다. 사람이 누르지 않아도 붙는다.
+closed: |
+  `closed(shutdown)`이나 identify `stopping`을 보면 죽은 연결을 비우고 30초마다 이미 서 있는 core에만 붙어 본다(`connection.ts`의 `shutdownObserved`). Electron에서 돌려 보지는 않았다.
+guard: 없음

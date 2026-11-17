@@ -1,5 +1,5 @@
 id: app-off-screen-turn-on
-version: 0.23.69
+version: 0.23.79
 title: 꺼진 앱의 화면 자리가 이유를 말하고 켜는 버튼을 둔다
 modules: [packages/shell/renderer, packages/design]
 change: |

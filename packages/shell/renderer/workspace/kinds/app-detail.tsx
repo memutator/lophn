@@ -1,4 +1,4 @@
-// app detail 탭 kind. 앱 workspace의 앱 상세(Icon, Folders, Version·Access·Activity)이고 앱 workspace에 하나다.
+// app detail 탭 kind. 앱 workspace의 앱 상세(General, Icon, Folders, Version·Access·Activity)이고 앱 workspace에 하나다.
 // 앱은 workspace가 정하고 값은 core에 있어 탭은 열려 있다는 사실만 저장한다.
 import { t } from "@lophn/i18n";
 
@@ -48,6 +48,9 @@ export const appDetailKind: TabKindDef = {
           onOpenSession={(session) =>
             runToastAction({ kind: "session", session })
           }
+          onRenamed={host.appRenamed}
+          // 보관한 앱의 workspace에는 머물 까닭이 없다.
+          onArchived={host.props.onHome}
         />
       </PaddedTab>
     );

@@ -398,6 +398,7 @@ export function Desktop({
           connection.state === "stale" ? (
             <ConnectionNotice
               connection={connection}
+              machine={machine}
               onRetry={() => retryConnection(source)}
               formatTime={formatTime}
             />

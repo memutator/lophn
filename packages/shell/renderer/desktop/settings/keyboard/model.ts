@@ -600,6 +600,23 @@ export function contributedBindings(
   return bindings;
 }
 
+/** 지금 듣는 keymap(`findConflicts`의 keymap). 사람이 그 command의 key를 바꾸면 keymap은 쓰지 않아 뺀다. */
+export function keymapBindings(
+  keymap: readonly KeymapEntry[],
+  platform: KeyPlatform,
+  overrides: KeyOverrides,
+): readonly Binding[] {
+  return keymap
+    .filter((entry) => overrides[entry.command] === undefined)
+    .map((entry) => ({
+      command: entry.command as BindingCommand,
+      section: "contributed",
+      ...(entry.context === undefined ? {} : { context: entry.context }),
+      other: platform === "other" ? entry.other : [],
+      mac: platform === "mac" ? entry.mac : [],
+    }));
+}
+
 /** 기여한 command의 기본 key. `withKeys`가 "표와 같아졌나"를 볼 때 쓴다. */
 export function contributedDefaults(
   commands: readonly ContributedCommand[],

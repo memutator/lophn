@@ -29,7 +29,7 @@ export const MAIN_DESK = "_default";
 export const MAIN_LABEL = "Main";
 
 // main/workspace/workspace-layout.ts의 상한과 같다. 넘기면 저장이 통째로 거절된다.
-const FLOATS_MAX = 20;
+export const FLOATS_MAX = 20;
 const DETACHED_MAX = 20;
 const DESKS_MAX = 200;
 
@@ -534,7 +534,7 @@ export function openTab(
 }
 
 // 새 tab을 source 옆 칸에 열고 select면 고른다. source가 group에 없으면 [source | tab]을 row 0.5로 새로 묶는다.
-// group에 있으면 relation이 aside이고 칸이 남을 때 source의 칸을 나눠 옆에 놓고, 아니면 source 다음 leaf(돌아서)의 칸 stack
+// group에 있으면 relation이 aside이고 칸이 남을 때 source의 칸(가장 넓은 칸의 절반 이하면 가장 넓은 칸)을 나눠 옆에 놓고, 아니면 source 다음 leaf(돌아서)의 칸 stack
 // 끝에 쌓인다. 쌓인 tab은 select일 때 그 칸에 보이고, 아니면 숨어서 사람이 보던 칸을 바꾸지 않는다. aside는 가득 찼을 때
 // 사람이 보던 칸(selected와 group의 focus가 든 칸)이 아니면 그 칸에 보인다.
 function openBeside(
@@ -546,11 +546,27 @@ function openBeside(
 ): Desk {
   const added = withTabAfter(desk, tab, source);
   const group = groupOf(desk, source);
-  if (
-    group === null ||
-    (relation === "aside" && leavesOf(group.layout).length < GROUP_MAX)
-  ) {
+  if (group === null) {
     return splitOpen(desk, added, source, tab.key, select, "right");
+  }
+  if (relation === "aside" && leavesOf(group.layout).length < GROUP_MAX) {
+    // 같은 source 곁에 거듭 열면 source 칸이 반씩 줄어 띠가 된다. source 칸이 가장 넓은 칸의 절반 이하면 peer처럼
+    // 가장 넓은 칸을 나눈다.
+    const areas = leafAreas(group.layout);
+    const widest = widestOf(areas);
+    const own = areas.find(
+      (item) => item.tab === holderOf(group.layout, source),
+    )!;
+    return own.area * 2 <= widest.area + 1e-9
+      ? splitOpen(
+          desk,
+          added,
+          widest.tab,
+          tab.key,
+          select,
+          widest.parent === "row" ? "bottom" : "right",
+        )
+      : splitOpen(desk, added, source, tab.key, select, "right");
   }
   const leaves = leavesOf(group.layout);
   const own = leaves.indexOf(holderOf(group.layout, source));
@@ -582,7 +598,7 @@ function openPeer(desk: Desk, tab: TabItem, source: string): Desk {
       visible: false,
     });
   }
-  const widest = widestLeaf(group.layout);
+  const widest = widestOf(leafAreas(group.layout));
   return splitOpen(
     desk,
     added,
@@ -606,18 +622,32 @@ function holderOf(node: GroupNode, key: string): string {
   return leafNodes(node).find((leaf) => stackOf(leaf).includes(key))!.tab;
 }
 
-function widestLeaf(node: GroupNode): { tab: string; parent: SplitDir } {
-  let best = { tab: "", parent: "row" as SplitDir, area: -1 };
+interface LeafArea {
+  readonly tab: string;
+  readonly parent: SplitDir;
+  /** group 전체를 1로 둔 넓이(나눔 몫을 곱한 값). */
+  readonly area: number;
+}
+
+function leafAreas(node: GroupNode): LeafArea[] {
+  const out: LeafArea[] = [];
   const walk = (item: GroupNode, area: number, parent: SplitDir) => {
     if (isLeaf(item)) {
-      if (area >= best.area - 1e-9) best = { tab: item.tab, parent, area };
+      out.push({ tab: item.tab, parent, area });
       return;
     }
     walk(item.a, area * item.ratio, item.dir);
     walk(item.b, area * (1 - item.ratio), item.dir);
   };
   walk(node, 1, "row");
-  return best;
+  return out;
+}
+
+// 가장 넓은 칸. 같으면 뒤쪽이다.
+function widestOf(areas: readonly LeafArea[]): LeafArea {
+  return areas.reduce((best, item) =>
+    item.area >= best.area - 1e-9 ? item : best,
+  );
 }
 
 // source의 칸(숨어 있으면 그 칸의 보이는 tab)을 나눠 새 tab을 side에 놓는다. select가 아니면 보던 tab과 기존 group의 focus를 지킨다.

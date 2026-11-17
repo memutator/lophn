@@ -4,6 +4,7 @@
 import type { TabRelation } from "../../../protocol/lophn-agent/host-queue.ts";
 import {
   type Desk,
+  FLOATS_MAX,
   type OpenRelation,
   whereInDesk,
 } from "../shell/desk-model.ts";
@@ -34,6 +35,7 @@ export type OpenAt =
 /**
  * 연 탭(source)이 있는 자리로 새 탭의 자리를 정한다. agent는 자리가 아니라 뜻(relation)만 말하고 자리는 여기서만 정한다.
  * - run은 floated다. 실행을 보고 닫는 잠깐의 터미널이라 tab 배치를 바꾸지 않는다.
+ * - float이 상한(20)이면 float 대신 desk 끝 tab이다.
  * - agent가 연 탭(`agent`)은 relation이 먼저다. 말하지 않았으면 browser는 work, 나머지는 aside다.
  *   work는 접힌 float, glance는 펴진 float이다. peer·stage·aside는 source가 이 desk의 tab 줄에 있거나 다른 desk에 있으면
  *   `after: source`와 relation을 주고(칸 규칙은 `openTab`, 다른 desk면 그 desk에서 풀린다), source가 floated·detached이거나
@@ -49,13 +51,19 @@ export function openAt(
   intent: OpenIntent,
   agent?: AgentOpen,
 ): OpenAt {
-  if (intent === "run") return { kind: "float" };
+  // float이 상한이면 desk 끝 탭이다. float으로 열면 탭이 조용히 버려지고 agent는 열린 줄 안다.
+  const full = desk.floats.length >= FLOATS_MAX;
+  if (intent === "run") return full ? { kind: "tab" } : { kind: "float" };
   const relation =
     agent === undefined
       ? undefined
       : (agent.relation ?? (agent.target === "browser" ? "work" : "aside"));
-  if (relation === "work") return { kind: "float", minimized: true };
-  if (relation === "glance") return { kind: "float" };
+  if (relation === "work" || relation === "glance") {
+    if (full) return { kind: "tab" };
+    return relation === "work"
+      ? { kind: "float", minimized: true }
+      : { kind: "float" };
+  }
   if (source === undefined) return { kind: "tab" };
   const where = whereInDesk(desk, source);
   if (where === "float" || where === "detached") return { kind: "tab" };

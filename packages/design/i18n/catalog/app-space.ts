@@ -1,5 +1,6 @@
 export const appSpace = {
   "app-detail.button.add-folder": "Add folder",
+  "app-detail.button.archive": "Archive",
   "app-detail.button.back-to-activity": "Back to Activity",
   "app-detail.button.cancel": "Cancel",
   "app-detail.button.change-client-id": "Change",
@@ -8,6 +9,7 @@ export const appSpace = {
   "app-detail.button.go-back": "Go back to {release}",
   "app-detail.button.remove-folder": "Remove",
   "app-detail.button.remove-value": "Remove value",
+  "app-detail.button.save-name": "Save",
   "app-detail.button.revoke": "Revoke",
   "app-detail.button.rewind-app": "Rewind {name}",
   "app-detail.button.rewind-from-here": "Rewind from here",
@@ -17,10 +19,12 @@ export const appSpace = {
   "app-detail.button.sign-in": "Sign in",
   "app-detail.button.sign-in-again": "Sign in again",
   "app-detail.button.sign-out": "Sign out",
+  "app-detail.error.archive-failed": "Couldn't archive the app. Try again.",
   "app-detail.error.folders-failed": "Couldn't change the folders. Try again.",
   "app-detail.error.go-back-failed":
     "Couldn't go back to {release}. Nothing changed.",
   "app-detail.error.remove-failed": "Couldn't remove that. Try again.",
+  "app-detail.error.rename-failed": "Couldn't rename the app. Try again.",
   "app-detail.error.revoke-failed": "Couldn't revoke that access. Try again.",
   "app-detail.error.rewind-failed":
     "Couldn't start the rewind. Nothing changed.",
@@ -35,7 +39,9 @@ export const appSpace = {
   "app-detail.heading.changes": "What changes, {from} to {to}",
   "app-detail.heading.changes-first": "What {to} declares",
   "app-detail.heading.earlier-releases": "Earlier releases",
+  "app-detail.heading.archive": "Archive this app",
   "app-detail.heading.folders": "Folders",
+  "app-detail.heading.general": "General",
   "app-detail.heading.icon": "Icon",
   "app-detail.heading.last-activation": "Last activation",
   "app-detail.heading.other-apps": "Other apps",
@@ -50,6 +56,7 @@ export const appSpace = {
   "app-detail.heading.what-was-rewound": "What was rewound",
   "app-detail.label.access-target": "this app's access",
   "app-detail.label.calls": "Calls",
+  "app-detail.label.name": "Name",
   "app-detail.label.records": "Records",
   "app-detail.label.run-halted": "Stopped after repeated crashes",
   "app-detail.label.run-preparing": "Not ready",
@@ -173,6 +180,8 @@ export const appSpace = {
     "Access is set when a release is applied. It can be taken back here, not added. Secret values are set here.",
   "app-detail.note.activity-scope":
     "Writes, external calls, app starts and failed reads. Successful reads are not listed.",
+  "app-detail.note.archive":
+    "Stops the app and moves it to Archived on Home. You can unarchive it there.",
   "app-detail.note.applying-first":
     "This is the first release of this app. It starts serving when every step is done.",
   "app-detail.note.applying-keeps":
@@ -281,7 +290,9 @@ export const appSpace = {
   "app-space.error.device-devtools": "Close DevTools to set the device size.",
   "app-space.label.kind-app-preview": "App preview",
   "app-space.label.preview-device": "Device",
+  "app-space.label.preview-screen": "Screen",
   "app-space.option.device-desktop": "Desktop",
+  "app-space.option.screen-phone": "{screen} (phone)",
   "app-space.label.kind-app-screen": "App screen",
   "app-space.label.menu-app-screen": "App screen",
   "app-space.heading.panel-logs": "Logs",

@@ -2,14 +2,9 @@
 // card 안이면 이것을 card 머리 줄에 올린다(parts/card-head). ← → ⟳는 card의 nav, 주소 칸이 경로 자리,
 // 별·bookmark·Open in browser가 ⋯ 앞, DevTools(Inspector, 열려 있으면 자리 고르기와 닫기)가 ⋯ 메뉴의 맨 위 묶음이다.
 // card 밖(floated 탭, detached 창)이면 탭 본문 위에 줄로 그리고 DevTools menu는 그 줄의 ⋮다. 아이콘은 icons/browser.ts만 쓴다.
-// Ctrl/Cmd+D는 focus가 page에 있으면 main이 event로 보내고(`bookmarkKey`), 머리에 있으면 여기서 받는다.
-import {
-  type KeyboardEvent,
-  type MouseEventHandler,
-  useId,
-  useRef,
-  useState,
-} from "react";
+// bookmark 키(표의 `browser.bookmark` 줄, 사람이 바꾼 키 포함)는 focus가 page에 있으면 main이, 머리에 있으면 창의 keybinding이
+// 받아 탭에 알린다(`bookmarkKey`). 머리는 card 머리 줄에 올라가도 `browser` key context와 탭의 focus 묶음을 지닌다.
+import { type MouseEventHandler, useId, useRef, useState } from "react";
 import { FieldContext, Input } from "@lophn/ui/input";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { Menu, MenuIcon } from "@lophn/ui/overlay";
@@ -37,8 +32,10 @@ interface BrowserChromeProps {
     "url" | "title" | "favicon" | "canGoBack" | "canGoForward"
   >;
   bookmarks: Bookmarks;
-  /** main이 page에서 받은 Ctrl/Cmd+D의 횟수. */
+  /** bookmark 키가 눌린 횟수(page에서는 main이, 머리에서는 창의 keybinding이 받는다). */
   bookmarkKey: number;
+  /** 머리에 focus가 왔다. 탭이 창의 `browser.bookmark` command를 맡는다(card 머리 줄은 탭 본문 밖이다). */
+  onHeadFocus(): void;
   /** 별이 알릴 거절 문장. 탭이 머리 아래에 띄운다. */
   onNotice(text: string): void;
   /** 이 탭에서 주소로 간다(bookmark menu). */
@@ -91,16 +88,6 @@ const DEVTOOLS_ITEMS = [
   },
 ] as const;
 
-function isBookmarkKey(event: KeyboardEvent): boolean {
-  const mac = currentPlatform() === "mac";
-  return (
-    event.key.toLowerCase() === "d" &&
-    (mac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey) &&
-    !event.altKey &&
-    !event.shiftKey
-  );
-}
-
 /** browser 탭 머리와 preview 탭 안내 줄이 같이 쓴다. 가져오면 "내가 조작 중"과 [돌려주기]로 바뀐다. */
 export function AgentControlBar(props: { control: AgentControl }) {
   const { control } = props;
@@ -137,7 +124,7 @@ function AddressField(props: {
   disabled: boolean;
   autoFocus: boolean;
   onSubmit(input: string): Promise<void>;
-  onBookmarkKey(): void;
+  onFocus(): void;
 }) {
   const id = useId();
   const [draft, setDraft] = useState<string | null>(null);
@@ -145,11 +132,8 @@ function AddressField(props: {
     <div
       className={styles.address}
       data-browser-address=""
-      onKeyDown={(event) => {
-        if (!isBookmarkKey(event)) return;
-        event.preventDefault();
-        props.onBookmarkKey();
-      }}
+      data-key-context="browser"
+      onFocus={props.onFocus}
     >
       {/* 글머리 label 없이 한 줄에 놓으므로 Field 대신 context만 준다. 이름은 aria-label이 맡는다. */}
       <FieldContext.Provider value={{ id, invalid: false }}>
@@ -179,11 +163,7 @@ function AddressField(props: {
 }
 
 // 별·bookmark menu·[Open in browser]. menu는 native view가 있는 창에서는 overlay로 연다.
-function PageActions(props: {
-  chrome: BrowserChromeProps;
-  presses: number;
-  onBookmarkKey(): void;
-}) {
+function PageActions(props: { chrome: BrowserChromeProps }) {
   const { viewSession, state } = props.chrome;
   const openMenu = useOverlayMenu();
   const openExternal = () => {
@@ -197,18 +177,15 @@ function PageActions(props: {
   return (
     <div
       className={styles.actions}
-      onKeyDown={(event) => {
-        if (!isBookmarkKey(event)) return;
-        event.preventDefault();
-        props.onBookmarkKey();
-      }}
+      data-key-context="browser"
+      onFocus={props.chrome.onHeadFocus}
     >
       <BookmarkStar
         bookmarks={props.chrome.bookmarks}
         url={state.url}
         title={state.title}
         favicon={state.favicon}
-        presses={props.presses}
+        presses={props.chrome.bookmarkKey}
         onNotice={props.chrome.onNotice}
         openOverlay={props.chrome.native ? openMenu : null}
         onOpenChange={props.chrome.onMenuOpenChange}
@@ -233,7 +210,6 @@ function PageActions(props: {
 
 export function BrowserChrome(props: BrowserChromeProps) {
   const { browser, viewSession, state } = props;
-  const [keyPresses, setKeyPresses] = useState(0);
   // 머리에 올린 spec의 callback은 deps에 없는 최신 props를 읽는다.
   const latest = useRef(props);
   latest.current = props;
@@ -247,7 +223,6 @@ export function BrowserChrome(props: BrowserChromeProps) {
       .command({ view_session: viewSession, command: name })
       .catch(() => {});
   };
-  const bookmarkKey = () => setKeyPresses((count) => count + 1);
 
   // DevTools가 닫혀 있으면 열기 하나, 열려 있으면 자리 고르기와 닫기. 지금 자리는 잠근다.
   const devtoolsItems =
@@ -309,17 +284,13 @@ export function BrowserChrome(props: BrowserChromeProps) {
             () => {},
           );
       }}
-      onBookmarkKey={bookmarkKey}
+      onFocus={() => latest.current.onHeadFocus()}
     />
   );
   const actions = (
     <>
       {props.agent === null ? null : <AgentControlBar control={props.agent} />}
-      <PageActions
-        chrome={props}
-        presses={props.bookmarkKey + keyPresses}
-        onBookmarkKey={bookmarkKey}
-      />
+      <PageActions chrome={props} />
     </>
   );
 
@@ -358,7 +329,6 @@ export function BrowserChrome(props: BrowserChromeProps) {
       state.canGoForward,
       props.bookmarks,
       props.bookmarkKey,
-      keyPresses,
       props.devtools,
       props.keepAlive,
       props.agent?.agent,

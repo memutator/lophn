@@ -88,6 +88,7 @@ export function SettingsSpace({
     desktopScope({
       catalog,
       platform: palette.platform,
+      keys: palette.keys(),
       search: palette.search
         ? (query) => palette.search!(query, null)
         : undefined,

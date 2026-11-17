@@ -14,7 +14,10 @@ import { systemTimer, type Timer } from "@lophn/ui/shared";
 import { paletteIcons } from "../../icons/mod.ts";
 import { t } from "@lophn/i18n";
 
-import { parseBindingId } from "../../../../protocol/shell/keybindings.ts";
+import {
+  type KeyOverrides,
+  parseBindingId,
+} from "../../../../protocol/shell/keybindings.ts";
 import type { OverlayApi } from "../../../ipc/overlay.ts";
 import {
   useCommands,
@@ -186,16 +189,20 @@ export function useGlobalPalette(): (scope: PaletteScope<unknown>) => void {
   return (scope) => hub?.openGlobal(scope);
 }
 
-/** 이 창에 팔레트가 있는지, 지금 OS(키 이름)와 파일 검색. 공간의 scope가 쓴다. */
+/** 이 창에 팔레트가 있는지, 지금 OS(키 이름), 사람이 바꾼 키와 파일 검색. 공간의 scope가 쓴다. */
 export function usePaletteEnv(): {
   available: boolean;
   platform: WindowPlatform;
+  /** 부를 때의 사람이 바꾼 키. scope는 열 때 만들어 그때 값을 읽는다. */
+  keys(): KeyOverrides;
   search?: FileSearch;
 } {
   const hub = useContext(PaletteContext);
+  const commands = useWindowCommands();
   return {
     available: hub?.available ?? false,
     platform: hub?.platform ?? currentPlatform(),
+    keys: () => commands?.overrides() ?? {},
     search: hub?.search,
   };
 }

@@ -518,6 +518,7 @@ function OpenTab(
         focusAddress={props.url === "" && shown}
         bookmarks={bookmarks}
         bookmarkKey={bookmarkKey}
+        onHeadFocus={bindFocus}
         onNotice={(text) =>
           setNotice((last) => ({ n: (last?.n ?? 0) + 1, text, error: true }))
         }

@@ -97,6 +97,8 @@ export interface TabHost {
   readonly props: WorkspaceWindowProps;
   /** 앱 workspace의 이름. 읽기 전에는 undefined. 앱 화면 탭의 제목이다. */
   readonly appName: string | undefined;
+  /** App details에서 앱 이름을 바꿨다. 탭 제목과 crumb이 새 이름을 쓴다. */
+  appRenamed(name: string): void;
   /** 앱 화면 목록을 읽을 수 있는지. 없으면 앱 패널을 열지 않는다. */
   readonly appScreens: boolean;
   /** 보이는 desk. */

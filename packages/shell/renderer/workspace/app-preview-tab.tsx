@@ -1,5 +1,5 @@
-// app_preview 탭. 그 앱에서 지금 돌고 있는 preview를 앱 view(mode preview)로 보인다. 화면은 agent가 `--screen`으로 고른 것,
-// 없으면 앱의 첫 `tab` 화면이다. 폰 화면은 `phone` 자리로 연다. 앱마다 탭 하나이고 지금 preview를 따라간다:
+// app_preview 탭. 그 앱에서 지금 돌고 있는 preview를 앱 view(mode preview)로 보인다. 화면은 안내 줄에서 사람이 고르거나 agent가
+// `--screen`으로 고른 것, 없으면 앱의 첫 `tab` 화면이다. 폰 화면은 `phone` 자리로 열고 기기가 없으면 기준 폰을 고른다. 앱마다 탭 하나이고 지금 preview를 따라간다:
 // `previews.get`을 읽고 preview가 뜨고 ready가 되고 끝날 때(app_runtime 변경) 다시 읽어, process가 바뀌면 view를 새로 열고
 // 없어지면 "돌고 있는 preview 없음"을 보인다.
 // Annotate는 앱 화면 탭과 같은 길(use-tab-annotate.tsx)이고, 보낸 annotation은 release 대신 preview의 bundle hash를 싣는다.
@@ -26,7 +26,9 @@ import {
   windowCoreSource,
 } from "../desktop/connection/connection.ts";
 import type { AppFrameViewState } from "../../ipc/app-frame.ts";
+import { appTools } from "../../../protocol/apps/declaration/read.ts";
 import { previewsGet } from "../../../protocol/apps/previews.ts";
+import { devicesList } from "../../../protocol/remote/routes.ts";
 import { useCoreRead } from "../desktop/connection/core-read.ts";
 import type { AgentViewSlice } from "./kinds/host.ts";
 import { AgentControlBar } from "../browser/browser-chrome.tsx";
@@ -51,6 +53,8 @@ export interface PreviewDevice {
   readonly height: number;
   readonly dpr: number;
   readonly os: "ios" | "android";
+  /** pairing이 넣은 항목만 있다. 그 기기의 id다. */
+  readonly device?: string;
 }
 
 export interface PreviewSource {
@@ -161,36 +165,92 @@ function useDevices(shown: boolean): readonly PreviewDevice[] {
   return devices;
 }
 
-function DevicePicker(props: {
-  devices: readonly PreviewDevice[];
-  value: string | null;
-  onChange(name: string | null): void;
+// 안내 줄의 이름 붙은 고르기(화면, 기기).
+function NoticePicker(props: {
+  label: string;
+  options: readonly { value: string; label: string }[];
+  value: string;
+  onChange(value: string): void;
+  data?: Record<string, string>;
 }) {
   const id = useId();
   return (
     <FieldContext.Provider value={{ id, invalid: false }}>
-      <div className={styles.device}>
+      <div className={styles.device} {...props.data}>
         <label htmlFor={id} className={styles.deviceLabel}>
-          {t("app-space.label.preview-device")}
+          {props.label}
         </label>
         <Select
           size="sm"
-          options={[
-            { value: DESKTOP, label: t("app-space.option.device-desktop") },
-            ...props.devices.map((d) => ({ value: d.name, label: d.name })),
-          ]}
-          value={props.value ?? DESKTOP}
-          onValueChange={(next) =>
-            props.onChange(next === DESKTOP ? null : next)
-          }
+          options={[...props.options]}
+          value={props.value}
+          onValueChange={props.onChange}
         />
       </div>
     </FieldContext.Provider>
   );
 }
 
+function DevicePicker(props: {
+  devices: readonly PreviewDevice[];
+  value: string | null;
+  onChange(name: string | null): void;
+}) {
+  return (
+    <NoticePicker
+      label={t("app-space.label.preview-device")}
+      options={[
+        { value: DESKTOP, label: t("app-space.option.device-desktop") },
+        ...props.devices.map((d) => ({ value: d.name, label: d.name })),
+      ]}
+      value={props.value ?? DESKTOP}
+      onChange={(next) => props.onChange(next === DESKTOP ? null : next)}
+    />
+  );
+}
+
+/** 그 release가 preview로 여는 화면(`tab`·`phone` 자리). 못 읽었으면 빈 목록이다. */
+function usePreviewScreens(
+  app: string,
+  release: string | null,
+): readonly { key: string; label: string; tab: boolean; phone: boolean }[] {
+  const read = useCoreRead(appTools, {
+    app,
+    ...(release === null ? {} : { release }),
+  }).loaded;
+  if (read.state !== "ready" || read.value.release !== release) return [];
+  return read.value.screens.flatMap((screen) =>
+    screen.places.includes("phone") || screen.places.includes("tab")
+      ? [
+          {
+            key: screen.key,
+            label: screen.label,
+            tab: screen.places.includes("tab"),
+            phone: screen.places.includes("phone"),
+          },
+        ]
+      : [],
+  );
+}
+
+/** 기준 폰(짝지은 기기 가운데 primary)의 `shell.devices` 항목 이름. agent의 `--screen`과 같은 규칙이다. */
+function useReferencePhone(devices: readonly PreviewDevice[]): string | null {
+  const read = useCoreRead(devicesList, {}).loaded;
+  const primary =
+    read.state === "ready"
+      ? read.value.devices.find((item) => item.primary)
+      : undefined;
+  return (
+    devices.find((item) => primary !== undefined && item.device === primary.id)
+      ?.name ?? null
+  );
+}
+
 export function AppPreviewTab(props: AppPreviewTabProps) {
-  const { app, source, shown, agentView, screen } = props;
+  const { app, source, shown, agentView } = props;
+  // 사람이 안내 줄에서 고른 화면. agent가 `--screen`을 다시 주면 그것을 따른다.
+  const [screen, setScreen] = useState<string | null>(props.screen);
+  useEffect(() => setScreen(props.screen), [props.screen]);
   const deps = useAppViews();
   const workspace = useAppWorkspace();
   const { preview, stop } = useRunningPreview(app);
@@ -202,7 +262,7 @@ export function AppPreviewTab(props: AppPreviewTabProps) {
     setBlocked(false);
     setChosen(props.initialDevice);
   }, [props.deviceAt, props.initialDevice]);
-  const device = devices.find((d) => d.name === chosen) ?? null;
+  const reference = useReferencePhone(devices);
   const [row, setRow] = useState<AppRow | null>(null);
   const [entry, setEntry] = useState<Entry>({ state: "loading" });
   const [state, setState] = useState<AppFrameViewState | null>(null);
@@ -220,6 +280,15 @@ export function AppPreviewTab(props: AppPreviewTabProps) {
 
   // 화면은 그 release의 선언에서 읽는다. release 없는 preview는 어느 화면을 열지 알 수 없다.
   const release = preview?.release ?? null;
+  const screens = usePreviewScreens(app, release);
+  // 기본은 첫 `tab` 화면이다. 폰 화면만 가진 앱은 그것이 없어 빈 탭이 되므로 첫 폰 화면을 연다.
+  const phoneOnly =
+    screens.length > 0 && !screens.some((item) => item.tab)
+      ? screens[0]!.key
+      : null;
+  useEffect(() => {
+    if (screen === null && phoneOnly !== null) setScreen(phoneOnly);
+  }, [screen, phoneOnly]);
   useEffect(() => {
     setEntry({ state: "loading" });
     if (source === undefined || release === null) return;
@@ -239,6 +308,14 @@ export function AppPreviewTab(props: AppPreviewTabProps) {
       live = false;
     };
   }, [source, app, release, preview?.nonce, screen]);
+
+  // 폰 화면을 넓은 desktop 틀에 그리면 잘못 믿게 된다. 기기를 고르지 않았으면 기준 폰으로 연다(agent의 `--screen`과 같다).
+  const onPhone = entry.state === "ready" && entry.screen.place === "phone";
+  const device =
+    devices.find((d) => d.name === chosen) ??
+    (chosen === null && onPhone && !blocked
+      ? (devices.find((d) => d.name === reference) ?? null)
+      : null);
 
   // 고른 기기를 main에서 그 view에 건다. view가 새로 열리면(다른 preview process) 새 view에 다시 건다.
   const surface = surfaceApi();
@@ -322,6 +399,23 @@ export function AppPreviewTab(props: AppPreviewTabProps) {
             ? t("app-space.error.device-devtools")
             : t("app-space.text.preview-notice")}
         </span>
+        {screens.length < 2 ? null : (
+          <NoticePicker
+            label={t("app-space.label.preview-screen")}
+            options={screens.map((item) => ({
+              value: item.key,
+              label: item.phone
+                ? t("app-space.option.screen-phone", { screen: item.label })
+                : item.label,
+            }))}
+            value={
+              screen ??
+              (entry.state === "ready" ? entry.screen.key : screens[0]!.key)
+            }
+            onChange={setScreen}
+            data={{ "data-preview-screen": "" }}
+          />
+        )}
         <DevicePicker
           devices={devices}
           value={device === null ? null : device.name}

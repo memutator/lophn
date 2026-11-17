@@ -98,6 +98,7 @@ function hostOf(
     projectId: workspace.kind === "project" ? workspace.id : null,
     explorerRoot: undefined,
     appName: undefined,
+    appRenamed: () => {},
     props,
     appScreens: false,
     projectSettings: null,

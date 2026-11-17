@@ -41,6 +41,21 @@ const reload = (page: Page) =>
 export function createEmulation(lookup: PageLookup): Emulation {
   // 건 page(webContents id). 풀 때 건 적 없는 page에는 붙지 않는다.
   const applied = new Set<number>();
+  // DevTools를 지켜보는 page. page마다 한 번만 듣는다.
+  const watched = new Set<number>();
+  // 건 뒤 사람이 DevTools를 열면 emulation이 풀린다. 건 것으로 남겨 두면 다시 고를 때 이미 붙은 줄 알고 실패하고,
+  // driver가 기기를 걸린 것으로 알린다. 떼어 상태를 맞춘다.
+  const watch = (page: Page) => {
+    if (watched.has(page.id)) return;
+    watched.add(page.id);
+    page.subscribe({
+      cdp() {},
+      detached() {},
+      devtoolsOpened() {
+        if (applied.delete(page.id)) page.detach("emulation");
+      },
+    });
+  };
   return {
     async apply(viewSession, device) {
       const page = pageOf(lookup, "preview", viewSession);
@@ -72,6 +87,7 @@ export function createEmulation(lookup: PageLookup): Emulation {
         return { ok: false, reason: "devtools" };
       }
       applied.add(page.id);
+      watch(page);
       const agent = AGENTS[device.os];
       try {
         await page.send("Emulation.setDeviceMetricsOverride", {

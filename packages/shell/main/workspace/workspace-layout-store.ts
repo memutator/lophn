@@ -1,5 +1,6 @@
 // <home>/shell/workspaces/<workspace>.json은 main만 쓴다(원자 교체와 mode는 atomic-file.ts). workspace는 `home`이거나
-// project id, app id다. 파일이 없으면 null(기본 layout)이다. 옛 layouts/<prj_id>.json은 읽지 않는다.
+// project id, app id다. 파일이 없으면 null(기본 layout)이다. 손상된 파일은 읽을 때 `<workspace>.json.bak`으로 한 벌 남긴다.
+// 옛 layouts/<prj_id>.json은 읽지 않는다.
 import { join } from "node:path";
 
 import {
@@ -65,12 +66,18 @@ export function createWorkspaceLayoutStore(
         }
       }
       if (raw === null) return { ok: true, value: null };
+      const text = new TextDecoder().decode(raw);
+      let value: WorkspaceLayoutResult;
       try {
-        const parsed: unknown = JSON.parse(new TextDecoder().decode(raw));
-        return { ok: true, value: parseWorkspaceLayoutFile(parsed) };
+        value = parseWorkspaceLayoutFile(JSON.parse(text));
       } catch {
-        return { ok: true, value: { ok: false, reason: "corrupt" } };
+        value = { ok: false, reason: "corrupt" };
       }
+      // 손상된 파일은 renderer가 기본 layout으로 덮는다. 덮기 전 값을 한 벌 남겨 손으로 되살릴 길을 둔다.
+      if (!value.ok && value.reason === "corrupt") {
+        await writeFileAtomic(`${fileOf(workspace)}.bak`, text, impl);
+      }
+      return { ok: true, value };
     },
     async remove(workspace) {
       if (!isWorkspaceKey(workspace)) return INVALID_WORKSPACE;

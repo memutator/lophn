@@ -286,6 +286,20 @@ test("다른 판 파일은 unsupported_schema로 읽고 고치지 않는다", as
   });
 });
 
+test("손상된 파일은 읽을 때 .bak으로 한 벌 남긴다", async () => {
+  await withRoot(async (root) => {
+    const file = join(root, "shell", "workspaces", "home.json");
+    await mkdir(join(root, "shell", "workspaces"), { recursive: true });
+    const text = '{"schema_version": 10, "desks": ';
+    await writeFile(file, text);
+    assert.deepEqual(await createWorkspaceLayoutStore(root).read("home"), {
+      ok: true,
+      value: { ok: false, reason: "corrupt" },
+    });
+    assert.equal(await readFile(`${file}.bak`, "utf8"), text);
+  });
+});
+
 test("폴더 밖으로 나가는 workspace key는 읽기와 쓰기 모두 거절한다", async () => {
   await withRoot(async (root) => {
     const store = createWorkspaceLayoutStore(root);

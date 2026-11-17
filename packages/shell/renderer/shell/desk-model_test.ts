@@ -461,6 +461,8 @@ test("aside는 source의 칸을 나누고 가득 차면 다음 칸에 보이게 
   });
   assertValid(desk, ["a", "src", "b", "n1", "n2", "n3"]);
   assert.equal(leavesOf(groupOf(desk, "src")!.layout).length, 4);
+  // source 칸만 거듭 나누지 않아 띠가 되지 않는다.
+  assert.ok(area(groupOf(desk, "src")!.layout, "src")! >= 0.25 - 1e-9);
   assert.equal(desk.selected, "b");
 
   // 가득 찬 group: 사람이 그 group을 보고 있지 않으면 다음 칸에 보인다.

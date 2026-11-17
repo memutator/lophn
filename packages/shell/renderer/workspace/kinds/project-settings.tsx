@@ -47,6 +47,8 @@ export const projectSettingsKind: TabKindDef = {
           projectId={project}
           projects={slice.projects}
           onProjectChanged={slice.projectChanged}
+          // 보관한 project의 workspace에는 머물 까닭이 없다.
+          onArchived={host.props.onHome}
           quick={slice.quick}
           onQuick={slice.setQuick}
           commands={slice.commands}

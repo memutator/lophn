@@ -2,11 +2,13 @@
 // 사람의 결정이지만 확인 창 없이 이 탭에서 바로 보낸다. 쓴 결과는 command의 `changes`로 화면이 다시 읽어 본다.
 import {
   type App,
+  appArchive,
   appDisableExecution,
   appEditFolders,
   appEnableExecution,
   appGet,
   appOAuthNames,
+  appRename,
   appSetIcon,
   type Rewind,
 } from "../../../../protocol/apps/mod.ts";
@@ -114,25 +116,38 @@ export function coreAppDetailSource(
       ),
     );
   }
+  // 읽은 revision을 비교하는 앱 command. 다른 창이 먼저 고쳤으면 conflict다.
+  async function compared<
+    R extends
+      | typeof appEnableExecution
+      | typeof appDisableExecution
+      | typeof appArchive
+      | typeof appRename,
+  >(route: R, input: z.input<R["input"]>): Promise<SourceResult<true>> {
+    const found = await readApp(core, input.app);
+    if (!found.ok) return found;
+    return stored(
+      call<App>(
+        core,
+        "command",
+        route.resource,
+        route.method,
+        commandBody(route, {
+          input,
+          // 넷 다 appCompareSchema다.
+          compare: {
+            base_revision: found.value.app.revision,
+          } as CompareOf<R>,
+          key: crypto.randomUUID(),
+        }),
+      ),
+    );
+  }
   return {
-    async setRun(app, enabled) {
-      const found = await readApp(core, app);
-      if (!found.ok) return found;
-      const route = enabled ? appEnableExecution : appDisableExecution;
-      return stored(
-        call<App>(
-          core,
-          "command",
-          route.resource,
-          route.method,
-          commandBody(route, {
-            input: { app },
-            compare: { base_revision: found.value.app.revision },
-            key: crypto.randomUUID(),
-          }),
-        ),
-      );
-    },
+    rename: (app, name) => compared(appRename, { app, name }),
+    archive: (app) => compared(appArchive, { app }),
+    setRun: (app, enabled) =>
+      compared(enabled ? appEnableExecution : appDisableExecution, { app }),
 
     setIcon: (app, icon) =>
       stored(

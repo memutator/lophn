@@ -44,15 +44,31 @@ export interface WorkspaceLayoutBridge {
 
 /** layout이 null이면 쓸 만한 저장 값이 없다(없음, 손상, 다른 판). 부르는 쪽이 기본 layout을 쓴다. */
 export type WorkspaceLayoutRead =
-  | { ok: true; layout: WorkspaceLayout | null }
+  | { ok: true; layout: WorkspaceLayout }
+  | {
+      ok: true;
+      layout: null;
+      reason: "absent" | "unsupported_schema" | "corrupt";
+    }
   | { ok: false; message: string };
+
+/**
+ * 이 읽기 뒤에는 저장된 파일을 덮지 않는다. 읽지 못했거나(권한, 일시 오류) 다른 판이면 파일에 사람의 배치가 남아 있어
+ * 그 판이나 다음 읽기에서 되살아난다. 손상은 잃을 것이 없어 덮는다(main이 읽을 때 `.bak`으로 한 벌 남긴다).
+ */
+export function keepsSavedFile(read: WorkspaceLayoutRead): boolean {
+  return (
+    !read.ok || (read.layout === null && read.reason === "unsupported_schema")
+  );
+}
 
 export interface LayoutSource {
   readWorkspaceLayout(workspace: WorkspaceRef): Promise<WorkspaceLayoutRead>;
+  /** `blocked`면 마지막 읽기가 `keepsSavedFile`이라 쓰지 않았다. 다음 읽기가 되면 다시 쓴다. */
   saveWorkspaceLayout(
     workspace: WorkspaceRef,
     layout: WorkspaceLayout,
-  ): Promise<{ ok: boolean }>;
+  ): Promise<{ ok: boolean; blocked?: true }>;
 }
 
 const globalBridge = (): WorkspaceLayoutBridge | undefined =>
@@ -85,6 +101,34 @@ export function createLayoutSource(
   const windowLayouts = new Map<string, WorkspaceLayout>();
   // 쓰는 중인 저장. 읽기가 쓰기 전의 파일을 보고 메모리 layout을 버리지 않도록 기다린다.
   const writing = new Map<string, Promise<unknown>>();
+  // 마지막 읽기가 keepsSavedFile인 workspace. 기본 layout이 그 파일을 덮지 않게 쓰기를 막는다.
+  const blocked = new Set<string>();
+  const read = async (
+    api: WorkspaceLayoutBridge,
+    key: string,
+  ): Promise<WorkspaceLayoutRead> => {
+    try {
+      await writing.get(key);
+      const reply = await api.readWorkspace({ workspace: key });
+      if (!reply.ok) return { ok: false, message: reply.code };
+      if (!reply.available) {
+        return { ok: true, layout: null, reason: reply.reason };
+      }
+      const mine = windowLayouts.get(key);
+      if (
+        mine !== undefined &&
+        signatureOf(layoutToStored(mine)) === signatureOf(reply.layout)
+      ) {
+        return { ok: true, layout: mine };
+      }
+      const layout = layoutFromStored(reply.layout);
+      return layout === null
+        ? { ok: true, layout: null, reason: "corrupt" }
+        : { ok: true, layout };
+    } catch {
+      return { ok: false, message: "layout is unavailable" };
+    }
+  };
   return {
     async readWorkspaceLayout(workspace) {
       const api = bridge();
@@ -92,27 +136,17 @@ export function createLayoutSource(
         return { ok: false, message: "layout is unavailable" };
       }
       const key = workspaceKey(workspace);
-      try {
-        await writing.get(key);
-        const reply = await api.readWorkspace({ workspace: key });
-        if (!reply.ok) return { ok: false, message: reply.code };
-        if (!reply.available) return { ok: true, layout: null };
-        const mine = windowLayouts.get(key);
-        if (
-          mine !== undefined &&
-          signatureOf(layoutToStored(mine)) === signatureOf(reply.layout)
-        ) {
-          return { ok: true, layout: mine };
-        }
-        return { ok: true, layout: layoutFromStored(reply.layout) };
-      } catch {
-        return { ok: false, message: "layout is unavailable" };
-      }
+      const result = await read(api, key);
+      if (keepsSavedFile(result)) blocked.add(key);
+      else blocked.delete(key);
+      return result;
     },
     saveWorkspaceLayout(workspace, layout) {
       const api = bridge();
       if (api === undefined) return Promise.resolve({ ok: false });
       const key = workspaceKey(workspace);
+      if (blocked.has(key))
+        return Promise.resolve({ ok: false, blocked: true });
       windowLayouts.set(key, layout);
       const done = (async () => {
         try {

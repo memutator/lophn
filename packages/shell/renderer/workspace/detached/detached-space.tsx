@@ -178,6 +178,7 @@ function DetachedTab({
     projectTitle: projectView?.title,
     explorerRoot: undefined,
     appName: undefined,
+    appRenamed: () => {},
     props: hostProps,
     appScreens: false,
     desk,

@@ -53,6 +53,7 @@ export function DesktopIntents({
             desktopScope({
               catalog: loaded?.ok ? loaded.value : EMPTY_CATALOG,
               platform: env.platform,
+              keys: env.keys(),
               search: search ? (query) => search(query, null) : undefined,
               go,
             }),

@@ -190,6 +190,7 @@ import {
 } from "./kinds/terminal.tsx";
 import { openWorkflow } from "./kinds/workflow.tsx";
 import { NoticeCard } from "./notice-card.tsx";
+import { keepsSavedFile } from "../shell/layout-source.ts";
 import { pinId, shownQuickOrder } from "./project-settings/quick-launch.ts";
 import { clampFloatRect } from "./model.ts";
 import { AppTabIcon } from "../app-frame/app-icon.tsx";
@@ -330,6 +331,7 @@ interface Loaded {
 
 const EMPTY_LOADED: Loaded = { project: null, files: [], failed: false };
 const CLOSED_TABS_MAX = 10;
+const SAVE_RETRY_MS = 10_000;
 // 작업대가 주인인 command id. 단축키 표에 있는 것 중 context가 있는 줄(agent·terminal·browser)과
 // 팔레트가 여는 줄은 다른 화면이 올린다. app.panel은 표에 줄이 없어 따로 올린다.
 const WORKSPACE_COMMANDS: readonly Command[] = [
@@ -509,6 +511,14 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   // 떠 있는 안내(읽기 실패)를 닫은 상태.
   const [noticesHidden, setNoticesHidden] = useState(false);
   const hideNotices = () => setNoticesHidden(true);
+  // layout 저장 안내. blocked는 읽지 못한 저장 값을 덮지 않으려고 저장을 끈 것, failed는 쓰기가 거절된 것이다.
+  const [layoutNotice, setLayoutNotice] = useState<"blocked" | "failed" | null>(
+    null,
+  );
+  const [layoutHidden, setLayoutHidden] = useState<typeof layoutNotice>(null);
+  // 전역 float 저장이 거절된 것도 같은 안내로 보인다.
+  const layoutNow = layoutNotice ?? (globalFloats.saveFailed ? "failed" : null);
+  const layoutShown = layoutNow === layoutHidden ? null : layoutNow;
   const deskCount = useRef(0);
   // float 층(창 몸통 전체)의 크기. 패널 rect의 기준이다. 0이면 못 잰 것과 같다(0x0으로 가둔 rect는 저장이 거절된다).
   const floatRef = useRef<HTMLDivElement>(null);
@@ -562,6 +572,8 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     const load = async () => {
       const read = await source.layout.readWorkspaceLayout(workspace);
       if (!live) return;
+      // 읽지 못했거나 다른 판인 파일은 source가 덮지 않는다. 이 workspace를 다시 열어 읽힐 때까지 바꾼 배치는 저장되지 않는다.
+      if (keepsSavedFile(read)) setLayoutNotice("blocked");
       // 이 창의 터미널 store가 모르는 터미널 탭은 살아 있는 PTY가 없다(lophn을 다시 켰다). 되살리면 새 shell을 띄우므로 뺀다.
       // workspace를 오가는 동안은 store가 PTY를 들고 있어 남는다.
       const terminals = props.terminal?.store;
@@ -571,6 +583,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
           tab.kind === "terminal" && terminals?.get(tab.key) === undefined,
       );
       latestLayout.current = restored;
+      loadedLayout.current = true;
       setLayout(restored);
       // 보이는 desk의 detached 창만 연다. 다른 desk의 것은 그 desk로 갈 때 syncDetached가 연다.
       // 거절은 무시한다. conflict는 이미 떠 있는 것이고 나머지는 탭이 layout의 detached로 남는다.
@@ -615,6 +628,9 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     Record<string, { section: string; scroll_offset: number }>
   >({});
   const positionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 배치를 읽기 전에는 저장하지 않는다. 처음 state인 기본 layout이 저장된 파일을 덮지 않게 한다.
+  const loadedLayout = useRef(false);
 
   const withPosition = (tab: TabItem): TabItem => {
     const position = positions.current[tab.key] ?? tab.readPosition;
@@ -622,10 +638,23 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
   };
 
   const persist = (next: WorkspaceLayout) => {
-    void source.layout.saveWorkspaceLayout(
-      workspace,
-      mapLayoutTabs(next, withPosition),
-    );
+    if (!loadedLayout.current) return;
+    void source.layout
+      .saveWorkspaceLayout(workspace, mapLayoutTabs(next, withPosition))
+      .then((saved) => {
+        if (saved.ok) {
+          setLayoutNotice((now) => (now === "failed" ? null : now));
+          return;
+        }
+        if (saved.blocked) return;
+        // 거절되면(디스크 가득, 못 씀) 알리고 다음 바뀜이나 기한에 마지막 배치를 다시 쓴다.
+        setLayoutNotice((now) => now ?? "failed");
+        if (retryTimer.current !== null) return;
+        retryTimer.current = setTimeout(() => {
+          retryTimer.current = null;
+          persistRef.current(latestLayout.current);
+        }, SAVE_RETRY_MS);
+      });
   };
   const persistRef = useRef(persist);
   persistRef.current = persist;
@@ -651,6 +680,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
 
   useEffect(
     () => () => {
+      if (retryTimer.current !== null) clearTimeout(retryTimer.current);
       if (positionTimer.current === null) return;
       clearTimeout(positionTimer.current);
       positionTimer.current = null;
@@ -1100,6 +1130,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     projectId,
     projectTitle: loaded.project?.title,
     appName,
+    appRenamed: setAppName,
     explorerRoot,
     props,
     appScreens: appViews?.screens !== undefined,
@@ -2670,14 +2701,28 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
       {props.notice === undefined ? null : (
         <div className={styles.banner}>{props.notice}</div>
       )}
-      {noticesHidden || !loaded.failed ? null : (
+      {(noticesHidden || !loaded.failed) && layoutShown === null ? null : (
         <div className={styles.notices} data-notices="">
-          <NoticeCard
-            tone="error"
-            data={{ "data-load-failed": "" }}
-            text={t("project-workspace.error.load-failed")}
-            onDismiss={hideNotices}
-          />
+          {noticesHidden || !loaded.failed ? null : (
+            <NoticeCard
+              tone="error"
+              data={{ "data-load-failed": "" }}
+              text={t("project-workspace.error.load-failed")}
+              onDismiss={hideNotices}
+            />
+          )}
+          {layoutShown === null ? null : (
+            <NoticeCard
+              tone="error"
+              data={{ "data-layout-notice": layoutShown }}
+              text={t(
+                layoutShown === "blocked"
+                  ? "project-workspace.error.layout-unreadable"
+                  : "project-workspace.error.layout-save-failed",
+              )}
+              onDismiss={() => setLayoutHidden(layoutShown)}
+            />
+          )}
         </div>
       )}
     </div>

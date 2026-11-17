@@ -32,6 +32,11 @@ export function StartFailureScreen({
       {failure.update === undefined ? null : (
         <p className={styles.textSmall}>{t(failure.update)}</p>
       )}
+      {failure.recovery === undefined ? null : (
+        <p className={styles.textSmall} data-recovery="">
+          {t(failure.recovery)}
+        </p>
+      )}
       <Button
         variant="primary"
         icon={actionIcons.retry}

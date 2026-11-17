@@ -322,6 +322,10 @@ export interface MachinesView {
 }
 
 export interface AppDetailSource {
+  /** 사람이 지은 앱 이름을 바꾼다. 비면 `invalid_input`이다. */
+  rename(app: string, name: string): Promise<SourceResult<true>>;
+  /** 앱을 보관한다(실행도 끈다). Home의 Workspaces panel에서 꺼낸다. */
+  archive(app: string): Promise<SourceResult<true>>;
   /** 실행 허용을 켜거나 끈다. 끄면 앱 process가 멈추고, 보관된 앱은 켤 수 없다(conflict). */
   setRun(app: string, enabled: boolean): Promise<SourceResult<true>>;
   /** 올린 icon을 정한다. null이면 올린 것을 지워 선언한 icon(없으면 첫 글자 표식)으로 돌아간다. */

@@ -2,6 +2,7 @@
 // 지금 탐색 대상(프로젝트 창, 앱 공간, 런처, Settings, project 창에서 파일 열기)으로만 간다.
 import { t } from "@lophn/i18n";
 
+import type { KeyOverrides } from "../../../../protocol/shell/keybindings.ts";
 import type { WindowPlatform } from "../top-bar/platform.ts";
 import type { Catalog } from "./catalog.ts";
 import { windowShortcutLabel } from "./labels.ts";
@@ -28,17 +29,22 @@ export type DesktopTarget =
 interface DesktopScopeInput {
   readonly catalog: Catalog;
   readonly platform: WindowPlatform;
+  /** 사람이 바꾼 키. hint가 따른다. */
+  readonly keys: KeyOverrides;
   readonly search?: (query: string) => Promise<readonly FileFound[]>;
   readonly go: (target: DesktopTarget) => void;
 }
 
-function actions(platform: WindowPlatform): PaletteEntry<DesktopTarget>[] {
+function actions(
+  platform: WindowPlatform,
+  keys: KeyOverrides,
+): PaletteEntry<DesktopTarget>[] {
   return [
     {
       group: "actions",
       key: "action:home",
       label: t("common.button.palette-home"),
-      hint: windowShortcutLabel("home.open", platform) ?? undefined,
+      hint: windowShortcutLabel("home.open", platform, keys) ?? undefined,
       icon: "home",
       target: { kind: "home" },
     },
@@ -74,7 +80,7 @@ export function desktopScope(
         icon: "app" as const,
         target: { kind: "app" as const, id: row.id },
       })),
-      ...actions(input.platform),
+      ...actions(input.platform, input.keys),
     ],
     search: search
       ? async (query) =>

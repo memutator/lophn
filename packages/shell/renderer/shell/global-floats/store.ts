@@ -48,12 +48,15 @@ export interface GlobalFloatsState {
   readonly workspaces: Readonly<Record<string, WorkspaceRef>>;
   /** 앱 id → 사람이 지은 이름. 저장하지 않고 읽어 온다. */
   readonly names: Readonly<Record<string, string>>;
+  /** 마지막 저장이 거절됐다. 다음 저장이 되면 풀린다. */
+  readonly saveFailed: boolean;
 }
 
 const EMPTY: GlobalFloatsState = {
   desk: emptyDesk("global", "Global"),
   workspaces: {},
   names: {},
+  saveFailed: false,
 };
 
 const HOME: WorkspaceRef = { kind: "home" };
@@ -118,8 +121,9 @@ export interface Attach {
   readonly workspace: WorkspaceRef;
 }
 
-// 잦은 바뀜을 모아 한 번에 쓴다.
+// 잦은 바뀜을 모아 한 번에 쓴다. 거절되면 더 쉬고 다시 쓴다.
 const SAVE_DELAY = 200;
+const RETRY_DELAY = 10_000;
 
 export function createGlobalFloatsStore(
   bridge: () => GlobalFloatsBridge | undefined,
@@ -144,15 +148,26 @@ export function createGlobalFloatsStore(
     timer = null;
     if (!dirty) return;
     dirty = false;
-    void bridge()
-      ?.save({ floats: recordsOf(state) })
-      .catch(() => {});
+    const api = bridge();
+    if (api === undefined) return;
+    void api
+      .save({ floats: recordsOf(state) })
+      .catch(() => ({ ok: false }))
+      .then((reply) => {
+        if (reply.ok) {
+          if (state.saveFailed) set({ ...state, saveFailed: false });
+          return;
+        }
+        // 그 사이 바뀜이 없었으면 같은 값을 기한 뒤 다시 쓴다(있었으면 이미 예약됐다).
+        if (!state.saveFailed) set({ ...state, saveFailed: true });
+        if (!dirty) touched(RETRY_DELAY);
+      });
   }
 
-  function touched() {
+  function touched(delay = SAVE_DELAY) {
     dirty = true;
     if (timer !== null) clearTimeout(timer);
-    timer = setTimeout(flush, SAVE_DELAY);
+    timer = setTimeout(flush, delay);
   }
 
   return {

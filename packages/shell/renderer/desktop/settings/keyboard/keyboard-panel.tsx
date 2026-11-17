@@ -45,6 +45,7 @@ import {
   conflictClearKeys,
   contextName,
   contributedBindings,
+  keymapBindings,
   contributedDefaults,
   contributedRows,
   filterRows,
@@ -185,7 +186,12 @@ export function KeyboardPanel({ source }: { source: KeyboardSource }) {
       : appRows(appsFailed ? null : panelChoices(apps), overrides)),
   ];
   const names = nameOfIds(rows);
-  const conflictList = findConflicts(platform, overrides, extra);
+  const conflictList = findConflicts(
+    platform,
+    overrides,
+    extra,
+    keymapBindings(keymap, platform, overrides),
+  );
   const conflicts = rowConflicts(rows, conflictList);
   // 겹침이 다 풀리면 토글은 꺼진 것으로 본다.
   const conflictsOnly = conflictsToggle && conflictList.length > 0;

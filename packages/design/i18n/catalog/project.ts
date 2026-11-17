@@ -89,12 +89,16 @@ export const project = {
     "Type text to search the files in this project.",
   "file-search.notice.unavailable": "Search isn't available right now.",
   "project-settings.button.add-command": "Add",
+  "project-settings.button.archive": "Archive",
   "project-settings.button.move-down": "Move down",
   "project-settings.button.move-up": "Move up",
   "project-settings.button.pin": "Pin",
   "project-settings.button.remove-command": "Remove command",
   "project-settings.button.unpin": "Unpin",
+  "project-settings.error.archive-failed":
+    "Couldn't archive the project. Try again.",
   "project-settings.heading.app-panels": "App panels",
+  "project-settings.heading.archive": "Archive this project",
   "project-settings.heading.commands": "Terminal commands",
   "project-settings.heading.general": "General",
   "project-settings.heading.quick-launch": "Quick launch",
@@ -105,6 +109,8 @@ export const project = {
   "project-settings.notice.app-panels-lead":
     "A pinned app panel gets its own quick launch button that opens the panel in a tab.",
   "project-settings.notice.apps-failed": "Couldn't read the installed apps.",
+  "project-settings.notice.archive":
+    "Moves the project to Archived on Home. Its folders stay as they are, and you can unarchive it there.",
   "project-settings.notice.commands-lead":
     "Commands for this project only. They appear in the hover list of the New terminal button and run in a new terminal.",
   "project-settings.notice.general-unavailable":
@@ -162,6 +168,10 @@ export const project = {
   "project-workspace.error.explorer-paste-unsupported":
     "The clipboard has nothing lophn can paste here.",
   "project-workspace.error.files-failed": "Couldn't read this folder.",
+  "project-workspace.error.layout-save-failed":
+    "Couldn't save the tab layout. lophn will keep trying; until then, a restart brings back the last saved layout.",
+  "project-workspace.error.layout-unreadable":
+    "Couldn't read this workspace's saved tab layout, so changes here won't be saved over it.",
   "project-workspace.error.load-failed": "Couldn't load this project.",
   "project-workspace.heading.agents": "Agents",
   "project-workspace.label.choose-app": "Choose an app",

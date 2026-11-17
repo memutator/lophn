@@ -12,6 +12,8 @@ export interface StartFailure {
   text: MessageKey;
   /** update 안내. schema 세 경우에만 있다. */
   update?: MessageKey;
+  /** 복구본(마지막 변환 전 ledger)으로 손수 되돌리는 길. 새 판을 받아도 풀리지 않는 손상·어긋난 이력에만 있다. */
+  recovery?: MessageKey;
   /** 접힌 자세히에 보이는 검사 내용 한 줄. */
   details?: MessageKey;
 }
@@ -29,6 +31,7 @@ const SCHEMA: Record<SchemaReason, StartFailure> = {
     title: "home.title.history-mismatch",
     text: "home.failure.history-mismatch",
     update: "home.failure.update-history-mismatch",
+    recovery: "home.failure.recovery",
     details: "home.failure.check-history-mismatch",
   },
   damaged_original: {
@@ -36,6 +39,7 @@ const SCHEMA: Record<SchemaReason, StartFailure> = {
     title: "home.title.damaged-original",
     text: "home.failure.damaged-original",
     update: "home.failure.update-damaged-original",
+    recovery: "home.failure.recovery",
     details: "home.failure.check-damaged-original",
   },
 };

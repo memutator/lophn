@@ -90,6 +90,8 @@ export interface GlobalFloatsApi {
   readonly floats: readonly GlobalFloatView[];
   /** floats만 가진 desk. 본문의 TabHost가 `desk`로 읽는다. */
   readonly desk: Desk;
+  /** 마지막 저장이 거절됐다(store가 기한 뒤 다시 쓴다). */
+  readonly saveFailed: boolean;
   /** 앱 panel 화면의 전역 float. */
   find(app: string, screen: string): GlobalFloatView | undefined;
   /**
@@ -145,6 +147,7 @@ const NONE: GlobalFloatsApi = {
   enabled: false,
   floats: [],
   desk: emptyDesk("global", "Global"),
+  saveFailed: false,
   find: () => undefined,
   add: () => false,
   patch: () => {},
@@ -316,6 +319,7 @@ export function GlobalFloatsProvider({
       enabled: true,
       floats,
       desk: state.desk,
+      saveFailed: state.saveFailed,
       find: (app, screen) =>
         floats.find(
           (item) =>

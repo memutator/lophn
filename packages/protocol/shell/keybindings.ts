@@ -679,6 +679,11 @@ export function isDynamicBindingId(id: string): boolean {
   return DYNAMIC_ID.test(id);
 }
 
+/** 앱이 선언한 key의 command id(`app.<app id>.<name>`). 그 key는 앱 page 안에서 듣는다. */
+export function isAppKeyId(id: string): boolean {
+  return DYNAMIC_ID.test(id) && id.startsWith("app.");
+}
+
 const TABLE_IDS = new Map(
   KEYBINDINGS.map((binding) => [bindingId(binding), binding] as const),
 );
@@ -1089,11 +1094,16 @@ export interface KeyConflict {
  * 한 context에서 같은 chord를 가진 binding 묶음, 그리고 RESERVED와 같은 chord를 가진 binding.
  * context가 다르면 같은 key라도 겹침이 아니다(안쪽 context가 먼저 듣는다). 한 binding 안의 같은 chord 둘은
  * 겹침이 아니다. 두 타의 머리가 홑 binding과 같아도 다른 chord다. 겹치면 표 순서가 앞인 binding이 받는다.
+ * 예외로 다른 context인데 한쪽이 가리는 둘도 겹침이다.
+ * - main이 먼저 받는 context 없는 줄은 앱 page의 key(`isAppKeyId`)를 가린다. page가 key를 받기 전에 main이 삼킨다.
+ * - keymap(harness GUI가 내장 command에 건 key, context `<바깥>:<harness>`)은 그 context와 바깥 context의 같은 key를
+ *   가린다. keymap끼리는 겹침으로 보지 않는다(같은 key의 두 command가 조건으로 갈린다: Ctrl+C clear-input·interrupt).
  */
 export function findConflicts(
   platform: KeyPlatform,
   overrides: KeyOverrides,
   extra: readonly Binding[] = [],
+  keymap: readonly Binding[] = [],
 ): readonly KeyConflict[] {
   const groups: {
     context: string;
@@ -1123,11 +1133,58 @@ export function findConflicts(
     if (reserved.some((one) => sameChord(one, group.chord)))
       group.reserved = true;
   }
-  return groups
+  const found: KeyConflict[] = groups
     .filter((group) => group.ids.length >= (group.reserved ? 1 : 2))
     .map((group) => ({
       chord: group.chord.text,
       ids: group.ids,
       reserved: group.reserved,
     }));
+  const all = [...resolveBindings(platform, overrides), ...extra];
+  const shadow = (
+    by: Binding,
+    under: Binding,
+    covers: (by: Binding, under: Binding) => boolean,
+  ) => {
+    const ids = [bindingId(by), bindingId(under)];
+    if (ids[0] === ids[1] || !covers(by, under)) return;
+    for (const text of by[platform]) {
+      const chord = parseChord(text);
+      if (!under[platform].some((one) => sameChord(parseChord(one), chord))) {
+        continue;
+      }
+      if (
+        !found.some(
+          (one) =>
+            one.chord === chord.text && ids.every((id) => one.ids.includes(id)),
+        )
+      ) {
+        found.push({ chord: chord.text, ids, reserved: false });
+      }
+    }
+  };
+  for (const under of all) {
+    if (!isAppKeyId(bindingId(under))) continue;
+    for (const by of all) {
+      shadow(
+        by,
+        under,
+        (main) =>
+          main.context === undefined &&
+          (main.main?.includes(platform) ?? false),
+      );
+    }
+  }
+  for (const by of keymap) {
+    for (const under of all) {
+      shadow(by, under, (inner, outer) => {
+        const context = inner.context ?? "";
+        const base = outer.context ?? "";
+        return (
+          context === base || (base !== "" && context.startsWith(`${base}:`))
+        );
+      });
+    }
+  }
+  return found;
 }

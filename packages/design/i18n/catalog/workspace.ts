@@ -81,6 +81,8 @@ export const workspace = {
     "lophn did not start. The history in your data differs from what this version expects, and lophn did not change it.",
   "home.failure.newer-schema":
     "lophn did not start. It left your data exactly as it was, and this version can't read it.",
+  "home.failure.recovery":
+    "Before lophn changes how your data is stored, it keeps a copy of the data from just before that change in the recovery folder inside your lophn data folder (~/.lophn unless you moved it). To go back to that copy, quit lophn, move lophn.db, lophn.db-wal and lophn.db-shm out of the data folder, copy ledger.db from the folder inside recovery into it as lophn.db, and start lophn. Anything recorded after that copy was made is lost.",
   "home.failure.start-failed":
     "lophn couldn't start in the background. Your projects and apps can't open until it does.",
   "home.failure.update-damaged-original":

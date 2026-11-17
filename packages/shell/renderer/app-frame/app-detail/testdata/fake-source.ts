@@ -791,6 +791,8 @@ export function fakeDetail(options: FakeOptions = {}) {
   ];
 
   const source: AppDetailSource = {
+    rename: () => Promise.resolve({ ok: true, value: true }),
+    archive: () => Promise.resolve({ ok: true, value: true }),
     setRun: (app, enabled) => {
       runEnabled = enabled;
       runState = enabled ? "running" : "stopped";

@@ -44,6 +44,7 @@ import {
 } from "../../../lophn-agent/run-loop/mod.ts";
 import { unstartedHumanMessages } from "../../../lophn-agent/session/message-commands.ts";
 import {
+  forkedHarnessSession,
   HARNESS_QUEUE_PUT_TOPIC,
   harnessOf,
 } from "../../../lophn-agent/session/mod.ts";
@@ -141,9 +142,11 @@ export const harnessWiring: WiringFactory = () => {
             publish: () => {},
             sql: () => lookup.sql,
           });
+          const row = loadSession(lookup, session);
           return {
-            row: loadSession(lookup, session),
+            row,
             target: directory.find(session as Id<"ses">),
+            fork: row === undefined ? null : forkedHarnessSession(lookup, row),
           };
         });
         if (!found.ok) return found;
@@ -152,6 +155,7 @@ export const harnessWiring: WiringFactory = () => {
         return ok({
           row: harness.value,
           accepting: found.value.target?.accepting === true,
+          fork: found.value.fork,
         });
       };
 
@@ -246,6 +250,7 @@ export const harnessWiring: WiringFactory = () => {
                   : { kind: row.workspace_kind, id: row.workspace_id },
               harness: row.harness,
               external_session_id: row.harness_session,
+              fork_external_session_id: found.value.fork,
               input_message: head.message,
               kind: head.kind,
               from: head.from,

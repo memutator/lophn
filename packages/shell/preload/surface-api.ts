@@ -4,11 +4,13 @@ import {
   SURFACE_ACK_CHANNEL,
   SURFACE_CONTROL_CHANNEL,
   SURFACE_EMULATE_CHANNEL,
+  SURFACE_EMULATION_CHANNEL,
   SURFACE_REPORT_CHANNEL,
   SURFACE_REQUEST_CHANNEL,
   SURFACE_TAKE_CHANNEL,
   type SurfaceControl,
   type SurfaceEmulateResult,
+  type SurfaceEmulationLost,
   type SurfaceRequest,
   SURFACE_WORKSPACE_CHANNEL,
 } from "../ipc/surface.ts";
@@ -46,6 +48,14 @@ function isControl(value: unknown): value is SurfaceControl {
   );
 }
 
+function isEmulationLost(value: unknown): value is SurfaceEmulationLost {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { view_session?: unknown }).view_session === "string"
+  );
+}
+
 export function createSurfaceApi(transport: SurfaceTransport): LophnSurfaceApi {
   const send = async (channel: string, input: unknown) => {
     await transport.invoke(channel, input).catch(() => {});
@@ -75,6 +85,14 @@ export function createSurfaceApi(transport: SurfaceTransport): LophnSurfaceApi {
         .invoke(SURFACE_EMULATE_CHANNEL, input)
         .catch(() => undefined)) as SurfaceEmulateResult | undefined;
       return reply ?? { ok: false, reason: "unavailable" };
+    },
+    emulationLost(listener) {
+      const callback = (_event: unknown, payload: unknown) => {
+        if (isEmulationLost(payload)) listener(payload);
+      };
+      transport.on(SURFACE_EMULATION_CHANNEL, callback);
+      return () =>
+        transport.removeListener(SURFACE_EMULATION_CHANNEL, callback);
     },
   } satisfies LophnSurfaceApi);
 }

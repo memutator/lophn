@@ -38,13 +38,17 @@ const reload = (page: Page) =>
     () => {},
   );
 
-export function createEmulation(lookup: PageLookup): Emulation {
-  // 건 page(webContents id). 풀 때 건 적 없는 page에는 붙지 않는다.
-  const applied = new Set<number>();
+/** lost는 건 기기가 main에서 풀렸을 때(사람이 DevTools를 열었을 때) 그 view session으로 부른다. */
+export function createEmulation(
+  lookup: PageLookup,
+  lost: (viewSession: string) => void,
+): Emulation {
+  // 건 page(webContents id)와 그 view session. 풀 때 건 적 없는 page에는 붙지 않는다.
+  const applied = new Map<number, string>();
   // DevTools를 지켜보는 page. page마다 한 번만 듣는다.
   const watched = new Set<number>();
   // 건 뒤 사람이 DevTools를 열면 emulation이 풀린다. 건 것으로 남겨 두면 다시 고를 때 이미 붙은 줄 알고 실패하고,
-  // driver가 기기를 걸린 것으로 알린다. 떼어 상태를 맞춘다.
+  // driver가 기기를 걸린 것으로 알린다. 떼어 상태를 맞추고, 탭이 폰 틀과 기기 이름을 내리게 알린다.
   const watch = (page: Page) => {
     if (watched.has(page.id)) return;
     watched.add(page.id);
@@ -52,7 +56,11 @@ export function createEmulation(lookup: PageLookup): Emulation {
       cdp() {},
       detached() {},
       devtoolsOpened() {
-        if (applied.delete(page.id)) page.detach("emulation");
+        const viewSession = applied.get(page.id);
+        if (viewSession === undefined) return;
+        applied.delete(page.id);
+        page.detach("emulation");
+        lost(viewSession);
       },
     });
   };
@@ -86,7 +94,7 @@ export function createEmulation(lookup: PageLookup): Emulation {
       } catch {
         return { ok: false, reason: "devtools" };
       }
-      applied.add(page.id);
+      applied.set(page.id, viewSession);
       watch(page);
       const agent = AGENTS[device.os];
       try {

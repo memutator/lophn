@@ -6,6 +6,7 @@ import type { HeadlessEvent, HeadlessSpec } from "./types.ts";
 // codex에는 loopback만 여는 flag가 없다. 이 값이 codex가 돌리는 shell 명령의 network 전부를 연다.
 const NETWORK = "sandbox_workspace_write.network_access=true";
 
+// `codex fork`는 대화형뿐이라 headless로 fork하지 못한다. fork한 session은 새로 시작한다(`forkFrom`을 쓰지 않는다).
 export const codexHeadless: HeadlessSpec = {
   command: "codex",
   args: ({ prompt, sessionId }) =>

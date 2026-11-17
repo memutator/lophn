@@ -19,13 +19,17 @@ export const MACHINES_OPEN_CHANNEL = "shell:machines-open";
 export const MACHINES_THIS_WINDOW_CHANNEL = "shell:machines-this-window";
 // A window of another machine says which session it shows, for that machine's presence. Only those windows call it.
 export const MACHINES_VISIBLE_CHANNEL = "shell:machines-visible";
-// A window of another machine reads this computer's projects and sessions, to show which of that machine's projects are
-// also here. Only those windows call it, and only these two reads pass.
+// A window of another machine reads this computer's projects, agents and sessions, to show which of that machine's projects
+// are also here and what sessions they have here. Only those windows call it, and only these reads pass.
 export const MACHINES_THIS_READ_CHANNEL = "shell:machines-this-read";
 // A window of another machine clones one of that machine's projects onto this computer (this computer's `project.clone`).
 export const MACHINES_CLONE_HERE_CHANNEL = "shell:machines-clone-here";
 
-export const THIS_COMPUTER_READS = ["project.list", "ListSessions"] as const;
+export const THIS_COMPUTER_READS = [
+  "project.list",
+  "ListAgents",
+  "ListSessions",
+] as const;
 export type ThisComputerRead = (typeof THIS_COMPUTER_READS)[number];
 
 export const machineIdSchema = idSchema("mch") as unknown as z.ZodType<

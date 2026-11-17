@@ -1108,9 +1108,9 @@ flows:
       - "app_rewinds에 applying 행을 쓰고(insertApplyingRewind) 그 앱의 접수를 닫는다. 새 호출은 붙잡아 둔다. 도는 호출은 멈추지 않는다."
       - "60초 안에 도는 호출이 끝나길 기다린다. 넘으면 cancelled(running calls did not finish)다."
       - "계획을 다시 계산하고 changeset을 가져와 최신부터 뒤집는다(base). changeset이 없는 항목은 조용히 건너뛴다. 계획이 바뀌었거나 뒤집지 못하면 cancelled다."
-      - "뒤집은 changeset 전부를 한 요청으로 app process가 한 transaction에 적용한다. 충돌이나 process 문제면 통째로 취소한다. 보내지 못하면 cancelled(app_unavailable)다."
+      - "뒤집은 changeset 전부를 한 요청으로 app process가 한 transaction에 적용한다. 충돌이나 process 문제면 통째로 취소한다. 보내지 못하면 cancelled(app_unavailable)다. 보낸 뒤 답을 잃으면(relay의 sent) 앱 DB가 되돌려졌는지 모르므로 unknown(app_unavailable)으로 끝내고 보낸 목록을 남긴다. reverted_by와 sync log 줄은 남기지 않고 앱 화면에 다시 읽으라고 알린다."
       - "적용되면 invocation에 reverted_by를 붙이고 rewind를 applied로 끝낸다. 붙이지 못하면 mark-reverted-failed다(app data는 이미 되돌아가 있다)."
-      - "어느 길로 끝나도 접수를 다시 연다(finally). 응답은 ok로 rewind 행을 주고, status는 applied 또는 cancelled다."
+      - "어느 길로 끝나도 접수를 다시 연다(finally). 응답은 ok로 rewind 행을 주고, status는 applied, cancelled, unknown 가운데 하나다."
     outcomes:
       - id: applied
         observe: ["ledger:app_rewinds", "ledger:invocations", "disk:apps/<app>/data", "event:AppViewChanged", response]
@@ -1121,8 +1121,11 @@ flows:
         when: "drain 사이에 계획이 바뀜, 계획 재계산이 실패함, 결과를 모르는 write가 남아 있음(blocked), changeset을 읽거나 뒤집지 못함, app process가 conflict로 답함. 응답은 ok이고 status가 cancelled다"
         observe: ["ledger:app_rewinds", response]
       - id: cancelled-app-unavailable
-        when: "app process에 적용 요청을 보내지 못함, 또는 적용 답이 오류·모양 불일치(supervisor가 답하지 않음, 시간 초과, 앱의 503이나 400 등). 응답은 ok이고 status가 cancelled다"
+        when: "app process에 적용 요청이 닿지 않음(supervisor가 답하지 않음, 앱이 돌지 않음, 연결을 받지 않음) 또는 앱이 거절 답(503, 400 등)을 줌. 응답은 ok이고 status가 cancelled다"
         observe: ["ledger:app_rewinds", response]
+      - id: unknown-reply-lost
+        when: "적용 요청을 보낸 뒤 답을 잃음(시간 초과, 답 상한 초과, 답 모양 불일치나 거절이 아닌 오류 답). 앱 DB가 되돌려졌는지 모른다. 응답은 ok이고 status가 unknown이며 invocations는 보낸 목록이다"
+        observe: ["ledger:app_rewinds", "event:AppViewChanged", response]
       - id: mark-reverted-failed
         code: conflict
         when: "app process는 되돌렸지만 invocation에 reverted_by를 붙이지 못함. app_rewinds는 applying으로 남고 app data는 이미 되돌아가 있다(틀린 되돌리기)"

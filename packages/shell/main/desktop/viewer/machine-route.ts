@@ -26,7 +26,7 @@ import { WINDOW_CONTROL_CHANNEL } from "../../../ipc/window-controls.ts";
 import type { Connection } from "../../../../remote-client/mod.ts";
 
 // What a window of another machine may call on this computer's shell besides the core channels: the machine list and
-// switching windows, two narrow calls to this computer's core (its projects and sessions, clone here), its own window
+// switching windows, two narrow calls to this computer's core (reading its projects, agents and sessions; clone here), its own window
 // buttons and opening a link in the OS browser. Overlay channels, shortcuts and intents
 // do not pass through here (overlays register on ipcMain themselves; shortcuts and intents are pushed by main).
 export const MACHINE_WINDOW_CHANNELS: ReadonlySet<string> = new Set([

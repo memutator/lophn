@@ -18,6 +18,7 @@ type Taken = {
   workspace: { kind: "project" | "app"; id: string } | null;
   harness: "claude-code" | "codex" | "opencode";
   external_session_id: string | null;
+  fork_external_session_id: string | null;
   input_message: string;
   prompt: string;
 };
@@ -203,6 +204,7 @@ export function createHarnessHost(
       spec.args({
         prompt: input.prompt,
         sessionId: input.external_session_id,
+        forkFrom: input.fork_external_session_id,
         deny,
       }),
       { cwd, env: harnessEnv(credential, input.session) },

@@ -11,6 +11,7 @@ import {
   SURFACE_ACK_CHANNEL,
   SURFACE_CONTROL_CHANNEL,
   SURFACE_EMULATE_CHANNEL,
+  SURFACE_EMULATION_CHANNEL,
   SURFACE_RELEASE_ID,
   SURFACE_REPORT_CHANNEL,
   SURFACE_REQUEST_CHANNEL,
@@ -19,6 +20,7 @@ import {
   surfaceAckSchema,
   surfaceEmulateSchema,
   type SurfaceEmulateResult,
+  type SurfaceEmulationLost,
   surfaceReportSchema,
   surfaceTakeSchema,
   surfaceWorkspaceSchema,
@@ -114,7 +116,18 @@ export function register(
   };
   const control = createTabControl(pushControl);
   const lookup = electronLookup(appFrame, artifacts);
-  const emulation = createEmulation(lookup);
+  // 풀린 기기는 모든 창에 알리고 그 view session의 preview 탭만 듣는다(사람이 연 preview 탭은 bind하지 않아 창을 모른다).
+  const emulation = createEmulation(lookup, (viewSession) => {
+    const lost: SurfaceEmulationLost = {
+      view_session: viewSession,
+      reason: "devtools",
+    };
+    for (const window of ctx.windows) {
+      if (!window.isDestroyed()) {
+        window.webContents.send(SURFACE_EMULATION_CHANNEL, lost);
+      }
+    }
+  });
   const driver = createBrowserDriver({
     viewSession: (tab) => bound.get(tab)?.view_session,
     releaseLogin: (request) => ctx.core.releaseLogin(request),

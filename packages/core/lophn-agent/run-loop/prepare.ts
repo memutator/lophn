@@ -393,47 +393,29 @@ function toolsNotice(
 // 그 turn이 결과를 확정하지 못한 tool call(core가 uncertain으로 닫았다)을 알린다. 읽지 못하면 알리지 않고 turn을
 // 시작한다. 글은 고정 문구와 tool 이름·id뿐이다.
 // restarted는 이 process(agent runtime child)가 사라졌을 때만 생긴다(core가 켜질 때, child가 죽었을 때). 그래서 이
-// process에서 session의 첫 turn만 본다. 그 뒤의 앞 turn은 이 process가 돌린 것이라 restarted일 수 없다.
+// process에서 session의 첫 turn만 보고, 마지막에 시작한 끝난 turn 하나만 읽는다. 그 뒤의 앞 turn은 이 process가 돌린 것이라
+// restarted일 수 없다.
 const NOTICE_MAX_PAGES = 400;
 
 async function cutOffNotice(
   machine: CoreCall,
   session: string,
 ): Promise<string[]> {
-  let previous: {
-    id: string;
-    started_at: string;
-    interrupted: boolean;
-  } | null = null;
-  let cursor: string | undefined;
-  for (let page = 0; ; page++) {
-    if (page >= NOTICE_MAX_PAGES) return [];
-    const listed = await readOf(machine, turnList, {
-      session,
-      state: "finished",
-      ...(cursor === undefined ? {} : { cursor }),
-    });
-    if (!listed.ok) return [];
-    for (const turn of listed.value.turns) {
-      if (
-        previous === null ||
-        turn.started_at > previous.started_at ||
-        (turn.started_at === previous.started_at && turn.id > previous.id)
-      ) {
-        previous = {
-          id: turn.id,
-          started_at: turn.started_at,
-          interrupted:
-            turn.outcome?.kind === "interrupted" &&
-            turn.outcome.reason === "restarted",
-        };
-      }
-    }
-    const next = listed.value.next_cursor;
-    if (next === null || next === undefined) break;
-    cursor = next;
+  const listed = await readOf(machine, turnList, {
+    session,
+    state: "finished",
+    order: "newest",
+    limit: 1,
+  });
+  if (!listed.ok) return [];
+  const previous = listed.value.turns[0];
+  if (
+    previous === undefined ||
+    previous.outcome?.kind !== "interrupted" ||
+    previous.outcome.reason !== "restarted"
+  ) {
+    return [];
   }
-  if (previous === null || !previous.interrupted) return [];
   const uncertain: string[] = [];
   let callCursor: string | undefined;
   for (let page = 0; ; page++) {

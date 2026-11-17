@@ -2,6 +2,7 @@
 // 같은 id(Also on this computer), 그 기계에만 있음([Clone here]), remote만 같음(제안). 두 core는 fake이고 Studio 쪽은 기계 source의 `thisRead`가 답한다.
 import { useState } from "react";
 
+import { agentList } from "../../../../../packages/protocol/lophn-agent/agent-definitions.ts";
 import { workspaceSessionList } from "../../../../../packages/protocol/lophn-agent/agent-sessions.ts";
 import { projectApi } from "../../../../../packages/protocol/projects/project-api.ts";
 import { createEventClient } from "../../../../../packages/shell/renderer/desktop/connection/events/client.ts";
@@ -105,6 +106,21 @@ const SESSIONS: Record<string, ReturnType<typeof session>[]> = {
     session("ses_here_1", "Fix flaky retry in the runner", 2),
     session("ses_here_2", "Review the dashboard copy", 26),
   ],
+  agt_reviewer: [session("ses_here_3", "Review the retry PR", 4)],
+};
+
+// 각 기계의 그 project workspace에 둔 agent. Studio에는 사람이 만든 Reviewer도 있다.
+const agentsOf = (input: unknown) => {
+  const { id } = (input as { workspace: { id: string } }).workspace;
+  return {
+    ...COMMON,
+    agents: [
+      { agent: `lophn_${id}`, name: "lophn" },
+      ...(id === "prj_here_phroner"
+        ? [{ agent: "agt_reviewer", name: "Reviewer" }]
+        : []),
+    ],
+  };
 };
 
 const sessionsOf = (input: unknown) => ({
@@ -138,7 +154,9 @@ export function MachineProjectsScene({
         thisRead: (route, input) =>
           route === "project.list"
             ? { ...COMMON, projects: HERE.map(record) }
-            : sessionsOf(input),
+            : route === "ListAgents"
+              ? agentsOf(input)
+              : sessionsOf(input),
         ...(open === "git-auth"
           ? {
               clone: {
@@ -160,6 +178,7 @@ export function MachineProjectsScene({
             ...COMMON,
             projects: THERE.map(record),
           } as never),
+          fakeAnswer(agentList, agentsOf as never),
           fakeAnswer(workspaceSessionList, sessionsOf as never),
         ],
       }),

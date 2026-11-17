@@ -102,6 +102,11 @@ export type SurfaceEmulate = z.infer<typeof surfaceEmulateSchema>;
 export type SurfaceEmulateResult =
   | { ok: true }
   | { ok: false; reason: "devtools" | "unavailable" };
+/** main이 창에 push한다: 건 기기가 풀렸다. 사람이 DevTools를 열어 debugger가 떨어진 때다. */
+export type SurfaceEmulationLost = {
+  view_session: string;
+  reason: "devtools";
+};
 
 export type SurfaceWorkspace = z.infer<typeof surfaceWorkspaceSchema>;
 export type SurfaceAck = z.infer<typeof surfaceAckSchema>;
@@ -133,6 +138,8 @@ export interface LophnSurfaceApi {
   release(tab: string): Promise<void>;
   /** preview view에 기기 emulation을 건다. null이면 푼다. */
   emulate(input: SurfaceEmulate): Promise<SurfaceEmulateResult>;
+  /** 건 기기가 main에서 풀릴 때마다 부른다. 구독 해지를 돌려준다. */
+  emulationLost(listener: (lost: SurfaceEmulationLost) => void): () => void;
 }
 
 /** main이 다른 창이 page를 이어받았다고 옛 창에 보내는 tab_close의 id. 탭이 닫힌 것이 아니라 layout은 그대로 둔다. */
@@ -144,3 +151,4 @@ export const SURFACE_REPORT_CHANNEL = "shell:surface-report";
 export const SURFACE_CONTROL_CHANNEL = "shell:surface-control";
 export const SURFACE_TAKE_CHANNEL = "shell:surface-take";
 export const SURFACE_EMULATE_CHANNEL = "shell:surface-emulate";
+export const SURFACE_EMULATION_CHANNEL = "shell:surface-emulation";

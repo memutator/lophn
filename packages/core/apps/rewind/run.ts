@@ -95,14 +95,26 @@ export function createAppRewind(deps: RewindDeps): AppRewind {
         ),
       });
       if (!applied.ok) {
-        // 보낸 뒤 답을 잃었으면 앱 process가 이미 되돌렸을 수 있다. 기록에는 결과 모름 상태가 없어 이유 글로 남긴다.
-        return cancel(
+        if (applied.error.details?.["sent"] !== true) {
+          return cancel(id, "app_unavailable", applied.error.message);
+        }
+        // 보낸 뒤 답을 잃었으면 앱 process가 이미 되돌렸을 수 있다. 취소가 아니라 결과 모름으로 남긴다. 되돌림 표시와 sync log
+        // 줄은 남기지 않는다(되돌렸는지 모른다). 화면은 앱 data를 다시 읽는다.
+        const unknown = finishRewind(
+          deps.sql,
           id,
-          "app_unavailable",
-          applied.error.details?.["sent"] === true
-            ? `${applied.error.message}; the app data may already be rewound`
-            : applied.error.message,
+          {
+            status: "unknown",
+            invocations: ids,
+            reason: {
+              code: "app_unavailable",
+              message: `${applied.error.message}; the app data may already be rewound`,
+            },
+          },
+          deps.now(),
         );
+        if (unknown.ok) deps.signal.changed(app, "rewind");
+        return unknown;
       }
       if (applied.value.status === "conflict") {
         return cancel(id, "conflict", applied.value.message);

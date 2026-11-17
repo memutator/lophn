@@ -42,20 +42,22 @@ const rewindPlanSchema = z.strictObject({
 });
 export type RewindPlan = z.infer<typeof rewindPlanSchema>;
 
+// unknown은 뒤집은 changeset을 앱 process에 보낸 뒤 답을 잃어 앱 DB가 되돌려졌는지 모르는 끝이다. 되돌림 표시를 남기지 않고
+// invocations는 보낸 목록이며 reason이 있다. 다시 rewind하면 이미 되돌린 행은 앱이 충돌로 거절한다.
 export const rewindSchema = z.strictObject({
   id: idSchema("rwd"),
   app: appIdSchema,
   release: releaseIdSchema,
   from_invocation: invocationIdSchema,
   requested_by: actorSchema,
-  status: z.enum(["applying", "applied", "cancelled"]),
+  status: z.enum(["applying", "applied", "cancelled", "unknown"]),
   reason: z
     .strictObject({
       code: z.enum(["conflict", "app_unavailable", "core_restarted"]),
       message: z.string(),
     })
     .nullable(),
-  // 되돌린 목록.
+  // 되돌린 목록(unknown이면 보낸 목록).
   invocations: z.array(invocationIdSchema),
   started_at: atSchema,
   finished_at: atSchema.nullable(),

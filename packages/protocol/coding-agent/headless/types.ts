@@ -20,6 +20,8 @@ export type HeadlessSpec = {
   args(input: {
     prompt: string;
     sessionId: string | null;
+    // sessionId가 null일 때 갈라 시작할 harness session. fork를 headless로 못 하는 harness는 무시하고 새로 시작한다.
+    forkFrom: string | null;
     deny: readonly string[];
   }): string[];
   // 정의의 `permissions.deny`(`lophn(<앱 slug> <command 낱말>)`)를 이 harness의 금지 flag로 옮긴다.

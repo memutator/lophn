@@ -97,7 +97,7 @@ test("a window of another machine reaches only that machine's connection; this c
   );
 });
 
-test("only a window of another machine reaches this computer's core, and only for this computer's project and session lists", async () => {
+test("only a window of another machine reaches this computer's core, and only for this computer's project, agent and session lists", async () => {
   const route = createMachineRoute();
   route.bind(REMOTE_WINDOW, HOST, () => readyConnection([]));
   const cases: {
@@ -116,6 +116,12 @@ test("only a window of another machine reaches this computer's core, and only fo
       channel: MACHINES_THIS_READ_CHANNEL,
       window: REMOTE_WINDOW,
       input: { route: "ListSessions", input: {} },
+      passes: true,
+    },
+    {
+      channel: MACHINES_THIS_READ_CHANNEL,
+      window: REMOTE_WINDOW,
+      input: { route: "ListAgents", input: {} },
       passes: true,
     },
     {

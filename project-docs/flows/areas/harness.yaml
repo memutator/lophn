@@ -14,6 +14,7 @@ flows:
       - "대기 중인 session을 앞에서부터 보고, 도는 turn이나 TUI hold가 있는 session은 건너뛴다"
       - "session이 없거나 harness가 아니면 그 session의 queue를 비우고 다음으로 간다"
       - "입력 본문을 session 기록에서 읽어 prompt를 만든다. 본문이 없어졌으면 queue에서 뺀다"
+      - "session에 harness session id가 없고 harness가 같은 원본의 지금 마지막 메시지에서 fork되었으면 원본의 harness session id를 fork_external_session_id로 싣는다"
       - "첫 입력의 정보와 prompt를 돌려준다. 시작할 입력이 없으면 input이 null이다"
     outcomes:
       - id: input
@@ -1179,7 +1180,7 @@ flows:
       - "extension harness가 1초마다 tick한다. take로 입력을 보고(없으면 끝), start_turn으로 turn을 연다. 둘 중 하나가 거절하면 이번 tick을 끝낸다"
       - "cwd를 고른다. home은 harness-home의 빈 폴더, project와 app은 첫 폴더다. 없으면 configuration-unavailable"
       - "agent 정의의 deny를 그 CLI의 권한 표현으로 옮긴다. 옮길 수 없으면 configuration-unavailable. git 저장소 안의 하위 폴더면 띄우지 않는다"
-      - "headless CLI(claude -p, codex exec, opencode run)를 cwd와 turn 자격 env로 띄우고 stdin을 닫는다"
+      - "headless CLI(claude -p, codex exec, opencode run)를 cwd와 turn 자격 env로 띄우고 stdin을 닫는다. 이어 갈 id가 없고 fork_external_session_id가 있으면 claude(--resume --fork-session)와 opencode(--session --fork)는 원본 session에서 갈라 시작하고 codex는 새로 시작한다"
       - "줄마다 parser로 읽어 글과 harness_tool은 record로, CLI session id는 set_external_id로 보낸다"
       - "1초마다 turns/read로 core가 turn을 닫았는지 본다. 닫혔으면(멈춤) process를 죽이고 더 기록하지 않는다"
       - "process가 끝나면 글이 있으면 completed, 없으면 no-answer, 실패는 실패 글을 record한 뒤 model-error나 target-unavailable로 finish한다"

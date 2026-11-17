@@ -232,7 +232,7 @@ export function coreAppDetailSource(
       return {
         ok: true,
         value: {
-          status: result.value.status === "cancelled" ? "cancelled" : "applied",
+          status: result.value.status === "applied" ? "applied" : "cancelled",
           reason: result.value.reason?.message ?? null,
         },
       };

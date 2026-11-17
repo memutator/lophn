@@ -87,7 +87,7 @@ type RewindAppPorts = {
     from: string,
   ): Promise<
     Result<{
-      status: "applying" | "applied" | "cancelled";
+      status: "applying" | "applied" | "cancelled" | "unknown";
       reason: string | null;
     }>
   >;

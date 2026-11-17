@@ -83,9 +83,9 @@ export interface MachinesSource {
   setStart(start: MachinesView["start"]): Promise<SourceResult<void>>;
   /** 그 기계의 창을 열거나 앞으로 가져온다. 이 컴퓨터의 id면 이 컴퓨터의 창이고, session을 주면 그 창이 그 session을 연다. */
   open(id: string, session?: string): Promise<SourceResult<void>>;
-  /** 다른 기계의 창에서 이 컴퓨터의 core를 읽는다. 이 두 read만 된다. */
+  /** 다른 기계의 창에서 이 컴퓨터의 core를 읽는다. 이 세 read만 된다. */
   thisRead(
-    route: "project.list" | "ListSessions",
+    route: "project.list" | "ListAgents" | "ListSessions",
     input: unknown,
   ): Promise<SourceResult<unknown>>;
   /** 다른 기계의 창에서 그 기계의 project를 이 컴퓨터에 clone한다. */

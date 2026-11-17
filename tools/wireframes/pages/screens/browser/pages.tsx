@@ -438,6 +438,7 @@ function useFakeSurface(): void {
         push();
       },
       emulate: async () => ({ ok: true }),
+      emulationLost: () => () => {},
     };
     (globalThis as { lophnSurface?: LophnSurfaceApi }).lophnSurface = surface;
   }, []);

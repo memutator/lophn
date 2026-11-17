@@ -75,14 +75,16 @@ p.note:only-child {
   min-width: var(--space-0);
 }
 
+/* 줄마다 session 제목과 그 agent 이름. 제목이 길면 제목만 줄인다. */
 .session {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
   padding: var(--space-1) var(--space-2);
-  overflow: hidden;
   color: var(--color-text-secondary);
   font: inherit;
   font-size: var(--type-small-size);
   white-space: nowrap;
-  text-overflow: ellipsis;
   text-align: start;
   background: transparent;
   border: none;
@@ -92,4 +94,16 @@ p.note:only-child {
 .session:hover {
   color: var(--color-text-primary);
   background: var(--color-surface-muted);
+}
+
+.title {
+  flex: 1;
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agent {
+  flex: none;
+  color: var(--color-text-muted);
 }

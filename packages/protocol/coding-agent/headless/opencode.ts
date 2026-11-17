@@ -7,12 +7,16 @@ export const opencodeHeadless: HeadlessSpec = {
   command: "opencode",
   // `run`에 directory 지정 flag가 없고(v2.1.4) git 저장소 안이면 spawn cwd가 아니라 저장소 맨 위에 쓴다.
   needsOwnGitRoot: true,
-  args: ({ prompt, sessionId }) => [
+  args: ({ prompt, sessionId, forkFrom }) => [
     "run",
     "--standalone",
     "--format",
     "json",
-    ...(sessionId === null ? [] : ["--session", sessionId]),
+    ...(sessionId !== null
+      ? ["--session", sessionId]
+      : forkFrom !== null
+        ? ["--session", forkFrom, "--fork"]
+        : []),
     safePrompt(prompt),
   ],
   // opencode에는 명령 단위 금지 flag가 없다. 규칙이 있으면 지킬 수 없으므로 띄우지 않는다.

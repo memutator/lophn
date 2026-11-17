@@ -54,6 +54,7 @@ const THIS_COMPUTER_ROUTES: Record<
   { resource: string; method: string }
 > = {
   "project.list": { resource: "projects", method: "list" },
+  ListAgents: { resource: "agents", method: "list" },
   ListSessions: { resource: "sessions", method: "list" },
 };
 
@@ -309,7 +310,7 @@ export function register(ctx: ShellContext, machines: Machines): Registered {
   });
 
   // Both reach this computer's core as the person. machine-route has already refused windows of this computer and reads
-  // outside the two lists; the machine is the sending window's, never the renderer's word.
+  // outside the allowed lists; the machine is the sending window's, never the renderer's word.
   const failure = (code: string, message: string): CoreReply => ({
     ok: false,
     error: { code, message },

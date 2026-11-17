@@ -31,19 +31,27 @@ function visible(ctx: RequestContext, session: string): boolean {
   return own === null || own === session;
 }
 
-function cursorAfter(cursor: string | undefined): Result<number | null> {
+// 바뀐 순의 cursor는 그 뒤 state_seq(`after_seq`), 최신 순의 cursor는 그보다 먼저 시작한 turn(`before_row`, rowid)이다.
+function cursorValue(
+  cursor: string | undefined,
+  field: "after_seq" | "before_row",
+): Result<number | null> {
   if (cursor === undefined) return ok(null);
   try {
     const bytes = Uint8Array.from(atob(cursor), (char) => char.charCodeAt(0));
     const parsed = JSON.parse(
       new TextDecoder("utf-8", { fatal: true }).decode(bytes),
-    ) as { after_seq?: unknown };
-    if (typeof parsed.after_seq !== "number") throw new TypeError("cursor");
-    return ok(parsed.after_seq);
+    ) as Record<string, unknown>;
+    const value = parsed[field];
+    if (typeof value !== "number") throw new TypeError("cursor");
+    return ok(value);
   } catch {
     return err({ code: "invalid_input", message: "invalid turn cursor" });
   }
 }
+
+const cursorOf = (field: "after_seq" | "before_row", value: number) =>
+  btoa(JSON.stringify({ [field]: value }));
 
 export function createTurnReads(): {
   read: ReadDefinition<typeof turnRead>;
@@ -66,8 +74,11 @@ export function createTurnReads(): {
     list: {
       route: turnList,
       handle(snapshot, ctx, input) {
-        const after = cursorAfter(input.cursor);
-        if (!after.ok) return after;
+        // rowid는 시작한 순서다(turn은 시작할 때 들어간다).
+        const newest = input.order === "newest";
+        const field = newest ? "before_row" : "after_seq";
+        const from = cursorValue(input.cursor, field);
+        if (!from.ok) return from;
         const own = ownSession(ctx);
         if (
           own !== null &&
@@ -81,8 +92,15 @@ export function createTurnReads(): {
           });
         }
         const session = own ?? input.session;
-        const clauses = ["state_seq > ?"];
-        const params: (string | number)[] = [after.value ?? 0];
+        const clauses: string[] = [];
+        const params: (string | number)[] = [];
+        if (!newest) {
+          clauses.push("state_seq > ?");
+          params.push(from.value ?? 0);
+        } else if (from.value !== null) {
+          clauses.push("rowid < ?");
+          params.push(from.value);
+        }
         if (session !== undefined) {
           clauses.push("session = ?");
           params.push(session);
@@ -91,21 +109,25 @@ export function createTurnReads(): {
           clauses.push("state = ?");
           params.push(input.state);
         }
-        const rows = snapshot.sql
-          .all(
-            `select ${TURN_COLUMNS} from turns where ${clauses.join(" and ")}
-           order by state_seq limit ?`,
-            [...params, PAGE + 1],
-          )
-          .map(turnRowOf);
-        const page = rows.slice(0, PAGE);
+        const size = input.limit ?? PAGE;
+        const where =
+          clauses.length === 0 ? "" : `where ${clauses.join(" and ")}`;
+        const rows = snapshot.sql.all(
+          `select rowid as row_order, ${TURN_COLUMNS} from turns ${where}
+           order by ${newest ? "rowid desc" : "state_seq"} limit ?`,
+          [...params, size + 1],
+        );
+        const page = rows.slice(0, size);
         const last = page[page.length - 1];
         return ok({
-          turns: page.map(turnRecordOf),
+          turns: page.map((row) => turnRecordOf(turnRowOf(row))),
           as_of_seq: snapshot.as_of_seq,
           next_cursor:
-            rows.length > PAGE && last !== undefined
-              ? btoa(JSON.stringify({ after_seq: Number(last.state_seq) }))
+            rows.length > size && last !== undefined
+              ? cursorOf(
+                  field,
+                  Number(newest ? last["row_order"] : last["state_seq"]),
+                )
               : null,
         });
       },

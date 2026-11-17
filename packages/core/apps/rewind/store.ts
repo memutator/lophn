@@ -127,19 +127,20 @@ export function finishRewind(
   id: Id<"rwd">,
   outcome:
     | { status: "applied"; invocations: readonly string[] }
-    | { status: "cancelled"; reason: Reason },
+    | { status: "cancelled"; reason: Reason }
+    | { status: "unknown"; invocations: readonly string[]; reason: Reason },
   finishedAt: At,
 ): Result<Rewind> {
-  const applied = outcome.status === "applied";
+  const reason = outcome.status === "applied" ? null : outcome.reason;
   const changed = sql.run(
     `UPDATE app_rewinds
      SET status = ?, reason_code = ?, reason_message = ?, invocations = ?, finished_at = ?
      WHERE id = ? AND status = 'applying'`,
     [
       outcome.status,
-      applied ? null : outcome.reason.code,
-      applied ? null : outcome.reason.message,
-      JSON.stringify(applied ? outcome.invocations : []),
+      reason?.code ?? null,
+      reason?.message ?? null,
+      JSON.stringify(outcome.status === "cancelled" ? [] : outcome.invocations),
       finishedAt,
       id,
     ],

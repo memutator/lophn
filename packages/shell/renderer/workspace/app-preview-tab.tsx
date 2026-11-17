@@ -346,6 +346,15 @@ export function AppPreviewTab(props: AppPreviewTabProps) {
       live = false;
     };
   }, [surface, viewSession, specKey]);
+  // 건 뒤 사람이 DevTools를 열면 main이 기기를 푼다. 틀린 폰 틀을 남기지 않고 Desktop으로 돌아가 같은 안내를 보인다.
+  useEffect(() => {
+    if (surface === null || viewSession === null) return;
+    return surface.emulationLost((lost) => {
+      if (lost.view_session !== viewSession) return;
+      setBlocked(true);
+      setChosen(null);
+    });
+  }, [surface, viewSession]);
 
   const agent = useAgentControl(props.tabKey, state?.view_session ?? null);
   // agent가 다루는 동안은 가려져도 그리기를 이어 간다. view의 element key가 view session이다.

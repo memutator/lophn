@@ -6,14 +6,18 @@ import type { HeadlessEvent, HeadlessSpec } from "./types.ts";
 // 정의의 deny는 이 allow보다 앞서므로 금지한 `lophn` 명령은 그대로 막힌다. 전부 허락(bypassPermissions)은 쓰지 않는다. flag 뒤의 값 목록이 prompt를 삼키지 않게 `--`로 끊는다.
 export const claudeHeadless: HeadlessSpec = {
   command: "claude",
-  args: ({ prompt, sessionId, deny }) => [
+  args: ({ prompt, sessionId, forkFrom, deny }) => [
     "-p",
     "--output-format",
     "stream-json",
     "--verbose",
     "--allowed-tools",
     "Bash(lophn *)",
-    ...(sessionId === null ? [] : ["--resume", sessionId]),
+    ...(sessionId !== null
+      ? ["--resume", sessionId]
+      : forkFrom !== null
+        ? ["--resume", forkFrom, "--fork-session"]
+        : []),
     ...(deny.length === 0 ? [] : ["--disallowed-tools", ...deny]),
     "--",
     prompt,

@@ -98,6 +98,7 @@ test("권한 표는 deny를 disallow로 옮기고 전부 허락 flag를 내지 �
       const argv = spec.args({
         prompt: "hi",
         sessionId,
+        forkFrom: null,
         deny: spec.permissions([]) ?? [],
       });
       assert.ok(
@@ -113,6 +114,7 @@ test("권한 표는 deny를 disallow로 옮기고 전부 허락 flag를 내지 �
   const resumed = claude.args({
     prompt: "hi",
     sessionId: "abc",
+    forkFrom: null,
     deny: deny ?? [],
   });
   assert.deepEqual(resumed.slice(-2), ["--", "hi"]);

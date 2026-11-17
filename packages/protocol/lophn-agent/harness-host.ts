@@ -40,6 +40,9 @@ const takenInputSchema = z.strictObject({
   harness: harnessRuntimeSchema,
   // 이어 갈 harness의 session id. 첫 turn이면 null이다.
   external_session_id: z.string().min(1).nullable(),
+  // external_session_id가 null이고 이 session이 harness 원본의 끝에서 fork되었으면 원본의 harness session id다.
+  // fork를 지원하는 harness는 그것에서 갈라 시작해 앞 대화를 물려받고, 나머지는 새로 시작한다.
+  fork_external_session_id: z.string().min(1).nullable(),
   // StartTurn이 이 입력을 가리킨다.
   input_message: idSchema("msg"),
   kind: z.enum(["message", "call", "reply", "reaction", "notice", "step"]),

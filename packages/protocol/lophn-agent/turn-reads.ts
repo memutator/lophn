@@ -13,9 +13,13 @@ const turnRef = { turn: idSchema("trn") };
 
 const turnReadInputSchema = z.strictObject(turnRef);
 
+// 기본은 바뀐 순(state_seq)이다. `newest`는 늦게 시작한 turn부터 준다. `limit`은 한 page의 개수다(기본·최대 50).
+// cursor는 그 순서의 것이라 다른 order에 쓰면 invalid_input이다.
 const turnListInputSchema = z.strictObject({
   session: idSchema("ses").optional(),
   state: turnStateSchema.optional(),
+  order: z.enum(["changed", "newest"]).optional(),
+  limit: z.number().int().min(1).max(50).optional(),
   cursor: readCursorSchema.optional(),
 });
 

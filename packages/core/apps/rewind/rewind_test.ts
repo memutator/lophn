@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
-import { invertAll, ok, type Result } from "../../../base/mod.ts";
+import { err, invertAll, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type { AppInvocation } from "../../../protocol/apps/calls/mod.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import { createAppRewind, type RewindDeps } from "./run.ts";
-import { rewindSchemaSteps } from "./schema.ts";
+import { rewindSchemaSteps, rewindUnknownSchemaSteps } from "./schema.ts";
 
 function dump(db: DatabaseSync): unknown {
   const read = (table: string) =>
@@ -118,7 +118,9 @@ function setup(
   } = {},
 ) {
   const db = new DatabaseSync(":memory:");
-  for (const step of rewindSchemaSteps) db.exec(step.sql);
+  for (const step of [...rewindSchemaSteps, ...rewindUnknownSchemaSteps]) {
+    db.exec(step.sql);
+  }
   const sql: Sql = {
     run: (text, params) => db.prepare(text).run(...params),
     get: (text, params) => db.prepare(text).get(...params) as never,
@@ -293,4 +295,50 @@ test("충돌 없이 적용되면 최신부터 뒤집어 보내고 external까지
     },
     { n: 0 },
   );
+});
+
+test("보낸 뒤 답을 잃으면 취소가 아니라 결과 모름으로 남고 되돌림 표시를 하지 않는다", async () => {
+  const lost = setup([invocation(1), invocation(2)], {
+    changesets: sampleChangesets(),
+    apply: err({
+      code: "unavailable",
+      message: "the app process reply was lost",
+      details: { sent: true },
+    }),
+  });
+  const result = await lost.rewind.apply(APP, inv(1), "user");
+  assert.deepStrictEqual(result.ok && result.value.status, "unknown");
+  assert.deepStrictEqual(result.ok && result.value.invocations, [
+    inv(1),
+    inv(2),
+  ]);
+  assert.deepStrictEqual(
+    result.ok && result.value.reason?.code,
+    "app_unavailable",
+  );
+  assert.deepStrictEqual(lost.calls.marked, []);
+  assert.deepStrictEqual(lost.calls.intake, ["close", "open"]);
+
+  // 표를 다시 짜도 그 전의 끝난 기록은 그대로 옮겨진다.
+  const old = new DatabaseSync(":memory:");
+  for (const step of rewindSchemaSteps) old.exec(step.sql);
+  old.exec(`INSERT INTO app_rewinds VALUES ('rwd_old', '${APP}', '${REL}', '${inv(9)}', 'user',
+    'cancelled', 'conflict', 'old', '[]', '2026-10-15T00:00:00.000Z', '2026-10-15T00:00:01.000Z')`);
+  for (const step of rewindUnknownSchemaSteps) old.exec(step.sql);
+  assert.deepStrictEqual(
+    {
+      ...old
+        .prepare("SELECT id, status, reason_message FROM app_rewinds")
+        .get(),
+    },
+    { id: "rwd_old", status: "cancelled", reason_message: "old" },
+  );
+
+  // 보내기 전에 실패했으면 앱 DB는 그대로라 취소다.
+  const unsent = setup([invocation(1)], {
+    changesets: sampleChangesets(),
+    apply: err({ code: "unavailable", message: "app is not running" }),
+  });
+  const cancelled = await unsent.rewind.apply(APP, inv(1), "user");
+  assert.deepStrictEqual(cancelled.ok && cancelled.value.status, "cancelled");
 });

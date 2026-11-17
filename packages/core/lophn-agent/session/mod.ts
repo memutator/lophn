@@ -12,6 +12,7 @@ export {
   createHarnessCommands,
   createHarnessInputTransport,
   HARNESS_QUEUE_PUT_TOPIC,
+  forkedHarnessSession,
   harnessEnabledIn,
   harnessOf,
 } from "./harness.ts";

@@ -14,8 +14,8 @@ import { t } from "@lophn/i18n";
 import { Popover } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
 
+import { agentList } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import { workspaceSessionList } from "../../../../../protocol/lophn-agent/agent-sessions.ts";
-import { lophnIdOf } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import { projectApi } from "../../../../../protocol/projects/project-api.ts";
 import { readRoute, useCoreRead } from "../../connection/core-read.ts";
 import { useEventClient } from "../../connection/events/hooks.tsx";
@@ -221,7 +221,11 @@ function CloneHere({
   );
 }
 
-type SessionRow = { readonly id: string; readonly title: string | null };
+type SessionRow = {
+  readonly id: string;
+  readonly title: string | null;
+  readonly agent: string;
+};
 type Column =
   | { readonly state: "loading" | "failed" }
   | {
@@ -229,26 +233,49 @@ type Column =
       readonly rows: readonly SessionRow[];
     };
 
-function newest(value: unknown): SessionRow[] {
-  const { sessions } = value as {
-    sessions: {
-      id: string;
-      title: string | null;
-      last_active_at: string | null;
-    }[];
+type SessionRead = (
+  route: "ListAgents" | "ListSessions",
+  input: unknown,
+) => Promise<{ readonly ok: boolean; readonly value?: unknown }>;
+
+// Every agent's sessions in the project workspace, newest first. `ListSessions` takes one agent, so the workspace's agents
+// are read first. null when any read fails.
+async function workspaceSessions(
+  read: SessionRead,
+  project: string,
+): Promise<SessionRow[] | null> {
+  const workspace = { kind: "project" as const, id: project };
+  const agents = await read("ListAgents", { workspace });
+  if (!agents.ok) return null;
+  const { agents: rows } = agents.value as {
+    agents: { agent: string; name: string }[];
   };
-  return [...sessions]
+  const lists = await Promise.all(
+    rows.map(async (row) => {
+      const listed = await read("ListSessions", {
+        agent: row.agent,
+        workspace,
+      });
+      if (!listed.ok) return null;
+      const { sessions } = listed.value as {
+        sessions: {
+          id: string;
+          title: string | null;
+          last_active_at: string | null;
+        }[];
+      };
+      return sessions.map((session) => ({ ...session, agent: row.name }));
+    }),
+  );
+  if (lists.some((list) => list === null)) return null;
+  return lists
+    .flatMap((list) => list ?? [])
     .sort((a, b) =>
       (b.last_active_at ?? "").localeCompare(a.last_active_at ?? ""),
     )
     .slice(0, SESSIONS_SHOWN)
-    .map((row) => ({ id: row.id, title: row.title }));
+    .map((row) => ({ id: row.id, title: row.title, agent: row.agent }));
 }
-
-const sessionsInput = (project: string) => ({
-  agent: lophnIdOf({ kind: "project", id: project as `prj_${string}` }),
-  workspace: { kind: "project" as const, id: project as `prj_${string}` },
-});
 
 // Two lists side by side, each read from its own machine's core. A failed read keeps what the column showed.
 function SideBySide({
@@ -273,14 +300,17 @@ function SideBySide({
         : now.state === "ready"
           ? now
           : { state: "failed" as const };
-    void readRoute(
-      core,
-      workspaceSessionList,
-      sessionsInput(there) as never,
-    ).then((read) => setLeft(keep(read.ok ? newest(read.value) : null)));
-    void groups.source
-      .thisRead("ListSessions", sessionsInput(here))
-      .then((read) => setRight(keep(read.ok ? newest(read.value) : null)));
+    const readThere: SessionRead = (route, input) =>
+      route === "ListAgents"
+        ? readRoute(core, agentList, input as never)
+        : readRoute(core, workspaceSessionList, input as never);
+    void workspaceSessions(readThere, there).then((rows) =>
+      setLeft(keep(rows)),
+    );
+    void workspaceSessions(
+      (route, input) => groups.source.thisRead(route, input),
+      here,
+    ).then((rows) => setRight(keep(rows)));
   }, [core, groups.source, there, here]);
   return (
     <div className={styles.columns} data-remote-sessions="">
@@ -328,7 +358,10 @@ function SessionColumn({
             className={styles.session}
             onClick={() => onOpen(row.id)}
           >
-            {row.title ?? t("left-sidebar.label.untitled")}
+            <span className={styles.title}>
+              {row.title ?? t("left-sidebar.label.untitled")}
+            </span>
+            <span className={styles.agent}>{row.agent}</span>
           </button>
         ))
       ) : null}

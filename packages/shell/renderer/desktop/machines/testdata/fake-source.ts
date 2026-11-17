@@ -59,7 +59,7 @@ export interface FakeMachinesOptions {
   pair?: PairOutcome;
   /** 다른 기계의 창이 읽는 이 컴퓨터의 답. 없으면 unavailable이다. */
   thisRead?: (
-    route: "project.list" | "ListSessions",
+    route: "project.list" | "ListAgents" | "ListSessions",
     input: unknown,
   ) => unknown;
   /** `cloneHere`의 결과. 없으면 ~/projects 아래에 받는다. */

@@ -96,6 +96,34 @@ export function createHarnessInputTransport(deps: {
   };
 }
 
+// fork한 harness session이 harness 쪽 session을 아직 갖지 않았으면 원본의 harness session에서 갈라 시작할 수 있다.
+// harness의 기록은 원본의 끝까지라, fork 지점이 지금 원본의 마지막 메시지이고 harness가 같을 때만 그 id다.
+export function forkedHarnessSession(
+  lookup: Parameters<typeof loadSession>[0],
+  row: AgentSessionRow,
+): string | null {
+  if (row.harness_session !== null || row.forked_from_session === null) {
+    return null;
+  }
+  const source = loadSession(lookup, row.forked_from_session);
+  if (
+    source === undefined ||
+    source.harness_session === null ||
+    source.harness !== row.harness
+  ) {
+    return null;
+  }
+  const last = lookup.sql.get(
+    "select max(created_seq) as seq from messages where session = ?",
+    [source.id],
+  );
+  return last !== undefined &&
+    last["seq"] !== null &&
+    String(last["seq"]) === row.forked_from_through_seq
+    ? source.harness_session
+    : null;
+}
+
 // host route는 runtime이 harness인 session만 고친다. 그 판정 하나다.
 export function harnessOf(
   row: AgentSessionRow | undefined,

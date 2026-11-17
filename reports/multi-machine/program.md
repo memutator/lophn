@@ -61,3 +61,21 @@ The machine id never leaves the machine in a backup, export or the folder; state
 ## Sizing
 
 Plans are short READMEs and few tasks (aim for 5–9 per plan). Workers default to `sonnet-high`; mark hard tasks `**opus high.**` at the head of the brief. Phone-side work says that `packages/mobile` is outside the root workspace and that the person's real phone never receives a command.
+
+## Status (2026-11-17, planner)
+
+All six plans are on local main (not pushed): `machine-identity` 0.23.69, `always-on` 0.23.70, `project-identity` 0.23.71 and 0.23.73 (remote view), `desktop-remote` 0.23.72, `app-folder-sync` 0.23.74, `machine-update` 0.23.75. The combined main passed `check:full`, the whole e2e suite and two boots at the last land. 37 briefs, plus integration and fix work found by running two cores or two desktops together. 32 issues were filed under `project-docs/issues/`.
+
+Policies decided while running (beyond 1–16 above):
+17. A destination (`folder.destinations`) is set, changed or removed only with the person's approval; only the Home lophn agent can ask, through the existing approval card.
+18. A change from a machine away past the 90-day horizon is held, never dropped; the person applies or discards it. Applying a change made on this computer sends its current values with a fresh clock; discarding keeps the data here and does not send it.
+19. A clock more than 5 minutes ahead is deferred, not clamped (changes files; snapshots do not check yet: issue `folder-snapshot-future-clock-not-deferred`).
+20. Engine rule: a write is ordered only by its own clock; a delete erases only what is older than itself.
+21. A snapshot line caused by work that came from another machine is tagged origin `machine` and not exported again.
+22. While a held change made on this computer is unresolved, this computer writes no snapshot.
+23. An app id is chosen by a person or by the folder take-in credential only.
+24. A desktop viewing another machine does not show that machine's app screens (person), has the rights of a phone, and shows this-computer-only tabs as a placeholder.
+25. Version mismatch keeps the names `details.update: "client" | "host"`; no second shape.
+26. Task merges are batched with one full check per batch; e2e runs once on the combined main (person, 2026-11-17).
+
+Never verified on a real machine: every OS registration path of always-on (systemd user unit, LaunchAgent, Windows Run value, keep-awake, NSIS uninstall), macOS and Windows as a whole, two real machines with a real folder-moving tool (rclone, Syncthing), the relay path between desktops, a real phone with the new build, two different lophn versions meeting.

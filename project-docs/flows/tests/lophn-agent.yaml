@@ -112,13 +112,17 @@ files:
     covers: [provider-connect:connected, provider-connect:invalid_input]
     note: "provider.<id>가 아닌 secret 이름은 거절하고 row를 남기지 않는다. 맞는 이름은 연결된다"
 
+  - path: packages/core/lophn-agent/providers/connect-key_test.ts
+    covers: [provider-connect-key:connected, provider-connect-key:conflict, provider-connect-key:internal, provider-connect-key:not_found, input-request-answer-secret:stored, input-request-answer-secret:connect-failed]
+    note: "key 연결이 conflict, writer 던짐, 모르는 정의로 끝나거나 agent 요청의 답에서 연결이 실패하면 secrets.json에 임시 이름도 새 provider.<id>도 없다. 성공한 두 길에서 기기가 넣은 값은 secret 저장소에만 있고 command envelope, event, 결과에 없다"
+
   - path: packages/core/lophn-agent/providers/invoke_test.ts
     covers: [model-call-run:failed]
     note: "실패 호출 evidence는 allow-list header와 판정 길만 남기고, Responses 최상위 error event는 code 달린 실패다(순수 invoke). 비일시 실패 호출의 기록은 model-call-run:failed"
 
   - path: packages/core/lophn-agent/providers/login_test.ts
-    covers: [provider-login-start:started, provider-login-finish:connected, provider-login-finish:forbidden, provider-login-finish:unavailable]
-    note: "ChatGPT·Claude·Antigravity 구독 로그인. 고정 callback 교환, 계정 claim 없으면 secret과 provider를 남기지 않고, tier 없으면 onboarding 뒤 마지막 project로만 연결한다"
+    covers: [provider-login-start:started, provider-login-finish:connected, provider-login-finish:forbidden, provider-login-finish:unavailable, provider-login-finish:conflict]
+    note: "ChatGPT·Claude·Antigravity 구독 로그인을 core가 기다려 끝낸다. 고정 callback 교환, 계정 claim 없으면 secret과 provider를 남기지 않고, tier 없으면 onboarding 뒤 마지막 project로만 연결한다. 이미 이어진 id면 conflict이고 그 provider의 key·token은 그대로다"
 
   - path: packages/core/lophn-agent/providers/model-list_test.ts
     covers: [provider-models-refresh:refreshed, provider-models-refresh:unavailable, provider-models-refresh:invalid_input, provider-models-record:recorded]

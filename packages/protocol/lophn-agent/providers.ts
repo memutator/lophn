@@ -1,15 +1,19 @@
 import { z } from "zod";
-import { defineCommand, defineRead } from "../base/route.ts";
+import {
+  defineCommand,
+  defineMemory,
+  defineRead,
+  defineUpload,
+} from "../base/route.ts";
+import { SECRET_INPUT_MAX_BYTES } from "../secrets/secrets.ts";
 import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import {
+  connectLocalProviderInputSchema,
   connectProviderInputSchema,
   disconnectProviderInputSchema,
-  loginBeginInputSchema,
-  loginBeginOutputSchema,
   loginCancelInputSchema,
-  loginCompleteInputSchema,
-  loginCompleteOutputSchema,
+  providerConnectTargetSchema,
   providerListInputSchema,
   providerReadInputSchema,
   providerRevisionCompareSchema,
@@ -17,6 +21,9 @@ import {
   recordProviderModelsInputSchema,
   refreshProviderCredentialInputSchema,
   refreshProviderModelsInputSchema,
+  providerSignInStateSchema,
+  providerSignInInputSchema,
+  providerSignInOutputSchema,
 } from "./provider-inputs.ts";
 import {
   providerDefinitionOutputSchema,
@@ -170,28 +177,6 @@ export const providerDefinitions = defineRead({
   errors: [...readErrors],
 });
 
-export const loginBegin = defineCommand({
-  resource: "providers",
-  method: "login-begin",
-  name: "BeginProviderLogin",
-  changes: ["providers"],
-  input: loginBeginInputSchema,
-  output: loginBeginOutputSchema,
-  actors: ["user"],
-  errors: [...userErrors, "not_found"],
-});
-
-export const loginComplete = defineCommand({
-  resource: "providers",
-  method: "login-complete",
-  name: "CompleteProviderLogin",
-  changes: ["providers", "models", "secrets"],
-  input: loginCompleteInputSchema,
-  output: loginCompleteOutputSchema,
-  actors: ["user"],
-  errors: [...userErrors, "not_found"],
-});
-
 export const loginCancel = defineCommand({
   resource: "providers",
   method: "login-cancel",
@@ -203,13 +188,73 @@ export const loginCancel = defineCommand({
   errors: ["invalid_input", "unauthorized", "forbidden", "not_found"],
 });
 
+// 아래 넷은 사람이 provider를 잇는 순서를 core가 쥐는 입구다. 화면(desktop, 폰, 다른 기계의 창)은 id를 만들거나 값을
+// 옮기지 않고 이것만 부른다. 안에서 부르는 ConnectProvider는 이 route를 부른 사람의 context로 writer에 간다.
+
+// API key로 잇는다. body는 key의 UTF-8이다. core가 id를 정하고 값을 임시 이름에 올린 뒤 ConnectProvider를 보낸다.
+// 모르는 정의는 not_found, 그 정의가 이미 이어져 있으면 conflict, custom 주소가 규칙(https나 이 기계의 http)에 맞지 않으면
+// invalid_input이다. 어느 갈래로 실패해도 값은 남지 않는다.
+export const providerConnectKey = defineUpload({
+  resource: "providers",
+  method: "connect-key",
+  name: "ConnectProviderKey",
+  changes: ["providers", "models", "secrets"],
+  input: z.strictObject({
+    target: providerConnectTargetSchema,
+    bytes: z.number().int().min(1).max(SECRET_INPUT_MAX_BYTES),
+  }),
+  output: providerOutput,
+  actors: ["user"],
+  errors: [...userErrors, "not_found"],
+  max_bytes: SECRET_INPUT_MAX_BYTES,
+});
+
+// 이 기계의 http 주소(인증 없음)에 Custom provider를 잇는다. https 주소는 key가 있어야 해서 invalid_input이다.
+export const providerConnectLocal = defineMemory({
+  resource: "providers",
+  method: "connect-local",
+  name: "ConnectLocalProvider",
+  changes: ["providers", "models"],
+  input: connectLocalProviderInputSchema,
+  output: providerOutput,
+  actors: ["user"],
+  errors: [...userErrors],
+});
+
+// 구독 로그인을 시작한다. 시작한 뒤 발급자를 기다리는 것은 core다. 화면은 주소(와 device code)를 보이고
+// `providers/sign-in-state`를 읽는다. OAuth가 없는 정의나 provider sign_in 요청이 아닌 request는 invalid_input,
+// 이미 이어진 정의는 conflict, 모르는 정의나 열려 있지 않은 요청은 not_found다.
+export const providerSignIn = defineMemory({
+  resource: "providers",
+  method: "sign-in",
+  name: "SignInProvider",
+  changes: [{ name: "providers", id: (_input, output) => output.provider }],
+  input: providerSignInInputSchema,
+  output: providerSignInOutputSchema,
+  actors: ["user"],
+  errors: [...userErrors, "not_found"],
+});
+
+// 로그인 하나의 상태. 상태가 바뀔 때마다 core가 `StateChanged{providers, <provider>}`를 낸다.
+export const providerSignInState = defineMemory({
+  resource: "providers",
+  method: "sign-in-state",
+  name: "ReadProviderSignIn",
+  input: z.strictObject({ login: z.string().min(1).max(200) }),
+  output: providerSignInStateSchema,
+  reads: ["providers"],
+  actors: ["user"],
+  errors: ["invalid_input", "unauthorized", "forbidden", "not_found"],
+});
+
 export const PROVIDER_ROUTES = [
   disconnectProvider,
   providerRead,
   providerList,
   providerDefinitions,
-  loginBegin,
-  loginComplete,
+  providerConnectLocal,
+  providerSignIn,
+  providerSignInState,
   loginCancel,
   refreshProviderCredential,
   recordProviderAvailability,

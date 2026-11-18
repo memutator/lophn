@@ -1,6 +1,8 @@
 // lophn-agent의 정의 쪽(provider login, agent profile). 쓰기 앞 처리기가 두 곳이라
 // wiring이 둘이다(assembly.ts의 순서가 접는 순서다).
-import { ok } from "../../../../base/mod.ts";
+import { z } from "zod";
+import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
+import { publishStateChanged } from "../../../../protocol/events/changes.ts";
 import {
   agentProfileImageRead,
   agentProfileImageUpload,
@@ -8,9 +10,17 @@ import {
   messageImagePrepare,
   messageImageRead,
   messageImageUpload,
+  providerConnectKey,
+  providerConnectLocal,
+  providerDefinitionSchema,
+  providerList,
+  providerProtocolSchema,
   providerRead,
   type ProviderRecord,
+  providerSignIn,
+  providerSignInState,
 } from "../../../../protocol/lophn-agent/mod.ts";
+import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
   agentProfileHandlers,
   messageImageHandlers,
@@ -18,11 +28,48 @@ import {
 import { imageReferenced } from "../../../lophn-agent/session/message-images.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { withProviderLogin } from "../../../lophn-agent/providers/login.ts";
+import {
+  builtinTarget,
+  TEST_PROVIDER_TARGETS,
+  type ConnectTarget,
+  type ConnectWay,
+  createProviderConnect,
+} from "../../../lophn-agent/providers/connect-key.ts";
 import { opencodeGoMergeStep } from "./opencode-go-merge.ts";
 import { withProviderModelList } from "../../../lophn-agent/providers/model-list.ts";
 import { createIssuerRequests } from "../../../lophn-agent/issuer-requests.ts";
 import { openCallbackListener } from "../../../lophn-agent/extensions/mcp-auth-control.ts";
+import type { MemoryHandler } from "../../../server/mod.ts";
 import type { WiringFactory } from "./context.ts";
+
+const PAGE_LIMIT = 20;
+const key = (route: { resource: string; method: string }) =>
+  `${route.resource}/${route.method}`;
+
+// e2e가 fake 발급자·fake model server로 로그인을 돌리는 길이다: 정의 key를 이 연결 대상으로 바꾼다(TEST_PROVIDER_TARGETS).
+// 사람의 기동에는 없다.
+const testTargetsSchema = z.record(
+  z.string(),
+  z.strictObject({
+    definition: providerDefinitionSchema,
+    endpoint: z.string(),
+    protocol: providerProtocolSchema,
+  }),
+);
+
+function targetsFrom(
+  raw: string | undefined,
+): (key: string, way: ConnectWay) => Result<ConnectTarget> {
+  const parsed =
+    raw === undefined ? null : testTargetsSchema.safeParse(JSON.parse(raw));
+  const fakes = parsed?.success === true ? parsed.data : {};
+  return (key, way) => {
+    const fake = fakes[key];
+    return fake === undefined
+      ? builtinTarget(key, way)
+      : ok({ name: fake.definition.display_name, ...fake });
+  };
+}
 
 export const lophnAgentWiring: WiringFactory = () => ({
   name: "lophn-agent",
@@ -35,8 +82,6 @@ export const lophnAgentWiring: WiringFactory = () => ({
           imageReferenced(sql, session, blob),
         ),
     });
-    const key = (route: { resource: string; method: string }) =>
-      `${route.resource}/${route.method}`;
     return ok({
       // 받은 이미지 풀이(image block의 hash, image.read의 `attachment:<id>`): agent가 자기 session의 이미지만 푼다.
       // 이미지 올리기: agent는 바이트를 JSON으로 싣고 blob 준비는 core가 한다.
@@ -72,15 +117,60 @@ export const lophnAgentProviderLoginWiring: WiringFactory = () => {
         newId: () => crypto.randomUUID(),
       });
       ctx.provide("issuerRequests", requests);
+      const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
+      const readProviders = async (
+        who: AuthenticatedContext,
+      ): Promise<Result<ProviderRecord[]>> => {
+        const rows: ProviderRecord[] = [];
+        let cursor: string | undefined;
+        for (let page = 0; page < PAGE_LIMIT; page += 1) {
+          const read = await ctx.runtime.readers.read(
+            providerList,
+            who,
+            cursor === undefined ? {} : { cursor },
+          );
+          if (!read.ok) return read;
+          const value = read.value as {
+            providers: ProviderRecord[];
+            next_cursor: string | null;
+          };
+          rows.push(...value.providers);
+          if (value.next_cursor === null) break;
+          cursor = value.next_cursor;
+        }
+        return ok(rows);
+      };
+      const target = targetsFrom(process.env[TEST_PROVIDER_TARGETS]);
+      // 접은 writer로 보낸다: 임시 key를 옮기는 이 처리기(login)와 commit 뒤 층을 사람이 낸 command와 똑같이 지난다.
+      const connect = createProviderConnect({
+        writer: () => ctx.writer,
+        secrets: ctx.secretStore,
+        listProviders: readProviders,
+        target,
+        newId: () => ids.newId("pvd"),
+        newKey: () => crypto.randomUUID(),
+        tail: () => ids.newId("stg").slice("stg_".length),
+      });
+      let login: ReturnType<typeof withProviderLogin> | undefined;
+      // writer를 접기 전에는 부르지 못한다(API가 그 뒤에 열린다).
+      const unready = (): Result<never> =>
+        err({ code: "unavailable", message: "provider login is not ready" });
       return ok({
         writer: (inner) => {
-          const login = withProviderLogin(inner, {
+          login = withProviderLogin(inner, {
             http: requests.fetch,
             openListener: openCallbackListener,
             secrets: ctx.secretStore,
             newKey: () => crypto.randomUUID(),
             nowMs: () => ctx.clock.nowMs(),
             random: ctx.random,
+            target,
+            freshId: connect.freshId,
+            requests: ctx.questionWaits,
+            changed: (provider) =>
+              publishStateChanged(ctx.bus, ctx.clock.now(), [
+                { name: "providers", id: provider },
+              ]),
           });
           ending = login.endAll;
           // custom provider의 model 목록 읽기. login 바깥에 있어 ChatGPT 연결은 거치지 않는다.
@@ -101,7 +191,21 @@ export const lophnAgentProviderLoginWiring: WiringFactory = () => {
             newKey: () => crypto.randomUUID(),
           });
         },
-        memory: [...requests.handlers],
+        memory: [
+          ...requests.handlers,
+          [key(providerConnectLocal), connect.handlers.connectLocal],
+          [
+            key(providerSignIn),
+            ((who, input) =>
+              login?.signIn(who, input) ?? unready()) satisfies MemoryHandler,
+          ],
+          [
+            key(providerSignInState),
+            ((_who, input) =>
+              login?.signInState(input) ?? unready()) satisfies MemoryHandler,
+          ],
+        ],
+        uploads: [[key(providerConnectKey), connect.handlers.connectKey]],
       });
     },
     // 기다리는 로그인의 callback listener를 서버 정지 전에 닫는다.

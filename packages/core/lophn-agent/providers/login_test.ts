@@ -199,7 +199,21 @@ async function fixedLogin(input: {
       newKey: () => "key",
       nowMs: () => NOW,
       random: seededRandom(7),
-      wait: () => Promise.resolve(),
+      // 다음 확인까지 쉬는 동안 callback이 도착한다.
+      wait: () => new Promise((resolve) => setTimeout(resolve, 0)),
+      target: () =>
+        ok({
+          name: input.definition.display_name,
+          definition: input.definition,
+          endpoint: input.endpoint,
+          protocol: input.protocol as "openai-responses",
+        }),
+      freshId: () => Promise.resolve(ok(PROVIDER)),
+      requests: {
+        readRequest: () => err({ code: "not_found", message: "없다" }),
+        finishRequest: () => ok(undefined),
+      },
+      changed: () => {},
     },
   );
   const run = (command: string, body: unknown) =>
@@ -210,35 +224,27 @@ async function fixedLogin(input: {
       compare: {},
       prepared: [],
     });
-  const begun = await run("BeginProviderLogin", {
-    provider: PROVIDER,
-    name: input.definition.display_name,
-    definition: input.definition,
-    endpoint: input.endpoint,
-    protocol: input.protocol,
-  });
+  const begun = await login.signIn(USER, { definition: "test" });
   assert.ok(begun.ok);
-  const started = begun.value.result as {
-    login: string;
-    sign_in: { url: string };
-  };
+  const started = begun.value as { login: string; sign_in: { url: string } };
   const authorize = new URL(started.sign_in.url);
   const state = authorize.searchParams.get("state")!;
   deliver({ code: "CODE", state });
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  const done = await run("CompleteProviderLogin", {
-    provider: PROVIDER,
-    login: started.login,
-  });
+  // core가 기다림을 끝낼 때까지 상태를 본다.
+  let done = login.signInState({ login: started.login });
+  while (done.ok && (done.value as { state: string }).state === "waiting") {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    done = login.signInState({ login: started.login });
+  }
+  assert.ok(done.ok);
+  const settled = done.value as { state: string; code?: string };
   await new Promise((resolve) => setTimeout(resolve, 0));
   return {
     run,
     store: secrets,
     authorize,
     state,
-    code: done.ok
-      ? (done.value.result as { state: string }).state
-      : done.error.code,
+    code: settled.code ?? settled.state,
     secrets: [...secrets.keys()],
     connects,
     requests,

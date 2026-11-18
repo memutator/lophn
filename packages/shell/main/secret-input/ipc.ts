@@ -21,7 +21,12 @@ import {
   type RequestCore,
   submitRequest,
 } from "./request.ts";
-import { submitSecret } from "./submit.ts";
+import {
+  connectProviderKey,
+  type ProviderKeyFailure,
+  submitSecret,
+} from "./submit.ts";
+import type { ProviderConnectTarget } from "../../../protocol/lophn-agent/provider-inputs.ts";
 import {
   type OpenedSecretInput,
   openSecretInputWindow,
@@ -72,8 +77,12 @@ interface Active {
   readonly display: SecretInputDisplay;
   /** agent의 입력 요청이면 그 내용이다. 제출은 종류와 mode대로 끝난다. */
   readonly request: OpenRequest | undefined;
+  /** 새 provider를 잇는 창이면 그 대상이다. 제출은 core가 id를 정해 잇는다. */
+  readonly provider: ProviderConnectTarget | undefined;
   readonly opened: OpenedSecretInput;
-  readonly done: (result: "stored" | "cancelled" | "unavailable") => void;
+  readonly done: (
+    result: "stored" | "cancelled" | { failed: ProviderKeyFailure },
+  ) => void;
   submitting: boolean;
 }
 
@@ -127,8 +136,17 @@ export function registerSecretInputIpc(
     try {
       // 요청 card에서 온 열기는 origin·mode를 core의 열린 요청에서 읽는다(renderer가 보낸 글이 아니다).
       let request: OpenRequest | undefined;
+      let provider: ProviderConnectTarget | undefined;
       let display: SecretInputDisplay;
-      if ("request" in parsed.data) {
+      if ("provider" in parsed.data) {
+        provider = parsed.data.provider;
+        display = {
+          name: "",
+          purpose: "provider",
+          subject: parsed.data.subject,
+          configured: false,
+        };
+      } else if ("request" in parsed.data) {
         const read = await readRequest(core, parsed.data.request);
         if (!read.ok) {
           return {
@@ -172,8 +190,8 @@ export function registerSecretInputIpc(
           finished = true;
           active = null;
           resolve(
-            result === "unavailable"
-              ? { ok: false, code: "unavailable" }
+            typeof result === "object"
+              ? { ok: false, code: result.failed }
               : { ok: true, result },
           );
           const window = shown.opened?.window;
@@ -187,13 +205,14 @@ export function registerSecretInputIpc(
           ...(deps.headless === undefined ? {} : { headless: deps.headless }),
           // 사람이 창을 닫으면 그만둔 것이다.
           onClosed: () => done("cancelled"),
-          onCrashed: () => done("unavailable"),
+          onCrashed: () => done({ failed: "unavailable" }),
         });
         shown.opened = opened;
         active = {
           contentsId: opened.window.webContents.id,
           display,
           request,
+          provider,
           opened,
           done,
           submitting: false,
@@ -232,10 +251,23 @@ export function registerSecretInputIpc(
       } satisfies SecretInputSubmitReply;
     }
     one.submitting = true;
+    if (one.provider !== undefined && "value" in parsed.data) {
+      const connected = await connectProviderKey(
+        core,
+        one.provider,
+        parsed.data.value,
+      );
+      one.submitting = false;
+      // 잇지 못한 것은 값을 다시 넣어 고칠 수 없다: 창을 닫고 연 화면이 code를 보인다.
+      one.done(connected.ok ? "stored" : { failed: connected.code });
+      return connected.ok
+        ? ({ ok: true } satisfies SecretInputSubmitReply)
+        : ({ ok: false, code: "unavailable" } satisfies SecretInputSubmitReply);
+    }
     const reply =
       one.request !== undefined
         ? await submitRequest(core, deps.typeOnce, one.request, parsed.data)
-        : "value" in parsed.data
+        : "value" in parsed.data && one.provider === undefined
           ? await submitSecret(core, {
               name: one.display.name,
               value: parsed.data.value,

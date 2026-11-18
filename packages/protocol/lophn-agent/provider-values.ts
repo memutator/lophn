@@ -128,8 +128,9 @@ const oauthDefinitionOutputSchema = z.discriminatedUnion("product", [
 ]);
 export type OAuthDefinition = z.infer<typeof oauthDefinitionSchema>;
 
-export function oauthFlowOf(definition: OAuthDefinition): OAuthFlow {
-  return definition.product === "supergrok" ? "device_code" : "pkce_loopback";
+// device code는 어느 browser에서나 끝난다. loopback은 core가 있는 기계의 browser로 돌아와야 한다(화면이 가린다).
+export function oauthFlowOf(product: OAuthDefinition["product"]): OAuthFlow {
+  return product === "supergrok" ? "device_code" : "pkce_loopback";
 }
 
 const definitionFields = {

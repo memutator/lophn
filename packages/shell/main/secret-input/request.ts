@@ -1,6 +1,7 @@
 // agent의 입력 요청(card)을 보호 창에서 끝낸다.
 // - login save는 login metadata와 값(password·TOTP)을 저장하고, once는 값을 core에 "알려진 값"으로만 올린 뒤 ref 칸에 바로 친다.
-// - secret은 core가 자리에서 정한 이름에 값을 저장하고, 새 provider 자리면 이어서 연결까지 보낸다.
+// - secret은 값을 core `input_request/answer_secret`으로 올린다. core가 자리에서 정한 이름에 넣고 새 provider 자리면 잇고
+//   요청을 끝낸다.
 // 값은 agent 결과(`done`)에 싣지 않는다.
 // 값, core 오류 원문, OS 오류 원문은 log·오류·IPC 결과 어디에도 넣지 않는다.
 import { ERROR_CODES } from "../../../base/mod.ts";
@@ -14,7 +15,7 @@ import {
   type SecretRequestView,
 } from "../../../protocol/lophn-agent/input-request.ts";
 import { loginSecretName } from "../../../protocol/secrets/logins.ts";
-import { type SecretCore, submitSecret } from "./submit.ts";
+import { answerSecret, type SecretCore, submitSecret } from "./submit.ts";
 
 type CoreReply =
   | { ok: true; value: unknown }
@@ -158,49 +159,6 @@ async function typeOnce(
   return { ok: true };
 }
 
-// 저장이 실패하면 창이 오류를 보이고 요청은 열려 있다. 저장 뒤 연결이 실패하면 쓰이지 않을 값을 지우고 agent에게 실패를 알린다
-// (Settings › Providers의 연결과 같은 순서다). conflict는 같은 id의 provider가 이미 있다는 뜻이라 값은 그 provider의 key다.
-async function storeSecret(
-  core: RequestCore,
-  request: OpenSecret,
-  value: string,
-): Promise<SecretInputSubmitReply> {
-  const put = await submitSecret(core, { name: request.name, value });
-  if (!put.ok) return put;
-  if (request.connect !== null) {
-    const sent = await core
-      .internal("command", "providers", "connect", {
-        input: {
-          ...request.connect,
-          auth_kind: "api_key",
-          credential: { secret: request.name },
-        },
-        idempotency_key: `provider-connect-${request.tool_call}`,
-        compare: {},
-        prepared: [],
-      })
-      .catch(() => null);
-    if (sent === null || (!sent.ok && sent.error.code !== "conflict")) {
-      await core
-        .internal("memory", "secrets", "delete", { name: request.name })
-        .catch(() => null);
-      const code = sent === null ? "unavailable" : sent.error.code;
-      await done(core, request, {
-        error: {
-          code: (ERROR_CODES as readonly string[]).includes(code)
-            ? code
-            : "internal",
-          message:
-            "The key was entered but connecting the provider failed, so the key was not kept.",
-        },
-      });
-      return { ok: true };
-    }
-  }
-  await done(core, request, { stored: true });
-  return { ok: true };
-}
-
 /** 보호 창의 제출을 요청 종류와 mode대로 끝낸다. 맞지 않는 모양은 invalid_input이다. */
 export async function submitRequest(
   core: RequestCore,
@@ -211,7 +169,7 @@ export async function submitRequest(
   try {
     if (request.kind === "secret") {
       return "value" in input
-        ? await storeSecret(core, request, input.value)
+        ? await answerSecret(core, request, input.value)
         : { ok: false, code: "invalid_input" };
     }
     if (request.mode === "save") {

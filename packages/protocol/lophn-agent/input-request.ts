@@ -1,9 +1,12 @@
 import { z } from "zod";
 import { ERROR_CODES } from "../../base/mod.ts";
 import { idSchema } from "../base/ids.ts";
-import { defineMemory } from "../base/route.ts";
+import { defineMemory, defineUpload } from "../base/route.ts";
 import { loginIdSchema, loginOriginSchema } from "../secrets/logins.ts";
-import { secretNameSchema } from "../secrets/secrets.ts";
+import {
+  SECRET_INPUT_MAX_BYTES,
+  secretNameSchema,
+} from "../secrets/secrets.ts";
 import { customProtocolSchema } from "./custom-provider.ts";
 import { browserRefSchema } from "./host-queue.ts";
 import { mcpAuthBeginInputSchema } from "./mcp-settings.ts";
@@ -110,7 +113,7 @@ const secretViewSchema = z.strictObject({
   destinations: z.array(z.string().min(1).max(300)).max(32),
   // 이미 값이 있는 자리다. 넣으면 바꾼다.
   configured: z.boolean(),
-  // 값을 저장한 뒤 shell main이 보낼 ConnectProvider 입력(credential 빼고)이다. 새로 연결하는 provider 자리에만 있다.
+  // 값을 받은 core가 이어서 보낼 ConnectProvider 입력(credential 빼고)이다. 새로 연결하는 provider 자리에만 있다.
   connect: z.record(z.string(), z.unknown()).nullable(),
 });
 
@@ -211,8 +214,8 @@ export const inputRequestHold = defineMemory({
   errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
 });
 
-// 요청을 끝내고 기다리던 agent에게 결과를 준다. login·secret은 shell main이 값을 저장한 뒤 부르고, sign_in은 card의 로그인 흐름이
-// 끝난 뒤 renderer가 부른다(signed_in이나 오류).
+// 요청을 끝내고 기다리던 agent에게 결과를 준다. login은 shell main이 값을 저장한 뒤 부르고, 앱·MCP sign_in은 card의 로그인
+// 흐름이 끝난 뒤 renderer가 부른다(signed_in이나 오류). secret 요청은 `answer_secret`이, provider sign_in은 core의 로그인이 끝낸다.
 export const inputRequestDone = defineMemory({
   resource: "input_request",
   method: "done",
@@ -238,6 +241,25 @@ export const inputRequestDone = defineMemory({
   errors: ["invalid_input", "forbidden", "not_found"],
 });
 
+// secret 요청에 값을 답한다. body는 값의 UTF-8이다. core가 자리에서 정한 이름에 넣고, 새로 잇는 provider 자리면
+// `providers/connect-key`와 같은 순서로 잇는다. 요청은 `{stored: true}`나 연결 오류로 끝나고 결과는 `{}`다. 값을 저장하지 못하면
+// 오류이고 요청은 열린 채다. secret 요청이 아니면 invalid_input이다.
+export const inputRequestAnswerSecret = defineUpload({
+  resource: "input_request",
+  method: "answer_secret",
+  name: "InputRequestAnswerSecret",
+  changes: ["secrets", "providers", "models"],
+  input: z.strictObject({
+    ...target,
+    bytes: z.number().int().min(1).max(SECRET_INPUT_MAX_BYTES),
+  }),
+  output: z.strictObject({}),
+  actors: ["user"],
+  errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
+  max_bytes: SECRET_INPUT_MAX_BYTES,
+});
+
+// memory route만이다(core 등록이 memoryRoutes로 펼친다). upload인 `answer_secret`은 따로 둔다.
 export const INPUT_REQUEST_ROUTES = [
   inputRequestAsk,
   inputRequestRead,

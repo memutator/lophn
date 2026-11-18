@@ -30,6 +30,10 @@ import {
   APP_CALL_ROUTES,
   SESSION_LIFECYCLE_ROUTES,
   messageImageUpload,
+  providerConnectKey,
+  providerConnectLocal,
+  providerSignIn,
+  providerSignInState,
   type Workspace,
   workspaceKeyOf,
   workspaceKindOf,
@@ -834,8 +838,6 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       commands.recordAvailability,
       commands.recordModels,
       commands.refreshModels,
-      commands.beginLogin,
-      commands.completeLogin,
       commands.cancelLogin,
       modelCommands.changeDefault,
       modelCommands.changeWorkspace,
@@ -962,9 +964,18 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       ...SESSION_LIFECYCLE_ROUTES,
       // 앱이 보내는 call과 읽기. handler는 wiring/app-calls.ts가 붙인다.
       ...APP_CALL_ROUTES,
+      // provider 잇기(이 기계의 주소)와 구독 로그인의 시작·상태. handler는 wiring/lophn-agent.ts의 provider login이 붙인다.
+      providerConnectLocal,
+      providerSignIn,
+      providerSignInState,
     ],
     // profile 이미지의 바이트 입구(upload)와 읽기(file)다. 바이트를 붙이는 처리기는 core 조립(core.ts)이 route 이름으로 붙인다.
-    uploadRoutes: [agentProfileImageUpload, messageImageUpload],
+    // provider key로 잇기의 입구도 upload다(handler는 wiring/lophn-agent.ts의 provider login).
+    uploadRoutes: [
+      agentProfileImageUpload,
+      messageImageUpload,
+      providerConnectKey,
+    ],
     files: [agentProfileImageRead, messageImageRead],
     // MCP OAuth의 시작·완료·상태·취소 입구다. handler는 core 조립(packages/core/lophn-agent/register.ts)이
     // createMcpAuthControl(mcp-auth.ts)로 붙인다. route만 등록한다.

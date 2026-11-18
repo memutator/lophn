@@ -8,8 +8,8 @@ import { type CommandBody, commandBody } from "../../command-call.ts";
 import type { CoreCall } from "../../../ipc/core.ts";
 import type { OpenExternalApi } from "../../../ipc/open-external.ts";
 import type {
+  SecretInputOpen,
   SecretInputOpenApi,
-  SecretInputPurpose,
 } from "../../../ipc/secret-input.ts";
 import type { CoreSource } from "../connection/connection.ts";
 import type { SourceResult } from "./source.ts";
@@ -59,12 +59,12 @@ export function windowSecretInputOpener():
 }
 
 /**
- * 보호 입력 창을 열고 닫힐 때까지 기다린다. `stored`면 `name`의 값이 올라가 있다. 값은 이 안을 지나지
- * 않는다. subject는 창에 보일 이름이라 제어 문자를 빼고 80자로 자른다.
+ * 보호 입력 창을 열고 닫힐 때까지 기다린다. `stored`면 `name`의 값이 올라가 있다(provider 갈래면 이어졌다). 값은 이 안을
+ * 지나지 않는다. subject는 창에 보일 이름이라 제어 문자를 빼고 80자로 자른다.
  */
 export async function enterSecret(
   open: SecretInputOpenApi["open"] | undefined,
-  input: { name: string; purpose: SecretInputPurpose; subject: string },
+  input: SecretInputOpen,
 ): Promise<SourceResult<"stored" | "cancelled">> {
   if (open === undefined) return { ok: false, code: "unavailable" };
   try {
@@ -94,19 +94,4 @@ export function windowLinkOpener():
   return typeof shell?.openExternal === "function"
     ? (url) => shell.openExternal!(url)
     : undefined;
-}
-
-const ULID_DIGITS = "0123456789abcdefghjkmnpqrstvwxyz";
-
-/** contract provider id(`pvd_` + 소문자 ULID). 시각 48bit와 난수 80bit. */
-export function newProviderId(nowMs: number): string {
-  let time = "";
-  let rest = nowMs;
-  for (let index = 0; index < 10; index += 1) {
-    time = ULID_DIGITS[rest % 32]! + time;
-    rest = Math.floor(rest / 32);
-  }
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  const random = [...bytes].map((byte) => ULID_DIGITS[byte % 32]).join("");
-  return `pvd_${time}${random}`;
 }

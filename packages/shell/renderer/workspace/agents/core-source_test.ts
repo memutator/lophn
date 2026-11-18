@@ -23,7 +23,7 @@ test("새 agent는 미리 받은 id로 만들어지고 새 server의 값은 그 
   const opened: string[] = [];
   const source = coreAgentsSource(core, {
     openSecret: (request) => {
-      opened.push(request.name);
+      opened.push("name" in request ? request.name : "");
       return Promise.resolve({ ok: true, result: "stored" });
     },
   });

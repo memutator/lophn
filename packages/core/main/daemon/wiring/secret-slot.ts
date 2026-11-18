@@ -16,6 +16,11 @@ import {
   providerDefinitions,
   providerList,
 } from "../../../../protocol/lophn-agent/providers.ts";
+import type { ProviderDefinition } from "../../../../protocol/lophn-agent/provider-values.ts";
+import {
+  type ConnectTarget,
+  providerTargetOf,
+} from "../../../lophn-agent/providers/connect-key.ts";
 import type { Workspace } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { RegisteredMcpServer } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
 import type { RequestContent } from "../../../lophn-agent/tools/questions/wait.ts";
@@ -23,13 +28,6 @@ import type { RequestContent } from "../../../lophn-agent/tools/questions/wait.t
 type SecretContent = Extract<RequestContent, { kind: "secret" }>;
 type SignInContent = Extract<RequestContent, { kind: "sign_in" }>;
 type SlotContent = SecretContent | SignInContent;
-
-// 내장 정의의 model 목록 주소는 API base 바로 아래 한 칸이다(`<base>/models`). Settings › Providers의 연결과 같은 규칙이다.
-function baseOf(modelsEndpoint: string | null): string | null {
-  if (modelsEndpoint === null) return null;
-  const cut = modelsEndpoint.lastIndexOf("/");
-  return cut > "https://".length ? modelsEndpoint.slice(0, cut) : null;
-}
 
 const PAGE_LIMIT = 20;
 
@@ -53,14 +51,7 @@ type ProviderRow = {
   credential: { kind?: string };
 };
 
-type Definition = {
-  key: string;
-  display_name: string;
-  protocols: string[];
-  auth_kinds: string[];
-  models_endpoint: string | null;
-  oauth: { product: string; inference_endpoint?: string } | null;
-};
+type Definition = ProviderDefinition;
 
 const slug = (name: string) =>
   name
@@ -110,14 +101,13 @@ export function createSecretSlots(deps: SecretSlotDeps) {
     return ok(undefined);
   };
 
-  // API key로 연결하는 provider의 secret 요청이다. 이미 연결된 provider면 그 key를 바꾸고, 아니면 값이 저장된 뒤 shell main이
-  // 연결까지 보낸다. 모든 workspace의 model 선택과 비용에 걸리므로 home에서만 청한다.
+  // API key로 연결하는 provider의 secret 요청이다. 이미 연결된 provider면 그 key를 바꾸고, 아니면 값을 받은 core가
+  // 연결까지 한다(`input_request/answer_secret`). 모든 workspace의 model 선택과 비용에 걸리므로 home에서만 청한다.
   const keySlot = async (
     slot: SecretSlot,
-    definition: Definition,
-    endpoint: string,
-    protocol: string,
+    target: ConnectTarget,
   ): Promise<Result<SecretContent>> => {
+    const { definition, endpoint } = target;
     const found = await connectedWith(definition.key);
     if (!found.ok) return found;
     const existing = found.value;
@@ -136,16 +126,7 @@ export function createSecretSlots(deps: SecretSlotDeps) {
       subject: definition.display_name.slice(0, 100),
       destinations: [existing?.endpoint ?? endpoint],
       configured: deps.configured(name),
-      connect:
-        existing !== undefined
-          ? null
-          : {
-              id,
-              name: definition.display_name,
-              definition,
-              endpoint,
-              protocol,
-            },
+      connect: existing !== undefined ? null : { id, ...target },
     });
   };
 
@@ -153,13 +134,18 @@ export function createSecretSlots(deps: SecretSlotDeps) {
   const providerSignIn = async (
     slot: SecretSlot,
     definition: Definition,
-    endpoint: string,
-    protocol: string,
   ): Promise<Result<SignInContent>> => {
     if (definition.oauth === null) {
       return err({
         code: "invalid_input",
         message: `"${definition.key}" has no sign-in. Connect it with an API key.`,
+      });
+    }
+    const target = providerTargetOf(definition, "oauth");
+    if (target === null) {
+      return err({
+        code: "invalid_input",
+        message: `"${definition.key}" cannot be connected from a request.`,
       });
     }
     const found = await connectedWith(definition.key);
@@ -170,27 +156,15 @@ export function createSecretSlots(deps: SecretSlotDeps) {
         message: `"${definition.key}" is already connected. The person disconnects it in Settings > Providers first to sign in again.`,
       });
     }
-    // ChatGPT 로그인 token은 Codex backend로 보낸다. 그 밖의 구독은 API key와 같은 주소다.
-    const target =
-      definition.oauth.product === "chatgpt" &&
-      definition.oauth.inference_endpoint !== undefined
-        ? definition.oauth.inference_endpoint
-        : endpoint;
     return ok({
       kind: "sign_in",
       slot,
       target: {
         type: "provider",
-        login: {
-          provider: deps.newProviderId(),
-          name: definition.display_name,
-          definition,
-          endpoint: target,
-          protocol,
-        },
-      } as SignInContent["target"],
+        login: { provider: deps.newProviderId(), ...target },
+      },
       subject: definition.display_name.slice(0, 100),
-      destinations: [originOf(target)],
+      destinations: [originOf(target.endpoint)],
     });
   };
 
@@ -210,19 +184,18 @@ export function createSecretSlots(deps: SecretSlotDeps) {
         message: `No provider definition is named "${slot.provider}". Known: ${read.value.map((d) => d.key).join(", ")}.`,
       });
     }
-    const endpoint = baseOf(definition.models_endpoint);
-    const protocol = definition.protocols[0];
-    if (endpoint === null || protocol === undefined) {
+    const keyOk = definition.auth_kinds.includes("api_key");
+    if (slot.sign_in === true || !keyOk) {
+      return await providerSignIn(slot, definition);
+    }
+    const target = providerTargetOf(definition, "api_key");
+    if (target === null) {
       return err({
         code: "invalid_input",
         message: `"${slot.provider}" cannot be connected from a request.`,
       });
     }
-    const keyOk = definition.auth_kinds.includes("api_key");
-    if (slot.sign_in === true || !keyOk) {
-      return await providerSignIn(slot, definition, endpoint, protocol);
-    }
-    return await keySlot(slot, definition, endpoint, protocol);
+    return await keySlot(slot, target);
   };
 
   // custom provider 자리: agent가 base URL과 protocol을 넘긴다. Settings의 Custom 연결과 같은 규칙으로 검사하고 key를 받는다.
@@ -271,18 +244,18 @@ export function createSecretSlots(deps: SecretSlotDeps) {
         message: `A custom provider named "${id}" is already connected to another address. Choose another display name.`,
       });
     }
-    return await keySlot(
-      slot,
-      customDefinition({
+    return await keySlot(slot, {
+      name: slot.display_name,
+      definition: customDefinition({
         id,
         name: slot.display_name,
         base,
         protocol: slot.protocol,
         withKey: true,
       }),
-      base,
-      slot.protocol,
-    );
+      endpoint: base,
+      protocol: slot.protocol,
+    });
   };
 
   // 앱 자리: 그 앱이 `secret.use`로 선언해 허락받은 이름이다. 앱 agent는 자기 앱만, home은 어느 앱이든 청한다.

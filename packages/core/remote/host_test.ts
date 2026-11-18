@@ -47,9 +47,7 @@ import {
 import {
   connectProvider,
   disconnectProvider,
-  loginBegin,
   loginCancel,
-  loginComplete,
   refreshProviderModels,
 } from "../../protocol/lophn-agent/providers.ts";
 import {
@@ -245,9 +243,7 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
     appsSecretValue,
     connectProvider,
     disconnectProvider,
-    loginBegin,
     loginCancel,
-    loginComplete,
     refreshProviderModels,
     devicesList,
     devicesSetPrimary,
@@ -692,9 +688,7 @@ test("route 목록을 넓힌 뒤에도 sessions/delete, secret, provider·model�
     "apps/secret_value",
     "providers/connect",
     "providers/disconnect",
-    "providers/login-begin",
     "providers/login-cancel",
-    "providers/login-complete",
     "providers/refresh-models",
     "settings/update",
     "devices/list",

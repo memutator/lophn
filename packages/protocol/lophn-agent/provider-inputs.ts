@@ -2,6 +2,8 @@ import { z } from "zod";
 import { atSchema, durationMsSchema } from "../base/values.ts";
 import { idSchema } from "../base/ids.ts";
 import { secretNameSchema } from "../secrets/secrets.ts";
+import { CUSTOM_ID_SHAPE, customProtocolSchema } from "./custom-provider.ts";
+import { ERROR_CODES } from "../../base/mod.ts";
 import {
   CREDENTIAL_STATES,
   modelBlockSchema,
@@ -159,8 +161,9 @@ export const providerListInputSchema = z.strictObject({
   cursor: z.string().min(1).optional(),
 });
 
-// OAuth 로그인은 provider가 등록되기 전에 시작한다: 끝나면 core가 token을 저장하고 Connect까지 부르기 때문이다.
-// 만들 provider의 ID와 Connect에 실을 정의·endpoint·protocol을 받는다. 발급자 주소는 정의 data다.
+// 구독 로그인 하나의 대상이다. 로그인은 provider가 등록되기 전에 시작한다: 끝나면 core가 token을 저장하고 Connect까지 부르기
+// 때문이다. 만들 provider의 ID와 Connect에 실을 정의·endpoint·protocol이다. 발급자 주소는 정의 data다. agent의 sign_in 요청
+// view가 이 모양을 싣고, core 안 로그인 시작이 받는다.
 export const loginBeginInputSchema = z
   .strictObject({
     provider: idSchema("pvd"),
@@ -182,16 +185,57 @@ export const loginBeginOutputSchema = z.object({
   }),
 });
 
-// Complete는 기다리지 않는다. 한 번 보고 아직이면 pending과 다음에 부를 간격을, 끝났으면 연결된 provider를 낸다.
-export const loginCompleteInputSchema = z.strictObject({
-  provider: idSchema("pvd"),
-  login: nonblankSchema,
-});
-export const loginCompleteOutputSchema = z.discriminatedUnion("state", [
-  z.object({ state: z.literal("pending"), interval_ms: durationMsSchema }),
-  z.object({ state: z.literal("connected"), provider: providerRecordSchema }),
-]);
 export const loginCancelInputSchema = z.strictObject({
   provider: idSchema("pvd"),
   login: nonblankSchema,
 });
+
+// 연결할 대상이다. 내장 정의 key이거나 사람이 만드는 Custom provider(key·이름·주소·API)다. id와 endpoint는 core가 정한다.
+const customTargetSchema = z.strictObject({
+  key: z.string().max(64).regex(CUSTOM_ID_SHAPE),
+  name: z.string().max(100).regex(/\S/),
+  base_url: z.string().min(1).max(300),
+  protocol: customProtocolSchema,
+});
+export const providerConnectTargetSchema = z.union([
+  z.strictObject({ definition: z.string().min(1).max(64) }),
+  z.strictObject({ custom: customTargetSchema }),
+]);
+export type ProviderConnectTarget = z.infer<typeof providerConnectTargetSchema>;
+
+export const connectLocalProviderInputSchema = z.strictObject({
+  custom: customTargetSchema,
+});
+
+// 로그인 시작: 내장 정의 key이거나, agent의 sign_in 요청(core가 만든 id와 대상을 그 요청에서 읽는다).
+export const providerSignInInputSchema = z.union([
+  z.strictObject({ definition: z.string().min(1).max(64) }),
+  z.strictObject({
+    request: z.strictObject({
+      session: idSchema("ses"),
+      tool_call: idSchema("tcl"),
+    }),
+  }),
+]);
+export const providerSignInOutputSchema = loginBeginOutputSchema.extend({
+  provider: idSchema("pvd"),
+});
+
+// 로그인 하나의 상태다. 기다림은 core가 한다. 끝난 상태는 같은 정의로 새 로그인을 시작할 때까지 남는다.
+export const providerSignInStateSchema = z.discriminatedUnion("state", [
+  z.object({
+    state: z.literal("waiting"),
+    provider: idSchema("pvd"),
+    flow: z.enum(OAUTH_FLOWS),
+    expires_at: atSchema,
+    sign_in: loginBeginOutputSchema.shape.sign_in,
+  }),
+  z.object({ state: z.literal("connected"), provider: idSchema("pvd") }),
+  z.object({
+    state: z.literal("failed"),
+    provider: idSchema("pvd"),
+    code: z.enum(ERROR_CODES),
+  }),
+  z.object({ state: z.literal("cancelled"), provider: idSchema("pvd") }),
+]);
+export type ProviderSignInState = z.infer<typeof providerSignInStateSchema>;

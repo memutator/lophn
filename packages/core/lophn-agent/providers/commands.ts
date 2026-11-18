@@ -2,9 +2,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   connectProvider,
   disconnectProvider,
-  loginBegin,
   loginCancel,
-  loginComplete,
   type ProviderCredential,
   type ProviderRecord,
   recordProviderAvailability,
@@ -151,22 +149,9 @@ export function createProviderCommands(): {
   recordAvailability: CommandDefinition<typeof recordProviderAvailability>;
   recordModels: CommandDefinition<typeof recordProviderModels>;
   refreshModels: CommandDefinition<typeof refreshProviderModels>;
-  beginLogin: CommandDefinition<typeof loginBegin>;
-  completeLogin: CommandDefinition<typeof loginComplete>;
   cancelLogin: CommandDefinition<typeof loginCancel>;
 } {
   return {
-    // OAuth 로그인은 writer queue 앞의 처리기가 실제로 돌린다
-    // (withProviderLogin). 이 등록은 경로를 route registry에 열어 두는 자리다.
-    beginLogin: {
-      route: loginBegin,
-      handle() {
-        return err({
-          code: "unavailable",
-          message: "provider login runs outside the ledger writer",
-        });
-      },
-    },
     // 목록 읽기는 network를 쓰므로 writer queue 앞의 처리기가 돌린다. 이 등록은 경로만 열어 둔다.
     refreshModels: {
       route: refreshProviderModels,
@@ -177,15 +162,7 @@ export function createProviderCommands(): {
         });
       },
     },
-    completeLogin: {
-      route: loginComplete,
-      handle() {
-        return err({
-          code: "unavailable",
-          message: "provider login runs outside the ledger writer",
-        });
-      },
-    },
+    // 로그인 취소는 writer queue 앞의 처리기가 실제로 돌린다(withProviderLogin). 이 등록은 경로를 route registry에 열어 두는 자리다.
     cancelLogin: {
       route: loginCancel,
       handle() {

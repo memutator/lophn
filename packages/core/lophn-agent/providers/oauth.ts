@@ -1,5 +1,5 @@
 // 구독 OAuth 로그인 작업이다. begin이 사람이 OS browser에서 열 주소를 내고, complete는 기다리지 않고 한 번 보고
-// 돌아온다(아직이면 pending, 끝났으면 token). 화면이 interval_ms마다 complete를 다시 부른다.
+// 돌아온다(아직이면 pending, 끝났으면 token). login.ts가 interval_ms마다 complete를 다시 부른다.
 // - chatgpt: Codex CLI의 ChatGPT 로그인. PKCE(S256) + 발급자에 등록된 고정 loopback callback. 교환은 oauth-chatgpt.ts가 한다.
 // - claude: Claude account. PKCE(S256) + 발급자에 등록된 고정 loopback callback. 교환은 oauth-claude.ts가 한다.
 // - antigravity: Google account. PKCE(S256) + 고정 loopback callback. 교환 뒤 Cloud Code project까지 정해야 연결이다
@@ -14,6 +14,7 @@ import type { RandomSource } from "../../../base/mod.ts";
 import {
   type OAuthDefinition,
   type OAuthFlow,
+  oauthFlowOf,
   type ProviderAccount,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { CallbackListener, CallbackOptions } from "../extensions/mod.ts";
@@ -448,10 +449,14 @@ export function createProviderOAuth<T extends { endpoint: string }>(deps: {
   return {
     async begin(provider, oauth, target) {
       await sweep();
-      if (oauth.product === "supergrok") {
-        return await beginDevice(provider, oauth, target);
+      if (oauthFlowOf(oauth.product) === "device_code") {
+        return await beginDevice(
+          provider,
+          oauth as Extract<OAuthDefinition, { product: "supergrok" }>,
+          target,
+        );
       }
-      return await beginFixed(provider, oauth, target);
+      return await beginFixed(provider, oauth as PkceOAuth, target);
     },
     async complete(provider, login) {
       await sweep();

@@ -25,14 +25,17 @@ import {
 } from "./inputs.ts";
 import { HARNESS_HOST_ROUTES } from "./harness-host.ts";
 import { HOST_QUEUE_MEMORY_ROUTES } from "./host-queue.ts";
-import { INPUT_REQUEST_ROUTES } from "./input-request.ts";
+import {
+  INPUT_REQUEST_ROUTES,
+  inputRequestAnswerSecret,
+} from "./input-request.ts";
 import { EXTENSION_TOOL_ROUTES } from "./extension-tools.ts";
 import { ASK_ROUTES } from "./ask-tool.ts";
 import { MESSAGE_IMAGE_ROUTES } from "./message-images.ts";
 import { RECEIVED_MESSAGE_ROUTES } from "./received-messages.ts";
 import { messageSearch } from "./message-search.ts";
 import { AGENT_ROUTES } from "./agent-definitions.ts";
-import { connectProvider } from "./providers.ts";
+import { connectProvider, providerConnectKey } from "./providers.ts";
 import {
   EXTENSION_ROUTES,
   mcpAuthBegin,
@@ -78,6 +81,7 @@ export const ROUTES = [
   ...HOST_QUEUE_MEMORY_ROUTES,
   // 사람에게 login 저장·한 번 넣기를 요청하는 agent 입구와, card·보호 창이 부르는 route.
   ...INPUT_REQUEST_ROUTES,
+  inputRequestAnswerSecret,
   // extension의 tool: extension host가 읽은 목록과 agent의 호출 입구.
   ...EXTENSION_TOOL_ROUTES,
   ...MESSAGE_IMAGE_ROUTES,
@@ -85,6 +89,7 @@ export const ROUTES = [
   messageSearch,
   ...AGENT_ROUTES,
   connectProvider,
+  providerConnectKey,
   // MCP OAuth의 시작·완료·상태·취소 입구다. ledger queue를 거치지 않는
   // memory route다.
   mcpAuthBegin,

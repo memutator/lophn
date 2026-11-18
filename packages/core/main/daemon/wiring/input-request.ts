@@ -3,6 +3,7 @@ import { appGet } from "../../../../protocol/apps/apps.ts";
 import { appGrantsList } from "../../../../protocol/apps/grants.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
+  inputRequestAnswerSecret,
   inputRequestAsk,
   inputRequestCancel,
   inputRequestDone,
@@ -27,11 +28,16 @@ import {
   workspaceOf,
 } from "../../../lophn-agent/session/model.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
+import {
+  createKeyConnect,
+  secretAnswerHandler,
+} from "../../../lophn-agent/providers/connect-key.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
 // agent의 입력 요청(`lophn login request`, `lophn ask secret`)의 core 쪽이다. 대기열은 `ask`와 같은 questionWaits이고,
-// 여기는 입구 route와 login의 origin 재기·once 값의 알려진 값 등록, secret 자리의 해석을 맡는다. 값은 이 파일에서 저장하지 않는다.
+// 여기는 입구 route와 login의 origin 재기·once 값의 알려진 값 등록, secret 자리의 해석, secret 요청의 답(값을 그 자리에
+// 넣고 새 provider면 잇기)을 맡는다. 값은 secret 저장소에만 가고 결과·오류·event·log에 없다.
 const INPUT_REQUEST_PRINCIPAL = "machine:input-request";
 
 const INPUT_REQUEST_CONTEXT: AuthenticatedContext = {
@@ -292,7 +298,20 @@ export const inputRequestWiring: WiringFactory = () => {
         return finished.ok ? ok({}) : finished;
       };
 
+      // 사람이 보호 입력(desktop의 보호 창, 폰의 native 입력)에서 넣은 secret 요청의 값이다.
+      const answerSecret = secretAnswerHandler({
+        keys: createKeyConnect({
+          writer: () => ctx.writer,
+          secrets: ctx.secretStore,
+          newKey: () => crypto.randomUUID(),
+          tail: () => ids.newId("stg").slice("stg_".length),
+        }),
+        secrets: ctx.secretStore,
+        requests: waits,
+      });
+
       return ok({
+        uploads: [[key(inputRequestAnswerSecret), answerSecret]],
         memory: [
           [key(inputRequestAsk), ask],
           [key(inputRequestRead), read],

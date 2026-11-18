@@ -87,9 +87,12 @@ export function SecretInput({
             <span>
               {t(`secret-input.label.subject-${purpose}`, { subject })}
             </span>
-            <span className={styles.name}>
-              {t("secret-input.label.saved-as", { name })}
-            </span>
+            {/* 새 provider를 잇는 창은 이름이 없다: core가 id를 정한다. */}
+            {name === "" ? null : (
+              <span className={styles.name}>
+                {t("secret-input.label.saved-as", { name })}
+              </span>
+            )}
             {configured ? (
               <span>{t("secret-input.help.configured")}</span>
             ) : null}

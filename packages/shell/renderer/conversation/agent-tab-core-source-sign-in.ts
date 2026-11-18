@@ -1,5 +1,6 @@
 // agent의 sign_in 입력 요청을 끝내는 로그인 흐름. 흐름은 Settings·앱 상세와 같은 것(settings/sign-in.ts, signInMcpServer)이고
-// 무엇에 로그인하는지는 core가 요청에서 읽어 준 view의 target이다(agent가 적은 글이 아니다). browser 로그인과 desktop 설정 통로를
+// 무엇에 로그인하는지는 core가 요청에서 읽어 준 view의 target이다(agent가 적은 글이 아니다). 구독 provider는 core가 그 요청으로
+// 로그인을 시작하고 끝낸다. browser 로그인과 desktop 설정 통로를
 // 끌어 desktop 창만 factory에 준다(`coreAgentTabSourceFactory`의 `signIn`). 주지 않는 창(폰 앱)의 source에는 로그인이 없다.
 import { ERROR_CODES } from "../../../base/mod.ts";
 import {
@@ -10,10 +11,9 @@ import type { CoreSource } from "../desktop/connection/connection.ts";
 import type { EventClient } from "../desktop/connection/events/client.ts";
 import { windowLinkOpener } from "../desktop/settings/core-call.ts";
 import {
+  followProviderSignIn,
   signInApp,
-  signInProvider,
   type SignInProgress,
-  timerWait,
 } from "../desktop/settings/sign-in.ts";
 import { createLink } from "../workspace/agents/core-link.ts";
 import {
@@ -42,11 +42,19 @@ export async function signInInputRequest(
   const { target } = input.view;
   const { signal } = input.progress;
   const openLink = windowLinkOpener();
-  const flow = { openLink, random, wait: timerWait };
-  let outcome: SourceResult<null>;
   if (target.type === "provider") {
-    outcome = await signInProvider(core, flow, target.login, input.progress);
-  } else if (target.type === "app") {
+    // 구독 provider는 core가 기다리고 요청도 core가 끝낸다. 여기서는 주소를 열고 따라가기만 한다.
+    const done = await followProviderSignIn(
+      input.events,
+      openLink,
+      { request: { session: input.session, tool_call: input.toolCall } },
+      input.progress,
+    );
+    if (signal.aborted) return { ok: false, code: "cancelled" };
+    return done.ok ? { ok: true, value: undefined } : done;
+  }
+  let outcome: SourceResult<null>;
+  if (target.type === "app") {
     outcome =
       input.events === null
         ? { ok: false, code: "unavailable" }

@@ -1,8 +1,8 @@
 // 세 질문
-// - contract: boundary `models`(BeginProviderLogin·CompleteProviderLogin·CancelProviderLogin, 연결된 provider의 credential),
+// - contract: boundary `models`(SignInProvider·ReadProviderSignIn·CancelProviderLogin, 연결된 provider의 credential),
 //   `secrets`(token·code·verifier·device_code는 secrets.json 밖 어디에도 없다).
-// - 현실적 회귀: issuer pump나 대기열을 건드려 발급자 왕복이 끊기는 것, complete가 간격 전에 발급자를 두드리는 것,
-//   취소해도 listener가 열려 있는 것, 로그인 도중 값이 log·blob에 남는 것.
+// - 현실적 회귀: issuer pump나 대기열을 건드려 발급자 왕복이 끊기는 것, core의 기다림이 간격 전에 발급자를 두드리는 것,
+//   교환이 거절됐는데 상태가 waiting에 남는 것, 취소해도 listener가 열려 있는 것, 로그인 도중 값이 log·blob에 남는 것.
 //   구독 token 사용: boundary `models`(OAuth 요청은 Bearer, revoked면 token을 건네지 않는다), `run-loop`(secret 부착이 막히면 turn은
 //   configuration_unavailable), `secrets`(token은 secrets.json에만 있다).
 //   회귀: 만료된 token으로 요청이 나가는 것, access만 쓰고 회전한 refresh를 안 저장하는 것, 거절된 갱신 뒤에도 옛 token을 건네는 것,
@@ -10,35 +10,37 @@
 //   못 잡는 이유: oauth-refresh_test는 refresher를 함수로만 부른다. child의 secret 요청, core hook, 발급자 pump, model HTTP header는 process를 건너야 이어진다.
 // - 왜 지금 test로 못 잡나: login_test.ts는 발급자·listener·writer를 가짜로 꽂은 함수 호출이다. 요청이 core 대기열 -> runtime
 //   child의 pump -> HTTP로 가는 길과 callback이 실제 loopback socket으로 오는 길은 process를 건너야만 돈다.
+// 발급자 주소는 정의 data라 core를 fakeProviderEnv로 띄워 정의 key 둘(fake-device, fake-pkce)을 fake 발급자로 돌린다.
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { errorCode } from "../../packages/base/mod.ts";
 import {
-  loginBegin,
   loginCancel,
-  loginComplete,
   modelCallList,
   providerList,
   providerRead,
+  providerSignIn,
+  providerSignInState,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   SECRET_FILE_NAME,
   secretStatus,
 } from "../../packages/protocol/secrets/mod.ts";
-import {
-  openLophnSession,
-  say,
-  until,
-  waitTurnEnd,
-} from "../support/core/human.ts";
+import { openLophnSession, say, waitTurnEnd } from "../support/core/human.ts";
 import {
   bootCore,
   type Core,
   createRun,
   type Run,
 } from "../support/core/mod.ts";
-import { connectOAuthProvider } from "../support/fake-oauth/login.ts";
+import {
+  connectOAuthProvider,
+  FAKE_DEVICE,
+  FAKE_PKCE,
+  fakeProviderEnv,
+  signInSettled,
+} from "../support/fake-oauth/login.ts";
 import { type FakeIssuer, startFakeIssuer } from "../support/fake-oauth/mod.ts";
 import {
   type FakeServer,
@@ -56,7 +58,7 @@ async function withFakes(body: (ctx: Fakes) => Promise<void>): Promise<void> {
   const issuer = await startFakeIssuer();
   let core: Core | undefined;
   try {
-    core = await bootCore(run);
+    core = await bootCore(run, { env: fakeProviderEnv(issuer, fake) });
     await body({ run, fake, issuer, core });
   } finally {
     await core?.kill().catch(() => {});
@@ -97,9 +99,8 @@ function suffixOf(id: string): string {
   return id.slice("pvd_".length);
 }
 
-test("device code 로그인이 발급자 간격을 지키고 secret 셋을 저장한다", async () => {
-  await withFakes(async ({ run, fake, issuer, core }) => {
-    const provider = core.ids.newId("pvd");
+test("device code 로그인을 core가 발급자 간격대로 기다려 잇고 secret 셋을 저장한다", async () => {
+  await withFakes(async ({ run, issuer, core }) => {
     const access = core.ids.newId("key");
     const refresh = core.ids.newId("key");
     const device_code = core.ids.newId("key");
@@ -108,35 +109,21 @@ test("device code 로그인이 발급자 간격을 지키고 secret 셋을 저�
       device_code: [{ kind: "pending" }, { kind: "tokens", access, refresh }],
     });
 
-    const started = await core.call(loginBegin, {
-      provider,
-      name: "fake subscription",
-      definition: issuer.definition("supergrok"),
-      endpoint: fake.url,
-      protocol: "anthropic-messages",
+    const started = await core.call(providerSignIn, {
+      definition: FAKE_DEVICE,
     });
-    const early = await core.call(loginComplete, {
-      provider,
+    const provider = started.provider;
+    const waiting = await core.call(providerSignInState, {
       login: started.login,
     });
-    const tokenRequestsAtEarly = issuer
-      .journal()
-      .filter((entry) => entry.path === "/token").length;
-    await until(
-      "로그인이 끝남",
-      async () => {
-        const step = await core.call(loginComplete, {
-          provider,
-          login: started.login,
-        });
-        return step.state === "connected" ? step : undefined;
-      },
-      LOGIN_MS,
-    );
+    const settled = await signInSettled(core, started.login, LOGIN_MS);
 
-    // 1. 발급자: device 시작 하나, 간격 전 complete는 발급자에 묻지 않음, poll 둘은 간격 이상 떨어짐.
-    assert.deepStrictEqual(early.state, "pending");
-    assert.deepStrictEqual(tokenRequestsAtEarly, 0);
+    // 1. 상태: 시작한 뒤 waiting(사람에게 보일 code), 끝나면 connected
+    assert.deepStrictEqual(
+      [waiting.state, started.sign_in.user_code, settled],
+      ["waiting", "E2E-CODE", { state: "connected", provider }],
+    );
+    // 2. 발급자: device 시작 하나, poll 둘은 간격 이상 떨어짐
     const journal = issuer.journal();
     assert.deepStrictEqual(
       journal.filter((entry) => entry.path === "/device/code").length,
@@ -146,7 +133,7 @@ test("device code 로그인이 발급자 간격을 지키고 secret 셋을 저�
     assert.deepStrictEqual(polls.length, 2);
     assert.ok(polls[1]!.at - polls[0]!.at >= started.interval_ms);
 
-    // 2. ledger: 연결된 oauth credential
+    // 3. ledger: 연결된 oauth credential
     const { provider: record } = await core.call(providerRead, { provider });
     assert.deepStrictEqual(record.credential.kind, "oauth");
     assert.deepStrictEqual(record.credential.state, "available");
@@ -156,7 +143,7 @@ test("device code 로그인이 발급자 간격을 지키고 secret 셋을 저�
     );
     assert.ok(record.credential.expires_at !== null);
 
-    // 3. disk: secret 셋
+    // 4. disk: secret 셋
     await core.stop();
     const secrets = await secretsOf(run);
     const name = `provider.${suffixOf(provider)}`;
@@ -167,26 +154,19 @@ test("device code 로그인이 발급자 간격을 지키고 secret 셋을 저�
 });
 
 test("PKCE 로그인이 고정 loopback callback으로 끝나고 code와 token이 secrets.json 밖에 남지 않는다", async () => {
-  await withFakes(async ({ run, fake, issuer, core }) => {
-    const provider = core.ids.newId("pvd");
+  await withFakes(async ({ run, issuer, core }) => {
     const access = issuer.accessToken("acct-e2e");
     const refresh = core.ids.newId("key");
     const code = core.ids.newId("key");
 
-    const started = await core.call(loginBegin, {
-      provider,
-      name: "fake subscription",
-      definition: issuer.definition("chatgpt"),
-      endpoint: fake.url,
-      protocol: "anthropic-messages",
-    });
+    const started = await core.call(providerSignIn, { definition: FAKE_PKCE });
+    const provider = started.provider;
     const params = new URL(started.sign_in.url).searchParams;
     const redirect = params.get("redirect_uri")!;
     issuer.script({
       authorization_code: [{ kind: "tokens", access, refresh }],
     });
-    const pending = await core.call(loginComplete, {
-      provider,
+    const waiting = await core.call(providerSignInState, {
       login: started.login,
     });
     // 사람이 browser에서 로그인을 마치면 발급자가 callback 주소로 돌려보낸다.
@@ -197,20 +177,13 @@ test("PKCE 로그인이 고정 loopback callback으로 끝나고 code와 token�
       })}`,
     );
     await callback.body?.cancel();
-    await until(
-      "로그인이 끝남",
-      async () => {
-        const step = await core.call(loginComplete, {
-          provider,
-          login: started.login,
-        });
-        return step.state === "connected" ? step : undefined;
-      },
-      LOGIN_MS,
-    );
+    const settled = await signInSettled(core, started.login, LOGIN_MS);
 
-    // 1. 발급자: 정의의 고정 callback 주소로 돌아오고, code 교환에 verifier와 그 주소가 있음
-    assert.deepStrictEqual(pending.state, "pending");
+    // 1. 상태와 발급자: waiting 뒤 connected, 정의의 고정 callback 주소로 돌아오고 code 교환에 verifier와 그 주소가 있음
+    assert.deepStrictEqual(
+      [waiting.state, settled],
+      ["waiting", { state: "connected", provider }],
+    );
     assert.deepStrictEqual(
       redirect,
       `http://127.0.0.1:${issuer.callbackPort}/auth/callback`,
@@ -245,21 +218,41 @@ test("PKCE 로그인이 고정 loopback callback으로 끝나고 code와 token�
   });
 });
 
-test("취소한 로그인의 callback listener가 닫힌다", async () => {
-  await withFakes(async ({ run, fake, issuer, core }) => {
-    const provider = core.ids.newId("pvd");
-    const started = await core.call(loginBegin, {
-      provider,
-      name: "fake subscription",
-      definition: issuer.definition("chatgpt"),
-      endpoint: fake.url,
-      protocol: "anthropic-messages",
+test("교환이 거절된 로그인은 failed이고 취소한 로그인은 listener가 닫히며 둘 다 provider와 값을 남기지 않는다", async () => {
+  await withFakes(async ({ run, issuer, core }) => {
+    // 1. 교환 거절: 발급자가 code를 받지 않으면 상태가 failed(forbidden)다.
+    issuer.script({
+      authorization_code: [
+        { kind: "error", status: 400, error: "invalid_grant" },
+      ],
     });
+    const refused = await core.call(providerSignIn, { definition: FAKE_PKCE });
+    const refusedParams = new URL(refused.sign_in.url).searchParams;
+    const back = await fetch(
+      `${refusedParams.get("redirect_uri")}?${new URLSearchParams({
+        code: "x",
+        state: refusedParams.get("state")!,
+      })}`,
+    );
+    await back.body?.cancel();
+    assert.deepStrictEqual(await signInSettled(core, refused.login, LOGIN_MS), {
+      state: "failed",
+      provider: refused.provider,
+      code: "forbidden",
+    });
+
+    // 2. 취소: 상태가 cancelled이고 listener가 닫혀 있다.
+    const started = await core.call(providerSignIn, { definition: FAKE_PKCE });
     const params = new URL(started.sign_in.url).searchParams;
     const redirect = params.get("redirect_uri")!;
-    await core.call(loginCancel, { provider, login: started.login });
-
-    // 1. 연결: listener가 닫혀 있다.
+    await core.call(loginCancel, {
+      provider: started.provider,
+      login: started.login,
+    });
+    assert.deepStrictEqual(
+      await core.call(providerSignInState, { login: started.login }),
+      { state: "cancelled", provider: started.provider },
+    );
     await assert.rejects(
       () =>
         fetch(
@@ -270,14 +263,8 @@ test("취소한 로그인의 callback listener가 닫힌다", async () => {
         ),
       TypeError,
     );
-    // 2. route: 취소한 login은 없다.
-    const done = await core.tryCall(loginComplete, {
-      provider,
-      login: started.login,
-    });
-    assert.ok(!done.ok);
-    assert.deepStrictEqual(done.error.code, "not_found");
-    // 3. disk: 그 provider의 이름이 없다.
+    // 3. ledger와 disk: provider도 그 이름도 없다.
+    assert.deepStrictEqual((await core.call(providerList, {})).providers, []);
     await core.stop();
     const secrets = await secretsOf(run);
     assert.deepStrictEqual(
@@ -289,7 +276,7 @@ test("취소한 로그인의 callback listener가 닫힌다", async () => {
 
 test("구독 token이 model 요청의 Bearer header로만 나간다", async () => {
   await withFakes(async ({ fake, issuer, core }) => {
-    const { access, refresh } = await connectOAuthProvider(core, issuer, fake);
+    const { access, refresh } = await connectOAuthProvider(core, issuer);
     const session = await openLophnSession(core);
     fake.script([{ reply: { kind: "text", text: "ok" } }]);
     await say(core, session, "hello");
@@ -319,7 +306,7 @@ test("구독 token이 model 요청의 Bearer header로만 나간다", async () =
 
 test("만료가 가까우면 runtime이 청할 때 core가 먼저 갱신하고 회전한 값을 저장한다", async () => {
   await withFakes(async ({ run, fake, issuer, core }) => {
-    const first = await connectOAuthProvider(core, issuer, fake, {
+    const first = await connectOAuthProvider(core, issuer, {
       expires_in: 60,
     });
     const provider = first.provider;
@@ -364,7 +351,7 @@ test("만료가 가까우면 runtime이 청할 때 core가 먼저 갱신하고 �
 
 test("갱신이 거절되면 credential이 revoked이고 model 요청이 나가지 않는다", async () => {
   await withFakes(async ({ fake, issuer, core }) => {
-    const { provider } = await connectOAuthProvider(core, issuer, fake, {
+    const { provider } = await connectOAuthProvider(core, issuer, {
       expires_in: 60,
     });
     issuer.script({
@@ -395,7 +382,7 @@ test("갱신이 거절되면 credential이 revoked이고 model 요청이 나가�
 test("구독 token은 route 출력과 secrets.json 밖 어디에도 남지 않는다", async () => {
   await withFakes(async ({ run, fake, issuer, core }) => {
     const { provider, access, refresh, device_code } =
-      await connectOAuthProvider(core, issuer, fake);
+      await connectOAuthProvider(core, issuer);
     const session = await openLophnSession(core);
     fake.script([{ reply: { kind: "text", text: "ok" } }]);
     await say(core, session, "hello");

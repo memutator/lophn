@@ -745,6 +745,8 @@ flows:
       - ipc:secret-input:fit
       - route:secrets/status
       - route:secrets/put
+      - route:providers/connect-key
+      - route:input_request/answer_secret
     boundary: [shell, secrets]
     refs: [H10]
     code:
@@ -759,21 +761,21 @@ flows:
     steps:
       - "shell 창 본문(windows 집합에 든 창: 일반 desktop, detached 탭, 앱 전용 창)만 open(name, purpose, subject)을 보낼 수 있다. 그 밖의 sender는 forbidden이다. 부모 창은 보낸 창이고 renderer가 준 값은 쓰지 않는다. 꼴이 틀리면 invalid_input이다"
       - "보호 창이 이미 열려 있거나 여는 중이면 conflict다. core가 준비되지 않았으면 unavailable이다"
-      - "purpose는 app, provider, mcp, login이다. login은 subject에 값이 갈 site의 origin을 싣고 name은 `login.<id>.password|totp`다(Settings › Browser › Logins의 [Set password]·[Set TOTP]가 연다). 창은 제목을 name 끝으로 정하고(Enter site password, Enter TOTP key) origin을 제목 아래에 크게 보인다. 값 칸은 하나다. agent의 login 요청 card가 여는 변형은 open({request: {session, tool_call}})이다. origin·mode·label·ref는 renderer가 준 글이 아니라 main이 core login_request/read에서 읽는다(origin은 요청 때 shell main이 ref의 frame에서 잰 값이다). 열린 요청이 없으면 invalid_input이다(로그인을 청하는 sign_in 요청도 값이 없어 이 창이 아니라 card의 [Sign in]이 끝내므로 같다). 창은 origin을 크게 보이고 save는 label·username·password·선택 TOTP 칸, once는 값 한 칸을 둔다. 제출은 mode대로 끝난다(input-request-finish): save는 logins/save와 secrets/put, once는 알려진 값 등록 뒤 ref 칸에 치기이고 값은 저장하지 않는다. 사람이 창을 닫아도 card는 남아 다시 열 수 있다"
+      - "purpose는 app, provider, mcp, login이다. login은 subject에 값이 갈 site의 origin을 싣고 name은 `login.<id>.password|totp`다(Settings › Browser › Logins의 [Set password]·[Set TOTP]가 연다). 창은 제목을 name 끝으로 정하고(Enter site password, Enter TOTP key) origin을 제목 아래에 크게 보인다. 값 칸은 하나다. agent의 login 요청 card가 여는 변형은 open({request: {session, tool_call}})이다. origin·mode·label·ref는 renderer가 준 글이 아니라 main이 core login_request/read에서 읽는다(origin은 요청 때 shell main이 ref의 frame에서 잰 값이다). 열린 요청이 없으면 invalid_input이다(로그인을 청하는 sign_in 요청도 값이 없어 이 창이 아니라 card의 [Sign in]이 끝내므로 같다). 창은 origin을 크게 보이고 save는 label·username·password·선택 TOTP 칸, once는 값 한 칸을 둔다. 제출은 mode대로 끝난다(input-request-finish): save는 logins/save와 secrets/put, once는 알려진 값 등록 뒤 ref 칸에 치기이고 값은 저장하지 않는다. agent의 secret 요청 card가 연 창의 제출은 input_request/answer_secret upload다(input-request-answer-secret). 사람이 창을 닫아도 card는 남아 다시 열 수 있다"
       - "core route secrets/status로 같은 이름이 이미 있는지만 읽는다(configured 표시용이고 값은 읽지 않는다). 읽지 못하면 configured를 false로 두고 연다"
       - "요청한 창의 child modal로 연다. 창마다 메모리 partition을 쓰고 설치된 secret-input 페이지만 연다. 권한 요청, download, network, 탐색, 새 창, webview를 막고 부모 창의 앱·문서 view 입력도 막는다. 열린 동안 부모 창 전체에 scrim을 덮고, 부모가 focus를 얻으면 보호 창을 다시 앞으로 가져온다. 창은 숨긴 채 열고, 페이지가 fit으로 알린 내용 높이(부모 창 안으로 줄인다)로 맞춘 뒤 보인다. 내용이 바뀌면 다시 맞춘다"
-      - "사람이 저장하면 칸을 먼저 비우고 main이 값을 UTF-8 1~64KiB로 secrets/put upload에 올린다. 성공이면 창을 닫고 stored를 돌려준다. 실패면 창이 남아 다시 할 수 있다"
+      - "사람이 저장하면 칸을 먼저 비우고 main이 값을 UTF-8 1~64KiB로 secrets/put upload에 올린다. 성공이면 창을 닫고 stored를 돌려준다. 실패면 창이 남아 다시 할 수 있다. 새 provider를 key로 잇는 변형 open({provider: {definition} | {custom}, subject})(Settings › Providers)은 이름이 없어 '저장되는 이름' 줄을 그리지 않고, main이 대상을 protocol schema로 다시 본 뒤 providers/connect-key upload로 보낸다(core가 id를 정하고 잇는다). 잇지 못하면(이미 이어진 정의는 conflict) 창을 닫고 open이 그 code로 끝난다"
       - "취소나 창 닫기는 cancelled다. 렌더 프로세스가 죽거나 응답이 없으면 unavailable로 끝난다. 값과 core·OS 오류 원문은 log와 응답에 싣지 않는다"
     outcomes:
       - id: stored
-        when: "core가 secrets/put을 ok로 답했다. open 응답은 {ok, result: stored}다"
+        when: "core가 secrets/put(provider 변형은 providers/connect-key, 요청 card는 input_request/answer_secret)을 ok로 답했다. open 응답은 {ok, result: stored}다"
         observe: ["disk:<data root>/secrets.json", "response"]
       - id: cancelled
         when: "사람이 Cancel을 누르거나 창을 닫았다. open 응답은 {ok, result: cancelled}다"
         observe: ["response", "disk:<data root>/secrets.json이 바뀌지 않는다"]
       - id: conflict
         code: conflict
-        when: "이미 열린 보호 창이 있거나 여는 중이다"
+        when: "이미 열린 보호 창이 있거나 여는 중이다. provider 변형에서 그 정의가 이미 이어져 있어 창이 닫혔다"
         observe: ["response"]
       - id: forbidden
         code: forbidden

@@ -12,13 +12,13 @@ import {
 } from "../../packages/core/lophn-agent/providers/adapters/codex.ts";
 import { parseReportedRoster } from "../../packages/core/lophn-agent/providers/reported-models.ts";
 import {
-  loginBegin,
-  loginComplete,
   modelCatalogRead,
   modelDefaultChange,
   providerDefinitions,
   providerList,
   providerRead,
+  providerSignIn,
+  providerSignInState,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import { until } from "../support/core/human.ts";
 import type { Core } from "../support/core/mod.ts";
@@ -49,33 +49,25 @@ async function login(core: Core): Promise<number> {
   const definition = definitions.find((item) => item.key === "openai");
   assert.ok(definition !== undefined, "openai 정의가 없다");
   assert.ok(definition.oauth?.product === "chatgpt", "ChatGPT 로그인이 없다");
-  const provider = core.ids.newId("pvd");
-  const begun = await core.call(loginBegin, {
-    provider,
-    name: "ChatGPT",
-    definition,
-    endpoint: definition.oauth.inference_endpoint,
-    protocol: "openai-responses",
-  });
+  // core가 id를 정하고 발급자를 기다린다. 여기서는 상태만 본다.
+  const begun = await core.call(providerSignIn, { definition: "openai" });
+  const provider = begun.provider;
   console.log(
     "이 컴퓨터의 browser에서 아래 주소를 열어 ChatGPT로 로그인하라" +
       "(원격이면 callback 포트 1455를 port-forward 해야 한다).\n",
   );
   console.log(begun.sign_in.url);
   console.log("\n로그인을 기다린다…");
-  const deadline = Date.parse(begun.expires_at);
-  let connected = false;
-  while (!connected) {
-    if (Date.now() > deadline) {
-      console.log("로그인 기한이 지났다. 다시 실행하라.");
+  for (;;) {
+    const state = await core.call(providerSignInState, { login: begun.login });
+    if (state.state === "connected") break;
+    if (state.state !== "waiting") {
+      console.log(
+        `로그인이 끝나지 않았다(${state.state === "failed" ? state.code : state.state}). 다시 실행하라.`,
+      );
       return 1;
     }
-    const step = await core.call(loginComplete, {
-      provider,
-      login: begun.login,
-    });
-    if (step.state === "connected") connected = true;
-    else await sleep(step.interval_ms);
+    await sleep(1000);
   }
   console.log("로그인됐다. token은 live root에 저장됐다.");
 

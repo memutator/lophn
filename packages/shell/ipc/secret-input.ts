@@ -7,7 +7,10 @@ import { z } from "zod";
 export const SECRET_INPUT_OPEN_CHANNEL = "shell:secret-input-open";
 /** 보호 창 → main: 창에 그릴 것을 읽는다. */
 export const SECRET_INPUT_DISPLAY_CHANNEL = "secret-input:display";
-/** 보호 창 → main: 값을 보낸다. main이 core `secrets/put` upload로 넘기고 값 byte를 0으로 덮는다. */
+/**
+ * 보호 창 → main: 값을 보낸다. main이 core upload로 넘긴다: 이름 갈래는 `secrets/put`, provider 갈래는 `providers/connect-key`,
+ * agent 요청의 secret은 `input_request/answer_secret`이다.
+ */
 export const SECRET_INPUT_SUBMIT_CHANNEL = "secret-input:submit";
 /** 보호 창 → main: 그만둔다. */
 export const SECRET_INPUT_CANCEL_CHANNEL = "secret-input:cancel";
@@ -21,18 +24,49 @@ export const SECRET_INPUT_MAX_BYTES = 64 * 1024;
 const secretName = z.string().regex(/^[A-Za-z0-9_.:-]+$/);
 const purpose = z.enum(["app", "provider", "mcp", "login"]);
 
+const subject = z
+  .string()
+  .min(1)
+  .max(80)
+  .regex(/^[^\p{Cc}]+$/u);
+
 const secretInputNameOpenSchema = z
   .object({
     /** 저장할 secret 이름. */
     name: secretName,
     purpose,
     /** 창에 보일 대상 이름(앱, provider, MCP server)이나 login의 origin. 창은 글로만 그린다. */
-    subject: z
-      .string()
-      .min(1)
-      .max(80)
-      .regex(/^[^\p{Cc}]+$/u),
+    subject,
   })
+  .strict();
+
+// protocol/lophn-agent의 providerConnectTargetSchema와 같은 모양. main이 core에 보내기 전에 그 schema로 한 번 더 본다.
+const providerTarget = z.union([
+  z.object({ definition: z.string().min(1).max(64) }).strict(),
+  z
+    .object({
+      custom: z
+        .object({
+          key: z
+            .string()
+            .max(64)
+            .regex(/^[a-z0-9_-]+$/),
+          name: z.string().max(100).regex(/\S/),
+          base_url: z.string().min(1).max(300),
+          protocol: z.enum([
+            "openai-chat-completions",
+            "openai-responses",
+            "anthropic-messages",
+          ]),
+        })
+        .strict(),
+    })
+    .strict(),
+]);
+
+/** 새 provider를 key로 잇는다. 이름이 없다: 값은 core가 id를 정해 잇는다(`providers/connect-key`). */
+const secretInputProviderOpenSchema = z
+  .object({ provider: providerTarget, subject })
   .strict();
 
 /**
@@ -52,10 +86,14 @@ const secretInputRequestOpenSchema = z
 
 export const secretInputOpenSchema = z.union([
   secretInputNameOpenSchema,
+  secretInputProviderOpenSchema,
   secretInputRequestOpenSchema,
 ]);
 /** 이름으로 연다(설정·앱·provider·MCP). preload의 `openSecretInput`이 받는 입력이다. */
 export type SecretInputNameOpen = z.infer<typeof secretInputNameOpenSchema>;
+export type SecretInputProviderOpen = z.infer<
+  typeof secretInputProviderOpenSchema
+>;
 export type SecretInputRequestOpen = z.infer<
   typeof secretInputRequestOpenSchema
 >;
@@ -86,20 +124,25 @@ export const secretInputFitSchema = z
   .object({ height: z.number().int().min(1).max(4096) })
   .strict();
 
-export type SecretInputOpen = SecretInputNameOpen;
+/** 일반 창이 여는 두 갈래(요청 card는 `SecretInputRequestOpen`으로 연다). */
+export type SecretInputOpen = SecretInputNameOpen | SecretInputProviderOpen;
 export type SecretInputSubmit = z.infer<typeof secretInputSubmitSchema>;
 export type SecretInputPurpose = z.infer<typeof purpose>;
 
-/** 값은 답에 없다. 호출한 화면은 `stored`를 받은 뒤에야 그 이름을 가리키는 command를 보낸다. */
+/**
+ * 값은 답에 없다. 이름 갈래는 `stored`를 받은 뒤에야 그 이름을 가리키는 command를 보낸다. provider 갈래는 `stored`가
+ * 이어진 것이고, 잇지 못하면 창이 닫히고 그 code(이미 이어진 정의는 conflict)가 온다.
+ */
 export type SecretInputOpenReply =
   | { ok: true; result: "stored" | "cancelled" }
-  // conflict: 이미 열린 보호 창이 있다.
+  // conflict: 이미 열린 보호 창이 있거나 provider 갈래의 정의가 이미 이어져 있다.
   | {
       ok: false;
       code: "invalid_input" | "forbidden" | "conflict" | "unavailable";
     };
 
 export type SecretInputDisplay = {
+  /** 저장할 이름. provider 갈래와 login 요청은 비어 있다. */
   name: string;
   purpose: SecretInputPurpose;
   subject: string;

@@ -64,6 +64,9 @@ export type Place =
       readonly session: string;
       readonly project: string;
     }
+  /** The computer's browser pages, and one of them seen (and used, if the computer lets this phone type) from here. */
+  | { readonly name: "pages" }
+  | { readonly name: "page"; readonly tab: string }
   | {
       readonly name: "new-session";
       readonly workspace?: Workspace | null;

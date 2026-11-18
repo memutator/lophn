@@ -19,6 +19,7 @@ import { mobileKit } from "./catalog/mobile-kit.ts";
 import { mobileLocal } from "./catalog/mobile-local.ts";
 import { mobileNotifications } from "./catalog/mobile-notifications.ts";
 import { mobileOps } from "./catalog/mobile-ops.ts";
+import { mobilePage } from "./catalog/mobile-page.ts";
 import { mobilePlaces } from "./catalog/mobile-places.ts";
 import { mobileSession } from "./catalog/mobile-session.ts";
 import { mobileTerminal } from "./catalog/mobile-terminal.ts";
@@ -52,6 +53,7 @@ export const en = {
   ...mobilePlaces,
   ...mobileNotifications,
   ...mobileOps,
+  ...mobilePage,
   ...mobileTerminal,
   ...mobileWidgets,
   ...project,

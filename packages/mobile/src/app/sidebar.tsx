@@ -1,5 +1,6 @@
-// The sidebar: the desktop's list on the phone (tools/wireframes/drafts/phone/shell.tsx SidebarBody). The computer it
-// belongs to, Inbox, Jobs, Agents, then every workspace with its sessions, and Settings at the bottom.
+// The sidebar: the desktop's list on the phone (tools/wireframes/drafts/phone/shell.tsx SidebarBody; the Pages line is
+// page.tsx). The computer it belongs to, Inbox, Jobs, Agents, its browser Pages, then every workspace with its sessions,
+// and Settings at the bottom.
 import { t } from "@lophn/i18n";
 import {
   Badge,
@@ -23,6 +24,7 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
+  Globe,
   Monitor,
   Plus,
   Search,
@@ -65,6 +67,8 @@ function lineOf(shown: Shown): string {
       return "jobs";
     case "agent":
       return "agents";
+    case "page":
+      return "pages";
     case "computer":
     case "appearance":
     case "notifications":
@@ -187,6 +191,12 @@ export function Sidebar({ state, navigation }: DrawerContentComponentProps) {
           label={t("left-sidebar.button.agents")}
           on={on === "agents"}
           onPress={() => show({ name: "agents" })}
+        />
+        <NavRow
+          icon={Globe}
+          label={t("mobile.page.title")}
+          on={on === "pages"}
+          onPress={() => show({ name: "pages" })}
         />
         <SidebarLabel
           end={

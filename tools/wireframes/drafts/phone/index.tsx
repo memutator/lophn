@@ -7,6 +7,7 @@ import { CodingFlow } from "./coding.tsx";
 import { InboxFlow } from "./inbox.tsx";
 import { Board } from "./kit.tsx";
 import { OpsFlow, SettingsFlow, WideFlow } from "./more.tsx";
+import { PageFlow } from "./page.tsx";
 import { SessionFlow } from "./session.tsx";
 import { ShellFlow } from "./shell.tsx";
 import { StartFlow } from "./start.tsx";
@@ -120,6 +121,14 @@ const FLOWS: readonly FlowPage[] = [
       "컴퓨터의 터미널을 폰에서 보고 친다. 터미널로 도는 coding session은 이 화면으로 열린다. 폰 폭으로 크기 잡기, 입력과 key 줄, 컴퓨터가 크기를 다시 잡은 때, 폰이 연 터미널, session menu와 채팅으로 바꾸기.",
     height: rows(8),
     render: () => <TerminalFlow />,
+  },
+  {
+    id: "phone-pages",
+    title: "Phone · 13 Agent pages",
+    description:
+      "컴퓨터의 browser page를 폰에서 보고 다룬다. 화면 없는 컴퓨터의 로그인 길. sidebar의 Pages, page 목록과 새 page 열기, agent가 다루는 page와 Take control, 잡은 뒤, 그리지 않는 page, 그림 기다림, 보기만 하는 폰.",
+    height: rows(8),
+    render: () => <PageFlow />,
   },
 ];
 

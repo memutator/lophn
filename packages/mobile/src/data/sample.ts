@@ -696,6 +696,81 @@ function terminalRoutes(emit: (event: BusEvent) => void): Record<string, Answer>
   };
 }
 
+/**
+ * The computer's browser pages: a sign-in page an agent opened and one the person opened. Every page shows the same fixed
+ * picture (a sign-in form). Typing changes nothing on it; going to an address renames the page, take control and hand
+ * back switch who drives it, and opening one adds it to the list, each told the way the core would.
+ */
+function pageRoutes(emit: (event: BusEvent) => void): Record<string, Answer> {
+  const pages = [
+    { tab: id("tab", 1), title: "Sign in to GitHub", url: "https://github.com/login", loading: false, by: "Eval analyst" as string | null, held: false },
+    { tab: id("tab", 2), title: "phroner dev", url: "http://localhost:5173/boards", loading: false, by: null as string | null, held: false },
+  ];
+  let seq = 1;
+  const find = (body: Record<string, unknown>) => pages.find((one) => one.tab === body.tab);
+  const changed = (tab: string) => {
+    seq++;
+    emit({
+      type: "PageViewChanged",
+      subject: `page:${tab}`,
+      at: new Date().toISOString(),
+      payload: { tab, seq },
+    } as BusEvent);
+  };
+  return {
+    "page_view/list": () => ({ pages: pages.map(({ held: _, ...page }) => page) }),
+    "page_view/snapshot": (body) => {
+      const page = find(body);
+      if (page === undefined) return undefined;
+      const { held, ...fields } = page;
+      return {
+        ...fields,
+        seq,
+        frame: { media_type: "image/jpeg", data_base64: SAMPLE_PAGE_JPEG, width: 390, height: 520 },
+        painting: true,
+        agent: page.by !== null && !held,
+        held,
+        control: true,
+      };
+    },
+    "page_view/watch": (body) => (find(body) === undefined ? undefined : {}),
+    "page_view/input": (body) => {
+      const page = find(body);
+      if (page === undefined) return undefined;
+      const input = body.input as { type: string; url?: string };
+      if (input.type === "navigate" && input.url !== undefined) {
+        page.url = input.url;
+        page.title = input.url.replace(/^https?:\/\//, "");
+        changed(page.tab);
+      }
+      return {};
+    },
+    "page_view/control": (body) => {
+      const page = find(body);
+      if (page === undefined) return undefined;
+      page.held = body.held === true;
+      changed(page.tab);
+      return {};
+    },
+    "page_view/open": (body) => {
+      const url = String(body.url);
+      const tab = id("tab", 10 + pages.length);
+      pages.push({ tab, title: url.replace(/^https?:\/\//, ""), url, loading: false, by: null, held: false });
+      emit({
+        type: "StateChanged",
+        subject: null,
+        at: new Date().toISOString(),
+        payload: { changes: [{ name: "browser_pages", id: null }] },
+      } as BusEvent);
+      return { tab };
+    },
+  };
+}
+
+// A sign-in form, 390 by 520, the picture of every sample page.
+const SAMPLE_PAGE_JPEG =
+  "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";
+
 /** The fake Gateway plus the reads every screen makes: projects, apps, sessions, agents, and what the place screens read. */
 function sampleCore(): CoreSource {
   const fake = inbox();
@@ -721,6 +796,7 @@ function sampleCore(): CoreSource {
     ...placeRoutes(),
     ...coding,
     ...terminalRoutes((event) => fake.emitEvent(event)),
+    ...pageRoutes((event) => fake.emitEvent(event)),
     ...sampleOrdersRoutes({
       app: ORDERS.id,
       releases: [id("rel", 7), id("rel", 8)],

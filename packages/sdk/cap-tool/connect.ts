@@ -155,9 +155,11 @@ export function host(): HostPort | undefined {
 
 // 다른 앱의 command를 부르는 client를 준비한다. import만으로는 아무것도 열리지 않는다. 호출하는
 // invocation(현재 호출 문맥)이 부모로 자동으로 붙고 부른 쪽의 신원은 core가 정한다.
+// `on`이 있으면 그 기계(컴퓨터 이름, mch_, dev_)의 앱을 부른다. 기계를 풀고 넘기는 것은 core다.
 export function connectCommands(
   app: string,
   commands: readonly string[],
+  options?: { on?: string },
 ): CommandClient {
   return {
     app,
@@ -173,6 +175,7 @@ export function connectCommands(
         response = await port.post(APP_CALL_PATH, {
           target_app: app,
           command: name,
+          ...(options?.on === undefined ? {} : { machine: options.on }),
           ...(input === undefined ? {} : { input }),
           parent_invocation: currentContext()?.invocation ?? null,
         });

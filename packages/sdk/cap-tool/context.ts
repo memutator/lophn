@@ -1,6 +1,13 @@
 // host port 모양. packages/core/apps/invocations/context.ts와 같은 필드다.
 // SDK는 packages/core/apps를 import하지 않는다.
 
+// 다른 기계에서 온 호출의 요청한 쪽이다(process-wire의 requester와 같다).
+export type Requester =
+  | { kind: "screen" }
+  | { kind: "terminal" }
+  | { kind: "agent"; agent: string; session: string | null; name: string }
+  | { kind: "app"; app: string };
+
 // core가 알려 준 부른 쪽이다(process-wire의 caller와 같다).
 export type AppCaller =
   | { kind: "person"; view_session: string }
@@ -21,7 +28,10 @@ export type AppCaller =
       trace_id: string;
       chain: string[];
       parent_invocation: string | null;
-    };
+      // 다른 기계에서 온 event면 그 난 기계.
+      machine?: string;
+    }
+  | { kind: "remote"; machine: string; device: string; requester: Requester };
 
 export type InvocationContext = {
   app: string;

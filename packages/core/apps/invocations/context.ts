@@ -2,6 +2,13 @@
 // apps leaf는 packages/sdk를 import하지 않는다. 두 쪽이 같은 모양으로 맞춘다.
 // 필드가 바뀌면 packages/sdk/cap-tool/context.ts도 같이 바꾼다.
 
+// 다른 기계에서 온 호출의 요청한 쪽이다(protocol/remote/requester.ts와 같다).
+type Requester =
+  | { kind: "screen" }
+  | { kind: "terminal" }
+  | { kind: "agent"; agent: string; session: string | null; name: string }
+  | { kind: "app"; app: string };
+
 // core가 알려 준 부른 쪽이다(protocol/apps/calls/caller.ts와 같다).
 type InvocationCaller =
   | { kind: "person"; view_session: string }
@@ -22,7 +29,10 @@ type InvocationCaller =
       trace_id: string;
       chain: string[];
       parent_invocation: string | null;
-    };
+      // 다른 기계에서 온 event면 그 난 기계.
+      machine?: string;
+    }
+  | { kind: "remote"; machine: string; device: string; requester: Requester };
 
 export type InvocationContext = {
   app: string;

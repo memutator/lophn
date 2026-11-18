@@ -15,6 +15,13 @@ export type { Json };
 type RuntimeMode = "live" | "preview";
 type InvocationEffect = "read" | "write" | "external";
 
+// protocol/remote/requester.ts와 같다.
+type Requester =
+  | { kind: "screen" }
+  | { kind: "terminal" }
+  | { kind: "agent"; agent: string; session: string | null; name: string }
+  | { kind: "app"; app: string };
+
 // protocol/apps/calls/caller.ts와 같다.
 type InvocationCaller =
   | { kind: "person"; view_session: string }
@@ -35,7 +42,36 @@ type InvocationCaller =
       trace_id: string;
       chain: string[];
       parent_invocation: string | null;
-    };
+      machine?: string;
+    }
+  | { kind: "remote"; machine: string; device: string; requester: Requester };
+
+function requester(value: unknown): Requester | undefined {
+  const source = record(value);
+  if (!source) return;
+  switch (source.kind) {
+    case "screen":
+    case "terminal":
+      if (exact(source, ["kind"])) return;
+      return { kind: source.kind };
+    case "agent": {
+      if (exact(source, ["kind", "agent", "session", "name"])) return;
+      const agent = text(source.agent);
+      const session =
+        source.session === null ? null : id(source.session, "ses");
+      const name = text(source.name);
+      if (!agent || session === undefined || !name || name.length > 64) return;
+      return { kind: "agent", agent, session, name };
+    }
+    case "app": {
+      if (exact(source, ["kind", "app"])) return;
+      const app = id(source.app, "app");
+      return app ? { kind: "app", app } : undefined;
+    }
+    default:
+      return;
+  }
+}
 
 function caller(value: unknown): InvocationCaller | undefined {
   const source = record(value);
@@ -81,18 +117,33 @@ function caller(value: unknown): InvocationCaller | undefined {
     }
     case "event": {
       if (
-        exact(source, [
-          "kind",
-          "publisher",
-          "event",
-          "publication",
-          "trace_id",
-          "chain",
-          "parent_invocation",
-        ])
+        exact(
+          source,
+          [
+            "kind",
+            "publisher",
+            "event",
+            "publication",
+            "trace_id",
+            "chain",
+            "parent_invocation",
+            "machine",
+          ],
+          [
+            "kind",
+            "publisher",
+            "event",
+            "publication",
+            "trace_id",
+            "chain",
+            "parent_invocation",
+          ],
+        )
       ) {
         return;
       }
+      const machine =
+        source.machine === undefined ? undefined : id(source.machine, "mch");
       const publisher =
         source.publisher === "lophn" ? "lophn" : id(source.publisher, "app");
       const event = text(source.event);
@@ -113,7 +164,8 @@ function caller(value: unknown): InvocationCaller | undefined {
         !publication ||
         !trace ||
         !/^[0-9a-f]{32}$/.test(trace) ||
-        parent === undefined
+        parent === undefined ||
+        (source.machine !== undefined && machine === undefined)
       ) {
         return;
       }
@@ -125,7 +177,16 @@ function caller(value: unknown): InvocationCaller | undefined {
         trace_id: trace,
         chain: chain as string[],
         parent_invocation: parent,
+        ...(machine === undefined ? {} : { machine }),
       };
+    }
+    case "remote": {
+      if (exact(source, ["kind", "machine", "device", "requester"])) return;
+      const machine = id(source.machine, "mch");
+      const device = id(source.device, "dev");
+      const by = requester(source.requester);
+      if (!machine || !device || !by) return;
+      return { kind: "remote", machine, device, requester: by };
     }
     default:
       return;

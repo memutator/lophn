@@ -981,6 +981,9 @@ test("앱 process의 parseProcessCall은 다섯 caller 종류에서 processCallR
     ["flow with another id kind", { kind: "flow", instance: JOB }, false],
     ["program without job_run", { kind: "program", job: JOB }, false],
     ["unknown kind", { kind: "timer", job: JOB }, false],
+    ["event", eventCaller(), true],
+    ["event from another machine", eventCaller(ids.newId("mch")), true],
+    ["event with a malformed machine", eventCaller("dev_x"), false],
   ];
   for (const [name, caller, accepted] of callers) {
     const request = {
@@ -1002,6 +1005,74 @@ test("앱 process의 parseProcessCall은 다섯 caller 종류에서 processCallR
     );
     assert.deepStrictEqual(
       parseProcessCall(request) !== undefined,
+      accepted,
+      name,
+    );
+  }
+});
+
+function eventCaller(machine?: string) {
+  return {
+    kind: "event",
+    publisher: newApp(),
+    event: "data.changed",
+    publication: ids.newId("pub"),
+    trace_id: "0123456789abcdef0123456789abcdef",
+    chain: [],
+    parent_invocation: null,
+    ...(machine === undefined ? {} : { machine }),
+  };
+}
+
+// protocol의 `remote` caller는 use-contract가 더한다. 그 schema 판정과 맞춰 보는 위 표에는 그것이 오면 합친다.
+test("앱 process의 parseProcessCall은 다른 기계의 호출(remote caller)을 네 요청한 쪽 모두 받고 모양이 어긋나면 거절한다", () => {
+  const remote = (requester: unknown, extra: object = {}) => ({
+    kind: "remote",
+    machine: ids.newId("mch"),
+    device: ids.newId("dev"),
+    requester,
+    ...extra,
+  });
+  const callers: [string, unknown, boolean][] = [
+    ["screen", remote({ kind: "screen" }), true],
+    ["terminal", remote({ kind: "terminal" }), true],
+    [
+      "agent",
+      remote({ kind: "agent", agent: "agt_x", session: SES, name: "Ada" }),
+      true,
+    ],
+    [
+      "agent without a session",
+      remote({ kind: "agent", agent: "agt_x", session: null, name: "Ada" }),
+      true,
+    ],
+    ["app", remote({ kind: "app", app: newApp() }), true],
+    ["no requester", { ...remote(null), requester: undefined }, false],
+    ["unknown requester", remote({ kind: "phone" }), false],
+    ["screen with a field", remote({ kind: "screen", app: newApp() }), false],
+    [
+      "agent without a name",
+      remote({ kind: "agent", agent: "agt_x", session: null }),
+      false,
+    ],
+    ["app with another id kind", remote({ kind: "app", app: JOB }), false],
+    ["extra field", remote({ kind: "screen" }, { view_session: "v1" }), false],
+  ];
+  for (const [name, caller, accepted] of callers) {
+    const request = {
+      invocation: ids.newId("inv"),
+      kind: "command",
+      name: "r.get",
+      context: {
+        app: newApp(),
+        release: REL,
+        mode: "live",
+        effect: "read",
+        caller,
+      },
+    };
+    assert.deepStrictEqual(
+      parseProcessCall(JSON.parse(JSON.stringify(request))) !== undefined,
       accepted,
       name,
     );

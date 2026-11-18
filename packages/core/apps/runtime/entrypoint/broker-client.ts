@@ -54,6 +54,8 @@ export function createBrokerClient(deps: {
       command: string;
       input?: unknown;
       parent_invocation: string | null;
+      // 다른 기계의 앱을 부를 때 그 기계(이름, mch_, dev_).
+      machine?: string;
     }) {
       return post(BROKER_PATHS.appsCall, body);
     },

@@ -41,6 +41,8 @@ export async function callAllowed(
   deps: CallGateDeps,
 ): Promise<Result<boolean>> {
   if (caller.kind === "program") return ok(true);
+  // 다른 컴퓨터가 넘긴 호출의 허락(명단, 터미널 입력 허락, private)은 받는 기계의 입구가 본다. 그것이 서기 전에는 아무것도 지나가지 못한다.
+  if (caller.kind === "remote") return ok(false);
   // 구독은 발행한 앱이 내놓은 event를 받겠다고 선언한 것이다. 사람 허락도 grant도 묻지 않는다(roadmap 정한 것 16).
   if (caller.kind === "event") return ok(true);
   if (caller.kind === "flow") {

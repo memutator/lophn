@@ -318,6 +318,11 @@ export function validateLayers(
       const names = [`--${kebab(name)}`];
       if (property.type === "boolean") names.push(`--no-${kebab(name)}`);
       for (const flag of names) {
+        if (flag === "--on") {
+          return invalid(
+            `command ${item.name} field ${name} has the CLI flag --on, which picks a machine`,
+          );
+        }
         const previous = flags.get(flag);
         if (previous !== undefined) {
           return invalid(

@@ -60,6 +60,8 @@ async function callerName(
     if (!read.ok) return caller.session;
     return (await agentNameOf(env, read.value.agent)) ?? caller.session;
   }
+  // 다른 기계가 부른 호출은 이 session의 되돌림에 오르지 않는다. 보이는 모양은 `use-screens`가 정한다.
+  if (caller.kind === "remote") return caller.machine;
   const app = await env.read(appGet, { app: caller.app });
   return app.ok ? app.value.app.name : caller.app;
 }

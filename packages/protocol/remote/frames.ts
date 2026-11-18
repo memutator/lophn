@@ -9,6 +9,7 @@ import {
   phoneRequestFrameSchema,
   phoneResponseFrameSchema,
 } from "../phone/link.ts";
+import { requesterSchema } from "./requester.ts";
 import {
   deviceNameSchema,
   keyTextSchema,
@@ -23,8 +24,10 @@ export { deviceNameSchema, keyTextSchema, remoteAddressesSchema };
 // handshake 뒤 client가 먼저, core가 그 뒤에 `hello`를 보낸다. 서로의 판 범위가 겹치지 않으면 양쪽 다 `conflict`로 닫는다.
 // Noise prologue는 판과 다른 것이라 판을 올려도 그대로다.
 // 판 4는 명단 규칙(쓰인 초대, key로만 세는 빼기, 모르는 서명자 상한)이다. 판 3과 같은 명단을 다르게 보므로 하한도 같이 올린다.
-export const REMOTE_PROTOCOL_VERSION = 4;
-export const REMOTE_PROTOCOL_MIN_VERSION = 4;
+// 판 5는 call frame의 요청한 쪽 `by`와 명단 항목의 모양(터미널 입력 허락이 항목의 칸이 아니다)이다. 판 4의 core는 `by`가 있는 call을
+// 받지 못하고(strictObject) 항목을 다르게 읽으므로 하한도 같이 올린다.
+export const REMOTE_PROTOCOL_VERSION = 5;
+export const REMOTE_PROTOCOL_MIN_VERSION = 5;
 export const REMOTE_PROLOGUE = "lophn-remote/1";
 
 // hello는 모르는 칸을 버린다(z.object). 다음 판이 칸을 더해도 이 판과 붙는다.
@@ -99,12 +102,14 @@ const rosterServerFrameSchema = z.strictObject({
 });
 
 // route 하나를 부른다. body는 HTTP API의 요청 body와 같다(command면 `{input, idempotency_key, …}` envelope). core의 route dispatch가 검사한다.
+// `by`는 요청한 쪽이다. 컴퓨터의 core만 싣고(그 core가 부른 자격에서 정한다) 폰은 싣지 않는다. 없으면 폰이 부른 것이다.
 const callFrameSchema = z.strictObject({
   type: z.literal("call"),
   id: frameIdSchema,
   resource: z.string().min(1),
   method: z.string().min(1),
   body: z.unknown(),
+  by: requesterSchema.optional(),
 });
 
 const resultFrameSchema = z.discriminatedUnion("ok", [

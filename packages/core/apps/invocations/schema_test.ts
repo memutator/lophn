@@ -3,6 +3,7 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import {
   invocationEventCallerSchemaSteps,
+  invocationsRemoteCallerSchemaSteps,
   invocationsSchemaSteps,
 } from "./schema.ts";
 
@@ -107,6 +108,79 @@ test("event-caller step은 표를 다시 짜도 모든 행과 index와 trigger�
   );
   assert.throws(
     () => db.exec("DELETE FROM invocations WHERE id = 'inv_event'"),
+    /invocations are recorded, not deleted/,
+  );
+});
+
+// 이 표는 지난 호출의 기록이다. caller 종류에 `remote`를 더하려고 표를 다시 짜도 지난 행과 index, trigger가 그대로여야 한다.
+test("remote-caller step은 표를 다시 짜도 모든 행과 index와 trigger를 그대로 두고 remote caller를 받는다", () => {
+  const db = new DatabaseSync(":memory:");
+  for (const step of invocationsSchemaSteps) db.exec(step.sql);
+  db.exec(`CREATE TABLE erase_windows (table_name TEXT);`);
+  db.exec(invocationEventCallerSchemaSteps[0].sql);
+  const hash = "a".repeat(64);
+  const callers = [
+    { kind: "person", view_session: "v" },
+    { kind: "agent", session: "ses_1", turn: "trn_1", tool_call: "tcl_1" },
+    { kind: "app", app: "app_1", release: "rel_1", parent_invocation: null },
+    { kind: "program", job: "job_1", job_run: "jbr_1" },
+    { kind: "flow", instance: "wfi_1" },
+    { kind: "event", publisher: "lophn" },
+  ];
+  const insert = db.prepare(
+    `INSERT INTO invocations
+       (id, app, release, mode, operation, caller, caller_kind, session, turn, effect, status,
+        started_at, finished_at, input_hash, summary, changeset_hash, changeset_size, reverted_by)
+     VALUES (?, 'app_1', 'rel_1', 'live', '{"kind":"command","name":"x"}', ?, ?, ?, ?, 'write', 'succeeded',
+        '2026-10-16T00:00:00.000Z', '2026-10-16T00:00:01.000Z', ?, '{}', ?, 10, 'rwd_1')`,
+  );
+  callers.forEach((caller, index) => {
+    insert.run(
+      `inv_${index}`,
+      JSON.stringify(caller),
+      caller.kind,
+      caller.kind === "agent" ? "ses_1" : null,
+      caller.kind === "agent" ? "trn_1" : null,
+      hash,
+      hash,
+    );
+  });
+  const schemaOf = () =>
+    db
+      .prepare(
+        `SELECT name, sql FROM sqlite_master
+          WHERE tbl_name = 'invocations' AND type IN ('index', 'trigger') AND sql IS NOT NULL
+          ORDER BY name`,
+      )
+      .all();
+  const rowsOf = () =>
+    db.prepare("SELECT * FROM invocations ORDER BY id").all();
+  const beforeRows = rowsOf();
+  const beforeSchema = schemaOf();
+  assert.equal(beforeRows.length, callers.length);
+  assert.throws(() =>
+    db.exec(
+      `INSERT INTO invocations (id, app, release, mode, operation, caller, caller_kind, effect, status, finished_at, summary)
+       VALUES ('inv_early', 'app_1', 'rel_1', 'live', '{"kind":"command","name":"x"}', '{"kind":"remote"}', 'remote', 'write', 'succeeded', '2026-10-16T00:00:00.000Z', '{}')`,
+    ),
+  );
+
+  db.exec(invocationsRemoteCallerSchemaSteps[0].sql);
+
+  assert.deepStrictEqual(rowsOf(), beforeRows);
+  assert.deepStrictEqual(schemaOf(), beforeSchema);
+  db.exec(
+    `INSERT INTO invocations (id, app, release, mode, operation, caller, caller_kind, effect, status, finished_at, summary)
+     VALUES ('inv_remote', 'app_1', 'rel_1', 'live', '{"kind":"command","name":"x"}',
+        '{"kind":"remote"}', 'remote', 'write', 'succeeded', '2026-10-16T00:00:00.000Z', '{}')`,
+  );
+  assert.throws(
+    () =>
+      db.exec("UPDATE invocations SET effect = 'read' WHERE id = 'inv_remote'"),
+    /terminal invocation is immutable/,
+  );
+  assert.throws(
+    () => db.exec("DELETE FROM invocations WHERE id = 'inv_remote'"),
     /invocations are recorded, not deleted/,
   );
 });

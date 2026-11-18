@@ -30,7 +30,7 @@ files:
 
   - path: packages/core/apps/invocations/schema_test.ts
     covers: []
-    note: "invocations schema step 2: 옛 tool 기록을 command로 옮기고 끝난 행의 잠금 trigger를 되살림. step 3(event-caller): caller 종류에 event를 더하려고 표를 다시 짜도 모든 행, index 넷, trigger 둘이 그대로이고 event caller를 받음. migration step 검사라 covers 밖"
+    note: "invocations schema step 2: 옛 tool 기록을 command로 옮기고 끝난 행의 잠금 trigger를 되살림. step 3(event-caller)과 step 4(remote-caller): caller 종류에 event와 remote를 더하려고 표를 다시 짜도 모든 행, index 넷, trigger 둘이 그대로이고 새 caller를 받음. migration step 검사라 covers 밖"
 
   - path: packages/core/apps/lookups_test.ts
     covers: []

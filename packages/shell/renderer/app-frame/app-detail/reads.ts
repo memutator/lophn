@@ -635,6 +635,9 @@ async function callerOf(
       return { kind: "program" };
     case "flow":
       return { kind: "flow" };
+    // 어느 기계의 누가 불렀는지 보이는 모양은 `use-screens`가 정한다.
+    case "remote":
+      return { kind: "person" };
     case "event":
       return {
         kind: "event",

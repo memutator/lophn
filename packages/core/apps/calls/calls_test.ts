@@ -203,6 +203,8 @@ function setup() {
       ),
     clock,
     ids,
+    forward: () =>
+      Promise.resolve(err({ code: "internal", message: "unused" })),
   };
   const calls = createAppCalls(deps);
   return { ...calls, sent, records, state };
@@ -1297,6 +1299,8 @@ function receiver(schema: string, node = "receiver") {
       Promise.resolve(err({ code: "internal", message: "unused" })),
     clock,
     ids,
+    forward: () =>
+      Promise.resolve(err({ code: "internal", message: "unused" })),
     sync: log,
   });
 

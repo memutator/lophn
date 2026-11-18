@@ -249,6 +249,8 @@ function computer() {
       Promise.resolve(err({ code: "internal", message: "unused" })),
     clock,
     ids,
+    forward: () =>
+      Promise.resolve(err({ code: "internal", message: "unused" })),
     sync: log,
   });
   const appSync = createAppSync({

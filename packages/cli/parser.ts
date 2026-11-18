@@ -220,6 +220,29 @@ type ParseOptions = {
 
 const COMMON_VALUE_FLAGS = ["--input", "--input-file", "--idempotency-key"];
 
+// `--on <기계>`는 어느 명령에나 붙는 전역 flag라 명령 parser가 보기 전에 argv에서 뗀다. 기계를 어떻게 푸는지는 부르는 쪽이 정한다.
+// 명령의 입력 칸이 `--on`을 쓰지 못하는 것은 선언 검사가 막는다(`declaration/tools.ts`).
+export function splitOn(
+  argv: readonly string[],
+): Result<{ on: string | null; argv: string[] }> {
+  const rest: string[] = [];
+  let on: string | null = null;
+  for (let at = 0; at < argv.length; at += 1) {
+    if (argv[at] !== "--on") {
+      rest.push(argv[at]);
+      continue;
+    }
+    const value = argv[at + 1];
+    if (value === undefined || value.startsWith("--")) {
+      return err(invalid("flag needs a value: --on"));
+    }
+    if (on !== null) return err(invalid("duplicate flag: --on"));
+    on = value;
+    at += 1;
+  }
+  return ok({ on, argv: rest });
+}
+
 // argv를 읽어 명령 하나의 호출로 바꾼다. 모르는 명령·flag, 값 없는 flag, 중복 flag, 위치 인자 초과는
 // invalid_input과 usage 한 줄로 거절한다.
 export function parseCommandLine<C extends CommandDoc>(

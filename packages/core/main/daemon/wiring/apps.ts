@@ -364,6 +364,14 @@ export const appsWiring: WiringFactory = () => {
         },
         clock: ctx.clock,
         ids,
+        // 다른 기계의 앱으로 넘기는 길은 `use-send`가 remote wiring의 machineLinks로 채운다.
+        forward: () =>
+          Promise.resolve(
+            err({
+              code: "unavailable",
+              message: "calling an app on another machine is not available yet",
+            }),
+          ),
         sync,
         // 폰이나 다른 기계에서 온 변경이 앱 DB를 바꿨다. `call.settled`와 같은 길로 그 앱에만 낸다.
         dataChanged(app) {

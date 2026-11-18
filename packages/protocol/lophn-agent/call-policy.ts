@@ -90,6 +90,15 @@ export function mayCall(
   return mayReachWorkspace(policy, from.workspace, to.workspace, handoff);
 }
 
+// 그 workspace가 private인가(Home은 늘 아니다). 다른 기계를 부르고 다른 기계에서 불리는 것은 workspace 쌍 규칙을 보지 않고(그 key는 기계마다의 id다) 이것만 본다.
+export function isPrivate(
+  policy: CallPolicy,
+  workspace: Workspace | null,
+): boolean {
+  const target = callWorkspaceOf(workspace);
+  return policy.private.some((entry) => sameWorkspace(entry, target));
+}
+
 // agent 쌍 규칙을 빼고 workspace 쌍 규칙 → 같은 workspace → private만 본다. agent가 없는 쪽(앱 workspace의 앱 process와 화면)이
 // 그 workspace에 사는 agent와 같은 시야를 갖게 할 때 쓴다(앱이 보는 session은 그 앱 workspace의 agent가 call로 닿을 수 있는 session이다).
 // 가짜 agent를 만들어 agent 쌍 규칙에 걸리지 않게 하려고 agent 칸을 아예 받지 않는다.

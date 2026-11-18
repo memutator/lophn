@@ -7,6 +7,7 @@
 // 종료 순서: closeIntake → server.stop → closeChildren → 감독 정지 → closeWork → runtime.close → stopped
 import type { Clock, RandomSource, Result } from "../../../../base/mod.ts";
 import type { EventDelivery } from "../../../apps/events/mod.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
 import type { Frame, Route } from "../../../../protocol/base/mod.ts";
 import type {
   AuthenticatedContext,
@@ -92,6 +93,10 @@ import type {
   FolderReplica,
 } from "../../../folder/ports.ts";
 import type { ManifestBody } from "../../../../protocol/remote/carry.ts";
+import type {
+  MachineCandidate,
+  Requester,
+} from "../../../../protocol/remote/requester.ts";
 import type { RosterStatement } from "../../../../protocol/remote/roster.ts";
 import type { Assembled } from "../registration.ts";
 import type { CoreOptions } from "../core.ts";
@@ -358,6 +363,16 @@ type Late = {
   crossEvents: CrossEvents;
   // apps가 낸다. 다른 기계에서 온 event를 이 기계에서 낸다.
   eventArrived: EventArrived;
+  // remote가 낸다. 명단의 다른 컴퓨터를 부른다: 이름 풀기와 그 기계로 route 하나 넘기기(`by`는 부른 자격에서 정한 요청한 쪽이다).
+  machineLinks: {
+    computers(): MachineCandidate[];
+    resolve(ref: string): Result<MachineCandidate>;
+    call(
+      machine: Id<"mch">,
+      call: { resource: string; method: string; body: unknown },
+      by: Requester,
+    ): Promise<Result<unknown>>;
+  };
 };
 
 const LATE_KEYS: Record<keyof Late, true> = {
@@ -440,6 +455,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   folderReplica: true,
   crossEvents: true,
   eventArrived: true,
+  machineLinks: true,
 };
 
 export type WiringContext = {

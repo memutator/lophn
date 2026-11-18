@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { idSchema } from "../../base/ids.ts";
 import { appIdSchema } from "../../projects/values.ts";
+import { requesterSchema } from "../../remote/requester.ts";
 import {
   APP_CALL_DEPTH_LIMIT,
   invocationIdSchema,
@@ -66,6 +67,15 @@ export const appToolCallerSchema = z.discriminatedUnion("kind", [
     parent_invocation: invocationIdSchema.nullable(),
     // 다른 기계에서 온 event(선언 `across_machines`)면 그 난 기계. payload는 발행 앱이 선언한 schema라 core가 칸을 더하지 않는다.
     machine: idSchema("mch").optional(),
+  }),
+  // 다른 컴퓨터의 core가 넘긴 호출(받는 기계의 `apps/remote_call`만 만든다). machine과 device는 부른 컴퓨터이고 requester는 그 안에서
+  // 시킨 쪽(`agent`나 `app`, 사람이 시킨 `screen`·`terminal`)이다. 호출 기록에 어느 컴퓨터의 누가 불렀는지 남는다.
+  // `person`의 `device`·`machine`(폰이나 폴더에서 맞춘 변경)과 `event`의 `machine`(폴더로 온 event의 난 기계)은 다른 뜻이라 이름만 겹치지 않게 둔다.
+  z.strictObject({
+    kind: z.literal("remote"),
+    machine: idSchema("mch"),
+    device: idSchema("dev"),
+    requester: requesterSchema,
   }),
 ]);
 export type AppToolCaller = z.infer<typeof appToolCallerSchema>;

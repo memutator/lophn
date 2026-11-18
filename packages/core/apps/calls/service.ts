@@ -46,6 +46,7 @@ import {
   systemTimers,
   type Timers,
 } from "./intake.ts";
+import type { RemoteForward } from "./forward.ts";
 import { checkCallChain } from "./loop.ts";
 import { createWriteQueue } from "./queue.ts";
 import {
@@ -74,6 +75,8 @@ export type AppCallsDeps = CallGateDeps & {
   link: AppProcessLink;
   clock: Clock;
   ids: IdSource;
+  // 다른 기계의 앱 command로 넘긴다(`target.mode` remote).
+  forward: RemoteForward;
   timers?: Timers;
   // sync 앱의 sync log. 없으면 폰이나 다른 기계에서 온 변경을 받지 않는다.
   sync?: SyncCalls;
@@ -266,6 +269,23 @@ export function createAppCalls(deps: AppCallsDeps): {
     const caller = verified.value;
 
     const target = input.target;
+    // 다른 기계의 앱은 command만, agent와 앱만 부른다(사람의 화면과 터미널은 `machines/call`로 간다). 이 기계의 앱처럼 조회·기록하지 않는다.
+    if (target.mode === "remote") {
+      if (
+        input.kind !== "command" ||
+        (caller.kind !== "agent" && caller.kind !== "app")
+      ) {
+        return forbidden(
+          "only an agent or an app calls a command on another machine",
+        );
+      }
+      return deps.forward({
+        caller,
+        target: { machine: target.machine, app: target.app as Id<"app"> },
+        name: input.name,
+        input: input.input,
+      });
+    }
     const app = target.app as Id<"app">;
     if (target.mode === "live") await intake.admit(app);
 
@@ -398,6 +418,7 @@ export function createAppCalls(deps: AppCallsDeps): {
       release: base.release,
       mode: "live",
       parent: parentOf(caller)?.id ?? null,
+      remote: caller.kind === "remote" || (parentOf(caller)?.remote ?? false),
       async abandon() {
         abandoned = true;
         if (phase !== "sent") {
@@ -663,6 +684,7 @@ export function createAppCalls(deps: AppCallsDeps): {
       release,
       mode: "live",
       parent: null,
+      remote: false,
       async abandon() {
         job.abandoned = true;
         for (const open of job.opened) {

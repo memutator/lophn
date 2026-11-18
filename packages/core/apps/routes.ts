@@ -433,6 +433,8 @@ export function bundleLocatorOf(
         const path = bundleCopyPath(dataRoot, target.app, hash);
         return path.ok ? ok(path.value) : missing();
       }
+      // remote target은 service가 다른 기계로 넘기므로 이 기계의 bundle을 찾지 않는다.
+      if (target.mode === "remote") return missing();
       const app = target.app as Id<"app">;
       const wanted =
         target.release ??

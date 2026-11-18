@@ -1,6 +1,7 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { ToolCallInput } from "../../../protocol/apps/calls/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
+import type { Requester } from "../../../protocol/remote/requester.ts";
 import type {
   AgentId,
   Workspace,
@@ -10,7 +11,7 @@ import type { Flight } from "./intake.ts";
 
 // previewOnly는 route 입력이 아니라 core 안 호출자만 켠다(preview로만 가는 credential).
 export type CallAuth = {
-  actor: "user" | "agent" | "app" | "program" | "flow" | "event";
+  actor: "user" | "agent" | "app" | "program" | "flow" | "event" | "remote";
   app?: Id<"app">;
   // actor가 program일 때만 있다. route는 이 자격을 만들지 못하고 core 안 run 연산만 만든다.
   program?: {
@@ -33,6 +34,12 @@ export type CallAuth = {
     chain: readonly string[];
     parent: Flight | null;
   };
+  // actor가 remote일 때만 있다. route는 만들지 못하고 받는 기계의 앱 command 입구 handler만 만든다(frame의 `by`와 부른 컴퓨터).
+  remote?: {
+    machine: Id<"mch">;
+    device: Id<"dev">;
+    requester: Requester;
+  };
   previewOnly?: true;
 };
 
@@ -50,6 +57,12 @@ export type VerifiedCaller =
   | { kind: "app"; app: Id<"app">; parent: Flight }
   | { kind: "program"; job: Id<"job">; job_run: Id<"jbr"> }
   | { kind: "event"; parent: Flight | null }
+  | {
+      kind: "remote";
+      machine: Id<"mch">;
+      device: Id<"dev">;
+      requester: Requester;
+    }
   | {
       kind: "flow";
       instance: Id<"wfi">;
@@ -70,7 +83,21 @@ const KIND_OF_ACTOR = {
   program: "program",
   flow: "flow",
   event: "event",
+  remote: "remote",
 } as const;
+
+function sameRequester(a: Requester, b: Requester): boolean {
+  if (a.kind === "agent") {
+    return (
+      b.kind === "agent" &&
+      a.agent === b.agent &&
+      a.session === b.session &&
+      a.name === b.name
+    );
+  }
+  if (a.kind === "app") return b.kind === "app" && a.app === b.app;
+  return a.kind === b.kind;
+}
 
 function forbidden(message: string): Result<never> {
   return err({ code: "forbidden", message });
@@ -89,11 +116,8 @@ export function verifyCaller(
 
   if (caller.kind === "agent") {
     const target = input.target;
-    // preview는 그 앱 workspace의 session만 부른다(아래 판정).
-    if (
-      target.mode !== "preview" &&
-      (target.mode !== "live" || target.release !== null)
-    ) {
+    // preview는 그 앱 workspace의 session만 부른다(아래 판정). remote는 service가 다른 기계로 넘긴다.
+    if (target.mode === "live" && target.release !== null) {
       return err({
         code: "invalid_input",
         message:
@@ -174,6 +198,31 @@ export function verifyCaller(
     return ok({ kind: "event", parent: event.parent });
   }
 
+  if (caller.kind === "remote") {
+    if (input.target.mode !== "live" || input.target.release !== null) {
+      return err({
+        code: "invalid_input",
+        message: "remote calls target the live active release",
+      });
+    }
+    // 본문은 주장일 뿐이라 받는 기계의 입구 handler가 만든 자격과 맞춰 본다.
+    const { remote } = auth;
+    if (
+      remote === undefined ||
+      remote.machine !== caller.machine ||
+      remote.device !== caller.device ||
+      !sameRequester(remote.requester, caller.requester)
+    ) {
+      return forbidden("remote caller does not match the credential");
+    }
+    return ok({
+      kind: "remote",
+      machine: remote.machine,
+      device: remote.device,
+      requester: remote.requester,
+    });
+  }
+
   if (caller.kind === "flow") {
     if (input.target.mode !== "live" || input.target.release !== null) {
       return err({
@@ -193,7 +242,10 @@ export function verifyCaller(
     });
   }
 
-  if (input.target.mode !== "live" || input.target.release !== null) {
+  if (
+    input.target.mode === "preview" ||
+    (input.target.mode === "live" && input.target.release !== null)
+  ) {
     return err({
       code: "invalid_input",
       message: "app calls target the live active release",

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { defineMemory } from "../../base/route.ts";
 import { appIdSchema } from "../../projects/values.ts";
+import { machineRefSchema } from "../../remote/requester.ts";
 import { secretNameSchema } from "../../secrets/secrets.ts";
 import {
   invocationIdSchema,
@@ -11,7 +12,7 @@ import {
 } from "../channel-values.ts";
 import { appToolCallerSchema } from "./caller.ts";
 
-// live의 release가 null이면 지금 활성 release다.
+// live의 release가 null이면 지금 활성 release다. remote는 다른 컴퓨터의 앱이다(`machine`은 이름, `mch_`, `dev_`이고 그 기계에서는 앱 id가 같다).
 export const appToolTargetSchema = z.discriminatedUnion("mode", [
   z.strictObject({
     mode: z.literal("live"),
@@ -23,6 +24,11 @@ export const appToolTargetSchema = z.discriminatedUnion("mode", [
     app: appIdSchema,
     process_nonce: processNonceSchema,
   }),
+  z.strictObject({
+    mode: z.literal("remote"),
+    machine: machineRefSchema,
+    app: appIdSchema,
+  }),
 ]);
 export type AppToolTarget = z.infer<typeof appToolTargetSchema>;
 
@@ -33,6 +39,8 @@ export type AppToolTarget = z.infer<typeof appToolTargetSchema>;
 // - caller.kind는 route의 actor와 맞아야 한다(user는 person, agent는 agent, app은 app).
 //   맞지 않으면 forbidden이다. program과 flow는 route의 actor가 아니고 core 안 run 연산만 만든다(route로 오면 forbidden).
 // - app은 live이고 release가 null이다. agent는 live(release null)이거나, 그 앱 workspace의 session이면 그 앱의 preview다.
+// - remote target은 command만 부르고 caller는 agent와 app만 된다(아니면 forbidden). 사람의 화면과 터미널은 이 길이 아니라 `machines/call`로 간다.
+//   caller 종류 `remote`는 받는 기계의 `apps/remote_call`이 만들고 이 route에서는 forbidden이다.
 export const callKindSchema = z.enum(["operation", "command"]);
 export type CallKind = z.infer<typeof callKindSchema>;
 

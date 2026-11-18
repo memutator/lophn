@@ -9,6 +9,8 @@ export type Flight = {
   release: Id<"rel">;
   mode: "live" | "preview";
   parent: Id<"inv"> | null;
+  // 이 호출의 caller가 다른 컴퓨터가 넘긴 호출이거나 부모 호출이 그렇다. 부르는 기계가 받은 call을 다시 넘기지 않는 것을 이것으로 본다.
+  remote: boolean;
   // 결과 모름으로 닫아 부른 쪽에 돌려준다.
   abandon(): Promise<void>;
 };

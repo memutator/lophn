@@ -27,10 +27,13 @@ export function createMachineRoutes(deps: {
         resource: string;
         method: string;
         body: unknown;
-        shell_capability: string;
+        shell_capability?: string;
       },
     ): Promise<Result<unknown>> {
-      if (!deps.capability(input.shell_capability)) {
+      if (
+        input.shell_capability === undefined ||
+        !deps.capability(input.shell_capability)
+      ) {
         return Promise.resolve(forbidden());
       }
       const { machine, resource, method, body } = input;

@@ -2618,7 +2618,7 @@ flows:
         observe: ["response"]
       - id: no-shell-capability
         code: forbidden
-        when: "입력 shell_capability가 살아 있는 shell capability가 아니다(CLI의 사람 token, 끝난 shell). link에 아무것도 가지 않는다"
+        when: "입력 shell_capability가 없거나(CLI의 사람 token. 칸은 optional이 되었지만 `terminal`로 여는 것은 `use-send`가 한다) 살아 있는 shell capability가 아니다(끝난 shell). link에 아무것도 가지 않는다"
         observe: ["response"]
       - id: conflict
         code: conflict
@@ -2666,6 +2666,28 @@ flows:
     crosses_process: false
     unclear:
       - "선언한 unavailable은 내지 않는다. link가 없으면 조건을 들고 있다가 link가 열릴 때 건다"
+
+  - id: core-machines-app-tools
+    title: "agent runtime이 그 agent에 할당된 다른 기계 앱의 command 목록을 그 기계에서 읽는다"
+    actor: system
+    entries: [route:machines/app_tools]
+    uses: [system:machine-links]
+    boundary: [core-api, remote]
+    code: [packages/protocol/remote/routes.ts, packages/protocol/remote/requester.ts]
+    docs: [architecture/app-call.md, architecture/approval.md]
+    steps:
+      - "route 정의만 있다. handler는 아직 없다(`use-send`가 짓는다): core 안 machine 자격만 부르고, 그 agent의 할당 가운데 다른 기계 앱마다 그 기계에 요청한 쪽 {kind: agent, session: null}로 apps/tools를 부른다"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "machine 자격이 아니다"
+        observe: ["response"]
+    declared_only: [unavailable]
+    crosses_process: false
+    unclear:
+      - "handler가 아직 없어 route가 등록되지 않았다. 지금 나는 code는 없고 outcome은 `use-send`가 짓는 handler의 것을 미리 적은 것이다"
 
   - id: carry-link-pull
     title: "link로 붙은 컴퓨터가 든 manifest와 file 가운데 이 컴퓨터에 없는 것을 받아 computers 폴더의 받는 자리에 넘긴다"

@@ -10,18 +10,30 @@ import { agentIdSchema } from "../lophn-agent/workspaces.ts";
 // 줄은 앱뿐이다. MCP server는 설정한 층(전역, project, agent 정의)이 곧 할당이고 끄기는 `mcp_off`라 줄이 없다.
 // 할당한 tool의 바깥 효과는 묻지 않는다. 사람이 묻기로 정하면 줄에 `no_ask_tools: ToolKey[]`를 더하고
 // `judge`의 바깥 효과 줄을 켠다.
-// 같은 줄인지는 `app`으로 본다. 줄의 종류가 다시 생기면 그때 `kind`를 더한다.
-export const assignmentEntrySchema = z.strictObject({
-  app: idSchema("app"),
-  removed_tools: z.array(toolKeySchema),
-});
+// 다른 기계의 앱이면 `machine`(그 기계의 id)과 `name`(그 기계 앱의 표시 이름: 이 기계에는 그 앱의 slug가 없고, 꺼진 기계의 앱도 이름으로 보이게 한다)이 붙는다.
+// `name`은 `machine`이 있을 때만 있고 그때는 있어야 한다. 앱 id는 기계 사이에 같아 같은 줄인지는 `(machine, app)`으로 본다.
+// 줄의 종류가 다시 생기면 그때 `kind`를 더한다.
+export const assignmentEntrySchema = z
+  .strictObject({
+    app: idSchema("app"),
+    machine: idSchema("mch").optional(),
+    name: z.string().min(1).max(64).optional(),
+    removed_tools: z.array(toolKeySchema),
+  })
+  .refine(
+    (entry) => (entry.machine === undefined) === (entry.name === undefined),
+    {
+      message: "a remote app has a machine and a name, a local app has neither",
+    },
+  );
 export type AssignmentEntry = z.infer<typeof assignmentEntrySchema>;
 
 const entriesSchema = z
   .array(assignmentEntrySchema)
   .refine(
     (entries) =>
-      new Set(entries.map((entry) => entry.app)).size === entries.length &&
+      new Set(entries.map((entry) => `${entry.machine ?? ""}/${entry.app}`))
+        .size === entries.length &&
       entries.every(
         (entry) =>
           new Set(entry.removed_tools).size === entry.removed_tools.length,

@@ -4,14 +4,18 @@ import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
 import { atSchema } from "../base/values.ts";
 import { pushPrefsSchema } from "../attention/mod.ts";
+import { appTools } from "../apps/declaration/read.ts";
 import { eventConditionSchema } from "../events/bus.ts";
+import { agentIdSchema, workspaceSchema } from "../lophn-agent/workspaces.ts";
 import { machineIdSchema } from "../machine/mod.ts";
+import { appIdSchema } from "../projects/values.ts";
 import {
   deviceNameSchema,
   keyTextSchema,
   remoteDeviceSchema,
   remotePhoneSchema,
 } from "./frames.ts";
+import { machineCandidateSchema, machineRefSchema } from "./requester.ts";
 import {
   ROSTER_STATEMENTS_MAX,
   rosterEntryBodySchema,
@@ -389,20 +393,22 @@ export const machinesList = defineMemory({
   errors: ["invalid_input", "forbidden", "unavailable"],
 });
 
-// 다른 기계의 route 하나를 이 컴퓨터 core의 연결로 부른다. 받는 기계는 `device:<이 컴퓨터의 id>`인 사람으로 보고 지금의
-// 기기 route 목록으로 거른다. 답은 그 기계의 value이고 오류(code, message, details)도 그대로다. 그래서 일곱 code가 다
-// 날 수 있다. 연결이 없으면 unavailable, 명단에 없는 기계면 not_found다.
+// 다른 기계의 route 하나를 이 컴퓨터 core의 연결로 부른다. `machine`은 컴퓨터 이름, `mch_`, `dev_` 가운데 하나다(화면은 `mch_`를 준다).
+// 받는 기계는 `device:<이 컴퓨터의 id>`인 컴퓨터가 부른 것으로 보고, 요청한 쪽(call frame의 `by`)으로 지금의 기기 route 목록을
+// 거르고 그 종류마다 대한다. 요청한 쪽은 core가 부른 자격으로 정한다. 살아 있는 `shell_capability`면 `screen`(이 기계의 화면),
+// 칸이 없으면 사람의 CLI token이라 `terminal`이고, 있는데 살아 있지 않으면 forbidden이다. 입력의 다른 칸으로 요청한 쪽을 싣는 길은 없다.
+// 답은 그 기계의 value이고 오류(code, message, details)도 그대로다. 그래서 일곱 code가 다 날 수 있다.
+// 연결이 없으면 unavailable, 명단에 없는 기계면 not_found, 같은 이름이 둘이면 invalid_input(`details.candidates`)이다.
 export const machinesCall = defineMemory({
   resource: "machines",
   method: "call",
   name: "machines.call",
   input: z.strictObject({
-    machine: machineIdSchema,
+    machine: machineRefSchema,
     resource: z.string().min(1),
     method: z.string().min(1),
     body: z.unknown(),
-    // 이 기계의 화면(shell main)만 부른다. 사람의 CLI token으로는 다른 기계를 부르지 못한다.
-    shell_capability: z.string().min(1),
+    shell_capability: z.string().min(1).optional(),
   }),
   output: z.unknown(),
   actors: ["user"],
@@ -417,6 +423,7 @@ export const machinesCall = defineMemory({
   ],
 });
 
+// 구독은 화면의 것이라 살아 있는 `shell_capability`가 늘 필요하다(이 core 안 구독자는 이 route를 거치지 않고 link의 watch를 바로 부른다).
 // 다른 기계의 Gateway 조건 가운데 한 구독자(이 shell의 `watcher`)의 것을 통째로 바꾼다(빈 배열은 그 구독자를 뺀다). core는
 // 구독자들의 합을 그 기계에 건다. 그 기계의 frame은 이 컴퓨터의 bus에 `MachineFrameReceived`로 온다.
 export const machinesWatch = defineMemory({
@@ -433,4 +440,29 @@ export const machinesWatch = defineMemory({
   output: z.strictObject({}),
   actors: ["user"],
   errors: ["invalid_input", "forbidden", "not_found", "unavailable"],
+});
+
+// agent runtime이 그 agent에 할당된 다른 기계 앱의 command 목록을 읽는다. core가 그 agent 대신 읽으므로 요청한 쪽은
+// `{kind:"agent", session: null}`이고, 닿지 않거나 거절한 앱의 `view`는 null이다. core 안 machine 자격만 낸다.
+export const machinesAppTools = defineMemory({
+  resource: "machines",
+  method: "app_tools",
+  name: "machines.app_tools",
+  input: z.strictObject({
+    agent: agentIdSchema,
+    workspace: workspaceSchema.nullable(),
+  }),
+  output: z.strictObject({
+    machines: z.array(machineCandidateSchema),
+    apps: z.array(
+      z.strictObject({
+        machine: machineIdSchema,
+        app: appIdSchema,
+        name: z.string().min(1),
+        view: appTools.output.nullable(),
+      }),
+    ),
+  }),
+  actors: ["machine"],
+  errors: ["invalid_input", "forbidden", "unavailable"],
 });

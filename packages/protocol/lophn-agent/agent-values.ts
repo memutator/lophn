@@ -4,6 +4,7 @@ import { EXTENSION_ID } from "../extensions/manifest.ts";
 import { slugSchema } from "../projects/values.ts";
 import { profileOutputSchema, profileSchema } from "./agent-profile.ts";
 import { mcpServerSchema } from "./mcp-settings.ts";
+import { toolKeySchema } from "../apps/channel-values.ts";
 import { CODING_BUILTINS } from "./workspaces.ts";
 import {
   INSTRUCTION_FILE_MAX_BYTES,
@@ -92,6 +93,24 @@ const skillsSchema = z.array(nonblankSchema).refine(unique, {
 const appsSchema = z.array(slugSchema).refine(unique, {
   message: "duplicate app",
 });
+// 할당한 다른 기계의 앱. 그 앱은 이 기계에 slug가 없어 id로 둔다. `name`은 꺼진 기계의 앱을 보이는 표시값이고 `removed`는 그 앱에서 뺀 command다.
+// 사람만 쓰는 칸이다. 옛 파일에는 이 칸이 없다.
+const remoteAppsSchema = z
+  .array(
+    z.strictObject({
+      machine: idSchema("mch"),
+      app: idSchema("app"),
+      name: z.string().min(1).max(64),
+      removed: z
+        .array(toolKeySchema)
+        .refine(unique, { message: "duplicate removed tool" }),
+    }),
+  )
+  .refine(
+    (entries) =>
+      unique(entries.map((entry) => `${entry.machine}/${entry.app}`)),
+    { message: "duplicate remote app" },
+  );
 // 할당한 shell extension의 id. 그 extension이 manifest로 선언한 tool 전부가 이 agent의 `tools[]`에 든다(custom은 `tools`가 고른 것만).
 // 사람만 쓰는 칸이다. 꺼졌거나 없는 extension의 id를 적어도 저장은 되고, 그 tool은 목록에 서지 않는다.
 const extensionsSchema = z
@@ -173,7 +192,7 @@ const toolPicksSchema = z.array(nonblankSchema).refine(unique, {
   message: "duplicate tool",
 });
 
-// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·profile·`runtime: custom` 잠금, `tools`·`skills`와 runtime의 짝, 사람만 쓰는 칸(`mcp_servers`, `apps`, `extensions`, `permissions`, `skip`)의
+// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·profile·`runtime: custom` 잠금, `tools`·`skills`와 runtime의 짝, 사람만 쓰는 칸(`mcp_servers`, `apps`, `remote_apps`, `extensions`, `permissions`, `skip`)의
 // 거절은 저장하는 쪽(core)이 본다.
 const frontmatterFields = {
   handle: agentHandleSchema,
@@ -190,6 +209,7 @@ const frontmatterFields = {
   mcp_off: mcpOffListSchema.optional(),
   mcp_servers: mcpServersSchema.optional(),
   apps: appsSchema.optional(),
+  remote_apps: remoteAppsSchema.optional(),
   extensions: extensionsSchema.optional(),
   permissions: permissionsSchema.optional(),
   skip: z.boolean().optional(),
@@ -209,6 +229,7 @@ const frontmatterOutputFields = {
   mcp_off: mcpOffListOutputSchema.optional(),
   mcp_servers: mcpServersSchema.optional(),
   apps: appsSchema.optional(),
+  remote_apps: remoteAppsSchema.optional(),
   extensions: extensionsSchema.optional(),
   permissions: permissionsSchema.optional(),
   skip: z.boolean().optional(),

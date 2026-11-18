@@ -1,0 +1,13 @@
+id: remote-command-shares-link-slots-and-deadline
+title: 다른 컴퓨터로 보낸 앱 command가 화면과 나르기와 연결의 call 8개와 120초를 같이 쓰고, 120초를 넘기면 결과 모름으로 끝난다
+kind: bug
+status: open
+topic: remote
+modules: [packages/remote-client, packages/core/remote, packages/core/apps]
+now: |
+  컴퓨터 하나로 가는 link는 연결 하나이고 그 연결의 call은 같이 8개까지, 하나에 120초까지다(`packages/remote-client/connection.ts`의 `IN_FLIGHT`, `CALL_DEADLINE_MS`). 화면의 `machines/call`, agent와 앱이 보내는 `apps/remote_call`(`packages/core/apps/calls/forward.ts`가 `machines.call`로 보낸다), 폴더로 나르는 `carry/*`, `machines/app_tools`가 모두 이 연결을 같이 쓴다. 120초 안에 답이 없으면 `unavailable`의 `details.sent: true`이고 forward는 이를 결과 모름(`unknown`, `connection_lost`)으로 돌려준다. 호출 하나에 나가는 시한을 따로 정하는 길이 없다.
+impact: |
+  120초를 넘기는 앱 command(큰 수집, 느린 외부 호출)는 받는 컴퓨터에서 끝까지 돌아도 부른 agent나 앱은 결과를 받지 못하고 `unknown`을 본다(자동으로 다시 부르지 않아 사람이 다시 확인한다). 여덟 개가 느린 command에 묶이면 같은 연결의 화면 읽기와 나르기가 기다린다.
+fix: |
+  - (작음, 추천) 지금대로 두고 `unknown`을 받으면 agent가 앱의 읽기 command로 결과를 확인하게 안내한다. 긴 command는 앱이 바로 돌려주고 나중에 읽는 모양으로 짜게 지침에 적는다.
+  - (중간) 앱 command용 시한을 호출마다 정하고 화면·나르기와 슬롯을 나눈다. 연결 하나의 한도를 늘리면 받는 core의 read 줄(caller마다 8)과 부딪힌다.

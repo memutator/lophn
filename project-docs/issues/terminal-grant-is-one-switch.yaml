@@ -1,0 +1,15 @@
+id: terminal-grant-is-one-switch
+title: 컴퓨터마다 터미널 입력 허락이 스위치 하나라 "터미널은 되지만 agent와 앱의 command는 안 된다"를 고를 수 없다
+kind: bug
+status: open
+topic: approval
+modules: [packages/core/remote, packages/core/apps, packages/shell/renderer, packages/cli]
+now: |
+  받는 컴퓨터는 허락(`packages/core/remote/grants.ts`, `ctx.terminalInputGrant`) 하나로 사람의 화면(`screen`)에 터미널 입력과 사람의 route를, `apps/remote_call`(`packages/core/apps/calls/remote-entry.ts`)에 `terminal`·`agent`·`app` 요청의 앱 command를 연다. 둘을 따로 켜는 칸이 없다(`roster/set_terminal_input`은 boolean 하나, My devices의 스위치 하나, `lophn remote terminal-input` 하나).
+impact: |
+  다른 컴퓨터의 화면에서 이 컴퓨터의 터미널에 치게 하려는 사람이 그 컴퓨터의 agent와 앱이 이 컴퓨터의 private이 아닌 앱 public command를 모두 부르게 하는 것도 함께 허락한다. 반대로 agent가 앱을 부르게만 하고 터미널은 막을 수 없다.
+fix: |
+  - (작음, 추천) 지금대로 두고 My devices 스위치 글에 앱 command도 함께 허락된다고 쓴다. 허락한 컴퓨터는 이미 그 컴퓨터를 온전히 다루는 것으로 본다.
+  - (중간) 허락을 둘로 나눈다(typing, app commands). 표 칸, 초대장·합류 스위치, My devices 줄, CLI, 받는 쪽 검사 둘이 바뀌고 이미 옮긴 허락이 어느 쪽인지 정해야 한다.
+decide: |
+  터미널 입력과 agent·앱의 command 호출을 따로 허락하게 할지는 사람이 정한다. 따로 하면 컴퓨터마다 스위치가 둘이 되어 초대와 합류 때 묻는 것이 늘고, 하나로 두면 "터미널은 되지만 agent는 안 된다"를 잃는다. 추천은 하나로 둔다(허락한 컴퓨터는 이미 온전히 다루므로).

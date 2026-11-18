@@ -1,0 +1,13 @@
+id: remote-event-job-not-marked-remote
+title: 다른 컴퓨터의 event로 연 job의 차례와 그 agent가 받은 호출로 표시되지 않아 세 번째 컴퓨터를 부를 수 있다
+kind: bug
+status: open
+topic: event
+modules: [packages/core/jobs, packages/core/apps, packages/core/main]
+now: |
+  다른 컴퓨터의 event로 도는 앱 handler는 받은 호출로 센다(`packages/core/apps/calls/service.ts`의 flight 표시, `packages/core/apps/events/publish.ts`). 그러나 안 구독자인 job(`packages/core/jobs/events.ts`, `packages/core/main/daemon/wiring/jobs.ts`)은 event로 `agent_run`이나 `tool_run`의 차례를 열 때 그 표시를 달지 않는다. job이 연 agent는 agent caller라 부모 flight가 없고, 그 agent가 자기 `remote_apps` 할당으로 세 번째 컴퓨터를 부르는 것을 forward가 막지 않는다. 받은 호출이 낳은 event(표시가 붙어 이 컴퓨터의 구독자에게는 간다)가 이 컴퓨터의 job을 여는 것도 같다.
+impact: |
+  컴퓨터 B가 이 컴퓨터 A에게 낸 event로 A의 job이 돌고 그 agent가 컴퓨터 C의 앱을 부를 수 있다. B의 허락이 A에 넓어져 C에 닿는 길이 열려 있다. event 내용은 B가 정하지만 job과 할당은 A의 사람이 승인한 것이고 `min_interval`이 속도를 묶는다.
+fix: |
+  - (큼) 표시가 job 차례, session, tool call로 흘러야 한다. 저장소 넷(job run, session, tool call, flight)에 칸이 필요하다. 한 줄 표시로는 닫히지 않는다.
+  - (작음, 추천) 지금대로 두고 한계로 둔다. job은 사람이 한 번 승인한 일이고 승인 card가 어느 컴퓨터의 event로 도는지 말한다.

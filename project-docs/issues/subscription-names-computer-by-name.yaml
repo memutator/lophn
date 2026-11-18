@@ -1,0 +1,13 @@
+id: subscription-names-computer-by-name
+title: 앱의 구독 선언은 컴퓨터를 이름으로 적어 컴퓨터 이름을 바꾸거나 같은 이름을 다른 컴퓨터가 쓰면 구독이 멈추거나 다른 컴퓨터로 옮겨 간다
+kind: bug
+status: open
+topic: event
+modules: [packages/core/remote, packages/core/apps, packages/sdk]
+now: |
+  선언의 `subscriptions[].machine`은 컴퓨터 이름이고 봉인한 release에 들어 있다. `packages/core/remote/subscriptions.ts`의 `compute`가 앱·job·명단이 바뀔 때마다 `resolve`로 이름을 다시 푼다. 이름이 풀리지 않거나 같은 이름이 둘이거나 이 컴퓨터를 가리키면 `app_subscription_machine_unresolved`를 log에 한 번 남기고 구독을 걸지 않는다. 이름이 다른 컴퓨터로 옮겨 가면(원래 컴퓨터의 이름을 바꾸고 다른 컴퓨터가 그 이름을 쓴다) 그 컴퓨터를 따라간다. 봉인한 release는 고칠 수 없다. job은 만들 때 `mch_`로 풀어 저장해 이 문제가 없다.
+impact: |
+  사람이 컴퓨터 이름을 바꾸면 그 컴퓨터의 event로 도는 앱이 말없이 멈춘다(log 한 줄뿐이고 화면에 풀리지 않은 구독이 없다). 새 컴퓨터가 옛 이름을 쓰면 그 컴퓨터의 event가 앱의 handler로 들어간다. 앱을 다시 release해야 고쳐진다.
+fix: |
+  - (작음, 추천) App details에 풀리지 않은 구독(이름, 이유)을 보여 사람이 알게 한다. 이름 바꾸기는 흔하지 않고 앱 release로 고친다.
+  - (중간) 선언이 이름 대신 컴퓨터를 고르는 설정(앱 설정의 컴퓨터 선택)을 두고 `mch_`를 저장한다. 선언 모양과 SDK 판, 앱 설정 화면이 바뀐다.

@@ -1,7 +1,7 @@
 id: roster-computer-self-grants-terminal-input
 title: 명단의 컴퓨터가 자기 터미널 입력 허락을 스스로 켜고 다른 컴퓨터가 그것을 받아들인다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/protocol, packages/core/remote, packages/core/main, packages/shell/renderer, packages/mobile]
 now: |
@@ -15,3 +15,6 @@ fix: |
   - (작음) 지금대로 두고 "명단의 컴퓨터끼리는 서로를 온전히 믿는다"고 문서에 적는다. 잃는 것: 컴퓨터 사이에서 허락 스위치가 경계가 아니다.
 decided: |
   사람(2026-11-19): 컴퓨터마다 따로 허락한다(첫째 안). 받는 컴퓨터에서 직접 켠 허락만 그 컴퓨터가 인정한다. 계획 `remote-use`의 `use-grant`가 한다. 그 뒤에는 "내 컴퓨터들"로 온 새 release도 여기서 허락한 컴퓨터의 것은 묻지 않고 따라가게 한다(지금은 모두 묻는다).
+closed: |
+  터미널 입력 허락은 명단 항목의 칸이 아니라 받는 컴퓨터의 ledger 표(`remote_grants`, 기기의 key로 찾는다)다. 새 statement는 칸을 싣지 않고 `ctx.terminalInputGrant`와 `ctx.computerGranted`는 그 표만 읽는다. 켜는 길은 사람이 그 컴퓨터에서 켜기(`roster/set_terminal_input`은 이 컴퓨터의 표만 고치고 명단에 서명하지 않는다), 그 컴퓨터가 낸 초대장으로 든 기기, 그 컴퓨터가 합류하며 켠 스위치뿐이다. 명단의 컴퓨터가 자기나 다른 기기의 항목을 어떻게 서명해도 다른 컴퓨터의 허락은 켜지지 않는다. 첫 기동은 옛 항목에 켜져 있던 허락을 한 번 표로 옮기므로 업데이트 전에 스스로 켠 허락도 옮겨졌다. 사람이 My devices에서 끈다(change-log 체크리스트).
+guard: packages/core/main/daemon/wiring/remote_test.ts의 "명단의 컴퓨터가 자기 항목이나 다른 기기의 항목을 어떻게 서명해도 이 컴퓨터의 터미널 입력 허락은 켜지지 않고, 사람이 켠 것만 서며 뺀 기기의 것은 거둔다"

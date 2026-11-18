@@ -1,0 +1,13 @@
+id: remote-events-no-rate-cap
+title: 구독한 컴퓨터가 보내는 앱 event의 수에 상한이 없어 뚫리거나 잘못 짠 컴퓨터가 앱 handler를 끝없이 돌릴 수 있다
+kind: bug
+status: open
+topic: event
+modules: [packages/core/remote, packages/core/apps, packages/core/folder]
+now: |
+  구독을 건 컴퓨터의 `AppEventPublished`는 `packages/core/remote/links.ts`의 `onPeerEvent`에서 `packages/core/apps/events/publish.ts`의 `receive`로 간다. 글 크기는 읽기 전에 보고 앱이 낸 모양이 아니면 버리지만 초당 몇 개인지는 세지 않는다. event마다 한 번 다시 읽고, `cross_id`가 있으면 `folder_events_seen`에 한 줄을 쓰고(오래된 것은 나이로만 지운다), 그 컴퓨터를 이름으로 적은 구독 앱마다 handler를 부른다. job은 `min_interval`이 있지만 앱 handler에는 없다.
+impact: |
+  명단의 컴퓨터 하나가 뚫리거나 앱이 잘못 짜여 event를 쏟으면 이 컴퓨터가 handler를 그만큼 돌리고(앱 data 변경과 외부 호출 포함) 표를 채운다. 그 컴퓨터가 이름으로 지명된 구독에만 닿고 다른 컴퓨터의 id를 오염시키지는 못한다.
+fix: |
+  - (작음, 추천) link마다 초당 상한을 두고 넘으면 버리고 log를 남긴다(`links.ts`). handler가 payload를 검사해야 한다고 SDK 지침에 이미 적었다.
+  - (중간) 구독 앱마다 최소 간격을 선언에 둔다. 선언 모양과 SDK 판이 바뀐다.

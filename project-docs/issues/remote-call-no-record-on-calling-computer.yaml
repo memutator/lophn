@@ -1,0 +1,13 @@
+id: remote-call-no-record-on-calling-computer
+title: agent나 앱이 다른 컴퓨터의 앱을 부른 기록이 부른 컴퓨터에 남지 않는다
+kind: bug
+status: open
+topic: app-call
+modules: [packages/core/apps, packages/core/remote]
+now: |
+  `packages/core/apps/calls/service.ts`는 target이 `remote`인 호출을 이 컴퓨터의 앱처럼 조회·기록하지 않고 forward(`forward.ts`)로 넘긴다. forward는 invocation을 쓰지 않는다. 기록은 받는 컴퓨터가 caller `remote`로 남기는 것뿐이고, 그 기록의 요청한 쪽 이름과 agent는 부른 컴퓨터가 쓴 값이다.
+impact: |
+  사람이 자기 컴퓨터의 App details에서 "내 agent가 다른 컴퓨터의 앱에 무엇을 시켰나"를 볼 수 없다. 받는 컴퓨터를 보러 가야 하고 그 컴퓨터가 꺼져 있으면 읽을 수 없다. agent가 틀린 호출을 해도 부른 쪽 기록이 없어 어느 session의 일인지 따라가기 어렵다(대화의 tool 호출 기록뿐이다).
+fix: |
+  - (중간, 추천) 부른 컴퓨터가 보낼 때 가벼운 기록(누가, 어느 컴퓨터의 어느 앱 command, 시작, 끝 상태 또는 unknown)을 남기고 Activity가 그것을 다른 컴퓨터로 가는 호출로 보인다. changeset도 rewind도 없는 기록이라 invocation 표와 다른 표가 필요하다.
+  - (작음) 지금대로 두고 받는 컴퓨터의 Activity에서 본다고 문서에 적는다.

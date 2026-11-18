@@ -1,0 +1,13 @@
+id: roster-computer-without-invite-has-no-grants
+title: 초대 없이 명단에 든 컴퓨터는 어느 쪽에도 허락이 없고, 다른 컴퓨터가 먼저 받아들이면 초대한 컴퓨터의 스위치가 쓰이지 않는다
+kind: bug
+status: open
+topic: remote
+modules: [packages/core/remote, packages/core/main, packages/protocol]
+now: |
+  터미널 입력 허락은 받는 컴퓨터의 표(`packages/core/remote/grants.ts`)에 선다. 켜지는 길은 사람이 그 컴퓨터에서 켜기, 그 컴퓨터가 낸 초대장으로 든 기기(`packages/core/remote/roster.ts`의 `settle`가 초대 서명 statement의 서명자가 이 컴퓨터이고 그 key가 이번에 처음 view에 선 것만 본다), 그 컴퓨터가 합류하며 켠 스위치(`wiring/remote.ts`의 join 뒤 `roster/grant_set`)다. 그래서 (1) 세 번째 컴퓨터가 다른 컴퓨터의 명단으로 들어와 서로를 만난 경우(초대 없이 든 경우) 두 컴퓨터는 서로를 허락하지 않은 상태다. (2) 초대장으로 든 기기를 다른 컴퓨터가 먼저 받아들여 그 항목이 초대한 컴퓨터의 view에 초대 서명 statement보다 먼저 닿으면 key가 이미 view에 있어 초대한 컴퓨터의 스위치 값이 쓰이지 않는다(폰이나 폴더로 나를 때 생긴다).
+impact: |
+  사람이 두 컴퓨터를 짝지었는데 한쪽이 다른 쪽을 "View only"로 보고, 이유가 My devices의 스위치가 꺼져 있다는 것인데 초대 때는 켠 것으로 보여 헷갈린다. 사람이 해당 컴퓨터마다 My devices에서 켜거나 `lophn remote terminal-input`을 써야 한다(데이터를 잃지는 않고 안전한 쪽으로 닫힌다).
+fix: |
+  - (작음, 추천) 지금대로 두고 My devices의 그 줄에 "이 컴퓨터는 아직 허락하지 않았다"를 보인다. 켜면 된다.
+  - (중간) 초대장을 낸 컴퓨터가 낸 초대의 의도한 값을 `view.invites`에서 읽어 항목이 먼저 닿아도 쓴다. 명단 합치기와 settle의 순서 규칙이 바뀐다.

@@ -109,7 +109,7 @@ agent가 세상을 아는 길은 사람과 program 둘뿐이다. 그래서 어�
 - grant와 approval, event, rewind
 - workflow: project에 정의(`workflow.yaml`, `workflow.md`, 고르는 artifact), instance와 report, 사람 step, workflow마다의 desk. project workspace의 agent가 쓴 code(`flow.ts`)가 agent와 앱 tool을 부르는 flow
 - job: agent가 만들어 정해진 때 agent 호출, 앱 tool 호출, workflow 시작을 돌린다. 놓친 차례를 사람에게 묻고(hold), 사람은 화면에서 보고 끄고 지운다(`architecture/job.md`). job은 만든 기계에서만 돈다
-- 한 사람의 여러 컴퓨터: 기계마다 온전한 lophn이 돈다. session은 옮기지 않고 사람이 앉은 컴퓨터의 창 하나(과 폰의 목록 하나)에서 짝지은 모든 컴퓨터의 project, session, 터미널, 앱 화면, 대기 목록을 컴퓨터 꼬리표와 함께 보고 말한다. session의 기록(transcript, tool 이력)은 기계 사이에 맞추지 않는다: 기계마다 환경이 달라 옮겨도 뜻이 없다. 꺼진 기계의 일은 기록을 옮기지 않고 handoff로 다른 기계가 넘겨받는다(나중, `products/roadmap/multi-device.md`). 앱 data, release, 기계 명단은 컴퓨터끼리 연결로, 폰이 나르는 길로, 같이 보는 폴더로 늦게라도 닿고 길은 lophn이 고른다(앱이 `sync_to: "computers"`를 고른다). project는 어느 기계에서나 같은 project다. 사람이 표시한 기계는 로그인 때 뜨고 창을 닫아도 계속 돈다(`products/roadmap/multi-machine.md`)
+- 한 사람의 여러 컴퓨터: 기계마다 온전한 lophn이 돈다. session은 옮기지 않고 사람이 앉은 컴퓨터의 창 하나(과 폰의 목록 하나)에서 짝지은 모든 컴퓨터의 project, session, 터미널, 앱 화면, 대기 목록을 컴퓨터 꼬리표와 함께 보고 말한다. session의 기록(transcript, tool 이력)은 기계 사이에 맞추지 않는다: 기계마다 환경이 달라 옮겨도 뜻이 없다. 꺼진 기계의 일은 기록을 옮기지 않고 handoff로 다른 기계가 넘겨받는다(나중, `products/roadmap/multi-device.md`). 앱 data, release, 기계 명단은 컴퓨터끼리 연결로, 폰이 나르는 길로, 같이 보는 폴더로 늦게라도 닿고 길은 lophn이 고른다(앱이 `sync_to: "computers"`를 고른다). project는 어느 기계에서나 같은 project다. agent와 앱은 사람의 다른 컴퓨터에 있는 앱의 command를 부르고 그 앱이 낸 event에 반응하며(job 포함), 사람의 터미널은 `--on`으로 다른 컴퓨터에 명령을 보낸다. 무엇을 해도 되는지는 받는 컴퓨터가 정하고(터미널 입력 허락은 컴퓨터마다 그 컴퓨터에서 켠다) private인 workspace의 것은 컴퓨터 사이에도 쓰이지 않는다. 사람이 표시한 기계는 로그인 때 뜨고 창을 닫아도 계속 돈다(`products/roadmap/multi-machine.md`)
 
 **그다음**
 - agent의 결과를 추상화한 GUI(4절 축 2). MVP에서는 채팅 안에서 앱의 부품을 가져다 쓰는 데까지 간다.

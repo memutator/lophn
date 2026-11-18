@@ -6,7 +6,7 @@ lead만 고친다. `tools/status.py device-roster build`가 `tasks/*.md`에서 i
 |---|---|---|---|---|---|---|---|
 | `roster-contract` | roster | 1 | 없음 | merged | roster/roster-contract | 03fa37edb | review 고친 것 재확인 중 |
 | `roster-client` | roster | 2 | roster-contract | merged | roster/roster-client | 8a833daba |  |
-| `roster-core` | roster | 2 | roster-contract | running | roster/roster-core |  |  |
+| `roster-core` | roster | 2 | roster-contract | merged | roster/roster-core | bc2d27dfd |  |
 | `roster-cli` | roster | 3 | roster-core | todo |  |  |  |
 | `roster-links` | roster | 3 | roster-core | todo |  |  |  |
 | `roster-desktop` | roster | 4 | roster-links | todo |  |  |  |

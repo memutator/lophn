@@ -1,5 +1,5 @@
 id: core-terminals
-version: 0.23.81
+version: 0.23.84
 title: 터미널, coding agent, extension host를 core가 갖고 desktop과 폰은 같은 route로 붙는다
 modules: [packages/core/terminals, packages/core/terminal-agents, packages/core/extensions, packages/core/main, packages/core/host-queue, packages/core/server, packages/core/terminal-view, packages/core/lophn-agent, packages/protocol, packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/shell/renderer, packages/mobile, packages/design, tools]
 change: |

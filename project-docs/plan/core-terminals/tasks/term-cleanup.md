@@ -51,3 +51,10 @@
 - 계약 바꾸기 요청: 고정된 계약을 바꿔야 하면 고치지 말고 여기 적는다
 - **무겁게 짠 것**: 가장 단순한 구현(AGENTS.md "속도")보다 무겁게 짠 곳마다 `무엇 / 왜 / 줄인다면 / 어디`. 없으면 "없음"
 - **알려진 미완 동작**: 지금 안 되는 동작과 고치려면 필요한 것. 없으면 "없음"
+
+## lead가 더함
+
+- `term-desktop`·`term-phone`이 merge되어 shell과 폰은 옛 link 요청·frame·route를 쓰지 않는다. `term-desktop`이 남긴 것: `ipc/surface.ts`의 `tui` report 갈래(renderer가 보내지 않는다), 쓰지 않는 `extension-settings` intent(`ipc/shortcuts.ts`, `renderer/desktop/intents.tsx`), wiring `core.ts`·`context.ts`의 `relay.frames`. `coding-core`가 남긴 것: `HostLink.onFrame`·`RelayedFrameType`, `lifecycle.sweep()`과 `shellAttached` dep. 이것들도 지운다. 추가 소유: 그 file의 그 줄만.
+- 낡은 주석과 글: `packages/core/terminal-agents/open.ts` 머리 주석, `packages/protocol/remote/allowlist.ts` 머리 주석(입력이 `terminal_view/input`로 간다는 글. 줄 목록은 lead가 고친다), `packages/protocol/remote/routes.ts`의 `deviceSchema.terminal_input` 주석(추가 소유: 주석만). architecture 문서는 lead가 고친다.
+- `project-docs/flows/tests/core-rest.yaml`은 다른 계획(`core-setup`)도 고친다. 이 task가 지운 test file의 줄만 고친다.
+- 기기 route 목록(`packages/protocol/remote/allowlist.ts`)의 줄과 `packages/protocol/registry.ts`·`mod.ts`의 줄은 지워야 check가 통과하면 이 task가 지운다(추가 소유: 그 줄만). 지운 것을 보고에 적는다.

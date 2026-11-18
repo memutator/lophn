@@ -127,12 +127,12 @@ import {
   workflowStart,
   workflowStop,
 } from "../workflows/routes.ts";
-import { devicesSetPush, devicesUnpair, rosterLeave } from "./routes.ts";
+import { devicesSetPush, rosterLeave } from "./routes.ts";
 
 // 등록한 기기가 부를 수 있는 route의 전부다. 기기 자격의 scope가 이 이름들이고, 밖의 route는 `forbidden`이다.
 // 폰은 일하는 창이다: 보고, 말하고, 답하고, 켜고 끄고, 시작하는 route만 둔다.
-// 만들기·고치기·지우기(agent, job, 앱, project, workflow 정의), secret, provider·model 관리, 설정 쓰기, 기기와 pairing(자기 등록을 지우는
-// `devices/unpair`와 자기 push 설정 `devices/set_push`만 둔다),
+// 만들기·고치기·지우기(agent, job, 앱, project, workflow 정의), secret, provider·model 관리, 설정 쓰기, 기기와 명단(자기를 명단에서 빼는
+// `roster/leave`와 자기 push 설정 `devices/set_push`만 둔다),
 // `tabs/*`, `sessions/delete`(되돌릴 수 없다), `sessions/change-skip`(사람에게 묻지 않고 돌게 하는 권한 설정이다)은 넣지 않는다.
 // 컴퓨터의 coding agent(`coding_sessions/*`)는 폰이 목록을 보고 view를 바꾸고 새로 열고 컴퓨터의 앱을 깨운다. 폰이 시작한 switch도
 // `confirmed: true`가 있어야 하고(도는 turn이 끊긴다). coding session의 터미널 화면은 `terminal_view/*`로 보고 친다. `terminal_view/input`은
@@ -270,8 +270,6 @@ export const REMOTE_ALLOWED_ROUTES = [
   appSyncPull,
   appSyncSnapshot,
   appSyncSnapshotFile,
-  // 폰이 이 컴퓨터를 지울 때 자기 등록을 지운다
-  devicesUnpair,
   // 기기가 자기를 내 기기 명단에서 뺀다
   rosterLeave,
   // push: 폰이 자기 token과 알림 설정을 두고, 지금 앞에 보이는지를 알린다

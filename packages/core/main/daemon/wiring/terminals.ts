@@ -152,14 +152,16 @@ export const terminalsWiring: WiringFactory = () => {
         },
       });
       const publish = (event: BusEvent) => ctx.bus.publish(event);
-      terminals.onRuntime((runtime) =>
+      terminals.onRuntime((runtime) => {
+        // 내 기기는 이 기계의 어느 터미널이든 화면 사본으로 본다(다른 컴퓨터의 터미널 탭, 폰).
+        ctx.terminalView.adopt(runtime.terminal_ref);
         publish({
           type: "TerminalRuntimeChanged",
           subject: `terminal:${runtime.terminal_ref}`,
           at: ctx.clock.now(),
           payload: { runtime },
-        } as BusEvent),
-      );
+        } as BusEvent);
+      });
       // host가 16ms·64Ki로 묶은 chunk 하나가 event 하나다. lease가 없는 터미널은 host의 화면만 이어진다.
       terminals.onOutput((output) => {
         for (const chunk of output) {
@@ -178,17 +180,11 @@ export const terminalsWiring: WiringFactory = () => {
         memory: [
           [
             key(terminalsOpen),
-            async (who, input) => {
-              const opened = await routes.open(
+            (who, input) =>
+              routes.open(
                 who.principal,
                 input as Parameters<typeof routes.open>[1],
-              );
-              // 기기가 연 터미널은 coding session이 아니어도 그 폰이 본다(터미널 보기).
-              if (opened.ok && ctx.peek.deviceKind?.(who.principal) != null) {
-                ctx.terminalView.adopt(opened.value.terminal);
-              }
-              return opened;
-            },
+              ),
           ],
           [
             key(terminalsClose),
@@ -197,8 +193,11 @@ export const terminalsWiring: WiringFactory = () => {
           ],
           [
             key(terminalsRestart),
-            (_who, input) =>
-              routes.restart(input as Parameters<typeof routes.restart>[0]),
+            (who, input) =>
+              routes.restart(
+                who.principal,
+                input as Parameters<typeof routes.restart>[1],
+              ),
           ],
           [
             key(terminalsInput),

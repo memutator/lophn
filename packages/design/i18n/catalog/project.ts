@@ -260,7 +260,7 @@ export const project = {
   "terminal.menu.open-chat": "Open as chat",
   "terminal.menu.open-terminal": "Open in terminal",
   "terminal.notice.next-handoff": "The next hand-off starts a new session.",
-  "terminal.notice.sized-for-phone": "Sized for a phone · Click to fit",
+  "terminal.notice.sized-elsewhere": "Sized for another device · Click to fit",
   "terminal.reason.extension-off":
     "The Harness GUI extension is turned off. Turn it on in Settings › Extensions.",
   "terminal.reason.extension-off-short": "Extension off",
@@ -281,4 +281,6 @@ export const project = {
     "lophn lost track of this shell, so how it ended is unknown.",
   "terminal.title.close": "Close this terminal?",
   "terminal.title.switch": "Restart {harness} to switch?",
+  "terminal.toast.view-only":
+    "View only. Turn on terminal input for this computer on {name} to type here.",
 } as const;

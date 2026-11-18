@@ -1,4 +1,4 @@
-// 터미널 탭이 쓰는 통로 묶음. entry가 창의 core 연결과 preload 통로로 만들고, 테스트는 가짜를 준다.
+// 터미널 탭이 쓰는 통로 묶음. 기계마다 `machine-deps.ts`가 그 기계의 core 연결과 preload 통로로 만들고, 테스트는 가짜를 준다.
 import type { TerminalApi } from "../../ipc/terminal.ts";
 import type { OverlayApi } from "../../ipc/overlay.ts";
 import { t } from "@lophn/i18n";
@@ -13,7 +13,7 @@ import { TerminalDisplays } from "./displays.ts";
 export interface TerminalDeps {
   /** core의 `terminals/*` route와 터미널 event. 없으면 터미널을 열지 않는다. */
   readonly core: TerminalCore | null;
-  /** shell main의 입력·다시 시작·focus·clipboard·link 통로. 없으면 치지 못한다. */
+  /** 입력·다시 시작·focus·clipboard·link 통로. 이 컴퓨터는 shell main, 다른 기계는 그 기계의 core다. 없으면 치지 못한다. */
   readonly bridge: TerminalApi | null;
   readonly store: TerminalStore;
   readonly displays: TerminalDisplays;
@@ -24,6 +24,13 @@ export interface TerminalDeps {
   ) => TerminalView;
   /** 살아 있는 터미널 닫기를 사람에게 묻는다. true일 때만 닫는다. */
   readonly confirmClose: () => Promise<boolean>;
+  /**
+   * 다른 기계의 터미널이다(`screen-copy.ts`). 화면 사본을 그 PTY 크기로 그리고, PTY 크기는 사람이 이 탭을 고르거나 누르거나 칠
+   * 때만 잡는다(폰처럼 마지막에 잡은 쪽이 이긴다).
+   */
+  readonly screenCopy?: true;
+  /** 그 기계가 이 컴퓨터의 입력이나 다시 시작을 거절했다(터미널 입력 허락이 없다). 해지를 돌려준다. */
+  readonly onRefused?: (listener: (terminal: string) => void) => () => void;
 }
 
 const CLOSE_CHOICE = "close-terminal";
@@ -83,18 +90,15 @@ function overlayCloseConfirm(api: OverlayApi): () => Promise<boolean> {
   };
 }
 
-/** 창의 core 연결과 preload 통로로 묶음을 만든다. 통로가 없으면 bridge는 null이다. */
+/** 창의 overlay 통로로 닫기 확인을 붙여 묶음을 만든다. 입력 통로가 없으면 bridge는 null이다. */
 export function windowTerminalDeps(
   core: TerminalCore,
   store: TerminalStore,
+  bridge: TerminalApi | null,
   createView: TerminalDeps["createView"],
+  other: Pick<TerminalDeps, "screenCopy" | "onRefused"> = {},
 ): TerminalDeps {
-  const scope = globalThis as {
-    lophnTerminal?: TerminalApi;
-    lophnShell?: OverlayApi;
-  };
-  const overlay = scope.lophnShell;
-  const bridge = scope.lophnTerminal ?? null;
+  const overlay = (globalThis as { lophnShell?: OverlayApi }).lophnShell;
   return {
     core,
     bridge,
@@ -104,6 +108,7 @@ export function windowTerminalDeps(
     confirmClose: overlay
       ? overlayCloseConfirm(overlay)
       : () => Promise.resolve(false),
+    ...other,
   };
 }
 

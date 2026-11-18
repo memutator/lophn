@@ -29,6 +29,14 @@ const TAB_KEY = /^[A-Za-z0-9._:-]+$/;
 
 let terminalCount = 0;
 
+/** 탭의 기계 묶음의 터미널 통로. 탭이 없으면(새로 여는 탭) workspace의 기계다. 다른 기계의 터미널은 화면 사본으로 그린다. */
+function terminalOf(
+  tab: TabItem | null,
+  host: TabHost,
+): TerminalDeps | undefined {
+  return host.machineData(tab?.machine ?? host.machine).terminal;
+}
+
 /**
  * 사람이 누른 터미널 열기. cwd를 주지 않으면 Explorer root에서 시작한다(없으면 시작 폴더를 core가 정한다). 저장한 session을
  * 열 때만 폴더와 resume을 주고, 이때는 그 폴더가 우선이다. `command`는 대화 코드 블록의 실행이고 floated로 연다
@@ -49,7 +57,7 @@ export function openTerminal(
     terminal?: string;
   } = {},
 ): string | null {
-  const terminal = host.props.terminal;
+  const terminal = terminalOf(null, host);
   // Home에는 터미널이 없다.
   if (!terminal || host.projectId === null) return null;
   const key =
@@ -279,7 +287,7 @@ export function pinAgentSessionName(
 
 // 사람이 plain 터미널에서 직접 띄운 coding agent도 core가 알려 주면 그 제품 아이콘을 쓴다. 모르는 제품은 kind 아이콘이다.
 function agentTabIcon(tab: TabItem, host: TabHost): ReactNode | null {
-  const agent = host.props.terminal?.store.agentOf(tab.key);
+  const agent = terminalOf(tab, host)?.store.agentOf(tab.key);
   if (agent === undefined) return null;
   const face = codingFace(agent.harness);
   return face.vendor === undefined ? null : (
@@ -288,14 +296,14 @@ function agentTabIcon(tab: TabItem, host: TabHost): ReactNode | null {
 }
 
 function agentTabDot(tab: TabItem, host: TabHost): SessionDot | null {
-  const agent = host.props.terminal?.store.agentOf(tab.key);
+  const agent = terminalOf(tab, host)?.store.agentOf(tab.key);
   return agent === undefined ? null : codingDot(agent);
 }
 
 // 탭의 터미널 참조. 옮길 때(transfer)와 detached 창이 조용히 닫힌 뒤 다시 열릴 때(resume) 같은 값을 쓴다. GUI view는 core가
 // 들고 있어 받는 창이 목록에서 읽는다.
 function runtimeOf(tab: TabItem, host: TabHost) {
-  const entry = host.props.terminal?.store.get(tab.key);
+  const entry = terminalOf(tab, host)?.store.get(tab.key);
   return entry?.terminalRef == null
     ? null
     : {
@@ -327,7 +335,6 @@ function openLinkTab(host: TabHost, terminalKey: string, url: string): void {
 }
 
 export const terminalKind: TabKindDef = {
-  thisComputerOnly: true,
   kind: "terminal",
   labelKey: "project-workspace.label.kind-terminal",
   icon: workspaceIcons.terminal,
@@ -337,7 +344,7 @@ export const terminalKind: TabKindDef = {
   dotOf: agentTabDot,
   rename(tab, name, host) {
     const person = name?.trim() || null;
-    const terminal = host.props.terminal;
+    const terminal = terminalOf(tab, host);
     host.patchTab(tab.key, (current) =>
       terminalNamed(current, person, terminal?.store),
     );
@@ -419,7 +426,7 @@ export const terminalKind: TabKindDef = {
       typeof moved.generation !== "number"
     )
       return;
-    const store = host.props.terminal?.store;
+    const store = terminalOf(tab, host)?.store;
     // 같은 창 안에서 옮길 때(전역 float)는 store가 이미 이 runtime을 가졌다. adopt가 phase를 opening으로 되돌리면 붙어 있는 display가 다시 snapshot을 받지 않아 멈춘다.
     const have = store?.get(tab.key);
     if (
@@ -434,7 +441,7 @@ export const terminalKind: TabKindDef = {
     });
   },
   render(tab, active, host) {
-    const terminal = host.props.terminal;
+    const terminal = terminalOf(tab, host);
     const project = host.projectId;
     if (!terminal || project === null) return null;
     const body = (
@@ -453,27 +460,31 @@ export const terminalKind: TabKindDef = {
           host.patchTab(tab.key, (current) => startedPatch(current, info))
         }
         openLinkTab={(url) => openLinkTab(host, tab.key, url)}
-        // 경로가 디스크의 파일일 때만 link다. 부모 폴더 한 단계를 읽어 본다.
-        paths={{
-          exists: async (path) => {
-            const cut = path.lastIndexOf("/");
-            const read = await host.props.source.list(
-              path.slice(0, cut) || "/",
-            );
-            const name = path.slice(cut + 1);
-            return (
-              read.ok &&
-              read.value.some(
-                (entry) => entry.kind === "file" && entry.name === name,
-              )
-            );
-          },
-          open: (path, line) =>
-            openFile(host, path, {
-              from: tab.key,
-              ...(line === undefined ? {} : { line }),
-            }),
-        }}
+        // 경로가 디스크의 파일일 때만 link다. 부모 폴더 한 단계를 읽어 본다. 다른 기계의 경로는 이 컴퓨터의 file이 아니다.
+        paths={
+          (tab.machine ?? host.machine) !== null
+            ? undefined
+            : {
+                exists: async (path) => {
+                  const cut = path.lastIndexOf("/");
+                  const read = await host.props.source.list(
+                    path.slice(0, cut) || "/",
+                  );
+                  const name = path.slice(cut + 1);
+                  return (
+                    read.ok &&
+                    read.value.some(
+                      (entry) => entry.kind === "file" && entry.name === name,
+                    )
+                  );
+                },
+                open: (path, line) =>
+                  openFile(host, path, {
+                    from: tab.key,
+                    ...(line === undefined ? {} : { line }),
+                  }),
+              }
+        }
       />
     );
     // core가 이 터미널을 GUI view로 두면 xterm 대신 채팅 화면을 그린다. PTY와 xterm은 그대로 산다.
@@ -485,7 +496,7 @@ export const terminalKind: TabKindDef = {
   },
   // 살아 있는 터미널은 사람이 확인해야 닫는다. 취소하면 탭과 shell을 유지한다.
   beforeClose(tab, host, options) {
-    const terminal = host.props.terminal;
+    const terminal = terminalOf(tab, host);
     return terminal
       ? closeTerminalTab(terminal, tab.key, options?.confirmed === true)
       : null;

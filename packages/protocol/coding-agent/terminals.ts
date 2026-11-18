@@ -203,8 +203,8 @@ export const terminalsClose = defineMemory({
   errors,
 });
 
-// 같은 터미널의 shell을 다시 띄운다(generation이 오른다). focus 검사를 거친 shell main만 부른다: `connect {client: shell}`이 준
-// capability를 싣는다. 없거나 살아 있지 않으면 forbidden이다.
+// 같은 터미널의 shell을 다시 띄운다(generation이 오른다). 자격은 `input`과 같다: 부른 principal이 기기면 그 기기의 터미널 입력
+// 허락이, 아니면 살아 있는 shell capability(focus 검사를 거친 shell main)가 있어야 한다. 둘 다 아니면 forbidden이다.
 export const terminalsRestart = defineMemory({
   resource: "terminals",
   method: "restart",
@@ -213,7 +213,7 @@ export const terminalsRestart = defineMemory({
   input: z.strictObject({
     terminal: terminalRefSchema,
     generation: generationSchema,
-    shell_capability: shellCapabilitySchema,
+    shell_capability: shellCapabilitySchema.optional(),
   }),
   output: z.strictObject({ runtime: terminalRuntimeSchema }),
   actors: ["user"],

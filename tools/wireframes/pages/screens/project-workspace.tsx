@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { Area } from "../types.ts";
 import { createEventClient } from "../../../../packages/shell/renderer/desktop/connection/events/client.ts";
@@ -73,6 +73,23 @@ import {
   NewTabMenuBrowser,
 } from "./browser/pages.tsx";
 import { ProjectApp } from "./project-app.tsx";
+import {
+  MachinesProvider,
+  ScopeMachineProvider,
+} from "../../../../packages/shell/renderer/desktop/machines/context.tsx";
+import { MachineSwitcher } from "../../../../packages/shell/renderer/desktop/machines/machine-switcher.tsx";
+import {
+  fakeMachines,
+  sampleMachines,
+} from "../../../../packages/shell/renderer/desktop/machines/testdata/fake-source.ts";
+import { Icon } from "@lophn/ui/primitives";
+import { workspaceIcons } from "../../../../packages/shell/renderer/icons/mod.ts";
+import { ContentCard } from "../../../../packages/shell/renderer/shell/content-card.tsx";
+import { ShellFrame } from "../../../../packages/shell/renderer/shell/shell-frame.tsx";
+import { TabStrip } from "../../../../packages/shell/renderer/shell/tab-strip.tsx";
+import type { TerminalDeps } from "../../../../packages/shell/renderer/terminal/deps.ts";
+import { TerminalTab } from "../../../../packages/shell/renderer/terminal/terminal-tab.tsx";
+import { fakeTerminalDeps } from "../../mock/fake-terminal.ts";
 import { documentTab } from "../../mock/phroner-data.ts";
 import {
   MockDesktop,
@@ -164,6 +181,96 @@ const TERMINAL_PANES: readonly PaneSpec[] = [
   },
 ];
 
+const noop = () => {};
+const OTHER_TERMINAL = "term_home";
+
+/**
+ * 다른 기계(Home server)의 터미널 탭. 본문은 renderer의 TerminalTab이 그 기계의 통로 묶음(가짜)으로 서고, card 머리 줄에 기계
+ * 이름이 선다. `viewOnly`면 그 기계가 이 컴퓨터의 입력을 거절한 뒤의 toast가 뜬다.
+ */
+function OtherMachineTerminal({ viewOnly }: { viewOnly: boolean }) {
+  const [machines] = useState(
+    () => fakeMachines({ machines: sampleMachines(), window: null }).source,
+  );
+  const [refused] = useState(() => new Set<(terminal: string) => void>());
+  const [deps] = useState<TerminalDeps>(() => {
+    const deps = fakeTerminalDeps();
+    deps.store.request(OTHER_TERMINAL);
+    return {
+      ...deps,
+      screenCopy: true,
+      onRefused(listener) {
+        refused.add(listener);
+        return () => refused.delete(listener);
+      },
+    };
+  });
+  // 사람이 친 글을 그 기계가 거절한 것처럼, 탭이 터미널에 붙은 뒤 거절을 한 번 알린다.
+  useEffect(() => {
+    if (!viewOnly) return;
+    const timer = setInterval(() => {
+      const ref = deps.store.get(OTHER_TERMINAL)?.terminalRef;
+      if (ref == null) return;
+      clearInterval(timer);
+      for (const listener of refused) listener(ref);
+    }, 50);
+    return () => clearInterval(timer);
+  }, [deps, refused, viewOnly]);
+  const tab = {
+    key: OTHER_TERMINAL,
+    title: "grocery",
+    icon: <Icon icon={workspaceIcons.terminal} pixels={14} />,
+  };
+  return (
+    <MachinesProvider source={machines}>
+      <ShellFrame
+        left={false}
+        onToggleLeft={noop}
+        right={false}
+        machineSwitcher={<MachineSwitcher onPairAnother={noop} />}
+        tabs={
+          <TabStrip
+            entries={[{ key: tab.key, tabs: [tab] }]}
+            selected={tab.key}
+            minimized={[]}
+            floating={[]}
+            onSelect={noop}
+            onClose={noop}
+            onToggleFloat={noop}
+          />
+        }
+        leftSidebar={null}
+      >
+        <ContentCard
+          panes={[
+            {
+              key: tab.key,
+              crumbs: ["Grocery", tab.title],
+              body: (
+                <ScopeMachineProvider value="mch_homeserver">
+                  <TerminalTab
+                    tabKey={OTHER_TERMINAL}
+                    project={PROJECT_GROCERY}
+                    folderRef={null}
+                    attach={null}
+                    active
+                    deps={deps}
+                  />
+                </ScopeMachineProvider>
+              ),
+            },
+          ]}
+          focus={tab.key}
+          deskLabel="Main"
+          onFocus={noop}
+          onAction={noop}
+          onEmptyAction={noop}
+        />
+      </ShellFrame>
+    </MachinesProvider>
+  );
+}
+
 export const projectWorkspaceArea: Area = {
   id: "project-workspace",
   title: "Project workspace",
@@ -205,6 +312,20 @@ export const projectWorkspaceArea: Area = {
           openTerminal="term_1"
         />
       ),
+    },
+    {
+      id: "project-terminal-other-machine",
+      title: "Project workspace · terminal on another machine",
+      description:
+        "다른 기계(Home server)의 터미널 탭. card 머리 줄에 그 기계 이름이 서고, 화면은 그 기계가 파싱한 화면 사본을 같은 xterm에 그린다. 탭을 고르거나 누르면 그 기계의 PTY 크기를 이 칸에 맞춘다.",
+      render: () => <OtherMachineTerminal viewOnly={false} />,
+    },
+    {
+      id: "project-terminal-view-only",
+      title: "Project workspace · terminal on another machine, view only",
+      description:
+        "그 기계가 이 컴퓨터의 터미널 입력을 허락하지 않아 친 글을 거절했다. 탭 위쪽 toast가 그 기계에서 이 컴퓨터의 터미널 입력을 켜라고 말하고 화면은 보기만 남는다.",
+      render: () => <OtherMachineTerminal viewOnly />,
     },
     {
       id: "new-float-terminal",

@@ -191,7 +191,7 @@ async function setup() {
   return { fake, clock, published, terminals, terminal, wiring, call };
 }
 
-test("agent 자격과 터미널 입력 허락이 없는 기기는 터미널에 치지 못한다", async () => {
+test("agent 자격과 터미널 입력 허락이 없는 기기는 터미널에 치거나 다시 띄우지 못한다", async () => {
   const { fake, terminal, wiring, call } = await setup();
   const refused: [string, string, Record<string, unknown>][] = [
     ["agent:ses_x", "agent:ses_x", { shell_capability: CAPABILITY }],
@@ -222,12 +222,27 @@ test("agent 자격과 터미널 입력 허락이 없는 기기는 터미널에 �
   assert.equal(shell.status, 200);
   assert.deepEqual(fake.written, ["from phone\n", "from desktop\n"]);
 
-  const restart = await call(terminalsRestart, "user", "user", {
+  // 다시 띄우기도 같은 자격이다. 허락이 없는 기기와 죽은 capability는 PTY를 다시 띄우지 못한다.
+  for (const [principal, extra] of [
+    ["device:dev_a", {}],
+    ["user", { shell_capability: "x".repeat(43) }],
+    ["user", {}],
+  ] as const) {
+    const refused = await call(terminalsRestart, "user", principal, {
+      terminal,
+      generation: 1,
+      ...extra,
+    });
+    assert.equal(refused.json.error?.code, "forbidden", principal);
+  }
+  assert.equal(fake.alive.size, 1);
+  // 허락받은 기기(다른 컴퓨터의 창)는 capability 없이 다시 띄운다.
+  const restart = await call(terminalsRestart, "user", "device:dev_b", {
     terminal,
     generation: 1,
-    shell_capability: "x".repeat(43),
   });
-  assert.equal(restart.json.error?.code, "forbidden");
+  assert.equal(restart.status, 200);
+  assert.equal((restart.json.runtime as { generation: number }).generation, 2);
   await wiring.closeWork!();
 });
 

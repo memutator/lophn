@@ -73,6 +73,10 @@ export function createTerminalRoutes(deps: {
   >();
   const runtimeOf = (result: Result<TerminalRuntime>) =>
     result.ok ? ok({ runtime: result.value }) : result;
+  // 기기는 그 기기의 터미널 입력 허락이, 기기가 아니면 살아 있는 shell capability가 있어야 PTY를 움직인다.
+  const allowed = (principal: string, capability: string | undefined) =>
+    deps.granted(principal) ||
+    (capability !== undefined && deps.capability(capability));
 
   return {
     list(input: { project?: Id<"prj"> }) {
@@ -113,21 +117,25 @@ export function createTerminalRoutes(deps: {
       return runtimeOf(await terminals.close(input.terminal, input.generation));
     },
 
-    // 다시 띄우기는 focus한 창의 사람만 한다. focus 검사는 shell main이 하고 capability를 싣는다.
-    async restart(input: {
-      terminal: string;
-      generation: number;
-      shell_capability: string;
-    }) {
-      if (!deps.capability(input.shell_capability)) {
-        return forbidden("only the focused desktop window may restart");
+    // 다시 띄우기는 입력과 같은 자격이다(`allowed`). 이 컴퓨터의 창은 shell main이 focus를 본 뒤 capability를 싣고, 다른
+    // 기계의 창은 그 기계가 받은 이 컴퓨터의 터미널 입력 허락으로 부른다.
+    async restart(
+      principal: string,
+      input: {
+        terminal: string;
+        generation: number;
+        shell_capability?: string;
+      },
+    ) {
+      if (!allowed(principal, input.shell_capability)) {
+        return forbidden("this caller may not restart the terminal");
       }
       return runtimeOf(
         await terminals.restart(input.terminal, input.generation),
       );
     },
 
-    // 기기는 그 기기의 터미널 입력 허락이, 기기가 아니면 살아 있는 shell capability가 있어야 친다. agent 자격은 dispatch가 막는다.
+    // 친다. 자격은 `allowed`이고 agent 자격은 dispatch가 막는다.
     input(
       principal: string,
       input: {
@@ -139,11 +147,7 @@ export function createTerminalRoutes(deps: {
         shell_capability?: string;
       },
     ): Promise<Result<Record<string, never>>> {
-      const allowed =
-        deps.granted(principal) ||
-        (input.shell_capability !== undefined &&
-          deps.capability(input.shell_capability));
-      if (!allowed) {
+      if (!allowed(principal, input.shell_capability)) {
         return Promise.resolve(
           forbidden("this caller may not type into the terminal"),
         );

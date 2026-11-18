@@ -1,5 +1,5 @@
-// 터미널 탭이 core의 `terminals/*` route와 터미널 event를 부르는 길. 창마다 하나다. 입력·다시 시작은 여기 없다: 그 창의 focus를
-// 본 shell main이 capability를 실어 부른다(`TerminalApi`).
+// 터미널 탭이 core의 `terminals/*` route와 터미널 event를 부르는 길. 기계 묶음마다 하나다. 입력·다시 시작은 여기 없다: 이 컴퓨터는
+// 그 창의 focus를 본 shell main이 capability를 실어 부르고, 다른 기계는 그 기계의 core로 간다(`TerminalApi`, `machine-deps.ts`).
 import type { z } from "zod";
 
 import type { Route } from "../../../protocol/base/route.ts";
@@ -76,12 +76,9 @@ function newWatcher(): string {
   return `window-${crypto.randomUUID()}`;
 }
 
-export function createTerminalCore(
-  core: CoreSource,
-  events: EventClient,
-  watcher: string = newWatcher(),
-): TerminalCore {
-  async function call<T>(
+/** 그 core의 route 하나를 부르고 답을 `TerminalReply`로 바꾼다. 던지면 unavailable이다. */
+export function terminalCaller(core: CoreSource) {
+  return async function call<T>(
     route: Route,
     body: unknown,
   ): Promise<TerminalReply<T>> {
@@ -104,7 +101,15 @@ export function createTerminalCore(
     } catch {
       return { ok: false, code: "unavailable", reason: null };
     }
-  }
+  };
+}
+
+export function createTerminalCore(
+  core: CoreSource,
+  events: EventClient,
+  watcher: string = newWatcher(),
+): TerminalCore {
+  const call = terminalCaller(core);
   const runtimeOf = async (
     sent: Promise<TerminalReply<{ runtime: TerminalRuntime }>>,
   ): Promise<TerminalReply<TerminalRuntime>> => {

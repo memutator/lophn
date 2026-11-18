@@ -39,7 +39,7 @@ const LEASE_RENEW_MS = 10_000;
 /**
  * React의 tab mount와 terminal의 수명을 분리해 화면을 옮길 때도 이미 파싱한 출력을 유지한다. 출력은 core의 lease를 잡은
  * 동안만 event로 온다: 잡고(`watch`) → snapshot을 읽고 → 그 seq보다 큰 event만 쓴다. seq가 건너뛰거나 연결이 다시 붙으면 마지막
- * seq로 snapshot을 다시 읽어 지금 화면으로 맞춘다.
+ * seq로 snapshot을 다시 읽어 지금 화면으로 맞춘다. 다른 기계의 터미널은 날 출력 없이 화면이 바뀔 때마다 그 길로 맞춘다.
  */
 export class TerminalDisplays {
   readonly #kept = new Map<string, Kept>();
@@ -91,6 +91,14 @@ export class TerminalDisplays {
         const runtime = event.payload.runtime;
         for (const [key, kept] of this.#kept) {
           if (runtime.terminal_ref === kept.ref) this.#runtime(key, runtime);
+        }
+      } else if (event.type === "TerminalScreenChanged") {
+        // 다른 기계의 터미널은 화면 사본으로 온다(`screen-copy.ts`). 새 사본이면 지금 화면으로 다시 쓴다.
+        const { terminal, seq } = event.payload;
+        for (const [key, kept] of this.#kept) {
+          if (terminal === kept.ref && !kept.loading && seq > kept.lastSeq) {
+            this.#catchUp(key, kept);
+          }
         }
       }
     });

@@ -1,10 +1,18 @@
-import { MenuIcon } from "@lophn/ui/overlay";
+import { MenuIcon, Toast } from "@lophn/ui/overlay";
 import { useObservedSize } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
-import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import type { TerminalRuntime } from "../../../protocol/coding-agent/terminals.ts";
 import { isGuiHarness } from "../../../protocol/extensions/mod.ts";
+import { STAY } from "../app-frame/annotate/use-view-toast.ts";
+import { useWindowMachine } from "../desktop/machines/context.tsx";
 import { useWindowCommands } from "../commands/react.tsx";
 import type { Disposable } from "../commands/registry.ts";
 import { conversationIcons } from "../icons/mod.ts";
@@ -75,6 +83,9 @@ export function TerminalTab({
   paths,
 }: TerminalTabProps) {
   const { store, bridge, core } = deps;
+  // 다른 기계의 터미널이면 그 기계(꼬리표, 입력 거절 toast의 이름)다.
+  const machine = useWindowMachine();
+  const copy = deps.screenCopy === true;
   const subscribe = useCallback(
     (listener: () => void) => store.subscribe(listener),
     [store],
@@ -107,11 +118,22 @@ export function TerminalTab({
     harness: guiHarness ?? "claude",
     unavailable: unavailable?.reason ?? null,
   });
+  const machineTag =
+    machine === null ? null : (
+      <span className={styles.machine} data-terminal-machine={machine.id}>
+        {machine.name}
+      </span>
+    );
   const inCard = useCardHead(
     guiHarness === null
-      ? {}
+      ? { actions: machineTag }
       : {
-          actions: toggle.button,
+          actions: (
+            <>
+              {machineTag}
+              {toggle.button}
+            </>
+          ),
           menu: {
             items: [
               {
@@ -131,7 +153,14 @@ export function TerminalTab({
             },
           },
         },
-    [guiHarness, unavailable?.reason, toggle.button, toggle.start],
+    [
+      guiHarness,
+      unavailable?.reason,
+      toggle.button,
+      toggle.start,
+      machine?.id,
+      machine?.name,
+    ],
   );
   const hostRef = useRef<HTMLDivElement>(null);
   const screenRef = useRef<HTMLDivElement>(null);
@@ -218,7 +247,8 @@ export function TerminalTab({
     [core, store, tabKey, project, begin],
   );
 
-  // 사람이 누른 다시 시작. 옛 입력을 다시 보내지 않고 새 generation으로 연다. focus 검사는 main이 하므로 shell main을 거친다.
+  // 사람이 누른 다시 시작. 옛 입력을 다시 보내지 않고 새 generation으로 연다. 이 컴퓨터는 focus 검사를 하는 shell main을,
+  // 다른 기계는 그 기계의 core를 거친다(bridge).
   // 새 runtime은 core의 event로 온다.
   const restart = useCallback(async () => {
     const current = store.get(tabKey);
@@ -228,11 +258,14 @@ export function TerminalTab({
         terminal: current.terminalRef,
         generation: current.generation,
       });
-      if (!reply.ok) store.update(tabKey, { phase: phaseOfRefusal(null) });
+      // 다른 기계가 이 컴퓨터의 다시 시작을 거절하면 끝난 화면을 두고 toast만 뜬다(`onRefused`).
+      if (!reply.ok && !(copy && reply.error.code === "forbidden")) {
+        store.update(tabKey, { phase: phaseOfRefusal(null) });
+      }
       return;
     }
     await open(current?.folderRef ?? folderRef);
-  }, [bridge, store, tabKey, folderRef, open]);
+  }, [bridge, store, tabKey, folderRef, open, copy]);
 
   // xterm과 출력 구독은 창의 displays가 갖는다. React는 보이는 동안 DOM과 입력만 붙인다.
   useEffect(() => {
@@ -328,12 +361,18 @@ export function TerminalTab({
 
   const boundRef = entry?.terminalRef ?? null;
   const boundGeneration = entry?.generation ?? 0;
-  // 폰이 PTY 크기를 잡았다. 칸에 맞추지 않고, 사람이 이 탭을 고르거나 누르면 칸 크기로 다시 잡는다(마지막에 잡은 쪽이 이긴다).
+  // 다른 기기가 PTY 크기를 잡았다. 칸에 맞추지 않고, 사람이 이 탭을 고르거나 누르면 칸 크기로 다시 잡는다(마지막에 잡은 쪽이
+  // 이긴다). 다른 기계의 터미널은 늘 이렇다: 그 기계의 탭과 칸 크기를 다투지 않는다.
   const remote = entry?.remote === true;
+  const grabbed = useRef("");
   const reclaim = () => {
-    if (!remote || !core || boundRef === null) return;
+    if (!(remote || copy) || !core || boundRef === null) return;
     const dims = viewRef.current?.fit();
     if (!dims) return;
+    // 다른 기계의 탭은 치는 key마다 부른다. 이 탭이 잡은 크기가 아직 그대로면(그 기계가 다시 잡지 않았다) 보내지 않는다.
+    const size = `${boundRef}:${boundGeneration}:${dims.columns}x${dims.rows}`;
+    if (copy && remote && size === grabbed.current) return;
+    grabbed.current = size;
     void core.resize(boundRef, boundGeneration, dims.columns, dims.rows);
   };
 
@@ -355,7 +394,7 @@ export function TerminalTab({
   const restored = entry?.restored ?? 0;
   useEffect(() => {
     if (!liveKey || !core || boundRef === null) return;
-    if (remote) {
+    if (remote || copy) {
       lastSize.current = "";
       return;
     }
@@ -374,7 +413,20 @@ export function TerminalTab({
     size?.height,
     restored,
     remote,
+    copy,
   ]);
+
+  // 그 기계가 이 컴퓨터의 입력을 거절했다. 화면은 그대로 보이고 toast가 허락을 켤 곳을 말한다.
+  const [refused, setRefused] = useState(false);
+  const latestRef = useRef(boundRef);
+  latestRef.current = boundRef;
+  useEffect(
+    () =>
+      deps.onRefused?.((terminal) => {
+        if (terminal === latestRef.current) setRefused(true);
+      }),
+    [deps],
+  );
 
   const showScreen =
     phase.kind === "live" || (phase.kind === "ended" && phase.runtime !== null);
@@ -433,14 +485,23 @@ export function TerminalTab({
         onKeyDown={reclaim}
       >
         <div ref={hostRef} className={styles.screenHost} />
-        {remote && showScreen ? (
+        {remote && !copy && showScreen ? (
           <div className={styles.remoteSize}>
-            {t("terminal.notice.sized-for-phone")}
+            {t("terminal.notice.sized-elsewhere")}
           </div>
         ) : null}
       </div>
       {showScreen || banner ? null : <div className={styles.fill} />}
       {banner}
+      {refused && machine !== null ? (
+        <div className={styles.toast}>
+          <Toast
+            title={t("terminal.toast.view-only", { name: machine.name })}
+            onClose={() => setRefused(false)}
+            timer={STAY}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

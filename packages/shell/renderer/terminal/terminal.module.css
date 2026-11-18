@@ -1,5 +1,6 @@
 /* 터미널 탭 본문. 칸의 여백 없이 탭 줄 아래를 다 쓰고, 출력 아래에 상태 줄을 둔다. */
 .terminal {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -107,4 +108,23 @@
   color: var(--color-text-secondary);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
+}
+
+/* 다른 기계의 터미널: card 머리 줄의 기계 이름. */
+.machine {
+  padding: 0 var(--space-2);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  white-space: nowrap;
+}
+
+/* 그 기계가 입력을 거절했을 때 탭 위쪽에 뜨는 알림. */
+.toast {
+  position: absolute;
+  top: var(--space-5);
+  left: 50%;
+  max-width: calc(100% - var(--space-6) - var(--space-6));
+  transform: translateX(-50%);
+  z-index: var(--z-toast);
 }

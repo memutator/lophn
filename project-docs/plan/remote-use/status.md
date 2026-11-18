@@ -7,9 +7,9 @@ lead만 고친다. `tools/status.py remote-use build`가 `tasks/*.md`에서 id, 
 | `use-contract` | use | 1 | 없음 | merged | use/use-contract | f141be239 |  |
 | `use-contract-sdk` | use | 1 | 없음 | merged | use/use-contract-sdk | f5bc7b3c1 |  |
 | `use-grant` | use | 1 | 없음 | merged | use/use-grant | cffb6a878 |  |
-| `use-cli` | use | 2 | use-contract | todo |  |  |  |
-| `use-receive` | use | 2 | use-contract, use-grant | todo |  |  |  |
-| `use-send` | use | 2 | use-contract | todo |  |  |  |
+| `use-cli` | use | 2 | use-contract | running | use/use-cli |  |  |
+| `use-receive` | use | 2 | use-contract, use-grant | running | use/use-receive |  |  |
+| `use-send` | use | 2 | use-contract | running | use/use-send |  |  |
 | `use-events` | use | 3 | use-receive, use-send | todo |  |  |  |
 | `use-screens` | use | 3 | use-send | todo |  |  |  |
 | `use-cleanup` | use | 4 | use-events, use-screens, use-cli | todo |  |  |  |

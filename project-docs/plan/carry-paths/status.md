@@ -8,6 +8,6 @@ lead만 고친다. `tools/status.py carry-paths build`가 `tasks/*.md`에서 id,
 | `carry-folder` | carry | 2 | carry-contract | running | carry/carry-folder |  |  |
 | `carry-links` | carry | 2 | carry-contract | merged | carry/carry-links | cdcbeec4b |  |
 | `carry-notify` | carry | 2 | carry-contract | merged | carry/carry-notify | a5b673917 |  |
-| `carry-phone` | carry | 2 | carry-contract | todo |  |  |  |
+| `carry-phone` | carry | 2 | carry-contract | running | carry/carry-phone |  |  |
 | `carry-settings` | carry | 3 | carry-links, carry-folder | todo |  |  |  |
 | `carry-cleanup` | carry | 4 | carry-phone, carry-notify, carry-settings | todo |  |  |  |

@@ -1,4 +1,4 @@
-// PageViewSource를 창의 core 통로(`page_view/*`)로 만든다. 다른 기계의 창이면 main이 그 기계로 넘긴다.
+// PageViewSource를 창의 core 통로(`page_view/*`)로 만든다. `core`는 탭 범위의 기계 core다.
 import {
   pageViewControl,
   pageViewInput,

@@ -6,7 +6,10 @@ import {
 } from "./shell/project-identity-scene.tsx";
 import { ProjectLinkScene } from "./shell/project-link-scene.tsx";
 import { ShellScene } from "./shell/shell-scene.tsx";
-import { MachinePageScene } from "./shell/machine-page-scene.tsx";
+import {
+  MachinePageScene,
+  PagesMenuScene,
+} from "./shell/machine-page-scene.tsx";
 import {
   MachinesPanelScene,
   MachinesSidebarScene,
@@ -318,11 +321,25 @@ export const shellArea: Area = {
       ),
     },
     {
+      id: "shell-pages-menu",
+      title: "Shell · New tab · Pages on other machines",
+      description:
+        '새 탭 menu. 연결된 다른 기계마다 "Pages on <기계>" 한 줄이 서고(Home server), 꺼진 기계와 명단에서 빠진 기계는 없다. 다른 기계가 없는 사람의 menu에는 이 줄이 없다.',
+      render: () => <PagesMenuScene />,
+    },
+    {
       id: "shell-machine-pages",
       title: "Shell · Other machine · Pages",
       description:
-        "다른 기계(Home server) 창의 새 탭 menu에서 연 Pages 탭. 그 기계의 browser page(agent가 연 것과 사람이 연 것)마다 제목, 주소, 연 쪽(agent 이름이나 you)이 한 줄이고, 누르면 그 page의 탭이 열린다. 위의 주소 칸이 그 기계에 새 page를 연다(화면 없는 기계의 로그인). 이 컴퓨터의 창에는 이 탭이 없다.",
+        '이 컴퓨터의 창에서 "Pages on Home server"로 연 탭. 기계마다 목록 탭 하나이고 탭 줄에 그 기계의 꼬리표가 붙는다. 그 기계의 browser page(agent가 연 것과 사람이 연 것)마다 제목, 주소, 연 쪽(agent 이름이나 you), 누가 잡았는지(폰에서 잡힘 등)가 한 줄이고, 누르면 그 page의 탭이 열린다. 위의 주소 칸이 그 기계에 새 page를 연다(화면 없는 기계의 로그인). 이 컴퓨터의 agent page는 이 탭이 아니라 browser 탭이다.',
       render: () => <MachinePageScene state="list" />,
+    },
+    {
+      id: "shell-machine-pages-offline",
+      title: "Shell · Other machine · Pages, machine off",
+      description:
+        "Pages 탭을 연 기계가 꺼진 때. 본문 대신 그 기계의 이름과 상태 한 줄이 서고 탭은 그대로 남는다. 켜지면 본문이 선다.",
+      render: () => <MachinePageScene state="offline" />,
     },
     {
       id: "shell-machine-page",

@@ -3081,7 +3081,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                       {...(isApp && data.appViews !== null
                         ? { onAppScreen: () => openAppScreen(host) }
                         : {})}
-                      {...(data.here ? {} : { onPages: () => openPages(host) })}
+                      onPages={(machine) => openPages(host, machine)}
                       {...(host.appScreens
                         ? {
                             onAppPanel: () => openAppPanel(host),

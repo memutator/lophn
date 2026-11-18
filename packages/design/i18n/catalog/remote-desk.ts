@@ -65,6 +65,7 @@ export const remoteDesk = {
   "machines.title.clone-parent": "Choose a folder for projects you clone",
   "machines.page.kind": "Pages",
   "machines.page.title": "Pages on {name}",
+  "machines.page.menu": "Pages on {name}",
   "machines.page.target": "the pages on {name}",
   "machines.page.target-one": "this page",
   "machines.page.empty": "No pages are open on {name}.",
@@ -78,6 +79,8 @@ export const remoteDesk = {
   "machines.page.agent-using": "{agent} is using this page",
   "machines.page.agent-using-unnamed": "An agent is using this page",
   "machines.page.held": "You have control",
+  "machines.page.held-by-phone": "Taken from your phone",
+  "machines.page.held-by-computer": "Taken from another computer",
   "machines.page.not-painting":
     "{name} is not drawing this page now. Its window may be minimized or hidden.",
   "machines.page.closed": "This page was closed on {name}.",

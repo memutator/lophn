@@ -1,5 +1,5 @@
-// 다른 기계의 browser 탭을 보고 다루는 통로. 화면은 이 interface만 보고 core route 이름은 core-source.ts만 안다.
-// 바뀜(`PageViewChanged`, `StateChanged{browser_pages}`)은 창의 event client로 듣는다.
+// 한 기계의 browser 탭을 보고 다루는 통로. 화면은 이 interface만 보고 core route 이름은 core-source.ts만 안다.
+// 바뀜(`PageViewChanged`, `StateChanged{browser_pages}`)은 탭 범위의 event client로 듣는다.
 import type { z } from "zod";
 
 import type {

@@ -13,6 +13,7 @@ import {
 } from "../icons/mod.ts";
 import { t } from "@lophn/i18n";
 import { useKeyLabel } from "../commands/react.tsx";
+import { useMachinesView } from "../desktop/machines/context.tsx";
 
 interface NewTabMenuProps {
   onDocument?: () => void;
@@ -26,8 +27,8 @@ interface NewTabMenuProps {
   onAppPanel?: () => void;
   appItems?: readonly QuickHoverItem[];
   onAppScreen?: () => void;
-  /** 다른 기계의 창에서만 준다: 그 기계의 browser page 목록. */
-  onPages?: () => void;
+  /** 연결된 다른 기계마다 "Pages on <기계>" 항목이 선다. 그 기계의 browser page 목록 탭을 연다. */
+  onPages?: (machine: string) => void;
 }
 
 const lead = (icon: Parameters<typeof MenuIcon>[0]["icon"]): ReactNode => (
@@ -36,6 +37,7 @@ const lead = (icon: Parameters<typeof MenuIcon>[0]["icon"]): ReactNode => (
 
 export function NewTabMenu(props: NewTabMenuProps) {
   const keyLabel = useKeyLabel();
+  const machines = useMachinesView()?.machines ?? [];
   const keyed = (id: string): { shortcut?: string } => {
     const key = keyLabel(id);
     return key === null ? {} : { shortcut: key };
@@ -121,11 +123,13 @@ export function NewTabMenu(props: NewTabMenuProps) {
       leading: lead(workspaceIcons.appPanel),
     });
   if (props.onPages)
-    root.push({
-      id: "pages",
-      label: t("machines.page.kind"),
-      leading: lead(browserIcons.globe),
-    });
+    for (const machine of machines)
+      if (machine.status === "connected")
+        root.push({
+          id: `pages:${machine.id}`,
+          label: t("machines.page.menu", { name: machine.name }),
+          leading: lead(browserIcons.globe),
+        });
   if (props.onAppPanel)
     root.push({
       id: "app-panel-menu",
@@ -157,7 +161,8 @@ export function NewTabMenu(props: NewTabMenuProps) {
         else if (id === "search") props.onSearch?.();
         else if (id === "app-screen") props.onAppScreen?.();
         else if (id === "app-panel") props.onAppPanel?.();
-        else if (id === "pages") props.onPages?.();
+        else if (id.startsWith("pages:"))
+          props.onPages?.(id.slice("pages:".length));
         else actions.get(id)?.();
       }}
     />

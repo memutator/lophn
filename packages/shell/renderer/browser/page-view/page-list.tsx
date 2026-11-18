@@ -1,4 +1,4 @@
-// 다른 기계의 page 목록 탭 본문. 그 기계의 core가 아는 browser 탭(agent가 연 탭과 사람이 연 탭)을 제목, 주소, 연 쪽으로
+// 한 기계의 page 목록 탭 본문. 그 기계의 core가 아는 browser 탭(agent가 연 탭과 사람이 연 탭)을 제목, 주소, 연 쪽, 누가 잡았는지로
 // 보이고, 누르면 그 page의 탭을 연다. 다룰 수 있는 기기면 위에 새 page를 여는 주소 칸이 선다. 목록은
 // `StateChanged{browser_pages}`에 다시 읽는다.
 import { useState } from "react";
@@ -14,6 +14,15 @@ import { actionIcons } from "../../icons/mod.ts";
 import { AddressInput, withScheme } from "./address-input.tsx";
 import styles from "./page-view.module.css";
 import type { PageViewSource } from "./source.ts";
+
+// 누가 이 page를 잡고 있나. "you"는 부른 기기 자신이다.
+function heldLine(heldBy: "you" | "phone" | "computer"): string {
+  return heldBy === "you"
+    ? t("machines.page.held")
+    : heldBy === "phone"
+      ? t("machines.page.held-by-phone")
+      : t("machines.page.held-by-computer");
+}
 
 export function PageList({
   source,
@@ -99,11 +108,13 @@ export function PageList({
                 <ListItem
                   key={page.tab}
                   title={title}
-                  meta={`${page.url} · ${
+                  meta={[
+                    page.url,
                     page.by === null
                       ? t("machines.page.by-you")
-                      : t("machines.page.by-agent", { agent: page.by })
-                  }`}
+                      : t("machines.page.by-agent", { agent: page.by }),
+                    ...(page.held_by === null ? [] : [heldLine(page.held_by)]),
+                  ].join(" · ")}
                   onSelect={() => onOpen(page.tab, title)}
                 />
               );

@@ -1,6 +1,7 @@
-// page-view 탭 kind. 다른 기계의 창에서 그 기계의 browser page를 보고 다룬다(`browser-tab.md` "멀리서 보기"). key `pages`의
-// 탭은 page 목록이고, 목록에서 고른 page는 key `page-view:<탭 id>`의 탭이다. 다른 기계의 창의 layout은 메모리에만 있어
-// fromStored·toStored가 없다. 이 컴퓨터의 agent page는 browser 탭이라 새 탭 menu가 다른 기계의 창에서만 이 탭을 연다.
+// page-view 탭 kind. 다른 기계의 browser page를 이 창의 탭으로 보고 다룬다(`browser-tab.md` "멀리서 보기"). 탭이 기계(`tab.machine`)를
+// 든다: 목록 탭은 key `pages-<기계>`로 기계마다 하나이고, 목록에서 고른 page는 key `page-view-<기계>-<page>`의 탭이다(key가 기계를
+// 건너 겹치지 않는다). 본문은 탭의 범위(TabScope) 안에서 그 기계의 core로 `page_view/*`를 부른다. page id는 그 기계 core의 것이고
+// agent가 닫으면 사라지므로 fromStored·toStored가 없다. 이 컴퓨터의 agent page는 browser 탭이라 새 탭 menu가 다른 기계마다만 연다.
 import { useCallback, useMemo } from "react";
 import { t } from "@lophn/i18n";
 
@@ -8,29 +9,36 @@ import { corePageViewSource } from "../../browser/page-view/core-source.ts";
 import { PageList } from "../../browser/page-view/page-list.tsx";
 import { PageView } from "../../browser/page-view/page-view.tsx";
 import { useEventClient } from "../../desktop/connection/events/hooks.tsx";
-import { useWindowMachine } from "../../desktop/machines/context.tsx";
+import {
+  machineItemOf,
+  useMachines,
+  useMachinesView,
+} from "../../desktop/machines/context.tsx";
 import { browserIcons } from "../../icons/mod.ts";
 import type { TabItem } from "../model.ts";
 import { PaddedTab } from "../padded-tab.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 
-const PAGES_KEY = "pages";
-const PAGE_PREFIX = "page-view:";
-
-/** page 목록 탭을 연다. 이미 열려 있으면 고르기만 한다. */
-export function openPages(host: TabHost): void {
+/** 그 기계의 page 목록 탭을 연다. 이미 열려 있으면 고르기만 한다. */
+export function openPages(host: TabHost, machine: string): void {
   host.openTab({
-    key: PAGES_KEY,
+    key: `pages-${machine}`,
     kind: "page-view",
     title: t("machines.page.kind"),
+    machine,
   });
 }
 
 function PageViewTab({ tab, host }: { tab: TabItem; host: TabHost }) {
   const client = useEventClient();
   const source = useMemo(() => corePageViewSource(client.core), [client]);
-  const machineName = useWindowMachine()?.name ?? "";
+  const machine = tab.machine ?? host.machine;
+  const machines = useMachines();
+  const view = useMachinesView();
+  const machineName =
+    machine === null ? "" : machineItemOf(machines, view, machine).name;
+  const page = tab.fields?.page;
   // page 탭의 이름은 그 page의 제목을 따라간다.
   const onTitle = useCallback(
     (title: string) => {
@@ -40,22 +48,24 @@ function PageViewTab({ tab, host }: { tab: TabItem; host: TabHost }) {
   );
   return (
     <PaddedTab bare>
-      {tab.key === PAGES_KEY ? (
+      {typeof page !== "string" ? (
         <PageList
           source={source}
           machineName={machineName}
-          onOpen={(page, title) =>
+          onOpen={(opened, title) =>
             host.openTab({
-              key: `${PAGE_PREFIX}${page}`,
+              key: `page-view-${machine}-${opened}`,
               kind: "page-view",
               title,
+              ...(machine === null ? {} : { machine }),
+              fields: { page: opened },
             })
           }
         />
       ) : (
         <PageView
           source={source}
-          tab={tab.key.slice(PAGE_PREFIX.length)}
+          tab={page}
           machineName={machineName}
           onTitle={onTitle}
         />

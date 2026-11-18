@@ -1,4 +1,4 @@
-// 다른 기계의 page 하나를 보고 다루는 탭 본문(`browser-tab.md` "멀리서 보기"). 보는 동안 `page_view/watch` lease를 잡고
+// 한 기계의 page 하나를 보고 다루는 탭 본문(`browser-tab.md` "멀리서 보기"). 보는 동안 `page_view/watch` lease를 잡고
 // PAGE_VIEW_RENEW_MS마다 갱신하며, 탭이 닫히거나 창이 안 보이면 놓는다. 그 탭의 `PageViewChanged`가 오면 snapshot을 다시 읽고,
 // 읽는 중이면 끝난 뒤 한 번만 더 읽는다(읽어 간 만큼만 다음 frame이 온다). 다룰 수 있으면(snapshot의 control) 그림의
 // 누르기·끌기·굴리기, key, 쳐진 글(IME 포함)과 이 컴퓨터에서 붙여넣은 글이 `page_view/input`이 되고, 머리 줄에 뒤로·다시 읽기·

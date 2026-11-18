@@ -10,4 +10,4 @@ lead만 고친다. `tools/status.py device-roster build`가 `tasks/*.md`에서 i
 | `roster-cli` | roster | 3 | roster-core | merged | roster/roster-cli | 1314a3c78 |  |
 | `roster-links` | roster | 3 | roster-core | merged | roster/roster-links | c99596b58 |  |
 | `roster-desktop` | roster | 4 | roster-links | merged | roster/roster-desktop | 1bd4fd398 |  |
-| `roster-cleanup` | roster | 5 | roster-client, roster-cli, roster-desktop | running | roster/roster-cleanup |  |  |
+| `roster-cleanup` | roster | 5 | roster-client, roster-cli, roster-desktop | merged | roster/roster-cleanup | 5c9d2e25f |  |

@@ -5,12 +5,8 @@ export const machineUpdate = {
     "{name} runs a newer lophn. Update lophn on this computer to view it.",
   "machine-update.viewer.desktop-host":
     "{name} runs an older lophn. Update lophn on {name} to view it from this computer.",
-  "machine-update.viewer.pair-client":
-    "That computer runs a newer lophn. Update lophn on this computer, then pair again.",
-  "machine-update.viewer.pair-host":
-    "That computer runs an older lophn. Update lophn there, then pair again.",
   "machine-update.viewer.pair-note":
-    "After the update, try again. If the code has expired by then, make a new one on that computer.",
+    "After the update, try again. If the invite has expired by then, make a new one on that computer.",
   "machine-update.viewer.phone-client":
     "Update the lophn app on this phone to reach {name}.",
   "machine-update.viewer.phone-host":

@@ -46,18 +46,18 @@ export const mobileApp = {
   "mobile.settings.note.appearance":
     "Colors and fonts follow lophn. The theme you picked on a computer stays on that computer.",
   "mobile.settings.note.phone-name":
-    "Computers show this name for your phone. A name you gave the phone on a computer shows there instead.",
+    "Computers show this name for your phone. Renaming the phone on a computer changes it everywhere until you change it here.",
   "mobile.start.button.continue": "Continue",
-  "mobile.start.button.enter-code": "Enter a pairing code instead",
+  "mobile.start.button.enter-code": "Paste the invite instead",
   "mobile.start.button.flashlight": "Flashlight",
   "mobile.start.button.pair": "Pair",
   "mobile.start.button.scan": "Scan the code",
   "mobile.start.button.scan-again": "Scan again",
   "mobile.start.button.scan-different": "Scan a different code",
   "mobile.start.error.computer-invite":
-    "This code adds a computer. On your computer, choose Add a phone to get a code for this phone.",
-  "mobile.start.error.not-a-code": "This is not a pairing code.",
-  "mobile.start.heading.enter-code": "Enter a pairing code",
+    "This invite adds a computer. On your computer, choose Invite a phone to get an invite for this phone.",
+  "mobile.start.error.not-a-code": "This is not a lophn invite.",
+  "mobile.start.heading.enter-code": "Paste the invite",
   "mobile.start.heading.expired": "This code has expired",
   "mobile.start.heading.paired": "Paired with {name}",
   "mobile.start.heading.pairing": "Pairing with {name}",

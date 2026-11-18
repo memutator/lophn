@@ -136,7 +136,7 @@ import { devicesSetPush, rosterLeave } from "./routes.ts";
 // `tabs/*`, `sessions/delete`(되돌릴 수 없다), `sessions/change-skip`(사람에게 묻지 않고 돌게 하는 권한 설정이다)은 넣지 않는다.
 // 컴퓨터의 coding agent(`coding_sessions/*`)는 폰이 목록을 보고 view를 바꾸고 새로 열고 컴퓨터의 앱을 깨운다. 폰이 시작한 switch도
 // `confirmed: true`가 있어야 하고(도는 turn이 끊긴다). coding session의 터미널 화면은 `terminal_view/*`로 보고 친다. `terminal_view/input`은
-// 목록에 있어도 사람이 컴퓨터에서 이 기기의 터미널 입력을 켰을 때만 core가 받는다. 그 스위치(`devices/set_terminal_input`)와
+// 목록에 있어도 사람이 컴퓨터에서 이 기기의 터미널 입력을 켰을 때만 core가 받는다. 그 스위치(`roster/set_terminal_input`)와
 // `host/*`·`terminal_sessions/*`는 넣지 않는다.
 // `jobs/update`는 켜고 끄기(`enabled`)만 받는다(core/remote/call.ts). `acp/send`는 안의 route를 기기 자격으로 부르므로 대화 조작 route도 여기 있어야 한다.
 // 모두 user가 부를 수 있는 route여야 한다(아니면 core가 기기 자격을 만들지 못한다).

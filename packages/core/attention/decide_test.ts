@@ -83,7 +83,7 @@ test("앞에 있는 폰은 자기에게만 보내지 않는다", () => {
   assert.deepEqual(sent, ["ExponentPushToken[two]"]);
 });
 
-test("kind desktop 기기의 보고는 desktop 규칙을 따른다", () => {
+test("kind computer 기기의 보고는 desktop 규칙을 따른다", () => {
   const devices = [phone("a")];
   const desk = (patch: Partial<PresenceReport>) => ({
     "device:desk": report(patch),

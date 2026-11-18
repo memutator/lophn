@@ -39,7 +39,7 @@ export const PACKAGE_DEPENDENCIES: Record<string, string[]> = {
   "coding-agent": ["protocol", "base"],
   design: [],
   sdk: ["protocol", "design"],
-  shell: ["protocol", "base", "design", "remote-client"],
+  shell: ["protocol", "base", "design"],
   relay: ["protocol", "base"],
   "remote-client": ["protocol", "base"],
 };

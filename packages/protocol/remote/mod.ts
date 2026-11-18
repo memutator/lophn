@@ -1,4 +1,4 @@
-// 기기(폰, 다른 기계의 desktop)와 core 사이 암호화된 연결: Noise IK handshake, 암호화한 frame, frame schema.
+// 기기(폰, 다른 컴퓨터의 core)와 core 사이 암호화된 연결: Noise IK handshake, 암호화한 frame, frame schema.
 
 export { REMOTE_ALLOWED_EVENTS, REMOTE_ALLOWED_ROUTES } from "./allowlist.ts";
 export {

@@ -90,6 +90,7 @@ function setup(
     },
   };
   const deps: RemoteForwardDeps = {
+    isPrivate: () => false,
     assignmentOf: (agent) =>
       ok({
         agent,

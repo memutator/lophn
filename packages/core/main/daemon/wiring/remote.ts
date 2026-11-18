@@ -65,7 +65,6 @@ import {
   assignmentGet,
 } from "../../../../protocol/approvals/mod.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
-import { DEFAULT_CALL_POLICY } from "../../../../protocol/lophn-agent/call-policy.ts";
 import type { Workspace } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { resolveMachine } from "../../../../protocol/machine/requester.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
@@ -83,7 +82,6 @@ import {
 } from "../../../apps/sync/schema.ts";
 import { type PushDevice } from "../../../attention/mod.ts";
 import { createExpoPushSender } from "../../../attention/push/mod.ts";
-import { callPolicySetting } from "../../../config/setting-declarations.ts";
 import {
   devicesSetting,
   remoteAddressesSetting,

@@ -23,6 +23,7 @@ import {
 } from "../../../../protocol/apps/mod.ts";
 import { appSdkReviewRecord } from "../../../../protocol/apps/sdk-status.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
+import type { AgentId } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { ToolCallOutput } from "../../../../protocol/apps/mod.ts";
 import type { At } from "../../../../protocol/base/values.ts";
 import type { BusEvent } from "../../../../protocol/events/mod.ts";
@@ -31,6 +32,8 @@ import type {
   BlobReadInput,
   PreparedBlob,
 } from "../../../../protocol/storage/mod.ts";
+import { agentDirectory } from "./lophn-agent-team.ts";
+import { createRemoteForward } from "../../../apps/calls/forward.ts";
 import { createAppCalls, remoteCallHandler } from "../../../apps/calls/mod.ts";
 import { requesterOf } from "../../../remote/call.ts";
 import { agentAssignment } from "../../../apps/usage/users.ts";
@@ -356,6 +359,16 @@ export const appsWiring: WiringFactory = () => {
           kind: "app",
           id: app,
         });
+      const assignmentOf = (agent: AgentId) => agentAssignment(link.sql, agent);
+      const appGrantsOf = async (app: Id<"app">) => {
+        const listed = await ctx.runtime.readers.read(
+          appGrantsList,
+          APPS_CONTROL_CONTEXT,
+          { app, status: "active", limit: GRANT_LIST_MAX_COUNT },
+        );
+        if (!listed.ok) return listed;
+        return ok((listed.value as { grants: AppGrant[] }).grants);
+      };
       const { path, intake, phone, folder, syncHeld } = createAppCalls({
         isPrivate: appIsPrivate,
         callers,
@@ -363,26 +376,21 @@ export const appsWiring: WiringFactory = () => {
         apps: states,
         ledger,
         link: appsControl.link,
-        assignmentOf: (agent) => agentAssignment(link.sql, agent),
-        async appGrantsOf(app) {
-          const listed = await ctx.runtime.readers.read(
-            appGrantsList,
-            APPS_CONTROL_CONTEXT,
-            { app, status: "active", limit: GRANT_LIST_MAX_COUNT },
-          );
-          if (!listed.ok) return listed;
-          return ok((listed.value as { grants: AppGrant[] }).grants);
-        },
+        assignmentOf,
+        appGrantsOf,
         clock: ctx.clock,
         ids,
-        // 다른 기계의 앱으로 넘기는 길은 `use-send`가 remote wiring의 machineLinks로 채운다.
-        forward: () =>
-          Promise.resolve(
-            err({
-              code: "unavailable",
-              message: "calling an app on another machine is not available yet",
-            }),
-          ),
+        // 다른 기계의 앱으로 넘기는 길. 컴퓨터 이름 풀기와 link는 remote wiring이 늦게 내는 machineLinks다.
+        forward: createRemoteForward({
+          assignmentOf,
+          appGrantsOf,
+          isPrivate: appIsPrivate,
+          machines: () => ctx.machineLinks,
+          policy: () =>
+            ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY,
+          agentName: (agent) =>
+            agentDirectory(link.sql).agent(agent)?.name ?? null,
+        }),
         sync,
         // 폰이나 다른 기계에서 온 변경이 앱 DB를 바꿨다. `call.settled`와 같은 길로 그 앱에만 낸다.
         dataChanged(app) {

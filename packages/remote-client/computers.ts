@@ -251,8 +251,9 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
     deviceKey === undefined ? undefined : remoteKeyText(deviceKey.publicKey);
   const roots = () =>
     saved.flatMap((c) => (c.signing_key === undefined ? [] : [c.signing_key]));
-  // A saved computer caught in a disputed removal (two computers removed each other): kept saved so this device follows the
-  // resolution once a computer removes the other side again, but not reached and shown as cut off until then.
+  // A saved computer caught in a disputed removal (two computers removed each other): kept saved and still dialled so this
+  // device hears the computers remove the other side again, but its link carries the roster only (screens get no link, so no
+  // calls, watches or app sync) and it shows as cut off until then.
   const disputed = (computer: Computer) =>
     view.removed.some(
       (r) =>
@@ -307,9 +308,7 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
   // One link per saved computer that has not refused this device; a link whose computer left the list is closed.
   function sync() {
     const wanted = new Set(
-      saved
-        .filter((c) => !revoked.has(c.key) && !disputed(c))
-        .map((c) => c.key),
+      saved.filter((c) => !revoked.has(c.key)).map((c) => c.key),
     );
     for (const key of [...links.keys()]) {
       if (!wanted.has(key)) closeLink(key);
@@ -517,7 +516,11 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
       return starting;
     },
     link(key) {
-      return key === sample?.key ? sample.link : links.get(key)?.link;
+      if (key === sample?.key) return sample.link;
+      const computer = saved.find((c) => c.key === key);
+      return computer === undefined || disputed(computer)
+        ? undefined
+        : links.get(key)?.link;
     },
     select(key) {
       chosen = key;

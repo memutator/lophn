@@ -638,6 +638,48 @@ test("빠진 서명자가 단 id와 이름은 엇갈린 줄을 바꾸지 못해 
   );
 });
 
+test("빠진 도둑이 구경꾼의 서명 key를 단 항목을 서명해도 구경꾼은 도둑을 엇갈린 줄로 보고 다시 뺀다", () => {
+  const [x, y, r] = [computer(), computer(), computer()];
+  // R은 빠진 뒤 X를 빼고, 자기 host key에 Y의 서명 key를 단 항목을 서명한다.
+  const forged = signed({ ...computerEntry(r, 7), signing_key: root(y) }, r);
+  const statements = [...mesh([x, y, r]), out(x, r), out(r, x), forged];
+  const disputed = viewOf(statements, [root(y)]);
+  assert.deepEqual(
+    disputed.removed.map((one) => [one.body.key, one.settled]).sort(),
+    [
+      [x.key, false],
+      [r.key, false],
+    ].sort(),
+  );
+  const after = viewOf([...disputed.keep, out(y, r)], [root(y)]);
+  assert.deepEqual(deviceKeys(after).sort(), [x.key, y.key].sort());
+  assert.deepEqual(
+    after.removed.map((one) => [one.body.key, one.settled]),
+    [[r.key, true]],
+  );
+});
+
+test("저장한 컴퓨터가 모두 도둑에게 맞빼기를 당한 폰이 컴퓨터들이 다시 뺀 뒤 그 컴퓨터들을 다시 믿는다", () => {
+  const [x, y, r] = [computer(), computer(), computer()];
+  const roots = [root(x), root(y), root(r)];
+  // X가 R을 뺐고 도둑 R이 X와 Y를 뺐다. 폰은 셋을 다 저장했다: 아무도 믿지 못하고 아무것도 정해지지 않는다.
+  const stuck = [...mesh([x, y, r]), out(x, r), out(r, x), out(r, y)];
+  const before = viewOf(stuck, roots);
+  assert.deepEqual(deviceKeys(before), []);
+  assert.ok(before.removed.every((one) => !one.settled));
+  // Y의 사람이 R을 다시 뺐다. R이 아닌 저장한 컴퓨터(X, Y)가 모두 R을 뺐으므로 폰은 그것을 따른다. 어느 순서로 받아도 같다.
+  const resolved = [...stuck, out(y, r)];
+  for (const order of [resolved, [...resolved].reverse()]) {
+    const view = viewOf(order, roots);
+    assert.deepEqual(deviceKeys(view).sort(), [x.key, y.key].sort());
+    assert.deepEqual(
+      view.removed.map((one) => [one.body.key, one.settled]),
+      [[r.key, true]],
+    );
+    assert.deepEqual(viewOf(view.keep, roots), view);
+  }
+});
+
 test("쓰인 초대장으로 든 기기를 뺀 뒤에도 그 초대장으로 다른 key가 들지 못한다", () => {
   const { a, b, base } = pair();
   const made = inviteOf(a);

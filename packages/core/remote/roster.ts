@@ -440,7 +440,10 @@ export function createRoster(deps: RosterDeps) {
         }
         const found = matched[0];
         if (found === undefined) return notFound();
-        if (found.key === self.hostKey) {
+        if (
+          found.key === self.hostKey ||
+          found.signing_key === self.signingKey
+        ) {
           return err({
             code: "invalid_input",
             message: "this computer cannot remove itself from the roster",

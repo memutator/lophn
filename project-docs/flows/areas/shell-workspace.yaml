@@ -1711,6 +1711,7 @@ flows:
       - "켜거나 창이 되살아난 뒤 2초 안에 frame이 없거나, 그 탭을 bind한 창이 최소화되거나 숨겨지거나, debugger가 떨어지면 painting false를 page_state로 알린다. 창이 되살아나면(restore, show) screencast를 다시 켜 첫 frame을 받고, frame이 오면 painting true다"
       - "page_input은 켠 탭에만 넣는다. pointer는 왼쪽 단추의 mousePressed·mouseMoved·mouseReleased, scroll은 mouseWheel, 글은 글자마다 keyDown·keyUp, key는 agent의 press와 같은 이름과 순서, navigate는 navigation 규칙을 지난 url만, back은 앞 history 항목, reload는 page 안의 location.reload()다. 사람의 입력이라 take control을 보지 않는다"
       - "page_control은 그 기계의 [Take control]·[Hand back]과 같은 상태를 잡고 놓는다(browser-tab-control). agent가 다룬 적 없는 탭은 그대로다. 상태가 바뀌면 그 창에 push하고 켠 탭이면 page_state를 보낸다"
+      - "켠 탭이 다른 view에 다시 bind되면(다른 창이 page를 새로 만듦) 옛 page에서 끄고 새 page에서 다시 켜 frame과 입력이 탭을 따라간다"
       - "탭이 닫히거나 그 page를 든 창이 닫히면 그 탭의 screencast를 끄고 잊는다. 연결이 다시 열리면 모두 끈다(core가 살아 있는 lease마다 다시 켠다)"
     outcomes:
       - id: streaming

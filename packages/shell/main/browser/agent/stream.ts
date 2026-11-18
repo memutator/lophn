@@ -11,7 +11,7 @@ import type {
 import type { PageInput } from "../../../../protocol/lophn-agent/page-view.ts";
 import { decideNavigation } from "../navigation.ts";
 import type { ControlState, TabControl } from "./control.ts";
-import { parseKey } from "./keys.ts";
+import { type CdpSend, pressKey, typeText } from "./keys.ts";
 import type { Page } from "./page.ts";
 
 // 보내기 사이의 최소 간격(10 fps). spike에서 screencast 10 fps가 core 하나의 약 16%였다.
@@ -223,41 +223,8 @@ export function createPageStream(deps: PageStreamDeps) {
     await page.send("Input.dispatchMouseEvent", params);
   }
 
-  // driver의 `press`와 같은 순서다.
-  async function key(page: Page, spec: string): Promise<boolean> {
-    const event = parseKey(spec);
-    if (event === undefined) return false;
-    await page.send("Input.dispatchKeyEvent", {
-      ...event,
-      type: event.text === undefined ? "rawKeyDown" : "keyDown",
-    });
-    await page.send("Input.dispatchKeyEvent", {
-      type: "keyUp",
-      key: event.key,
-      code: event.code,
-      windowsVirtualKeyCode: event.windowsVirtualKeyCode,
-      modifiers: event.modifiers,
-    });
-    return true;
-  }
-
-  // driver의 글 치기와 같다: 글자마다 text를 단 keyDown·keyUp이다.
-  async function type(page: Page, text: string): Promise<void> {
-    for (const char of text) {
-      const enter = char === "\n" || char === "\r";
-      const name = enter ? "Enter" : char;
-      const typed = enter ? "\r" : char;
-      await page.send("Input.dispatchKeyEvent", {
-        type: "keyDown",
-        key: name,
-        text: typed,
-        unmodifiedText: typed,
-      });
-      await page.send("Input.dispatchKeyEvent", { type: "keyUp", key: name });
-    }
-  }
-
   async function put(page: Page, input: PageInput): Promise<HostToolOutput> {
+    const send: CdpSend = (method, params) => page.send(method, params);
     switch (input.type) {
       case "pointer": {
         await mouse(page, {
@@ -283,10 +250,10 @@ export function createPageStream(deps: PageStreamDeps) {
         });
         return OK;
       case "text":
-        await type(page, input.text);
+        await typeText(send, input.text);
         return OK;
       case "key":
-        return (await key(page, input.key))
+        return (await pressKey(send, input.key))
           ? OK
           : failure("invalid_input", `unknown key: ${input.key}`);
       case "navigate": {
@@ -328,43 +295,45 @@ export function createPageStream(deps: PageStreamDeps) {
     }
   }
 
+  // 켠다. 이미 켠 탭이면 다시 켜고, 탭의 page가 바뀌었으면 옛 page에서 끄고 새 page에서 켠다.
+  async function turnOn(tab: string): Promise<HostToolOutput> {
+    const page = deps.page(tab);
+    if (page === undefined || page.isDestroyed()) return NOT_FOUND;
+    const known = streams.get(tab);
+    if (known !== undefined && known.page !== page) stop(tab);
+    const stream: Stream = streams.get(tab) ?? {
+      page,
+      read: true,
+      sent: 0,
+      lastSentMs: -FRAME_MIN_MS,
+      latest: undefined,
+      acks: [],
+      cancelSend: undefined,
+      painting: true,
+      framed: false,
+      cancelPaint: undefined,
+    };
+    // 이미 켠 탭을 다시 켜면 core가 지금 frame을 바라는 것이다. 앞 frame의 읽음을 기다리지 않는다.
+    stream.read = true;
+    streams.set(tab, stream);
+    listen(page);
+    try {
+      await start(tab, stream);
+    } catch {
+      stop(tab);
+      return failure(
+        "unavailable",
+        "The browser page could not be streamed: another debugger may be attached or the page is gone.",
+      );
+    }
+    state(tab, stream);
+    return OK;
+  }
+
   return {
     async stream(payload: Payload<"page_stream">): Promise<HostToolOutput> {
-      const { tab } = payload;
-      if (!payload.on) {
-        stop(tab);
-        return OK;
-      }
-      const page = deps.page(tab);
-      if (page === undefined || page.isDestroyed()) return NOT_FOUND;
-      const known = streams.get(tab);
-      if (known !== undefined && known.page !== page) stop(tab);
-      const stream: Stream = streams.get(tab) ?? {
-        page,
-        read: true,
-        sent: 0,
-        lastSentMs: -FRAME_MIN_MS,
-        latest: undefined,
-        acks: [],
-        cancelSend: undefined,
-        painting: true,
-        framed: false,
-        cancelPaint: undefined,
-      };
-      // 이미 켠 탭을 다시 켜면 core가 지금 frame을 바라는 것이다. 앞 frame의 읽음을 기다리지 않는다.
-      stream.read = true;
-      streams.set(tab, stream);
-      listen(page);
-      try {
-        await start(tab, stream);
-      } catch {
-        stop(tab);
-        return failure(
-          "unavailable",
-          "The browser page could not be streamed: another debugger may be attached or the page is gone.",
-        );
-      }
-      state(tab, stream);
+      if (payload.on) return await turnOn(payload.tab);
+      stop(payload.tab);
       return OK;
     },
 
@@ -414,6 +383,14 @@ export function createPageStream(deps: PageStreamDeps) {
     wake(tab: string): void {
       const stream = streams.get(tab);
       if (stream !== undefined) void start(tab, stream).catch(() => {});
+    },
+    /** 탭이 다른 view에 다시 bind됐다. 켠 탭이면 frame과 입력이 새 page를 따라가게 다시 켠다. */
+    rebind(tab: string): void {
+      const stream = streams.get(tab);
+      const page = deps.page(tab);
+      if (stream !== undefined && page !== undefined && page !== stream.page) {
+        void turnOn(tab);
+      }
     },
     /** 탭이 닫혔다. */
     forget: stop,

@@ -211,6 +211,9 @@ export function register(
         host.window = event.sender.id;
       }
       releaseOld(tab, before, event.sender.id);
+      if (before !== undefined && before.view_session !== view_session) {
+        stream.rebind(tab);
+      }
       const request = opening.get(tab);
       if (request !== undefined) {
         opening.delete(tab);

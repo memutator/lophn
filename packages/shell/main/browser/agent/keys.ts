@@ -90,3 +90,48 @@ export function parseKey(spec: string): KeyEvent | undefined {
     ...(command === undefined ? {} : { commands: [command] }),
   };
 }
+
+/** CDP 명령 하나를 보내는 길이다. driver는 기한을 건 send를 준다. */
+export type CdpSend = (
+  method: string,
+  params?: Record<string, unknown>,
+) => Promise<unknown>;
+
+/** `press`의 key 하나를 누르고 뗀다. 모르는 이름이면 보내지 않고 false다. */
+export async function pressKey(send: CdpSend, spec: string): Promise<boolean> {
+  const event = parseKey(spec);
+  if (event === undefined) return false;
+  await send("Input.dispatchKeyEvent", {
+    ...event,
+    type: event.text === undefined ? "rawKeyDown" : "keyDown",
+  });
+  await send("Input.dispatchKeyEvent", {
+    type: "keyUp",
+    key: event.key,
+    code: event.code,
+    windowsVirtualKeyCode: event.windowsVirtualKeyCode,
+    modifiers: event.modifiers,
+  });
+  return true;
+}
+
+/** 글자 하나의 keyDown·keyUp이다. text를 달아 보낸다. */
+export function typeChar(send: CdpSend, char: string): Promise<unknown>[] {
+  const enter = char === "\n" || char === "\r";
+  const key = enter ? "Enter" : char;
+  const typed = enter ? "\r" : char;
+  return [
+    send("Input.dispatchKeyEvent", {
+      type: "keyDown",
+      key,
+      text: typed,
+      unmodifiedText: typed,
+    }),
+    send("Input.dispatchKeyEvent", { type: "keyUp", key }),
+  ];
+}
+
+/** 글을 글자마다 친다. */
+export async function typeText(send: CdpSend, text: string): Promise<void> {
+  await Promise.all([...text].flatMap((char) => typeChar(send, char)));
+}

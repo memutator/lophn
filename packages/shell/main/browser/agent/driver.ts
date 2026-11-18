@@ -8,7 +8,7 @@ import type {
 } from "../../../../protocol/lophn-agent/host-queue.ts";
 import { decideNavigation } from "../navigation.ts";
 import type { TabControl } from "./control.ts";
-import { parseKey } from "./keys.ts";
+import { type CdpSend, pressKey, typeChar, typeText } from "./keys.ts";
 import { type Page, type PageLookup, pageOf } from "./page.ts";
 import { type AxNode, createRefs, type Refs } from "./snapshot.ts";
 
@@ -355,22 +355,16 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
     await send(session, "Input.dispatchMouseEvent", params);
   }
 
+  // 기한을 건 send다(keys.ts의 key·글 치기가 쓴다).
+  const cdp =
+    (session: Session): CdpSend =>
+    (method, params) =>
+      send(session, method, params);
+
   async function key(session: Session, spec: string): Promise<void> {
-    const event = parseKey(spec);
-    if (event === undefined) {
+    if (!(await pressKey(cdp(session), spec))) {
       throw fail("invalid_input", `unknown key: ${spec}`);
     }
-    await send(session, "Input.dispatchKeyEvent", {
-      ...event,
-      type: event.text === undefined ? "rawKeyDown" : "keyDown",
-    });
-    await send(session, "Input.dispatchKeyEvent", {
-      type: "keyUp",
-      key: event.key,
-      code: event.code,
-      windowsVirtualKeyCode: event.windowsVirtualKeyCode,
-      modifiers: event.modifiers,
-    });
   }
 
   // guest가 키보드 focus를 갖지 못하면 key event가 버려진다(headless에서 확인: 첫 묶음 뒤 안 들어간다). 마우스를 누르면 focus를
@@ -397,25 +391,6 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
     const press = { ...at, button: "left", clickCount: 1 };
     await mouse(session, { type: "mousePressed", ...press });
     await mouse(session, { type: "mouseReleased", ...press });
-  }
-
-  // 글자마다 text를 단 key event를 보낸다.
-  const charEvents = (session: Session, char: string) => {
-    const enter = char === "\n" || char === "\r";
-    const key = enter ? "Enter" : char;
-    const typed = enter ? "\r" : char;
-    return [
-      send(session, "Input.dispatchKeyEvent", {
-        type: "keyDown",
-        key,
-        text: typed,
-        unmodifiedText: typed,
-      }),
-      send(session, "Input.dispatchKeyEvent", { type: "keyUp", key }),
-    ];
-  };
-  async function typeText(session: Session, text: string): Promise<void> {
-    await Promise.all([...text].flatMap((char) => charEvents(session, char)));
   }
 
   // 전체를 고르고 지운다. 빈 글이면 지우기만 한다.
@@ -555,7 +530,7 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
         await clearValue(session, ref);
         for (const char of value) {
           stop();
-          await Promise.all(charEvents(session, char));
+          await Promise.all(typeChar(cdp(session), char));
         }
       } catch (error) {
         if (error instanceof CallError) throw error;
@@ -621,10 +596,10 @@ export function createBrowserDriver(deps: BrowserDriverDeps): BrowserDriver {
           }
         }`,
       );
-      await typeText(session, action.text);
+      await typeText(cdp(session), action.text);
     } else if (action.type === "fill") {
       await clearValue(session, action.ref);
-      await typeText(session, action.text);
+      await typeText(cdp(session), action.text);
     } else if (action.type === "fill_login") {
       await fillLogin(session, action);
     } else if (action.type === "press") {

@@ -66,6 +66,7 @@ export {
   devicesSetPush,
   type RemoteDevice,
   remoteRelayStatus,
+  machinesAppTools,
   machinesCall,
   machinesList,
   machinesWatch,

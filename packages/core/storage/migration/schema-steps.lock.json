@@ -354,5 +354,9 @@
   {
     "id": "projects.registry.former-identities",
     "sha256": "36a11c7383872baa5a0b41af64f76f4501d75c74f7e77b4feaeee42143bccf10"
+  },
+  {
+    "id": "apps.invocations.remote-caller",
+    "sha256": "d17621f524a761907d0abc305ed45933e1f780029584397e69617b62fd85273a"
   }
 ]

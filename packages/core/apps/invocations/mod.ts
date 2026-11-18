@@ -13,5 +13,6 @@ export { createInvocationsReads } from "./reads.ts";
 export { closeUnfinishedInvocations, observeInvocations } from "./restart.ts";
 export {
   invocationEventCallerSchemaSteps,
+  invocationsRemoteCallerSchemaSteps,
   invocationsSchemaSteps,
 } from "./schema.ts";

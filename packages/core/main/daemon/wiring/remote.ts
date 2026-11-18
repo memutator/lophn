@@ -78,6 +78,7 @@ import {
   remoteRelaySetting,
 } from "../../../config/shell-settings.ts";
 import { EVENT_PUBLICATIONS_MACHINE_STEPS } from "../../../apps/events/schema.ts";
+import { invocationsRemoteCallerSchemaSteps } from "../../../apps/invocations/mod.ts";
 import {
   FOLDER_AWAY_NOTIFIED_STEPS,
   FOLDER_CARRY_MARKS_STEPS,
@@ -779,6 +780,7 @@ export function remoteWiring(
       ...EVENT_PUBLICATIONS_MACHINE_STEPS,
       ...FOLDER_CARRY_MARKS_STEPS,
       ...PROJECTS_FORMER_IDENTITY_STEPS,
+      ...invocationsRemoteCallerSchemaSteps,
     ],
     dataSteps: [
       hostKeyMachineStep,

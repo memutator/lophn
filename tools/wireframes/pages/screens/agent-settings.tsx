@@ -13,6 +13,7 @@ import {
   AgentsBrokenPage,
   AgentEditorPage,
   AgentGrantsAppPage,
+  AgentGrantsOtherComputerPage,
   AgentGrantsPage,
   AgentInstructionsTabPage,
   AgentMemoryTabPage,
@@ -239,6 +240,13 @@ export const agentSettingsArea: Area = {
       description:
         "앱 하나를 펼쳐 tool마다 이름, 효과, 넣음과 뺌(Allowed)만 고른다. 뺀 tool(delete_expense)은 꺼져 있다.",
       render: () => <AgentGrantsAppPage />,
+    },
+    {
+      id: "new-agent-grants-other-machine",
+      title: "Agent settings · grants, other computers",
+      description:
+        "Grants 탭 아래에 Other computers 묶음이 있고 컴퓨터마다 그 컴퓨터의 앱 줄이 선다. 연결된 Home server의 앱은 그 컴퓨터에 읽어 온 command를 펼쳐 하나씩 넣고 뺀다(그 앱이 다른 컴퓨터에 내놓은 public command만 보이고 비공개는 목록에 없다). 꺼진 Work laptop의 앱(Sketch sync)은 저장된 이름과 Offline 표시로 남고 command는 못 읽지만 [Remove]는 된다. [Assign app]은 연결된 컴퓨터의 아직 안 붙인 앱을 컴퓨터별로 보인다. 승인 카드는 그대로다: 붙인 앱의 command는 다른 컴퓨터의 것도 묻지 않고 돈다.",
+      render: () => <AgentGrantsOtherComputerPage />,
     },
   ],
 };

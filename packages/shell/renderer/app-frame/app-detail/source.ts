@@ -165,6 +165,16 @@ export interface AccessView {
 
 // ---- Activity ----
 
+/** 다른 컴퓨터 안에서 시킨 쪽. agent의 name은 그 컴퓨터가 쓴 값이다. app은 이 컴퓨터에 있으면 이름이다. */
+export type RemoteRequester =
+  | { readonly kind: "screen" | "terminal" }
+  | { readonly kind: "agent"; readonly name: string }
+  | {
+      readonly kind: "app";
+      readonly app: string;
+      readonly name: string | null;
+    };
+
 export type Caller =
   | { readonly kind: "person" }
   | {
@@ -187,14 +197,19 @@ export type Caller =
     }
   | { readonly kind: "program" }
   | { readonly kind: "flow" }
-  /** 다른 컴퓨터가 불렀다. requester는 그 컴퓨터가 알린 종류(그 컴퓨터가 쓴 값이라 표시만 한다). */
+  /**
+   * 다른 컴퓨터가 불렀다. machine은 이 컴퓨터의 명단에서 찾은 그 컴퓨터 이름이고 없으면 짧은 id다. requester는 그 컴퓨터가
+   * 알린 값이라 표시만 한다.
+   */
   | {
       readonly kind: "remote";
       readonly machine: string;
-      readonly requester: "screen" | "terminal" | "agent" | "app";
+      readonly requester: RemoteRequester;
     }
   | {
       readonly kind: "event";
+      /** 다른 컴퓨터에서 온 event면 그 컴퓨터 이름(없으면 짧은 id). 이 컴퓨터에서 난 것이면 null이다. */
+      readonly machine: string | null;
       /** 발행한 앱의 이름. core(`lophn`)가 낸 것이면 `lophn`, 못 읽으면 null. */
       readonly publisherName: string | null;
       readonly event: string;

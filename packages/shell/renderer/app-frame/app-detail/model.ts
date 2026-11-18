@@ -1,6 +1,7 @@
 // app-detail의 순수 계산. 안쪽 값(상태 enum·종류·ID)을 사람 말로 바꾸는 자리이다.
 import { formatDate, t } from "@lophn/i18n";
 
+import { shortId } from "../../desktop/connection/waiting/model.ts";
 import type {
   ActivationStep,
   ActivityRow,
@@ -9,6 +10,7 @@ import type {
   LossLine,
   OAuthReason,
   OAuthState,
+  RemoteRequester,
   ResourceKind,
   RewindOutcome,
 } from "./source.ts";
@@ -166,6 +168,22 @@ export function oauthStatus(
 
 // ---- Activity ----
 
+/** 다른 컴퓨터 안에서 시킨 쪽의 글. agent 이름과 앱 이름은 그 컴퓨터가 알린 값 그대로다. */
+export function requesterText(requester: RemoteRequester): string {
+  switch (requester.kind) {
+    case "screen":
+      return t("app-detail.label.caller-remote-screen");
+    case "terminal":
+      return t("app-detail.label.caller-remote-terminal");
+    case "agent":
+      return requester.name;
+    case "app":
+      return t("app-detail.label.caller-app", {
+        name: requester.name ?? shortId(requester.app),
+      });
+  }
+}
+
 /** 행에 보이는 부른 쪽 이름. */
 export function callerText(caller: Caller): string {
   switch (caller.kind) {
@@ -182,10 +200,17 @@ export function callerText(caller: Caller): string {
     case "flow":
       return t("app-detail.label.caller-flow");
     case "event":
-      return t("app-detail.label.caller-event", { event: caller.event });
-    // 문구와 번역은 `use-screens`가 정한다.
+      return caller.machine === null
+        ? t("app-detail.label.caller-event", { event: caller.event })
+        : t("app-detail.label.caller-event-remote", {
+            event: caller.event,
+            machine: caller.machine,
+          });
     case "remote":
-      return `another computer (${caller.requester})`;
+      return t("app-detail.label.caller-remote", {
+        machine: caller.machine,
+        who: requesterText(caller.requester),
+      });
     case "start":
       return t("app-detail.label.caller-start");
   }

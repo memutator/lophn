@@ -41,11 +41,13 @@ export function dropEntries(
   return entries.filter(keep);
 }
 
+/** 이 컴퓨터의 앱 줄이다. 다른 컴퓨터의 앱 줄은 machine을 준다. */
 export const appEntryOf = (
   entries: readonly AssignmentEntry[],
   app: string,
+  machine?: string,
 ): AssignmentEntry | undefined =>
-  entries.find((one) => one.app === app && one.machine === undefined);
+  entries.find((one) => one.app === app && one.machine === machine);
 
 export const isRemoved = (entry: AssignmentEntry, tool: string): boolean =>
   entry.removed_tools.includes(tool);

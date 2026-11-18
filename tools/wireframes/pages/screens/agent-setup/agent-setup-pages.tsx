@@ -2,6 +2,20 @@
 import { type MessageKey, t } from "@lophn/i18n";
 import { useMemo, useState } from "react";
 
+import { appList } from "../../../../../packages/protocol/apps/apps.ts";
+import { appTools } from "../../../../../packages/protocol/apps/declaration/read.ts";
+import {
+  createFakeSource,
+  fakeAnswer,
+} from "../../../../../packages/shell/renderer/desktop/connection/events/fake-source.ts";
+import { MachinesProvider } from "../../../../../packages/shell/renderer/desktop/machines/context.tsx";
+import type {
+  MachineData,
+  MachineHub,
+} from "../../../../../packages/shell/renderer/desktop/machines/data.ts";
+import { MachineHubProvider } from "../../../../../packages/shell/renderer/desktop/machines/scope.tsx";
+import { fakeMachines } from "../../../../../packages/shell/renderer/desktop/machines/testdata/fake-source.ts";
+import { COMPUTER_APPS } from "../../../../../packages/shell/renderer/workspace/agents/fake-data.ts";
 import { OPENAI } from "../../../../../packages/shell/renderer/desktop/settings/providers/testdata/fake-providers.ts";
 import {
   ANTHROPIC,
@@ -315,6 +329,81 @@ export const AgentGrantsAppPage = () =>
     GRANTS_TAB,
     () => press(`[data-grant-card="Budget tracker"] button[aria-expanded]`),
   ]);
+
+// 연결된 다른 컴퓨터의 core. 앱 목록과 선언을 그 컴퓨터가 답하는 것처럼 fake data로 준다(화면은 진짜 읽기 길을 탄다).
+function computersHub(): MachineHub {
+  const cores = new Map<string, MachineData>();
+  const loose = <T,>(value: unknown) => value as T;
+  return {
+    get(machine) {
+      let found = cores.get(machine ?? "");
+      if (found === undefined) {
+        const apps = COMPUTER_APPS[machine ?? ""] ?? [];
+        const core = createFakeSource({
+          snapshots: [],
+          consents: [],
+          answers: [
+            fakeAnswer(appList, () =>
+              loose({
+                apps: apps.map((app) => ({
+                  id: app.app,
+                  name: app.name,
+                  status: "active",
+                })),
+              }),
+            ),
+            fakeAnswer(appTools, ({ app }) =>
+              loose({
+                tools: (apps.find((one) => one.app === app)?.tools ?? []).map(
+                  (tool) => ({
+                    name: tool.tool,
+                    description: tool.detail,
+                    effect: tool.effect,
+                    public: tool.public,
+                  }),
+                ),
+              }),
+            ),
+          ],
+        });
+        found = { machine, core } as unknown as MachineData;
+        cores.set(machine ?? "", found);
+      }
+      return found;
+    },
+    stop: () => {},
+  };
+}
+
+/**
+ * Grants 탭의 Other computers 묶음. Home server(연결됨)의 Weekly report는 펼쳐 command마다 고르고(비공개 command는 목록에 없다),
+ * 꺼진 Work laptop의 앱은 저장된 이름과 꺼짐 표시로 남는다. 둘 다 빼기는 된다.
+ */
+export const AgentGrantsOtherComputerPage = () => {
+  const [machines] = useState(() => fakeMachines().source);
+  const [hub] = useState(computersHub);
+  return alone({
+    ...agentTab(EXPERIMENT_PLANNER_ID),
+    body: (
+      <MachineHubProvider hub={hub}>
+        <MachinesProvider source={machines}>
+          <AgentSettingsEditor
+            id={EXPERIMENT_PLANNER_ID}
+            workspace="project"
+            onDone={() => {}}
+            steps={[
+              GRANTS_TAB,
+              () =>
+                press(
+                  `[data-grant-card="Weekly report"] button[aria-expanded]`,
+                ),
+            ]}
+          />
+        </MachinesProvider>
+      </MachineHubProvider>
+    ),
+  });
+};
 
 /** Settings › Agents. 전역 기본 model 칸의 picker를 연 상태: 맨 아래에 Manage models 줄이 있다. */
 export const SettingsAgentsPage = () => (

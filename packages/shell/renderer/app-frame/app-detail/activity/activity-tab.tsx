@@ -8,6 +8,7 @@ import { KIND_LABEL } from "../../../desktop/connection/waiting/notice-kinds.ts"
 import { Loadable } from "../loadable.tsx";
 import {
   callerText,
+  requesterText,
   callName,
   callStateText,
   callTime,
@@ -141,17 +142,33 @@ function CalledBy({
     case "event":
       return (
         <span>
-          {t("app-detail.label.called-by-event", {
-            name:
-              caller.publisherName ?? t("app-detail.label.caller-app-unnamed"),
-            event: caller.event,
-          })}
+          {t(
+            caller.machine === null
+              ? "app-detail.label.called-by-event"
+              : "app-detail.label.called-by-event-remote",
+            {
+              name:
+                caller.publisherName ??
+                t("app-detail.label.caller-app-unnamed"),
+              event: caller.event,
+              machine: caller.machine ?? "",
+            },
+          )}
         </span>
       );
+    // agent와 앱의 이름은 그 컴퓨터가 알린 값이라 확인된 것처럼 보이지 않게 말한다.
     case "remote":
       return (
         <span>
-          {callerText(caller)} · <Mono>{caller.machine}</Mono>
+          {t(
+            caller.requester.kind === "agent" || caller.requester.kind === "app"
+              ? "app-detail.label.called-by-remote-reported"
+              : "app-detail.label.called-by-remote",
+            {
+              machine: caller.machine,
+              who: requesterText(caller.requester),
+            },
+          )}
         </span>
       );
     case "start":

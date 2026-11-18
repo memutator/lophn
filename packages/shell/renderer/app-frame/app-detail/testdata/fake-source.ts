@@ -32,6 +32,7 @@ import {
 } from "../../../../../protocol/apps/declaration/read.ts";
 import { agentRead } from "../../../../../protocol/lophn-agent/agent-definitions.ts";
 import { workspaceSessionRead } from "../../../../../protocol/lophn-agent/agent-sessions.ts";
+import { machinesList } from "../../../../../protocol/remote/mod.ts";
 import { secretStatus } from "../../../../../protocol/secrets/secret-file.ts";
 import {
   type FakeAnswer,
@@ -170,6 +171,20 @@ const BY_ANALYST: AppToolCaller = {
   tool_call: "call_7f3a",
 };
 
+/** 다른 컴퓨터(Home server)가 부른 호출. 이름은 그 컴퓨터가 알린 값이다. */
+const HOME_SERVER = "mch_01h455vb4pex5v6nkc6gd5fm01";
+const FROM_HOME_SERVER: AppToolCaller = {
+  kind: "remote",
+  machine: HOME_SERVER,
+  device: "dev_01h455vb4pex5v6nkc6gd5fm01",
+  requester: {
+    kind: "agent",
+    agent: "agt_01h455vb4pex5v6nkc6gd5fm09",
+    session: null,
+    name: "Meal planner",
+  },
+};
+
 function call(
   id: string,
   at: string,
@@ -220,6 +235,15 @@ const CALLS: readonly AppInvocation[] = [
     "write",
     "running",
     "Waiting behind the running write",
+  ),
+  call(
+    "inv_40",
+    "2026-10-15T14:40:00",
+    FROM_HOME_SERVER,
+    "orders.create",
+    "write",
+    "succeeded",
+    "Created order 1044",
   ),
   call(
     "inv_39",
@@ -783,6 +807,21 @@ export function fakeDetail(options: FakeOptions = {}) {
       partial({
         ...COMMON,
         session: { agent: ANALYST, title: "Weekly order digest" },
+      }),
+    ),
+    fakeAnswer(machinesList, () =>
+      partial({
+        machines: [
+          {
+            machine: HOME_SERVER,
+            device: "dev_01h455vb4pex5v6nkc6gd5fm01",
+            name: "Home server",
+            status: "connected",
+            update: null,
+            path: "relay",
+            last_seen_at: null,
+          },
+        ],
       }),
     ),
     fakeAnswer(agentRead, () =>

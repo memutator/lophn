@@ -523,6 +523,42 @@ const APPS: readonly GrantApp[] = [
 
 export const GRANT_CATALOG: GrantCatalog = { apps: APPS };
 
+/** gallery의 기계 목록(`sampleMachines`)에 있는 다른 컴퓨터. */
+export const HOME_SERVER = "mch_homeserver";
+export const WORK_LAPTOP = "mch_laptop";
+const WEEKLY_REPORT_ID = id("app", "wr1");
+const SKETCH_SYNC_ID = id("app", "sk1");
+const RECIPES_ID = id("app", "rc1");
+
+/** 연결된 다른 컴퓨터가 앱 목록과 선언으로 답하는 앱. public이 아닌 command는 붙일 수 없어 화면이 뺀다. */
+export const COMPUTER_APPS: Readonly<Record<string, readonly GrantApp[]>> = {
+  [HOME_SERVER]: [
+    {
+      app: WEEKLY_REPORT_ID,
+      name: "Weekly report",
+      tools: [
+        tool("list_reports", "Lists the weekly reports", "read", true),
+        tool("build_report", "Builds this week's report", "write", true),
+        tool(
+          "send_report_mail",
+          "Mails the report to the team",
+          "external",
+          true,
+        ),
+        tool("reset_templates", "Resets the report templates", "write"),
+      ],
+    },
+    {
+      app: RECIPES_ID,
+      name: "Recipes",
+      tools: [
+        tool("search_recipes", "Searches the recipe book", "read", true),
+        tool("add_recipe", "Adds a recipe", "write", true),
+      ],
+    },
+  ],
+};
+
 /** agent마다 처음에 붙어 있는 앱. */
 export const FAKE_GRANTS: Readonly<Record<string, readonly AssignmentEntry[]>> =
   {
@@ -530,7 +566,22 @@ export const FAKE_GRANTS: Readonly<Record<string, readonly AssignmentEntry[]>> =
       { app: APP_ID, removed_tools: ["delete_expense"] },
       { app: EVAL_BOARD_ID, removed_tools: [] },
     ],
-    [EXPERIMENT_PLANNER_ID]: [{ app: EVAL_BOARD_ID, removed_tools: [] }],
+    // 다른 컴퓨터의 앱 줄: Home server는 연결되어 있고 Work laptop은 꺼져 있어 저장된 이름으로 보인다.
+    [EXPERIMENT_PLANNER_ID]: [
+      { app: EVAL_BOARD_ID, removed_tools: [] },
+      {
+        app: WEEKLY_REPORT_ID,
+        machine: HOME_SERVER,
+        name: "Weekly report",
+        removed_tools: ["send_report_mail"],
+      },
+      {
+        app: SKETCH_SYNC_ID,
+        machine: WORK_LAPTOP,
+        name: "Sketch sync",
+        removed_tools: [],
+      },
+    ],
     [PROJECT_LOPHN_ID]: [
       { app: APP_ID, removed_tools: [] },
       { app: EVAL_BOARD_ID, removed_tools: [] },

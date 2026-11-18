@@ -32,6 +32,7 @@ import {
 } from "../../../../protocol/apps/declaration/read.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
+import { machinesList } from "../../../../protocol/remote/mod.ts";
 import { secretStatus } from "../../../../protocol/secrets/secret-file.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
 import {
@@ -41,6 +42,7 @@ import {
   useCoreRead,
   useFollowedRead,
 } from "../../desktop/connection/core-read.ts";
+import { shortId } from "../../desktop/connection/waiting/model.ts";
 import {
   iconViewOf,
   type IconView,
@@ -121,6 +123,16 @@ function lookups(core: CoreSource) {
           valueOr(await readRoute(core, agentRead, { agent }))?.effective.name
             .value ?? null,
       ),
+    // 다른 컴퓨터의 이름은 이 컴퓨터의 명단에서 찾는다. 명단에 없거나 읽지 못하면 짧은 id다.
+    machineName: async (machine: string) =>
+      (
+        await once(`machines`, async () => {
+          const read = valueOr(await readRoute(core, machinesList, {}));
+          return new Map(
+            (read?.machines ?? []).map((one) => [one.machine, one.name]),
+          );
+        })
+      ).get(machine) ?? shortId(machine),
     tools: (app: string) =>
       once(`tools:${app}`, async () => {
         const read = valueOr(await readRoute(core, appTools, { app }));
@@ -635,16 +647,31 @@ async function callerOf(
       return { kind: "program" };
     case "flow":
       return { kind: "flow" };
-    // 다른 컴퓨터가 부른 것이다. 사람이 한 것으로 보이면 안 된다. 보이는 모양은 `use-screens`가 정한다.
-    case "remote":
+    // 다른 컴퓨터가 부른 것이다. 사람이 한 것으로 보이면 안 된다. agent 이름은 그 컴퓨터가 쓴 값이다.
+    case "remote": {
+      const by = caller.requester;
+      const [machine, appName] = await Promise.all([
+        names.machineName(caller.machine),
+        by.kind === "app" ? names.appName(by.app) : null,
+      ]);
       return {
         kind: "remote",
-        machine: caller.machine,
-        requester: caller.requester.kind,
+        machine,
+        requester:
+          by.kind === "agent"
+            ? { kind: "agent", name: by.name }
+            : by.kind === "app"
+              ? { kind: "app", app: by.app, name: appName }
+              : { kind: by.kind },
       };
+    }
     case "event":
       return {
         kind: "event",
+        machine:
+          caller.machine === undefined
+            ? null
+            : await names.machineName(caller.machine),
         publisherName:
           caller.publisher === "lophn"
             ? "lophn"

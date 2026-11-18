@@ -69,6 +69,7 @@ export const agents = {
   "agents.button.change-secret": "Change {label}",
   "agents.button.set-secret": "Set {label}",
   "agents.button.sign-in": "Sign in",
+  "agents.empty.grants-computers": "No apps from other computers are assigned.",
   "agents.empty.grants-apps":
     "No apps. An assigned app brings all of its tools.",
   "agents.heading.all-agents": "All agents",
@@ -76,6 +77,7 @@ export const agents = {
   "agents.notice.coding-agents":
     "Your favorite coding agents from Settings. lophn can hand work to them, and they run with your own settings for that tool.",
   "agents.heading.grants-apps": "Apps",
+  "agents.heading.grants-computers": "Other computers",
   "agents.heading.server-form": "Add a server for this agent only",
   "agents.heading.skip": "Skip permissions",
   "agents.heading.extensions": "Shell extensions",
@@ -148,6 +150,7 @@ export const agents = {
   "agents.label.grant-col-name": "Name",
   "agents.label.grants-app-tools-summary":
     "{used, number} of {total, number} tools",
+  "agents.label.grants-app-gone": "Not on this computer any more",
   "agents.label.grants-target": "the grants",
   "agents.label.instructions-head-placed":
     "Workspace instructions \u00b7 {file} in {workspace} \u2014 read by every agent working there",
@@ -194,6 +197,8 @@ export const agents = {
   "agents.notice.grants-apply-now": "Changes in Grants apply right away.",
   "agents.notice.grants-lead":
     "What {name} can use besides its own tools. Anything you don't assign here, {name} can't use.",
+  "agents.notice.grants-computers":
+    "Apps that run on your other computers. Only the commands an app offers to other computers can be assigned, and they run on that computer.",
   "agents.notice.grants-mcp-layers":
     "MCP servers are set where you add them: Settings \u203a Tools and skills, the project, or this agent's Definition.",
   "agents.notice.instructions-help":

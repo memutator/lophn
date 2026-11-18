@@ -246,7 +246,7 @@ export const appSpaceArea: Area = {
       id: "new-app-activity",
       title: "App workspace · Activity",
       description:
-        "위에 그 앱의 영구 기록(Records: release 켜짐·실패, 앱 멈춤 등, 새것부터)이 있고 아래 호출 기록(Calls)이다. 호출자(사람 화면, agent session 링크, 다른 앱, 앱 시작), project, 효과, 대기와 되돌림됨이 보인다. 지금 release의 live write, external, 앱 시작 행에만 [Rewind from here]가 있고, 행을 펼치면 부른 쪽 session과 tool call, 입력 지문, 결과, 되돌림 기록이 있다.",
+        '위에 그 앱의 영구 기록(Records: release 켜짐·실패, 앱 멈춤 등, 새것부터)이 있고 아래 호출 기록(Calls)이다. 호출자(사람 화면, agent session 링크, 다른 앱, 앱 시작, 다른 컴퓨터), project, 효과, 대기와 되돌림됨이 보인다. 지금 release의 live write, external, 앱 시작 행에만 [Rewind from here]가 있고, 행을 펼치면 부른 쪽 session과 tool call, 입력 지문, 결과, 되돌림 기록이 있다. 다른 컴퓨터가 부른 행(Home server · Meal planner)은 "<컴퓨터 이름> · <시킨 쪽>"으로 보이고, 시킨 쪽은 사람의 화면(You (screen)), 터미널(You (terminal)), agent(그 컴퓨터가 알린 이름), 앱 가운데 하나다. 펼치면 그 이름이 그 컴퓨터가 알린 값이라고 말한다.',
       render: () => <ActivityLog />,
     },
     {

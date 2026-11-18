@@ -4,8 +4,9 @@ import {
   assignmentSet,
   type AssignmentEntry,
 } from "../../../../protocol/approvals/assignment.ts";
+import type { CoreSource } from "../../desktop/connection/connection.ts";
 import { isAgentId } from "./agent-key.ts";
-import { type Link, unavailable } from "./core-link.ts";
+import { createLink, type Link, unavailable } from "./core-link.ts";
 import { appsFor } from "./editor/grants-model.ts";
 import type { GrantApp, GrantsView, ReadResult } from "./source.ts";
 
@@ -51,6 +52,15 @@ async function appCatalog(link: Link): Promise<GrantApp[]> {
     });
   }
   return found;
+}
+
+/**
+ * 다른 컴퓨터의 앱 가운데 붙일 수 있는 것. 그 컴퓨터의 core를 사람의 화면으로 읽고(`useMachineData(machine).core`), 받는 기계가
+ * 거절할 비공개 command는 처음부터 뺀다. 읽지 못하면 빈 목록이다.
+ */
+export async function readComputerApps(core: CoreSource): Promise<GrantApp[]> {
+  // 읽기만 하므로 command key의 무작위 값은 쓰이지 않는다.
+  return appsFor(await appCatalog(createLink(core, () => "")), null);
 }
 
 export async function readGrants(

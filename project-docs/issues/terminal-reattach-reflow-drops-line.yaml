@@ -1,0 +1,13 @@
+id: terminal-reattach-reflow-drops-line
+title: 다시 붙은 터미널 탭에서 한 줄이 빠지고 prompt가 두 번 보임
+kind: bug
+status: open
+topic: terminal-agent
+modules: [packages/shell/renderer]
+now: |
+  core가 연 터미널에 desktop 탭이 붙을 때(앱을 다시 켬, 폰이나 agent가 연 터미널) `packages/shell/renderer/terminal/displays.ts`가 `terminals/snapshot`의 날 출력을 view에 쓰고 PTY 치수로 `view.resize`한다. 개발 앱 확인에서 80칸 PTY의 출력을 55칸 탭에 붙였을 때 core 화면에는 있는 줄(`route-opened`)이 탭에서 빠지고 꺾인 prompt가 두 번 보였다. snapshot을 쓰는 순서와 resize가 맞지 않아 xterm의 reflow가 줄을 잃는 것으로 보인다(원인은 확인 전).
+impact: |
+  다시 붙은 탭의 지난 출력이 core의 화면과 다르게 보인다. 새로 치는 것과 그 뒤 출력은 맞다.
+fix: |
+  - snapshot을 쓰기 전에 view를 PTY 치수로 맞추고 쓴 뒤 탭 크기로 돌린다(작음). 추천.
+  - 다시 붙을 때 날 출력 대신 host의 직렬화한 화면(`screen`)을 쓴다(중간. route가 더 필요하다).

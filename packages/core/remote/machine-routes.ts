@@ -1,4 +1,4 @@
-// 다른 기계를 부르는 `machines/call`·`machines/watch` handler. 받는 기계는 이 컴퓨터를 사람으로 보므로(허락받은 컴퓨터면 사람
+// 다른 기계를 부르는 `machines/call`·`machines/watch` handler. 받는 기계는 요청한 쪽마다 다르게 대하므로(`screen`만, 허락받은 컴퓨터일 때 사람
 // route와 자동 확인까지) 그 기계에 닿는 요청한 쪽을 여기서 자격으로 정한다: 살아 있는 shell capability를 실은 call은 이 기계의 화면(`screen`),
 // capability가 없는 사람의 CLI token은 사람의 터미널(`terminal`)이고, 입력의 어떤 칸도 요청한 쪽을 정하지 못한다. capability는 이 컴퓨터
 // core의 것이라 다른 기계로 넘기지 않는다. watch는 화면의 것이라 늘 capability가 필요하다. watch의 구독자는 (capability,

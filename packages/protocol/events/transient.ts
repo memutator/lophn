@@ -6,6 +6,14 @@ import { acpUpdatedPayloadSchema } from "../acp/routes.ts";
 import { noticeSchema } from "../apps/notice.ts";
 import { appViewEventPayloadSchema } from "../apps/views.ts";
 import { jsonValueSchema } from "../base/json-values.ts";
+import {
+  hookAskSchema,
+  hookResultSchema,
+} from "../coding-agent/coding-agents.ts";
+import {
+  terminalOutputSchema,
+  terminalRuntimeSchema,
+} from "../coding-agent/terminals.ts";
 import { CHANGE_NAMES } from "./changes.ts";
 
 // 남지 않는 event는 session 밖에서 화면만 알면 되는 일이다. 메모리로만 흐르고 Ledger에 쓰지 않는다.
@@ -197,9 +205,12 @@ const stateChanged = defineTransientEvent("StateChanged", {
   }),
 });
 
+// 터미널 event의 subject는 `terminal:<터미널 참조>`다.
+const terminalSubjectSchema = z.string().regex(/^terminal:.+$/);
+
 // 보는 중인 터미널의 화면이 바뀐 뒤 낸다. 내용은 싣지 않고 폰이 `terminal_view/snapshot`을 다시 읽는다. subject는 `terminal:<터미널 탭 참조>`다.
 const terminalScreenChanged = defineTransientEvent("TerminalScreenChanged", {
-  subject: z.string().regex(/^terminal:.+$/),
+  subject: terminalSubjectSchema,
   payload: z.strictObject({
     terminal: z.string().min(1),
     seq: z.number().int().min(0),
@@ -224,6 +235,46 @@ const machineFrameReceived = defineTransientEvent("MachineFrameReceived", {
   }),
 });
 
+// 터미널의 날 출력 한 조각(host가 묶은 chunk 하나). 그 터미널에 `terminals/watch` lease가 하나라도 있는 동안만 낸다. 받는 쪽은 받은
+// seq보다 큰 것만 쓰고, seq가 건너뛰거나 Gateway가 다시 열리면 `terminals/snapshot{after_seq}`로 맞춘다. core는 터미널마다 queue를
+// 두지 않는다(느린 화면은 Gateway가 끊는다).
+const terminalOutputAppended = defineTransientEvent("TerminalOutputAppended", {
+  subject: terminalSubjectSchema,
+  payload: terminalOutputSchema,
+});
+
+// 터미널 runtime이 바뀔 때마다 낸다(열림, 끝, 다시 띄움, 크기, agent, 탭 이름). lease와 상관없다.
+const terminalRuntimeChanged = defineTransientEvent("TerminalRuntimeChanged", {
+  subject: terminalSubjectSchema,
+  payload: z.strictObject({ runtime: terminalRuntimeSchema }),
+});
+
+// 터미널의 coding agent가 사람에게 알릴 계기(권한 물음, 일 끝, 실패)를 tracker가 정한 순간 낸다. 보고 있는지는 보지 않고 늘 낸다.
+// shell main이 이것으로 toast·OS 알림을 고른다. name은 탭 이름(모르면 null), body는 hook이 준 글(마지막 답, 물음 요약, 실패 글)이다.
+const terminalAgentSignaled = defineTransientEvent("TerminalAgentSignaled", {
+  subject: terminalSubjectSchema,
+  payload: z.strictObject({
+    terminal: z.string().min(1),
+    project: idSchema("prj"),
+    harness: z.string().min(1),
+    kind: z.enum(["waiting", "finished", "failed"]),
+    name: z.string().nullable(),
+    body: z.string().nullable(),
+  }),
+});
+
+// 처음 알아본 harness에 전역 hook을 놓을지 묻는다. 그 터미널을 고른 창이 dialog로 묻고 `coding_agents/hook_answer`로 답한다.
+const hookInstallAsked = defineTransientEvent("HookInstallAsked", {
+  subject: terminalSubjectSchema,
+  payload: hookAskSchema,
+});
+
+// 사람이 허락한 hook 설치가 끝났다.
+const hookInstallFinished = defineTransientEvent("HookInstallFinished", {
+  subject: z.null(),
+  payload: hookResultSchema,
+});
+
 export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(acpUpdated).extend({
     session: idSchema("ses"),
@@ -245,4 +296,9 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(stateChanged),
   transientEventEnvelopeSchema(terminalScreenChanged),
   transientEventEnvelopeSchema(machineFrameReceived),
+  transientEventEnvelopeSchema(terminalOutputAppended),
+  transientEventEnvelopeSchema(terminalRuntimeChanged),
+  transientEventEnvelopeSchema(terminalAgentSignaled),
+  transientEventEnvelopeSchema(hookInstallAsked),
+  transientEventEnvelopeSchema(hookInstallFinished),
 ]);

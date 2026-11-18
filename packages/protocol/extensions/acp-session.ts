@@ -17,6 +17,18 @@ export function isGuiHarness(value: unknown): value is GuiHarness {
   return (GUI_HARNESSES as readonly unknown[]).includes(value);
 }
 
+/**
+ * TUI를 GUI로 넘기는 길. restart는 한쪽 process를 끄고 같은 session으로 다른 쪽을 띄우고, shared는 TUI와 GUI가 한 server에 같이
+ * 붙는다. harness-gui adapter 표와 handle이 없는 터미널의 handoff(`coding_sessions/list`의 `handoff`)가 같이 이것을 쓴다.
+ */
+export const GUI_HANDOFF: Readonly<Record<GuiHarness, "restart" | "shared">> = {
+  claude: "restart",
+  omp: "restart",
+  antigravity: "restart",
+  codex: "shared",
+  opencode: "shared",
+};
+
 /** 창 하나의 handle. `id`는 lophn session id가 아니라 이 창 하나의 id다. */
 export type AcpSessionHandle = {
   readonly id: string;
@@ -83,23 +95,26 @@ export type AcpOpenTab = {
   handoff: "restart" | "shared";
 };
 
+/** 탭의 GUI·TUI 전환을 받는 쪽. 켜진 harness-gui가 `onTab`으로 건다. */
+export type AcpTabHandlers = {
+  gui(request: AcpTabRequest): void | Promise<void>;
+  tui(terminalId: string): void | Promise<void>;
+  /** 그 탭의 run이 도는 일(restart 전 modal이 "멈출 것"으로 보인다). run이 없으면 null. */
+  running(terminalId: string): { turn: boolean; tasks: number } | null;
+  /** 그 CLI가 이 폴더에서 가진 지난 session, 최근 순. run이 없거나 못 주면 빈 배열. */
+  sessions(terminalId: string): Promise<AcpCliSession[]>;
+  /** 그 사람 메시지로 rewind하면 되돌아갈 file. run이 없거나 못 주면 null. */
+  rewindPreview(
+    terminalId: string,
+    message: string,
+  ): Promise<AcpRewindPreview | null>;
+};
+
 export type ExtensionAcp = {
   open(options: AcpOpenTab): AcpSessionHandle;
   /**
    * terminal 탭의 GUI·TUI 전환을 받을 함수. `gui`는 탭을 GUI로 바꾸라는 요청이고 `tui`는 GUI에서 TUI로 돌아가라는
    * 요청(terminal id)이다. 켜진 extension 하나가 `activate`에서 걸고 돌려받은 함수로 `deactivate`에서 푼다.
    */
-  onTab(handlers: {
-    gui(request: AcpTabRequest): void | Promise<void>;
-    tui(terminalId: string): void | Promise<void>;
-    /** 그 탭의 run이 도는 일(restart 전 modal이 "멈출 것"으로 보인다). run이 없으면 null. */
-    running(terminalId: string): { turn: boolean; tasks: number } | null;
-    /** 그 CLI가 이 폴더에서 가진 지난 session, 최근 순. run이 없거나 못 주면 빈 배열. */
-    sessions(terminalId: string): Promise<AcpCliSession[]>;
-    /** 그 사람 메시지로 rewind하면 되돌아갈 file. run이 없거나 못 주면 null. */
-    rewindPreview(
-      terminalId: string,
-      message: string,
-    ): Promise<AcpRewindPreview | null>;
-  }): () => void;
+  onTab(handlers: AcpTabHandlers): () => void;
 };

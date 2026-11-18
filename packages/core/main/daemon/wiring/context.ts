@@ -68,6 +68,8 @@ import type { Queue } from "../../../lophn-agent/run-loop/queue.ts";
 import type { HarnessHold, HostQueue } from "../../../host-queue/mod.ts";
 import type { CodingRelay } from "../../../coding-relay/mod.ts";
 import type { TerminalView } from "../../../terminal-view/mod.ts";
+import type { PersonEnv, Terminals } from "../../../terminals/ports.ts";
+import type { ExtensionHost } from "../../../extensions/ports.ts";
 import type { PhoneLink } from "../../../remote/mod.ts";
 import type { SecretStore } from "../../../secrets/mod.ts";
 import type { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
@@ -281,6 +283,12 @@ type Late = {
   codingRelay: CodingRelay;
   // terminal-view wiring이 낸다. 폰이 보는 coding session 터미널의 최신 화면과 보는 principal의 lease다.
   terminalView: TerminalView;
+  // terminals wiring이 낸다. core가 띄운 PTY host의 터미널이다. route handler, coding agent tracker, 폰의 터미널 보기가 쓴다.
+  terminals: Terminals;
+  // terminals wiring이 낸다. 사람의 login shell env와 `lophn` 경로다. 터미널과 extension host가 띄우는 CLI가 쓴다.
+  personEnv: PersonEnv;
+  // extensions wiring이 낸다. core 안 extension host다. extension tool 호출과 coding agent의 GUI 전환이 쓴다.
+  extensionHost: ExtensionHost;
   // 폰이 터미널에 글을 칠 수 있는 principal인지 정한다. 기기마다의 허락을 아는 쪽이 채우고, 채워지지 않았으면 입력은 늘 forbidden이다.
   // `ctx.peek`로만 읽는다.
   terminalInputGrant: (principal: string) => boolean;
@@ -372,6 +380,9 @@ const LATE_KEYS: Record<keyof Late, true> = {
   hostLink: true,
   codingRelay: true,
   terminalView: true,
+  terminals: true,
+  personEnv: true,
+  extensionHost: true,
   terminalInputGrant: true,
   deviceKind: true,
   phoneLink: true,

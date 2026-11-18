@@ -602,17 +602,43 @@ flows:
       - "extension entry는 shell main 프로세스 안에서 require된다(wiring/extensions.ts의 load). 그래서 ctx 밖으로 나가는 것을 막는 것은 ctx 함수 모양뿐이고, 코드가 main의 node API를 직접 부를 수 있다. sandbox risk로 볼지 사람이 정해야 한다"
       - "invalid가 된 켜진 extension은 끄지 않는다(코드 그대로, 목록에는 on으로 남는다). 의도인지 확인이 필요하다"
 
+  - id: extensions-list
+    title: "Settings › Extensions가 extension 목록과 상태를 읽는다"
+    actor: person
+    entries: [route:extensions/list]
+    boundary: [extension-host]
+    code:
+      - packages/protocol/extensions/routes.ts
+      - packages/core/extensions/ports.ts
+    steps:
+      - "사람 자격만 부른다. core 안 extension host가 먼저 설정과 맞춰(sync) 방금 바꾼 켜기·끄기가 보이게 한다"
+      - "roots에서 찾은 extension마다 한 줄이다: 이름, 설명, 상태(off·on·invalid·no_setting·failed)와 이유, 표시 file이 있는지, 켜졌으면 기여(command·key)"
+    outcomes:
+      - id: ok
+        observe: ["response"]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격(actor user)이 아니다(dispatch)"
+        observe: ["response"]
+    crosses_process: false
+    docs: [architecture/extension.md]
+    unclear:
+      - "handler는 아직 없다(계약만). 지금 목록은 shell main의 IPC(`shell:extensions`의 list)가 준다"
+
   - id: extension-install
     title: "Settings에서 extension을 설치한다(표시 file만 둔다. 켜지는 않는다)"
     actor: person
+    entries: [route:extensions/install]
     uses: [ipc:shell:extensions]
     boundary: [extension-host]
     code:
       - packages/shell/main/extensions/registry.ts
       - packages/shell/main/desktop/wiring/extensions.ts
       - packages/shell/renderer/desktop/settings/extension-packages/
+      - packages/protocol/extensions/routes.ts
+      - packages/core/extensions/ports.ts
     steps:
-      - "desktop 창 본문의 install 요청만 받는다. 다른 caller는 forbidden이다"
+      - "desktop 창 본문의 install 요청만 받는다. 다른 caller는 forbidden이다. route(core 안 extension host)는 사람 자격만 부른다"
       - "입력 꼴이 틀리거나 id가 `[a-z][a-z0-9-]*`에 맞지 않으면 invalid_input이다"
       - "roots에서 <id> 폴더와 manifest.json을 찾는다. 없으면 not_found다. manifest가 틀려도 파일이 있으면 찾은 것이다"
       - "<data root>/extensions/<id>/.lophn-extension을 빈 목록으로 둔다. 이미 있으면 그대로 둔다(다시 해도 같다)"
@@ -631,22 +657,27 @@ flows:
         observe: ["response"]
       - id: forbidden
         code: forbidden
-        when: "desktop 창 본문이 아닌 caller다(checkCaller 실패 또는 origin이 desktop이 아니다)"
+        when: "desktop 창 본문이 아닌 caller다(checkCaller 실패 또는 origin이 desktop이 아니다), 또는 route를 사람 자격(actor user)이 아닌 쪽이 불렀다"
         observe: ["response"]
     crosses_process: false
     docs: [architecture/extension.md]
+    unclear:
+      - "route의 handler는 아직 없다(계약만). core 안 extension host가 IPC 길과 같은 판정을 한다"
 
   - id: extension-remove
     title: "Settings에서 extension을 지운다(extension이 쓴 file과 표시 file만)"
     actor: person
+    entries: [route:extensions/remove]
     uses: [ipc:shell:extensions, route:settings/list]
     boundary: [extension-host]
     code:
       - packages/shell/main/extensions/registry.ts
       - packages/shell/main/desktop/wiring/extensions.ts
       - packages/shell/renderer/desktop/settings/extension-packages/
+      - packages/protocol/extensions/routes.ts
+      - packages/core/extensions/ports.ts
     steps:
-      - "desktop 창 본문의 remove 요청만 받는다. 다른 caller는 forbidden이다"
+      - "desktop 창 본문의 remove 요청만 받는다. 다른 caller는 forbidden이다. route(core 안 extension host)는 사람 자격만 부르고 설정을 core 안에서 읽는다"
       - "id 꼴을 검사한다. 틀리면 invalid_input이다"
       - "설정 extensions.<id>.enabled를 core에서 읽는다. 읽지 못하면 그 오류를 그대로 돌려준다. 켜져 있거나 활성이면 conflict로 먼저 끄라고 한다"
       - "표시 file에 적힌 file들을 지운다. extension이 ctx.files.write로 쓴 것만 지운다"
@@ -668,24 +699,29 @@ flows:
         observe: ["response"]
       - id: forbidden
         code: forbidden
-        when: "desktop 창 본문이 아닌 caller다(checkCaller 실패 또는 origin이 desktop이 아니다)"
+        when: "desktop 창 본문이 아닌 caller다(checkCaller 실패 또는 origin이 desktop이 아니다), 또는 route를 사람 자격(actor user)이 아닌 쪽이 불렀다"
         observe: ["response"]
     crosses_process: true
     risk: [data-loss]
     docs: [architecture/extension.md]
+    unclear:
+      - "route의 handler는 아직 없다(계약만). core 안 extension host가 IPC 길과 같은 판정을 한다. settings-unreadable은 IPC 길에만 있다(core 안에서는 설정 읽기가 실패하지 않는다)"
 
   - id: extension-command-run
     title: "켜진 extension이 건 command(ext.<id>.<name>)를 key나 팔레트에서 부른다"
     actor: person
     pre: [extension-sync:loaded]
+    entries: [route:extensions/run]
     uses: [ipc:shell:extensions]
     boundary: [extension-host, extension-api]
     code:
       - packages/shell/main/extensions/registry.ts
       - packages/shell/main/desktop/wiring/extensions.ts
       - packages/protocol/extensions/manifest.ts
+      - packages/protocol/extensions/routes.ts
+      - packages/core/extensions/ports.ts
     steps:
-      - "renderer가 key나 팔레트에서 ext.<id>.<name>을 IPC run으로 보낸다. desktop 창 본문만 받는다"
+      - "renderer가 key나 팔레트에서 ext.<id>.<name>을 IPC run으로 보낸다. desktop 창 본문만 받는다. route(core 안 extension host)는 사람 자격만 부른다"
       - "registry가 켜진 extension이 ctx.commands.register로 건 handler를 찾는다. 없으면 not_found다"
       - "handler가 끝나면 ok다. 던지면 log를 남기고 internal이다. 오류 원문은 응답에 싣지 않는다"
     outcomes:
@@ -702,7 +738,7 @@ flows:
         observe: ["response", "log:command 실패 한 줄"]
       - id: forbidden
         code: forbidden
-        when: "desktop 창 본문이 아닌 caller다(checkCaller 실패 또는 origin이 desktop이 아니다)"
+        when: "desktop 창 본문이 아닌 caller다(checkCaller 실패 또는 origin이 desktop이 아니다), 또는 route를 사람 자격(actor user)이 아닌 쪽이 불렀다"
         observe: ["response"]
       - id: invalid-input
         code: invalid_input
@@ -712,6 +748,7 @@ flows:
     docs: [architecture/extension.md]
     unclear:
       - "key와 팔레트 쪽 등록(commands/extension-keys.ts)은 keys 소유다. 여기서는 IPC run 이후만 본다"
+      - "route의 handler는 아직 없다(계약만). core 안 extension host가 IPC 길과 같은 판정을 한다"
       - "handler는 main 안에서 돈다. handler가 core route를 부르거나 탭을 여는 일은 이 flow의 갈래가 아니라 그 handler가 하는 일이다(코드에서 정해지지 않는다)"
 
   # ---------- 보호 입력 ----------

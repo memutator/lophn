@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory, defineRead } from "../base/route.ts";
+import type {
+  AcpCliSession,
+  AcpRewindPreview,
+} from "../extensions/acp-session.ts";
 
 // coding session: 사람 터미널 탭에서 도는 coding agent CLI 하나다. shell main(host)이 탭과 GUI handle을 갖고, core는
 // host가 `/host-link`로 올린 보고와 ACP 상태 사본을 메모리에 둔다. ledger에는 행이 없다. session id는 desktop GUI 화면과 같은
@@ -133,6 +137,50 @@ export const codingSessionsWake = defineMemory({
   output: z.strictObject({ shell: z.enum(["attached", "starting"]) }),
   actors: ["user"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
+});
+
+// 그 session의 CLI가 이 폴더에서 가진 지난 session, 최근 순이다. GUI의 run이 없거나 못 주면 비어 있다.
+export const codingSessionsCliSessions = defineRead({
+  resource: "coding_sessions",
+  method: "cli_sessions",
+  name: "CodingSessionsCliSessions",
+  input: z.strictObject({ session: idSchema("ses") }),
+  output: z.strictObject({
+    sessions: z.array(
+      z.strictObject({
+        id: z.string().min(1),
+        title: z.string().nullable(),
+        updated_at: z.string().nullable(),
+      }) satisfies z.ZodType<AcpCliSession>,
+    ),
+  }),
+  actors: ["user"],
+  errors: ["invalid_input", "unauthorized", "forbidden", "not_found"],
+});
+
+// 그 사람 메시지로 rewind하면 되돌아갈 file이다. GUI의 run이 없거나 못 주면 null이다.
+export const codingSessionsRewindPreview = defineRead({
+  resource: "coding_sessions",
+  method: "rewind_preview",
+  name: "CodingSessionsRewindPreview",
+  input: z.strictObject({
+    session: idSchema("ses"),
+    message: z.string().min(1),
+  }),
+  output: z.strictObject({
+    preview: (
+      z.strictObject({
+        files: z.array(
+          z.strictObject({
+            path: z.string(),
+            change: z.enum(["create", "update", "delete"]),
+          }),
+        ),
+      }) satisfies z.ZodType<AcpRewindPreview>
+    ).nullable(),
+  }),
+  actors: ["user"],
+  errors: ["invalid_input", "unauthorized", "forbidden", "not_found"],
 });
 
 export const CODING_RELAY_ROUTES = [

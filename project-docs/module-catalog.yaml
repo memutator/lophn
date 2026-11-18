@@ -110,6 +110,14 @@ modules:
     boundary: core
     notes: 폰이 보는 coding session 터미널의 최신 화면(메모리), 보는 principal의 lease(30초), 입력 key 기억. 다른 module을 import하지 않고 base와 protocol만 쓴다. host 요청·Bus·입력 허락은 view.ts의 deps이고 wiring/terminal-view.ts가 끼운다.
 
+  - path: packages/core/terminals
+    boundary: core
+    notes: 사람의 터미널. PTY host(host/, core가 자식으로 띄운다), 그 감독, 터미널 service(열기 순서, 출력 lease, route handler), 사람의 login env와 `lophn` 경로. 다른 module을 import하지 않고 base와 protocol만 쓴다. 다른 쪽은 ports.ts의 `Terminals`·`PersonEnv`로 닿고 core/main의 wiring/terminals.ts가 끼운다.
+
+  - path: packages/core/extensions
+    boundary: extension-host
+    notes: core 안 extension host(registry, CLI를 띄우는 spawner, ACP handle, tool 호출). 다른 module을 import하지 않고 base와 protocol만 쓴다. 다른 쪽은 ports.ts의 `ExtensionHost`로 닿고 core/main의 wiring/extensions.ts가 끼운다. bundled/<id>/는 본체 안 extension code(shell-extension)라 protocol, base, 자기 폴더만 import한다(tools/check-deps.ts).
+
   - path: packages/core/projects
     boundary: projects
 

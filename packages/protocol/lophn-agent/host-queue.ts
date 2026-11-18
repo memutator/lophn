@@ -70,13 +70,16 @@ const sharedTargets = [
   }),
   z.strictObject({ artifact: z.strictObject({ name: artifactNameSchema }) }),
 ] as const;
-// `terminal`은 shell만 도는 터미널 탭이다(폰이 연 터미널, `terminal_open`). shell main만 넣는다.
+// `terminal`은 터미널 탭이다. terminal_ref가 있으면 core가 이미 연 그 터미널(`terminals/open`의 `tab`)에 붙고, 없으면 shell만 도는
+// 터미널을 shell main이 연다(폰이 연 터미널, `terminal_open`).
 export const hostTabTargetSchema = z.union([
   ...sharedTargets,
   z.strictObject({
     coding: z.strictObject({ harness: z.string().min(1).max(64) }),
   }),
-  z.strictObject({ terminal: z.strictObject({}) }),
+  z.strictObject({
+    terminal: z.strictObject({ terminal_ref: z.string().min(1).optional() }),
+  }),
 ]);
 export type HostTabTarget = z.infer<typeof hostTabTargetSchema>;
 

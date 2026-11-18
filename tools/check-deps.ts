@@ -70,24 +70,27 @@ const DESIGN_FOR_CORE = [
 // 폴더("/"로 끝)는 그 아래 전부, 아니면 그 file이다.
 const cliHit = (path: string, list: readonly string[]) =>
   list.some((x) => (x.endsWith("/") ? path.startsWith(x) : path === x));
-// 본체 안 extension 폴더의 code는 ctx로만 lophn에 닿는다(protocol/extensions의 ExtensionContext). shell main 내부와 electron을
+// 본체 안 extension 폴더의 code는 ctx로만 lophn에 닿는다(protocol/extensions의 ExtensionContext). host 내부와 electron을
 // import하지 못하고 protocol, base, 자기 폴더만 쓴다. 따로 받는 package로 옮겨도 구조가 같도록 하는 규칙이다.
-const EXTENSION_DIR = "packages/shell/main/extensions/bundled/";
+// host가 shell main에서 core로 옮기는 동안 두 자리에 같은 extension이 있다.
+const EXTENSION_DIRS = [
+  "packages/shell/main/extensions/bundled/",
+  "packages/core/extensions/bundled/",
+];
 function extensionViolation(
   file: string,
   specifier: string,
   target: string | undefined,
 ): string | undefined {
-  if (!file.startsWith(EXTENSION_DIR)) return;
+  const dir = EXTENSION_DIRS.find((one) => file.startsWith(one));
+  if (dir === undefined) return;
   if (specifier === "electron" || specifier.startsWith("electron/")) {
     return `extension은 electron을 import하지 않고 ctx로만 닿는다: ${specifier}`;
   }
   if (!target) return;
   return target.startsWith("packages/protocol/") ||
     target.startsWith("packages/base/") ||
-    target.startsWith(
-      `${EXTENSION_DIR}${file.slice(EXTENSION_DIR.length).split("/")[0]}/`,
-    )
+    target.startsWith(`${dir}${file.slice(dir.length).split("/")[0]}/`)
     ? undefined
     : `extension은 protocol, base, 자기 폴더만 import: ${specifier}`;
 }
@@ -301,6 +304,8 @@ const LEAVING_FILES = new Set(["packages/protocol/server/registration.ts"]);
 // extensions의 ACP handle은 acp의 type만 import한다. lophn-agent/harness-host.ts가 extensions의 extensionSettingKey를
 // 쓰지만 type import는 실행 순환이 아니다. harness-host가 그 함수를 config 쪽에서 받게 되면 이 둘을 뺀다.
 // route 정의의 `changes` 칸이 events/changes.ts의 이름 목록 type을 쓴다. changes.ts는 아무것도 import하지 않아 실행 순환이 아니다.
+// coding-agent/terminals.ts가 탭 관계(tabRelationSchema)를 host-queue.ts에서 받는다. lophn-agent가 coding-agent로 가는 길은
+// workspaces.ts → harness-adapter.ts뿐이고 둘 다 terminals.ts에 닿지 않아 실행 순환이 아니다(관계 목록을 한 곳에 두려고 복사하지 않는다).
 // phone/drive.ts가 view id 규칙(appViewIdSchema)을 views.ts에서 받는다. apps/phone-request.ts가 phone의 PhoneKind type만 import하고
 // views.ts는 phone을 import하지 않아 실행 순환이 아니다(id 규칙을 한 곳에 두려고 복사하지 않는다).
 const PROTOCOL_CYCLE_EXCEPTIONS = new Set([
@@ -309,6 +314,7 @@ const PROTOCOL_CYCLE_EXCEPTIONS = new Set([
   "packages/protocol/apps/annotation.ts\0../lophn-agent/workspaces.ts",
   "packages/protocol/extensions/acp-session.ts\0../acp/input.ts",
   "packages/protocol/extensions/acp-session.ts\0../acp/state.ts",
+  "packages/protocol/coding-agent/terminals.ts\0../lophn-agent/host-queue.ts",
 ]);
 
 // 폰 kit `@lophn/ui-native`(packages/design/native)는 root workspace의 member가 아니다(packages/mobile의 Metro alias와 설치 사본으로 풀린다).

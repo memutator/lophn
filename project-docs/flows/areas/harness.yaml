@@ -1660,7 +1660,7 @@ flows:
   - id: coding-sessions-read
     title: 폰이 컴퓨터의 coding session 목록과 view 바꾸기 계획을 읽는다
     actor: person
-    entries: [route:coding_sessions/list, route:coding_sessions/switch_plan]
+    entries: [route:coding_sessions/list, route:coding_sessions/switch_plan, route:coding_sessions/cli_sessions, route:coding_sessions/rewind_preview]
     boundary: [host-queue-interface, acp]
     code:
       - packages/core/coding-relay/relay.ts
@@ -1670,12 +1670,13 @@ flows:
       - "list는 host가 보고한 터미널마다 한 줄이다(project로 거를 수 있다). 사본이 있으면 상태는 사본의 승인·질문·turn으로 덮는다. shell은 /host-link가 열려 있으면 attached다. 연결이 닫히고 유예가 지나면 목록이 빈다"
       - "switch는 GUI면 null이다. TUI면 Windows는 unsupported_os, GUI handle(사본)이 있으면 null, foreground TUI나 handoff가 없으면 not_running, CLI session id가 없으면 no_session이다"
       - "switch_plan은 TUI면 to gui(도는 turn은 보고의 running), GUI면 to tui(사본의 도는 turn, 도는 task 수, 줄 선 메시지 수)다"
+      - "cli_sessions는 그 session의 CLI가 이 폴더에서 가진 지난 session(최근 순), rewind_preview는 그 사람 메시지로 rewind하면 되돌아갈 file이다. GUI의 run이 없으면 빈 목록과 null이다"
     outcomes:
       - id: ok
         observe: [response]
       - id: not_found
         code: not_found
-        when: "switch_plan의 session이 보고에 없다"
+        when: "switch_plan·cli_sessions·rewind_preview의 session이 목록에 없다"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -1683,6 +1684,8 @@ flows:
         observe: [response]
     crosses_process: false
     docs: [architecture/harness-gui.md]
+    unclear:
+      - "cli_sessions·rewind_preview의 handler는 아직 없다(계약만). 지금 desktop은 shell IPC(harness-gui:tab-sessions, tab-rewind-preview)를 쓴다"
 
   - id: coding-session-switch
     title: 폰에서 사람이 확인한 뒤 coding session의 탭을 chat과 터미널 사이에서 바꾼다
@@ -2063,6 +2066,471 @@ flows:
     docs: [architecture/remote.md, architecture/terminal-agent.md]
     unclear:
       - "not_found·conflict·invalid_input은 선언만 있고 내지 않는다(입력 schema 밖)"
+
+  # ---- core가 가진 터미널(terminals/*): desktop 화면과 폰이 같이 쓴다 ----
+  - id: terminals-read
+    title: 화면이 core가 가진 터미널 목록, 다시 붙을 때의 화면, 저장한 coding agent session을 읽는다
+    actor: person
+    entries: [route:terminals/list, route:terminals/snapshot, route:terminals/saved_sessions]
+    boundary: [core]
+    code:
+      - packages/protocol/coding-agent/terminals.ts
+      - packages/core/terminals/ports.ts
+    steps:
+      - "list는 core가 가진 터미널의 runtime이다(project로 거를 수 있다). 창이 없을 때 연 터미널도 있다"
+      - "snapshot은 PTY host가 파싱해 둔 화면이다. after_seq 뒤 출력이 있으면 화면을 직렬화한 chunk 하나와 그 화면이 담은 마지막 seq, 없으면 빈 output이다. 화면은 이 seq 뒤 TerminalOutputAppended만 이어 쓴다"
+      - "saved_sessions는 그 project에서 hook이 session id를 알려 준 coding agent session, 새것부터다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "snapshot의 터미널을 core가 모른다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "snapshot에 PTY host가 답하지 않았다(host_lost)"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/terminal-agent.md]
+    unclear:
+      - "handler는 아직 없다(계약만). 지금 desktop은 shell IPC(terminal-snapshot, terminal-agent-session-list)를 쓴다"
+
+  - id: terminals-open
+    title: 사람의 화면이나 폰이 project 폴더에 터미널을 연다(창이 없어도 열린다)
+    actor: person
+    entries: [route:terminals/open]
+    boundary: [core, host-queue-interface]
+    code:
+      - packages/protocol/coding-agent/terminals.ts
+      - packages/core/terminals/ports.ts
+    steps:
+      - "같은 key는 같은 답이다(PTY를 다시 열지 않는다)"
+      - "project의 등록 폴더를 다시 읽고 cwd가 그 안인지 본다. folder_ref는 core가 정한다(<project>_<index>)"
+      - "core의 PTY host에 터미널을 연다. env에 LOPHN_WORKSPACE, LOPHN_SESSION_ID(term:<터미널>), 사람의 login env와 lophn 경로, 터미널마다 더하는 env(hook, browser bridge)를 싣는다"
+      - "command나 resume이 있으면 첫 출력 뒤 300ms 잠잠할 때(늦어도 5초) 한 번 친다. 친 것이 거절돼도 열기는 실패가 아니다"
+      - "tab이 있으면 host queue에 그 project의 tab_open {terminal: {terminal_ref}}를 넣는다. 그 project를 보이는 창이 없으면 탭은 기다리고 터미널은 그대로 돈다"
+    outcomes:
+      - id: opened
+        observe: [response, event:TerminalRuntimeChanged]
+      - id: tab-queued
+        when: "tab을 주었다"
+        observe: [request:shell, response]
+      - id: deduplicated
+        when: "같은 key를 다시 보냈다"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "project가 없다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "폴더가 없거나(no_folder), 폴더가 아니거나(not_directory), cwd가 등록 폴더 밖이거나 읽지 못한다(unreadable). details.reason이 이유다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "PTY를 띄우지 못했거나(spawn_failed) PTY host가 답하지 않았다(host_lost)"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/terminal-agent.md]
+    unclear:
+      - "handler는 아직 없다(계약만). 지금 desktop은 shell IPC(terminal-open), 폰은 terminal_view/open을 쓴다"
+
+  - id: terminals-close
+    title: 화면이 터미널을 끝낸다
+    actor: person
+    entries: [route:terminals/close]
+    boundary: [core]
+    code:
+      - packages/protocol/coding-agent/terminals.ts
+      - packages/core/terminals/ports.ts
+    steps:
+      - "지금 generation의 터미널만 끝낸다. PTY host가 SIGHUP 뒤 SIGKILL까지 보내고 exited runtime을 준다"
+      - "터미널마다 더했던 env(hook key, bridge)는 그 터미널이 끝나면 거둔다"
+    outcomes:
+      - id: closed
+        observe: [response, event:TerminalRuntimeChanged]
+      - id: not_found
+        code: not_found
+        when: "core가 그 터미널을 모른다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "지금 generation이 아니다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "끝난 것을 확인하지 못했거나(kill_unconfirmed) PTY host가 답하지 않았다(host_lost)"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/terminal-agent.md]
+    unclear:
+      - "handler는 아직 없다(계약만). 지금 desktop은 shell IPC(terminal-close)를 쓴다"
+
+  - id: terminals-restart
+    title: focus한 창의 사람이 같은 터미널의 shell을 다시 띄운다
+    actor: shell
+    entries: [route:terminals/restart]
+    boundary: [core]
+    code:
+      - packages/protocol/coding-agent/terminals.ts
+      - packages/core/terminals/ports.ts
+    steps:
+      - "shell main이 focus 검사를 한 뒤 control connect {client: shell}이 준 capability를 실어 부른다. 살아 있는 capability가 아니면 거절한다"
+      - "지금 generation의 터미널을 같은 env로 다시 띄운다. generation이 오르고 옛 출력은 버린다"
+    outcomes:
+      - id: restarted
+        observe: [response, event:TerminalRuntimeChanged]
+      - id: forbidden
+        code: forbidden
+        when: "shell_capability가 살아 있는 값이 아니다, 또는 사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "core가 그 터미널을 모른다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "지금 generation이 아니다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "PTY를 띄우지 못했거나(spawn_failed) PTY host가 답하지 않았다(host_lost)"
+        observe: [response]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/terminal-agent.md]
+    unclear:
+      - "handler는 아직 없다(계약만). 지금 desktop은 shell IPC(terminal-restart)를 쓴다"
+
+  - id: terminals-input
+    title: focus한 창의 사람이나 입력을 허락받은 기기가 터미널에 친다
+    actor: person
+    entries: [route:terminals/input]
+    boundary: [core]
+    code:
+      - packages/protocol/coding-agent/terminals.ts
+      - packages/core/terminals/ports.ts
+    steps:
+      - "부른 principal이 기기면 그 기기의 터미널 입력 허락(terminalInputGrant)이 있어야 한다. 기기가 아니면 살아 있는 shell_capability(focus 검사를 거친 shell main)가 있어야 한다. 둘 다 아니면 PTY에 아무것도 가지 않는다. agent 자격은 dispatch가 막는다"
+      - "generation을 주면 지금 generation일 때만 친다. 같은 key는 터미널마다 기억해 한 번만 친다"
+      - "respond가 아니면 사람 입력이라 tracker가 끊기 key를 본다. respond(xterm의 질의 답)는 사람 입력으로 세지 않는다"
+    outcomes:
+      - id: sent
+        observe: [response]
+      - id: deduplicated
+        when: "같은 key를 다시 보냈다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "입력 허락이 없는 기기다, 기기가 아닌데 살아 있는 shell_capability가 없다, 또는 사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "core가 그 터미널을 모른다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "준 generation이 지금 것이 아니다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "PTY host가 답하지 않았다(host_lost)"
+        observe: [response]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/terminal-agent.md, architecture/remote.md]
+    unclear:
+      - "handler는 아직 없다(계약만). 지금 desktop은 shell IPC(terminal-input, terminal-response), 폰은 terminal_view/input을 쓴다"
+
+  - id: terminals-resize
+    title: 화면이 보이는 칸의 크기를 PTY에 준다(폰이 잡은 크기를 놓는다)
+    actor: person
+    entries: [route:terminals/resize]
+    boundary: [core]
+    code:
+      - packages/protocol/coding-agent/terminals.ts
+      - packages/core/terminals/ports.ts
+    steps:
+      - "보이는 칸은 focus와 상관없이 크기를 보낸다. 폰이 잡은 크기(remote_size)가 있으면 놓는다: 마지막에 잡은 쪽이 이긴다"
+    outcomes:
+      - id: resized
+        observe: [response, event:TerminalRuntimeChanged]
+      - id: not_found
+        code: not_found
+        when: "core가 그 터미널을 모른다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "지금 generation이 아니다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "PTY host가 답하지 않았다(host_lost)"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/terminal-agent.md]
+    unclear:
+      - "handler는 아직 없다(계약만). 지금 desktop은 shell IPC(terminal-resize)를 쓴다"
+
+  - id: terminals-watch
+    title: 화면이 터미널의 날 출력을 받겠다고 lease를 켜고 갱신하고 끈다
+    actor: person
+    entries: [route:terminals/watch]
+    uses: [route:terminals/snapshot, system:gateway-stream]
+    boundary: [core, event-stream]
+    code:
+      - packages/protocol/coding-agent/terminals.ts
+      - packages/protocol/events/transient.ts
+      - packages/core/terminals/ports.ts
+    steps:
+      - "on이면 (principal, watcher)의 lease를 30초로 만들거나 갱신한다. 화면은 10초마다 같은 호출을 한다. off이거나 기한이 지나면 그 lease를 지운다"
+      - "그 터미널에 lease가 하나라도 있는 동안 host가 묶은 출력 chunk 하나마다 TerminalOutputAppended {subject terminal:<ref>}를 Bus에 낸다. lease가 없으면 내지 않고 host의 화면만 이어진다"
+      - "화면은 watch → snapshot{after_seq} → 받은 seq보다 큰 event만 쓴다(다른 generation은 버린다). seq가 건너뛰거나 Gateway가 다시 열리면 마지막 seq로 snapshot을 다시 읽는다. core는 터미널마다 queue를 두지 않는다"
+    outcomes:
+      - id: watching
+        observe: [response, event:TerminalOutputAppended]
+      - id: stopped
+        when: "on이 false이거나 lease 기한이 지났다"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "core가 그 터미널을 모른다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/terminal-agent.md, architecture/event.md]
+    unclear:
+      - "handler는 아직 없다(계약만). 지금 desktop은 shell IPC(terminal-snapshot의 watch, terminal-output push)를 쓴다"
+
+  - id: terminals-name
+    title: 화면이 탭 줄에 보이는 터미널 이름을 core에 둔다
+    actor: person
+    entries: [route:terminals/name]
+    boundary: [core]
+    code:
+      - packages/protocol/coding-agent/terminals.ts
+      - packages/core/terminals/ports.ts
+    steps:
+      - "이름을 runtime의 tab_name으로 싣는다. 빈 이름은 이름 없음이다. 알림 제목과 다른 화면의 탭 이름, Finished 줄이 이것을 쓴다"
+    outcomes:
+      - id: named
+        observe: [response, event:TerminalRuntimeChanged]
+      - id: not_found
+        code: not_found
+        when: "core가 그 터미널을 모른다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/terminal-agent.md]
+    unclear:
+      - "handler는 아직 없다(계약만). 지금 desktop은 shell IPC(terminal-tab-name)를 쓴다"
+
+  - id: terminals-rename-saved
+    title: 사람이 저장한 coding agent session에 이름을 쓰고 고정한다
+    actor: person
+    entries: [route:terminals/rename_saved]
+    boundary: [core]
+    code:
+      - packages/protocol/coding-agent/terminals.ts
+      - packages/core/terminals/ports.ts
+    steps:
+      - "그 project에 저장한 session의 name을 쓰고 pinned로 둔다. name이 null이면 고정을 푼다. 이후 hook이 준 이름은 고정된 이름을 덮지 않는다"
+      - "바뀐 목록을 주고 StateChanged{terminal_saved_sessions, id: project}를 낸다"
+    outcomes:
+      - id: renamed
+        observe: ["disk:<data root>의 저장한 session file", response, event:StateChanged]
+      - id: not_found
+        code: not_found
+        when: "그 project에 그 session이 저장돼 있지 않다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "저장 file을 쓰지 못했다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/terminal-agent.md]
+    unclear:
+      - "handler는 아직 없다(계약만). 지금 desktop은 shell IPC(terminal-agent-session-rename)를 쓴다"
+
+  - id: terminal-agent-signal
+    title: 터미널의 coding agent가 알릴 계기를 core가 event로 낸다
+    actor: system
+    entries: [system:terminal-agent-signal]
+    boundary: [core, events]
+    code:
+      - packages/protocol/events/transient.ts
+      - packages/core/terminals/ports.ts
+    steps:
+      - "tracker가 권한 물음, 일 끝(main turn과 child가 다 끝나 1.5초 idle), 실패를 정한 순간 TerminalAgentSignaled {terminal, project, harness, kind, name, body}를 낸다. 보고 있는지는 보지 않는다"
+      - "shell main이 이것을 듣고 보고 있지 않으면 toast나 OS 알림을 고른다. 못 본 끝(unseen)과 폰 push는 core의 attention이 같은 계기로 정한다"
+    outcomes:
+      - id: signaled
+        observe: [event:TerminalAgentSignaled]
+    crosses_process: false
+    docs: [architecture/terminal-agent.md, architecture/attention.md]
+    unclear:
+      - "아직 core가 내지 않는다(계약만). 지금은 shell main의 tracker가 알림을 고르고 terminal_sessions/signal을 부른다"
+
+  # ---- Settings › Coding agents(coding_agents/*) ----
+  - id: coding-agents-read
+    title: Settings › Coding agents가 harness 감지 결과와 전역 hook 상태를 읽는다
+    actor: person
+    entries: [route:coding_agents/list, route:coding_agents/hook_status]
+    uses: [cli:harness.detect, cli:harness.status]
+    boundary: [core, coding-agent-cli]
+    code:
+      - packages/protocol/coding-agent/coding-agents.ts
+    steps:
+      - "list는 처음 한 번만 core가 사람의 env로 lophn harness detect를 부르고 이후는 성공한 마지막 결과다. 실패하면 모든 harness가 unknown이다"
+      - "hook_status는 lophn harness status를 dry run으로 불러 harness마다 installed·missing·unsupported·failed를 준다. 아무것도 쓰지 않는다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/coding-agent.md]
+    unclear:
+      - "handler는 아직 없다(계약만). 지금 Settings는 shell IPC(shell:coding)를 쓴다"
+
+  - id: coding-agents-refresh
+    title: 사람이 [Detect again]을 눌러 harness를 다시 찾는다
+    actor: person
+    entries: [route:coding_agents/refresh]
+    uses: [cli:harness.refresh]
+    boundary: [core, coding-agent-cli]
+    code:
+      - packages/protocol/coding-agent/coding-agents.ts
+    steps:
+      - "core가 사람의 env로 lophn harness refresh를 불러 찾은 제품의 version까지 읽고 결과를 쥔다. 실패하면 모든 harness가 unknown이고 쥐지 않는다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/coding-agent.md]
+    unclear:
+      - "handler는 아직 없다(계약만). 지금 Settings는 shell IPC(shell:coding)를 쓴다"
+
+  - id: coding-agents-install-hooks
+    title: 사람이 Settings에서 [Install hooks]를 눌러 그 harness에 전역 hook을 놓는다
+    actor: person
+    entries: [route:coding_agents/install_hooks]
+    uses: [cli:harness.install, cli:harness.sync_skills]
+    boundary: [core, coding-agent-cli]
+    code:
+      - packages/protocol/coding-agent/coding-agents.ts
+    steps:
+      - "누른 것이 허락이라 다시 묻지 않는다. lophn harness install을 부르고 놓은 뒤 공유 skill 사본을 맞춘다"
+      - "결과는 그 harness의 hook 상태와 쓴 file이다. 놓지 못하면 status failed다"
+    outcomes:
+      - id: installed
+        observe: ["disk:<harness 전역 설정 file>", response]
+      - id: failed
+        when: "설정 file을 읽거나 쓰지 못했다(status failed)"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+    crosses_process: true
+    risk: [data-loss]
+    docs: [architecture/coding-agent.md]
+    unclear:
+      - "handler는 아직 없다(계약만). 지금 Settings는 shell IPC(shell:coding)를 쓴다"
+
+  - id: coding-agents-uninstall-hooks
+    title: 사람이 Settings에서 [Uninstall hooks]를 눌러 lophn 항목만 지운다
+    actor: person
+    entries: [route:coding_agents/uninstall_hooks]
+    uses: [cli:harness.uninstall, cli:harness.sync_skills]
+    boundary: [core, coding-agent-cli]
+    code:
+      - packages/protocol/coding-agent/coding-agents.ts
+    steps:
+      - "누른 것이 허락이다. lophn harness uninstall이 lophn 항목만 지우고 사람 항목은 남긴다. 지운 뒤 공유 skill 사본을 맞춘다"
+    outcomes:
+      - id: removed
+        observe: ["disk:<harness 전역 설정 file>", response]
+      - id: failed
+        when: "설정을 안전하게 고치지 못했다(status failed)"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+    crosses_process: true
+    risk: [data-loss]
+    docs: [architecture/coding-agent.md]
+    unclear:
+      - "handler는 아직 없다(계약만). 지금 Settings는 shell IPC(shell:coding)를 쓴다"
+
+  - id: coding-agents-hook-ask
+    title: core가 처음 알아본 harness에 hook을 놓을지 묻고 사람의 답을 받는다
+    actor: person
+    entries: [route:coding_agents/hook_answer]
+    uses: [cli:harness.install, cli:harness.sync_skills]
+    boundary: [core, coding-agent-cli]
+    code:
+      - packages/protocol/coding-agent/coding-agents.ts
+      - packages/protocol/events/transient.ts
+    steps:
+      - "사람 터미널에서 harness를 foreground로 처음 알아본 때(실행마다 harness당 한 번) dry run으로 보고, 없으면 HookInstallAsked {request, terminal, harness, label, files}를 낸다. 그 터미널을 고른 창이 dialog로 묻는다"
+      - "창이 hook_answer {request, accepted}로 답한다. 이미 답했거나 모르는 request는 아무 일도 없다"
+      - "거절이면 이 실행에서 다시 묻지 않고 기억하지 않는다. 허락이면 lophn harness install을 부르고 공유 skill 사본을 맞춘 뒤 HookInstallFinished를 낸다"
+    outcomes:
+      - id: installed
+        observe: ["disk:<harness 전역 설정 file>", event:HookInstallFinished]
+      - id: failed
+        when: "허락했는데 놓지 못했다(HookInstallFinished의 ok가 false)"
+        observe: [event:HookInstallFinished]
+      - id: declined
+        when: "사람이 거절했다"
+        observe: [response]
+      - id: ignored
+        when: "이미 답했거나 모르는 request다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+    crosses_process: true
+    risk: [data-loss, permission]
+    docs: [architecture/terminal-agent.md, architecture/coding-agent.md]
+    unclear:
+      - "handler는 아직 없다(계약만). 지금은 shell main이 묻는다(terminal-hook-install)"
 
   # ---- lophn CLI의 local 명령: 감지, hook 설치, skill 사본 ----
   - id: harness-detect

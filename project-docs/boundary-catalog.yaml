@@ -116,7 +116,7 @@ elements:
 
           - id: harness-host-core
             kind: component
-            description: runtime이 harness(claude-code, codex, opencode)인 agent의 session을 core가 받는 쪽. queue, turn·메시지 기록, harness의 session id. 실행은 shell의 host가 한다.
+            description: runtime이 harness(claude-code, codex, opencode)인 agent의 session을 core가 받는 쪽. queue, turn·메시지 기록, harness의 session id. 실행은 core 안 extension host가 한다.
 
       - id: events
         kind: component
@@ -170,6 +170,10 @@ elements:
         kind: component
         description: 바깥 도구가 옮기는 폴더(destination, 기계마다의 설정 `folder.destinations`)로 sync 앱(선언 `sync_to`)의 data stream(changes·snapshot file), release, source(증분 git bundle), 앱·기계 기록을 내보내고 읽어 들이기. 기계마다 자기 하위 폴더에만 쓰고, 읽은 file은 전부 검사한 뒤 한 transaction으로 적용하거나 다른 release면 held로 복사했다가 이 기계가 그 release가 되면 출처마다 번호 순서로 적용한다(held 한도 포함). 흔적 정리의 settled·horizon, 다른 기계의 앱을 들이는 take-in, 기계 사이 폴더 꼴 판 범위, 읽기 명령 `machine.environment`와 뒤 계획이 칸을 꽂는 section 자리를 포함한다.
 
+      - id: extension-host
+        kind: component
+        description: core 안에서 extension 폴더의 manifest를 읽고, 설정 `extensions.<id>.enabled`가 켜진 것만 load해 activate하는 registry와 extension이 쓰는 CLI spawner(사람의 login env), ACP handle, tool 호출. 설치 표시 file로 extension이 쓴 file만 지운다.
+
       - id: diagnostics
         kind: component
         description: lophn 자체의 운영 log, crash 기록, 상태 점검. core process의 구조화 log·trace·metric(telemetry), `/healthz`·`/readyz`, 자원 snapshot도 여기다.
@@ -183,11 +187,6 @@ elements:
       - design
       - coding-agent-harness-api
       - remote-client
-    children:
-
-      - id: extension-host
-        kind: component
-        description: shell main에서 extension 폴더의 manifest를 읽고, 설정 `extensions.<id>.enabled`가 켜진 것만 load해 activate하는 registry. 설치 표시 file로 extension이 쓴 file만 지운다.
 
   - id: shell-extension
     kind: extension

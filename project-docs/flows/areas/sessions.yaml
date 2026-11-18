@@ -1659,7 +1659,7 @@ flows:
       - "path가 구독 경로가 아니면 not_found, Bus가 없으면 unavailable이다. gateway 자격이 허용되지 않거나 shell capability가 유효하지 않으면 forbidden이다."
       - "event 연결 한도(전체 32, principal당 4)를 넘으면 upgrade 전에 unavailable로 거절한다."
       - "watch frame으로 조건을 받으면 Bus에 구독하고 ready를 보낸다. 화면은 ready 뒤에 snapshot을 읽는다. client frame이 JSON이 아니거나 watch 조건이 틀리면 closed 없이 1008로 끊는다(bad-frame)."
-      - "맞는 event를 event frame으로 보낸다. 보내는 버퍼가 1 MiB를 넘으면 closed(slow_consumer)를 보내고 1013으로 닫는다. replay는 없다."
+      - "맞는 event를 event frame으로 보낸다. 보내는 버퍼가 1 MiB를 넘으면 closed(slow_consumer)를 보내고 1013으로 닫는다. replay는 없다. 터미널의 날 출력(TerminalOutputAppended)도 이 연결로 가고 back-pressure는 이 끊기뿐이다. 화면은 다시 붙어 terminals/snapshot으로 맞춘다."
       - "server가 내려갈 때 closed(shutdown)를 보내고 1001로 닫는다. upgrade 처리 중 경계 밖 throw는 internal로 거절한다."
     outcomes:
       - id: ok

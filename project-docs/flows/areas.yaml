@@ -177,6 +177,7 @@ areas:
       - architecture/harness-gui.md
       - architecture/terminal-agent.md
       - packages/core/host-queue/
+      - packages/core/terminals/
       - packages/core/lophn-agent/session/
       - packages/shell/main/terminal/
       - packages/shell/terminal-host/
@@ -357,7 +358,7 @@ areas:
       - packages/shell/main/workspace/
 
   - id: shell-desktop
-    title: desktop app, 창, extension host, 모양
+    title: desktop app, 창, extension host(core 안), 모양
     entries:
       - packages/protocol/shell/
       - packages/protocol/extensions/
@@ -373,6 +374,7 @@ areas:
       - architecture/platform.md
       - packages/shell/main/desktop/
       - packages/shell/main/extensions/
+      - packages/core/extensions/
       - packages/shell/main/secret-input/
       - packages/shell/renderer/secret-input/
       - packages/shell/renderer/desktop/
@@ -434,6 +436,8 @@ test_groups:
     paths: [packages/core/lophn-agent/]
   - id: core-apps
     paths: [packages/core/apps/]
+  - id: core-extensions
+    paths: [packages/core/extensions/]
   - id: core-rest
     paths: [packages/core/]
   - id: shell

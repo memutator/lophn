@@ -350,5 +350,9 @@
   {
     "id": "folder.carry-marks",
     "sha256": "64c85a48214ff7e0249cd15dfb8b92b1e094ceb324c76d916cd0b3354604d874"
+  },
+  {
+    "id": "projects.registry.former-identities",
+    "sha256": "36a11c7383872baa5a0b41af64f76f4501d75c74f7e77b4feaeee42143bccf10"
   }
 ]

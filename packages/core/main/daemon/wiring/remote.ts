@@ -86,7 +86,10 @@ import {
 } from "../../../folder/schema.ts";
 import { jobMachineSchemaSteps } from "../../../jobs/machine-schema.ts";
 import { readMachineId } from "../../../machine/mod.ts";
-import { PROJECTS_IDENTITY_STEPS } from "../../../projects/registry/mod.ts";
+import {
+  PROJECTS_FORMER_IDENTITY_STEPS,
+  PROJECTS_IDENTITY_STEPS,
+} from "../../../projects/registry/mod.ts";
 import { devicePrincipal } from "../../../remote/call.ts";
 import { type CarryLinks, createCarryLinks } from "../../../remote/carry.ts";
 import {
@@ -749,6 +752,7 @@ export function remoteWiring(
       ...FOLDER_EVENTS_SEEN_STEPS,
       ...EVENT_PUBLICATIONS_MACHINE_STEPS,
       ...FOLDER_CARRY_MARKS_STEPS,
+      ...PROJECTS_FORMER_IDENTITY_STEPS,
     ],
     dataSteps: [hostKeyMachineStep, signingKeyStep, viewerRosterStep],
     operations: () => [

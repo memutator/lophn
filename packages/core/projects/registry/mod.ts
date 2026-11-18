@@ -6,7 +6,11 @@ export {
   rootRelation,
   searchScopeOf,
 } from "./model.ts";
-export { PROJECTS_IDENTITY_STEPS, projectsSchemaSteps } from "./schema.ts";
+export {
+  PROJECTS_FORMER_IDENTITY_STEPS,
+  PROJECTS_IDENTITY_STEPS,
+  projectsSchemaSteps,
+} from "./schema.ts";
 export { PROJECT_CLONE_CONTEXT, PROJECT_IDENTITY_CONTEXT } from "./contexts.ts";
 export { createProjectCommands } from "./commands.ts";
 export {

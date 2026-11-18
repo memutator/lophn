@@ -50,6 +50,7 @@ export function createLedgerRegistration(
       commands.unarchive,
       commands.setIcon,
       commands.recordIdentity,
+      commands.linkIdentity,
     ],
     reads: [reads.list, reads.get, reads.resolve, reads.icon],
     apiReads: [

@@ -35,6 +35,7 @@ import {
   PanelSection,
 } from "./panel-rows.tsx";
 import { DeleteAppDialog } from "./delete-app-dialog.tsx";
+import { MachineTag } from "./left-sidebar.tsx";
 import { RightSidebar } from "./right-sidebar.tsx";
 import { useProjectList } from "./use-left-sidebar.ts";
 
@@ -163,7 +164,7 @@ export function WorkspacesPanel({
         data-offline={row.offline ? "" : undefined}
         leading={<WorkspaceMark kind={ref.kind} id={ref.id} name={row.name} />}
         title={row.name}
-        tag={nameOf(ref.machine)}
+        trailing={<MachineTag name={nameOf(ref.machine)} />}
         meta={t(
           row.offline
             ? "machines.panel.off"

@@ -20,7 +20,8 @@ export const MACHINES_VISIBLE_CHANNEL = "shell:machines-visible";
 // A window of another machine reads this computer's projects, agents and sessions, to show which of that machine's projects
 // are also here and what sessions they have here. Only those windows call it, and only these reads pass.
 export const MACHINES_THIS_READ_CHANNEL = "shell:machines-this-read";
-// A window of another machine clones one of that machine's projects onto this computer (this computer's `project.clone`).
+// Any desktop window clones another machine's project onto this computer (this computer's `project.clone`): the list's
+// [Clone here] in this computer's window, and a window of another machine.
 export const MACHINES_CLONE_HERE_CHANNEL = "shell:machines-clone-here";
 
 export const THIS_COMPUTER_READS = [

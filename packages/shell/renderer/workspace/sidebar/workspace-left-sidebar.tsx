@@ -609,6 +609,9 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
           workspace.away === undefined ? null : (
             <AwayLine
               away={workspace.away}
+              {...(workspace.offline
+                ? { offline: lists.names.get(workspace.away.machine) ?? "" }
+                : {})}
               {...(machines === null
                 ? {}
                 : { cloneHere: (input) => machines.cloneHere(input) })}

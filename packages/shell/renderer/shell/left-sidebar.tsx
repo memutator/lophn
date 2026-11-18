@@ -220,8 +220,8 @@ function SessionRename({
   );
 }
 
-// 줄 끝의 기계 꼬리표.
-function MachineTag({ name }: { name: string | undefined }) {
+/** 줄 끝의 기계 꼬리표. Workspaces panel의 줄도 쓴다. */
+export function MachineTag({ name }: { name: string | undefined }) {
   return name === undefined ? null : (
     <span className={styles.machineTag} data-machine-tag="">
       {name}

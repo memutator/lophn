@@ -42,6 +42,7 @@ export const remoteDesk = {
   "machines.group.also-here": "Also on this computer",
   "machines.group.also-here-as": "Also on this computer as {title}",
   "machines.group.clone-failed": "Could not clone it here: {message}",
+  "machines.group.clone": "Clone",
   "machines.group.clone-here": "Clone here",
   "machines.group.cloned": "Cloned to {path}",
   "machines.group.cloning": "Cloning…",

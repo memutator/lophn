@@ -63,7 +63,7 @@ export interface MachinesSource {
     route: "project.list" | "ListAgents" | "ListSessions",
     input: unknown,
   ): Promise<SourceResult<unknown>>;
-  /** 다른 기계의 창에서 그 기계의 project를 이 컴퓨터에 clone한다. */
+  /** 다른 기계의 project를 이 컴퓨터에 clone한다(목록의 [Clone here], 다른 기계의 창). */
   cloneHere(input: {
     readonly url: string;
     readonly identity: string;

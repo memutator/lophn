@@ -15,10 +15,13 @@ type CloneState =
 
 export function AwayLine({
   away,
+  offline,
   cloneHere,
   onLink,
 }: {
   away: Away;
+  /** 그 project를 가진 기계가 꺼져 있으면 그 이름. 가져올 수 없어 단추 없이 한 줄이다. */
+  offline?: string;
   /** 없으면(이 창에 기계 통로가 없다) [Clone here]가 없다. */
   cloneHere?: (input: {
     readonly url: string;
@@ -28,6 +31,15 @@ export function AwayLine({
   onLink: () => void;
 }) {
   const [clone, setClone] = useState<CloneState>({ state: "idle" });
+  if (offline !== undefined) {
+    return (
+      <div className={styles.block} data-away="offline">
+        <p className={styles.note}>
+          {t("machines.panel.off", { name: offline })}
+        </p>
+      </div>
+    );
+  }
   if (away.kind === "link") {
     return (
       <div className={styles.block} data-away="link">
@@ -89,7 +101,7 @@ export function AwayLine({
         >
           {clone.state === "cloning"
             ? t("machines.group.cloning")
-            : t("machines.group.clone-here")}
+            : t("machines.group.clone")}
         </Button>
       </div>
       {clone.state === "done" ? (

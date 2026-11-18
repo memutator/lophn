@@ -28,6 +28,14 @@
   color: var(--color-text-muted);
 }
 
+/* 단추 옆 글은 한 줄이다. */
+.label {
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .error {
   color: var(--status-critical-text);
 }

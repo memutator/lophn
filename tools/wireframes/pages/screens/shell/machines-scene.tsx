@@ -63,6 +63,9 @@ function Sidebar({
           workspace.away === undefined ? null : (
             <AwayLine
               away={workspace.away}
+              {...(workspace.offline
+                ? { offline: MACHINE_NAMES.get(workspace.away.machine) ?? "" }
+                : {})}
               cloneHere={() => new Promise(() => {})}
               onLink={noop}
             />

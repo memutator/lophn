@@ -10,6 +10,7 @@ desktop의 다른 기계 창에 agent page를 보는 탭 kind 하나를 짓는�
   - `packages/shell/renderer/workspace/kinds/page-view.tsx`(새 file), `packages/shell/renderer/workspace/kinds/registry.ts`
   - `packages/shell/renderer/workspace/add-tab-menu.tsx`, `packages/shell/renderer/workspace/workspace-window.tsx`(새 탭 menu에 넘기는 줄만)
   - `packages/design/i18n/catalog/remote-desk.ts`
+  - `packages/shell/main/desktop/core/allowlist.ts`(`RENDERER_MEMORY_ROUTES`에 `page_view/watch|input|control|open` 네 줄과 머리 주석 한 줄만. lead가 더함: renderer가 부르는 memory route는 이 목록에 있어야 core 통로를 지난다)
 - 읽을 것:
   - 계획 README "정한 것 › 멀리서 보기"
   - architecture: `project-docs/architecture/browser-tab.md`의 "멀리서 보기" 절, `remote.md` "desktop에서 다른 기계 보기"(다른 기계의 창은 core 통로 `shell:core-call|core-watch`만 쓰고 그 밖 IPC는 `forbidden`이다, 지키는 것 1·24)

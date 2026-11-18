@@ -54,6 +54,7 @@ import {
   terminalViewWatch,
 } from "../coding-agent/terminal-view.ts";
 import { terminalsInput, terminalsOpen } from "../coding-agent/terminals.ts";
+import { PAGE_VIEW_ROUTES } from "../lophn-agent/page-view.ts";
 import type { BusEvent } from "../events/bus.ts";
 import { sessionSnapshotsList } from "../events/snapshot.ts";
 import {
@@ -220,6 +221,8 @@ export const REMOTE_ALLOWED_ROUTES = [
   // core가 여는 터미널: 열기와 입력. 입력은 허락받은 기기만 core가 받는다
   terminalsOpen,
   terminalsInput,
+  // agent의 browser page를 멀리서 보기: 목록, 그림, lease, 입력·잡기·열기. 다루는 것은 터미널 입력을 허락받은 기기만 core가 받는다
+  ...PAGE_VIEW_ROUTES,
   // 대화
   acpSnapshot,
   acpDraft,
@@ -413,6 +416,8 @@ export const REMOTE_ALLOWED_EVENTS = [
   "AppViewEvent",
   // 보는 터미널의 화면이 바뀌었다(내용 없이 seq만. 폰이 `terminal_view/snapshot`을 다시 읽는다)
   "TerminalScreenChanged",
+  // 보는 browser page의 그림이나 상태가 바뀌었다(내용 없이 seq만. `page_view/snapshot`을 다시 읽는다)
+  "PageViewChanged",
   // 폰에서 도는 앱: sync log에 줄이 생기면 폰이 pull한다
   "AppSyncChanged",
 ] as const satisfies readonly BusEvent["type"][];

@@ -32,10 +32,13 @@ import type { JoinFailure, JoinResult } from "./join.ts";
 // Noise checked against `key`) or a trusted entry of the roster; absent on a computer paired before the roster until its
 // first `join` answer. `name` is the alias the person gave it on this device and only the person changes it; `announced` is
 // the name the roster gives it (the hello's until the roster lists it). Shown: name ?? announced ?? the address.
+// `disputed`: this device's roster view has it out through a removal that is not settled (two computers removed each other,
+// one may be stolen). It stays saved so the view can follow the settling, but nothing reaches it: no link, no widget refresh.
 export type Computer = Endpoint & {
   signing_key?: string;
   name?: string;
   announced?: string;
+  disputed?: true;
 };
 
 // `update`: the computer answers but its protocol versions do not meet this app's; `update` on the item says who must update.
@@ -251,11 +254,9 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
     deviceKey === undefined ? undefined : remoteKeyText(deviceKey.publicKey);
   const roots = () =>
     saved.flatMap((c) => (c.signing_key === undefined ? [] : [c.signing_key]));
-  // A saved computer caught in a disputed removal (two computers removed each other): kept saved and still dialled so this
-  // device hears the computers remove the other side again, but its link carries the roster only (screens get no link, so no
-  // calls, watches or app sync) and it shows as cut off until then.
-  const disputed = (computer: Computer) =>
-    view.removed.some(
+  // A saved computer caught in a removal that is not settled (two computers removed each other).
+  const disputedIn = (v: RosterView, computer: Computer) =>
+    v.removed.some(
       (r) =>
         !r.settled &&
         (r.body.key === computer.key ||
@@ -280,7 +281,7 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
     }
     for (const computer of saved) {
       const live = links.get(computer.key)?.link.state();
-      const cut = revoked.has(computer.key) || disputed(computer);
+      const cut = revoked.has(computer.key) || computer.disputed === true;
       computers.push({
         key: computer.key,
         name: computer.name ?? computer.announced ?? defaultName(computer),
@@ -305,10 +306,13 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
 
   const own = () => ownStatements(held.statements, me() ?? "");
 
-  // One link per saved computer that has not refused this device; a link whose computer left the list is closed.
+  // One link per saved computer that has not refused this device and is not disputed; a link whose computer left the list
+  // or became disputed is closed, so nothing is sent to it and none of its requests are answered.
   function sync() {
     const wanted = new Set(
-      saved.filter((c) => !revoked.has(c.key)).map((c) => c.key),
+      saved
+        .filter((c) => !revoked.has(c.key) && c.disputed !== true)
+        .map((c) => c.key),
     );
     for (const key of [...links.keys()]) {
       if (!wanted.has(key)) closeLink(key);
@@ -335,9 +339,10 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
   }
 
   // Takes in a roster: merges it into what this device holds and keeps what the view keeps, less invite statements past
-  // their lifetime (the phone's clock). Computers the view trusts join the list, ones a settled removal took out leave
-  // (a disputed one stays saved but is not reached), and this device forgets everything when a settled removal takes it out. Returns whether what it holds changed; a change goes to every
-  // computer, so one computer's news reaches the next one this device connects to.
+  // their lifetime (the phone's clock). Computers the view trusts join the list, ones a settled removal took out leave (a
+  // disputed one stays saved, marked, and is not reached), and this device forgets everything when a settled removal takes it
+  // out. Returns whether what it holds changed; a change goes to every computer, so one computer's news reaches the next one
+  // this device connects to.
   function apply(roster: RosterSnapshot = NO_ROSTER): boolean {
     const merged = mergeRoster(held.statements, roster.statements);
     view = rosterView(merged, roots(), null);
@@ -403,6 +408,16 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
       saved = next;
       // The new roots can trust more of what is held.
       view = rosterView(merged, roots(), null);
+    }
+    const marked = saved.map((computer) => {
+      const { disputed: _was, ...rest } = computer;
+      return disputedIn(view, computer)
+        ? { ...rest, disputed: true as const }
+        : rest;
+    });
+    if (JSON.stringify(marked) !== JSON.stringify(saved)) {
+      saved = marked;
+      changed = true;
     }
     const statements = rosterFresh(view.keep, deps.now());
     const ids = new Set(
@@ -516,11 +531,7 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
       return starting;
     },
     link(key) {
-      if (key === sample?.key) return sample.link;
-      const computer = saved.find((c) => c.key === key);
-      return computer === undefined || disputed(computer)
-        ? undefined
-        : links.get(key)?.link;
+      return key === sample?.key ? sample.link : links.get(key)?.link;
     },
     select(key) {
       chosen = key;

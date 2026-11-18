@@ -24,6 +24,7 @@ const computerSchema = z.object({
   signing_key: z.string().optional(),
   name: z.string().optional(),
   announced: z.string().optional(),
+  disputed: z.literal(true).optional(),
 });
 
 function json(text: string | null): unknown {

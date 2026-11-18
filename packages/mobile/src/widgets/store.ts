@@ -165,7 +165,9 @@ export function createWidgetStore(deps: WidgetDeps) {
 
 const store = createWidgetStore({
   native: widgetNative,
-  paired: loadComputers,
+  // A disputed computer (the roster view has it out, not settled) is not asked.
+  paired: async () =>
+    (await loadComputers()).filter((one) => one.disputed !== true),
   phone: deviceKey,
   once: (computer, phone, timeoutMs) =>
     callOnce(

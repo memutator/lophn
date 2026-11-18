@@ -537,8 +537,8 @@ function compute(
   // 서명 key가 말하는 host key: 그 서명 key로 스스로 서명한 항목에서만 얻는다. 남이 서명한 항목이 다른 컴퓨터의 서명 key를
   // 달면(빠진 도둑이 자기 항목에 구경꾼의 서명 key를 단다) 그 컴퓨터가 도둑의 host key를 자기 것으로 보게 된다.
   const hostsOf = new Map<string, Set<string>>();
-  // T0가 아는 기기 key. 아무 항목도 없는 key의 빼기는 아무것도 빼지 못하므로 효력 계산에 넣지 않고, 믿는 컴퓨터의 것이 아니면
-  // 버린다(쓰레기 빼기가 상한을 채우지 못하게).
+  // T0가 아는 기기 key. 아무 항목도 없는 key의 빼기는 아무것도 빼지 못하므로 효력 계산에 넣지 않는다(keep에서는 믿는 컴퓨터의
+  // 것이 아니면 상한 안이다).
   const knownToT0 = new Set<string>();
   for (const item of t0.accepted) {
     const body = item.statement.body;
@@ -584,44 +584,6 @@ function compute(
   const attackers = k0.map(({ signer }) =>
     k0.flatMap((other, i) => (targets(other.body, signer) ? [i] : [])),
   );
-  // 폰(self 없음)은 자기 판단이 없다. 대신 저장한 컴퓨터들이 정한 것을 따른다: 대상이 아닌 저장한 컴퓨터가 둘 이상이고 그 모두가
-  // 같은 key를 뺐으면(만장일치) 그 빼기는 처음부터 IN이다. 다만 다른 만장일치 빼기가 그것을 공격하지 않고, 그것을 공격하는 빼기가
-  // 모두 그렇게 남은 만장일치 빼기에 공격받을 때만이다(도둑이 정직한 컴퓨터를 빼려면 정직한 컴퓨터의 서명이 든다. 저장한 컴퓨터가 도둑
-  // 하나뿐인 폰이 도둑을 따르지 않게 둘 이상이다).
-  if (self === null) {
-    const roots = [...rootSet];
-    const removesKey = (root: string, key: string) =>
-      k0.some((r) => r.signer.signingKey === root && r.body.key === key);
-    const unanimous = k0.map(({ body }) => {
-      const others = roots.filter(
-        (root) =>
-          root !== body.signing_key && !hostsOf.get(root)?.has(body.key),
-      );
-      return (
-        others.length >= 2 && others.every((root) => removesKey(root, body.key))
-      );
-    });
-    // 서로 공격하지 않고 스스로를 지키는 만장일치 빼기만 남을 때까지 줄인다. 줄기만 하므로 끝난다.
-    const anchored = new Set(
-      k0.flatMap((_, i) =>
-        unanimous[i] && !attackers[i]?.some((j) => unanimous[j]) ? [i] : [],
-      ),
-    );
-    let shrank = true;
-    while (shrank) {
-      shrank = false;
-      for (const i of [...anchored]) {
-        const defended = attackers[i]?.every((j) =>
-          attackers[j]?.some((k) => anchored.has(k)),
-        );
-        if (!defended) {
-          anchored.delete(i);
-          shrank = true;
-        }
-      }
-    }
-    for (const i of anchored) label[i] = "in";
-  }
   let changed = true;
   while (changed) {
     changed = false;
@@ -859,14 +821,12 @@ function compute(
       return firstInvitedItems.has(item) ? "keep" : "capped";
     }
     const { body } = statement;
-    // 아무 항목도 없는 key의 빼기는 아무것도 빼지 못한다. 지금 믿는 컴퓨터의 것만 남긴다(대상의 항목보다 먼저 닿은 정직한 빼기를
-    // 잃지 않게). 나머지는 상한에도 넣지 않고 버린다.
-    if (
-      body.type === "removal" &&
-      !knownToT0.has(body.key) &&
-      !(t0.accepted.has(item) && byTrusted(item))
-    )
-      return "drop";
+    // 아무 항목도 없는 key의 빼기는 아무것도 빼지 못한다. 지금 믿는 컴퓨터의 것은 남기고 나머지는 상한 안에 둔다: 버리면
+    // 서명자와 대상을 아직 모르는 정직한 빼기를 잃어, 닿은 순서가 엇갈림의 결과를 바꾼다.
+    if (body.type === "removal" && !knownToT0.has(body.key)) {
+      if (t0.accepted.has(item) && !firstRemovals.has(item)) return "drop";
+      return t0.accepted.has(item) && byTrusted(item) ? "keep" : "capped";
+    }
     if (t0.accepted.has(item)) {
       if (body.type === "removal") {
         if (!firstRemovals.has(item)) return "drop";

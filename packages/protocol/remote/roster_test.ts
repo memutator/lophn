@@ -659,25 +659,32 @@ test("빠진 도둑이 구경꾼의 서명 key를 단 항목을 서명해도 구
   );
 });
 
-test("저장한 컴퓨터가 모두 도둑에게 맞빼기를 당한 폰이 컴퓨터들이 다시 뺀 뒤 그 컴퓨터들을 다시 믿는다", () => {
-  const [x, y, r] = [computer(), computer(), computer()];
-  const roots = [root(x), root(y), root(r)];
-  // X가 R을 뺐고 도둑 R이 X와 Y를 뺐다. 폰은 셋을 다 저장했다: 아무도 믿지 못하고 아무것도 정해지지 않는다.
-  const stuck = [...mesh([x, y, r]), out(x, r), out(r, x), out(r, y)];
-  const before = viewOf(stuck, roots);
-  assert.deepEqual(deviceKeys(before), []);
-  assert.ok(before.removed.every((one) => !one.settled));
-  // Y의 사람이 R을 다시 뺐다. R이 아닌 저장한 컴퓨터(X, Y)가 모두 R을 뺐으므로 폰은 그것을 따른다. 어느 순서로 받아도 같다.
-  const resolved = [...stuck, out(y, r)];
-  for (const order of [resolved, [...resolved].reverse()]) {
-    const view = viewOf(order, roots);
-    assert.deepEqual(deviceKeys(view).sort(), [x.key, y.key].sort());
-    assert.deepEqual(
-      view.removed.map((one) => [one.body.key, one.settled]),
-      [[r.key, true]],
-    );
-    assert.deepEqual(viewOf(view.keep, roots), view);
-  }
+test("구경꾼이 아직 믿지 않는 컴퓨터의 빼기를 먼저 받아도 엇갈림의 결과는 닿은 순서와 같다", () => {
+  const [x, y, r, z] = [computer(), computer(), computer(), computer()];
+  const all = [
+    ...mesh([x, y, r, z]),
+    out(x, r),
+    out(r, x),
+    out(r, y),
+    out(y, r),
+  ];
+  const whole = viewOf(all, [root(z)]);
+  // Z가 X와 Y를 아직 믿지 않아 R의 key도 모를 때 X와 Y의 R 빼기가 먼저 닿는다. 나머지는 그 뒤에 닿는다.
+  // mesh의 순서: (항목의 컴퓨터, 서명한 컴퓨터)가 [x, y, r, z]×[x, y, r, z]. 0 X by X, 5 Y by Y, 9 R by Y, 14 Z by R, 15 Z by Z.
+  // 그 뒤 16 X→R, 17 R→X, 18 R→Y, 19 Y→R.
+  const first = [15, 0, 5, 16, 19, 9, 14].map((i) => all[i] as RosterStatement);
+  const early = viewOf(first, [root(z)]);
+  const rest = all.filter((s) => !first.includes(s));
+  const later = viewOf([...early.keep, ...rest], [root(z)]);
+  const shape = (view: ReturnType<typeof rosterView>) => ({
+    devices: deviceKeys(view).sort(),
+    removed: view.removed.map((one) => `${one.body.key} ${one.settled}`).sort(),
+  });
+  assert.deepEqual(shape(later), shape(whole));
+  assert.deepEqual(shape(whole), {
+    devices: [z.key],
+    removed: [x, y, r].map((c) => `${c.key} false`).sort(),
+  });
 });
 
 test("쓰인 초대장으로 든 기기를 뺀 뒤에도 그 초대장으로 다른 key가 들지 못한다", () => {

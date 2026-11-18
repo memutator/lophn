@@ -29,11 +29,20 @@ const nonBlank = z
     message: "value cannot be blank or contain controls",
   });
 
-export const appViewWorkspaceSchema = z.strictObject({
-  kind: z.enum(["project", "home", "app"]),
-  id: z.string().min(1),
-  folders: z.array(z.string()),
-});
+// project만 기계를 넘는 id(identity)를 싣는다. git project가 아직 나누지 않았으면 null이다.
+export const appViewWorkspaceSchema = z.union([
+  z.strictObject({
+    kind: z.literal("project"),
+    id: z.string().min(1),
+    identity: z.string().min(1).nullable(),
+    folders: z.array(z.string()),
+  }),
+  z.strictObject({
+    kind: z.enum(["home", "app"]),
+    id: z.string().min(1),
+    folders: z.array(z.string()),
+  }),
+]);
 
 export const appViewsOpenInputSchema = z.strictObject({
   view: appViewIdSchema,

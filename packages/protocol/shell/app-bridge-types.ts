@@ -83,11 +83,18 @@ export type LophnAppAgent<
 };
 
 /**
- * 앱 화면이 읽는 lophn project. 앱은 project를 따로 만들지 않고 이 id를 key로 자기 data를 붙인다.
+ * 앱 화면이 읽는 lophn project. 앱은 project를 따로 만들지 않고 자기 data를 project에 붙인다. 다른 기계로 따라가야 할
+ * data는 `identity`로, 없으면 `id`로 key한다.
  * 폴더 path는 싣지 않는다: 지금 열린 project의 폴더만 `place.workspace.folders`로 준다.
  */
 export type AppProject = {
+  /** 이 기계에서만 뜻이 있는 id(`prj_`). */
   id: string;
+  /**
+   * 어느 기계에서도 같은 project를 가리키는 id(`pri_`). git project가 아직 다른 기계와 나눌 준비가 안 됐으면(id file이
+   * 없거나 폴더를 아직 읽지 않았으면) null이다.
+   */
+  identity: string | null;
   /** agent 주소(`workspace: {project: name}`)에 쓰는 slug. */
   name: string;
   title: string;
@@ -156,12 +163,13 @@ export type LophnAppAgents<Card = unknown> = {
   list(): Promise<Result<{ agents: Card[] }>>;
 };
 
-/** 화면이 열린 workspace. project의 folders는 등록한 폴더 path 목록이고, Home과 앱 workspace는 비어 있다. */
-export type AppPlaceWorkspace = {
-  kind: "project" | "home" | "app";
-  id: string;
-  folders: string[];
-};
+/**
+ * 화면이 열린 workspace. project의 folders는 등록한 폴더 path 목록이고, Home과 앱 workspace는 비어 있다.
+ * project만 `identity`(`AppProject.identity`)를 싣는다.
+ */
+export type AppPlaceWorkspace =
+  | { kind: "project"; id: string; identity: string | null; folders: string[] }
+  | { kind: "home" | "app"; id: string; folders: string[] };
 
 /**
  * 화면이 열릴 때 정해진 자리와 인자와 workspace. 읽기만 하고 화면이 열려 있는 동안 바뀌지 않는다.

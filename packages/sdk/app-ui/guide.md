@@ -90,13 +90,16 @@ import {
     준 값이 틀리면 `null`이다. 선언에 적은 자리(`places`)에서만 열린다.
   - `params`는 화면 선언의 `params` schema를 lophn이 이미 검사한 인자다. 인자 없이
     열렸으면 `{}`다. 값을 쓰기 전에 앱이 다시 검사할 필요는 없다.
-  - `workspace`는 `{kind: "project" | "home" | "app", id, folders}`다. 앱 sidebar
+  - `workspace`는 `{kind: "project" | "home" | "app", id, folders}`이고 project면
+    `identity`도 있다(`useProjects()`의 `identity`와 같은 값). 앱 sidebar
     panel처럼 모든 workspace에 나오는 화면이 이걸 보고 맞춘다. `folders`는
     project의 등록 폴더 path 목록이고 Home과 앱 workspace는 `[]`이다. workspace를
     모르는 자리(앱 전용 창, 전역 float)에서는 `null`이다.
 - `useProjects(app?)` — lophn의 모든 project(보관 포함)를 화면이 열릴 때 한 번 읽는다.
   `{state, reload}`이고 `state`는 `{status: "loading"}`·`{status: "ready", projects}`·
-  `{status: "failed", code}`다. project는 `{id, name, title, purpose, status}`다.
+  `{status: "failed", code}`다. project는 `{id, identity, name, title, purpose, status}`다.
+  `id`는 이 컴퓨터에서만 뜻이 있고, `identity`는 내 다른 컴퓨터에서도 같은 project를
+  가리킨다(아직 나누지 않은 project는 `null`).
   `title`은 사람에게 보일 이름, `name`은 agent 주소에 쓰는 slug, `status`는
   `active`·`archived`다. 폴더 path는 주지 않는다(지금 열린 project의 폴더만
   `usePlace().workspace.folders`). 화면이 열린 동안 바뀐 것은 저절로 오지 않으니
@@ -243,14 +246,25 @@ function Orders() {
 
 작업·일정·문서처럼 "project별"로 나뉘는 data를 다루는 앱(Gantt, 할 일, 회의록)은 project를
 따로 만들지 않는다. lophn project가 project다. 앱 안에 project 만들기·이름 바꾸기·목록 화면을
-두지 않고, 앱 data에는 lophn project `id`를 key로 붙인다(이름과 제목은 바뀌므로 key로 쓰지
+두지 않고, 앱 data에는 lophn project를 key로 붙인다(이름과 제목은 바뀌므로 key로 쓰지
 않는다). project 만들기와 고치기는 사람이 lophn에서 한다.
+
+- key는 `identity ?? id`다. 앱 data는 사람의 다른 컴퓨터로 옮겨질 수 있고, 거기서 같은
+  project를 가리키는 것은 `identity`뿐이다. `id`는 이 컴퓨터에서만 뜻이 있어 다른
+  컴퓨터에서는 주인 없는 줄이 된다.
+- `identity`가 `null`이면 그 project는 아직 다른 컴퓨터와 나누지 않았다(git 저장소인
+  project를 사람이 lophn의 project 상세 "Other computers"에서 켜지 않았다). 그동안은
+  `id`로 붙이고 그 data는 이 컴퓨터에 머문다.
+- 화면이 열릴 때 `useProjects()` 목록에서 `identity`가 있는 project마다 `id`로 붙은 줄을
+  `identity`로 옮긴다(옮길 것이 없으면 아무것도 하지 않는 write operation 하나). 나중에
+  나누게 된 project의 data가 그렇게 따라간다.
 
 - 화면이 project workspace에서 열렸으면(`usePlace().workspace?.kind === "project"`) 그
   project의 data만 보인다. 사람에게 project를 고르게 하지 않는다.
 - 그 밖의 자리(Home, 앱 workspace, 앱 전용 창, 전역 float)에서는 모든 project를 project별로
   묶어 보인다. 묶음 제목은 `useProjects()`의 `title`이다. 보관한 project는 접거나 뺀다.
-- 앱 data에 있는데 목록에 없는 project id는 무시한다(보이지 않는 project다).
+- 앱 data에 있는데 목록의 어느 project의 `identity`·`id`와도 맞지 않는 key는 무시한다(이
+  컴퓨터에 없거나 보이지 않는 project다).
 
 ```tsx
 import { usePlace, useProjects } from "@lophn/app-ui";
@@ -263,8 +277,10 @@ function Board() {
   const shown = state.projects.filter((p) =>
     only === null ? p.status === "active" : p.id === only,
   );
-  // 앱 data는 operation 입력으로 project id를 넘겨 읽는다.
-  return shown.map((p) => <ProjectTasks key={p.id} project={p.id} title={p.title} />);
+  // 앱 data는 operation 입력으로 project key(identity ?? id)를 넘겨 읽는다.
+  return shown.map((p) => (
+    <ProjectTasks key={p.id} project={p.identity ?? p.id} title={p.title} />
+  ));
 }
 ```
 

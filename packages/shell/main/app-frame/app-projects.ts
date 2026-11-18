@@ -1,6 +1,6 @@
 // 앱 view의 project 읽기 main service. 앱이 project를 따로 만들지 않고 lophn project를 기준으로 쓰게 한다.
 // agent 길처럼 사람 자격(`coreInternal`)으로 core에 간다. 앱 code(AI가 만든 code일 수 있다)에는 이름과
-// 상태만 주고 폴더 path는 주지 않는다. 폴더는 지금 열린 project의 것만 `place.workspace`로 간다.
+// 상태, 기계를 넘는 id만 주고 폴더 path는 주지 않는다. 폴더는 지금 열린 project의 것만 `place.workspace`로 간다.
 import type { AppProject } from "../../../protocol/shell/app-bridge-types.ts";
 import type { CallOutcome } from "./app-call.ts";
 import type { CoreCaller } from "./app-connection.ts";
@@ -28,6 +28,7 @@ function projectOf(value: unknown): AppProject | undefined {
   }
   return {
     id: row.id,
+    identity: typeof row.identity === "string" ? row.identity : null,
     name: row.name,
     title: row.title,
     purpose: row.purpose,

@@ -1,0 +1,27 @@
+id: project-address
+version: 0.23.81
+title: "git이 아닌 project도 기계를 넘는 id를 갖고, 앱이 그 id로 project data를 key한다"
+modules: [packages/core/projects, packages/core/storage, packages/core/main, packages/core/apps, packages/core/agent-workspaces, packages/protocol, packages/shell/main, packages/shell/renderer, packages/shell/preload, packages/shell/ipc, packages/cli, packages/sdk]
+checked: [boundary-catalog]
+change: |
+  전: git이 아닌 project(폴더가 git이 아니거나 폴더가 없음)는 `identity`가 늘 null이었다. 앱은 project를 `{id, name, title, purpose, status}`와 `place.workspace {kind, id, folders}`로만 받아 data를 기계마다 다른 `prj_`로 key했고, 다른 기계로 맞춰진 앱 data는 그 기계에서 주인 없는 줄이 되었다.
+  후:
+  - git이 아닌 project는 ledger에서 난 `pri_`를 갖는다. `project.record_identity`가 repo none이고 id가 없으면 `tx.newId("pri")`를 내고, 폴더가 없는 project도 다시 읽는 때에 repo none으로 적어 같은 길을 탄다. git project는 그대로 id file에서만 id를 얻는다. git이 아닌 project의 `project.identity` file 상태는 `missing`이 아니라 `none`이다. 다른 기계의 창은 git이 아닌 M의 project에 "Not on this computer" 줄을 두지 않는다. `lophn project identity` 요약은 git이 아니면 "not in git, stays on this computer"다.
+  - 저장: data step `projects.born-identity`가 이 판 전의 git이 아닌 project(`repo = 'none'`)와 폴더 없는 project(보관 포함) 가운데 id가 없는 것에 IdSource로 새 id를 준다. data step이 `ids`(IdSource)를 받는다.
+  - 앱: `lophnApp.projects.list()`의 project에 `identity`(pri | null), project workspace의 `place.workspace`에 `identity`가 실린다(view 열기 IPC, `app_views.open`, 폰 place schema도 같은 모양). Home·앱 workspace는 그대로다.
+  - SDK: `@lophn/app-ui` 2.19.0(`Project.identity`, `PlaceWorkspace`가 project에서 `identity`를 갖는 union, guide "project에 붙는 앱"이 key를 `identity ?? id`로), `@lophn/app-ui-native` 1.6.0(같은 `PlaceWorkspace`를 다시 낸다). 앱 template `AGENTS.md`의 project key 줄. `supported_from`은 그대로(app-ui 2.3.0, app-ui-native 1.0.0).
+why: |
+  앱 data는 폴더와 폰으로 다른 기계에 맞춰지는데 key인 `prj_`가 기계마다 달라 다른 기계에서 어느 project의 것인지 잃었다. 모든 project가 기계를 넘는 id를 가질 수 있고 앱이 그 id로 key해야 같은 project의 data가 따라간다(roadmap `multi-device` "순서 1: 가리키는 법").
+decisions:
+  - text: git이 아닌 project의 id는 ledger에서 나고 지금은 이 기계에 머문다. 다른 기계의 project와 잇는 것은 사람이 고른다(`one-screen`). 버린 길은 `prj_`를 기계 사이에 맞추기(모든 표·file·앱 DB key를 고쳐야 하고 `events`는 고칠 수 없다).
+    by: agent
+  - text: git project에는 ledger에서 id를 내지 않는다. id는 id file에서만 오고 file은 사람이나 agent가 고른 때에만 생긴다. 이유는 `matchProjects`의 `suggested`와 file 상태 `none`·`missing`이 뜻을 잃기 때문이다.
+    by: agent
+  - text: id를 내는 자리는 `project.record_identity` 하나이고 기존 data root는 data step으로 준다. SQL schema step은 IdSource를 쓸 수 없어 버렸다.
+    by: agent
+  - text: 앱은 project data를 `identity ?? id`로 key한다. `identity`가 null이면 그 project는 아직 기계를 넘지 않아 `id`로 붙인 data도 이 기계에 머물고, `identity`가 생기면 앱이 `id`로 붙은 줄을 옮긴다(화면이 열릴 때 write operation 하나). 버린 길은 SDK가 key를 감추는 helper(옛 줄을 옮기는 일은 어차피 앱 code가 한다).
+    by: agent
+  - text: "`supported_from`을 올리지 않는다. 칸을 더한 minor라 옛 판으로 봉인한 앱도 그대로 뜨고, 옮기지 않은 앱은 이 기계에서 그대로 돈다(다른 기계로 간 data만 주인을 잃는다)."
+    by: agent
+follow_up: |
+  git이 아닌 project를 다른 기계의 project와 잇는 화면은 `one-screen`이 한다. 이미 project별 data를 가진 앱은 앱 agent가 `migrate-sdk`의 `app-ui-2.19.0` 메모대로 줄을 옮겨야 한다.

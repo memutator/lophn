@@ -138,11 +138,19 @@ const phonePlaceSchema = z.strictObject({
   place: z.literal("phone"),
   params: z.record(z.string(), jsonValueSchema),
   workspace: z
-    .strictObject({
-      kind: z.enum(["project", "home", "app"]),
-      id: z.string().min(1),
-      folders: z.array(z.string()),
-    })
+    .union([
+      z.strictObject({
+        kind: z.literal("project"),
+        id: z.string().min(1),
+        identity: z.string().min(1).nullable(),
+        folders: z.array(z.string()),
+      }),
+      z.strictObject({
+        kind: z.enum(["home", "app"]),
+        id: z.string().min(1),
+        folders: z.array(z.string()),
+      }),
+    ])
     .nullable(),
 });
 export type PhonePlace = z.infer<typeof phonePlaceSchema>;

@@ -40,14 +40,24 @@ const appViewCardSchema = z
   })
   .strict();
 
-// 화면이 열린 workspace. 화면이 자기 workspace를 보고 맞춘다.
-const placeWorkspaceSchema = z
-  .object({
-    kind: z.enum(["project", "home", "app"]),
-    id: z.string().min(1),
-    folders: z.array(z.string()),
-  })
-  .strict();
+// 화면이 열린 workspace. 화면이 자기 workspace를 보고 맞춘다. project만 기계를 넘는 id(identity)를 싣는다.
+const placeWorkspaceSchema = z.union([
+  z
+    .object({
+      kind: z.literal("project"),
+      id: z.string().min(1),
+      identity: z.string().min(1).nullable(),
+      folders: z.array(z.string()),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.enum(["home", "app"]),
+      id: z.string().min(1),
+      folders: z.array(z.string()),
+    })
+    .strict(),
+]);
 
 // 화면이 열리는 자리와 인자. 판(release)은 mode에 따라 다르다.
 const openBase = {

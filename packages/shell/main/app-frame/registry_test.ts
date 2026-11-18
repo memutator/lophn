@@ -200,7 +200,12 @@ test("core가 정규화한 params만 화면 주소로 간다", async () => {
   const opened = await frame.open(WINDOW, {
     ...OPEN,
     params: { status: "open" },
-    workspace: { kind: "project", id: "prj_1", folders: ["/work/a"] },
+    workspace: {
+      kind: "project",
+      id: "prj_1",
+      identity: "pri_1",
+      folders: ["/work/a"],
+    },
   });
   if (!opened.ok) return assert.fail("view did not open");
   // core에는 shell이 정한 view id와 받은 인자를 그대로 보낸다.
@@ -210,7 +215,12 @@ test("core가 정규화한 params만 화면 주소로 간다", async () => {
       view: opened.value.view_session,
       ...OPEN,
       params: { status: "open" },
-      workspace: { kind: "project", id: "prj_1", folders: ["/work/a"] },
+      workspace: {
+        kind: "project",
+        id: "prj_1",
+        identity: "pri_1",
+        folders: ["/work/a"],
+      },
     },
   });
   const query = new URL(opened.value.src).searchParams;
@@ -222,6 +232,7 @@ test("core가 정규화한 params만 화면 주소로 간다", async () => {
   assert.deepEqual(JSON.parse(query.get("workspace") ?? ""), {
     kind: "project",
     id: "prj_1",
+    identity: "pri_1",
     folders: ["/work/a"],
   });
 });

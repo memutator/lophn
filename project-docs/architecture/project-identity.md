@@ -12,7 +12,7 @@ git 저장소인 project가 어느 기계에서도 같은 project로 보이게 �
 ## 목표와 비목표
 
 - 목표: 같은 저장소는 어느 기계에서도 같은 기계를 넘는 id를 갖는다. file은 사람이나 agent가 고른 때에만 생기고 lophn은 git 쓰기를 하지 않는다. 충돌과 중복은 사람이 무엇을 누르든 같은 값으로 모인다. 이 기계에 없는 project는 그 기계의 git 자격으로 묻는 창 없이 받아 등록한다.
-- 목표: 모든 project가 `pri_`를 갖는다. 앱처럼 project를 기계 사이에 가리키는 쪽이 git 여부와 상관없이 같은 칸 하나를 쓴다.
+- 목표: git이 아닌 project는 늘 `pri_`를 갖고, git project는 사람이나 agent가 id file을 만들면 갖는다. 앱처럼 project를 기계 사이에 가리키는 쪽은 git 여부와 상관없이 같은 칸(`identity`) 하나를 보고, 그 칸이 null인 project(id file이 없는 git project, 아직 폴더를 읽지 않은 project)는 아직 이 기계에 머문다.
 - 비목표: project에 딸린 지침과 설정을 저장소 file로 옮기기(사람이 정할 것으로 남았다). session과 대화를 기계 사이에 옮기기. code를 옮기기(git이 한다. lophn은 commit, push, pull을 하지 않는다). git이 아닌 project를 다른 기계의 project와 잇기(잇는 화면은 roadmap `multi-device`의 `one-screen`). git remote로 말없이 합치기. id file의 watcher.
 
 ## 모델
@@ -94,6 +94,7 @@ M의 창 renderer ── 창의 core 통로 ──────────▶ M�
 - 순수 함수: file 꼴 읽기·쓰기, remote key, 힌트 짝짓기(identity가 같은 짝 `same`, identity로 짝이 되지 않았고 remote key가 같으며 하나 이상 identity가 없는 짝 `suggested`. 한 목록에 같은 key가 둘 이상이면 제안하지 않는다)는 protocol에 있어 renderer, remote 보기, 폴더 sync가 같이 쓴다.
 - 저장: ledger schema step `projects.registry.identity`(projects 표에 칸 넷과 `identity` unique index). 칸만 더하고 값은 null이다. data step `projects.born-identity`가 이 판 전의 git이 아닌 project(`repo = 'none'`)와 폴더가 없는 project 가운데 id가 없는 것에 새 id를 준다. 아직 폴더를 읽지 않은 project는 다음 읽기가 준다.
 - 앱 slug `project`는 예약 이름이다(`lophn project` 명령과 겹치지 않게).
+- 앱: 앱 화면이 받는 project(`lophnApp.projects.list()`의 project, project workspace의 `place.workspace`)에 `identity`가 실린다. 앱은 기계 사이에 맞추는 data를 `identity ?? id`로 key한다(`app-call.md` "앱 화면의 project 읽기", SDK `@lophn/app-ui` 2.19.0).
 
 ## 결정
 

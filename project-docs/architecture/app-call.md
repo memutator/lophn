@@ -173,7 +173,7 @@ invocation의 끝 상태는 성공, 실패, 막힘(`denied`), 결과 모름(`unk
 ### 앱 화면
 
 1. 화면이 열릴 때 자리·인자·workspace가 정해지고 열려 있는 동안 바뀌지 않는다(dock·float·전역 float는 모두 `panel`이라 자리가 바뀌는 경우가 없다).
-   - view 열기 입력은 `place`와 선택 `params`, `workspace`(`{kind: project | home | app, id, folders}`)를 싣고, `card`는 `place`가 `card`일 때만 있다. live 열기는 release 판이 필수이고 preview만 판이 null일 수 있다. 판 없이 live를 여는 호출은 입력 type에서 막히고, shell main도 IPC 입력의 모양을 같은 규칙으로 한 번 본다(선언과 `params` 검사는 core가 한다).
+   - view 열기 입력은 `place`와 선택 `params`, `workspace`(`{kind: project | home | app, id, folders}`. project면 기계를 넘는 id `identity`(pri | null)도 싣는다)를 싣고, `card`는 `place`가 `card`일 때만 있다. live 열기는 release 판이 필수이고 preview만 판이 null일 수 있다. 판 없이 live를 여는 호출은 입력 type에서 막히고, shell main도 IPC 입력의 모양을 같은 규칙으로 한 번 본다(선언과 `params` 검사는 core가 한다).
    - core의 view 표(`app_views.open`)가 `params`를 그 release 선언의 그 화면 `params` schema로 검사해 정규화한다. `params`를 받지 않는 화면에 인자를 주거나 schema에 맞지 않으면 `invalid_input`이다. 선언을 읽을 수 있으면(live, release 있는 preview) 화면이 선언에 있고 자리가 그 화면의 `places`에 들어야 한다. 값은 화면의 주소 query(`place`, `params`, `workspace`)로 간다.
    - 화면은 preload의 `lophnApp.place`(`{place, params, workspace}`)를 읽고 SDK의 `usePlace()`가 그것을 감싼다. query가 없거나 틀리면 `place`가 null이고 `params`는 `{}`다. 전역 float는 workspace를 주지 않아 `workspace`가 null이다.
 2. agent의 `visual.show {app, view, params?}`도 `params`를 받는다. `view`는 `card` 자리를 가진 화면이어야 하고(아니면 `not_found`) `params`는 그 화면의 schema로 검사해 맞지 않으면 `invalid_input`이다. 통과한 값은 message의 `app_card` part와 ACP의 `AcpCard`에 `params`로 실려 카드 view의 인자가 된다.
@@ -205,10 +205,10 @@ SDK `@lophn/agent`는 앱 코드가 bridge를 직접 부르지 않게 한다(tem
 
 ### 앱 화면의 project 읽기
 
-project별 data를 다루는 앱은 project를 따로 만들지 않고 lophn project를 기준으로 쓴다. 앱 data는 project `id`를 key로 붙이고, 화면이 project workspace에서 열리면 그 project로 거르고 그 밖에서는 모든 project를 묶어 보인다.
+project별 data를 다루는 앱은 project를 따로 만들지 않고 lophn project를 기준으로 쓴다. 앱 data는 project의 `identity ?? id`를 key로 붙이고, 화면이 project workspace에서 열리면 그 project로 거르고 그 밖에서는 모든 project를 묶어 보인다. 앱 data는 기계 사이에 맞춰지므로(`folder-sync.md`, 폰) key는 다른 기계에서도 같은 project를 가리키는 `identity`(`project-identity.md`)여야 한다. `id`(`prj_`)는 이 기계에서만 뜻이 있다. `identity`가 null인 project(아직 나누지 않은 git project)는 `id`로 붙고 그 data는 이 기계에 머물며, 나중에 `identity`가 생기면 앱이 `id`로 붙은 줄을 `identity`로 옮긴다(SDK guide "project에 붙는 앱").
 
 1. 화면은 `lophnApp.projects.list()`로 모든 project(보관 포함)를 읽는다. shell main이 sender view를 확인하고 사람 자격(`coreInternal`)으로 core `projects.list`를 끝 page까지 읽는다. 따로 허락 단계나 선언 permission이 없다.
-2. 앱에는 `{id, name, title, purpose, status}`만 준다. 폴더 path는 주지 않는다. 앱 code(AI가 만든 code일 수 있다)가 모든 project의 폴더 위치를 알 까닭이 없고, 지금 열린 project의 폴더는 `place.workspace.folders`로 이미 간다.
+2. 앱에는 `{id, identity, name, title, purpose, status}`만 준다. 폴더 path는 주지 않는다. 앱 code(AI가 만든 code일 수 있다)가 모든 project의 폴더 위치를 알 까닭이 없고, 지금 열린 project의 폴더는 `place.workspace.folders`로 이미 간다.
 3. 읽기만 연다. project 만들기와 고치기는 사람이 lophn 화면에서 한다. 변경 push는 없다. 화면이 다시 읽는다(SDK `useProjects().reload`).
 
 ### 앱 log
@@ -268,6 +268,7 @@ project별 data를 다루는 앱은 project를 따로 만들지 않고 lophn pro
 - archived 앱은 agent에게 없는 앱이다. archived 앱은 lophn이 볼 수도 없고 migration 조사 대상도 아니어야 한다. 사람이 lophn에게 보관한 앱을 되살려 달라고 해도 lophn은 그 앱을 못 찾는다. 되살리기는 사람이 화면에서 한다. 필터를 앱 접근 판정 한 곳에 둬서 읽기와 command가 한꺼번에 닫힌다. (사람, 2026-11-07)
 - 보관한 앱은 사람이 영구히 지울 수 있다(`app.delete`). 지우는 순서와 지우지 않는 것은 위에 있다. 이 앱의 invocation 기록은 지운다(append-only trigger는 erase window로 풀었다): 앱의 data 변경분(changeset)을 담고 있어 앱이 사라진 뒤 남길 이유가 없다. (사람, 2026-11-07. invocation 지우기는 agent)
 - 화면 view의 binding을 shell main이 아니라 core가 쥔다(view 표 `app_views.*`). 이유: desktop 창과 폰 앱이 같은 판정(어느 앱·release인지, 부를 operation, 받을 event, release가 바뀔 때 다시 묶기)을 두 벌 들지 않게 하고, 신원을 host가 붙인 view id와 credential의 principal로 좁혀 화면 page가 낸 값을 믿지 않게 한다. 버린 안: host마다 binding을 들기. 대가: core가 shell보다 오래 살아 옛 view가 남는다(owner당 64개 LRU로 푼다). 그 덕에 preview 화면의 operation 호출도 core가 preview bundle의 선언으로 판정해 부른다. (agent)
+- 앱이 project data를 `identity ?? id`로 key한다. 이유: 앱 data는 다른 기계로 맞춰지는데 `prj_`는 기계마다 달라 다른 기계에서 주인 없는 줄이 된다. `identity`가 null인 동안 `id`로 붙이는 것은 그 project가 아직 기계를 넘지 않아 data도 이 기계의 것이기 때문이다. 버린 길: `prj_`를 기계 사이에 맞추기(`project-identity.md`), SDK가 key를 감추는 helper(앱 DB 안의 옛 줄을 옮기는 일은 어차피 앱 code가 한다). (agent, roadmap `multi-device` "순서 1")
 - `phone`은 한 화면의 `places`에 혼자 서고 desktop 자리와 섞지 않는다. 이유: source가 DOM이 아니라 React Native라 한 key에 두 program을 두지 않는다. 한 화면을 두 곳에 반응하게 하는 길을 버렸다. (agent)
 - 앱 화면에서 agent에게 보내는 것은 그 앱을 쓰는 사람의 메시지이고 따로 허락 단계를 두지 않는다. (사람, 2026-11-04)
 - 앱 화면이 보낼 수 있는 ACP 입력은 허용 목록(`send`, `stop`, `answer`, `rename`)이다. 승인은 사람이 채팅 탭에서만 한다. (사람, 2026-11-07)

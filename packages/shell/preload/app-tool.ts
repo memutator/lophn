@@ -133,6 +133,9 @@ export function placeOf(query: string): AppPlace {
         isObject(workspace) &&
         ["project", "home", "app"].includes(workspace.kind as string) &&
         typeof workspace.id === "string" &&
+        (workspace.kind !== "project" ||
+          workspace.identity === null ||
+          typeof workspace.identity === "string") &&
         Array.isArray(folders) &&
         folders.every((folder) => typeof folder === "string")
       ))

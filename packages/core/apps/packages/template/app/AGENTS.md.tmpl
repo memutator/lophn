@@ -35,7 +35,8 @@ Package를 쓴다.
   `publish`로 내며, 구독 앱은 `subscriptions`에 선언하고 `subscribe`(화면은 `@lophn/app-ui`의 `useEvent`)로 받는다.
   event는 일이 일어난 뒤의 알림이고 한 번만 전달되며 저장되지 않는다. 그래서 발행 앱은 지금 값을 읽는 read
   command를 따로 내놓고, 구독 앱은 켜질 때 그것을 한 번 읽는다.
-- project별로 나뉘는 data(작업, 일정)는 앱 안에 project를 따로 만들지 않고 lophn project `id`를 key로 붙인다.
+- project별로 나뉘는 data(작업, 일정)는 앱 안에 project를 따로 만들지 않고 lophn project의 `identity ?? id`를 key로
+  붙인다. `identity`는 내 다른 컴퓨터에서도 같은 project이고 `id`는 이 컴퓨터에서만 뜻이 있다.
   project workspace에서 열리면(`usePlace().workspace`) 그 project만, 그 밖에서는 `useProjects()`로 모든 project를
   묶어 보인다. `@lophn/app-ui` guide의 "project에 붙는 앱"을 따른다.
 - lophn은 탭, panel(dock·float), sidebar, tray, 세션 카드 어디에서나 화면 위에 자기 머리 줄을 그린다.

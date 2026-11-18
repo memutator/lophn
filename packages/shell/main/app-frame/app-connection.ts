@@ -43,12 +43,10 @@ export function failure(
 export type ViewMode = "live" | "preview";
 export type Place = "tab" | "panel" | "card" | "sidebar" | "tray" | "phone";
 
-/** 화면이 열린 workspace. 앱 화면은 URL query로 받는다. */
-export interface PlaceWorkspace {
-  kind: "project" | "home" | "app";
-  id: string;
-  folders: string[];
-}
+/** 화면이 열린 workspace. 앱 화면은 URL query로 받는다. project만 기계를 넘는 id(`identity`)를 싣는다. */
+export type PlaceWorkspace =
+  | { kind: "project"; id: string; identity: string | null; folders: string[] }
+  | { kind: "home" | "app"; id: string; folders: string[] };
 
 /** view가 묶일 대상. live는 release가 있다. preview의 release는 없어도 된다. */
 export interface ConnectTarget {

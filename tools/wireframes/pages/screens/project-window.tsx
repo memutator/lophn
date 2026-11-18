@@ -199,6 +199,7 @@ const PROJECT_ID = "prj_phroner";
 const GROCERY_ID = "prj_grocery";
 const PROJECT = {
   id: PROJECT_ID,
+  identity: null,
   title: "phroner",
   folders: [
     { path: FAKE_PROJECT_FOLDER, found: true },

@@ -2,9 +2,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 // 앱 view preload bridge `lophnApp.projects`의 SDK 쪽 사본(protocol/shell/app-bridge-types.ts).
 
-/** lophn project. 앱은 project를 따로 만들지 않고 `id`를 key로 자기 data를 붙인다. */
+/**
+ * lophn project. 앱은 project를 따로 만들지 않고 자기 data를 project에 붙인다. key는 `identity ?? id`다: 다른 기계로
+ * 따라가는 data는 `identity`로 붙어야 그 기계의 같은 project에 닿는다.
+ */
 export interface Project {
+  /** 이 기계에서만 뜻이 있는 id. */
   id: string;
+  /**
+   * 어느 기계에서도 같은 project를 가리키는 id. git project를 아직 다른 기계와 나누지 않았으면 null이다(사람이 project
+   * 상세의 Other computers에서 켠다).
+   */
+  identity: string | null;
   /** agent 주소(`workspace: {project: name}`)에 쓰는 slug. */
   name: string;
   /** 사람에게 보이는 이름. */

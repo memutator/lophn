@@ -3257,6 +3257,7 @@ export function WorkspaceWindow(props: WorkspaceWindowProps) {
     <InboxNamesProvider value={inboxNames}>
       <AppWorkspaceProvider
         workspace={workspace}
+        identity={loaded.project?.identity ?? null}
         folders={(loaded.project?.folders ?? []).map((folder) => folder.path)}
       >
         {workspaceViews === null

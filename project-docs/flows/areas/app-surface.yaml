@@ -1328,7 +1328,7 @@ flows:
     steps:
       - "sender가 살아 있는 앱 view의 main frame이 아니면 forbidden이다(app-ipc)"
       - "사람 자격으로 projects.list를 next_cursor가 없을 때까지 읽는다(보관 포함)"
-      - "project마다 id·name·title·purpose·status만 남긴다. 폴더 path는 주지 않는다"
+      - "project마다 id·identity(기계를 넘는 id, 없으면 null)·name·title·purpose·status만 남긴다. 폴더 path는 주지 않는다"
     outcomes:
       - id: listed
         observe: [response]

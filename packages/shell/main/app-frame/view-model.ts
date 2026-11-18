@@ -137,9 +137,13 @@ function plainObject(value: unknown): value is Record<string, unknown> {
 // 모양만 본다. params 값은 core가 화면 선언의 params schema로 검사한다.
 function checkWorkspace(value: unknown): value is PlaceWorkspace {
   if (!plainObject(value)) return false;
+  const project = value.kind === "project";
   return (
-    Object.keys(value).length === 3 &&
+    Object.keys(value).length === (project ? 4 : 3) &&
     ["project", "home", "app"].includes(value.kind as string) &&
+    (!project ||
+      value.identity === null ||
+      typeof value.identity === "string") &&
     typeof value.id === "string" &&
     value.id.length > 0 &&
     Array.isArray(value.folders) &&

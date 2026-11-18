@@ -468,10 +468,8 @@ export function useConversation(
 }
 
 export interface CodingSessionsView {
-  /** Whether the computer's lophn app is connected; null until the first read. */
-  readonly shell: "attached" | "absent" | null;
   readonly sessions: CodingSession[];
-  /** `failed`: the first read did not go through (shell is null then too); `reload` tries it again. */
+  /** `failed`: the first read did not go through; `reload` tries it again. */
   readonly status: "loading" | "ready" | "failed";
   reload(): void;
 }
@@ -485,18 +483,13 @@ export function useCodingSessions(project?: string): CodingSessionsView {
   return useMemo(
     () =>
       loaded.state === "ready"
-        ? {
-            shell: loaded.value.shell,
-            sessions: loaded.value.sessions,
-            status: "ready",
-            reload,
-          }
-        : { shell: null, sessions: [], status: loaded.state, reload },
+        ? { sessions: loaded.value.sessions, status: "ready", reload }
+        : { sessions: [], status: loaded.state, reload },
     [loaded, reload],
   );
 }
 
-/** What the computer's coding sessions can be told to do: switch view, wake the computer's app, open one. */
+/** What the computer's coding sessions can be told to do: switch view, open one, open a terminal. */
 export function useCodingActions(): CodingActions {
   return useData().data.coding;
 }

@@ -1,6 +1,7 @@
-// What the coding screens share: a coding session's face and name, its state in words, and why it cannot switch.
+// What the coding screens share: a coding session's face and name, its state in words, why it cannot switch, and the
+// line that says the list did not come.
 import { t } from "@lophn/i18n";
-import { type DotTone, Icon, Text, useTheme } from "@lophn/ui-native";
+import { Button, type DotTone, Icon, Text, useTheme } from "@lophn/ui-native";
 import { SquareTerminal } from "lucide-react-native";
 import { View } from "react-native";
 import { harnessVendorOf } from "../../../../shell/renderer/parts/vendor-icon/vendors.ts";
@@ -83,7 +84,7 @@ export function blockedText(
   }
 }
 
-/** The small Terminal mark of a session that runs in a terminal tab: the kit's Tag with an icon. */
+/** The small Terminal mark of a session that runs in a terminal: the kit's Tag with an icon. */
 export function TerminalMark() {
   const theme = useTheme();
   return (
@@ -103,6 +104,22 @@ export function TerminalMark() {
       <Text variant="caption" weight="medium" tone="secondary">
         {t("terminal.label.output")}
       </Text>
+    </View>
+  );
+}
+
+/** The coding read did not go through: said in the group's place, with a way to read again. */
+export function ReadFailed({ computer, onRetry }: { computer: string; onRetry: () => void }) {
+  return (
+    <View style={{ paddingHorizontal: 20, paddingVertical: 8 }}>
+      <Text variant="small" tone="critical">
+        {t("mobile.coding.error.read-failed", { computer })}
+      </Text>
+      <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 12 }}>
+        <Button size="sm" onPress={onRetry}>
+          {t("common.button.retry")}
+        </Button>
+      </View>
     </View>
   );
 }

@@ -98,8 +98,8 @@ export function Sidebar({ state, navigation }: DrawerContentComponentProps) {
   useKeepLists();
   const installed = installedOf(useLocalApps());
   const workspaces = withLocalApps(useWithSavedLists(useWorkspaces()), installed);
-  // One read of every project's coding sessions (empty while the computer's lophn app is not running); it follows the
-  // coding_sessions change event, so the rows come and go without a reload.
+  // One read of every project's coding sessions; it follows the coding_sessions change event, so the rows come and go
+  // without a reload.
   const coding = useCodingSessions().sessions;
   const { count } = useInbox();
   // An app on this phone opens its screen even when the computer lists only its preview.
@@ -240,7 +240,7 @@ function Workspace({
   /** An app with a phone screen or on this phone: its line opens the screen, or the running preview when only the
    * preview has one. */
   phone: PhoneLine | undefined;
-  /** The project's running coding sessions of the computer's terminal tabs. */
+  /** The project's running coding sessions on the computer. */
   coding: readonly CodingSession[];
   on: string;
   show: (place: Place) => void;

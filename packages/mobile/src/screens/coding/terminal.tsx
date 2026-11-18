@@ -1,4 +1,4 @@
-// A coding session that runs in a terminal tab on the computer (tools/wireframes/drafts/phone/terminal.tsx). Its
+// A coding session that runs in a terminal on the computer (tools/wireframes/drafts/phone/terminal.tsx). Its
 // conversation does not reach the phone, so the session screen is the terminal itself, typed into from the phone. Switch
 // to chat sits in the top bar's menu and asks first (SwitchSheet); once the session is a chat the session screen shows
 // the conversation.

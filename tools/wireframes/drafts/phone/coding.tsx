@@ -8,7 +8,6 @@ import {
   FolderOpen,
   MessageSquare,
   Monitor,
-  Play,
   Plus,
   SquareTerminal,
   TriangleAlert,
@@ -128,7 +127,7 @@ function TerminalMark() {
   );
 }
 
-function Sessions({ down }: { down?: boolean }) {
+function Sessions() {
   return (
     <Phone>
       <TopBar
@@ -139,53 +138,29 @@ function Sessions({ down }: { down?: boolean }) {
       <Tabs items={["Sessions", "Workflows", "Files", "Jobs"]} on={0} />
       <div className={s.body}>
         <Label>Coding agents on mina-desktop</Label>
-        {down ? (
-          <div className={s.pad} style={{ paddingBottom: 6 }}>
-            <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-              <Ic icon={Monitor} size={22} className={s.muted} />
-              <div>
-                <div style={{ fontSize: 16, lineHeight: "22px" }}>
-                  lophn is not running on mina-desktop
-                </div>
-                <div className={s.note} style={{ marginTop: 2 }}>
-                  Coding agents run in the desktop app. Starting it opens a
-                  window there.
-                </div>
-              </div>
-            </div>
-            <div className={s.btnRow} data-end="" style={{ marginTop: 12 }}>
-              <Btn size="sm" variant="primary" icon={Play}>
-                Start lophn on the computer
-              </Btn>
-            </div>
-          </div>
-        ) : (
-          <>
-            <Row
-              lead={<Face who="Claude Code" />}
-              title="Fix flaky retry in the scenario runner"
-              sub="Working · 2m"
-              end={<Dot tone="working" />}
-            />
-            <Row
-              lead={<Face who="Codex" />}
-              title="Split the eval board loader"
-              sub={
-                <span
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
-                  <TerminalMark />
-                  Working · 4m
-                </span>
-              }
-              end={<Dot tone="working" />}
-            />
-          </>
-        )}
+        <Row
+          lead={<Face who="Claude Code" />}
+          title="Fix flaky retry in the scenario runner"
+          sub="Working · 2m"
+          end={<Dot tone="working" />}
+        />
+        <Row
+          lead={<Face who="Codex" />}
+          title="Split the eval board loader"
+          sub={
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <TerminalMark />
+              Working · 4m
+            </span>
+          }
+          end={<Dot tone="working" />}
+        />
         <Label>Main</Label>
         <Row
           lead={<Face who="lophn" />}
@@ -312,7 +287,7 @@ function NewCoding({ over }: { over?: ReactNode }) {
           }}
         >
           <Ic icon={Monitor} size={14} />
-          Starts in a new terminal tab on the computer
+          Starts in a new terminal on the computer
         </div>
       )}
       <Composer
@@ -402,19 +377,13 @@ export function CodingFlow() {
   return (
     <Flow
       title="10 · Coding agents"
-      note="컴퓨터의 lophn 앱에서 도는 Claude Code, Codex, OpenCode, omp. 채팅 화면으로 도는 session은 lophn agent와 같은 대화와 card로 다룬다. 터미널로 도는 session을 열면 그 터미널 화면이 바로 열리고 거기서 치거나 menu로 채팅으로 바꾼다(flow 12 Terminal)."
+      note="컴퓨터에서 도는 Claude Code, Codex, OpenCode, omp. 컴퓨터의 lophn 앱이 꺼져 있어도 목록이 보이고 열린다. 채팅 화면으로 도는 session은 lophn agent와 같은 대화와 card로 다룬다. 터미널로 도는 session을 열면 그 터미널 화면이 바로 열리고 거기서 치거나 menu로 채팅으로 바꾼다(flow 12 Terminal)."
     >
       <Shot
         title="Coding agents in the project"
-        text="Sessions 탭 맨 위에 컴퓨터에서 지금 도는 coding session이 묶인다. 채팅으로 도는 것은 상태만, 터미널로 도는 것은 작은 Terminal 표시가 붙고 누르면 flow 12의 터미널 화면이 열린다. 끝난 coding session은 Recent에 남는다."
+        text="Sessions 탭 맨 위에 컴퓨터에서 지금 도는 coding session이 묶인다. 없으면 묶음이 서지 않는다. 채팅으로 도는 것은 상태만, 터미널로 도는 것은 작은 Terminal 표시가 붙고 누르면 flow 12의 터미널 화면이 열린다. 끝난 coding session은 Recent에 남는다."
       >
         <Sessions />
-      </Shot>
-      <Shot
-        title="lophn is not running on the computer"
-        text="desktop 앱이 꺼져 있으면 묶음 자리에 한 줄과 단추. 누르면 컴퓨터에서 앱이 창과 함께 뜬다. 저절로 깨우지 않는다. 앱이 막 떴을 때는 도는 터미널이 없어서 목록이 비어 있다."
-      >
-        <Sessions down />
       </Shot>
       <Shot
         title="Approval from a coding agent"
@@ -424,13 +393,13 @@ export function CodingFlow() {
       </Shot>
       <Shot
         title="A new coding session"
-        text="새 session의 단추는 workspace와 agent 둘이다. agent 단추의 Who works on it 안에 lophn agent 묶음 아래로 컴퓨터의 coding agent 묶음이 서고 그 끝에 Terminal이 온다. Terminal을 고르면 바로 컴퓨터의 그 project에 터미널 탭을 열고 flow 12의 터미널 화면으로 간다. 목록은 정해진 것이라 바로 서고, 컴퓨터의 답이 오기 전에는 흐리고 누를 수 없다. 앱이 꺼져 있으면 묶음 아래에 Start lophn on the computer가 온다."
+        text="새 session의 단추는 workspace와 agent 둘이다. agent 단추의 Who works on it 안에 lophn agent 묶음 아래로 컴퓨터의 coding agent 묶음이 서고 그 끝에 Terminal이 온다. Terminal을 고르면 바로 컴퓨터의 그 project에 터미널을 열고 flow 12의 터미널 화면으로 간다(그 project를 보는 창이 있으면 탭도 선다). 목록은 정해진 것이라 바로 서고, 컴퓨터의 답이 오기 전에는 흐리고 누를 수 없다. 컴퓨터의 앱이 꺼져 있어도 고르고 열 수 있다."
       >
         <NewCoding over={<Pick />} />
       </Shot>
       <Shot
         title="The first message"
-        text="고르기만 해서는 아무것도 열리지 않는다. 입력 칸 위에 컴퓨터의 새 터미널 탭으로 시작한다고 알린다. 첫 메시지를 보내면 그때 컴퓨터에 열고 그 메시지를 보내 flow 4의 대화 화면으로 간다. 못 열거나 못 보내면 글은 입력 칸에 남는다."
+        text="고르기만 해서는 아무것도 열리지 않는다. 입력 칸 위에 컴퓨터의 새 터미널로 시작한다고 알린다. 첫 메시지를 보내면 그때 컴퓨터에 열고 그 메시지를 보내 flow 4의 대화 화면으로 간다. 못 열거나 못 보내면 글은 입력 칸에 남는다."
       >
         <NewCoding />
       </Shot>

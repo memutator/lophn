@@ -1,15 +1,12 @@
 // Instead of the composer under a past coding session (tools/wireframes/drafts/phone/coding.tsx Ended): the computer
-// opens the same harness session again as a chat and the phone goes to it. Only where the computer's app runs: when it
-// does not, the one line with its Start button stands here.
+// opens the same harness session again as a chat and the phone goes to it.
 import { t } from "@lophn/i18n";
 import { Button, Text, Working } from "@lophn/ui-native";
 import { MessageSquare } from "lucide-react-native";
 import { View } from "react-native";
 import { useNav } from "../../app/nav.ts";
-import { useCodingSessions } from "../../data/mod.ts";
 import { useLocked } from "../../parts/mod.ts";
 import { useOpenCoding } from "./open.tsx";
-import { NotRunning } from "./wake.tsx";
 
 export function ContinueAsChat({
   project,
@@ -25,9 +22,7 @@ export function ContinueAsChat({
 }) {
   const nav = useNav();
   const locked = useLocked();
-  const { shell } = useCodingSessions(project);
   const { open, busy, problem, computer } = useOpenCoding(true);
-  if (shell === "absent") return <NotRunning computer={computer} />;
   return (
     <View style={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 }}>
       <Text tone="secondary">{t("mobile.coding.notice.ended", { computer })}</Text>
@@ -49,7 +44,7 @@ export function ContinueAsChat({
           <Button
             variant="primary"
             icon={MessageSquare}
-            disabled={locked || shell === null}
+            disabled={locked}
             onPress={() => void open(project, harness, label, { session })}
           >
             {t("mobile.coding.button.continue")}

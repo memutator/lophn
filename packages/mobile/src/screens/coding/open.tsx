@@ -1,5 +1,5 @@
 // Opening a coding session on the computer from the phone: a new one in a project, or a past one continued as chat. The
-// computer starts it in a new terminal tab of its lophn app and the phone goes to its conversation.
+// computer starts it in a new terminal and the phone goes to its conversation.
 import { t } from "@lophn/i18n";
 import { StackActions, useNavigation } from "@react-navigation/native";
 import { useState } from "react";

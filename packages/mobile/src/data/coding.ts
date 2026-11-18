@@ -1,6 +1,6 @@
 // The computer's coding agents (Claude Code, Codex, ...) on the phone. The list (`useCodingSessions`, in hooks.tsx) and the actions are the core's
-// `coding_sessions/*` routes (and `acp/send` for a new session's first message); a chat-view session's conversation goes through the ACP routes the core relays from the
-// computer's lophn app (`acp/snapshot`, `acp/send`, `AcpUpdated`), and is shown by the desktop's harness GUI source
+// `coding_sessions/*` routes (and `acp/send` for a new session's first message); a chat-view session's conversation goes through the core's ACP routes
+// (`acp/snapshot`, `acp/send`, `AcpUpdated`), and is shown by the desktop's harness GUI source
 // (`guiAgentTabSource`) fed by the phone instead of by the app's IPC. What the session can do (rewind, images, ...) is
 // told by `session.capabilities` in the ACP state, the same as on the desktop. Tool bodies and pictures are read from the computer when shown.
 import {
@@ -16,7 +16,6 @@ import {
   codingSessionsOpen,
   codingSessionsSwitch,
   codingSessionsSwitchPlan,
-  codingSessionsWake,
 } from "../../../protocol/coding-agent/relay.ts";
 import { isGuiHarness } from "../../../protocol/extensions/mod.ts";
 import { textBlocks } from "../../../protocol/lophn-agent/content-block.ts";
@@ -148,8 +147,6 @@ export function codingFeed(
   };
 }
 
-const UNAVAILABLE = { ok: false, code: "unavailable" } as const;
-
 /**
  * The desktop's harness GUI source over the core's relay. Everything the desktop gets from the app's IPC that the phone
  * cannot (past CLI sessions, rewind preview) answers unavailable, so the screen hides it by capability.
@@ -190,6 +187,43 @@ function codingSource(
 
 // ---- the list and the actions
 
+// How long a new session's CLI may take to start on the computer before the phone stops waiting for its chat.
+const STANDING_MS = 60_000;
+
+/**
+ * Whether the core has the session's chat (its GUI handle stood) within `STANDING_MS`: `coding_sessions/open` answers
+ * when the CLI is typed into a new terminal, and the handle stands later, which the core says with
+ * `StateChanged{coding_sessions}`. The chat is read again on each such change.
+ */
+function standing(client: EventClient, env: Env, session: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (stood: boolean) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      off();
+      resolve(stood);
+    };
+    const check = async () => {
+      if ((await env.read(acpSnapshot, { session })).ok) finish(true);
+    };
+    const off = client.subscribe({ types: ["StateChanged"] }, (message) => {
+      if (
+        message.kind === "ready" ||
+        (message.kind === "event" &&
+          message.event.type === "StateChanged" &&
+          message.event.payload.changes.some(
+            (change) => change.name === "coding_sessions" && (change.id === session || change.id === null),
+          ))
+      ) {
+        void check();
+      }
+    });
+    const timer = setTimeout(() => finish(false), STANDING_MS);
+  });
+}
+
 /** A coding route's answer. A refusal carries the sentence the computer gave, to show as it is (`open`: "Open the project on the computer"). */
 export type CodingResult<T> =
   | { readonly ok: true; readonly value: T }
@@ -206,9 +240,10 @@ export interface CodingActions {
   }>>;
   /** Only after the person confirmed what `switchPlan` showed: the core refuses a switch without it. */
   switchView(session: string, to: "gui" | "tui"): Promise<SourceResult<void>>;
-  /** Starts the lophn app on the computer; `starting` means wait for `useCodingSessions().shell` to be `attached`. */
-  wake(): Promise<CodingResult<{ shell: "attached" | "starting" }>>;
-  /** A new chat-view coding session in a new terminal tab of the computer, or one that resumes a harness agent session. */
+  /**
+   * A new chat-view coding session in a new terminal on the computer, or one that resumes a harness agent session.
+   * Answers once its chat stands on the computer (`standing`), so the first message can go to it at once.
+   */
   open(input: {
     project: string;
     harness: string;
@@ -216,7 +251,7 @@ export interface CodingActions {
   }): Promise<CodingResult<{ session: string }>>;
   /** Sends a message to a coding session `open` gave, before any screen reads its conversation (the new session's first message). */
   send(session: string, message: { id: string; key: string; text: string }): Promise<SourceResult<void>>;
-  /** A new terminal tab running a shell in the project's folder on the computer; gives its terminal (`openTerminal`). */
+  /** A new terminal running a shell in the project's folder on the computer; gives its terminal (`openTerminal`). */
   openTerminal(project: string): Promise<CodingResult<string>>;
 }
 
@@ -226,7 +261,7 @@ export interface Coding extends CodingActions {
 
 /** One computer's coding sessions: the conversation sources and the actions, over its event client. */
 export function codingOf(client: EventClient): Coding {
-  // `env.read` keeps only the error code; open and wake also need the sentence the computer gave.
+  // `env.read` keeps only the error code; open also needs the sentence the computer gave.
   async function ask<T>(
     route: { kind: string; resource: string; method: string },
     body: unknown,
@@ -258,14 +293,16 @@ export function codingOf(client: EventClient): Coding {
       });
       return done.ok ? { ok: true, value: undefined } : done;
     },
-    wake: () => ask<{ shell: "attached" | "starting" }>(codingSessionsWake, {}),
-    open: ({ project, harness, resume }) =>
-      ask<{ session: string }>(codingSessionsOpen, {
+    async open({ project, harness, resume }) {
+      const opened = await ask<{ session: string }>(codingSessionsOpen, {
         project,
         harness,
         ...(resume === undefined ? {} : { resume }),
         key: newId("open"),
-      }),
+      });
+      if (!opened.ok || (await standing(client, env, opened.value.session))) return opened;
+      return { ok: false, code: "unavailable" };
+    },
     async send(session, { id, key, text }) {
       const sent = await env.read(acpSend, {
         type: "send",

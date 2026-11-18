@@ -1,9 +1,8 @@
 // The coding agents of the computer in the new session screen's agent sheet (tools/wireframes/drafts/phone/coding.tsx
 // Pick), under the lophn agents. Only in a project. The list is the fixed set of GUI harnesses, so it stands at once;
-// the computer's answer only says whether its app runs, and until it comes a row cannot be picked. Picking one opens
-// nothing: the new session's first message does. Terminal, the last row, opens a shell tab in the project at once
-// (tools/wireframes/drafts/phone/terminal.tsx). Without the computer's app the line that starts it stands under the
-// rows; the app is never started by looking at this.
+// the computer's coding list only says that it answers, and until it comes a row cannot be picked. Picking one opens
+// nothing: the new session's first message does. Terminal, the last row, opens a shell in the project at once
+// (tools/wireframes/drafts/phone/terminal.tsx).
 import { t } from "@lophn/i18n";
 import { Icon, Label, Row } from "@lophn/ui-native";
 import { Check, SquareTerminal } from "lucide-react-native";
@@ -11,8 +10,7 @@ import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adap
 import { GUI_HARNESSES, type GuiHarness } from "../../../../protocol/extensions/mod.ts";
 import { useCodingSessions, useCurrentComputer } from "../../data/mod.ts";
 import { Face } from "../../parts/mod.ts";
-import { harnessProfile } from "./parts.tsx";
-import { NotRunning, ReadFailed } from "./wake.tsx";
+import { harnessProfile, ReadFailed } from "./parts.tsx";
 
 export function CodingAgentGroup({
   project,
@@ -26,9 +24,9 @@ export function CodingAgentGroup({
   onPick: (harness: GuiHarness) => void;
   onTerminal: () => void;
 }) {
-  const { shell, status, reload } = useCodingSessions(project);
+  const { status, reload } = useCodingSessions(project);
   const computer = useCurrentComputer()?.name ?? "";
-  const ready = shell === "attached";
+  const ready = status === "ready";
   return (
     <>
       <Label>{t("mobile.ops.agents.coding", { computer })}</Label>
@@ -53,11 +51,7 @@ export function CodingAgentGroup({
         dim={!ready}
         onPress={ready ? onTerminal : undefined}
       />
-      {shell === "absent" ? (
-        <NotRunning computer={computer} />
-      ) : (
-        status === "failed" && <ReadFailed computer={computer} onRetry={reload} />
-      )}
+      {status === "failed" && <ReadFailed computer={computer} onRetry={reload} />}
     </>
   );
 }

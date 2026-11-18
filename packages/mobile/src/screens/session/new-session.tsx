@@ -2,8 +2,8 @@
 // opens the session and goes to its conversation, as the desktop's first message does. Only agents that can work in the
 // chosen workspace are offered. In a project the computer's coding agents are offered in the same sheet
 // (tools/wireframes/drafts/phone/coding.tsx Pick, The first message): picking one opens nothing; the first message
-// opens it in a new terminal tab on the computer, is sent to it, and goes to its chat. Terminal under them opens a shell
-// tab in the project on the computer and goes to its terminal screen.
+// opens it in a new terminal on the computer, is sent to it, and goes to its chat. Terminal under them opens a shell in
+// the project on the computer and goes to its terminal screen.
 import { t } from "@lophn/i18n";
 import {
   Chip,
@@ -89,7 +89,7 @@ export function NewSessionScreen({ place }: { place: PlaceOf<"new-session"> }) {
   const [problem, setProblem] = useState<string | null>(null);
   const coding = useCodingActions();
   // The coding session a first message opened when sending to it then failed: trying again sends into it rather than
-  // opening a second terminal tab.
+  // opening a second terminal.
   const [codingOpened, setCodingOpened] = useState<{ project: string; harness: string; session: string } | null>(null);
   const [pending, setPending] = useState<{ model: string; options: Record<string, string> } | null>(null);
 

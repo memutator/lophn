@@ -608,7 +608,6 @@ function codingRoutes(changed: () => void): Record<string, Answer> {
   const find = (body: Record<string, unknown>) => list.find((one) => one.session === body.session);
   return {
     "coding_sessions/list": (body) => ({
-      shell: "attached",
       sessions: list.filter((one) => body.project === undefined || one.project === body.project),
     }),
     "coding_sessions/switch_plan": (body) => {
@@ -635,7 +634,6 @@ function codingRoutes(changed: () => void): Record<string, Answer> {
       changed();
       return { session };
     },
-    "coding_sessions/wake": () => ({ shell: "attached" }),
     "acp/send": () => ({}),
   };
 }
@@ -665,12 +663,12 @@ function terminalRoutes(emit: (event: BusEvent) => void): Record<string, Answer>
       changed(body.terminal);
       return {};
     },
-    "terminal_view/input": (body) => {
+    "terminals/input": (body) => {
       typed += String(body.text).replace(/[\x00-\x1f\x7f]/g, "");
       changed(body.terminal);
       return {};
     },
-    "terminal_view/open": () => ({ terminal: "trm_sample90" }),
+    "terminals/open": () => ({ terminal: "trm_sample90" }),
     "terminal_view/snapshot": (body) => {
       const lines = [
         line({ text: ">_ ", dim: true }, { text: "OpenAI Codex", bold: true }, { text: " (v0.58.0)", dim: true }),

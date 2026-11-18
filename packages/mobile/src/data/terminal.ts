@@ -1,4 +1,5 @@
 // The raw screen of a terminal on the computer (`terminal_view/*`): a coding session's terminal or one the phone opened.
+// Opening and typing are the core's `terminals/open|input`, the same routes the desktop uses.
 // The core keeps only the latest screen and says that it changed (`TerminalScreenChanged`, no content); the phone reads
 // the snapshot again. Watching is a lease the phone renews every 10 seconds; the core drops it 30 seconds after the last
 // renewal, so a phone that went away stops the host from pushing screens without saying so. The phone sizes the terminal
@@ -6,12 +7,11 @@
 // and the computer's tab takes its own size back when no phone watches any more.
 import type { z } from "zod";
 import {
-  terminalViewInput,
-  terminalViewOpen,
   terminalViewResize,
   terminalViewSnapshot,
   terminalViewWatch,
 } from "../../../protocol/coding-agent/terminal-view.ts";
+import { terminalsInput, terminalsOpen } from "../../../protocol/coding-agent/terminals.ts";
 import type { SourceResult } from "../../../shell/renderer/conversation/agent-tab-source.ts";
 import type { CodingResult } from "./coding.ts";
 import type {
@@ -162,7 +162,7 @@ export function terminalFeed(
 
   return {
     async send(text) {
-      const done = await call(client, terminalViewInput, {
+      const done = await call(client, terminalsInput, {
         terminal,
         text,
         key: newId("input"),
@@ -184,9 +184,8 @@ export function terminalFeed(
 }
 
 /**
- * Opens a terminal tab with a shell in the project's folder on the computer (a window for the project opens there, without
- * focus, if none shows it) and gives its terminal, to watch with `terminalFeed`. A refusal carries the computer's sentence.
- * The same `key` opens it once.
+ * Opens a shell in the project's folder on the computer (a tab too, in a window that shows the project, if one does) and
+ * gives its terminal, to watch with `terminalFeed`. A refusal carries the computer's sentence. The same `key` opens it once.
  */
 export async function openTerminal(
   client: EventClient,
@@ -195,10 +194,10 @@ export async function openTerminal(
 ): Promise<CodingResult<string>> {
   try {
     const reply = await client.core.call({
-      kind: terminalViewOpen.kind as "memory",
-      resource: terminalViewOpen.resource,
-      method: terminalViewOpen.method,
-      body: { project, key },
+      kind: terminalsOpen.kind as "memory",
+      resource: terminalsOpen.resource,
+      method: terminalsOpen.method,
+      body: { project, key, tab: { relation: null } },
     });
     return reply.ok
       ? { ok: true, value: (reply.value as { terminal: string }).terminal }

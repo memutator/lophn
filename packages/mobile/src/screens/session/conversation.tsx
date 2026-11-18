@@ -1,7 +1,7 @@
 // A session: the conversation with an agent (tools/wireframes/drafts/phone/session.tsx). The desktop conversation's
 // values (thread, live text, pending, queued) come from `useConversation`; this screen lays them out for the phone: the
 // thread follows the newest text, what waits on the person docks above the composer, and the composer's words follow the
-// state (Reply…, Queue a message…, Reply instead…). A coding session of the computer's lophn app runs the same chat over
+// state (Reply…, Queue a message…, Reply instead…). A coding session on the computer runs the same chat over
 // the coding source, or stands in its terminal (screens/coding); a headless coding agent's session is only read here.
 import { t } from "@lophn/i18n";
 import {
@@ -174,7 +174,7 @@ function ReadOnlyLine({ children }: { children: string }) {
   );
 }
 
-// A coding session of the computer's lophn app (Claude Code, Codex, ...).
+// A coding session on the computer (Claude Code, Codex, ...).
 type CodingPlace = { readonly name: "session" } & CodingTarget;
 
 export function SessionScreen({ place }: { place: PlaceOf<"session"> }) {
@@ -476,7 +476,7 @@ function ChatScreen({
       : t("mobile.session.label.where-desk", { agent: who.name, workspace: workspaceName, desk: found.desk });
   const modeLabel = meta?.modes.find((mode) => mode.id === meta.mode)?.label ?? null;
   const project = lophn?.workspace?.kind === "project" ? lophn.workspace.id : (relayed?.project ?? null);
-  // A relayed coding session's pictures go to its terminal tab's temporary folder on the computer (the source's `uploadImage`).
+  // A relayed coding session's pictures go to its terminal's temporary folder on the computer (the source's `uploadImage`).
   const pictures = caps.images;
 
   // While `/name` is typed (no space yet), the matching commands stand over the composer, as the + sheet lists them.

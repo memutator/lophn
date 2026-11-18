@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { GrantApp } from "../source.ts";
-import { appsFor } from "./grants-model.ts";
+import { appEntryOf, appsFor, setEntry } from "./grants-model.ts";
 
 test("agent가 일하는 앱의 비공개 tool만 붙일 수 있고 public tool은 어느 앱 것이든 붙일 수 있다", () => {
   const tool = (name: string, isPublic: boolean) => ({
@@ -32,4 +32,18 @@ test("agent가 일하는 앱의 비공개 tool만 붙일 수 있고 public tool�
     ["app_mine", ["open1"]],
     ["app_other", ["open2"]],
   ]);
+});
+
+test("다른 기계에 할당한 같은 앱 id의 줄은 이 기계의 줄과 섞이지 않는다", () => {
+  const remote = {
+    app: "app_mine",
+    machine: "mch_other",
+    name: "Mine",
+    removed_tools: ["x"],
+  };
+  const local = { app: "app_mine", removed_tools: [] };
+  assert.deepStrictEqual(appEntryOf([remote], "app_mine"), undefined);
+  assert.deepStrictEqual(setEntry([remote], local), [remote, local]);
+  const edited = { ...local, removed_tools: ["y"] };
+  assert.deepStrictEqual(setEntry([remote, local], edited), [remote, edited]);
 });

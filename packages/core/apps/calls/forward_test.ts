@@ -149,7 +149,7 @@ function denied(result: Result<ToolCallOutput>) {
 }
 
 // 받는 기계는 보낸 쪽의 Gate를 지나지 않은 호출을 받는다. 이 컴퓨터가 보내기 전에 할당을 보지 않으면 할당이 없는 agent도 다른 기계의 앱을 부른다.
-test("할당이 없는 agent는 다른 기계의 앱을 부르지 못한다: 그 기계에 할당한 줄이 없거나 command를 뺐거나 다른 기계·이 기계에만 할당했으면 link에 아무것도 가지 않는다", async () => {
+test("할당이 없는 agent는 다른 기계의 앱을 부르지 못한다: 그 앱의 줄이 없거나 command를 뺐거나 이 기계에만 할당했으면 link에 아무것도 가지 않는다", async () => {
   const lines: [string, Assignment["entries"]][] = [
     ["no assignment", []],
     [
@@ -164,13 +164,19 @@ test("할당이 없는 agent는 다른 기계의 앱을 부르지 못한다: 그
       ],
     ],
     [
-      "assigned on another machine",
+      "removed there, allowed on another computer",
       [
         {
           app: APP,
           machine: "mch_0000000000000000000000000c",
           name: "Notes",
           removed_tools: [],
+        },
+        {
+          app: APP,
+          machine: STUDIO.machine,
+          name: "Notes",
+          removed_tools: ["add"],
         },
       ],
     ],
@@ -314,7 +320,15 @@ test("기계를 고르지 못하면 보내지 않는다: 이 컴퓨터는 invali
     ["nowhere", [STUDIO, SELF], "not_found"],
     ["studio", [STUDIO, twin, SELF], "invalid_input"],
   ] as const) {
-    const t = setup({ computers: [...computers] });
+    const t = setup({
+      computers: [...computers],
+      entries: computers.map((one) => ({
+        app: APP,
+        machine: one.machine,
+        name: "Notes",
+        removed_tools: [],
+      })),
+    });
     const result = await t.forward({
       caller: agentCaller(),
       target: target(ref),
@@ -324,6 +338,35 @@ test("기계를 고르지 못하면 보내지 않는다: 이 컴퓨터는 invali
     assert.equal(!result.ok && result.error.code, code, ref);
     assert.deepEqual(t.sent, [], ref);
   }
+});
+
+// 할당이 없는 agent와 grant가 없는 앱은 컴퓨터 이름이 명단에 있는지 알아내지 못한다: 있는 이름도 없는 이름도 같은 거절이다.
+test("할당이 없는 agent와 grant가 없는 앱에게는 있는 컴퓨터 이름과 없는 이름이 같은 거절이다", async () => {
+  for (const caller of [agentCaller(), appCaller()]) {
+    const answers = [];
+    for (const ref of ["studio", "laptop", "nowhere", STUDIO.machine]) {
+      const t = setup({ entries: [] });
+      answers.push(
+        await t.forward({
+          caller,
+          target: target(ref),
+          name: "add",
+          input: undefined,
+        }),
+      );
+      assert.deepEqual(t.sent, []);
+    }
+    for (const answer of answers) assert.equal(denied(answer), "gate_blocked");
+  }
+  // 줄이 가리키지 않는 컴퓨터의 이름은 그 agent에게도 풀리지 않는다.
+  const t = setup();
+  const other = await t.forward({
+    caller: agentCaller(),
+    target: target("laptop"),
+    name: "add",
+    input: undefined,
+  });
+  assert.equal(!other.ok && other.error.code, "not_found");
 });
 
 // 보내지 못한 호출은 돌지 않았다(오류), 보낸 뒤 답을 잃은 호출은 돌았을 수 있다(결과 모름).
@@ -352,6 +395,22 @@ test("link가 보내지 못했으면 unavailable 오류이고 보낸 뒤 답을 
   });
   assert.deepEqual(
     await lost.forward({
+      caller: agentCaller(),
+      target: target(),
+      name: "add",
+      input: undefined,
+    }),
+    ok({
+      invocation: null,
+      outcome: { status: "unknown", reason: "connection_lost" },
+    }),
+  );
+});
+
+test("보낸 뒤 받은 답이 모양에 맞지 않으면 결과 모름이다", async () => {
+  const t = setup({ reply: ok({ outcome: "whatever" }) });
+  assert.deepEqual(
+    await t.forward({
       caller: agentCaller(),
       target: target(),
       name: "add",

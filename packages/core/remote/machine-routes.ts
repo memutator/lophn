@@ -8,6 +8,10 @@ import type { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { AssignmentEntry } from "../../protocol/approvals/mod.ts";
 import { appTools } from "../../protocol/apps/declaration/read.ts";
+import {
+  objectSchema,
+  TOOL_NAME,
+} from "../../protocol/apps/declaration/tools.ts";
 import type { EventCondition } from "../../protocol/events/mod.ts";
 import {
   type CallPolicy,
@@ -95,6 +99,47 @@ export function createMachineRoutes(deps: {
   };
 }
 
+// 다른 컴퓨터가 낸 command 목록은 이 컴퓨터 밖의 글이고 그 컴퓨터가 언제든 바꾼다. 모델과 사람에게 닿기 전에 이 컴퓨터가 낸 선언이 지나는 규칙으로
+// 다시 거른다: command 이름은 선언의 이름 규칙(줄바꿈·공백 없음), inputSchema는 선언의 검사, 설명과 schema와 개수와 답 전체는 상한을 둔다.
+// 틀린 command는 목록에서 뺀다(목록 전체를 실패시키지 않는다).
+const MAX_COMMANDS = 64;
+const MAX_DESCRIPTION = 1024;
+const MAX_SCHEMA_BYTES = 16 * 1024;
+const MAX_VIEW_BYTES = 256 * 1024;
+// 줄바꿈과 탭은 설명에 쓸 수 있다. 그 밖의 제어 문자는 뺀다.
+const CONTROLS = /[^\P{Cc}\n\t]/gu;
+
+function checkedView(
+  view: z.infer<typeof appTools.output>,
+): z.infer<typeof appTools.output> {
+  const tools: z.infer<typeof appTools.output>["tools"] = [];
+  for (const command of view.tools) {
+    if (tools.length >= MAX_COMMANDS) break;
+    if (!TOOL_NAME.test(command.name)) continue;
+    const description = command.description
+      .replace(CONTROLS, "")
+      .trim()
+      .slice(0, MAX_DESCRIPTION);
+    if (description === "") continue;
+    const inputSchema = command.inputSchema;
+    if (inputSchema !== null) {
+      const checked = objectSchema(inputSchema, "inputSchema");
+      if (
+        !checked.ok ||
+        JSON.stringify(inputSchema).length > MAX_SCHEMA_BYTES
+      ) {
+        continue;
+      }
+    }
+    tools.push({ ...command, description, inputSchema });
+  }
+  return {
+    ...view,
+    name: requesterName(view.name.replace(CONTROLS, "")),
+    tools,
+  };
+}
+
 // `machines/app_tools`: agent runtime이 그 agent에 할당된 다른 기계 앱의 command 목록을 읽는다.
 export function createMachineAppTools(deps: {
   links: Pick<Links, "callDevice">;
@@ -102,21 +147,29 @@ export function createMachineAppTools(deps: {
   computers(): MachineCandidate[];
   // 이 기계의 call 정책(private workspace).
   policy(): CallPolicy;
-  // 그 agent의 지금 할당 줄과 사람이 보는 이름.
+  // 그 agent의 지금 할당 줄.
   assignment(agent: AgentId): Promise<Result<readonly AssignmentEntry[]>>;
-  agentName(agent: AgentId): Promise<string | null>;
+  // 사람이 보는 agent 이름과 그 정의가 범위를 잡은 workspace(전역 agent는 null).
+  agent(
+    agent: AgentId,
+  ): Promise<{ name: string; workspace: Workspace | null } | null>;
+  // 그 컴퓨터가 이만큼 답하지 않으면 "not reachable now"다(link의 120초를 기다리지 않는다).
+  deadlineMs?: number;
 }) {
-  // agent runtime이 그 agent에 할당된 다른 기계 앱의 command 목록을 읽는다. 그 기계마다 session 없는 그 agent로 묻고, 닿지 않거나
-  // 거절하거나 읽을 수 없는 앱은 `view: null`이다. private workspace의 agent에게는 앱을 비운다: workspace는 입력이 말하는 것과
-  // agent id가 가리키는 것(lophn은 id가 workspace를 정한다) 둘 다 본다.
+  const deadline = deps.deadlineMs ?? 5000;
+  // 그 agent의 목록을 그 기계에 묻는 일은 session 없는 그 agent로 한다. 닿지 않거나 거절하거나 늦거나 읽을 수 없는 앱은 `view: null`이다.
+  // private workspace의 agent에게는 앱을 비운다: workspace는 입력이 말하는 것, agent 정의가 범위를 잡은 것, lophn agent의 id가
+  // 가리키는 것 가운데 하나라도 private이면 비운다(입력은 숨기는 쪽으로만 쓰인다).
   return async function appToolsOf(input: {
     agent: AgentId;
     workspace: Workspace | null;
   }): Promise<Result<z.infer<typeof machinesAppTools.output>>> {
     const machines = deps.computers();
     const policy = deps.policy();
+    const info = await deps.agent(input.agent);
     if (
       isPrivate(policy, input.workspace) ||
+      isPrivate(policy, info?.workspace ?? null) ||
       (isLophn(input.agent) && isPrivate(policy, workspaceOfLophn(input.agent)))
     ) {
       return ok({ machines, apps: [] });
@@ -129,28 +182,44 @@ export function createMachineAppTools(deps: {
       kind: "agent",
       agent: input.agent,
       session: null,
-      name: requesterName((await deps.agentName(input.agent)) ?? input.agent),
+      name: requesterName(info?.name ?? input.agent),
     } as const;
+    let budget = MAX_VIEW_BYTES;
     const apps = await Promise.all(
       lines.map(async (line) => {
         const found = resolveMachine(line.machine!, machines);
         let view: z.infer<typeof appTools.output> | null = null;
         if (found.ok && !found.value.self) {
-          const read = await deps.links.callDevice(found.value.device, {
-            resource: appTools.resource,
-            method: appTools.method,
-            body: { app: line.app },
-            by,
+          let timer: NodeJS.Timeout | undefined;
+          const late = new Promise<undefined>((resolve) => {
+            timer = setTimeout(() => resolve(undefined), deadline);
           });
-          const parsed = read.ok
+          const read = await Promise.race([
+            deps.links.callDevice(found.value.device, {
+              resource: appTools.resource,
+              method: appTools.method,
+              body: { app: line.app },
+              by,
+            }),
+            late,
+          ]);
+          clearTimeout(timer);
+          const parsed = read?.ok
             ? appTools.output.safeParse(read.value)
             : undefined;
-          if (parsed?.success) view = parsed.data;
+          if (parsed?.success) {
+            const checked = checkedView(parsed.data);
+            const size = JSON.stringify(checked).length;
+            if (size <= budget) {
+              budget -= size;
+              view = checked;
+            }
+          }
         }
         return {
           machine: line.machine!,
           app: line.app,
-          name: line.name!,
+          name: requesterName(line.name!),
           view,
         };
       }),

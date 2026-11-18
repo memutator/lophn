@@ -2725,7 +2725,8 @@ flows:
     docs: [architecture/app-call.md, architecture/approval.md]
     steps:
       - "core 안 machine 자격만 부른다(agent runtime). 입력의 workspace나 agent id가 가리키는 workspace(lophn agent의 id가 workspace를 정한다)가 이 기계의 정책에서 private이면 apps를 비워 답한다"
-      - "그 agent의 할당(assignment/get, machine 자격)에서 machine이 있는 줄마다 명단의 컴퓨터를 `mch_`로 골라 그 기계에 요청한 쪽 {kind: agent, session: null, name}으로 apps/tools를 동시에 부른다. 이 컴퓨터를 가리키거나 명단에 없거나 닿지 않거나 거절하거나 읽을 수 없는 답은 그 줄의 view를 null로 둔다"
+      - "그 agent의 할당(assignment/get, machine 자격)에서 machine이 있는 줄마다 명단의 컴퓨터를 `mch_`로 골라 그 기계에 요청한 쪽 {kind: agent, session: null, name}으로 apps/tools를 동시에 부른다. 이 컴퓨터를 가리키거나 명단에 없거나 닿지 않거나 거절하거나 읽을 수 없는 답은 그 줄의 view를 null로 둔다. 그 컴퓨터가 5초 안에 답하지 않아도 같다"
+      - "받은 view는 이 컴퓨터 밖의 글이라 다시 거른다: command 이름은 선언의 이름 규칙에 맞아야 하고(어긋나면 그 command만 뺀다), inputSchema는 선언의 검사를 지나야 하며, 설명은 1 KB로 자르고 schema는 16 KB, command는 64개, 답 전체는 256 KB로 막는다. private 판정에는 입력의 workspace, agent 정의가 범위를 잡은 workspace, lophn agent id가 가리키는 workspace를 함께 본다"
       - "답은 명단의 컴퓨터(이 컴퓨터 포함, self 표시)와 줄마다 {machine, app, name, view}다"
     outcomes:
       - id: ok

@@ -206,7 +206,11 @@ export function GrantsPanel({
                   label: t("agents.button.remove-app"),
                   onClick: () =>
                     onChange(
-                      dropEntries(entries, (one) => one.app !== app.app),
+                      dropEntries(
+                        entries,
+                        (one) =>
+                          one.machine !== undefined || one.app !== app.app,
+                      ),
                     ),
                 }}
               >

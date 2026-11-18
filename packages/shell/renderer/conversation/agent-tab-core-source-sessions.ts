@@ -92,7 +92,10 @@ async function readApps(
   const apps = [];
   for (const entry of read.value.assignment.entries) {
     apps.push({
-      name: await appNameOf(env, entry.app),
+      name:
+        entry.machine === undefined
+          ? await appNameOf(env, entry.app)
+          : (entry.name ?? entry.app),
       removed: entry.removed_tools,
     });
   }

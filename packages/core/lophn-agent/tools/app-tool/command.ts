@@ -57,6 +57,23 @@ function assigned(
   return entry !== undefined && !entry.removed_tools.includes(command);
 }
 
+// 다른 기계의 command는 설명 앞에 그 컴퓨터를 적는다: 그 글은 그 컴퓨터가 낸 것이고 command도 거기서 돈다.
+function docOf(
+  view: AppToolView,
+  command: AppCommand,
+  machines: readonly MachineCandidate[] | undefined,
+): CommandDoc {
+  const doc = appCommandDoc(view.slug, command);
+  if (view.machine === undefined) return doc;
+  const where =
+    machines?.find((one) => one.machine === view.machine)?.name ?? view.machine;
+  return {
+    ...doc,
+    summary: `(runs on ${where}) ${doc.summary}`,
+    description: `This command runs on the computer ${where}; its description below was written there.\n\n${command.description}`,
+  };
+}
+
 // 앱 ∩ 선언 ∩ 할당. 순서는 이 기계의 앱, 다른 기계의 앱 다음 앱, command 이름 순이다. 비공개 규칙은 views를 거른 쪽(`withPublicOnly`)이 한다.
 export function appCommandEntries(source: {
   views: readonly AppToolView[];
@@ -82,7 +99,7 @@ export function appCommandEntries(source: {
             : (source.machines?.find((one) => one.machine === view.machine)
                 ?.name ?? null),
         command,
-        doc: appCommandDoc(view.slug, command),
+        doc: docOf(view, command, source.machines),
       });
     }
   }
@@ -178,7 +195,7 @@ export function appCommandTool(entry: AppCommandEntry): ToolDefinition {
   const { app, appName, command, doc, machine, machineName } = entry;
   return {
     name: appToolName(entry),
-    description: command.description,
+    description: doc.description,
     input: doc.input,
     effect: command.effect,
     origin: "app",
@@ -201,7 +218,7 @@ export function appCommandTool(entry: AppCommandEntry): ToolDefinition {
         caller: callerOf(ctx),
       });
       if (!reply.ok) return reply;
-      return ok(resultOf(appName, command, reply.value));
+      return ok(resultOf(appName, command, reply.value, machineName));
     },
     // 묻기는 run-loop tool gate, 막기는 core 호출 경로. 다른 기계의 앱은 묻는 판정이 없고(할당이 허락이다) 막기는 core가 넘기기 전에 한다.
     ...(machine === null
@@ -222,8 +239,12 @@ function resultOf(
   appName: string,
   command: AppCommand,
   output: ToolCallOutput,
+  machineName: string | null,
 ): SpillableResult {
-  const label = `command ${command.name} of ${appName}`;
+  const label =
+    machineName === null
+      ? `command ${command.name} of ${appName}`
+      : `command ${command.name} of ${appName} on ${machineName}`;
   const { invocation, outcome } = output;
   switch (outcome.status) {
     case "succeeded":
@@ -234,6 +255,16 @@ function resultOf(
     case "failed": {
       // core가 이 호출이 쓰려던 secret의 값이나 sign-in이 비어 있음을 보았으면 그 자리와 청하는 명령을 싣는다.
       // 앱이 쓴 오류 글과 따로 lophn이 쓴 문장이다.
+      // 다른 컴퓨터의 비어 있는 secret은 그 컴퓨터의 일이다: 그 컴퓨터가 고른 이름으로 이 컴퓨터의 사람에게 secret을 청하지 않는다.
+      if (machineName !== null) {
+        return toolResult(
+          "failure",
+          (outcome.missing ?? []).length === 0
+            ? `${label} failed`
+            : `${label} failed: the app on ${machineName} is missing something it needs. It has to be set up on that computer`,
+          { invocation, error: outcome.error },
+        );
+      }
       const missing = outcome.missing ?? [];
       return toolResult(
         "failure",

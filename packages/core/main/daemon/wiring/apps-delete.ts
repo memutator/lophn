@@ -101,7 +101,9 @@ function eraseRemnants(
       const written = writeAssignment(
         tx.sql,
         info.id,
-        state.value.assignment.entries.filter((entry) => entry.app !== app.id),
+        state.value.assignment.entries.filter(
+          (entry) => entry.machine !== undefined || entry.app !== app.id,
+        ),
         state.value.revision,
       );
       if (!written.ok) return written;

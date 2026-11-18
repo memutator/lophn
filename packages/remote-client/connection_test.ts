@@ -618,3 +618,82 @@ test("a call carries its requester on the frame, and a failure of the link says 
   assert.equal(never.sent, false);
   connection.close();
 });
+
+// Whether a failed call left decides whether it may have run on the other computer. A write that left and timed out must not read as
+// never sent: the agent or app would retry it.
+test("the sent flag is true for a call that timed out after leaving, false for one that waited in the queue or was refused by the channel", async () => {
+  const core = generateKeyPair(cryptoRandom);
+  const channels: RemoteServerChannel[] = [];
+  const waits: { ms: number; fn: () => void }[] = [];
+  const dial = async () => {
+    const [clientSide, coreSide] = pipe();
+    void acceptRemote({
+      transport: coreSide,
+      staticKey: core,
+      capabilities: [],
+      machine: MACHINE,
+      random: cryptoRandom,
+    }).then((opened) => {
+      assert.ok(opened.ok);
+      channels.push(opened.value);
+      opened.value.onFrame((frame) => {
+        if (frame.type === "watch") opened.value.send({ type: "ready" });
+      });
+    });
+    return clientSide;
+  };
+  const make = () =>
+    createConnection({
+      endpoint: {
+        addresses: ["10.0.0.1"],
+        port: 7432,
+        key: remoteKeyText(core.publicKey),
+        machine: MACHINE.id,
+      },
+      key: generateKeyPair(cryptoRandom),
+      capabilities: [],
+      dial,
+      random: cryptoRandom,
+      name: "Mina's laptop",
+      now: () => 1,
+      wait: (ms, fn) => {
+        waits.push({ ms, fn });
+        return () => {};
+      },
+      onRevoked: () => {},
+    });
+  const call = (connection: ReturnType<typeof make>, body: unknown = {}) =>
+    connection.call({ resource: "apps", method: "remote_call", body });
+
+  // Sent, then no answer in time.
+  const timed = make();
+  await settle();
+  const waiting = call(timed);
+  await settle();
+  const deadline = waits.filter((one) => one.ms === 120_000).at(-1);
+  assert.ok(deadline);
+  deadline.fn();
+  const late = await waiting;
+  assert.equal(late.ok, false);
+  assert.equal(late.sent, true);
+
+  // The channel refuses the frame (too large): nothing left.
+  const refused = await call(timed, { text: "x".repeat(17 * 1024 * 1024) });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.sent, false);
+  timed.close();
+
+  // Eight calls fill the link; the ninth waits in the queue. When the link drops the eight may have run, the ninth never left.
+  const crowded = make();
+  await settle();
+  const eight = Array.from({ length: 8 }, () => call(crowded));
+  const ninth = call(crowded);
+  await settle();
+  channels.at(-1)?.close();
+  assert.deepEqual(
+    (await Promise.all(eight)).map((one) => one.sent),
+    Array(8).fill(true),
+  );
+  assert.equal((await ninth).sent, false);
+  crowded.close();
+});

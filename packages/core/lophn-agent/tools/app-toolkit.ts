@@ -1,3 +1,4 @@
+import type { z } from "zod";
 import { ok, type Result } from "../../../base/mod.ts";
 import { appTools } from "../../../protocol/apps/declaration/read.ts";
 import type {
@@ -25,17 +26,30 @@ type AppToolLoad = {
   machines: readonly MachineCandidate[];
 };
 
-export type AppToolkit = {
-  // 지금의 선언과 할당.
-  load(who: AgentAtWorkspace): Promise<Result<AppToolLoad>>;
+// 한 turn 동안 다른 컴퓨터의 목록을 한 번만 읽도록 turn이 들고 있는 자리다. 닿지 않아 비어 온 답도 그 turn 동안 그대로다.
+export type RemoteMemo = {
+  read?: Promise<Result<MachinesAppTools>>;
 };
+type MachinesAppTools = z.output<typeof machinesAppTools.output>;
+
+export type AppToolkit = {
+  // 지금의 선언과 할당. memo가 있으면 다른 컴퓨터의 목록은 그 turn에 한 번만 읽는다.
+  load(who: AgentAtWorkspace, memo?: RemoteMemo): Promise<Result<AppToolLoad>>;
+};
+
+// 다른 컴퓨터가 이만큼 답하지 않으면 그 컴퓨터의 앱은 "not reachable now"다.
+const REMOTE_READ_MS = 8000;
 
 export function createAppToolkit(options: {
   // machine 자격의 loopback. 앱의 활성 release 선언을 읽는다.
   machine: CoreCall;
   assignment(agent: AgentId): Promise<Result<Pick<Assignment, "entries">>>;
+  remoteReadMs?: number;
 }): AppToolkit {
-  async function load(who: AgentAtWorkspace): Promise<Result<AppToolLoad>> {
+  async function load(
+    who: AgentAtWorkspace,
+    memo?: RemoteMemo,
+  ): Promise<Result<AppToolLoad>> {
     const assignment = await options.assignment(who.agent);
     if (!assignment.ok) return assignment;
     const entries: AssignmentEntry[] = assignment.value.entries;
@@ -59,10 +73,29 @@ export function createAppToolkit(options: {
     if (!entries.some((entry) => entry.machine !== undefined)) {
       return ok({ views, entries, machines: [] });
     }
-    const remote = await readOf(options.machine, machinesAppTools, {
-      agent: who.agent,
-      workspace: who.workspace,
-    });
+    const start = () => {
+      let timer: NodeJS.Timeout | undefined;
+      const late = new Promise<Result<never>>((resolve) => {
+        timer = setTimeout(
+          () =>
+            resolve({
+              ok: false,
+              error: { code: "unavailable", message: "no answer in time" },
+            }),
+          options.remoteReadMs ?? REMOTE_READ_MS,
+        );
+      });
+      return Promise.race([
+        readOf(options.machine, machinesAppTools, {
+          agent: who.agent,
+          workspace: who.workspace,
+        }),
+        late,
+      ]).finally(() => clearTimeout(timer));
+    };
+    const remote = await (memo === undefined
+      ? start()
+      : (memo.read ??= start()));
     // 읽지 못하면 다른 기계의 앱이 없는 것과 같다(이 기계의 앱은 그대로 쓴다).
     if (!remote.ok) return ok({ views, entries, machines: [] });
     for (const row of remote.value.apps) {

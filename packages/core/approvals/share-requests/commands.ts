@@ -60,7 +60,14 @@ function applyApproval(
   }[] = [];
   for (const { agent, assignment, revision } of states) {
     const { entries } = assignment;
-    if (entries.some((entry) => entry.app === appId)) continue;
+    // 다른 기계에 할당한 같은 앱 id의 줄은 이 기계의 앱을 할당한 것이 아니다.
+    if (
+      entries.some(
+        (entry) => entry.app === appId && entry.machine === undefined,
+      )
+    ) {
+      continue;
+    }
     const set = assignments.set(
       agent,
       [...entries, { app: appId, removed_tools: [] }],

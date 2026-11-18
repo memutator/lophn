@@ -63,11 +63,11 @@ import {
   appCommandTool,
   NO_APP_COMMANDS,
 } from "../tools/app-tool/command.ts";
-import type { AppToolkit } from "../tools/app-toolkit.ts";
+import type { AppToolkit, RemoteMemo } from "../tools/app-toolkit.ts";
 import { dispatchTarget } from "../tools/dispatch.ts";
 import { buildExtensionTools } from "../tools/extension-tools.ts";
 import { commandTools } from "../tools/lophn/command-tool.ts";
-import { resolveAppCall } from "../tools/lophn/resolve.ts";
+import { mayBeAppCall, resolveAppCall } from "../tools/lophn/resolve.ts";
 import {
   type AppCommandLookup,
   describeLophn,
@@ -616,8 +616,10 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const current = resolved.runtime === "custom" ? names(m.current) : null;
     // 지금 부를 수 있는 앱 command. 부를 때마다 읽는다: session을 시작할 때 고정하지 않고 바뀌어도 notice를 내지 않는다.
     const who = { agent: session.agent, workspace: session.workspace };
+    // 다른 컴퓨터의 목록은 한 turn에 한 번만 읽는다.
+    const remoteMemo: RemoteMemo = {};
     const apps: AppCommandLookup = async () => {
-      const loaded = await toolkit.appTool?.load(who);
+      const loaded = await toolkit.appTool?.load(who, remoteMemo);
       return loaded?.ok ? appCommands(loaded.value) : NO_APP_COMMANDS;
     };
     // `lophn` tool이 명령으로 풀리는 호출을 실행할 정의도 여기 든다. model에 보이는 tools[]에는 없고 이 session의 workspace 종류가
@@ -651,6 +653,8 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const dispatch = async (name: string, input: unknown) => {
       const target = dispatchTarget(name, input);
       if (target.name !== LOPHN_TOOL_NAME) return target;
+      // 내장 명령은 앱 목록을 읽지 않는다.
+      if (!mayBeAppCall(input)) return target;
       const found = await apps();
       const hit = resolveAppCall(input, found.entries, found.machines);
       if (hit === undefined) return target;

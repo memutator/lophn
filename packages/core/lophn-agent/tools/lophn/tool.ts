@@ -5,6 +5,7 @@ import { helpText } from "../../../../cli/help.ts";
 import type { CommandDoc } from "../../../../cli/commands/types.ts";
 import {
   parseCommandLine,
+  splitOn,
   unknownCommandError,
   wordsOf,
 } from "../../../../cli/parser.ts";
@@ -50,16 +51,23 @@ function lophnHandler(apps?: AppCommandLookup): ToolCallHandler {
   return async (input, ctx) => {
     const { args } = input as { args: string[] };
     const commands = commandsForWorkspace(ctx.kind);
-    const found = apps === undefined ? undefined : await apps();
     // `--on`은 다른 기계의 앱 command에만 붙는다(내장 명령, 다른 기계의 터미널·file·job은 범위 밖이다).
-    const scope = appScopeOf(args, found?.machines ?? []);
-    if (!scope.ok) return scope;
-    const { machine, argv } = scope.value;
-    if (machine !== null && (argv.length === 0 || isBuiltinWord(argv[0]))) {
+    const split = splitOn(args);
+    if (!split.ok) return split;
+    const { on, argv } = split.value;
+    if (on !== null && (argv.length === 0 || isBuiltinWord(argv[0]))) {
       return invalid(
         "--on goes with an app command: lophn <app> <command> --on <computer>",
       );
     }
+    // 앱 목록은 앱 command와 맨 위 도움말에만 읽는다: 다른 컴퓨터를 읽을 수 있어서 내장 명령(`job list`, 그룹 도움말)은 읽지 않는다.
+    const wantsApps =
+      apps !== undefined &&
+      (argv.length === 0 || argv[0] === "help" || !isBuiltinWord(argv[0]));
+    const found = wantsApps ? await apps() : undefined;
+    const scope = appScopeOf(args, found?.machines ?? []);
+    if (!scope.ok) return scope;
+    const { machine } = scope.value;
     // 앱 command는 도움말과 오류에만 쓴다. 실행은 loop가 앞에서 그 command의 호출로 풀었다(`resolveAppCall`).
     const entries =
       found === undefined || isBuiltinWord(argv[0])

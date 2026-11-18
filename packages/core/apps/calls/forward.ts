@@ -17,6 +17,7 @@ import {
   type MachineCandidate,
   type Requester,
   requesterName,
+  resolveMachine,
 } from "../../../protocol/machine/requester.ts";
 import { judge } from "../../approvals/gate/mod.ts";
 import type { VerifiedCaller } from "./caller.ts";
@@ -75,8 +76,32 @@ export function createRemoteForward(deps: RemoteForwardDeps): RemoteForward {
       return forbidden("a received remote call is not forwarded again");
     }
 
+    // 이 컴퓨터의 Gate가 이 호출에 물을 것을 컴퓨터 이름을 풀기 전에 본다: 할당이 없는 agent와 grant가 없는 앱이 명단의 컴퓨터 이름을 알아내지 못한다.
     const machines = deps.machines();
-    const resolved = machines.resolve(target.machine);
+    let computers: MachineCandidate[];
+    let assigned: Assignment["entries"] = [];
+    if (caller.kind === "agent") {
+      const assignment = deps.assignmentOf(caller.agent);
+      if (!assignment.ok) return assignment;
+      const lines = assignment.value.entries.filter(
+        (entry) => entry.machine !== undefined && entry.app === target.app,
+      );
+      if (lines.length === 0) return ok(blocked());
+      assigned = assignment.value.entries;
+      // 이름은 그 agent의 줄이 가리키는 컴퓨터 가운데서만 푼다.
+      const named = new Set(lines.map((entry) => entry.machine));
+      computers = machines.computers().filter((one) => named.has(one.machine));
+    } else {
+      const allowed = await callAllowed(
+        caller,
+        { app: target.app, tool: name, effect: "external", public: true },
+        deps,
+      );
+      if (!allowed.ok) return allowed;
+      if (!allowed.value) return ok(blocked());
+      computers = machines.computers();
+    }
+    const resolved = resolveMachine(target.machine, computers);
     if (!resolved.ok) return resolved;
     const computer = resolved.value;
     if (computer.self) {
@@ -85,12 +110,9 @@ export function createRemoteForward(deps: RemoteForwardDeps): RemoteForward {
         message: "that is this computer; call its apps without a machine",
       });
     }
-
-    // 이 컴퓨터의 Gate가 이 호출에 물을 것. agent는 그 기계에 할당한 줄만(`machine`을 뺀 꼴로) 본다.
     if (caller.kind === "agent") {
-      const assignment = deps.assignmentOf(caller.agent);
-      if (!assignment.ok) return assignment;
-      const entries: Assignment["entries"] = assignment.value.entries
+      // 그 컴퓨터에 할당한 줄만(`machine`을 뺀 꼴로) 본다.
+      const entries: Assignment["entries"] = assigned
         .filter((entry) => entry.machine === computer.machine)
         .map((entry) => ({
           app: entry.app,
@@ -104,14 +126,6 @@ export function createRemoteForward(deps: RemoteForwardDeps): RemoteForward {
         false,
       );
       if (judged.kind === "deny") return ok(blocked());
-    } else {
-      const allowed = await callAllowed(
-        caller,
-        { app: target.app, tool: name, effect: "external", public: true },
-        deps,
-      );
-      if (!allowed.ok) return allowed;
-      if (!allowed.value) return ok(blocked());
     }
 
     const by: Requester =

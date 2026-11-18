@@ -19,14 +19,18 @@ export function appsFor(
   });
 }
 
-/** 같은 앱의 entry를 새 것으로 바꾸고, 없으면 끝에 더한다. */
+/** 줄은 (기계, 앱)이다. 다른 기계의 같은 앱 id의 줄은 이 기계의 줄이 아니다. */
+const sameLine = (a: AssignmentEntry, b: AssignmentEntry): boolean =>
+  a.app === b.app && a.machine === b.machine;
+
+/** 같은 줄(기계와 앱)의 entry를 새 것으로 바꾸고, 없으면 끝에 더한다. */
 export function setEntry(
   entries: readonly AssignmentEntry[],
   entry: AssignmentEntry,
 ): AssignmentEntry[] {
-  const found = entries.some((one) => one.app === entry.app);
+  const found = entries.some((one) => sameLine(one, entry));
   return found
-    ? entries.map((one) => (one.app === entry.app ? entry : one))
+    ? entries.map((one) => (sameLine(one, entry) ? entry : one))
     : [...entries, entry];
 }
 
@@ -40,7 +44,8 @@ export function dropEntries(
 export const appEntryOf = (
   entries: readonly AssignmentEntry[],
   app: string,
-): AssignmentEntry | undefined => entries.find((one) => one.app === app);
+): AssignmentEntry | undefined =>
+  entries.find((one) => one.app === app && one.machine === undefined);
 
 export const isRemoved = (entry: AssignmentEntry, tool: string): boolean =>
   entry.removed_tools.includes(tool);

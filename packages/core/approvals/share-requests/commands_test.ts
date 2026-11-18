@@ -52,7 +52,16 @@ test("an opened share request changes no assignment until the user approves", ()
           ok({
             assignment: {
               agent,
-              entries: [{ app: OTHER_APP, removed_tools: ["danger"] }],
+              // 다른 기계에 같은 앱 id를 할당한 줄은 이 기계의 앱을 할당한 것이 아니다.
+              entries: [
+                { app: OTHER_APP, removed_tools: ["danger"] },
+                {
+                  app: APP,
+                  machine: "mch_0000000000000000000000000a",
+                  name: "Notes",
+                  removed_tools: [],
+                },
+              ],
             },
             revision: 7,
           }),
@@ -127,6 +136,12 @@ test("an opened share request changes no assignment until the user approves", ()
       agent: AGENT,
       entries: [
         { app: OTHER_APP, removed_tools: ["danger"] },
+        {
+          app: APP,
+          machine: "mch_0000000000000000000000000a",
+          name: "Notes",
+          removed_tools: [],
+        },
         { app: APP, removed_tools: [] },
       ],
     },

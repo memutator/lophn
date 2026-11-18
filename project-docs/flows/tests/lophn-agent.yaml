@@ -244,6 +244,10 @@ files:
     covers: [model-call-start:started]
     note: "model 요청이 가져간 steer에 turn을 정하고 checkpoint를 뺀다(takeSteering). 이미 turn이 정해진 메시지는 건드리지 않는다"
 
+  - path: packages/core/lophn-agent/tools/app-remote_test.ts
+    covers: []
+    note: "다른 컴퓨터의 앱 목록은 한 turn에 한 번만 읽고 답이 늦으면 읽지 못한 앱(not reachable now)으로 두고 turn이 계속된다. lophn의 내장 명령은 앱 목록을 읽지 않고 맨 위 도움말만 읽는다. 다른 컴퓨터의 앱 command가 secret이 비어 실패해도 이 컴퓨터에서 `lophn ask secret`을 청하는 문장을 만들지 않는다"
+
   - path: packages/core/lophn-agent/tools/app-public_test.ts
     covers: [app-declaration-read:ok, tool-lophn-help:invalid-command]
     note: "비공개 app tool은 그 앱 workspace에만 보이고 공개 tool은 어디서나 보인다. lophn 명령 해석(resolveAppCall)은 할당과 뺀 command를 따른다. 잘못된 문법은 실행하지 않고 현재 부를 수 있는 command만 교정 안내에 쓴다. `--on <컴퓨터>`는 그 컴퓨터의 앱 command만 고르고(같은 앱이 두 컴퓨터에 있어도 tool 이름이 달라 섞이지 않는다), 다른 컴퓨터의 앱은 public command만 보이며, 이 컴퓨터·없는 컴퓨터·빈 글은 풀리지 않는다"

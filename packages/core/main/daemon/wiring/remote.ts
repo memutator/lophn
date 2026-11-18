@@ -66,6 +66,7 @@ import {
 } from "../../../../protocol/approvals/mod.ts";
 import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { DEFAULT_CALL_POLICY } from "../../../../protocol/lophn-agent/call-policy.ts";
+import type { Workspace } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { resolveMachine } from "../../../../protocol/machine/requester.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
@@ -1301,15 +1302,20 @@ export function remoteWiring(
             ? ok((read.value as { assignment: Assignment }).assignment.entries)
             : read;
         },
-        async agentName(agent) {
+        async agent(agent) {
           const read = await ctx.runtime.reads.get(key(agentRead))!(
             REMOTE_CONTEXT,
             { agent },
           );
-          return read.ok
-            ? (read.value as { effective: { name: { value: string } } })
-                .effective.name.value
-            : null;
+          if (!read.ok) return null;
+          const { effective, definition } = read.value as {
+            effective: { name: { value: string } };
+            definition: { workspace?: Workspace } | null;
+          };
+          return {
+            name: effective.name.value,
+            workspace: definition?.workspace ?? null,
+          };
         },
       });
       return ok({

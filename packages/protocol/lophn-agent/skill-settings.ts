@@ -53,6 +53,12 @@ export const BUILTIN_SKILLS: readonly {
     menu: true,
   },
   {
+    name: "connect-computers",
+    workspaces: ["home"],
+    can_disable: false,
+    menu: false,
+  },
+  {
     name: "write-artifact",
     workspaces: ["project", "app"],
     can_disable: false,

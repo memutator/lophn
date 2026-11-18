@@ -26,6 +26,10 @@ import type {
   RemoteDevice,
 } from "../../../../packages/shell/renderer/desktop/settings/remote/source.ts";
 import { fakeRemote } from "../../../../packages/shell/renderer/desktop/settings/remote/testdata/fake-source.ts";
+import {
+  type FakeSyncOptions,
+  fakeSync,
+} from "../../../../packages/shell/renderer/desktop/settings/sync/testdata/fake-source.ts";
 import { SettingsSpace } from "../../../../packages/shell/renderer/desktop/settings/settings-space.tsx";
 import { GalleryConnectHost } from "../../mock/connect-host.tsx";
 import { settingsCore } from "../../mock/core-answers/sync-settings.ts";
@@ -64,6 +68,8 @@ interface SettingsFrameProps {
     /** "Keep running"의 처음 상태에서 바꿀 칸. 안 쓰면 설치본에서 두 스위치가 꺼져 있다. */
     readonly alwaysOn?: Partial<AlwaysOnView>;
   };
+  /** Sync 항목. 안 쓰면 같이 보는 폴더 하나와 이름 붙인 폴더 둘, 앱 셋이 있다. */
+  readonly sync?: FakeSyncOptions;
   /** 기계 보기(My devices의 컴퓨터 상태와 Open at start). 안 쓰면 없다(기계 보기를 쓰지 않는 창). */
   readonly machines?: FakeMachinesOptions;
   /** Keyboard 항목의 저장된 키. 안 쓰면 바꾼 키가 없다. */
@@ -88,6 +94,7 @@ export function SettingsFrame({
   customList,
   keyboard,
   remote,
+  sync,
   machines,
   extensions = false,
   steps = [],
@@ -107,7 +114,11 @@ export function SettingsFrame({
     });
     return {
       ...made,
-      panels: { ...made.panels, remote: fakeRemote(remote).source },
+      panels: {
+        ...made.panels,
+        remote: fakeRemote(remote).source,
+        sync: fakeSync(sync).source,
+      },
       client: createEventClient(made.source),
     };
   });

@@ -96,11 +96,13 @@ import {
 import { publishManifest } from "../../../folder/export/manifest.ts";
 import { writeRosterFile } from "../../../folder/export/roster.ts";
 import { carryRoutes } from "../../../folder/carry-routes.ts";
+import { carryStatusHandler } from "../../../folder/carry-status.ts";
 import { createMirror } from "../../../folder/mirror.ts";
 import { CARRY_STAGING_DIR, createReplica } from "../../../folder/replica.ts";
 import type { FolderApply } from "../../../folder/ports.ts";
 import {
   COMPUTERS_DESTINATION,
+  carryStatus,
   COMPUTERS_DIR,
   SHARED_FOLDER_KEY,
 } from "../../../../protocol/remote/carry.ts";
@@ -1334,6 +1336,14 @@ export const folderWiring: WiringFactory = () => {
         fileStreams: carry.fileStreams,
         reads: (reads) => {
           reads.set(key(machineEnvironment), environment);
+          reads.set(
+            key(carryStatus),
+            carryStatusHandler({
+              replica,
+              apps: syncApps,
+              importStatus: (app) => importer.status(app),
+            }),
+          );
           for (const [route, handler] of carry.reads) reads.set(route, handler);
         },
         writer: (inner) => ({

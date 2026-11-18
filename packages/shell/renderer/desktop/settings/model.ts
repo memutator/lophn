@@ -4,7 +4,7 @@ import { type MessageKey, t } from "@lophn/i18n";
 
 import type { LucideIcon } from "lucide-react";
 
-import { settingsIcons } from "../../icons/mod.ts";
+import { settingsIcons, shellIcons } from "../../icons/mod.ts";
 import type { AuthWay } from "./source.ts";
 
 /** Settings의 항목. Settings 공간 sidebar에 묶음별로 모두 줄지어 놓이고, 고른 항목의 본문 하나가 화면이 된다. */
@@ -13,6 +13,7 @@ export type SettingsPane =
   | "appearance"
   | "browser"
   | "remote"
+  | "sync"
   | "keyboard"
   | "quick-launch"
   | "providers"
@@ -63,6 +64,11 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
         id: "remote",
         label: "settings.label.tab-remote",
         icon: settingsIcons.remote,
+      },
+      {
+        id: "sync",
+        label: "settings-sync.label.tab",
+        icon: shellIcons.folder,
       },
       {
         id: "keyboard",
@@ -126,7 +132,7 @@ export const SETTINGS_GROUPS: readonly SettingsGroup[] = [
 ];
 
 /**
- * 다른 기계의 창에서 여는 항목: 그 기계의 core만 읽고 쓰고 그 기계에서 효과가 나는 것. 나머지(Appearance, Browser, Remote,
+ * 다른 기계의 창에서 여는 항목: 그 기계의 core만 읽고 쓰고 그 기계에서 효과가 나는 것. 나머지(Appearance, Browser, Remote, Sync,
  * Keyboard, Quick launch, Coding agents, Extension packages)는 이 컴퓨터의 shell main이나 OS에 붙어 있어 그 창에서는 한 줄이다.
  */
 export const MACHINE_PANES: ReadonlySet<SettingsPane> = new Set([

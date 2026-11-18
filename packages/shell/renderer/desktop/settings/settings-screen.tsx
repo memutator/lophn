@@ -25,6 +25,8 @@ import { QuickLaunchPanel } from "./quick-launch/quick-launch-panel.tsx";
 import type { ProviderSettingsSource } from "./providers/settings-source.ts";
 import { RemotePanel } from "./remote/remote-panel.tsx";
 import type { RemoteSettingsSource } from "./remote/source.ts";
+import type { SyncSettingsSource } from "./sync/source.ts";
+import { SyncPanel } from "./sync/sync-panel.tsx";
 import { ShellRulesPanel } from "./shell-rules/shell-rules-panel.tsx";
 import type { ShellRulesSource } from "./shell-rules/source.ts";
 import type { SettingsSource } from "./source.ts";
@@ -41,6 +43,7 @@ export type SettingsPanels = Pick<
   | "appearance"
   | "browser"
   | "remote"
+  | "sync"
   | "keyboard"
 >;
 
@@ -67,6 +70,8 @@ interface SettingsScreenProps {
   browser?: BrowserSettingsSource;
   /** Remote 항목. 없으면 준비 전 안내다. */
   remote?: RemoteSettingsSource;
+  /** Sync 항목. 없으면 준비 전 안내다. */
+  sync?: SyncSettingsSource;
   /** Keyboard 항목. 없으면 준비 전 안내다. */
   keyboard?: KeyboardSource;
 }
@@ -86,6 +91,7 @@ export function SettingsScreen({
   appearance,
   browser,
   remote,
+  sync,
   keyboard,
 }: SettingsScreenProps) {
   // Agents의 [Add server]는 server form을 가진 Tools and skills 항목으로 옮긴다(form을 두 벌 두지 않는다).
@@ -137,6 +143,8 @@ export function SettingsScreen({
         );
       case "remote":
         return remote && <RemotePanel source={remote} />;
+      case "sync":
+        return sync && <SyncPanel source={sync} onPane={onPane} />;
       case "keyboard":
         return keyboard && <KeyboardPanel source={keyboard} />;
       case "quick-launch":

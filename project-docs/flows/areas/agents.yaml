@@ -761,6 +761,35 @@ flows:
     crosses_process: true
     docs: [architecture/agent-definition.md]
 
+  - id: skill-connect-computers
+    title: home의 agent가 connect-computers skill을 읽는다
+    actor: agent
+    entries: [skill:connect-computers]
+    uses: [tool:skill.read]
+    boundary: [agent-workspaces, agent-tools]
+    code: [packages/core/agent-workspaces/skills/connect-computers/, packages/core/lophn-agent/extensions/skill-read.ts, packages/core/lophn-agent/tools/bundles/skill.ts]
+    steps:
+      - 사람이 다른 컴퓨터와 맞추고 싶다고 하면(집과 직장, dual boot, 밖에서도 직접 붙기) home의 agent가 skill.read로 connect-computers 본문을 읽는다
+      - home이 아니면 선언에 없어 그 turn의 skill 목록에 없어 forbidden으로 막힌다
+      - 본문(lophn이 스스로 하는 것, 같이 보는 폴더 folder.shared, Tailscale과 remote.addresses)을 tool 결과로 준다. 설정을 바꾸는 일은 사람 승인 카드나 locked 설정이라 사람의 터미널이다
+    outcomes:
+      - id: loaded
+        observe: [response]
+      - id: not-available
+        code: forbidden
+        when: home이 아닌 workspace 종류라 turn의 skill 목록에 없다. 전역이나 workspace 설정에서 끈 skill이면 판에서 꺼져 is turned off로도 막힌다
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: turn 목록에는 있었지만 판에 그 이름이 없다(첫 읽기 전에 사라졌다), 또는 path가 가리는 딸린 file이 없다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: 본문을 온전히 읽지 못했다(frontmatter가 닫히지 않았거나 본문을 다 읽지 못했다)
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/agent-definition.md]
+
   - id: skill-write-artifact
     title: agent가 write-artifact skill을 읽는다
     actor: agent

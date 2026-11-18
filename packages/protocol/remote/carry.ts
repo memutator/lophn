@@ -620,6 +620,36 @@ export const carryPut = defineMemory({
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });
 
+// Settings › Sync가 읽는 지금 길: 컴퓨터마다 마지막으로 받은 manifest의 때와 길(이 기계가 든 것만. 다시 뜬 뒤에는 비어 있다), 앱마다
+// 다른 기계의 변경을 마지막으로 읽은 때. 기기가 부를 수 없어 `CARRY_ROUTES`에 넣지 않는다.
+export const carryStatus = defineRead({
+  resource: "carry",
+  method: "status",
+  name: "carry.status",
+  input: z.strictObject({}),
+  output: z.object({
+    machines: z.array(
+      z.object({
+        machine: machineIdSchema,
+        revision: z.number().int().min(1),
+        received_at: atSchema.nullable(),
+        via: carryViaSchema.nullable(),
+      }),
+    ),
+    apps: z.array(
+      z.object({
+        app: appIdSchema,
+        name: z.string(),
+        sync_to: z.string(),
+        read_at: atSchema.nullable(),
+      }),
+    ),
+  }),
+  actors: ["user"],
+  reads: ["carry_files", "app_runtime"],
+  errors: ["unauthorized", "forbidden", "unavailable"],
+});
+
 // 등록과 handler는 folder wiring이 단다. 이 route가 없는 상대(옛 판)는 `not_found`로 답하고, 나르는 쪽은 그것을 "이 상대는
 // 나르지 않는다"로 본다.
 export const CARRY_ROUTES = [

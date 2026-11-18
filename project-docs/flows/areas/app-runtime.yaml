@@ -2790,6 +2790,30 @@ flows:
       - "manifests·wants의 unavailable은 선언만 있다: 받는 자리가 읽지 못한 file은 없는 것으로 본다"
     crosses_process: false
 
+  - id: carry-status
+    title: "사람이 Settings › Sync에서 컴퓨터마다 마지막으로 받은 file의 길과 때, 앱마다 마지막으로 맞춘 때를 읽는다"
+    actor: person
+    entries: [route:carry/status]
+    boundary: [folder]
+    code: [packages/core/folder/carry-status.ts, packages/core/main/daemon/wiring/folder.ts, packages/protocol/remote/carry.ts]
+    docs: [architecture/folder-sync.md]
+    steps:
+      - "dispatch가 actors(user)를 본다. 기기 route 목록에 없어 연결의 컴퓨터와 폰은 부르지 못한다"
+      - "machines: 받는 자리가 든 manifest마다 machine, revision, 마지막으로 받아 들인 때(received_at)와 길(via: link, phone, folder). 이 컴퓨터 것은 때와 길이 null이다. 때와 길은 메모리에만 있어 core를 다시 띄우면 null이고, 명단에서 빠진 컴퓨터는 목록에 없다"
+      - "apps: sync_to가 있는 활성 앱마다 name, sync_to, 다른 기계의 변경을 마지막으로 읽은 때(그 앱 folder_reads의 가장 늦은 imported_at, 읽은 적이 없으면 null)"
+      - "든 manifest가 바뀌면(StateChanged carry_files)와 앱 상태가 바뀌면(app_runtime) 화면이 다시 읽는다"
+    outcomes:
+      - id: ok
+        observe: [response, "screen:settings-sync", "screen:settings-sync-empty"]
+      - id: forbidden
+        code: forbidden
+        when: "호출한 자격이 user가 아니다(core dispatch가 먼저 막는다)"
+        observe: [response]
+    declared_only: [unavailable]
+    unclear:
+      - "unavailable은 선언만 있다: 받는 자리의 manifests는 읽지 못해도 빈 목록이다"
+    crosses_process: false
+
   - id: carry-file
     title: "다른 컴퓨터나 폰이 이 컴퓨터가 든 manifest 글이나 지금 목록이 싣는 file의 한 구간을 받는다"
     actor: system

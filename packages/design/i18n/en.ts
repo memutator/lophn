@@ -27,6 +27,7 @@ import { mobileTerminal } from "./catalog/mobile-terminal.ts";
 import { mobileWidgets } from "./catalog/mobile-widgets.ts";
 import { project } from "./catalog/project.ts";
 import { remoteDesk } from "./catalog/remote-desk.ts";
+import { settingsSync } from "./catalog/settings-sync.ts";
 import { shell } from "./catalog/shell.ts";
 import { workflow } from "./catalog/workflow.ts";
 import { workspace } from "./catalog/workspace.ts";
@@ -60,6 +61,7 @@ export const en = {
   ...mobileWidgets,
   ...project,
   ...remoteDesk,
+  ...settingsSync,
   ...shell,
   ...workflow,
   ...workspace,

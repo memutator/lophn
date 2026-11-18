@@ -53,6 +53,10 @@ import {
   SettingsRemoteWaiting,
   SettingsRemoteDisputed,
   SettingsRemoteRemove,
+  SettingsSync,
+  SettingsSyncEdit,
+  SettingsSyncEmpty,
+  SettingsSyncRefused,
   SettingsKeyboardApps,
   SettingsKeyboardChanged,
   SettingsKeyboardConflicts,
@@ -351,6 +355,34 @@ export const settingsArea: Area = {
       description:
         "시작 기계(Home server)의 [Remove]를 눌러 확인 dialog가 열렸다. 모든 기계에서 끊기고 그 key로 다시 들지 못하며, 시작 기계라서 지운 뒤에는 마지막에 쓴 기계를 연다는 한 줄이 더 붙는다.",
       render: () => <SettingsRemoteRemove />,
+    },
+    {
+      id: "settings-sync",
+      title: "Settings · Sync",
+      description:
+        'Remote 다음 항목이다. 폴더 구역은 맨 위에 "Folder all my computers see"(path)가 따로 서고 그 아래 이름 붙인 폴더가 있다. 컴퓨터 구역은 이 컴퓨터와 다른 컴퓨터의 연결(직접, relay, 꺼짐과 마지막으로 본 때)과 그 컴퓨터의 file을 마지막으로 받은 길과 때(연결, 폰, 폴더)를 보인다. 앱 구역은 앱마다 어느 폴더로 맞추는지와 마지막으로 맞춘 때다. 길을 고르는 설정은 없다.',
+      render: () => <SettingsSync />,
+    },
+    {
+      id: "settings-sync-empty",
+      title: "Settings · Sync · nothing set",
+      description:
+        "같이 보는 폴더도 이름 붙인 폴더도 없다. Google Drive, Syncthing, 두 OS가 같이 보는 디스크의 폴더를 고르거나 lophn에게 붙여 달라고 하라는 한 줄이 있다. Remote가 꺼져 있어 컴퓨터 구역은 Remote를 켜라는 한 줄과 [Open Remote]뿐이다.",
+      render: () => <SettingsSyncEmpty />,
+    },
+    {
+      id: "settings-sync-edit",
+      title: "Settings · Sync · edit a folder",
+      description:
+        "이름 붙인 폴더 하나를 고치는 form이다. 이름 칸, path 칸과 [Choose…], 저장 전에 보이는 평문 경고 한 줄(Google Drive 같은 도구가 올리면 암호화되지 않는다), 오른쪽 끝의 [Cancel]·[Save]다. 같이 보는 폴더는 이름 칸 없이 path만 있다.",
+      render: () => <SettingsSyncEdit />,
+    },
+    {
+      id: "settings-sync-refused",
+      title: "Settings · Sync · folder refused",
+      description:
+        "core가 폴더를 거절했다(data root 안, 겹침, 예약된 이름). 거절한 이유가 form 안에 그대로 보이고 아무것도 저장되지 않았다.",
+      render: () => <SettingsSyncRefused />,
     },
     {
       id: "settings-keyboard",

@@ -551,6 +551,39 @@ flows:
     crosses_process: false
     docs: [architecture/platform.md]
 
+  # ---------- Settings › Sync ----------
+  - id: settings-sync
+    title: "사람이 Settings › Sync에서 폴더를 보고 더하고 고치고 지우며 지금 길을 본다"
+    actor: person
+    entries: [ui:settings-sync]
+    uses: [route:settings/list, route:settings/update, route:machine/environment, route:carry/status]
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/desktop/settings/sync/sync-panel.tsx
+      - packages/shell/renderer/desktop/settings/sync/folder-form.tsx
+      - packages/shell/renderer/desktop/settings/sync/core-source.ts
+    steps:
+      - "항목을 열면 settings/list로 `folder.destinations`·`folder.shared`·`remote.enabled`를, machine/environment로 이름 붙인 폴더의 상태를, carry/status로 지금 길을 읽는다. 컴퓨터의 연결과 길은 기계 보기(Remote의 My devices와 같은 것)가 말한다"
+      - "폴더를 더하거나 고치거나 지울 때는 쓰기 직전에 그 설정의 지금 값을 다시 읽어 값 전체를 새 값으로 settings/update에 쓴다. 사람 자격이라 승인 카드 없이 바로 바뀐다"
+      - "저장 전에 form이 file이 평문으로 나간다는 경고를 보인다. core가 거절하면(data root 안, 다른 폴더와 겹침, 예약된 이름 `computers`) 그 글을 form 안에 보이고 아무것도 바꾸지 않는다"
+      - "settings, remote_devices, carry_files, app_runtime 변경이 오면 다시 읽는다. 길을 고르는 설정은 없다"
+      - "다른 기계의 창에서는 이 컴퓨터의 shell에 붙은 항목이라 열리지 않고 그 기계 이름만 보인다"
+    outcomes:
+      - id: shown
+        when: "항목을 열었다. 폴더와 컴퓨터, 앱이 있거나, 폴더가 없고 Remote가 꺼져 있어 안내만 선다"
+        observe: ["screen:settings-sync", "screen:settings-sync-empty"]
+      - id: editing
+        when: "폴더 하나의 form을 열었다(저장 전)"
+        observe: ["screen:settings-sync-edit"]
+      - id: saved
+        when: "settings/update가 값을 받아들였다"
+        observe: ["disk:<root>/settings.json", "event:StateChanged"]
+      - id: refused
+        when: "settings/update가 값을 거절했다(rejected)"
+        observe: ["screen:settings-sync-refused"]
+    crosses_process: true
+    docs: [architecture/folder-sync.md]
+
   # ---------- extension ----------
   - id: extension-sync
     title: "각 extension을 설정과 제품 판에 맞춘다(켜진 것만 load와 activate)"

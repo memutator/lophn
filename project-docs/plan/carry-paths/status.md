@@ -4,7 +4,7 @@ lead만 고친다. `tools/status.py carry-paths build`가 `tasks/*.md`에서 id,
 
 | id | 단위 | wave | 선행 | 상태 | branch | commit | 기록 |
 |---|---|---|---|---|---|---|---|
-| `carry-contract` | carry | 1 | 없음 | running | carry/carry-contract |  |  |
+| `carry-contract` | carry | 1 | 없음 | merged | carry/carry-contract | 5d9eb088d |  |
 | `carry-folder` | carry | 2 | carry-contract | todo |  |  |  |
 | `carry-links` | carry | 2 | carry-contract | todo |  |  |  |
 | `carry-notify` | carry | 2 | carry-contract | todo |  |  |  |

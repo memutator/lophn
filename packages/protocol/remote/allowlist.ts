@@ -103,6 +103,7 @@ import {
 } from "../lophn-agent/message-images.ts";
 import { messageSearch } from "../lophn-agent/message-search.ts";
 import {
+  mcpAuthState,
   workspaceExtensionSettingsRead,
   workspaceExtensionSettingsChange,
 } from "../lophn-agent/mcp-settings.ts";
@@ -322,7 +323,8 @@ export const REMOTE_ALLOWED_ROUTES = [
 
 // 터미널 입력을 허락받은 기기에만 여는 사람의 route다. 허락이 있어도 넣지 않는 것: 기기·pairing·명단 관리(`devices/*`, `roster/*`),
 // 터미널 입력 허락 바꾸기, `always_on/*`, `machine/rename`, `logins/*`, `sessions/delete`, `sessions/change-skip`, `tabs/*`, `host/*`,
-// `terminal_sessions/*`, `apps/call_tool`, `app_grants/*`, 할당 쓰기, 그 기계의 loopback으로 돌아오는 로그인(`agent-mcp-auth/*`, `apps/oauth_*`).
+// `terminal_sessions/*`, `apps/call_tool`, `app_grants/*`, 할당 쓰기, 그 기계의 loopback으로 돌아오는 로그인(`agent-mcp-auth/*`의 시작·완료·취소, `apps/oauth_*`).
+// MCP 로그인 상태 읽기(`agent-mcp-auth/state`)는 Tools and skills가 보이므로 연다.
 // 확인이 필요한 command(`providers/disconnect`)는 core가 그 자리에서 확인 handle을 붙인다(core/remote/call.ts).
 export const REMOTE_PERSON_ROUTES = [
   // secret: 값은 upload body로 오고 secret 저장소에만 간다
@@ -359,6 +361,7 @@ export const REMOTE_PERSON_ROUTES = [
   diagnosticsStatus,
   workspaceExtensionSettingsRead,
   workspaceExtensionSettingsChange,
+  mcpAuthState,
   extensionToolsCatalog,
   // agent
   agentCreate,

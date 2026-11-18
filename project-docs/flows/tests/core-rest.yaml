@@ -781,7 +781,7 @@ files:
 
   - path: packages/core/remote/carry_test.ts
     covers: []
-    note: "가짜 link 호출과 가짜 받는 자리로 link 나르기 한 번을 돌린다. 8 MiB를 넘는 file은 조각이 offset 순서로 receive 하나에 가고, 상대가 not_found로 답한 file은 건너뛴다. 상대가 갖지 않은 file 1,000개로 찬 wants page 뒤의 page도 cursor로 받는다. carry route handler가 아직 없어 outcome이 없다"
+    note: "가짜 link 호출과 가짜 받는 자리로 link 나르기 한 번을 돌린다. 8 MiB를 넘는 file은 조각이 offset 순서로 receive 하나에 가고, 상대가 not_found로 답한 file은 건너뛴다. 상대가 갖지 않은 file 1,000개로 찬 wants page 뒤의 page도 cursor로 받는다. 받는 자리가 믿지 않은 manifest 글은 다음 pass에서 다시 받지 않는다. carry route handler가 아직 없어 outcome이 없다"
 
   - path: packages/core/remote/relay-client_test.ts
     covers:

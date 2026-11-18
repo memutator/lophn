@@ -100,10 +100,12 @@ const failed = (failure: LophnError | undefined) =>
  * `wants`를 cursor로 빈 page까지 넘기며 file마다 상대의 조각을 `receive` 하나에 흘린다. 상대가 들고 있지 않은 file은
  * 건너뛴다. 상대가 `carry/manifests`에 not_found로 답하면(나르기를 모르는 옛 lophn) 아무것도 하지 않는다. `more`는 이번에
  * 받아 들인 것이 있다는 뜻이다: 새로 든 목록 file이 이번 cursor 앞의 file을 덮을 수 있어 한 번 더 돈다.
+ * `rejected`는 기계마다 받는 자리가 믿지 않은 manifest의 sha256이다. 같은 글은 다시 받지 않는다(pass를 넘어 든다).
  */
 export async function carryFrom(
   call: PeerCall,
   replica: FolderReplica,
+  rejected: Map<string, string>,
 ): Promise<Result<{ more: boolean }>> {
   const listed = await call(carryManifests.resource, carryManifests.method, {});
   if (!listed.ok) {
@@ -116,10 +118,16 @@ export async function carryFrom(
   );
   let more = false;
   const { manifests } = listed.value as {
-    manifests: { machine: Id<"mch">; revision: number; size: number }[];
+    manifests: {
+      machine: Id<"mch">;
+      revision: number;
+      size: number;
+      sha256: string;
+    }[];
   };
   for (const each of manifests) {
     if (each.revision <= (revisions.get(each.machine) ?? 0)) continue;
+    if (rejected.get(each.machine) === each.sha256) continue;
     const opened = await openFile(call, {
       machine: each.machine,
       path: manifestPath(each.machine),
@@ -137,6 +145,8 @@ export async function carryFrom(
       "link",
     );
     if (!offered.ok) return offered;
+    if (offered.value === "rejected") rejected.set(each.machine, each.sha256);
+    else rejected.delete(each.machine);
     if (offered.value === "accepted") more = true;
   }
   let after: { machine: Id<"mch">; path: string } | undefined;
@@ -188,6 +198,8 @@ export type CarryLinks = ReturnType<typeof createCarryLinks>;
 export function createCarryLinks(deps: CarryLinksDeps) {
   const lanes = new Map<string, Lane>();
   const debounces = new Map<string, () => void>();
+  // 기계마다 받는 자리가 믿지 않은 manifest의 sha256(상대를 가리지 않는다). 명단 view가 바뀌면 믿게 될 수 있어 비운다.
+  const rejected = new Map<string, string>();
   let cancelTimer: (() => void) | undefined;
   let active = false;
 
@@ -214,7 +226,7 @@ export function createCarryLinks(deps: CarryLinksDeps) {
           one.again = false;
           let done: Result<{ more: boolean }>;
           try {
-            done = await carryFrom(call, replica);
+            done = await carryFrom(call, replica, rejected);
           } catch (thrown) {
             done = err({
               code: "internal",
@@ -296,6 +308,10 @@ export function createCarryLinks(deps: CarryLinksDeps) {
     // 상대가 든 옮기는 file이 바뀌었다.
     peerChanged(machine: Id<"mch">) {
       debounce(machine, () => kick(machine));
+    },
+    // 명단이 바뀌었다. 믿지 않던 manifest를 이제 믿을 수 있다.
+    rosterChanged() {
+      rejected.clear();
     },
     // 이 기계가 든 manifest가 바뀌었다.
     changed() {

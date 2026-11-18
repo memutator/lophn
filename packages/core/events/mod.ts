@@ -1,5 +1,5 @@
 // 다른 module은 events를 이 file로만 import한다.
-export { createBus } from "./bus.ts";
+export { createBus, eventMatches } from "./bus.ts";
 export {
   createGatewayFrames,
   createGatewaySession,

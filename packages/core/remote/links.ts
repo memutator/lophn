@@ -36,6 +36,7 @@ import {
   type Endpoint,
   linkStateOf,
 } from "../../remote-client/mod.ts";
+import { eventMatches } from "../events/mod.ts";
 import type { Roster } from "./roster.ts";
 
 // 조용히 끊긴 socket(잠든 노트북, 바뀐 network)을 알아채려 ping하고, 이만큼 아무것도 오지 않으면 끊는다. 그래야 link가 다시 붙는다.
@@ -118,14 +119,6 @@ export type LinksDeps = {
 
 // 나르기가 link마다 화면의 조건에 더해 거는 조건. 화면이 원하지 않은 `StateChanged`는 bus에 싣지 않는다.
 const CARRY_CONDITION: EventCondition = { types: ["StateChanged"] };
-
-// 화면의 조건이 `StateChanged`(session 없는 event)에 맞는가.
-const screenWantsStateChanged = (conditions: EventCondition[] | undefined) =>
-  conditions?.some(
-    (each) =>
-      each.session === undefined &&
-      (each.types === undefined || each.types.includes("StateChanged")),
-  ) ?? false;
 
 type Link = {
   body: RosterEntryBody;
@@ -307,7 +300,9 @@ export function createLinks(deps: LinksDeps) {
           ) {
             deps.onPeerCarry(machine);
           }
-          if (!screenWantsStateChanged(watching.get(body.id))) return;
+          if (!eventMatches(watching.get(body.id) ?? [], event as BusEvent)) {
+            return;
+          }
         }
       }
       deps.publish({

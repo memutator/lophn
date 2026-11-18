@@ -575,6 +575,7 @@ export function remoteWiring(
         logError(ctx, "machine_not_renamed", renamed.error.message);
     }
     host?.pushRoster(change.snapshot);
+    carry.rosterChanged();
     links.sync(hostText === undefined ? undefined : keys?.host);
     links.pushRoster(change.snapshot);
     const kept = new Set(change.after.devices.map((each) => each.body.id));

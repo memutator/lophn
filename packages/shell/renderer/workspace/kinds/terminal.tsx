@@ -55,9 +55,11 @@ export function openTerminal(
     open?: SessionTabOpen;
     /** 이미 core에 있는 터미널의 참조. */
     terminal?: string;
+    /** 터미널이 있는 기계. 없으면 workspace의 기계다. */
+    machine?: string;
   } = {},
 ): string | null {
-  const terminal = terminalOf(null, host);
+  const terminal = host.machineData(options.machine ?? host.machine).terminal;
   // Home에는 터미널이 없다.
   if (!terminal || host.projectId === null) return null;
   const key =
@@ -91,6 +93,7 @@ export function openTerminal(
       auto: title,
       ...(options.terminal === undefined ? {} : { terminal: options.terminal }),
     },
+    ...(options.machine === undefined ? {} : { machine: options.machine }),
   };
   // 이미 있는 터미널은 시작 폴더를 core의 runtime에서 읽어 탭에 남긴다. 탭을 그리기 전에도 layout에 저장되어 다시 켠 앱이 붙는다.
   const attached = options.terminal;
@@ -342,6 +345,7 @@ export const terminalKind: TabKindDef = {
   noReopen: true,
   iconOf: agentTabIcon,
   dotOf: agentTabDot,
+  renameThisComputerOnly: true,
   rename(tab, name, host) {
     const person = name?.trim() || null;
     const terminal = terminalOf(tab, host);

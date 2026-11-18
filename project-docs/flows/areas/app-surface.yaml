@@ -972,14 +972,14 @@ flows:
     title: desktop이 보고 있는 것(창 focus, idle, 보이는 session·터미널)을 core에 알린다
     actor: system
     entries: []
-    uses: [ipc:shell:notice-visible, ipc:shell:terminal-focus, route:presence/report]
+    uses: [ipc:shell:notice-visible, ipc:shell:terminal-focus, route:presence/report, route:machines/call]
     boundary: [shell, attention]
     code: [packages/shell/main/notice/presence.ts, packages/shell/main/desktop/wiring/notice.ts]
     steps:
-      - "renderer가 보이는 session이나 앱 view를 shell:notice-visible로 알린다(창마다 개수를 센다). 고른 터미널 탭은 terminal-focus가 focus 표에 적는다"
-      - "창 focus·blur·닫힘, notice-visible, 터미널 focus·blur 때 focus를 가진 lophn 창, OS idle 시간, 그 창에 보이는 session과 고른 터미널(term:<탭>)을 모은다. 앱 view는 싣지 않는다"
+      - "창은 하나이고 기계에 묶이지 않는다. 이 컴퓨터의 창이 보이는 session이나 앱 view를 shell:notice-visible로 알리고, 다른 기계의 session이면 machine을 싣는다(창마다 개수를 센다). 고른 터미널 탭은 terminal-focus가 focus 표에 적는다"
+      - "창 focus·blur·닫힘, notice-visible, 터미널 focus·blur 때 focus를 가진 lophn 창, OS idle 시간, 그 창에 보이는 session과 고른 터미널(term:<탭>)을 기계마다 모은다. 앱 view는 싣지 않는다. 다른 기계의 session은 그 기계에만 알린다"
       - "focus와 보이는 것이 지난 보고와 같으면 보내지 않는다(idle은 바뀜 판단에서 뺀다). 30초마다, core가 다시 붙었을 때는 늘 보낸다"
-      - "presence/report로 보낸다. 실패는 다음 주기가 메운다. headless면 보내지 않는다"
+      - "기계마다 그 기계의 presence/report로 보낸다(이 컴퓨터는 이 컴퓨터 core, 다른 기계는 machines/call). 실패는 다음 주기가 메운다. headless면 보내지 않는다"
     outcomes:
       - id: reported
         when: "보고를 보냈다. core가 새로 보는 session의 못 본 끝(unseen)을 끄면 창의 점과 Finished 줄이 빠진다"

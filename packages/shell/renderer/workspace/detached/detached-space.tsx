@@ -21,26 +21,25 @@ import {
   WebviewHostProvider,
   WebviewLayer,
 } from "../../app-frame/webview-host.tsx";
-import type { EditorDeps } from "../../editor/document-view.tsx";
-import type { TerminalDeps } from "../../terminal/deps.ts";
-import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
-import type { ProjectView, WorkspaceSource } from "../source.ts";
+import type { ProjectView } from "../source.ts";
 import { useTabHostSlices } from "../use-tab-host-slices.ts";
 import { tabKindOf } from "../kinds/registry.ts";
 import { TabBoundary } from "../tab-boundary.tsx";
 import type { TabHost } from "../kinds/host.ts";
 import type { TabItem } from "../model.ts";
+import type { WorkspaceRef } from "../../shell/desk-model.ts";
 import { deskTabs, emptyDesk, type Desk } from "../../shell/desk-model.ts";
 import type { WorkspaceWindowProps } from "../workspace-window.tsx";
-import { useHostMachine } from "../../desktop/machines/scope.tsx";
+import {
+  useHostMachine,
+  useMachineData,
+  useScopeMachine,
+} from "../../desktop/machines/scope.tsx";
+import { TabScope } from "../../desktop/machines/tab-scope.tsx";
 import styles from "./detached-space.module.css";
 
 interface DetachedSpaceProps {
   api: LophnDetachedApi;
-  workspace: WorkspaceSource;
-  editor?: EditorDeps;
-  terminal?: TerminalDeps;
-  agentViewSource?: AgentTabSourceFactory;
 }
 
 // take()는 bounds를 주지 않는다. 이 창에서는 읽는 곳이 없어 자리표시다.
@@ -116,15 +115,23 @@ export function DetachedSpace(props: DetachedSpaceProps): ReactElement {
 
 function DetachedTab({
   api,
-  workspace,
-  editor,
-  terminal,
-  agentViewSource,
   taken,
 }: DetachedSpaceProps & { taken: DetachedTaken }) {
   const { project } = taken;
   // DetachedTab은 key와 kind만 적은 모양이라 나머지 칸은 TabItem으로 읽는다.
   const [tab, setTab] = useState(taken.tab as TabItem);
+  // 다른 기계의 탭은 떼어 올 때 기계가 적혀 있다. 창의 읽기와 부르기는 그 기계의 묶음으로 한다.
+  const scope = useScopeMachine();
+  const tabMachine = (taken.tab as TabItem).machine ?? scope;
+  const { workspace, editor, terminal, agentViewSource } =
+    useMachineData(tabMachine);
+  const workspaceRef = useMemo<WorkspaceRef>(
+    () =>
+      tabMachine === null
+        ? { kind: "project", id: project }
+        : { kind: "project", id: project, machine: tabMachine },
+    [project, tabMachine],
+  );
   const tabRef = useRef(tab);
   const def = tabKindOf(tab.kind);
 
@@ -142,7 +149,7 @@ function DetachedTab({
   // 앱 화면을 여는 길(Settings 등)은 이 창에 없다.
   const noop = () => {};
   const { agentView, agents, keeps, webviews } = useTabHostSlices({
-    workspace: { kind: "project", id: project },
+    workspace: workspaceRef,
     source: workspace,
     agentViewSource,
     terminalStore: terminal?.store,
@@ -163,7 +170,7 @@ function DetachedTab({
   );
 
   const hostProps: WorkspaceWindowProps = {
-    workspace: { kind: "project", id: project },
+    workspace: workspaceRef,
     source: workspace,
     windowWidth: globalThis.innerWidth,
     onHome: noop,
@@ -173,10 +180,11 @@ function DetachedTab({
     agentViewSource,
   };
 
-  const hostMachine = useHostMachine();
+  const { machineData } = useHostMachine();
   const host: TabHost = {
-    workspace: { kind: "project", id: project },
-    ...hostMachine,
+    workspace: workspaceRef,
+    machine: tabMachine,
+    machineData,
     projectId: project,
     projectTitle: projectView?.title,
     explorerRoot: undefined,
@@ -294,9 +302,11 @@ function DetachedTab({
   const dot = def?.dotOf?.(tab, host) ?? null;
   const body =
     def === undefined ? null : (
-      <TabBoundary key={tab.key}>
-        {def.keep?.(tab, true, host) ?? def.render?.(tab, true, host)}
-      </TabBoundary>
+      <TabScope tab={tab} workspaceMachine={scope} hereApp={def.hereApp?.(tab)}>
+        <TabBoundary key={tab.key}>
+          {def.keep?.(tab, true, host) ?? def.render?.(tab, true, host)}
+        </TabBoundary>
+      </TabScope>
     );
 
   return (

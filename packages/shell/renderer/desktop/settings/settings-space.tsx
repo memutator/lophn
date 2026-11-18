@@ -43,7 +43,7 @@ interface SettingsSpaceProps {
   /** 돌아갈 자리. 이름을 [Back] 줄에 보인다. Home이면 null이다. */
   backTo: { kind: "project" | "app"; id: string } | null;
   /** 프로젝트 작업대로 간다. 창 팔레트의 프로젝트 행이 쓴다. */
-  onProject?: (project: string) => void;
+  onProject?: (project: string, machine?: string) => void;
   /** 그 project 창에서 그 파일을 연다. 창 팔레트의 파일 행이 쓴다. */
   onOpenFile?: (project: string, file: FileOpen) => void;
   /** 그 앱의 앱 공간으로 간다. 팔레트의 앱 행이 쓴다. */
@@ -124,7 +124,8 @@ export function SettingsSpace({
         : undefined,
       go: (target) => {
         if (target.kind === "home") onHome();
-        else if (target.kind === "project") onProject?.(target.id);
+        else if (target.kind === "project")
+          onProject?.(target.id, target.machine);
         else if (target.kind === "file") {
           onOpenFile?.(target.project, target.file);
         } else if (target.kind === "app") onApp?.(target.id);

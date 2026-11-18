@@ -22,6 +22,8 @@ export interface SidebarSession {
   readonly actions: boolean;
   /** 마지막으로 움직인 때(epoch ms). Recent 줄의 상대 시각이다. 모르면 0. */
   readonly at: number;
+  /** 연필(Rename)을 두지 않는다. 다른 기계의 터미널 탭은 이름을 그 기계의 core에 쓸 수 없다. */
+  readonly noRename?: true;
   /** 그 workspace 줄의 기계가 아닌 기계의 줄. 줄 끝에 그 기계의 꼬리표가 붙고 탭은 이 기계를 달고 열린다. */
   readonly machine?: string;
   /** 꺼진 기계의 줄(이 실행 동안 마지막으로 본 것). 흐리고 열리지 않는다. */

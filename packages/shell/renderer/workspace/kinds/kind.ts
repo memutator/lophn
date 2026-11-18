@@ -37,6 +37,8 @@ export interface TabKindDef {
    * kind만 탭 줄의 이름 바꾸기(더블클릭, 탭 menu의 Rename)가 생긴다. 지금은 터미널과 Agent 탭이다(Agent 탭은 session 제목을 바꾼다).
    */
   rename?(tab: TabItem, name: string | null, host: TabHost): void;
+  /** true면 이름 바꾸기는 이 컴퓨터의 탭만 한다(이름을 core에 쓰는 route가 기기의 목록에 없다). 다른 기계의 탭은 이름 바꾸기 항목이 없다. */
+  readonly renameThisComputerOnly?: true;
   /**
    * true면 이 탭은 이 컴퓨터의 shell host(파일, 터미널, browser, 앱 view)나 기기가 부를 수 없는 관리 route가 있어야 선다.
    * 탭의 기계가 이 컴퓨터가 아니면 본문 대신 OnlyHere("This opens only on <이름>")다. 다른 기계에서 열리게 한 kind는 이 표를 뺀다.

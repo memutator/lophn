@@ -39,7 +39,7 @@ import { createMachineHub, type MachineData } from "./machines/data.ts";
 import { MachineHubProvider, MachineScope } from "./machines/scope.tsx";
 import { windowMachinesSource } from "./machines/window-source.ts";
 import { Desktop } from "./main.tsx";
-import { catalogSource } from "./palette/core-catalog.ts";
+import { catalogSource, connectedProjects } from "./palette/core-catalog.ts";
 import type { PaletteDeps } from "./palette/host.tsx";
 import { fileSearch } from "./palette/search.ts";
 import {
@@ -132,8 +132,10 @@ function hereData(): MachineData {
     editor: bench ? bench.editor : windowEditorDeps(core),
     projects,
     apps,
-    // 팔레트의 project·앱 행.
-    catalog: mock?.catalog ?? catalogSource(projects, apps),
+    // 팔레트의 project·앱 행. 연결된 다른 기계의 project도 든다(hub는 이 묶음을 처음 쓸 때 이미 서 있다).
+    catalog:
+      mock?.catalog ??
+      catalogSource(projects, apps, connectedProjects(hub, machines)),
     appDetail,
     // settings 화면의 일반 설정·확장. credential은 보호 창이 받는다.
     settings: mock?.settings ?? coreSettingsSource(core),

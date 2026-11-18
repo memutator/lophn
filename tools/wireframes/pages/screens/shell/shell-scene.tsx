@@ -137,18 +137,18 @@ export function ShellScene({
   /** mount 뒤 차례로 누를 단축키(예: "Ctrl+Alt+ArrowRight"). */
   keys?: readonly string[];
   /**
-   * 기계 보기. 짝지은 기계 셋(sample)이 있는 fake source를 끼운다. window는 자리 표시가 말하는 기계이고, body를 주면 card 자리에
-   * 자리 표시("This opens only on …")가 선다. 안 쓰면 짝지은 기계가 없는 창이다.
+   * 기계 보기. 짝지은 기계 셋(sample)이 있는 fake source를 끼운다. on은 자리 표시가 말하는 기계이고, body를 주면 card 자리에
+   * 자리 표시("This opens only on …")가 선다. 안 쓰면 짝지은 기계가 없다.
    */
   machine?: {
-    window?: "mch_homeserver" | "mch_laptop" | "mch_olddesk";
+    on?: "mch_homeserver" | "mch_laptop" | "mch_olddesk";
     body?: "only-here";
   };
 }) {
   const [machines] = useState(() => {
     if (machine === undefined) return null;
     const machineList = sampleMachines();
-    const shown = machineList.find((one) => one.id === machine.window);
+    const shown = machineList.find((one) => one.id === machine.on);
     return {
       shown,
       source: fakeMachines({ machines: machineList }).source,

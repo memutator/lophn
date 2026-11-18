@@ -70,7 +70,7 @@ interface SettingsFrameProps {
   };
   /** Sync 항목. 안 쓰면 같이 보는 폴더 하나와 이름 붙인 폴더 둘, 앱 셋이 있다. */
   readonly sync?: FakeSyncOptions;
-  /** 기계 보기(My devices의 컴퓨터 상태와 Open at start). 안 쓰면 없다(기계 보기를 쓰지 않는 창). */
+  /** 기계 보기(My devices의 컴퓨터 상태). 안 쓰면 없다. */
   readonly machines?: FakeMachinesOptions;
   /** Keyboard 항목의 저장된 키. 안 쓰면 바꾼 키가 없다. */
   readonly keyboard?: StoredKeybindings;

@@ -127,7 +127,7 @@ export const questionsArea: Area = {
       id: "new-secret-input-machine",
       title: "Secret input · other machine",
       description:
-        "다른 기계(Home server)의 창에서 연 같은 보호 입력 창이다. 제목 아래에 값이 이 컴퓨터가 아니라 그 기계로 간다는 줄이 있다. 값은 이 컴퓨터의 core를 거쳐 그 기계의 core에만 간다.",
+        "다른 기계(Home server)로 보내는 같은 보호 입력 창이다. 제목 아래에 값이 이 컴퓨터가 아니라 그 기계로 간다는 줄이 있다. 값은 이 컴퓨터의 core를 거쳐 그 기계의 core에만 간다.",
       render: () => <MachineSecretInputScene />,
     },
     {

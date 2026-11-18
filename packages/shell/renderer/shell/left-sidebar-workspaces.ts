@@ -223,6 +223,9 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
       actions: true,
       at: terminal.at,
       ...(terminal.machine === undefined ? {} : { machine: terminal.machine }),
+      ...(terminal.machine === undefined && input.current.machine === undefined
+        ? {}
+        : { noRename: true as const }),
     };
     if (terminal.live !== null) add(current, here, item);
     else if (
@@ -244,7 +247,7 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
         at: 0,
         ...(terminal.machine === undefined
           ? {}
-          : { machine: terminal.machine }),
+          : { machine: terminal.machine, noRename: true as const }),
       });
     }
   }

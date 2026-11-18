@@ -1,4 +1,4 @@
-// 다른 기계(Home server)의 창에서 연 보호 입력 창. 화면은 renderer의 SecretInput이고 값이 갈 기계 이름이 제목 아래 한 줄이다.
+// 다른 기계(Home server)로 값을 보내는 보호 입력 창. 화면은 renderer의 SecretInput이고 값이 갈 기계 이름이 제목 아래 한 줄이다.
 import type { CSSProperties } from "react";
 
 import { SecretInput } from "../../../../../packages/shell/renderer/secret-input/secret-input.tsx";

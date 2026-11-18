@@ -5,7 +5,7 @@ import { inboxKey } from "../events/waiting-store.ts";
 import type { SettledRow, SettledState } from "./decide.ts";
 import type { Inbox, InboxEntry } from "./inbox.ts";
 import { cardOf } from "./model.ts";
-import { NO_NAMES, useInboxNames } from "./names.ts";
+import { useInboxNamesOf } from "./names.ts";
 
 export type { SettledRow };
 
@@ -28,11 +28,10 @@ export function useSettled(
   sources.current = inbox.sources;
   const machineKey = inbox.sources.map((source) => source.machine ?? "").join();
 
-  const names = useInboxNames();
+  const namesOf = useInboxNamesOf();
   const add = useCallback(
     (entry: InboxEntry, state: SettledState) => {
-      // 이름은 이 컴퓨터의 workspace 것이다.
-      const view = cardOf(entry, entry.machine === null ? names : NO_NAMES);
+      const view = cardOf(entry, namesOf(entry.machine));
       const row: SettledRow = {
         id: entry.key,
         title: view.title,
@@ -42,7 +41,7 @@ export function useSettled(
       };
       setRows((now) => [...now.filter((one) => one.id !== row.id), row]);
     },
-    [names],
+    [namesOf],
   );
   const clear = useCallback(() => setRows([]), []);
 

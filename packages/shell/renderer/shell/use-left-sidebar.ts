@@ -24,6 +24,7 @@ import {
   useFollowedRead,
 } from "../desktop/connection/core-read.ts";
 import { useSessions } from "../desktop/connection/events/hooks.tsx";
+import type { InboxNamesByMachine } from "../desktop/connection/waiting/names.ts";
 import type { SessionEntry } from "../desktop/connection/events/sessions-store.ts";
 import { useMachinesView } from "../desktop/machines/context.tsx";
 import type { MachineData, OnMachine } from "../desktop/machines/data.ts";
@@ -110,6 +111,8 @@ export interface MachineListsValue {
   readonly offline: ReadonlySet<string>;
   /** 기계 id → 명단의 이름. */
   readonly names: ReadonlyMap<string, string>;
+  /** 기계(키 ""는 이 컴퓨터)의 project·앱 이름. Inbox 줄이 id 대신 쓴다. 목록 내용이 같으면 같은 값이다. */
+  readonly inboxNames: InboxNamesByMachine;
   /** 줄의 기계(null은 창의 기계) 묶음. */
   dataOf(machine: MachineRef): MachineData;
 }
@@ -340,6 +343,22 @@ export function MachineListsProvider({ children }: { children: ReactNode }) {
     [roster, seen],
   );
   const rows = useMemo(() => mergeWorkspaces(lists, homeName), [lists]);
+  // `seen`은 내용이 바뀔 때만 바뀌므로 roster나 session이 바뀌어도 이 값은 그대로다.
+  const inboxNames = useMemo(
+    (): InboxNamesByMachine =>
+      new Map(
+        [...seen].map(([machine, one]) => [
+          machine,
+          {
+            projects: new Map(
+              (one.projects ?? []).map((row) => [row.id, row.title]),
+            ),
+            apps: new Map((one.apps ?? []).map((row) => [row.id, row.name])),
+          },
+        ]),
+      ),
+    [seen],
+  );
   const value = useMemo((): MachineListsValue => {
     const snapshots = lists.map(
       (list): MachineSnapshot => ({
@@ -364,9 +383,19 @@ export function MachineListsProvider({ children }: { children: ReactNode }) {
         ),
       ),
       names: new Map(roster.map((one) => [one.id, one.name])),
+      inboxNames,
       dataOf,
     };
-  }, [lists, rows, sessions, coding, sessionTitles, roster, dataOf]);
+  }, [
+    lists,
+    rows,
+    sessions,
+    coding,
+    sessionTitles,
+    roster,
+    inboxNames,
+    dataOf,
+  ]);
   return createElement(
     ListsContext.Provider,
     { value },

@@ -28,7 +28,7 @@ import { decideWaiting, dismissNotice, type SettledState } from "./decide.ts";
 import { HistoryView } from "./history-view.tsx";
 import type { Inbox, InboxEntry, InboxNotice } from "./inbox.ts";
 import { cardOf } from "./model.ts";
-import { NO_NAMES, useInboxNames } from "./names.ts";
+import { useInboxNamesOf } from "./names.ts";
 import { NoticeRow } from "./notice-row.tsx";
 import type { Settled, SettledRow } from "./settled.ts";
 import styles from "./waiting.module.css";
@@ -216,7 +216,7 @@ export function WaitingPanel({
   onOpenApp: (app: string, machine: string | null) => void;
 }) {
   const { entries, notices, historyUnread } = inbox;
-  const names = useInboxNames();
+  const namesOf = useInboxNamesOf();
   const hub = useMachineHub();
   const history = <HistoryView onOpenApp={(app) => onOpenApp(app, null)} />;
   const [view, setView] = useState(initial?.view ?? "now");
@@ -237,8 +237,7 @@ export function WaitingPanel({
   }
 
   function cardBody(entry: InboxEntry) {
-    // 이름은 이 컴퓨터의 workspace 것이다.
-    const view = cardOf(entry, entry.machine === null ? names : NO_NAMES);
+    const view = cardOf(entry, namesOf(entry.machine));
     const core = inbox.coreOf(entry.machine);
     const props: DecideCardProps = {
       entry,

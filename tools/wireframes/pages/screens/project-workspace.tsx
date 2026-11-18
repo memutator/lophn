@@ -73,10 +73,14 @@ import {
   NewTabMenuBrowser,
 } from "./browser/pages.tsx";
 import { ProjectApp } from "./project-app.tsx";
-import {
-  MachinesProvider,
-  ScopeMachineProvider,
-} from "../../../../packages/shell/renderer/desktop/machines/context.tsx";
+import { createEventStores } from "../../../../packages/shell/renderer/desktop/connection/events/hooks.tsx";
+import { MachinesProvider } from "../../../../packages/shell/renderer/desktop/machines/context.tsx";
+import type {
+  MachineData,
+  MachineHub,
+} from "../../../../packages/shell/renderer/desktop/machines/data.ts";
+import { MachineHubProvider } from "../../../../packages/shell/renderer/desktop/machines/scope.tsx";
+import { devMock } from "../../../../packages/shell/renderer/desktop/dev-mock/mod.ts";
 import { TabScope } from "../../../../packages/shell/renderer/desktop/machines/tab-scope.tsx";
 import {
   fakeMachines,
@@ -184,6 +188,33 @@ const TERMINAL_PANES: readonly PaneSpec[] = [
 const noop = () => {};
 const OTHER_TERMINAL = "term_home";
 
+// 탭 범위(TabScope)가 기계의 읽기 통로를 고르는 hub. 이 장면의 본문은 deps를 직접 받아 통로는 event store와 project icon만 쓴다.
+function otherMachineHub(): MachineHub {
+  const mock = devMock("?mock")!;
+  const data = new Map<string | null, MachineData>();
+  return {
+    get(machine) {
+      let found = data.get(machine);
+      if (found === undefined) {
+        const events = createEventClient(createFakeSource());
+        found = {
+          machine,
+          here: machine === null,
+          events,
+          stores: createEventStores(events),
+          appViews: null,
+          projectIcons: mock.projectIcons,
+          folders: null,
+          grant: () => Promise.resolve(true),
+        } as unknown as MachineData;
+        data.set(machine, found);
+      }
+      return found;
+    },
+    stop: noop,
+  };
+}
+
 /**
  * 다른 기계(Home server)의 터미널 탭. 본문은 renderer의 TerminalTab이 그 기계의 통로 묶음(가짜)으로 서고, card 머리 줄에 기계
  * 이름이 선다. `viewOnly`면 그 기계가 이 컴퓨터의 입력을 거절한 뒤의 toast가 뜬다.
@@ -216,57 +247,68 @@ function OtherMachineTerminal({ viewOnly }: { viewOnly: boolean }) {
     }, 50);
     return () => clearInterval(timer);
   }, [deps, refused, viewOnly]);
+  const [hub] = useState(otherMachineHub);
+  // 탭 줄의 칩은 이 컴퓨터의 창에서 그 기계의 탭이라는 표시다(창은 기계에 묶이지 않는다).
   const tab = {
     key: OTHER_TERMINAL,
+    kind: "terminal",
     title: "grocery",
     icon: <Icon icon={workspaceIcons.terminal} pixels={14} />,
+    machine: "mch_homeserver",
   };
   return (
-    <MachinesProvider source={machines}>
-      <ShellFrame
-        left={false}
-        onToggleLeft={noop}
-        right={false}
-        tabs={
-          <TabStrip
-            entries={[{ key: tab.key, tabs: [tab] }]}
-            selected={tab.key}
-            minimized={[]}
-            floating={[]}
-            onSelect={noop}
-            onClose={noop}
-            onToggleFloat={noop}
+    <MachineHubProvider hub={hub}>
+      <MachinesProvider source={machines}>
+        <ShellFrame
+          left={false}
+          onToggleLeft={noop}
+          right={false}
+          tabs={
+            <TabStrip
+              entries={[
+                {
+                  key: tab.key,
+                  tabs: [{ ...tab, machine: "Home server" }],
+                },
+              ]}
+              selected={tab.key}
+              minimized={[]}
+              floating={[]}
+              onSelect={noop}
+              onClose={noop}
+              onToggleFloat={noop}
+            />
+          }
+          leftSidebar={null}
+        >
+          <ContentCard
+            panes={[
+              {
+                key: tab.key,
+                crumbs: ["Grocery", tab.title],
+                body: (
+                  <TabScope tab={tab} workspaceMachine={null}>
+                    <TerminalTab
+                      tabKey={OTHER_TERMINAL}
+                      project={PROJECT_GROCERY}
+                      folderRef={null}
+                      attach={null}
+                      active
+                      deps={deps}
+                    />
+                  </TabScope>
+                ),
+              },
+            ]}
+            focus={tab.key}
+            deskLabel="Main"
+            onFocus={noop}
+            onAction={noop}
+            onEmptyAction={noop}
           />
-        }
-        leftSidebar={null}
-      >
-        <ContentCard
-          panes={[
-            {
-              key: tab.key,
-              crumbs: ["Grocery", tab.title],
-              body: (
-                <ScopeMachineProvider value="mch_homeserver">
-                  <TerminalTab
-                    tabKey={OTHER_TERMINAL}
-                    project={PROJECT_GROCERY}
-                    folderRef={null}
-                    attach={null}
-                    active
-                    deps={deps}
-                  />
-                </ScopeMachineProvider>
-              ),
-            },
-          ]}
-          focus={tab.key}
-          deskLabel="Main"
-          onFocus={noop}
-          onAction={noop}
-          onEmptyAction={noop}
-        />
-      </ShellFrame>
-    </MachinesProvider>
+        </ShellFrame>
+      </MachinesProvider>
+    </MachineHubProvider>
   );
 }
 

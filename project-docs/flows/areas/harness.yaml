@@ -2094,11 +2094,11 @@ flows:
       - packages/shell/renderer/workspace/kinds/page-view.tsx
     steps:
       - "core 표의 browser 탭(agent가 tab open --url로 연 탭과 사람이 page_view/open으로 연 탭)마다 tab, url, title, loading, by(연 agent의 이름, 사람이 연 탭은 null. 주인 session마다 한 번 읽어 둔다)를 낸다. url·title은 redaction을 지난다. renderer가 아직 상태를 알리지 않은 탭은 url·title이 빈 글이고 loading이 true다. 목록이나 url·title이 바뀌면 StateChanged browser_pages가 난다"
-      - "control은 부른 principal이 page를 다룰 수 있는가다(기기의 터미널 입력 허락). 폰의 Pages와 다른 기계의 Pages 탭은 이것으로 열기 칸을 그리거나 감춘다"
-      - "탭마다 held_by는 멀리서 잡은 기기다: 부른 principal 자신이면 you, 다른 기기면 그 종류(phone, computer), 멀리서 잡지 않았거나 종류를 모르면 null이다. 그 기계의 화면에서 잡은 것은 여기 없다(snapshot의 held). 화면은 아직 그리지 않는다"
+      - "control은 부른 principal이 page를 다룰 수 있는가다(기기의 터미널 입력 허락). 폰의 Pages와 다른 기계의 Pages 탭은 이것으로 열기 칸을 그리거나 감춘다. 다른 기계의 Pages 탭은 이 컴퓨터의 창에 서는 탭이다: 새 탭 menu의 'Pages on <기계>'로 열고(연결된 기계마다 한 줄) 탭 줄에 그 기계의 꼬리표가 붙는다. 그 기계가 꺼지면 본문 대신 한 줄이다"
+      - "탭마다 held_by는 멀리서 잡은 기기다: 부른 principal 자신이면 you, 다른 기기면 그 종류(phone, computer), 멀리서 잡지 않았거나 종류를 모르면 null이다. 그 기계의 화면에서 잡은 것은 여기 없다(snapshot의 held). Pages 탭의 목록 줄이 이 값을 보인다(폰에서 잡힘 등)"
     outcomes:
       - id: ok
-        observe: [response, "screen:phone-pages", "screen:shell-machine-pages"]
+        observe: [response, "screen:phone-pages", "screen:shell-pages-menu", "screen:shell-machine-pages", "screen:shell-machine-pages-offline"]
       - id: unavailable
         code: unavailable
         when: "알려진 secret을 아직 다 몰라 url·title을 가리지 못했다"
@@ -2128,7 +2128,7 @@ flows:
       - "core가 그 탭에 든 최신 frame 하나(JPEG, viewport CSS px 크기, 아직 없거나 lease가 없으면 null)와 seq, 상태(painting, agent, held, url, title, loading, by)를 낸다. host 상태를 아직 못 받았으면 painting true, agent·held false다. painting이 false면 그 page를 그리지 않는 것이다(창이 최소화되거나 숨겨짐). url·title은 redaction을 지나고 그림은 가리지 않는다(screenshot과 같다)"
       - "control은 부른 principal이 이 탭을 다룰 수 있는가다: 기기 device:<id>이고 그 기기의 터미널 입력 허락이 켜져 있어야 한다"
       - "내준 frame의 host seq가 마지막으로 알린 seq와 다르면 host에 page_read {tab, seq}를 연결 요청으로 보낸다(실패는 버린다. 크기가 아니라 다름을 본다: 다시 뜬 host는 seq를 처음부터 센다). host는 그것이 오기 전에는 그 탭의 다음 frame을 보내지 않는다"
-      - "보는 화면은 painting이 false면 그리지 않는다는 한 줄을, control이 false면 입력·주소·잡기 없이 볼 수만 있다는 한 줄을 보인다"
+      - "보는 화면은 painting이 false면 그리지 않는다는 한 줄을, control이 false면 입력·주소·잡기 없이 볼 수만 있다는 한 줄을 보인다. 다른 기계의 page는 이 컴퓨터의 창의 탭(새 탭 menu의 'Pages on <기계>'로 연 목록에서 연다)이 그린다"
     outcomes:
       - id: ok
         observe: [request:shell, response, "screen:phone-pages", "screen:shell-machine-page", "screen:shell-machine-page-not-painting", "screen:shell-machine-page-view-only"]

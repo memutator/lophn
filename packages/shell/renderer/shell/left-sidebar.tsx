@@ -605,7 +605,8 @@ export function LeftSidebar({
                         {row}
                         <span className={styles.rowActions}>
                           {onRenameSession === undefined ||
-                          item.kind === "draft" ? null : (
+                          item.kind === "draft" ||
+                          item.noRename === true ? null : (
                             <button
                               type="button"
                               className={styles.rowAction}

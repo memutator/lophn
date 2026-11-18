@@ -222,10 +222,7 @@ import { workspaceIcons } from "../icons/mod.ts";
 import type { NewSessionStart } from "../desktop/router.ts";
 import type { HarnessId } from "../../../protocol/coding-agent/harness-id.ts";
 import { useMachineLists } from "../shell/use-left-sidebar.ts";
-import {
-  type InboxNames,
-  InboxNamesProvider,
-} from "../desktop/connection/waiting/names.ts";
+import { InboxNamesProvider } from "../desktop/connection/waiting/names.ts";
 import {
   SIDEBAR_KEEP_PREFIX,
   type SidebarCtx,
@@ -446,9 +443,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   const { machine, machineData } = useHostMachine();
   const data = useMachineData();
   const machinesView = useMachinesView();
-  // detached 창과 전역 float은 탭 본문을 이 컴퓨터의 창 범위에서 그린다(탭의 기계를 보지 않는다). 그래서 다른 기계의 탭은
-  // 그쪽으로 옮기지 않는다(layout이 탭의 기계를 저장하고 그 자리가 기계를 볼 때까지).
-  const onThisComputer = (tab: TabItem) => (tab.machine ?? machine) === null;
+  const machineLists = useMachineLists();
   // 창의 view 보관이 있으면 화면 그릇이 이 창보다 오래 산다: 떠나도 살려 둘 page가 다시 load되지 않는다.
   const workspaceViews = useWorkspaceViews();
   const pool = useMemo(
@@ -1358,14 +1353,16 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     return terminal.store.onSelect(revealTab);
   }, [terminal, props.detached]);
 
+  // 떼는 탭은 기계를 적어 가서 detached 창이 그 기계의 범위로 그린다.
+  const withMachine = (tab: TabItem): TabItem =>
+    tab.machine === undefined && machine !== null ? { ...tab, machine } : tab;
+
   // 탭을 OS 창으로 뗀다. 순서는 transfer, 창 열기, 성공했을 때만 layout 바꾸기다. 어느 단계에서
   // 실패해도 layout은 그대로라 탭이 사라지지 않는다.
   const detach = async (key: string) => {
     const api = props.detached;
     const first = deskTabs(latestDesk()).find((tab) => tab.key === key);
-    if (api === undefined || first === undefined || !onThisComputer(first)) {
-      return;
-    }
+    if (api === undefined || first === undefined) return;
     if (whereInDesk(latestDesk(), key) === "detached") return;
     const def = tabKindOf(first.kind);
     if (def?.noDetach === true) return;
@@ -1381,7 +1378,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     try {
       ({ bounds } = await api.open({
         project: workspaceId,
-        tab: slimDetachedTab(withPosition(tab)),
+        tab: slimDetachedTab(withPosition(withMachine(tab))),
         transfer,
         bounds: null,
       }));
@@ -1395,7 +1392,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       void api.close({ key }).catch(() => {});
       return;
     }
-    update((item) => detachTab(item, key, bounds));
+    update((item) => detachTab(item, key, bounds, machine ?? undefined));
   };
 
   // 최신 작업대를 보도록 ref로 건넨다. key가 있는 event는 그 탭이 있는 desk에 적용한다(보이는 desk가
@@ -1494,6 +1491,17 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   // 본문이 바뀌는 탭(Agents 탭의 열린 agent)은 kind가 이름을 정한다.
   const titleOfTab = (tab: TabItem): string =>
     tabKindOf(tab.kind)?.titleOf?.(tab, host) ?? tab.title;
+  const renamable = (tab: TabItem) => {
+    const def = tabKindOf(tab.kind);
+    return (
+      def?.rename !== undefined &&
+      !(
+        def.renameThisComputerOnly === true && (tab.machine ?? machine) !== null
+      )
+    );
+  };
+  const stripMachine = (tab: TabItem) =>
+    machineLists.names.get(tab.machine ?? workspace.machine ?? "");
   const stripTab = (tab: TabItem): StripTab => ({
     key: tab.key,
     title: titleOfTab(tab),
@@ -1501,7 +1509,8 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     dot: tabKindOf(tab.kind)?.dotOf?.(tab, host) ?? null,
     preview: tab.preview === true,
     unsaved: isUnsaved(tab.key),
-    renamable: tabKindOf(tab.kind)?.rename !== undefined,
+    renamable: renamable(tab),
+    ...(stripMachine(tab) === undefined ? {} : { machine: stripMachine(tab) }),
   });
 
   // 사람이 닫은 탭. 창 전체에서 최근 몇 개를 기억해 Ctrl/Cmd+Shift+T가 되살린다. 이름 바꾸기·
@@ -1748,13 +1757,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   // 성공했을 때만 desk에서 닫기다. 전역 float이 상한이거나 transfer가 거절하면 desk float은 그대로다.
   const floatToGlobal = async (key: string) => {
     const first = latestDesk().floats.find((float) => float.tab.key === key);
-    if (
-      first === undefined ||
-      !canGoGlobal(first.tab) ||
-      !onThisComputer(first.tab)
-    ) {
-      return;
-    }
+    if (first === undefined || !canGoGlobal(first.tab)) return;
     const def = tabKindOf(first.tab.kind);
     const transfer = (await def?.transfer?.(first.tab, hostRef.current)) ?? {
       value: null,
@@ -2285,23 +2288,6 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     }
   }, [terminalVersion, terminal, windowTabs]);
 
-  // Inbox 줄이 id 대신 쓰는 workspace 이름. Inbox는 이 workspace 기계의 것이다.
-  const machineLists = useMachineLists();
-  const inboxWorkspaces = machineLists.lists.find(
-    (list) => list.machine === (workspace.machine ?? null),
-  );
-  const inboxNames = useMemo<InboxNames>(
-    () => ({
-      projects: new Map(
-        (inboxWorkspaces?.projects ?? []).map((one) => [one.id, one.title]),
-      ),
-      apps: new Map(
-        (inboxWorkspaces?.apps ?? []).map((one) => [one.id, one.name]),
-      ),
-    }),
-    [inboxWorkspaces?.projects, inboxWorkspaces?.apps],
-  );
-
   // 터미널 탭 이름을 core에 알린다(`terminals/name`). core가 runtime에 실어 모든 화면에 보내므로 OS 알림과 다른 창·workspace의
   // Inbox, 폰도 탭 이름을 안다. 바뀐 것만 보낸다.
   const terminalNames = useMemo(() => {
@@ -2366,13 +2352,11 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       ...span.map((key) => tabs.findIndex((item) => item.key === key)),
     );
     return {
-      renamable: tabKindOf(tab.kind)?.rename !== undefined,
+      renamable: renamable(tab),
       preview: tab.preview === true,
       file: pathOfTab(tab) !== null,
       canDetach:
-        props.detached !== undefined &&
-        tabKindOf(tab.kind)?.noDetach !== true &&
-        onThisComputer(tab),
+        props.detached !== undefined && tabKindOf(tab.kind)?.noDetach !== true,
       group: own === null ? 0 : leavesOf(own.layout).length,
       stacked: paneStackOf(desk, tab.key).length > 1,
       // 칸에 숨은 tab은 나눌 자리가 없다.
@@ -3143,6 +3127,13 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                   onTerminal={(item) => {
                     if (item.live !== null) {
                       terminal?.store.select(item.live.tabKey);
+                    } else if (item.remote !== undefined) {
+                      openTerminalTab(host, {
+                        terminal: item.remote.terminal,
+                        ...(item.machine === undefined
+                          ? {}
+                          : { machine: item.machine }),
+                      });
                     } else if (item.saved !== null) {
                       openTerminalTab(host, {
                         folderRef: item.saved.folderRef,
@@ -3272,9 +3263,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                         dot: tabKindOf(item.tab.kind)?.dotOf?.(item.tab, host),
                         rect: item.rect,
                         pinned: item.pinned,
-                        ...(globalFloats.enabled &&
-                        canGoGlobal(item.tab) &&
-                        onThisComputer(item.tab)
+                        ...(globalFloats.enabled && canGoGlobal(item.tab)
                           ? { global: false }
                           : {}),
                         ...(item.tab.kind === "app_panel"
@@ -3349,7 +3338,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     </ViewKeepsProvider>
   );
   return (
-    <InboxNamesProvider value={inboxNames}>
+    <InboxNamesProvider value={machineLists.inboxNames}>
       <AppWorkspaceProvider
         workspace={workspace}
         identity={loaded.project?.identity ?? null}

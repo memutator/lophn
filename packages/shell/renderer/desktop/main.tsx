@@ -247,8 +247,9 @@ export function Desktop({
   // 전역 팔레트에서 고른 대상. Workspace 팔레트와 같은 목적지로만 간다.
   const go = (target: DesktopTarget) => {
     if (target.kind === "home") home();
-    else if (target.kind === "project") setRoute(openProject(target.id));
-    else if (target.kind === "settings") settingsSpace();
+    else if (target.kind === "project") {
+      setRoute(openProject(target.id, on(target.machine)));
+    } else if (target.kind === "settings") settingsSpace();
     else if (target.kind === "app") appSpace(target.id);
     else setRoute(openProject(target.project, { open: target.file }));
   };
@@ -416,15 +417,7 @@ export function Desktop({
   } else if (route.space === "detached") {
     // 창이 detached 탭 하나만 그리므로 core가 준비되기 전에 연결 화면으로 떨어지지 않는다.
     space =
-      detached && workspace && live ? (
-        <DetachedSpace
-          api={detached}
-          workspace={workspace}
-          editor={editor}
-          terminal={terminal}
-          agentViewSource={agentViewSource}
-        />
-      ) : null;
+      detached && workspace && live ? <DetachedSpace api={detached} /> : null;
   } else if (route.space === "app" && route.app && workspace && apps && live) {
     globalFloats = true;
     space = (
@@ -486,7 +479,9 @@ export function Desktop({
         onHome={home}
         onBack={() => setRoute(beforeSettings.current ?? HOME)}
         backTo={backTarget(beforeSettings.current)}
-        onProject={(project) => setRoute(openProject(project))}
+        onProject={(project, machine) =>
+          setRoute(openProject(project, on(machine)))
+        }
         onOpenFile={(project, file) =>
           setRoute(openProject(project, { open: file }))
         }

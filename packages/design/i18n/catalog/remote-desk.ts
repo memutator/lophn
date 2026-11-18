@@ -26,7 +26,7 @@ export const remoteDesk = {
   "machines.notice.settings-elsewhere":
     "This setting belongs to this computer, not {name}. Change it in this computer's window.",
   "machines.notice.settings-no-grant":
-    "This computer can't change {name}'s settings. Turn on “Allow typing in terminals” for this computer in Settings › Remote › My devices.",
+    "This computer can't change {name}'s settings. On {name}, open Settings › Remote › My devices and turn on “Allow typing in terminals” for this computer.",
   "machines.notice.sign-in-there":
     "Signing in to {product} needs a browser on {name}. Sign in on {name}.",
   "machines.option.last": "The computer I used last",
@@ -87,7 +87,7 @@ export const remoteDesk = {
   "machines.page.keys": "Type into the page",
   "machines.page.waiting": "Waiting for the page…",
   "machines.page.view-only":
-    "You can only watch pages on {name}. To use them, turn on “Allow typing in terminals” for this computer in Settings › Remote › My devices.",
+    "You can only watch pages on {name}. To use them, open Settings › Remote › My devices on {name} and turn on “Allow typing in terminals” for this computer.",
   "machines.page.error.action": "{name} did not do that. Try again.",
   "machines.page.error.open": "Could not open the page on {name}.",
 } as const;

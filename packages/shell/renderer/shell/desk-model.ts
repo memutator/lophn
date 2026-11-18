@@ -1374,11 +1374,12 @@ export function closeFloat(desk: Desk, key: string): Desk {
   };
 }
 
-/** tabs나 floats의 tab을 OS 창으로 뗀다. 상한이면 그대로다. */
+/** tabs나 floats의 tab을 OS 창으로 뗀다. 상한이면 그대로다. `machine`은 기계 없는 tab이 속한 workspace의 기계로, 떼면 tab에 적어 창이 그 기계로 그린다. */
 export function detachTab(
   desk: Desk,
   key: string,
   bounds: DetachedBounds,
+  machine?: string,
 ): Desk {
   if (desk.detached.length >= DETACHED_MAX) return desk;
   const inTabs = desk.tabs.find((tab) => tab.key === key);
@@ -1391,7 +1392,16 @@ export function detachTab(
     ...removed,
     detached: [
       ...removed.detached,
-      { tab: { ...tab, preview: false }, bounds },
+      {
+        tab: {
+          ...tab,
+          preview: false,
+          ...(tab.machine === undefined && machine !== undefined
+            ? { machine }
+            : {}),
+        },
+        bounds,
+      },
     ],
   };
 }

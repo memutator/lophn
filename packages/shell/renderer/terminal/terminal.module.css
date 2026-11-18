@@ -110,15 +110,6 @@
   line-height: var(--type-small-line);
 }
 
-/* 다른 기계의 터미널: card 머리 줄의 기계 이름. */
-.machine {
-  padding: 0 var(--space-2);
-  color: var(--color-text-secondary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  white-space: nowrap;
-}
-
 /* 그 기계가 입력을 거절했을 때 탭 위쪽에 뜨는 알림. */
 .toast {
   position: absolute;

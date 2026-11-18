@@ -44,14 +44,6 @@
   white-space: nowrap;
 }
 
-/* 다른 기계의 앱 화면이라는 꼬리표. 앱 단추 앞에 조용한 글로 선다. */
-.machine {
-  flex: none;
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  white-space: nowrap;
-}
-
 .actions {
   display: inline-flex;
   flex: none;

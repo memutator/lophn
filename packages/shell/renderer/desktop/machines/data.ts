@@ -185,6 +185,8 @@ function otherMachineData(
   // 보호 secret 창의 값은 그 기계의 link로만 간다.
   const openSecret = windowSecretInputOpener(machine);
   const { list, runs, setEnabled } = coreJobsSource(core);
+  // 대기 목록의 Finished 줄이 그 기계 터미널의 runtime(`TerminalRuntimeChanged`)을 듣는다.
+  const terminal = machineTerminalDeps(machine, core, events);
   // 이 컴퓨터의 창 통로(디스크 file, OS 폴더 고르기, 지침·memory file)는 이 묶음에 하나도 없다. 그 통로는 이 컴퓨터의 것을 열고
   // 고치므로 다른 기계에서는 unavailable이다.
   const local = { instructions: undefined, files: undefined } as const;
@@ -193,7 +195,7 @@ function otherMachineData(
     here: false,
     core,
     events,
-    stores: createEventStores(events),
+    stores: createEventStores(events, terminal.store),
     workspace: {
       ...coreWorkspaceSource(core),
       ...NO_LOCAL_FILES,
@@ -225,7 +227,7 @@ function otherMachineData(
     }),
     folders,
     picker,
-    terminal: machineTerminalDeps(machine, core, events),
+    terminal,
     appViews: machineAppViews(machine, core, views, undefined),
     projectIcons: coreProjectIcons(core),
     grant: () => machineGrant(core),

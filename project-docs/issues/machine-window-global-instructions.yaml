@@ -1,0 +1,12 @@
+id: machine-window-global-instructions
+title: "다른 기계 창의 Settings › Agents에서 그 기계의 global instructions를 읽고 쓰지 못한다"
+kind: bug
+status: open
+topic: remote
+modules: [packages/shell/renderer]
+now: |
+  core-setup의 setup-viewer로 다른 기계 창에도 Settings › Agents가 열린다. 그 안의 global instructions는 이 컴퓨터 shell main의 통로(`lophnInstructions`, `lophnFiles`, `packages/shell/renderer/workspace/agents/core-extensions.ts`)로 file을 읽고 쓴다. 다른 기계 창의 preload에는 그 통로가 없어 읽기·쓰기가 되지 않는다.
+impact: |
+  화면 없는 기계를 다른 컴퓨터에서 처음 설정할 때 agent의 global instructions를 고칠 수 없다(그 기계의 터미널에서 file을 고쳐야 한다).
+fix: |
+  그 기계의 global instructions를 읽고 쓰는 core route를 두고 화면이 shell 통로 대신 그것을 부른다. 사람 route 목록(`packages/protocol/remote/allowlist.ts`의 `REMOTE_PERSON_ROUTES`)에 더한다.

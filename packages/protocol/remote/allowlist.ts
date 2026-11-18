@@ -102,7 +102,10 @@ import {
   messageImageUpload,
 } from "../lophn-agent/message-images.ts";
 import { messageSearch } from "../lophn-agent/message-search.ts";
-import { workspaceExtensionSettingsChange } from "../lophn-agent/mcp-settings.ts";
+import {
+  workspaceExtensionSettingsRead,
+  workspaceExtensionSettingsChange,
+} from "../lophn-agent/mcp-settings.ts";
 import { messageBody } from "../lophn-agent/messages.ts";
 import {
   changeShownModels,
@@ -354,6 +357,7 @@ export const REMOTE_PERSON_ROUTES = [
   settingsList,
   settingsUpdate,
   diagnosticsStatus,
+  workspaceExtensionSettingsRead,
   workspaceExtensionSettingsChange,
   extensionToolsCatalog,
   // agent

@@ -1,7 +1,7 @@
 // 기기 연결의 자격과 `call`. 기기는 actor user, principal `device:<id>`이고 scope는 REMOTE_ALLOWED_ROUTES와 REMOTE_PERSON_ROUTES의
 // 합이다. 사람 route는 `call`이 터미널 입력을 허락받은 기기에만 연다. `call`은 HTTP API와 같은 dispatchHttp를 그 자격으로 탄다.
 // frame은 JSON뿐이라 file·upload route의 bytes는 base64로 싣는다.
-import { err, type ErrorCode, ok, type Result } from "../../base/mod.ts";
+import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
   CONFIRMATION_HANDLE_TTL_MS,
   type ConfirmationHandleRegister,
@@ -173,6 +173,7 @@ export function createRemoteCall(deps: RemoteCallDeps): RemoteCall {
     if (
       (PERSON_OPERATIONS.has(entry.route.name) || confirming) &&
       !(
+        current.value.actor === "user" &&
         current.value.principal.startsWith("device:") &&
         deps.granted(current.value.principal)
       )
@@ -227,10 +228,13 @@ export function createRemoteCall(deps: RemoteCallDeps): RemoteCall {
         });
       }
       if (result.status === 200) return ok(result.json);
-      const { error } = result.json as {
-        error: { code: ErrorCode; message: string };
-      };
-      return err({ code: error.code, message: error.message });
+      // details도 싣는다: 폰과 다른 기계의 창도 desktop처럼 `details.reason`(예: `changed_elsewhere`)으로 안내한다.
+      const { error } = result.json as { error: LophnError };
+      return err({
+        code: error.code,
+        message: error.message,
+        ...(error.details === undefined ? {} : { details: error.details }),
+      });
     } finally {
       arrival.value.release();
     }

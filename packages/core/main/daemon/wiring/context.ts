@@ -237,6 +237,11 @@ type Late = {
   mcpAuthControl: McpAuthControl;
   // OAuth 발급자 요청 대기열이다. provider 로그인 wiring이 내고 MCP OAuth와 provider 갱신이 같이 쓴다.
   issuerRequests: IssuerRequests;
+  // provider 로그인 wiring이 낸다. 이을 provider id(끊은 정의는 같은 id)다. agent의 provider 요청이 쓴다.
+  providerFreshId: (
+    who: AuthenticatedContext,
+    key: string,
+  ) => Promise<Result<string>>;
   server: ApiServer;
   // 모든 wiring의 bytes route handler. API server와 기기 `call`(remote)이 같은 것을 쓴다.
   uploads: ReadonlyMap<string, UploadHandler>;
@@ -248,7 +253,8 @@ type Late = {
   // config가 낸다. 사람의 결정이 Settings 값을 고칠 때만 쓴다.
   settingsUpdate: SettingsStore["update"];
   // secrets가 낸다.
-  secretStore: SecretStorePort & Pick<SecretStore, "hold" | "release">;
+  secretStore: SecretStorePort &
+    Pick<SecretStore, "hold" | "release" | "names">;
   secretAttach: SecretAttachPort;
   // events가 낸다.
   bus: Bus;
@@ -355,6 +361,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   rewindFiles: true,
   mcpAuthControl: true,
   issuerRequests: true,
+  providerFreshId: true,
   server: true,
   uploads: true,
   fileStreams: true,

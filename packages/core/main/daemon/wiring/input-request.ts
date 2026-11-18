@@ -163,7 +163,14 @@ export const inputRequestWiring: WiringFactory = () => {
 
       const slots = createSecretSlots({
         read: readAs,
-        newProviderId: () => ids.newId("pvd"),
+        freshId: (key) =>
+          ctx.peek.providerFreshId?.(INPUT_REQUEST_CONTEXT, key) ??
+          Promise.resolve(
+            err({
+              code: "unavailable",
+              message: "provider login is not ready",
+            }),
+          ),
         configured: (name) => ctx.secretStore.get(name).ok,
         mcpServers: () =>
           registeredMcpServers(ctx.ledgerPath, {

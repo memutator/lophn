@@ -20,6 +20,7 @@ import {
   type InputRequestView,
   loginCancel,
   loginCancelInputSchema,
+  oauthFlowOf,
   type ProviderRecord,
   providerSignIn,
   providerSignInState,
@@ -308,6 +309,17 @@ export function withProviderLogin(
       return failed(
         err({ code: "invalid_input", message: "no sign-in for this provider" }),
       );
+    }
+    // loopback 로그인은 이 기계의 browser로 돌아와야 끝나고 그동안 고정 port를 쥔다. 기기(폰, 다른 컴퓨터)는 device code만
+    // 시작한다. 같은 정의의 로그인을 치우기 전에 거절해 이 기계에서 기다리던 로그인이 남는다. agent 요청은 열린 채 둔다.
+    if (
+      who.principal.startsWith("device:") &&
+      oauthFlowOf(oauth.product) !== "device_code"
+    ) {
+      return err({
+        code: "forbidden",
+        message: "another device starts only a device-code sign-in",
+      });
     }
     await clear(connect.definition.key, request);
     const begun = await login.begin(provider, oauth, connect);

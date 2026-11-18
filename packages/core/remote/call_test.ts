@@ -1,25 +1,62 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { manualClock, ok, seededRandom } from "../../base/mod.ts";
+import {
+  err,
+  type LophnError,
+  manualClock,
+  ok,
+  seededRandom,
+} from "../../base/mod.ts";
 import type { Route } from "../../protocol/base/mod.ts";
 import { settingsUpdate } from "../../protocol/config/file.ts";
 import { agentCreate } from "../../protocol/lophn-agent/agent-definitions.ts";
 import { inputRequestAnswerSecret } from "../../protocol/lophn-agent/input-request.ts";
+import { mcpAuthBegin } from "../../protocol/lophn-agent/mcp-settings.ts";
 import {
   disconnectProvider,
   providerConnectKey,
 } from "../../protocol/lophn-agent/providers.ts";
+import { changeSessionSkip } from "../../protocol/lophn-agent/sessions.ts";
 import { projectApi } from "../../protocol/projects/project-api.ts";
 import { REMOTE_PERSON_ROUTES } from "../../protocol/remote/allowlist.ts";
 import { REMOTE_ALLOWED_ROUTES } from "../../protocol/remote/mod.ts";
+import {
+  devicesClearPush,
+  devicesConnected,
+  devicesList,
+  devicesPushTargets,
+  devicesSetPrimary,
+  machinesCall,
+  machinesWatch,
+  rosterForgetAll,
+  rosterInvite,
+  rosterJoin,
+  rosterList,
+  rosterRemove,
+  rosterRename,
+  rosterSetTerminalInput,
+  rosterStatements,
+  rosterStore,
+} from "../../protocol/remote/routes.ts";
 import { secretPut } from "../../protocol/secrets/secret-file.ts";
+import {
+  loginsDelete,
+  loginsList,
+  loginsRelease,
+  loginsSave,
+} from "../../protocol/secrets/logins.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
+import { secretPutHandler } from "../secrets/routes.ts";
 import {
   confirmationBinding,
   ConfirmationRegistry,
   CredentialRegistry,
 } from "../server/identity/mod.ts";
-import { RouteRegistry, type UploadHandler } from "../server/mod.ts";
+import {
+  type MemoryHandler,
+  RouteRegistry,
+  type UploadHandler,
+} from "../server/mod.ts";
 import { createAdmission } from "../supervision/responsiveness/mod.ts";
 import {
   createDeviceCredentials,
@@ -27,6 +64,7 @@ import {
   type DeviceCredential,
   devicePrincipal,
 } from "./call.ts";
+import { createMachineRoutes } from "./machine-routes.ts";
 
 const GRANTED = `dev_0${"1".repeat(25)}`;
 const PLAIN = `dev_0${"2".repeat(25)}`;
@@ -43,6 +81,33 @@ const routes: Route[] = [
   settingsUpdate,
   agentCreate,
   projectApi.register,
+];
+
+// 허락이 있어도 열지 않는 route다. 두 기기 목록 어디에도 없어야 한다. 목록 file에서 뽑지 않고 이름으로 적는다:
+// 누가 이 가운데 하나를 목록에 넣으면 이 표가 실패한다.
+const NEVER: Route[] = [
+  rosterList,
+  rosterInvite,
+  rosterJoin,
+  rosterRemove,
+  rosterSetTerminalInput,
+  rosterRename,
+  rosterStatements,
+  rosterStore,
+  rosterForgetAll,
+  loginsList,
+  loginsSave,
+  loginsDelete,
+  loginsRelease,
+  devicesList,
+  devicesSetPrimary,
+  devicesConnected,
+  devicesClearPush,
+  devicesPushTargets,
+  machinesCall,
+  machinesWatch,
+  mcpAuthBegin,
+  changeSessionSkip,
 ];
 
 const upload = (input: Record<string, unknown>) => ({
@@ -85,7 +150,14 @@ const table: [string, unknown][] = [
   ],
 ];
 
-function setup() {
+function setup(
+  options: {
+    // settings/update handler의 답. 기본은 성공이다.
+    settings?: () => ReturnType<MemoryHandler>;
+    // call이 보는 자격의 target을 비운다. registry가 agent 자격을 session·turn에 묶지 않게 바뀌어도 actor 검사가 막는지 본다.
+    looseTargets?: boolean;
+  } = {},
+) {
   const clock = manualClock(1_700_000_000_000);
   const random = seededRandom(3);
   const registry = new CredentialRegistry({
@@ -113,32 +185,66 @@ function setup() {
     received.push(await new Response(body.bytes).text());
     return ok({});
   };
+  const pathOf = (route: Route) => `${route.resource}/${route.method}`;
+  const reach =
+    (path: string): MemoryHandler =>
+    () => {
+      reached.push(path);
+      return ok({});
+    };
+  const seen = options.looseTargets
+    ? (Object.assign(Object.create(registry), {
+        revalidate(ctx: Pick<AuthenticatedContext, "credential_ref">) {
+          const current = registry.revalidate(ctx);
+          return current.ok
+            ? ok({
+                ...current.value,
+                scope: { ...current.value.scope, targets: {} },
+              })
+            : current;
+        },
+      }) as CredentialRegistry)
+    : registry;
   const call = createRemoteCall({
-    registry,
-    routes: new RouteRegistry(routes),
+    registry: seen,
+    routes: new RouteRegistry([...routes, ...NEVER]),
     clock,
     memory: new Map([
       [
         "settings/update",
         () => {
           reached.push("settings/update");
-          return ok({ changed: [], rejected: [] });
+          return options.settings?.() ?? ok({ changed: [], rejected: [] });
         },
       ],
+      ...NEVER.map((route) => [pathOf(route), reach(pathOf(route))] as const),
     ]),
-    uploads: new Map(
+    reads: new Map(
+      NEVER.map((route) => [pathOf(route), reach(pathOf(route))] as const),
+    ),
+    uploads: new Map<string, UploadHandler>([
+      // 실제 handler와 가짜 저장소: 기기가 vault 이름을 쓰지 못하는 것은 handler가 막는다.
       [
         "secrets/put",
-        "providers/connect-key",
-        "input_request/answer_secret",
-      ].map((path) => [
-        path,
-        (async (ctx, input, body) => {
-          reached.push(path);
-          return await take(ctx, input, body);
-        }) satisfies UploadHandler,
-      ]),
-    ),
+        secretPutHandler({
+          async put(name, value) {
+            reached.push("secrets/put");
+            received.push(String(value));
+            return ok({ name, configured: true });
+          },
+        }),
+      ],
+      ...["providers/connect-key", "input_request/answer_secret"].map(
+        (path) =>
+          [
+            path,
+            (async (ctx, input, body) => {
+              reached.push(path);
+              return await take(ctx, input, body);
+            }) satisfies UploadHandler,
+          ] as const,
+      ),
+    ]),
     // ledger executor처럼 확인을 대상과 내용에 맞춰 예약하고 소비한다.
     writer: {
       async command(_ctx, envelope) {
@@ -203,6 +309,7 @@ function setup() {
     return codes;
   }
   return {
+    call,
     reached,
     received,
     issued,
@@ -247,7 +354,8 @@ test("터미널 입력 허락이 없는 기기는 secret, provider, 설정 쓰�
 });
 
 test("agent 자격은 기기의 길로도 secret을 넣거나 확인이 필요한 명령을 통과하지 못한다", async () => {
-  const s = setup();
+  // agent 자격의 session·turn target을 call이 보지 않게 해서, scope가 아니라 actor 검사가 막는 것을 본다.
+  const s = setup({ looseTargets: true });
   const operations = routes.map((route) => route.name);
   const agent = s.credential({
     actor: `agent:${SESSION}`,
@@ -275,4 +383,108 @@ test("agent 자격은 기기의 길로도 secret을 넣거나 확인이 필요�
   assert.deepEqual(s.reached, []);
   assert.deepEqual(s.received, []);
   assert.deepEqual(s.issued, []);
+});
+
+test("허락받은 기기가 roster, logins, 목록 밖 devices, machines, MCP 로그인 시작, change-skip, vault 이름의 secrets/put을 부르면 forbidden이다", async () => {
+  const s = setup();
+  const granted = await s.device(GRANTED);
+  for (const route of NEVER) {
+    const done = await s.call(granted, {
+      resource: route.resource,
+      method: route.method,
+      body: route.kind === "command" ? command({}) : {},
+    });
+    assert.equal(done.ok ? "ok" : done.error.code, "forbidden", route.name);
+  }
+  const vault = await s.call(granted, {
+    resource: "secrets",
+    method: "put",
+    body: upload({ name: "login.lgn_x.password" }),
+  });
+  assert.equal(!vault.ok && vault.error.code, "forbidden");
+  assert.deepEqual(s.reached, []);
+  assert.deepEqual(s.received, []);
+
+  // 두 목록은 겹치지 않고 사람(actor user)이 부를 수 있는 route만 든다. 아니면 core가 기기 자격을 만들지 못한다.
+  const allowed = new Set(REMOTE_ALLOWED_ROUTES.map((route) => route.name));
+  assert.deepEqual(
+    REMOTE_PERSON_ROUTES.filter((route) => allowed.has(route.name)).map(
+      (route) => route.name,
+    ),
+    [],
+  );
+  assert.deepEqual(
+    [...REMOTE_ALLOWED_ROUTES, ...REMOTE_PERSON_ROUTES]
+      .filter((route) => !route.actors.includes("user"))
+      .map((route) => route.name),
+    [],
+  );
+});
+
+test("handler가 낸 오류의 details가 기기의 call 결과에 그대로 온다", async () => {
+  const details = { reason: "changed_elsewhere" };
+  const s = setup({
+    settings: () => err({ code: "conflict", message: "changed", details }),
+  });
+  const done = await s.call(await s.device(GRANTED), {
+    resource: "settings",
+    method: "update",
+    body: { changes: [] },
+  });
+  assert.deepEqual(done, {
+    ok: false,
+    error: { code: "conflict", message: "changed", details },
+  } satisfies { ok: false; error: LophnError });
+});
+
+// 다른 기계는 이 컴퓨터를 사람으로 받는다. 사람의 CLI token(actor user)이 이 길을 타면 그 기계의 사람 route와 자동 확인에 닿는다.
+test("CLI의 사람 token으로 machines/call을 부르지 못하고 shell main의 capability는 다른 기계로 가지 않는다", async () => {
+  const sent: unknown[] = [];
+  const machines = createMachineRoutes({
+    links: {
+      call: async (input) => {
+        sent.push(input);
+        return ok({});
+      },
+      watch: (machine, conditions) => {
+        sent.push({ machine, conditions });
+        return ok({});
+      },
+    },
+    capability: (value) => value === "live",
+  });
+  const cli = {
+    actor: "user",
+    principal: "user",
+    conditions: { process: "cli" },
+  };
+  const machine = `mch_0${"1".repeat(25)}`;
+  const call = {
+    machine,
+    resource: "providers",
+    method: "disconnect",
+    body: {},
+  };
+  for (const shell_capability of [undefined, "dead"]) {
+    const input = { ...call, shell_capability } as never;
+    const called = await machines.call(cli, input);
+    assert.equal(!called.ok && called.error.code, "forbidden");
+    const watched = machines.watch(cli, {
+      machine,
+      conditions: [],
+      shell_capability,
+    } as never);
+    assert.equal(!watched.ok && watched.error.code, "forbidden");
+  }
+  assert.deepEqual(sent, []);
+
+  const shell = { ...cli, conditions: { process: "electron-main" } };
+  assert.ok(
+    (await machines.call(shell, { ...call, shell_capability: "live" })).ok,
+  );
+  assert.ok(
+    machines.watch(shell, { machine, conditions: [], shell_capability: "live" })
+      .ok,
+  );
+  assert.deepEqual(sent, [call, { machine, conditions: [] }]);
 });

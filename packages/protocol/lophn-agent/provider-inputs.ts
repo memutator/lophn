@@ -163,8 +163,8 @@ export const providerListInputSchema = z.strictObject({
 
 // 구독 로그인 하나의 대상이다. 로그인은 provider가 등록되기 전에 시작한다: 끝나면 core가 token을 저장하고 Connect까지 부르기
 // 때문이다. 만들 provider의 ID와 Connect에 실을 정의·endpoint·protocol이다. 발급자 주소는 정의 data다. agent의 sign_in 요청
-// view가 이 모양을 싣고, core 안 로그인 시작이 받는다.
-export const loginBeginInputSchema = z
+// view가 이 모양을 싣고, `providers/sign-in {request}`가 그 요청에서 읽는다.
+export const providerSignInTargetSchema = z
   .strictObject({
     provider: idSchema("pvd"),
     ...providerTargetFields,
@@ -173,7 +173,8 @@ export const loginBeginInputSchema = z
     (value) => value.definition.oauth !== null && targetFits(value, "oauth"),
     { message: "the provider definition has no OAuth login for this endpoint" },
   );
-export const loginBeginOutputSchema = z.object({
+export const providerSignInOutputSchema = z.object({
+  provider: idSchema("pvd"),
   login: nonblankSchema,
   flow: z.enum(OAUTH_FLOWS),
   interval_ms: durationMsSchema,
@@ -217,9 +218,6 @@ export const providerSignInInputSchema = z.union([
     }),
   }),
 ]);
-export const providerSignInOutputSchema = loginBeginOutputSchema.extend({
-  provider: idSchema("pvd"),
-});
 
 // 로그인 하나의 상태다. 기다림은 core가 한다. 끝난 상태는 같은 정의로 새 로그인을 시작할 때까지 남는다.
 export const providerSignInStateSchema = z.discriminatedUnion("state", [
@@ -228,7 +226,7 @@ export const providerSignInStateSchema = z.discriminatedUnion("state", [
     provider: idSchema("pvd"),
     flow: z.enum(OAUTH_FLOWS),
     expires_at: atSchema,
-    sign_in: loginBeginOutputSchema.shape.sign_in,
+    sign_in: providerSignInOutputSchema.shape.sign_in,
   }),
   z.object({ state: z.literal("connected"), provider: idSchema("pvd") }),
   z.object({

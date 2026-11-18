@@ -10,7 +10,7 @@ import {
 import { customProtocolSchema } from "./custom-provider.ts";
 import { browserRefSchema } from "./host-queue.ts";
 import { mcpAuthBeginInputSchema } from "./mcp-settings.ts";
-import { loginBeginInputSchema } from "./provider-inputs.ts";
+import { providerSignInTargetSchema } from "./provider-inputs.ts";
 
 // agent가 사람에게 값을 넣어 달라고 청하는 요청 하나다. 종류는 셋이다.
 // - login: 탭의 입력 칸(ref)을 가리켜 site login 저장(save)이나 값 한 번 넣기(once)를 청한다.
@@ -119,7 +119,10 @@ const secretViewSchema = z.strictObject({
 
 // 로그인할 곳이다. 입력은 지금 화면의 로그인 route 입력 그대로라 card가 그 흐름에 그대로 넘긴다. core가 자리에서 읽은 값이다.
 const signInTargetSchema = z.discriminatedUnion("type", [
-  z.strictObject({ type: z.literal("provider"), login: loginBeginInputSchema }),
+  z.strictObject({
+    type: z.literal("provider"),
+    login: providerSignInTargetSchema,
+  }),
   z.strictObject({
     type: z.literal("app"),
     app: idSchema("app"),

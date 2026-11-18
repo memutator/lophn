@@ -101,6 +101,16 @@ export function settingsUpdateHandler(
       });
     }
     const { changes } = input.data;
+    // 기기의 연결 설정(`remote.*`)은 기기·명단 관리와 같은 종류라 터미널 입력을 허락받은 기기도 바꾸지 못한다.
+    if (
+      changes.some((change) => change.key.startsWith("remote.")) &&
+      ctx.principal.startsWith("device:")
+    ) {
+      return err({
+        code: "forbidden",
+        message: "a device may not change the remote settings",
+      });
+    }
     // agent가 자기 범위를 정하는 설정을 바꾸지 못하게 한다. 사람(Settings 화면, 사람의 터미널)은 지난다.
     if (ctx.actor.startsWith("agent:")) {
       const locked = changes.filter((change) =>

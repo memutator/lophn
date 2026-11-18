@@ -37,7 +37,8 @@ type SecretSlotDeps = {
     route: { resource: string; method: string },
     input: unknown,
   ): Promise<Result<T>>;
-  newProviderId(): string;
+  // 그 정의로 이을 provider id(connect-key.ts의 freshId). 끊은 정의를 다시 이으면 같은 id다.
+  freshId(key: string): Promise<Result<string>>;
   // 그 이름의 값이 이미 있는가.
   configured(name: string): boolean;
   // 등록된 모든 층의 MCP server와 그 소유자다.
@@ -117,7 +118,12 @@ export function createSecretSlots(deps: SecretSlotDeps) {
         message: `"${definition.key}" is already connected with a sign-in. The person disconnects it in Settings > Providers first.`,
       });
     }
-    const id = existing?.id ?? deps.newProviderId();
+    let id = existing?.id;
+    if (id === undefined) {
+      const fresh = await deps.freshId(definition.key);
+      if (!fresh.ok) return fresh;
+      id = fresh.value;
+    }
     const name = `provider.${id.slice("pvd_".length)}`;
     return ok({
       kind: "secret",
@@ -156,12 +162,14 @@ export function createSecretSlots(deps: SecretSlotDeps) {
         message: `"${definition.key}" is already connected. The person disconnects it in Settings > Providers first to sign in again.`,
       });
     }
+    const id = await deps.freshId(definition.key);
+    if (!id.ok) return id;
     return ok({
       kind: "sign_in",
       slot,
       target: {
         type: "provider",
-        login: { provider: deps.newProviderId(), ...target },
+        login: { provider: id.value, ...target },
       },
       subject: definition.display_name.slice(0, 100),
       destinations: [originOf(target.endpoint)],

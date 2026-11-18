@@ -1,7 +1,7 @@
 id: remote-call-errors-drop-details
 title: remote 호출의 오류에서 `details`가 빠져 폰과 다른 기계의 창은 "다른 기기에서 바뀌었다"를 알지 못한다
 kind: bug
-status: open
+status: fixed
 topic: remote
 modules: [packages/core/remote]
 now: |
@@ -10,3 +10,6 @@ impact: |
   두 기기가 같은 때 보냈을 때 remote 쪽 사람은 왜 안 갔는지 모르고 다시 보내기만 누른다. 글은 입력칸에 남는다. `details`에 기대는 다른 안내도 remote에서는 빠진다.
 fix: |
   - 작음(추천): 두 곳에서 `details`를 그대로 싣고 test 하나로 지킨다.
+closed: |
+  `packages/core/remote/call.ts`의 `createRemoteCall`이 dispatch가 낸 오류 body에서 `details`를 그대로 실어 돌려주고, `host.ts`가 result frame에 `details`를 싣는다. 다른 컴퓨터가 넘긴 `machines/call`의 오류도 `links.call`이 code·message·details 그대로 낸다. 폰과 다른 기계의 창도 `conflict`의 `details.reason`을 받는다.
+guard: packages/core/remote/call_test.ts

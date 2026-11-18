@@ -293,3 +293,29 @@ test("사람 자격은 묻지 않고 바로 쓰고 agent도 틀린 값은 묻기
     assert.deepStrictEqual(asked, []);
   });
 });
+
+// 기기가 remote를 끄면 모든 기기(자기도)가 끊기고, relay·push 주소를 바꾸면 알림 글이 다른 곳으로 간다.
+test("기기 자격의 remote 설정 쓰기는 forbidden이고 같이 보낸 바꿈도 쓰이지 않는다", async () => {
+  await withDestinations(async ({ update, file, original }) => {
+    const device = {
+      actor: "user",
+      principal: `device:dev_0${"1".repeat(25)}`,
+      conditions: { process: "remote" },
+    } as never;
+    const done = await update(device, {
+      changes: [
+        {
+          key: "folder.destinations",
+          action: "set",
+          value: { work: { path: "/mnt/nas/lophn" } },
+        },
+        { key: "remote.enabled", action: "set", value: false },
+      ],
+    });
+    assert.equal(
+      (done as { ok: boolean; error?: { code: string } }).error?.code,
+      "forbidden",
+    );
+    assert.equal(readFileSync(file, "utf8"), original);
+  });
+});

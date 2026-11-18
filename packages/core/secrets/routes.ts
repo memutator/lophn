@@ -2,6 +2,7 @@
 // 값은 응답·오류·log 어디에도 넣지 않는다.
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
+  LOGIN_SECRET_PREFIX,
   secretDelete,
   type SecretFileStatus,
   secretPut,
@@ -12,6 +13,24 @@ import type { SecretStore } from "./secret-store.ts";
 
 const INVALID = (message: string) =>
   err({ code: "invalid_input" as const, message });
+
+// 터미널 입력을 허락받은 기기도 site login vault(`login.`)와 구독 token(`provider-oauth.`)은 쓰거나 지우지 못한다. vault 값은
+// shell main이 탭에 칠 때만 core를 나가고, 기기가 바꾼 값이면 agent가 그 값을 사이트에 친다.
+// `provider-oauth.`의 정의는 lophn-agent/providers/oauth-secrets.ts다(secrets는 harness를 import하지 못해 literal).
+const DEVICE_CLOSED_PREFIXES = [LOGIN_SECRET_PREFIX, "provider-oauth."];
+
+function closedToDevice(principal: string, name: string): boolean {
+  return (
+    principal.startsWith("device:") &&
+    DEVICE_CLOSED_PREFIXES.some((prefix) => name.startsWith(prefix))
+  );
+}
+
+const CLOSED = () =>
+  err({
+    code: "forbidden" as const,
+    message: "a device may not change this secret",
+  });
 
 // 사람은 설정된 이름을 모두 본다. 다른 actor의 이름 허용은 소유 concern의 grant 검사가 맡으므로(apps)
 // 이 route는 그들에게 이름을 열지 않는다: 이름을 지정하면 있든 없든 같은 거절이다.
@@ -39,9 +58,10 @@ export function secretStatusHandler(store: Pick<SecretStore, "names">) {
 }
 
 export function secretDeleteHandler(store: Pick<SecretStore, "delete">) {
-  const handler: MemoryHandler = async (_ctx, rawInput) => {
+  const handler: MemoryHandler = async (ctx, rawInput) => {
     const input = secretDelete.input.safeParse(rawInput);
     if (!input.success) return INVALID("secret 이름이 올바르지 않다");
+    if (closedToDevice(ctx.principal, input.data.name)) return CLOSED();
     return await store.delete(input.data.name);
   };
   return handler;
@@ -89,11 +109,15 @@ export async function readSecretBody(
 
 // body를 읽어 UTF-8 문자열로 바꿔 put한다.
 export function secretPutHandler(store: Pick<SecretStore, "put">) {
-  const handler: UploadHandler = async (_ctx, rawInput, body) => {
+  const handler: UploadHandler = async (ctx, rawInput, body) => {
     const input = secretPut.input.safeParse(rawInput);
     if (!input.success) {
       await body.bytes.cancel().catch(() => {});
       return INVALID("secret input does not match the body");
+    }
+    if (closedToDevice(ctx.principal, input.data.name)) {
+      await body.bytes.cancel().catch(() => {});
+      return CLOSED();
     }
     const value = await readSecretBody(input.data.bytes, body);
     if (!value.ok) return value;

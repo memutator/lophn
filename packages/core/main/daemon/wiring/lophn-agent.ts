@@ -28,6 +28,7 @@ import {
 import { imageReferenced } from "../../../lophn-agent/session/message-images.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { withProviderLogin } from "../../../lophn-agent/providers/login.ts";
+import { isStagedSecretName } from "../../../lophn-agent/providers/oauth-secrets.ts";
 import {
   builtinTarget,
   TEST_PROVIDER_TARGETS,
@@ -57,12 +58,22 @@ const testTargetsSchema = z.record(
   }),
 );
 
+// 틀린 값이면 log 한 줄을 남기고 가짜 대상 없이 돈다. 기동을 막지 않는다.
 function targetsFrom(
   raw: string | undefined,
+  wrong: () => void,
 ): (key: string, way: ConnectWay) => Result<ConnectTarget> {
-  const parsed =
-    raw === undefined ? null : testTargetsSchema.safeParse(JSON.parse(raw));
-  const fakes = parsed?.success === true ? parsed.data : {};
+  let fakes: z.infer<typeof testTargetsSchema> = {};
+  if (raw !== undefined) {
+    let parsed: ReturnType<typeof testTargetsSchema.safeParse> | undefined;
+    try {
+      parsed = testTargetsSchema.safeParse(JSON.parse(raw));
+    } catch {
+      parsed = undefined;
+    }
+    if (parsed?.success === true) fakes = parsed.data;
+    else wrong();
+  }
   return (key, way) => {
     const fake = fakes[key];
     return fake === undefined
@@ -112,12 +123,27 @@ export const lophnAgentProviderLoginWiring: WiringFactory = () => {
   return {
     name: "lophn-agent-provider-login",
     dataSteps: [opencodeGoMergeStep],
-    build(ctx) {
+    async build(ctx) {
+      // 연결 중에 core가 죽어 남은 임시 key(`provider.<id>.new.<꼬리>`)를 치운다. API가 열리기 전이라 진행 중인 연결의 것을
+      // 지우지 않는다(secrets wiring이 먼저 저장소를 연다). 못 지운 이름은 log에 남기고 기동은 잇는다.
+      const names = ctx.secretStore.names();
+      for (const name of names.ok
+        ? names.value.filter(isStagedSecretName)
+        : []) {
+        const removed = await ctx.secretStore.delete(name);
+        if (!removed.ok) {
+          ctx.telemetry.logger.warn({
+            component: "lophn-agent/providers",
+            event: "staged_key_left",
+            fields: { name },
+          });
+        }
+      }
+      const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       const requests = createIssuerRequests({
-        newId: () => crypto.randomUUID(),
+        newId: () => ids.newId("irq"),
       });
       ctx.provide("issuerRequests", requests);
-      const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       const readProviders = async (
         who: AuthenticatedContext,
       ): Promise<Result<ProviderRecord[]>> => {
@@ -140,7 +166,13 @@ export const lophnAgentProviderLoginWiring: WiringFactory = () => {
         }
         return ok(rows);
       };
-      const target = targetsFrom(process.env[TEST_PROVIDER_TARGETS]);
+      const target = targetsFrom(process.env[TEST_PROVIDER_TARGETS], () =>
+        ctx.telemetry.logger.warn({
+          component: "lophn-agent/providers",
+          event: "test_targets_ignored",
+          message: `${TEST_PROVIDER_TARGETS} is not valid; using the built-in targets`,
+        }),
+      );
       // 접은 writer로 보낸다: 임시 key를 옮기는 이 처리기(login)와 commit 뒤 층을 사람이 낸 command와 똑같이 지난다.
       const connect = createProviderConnect({
         writer: () => ctx.writer,
@@ -148,9 +180,11 @@ export const lophnAgentProviderLoginWiring: WiringFactory = () => {
         listProviders: readProviders,
         target,
         newId: () => ids.newId("pvd"),
-        newKey: () => crypto.randomUUID(),
+        newKey: () => ids.newId("idk"),
         tail: () => ids.newId("stg").slice("stg_".length),
       });
+      // agent의 provider 요청도 같은 id를 받는다: 끊은 정의를 다시 이으면 같은 id다.
+      ctx.provide("providerFreshId", connect.freshId);
       let login: ReturnType<typeof withProviderLogin> | undefined;
       // writer를 접기 전에는 부르지 못한다(API가 그 뒤에 열린다).
       const unready = (): Result<never> =>
@@ -161,7 +195,7 @@ export const lophnAgentProviderLoginWiring: WiringFactory = () => {
             http: requests.fetch,
             openListener: openCallbackListener,
             secrets: ctx.secretStore,
-            newKey: () => crypto.randomUUID(),
+            newKey: () => ids.newId("idk"),
             nowMs: () => ctx.clock.nowMs(),
             random: ctx.random,
             target,
@@ -188,7 +222,7 @@ export const lophnAgentProviderLoginWiring: WiringFactory = () => {
               }
               return read.error.code === "not_found" ? ok(null) : read;
             },
-            newKey: () => crypto.randomUUID(),
+            newKey: () => ids.newId("idk"),
           });
         },
         memory: [

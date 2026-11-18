@@ -156,10 +156,7 @@ export function register(ctx: ShellContext): Machines & Registered {
   }
 
   const watch = (machine: Id<"mch">, conditions: CoreWatch["conditions"]) =>
-    void ctx.coreInternal("memory", "machines", "watch", {
-      machine,
-      conditions,
-    });
+    void ctx.core.machineCall("watch", { machine, conditions });
 
   ctx.relay.conditions.push({ types: ["MachineFrameReceived"] });
   ctx.relay.ready.push(() => {
@@ -237,7 +234,7 @@ export function register(ctx: ShellContext): Machines & Registered {
     },
     link: (machine) => ({
       call: (input) =>
-        ctx.coreInternal("memory", "machines", "call", {
+        ctx.core.machineCall("call", {
           machine,
           ...input,
         }) as Promise<CoreReply>,

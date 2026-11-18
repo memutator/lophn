@@ -19,6 +19,12 @@ export function isStagedProviderSecret(
   return name.startsWith(prefix) && name.length > prefix.length;
 }
 
+// provider id 없이 이름만 보는 임시 이름(`provider.<id>.new.<꼬리>`)이다. 연결이 어느 갈래로 끝나도 지우지만 그 사이에 core가
+// 죽으면 남는다. 기동 때 이것으로 치운다.
+export function isStagedSecretName(name: string): boolean {
+  return /^provider\.[^.]+\.new\..+$/.test(name);
+}
+
 export function providerTokenNames(provider: string): {
   access: string;
   refresh: string;

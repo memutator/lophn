@@ -118,7 +118,7 @@ export interface CoreConnection {
     | { ok: false; error: { code: string; message: string } }
   >;
   /**
-   * `logins/release`를 부른다. shell capability는 이것과 `terminalCall`만 입력에 싣고 값은 호출한 쪽(browser driver)에만 돌아간다.
+   * `logins/release`를 부른다. shell capability는 이것과 `terminalCall`·`machineCall`만 입력에 싣고 값은 호출한 쪽(browser driver)에만 돌아간다.
    * origin은 부르는 쪽이 ref 요소가 든 frame에서 잰 값이다.
    */
   releaseLogin(request: {
@@ -135,6 +135,17 @@ export interface CoreConnection {
    */
   terminalCall(
     method: "input" | "restart",
+    body: Record<string, unknown>,
+  ): Promise<
+    | { ok: true; value: unknown }
+    | { ok: false; error: { code: string; message: string } }
+  >;
+  /**
+   * 다른 기계를 부른다(`machines/call`·`watch`). core는 shell capability가 있는 호출만 넘긴다: 받는 기계는 이 컴퓨터를 사람으로
+   * 보므로 사람의 CLI token이 이 길을 타지 못하게 한다.
+   */
+  machineCall(
+    method: "call" | "watch",
     body: Record<string, unknown>,
   ): Promise<
     | { ok: true; value: unknown }
@@ -528,6 +539,18 @@ export function startCoreConnection(
         ...body,
         shell_capability: attached.capability,
       })) as Awaited<ReturnType<CoreConnection["terminalCall"]>>;
+    },
+    async machineCall(method, body) {
+      if (attached === undefined) {
+        return {
+          ok: false,
+          error: { code: "unavailable", message: "core is not ready" },
+        };
+      }
+      return (await attached.session.internal("memory", "machines", method, {
+        ...body,
+        shell_capability: attached.capability,
+      })) as Awaited<ReturnType<CoreConnection["machineCall"]>>;
     },
     registerConfirmation(request) {
       const run = () => registerOnce(control, attached, request);

@@ -125,7 +125,7 @@ function setup(
                 };
       return Promise.resolve(ok(value as T));
     },
-    newProviderId: () => "pvd_new",
+    freshId: () => Promise.resolve(ok("pvd_new")),
     configured: (name) =>
       name === "provider.old" || name === "app-oauth.gdrive.client_id",
   });

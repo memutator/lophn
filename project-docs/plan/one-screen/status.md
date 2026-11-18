@@ -11,7 +11,7 @@ lead만 고친다. `tools/status.py one-screen build`가 `tasks/*.md`에서 id, 
 | `screen-lists` | screen | 2 | screen-base-core, screen-base-scope | merged | screen/screen-lists | 0d8b2baf4 | merge stopped: existing gallery pages hang (render loop) after the change; back with the worker |
 | `screen-phone` | screen | 2 | screen-base-core, screen-base-scope | merged | screen/screen-phone | b01b6896a |  |
 | `screen-terminals` | screen | 2 | screen-base-core, screen-base-scope | merged | screen/screen-terminals | c3ad2994c |  |
-| `screen-inbox` | screen | 3 | screen-lists | running | screen/screen-inbox |  |  |
+| `screen-inbox` | screen | 3 | screen-lists | merged | screen/screen-inbox | 6d32b7a6e |  |
 | `screen-layout` | screen | 3 | screen-lists, screen-terminals, screen-apps | merged | screen/screen-layout | a9f94b650 |  |
 | `screen-pages` | screen | 3 | screen-lists | merged | screen/screen-pages | 57a0c24ba |  |
 | `screen-rest` | screen | 3 | screen-lists, screen-terminals, screen-apps | merged | screen/screen-rest | 1eb5c34a3 |  |

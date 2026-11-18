@@ -467,6 +467,8 @@ export const REMOTE_ALLOWED_EVENTS = [
   "TerminalScreenChanged",
   // 터미널이 열리고 끝나고 크기와 이름이 바뀌었다(출력은 싣지 않는다). 다른 컴퓨터의 터미널 탭이 따라간다
   "TerminalRuntimeChanged",
+  // 터미널의 coding agent가 사람에게 알릴 계기(물음, 끝, 실패). 다른 컴퓨터의 창이 toast와 OS 알림을 고른다
+  "TerminalAgentSignaled",
   // 보는 browser page의 그림이나 상태가 바뀌었다(내용 없이 seq만. `page_view/snapshot`을 다시 읽는다)
   "PageViewChanged",
   // 폰에서 도는 앱: sync log에 줄이 생기면 폰이 pull한다

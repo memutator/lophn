@@ -10,4 +10,4 @@ lead만 고친다. `tools/status.py carry-paths build`가 `tasks/*.md`에서 id,
 | `carry-notify` | carry | 2 | carry-contract | merged | carry/carry-notify | a5b673917 |  |
 | `carry-phone` | carry | 2 | carry-contract | merged | carry/carry-phone | 7ffbafb2d |  |
 | `carry-settings` | carry | 3 | carry-links, carry-folder | merged | carry/carry-settings | c38d8a46f |  |
-| `carry-cleanup` | carry | 4 | carry-phone, carry-notify, carry-settings | todo |  |  |  |
+| `carry-cleanup` | carry | 4 | carry-phone, carry-notify, carry-settings | running | carry/carry-cleanup |  |  |

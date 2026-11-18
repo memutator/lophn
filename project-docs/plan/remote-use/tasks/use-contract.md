@@ -1,6 +1,6 @@
 # use-contract
 
-다른 기계로 넘기는 call의 계약을 고정한다: call frame에 싣는 요청한 쪽(`Requester`), 기계 이름 풀기, `--on`을 떼는 parser 함수, 받는 기계의 앱 command 입구 route, 호출 기록의 새 caller 종류 `remote`와 그 ledger step, 할당에 붙는 기계, 앱 호출 경로의 `remote` target과 그 port, core의 `machineLinks` 자리. 동작은 짓지 않는다(port는 `unavailable`을 돌려주는 자리만 둔다). SDK `@lophn/cap-tool`의 caller 모양과 `connectCommands`의 `on`을 여기서 한 번에 올린다. `architecture/app-call.md`·`approval.md` 초안을 쓴다.
+다른 기계로 넘기는 call의 계약을 고정한다: call frame에 싣는 요청한 쪽(`Requester`), 기계 이름 풀기, `--on`을 떼는 parser 함수, 받는 기계의 앱 command 입구 route, 호출 기록의 새 caller 종류 `remote`와 그 ledger step, 할당에 붙는 기계, 앱 호출 경로의 `remote` target과 그 port, core의 `machineLinks` 자리. 동작은 짓지 않는다(port는 `unavailable`을 돌려주는 자리만 둔다). SDK `@lophn/cap-tool`과 손 사본 셋은 `use-contract-sdk`가 이 brief의 "내놓는 것" 모양으로 맞춘다. `architecture/app-call.md`·`approval.md` 초안을 쓴다.
 
 - 단위: use (wave 1)
 - 선행: 없음
@@ -12,9 +12,7 @@
   - `packages/core/main/daemon/wiring/context.ts`(`Late`와 `LATE_KEYS`에 `machineLinks`. `use-grant`가 `computerSigningKey` 아래에 `computerGranted` 한 줄을 더한다. 자리가 달라 merge가 합친다), `packages/core/main/daemon/wiring/apps.ts`(forward 자리 한 줄)
   - `packages/core/remote/machine-routes.ts`(`shell_capability`가 optional이 되어 type이 깨지면 칸이 없을 때도 지금처럼 `forbidden`으로 두는 한 줄만. `screen`·`terminal` 갈래는 `use-send`)
   - `packages/core/apps/calls/{caller,gate,service,intake}.ts`, `packages/core/apps/calls/forward.ts`(새 file, type만), `packages/core/apps/calls/calls_test.ts`(새 dep `forward`를 채우는 것만)
-  - `packages/core/apps/invocations/{schema,schema_test,context,rows}.ts`, `packages/core/apps/runtime/entrypoint/{wire,broker-client}.ts`(손 사본)
-  - `packages/sdk/cap-tool/{context,connect}.ts`, `packages/sdk/cap-tool/guide.md`, `packages/sdk/cap-tool/package.json`(2.2.0 → 2.3.0), `packages/core/agent-workspaces/skills/migrate-sdk/cap-tool-2.3.0.md`(새 file)
-  - pin 자리(`sdk-note`의 grep으로 찾은 것만): `packages/core/apps/packages/template/app/{lophn.ts.tmpl,package.json.tmpl}`(지금 `cap-tool` 2.2.0), `tests/support/app/sample/lophn.ts.tmpl`, `package-lock.json`
+  - `packages/core/apps/invocations/{schema,schema_test,rows}.ts`(`context.ts`는 `use-contract-sdk`)
   - `packages/shell/renderer/app-frame/app-detail/reads.ts`(type이 깨지는 `remote` 갈래 한 줄만)
   - `project-docs/architecture/app-call.md`, `project-docs/architecture/approval.md`, `project-docs/flows/tests/{libs-tooling,core-apps}.yaml`
 - 읽을 것:
@@ -23,7 +21,7 @@
   - 변경 기록: `project-docs/products/change-log/0.23/multi-device-fixes.yaml`(`machines/*`의 capability, 기기 허락의 가장자리), `one-screen.yaml`(기기 route 목록, 구독자마다의 watch)
   - architecture: `app-call.md`("호출의 흐름", 지키는 것 "호출 경로" 2·8, "경계와 계약"), `approval.md`("폰(기기) 자격", 지키는 것 2·6·7), `agent-call.md`(call 정책), `remote.md`
   - boundary·module: `remote-protocol`, `core-api`, `child-supervision-protocol`, `sdk-api`; module `remote`, `apps`, `approvals`, `coding-agent-cli`
-  - skill: `.claude/skills/sdk-note/SKILL.md`, `.claude/skills/write-test/SKILL.md`
+  - skill: `.claude/skills/write-test/SKILL.md`
 - 계약:
   - 쓰는 것: `callFrameSchema`(`frames.ts`의 export하지 않은 const. 이 file 안에서 고친다), `machinesCall`·`machinesWatch`(`routes.ts`. 지금 입력은 `machinesCall {machine, resource, method, body, shell_capability}`와 `machinesWatch {machine, watcher, conditions, shell_capability}`), `appToolCallerSchema`, `appToolTargetSchema`, `toolCallOutputSchema`, `brokerAppCallInputSchema`, `assignmentEntrySchema`, `callPolicySchema`, `multi-device-fixes`가 둔 `createMachineRoutes`(`packages/core/remote/machine-routes.ts`), `parseCommandLine`, `Late`·`LATE_KEYS`(`wiring/context.ts`)
   - 내놓는 것(뒤 task가 이 이름으로 짓는다):
@@ -53,9 +51,9 @@
 4. `parser.ts`에 `splitOn`. `packages/protocol/apps/declaration/tools.ts`의 command 입력 flag 검사(314~327줄의 `flags` 표, 지금은 같은 flag끼리의 충돌만 본다)에서 flag가 `--on`인 최상위 칸을 거절한다(`command <x> field on has the CLI flag --on, which picks a machine`). 전역 flag는 `--json`, `--help`, `--input`, `--input-file`, `--idempotency-key`, `--on`이다. 0.23.90 main의 명령 표(`COMMANDS` 80개 `packages/cli/commands/mod.ts`, `LOCAL_COMMANDS` 7개 `packages/coding-agent/mod.ts`, `CORE_COMMANDS` 1개 `packages/cli/commands/core.ts`)를 `fieldsOf`(`packages/cli/parser.ts`)로 훑으면 flag가 `--on`·`--no-on`인 칸이 없다(2026-11-19 확인. `--machine`은 `machine forget`의 칸이라 쓰지 않는다). `use-grant`의 새 명령 `remote terminal-input`은 `--off`를 쓰므로 부딪치지 않는다. 시작할 때 같은 훑기를 다시 해 보고에 적는다(test로 두지 않는다).
 5. core type 맞추기: `caller.ts`(CallAuth·VerifiedCaller·`verifyCaller`: `remote`는 `auth.remote`와 본문이 같을 때만 통과, agent·app의 `remote` target을 받는다), `gate.ts`(`remote` caller는 아직 `ok(false)`), `intake.ts`·`service.ts`(flight를 만들 때 `remote`를 채운다. `verifyCaller` 바로 뒤에 `target.mode === "remote"`면 command가 아니거나 caller가 agent·app이 아닐 때 `forbidden`, 아니면 `deps.forward`로 넘긴다), `wiring/apps.ts`(forward 자리에 `unavailable`을 돌려주는 함수). `forward.ts`는 type만 둔다. `createRemoteCall`의 dep `kind`(받는 쪽이 기기의 종류를 보는 자리)는 이 task가 두지 않는다. `use-receive`가 `call.ts`에 두고 `call_test.ts`의 준비와 `wiring/remote.ts`의 한 줄을 넘길 줄로 맞춘다(`wiring/remote.ts`는 같은 wave 1의 `use-grant`가, `call_test.ts`는 wave 2의 `use-send`가 소유한다). 이 task는 `call.ts`·`call_test.ts`·`wiring/remote.ts`를 고치지 않는다. `call_test.ts`의 `multi-device-fixes` test(441줄)는 `use-send`가 바꾼다.
 6. ledger step: `apps.invocations.event-caller`(`invocations/schema.ts` 120줄)처럼 `invocations`를 다시 짜 `caller_kind` CHECK(지금 `'person','agent','app','program','flow','event'`)에 `'remote'`를 더한다. index·trigger는 그 step의 SQL이 아니라 지금 ledger의 모양을 옮긴다. `invocations_no_delete`는 `apps/registration/schema.ts` 90줄이 erase window 조건으로 다시 만든다: 새 data root로 모든 step을 돈 뒤 `sqlite_master`에서 읽어 맞춘다. 낸 step의 SQL은 고치지 않는다. `rows.ts`가 kind를 읽으면 같이 맞춘다. lead가 `packages/core/main/daemon/wiring/remote.ts`의 `schemaStepsAfterTeams` 끝에 `...invocationsRemoteCallerSchemaSteps`를, `schema-steps.lock.json` 끝에 `{id, sha256}`을 더한다.
-7. 손 사본(`app-call.md` 지키는 것 8): `core/apps/invocations/context.ts`, `core/apps/runtime/entrypoint/wire.ts`(parser가 `remote`를 받는다. 지금 event caller의 `machine`과 person의 `device`·`machine`은 세 손 사본 모두에 없고 parser가 아는 칸만 옮겨 버린다: event의 `machine`도 같이 더한다), `entrypoint/broker-client.ts`(`appsCall` 본문 `machine?`), SDK `cap-tool/context.ts`. SDK `connectCommands(app, commands, options?: {on?: string})`(`connect.ts` 158줄, 지금 `(app, commands)`)가 broker 본문에 `machine`을 싣는다. `guide.md`에 한 단락(다른 기계의 앱 부르기, `remote` caller). `sdk-note` skill대로 `cap-tool` 2.2.0 → 2.3.0(minor), pin, `migrate-sdk` 메모, Instruction diff. `cap-tool`은 다른 SDK package를 pin하지 않고 `@lophn/declaration`(4.10.0)·`@lophn/app-ui`(2.21.0)·`@lophn/app-ui-native`(1.8.0)는 이 task가 올리지 않는다(`use-events`가 올린다).
+7. 손 사본(`app-call.md` 지키는 것 8)과 SDK `cap-tool` 2.3.0은 `use-contract-sdk`가 한다. 이 task는 위 "내놓는 것"의 `remote` caller, event의 `machine`, broker 본문의 `machine?` 모양을 그 task가 같게 짓도록 고정만 한다(그 brief가 같은 모양을 적었다. 바꾸면 두 brief를 같이 고친다).
 8. renderer `app-detail/reads.ts`의 `callerOf`가 type으로 깨지면 `remote` 갈래를 가장 작게 둔다(보이는 모양은 `use-screens`).
-9. `app-call.md` 초안: caller 일곱, `remote` target과 받는 기계 입구, 손 사본 목록. `approval.md` 초안: "폰(기기) 자격"의 넘긴 call 단락을 요청한 쪽 표(아래)로, 할당의 기계, private의 두 자리. 할당한 앱 command는 다른 기계의 것도 묻지 않고 돈다(승인 카드는 그대로다). code path는 적지 않는다.
+9. `app-call.md` 초안: caller 일곱, `remote` target과 받는 기계 입구, 손 사본 목록(고치는 일은 `use-contract-sdk`). `approval.md` 초안: "폰(기기) 자격"의 넘긴 call 단락을 요청한 쪽 표(아래)로, 할당의 기계, private의 두 자리. 할당한 앱 command는 다른 기계의 것도 묻지 않고 돈다(승인 카드는 그대로다). code path는 적지 않는다.
 
 받는 기계의 표(`approval.md`에 그대로 적는다. 구현은 `use-receive`):
 
@@ -100,4 +98,4 @@
 ## 시작 전에 다시 볼 것
 
 - 없음(이 brief를 쓴 날 code로 위를 확인했다). 시작할 때 `REMOTE_PROTOCOL_VERSION`이 4(하한 4)이고 `schema-steps.lock.json`의 끝이 `projects.registry.former-identities`인지 한 줄로 본다. 다른 계획이 먼저 올렸으면 다음 수와 그 뒤에 붙인다.
-- 이 task가 크다. 한 session에 안 끝나면 SDK와 손 사본(7)을 wave 1의 둘째 task `use-contract-sdk`로 뗀다. 그 부분은 위 "내놓는 것"의 모양만 쓰므로 다른 부분을 기다리지 않는다.
+- 손 사본과 SDK는 `use-contract-sdk`로 뗐다(wave 1, 선행 없음). 이 task는 그 file을 고치지 않는다.

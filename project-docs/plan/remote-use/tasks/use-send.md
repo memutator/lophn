@@ -81,4 +81,4 @@
 
 ## 시작 전에 다시 볼 것
 
-- 없음(이 brief를 쓴 날 code로 확인했다). 확인한 것: 터미널 탭의 `lophn`은 host가 core의 `LOPHN_*`를 지우고 `LOPHN_SESSION_ID=term:<trm_>`만 넣어 사람 token이다(`terminals/host/main.ts` 131줄). 그러므로 그 탭 안에서 부른 `--on`은 `terminal`로 실린다(그 안에서 coding agent가 쳐도 받는 기계는 구별하지 못한다. 보고의 "알려진 미완 동작"에 적는다). `links.watch`는 구독자 `{capability, watcher}`별이고 core 안 구독자는 `capability: null`이다(`use-events`). `RUNTIME_MACHINE_ROUTES`는 `lophn-agent/run-loop/runtime-access.ts` 67줄이다. `prepare.ts`의 `apps()`·`dispatch`(645~660줄의 `called`)는 다른 계획이 같이 고칠 수 있으니 시작할 때 한 번 다시 연다.
+- 없음(이 brief를 쓴 날 code로 확인했다). 확인한 것: 터미널 탭의 `lophn`은 host가 core의 `LOPHN_*`를 지우고 `LOPHN_SESSION_ID=term:<trm_>`만 넣어 사람 token이다(`terminals/host/main.ts` 131줄). 그러므로 그 탭 안에서 부른 `--on`은 `terminal`로 실린다(그 안에서 coding agent가 쳐도 받는 기계는 구별하지 못한다. 받는 컴퓨터가 그 컴퓨터를 허락했을 때만 닿고(`use-grant`의 표) 그 허락과 기기 route 목록이 넘볼 수 있는 한계다. 보고의 "알려진 미완 동작"에 적는다). `links.watch`는 구독자 `{capability, watcher}`별이고 core 안 구독자는 `capability: null`이다(`use-events`). `RUNTIME_MACHINE_ROUTES`는 `lophn-agent/run-loop/runtime-access.ts` 67줄이다. `prepare.ts`의 `apps()`·`dispatch`(645~660줄의 `called`)는 다른 계획이 같이 고칠 수 있으니 시작할 때 한 번 다시 연다.

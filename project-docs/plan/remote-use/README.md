@@ -25,6 +25,7 @@
 |---|---|---|---|
 | 1 | `use-grant` | 없음 | 터미널 입력 허락을 받는 컴퓨터의 ledger로 옮긴다: 명단의 칸을 없애고, 초대장과 My devices의 스위치(과 화면 없는 컴퓨터를 위한 CLI)가 이 컴퓨터의 허락만 바꾼다. 쓰던 허락은 첫 기동에서 옮긴다. 여기서 허락한 컴퓨터의 새 release는 묻지 않고 따라간다 |
 | 1 | `use-contract` | 없음 | 넘기는 call에 싣는 요청한 쪽, 받는 쪽의 새 입구 route와 기록(호출 기록의 새 종류와 ledger step), 할당·trigger·구독에 붙는 기계, 기계 이름 풀기, `--on`. `architecture/app-call.md`·`approval.md` 초안 |
+| 1 | `use-contract-sdk` | 없음 | 앱 process의 caller 손 사본 셋과 SDK `cap-tool` 2.3.0(`remote` caller, event의 `machine`, `connectCommands`의 `on`), `migrate-sdk` 메모와 pin. `use-contract`가 고정하는 모양과 같게 짓고 서로의 code를 기다리지 않는다 |
 | 2 | `use-receive` | `use-contract`, `use-grant` | 받는 기계: 입구 route, 요청한 쪽을 종류마다 대하기, 터미널 입력 허락·private·내놓은 command 검사, 기록 |
 | 2 | `use-send` | `use-contract` | 부르는 기계: agent의 tool과 앱의 호출이 다른 기계의 앱으로 가는 길, 할당과 승인, private, 닿지 않을 때 |
 | 2 | `use-cli` | `use-contract` | CLI의 `--on`과 기계 이름 풀기, 사람의 터미널에서 다른 기계로 |
@@ -42,6 +43,10 @@
 - 터미널 입력 허락이 없는 컴퓨터의 요청은 받는 기계가 앱 command를 돌리지 않는다.
 - private인 workspace의 앱 event는 다른 기계의 구독자에게 가지 않는다.
 - 호출 기록을 옮긴 뒤 지난 기록이 그대로 읽힌다.
+
+## 남는 한계
+
+- 다른 컴퓨터만 가진 앱의 event는 이 컴퓨터가 꺼져 있거나 닿지 않는 동안 낸 것이 남지 않는다. 연결은 그 순간의 event만 나르고 저장하지 않는다. 늦게 오는 것은 두 컴퓨터가 다 가진 앱(`sync_to`)의 `across_machines` event뿐이다. 이 계획은 대기열을 만들지 않는다.
 
 ## 시작할 때의 code
 
@@ -64,8 +69,8 @@
 - 세 계획이 올라간 뒤의 code로 brief를 다시 맞췄다(2026-11-19). brief마다 "시작 전에 다시 볼 것"에 남은 것만 있다. 띄울 때 `git log --oneline -5`로 그 사이 바뀐 곳만 본다.
 - 권한 경계를 바꾸는 계획이다. `use-contract`와 `use-grant`가 끝나면 merge하기 전에 다른 worker에게 review를 맡긴다. 볼 것: 요청한 쪽을 누가 실을 수 있는가, 받는 기계가 믿는 것과 다시 보는 것, 한 hop을 더 건너 넓어지는 길(A가 B를 거쳐 C), 허락이 명단 view로 다시 새지 않는가.
 - wave 1을 합칠 때 lead가 맞출 줄: `schemaStepsAfterTeams`와 `schema-steps.lock.json`에 두 task의 step을 같은 차례로, `wiring/context.ts`(`use-contract`의 `machineLinks`와 `use-grant`의 `computerGranted`를 둘 다), `protocol/remote/mod.ts`·`core/remote/mod.ts`의 export, `protocol/remote/routes.ts`의 허락 주석(`use-grant`가 문장을 적는다), `approval.md`의 허락 문장(`use-grant`가 문장을 적는다), `REMOTE_PROTOCOL_VERSION` 5(`use-contract`가 올리고 `use-grant`는 그 5에 얹는다). wave 2에서 `use-receive`가 `call_test.ts`와 `wiring/remote.ts`에 맞추는 `kind` 한 줄, `use-send`가 `wiring/apps.ts`의 forward 자리.
-- `use-contract`는 크다(SDK 판, 손으로 맞춘 caller parser 사본들, ledger step을 한 번에 든다). 한 session에 안 끝나면 SDK와 손 사본 부분(brief의 7)을 wave 1의 둘째 task `use-contract-sdk`로 뗀다. 그 부분은 brief가 적은 모양만 쓰므로 다른 부분을 기다리지 않는다.
-- `use-grant`의 새 CLI 명령(`remote terminal-input`)은 화면 없는 컴퓨터(VM)가 PC의 허락을 켜는 유일한 길이다. 이 계획의 목표가 필요로 해서 넣었으니 사람이 필요 없다고 하면 뺀다.
+- `use-contract`에서 SDK와 손 사본 부분을 `use-contract-sdk`로 뗐다. 둘이 같은 모양(`remote` caller, event의 `machine`, broker 본문의 `machine?`)을 각 brief에 적었으니 바꿀 때 두 brief를 같이 고친다.
+- `use-grant`: 한 초대장으로 두 방향이 서도록 합류하는 컴퓨터가 초대한 컴퓨터를 허락한다(`roster/join`·합류 화면·`lophn remote join`의 `terminal_input`, 기본 켬). 새 CLI 명령 `remote terminal-input`은 그 밖에 허락을 바꾸는 길이다(화면 없는 컴퓨터 포함).
 - `multi-device-fixes`가 둔 test "CLI의 사람 token으로 machines/call을 부르지 못하고 shell main의 capability는 다른 기계로 가지 않는다"(`call_test.ts`)는 이 계획이 대신한다: 사람의 터미널은 "터미널"로 실려 부르게 되고, 그 요청이 사람의 route와 자동 확인을 받지 못하는 것을 새 test가 본다(`use-send`).
 - 다른 기계로 보낸 긴 command가 연결의 한도(같이 도는 call 8개, call 하나 120초)에 걸리는 것은 알려진 미완이다. 걸리면 이슈로 올린다.
 - SDK와 앱 지침을 바꾸는 task는 `sdk-note` skill을 따른다. 화면 task는 `ui-design` skill대로 wireframe을 먼저 고친다.

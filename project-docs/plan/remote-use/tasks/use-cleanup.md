@@ -36,7 +36,8 @@
    - 각 문서의 "결정"에 README "정한 것"과 task의 "정한 것"을 근거(사람·agent)와 함께 옮긴다. 열린 것(link의 call 자리와 기한, 꺼진 기계의 앱)을 "열린 것"에 둔다.
 3. catalog: `boundary-catalog.yaml`의 `remote-protocol`(call frame의 `by`, 판), `core-api`(`apps/remote_call`, `machines/app_tools`, `machines/call`의 요청한 쪽), `sdk-api`(`connectCommands`의 `on`, 선언 구독의 `machine`), `event-stream`(컴퓨터에 내주는 `AppEventPublished`). `module-catalog.yaml`의 `packages/core/remote` notes(구독, 요청한 쪽).
 4. flows(`flows` skill): `node tools/flows.ts report`로 이 계획이 더한 entry의 `unclear`와 덮이지 않은 risk outcome을 본다. 각 task가 쓴 flow가 지은 동작과 맞는지 맞추고, journey 하나를 더한다(`journeys/agent-automation.yaml`: 한 컴퓨터의 agent가 다른 컴퓨터의 앱 command를 부르고, 그 앱의 event로 job이 돈다).
-5. 이슈: `roster-computer-self-grants-terminal-input`이 `use-grant`로 고쳐졌는지 보고 닫을 근거를 보고에 적는다(닫기는 lead가 `issue` skill로 한다). `remote-call-errors-drop-details`는 `multi-device-fixes`가 고쳐 이미 fixed다. 계획 중에 생긴 "무겁게 짠 것"과 "알려진 미완 동작"은 lead가 이슈로 올린다.
+5. 말: 명단 항목의 칸이 터미널 입력을 허락한다고 말하는 곳이 code 주석, 오류 문구, 문서, flows, i18n, catalog에 남았는지 훑어 고친다(허락은 받는 컴퓨터가 그 컴퓨터에서 켠 것이다). `use-grant`가 이미 고친 곳(`remote.md`, `terminal-agent.md`, `folder-sync.md`, `settings.md`, flows `roster-*`)은 다시 맞는지만 본다. `grep -rn "명단.*터미널 입력\|모든 기계에 같다\|computerTerminalInput" packages project-docs`로 찾는다.
+6. 이슈: `roster-computer-self-grants-terminal-input`이 `use-grant`로 고쳐졌으니 닫을 근거를 보고에 적는다. 근거는 `use-grant`의 위험 test "명단의 컴퓨터가 자기 항목이나 다른 기기의 항목을 어떻게 서명해도 이 컴퓨터의 터미널 입력 허락은 켜지지 않는다"(그 task가 정한 test 이름을 lead가 건네 준다)다(닫기는 lead가 `issue` skill로 한다). `remote-call-errors-drop-details`는 `multi-device-fixes`가 고쳐 이미 fixed다. 계획 중에 생긴 "무겁게 짠 것"과 "알려진 미완 동작"은 lead가 이슈로 올린다.
 
 ## 끝남
 
@@ -47,6 +48,7 @@
   - `grep -n "여섯" project-docs/architecture/app-call.md`에 caller 종류를 말하는 줄이 없다
   - `grep -rn "call its routes directly, not through machines/call" packages tests`
   - `grep -rn "다른 기계로 넘긴 call은 그 기계에서 기기 route 목록과 허락으로" packages tests`
+  - `grep -rn "computerTerminalInput" packages tests`와 5의 grep이 명단 항목의 칸을 허락이라 말하는 줄을 내지 않는다
 
 ## 보고
 

@@ -13,7 +13,7 @@ lead만 고친다. `tools/status.py one-screen build`가 `tasks/*.md`에서 id, 
 | `screen-terminals` | screen | 2 | screen-base-core, screen-base-scope | merged | screen/screen-terminals | c3ad2994c |  |
 | `screen-inbox` | screen | 3 | screen-lists | running | screen/screen-inbox |  |  |
 | `screen-layout` | screen | 3 | screen-lists, screen-terminals, screen-apps | running | screen/screen-layout |  |  |
-| `screen-pages` | screen | 3 | screen-lists | running | screen/screen-pages |  |  |
+| `screen-pages` | screen | 3 | screen-lists | merged | screen/screen-pages | 57a0c24ba |  |
 | `screen-rest` | screen | 3 | screen-lists, screen-terminals, screen-apps | running | screen/screen-rest |  |  |
 | `screen-windows` | screen | 3 | screen-lists | running | screen/screen-windows |  |  |
 | `screen-cleanup` | screen | 4 | screen-layout, screen-inbox, screen-pages, screen-windows, screen-phone, screen-link | todo |  |  |  |

@@ -1,6 +1,6 @@
 # shell as client: 일은 core가 하고 shell은 화면 가운데 하나다
 
-상태: 로드맵. 2026-11-17 사람이 방향을 내고 planner가 정리했다. 계획 셋으로 연다(아래 "순서와 계획"). `standalone-core.md`(끝남. core가 shell 밖에서 스스로 선다)의 다음 걸음이고, `multi-device.md`의 순서 3이다.
+상태: 로드맵. 2026-11-17 사람이 방향을 내고 planner가 정리했다. 계획 셋으로 연다(아래 "순서와 계획"). `core-terminals`는 끝났다(2026-11-18). `core-setup`과 `core-browser`가 남았다. `standalone-core.md`(끝남. core가 shell 밖에서 스스로 선다)의 다음 걸음이고, `multi-device.md`의 순서 3이다.
 배경 문서: `project-docs/architecture/platform.md`, `terminal-agent.md`, `coding-agent.md`, `acp.md`, `harness-gui.md`, `browser-tab.md`, `workspace-layout.md`, `remote.md`, `agent-definition.md`. 앞선 로드맵: `standalone-core.md`, `agent-browser-lifetime.md`, `secret-request.md`, `mobile.md`. 조사: `reports/multi-device/survey-s3-shell-work.md`, `survey-s4-setup-tabs.md`, `survey-s5-browser.md`.
 
 ## 사람의 말 (원문)
@@ -59,7 +59,7 @@
 
 | 계획 | 무엇 | 기대는 것 |
 |---|---|---|
-| `core-terminals` | 터미널, coding agent(GUI session, harness adapter, 화면 없는 harness turn), 그 상태와 알림의 근거를 core로 옮긴다. desktop 화면과 폰이 같은 route로 붙는다 | 없음 |
+| `core-terminals`(끝남) | 터미널, coding agent(GUI session, harness adapter, 화면 없는 harness turn), 그 상태와 알림의 근거를 core로 옮긴다. desktop 화면과 폰이 같은 route로 붙는다 | 없음 |
 | `core-setup` | 처음 설정을 어느 화면에서나 한다: secret 넣기, provider 연결과 로그인, 기본 model, project 더하기. 순서를 쥔 code를 화면에서 core로 옮긴다 | 없음 |
 | `core-browser` | 화면 없는 기계에서 core가 browser를 띄운다. agent의 page를 다른 기기에서 보고 끼어든다 | core와 shell이 주고받는 file이 `core-terminals`와 겹쳐 그 뒤에 합친다 |
 
@@ -75,9 +75,16 @@
 - VM에서 도는 job이 browser를 쓴다. 로그인이 필요하면 폰에서 그 page를 열어 직접 로그인한다.
 - 폰과 desktop이 같은 기계의 같은 터미널과 coding session 목록을 본다.
 
+## 끝난 것: core-terminals
+
+- PTY host와 extension host(registry, CLI를 띄우는 spawner, bundled `harness`·`harness-gui`)가 core의 자식이다. 터미널 coding agent의 tracker, hook socket, GUI handle, TUI hold, hook 설치, harness 찾기, `$BROWSER` bridge도 core에 있다. core가 사람의 login shell env와 `lophn` 경로를 읽는다.
+- desktop 탭과 폰은 같은 `terminals/*`, `coding_sessions/*`, `acp/*` route로 붙는다. 창이 없어도 열리고, 화면 없는 harness turn은 앱 없이 돈다. 앱을 Quit해도 터미널은 돈다(Quit이 "그대로 두기"와 "다 닫기"를 묻는다). 탭은 layout의 `terminal_ref`로 다시 붙는다. layout은 화면마다 그대로다.
+- shell에는 focus 검사, clipboard, link를 browser 탭으로 여는 것, OS 알림(`TerminalAgentSignaled`)이 남는다. core와 shell 사이 link에는 `tab_open|tab_close|tab_show`와 `browser_call`만 남는다. 폰의 깨우기(`coding_sessions/wake`)는 없앴다.
+- 설계는 `architecture/terminal-agent.md`, `coding-agent.md`, `harness-gui.md`, `extension.md`, `platform.md`다.
+
 ## 지금 code
 
-조사한 날의 main(0.23.80)이다. 자세한 것은 `reports/multi-device/survey-s3-shell-work.md`, `survey-s4-setup-tabs.md`, `survey-s5-browser.md`에 있다.
+조사한 날의 main(0.23.80)이다. 아래 "터미널과 coding agent"는 `core-terminals` 전의 모습이다. 자세한 것은 `reports/multi-device/survey-s3-shell-work.md`, `survey-s4-setup-tabs.md`, `survey-s5-browser.md`에 있다.
 
 **터미널과 coding agent**
 - PTY를 쥔 process(`packages/shell/terminal-host`)는 Electron 앱 한 번 실행에 하나이고 shell main의 자식이다. 수명이 그 pipe에 묶여 있다. 창을 다 닫아도 살지만 Quit하면 죽는다.

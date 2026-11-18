@@ -52,12 +52,12 @@ OS마다 다른 순수 규칙은 base의 OS 층 한 곳에 있다. base는 node 
 - **기동 순서.** 팀 조립과 route 등록을 확인한 뒤 ledger schema step을 적용하고, 그다음 기계 단계가 이 설치의 기계 신분(`machine.json`)을 정한다(`machine.md`: 처음이면 만들고, 복사된 data root면 새 기계로 바꾸고, 못 읽으면 덮지 않고 기동을 거절한다). 그 뒤에 data step, ledger 식별, 재시작 점검, wiring 조립이 온다. 기계 단계가 data step과 wiring보다 앞이라 data step(`remote.host-key.machine`)과 wiring이 지금 기계 id를 읽는다. 앱 supervisor는 이 기동이 만든 file을 읽고, 없으면 뜨지 않는다.
 - **동시 시작은 data root의 `run/instance.lock`이 가른다.** lock을 잡은 core만 socket 잔여물을 치우고 listen한다. 진 core는 살아 있는 core의 socket과 runtime file을 건드리지 않고 끝나며, ensure는 identify를 다시 물어 이긴 core에 붙는다. liveness는 "identify가 답한다"이고 pid file이나 HTTP health probe를 쓰지 않는다. 끝나는 중(`stopping`)인 core를 만나면 ready나 사라짐을 기다린다.
 - **판 대조.** identify의 제품 판이나 protocol 판이 ensure 쪽과 다르면 ensure가 `stop`을 보내 끝나기를 기다린 뒤 새로 띄운다(한 번). 돌던 run·job 차례는 종료와 같이 `interrupted`가 된다.
-- **끝나는 길은 셋이고 barrier는 하나다.** control `stop`(`lophn core stop`, tray의 `Stop lophn`, 판 교체), idle-exit, SIGINT·SIGTERM. 앱의 Quit(Cmd+Q, `--quit`, will-quit, tray의 `Quit lophn`)는 shell 자원과 연결만 정리하고 core는 남긴다. 명시 stop 뒤에는 shell이 core를 저절로 다시 띄우지 않는다(`closed(shutdown)`이나 identify `stopping`을 본 shell은 죽은 연결을 비우고, 30초마다 identify를 물어 이미 도는 같은 판 core에만 다시 붙는다. 다른 client가 stop하고 새 core를 띄워도 shell이 스스로 붙고 Reconnect도 그 core에 붙는다). 반대 방향은 하나 있다: 앱을 Quit한 뒤에도 core가 browser가 필요하면 shell을 띄운다(아래 "core가 shell을 띄운다"). core가 crash하면 core 쪽에서 다시 띄우는 감독은 없고 다음 ensure(shell 재연결, CLI 호출)가 띄운다. 표시한 기계의 Linux·macOS에서 OS가 띄운 core는 OS가 다시 띄운다(아래 "늘 켜 둠"). shell의 재연결에는 상한이 있다(아래 "core가 죽었을 때"). core가 SIGKILL돼도 child는 stdin EOF로 스스로 끝난다. `lophn core stop`은 core를 띄우지 않는다.
+- **끝나는 길은 셋이고 barrier는 하나다.** control `stop`(`lophn core stop`, tray의 `Stop lophn`, 판 교체), idle-exit, SIGINT·SIGTERM. 앱의 Quit(Cmd+Q, `--quit`, will-quit, tray의 `Quit lophn`)는 shell 자원과 연결만 정리하고 core는 남긴다. 터미널과 coding agent는 core의 것이라 Quit 뒤에도 돈다. 도는 터미널이 있으면 Quit이 "그대로 두기"(기본)와 "다 닫기"를 묻는다(어느 쪽이든 core는 남는다). `Stop lophn`은 core를 멈추므로 도는 터미널이 있으면 그래도 끌지 묻는다. PTY host와 extension host는 core의 자식이라 core가 끝나면 터미널과 extension의 CLI도 끝난다. 명시 stop 뒤에는 shell이 core를 저절로 다시 띄우지 않는다(`closed(shutdown)`이나 identify `stopping`을 본 shell은 죽은 연결을 비우고, 30초마다 identify를 물어 이미 도는 같은 판 core에만 다시 붙는다. 다른 client가 stop하고 새 core를 띄워도 shell이 스스로 붙고 Reconnect도 그 core에 붙는다). 반대 방향은 하나 있다: 앱을 Quit한 뒤에도 core가 browser가 필요하면 shell을 띄운다(아래 "core가 shell을 띄운다"). core가 crash하면 core 쪽에서 다시 띄우는 감독은 없고 다음 ensure(shell 재연결, CLI 호출)가 띄운다. 표시한 기계의 Linux·macOS에서 OS가 띄운 core는 OS가 다시 띄운다(아래 "늘 켜 둠"). shell의 재연결에는 상한이 있다(아래 "core가 죽었을 때"). core가 SIGKILL돼도 child는 stdin EOF로 스스로 끝난다. `lophn core stop`은 core를 띄우지 않는다.
 - **끝 code.** 정상 종료(stop, idle-exit, 신호)는 0이다. ready 전 기동 실패는 1이지만 OS service가 띄운 core(환경 `LOPHN_SERVICE=1`)는 0이다: OS는 0이 아닌 끝을 crash로 보고 다시 띄우는데, ready 전 실패는 다시 띄워도 같고 lock을 잃은 것(`conflict`)은 이미 core가 있다는 뜻이다. ready 뒤의 비정상 끝(writer 죽음, 종료 기한 넘김)은 어느 쪽이든 0이 아니라 OS가 다시 띄운다. stdout의 `start_failed` 줄은 둘 다 같다.
-- **idle-exit.** ready 뒤부터 30초마다 일과 client를 다시 본다. 일은 module마다의 machine 전용 read로 센다: 켜진 job(승인 대기 중인 켜진 job도 일), 열린 job run, running run, 모든 project의 running workflow instance. 도는 lophn agent turn도 일이다(대기 중인 입력과 harness queue는 세지 않는다). 설정 `remote.enabled`가 켜져 있거나 이 기계의 늘 켜 둠 표시가 켜져 있으면 늘 일이 있는 것으로 본다(폰은 꺼진 core를 띄우지 못하고, 표시는 창을 닫아도 계속 돌라는 사람의 말이다. 끄는 것은 `Stop lophn`이다). 표시는 OS 등록이 실패했어도 켜져 있는 것이다. client는 진행 중 HTTP 요청과 Gateway 구독이다. 앱 process와 control 요청은 세지 않는다. 일도 client도 없는 상태가 10분 이어져야 끝난다. 읽기가 실패하면 일이 있는 것으로 보고, 읽는 동안 새 요청이 들어왔으면 그 판정을 버린다.
-- **`--core`는 core만 띄운다.** 이 intent를 쓰는 것은 Windows의 로그인 시작 `Run` 값뿐이다(`--core --home <data root>`, 아래 "늘 켜 둠"). 그 Electron은 창·tray·terminal-host·extension을 조립하지 않고 ensure만 한 뒤 끝난다. shell single-instance lock은 창 하나를 지키는 것이라 core의 instance lock과 따로이고, core-only 실행은 그 lock을 잡지 않는다. 옛 tray "Start at login"과 그 등록(`--tray`, macOS `wasOpenedAtLogin`)은 없다. 켜져 있던 옛 등록은 늘 켜 둠 표시로 옮긴다(아래).
-- **core가 shell을 띄운다(browser가 필요할 때와 폰이 깨울 때만).** agent가 `lophn tab open --url`로 browser 탭을 열려는데 shell이 붙어 있지 않으면 core가 앱을 띄운다. 폰이 `coding_sessions/wake`를 부를 때도 같은 길로 띄운다(폰의 명시적 단추일 때만이다. 폰이 목록을 보는 것만으로는 띄우지 않는다). 아래 "한 번에 하나, 실패하면 쉰다"와 "조건"의 환경 표시가 둘에 똑같이 걸린다. 깨워도 터미널은 앱과 함께 죽어 있어 coding session 목록은 비어 있고, 쓸모는 이어서 폰이 새 coding session을 여는 것이다. 앱 창이 있어야 page가 있고(`<webview>`는 보이는 창에서만 그린다) job과 workflow는 사람이 앱을 Quit한 뒤에도 돌기 때문이다. 이 방향(core → shell)은 새로 생겼고 사람이 Quit한 뒤에도 적용된다. Quit은 화면을 끈다는 뜻이고 등록을 승인한 job은 계속 돈다(모두 멈추는 길은 `Stop lophn`이고, 그때는 띄울 core가 없다).
-  - **조건.** browser 탭 열기와 폰의 `coding_sessions/wake`에만 띄운다. extension tool 호출, preview·artifact 탭 열기, 이미 연 탭의 browser 호출은 shell이 없어도 띄우지 않는다(앞의 둘은 기다리고, 마지막은 실패한다). 그리고 그 core를 띄운 쪽이 켰을 때만이다. 사람이 쓰는 core를 띄우는 곳(shell의 core 감독, CLI의 detached 시작, Linux·macOS 로그인 시작 등록의 글)이 환경 `LOPHN_LAUNCH_SHELL=1`을 준다. test, boot, E2E가 띄운 core는 이 값이 없어 앱을 띄우지 않고 shell 없음으로 실패한다. 띄울 길을 모를 때(build하지 않은 개발 저장소)도 같다.
+- **idle-exit.** ready 뒤부터 30초마다 일과 client를 다시 본다. 일은 module마다의 machine 전용 read로 센다: 켜진 job(승인 대기 중인 켜진 job도 일), 열린 job run, running run, 모든 project의 running workflow instance. 도는 lophn agent turn과 화면 없이 도는 harness turn(시작했고 아직 끝나지 않은 것)도 일이다(대기 중인 입력과 harness queue는 세지 않는다). 열린 터미널도 일이다(GUI coding session은 터미널 위에 있어 같이 덮인다). 설정 `remote.enabled`가 켜져 있거나 이 기계의 늘 켜 둠 표시가 켜져 있으면 늘 일이 있는 것으로 본다(폰은 꺼진 core를 띄우지 못하고, 표시는 창을 닫아도 계속 돌라는 사람의 말이다. 끄는 것은 `Stop lophn`이다). 표시는 OS 등록이 실패했어도 켜져 있는 것이다. client는 진행 중 HTTP 요청과 Gateway 구독이다. 앱 process와 control 요청은 세지 않는다. 일도 client도 없는 상태가 10분 이어져야 끝난다. 읽기가 실패하면 일이 있는 것으로 보고, 읽는 동안 새 요청이 들어왔으면 그 판정을 버린다.
+- **`--core`는 core만 띄운다.** 이 intent를 쓰는 것은 Windows의 로그인 시작 `Run` 값뿐이다(`--core --home <data root>`, 아래 "늘 켜 둠"). 그 Electron은 창·tray를 조립하지 않고 ensure만 한 뒤 끝난다. shell single-instance lock은 창 하나를 지키는 것이라 core의 instance lock과 따로이고, core-only 실행은 그 lock을 잡지 않는다. 옛 tray "Start at login"과 그 등록(`--tray`, macOS `wasOpenedAtLogin`)은 없다. 켜져 있던 옛 등록은 늘 켜 둠 표시로 옮긴다(아래).
+- **core가 shell을 띄운다(browser가 필요할 때만).** agent가 `lophn tab open --url`로 browser 탭을 열려는데 shell이 붙어 있지 않으면 core가 앱을 띄운다. 터미널과 coding session은 core가 가져 앱 없이 열리므로 그 때문에 띄우지 않는다. 앱 창이 있어야 page가 있고(`<webview>`는 보이는 창에서만 그린다) job과 workflow는 사람이 앱을 Quit한 뒤에도 돌기 때문이다. 이 방향(core → shell)은 새로 생겼고 사람이 Quit한 뒤에도 적용된다. Quit은 화면을 끈다는 뜻이고 등록을 승인한 job은 계속 돈다(모두 멈추는 길은 `Stop lophn`이고, 그때는 띄울 core가 없다).
+  - **조건.** browser 탭 열기에만 띄운다. extension tool 호출, preview·artifact 탭 열기, 이미 연 탭의 browser 호출은 shell이 없어도 띄우지 않는다(앞의 둘은 기다리고, 마지막은 실패한다). 그리고 그 core를 띄운 쪽이 켰을 때만이다. 사람이 쓰는 core를 띄우는 곳(shell의 core 감독, CLI의 detached 시작, Linux·macOS 로그인 시작 등록의 글)이 환경 `LOPHN_LAUNCH_SHELL=1`을 준다. test, boot, E2E가 띄운 core는 이 값이 없어 앱을 띄우지 않고 shell 없음으로 실패한다. 띄울 길을 모를 때(build하지 않은 개발 저장소)도 같다.
   - **명령.** core는 자기 platform 배치에서 명령을 정한다. 설치본은 core를 띄운 Electron 실행 file 하나이고, 개발은 build한 shell entry를 같이 넘긴다. 어느 쪽이든 `--home <data root>`와 launch intent `--agent-window`를 붙이고, core가 Node로 도는 표시(`ELECTRON_RUN_AS_NODE`)는 뺀다. detached로 띄우고 놓아 core가 끝나도 앱은 남는다. Linux에서 systemd가 띄운 core(`LOPHN_SERVICE=1`이고 `DISPLAY`·`WAYLAND_DISPLAY`가 없음)는 화면 세션의 env를 물려받지 못해, 앱을 띄울 때 `systemctl --user show-environment`(2초 한도)에서 `DISPLAY`, `WAYLAND_DISPLAY`, `XAUTHORITY`, `XDG_SESSION_TYPE`, `XDG_CURRENT_DESKTOP`, `DBUS_SESSION_BUS_ADDRESS`만 가져와 더한다. 못 가져오면 지금처럼 띄우고, 화면이 없으면 browser 탭이 실패하는 지금 길로 간다.
   - **한 번에 하나, 실패하면 쉰다.** 같은 시도를 동시에 온 열기가 함께 기다린다(앱을 여럿 띄우지 않는다). 시작을 30초 안에 확인하지 못하거나 spawn이 실패하면 시도가 끝나고 5분 동안은 다시 띄우지 않고 열기를 바로 실패시킨다. shell이 붙으면 풀린다.
   - **launch intent `--agent-window`.** 앱은 평소처럼 서고 첫 창을 focus 없이 연다. 이미 떠 있는 앱이 받으면 일반 창이 하나도 없을 때만 같은 창을 연다. core만 띄우는 `--core`와 달리 창을 만든다.
@@ -102,13 +102,13 @@ core 수명의 한 갈래다. 사람이 Settings › Remote의 "Keep running" �
 
 ### shell main과 core의 연결(`/host-link`)
 
-shell main(host)과 core는 loopback API listener에 Gateway 옆으로 열린 WebSocket 하나로 이어진다. core가 shell에 시킬 일(탭 열기, extension tool·browser 호출, 터미널 끊기, 폰이 청한 coding session 일)을 밀고, shell은 답과 보고와 coding session·터미널 상태를 올린다. 전에는 shell이 `host/take`로 요청을 5초 long-poll로 가져가고 답과 보고를 route로 올렸는데, GUI 상태 snapshot이 route body 한도(256 KiB, 4096 item)에 들지 않고 shell이 core로 상태를 계속 올려야 해서 한 방향 long-poll로는 안 된다. 옛 route는 지웠다.
+shell main(host)과 core는 loopback API listener에 Gateway 옆으로 열린 WebSocket 하나로 이어진다. core가 창이 있어야 하는 일(탭 열기·닫기·보이기, browser 호출)을 밀고, shell은 답과 보고를 올린다. 터미널, coding agent, extension은 core의 것이라 이 연결로 오가지 않는다(화면이 core route로 붙는다). 전에는 shell이 `host/take`로 요청을 5초 long-poll로 가져가고 답과 보고를 route로 올렸는데, GUI 상태 snapshot이 route body 한도(256 KiB, 4096 item)에 들지 않고 shell이 core로 상태를 계속 올려야 해서 한 방향 long-poll로는 안 된다. 옛 route는 지웠다.
 
 - **연결.** `GET /host-link`, subprotocol `lophn.host-link.1`. Host·Origin·Bearer 검사는 Gateway와 같고 사람 자격(actor user)만 받는다(agent와 앱 자격은 `forbidden`). event 연결 한도(32·principal당 4)에 들지 않는다. 연결은 한 번에 하나라 새 연결이 오면 옛 연결을 닫는다(shell main은 하나다). JSON 글 frame이고 한 frame 16 MiB까지, 받는 쪽이 1 MiB 넘게 밀리면 닫는다. 첫 frame은 `hello`이고 모양이 틀린 frame은 1008로 닫는다. 끊기면 shell이 1초에서 30초 backoff로 다시 붙고 `hello`부터 보낸다. core가 다시 떠 주소와 token이 바뀌면 새 값으로 바로 붙는다.
-- **host → core.** `hello`·`visible`(지금 그리는 workspace와 TUI 탭이 열린 harness session), `response`(요청의 답, `done` 또는 창이 못 받은 `retry`), `report`(host 탭의 browser 상태나 닫힘), `coding_report`(터미널 coding agent 집합), `coding_sync`·`coding_closed`(harness GUI handle의 ACP 상태), `terminal_screen`(폰이 보는 터미널의 화면).
-- **core → host.** `request` frame 하나에 요청 하나다. 종류는 `tab_open`·`tab_close`·`tab_show`, `tool_call`, `browser_call`, `terminal_interrupt`, 폰이 청한 `coding_input`·`coding_switch`·`coding_open`·`coding_body`·`coding_image_write`·`coding_image_read`, `terminal_stream`·`terminal_input`·`terminal_resize`·`terminal_open`이다. queue는 닿는 요청을 바로 밀고(`visible`의 workspace가 닿는 탭 요청), 창이 `retry`한 요청과 빌려 간 지 10초가 지난 탭 요청은 1초마다 다시 민다. 연결이 닫히면 그 연결로 보낸 결과 요청(`tool_call`, `browser_call`, `coding_*`와 터미널 요청)은 실행됐는지 모르거나 받을 host가 없어 `unavailable`로 끝나고 탭 요청은 다시 대기한다(아직 보내지 않은 `tool_call` 등은 그대로 기다린다). `coding_*`와 터미널 요청은 연결이 없으면 대기하지 않고 바로 `unavailable`이다. 기한은 `coding_input`·`coding_body` 10초, `coding_image_write`·`coding_image_read` 30초, `coding_switch`·`coding_open`·`terminal_open` 60초, `terminal_stream`·`terminal_input`·`terminal_resize` 5초다.
-- **attached.** queue가 shell이 붙어 있다고 보는 것은 연결이 열려 있는 동안이다(전에는 기다리는 take가 있거나 마지막 take가 끝난 지 3초 안이었다). TUI hold는 연결이 열려 있는 동안 core가 마지막 `tui` 목록으로 1초마다 갱신한다(hold는 10초 임대이고 연결이 닫히면 갱신이 멈춰 풀린다).
-- **끊긴 뒤.** 연결이 닫히고 3초 안에 다시 붙지 않으면 core가 터미널 coding agent 표와 coding relay 사본을 비운다(그 사이 일은 알 길이 없다). 다시 붙은 shell은 보고를 처음부터 다시 보낸다.
+- **host → core.** `hello`·`visible`(지금 그리는 workspace), `response`(요청의 답, `done` 또는 창이 못 받은 `retry`), `report`(host 탭의 browser 상태나 닫힘).
+- **core → host.** `request` frame 하나에 요청 하나다. 종류는 `tab_open`·`tab_close`·`tab_show`(터미널 탭은 target `{terminal: {terminal_ref}}`로 core가 연 터미널에 붙는다)와 `browser_call`이다. queue는 닿는 요청을 바로 밀고(`visible`의 workspace가 닿는 탭 요청), 창이 `retry`한 요청과 빌려 간 지 10초가 지난 탭 요청은 1초마다 다시 민다. 연결이 닫히면 그 연결로 보낸 `browser_call`은 실행됐는지 모르거나 받을 host가 없어 `unavailable`로 끝나고 탭 요청은 다시 대기한다.
+- **attached.** queue가 shell이 붙어 있다고 보는 것은 연결이 열려 있는 동안이다(전에는 기다리는 take가 있거나 마지막 take가 끝난 지 3초 안이었다). TUI hold는 이 연결과 상관없이 터미널을 가진 core가 잇는다(`coding-agent.md`).
+- **끊긴 뒤.** 연결이 닫혀도 터미널과 coding agent는 그대로다. 답을 기다리던 hook 설치 물음은 거절로 센다(`coding-agent.md`). 다시 붙은 shell은 `hello`부터 보낸다.
 
 ### shell 창과 IPC 둘레
 
@@ -139,7 +139,7 @@ shell main(host)과 core는 loopback API listener에 Gateway 옆으로 열린 We
 - **두 번째 shell process.** single-instance lock을 shell context를 만들거나 core를 건드리기 전에 잡는다. 못 잡으면 곧 끝나므로 core를 띄우거나 갈아 띄우지 않는다. Quit과 `Stop lophn`은 돌던 ensure를 끊는다(spawn 전, 판 교체 stop 전에 확인한다). `Stop lophn`은 돌던 ensure가 끝나기를 기다린 뒤 core를 멈춘다.
 - **저장소 오류는 원인을 글에 싣는다**(disk full, locked, corrupt, io). corrupt면 writer 연결을 fault로 만들어 위 규칙대로 core가 끝나고, 다음 기동은 시작 실패 화면으로 간다.
 - **blob 정지 maintenance.** 목적 기록과 미참조 표지는 본문을 지웠거나 본문이 없다고 확인된(ENOENT) 것만 지운다. 정지마다 고아 기록을 최대 2,000개까지 쓸어 낸다(남은 것은 다음 정지로 미룬다).
-- **git이 없으면** 앱 source·release 경로가 "git was not found" 오류로 끝난다(commit이 없다는 말로 바꾸지 않는다). **extension tool 호출은 5분 기한이 있다.** 넘으면 거두고 `unavailable`로 끝난다.
+- **git이 없으면** 앱 source·release 경로가 "git was not found" 오류로 끝난다(commit이 없다는 말로 바꾸지 않는다).
 
 ### file
 
@@ -151,11 +151,11 @@ shell main(host)과 core는 loopback API listener에 Gateway 옆으로 열린 We
 
 ### shell과 터미널
 
-- **macOS PATH.** Finder·Dock으로 켠 앱은 PATH가 짧아서 shell main이 시작할 때 login shell(`$SHELL -ilc`)의 PATH를 한 번(5초 한도) 읽어 둔다. core·terminal-host·extension이 그 env를 물려받는다. harness 찾기 fallback에 `/opt/homebrew/bin`, `/usr/local/bin`이 있다.
+- **macOS PATH.** Finder·Dock으로 켠 앱은 PATH가 짧아서 shell main이 시작할 때 login shell(`$SHELL -ilc`)의 PATH를 한 번(5초 한도) 읽어 둔다. core는 따로 사람의 login shell env 전체를 한 번(5초 한도) 읽어 터미널과 extension이 띄우는 CLI에 준다(OS 서비스나 CLI가 띄운 core도 같다. Windows는 login shell이 없어 core의 env다). harness 찾기 fallback에 `/opt/homebrew/bin`, `/usr/local/bin`이 있다.
 - **macOS Dock.** 창이 없을 때 Dock을 누르면(`activate`) 창을 다시 연다.
 - **harness 찾기.** Windows는 이름마다 `PATHEXT` 확장자로 찾고 실행 bit 대신 확장자로 판정한다. `.cmd`·`.bat`은 Node가 shell 없이 못 띄우므로 shell로 띄운다.
 - **터미널 끄기.** POSIX는 `SIGHUP` 뒤 process group, Windows는 pty를 죽인 뒤 `taskkill /T`다.
-- **hook·browser bridge도 공통 socket 자리를 쓴다.** POSIX file은 공통 폴더의 `shell-<pid>/`(0700), endpoint는 `b`(browser)·`h`(hook) 이름의 IPC endpoint(0600)다. Windows file은 `<data root>/run/shell-<pid>/`, endpoint는 data root 이름 공간의 `shell-<pid>-b`·`shell-<pid>-h` named pipe다. 두 endpoint가 OS별 길이 한도를 넘으면 file 정리 전에 기능을 끄고 로그 한 줄만 남긴다(pointer file이나 TCP로 우회하지 않는다). file 폴더 준비는 hook·browser 각자의 listen과 분리돼, shim 쓰기나 bridge listen이 실패해도 hook은 준비된다. 공통 폴더는 core·앱 socket과 `shell-<pid>/`가 같이 쓰므로 app supervisor는 정지할 때 아무것도 지우지 않는다(낡은 앱 socket은 그 자리에 새 자식을 띄우기 전에 지운다). 판이 바뀌어 shell이 옛 core를 멈추면 옛 supervisor가 새 shell보다 늦게 끝나기 때문이다. 터미널 host는 bash·zsh init file이 없으면 시작 층 없이 원래 login shell로 띄운다. win32 전체를 끄는 gate는 없다.
+- **hook·browser bridge도 공통 socket 자리를 쓴다.** 터미널을 가진 core가 연다. POSIX file은 공통 폴더의 `core-<pid>/`(0700), endpoint는 `b`(browser)·`h`(hook) 이름의 IPC endpoint(0600)다. Windows file은 `<data root>/run/core-<pid>/`, endpoint는 data root 이름 공간의 `core-<pid>-b`·`core-<pid>-h` named pipe다. 두 endpoint가 OS별 길이 한도를 넘으면 file 정리 전에 기능을 끄고 로그 한 줄만 남긴다(pointer file이나 TCP로 우회하지 않는다). file 폴더 준비는 hook·browser 각자의 listen과 분리돼, shim 쓰기나 bridge listen이 실패해도 hook은 준비된다. 공통 폴더는 core·앱 socket과 `core-<pid>/`가 같이 쓰므로 app supervisor는 정지할 때 아무것도 지우지 않는다(낡은 앱 socket은 그 자리에 새 자식을 띄우기 전에 지운다). 판이 바뀌어 shell이 옛 core를 멈추면 옛 supervisor가 새 shell보다 늦게 끝나기 때문이다. 터미널 host는 bash·zsh init file이 없으면 시작 층 없이 원래 login shell로 띄운다. win32 전체를 끄는 gate는 없다.
 - **browser shim.** POSIX sh shim과 Windows `browser.exe`(OS의 .NET Framework 4 `csc.exe`로 data root `run\browser-<hash>\`에 build, `architecture/browser-tab.md` 28)가 공통 `browser.js`를 Electron Node로 돌려 bridge에 URL을 넘긴다. Windows가 `.cmd`가 아닌 것은 cmd.exe가 URL의 `&`를 명령으로 해석하고 한글 경로를 코드페이지로 깨서다. 실패·declined·timeout이면 OS opener로 넘기고(Windows는 `cmd.exe start`) bridge env와 `ELECTRON_RUN_AS_NODE`를 지운다.
 - **PowerShell 시작 층.** PowerShell 7·5.1은 기존 profile 뒤 `-NoExit -Command ". '<init.ps1>'"`로 per-run 함수를 읽는다. 5.1용 file은 UTF-8 BOM을 포함한다. 사용자 alias·function·profile·execution policy는 고치지 않는다. 정책이 `.ps1` 읽기를 막으면 시작 층은 켜지지 않으며 우회하지 않는다. 감싼 명령의 실제 경로는 `$global:`에 둔다(`$script:`는 사용자 script 안에서 부르면 비었다). 터미널 shell은 PATH의 `pwsh.exe`, `C:\Program Files\PowerShell\7\pwsh.exe`, 5.1 순서로 고른다. winget·Store의 MSIX 판은 PATH의 `WindowsApps\pwsh.exe` 앱 실행 alias로만 보이고 `stat`이 EACCES라 있는지는 `lstat`으로 본다.
 
@@ -182,7 +182,7 @@ macOS는 foreground 판정이 pty의 process 이름뿐이고(`/proc`가 없다) 
 | CLI | `/usr/bin/lophn`(sh) | `<root>/bin/lophn`(sh) | `<root>\bin\lophn.cmd` |
 | node-pty | source compile | N-API prebuild | N-API prebuild |
 
-macOS·Windows는 CLI를 시스템 PATH에 깔지 않는다. shell이 앱 안 launcher의 절대 경로(설치본이 먼저이고 개발은 `LOPHN_CLI`)를 쓰고, lophn 터미널과 harness agent의 env에 그 폴더를 PATH 앞에 둔다. Windows의 `platform/node_modules/@lophn/*`는 npm이 만드는 절대 경로 junction 대신 copy다. node-pty는 Linux만 rebuild한다.
+macOS·Windows는 CLI를 시스템 PATH에 깔지 않는다. core가 launcher의 절대 경로(설치본은 앱 안 launcher, 저장소 실행은 `<저장소>/.cache/dev-cli/lophn`이 있을 때만. 물려받은 `LOPHN_CLI`는 보지 않는다)를 쓰고, lophn 터미널과 extension이 띄우는 CLI(harness agent 포함)의 env에 그 폴더를 PATH 앞에 둔다. Windows의 `platform/node_modules/@lophn/*`는 npm이 만드는 절대 경로 junction 대신 copy다. node-pty는 Linux만 rebuild한다.
 
 ### 다른 OS 확인
 
@@ -191,7 +191,7 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 - **symlink 권한.** Windows는 개발자 모드나 관리자 권한이 없으면 symlink를 만들지 못한다(junction은 된다). test의 폴더 연결은 `"junction"` type으로 만들고(POSIX는 type을 무시한다), file symlink가 꼭 필요한 test는 이유를 달고 건너뛴다. electron-builder가 받는 `winCodeSign` 묶음에 macOS symlink가 있어 그런 PC에서는 `package`가 풀기에서 실패한다. cache에 `darwin`만 빼고 미리 풀면 지나간다. GitHub runner는 관리자라 상관없다.
 - **npm script.** `e2e`·`e2e:deps`는 Electron의 Node로 띄우는 wrapper를 거친다. env 앞붙임 꼴(`ELECTRON_RUN_AS_NODE=1 …`)은 npm이 Windows에서 쓰는 cmd.exe에서 돌지 않는다.
 - **e2e 지원 코드.** Windows에는 `/proc`이 없어 띄운 core의 pid에서 `ParentProcessId`를 따라가 같은 home의 process를 찾는다. e2e core의 `USERPROFILE`은 `HOME`과 같은 빈 폴더다.
-- **개발 실행의 `lophn`.** Windows의 개발 실행은 sh launcher와 `lophn.cmd`를 같이 쓰고 shell main에 `.cmd` 경로를 준다. harness 감지 child는 `.cmd`·`.bat`을 shell로 띄운다.
+- **개발 실행의 `lophn`.** Windows의 개발 실행은 sh launcher와 `lophn.cmd`를 같이 쓰고 core는 `.cmd` 경로를 쓴다. harness 감지 child는 `.cmd`·`.bat`을 shell로 띄운다.
 
 ## 지키는 것
 
@@ -202,8 +202,8 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 5. supervisor는 child group이 없어졌음을 확인한 뒤에 자원을 푼다. 세 OS가 같다.
 6. 한 data root에 core는 하나다. 동시 시작은 instance lock이 가르고, 진 core는 이긴 core의 socket과 runtime file을 건드리지 않는다.
 7. core의 liveness는 identify가 답하는가 하나다. 판이 다르면 stop → 사라짐 확인 → 새로 띄우기를 한 번만 한다.
-8. 앱을 끄는 것(Quit)은 core를 끄지 않는다. core는 stop, idle-exit, 신호로만 끝난다. 명시 stop 뒤 shell이 core를 저절로 다시 띄우지 않는다. core가 shell을 띄우는 것은 browser 탭 열기가 shell 없이 왔거나 폰이 깨우기를 눌렀고 그 core를 띄운 쪽이 켰을 때뿐이다.
-9. idle-exit는 일도 client도 없는 10분이 이어져야 하고, 읽기 실패는 일로 친다. 켜진 job이 있는 core, 도는 lophn agent turn이 있는 core, `remote.enabled`가 켜진 core, 이 기계의 늘 켜 둠 표시가 켜진 core는 끝나지 않는다. 다른 기계의 표시(복사된 data root)는 꺼짐이다.
+8. 앱을 끄는 것(Quit)은 core를 끄지 않는다. core는 stop, idle-exit, 신호로만 끝난다. 명시 stop 뒤 shell이 core를 저절로 다시 띄우지 않는다. core가 shell을 띄우는 것은 browser 탭 열기가 shell 없이 왔고 그 core를 띄운 쪽이 켰을 때뿐이다. 터미널과 coding agent는 Quit 뒤에도 돌고 core가 끝날 때 함께 끝난다(PTY와 CLI가 남지 않는다).
+9. idle-exit는 일도 client도 없는 10분이 이어져야 하고, 읽기 실패는 일로 친다. 켜진 job이 있는 core, 도는 lophn agent turn이나 harness turn이 있는 core, 열린 터미널이 있는 core, `remote.enabled`가 켜진 core, 이 기계의 늘 켜 둠 표시가 켜진 core는 끝나지 않는다. 다른 기계의 표시(복사된 data root)는 꺼짐이다.
 10. core 기동 launcher는 stdout 첫 줄만 읽고 놓으며 그 줄에 credential이 없다. user token은 file에도 stdout에도 쓰지 않는다.
 11. hook 준비는 browser shim·bridge listen의 성공과 분리한다. endpoint가 길이 한도를 넘으면 그 기능만 끄고 우회 길을 만들지 않는다.
 12. app supervisor는 정지할 때 공통 socket 폴더에서 아무것도 지우지 않는다.
@@ -225,7 +225,7 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 
 - **core-control-protocol** (control socket). `identify`, `connect {client: cli|shell}`, `stop`, `diagnostic`, 사람 결정 handle 등록·창 닫기(shell capability만). 한 연결에 JSON 한 줄 요청과 Result 답 하나. 공통 오류 코드 일곱만 쓴다. 클라이언트 쪽은 `ensureCore` 하나(shell과 CLI 공유)다.
 - **core 기동 알림.** 띄운 core의 stdout 첫 줄: `ready` 또는 `start_failed {reason}`.
-- **runtime file.** `run/instance.lock`(동시 시작을 가른다), 공통 socket 자리의 `core` endpoint, `shell-<pid>/`와 `shell-<pid>-b`·`shell-<pid>-h`. 이전에 있던 `run/user-token`·`run/location.json`은 없고 lock을 잡은 core가 남은 것을 지운다.
+- **runtime file.** `run/instance.lock`(동시 시작을 가른다), 공통 socket 자리의 `core` endpoint, `core-<pid>/`와 `core-<pid>-b`·`core-<pid>-h`. 이전에 있던 `run/user-token`·`run/location.json`은 없고 lock을 잡은 core가 남은 것을 지운다.
 - **CLI.** 사람 명령은 core를 띄워서라도 붙는다. 주소는 `LOPHN_DAEMON_URL` 또는 identify다. agent 자격(`LOPHN_AGENT_CREDENTIAL`)이 있으면 그것만 쓰고 user 자격으로 바꾸지 않는다. `lophn core stop`은 core를 띄우지 않는다.
 - **launch intent.** `--core`(core만 띄우고 Electron은 끝난다. Windows 로그인 시작 `Run` 값만 쓴다). `--quit`은 Quit와 같다. `--agent-window`는 core가 browser를 쓰려고 앱을 띄울 때 쓴다(focus 없는 창 하나).
 - **환경 이름.** `LOPHN_GIT_BASH`(Windows Git Bash 경로), `LOPHN_CLI`(개발 실행의 CLI launcher), `LOPHN_DAEMON_URL`, `LOPHN_LAUNCH_SHELL`(`1`이면 그 core가 browser가 필요할 때 앱을 띄울 수 있다. shell과 CLI의 core 시작과 로그인 시작 등록 글이 준다), `LOPHN_SERVICE`(`1`이면 OS service가 그 core를 띄웠다. Linux·macOS 로그인 시작 등록 글이 준다. ready 전 실패의 끝 code와 Linux 화면 env 가져오기가 본다).
@@ -253,6 +253,7 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 - Windows 실기 미확인을 기록한 채 land하고 계획을 닫았다. full check·기존 E2E·core 기동은 유지하고 Windows 통과로 적지 않는다. (사람)
 - core는 shell의 child가 아니다. shell과 CLI는 ensure로 붙거나 띄우는 client다. 이유: job을 shell(Electron) 수명에서 떼는 것이 첫째 이유고, 화면 없는 머신에서 CLI만으로 core를 켤 수 있어야 한다. (사람, 2026-11-08)
 - 앱의 Quit는 shell만 끄고 core는 idle-exit로 끝난다. 모두 끄는 `Stop lophn`을 따로 둔다. (사람이 추천을 받음, 2026-11-08)
+- 터미널과 coding agent(PTY host, extension host)는 core의 자식이고 앱을 Quit해도 돈다. 도는 터미널이 있으면 Quit이 "그대로 두기"(기본)와 "다 닫기"를 묻는다. 열린 터미널과 도는 harness turn은 idle-exit의 일이라 core가 저절로 끝나지 않는다. 모두 끄는 길은 `Stop lophn`이다. 이유: 일은 core가 하고 shell은 화면 가운데 하나다. 폰과 agent가 연 터미널이 앱에 묶이지 않는다. 버린 안: Quit이 터미널을 끝낸다(앞의 판). (사람, 2026-11-17)
 - CLI도 ensure로 core를 띄운다. 끄는 것은 idle-exit와 `lophn core stop`이다. (사람이 추천을 받음, 2026-11-08)
 - idle-exit는 일도 client도 없이 10분이다. 앱 process와 control 요청은 세지 않는다(앱은 쓰일 때 core가 띄우고, client도 job도 없으면 쓰는 쪽이 없다). 승인 대기 중인 켜진 job도 일로 치고, 30초마다 다시 보며 읽기 실패는 일로 친다. (agent)
 - (2026-11-16 아래에서 뒤집음) OS service로 등록하지 않는다. 이유: 로그인 autostart가 core만 띄우는 것으로 충분하다. (agent)
@@ -279,8 +280,8 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 - 저장소 오류는 원인을 오류 글에 싣고 새 화면은 만들지 않는다. blob 부속 기록은 본문이 없다고 확인된 것만 지운다. 지우는 곳은 멈출 때 도는 maintenance뿐이다(주기 GC는 관찰만 한다). (agent)
 - 명시 stop 뒤 shell은 core를 저절로 다시 띄우지 않는다. (agent)
 - browser 탭 열기에 한해 core가 shell을 띄운다. 앱을 Quit한 뒤에도 띄운다. 이유: 로그인한 browser page를 쓰려면 앱 창이 있어야 하고 job은 사람 없이 browser를 쓴다. 승인한 job은 Quit 뒤에도 도는 것이 이미 제품 규칙이다. 그 core를 띄운 쪽이 켰을 때만, 한 번에 하나, 실패 뒤 5분 쉰다는 제한으로 test나 개발 환경이 앱을 띄우지 않게 한다. 버린 길: 사람에게 따로 묻기(등록 승인이 이미 그 일을 포함한다), 앱 없이 core에서 browser 엔진 돌리기(Chromium profile은 한 process만 열고 사람의 로그인과 갈린다). (사람, 2026-11-10: 방향, agent: 조건과 제한)
-- 폰의 깨우기도 core가 shell을 띄우는 같은 길을 쓴다. 이유: 폰은 꺼진 앱을 띄울 수 없고 coding session은 앱이 있어야 열린다. 사람이 폰에서 단추를 눌렀을 때만이다(앱이 창을 여는 일이라 목록을 보는 것만으로 부르지 않는다). 조건(그 core를 띄운 쪽이 켰을 때)과 한 번에 하나·실패 뒤 5분 쉼은 browser 때와 같다. 앱을 깨워도 PTY는 앱과 함께 죽어 있어 목록은 비어 있다. (agent)
-- shell main과 core는 한 방향 long-poll(`host/take`)이 아니라 양방향 연결 `/host-link`로 잇는다. 이유: shell이 GUI 상태와 터미널 화면을 core로 계속 올려야 하고 그 snapshot이 route body 한도에 들지 않는다. 폰도 같은 frame 모양으로 둘째 host가 될 수 있다. 버린 안: desktop은 `host/take`를 두고 폰과 coding만 새 길(같은 일에 전송이 둘 남는다). 옛 route는 이 변경에서 지웠고 호환 길이 없다. event 연결 한도(사람 token의 Gateway와 CLI watch가 같이 쓰는 몫)에는 넣지 않았다: 연결이 하나뿐이라 새 연결이 옛 연결을 닫는다. (agent)
+- 폰의 깨우기(`coding_sessions/wake`)는 없앴다. 처음에는 coding session이 앱이 있어야 열려 폰이 core에게 앱을 띄우게 했다. 터미널과 coding agent가 core의 것이 되며 앱 없이 열리므로 깨울 까닭이 없어졌다. (agent)
+- shell main과 core는 한 방향 long-poll(`host/take`)이 아니라 양방향 연결 `/host-link`로 잇는다. 이유: 그때는 shell이 GUI 상태와 터미널 화면을 core로 계속 올려야 했고 그 snapshot이 route body 한도에 들지 않았다(터미널과 coding agent가 core로 오며 올리던 상태는 없어지고 창이 있어야 하는 요청만 남았다). 폰도 같은 frame 모양으로 둘째 host가 될 수 있다. 버린 안: desktop은 `host/take`를 두고 폰과 coding만 새 길(같은 일에 전송이 둘 남는다). 옛 route는 이 변경에서 지웠고 호환 길이 없다. event 연결 한도(사람 token의 Gateway와 CLI watch가 같이 쓰는 몫)에는 넣지 않았다: 연결이 하나뿐이라 새 연결이 옛 연결을 닫는다. (agent)
 - `Stop lophn`에서 control stop이 답하지 않으면 shell은 그래도 끝나되 먼저 native message box로 core가 남아 있을 수 있다고 알린다. 이유: 끝난 뒤에는 알릴 화면이 없어 사람이 앱과 job이 계속 돈다는 것을 모른다. 버린 안: 끝내지 않고 재시도(답이 없는 core를 두고 shell만 붙들게 된다). (agent)
 - core를 shell과 떼어 "끄고 바로 켜면 lophn이 안 뜬다"는 경쟁(shell이 먼저 끝나고 옛 core가 lock을 쥔 채 조금 더 살아 새 core가 `start_failed`로 멈춤)이 사라졌다. 새 shell은 identify에 답하는 core에 붙거나, 끝나는 중이면 기다린다. (해결된 이슈)
 
@@ -301,5 +302,6 @@ GitHub Actions workflow 하나가 ubuntu·macos·windows에서 `npm ci` → `che
 - 서명하지 않은 `lophn-desktop.exe`는 Smart App Control이 켜진 Windows 11에서 실행이 막힌다. (이슈 "Smart App Control이 켜진 Windows 11에서 서명 안 한 `lophn-desktop.exe`가 실행되지 않는다")
 - core가 앱을 띄우는 길(`--agent-window`)은 Linux에서만 돌려 봤다. macOS와 Windows는 돌려 보지 않았고, Wayland에서는 focus 없이 연 창이 focus를 가져갈 수 있다. 화면이 없는 Linux는 창을 열 수 없어 browser 탭이 실패한다.
 - 앱 Quit 뒤 켜진 job이 돌고 10분 뒤 core가 끝나는 것, 다시 켜면 돌던 core에 붙는 것, macOS와 Windows(named pipe)에서 core를 찾는 것은 사람 확인이 남았다.
+- 앱 Quit 뒤 터미널이 돌고 다시 켠 앱의 탭이 그 터미널에 붙는 것은 개발 앱에서만 보았다. 설치본에서 사람이 확인한다. macOS 설치본에서 node-pty의 `spawn-helper`에 실행 bit가 남는지 확인하지 않았다(없으면 core가 터미널을 띄우지 못한다).
 - 연결마다 user credential을 새로 발급하고 끝내는 길이 없다(폐기는 core epoch이 바뀔 때뿐). 의도인지 확인이 필요하다. 같은 사용자의 아무 process나 control socket으로 진단 한 줄을 보낼 수 있는 것도 마찬가지다(쓰기 자리는 core가 고정한다).
 - 알려진 한계: macOS는 node로 도는 CLI를 hook이 올 때까지 foreground로 알아보지 못한다.

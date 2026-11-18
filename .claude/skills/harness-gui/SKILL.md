@@ -20,7 +20,7 @@ harness GUI는 사람이 설치한 CLI(Claude Code, Codex, OpenCode, omp, Antigr
 | 계약 | `packages/protocol/acp/`, `packages/protocol/extensions/acp-session.ts` |
 | CLI 하나의 동작 | `packages/core/extensions/bundled/harness-gui/`의 `<harness>.ts`, 그 test, `fixtures/<harness>/` |
 | 탭(handle, toggle, view, 되살리기) | `packages/core/terminal-agents/gui.ts`, `packages/protocol/coding-agent/relay.ts`, `packages/shell/renderer/terminal/terminal-gui.tsx` |
-| 폰으로 올리기(handle의 snapshot·갱신을 `/host-link`로, 폰의 입력·switch·열기 받기) | `packages/core/terminal-agents/`(handle, coding session, switch, 열기) |
+| 화면으로 내기(handle의 snapshot·갱신을 `acp/*`·`AcpUpdated`로, desktop 탭과 폰의 입력·switch·열기 받기) | `packages/core/terminal-agents/`(`gui.ts` handle, `coding-sessions.ts`, `open.ts`), extension host는 `packages/core/extensions/` |
 | 화면이 GUI에 묻는 읽기 | `packages/shell/renderer/conversation/agent-tab-gui-source.ts` |
 | 화면 | `packages/shell/renderer/conversation/` (lophn agent와 같이 쓴다) |
 | 터미널 함수 | `packages/core/terminals/host/shell-integration.ts` |
@@ -83,22 +83,23 @@ harness GUI는 사람이 설치한 CLI(Claude Code, Codex, OpenCode, omp, Antigr
   - 끝나면 사람에게 CLI마다 해 볼 것을 목록으로 준다. 무엇을 치고, 무엇이 보여야 하는지 쓴다.
   - 보고에는 무엇으로 확인했는지(test, 녹화, gallery)와 실제 앱에서는 못 봤다는 것을 쓴다.
 - **탭 상태를 바꾸면 이것들을 같이 본다.** 다른 workspace에 갔다 오기, 창 다시 load, GUI↔TUI toggle 두 번, GUI와 CLI 양쪽에서 rename, 탭을 다른 창으로 옮기기.
-  - 탭 layout은 view를 저장하지 않는다. 그래서 저장본에서 다시 만든 탭이 GUI를 잃었고, `harness-gui:tab-current`로 고쳤다.
+  - 탭 layout은 view를 저장하지 않는다. 그래서 저장본에서 다시 만든 탭이 GUI를 잃은 적이 있다. 지금은 view를 core가 들고 탭이 `coding_sessions/list`에서 읽는다. 앱을 Quit했다 다시 켜는 것도 본다(터미널과 GUI는 core에서 계속 돈다).
   - GUI일 때는 TUI가 터미널 제목을 알리지 않는다. 그래서 탭 이름이 폴더 경로로 남았고, ACP session 제목을 따르게 고쳤다.
 - **dev 앱 띄우기**
   - root checkout에서는 먼저 `npm install`을 한다. Agent SDK가 없으면 build가 멈춘다.
   - worktree에서는 `ELECTRON_NO_SANDBOX=1 npm run dev`로 띄운다. worktree의 chrome-sandbox는 root 소유가 아니다.
   - 같은 data root로 이미 떠 있는 dev 앱이 있으면 `npm run dev`가 그 process를 죽인다(이슈 `node tools/records.ts issues --topic code-health`).
+  - adapter와 handle은 core 안 extension host에서 돈다. 앱 창만 다시 띄우면 옛 code가 그대로 돈다. adapter를 고쳤으면 core를 다시 띄운다(tray의 `Stop lophn`이나 `lophn core stop`. 도는 터미널과 GUI가 끝난다).
 - **설치본**
   - `npm run package`를 돌리면 build/linux/lophn_<판>_amd64.deb가 나온다.
   - 판 번호가 같으면 apt가 설치를 건너뛴다. `sudo apt install --reinstall ./build/linux/lophn_<판>_amd64.deb`로 덮어쓴다.
-  - 설치 뒤 앱을 완전히 끄고 다시 켜야 새 판이 뜬다.
+  - 설치 뒤 앱을 끄고 다시 켜면 shell이 판이 다른 core를 멈추고 새 판 core를 띄운다(도는 터미널과 GUI도 끝난다).
 
 ## 자주 틀린 곳
 
-- **터미널 탭 안에서 lophn을 부르는 code는 CLI 경로와 data root를 shell main에서 받는다.** 터미널 env에는 `LOPHN_*`가 없다. 그래서 그냥 `lophn`을 부르면 설치본(`~/.lophn`)으로 간다. 첫 판에서 개발 앱의 `claude gui`가 설치본 Home 창을 띄웠다(이슈 `terminal-gui-opens-installed-app`).
+- **터미널 탭 안에서 lophn을 부르는 code는 CLI 경로와 data root를 core에서 받는다.** 터미널 env에는 `LOPHN_*`가 없다. 그래서 그냥 `lophn`을 부르면 설치본(`~/.lophn`)으로 간다. 첫 판에서 개발 앱의 `claude gui`가 설치본 Home 창을 띄웠다(이슈 `terminal-gui-opens-installed-app`).
 - **새 ACP item·notice 종류를 더하면 끝까지 그려지는지 본다.** reducer(`packages/protocol/acp/reduce.ts`), `packages/shell/renderer/conversation/thread-layout.ts`, `agent-thread.tsx` 셋을 다 본다. 하나라도 빠지면 조용히 사라진다.
-- **화면의 기능을 켰으면 끝까지 이어졌는지 본다.** GUI source의 읽기가 늘 `unavailable`이면 그 기능은 고장 난 것처럼 보인다. Claude rewind가 그랬다. source → main IPC → `run`의 메서드까지 이어졌는지 확인한다.
+- **화면의 기능을 켰으면 끝까지 이어졌는지 본다.** GUI source의 읽기가 늘 `unavailable`이면 그 기능은 고장 난 것처럼 보인다. Claude rewind가 그랬다. source → core route(`coding_sessions/*`, `acp/*`) → `terminal-agents/gui.ts` → `run`의 메서드까지 이어졌는지 확인한다.
 - **CLI마다 겪은 것**
   - Claude: SDK mode에는 todo tool이 없다. `CLAUDE_CODE_ENABLE_TODO_TOOLS=1`을 준다.
   - Claude steer: SDK mode의 CLI는 TUI와 달리 메시지가 와도 도는 foreground tool을 스스로 background로 보내지 않는다. 그대로면 `next`든 `now`든 Bash가 끝나야 닿는다. 되는 길은 Claude desktop과 같이 `next`로 넣고 3초 넘게 돈 tool을 **tool_use id로** `q.backgroundTasks(id)`하는 것이다. id 없는 `backgroundTasks()`는 task만 등록하고 tool 호출을 풀지 않았고, control 요청 `interrupt {send_now, message_uuid}`는 tool을 멈췄다(녹화 `fixtures/claude/steer_*.jsonl`).
@@ -112,7 +113,7 @@ harness GUI는 사람이 설치한 CLI(Claude Code, Codex, OpenCode, omp, Antigr
   - 나머지 칸은 `flex-shrink: 0`으로 둔다.
 - **biome의 `--write` 뒤에는 diff를 본다.** 상관없는 줄(import 순서)이 바뀌었으면 되돌린다.
 - **GUI가 ACP 입력에 싣는 id는 schema를 통과해야 한다.** 화면의 session key를 `ses_${handle}`(handle이 `win_<ULID>`)로 만들었더니 `ses_win_…`이 `idSchema("ses")`에 떨어져 main이 모든 입력을 거절했고, 화면은 "couldn't confirm this message arrived"만 보였다. `guiSessionId`와 그 test가 지킨다.
-- **handle의 상태나 갱신의 모양을 바꾸면 폰도 같은 것을 받는다.** shell main이 handle마다 snapshot과 20ms 묶음의 갱신을 core에 올리고 core가 같은 reducer로 접어 폰에 낸다(`architecture/harness-gui.md`의 "폰이 보는 coding session"). adapter가 갱신을 낸다고 끝이 아니라 그 갱신이 core 사본에서도 접히고 redaction을 거친다. 입력을 더하면 `coding_input`으로 오는 것도 `acpInputSchema`를 통과한다.
+- **handle의 상태나 갱신의 모양을 바꾸면 desktop 탭과 폰이 같은 것을 받는다.** handle은 core에 있고 core가 handle마다 snapshot과 20ms 묶음의 갱신을 받아 redaction을 거쳐 `acp/snapshot`·`AcpUpdated`로 낸다(`architecture/harness-gui.md`의 "화면이 보는 coding session"). adapter가 갱신을 낸다고 끝이 아니라 그 갱신이 redaction을 거쳐 화면에서 접힌다. 입력을 더하면 `acp/send`로 오는 것도 `acpInputSchema`를 통과한다.
 - **화면 성능은 추측하지 말고 잰다.** gallery page `harness-gui-perf`(긴 대화 + 20ms 글 조각 + 입력)를 headless Chrome CDP로 돌려 main thread 바쁜 시간, 50ms 넘는 frame, 키→paint를 잰다. probe는 commit하지 않았으니 `.dev-data`에 다시 만든다(`perf-stream-lag` worktree가 남아 있으면 그곳 `.dev-data/perf-stream-lag/run.sh`). 화면을 바꾼 뒤 한 번 돌린다. 측정에서 나온 함정:
   - Context 값을 render마다 새로 만들면 그 값을 쓰는 component가 memo를 건너 모두 다시 그린다. `fillShell` 하나로 대화의 모든 markdown이 글자마다 다시 그려졌다.
   - throttle은 걸어 둔 timer를 새 값마다 지우고 다시 걸면 안 된다. 갱신이 그리기보다 잦으면 끝까지 한 번도 터지지 않아, 글이 첫 조각만 보이다 끝에 한꺼번에 나왔다. 최신 값을 ref에 두고 걸린 것은 그대로 둔다(Claude·Codex·omp desktop이 모두 이렇다).

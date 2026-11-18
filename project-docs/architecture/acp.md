@@ -57,7 +57,7 @@ ACP(App Context Protocol)는 agent 쪽이 내놓는 대화(메시지와 content 
 - 입력에서 뽑는 칸(`edit`의 path·줄 수, `call`의 to·task·reply)은 시작 때부터 차 있다. 결과에서 아는 칸(`call`의 call id·state·fail_reason·session)은 call이 생긴 뒤에야 알아서 그 전과 실패한 tool에서는 null이다.
 - 끝난 뒤 detail이 바뀌면(background로 돈 subagent가 끝남) `tool_detail_changed`가 detail만 바꾼다.
 - `question`의 outcome은 submitted, human_message, cancelled, parent_reply다. 팀 자식의 질문을 부모가 `call reply`로 답했으면 `parent_reply`이고 부모의 답 글이 `reply` 한 칸에 실린다. 자식 탭의 카드는 "Answered by the parent"와 그 글을 보인다.
-- 종류마다 화면에 필요한 칸만 싣는다. 입력·출력 본문은 lophn이면 싣지 않고(redaction 경계) 별도 읽기(`toolCallBody`)로 읽는다. harness는 다시 읽을 저장소가 없어서 handle(shell main)의 tool item이 `body`(`{input, output, truncated}`, 한 쪽 64 KiB까지)를 쥐고, 창과 core로 가는 snapshot·갱신에서는 뺀다(사람이 친 명령은 명령 글만 남긴다). 화면은 줄을 펼칠 때 그 tool 하나의 본문을 읽는다(desktop은 IPC, 폰은 `acp/tool_body`. `harness-gui.md`). 화면은 tool 이름이나 JSON을 읽어 종류를 가르지 않는다.
+- 종류마다 화면에 필요한 칸만 싣는다. 입력·출력 본문은 lophn이면 싣지 않고(redaction 경계) 별도 읽기(`toolCallBody`)로 읽는다. harness는 다시 읽을 저장소가 없어서 handle(core 안)의 tool item이 `body`(`{input, output, truncated}`, 한 쪽 64 KiB까지)를 쥐고, 화면으로 가는 snapshot·갱신에서는 뺀다(사람이 친 명령은 명령 글만 남긴다). 화면은 줄을 펼칠 때 그 tool 하나의 본문을 `acp/tool_body`로 읽는다(desktop과 폰이 같다. `harness-gui.md`). 화면은 tool 이름이나 JSON을 읽어 종류를 가르지 않는다.
 - 사람이 돌린 명령: `by: "user"`이면 사람이 `!`로 돌린 명령이다(`tool: "shell"`, `category: "command"`, `title`은 명령 첫 줄, `body.input`은 명령 전체, `body.output`은 출력). 화면은 사람 쪽에 출력을 펼쳐 그린다. turn 밖에서 돈 그 줄만 `turn`이 null이다.
 
 ### 상태의 나머지
@@ -218,16 +218,13 @@ projection은 event만으로 알 수 없는 것을 core가 context로 받는다.
 - core는 앱이 연 session을 따로 다루지 않는다. prompt 조립과 답 꼴은 앱과 SDK(`@lophn/agent`)의 몫이고 core는 모른다. SDK가 snapshot 위에 갱신을 같은 reducer로 접는다.
 - 설치된 앱의 SDK 사본은 앱 bundle 안에서 zod도 저장소도 없이 읽혀 protocol의 ACP type(zod 정본)을 싣지 못한다. 그래서 zod 없는 type 사본을 따로 두고 정본과 서로 대입되는지 type 검사로 맞춘다. ACP 항목·상태·갱신의 모양을 바꾸면 그 사본도 같이 고친다. 사본의 reducer가 runtime import를 더하면 설치 사본이 깨진다. bridge type은 ACP type을 SDK가 채우는 generic이다(이 portable entry가 protocol을 import하면 shell main tsc가 base까지 읽어 깨진다).
 
-### core 밖에서 내는 ACP
+### ledger 밖의 ACP: harness GUI
 
-third-party CLI GUI(extension `harness-gui`, [harness-gui.md](harness-gui.md))의 desktop 창은 core를 거치지 않는다. adapter가 shell main의 session handle에 `AcpUpdate`를 publish하고 창의 `AcpInput`을 받는다. 창은 `AcpSnapshot`과 `AcpSend` route를 쓰지 않는다. handle은 갱신을 reducer로 접은 `AcpState` 하나만 쥐고, 창은 붙을 때 snapshot 하나를 받고 그 뒤 20ms마다 모은 갱신 묶음을 한 번에 접어 한 번 그린다. 순번(`seq`)은 adapter가 1부터 이어 붙인다. 위 "core가 갱신을 만드는 법"과 입력 표는 core session만의 이야기다.
-
-폰에는 core가 중계한다. shell main이 handle의 snapshot과 갱신을 `/host-link`로 올리면 core의 coding relay가 session마다 접은 `AcpState` 사본을 메모리에 두고, 폰은 lophn agent session과 같은 route와 event로 읽고 보낸다. session id는 `ses_<터미널 ULID>`이고 ledger에는 행이 없다.
-- `AcpSnapshot {session}`은 사본이 있으면 사본이다. 사본이 없고 ledger에도 없으면 `not_found`다.
-- `AcpSend`는 사본이 있는 session이면 입력 꼴을 가리지 않고 `coding_input`으로 host에 넘긴다. 위 입력 표의 route 나누기는 타지 않는다. core는 입력을 사본에 적용하지 않고 결과는 host가 올리는 갱신으로 돌아온다. handle이 없으면 `not_found`, 연결이 없거나 10초 안에 답이 없으면 `unavailable`이다. 입력의 모양은 받는 shell main이 다시 검사한다(protocol은 입력을 record로만 본다. acp가 lophn-agent를 import해 순환이라서다). `key`가 있는 입력(`send`는 `id`와 `key`)은 session마다 200개를 기억해 다시 오면 host에 보내지 않고 성공으로 답한다. adapter가 key를 거르지 않고 폰이 다시 붙은 뒤 같은 입력을 다시 보내기 때문이다.
-- `AcpUpdated`는 host가 올린 갱신을 하나씩 그대로 낸다(host의 20ms 묶음은 풀고 순서는 host가 정한 대로다). 새 snapshot이 사본을 갈아 끼우면 core가 `StateChanged{coding_sessions, id: session}`을 내고 폰이 snapshot을 다시 읽는다.
-- 사본은 접기 전에 제품 redactor(`env.redact`와 같은 규칙)로 snapshot과 갱신의 모든 글을 거른다. 알려진 secret을 아직 다 모르면 내지 않고 사본을 버린다(빈 글로 바꾸면 갱신의 `type` 같은 칸까지 비어 상태가 깨진다). desktop 창으로 가는 길은 core를 지나지 않아 이 검사가 없다.
-- 사본은 최대 64개이고 넘으면 가장 오래 안 쓴 것부터 버린다. 연결이 닫히고 3초 안에 다시 붙지 않으면 모두 비운다.
+third-party CLI GUI(extension `harness-gui`, [harness-gui.md](harness-gui.md))의 대화는 ledger에 없다. adapter가 core 안 extension host의 session handle에 `AcpUpdate`를 publish하고 화면의 `AcpInput`을 받는다. handle은 갱신을 reducer로 접은 `AcpState` 하나만 쥔다. 순번(`seq`)은 adapter가 1부터 이어 붙인다. 위 "core가 갱신을 만드는 법"과 입력 표는 ledger session만의 이야기다. desktop 탭과 폰은 lophn agent session과 같은 route와 event로 읽고 보낸다. session id는 `ses_<터미널 ULID>`이다.
+- `AcpSnapshot {session}`은 그 session의 handle이 있으면 handle의 상태(tool 본문을 뺀 것)다. 없으면 ledger를 읽고, ledger에도 없으면 `not_found`다.
+- `AcpSend`는 handle이 있는 session이면 입력 꼴을 가리지 않고 handle에 그대로 넘긴다. 위 입력 표의 route 나누기는 타지 않는다. core는 입력을 상태에 적용하지 않고 결과는 adapter가 내는 갱신으로 돌아온다. `key`가 있는 입력(`send`는 `id`와 `key`)은 session마다 200개를 기억해 다시 오면 넘기지 않고 성공으로 답한다. adapter가 key를 거르지 않고 폰이 다시 붙은 뒤 같은 입력을 다시 보내기 때문이다.
+- `AcpUpdated`는 core가 handle마다 20ms 모은 갱신을 하나씩 낸다. handle이 열리거나 닫히면 `StateChanged{coding_sessions, id: session}`을 내고 화면이 snapshot을 다시 읽는다.
+- 내기 전에 제품 redactor(`env.redact`와 같은 규칙)로 snapshot과 갱신의 모든 글을 거른다. 알려진 secret을 아직 다 모르면 내지 않는다(snapshot은 `unavailable`, 갱신은 버리고 화면이 다시 읽게 한다. 빈 글로 바꾸면 갱신의 `type` 같은 칸까지 비어 상태가 깨진다). desktop 탭과 폰이 같은 길이다.
 
 ## 결정
 
@@ -255,7 +252,7 @@ third-party CLI GUI(extension `harness-gui`, [harness-gui.md](harness-gui.md))�
 - 앱과 session 사이는 ACP 그대로이고 bridge는 route 셋과 event 하나만 그 앱 workspace로 묶는다. (agent)
 - 앱 session은 화면을 열 때가 아니라 첫 `send`에서 연다. 이유: 열 때마다 sidebar에 session이 하나 생긴다. 제목은 `rename` 입력으로 붙이고 못 붙여도 열기는 성공한다. (agent)
 - 앱 SDK의 설치 사본은 zod 없는 ACP type 사본을 두고 정본과 type 검사로 맞춘다. 버린 안: `reducer`의 import 범위(protocol·base file 51개와 zod)를 vendor하기(앱에 zod를 더해야 하고 base의 한 file이 앱 tsconfig에서 깨진다), protocol의 ACP type을 zod 없는 정본으로 옮기기(그 계획보다 크다). (agent)
-- 폰의 harness GUI 대화는 core가 접은 사본으로 중계해 같은 `AcpSnapshot`·`AcpSend`·`AcpUpdated`로 낸다. 이유: 폰이 lophn agent와 같은 대화 화면과 card를 쓰고 snapshot과 event의 순서가 core 한 곳에서 정해진다. 대가: 접는 곳이 하나 더 있고(shell main의 handle, core의 사본) 사본은 연결이 끊기면 사라진다. 버린 안: 폰 전용 route와 화면. (agent)
+- harness GUI 대화는 core 안의 handle이 같은 `AcpSnapshot`·`AcpSend`·`AcpUpdated`로 낸다. 이유: desktop 탭과 폰이 lophn agent와 같은 대화 화면과 card를 쓰고 snapshot과 event의 순서가 core 한 곳에서 정해진다. 처음에는 handle이 shell main에 있어 desktop 창은 IPC로 붙고 폰에는 core가 접은 사본을 중계했다(접는 곳이 둘이고 연결이 끊기면 사본이 사라졌다). handle이 core로 오며 사본을 없앴다. 버린 안: 폰 전용 route와 화면. (agent)
 - harness GUI의 handle은 갱신 묶음이 아니라 접은 상태 하나를 쥐고 붙을 때 snapshot을 주며 그 뒤 갱신을 묶어 낸다. 이유: 접은 상태와 snapshot, 묶은 갱신으로 같은 문제(긴 대화의 다시 그리기·끊김)를 푼 다른 GUI(emdash, t3code, happy)를 참고했다.
 
 ## 열린 것

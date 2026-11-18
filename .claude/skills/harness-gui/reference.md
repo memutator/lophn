@@ -11,8 +11,11 @@ harness GUI를 고칠 때 보는 구현 쪽 참고다. 설계(문제, 지키는 
 | extension 본체(탭 요청, env, toggle, session id 따라가기) | 같은 폴더 `index.ts` |
 | adapter(harness마다 하나) | 같은 폴더 `claude.ts`, `codex.ts`, `opencode.ts`, `omp.ts`, `antigravity.ts` |
 | 받은 메시지 분류 | 같은 폴더 `received.ts`(`classifyReceived`) |
-| 탭 쪽 shell main(handle 붙기, 묶음 push, toggle, 이미지 tmp file) | `packages/core/terminal-agents/gui.ts` |
-| IPC channel | `packages/protocol/coding-agent/relay.ts` |
+| 탭 쪽 core(handle 쥐기, 20ms 묶음, toggle, 이미지 tmp file) | `packages/core/terminal-agents/gui.ts` |
+| 화면으로 내기(목록, `acp/snapshot`·`AcpUpdated`, 입력, 본문, 그림, switch) | `packages/core/terminal-agents/coding-sessions.ts`, `acp/*` 갈래는 `packages/core/main/daemon/wiring/acp.ts` |
+| 폰의 열기(`coding_sessions/open`) | `packages/core/terminal-agents/open.ts` |
+| route 계약(`coding_sessions/*`) | `packages/protocol/coding-agent/relay.ts` |
+| extension host(registry, spawner, ACP handle) | `packages/core/extensions/`(`host.ts`, `spawner.ts`, `acp.ts`) |
 | 탭 화면 | `packages/shell/renderer/terminal/terminal-gui.tsx`(`GuiSwitch`), `packages/shell/renderer/terminal/model.ts`(`tabName`, `guiSessionId`) |
 | 채팅 화면의 GUI source | `packages/shell/renderer/conversation/agent-tab-gui-source.ts` |
 | 채팅 화면 key handler | `packages/shell/renderer/conversation/agent-view.tsx`(routes) |
@@ -27,14 +30,15 @@ harness GUI를 고칠 때 보는 구현 쪽 참고다. 설계(문제, 지키는 
 터미널 탭: claude gui [--resume <id>]   (shell 시작 층 함수. gui, gui --resume <id>, gui --resume=<id>만 받고 id는 [A-Za-z0-9._-]
   │                                     200자까지. 첫 인자가 gui가 아니면 원래 명령)
   ─▶ {"resume":…} | <lophn CLI> hook claude lophn-gui   (hook.ts가 친 곳의 cwd를 더해 그 탭의 hook socket LPN_TERMINAL_HOOK로)
-shell main hook ingress ─ key로 그 터미널 ─▶ main/terminal/gui.ts
+core hook ingress(`packages/core/terminal-agents/ingress.ts`) ─ key로 그 터미널 ─▶ terminal-agents/gui.ts
   ─▶ tracker로 AcpTerminal(그 탭의 harness·session id·상태(shell이면 foreground에 harness 없음)·cwd, type·signal·onForegroundExit)
-  ─▶ extension onTab.gui({terminal, harness, resume})   (extension이 꺼져 있으면 Settings › System › Extensions)
+  ─▶ extension onTab.gui({terminal, harness, resume})   (extension이 꺼져 있으면 열지 않는다. 탭 머리 단추가 extension_off로 꺼진다)
        ─▶ ctx.acp.open({terminal, harness, title, handoff}) ─▶ handle
        ─▶ 그 탭에서 TUI가 돌면 adapter.exitTui(terminal) ─ foreground가 끝나기를 5초까지 기다린다(SIGKILL 없음)
        ─▶ adapter.start({cwd, resume, session: handle, terminal, spawn, clock, ids}) ─▶ run
-  ─▶ 모든 창에 "GUI 열림" push ─ 그 탭을 가진 창이 1.5초 안에 ack ─ 탭이 GUI view(AgentView)로 바뀐다. ack가 없으면 handle을 닫는다
-탭 머리의 toggle
+  ─▶ acpOpened(handle) ─▶ gui.ts가 터미널에 handle을 쥐고 view = gui ─▶ StateChanged{coding_sessions}
+  ─▶ 창의 TerminalStore가 coding_sessions/list를 다시 읽어 그 탭을 GUI view(AgentView)로 바꾼다(창의 ack는 없다)
+탭 머리의 toggle(coding_sessions/switch_plan → 확인 → coding_sessions/switch {confirmed: true} ─▶ gui.toggle)
   GUI→TUI  restart(Claude·omp): modal(돌던 turn, run.running()의 background task 수) ─▶ run.stop ─▶ handle을 닫음 ─▶ PTY에 run.tuiCommand()
            shared(Codex·OpenCode): TUI client가 foreground에 없을 때만 tuiCommand를 친다. 보이는 쪽만 바뀐다
   TUI→GUI  restart: modal(tracker의 running·waiting) ─▶ exitTui ─▶ 새 handle과 start(resume)
@@ -43,26 +47,26 @@ shared 대화의 CLI session id가 바뀌면(fork, /new) 붙은 TUI client를 SI
 터미널이 끝나거나 다시 시작하면 handle을 닫는다. extension을 끄면 연 handle을 모두 닫는다
 ```
 
-탭의 GUI가 adapter에 묻는 읽기 둘(지난 session 목록, rewind 파일 미리보기)은 IPC `harness-gui:tab-sessions`·`harness-gui:tab-rewind-preview` → main(`gui.ts`가 sender로 탭을 찾는다) → `ExtensionAcp.onTab.sessions`·`rewindPreview` → `index.ts` → `run.sessions?.()`·`run.rewindPreview?.(message)`로 간다. 그 메서드가 없는 adapter는 `[]`·`null`이다.
+탭의 GUI가 adapter에 묻는 읽기 둘(지난 session 목록, rewind 파일 미리보기)은 route `coding_sessions/cli_sessions`·`coding_sessions/rewind_preview` → `gui.ts`(session id의 터미널로 탭을 찾는다) → `ExtensionAcp.onTab.sessions`·`rewindPreview` → `index.ts` → `run.sessions?.()`·`run.rewindPreview?.(message)`로 간다. 폰은 이 route가 기기 route 목록에 없어 `[]`·`null`이다. 그 메서드가 없는 adapter는 `[]`·`null`이다.
 
 ## 구현 세부(설계 문서의 "지키는 것"이 이루어지는 방식)
 
-- handle(`createAcp`, `packages/core/extensions/acp.ts`)은 publish된 갱신을 `reduceAcp`로 접은 `AcpState` 하나만 쥔다. main(`terminal/gui.ts`)은 snapshot을 따로 한 message로 먼저 보내고 갱신은 handle마다 20ms(`UPDATE_BATCH_MS`) 모아 배열 하나(`HarnessGuiTabBatch`, IPC `harness-gui:tab-update`)로 보낸다. view ack 한도는 1.5초(`ACK_TIMEOUT_MS`)다.
-- main은 PTY에 글을 `typeInto`로 쳐 넣는다. terminal-host의 `signal` 요청은 foreground process group에 SIGINT·SIGTERM을 보낸다(Linux만. foreground가 shell이면 아무것도 안 한다). foreground가 끝난 것은 1초마다 보는 foreground 변화로 안다(`packages/core/terminals/host/foreground.ts`, win32는 null).
-- login env는 `index.ts`가 처음 열 때 한 번 `${SHELL:-/bin/sh} -ilc`로 읽는다(Linux `env -0`, macOS는 BSD `env`라 줄 단위로 읽는다. tmux·updater guard, 5초 `ENV_WAIT_MS`). 합치는 순서는 login env < 탭 hook env < adapter가 넘긴 key다. CLI는 떼어 띄우고 process group째(`kill(-pid)`) 끈다.
-- 탭 화면(`terminal-gui.tsx`)은 IPC로 handle에 붙어 받은 snapshot에서 시작해 갱신 묶음을 `reduceAcp`로 접고, 묶음 하나를 한 task 안에서 알려 화면이 한 번만 그린다. 화면이 붙은 뒤에 snapshot이 오면(창 다시 load) source의 `changed`로 화면이 다시 읽고, `reread`가 서면 feed의 지금 상태를 다시 읽는다. main은 sender(webContents)와 handle id로 붙은 view를 안다.
+- handle(`createAcp`, `packages/core/extensions/acp.ts`)은 publish된 갱신을 `reduceAcp`로 접은 `AcpState` 하나만 쥔다. core(`terminal-agents/gui.ts`의 `attachBatched`)는 snapshot을 먼저 받고 갱신은 handle마다 20ms(`UPDATE_BATCH_MS`) 모은다. `coding-sessions.ts`가 그 묶음을 redactor에 거쳐 하나씩 `AcpUpdated`로 내고, handle이 열리고 닫히면 `StateChanged{coding_sessions, id}`를 낸다.
+- core는 PTY에 글을 `typeInto`(`packages/core/terminals/service.ts`)로 쳐 넣는다. PTY host의 `signal` 요청은 foreground process group에 SIGINT·SIGTERM을 보낸다(Linux만. foreground가 shell이면 아무것도 안 한다). foreground가 끝난 것은 250ms마다 보는 foreground 변화로 안다(`packages/core/terminals/host/foreground.ts`, win32는 null).
+- login env는 core가 한 번 `${SHELL:-/bin/sh} -ilc`로 읽는다(`packages/core/terminals/person-env.ts`. Linux `env -0`, macOS는 BSD `env`라 줄 단위로 읽는다. tmux·updater guard, 5초). extension spawner가 GUI를 열기 전에 그 읽기를 기다린다. 합치는 순서는 login env < 탭 hook env < adapter가 넘긴 key다. CLI는 떼어 띄우고 process group째(`kill(-pid)`) 끈다.
+- 탭 화면(`terminal-gui.tsx`)은 `acp/snapshot`으로 읽은 상태에서 시작해 `AcpUpdated`를 `reduceAcp`로 접고, 묶음 하나를 한 task 안에서 알려 화면이 한 번만 그린다. 화면이 붙은 뒤에 snapshot이 오면(창 다시 load) source의 `changed`로 화면이 다시 읽고, `reread`가 서면 feed의 지금 상태를 다시 읽는다. view(`gui`|`tui`)는 core가 들고 탭은 `coding_sessions/list`에서 읽는다(창 다시 load와 앱을 다시 켠 뒤도 같다).
 - 탭 이름: `GuiSwitch`가 제목을 탭 field `guiTitle`에 두고 `tabName`이 GUI view일 때만 그것을 쓴다. 다른 workspace의 탭 줄은 `agentTitle`을 쓴다. 화면의 session key는 터미널 ref `trm_<ULID>`의 ULID로 만든 `ses_<ULID>`(`guiSessionId`)다.
-- GUI view에서는 `TerminalTab`이 서지 않으므로 `GuiSwitch`가 고른 GUI 탭을 main의 터미널 focus 표에 적는다.
+- GUI view에서는 `TerminalTab`이 서지 않으므로 `GuiSwitch`가 고른 GUI 탭을 shell main의 터미널 focus 표(`shell:terminal-focus`)에 적는다.
 - 입력 history·Ctrl+R 검색·`agent.*` command의 handler는 `agent-view.tsx`의 routes에 있다. GUI 탭은 바깥 `agentView` 안쪽에 `agentView:<harness>`를 단다.
-- 터미널 함수: bash·zsh·fish와 PowerShell 7·5.1 시작 층의 `claude`·`codex`·`opencode`·`omp`·`agy` 함수는 첫 인자가 `gui`면 `lophn hook <harness> lophn-gui`로 그 탭의 hook endpoint에 요청을 보낸다(lophn CLI 경로는 shell main이 시작 층 file을 쓸 때 넣는다. 터미널 env에서는 `LOPHN_*`가 빠진다). PowerShell 함수는 profile 뒤에 읽고 사용자 alias·function·execution policy는 바꾸지 않는다. Windows PowerShell 실기 확인은 별도다(`terminal-agent.md`).
-- GUI source(`agent-tab-gui-source.ts`)는 adapter가 낸 `capabilities`·명령 표·model 축·mode를 그대로 내고 화면은 lophn agent와 같은 검사로 없는 기능의 칸을 숨긴다. tool 본문은 item의 `body`, 이미지는 main이 tmp file(`<os tmp>/lophn-gui/<터미널 ref>/`)로 써 `file://` link로 싣는다.
+- 터미널 함수: bash·zsh·fish와 PowerShell 7·5.1 시작 층의 `claude`·`codex`·`opencode`·`omp`·`agy` 함수는 첫 인자가 `gui`면 `lophn hook <harness> lophn-gui`로 그 탭의 hook endpoint에 요청을 보낸다(lophn CLI 경로는 core가 시작 층 file을 쓸 때 넣는다. 터미널 env에서는 `LOPHN_*`가 빠진다). PowerShell 함수는 profile 뒤에 읽고 사용자 alias·function·execution policy는 바꾸지 않는다. Windows PowerShell 실기 확인은 별도다(`terminal-agent.md`).
+- GUI source(`agent-tab-gui-source.ts`)는 adapter가 낸 `capabilities`·명령 표·model 축·mode를 그대로 내고 화면은 lophn agent와 같은 검사로 없는 기능의 칸을 숨긴다. tool 본문은 item의 `body`이고 화면은 `acp/tool_body`로 읽는다. 이미지는 `acp/image_upload`로 core가 tmp file(`<os tmp>/lophn-gui/<터미널 ref>/`)에 써 `file://` link로 싣는다.
 - 받은 메시지: `classifyReceived`가 `<lophn-call>`·`<lophn-reply>` tag(`from="human"`은 사람)와 Claude transcript의 `origin.kind`로 가른다.
 - 계약 이름: `GUI_HARNESSES`(`claude`, `codex`, `opencode`, `omp`, `antigravity`)가 목록의 한 곳이다. `antigravity`의 터미널 명령은 `agy`다.
 
 ## Claude Code adapter
 
 `claude.ts`(restart). Agent SDK(`@anthropic-ai/claude-agent-sdk`, 판 고정)의 `query()`를 streaming input으로 연다.
-- `pathToClaudeCodeExecutable: "claude"`를 늘 넘기고 process는 `spawnClaudeCodeProcess`로 `ctx.spawn`을 거친다. SDK가 넘기는 env 중 shell main의 `process.env`와 값이 다른 key만 넘긴다(그러지 않으면 login shell env를 덮는다). SDK의 OS별 claude 사본은 root `package.json`의 `overrides`가 빈 package(`tools/empty-package`)로 바꿔 받지 않는다. extension build(`buildExtensions`)는 SDK가 모듈 맨 위에서 쓰는 `import.meta.url`을 bundle file의 URL로 채운다.
+- `pathToClaudeCodeExecutable: "claude"`를 늘 넘기고 process는 `spawnClaudeCodeProcess`로 `ctx.spawn`을 거친다. SDK가 넘기는 env 중 core의 `process.env`와 값이 다른 key만 넘긴다(그러지 않으면 login shell env를 덮는다). SDK의 OS별 claude 사본은 root `package.json`의 `overrides`가 빈 package(`tools/empty-package`)로 바꿔 받지 않는다. extension build(`buildExtensions`)는 SDK가 모듈 맨 위에서 쓰는 `import.meta.url`을 bundle file의 URL로 채운다.
 - 새 session은 `ids`로 만든 UUID를 `sessionId`로 넘겨 첫 turn 전에 CLI session id를 안다. `settingSources` user·project·local, `systemPrompt` preset `claude_code`, partial message, `perTaskStopAffordance`(멈춰도 background task는 산다), `enableFileCheckpointing`(파일 rewind)를 켠다. permission mode는 넘기지 않는다(사람 설정). `bypassPermissions`는 쓰지 않는다.
 - meta: `supportedModels`(effort 축), `supportedCommands`(터미널 전용 명령은 뺀다), `getContextUsage`를 첫 메시지 전에 읽어 `session_changed`로 낸다. mode는 SDK 시작 응답에 없어, 첫 turn의 `system/init` 전에는 사람 Claude 설정의 `permissions.defaultMode`(user `settings.json` < project `<cwd>/.claude/settings.json` < `<cwd>/.claude/settings.local.json`, 읽기만)를 내고, resume이면 transcript의 마지막 `permission-mode`를 낸다. init이 오면 init이 맞다. model이 "default" 줄이면 이름은 `getContextUsage().model`과 `resolvedModel`이 같은 줄의 이름이다(고르는 값은 그대로 default).
 - 사람 메시지마다 `uuid`를 붙인다. 도는 중에 보낸 것은 delivery가 steer면 `priority: "next"`, 다음 turn이면 `"later"`이고, CLI의 `command_lifecycle`(queued, started)이 줄과 `message_taken`을 정한다. steer인지는 보낼 때의 priority(`next`)로 가른다: `next`는 도는 turn에 끼어들 때만 steer이고, `later`·`now`는 늘 next_turn이다. CLI는 가까이 보낸 `later` 여럿을 한 turn으로 묶어(SDK 문서: result의 `user_message_uuid`는 마지막 member) `started`를 잇따라 내므로, 첫 메시지가 연 turn에 나머지가 next_turn으로 붙는다. 줄의 항목은 priority를 들고 있어 고치기·옮기기가 그대로 다시 넣는다. 지금 보내기·빼기·고치기·옮기기는 `cancelAsyncMessage`(sdk.d.ts에는 없고 sdk.mjs에 있다)로 한다. 지금 보내기(`now`)는 도는 명령을 멈추고 그 turn은 멈춘 turn이다.

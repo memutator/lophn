@@ -9,7 +9,7 @@ lead만 고친다. `tools/status.py one-screen build`가 `tasks/*.md`에서 id, 
 | `screen-link` | screen | 1 | 없음 | merged | screen/screen-link | 84cd4f299 |  |
 | `screen-apps` | screen | 2 | screen-base-core, screen-base-scope | running | screen/screen-apps |  |  |
 | `screen-lists` | screen | 2 | screen-base-core, screen-base-scope | running | screen/screen-lists |  |  |
-| `screen-phone` | screen | 2 | screen-base-core, screen-base-scope | running | screen/screen-phone |  |  |
+| `screen-phone` | screen | 2 | screen-base-core, screen-base-scope | merged | screen/screen-phone | b01b6896a |  |
 | `screen-terminals` | screen | 2 | screen-base-core, screen-base-scope | running | screen/screen-terminals |  |  |
 | `screen-inbox` | screen | 3 | screen-lists | todo |  |  |  |
 | `screen-layout` | screen | 3 | screen-lists, screen-terminals, screen-apps | todo |  |  |  |

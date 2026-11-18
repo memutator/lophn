@@ -47,7 +47,8 @@ decisions:
 follow_up: |
   - `remote-use`: `use-grant`가 터미널 입력 허락을 명단의 칸이 아니라 각 컴퓨터가 자기에게 주는 허락으로 옮긴다. 이 변경의 "허락이 없으면 그 컴퓨터의 Settings › Remote › My devices에서 켜라"는 안내가 이미 그 컴퓨터를 가리킨다.
   - 이 변경이 올린 이슈: `remote-terminal-notice-does-not-open-tab`, `remote-terminal-tab-cannot-rename`, `remote-terminal-scrollback-and-jump`, `remote-terminal-size-held-after-close`, `inbox-history-this-computer-only`, `shell-core-call-sender-check-never-runs`. 열려 있는 `machine-window-global-instructions`는 Settings 고르기에서 그대로 열려 있다.
-  - 컴퓨터 둘과 폰으로는 돌려 보지 않았다. 실제 두 컴퓨터 사이의 터미널 입력, 앱 화면, 꺼졌다 켜지는 컴퓨터의 탭은 test, gallery, 개발 core 둘로만 보았다.
+  - 실제 컴퓨터 둘과 폰으로는 돌려 보지 않았다. 한 기계에서 개발 core 둘을 짝지어 실제 Electron 창(headless)으로는 보았다: 다른 컴퓨터의 Home·project·session 줄, session 열기, 터미널 열고 치기, 허락을 끈 뒤의 View only, Pages 목록, Inbox의 질문에 답하기, Settings 고르기, 그 컴퓨터를 껐다 켰을 때의 줄과 탭. 그때 찾은 둘(다른 컴퓨터의 터미널 탭이 칸이 바뀌어도 크기를 다시 맞추지 않던 것, 그 컴퓨터가 다시 뜬 뒤 탭이 끝난 터미널을 살아 있는 것처럼 보이던 것)은 이 변경에서 고쳤다. 다른 컴퓨터의 앱 화면, "Sized for another device" 안내, 허락 없는 컴퓨터의 다시 시작은 실제 창에서 보지 못했다.
+  - 그 컴퓨터의 화면에서 연 평범한 터미널은 이 컴퓨터의 목록에 서지 않는다(coding agent와 이 컴퓨터가 연 터미널만 선다. 폰과 같은 규칙이다). 이슈 `terminal-inline-style-blocked-by-csp`도 이때 보았다.
 checklist:
   - "해야: 내 모든 컴퓨터와 폰을 이 판으로 올린다 (한쪽이 옛 판이면 그 컴퓨터의 새 route를 모른다)"
   - 두 컴퓨터를 짝지은 상태에서 이 컴퓨터의 창에 다른 컴퓨터의 Home, project, session이 컴퓨터 꼬리표와 함께 보이는지 본다

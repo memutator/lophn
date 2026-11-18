@@ -1,0 +1,13 @@
+id: terminal-inline-style-blocked-by-csp
+title: 터미널 탭과 menu를 열 때마다 inline style이 CSP에 막혀 console에 오류가 쌓인다
+kind: defect
+status: open
+topic: shell
+modules: [packages/shell/main, packages/shell/renderer]
+now: |
+  desktop 창의 CSP(`packages/shell/main/desktop/shell-protocol.ts`)는 `style-src 'self'`라 inline `<style>`을 막는다. xterm은 터미널을 열 때마다(`Terminal.open`) 크기와 scroll 영역의 CSS를 `<style>`로 넣고, Radix의 scroll 잠금(`react-style-singleton`)은 menu나 Select가 열릴 때 `<style>`을 넣는다. 둘 다 막혀 "Applying inline style violates the following Content Security Policy directive 'style-src 'self''"가 console에 남는다. 개발 core 둘로 창을 띄워 터미널 탭, 새 탭 menu, Settings를 여는 동안 40번 넘게 찍혔다.
+impact: |
+  개발자가 console에서 진짜 오류를 찾기 어렵다. 막힌 CSS(xterm의 scroll 영역과 글자 크기 규칙, menu가 열린 동안의 scroll 잠금)가 실제로 적용되지 않으므로 터미널의 scrollbar 모양이나 menu 뒤 화면의 scroll이 의도와 다를 수 있다(무엇이 달라지는지는 재지 않았다).
+fix: |
+  - (작음, 추천) xterm과 scroll 잠금이 넣는 style에 nonce를 준다(xterm은 CSP nonce 옵션이 없으면 `adoptedStyleSheets`로 옮기는 지금의 `adoptInlineStyles`가 놓친 자리를 찾아 덮는다. `packages/shell/renderer/terminal/xterm-view.ts`). 잃는 것: 없음.
+  - (작음) CSP에 `style-src 'unsafe-inline'`을 연다. 잃는 것: 화면에 끼어든 글이 style을 넣을 수 있게 된다.

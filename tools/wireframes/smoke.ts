@@ -25,6 +25,8 @@ const TYPES: Record<string, string> = {
 // 비동기로 뜨는 page(lazy chunk, mount 뒤 drive)가 던질 시간을 준다.
 const SETTLE_MS = 150;
 const MOUNT_MS = 10_000;
+// 한 page를 열고 그리는 데 쓰는 상한. 넘으면(렌더가 끝나지 않는 loop) 그 page를 실패로 적고 창을 바꾼다.
+const PAGE_MS = 20_000;
 const WINDOWS = 6;
 
 async function launch(): Promise<number> {
@@ -91,7 +93,8 @@ async function run(dir: string): Promise<number> {
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
   // 창마다 자기 오류 목록을 갖는다. offscreen 창 하나가 page 하나를 차례로 연다.
-  const windows = Array.from({ length: WINDOWS }, () => {
+  const created: InstanceType<typeof BrowserWindow>[] = [];
+  const makeWindow = () => {
     const win = new BrowserWindow({
       show: false,
       width: 1280,
@@ -128,13 +131,14 @@ async function run(dir: string): Promise<number> {
       }
       return false;
     };
+    created.push(win);
     return { win, errors, evaluate, open, mounted };
-  });
+  };
 
   const failures: { id: string; reasons: string[] }[] = [];
   let ids: string[] = [];
   try {
-    const [first] = windows;
+    const first = makeWindow();
     await first.open("");
     await first.mounted();
     // 목차(Toc)에 모든 page 링크가 있다.
@@ -151,11 +155,30 @@ async function run(dir: string): Promise<number> {
 
     const queue = [...ids];
     await Promise.all(
-      windows.map(async ({ errors, open, mounted }) => {
+      Array.from({ length: WINDOWS }, async () => {
+        let current = makeWindow();
         for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
-          await open(`?frame=${encodeURIComponent(id)}`);
-          const filled = await mounted();
-          await sleep(SETTLE_MS);
+          const { errors, open, mounted } = current;
+          const page = (async () => {
+            await open(`?frame=${encodeURIComponent(id)}`);
+            const filled = await mounted();
+            await sleep(SETTLE_MS);
+            return filled;
+          })();
+          // 창을 버린 뒤 늦게 오는 실패는 이미 적었다.
+          page.catch(() => {});
+          const filled = await Promise.race([
+            page,
+            sleep(PAGE_MS).then(() => "timeout" as const),
+          ]);
+          if (filled === "timeout") {
+            failures.push({ id, reasons: ["did not settle"] });
+            // 창이 하나도 없으면 Electron이 app을 끝내므로 새 창을 먼저 만든다.
+            const stuck = current.win;
+            current = makeWindow();
+            stuck.destroy();
+            continue;
+          }
           const reasons = [...errors];
           if (!filled) reasons.push("root is empty");
           if (reasons.length > 0) failures.push({ id, reasons });
@@ -163,13 +186,17 @@ async function run(dir: string): Promise<number> {
       }),
     );
   } finally {
-    for (const { win } of windows) win.destroy();
+    for (const win of created) if (!win.isDestroyed()) win.destroy();
     server.close();
     app.quit();
   }
 
   for (const { id, reasons } of failures) {
-    console.error(`FAIL ${id}`);
+    console.error(
+      reasons[0] === "did not settle"
+        ? `FAIL ${id}: did not settle`
+        : `FAIL ${id}`,
+    );
     for (const reason of reasons) console.error(`  ${reason.split("\n")[0]}`);
   }
   console.log(

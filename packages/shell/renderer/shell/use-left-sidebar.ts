@@ -164,13 +164,24 @@ export function MachineListsProvider({ children }: { children: ReactNode }) {
   const [sessions, setSessions] = useState<
     ReadonlyMap<string, readonly SessionEntry[]>
   >(new Map());
+  // 다시 읽은 목록이 같으면 값을 바꾸지 않는다. 읽기마다(다시 붙음, 구독을 다시 걸 때의 ready) 새 배열이 와서 그대로 넘기면
+  // 목록을 쓰는 화면이 구독을 다시 걸고 그 ready가 또 읽기를 부르는 고리가 된다.
   const report = useCallback((machine: MachineRef, next: Seen) => {
     const key = machine ?? "";
+    const same = (a: unknown, b: unknown) =>
+      JSON.stringify(a) === JSON.stringify(b);
     if (next.sessions !== undefined) {
       const entries = next.sessions;
-      setSessions((now) => new Map(now).set(key, entries));
-    } else
-      setSeen((now) => new Map(now).set(key, { ...now.get(key), ...next }));
+      setSessions((now) =>
+        same(now.get(key), entries) ? now : new Map(now).set(key, entries),
+      );
+    } else {
+      setSeen((now) => {
+        const was = now.get(key);
+        const merged = { ...was, ...next };
+        return same(was, merged) ? now : new Map(now).set(key, merged);
+      });
+    }
   }, []);
   const dataOf = useCallback(
     (machine: MachineRef) => hub.get(machine ?? root),

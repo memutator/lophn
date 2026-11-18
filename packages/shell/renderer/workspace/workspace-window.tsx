@@ -2301,7 +2301,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         (inboxWorkspaces?.apps ?? []).map((one) => [one.id, one.name]),
       ),
     }),
-    [inboxWorkspaces],
+    [inboxWorkspaces?.projects, inboxWorkspaces?.apps],
   );
 
   // 터미널 탭 이름을 core에 알린다(`terminals/name`). core가 runtime에 실어 모든 화면에 보내므로 OS 알림과 다른 창·workspace의

@@ -1,5 +1,5 @@
 id: multi-device-fixes
-version: 0.23.85
+version: 0.23.88
 title: 올라간 multi-device 일들의 review에서 확인한 구멍을 닫는다(터미널 입력 자격, 명단의 믿음 규칙, 기기 허락의 가장자리, git을 읽지 못한 project의 id)
 modules: [packages/protocol, packages/core/remote, packages/core/terminals, packages/core/terminal-agents, packages/core/extensions, packages/core/projects, packages/core/secrets, packages/core/config, packages/core/lophn-agent, packages/core/apps, packages/core/storage, packages/core/main, packages/remote-client, packages/cli, packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/shell/renderer, packages/design, packages/mobile, tools]
 change: |

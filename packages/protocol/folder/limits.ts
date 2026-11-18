@@ -37,6 +37,8 @@ export const IMPORT_DEBOUNCE_MS = 2 * SECOND;
 export const IMPORT_TIMER_MS = 2 * MINUTE;
 // (앱, destination)·(앱, 출처 기계) 한 번의 쓰기·읽기가 다루는 양.
 export const RUN_MAX_BYTES = 64 * MIB;
+// 폰이 `carry/put`으로 조각을 넘기다 멈춘 file의 staging을 지우는 나이.
+export const CARRY_STAGING_KEEP_MS = HOUR;
 export const BACKOFF_FIRST_MS = MINUTE;
 export const BACKOFF_MAX_MS = HOUR;
 

@@ -2,6 +2,8 @@
 // - 내보내기와 앱 기록·release·source 쓰기: 앱마다 `AppSyncChanged` 뒤 5초 debounce, 그리고 5분 timer.
 // - 읽기(scan → data stream 따라잡기, source 받기): destination의 다른 기계 폴더마다 fs.watch(2초 debounce), 그리고 2분 timer.
 // - 흔적 정리: 앱(release)마다 core가 뜬 뒤 처음과 하루에 한 번.
+// - 기계 사이로 옮기기(`computers` 폴더): 내보내기 뒤 manifest·명단 file을 쓰고 사람의 폴더에 거울로 둔다. 다른 기계의
+//   file은 받는 자리(`folderReplica`)가 route·link·거울에서 받아 그 폴더에 두고, 읽기는 그 폴더를 다른 destination처럼 읽는다.
 // (앱, destination)·(앱, 출처)마다 한 번에 하나만 돈다. 결과가 `more`면 바로 이어 돌고, 실패한 일은 1분부터 두 배씩 1시간까지
 // 물러난다(읽기의 data stream은 import가 stream마다 따로 물러난다). 이 일들은 idle-exit를 막지 않는다.
 import { type FSWatcher, readdirSync, watch } from "node:fs";
@@ -68,6 +70,7 @@ import { createFolderApps } from "../../../folder/apps/mod.ts";
 import {
   createDestinations,
   DESTINATIONS_KEY,
+  sharedFolderPath,
 } from "../../../folder/destinations.ts";
 import {
   cleanupBefore,
@@ -83,7 +86,23 @@ import {
 } from "../../../folder/export/status.ts";
 import { createFolderImport } from "../../../folder/import/mod.ts";
 import { IMPORT_TMP_DIR } from "../../../folder/import/held.ts";
+import { readArrivedEvents } from "../../../folder/import/events.ts";
+import { createRosterFiles } from "../../../folder/import/roster.ts";
+import {
+  pruneEventFiles,
+  writeEventFile,
+} from "../../../folder/export/events.ts";
+import { publishManifest } from "../../../folder/export/manifest.ts";
+import { writeRosterFile } from "../../../folder/export/roster.ts";
+import { carryRoutes } from "../../../folder/carry-routes.ts";
+import { createMirror } from "../../../folder/mirror.ts";
+import { CARRY_STAGING_DIR, createReplica } from "../../../folder/replica.ts";
 import type { FolderApply } from "../../../folder/ports.ts";
+import {
+  COMPUTERS_DESTINATION,
+  COMPUTERS_DIR,
+  SHARED_FOLDER_KEY,
+} from "../../../../protocol/folder/carry.ts";
 import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
 import type { WiringContext, WiringFactory } from "./context.ts";
 import { lanAddresses } from "./remote.ts";
@@ -212,6 +231,77 @@ export const folderWiring: WiringFactory = () => {
       const destinations = createDestinations({
         dataRoot,
         settings: ctx.settings,
+      });
+      const sharedFolder = () =>
+        sharedFolderPath({ dataRoot, settings: ctx.settings });
+      const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
+
+      // --- 기계 사이로 옮기기 ---
+      const computersRoot = join(dataRoot, COMPUTERS_DIR);
+      const carryChanged = () =>
+        publishStateChanged(ctx.bus, ctx.clock.now(), [
+          { name: "carry_files", id: null },
+        ]);
+      // 명단(remote)은 이 wiring 뒤에 만들어진다. 부를 때 읽는다.
+      const replica = createReplica({
+        dataRoot,
+        machine: me,
+        signingKey: (machine) => ctx.peek.computerSigningKey?.(machine) ?? null,
+        removed: (machine) => ctx.peek.computerRemoved?.(machine) ?? false,
+        sql,
+        transaction: writeLink.transaction,
+        clock: ctx.clock,
+        random: ctx.random,
+        manifestsChanged: carryChanged,
+        filesChanged: () => scheduleScan(),
+      });
+      ctx.provide("folderReplica", replica);
+      const mirror = createMirror({
+        me,
+        computers: computersRoot,
+        replica,
+        random: ctx.random,
+      });
+      const rosterFiles = createRosterFiles({
+        me,
+        receive: (statements) =>
+          ctx.peek.rosterCarry?.receive(statements) ??
+          Promise.resolve(ok(undefined)),
+        log: (message) => log("roster_file_skipped", message),
+      });
+      // 앱이 다른 기계에도 알리겠다고 낸 event를 그 앱의 `sync_to` 폴더에 event file로 쓴다. 폴더로 맞추지 않는 앱은 둘 곳이
+      // 없다.
+      ctx.provide("crossEvents", {
+        async write(app, release, event) {
+          const found = syncApp(app);
+          const destination =
+            found === undefined ? null : destinations.resolve(found.sync_to);
+          if (found === undefined || destination === null) return ok(undefined);
+          if (destination.state !== "ok") {
+            return err({
+              code: "unavailable",
+              message: `the sync folder "${found.sync_to}" is ${destination.state}`,
+            });
+          }
+          const stored = loadRelease(sql, release);
+          if (!stored.ok) return stored;
+          if (stored.value === null) {
+            return err({ code: "not_found", message: "release not found" });
+          }
+          const written = await writeEventFile({
+            me: me(),
+            destination: { name: found.sync_to, path: destination.path },
+            app,
+            bundle_hash: stored.value.bundle_hash,
+            event,
+            ids,
+            transaction: writeLink.transaction,
+            clock: ctx.clock,
+            random: ctx.random,
+          });
+          if (written.ok) scheduleCarry();
+          return written;
+        },
       });
 
       // 활성 release가 있는 보관하지 않은 앱. sync_to는 그 release 선언의 것이다.
@@ -469,12 +559,15 @@ export const folderWiring: WiringFactory = () => {
                   },
                 ],
           ),
+        // `computers`로 온 release는 따라가지 않는다: 따라가기는 늘어난 권한이 없으면 사람에게 묻지 않고 다른 기계의 code를
+        // 깔고 켜는데, 그 file은 이제 연결과 폰으로도 온다. 사람이 정하기 전까지 막아 둔다(take-in은 사람이 한다).
         offered: (app) =>
           importer
             .records()
             .apps.flatMap((row) =>
               row.record.app === app &&
               row.machine !== me() &&
+              row.destination !== COMPUTERS_DESTINATION &&
               row.record.active_release !== null
                 ? [{ machine: row.machine, ...row.record.active_release }]
                 : [],
@@ -571,6 +664,7 @@ export const folderWiring: WiringFactory = () => {
         if (!published.ok) log("record_not_written", published.error.message);
         // 처음 쓴 기록이 `machines/`를 만든다. 그때부터 감시할 수 있다.
         rewatch();
+        scheduleCarry();
         return { ok: published.ok, more: false };
       }
 
@@ -592,10 +686,95 @@ export const folderWiring: WiringFactory = () => {
       async function writeAppRecord(id: Id<"app">): Promise<RunOutcome> {
         const written = await apps.runApp(id);
         if (!written.ok) log("app_record_failed", written.error.message);
+        // 앱 기록·release·source와 그 앞의 data file을 manifest에 싣는다.
+        scheduleCarry();
         return { ok: written.ok, more: false };
       }
 
+      // `computers` 폴더의 자기 하위 폴더: 옛 event file 지우기, 명단 file, 앱 목록과 manifest, 그리고 사람의 폴더에 거울.
+      async function carryOut(): Promise<RunOutcome> {
+        const pruned = await pruneEventFiles({
+          me: me(),
+          destinations,
+          sql,
+          transaction: writeLink.transaction,
+          clock: ctx.clock,
+          random: ctx.random,
+        });
+        if (!pruned.ok) log("events_not_pruned", pruned.error.message);
+        const roster = await writeRosterFile({
+          root: computersRoot,
+          me: me(),
+          statements: ctx.peek.rosterCarry?.statements() ?? null,
+          clock: ctx.clock,
+          random: ctx.random,
+        });
+        if (!roster.ok) log("roster_file_not_written", roster.error.message);
+        const published = await publishManifest({
+          me: me(),
+          root: computersRoot,
+          sql,
+          transaction: writeLink.transaction,
+          clock: ctx.clock,
+          random: ctx.random,
+          sign: (body) => ctx.peek.manifestSign?.(body) ?? null,
+        });
+        if (!published.ok) {
+          log("manifest_not_written", published.error.message);
+          return { ok: false, more: false };
+        }
+        if (published.value) carryChanged();
+        const shared = sharedFolder();
+        if (shared !== null) {
+          const copied = await mirror.copyOut(shared);
+          if (!copied.ok)
+            log("shared_folder_not_written", copied.error.message);
+        }
+        return { ok: true, more: false };
+      }
+      function scheduleCarry() {
+        kick("carry", carryOut);
+      }
+
+      // 다른 기계의 event file을 이 기계에서 한 번 낸다. 내는 쪽(apps)이 아직 없으면 읽지 않는다(본 것으로 적지 않는다).
+      async function readEvents(): Promise<void> {
+        const arrived = ctx.peek.eventArrived;
+        if (arrived === undefined) return;
+        const read = await readArrivedEvents({
+          me: me(),
+          apps: syncApps().flatMap((app) =>
+            app.release === null
+              ? []
+              : [
+                  {
+                    app: app.app,
+                    sync_to: app.sync_to,
+                    bundle_hash: app.release.bundle_hash,
+                  },
+                ],
+          ),
+          destinations,
+          transaction: writeLink.transaction,
+          clock: ctx.clock,
+          arrived,
+        });
+        if (!read.ok) log("events_not_read", read.error.message);
+      }
+
       async function scan(): Promise<RunOutcome> {
+        // 사람의 폴더에 있는 다른 기계의 file을 받는 자리로 들이고, 폴더의 명단 file을 명단에 넘긴다. 읽기는 그 뒤
+        // `computers` 폴더를 다른 destination처럼 읽는다.
+        // 들이지 못해도 읽기는 막지 않는다(다음 scan에 다시 본다).
+        try {
+          const shared = sharedFolder();
+          if (shared !== null) {
+            await mirror.takeIn(shared);
+            await rosterFiles.readFrom(shared, "shared");
+          }
+          await rosterFiles.readFrom(computersRoot, "computers");
+        } catch (thrown) {
+          log("carry_in_threw", thrown);
+        }
         // 돌기 시작할 때 가져간다: 도는 중에 destination이 바뀌면 다음 run이 새 destination을 읽은 뒤 내보낸다.
         const exportAfter = exportAfterScan;
         exportAfterScan = false;
@@ -615,6 +794,7 @@ export const folderWiring: WiringFactory = () => {
           kick(`source:${app.app}`, () => importSource(app.app));
         }
         followUp();
+        await readEvents();
         return { ok: true, more: false };
       }
 
@@ -768,8 +948,18 @@ export const folderWiring: WiringFactory = () => {
                 join(apps, app),
                 join(apps, app, "data"),
                 join(apps, app, "source"),
+                join(apps, app, "events"),
               );
             }
+          }
+        }
+        // 사람의 폴더는 읽기가 바로 읽지 않는다. 다른 기계의 하위 폴더가 바뀌면 scan이 받는 자리로 들인다.
+        const shared = sharedFolder();
+        if (shared !== null) {
+          const machines = join(shared, "machines");
+          dirs.push(machines);
+          for (const machine of children(machines)) {
+            if (machine !== me()) dirs.push(join(machines, machine));
           }
         }
         return dirs;
@@ -1001,6 +1191,12 @@ export const folderWiring: WiringFactory = () => {
           recursive: true,
           force: true,
         });
+        // 받다 만 file. 다시 받으면 처음부터다.
+        await rm(join(dataRoot, CARRY_STAGING_DIR), {
+          recursive: true,
+          force: true,
+        });
+        await replica.recheck();
         unsubscribe = ctx.bus.subscribe(
           [
             {
@@ -1036,16 +1232,28 @@ export const folderWiring: WiringFactory = () => {
                     changes: { name: string; id: string | null }[];
                   }
                 ).changes;
+                // 명단이 바뀌었다: 든 manifest를 지금 key로 다시 보고, 명단 file을 다시 쓴다.
+                if (
+                  changes.some((change) => change.name === "remote_devices")
+                ) {
+                  replica
+                    .recheck()
+                    .catch((thrown) => log("replica_recheck_threw", thrown));
+                  scheduleCarry();
+                }
                 if (
                   changes.some(
                     (change) =>
                       change.name === "settings" &&
-                      (change.id === null || change.id === DESTINATIONS_KEY),
+                      (change.id === null ||
+                        change.id === DESTINATIONS_KEY ||
+                        change.id === SHARED_FOLDER_KEY),
                   )
                 ) {
                   rewatch();
                   exportAfterScan = true;
                   kick("scan", scan);
+                  scheduleCarry();
                 } else if (
                   changes.some((change) => change.name === "releases")
                 ) {
@@ -1068,6 +1276,7 @@ export const folderWiring: WiringFactory = () => {
         rewatch();
         exportAfterScan = true;
         kick("scan", scan);
+        scheduleCarry();
         everyExport();
         everyImport();
         // apps의 start(supervisor 붙이기)가 이 wiring보다 앞이다.
@@ -1083,14 +1292,20 @@ export const folderWiring: WiringFactory = () => {
         if (!imported.ok) log("forget_failed", imported.error.message);
       }
 
+      const carry = carryRoutes({ me, replica, clock: ctx.clock });
       return ok({
         memory: [
           [key(machineForget), forgetMachine],
           [key(appSyncHeld), syncHeld],
           [key(appSyncResume), syncResume],
           [key(appUpdateState), updateState],
+          ...carry.memory,
         ],
-        reads: (reads) => reads.set(key(machineEnvironment), environment),
+        fileStreams: carry.fileStreams,
+        reads: (reads) => {
+          reads.set(key(machineEnvironment), environment);
+          for (const [route, handler] of carry.reads) reads.set(route, handler);
+        },
         writer: (inner) => ({
           ...inner,
           async command(auth, envelope) {

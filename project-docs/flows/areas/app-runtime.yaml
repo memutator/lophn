@@ -2765,8 +2765,94 @@ flows:
         observe: [response]
     crosses_process: false
     risk: [permission]
-ignore:
-  - {entry: "route:carry/manifests", reason: "계약만 있고 아직 등록하지 않았다. handler와 flow는 carry-folder가 단다"}
-  - {entry: "route:carry/wants", reason: "계약만 있고 아직 등록하지 않았다. handler와 flow는 carry-folder가 단다"}
-  - {entry: "route:carry/file", reason: "계약만 있고 아직 등록하지 않았다. handler와 flow는 carry-folder가 단다"}
-  - {entry: "route:carry/put", reason: "계약만 있고 아직 등록하지 않았다. handler와 flow는 carry-folder가 단다"}
+
+  - id: carry-read
+    title: "다른 컴퓨터나 폰이 이 컴퓨터가 든 manifest 목록과, 믿는 목록이 싣는데 이 컴퓨터에 아직 없는 file을 읽는다"
+    actor: system
+    entries: [route:carry/manifests, route:carry/wants]
+    boundary: [folder]
+    code: [packages/core/folder/carry-routes.ts, packages/core/folder/replica.ts, packages/protocol/folder/carry.ts]
+    docs: [architecture/folder-sync.md]
+    steps:
+      - "dispatch가 actors(user, 기기 연결의 컴퓨터와 폰)를 본다"
+      - "manifests: 이 컴퓨터의 manifest와, 받아 들였고 그것을 검증한 서명 key가 지금 명단의 key인 다른 컴퓨터의 manifest마다 machine, revision, 크기, sha256. 글은 carry/file로 읽는다"
+      - "wants: 지금 목록인 다른 컴퓨터의 manifest에서 시작한 목록 사슬(앱 목록, release.json, source/<n>.json)이 싣는데 computers 폴더에 그 크기·sha256으로 없는 file을 (machine, path) 순서로 after 뒤부터 limit(기본 1,000)개"
+      - "이 컴퓨터가 든 manifest가 바뀌면(받아 들임, 내보내기, 명단이 바뀌어 다시 검증) StateChanged(carry_files)로 다시 읽는다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "호출한 자격이 user가 아니다(core dispatch가 먼저 막는다)"
+        observe: [response]
+    declared_only: [unavailable]
+    unclear:
+      - "manifests·wants의 unavailable은 선언만 있다: 받는 자리가 읽지 못한 file은 없는 것으로 본다"
+    crosses_process: false
+
+  - id: carry-file
+    title: "다른 컴퓨터나 폰이 이 컴퓨터가 든 manifest 글이나 지금 목록이 싣는 file의 한 구간을 받는다"
+    actor: system
+    entries: [route:carry/file]
+    boundary: [folder]
+    code: [packages/core/folder/carry-routes.ts, packages/core/folder/replica.ts, packages/protocol/folder/carry.ts]
+    docs: [architecture/folder-sync.md]
+    steps:
+      - "dispatch가 actors(user)와 입력(path가 그 machine의 옮기는 file이거나 manifest, length 8 MiB까지)을 본다"
+      - "machines/<m>/manifest.json: 이 컴퓨터 것이면 내보내기가 쓴 file, 다른 컴퓨터 것이면 지금 목록일 때만 준다"
+      - "그 밖: 그 기계의 지금 목록 사슬이 그 path를 싣고 computers 폴더의 file이 그 크기·sha256일 때 offset부터 length까지(끝이면 짧다). 이 컴퓨터가 낸 file과 다른 컴퓨터에서 받은 file 모두 준다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "그 file을 들지 않았거나, 지금 목록이 싣지 않거나, 크기·sha256이 다르거나, 그 기계의 목록이 지금 명단의 key로 맞지 않는다"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "path가 그 machine의 옮기는 file도 manifest도 아니다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "호출한 자격이 user가 아니다(core dispatch가 먼저 막는다)"
+        observe: [response]
+    crosses_process: false
+
+  - id: carry-put
+    title: "폰이 들고 온 다른 컴퓨터의 manifest와 file을 조각으로 넘기고, 받는 자리가 서명한 목록에 맞는 것만 computers 폴더에 둔다"
+    actor: system
+    entries: [route:carry/put]
+    boundary: [folder]
+    code: [packages/core/folder/carry-routes.ts, packages/core/folder/replica.ts, packages/protocol/folder/carry.ts]
+    docs: [architecture/folder-sync.md]
+    steps:
+      - "dispatch가 actors(user)와 입력(조각 8 MiB까지)을 본다"
+      - "조각은 data root의 carry-staging에 (machine, path)마다 한 file로 offset대로 잇는다. offset 0은 처음부터다. 한 시간 지난 끝나지 않은 staging은 지운다"
+      - "첫 조각(file): 이 컴퓨터 자신의 file이면 들었을 때 have, 아니면 rejected. 다른 컴퓨터의 지금 목록 사슬에 그 크기·sha256의 entry가 없으면 아무것도 쓰지 않고 rejected, 이미 들었으면 have"
+      - "다 차면(file): 받는 자리가 크기·sha256을 보고 rename 바로 앞에 그때의 목록과 다시 견준 뒤 computers/machines/<m>/에 둔다. 목록 file이면 그 판이 더는 싣지 않는 file을 지운다. 읽기 scan을 깨운다"
+      - "다 차면(machines/<m>/manifest.json): 글의 body.machine, 크기, sha256이 입력과 같아야 한다. 명단에서 그 machine의 하나뿐인 컴퓨터가 서명했고 (그 기계, 그 서명 key)의 표시(folder_carry_marks)보다 revision이 크면 지금 목록이 되고 표시를 올린다. 이 컴퓨터 자신의 manifest면 두지 않고 표시만 올린다(have). 같거나 옛 것이면 have. 바뀌면 StateChanged(carry_files)"
+    outcomes:
+      - id: partial
+        observe: [response, "disk:carry-staging/"]
+      - id: accepted
+        observe: [response, "disk:computers/machines/<m>/", "ledger:folder_carry_marks", "event:StateChanged"]
+      - id: have
+        when: "같은 file을 이미 든다, 같거나 옛 revision의 manifest, 이 컴퓨터 자신의 manifest나 든 file"
+        observe: [response]
+      - id: rejected
+        when: "지금 목록 사슬에 그 path가 없거나 크기·sha256이 다르다, 받은 bytes가 크기·sha256과 다르다, 받는 사이 목록이 바뀌었다, 명단에 없거나 빠졌거나 다른 이름을 단 컴퓨터가 서명한 manifest, 글과 다른 machine·크기·sha256, 이 컴퓨터 자신의 들지 않은 file"
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "offset이 받아 둔 크기를 잇지 않는다(staging이 지워졌거나 core가 다시 떴다. offset 0부터 다시)"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "staging이나 computers 폴더에 쓰지 못했다, 표시를 ledger에 쓰지 못했다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "호출한 자격이 user가 아니다(core dispatch가 먼저 막는다)"
+        observe: [response]
+    crosses_process: false
+    risk: [data-loss, sandbox]

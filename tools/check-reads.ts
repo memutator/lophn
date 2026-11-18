@@ -7,11 +7,13 @@ import { pathToFileURL } from "node:url";
 import type { Route } from "../packages/protocol/base/route.ts";
 
 // route의 `changes` 밖에서 core가 `StateChanged`로 내는 이름. route 밖에서 내는 곳을 더하면 여기도 더한다.
-// app_activity: 앱 호출 ledger가 호출마다 낸다. secrets: 앱 OAuth 완료가 secret 이름으로 낸다.
+// app_activity: 앱 호출 ledger가 호출마다 낸다. carry_files: `computers` 폴더의 받는 자리와 내보내기가 든 manifest가
+// 바뀔 때마다 낸다. secrets: 앱 OAuth 완료가 secret 이름으로 낸다.
 // settings: 설정 store가 바뀐 key마다 낸다(`settings/update`, file watch, core 안 정리 모두).
 // unseen: attention이 못 본 turn 끝이 서고 꺼질 때마다 낸다(turn 끝, presence 보고, `unseen/dismiss`).
 const PUBLISHED_OUTSIDE_ROUTES = [
   "app_activity",
+  "carry_files",
   "secrets",
   "settings",
   "unseen",

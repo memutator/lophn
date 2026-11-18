@@ -551,6 +551,7 @@ export const carryManifests = defineRead({
     ),
   }),
   actors: ["user"],
+  reads: ["carry_files"],
   errors: ["unauthorized", "forbidden", "unavailable"],
 });
 
@@ -573,6 +574,7 @@ export const carryWants = defineRead({
     files: z.array(wantSchema.extend({ size: count, sha256: sha256Schema })),
   }),
   actors: ["user"],
+  reads: ["carry_files"],
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });
 

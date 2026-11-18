@@ -15,6 +15,7 @@ const BUNDLE_HASH = /^[0-9a-f]{64}$/;
 const DATA_ENTRY = /^([0-9]{12})\.(changes|snapshot)$/;
 const SOURCE_ENTRY = /^([0-9]{12})\.(bundle|json)$/;
 const TEMP_RANDOM = /^[0-9a-f]{16}$/;
+const EVENT_ENTRY = /^[0-7][0-9a-hjkmnp-tv-z]{25}\.json$/;
 
 // 번호는 stream마다 1부터 빈틈없이 는다.
 export function entryNumber(n: number): string {
@@ -166,6 +167,12 @@ export function listingOf(
       };
     case "releases":
       return { accepts: isBundleHashName, directories: true };
+    // 기계를 건너는 event file `<ULID>.json`(`carry.ts`의 `eventFilePath`).
+    case "events":
+      return {
+        accepts: (name) => EVENT_ENTRY.test(name),
+        directories: false,
+      };
     default:
       return null;
   }

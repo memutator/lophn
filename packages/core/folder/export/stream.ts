@@ -31,6 +31,10 @@ import {
   RUN_MAX_BYTES,
   SNAPSHOT_PAYLOAD_MAX_BYTES,
 } from "../../../protocol/folder/mod.ts";
+import {
+  CARRY_DATA_FILES_MAX,
+  COMPUTERS_DESTINATION,
+} from "../../../protocol/folder/carry.ts";
 import type { Sql } from "../../../protocol/server/mod.ts";
 import {
   createFolderReader,
@@ -267,6 +271,13 @@ class Run {
     }
     // 마지막 snapshot이 오래되면 새로 써서 그 앞 file을 compaction할 수 있게 한다. 새 변경이 없으면 쓰지 않는다.
     if (deps.log.head(app.app) <= state.last_seq) return null;
+    // `computers`의 앱 목록(files.json)은 마지막 snapshot 뒤 file을 다 싣는다. 너무 많아지기 전에 snapshot을 일찍 쓴다.
+    if (
+      this.key.destination === COMPUTERS_DESTINATION &&
+      state.next_n - 1 - state.last_snapshot_n >= CARRY_DATA_FILES_MAX
+    ) {
+      return "compaction";
+    }
     const last = writtenRows(deps.sql, this.key).find(
       (row) => row.n === state.last_snapshot_n,
     );

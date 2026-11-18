@@ -1,3 +1,4 @@
+import { CARRY_ROUTES } from "./carry.ts";
 import { machineEnvironment } from "./environment.ts";
 import { machineForget } from "./forget.ts";
 import { appSyncHeld, appSyncResume } from "./held.ts";
@@ -13,11 +14,13 @@ export * from "./records.ts";
 export * from "./status.ts";
 export * from "./take-in.ts";
 
-// folder wiring(core)이 handler를 붙이는 route. `app.take_in`은 ledger handler 없이 writer 앞에서 처리한다.
+// folder wiring(core)이 handler를 붙이는 route. `app.take_in`은 ledger handler 없이 writer 앞에서 처리한다. `carry/*`는
+// `computers` 폴더의 받는 자리(`carry.ts`)다.
 export const FOLDER_ROUTES = [
   machineEnvironment,
   machineForget,
   appSyncHeld,
   appSyncResume,
   appTakeIn,
+  ...CARRY_ROUTES,
 ] as const;

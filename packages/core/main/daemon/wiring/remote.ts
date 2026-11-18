@@ -48,6 +48,7 @@ import {
   rosterStore,
 } from "../../../../protocol/remote/mod.ts";
 import { confirmationRefSchema } from "../../../../protocol/base/mod.ts";
+import { signManifest } from "../../../../protocol/folder/carry.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
   type Dial,
@@ -807,6 +808,31 @@ export function remoteWiring(
       ctx.provide(
         "deviceKind",
         (principal) => deviceOf(principal)?.kind ?? null,
+      );
+      // 폴더·link·폰으로 옮기는 file(carry). 명단 file은 remote가 켜져 있고 자기 항목이 있을 때만 싣는다.
+      ctx.provide("rosterCarry", {
+        snapshot: () =>
+          ctx.settings.get(remoteEnabledSetting) === true &&
+          roster.self() !== undefined
+            ? roster.snapshot()
+            : null,
+        async receive(snapshot) {
+          const done = await roster.receive(snapshot);
+          return done.ok ? ok(undefined) : done;
+        },
+      });
+      ctx.provide("manifestSign", (body) =>
+        keys === undefined ? null : signManifest(body, keys.signing.secretKey),
+      );
+      ctx.provide(
+        "computerSigningKey",
+        (machine) =>
+          roster
+            .view()
+            .devices.find(
+              (each) =>
+                each.body.kind === "computer" && each.body.machine === machine,
+            )?.body.signing_key ?? null,
       );
       phoneLink = createPhoneLink({ timers: systemTimers, random: ctx.random });
       links = createLinks({

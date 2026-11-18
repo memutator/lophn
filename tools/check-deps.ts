@@ -398,8 +398,8 @@ export async function checkRepo(root: string): Promise<Violation[]> {
           `이식할 수 없는 specifier: ${specifier}`,
         );
       }
-      // base와 protocol이 repo 밖에서 가져오는 것은 protocol의 zod, remote 연결의 순수 JavaScript 암호
-      // library(@noble), test의 test 도구뿐이다.
+      // base와 protocol이 repo 밖에서 가져오는 것은 protocol의 zod, remote 연결과 폴더 manifest 서명(folder/carry)의
+      // 순수 JavaScript 암호 library(@noble), test의 test 도구뿐이다.
       if (
         portable &&
         !relative &&
@@ -407,7 +407,8 @@ export async function checkRepo(root: string): Promise<Violation[]> {
         !testImport &&
         !(own === "protocol" && specifier === "zod") &&
         !(
-          file.startsWith("packages/protocol/remote/") &&
+          (file.startsWith("packages/protocol/remote/") ||
+            file.startsWith("packages/protocol/folder/carry")) &&
           specifier.startsWith("@noble/")
         )
       ) {

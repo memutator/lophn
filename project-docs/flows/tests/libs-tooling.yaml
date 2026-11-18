@@ -176,6 +176,10 @@ files:
     covers: []
     note: "폴더 변경 file 꼴. 끝을 자른 것, payload·header를 1 byte 바꾼 것, 뒤에 붙인 것, path와 번호가 다른 header, 1행 판 2는 변경을 하나도 내놓지 않고(invalid_file, newer_format), 맞는 file은 넣은 변경을 bytes 그대로 돌려준다. 모르는 칸이 더해진 header와 기록은 읽히고 format 2는 newer_format이다. 아직 폴더 교환 route가 없어 outcome이 없다"
 
+  - path: packages/protocol/folder/carry_test.ts
+    covers: []
+    note: "기계 사이로 옮기는 file의 manifest(진짜 Ed25519 key와 명단 view). 명단에 없는 컴퓨터, 명단에서 빠진 컴퓨터, 서명 뒤 고친 목록, 다른 기계 이름을 단 manifest는 믿지 않고, revision이 든 것보다 크지 않으면 바꾸지 않으며, 목록에 없거나 맞지 않는 release.json이 덮는 path는 기대값이 없다. carry route handler가 아직 없어 outcome이 없다"
+
   - path: packages/protocol/coding-agent/headless/headless_test.ts
     covers: [harness-turn-run:configuration-unavailable]
     note: headless 출력 parser(helper)와 권한 표. deny를 옮길 수 없는 harness는 null이고 그때 configuration-unavailable이다. 전부 허락 flag가 없는 것도 본다

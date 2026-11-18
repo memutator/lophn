@@ -23,8 +23,10 @@ export { deviceNameSchema, keyTextSchema, remoteAddressesSchema };
 // handshake 뒤 client가 먼저, core가 그 뒤에 `hello`를 보낸다. 서로의 판 범위가 겹치지 않으면 양쪽 다 `conflict`로 닫는다.
 // Noise prologue는 판과 다른 것이라 판을 올려도 그대로다.
 // 판 4는 명단 규칙(쓰인 초대, key로만 세는 빼기, 모르는 서명자 상한)이다. 판 3과 같은 명단을 다르게 보므로 하한도 같이 올린다.
-export const REMOTE_PROTOCOL_VERSION = 4;
-export const REMOTE_PROTOCOL_MIN_VERSION = 4;
+// 판 5는 기계 사이로 file을 옮기는 manifest(`carry/*`)다. 판 4 기계는 manifest를 내지 않아 새 기계가 그 file을 받지 못하므로,
+// 조용히 아무것도 오지 않는 대신 "올려야 한다"가 보이게 하한도 같이 올린다.
+export const REMOTE_PROTOCOL_VERSION = 5;
+export const REMOTE_PROTOCOL_MIN_VERSION = 5;
 export const REMOTE_PROLOGUE = "lophn-remote/1";
 
 // hello는 모르는 칸을 버린다(z.object). 다음 판이 칸을 더해도 이 판과 붙는다.

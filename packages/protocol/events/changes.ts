@@ -31,6 +31,7 @@ export const CHANGE_NAMES = [
   "coding_sessions",
   "terminal_saved_sessions",
   "browser_pages",
+  "carry_files",
 ] as const;
 
 export type ChangeName = (typeof CHANGE_NAMES)[number];

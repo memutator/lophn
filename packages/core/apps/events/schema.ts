@@ -22,3 +22,11 @@ export const eventPublicationSchemaSteps: readonly SchemaStep[] = [
   `,
   },
 ];
+
+// 발행 기록의 난 기계. NULL은 이 기계에서 난 것이고, 값은 다른 기계에서 온 event를 이 기계가 낸 때의 그 기계 id다.
+export const EVENT_PUBLICATIONS_MACHINE_STEPS: readonly SchemaStep[] = [
+  {
+    id: "apps.event-publications.machine",
+    sql: `ALTER TABLE app_event_publications ADD COLUMN machine TEXT;`,
+  },
+];

@@ -95,3 +95,21 @@ export const FOLDER_AWAY_NOTIFIED_STEPS: readonly SchemaStep[] = [
     sql: `ALTER TABLE folder_streams ADD COLUMN away_notified INTEGER;`,
   },
 ];
+
+// 다른 기계에서 온 event file 가운데 이 기계(machine)가 이미 낸 것. 같은 file이 여러 길로 와도 한 번만 낸다. 나이 한도
+// (`CROSS_EVENT_MAX_AGE_MS`)가 지난 행은 지운다. FOLDER_AWAY_NOTIFIED_STEPS 뒤 낸 step 목록의 끝에 잇는다.
+export const FOLDER_EVENTS_SEEN_STEPS: readonly SchemaStep[] = [
+  {
+    id: "folder.events-seen",
+    sql: `
+    CREATE TABLE folder_events_seen (
+      machine TEXT NOT NULL,
+      origin TEXT NOT NULL,
+      app TEXT NOT NULL,
+      event TEXT NOT NULL,
+      seen_at TEXT NOT NULL,
+      PRIMARY KEY (machine, origin, app, event)
+    ) STRICT;
+  `,
+  },
+];

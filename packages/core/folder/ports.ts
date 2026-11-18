@@ -1,6 +1,8 @@
 // 폴더 교환이 core의 다른 module에 기대는 면. type만 둔다.
 import type { Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
+import type { JsonValue } from "../../protocol/base/json-values.ts";
+import type { CarryPutStatus, CarryVia } from "../../protocol/folder/carry.ts";
 
 /** 받은 변경 하나. operation과 시작 시각은 주인 기계의 invocation 것이다. */
 export type FolderChange = {
@@ -69,3 +71,75 @@ export type FolderLog = {
   page(app: string, after: number, limit: number): readonly FolderLogRow[];
   readChangeset(hash: string, size: number): Promise<Result<Uint8Array>>;
 };
+
+/** 받는 자리가 file 하나·manifest 하나에 내린 결과. `have`는 이미 같은 것을 든다. */
+export type CarryReceived = Exclude<CarryPutStatus, "partial">;
+
+/**
+ * `computers` 폴더의 받는 자리. link·폰·거울이 가져온 manifest와 file을 받고, 이 기계가 든 것을 내준다. folder가 낸다.
+ * 받는 쪽 규칙(믿는 manifest, 목록에 있는 file만, staging 뒤 rename)은 이 자리 하나가 지킨다(`folder-sync.md`).
+ */
+export type FolderReplica = {
+  /** 이 기계의 manifest와 받아 들인 다른 기계의 것. 다른 기계 것은 받아 들인 때와 길을 싣는다(이 기계 것은 null). */
+  manifests(): Promise<
+    Result<
+      {
+        machine: Id<"mch">;
+        revision: number;
+        text: string;
+        received_at: string | null;
+        via: CarryVia | null;
+      }[]
+    >
+  >;
+  /** 다른 기계의 manifest 글. 믿고 든 것보다 새면 `accepted`, 같거나 옛 것이면 `have`, 믿지 못하면 `rejected`. */
+  offerManifest(text: string, via: CarryVia): Promise<Result<CarryReceived>>;
+  /** 믿는 manifest가 싣거나 덮는데 아직 없는 file. */
+  wants(limit: number): Promise<
+    Result<
+      {
+        machine: Id<"mch">;
+        path: string;
+        size: number;
+        sha256: string;
+      }[]
+    >
+  >;
+  /** 든 file이고 믿는 manifest가 그 크기·sha256으로 싣거나 덮는가. */
+  holds(machine: Id<"mch">, path: string): Promise<boolean>;
+  /** 든 file의 한 구간. holds가 아니면 not_found. */
+  read(
+    machine: Id<"mch">,
+    path: string,
+    offset: number,
+    length: number,
+  ): Promise<Result<Uint8Array>>;
+  /** file 하나를 조각 순서대로 받는다. 크기·sha256이 그 기계의 지금 manifest와 맞을 때만 둔다. */
+  receive(input: {
+    machine: Id<"mch">;
+    path: string;
+    size: number;
+    sha256: string;
+    via: CarryVia;
+    chunks: AsyncIterable<Uint8Array>;
+  }): Promise<Result<CarryReceived>>;
+};
+
+/** 앱이 다른 기계에도 알리겠다고 낸 event를 그 앱의 event file로 쓴다. folder가 낸다. */
+export type CrossEvents = {
+  write(
+    app: Id<"app">,
+    release: Id<"rel">,
+    event: { name: string; payload: JsonValue; at: string },
+  ): Promise<Result<void>>;
+};
+
+/** 다른 기계에서 온 event file 하나(아직 이 기계가 내지 않은 것). apps가 이 기계에서 낸다. */
+export type EventArrived = (input: {
+  app: Id<"app">;
+  origin: Id<"mch">;
+  name: string;
+  payload: JsonValue;
+  at: string;
+  bundle_hash: string;
+}) => void;

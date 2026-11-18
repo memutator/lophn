@@ -101,6 +101,11 @@ export const appEventPublications = defineRead({
   ],
 });
 
+// `data.changed` event(발행자 `lophn`): 다른 기계나 폰에서 온 변경이 이 앱의 DB에 적용되었다. 그 앱 하나에만 간다.
+// 무엇이 바뀌었는지는 싣지 않는다(앱이 다시 읽는다).
+export const APP_DATA_CHANGED_EVENT = "data.changed";
+export const dataChangedPayloadSchema = z.strictObject({});
+
 export const APP_EVENT_ROUTES = [
   appEventPublish,
   appEventPublications,

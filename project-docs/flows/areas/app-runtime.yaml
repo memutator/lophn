@@ -2765,3 +2765,8 @@ flows:
         observe: [response]
     crosses_process: false
     risk: [permission]
+ignore:
+  - {entry: "route:carry/manifests", reason: "계약만 있고 아직 등록하지 않았다. handler와 flow는 carry-folder가 단다"}
+  - {entry: "route:carry/wants", reason: "계약만 있고 아직 등록하지 않았다. handler와 flow는 carry-folder가 단다"}
+  - {entry: "route:carry/file", reason: "계약만 있고 아직 등록하지 않았다. handler와 flow는 carry-folder가 단다"}
+  - {entry: "route:carry/put", reason: "계약만 있고 아직 등록하지 않았다. handler와 flow는 carry-folder가 단다"}

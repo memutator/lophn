@@ -7,11 +7,11 @@ export const GLOBAL_FLOATS_READ_CHANNEL = "shell:global-floats-read";
 export const GLOBAL_FLOATS_SAVE_CHANNEL = "shell:global-floats-save";
 
 export interface GlobalFloatRecord {
-  /** 탭이 나온 workspace. */
+  /** 탭이 나온 workspace. `machine`은 그 workspace가 다른 기계의 것일 때의 기계 id다(없으면 이 컴퓨터). */
   workspace:
-    | { kind: "home" }
-    | { kind: "project"; id: string }
-    | { kind: "app"; id: string };
+    | { kind: "home"; machine?: string }
+    | { kind: "project"; id: string; machine?: string }
+    | { kind: "app"; id: string; machine?: string };
   /** 탭 kind의 `toStored` 값(workspace layout 파일의 탭과 같다). main이 kind registry로 다시 검사한다. */
   tab: Record<string, unknown>;
   /** title bar 아래 창 몸통 왼쪽 위 기준 정수 CSS px(workspace layout의 float rect와 같다). */

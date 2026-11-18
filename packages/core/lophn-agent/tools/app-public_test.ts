@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
 import { withPublicOnly } from "./app-public.ts";
-import { appCommandEntries, appCommandTool } from "./app-tool/command.ts";
+import {
+  appCommandEntries,
+  appCommands,
+  appCommandTool,
+} from "./app-tool/command.ts";
 import type { AppToolkit } from "./app-toolkit.ts";
 import { resolveAppCall } from "./lophn/resolve.ts";
 import { parseCommandLine } from "../../../cli/parser.ts";
@@ -149,4 +153,72 @@ test("wrong CLI spelling stays unexecuted and corrections only name commands the
       .name,
     "add_event",
   );
+});
+
+// 같은 앱이 두 기계에 있어도 `--on`이 기계를 고른다. 다른 기계의 앱은 그 앱 workspace의 session에게도 public command만 보이고, 두 기계의 같은 command는
+// 한 turn에서 함께 불려도 정의가 섞이지 않게 tool 이름이 다르다.
+test("--on picks the computer: the same app command on two computers resolves apart, a remote view keeps only public commands, and this computer is not a target", async () => {
+  const STUDIO = {
+    machine: "mch_01arz3ndektsv4rrffq69g5fav",
+    device: "dev_01arz3ndektsv4rrffq69g5fav",
+    name: "studio",
+    self: false,
+  };
+  const SELF = {
+    machine: "mch_01arz3ndektsv4rrffq69g5faw",
+    device: "dev_01arz3ndektsv4rrffq69g5faw",
+    name: "laptop",
+    self: true,
+  };
+  const kit = withPublicOnly({
+    load: () =>
+      Promise.resolve(
+        ok({
+          views: [
+            view(APP_A, [tool("open", false), tool("shown", true)]),
+            {
+              ...view(APP_A, [tool("open", false), tool("shown", true)]),
+              machine: STUDIO.machine,
+            },
+          ],
+          entries: [
+            { app: APP_A, removed_tools: [] },
+            {
+              app: APP_A,
+              machine: STUDIO.machine,
+              name: "Alpha",
+              removed_tools: [],
+            },
+          ],
+          machines: [STUDIO, SELF],
+        }),
+      ),
+  } as unknown as AppToolkit);
+  const loaded = await kit.load({
+    agent: "lophn_home",
+    workspace: { kind: "app", id: APP_A },
+  });
+  if (!loaded.ok) throw new Error("load failed");
+  const found = appCommands(loaded.value);
+  const resolve = (...args: string[]) =>
+    resolveAppCall({ args }, found.entries, found.machines);
+  // 이 기계에서는 그 앱 workspace의 비공개 command까지 되지만 다른 기계에서는 public만이다.
+  assert.equal(resolve("alpha", "open")?.entry.machine, null);
+  assert.equal(resolve("alpha", "open", "--on", "studio"), undefined);
+  const remote = resolve("alpha", "shown", "--on", "studio");
+  const here = resolve("alpha", "shown");
+  assert.equal(remote?.entry.machine, STUDIO.machine);
+  assert.equal(here?.entry.machine, null);
+  assert.notEqual(remote?.name, here?.name);
+  assert.deepStrictEqual(
+    toolForWireName(
+      [appCommandTool(remote!.entry), appCommandTool(here!.entry)],
+      remote!.name,
+    )?.name,
+    appCommandTool(remote!.entry).name,
+  );
+  // 이 컴퓨터, 없는 컴퓨터, 빈 글은 풀리지 않는다.
+  for (const on of ["laptop", "nowhere", ""]) {
+    assert.equal(resolve("alpha", "shown", "--on", on), undefined, on);
+  }
 });

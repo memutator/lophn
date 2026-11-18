@@ -18,7 +18,10 @@ import {
 import { loadApp } from "../../../apps/registration/store.ts";
 import { loadActiveDeclaration } from "../../../apps/releases/store.ts";
 import { agentAssignment, denyRuleOf } from "../../../apps/usage/users.ts";
-import type { AgentInfo } from "../../../lophn-agent/agents/directory.ts";
+import type {
+  AgentInfo,
+  RemoteAppLine,
+} from "../../../lophn-agent/agents/directory.ts";
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
 import {
   createAgentStore,
@@ -62,13 +65,27 @@ create table agent_assignments (
   },
 ];
 
-// 할당 내용(앱과 deny 규칙)에서 정한 비교 값. 48 bit라 정수로 안전하다.
+// 할당 내용(앱, 다른 기계의 앱, deny 규칙)에서 정한 비교 값. 48 bit라 정수로 안전하다. 다른 기계의 앱이 없으면 그 칸은 넣지 않아
+// 옛 할당의 값이 그대로다.
 function revisionOf(info: AgentInfo | null): number {
-  if (info === null || (info.apps.length === 0 && info.deny.length === 0)) {
+  if (
+    info === null ||
+    (info.apps.length === 0 &&
+      info.deny.length === 0 &&
+      info.remoteApps.length === 0)
+  ) {
     return 0;
   }
   const hash = createHash("sha256")
-    .update(canonicalize({ apps: info.apps, deny: info.deny }))
+    .update(
+      canonicalize({
+        apps: info.apps,
+        deny: info.deny,
+        ...(info.remoteApps.length === 0
+          ? {}
+          : { remote_apps: info.remoteApps }),
+      }),
+    )
     .digest("hex");
   return Number.parseInt(hash.slice(0, 12), 16);
 }
@@ -87,13 +104,24 @@ export function readAssignment(
 }
 
 // 할당의 앱 id와 뺀 command를 파일에 쓸 slug와 deny 규칙으로 바꾼다. 없는 앱과 active 선언에 없는 command는 버린다.
+// 다른 기계의 앱(machine이 있는 줄)은 이 기계의 앱 표를 보지 않고 그대로 `remote_apps`로 간다(그 앱의 선언은 그 기계에 있다).
 function fileValuesOf(
   sql: Query,
   entries: readonly AssignmentEntry[],
-): Result<{ apps: string[]; deny: string[] }> {
+): Result<{ apps: string[]; deny: string[]; remoteApps: RemoteAppLine[] }> {
   const apps: string[] = [];
   const deny: string[] = [];
+  const remoteApps: RemoteAppLine[] = [];
   for (const entry of entries) {
+    if (entry.machine !== undefined) {
+      remoteApps.push({
+        machine: entry.machine,
+        app: entry.app,
+        name: entry.name!,
+        removed: entry.removed_tools,
+      });
+      continue;
+    }
     const app = loadApp(sql, entry.app);
     if (!app.ok) return app;
     if (app.value === null) continue;
@@ -107,7 +135,7 @@ function fileValuesOf(
       }
     }
   }
-  return ok({ apps, deny });
+  return ok({ apps, deny, remoteApps });
 }
 
 // 이 할당이 다루는 규칙은 옛 앱과 새 앱의 command 규칙이다. 그 밖의 deny 규칙은 그대로 둔다.
@@ -151,8 +179,12 @@ export function writeAssignment(
   const next = fileValuesOf(sql, entries);
   if (!next.ok) return next;
   const managed = managedRules(sql, [
-    ...before.value.entries.map((entry) => entry.app),
-    ...entries.map((entry) => entry.app),
+    ...before.value.entries
+      .filter((entry) => entry.machine === undefined)
+      .map((entry) => entry.app),
+    ...entries
+      .filter((entry) => entry.machine === undefined)
+      .map((entry) => entry.app),
   ]);
   if (!managed.ok) return managed;
   const root = dataRootOf(sql, undefined);
@@ -162,6 +194,7 @@ export function writeAssignment(
     agent,
     {
       apps: next.value.apps,
+      remoteApps: next.value.remoteApps,
       deny: [
         ...info.deny.filter((rule) => !managed.value.has(rule)),
         ...next.value.deny,

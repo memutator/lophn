@@ -88,6 +88,7 @@ const deps: OpenDeps = {
             runtime: "lophn" as const,
             apps: [],
             deny: [],
+            remoteApps: [],
           }
         : id === REVIEWER
           ? {
@@ -99,6 +100,7 @@ const deps: OpenDeps = {
               runtime: "lophn" as const,
               apps: [],
               deny: [],
+              remoteApps: [],
             }
           : isLophn(id)
             ? {
@@ -110,6 +112,7 @@ const deps: OpenDeps = {
                 runtime: "lophn" as const,
                 apps: [],
                 deny: [],
+                remoteApps: [],
               }
             : null,
     agents: () => [],

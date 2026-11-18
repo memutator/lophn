@@ -59,6 +59,7 @@ import {
   extensionToolsCatalog,
 } from "../../../protocol/lophn-agent/extension-tools.ts";
 import { messageImagePath } from "../../../protocol/lophn-agent/message-images.ts";
+import { machinesAppTools } from "../../../protocol/remote/mod.ts";
 
 // agent runtime이 core loopback을 부르는 길이다. machine 자격은 아래 route만 열고 목록에 없는 경로는
 // 요청하지 않는다. turn의 agent 자격은 core가 그 credential의 scope로 막으므로 경로를 고르지 않는다.
@@ -125,6 +126,8 @@ export const RUNTIME_MACHINE_ROUTES = [
   appSkills,
   appGet,
   assignmentGet,
+  // 할당한 다른 기계의 앱의 command 목록. 이 route가 없으면 turn이 `configuration_unavailable`로 끝난다.
+  machinesAppTools,
   // 켜진 shell extension의 tool 목록. turn을 준비할 때 읽는다.
   extensionToolsCatalog,
   // confirm 재검사의 프로세스 nonce. agent credential은 turn이 running일 때만 있다.

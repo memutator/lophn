@@ -41,8 +41,8 @@ function removedCommands(
   );
 }
 
-// 한 agent의 할당. 정의 파일의 `apps`(slug)와 `permissions.deny`를 앱 id와 뺀 command 이름으로 푼다.
-// 없는 앱 slug는 건너뛴다. 앱 범위 agent는 자기 앱을 사람의 할당 없이 받는다(deny는 그대로 적용한다).
+// 한 agent의 할당. 정의 파일의 `apps`(slug)와 `permissions.deny`를 앱 id와 뺀 command 이름으로 풀고, 다른 기계의 앱(`remote_apps`)을
+// 그 뒤에 `{app, machine, name, removed_tools}`로 잇는다. 없는 앱 slug는 건너뛴다. 앱 범위 agent는 자기 앱을 사람의 할당 없이 받는다(deny는 그대로 적용한다).
 export function agentAssignment(
   sql: Query,
   agent: AgentId,
@@ -50,8 +50,15 @@ export function agentAssignment(
 ): Result<Assignment> {
   const info = agents.agent(agent);
   const own = info?.workspace?.kind === "app" ? info.workspace.id : null;
-  if (info === null || (info.apps.length === 0 && own === null)) {
-    return ok({ agent, entries: [] });
+  if (info === null) return ok({ agent, entries: [] });
+  const remote: Assignment["entries"] = info.remoteApps.map((line) => ({
+    app: line.app,
+    machine: line.machine,
+    name: line.name,
+    removed_tools: [...line.removed],
+  }));
+  if (info.apps.length === 0 && own === null) {
+    return ok({ agent, entries: remote });
   }
   const known = loadApps(sql, undefined);
   if (!known.ok) return known;
@@ -69,7 +76,7 @@ export function agentAssignment(
     if (!removed.ok) return removed;
     entries.push({ app: app.id, removed_tools: removed.value });
   }
-  return ok({ agent, entries });
+  return ok({ agent, entries: [...entries, ...remote] });
 }
 
 // 이 앱의 tool을 부른 다른 앱·project: 앱 tool을 부른 agent session이 놓인 곳이다. home과 그 앱 자신의 workspace는 세지 않는다.

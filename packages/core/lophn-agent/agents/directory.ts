@@ -31,6 +31,15 @@ export type AgentInfo = {
   // 할당: 앱 slug와 permissions.deny 규칙. 사람만 쓰는 칸이다.
   apps: readonly string[];
   deny: readonly string[];
+  // 할당한 다른 기계의 앱. id로 둔다(그 앱은 이 기계에 slug가 없다). 사람만 쓰는 칸이다.
+  remoteApps: readonly RemoteAppLine[];
+};
+
+export type RemoteAppLine = {
+  machine: string;
+  app: string;
+  name: string;
+  removed: readonly string[];
 };
 
 export interface AgentDirectory {
@@ -50,6 +59,7 @@ function infoOf(loaded: Loaded): AgentInfo {
     runtime: loaded.definition?.runtime ?? "lophn",
     apps: loaded.definition?.apps ?? [],
     deny: loaded.definition?.permissions?.deny ?? [],
+    remoteApps: loaded.definition?.remote_apps ?? [],
   };
 }
 

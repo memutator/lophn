@@ -101,6 +101,18 @@ test("할당하지 않은 앱 tool과 뺀 tool은 어느 mode에서도 막는다
     agent,
     entries: [{ app: APP, removed_tools: ["notes.drop"] }],
   };
+  // 앱 id는 기계 사이에 같다. 다른 기계에만 할당한 앱은 이 기계에서 할당한 것이 아니다.
+  const remoteOnly: Assignment = {
+    agent,
+    entries: [
+      {
+        app: APP,
+        machine: "mch_0000000000000000000000000c",
+        name: "notes",
+        removed_tools: [],
+      },
+    ],
+  };
   const none: Judgment = {
     kind: "deny",
     reason: "not_assigned",
@@ -110,6 +122,10 @@ test("할당하지 않은 앱 tool과 뺀 tool은 어느 mode에서도 막는다
   for (const mode of MODES) {
     assert.deepStrictEqual(judge(appCall("read"), null, rules(), mode), none);
     assert.deepStrictEqual(judge(appCall("read"), other, rules(), mode), none);
+    assert.deepStrictEqual(
+      judge(appCall("read"), remoteOnly, rules(), mode),
+      none,
+    );
     assert.deepStrictEqual(
       judge(appCall("read"), removed, rules(), mode),
       gone,

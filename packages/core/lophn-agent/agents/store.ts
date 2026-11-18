@@ -4,6 +4,7 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import { idSchema } from "../../../protocol/base/ids.ts";
 import { type AgentId, isLophn } from "../../../protocol/lophn-agent/mod.ts";
 import { parseAgentFile, serializeAgentFile } from "./definition-file.ts";
+import type { RemoteAppLine } from "./directory.ts";
 import type { AgentFileSystem, ReadSql } from "./ports.ts";
 
 // 정의 파일을 lophn data root 아래에서 읽고 쓰는 저장소다. 정의는 project나 앱 폴더가 아니라 lophn data의
@@ -112,12 +113,16 @@ export function dataRootOf(
   return ok(dirname(file));
 }
 
-// 할당(`apps`, `permissions.deny`)만 바꿔 정의 파일에 다시 쓴다. 다른 칸과 본문은 그대로다.
+// 할당(`apps`, `remote_apps`, `permissions.deny`)만 바꿔 정의 파일에 다시 쓴다. 다른 칸과 본문은 그대로다.
 // 파일이 없는 agent는 쓰지 않는다(할당은 정의가 있는 agent의 것이다). lophn은 파일이 없어도 기본 정의가 있다.
 export function writeAgentAssignment(
   store: AgentStore,
   agent: AgentId,
-  assignment: { apps: readonly string[]; deny: readonly string[] },
+  assignment: {
+    apps: readonly string[];
+    deny: readonly string[];
+    remoteApps: readonly RemoteAppLine[];
+  },
 ): Result<string> {
   const slot = agentSlotOf(store.root, agent);
   const read = store.read(slot);
@@ -133,6 +138,10 @@ export function writeAgentAssignment(
     {
       ...parsed.value,
       apps: [...assignment.apps],
+      remote_apps: assignment.remoteApps.map((line) => ({
+        ...line,
+        removed: [...line.removed],
+      })),
       permissions: { deny: [...assignment.deny] },
     },
     { agent },

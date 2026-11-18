@@ -8,15 +8,21 @@ import type {
   AgentAtWorkspace,
   AgentId,
 } from "../../../protocol/lophn-agent/workspaces.ts";
+import type { MachineCandidate } from "../../../protocol/machine/requester.ts";
+import { machinesAppTools } from "../../../protocol/remote/mod.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import type { AppToolView } from "./app-tool/command.ts";
 
 // agent runtime의 앱 command 연결. `lophn <slug> <command>`를 부를 때 agent 할당에서 앱을 읽고, 그 앱의 활성 release
-// 선언을 읽는다. 판정은 만들지 않는다: Gate는 호출이 지나는 core의 호출 경로가 건다.
+// 선언을 읽는다. 다른 기계의 앱(할당 줄에 machine이 있는 것)은 core의 `machines/app_tools`가 그 기계에 물어 한 번에 읽는다.
+// 판정은 만들지 않는다: Gate는 호출이 지나는 core의 호출 경로가 건다.
 
 type AppToolLoad = {
+  // 이 기계의 앱과 읽은 다른 기계의 앱(`machine`이 있다). 닿지 않거나 거절한 다른 기계의 앱은 없다.
   views: readonly AppToolView[];
   entries: readonly AssignmentEntry[];
+  // 명단의 컴퓨터(이 컴퓨터 포함). `--on`이 이것에서 기계를 고른다.
+  machines: readonly MachineCandidate[];
 };
 
 export type AppToolkit = {
@@ -35,6 +41,7 @@ export function createAppToolkit(options: {
     const entries: AssignmentEntry[] = assignment.value.entries;
     const views: AppToolView[] = [];
     for (const entry of entries) {
+      if (entry.machine !== undefined) continue;
       const read = await readOf(options.machine, appTools, {
         app: entry.app,
       });
@@ -48,7 +55,28 @@ export function createAppToolkit(options: {
         tools: read.value.tools,
       });
     }
-    return ok({ views, entries });
+    // 다른 기계의 앱이 없으면 core에 묻지 않는다.
+    if (!entries.some((entry) => entry.machine !== undefined)) {
+      return ok({ views, entries, machines: [] });
+    }
+    const remote = await readOf(options.machine, machinesAppTools, {
+      agent: who.agent,
+      workspace: who.workspace,
+    });
+    // 읽지 못하면 다른 기계의 앱이 없는 것과 같다(이 기계의 앱은 그대로 쓴다).
+    if (!remote.ok) return ok({ views, entries, machines: [] });
+    for (const row of remote.value.apps) {
+      if (row.view === null) continue;
+      views.push({
+        app: row.app,
+        machine: row.machine,
+        slug: row.view.slug,
+        name: row.name,
+        release: row.view.release,
+        tools: row.view.tools,
+      });
+    }
+    return ok({ views, entries, machines: remote.value.machines });
   }
 
   return { load };

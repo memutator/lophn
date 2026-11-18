@@ -246,7 +246,7 @@ files:
 
   - path: packages/core/lophn-agent/tools/app-public_test.ts
     covers: [app-declaration-read:ok, tool-lophn-help:invalid-command]
-    note: "비공개 app tool은 그 앱 workspace에만 보이고 공개 tool은 어디서나 보인다. lophn 명령 해석(resolveAppCall)은 할당과 뺀 command를 따른다. 잘못된 문법은 실행하지 않고 현재 부를 수 있는 command만 교정 안내에 쓴다"
+    note: "비공개 app tool은 그 앱 workspace에만 보이고 공개 tool은 어디서나 보인다. lophn 명령 해석(resolveAppCall)은 할당과 뺀 command를 따른다. 잘못된 문법은 실행하지 않고 현재 부를 수 있는 command만 교정 안내에 쓴다. `--on <컴퓨터>`는 그 컴퓨터의 앱 command만 고르고(같은 앱이 두 컴퓨터에 있어도 tool 이름이 달라 섞이지 않는다), 다른 컴퓨터의 앱은 public command만 보이며, 이 컴퓨터·없는 컴퓨터·빈 글은 풀리지 않는다"
 
   - path: packages/core/lophn-agent/tools/bundles/shell_test.ts
     covers: [tool-gate-check:rejected-by-person, tool-gate-check:run-after-allow, turn-request-decide:once, turn-request-decide:reject, tool-call-execute:gate-rejected, tool-call-execute:ok]

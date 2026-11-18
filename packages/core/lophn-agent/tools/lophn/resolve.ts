@@ -1,10 +1,15 @@
+import { err, ok, type Result } from "../../../../base/mod.ts";
 import { COMMANDS } from "../../../../cli/commands/mod.ts";
-import { parseCommandLine, wordsOf } from "../../../../cli/parser.ts";
+import { parseCommandLine, splitOn, wordsOf } from "../../../../cli/parser.ts";
 import {
   toWireToolName,
   WIRE_TOOL_NAME_PATTERN,
 } from "../../../../protocol/lophn-agent/tool-catalog.ts";
-import type { AppCommandEntry } from "../app-tool/command.ts";
+import {
+  type MachineCandidate,
+  resolveMachine,
+} from "../../../../protocol/machine/requester.ts";
+import { type AppCommandEntry, appToolWireName } from "../app-tool/command.ts";
 
 // `lophn {args}`의 args다. 모양이 다르면 undefined다.
 export function argsOf(input: unknown): string[] | undefined {
@@ -29,34 +34,67 @@ export function isBuiltinWord(word: string): boolean {
   return word === "help" || COMMANDS.some((c) => wordsOf(c.name)[0] === word);
 }
 
+// `--on <기계>`를 떼고 그 기계를 명단에서 고른다. `--on`이 없으면 이 기계(machine null)다. 이 컴퓨터를 고르거나 빈 글이거나 명단에 없으면 오류다.
+export function appScopeOf(
+  args: readonly string[],
+  machines: readonly MachineCandidate[],
+): Result<{ machine: string | null; argv: string[] }> {
+  const split = splitOn(args);
+  if (!split.ok) return split;
+  const { on, argv } = split.value;
+  if (on === null) return ok({ machine: null, argv });
+  if (on === "") {
+    return err({
+      code: "invalid_input",
+      message: "--on needs a computer name",
+    });
+  }
+  const found = resolveMachine(on, machines);
+  if (!found.ok) return found;
+  if (found.value.self) {
+    return err({
+      code: "invalid_input",
+      message: "that is this computer; leave out --on to use its apps",
+    });
+  }
+  return ok({ machine: found.value.machine, argv });
+}
+
 // 앱 command의 호출로 푼다. 지금 부를 수 있는 command(`entries`) 중 하나로 읽히면 그 command와 입력이고, 아니면
-// (도움말, 틀린 명령줄, 할당 밖·뺀·비공개 command) undefined라 호출은 `lophn` tool에 남아 그 handler가 답한다.
+// (도움말, 틀린 명령줄, 할당 밖·뺀·비공개 command, 고르지 못한 기계) undefined라 호출은 `lophn` tool에 남아 그 handler가 답한다.
+// `--on <기계>`가 있으면 그 기계의 앱 command만 보고, 없으면 이 기계의 것만 본다.
 // wire 이름이 형식에 맞지 않는 이름은 tool 표 전체를 깨므로 풀지 않는다.
 export function resolveAppCall(
   input: unknown,
   entries: readonly AppCommandEntry[],
+  machines: readonly MachineCandidate[] = [],
 ):
   | { entry: AppCommandEntry; name: string; input: Record<string, unknown> }
   | undefined {
   const args = argsOf(input);
-  if (args === undefined || isBuiltinWord(args[0])) return undefined;
+  if (args === undefined) return undefined;
+  const scope = appScopeOf(args, machines);
+  if (!scope.ok || scope.value.argv.length === 0) return undefined;
+  const { machine, argv } = scope.value;
+  if (isBuiltinWord(argv[0])) return undefined;
+  const visible = entries.filter((entry) => entry.machine === machine);
   const parsed = parseCommandLine(
-    args,
-    entries.map((entry) => entry.doc),
+    argv,
+    visible.map((entry) => entry.doc),
   );
   if (!parsed.ok || parsed.value.kind !== "run") return undefined;
   const { command } = parsed.value;
-  const entry = entries.find((one) => one.doc === command);
+  const entry = visible.find((one) => one.doc === command);
   if (
     entry === undefined ||
-    !WIRE_TOOL_NAME_PATTERN.test(toWireToolName(entry.doc.name))
+    !WIRE_TOOL_NAME_PATTERN.test(appToolWireName(entry))
   ) {
     return undefined;
   }
   // 실행기는 wire 이름으로 목록에서 찾는다. 정본 이름(`calls.add_item`)을 주면 목록 밖으로 거절된다.
   return {
     entry,
-    name: toWireToolName(entry.doc.name),
+    name: appToolWireName(entry),
     input: parsed.value.input,
   };
 }

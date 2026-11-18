@@ -10,6 +10,8 @@ import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
 import type { CommandDoc } from "../../../../cli/commands/types.ts";
 import { appCommandDoc } from "../../../../cli/commands/app-command.ts";
 import { commandLine } from "../../../../cli/parser.ts";
+import { toWireToolName } from "../../../../protocol/lophn-agent/tool-catalog.ts";
+import type { MachineCandidate } from "../../../../protocol/machine/requester.ts";
 import { readOf } from "../../run-loop/core-call.ts";
 import type { ToolDefinition } from "../registry.ts";
 import type { SpillableResult } from "../spill.ts";
@@ -21,9 +23,10 @@ import type { ToolContext } from "../tool-context.ts";
 
 export const APP_TOOL_CONTRACT = appCallTool.name;
 
-// 활성 release에서 읽은 command 선언이다.
+// 활성 release에서 읽은 command 선언이다. `machine`이 있으면 그 기계의 앱이다(앱 id는 기계 사이에 같다).
 export type AppToolView = {
   app: string;
+  machine?: string;
   slug: string;
   name: string;
   release: string;
@@ -33,41 +36,113 @@ export type AppToolView = {
 export type AppCommandEntry = {
   app: string;
   appName: string;
+  // 다른 기계의 앱이면 그 기계(`mch_`)와 이름이다. 이 기계의 앱이면 null이다.
+  machine: string | null;
+  machineName: string | null;
   command: AppCommand;
   // parser와 help가 읽는다. 이름은 `<slug>.<command>`이고 기록 이름도 이것이다.
   doc: CommandDoc;
 };
 
-// 할당이 이 command를 부르게 두는가. 앱을 할당하지 않았거나 command를 뺐으면 아니다.
+// 할당이 이 command를 부르게 두는가. 앱을 할당하지 않았거나 command를 뺐으면 아니다. 줄은 `(machine, app)`이다.
 function assigned(
   entries: readonly AssignmentEntry[],
+  machine: string | undefined,
   app: string,
   command: string,
 ): boolean {
-  const entry = entries.find((one) => one.app === app);
+  const entry = entries.find(
+    (one) => one.app === app && one.machine === machine,
+  );
   return entry !== undefined && !entry.removed_tools.includes(command);
 }
 
-// 앱 ∩ 선언 ∩ 할당. 순서는 앱, command 이름 순이다. 비공개 규칙은 views를 거른 쪽(`withPublicOnly`)이 한다.
+// 앱 ∩ 선언 ∩ 할당. 순서는 이 기계의 앱, 다른 기계의 앱 다음 앱, command 이름 순이다. 비공개 규칙은 views를 거른 쪽(`withPublicOnly`)이 한다.
 export function appCommandEntries(source: {
   views: readonly AppToolView[];
   entries: readonly AssignmentEntry[];
+  machines?: readonly MachineCandidate[];
 }): AppCommandEntry[] {
   const out: AppCommandEntry[] = [];
-  const views = [...source.views].sort((a, b) => (a.app < b.app ? -1 : 1));
+  const key = (view: AppToolView) => `${view.machine ?? ""}/${view.app}`;
+  const views = [...source.views].sort((a, b) => (key(a) < key(b) ? -1 : 1));
   for (const view of views) {
     const declared = [...view.tools].sort((a, b) => (a.name < b.name ? -1 : 1));
     for (const command of declared) {
-      if (!assigned(source.entries, view.app, command.name)) continue;
+      if (!assigned(source.entries, view.machine, view.app, command.name)) {
+        continue;
+      }
       out.push({
         app: view.app,
         appName: view.name,
+        machine: view.machine ?? null,
+        machineName:
+          view.machine === undefined
+            ? null
+            : (source.machines?.find((one) => one.machine === view.machine)
+                ?.name ?? null),
         command,
         doc: appCommandDoc(view.slug, command),
       });
     }
   }
   return out;
+}
+
+// 지금 부를 수 있는 앱 command와 `--on`이 기계를 고르는 명단, 할당했지만 지금 읽지 못한 다른 기계의 앱(꺼진 기계, 거절)이다.
+export type AppCommands = {
+  entries: readonly AppCommandEntry[];
+  machines: readonly MachineCandidate[];
+  unreachable: readonly {
+    machine: string;
+    machineName: string;
+    name: string;
+  }[];
+};
+
+export const NO_APP_COMMANDS: AppCommands = {
+  entries: [],
+  machines: [],
+  unreachable: [],
+};
+
+export function appCommands(source: {
+  views: readonly AppToolView[];
+  entries: readonly AssignmentEntry[];
+  machines: readonly MachineCandidate[];
+}): AppCommands {
+  return {
+    entries: appCommandEntries(source),
+    machines: source.machines,
+    unreachable: source.entries.flatMap((entry) =>
+      entry.machine === undefined ||
+      source.views.some(
+        (view) => view.machine === entry.machine && view.app === entry.app,
+      )
+        ? []
+        : [
+            {
+              machine: entry.machine,
+              machineName:
+                source.machines.find((one) => one.machine === entry.machine)
+                  ?.name ?? entry.machine,
+              name: entry.name ?? entry.app,
+            },
+          ],
+    ),
+  };
+}
+
+// loop가 기록·Gate·retry에 쓰는 tool 이름. 다른 기계의 앱 command는 같은 wire 이름이 이 기계에도 다른 기계에도 있을 수 있어 기계 id의 끝을 붙인다
+// (한 turn에서 둘을 함께 부르면 정의가 섞이지 않는다).
+export function appToolName(entry: AppCommandEntry): string {
+  return entry.machine === null
+    ? entry.doc.name
+    : `${entry.doc.name}.on_${entry.machine.slice(-8)}`;
+}
+
+export function appToolWireName(entry: AppCommandEntry): string {
+  return toWireToolName(appToolName(entry));
 }
 
 function callerOf(ctx: ToolContext) {
@@ -100,9 +175,9 @@ function toolResult(
 }
 
 export function appCommandTool(entry: AppCommandEntry): ToolDefinition {
-  const { app, appName, command, doc } = entry;
+  const { app, appName, command, doc, machine, machineName } = entry;
   return {
-    name: doc.name,
+    name: appToolName(entry),
     description: command.description,
     input: doc.input,
     effect: command.effect,
@@ -110,11 +185,16 @@ export function appCommandTool(entry: AppCommandEntry): ToolDefinition {
     operations: [APP_TOOL_CONTRACT],
     display: (input) => ({
       category: "command",
-      title: commandLine(doc, input as Record<string, unknown>),
+      title: `${commandLine(doc, input as Record<string, unknown>)}${
+        machineName === null ? "" : ` --on ${machineName}`
+      }`,
     }),
     handler: async (input, ctx) => {
       const reply = await readOf(ctx.core, appCallTool, {
-        target: { mode: "live", app, release: null },
+        target:
+          machine === null
+            ? { mode: "live", app, release: null }
+            : { mode: "remote", machine, app },
         kind: "command",
         name: command.name,
         ...(command.inputSchema === null ? {} : { input }),
@@ -123,13 +203,17 @@ export function appCommandTool(entry: AppCommandEntry): ToolDefinition {
       if (!reply.ok) return reply;
       return ok(resultOf(appName, command, reply.value));
     },
-    // 묻기는 run-loop tool gate, 막기는 core 호출 경로.
-    gate: () => ({
-      kind: "app_tool",
-      app,
-      tool: command.name,
-      effect: command.effect,
-    }),
+    // 묻기는 run-loop tool gate, 막기는 core 호출 경로. 다른 기계의 앱은 묻는 판정이 없고(할당이 허락이다) 막기는 core가 넘기기 전에 한다.
+    ...(machine === null
+      ? {
+          gate: () => ({
+            kind: "app_tool" as const,
+            app,
+            tool: command.name,
+            effect: command.effect,
+          }),
+        }
+      : {}),
   };
 }
 

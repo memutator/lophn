@@ -16,6 +16,7 @@ import {
   assignmentFileStep,
   denyRuleSlugStep,
   readAssignment,
+  writeAssignment,
 } from "./assignment-file.ts";
 import {
   createIdSource,
@@ -263,6 +264,92 @@ test("deny step은 앱 둘째 domain의 규칙을 앱 slug 규칙으로 바꾸�
         pattern: null,
       });
       assert.deepStrictEqual(call("note.add"), { kind: "run" });
+    } finally {
+      opened.value.close();
+    }
+  } finally {
+    await rm(root, { recursive: true });
+  }
+});
+
+// 사용자 data를 잃으면 안 된다: 다른 기계의 앱을 할당해도 이 기계의 앱 줄과 서로 지워지지 않고, 줄이 다시 읽혀 기계마다 따로 판정된다.
+test("다른 기계의 앱 할당은 정의 파일의 remote_apps로 저장되고 이 기계의 앱 줄과 같이 읽히며 줄을 빼면 칸도 빠진다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-assignment-remote-"));
+  try {
+    const db = new DatabaseSync(join(root, "lophn.db"));
+    for (const step of [...appsSchemaSteps, ...releasesSchemaSteps]) {
+      db.exec(step.sql);
+    }
+    db.prepare(
+      "INSERT INTO apps VALUES (?, 'notes', 'n', 'd', NULL, NULL, NULL, 1, '1', 'active')",
+    ).run(NOTES);
+    db.close();
+    await mkdir(join(root, "agents"));
+    await writeFile(
+      join(root, "agents", `${REVIEWER}.md`),
+      "---\nhandle: reviewer\nname: reviewer\n---\nbody\n",
+    );
+    const opened = openConnection(join(root, "lophn.db"));
+    assert.ok(opened.ok);
+    try {
+      const { sql } = opened.value;
+      const MACHINE = "mch_01hzzzzzzzzzzzzzzzzzzzzzza";
+      const local = { app: NOTES, removed_tools: [] };
+      const remote = {
+        app: NOTES,
+        machine: MACHINE,
+        name: "Notes",
+        removed_tools: ["note.add"],
+      };
+      const before = readAssignment(sql, REVIEWER as never);
+      assert.ok(before.ok);
+      const written = writeAssignment(
+        sql,
+        REVIEWER as never,
+        [local, remote],
+        before.value.revision,
+      );
+      assert.ok(written.ok);
+      assert.deepStrictEqual(written.value.assignment.entries, [local, remote]);
+      const file = await readFile(
+        join(root, "agents", `${REVIEWER}.md`),
+        "utf8",
+      );
+      assert.match(file, /apps:\n {2}- notes\n/);
+      assert.match(file, /remote_apps:\n {2}- machine: mch_/);
+      // 다른 기계에만 할당한 줄은 이 기계의 판정을 통과시키지 못한다.
+      const alone = writeAssignment(
+        sql,
+        REVIEWER as never,
+        [remote],
+        written.value.revision,
+      );
+      assert.ok(alone.ok);
+      assert.deepStrictEqual(alone.value.assignment.entries, [remote]);
+      assert.notEqual(alone.value.revision, written.value.revision);
+      assert.deepStrictEqual(
+        judge(
+          { kind: "app_tool", app: NOTES, tool: "x", effect: "write" } as never,
+          alone.value.assignment,
+          { floor: [], layers: [] },
+          "attended",
+          false,
+        ),
+        { kind: "deny", reason: "not_assigned", pattern: null },
+      );
+      // 줄을 모두 빼면 칸도 파일에서 빠지고 비교 값은 0이다.
+      const none = writeAssignment(
+        sql,
+        REVIEWER as never,
+        [],
+        alone.value.revision,
+      );
+      assert.ok(none.ok);
+      assert.equal(none.value.revision, 0);
+      assert.doesNotMatch(
+        await readFile(join(root, "agents", `${REVIEWER}.md`), "utf8"),
+        /remote_apps/,
+      );
     } finally {
       opened.value.close();
     }

@@ -550,3 +550,71 @@ test("with join every channel opens with it and the watch follows its answer; a 
   assert.equal(retries.length, scheduled);
   connection.close();
 });
+
+// A computer's core tells the other computer who asked by the `by` of the call frame, and whether a failed call left the link decides
+// if it may have run there: a call that left and lost its answer is not known, one that never left did not run.
+test("a call carries its requester on the frame, and a failure of the link says whether the call left", async () => {
+  const core = generateKeyPair(cryptoRandom);
+  const frames: RemoteClientFrame[] = [];
+  const channels: RemoteServerChannel[] = [];
+  const dial = async () => {
+    const [clientSide, coreSide] = pipe();
+    void acceptRemote({
+      transport: coreSide,
+      staticKey: core,
+      capabilities: [],
+      machine: MACHINE,
+      random: cryptoRandom,
+    }).then((opened) => {
+      assert.ok(opened.ok);
+      channels.push(opened.value);
+      opened.value.onFrame((frame) => {
+        frames.push(frame);
+        if (frame.type === "watch") opened.value.send({ type: "ready" });
+      });
+    });
+    return clientSide;
+  };
+  const connection = createConnection({
+    endpoint: {
+      addresses: ["10.0.0.1"],
+      port: 7432,
+      key: remoteKeyText(core.publicKey),
+      machine: MACHINE.id,
+    },
+    key: generateKeyPair(cryptoRandom),
+    capabilities: [],
+    dial,
+    random: cryptoRandom,
+    name: "Mina's laptop",
+    now: () => 1,
+    wait: () => () => {},
+    onRevoked: () => {},
+  });
+  await settle();
+  assert.equal(connection.current().state, "ready");
+
+  const lost = connection.call({
+    resource: "apps",
+    method: "remote_call",
+    body: {},
+    by: { kind: "terminal" },
+  });
+  await settle();
+  const call = frames.find((frame) => frame.type === "call");
+  assert.deepEqual(call?.type === "call" && call.by, { kind: "terminal" });
+  channels[0].close();
+  const afterSend = await lost;
+  assert.equal(afterSend.ok, false);
+  assert.equal(afterSend.sent, true);
+
+  await settle();
+  const never = await connection.call({
+    resource: "apps",
+    method: "remote_call",
+    body: {},
+  });
+  assert.equal(never.ok, false);
+  assert.equal(never.sent, false);
+  connection.close();
+});

@@ -59,8 +59,9 @@ import {
 } from "../prompt-assembly/mod.ts";
 import { readSessionConversation } from "../session/history.ts";
 import {
-  appCommandEntries,
+  appCommands,
   appCommandTool,
+  NO_APP_COMMANDS,
 } from "../tools/app-tool/command.ts";
 import type { AppToolkit } from "../tools/app-toolkit.ts";
 import { dispatchTarget } from "../tools/dispatch.ts";
@@ -617,7 +618,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const who = { agent: session.agent, workspace: session.workspace };
     const apps: AppCommandLookup = async () => {
       const loaded = await toolkit.appTool?.load(who);
-      return loaded?.ok ? appCommandEntries(loaded.value) : [];
+      return loaded?.ok ? appCommands(loaded.value) : NO_APP_COMMANDS;
     };
     // `lophn` tool이 명령으로 풀리는 호출을 실행할 정의도 여기 든다. model에 보이는 tools[]에는 없고 이 session의 workspace 종류가
     // 부를 수 있는 명령만 있으므로, 목록 밖 명령은 지금 목록 밖 tool과 같이 거절된다.
@@ -650,10 +651,15 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const dispatch = async (name: string, input: unknown) => {
       const target = dispatchTarget(name, input);
       if (target.name !== LOPHN_TOOL_NAME) return target;
-      const hit = resolveAppCall(input, await apps());
+      const found = await apps();
+      const hit = resolveAppCall(input, found.entries, found.machines);
       if (hit === undefined) return target;
       const definition = appCommandTool(hit.entry);
-      const key = JSON.stringify([hit.entry.app, hit.entry.command]);
+      const key = JSON.stringify([
+        hit.entry.machine,
+        hit.entry.app,
+        hit.entry.command,
+      ]);
       if (called.get(definition.name)?.key !== key) {
         called.set(definition.name, { key, definition });
         listed = [

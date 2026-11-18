@@ -22,6 +22,10 @@ import {
   type EventCondition,
   publishStateChanged,
 } from "../../protocol/events/mod.ts";
+import type {
+  MachineCandidate,
+  Requester,
+} from "../../protocol/machine/requester.ts";
 import {
   type KeyPair,
   ROSTER_JOIN_STATEMENTS_MAX,
@@ -429,17 +433,45 @@ export function createLinks(deps: LinksDeps) {
       )?.body;
   }
 
-  // 이 컴퓨터 자신을 고른 call은 link가 없다: 이 core의 route를 바로 부르면 된다.
+  // 이 컴퓨터 자신을 고른 call과 watch는 link가 없다: 이 core의 route를 바로 부르면 된다.
   function notFound(machine: string): Result<never> {
     const self = deps.roster.self()?.id;
     const mine = deps.roster.view().devices.find((d) => d.body.id === self);
     return mine?.body.machine === machine
       ? err({
           code: "invalid_input",
-          message:
-            "this machine is this computer; call its routes directly, not through machines/call",
+          message: "this machine is this computer; call its routes directly",
         })
       : err({ code: "not_found", message: "machine not found in the roster" });
+  }
+
+  // link로 route 하나를 보낸다. link 자체가 실패한 것(`unavailable`)에는 그 call이 link를 떠났는지를 `details.sent`로 단다:
+  // 떠났으면 그 기계에서 돌았을 수 있고 아니면 돌지 않았다. 그 기계가 답한 오류(code, message, details)는 그대로다.
+  async function deliver(
+    body: RosterEntryBody | undefined,
+    input: { resource: string; method: string; body: unknown; by?: Requester },
+  ): Promise<Result<unknown>> {
+    const link = body === undefined ? undefined : links.get(body.id);
+    if (link === undefined || link.refused) {
+      return err({
+        code: "unavailable",
+        message: "not connected",
+        details: { sent: false },
+      });
+    }
+    const reply = await link.connection.call({
+      resource: input.resource,
+      method: input.method,
+      body: input.body,
+      ...(input.by === undefined ? {} : { by: input.by }),
+    });
+    if (reply.ok) return ok(reply.value);
+    const error = reply.error as LophnError;
+    return err(
+      reply.sent === undefined
+        ? error
+        : { ...error, details: { sent: reply.sent } },
+    );
   }
 
   return {
@@ -476,25 +508,60 @@ export function createLinks(deps: LinksDeps) {
     // 마지막으로 그 컴퓨터와 link가 붙었거나 끊긴 때.
     seen: (device: string) => seen.get(device) ?? null,
 
-    async call(input: {
+    // 명단의 컴퓨터(kind computer). 폰, 빠진 기기와 정해지지 않은 항목은 view에 없다. 이 컴퓨터는 `self`다.
+    computers(): MachineCandidate[] {
+      const self = deps.roster.self()?.id;
+      return deps.roster
+        .view()
+        .devices.filter((each) => each.body.kind === "computer")
+        .map(({ body }) => ({
+          machine: body.machine as Id<"mch">,
+          device: body.id as Id<"dev">,
+          name: body.name,
+          self: body.id === self,
+        }));
+    },
+
+    // 기계 id로 고른 컴퓨터로 보낸다(나르기). 같은 기계 id의 항목이 둘이면 먼저 나온 것이라, 사람이 고른 call은 `callDevice`로 보낸다.
+    call(input: {
       machine: string;
       resource: string;
       method: string;
       body: unknown;
     }): Promise<Result<unknown>> {
       const body = computer(input.machine);
-      if (body === undefined) return notFound(input.machine);
-      const link = links.get(body.id);
-      if (link === undefined || link.refused) {
-        return err({ code: "unavailable", message: "not connected" });
-      }
-      const reply = await link.connection.call({
-        resource: input.resource,
-        method: input.method,
-        body: input.body,
-      });
-      // 그 기계의 오류(code, message, details) 그대로다.
-      return reply.ok ? ok(reply.value) : err(reply.error as LophnError);
+      return body === undefined
+        ? Promise.resolve(notFound(input.machine))
+        : deliver(body, input);
+    },
+
+    // 기기 id로 고른 컴퓨터로 보낸다. `by`는 core가 부른 자격에서 정한 요청한 쪽이다.
+    callDevice(
+      device: string,
+      input: {
+        resource: string;
+        method: string;
+        body: unknown;
+        by: Requester;
+      },
+    ): Promise<Result<unknown>> {
+      const self = deps.roster.self()?.id;
+      const body = deps.roster
+        .view()
+        .devices.find(
+          (each) =>
+            each.body.kind === "computer" &&
+            each.body.id === device &&
+            each.body.id !== self,
+        )?.body;
+      return body === undefined
+        ? Promise.resolve(
+            err({
+              code: "not_found",
+              message: "computer not found in the roster",
+            }),
+          )
+        : deliver(body, input);
     },
 
     // 그 구독자의 조건을 통째로 바꾼다. 빈 조건은 그 구독자를 뺀다.

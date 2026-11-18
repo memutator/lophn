@@ -10,6 +10,7 @@ import {
 import type { Route } from "../../protocol/base/mod.ts";
 import { settingsUpdate } from "../../protocol/config/file.ts";
 import { agentCreate } from "../../protocol/lophn-agent/agent-definitions.ts";
+import { DEFAULT_CALL_POLICY } from "../../protocol/lophn-agent/call-policy.ts";
 import { inputRequestAnswerSecret } from "../../protocol/lophn-agent/input-request.ts";
 import { mcpAuthBegin } from "../../protocol/lophn-agent/mcp-settings.ts";
 import {
@@ -17,6 +18,7 @@ import {
   providerConnectKey,
 } from "../../protocol/lophn-agent/providers.ts";
 import { changeSessionSkip } from "../../protocol/lophn-agent/sessions.ts";
+import { resolveMachine } from "../../protocol/machine/requester.ts";
 import { projectApi } from "../../protocol/projects/project-api.ts";
 import { REMOTE_PERSON_ROUTES } from "../../protocol/remote/allowlist.ts";
 import { REMOTE_ALLOWED_ROUTES } from "../../protocol/remote/mod.ts";
@@ -64,7 +66,10 @@ import {
   type DeviceCredential,
   devicePrincipal,
 } from "./call.ts";
-import { createMachineRoutes } from "./machine-routes.ts";
+import {
+  createMachineAppTools,
+  createMachineRoutes,
+} from "./machine-routes.ts";
 
 const GRANTED = `dev_0${"1".repeat(25)}`;
 const PLAIN = `dev_0${"2".repeat(25)}`;
@@ -439,13 +444,28 @@ test("handler가 낸 오류의 details가 기기의 call 결과에 그대로 온
   } satisfies { ok: false; error: LophnError });
 });
 
-// 다른 기계는 이 컴퓨터를 사람으로 받는다. 사람의 CLI token(actor user)이 이 길을 타면 그 기계의 사람 route와 자동 확인에 닿는다.
-test("CLI의 사람 token으로 machines/call을 부르지 못하고 shell main의 capability는 다른 기계로 가지 않는다", async () => {
+// 다른 기계는 이 컴퓨터를 사람으로 받는다. 요청한 쪽을 core가 부른 자격에서 정하므로, 그 기계의 화면(`screen`)이라고 싣는 것은 살아 있는
+// shell capability뿐이다. 사람의 CLI token은 `terminal`로 닿고, 입력의 다른 칸이나 죽은 capability로 `screen`을 만들지 못한다.
+test("machines/call의 요청한 쪽: 살아 있는 capability만 screen, capability 없는 사람 token은 terminal, 죽은 capability와 입력의 by는 screen을 만들지 못한다", async () => {
   const sent: unknown[] = [];
+  const computers = [
+    {
+      machine: `mch_0${"1".repeat(25)}`,
+      device: `dev_0${"1".repeat(25)}`,
+      name: "mac",
+      self: false,
+    },
+    {
+      machine: `mch_0${"2".repeat(25)}`,
+      device: `dev_0${"2".repeat(25)}`,
+      name: "me",
+      self: true,
+    },
+  ];
   const machines = createMachineRoutes({
     links: {
-      call: async (input) => {
-        sent.push(input);
+      callDevice: async (device, input) => {
+        sent.push({ device, ...input });
         return ok({});
       },
       watch: (subscriber, machine, conditions) => {
@@ -454,6 +474,7 @@ test("CLI의 사람 token으로 machines/call을 부르지 못하고 shell main�
       },
       forget: () => {},
     },
+    resolve: (ref) => resolveMachine(ref, computers),
     capability: (value) => value === "live",
     onEnd: () => {},
   });
@@ -462,19 +483,45 @@ test("CLI의 사람 token으로 machines/call을 부르지 못하고 shell main�
     principal: "user",
     conditions: { process: "cli" },
   };
-  const machine = `mch_0${"1".repeat(25)}`;
   const call = {
-    machine,
+    machine: "mac",
     resource: "providers",
     method: "disconnect",
     body: {},
   };
+  const sentTo = {
+    device: computers[0].device,
+    resource: "providers",
+    method: "disconnect",
+    body: {},
+  };
+
+  // capability 없는 사람 token: terminal. 입력에 `by`를 실어도 따르지 않는다.
+  assert.ok((await machines.call(cli, call as never)).ok);
+  assert.ok(
+    (await machines.call(cli, { ...call, by: { kind: "screen" } } as never)).ok,
+  );
+  assert.deepEqual(sent.splice(0), [
+    { ...sentTo, by: { kind: "terminal" } },
+    { ...sentTo, by: { kind: "terminal" } },
+  ]);
+
+  // 살아 있는 capability: screen. capability 값은 다른 기계로 가지 않는다.
+  assert.ok(
+    (await machines.call(cli, { ...call, shell_capability: "live" } as never))
+      .ok,
+  );
+  assert.deepEqual(sent.splice(0), [{ ...sentTo, by: { kind: "screen" } }]);
+
+  // 죽은 capability는 forbidden이고 아무것도 가지 않는다. 구독은 capability가 없거나 죽었어도 forbidden이다.
+  const dead = await machines.call(cli, {
+    ...call,
+    shell_capability: "dead",
+  } as never);
+  assert.equal(!dead.ok && dead.error.code, "forbidden");
   for (const shell_capability of [undefined, "dead"]) {
-    const input = { ...call, shell_capability } as never;
-    const called = await machines.call(cli, input);
-    assert.equal(!called.ok && called.error.code, "forbidden");
     const watched = machines.watch(cli, {
-      machine,
+      machine: computers[0].machine,
       watcher: "w1",
       conditions: [],
       shell_capability,
@@ -483,24 +530,131 @@ test("CLI의 사람 token으로 machines/call을 부르지 못하고 shell main�
   }
   assert.deepEqual(sent, []);
 
-  const shell = { ...cli, conditions: { process: "electron-main" } };
+  // 이 컴퓨터를 고른 call은 link에 닿지 않는다.
+  const mine = await machines.call(cli, { ...call, machine: "me" } as never);
+  assert.equal(!mine.ok && mine.error.code, "invalid_input");
+  assert.deepEqual(sent, []);
+
   assert.ok(
-    (await machines.call(shell, { ...call, shell_capability: "live" })).ok,
-  );
-  assert.ok(
-    machines.watch(shell, {
-      machine,
+    machines.watch(cli, {
+      machine: computers[0].machine,
       watcher: "w1",
       conditions: [],
       shell_capability: "live",
     }).ok,
   );
   assert.deepEqual(sent, [
-    call,
     {
       subscriber: { capability: "live", watcher: "w1" },
-      machine,
+      machine: computers[0].machine,
       conditions: [],
     },
   ]);
+});
+
+// agent의 목록을 그 기계에 묻는 일은 session 없는 그 agent로 하고, private workspace의 agent에게는 앱이 없다. workspace는 입력이 말하는 것으로만 정하지
+// 않는다: lophn agent의 id가 가리키는 workspace가 private이면 입력이 다른 workspace를 말해도 비운다.
+test("machines/app_tools는 session 없는 agent로 묻고, 닿지 않는 앱은 view null이며, private workspace의 agent에는 입력이 무엇을 말하든 앱을 비운다", async () => {
+  const PRIVATE_APP = "app_0000000000000000000000000a";
+  const computers = [
+    {
+      machine: `mch_0${"1".repeat(25)}`,
+      device: `dev_0${"1".repeat(25)}`,
+      name: "mac",
+      self: false,
+    },
+    {
+      machine: `mch_0${"2".repeat(25)}`,
+      device: `dev_0${"2".repeat(25)}`,
+      name: "me",
+      self: true,
+    },
+  ];
+  const view = {
+    app: PRIVATE_APP,
+    slug: "notes",
+    release: "rel_0000000000000000000000000a",
+    declaration_hash: "0".repeat(64),
+    name: "Notes",
+    description: "Notes",
+    tools: [],
+    operations: [],
+    screens: [],
+    facts: { permissions: [], app_connections: [], tools: [] },
+    evidence: {
+      description: { complete: true, gaps: [] },
+      structure: { validated: true },
+    },
+    as_of_seq: "1",
+    next_cursor: null,
+  };
+  const asked: unknown[] = [];
+  const appTools = createMachineAppTools({
+    links: {
+      callDevice: async (device, input) => {
+        asked.push({ device, ...input });
+        return ok(view);
+      },
+    },
+    computers: () => computers,
+    policy: () => ({
+      ...DEFAULT_CALL_POLICY,
+      private: [{ kind: "app", id: PRIVATE_APP }],
+    }),
+    assignment: async () =>
+      ok([
+        {
+          app: PRIVATE_APP,
+          machine: computers[0].machine,
+          name: "Notes",
+          removed_tools: [],
+        },
+        {
+          app: "app_0000000000000000000000000b",
+          machine: `mch_0${"3".repeat(25)}`,
+          name: "Gone",
+          removed_tools: [],
+        },
+        { app: "app_0000000000000000000000000c", removed_tools: [] },
+      ]),
+    agentName: async () => "Ada",
+  });
+
+  const open = await appTools({ agent: "lophn_home", workspace: null });
+  assert.ok(open.ok);
+  assert.deepEqual(
+    open.value.apps.map((row) => [
+      row.name,
+      row.view === null ? null : row.view.slug,
+    ]),
+    [
+      ["Notes", "notes"],
+      ["Gone", null],
+    ],
+  );
+  assert.deepEqual(open.value.machines, computers);
+  assert.deepEqual(asked, [
+    {
+      device: computers[0].device,
+      resource: "apps",
+      method: "tools",
+      body: { app: PRIVATE_APP },
+      by: { kind: "agent", agent: "lophn_home", session: null, name: "Ada" },
+    },
+  ]);
+
+  asked.length = 0;
+  for (const [agent, workspace] of [
+    ["lophn_home", { kind: "app", id: PRIVATE_APP }],
+    [`lophn_${PRIVATE_APP}`, null],
+    [
+      `lophn_${PRIVATE_APP}`,
+      { kind: "project", id: "prj_0000000000000000000000000a" },
+    ],
+  ] as const) {
+    const hidden = await appTools({ agent, workspace } as never);
+    assert.ok(hidden.ok);
+    assert.deepEqual(hidden.value.apps, []);
+  }
+  assert.deepEqual(asked, []);
 });

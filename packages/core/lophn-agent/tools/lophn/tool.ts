@@ -9,11 +9,11 @@ import {
   wordsOf,
 } from "../../../../cli/parser.ts";
 import type { WorkspaceKind } from "../../../../protocol/lophn-agent/workspaces.ts";
-import type { AppCommandEntry } from "../app-tool/command.ts";
+import type { AppCommands } from "../app-tool/command.ts";
 import { defineTool } from "../define.ts";
 import { fitted, invalid } from "../fit-result.ts";
 import type { ToolCallHandler, ToolDefinition } from "../registry.ts";
-import { isBuiltinWord } from "./resolve.ts";
+import { appScopeOf, isBuiltinWord } from "./resolve.ts";
 
 // 정의의 이름과 같아야 한다. eval의 tool file 표가 `defineTool({ name: "..."` 글자 그대로 읽어서 정의 쪽은 literal이다.
 export const LOPHN_TOOL_NAME = "lophn";
@@ -24,28 +24,66 @@ const USAGE =
   'Run ["help"] for the groups, ["<group>", "--help"] for the commands of a group and ["<group>", "<command>", "--help"] for the fields of a command.';
 
 // 지금 부를 수 있는 앱 command다. 부를 때마다 읽는다(`apps`가 지금 할당, 활성 release 선언, 비공개 규칙으로 정한다).
-export type AppCommandLookup = () => Promise<readonly AppCommandEntry[]>;
+export type AppCommandLookup = () => Promise<AppCommands>;
+
+// 다른 기계의 앱을 `lophn help`에 덧붙인다. 읽지 못한 앱은 "not reachable now"다.
+function remoteAppsText(apps: AppCommands): string {
+  const rows = new Map<string, string[]>();
+  for (const entry of apps.entries) {
+    if (entry.machine === null) continue;
+    const [slug, ...rest] = wordsOf(entry.doc.name);
+    const head = `${slug} (on ${entry.machineName ?? entry.machine})`;
+    rows.set(head, [...(rows.get(head) ?? []), rest.join(" ")]);
+  }
+  const lines = [
+    ...[...rows].map(([head, names]) => `  ${head}  ${names.join(", ")}`),
+    ...apps.unreachable.map(
+      (gone) => `  ${gone.name} (on ${gone.machineName}) - not reachable now`,
+    ),
+  ];
+  return lines.length === 0
+    ? ""
+    : `\n\nApps on other computers (add --on <computer> to the command):\n${lines.join("\n")}`;
+}
 
 function lophnHandler(apps?: AppCommandLookup): ToolCallHandler {
   return async (input, ctx) => {
     const { args } = input as { args: string[] };
     const commands = commandsForWorkspace(ctx.kind);
+    const found = apps === undefined ? undefined : await apps();
+    // `--on`은 다른 기계의 앱 command에만 붙는다(내장 명령, 다른 기계의 터미널·file·job은 범위 밖이다).
+    const scope = appScopeOf(args, found?.machines ?? []);
+    if (!scope.ok) return scope;
+    const { machine, argv } = scope.value;
+    if (machine !== null && (argv.length === 0 || isBuiltinWord(argv[0]))) {
+      return invalid(
+        "--on goes with an app command: lophn <app> <command> --on <computer>",
+      );
+    }
     // 앱 command는 도움말과 오류에만 쓴다. 실행은 loop가 앞에서 그 command의 호출로 풀었다(`resolveAppCall`).
     const entries =
-      apps === undefined || isBuiltinWord(args[0]) ? [] : await apps();
+      found === undefined || isBuiltinWord(argv[0])
+        ? []
+        : found.entries.filter((entry) => entry.machine === machine);
     const docs: readonly CommandDoc[] = [
-      ...commands,
+      ...(machine === null ? commands : []),
       ...entries.map((entry) => entry.doc),
     ];
-    const parsed = parseCommandLine(args, docs);
+    const parsed = parseCommandLine(argv, docs);
     if (!parsed.ok) return parsed;
     if (parsed.value.kind === "run") {
       return invalid("the call did not resolve to a command");
     }
     const text = helpText(docs, parsed.value.topic);
-    return text === undefined
-      ? err(unknownCommandError(parsed.value.topic, docs))
-      : ok(fitted("help", { help: text }));
+    if (text === undefined) {
+      return err(unknownCommandError(parsed.value.topic, docs));
+    }
+    const top = machine === null && parsed.value.topic.length === 0;
+    return ok(
+      fitted("help", {
+        help: top && found !== undefined ? text + remoteAppsText(found) : text,
+      }),
+    );
   };
 }
 

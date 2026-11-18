@@ -123,6 +123,7 @@ test("앱 범위 agent는 자기 앱 command를 할당 없이 부르고 다른 �
       runtime: "lophn",
       apps,
       deny: [],
+      remoteApps: [],
     }),
     agents: () => [],
     cardOf: () => null,

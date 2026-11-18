@@ -3,6 +3,7 @@
 import type { LophnError, RandomSource } from "../base/mod.ts";
 import type { Id } from "../protocol/base/ids.ts";
 import { eventConditionSchema } from "../protocol/events/bus.ts";
+import type { Requester } from "../protocol/machine/requester.ts";
 import {
   connectRemote,
   type KeyPair,
@@ -35,11 +36,16 @@ export type CoreCall = {
   resource: string;
   method: string;
   body: unknown;
+  // Who asked, for a computer's core to say to the other computer. A phone sends none.
+  by?: Requester;
 };
 export type CoreReply = {
   ok: boolean;
   value?: unknown;
   error?: { code: string; message: string };
+  // Only on a failure of this link (not an answer from the core): whether the call frame left before it failed. A call
+  // that left may have run there, one that did not has not.
+  sent?: boolean;
 };
 export type CoreEventMessage =
   | { kind: "ready" }
@@ -367,12 +373,14 @@ export function createConnection(
       resolve({
         ok: false,
         error: { code: "unavailable", message: "connection closed" },
+        sent: true,
       });
     }
     for (const { resolve } of queued.splice(0)) {
       resolve({
         ok: false,
         error: { code: "unavailable", message: "connection closed" },
+        sent: false,
       });
     }
     if (!stopped) setState({ state: "stale", confirmedAt: state.confirmedAt });
@@ -403,6 +411,7 @@ export function createConnection(
       return Promise.resolve({
         ok: false,
         error: { code: "unavailable", message: "not connected" },
+        sent: false,
       });
     }
     const id = `c${++nextId}`;
@@ -412,13 +421,17 @@ export function createConnection(
       resource: input.resource,
       method: input.method,
       body: input.body,
+      ...(input.by === undefined ? {} : { by: input.by }),
     });
-    if (!sent.ok) return Promise.resolve({ ok: false, error: sent.error });
+    if (!sent.ok) {
+      return Promise.resolve({ ok: false, error: sent.error, sent: false });
+    }
     return new Promise((resolve) => {
       const cancel = deps.wait(CALL_DEADLINE_MS, () =>
         answered(id, {
           ok: false,
           error: { code: "unavailable", message: "no answer in time" },
+          sent: true,
         }),
       );
       pending.set(id, (reply) => {

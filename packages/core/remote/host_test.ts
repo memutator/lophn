@@ -54,6 +54,7 @@ import {
   changeSessionSkip,
   deleteSession,
 } from "../../protocol/lophn-agent/sessions.ts";
+import { resolveMachine } from "../../protocol/machine/requester.ts";
 import { projectApi } from "../../protocol/projects/project-api.ts";
 import { ROUTES } from "../../protocol/registry.ts";
 import {
@@ -1561,6 +1562,7 @@ test("두 구독자가 같은 기계를 볼 때 한쪽이 빈 조건으로 그�
   const ended: ((capability: string) => void)[] = [];
   const machines = createMachineRoutes({
     links,
+    resolve: (ref) => resolveMachine(ref, links.computers()),
     capability: () => true,
     onEnd: (listener) => void ended.push(listener),
   });

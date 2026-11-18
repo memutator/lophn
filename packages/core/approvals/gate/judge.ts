@@ -61,9 +61,12 @@ export function judge(
       : { kind: "ask" };
   }
   // MCP server는 설정한 층이 곧 할당이라 할당을 보지 않는다. app_tool의 tool은 앱의 command 이름이고
-  // `removed_tools`도 command 이름을 담는다(operation은 할당 대상이 아니다).
+  // `removed_tools`도 command 이름을 담는다(operation은 할당 대상이 아니다). 이 판정은 이 기계의 호출이라 다른 기계의 앱 줄
+  // (`machine`이 있는 줄)은 보지 않는다: 앱 id는 기계 사이에 같아, 다른 기계에만 할당한 앱이 이 기계에서 통과하면 안 된다.
   if (call.kind === "app_tool") {
-    const entry = assignment?.entries.find((item) => item.app === call.app);
+    const entry = assignment?.entries.find(
+      (item) => item.app === call.app && item.machine === undefined,
+    );
     if (!entry) return { kind: "deny", reason: "not_assigned", pattern: null };
     if (entry.removed_tools.includes(call.tool)) {
       return { kind: "deny", reason: "removed", pattern: null };

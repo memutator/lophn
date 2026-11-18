@@ -19,7 +19,13 @@ export function createPreviewAppsCallService(): PreviewAppsCallService {
       if (!parsed.success) {
         return Promise.resolve(invalid("apps call input is invalid"));
       }
-      const { target_app: app, command } = parsed.data;
+      const { target_app: app, command, machine } = parsed.data;
+      // preview는 이 기계 안의 일이다. 다른 컴퓨터의 앱은 부르는 시도로도 세지 않는다.
+      if (machine !== undefined) {
+        return Promise.resolve(
+          invalid("a preview does not call an app on another computer"),
+        );
+      }
       attempts.push({ app, command });
       return Promise.resolve(refuse("app.call", { app, command }));
     },

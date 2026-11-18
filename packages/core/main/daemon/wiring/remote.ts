@@ -28,6 +28,7 @@ import {
   devicesConnected,
   devicesList,
   devicesPushTargets,
+  machinesAppTools,
   machinesCall,
   machinesList,
   machinesWatch,
@@ -59,6 +60,13 @@ import {
   rosterGrantSet,
   rosterGrantsSeed,
 } from "../../../../protocol/remote/grants.ts";
+import {
+  type Assignment,
+  assignmentGet,
+} from "../../../../protocol/approvals/mod.ts";
+import { agentRead } from "../../../../protocol/lophn-agent/agent-definitions.ts";
+import { DEFAULT_CALL_POLICY } from "../../../../protocol/lophn-agent/call-policy.ts";
+import { resolveMachine } from "../../../../protocol/machine/requester.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
   type Dial,
@@ -74,6 +82,7 @@ import {
 } from "../../../apps/sync/schema.ts";
 import { type PushDevice } from "../../../attention/mod.ts";
 import { createExpoPushSender } from "../../../attention/push/mod.ts";
+import { callPolicySetting } from "../../../config/setting-declarations.ts";
 import {
   devicesSetting,
   remoteAddressesSetting,
@@ -114,6 +123,7 @@ import {
   addSigningKey,
   createDeviceCredentials,
   createLinks,
+  createMachineAppTools,
   createMachineRoutes,
   createPhoneLink,
   createRemoteCall,
@@ -181,6 +191,8 @@ const REMOTE_CONTEXT: AuthenticatedContext = {
       rosterGrants.name,
       rosterGrantSet.name,
       rosterGrantsSeed.name,
+      assignmentGet.name,
+      agentRead.name,
     ],
     targets: {},
   },
@@ -222,6 +234,7 @@ export function createCoreRegistration() {
       machinesList,
       machinesCall,
       machinesWatch,
+      machinesAppTools,
     ],
   };
 }
@@ -1032,6 +1045,11 @@ export function remoteWiring(
         onPeerReady: (machine) => carry.ready(machine),
         onPeerCarry: (machine) => carry.peerChanged(machine),
       });
+      ctx.provide("machineLinks", {
+        computers: () => links.computers(),
+        resolve: (ref) => resolveMachine(ref, links.computers()),
+        call: (device, call, by) => links.callDevice(device, { ...call, by }),
+      });
       ctx.provide("phoneLink", {
         call: phoneLink.call,
         async primary() {
@@ -1265,8 +1283,34 @@ export function remoteWiring(
       };
       const machines = createMachineRoutes({
         links,
+        resolve: (ref) => resolveMachine(ref, links.computers()),
         capability: (value) => ctx.peek.shellCapabilities?.has(value) ?? false,
         onEnd: (listener) => ctx.peek.shellCapabilities?.onEnd(listener),
+      });
+      const appToolsOf = createMachineAppTools({
+        links,
+        computers: () => links.computers(),
+        policy: () =>
+          ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY,
+        async assignment(agent) {
+          const read = await ctx.runtime.reads.get(key(assignmentGet))!(
+            REMOTE_CONTEXT,
+            { agent },
+          );
+          return read.ok
+            ? ok((read.value as { assignment: Assignment }).assignment.entries)
+            : read;
+        },
+        async agentName(agent) {
+          const read = await ctx.runtime.reads.get(key(agentRead))!(
+            REMOTE_CONTEXT,
+            { agent },
+          );
+          return read.ok
+            ? (read.value as { effective: { name: { value: string } } })
+                .effective.name.value
+            : null;
+        },
       });
       return ok({
         memory: [
@@ -1288,6 +1332,11 @@ export function remoteWiring(
             key(machinesWatch),
             (who: unknown, input: unknown) =>
               machines.watch(who, input as z.infer<typeof machinesWatch.input>),
+          ],
+          [
+            key(machinesAppTools),
+            (_who: unknown, input: unknown) =>
+              appToolsOf(input as z.infer<typeof machinesAppTools.input>),
           ],
         ],
         writer: (inner) =>

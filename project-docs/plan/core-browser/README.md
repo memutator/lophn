@@ -35,6 +35,11 @@ spike로 확인한 것 위에 선다: display 없는 Linux에서 Electron은 `--
 | 3 | `page-view-phone` | `page-view-core` | 폰 앱: page 보기 화면(그림, 손가락과 keyboard, 주소·뒤로·다시 읽기, 잡기) |
 | 3 | `page-view-desktop` | `page-view-core` | desktop의 다른 기계 창: page 보기 탭 |
 
+## 진행 기록 (lead)
+
+- wave 1~2를 중간에 land했다(2026-11-18): main에 `core-setup`(0.23.85)이 올라와 wave 3 화면 task가 고칠 file(폰 `nav.ts`·`routes.tsx`, wireframe phone `index.tsx`·`shell.tsx`, `remote-desk.ts`, 두 allowlist)을 고쳤다. 옛 base에서 지으면 land 때 충돌이 나므로 main 위로 옮긴 뒤 wave 3을 띄운다.
+- wave 2 뒤 실제 Electron(개발 앱, 개발 CLI, `tools/remote-client.ts` 폰 둘)에서 본 것: 목록, 입력(누르기, 글, Enter, 주소, 뒤로, 다시 읽기), 멀리서 잡기와 놓기, 허락 없는 기기의 `forbidden`, lease 끝남은 됐다. 화면이 잠겨 있어 창의 frame, scroll, 최소화는 보지 못했다. frame은 `page-host`의 offscreen page로 lead가 다시 보고, 창의 frame과 최소화·되살리기는 사람에게 부탁한다(change-log checklist).
+
 ## 위험 test (brief에 있다)
 
 - agent 자격과 터미널 입력 허락이 없는 기기는 page에 입력하지 못한다.

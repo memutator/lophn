@@ -1,0 +1,12 @@
+id: remote-port-taken-says-off
+title: remote port를 다른 process가 쓰고 있으면 초대장 내기가 "remote is off"로 답한다
+kind: bug
+status: open
+topic: remote
+modules: [packages/core/main]
+now: |
+  `packages/core/main/daemon/wiring/remote.ts`에서 remote를 켤 때 `openRemoteListener`가 실패하면(`EADDRINUSE` 등) `listener_failed`를 log에만 남기고 listener를 비워 둔다. relay도 없으면(`remote.relay`가 "") `roster/invite`와 `roster/join`은 `listener === undefined && relay === undefined`라서 `unavailable` "remote is off"로 답한다. `remote.enabled`는 true인데 꺼졌다고 말하고, 진짜 원인(port를 다른 process가 쓴다)은 core log에만 있다. 같은 기계에 설치본 lophn과 개발 core가 같이 뜨면 기본 port 7432에서 생긴다(core-browser 확인 중 생겼다).
+impact: |
+  사람(과 개발 중인 agent)이 remote를 켰는데 초대장이 "꺼져 있다"로 실패해, 설정을 다시 켜거나 끄며 헤맨다. port 충돌을 알 길이 log뿐이다.
+fix: |
+  - 작음(추천): listener가 실패한 이유를 기억해 두고, `invite`·`join`의 `unavailable` 문장에 그 이유를 싣는다("the remote port 7432 is in use by another program; change remote.port"). Settings › Remote가 같은 이유를 보이면 더 좋다.

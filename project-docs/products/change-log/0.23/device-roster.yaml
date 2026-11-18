@@ -1,0 +1,45 @@
+id: device-roster
+version: 0.23.82
+title: 폰과 컴퓨터가 서명한 내 기기 명단 하나를 같이 들고, 한 컴퓨터의 초대로 모든 기계와 이어진다
+modules: [packages/protocol, packages/remote-client, packages/core/remote, packages/core/main, packages/core/apps/sync, packages/cli, packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/shell/renderer, packages/design, packages/mobile, tools]
+change: |
+  전: 믿음이 쌍마다, 방향마다 따로였다. 컴퓨터마다 ledger `devices` 표에 붙는 기기를 한 줄씩 들었고 그 `dev_`는 그 컴퓨터 안에서만 뜻이 있었다. pairing code는 컴퓨터마다 desktop 화면에서만 만들었고(`pairing/start`, 300초, 한 번) 폰은 `pair` frame으로 그 컴퓨터 하나에 등록했다. 기기 빼기, 이름 바꾸기(별명), 터미널 입력 허락은 그 컴퓨터 안에서만이었다(`devices/revoke|unpair|rename|set_terminal_input|forget_all|register`). 다른 컴퓨터는 shell main이 따로 든 기기 key와 목록(`shell/viewer/key.json`, `machines.json`)으로 kind `desktop` 기기로 붙었고, 화면 없는 기계는 다른 기계에 붙을 길이 없었다. protocol 판 2.
+  후:
+  - "명단: 기기 하나가 서명한 항목 하나다(`{id, kind: phone|computer, key, signing_key, machine, name, os, terminal_input, rev, invite}`). 빼기와 초대장도 서명한 statement이고, 믿음은 root(컴퓨터는 자기 서명 key, 폰은 저장한 컴퓨터들의 서명 key)에서 서명을 따라간다. 빼기끼리는 grounded labelling으로 정하고 부딪는 key는 둘 다 뺀다. 계산은 시각을 보지 않고 받은 순서와 무관하다."
+  - "frame: 붙는 쪽의 첫 frame은 `join {statements}`이고 답은 `{device, computer: {id, signing_key}, roster}`다. 붙은 뒤 `roster`로 든 명단 전부를 주고받고 core는 명단이 바뀔 때마다 민다. client hello에 폰의 화면 `phone`이 더해졌다. `pair` frame과 pairing code 모양은 지웠다. protocol 판 3, 하한 3."
+  - "route: `roster/list|invite|join|remove|set_terminal_input|rename`(사람), `roster/leave`(기기 자기만, 기기 route 목록에 있다), core 안 machine 자격 `roster/statements|store|forget_all`, `machines/list|call|watch`(사람)와 transient event `MachineFrameReceived`(subject `machine:<mch_>`, 기기 event 목록 밖). `roster/invite {kind, terminal_input, lifetime: short|long}`은 30분이나 7일 초대장을 낸다. `pairing/start`, `devices/register|revoke|unpair|set_terminal_input|forget_all|rename`은 지웠고 `devices/list`는 kind, 별명, 알린 이름, 터미널 입력을 내지 않는다(명단이 든다)."
+  - "저장: ledger 표 `roster_statements`·`roster_reach`(schema step `remote.roster`. 같은 step이 kind desktop 기기 행을 지운다). 폰 행은 remote를 켤 때나 key가 있는 기동 때 listener를 열기 전에 그 컴퓨터가 서명한 항목이 된다(id, key, 이름, 허락 그대로). 같은 폰을 컴퓨터 둘에 pairing해 둔 두 id는 명단이 합쳐질 때 작은 id로 접히고 앱 sync log의 기기 칸과 `shell.devices`를 따라 고친다. 서명 key `remote/signing-key.json`(0600, 기계 표지)을 host key와 같이 만들고 지운다. data step `remote.signing-key`가 옛 host key에 짝 서명 key를 더하고, `shell.viewer.roster`가 `shell/viewer/key.json`·`machines.json`을 지우고 시작 기계를 `shell/viewer/start.json`으로 옮긴다(`viewer/windows.json`은 그대로)."
+  - "컴퓨터끼리: remote가 켜진 core가 명단의 다른 컴퓨터마다 link를 들어(engine은 `@lophn/remote-client`) 명단을 주고받는다. 받는 쪽에서 그 컴퓨터는 `device:<id>`인 기기이고 지금 route 목록으로 걸러진다. 명단에서 빠진 것을 안 컴퓨터는 복사된 data root처럼 명단과 key 둘을 버리고 새 key로 다시 선다. 컴퓨터의 이름은 기계 이름과 한 값이다(다른 컴퓨터가 준 이름을 기계 이름으로 받고, `machine/rename`은 바로 자기 항목을 다시 서명한다)."
+  - "CLI: `lophn remote on | invite <phone|computer> [--no-terminal-input] [--long] | join '<invite>' | devices | remove <device>`. 사람의 터미널만이다(agent의 shell은 actor user에서 막힌다)."
+  - "desktop: 다른 기계의 창은 shell main의 연결 대신 이 컴퓨터 core의 `machines/call`·`machines/watch`를 거치고 기계 목록은 `machines/list`에서 온다. shell main의 기기 key, 연결, 기계 목록 file과 IPC `shell:machines-pair|remove|rename`을 지웠다. 명단에 없는 기계의 창은 removed gate다. Settings › Remote는 This computer, My devices(이름, kind와 OS, 상태, Waiting, 터미널 입력 스위치, Rename, Make primary, Remove), Add a device([Invite a phone]·[Invite a computer], 긴 수명 스위치, QR과 Show as text), [Join with an invite]가 되었다."
+  - "폰: 초대장(QR이나 글)으로 들어온다(kind phone 초대장만). 컴퓨터 목록은 명단이 채워 한 컴퓨터에 들어오면 나머지 컴퓨터가 뜨고, 폰은 받은 명단을 다음에 붙는 컴퓨터에 나른다. 이미 pairing한 폰은 다시 pairing하지 않고 첫 `join` 답에서 그 컴퓨터의 서명 key를 배운다. [Remove this phone from my devices]는 `roster/leave`로 이 폰을 명단에서 빼고 모든 컴퓨터와 key를 잊는다. `npm run dev:remote`는 폰 초대장을 찍는다."
+why: |
+  roadmap `multi-device` 순서 2다. 폰, 집, 직장, 미니 PC를 쓰는 사람이 쌍마다 pairing하면 아홉 번이 넘게 들고, 잃은 폰을 컴퓨터마다 따로 빼야 했다. dual boot나 집·직장처럼 같이 켜지지 않는 컴퓨터는 살아 있는 연결로만 들이면 영영 못 잇는다. 화면 없는 기계도 같은 정체로 다른 기계에 붙어야 뒤 계획(`core-setup`, `one-screen`, `remote-use`)이 선다. 조사한 제품 가운데 서명한 명단을 쓰는 것이 없어 본보기 없이 설계하고 계약을 다른 worker가 review했다.
+decisions:
+  - text: "새 기기는 이미 명단에 든 컴퓨터 하나가 들이고 명단이 나머지에 퍼진다(조사의 방식 1). 버린 길: 계정, 가운데 기계, 기기 하나가 모두에 서명하는 root, 공유 비밀 하나, 쌍마다 잇기를 두고 횟수만 줄이기."
+    by: person
+  - text: "이미 pairing한 폰은 다시 pairing하지 않는다(기기 표 줄이 그 컴퓨터가 서명한 항목이 되고 host key는 그대로다). 컴퓨터끼리는 shell의 붙는 key가 없어지므로 초대로 한 번 다시 잇는다. 옛 key를 읽어 주는 호환 장치는 만들지 않는다."
+    by: person
+  - text: "pairing code는 초대장이다. 든 컴퓨터가 한 번 쓸 key로 서명한 초대장을 내고 새 기기가 그 key로 자기 항목에 서명해 스스로 든다. 초대한 컴퓨터가 꺼져 있어도 되고 소식은 link나 폰이 나른다. 버린 길: 살아 있는 연결이 있어야만 들이기(dual boot의 두 OS는 영영 못 잇는다)."
+    by: person
+  - text: "root는 host key가 아니라 서명 key다. 이유: host key(X25519)는 서명하지 못해, host key로 잡으면 누구나 \"그 host key, 내 서명 key\" 항목을 스스로 서명해 root 행세를 한다. 옮긴 폰은 Noise로 확인한 `join` 답에서 그 컴퓨터의 서명 key를 배운다."
+    by: agent
+  - text: "빼기끼리는 공격 그래프의 grounded labelling으로 정한다. root가 서명한 빼기는 처음부터 IN이고 정해지지 않은 고리는 대상을 빼되(fail-closed) 그 view의 root는 남긴다. 컴퓨터는 정해진 빼기에만 같이 서명한다. 버린 길: 서명자가 빠져도 빼기가 남기, 서로 뺐을 때만 예외, K0의 대상으로 한 번 보기, 두 번 보기(도둑이 신원 둘을 쥐면 아무것도 하지 않은 컴퓨터가 빠지거나 모두가 스스로를 지운다), 고정점 없는 반복."
+    by: agent
+  - text: "초대장은 들일 기기의 kind(phone, computer)를 싣고 다른 kind는 그 초대장으로 들지 못한다. 이유: 샌 폰 초대장으로 서명자(컴퓨터)가 들지 못한다."
+    by: agent
+  - text: "초대장의 수명은 낼 때 고른다: 기본 30분, 새 기기가 초대한 컴퓨터와 같은 때 켜질 수 없으면 7일. 수명은 statement가 검증하는 컴퓨터에 닿을 때 그 컴퓨터의 시계로 한 번 보고 view는 시각을 보지 않는다. 7일보다 먼 수명은 받지 않는다."
+    by: agent
+  - text: "초대한 컴퓨터가 거절한 `roster/join`은 아무것도 저장하지 않는다(믿지 않을 issuer와 죽은 초대 서명 statement를 남기지 않는다. 이미 믿는 컴퓨터가 서명한 빼기만 받는다). 닿지 못했으면 저장하고 pending, 판이 어긋나면 저장하지 않고 누가 올릴지 알린다."
+    by: agent
+  - text: "컴퓨터의 기계 이름과 명단의 이름은 한 값이다. 다른 컴퓨터가 준 이름을 기계 이름으로 받고, `machine/rename`은 바로 자기 항목을 다시 서명한다. 컴퓨터가 기기마다 붙이던 별명은 없앴다. 버린 길: 알린 이름과 별명을 따로 두기(다음 기동이 한쪽을 다른 쪽으로 되돌리고 같은 기기를 기계마다 다르게 부른다)."
+    by: agent
+  - text: "host key와 서명 key는 같이 만들고 같이 지운다. 둘 가운데 하나만 읽히면 둘 다 지운다. 이유: 서명 key만 바뀌면 다른 컴퓨터가 모두 서명 key 충돌로 빼고 같은 host key로는 다시 들지 못한다."
+    by: agent
+  - text: "다른 기계와의 연결은 core가 들고 화면은 `machines/call`·`machines/watch`로 부른다. 받는 기계는 지금의 기기 route 목록으로 거른다. 넘기는 것은 사람의 화면이 부른 것뿐이다(agent와 앱은 `remote-use`). 버린 길: shell main이 기계마다 연결과 key를 들기(화면 없는 기계가 붙지 못하고 정체가 둘이 된다)."
+    by: agent
+checklist:
+  - "해야: 컴퓨터끼리 한 번 다시 잇는다 (한 컴퓨터의 Settings › Remote에서 Invite a computer, 다른 컴퓨터에서 Join with an invite)"
+  - "해야: 폰 앱을 update한다 (protocol 판 3. 옛 앱은 붙지 못한다)"
+  - 폰 하나를 한 컴퓨터와 pairing하면 다른 컴퓨터의 Settings › Remote My devices에 그 폰이 뜨고, 한쪽에서 폰을 Remove하면 다른 쪽도 그 폰을 끊는지 본다
+  - 이미 pairing해 둔 폰이 update 뒤 다시 pairing하지 않고 붙는지 본다

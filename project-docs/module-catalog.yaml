@@ -25,7 +25,7 @@ modules:
 
   - path: packages/remote-client
     boundary: remote-client
-    notes: 폰과 desktop shell main이 같이 쓰는 remote client다. 폰은 Metro가 source를 읽어서 protocol과 base만 상대 path로 import하고 `node:`·React Native·zod를 import하지 않는다(test만 `node:test`). 컴퓨터의 `request`에 답하기, 기기 key와 기계 목록의 저장, 폰의 화면 칸은 쓰는 쪽이 넣는다.
+    notes: 폰과 core(다른 컴퓨터로 가는 link)가 같이 쓰는 remote client다(연결, 초대장으로 들어가기, 명단으로 채우는 컴퓨터 목록). 폰은 Metro가 source를 읽어서 protocol과 base만 상대 path로 import하고 `node:`·React Native·zod를 import하지 않는다(test만 `node:test`). key와 컴퓨터 목록·명단의 저장은 하지 않고 쓰는 쪽이 넣는다(`load`/`save`). 컴퓨터의 `request`에 답하기와 폰의 화면 칸도 쓰는 쪽의 것이다.
 
   - path: packages/relay
     boundary: relay
@@ -157,7 +157,7 @@ modules:
 
   - path: packages/core/remote
     boundary: remote
-    notes: phone-link.ts는 core가 폰에 `request`를 보내고 `response`를 받는 길이다. 연결은 host가 붙이고 떼며 알린다. link는 kind를 모르고 입력·출력 검사는 부르는 쪽이 한다.
+    notes: roster.ts는 내 기기 명단의 main thread 사본이다(받기, 서명, 저장을 하나씩. 서명 key는 writer Worker로 넘기지 않고 machine 자격 `roster/store`로 쓴다). links.ts는 명단의 다른 컴퓨터마다 드는 link이고 붙는 engine은 `packages/remote-client`다. host.ts는 붙는 연결(폰, 다른 컴퓨터) 하나하나를 `join`과 명단으로 받아들인다. host-key.ts는 host key와 서명 key 둘을 같이 만들고 지운다. phone-link.ts는 core가 폰에 `request`를 보내고 `response`를 받는 길이다. 연결은 host가 붙이고 떼며 알린다. phone-link는 kind를 모르고 입력·출력 검사는 부르는 쪽이 한다.
 
   - path: packages/core/attention
     boundary: attention
@@ -171,7 +171,7 @@ modules:
 
   - path: packages/shell/main
     boundary: shell
-    notes: core main과 같은 꼴이다. desktop/main.ts는 조립만 하고 영역마다 desktop/wiring/의 한 file이 자기 값을 등록한다. desktop/viewer/는 다른 기계 보기(기기 key와 기계 목록 file의 유일한 주인, 기계 목록 규칙, 보낸 창으로 기계를 고르는 IPC guard)이고 `@lophn/remote-client`를 상대 path로 읽는다. extensions/는 extension registry(extension-host)이고 extensions/bundled/<id>/는 본체 안 extension code(shell-extension)라 protocol, base, 자기 폴더만 import한다(tools/check-deps.ts).
+    notes: core main과 같은 꼴이다. desktop/main.ts는 조립만 하고 영역마다 desktop/wiring/의 한 file이 자기 값을 등록한다. desktop/viewer/는 다른 기계 보기(core의 `machines/*`로 창마다 기계를 고르는 통로, 기계 목록 규칙, 시작 기계 file `viewer/start.json`과 창 자리, 보낸 창으로 기계를 고르는 IPC guard)다. 다른 기계에 붙는 key와 연결은 core가 들고 shell은 `@lophn/remote-client`를 import하지 않는다. extensions/는 extension registry(extension-host)이고 extensions/bundled/<id>/는 본체 안 extension code(shell-extension)라 protocol, base, 자기 폴더만 import한다(tools/check-deps.ts).
 
   - path: packages/shell/renderer
     boundary: shell

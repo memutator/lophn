@@ -137,7 +137,7 @@
 | 순서 | 계획 | 무엇 | 기대는 것 |
 |---|---|---|---|
 | 1 | 가리키는 법(계획 폴더 없이 한 줄. 아래 "순서 1") | 모든 project가 기계를 건너는 정체를 갖고, 앱이 그 정체로 data를 key한다 | 없음 |
-| 2 | `device-roster` | 내 기기 명단. 한 번 들이면 다 이어진다 | 없음 |
+| 2 | `device-roster`(끝남) | 내 기기 명단. 한 번 들이면 다 이어진다 | 없음 |
 | 3 | `core-terminals`, `core-setup`, `core-browser`(`shell-as-client.md`) | 일을 core로 옮긴다 | 없음 |
 | 4 | `one-screen` | 지금 있는 화면에서 다른 기계의 대화, coding agent, 터미널, 앱 화면, browser를 본다 | 1, 2, 3 |
 | 5 | `carry-paths` | 맡겨 두는 길: 폰이 나른다, 늘 켜 둔 기계를 거친다, data에 딸린 event를 도착한 기계가 낸다, 폴더 길의 설정 화면 | 1, 2 |
@@ -183,13 +183,10 @@
 - agent를 부르는 주소(`{agent, workspace}`)는 그 기계 안의 이름으로 푼다. CLI는 자기 data root의 core에만 붙고 기계를 고르는 인자가 없다(명령 76개).
 
 **기기와 믿음**
-- 믿음은 쌍마다, 방향마다 따로다. 붙는 쪽을 받는 컴퓨터가 `devices` 표에 한 줄씩 들고(그 id `dev_`는 그 컴퓨터 안에서만 뜻이 있다), 붙는 쪽은 컴퓨터마다 한 항목을 든다.
-- 컴퓨터는 받는 쪽으로만 core에 있다. 다른 컴퓨터에 붙는 쪽은 Electron shell main과 폰 앱에만 있고, 그 key와 목록은 `<data root>/shell/viewer/`에 있다. core에는 붙는 code가 없다.
-- pairing code는 컴퓨터마다 하나, 300초, 한 번 쓴다. 만드는 route는 desktop 화면에서만 부를 수 있다. 화면 없는 기계는 code를 보일 길도, 다른 기계에 붙을 길도 없다.
-- 컴퓨터 셋과 폰 하나를 다 이으려면 pairing 9번, 손 동작으로 약 39번이다. 컴퓨터 넷이면 12번이다.
-- 기기를 빼는 것은 그 컴퓨터 안에서만 된다. 다른 컴퓨터에는 알리지 않는다.
+- (계획 `device-roster` 뒤) 폰과 컴퓨터는 서명한 명단 하나를 같이 든다. 이미 든 컴퓨터 하나의 초대장으로 들어오면 모든 컴퓨터와 이어지고, 빼기는 어느 컴퓨터에서나 해서 명단을 따라 퍼진다. 기기 id와 터미널 입력 허락은 명단에서 하나다(`architecture/remote.md`의 "내 기기 명단").
+- 컴퓨터끼리는 core가 명단의 다른 컴퓨터마다 link를 든다. 다른 기계의 창은 core의 `machines/call`·`machines/watch`로 부르고 shell에는 붙는 key와 목록이 없다. 화면 없는 기계는 `lophn remote invite|join`으로 든다.
 - 기기가 부를 수 있는 것은 route 109개, 받는 event 20개로 폰과 desktop이 같다. 기기마다 다른 것은 터미널 입력 허락 하나다.
-- "기기 목록" 비슷한 것이 셋 있고 서로 모른다: core의 `devices`(들어오는 쪽), shell의 `viewer/machines.json`(나가는 쪽), folder의 `machines/<mch>/record.json`(이름과 주소, key 없음).
+- "기기 목록" 비슷한 것은 둘이다: 명단과 folder의 `machines/<mch>/record.json`(이름과 주소, key 없음).
 
 **remote**
 - 다른 기계를 보는 desktop은 기계 하나에 창 하나다. 그 창은 대화 목록, 대화, 승인, Inbox, job만 다룬다. 터미널, browser, 앱 화면, agent가 연 탭은 꺼져 있다. 두 기계의 session은 나란히 있고 한 목록에 섞이지 않는다.

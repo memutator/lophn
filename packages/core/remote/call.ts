@@ -11,8 +11,10 @@ import {
   UPLOAD_INPUT_HEADER,
 } from "../../protocol/base/mod.ts";
 import { jobUpdate } from "../../protocol/jobs/mod.ts";
-import { REMOTE_PERSON_ROUTES } from "../../protocol/remote/allowlist.ts";
-import { REMOTE_ALLOWED_ROUTES } from "../../protocol/remote/mod.ts";
+import {
+  REMOTE_ALLOWED_ROUTES,
+  REMOTE_PERSON_ROUTES,
+} from "../../protocol/remote/mod.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import {
   authorize,

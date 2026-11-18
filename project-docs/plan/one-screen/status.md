@@ -11,9 +11,9 @@ lead만 고친다. `tools/status.py one-screen build`가 `tasks/*.md`에서 id, 
 | `screen-lists` | screen | 2 | screen-base-core, screen-base-scope | merged | screen/screen-lists | 0d8b2baf4 | merge stopped: existing gallery pages hang (render loop) after the change; back with the worker |
 | `screen-phone` | screen | 2 | screen-base-core, screen-base-scope | merged | screen/screen-phone | b01b6896a |  |
 | `screen-terminals` | screen | 2 | screen-base-core, screen-base-scope | merged | screen/screen-terminals | c3ad2994c |  |
-| `screen-inbox` | screen | 3 | screen-lists | todo |  |  |  |
-| `screen-layout` | screen | 3 | screen-lists, screen-terminals, screen-apps | todo |  |  |  |
-| `screen-pages` | screen | 3 | screen-lists | todo |  |  |  |
-| `screen-rest` | screen | 3 | screen-lists, screen-terminals, screen-apps | todo |  |  |  |
-| `screen-windows` | screen | 3 | screen-lists | todo |  |  |  |
+| `screen-inbox` | screen | 3 | screen-lists | running | screen/screen-inbox |  |  |
+| `screen-layout` | screen | 3 | screen-lists, screen-terminals, screen-apps | running | screen/screen-layout |  |  |
+| `screen-pages` | screen | 3 | screen-lists | running | screen/screen-pages |  |  |
+| `screen-rest` | screen | 3 | screen-lists, screen-terminals, screen-apps | running | screen/screen-rest |  |  |
+| `screen-windows` | screen | 3 | screen-lists | running | screen/screen-windows |  |  |
 | `screen-cleanup` | screen | 4 | screen-layout, screen-inbox, screen-pages, screen-windows, screen-phone, screen-link | todo |  |  |  |

@@ -1,0 +1,16 @@
+id: verify-connect-reached-real-provider
+title: "실제 앱 확인 worker가 내장 provider를 가짜 key로 이어 실제 provider의 model 목록 주소에 요청이 갔을 수 있다"
+kind: mistake
+status: open
+topic: mistakes
+modules: [packages/core/lophn-agent]
+now: |
+  core-setup의 lead가 실제 앱 확인 worker에게 "Settings › Providers에서 내장 API key provider를 아무 가짜 key로 이어 본다"고 시켰다. worker는 xAI와 Groq을 가짜 key로 이었다. core는 연결 뒤 `<endpoint>/models`를 읽으므로 `api.x.ai`, `api.groq.com`에 가짜 key를 실은 model 목록 요청이 하나씩 갔을 수 있다(확인하지 못했다). model 호출은 없었다.
+impact: |
+  실제 provider에 사람 확인 없이 요청이 갔을 수 있다(AGENTS.md "늘 묻는다"). 값은 가짜 key이고 사람의 key나 비용은 없다.
+cause: |
+  lead의 확인 지시가 "실제 model provider를 부르지 않는다"만 적고, 내장 정의의 연결이 그 자체로 실제 주소를 읽는다는 것을 막지 않았다. `npm run dev`의 fake는 dev가 미리 이은 provider와 custom 주소만 덮는다.
+fix: |
+  없음(한 번의 확인 실행).
+prevent: |
+  실제 앱에서 provider 연결을 확인하게 할 때는 custom provider를 fake model server 주소로 잇는 것만 시킨다. 내장 정의의 연결·로그인 완료는 사람에게 부탁한다(core-setup README "lead가 할 일"의 실제 로그인 확인).

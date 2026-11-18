@@ -1467,7 +1467,12 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     const def = tabKindOf(tab.kind);
     const tabMachine = tab.machine ?? machine;
     return (
-      <TabScope key={tab.key} tab={tab} workspaceMachine={machine}>
+      <TabScope
+        key={tab.key}
+        tab={tab}
+        workspaceMachine={machine}
+        hereApp={def?.hereApp?.(tab)}
+      >
         {tabMachine !== null && def?.thisComputerOnly ? (
           <OnlyHere
             machine={machineItemOf(machinesSource, machinesView, tabMachine)}

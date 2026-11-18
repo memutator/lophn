@@ -51,6 +51,7 @@
 | 3 | `screen-layout` | `screen-lists`, `screen-terminals`, `screen-apps` | 다른 기계의 탭을 layout에 저장, 꺼진 기계의 탭, 옮기는 step |
 | 3 | `screen-inbox` | `screen-lists` | Inbox와 알림을 기계를 건너 모으기, Settings에서 기계 고르기 |
 | 3 | `screen-pages` | `screen-lists` | agent의 browser page를 탭으로(`core-browser`가 main에 올라간 뒤) |
+| 3 | `screen-rest` | `screen-lists`, `screen-terminals`, `screen-apps` | `screen-lists`가 남긴 목록 쪽 일: 다른 기계의 터미널·coding agent 줄, 바뀐 session 이름 따라오기, palette, 기계 꼬리표를 칩 하나로 |
 | 4 | `screen-cleanup` | `screen-windows`, `screen-layout`, `screen-inbox`, `screen-pages`, `screen-phone`, `screen-link` | 남은 "이 컴퓨터에서만" 갈래와 옛 이름, flows·catalog, 문서 |
 
 `screen-base-core`와 `screen-base-scope`는 같은 계약(둘의 brief 맨 위에 같은 글로 있다)을 두고 같이 돈다. 큰 file 둘(`workspace-window.tsx`, `entry.tsx`)은 wave 1에서 `screen-base-scope`가, wave 2에서 `screen-lists`가 갖는다. 다른 task는 그 file을 고치지 않고 고칠 줄을 보고에 적는다.

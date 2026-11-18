@@ -178,7 +178,8 @@ files:
       - host-link:tab-state
       - host-preview-tab-open:reused
       - host-browser-inspect:unavailable
-    note: "host queue 표의 함수(openTab, connect, done, report, abandon, expire). 탭 요청은 route 입구 없이 queue를 직접 부르고 연결은 메모리 send로 대신한다. 이미 열린 preview 탭에 기기나 화면을 주면 같은 tab id로 tab_open이 다시 나가는 것(reused), retry한 요청이 다음 pump에 다시 나가는 것, 빌려 간 browser_call이 다시 나가지 않고 기한을 넘으면 unavailable로 끝나며 늦은 done이 무시되는 것"
+      - host-link:closed
+    note: "host queue 표의 함수(openTab, connect, done, report, abandon, expire, callLink). 탭 요청은 route 입구 없이 queue를 직접 부르고 연결은 메모리 send로 대신한다. 이미 열린 preview 탭에 기기나 화면을 주면 같은 tab id로 tab_open이 다시 나가는 것(reused), retry한 요청이 다음 pump에 다시 나가는 것, 빌려 간 browser_call이 다시 나가지 않고 기한을 넘으면 unavailable로 끝나며 늦은 done이 무시되는 것, 연결 요청(page_input)이 연결이 없으면 대기하지 않고 바로 unavailable이고 연결이 닫히면 거두어 다음 연결로 가지 않는 것(closed)"
 
   - path: packages/core/install-and-update/data-root_test.ts
     covers: [core-boot:start-failed-other]

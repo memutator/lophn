@@ -1,6 +1,6 @@
 # browser-tab
 
-workspace 창의 탭으로 인터넷 page를 여는 탭 kind `browser`의 설계다. 사람은 탭에 주소를 적어 page를 보고, popup·DevTools·bookmark를 쓰고, terminal이 연 URL과 Ctrl/Cmd-click한 link도 이 탭으로 받는다. agent는 자기가 연 browser 탭과 앱 preview 탭을 CLI(`lophn browser`)로 읽고 조작한다. 같은 명령이 사람의 폰에 뜬 앱 preview 화면(`phone` 탭)도 다룬다(아래 "phone 탭"). lophn이 다루는 것 가운데 가장 믿지 못할 입력이 인터넷 page이므로, page가 닿는 길(navigation, popup, permission, download, IPC)은 shell main의 순수한 규칙이 정하고, Electron 연결은 그 규칙을 부르기만 한다.
+workspace 창의 탭으로 인터넷 page를 여는 탭 kind `browser`의 설계다. 사람은 탭에 주소를 적어 page를 보고, popup·DevTools·bookmark를 쓰고, terminal이 연 URL과 Ctrl/Cmd-click한 link도 이 탭으로 받는다. agent는 자기가 연 browser 탭과 앱 preview 탭을 CLI(`lophn browser`)로 읽고 조작한다. 같은 명령이 사람의 폰에 뜬 앱 preview 화면(`phone` 탭)도 다룬다(아래 "phone 탭"). display가 없는 Linux에서는 core가 창 없는 page host를 띄워 agent가 같은 명령으로 browser를 쓰고, 사람은 다른 기기(폰, 다른 기계의 desktop)에서 그 기계의 browser 탭을 보고 다룬다(아래 "화면 없는 기계의 page", "멀리서 보기"). lophn이 다루는 것 가운데 가장 믿지 못할 입력이 인터넷 page이므로, page가 닿는 길(navigation, popup, permission, download, IPC)은 shell main의 순수한 규칙이 정하고, Electron 연결은 그 규칙을 부르기만 한다.
 
 page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<webview>`(앱 화면·artifact 화면과 같은 창의 같은 그릇)이고, `window.opener`를 지켜야 하는 크기 준 popup과 DevTools만 native `WebContentsView`다.
 
@@ -11,10 +11,11 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 - 보이는 page가 shell의 menu·popover·floated 패널 밑에 깔리면 쓸 수 없다.
 - terminal이 여는 로그인 URL(OAuth 등)을 잃으면 사람이 다시 할 길이 없다.
 - agent가 사람의 dev site를 직접 보고 조작하려면 로그인한 session을 써야 하지만, page 글이 agent를 속이면 그 로그인으로 site를 건드릴 수 있다.
+- 화면이 없는 기계(server, VM)의 core에서는 agent가 browser를 쓸 수 없었고, 그 기계의 site 로그인을 사람이 할 길도 없었다. 사람은 다른 기기에서 agent의 page를 보거나 끼어들 수 없었다.
 
 ## 목표와 비목표
 
-- 목표: 탭 안에서 일반 page, 크기 준 popup(로그인), DevTools, bookmark, favicon을 쓴다. terminal의 `$BROWSER`와 Ctrl/Cmd-click link가 같은 창에서 탭으로 열린다. agent가 자기가 연 탭을 읽고 조작한다.
+- 목표: 탭 안에서 일반 page, 크기 준 popup(로그인), DevTools, bookmark, favicon을 쓴다. terminal의 `$BROWSER`와 Ctrl/Cmd-click link가 같은 창에서 탭으로 열린다. agent가 자기가 연 탭을 읽고 조작한다. 화면 없는 Linux에서도 agent가 같은 명령으로 browser를 쓰고, 사람이 다른 기기에서 그 기계의 page를 보고 다룬다.
 - 비목표: tab 수 cap, site 목록, capability 승인, storage mode, 사용자가 쓰지 않는 설정(rea가 모은 것 가운데 dev server와 로그인에 필요한 것만 남겼다). 진짜 폰의 web 화면(emulation은 크기·touch·user agent까지다. 진짜 폰에서 도는 앱 preview는 `phone` 탭이 다룬다). localhost·사설 IP 차단. page 쪽 preload나 IPC. 앱 live 화면을 agent가 다루는 일.
 
 ## 모델
@@ -36,8 +37,10 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 - **DevTools.** 자리 셋: 탭 안 오른쪽·아래(경계 막대로 크기), floated 패널(transient kind `browser_devtools`, detached 창의 자리 menu에는 없다), 따로 뜬 OS 창. 자리를 바꿀 때 다시 열지 않고 view를 옮긴다.
 - **bookmark.** `<dataRoot>/shell/bookmarks.json` 하나. main만 쓴다.
 - **terminal bridge(shell 탭만).** 앱이 켜질 때마다 per-run 폴더에 shim과 bridge socket(Windows는 named pipe)을 준비한다. shell 탭을 열 때 main이 탭마다 key(64 hex)를 발급하고 env `BROWSER`(shim 경로)와 `LPN_BROWSER_BRIDGE`(`{"socket","key"}`)를 terminal host의 open 요청에 실어, host가 terminal env 뒤에 덮는다(restart도 같은 env). 요청 한 줄 `{v:1,key,url}`을 받은 main은 key 표와 설정으로 판정해 모든 shell 창에 `shell:terminal-bridge-open`을 push하고, 그 terminal 탭을 가진 창이 탭을 열고 ack하면 `{"result":"pane"}`, 1500ms 안에 ack가 없으면 `{"result":"declined"}`를 shim에 돌려준다. shim은 pane이면 끝나고, 그 밖(declined, 접속 실패, 3000ms)은 bridge env를 지운 채 OS opener(`xdg-open`·`open`·Windows `cmd.exe start`)로 연다. Ctrl/Cmd-click은 `shell:terminal-link`로 main에 오고 같은 판정·같은 push를 쓰며 탭이 안 열리면 main이 OS browser로 연다.
-- **agent가 다루는 탭.** 주인(연 session, 사람 token이면 "person")이 host queue의 `browser_call`로 shell main에 요청하고, shell main이 CDP로 그 탭의 guest를 조작한다. 상태(Agent가 다루는 중인가, 사람이 가져갔나)는 shell main 메모리에 탭마다 있고 core는 모른다. 대상은 `tab open`으로 연 browser 탭(host 탭, key가 `host:`로 시작), preview 탭, artifact 탭뿐이다. host browser 탭의 page는 그 탭을 든 창이 사는 동안 어느 workspace를 보이든 산다(결정 5, 41).
+- **agent가 다루는 탭.** 주인(연 session, 사람 token이면 "person")이 host queue의 `browser_call`로 host(desktop 앱의 shell main이나 page host)에 요청하고, host가 CDP로 그 탭의 page를 조작한다. 상태(Agent가 다루는 중인가, 사람이 가져갔나)는 host 메모리에 탭마다 있고, core는 누가 멀리서 보는 동안만 host가 알려 준 것을 든다. 대상은 `tab open`으로 연 browser 탭(host 탭, key가 `host:`로 시작), preview 탭, artifact 탭뿐이다. host browser 탭의 page는 그 탭을 든 창이 사는 동안 어느 workspace를 보이든 산다(결정 5, 41).
 - **Keep alive.** workspace를 떠날 때 guest를 지울지 숨겨 둘지: 소리가 나는 중, download를 받는 중, 사람이 탭 menu에서 Keep alive를 켠 탭은 창의 그릇에 숨겨 둔다. 창마다 6개이고 넘치면 오래 안 본 것부터 놓는다. agent가 `tab open --url`로 연 탭의 page는 이 규칙 밖이다(창마다 12개, 따로 센다).
+- **page host.** display가 없는 Linux에서 core가 띄우는 같은 Electron binary다(launch intent `--page-host`). 창이 없고 탭마다 offscreen page 하나를 든다. desktop 앱처럼 `/host-link`로 붙어 같은 host 요청을 받고 같은 CDP driver를 쓴다. 다른 것은 탭의 page를 찾는 법 하나다(창이 알려 주던 것을 스스로 만든다). 한 기계에서 desktop 앱과 같이 돌지 않는다.
+- **멀리서 보기.** 사람의 다른 기기가 core가 아는 browser 탭(agent가 `tab open --url`로 연 탭, 사람이 멀리서 연 탭)을 `page_view/*` route로 본다. 보는 쪽이 lease를 잡은 동안 host가 그 page의 frame(JPEG)을 core에 밀고, core는 탭마다 최신 frame 하나만 들고 내용 없는 event로 알린다. 보는 쪽이 읽어 가면 core가 host에 알려 다음 frame이 온다. 입력과 take control은 core가 host에 연결 요청으로 넘긴다. 터미널 보기(`terminal-agent.md`)와 같은 꼴이다.
 
 ## 지키는 것
 
@@ -97,11 +100,11 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 34. **`lophn browser snapshot|act|navigate|screenshot|evaluate|logs|wait`는 `tab open`으로 연 browser 탭, preview 탭, artifact 탭, phone 탭만 다룬다.** 주인(연 session, 사람 token이면 "person")만 부른다. 사람이 손으로 연 탭(사람이 연 artifact 탭 포함)과 앱 live 화면은 다룰 수 없다(앱 live 화면은 sender view 신원으로 operation 막기를 건너므로 어떤 bind로도 고르지 않는다). 길은 host queue의 `browser_call`이다(`workspace-layout.md` "agent가 연 탭").
 35. **상태는 agent가 연 탭만 core에 알린다.** key가 `host:`로 시작하는 탭의 url·title·loading을 renderer가 `shell:surface-report`로 보내고 main이 `/host-link`의 `report` frame으로 core 표에 둔다. state와 bind는 창 단위로 알려 그 workspace가 mount되지 않은 동안에도 간다. agent와 사람 token은 `lophn browser read <tab>`으로 자기가 연 탭의 마지막 상태를 읽는다. 없는 탭, 닫히거나 page가 없어져 core 표에서 빠진 탭, 남의 탭은 같은 `not_found` 문장 하나다(탭이 있는지 새지 않게). 사람이 손으로 연 탭과 상태가 아직 없는 탭도 `not_found`다.
 36. **page에서 온 글은 `<lophn-untrusted source="browser.<명령>">`로 감싼다.** page는 인터넷이다. lophn agent는 tool 이름 규칙으로, binary는 찍는 글에 같은 tag를 둔다. 본문의 `<lophn-`는 escape되어 tag를 닫지 못한다. tag를 만들고 escape하는 곳은 core 밖 공유 protocol 코드 하나다(binary가 core를 import하지 못해서). 반대로 `browser`·`tab` 호출의 `unavailable`·`conflict` 문장과 `browser` 호출의 `not_found` 문장은 감싸지 않고 model에 그대로 간다. 그래서 그 문장은 lophn이 쓴 고정 문장(원인, 다음 할 일, 되풀이해도 되는지)이고 page나 Chromium의 글을 넣지 않는다(net error 이름만 예외). `not_found`는 없는 탭과 남의 탭이 같은 문장이라 존재가 새지 않고, 탭이 닫혔으면 다시 열라고 알려야 해서 싣는다. 이유를 못 받은 agent가 바깥 browser를 띄운 일이 있어서다.
-37. **shell main이 CDP로 실행한다.** renderer가 host 탭의 view session을 `shell:surface-report {bind}`로 알리면(host browser 탭은 창 단위로 알려 workspace가 mount되지 않아도 된다) main이 browser 탭은 `wv-<id>`의 guest(`persist:lophn-browser` partition인 것만), preview 탭은 앱 view registry에서 `mode: "preview"`인 view만, artifact 탭은 artifact view registry에 붙은 guest만 고른다. 그 탭의 첫 호출에서 debugger를 붙여 탭이 닫힐 때까지 둔다. 입력은 CDP `Input.*`이다(`sendInputEvent`는 `<webview>` guest에 닿지 않는다). DevTools가 열려 있으면 붙지 못해 `conflict`다. page가 사라진 틈(그 page를 든 창이 닫힘, page가 죽음)에는 browser 탭에는 "page가 없다, `tab open --url`로 다시 열어라"를 `unavailable`로 답한다.
+37. **host가 CDP로 실행한다.** page host에서는 탭마다 든 offscreen page가 그 탭의 page다(63). desktop 앱에서는 renderer가 host 탭의 view session을 `shell:surface-report {bind}`로 알리면(host browser 탭은 창 단위로 알려 workspace가 mount되지 않아도 된다) main이 browser 탭은 `wv-<id>`의 guest(`persist:lophn-browser` partition인 것만), preview 탭은 앱 view registry에서 `mode: "preview"`인 view만, artifact 탭은 artifact view registry에 붙은 guest만 고른다. 그 탭의 첫 호출에서 debugger를 붙여 탭이 닫힐 때까지 둔다. 입력은 CDP `Input.*`이다(`sendInputEvent`는 `<webview>` guest에 닿지 않는다). DevTools가 열려 있으면 붙지 못해 `conflict`다. page가 사라진 틈(그 page를 든 창이 닫힘, page가 죽음)에는 browser 탭에는 "page가 없다, `tab open --url`로 다시 열어라"를 `unavailable`로 답한다.
 38. **snapshot과 ref.** accessibility tree를 `- <role> "<name>" [ref=eN]` 줄로 쓴다(입력 칸은 `value=`). ref 번호는 탭마다 하나의 counter에서 이어지고(다음 snapshot은 앞 번호 다음부터) 탭은 마지막 snapshot의 ref만 든다. main frame이 이동하면 비운다. 그래서 옛 ref는 새 node를 가리키지 않고 `conflict`다.
 39. **dialog는 자동으로 닫는다.** alert·beforeunload는 accept, confirm·prompt는 dismiss이고 그 호출(다루지 않는 사이에 뜬 것은 다음 act·navigate·wait)의 결과에 `dialog`로 적는다.
-40. **take control.** agent가 다루기 시작한 탭은 탭 머리(preview는 안내 줄)에 "Agent is controlling this tab"과 [Take control]을 둔다. 사람이 가져오면 agent의 act·navigate·evaluate는 `conflict`이고 snapshot·screenshot·logs·wait·read는 된다. [Hand back]으로 푼다. 상태는 shell main 메모리에 탭마다 있고 core는 모른다.
-41. **뒤에 연 탭도 바로 다룬다.** `tab open`은 늘 뒤에 열리므로 host 탭의 browser·preview·artifact 본문은 고르지 않아도 숨은 그릇에 mount된다. agent가 다루는 동안 숨은 guest는 그리기를 이어 가야 screenshot과 입력이 되므로, 다른 내용 뒤가 아니라 창 오른쪽 아래 1px만 걸쳐 둔다(뒤에 두면 Chromium이 그리기를 멈춘다). host browser 탭(`--url`)은 여기에 더해 workspace가 mount되지 않아도 page가 있다. 창이 page를 그 workspace의 pool에 숨은 항목으로 만들어 두고 자리는 다음 mount로 미루며(다시 load하지 않는다), `tabs/open`은 page가 붙은 뒤에 답한다(shell이 있으면 10초, 앱을 띄웠으면 30초, 실패는 `unavailable`이고 탭이 남지 않는다). page는 탭을 닫거나 창이 닫히거나 상한(창마다 12개, 가장 오래 쓰지 않은 것)이 놓을 때까지 있다. 없어지면 탭도 core 표에서 빠지고 뒤의 `browser.*`는 `not_found`다(마지막 url을 되살리지 않는다. agent가 다시 연다). 창이 하나도 없으면 lophn이 창을 focus 없이 열고 앱이 꺼져 있으면 앱을 띄운다(`workspace-layout.md`, `platform.md`). 열린 창이 최소화되어 있으면 그리지 않아 screenshot이 실패한다.
+40. **take control.** agent가 다루기 시작한 탭은 탭 머리(preview는 안내 줄)에 "Agent is controlling this tab"과 [Take control]을 둔다. 사람이 가져오면 agent의 act·navigate·evaluate는 `conflict`이고 snapshot·screenshot·logs·wait·read는 된다. [Hand back]으로 푼다. 사람은 다른 기기에서도 가져오고 돌려준다(70). 상태는 host 메모리에 탭마다 있고, core는 보는 쪽이 있는 page의 상태만 host가 알려 준 대로 든다(70).
+41. **뒤에 연 탭도 바로 다룬다.** `tab open`은 늘 뒤에 열리므로 host 탭의 browser·preview·artifact 본문은 고르지 않아도 숨은 그릇에 mount된다. agent가 다루는 동안 숨은 guest는 그리기를 이어 가야 screenshot과 입력이 되므로, 다른 내용 뒤가 아니라 창 오른쪽 아래 1px만 걸쳐 둔다(뒤에 두면 Chromium이 그리기를 멈춘다). host browser 탭(`--url`)은 여기에 더해 workspace가 mount되지 않아도 page가 있다. 창이 page를 그 workspace의 pool에 숨은 항목으로 만들어 두고 자리는 다음 mount로 미루며(다시 load하지 않는다), `tabs/open`은 page가 붙은 뒤에 답한다(shell이 있으면 10초, 앱을 띄웠으면 30초, 실패는 `unavailable`이고 탭이 남지 않는다). page는 탭을 닫거나 창이 닫히거나 상한(창마다 12개, 가장 오래 쓰지 않은 것)이 놓을 때까지 있다. 없어지면 탭도 core 표에서 빠지고 뒤의 `browser.*`는 `not_found`다(마지막 url을 되살리지 않는다. agent가 다시 연다). 창이 하나도 없으면 lophn이 창을 focus 없이 열고 앱이 꺼져 있으면 앱을 띄운다(`workspace-layout.md`, `platform.md`). display가 없는 Linux에서는 앱 대신 page host를 띄우고 page는 page host가 사는 동안 있다(64). 열린 창이 최소화되어 있으면 그리지 않아 screenshot이 실패한다. page host의 offscreen page는 늘 그린다.
 42. **screenshot.** lophn agent는 image content로 받는다. binary는 PNG를 `--out <path>`나 `<os tmpdir>/lophn-screenshots/<tab>-<unix ms>.png`에 쓰고 그 path를 찍는다(harness는 자기 Read tool로 본다). emulation된 page의 screenshot은 CSS px 크기다.
 43. **기기 emulation은 preview 탭에만 있고, 고른 기기는 탭 상태에만 있다.** emulation은 driver와 같은 debugger를 owner를 나눠 같이 쓴다(webContents 하나에 debugger 하나). DevTools가 열려 있으면 걸지 못해 Desktop으로 돌아가고 안내를 보인다. 건 뒤에 사람이 DevTools를 열면 debugger가 떨어져 기기가 풀리고, main이 건 상태를 비운 뒤 `shell:surface-emulation`으로 그 view session을 알려 preview 탭이 Desktop으로 돌아가 같은 안내(DevTools를 닫으라)를 보인다. 탭이 풀린 기기의 phone frame과 이름을 그대로 두지 않는다.
 
@@ -131,6 +134,28 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 60. **take control은 폰에 있다.** 요청이 오는 동안 폰의 preview 화면 위 줄 아래에 "<agent> is driving this screen"과 [Take control]이 선다(사람 token이면 "Someone on your computer"). 사람이 가져가면 act는 `conflict`(`taken_over`)이고 snapshot·screenshot·wait는 된다. [Hand back]으로 돌려준다. 사람의 손 입력은 늘 된다. 상태는 폰 앱 메모리에 있고 그 preview 화면을 떠나면 끝난다. core는 모른다.
 61. **입력은 guest에만 간다.** 누르기는 guest 표면(sandbox view의 직계 자식)에 touch를 넣고 글은 그 칸의 InputConnection으로 친다. lophn 폰 앱 자신의 화면, 다른 앱, system UI에는 닿지 않는다. 글을 친 뒤 soft keyboard를 내린다(guest는 keyboard에 줄지 않아 사람의 화면을 덮는다).
 
+### 화면 없는 기계의 page
+
+display가 없는 Linux(server, VM)에서도 agent가 같은 `lophn tab`·`lophn browser`로 browser를 쓴다. 사람은 그 page를 다른 기기에서 보고 로그인한다(아래 "멀리서 보기").
+
+62. **page를 주는 쪽은 같은 link의 host다.** core는 지금처럼 link 건너편 host에 탭 열기와 `browser_call`을 시킨다. 화면 있는 기계에서 host는 desktop 앱이고, display가 없는 기계에서는 core가 띄운 page host다. page host는 같은 Electron binary를 창 없이(`--ozone-platform=headless`) 띄운 것이고 탭마다 offscreen page 하나를 든다(창 없는 Chromium은 offscreen 창이어야 page를 그린다). core 쪽에 browser provider를 따로 만들지 않는다: driver와 link가 이미 host를 가리지 않는다.
+63. **driver는 하나다.** page host는 desktop 앱이 쓰는 CDP driver(snapshot과 ref, act, screenshot, dialog, take control, site login)를 그대로 쓴다. 다른 것은 탭의 page를 찾는 법 하나다: desktop 앱은 창이 view session을 알려 주고(37), page host는 탭을 열 때 만든 offscreen page를 스스로 든다.
+64. **어느 쪽인지는 lophn이 고른다.** display가 있으면 지금 그대로다(창이 없으면 창을, 앱이 없으면 앱을 띄운다. 41). display가 없는 Linux에서만 core가 page host를 띄운다(launch intent `--page-host`). 한 기계에서 둘이 같이 돌지 않는다. agent에게는 같은 tool이다. 화면 있는 기계에서 SSH로 core를 띄우면 display가 보이지 않아 page host가 뜰 수 있는데, 그 뒤 사람이 desktop 앱을 켜면 page host가 물러난다.
+65. **browser profile은 하나다.** page host는 desktop 앱과 같은 profile 자리(`persist:lophn-browser` partition)를 쓴다. 화면 없는 기계에서 사람이 멀리서 한 로그인이 남고, 나중에 그 기계에 화면이 생겨도 이어진다. site login vault(44~53)도 그대로 쓴다.
+66. **page의 크기는 정해 준다.** offscreen page는 처음 크기가 없어 만들자마자 기본 크기를 준다. page 수의 상한은 창 하나의 상한(12개, 41)과 같다.
+
+### 멀리서 보기
+
+사람의 다른 기기(폰, 다른 기계의 desktop)가 이 기계의 browser 탭을 보고 다룬다. 화면 없는 기계의 page도, 화면 있는 기계의 page도 같다.
+
+67. **터미널 보기와 같은 모양이다.** 보는 쪽이 `page_view/watch`로 lease(30초, 10초마다 갱신)를 잡은 동안 core가 host에 `page_stream`을 켜고, host가 그 page의 frame(`page_frame`, JPEG 한 장 2 MiB까지)을 민다. core는 탭마다 최신 frame 하나만 메모리에 들고(ledger 없음) 내용 없는 `PageViewChanged`를 내며, 보는 쪽이 `page_view/snapshot`으로 읽어 간다. 마지막 lease가 끝나면 끈다. 보는 쪽이 없으면 host는 frame을 만들지 않는다. 읽어 간 만큼만 다음 frame이 간다: core가 frame을 보는 쪽에 내준 뒤 host에 `page_read`를 보내고, host는 그것이 오기 전에는 그 탭의 다음 frame을 보내지 않고 CDP screencast의 ack도 미룬다. 느린 연결에서는 frame이 건너뛰어질 뿐 core와 link에 쌓이지 않는다.
+68. **대상은 core가 아는 browser 탭이다.** agent가 `tab open --url`로 연 탭과 사람이 `page_view/open`으로 그 기계에 연 탭(http·https)이다. 사람이 손으로 연 탭, preview·artifact·phone 탭, 앱 화면은 보지 않는다. 화면 없는 기계의 로그인은 사람이 탭을 열고 멀리서 보며 직접 한다. 사람이 연 탭을 멀리서 닫는 길은 두지 않는다.
+69. **보는 것은 내 기기 모두, 다루는 것은 터미널 입력을 허락받은 기기다.** `page_view/list|snapshot|watch`는 사람 자격이면 되고, `input`·`control`·`open`은 기기면 그 기기의 터미널 입력 허락이 있어야 한다(없으면 `forbidden`). 로그인된 browser를 다루는 것은 터미널에 치는 것만큼 센 권한이다. agent 자격은 이 길을 아예 쓰지 못한다(자기 탭도. agent에게는 `browser screenshot`이 있다).
+70. **끼어들면 agent가 멈춘다.** `page_view/control`은 그 기계의 take control(40)과 같은 상태를 잡고 놓는다. 멀리서 잡아도 agent의 쓰기 동작이 `conflict`로 막히고 놓으면 풀린다. 그 기계의 화면에도 잡혀 있음이 보인다. 상태(agent가 다루는 중인가, 잡혀 있나)는 host가 `page_state`로 알리고 core가 snapshot에 싣는다.
+71. **멀리서 하는 것은 pointer, 글자와 key, scroll, 주소로 가기, 뒤로, 다시 읽기다.** pointer는 왼쪽 단추 하나의 down·move·up이다(폰의 손가락과 desktop의 click·끌기를 같은 꼴로 받는다. hover는 없다). 좌표는 보는 쪽이 본 frame의 page CSS px다. key 이름은 agent의 `press`와 같다. 입력은 agent의 입력과 같은 CDP `Input.*` 길로 들어간다. 같은 `key`는 한 번만 넣고, host가 없거나 끊기면 넣지 않고 다음 연결로 다시 보내지 않는다(늦은 입력이 page에 들어가면 안 된다).
+72. **그리지 않는 page는 그렇다고 보인다.** 화면 있는 기계의 창이 최소화되거나 숨겨져 있으면 page가 그리지 않아 frame이 없다. host가 `page_state`의 `painting: false`로 알리고 보는 쪽은 그 이유를 보인다(같은 이유로 screenshot도 실패한다. 41).
+73. **보는 화면은 둘이다.** 폰 앱의 화면 하나와, desktop의 다른 기계 창(`remote.md` "desktop에서 다른 기계 보기")에서 여는 탭 하나다.
+
 ## 경계와 계약
 
 **shell IPC(renderer ↔ main).** preload `window.lophnBrowser`는 shell 창(project 창과 detached 창)에만 있다.
@@ -159,6 +184,10 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 **site login.** memory route `logins/list`(user·agent, 값 없음), `logins/save`·`logins/delete`(user), `logins/release`(shell capability, `{id, field, origin, shell_capability}` → `{value}`). 저장 file `<dataRoot>/logins.json`. 요청은 `login_request/ask`(agent), `read`·`cancel`(card), `hold`·`done`(shell main)이다.
 
 **shell 설정 UI.** Settings > Browser pane: Links(두 설정), Logins, 기기 등록, 데이터 지우기.
+
+**멀리서 보기(`page_view/*`).** 모두 사람 자격이다. `page_view/list`(read) `{}` → `{pages: [{tab, url, title, loading, by}]}`(by는 연 agent의 이름, 사람이 연 탭은 null), `page_view/snapshot`(read) `{tab}` → `{tab, seq, frame, painting, agent, held, url, title, loading, by, control}`(frame은 `{media_type: "image/jpeg", data_base64, width, height}`이고 아직 없으면 null, 크기는 viewport CSS px. seq는 core가 그 탭의 frame이나 상태가 바뀔 때마다 올린다. control은 부른 쪽이 다룰 수 있는가), `page_view/watch` `{tab, on}`(lease 30초, 10초마다 갱신), `page_view/input` `{tab, key, input}`(input은 `pointer {phase: down|move|up, x, y}`, `scroll {x, y, dx, dy}`, `text {text}`, `key {key}`, `navigate {url}`, `back`, `reload`), `page_view/control` `{tab, held}`, `page_view/open` `{url, key}` → `{tab}`. 오류는 터미널 보기와 같은 여섯(`invalid_input`, `unauthorized`, `forbidden`, `not_found`, `conflict`, `unavailable`)이다. event `PageViewChanged {tab, seq}`(transient, subject `page:<tab>`, 내용 없음)와 StateChanged 이름 `browser_pages`(목록이나 url·title이 바뀜).
+
+**host link의 page 요청과 frame.** 연결 요청 `page_stream {tab, on}`, `page_read {tab, seq}`, `page_input {tab, input}`, `page_control {tab, held}`는 연결이 있을 때만 넣는다. 연결이 없거나, 답하기 전에 끊기거나, 기한(`page_input` 10초, 나머지 5초)이 지나면 `unavailable`이고 다음 연결로 다시 가지 않는다. host는 `page_frame {tab, seq, frame}`(seq는 host가 탭마다 process가 사는 동안 올리고 0으로 돌아가지 않는다)과 `page_state {tab, painting, agent, held}`를 민다. frame은 JSON 글이다(link는 binary frame을 닫는다). JPEG 2 MiB의 base64는 host→core frame 상한(16 MiB) 안에 든다. page host의 launch intent는 `--page-host`다.
 
 **phone 탭의 폰 요청.** kind `drive.snapshot`·`drive.act`·`drive.screenshot`·`drive.wait`(protocol의 drive 계약, `PHONE_KINDS`). 모든 입력에 `view`(core가 고른 preview view)와 `by`(부르는 agent의 이름)가 있다. 거절 이유는 `unavailable`의 `no_preview`·`phone_in_background`·`screen_off`·`covered`·`unsupported`·`phone_unreachable`·`timeout`, `conflict`의 `taken_over`·`stale_ref`·`off_screen`이고 core가 `PHONE_TAB_TEXT`의 문장으로 바꾼다. `drive.wait`의 deadline은 `timeout_ms + 5_000`, 못 찾으면 desktop wait와 같은 `unavailable` 문장이다.
 
@@ -200,6 +229,10 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 - **phone 탭은 앱마다 하나이고 기기·view를 부를 때마다 고른다(agent).** 조사의 `<app>:<device>` 탭보다 단순하고 사람이 preview를 닫았다 다시 열어도 탭이 그대로 쓰인다.
 - **ref 번호는 core가 매긴다(agent).** 폰은 snapshot id와 자기 node 번호만 낸다. 조사의 "core가 counter 시작값을 보낸다"보다 두 쪽 상태가 어긋날 곳이 적다. 마지막 snapshot이 아닌 ref는 core가 폰에 묻지 않고 거른다.
 - **screenshot 기본은 JPEG q80, 긴 변 1080 px다(agent, spike 측정).** PNG는 1 MiB 상한을 자주 넘는다.
+- **화면 없는 기계의 browser는 core가 띄운 page host가 같은 link의 host로 든다(사람: "core에서 headless로 브라우저를 열 수 있게하는 길 하나만").** core 쪽 provider를 새로 두면 driver와 take control, site login을 두 벌 갖는다. page host는 같은 binary와 driver를 쓰고 page를 찾는 법만 다르다(agent, spike로 offscreen page의 screenshot·AX·입력·cookie를 확인).
+- **멀리서 보기는 터미널 보기와 같은 꼴이다(사람: "기반은 다 있을 거 아니야").** frame과 상태를 snapshot route 하나로 읽고 내용 없는 event 하나로 알린다. host가 frame을 밀되 core가 읽어 간 만큼만 다음 frame을 받아 느린 연결에서 쌓이지 않는다(agent).
+- **보는 쪽의 pointer는 왼쪽 단추 하나의 down·move·up이다(agent).** 폰의 손가락과 desktop의 click·끌기를 같은 꼴로 받는 가장 작은 모양이다. hover와 오른쪽 단추는 없다.
+- **사람이 연 탭을 멀리서 닫는 route는 두지 않는다(agent).** 멀리서 하는 것(71)에 없다.
 - **덮인 화면은 따로 이유(`covered`)를 낸다(agent).** 앱은 앞에 있는데 sheet·dialog·notification shade가 덮은 때는 "앞에 없다"가 아니라 사람에게 닫아 달라고 하고 그 부분은 손으로 보라고 해야 한다. 폰 앱이 앞에 있을 때만 요청이 native에 닿으므로 그때의 창 focus 없음을 덮임으로 본다.
 
 ## 열린 것
@@ -210,7 +243,8 @@ page를 그리는 그릇은 둘이다. 보통 탭은 shell renderer 안의 `<web
 - **다시 열어 복원한 detached terminal과 host가 죽은 뒤 사람이 다시 시작한 shell은 bridge가 없다.** OS browser로 간다(`workspace-layout.md` 이슈의 terminal 재연결과 함께 풀린다).
 - **detached 창에서 DevTools를 floated 패널로 둘 수 없다.**
 - **실제로 보이는 창에서의 agent 입력·1px·기기 frame은 사람이 아직 보지 않았다(headless Electron으로만 확인).** Windows bridge의 실기 확인도 별도다.
-- **agent page는 보이는 창에서만 그린다.** `<webview>` guest는 화면에 보이는 창(숨기거나 최소화하지 않은)에서만 그린다. 숨기거나 최소화한 창은 그리지 않아 screenshot이 끝나지 않는다(x11에서 쟀다). 다른 창에 덮인 것은 그린다. 창 안에서는 화면에 있거나 1px 띠가 가려지지 않은 것만 믿을 수 있고 완전히 덮거나 viewport 밖에 두면 그리지 않는다. 숨은 page의 1px 띠는 창 오른쪽 아래에 점으로 보일 수 있다(설치한 앱에서 눈으로 확인한다). macOS와 Windows는 돌려 보지 않았다. Wayland에서는 focus 없이 연 창이 focus를 가져갈 수 있다. 화면이 없는 Linux는 browser를 쓸 수 없다.
+- **agent page는 보이는 창에서만 그린다.** `<webview>` guest는 화면에 보이는 창(숨기거나 최소화하지 않은)에서만 그린다. 숨기거나 최소화한 창은 그리지 않아 screenshot이 끝나지 않는다(x11에서 쟀다). 다른 창에 덮인 것은 그린다. 창 안에서는 화면에 있거나 1px 띠가 가려지지 않은 것만 믿을 수 있고 완전히 덮거나 viewport 밖에 두면 그리지 않는다. 숨은 page의 1px 띠는 창 오른쪽 아래에 점으로 보일 수 있다(설치한 앱에서 눈으로 확인한다). macOS와 Windows는 돌려 보지 않았다. Wayland에서는 focus 없이 연 창이 focus를 가져갈 수 있다. Wayland에서 최소화했다 되돌린 창의 page가 다시 그리지 않는 것을 spike가 보았다(숨겼다 보이면 돌아온다). 지금 제품에서도 같은지 보지 않았다. 화면이 없는 Linux는 page host가 page를 든다(62~66).
+- **화면 없는 기계는 흉내만 보았다.** spike가 display 없이 띄운 개발 기계에서만 돌렸다. 최소 server image에 Electron이 뜨는 데 필요한 library가 있는지, 실제 화면 없는 VM에서 page host가 뜨는지는 보지 못했다. macOS·Windows의 화면 없는 길은 없다.
 - **`tabs/open --url`은 page의 dom-ready까지 기다린다.** 첫 응답이 기한(10초, 앱을 띄웠으면 30초)보다 늦는 site는 실패한다.
 - **emulation은 진짜 폰이 아니다.** iOS는 WebKit이다. 실제 폰의 preview 화면은 phone 탭이 다룬다.
 - **phone 탭은 emulator와 개발 core에서만 보았다.** 실제 폰, 실제 model의 agent turn, iOS는 보지 못했다(change-log `mobile-browser-use`). guest의 kit `Sheet`·`Menu`는 화면 안의 층이라 읽고 누를 수 있지만(기기에서 보지 않았다) kit `Sidebar`·`Drawer`와 화면 source가 직접 연 `Modal`은 새 창이라 닿지 않는다. 가상화된 목록의 그려지지 않은 줄과 가로 scroll은 snapshot에 들지 않는다(지침 `phone-check.md`가 `scroll --dy` 뒤 다시 snapshot하라고 말한다). scroll 뒤 누르기는 정한 시간(150 ms, 300 ms)만큼 기다린다(실제 폰에서 빗나가면 이슈 `phone-drive-settle-timing`을 되살린다). type·fill은 손가락과 달리 칸의 onPress를 부르지 않는다(지침이 먼저 `click`하라고 말한다).

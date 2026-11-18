@@ -433,7 +433,7 @@ interfaces:
 
   - id: host-queue-interface
     kind: interface
-    description: shell main이 사람 token으로 여는 양방향 연결 `/host-link`(WebSocket, subprotocol `lophn.host-link.1`)의 frame(host가 올리는 `hello`·`visible`(보이는 workspace), `response`, `report`와 core가 미는 `request`(`tab_open`·`tab_close`·`tab_show`, `browser_call`). 창이 있어야 하는 일만 다루고 터미널과 coding session은 core가 갖는다)와 agent 자격 또는 사람 token의 `tabs/open`(phone 탭을 여는 target `phone` 포함), `tabs/close`, `tabs/show`, `browser/read|snapshot|act|navigate|screenshot|evaluate|logs|wait`. renderer의 호출 통로에는 없다.
+    description: host(desktop 앱의 shell main, display 없는 Linux에서 core가 `--page-host`로 띄운 page host)가 사람 token으로 여는 양방향 연결 `/host-link`(WebSocket, subprotocol `lophn.host-link.1`)의 frame(host가 올리는 `hello`·`visible`(보이는 workspace), `response`, `report`, `page_frame`(보는 쪽이 있는 page의 JPEG frame)·`page_state`(painting, agent, held)와 core가 미는 `request`(`tab_open`·`tab_close`·`tab_show`, `browser_call`, 연결이 있을 때만 가는 연결 요청 `page_stream`·`page_read`·`page_input`·`page_control`). page를 드는 쪽이 있어야 하는 일만 다루고 터미널과 coding session은 core가 갖는다)와 agent 자격 또는 사람 token의 `tabs/open`(phone 탭을 여는 target `phone` 포함), `tabs/close`, `tabs/show`, `browser/read|snapshot|act|navigate|screenshot|evaluate|logs|wait`, 사람 자격만의 `page_view/list|snapshot|watch|input|control|open`(멀리서 page 보기, event `PageViewChanged`). renderer의 호출 통로에는 없다.
     interface_type: protocol
     defined_by: lophn-agent
     provided_by:

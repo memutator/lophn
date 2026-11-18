@@ -7,11 +7,14 @@ import {
   hostToolOutputSchema,
   hostWorkspaceSchema,
 } from "../lophn-agent/host-queue.ts";
+import { pageFrameSchema } from "../lophn-agent/page-view.ts";
 import { REMOTE_FRAME_MAX_BYTES } from "../remote/channel.ts";
 
 // shell main(host)과 core 사이의 양방향 연결이다. core의 loopback listener에서 Gateway 옆에 열린다.
-// 창이 있어야 하는 일(탭 열기·닫기·보이기, browser 호출)만 다룬다: core가 host에 시킬 일(`HostRequest`)을 `request` frame으로
-// 밀고, host는 보이는 workspace와 답과 탭 상태를 올린다. 터미널과 coding session은 core가 갖고 화면은 route로 붙는다.
+// page를 드는 쪽(창, page host)이 있어야 하는 일(탭 열기·닫기·보이기, browser 호출, 멀리서 보는 page의 frame과 입력)만 다룬다:
+// core가 host에 시킬 일(`HostRequest`)을 `request` frame으로 밀고, host는 보이는 workspace와 답과 탭 상태와 page frame을 올린다.
+// 터미널과 coding session은 core가 갖고 화면은 route로 붙는다.
+// host는 desktop 앱의 shell main이거나 display가 없는 기계에서 core가 띄운 page host다.
 // 연결은 한 번에 하나이고 새 연결이 오면 옛 연결을 닫는다. 끊기면 host가 다시 붙어 `hello`부터 보낸다.
 export const HOST_LINK_PATH = "/host-link";
 export const HOST_LINK_SUBPROTOCOL = "lophn.host-link.1";
@@ -51,11 +54,34 @@ const reportFrameSchema = z.strictObject({
   tab: idSchema("tab"),
   state: z.union([browserTabStateSchema, z.literal("closed")]),
 });
+// 보는 쪽이 있는 page의 frame 한 장이다(`page_stream`이 켠 동안). frame은 JSON 글이고(이 연결은 binary frame을 받으면 닫는다)
+// JPEG는 base64로 싣는다. JPEG 상한 PAGE_FRAME_MAX_BYTES(2 MiB)의 base64는 약 2.7 MiB라 host→core frame 상한
+// HOST_LINK_FRAME_MAX_BYTES 안에 든다. HOST_LINK_BUFFER_LIMIT(1 MiB)은 core→host 쓰기에만 걸려 이 frame과 상관없다.
+// seq는 host가 탭마다 process가 사는 동안 올리는 수이고 다시 0으로 돌아가지 않는다. host는 core가 그 seq로 `page_read`를 보내기
+// 전에는 그 탭의 다음 frame을 보내지 않는다.
+const pageFrameFrameSchema = z.strictObject({
+  type: z.literal("page_frame"),
+  tab: idSchema("tab"),
+  seq: z.number().int().min(0),
+  frame: pageFrameSchema,
+});
+// page의 상태가 바뀌었다. painting은 그 page를 그리는가(창이 최소화되거나 숨겨지면 false이고 frame이 오지 않는다), agent는 agent가
+// 다루는 중인가, held는 사람이 가져왔는가(take control, 그 기계의 화면에서든 멀리서든)다. `page_stream`을 켤 때도 한 번 보낸다.
+const pageStateFrameSchema = z.strictObject({
+  type: z.literal("page_state"),
+  tab: idSchema("tab"),
+  painting: z.boolean(),
+  agent: z.boolean(),
+  held: z.boolean(),
+});
+
 export const hostFrameSchema = z.discriminatedUnion("type", [
   helloFrameSchema,
   visibleFrameSchema,
   responseFrameSchema,
   reportFrameSchema,
+  pageFrameFrameSchema,
+  pageStateFrameSchema,
 ]);
 export type HostFrame = z.infer<typeof hostFrameSchema>;
 export type HostFrameType = HostFrame["type"];

@@ -163,6 +163,7 @@ areas:
     entries:
       - packages/protocol/lophn-agent/harness-host.ts
       - packages/protocol/lophn-agent/host-queue.ts
+      - packages/protocol/lophn-agent/page-view.ts
       - packages/protocol/lophn-agent/input-request.ts
       - packages/protocol/coding-agent/
       - packages/coding-agent/

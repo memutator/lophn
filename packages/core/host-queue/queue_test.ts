@@ -139,3 +139,31 @@ test("빌려 간 browser_call은 다시 나가지 않고, 기한을 넘으면 un
   assert.equal(host.next(), null);
   queue.done(call.id, "done", { content: [{ type: "text", text: "late" }] });
 });
+
+// 연결 요청이 대기하거나 다음 연결로 다시 가면 멀리서 친 늦은 입력이 다음 host의 page에 들어간다.
+test("연결 요청은 연결이 없으면 대기하지 않고 바로 unavailable이고, 연결이 닫히면 거두어 다음 연결로 가지 않는다", async () => {
+  const { queue } = setup();
+  const input = {
+    kind: "page_input",
+    payload: {
+      tab: "tab_x" as Id<"tab">,
+      input: { type: "text", text: "hunter2" },
+    },
+  } as const;
+
+  const absent = await queue.callLink(input);
+  assert.ok(!absent.ok && absent.error.code === "unavailable");
+
+  const first = connect(queue);
+  const call = queue.callLink(input);
+  assert.equal(first.next()?.kind, "page_input");
+  first.link.close();
+  const lost = await call;
+  assert.ok(!lost.ok && lost.error.code === "unavailable");
+
+  const second = connect(queue);
+  assert.equal(second.next(), null);
+  // 앞 연결이 없을 때 부른 것도 남지 않았다.
+  second.link.pump();
+  assert.equal(second.next(), null);
+});

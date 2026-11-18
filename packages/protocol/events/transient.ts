@@ -217,6 +217,16 @@ const terminalScreenChanged = defineTransientEvent("TerminalScreenChanged", {
   }),
 });
 
+// 보는 중인 browser 탭의 frame이나 상태(그리는가, take control, url·title)가 바뀐 뒤 낸다. 내용은 싣지 않고 보는 쪽이
+// `page_view/snapshot`을 다시 읽는다. subject는 `page:<탭 id>`다.
+const pageViewChanged = defineTransientEvent("PageViewChanged", {
+  subject: z.string().regex(/^page:tab_.+$/),
+  payload: z.strictObject({
+    tab: idSchema("tab"),
+    seq: z.number().int().min(0),
+  }),
+});
+
 // `machines/watch`로 건 다른 기계의 Gateway frame 하나를 이 컴퓨터의 bus에 싣는다. subject는 `machine:<mch_>`다.
 // `event`를 bus event schema로 적지 않는 것은 이 file → gateway → bus → 이 file의 순환 때문이다. 받는 쪽(shell main)이
 // bus event schema로 읽는다. 기기 event 목록(REMOTE_ALLOWED_EVENTS)에 넣지 않는다: 다른 기계의 내용이 폰에 그대로 가지 않게 한다.
@@ -302,6 +312,7 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(appViewEvent),
   transientEventEnvelopeSchema(stateChanged),
   transientEventEnvelopeSchema(terminalScreenChanged),
+  transientEventEnvelopeSchema(pageViewChanged),
   transientEventEnvelopeSchema(machineFrameReceived),
   transientEventEnvelopeSchema(terminalOutputAppended),
   transientEventEnvelopeSchema(terminalRuntimeChanged),

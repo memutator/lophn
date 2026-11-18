@@ -30,6 +30,7 @@ export const CHANGE_NAMES = [
   "unseen",
   "coding_sessions",
   "terminal_saved_sessions",
+  "browser_pages",
 ] as const;
 
 export type ChangeName = (typeof CHANGE_NAMES)[number];

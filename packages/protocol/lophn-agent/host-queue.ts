@@ -5,11 +5,13 @@ import { defineMemory } from "../base/route.ts";
 import { extensionToolContentSchema } from "../extensions/manifest.ts";
 import { artifactNameSchema } from "../projects/values.ts";
 import { loginIdSchema } from "../secrets/logins.ts";
+import { pageInputSchema } from "./page-view.ts";
 import { workspaceSchema } from "./workspaces.ts";
 
-// core 메모리의 host queue다. core가 shell에 시킬 일(탭 열기·닫기·보이기, browser 호출)을 담고, shell main이 붙은
+// core 메모리의 host queue다. core가 host에 시킬 일(탭 열기·닫기·보이기, browser 호출, 멀리서 page 보기)을 담고, host가 붙은
 // `/host-link` 연결(`protocol/host-link/frames.ts`)로 받아 그 workspace를 보이는 창에 push한다. 답과 탭 상태도 그 연결로 온다.
-// shell이 없거나 그 workspace를 보이는 창이 없으면 요청은 대기하고, core가 다시 뜨면 사라진다.
+// host는 화면 있는 기계에서는 shell main(desktop 앱), display가 없는 Linux에서는 core가 띄운 page host다.
+// shell이 없거나 그 workspace를 보이는 창이 없으면 요청은 대기하고(연결 요청은 빼고), core가 다시 뜨면 사라진다.
 //
 // tabs/*와 browser/*는 agent session이나 사람 token이 `lophn tab`·`lophn browser` 명령으로 부른다. 부른 session은 자격의
 // session 조건에서 읽고 입력으로 받지 않는다. 탭의 주인은 그 session이고, 사람 token은 모두 같은 주인 "person"이다.
@@ -170,6 +172,9 @@ export const BROWSER_CALL_MS = 30_000;
 // core가 browser를 쓰려고 shell(앱)을 띄우는 약속이다. 앱의 실행 intent와, 그 길을 켜 달라고 core를 띄운 쪽(shell main, CLI)이
 // core env에 주는 표시다. test·boot처럼 사람이 아닌 쪽이 띄운 core는 이 표시가 없어 shell을 띄우지 않는다.
 export const AGENT_WINDOW_INTENT = "--agent-window";
+// display가 없는 Linux에서 core가 띄우는 page host(창 없이 탭마다 offscreen page를 드는 같은 Electron binary)의 실행 intent다.
+// page host는 desktop 앱처럼 `/host-link`로 붙어 같은 요청을 받는다.
+export const PAGE_HOST_INTENT = "--page-host";
 export const LAUNCH_SHELL_ENV = "LOPHN_LAUNCH_SHELL";
 
 export const browserActionSchema = z.discriminatedUnion("kind", [
@@ -204,6 +209,32 @@ const browserCallPayloadSchema = z.strictObject({
   action: browserActionSchema,
 });
 
+// 아래 요청은 멀리서 page를 보고 다루는 길(`page-view.ts`)이 쓴다. 연결이 있을 때만 넣는다: 연결이 없으면 대기하지 않고 바로, 연결이
+// 끊기면 거두어 `unavailable`이다(`LINK_REQUEST_KINDS`). 늦게 간 입력이 다음 host의 page에 들어가면 안 된다. workspace 칸이 없고 답은
+// `response`다. 없는 탭은 error `not_found`다.
+// back-pressure: host는 core에 보낸 `page_frame`의 `page_read`가 오기 전에는 그 탭의 다음 frame을 보내지 않고 CDP screencast의 ack도
+// 미룬다. 그래서 느린 보는 쪽에는 frame이 건너뛰어질 뿐 core나 연결에 쌓이지 않는다.
+// 그 page의 frame을 켜거나 끈다. 켜면 host는 지금 frame 하나와 상태(`page_state`)를 바로 보낸다.
+const pageStreamPayloadSchema = z.strictObject({
+  tab: idSchema("tab"),
+  on: z.boolean(),
+});
+// core가 그 seq의 frame을 보는 쪽에 내주었다. host는 다음 frame을 보내도 된다.
+const pageReadPayloadSchema = z.strictObject({
+  tab: idSchema("tab"),
+  seq: z.number().int().min(0),
+});
+// 보는 쪽의 입력 하나를 page에 넣는다. agent의 입력과 같은 CDP `Input.*` 길이다.
+const pageInputPayloadSchema = z.strictObject({
+  tab: idSchema("tab"),
+  input: pageInputSchema,
+});
+// 멀리서 take control을 잡거나(held true) 놓는다. 그 기계의 [Take control]·[Hand back]과 같은 상태다.
+const pageControlPayloadSchema = z.strictObject({
+  tab: idSchema("tab"),
+  held: z.boolean(),
+});
+
 export const hostRequestSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     id: idSchema("hrq"),
@@ -229,8 +260,41 @@ export const hostRequestSchema = z.discriminatedUnion("kind", [
     kind: z.literal("browser_call"),
     payload: browserCallPayloadSchema,
   }),
+  z.strictObject({
+    id: idSchema("hrq"),
+    kind: z.literal("page_stream"),
+    payload: pageStreamPayloadSchema,
+  }),
+  z.strictObject({
+    id: idSchema("hrq"),
+    kind: z.literal("page_read"),
+    payload: pageReadPayloadSchema,
+  }),
+  z.strictObject({
+    id: idSchema("hrq"),
+    kind: z.literal("page_input"),
+    payload: pageInputPayloadSchema,
+  }),
+  z.strictObject({
+    id: idSchema("hrq"),
+    kind: z.literal("page_control"),
+    payload: pageControlPayloadSchema,
+  }),
 ]);
 export type HostRequest = z.infer<typeof hostRequestSchema>;
+
+// 연결이 없으면 대기하지 않는 요청 종류다.
+export const LINK_REQUEST_KINDS = [
+  "page_stream",
+  "page_read",
+  "page_input",
+  "page_control",
+] as const;
+export type LinkRequestKind = (typeof LINK_REQUEST_KINDS)[number];
+// 연결 요청이다. id는 queue가 붙인다.
+export type LinkRequest = {
+  [K in LinkRequestKind]: Omit<Extract<HostRequest, { kind: K }>, "id">;
+}[LinkRequestKind];
 
 // browser 탭의 마지막 상태다. renderer가 host 탭만 알려 준다.
 export const browserTabStateSchema = z.strictObject({
@@ -240,7 +304,7 @@ export const browserTabStateSchema = z.strictObject({
 });
 export type BrowserTabState = z.infer<typeof browserTabStateSchema>;
 
-// browser 호출과 browser 탭 열기의 결과다. 결과를 기다리는 요청(`browser_call`, browser 탭의 `tab_open`)의 `response`에만 싣는다.
+// browser 호출과 browser 탭 열기의 결과다. 결과를 기다리는 요청(`browser_call`, browser 탭의 `tab_open`, 연결 요청)의 `response`에만 싣는다.
 export const hostToolOutputSchema = z.union([
   z.strictObject({ content: z.array(extensionToolContentSchema).max(64) }),
   z.strictObject({

@@ -15,6 +15,9 @@ import {
   type HostTabTarget,
   type HostToolOutput,
   type HostWorkspace,
+  LINK_REQUEST_KINDS,
+  type LinkRequest,
+  type LinkRequestKind,
   type TabRelation,
 } from "../../protocol/lophn-agent/host-queue.ts";
 
@@ -70,7 +73,7 @@ type BrowserCallPayload = Extract<
 >["payload"];
 type CallResult = Result<ExtensionToolContent[]>;
 
-// 다른 wiring(browser·tab route, 터미널 탭 열기)이 쓰는 port다.
+// 다른 wiring(browser·tab route, 터미널 탭 열기, 멀리서 page 보기)이 쓰는 port다.
 export type HostQueue = {
   enqueue(request: HostRequest): void;
   // browser 호출을 넣고 shell main의 결과를 기다린다. BROWSER_CALL_MS 안에 답이 없으면 `expire()`가 거두고 `unavailable`로 끝낸다.
@@ -78,8 +81,11 @@ export type HostQueue = {
     id: Id<"hrq">;
     result: Promise<CallResult>;
   };
+  // 연결로만 가는 요청(멀리서 page 보기)을 넣고 host의 답을 기다린다. 연결이 없으면 넣지 않고 바로, 연결이 닫히거나
+  // 기한(LINK_CALL_MS)이 지나면 `unavailable`이다.
+  callLink(request: LinkRequest): Promise<CallResult>;
   abandon(id: Id<"hrq">, message?: string): void;
-  // 기한이 지난 호출(browser 호출, browser 탭 열기)을 거둔다. 부른 쪽이 주기로 부른다.
+  // 기한이 지난 호출(browser 호출, browser 탭 열기, 연결 요청)을 거둔다. 부른 쪽이 주기로 부른다.
   expire(): void;
   // 자기가 연 browser·preview·artifact·phone 탭의 종류. 없는 탭, 남의 탭, session·agent 탭은 `not_found`다.
   browserTab(tab: Id<"tab">, caller: TabOwner): Result<BrowserTabView>;
@@ -123,14 +129,30 @@ type OpenInput = {
 const sameWorkspace = (a: HostWorkspace, b: HostWorkspace) =>
   a.kind === b.kind && (a.kind === "home" || a.id === (b as typeof a).id);
 
+const linkOnly = (request: HostRequest) =>
+  (LINK_REQUEST_KINDS as readonly string[]).includes(request.kind);
+
 // 결과를 기다리는 요청이다. 빌려 가면 done이 올 때까지 다시 내놓지 않는다(두 번 실행하면 안 된다). browser_call과
-// browser 탭의 tab_open(page 만들기를 기다린다)이다.
+// browser 탭의 tab_open(page 만들기를 기다린다), 연결 요청이다.
 const isCall = (request: HostRequest) =>
   request.kind === "browser_call" ||
+  linkOnly(request) ||
   (request.kind === "tab_open" && "browser" in request.payload.target);
 
 const unavailable = (message: string) =>
   err({ code: "unavailable" as const, message });
+
+// 연결 요청마다 host의 답을 기다리는 기한이다. 입력은 page가 바쁘면 늦게 끝날 수 있어 길다.
+export const LINK_CALL_MS: Record<LinkRequestKind, number> = {
+  page_stream: 5_000,
+  page_read: 5_000,
+  page_input: 10_000,
+  page_control: 5_000,
+};
+// 연결 요청의 문장은 멀리서 보는 사람의 화면에 간다.
+const LINK_ABSENT = "The browser host on the computer is not connected.";
+const LINK_LOST = "The browser host disconnected before it answered.";
+const LINK_TIMED_OUT = "The browser host did not answer in time.";
 
 // browser·tab 호출의 이 문장들은 model이 그대로 받는다(work.ts). 원인, 다음 할 일, 되풀이가 통하는지를 적는다.
 export const SHELL_NOT_ATTACHED =
@@ -155,7 +177,7 @@ const NO_SUCH_TAB =
 export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
   const pending: Entry[] = [];
   const tabs = new Map<Id<"tab">, TabEntry>();
-  // 결과를 기다리는 browser_call과 browser 탭 열기. deadline이 null이면 기한이 없다.
+  // 결과를 기다리는 browser_call과 browser 탭 열기, 연결 요청. deadline이 null이면 기한이 없다.
   const waiting = new Map<
     Id<"hrq">,
     {
@@ -268,14 +290,21 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
   }
 
   // 연결이 닫혔다. 그 연결로 빌려 간 결과 요청은 실행됐는지 모르니 거두고(두 번 실행하면 안 된다), 탭 요청은 다시 대기한다.
+  // 연결 요청은 그 연결의 page에 대한 것이라 아직 빌려 가지 않은 것까지 모두 거둔다(늦은 입력이 다음 host의 page에 들어가지 않게).
   function unlink(current: NonNullable<typeof link>): void {
     if (link !== current) return;
     link = null;
     for (const id of current.lent) {
       const entry = pending.find((found) => found.request.id === id);
       if (entry === undefined) continue;
-      if (isCall(entry.request)) abandon(id, SHELL_LOST);
-      else entry.borrowedAt = null;
+      if (isCall(entry.request)) {
+        abandon(id, linkOnly(entry.request) ? LINK_LOST : SHELL_LOST);
+      } else entry.borrowedAt = null;
+    }
+    for (const entry of [...pending]) {
+      if (linkOnly(entry.request)) {
+        abandon(entry.request.id as Id<"hrq">, LINK_LOST);
+      }
     }
   }
 
@@ -423,6 +452,15 @@ export function createHostQueue(deps: { clock: Clock; ids: IdSource }) {
         { id, kind: "browser_call", payload },
         deps.clock.nowMs() + BROWSER_CALL_MS,
       );
+    },
+    callLink(request: LinkRequest): Promise<CallResult> {
+      if (link === null) return Promise.resolve(unavailable(LINK_ABSENT));
+      const id = deps.ids.newId("hrq") as Id<"hrq">;
+      return call(
+        { id, ...request } as HostRequest,
+        deps.clock.nowMs() + LINK_CALL_MS[request.kind],
+        () => LINK_TIMED_OUT,
+      ).result;
     },
     // `/host-link` 연결 하나가 열렸다. 그 동안 닿는 요청을 send로 바로 밀어 준다. 옛 연결이 있으면 먼저 닫힌 것으로 본다.
     // `visible`이 그리는 workspace를 바꾸고, `pump`는 다시 대기한 요청(retry, 빌린 기한이 지난 탭 요청)을 밀어 준다(부른 쪽이 주기로).

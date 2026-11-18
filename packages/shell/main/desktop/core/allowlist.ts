@@ -22,6 +22,8 @@ import { SHELL_ROUTES } from "./routes.ts";
 //   다시 시작(`restart`)은 그 창의 focus를 본 shell main이 capability를 실어 부르므로 넣지 않는다.
 // - 터미널 탭의 GUI·TUI 바꾸기(`coding_sessions/switch`)
 // - Settings › Coding agents의 다시 감지·hook 놓기·지우기와 hook 설치 물음의 답(`coding_agents/*`)
+// - key 없이 이 기계의 주소로 provider 잇기, 구독 로그인 시작과 상태 읽기(`providers/connect-local`·`sign-in`·`sign-in-state`. Settings › Providers와
+//   agent의 sign_in card). key로 잇기(`providers/connect-key`)는 upload라 main의 secret 입력 창만 부른다.
 // 다른 memory route는 main의 고정 통로만 부른다.
 const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:agent-mcp-auth/begin",
@@ -89,6 +91,9 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:coding_agents/uninstall_hooks",
   "memory:coding_agents/hook_answer",
   "memory:projects/add",
+  "memory:providers/connect-local",
+  "memory:providers/sign-in",
+  "memory:providers/sign-in-state",
 ];
 
 // renderer가 byte를 주고받는 route. 사람이 고른 agent의 프로필 이미지와 메시지에 붙인 이미지, 터미널 탭 GUI에 붙인 이미지를 올리고 읽는다.

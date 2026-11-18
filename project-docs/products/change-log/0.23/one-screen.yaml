@@ -1,5 +1,5 @@
 id: one-screen
-version: 0.23.88
+version: 0.23.90
 title: 내가 앉은 컴퓨터의 창 하나와 폰의 목록 하나에서 짝지은 모든 컴퓨터의 것을 본다
 modules: [packages/shell/renderer, packages/shell/main, packages/shell/ipc, packages/shell/preload, packages/mobile, packages/core/main, packages/core/remote, packages/core/projects, packages/core/apps, packages/core/terminals, packages/core/terminal-agents, packages/core/terminal-view, packages/core/server, packages/core/storage, packages/core/agent-workspaces, packages/protocol, packages/design, packages/sdk, tools]
 change: |

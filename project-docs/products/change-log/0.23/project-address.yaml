@@ -1,5 +1,5 @@
 id: project-address
-version: 0.23.81
+version: 0.23.82
 title: "git이 아닌 project도 기계를 넘는 id를 갖고, 앱이 그 id로 project data를 key한다"
 modules: [packages/core/projects, packages/core/storage, packages/core/main, packages/core/apps, packages/core/agent-workspaces, packages/protocol, packages/shell/main, packages/shell/renderer, packages/shell/preload, packages/shell/ipc, packages/cli, packages/sdk]
 checked: [boundary-catalog]

@@ -1,6 +1,6 @@
 // 사람의 환경: login shell의 env와 `lophn` launcher 경로. core가 OS 서비스나 다른 process에서 떠도(env가 짧다) 터미널과
 // extension이 띄우는 CLI가 사람의 PATH와 rc file의 값을 받는다.
-import { dirname, isAbsolute, join } from "node:path";
+import { dirname, join } from "node:path";
 import { LINUX_LAUNCHERS } from "../../base/install/linux-install.ts";
 import { MAC_CLI_LAUNCHER } from "../../base/install/mac-install.ts";
 import { WIN_CLI_LAUNCHER } from "../../base/install/win-install.ts";
@@ -111,16 +111,23 @@ export function createPersonEnv(deps: {
 }
 
 // `lophn` launcher 하나를 고르는 규칙. 설치본은 설치한 launcher(Linux `/usr/bin/lophn`, macOS `Resources/bin/lophn`, Windows
-// `bin\lophn.cmd`)이고, 개발 실행은 `LOPHN_CLI`(절대 경로일 때만)다. platformRoot는 설치본의 `platform/` 폴더다.
+// `bin\lophn.cmd`)다. 저장소 실행은 그 저장소의 dev launcher(`tools/dev.ts`가 쓴다)가 있을 때만 그것이다. 물려받은 `LOPHN_CLI`는
+// 보지 않는다: 설치된 앱의 터미널에서 띄운 dev·test core가 설치된 CLI를 써서 dev data root에 설치본 core를 띄웠다.
+// platformRoot는 설치본의 `platform/` 폴더, 저장소 실행은 저장소 root다.
 export function lophnCliPath(input: {
   installed: boolean;
   platformRoot: string;
   platform: NodeJS.Platform;
-  env: Readonly<Record<string, string | undefined>>;
+  exists: (path: string) => boolean;
 }): string | null {
   if (!input.installed) {
-    const given = input.env.LOPHN_CLI;
-    return given !== undefined && isAbsolute(given) ? given : null;
+    const dev = join(
+      input.platformRoot,
+      ".cache",
+      "dev-cli",
+      input.platform === "win32" ? "lophn.cmd" : "lophn",
+    );
+    return input.exists(dev) ? dev : null;
   }
   if (input.platform === "linux") return LINUX_LAUNCHERS.cli;
   const root = dirname(input.platformRoot);

@@ -656,6 +656,10 @@ files:
     covers: []
     note: "core 쪽 PTY host 감독(shell 원본의 사본). pipe에서 읽은 줄 나누기가 갈린 UTF-8과 큰 JSON 한 줄을 보존하고, host가 exit 없이 error를 내도 기다리던 요청이 host_lost로 끝나며, 10초 안에 답이 없는 요청은 host_lost로 끝나고 늦은 답은 무시한다"
 
+  - path: packages/core/terminals/person-env_test.ts
+    covers: []
+    note: "저장소 실행의 core는 물려받은 LOPHN_CLI(설치된 CLI)가 아니라 저장소의 dev launcher를 쓰고, launcher가 없으면 CLI가 없다. 설치된 CLI가 dev data root에 설치본 core를 띄운 bug를 막는다"
+
   - path: packages/core/terminals/cwd_test.ts
     covers: [terminals-open:invalid_input]
     note: "터미널 시작 폴더가 등록 폴더 안인지 보는 순수 함수(shell 원본의 사본). `..`와 밖으로 나가는 symlink는 거절"

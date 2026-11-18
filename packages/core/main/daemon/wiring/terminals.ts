@@ -92,7 +92,7 @@ export const terminalsWiring: WiringFactory = () => {
           installed: installedLayout(PLATFORM_ROOT, existsSync),
           platformRoot: PLATFORM_ROOT,
           platform: process.platform,
-          env: process.env,
+          exists: existsSync,
         }),
       });
       ctx.provide("personEnv", personEnv);

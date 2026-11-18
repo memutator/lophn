@@ -107,7 +107,7 @@ function startDesktop(): void {
   add(terminalView.register(ctx, terminals));
   add(bookmarks.register(ctx));
   add(threadBookmarks.register(ctx));
-  const extensionHost = add(
+  add(
     extensions.register(
       ctx,
       {
@@ -123,7 +123,6 @@ function startDesktop(): void {
     surface.register(
       ctx,
       terminals,
-      extensionHost,
       views.appFrame,
       artifacts.views,
       terminals.interrupt,

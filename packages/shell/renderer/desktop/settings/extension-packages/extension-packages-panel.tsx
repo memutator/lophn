@@ -8,14 +8,15 @@ import { ErrorState, Loading, Skeleton, StatusMark } from "@lophn/ui/feedback";
 import { Dialog } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 
-import type { ExtensionView } from "../../../../ipc/extensions.ts";
 import { settingsList } from "../../../../../protocol/config/file.ts";
+import type { ExtensionView } from "../../../../../protocol/extensions/routes.ts";
 import { actionIcons } from "../../../icons/mod.ts";
 import { useCoreRead } from "../../connection/core-read.ts";
+import { useEventClient } from "../../connection/events/hooks.tsx";
 import { effectiveOf } from "../declared.ts";
 import type { SettingsSource } from "../source.ts";
 import styles from "../settings.module.css";
-import { windowExtensionsApi } from "./core-source.ts";
+import { coreExtensions } from "./core-source.ts";
 import { enabledKey, statusText, statusTone } from "./model.ts";
 
 interface ExtensionPackagesPanelProps {
@@ -30,8 +31,9 @@ type Listed =
 export function ExtensionPackagesPanel({
   source,
 }: ExtensionPackagesPanelProps) {
-  const api = useMemo(windowExtensionsApi, []);
-  // 켜짐은 설정 `extensions.<id>.enabled`다. 목록의 상태(on·off)도 main이 그 설정을 따라 바꾸므로 설정을 다시
+  const client = useEventClient();
+  const api = useMemo(() => coreExtensions(client.core), [client]);
+  // 켜짐은 설정 `extensions.<id>.enabled`다. 목록의 상태(on·off)도 core가 그 설정을 따라 바꾸므로 설정을 다시
   // 읽을 때마다 목록도 다시 읽는다.
   const { loaded: settings } = useCoreRead(settingsList, {});
   const [listed, setListed] = useState<Listed>({ state: "loading" });
@@ -40,10 +42,6 @@ export function ExtensionPackagesPanel({
   const [problem, setProblem] = useState<string | null>(null);
 
   const list = useCallback(() => {
-    if (api === undefined) {
-      setListed({ state: "failed" });
-      return;
-    }
     void api.list().then((read) => {
       setListed((was) =>
         read.ok
@@ -79,7 +77,7 @@ export function ExtensionPackagesPanel({
           : t("settings.error.extension-action", { name: view.name }),
       );
     }
-    // 설치·지우기는 main의 file 일이라 core가 알리지 않는다.
+    // 설치·지우기는 extension host의 file 일이라 core가 바뀜을 알리지 않는다.
     list();
   }
 
@@ -95,7 +93,7 @@ export function ExtensionPackagesPanel({
 
   const remove = (view: ExtensionView) =>
     run(view, async () => {
-      const done = await api!.remove(view.id);
+      const done = await api.remove(view.id);
       return done.ok ? { ok: true } : { ok: false, code: done.error.code };
     });
 
@@ -156,11 +154,11 @@ export function ExtensionPackagesPanel({
                       {!view.installed ? (
                         <Button
                           icon={actionIcons.add}
-                          disabled={busy || api === undefined}
+                          disabled={busy}
                           data-action="install"
                           onClick={() =>
                             void run(view, async () => {
-                              const done = await api!.install(view.id);
+                              const done = await api.install(view.id);
                               return { ok: done.ok };
                             })
                           }

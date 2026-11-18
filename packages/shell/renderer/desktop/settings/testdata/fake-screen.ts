@@ -40,7 +40,7 @@ export interface FakeSettingsScreenOptions {
     readonly logins?: LoginRow[];
   };
   readonly keyboard?: StoredKeybindings;
-  /** Extensions 항목에 가짜 `lophnExtensions` 통로와 `extensions.<id>.enabled` 선언을 끼운다. */
+  /** Extensions 항목에 가짜 `extensions/*` 답과 `extensions.<id>.enabled` 선언을 끼운다. */
   readonly extensions?: boolean;
   /** custom provider를 붙일 수 있게 한다. found는 연결 뒤 목록을 찾고, empty는 /models가 없어 목록이 비어 있다. */
   readonly customList?: "found" | "empty";
@@ -57,12 +57,7 @@ export function fakeSettingsScreen(
   options: FakeSettingsScreenOptions = {},
 ): FakeSettingsScreen {
   const core = fakeCore();
-  const extensions = options.extensions ? fakeExtensions() : null;
-  if (extensions !== null) {
-    // Extensions 화면은 preload 통로를 window에서 읽는다. gallery는 창 하나에 frame 하나라 전역에 꽂아도 겹치지 않는다.
-    (globalThis as { lophnExtensions?: unknown }).lophnExtensions =
-      extensions.api;
-  }
+  const extensions = options.extensions ? fakeExtensions(core) : [];
   const settings = fakeSettings({
     core,
     declared: [
@@ -75,7 +70,7 @@ export function fakeSettingsScreen(
             }),
           ]
         : []),
-      ...(extensions?.settings ?? []),
+      ...extensions,
     ],
   }).source;
   // custom provider는 같은 id를 두 fake가 알아야 연결 뒤 목록 읽기가 그 provider를 찾는다.

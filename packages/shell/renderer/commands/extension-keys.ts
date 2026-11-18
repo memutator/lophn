@@ -1,13 +1,14 @@
-// 켜진 extension이 낸 command와 key를 창의 keybinding service에 올린다. 목록은 main이 주고, 창을 열 때와
+// 켜진 extension이 낸 command와 key를 창의 keybinding service에 올린다. 목록은 core의 extension host가 주고, 창을 열 때와
 // 설정 `extensions.*`가 바뀌거나 core가 (다시) 붙을 때 다시 읽는다. 다시 읽으면 올린 것을 모두 풀고 새로 올린다.
 // `ext.*` command는 contribute(Settings 줄과 기본 key)로, 내장 command에 거는 harness keymap은 bind로 올린다.
-import type { ExtensionView, ExtensionsApi } from "../../ipc/extensions.ts";
+import type { ExtensionView } from "../../../protocol/extensions/routes.ts";
 import {
   parseChord,
   type Stroke,
   sameStroke,
 } from "../../../protocol/shell/keybindings.ts";
 import type { EventClient } from "../desktop/connection/events/client.ts";
+import type { ExtensionsSource } from "../desktop/settings/extension-packages/core-source.ts";
 import type { Disposable } from "./registry.ts";
 import type { WindowCommands } from "./window.ts";
 
@@ -20,7 +21,7 @@ const isCtrlLetter = (stroke: Stroke) =>
 
 export function mountExtensionKeys(deps: {
   commands: WindowCommands;
-  extensions: ExtensionsApi;
+  extensions: Pick<ExtensionsSource, "list" | "run">;
   events: EventClient | null;
   log: (message: string, error: unknown) => void;
 }): () => void {

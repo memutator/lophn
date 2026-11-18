@@ -2,7 +2,7 @@
 import type { StatusTone } from "@lophn/ui";
 import { t } from "@lophn/i18n";
 
-import type { ExtensionView } from "../../../../ipc/extensions.ts";
+import type { ExtensionView } from "../../../../../protocol/extensions/routes.ts";
 
 export function statusText(view: ExtensionView): string {
   switch (view.status) {

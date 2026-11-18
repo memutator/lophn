@@ -32,6 +32,10 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:apps/oauth_state",
   "memory:apps/update_state",
   "memory:extension_tools/catalog",
+  // Settings › Extensions의 설치·지우기와 켜진 extension의 command. 목록(`extensions/list`)은 read라 저절로 열린다.
+  "memory:extensions/install",
+  "memory:extensions/remove",
+  "memory:extensions/run",
   "memory:settings/list",
   "memory:settings/update",
   "memory:secrets/status",

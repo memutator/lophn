@@ -1,0 +1,17 @@
+{"t": 836, "kind": "send", "data": {"id": "rec-1", "type": "negotiate_protocol", "protocolVersion": 2}}
+{"t": 960, "kind": "recv", "data": {"id": "rec-1", "type": "response", "command": "negotiate_protocol", "success": true, "data": {"protocolVersion": 2}}}
+{"t": 963, "kind": "send", "data": {"id": "rec-2", "type": "set_ask_dialog", "enabled": true}}
+{"t": 965, "kind": "recv", "data": {"id": "rec-2", "type": "response", "command": "set_ask_dialog", "success": true, "data": {"enabled": true}}}
+{"t": 990, "kind": "send", "data": {"id": "rec-3", "type": "set_event_filter", "events": null}}
+{"t": 990, "kind": "recv", "data": {"id": "rec-3", "type": "response", "command": "set_event_filter", "success": true, "data": {"events": null, "messageUpdates": "full"}}}
+{"t": 1015, "kind": "send", "data": {"id": "rec-p-long", "type": "prompt", "message": "Write a numbered list of 60 programming tips, one per line, no tools."}}
+{"t": 1027, "kind": "recv", "data": {"id": "rec-p-long", "type": "response", "command": "prompt", "success": true}}
+{"t": 1055, "kind": "recv", "data": {"type": "agent_start"}}
+{"t": 2775, "kind": "send", "data": {"id": "rec-4", "type": "prompt", "message": "/context", "streamingBehavior": "followUp"}}
+{"t": 2776, "kind": "recv", "data": {"type": "command_output", "text": "Context window: 1048576 tokens (1% used)\n  System prompt    [\u001b[38;2;107;114;128m░░░░\u001b[39m] 0%  2532 tokens\n  Messages         [\u001b[38;2;107;114;128m░░░░\u001b[39m] 0%  12 tokens"}}
+{"t": 2776, "kind": "recv", "data": {"id": "rec-4", "type": "response", "command": "prompt", "success": true, "data": {"agentInvoked": false}}}
+{"t": 2800, "kind": "send", "data": {"id": "rec-5", "type": "abort"}}
+{"t": 2809, "kind": "recv", "data": {"type": "agent_end", "messages": [{"role": "assistant", "content": [{"type": "text", "text": "1. Keep functions small."}], "stopReason": "aborted"}], "isTerminal": true, "yielded": true}}
+{"t": 2810, "kind": "recv", "data": {"id": "rec-5", "type": "response", "command": "abort", "success": true}}
+{"t": 2810, "kind": "recv", "data": {"type": "prompt_result", "id": "rec-p-long", "agentInvoked": true, "status": "aborted", "sessionSettled": true}}
+{"t": 2810, "kind": "recv", "data": {"type": "session_settled"}}

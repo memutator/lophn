@@ -68,7 +68,7 @@ interface SettingsFrameProps {
   readonly machines?: FakeMachinesOptions;
   /** Keyboard 항목의 저장된 키. 안 쓰면 바꾼 키가 없다. */
   readonly keyboard?: StoredKeybindings;
-  /** Extensions 항목에 가짜 `lophnExtensions` 통로와 `extensions.<id>.enabled` 선언을 끼운다. */
+  /** Extensions 항목에 가짜 `extensions/*` 답과 `extensions.<id>.enabled` 선언을 끼운다. */
   readonly extensions?: boolean;
   /** custom provider를 붙일 수 있게 한다. found는 연결 뒤 목록을 찾고, empty는 /models가 없어 목록이 비어 있다. */
   readonly customList?: "found" | "empty";

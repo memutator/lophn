@@ -46,7 +46,6 @@ import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
 import type { Coding } from "./coding.ts";
 import type { Registered, ShellContext } from "./context.ts";
 import { recentWindow } from "./desktop-window.ts";
-import type { ExtensionTools } from "./extensions.ts";
 
 // 창이 탭 요청을 받지 못했을 때 retry로 답하기 전에 쉬는 시간이다. core는 retry를 맨 뒤로 돌려 다음 밀기(1초마다, 새 요청이
 // 들어오면 바로)에 다시 보내므로, 여기서 쉬지 않으면 받지 못할 창에 곧바로 다시 보낼 수 있다.
@@ -82,7 +81,6 @@ const sameWorkspace = (a: Workspace, b: Workspace) =>
 export function register(
   ctx: ShellContext,
   coding: Pick<Coding, "tui" | "bindTabOpen">,
-  tools: ExtensionTools,
   appFrame: Pick<AppFrameService, "senderView">,
   artifacts: Pick<ArtifactViews, "guestId">,
   interruptTerminal: (
@@ -379,8 +377,6 @@ export function register(
   syncVisible();
   const visibleTimer = setInterval(syncVisible, VISIBLE_MS);
 
-  // handler가 오래 걸려도 탭 요청을 막지 않게 따로 돈다. 돌려준 결과를 연결이 response에 싣는다.
-  ctx.hostLink.onRequest("tool_call", (payload) => tools.run(payload));
   ctx.hostLink.onRequest("terminal_interrupt", async (payload) => {
     // 앱이 멈춘 session이 터미널 탭의 coding agent다. 그 harness의 끊기 key를 친다.
     const result = await interruptTerminal(payload.terminal_ref);

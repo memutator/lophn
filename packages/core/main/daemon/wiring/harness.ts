@@ -61,8 +61,8 @@ import {
   type HarnessCredentials,
 } from "./harness-credential.ts";
 
-// shell main의 harness host가 부르는 core 쪽이다. queue(메모리)를 쥐고, turn과 메시지는 machine 자격으로 기존
-// command(StartTurn, RecordMessage, FinishTurn)에 기록한다. host는 사람 token의 memory route로만 닿고
+// core 안 harness extension(host)이 부르는 core 쪽이다. queue(메모리)를 쥐고, turn과 메시지는 machine 자격으로 기존
+// command(StartTurn, RecordMessage, FinishTurn)에 기록한다. host는 사람 권한의 core 안 자격으로 memory route에만 닿고
 // renderer 통로에는 없다. 흐름은 `protocol/lophn-agent/harness-host.ts`.
 const HARNESS_PRINCIPAL = "machine:harness";
 const HARNESS_CONTEXT: AuthenticatedContext = {
@@ -121,14 +121,14 @@ export const harnessWiring: WiringFactory = () => {
           prepared: [],
         });
 
-      // 사람 token을 가진 shell main만 부른다. 새 turn을 여는 route(`needsOn`)는 꺼져 있으면 일하지 않는다.
+      // 사람 권한의 core 안 자격(extensions wiring)으로 harness extension만 부른다. 새 turn을 여는 route(`needsOn`)는 꺼져 있으면 일하지 않는다.
       // 나머지는 꺼져 있어도 일한다: 꺼질 때 돌던 turn이 끝날 수 있어야 한다.
       const gate = (
         who: AuthenticatedContext,
         needsOn = false,
       ): Result<void> => {
         if (who.actor !== "user") {
-          return err({ code: "forbidden", message: "only the shell host" });
+          return err({ code: "forbidden", message: "only the harness host" });
         }
         return !needsOn || ctx.settings.get(harnessExtensionSetting) === true
           ? ok(undefined)

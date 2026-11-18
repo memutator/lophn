@@ -285,41 +285,6 @@ flows:
     crosses_process: true
     risk: []
 
-  - id: extension-call-dispatch
-    title: "Settings › Extensions의 요청(shell:extensions)을 목록, 설치, 지우기, 실행으로 나눈다"
-    actor: person
-    entries: [ipc:shell:extensions]
-    uses:
-      - extension-install:installed
-      - extension-remove:removed
-      - extension-command-run:ok
-    boundary: [shell, shell-extension]
-    code:
-      - packages/shell/main/desktop/wiring/extensions.ts
-      - packages/shell/ipc/extensions.ts
-    steps:
-      - "sender가 desktop 창 본문인지 본다(overlay와 앱 view는 거절된다)"
-      - "입력을 extensions call schema로 본다(op는 list, install, remove, run 가운데 하나, strict)"
-      - "list는 registry를 맞춘 뒤 목록(켜진 것의 contributes 포함)을 돌려준다"
-      - "install, remove, run은 registry의 같은 이름 동작으로 넘긴다"
-      - "켜기와 끄기는 이 통로가 아니라 설정 쓰기다"
-    outcomes:
-      - id: dispatched
-        when: "입력이 맞고 op를 registry에 넘겼다. 답은 그 동작의 결과다"
-        observe: [response]
-      - id: forbidden
-        code: forbidden
-        when: "desktop 창 본문이 아닌 caller다"
-        observe: [response]
-      - id: invalid_input
-        code: invalid_input
-        when: "입력이 extensions call schema에 맞지 않는다"
-        observe: [response]
-    crosses_process: true
-    risk: []
-    unclear:
-      - "list op의 목록 읽기를 설명하는 domain flow가 없다(missing-domain-flow: extension 목록)"
-
   # ---------- core 요청 통로 ----------
   - id: core-call-relay
     title: "renderer의 core 요청(read, command, memory, upload, file)을 core session에 넘긴다"

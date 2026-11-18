@@ -1,4 +1,5 @@
-// extension registry를 shell main에 올린다. 켜진 extension만 load하고, core가 준비되면 한 번, 설정이 바뀔 때마다 맞춘다.
+// shell PTY 터미널 탭의 GUI(`TabGui`)를 위해 harness-gui만 shell main에 올린다. 다른 extension과 Settings › Extensions,
+// extension tool 호출은 core 안 extension host가 한다. 탭이 GUI를 열 때와 설정이 바뀔 때 맞춘다.
 import { spawn } from "node:child_process";
 import {
   mkdir,
@@ -30,29 +31,16 @@ import {
   EMPTY_ACP_STATE,
   reduceAcp,
 } from "../../../../protocol/acp/mod.ts";
-import { createRpcClient } from "../../../../protocol/client/mod.ts";
-import type {
-  AcpSessionHandle,
-  ExtensionAcp,
-  ExtensionContext,
-  ExtensionSpawn,
-} from "../../../../protocol/extensions/mod.ts";
 import {
-  type HostRequest,
-  type HostToolOutput,
-  hostToolOutputSchema,
-} from "../../../../protocol/lophn-agent/host-queue.ts";
+  type AcpSessionHandle,
+  type ExtensionAcp,
+  type ExtensionSpawn,
+  extensionSettingKey,
+} from "../../../../protocol/extensions/mod.ts";
 import {
   createExtensionRegistry,
   type ExtensionFiles,
 } from "../../extensions/registry.ts";
-import { nodeFetch } from "../core/node-io.ts";
-import { routeByName } from "../core/routes.ts";
-import {
-  EXTENSIONS_CHANNEL,
-  extensionsCallSchema,
-  type ExtensionsReply,
-} from "../../../ipc/extensions.ts";
 import {
   HARNESS_GUI_TAB_ACK_CHANNEL,
   HARNESS_GUI_TAB_CONNECT_CHANNEL,
@@ -68,10 +56,13 @@ import {
   HARNESS_GUI_TAB_TOGGLE_CHANNEL,
 } from "../../../ipc/harness-gui.ts";
 import { cliEnv, type TabGui, type TabHandle } from "../../terminal/gui.ts";
-import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
+import { checkCaller } from "../ipc-guard.ts";
 import { packagedInstall } from "../paths.ts";
 import type { Coding } from "./coding.ts";
 import { changedIds, type Registered, type ShellContext } from "./context.ts";
+
+// shell이 켜는 것은 이것 하나다. `harness`(headless harness host)는 core가 켠다.
+const TAB_GUI_EXTENSION = "harness-gui";
 
 const nodeFiles: ExtensionFiles = {
   read: (path) => readFile(path, "utf8").catch(() => null),
@@ -500,29 +491,20 @@ function registerTabGuiIpc(ctx: ShellContext, gui: TabGui): () => void {
   };
 }
 
-/** core가 `tool_call` 요청으로 보낸 extension tool 호출. surface가 가져와 `run`에 넘긴다. */
-export type ExtensionTools = {
-  run(
-    payload: Extract<HostRequest, { kind: "tool_call" }>["payload"],
-  ): Promise<HostToolOutput>;
-};
-
 export function register(
   ctx: ShellContext,
   /** harness-gui가 꺼져 있을 때 탭이 띄울 Settings › System › Extensions. */
   port: { showExtensionSettings(): void },
   coding: Pick<Coding, "gui" | "bindTabGui">,
-): Registered & ExtensionTools {
-  // packaged는 설치 root의 extensions/다(tools/package/main.ts가 채운다).
+): Registered {
+  // packaged는 설치 root의 extensions/다(tools/package/main.ts가 채운다). 개발은 core와 같은 bundle(core의 bundled/<id>/dist)을 쓴다.
   const bundled = app.isPackaged
     ? join(packagedInstall(process.resourcesPath).root, "extensions")
-    : join(ctx.here, "..", "extensions", "bundled");
+    : join(ctx.here, "..", "..", "..", "core", "extensions", "bundled");
   const spawner = createSpawner(ctx.dataRoot);
   const clock = systemClock;
   const ids = createIdSource({ clock, random: cryptoRandom });
   const { acp, tab } = createAcp(ids, coding.gui);
-  // 마지막으로 맞춘 core 연결 session. 못 올렸으면 비워 다음 확인에서 다시 맞춘다.
-  let connected: unknown;
   const registry = createExtensionRegistry({
     roots: [bundled],
     dataRoot: ctx.dataRoot,
@@ -534,6 +516,10 @@ export function register(
     },
     settings: {
       async get(key) {
+        // harness-gui 밖은 꺼진 것으로 읽어 shell에서 켜지 않는다.
+        if (key !== extensionSettingKey(TAB_GUI_EXTENSION)) {
+          return { ok: true, value: false };
+        }
         const listed = await ctx.coreInternal("memory", "settings", "list", {
           keys: [key],
         });
@@ -559,23 +545,11 @@ export function register(
     acp,
     clock,
     ids,
-    // core는 manifest를 읽지 못하므로 sync마다 판이 맞는 manifest의 tool을 통째로 올린다. core가 없어 못 올리면 다음 확인에서 다시 올린다.
-    publishTools: async (extensions) => {
-      const sent = await ctx.coreInternal(
-        "memory",
-        "extension_tools",
-        "publish",
-        { extensions },
-      );
-      if (!sent.ok) {
-        // core가 아직 안 붙었을 때만 다시 시도한다. 거절당한 목록을 매초 다시 올리지 않는다.
-        if (sent.error.code === "unavailable") connected = undefined;
-        throw new Error(sent.error.message);
-      }
-    },
+    // tool 목록은 core 안 extension host가 manifest에서 읽는다.
+    publishTools: () => Promise.resolve(),
     log: ctx.log,
   });
-  // extension이 activate될 때 login env가 있어야 headless harness도 같은 PATH를 얻는다. sync는 늘 그것을 먼저 기다린다.
+  // extension이 activate될 때 login env가 있어야 GUI가 띄우는 CLI가 사람의 PATH를 얻는다. sync는 늘 그것을 먼저 기다린다.
   const syncReady = async () => {
     await spawner.loginReady();
     await registry.sync();
@@ -584,7 +558,7 @@ export function register(
     void syncReady().catch((cause) => ctx.log(`extensions: ${String(cause)}`));
 
   // 켜졌는지는 sync가 정한다. 탭의 `<harness> gui`와 toggle이 부른다. 이미 켜져 있으면 sync를 건너뛴다: 설정을 바꾸면
-  // 설정 변경(`StateChanged`의 `settings`)이 sync를 돌려 끄고, toggle마다 manifest와 설정과 tool 목록을 다시 읽는 것은 시간만 쓴다.
+  // 설정 변경(`StateChanged`의 `settings`)이 sync를 돌려 끄고, toggle마다 manifest와 설정을 다시 읽는 것은 시간만 쓴다.
   coding.bindTabGui({
     async handlers() {
       if (tab() === undefined) {
@@ -608,42 +582,6 @@ export function register(
   });
   const offTabGui = registerTabGuiIpc(ctx, coding.gui);
 
-  // Settings › Extensions. desktop 창 본문만 부른다. list는 먼저 맞춰 두어 방금 바꾼 켜기·끄기가 보인다.
-  const refused = (
-    code: "forbidden" | "invalid_input",
-  ): ExtensionsReply<never> => ({
-    ok: false,
-    error: { code, message: "request was refused" },
-  });
-  ctx.ipc.handle(
-    EXTENSIONS_CHANNEL,
-    async (
-      event: IpcEvent,
-      input: unknown,
-    ): Promise<ExtensionsReply<unknown>> => {
-      const caller = checkCaller(ctx.overlays.overlayRegistry(), event);
-      if (!caller.ok || caller.value.origin.host !== "desktop") {
-        return refused("forbidden");
-      }
-      const parsed = checkInput(extensionsCallSchema, input);
-      if (!parsed.ok) return refused("invalid_input");
-      const call = parsed.value;
-      if (call.op === "list") {
-        await syncReady().catch((cause) =>
-          ctx.log(`extensions: ${String(cause)}`),
-        );
-        return { ok: true, value: await registry.list() };
-      }
-      const done =
-        call.op === "install"
-          ? await registry.install(call.id)
-          : call.op === "remove"
-            ? await registry.remove(call.id)
-            : await registry.run(call.command);
-      return done.ok ? { ok: true, value: null } : done;
-    },
-  );
-
   ctx.relay.conditions.push({ types: ["StateChanged"] });
   ctx.relay.events.push((event) => {
     if (
@@ -654,61 +592,9 @@ export function register(
       sync();
     }
   });
-  // core가 준비되면 한 번, core에 다시 붙을 때마다 맞춘다(sync가 tool 목록도 올린다: core는 목록을 메모리에만 둔다).
-  // 준비 신호를 main이 받는 길이 없어 연결 session이 바뀌는지 본다. 다시 붙을 때마다 새 session이 선다.
-  const watch = setInterval(() => {
-    const session = ctx.core.session();
-    if (session === null || session === connected) return;
-    connected = session;
-    sync();
-  }, 1000);
-
-  // handler의 `core`는 사람 token이 아니라 그 호출만 쓰는 agent token으로 부른다(`ctx.coreInternal`을 쓰지 않는다).
-  const coreWith = (token: string): ExtensionContext["core"] => ({
-    async call(kind, resource, method, input) {
-      const session = ctx.core.session();
-      const route = routeByName(`${kind}:${resource}/${method}`);
-      if (session === null || route === undefined) {
-        return {
-          ok: false,
-          error: {
-            code: session === null ? "unavailable" : "not_found",
-            message: "route is not available",
-          },
-        };
-      }
-      return (await createRpcClient({
-        baseUrl: `http://127.0.0.1:${session.apiPort}`,
-        token,
-        fetch: nodeFetch,
-      }).call(route as never, input as never)) as never;
-    },
-  });
-
   return {
-    async run({ extension, tool, input, session, workspace, credential }) {
-      const result = await registry.callTool(extension, tool, input, {
-        session,
-        workspace,
-        core: coreWith(credential),
-      });
-      // core가 형식을 거절하면 기다리는 호출이 끝나지 않는다. 모양이 틀린 결과는 여기서 오류로 바꾼다.
-      const output = hostToolOutputSchema.safeParse(
-        result.ok ? { content: result.value } : { error: result.error },
-      );
-      return output.success
-        ? output.data
-        : {
-            error: {
-              code: "internal",
-              message: "the extension returned an invalid result",
-            },
-          };
-    },
     stop() {
       offTabGui();
-      ctx.ipc.removeHandler(EXTENSIONS_CHANNEL);
-      clearInterval(watch);
       void registry.stop();
       spawner.stopAll();
     },

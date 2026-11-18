@@ -1,0 +1,7 @@
+{
+  "id": "harness",
+  "name": "Harness agents",
+  "description": "Runs Claude Code, Codex and OpenCode as lophn agents with their headless commands.",
+  "entry": "dist/index.cjs",
+  "provides": ["harness agent host"]
+}

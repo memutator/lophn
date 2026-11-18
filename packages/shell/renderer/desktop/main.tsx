@@ -80,7 +80,7 @@ import { WorkspaceViewsProvider } from "../app-frame/workspace-views.tsx";
 import { GlobalFloatLayer } from "../shell/global-floats/global-float-layer.tsx";
 import { GlobalFloatsProvider } from "../shell/global-floats/global-floats.tsx";
 import { createWindowCommands } from "../commands/window.ts";
-import { windowExtensionsApi } from "./settings/extension-packages/core-source.ts";
+import { coreExtensions } from "./settings/extension-packages/core-source.ts";
 import { currentPlatform } from "./top-bar/platform.ts";
 import type { WorkspaceRef } from "../shell/desk-model.ts";
 
@@ -219,14 +219,13 @@ export function Desktop({
     const listening = commands.keybindings.listen(document);
     return () => listening.dispose();
   }, [commands]);
-  // 켜진 extension의 command와 key. 설정이 바뀌면 다시 맞춘다(gallery처럼 통로가 없는 창은 아무것도 올리지 않는다).
+  // 켜진 extension의 command와 key. 설정이 바뀌면 다시 맞춘다(event가 없는 창은 아무것도 올리지 않는다).
   const events = useOptionalEventClient();
   useEffect(() => {
-    const extensions = windowExtensionsApi();
-    if (extensions === undefined) return;
+    if (events === null) return;
     return mountExtensionKeys({
       commands,
-      extensions,
+      extensions: coreExtensions(events.core),
       events,
       log: (message, error) => console.error(message, error),
     });

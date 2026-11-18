@@ -203,7 +203,7 @@ export function createPageView(deps: PageViewDeps) {
         }
         pages.push({ tab: found.tab, ...shown });
       }
-      return ok({ pages });
+      return ok({ pages, control: deps.mayControl(who.principal) });
     },
 
     // 내준 frame의 host seq를 아직 `page_read`로 알리지 않았으면 알린다(host가 다음 frame을 보내도 된다는 신호).

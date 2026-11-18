@@ -8,5 +8,5 @@ lead만 고친다. `tools/status.py core-browser build`가 `tasks/*.md`에서 id
 | `page-stream` | page | 2 | page-contract | merged | page/page-stream | 1d2bb3822 |  |
 | `page-view-core` | page | 2 | page-contract | merged | page/page-view-core | c5201d4ac |  |
 | `page-host` | page | 3 | page-stream | running | page/page-host |  |  |
-| `page-view-desktop` | page | 3 | page-view-core | running | page/page-view-desktop |  |  |
+| `page-view-desktop` | page | 3 | page-view-core | merged | page/page-view-desktop | 93f036350 |  |
 | `page-view-phone` | page | 3 | page-view-core | running | page/page-view-phone |  |  |

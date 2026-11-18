@@ -85,7 +85,7 @@ const pageFields = {
   by: z.string().nullable(),
 };
 
-// core가 아는 browser 탭이다.
+// core가 아는 browser 탭이다. control은 부른 principal이 page를 다룰 수 있는가다(열기 칸을 그릴지 화면이 미리 안다).
 export const pageViewList = defineRead({
   resource: "page_view",
   method: "list",
@@ -93,6 +93,7 @@ export const pageViewList = defineRead({
   input: z.strictObject({}),
   output: z.strictObject({
     pages: z.array(z.strictObject({ tab: tabSchema, ...pageFields })),
+    control: z.boolean(),
   }),
   actors: ["user"],
   errors,
